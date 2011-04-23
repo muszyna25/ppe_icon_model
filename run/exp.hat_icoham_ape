@@ -1,0 +1,95 @@
+#=============================================================================
+#
+# This section of the run script containes the specifications of the experiment.
+# The specifications are passed by namelist to the program.
+# For a complete list see Namelist_overview.pdf
+#
+# Hui Wan, MPI-M, 2011-02-16
+#
+#-----------------------------------------------------------------------------
+#
+# Basic specifications of the simulation
+# --------------------------------------
+#
+# These variables are set in the header section of the completed run script:
+#
+# EXPNAME = experiment name
+# NPROMA  = array blocking length / inner loop length
+#
+# These values must be set here as shell variables so that they can be used in the
+# executing section of the completed run script:
+# 
+IEQ=1             # equation system
+R=2               # nroot
+B=4               # number of bisections applied for the global grid
+N=31              # nlev = number of full levels
+OPT="spr0.90"     # grid optimization
+#
+#-----------------------------------------------------------------------------
+#
+# ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#
+cat > NAMELIST_${EXPNAME} << EOF
+!
+&parallel_ctl
+/
+&grid_ctl
+ nroot       = ${R}         ! root division of icosahedron edges
+ start_lev   = ${B}         ! number of bisections applied for the base grid
+/
+&gridref_ctl
+/
+&run_ctl
+ nproma      = ${NPROMA}    ! array blocking length
+ nlev        = ${N}         ! number of full levels of vertical grid
+ run_day     = 1000         ! [day] run length
+ dtime       = 600.0        ! [s] timestep in seconds
+ iequations  = ${IEQ}       ! 1: hydrost. atmosphere
+ i_cell_type = 3            ! 3: triangular cells
+ ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
+ ldynamics   = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
+ ltransport  = .TRUE.       ! switch on tracer transport   --> transport_ctl
+ ntracer     = 5            ! number of tracers
+ iforcing    = 2            ! ECHAM physics                --> echam_phy_nml
+/
+&testcase_ctl
+ ctest_name  = 'APE'  ! test case identifier
+ ape_sst_case = 'sst_qobs'
+ lrh_linear_pres = .TRUE.   ! initial RH is a linear function of pressure
+ rh_at_1000hpa   = 0.30     ! [] initial rel. humidity at 1000 hPa 
+/
+&io_ctl
+ out_expname = '${EXPNAME}' ! file name base
+ dt_data     = 21600.       ! [s] write output every 6 hours
+ dt_file     = 86400.       ! [s] trigger new output file every day
+ lwrite_radiation = .TRUE.  ! add radiation fields to output
+/
+&dynamics_ctl
+ ldry_dycore = .FALSE.      ! moist dynamical core
+/
+&diffusion_ctl
+/
+&transport_ctl
+ ctracer_list='vwi44'       ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
+/
+&echam_phy_nml
+/
+&echam_conv_ctl
+/
+&radiation_nml
+ dt_rad     = 7200.         ! [s] compute radiative transfer every other hour
+ irad_h2o   = 1             ! prognostic vapor, liquid and ice
+ irad_co2   = 2             ! constant co2 vmr
+ irad_ch4   = 0             ! switch off ch4
+ irad_n2o   = 0             ! switch off n2o
+ irad_o3    = 0             ! switch off o3
+ irad_o2    = 0             ! switch off o2
+ irad_cfc11 = 0             ! switch off cfc11
+ irad_cfc12 = 0             ! switch off cfc12
+ irad_aero  = 0             ! switch off aerosols
+ izenith    = 3             ! circular orbit, no seasonal cycle but with diurnal cycle 
+/
+EOF
+#

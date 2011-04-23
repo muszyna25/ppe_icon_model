@@ -1,0 +1,161 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+#==============================================================================
+# Creates the ICON multiple builds based on config/multiple_builds
+# Leonidas Linardakis, MPI-M, 2011-25-1
+#==============================================================================
+import sys
+import os
+import stat
+import glob
+
+create_folders=["run", "config"]
+
+link_files_alevel=["blas", "data", "doc", "grids", "vertical_coord_tables",
+"include", "lapack", "scripts", "src", "support", 
+"aclocal.m4", "configure.ac","configure", "make_runscripts", "Makefile.in"]
+link_files_blevel=[
+"config/config.guess",
+"config/config.h.SX",
+"config/config.h.in",
+"config/config.sub",
+"config/createMakefiles.pl",
+"config/create_target_header",
+"config/install-sh",
+"config/make_target_runscript",
+"config/mh-aix",
+"config/mh-cygwin",
+"config/mh-darwin",
+"config/mh-linux",
+"config/mh-nec",
+"config/mh-override",
+"config/missing"]
+
+
+def warning(where,message):
+  print '********************'
+  print "Warning: "+where+" "+message
+  print '********************'
+  
+def error(where,message):
+  print '********************'
+  print "ERROR: "+where+" "+message
+  print "Exit 1 "
+  print '********************'
+  sys.exit(1)
+
+
+builds_file="./config/multiple_builds"
+noOfTabSpaces=1
+run_scripts=[]
+
+
+infile  = open(builds_file, 'r')
+for line in infile:
+  # replace tabs and remove leadin, trailing spaces
+  line = line.expandtabs(noOfTabSpaces)
+  line = line.lstrip()
+  line = line.rstrip()
+  lineLength = len(line)
+  if (lineLength < 1):
+    continue
+  if (line[0] == '#'):
+    continue
+  if (lineLength < 10):
+    error(line, " invalid line")
+    continue
+
+  # check if it's run_scripts
+  sep_idx=line.find("run_scripts")
+  if (sep_idx > -1):
+    # it's run_scripts
+    sep_idx=line.find('=')
+    if (sep_idx < 1):
+      error(line, "wrong syntax")
+    line=line[sep_idx+1:]    
+    line=line.rstrip()
+    
+    run_scripts=[]
+    while (len(line) > 0):
+      line=line.lstrip()
+      sep_idx=line.find(',')
+      if (sep_idx < 0):
+        sep_idx=len(line)
+      new_script=line[0:sep_idx]
+      new_script=new_script.rstrip()
+      run_scripts.append(new_script)
+
+      line=line[sep_idx+1:]
+    continue
+        
+  
+  # get build_folder
+  sep_idx=line.find('=')
+  if (sep_idx < 1):
+    error(line, "wrong syntax")
+    continue  
+  parameter_name=line[0:sep_idx]
+  parameter_name=parameter_name.rstrip()
+  if (parameter_name != "build_folder"):
+    error(parameter_name, " != build_folder")
+    continue    
+  line=line[sep_idx+1:]
+  line=line.lstrip()
+  sep_idx=line.find("configure_options")
+  if (sep_idx < 1):
+    error("configure_options", "parameter not found")
+    continue    
+  build_folder=line[0:sep_idx]
+  build_folder=build_folder.rstrip()
+
+  # get configure_options
+  line=line[sep_idx:]
+  sep_idx=line.find('=')
+  if (sep_idx < 1):
+    error(line, "wrong syntax")
+    continue  
+  configure_options=line[sep_idx+1:]
+ 
+  print "Creating "+build_folder+" with configure_options:"+configure_options
+  if (len(build_folder) < 1):
+    error(build_folder," invalid folder name")
+
+  #---------------------------
+  # build the ...build  
+  #---------------------------
+  #create subfolders
+  if (os.access(build_folder, os.F_OK)):
+    warning(build_folder, "exists, skipping it.")
+    continue
+  else:
+    os.mkdir(build_folder)    
+  for file in create_folders:
+    os.mkdir(build_folder+"/"+file)
+
+  # if the grid folder does not exist, create it
+  if (not os.access("grids", os.F_OK)):
+    os.mkdir("grids")
+  # make the links  
+  for file in link_files_alevel:
+    os.symlink("../"+file, build_folder+"/"+file)
+  for file in link_files_blevel:
+    os.symlink("../../"+file, build_folder+"/"+file)
+  
+  # link the run scripts
+  os.chdir("run")
+  for file in run_scripts:
+    runscripts=glob.glob(file)
+    for script in runscripts:
+      os.symlink("../../run/"+script, "../"+build_folder+"/run/"+script)
+  os.chdir("..")
+  
+  # create the build_local
+  build_local_file=build_folder+"/build_local"
+  build_local  = open(build_local_file, 'w')
+  build_local.write("./configure "+configure_options+"\n")
+  build_local.write("./build_command\n")
+  build_local.close()
+  os.chmod(build_local_file, stat.S_IRWXU | stat.S_IRGRP)
+
+sys.exit(0)
+

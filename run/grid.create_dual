@@ -1,0 +1,36 @@
+#-----------------------------------------------------------------------------
+#
+# Creates the dual of a given grid
+#
+# Leonidas Linardakis, MPI-M, 2009-01-24
+#
+#-----------------------------------------------------------------------------
+command=create_dual
+inFile=iconR2B04-r_ref.nc
+outFile=iconR2B04-r_ref-hex.nc
+parameterFile=create_dual.namelist
+commandFile=command.grid
+run_commmand="$bindir/grid_command"
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# paths of directories
+GRIDDIR=${basedir}/grids            # graphs and grids
+WRKDIR=$GRIDDIR
+cd $WRKDIR
+
+#-----------------------------------------------------------------------------
+cat > $parameterFile << EOF
+&create_dual
+  input_file = '$inFile'
+  output_file = '$outFile'
+/  
+EOF
+#-----------------------------------------------------------------------------
+# create the dual grid
+echo $command $inFile $outFile > $commandFile
+${start} ${run_commmand}
+check_error $? "$command $inFile"
+#-----------------------------------------------------------------------------
+exit
+#-----------------------------------------------------------------------------

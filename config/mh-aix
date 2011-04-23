@@ -1,0 +1,90 @@
+# AIX
+#-----------------------------------------------------------------------------
+#===============================================
+# some common settings
+
+LAPACKROOT  =
+LAPACK_LIB  =
+
+LIBS        = -L../lib -lsupport
+load_modules="NCL/6.0.0-beta"
+
+#===============================================
+#
+# Define compiler settings
+#
+case "$fortran_compiler" in
+    default|ibm|xlf)
+      config_compiler=xlf
+      CC       = mpcc_r
+      OPTFLAGS = -q64 -O2  -qmaxmem=-1 -qstrict -qarch=auto -qtune=auto -qcache=auto -qfloat=fltint
+      INFOFLAGS= -qlistopt -qphsinfo -qreport=hotlist -bnoquiet -V
+      INFOFLAGS= -qlistopt -qphsinfo -bnoquiet -V
+      DEBUGFLAGS= -g -qcheck -qstackprotect=all
+      GENFLAGS = $OPTFLAGS $INFOFLAGS
+      CFLAGS   = $GENFLAGS -Dextname -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -qlanglvl=stdc99
+      FC       = mpxlf_r
+      FC       = mpxlf2003_r
+      FFLAGS   = $GENFLAGS -g -qextname -qsuffix=cpp=f90 -qzerosize -qalias_size=1500000000  -qessl -WF,-D__LOOP_EXCHANGE
+      F77      = mpxlf_r
+      F77FLAGS = $GENFLAGS -g -qextname  -qessl 
+      OMPFLAG  = -qsmp=omp
+      DEFOPT   = -WF,-D
+      DEFCOPT  = -D
+      MODOPT   = -I
+      MODDIR   = -qmoddir=
+
+      IHPCT_BASE = /usr/lpp/ppe.hpct
+      HPM_INCL  = -I$IHPCT_BASE/include
+      HPM_LIB  = -L$IHPCT_BASE/lib64 -lhpc -lm -lpmapi
+      
+      load_modules="IBM/xlf13.1.0.2" "${load_modules}"
+    ;;
+    
+    gcc)
+      config_compiler=gcc
+      CC          = gcc
+      FCPP        = -xf95-cpp-input
+      FLANG       = -std=f2003 -fmodule-private -fimplicit-none -fmax-identifier-length=31 -ffree-line-length-99
+      FWARN       = -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter
+      FDEBUG      = -fbacktrace -fbounds-check
+      FCHECK      = -finit-real=nan
+      FOPTIONS    = "$FCPP" "$FLANG" "$FWARN" "$FDEBUG" "$FCHECK"
+      CC          = gcc
+      CFLAGS      =  -O2 -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE
+      FC          = gfortran
+      FFLAGS      = -O2 -ffast-math "$FOPTIONS"
+      F77         = gfortran
+      F77FLAGS    =
+      OMPFLAG     = -fopenmp
+      DEFOPT      = -D
+      DEFCOPT     = -D
+      MODOPT      = -I
+      MODDIR      = -J
+
+      load_modules="GCC/gcc-4.5.1" "${load_modules}"
+      ;;
+esac
+#===============================================
+
+#===============================================
+#
+# define site dependend library paths
+#
+case $ac_sitename in 
+  dkrz.de)
+    #  pwr6
+    config_target=blizzard  
+    NETCDFROOT  = /sw/aix53/netcdf-3.6.3
+    LAPACKROOT  = /sw/aix53/lapack-3.2.0
+    LAPACK_LIB  = -llapack -lessl -lblas
+    MPIROOT=/usr/lpp/ppe.poe
+    
+    load_profile="." "/client/etc/profile.blizzard"
+    make_command="make" "-j" "4"
+    mpi_startrun=poe
+    submit="llsubmit"
+    use_shell=/bin/bash
+    ;;
+esac
+

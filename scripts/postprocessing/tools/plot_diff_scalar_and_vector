@@ -1,0 +1,393 @@
+#!/bin/bash
+#-------------------------------------------------------------------
+# Driver for interactive visualization: this script is similar to
+# "plot_scalar_and_vector", but shows differences between two files.
+#
+# Use the flag -h to see the documentation.
+#
+# First version by Marco Restelli (MPI-M, 2009-05-07)
+#-------------------------------------------------------------------
+
+version="0.0.1"
+
+# Here it is possible to set the defaults --------------------------
+
+# terminal
+default_output_terminal="x11"
+
+# time level
+default_time_level=-1
+
+# vertical level
+default_vert_level=1
+
+# map projection
+default_map_projection="Robinson"
+
+# colormap
+default_colormap="BlWhRe"
+
+# separator
+def_sep="~"
+
+# ------------------------------------------------------------------
+
+# ------------------------------------------------------------------
+# Initialize the defaults where possible
+output_terminal=${default_output_terminal}
+time_level=${default_time_level}
+vert_level=${default_vert_level}
+map_projection=${default_map_projection}
+colormap=${default_colormap}
+rel_diff=0
+multiplot=0
+# ------------------------------------------------------------------
+
+
+while getopts "C:FL:M:RS:T:hmo:t:vz:" Option
+ do
+  case $Option in
+   h ) echo
+            #------------------------------------------------------------------
+       echo "Usage: `basename $0`"\
+        "[-h] [-C colormap] [-F] [-L start:end:ncontours] [-M projection] [-R] -S scalar_varname [-T] [-m] [-o output_file] [-t time_lev] [-v] [-z vert_lev] input_file1.nc [input_file2.nc]"
+       echo
+       echo \
+"Plot the difference between the two NetCDF files input_file1.nc and
+input_file2.nc using the NCAR command language interface. The sign is
+given as
+                    file2.nc - file1.nc.
+If only one file is specified, it is
+used twice. The command line flags are divided into two groups: those
+which are common to both input files, and those which can be specified
+for each file separately. To specify a flag for each input file, use
+\"${def_sep}\" as separator (make sure to use quotes \"\" if you
+include spaces in the flags, and in any case notice that spaces are
+not considered as separators!). If a single value is provided for a
+flag of the secong group, the same value is used for both files.
+Edit this file to change the defaults.
+
+Command line flags (flags in square braces are optional):
+ Group 1: common to both input files (no separator allowed)
+  -h  show this help and exit
+  -C  colormap; default: \"${default_colormap}\"; some other
+      possibilities are: \"hotres\" \"testcmap\" \"gsdtol\" \"helix\"
+  -F  force overwriting of existing files
+  -L  contour levels in the form start:end:ncontours
+  -M  map projection; default: \"${default_map_projection}\"; some
+      other possibilities are: \"CylindricalEquidistant\"
+      \"CylindricalEqualArea\" \"Mollweide\" \"LambertConformal\"
+  -R  relative difference: (file2-file1)/(max(file2)-min(file2))
+  -S  specify the name of the scalar variable [MANDATORY!]
+  -T  terminal; possible values \"x11\" \"ncgm\" \"ps\" \"eps\"
+      \"epsi\" \"pdf\"; default: \"${default_output_terminal}\"
+  -m  plot separately file1 and file2
+  -o  output_file; default constructed from the input file
+  -v  set verbose (use this also to see errors from ncl)
+ Group 2: may include a \"${def_sep}\" as separator
+  -t  time level; for each file this can be specified in three ways:
+      -t 5      ->  time step 5
+      -t 5:8    ->  time steps from 5 to 8, increment 1
+      -t 5:-1:2 ->  time steps from 5 to end, increment 2
+      use -1 as start or end index to indicate the last time step in
+      the input file; values start from 0; when specifing a range, the
+      output terminal must support multiple pages;
+      possible combinations for the two files are:
+      one time level:  -t 5      -> used for both files
+      two time levels: -t 5~9    -> use 5 for file1 and 9 for file2
+      one range:       -t 9:-1:2 -> used for both files
+      one time level and one range: -t 5~9:-1:2  or  -t 9:-1:2~5
+      two ranges:                -> make sure the two ranges have the
+                                    same number of elements!
+      default: ${default_time_level}
+  -z  vertical level; default: ${default_vert_level} (values starting from 1)
+
+REMARK: visualization of vector fields and superposition of multiple
+scalar fileds not yet implemented."
+       echo
+       exit;;
+   C ) have_colormap=1
+       colormap="${OPTARG}";;
+   F ) FORCE=1;;
+   L ) have_contour_levels=1
+       contour_levels="${OPTARG}";;
+   M ) have_map_projection=1
+       map_projection="${OPTARG}";;
+   R ) rel_diff=1;;
+   S ) have_varname=1
+       varname="${OPTARG}";;
+   T ) have_output_terminal=1
+       output_terminal="${OPTARG}";;
+   m ) multiplot=1;;
+   o ) have_output_file=1
+       output_file="${OPTARG}";;
+   t ) have_time_level=1
+       time_level="${OPTARG}";;
+   v ) verbose=1;;
+   z ) have_vert_level=1
+       vert_level="${OPTARG}";;
+  esac
+done
+shift $(($OPTIND - 1))
+
+# ------------------------------------------------------------------
+# Function definitions
+
+function get_numeric_range()
+{
+# Given a string in the form  aa:bb:cc  extract the tree numbers aa,
+# bb and cc. The string can include white spaces, and each number can
+# have a sign, decimals and an exponent. Valid numbers are, for
+# instance, "8", "+8", "-8", "-8.", "-8.54", "-8.54e2", "-8.54E-6"
+#
+# The output are the two variables range range_n.
+
+ local wrange my_numeric_format sed_extract n sed_extracted
+
+ wrange=$1 # working variable
+
+ # 0) define some search patterns
+ my_numeric_format='[+-]\{0,1\}[0-9]*\.\{0,1\}[0-9]*[eE]\{0,1\}[+-]\{0,1\}[0-9]*'
+ sed_extract="s/\(^${my_numeric_format}\)\(.*\)/\1/"
+
+ # 1) strip spaces
+ wrange=`echo ${wrange} | sed "s/ //g"`
+
+ # 2) extract the three numbers
+ n=0
+ sed_extracted="x"
+ until [ "${sed_extracted}" = "" ]
+  do
+   sed_extracted=`echo ${wrange} | sed "${sed_extract}"`
+   wrange=`echo ${wrange} | sed "s/^${sed_extracted}:\{0,1\}//"`
+   if [ ! "${sed_extracted}" = "" ]
+    then
+     n=$((n+1))
+     range[${n}]=${sed_extracted}
+   fi
+ done   
+ range_n=${n}
+}
+
+function check_in_file_exists()
+{
+ if [ ! -e $1 ]
+  then
+   echo "Input file $1 does not exist!"
+   exit 1
+ fi
+}
+
+function cut_separator()
+{
+# Given a string containing a separator, it is splitted into the two
+# variables cut1 and cut2
+
+ cut1=`echo $1 | sed "s/^\([^${def_sep}]*\)${def_sep}*\(.*\)/\1/"`
+ cut2=`echo $1 | sed "s/^\([^${def_sep}]*\)${def_sep}*\(.*\)/\2/"`
+}
+# ------------------------------------------------------------------
+
+# ------------------------------------------------------------------
+# Check input and output files
+
+# Check input file
+case $# in
+ "1" ) # everything is fine
+       input_file1=$1
+       input_file2=$1;;
+ "2" ) # everything is fine
+       input_file1=$1
+       input_file2=$2;;
+  *  ) echo "Wrong number of input files: $#"
+       exit 1;;
+esac
+check_in_file_exists "${input_file1}"
+check_in_file_exists "${input_file2}"
+
+# Define the output file
+if [ ! ${have_output_file} ]
+ then
+  file_suffix="_itime${time_level}_var${varname}_zlev${vert_level}"
+  # the extension is added by ncl
+  output_file="`echo ${input_file1} | sed "s/.nc$/${file_suffix}/"`"
+  # ncl does not like ":" or " " in the output file
+  output_file="`echo ${output_file} | sed "s/:/-/g"`"
+  output_file="`echo ${output_file} | sed "s/ //g"`"
+fi
+# Check the output file
+if [ -e ${output_file}.${output_terminal} ]
+ then
+  if [ ! ${FORCE} ]
+   then
+    echo "Output file ${output_file}.${output_terminal} already exists!"
+    echo "Use -F to overwrite existing files"
+    exit 1
+  fi
+fi
+# ------------------------------------------------------------------
+
+# ------------------------------------------------------------------
+# Check variable name
+if [ ! ${have_varname} ]
+ then
+  echo "Please specify the variable name by -Svarname!"
+  exit 1
+fi
+# add here a test to check whether the variable appears in the input file
+# ------------------------------------------------------------------
+
+# ------------------------------------------------------------------
+# Check contour levels
+contour_levels_ncont=-1
+if [ ${have_contour_levels} ]
+ then
+  get_numeric_range "${contour_levels}"
+  contour_levels_start=${range[1]}
+  contour_levels_end=${range[2]}
+  contour_levels_ncont=${range[3]}
+fi
+# ------------------------------------------------------------------
+
+# ------------------------------------------------------------------
+# Check the time levels: the various input possibilities are now
+# translated into a fixed form, where for each file a complete range
+# is specified. It is possible that one range includes only one time
+# level, and the second one is truly a range. In this case, the ncl
+# script has to repeat the single time level.
+cut_separator "${time_level}"
+# now the two ranges are in cut1 and cut2
+
+# 1) one of the two numeric ranges could be empty: copy the other one
+if [ "${cut2}" = "" ]
+ then
+  if [ "${cut1}" = "" ]
+   then
+    echo "Wrong time level specification: ${time_level}"
+  else
+   cut2=${cut1}
+  fi
+else
+  if [ "${cut1}" = "" ]
+   then
+    cut1=${cut2}
+  fi
+fi
+
+# 2) get the two ranges
+get_numeric_range "${cut1}"
+time_level_start1=${range[1]}
+case ${range_n} in
+ "1" ) time_level_end1=${time_level_start1}
+       time_level_step1="0";;
+ "2" ) time_level_end1=${range[2]}
+       time_level_step1="1";;
+ "3" ) time_level_end1=${range[2]}
+       time_level_step1=${range[3]};;
+  *  ) echo "Wrong time level specification for file1: ${cut1}"
+       exit 1;;
+esac
+get_numeric_range "${cut2}"
+time_level_start2=${range[1]}
+case ${range_n} in
+ "1" ) time_level_end2=${time_level_start2}
+       time_level_step2="0";;
+ "2" ) time_level_end2=${range[2]}
+       time_level_step2="1";;
+ "3" ) time_level_end2=${range[2]}
+       time_level_step2=${range[3]};;
+  *  ) echo "Wrong time level specification for file2: ${cut2}"
+       exit 1;;
+esac
+# ------------------------------------------------------------------
+
+# ------------------------------------------------------------------
+# Check the vertical levels
+cut_separator "${vert_level}"
+# 1) one of the two values could be empty: copy the other one
+if [ "${cut2}" = "" ]
+ then
+  if [ "${cut1}" = "" ]
+   then
+    echo "Wrong vertical level specification: ${vert_level}"
+  else
+   cut2=${cut1}
+  fi
+else
+  if [ "${cut1}" = "" ]
+   then
+    cut1=${cut2}
+  fi
+fi
+vert_level1=${cut1}
+vert_level2=${cut2}
+# ------------------------------------------------------------------
+
+# ------------------------------------------------------------------
+# Check -R vs. -m
+if [ "${multiplot}" = "1" ]
+ then
+  if [ "${rel_diff}" = "1" ]
+   then
+    echo "WARNING: ignoring -R because -m is also set!"
+    rel_diff=0
+  fi
+fi
+# ------------------------------------------------------------------
+
+# ------------------------------------------------------------------
+# Start the ncl script
+if [ ${verbose} ]
+ then
+  echo "Starting the ncl script \"plot_single_contour.ncl\" with variables:"
+  echo "  varname          = ${varname}"
+  echo "  input_file1      = ${input_file1}"
+  echo "  input_file2      = ${input_file2}"
+  echo "  time_level_start1= ${time_level_start1}"
+  echo "  time_level_end1  = ${time_level_end1}"
+  echo "  time_level_step1 = ${time_level_step1}"
+  echo "  time_level_start2= ${time_level_start2}"
+  echo "  time_level_end2  = ${time_level_end2}"
+  echo "  time_level_step2 = ${time_level_step2}"
+  echo "  vert_level1      = ${vert_level1}"
+  echo "  vert_level2      = ${vert_level2}"
+  echo "  map_projection   = ${map_projection}"
+  echo "  colormap         = ${colormap}"
+  echo "  contour_levels_start = ${contour_levels_start}"
+  echo "  contour_levels_end   = ${contour_levels_end}"
+  echo "  contour_levels_ncont = ${contour_levels_ncont}"
+  echo "  output_terminal  = ${output_terminal}"
+  echo "  output_file      = ${output_file}"
+  echo "  rel_diff         = ${rel_diff}"
+  echo "  multiplot        = ${multiplot}"
+fi
+
+export varname
+export input_file1
+export input_file2
+export time_level_start1
+export time_level_end1
+export time_level_step1
+export time_level_start2
+export time_level_end2
+export time_level_step2
+export vert_level1
+export vert_level2
+export map_projection
+export colormap
+export contour_levels_start
+export contour_levels_end
+export contour_levels_ncont
+export output_terminal
+export output_file
+export rel_diff
+export multiplot
+
+ncl_output=$(ncl `dirname $0`/plot_diff_contour.ncl)
+
+if [ ${verbose} ]
+ then
+  echo "${ncl_output}"
+fi
+# ------------------------------------------------------------------
+

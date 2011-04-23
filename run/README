@@ -1,0 +1,74 @@
+Scripts for the grid generators and the ICON models
+---------------------------------------------------
+The run/ directory contains scripts for running the grid
+generator and the ICON models. The run scripts have extension
+".run" and are specific to the configuration defined by
+configure.  They are created automatically by configure
+through the make_runscripts script. For details on
+creating runs scripts see the "Creating run scripts" section.
+Details on defining namelist parameters for the ICON models
+and the grid generator are in the Namelist_overview.pdf
+
+
+1. Grid generation scripts
+-------------------------
+The grid generation run scripts are:
+  1.1. create_global_grids.run: Creates the necessary grids for
+       the atmosphere model. It is created based on the
+       create_global_grids.setup file.
+  1.2. create_ocean_grid.run: Creates the necessary grids for
+       the ocean model. It is created based on the
+       create_ocean_grid.setup file.
+  1.3. create_torus_grid.run: Creates a torus grid. It is
+       created based on the create_torus_grid.setup file.
+       
+
+2. ICON run scripts
+-------------------
+ICON run scripts names have the form "exp.<name>.run", where <name>
+identifies the experiment. They are created based on two files:
+  1. exp.<name>, which defines the experiments by specifying namelist parameters;
+  2. exec.iconrun, which organizes the input files, the directories,
+     and starts the model run.
+
+The make_runscripts script will automatically create the "exp.<name>.run"
+scripts for all the "exp.<name>" files in the run folder.
+
+At MPI-M: "exp.test_*" experiments are tested by Buildbot, in automatic mode
+every night, or in manual mode whenever needed.
+
+
+3. Creating run scripts
+-----------------------
+The ICON runscripts consist of two parts: A header that loads and defines
+system specific parameters, and the model setup and run part, based on
+on the experiment (or the grid generation) scripts. The header
+is automatically created by the config/create_target_header script,
+based on the configure parameters, and normally should not be
+changed.
+
+The make_runscripts script creates the ICON run scripts using the
+config/make_target_runscript. The basic command for creating an ICON
+experiment run script is:
+   
+  config/make_target_runscript in_script=exp.<name> in_script_2=exec.iconrun EXPNAME=<name>
+
+By default it will create the exp.<name>.run script.
+
+Basic optional parameters for the config/make_target_runscript are:
+  
+   mpi_procs=<number of mpi processes>. In the case of MPI configuration,
+      defines how many processes per node will be used.
+
+   no_of_nodes=<Number of nodes>. In the case of MPI configuration,
+      defines how many nodes will be used.
+
+   openmp_threads=<Number of openmp threads>. In the case of OPENMP
+      configuration, defines how many OPENMP threads will be used.
+   
+   <free_variable>=<value> Free variables can be passed to the run script
+      using this syntax. For example: EXPNAME=test, will result the
+      definition of the variable EXPNAME=test in the run script. 
+   
+Further options and examples can be found in the make_runscripts script.
+  

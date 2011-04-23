@@ -1,0 +1,245 @@
+#! /bin/ksh
+#=============================================================================
+#
+# This section of the run script containes the specifications of the experiment.
+# The specifications are passed by namelist to the program.
+# For a complete list see Namelist_overview.pdf
+#
+# EXPNAME and NPROMA must be defined in as environment variables or must 
+# they must be substituted with appropriate values.
+#
+# Jochen Foerstner, DWD, November 2008
+# P. Ripodas, DWD, 2010-09-15
+# M. Koehler, DWD, 2011-02-01
+#
+#-----------------------------------------------------------------------------
+#
+# nec at DWD
+# ================
+#
+#--------------------------------------------------
+# 4 OpenMP threads (max.=)
+# 16 CPUs on one NODE (OpenMP)
+#--------------------------------------------------
+
+#PBS -q normal
+#PBS -j o
+#PBS -l cpunum_job=16
+#PBS -b 1
+#PBS -l elapstim_req=86400
+#PBS -m n
+
+export ICON_THREADS=16
+export OMP_NUM_THREADS=1    # default 1 for ICOHAM because there is no OpenMP implemented.
+export OMP_STACKSIZE=50M
+export OMP_SCHEDULE="static"
+export OMP_DYNAMIC="false"
+
+export MPIMULTITASKMIX=ON
+NODES=1       # muss gleich -b sein
+NMPITASKS=16  # MPI tasks pro Knoten (muss multipliziert mit OMP_NUM_THREADS gleich cpunum_job sein)
+
+export NC_BLOCKSIZE=128mb
+#
+# for PBS change to directory where job was submitted
+# (without this job is started in HOME)
+if [[ -n ${PBS_O_WORKDIR} ]] ; then
+  cd ${PBS_O_WORKDIR}
+fi
+export F_PROGINF=DETAIL
+
+export MPIPROGINF=yes
+export MPIPROGINF=ALL_DETAIL
+export MPIEXPORT="MPIPROGINF F_PROGINF NC_BLOCKSIZE MPIMULTITASKMIX OMP_NUM_THREADS ICON_THREADS OMP_SCHEDULE OMP_DYNAMIC"
+
+#-----------------------------------------------------------------------------
+
+# Basic specifications of the simulation
+# --------------------------------------
+
+# These values need to be stored in variables, which are needed to 
+# construct filenames  or directories:
+
+R=2               # nroot (division of icosahedron edges)
+B=4               # number of bisections applied for the global grid
+NLEV=95           # nlev = number of full levels
+OPT="spr0.90"     # grid optimization
+ICELL=3           # cell grid type, 3 triangles, 6 hexagons
+
+IEQ=1             # equation system
+#                     1=hydrost. atm. T
+#                     1=hydrost. atm. theta dp
+#                     3=non-hydrost. atm., 
+#                     0=shallow water model
+#                    -1=hydrost. ocean
+
+IFORCING=2        # forcing to the equation system
+#                     0 = no external forcing
+#                     1 = Held-Suarez forcing
+#                     2 = ECHAM6 physics
+#                     3 = NWP forcing
+
+# Here the length of the integration is converted from number of days 
+# to number of timesteps.
+
+DTIME=300                     # time step in seconds
+DT_DATA=`expr 12 \* 3600  `   # output each 12 hours
+DT_DIAG=`expr 24 \* 3600  `   # ascii diagnostic output each 24 hours
+DT_FILE=`expr 10 \* 86400 `   # 10 days per file
+#DT_FILE=`expr 1  \* 3600 `   # 10 days per file
+NDAYS=400                     # number of days to run
+
+# Directories:
+
+EXPNAME="APE"                     # experiment identifier
+EDIR="exp13"                      # working directory
+IDIR="GRIDR2"                     # input directory
+DATA_DIR="/e/uwork/mkoehler/icon" #/e/uwork, /e/uscratch, /e/gtmp
+
+#-----------------------------------------------------------------------------
+
+# ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+
+# Attention: APE case
+#   atm_phy_echam/mo_echam_phy_init.f90
+#   ape_sst_case='sst1'
+#   recompile
+
+
+cat > NAMELIST_ICON << EOF
+&run_ctl
+ nproma      = 1024         ! array blocking length
+ nlev        = ${NLEV}      ! number of full levels of vertical grid
+ run_day     = ${NDAYS}     ! run length in days
+ dtime       = ${DTIME}     ! timestep in seconds
+ iequations  = ${IEQ}       ! equation system   1:T, 2:theta, -1:SW
+ i_cell_type = ${ICELL}     ! 3 triangular cells, 6 hexagonal dells
+ itopo       = 0
+ lcorio      = .TRUE.
+ ldynamics   = .TRUE.       ! dynamics
+ ltransport  = .TRUE.       ! tracer transport
+ ntracer     = 5            ! 4 plus 1 for ozone
+ iforcing    = ${IFORCING}  ! ECHAM6 physics 
+ ltestcase   = .TRUE.       ! run testcase
+ msg_level   = 10           ! detailed report during integration 
+/
+&parallel_ctl
+ division_method   = 1
+ n_ghost_rows      = 1
+ l_log_checks      = .FALSE.
+ l_fast_sum        = .TRUE.
+/
+&testcase_ctl
+ ctest_name        = 'APE'  ! test case identifier
+ lrh_linear_pres   = .TRUE. ! initial RH is a linear function of pressure
+ rh_at_1000hpa     = 0.30   ! [] initial rel. humidity at 1000 hPa 
+/
+&io_ctl
+ out_expname       = '${EXPNAME}' ! file name base
+ dt_data           = ${DT_DATA}   ! daily output
+ dt_file           = ${DT_FILE}   ! 30 days per file
+ dt_diag           = ${DT_DIAG}
+ lwrite_surface    = .TRUE.
+ lwrite_cloud      = .TRUE.
+ lwrite_precip     = .TRUE.
+ lwrite_vorticity  = .FALSE.
+ lwrite_pres       = .TRUE.
+ lwrite_z3         = .TRUE.
+ lwrite_omega      = .TRUE.
+ lwrite_divergence = .TRUE.
+/
+&grid_ctl
+ nroot       = ${R}         ! root division of icosahedron edges
+ start_lev   = ${B}         ! number of bisections applied for the base grid
+ n_dom       = 1
+ lfeedback   = .TRUE.
+/
+&dynamics_ctl
+/
+&echam_phy_nml
+ lcover = .FALSE.           ! switch off prognostic cloud cover scheme (Tompkins 2002)
+ lcond  = .TRUE.            ! switch on  large-scale condensation
+ lconv  = .TRUE.            ! switch on  cumulus convection
+ lvdiff = .TRUE.            ! switch on  surface and PBL processes
+ lrad   = .TRUE.            ! switch off radiation
+/
+&transport_ctl
+ ihadv_tracer = 2           ! default: 'muscl', test 'muscl_nolimit'
+ ivadv_tracer = 3
+ ctracer_list = 'vwi45'     ! 'vwi4' or 'vwi45' with ozone
+ lstrang      = .FALSE.
+ itype_hlimit = 4
+ itype_vlimit = 1
+ iord_backtraj= 1           ! default: 1
+/
+&diffusion_ctl
+/
+&gridref_ctl
+/
+&hydrostatic_ctl
+ ldry_dycore = .FALSE.
+/
+&radiation_nml
+ irad_o3    = 6             ! 0: no ozone, 6: ozone, attention: increase ntracer by one
+ dt_rad     = 1800
+ irad_h2o   = 1             ! prognostic vapor, liquid and ice
+ irad_co2   = 2             ! constant co2 vmr
+ irad_ch4   = 0             ! switch off ch4
+ irad_n2o   = 0             ! switch off n2o
+ irad_o2    = 0             ! switch off o2
+ irad_cfc11 = 0             ! switch off cfc11
+ irad_cfc12 = 0             ! switch off cfc12
+ irad_aero  = 0             ! switch off aerosols
+ izenith    = 3             ! circular orbit, no seasonal cycle but with diurnal cycle 
+/
+EOF
+
+#-----------------------------------------------------------------------------
+
+
+# determine architecture
+#arch=sx9-nec-superux-sx9omp
+arch=sx9-nec-superux-sx9mpi    # ICOHAM only works with MPI!!
+
+# determine base directory (../icon-dev)
+dir=$(pwd -P)
+WORK_DIR=${dir%/*}
+
+# absolute path to directory with plenty of space:
+EXPDIR=$DATA_DIR/experiments/${EDIR}
+mkdir -p $EXPDIR
+
+# absolute path to model binary, including the executable
+MODEL=${WORK_DIR}/build/${arch}/bin/control_model
+
+# creat directory for the experiment, if not already there
+if [ ! -d $EXPDIR ]; then
+  mkdir -p $EXPDIR
+fi
+
+# horizontal grid file
+#ln -sf $DATA_DIR/${IDIR}/iconR2B04-grid_spr0.90.nc $EXPDIR/iconR2B04_DOM01-grid.nc
+cp /e/uhome/dreinert/icon-dev/experiments/graphs/GRIDR2B4/iconR2B04-grid.nc $EXPDIR
+
+# vertical grid file (optional input)
+#cp ${WORK_DIR}/hyb_params/HYB_PARAMS_${NLEV}       $EXPDIR
+cp ${WORK_DIR}/vertical_coord_tables/atm_hyb_sp_${NLEV}      $EXPDIR
+
+# radiation input files
+cp /e/uhome/treinhar/ICON/ECHAM6_CldOptProps.nc    $EXPDIR
+cp /e/uhome/treinhar/ICON/rrtmg_lw.nc              $EXPDIR
+
+# namelist
+mv -f NAMELIST_ICON                                $EXPDIR
+
+# start experiment
+cd $EXPDIR
+cp -p $MODEL ./hydro_atmos
+mpirun -nn $NODES -nnp $NMPITASKS ./hydro_atmos
+
+
+#-----------------------------------------------------------------------------
+exit
+#-----------------------------------------------------------------------------

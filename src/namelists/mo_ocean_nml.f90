@@ -1,0 +1,319 @@
+!>
+!!        Contains the variables to set up the ocean model.
+!!
+!!        
+!! @par Revision History
+!!   Revision History in mo_global_variables.f90 (r3814)
+!!   Modification by Constantin Junk (2010-03-18)
+!!     - separated namelist mpiom_phy_ctl, ocean_ctl und octst_ctl
+!!       from mo_global_variables
+!!     - therefore, added mo_ocean_nml module
+!!
+!! @par Copyright
+!! 2002-2006 by DWD and MPI-M
+!! This software is provided for non-commercial use only.
+!! See the LICENSE and the WARRANTY conditions.
+!!
+!! @par License
+!! The use of ICON is hereby granted free of charge for an unlimited time,
+!! provided the following rules are accepted and applied:
+!! <ol>
+!! <li> You may use or modify this code for your own non commercial and non
+!!    violent purposes.
+!! <li> The code may not be re-distributed without the consent of the authors.
+!! <li> The copyright notice and statement of authorship must appear in all
+!!    copies.
+!! <li> You accept the warranty conditions (see WARRANTY).
+!! <li> In case you intend to use the code commercially, we oblige you to sign
+!!    an according license agreement with DWD and MPI-M.
+!! </ol>
+!!
+!! @par Warranty
+!! This code has been tested up to a certain level. Defects and weaknesses,
+!! which may be included in the code, do not establish any warranties by the
+!! authors.
+!! The authors do not make any warranty, express or implied, or assume any
+!! liability or responsibility for the use, acquisition or application of this
+!! software.
+!!
+!!
+MODULE mo_ocean_nml
+!-------------------------------------------------------------------------
+!
+!    ProTeX FORTRAN source: Style 2
+!    modified for ICON project, DWD/MPI-M 2006
+!
+!-------------------------------------------------------------------------
+!
+!
+!
+!
+  USE mo_kind,               ONLY: wp
+  USE mo_exception,          ONLY: message, message_text, finish
+  USE mo_impl_constants,     ONLY: max_char_length
+  USE mo_io_units,           ONLY: nnml, nnml_output
+  USE mo_namelist,           ONLY: position_nml, positioned
+  USE mo_mpi,                ONLY: p_pe, p_io
+
+  IMPLICIT NONE
+
+  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
+
+  PUBLIC
+
+  CHARACTER(len=*), PARAMETER :: modelname    = 'icon'
+  CHARACTER(len=*), PARAMETER :: modelversion = 'dev'
+
+  ! ------------------------------------------------------------------------
+  ! 1.0 Namelist variables and auxiliary parameters for mpiom_phy_ctl
+  !     mpiom forcing (right hand side)
+  ! ------------------------------------------------------------------------
+
+  ! switches for parameterizations (examples)
+  LOGICAL  :: lmpiom_radiation
+  LOGICAL  :: lmpiom_convection
+  LOGICAL  :: lmpiom_gentmcwill
+
+  NAMELIST/mpiom_phy_ctl/ lmpiom_radiation, lmpiom_convection, lmpiom_gentmcwill
+
+
+  ! ------------------------------------------------------------------------
+  ! 2.0 Namelist variables and auxiliary parameters for ocean_ctl
+  ! ------------------------------------------------------------------------
+
+  INTEGER  :: n_zlev        ! number of ocean levels
+  REAL(wp) :: dzlev_m(100)  ! namelist input of layer thickness
+
+
+  INTEGER, PARAMETER :: ntrac_oce = 2   ! number of tracers used in ocean state
+  INTEGER, PARAMETER :: toplev    = 1   ! surface ocean level
+
+  ! parameterized forcing for ocean model:
+  INTEGER            :: iforc_oce       =   0   ! index of parameterized forcing
+  !INTEGER, PARAMETER :: inoforcing     =   0   ! no or zero forcing - set above
+  INTEGER, PARAMETER :: analyt_stat     =  11   ! stationary harmonic wind forcing
+  INTEGER, PARAMETER :: core_forc       =  12   ! forcing from CORE database
+  INTEGER, PARAMETER :: core_annwind    =  13   ! annual mean CORE winds
+  INTEGER, PARAMETER :: full_forc       =  14   ! mpiom-type forcing
+
+  ! parameterized test cases for ocean model:
+  INTEGER            :: itestcase_oce   =   0   ! index of parameterized test cases
+  INTEGER, PARAMETER :: testcase_zero   =   0   ! no or zero forcing
+  INTEGER, PARAMETER :: testcase_init   =  21   ! simply defined test case
+  INTEGER, PARAMETER :: testcase_file   =  22   ! test case read from file
+
+  ! parameterized velocity boundary conditions
+                      ! Velocity boundary condition: Currently only no-slip is supported !!
+                      ! i_bc_veloc_lateral = 0: boundary condition for velocity is no-slip: normal
+                      !                         and tangential velocity components at lateral 
+                      !                         boundaries are set to zero
+                      ! i_bc_veloc_lateral = 1: boundary condition for velocity is free-slip: 
+                      !                         normal velocity components at lateral boundariea is
+                      !                         set to zero, tangential not.
+  INTEGER            :: i_bc_veloc_lateral = 0   
+
+  INTEGER            :: i_bc_veloc_top = 0  !Top boundary condition for velocity: 
+                                            ! i_bc_veloc_top =0 :zero value at top boundary,no wind
+                                            ! i_bc_veloc_top =1 : forced by wind field that is
+                                            !                     stored in p_os%p_aux%bc_top_veloc
+                                            ! i_bc_veloc_top =2 : forced by difference between wind
+                                            !                     field in p_os%p_aux%bc_top_veloc 
+                                            !                     and ocean velocity at top layer
+  INTEGER            :: i_bc_veloc_bot = 0  !Bottom boundary condition for velocity: 
+                                            ! i_bc_veloc_bot =0 : zero value at bottom boundary 
+                                            ! i_bc_veloc_bot =1 : bottom boundary friction
+                                            ! i_bc_veloc_bot =2 : bottom friction plus topographic
+                                            !                     slope (not implemented yet)
+
+  !INTEGER            :: vbc_zero_cond   =   0   ! no or zero boundary condition
+
+  ! parameterized time stepping scheme
+  !  #slo# - might later be splitted into stepping scheme and call of core
+  ! in mo_test_hydro_ocean:
+  !   i_oce_stepping = 1 => call test_expl_core_oce
+  !   i_oce_stepping = 2 => call perform_ho_stepping
+  !   i_oce_stepping = 2 => call perform_core201006
+  INTEGER            :: i_oce_stepping  =   1  ! switch for time stepping scheme
+  INTEGER, PARAMETER :: semi_impl_ab    =   1  ! Adams-Bashforth time stepping scheme
+  INTEGER, PARAMETER :: expl_step_oce   =   2  ! simplified explicit ocean core
+  INTEGER, PARAMETER :: core201006      =   3  ! saved core of summer 2010
+
+  ! parameterized shallow water mode in the ocean model
+  INTEGER            :: iswm_oce        =   0  ! switch for shallow water mode (1 = on, 0 = 3dim)
+  INTEGER            :: idisc_scheme   =    0  ! discreization scheme: 1 for mimetic, 
+                                               ! 2 for RBF-type of discretization
+ 
+  ! parameters for Adams-Bashforth semi-implicit time stepping scheme
+  ! are set according to Marshall et al paper
+  REAL(wp) :: ab_const              =  0.1_wp  ! Adams-Bashforth constant
+  REAL(wp) :: ab_beta               =  0.0_wp  ! Parameter in semi-implicit timestepping
+  REAL(wp) :: ab_gam                =  0.0_wp  ! Parameter in semi-implicit timestepping
+  REAL(wp) :: solver_tolerance      =  0.0_wp
+
+  INTEGER :: EOS_TYPE               = 0        ! 1=linear EOS,2=(nonlinear) 
+                                               ! Jacket-McDoudgall-formulation
+  INTEGER :: no_tracer              = 0        ! number of tracers 
+
+  ! more ocean parameters, not yet well placed
+  INTEGER  :: expl_vertical_velocity_diff=0    ! 0=explicit, 1 = implicit  
+  INTEGER  :: expl_vertical_tracer_diff  = 0   ! 0=explicit, 1 = implicit
+  REAL(wp) :: k_veloc_h             = 0.0_wp   ! horizontal diffusion coefficient
+  REAL(wp) :: k_veloc_v             = 0.0_wp   ! vertical diffusion coefficient
+  REAL(wp) :: k_pot_temp_h          = 0.0_wp   ! horizontal mixing coefficient for pot. temperature
+  REAL(wp) :: k_pot_temp_v          = 0.0_wp   ! vertical mixing coefficient for pot. temperature
+  REAL(wp) :: k_sal_h               = 0.0_wp   ! horizontal diffusion coefficient for salinity
+  REAL(wp) :: k_sal_v               = 0.0_wp   ! vertical diffusion coefficient for salinity
+                                               
+  REAL(wp) :: t_ref                 = 0.0_wp   ! reference temperature for initialization
+  REAL(wp) :: s_ref                 = 0.0_wp   ! reference salinity for initialization
+  REAL(wp) :: bottom_drag_coeff     = 0.002_wp ! chezy coefficient for bottom friction
+  REAL(wp) :: wstress_coeff         = 1.e-4_wp ! windstress coefficient
+
+  LOGICAL  :: lviscous              =  .TRUE.  ! include friction or not
+  LOGICAL  :: l_inverse_flip_flop   = .FALSE.  ! true=complete discrete scalarproduct (slow)
+                                               ! false=use a shortcut (faster)
+  NAMELIST/ocean_ctl/ n_zlev, dzlev_m, idisc_scheme,                       &
+    &                 iswm_oce, i_oce_stepping, iforc_oce, itestcase_oce,  &
+    &                 i_bc_veloc_lateral,i_bc_veloc_top,i_bc_veloc_bot,    &
+    &                 ab_const, ab_beta, ab_gam, solver_tolerance,         &
+    &                 EOS_TYPE, no_tracer,                                 &
+    &                 expl_vertical_velocity_diff,                         &
+    &                 expl_vertical_tracer_diff,                           & 
+    &                 k_veloc_h, k_veloc_v,  k_pot_temp_h, k_pot_temp_v,   &
+    &                 k_sal_h, k_sal_v, lviscous, l_inverse_flip_flop,     &
+    &                 t_ref, s_ref, bottom_drag_coeff, wstress_coeff
+
+
+
+  ! ------------------------------------------------------------------------
+  ! 3.0 Namelist variables and auxiliary parameters for octst_ctl
+  !     This namelists mainly exists during the development of the ocean model
+  ! ------------------------------------------------------------------------
+
+  ! location of single cell for input of test values
+  INTEGER  :: i_ocv_blk = 1       ! input test block
+  INTEGER  :: i_ocv_idx = 1       ! input test index
+  INTEGER  :: i_ocv_ilv = 1       ! input test level
+  REAL(wp) :: h_val     = 0.0_wp  ! input test value for elevation
+  REAL(wp) :: t_val     = 0.0_wp  ! input test value for temperature
+  !REAL(wp) :: s_val     = 0.0_wp  ! input  test value for salinity
+
+  ! switch for debugging of ocean core
+  INTEGER  :: i_dbg_oce = 0       ! different levels of debug output (1-5, 0: no output)
+
+  ! longitude/latitude location of single cell output for debugging
+  REAL(wp) :: rlat_in   = 0.0_wp  ! latitude of cell for debug output
+  REAL(wp) :: rlon_in   = 0.0_wp  ! longitude of cell for debug output
+
+  ! block/index location of cell output for debugging
+  INTEGER  :: i_oct_blk = 0       ! output test block
+  INTEGER  :: i_oct_idx = 0       ! output test index
+  INTEGER  :: i_oct_ilv = 1       ! output test level
+
+  NAMELIST/octst_ctl/   i_dbg_oce, i_oct_blk, i_oct_idx, i_oct_ilv,     &
+    &                   h_val, t_val, i_ocv_blk, i_ocv_idx, i_ocv_ilv,  &
+    &                   rlat_in, rlon_in
+
+  CONTAINS
+
+ !-------------------------------------------------------------------------
+
+ !-------------------------------------------------------------------------
+ !>
+ !! Initialization of variables that set up the configuration of the ocean model
+ !!
+ !!               Initialization of variables that set up the configuration
+ !!               of the ocean using values read from
+ !!               namelist 'ocean_ctl' and 'octst_ctl'.
+ !!
+ !! @par Revision History
+ !!   Modification by Constantin Junk, MPI-M (2010-02-22)
+ !!    - separated subroutine ocean_nml_setup from the original
+ !!      setup_run subroutine (which is moved to mo_run_nml)
+ !!
+ SUBROUTINE setup_ocean_nml
+
+     INTEGER :: i_status
+
+     CHARACTER(len=max_char_length), PARAMETER :: &
+            routine = 'mo_ocean_nml/setup_ocean_nml:'
+
+     CALL message(TRIM(routine),'running the hydrostatic ocean model')
+     
+     !------------------------------------------------------------
+     ! 4.0 set up the default values for ocean_ctl
+     !------------------------------------------------------------
+
+     ! default values when namelist is not present and no default on definition
+
+     n_zlev            = 5
+     dzlev_m(:)        = -99.99_wp!
+
+     dzlev_m(1:n_zlev) =  (/ 50.0_wp, 150.0_wp, 500.0_wp, 1300.0_wp, 2500.0_wp  /)
+     !  lower level of layers:  50       200       700       2000       4500
+     !  surface coord. levels:  25       125       450       1350       3250
+
+
+     !------------------------------------------------------------
+     ! 5.0 Read ocean_ctl namelist
+     !------------------------------------------------------------
+     ! (done so far by all MPI processes)
+
+     CALL position_nml ('ocean_ctl', status=i_status)
+     SELECT CASE (i_status)
+     CASE (positioned)
+       READ (nnml, ocean_ctl)
+     END SELECT
+
+     !------------------------------------------------------------
+     ! 4.0 check the consistency of the parameters
+     !------------------------------------------------------------
+
+     IF( iswm_oce == 1 .AND. n_zlev > 1 ) THEN
+       CALL message(TRIM(routine),'WARNING, shallow water model (ocean): n_zlev set to 1')
+       n_zlev = 1
+     ENDIF
+
+     IF(idisc_scheme == 1)THEN
+       CALL message(TRIM(routine),'You have choosen the mimetic dicretization')
+     ELSEIF(idisc_scheme == 2)THEN
+       CALL message(TRIM(routine),'You have choosen the RBF dicretization')
+     ELSE
+       CALL finish(TRIM(routine), 'wrong parameter for discretization scheme')
+     ENDIF
+    
+    
+     IF(i_bc_veloc_lateral/= 0) THEN
+       CALL finish(TRIM(routine), &
+         &  'free-slip boundary condition for velocity currently not supported')
+     ENDIF
+     IF(i_bc_veloc_top < 0.AND.i_bc_veloc_top > 2) THEN
+       CALL finish(TRIM(routine), &
+         &  'top boundary condition for velocity currently not supported: choose = 0 or =1 or =2')
+     ENDIF
+     IF(i_bc_veloc_bot < 0 .AND. i_bc_veloc_bot>1) THEN
+       CALL finish(TRIM(routine), &
+         &  'bottom boundary condition for velocity currently not supported: choose = 0 or =1')
+     ENDIF
+ 
+     ! write the contents of the namelist to an ASCII file
+     IF(p_pe == p_io) WRITE(nnml_output,nml=ocean_ctl)
+
+     !------------------------------------------------------------
+     ! 6.0 Read octst_ctl namelist
+     !------------------------------------------------------------
+     ! (done so far by all MPI processes)
+
+     CALL position_nml ('octst_ctl', status=i_status)
+     SELECT CASE (i_status)
+     CASE (positioned)
+       READ (nnml, octst_ctl)
+     END SELECT
+
+     ! write the contents of the namelist to an ASCII file
+     IF(p_pe == p_io) WRITE(nnml_output,nml=octst_ctl)
+
+
+END SUBROUTINE setup_ocean_nml
+
+END MODULE mo_ocean_nml

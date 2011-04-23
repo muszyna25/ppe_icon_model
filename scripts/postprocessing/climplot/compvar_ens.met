@@ -1,0 +1,742 @@
+# compvar_ens
+#
+# metview script to plot single level variables on maps
+# compared to a control for climate runs.
+# output:    3 panels - exp,ctrl,diff
+#
+# run as:    setenv DATA $SCRATCH/climate-out
+#            metview3 -b compvar_ens.met ecff eawi BLH 0 ins 19870501 2 avg
+#
+# attention: requires global environment variable DATA (dir)
+#
+# Martin Koehler, April 2003 (developed from verifydata_ens.met)
+# Martin Koehler, April 2004 (updated to climate_obs.met from Adrian)
+# Adrian Tompkins, June 2009 (add statistical significance shading)
+# Peter Bechtold, November 2009 phasing for 36r3
+#--------------------------------------------------------------#
+
+
+#############################################################
+# Definitions
+#############################################################
+
+# --- argument list processing
+
+interactive=0
+
+
+if (interactive=0) then
+  args = arguments()
+  print("parameters: ", args)
+
+  expv1      = args[1]    # experiment ID (e.g. ecff)
+  expv2      = args[2]    # control exp ID (e.g. eawi)
+  datestr    = args[3]    # initial fc dates (e.g. 19871101/19871102)
+  yymm_start = args[4]    # first yyyymm in averaging period
+  mm_len     = args[5]    # length of averaging period in months
+  dtdata     = args[6]    # data time interval used (24. or 12.)
+  varid      = args[7]    # GRIB variable ID (e.g. BLH or 101)
+  lev        = args[8]    # level (0 for sfc variable)
+  levtype    = args[9]    # level type (sfc=surface, ml=model levels, pl=pressure levels)
+  vartype    = args[10]   # variable type (acc/ins for accum. or instant.)
+  stat       = args[11]   # statistic ("avg" or "std")
+  res        = args[12]   # lat/lon resolution for plotting
+  lsigt      = args[13]   # 1=colour 2=black and white plots?
+  lcol       = args[14]   # 1=colour 2=black and white plots?
+  larticle   = args[15]   # 2=changes titles to a b c
+else
+#
+# test only
+#
+  expv1      =  'ehsc'
+  expv2      =  'ehrp'
+# datestr    =  '20001001/20001002/20001003'
+  datestr    =  '20001001'
+  yymm_start =  200012
+  mm_len     =  3
+  dtdata     =  24
+  varid      =  'LCC'
+  lev        =  0
+  levtype    =  'sfc'
+  vartype    =  'ins'
+  stat       =  'avg'
+end if
+
+# --- statistic
+
+if stat = "avg" then
+  statnamefile =""
+  statnametitle=""
+else
+  statnamefile ="_stdev"
+  statnametitle="Stdev of "
+end if
+
+gl_area = [90,-180,-90,180]
+
+# special_sets of vars
+
+spec_par_tp=["CP","LSP"]
+spec_par_surfradn=["SSR","STR"]
+spec_par_topradn=["SSR","STR"]
+spec_par_surfnet=["SSR","STR","SLHF","SSHF"]
+
+#gl_area = [-10,-40,25,20] # can overwrite to get specific area
+
+# --- directory
+#dir = "./"
+dir = getenv("PLOTDATA") & "/"
+
+
+# --- input file names (experiment and control)
+
+file_mod = dir&"mmean_"&expv1&"_"&levtype&"_alldates.grb"
+file_ctr = dir&"mmean_"&expv2&"_"&levtype&"_alldates.grb"
+
+# --- output format & file name (ps or png or screen)
+
+#output = "screen"
+output = "ps"
+
+dates= parse(datestr,"/")
+ndates  = count(dates)
+
+#print ("dates are ",dates)
+
+if levtype = "sfc" then
+  title="diffmap_"&expv1&"-"&expv2&"_"&varid&statnamefile&"_nens"&string(ndates)&"_"&yymm_start&"_nmon"&mm_len
+else if levtype = "ml" then
+  title="diffmap_"&expv1&"-"&expv2&"_"&varid&"_L"&lev&statnamefile&"_nens"&string(ndates)&"_"&yymm_start&"_nmon"&mm_len
+else if levtype = "pl" then
+  title="diffmap_"&expv1&"-"&expv2&"_"&varid&"_P"&lev&statnamefile&"_nens"&string(ndates)&"_"&yymm_start&"_nmon"&mm_len
+else
+  print("levtype ", levtype, " not supported")
+  fail
+end if
+
+outfile(dir,title,output)
+
+
+
+################################################################
+# Retrieve and process data
+################################################################
+
+var_modm= 0.
+var_ctrm= 0.
+
+if vartype = "ins" then 
+
+# retrieve
+        if expv2 = "ERA40" then
+          expv22 = 1
+        else
+          expv22 = expv2
+        end if
+
+# special treatment for "total precip"
+        case varid of 
+        "TP": 
+           var_ctr_all=multiget(spec_par_tp,expv22,levtype,lev,dates,res,file_ctr)
+           var_mod_all=multiget(spec_par_tp,expv1, levtype,lev,dates,res,file_mod)
+  	       unit = "mm d\\SP\\-1\\SPR\\"
+        end
+        "SURFRADN": 
+           var_ctr_all=multiget(spec_par_surfradn,expv22,levtype,lev,dates,res,file_ctr)
+           var_mod_all=multiget(spec_par_surfradn,expv1, levtype,lev,dates,res,file_mod)
+           unit = "W m\\SP\\-2\\SPR\\"
+        end
+        "SURFNET": 
+           var_ctr_all=multiget(spec_par_surfnet,expv22,levtype,lev,dates,res,file_ctr)
+           var_mod_all=multiget(spec_par_surfnet,expv1, levtype,lev,dates,res,file_mod)
+           unit = "W m\\SP\\-2\\SPR\\"
+        end
+        otherwise: 
+	    var_mod_all = read(
+            class	:	"rd",
+            type	:	"fc",
+            expver	:	expv1,
+            levtype	:	levtype,
+            levelist:       lev,
+            repres	:	"gg",
+            param	:	varid,
+            date	:	dates,
+            grid	:	[res,res],
+            source	:	file_mod
+		 )
+         var_ctr_all = read(
+            class	:	"rd",
+            type	:	"fc",
+            expver	:	expv22,
+            levtype	:	levtype,
+            levelist:       lev,
+            repres	:	"gg",
+            param	:	varid,
+            date	:	dates,
+            grid	:	[res,res],
+            source	:	file_ctr
+            )
+            units=grib_get_string(var_mod_all,"units")
+            unit=units[1]
+          # unit="("&unit&")"
+	end 
+	end case
+end if
+
+# special units for precipitation
+
+if varid = "CP"  or varid = 143
+or varid = "LSP" or varid = 142 
+or varid = "TP"  or varid = 228 then
+       var_mod_all = var_mod_all * 86400 * 1000
+       var_ctr_all = var_ctr_all * 86400 * 1000
+       unit = "mm d\\SP\\-1\\SPR\\"
+end if
+
+if varid = "SD" then
+        var_mod_all = var_mod_all * 100
+        var_ctr_all = var_ctr_all * 100
+        unit    = "cm of water equiv."
+end if
+
+if varid = "SSR"
+or varid = "STR"
+or varid = "TSR"
+or varid = "TTR" then 
+   unit = "W m\\SP\\-2\\SPR\\"
+end if
+#print("finished reading dates: ", datestr, " at time:")
+#shell("date")
+
+# calculate stats
+
+tcrit=-999 # switch stat plot off
+
+if stat = "avg" then
+  var_mod = mean(var_mod_all)
+  var_ctr = mean(var_ctr_all)
+  var_diff= var_mod-var_ctr
+
+  nens  = count(var_mod_all)
+
+#---------------------------
+# calculate the T-Test limit
+#---------------------------
+  sig=0.975   # 95%% 2-tailed test level (could set to user parameter)
+  dof=2*nens-2 # degrees of freedom for two ensembles of size nens
+  if lsigt and nens > 2 then
+    tcrit=ttest_thresh(sig,dof)
+    mod_ctr_std = sqrt((var(var_mod_all)+var(var_ctr_all))/2.)  #stdev of all months and dates!
+    mod_ctr_std = bitmap(mod_ctr_std,0.0) # replace zeros with missing 
+    tstat=sqrt(nens/2.0)*abs(var_diff)/mod_ctr_std
+    if varid="TP" or  varid="LSP" or  varid="CP" then
+      sig=(var_ctr > 0.5) and (tstat > tcrit)
+    else
+      sig=tstat > tcrit # fieldset of 0 or 1
+    end if
+  end if
+else
+  var_mod = stdev(var_mod)  #stdev of all months and dates!
+  var_ctr = stdev(var_ctr)
+  var_diff= var_mod-var_ctr
+end if
+
+
+# global integrals
+
+mn_mod   = integrate(var_mod)
+mn_ctr   = integrate(var_ctr)
+mn_diff  = integrate(var_diff)
+std_diff = integrate(var_diff*var_diff) - integrate(var_diff)*integrate(var_diff)
+std_diff = sqrt(std_diff)
+
+#print("finished with time mean at time:")
+#shell("date")
+
+
+#############################################################
+# Views
+#############################################################
+legEntry = legendentry(
+		legend_automatic_text_extrema : "none"
+		)
+
+coastlines = pcoast(
+    map_coastline_colour		:	"black",
+    map_coastline_thickness:	2,
+    map_coastline_land_shade	:	"off",
+    map_coastline_land_shade_colour  :       "grey",
+    map_grid_colour			:	"grey",
+    map_grid_line_style             :  "dash",
+    map_label			:	"on",
+    map_label_height		:	0.3,
+    map_label_colour		:	"black",
+    map_label_quality		:	"medium",
+    map_grid			:	 "on",
+    map_grid_latitude_increment	:	30,
+    map_grid_longitude_increment	:	45
+    )
+    
+map_view = mapview(
+   map_projection  : "cylindrical",
+   area	:	gl_area,
+   page_frame	: "off",
+   subpage_frame_thickness    :   2,
+   subpage_y_position    :   7,
+   coastlines	: coastlines
+   )
+
+page_1 = plot_page(
+   bottom	:	33.3333333333,
+   view	:	map_view
+   )
+page_2 = plot_page(
+   top	:	33.3333333333,
+   bottom	:	66.6666666667,
+   view	:	map_view
+   )
+page_3 = plot_page(
+   top	:	66.6666666667,
+   view	:	map_view
+   )
+
+
+################################################################
+# Contours
+################################################################
+
+maxlevelvar = max(maxvalue(var_mod),maxvalue(var_ctr))
+minlevelvar = min(minvalue(var_mod),minvalue(var_ctr))
+intlevelvar = ( maxlevelvar - minlevelvar ) / 10.0
+
+#print("original min,max,int ",minlevelvar," ",maxlevelvar," ",intlevelvar)
+
+power10     = round( log10(intlevelvar) - 0.5 , 0)
+intlevelvar = round( intlevelvar / 10.0^power10 + 0.5 , 0) * 10.0^power10
+nconts      = round( (maxlevelvar-minlevelvar) / intlevelvar + 0.5 , 0)
+minlevelvar = round( minlevelvar / 10.0^power10 - 0.5 , 0) * 10.0^power10
+maxlevelvar = nconts * intlevelvar + minlevelvar
+
+#print("rounded min,max,int ",minlevelvar," ",maxlevelvar," ",intlevelvar)
+
+#maxlevelvar = 15.0
+#minlevelvar = 1.0
+#intlevelvar = 2
+
+#maxlevelvar = 1.1
+#minlevelvar = -0.1
+#intlevelvar = 0.2
+
+maxlevelpos = max(abs(maxvalue(var_diff)),abs(minvalue(var_diff)))
+minlevelpos = maxlevelpos / 5.0
+intlevelpos = minlevelpos
+
+power10     = round( log10(intlevelpos) - 0.5 , 0)
+intlevelpos = round( intlevelpos / 10.0^power10 - 0.5 , 0) * 10.0^power10
+nconts      = round( (maxlevelpos-minlevelpos) / intlevelpos - 0.5 , 0)
+minlevelpos = round( minlevelpos / 10.0^power10 - 0.5 , 0) * 10.0^power10
+maxlevelpos = nconts * intlevelpos + minlevelpos
+
+#maxlevelpos = 5
+#minlevelpos = 0.5
+#intlevelpos = 0.5
+
+# special contours for precipitation
+
+if varid = "CP"  or varid = 143 or 
+   varid = "LSP" or varid = 142 or
+   varid = "TP"  or varid = 228 then
+  maxlevelvar = 15.0
+  minlevelvar = 1.0
+  intlevelvar = 1
+  maxlevelpos = 5
+  minlevelpos = 0.5
+  intlevelpos = 0.5
+end if
+
+# special contours for CAPE
+if varid = "CAPE"  or varid = 59 then
+  maxlevelvar = 2600.0
+  minlevelvar = 25.0
+  intlevelvar =300 
+  maxlevelpos =300
+  minlevelpos =25
+  intlevelpos =40 
+end if
+
+if varid = "STL1" then
+  maxlevelvar = 320.0
+  minlevelvar = 200.0
+  intlevelvar = 10
+  maxlevelpos = 6
+  minlevelpos = 0.5
+  intlevelpos = 0.5
+end if
+
+if varid = "SSR" then
+  maxlevelpos = 70
+  minlevelpos = 10
+  intlevelpos = 15
+end if
+
+# special contours for T2m
+
+if varid = "2T" then
+  maxlevelvar = 320.0
+  minlevelvar = 200.0
+  intlevelvar = 10
+  maxlevelpos = 6
+  minlevelpos = 0.5
+  intlevelpos = 0.5
+end if
+
+if varid = "2D" then
+  maxlevelvar = 320.0
+  minlevelvar = 200.0
+  intlevelvar = 10
+  maxlevelpos = 6
+  minlevelpos = 0.5
+  intlevelpos = 0.5
+end if
+
+if varid = "SD" then
+  varid = 141
+  maxlevelvar = 50
+  minlevelvar = 0
+  intlevelvar = 5
+  maxlevelpos = 5
+  minlevelpos = 1
+  intlevelpos = 1
+end if
+
+# special contours for CC (LCC, MCC, HCC, TCC)
+
+if varid = "LCC" or varid = 186
+or varid = "MCC" or varid = 187
+or varid = "HCC" or varid = 188
+or varid = "TCC" or varid = 164 then
+  maxlevelvar = 1.0
+  minlevelvar = 0.0
+  intlevelvar = 0.1
+  maxlevelpos = 0.5
+  minlevelpos = 0.05
+  intlevelpos = 0.05
+end if
+
+# special contours for 101 & BLH
+
+if varid = 101
+or varid = "BLH" or varid = 159 then
+  maxlevelvar = 3000.0
+  minlevelvar = 0.0
+  intlevelvar = 200.0
+  maxlevelpos = 1000.0
+  minlevelpos = 50.0
+  intlevelpos = 50.0
+end if
+
+# special contours for LWP
+
+if varid = "TCLW" or varid = 102 then
+  maxlevelvar = 0.3
+  minlevelvar = 0.025
+  intlevelvar = 0.025
+  maxlevelpos = 0.07
+  minlevelpos = 0.01
+  intlevelpos = 0.01
+end if
+
+if varid = "10U" or varid = "10V" then
+  maxlevelvar = 7.0
+  minlevelvar = -7.0
+  intlevelvar = 1.0
+  maxlevelpos = 2.0
+  minlevelpos = 0.2
+  intlevelpos = 0.2
+print (" I am here")
+end if
+
+if varid = "10SI" then
+  maxlevelvar = 7.0
+  minlevelvar = -7.0
+  intlevelvar = 1.0
+  maxlevelpos = 2.0
+  minlevelpos = 0.2
+  intlevelpos = 0.2
+print (" I am here")
+end if
+
+
+# special contours for IWP
+
+if varid = "TCIW" or varid = 103 then
+  maxlevelvar = 0.2
+  minlevelvar = 0.02
+  intlevelvar = 0.02
+  maxlevelpos = 0.02
+  minlevelpos = 0.004
+  intlevelpos = 0.004
+end if
+
+# special contours for decoupling criteria
+
+if varid = 100 and (lev > 20 or lev = 16) then
+  maxlevelvar = 1.0
+  minlevelvar = 0.0
+  intlevelvar = 0.1
+  maxlevelpos = 0.5
+  minlevelpos = 0.1
+  intlevelpos = 0.1
+end if
+
+maxlevelneg = minlevelpos * (-1.0)
+minlevelneg = maxlevelpos * (-1.0)
+intlevelneg = intlevelpos
+
+        if lcol = 2 then 
+# define contours
+          min_col="RGB(0.7,0.7,0.7)"
+          max_col="RGB(0.45,0.45,0.45)"
+
+          pos_max_col="RGB(0.7,0.7,0.7)"
+          pos_min_col="RGB(0.45,0.45,0.45)"
+
+          neg_max_col="RGB(0.95,0.95,0.95)"
+          neg_min_col="RGB(0.7,0.7,0.7)"
+
+          neg_dir="clockwise"
+          pos_dir="clockwise"
+          csm="area_fill"
+          cs="on"
+        else 
+	# define contours
+          neg_min_col="blue"
+          neg_max_col="yellow_green"
+
+          pos_max_col="red"
+          pos_min_col="orange_yellow"
+
+          min_col="blue"
+          max_col="red"
+          neg_dir="clockwise"
+          pos_dir="clockwise"
+          csm="area_fill"
+          cs="on"
+        end if
+
+	var_cont            = set_cont(minlevelvar,maxlevelvar,intlevelvar,"solid",min_col,max_col,-1e21,1e21)
+	var_diff_cont_pos   = set_cont(minlevelpos,maxlevelpos,intlevelpos,"solid",pos_min_col,pos_max_col,-1e21,1e21)
+	var_diff_cont_neg   = set_cont(minlevelneg,maxlevelneg,intlevelneg,"dash",neg_min_col,neg_max_col,-1e21,1e21)
+
+        sig_cont = pcont(
+            LEGEND                   :  'OFF',
+            CONTOUR                  :  'OFF',
+            CONTOUR_LEVEL_SELECTION_TYPE:  'LEVEL_LIST',
+            CONTOUR_LEVEL_LIST       :  [ 0.0,0.5,2.5 ],
+            CONTOUR_SHADE            :  'ON',
+            CONTOUR_LINE_COLOUR      :  'GREY',
+            CONTOUR_SHADE_TECHNIQUE  :  'POLYGON_SHADING',
+#            CONTOUR_SHADE_TECHNIQUE  :  'CELL_SHADING',
+            CONTOUR_SHADE_METHOD     :  'HATCH',
+#            CONTOUR_SHADE_METHOD     :  'AREA_FILL',
+            CONTOUR_SHADE_HATCH_THICKNESS:  2,
+            CONTOUR_SHADE_HATCH_DENSITY:  15.0,
+            CONTOUR_SHADE_HATCH_INDEX  :  3,
+            CONTOUR_SHADE_MIN_LEVEL  :  0.5,
+            CONTOUR_SHADE_MIN_LEVEL_COLOUR:  'GREY',
+            CONTOUR_SHADE_MAX_LEVEL_COLOUR:  'GREY',
+            CONTOUR_SHADE_LABEL_BLANKING:  'OFF',
+            CONTOUR_LABEL            :  'OFF',
+            CONTOUR_HILO             :  'OFF',
+            GRIB_SCALING_OF_RETRIEVED_FIELDS:  'OFF'
+            )
+
+#######################################################################
+# Text
+#######################################################################
+
+if varid = 80 or varid = 81 or varid = 82 or varid = 83 or varid = 84 or varid = 85 or 
+                 varid = 86 or varid = 87 or varid = 88 or varid = 89 or varid = 90 or 
+                 varid = 91 or varid = 92 or varid = 93 or varid = 94 or varid = 95 or 
+                 varid = 96 or varid = 97 or varid = 98 or varid = 99 or varid = 100 or 
+                 varid = 101 or varid = 102 or varid = 103 or varid = 104 or varid = 105 or 
+                 varid = 106 or varid = 107 or varid = 108 or varid = 109 or varid = 110 or 
+                 varid = 111 or varid = 112 or varid = 113 or varid = 114 or varid = 115 or 
+                 varid = 116 or varid = 117 or varid = 118 or varid = 119 or varid = 120 then
+  varname = varid     # extra variables
+else
+  varname = "!PARAM!"
+end if
+if levtype = "ml" then
+  varname = varid&"_L"&lev
+end if
+if levtype = "pl" then
+  varname = varid&"_P"&lev
+end if
+
+precision(4)
+timestr=yymm_start&" nmon="&mm_len&" nens="&ndates
+text1=statnametitle&varname&"  "&expv1&"  "&timestr&"   Mean: "&mn_mod
+text2=statnametitle&varname&"  "&expv2&"  "&timestr&"   Mean: "&mn_ctr
+text3=statnametitle&varname&"  "&expv1&"-"&expv2&"  "&timestr&"   Diff: "&mn_diff&"   Stdev: "&std_diff
+if larticle=2 then 
+  text1='(a)'
+  text2='(b)'
+  text3='(c)'
+end if
+
+ptext1=set_text(text1,unit)
+ptext2=set_text(text2,unit)
+ptext3=set_text(text3,unit)
+
+
+#######################################################################
+# Plot
+#######################################################################
+
+display_window = plot_superpage(
+	layout_orientation	: "portrait",
+	pages			: [page_1,page_2,page_3],
+        layout_size		: "a4"
+	)
+
+plot(display_window[1],var_mod,var_cont,ptext1)
+if expv1 <> expv2 then
+  plot(display_window[2],var_ctr,var_cont,ptext2)
+  if tcrit = -999  then 
+    plot(display_window[3],var_diff,var_diff_cont_neg,var_diff_cont_pos,ptext3)
+  else
+    plot(display_window[3],var_diff,var_diff_cont_neg,var_diff_cont_pos,ptext3,sig,sig_cont)
+  end if
+end if
+
+print("finished with plotting at time:")
+shell("date")
+
+
+#######################################################################
+# function outfile
+#######################################################################
+
+function outfile(dir,title,output)
+	if output = "png" or output = "ps" then
+		filen=dir&title&"."&output
+		print ("writing to file: ", filen)
+		if output = "png" then
+			format = "png"
+		else
+			format = "postscript"
+		end if
+		ps_file = output(
+				format          : format,
+				destination     : "file",
+				file_name       : filen,
+				printer         : "ps_floor1"
+				)
+		setoutput(ps_file)
+	end if
+end outfile
+
+
+
+function set_cont(cmin,cmax,cint,line_style,min_col,max_col,neg_lim,pos_lim)
+
+# sets the contour style for the full fields when INTERVALS are used 
+# (i.e. not used for specified conts such as nonlinear rainfall int.)
+
+	legEntry = legendentry(
+		    legend_automatic_text_extrema : "none"
+		    )
+
+	cont = pcont(
+			legend	:	"on",
+			legend_entry		:  legEntry,
+			contour_min_level	:	cmin,
+			contour_max_level	:	cmax,
+			contour_level_selection_type	:	"interval",
+			contour_interval	:	cint,
+			contour_reference_level	:	cmin,
+			contour_shade	:	"on",
+			contour_shade_min_level	:	cmin,
+			contour_shade_max_level	:	cmax,
+			contour_shade_min_level_colour	:	min_col,
+			contour_shade_max_level_colour	:	max_col,
+			contour_shade_method	:	"area_fill",
+			contour_shade_colour_direction	:	"clockwise",
+			contour_shade_label_blanking	:	"on",
+			contour_highlight	:	"off",
+			contour_line_colour	:	"background",
+ 			contour_line_style	:	line_style,
+			contour_line_thickness	:	2,
+			contour_label_quality:	"medium",
+			contour_label	:	"off",
+			contour_label_height:	0.2,
+			contour_label_frequency : 1,
+			input_field_suppress_above	:	pos_lim,
+			input_field_suppress_below	:	neg_lim,
+			contour_hilo	:	"off"
+			)
+
+	 return cont
+
+end set_cont
+
+function set_text(title:string,units:string)
+
+# sets the legend text and plot title
+
+ptext = ptext(
+    text_automatic	:	"no",
+    text_user	:	"yes",
+    text_colour	:	"black",
+    text_quality	:	"medium",
+    text_line_count	:	1,
+    text_line_1	:	title,
+    text_reference_character_height	:	3,
+    legend_text_quality	:	"medium",
+#   legend_box_mode		  :	"positional",
+    legend_box_x_position	  :	25.5,
+    legend_box_y_position	  :	1,
+    legend_box_x_length	  :	3.5,
+    legend_box_y_length	  :	12,
+    legend_text_maximum_height:	0.5,
+    legend_border		  :	"off",
+    legend_title	:	"on",
+    legend_title_text	:	units,
+    legend_text_colour	:	"black"
+	)
+
+    return ptext
+
+end set_text
+
+############
+function multiget(list,expver,levtype,lev,dates,res,file)
+
+  for i=1 to count(list) do 
+
+	 fld = read(
+		class	:	"rd",
+		type	:	"fc",
+		expver	:	expver,
+		levtype	:	levtype,
+                levelist:       lev,
+		repres	:	"gg",
+		param	:	list[i],
+		date	:	dates,
+		grid	:	[res,res],
+                source	:	file
+		)
+        if i=1 then 
+          fldset=fld
+	else
+	  fldset=fldset+fld	 
+	end if
+  end for
+
+  return fldset
+end multiget
+#
+# simple fortran to calculate T-Test limit
+#
+include "ttest_thresh.f90"

@@ -1,0 +1,302 @@
+# NEC SX-9 @ DWD (cross compile on hpc@dwd.de)
+#-------------------------------------------------------------------------
+
+## ******* Optimal settings for URD/URD2 (i.e. unrolling depth for 
+##         loops with indirect addressing):     **************************
+## 19 levels: 19/17
+## 26 levels: 26/19
+## 31 levels: 31/27
+## 40 levels: 40/40
+## 60 levels: 60/60
+# for NH core
+## 20 levels: 20/15
+## 35 levels: 35/30
+
+# loop unrolling depths
+URDEPTHS = -D_URD=10 -D_URD2=10
+
+
+###################################################################################
+ 
+config_target=sx9
+load_modules="sxf90/rev430" "sxcc/rev091" "crosskit/r181"
+load_profile="." "/etc/profile.d/modules.sh"
+make_command="make"
+mpi_startrun="mpirun" "-nn" "\\\$no_of_nodes" -nnp "\\\$mpi_procs"
+submit="nqsub"
+
+
+# OpenMP
+OMPFLAGS =  -P openmp
+
+# ftrace 
+FTRFLAGS = -ftrace 
+
+# Fortran base flags
+BASEFLAGS =  -f2003 -DHAVE_LIBNETCDF $URDEPTHS
+
+# Optimization
+OPTFLAGS =  -Chopt -Wf,-pvctl chgpwr
+
+# Vectorization 
+VECTFLAGS = -Wf,-pvctl loopcnt=1000000 shape=1000000 fullmsg
+
+# Compiler messages, warnings etc.
+MSGFLAGS =  -Wf,'-L fmtlist transform summary' -R2 -Wf,-s -Wf,'-msg d o'
+
+# Preprocessing
+PREPFLAGS = -Ep -USX  
+
+# Floating point exception trapping (not used except for debugging purposes)
+FPTRAP = -Wf,'-M zdiv,flovf,noflunf,inv,setmain'  
+
+# Initialization with NaN for debugging purposes
+DEBUGFLAGS = -Wf,-init stack=nan heap=nan -Wf,-K a -D__BOUNDCHECK
+LDDEBUG    = -Wl,-f nan
+
+# linker flags
+LDFLAGS =  -Wl,-Z 16G
+
+# Inlining
+INLINE   = -pi expin=../../../src/testcases/mo_ncar_testcases.f90
+INLINE   = $INLINE -pi expin=../../../src/shared/mo_sync.f90
+INLINE   = $INLINE -pi expin=../../../src/shared/mo_communication.f90
+INLINE   = $INLINE -pi expin=../../../src/shared/mo_math_utilities.f90
+INLINE   = $INLINE -pi expin=../../../src/shr_horizontal/mo_interpolation.f90
+INLINE   = $INLINE -pi expin=../../../src/shared/mo_loopindices.f90
+INLINE   = $INLINE -pi expin=../../../src/advection/mo_advection_utils.f90
+INLINE   = $INLINE -pi expin=../../../src/testcases/mo_nh_testcases.f90
+INLINE   = $INLINE -pi expin=../../../src/atm_phy_schemes/mo_cufunctions.f90
+INLINE   = $INLINE -pi expin=../../../src/atm_phy_schemes/mo_satad.f90
+INLINE   = $INLINE -pi expin=../../../src/shared/mo_mpi.f90
+INLINE   = $INLINE -pi rexp=tracer_q1_q2,tracer_q3,disp_new,dxg,regrot,turnwi
+INLINE   = $INLINE -pi rexp=init_pure_adv_wind,init_pure_adv_tracers
+INLINE   = $INLINE -pi rexp=global_sum_array2,laxfr_upflux
+INLINE   = $INLINE -pi rexp=foelhmcu,foeewmcu,foeewm,foeldcp,foeldcpm
+INLINE   = $INLINE -pi rexp=foeewm_v,foeewmcu_v,foedem,foeldcpmcu,foedemcu
+INLINE   = $INLINE -pi rexp=foeewl,foeewi
+INLINE   = $INLINE -pi rexp=qsat_rho
+INLINE   = $INLINE -pi rexp=p_wait
+
+# standard flags for C compiler
+CFLAGS  = -Chopt -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE
+
+NETCDFROOT = /usr/local/pkg-sx9/
+LAPACKROOT = /SX/opt/mathkeisan/inst
+
+FC       = sxf90
+F77      = sxf90
+CC       = sxc++
+
+
+## ***********************************************************************
+
+case "$mh_setup" in
+
+*sx8)
+
+    # Specific flags for selected configuration
+    with_mpi=no
+    with_openmp=no
+
+    CFLAGS   = $CFLAGS -sx8r -DNOMPI
+    FFLAGS   =         -sx8r -DNOMPI
+    ;;
+
+*sx8omp)
+
+    # Specific flags for selected configuration
+    with_mpi=no
+    with_openmp=yes
+
+    CFLAGS   = $CFLAGS -sx8r -DNOMPI
+    FFLAGS   =         -sx8r -DNOMPI $OMPFLAGS
+
+    ;;
+
+*sx9)
+
+    # Specific flags for selected configuration
+    with_mpi=no
+    with_openmp=no
+
+    CFLAGS   = $CFLAGS -DNOMPI
+    FFLAGS   =    -sx9 -DNOMPI
+
+    ;;
+
+*sx9ftr)
+
+    # Specific flags for selected configuration
+    with_mpi=no
+    with_openmp=no
+
+    CFLAGS   = $CFLAGS -DNOMPI $FTRFLAGS
+    FFLAGS   =    -sx9 -DNOMPI $FTRFLAGS
+    LDFLAGS  = $LDFLAGS $FTRFLAGS
+    ;;
+
+*sx9omp)
+
+    # Specific flags for selected configuration
+    with_mpi=no
+    with_openmp=yes
+
+    CFLAGS   = $CFLAGS -DNOMPI
+    FFLAGS   =    -sx9 -DNOMPI $OMPFLAGS
+
+    ;;
+
+*sx9ftromp)
+
+    # Specific flags for selected configuration
+    with_mpi=no
+    with_openmp=yes
+
+    CFLAGS   = $CFLAGS -DNOMPI $FTRFLAGS
+    FFLAGS   =    -sx9 -DNOMPI $FTRFLAGS $OMPFLAGS
+    LDFLAGS  = $LDFLAGS $FTRFLAGS
+    ;;
+
+*sx9debug)
+
+    # Specific flags for selected configuration
+    with_mpi=no
+    with_openmp=no
+
+    CFLAGS   = $CFLAGS -DNOMPI
+    FFLAGS   =    -sx9 -DNOMPI $DEBUGFLAGS $FPTRAP -DDEBUG_COEFF
+    LDFLAGS  = $LDFLAGS $LDDEBUG
+
+    ;;
+
+*sx9debugomp)
+
+    # Specific flags for selected configuration
+    with_mpi=no
+    with_openmp=yes
+
+    CFLAGS   = $CFLAGS -DNOMPI
+    FFLAGS   =    -sx9 -DNOMPI $DEBUGFLAGS $FPTRAP -DDEBUG_COEFF  $OMPFLAGS
+    LDFLAGS  = $LDFLAGS $LDDEBUG
+
+    ;;
+
+*sx9mpi)
+
+    # Specific flags for selected configuration
+    with_mpi=yes
+    with_openmp=no
+
+    FC       = sxmpif90
+    F77      = sxmpif90
+    CC       = sxmpic++
+
+    CFLAGS   = $CFLAGS
+    FFLAGS   =    -sx9
+
+    ;;
+
+*sx9mpiftr)
+
+    # Specific flags for selected configuration
+    with_mpi=yes
+    with_openmp=no
+
+    FC       = sxmpif90
+    F77      = sxmpif90
+    CC       = sxmpic++
+
+    CFLAGS   = $CFLAGS $FTRFLAGS
+    FFLAGS   =    -sx9 $FTRFLAGS
+    LDFLAGS  = $LDFLAGS $FTRFLAGS
+
+    ;;
+
+*sx9mpiomp)
+
+    # Specific flags for selected configuration
+    with_mpi=yes
+    with_openmp=yes
+
+    FC       = sxmpif90
+    F77      = sxmpif90
+    CC       = sxmpic++
+
+    CFLAGS   = $CFLAGS
+    FFLAGS   =    -sx9 $OMPFLAGS
+
+    ;;
+
+*sx9mpiftromp)
+
+    # Specific flags for selected configuration
+    with_mpi=yes
+    with_openmp=yes
+
+    FC       = sxmpif90
+    F77      = sxmpif90
+    CC       = sxmpic++
+
+    CFLAGS   = $CFLAGS $FTRFLAGS
+    FFLAGS   =    -sx9 $FTRFLAGS $OMPFLAGS
+    LDFLAGS  = $LDFLAGS $FTRFLAGS
+
+    ;;
+
+*sx9mpidebug)
+
+    # Specific flags for selected configuration
+    with_mpi=yes
+    with_openmp=no
+
+    FC       = sxmpif90
+    F77      = sxmpif90
+    CC       = sxmpic++
+
+    CFLAGS   = $CFLAGS
+    FFLAGS   =    -sx9 $DEBUGFLAGS $FPTRAP
+    LDFLAGS  = $LDFLAGS $LDDEBUG
+
+    ;;
+
+*sx9mpidebugomp)
+
+    # Specific flags for selected configuration
+    with_mpi=yes
+    with_openmp=yes
+
+    FC       = sxmpif90
+    F77      = sxmpif90
+    CC       = sxmpic++
+
+    CFLAGS   = $CFLAGS
+    FFLAGS   =    -sx9 $DEBUGFLAGS $FPTRAP
+    LDFLAGS  = $LDFLAGS $LDDEBUG $OMPFLAGS
+
+    ;;
+
+esac
+
+
+# Add common flags defined above
+
+FFLAGS = $FFLAGS $BASEFLAGS $OPTFLAGS $VECTFLAGS $MSGFLAGS $INLINE $PREPFLAGS $LDFLAGS
+
+
+MPIROOT =
+MPI_LIB =
+
+LAPACK_LIB  = -llapack -lblas
+
+LIBS        = -L../lib -lsupport
+
+AR       = sxar
+AS       = sxas
+
+F77FLAGS = -Chopt
+OMPFLAG  = -Popenmp
+DEFOPT   = -D
+DEFCOPT  = -D
+MODOPT   =
+MODDIR   =

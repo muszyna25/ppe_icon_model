@@ -1,0 +1,88 @@
+html, body {
+	height:100%;
+	width:100%;
+}
+
+table#UserCanvas tr, td { 
+  color: black;
+/*  background-color: rgb(226, 186, 52); */
+  vertical-align: center;
+  text-align:bottom;
+  width: 800;
+}
+
+  #ZeileTL_1 { 
+/*    background-color: rgb(153, 153, 153);*/
+    border-bottom: 0.13mm solid black;
+    border-top: 0.13mm solid black;
+    border-right: 0.13mm solid black;
+    border-left: 0.13mm solid black;
+    width: 200;
+    height: 120;
+    text-align: center;
+}
+
+  #ZeileTL_1_icon { 
+/*    background-color: rgb(153, 153, 153);*/
+    border-bottom: 0.13mm solid black;
+    border-top: 0.13mm solid black;
+    border-right: 0.13mm solid black;
+    border-left: 0.13mm solid black;
+    width: 180;
+    height: 84;
+    text-align: center;
+}
+
+  #ZeileTL_2 { 
+/*    background-color: rgb(153, 153, 153);*/
+    border-bottom: 0.13mm solid black;
+    border-top: 0.13mm solid black;
+    border-right: 0.13mm solid black;
+    border-left: 0.13mm solid black;
+    width: 500;
+    height: 120;
+    text-align: center;
+}
+
+  #ZeileTL_2_icon { 
+/*    background-color: rgb(153, 153, 153);*/
+    border-bottom: 0.13mm solid black;
+    border-top: 0.13mm solid black;
+    border-right: 0.13mm solid black;
+    border-left: 0.13mm solid black;
+    width: 350;
+    height: 84;
+    text-align: center;
+}
+
+  #title_sp_1 { 
+/*    background-color: rgb(153, 153, 153);*/
+    width: 80;
+    text-align: left;
+    font-weight:bold
+}
+  #title_sp_1_icon { 
+/*    background-color: rgb(153, 153, 153);*/
+    width: 64;
+    text-align: left;
+    font-weight:bold;
+    font-size: 11pt;
+}
+  #title_sp_2 { 
+/*    background-color: rgb(153, 153, 153);*/
+    width: 100;
+    text-align: left;
+    font-weight:bold
+}
+  #title_sp_2_icon { 
+/*    background-color: rgb(153, 153, 153);*/
+    width: 80;
+    text-align: left;
+    font-weight:bold;
+    font-size: 11pt;
+}
+  #Update { 
+    text-align: left;
+    font-weight:bold;
+    font-size: 9pt;
+}

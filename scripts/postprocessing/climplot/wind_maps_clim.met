@@ -1,0 +1,399 @@
+# wind_maps_clim.met
+#
+# metview script called by climplot_sfc.sms to plot seasonal
+# mean tropical wind vectors against ERA40
+#
+# run as: metview -b wind_maps_clim.met efip [19870501,19870502,19870503] 3000 
+#         * levels (925, 700 and 200hPa) are automatically plotted
+#
+# Peter Bechtold & Martin Koehler and Adrian Tompkins, March 2004
+#---------------------------------------------------------------------------------------
+
+# --- argument list processing
+# ----------------------- input -------------------------
+interactive=0
+
+if (interactive=0) then
+	args        = arguments()
+	expid       = args[1]  # experiment ID (e.g. e9va)
+	initime     = args[2]  # start time of ensemble fc
+    yymm	    = args[3]  # ini year month
+    nmon        = args[4]  # nmons in av period
+    res         = args[5]  # lat/lon resolution for plotting
+    eratext     = args[6]  # ERA40  or ERAI
+else
+	expid='ehrp'
+	mm1=12                 # start month of period diagnosed
+	nmon=3                 # number of months of period diagnosed
+	start_dates=20001001/20001002/20001003
+    res=2.5
+    eratext='ERA40'     
+end if
+# -------------------------------------------------------
+
+lev=[925,700,200]
+grid=[res,res]
+ERATEXT=eratext
+
+NZONES=3 # 1=Tropics, 2=NH, 3=SH; for P>700hPa only plot Tropics
+
+# --- directory
+dir = getenv("PLOTDATA") 
+if (dir="") then
+  dir="."
+end if 
+dir=dir&"/"
+
+start_dates=(parse(string(initime),"/"))
+nens=count(start_dates)
+
+for nl=1 to count(lev) do
+
+    u_exp1 = read(
+		type	:	"fc",
+		expver	:	expid,
+		levelist	:lev[nl],
+		param	:	["u"],
+		date	:	start_dates,
+		grid	:	grid,
+                source  : dir&"mmean_"&expid&"_pl_alldates.grb"
+		)
+    v_exp1 = read(
+		type	:	"fc",
+		expver	:	expid,
+		levelist	:lev[nl],
+		param	:	["v"],
+		date	:	start_dates,
+		grid	:	grid,
+                source  : dir&"mmean_"&expid&"_pl_alldates.grb"
+		)
+    u_era40 = read(
+		levelist	:lev[nl],
+		param	:	["u"],
+		grid	:	grid,
+                source  : dir&"mmean_ERA40_pl_alldates.grb"
+		)
+    v_era40 = read(
+		levelist	:lev[nl],
+		param	:	["v"],
+		grid	:	grid,
+                source  : dir&"mmean_ERA40_pl_alldates.grb"
+		)
+
+       u_exp1_m=mean(u_exp1)
+       v_exp1_m=mean(v_exp1)
+       uv_exp1_m=u_exp1_m&v_exp1_m
+
+       u_era40_m=mean(u_era40)
+       v_era40_m=mean(v_era40)
+       uv_era40_m=u_era40_m&v_era40_m
+#
+
+# --- wind error
+
+      err=uv_exp1_m-uv_era40_m
+      rmserr=rms(err)
+
+#----------------------------------------------------------------------------------------------------
+# Plotting  Zones: Tropics, NH, SH
+
+     precision(5)
+
+     nzall=1
+     if lev[nl] <=700 then
+        nzall=NZONES
+     end if
+     for nzon=1 to nzall do
+
+        tzon="tropics"
+        areaer=[-20,-180,20,180]
+        if nzon=2 then
+           tzon="nh"
+           areaer=[20,-180,90,180]
+        else if nzon=3 then
+           tzon="sh"
+           areaer=[-90,-180,-20,180]
+        end if
+        rmsint=integrate(rmserr,areaer)
+
+#----------------------------
+# Specifying Filenames:
+
+###        Filen=dir&"wind"&lev[nl]&"_"&season[ns]&yy&"_"&exp1&tzon&".ps"
+
+        filename='winds_'&expid&'_era40_pl'&lev[nl]&'_'&tzon&'_nens'&nens&'_'&string(yymm)&'_nmon'&string(nmon)&'.ps'
+
+	filename=dir&filename
+
+	    File = output(
+			format		:	"postscript", 
+			destination	:	"file",
+			file_name	:	filename,
+			ncopies		:	1
+			)
+# Checks running mode  
+
+         mode=runmode() 
+         if mode = 'batch' then  
+            setoutput(File)  
+         end if  
+  
+         if mode = 'execute' then  
+            setoutput(File)  
+         end if  
+#----------------------------
+
+      if lev[nl]=925 then
+        arrows = pwind(
+       	legend	:	"on",
+		wind_arrow_unit_velocity	:	25,
+        WIND_THINNING_FACTOR     :  3.2,
+		wind_arrow_thickness	:	5,
+		grib_text_experiment	:	"off",
+		grib_text_plot_type	:	"off"
+		)
+        arrows_diff = pwind(
+		legend	:	"on",
+		wind_arrow_unit_velocity	:	10,
+		wind_arrow_thickness	:	5,
+        WIND_THINNING_FACTOR     :  3.2,
+		grib_text_experiment	:	"off",
+		grib_text_plot_type	:	"off"
+		)
+      else if lev[nl]<=700 and lev[nl]>=500 and nzon<2 then
+        arrows = pwind(
+		legend	:	"on",
+		wind_arrow_unit_velocity	:	20,
+        WIND_THINNING_FACTOR     :  3.6,
+		wind_arrow_thickness	:	5,
+		grib_text_experiment	:	"off",
+		grib_text_plot_type	:	"off"
+		)
+        arrows_diff = pwind(
+		legend	:	"on",
+		wind_arrow_unit_velocity	:	10,
+		wind_arrow_thickness	:	5,
+        WIND_THINNING_FACTOR     :  3.6,
+		grib_text_experiment	:	"off",
+		grib_text_plot_type	:	"off"
+		)
+      else if lev[nl]<500 and nzon<2 then
+        arrows = pwind(
+		legend	:	"on",
+		wind_arrow_unit_velocity	:	30,
+        WIND_THINNING_FACTOR     :  5,
+		wind_arrow_thickness	:	5,
+		grib_text_experiment	:	"off",
+		grib_text_plot_type	:	"off"
+		)
+        arrows_diff = pwind(
+		legend	:	"on",
+		wind_arrow_unit_velocity	:	15,
+		wind_arrow_thickness	:	5,
+        WIND_THINNING_FACTOR     :  3.2,
+		grib_text_experiment	:	"off",
+		grib_text_plot_type	:	"off"
+		)
+      else if lev[nl]<=700 and lev[nl]>=500 and nzon>=2 then
+        arrows = pwind(
+		legend	:	"on",
+		wind_arrow_unit_velocity	:	30,
+        WIND_THINNING_FACTOR     :  7,
+		wind_arrow_thickness	:	5,
+		grib_text_experiment	:	"off",
+		grib_text_plot_type	:	"off",
+        wind_arrow_legend_x_position:-1,
+        wind_arrow_legend_y_position:0
+		)
+        arrows_diff = pwind(
+		legend	:	"on",
+		wind_arrow_unit_velocity	:	15,
+		wind_arrow_thickness	:	5,
+        WIND_THINNING_FACTOR     :  5,
+		grib_text_experiment	:	"off",
+		grib_text_plot_type	:	"off", 
+        wind_arrow_legend_x_position:-1,
+        wind_arrow_legend_y_position:0
+		)
+      else if lev[nl]<500 and nzon>=2 then
+        arrows = pwind(
+		legend	:	"on",
+		wind_arrow_unit_velocity	:	50,
+        WIND_THINNING_FACTOR     :  10,
+		wind_arrow_thickness	:	5,
+		grib_text_experiment	:	"off",
+		grib_text_plot_type	:	"off",
+        wind_arrow_legend_x_position:-1,
+        wind_arrow_legend_y_position:0
+		)
+        arrows_diff = pwind(
+		legend	:	"on",
+		wind_arrow_unit_velocity	:	20,
+		wind_arrow_thickness	:	5,
+        WIND_THINNING_FACTOR     :  7,
+		grib_text_experiment	:	"off",
+		grib_text_plot_type	:	"off",
+        wind_arrow_legend_x_position:-1,
+        wind_arrow_legend_y_position:0
+		)
+      end if
+
+# --- text
+
+      texth=0.5
+      if nzon>=2 then
+         texth=0.3
+      end if
+
+      datestr=string(date(yymm*100+01),"mmmm yyyy")
+
+      text_1 = ptext(
+		text_automatic		:	"no",
+		text_user		:	"yes",
+		text_reference_character_height	:	texth,
+		text_quality		:	"high",
+		text_justification	:	"centre",
+		text_colour		:	"black",
+		text_box_blanking	:	"on",
+		text_first_line		:	1,
+		text_line_count		:	1,
+		text_line_1	:	"wind, "&lev[nl]&"hPa, exp:"&expid&" "&datestr&" nmon "&nmon&" nens "&nens,
+		text_border		:	"off"
+	    )
+      text_2 = ptext(
+		text_automatic		:	"no",
+		text_user		:	"yes",
+		text_reference_character_height	:	texth,
+		text_quality		:	"high",
+		text_justification	:	"centre",
+		text_colour		:	"black",
+		text_box_blanking	:	"on",
+		text_first_line		:	1,
+		text_line_count		:	1,
+		text_line_1	:"wind, "&lev[nl]&"hPa, "&ERATEXT&" "&datestr&" nmon "&nmon,
+		text_border		:	"off"
+	   )
+      text_3 = ptext(
+		text_automatic		:	"no",
+		text_user		:	"yes",
+		text_reference_character_height	:	texth,
+		text_quality		:	"high",
+		text_justification	:	"centre",
+		text_colour		:	"black",
+		text_box_blanking	:	"on",
+		text_first_line		:	1,
+		text_line_count		:	1,
+		text_line_1	:	"Difference "&expid&"-"&ERATEXT&" "&tzon&" "&lev[nl]&"hPa, rms "&rmsint,
+		text_border		:	"off"
+	    )
+
+
+         display_window = build_layout(nzon)
+         plot (display_window[1],uv_exp1_m,arrows,text_1)
+         plot (display_window[2],uv_era40_m,arrows,text_2)
+         plot (display_window[3],err,arrows_diff,text_3)
+
+      end for   # Plotting different geograph areas
+
+###    end for  # Plotting different seasons
+
+end for # Plotting different pressure levels
+#----------------------------------------------------------------------------------------------------
+
+# Function to build the layout.
+function build_layout(nzon)
+
+coastlines = pcoast(
+     subpage_frame_colour	:	"charcoal",
+     map_coastline_colour	:	"charcoal",
+     map_coastline_thickness	:	5,
+     map_grid_colour	    :	"charcoal",
+     map_grid_line_style:	'dash',
+     map_grid_latitude_increment	:	30,
+     map_grid_longitude_increment	:	30,
+     map_label_height	:	0.3,
+     map_label_colour	:	"black"
+     )
+tropic = mapview(
+     area	:	[-30,0,30,360],
+     coastlines	:	coastlines,
+     page_frame :'off',
+     subpage_frame_thickness	:	2
+     )
+
+nh = mapview(
+    map_projection	:	"polar_stereographic",
+    MAP_HEMISPHERE           :  'NORTH',
+    area  :  [ -20,-45,-20,135 ],
+    coastlines	:	coastlines,
+    subpage_frame_thickness	:	2,
+    page_frame :'off'
+    )
+
+sh = mapview(
+        map_projection	:	"polar_stereographic",
+        area  :  [ 20,45,20,-135 ],
+        MAP_HEMISPHERE           :  'SOUTH',
+        coastlines	:	coastlines,
+        subpage_frame_thickness	:	2,
+        page_frame :'off' 
+		)
+
+if nzon <=1 then
+   mview=tropic
+else if nzon=2 then
+   mview=nh
+else if nzon=3 then
+   mview=sh
+end if
+
+if nzon<=1 then
+   page = plot_page(
+		bottom	:	33.3333333333,
+		view	:	mview
+		)
+   page_1 = plot_page(
+		top	:	33.8448422847,
+		bottom	:	67.1781756181,
+		view	:	mview
+		)
+   page_2 = plot_page(
+		top	:	66.6666666667,
+		view	:	mview
+		)
+else
+   top=12.5
+   bot=70.5
+   page = plot_page(
+        top     :   top,
+		bottom	:	bot,
+		left	:	0,
+		right	:	31.3333333333,
+		view	:	mview
+		)
+   page_1 = plot_page(
+		top	:	top,
+		bottom	:	bot,
+        left:	33.3333333333,
+        right:  64.6666666666,
+		view	:	mview
+		)
+   page_2 = plot_page(
+		bottom	:	bot,
+		top	:	top,
+        left:   66.6666666666,
+        right:  97.9999999999,
+		view	:	mview
+		)
+end if
+
+
+display_window = plot_superpage(
+		layout_orientation	:	"landscape",
+		custom_width	:	21,
+		pages	:	[page,page_1,page_2]
+		)
+
+return display_window 
+
+end build_layout

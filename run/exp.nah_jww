@@ -1,0 +1,91 @@
+#=============================================================================
+#
+# Experimental setup:
+# - nonhydrostatic atmospheric model
+# - hexagonal C-grid
+# - dry Jablonowski Williamson baroclinic wave test (10 days)
+# - no diffusion
+# - third order upstream advection for theta
+# - resolution: R2B04L26spr0.90
+#
+# Almut Gassmann, MPI-M, 2010-11-17
+#
+#-----------------------------------------------------------------------------
+#
+# Basic specifications of the simulation
+# --------------------------------------
+#
+# These values need to be stored in variables, which are needed to 
+# construct filenames  or directories:
+# 
+R=2               # nroot
+B=4               # number of bisections applied for the global grid
+N=26              # nlev = number of full levels
+OPT="spr0.90"     # grid optimization
+#
+IEQ=3             # equation system
+#                     1=hydrost. atm. (T dynamics)
+#                     2=hydrost. atm. (theta dynamics)
+#                     3=non-hydrost. atm., 
+#                    -1=shallow water model
+#                    -2=hydrost. ocean
+#
+#
+DTIME=240         # time step in seconds
+NDAYS=10          # number of model days to run
+#
+#-----------------------------------------------------------------------------
+#
+# ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#
+cat > NAMELIST_${EXPNAME} << EOF
+!
+&parallel_ctl
+/
+&testcase_ctl
+/
+&io_ctl
+ out_expname = '${EXPNAME}' ! file name base
+/
+&grid_ctl
+ nroot       = ${R}         ! root division of icosahedron edges
+ start_lev   = ${B}         ! number of bisections applied for the base grid
+/
+&run_ctl
+ nproma      = ${NPROMA}    ! array blocking length
+ nlev        = ${N}         ! number of full levels of vertical grid
+ ntracer     = 0            ! number of tracers
+ run_day     = ${NDAYS}     ! run length in days
+ dtime       = ${DTIME}     ! timestep in seconds
+ iequations  = ${IEQ}       ! equation system
+ i_cell_type = 6            ! hexagonal cells
+ ldynamics   = .TRUE.       ! dynamics
+ ltransport  = .FALSE.      ! transport 
+ iforcing    = 0            ! diabatic forcing
+ ltestcase   = .TRUE.       ! run testcase
+ msg_level   = 10           ! detailed report during integration
+/
+&nonhydrostatic_ctl
+ ltheta_up_hori = .TRUE     ! use upstream biased theta advection
+ upstr_beta  = 1.0          ! 3rd order upstream theta advection
+/
+&dynamics_ctl
+/
+&transport_ctl
+/
+&diffusion_ctl
+ lhdiff_vn   = .FALSE.
+ lhdiff_temp = .FALSE.
+/
+&interpol_ctl
+/
+&gridref_ctl
+/
+&regularization_ctl
+/
+&ocean_ctl
+/
+EOF
+#

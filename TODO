@@ -1,0 +1,146 @@
+TODO
+****
+Marco (6.1.2010)
+
+(A) List of technical tasks to be done soon
+===========================================
+
+Tasks for 2010
+--------------
+- Check in task list and plan made at the December 2009 ICON meeting
+
+"Redmine" project management web server (code.zmaw.de)
+---------------------------------------
+- Set up ICON project
+- Tasks
+- Problems/Bugs/Issues
+- etc.
+
+Doxygen documentation
+---------------------
+- Add SVN revision number to output 
+  --> PROJECT_NUMBER in doxyfile_icon needs to be changed
+- Add Logos to HTML output
+
+Revision number in source code
+------------------------------
+- Add SVN revision number to source codes
+ --> change "CHARACTER(len=*), PARAMETER :: version = '$Id$'" in all source files.
+
+'make doc' "output" files
+-------------------------
+(1) 'make doc' should not only produce a tex file 'doc/latex/refman.tex' but also a pdf file. 
+The pdf file should be named 'doc/icon_doc_doxygen.pdf', i.e. it should be put directly into the 'doc' directory.
+(2) The html documentation start file should be named 'doc/icon_doc_doxygen.html' (currently one needs to know that it is named 'doc/html/index.html', which is well hidden between the thousends of other files of the 'doc/html' directory.
+
+
+
+configure and make on Macs
+--------------------------
+Extend configuration files for use on Mac with gcc/gfortran, cdi, openmpi, netcdf4 etc.
+
+'mh-<xyz>' files
+----------------
+Cleanup mh files.
+- Remove old and personal options
+- Options should be site, architecture, and compiler specific
+- The mh files should be uniform in style
+
+
+Update README for icon-dev
+--------------------------
+- Check and update where necessary. (e.g. 'make doc')
+- Add explanations on how the model is parallelized, and how this is controled.
+
+
+Protex: remove comments about Protex and Protex commands
+--------------------------------------------------------
+as for example in control_model
+
+
+Check if reading of the NAMELIST_ICON file by every PE is OK
+------------------------------------------------------------
+See RJ's comment on L241 of control_model.f90
+
+CALL message and CALL finish
+----------------------------
+Pass not only the subroutine or function name, but also the
+module name, for example:
+  CALL finish ('mo_io_graph/input_graph', message_text)
+instead of:
+  CALL finish ('input_graph', message_text)
+
+
+(B) list of tasks for consolidation
+===================================
+(from old TODO-consolidation)
+
+Currently the model code is approaching a state where some conslidation 
+becomes necessary. Reasons are:
+- Some parts of the repository are neglected and outdated. For
+  ourselves and for giving the code to new colleagues it would
+  be very benefitial to do some clean up, spring is coming.
+- Many options have been investigated for the hydrostatic dynamical
+  core of the atmosphere. It is now time to draw conclusions,
+  define the relevant atmosphereocnfigurations, and document the model.
+- As more configurations are developed (SW, hydrost. atm., non-hydrost. atm.
+  hydrost. ocean, regularized SW models) we need to construct an efficient
+  set of tests.
+ 
+For each topic listed below I put some names in parenthesis. In my view these
+are the people who could do these works efficiently.
+
+
+Grid file interpretation (Almut, Leonidas)
+------------------------
+Remove distinction between tri-grid and pen/hex-grid interpretation
+from the model code, i.e. use always the same interpretation. 
+Make the code flexible for n-edged-cell grid (n=3, 4, 5/6). Differences
+should be restricted to the operators, i.e. to the length of loops over
+edges, neighbours etc., and to the different numerical methods. 
+
+All grid information has to be read from the grid files (from the
+global attributes) --> no model namelist for grid parameters
+(applies for example to i_cell_type, i_type_optimize)
+
+Create a new or revised grid generator program to produce global
+triangular grids and convert these optionally to pen/hex grids. 
+
+Generalize the code so that instead of the icosahedron also a cube can
+be used as a starting position for the grid construction, resulting 
+in this case in a cubed sphere grid.
+
+
+Operators (Almut, Hui, Günther)
+---------
+- Case constructs to distinguish the different variants of the Div and Grad
+operator are currently in the code that solves the equations. It would be
+cleaner to shift the case constructs to the operator modules.
+
+- What about the Simpson rule integration? I think it did not fulfill the
+expectations but is costly and violates the conservation properties.
+It is not used, as much as I see. Should we remove it from the code in the
+interest of a cleaner and leaner code? (done already?)
+
+
+Horizontal/hydrostatic dynamics (Almut, Günther, Hui, ...)
+-------------------------------
+Document base configuration of hydrostatic dynamical core ICOHDC
+and compare alternative model setups, using appropriate tests 
+(MRW, JWw, ...).
+- What is the base configuration?
+  (cell type, equations, operators, interpolation, diffusion,
+   div damping, time stepping, solver, ...)
+- Alternative configurations
+  - Which ones are relevant?
+    (pen/hex instead of tri cells, changed equations, changed operators,
+    changed interpolation, changed solver, changed timestepping,...)
+- Relevant test experiments should be defined for the testsuite
+Results form these tests, in addition to the model documentation based
+on Hui's thesis, should be written down in 2 papers:
+1. Documentation of the base configuration including a comparison
+   of ICOHDC and ECHAM results
+2. Documentation and comparison of alternative configurations.
+
+
+--

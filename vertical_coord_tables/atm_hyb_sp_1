@@ -1,0 +1,10 @@
+    k     vct_a(k) [Pa]   vct_b(k) []
+    1      0.0000000000  0.0000000000
+    2      0.0000000000  1.0000000000
+=====================================
+Source:
+- Almut Gassmann, r683
+Comments:
+- Single layer for the shallow water model.
+References:
+- n.a.

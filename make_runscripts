@@ -1,0 +1,109 @@
+#!/bin/ksh
+#==============================================================================
+# Creates the ICON run scripts
+# Leonidas Linardakis, MPI-M, 2011-25-1
+#==============================================================================
+#==============================================================================
+# The basic command for creating an ICON experiment run script is
+#   
+#  $make_runscript in_script=exp.<name> in_script_2=exec.iconrun EXPNAME=<name>
+#
+# By default the folder in use is ./run, and the run script is named exp.<name>.run.
+# 
+# Basic optional parameters for the $make_runscript command are:
+#
+#    out_script=<output run script name>. By default is <in_script>.run
+#
+#    in_folder=<input folder>. By default is run
+#
+#    out_folder=<output folder>. By default is =<in_folder>
+#
+#    mpi_procs=<number of mpi processes>. In the case of MPI configuration,
+#       defines how many processes per node will be used.
+# 
+#    no_of_nodes=<Number of nodes>. In the case of MPI configuration,
+#       defines how many nodes will be used.
+# 
+#    openmp_threads=<Number of openmp threads>. In the case of OPENMP
+#       configuration, defines how many OPENMP threads will be used.
+#
+#    cpu_time=<wall time>. Defines the expected run wall time.
+#  
+#    <free_variable>=<value> Free variables can be passed to the run script
+#       using this syntax. For example: EXPNAME=test, will result the
+#       definition of the variable EXPNAME=test in the run script. 
+   
+
+#
+# For more details see the parameters in the ./config/make_target_runscript
+#==============================================================================
+echo "-----------------------------------------------------------"
+base_folder=$(pwd)
+input_folder=run
+#==============================================================================
+. $base_folder/config/set-up.info
+if [[ x$use_shell == x ]] ; then
+  use_shell="/bin/ksh"
+fi
+# The $make_runscript command directs to the ./config/make_target_runscript
+make_runscript="$use_shell ./config/make_target_runscript"
+#==============================================================================
+#  Create the grid generator runs cripts
+#  NOTE: The grid generator runs with 1 MPI proccess, but can use the default OPENMP threads
+#==============================================================================
+cd $input_folder
+file_list=`ls grid.*`
+cd $base_folder
+for filename in $file_list
+do
+  if [[ $filename != *.run && $filename != *~ ]] ; then
+    $make_runscript in_folder=$input_folder in_script=${filename}  mpi_procs=1 cpu_time="00:30:00"
+  fi
+done
+#  Create the grid generator for builtbot
+$make_runscript in_folder=$input_folder in_script=grid.create_atmo_grids in_script_2=grid.create_ocean_grids out_script=grid.create_builtbot_grids.run mpi_procs=1 cpu_time="00:30:00"
+
+
+
+#==============================================================================
+# Create the ICON experiment run scripts
+# These consist of the namelist definition in exp.<name> file and the
+# run part, defined in the exec.iconrun file.
+#
+# Note: The ICON experiments require the definition of the EXPNAME=<name> variable
+#==============================================================================
+cd $input_folder
+file_list=`ls exp.*`
+cd $base_folder
+for filename in $file_list
+do
+  if [[ $filename != *.run && $filename != *~ ]] ; then
+    # Note: hydrostatic ocean model (hom) not yet parallelized
+    name=${filename#*.}
+    if [[ ${name} == *_hom_* ]]; then
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script_2=exec.iconrun EXPNAME=${name} mpi_procs=1  cpu_time="08:00:00"
+    else
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script_2=exec.iconrun EXPNAME=${filename#*.}  cpu_time="04:00:00"
+    fi
+  fi
+done
+
+
+#==============================================================================
+# Create the postprocessing scripts
+#
+# NOTE: The postprocessing scripts are all sequential, so we define:
+#    with_mpi="no" with_openmp="no"
+#==============================================================================
+cd $input_folder
+file_list=`ls post.*`
+cd $base_folder
+for filename in $file_list
+do
+  if [[ $filename != *.run && $filename != *~ ]] ; then
+    $make_runscript in_folder=$input_folder in_script=${filename} out_script=${filename}.run with_mpi="no" with_openmp="no" cpu_time="01:00:00"
+  fi
+done
+
+
+echo "-----------------------------------------------------------"

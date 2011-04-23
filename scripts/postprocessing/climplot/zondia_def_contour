@@ -1,0 +1,261 @@
+
+# significance stuff
+      sig_cont = pcont(
+        LEGEND                   :  'OFF', 
+        CONTOUR                  :  'OFF', 
+        CONTOUR_LEVEL_SELECTION_TYPE:  'LEVEL_LIST', 
+        CONTOUR_LEVEL_LIST       :  [ 0.0,0.5,2.5 ],
+        CONTOUR_SHADE            :  'ON', 
+        CONTOUR_SHADE_TECHNIQUE  :  'POLYGON_SHADING', 
+        CONTOUR_SHADE_METHOD    :  'HATCH', 
+        CONTOUR_SHADE_HATCH_THICKNESS:  5, 
+        CONTOUR_SHADE_HATCH_DENSITY:  10.0,
+        CONTOUR_SHADE_HATCH_INDEX  :  3,
+        CONTOUR_SHADE_MIN_LEVEL  :  0.5, 
+        CONTOUR_SHADE_MIN_LEVEL_COLOUR:  'BLACK', 
+        CONTOUR_SHADE_MAX_LEVEL_COLOUR:  'BLACK', 
+        CONTOUR_SHADE_LABEL_BLANKING:  'OFF', 
+        CONTOUR_LABEL            :  'OFF', 
+        CONTOUR_HILO             :  'OFF', 
+        GRIB_SCALING_OF_RETRIEVED_FIELDS:  'OFF'
+        )
+
+Legend_Entry = legendentry(  
+	LEGEND_AUTOMATIC_TEXT_EXTREMA:  'NONE'
+	) 
+
+# Simple contouring
+      blue = pcont(
+        contour_line_colour             :       "blue",
+        contour_level_selection_type    :       "interval",
+        contour_line_thickness          :       3,
+        contour_line_style              :       "DASH",
+        contour_interval                :       cint_param[iparam],
+        contour_label                   :       "on",
+        contour_label_type              :       "number",
+        contour_label_quality           :       "high",
+        contour_label_height            :       0.35,
+        contour_label_colour            :       "black",
+        contour_label_frequency         :       1,
+        contour_highlight               :       "off",
+        contour_hilo                    :       "off",
+        contour_max_level               :       0,
+	LEGEND_ENTRY             	: 	Legend_Entry 
+      )
+
+      red = pcont(
+        contour_line_colour             :       "red",
+        contour_level_selection_type    :       "interval",
+        contour_line_thickness          :       3,
+        contour_interval                :       cint_param[iparam],
+        contour_label                   :       "on",
+        contour_label_type              :       "number",
+        contour_label_quality           :       "high",
+        contour_label_height            :       0.35,
+        contour_label_colour            :       "black",
+        contour_label_frequency         :       1,
+        contour_highlight               :       "off",
+        contour_hilo                    :       "off",
+        contour_min_level               :       0,
+	LEGEND_ENTRY             	:  	Legend_Entry 
+      )
+
+# Simple contouring if simple shading
+      blue2 = pcont(
+        contour_line_colour             :       "blue",
+        contour_level_selection_type    :       "interval",
+        contour_line_thickness          :       1,
+        contour_line_style              :       "DASH",
+        contour_interval                :       cint_param[iparam],
+        contour_label                   :       "off",
+        contour_label_colour            :       "black",
+        contour_label_frequency         :       1,
+        contour_highlight               :       "off",
+        contour_hilo                    :       "off",
+        contour_max_level               :       0
+      )
+
+      red2 = pcont(
+        contour_line_colour             :       "red",
+        contour_level_selection_type    :       "interval",
+        contour_line_thickness          :       1,
+        contour_interval                :       cint_param[iparam],
+        contour_label                   :       "off",
+        contour_label_colour            :       "black",
+        contour_label_frequency         :       1,
+        contour_highlight               :       "off",
+        contour_hilo                    :       "off",
+        contour_min_level               :       0
+      )
+
+# Simple contouring of fancy shading
+      blue3 = pcont(
+        contour_line_colour             :       "blue",
+        contour_level_selection_type    :       "interval",
+        contour_line_thickness          :       1,
+        contour_line_style              :       "DASH",
+        contour_interval                :       cint_param[iparam],
+        contour_label                   :       "off",
+        contour_label_colour            :       "black",
+        contour_label_frequency         :       1,
+        contour_max_level               :       cont_max_level_neg,
+        contour_min_level               :       cont_min_level_neg,
+        contour_highlight               :       "off",
+        contour_hilo                    :       "off"
+      )
+
+      red3 = pcont(
+        contour_line_colour             :       "red",
+        contour_level_selection_type    :       "interval",
+        contour_line_thickness          :       1,
+        contour_interval                :       cint_param[iparam],
+        contour_label                   :       "off",
+        contour_label_colour            :       "black",
+        contour_label_frequency         :       1,
+        contour_max_level               :       cont_max_level_pos,
+        contour_min_level               :       cont_min_level_pos,
+        contour_highlight               :       "off",
+        contour_hilo                    :       "off"
+      )
+
+# Plain shading
+      shade = pcont(
+        legend                          :       "on",
+        contour                         :       "off",
+        contour_reference_level         :       0.0,
+        contour_level_selection_type    :       "interval",
+        contour_interval                :       cint_param[iparam],
+        contour_shade                   :       "on",
+        contour_shade_method            :       "area_fill",
+        contour_shade_colour_method     :       "calculate",
+        contour_shade_label_blanking    :       "on",
+        contour_shade_max_level_colour  :       "red",
+        contour_shade_min_level_colour  :       "blue",
+        contour_shade_colour_direction  :       "clockwise",
+        contour_label                   :       "off",
+        contour_highlight               :       "off",
+        contour_hilo                    :       "off"
+        )
+
+# Plain shading - more fancy
+      shade2 = pcont(
+        legend                          :       "on",
+        contour                         :       "on",
+        contour_line_colour             :       "black",
+        contour_line_style              :       "solid",
+        contour_line_thickness          :       1,
+        contour_reference_level         :       0.0,
+        contour_level_selection_type    :       "interval",
+        contour_interval                :       cint_param[iparam],
+        contour_max_level               :       cont_max_level_pos,
+        contour_min_level               :       cont_min_level_pos,
+        contour_shade_max_level         :       cont_shade_max_level_pos,
+        contour_shade_min_level         :       cont_shade_min_level_pos,
+        contour_shade                   :       "on",
+        contour_shade_method            :       "area_fill",
+        contour_shade_colour_method     :       "calculate",
+        contour_shade_label_blanking    :       "on",
+        contour_shade_max_level_colour  :       "red",
+        contour_shade_min_level_colour  :       "blue",
+        contour_shade_colour_direction  :       "clockwise",
+        contour_label                   :       "off",
+        contour_highlight               :       "on",
+        contour_hilo                    :       "off"
+        )
+
+# Fancy shading 
+legentry = legendentry (
+                    legend_automatic_text_extrema : "none"
+        )
+
+contours_pos = pcont(
+        legend                          :       "on",
+        legend_entry                    :       legentry,
+        contour                         :       "on",
+        contour_line_colour             :       "red",
+        contour_line_style              :       "solid",
+        contour_line_thickness          :       1,
+        contour_reference_level         :       0,
+        contour_level_selection_type    :       "interval",
+        contour_interval                :       cint_param[iparam],
+        contour_max_level               :       cont_max_level_pos,
+        contour_min_level               :       cont_min_level_pos,
+        contour_shade                   :       "on",
+        contour_shade_method            :       "area_fill",
+        contour_shade_colour_method     :       "calculate",
+        contour_shade_label_blanking    :       "on",
+        contour_shade_max_level_colour  :       "red",
+        contour_shade_min_level_colour  :       "yellow",
+        contour_shade_max_level         :       cont_shade_max_level_pos,
+        contour_shade_min_level         :       cont_shade_min_level_pos,
+        contour_shade_colour_direction  :       "clockwise",
+        contour_label                   :       "off",
+        contour_label_type              :       "number",
+        contour_label_quality           :       "high",
+        contour_label_height            :       0.3,
+        contour_label_colour            :       "red",
+        contour_label_frequency         :       1,
+        contour_highlight               :       "off",
+        contour_hilo                    :       "off",
+        GRIB_SCALING_OF_RETRIEVED_FIELDS:  	'ON',
+	LEGEND_ENTRY             	: 	Legend_Entry 
+        )
+
+contours_neg = pcont(
+        legend                          :       "on",
+        legend_entry                    :       legentry,
+        contour                         :       "on",
+        contour_line_colour             :       "blue",
+        contour_line_style              :       "solid",
+        contour_line_thickness          :       1,
+        contour_reference_level         :       0,
+        contour_level_selection_type    :       "interval",
+        contour_interval                :       cint_param[iparam],
+        contour_max_level               :       cont_max_level_neg,
+        contour_min_level               :       cont_min_level_neg,
+        contour_shade                   :       "on",
+        contour_shade_method            :       "area_fill",
+        contour_shade_colour_method     :       "calculate",
+        contour_shade_label_blanking    :       "on",
+        contour_shade_max_level_colour  :       "BLUE_GREEN",
+        contour_shade_min_level_colour  :       "BLUE",
+        contour_shade_max_level         :       cont_shade_max_level_neg,
+        contour_shade_min_level         :       cont_shade_min_level_neg,
+        contour_shade_colour_direction  :       "clockwise",
+        contour_label                   :       "off",
+        contour_label_type              :       "number",
+        contour_label_quality           :       "high",
+        contour_label_height            :       0.3,
+        contour_label_colour            :       "blue",
+        contour_label_frequency         :       1,
+        contour_highlight               :       "off",
+        contour_hilo                    :       "off",
+        GRIB_SCALING_OF_RETRIEVED_FIELDS:  	'ON',
+	LEGEND_ENTRY             	: 	Legend_Entry 
+        )
+
+# Simple background
+      contours_simple_bg = pcont(
+        contour_line_colour             :       "black",
+        contour_level_selection_type    :       "count",
+        contour_line_plotting           :       "split",
+        contour_split_level             :       0.0,
+        contour_split_line_colour       :      "black",
+        contour_split_line_thickness    :       1.0,
+        contour_above_line_colour       :      "black",
+        contour_above_highlight_colour  :      "black",
+        contour_below_line_colour       :      "black",
+        contour_below_highlight_colour  :      "black",
+        contour_line_thickness          :       1,
+        contour_label                   :       "on",
+        contour_label_type              :       "number",
+        contour_label_quality           :       "high",
+        contour_label_height            :       0.3,
+        contour_label_colour            :       "black",
+        contour_label_frequency         :       2,
+        contour_highlight               :       "off",
+        contour_hilo                    :       "off",
+        contour_highlight_thickness     :       1,
+        contour_highlight_colour        :       "black"
+      )
+

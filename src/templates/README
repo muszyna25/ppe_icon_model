@@ -1,0 +1,12 @@
+Templates for ICON Fortran codes
+--------------------------------
+- 'template_main.f90' is the base template for main programs.
+
+- 'template_mo_module.f90' is the template for all new Fortran codes,
+   which are not main programs. The module files are named mo_<name>.f90.
+
+- If a module contains subroutines or functions, then these must be based 
+  on 'template_subroutine.f90' or 'template_function.f90, respectively.
+
+- Please note that "!>" and "!<" are part of Doxygen's syntax,
+  and _not_ part of the <placeholder convention> used in templates.

@@ -1,0 +1,54 @@
+#! /bin/sh
+
+
+ls cells*.gmt > fig_list
+nfig=0
+
+for figure in `cat fig_list` ; do
+nfig=$(($nfig+1))
+done
+
+for plot in 1 2 3 ; do
+ifig=0
+for figure in `cat fig_list` ; do
+ifig=$(($ifig+1))
+
+if [ $ifig == 1 ] ; then
+colors='-W2/100/0/100'
+elif [ $ifig == 2 ] ; then
+colors='-W2/0/255/255'
+elif [ $ifig == 3 ] ; then
+colors='-W2/0/255/0'
+elif [ $ifig == 4 ] ; then
+colors='-W2/0/0/255'
+elif [ $ifig == 5 ] ; then
+colors='-W2/255/0/90'
+elif [ $ifig == 6 ] ; then
+colors='-W2/100/200/100'
+fi
+
+if [ $ifig == $nfig  ] ; then
+args='-M -L -O'
+else
+args='-M -L -O -K'
+fi
+
+if [ $plot == 1 -a $ifig == 1 ] ; then
+pscoast  -R-180/180/-90/90  -JA80/30/18.5  -W0.25p   -G200 -P  -K   > fig$plot.ps
+args2='-R-180/180/-90/90  -JA80/30/18.5  -P'
+elif [ $plot == 2  -a $ifig == 1 ] ; then
+pscoast  -R-180/180/-90/90  -JA-80/30/18.5  -W0.25p   -G200 -P  -K   > fig$plot.ps
+args2='-R-180/180/-90/90  -JA-80/30/18.5  -P'
+elif [ $plot == 3  -a $ifig == 1 ] ; then
+pscoast   -Rg -Jq0/1:150000000   -Dc -W0.05p  -G200 -K > fig$plot.ps
+args2='-Rg  -Jq0/1:150000000'
+fi
+
+if [ $ifig -gt 1 -o $plot -ne 3 ] ; then
+psxy $figure $args2 $colors $args >> fig$plot.ps
+fi
+
+done
+done
+
+

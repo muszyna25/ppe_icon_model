@@ -1,0 +1,386 @@
+# #!/bin/ksh
+# Linux
+#-----------------------------------------------------------------------------
+#
+# Comments:
+#
+# 2010-02-09, Marco Giorgetta, MPI-M
+#
+# Current setup for gcc-4.3.4
+#
+# . language options to be used:
+#   -xf95-cpp-input
+#   -std=f2003
+#   -fmodule-private -fimplicit-none
+#   -ffree-line-length-99 -fmax-identifier-length=31
+#
+# . warning options:
+#   -Wall (= -Waliasing -Wampersand -Wsurprising -Wnonstd-intrinsics -Wno-tabs -Wline-truncation)
+#   -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter
+#
+# . debugging:
+#   -fbacktrace
+#   (do not use -fomit-frame-pointer, it disables stack unwind and traceback cannot be generated)
+#
+# . checks and initializers
+#   -finit-real=nan
+#   (other potential initializers: -finit-integer=, -finit-logical=)
+#
+#-----------------------------------------------------------------------------
+
+#
+# 2010-02-09, Luis Kornblueh,  MPI-M: clean-up
+# 2010-02-17, Marco Giorgetta, MPI-M: gcc: activate -ffree-line-length-99
+# 2010-02-17, Marco Giorgetta, MPI-M: activate -fmodule-private
+# 2010-02-17, Marco Giorgetta, MPI-M: activate -fimplicit-none
+#
+#-----------------------------------------------------------------------------
+
+#===============================================
+# some common settings
+
+LAPACKROOT  =
+LAPACK_LIB  =
+
+LIBS        = -L../lib -lsupport
+
+load_modules=""
+
+#===============================================
+
+#===============================================
+#
+# Define compiler settings
+#
+
+
+#-----------------------------------------------------------------------------
+# cc is the gcc
+CC     = gcc
+CFLAGS = -std=c99 -march=native -O2 -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE
+
+case "$fortran_compiler" in
+    default|gcc)
+        config_compiler=gcc
+        CFLAGS      = "$CFLAGS" -DpgiFortran
+        FCPP        = -xf95-cpp-input
+        FLANG       = -std=f2003 -fmodule-private -fimplicit-none -fmax-identifier-length=31 -ffree-line-length-99
+        FWARN       = -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter
+        FDEBUG      = -g -fbacktrace -fbounds-check
+        FCHECK      = -finit-real=nan -finit-integer=-2147483648 -finit-character=127
+        FOPTIONS    = "$FCPP" "$FLANG" "$FWARN" "$FDEBUG" "$FCHECK"
+        FOTPTIM     = -march=native -O1 -ffast-math -D__LOOP_EXCHANGE
+        FC          = gfortran
+        FFLAGS      = "$FOTPTIM" "$FCPP" "$FLANG" "$FWARN" "$FDEBUG"
+        F77         = gfortran
+        F77FLAGS    = -march=native -O1 -ffast-math
+        LDFLAGS     = "$FOTPTIM" "$FDEBUG"
+        OMPFLAG     = -fopenmp
+        DEFOPT      = -D
+        DEFCOPT     = -D
+        MODOPT      = -I
+        MODDIR      = -J
+	;;
+    nag)
+        config_compiler=nag
+        CFLAGS      = "$CFLAGS" -DNAGf90Fortran
+        FC          = nagfor
+        GEN_FLAGS   = -float-store -colour -nan -maxcontin=99 -fpp
+        FDEBUG      =  -gline -g -C=all -mtrace=all
+        FDEBUG      =  -gline -g -C=all 
+	MISMATCHS   = -wmismatch=mpi_send,mpi_isend,mpi_recv,mpi_irecv,mpi_bcast,mpi_allreduce,nf_put_att_double,nf_def_var,nf_get_att_int,nf_put_att_int -w=uep
+        FFLAGS      = "$GEN_FLAGS" -f2003 "$FDEBUG" "$MISMATCHS" 
+        F77         = nagfor
+        F77FLAGS    = "$GEN_FLAGS" "$FDEBUG" -w=obs -O -dcfuns -mismatch_all
+        OMPFLAG     = 
+        DEFOPT      = -D
+        DEFCOPT     = -D
+        MODOPT      = -I
+        MODDIR      = -mdir 
+        ;;
+    pgi)
+        config_compiler=pgi
+        CFLAGS      = "$CFLAGS" -DpgiFortran
+        FC          = pgf95
+        GEN_FLAGS   = -C -gopt
+        FDEBUG      = -g -C -Mbounds -Mchkptr -Mchkstk  -Mdclchk
+        FFLAGS      = -O "$GEN_FLAGS" "$FDEBUG" -Mpreprocess -Mrecursive -Mstandard  -D__LOOP_EXCHANGE
+        F77         = "$FC"
+        F77FLAGS    = "$FFLAGS"
+        OMPFLAG     = -mp
+        DEFOPT      = -D
+        DEFCOPT     = -D
+        MODOPT      = -I
+        MODDIR      = -module 
+        ;;
+    intel)
+        config_compiler=intel
+        CFLAGS      = "$CFLAGS" -DpgiFortran
+        FC          = ifort
+        FDEBUG      = -check bounds -check pointers -check uninit -debug -g
+        FFLAGS      = "$FDEBUG" -O2 -msse2 -fltconsistency -fpe0 -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
+        F77         = "$FC"
+        F77FLAGS    = "$FFLAGS"
+        OMPFLAG     = -openmp
+        DEFOPT      = -D
+        DEFCOPT     = -D
+        MODOPT      = -I
+        MODDIR      = -module 
+        ;;
+    sun|sun-noomp)
+        config_compiler=sun
+        CC          = suncc
+        CFLAGS      = -DsunFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -C
+        FC          = sunf95
+        F77         = sunf95
+        FFLAGS      = -O3 -fpp -fstore -fnonstd  -C -g -u -xcommonchk -DUSE_CRAY_POINTER=0 -D__LOOP_EXCHANGE
+        F77FLAGS    = -O3 -fpp -fstore -fnonstd
+	OMPFLAG     = -xopenmp
+        DEFOPT      = -D
+        DEFCOPT     = -D
+        MODOPT      = -M
+        MODDIR      = -moddir=
+	LAPACKROOT  = /opt/sun/sunstudio12
+	LAPACK_LIB  = -lsunperf
+        ;;
+    sun-debug)
+        config_compiler=sun_debug
+        CC          = gcc
+        CFLAGS      = -O -DsunFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE
+        FC          = sunf95
+        F77         = sunf95
+        FFLAGS      = -O0 -fpp -fstore -fnonstd -g -C -DNOMPI -XList  -D__BOUNDCHECK -DUSE_CRAY_POINTER=0
+        F77FLAGS    = -O0 -fpp -fstore -fnonstd -g -C -DNOMPI
+	OMPFLAG     =
+        DEFOPT      = -D
+        DEFCOPT     = -D
+        MODOPT      = -M
+        MODDIR      = -moddir=
+	LAPACKROOT  = /opt/sun/sunstudio12
+	LAPACK_LIB  = -lsunperf
+        ;;
+esac
+#===============================================
+
+
+#####################################
+#
+# Define site dependent library paths
+#
+
+case "$ac_sitename" in
+
+#===============================================
+    cscs.ch)
+        case "$host" in
+            x86_64-*-linux-*)         #                 
+                config_target=palu
+                make_command="make" "-j" "8"
+#                use_shell="/bin/sh"
+                load_profile="." "/opt/modules/default/etc/modules.sh"
+                submit="qsub"
+                CC = cc
+                FC = ftn
+                F77= ftn
+                
+                case "$fortran_compiler" in
+                    default|gcc)
+                      load_modules="PrgEnv-gnu" "netcdf" "${load_modules}"
+                      NETCDFROOT = /opt/cray/netcdf/4.1.1.0/netcdf-gnu
+                    ;;
+                esac
+        esac
+        ;;
+#===============================================
+
+
+#===============================================
+    dkrz.de)
+        case "$ac_hostname" in 
+            #-------------------------------------------------------------------
+            tornado*)         # tornado
+                config_target=tornado
+                make_command="make" "-j" "8"
+                load_modules="ncl/5.2.1-gccsys" "${load_modules}"
+                load_profile="." "/client/etc/profile.zmaw"
+                submit="qsub"
+                NETCDFROOT  = /sw/sles10-x64/netcdf-4.0.1-without-hdf5
+                
+                case "$fortran_compiler" in
+                    default|gcc)
+                        IB_LIBS    = -lrdmacm -libverbs -lnuma -ldl -Wl,--export-dynamic -lnsl -lutil -lm -ldl
+                        MPIROOT    = /sw/sles10-x64/ofed/openmpi-1.4.0-gcc43
+                        MPI_LIB    = -WL,-pthread -lmpi_f90 -lmpi_f77 -lmpi -lopen-rte -lopen-pal "$IB_LIBS"
+                        load_modules="GCC/4.3.3" "${load_modules}"
+                        ;;
+                    nag)
+                        IB_LIBS    = -lrdmacm -libverbs -lnuma -ldl -Wl,--export-dynamic -lnsl -lutil -lm -ldl
+                        MPIROOT    = /sw/sles10-x64/ofed/openmpi-1.4.0-nag52
+                        MPI_LIB    = -Wl,-pthread -lmpi_f90 -lmpi_f77 -lmpi -lopen-rte -lopen-pal "$IB_LIBS"
+                        load_modules="NAG/5.2.668" "${load_modules}"
+                        ;;
+                    pgi)
+                        IB_LIBS    = -lrdmacm -libverbs -lnuma -ldl -Wl,--export-dynamic -lnsl -lutil -lm -ldl
+                        MPIROOT    = /sw/sles10-x64/ofed/openmpi-1.4.0-pgi9
+                        MPI_LIB    = -lmpi_f90 -lmpi_f77 -lmpi -lopen-rte -lopen-pal "$IB_LIBS" 
+                        load_modules="PGI/11.0" "${load_modules}"
+                        ;;
+                    intel)
+                        IB_LIBS    = -lrdmacm -libverbs -lnuma -ldl -Wl,--export-dynamic -lnsl -lutil -lm -ldl
+                        MPIROOT    = /sw/sles10-x64/ofed/openmpi-1.4.2-intel11n
+                        MPI_LIB    = -Bstatic -lmpi_f90 -lmpi_f77 -lmpi -lopen-rte -lopen-pal -Bdynamic "$IB_LIBS" 
+                        load_modules="jdk" "INTEL/11.1.072" "${load_modules}"
+                        ;;
+                    sun)
+                        IB_LIBS    = -lrdmacm -libverbs -lnuma -ldl -Qoption ld --export-dynamic -lnsl -lutil -lm -ldl
+                        MPIROOT    = /sw/sles10-x64/ofed/openmpi-1.3.3-sun12
+                        MPI_LIB    = -lmpi_f90 -lmpi_f77 -lmpi -lopen-rte -lopen-pal "$IB_LIBS" 
+                        load_modules="SUN/Studio12.1-3" "${load_modules}"
+                        ;;
+                esac
+                #-------------------------------------------------------------------
+                ;;
+        esac
+        ;;
+#===============================================
+    
+
+#===============================================
+    dwd.de)
+        case "$(hostname)" in
+            oflws*)             # Linux workstations with gfortran
+                NETCDFROOT  = /usr
+                NETCDFLIBPATH = /usr/lib64
+                IB_LIBS    = -ldl -Wl,--export-dynamic -lutil -lm -ldl
+# Temporary solution for missing OpenMPI:
+                MPIROOT    = /uwork1/hanlauf/opt/gfortran45/openmpi-1.4
+                MPI_LIB    = -WL,-pthread -lmpi_f90 -lmpi_f77 -lmpi -lopen-rte -lopen-pal "$IB_LIBS" -Wl,-R\$(MPIROOT)/lib
+                config_target=oflws
+                make_command="make" "-j8"
+                submit="qsub"
+                ;;
+            *)                  # hpc
+                NETCDFROOT  = /usr/local/pkg
+                config_target=hpc
+                make_command="make"
+                submit="qsub"
+                ;;
+        esac
+        ;;
+#===============================================
+
+
+#===============================================
+    zmaw.de)
+	case "$host" in
+	    i686-*-linux-*)           # 32 bit MPI/ZMAW workstation
+		config_target=mpipc
+		load_modules="ncl/5.2.0-bin" "${load_modules}"
+		load_profile="." "/client/etc/profile.zmaw"
+		submit=""
+		make_command="make" "-j" "2"
+		NETCDFROOT  = /sw/etch-ia32/netcdf-3.6.3
+		
+		case "$fortran_compiler" in
+		    default|gcc)
+			MPIROOT  = /sw/etch-ia32/mpich2-1.2.1-gcc43
+			MPI_LIB  = -lmpichf90 -lmpich -lpthread -lrt
+			load_modules="GCC/4.3.3" "${load_modules}"
+			;;
+		    nag)
+			MPIROOT  = /sw/etch-ia32/mpich2-1.2.1-nag52
+			MPI_LIB  = -lmpichf90 -lmpich -lpthread -lrt
+			load_modules="GCC/4.3.3" "NAG/5.2.668" "${load_modules}"
+			;;
+		    pgi)
+			MPIROOT  = /sw/etch-ia32/mpich2-1.2.1-pgi9
+			MPI_LIB  = -lmpichf90 -lmpich -lpthread -lrt
+			load_modules="GCC/4.3.3" "PGI/9.0-4" "${load_modules}"
+			;;
+		    intel)
+			MPIROOT  = /sw/etch-ia32/mpich2-1.2.1-intel11
+			MPI_LIB  = -lmpichf90 -lmpich -lpthread -lrt
+			load_modules="GCC/4.3.3" "jdk" "Intel/11.1.072" "${load_modules}"
+			;;
+		    sun)
+			echo
+			echo
+			echo SunStudio12 update 1 patch level 3 is not supported with DEBIAN etch
+			echo
+			exit
+                      #
+			;;
+		esac
+		;;
+               #-------------------------------------
+	    x86_64-*-linux-*)        # 64 bit lenny MPI/ZMAW workstation
+		HDF5ROOT = /sw/lenny-x64/hdf5-1.8.5-p1-static
+		SZIPROOT = /sw/lenny-x64/szip-2.1-static
+		ZLIBROOT = /usr
+		load_modules = "ncl/5.2.1-bin" "${load_modules}"
+		load_profile = "." "/client/etc/profile.zmaw"
+		case "$(hostname)" in
+		    squall?)
+			config_target=squall
+			make_command="make" "-j" "8"
+			submit="qsub"
+			;;
+		    *)
+			config_target=mpipc
+			make_command="make" "-j" "2"
+			submit=""
+			;;
+		esac
+		
+		case "$fortran_compiler" in
+		    default|gcc)
+			NETCDFROOT         = /sw/lenny-x64/netcdf-4.1.1-static-gcc45
+			MPIROOT            = /sw/lenny-x64/mpi/mpich2-1.3.1-static-gcc45
+			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
+			load_mpi_modules   = "gcc/4.5.2" "mpich2/1.3.1-static-gcc45" 
+			load_nompi_modules = "gcc/4.5.2" 
+			;;
+		    nag)
+			NETCDFROOT         = /sw/lenny-x64/netcdf-4.1.1-static-nag52
+			MPIROOT            = /sw/lenny-x64/mpi/mpich2-1.3.1-static-nag52
+			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
+			load_mpi_modules   = "mpich2/1.2.1p1-static-nag52"
+			load_modules       = "nag/5.2.747" "${load_modules}"
+			;;
+		    pgi)
+			NETCDFROOT         = /sw/lenny-x64/netcdf-4.1.1-static-pgi11
+			MPIROOT            = /sw/lenny-x64/mpi/mpich2-1.3.1-static-pgi11
+			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
+			load_mpi_modules   = "mpich2/1.3.1-static-pgi11"
+			load_modules       = "pgi/11.1" "${load_modules}"
+			;;
+		    intel)
+			NETCDFROOT         = /sw/lenny-x64/netcdf-4.1.1-static-intel12
+			MPIROOT            = /sw/lenny-x64/mpi/mpich2-1.3.1-static-intel12
+			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
+			load_mpi_modules   = "mpich2/1.3.1-static-intel12"
+			load_modules       = "intel/12.0.084" "${load_modules}"
+			;;
+		    sun)
+			NETCDFROOT         = /sw/lenny-x64/netcdf-4.1.1-static-sun12
+			MPIROOT            = /sw/lenny-x64/mpi/mpich2-1.3.1-static-sun12
+			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
+			load_mpi_modules   = "mpich2/1.3.1-static-sun12"
+			load_modules       = "sun/12.2" "${load_modules}"
+			;;
+		esac
+		;;
+	    *)  # unknown ...
+		echo
+		echo
+		echo Unknown Linux system type - currently not supported ...
+		echo
+		exit
+		;;        
+	esac
+	;;
+        #-------------------------------------------------------------------
+esac
+#===============================================
+
+

@@ -1,0 +1,625 @@
+#!/bin/ksh
+#==============================================================================
+#
+# Sets the parameters for various machine use_compiler configurations
+# and creates the run script headers for these configurations
+#
+# Leonidas Linardakis, MPI-M, 2010-11-24
+#
+# Based on previous scripts by Marco Giorgetta and Hermann Asensio
+#
+#==============================================================================
+
+
+set_default_shell()
+{
+  if [[ "x$use_shell" == "x" ]]; then
+    use_shell=$1
+  fi 
+}
+
+set_default_nproma()
+{
+  if [[ "x$use_nproma" == "x" ]]; then
+    use_nproma=$1
+  fi 
+}
+
+set_default_nodes()
+{
+  if [[ "x$use_nodes" == "x" ]]; then
+    use_nodes=$1
+  fi 
+}
+
+set_default_mpi_procs()
+{
+  if [[ "x$use_mpi_procs" == "x" ]]; then
+    use_mpi_procs=$1
+  fi 
+}
+
+set_default_openmp_threads()
+{
+  if [[ "x$use_openmp_threads" == "x" ]]; then
+    use_openmp_threads=$1
+  fi 
+}
+
+
+start_header()
+{
+no_of_nodes=$use_nodes
+mpi_procs=$use_mpi_procs
+if [[ "$use_mpi" == "no" ]]; then
+  start=""
+else
+  start="$use_mpi_startrun"
+fi
+
+cat >> $output_script << EOF
+#=============================================================================
+#
+# ICON run script. Created by $scriptname
+# target machine is $use_target
+# target use_compiler is $use_compiler
+# with mpi=$use_mpi
+# with openmp=$use_openmp
+# submit with $use_submit
+#
+#=============================================================================
+set -x
+#-----------------------------------------------------------------------------
+check_error()
+{
+    # Check if the first parameter (return status) is not OK
+    # Arguments:
+    #   \$1 = error status: 0 = OK, not 0 = ERROR
+    #   \$2 = error message
+
+    if [ "\${STATUS_FILE}" == "" ]
+    then
+      STATUS_FILE=\${basedir}/.status.file
+    fi
+    
+    echo "\$1" > \${STATUS_FILE}
+
+    if [ \$1 != 0 ] 
+    then
+        echo "check_error()"
+        echo "   ERROR : \$2"
+        exit \$1
+    fi
+
+}
+#-----------------------------------------------------------------------------
+# target parameters
+# ----------------------------
+site="$use_site"
+target="$use_target"
+compiler="$use_compiler"
+loadmodule="$use_load_modules"
+# ----------------------------
+NPROMA=$use_nproma
+#-----------------------------------------------------------------------------
+# MPI variables
+# ----------------------------
+mpi_root=$use_mpi_root
+no_of_nodes=$no_of_nodes
+mpi_procs=$mpi_procs
+start="$start"
+START="\$start"
+# ----------------------------
+# openmp environment variables
+# ----------------------------
+export OMP_NUM_THREADS=${use_openmp_threads}
+export OMP_SCHEDULE="static"
+export OMP_DYNAMIC="false"
+export OMP_STACKSIZE=50M
+export ICON_THREADS=${use_openmp_threads}
+#-----------------------------------------------------------------------------
+# absolute paths of directories
+calldir=\$(pwd)
+# cd \$(dirname \$0)
+thisdir=\$(pwd)
+basedir=\${thisdir%/*}                   # determine base directory
+bindir="\${basedir}/$use_builddir/bin"   # binaries
+BUILDDIR=$use_builddir
+export ICON_BASE_PATH=\$basedir
+#-----------------------------------------------------------------------------
+# load ../setting if exists  
+if [ -a ../setting ]
+then
+  echo "Load Setting"
+  . ../setting
+fi
+#-----------------------------------------------------------------------------
+EOF
+
+
+if [[ "x$use_load_profile" != "x" ]]; then
+cat >> $output_script << EOF
+#=============================================================================
+# load profile
+$use_load_profile
+#=============================================================================
+EOF
+fi
+
+
+if [[ "x$use_load_modules" != "x" ]]; then
+cat >> $output_script << EOF
+#=============================================================================
+# load modules
+module purge
+module load "\$loadmodule"
+module list
+#=============================================================================
+EOF
+fi
+
+
+if [[ "x$use_netcdflibpath" != "x" ]]; then
+cat >> $output_script << EOF
+#=============================================================================
+export LD_LIBRARY_PATH=$use_netcdflibpath:\$LD_LIBRARY_PATH
+#=============================================================================
+EOF
+fi
+
+
+#for i in {1..$no_of_free_variables}
+#for (( i=1; i<=${no_of_free_variables}; i++ ))
+i=1;while [ $i -le ${no_of_free_variables} ]
+do
+ echo "${free_variable[$i]}=${free_variable_value[$i]}" >> $output_script
+ i=$((i+1));
+done
+
+cat >> $output_script << EOF
+#=============================================================================
+EOF
+
+
+}
+
+
+#=============================================================================
+set_run_target_blizzard()
+{
+
+  set_default_nproma 32
+  set_default_nodes 1
+  
+  if [[ $use_mpi == "yes" ]]; then
+    if [[ $use_openmp == "yes" ]]; then
+      set_default_mpi_procs 16
+      set_default_openmp_threads 4
+    else
+      set_default_mpi_procs 64
+    fi
+  else
+    if [[ $use_openmp == "yes" ]]; then
+      set_default_openmp_threads 64
+    fi
+  fi
+  
+  # create header
+  start_header
+  if [[ "$use_mpi" == "no"  ]] ; then
+    job_type=serial
+    node_usage=shared
+    networkMPI=""
+    rset=""
+    mcm_affinity_options=""
+    node=""
+    tasks_per_node=""     
+    use_resources="$use_resources ConsumableMemory(12000mb)"
+ else
+    job_type=parallel
+    node_usage=not_shared
+    networkMPI="network.MPI  = sn_all,not_shared,us"
+    rset="rset         = rset_mcm_affinity"
+    mcm_affinity_options="mcm_affinity_options = mcm_accumulate"
+    node="node             = $use_nodes"
+    tasks_per_node="tasks_per_node   = $use_mpi_procs"
+    if [[ $use_openmp == "yes" ]]; then
+      use_resources="$use_resources ConsumableMemory(6000mb)"
+    else
+       use_resources="$use_resources ConsumableMemory(1500mb)"
+    fi
+  fi
+  if [[ "$use_nodes" -eq 1 ]] && [[ "$use_mpi_procs" -eq 1 ]] ; then
+    use_node_usage="shared"
+  fi
+  if [[ "$use_node_usage" == "shared" ]] ; then
+    node_usage=shared
+    networkMPI=""
+    rset=""
+    mcm_affinity_options=""
+  fi    
+
+  if [[ "x$use_cpu_time" != "x" ]] ; then
+    wall_clock_limit="wall_clock_limit = $use_cpu_time"
+  else
+    wall_clock_limit=""
+  fi
+  if [[ "x$use_resources" != "x" ]] ; then
+    resources="resources        = $use_resources"
+  else
+    resources=""
+  fi
+  if [[ "x$use_account_no" != "x" ]] ; then
+    account="account_no      = $use_account_no"
+  else
+    account=""
+  fi
+
+# smt mode
+#   task_affinity="cpu($use_openmp_threads)"
+# st mode
+#   task_affinity="core($use_openmp_threads)"
+
+  cat >> $output_script << EOF
+# =====================================
+# blizzard.dkrz.de batch job parameters
+# --------------------------------
+# @ shell        = /client/bin/ksh
+# @ job_type     = $job_type
+# @ node_usage   = $node_usage
+# @ $networkMPI
+# @ $rset 
+# @ $mcm_affinity_options
+# @ $node
+# @ $tasks_per_node
+# @ task_affinity    = cpu($use_openmp_threads)
+# @ parallel_threads = $use_openmp_threads
+# @ $resources
+# @ $wall_clock_limit
+# @ job_name     = $job_name
+# @ output       = LOG.\$(job_name).o\$(jobid)
+# @ error        = LOG.\$(job_name).o\$(jobid)
+# @ notification = error
+# @ $account
+# @ queue
+export MEMORY_AFFINITY=MCM
+export MP_PRINTENV=YES
+export MP_LABELIO=YES
+export MP_INFOLEVEL=2
+export MP_EAGER_LIMIT=64k
+export MP_BUFFER_MEM=64M,256M
+export MP_USE_BULK_XFER=NO
+export MP_BULK_MIN_MSG_SIZE=128k
+export MP_RFIFO_SIZE=4M
+export MP_SHM_ATTACH_THRESH=500000
+export LAPI_DEBUG_STRIPE_SEND_FLIP=8
+#========================================
+EOF
+}
+
+
+#=============================================================================
+set_run_target_mpipc()
+{
+
+  set_default_nproma 64
+  use_nodes=1
+
+  if [[ $use_mpi == "yes" ]]; then
+    set_default_mpi_procs 2
+  fi
+  if [[ $use_openmp == "yes" ]]; then
+    set_default_openmp_threads 2
+  else
+    set_default_openmp_threads 1
+  fi
+
+
+  # create header
+  start_header
+
+cat >> $output_script << EOF
+#----------------------------------
+ulimit -s unlimited
+#----------------------------------
+EOF
+  
+  if [[ "$use_mpi" == "yes" ]] ; then
+    cat >> $output_script << EOF
+#----------------------------------
+# start mpd (MPI deamon for MPICH2)
+export MPD_CON_EXT=job_\$\$
+\${mpi_root}/bin/mpd &
+sleep 2
+mpdid=\$(\${mpi_root}/bin/mpdtrace -l | awk '{print \$1}')
+echo "mpd started as \$mpdid"
+#-----------------------------------
+EOF
+  fi
+}
+
+    
+#=============================================================================
+set_run_target_squall()
+{
+  set_default_nproma 8
+  set_default_nodes 1
+  
+  if [[ $use_openmp == "yes" ]]; then
+    echo "Error: Squall is not set-up for OPENMP"
+    exit 1
+  fi
+  set_default_openmp_threads 1
+
+  if [[ $use_mpi == "yes" ]]; then
+    set_default_mpi_procs 8
+  fi
+
+# create header
+  start_header
+
+  cat >> $output_script << EOF
+# ===================================
+# squall.zmaw.de batch job parameters
+# --------------------
+#$ -S /bin/bash
+#$ -o LOG.$job_name.\$JOB_ID.o
+#$ -j y
+#$ -cwd
+#$ -pe linux64 $use_mpi_procs
+#$ -q squall,squall-bigmem
+#$ -v MPIROOT=$use_mpi_root
+#-------------------------------------------
+export MPD_CON_EXT=job_\$\$
+# start mpd (MPI deamon for MPICH2)
+$use_mpi_root/bin/mpd &
+sleep 2
+mpdid=\$($use_mpi_root/bin/mpdtrace -l | awk '{print \$1}')
+echo "mpd started as \$mpdid"
+#======================================
+EOF
+}
+
+
+#=============================================================================
+set_run_target_tornado()
+{  
+  set_default_nproma 8
+  set_default_nodes 1
+   
+  if [[ $use_openmp == "yes" ]]; then
+    use_mpi="no"
+    set_default_openmp_threads 16
+    queue="-q smp"
+    resources=" -pe smp 16"
+  elif [[ $use_mpi == "yes" ]]; then
+    set_default_mpi_procs 8
+    if [[ "$use_mpi_procs" == "1" ]] ; then
+      queue="-q serial"
+      resources=""    
+    else
+      queue="-q cluster"
+      resources="-pe orte8 ${use_mpi_procs}"
+    fi
+  else
+    queue="-q serial"
+    resources=""      
+  fi
+
+  # create header
+  start_header
+  s_cpu_time=""
+  if [[ "x$use_cpu_time" != "x" ]] ; then
+     s_cpu_time="-l s_cpu=$use_cpu_time"
+  fi
+#-----------------------------------------------------------------------------
+# >> #$ -S /bin/bash
+# >> #$ -l s_cpu=2:00:00
+# >> #$ -l s_vmem=1024M
+# >> #$ -j y
+# >> #$ -cwd
+# >> #$ -N smp_job
+# >> #$ -M <your email>
+# >> #$ -pe smp 16
+# >> #-----------------------------------------------------------------------------
+  cat >> $output_script << EOF
+# ===========================
+# tornado.dkrz.de batch job parameters
+# ---------------------------
+#$ -S /bin/bash
+#$ -o LOG.$job_name.\$JOB_ID.o
+#$ -N $job_name
+#$ $s_cpu_time
+#$ $resources
+#$ -j y
+#$ -cwd
+#$ $queue
+# ==========================
+EOF
+}
+
+
+#=============================================================================
+set_run_target_mpimac()
+{
+  
+  set_default_nproma 48
+  
+  if [[ "$use_mpi" == "yes" ]]; then
+    set_default_mpi_procs 2
+  fi
+  if [[ "$use_openmp" == "yes" ]]; then
+    set_default_openmp_threads 2
+  fi
+
+  # create header
+  start_header
+}
+
+
+#=============================================================================
+set_run_target_oflws()
+{
+  set_default_nproma 64
+
+  if [[ "$use_mpi" == "yes" ]]; then
+    set_default_mpi_procs 4
+  fi
+  if [[ "$use_openmp" == "yes" ]]; then
+    set_default_openmp_threads 2
+  fi
+
+  # create header
+  start_header
+}
+
+
+#=============================================================================
+set_run_target_hpc()
+{
+  set_default_nproma 64
+  set_default_nodes 1
+  set_default_mpi_procs 1
+  set_default_openmp_threads 1
+    
+  cat >> $output_script << EOF
+# ===========================
+# hpc@DWD batch job parameters
+#-----------------------------------------------------------------------------
+#PBS -q lang
+#PBS -j oe
+#PBS -l select=$use_nodes:ncpus=$use_mpi_procs
+#PBS -m n
+# ===========================
+#-----------------------------------------------------------------------------
+# for PBS change to directory where job was submitted
+# (without this job is started in HOME)
+if [[ -n \${PBS_O_WORKDIR} ]] ; then
+  cd \${PBS_O_WORKDIR}
+fi
+export F_PROGINF=DETAIL
+#-----------------------------------------------------------------------------
+EOF
+  
+  # create header
+  start_header
+
+}
+
+
+#=============================================================================
+set_run_target_sx9()
+{
+ 
+  set_default_nproma 1024
+
+
+  if [[ $use_mpi == "yes" ]]; then
+ 
+    mpimultitaskmix="ON"
+    set_default_nodes 4
+    set_default_mpi_procs 2    
+
+    if [[ $use_openmp == "yes" ]]; then
+      set_default_openmp_threads 4
+      cpunum_job=8                         
+    else
+      set_default_openmp_threads 1
+      cpunum_job=$use_mpi_procs
+    fi
+  else
+    set_default_nodes 1     
+    set_default_mpi_procs 1 
+    if [[ $use_openmp == "yes" ]]; then
+      set_default_openmp_threads 4
+      cpunum_job=$use_openmp_threads
+    else
+      cpunum_job=1
+    fi
+  fi
+
+
+   
+  cat >> $output_script << EOF
+# ================
+# nec at DWD
+# ================
+#PBS -q normal
+#PBS -j o
+#PBS -l  cpunum_job=$cpunum_job
+#PBS -b $use_nodes
+#PBS -T mpisx
+#PBS -l elapstim_req=86400
+#PBS -m n
+# ================
+#-----------------------------------------------------------------------------
+# for PBS change to directory where job was submitted
+# (without this job is started in HOME)
+if [[ -n \${PBS_O_WORKDIR} ]] ; then
+  cd \${PBS_O_WORKDIR}
+fi
+export F_PROGINF=DETAIL
+export OMP_NUM_THREADS=$use_openmp_threads
+export ICON_THREADS=$use_openmp_threads
+export OMP_SCHEDULE="static"
+export OMP_DYNAMIC="false"
+export MPIMULTITASKMIX=$mpimultitaskmix
+export NMPITASKS=$use_mpi_procs
+export NC_BLOCKSIZE=128mb
+export MPIPROGINF=yes
+export MPIPROGINF=ALL_DETAIL
+export MPIEXPORT="MPIPROGINF F_PROGINF NC_BLOCKSIZE MPIMULTITASKMIX OMP_NUM_THREADS ICON_THREADS OMP_SCHEDULE OMP_DYNAMIC"
+
+#-----------------------------------------------------------------------------
+EOF
+  
+  # create header
+  start_header
+
+}
+
+
+#=============================================================================
+set_run_target_default()
+{
+
+  set_default_nproma 8
+  set_default_nodes 1
+  set_default_mpi_procs 1
+  
+  if [[ $use_openmp == "yes" ]]; then
+    set_default_openmp_threads 2
+  fi
+
+  # create header
+  start_header
+}
+
+
+
+#=============================================================================
+create_target_header()
+{
+  exit_status=0 # exit status of database, 0=ok, 1=target not known
+
+  if [[ "$use_mpi" == "no" ]]; then
+    use_nodes=1
+    use_mpi_procs=1
+    use_mpi_procs=1
+  fi
+
+  if [[ "$use_openmp" == "no" ]]; then
+    use_openmp_threads=1
+  fi
+
+# set default values
+  set_default_shell "/bin/ksh"
+      
+cat > $output_script << EOF
+#!$use_shell
+#=============================================================================
+EOF
+  set_run_target_${use_target}
+
+}
+

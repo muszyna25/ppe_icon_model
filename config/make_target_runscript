@@ -1,0 +1,138 @@
+# #!/bin/ksh
+#==============================================================================
+#
+# This script makes the run scripts for the icon_testbed 
+#
+# Leonidas Linardakis, MPI-M, 2010-11-22
+#
+#==============================================================================
+scriptname=$0
+# echo "$scriptname: Start"
+
+IFS=" ="
+eval_argument ()
+{
+  case $1 in
+  "with_mpi" ) use_mpi=$2
+  ;;
+  "with_openmp" ) use_openmp=$2
+  ;;
+  "cpu_time" ) use_cpu_time=$2
+#     echo "use_cpu_time=$use_cpu_time"
+  ;;
+  "mpi_procs" ) use_mpi_procs=$2
+#     echo "use_mpi_procs=$use_mpi_procs"
+  ;;
+  "nproma" ) use_nproma=$2
+  ;;
+  "openmp_threads" ) use_openmp_threads=$2
+#     echo "use_openmp_threads=$use_openmp_threads"
+  ;;
+  "resources" ) use_resources=$2
+#     echo "use_resources=$resources"
+  ;;
+  "node_usage" ) use_node_usage=$2
+#     echo "use_node_usage=$use_node_usage"
+  ;;
+  "no_of_nodes" ) use_nodes=$2
+  ;;
+  "out_script" ) output_name=$2
+#     echo "output_name=$output_name"
+  ;;
+  "in_script" ) input_name=$2
+#     echo "input_name=$input_name"
+  ;;
+  "in_script_2" ) input_name_2=$2
+#     echo "input_name=$input_name"
+  ;;
+  "in_folder" ) input_folder=$2
+  ;;
+  "out_folder" ) output_folder=$2
+  ;;
+  "with_shell" ) use_shell=$2
+  ;;
+  *) let "no_of_free_variables=$no_of_free_variables+1"
+     free_variable[$no_of_free_variables]=$1
+     free_variable_value[$no_of_free_variables]=$2 
+#      echo "free_variable=${free_variable[$no_of_free_variables]} with value=${free_variable_value[$no_of_free_variables]}"
+#      exit -1 ;;
+  esac
+}
+
+call_folder=$(pwd)
+cd $(dirname $0)
+this_folder=$(pwd)
+base_folder=${this_folder%/*}
+
+
+. $base_folder/config/set-up.info
+
+. $base_folder/config/create_target_header
+
+
+let "no_of_free_variables=0"
+for arg
+do
+  eval_argument $arg
+done
+
+
+if [[ "x$input_name" == "x" ]] ; then
+  echo "Specify in_script=<name>.  Exit"
+  exit -1
+fi
+
+if [[ "x$output_name" == "x" ]] ; then
+  output_name=$input_name.run
+fi
+
+if [[ "x$input_folder" == "x" ]] ; then
+  input_folder=run
+fi
+
+if [[ "x$output_folder" == "x" ]] ; then
+  output_folder=$input_folder
+fi
+
+input_script=$base_folder/$input_folder/$input_name
+output_folder=$base_folder/$output_folder
+output_script=$output_folder/$output_name
+
+if [[ ! -f $input_script ]] ; then
+  echo "script $input_script not found"
+  exit 1
+fi
+
+if [[ ! -d $output_folder ]] ; then
+  mkdir $output_folder
+fi
+
+
+job_name=$output_name
+# echo job_name=$job_name
+create_target_header
+
+cat $input_script >> $output_script
+
+if [[ "x$input_name_2" != "x" ]] ; then
+  input_script_2=$base_folder/$input_folder/$input_name_2
+  if [[ ! -f $input_script_2 ]] ; then
+    echo "script $input_script_2 not found"
+    exit 1
+  fi
+  cat $input_script_2 >> $output_script  
+fi
+
+chmod +x $output_script
+if [[ "x$use_submit" == "x" ]] ; then
+  echo "$output_script is created."
+else
+  echo "$output_script is created. Submit is $use_submit."
+fi
+# echo "---------------------------"
+
+
+cd $call_folder
+exit
+#------------------------------------------------------------------------------
+

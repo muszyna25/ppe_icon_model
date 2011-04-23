@@ -1,0 +1,16 @@
+#include <stdlib.h>
+
+void util_exit(int exit_no)
+{
+  exit(exit_no);
+}
+
+void util_abort(void)
+{
+  exit(1);
+}
+
+int util_system(char *s)
+{
+  return(system(s));
+}

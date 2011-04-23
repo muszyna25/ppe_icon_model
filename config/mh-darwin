@@ -1,0 +1,81 @@
+# MACOSX
+#-----------------------------------------------------------------------------
+#
+# Comments:
+#
+# 2010-02-09, Marco Giorgetta, MPI-M
+#
+# Current setup for gcc-4.3.4
+# 
+# . language options to be used:
+#   -xf95-cpp-input
+#   -std=f2003
+#   -fmodule-private -fimplicit-none
+#   -ffree-line-length-99 -fmax-identifier-length=31
+# 
+# . warning options:
+#   -Wall (= -Waliasing -Wampersand -Wsurprising -Wnonstd-intrinsics -Wno-tabs -Wline-truncation)
+#   -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter
+#
+# . debugging:
+#   -fbacktrace
+#   (do not use -fomit-frame-pointer, it disables stack unwind and traceback cannot be generated)
+#
+# . checks and initializers
+#   -finit-real=nan
+#   (other potential initializers: -finit-integer=, -finit-logical=)
+#
+# 2010-02-09, Luis Kornblueh,  MPI-M: clean-up
+# 2010-02-17, Marco Giorgetta, MPI-M: activate -ffree-line-length-99
+# 2010-02-17, Marco Giorgetta, MPI-M: activate -fmodule-private
+# 2010-02-17, Marco Giorgetta, MPI-M: activate -fimplicit-none
+#
+#-----------------------------------------------------------------------------
+#
+# define site dependend library paths
+#
+
+config_target=mpimac
+config_compiler=gcc
+load_modules=""
+
+MPIROOT     = /opt/local
+MPI_LIB     = -lmpi_f90 -lmpi_f77 -lmpi -lopen-rte -lopen-pal -lutil
+
+ZLIBROOT    = /opt/local
+SZIPROOT    = /opt/local
+HDF5ROOT    = /opt/local
+NETCDFROOT  = /opt/local
+LAPACKROOT  =
+
+ZLIB_LIB    = -lz
+SZIP_LIB    = -lsz
+HDF5_LIB    = -lhdf5_hl -lhdf5
+NETCDF_LIB  = -lnetcdf
+LAPACK_LIB  =
+
+LIBS        = -L../lib -lsupport -lcurl
+
+FCPP        = -xf95-cpp-input
+FLANG       = -std=f2003 -fmodule-private -fimplicit-none -fmax-identifier-length=31 -ffree-line-length-99
+FWARN       = -Wall -Wcharacter-truncation -Wconversion -Wunderflow -Wunused-parameter
+FDEBUG      = -g -fbacktrace -fbounds-check
+FCHECK      = -finit-real=nan -finit-integer=-2147483648 -finit-character=127
+FOPTIONS    = "$FCPP" "$FLANG" "$FWARN" "$FDEBUG" "$FCHECK"
+CC          = gcc
+CFLAGS      = -march=native -O -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -std=gnu99 -g
+FC          = gfortran
+FFLAGS      = -march=native -O -ffast-math "$FOPTIONS"
+F77         = gfortran
+F77FLAGS    = -march=native -O -ffast-math
+OMPFLAG     = -fopenmp
+DEFOPT      = -D
+DEFCOPT     = -D
+MODOPT      = -I
+MODDIR      = -J
+
+make_command="make" "-j" "2"
+mpi_startrun="$MPIROOT/bin/openmpiexec" "-n" "\\\$mpi_procs"
+submit=""
+  
+

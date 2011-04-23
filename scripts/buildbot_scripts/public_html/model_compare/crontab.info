@@ -1,0 +1,1 @@
+30 * * * * /scratch/local1/m211098/master_ICON/public_html/model_compare/get_eps-files.ksh 2>&1 > /tmp/get_eps-files.out

@@ -1,0 +1,64 @@
+#! /bin/sh
+
+PROGRAM=`basename $0`
+BINDIR=`dirname $0`
+PERLFILE="$BINDIR/$PROGRAM.pl"
+
+FORCE=false
+REVERT=false
+OPTIONS=true
+PERLOPTIONS=''
+
+while $OPTIONS
+do
+case $1 in
+-f) FORCE=true
+    shift
+    ;;
+-r) REVERT=true
+    shift
+    ;;
+-a) PERLOPTIONS="$PERLOPTIONS -a"
+    shift
+    ;;
+*)  OPTIONS=false
+    ;;
+esac
+done
+        
+for FILE
+do
+    if $FORCE || $BINDIR/has_doxygen $FILE
+    then
+        echo "Hey: \`$FILE' seems to contain Doxygen comments, skipping" >&2
+	echo "Note: If this is an error, you may run $PROGRAM -f $FILE instead" >&2
+	continue
+    fi
+    ORIGFILE="$FILE.iconprotex"
+    if $REVERT
+    then
+    	if [ ! -e "$ORIGFILE" ]
+	then
+	    echo "Hey: \`$ORIGFILE' does not exist, skipping \`$FILE'" >&2
+	    continue
+	fi
+	if mv -f "$ORIGFILE" "$FILE"
+	then
+	    :
+        else
+	    echo "Sorry: cannot revert \`$FILE', skipping" >&2
+        fi
+    else
+        if [ -e "$ORIGFILE" ]
+        then
+	    echo "Oops: \`$ORIGFILE' already exists, skipping \`$FILE'" >&2
+	    continue
+        fi
+	if mv -f "$FILE" "$ORIGFILE" && perl -w "$PERLFILE"$PERLOPTIONS "$ORIGFILE" > "$FILE"
+	then
+	    :
+        else
+	    echo "Sorry: cannot process \`$FILE', skipping" >&2
+        fi
+    fi
+done

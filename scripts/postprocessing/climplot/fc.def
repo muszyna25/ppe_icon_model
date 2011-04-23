@@ -1,0 +1,346 @@
+# family fc
+#========================================================================
+#  Define aliases for general data handling
+#========================================================================
+
+set fetch_priority 40
+set store_priority 45
+
+set hour $INIHOUR
+if (hour lt 10) then  set hour 0$hour ; endif
+
+if(MAKE_IDATA)then
+  alias DATAOK defstatus queued
+else
+  alias DATAOK defstatus complete
+endif
+
+if( IFRF ) then
+  alias IFRFOK defstatus complete
+else
+  alias IFRFOK defstatus queued
+endif
+
+if( LSST && !IFRF )then
+  alias SSTOK defstatus queued
+else
+  alias SSTOK defstatus complete
+endif
+
+if( SCOR ) then
+  alias SCORESOK defstatus queued
+else
+  alias SCORESOK defstatus complete
+endif
+
+if( !COUPLED ) then
+  alias ASSIMOK defstatus queued
+else
+  alias ASSIMOK defstatus complete
+endif
+#========================================================================
+#  Define aliases for the initial data and archive tasks
+#========================================================================
+
+if(DO_ARCHIVE)then
+  alias ARCHOK defstatus queued
+  if(MAKE_IDATA)then
+    alias ARCHINI defstatus queued
+  else
+    alias ARCHINI defstatus complete
+  endif
+else
+  alias ARCHOK  defstatus complete
+  alias ARCHINI defstatus complete
+endif
+
+if(LRMLP)then
+  alias MLOK defstatus queued
+else
+  alias MLOK defstatus complete
+endif
+
+if(LRPLP)then
+  alias PLOK defstatus queued
+else
+  alias PLOK defstatus complete
+endif
+
+if(LRPTP)then
+  alias PTOK defstatus queued
+else
+  alias PTOK defstatus complete
+endif
+
+if(LRPVP)then
+  alias PVOK defstatus queued
+else
+  alias PVOK defstatus complete
+endif
+
+if(LRSUP)then
+  alias SFCOK defstatus queued
+else
+  alias SFCOK defstatus complete
+endif
+
+if(LRHLP)then
+  alias HLOK defstatus queued
+else
+  alias HLOK defstatus complete
+endif
+
+if(LMEAN)then
+  alias MEANOK defstatus queued
+else
+  alias MEANOK defstatus complete
+endif
+
+alias WAVEOK echo \> /dev/null
+if( !WAVE ) then alias WAVEOK defstatus complete ; endif
+
+alias BIASOK echo \> /dev/null
+if( !CYCBIAS ) then alias BIASOK defstatus complete ; endif
+
+alias MAOK echo \> /dev/null
+if( !LMA ) then alias MAOK defstatus complete ; endif
+
+set lhindcast `[ $HC_REFDATE -gt 0 ] && echo 1 || echo 0`
+if( lhindcast ) then
+  edit STREAM DAHC
+endif
+
+        extern /$OWNER/$EXPVER/an/lag:YMD
+        extern /$OWNER/$EXPVER/an/lag
+        extern /$OWNER/$EXPVER/an/lag/$hour
+        extern /$OWNER/$EXPVER/an/make/setup
+
+        alias PARALLEL  edit QUEUE $QUEUE
+        alias QDEFAULT  edit QUEUE $DEFQUEUE
+
+        limit SC 10
+
+        edit FSFAMILY gfc
+        edit HOUR     ""
+        edit NPROCA   $NPROCA
+        edit NPROCB   $NPROCB
+        edit PROFILE  $PROFILE
+
+        define joblimfc {
+          edit MEM $MEM_FC
+          edit MRF $MRF_FC
+          edit NPES $NPES_FC
+          edit THREADS $THREADS_FC
+          edit CPUTIME $CPUTIME_FC
+          edit STACK $STACK_FC
+        }
+
+	define joblimarch {
+	  edit SMSTRIES 1
+	  edit MEM_ARCH $MEM_ARCH
+	  edit CPUTIME_ARCH $CPUTIME_ARCH
+	}
+
+   onsc $LOGROOT
+
+   family make
+      edit YMD $INIBEGINDATE
+      edit HOUR $INIBEGINHOUR
+      trigger ../make == complete and \
+        (/$OWNER/$EXPVER/an/make/setup == complete or /$OWNER/$EXPVER/an/make/setup == unknown)
+      task setup  ; QDEFAULT
+      family bins
+        trigger ../../make/links==complete and ./setup==complete
+        task ifs ; ASSIMOK
+        task prepdata
+        task wamabs  ; QDEFAULT ; ASSIMOK ; WAVEOK
+        task ma_tools ; MAOK
+      endfamily
+
+      family const
+        task datalinks ; trigger ../setup == complete
+        task wconst ; trigger ../bins/wamabs==complete ; ASSIMOK ; WAVEOK
+        task stagesst ; trigger ../setup == complete and ../../inigroup1/getini == complete ; onws ; SSTOK
+        task getsst ; trigger stagesst == complete ; QNORM ; SSTOK
+      endfamily
+
+      task logfiles
+        onlog
+        trigger bins == complete and const == complete and setup == complete
+    endfamily
+
+    for set 1 $NLOOPS ; do  # set of various forecasts
+
+    family inigroup$set
+            define rcmd { repeat string YMD \$DATES$set }
+            rcmd
+            trigger (inigroup$set:YMD lt ( fcgroup$set:YMD + 1 )) and \
+                    ( (inigroup$set:YMD eq (/$OWNER/$EXPVER/an/lag:YMD + $SHIFTTRIGGER) and \
+                        (/$OWNER/$EXPVER/an/lag/$hour == complete) ) or \
+                      (inigroup$set:YMD lt (/$OWNER/$EXPVER/an/lag:YMD + $SHIFTTRIGGER)) or \
+                      /$OWNER/$EXPVER/an/lag == unknown or \
+                      /$OWNER/$EXPVER/an/lag == complete )
+
+            task getini ; trigger ../make/bins/prepdata==complete ; DATAOK ; QNORM
+              edit PRIORITY $fetch_priority
+            task inidata ; trigger ../make/bins/ifs==complete and getini==complete and \
+                           ../make/const/getsst == complete; DATAOK ; IFRFOK
+              interpol
+            task wavini ; trigger ../make/const/wconst==complete ; DATAOK ; QNORM ; IFRFOK
+	      if ( !WAVE ) then defstatus complete; endif
+              edit PRIORITY $fetch_priority
+              wavsc_ini
+            task wcold ; DATAOK ; PARALLEL ; WAVEOK
+	      if ( INIWAVE ) then defstatus complete; endif
+              wavsc
+              trigger inidata==complete and wavini==complete
+            task getfcdata ; trigger inidata == complete and getini == complete and \
+                                     wavini == complete and wcold == complete ; DATAOK ; QNORM ; IFRFOK
+          if (PERSST eq 1 ) then
+              task getpersSST ; trigger getfcdata==complete
+              edit THREADS 2
+              edit NPES 4
+              edit MEM $MEM_INI
+              edit CPUTIME $CPUTIME_INI
+          endif
+            task logfiles
+              onlog
+              trigger wcold == complete and \
+                      wavini == complete and inidata == complete and \
+                      getini == complete and getfcdata == complete
+    endfamily
+
+    family fcgroup$set
+            define rcmd { repeat string YMD \$DATES$set }
+            rcmd
+            trigger ( (( fcgroup$set:YMD le ( lag$set:YMD + 1 ) ) or \
+                       lag$set == complete ) and \
+                      (( inigroup$set:YMD gt fcgroup$set:YMD ) or \
+                       inigroup$set == complete ) )
+
+            task model ; PARALLEL
+              label info ""
+              joblimfc
+              edit FCLENGTH $FCLENGTH
+              meter step $BRF $FCLENGTH
+              trigger ../make == complete and ../../make == complete
+            task save
+              edit SMSTRIES 2
+              trigger model == complete
+            task logfiles
+              onlog
+              trigger save == complete and model == complete
+    endfamily
+
+    family lag$set
+      define rcmd { repeat string YMD \$DATES$set }
+      rcmd
+      if( IFRF ) then
+        trigger lag$set:YMD lt fcgroup$set:YMD
+      else
+        trigger lag$set:YMD lt fcgroup$set:YMD or \
+         ( fcgroup$set/model == complete and fcgroup$set:YMD eq lag$set:YMD )
+      endif
+      edit FCLENGTH $FCLENGTH
+      task check_periods ; MEANOK
+        onws
+      family mmeans
+        trigger check_periods == complete
+        inlimit SC
+        onws
+        set PLOTPERIODS 20
+        family climmeans ; MEANOK
+          define rcmd { repeat integer PLOTPERIOD 1 \$PLOTPERIODS }
+          rcmd
+          complete ( climmeans:PLOTPERIOD \> $PLOTPERIODS )
+          task mmeans_sfc
+            complete ( ../climmeans:PLOTPERIOD \> $PLOTPERIODS)
+          task mmeans_pl
+            complete ( ../climmeans:PLOTPERIOD \> $PLOTPERIODS )
+          task mmeans_ml
+            complete ( ../climmeans:PLOTPERIOD \> $PLOTPERIODS )
+        endfamily
+        family climplot ; MEANOK
+          define rcmd { repeat integer PLOTPERIOD 1 \$PLOTPERIODS }
+          rcmd
+          trigger ( climmeans == complete ) or \
+                  ( climplot:PLOTPERIOD lt climmeans:PLOTPERIOD ) or \
+                  ( climplot:PLOTPERIOD eq climmeans:PLOTPERIOD and \
+                    climmeans/mmeans_sfc == complete and \
+                    climmeans/mmeans_pl  == complete and \
+                    climmeans/mmeans_ml  == complete )
+          complete ( climplot:PLOTPERIOD \> $PLOTPERIODS )
+          task getmeans
+          task plot_2d
+            trigger getmeans==complete
+          task plot_wind
+            trigger getmeans==complete
+          task plot_z500
+            trigger getmeans==complete
+          task plot_zon
+            trigger getmeans==complete
+          family plot_obs
+            trigger getmeans==complete
+              task plot_obs_1
+              task plot_obs_2
+              task plot_obs_3
+              task plot_obs_4
+              task plot_obs_5
+              task plot_obs_6
+              task plot_obs_7
+              task plot_obs_8
+              task plot_obs_9
+              task plot_obs_10
+          endfamily
+          task plot_clean
+            trigger getmeans==complete  and plot_2d==complete  and plot_wind==complete and \
+                    plot_z500==complete and plot_zon==complete and plot_obs==complete
+        endfamily
+        task climplot_save ; MEANOK
+          trigger climplot == complete
+      endfamily
+
+      family verify
+        onws
+        task verify
+          if( !SCOR ) then defstatus complete; endif
+        task wamverify ; WAVEOK
+          if( !SCOR ) then defstatus complete; endif
+      endfamily        
+
+      family archive ; ARCHOK
+        joblimarch 
+        edit ARCHTYPE fc
+        edit PRIORITY $store_priority
+	 task ml ; event fdb ; MLOK
+     	 task pl ; event fdb ; PLOK
+	   trigger ./ml == complete
+         task sfc ; event fdb ; SFCOK
+           trigger ./ml==complete and ./pl == complete
+         task pt ; event fdb ; PTOK
+           trigger ./pl==complete and ./sfc == complete
+         task pv ; event fdb ; PVOK
+           trigger ./pl==complete and ./pt == complete and sfc:fdb
+         task hl ; HLOK
+           trigger ./pl==complete and ./pv == complete 
+       endfamily
+
+       family clean
+         edit ARCHTYPE fc
+         trigger ./archive == complete and ./mmeans == complete and ./verify == complete
+         task flush ; ARCHOK
+           onws
+         task clean
+          edit DELTA_DAY 0
+	   joblimarch ; QNORM
+       endfamily
+    
+       task logfiles
+         onlog
+         trigger clean == complete
+
+    endfamily # lag
+    
+    endfor # set of parallel forecasts
+
+endfamily

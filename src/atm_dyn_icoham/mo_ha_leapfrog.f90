@@ -1,0 +1,272 @@
+!>
+!!  Contains the subroutine for the explicit leap frog  time integration scheme.
+!!
+!!
+!! @par Revision History
+!!  <i>SUBROUTINE asselin</i> by L.Bonaventura, Polimi (2006).
+!!  <i>SUBROUTINE step_leapfrog_expl</i> by Hui Wan, MPI-M (2006-09-10)
+!!  Modification by Hui Wan, MPI-M (2008-04-04)
+!!  - epsass renamed asselin_coeff
+!!  Modification by Almut Gassmann, MPI-M (2008-09-19)
+!!  - Code restructuring, remove loop over grid levels etc.
+!!  Modification by Marco Giorgetta, MPI-M (2009-03-27)
+!!
+!! @par Copyright
+!! 2002-2006 by DWD and MPI-M
+!! This software is provided for non-commercial use only.
+!! See the LICENSE and the WARRANTY conditions.
+!!
+!! @par License
+!! The use of ICON is hereby granted free of charge for an unlimited time,
+!! provided the following rules are accepted and applied:
+!! <ol>
+!! <li> You may use or modify this code for your own non commercial and non
+!!    violent purposes.
+!! <li> The code may not be re-distributed without the consent of the authors.
+!! <li> The copyright notice and statement of authorship must appear in all
+!!    copies.
+!! <li> You accept the warranty conditions (see WARRANTY).
+!! <li> In case you intend to use the code commercially, we oblige you to sign
+!!    an according license agreement with DWD and MPI-M.
+!! </ol>
+!!
+!! @par Warranty
+!! This code has been tested up to a certain level. Defects and weaknesses,
+!! which may be included in the code, do not establish any warranties by the
+!! authors.
+!! The authors do not make any warranty, express or implied, or assume any
+!! liability or responsibility for the use, acquisition or application of this
+!! software.
+!!
+!!
+MODULE mo_ha_leapfrog
+
+  USE mo_kind,                ONLY: wp
+  USE mo_model_domain,        ONLY: t_patch
+  USE mo_ext_data,            ONLY: t_external_data
+  USE mo_dynamics_nml,        ONLY: asselin_coeff
+  USE mo_run_nml,             ONLY: ltheta_dyn
+  USE mo_interpolation,       ONLY: t_int_state
+  USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
+  USE m_dyn,                  ONLY: dyn_theta
+  USE mo_ha_dynamics,         ONLY: dyn_temp
+  USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
+  USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
+
+  IMPLICIT NONE
+  PRIVATE
+  PUBLIC ::  step_leapfrog_expl, asselin, leapfrog_update_prog
+
+  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
+CONTAINS
+
+  !>
+  !!
+  !! @par Revision History
+  !!  Original version  by Hui Wan, MPI-M (2006-09-10).
+  !!  Modification by Hui Wan, MPI-M (2007-07-30)
+  !!  - pointers to *grid* removed
+  !!  - second dimension of pointers (i.e. index of patches on the same
+  !!    grid level) removed.
+  !!  Modification by Hui Wan, MPI-M (2007-09-16)
+  !!  - horizontal diffusion moved to a separate module and called from
+  !!    the main program.
+  !!  Code restructuring by Almut Gassmann, MPI-M (2008-09-19)
+  !!  Modification by Hui Wan, MPI-M (2009-08-06):
+  !!  - Packed the updating of prognostic variables into the subroutine
+  !!    leapfrog_update_prog.
+  !!
+  SUBROUTINE step_leapfrog_expl( pdtime, dtime_bdy,      & ! input
+                                 curr_patch, p_int_state,& ! input
+                                 p_old,                  & ! input
+                                 p_ext_data,             & ! input
+                                 p_now,                  & ! in and out
+                                 p_diag,                 & ! in and out
+                                 p_new,                  & ! in and out
+                                 p_tend_dyn             )  ! in and out
+
+    REAL(wp),              INTENT(IN)    :: pdtime      ! time step in seconds
+    REAL(wp),              INTENT(IN)    :: dtime_bdy   ! time step for boundary tendencies
+    TYPE(t_patch),TARGET,    INTENT(IN)    :: curr_patch
+    TYPE(t_int_state),TARGET,INTENT(IN)    :: p_int_state
+    TYPE(t_hydro_atm_prog),INTENT(IN)    :: p_old
+    TYPE(t_external_data),   INTENT(IN)    :: p_ext_data !< external data
+
+    TYPE(t_hydro_atm_diag),INTENT(INOUT) :: p_diag
+    TYPE(t_hydro_atm_prog),INTENT(INOUT) :: p_now
+    TYPE(t_hydro_atm_prog),INTENT(INOUT) :: p_new
+    TYPE(t_hydro_atm_prog),INTENT(INOUT) :: p_tend_dyn
+
+    REAL(wp) :: zdt2    ! double time step
+
+   !-----------------------------------------------------------------------
+
+   zdt2 = 2._wp*pdtime
+
+   ! calculate tendency of the prognostic variables
+
+    IF (ltheta_dyn) THEN
+       CALL dyn_theta( curr_patch, p_int_state, p_ext_data, p_now, &! in
+                       p_diag, p_tend_dyn )                         ! out
+    ELSE
+       CALL dyn_temp(  curr_patch, p_int_state, p_now, p_ext_data, &! in
+                       p_diag, p_tend_dyn )                         ! out
+    END IF
+
+    ! update prognostic variables
+
+    CALL leapfrog_update_prog( p_new, p_now, p_old,      &! inout,in,in
+                               p_tend_dyn,               &! in
+                               zdt2, dtime_bdy, .FALSE., &! in. Do not touch tracers
+                               curr_patch                )! in
+
+  END SUBROUTINE step_leapfrog_expl
+
+  !-------------------------------------------------------------------------
+  !>
+  !!  Update the prognostic variables using the given tendencies and  time steps.
+  !!
+  !! The new values are store in p_new.
+  !!  Nesting boundaries and domain interior are treated separately.
+  !!
+  !! @par Revision History
+  !!  Separated from step_leapfrog_expl by Hui Wan, MPI-M (2009-08-06).
+  !!  Switch ltracer added by Hui Wan, MPI-M (2010-07-27)
+  !!
+  SUBROUTINE leapfrog_update_prog( p_new, p_now, p_old,  & ! inout,in,in
+                                   p_tend,               & ! in
+                                   pdt2, dtime_bdy,      & ! in
+                                   ltracer,              & ! in
+                                   curr_patch            ) ! in
+
+   REAL(wp), INTENT(IN) :: pdt2       !< time step in seconds for the interior
+   REAL(wp), INTENT(IN) :: dtime_bdy  !< time step for boundary tendencies
+   LOGICAL,  INTENT(IN) :: ltracer    !< if .TRUE., update tracer fields
+
+   TYPE(t_patch),           INTENT(IN) :: curr_patch  !< domain info.
+   TYPE(t_hydro_atm_prog),INTENT(IN) :: p_old
+   TYPE(t_hydro_atm_prog),INTENT(IN) :: p_now
+   TYPE(t_hydro_atm_prog),INTENT(IN) :: p_tend
+
+   TYPE(t_hydro_atm_prog),INTENT(INOUT) :: p_new  !< intent = inout to keep the
+                                                  !< tracer component intact when
+                                                  !< ltracer = .FALSE.
+   INTEGER :: jb, jbs, jbe, is, ie
+
+!$OMP PARALLEL PRIVATE(jbs,jbe)
+    !-----------------------------------
+    !step forward - model interior
+    !-----------------------------------
+    jbs = curr_patch%cells%start_blk(grf_bdywidth_c+1,1)
+    jbe = curr_patch%nblks_int_c
+!$OMP DO PRIVATE(jb,is,ie)
+    DO jb = jbs, jbe
+      CALL get_indices_c(curr_patch, jb,jbs,jbe, is,ie, grf_bdywidth_c+1)
+
+      p_new%pres_sfc(is:ie,jb) = p_old%pres_sfc(is:ie,jb) + pdt2*p_tend%pres_sfc(is:ie,jb)
+
+      IF (ltheta_dyn) THEN
+        p_new%theta(is:ie,:,jb) = p_old%theta(is:ie,:,jb) + pdt2*p_tend%temp(is:ie,:,jb)
+      ELSE
+        p_new% temp(is:ie,:,jb) = p_old% temp(is:ie,:,jb) + pdt2*p_tend%temp(is:ie,:,jb)
+      ENDIF
+
+      IF (ltracer) THEN
+        p_new%tracer(is:ie,:,jb,:) =    p_old%tracer(is:ie,:,jb,:)      &
+                                   & + p_tend%tracer(is:ie,:,jb,:)*pdt2
+      ENDIF
+    ENDDO
+!$OMP END DO
+
+    jbs = curr_patch%edges%start_blk(grf_bdywidth_e+1,1)
+    jbe = curr_patch%nblks_int_e
+!$OMP DO PRIVATE(jb,is,ie)
+    DO jb = jbs,jbe
+       CALL get_indices_e(curr_patch, jb,jbs,jbe, is,ie, grf_bdywidth_e+1)
+       p_new%vn(is:ie,:,jb) = p_old%vn(is:ie,:,jb) + pdt2*p_tend%vn(is:ie,:,jb)
+    ENDDO ! block loop
+!$OMP END DO
+
+    !-----------------------------------
+    ! Update of nest boundaries
+    !-----------------------------------
+    ! Note: the boundary tendencies are nnow -> nnew
+    jbs = curr_patch%cells%start_blk(1,1)
+    jbe = curr_patch%cells%end_blk(grf_bdywidth_c,1)
+!$OMP DO PRIVATE(jb,is,ie)
+    DO jb = jbs,jbe
+       CALL get_indices_c(curr_patch, jb,jbs,jbe, is,ie, 1, grf_bdywidth_c)
+
+       p_new%pres_sfc(is:ie,jb) =    p_now%pres_sfc(is:ie,jb)           &
+                                & + p_tend%pres_sfc(is:ie,jb)*dtime_bdy
+
+       IF (ltheta_dyn) THEN
+          p_new%theta(is:ie,:,jb) =    p_now%theta(is:ie,:,jb)          &
+                                  & + p_tend% temp(is:ie,:,jb)*dtime_bdy
+       ELSE
+          p_new% temp(is:ie,:,jb) =    p_now% temp(is:ie,:,jb)          &
+                                  & + p_tend% temp(is:ie,:,jb)*dtime_bdy
+       ENDIF
+
+       IF (ltracer) THEN
+          p_new%tracer(is:ie,:,jb,:) =    p_now%tracer(is:ie,:,jb,:)           &
+                                     & + p_tend%tracer(is:ie,:,jb,:)*dtime_bdy
+       ENDIF
+    ENDDO
+!$OMP END DO
+
+    jbs = curr_patch%edges%start_blk(1,1)
+    jbe = curr_patch%edges%end_blk(grf_bdywidth_e,1)
+!$OMP DO PRIVATE(jb,is,ie)
+    DO jb = jbs,jbe
+       CALL get_indices_e(curr_patch, jb,jbs,jbe, is,ie, 1, grf_bdywidth_e)
+       p_new%vn(is:ie,:,jb) = p_now%vn(is:ie,:,jb) + dtime_bdy*p_tend%vn(is:ie,:,jb)
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+  END SUBROUTINE leapfrog_update_prog
+  !-------------
+  !>
+  !!
+  !! @par Revision History
+  !! Developed  by L.Bonaventura, Polimi (2006).
+  !! Code restructuring by Almut Gassmann, MPI-M, (2008-09-19)
+  !! @par
+  !!  arguments
+  !! @par
+  !!  patch on which computation is performed
+  !!
+  SUBROUTINE asselin( p_prog_old, p_prog_new, & ! input
+                      p_prog_now              ) ! in and out
+
+   TYPE(t_hydro_atm_prog), INTENT(INOUT) :: p_prog_now
+   TYPE(t_hydro_atm_prog), INTENT(IN)    :: p_prog_new
+   TYPE(t_hydro_atm_prog), INTENT(IN)    :: p_prog_old
+
+!-----------------------------------------------------------------------
+
+!$OMP PARALLEL
+   IF (ltheta_dyn) THEN
+!$OMP WORKSHARE
+     p_prog_now%theta     = p_prog_now%theta     + asselin_coeff* &
+             (p_prog_new%theta    -2._wp*p_prog_now%theta    +p_prog_old%theta)
+!$OMP END WORKSHARE
+   ENDIF
+
+!$OMP WORKSHARE
+   p_prog_now%temp     = p_prog_now%temp     + asselin_coeff* &
+           (p_prog_new%temp    -2._wp*p_prog_now%temp    +p_prog_old%temp)
+   p_prog_now%vn       = p_prog_now%vn       + asselin_coeff* &
+             (p_prog_new%vn      -2._wp*p_prog_now%vn      +p_prog_old%vn)
+   p_prog_now%pres_sfc = p_prog_now%pres_sfc + asselin_coeff* &
+             (p_prog_new%pres_sfc-2._wp*p_prog_now%pres_sfc+p_prog_old%pres_sfc)
+!$OMP END WORKSHARE
+!$OMP END PARALLEL
+END SUBROUTINE asselin
+
+
+END MODULE mo_ha_leapfrog
+
+

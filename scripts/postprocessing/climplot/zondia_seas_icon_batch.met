@@ -1,0 +1,494 @@
+# zondia_seas_icon_batch.met
+#
+# zonal mean plots for climate runs - batch version
+#
+# Martin Koehler & Thomas Jung
+#
+# Update 28-10-2008 P Bechtold: replace getksec2 by grib_get_long
+#--------------------------------------------------------------#
+
+# Using the new visualisation module 
+  plotter(2) 
+
+  global p_min
+  global p_max
+  global p_scale
+  global lat_min
+  global lat_max
+  global lon_min 
+  global lon_max
+  global ave_dir
+
+################################################################
+
+
+# argument list processing
+
+  x = arguments()
+  print("parameters: ", x)
+  exid       = ["",""]
+  exid[1]    = x[1]    # control exp ID (e.g. ERA40 or e8s7 or e9va)
+  exid[2]    = x[2]    # experiment ID (e.g. e9va)
+  inidate    = x[3]    # initial date of first ensemble member (e.g. 19871101)
+  nens       = x[4]    # number of ensemble members
+  yymm_start = x[5]    # first yyyymm in averaging period
+  mm_len     = x[6]    # length of averaging period in months
+  lev_type   = x[7]    # level type (ml=model levels, pl=pressure levels)
+  nlev       = x[8]    # number of levels (e.g. 60 or 91)
+  stat       = x[9]    # statistic ("avg" or "std")
+  res        = x[10]   # lat/lon resolution for plots
+  eratext    = x[11]   # ERA title in plots ERA40 or ERAI
+
+  grid=[res,res]
+  ERATEXT=eratext
+
+# Period
+
+  fc_steps     = [2,3,4]               #irrelevant
+  years        = 1987                  #  -"-
+  month_start  = 5                     #  -"-
+
+# ERA ONLY AVAILABLE ON 60 LEVELS - 
+# CRASH OUT IF L<>60 AND ERA40 ML PLOT
+  if exid[1] = "ERA40" and nlev = 91 and lev_type='ml' then
+    return
+  end if
+
+# Misc
+
+  data_mode      = "FILES"
+  file_id        = lev_type
+  exp_mode       = ["RD_SEAS","RD_SEAS"]
+  if exid[1] = "ERA40" then
+    exp_mode[1]  = "ERA40"
+  end if
+
+
+# Statistic
+
+  if exid[1] = exid[2] then
+    plot_modus   = "Average"
+  else
+    plot_modus   = "Average Difference"
+  end if
+  if stat = "avg" then
+    statistic    = "Average"
+    statname     = "mn"
+  else
+    statistic    = "Standard Deviation"
+    statname     = "stdev"
+  end if
+
+
+# Variables, units & scaling
+
+  if lev_type = "pl" then
+
+    levels       = [1,2,3,5,7,10,20,30,50,70,100,150,200,250,300,400,500,
+                    600,700,775,850,925,1000]          #23 levels (climate&ERA40)
+    p_min        = 1000
+    p_max        = 1
+   # ... variables available on pressure levels by default
+    if plot_modus  = "Average Difference" then
+      param      = ["T" ,"R","U","V","W"  ,"Q" ]
+      cint_param = [0.5 ,2  ,1  ,0.2,0.002,0.2 ]
+      cmin_param = cint_param
+      cmax_param = [10  ,30 ,10 ,2  ,0.05 ,2   ]
+      scale      = [1   ,1  ,1  ,1  ,1    ,1000]
+    else
+      param      = ["T" ,"R","U","V","W"  ,"Q" ]
+      cint_param = [2   ,5  ,2  ,0.5,0.005,1   ]
+      cmin_param = [220 ,5  ,2  ,0.5,0.005,1   ]
+      cmax_param = [300 ,100,40 ,5  ,0.1  ,20  ]
+      scale      = [1   ,1  ,1  ,1  ,1    ,1000]
+    end if
+
+  else  #ml
+
+    levels = []
+    for k=1 to nlev do
+      levels     = levels&[k]
+    end for
+    p_min        = nlev
+    p_max        = 1
+#   p_max        = 20
+
+   # ... variables available on model levels by default          physical process tendencies
+    if plot_modus  = "Average Difference" then                 # T,vdf T,cu  T,cld q,vdf    q,cu     q,cld    qli,vdf  qli,cld   fc,vdf fc,cld       
+      param      = ["T" ,"U","V","W"  ,"Q" ,"CC","CLWC" ,"CIWC" ]#,86   ,84   ,90   ,87      ,85      ,91      ,88      ,98       ,89    ,80     ]
+      cint_param = [0.5 ,1  ,0.2,0.002,0.1 ,1   ,1      ,0.5    ]#,0.2  ,0.1  ,0.2  ,0.1     ,0.1     ,0.1     ,0.05    ,0.05     ,10    ,10     ]
+      cmin_param = cint_param 	                                                                   
+      cmax_param = [10  ,10 ,2  ,0.05 ,1   ,20  ,10     ,5      ]#,2    ,1    ,2    ,2       ,2       ,1       ,0.5     ,0.5      ,100   ,100    ]
+      scale      = [1   ,1  ,1  ,1    ,1000,100 ,1000000,1000000]#,86400,86400,86400,86400000,86400000,86400000,86400000,86400000,8640000,8640000]
+    else                                                                                                                                             
+      param      = ["T" ,"U","V","W"  ,"Q" ,"CC","CLWC" ,"CIWC" ,"75"   ,"76"]#,86   ,84   ,90   ,87      ,85      ,91      ,88      ,98       ,89    ,80     ]
+      cint_param = [2   ,2  ,0.5,0.005,1   ,5   ,5      ,2      ,0.5    ,2   ]#,1    ,0.5  ,0.2  ,0.5     ,0.5     ,0.1     ,0.1     ,0.1      ,10    ,10     ]
+      cmin_param = [220 ,2  ,0.5,0.005,1   ,5   ,5      ,2      ,0.5    ,2   ]#,-8   ,-5   ,-2   ,0.5     ,-5      ,-1      ,-1      ,-1       ,-100  ,-100   ]
+      cmax_param = [300 ,40 ,5  ,0.1  ,20  ,100 ,60     ,30     ,30     ,30  ]#,8    ,5    ,3    ,5       ,1       ,1       ,1       ,1        ,100   ,100    ]
+      scale      = [1   ,1  ,1  ,1    ,1000,100 ,1000000,1000000,1000000,1000000]#,86400,86400,86400,86400000,86400000,86400000,86400000,86400000,8640000,8640000]
+    end if
+
+  end if
+
+
+# Plot specifics
+
+  offset         = nil
+  for nn = 1 to count(param) do 
+    offset       = offset & [0]
+  end for
+
+  output_mode    = "PS_FILE"
+  cont_modus     = "Fancy Contour Shading"
+  dlat           = 2.5
+  dlon           = 2.5
+  lat_min        = -90
+  lat_max        =  90
+  lon_min        = -180
+  lon_max        =  180
+  ave_dir        = "EW"
+  background     = 1
+  verbose        = 1
+  isig           = "None"
+  p_lev          = 5
+  ensnum_con     = [0] # irrelevant, if "from files"
+  ensnum_exp     = [0] #        -"-
+  system         = 2
+  p_scale        = "linear"
+
+###########################################################################
+
+# ------- Write infos to screen if verbose = 1
+  print("@I Messages from ZONDIA-SEAS-ICON:")
+  print("-")
+
+  if verbose = 1 then
+    print("@I User Definitions:")
+    print("@I  Output Device       : ", output_mode)
+#   print("@I  Forecast time steps : ", fc_steps)
+#   print("@I  Years to be processed: ", years)
+    print("@I  Data obtained from  : ", data_mode)
+    print("@I  Additional file ID  : ", file_id)
+#    print("@I  Data Type (Control) : ", exp_mode[1])
+#    print("@I  Data Type (Forecast): ", exp_mode[2])
+    print("@I  Exp. Id. (Control)  : ", exid[1])
+    print("@I  Exp. Id. (Forecast) : ", exid[2])
+#   print("@I  System              : ", system)
+    print("@I  Level Type          : ", lev_type)
+    print("@I  Vertical Levels     : ", levels)
+    print("@I  Lowermost Level     : ", p_min)
+    print("@I  Uppermost Level     : ", p_max)
+    print("@I  Vertical Scaling    : ", p_scale)
+    print("@I  Parameter           : ", param)
+    print("@I  Plotting Mode       : ", plot_modus)
+    print("@I  Contour Mode       : ", cont_modus)
+    print("@I  Contour Intervals   : ", cint_param)
+    if cont_modus = 'Fancy Contour Shading' then
+      print("@I  Maximum Shading Values: ",cmax_param) 
+      print("@I  Minimum Shading Values: ",cmin_param) 
+    end if
+    print("@I  Scales              : ", scale)
+    print("@I  Offset              : ", offset)
+    print("@I  Horizontal Resol.   : ", dlat,",",dlon)
+    print("@I  Latitude Range      : ", lat_min," to ",lat_max)
+    print("@I  Longitude Range     : ", lon_min," to ",lon_max)
+    print("@I  Averaging Direction : ", ave_dir)
+    if background = 0 then
+      print("@I  No average control background fields are plotted")
+    else
+      print("@I  Average control background fields are plotted")
+    end if
+#   print("@I  Ensemble Members ",ensnum_con," are used as control") 
+#   print("@I  Ensemble Members ",ensnum_exp," are used as forecast") 
+  end if
+
+# -------- Some consistency checks: Avoid errors --------
+
+# --- parameters and contour intervals
+  if count(param) <> count(cint_param) then
+    fail("@E Number of parameters and number of contour intervals mismatch !!! MACRO STOPPED!")
+  end if
+
+# --- check array dimensions
+  if count(scale) <> count(param) then
+    print (count(scale), " ",count(param))
+    fail("@E Number of Scales has to be equal to number of parameters!")
+  end if
+  if count(offset) <> count(param) then
+    fail("@E Number of Offsets has to be equal to number of parameters!")
+  end if
+
+# --- parameters and contour intervals
+  if cont_modus = 'Fancy Contour Shading' and (count(param) <> count(cint_param)) then
+    fail("@E Number of parameters and max. n of shading values mismatch !!! MACRO STOPPED!")
+  end if
+
+  if ave_dir = "NS" then
+    isig = "None"
+    print("@I No significance test avaialabe for North-South averaging")
+  end if
+
+# -------- Some global settings --------
+
+# --- set some variables
+  nfor=count(fc_steps)         # number of different forecast lengths
+  npar=count(param)            # number of parameters
+  levtype = lev_type
+
+# --- set log filename and make working directory
+#xmk userid = getenv("USER")
+#xmk wrkdir = "/scratch/rd/"&userid&"/ZONDIA/
+  wrkdir = getenv("PLOTDATA") & "/"
+  shell("test -d " & wrkdir & " || mkdir " & wrkdir)
+
+# change p_lev
+  p_lev = p_lev/100.0
+
+# --- init
+  control_filename=[]
+  forecast_filename=[]
+
+# -------- MAIN LOOP OVER FORECAST STEPS --------
+  print("-")
+  print("@I Constructing date_lists filenames and performing MARS retrieval")
+
+# --- Make date list ---
+  date_list_con=[]
+  date_list_exp=[]
+  for iyear = 1 to count(years) by 1 do
+    date_list_exp=date_list_exp&[years[iyear]*10000+(month_start)*100+1]
+    for imonth = 1 to count(fc_steps) by 1 do
+      if month_start+fc_steps[imonth]-1 <= 12 then
+        date_base=years[iyear]*10000+(month_start+fc_steps[imonth]-1)*100
+      else
+        date_base=(years[iyear]+1)*10000+((fc_steps[imonth]-1-(12-month_start)))*100
+      end if
+      date_list_con=date_list_con&[date_base]
+    end for
+  end for
+
+  ndates=count(date_list_con)
+# print("@I   Date List (Control): ",date_list_con)
+# print("@I   Date List (Experimental): ",date_list_exp)
+
+# -------- Make data filenames --------
+  num = 0
+#  temp=""&wrkdir&"SEAS_"&exp_mode[1]&"_"&exid[1]&"_sys"&system&"_"&date_list_con[1]&"-"&date_list_con[ndates]&"_"&month_start&"_"&file_id&".grb"
+#  control_filename=temp
+#  temp=""&wrkdir&"SEAS_"&exp_mode[2]&"_"&exid[2]&"_sys"&system&"_"&date_list_con[1]&"-"&date_list_con[ndates]&"_"&month_start&"_"&file_id&".grb"
+#  forecast_filename=temp
+  control_filename =""&wrkdir&"mmean_"&exid[1]&"_"&lev_type&"_alldates.grb"
+  forecast_filename=""&wrkdir&"mmean_"&exid[2]&"_"&lev_type&"_alldates.grb"
+
+  print("@I   Control Data from :",control_filename)
+  print("@I   Forecast Data from :",forecast_filename)
+
+# -------- MARS retrieval, if necessary --------
+  if data_mode = "MARS" then
+     print("@I   Data are being retreived from MARS and written to files")
+     include "zondia-seas-icon_mars"
+  else      # from files
+     print("@I   Data are being read from existing files")
+  end if
+
+# -------- Main computational part --------
+  print("-")
+  print("@I Main Computational Part: ")
+  for iparam = 1 to count(param) by 1 do
+
+    print("@I  Processing parameter ",param[iparam],newline)
+
+# -- define postscript file names  
+    ps_filename = ""&wrkdir&"zon_"&exid[1]&"-"&exid[2]&"_"&statname&"_"&param[iparam]&
+                  "_"&lev_type&"_nens"&string(nens)&"_"&yymm_start&"_nmon"&mm_len&".ps"
+    ps_filename_2=""&wrkdir&"zon_"&exid[1]            &"_"&statname&"_"&param[iparam]&
+                  "_"&lev_type&"_nens"&string(nens)&"_"&yymm_start&"_nmon"&mm_len&".ps"
+    
+# -- metview settings for output (PS ONLY!)
+    File = output(
+      format              : 'postscript',
+      destination         : 'file',
+      print_option        : 'visible',
+      printer             : 'ps_oa_c',
+      printer_customize   : 'no',
+      preview_program     : 'ghostview',
+      file                : ps_filename
+      )
+    File2 = output(
+      format              : 'postscript',
+      destination         : 'file',
+      print_option        : 'visible',
+      printer             : 'ps_oa_c',
+      printer_customize   : 'no',
+      preview_program     : 'ghostview',
+      file                : ps_filename_2
+      )
+    Screen  = output (  
+      FORMAT              :  'SCREEN' 
+      )
+
+    when 
+      output_mode = 'PS_FILE':
+        print("@I  Output to be send to postscript files")
+        if plot_modus = 'Average Difference' then
+          setoutput (File)
+          print("@I  Output to be send to: ",ps_filename)
+        else
+          setoutput (File2)
+          print("@I  Output to be send to: ",ps_filename_2)
+        end if
+      end
+      output_mode = 'SCREEN':
+        print("@I  Output to be send to screen")
+        setoutput (Screen)
+      end
+    end when
+
+    Display_Window = build_layout_1()
+
+# -- loop over number of levels: This is necessary to work with little memory
+    avg_con = nil        # init control average
+    avg_for = nil        # init forecast average
+    sig     = nil
+    
+# -- read data and determine average for control
+    control=read(
+      source   :  control_filename,
+      levtype  :  lev_type,
+      levelist :  levels,
+      parameter:  param[iparam],
+      grid: grid
+    )
+
+# -- read data headers (GRIB); dimensions are needed
+    nlon_con= grib_get_long(control[1],"Ni")
+    nlat_con= grib_get_long(control[1],"Nj")
+    nlev=count(levels)
+    ntime=count(control)/nlev
+    npar=1
+
+# -- calculate average
+    avg_con=nil
+    for k=1 to count(levels) do
+      mcon=read(data:control,levelist:levels[k])
+      avg_con=avg_con&mean(mcon)*scale[iparam]
+    end for
+
+    if statistic = "Average" then
+#     avg_con=avgtime(scale[iparam]*control+offset[iparam],nlon_con,nlat_con,npar,nlev,ntime)
+    else
+#        isig = "None"
+      avg_con=stdtime(scale[iparam]*control+offset[iparam],nlon_con,nlat_con,npar,nlev,ntime)
+    end if
+# --- for ERA INterim on ecfs revert back to slow Metview average as avgtime assumes certain order
+#     of fields
+
+
+# -- read data and determine average for forecast
+    forecast=read(
+      source   :  forecast_filename,
+      levtype  :  lev_type,
+      levelist :  levels,
+      parameter:  param[iparam],
+      grid: grid
+    )
+
+# RMF Section to add snow to iwc
+#    if param[iparam] = "CIWC" then
+#      fcsnow=read(
+#        source   :  forecast_filename,
+#        levtype  :  lev_type,
+#        levelist :  levels,
+#        parameter:  76,
+#        grid: grid
+#      )
+# RMF20090721 Don't add snow into cross section plots
+#      forecast = forecast + fcsnow
+#     end if
+    
+# -- read data headers (GRIB); dimensions are needed
+    nlon_for= grib_get_long(forecast[1],"Ni")
+    nlat_for= grib_get_long(forecast[1],"Nj")
+    nlev=count(levels)
+    ntime=count(forecast)/nlev
+    npar=1
+
+# -- calculate average
+    if statistic = "Average" then
+      avg_for=avgtime(scale[iparam]*forecast+offset[iparam],nlon_for,nlat_for,npar,nlev,ntime)
+    else
+#      isig = "None"
+      avg_for=stdtime(scale[iparam]*forecast+offset[iparam],nlon_for,nlat_for,npar,nlev,ntime)
+    end if
+
+# -- significance: DISABLED
+#      if isig = 't-Test' then
+#        sig = sig&ttest(control,nlon_for,nlat_for,ndates,p_lev,forecast)
+#      else if isig = 'None' then
+#        sig = sig&mean(control)*0
+#      else  
+#        fail("@E Bootstrap not yet implemented. STOPPED")
+#      end if
+
+#     nens=count(forecast)/count(fc_steps)
+
+# -- calculate difference
+    diff = avg_for-avg_con
+
+#dmk diff2 = setdummy(diff,nlon_for,nlat_for,1,count(levels),1,sig)
+
+# load axes definitions
+    include "zondia_def_axes"
+
+# load title definitions
+    ndates=nens
+    include "zondia-seas_def_title"
+
+# load contouring and shading definitions
+    cont_max_level_pos=cmax_param[iparam]
+    cont_min_level_pos=cmin_param[iparam]
+    cont_shade_max_level_pos=cont_max_level_pos
+    cont_shade_min_level_pos=cont_min_level_pos
+
+    cont_max_level_neg=(-1)*cont_min_level_pos    # symmetry
+    cont_min_level_neg=(-1)*cont_max_level_pos    # symmetry
+    cont_shade_max_level_neg=(-1)*cont_shade_min_level_pos
+    cont_shade_min_level_neg=(-1)*cont_shade_max_level_pos
+
+    include "zondia_def_contour"
+
+# -- plot current error (zonal averaging is done by `average_view'
+    when 
+       plot_modus = 'Average Difference': 
+         if (background = 1 and cont_modus = 'Contour Shading') then
+           plot(Display_Window[1],xs_vert_axis_log_left,xs_horiz_axis_bottom,title,diff,shade,avg_con,contours_simple_bg)
+         else if (background = 1 and cont_modus = 'Fancy Contour Shading') then
+           plot(Display_Window[1],xs_vert_axis_log_left,xs_horiz_axis_bottom,title,diff,contours_neg,contours_pos,avg_con,contours_simple_bg)
+         else if (background = 1 and cont_modus = 'Contour Levels') then
+           plot (Display_Window[1],xs_vert_axis_log_left,xs_horiz_axis_bottom,title,diff,red,blue,avg_con,contours_simple_bg)
+         else if (background = 0 and cont_modus = 'Contour Shading') then
+           plot (Display_Window[1],xs_vert_axis_log_left,xs_horiz_axis_bottom,title,diff,shade,diff,red2,blue2)
+         else if (background = 0 and cont_modus = 'Fancy Contour Shading') then
+           plot(Display_Window[1],xs_vert_axis_log_left,xs_horiz_axis_bottom,title,diff,contours_neg,contours_pos)
+         else if (background = 0 and cont_modus = 'Contour Levels') then
+           plot (Display_Window[1],xs_vert_axis_log_left,xs_horiz_axis_bottom,title,diff,red,blue)
+         else
+           fail("@E Failed while plotting")
+         end if
+       end
+       plot_modus = 'Average':
+         plot (Display_Window[1],xs_vert_axis_log_left,xs_horiz_axis_bottom,title,avg_con,shade2)
+       end
+    end when
+
+  end for # end if loop over parameter
+
+  print("-")
+  print("@I ZONDIA-SEAS-ICON_TEST successfully finished")
+
+# --- append some functions
+  include "zondia-seas_def_display_layout"
+
+#dmk end execute   # end of execute handler
+
+include "avgtime.f90"

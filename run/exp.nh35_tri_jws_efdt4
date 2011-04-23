@@ -1,0 +1,107 @@
+#=============================================================================
+#
+# This section of the run script containes the specifications of the experiment.
+# The specifications are passed by namelist to the program.
+# For a complete list see Namelist_overview.pdf
+#
+# EXPNAME and NPROMA must be defined in as environment variables or must 
+# they must be substituted with appropriate values.
+#
+# DWD, 2010-08-31
+#
+#-----------------------------------------------------------------------------
+# Basic specifications of the simulation
+# --------------------------------------
+#
+# These values need to be stored in variables, which are needed to 
+# construct filenames  or directories:
+# 
+R=2               # nroot
+B=4               # number of bisections applied for the global grid
+N=35              # nlev = number of full levels
+OPT="spr0.90"     # grid optimization
+#
+IEQ=3             # equation system
+#                     1=hydrost. atm. T
+#                     1=hydrost. atm. theta dp
+#                     3=non-hydrost. atm., 
+#                     0=shallow water model
+#                    -1=hydrost. ocean
+#
+#
+DTIME=320         # time step in seconds
+DT_DIAG=`expr 4 \* 3600  `   # int output each 4 hours
+#
+#-----------------------------------------------------------------------------
+#
+# ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#
+cat > NAMELIST_${EXPNAME} << EOF
+!
+&parallel_ctl
+p_test_run         = .false.
+division_method    = 1
+n_ghost_rows       = 1
+l_log_checks       = .false.  
+/
+&nh_testcase_ctl
+ nh_test_name      = 'jabw_s'     ! test case identifier
+/
+&io_ctl
+ out_expname       = '${EXPNAME}' ! file name base
+ dt_data           = 86400.0      ! [s] output interval
+ dt_diag           = ${DT_DIAG}
+ lwrite_vorticity  = .TRUE.
+ lwrite_pres       = .TRUE.
+ lwrite_z3         = .TRUE.
+ lwrite_omega      = .TRUE.
+ lwrite_divergence = .TRUE.
+/
+&grid_ctl
+ nroot       = ${R}         ! root division of icosahedron edges
+ start_lev   = ${B}         ! number of bisections applied for the base grid
+/
+&run_ctl
+ nproma      = ${NPROMA}    ! array blocking length
+ nlev        = ${N}         ! number of full levels of vertical grid
+ ntracer     = 0            ! number of tracers
+ run_day     = 20           ! run length in days
+ dtime       = ${DTIME}     ! timestep in seconds
+ iequations  = ${IEQ}       ! equation system
+ i_cell_type = 3            ! triangular cells
+ ldynamics   = .TRUE.       ! dynamics
+ ltransport  = .FALSE.      ! transport 
+ iforcing    = 0            ! diabatic forcing
+ ltestcase   = .TRUE.       ! run testcase
+ msg_level   = 10           ! detailed report during integration 
+/
+&nonhydrostatic_ctl
+ iadv_rhotheta = 2
+ igradp_method = 2  !new default
+/
+&dynamics_ctl
+ idiv_method    = 2
+ divavg_cntrwgt = 0.50
+/
+&transport_ctl
+/
+&diffusion_ctl
+ hdiff_order      = 4
+ hdiff_efdt_ratio = 4.0
+ lhdiff_vn        = .TRUE.
+ lhdiff_temp      = .FALSE.
+ hdiff_multfac    = 1.0
+ hdiff_tv_ratio   = 1.0
+/
+&interpol_ctl
+/
+&gridref_ctl
+/
+&regularization_ctl
+/
+&ocean_ctl
+/
+EOF
+#

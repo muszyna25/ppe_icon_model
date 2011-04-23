@@ -1,0 +1,59 @@
+#=============================================================================#
+# This section sets up the environment for the proper postprocessing script.
+# Parameters are passed by the "set_env" file to be executed by the pp script.
+#
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+#
+# directory of this script, must be in ICON base directory
+#
+DIR=$(pwd -P)
+ICONDIR=${DIR%/*}
+#
+#-----------------------------------------------------------------------------
+
+# Set parameters for postprocessing
+#
+EXP="test_nh3_tri_tracer_solid_body"
+#EXP="nh3_tri_tracer_solid_body"
+horizontal_resolution="R2B04"
+VERTICAL_RES=3
+PFMT="eps"
+MODEL="ICONAM"
+ivel=0
+
+
+cd ../scripts/postprocessing/testcases
+
+# Remove old set_env file
+#
+if [ -f set_env ] 
+then 
+  rm -f set_env
+fi
+
+# Write new set_env file
+#
+echo "EXP=\"${EXP}\""                                       >  set_env
+echo "horizontal_resolution=\"${horizontal_resolution}\""   >> set_env
+echo "VERTICAL_RES=\"${VERTICAL_RES}\""                     >> set_env
+echo "PFMT=\"${PFMT}\""                                     >> set_env
+echo "MODEL=\"${MODEL}\""                                   >> set_env
+echo "ivel=\"${ivel}\""                                     >> set_env
+
+# Load NCL resources
+#
+
+export NCARG_USRRESFILE=${ICONDIR}/scripts/postprocessing/.hluresfile
+
+# Start postprocessing script
+#
+./SBR_postpro_driver.bash
+STATUS=$?
+
+rm -f set_env
+
+check_error $STATUS "Creating of Plots"
+
+exit $STATUS

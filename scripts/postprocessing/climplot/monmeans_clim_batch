@@ -1,0 +1,215 @@
+#!/bin/ksh
+#
+# script to run multiple zondia-seas-icon.met sessions consequetively
+# run as: zondia-seas-icon.batch -a ERA40 -b e9va -l pl -d 19871101
+#         zondia-seas-icon.batch -a e9va  -b e9va -l ml -d 19871101
+#         zondia-seas-icon.batch -a e8s7  -b e9va -l ml -d 19871101
+# 
+# Martin Koehler April 2003 & April 2004
+#--------------------------------------------------------------#
+
+#. $HOME/.kshrc              # for troubleshooting ecp
+
+set -ex                      # exit if error, verbose
+
+#use pgf90 # for avgtime compiling on desktop
+
+export LM_LICENSE_FILE="/usr/local/apps/pgi/license.dat:$LM_LICENSE_FILE"
+
+#############################################################
+# Setup
+#############################################################
+
+integer iperiod
+
+# --- argument list processing
+
+while getopts a:c:l:f:r:d:p:x:t:n:i: option
+do
+   case $option in
+    a) EXPVER=$OPTARG;;      # experiment ID  of EXP (e.g. e8s7)
+    c) CLASS=$OPTARG;;       # class
+    l) NLEV=$OPTARG;;        # number of levels (e.g. 60 or 91)
+    f) FCLENGTH=$OPTARG;;    # forecast length [h]
+    r) FCRANGE=$OPTARG;;     # forecast range [days]
+    n) NUMBER=$OPTARG;;      # number of seasonal ensemble members
+    d) DATESTR=$OPTARG;;     # multiple initial times (e.g. 19870501/19870502/19870503)
+    p) PLOT_OPT=$OPTARG;;    # abc (e.g. 010) a=single month b=seasons c=whole exp mean
+    x) iperiod=$OPTARG;;     # period
+    t) VARTYPE=$OPTARG;;     # variable type (sfc, pl, ml)
+    i) INITIME=$OPTARG;;     # initime
+   \?) errflg=1;;
+   esac
+done
+
+if [[ $errflg -ne 0 ]] ; then
+  echo "incorrect usage!" >&2
+  exit 1
+fi
+
+iperiod=iperiod-1            # ksh first index is 0
+
+# --- metview troubleshooting
+
+metview=metview4
+metview=metview3
+export MACRO_EXTRA_LIBS="-L$pgi_path/lib"
+#metview=/usr/local/apps/Metview/MvRun_3.12.0
+
+
+export MACRO_EXTRA_F90_FLAGS=-Mfixed 
+
+#############################################################
+# time (get time information for processing of each period)
+#############################################################
+
+set -A nperiods `metview -b dates.met $FCLENGTH $DATESTR $PLOT_OPT | grep nmon     | sed 's/nmon//'     | sed 'y/[],/   /'`
+set -A yy_start `metview -b dates.met $FCLENGTH $DATESTR $PLOT_OPT | grep yy_start | sed 's/yy_start//' | sed 'y/[],/   /'`
+set -A mm_start `metview -b dates.met $FCLENGTH $DATESTR $PLOT_OPT | grep mm_start | sed 's/mm_start//' | sed 'y/[],/   /'`
+set -A mm_len   `metview -b dates.met $FCLENGTH $DATESTR $PLOT_OPT | grep mm_len   | sed 's/mm_len//'   | sed 'y/[],/   /'`
+
+# --- reverse order of periods: all-season-month
+set -A yy_start `echo ${yy_start[*]} | awk '{for (i=NF; i>=1; i--) print $i}'`
+set -A mm_start `echo ${mm_start[*]} | awk '{for (i=NF; i>=1; i--) print $i}'`
+set -A mm_len   `echo ${mm_len[*]}   | awk '{for (i=NF; i>=1; i--) print $i}'`
+
+set -A inidates `echo ${DATESTR} | sed 's/\// /g'`
+inidate=${inidates[0]}
+
+if (( ${mm_start[${iperiod}]} < 10 )) ; then
+  iniyearmonth=${yy_start[${iperiod}]}"0"${mm_start[${iperiod}]}
+else
+  iniyearmonth=${yy_start[${iperiod}]}${mm_start[${iperiod}]}
+fi
+
+#
+# Set up the NUMBER loop info for coupled runs (and eventually Ensemble runs)
+#
+integer locnumber
+integer inumber
+if [[ ${NUMBER} = -99 ]] ; then  
+  locnumber=${NUMBER}+1
+  inumber=${NUMBER}
+else
+  inumber=0
+  locnumber=${NUMBER}
+fi
+
+# loop over ensemble member
+while (( ${inumber} < ${locnumber} )) ; do
+
+#############################################################
+# mean of each period - metview
+# attention: on linux one has to reduce the data for unix
+#            line limits purposes in metview
+#            -> do levels separately
+#            on metis: do all levels together (faster)
+#############################################################
+  if [[ ${NUMBER} = -99 ]] ; then  
+    if [[ ${FCRANGE} = -99 ]] ; then
+      MNFILE=mmean_${EXPVER}_${VARTYPE}_ini${inidate}_mon${iniyearmonth}_n${mm_len[${iperiod}]}.grb
+      ECSUBDIR=${inidate}${INITIME}/
+    else
+      MNFILE=mmean_${EXPVER}_${CLASS}_day${FCRANGE}_${VARTYPE}_mon${iniyearmonth}_n${mm_len[${iperiod}]}.grb
+      ECSUBDIR=${CLASS}/
+    fi
+  else
+    MNFILE=mmean_${EXPVER}_${VARTYPE}_ini${inidate}_mem${inumber}_mon${iniyearmonth}_n${mm_len[${iperiod}]}.grb
+    ECSUBDIR=${inidate}/
+  fi
+
+# --- surface variables
+
+  if [ ${VARTYPE} = 'sfc' ] ; then
+    ilev=1
+    $metview -b monmeans_clim.met $EXPVER $inidate ${yy_start[${iperiod}]} \
+      ${mm_start[${iperiod}]} ${mm_len[${iperiod}]} sfc ${NLEV} ${ilev} \
+      ${ilev} ${PLOTDATA} ${FCRANGE} ${CLASS} ${inumber} ${INITIME}
+  fi
+
+# --- loop over pressure levels (separate metview calls)
+
+  if [ ${VARTYPE} = 'pl' ] ; then
+    ilev=1
+    nlevp=23       # pressure levels in monmeans_clim.met
+ #...all levels together
+    $metview -b monmeans_clim.met $EXPVER $inidate ${yy_start[${iperiod}]} \
+      ${mm_start[${iperiod}]} ${mm_len[${iperiod}]} pl ${NLEV} ${ilev} \
+      ${nlevp} ${PLOTDATA} ${FCRANGE} ${CLASS} ${inumber}  ${INITIME}
+
+ #...levels separately
+ #\rm ${PLOTDATA}/temp.pl || true
+ #while (( ${ilev} <= ${nlevp} )) ; do
+ #  $metview -b monmeans_clim.met $EXPVER $inidate ${yy_start[${iperiod}]} \
+ #    ${mm_start[${iperiod}]} ${mm_len[${iperiod}]} pl ${NLEV} ${ilev} ${ilev} ${PLOTDATA}
+ #  cat ${PLOTDATA}/${MNFILE} >> ${PLOTDATA}/temp.pl
+ #  let ilev=ilev+1
+ #done
+ #\mv ${PLOTDATA}/temp.pl ${PLOTDATA}/${MNFILE} 
+  fi
+
+# --- loop over model levels (separate metview calls)
+
+  if [ ${VARTYPE} = 'ml' ] ; then
+  if [[ ${NUMBER} = -99 ]] ; then  
+    ilev=1
+    if [ ${ARCH} = 'linux' ] ; then
+   #...levels separately (if space problems on linux, 2x slower!)
+   #   Vesa: problem is with number of variable in one unix line when doing the full mars request
+      \rm ${PLOTDATA}/temp.ml || true
+   #...level by level:
+   #while (( ${ilev} <= ${NLEV} )) ; do
+   #  $metview -b monmeans_clim.met $EXPVER $inidate ${yy_start[${iperiod}]} \
+   #    ${mm_start[${iperiod}]} ${mm_len[${iperiod}]} ml ${NLEV} ${ilev} ${ilev} ${PLOTDATA} ${FCRANGE} ${CLASS}
+   #  cat ${PLOTDATA}/${MNFILE} >> ${PLOTDATA}/temp.ml
+   #  let ilev=ilev+1
+   #done
+   #...50 levels at a time:
+      while (( ${ilev} <= ${NLEV} )) ; do
+        let ilev50=ilev+49
+        if [[ ${ilev50} -gt ${NLEV} ]] ; then
+          let ilev50=NLEV
+        fi
+        $metview -b monmeans_clim.met $EXPVER $inidate ${yy_start[${iperiod}]} \
+          ${mm_start[${iperiod}]} ${mm_len[${iperiod}]} ml ${NLEV} ${ilev} \
+          ${ilev50} ${PLOTDATA} ${FCRANGE} ${CLASS} ${inumber} ${INITIME}
+        cat ${PLOTDATA}/${MNFILE} >> ${PLOTDATA}/temp.ml
+        let ilev=ilev+50
+      done
+      \mv ${PLOTDATA}/temp.ml ${PLOTDATA}/${MNFILE}
+    else
+   #...all levels together
+      $metview -b monmeans_clim.met $EXPVER $inidate ${yy_start[${iperiod}]} \
+        ${mm_start[${iperiod}]} ${mm_len[${iperiod}]} ml ${NLEV} ${ilev} \
+        ${NLEV} ${PLOTDATA} ${FCRANGE} ${CLASS} ${inumber}  ${INITIME}
+    fi
+  fi # not seas
+  fi
+
+# --- save monthly means
+
+  if [[ ${NUMBER} = -99 ]] ; then  
+# PUT  ${PLOTDATA}/${MNFILE}
+    ecp -o ${PLOTDATA}/${MNFILE} ec:$FSROOT/${EXPVER}/${ECSUBDIR}${MNFILE}
+    \rm ${PLOTDATA}/${MNFILE}
+  else 
+    if [ ${VARTYPE} != 'ml' ] ; then
+      ecp -o ${PLOTDATA}/${MNFILE} ec:$FSROOT/${EXPVER}/${ECSUBDIR}${MNFILE}
+      \rm ${PLOTDATA}/${MNFILE}
+    fi
+  fi
+#
+# change the read/write permissions
+#
+  echmod 666 ec:$FSROOT/${EXPVER}/${ECSUBDIR}${MNFILE}
+
+#
+# increase the ensemble index
+#
+  inumber=inumber+1
+
+done
+
+exit
+
+

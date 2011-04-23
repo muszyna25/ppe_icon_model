@@ -1,0 +1,384 @@
+#! /bin/ksh
+#-----------------------------------------------------------------------------
+#
+# Leonidas Linardakis   MPI-M,   2009-12 
+#
+# This script is a demo for global and local grid refinement
+#
+# Note: link to the netcdf 4 library for handling large files
+#
+#-----------------------------------------------------------------------------
+refine_command=refine_grid
+create_hierarchy_command=create_patch_hierarchy
+conc_command=concatenate_grids
+parameterFile=local_patch.namelist
+commandFile=command.grid
+#-----------------------------------------------------------------------------
+# blizzard@DKRZ
+#
+# @ shell = /client/bin/ksh
+# @ job_type = serial
+# @ job_name = ico_grd_R2B6
+# @ output = $(job_name).o$(jobid)
+# @ error = $(job_name).o$(jobid)
+# @ notification = never
+# @ resources = ConsumableCpus(1) ConsumableMemory(1000mb)
+# @ wall_clock_limit = 01:00:00
+# @ queue
+#
+#-----------------------------------------------------------------------------
+# tornado@DKRZ
+#
+#$ -S /bin/bash
+#$ -N ico_grd_R2B6 
+#$ -o ico_grd_R2B6.$JOB_ID.o
+#$ -j y
+#$ -cwd
+#$ -q serial
+#
+#-----------------------------------------------------------------------------
+# hpc@DWD
+#
+#PBS -q lang
+#PBS -j oe
+#PBS -l select=1:ncpus=1
+#PBS -m n
+#
+#-----------------------------------------------------------------------------
+## NEC@DWD
+#
+#  PBS -q normal@sx9esiox0
+#  PBS -j o
+#  PBS -l cpunum_job=1
+#  PBS -l elapstim_req=86400
+#  PBS -m n
+#-----------------------------------------------------------------------------
+#
+#-----------------------------------------------------------------------------
+#
+
+#==============================================================================
+#
+#
+#==============================================================================
+
+check_error()
+{
+
+# Check if the first parameter (return status) is not OK 
+
+  if [ $1 -ne 0 ] 
+  then
+
+# Stop running this script and return the error status
+    echo "ERROR: $2"
+    exit $1
+  fi
+}
+#==============================================================================
+#
+#
+#==============================================================================
+
+return_OK()
+{
+
+    echo "$1"
+    exit 0
+}
+
+#==============================================================================
+
+# for PBS change to directory where job was submitted
+# (without this job is started in HOME)
+
+if [[ -n ${PBS_O_WORKDIR} ]] ; then
+  cd ${PBS_O_WORKDIR}
+fi
+#
+#-----------------------------------------------------------------------------
+#
+# determine base directory
+dir=$(pwd -P)
+basedir=${dir%/*}
+#
+# determine architecture
+arch=`ls ${basedir}/build`
+#--------------------------------------------------------
+# for $arch at DWD uncomment the corresponding line
+#--------------------------------------------------------
+# hpc:
+#arch=${arch}-noomp-hpc
+#arch=${arch}-hpc
+# nec:
+#arch=sx6-nec-superux-sx9
+#
+#-----------------------------------------------------------------------------
+#
+# absolute paths of directories
+GRIDDIR=${basedir}/grids            # graphs, grids and patches
+BINDIR=${basedir}/build/${arch}/bin # binaries
+#
+# work directory
+WRKDIR=${basedir}/test_local_patch
+#-----------------------------------------------------------------------------
+#
+if [ ! -d $WRKDIR ]; then
+    mkdir -p $WRKDIR
+fi
+#
+cd $WRKDIR
+#
+#-----------------------------------------------------------------------------
+if [ ! -f iconR2B04-grid.nc ]; then
+  cp -s $GRIDDIR/iconR2B04-grid.nc .
+fi
+#-----------------------------------------------------------------------------
+#test multiple conditions
+#-----------------------------------------------------------------------------
+cat > $parameterFile << EOF
+&local_grid_refine
+    input_file  = 'iconR2B04-grid.nc'
+    output_file = 'iconR2B05-grid_multiple.nc'
+/
+&grid_geometry_conditions    
+    no_of_conditions = 2
+    patch_shape = 2,2
+    patch_center_x = 15,80
+    patch_center_y = 48,25
+    circle_radious = 20,20
+/
+EOF
+echo $refine_command $parameterFile > $commandFile
+${BINDIR}/grid_command
+check_error $? "iconR2B05-grid_multiple.nc"
+
+
+#-----------------------------------------------------------------------------
+#test physical_ids
+# first physical domain
+#-----------------------------------------------------------------------------
+cat > $parameterFile << EOF
+&local_grid_refine
+    input_file  = 'iconR2B04-grid.nc'
+    output_file = 'iconR2B05-grid.Atlantic.nc'
+/
+&grid_geometry_conditions    
+    no_of_conditions = 1
+    patch_shape = 2
+    patch_center_x = -40
+    patch_center_y = 20
+    circle_radious = 20
+/
+EOF
+#
+echo $refine_command $parameterFile > $commandFile
+${BINDIR}/grid_command
+check_error $? "iconR2B05-grid.Atlantic.nc"
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# second physical domain
+#-----------------------------------------------------------------------------
+cat > $parameterFile << EOF
+&local_grid_refine
+    input_file  = 'iconR2B04-grid.nc'
+    output_file = 'iconR2B05-grid.Asia.nc'
+/
+&grid_geometry_conditions    
+    no_of_conditions = 1
+    patch_shape = 2
+    patch_center_x = 90
+    patch_center_y = 30
+    circle_radious = 28
+/
+EOF
+#
+echo $refine_command $parameterFile > $commandFile
+${BINDIR}/grid_command 
+check_error $? "iconR2B05-grid.Asia"
+#-----------------------------------------------------------------------------
+#concatenate the two grids
+echo $conc_command iconR2B05-grid.Atlantic.nc iconR2B05-grid.Asia.nc iconR2B05-grid.conc.nc  > $commandFile
+${BINDIR}/grid_command
+check_error $? "iconR2B05-grid.conc.nc"
+
+#-----------------------------------------------------------------------------
+#refine from level 5
+#-----------------------------------------------------------------------------
+cat > $parameterFile << EOF
+&local_grid_refine
+!    input_file  = 'iconR2B05-grid.Asia.nc'
+    input_file  = 'iconR2B05-grid.conc.nc'
+    output_file = 'iconR2B06-grid.Asia.nc'
+/
+&grid_geometry_conditions
+    no_of_conditions = 1
+    patch_shape = 2
+    patch_center_x = 90
+    patch_center_y = 30
+    circle_radious = 18
+/
+EOF
+#
+echo $refine_command $parameterFile > $commandFile
+${BINDIR}/grid_command 
+check_error $? "iconR2B06-grid.Asia"
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+# Create Patch Hierarchy
+#
+# work directory
+inGridFiles="'iconR2B04-grid.nc', 'iconR2B05-grid.conc.nc', 'iconR2B06-grid.Asia.nc'"
+#inGridFiles="'iconR2B04-grid.nc', 'iconR2B05-grid.Asia.nc', 'iconR2B06-grid.Asia.nc'"
+outGridFiles="'iconR2B04_DOM01-grid.nc', 'iconR2B05_DOM02-grid.nc', 'iconR2B06_DOM03-grid.nc'"
+
+#-----------------------------------------------------------------------------
+cat > $parameterFile << EOF
+&local_patch_creation
+    no_of_patches = 3
+    in_grid_file_names = $inGridFiles
+    out_grid_file_names = $outGridFiles
+    grid_ids =   1, 2, 3
+    parent_ids = 0, 1, 2
+/
+EOF
+#-----------------------------------------------------------------------------
+#
+echo $create_hierarchy_command $parameterFile > $commandFile
+${BINDIR}/grid_command 
+check_error $?
+#-----------------------------------------------------------------------------
+exit
+
+
+#-----------------------------------------------------------------------------
+# run the model on the created hierarchy
+#-----------------------------------------------------------------------------
+# some basic specifications of the simulation
+#
+R=2           # nroot
+B=4           # number of bisections of the global grid
+N=31          # nlev = number of full levels
+DTIME=400     # time step in seconds
+NDAYS=2      # number of model days to run
+TEST="MRW"    # name of the test case
+OPT="spr0.90" # grid optimization
+CELL_TYPE=3   # 3 = triangles as control volume
+#
+# number of time steps is calculated from the parameters given above.
+NSTEPS=`expr $NDAYS \* 86400 / $DTIME`
+#
+# set the optimal NPROMA for the computer architecture used here
+NPROMA=1     # array blocking length for vectorization
+#
+#-----------------------------------------------------------------------------
+# experiment identifier
+#
+EXP="local_patch_test"
+#
+WORK_DIR=${basedir}
+#
+# absolute path to directory where grid files are stored:
+HGRIDDIR=$WRKDIR
+VGRIDDIR=${WORK_DIR}/hyb_params
+#
+# absolute path to directory with plenty of space:
+EXPDIR=$WRKDIR
+#
+# absolute path to model binary, including the executable:
+MODEL=${WORK_DIR}/build/${arch}/bin/control_model
+#
+# absolute path to this run script:
+SCRIPTDIR=${WORK_DIR}/testsuite
+#
+#-----------------------------------------------------------------------------
+#
+# horizontal grid
+# ---------------
+#
+# grid file name
+HGRIDNAME=iconR${R}B0${B}-grid
+#
+#-----------------------------------------------------------------------------
+#
+# vertical grid
+# -------------
+#
+# grid file name
+VGRIDNAME=HYB_PARAMS_${N}
+#
+# copy grid file
+cp -f ${VGRIDDIR}/${VGRIDNAME} ${VGRIDNAME}
+check_error $? "Copy of $VGRIDNAME"
+
+#
+#-----------------------------------------------------------------------------
+#
+# ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#
+cat > NAMELIST_ICON << EOF
+!
+&testcase_ctl
+ ctest_name  = '${TEST}'    ! test case identifier
+/
+&io_ctl
+ out_expname = '${EXP}'     ! file name base
+ dt_io_hour  = 24           ! [hr] output interval
+/
+&grid_ctl
+ nroot       = ${R}         ! root division of icosahedron edges
+ start_lev   = ${B}         ! start level for locally refined grids
+ n_dom       = 3            ! a global plus two nested domains
+/
+&run_ctl
+ iequations  = 2            ! theta*delta_p as prognostic variable
+ i_cell_type = ${CELL_TYPE} ! tri. or hex.
+ nproma      = ${NPROMA}    ! array blocking length
+ nlev        = ${N}         ! number of full levels of vertical grid
+ dtime       = ${DTIME}     ! timestep in seconds
+ nsteps      = ${NSTEPS}    ! number of time steps to integrate
+/
+&dynamics_ctl
+ idiv_method = 2            ! bilinear divergence averaging
+ si_offctr   = 0.55         ! reduced SI off-centering
+/
+&transport_ctl
+/
+&forcing_ctl
+/
+&diffusion_ctl
+ hdiff_order = 5            ! Smagorinsky (nabla)^2 diffusion + background (nabla)^4 diffusion
+ hdiff_efdt_ratio = 8       ! e-folding time ratio for (nabla)^4 background diffusion
+/
+&interpol_ctl
+/
+&gridref_ctl
+/
+&regularization_ctl
+/
+&ocean_ctl
+/
+EOF
+#
+#-----------------------------------------------------------------------------
+#
+#
+# run model
+##$MODEL  > test.out 2>&1
+$MODEL
+
+
+check_error $? "Modelrun $MODEL"
+
+#
+#-----------------------------------------------------------------------------
+#
+return_OK "Script run was successful"
+#
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+exit
+#-----------------------------------------------------------------------------

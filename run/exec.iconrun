@@ -1,0 +1,200 @@
+#=============================================================================
+#
+# This section of the run script prepares and starts the model integration. 
+#
+# bindir and START must be defined as environment variables or
+# they must be substituted with appropriate values.
+#
+# Marco Giorgetta, MPI-M, 2010-04-21
+#
+#-----------------------------------------------------------------------------
+#
+# set ICON_THREADS
+#
+export ICON_THREADS=${OMP_NUM_THREADS}
+#
+#-----------------------------------------------------------------------------
+#
+# directory of this script, must be in ICON base directory
+#
+DIR=$(pwd -P)
+ICONDIR=${DIR%/*}
+#
+#-----------------------------------------------------------------------------
+#
+# model
+#
+MODEL=${bindir}/control_model
+#
+ls -l ${MODEL}
+check_error $? "${MODEL} does not exist?"
+#
+#-----------------------------------------------------------------------------
+#
+# experiment directory, with plenty of space, create if new
+#
+EXPDIR=${ICONDIR}/experiments/${EXPNAME}
+#
+if [ ! -d ${EXPDIR} ]; then
+    mkdir -p ${EXPDIR}
+fi
+#
+ls -ld ${EXPDIR}
+check_error $? "${EXPDIR} does not exist?"
+#
+#-----------------------------------------------------------------------------
+#
+# data directories
+#
+DATADIR=${ICONDIR}/data
+#
+#-----------------------------------------------------------------------------
+#
+# get grid files
+#
+case ${IEQ} in
+    0 | 1 | 2 )
+        # shallow water | hydrost. atm. T| hydrost. atm. theta dp 
+        # =======================================================
+        #
+        # model constants
+        # ---------------
+        cp -f ${DATADIR}/rrtmg_lw.nc           ${EXPDIR} # LW radiation constants
+        cp -f ${DATADIR}/ECHAM6_CldOptProps.nc ${EXPDIR} # cloud optical properties
+        #
+        # horizontal grid
+        # ---------------
+        HGRIDDIR=${ICONDIR}/grids
+        AGRIDNAME=iconR${R}B0${B}-grid_${OPT}.nc
+        HGRIDNAME=iconR${R}B0${B}-grid.nc
+        #
+        cp -f ${HGRIDDIR}/${AGRIDNAME} ${EXPDIR}/${HGRIDNAME}
+        check_error $? "cp -f ${HGRIDDIR}/${AGRIDNAME}"
+        #
+        # vertical grid
+        # -------------
+        VGRIDDIR=${ICONDIR}/vertical_coord_tables
+        VGRIDNAME=atm_hyb_sp_${N}
+        #
+        cp -f ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
+        check_error $? "cp -f ${VGRIDDIR}/${VGRIDNAME}"
+        #
+        ;;
+     3 )
+        #  non-hydrost. atm.
+        # ==================
+        #
+        # model constants
+        # ---------------
+        cp -f ${DATADIR}/rrtmg_lw.nc           ${EXPDIR} # LW radiation constants
+        cp -f ${DATADIR}/ECHAM6_CldOptProps.nc ${EXPDIR} # cloud optical properties
+        #
+        # horizontal grid
+        # ---------------
+        if [[ $IREF != ".true." ]] ; then
+
+        HGRIDDIR=${ICONDIR}/grids
+        AGRIDNAME=iconR${R}B0${B}-grid_${OPT}.nc
+        HGRIDNAME=iconR${R}B0${B}-grid.nc
+
+        cp -f ${HGRIDDIR}/${AGRIDNAME} ${EXPDIR}/${HGRIDNAME}
+        check_error $? "cp -f ${HGRIDDIR}/${AGRIDNAME}"
+        
+        else
+
+        HGRIDDIR=${ICONDIR}/grids
+        if [[ $LPATCH0 = ".true." ]] ; then 
+         B_S=`expr $B - 1`
+         DOM_S=0
+        else 
+         B_S=$B
+         DOM_S=1
+        fi
+         B_MAX=`expr $B + $NDOM - 1`
+
+         B_C=$B_S
+         DOM_C=$DOM_S
+        while [[ $B_C -le $B_MAX ]] ; do
+
+         AGRIDNAME=iconR${R}B0${B_C}_DOM0${DOM_C}.nc
+         HGRIDNAME=iconR${R}B0${B_C}_DOM0${DOM_C}-grid.nc
+         cp -f ${HGRIDDIR}/${AGRIDNAME} ${EXPDIR}/${HGRIDNAME}
+         check_error $? "cp -f ${HGRIDDIR}/${AGRIDNAME}"
+
+         B_C=`expr $B_C + 1`
+         DOM_C=`expr $DOM_C + 1`
+        done 
+        fi     
+
+        #
+        
+        #
+        # vertical grid
+        # -------------
+        VGRIDDIR=${ICONDIR}/vertical_coord_tables
+        VGRIDNAME=atm_hyb_sz_${N}
+        #
+        cp -f ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
+        check_error $? "cp -f ${VGRIDDIR}/${VGRIDNAME}"
+        #
+        ;;
+    -1 )
+        # hydrost. ocean
+        # ==============
+        #
+        # horizontal grid
+        # ---------------
+        HGRIDNAME=iconR${R}B0${B}-grid.nc
+        # default path for grid
+        if [[ x$HGRIDDIR  == x ]]; then
+          HGRIDDIR=${ICONDIR}/grids
+        fi
+        #
+        # default grid names for aqua planet/Stommel basin/etopo topography
+        if [[ x$OGRIDNAME  == x ]]; then
+          if [[ x$USE_AQUAP = "xY" ]] ; then
+            OGRIDNAME=iconR${R}B0${B}-ocean_aqua_planet.nc
+          # OGRIDNAME=iconR${R}B0${B}-ocean_aqua_planet_${OPT}.nc  #  ?include optimization?
+          fi
+          if [[ x$USE_ETOPO = "xY" ]] ; then
+            OGRIDNAME=iconR${R}B0${B}-ocean_etopo40_planet.nc
+          fi
+          if [[ x$USE_BASIN = "xY" ]] ; then
+            OGRIDNAME=iconR${R}B0${B}-ocean_basin.nc
+          fi
+        fi
+        #
+        cp -f ${HGRIDDIR}/${OGRIDNAME} ${EXPDIR}/${HGRIDNAME}
+        check_error $? "cp -f ${HGRIDDIR}/${OGRIDNAME}"
+        #
+        # vertical grid
+        # -------------
+        # is defined in ocean_ctl namelist
+        #
+        ;;
+esac
+#
+#-----------------------------------------------------------------------------
+#
+# get namelist
+#
+mv -f ${DIR}/NAMELIST_${EXPNAME} ${EXPDIR}/NAMELIST_ICON
+check_error $? "cp -f ${DIR}/NAMELIST_${EXPNAME}"
+#
+#-----------------------------------------------------------------------------
+#
+# start experiment
+#
+cd ${EXPDIR}
+#
+${START} ${MODEL}
+#
+check_error $? "${START} ${MODEL}"
+#
+#-----------------------------------------------------------------------------
+#
+echo "============================"
+echo "Script run successfully"
+echo "============================"
+exit 0
+#-----------------------------------------------------------------------------

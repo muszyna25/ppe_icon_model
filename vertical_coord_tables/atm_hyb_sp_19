@@ -1,0 +1,35 @@
+    k     vct_a(k) [Pa]   vct_b(k) []
+    1      0.0000000000  0.0000000000
+    2   2000.0000000000  0.0000000000
+    3   4000.0000000000  0.0000000000
+    4   6046.1110000000  0.0003389933
+    5   8267.9280000000  0.0033571870
+    6  10609.5100000000  0.0130700400
+    7  12851.1000000000  0.0340771500
+    8  14698.5000000000  0.0706498300
+    9  15861.1300000000  0.1259167000
+   10  16116.2400000000  0.2011954000
+   11  15356.9200000000  0.2955196000
+   12  13621.4600000000  0.4054092000
+   13  11101.5600000000  0.5249322000
+   14   8127.1440000000  0.6461079000
+   15   5125.1420000000  0.7596984000
+   16   2549.9690000000  0.8564376000
+   17    783.1950000000  0.9287469000
+   18      0.0000000000  0.9729852000
+   19      0.0000000000  0.9922815000
+   20      0.0000000000  1.0000000000
+=====================================
+Source:
+- Marco Giorgetta, r652
+- Table 2.2 in Roeckner et al. (2003), left pair of A and B coefficients.
+  Note that Table 2.2 is truncated to 8 decimals.
+Comments:
+- Standard vertical grid for low resolution tropospheric ECHAM5 simulations.
+- Resolves atmosphere from surface to 10 hPa.
+- Includes full atmosphere: ptop=0.
+References:
+- Roeckner E., R. Brokopf, M. Esch, M. Giorgetta, S. Hagemann, L. Kornblueh,
+  E. Manzini, U. Schlese, and U. Schulzweida, The atmospheric general
+  circulation model ECHAM 5. PART I: Model description, MPI-Report 349, 
+  127 pp, 2003.

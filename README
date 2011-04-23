@@ -1,0 +1,205 @@
+README file for ICON
+====================
+Marco Giorgetta, MPI-M,  2011-01-27
+
+Valid for revision 3272 on "trunk/icon-dev"
+
+Tested:
+- "./configure" + "make" 
+  experiments "exp.test_hat_jww.run" and "exp.test_nh35_tri_jws" tested
+   by Buildbot on Blizzard, Tornado, Squall, and mpipc22
+- "make index" tested on Squall and Tornado
+- "make doc" tested on Squall  
+  (software missing on Tornado)
+
+#-----------------------------------------------------------------------------
+
+This README file guides through the initial steps for getting started
+with a first experiment.
+
+#-----------------------------------------------------------------------------
+
+This directory contains scripts and source codes of the ICON framework.
+To begin working with ICON models, a number of steps are necessary:
+
+A) Building the model
+B) Construct grids
+C) Run an experiment
+
+
+A) Building the model
+=====================
+
+1. Configure the Makefile and make the executables
+--------------------------------------------------
+
+The Autoconf configuration system is used to analyze the computer 
+architecture (hardware and software) and to set user specified 
+preferences, e.g. for the compiler.  These preferences are read 
+from config/mh-<OS>, where <OS> is the identified operating system.
+If your OS is missing, make your own based on the given mh-<OS> files.
+If different compilers are available, the mh-<OS> file may contain 
+a case construct to distinguish them.
+
+On tornado.dkrz.de, which has a Linux operating system, the mh-linux
+file is relevant. On Tornado the following compilers are available: 
+"gcc" (=default), "nag", "intel", "pgi", and "sun".
+
+Use "./configure" to generate the Makefile for the "gcc" compiler, and to 
+create the system specific "build" directory tree with the subordinate 
+Makefiles:
+
+% ./configure
+
+Now use "make" to compile the source codes and build the model executables:
+
+% make
+
+Note:
+1. For using other compilers, use:
+      % ./configure --with-fortran=<compiler>
+   with <compiler> in {gcc,nag,intel,pgi,sun}.
+
+2. Instead of using "./configure" and "make" you may also use:
+      % ./target_confmake.ksh <target>
+   <target> selects the machine-compiler combination. On Tornado
+   <target> can be chosen from {tornado,tornado_gcc,tornado_nag,etc}.
+   The target must be defines in the database file "target_database_ksh".
+
+2. Generate html documentation
+------------------------------
+
+2.1 HTML-ized source code
+
+Convert source code files to html files, with linked references
+to modules, subroutines, functions, etc., for source code viewing
+in web browsers. The html-ized source code is color coded for better
+legibility.
+
+% make index
+
+Open html/index.html in your browser.
+
+2.2 Doxygen documentation
+
+Doxygen is a tool to extract lists of types, variables, subroutines, variables 
+etc. from Fortran code. Additionally, Doxgen can generate graphs of calling
+or called subroutine. Doxygen also html-izes and color-codes the source code.
+
+If the "doxygen" software and other software used by doxygen is available 
+(this is not the case on Tornado), then make an html-formatted Doxygen 
+documentation:
+
+On Squall: % make doc
+
+This generates files in "doc/html/". Open doc/html/index.html file in
+your web browser.
+
+
+B) Construct grids
+==================
+
+ICON grids of resolution R<m>B<nn> are created in two steps. Firstly, graphs
+are constructed, which represent the grid structure by the indices of all 
+grid items (cells, edges and vertices) and the indices of the relevant items 
+in the neighborhood of each grid item. Secondly, the grid file is generated, 
+which contains also all geometric properties like positions, lengths, distances
+or areas.
+
+Both steps are carried out by the "create_global_grids.run" script.
+which is created automatically by the "./configure" procedure.
+The script is located under "./run.<target>.<compiler>[.seq][.mpi][.openmp]"
+depending on the configuration you have chosen. A related message will appear
+at the end of the configure procedure. 
+
+The script variables R and B determine the horizontal resolution, and are
+set to R=2 and B=4, resulting in a triangular grid of 20480 triangles
+with a mean distance of 139 km between triangle circumcenters, where scalars
+are defined. Two sets of grids are created. The first is optimized using the
+spring dynamics procedure, while the second the Heikes-Randall procedure.
+They have suffix "spr0.90" and "hro", respectively.
+
+Graphs are stored in NetCDF files named iconR2B<nn>-graph.nc, and grids in
+NetCDF files named iconR2B<nn>-grid_<opt>.nc, with <nn> from 00 to 04 and 
+<opt>=spr0.90 or <opt>=hro.
+
+By default the graph and grid files are stored in a directory "<ICON base dir>/grids/", 
+which is created first, if not existing. Use ncdump and an editor to view 
+the content of graph and grid files, or use NCL or other graphics packages 
+enabled for viewing data, as e.g. cell area, on irregular grids.
+
+% cd run
+% emacs create_global_grids.run
+% qsub  create_global_grids.run
+% cd ..
+
+
+C) Make experiments
+===================
+
+5. Make a run script
+--------------------
+
+"./configure" also creates the run scripts for running the grid generator and 
+for runnig model experiments, for which experiment descriptor files exist in
+the run/ directory. Experiment descriptor files are named "exp.<name>". These
+exp-files are processed in the configuration sequence started by "./configure"
+resulting in run scripts ready to be used on the current architecture. Run
+scripts are named "exp.<name>.run". The list of generated run scripts is listed
+at the end of the configuration process. For details on how to generate
+run scripts manually, see run/README.
+
+For the following the run script exp.test_hat_jww.run is used, which runs the
+hydrostatic atmosphere on a triangular R2B04 grid with initial condition for
+the Jablonowski Williamson baroclinic wave test.
+
+This generates the run script run/exp.test_hat_jww.run. This script contains
+architecture and site specific parameters for parallelization, vectorization
+etc. Read the run script.
+
+
+6. Run the ICON model
+---------------------
+
+The model executable, the grid and the run script exist now. 
+Start the run:
+
+% cd run
+% qsub exp.test_hat_jww.run
+% cd ..
+
+This produces a number of files in the experiment directory "$EXP", located in
+"experiments/". Here "$EXP"="test_hat_jww". Raw data are stored in 
+"test_hat_jww_R2B04L31_0001.nc".
+
+% cd experiments/test_hat_jww
+% ls -1
+
+You find the following files:
+- HYB_PARAMS_31                  : Input , vertical coordinate table
+- iconR2B04-grid.nc              : Input , horizontal grid
+- NAMELIST_ICON                  : Input , namelist written by iconrun
+- NAMELIST_ICON_output           : Output, namelist completed by model
+- test_hat_jww_R2B04L31_0001.nc  : Output, raw data file in netcdf format
+- total_integrals.dat            : Output, mass and energy error diagnostic
+
+The raw data file name includes the experiment base name, the parameters
+for the horizontal and vertical grid, as discussed above. Further a file 
+counter "0001" indicates that this is the first raw data file 
+(and in this case also the only one).
+
+View the resulting data with NCL or other graphics packages enabled 
+for processing data on unstructured grids, or use "cdo remapdis" to 
+interpolate data from ICON grids to regular longitude latitude grids. 
+Then use any convenient graphics package.
+
+Here is the cdo remapping function to interpolate the data to the
+Gaussian longitude-latitude grid associated with the T63 truncation.
+The regular grid file can be viewed for example with GrADS.
+
+% cdo -r remapdis,t63grid test_hat_jww_DOM01_R2B04L31_0001.nc test_hat_jww_DOM01_T63L31_0001.nc
+
+N.B.: ICON data files include an absolute time axis, but GrADS
+      needs a relative time axis. A conversion is achieved by
+      the "-r" option used above with the cdo remapping command.
+

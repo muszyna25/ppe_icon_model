@@ -1,0 +1,42 @@
+!
+!*         4.8     UPDATING OF Z0 FOR OPEN SEA.
+!
+     DO  481 jl=1,kproma
+      paz0w(jl)=MAX(zepzzo,                                            &
+                    zcons14*zcfmw(jl)                                  &
+                   *SQRT(zudif(jl,klev)**2+zvdif(jl,klev)**2)          &
+                   *ptm1(jl,klev)                                      &
+                   *(1._dp+vtmpc1*pqm1(jl,klev)-zx(jl,klev))           &
+                   /paphm1(jl,klevp1))
+      paz0i(jl)=cz0ice
+      paz0(jl)=pfrl(jl)*paz0l(jl)+pfrw(jl)*paz0w(jl)                   &
+              +pfri(jl)*paz0i(jl)
+!
+!     windstress
+!
+!      land   ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!
+      pustrl(jl)=zcons15*zcfml(jl)*zudif(jl,klev)
+      pvstrl(jl)=zcons15*zcfml(jl)*zvdif(jl,klev)
+!
+!      water   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!
+      pustrw(jl)=zcons15*zcfmw(jl)*zudif(jl,klev)
+      pvstrw(jl)=zcons15*zcfmw(jl)*zvdif(jl,klev)
+!
+!      ice   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!
+      pustri(jl)=zcons15*zcfmi(jl)*zudif(jl,klev)
+      pvstri(jl)=zcons15*zcfmi(jl)*zvdif(jl,klev)
+!
+!      average   +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!
+      pustr(jl)=pustr(jl)+(pfrl(jl)*pustrl(jl)                         &
+                          +pfrw(jl)*pustrw(jl)                         &
+                          +pfri(jl)*pustri(jl))*zdtime
+      pvstr(jl)=pvstr(jl)+(pfrl(jl)*pvstrl(jl)                         &
+                          +pfrw(jl)*pvstrw(jl)                         &
+                          +pfri(jl)*pvstri(jl))*zdtime
+      pvdis(jl)=pvdis(jl)+zdtime*zcons15*zvidis(jl)
+481  END DO
+

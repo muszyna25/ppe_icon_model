@@ -1,0 +1,67 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15">
+<title>Buildbot ICON</title>
+</head>
+
+<body>
+<h1>Buildbot for ICON</h1>
+
+Buildbot starts every night a test suite on different machines, using different compilers.<p>
+<h3>The test consists in:</h3>
+<ol style="list-style-type: decimal;">
+  <li>removing files from the previous test</li>
+  <li>retrieving the most recent revision existing on "trunk/icon-dev"
+  <li>running "configure&make" for a specifed target machine and compiler
+  <li>making test runs with the following sub steps:
+  <ol style="list-style-type: lower-roman;">
+   <li>make run scripts for the target machine and for all experiments, for which descriptor files named run/exp.test_* exist
+   <li>launch the test run scripts
+   <li>launch existing post processing scripts, named run/post_*
+  </ol>
+</ol>
+
+<h3>The success (in green) or failure (in red) of these tests is displayed on the following pages:</h3>
+
+<ul>
+  <li><a href="waterfall?reload=600&show_events=false&show_time=604800"><b>Waterfall display:</b></a>
+    Displays success/failure for all 4 steps listed above for all build targets, in chronological order.
+  </li>
+
+  <li><a href="grid?reload=600&width=20"><b>Grid display:</b></a>
+  Displays overall success or failure for the 20 most recent revisions tested by Buildbot, including regular nightly builds and additional test builds, ordered by build target.
+  </li>
+
+  <li><a href="tgrid?reload=600&length=15"><b>Transposed Grid Display:</b></a> 
+   Presents the same information as the grid, but lists the revisions down the side.
+  </li>
+
+  <li><a href="one_box_per_builder"><b>Latest build:</b></a>
+  Displays the overall success or failure for the last test of each builder, ordered by builder.
+  </li>
+
+  <li><a href="one_line_per_build?numbuilds=30"><b>List display:</b></a> Displays the overall success or failure of the most recent builds, ordered by time of completion of the build tests.
+  </li>
+
+  <li><a href="buildslaves"><b>Build slaves:</b></a>
+  Displays the status of all machines used by this Buildbot.
+  </li>
+</ul>
+
+<h3>Postprocessing results are displayed here in comparison to a reference result from<br> an earlier revision:</h3>
+<ul>
+  <li><a href="model_compare/test_hat_jww.html"><b>exp.test_hat_jww</b></a></li>
+  <li><a href="model_compare/test_nah_jww.html"><b>exp.test_nah_jww</b></a></li>
+  <li><a href="model_compare/test_nh35_tri_jws.html"><b>exp.test_nh35_tri_jws</b></a></li>
+  <li><a href="model_compare/test_nh3_tri_tracer_solid_body.html"><b>exp.test_nh3_tri_tracer_solid_body</b></a></li> 
+  <li><a href="model_compare/test_hom_1.html"><b>exp.test_hom_1</b></a></li> 
+  <li><a href="model_compare/test_R2B05_JWmoistradnh_mpiomp.html"><b>exp.test_R2B05_JWmoistradnh_mpiomp</b></a></li>
+</ul>
+
+<h3>About Buildbot</h3>
+<ul>
+  <li><a href="http://buildbot.net"><b>Buildbot home page</b></a></li>
+  <li><a href="about"><b>Buildbot version used</b></a></li>
+</ul>
+</body> </html>

@@ -1,0 +1,102 @@
+#=============================================================================
+#
+# This section sets up the environment for the proper postprocessing script.
+# Parameters are passed by the "set_env" file to be executed by the pp script.
+#
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# Set parameters for postprocessing
+#  - should be passed by the exp.test_hom_1 script
+EXP="test_hom_1"
+horizontal_resolution="R2B04"
+vertical_resolution="L4"
+
+# Preliminary test phase: run on specific systems and compiler only
+#  - 2011-01-31: mpipc/tornado/squall - all compilers
+#  - 2011-03-03: blizzard serial run included
+#  - 2011-03-04: error test
+if [ -z "$BB_SYSTEM" ]
+then
+  echo " ===== (no buildbot) ======="
+  echo " Run ocean testcase $EXPNAME"
+  echo " ==========================="
+else
+  if [ "$BB_SYSTEM" == "mpipc" -o "$BB_SYSTEM" == "squall" -o "$BB_SYSTEM" == "tornado" ]
+  then 
+# if [ "$BB_SYSTEM" == "mpipc" -o "$BB_SYSTEM" == "squall" -o "$BB_SYSTEM" == "tornado" -o [ "$BB_SYSTEM" == "blizzard" -a "$BB_SLAVE" == "blizz_nMnO" ] ]
+    echo " ==================================================="
+    echo " Run ocean postprocessing $EXP on BB_SLAVE=$BB_SLAVE"
+    echo " ==================================================="
+  else
+    if [ "$BB_SYSTEM" == "blizzard" -a "$BB_SLAVE" == "blizz_nMnO" ] 
+    then
+      echo " ==================================================="
+      echo " Run ocean postprocessing $EXP on BB_SLAVE=$BB_SLAVE"
+      echo " ==================================================="
+    else
+      echo " ==============================================================="
+      echo " No ocean postprocessing is run on BB_SLAVE=$BB_SLAVE - exit now"
+      echo " ==============================================================="
+      exit 0
+    fi
+  fi
+fi
+
+
+
+
+cd ../scripts/postprocessing/testcases
+
+# Remove old set_env file
+#
+if [ -f set_env ] 
+then 
+  rm -f set_env
+fi
+
+# Write new set_env file
+#
+echo "EXP=\"${EXP}\""                                     >  set_env
+echo "horizontal_resolution=\"${horizontal_resolution}\"" >> set_env
+echo "vertical_resolution=\"${vertical_resolution}\""     >> set_env
+#echo "config_string=\"${config_string}\""                 >> set_env
+
+# Load modules for CDO and NCL
+#
+# case ${BB_SLAVE} in
+#    mpipc*)
+#	. /client/etc/profile.zmaw
+#	module load 'ncl/5.2.0-bin'
+#	;;
+#    squall*)
+#	. /client/etc/profile.zmaw
+#	module load 'ncl/5.2.0-bin cdo/1.4.5.1'
+#	;;
+#    tornado*)
+#	. /client/etc/profile.zmaw
+#	module load 'ncl/5.1.1'
+#	;;
+# esac
+
+# Load NCL resources
+#
+export NCARG_USRRESFILE=${WORKING_PATH}/scripts/postprocessing/.hluresfile
+
+# Start postprocessing script
+echo "-- ---------------------------------------------------------"
+echo "-- hom_1_postpro_driver.bash starts at $(date) --"
+echo "-- ---------------------------------------------------------"
+#
+./hom_1_postpro_driver.bash
+STATUS=$?
+
+echo "-- ---------------------------------------------------------"
+echo "-- hom_1_postpro_driver.bash ends at $(date) --"
+echo "-- ---------------------------------------------------------"
+
+rm -f set_env
+
+check_error $? "Creating of Plots"
+
+exit $STATUS
