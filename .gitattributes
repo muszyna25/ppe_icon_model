@@ -1049,9 +1049,9 @@ src/shared/mo_time_base.f90 -text
 src/shared/mo_timer.f90 -text
 src/shared/mo_util_backtrace.f90 -text
 src/shared/mo_util_hash.f90 -text
-src/shared/mo_util_postgresql.f90 -text
+src/shared/mo_util_postgresql.f90_off -text
 src/shared/mo_util_string.f90 -text
-src/shared/mo_util_system.f90 -text
+src/shared/mo_util_system.f90_off -text
 src/shared/mo_var_list.f90 -text
 src/shared/mo_var_list_element.f90 -text
 src/shared/mo_var_metadata.f90 -text
