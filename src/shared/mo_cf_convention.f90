@@ -66,23 +66,23 @@ MODULE mo_cf_convention
 
   PRIVATE
 
-  TYPE cf_global
+  TYPE t_cf_global
     CHARACTER(len=128) :: title         = ''
     CHARACTER(len=128) :: institution   = ''
     CHARACTER(len=128) :: source        = ''
     CHARACTER(len=128) :: history       = ''
     CHARACTER(len=128) :: references    = ''
     CHARACTER(len=128) :: comment       = ''
-  END type cf_global
+  END TYPE t_cf_global
 
-  TYPE cf_var
+  TYPE t_cf_var
     CHARACTER(len=128) :: long_name     = ''
     CHARACTER(len=128) :: units         = ''
     CHARACTER(len=128) :: standard_name = ''
-  END type cf_var
+  END TYPE t_cf_var
 
-  PUBLIC :: cf_global
-  PUBLIC :: cf_var
+  PUBLIC :: t_cf_global
+  PUBLIC :: t_cf_var
 
   PUBLIC :: set_cf_global
   PUBLIC :: set_cf_var
@@ -90,7 +90,7 @@ MODULE mo_cf_convention
 CONTAINS
 
   FUNCTION set_cf_global(title, institution, source, history, references, comment) RESULT(cf_global_info)
-    TYPE(cf_global) :: cf_global_info
+    TYPE(t_cf_global) :: cf_global_info
     CHARACTER(len=*), OPTIONAL :: title
     CHARACTER(len=*), OPTIONAL :: institution
     CHARACTER(len=*), OPTIONAL :: source
@@ -108,7 +108,7 @@ CONTAINS
   END FUNCTION set_cf_global
 
   FUNCTION set_cf_var(long_name, units, standard_name) RESULT(cf_var_info)
-    TYPE(cf_var) :: cf_var_info
+    TYPE(t_cf_var) :: cf_var_info
     CHARACTER(len=*), OPTIONAL :: long_name
     CHARACTER(len=*), OPTIONAL :: units
     CHARACTER(len=*), OPTIONAL :: standard_name

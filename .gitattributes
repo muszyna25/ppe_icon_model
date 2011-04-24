@@ -1005,6 +1005,7 @@ src/oce_phy_icohom/mo_oce_physics.f90 -text
 src/oce_phy_icohom/mo_oce_thermodyn.f90 -text
 src/shared/m_gmres.f90 -text
 src/shared/mo_atmo_control.f90 -text
+src/shared/mo_cdi_constants.f90 -text
 src/shared/mo_cf_convention.f90 -text
 src/shared/mo_communication.f90 -text
 src/shared/mo_datetime.f90 -text

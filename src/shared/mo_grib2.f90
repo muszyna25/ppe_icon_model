@@ -4,12 +4,12 @@ MODULE mo_grib2
 
   PRIVATE
 
-  TYPE grib2_global
+  TYPE t_grib2_global
     INTEGER :: centre
     INTEGER :: subcentre
-  END TYPE grib2_global
+  END TYPE t_grib2_global
 
-  TYPE grib2_var
+  TYPE t_grib2_var
     INTEGER :: discipline
     INTEGER :: category
     INTEGER :: parameter
@@ -17,9 +17,9 @@ MODULE mo_grib2
     INTEGER :: gridtype
     INTEGER :: subgridtype
     INTEGER :: leveltype
-  END type grib2_var
+  END TYPE t_grib2_var
 
-  PUBLIC :: grib2_global
-  PUBLIC :: grib2_var
+  PUBLIC :: t_grib2_global
+  PUBLIC :: t_grib2_var
 
 END MODULE mo_grib2

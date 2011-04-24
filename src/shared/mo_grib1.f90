@@ -4,19 +4,19 @@ MODULE mo_grib1
 
   PRIVATE
 
-  TYPE grib1_global
+  TYPE t_grib1_global
     INTEGER :: centre
     INTEGER :: subcentre
-  END TYPE grib1_global
+  END TYPE t_grib1_global
 
-  TYPE grib1_var
+  TYPE t_grib1_var
     INTEGER :: table
     INTEGER :: parameter
     INTEGER :: bits
     INTEGER :: leveltype
-  END type grib1_var
+  END type t_grib1_var
 
-  PUBLIC :: grib1_global
-  PUBLIC :: grib1_var
+  PUBLIC :: t_grib1_global
+  PUBLIC :: t_grib1_var
 
 END MODULE mo_grib1
