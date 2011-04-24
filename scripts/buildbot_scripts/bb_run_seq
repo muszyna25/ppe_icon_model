@@ -1,4 +1,5 @@
 #!/bin/ksh
+
 #------------------------------------------------------------------------------
 # This script is called on all buildbot slaves and should be used to call
 # test jobs or performance jobs.
@@ -40,9 +41,9 @@
 #------------------------------------------------------------------------------
 # First version by Walter Sauf (MPI-M, 2009-10-22)
 #
-# $Rev$:     Revision of last commit
-# $Author$:  Author of last commit
-# $Date$:    Date of last commit
+# $Rev: 4080 $:     Revision of last commit
+# $Author: walter.sauf $:  Author of last commit
+# $Date: 2011-04-19 00:00:44 +0200 (Tue, 19 Apr 2011) $:    Date of last commit
 #------------------------------------------------------------------------------
 
 #Define of the text which is written in case of a script fail or OK run
@@ -66,7 +67,6 @@ build_post_file="true"
 stop_on_error()
 {
 # Check if the first parameter (return status) is not OK
-    echo STATUS_IN_FILE ${STATUS_IN_FILE}
     if [[ $1 -ne 0 || ${STATUS_IN_FILE} -ne 0 ]] 
     then
       if [[ $1 -ne 0 ]] 
@@ -187,24 +187,12 @@ set_test_list ()
 # runs the scrpits ./$1/$2
 run_scripts()
 {
-  if [ "x${submit}" == "x" ] ; then
-    run_scripts_nosubmit $1 $2
-  else
-    run_scripts_submit $1 $2
-  fi
-}
-
-
-#==============================================================================
-# runs the scrpits ./$1/$2
-run_scripts_nosubmit()
-{
 # Change to directory 'run' 
   echo "run_scripts $1 $2"
   cd $1
 
   EXP_FILES=`ls $2`
-  
+
   for EXP_FILE in $EXP_FILES
   do 
     echo "---------------------------------------------------------"
@@ -212,9 +200,57 @@ run_scripts_nosubmit()
     echo " Start new Script: ${EXP_FILE} at $(date)"
     echo " "
     echo "---------------------------------------------------------"
-    echo "Start. ./$EXP_FILE"
-    ./$EXP_FILE
-    STATUS=$?
+# Run job by using the correct submit call. Also save the calling status in STATUS
+
+    case ${submit} in
+      qsub)
+        echo "Start. ${submit} $sync ./$EXP_FILE"
+        OUT=`$submit $sync ./$EXP_FILE`
+        STATUS=$?
+
+        case ${use_site} in
+          dwd.de)
+            JOBID=`echo $OUT |  cut -d '.' -f1`
+# We have to wait two seconds to be shure that the logging of the SGE-job is transfered into this directory
+            sleep 2
+            ;;
+          *)
+            JOBID=`echo $OUT |  awk '{print $3}'`
+            ;;
+        esac
+
+        if   [[ x$JOBID != x ]] && [[ x$JOBID != x0 ]]
+	then
+          cat *$JOBID*
+	fi
+        ;;
+
+      llsubmit)
+        echo "Start. $submit -s ./$EXP_FILE"
+        OUT=`$submit -s ./$EXP_FILE`
+        STATUS=$?
+        JOBID=`echo $OUT | cut -d'"' -f2 | cut -d'.' -f2`
+        if   [[ x$JOBID != x ]]  && [[ x$JOBID != x0 ]]
+	then
+          cat *$JOBID*
+	fi
+        ;;
+
+      nqsub)
+        echo "====================================================================================== "
+        echo "                  "
+        echo "The job is not send to the SX9 because of problems in "
+        echo "synchronizing jobs by using nqsub "
+        echo "                  "
+        echo "====================================================================================== "
+        STATUS=1
+        ;;
+      *)
+        echo "Start. ./$EXP_FILE"
+        ./$EXP_FILE
+        STATUS=$?
+        ;;
+    esac
     echo "---------------------------------------------------------"
     echo " "
     echo " Script: ${EXP_FILE} stops at $(date)"
@@ -237,76 +273,6 @@ run_scripts_nosubmit()
   
   done
 
-  cd ..
-
-}
-
-
-#==============================================================================
-# runs the scrpits ./$1/$2
-run_scripts_submit()
-{
-
-  if [ $submit = "nqsub" ] 
-  then
-    echo "====================================================================================== "
-    echo "                  "
-    echo "The job is not send to the SX9 because of problems in "
-    echo "synchronizing jobs by using nqsub "
-    echo "                  "
-    echo "====================================================================================== "
-    STATUS=1
-    return
-  fi
-# Change to directory 'run' 
-  echo "run_scripts $1 $2"
-  cd $1
-
-  EXP_FILES=`ls $2`
-    
-  for EXP_FILE in $EXP_FILES
-  do 
-    run_command="$submit $sync ./$EXP_FILE"
-
-    echo "---------------------------------------------------------"
-    echo " Submit new Script: ${EXP_FILE} at $(date)"
-    echo " $run_command "
-    echo "---------------------------------------------------------"
-
-    echo $run_command > submit.$EXP_FILE
-    chmod +x submit.$EXP_FILE        
-    ./submit.$EXP_FILE &    
-  
-  done
-
-  # wait for all jobs to finish
-  wait
-  
-  # print and check the results
-  for EXP_FILE in $EXP_FILES
-  do
-    
-    echo "---------------------------------------------------------"
-    echo " "
-    echo " Start of ${EXP_FILE}"
-    echo " "
-    echo "---------------------------------------------------------"
-    cat LOG.$EXP_FILE.*
-    echo "---------------------------------------------------------"
-    echo " "
-    echo " End of ${EXP_FILE}"
-    echo " "
-    echo "---------------------------------------------------------"
-
-    STATUS_IN_FILE=""
-    if [ -r $EXP_FILE.status ]
-    then
-     STATUS_IN_FILE=`cat ${EXP_FILE}.status`
-    fi
-
-    $stop_check 0 $EXP_FILE
-  done
-  
   cd ..
 
 }
@@ -403,42 +369,17 @@ submit=$use_submit
 # MPI -sync y
 # DWD -W block=true
 
-if   [ "x${submit}" != "x" ]
+if   [ "x${submit}" == "xqsub" ]
 then
-  case ${submit} in
-
-    qsub)
-      case ${use_site} in
-        dwd.de)
-          sync="-W block=true"
+    case ${use_site} in
+      dwd.de)
+         sync="-W block=true"
         ;;
-        *)
-          sync="-sync y"
+      *)
+         sync="-sync y"
         ;;
-      esac
-    ;;
-
-    llsubmit)
-      sync="-s"
-    ;;
-
-    nqsub)
-      echo "====================================================================================== "
-      echo "                  "
-      echo "The job is not send to the SX9 because of problems in "
-      echo "synchronizing jobs by using nqsub "
-      echo "                  "
-      echo "====================================================================================== "
-      stop_on_error 1
-      exit 1
-      ;;
-
-    *)
-      echo "Unkown submit : $submit"
-      stop_on_error 1
-      exit 1
-    ;;
-  esac
+    esac
+    echo "change submit to ${submit} ${sync}"
 fi
 
 #-----------------------------------------------------------------------------

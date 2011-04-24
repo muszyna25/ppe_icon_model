@@ -142,7 +142,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 
   INTEGER :: khydromet, ktrac
 !>JH  
-  REAL(wp), DIMENSION(9):: czmls=(/ 0.,0.005,0.02,0.06,0.18,0.54,1.62,4.86,14.58 /)
+!  REAL(wp), DIMENSION(9):: czmls=(/ 0.,0.005,0.02,0.06,0.18,0.54,1.62,4.86,14.58 /)
 !<JH
     i_nchdom  = MAX(1,p_patch%n_childdom)
 

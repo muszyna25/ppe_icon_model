@@ -638,8 +638,7 @@ CONTAINS
   !-----------------------------------------------------------------------
   REAL(wp), PARAMETER ::                       &
     RR         = 1._wp/3._wp,                  & ! horizontal half width divided by 'a'
-!    ZZ         = 1000._wp,                     & ! vertical half width
-    ZZ         = 1._wp,                        & ! vertical half width
+    ZZ         = 1000._wp,                     & ! vertical half width
     z0         = 4500._wp,                     & ! center point in z
     lambda0    = 1.5_wp*pi,                    & ! center point in longitudes
     RR_q7      = 1._wp/2._wp,                  & ! half width divided by 'a' for q7
@@ -673,8 +672,8 @@ CONTAINS
     cos_tmp = COS(lat) * COS(phi0)
     r  = ACOS (sin_tmp + cos_tmp*COS(lon-lambda0))       ! great circle distance without 'a'
     d1 = MIN( 1._wp, (r/RR) )
-    !q4 = 0.5_wp  * (1._wp + COS(pi*d1))
-    q4 = 0.5_wp * ZZ * (1._wp + COS(pi*d1)) ! Almut: for comparison with Bill
+    q4 = 0.5_wp  * (1._wp + COS(pi*d1))
+!DR    q4 = 0.5_wp * ZZ * (1._wp + COS(pi*d1)) ! Almut: for comparison with Bill
   ENDIF
   !-----------------------------------------------------------------------
   !     tracer q5 (3D-field after Jablonowski et al (2008))

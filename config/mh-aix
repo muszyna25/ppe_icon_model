@@ -7,7 +7,7 @@ LAPACKROOT  =
 LAPACK_LIB  =
 
 LIBS        = -L../lib -lsupport
-load_modules="NCL/6.0.0-beta"
+load_modules="NCL/6.0.0-beta" "cdo/default"
 
 #===============================================
 #
@@ -38,7 +38,7 @@ case "$fortran_compiler" in
       HPM_INCL  = -I$IHPCT_BASE/include
       HPM_LIB  = -L$IHPCT_BASE/lib64 -lhpc -lm -lpmapi
       
-      load_modules="IBM/xlf13.1.0.2" "${load_modules}"
+      load_modules="IBM/xlf13.1.0.2" "IBM/xlc10.1.0.2" "${load_modules}"
     ;;
     
     gcc)

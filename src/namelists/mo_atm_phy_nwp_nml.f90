@@ -100,6 +100,9 @@ MODULE mo_atm_phy_nwp_nml
   INTEGER ::  inwp_cldcover    !! cloud cover
   INTEGER ::  inwp_turb        !! turbulence
   INTEGER ::  inwp_surface     !! surface including soil, ocean, ice,lake
+  INTEGER ::  nlevs, nztlev    !! number of soil layers, time integration scheme
+  INTEGER ::  nlev_snow        !! number of snow layers
+  INTEGER ::  nsfc_type        !! number of TILES
 
   INTEGER :: jg
                                !KF should be moved to run_ctl
@@ -130,7 +133,8 @@ MODULE mo_atm_phy_nwp_nml
 
   NAMELIST/nwp_phy_ctl/inwp_gscp, inwp_satad, inwp_convection, &
     &                  inwp_radiation, inwp_sso, inwp_cldcover, &
-    &                  inwp_turb, inwp_surface,                 &
+    &                  inwp_turb, inwp_surface, nlevs, nztlev,  &
+    &                  nlev_snow, nsfc_type,                    &
     &                  dt_conv, dt_ccov, dt_rad,                &
     &                  dt_radheat,                              &
     &                  dt_sso, dt_gscp, dt_satad,               &
@@ -146,6 +150,8 @@ MODULE mo_atm_phy_nwp_nml
    PUBLIC :: setup_nwp_phy !, set_inwp_nml, read_inwp_nml
    PUBLIC :: inwp_gscp, inwp_satad, inwp_convection, inwp_radiation
    PUBLIC :: inwp_sso, inwp_cldcover, inwp_turb, inwp_surface
+   PUBLIC :: nlevs, nztlev
+   PUBLIC :: nlev_snow, nsfc_type
    PUBLIC :: dt_conv, dt_ccov, dt_rad, dt_radheat, dt_sso, dt_gscp
    PUBLIC :: dt_satad, dt_update,   dt_turb, dt_sfc,tcall_phy
    PUBLIC :: qi0, qc0
@@ -153,8 +159,6 @@ MODULE mo_atm_phy_nwp_nml
 
 
  CONTAINS
-
-
 
   !-------------------------------------------------------------------------
   !
@@ -233,6 +237,11 @@ MODULE mo_atm_phy_nwp_nml
     inwp_cldcover   = 1           !> 1 = use grid-scale clouds for radiation
     inwp_turb       = 0           !> 0 = no turbulence,1= cosmo/turbdiff,2=echam/vdiff
     inwp_surface    = 0           !> 0 = no surface, 1 =  cosmo surface
+
+    nlevs           = 7           !> 7 = default value for number of soil layers
+    nztlev          = 2           !> 2 = default value for time integration scheme
+    nlev_snow       = 1           !> 1 = default value for number of snow layers
+    nsfc_type       = 1           !> 1 = default value for number of TILES
 
     ! initialize the following values with zero to allow for namelist output
     dt_conv (:)  = 0.0_wp

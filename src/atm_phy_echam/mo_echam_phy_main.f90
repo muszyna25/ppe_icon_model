@@ -62,7 +62,7 @@ MODULE mo_echam_phy_main
     &                               timer_radheat,                    &
     &                               timer_cucall, timer_vdiff
   USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
-  USE mo_icoham_sfc_indices,  ONLY: nsfc_type, igbm, iwtr, iice, ilnd
+  USE mo_icoham_sfc_indices,  ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_cloud,               ONLY: cloud
   USE mo_cover,               ONLY: cover
   USE mo_echam_cloud_params,  ONLY: ctaus, ctaul, ctauk !, ncctop, nccbot
@@ -157,7 +157,7 @@ CONTAINS
     ! Temporary arrays used by VDIFF
 
     REAL(wp) :: zprfac_sfc(nbdim)
-    REAL(wp) ::   zcpt_sfc(nbdim,nsfc_type)  !< dry static energy at surface
+    REAL(wp) :: zcpt_sfc_tile(nbdim,nsfc_type)  !< dry static energy at surface
 
     REAL(wp) :: zcptgz  (nbdim,nlev) !< dry static energy
     REAL(wp) :: zrhoh   (nbdim,nlev) !< air density at half levels
@@ -350,7 +350,7 @@ CONTAINS
 !!$        field% debug_2d_3(:,jb) = field% albvisdif(:,jb)
 !!$        field% debug_2d_4(:,jb) = field% albnirdif(:,jb)
 !!$        field% debug_2d_5(:,jb) = REAL(itype(:),wp)
-!!$        field% debug_2d_6(:,jb) = field% tsfc(:,igbm,jb)
+!!$        field% debug_2d_6(:,jb) = field% tsfc(:,jb)
 !!$        field% debug_2d_7(:,jb) = rlfland(:)
 !!$        field% debug_2d_8(:,jb) = rlfglac(:)
 !!$        !
@@ -391,7 +391,7 @@ CONTAINS
           & field% albnirdir(:,jb)   ,&!< in     surface albedo for near IR range, direct
           & field% albvisdif(:,jb)   ,&!< in     surface albedo for visible range, diffuse
           & field% albnirdif(:,jb)   ,&!< in     surface albedo for near IR range, diffuse
-          & field% tsfc(:,igbm,jb)   ,&!< in     grid box mean surface temperature
+          & field% tsfc(:,jb)        ,&!< in     grid box mean surface temperature
           !
           ! atmopshere: pressure, tracer mixing ratios and temperature
           & field% presi_old(:,:,jb) ,&!< in     pressure at half levels at t-dt [Pa]
@@ -473,8 +473,8 @@ CONTAINS
         & zmair           (:,:)       ,&! in     layer air mass                [kg/m2]
         & field% q(:,:,jb,iqv)        ,&! in     specific moisture             [kg/kg]
         & zi0             (:)         ,&! in     solar incoming flux at TOA    [W/m2]
-        & field% tsfc     (:,igbm,jb) ,&! in     surface temperature           [K]
-        & field% tsfc     (:,igbm,jb) ,&! in     sfc temp. used in "radiation" [K]
+        & field% tsfc     (:,jb)      ,&! in     surface temperature           [K]
+        & field% tsfc     (:,jb)      ,&! in     sfc temp. used in "radiation" [K]
         & field% trsolall (:,:,jb)    ,&! in     shortwave net tranmissivity   []
         & field% emterall (:,:,jb)    ,&! in     longwave net flux             [W/m2]
         !
@@ -526,14 +526,14 @@ CONTAINS
 
       CALL vdiff_down( jce, nbdim, nlev, nlevm1, nlevp1,&! in
                      & ntrac, nsfc_type,                &! in
-                     & iwtr, iice, ilnd, igbm,          &! in, indices of different surface types
+                     & iwtr, iice, ilnd,                &! in, indices of different surface types
                      & psteplen,                        &! in, time step (2*dt if leapfrog)
                      & field%coriol(:,jb),              &! in, Coriolis parameter
-                     & zfrc(:,1:nsfc_type),             &! in, area fraction of each surface type
-                     & field% tsfc  (:,1:nsfc_type,jb), &! surface temperature
+                     & zfrc(:,:),                       &! in, area fraction of each sfc type
+                     & field% tsfc_tile(:,:,jb),        &! in, surface temperature
                      & field% ocu (:,jb),               &! in, ocean sfc velocity, u-component
                      & field% ocv (:,jb),               &! in, ocean sfc velocity, v-component
-                     & field% presi_old  (:,nlevp1,jb), &! in, sfc pressure
+                     & field% presi_old(:,nlevp1,jb), &! in, sfc pressure
                      & field%    u(:,:,jb),             &! in, um1
                      & field%    v(:,:,jb),             &! in, vm1
                      & field% temp(:,:,jb),             &! in, tm1
@@ -551,24 +551,24 @@ CONTAINS
                      & zxt_emis(:,:),                   &! in, zxtems
                      & field% thvvar(:,:,jb),           &! in, variance of theta_v at step t-dt
                      & field%   xvar(:,:,jb),           &! in
-                     & field% z0m(:,igbm:nsfc_type,jb), &! in
+                     & field% z0m_tile(:,:,jb),         &! in
                      & field%  tkem1(:,:,jb),           &! in, TKE at step t-dt
                      & field%  ustar(:,  jb),           &! inout
-                     & field% qs_sfc(:,1:nsfc_type,jb), &! out, sfc specific humidity at saturation
+                     & field% qs_sfc_tile(:,:,jb),      &! out, sfc specific humidity at saturation
                      & ihpbl(:),                        &! out, for "vdiff_up"
-                     & field%  ghpbl(:,jb),             &! out, for output
-                     & field%      ri(:,:,jb),          &! out, for output
-                     & field%  mixlen(:,:,jb),          &! out, for output
-                     & field% cfm    (:,:,jb),          &! out, for output
-                     & field% cfm_sfc(:,:,jb),          &! out, for output and "vdiff_up"
-                     & field% cfh    (:,:,jb),          &! out, for output
-                     & field% cfh_sfc(:,:,jb),          &! out, for output and "vdiff_up"
-                     & field% cfv    (:,:,jb),          &! out, for output
-                     & field% cftke  (:,:,jb),          &! out, for output
-                     & field% cfthv  (:,:,jb),          &! out, for output
+                     & field%    ghpbl(:,jb),           &! out, for output
+                     & field%      ri (:,:,jb),         &! out, for output
+                     & field%  mixlen (:,:,jb),         &! out, for output
+                     & field% cfm     (:,:,jb),         &! out, for output
+                     & field% cfm_tile(:,:,jb),         &! out, for output and "vdiff_up"
+                     & field% cfh     (:,:,jb),         &! out, for output
+                     & field% cfh_tile(:,:,jb),         &! out, for output and "vdiff_up"
+                     & field% cfv     (:,:,jb),         &! out, for output
+                     & field% cftke   (:,:,jb),         &! out, for output
+                     & field% cfthv   (:,:,jb),         &! out, for output
                      & zaa, zaa_btm, zbb, zbb_btm,      &! out, for "vdiff_up"
                      & zprfac_sfc(:),                   &! out, for "vdiff_up"
-                     & zcpt_sfc(:,1:nsfc_type),         &! out, for "vdiff_up"
+                     & zcpt_sfc_tile(:,:),              &! out, for "vdiff_up"
                      & zcptgz(:,:), zrhoh(:,:),         &! out, for "vdiff_up"
                      & zqshear(:,:),                    &! out, for "vdiff_up"
                      & zthvvar(:,:),                    &! out, for "vdiff_up"
@@ -606,16 +606,16 @@ CONTAINS
 
       CALL vdiff_up( jce, nbdim, nlev, nlevm1, nlevp1,&! in
                    & ntrac, nsfc_type,                &! in
-                   & iwtr, iice, ilnd, igbm,          &! in, indices of different surface types
+                   & iwtr, iice, ilnd,                &! in, indices of different sfc types
                    & pdtime, psteplen,                &! in, time steps
-                   & zfrc(:,1:nsfc_type),             &! in, area fraction of each surface type
+                   & zfrc(:,:),                       &! in, area fraction of each sfc type
                    & field% ocu (:,jb),               &! in, ocean sfc velocity, u-component
                    & field% ocv (:,jb),               &! in, ocean sfc velocity, v-component
-                   & field% cfm_sfc(:,:,jb),          &! in
-                   & field% cfh_sfc(:,:,jb),          &! in
-                   & field% qs_sfc(:,1:nsfc_type,jb), &! in, sfc specific humidity at saturation
+                   & field% cfm_tile(:,:,jb),         &! in
+                   & field% cfh_tile(:,:,jb),         &! in
+                   & field% qs_sfc_tile(:,:,jb),      &! in, sfc spec. humidity at saturation
                    & zaa, zaa_btm, zprfac_sfc(:),     &! in, from "vdiff_down"
-                   & zcpt_sfc(:,1:nsfc_type),         &! in, from "vdiff"down"
+                   & zcpt_sfc_tile(:,:),              &! in, from "vdiff"down"
                    &   ihpbl(:),                      &! in, from "vdiff_down"
                    &  zcptgz(:,:),                    &! in, from "vdiff_down"
                    &   zrhoh(:,:),                    &! in, from "vdiff_down"
@@ -634,7 +634,7 @@ CONTAINS
                    & zbb, zbb_btm,                    &! inout
                    & zthvvar(:,:),                    &! inout
                    & field%   xvar(:,:,jb),           &! inout
-                   & field% z0m(:,igbm:nsfc_type,jb), &! inout
+                   & field% z0m_tile(:,:,jb),         &! inout
                    & field% kedisp(:,  jb),           &! inout, "vdis" in ECHAM
                    &  tend%    u(:,:,jb),             &! inout
                    &  tend%    v(:,:,jb),             &! inout
@@ -653,6 +653,7 @@ CONTAINS
                    &  zqtvar_prod,                    &! out, for "cloud" ("zvdiffp" in echam)
                    &  zvmixtau,                       &! out, for "cloud"
                    &  zqhflx,                         &! out, for "cloud"
+                   & field% z0m   (:,  jb),           &! out, for the next step
                    & field% thvvar(:,:,jb),           &! out, for the next step
                    & field% thvsig(:,  jb),           &! out, for "cucall"
                    & field%    tke(:,:,jb)            )! out

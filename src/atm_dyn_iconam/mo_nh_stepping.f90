@@ -805,8 +805,8 @@ MODULE mo_nh_stepping
           &         p_nh_state(jg)%diag,                                  &! inout
           &         prep_adv(jg)%vn_traj, prep_adv(jg)%mass_flx_me,       &! inout
           &         prep_adv(jg)%w_traj, prep_adv(jg)%mass_flx_ic,        &! inout
-          &         prep_adv(jg)%rhodz_mc_now, prep_adv(jg)%rhodz_mc_new, &! out
-          &         prep_adv(jg)%rho_ic, prep_adv(jg)%topflx_tra          )! out
+          &         prep_adv(jg)%rhodz_mc_now, prep_adv(jg)%rhodz_mc_new, &! inout
+          &         prep_adv(jg)%rho_ic, prep_adv(jg)%topflx_tra          )! inout,out
 
 
         IF (lstep_adv(jg)) THEN
@@ -977,8 +977,8 @@ MODULE mo_nh_stepping
             &         p_nh_state(jg)%diag,                                  &! inout
             &         prep_adv(jg)%vn_traj, prep_adv(jg)%mass_flx_me,       &! inout
             &         prep_adv(jg)%w_traj,  prep_adv(jg)%mass_flx_ic,       &! inout
-            &         prep_adv(jg)%rhodz_mc_now, prep_adv(jg)%rhodz_mc_new, &! out
-            &         prep_adv(jg)%rho_ic, prep_adv(jg)%topflx_tra          )! out
+            &         prep_adv(jg)%rhodz_mc_now, prep_adv(jg)%rhodz_mc_new, &! inout
+            &         prep_adv(jg)%rho_ic, prep_adv(jg)%topflx_tra          )! inout,out
 
 
 

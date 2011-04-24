@@ -69,11 +69,11 @@ case "$fortran_compiler" in
         FDEBUG      = -g -fbacktrace -fbounds-check
         FCHECK      = -finit-real=nan -finit-integer=-2147483648 -finit-character=127
         FOPTIONS    = "$FCPP" "$FLANG" "$FWARN" "$FDEBUG" "$FCHECK"
-        FOTPTIM     = -march=native -O1 -ffast-math -D__LOOP_EXCHANGE
+        FOTPTIM     = -march=native -O0 -ffast-math -D__LOOP_EXCHANGE
         FC          = gfortran
         FFLAGS      = "$FOTPTIM" "$FCPP" "$FLANG" "$FWARN" "$FDEBUG"
         F77         = gfortran
-        F77FLAGS    = -march=native -O1 -ffast-math
+        F77FLAGS    = -march=native -O0 -ffast-math
         LDFLAGS     = "$FOTPTIM" "$FDEBUG"
         OMPFLAG     = -fopenmp
         DEFOPT      = -D
@@ -196,6 +196,7 @@ case "$ac_sitename" in
 
 #===============================================
     dkrz.de)
+        load_modules="cdo/default" "jdk" "${load_modules}"
         case "$ac_hostname" in 
             #-------------------------------------------------------------------
             tornado*)         # tornado
@@ -217,25 +218,25 @@ case "$ac_sitename" in
                         IB_LIBS    = -lrdmacm -libverbs -lnuma -ldl -Wl,--export-dynamic -lnsl -lutil -lm -ldl
                         MPIROOT    = /sw/sles10-x64/ofed/openmpi-1.4.0-nag52
                         MPI_LIB    = -Wl,-pthread -lmpi_f90 -lmpi_f77 -lmpi -lopen-rte -lopen-pal "$IB_LIBS"
-                        load_modules="NAG/5.2.668" "${load_modules}"
+                        load_modules="NAG/5.2.668" "gcc/4.5.2" "${load_modules}"
                         ;;
                     pgi)
                         IB_LIBS    = -lrdmacm -libverbs -lnuma -ldl -Wl,--export-dynamic -lnsl -lutil -lm -ldl
                         MPIROOT    = /sw/sles10-x64/ofed/openmpi-1.4.0-pgi9
                         MPI_LIB    = -lmpi_f90 -lmpi_f77 -lmpi -lopen-rte -lopen-pal "$IB_LIBS" 
-                        load_modules="PGI/11.0" "${load_modules}"
+                        load_modules="PGI/11.0" "gcc/4.5.2" "${load_modules}"
                         ;;
                     intel)
                         IB_LIBS    = -lrdmacm -libverbs -lnuma -ldl -Wl,--export-dynamic -lnsl -lutil -lm -ldl
                         MPIROOT    = /sw/sles10-x64/ofed/openmpi-1.4.2-intel11n
                         MPI_LIB    = -Bstatic -lmpi_f90 -lmpi_f77 -lmpi -lopen-rte -lopen-pal -Bdynamic "$IB_LIBS" 
-                        load_modules="jdk" "INTEL/11.1.072" "${load_modules}"
+                        load_modules="INTEL/11.1.072" "gcc/4.5.2" "${load_modules}"
                         ;;
                     sun)
                         IB_LIBS    = -lrdmacm -libverbs -lnuma -ldl -Qoption ld --export-dynamic -lnsl -lutil -lm -ldl
                         MPIROOT    = /sw/sles10-x64/ofed/openmpi-1.3.3-sun12
                         MPI_LIB    = -lmpi_f90 -lmpi_f77 -lmpi -lopen-rte -lopen-pal "$IB_LIBS" 
-                        load_modules="SUN/Studio12.1-3" "${load_modules}"
+                        load_modules="SUN/Studio12.1-3" "gcc/4.5.2" "${load_modules}"
                         ;;
                 esac
                 #-------------------------------------------------------------------
@@ -275,7 +276,7 @@ case "$ac_sitename" in
 	case "$host" in
 	    i686-*-linux-*)           # 32 bit MPI/ZMAW workstation
 		config_target=mpipc
-		load_modules="ncl/5.2.0-bin" "${load_modules}"
+		load_modules="ncl/5.2.0-bin" "cdo/default" "jdk" "${load_modules}"
 		load_profile="." "/client/etc/profile.zmaw"
 		submit=""
 		make_command="make" "-j" "2"
@@ -337,36 +338,36 @@ case "$ac_sitename" in
 			NETCDFROOT         = /sw/lenny-x64/netcdf-4.1.1-static-gcc45
 			MPIROOT            = /sw/lenny-x64/mpi/mpich2-1.3.1-static-gcc45
 			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
-			load_mpi_modules   = "gcc/4.5.2" "mpich2/1.3.1-static-gcc45" 
-			load_nompi_modules = "gcc/4.5.2" 
+			load_mpi_modules   = "mpich2/1.3.1-static-gcc45"
+			load_modules       = "gcc/4.5.2" "${load_modules}"
 			;;
 		    nag)
 			NETCDFROOT         = /sw/lenny-x64/netcdf-4.1.1-static-nag52
 			MPIROOT            = /sw/lenny-x64/mpi/mpich2-1.3.1-static-nag52
 			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
 			load_mpi_modules   = "mpich2/1.2.1p1-static-nag52"
-			load_modules       = "nag/5.2.747" "${load_modules}"
+			load_modules       = "nag/5.2.747" "gcc/4.5.2" "${load_modules}"
 			;;
 		    pgi)
 			NETCDFROOT         = /sw/lenny-x64/netcdf-4.1.1-static-pgi11
 			MPIROOT            = /sw/lenny-x64/mpi/mpich2-1.3.1-static-pgi11
 			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
 			load_mpi_modules   = "mpich2/1.3.1-static-pgi11"
-			load_modules       = "pgi/11.1" "${load_modules}"
+			load_modules       = "pgi/11.1" "gcc/4.5.2" "${load_modules}"
 			;;
 		    intel)
 			NETCDFROOT         = /sw/lenny-x64/netcdf-4.1.1-static-intel12
 			MPIROOT            = /sw/lenny-x64/mpi/mpich2-1.3.1-static-intel12
 			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
 			load_mpi_modules   = "mpich2/1.3.1-static-intel12"
-			load_modules       = "intel/12.0.084" "${load_modules}"
+			load_modules       = "intel/12.0.084" "gcc/4.5.2" "${load_modules}"
 			;;
 		    sun)
 			NETCDFROOT         = /sw/lenny-x64/netcdf-4.1.1-static-sun12
 			MPIROOT            = /sw/lenny-x64/mpi/mpich2-1.3.1-static-sun12
 			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
 			load_mpi_modules   = "mpich2/1.3.1-static-sun12"
-			load_modules       = "sun/12.2" "${load_modules}"
+			load_modules       = "sun/Studio12.1-3" "gcc/4.5.2" "${load_modules}"
 			;;
 		esac
 		;;

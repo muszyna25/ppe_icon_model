@@ -68,6 +68,9 @@ USE mo_exception,           ONLY: message, finish
 USE mo_model_domain,        ONLY: t_patch
 USE mo_model_domain_import, ONLY: n_dom, l_limited_area
 USE mo_atm_phy_nwp_nml,     ONLY: inwp_surface
+USE mo_lnd_nwp_nml,         ONLY: nlev_soil,nztlev,nlev_snow, &
+                                  nsfc_subs
+
 
 IMPLICIT NONE
 PRIVATE
@@ -290,8 +293,6 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
 
   INTEGER     :: nblks_c, & ! number of cell blocks to allocate
                  ist        ! status
-  INTEGER     :: nztlev ! timelevel scheme
-  INTEGER     :: nlevs, nlev_snow, nsfc_type    !< number of soil levels and tiles
 
 !-----------------------------------------------------------------------
 
@@ -310,7 +311,7 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
   IF(inwp_surface > 0) THEN
 
   ! T_snow
-  ALLOCATE(p_prog_lnd%t_snow(nproma,nsfc_type,nblks_c), STAT = ist)
+  ALLOCATE(p_prog_lnd%t_snow(nproma,nsfc_subs,nblks_c), STAT = ist)
   IF (ist/=SUCCESS)THEN
     CALL finish('mo_lnd_state:construct_lnd_state_prog', &
                 'allocation for surface temperature T_SNOW failed')
@@ -319,7 +320,7 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
 
 
   ! T_snow_mult
-  ALLOCATE(p_prog_lnd%t_snow_mult(nproma,nlev_snow,nztlev,nsfc_type,nblks_c), STAT = ist)
+  ALLOCATE(p_prog_lnd%t_snow_mult(nproma,nlev_snow,nztlev,nsfc_subs,nblks_c), STAT = ist)
   IF (ist/=SUCCESS)THEN
     CALL finish('mo_lnd_state:construct_lnd_state_prog', &
                 'allocation for surface temperature T_SNOW_MULT failed')
@@ -328,7 +329,7 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
 
 
   ! T_s
-  ALLOCATE(p_prog_lnd%t_s(nproma,nztlev,nsfc_type,nblks_c), STAT = ist)
+  ALLOCATE(p_prog_lnd%t_s(nproma,nztlev,nsfc_subs,nblks_c), STAT = ist)
   IF (ist/=SUCCESS)THEN
     CALL finish('mo_lnd_state:construct_lnd_state_prog', &
                 'allocation for surface temperature T_S failed')
@@ -337,7 +338,7 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
 
 
  ! W_snow
-  ALLOCATE(p_prog_lnd%w_snow(nproma,nztlev,nsfc_type,nblks_c), STAT = ist)
+  ALLOCATE(p_prog_lnd%w_snow(nproma,nztlev,nsfc_subs,nblks_c), STAT = ist)
   IF (ist/=SUCCESS)THEN
     CALL finish('mo_lnd_state:construct_lnd_state_prog', &
                 'allocation for   water content of snow W_SNOW failed')
@@ -345,7 +346,7 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
   p_prog_lnd%w_snow(:,:,:,:) =0.0_wp
 
  ! Rho_snow
-  ALLOCATE(p_prog_lnd%rho_snow(nproma,nsfc_type,nblks_c), STAT = ist)
+  ALLOCATE(p_prog_lnd%rho_snow(nproma,nsfc_subs,nblks_c), STAT = ist)
   IF (ist/=SUCCESS)THEN
     CALL finish('mo_lnd_state:construct_lnd_state_prog', &
                 'allocation for  snow density RHO_SNOW failed')
@@ -353,7 +354,7 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
   p_prog_lnd%rho_snow(:,:,:) =0.0_wp
 
  ! Rho_snow_mult
-  ALLOCATE(p_prog_lnd%rho_snow_mult(nproma,nlev_snow,nztlev,nsfc_type,nblks_c), STAT = ist)
+  ALLOCATE(p_prog_lnd%rho_snow_mult(nproma,nlev_snow,nztlev,nsfc_subs,nblks_c), STAT = ist)
   IF (ist/=SUCCESS)THEN
     CALL finish('mo_lnd_state:construct_lnd_state_prog', &
                 'allocation for  snow density RHO_SNOW_MULT failed')
@@ -361,7 +362,7 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
   p_prog_lnd%rho_snow_mult(:,:,:,:,:) =0.0_wp
 
   ! W_I
-  ALLOCATE(p_prog_lnd%w_i(nproma,nztlev,nsfc_type,nblks_c), STAT = ist)
+  ALLOCATE(p_prog_lnd%w_i(nproma,nztlev,nsfc_subs,nblks_c), STAT = ist)
   IF (ist/=SUCCESS)THEN
     CALL finish('mo_lnd_state:construct_lnd_state_prog', &
                 'allocation for interception store W_I failed')
@@ -369,7 +370,7 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
   p_prog_lnd%w_i(:,:,:,:) =0.0_wp
 
   ! T_SO
-  ALLOCATE(p_prog_lnd%t_so(nproma,nlevs,nztlev,nsfc_type,nblks_c), STAT = ist)
+  ALLOCATE(p_prog_lnd%t_so(nproma,nlev_soil,nztlev,nsfc_subs,nblks_c), STAT = ist)
   IF (ist/=SUCCESS)THEN
     CALL finish('mo_lnd_state:construct_lnd_state_prog', &
                 'allocation for soil temperature T_SO failed')
@@ -378,7 +379,7 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
 
 
   ! W_SO
-  ALLOCATE(p_prog_lnd%w_so(nproma,nlevs,nztlev,nsfc_type,nblks_c), STAT = ist)
+  ALLOCATE(p_prog_lnd%w_so(nproma,nlev_soil,nztlev,nsfc_subs,nblks_c), STAT = ist)
   IF (ist/=SUCCESS)THEN
     CALL finish('mo_lnd_state:construct_lnd_state_prog', &
                 'allocation for soil moisture W_SO failed')
@@ -386,7 +387,7 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
   p_prog_lnd%w_so(:,:,:,:,:) =0.0_wp
 
   ! W_SO_ICE
-  ALLOCATE(p_prog_lnd%w_so_ice(nproma,nlevs,nztlev,nsfc_type,nblks_c), STAT = ist)
+  ALLOCATE(p_prog_lnd%w_so_ice(nproma,nlev_soil,nztlev,nsfc_subs,nblks_c), STAT = ist)
   IF (ist/=SUCCESS)THEN
     CALL finish('mo_lnd_state:construct_lnd_state_prog', &
                 'allocation for soil ice W_SO_ICE failed')
@@ -414,8 +415,7 @@ END  SUBROUTINE construct_lnd_state_prog
 
   INTEGER     :: nblks_c, & ! number of cell blocks to allocate
                  ist        ! status
-  INTEGER     :: nztlev ! timelevel scheme
-  INTEGER     :: nlevs, nsfc_type    !< number of soil levels and tiles
+
 !-----------------------------------------------------------------------
 
   !determine size of arrays
@@ -432,7 +432,7 @@ END  SUBROUTINE construct_lnd_state_prog
 
   IF(inwp_surface > 0) THEN
   ! H_SNOW
-  ALLOCATE(p_diag_lnd%h_snow(nproma,nztlev,nsfc_type,nblks_c), STAT = ist)
+  ALLOCATE(p_diag_lnd%h_snow(nproma,nztlev,nsfc_subs,nblks_c), STAT = ist)
   IF (ist/=SUCCESS)THEN
     CALL finish('mo_lnd_state:construct_lnd_state_diag', &
                 'allocation for snow height H_SNOW failed')
@@ -441,7 +441,7 @@ END  SUBROUTINE construct_lnd_state_prog
 
  
   ! FRESHSNOW
-  ALLOCATE(p_diag_lnd%freshsnow(nproma,nsfc_type,nblks_c), STAT = ist)
+  ALLOCATE(p_diag_lnd%freshsnow(nproma,nsfc_subs,nblks_c), STAT = ist)
   IF (ist/=SUCCESS)THEN
     CALL finish('mo_lnd_state:construct_lnd_state_diag', &
                 'allocation for snow age FRESHSNOW failed')
@@ -449,7 +449,7 @@ END  SUBROUTINE construct_lnd_state_prog
   p_diag_lnd%freshsnow(:,:,:) =0.0_wp
 
   ! WLIQ_SNOW
-  ALLOCATE(p_diag_lnd%wliq_snow(nproma,nztlev,nsfc_type,nblks_c), STAT = ist)
+  ALLOCATE(p_diag_lnd%wliq_snow(nproma,nztlev,nsfc_subs,nblks_c), STAT = ist)
   IF (ist/=SUCCESS)THEN
     CALL finish('mo_lnd_state:construct_lnd_state_diag', &
                 'allocation for snow  liquid water content WLIQ_SNOW failed')
@@ -458,7 +458,7 @@ END  SUBROUTINE construct_lnd_state_prog
 
 
   ! WTOT_SNOW
-  ALLOCATE(p_diag_lnd%wtot_snow(nproma,nztlev,nsfc_type,nblks_c), STAT = ist)
+  ALLOCATE(p_diag_lnd%wtot_snow(nproma,nztlev,nsfc_subs,nblks_c), STAT = ist)
   IF (ist/=SUCCESS)THEN
     CALL finish('mo_lnd_state:construct_lnd_state_diag', &
                 'allocation for snow total  water content WTOT_SNOW failed')
@@ -466,7 +466,7 @@ END  SUBROUTINE construct_lnd_state_prog
   p_diag_lnd%wtot_snow(:,:,:,:) =0.0_wp
 
   ! DZH_SNOW
-  ALLOCATE(p_diag_lnd%dzh_snow(nproma,nztlev,nsfc_type,nblks_c), STAT = ist)
+  ALLOCATE(p_diag_lnd%dzh_snow(nproma,nztlev,nsfc_subs,nblks_c), STAT = ist)
   IF (ist/=SUCCESS)THEN
     CALL finish('mo_lnd_state:construct_lnd_state_diag', &
                 'allocation for snow layer thickness DZH_SNOW failed')
@@ -474,7 +474,7 @@ END  SUBROUTINE construct_lnd_state_prog
   p_diag_lnd%dzh_snow(:,:,:,:) =0.0_wp
 
   ! RUNOFF_S
-  ALLOCATE(p_diag_lnd%runoff_s(nproma,nsfc_type,nblks_c), STAT = ist)
+  ALLOCATE(p_diag_lnd%runoff_s(nproma,nsfc_subs,nblks_c), STAT = ist)
   IF (ist/=SUCCESS)THEN
     CALL finish('mo_lnd_state:construct_lnd_state_diag', &
                 'allocation for surface runoff RUNOFF_S failed')
@@ -482,7 +482,7 @@ END  SUBROUTINE construct_lnd_state_prog
   p_diag_lnd%runoff_s(:,:,:) =0.0_wp
 
   ! RUNOFF_G
-  ALLOCATE(p_diag_lnd%runoff_g(nproma,nsfc_type,nblks_c), STAT = ist)
+  ALLOCATE(p_diag_lnd%runoff_g(nproma,nsfc_subs,nblks_c), STAT = ist)
   IF (ist/=SUCCESS)THEN
     CALL finish('mo_lnd_state:construct_lnd_state_diag', &
                 'allocation for ground runoff RUNOFF_G failed')
@@ -491,7 +491,7 @@ END  SUBROUTINE construct_lnd_state_prog
 
 
   ! RSTOM
-  ALLOCATE(p_diag_lnd%rstom(nproma,nsfc_type,nblks_c), STAT = ist)
+  ALLOCATE(p_diag_lnd%rstom(nproma,nsfc_subs,nblks_c), STAT = ist)
   IF (ist/=SUCCESS)THEN
     CALL finish('mo_lnd_state:construct_lnd_state_diag', &
                 'allocation for  stomata resistance RSTOM  failed')
@@ -499,7 +499,7 @@ END  SUBROUTINE construct_lnd_state_prog
   p_diag_lnd%rstom(:,:,:) =0.0_wp
 
   ! LHFL_BS
-  ALLOCATE(p_diag_lnd%lhfl_bs(nproma,nsfc_type,nblks_c), STAT = ist)
+  ALLOCATE(p_diag_lnd%lhfl_bs(nproma,nsfc_subs,nblks_c), STAT = ist)
   IF (ist/=SUCCESS)THEN
     CALL finish('mo_lnd_state:construct_lnd_state_diag', &
                 'allocation for latent heat flux from bare soil LHFL_BS  failed')
@@ -508,7 +508,7 @@ END  SUBROUTINE construct_lnd_state_prog
 
 
   ! LHFL_PL
-  ALLOCATE(p_diag_lnd%lhfl_pl(nproma,nsfc_type,nblks_c), STAT = ist)
+  ALLOCATE(p_diag_lnd%lhfl_pl(nproma,nsfc_subs,nblks_c), STAT = ist)
   IF (ist/=SUCCESS)THEN
     CALL finish('mo_lnd_state:construct_lnd_state_diag', &
                 'allocation for average latent heat flux from plants  LHFL_PL  failed')
@@ -516,7 +516,7 @@ END  SUBROUTINE construct_lnd_state_prog
   p_diag_lnd%lhfl_pl(:,:,:) =0.0_wp
 
   ! SUBSFRAC
-  ALLOCATE(p_diag_lnd%subsfrac(nproma,nsfc_type,nblks_c), STAT = ist)
+  ALLOCATE(p_diag_lnd%subsfrac(nproma,nsfc_subs,nblks_c), STAT = ist)
   IF (ist/=SUCCESS)THEN
     CALL finish('mo_lnd_state:construct_lnd_state_diag', &
                 'allocation for TILE fraction SUBSFRAC  failed')

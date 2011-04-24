@@ -878,6 +878,7 @@ EOF
 echo Creating the build_command...
 echo "$load_profile" > build_command
 if test "x$load_modules" != x; then
+   echo module purge >> build_command
    echo module load "$load_modules" >> build_command
    echo module list >> build_command
 fi

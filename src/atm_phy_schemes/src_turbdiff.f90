@@ -173,7 +173,7 @@ USE data_turbdiff, ONLY : &
 USE mo_data_turbdiff, ONLY : &
 #endif
 !
-    get_param,    & !get turbulence parameters being extra converted
+!    get_param,    & !get turbulence parameters being extra converted
 !
     ireals,       & ! KIND-type parameter for real variables
     iintegers,    & ! KIND-type parameter for standard integer variables
@@ -216,6 +216,8 @@ USE mo_data_turbdiff, ONLY : &
 
 #ifdef __COSMO__
 USE data_turbdiff, ONLY : &
+    lsso,         & ! SSO-Scheme is active
+    lconv,        &   ! confection scheme is active
 #endif
 #ifdef __ICON__
 USE mo_data_turbdiff, ONLY : &
@@ -314,10 +316,10 @@ USE mo_data_turbdiff, ONLY : &
     itype_synd,   & ! type of diagnostics of synoptical near surface variables
 !
     lseaice,      & ! forecast with sea ice model
-    llake,        & ! forecast with lake model FLake
-    lsso,         & ! SSO-Scheme is active
-    lconv           ! confection scheme is active
+    llake           ! forecast with lake model FLake
 
+
+USE mo_atm_phy_nwp_nml, ONLY :  inwp_sso, inwp_convection
 !-------------------------------------------------------------------------------
 #ifdef SCLM
 USE data_1d_global, ONLY : &
@@ -358,12 +360,25 @@ REAL (KIND=ireals) :: &
 INTEGER (KIND=iintegers) :: &
     istat=0, ilocstat=0
 
+#ifdef __ICON__
+LOGICAL :: lsso, lconv
+#endif
+
 LOGICAL :: lerror=.FALSE.
 
 !-------------------------------------------------------------------------------
 CONTAINS
 !-------------------------------------------------------------------------------
 
+#ifdef __ICON__
+SUBROUTINE get_param
+
+    lsso         =(inwp_sso.GT.0)
+    lconv        =(inwp_convection.GT.0)
+
+END SUBROUTINE get_param
+#endif
+  
 !********************************************************************************
 !********************************************************************************
 

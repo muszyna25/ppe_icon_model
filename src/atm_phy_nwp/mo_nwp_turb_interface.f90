@@ -447,7 +447,7 @@ CONTAINS
                 & pqte_vdf = zdummy_o4 (:,:,jb),        pxlte_vdf= zdummy_o5 (:,:,jb)  ,&! out
                 & pxite_vdf= zdummy_o6 (:,:,jb),        pxtte_vdf= zdummy_ot2(:,:,:,jb),&! out
                 !
-                & pqsat_sfc = zdummy_qvsfc  (:,:,jb)                                   ,&! out
+                & pqsat_tile = zdummy_qvsfc  (:,:,jb)                                  ,&! out
                 & pxvarprod= zdummy_o7(:,:,jb),         pvmixtau = zdummy_o8 (:,:,jb)  ,&! out
                 & pqv_mflux_sfc=prm_diag%qhfl_s (:,jb), pthvsig  = zdummy_oh (:,jb)    ,&! out
                 & ptke     = p_prog_rcf%tke (:,2:nlevp1,jb), ihpbl = idummy_oh (:,jb)  ,&! out
@@ -456,8 +456,8 @@ CONTAINS
                 & pcfm     = prm_diag%cfm    (:,2:nlevp1,jb)                           ,&! out
                 & pcfh     = prm_diag%cfh    (:,2:nlevp1,jb)                           ,&! out
                 & pcfv     = prm_diag%cfv    (:,2:nlevp1,jb)                           ,&! out
-                & pcfm_sfc = prm_diag%cfm_sfc(:,:,jb)                                  ,&! out
-                & pcfh_sfc = prm_diag%cfh_sfc(:,:,jb)                                  ,&! out
+                & pcfm_tile= prm_diag%cfm_sfc(:,:,jb)                                  ,&! out
+                & pcfh_tile= prm_diag%cfh_sfc(:,:,jb)                                  ,&! out
                 & pcftke   = prm_diag%cftke  (:,2:nlevp1,jb)                           ,&! out
                 & pcfthv   = prm_diag%cfthv  (:,2:nlevp1,jb))                            ! out
 

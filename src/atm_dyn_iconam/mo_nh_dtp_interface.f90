@@ -83,7 +83,7 @@ CONTAINS
     &                        p_nh_diag,                                &!inout
     &                        p_vn_traj, p_mass_flx_me,                 &!inout
     &                        p_w_traj, p_mass_flx_ic,                  &!inout
-    &                        p_rhodz_mc_now, p_rhodz_mc_new, p_rho_ic, &!out
+    &                        p_rhodz_mc_now, p_rhodz_mc_new, p_rho_ic, &!inout
     &                        p_topflx_tra                              )!out
 
     TYPE(t_patch), TARGET, INTENT(IN)  :: p_patch
@@ -103,8 +103,8 @@ CONTAINS
     REAL(wp),INTENT(INOUT)         :: p_w_traj(:,:,:)       ! (nproma,nlevp1,p_patch%nblks_c)
     REAL(wp),INTENT(INOUT), TARGET :: p_mass_flx_me(:,:,:)  ! (nproma,  nlev,p_patch%nblks_e)
     REAL(wp),INTENT(INOUT)         :: p_mass_flx_ic(:,:,:)  ! (nproma,nlevp1,p_patch%nblks_c)
-    REAL(wp),INTENT(OUT)           :: p_rhodz_mc_now(:,:,:) ! (nproma,  nlev,p_patch%nblks_c)
-    REAL(wp),INTENT(OUT)           :: p_rhodz_mc_new(:,:,:) ! (nproma,  nlev,p_patch%nblks_c)
+    REAL(wp),INTENT(INOUT)         :: p_rhodz_mc_now(:,:,:) ! (nproma,  nlev,p_patch%nblks_c)
+    REAL(wp),INTENT(INOUT)         :: p_rhodz_mc_new(:,:,:) ! (nproma,  nlev,p_patch%nblks_c)
     REAL(wp),INTENT(INOUT)         :: p_rho_ic(:,:,:)       ! (nproma,nlevp1,p_patch%nblks_c)
     REAL(wp),INTENT(OUT)           :: p_topflx_tra(:,:,:)   ! (nproma,p_patch%nblks_c,ntracer)
 

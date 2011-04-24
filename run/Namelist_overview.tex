@@ -1933,25 +1933,25 @@ Vert. transport scheme:&
 &
 &
 &
-2: muscl (2nd order)&
+2: muscl\_cfl (2nd order, handles $\mathrm{CFL}>1$)&
 \tabularnewline
 &
 &
 &
 &
-20: muscl\_cfl (2nd order, handles $\mathrm{CFL}>1$)&
+20: muscl (2nd order)&
 \tabularnewline
 &
 &
 &
 &
-3: ppm (3rd order)&
+3: ppm\_cfl ($3^{\mathrm{rd}}$ order, handles $\mathrm{CFL}>1$)&
 \tabularnewline
 &
 &
 &
 &
-30: ppm\_cfl ($3^{\mathrm{rd}}$ order, handles $\mathrm{CFL}>1$)&
+30: ppm (3rd order)&
 \tabularnewline
 \hline 
 lvadv\_tracer&
@@ -2315,6 +2315,28 @@ subgrid scale orographic drag
 &
 \tabularnewline
 \hline 
+inwp\_surface&
+I&
+0&
+&
+surface scheme
+&run\_nml/iforcing = inwp
+\tabularnewline
+&
+&
+&
+&
+0: none
+&
+\tabularnewline
+&
+&
+&
+&
+1: 
+&
+\tabularnewline
+\hline 
  dt\_conv &
 R&
 600.&
@@ -2625,6 +2647,74 @@ Volume mixing ratio of the radiative agents&
 \end{longtable}
 
 Defined and used in: src/namelists/mo\_radiation\_nml.f90
+
+
+\subsection{nwp\_lnd\_nml}
+
+\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1.4cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
+\hline 
+Parameter&
+Type&
+Default&
+Unit&
+Description&
+Scope\tabularnewline
+\hline
+\endhead
+\hline %---end of head---
+nlev\_soil &
+I&
+7&
+&
+number of soil layers&
+\tabularnewline
+\hline %---end of head---
+nlev\_snow &
+I&
+1&
+&
+number of snow layers\\
+for {\tt lmulti\_snow=.true.}&
+\tabularnewline
+\hline %---end of head---
+nsfc\_subs &
+I&
+1&
+&
+number of tiles&
+\tabularnewline
+\hline %---end of head---
+nztlev &
+I&
+2&
+&
+used time integration scheme&
+\tabularnewline
+\hline %---end of head---
+lmulti\_snow &
+L&
+.FALSE.&
+&
+.TRUE. for use of multi-layer snow model&
+\tabularnewline
+\hline %---end of head---
+lseaice &
+L&
+.FALSE.&
+&
+.TRUE. for use of sea-ice model&
+\tabularnewline
+\hline %---end of head---
+llake &
+L&
+.FALSE.&
+&
+.TRUE. for use of lake model&
+\tabularnewline
+\hline %---end of head---
+\end{longtable}
+
+Defined and used in: src/namelists/mo\_nwp\_lnd\_nml.f90
 
 %------------------------------ switches for ECHAM physics -----------------------------
 \subsection{echam\_phy\_nml}

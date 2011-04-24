@@ -51,7 +51,7 @@ MODULE mo_echam_phy_memory
   USE mo_impl_constants,      ONLY: SUCCESS
   USE mo_exception,           ONLY: message, finish
   USE mo_run_nml,             ONLY: nlev, nlevp1, nproma, ntracer
-  USE mo_icoham_sfc_indices,  ONLY: nsfc_type, igbm
+  USE mo_icoham_sfc_indices,  ONLY: nsfc_type
   USE mo_echam_phy_nml,       ONLY: lvdiff
   USE mo_model_domain,        ONLY: t_patch
 
@@ -195,20 +195,21 @@ MODULE mo_echam_phy_memory
                              !< Computed in "vdiff" by solving a prognostic equation of
                              !< the variance. Used for getting "thvsig".
 
-    REAL(wp),ALLOCATABLE :: &
-      & cfm    (:,:,:),     &!< turbulent exchange coefficient
-      & cfm_sfc(:,:,:),     &!< turbulent exchange coefficient
-      & cfh    (:,:,:),     &!< turbulent exchange coefficient
-      & cfh_sfc(:,:,:),     &!< turbulent exchange coefficient
-      & cfv    (:,:,:),     &!< turbulent exchange coefficient
-      & cftke  (:,:,:),     &!< turbulent exchange coefficient
-      & cfthv  (:,:,:)       !< turbulent exchange coefficient
+    REAL(wp),ALLOCATABLE ::  &
+      & cfm     (:,:,:),     &!< turbulent exchange coefficient
+      & cfm_tile(:,:,:),     &!< turbulent exchange coefficient
+      & cfh     (:,:,:),     &!< turbulent exchange coefficient
+      & cfh_tile(:,:,:),     &!< turbulent exchange coefficient
+      & cfv     (:,:,:),     &!< turbulent exchange coefficient
+      & cftke   (:,:,:),     &!< turbulent exchange coefficient
+      & cfthv   (:,:,:)       !< turbulent exchange coefficient
 
 
     REAL(wp),ALLOCATABLE :: &
-      & coriol(:,:),        &!< Coriolis parameter, needed for diagnosing PBL height.
-      & ghpbl (:,:),        &!< geopotential of the top of the atmospheric boundary layer
-      & z0m   (:,:,:),      &!< aerodynamic roughness length (grid-box mean and over each surface type)
+      & coriol  (:,:),      &!< Coriolis parameter, needed for diagnosing PBL height.
+      & ghpbl   (:,:),      &!< geopotential of the top of the atmospheric boundary layer
+      & z0m_tile(:,:,:),    &!< aerodynamic roughness length (over each surface type)
+      & z0m     (:,  :),    &!< aerodynamic roughness length (grid-box mean)
       & ustar (:,:),        &!<
       & kedisp(:,:),        &!< time-mean (or integrated?) vertically integrated dissipation of kinetic energy
       & ocu   (:,:),        &!< eastward  velocity of ocean surface current
@@ -227,8 +228,9 @@ MODULE mo_echam_phy_memory
       & glac  (:,:),        &!< fraction of land covered by glaciers (glac in memory_g3b)
       & seaice(:,:),        &!< ice cover given as the fraction of (1- slm) (seaice in memory_g3b)
       & icefrc(:,:),        &!< ice cover given as the fraction of grid box (friac  in memory_g3b)
-      & tsfc  (:,:,:),      &!< surface temperature over land/water/ice (tsw/l/i in memory_g3b)
-      & qs_sfc(:,:,:)        !< saturation specitifc humidity at surface
+      & tsfc_tile(:,:,:),   &!< surface temperature over land/water/ice (tsw/l/i in memory_g3b)
+      & tsfc     (:,  :),   &!< surface temperature, grid-box mean
+      & qs_sfc_tile(:,:,:)   !< saturation specitifc humidity at surface
 
 !!$    ! Variables for debugging
 !!$    REAL(wp),ALLOCATABLE :: &
@@ -471,41 +473,43 @@ CONTAINS
       IF (ist/=SUCCESS) CALL finish(TRIM(thismodule),   &
         & 'allocation of turbulence fields failed')
 
-      ALLOCATE( field% cfm    (nproma,nlev,     nblks), &
-        &       field% cfm_sfc(nproma,nsfc_type,nblks), &
-        &       field% cfh    (nproma,nlev,     nblks), &
-        &       field% cfh_sfc(nproma,nsfc_type,nblks), &
-        &       field% cfv    (nproma,nlev,     nblks), &
-        &       field% cftke  (nproma,nlev,     nblks), &
-        &       field% cfthv  (nproma,nlev,     nblks)  )
+      ALLOCATE( field% cfm     (nproma,nlev,     nblks), &
+        &       field% cfm_tile(nproma,nsfc_type,nblks), &
+        &       field% cfh     (nproma,nlev,     nblks), &
+        &       field% cfh_tile(nproma,nsfc_type,nblks), &
+        &       field% cfv     (nproma,nlev,     nblks), &
+        &       field% cftke   (nproma,nlev,     nblks), &
+        &       field% cfthv   (nproma,nlev,     nblks)  )
 
       IF (ist/=SUCCESS) CALL finish(TRIM(thismodule),   &
         & 'allocation of turbulent exchange coefficients failed')
 
-      ALLOCATE( field% coriol (nproma,nblks),                &
-        &       field% ghpbl  (nproma,nblks),                &
-        &       field% z0m    (nproma,igbm:nsfc_type,nblks), &
-        &       field% ustar  (nproma,nblks),                &
-        &       field% kedisp (nproma,nblks),                &
-        &       field% ocu    (nproma,nblks),                &
-        &       field% ocv    (nproma,nblks),                &
-        &       STAT=ist                                     )
+      ALLOCATE( field% coriol  (nproma,          nblks), &
+        &       field% ghpbl   (nproma,          nblks), &
+        &       field% z0m     (nproma,          nblks), &
+        &       field% z0m_tile(nproma,nsfc_type,nblks), &
+        &       field% ustar   (nproma,          nblks), &
+        &       field% kedisp  (nproma,          nblks), &
+        &       field% ocu     (nproma,          nblks), &
+        &       field% ocv     (nproma,          nblks), &
+        &       STAT=ist                                 )
 
-      IF (ist/=SUCCESS) CALL finish(TRIM(thismodule),   &
+      IF (ist/=SUCCESS) CALL finish(TRIM(thismodule),&
         & 'allocation of failed')
 
     ENDIF ! lvdiff
 
     ! Surface
-    ALLOCATE( field% lfland (nproma, nblks),                 &
-      &       field% lfglac (nproma, nblks),                 &
-      &       field% lsmask (nproma, nblks),                 &
-      &       field% glac   (nproma, nblks),                 &
-      &       field% seaice (nproma, nblks),                 &
-      &       field% icefrc (nproma, nblks),                 &
-      &       field% tsfc   (nproma, igbm:nsfc_type, nblks), &
-      &       field% qs_sfc (nproma,      nsfc_type, nblks), &
-      &       STAT=ist                                       )
+    ALLOCATE( field% lfland     (nproma,          nblks), &
+      &       field% lfglac     (nproma,          nblks), &
+      &       field% lsmask     (nproma,          nblks), &
+      &       field% glac       (nproma,          nblks), &
+      &       field% seaice     (nproma,          nblks), &
+      &       field% icefrc     (nproma,          nblks), &
+      &       field% tsfc       (nproma,          nblks), &
+      &       field% tsfc_tile  (nproma,nsfc_type,nblks), &
+      &       field% qs_sfc_tile(nproma,nsfc_type,nblks), &
+      &       STAT=ist                                    )
 
     IF (ist/=SUCCESS) CALL finish(TRIM(thismodule),  &
       & 'allocation of surface fields failed')
@@ -647,12 +651,12 @@ CONTAINS
       IF (ist/=SUCCESS) CALL finish(TRIM(thismodule), &
         & 'deallocation of turbulence fields failed')
 
-      DEALLOCATE( field% cfm    , &
-        &         field% cfm_sfc, &
-        &         field% cfh    , &
-        &         field% cfh_sfc, &
-        &         field% cfv    , &
-        &         field% cftke  , &
+      DEALLOCATE( field% cfm,      &
+        &         field% cfm_tile, &
+        &         field% cfh,      &
+        &         field% cfh_tile, &
+        &         field% cfv,      &
+        &         field% cftke,    &
         &         field% cfthv    )
 
       IF (ist/=SUCCESS) CALL finish(TRIM(thismodule), &
@@ -660,6 +664,7 @@ CONTAINS
 
       DEALLOCATE( field% coriol,    &
         &         field% ghpbl,     &
+        &         field% z0m_tile,  &
         &         field% z0m,       &
         &         field% ustar,     &
         &         field% kedisp,    &
@@ -679,8 +684,9 @@ CONTAINS
       &         field% glac,      &
       &         field% seaice,    &
       &         field% icefrc,    &
+      &         field% tsfc_tile, &
       &         field% tsfc,      &
-      &         field% qs_sfc     )
+      &         field% qs_sfc_tile)
 
     IF (ist/=SUCCESS) CALL finish(TRIM(thismodule), &
       & 'deallocation of surface fields failed')

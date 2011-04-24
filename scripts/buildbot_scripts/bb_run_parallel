@@ -40,9 +40,9 @@
 #------------------------------------------------------------------------------
 # First version by Walter Sauf (MPI-M, 2009-10-22)
 #
-# $Rev$:     Revision of last commit
-# $Author$:  Author of last commit
-# $Date$:    Date of last commit
+# $Rev: 4080 $:     Revision of last commit
+# $Author: walter.sauf $:  Author of last commit
+# $Date: 2011-04-19 00:00:44 +0200 (Tue, 19 Apr 2011) $:    Date of last commit
 #------------------------------------------------------------------------------
 
 #Define of the text which is written in case of a script fail or OK run

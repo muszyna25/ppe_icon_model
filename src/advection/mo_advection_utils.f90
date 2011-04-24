@@ -145,10 +145,10 @@ MODULE mo_advection_utils
   ! auxiliary variables for selecting vertical transport scheme
   INTEGER, PARAMETER :: ino_vadv    = 0
   INTEGER, PARAMETER :: iup_v       = 1
-  INTEGER, PARAMETER :: imuscl_v    = 2
-  INTEGER, PARAMETER :: imuscl_vcfl = 20
-  INTEGER, PARAMETER :: ippm_v      = 3
-  INTEGER, PARAMETER :: ippm_vcfl   = 30
+  INTEGER, PARAMETER :: imuscl_vcfl = 2
+  INTEGER, PARAMETER :: imuscl_v    = 20
+  INTEGER, PARAMETER :: ippm_vcfl   = 3
+  INTEGER, PARAMETER :: ippm_v      = 30
 
   ! auxiliary variables for selecting horizontal limiter
   INTEGER, PARAMETER :: inol       = 0
@@ -285,7 +285,7 @@ CONTAINS
       ihadv_tracer(:) = iup3      ! 3rd order upwind horizontal advection scheme
       itype_hlimit(:) = ifluxl_sm ! semi monotonous flux limiter
     END SELECT
-    ivadv_tracer(:) = ippm_v      ! PPM vertical advection scheme
+    ivadv_tracer(:) = ippm_vcfl   ! PPM vertical advection scheme
     itype_vlimit(:) = islopel_vsm ! semi-monotonous slope limiter
     iadv_slev(:)    = 1           ! vertical start level
     iord_backtraj   = 1           ! backward trajectory of 1st order accuracy
@@ -461,7 +461,7 @@ CONTAINS
              'incorrect settings for HEX-C grid ihadv_tracer. Must be 0,1, or 4 ')
       ENDIF
     END SELECT
-    IF ( ANY(ivadv_tracer(1:ntracer) > ippm_vcfl) .OR.                  &
+    IF ( ANY(ivadv_tracer(1:ntracer) > ippm_v) .OR.                     &
       &  ANY(ivadv_tracer(1:ntracer) < 0)) THEN
       CALL finish( TRIM(routine),                                       &
            'incorrect settings for ivadv_tracer. Must be 0,1,2,3,20, or 30 ')

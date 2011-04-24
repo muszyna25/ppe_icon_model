@@ -2198,7 +2198,8 @@ CONTAINS
 
     SELECT CASE(varname)
       CASE ('SLM');             ptr2 => prm_field(jg)%lsmask
-      CASE ('SKT');             ptr2 => prm_field(jg)%tsfc(:,igbm,:)
+      CASE ('SKT');             ptr2 => prm_field(jg)%tsfc(:,:)
+      CASE ('SKT_TILE');        ptr3 => prm_field(jg)%tsfc_tile(:,:,:)
       CASE ('PS');              ptr2 => p_prog%pres_sfc
       CASE ('T');               ptr3 => p_prog%temp
       CASE ('normal_velocity'); ptr3 => p_prog%vn

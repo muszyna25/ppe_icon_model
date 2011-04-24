@@ -3,7 +3,7 @@
 !! turbulent mixing parameterization.
 !!
 !! @remarks
-!! In the turbulent mixing parameterization, some of the prognostic
+!! In the turbulent mixing parameterization some of the prognostic
 !! variables (currently u, v, T, q, TKE) are subject to turbulent tranfer
 !! between the Earth's surface and the lowest model level.
 !! Boundary condition of this transfer is formulated separately
@@ -80,45 +80,45 @@ CONTAINS
       ! No needed to distinguish the aggregated grid-box mean
       ! and the value on different types of surface
 
-        igbm      = 1
         iwtr      = 1
         nsfc_type = 1
+        igbm      = 0
         iice      = 999
         ilnd      = 999
 
       CASE('JWw-Moist','LDF-Moist')
       ! Baroclinic wave test, no land, no ice.
 
-        igbm      = 1
         iwtr      = 1
         nsfc_type = 1
+        igbm      = 0
         iice      = 999
         ilnd      = 999
 
       ! maybe worth trying later:
-      ! igbm      = 0
       ! iwtr      = 1
       ! iice      = 2
       ! nsfc_type = 2
+      ! igbm      = 0
       ! ilnd      = 999
 
       ! A wild idea: a dry or completely frozen planet
-      ! igbm      = 0
       ! iice      = 1
       ! ilnd      = 2
       ! nsfc_type = 2
+      ! igbm      = 0
       ! iwtr      = 999
 
       END SELECT
     ELSE
-    ! Standard setup for real climate simulation.
+    ! Standard setup for real-world climate simulation.
     ! Three surface types are considered.
 
-      igbm      = 0
       iwtr      = 1
       iice      = 2
       ilnd      = 3
       nsfc_type = 3
+      igbm      = 0
     ENDIF
 
     WRITE(message_text,*) " "
@@ -129,8 +129,8 @@ CONTAINS
     CALL message("mo_icoham_sfc_indices/init_sfc_indices",TRIM(message_text))
 
     WRITE(message_text,'(a,4i4,a)') &
-      & "Indices for grid-box mean, water, ice, and land are ", &
-      & igbm, iwtr, iice, ilnd, ", respectively."
+      & "Indices for water, ice, land, and grid-box mean are ", &
+      & iwtr, iice, ilnd, igbm, ", respectively."
     CALL message("mo_icoham_sfc_indices/init_sfc_indices",TRIM(message_text))
 
     WRITE(message_text,*) " "

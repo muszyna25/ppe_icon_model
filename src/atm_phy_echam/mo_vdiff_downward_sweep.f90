@@ -63,40 +63,40 @@ CONTAINS
   !!
   !!
   SUBROUTINE vdiff_down( kproma, kbdim, klev, klevm1, klevp1, ktrac,    &! in
-                       & ksfc_type, idx_wtr, idx_ice, idx_lnd, idx_gbm, &! in
+                       & ksfc_type, idx_wtr, idx_ice, idx_lnd,          &! in
                        & pstep_len,  pcoriol,   pfrc,                   &! in
-                       & ptsfc,      pocu,      pocv,       ppsfc,      &! in
+                       & ptsfc_tile, pocu,      pocv,       ppsfc,      &! in
                        & pum1,       pvm1,      ptm1,       pqm1,       &! in
                        & pxlm1,      pxim1,     pxm1,       pxtm1,      &! in
                        & paphm1,     papm1,     pdelpm1,    pgeom1,     &! in
                        & ptvm1,      paclc,     pxt_emis,   pthvvar,    &! in
-                       & pxvar,      pz0m,                              &! in
+                       & pxvar,      pz0m_tile,                         &! in
 #ifdef __ICON__
                        & ptkem1,                                        &! in
 #else
                        & ptkem1,     ptkem0,                            &! inout
 #endif
                        & pustar,                                        &! inout
-                       & pqsat_sfc,  ihpbl,     pghpbl,                 &! out
+                       & pqsat_tile, ihpbl,     pghpbl,                 &! out
                        & pri,        pmixlen,                           &! out
-                       & pcfm,       pcfm_sfc,  pcfh,       pcfh_sfc,   &! out
+                       & pcfm,       pcfm_tile, pcfh,       pcfh_tile,  &! out
                        & pcfv,       pcftke,    pcfthv,                 &! out
                        & aa,         aa_btm,    bb,         bb_btm,     &! out
-                       & pprfac_sfc, pcpt_sfc,                          &! out
+                       & pprfac_sfc, pcpt_tile,                         &! out
                        & pcptgz,     prhoh,     pqshear,                &! out
                        & pzthvvar,   pztkevn                            )! out
 
     INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevm1, klevp1, ktrac
-    INTEGER, INTENT(IN) :: ksfc_type, idx_wtr, idx_ice, idx_lnd, idx_gbm
+    INTEGER, INTENT(IN) :: ksfc_type, idx_wtr, idx_ice, idx_lnd
     REAL(wp),INTENT(IN) :: pstep_len
 
-    REAL(wp),INTENT(IN) ::        &
-      & pcoriol (kbdim)          ,&!< Coriolis parameter: 2*omega*sin(lat)
-      & pfrc    (kbdim,ksfc_type),&!< area fraction of each surface type
-      & ptsfc   (kbdim,ksfc_type),&!< surface temperature
-      & pocu    (kbdim)          ,&!< eastward  velocity of ocean sfc current
-      & pocv    (kbdim)          ,&!< northward velocity of ocean sfc current
-      & ppsfc   (kbdim)            !< surface pressure
+    REAL(wp),INTENT(IN) ::          &
+      & pcoriol   (kbdim)          ,&!< Coriolis parameter: 2*omega*sin(lat)
+      & pfrc      (kbdim,ksfc_type),&!< area fraction of each surface type
+      & ptsfc_tile(kbdim,ksfc_type),&!< surface temperature
+      & pocu      (kbdim)          ,&!< eastward  velocity of ocean sfc current
+      & pocv      (kbdim)          ,&!< northward velocity of ocean sfc current
+      & ppsfc     (kbdim)            !< surface pressure
 
     REAL(wp),INTENT(IN) ::        &
       & pum1    (kbdim,klev)     ,&!< u-wind at step t-dt
@@ -118,10 +118,10 @@ CONTAINS
       & pxt_emis(kbdim,ktrac)      !< tracer tendency due to surface emission
                                    !< and dry deposition
 
-    REAL(wp),INTENT(IN) ::                &
-      & pthvvar (kbdim,klev)             ,&!< variance of virtual pot. temp. at step t-dt
-      & pxvar   (kbdim,klev)             ,&!< step t-dt
-      & pz0m    (kbdim,idx_gbm:ksfc_type)  !< roughness length at step t-dt
+    REAL(wp),INTENT(IN) ::         &
+      & pthvvar  (kbdim,klev)     ,&!< variance of virtual pot. temp. at step t-dt
+      & pxvar    (kbdim,klev)     ,&!< step t-dt
+      & pz0m_tile(kbdim,ksfc_type)  !< roughness length at step t-dt
 
 #ifdef __ICON__
     REAL(wp),INTENT(IN)  :: ptkem1(kbdim,klev)    !< TKE at step t-dt 
@@ -139,23 +139,23 @@ CONTAINS
 
     ! Variables with intent(out)
 
-    REAL(wp),INTENT(OUT) :: pqsat_sfc(kbdim,ksfc_type) !< saturation specific 
-                                                       !< humidity at sfc.
-                                                       !< (step t-dt)
+    REAL(wp),INTENT(OUT) :: pqsat_tile(kbdim,ksfc_type) !< saturation specific 
+                                                        !< humidity at sfc.
+                                                        !< (step t-dt)
 
     INTEGER, INTENT(OUT) :: ihpbl (kbdim)  !< PBL height given as level index
     REAL(wp),INTENT(OUT) :: pghpbl(kbdim)  !< geopotential height of PBL top
 
-    REAL(wp),INTENT(OUT) ::       &
-      & pri     (kbdim,klev)     ,&!< Richardson number
-      & pmixlen (kbdim,klev)     ,&!< mixing length
-      & pcfm    (kbdim,klev)     ,&!< exchange coeff. for u, v
-      & pcfm_sfc(kbdim,ksfc_type),&!< exchange coeff. for u, v
-      & pcfh    (kbdim,klev)     ,&!< exchange coeff. for heat and tracers
-      & pcfh_sfc(kbdim,ksfc_type),&!< exchange coeff. for heat and tracers
-      & pcfv    (kbdim,klev)     ,&!< exchange coeff. for variance of qx
-      & pcftke  (kbdim,klev)     ,&!< exchange coeff. for TKE
-      & pcfthv  (kbdim,klev)       !< exchange coeff. for variance of theta_v
+    REAL(wp),INTENT(OUT) ::        &
+      & pri      (kbdim,klev)     ,&!< Richardson number
+      & pmixlen  (kbdim,klev)     ,&!< mixing length
+      & pcfm     (kbdim,klev)     ,&!< exchange coeff. for u, v
+      & pcfm_tile(kbdim,ksfc_type),&!< exchange coeff. for u, v
+      & pcfh     (kbdim,klev)     ,&!< exchange coeff. for heat and tracers
+      & pcfh_tile(kbdim,ksfc_type),&!< exchange coeff. for heat and tracers
+      & pcfv     (kbdim,klev)     ,&!< exchange coeff. for variance of qx
+      & pcftke   (kbdim,klev)     ,&!< exchange coeff. for TKE
+      & pcfthv   (kbdim,klev)       !< exchange coeff. for variance of theta_v
 
     ! Coefficient matrices and right-hand-side vectors.
     ! _btm refers to the lowest model level (i.e., full level "klev", not the surface)
@@ -168,14 +168,14 @@ CONTAINS
 
     ! Other variables to be passed on to the second part of turbulence solver
 
-    REAL(wp),INTENT(OUT) ::          &
-      & pprfac_sfc (kbdim)          ,&!< prefactor for the exchange coeff.
-      & pcpt_sfc   (kbdim,ksfc_type),&!< dry static energy at surface
-      & pcptgz     (kbdim,klev)     ,&!< dry static energy
-      & prhoh      (kbdim,klev)     ,&!< air density at half levels
-      & pqshear    (kbdim,klev)     ,&!<
-      & pzthvvar   (kbdim,klev)     ,&!<
-      & pztkevn    (kbdim,klev)       !< intermediate value of TKE
+    REAL(wp),INTENT(OUT) ::         &
+      & pprfac_sfc(kbdim)          ,&!< prefactor for the exchange coeff.
+      & pcpt_tile (kbdim,ksfc_type),&!< dry static energy at surface
+      & pcptgz    (kbdim,klev)     ,&!< dry static energy
+      & prhoh     (kbdim,klev)     ,&!< air density at half levels
+      & pqshear   (kbdim,klev)     ,&!<
+      & pzthvvar  (kbdim,klev)     ,&!<
+      & pztkevn   (kbdim,klev)       !< intermediate value of TKE
 
     ! Local variables
 
@@ -235,8 +235,8 @@ CONTAINS
     CALL sfc_exchange_coeff( kproma, kbdim, ksfc_type,              &! in
                            & idx_wtr, idx_ice, idx_lnd,             &! in
                            & lsfc_mom_flux, lsfc_heat_flux,         &! in
-                           & pz0m(:,1:), ptsfc(:,:),                &! in
-                           & pfrc(:,:), pghpbl(:),                  &! in
+                           & pz0m_tile(:,:),  ptsfc_tile(:,:),      &! in
+                           & pfrc(:,:),       pghpbl(:),            &! in
                            & pocu(:),         pocv(:),   ppsfc(:),  &! in
                            & pum1(:,klev),    pvm1  (:,klev),       &! in
                            & ptm1(:,klev),    pgeom1(:,klev),       &! in
@@ -249,10 +249,10 @@ CONTAINS
 #else
                            & ptkem1(:,klev),  ptkem0(:,klev),       &! inout
 #endif
-                           & pqsat_sfc(:,:),  pcpt_sfc(:,:),        &! out
+                           & pqsat_tile(:,:), pcpt_tile(:,:),       &! out
                            & pri    (:,klev),                       &! out
-                           & pcfm   (:,klev), pcfm_sfc(:,:),        &! out
-                           & pcfh   (:,klev), pcfh_sfc(:,:),        &! out
+                           & pcfm   (:,klev), pcfm_tile(:,:),       &! out
+                           & pcfh   (:,klev), pcfh_tile(:,:),       &! out
                            & pcfv   (:,klev),                       &! out
                            & pcftke (:,klev), pcfthv  (:,klev),     &! out
                            & zprfac (:,klev), prhoh   (:,klev),     &! out
@@ -280,10 +280,10 @@ CONTAINS
     zprfac(1:kproma,  klev)   = zprfac(1:kproma,  klev)  *zconst
   
     CALL matrix_setup_elim( kproma, kbdim, klev, klevm1, ksfc_type, itop, &! in
-                          & pcfm    (:,:),   pcfh  (:,1:klevm1),          &! in
-                          & pcfh_sfc(:,:),   pcfv  (:,:),                 &! in
-                          & pcftke  (:,:),   pcfthv(:,:),                 &! in
-                          & zprfac  (:,:),   zrdpm, zrdph,                &! in
+                          & pcfm     (:,:),   pcfh  (:,1:klevm1),         &! in
+                          & pcfh_tile(:,:),   pcfv  (:,:),                &! in
+                          & pcftke   (:,:),   pcfthv(:,:),                &! in
+                          & zprfac   (:,:),   zrdpm, zrdph,               &! in
                           & aa, aa_btm                                    )! out
  
     ! Save for output, to be used in "surface_solve"

@@ -224,10 +224,12 @@ CONTAINS
 
         IF (ltestcase) THEN
           SELECT CASE (ctest_name)
-          CASE('APE') !Note that iwtr = igbm in this test case
+          CASE('APE') !Note that there is only one surface type in this case
+
             DO jc = jcs,jce
-             zlat = p_patch(jg)%cells%center(jc,jb)%lat
-             field% tsfc (jc,iwtr,jb) = ape_sst(ape_sst_case,zlat) ! SST (Note that iwtr = igbm)
+              zlat = p_patch(jg)%cells%center(jc,jb)%lat
+              field% tsfc_tile(jc,iwtr,jb) = ape_sst(ape_sst_case,zlat)   ! SST
+              field% tsfc     (jc,     jb) = field% tsfc_tile(jc,iwtr,jb)
             END DO
             field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
             field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
@@ -236,10 +238,12 @@ CONTAINS
           CASE('JWw-Moist','LDF-Moist')
             ! Set the surface temperature to the same value as the lowest model
             ! level above surface. For this test case, currently we assume
-            ! there is no land or sea ice, thus igbm = iwtr
+            ! there is no land or sea ice.
 
-            field% tsfc  (jcs:jce,iwtr,jb) = p_hydro_state(jg)%prog(nnow(jg))% &
-                                           & temp(jcs:jce,nlev,jb)
+            field% tsfc_tile(jcs:jce,iwtr,jb) = p_hydro_state(jg)%prog(nnow(jg))% &
+                                              & temp(jcs:jce,nlev,jb)
+            field% tsfc     (jcs:jce,     jb) = field% tsfc_tile(jcs:jce,iwtr,jb)
+
             field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
             field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
             field% seaice(jcs:jce,jb) = 0._wp   ! zero sea ice fraction
@@ -361,9 +365,9 @@ CONTAINS
         field% ocv   (:,:)   = 0._wp
         field% mixlen(:,:,:) = -999._wp
 !$OMP END PARALLEL WORKSHARE
-        IF (iwtr<=nsfc_type) field% z0m(:,iwtr,:) = 1e-3_wp !see init_surf in echam (or z0m_oce?)
-        IF (iice<=nsfc_type) field% z0m(:,iice,:) = 1e-3_wp !see init_surf in echam (or z0m_ice?)
-        IF (ilnd<=nsfc_type) field% z0m(:,ilnd,:) = z0m_min ! or maybe a larger value?
+        IF (iwtr<=nsfc_type) field% z0m_tile(:,iwtr,:) = 1e-3_wp !see init_surf in echam (or z0m_oce?)
+        IF (iice<=nsfc_type) field% z0m_tile(:,iice,:) = 1e-3_wp !see init_surf in echam (or z0m_ice?)
+        IF (ilnd<=nsfc_type) field% z0m_tile(:,ilnd,:) = z0m_min ! or maybe a larger value?
       ENDIF
 
       ! Initialization of tendencies is necessary for doing I/O with

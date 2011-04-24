@@ -40,6 +40,10 @@ if [ ! -d ${EXPDIR} ]; then
 fi
 #
 ls -ld ${EXPDIR}
+if [ ! -d ${EXPDIR} ]; then
+    mkdir ${EXPDIR}
+fi
+ls -ld ${EXPDIR}
 check_error $? "${EXPDIR} does not exist?"
 #
 #-----------------------------------------------------------------------------

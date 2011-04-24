@@ -257,6 +257,7 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   iblk => ptr_patch%cells%neighbor_blk
 
 
+
   !
   ! 1. reconstruction of cell based gradient (geographical components)
   !

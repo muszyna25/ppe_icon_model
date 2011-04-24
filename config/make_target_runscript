@@ -31,6 +31,12 @@ eval_argument ()
   "resources" ) use_resources=$2
 #     echo "use_resources=$resources"
   ;;
+  "memory_model" ) use_memory_model=$2
+#     echo "use_memory_model=$resources"
+  ;;
+  "memory" ) use_memory=$2
+#     echo "use_memory=$resources"
+  ;;
   "node_usage" ) use_node_usage=$2
 #     echo "use_node_usage=$use_node_usage"
   ;;
@@ -91,11 +97,11 @@ if [[ "x$input_folder" == "x" ]] ; then
 fi
 
 if [[ "x$output_folder" == "x" ]] ; then
-  output_folder=$input_folder
+  output_local_folder=$input_folder
 fi
 
 input_script=$base_folder/$input_folder/$input_name
-output_folder=$base_folder/$output_folder
+output_folder=$base_folder/$output_local_folder
 output_script=$output_folder/$output_name
 
 if [[ ! -f $input_script ]] ; then

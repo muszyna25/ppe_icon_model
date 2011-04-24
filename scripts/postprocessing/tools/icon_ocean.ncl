@@ -261,9 +261,17 @@ end
     else
       print("Use CDO to perform remapping")
       if ( useMask ) then
-      system("cdo -P 8 -remapnn,"+resolution+" -selname,"+maskName+","+str_join(vecVars,",")+" "+iFile+" "+remapFilename)
+        cmd = "cdo -P 8 -remapnn,"+resolution+" -selname,"+maskName+","+str_join(vecVars,",")+" "+iFile+" "+remapFilename
+        if DEBUG then
+          print(cmd)
+        end if
+        system(cmd)
       else
-      system("cdo -P 8 -remapnn,"+resolution+" -selname,"+str_join(vecVars,",")+" "+iFile+" "+remapFilename)
+        cmd = "cdo -P 8 -remapnn,"+resolution+" -selname,"+str_join(vecVars,",")+" "+iFile+" "+remapFilename
+        if DEBUG then
+          print(cmd)
+        end if
+      system(cmd)
       end if
     end if
   end if
@@ -452,6 +460,18 @@ end
       uvar = mask(uvar,maskVar,0)
       vvar = mask(vvar,maskVar,0)
     end if
+    velocity = sqrt(uvar*uvar + vvar*vvar)
+    ; set minVar/maxVar for plotting
+    if(.not. isvar("minVar")) then
+      minVar = min(velocity)
+    end if
+    if(.not. isvar("maxVar")) then
+      maxVar = max(velocity)
+    end if
+    if ( minVar .gt. maxVar ) then
+      print("minVar has to be larger than maxVar")
+      exit
+    end if
   end if
 
   ; settings for showgrid
@@ -577,7 +597,10 @@ end
     minute  = doubletointeger(floor((86400*dayfrag - hour*3600)/60))
     second  = doubletointeger(86400*dayfrag - hour*3600 - minute*60)
     timeStr = str_join((/day,hour,minute,second/),"|")
-    lStrg   = (/varName,"(plstep "+timeStep+"["+timeStr+"],","pllev "+levIndex+")"/)
+    if (plotMode.eq."vector") then
+      varName = "Velocity"
+    end if
+    lStrg   = (/varName,"(time "+timeStep+"["+timeStr+"],","pllev "+levIndex+")"/)
   end if
   LeftString   = str_join(lStrg," ")
 
@@ -617,7 +640,7 @@ end
 
   ResC@cnFillOn             = True   ;  writes labelbar, no contour labels
   ResC@cnLinesOn            = True
-  ResC@cnInfoLabelOn        = False
+;  ResC@cnInfoLabelOn        = False
 
   FontHeight0               = 0.012
   FontHeight1               = 0.015
@@ -633,8 +656,7 @@ end
 
 
 
-  ResC@mpFillOn               = True
-  ResC@cnFillOn               = True
+;  ResC@mpFillOn               = True
   if (useMask) then
     ResC@cnMissingValFillColor = -1
   end if
@@ -661,6 +683,11 @@ end
     ResC@cnLevelSelectionMode = "ManualLevels"
     ResC@cnMinLevelValF       = minVar
     ResC@cnMaxLevelValF       = maxVar
+    if (DEBUG) then
+      print("Manual Plotlevel setting......")
+      print("minVal: " + minVar)
+      print("maxVal: " + maxVar)
+    end if
     diffLog10                 = log10(abs(maxVar-minVar))
 ;   if (diffLog10 .lt. 0) then
       ResC@cnLevelSpacingF      = 10^(floor(diffLog10))/contLevs
@@ -798,7 +825,14 @@ end
     ;  - maybe the attributes could be used to assign the lat/lon of the cell-variables
     ;    on a 2-dim lat/lon variable
     if (plotMode.eq."vector")
-      vc = gsn_csm_vector_scalar_map(wks,uvar,vvar,uvar*uvar+vvar*vvar,ResC)
+     ResC@vcRefMagnitudeF         = 5.0              ; make vectors larger
+     ResC@vcRefLengthF            = 8.0            ; ref vec length
+     ResC@vcGlyphStyle            = "CurlyVector"    ; turn on curly vectors
+     ResC@vcMinDistanceF          = 0.017            ; thin out vectors
+
+      vc = gsn_csm_vector_scalar_map(wks,uvar,vvar,sqrt(uvar*uvar+vvar*vvar),ResC)
+      ;vc = gsn_csm_vector(wks,uvar,vvar,ResC)
+      ;vc = gsn_csm_vector_scalar(wks,uvar,vvar,uvar*uvar+vvar*vvar,ResC)
     else  ; shaded contours
       plot  = gsn_csm_contour_map_ce(wks,var,ResC)
       if (showPreview) then

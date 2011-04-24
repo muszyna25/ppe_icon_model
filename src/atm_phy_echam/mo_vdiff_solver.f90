@@ -195,7 +195,7 @@ CONTAINS
   !!
   SUBROUTINE matrix_setup_elim( kproma, kbdim, klev, klevm1,  &! in
                               & ksfc_type, itop,              &! in
-                              & pcfm, pcfh, pcfh_sfc, pcfv,   &! in
+                              & pcfm, pcfh, pcfh_tile, pcfv,  &! in
                               & pcftke, pcfthv,               &! in
                               & pprfac, prdpm, prdph,         &! in
                               & aa, aa_btm                    )! out
@@ -204,9 +204,9 @@ CONTAINS
     INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevm1, ksfc_type
     INTEGER, INTENT(IN) :: itop
 
-    REAL(wp),INTENT(IN) :: pcfm    (kbdim,klev)      !< exchange coeff. for u, v
-    REAL(wp),INTENT(IN) :: pcfh    (kbdim,klevm1)    !< exchange coeff. for heat and tracers
-    REAL(wp),INTENT(IN) :: pcfh_sfc(kbdim,ksfc_type) !< exchange coeff. for heat and qv, at surface
+    REAL(wp),INTENT(IN) :: pcfm     (kbdim,klev)      !< exchange coeff. for u, v
+    REAL(wp),INTENT(IN) :: pcfh     (kbdim,klevm1)    !< exchange coeff. for heat and tracers
+    REAL(wp),INTENT(IN) :: pcfh_tile(kbdim,ksfc_type) !< exchange coeff. for heat and qv, at surface
     REAL(wp),INTENT(IN) :: pcfv    (kbdim,klev)      !< exchange coeff. for total water variance
     REAL(wp),INTENT(IN) :: pcftke  (kbdim,klev)      !< exchange coeff. for TKE
     REAL(wp),INTENT(IN) :: pcfthv  (kbdim,klev)      !< exchange coeff. for variance of theta_v
@@ -270,7 +270,7 @@ CONTAINS
     DO jsfc = 1,ksfc_type
       DO jc = 1,kproma
         aa_btm(jc,1,jsfc) = -zkstar(jc,jk-1)*prdpm(jc,jk)    ! -K*_{k-1/2}/dp_k
-        aa_btm(jc,3,jsfc) = -pcfh_sfc(jc,jsfc)*pprfac(jc,jk)*prdpm(jc,jk)
+        aa_btm(jc,3,jsfc) = -pcfh_tile(jc,jsfc)*pprfac(jc,jk)*prdpm(jc,jk)
         aa_btm(jc,2,jsfc) = 1._wp - aa_btm(jc,1,jsfc) - aa_btm(jc,3,jsfc)
       ENDDO
     ENDDO
@@ -567,8 +567,8 @@ CONTAINS
                       & ksfc_type, idx_wtr, idx_ice, &! in
                       & lsfc_heat_flux, ptpfac2,     &! in
                       & pfrc, pocu, pocv,            &! in
-                      & pcpt_sfc, pqsat_sfc,         &! in
-                      & pcfh_sfc, pprfac_sfc,        &! in
+                      & pcpt_tile, pqsat_tile,       &! in
+                      & pcfh_tile, pprfac_sfc,       &! in
                       & aa, aa_btm,                  &! in
                       & bb, bb_btm                   )! inout
 
@@ -576,12 +576,12 @@ CONTAINS
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr, idx_ice 
     LOGICAL, INTENT(IN) :: lsfc_heat_flux
     REAL(wp),INTENT(IN) :: ptpfac2
-    REAL(wp),INTENT(IN) :: pfrc    (kbdim,ksfc_type)
-    REAL(wp),INTENT(IN) :: pocu     (kbdim)
-    REAL(wp),INTENT(IN) :: pocv     (kbdim)
-    REAL(wp),INTENT(IN) :: pcpt_sfc (kbdim,ksfc_type)
-    REAL(wp),INTENT(IN) :: pqsat_sfc(kbdim,ksfc_type)
-    REAL(wp),INTENT(IN) :: pcfh_sfc(kbdim,ksfc_type)
+    REAL(wp),INTENT(IN) :: pfrc      (kbdim,ksfc_type)
+    REAL(wp),INTENT(IN) :: pocu      (kbdim)
+    REAL(wp),INTENT(IN) :: pocv      (kbdim)
+    REAL(wp),INTENT(IN) :: pcpt_tile (kbdim,ksfc_type)
+    REAL(wp),INTENT(IN) :: pqsat_tile(kbdim,ksfc_type)
+    REAL(wp),INTENT(IN) :: pcfh_tile (kbdim,ksfc_type)
     REAL(wp),INTENT(IN) :: pprfac_sfc(kbdim)
 
     REAL(wp),INTENT(IN) :: aa    (kbdim,klev,3,nmatrix)
@@ -621,17 +621,17 @@ CONTAINS
     ! For moisture and heat, each surface type is treated separately
 
     DO jsfc = 1,ksfc_type
-      bb_btm(1:kproma,jsfc,ih)  =    bb_btm(1:kproma,jsfc,ih) & 
-                                & -pcpt_sfc(1:kproma,jsfc)    &
-                                &   *aa_btm(1:kproma,3,jsfc)  &
-                                &   *ptpfac2
+      bb_btm(1:kproma,jsfc,ih)  =     bb_btm(1:kproma,jsfc,ih) & 
+                                & -pcpt_tile(1:kproma,jsfc)    &
+                                &    *aa_btm(1:kproma,3,jsfc)  &
+                                &    *ptpfac2
     ENDDO
 
     DO jsfc = 1,ksfc_type
-      bb_btm(1:kproma,jsfc,iqv) =   bb_btm(1:kproma,jsfc,iqv) & 
-                                & -pqsat_sfc(1:kproma,jsfc)   &
-                                &    *aa_btm(1:kproma,3,jsfc) &
-                                &    *ptpfac2
+      bb_btm(1:kproma,jsfc,iqv) =      bb_btm(1:kproma,jsfc,iqv) & 
+                                & -pqsat_tile(1:kproma,jsfc)     &
+                                &     *aa_btm(1:kproma,3,jsfc)   &
+                                &     *ptpfac2
     ENDDO
 
     !--------------------------------------------------------------------------
@@ -669,7 +669,7 @@ CONTAINS
     DO jsfc = 1,ksfc_type
        ! Weights for aggregation
 
-       wgt(1:kproma) =  pfrc(1:kproma,jsfc)*pcfh_sfc(1:kproma,jsfc)*pprfac_sfc(1:kproma)
+       wgt(1:kproma) =  pfrc(1:kproma,jsfc)*pcfh_tile(1:kproma,jsfc)*pprfac_sfc(1:kproma)
        wgt_sum(1:kproma) = wgt_sum(1:kproma) + wgt(1:kproma)
 
        zden(1:kproma) =  aa_btm(1:kproma,2,jsfc)                     &
@@ -735,7 +735,7 @@ CONTAINS
   !!
   SUBROUTINE vdiff_tendencies( kproma, kbdim, itop, klev, klevm1, klevp1, &! in
                              & ktrac, ksfc_type, idx_lnd, idx_wtr,   &! in
-                             & idx_gbm, pdtime, pstep_len,           &! in
+                             & pdtime, pstep_len,                    &! in
                              & pum1, pvm1, ptm1, pqm1, pxlm1, pxim1, &! in
                              & pxtm1, pgeom1, pdelpm1, pcptgz,       &! in
 #ifdef __ICON__
@@ -743,19 +743,19 @@ CONTAINS
 #else
                              & ptkem1, ptkem0, pztkevn, pzthvvar, prhoh, &! inout, inout, in
 #endif
-                             & pqshear, ihpbl, pcfh_sfc, pqsat_sfc,  &! in
-                             & pcfm_sfc, pfrc, bb,                   &! in
-                             & pkedisp, pxvar, pz0m,                 &! inout
+                             & pqshear, ihpbl, pcfh_tile, pqsat_tile, &! in
+                             & pcfm_tile, pfrc, bb,                   &! in
+                             & pkedisp, pxvar, pz0m_tile,            &! inout
                              & pute, pvte, ptte, pqte,               &! inout
                              & pxlte, pxite, pxtte,                  &! inout
                              & pute_vdf, pvte_vdf, ptte_vdf,         &! out
                              & pqte_vdf, pxlte_vdf, pxite_vdf,       &! out
-                             & pxtte_vdf, pxvarprod,                 &! out
+                             & pxtte_vdf, pxvarprod, pz0m,           &! out
                              & ptke, pthvvar, pthvsig, pvmixtau,     &! out
                              & pqv_mflux_sfc                         )! out
 
     INTEGER, INTENT(IN) :: kproma, kbdim, itop, klev, klevm1, klevp1, ktrac
-    INTEGER, INTENT(IN) :: ksfc_type, idx_lnd, idx_wtr, idx_gbm
+    INTEGER, INTENT(IN) :: ksfc_type, idx_lnd, idx_wtr
     REAL(wp),INTENT(IN) :: pstep_len, pdtime
 
     REAL(wp),INTENT(IN)  :: pum1   (kbdim,klev)
@@ -779,17 +779,17 @@ CONTAINS
     REAL(wp),INTENT(IN)  :: prhoh   (kbdim,klev)
     REAL(wp),INTENT(IN)  :: pqshear (kbdim,klev)
     INTEGER, INTENT(IN)  :: ihpbl   (kbdim)
-    REAL(wp),INTENT(IN)  :: pcfh_sfc (kbdim,ksfc_type)
-    REAL(wp),INTENT(IN)  :: pqsat_sfc(kbdim,ksfc_type)
-    REAL(wp),INTENT(IN)  :: pcfm_sfc (kbdim,ksfc_type)
-    REAL(wp),INTENT(IN)  :: pfrc     (kbdim,ksfc_type)
-    REAL(wp),INTENT(IN)  :: bb    (kbdim,klev,nvar_vdiff)
+    REAL(wp),INTENT(IN)  :: pcfh_tile (kbdim,ksfc_type)
+    REAL(wp),INTENT(IN)  :: pqsat_tile(kbdim,ksfc_type)
+    REAL(wp),INTENT(IN)  :: pcfm_tile     (kbdim,ksfc_type)
+    REAL(wp),INTENT(IN)  :: pfrc          (kbdim,ksfc_type)
+    REAL(wp),INTENT(IN)  :: bb            (kbdim,klev,nvar_vdiff)
 
     REAL(wp),INTENT(INOUT) :: pkedisp(kbdim) !< temporally and vertically
                                              !< integrated dissipation of
                                              !< kinetic energy
-    REAL(wp),INTENT(INOUT) :: pxvar(kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: pz0m (kbdim,idx_gbm:ksfc_type)
+    REAL(wp),INTENT(INOUT) :: pxvar    (kbdim,klev)
+    REAL(wp),INTENT(INOUT) :: pz0m_tile(kbdim,ksfc_type)
 
     REAL(wp),INTENT(INOUT) :: pute (kbdim,klev)
     REAL(wp),INTENT(INOUT) :: pvte (kbdim,klev)
@@ -806,11 +806,12 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pxlte_vdf(kbdim,klev)
     REAL(wp),INTENT(OUT) :: pxite_vdf(kbdim,klev)
     REAL(wp),INTENT(OUT) :: pxtte_vdf(kbdim,klev,ktrac)
-    REAL(wp),INTENT(OUT) :: pxvarprod  (kbdim,klev)
+    REAL(wp),INTENT(OUT) :: pxvarprod(kbdim,klev)
 
-    REAL(wp),INTENT(OUT) :: ptke   (kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pthvvar(kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pthvsig(kbdim)
+    REAL(wp),INTENT(OUT) :: pz0m    (kbdim)
+    REAL(wp),INTENT(OUT) :: ptke    (kbdim,klev)
+    REAL(wp),INTENT(OUT) :: pthvvar (kbdim,klev)
+    REAL(wp),INTENT(OUT) :: pthvsig (kbdim)
     REAL(wp),INTENT(OUT) :: pvmixtau(kbdim,klev)
     REAL(wp),INTENT(OUT) :: pqv_mflux_sfc(kbdim)  !< surface mass flux of water vapour
                                                   !< "pqhfla" in echam
@@ -1043,7 +1044,7 @@ CONTAINS
     !---------------------------------------------------------------
     ! Derive surface mass flux of moisture (qv, not q_total).
     ! Formula: weighted (by surface type fraction) average of
-    ! (air density)*(exchange coefficient)*(qv_klev - qsat_sfc),
+    ! (air density)*(exchange coefficient)*(qv_klev - qsat_tile),
     ! where qv_klev is the solution of the linear system at the lowest
     ! model level (i.e., the full level right above surface).
     !---------------------------------------------------------------
@@ -1052,9 +1053,9 @@ CONTAINS
     DO jsfc = 1,ksfc_type
       IF (jsfc==idx_lnd) CYCLE
       DO jl = 1,kproma
-        dqv = tpfac1*bb(jl,klev,iqv) - pqsat_sfc(jl,jsfc)
+        dqv = tpfac1*bb(jl,klev,iqv) - pqsat_tile(jl,jsfc)
         pqv_mflux_sfc(jl) = pqv_mflux_sfc(jl)                                   &
-                          & + pfrc(jl,jsfc)*prhoh(jl,klev)*pcfh_sfc(jl,jsfc)*dqv
+                          & + pfrc(jl,jsfc)*prhoh(jl,klev)*pcfh_tile(jl,jsfc)*dqv
       ENDDO
     ENDDO
 
@@ -1063,21 +1064,20 @@ CONTAINS
     !----------------------------------------------------------------------------
     ! Update roughness height over open water, then update the grid-box mean
     !----------------------------------------------------------------------------
-    IF (idx_wtr<=ksfc_type) THEN
+    IF (idx_wtr<=ksfc_type) THEN  ! water surface exists in the simulation
       DO jl = 1,kproma
-        pz0m(jl,idx_wtr) = tpfac1*SQRT( bb(jl,klev,iu)**2+bb(jl,klev,iv)**2 ) &
-                         & *pcfm_sfc(jl,idx_wtr)*cchar/grav
-        pz0m(jl,idx_wtr) = MAX(z0m_min,pz0m(jl,idx_wtr))
+        pz0m_tile(jl,idx_wtr) = tpfac1*SQRT( bb(jl,klev,iu)**2+bb(jl,klev,iv)**2 ) &
+                              & *pcfm_tile(jl,idx_wtr)*cchar/grav
+        pz0m_tile(jl,idx_wtr) = MAX(z0m_min,pz0m_tile(jl,idx_wtr))
       ENDDO
     ENDIF
 
-    IF (idx_gbm==0) THEN
-      pz0m(1:kproma,idx_gbm) = 0._wp
-      DO jsfc = 1,ksfc_type
-         pz0m(1:kproma,idx_gbm) = pz0m(1:kproma,idx_gbm)  &
-                                & + pfrc(1:kproma,jsfc)*pz0m(1:kproma,jsfc)
-      ENDDO
-    ENDIF
+    ! Compute grid-box mean 
+
+    pz0m(1:kproma) = 0._wp
+    DO jsfc = 1,ksfc_type
+       pz0m(1:kproma) = pz0m(1:kproma) + pfrc(1:kproma,jsfc)*pz0m_tile(1:kproma,jsfc)
+    ENDDO
 
   END SUBROUTINE vdiff_tendencies
   !-------------

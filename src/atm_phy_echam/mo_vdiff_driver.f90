@@ -82,12 +82,12 @@ CONTAINS
                      pxlte,      pxite,       pxtte,                   &! inout
                      pute_vdf,   pvte_vdf,    ptte_vdf,                &! out
                      pqte_vdf,   pxlte_vdf,   pxite_vdf,   pxtte_vdf,  &! out
-                     pqsat_sfc,                                        &! out
+                     pqsat_tile,                                       &! out
                      pxvarprod,  pvmixtau,    pqv_mflux_sfc,           &! out
                      pthvsig,    ptke,        ihpbl,       pghpbl,     &! out
                      pri,        pmixlen,                              &! out
-                     pcfm,       pcfm_sfc,                             &! out
-                     pcfh,       pcfh_sfc,                             &! out
+                     pcfm,       pcfm_tile,                            &! out
+                     pcfh,       pcfh_tile,                            &! out
                      pcfv,       pcftke,      pcfthv                   )! out
 
   INTEGER, INTENT(IN)  :: kproma, kbdim, klev, klevm1, klevp1, ktrac
@@ -138,11 +138,11 @@ CONTAINS
                                            !< at step t-dt.
 
   REAL(wp),INTENT(INOUT) :: pz0m(kbdim,idx_gbm:ksfc_type) !< roughness length
-                                                          !< in: values over each surface type computed
-                                                          !< during the previous time step;
-                                                          !< out: new values computed from the temporally
-                                                          !< weighted "hat" value of u and v and
-                                                          !< the step t-dt value of some other variables.
+                                                  !< in: values over each surface type computed
+                                                  !< during the previous time step;
+                                                  !< out: new values computed from the temporally
+                                                  !< weighted "hat" value of u and v and
+                                                  !< the step t-dt value of some other variables.
 
   REAL(wp),INTENT(INOUT) :: pkedisp(kbdim) !< temporally and vertically integrated
                                            !< dissipation of kinetic energy
@@ -163,7 +163,7 @@ CONTAINS
   REAL(wp),INTENT(OUT) :: pxite_vdf(kbdim,klev)
   REAL(wp),INTENT(OUT) :: pxtte_vdf(kbdim,klev,ktrac)
 
-  REAL(wp),INTENT(OUT) :: pqsat_sfc(kbdim,ksfc_type)!< surface specific humidity at saturation
+  REAL(wp),INTENT(OUT) :: pqsat_tile(kbdim,ksfc_type)!< surface specific humidity at saturation
 
   REAL(wp),INTENT(OUT) :: pxvarprod    (kbdim,klev) !< shear production of the variance of total water
   REAL(wp),INTENT(OUT) :: pvmixtau     (kbdim,klev) !< vertical mixing time scale
@@ -174,19 +174,19 @@ CONTAINS
   REAL(wp),INTENT(OUT) :: pghpbl(kbdim)
   INTEGER, INTENT(OUT) :: ihpbl (kbdim)
 
-  REAL(wp),INTENT(OUT) :: pri     (kbdim,klev) !< Richardson number
-  REAL(wp),INTENT(OUT) :: pmixlen (kbdim,klev) !< mixing length
-  REAL(wp),INTENT(OUT) :: pcfm    (kbdim,klev) !< exchange coeff. for u, v
-  REAL(wp),INTENT(OUT) :: pcfm_sfc(kbdim,ksfc_type) !< exchange coeff.
-  REAL(wp),INTENT(OUT) :: pcfh    (kbdim,klev) !< exchange coeff. for heat and tracers
-  REAL(wp),INTENT(OUT) :: pcfh_sfc(kbdim,ksfc_type) !< exchange coeff. for heat and tracers
+  REAL(wp),INTENT(OUT) :: pri      (kbdim,klev) !< Richardson number
+  REAL(wp),INTENT(OUT) :: pmixlen  (kbdim,klev) !< mixing length
+  REAL(wp),INTENT(OUT) :: pcfm     (kbdim,klev) !< exchange coeff. for u, v
+  REAL(wp),INTENT(OUT) :: pcfm_tile(kbdim,ksfc_type) !< exchange coeff.
+  REAL(wp),INTENT(OUT) :: pcfh     (kbdim,klev) !< exchange coeff. for heat and tracers
+  REAL(wp),INTENT(OUT) :: pcfh_tile(kbdim,ksfc_type) !< exchange coeff. for heat and tracers
   REAL(wp),INTENT(OUT) :: pcfv    (kbdim,klev) !< exchange coeff. for variance of qx
   REAL(wp),INTENT(OUT) :: pcftke  (kbdim,klev) !< exchange coeff. for TKE
   REAL(wp),INTENT(OUT) :: pcfthv  (kbdim,klev) !< exchange coeff. for variance of theta_v
 
   ! Local variables
 
-  REAL(wp) :: zcpt_sfc(kbdim,ksfc_type)
+  REAL(wp) :: zcpt_tile(kbdim,ksfc_type)
   REAL(wp) :: zthvvar (kbdim,klev)
   REAL(wp) :: ztkevn  (kbdim,klev)
   REAL(wp) :: zqshear (kbdim,klev)
@@ -270,10 +270,10 @@ CONTAINS
 #else
                          & ptkem1(:,klev),  ptkem0(:,klev),       &! inout
 #endif
-                         & pqsat_sfc(:,:),  zcpt_sfc(:,:),        &! out
+                         & pqsat_tile(:,:), zcpt_tile(:,:),       &! out
                          & pri    (:,klev),                       &! out
-                         & pcfm   (:,klev), pcfm_sfc(:,:),        &! out
-                         & pcfh   (:,klev), pcfh_sfc(:,:),        &! out
+                         & pcfm   (:,klev), pcfm_tile(:,:),       &! out
+                         & pcfh   (:,klev), pcfh_tile(:,:),       &! out
                          & pcfv   (:,klev),                       &! out
                          & pcftke (:,klev), pcfthv (:,klev),      &! out
                          & zprfac (:,klev), zrhoh  (:,klev),      &! out
@@ -301,10 +301,10 @@ CONTAINS
   zprfac(1:kproma,  klev)   = zprfac(1:kproma,  klev)  *zconst
 
   CALL matrix_setup_elim( kproma, kbdim, klev, klevm1, ksfc_type, itop, &! in
-                        & pcfm    (:,:),   pcfh  (:,1:klevm1),          &! in
-                        & pcfh_sfc(:,:),   pcfv  (:,:),                 &! in
-                        & pcftke  (:,:),   pcfthv(:,:),                 &! in
-                        & zprfac  (:,:),   zrdpm, zrdph,                &! in
+                        & pcfm     (:,:),   pcfh  (:,1:klevm1),         &! in
+                        & pcfh_tile(:,:),   pcfv  (:,:),                &! in
+                        & pcftke   (:,:),   pcfthv(:,:),                &! in
+                        & zprfac   (:,:),   zrdpm, zrdph,               &! in
                         & aa, aa_btm                                    )! out
 
   !-----------------------------------------------------------------------
@@ -329,20 +329,14 @@ CONTAINS
   ! 5. Handle fractional surfaces (tiles) and obtain solution of 
   !    static energy and water vapor concentration in the lowest model 
   !    layer (the klev-th full level). 
-  !    This could be the place where land surface comes in.
   !-----------------------------------------------------------------------
-  !    - boundary condition at the air-sea/ice/land interface
-
-  ! lnd/oce/ice model should provide zcpt_sfc and pqsat_sfc at new 
-  ! time step as well.
-
-  ! (lnd model takes the old values as input)
 
   CALL sfc_solve( kproma, kbdim, klev, klevm1,    &! in
                 & ksfc_type, idx_wtr, idx_ice,    &! in
                 & lsfc_heat_flux, tpfac2, pfrc,   &! in
-                & pocu, pocv, zcpt_sfc, pqsat_sfc,&! in
-                & pcfh_sfc, zprfac(:,klev),       &! in
+                & pocu, pocv, zcpt_tile,          &! in
+                & pqsat_tile,                     &! in
+                & pcfh_tile, zprfac(:,klev),      &! in
                 & aa, aa_btm,                     &! in
                 & bb, bb_btm                      )! inout
 
@@ -354,7 +348,7 @@ CONTAINS
 
   CALL vdiff_tendencies( kproma, kbdim, itop, klev, klevm1, klevp1,   &! in
                        & ktrac, ksfc_type, idx_lnd, idx_wtr,          &! in
-                       & idx_gbm, pdtime, pstep_len,                  &! in
+                       & pdtime, pstep_len,                           &! in
                        & pum1, pvm1, ptm1, pqm1, pxlm1, pxim1,        &! in
                        & pxtm1, pgeom1, pdelpm1, zcptgz,              &! in
 #ifdef __ICON__
@@ -362,14 +356,15 @@ CONTAINS
 #else
                        & ptkem1, ptkem0, ztkevn, zthvvar, zrhoh,      &! in
 #endif
-                       & zqshear, ihpbl, pcfh_sfc, pqsat_sfc,         &! in
-                       & pcfm_sfc, pfrc, bb,                          &! in
+                       & zqshear, ihpbl, pcfh_tile, pqsat_tile,       &! in
+                       & pcfm_tile, pfrc, bb,                         &! in
                        & pkedisp(:),                                  &! inout ("pvdis" in echam)
-                       & pxvar(:,:), pz0m(:,:),                       &! inout
+                       & pxvar(:,:), pz0m(:,1:ksfc_type),             &! inout
                        & pute, pvte, ptte, pqte, pxlte, pxite, pxtte, &! inout
                        & pute_vdf, pvte_vdf, ptte_vdf, pqte_vdf,      &! out
                        & pxlte_vdf, pxite_vdf, pxtte_vdf,             &! out
                        & pxvarprod,                                   &! out ("pvdiffp" in echam)
+                       & pz0m(:,idx_gbm),                             &! out
                        & ptke, pthvvar, pthvsig, pvmixtau,            &! out
                        & pqv_mflux_sfc                                )! out ("pqhfla" in echam)
 

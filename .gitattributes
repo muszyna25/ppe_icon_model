@@ -74,6 +74,12 @@ doc/contrib/nproma_1.fig -text
 doc/contrib/nproma_1.pdf -text
 doc/contrib/nproma_3d.fig -text
 doc/contrib/nproma_3d.pdf -text
+doc/figures/Huis_thesis/Fig2.1_RootDivision.tex -text
+doc/figures/Huis_thesis/Fig2.3_CellAndEdge_1.tex -text
+doc/figures/Huis_thesis/Fig2.3_CellAndEdge_2.tex -text
+doc/figures/Huis_thesis/Fig2.4_TriangleUpDown.tex -text
+doc/figures/Huis_thesis/Fig2.5_Triangle.tex -text
+doc/figures/Huis_thesis/Fig2.6_Hexagon.tex -text
 doc/resources/doxyfile_icon_html -text
 doc/resources/doxyfile_icon_pdf -text
 doc/resources/doxygen_html_footer.html -text
@@ -631,6 +637,8 @@ scripts/buildbot_scripts/ICON.cfg -text
 scripts/buildbot_scripts/README -text
 scripts/buildbot_scripts/bb_make -text
 scripts/buildbot_scripts/bb_run -text
+scripts/buildbot_scripts/bb_run_parallel -text
+scripts/buildbot_scripts/bb_run_seq -text
 scripts/buildbot_scripts/buildbot.tac.blizzard1 -text
 scripts/buildbot_scripts/buildbot.tac.mpipc22 -text
 scripts/buildbot_scripts/buildbot.tac.squall1 -text
@@ -875,11 +883,9 @@ src/atm_phy_echam/mo_vdiff_upward_sweep.f90 -text
 src/atm_phy_nwp/mo_nh_interface_nwp.f90 -text
 src/atm_phy_nwp/mo_nwp_conv_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_gscp_interface.f90 -text
-src/atm_phy_nwp/mo_nwp_lnd_state.f90 -text
 src/atm_phy_nwp/mo_nwp_phy_init.f90 -text
 src/atm_phy_nwp/mo_nwp_phy_state.f90 -text
 src/atm_phy_nwp/mo_nwp_rad_interface.f90 -text
-src/atm_phy_nwp/mo_nwp_sfc_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_turb_interface.f90 -text
 src/atm_phy_nwp/mo_phys_nest_utilities.f90 -text
 src/atm_phy_schemes/data_flake.f90 -text
@@ -909,12 +915,10 @@ src/atm_phy_schemes/mo_lrtm_setup.f90 -text
 src/atm_phy_schemes/mo_lrtm_taumol.f90 -text
 src/atm_phy_schemes/mo_newcld_optics.f90 -text
 src/atm_phy_schemes/mo_o3_util.f90 -text
-src/atm_phy_schemes/mo_phyparam_soil.f90 -text
 src/atm_phy_schemes/mo_radiation.f90 -text
 src/atm_phy_schemes/mo_radiation_rg.f90 -text
 src/atm_phy_schemes/mo_radiation_rg_par.f90 -text
 src/atm_phy_schemes/mo_satad.f90 -text
-src/atm_phy_schemes/mo_soil_ml.f90 -text
 src/atm_phy_schemes/mo_srtm.f90 -text
 src/atm_phy_schemes/mo_srtm_config.f90 -text
 src/atm_phy_schemes/mo_srtm_kgs.f90 -text
@@ -972,6 +976,10 @@ src/grid_generator/mo_spring_dynamics.f90 -text
 src/grid_generator/mo_topology.f90 -text
 src/grid_generator/mo_zlayers.f90 -text
 src/grid_generator/partitioner.f90 -text
+src/lnd_phy_nwp/mo_nwp_lnd_state.f90 -text
+src/lnd_phy_nwp/mo_nwp_sfc_interface.f90 -text
+src/lnd_phy_schemes/mo_phyparam_soil.f90 -text
+src/lnd_phy_schemes/mo_soil_ml.f90 -text
 src/namelists/mo_atm_phy_nwp_nml.f90 -text
 src/namelists/mo_diffusion_nml.f90 -text
 src/namelists/mo_dynamics_nml.f90 -text
@@ -979,6 +987,7 @@ src/namelists/mo_echam_phy_nml.f90 -text
 src/namelists/mo_global_variables.f90 -text
 src/namelists/mo_grid_nml.f90 -text
 src/namelists/mo_io_nml.f90 -text
+src/namelists/mo_lnd_nwp_nml.f90 -text
 src/namelists/mo_nonhydrostatic_nml.f90 -text
 src/namelists/mo_ocean_nml.f90 -text
 src/namelists/mo_parallel_nml.f90 -text

@@ -11,38 +11,10 @@
 #==============================================================================
 
 
-set_default_shell()
+set_default()
 {
-  if [[ "x$use_shell" == "x" ]]; then
-    use_shell=$1
-  fi 
-}
-
-set_default_nproma()
-{
-  if [[ "x$use_nproma" == "x" ]]; then
-    use_nproma=$1
-  fi 
-}
-
-set_default_nodes()
-{
-  if [[ "x$use_nodes" == "x" ]]; then
-    use_nodes=$1
-  fi 
-}
-
-set_default_mpi_procs()
-{
-  if [[ "x$use_mpi_procs" == "x" ]]; then
-    use_mpi_procs=$1
-  fi 
-}
-
-set_default_openmp_threads()
-{
-  if [[ "x$use_openmp_threads" == "x" ]]; then
-    use_openmp_threads=$1
+  if [[ "x$(eval echo \$$1)" == "x" ]]; then
+    eval $1=$2
   fi 
 }
 
@@ -83,6 +55,7 @@ check_error()
     fi
     
     echo "\$1" > \${STATUS_FILE}
+    echo "\$1" > \${basedir}/${output_local_folder}/\${job_name}.status
 
     if [ \$1 != 0 ] 
     then
@@ -99,6 +72,7 @@ site="$use_site"
 target="$use_target"
 compiler="$use_compiler"
 loadmodule="$use_load_modules"
+job_name="$job_name"
 # ----------------------------
 NPROMA=$use_nproma
 #-----------------------------------------------------------------------------
@@ -188,22 +162,41 @@ EOF
 set_run_target_blizzard()
 {
 
-  set_default_nproma 32
-  set_default_nodes 1
+  set_default use_nproma 32
+  set_default use_nodes 1
   
   if [[ $use_mpi == "yes" ]]; then
     if [[ $use_openmp == "yes" ]]; then
-      set_default_mpi_procs 16
-      set_default_openmp_threads 4
+      set_default use_mpi_procs 16
+      set_default use_openmp_threads 4
     else
-      set_default_mpi_procs 64
+      set_default use_mpi_procs 64
     fi
   else
     if [[ $use_openmp == "yes" ]]; then
-      set_default_openmp_threads 64
+      set_default use_openmp_threads 64
     fi
   fi
-  
+
+  # memory model
+  if [[ "x$use_memory" != "x" ]] ; then
+    total_memory=$use_memory
+  else
+    case $use_memory_model in
+      "verylarge" )
+        set_default total_memory 12000
+        ;;
+      "large" )
+        set_default total_memory 8000
+        ;;
+      * )
+        set_default total_memory 4000
+        ;;
+    esac
+  fi
+  let memory_size=${total_memory}/${use_mpi_procs}
+  use_resources="$use_resources ConsumableMemory(${memory_size}mb)"
+
   # create header
   start_header
   if [[ "$use_mpi" == "no"  ]] ; then
@@ -214,7 +207,6 @@ set_run_target_blizzard()
     mcm_affinity_options=""
     node=""
     tasks_per_node=""     
-    use_resources="$use_resources ConsumableMemory(12000mb)"
  else
     job_type=parallel
     node_usage=not_shared
@@ -223,12 +215,9 @@ set_run_target_blizzard()
     mcm_affinity_options="mcm_affinity_options = mcm_accumulate"
     node="node             = $use_nodes"
     tasks_per_node="tasks_per_node   = $use_mpi_procs"
-    if [[ $use_openmp == "yes" ]]; then
-      use_resources="$use_resources ConsumableMemory(6000mb)"
-    else
-       use_resources="$use_resources ConsumableMemory(1500mb)"
-    fi
   fi
+  
+
   if [[ "$use_nodes" -eq 1 ]] && [[ "$use_mpi_procs" -eq 1 ]] ; then
     use_node_usage="shared"
   fi
@@ -302,16 +291,16 @@ EOF
 set_run_target_mpipc()
 {
 
-  set_default_nproma 64
+  set_default use_nproma 64
   use_nodes=1
-
+  
   if [[ $use_mpi == "yes" ]]; then
-    set_default_mpi_procs 2
+    set_default use_mpi_procs 2
   fi
   if [[ $use_openmp == "yes" ]]; then
-    set_default_openmp_threads 2
+    set_default use_openmp_threads 2
   else
-    set_default_openmp_threads 1
+    set_default use_openmp_threads 1
   fi
 
 
@@ -342,17 +331,17 @@ EOF
 #=============================================================================
 set_run_target_squall()
 {
-  set_default_nproma 8
-  set_default_nodes 1
+  set_default use_nproma 8
+  set_default use_nodes 1
   
   if [[ $use_openmp == "yes" ]]; then
     echo "Error: Squall is not set-up for OPENMP"
     exit 1
   fi
-  set_default_openmp_threads 1
+  set_default use_openmp_threads 1
 
   if [[ $use_mpi == "yes" ]]; then
-    set_default_mpi_procs 8
+    set_default use_mpi_procs 8
   fi
 
 # create header
@@ -367,7 +356,10 @@ set_run_target_squall()
 #$ -j y
 #$ -cwd
 #$ -pe linux64 $use_mpi_procs
-#$ -q squall,squall-bigmem
+# We changed back to only squall queue because 
+# the squall-bigmem runs into a hanging job.
+##$ -q squall,squall-bigmem
+#$ -q squall
 #$ -v MPIROOT=$use_mpi_root
 #-------------------------------------------
 export MPD_CON_EXT=job_\$\$
@@ -384,16 +376,16 @@ EOF
 #=============================================================================
 set_run_target_tornado()
 {  
-  set_default_nproma 8
-  set_default_nodes 1
+  set_default use_nproma 8
+  set_default use_nodes 1
    
   if [[ $use_openmp == "yes" ]]; then
     use_mpi="no"
-    set_default_openmp_threads 16
+    set_default use_openmp_threads 16
     queue="-q smp"
     resources=" -pe smp 16"
   elif [[ $use_mpi == "yes" ]]; then
-    set_default_mpi_procs 8
+    set_default use_mpi_procs 8
     if [[ "$use_mpi_procs" == "1" ]] ; then
       queue="-q serial"
       resources=""    
@@ -443,13 +435,13 @@ EOF
 set_run_target_mpimac()
 {
   
-  set_default_nproma 48
+  set_default use_nproma 48
   
   if [[ "$use_mpi" == "yes" ]]; then
-    set_default_mpi_procs 2
+    set_default use_mpi_procs 2
   fi
   if [[ "$use_openmp" == "yes" ]]; then
-    set_default_openmp_threads 2
+    set_default use_openmp_threads 2
   fi
 
   # create header
@@ -460,13 +452,13 @@ set_run_target_mpimac()
 #=============================================================================
 set_run_target_oflws()
 {
-  set_default_nproma 64
+  set_default use_nproma 64
 
   if [[ "$use_mpi" == "yes" ]]; then
-    set_default_mpi_procs 4
+    set_default use_mpi_procs 4
   fi
   if [[ "$use_openmp" == "yes" ]]; then
-    set_default_openmp_threads 2
+    set_default use_openmp_threads 2
   fi
 
   # create header
@@ -477,10 +469,10 @@ set_run_target_oflws()
 #=============================================================================
 set_run_target_hpc()
 {
-  set_default_nproma 64
-  set_default_nodes 1
-  set_default_mpi_procs 1
-  set_default_openmp_threads 1
+  set_default use_nproma 64
+  set_default use_nodes 1
+  set_default use_mpi_procs 1
+  set_default use_openmp_threads 1
     
   cat >> $output_script << EOF
 # ===========================
@@ -511,27 +503,27 @@ EOF
 set_run_target_sx9()
 {
  
-  set_default_nproma 1024
+  set_default use_nproma 1024
 
 
   if [[ $use_mpi == "yes" ]]; then
  
     mpimultitaskmix="ON"
-    set_default_nodes 4
-    set_default_mpi_procs 2    
+    set_default use_nodes 4
+    set_default use_mpi_procs 2
 
     if [[ $use_openmp == "yes" ]]; then
-      set_default_openmp_threads 4
+      set_default use_openmp_threads 4
       cpunum_job=8                         
     else
-      set_default_openmp_threads 1
+      set_default use_openmp_threads 1
       cpunum_job=$use_mpi_procs
     fi
   else
-    set_default_nodes 1     
-    set_default_mpi_procs 1 
+    set_default use_nodes 1
+    set_default use_mpi_procs 1
     if [[ $use_openmp == "yes" ]]; then
-      set_default_openmp_threads 4
+      set_default use_openmp_threads 4
       cpunum_job=$use_openmp_threads
     else
       cpunum_job=1
@@ -583,12 +575,12 @@ EOF
 set_run_target_default()
 {
 
-  set_default_nproma 8
-  set_default_nodes 1
-  set_default_mpi_procs 1
+  set_default use_nproma 8
+  set_default use_nodes 1
+  set_default use_mpi_procs 1
   
   if [[ $use_openmp == "yes" ]]; then
-    set_default_openmp_threads 2
+    set_default use_openmp_threads 2
   fi
 
   # create header
@@ -613,7 +605,8 @@ create_target_header()
   fi
 
 # set default values
-  set_default_shell "/bin/ksh"
+  set_default use_shell "/bin/ksh"
+  set_default use_memory_model "default"
       
 cat > $output_script << EOF
 #!$use_shell

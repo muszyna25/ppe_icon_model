@@ -16,7 +16,7 @@
 # 
 # submit: 
 #   qsub run_ICON_R2B4_APE.new
-#   qstat | grep mkoehler
+#   qstat | grep jhelmert
 #   nqstat
 #   dayfile #hpcjob-id ("F" updating)
 #   nqcat -n 200 -o #hpcjob-id
@@ -34,7 +34,7 @@
 #PBS -m n
 #PBS -r n
 #PBS -l walltime=24:00:00
-#PBS -o /e/uhome/mkoehler/wq
+#PBS -o /e/uhome/jhelmert/wq
 #PBS -j oe
 #PBS -W umask=0027
 
@@ -49,12 +49,12 @@ PATH=${PATH}:/e/rhome/routfor/routfox/abs     #CDO netcdf operators
 PATH=${PATH}:/e/uhome/for1han/bin             #various scripts
 export PATH
 
-DATA_DIR="/e/uwork/mkoehler/icon"     #/e/uwork, /e/uscratch, /e/gtmp
-#DATA_DIR="/e/uscratch/mkoehler/icon" #/e/uwork, /e/uscratch, /e/gtmp
+DATA_DIR="/e/uwork/jhelmert/icon"     #/e/uwork, /e/uscratch, /e/gtmp
+#DATA_DIR="/e/uscratch/jhelmert/icon" #/e/uwork, /e/uscratch, /e/gtmp
                                       #or transfer data to oflxs04:/uwork1
 
 # Directories:
-EDIR="exp11"                          # working directory
+EDIR="exp01"                          # working directory
 EXPNAME="APE"                         # experiment identifier
 IDIR="GRIDR2"                         # input directory
 
@@ -97,7 +97,7 @@ DT_DATA=`expr 12 \* 3600  `   # output each 12 hours
 DT_DIAG=`expr 24 \* 3600  `   # ascii diagnostic output each 24 hours
 DT_FILE=`expr 10 \* 86400 `   # 10 days per file
 #DT_FILE=`expr 1  \* 3600 `   # 10 days per file
-NDAYS=400                     # number of days to run
+NDAYS=1                       # number of days to run
 
 
 #-----------------------------------------------------------------------------
@@ -125,9 +125,9 @@ cat > NAMELIST_ICON << EOF_NL
  inwp_convection = 1
  inwp_cldcover   = 3        ! 0: no cld, 1: grid scale, 3: COSMO
  inwp_radiation  = 1        ! 1: RRTM, 2: Ritter-Geleyn
- inwp_turb       = 2        ! 1: Raschendorfer, 2: ECHAM, 3: EDMF-DUALM
- inwp_sso        = 1
- inwp_surface    = 0
+ inwp_turb       = 1        ! 1: Raschendorfer, 2: ECHAM, 3: EDMF-DUALM
+ inwp_sso        = 0
+ inwp_surface    = 1
  dt_conv         = 900
  dt_rad          = 1800
  dt_sso          = 900
@@ -232,13 +232,13 @@ mv -f NAMELIST_ICON ${EXPDIR}
 # job on NEC
 #-----------
 
-cat > /e/uhome/mkoehler/wq/job.nec_tmp.$$ <<EOF_NEC
+cat > /e/uhome/jhelmert/wq/job.nec_tmp.$$ <<EOF_NEC
 #### BATCH_SYSTEM=NQS2 ####
 
 #PBS -N icon
 #PBS -q normal@sx9esiox1
 #PBS -j o
-#PBS -o /e/uhome/mkoehler/wq/o.icon_par.$$
+#PBS -o /e/uhome/jhelmert/wq/o.icon_par.$$
 #PBS -l cpunum_job=16
 #PBS -b 1
 #PBS -l elapstim_req=86400
@@ -260,7 +260,8 @@ fi
 export F_PROGINF=DETAIL
 
 # determine architecture
-arch=sx9-nec-superux-sx9omp
+arch=sx9-nec-superux-sx9ftr
+#arch=sx9-nec-superux-sx9omp
 #arch=sx9-nec-superux-sx9mpiomp
 
 # determine base directory (../icon-dev)
@@ -304,7 +305,7 @@ EOF_NEC
 #----------------
 
 # copy plotting files
-PLOTDIR=/e/uhome/mkoehler/ncl
+PLOTDIR=/e/uhome/jhelmert/ncl
 cp ${PLOTDIR}/iconplot.zonal.parallel.s    \
    ${PLOTDIR}/iconplot.zonal.parallel.list \
    ${PLOTDIR}/iconplot.zonal-vert.ncl      \
@@ -312,7 +313,7 @@ cp ${PLOTDIR}/iconplot.zonal.parallel.s    \
    ${PLOTDIR}/iconplot.maps.ncl    ${EXPDIR}
 
 # submit job to NEC and wait
-qsubw /e/uhome/mkoehler/wq/job.nec_tmp.$$
+qsubw /e/uhome/jhelmert/wq/job.nec_tmp.$$
 rc=${?}
 if [[ ":${rc}" != ':0' ]] ; then
    exit 201

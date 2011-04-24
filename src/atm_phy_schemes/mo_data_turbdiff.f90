@@ -51,6 +51,7 @@ USE mo_physical_constants, ONLY : &
     grav, p0ref, &
     uc1, ucl
 
+!USE mo_atm_phy_nwp_nml, ONLY :  inwp_sso, inwp_convection
 
 USE mo_convect_tables, ONLY : &
 !
@@ -127,9 +128,7 @@ USE data_flake, ONLY : &
 ! Switches controlling other physical parameterizations:
 ! -----------------------------------------------------
 
-USE mo_atm_phy_nwp_nml, ONLY : &
-!
-  inwp_sso, inwp_convection
+
 
 !==============================================================================
 
@@ -170,29 +169,30 @@ INTEGER (KIND=iintegers) :: &
     itype_wcld   =2,       & ! type of water cloud diagnosis
     itype_synd   =2          ! type of diagnostics of synoptical near surface variables
 
+
 LOGICAL :: &
 !
     lseaice      =.FALSE., & ! sea ice parameterization active
-    llake        =.FALSE., & ! lake model active
+    llake        =.FALSE. !, & ! lake model active
 !
 ! Attention:
 ! The given initializations are default settings of the boundary layer
 ! parameters. Some of these initial parameter values may be changed afterwards
 ! by model input NAMELISTs!
 !
-    lsso  ,                & ! SSO-Scheme is active
-    lconv                    ! convection scheme active
+!    lsso  ,                & ! SSO-Scheme is active
+!    lconv                    ! convection scheme active
 
 !-----------------------------------------------------------------------------
-CONTAINS
+!CONTAINS
 !-----------------------------------------------------------------------------
 
-SUBROUTINE get_param
-
-    lsso         =(inwp_sso.GT.0)
-    lconv        =(inwp_convection.GT.0)
-
-END SUBROUTINE get_param
+!SUBROUTINE get_param
+!
+!    lsso         =(inwp_sso.GT.0)
+!    lconv        =(inwp_convection.GT.0)
+!
+!END SUBROUTINE get_param
 
 !==============================================================================
 !==============================================================================
