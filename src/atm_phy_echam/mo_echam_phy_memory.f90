@@ -385,12 +385,12 @@ CONTAINS
 
       WRITE(listname,'(a,i2.2)') 'prm_field_of_domain_',jg
       listptr => prm_field_list(jg)
-      CALL new_echam_phy_field_list( nproma, nblks, nlev, ntracer, nsfc_type, &
+      CALL new_echam_phy_field_list( nproma, nlev, nblks, ntracer, nsfc_type, &
                                    & TRIM(listname), listptr, prm_field(jg)   )
 
       WRITE(listname,'(a,i2.2)') 'prm_tend_of_domain_',jg
       listptr => prm_tend_list(jg)
-      CALL new_echam_phy_tend_list ( nproma, nblks, nlev, ntracer,         &
+      CALL new_echam_phy_tend_list ( nproma, nlev, nblks, ntracer,         &
                                    & TRIM(listname), listptr, prm_tend(jg) )
     ENDDO
     NULLIFY(listptr)
@@ -475,9 +475,6 @@ CONTAINS
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
     CALL add_var( field_list, 'u', field%u,                             &
                 & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d )
-
-    write(0,*) 'shape3d=',shape3d
-    write(0,*) 'shape of field%u is',shape(field%u)
 
     ! &       field% v         (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('northward_wind', 'm s-1', 'v-component of wind')
@@ -855,7 +852,6 @@ CONTAINS
       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
       CALL add_var( field_list, 'tkem1', field%tkem1,                   &
                 & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d )
-
 
      !ALLOCATE( field% cfm    (nproma,nlev,     nblks), &
       cf_desc    = t_cf_var('turb_exchng_coeff_momentum', '', '')

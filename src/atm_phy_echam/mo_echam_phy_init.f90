@@ -240,11 +240,9 @@ CONTAINS
             ! level above surface. For this test case, currently we assume
             ! there is no land or sea ice.
 
-            field% tsfc     (jcs:jce,     jb) = p_hydro_state(jg)%prog(nnow(jg))% &
-                                              & temp(jcs:jce,nlev,jb)
             field% tsfc_tile(jcs:jce,iwtr,jb) = p_hydro_state(jg)%prog(nnow(jg))% &
                                               & temp(jcs:jce,nlev,jb)
-           !field% tsfc     (jcs:jce,     jb) = field% tsfc_tile(jcs:jce,iwtr,jb)
+            field% tsfc     (jcs:jce,     jb) = field% tsfc_tile(jcs:jce,iwtr,jb)
 
             field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
             field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
