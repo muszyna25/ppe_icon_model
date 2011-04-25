@@ -89,7 +89,8 @@ MODULE mo_cf_convention
 
 CONTAINS
 
-  FUNCTION set_cf_global(title, institution, source, history, references, comment) RESULT(cf_global_info)
+  FUNCTION set_cf_global(title, institution, source, history, references, comment) &
+  RESULT(cf_global_info)
     TYPE(t_cf_global) :: cf_global_info
     CHARACTER(len=*), OPTIONAL :: title
     CHARACTER(len=*), OPTIONAL :: institution

@@ -440,7 +440,8 @@ CONTAINS
       idims(4) = new_list_element%field%info%used_dimensions(4)
       ALLOCATE(new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r4d','allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_r4d', &
+                   &'allocation of array '//TRIM(name)//'failed')
       ENDIF
       NULLIFY(new_list_element%field%i_ptr)
       NULLIFY(new_list_element%field%l_ptr)
@@ -520,7 +521,8 @@ CONTAINS
       idims(4) = 1
       ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r3d','allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_r3d',     &
+                   &'allocation of array '//TRIM(name)//'failed')
       ENDIF
       NULLIFY(new_list_element%field%i_ptr)
       NULLIFY(new_list_element%field%l_ptr)
@@ -600,7 +602,8 @@ CONTAINS
       idims(4) = 1
       ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r2d','allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_r2d',     &
+                   &'allocation of array '//TRIM(name)//'failed')
       ENDIF
       NULLIFY(new_list_element%field%i_ptr)
       NULLIFY(new_list_element%field%l_ptr)
@@ -680,7 +683,8 @@ CONTAINS
       idims(4) = 1
       ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r1d','allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_r1d',     &
+                   &'allocation of array '//TRIM(name)//'failed')
       ENDIF
       NULLIFY(new_list_element%field%i_ptr)
       NULLIFY(new_list_element%field%l_ptr)
@@ -762,7 +766,8 @@ CONTAINS
       idims(4) = new_list_element%field%info%used_dimensions(4)
       ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_i4d','allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_i4d',     &
+                   &'allocation of array '//TRIM(name)//'failed')
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%l_ptr)
@@ -842,11 +847,13 @@ CONTAINS
       idims(4) = 1
       ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r3d','allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_r3d',     &
+                   &'allocation of array '//TRIM(name)//'failed')
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%l_ptr)
-      this_list%memory_used = this_list%memory_used+4*SIZE(new_list_element%field%i_ptr)
+      this_list%memory_used =  this_list%memory_used              &
+                            & +4*SIZE(new_list_element%field%i_ptr)
     ELSE
       new_list_element%field%i_ptr => p4
     ENDIF
@@ -922,7 +929,8 @@ CONTAINS
       idims(4) = 1
       ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r2d','allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_r2d',     &
+                   &'allocation of array '//TRIM(name)//'failed')
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%l_ptr)
@@ -1002,7 +1010,8 @@ CONTAINS
       idims(4) = 1
       ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r1d','allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_r1d',     &
+                   &'allocation of array '//TRIM(name)//'failed')
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%l_ptr)
@@ -1084,7 +1093,8 @@ CONTAINS
       idims(4) = new_list_element%field%info%used_dimensions(4)
       ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r4d','allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_r4d',     &
+                   &'allocation of array '//TRIM(name)//'failed')
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%i_ptr)      
@@ -1164,7 +1174,8 @@ CONTAINS
       idims(4) = 1
       ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r3d','allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_r3d',     &
+                   &'allocation of array '//TRIM(name)//'failed')
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%i_ptr)      
@@ -1244,7 +1255,8 @@ CONTAINS
       idims(4) = 1
       ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r2d','allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_r2d',     &
+                   &'allocation of array '//TRIM(name)//'failed')
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%i_ptr)      
@@ -1324,7 +1336,8 @@ CONTAINS
       idims(4) = 1
       ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r1d','allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_r1d',     &
+                   &'allocation of array '//TRIM(name)//'failed')
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%i_ptr)      
