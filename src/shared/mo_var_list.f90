@@ -362,6 +362,10 @@ CONTAINS
     CALL assign_if_present (info%lrestart_cont, lrestart_cont)
     CALL assign_if_present (info%initval,       initval)
     !
+    ! set dimensions
+    !
+    CALL assign_if_present (info%used_dimensions, ldims)
+    !
     ! printout (optional)
     !
 !LK    IF (lverbose) CALL print_var_metadata (info)
