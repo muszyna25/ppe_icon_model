@@ -415,10 +415,10 @@ CONTAINS
 
     DO jg = 1,ndomain
       listptr => prm_field_list(jg)
-      CALL delete_echam_phy_list( listptr )
+      CALL delete_var_list( listptr )
 
       listptr => prm_tend_list (jg)
-      CALL delete_echam_phy_list( listptr )
+      CALL delete_var_list( listptr )
     ENDDO
     NULLIFY(listptr)
 
@@ -1170,17 +1170,6 @@ CONTAINS
                 & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape4d )
 
   END SUBROUTINE new_echam_phy_tend_list
-  !-------------
-  !>
-  !!
-  !!
-  SUBROUTINE delete_echam_phy_list( list )
-
-    TYPE(t_var_list),POINTER :: list
-
-    CALL delete_var_list( list )
-
-  END SUBROUTINE delete_echam_phy_list
   !-------------
 
 END MODULE mo_echam_phy_memory
