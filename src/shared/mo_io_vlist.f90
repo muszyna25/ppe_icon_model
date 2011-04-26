@@ -660,7 +660,8 @@ CONTAINS
        CALL addGlobAttInt('transport_ctl:iord_backtraj',iord_backtraj,vlistID(k_jg),astatus)
        CALL addGlobAttInt('transport_ctl:igrad_c_miura',igrad_c_miura,vlistID(k_jg),astatus)
        CALL addGlobAttTxtFromLog('transport_ctl:lclip_tracer',lclip_tracer,vlistID(k_jg),astatus)
-       CALL addGlobAttInt('transport_ctl:iadv_slev',iadv_slev(max_ntracer),vlistID(k_jg),astatus)
+       CALL addGlobAttInt('transport_ctl:iadv_slev',iadv_slev(max_dom,max_ntracer),&
+       &                  vlistID(k_jg),astatus)
        CALL addGlobAttFlt('transport_ctl:upstr_beta_adv',upstr_beta_adv,vlistID(k_jg),astatus)
     END IF
     !
