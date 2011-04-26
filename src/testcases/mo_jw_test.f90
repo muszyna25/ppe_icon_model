@@ -58,7 +58,7 @@ MODULE mo_jw_test
   USE mo_kind,                ONLY: wp
   USE mo_physical_constants,  ONLY: re, rgrav, omega, rd,tmelt
   USE mo_math_constants,      ONLY: pi_2, pi
-  USE mo_advection_utils,     ONLY: ctracer_list
+  USE mo_advection_nml,       ONLY: ctracer_list
   USE mo_vertical_coord_table,ONLY: ceta
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data,            ONLY: t_external_data

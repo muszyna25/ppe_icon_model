@@ -411,7 +411,9 @@ DO jl=kidia,kfdia
   IF(ktype(jl) == 3) ldcum(jl)=.FALSE.
 ENDDO
 
-    IF(PRESENT (paer_ss)) THEN
+
+IF(PRESENT (paer_ss)) THEN
+   
       !!KF
       !> define the seasonal dependend seasalt threshold instead of land/seamask
       !!  derived from the annual mean
@@ -512,7 +514,8 @@ DO jk=klev-1,ktdia+2,-1
        zmfmax=(paph(jl,jk)-paph(jl,jk-1))*zcons2*rmflic+rmflia
       ! zmfmax= zdph(jl,jk-1)*zcons2*rmflic+rmflia
           !<KF
-      IF(pmfub(jl) > zmfmax) THEN
+       IF(pmfub(jl) > zmfmax) THEN
+        
         zfac=zmfmax/pmfub(jl)
         pmfu(jl,jk+1)=pmfu(jl,jk+1)*zfac
         pmfus(jl,jk+1)=pmfus(jl,jk+1)*zfac
@@ -521,9 +524,9 @@ DO jk=klev-1,ktdia+2,-1
       ENDIF
     ENDIF
 
-  ENDDO
+ ENDDO
 
-  IF(is > 0) llo3=.TRUE.
+ IF(is > 0) llo3=.TRUE.
 
 !>                  SPECIFY ENTRAINMENT RATES IN *CUENTR*
 !!                   -------------------------------------
@@ -605,8 +608,9 @@ DO jk=klev-1,ktdia+2,-1
         zlrain(jl,jk)=zlrain(jl,jk+1)*(pmfu(jl,jk+1)-zdmfde(jl))*&
          & (1.0_JPRB/MAX(rmfcmin,pmfu(jl,jk)))
         zluold(jl)=plu(jl,jk)
-    ENDDO
-        ! reset to environmental values if below departure level
+     ENDDO
+
+     ! reset to environmental values if below departure level
     DO jl=kidia,kfdia
       IF ( jk > kdpl(jl) ) THEN
         ptu(jl,jk)=ptenh(jl,jk)
@@ -614,7 +618,8 @@ DO jk=klev-1,ktdia+2,-1
         plu(jl,jk)=0.0_JPRB
         zluold(jl)=plu(jl,jk)
       ENDIF
-    ENDDO
+   ENDDO
+
 
 !>                  DO CORRECTIONS FOR MOIST ASCENT
 !!                  BY ADJUSTING T,Q AND L IN *CUADJTQ*
@@ -683,8 +688,8 @@ DO jk=klev-1,ktdia+2,-1
             plude(jl,jk)=0.0_JPRB
             plu(jl,jk)=0.0_JPRB
           ENDIF
-        ENDIF
-
+       ENDIF
+       
         IF(klab(jl,jk+1) == 2) THEN
 
           IF(zbuo(jl,jk) < 0.0_JPRB )THEN !.AND.klab(jl,jk+1) == 2) THEN
@@ -756,7 +761,7 @@ DO jk=klev-1,ktdia+2,-1
 !     ELSEIF(LLFLAG(JL).AND.KTYPE(JL)==2.AND.PQU(JL,JK) == ZQOLD(JL)) THEN
 
        ENDDO !jll
-       
+
 !CDIR NODEP,VOVERTAKE,VOB
         DO jll=1,jlm
           jl=jlx(jll)
@@ -819,9 +824,9 @@ DO jk=klev-1,ktdia+2,-1
             plu(jl,jk)=zlnew
           ENDIF
       ENDIF
-    ENDDO
+   ENDDO
 
-    IF (lphylin) THEN
+   IF (lphylin) THEN
 
       DO jl=kidia,kfdia
         IF(llo1(jl)) THEN
@@ -893,6 +898,8 @@ DO jl=kidia,kfdia
     pwmean(jl)=SQRT(2.0_JPRB*pwmean(jl))
   ENDIF
 ENDDO
+
+
 
 IF (lhook) CALL dr_hook('CUASCN',1,zhook_handle)
 END SUBROUTINE cuascn
@@ -1011,20 +1018,20 @@ END SUBROUTINE cuascn
     REAL(KIND=jprb)   ,INTENT(in)    :: pgeo(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pgeoh(klon,klev+1)
     LOGICAL           ,INTENT(in)    :: ldcum(klon)
-    INTEGER(KIND=jpim),INTENT(out)   :: ktype(klon)
+    INTEGER(KIND=jpim),INTENT(inout) :: ktype(klon)
     INTEGER(KIND=jpim),INTENT(inout) :: klab(klon,klev)
-    INTEGER(KIND=jpim),INTENT(out)   :: kcbot(klon)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pmfu(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pmfub(klon)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pentr(klon)
-    REAL(KIND=jprb)   ,INTENT(out)   :: plrain(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: ptu(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pqu(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: plu(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pmfus(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pmfuq(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pmful(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pdmfup(klon,klev)
+    INTEGER(KIND=jpim),INTENT(inout) :: kcbot(klon)
+    REAL(KIND=jprb)   ,INTENT(inout) :: pmfu(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout) :: pmfub(klon)
+    REAL(KIND=jprb)   ,INTENT(inout) :: pentr(klon)
+    REAL(KIND=jprb)   ,INTENT(inout) :: plrain(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout) :: ptu(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout) :: pqu(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout) :: plu(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: pmfus(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: pmfuq(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: pmful(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: pdmfup(klon,klev)
     INTEGER(KIND=jpim) :: jl
 
     !
@@ -1043,7 +1050,7 @@ END SUBROUTINE cuascn
 
       IF(.NOT.ldcum(jl).AND.klab(jl,kk+1) == 0 ) THEN
         IF(lmfmid.AND.pgeo(jl,kk) > 5000.0_JPRB.AND.pgeo(jl,kk)<1.e5_jprb &
-        !!    IF(LMFMID.AND.PGEO(JL,KK) > 4000.0_JPRB.AND.PGEO(JL,KK)<1.E5_JPRB &
+        !! IF(LMFMID.AND.PGEO(JL,KK) > 4000.0_JPRB.AND.PGEO(JL,KK)<1.E5_JPRB &
           & .AND.pqen(jl,kk) > 0.80_JPRB*pqsen(jl,kk)) THEN
           !KF
           ptu(jl,kk+1)=(rcpd*pten(jl,kk)+pgeo(jl,kk)-pgeoh(jl,kk+1))/rcpd

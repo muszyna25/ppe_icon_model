@@ -196,7 +196,7 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(out)   :: ptu(klon,klev)
     REAL(KIND=jprb)   ,INTENT(out)   :: pqu(klon,klev)
     REAL(KIND=jprb)   ,INTENT(out)   :: ptd(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pqd(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout) :: pqd(klon,klev)
     REAL(KIND=jprb)   ,INTENT(out)   :: puu(klon,klev)
     REAL(KIND=jprb)   ,INTENT(out)   :: pvu(klon,klev)
     REAL(KIND=jprb)   ,INTENT(out)   :: pud(klon,klev)
@@ -215,7 +215,7 @@ CONTAINS
     !#include "cuadjtqs.intfb.h"
 
     zph  (:) = 0.0_JPRB
-
+   
     !----------------------------------------------------------------------
 
     !*    1.           SPECIFY LARGE SCALE PARAMETERS AT HALF LEVELS
@@ -234,19 +234,20 @@ CONTAINS
         pqsenh(jl,jk)=pqsen(jl,jk-1)
         zph(jl)=paph(jl,jk)
         llflag(jl)=.TRUE.
-      ENDDO
+     ENDDO
 
       !orig   IF(JK.GE.KLEV-1) GO TO 130
       IF(jk >= klev-1 .OR. jk<ktdia-1+njkt2) CYCLE
       ik=jk
+
       IF(lphylin)THEN
-        icall=0
+         icall=0
         CALL cuadjtqs &
           & ( kidia,    kfdia,    klon,  klev,&
           & ik,&
           & zph,      ptenh,    pqsenh,   llflag,   icall)
       ELSE
-        icall=3
+         icall=3
         CALL cuadjtq &
           & ( kidia,    kfdia,    klon,    klev,&
           & ik,&

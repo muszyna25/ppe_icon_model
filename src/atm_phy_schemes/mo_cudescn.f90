@@ -79,7 +79,7 @@ CONTAINS
     & kcbot,    kctop,     ldcum,&
     & ptenh,    pqenh,   &
     & pten,     pqsen,    pgeo,&
-    & pgeoh,    paph,     ptu,      pqu,      plu,&
+    & pgeoh,    paph,     ptu,      pqu,  &
     & pmfub,    prfl,&
     & ptd,      pqd,&
     & pmfd,     pmfds,    pmfdq,    pdmfdp,&
@@ -204,15 +204,15 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(in)    :: paph(klon,klev+1)
     REAL(KIND=jprb)   ,INTENT(in)    :: ptu(klon,klev)
     REAL(KIND=jprb)   ,INTENT(in)    :: pqu(klon,klev)
-    REAL(KIND=jprb)                  :: plu(klon,klev) ! Argument NOT used
+!    REAL(KIND=jprb)                  :: plu(klon,klev) ! Argument NOT used
     REAL(KIND=jprb)   ,INTENT(in)    :: pmfub(klon)
     REAL(KIND=jprb)   ,INTENT(inout) :: prfl(klon)
-    REAL(KIND=jprb)   ,INTENT(out)   :: ptd(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pqd(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout) :: ptd(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout) :: pqd(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pmfd(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pmfds(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pmfdq(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pdmfdp(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout) :: pmfds(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout) :: pmfdq(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout) :: pdmfdp(klon,klev)
     INTEGER(KIND=jpim),INTENT(out)   :: kdtop(klon)
     LOGICAL ,INTENT(out)   :: lddraf(klon)
     INTEGER(KIND=jpim) ::            ikhsmin(klon)
@@ -488,10 +488,10 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(inout) :: pmfd(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pmfds(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pmfdq(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pdmfdp(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pdmfde(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pmfdde_rate(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pkined(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout) :: pdmfdp(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: pdmfde(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: pmfdde_rate(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout)   :: pkined(klon,klev)
     REAL(KIND=jprb) ::     zdmfen(klon),           zdmfde(klon),&
       & zcond(klon),            zoentr(klon),&
       & zbuoy(klon)

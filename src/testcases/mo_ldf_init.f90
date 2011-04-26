@@ -44,7 +44,7 @@ MODULE mo_ldf_init
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: pi, pi_2
   USE mo_physical_constants,  ONLY: re, rgrav, omega, rd, tmelt
-  USE mo_advection_utils,     ONLY: ctracer_list
+  USE mo_advection_nml,       ONLY: ctracer_list
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data,            ONLY: t_external_data
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag

@@ -59,7 +59,7 @@ MODULE mo_nh_df_test
   USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_interpolation,       ONLY: t_int_state
   USE mo_run_nml,             ONLY: nproma, ntracer
-  USE mo_advection_utils,     ONLY: ctracer_list, ihadv_tracer, itype_hlimit, &
+  USE mo_advection_nml,       ONLY: ctracer_list, ihadv_tracer, itype_hlimit, &
     &                               iord_backtraj, igrad_c_miura, imiura,     &
     &                               imiura3
   USE mo_advection_hflux,     ONLY: upwind_hflux_miura, upwind_hflux_miura3 

@@ -72,11 +72,12 @@ MODULE mo_advection_vflux
   USE mo_model_domain,        ONLY: t_patch
   USE mo_run_nml,             ONLY: nproma, ntracer, iequations, msg_level,   &
     &                               lvert_nest
-  USE mo_advection_utils,     ONLY: laxfr_upflux_v, laxfr_upflux, coeff_grid, &
-    &                               iup_v, imuscl_v, imuscl_vcfl, ippm_v,     &
-    &                               ippm_vcfl, islopel_vsm, islopel_vm,       &
-    &                               ifluxl_vpd, ino_flx, izero_grad,          &
-    &                               iparent_flx, lcompute, lcleanup
+  USE mo_advection_nml,       ONLY: coeff_grid, iup_v, imuscl_v, imuscl_vcfl, &
+    &                               ippm_v, ippm_vcfl, islopel_vsm,           &
+    &                               islopel_vm, ifluxl_vpd, ino_flx,          &
+    &                               izero_grad, iparent_flx, lcompute,        &
+    &                               lcleanup
+  USE mo_advection_utils,     ONLY: laxfr_upflux_v, laxfr_upflux
   USE mo_advection_limiter,   ONLY: v_muscl_slimiter_mo, v_muscl_slimiter_sm, &
    &                                v_ppm_slimiter_mo, v_ppm_slimiter_sm,     &
    &                                vflx_limiter_pd, vflx_limiter_pd_ha

@@ -980,6 +980,7 @@ src/lnd_phy_nwp/mo_nwp_lnd_state.f90 -text
 src/lnd_phy_nwp/mo_nwp_sfc_interface.f90 -text
 src/lnd_phy_schemes/mo_phyparam_soil.f90 -text
 src/lnd_phy_schemes/mo_soil_ml.f90 -text
+src/namelists/mo_advection_nml.f90 -text
 src/namelists/mo_atm_phy_nwp_nml.f90 -text
 src/namelists/mo_diffusion_nml.f90 -text
 src/namelists/mo_dynamics_nml.f90 -text

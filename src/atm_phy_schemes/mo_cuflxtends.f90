@@ -237,13 +237,13 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(inout) :: pmfuq(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pmfdq(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pmful(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: plude(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout) :: plude(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pdmfup(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: pdmfdp(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pdpmel(klon,klev)
+    REAL(KIND=jprb)   ,INTENT(inout) :: pdpmel(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: plglac(klon,klev)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pmflxr(klon,klev+1)
-    REAL(KIND=jprb)   ,INTENT(out)   :: pmflxs(klon,klev+1)
+    REAL(KIND=jprb)   ,INTENT(inout) :: pmflxr(klon,klev+1)
+    REAL(KIND=jprb)   ,INTENT(inout) :: pmflxs(klon,klev+1)
     REAL(KIND=jprb)   ,INTENT(out)   :: prain(klon)
     REAL(KIND=jprb)   ,INTENT(inout) :: pmfdde_rate(klon,klev)
 
@@ -271,8 +271,6 @@ CONTAINS
     !ZCONS2=1.0_JPRB/(RG*ZTMST)
     zcons2=rmfcfl/(rg*ztmst)
 
-
-
     !*    1.0          DETERMINE FINAL CONVECTIVE FLUXES
     !!                 ---------------------------------
 
@@ -292,8 +290,8 @@ CONTAINS
     !!TO GET IDENTICAL RESULTS FOR DIFFERENT NPROMA FORCE KTOPM2 TO 2
     ktopm2=2
     DO jk=ktdia-1+ktopm2,klev
-      !DIR$ IVDEP
-      !OCL NOVREC
+!DIR$ IVDEP
+!OCL NOVREC
       ikb=MIN(jk+1,klev)
       DO jl=kidia,kfdia
         pmflxr(jl,jk)=0.0_JPRB
@@ -331,10 +329,12 @@ CONTAINS
           plude(jl,jk-1)=0.0_JPRB
         ENDIF
       ENDDO
-    ENDDO
-    pmflxr(:,klev+1)=0.0_JPRB
-    pmflxs(:,klev+1)=0.0_JPRB
+   ENDDO
 
+   pmflxr(:,klev+1)=0.0_JPRB
+   pmflxs(:,klev+1)=0.0_JPRB
+
+       
     !*    1.5          SCALE FLUXES BELOW CLOUD BASE
     !!                 LINEAR DCREASE
     !!                 -----------------------------
@@ -420,17 +420,16 @@ CONTAINS
             zalfaw=0.545_JPRB*(TANH(0.17_JPRB*(pten(jl,jk)-rlptrc))+1.0_JPRB)
           ELSE
             zalfaw=foealfcu(pten(jl,jk))
-          ENDIF
+         ENDIF
           !! no liquid precipitation above melting level
           IF(pten(jl,jk) < rtt .AND. zalfaw > 0.0_JPRB) THEN
             plglac(jl,jk)=plglac(jl,jk)+zalfaw*(pdmfup(jl,jk)+pdmfdp(jl,jk))
             zalfaw=0.0_JPRB
-          ENDIF
-
-          pmflxr(jl,jk+1)=pmflxr(jl,jk)+zalfaw*&
+         ENDIF
+         pmflxr(jl,jk+1)=pmflxr(jl,jk)+zalfaw*&
             & (pdmfup(jl,jk)+pdmfdp(jl,jk))+pdpmel(jl,jk)
           pmflxs(jl,jk+1)=pmflxs(jl,jk)+(1.0_JPRB-zalfaw)*&
-            & (pdmfup(jl,jk)+pdmfdp(jl,jk))-pdpmel(jl,jk)
+               & (pdmfup(jl,jk)+pdmfdp(jl,jk))-pdpmel(jl,jk)
           IF(pmflxr(jl,jk+1)+pmflxs(jl,jk+1) < 0.0_JPRB) THEN
             pdmfdp(jl,jk)=-(pmflxr(jl,jk)+pmflxs(jl,jk)+pdmfup(jl,jk))
             pmflxr(jl,jk+1)=0.0_JPRB
@@ -501,7 +500,7 @@ CONTAINS
       ENDDO
     ENDDO
 
-    IF (lhook) CALL dr_hook('CUFLXN',1,zhook_handle)
+     IF (lhook) CALL dr_hook('CUFLXN',1,zhook_handle)
   END SUBROUTINE cuflxn
 
   !=======================================================================
@@ -782,8 +781,8 @@ CONTAINS
               & pmful(jl,jk+1)-pmful(jl,jk)-&
               & plude(jl,jk)-pdmfup(jl,jk))
           ENDIF
-        ENDDO
-
+       ENDDO
+      
       ELSE
         DO jl=kidia,kfdia
           IF(ldcum(jl)) THEN

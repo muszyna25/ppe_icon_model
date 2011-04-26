@@ -169,7 +169,7 @@ MODULE mo_adjust
      INTEGER(KIND=jpim),INTENT(in)    :: ktdia
      REAL(KIND=jprb)   ,INTENT(in)    :: paprsf(klon,klev)
      REAL(KIND=jprb)   ,INTENT(in)    :: pt(klon,klev)
-     REAL(KIND=jprb)   ,INTENT(out)   :: pqsat(klon,klev)
+     REAL(KIND=jprb)   ,INTENT(inout) :: pqsat(klon,klev)
      INTEGER(KIND=jpim),INTENT(in)    :: kflag
      INTEGER(KIND=jpim) :: jk, jl, jlen
 
@@ -615,15 +615,16 @@ MODULE mo_adjust
       ENDIF
       
       IF(kcall == 3) THEN
-!DIR$    IVDEP 
+
+!DIR$IVDEP 
 !OCL NOVREC
         IF(n_vmass <=  0)  THEN ! Not using Vector MASS
-          DO jl=kidia,kfdia
-            zqp    =1.0_JPRB/psp(jl)
-            zqsat=foeewmcu(pt(jl,kk))*zqp
-            zqsat=MIN(0.5_JPRB,zqsat)
-            zcor=1.0_JPRB/(1.0_JPRB-retv  *zqsat)
-            zqsat=zqsat*zcor
+           DO jl=kidia,kfdia
+              zqp    =1.0_JPRB/psp(jl)
+              zqsat=foeewmcu(pt(jl,kk))*zqp
+              zqsat=MIN(0.5_JPRB,zqsat)
+              zcor=1.0_JPRB/(1.0_JPRB-retv  *zqsat)
+              zqsat=zqsat*zcor
             zcond1=(pq(jl,kk)-zqsat)/(1.0_JPRB+zqsat*zcor*foedemcu(pt(jl,kk)))
             pt(jl,kk)=pt(jl,kk)+foeldcpmcu(pt(jl,kk))*zcond1
             pq(jl,kk)=pq(jl,kk)-zcond1
@@ -687,8 +688,8 @@ MODULE mo_adjust
       
       IF (kcall == 1 ) THEN
         
-        !DIR$    IVDEP
-        !OCL NOVREC
+!DIR$    IVDEP
+!OCL NOVREC
         DO jl=kidia,kfdia
           IF(ldflag(jl)) THEN
             zqp    =1.0_JPRB/psp(jl)
@@ -747,8 +748,8 @@ MODULE mo_adjust
       
       IF(kcall == 2) THEN
         
-        !DIR$    IVDEP
-        !OCL NOVREC
+!DIR$    IVDEP
+!OCL NOVREC
         DO jl=kidia,kfdia
           IF(ldflag(jl)) THEN
             zqp    =1.0_JPRB/psp(jl)
@@ -807,8 +808,8 @@ MODULE mo_adjust
       
       IF(kcall == 0) THEN
         
-        !DIR$    IVDEP
-        !OCL NOVREC
+!DIR$    IVDEP
+!OCL NOVREC
         DO jl=kidia,kfdia
           zqp    =1.0_JPRB/psp(jl)
           
@@ -861,8 +862,8 @@ MODULE mo_adjust
       
       IF(kcall == 4) THEN
         
-        !DIR$    IVDEP
-        !OCL NOVREC
+!DIR$    IVDEP
+!OCL NOVREC
         DO jl=kidia,kfdia
           IF(ldflag(jl)) THEN
             zqp    =1.0_JPRB/psp(jl)

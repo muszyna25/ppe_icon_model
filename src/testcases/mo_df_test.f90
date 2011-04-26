@@ -57,7 +57,7 @@ MODULE mo_df_test
   USE mo_interpolation,       ONLY: cells2edges_scalar,t_int_state
   USE mo_eta_coord_diag,      ONLY: half_level_pressure, full_level_pressure
   USE mo_run_nml,             ONLY: nproma, ntracer
-  USE mo_advection_utils,     ONLY: ctracer_list
+  USE mo_advection_nml,       ONLY: ctracer_list
 
   IMPLICIT NONE
 

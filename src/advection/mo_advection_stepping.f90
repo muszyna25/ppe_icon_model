@@ -81,11 +81,12 @@ MODULE mo_advection_stepping
   USE mo_mpi,                 ONLY: p_pe, p_nprocs
   USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult
   USE mo_parallel_nml,        ONLY: p_test_pe, p_test_run
-  USE mo_advection_utils,     ONLY: ptr_delp_mc_now, ptr_delp_mc_new,       &
-    &                          ihadv_tracer, ivadv_tracer, lvadv_tracer,    &
-    &                          lclip_tracer, lstrang, itype_vlimit,         &
-    &                          itype_hlimit, iord_backtraj, igrad_c_miura,  &
-    &                          iadv_slev, iubc_adv, cSTR, coeff_grid
+  USE mo_advection_nml,       ONLY: ihadv_tracer, ivadv_tracer, lvadv_tracer, &
+    &                               lclip_tracer, lstrang, itype_vlimit,      &
+    &                               itype_hlimit, iord_backtraj,              &
+    &                               igrad_c_miura, iadv_slev, iubc_adv, cSTR, &
+    &                               coeff_grid
+  USE mo_advection_utils,     ONLY: ptr_delp_mc_now, ptr_delp_mc_new
   USE mo_model_domain_import, ONLY: l_limited_area, lfeedback
 
   IMPLICIT NONE
@@ -316,13 +317,6 @@ CONTAINS
       l_parallel = .TRUE.
     ENDIF
 
-    IF (iforcing == inwp) THEN
-      ! Set iadv_slev to kstart_moist for all tracers but QV
-      iadv_slev(:) = kstart_moist(jg)
-      iadv_slev(iqv) = 1
-    ELSE
-      iadv_slev(:) = 1
-    ENDIF
 
     !---------------------------------------------------!
     !                                                   !
@@ -395,18 +389,18 @@ CONTAINS
         i_startblk = p_patch%cells%start_blk(i_rlstart,1)
         i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
-        CALL vert_upwind_flux( p_patch, ptr_current_tracer,         &! in
-          &              p_mflx_contra_v, p_w_contra_traj,          &! inout,in
-          &              cSTR*p_dtime, p_pres_ic_now, p_pres_mc_now,&! in
-          &              p_cellhgt_mc_now, z_rcellhgt_mc_now,       &! in
-          &              ptr_delp_mc_now, ivadv_tracer,             &! in
-          &              itype_vlimit, iubc_adv(jg), iadv_slev,     &! in
-          &              p_mflx_tracer_v,                           &! out
-          &              opt_topflx_tra=opt_topflx_tra,             &! in
-          &              opt_q_int=opt_q_int,                       &! out
-          &              opt_rho_ic=opt_rho_ic,                     &! in
-          &              opt_rlstart=i_rlstart,                     &! in
-          &              opt_rlend=i_rlend                          )! in
+        CALL vert_upwind_flux( p_patch, ptr_current_tracer,          &! in
+          &              p_mflx_contra_v, p_w_contra_traj,           &! inout,in
+          &              cSTR*p_dtime, p_pres_ic_now, p_pres_mc_now, &! in
+          &              p_cellhgt_mc_now, z_rcellhgt_mc_now,        &! in
+          &              ptr_delp_mc_now, ivadv_tracer,              &! in
+          &              itype_vlimit, iubc_adv(jg), iadv_slev(jg,:),&! in
+          &              p_mflx_tracer_v,                            &! out
+          &              opt_topflx_tra=opt_topflx_tra,              &! in
+          &              opt_q_int=opt_q_int,                        &! out
+          &              opt_rho_ic=opt_rho_ic,                      &! in
+          &              opt_rlstart=i_rlstart,                      &! in
+          &              opt_rlend=i_rlend                           )! in
 
 
         ! calculation of intermediate layer thickness (density)
@@ -457,7 +451,7 @@ CONTAINS
 
           DO jt = 1, ntracer ! Tracer loop
 
-            DO jk = iadv_slev(jt), nlev
+            DO jk = iadv_slev(jg,jt), nlev
 
               ! index of top half level
               ikp1 = jk + 1
@@ -597,10 +591,10 @@ CONTAINS
     ENDIF    
     !
     CALL hor_upwind_flux( ptr_current_tracer, ptr_current_tracer, p_mflx_contra_h, &! in
-      &                 p_vn_contra_traj, p_dtime, p_patch,          &! in
-      &                 p_int_state, ihadv_tracer, igrad_c_miura,    &! in
-      &                 i_itype_hlimit, iadv_slev, iord_backtraj,    &! in
-      &                 p_mflx_tracer_h, opt_rlend=i_rlend           )! inout
+      &                 p_vn_contra_traj, p_dtime, p_patch,             &! in
+      &                 p_int_state, ihadv_tracer, igrad_c_miura,       &! in
+      &                 i_itype_hlimit, iadv_slev(jg,:), iord_backtraj, &! in
+      &                 p_mflx_tracer_h, opt_rlend=i_rlend              )! inout
 
 
     IF (i_cell_type == 6) THEN
@@ -612,9 +606,9 @@ CONTAINS
     !
     !  compute divergence of the upwind fluxes for tracers
     !  using optimized divergence routine for 4D fields
-    CALL div( p_patch, p_int_state, p_mflx_tracer_h,         &! in
-      &       z_fluxdiv_c,                                   &! inout
-      &       ntracer, opt_slev=iadv_slev, opt_rlend=i_rlend )! in
+    CALL div( p_patch, p_int_state, p_mflx_tracer_h,               &! in
+      &       z_fluxdiv_c,                                         &! inout
+      &       ntracer, opt_slev=iadv_slev(jg,:), opt_rlend=i_rlend )! in
 
 
     IF (i_cell_type == 6) THEN
@@ -648,7 +642,7 @@ CONTAINS
       CALL hor_upwind_flux(z_estim_c, ptr_current_tracer, p_mflx_contra_h, &! in
         &                 p_vn_contra_traj, p_dtime, p_patch,          &! in
         &                 p_int_state, ihadv_tracer, igrad_c_miura,    &! in
-        &                 itype_hlimit, iadv_slev, iord_backtraj,      &! in
+        &                 itype_hlimit, iadv_slev(jg,:), iord_backtraj,&! in
         &                 p_mflx_tracer_h, opt_rlend=min_rledge        )! inout
 
       !
@@ -658,7 +652,7 @@ CONTAINS
         CALL div( p_mflx_tracer_h(:,:,:,jt),         &! in
           &       p_patch, p_int_state,              &! in
           &       z_fluxdiv_c(:,:,:,jt),             &! inout
-          &       opt_slev=iadv_slev(jt)             )! in
+          &       opt_slev=iadv_slev(jg,jt)          )! in
       ENDDO
 
     ENDIF ! i_cell_type == 6
@@ -681,7 +675,7 @@ CONTAINS
 
       DO jt = 1, ntracer ! Tracer loop
 
-        DO jk = iadv_slev(jt), nlev
+        DO jk = iadv_slev(jg,jt), nlev
 
           DO jc = i_startidx, i_endidx
 
@@ -755,18 +749,18 @@ CONTAINS
       i_startblk = p_patch%cells%start_blk(i_rlstart,1)
       i_endblk   = p_patch%cells%end_blk(i_rlend,i_nchdom)
 
-      CALL vert_upwind_flux( p_patch, ptr_current_tracer,         &! in
-        &              p_mflx_contra_v, p_w_contra_traj,          &! inout,in
-        &              cSTR*p_dtime, p_pres_ic_now, p_pres_mc_now,&! in
-        &              p_cellhgt_mc_now, z_rcellhgt_mc_now,       &! in
-        &              ptr_delp_mc_now, ivadv_tracer,             &! in
-        &              itype_vlimit, iubc_adv(jg), iadv_slev,     &! in
-        &              p_mflx_tracer_v,                           &! out
-        &              opt_topflx_tra=opt_topflx_tra,             &! in
-        &              opt_q_int=opt_q_int,                       &! out
-        &              opt_rho_ic=opt_rho_ic,                     &! in
-        &              opt_rlstart=i_rlstart,                     &! in
-        &              opt_rlend=i_rlend                          )! in
+      CALL vert_upwind_flux( p_patch, ptr_current_tracer,          &! in
+        &              p_mflx_contra_v, p_w_contra_traj,           &! inout,in
+        &              cSTR*p_dtime, p_pres_ic_now, p_pres_mc_now, &! in
+        &              p_cellhgt_mc_now, z_rcellhgt_mc_now,        &! in
+        &              ptr_delp_mc_now, ivadv_tracer,              &! in
+        &              itype_vlimit, iubc_adv(jg), iadv_slev(jg,:),&! in
+        &              p_mflx_tracer_v,                            &! out
+        &              opt_topflx_tra=opt_topflx_tra,              &! in
+        &              opt_q_int=opt_q_int,                        &! out
+        &              opt_rho_ic=opt_rho_ic,                      &! in
+        &              opt_rlstart=i_rlstart,                      &! in
+        &              opt_rlend=i_rlend                           )! in
 
 
       ! calculate vertical flux divergence
@@ -782,7 +776,7 @@ CONTAINS
 
         DO jt = 1, ntracer ! Tracer loop
 
-          DO jk = iadv_slev(jt), nlev
+          DO jk = iadv_slev(jg,jt), nlev
 
             ! index of top half level
             ikp1 = jk + 1
@@ -831,7 +825,7 @@ CONTAINS
                           i_startidx, i_endidx, i_rlstart, i_rlend)
 
         DO jt = 1, ntracer
-          DO jk = iadv_slev(jt), nlev
+          DO jk = iadv_slev(jg,jt), nlev
             DO jc = i_startidx, i_endidx
               opt_ddt_tracer_adv(jc,jk,jb,jt) =               &
                 &           (  p_tracer_new(jc,jk,jb,jt)      &

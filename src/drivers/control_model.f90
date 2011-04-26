@@ -152,7 +152,8 @@ PROGRAM control_model
 
 
 
-  USE mo_advection_utils,     ONLY: setup_transport         ! process transport control parameters
+  USE mo_advection_nml,       ONLY: transport_nml_setup,  & ! process transport 
+    &                               setup_transport         ! control parameters
 
   ! Test cases
   !
@@ -433,7 +434,7 @@ PROGRAM control_model
   ! step 3b: Read namelist 'transport_ctl',
   !------------------------------------------------------------------
   IF (ltransport) THEN
-    CALL setup_transport
+    CALL transport_nml_setup
   END IF
 
   !------------------------------------------------------------------
@@ -593,6 +594,7 @@ PROGRAM control_model
 
   ENDIF
 
+
   !------------------------------------------------------------------
   ! step i: Setup physics
   !------------------------------------------------------------------
@@ -630,6 +632,18 @@ PROGRAM control_model
     CALL init_ext_data (p_patch(1:), p_int_state, ext_data)
   ENDIF
 
+
+  !------------------------------------------------------------------
+  ! Daniel: Suggestion for point 5 of Feature #333
+  ! (5. Subroutine to setup model components depending on this 
+  ! namelist, to be called after all namelists have been read, and 
+  ! a synoptic check has been done)
+  !------------------------------------------------------------------
+  ! set dependent variables/model components, depending on this (transport) 
+  ! namelist and potentially others
+  IF (ltransport) THEN 
+    CALL setup_transport
+  ENDIF
 
   !------------------------------------------------------------------
   ! Prepare raw data output file

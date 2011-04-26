@@ -53,7 +53,7 @@ MODULE mo_nh_dtp_interface
     &                              min_rledge
   USE mo_sync,               ONLY: SYNC_C, sync_patch_array
   USE mo_parallel_nml,       ONLY: p_test_run
-  USE mo_advection_utils,    ONLY: itype_hlimit, iord_backtraj
+  USE mo_advection_nml,      ONLY: itype_hlimit, iord_backtraj
 
   IMPLICIT NONE
   PRIVATE

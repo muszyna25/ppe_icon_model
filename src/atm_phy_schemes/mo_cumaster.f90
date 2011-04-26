@@ -88,7 +88,7 @@
 MODULE mo_cumaster
   
 #ifdef __ICON__
-  USE mo_kind   ,ONLY: jprb=>wp     , &
+  USE mo_kind   ,ONLY: JPRB=>wp     , &
     &                  jpim=>i4
   USE mo_exception,          ONLY: message, message_text
 #endif
@@ -471,11 +471,11 @@ CONTAINS
     
     ldcum(:)=.FALSE.
     pqsen(:,:)=pqen(:,:)
-    
+
     CALL satur (kidia , kfdia , klon  , njkt2, klev,&
       & pap,    pten  , pqsen , 1  )
-    
-    
+
+ 
     !*UPG
     !---------------------------------------------------------------------
     
@@ -487,12 +487,13 @@ CONTAINS
     zcons=1.0_JPRB/(rg*ptsphy)
     zorcpd=1.0_JPRB/rcpd
     zrdocpd=rd*zorcpd
-    
-    !set local fields zero at begin!
+
+!set local fields zero at begin!
 !CDIR BEGIN COLLAPSE
     zqsenh(:,:)=0.0_JPRB
     ztenh (:,:)=0.0_JPRB
     zqsenh(:,:)=0.0_JPRB
+    zqenh (:,:)=0.0_JPRB
     ztd   (:,:)=0.0_JPRB
     zqd   (:,:)=0.0_JPRB
     zmfus (:,:)=0.0_JPRB
@@ -508,7 +509,7 @@ CONTAINS
     zvd   (:,:)=0.0_JPRB
     zkineu(:,:)=0.0_JPRB
     zkined(:,:)=0.0_JPRB
-    zdpmel(:,:)=0.0_JPRB
+!    zdpmel(:,:)=0.0_JPRB
     zlglac(:,:)=0.0_JPRB
     zdmfen(:,:)=0.0_JPRB
     zdmfde(:,:)=0.0_JPRB
@@ -517,7 +518,6 @@ CONTAINS
     zmfdus(:,:)=0.0_JPRB
     zmfudr(:,:)=0.0_JPRB
     zmfddr(:,:)=0.0_JPRB
-    
     zmfuub  (:)=0.0_JPRB
     zmfuvb  (:)=0.0_JPRB
     zmf_shal(:)=0.0_JPRB
@@ -542,6 +542,7 @@ CONTAINS
     llddraf3(:)= .FALSE.
     lldcum(:)= .FALSE.
     llo2(:)= .FALSE.
+
     !----------------------------------------------------------------------
 
     !*    2.           INITIALIZE VALUES AT VERTICAL GRID POINTS IN 'CUINI'
@@ -560,7 +561,7 @@ CONTAINS
       & plu     )
 
     !---------------------------------------------------------------------
-
+    
     !*    3.0          CLOUD BASE CALCULATIONS
     !                  -----------------------
 
@@ -751,7 +752,6 @@ CONTAINS
       & zdmfen,&
       & kcbot,    kctop,    ictop0,   idpl,     pmfude_rate,   zkineu,   pwmean )
 
-
     !*         (C) CHECK CLOUD DEPTH AND CHANGE ENTRAINMENT RATE ACCORDINGLY
     !              CALCULATE PRECIPITATION RATE (FOR DOWNDRAFT CALCULATION)
     !              -----------------------------------------------------
@@ -771,8 +771,8 @@ CONTAINS
       zrfl(jl)=zdmfup(jl,1)
      ENDDO
     DO jk=ktdia+1,klev
-     DO jl=kidia,kfdia
-       zrfl(jl)=zrfl(jl)+zdmfup(jl,jk)
+       DO jl=kidia,kfdia
+         zrfl(jl)=zrfl(jl)+zdmfup(jl,jk)
      ENDDO
 
     ENDDO
@@ -807,7 +807,7 @@ CONTAINS
         & kcbot,    kctop,    ldcum,&
         & ztenh,    zqenh,         &
         & pten,     pqsen,    pgeo,&
-        & pgeoh,    paph,     ptu,      pqu,      plu,&
+        & pgeoh,    paph,     ptu,      pqu, &
         & zmfub,    zrfl,&
         & ztd,      zqd,&
         & pmfd,     zmfds,    zmfdq,    zdmfdp,&
@@ -825,7 +825,7 @@ CONTAINS
         & pmfd,     zmfds,    zmfdq,    zdmfdp,&
         & zdmfde,   pmfdde_rate,        zkined )
 
-    ENDIF
+   ENDIF
 
     !
     !
@@ -890,8 +890,10 @@ CONTAINS
 
     !  SHALLOW CONVECTION AND MID_LEVEL
 
-    !DIR$ IVDEP
-    !OCL NOVREC
+ 
+    
+!DIR$ IVDEP
+!OCL NOVREC
     DO jl=kidia,kfdia
       IF ( ldcum(jl) .AND. (ktype(jl) == 2.OR. ktype(jl) == 3) ) THEN
         ikb=kcbot(jl)
@@ -899,7 +901,7 @@ CONTAINS
           zeps=-pmfd(jl,ikb)/MAX(zmfub(jl),1.e-10_JPRB)
         ELSE
           zeps=0.0_JPRB
-        ENDIF
+       ENDIF
         zqumqe=pqu(jl,ikb)+plu(jl,ikb)-&
           & zeps*zqd(jl,ikb)-(1.0_JPRB-zeps)*zqenh(jl,ikb)
         zdqmin=MAX(0.01_JPRB*zqenh(jl,ikb),1.e-10_JPRB)
@@ -974,6 +976,7 @@ CONTAINS
       !*                 FOR SHALLOW TO MEDIUM CONVECTION (TYPE=2)
       !*                 AND FOR MID-LEVEL CONVECTION (TYPE=3).
       !                  -------------------------------------------------
+
       CALL cuascn &
         & ( kidia,    kfdia,    klon,   ktdia,   klev,&
         & ptsphy,&
@@ -991,6 +994,7 @@ CONTAINS
         & zdmfen,&
         & kcbot,    kctop,    ictop0,   idpl,     pmfude_rate,    zkineu,   pwmean )
 
+      
       DO jl=kidia,kfdia
         IF (ldcum(jl)) THEN
           ikb=kcbot(jl)
@@ -1021,7 +1025,7 @@ CONTAINS
               & zmfs(jl)=MIN(zmfs(jl),zmfmax/pmfu(jl,jk))
           ENDIF
         ENDDO
-      ENDDO
+     ENDDO
       DO jk=ktdia+1,klev
         DO jl=kidia,kfdia
           IF(ldcum(jl).AND.jk<=kcbot(jl).AND.jk>=kctop(jl)-1) THEN
@@ -1036,7 +1040,6 @@ CONTAINS
           ENDIF
         ENDDO
       ENDDO
-
     ENDIF
 
     !-----------------------------------------------------------------------
@@ -1071,6 +1074,7 @@ CONTAINS
 
     !- set DD mass fluxes to zero above cloud top
     !  (because of inconsistency with second updraught)
+
     DO jl=kidia,kfdia
       IF(llddraf(jl).AND.idtop(jl)<=kctop(jl)) THEN
         idtop(jl)=kctop(jl)+1
@@ -1280,6 +1284,7 @@ CONTAINS
       & zmfus,    zmfds,    zmfuq,    zmfdq,&
       & zmful,    zdmfup,   zdpmel,&
       & ptent,    ptenq,    penth )
+
 
     !----------------------------------------------------------------------
 
@@ -1680,8 +1685,8 @@ CONTAINS
     !                  CLOUD CONDENSATE, CHANGE PRECIP UNITS IN M/S (if wanted, K. Froehlich, 19.01.2009)
     !                  --------------------------------------------------
 
-  IF (PRESENT(ptens)) THEN
-      ! KF calculate snow tendency
+    IF (PRESENT(ptens)) THEN
+       ! KF calculate snow tendency
       DO jk=ktdia,klev
         DO jl=kidia,kfdia
           ptenl(jl,jk)=plude(jl,jk)*rg/(paph(jl,jk+1)-paph(jl,jk))
@@ -1699,14 +1704,15 @@ CONTAINS
           !    PMFLXS(JL,JK)=PMFLXS(JL,JK)*1.E-3
         ENDDO
       ENDDO
-    ELSE
+   ELSE
       DO jk=ktdia,klev
-        DO jl=kidia,kfdia
-          ptenl(jl,jk)=plude(jl,jk)*rg/(paph(jl,jk+1)-paph(jl,jk))
-          pteni(jl,jk)=(1.0_JPRB-foealfa(pten(jl,jk)))*ptenl(jl,jk)
-          PTENL(JL,JK)=PTENL(JL,JK)-PTENI(JL,JK)
+         DO jl=kidia,kfdia
+           ptenl(jl,jk)=plude(jl,jk)*rg/(paph(jl,jk+1)-paph(jl,jk))
+           pteni(jl,jk)=(1.0_JPRB-foealfa(pten(jl,jk)))*ptenl(jl,jk)
+           PTENL(JL,JK)= PTENL(jl,jk)-PTENI(JL,JK)
           !PMFLXR(JL,JK)=PMFLXR(JL,JK)*1.E-3
           !PMFLXS(JL,JK)=PMFLXS(JL,JK)*1.E-3
+          
       ENDDO
     ENDDO
   ENDIF

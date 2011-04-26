@@ -51,7 +51,7 @@ USE mo_kind,                ONLY: wp
 USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
 USE mo_physical_constants,  ONLY: rgrav, omega, rd
 USE mo_math_constants,      ONLY: pi_2, pi
-USE mo_advection_utils,     ONLY: ctracer_list
+USE mo_advection_nml,       ONLY: ctracer_list
 USE mo_vertical_coord_table,ONLY: vct_a, vct_b, ceta, cetah
 USE mo_eta_coord_diag,      ONLY: half_level_pressure, full_level_pressure
 USE mo_model_domain,        ONLY: t_patch
