@@ -49,7 +49,7 @@ MODULE mo_icoham_dyn_types
 
   TYPE t_hydro_atm_prog
 
-    REAL(wp), ALLOCATABLE ::  &
+    REAL(wp), POINTER ::  &
     & pres_sfc(:,  :),  &!< surface pressure [Pa]        (nproma,     nblks_c)
     &       vn(:,:,:),  &!< normal wind [m/s]            (nproma,nlev,nblks_e)
     &     temp(:,:,:),  &!< temperature [K]              (nproma,nlev,nblks_c)
@@ -64,7 +64,7 @@ MODULE mo_icoham_dyn_types
 
   TYPE t_hydro_atm_diag
 
-    REAL(wp), ALLOCATABLE ::  &
+    REAL(wp), POINTER ::  &
     &          qx(:,:,:),   &!< total concentration of hydrometeors (nproma,nlev,nblks_c)
     &           u(:,:,:),   &!< zonal wind (nproma,nlev,nblks_c)
     &           v(:,:,:),   &!< meridional wind (nproma,nlev,nblks_c)
