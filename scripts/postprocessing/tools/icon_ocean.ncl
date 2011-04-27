@@ -255,11 +255,14 @@ end
     plotMode = "vector"
     ; performe the remapping
     remapFilename="remapnn_"+iFile
+    print("Looking for remapped file: "+remapFilename)
     remapedFiles = systemfunc("ls "+remapFilename)
     if (isstring(remapedFiles(0)) .and. remapedFiles(0).eq.remapFilename) then
       print("Take "+remapFilename+" for accessing vector variables "+str_join(vecVars,","))
+      print("Print remove this intermediate file, if it was NOT automatically created from your inpur file "+iFile+"!")
     else
-      print("Use CDO to perform remapping")
+      print("Use CDO to perform remapping: Create intermediate file: "+remapFilename)
+      print("Print remove this intermediate file, if it was NOT automatically created from your inpur file "+iFile+"!")
       if ( useMask ) then
         cmd = "cdo -P 8 -remapnn,"+resolution+" -selname,"+maskName+","+str_join(vecVars,",")+" "+iFile+" "+remapFilename
         if DEBUG then

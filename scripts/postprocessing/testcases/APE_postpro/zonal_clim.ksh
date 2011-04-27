@@ -102,6 +102,10 @@ export TopHeight=35
 # What format do you want, pdf, eps or ps?
 export plot_file_format="pdf"
 
+# Set the orientation to "landscape" if you explicitly set it so.
+# (No specification means NCL default - "portrait".)
+#export wkOrientation="landscape"
+
 # Before plotting, some data processing is needed. 
 # If you have already done that and stored the data, turn this step off.
 

@@ -21,9 +21,10 @@ begin
 
  PlotFormat = getenv("plot_file_format") 
  PlotFile   = getenv("PlotFile")
+ wkOrientation = getenv("wkOrientation")
 
- DataFile      = getenv("DataFile")
- DataFile2     = getenv("DataFile2")
+ DataFile   = getenv("DataFile")
+ DataFile2  = getenv("DataFile2")
 
  TopHeight  = stringtofloat(getenv("TopHeight"))
  varName    = getenv("varname")
@@ -39,22 +40,35 @@ begin
 
 ; For the difference plot
 
-  ColorMap   = (/getenv("ColorMap"),getenv("DiffColorMap")/)
-  ColorStart = stringtoint((/getenv("ColorStart"),getenv("DiffColorStart")/))
-  ColorEnd   = stringtoint((/getenv("ColorEnd"),  getenv("DiffColorEnd")  /))
+ ColorMap   = (/getenv("ColorMap"),getenv("DiffColorMap")/)
+ ColorStart = stringtoint((/getenv("ColorStart"),getenv("DiffColorStart")/))
+ ColorEnd   = stringtoint((/getenv("ColorEnd"),  getenv("DiffColorEnd")  /))
 
-  LeftString  = "Days "+(/getenv("timerange"),getenv("ref_timerange")/)
-  RightString = (/getenv("resolution"),getenv("ref_resolution")/)
-  PanelTitle  = (/getenv("exp_config"),"vs. "+getenv("ref_config")/)
-  MainTitle   = LongName
+ LeftString  = "Days "+(/getenv("timerange"),getenv("ref_timerange")/)
+ RightString = (/getenv("resolution"),getenv("ref_resolution")/)
+ PanelTitle  = (/getenv("exp_config"),"vs. "+getenv("ref_config")/)
+ MainTitle   = LongName
 
-  nlev4plot  = 101
+ nlev4plot  = 101
 
 ;---------------------------------------------------------
 ; plot setup
 ;---------------------------------------------------------
 
  contour = new( 2, graphic )
+
+ ; Set the workstation orientation to "landscape" if the user wants so 
+ if ( .not.ismissing(wkOrientation) ) then
+ 
+    ; check user's specification of workstation orientation
+    if (wkOrientation.eq."landscape") then
+       PlotFormat@wkOrientation  = "landscape"   ;NCL default is "portrait"
+       PlotFormat@wkDeviceLowerX = -60           ;36
+       PlotFormat@wkDeviceLowerY = 40            ;126
+       PlotFormat@wkDeviceUpperX = 710           ;-36
+       PlotFormat@wkDeviceUpperY = 770           ;126
+    end if
+ end if
 
  wks = gsn_open_wks( PlotFormat, PlotFile )
 
@@ -189,8 +203,8 @@ begin
 
      ResP = True
      ResP@gsnFrame      = False
-     ResP@gsnPanelLeft  = istat*0.53
-     ResP@gsnPanelRight = 0.47 + ResP@gsnPanelLeft
+     ResP@gsnPanelLeft  = istat*0.52
+     ResP@gsnPanelRight = 0.48 + ResP@gsnPanelLeft
      ResP@txString      = LongName
      ResP@txFontHeightF = FontHeight + 0.003 
 

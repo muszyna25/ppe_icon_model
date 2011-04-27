@@ -74,7 +74,7 @@ case "$fortran_compiler" in
         FFLAGS      = "$FOTPTIM" "$FCPP" "$FLANG" "$FWARN" "$FDEBUG"
         F77         = gfortran
         F77FLAGS    = -march=native -O0 -ffast-math
-        LDFLAGS     = "$FOTPTIM" "$FDEBUG"
+        LDFLAGS     = "$FOTPTIM"
         OMPFLAG     = -fopenmp
         DEFOPT      = -D
         DEFCOPT     = -D
