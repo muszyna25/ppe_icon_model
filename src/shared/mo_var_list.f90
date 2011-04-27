@@ -232,7 +232,7 @@ CONTAINS
   SUBROUTINE get_var_list_element_info (this_list, name, info)
     !
     TYPE(t_var_list),     INTENT(in)  :: this_list ! list
-    CHARACTER(len=*),   INTENT(in)  :: name         ! name of variable
+    CHARACTER(len=*),     INTENT(in)  :: name         ! name of variable
     TYPE(t_var_metadata), INTENT(out) :: info         ! variable meta data
     !
     TYPE(t_list_element), POINTER :: element
@@ -247,11 +247,11 @@ CONTAINS
   !
   ! Set default meta data of output var_list
   !
-  SUBROUTINE default_var_list_settings (this_list, &
+  SUBROUTINE default_var_list_settings (this_list,                        &
        name, cf, grib2, lrestart, lpost, laccu, resetval, lmiss, missval, &
        lrestart_cont, grid_representation)
     !
-    TYPE(t_var_list),   INTENT(inout)         :: this_list        ! output var_list
+    TYPE(t_var_list),   INTENT(inout)        :: this_list        ! output var_list
     CHARACTER(len=*),   INTENT(in), OPTIONAL :: name          ! variable name
     TYPE(t_cf_var),     INTENT(in), OPTIONAL :: cf         
     TYPE(t_grib2_var),  INTENT(in), OPTIONAL :: grib2
@@ -320,26 +320,27 @@ CONTAINS
          laccu, resetval, lmiss, missval, verbose)
     !
     TYPE(t_var_metadata), INTENT(inout)        :: info          ! memory info struct.
-    CHARACTER(len=*),   INTENT(in), OPTIONAL :: name          ! variable name
-    INTEGER,            INTENT(in), OPTIONAL :: grid_representation
+    CHARACTER(len=*),     INTENT(in), OPTIONAL :: name          ! variable name
+    INTEGER,              INTENT(in), OPTIONAL :: grid_representation
     TYPE(t_cf_var),       INTENT(in), OPTIONAL :: cf         
     TYPE(t_grib2_var),    INTENT(in), OPTIONAL :: grib2
-    INTEGER,            INTENT(in), OPTIONAL :: ldims(:)      ! dimensions to allocate  
-    LOGICAL,            INTENT(in), OPTIONAL :: lpost         ! into output var_list
-    LOGICAL,            INTENT(in), OPTIONAL :: lrestart      ! restart file flag
-    LOGICAL,            INTENT(in), OPTIONAL :: lrestart_cont ! continue on restart
-    TYPE(t_union_vals),      INTENT(in), OPTIONAL :: initval       ! value if var not available
-    LOGICAL,            INTENT(in), OPTIONAL :: laccu         ! accumulation flag
-    TYPE(t_union_vals),      INTENT(in), OPTIONAL :: resetval      ! reset value
-    LOGICAL,            INTENT(in), OPTIONAL :: lmiss         ! missing value flag
-    TYPE(t_union_vals),      INTENT(in), OPTIONAL :: missval       ! missing value
-    LOGICAL,            INTENT(in), OPTIONAL :: verbose
+    INTEGER,              INTENT(in), OPTIONAL :: ldims(:)      ! dimensions to allocate  
+    LOGICAL,              INTENT(in), OPTIONAL :: lpost         ! into output var_list
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart      ! restart file flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont ! continue on restart
+    TYPE(t_union_vals),   INTENT(in), OPTIONAL :: initval       ! value if var not available
+    LOGICAL,              INTENT(in), OPTIONAL :: laccu         ! accumulation flag
+    TYPE(t_union_vals),   INTENT(in), OPTIONAL :: resetval      ! reset value
+    LOGICAL,              INTENT(in), OPTIONAL :: lmiss         ! missing value flag
+    TYPE(t_union_vals),   INTENT(in), OPTIONAL :: missval       ! missing value
+    LOGICAL,              INTENT(in), OPTIONAL :: verbose
     !
     LOGICAL :: lverbose
     !
     ! set flags from optional parameters
     !
-    lverbose = .FALSE.; IF(PRESENT(verbose)) lverbose = verbose
+    lverbose = .FALSE. 
+    IF(PRESENT(verbose)) lverbose = verbose
     !
     ! set components describing the 'Content of the field'
     !
@@ -362,13 +363,9 @@ CONTAINS
     CALL assign_if_present (info%lrestart_cont, lrestart_cont)
     CALL assign_if_present (info%initval,       initval)
     !
-    ! set dimensions
-    !
-    CALL assign_if_present (info%used_dimensions, ldims)
-    !
     ! printout (optional)
     !
-!LK    IF (lverbose) CALL print_var_metadata (info)
+    !LK    IF (lverbose) CALL print_var_metadata (info)
     !
   END SUBROUTINE set_var_metadata
   !------------------------------------------------------------------------------------------------
@@ -399,11 +396,11 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
-    TYPE(t_union_vals),        INTENT(in), OPTIONAL :: initval             ! value if var not available
+    TYPE(t_union_vals),   INTENT(in), OPTIONAL :: initval             ! value if var not available
     LOGICAL,              INTENT(in), OPTIONAL :: laccu               ! accumulation flag
-    TYPE(t_union_vals),        INTENT(in), OPTIONAL :: resetval            ! reset value (after accumulation)
+    TYPE(t_union_vals),   INTENT(in), OPTIONAL :: resetval            ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
-    TYPE(t_union_vals),        INTENT(in), OPTIONAL :: missval             ! missing value
+    TYPE(t_union_vals),   INTENT(in), OPTIONAL :: missval             ! missing value
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
     REAL(dp),             POINTER,    OPTIONAL :: p4(:,:,:,:)         ! provided pointer
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
@@ -434,14 +431,16 @@ CONTAINS
          verbose=verbose)
     !
     IF (.NOT. referenced) THEN
+      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
       idims(1) = new_list_element%field%info%used_dimensions(1)
       idims(2) = new_list_element%field%info%used_dimensions(2)
       idims(3) = new_list_element%field%info%used_dimensions(3)
       idims(4) = new_list_element%field%info%used_dimensions(4)
+      new_list_element%field%var_base_size = 8
       ALLOCATE(new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r4d', &
-                   &'allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_r4d',      &
+                   &'allocation of array '//TRIM(name)//' failed')
       ENDIF
       NULLIFY(new_list_element%field%i_ptr)
       NULLIFY(new_list_element%field%l_ptr)
@@ -471,23 +470,23 @@ CONTAINS
        lmiss, missval, info, p4, verbose)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
-    CHARACTER(len=*),   INTENT(in)           :: name                ! name of variable
-    REAL(dp),           POINTER              :: ptr(:,:,:)          ! reference to field
-    INTEGER,            INTENT(in)           :: grid_representation ! grid type used
+    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
+    REAL(dp),             POINTER              :: ptr(:,:,:)          ! reference to field
+    INTEGER,              INTENT(in)           :: grid_representation ! grid type used
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER,            INTENT(in), OPTIONAL :: ldims(3)            ! local dimensions
-    LOGICAL,            INTENT(in), OPTIONAL :: lpost               ! output flag
-    LOGICAL,            INTENT(in), OPTIONAL :: lrestart            ! restart flag
-    LOGICAL,            INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
-    TYPE(t_union_vals),      INTENT(in), OPTIONAL :: initval             ! value if var not available
-    LOGICAL,            INTENT(in), OPTIONAL :: laccu               ! accumulation flag
-    TYPE(t_union_vals),      INTENT(in), OPTIONAL :: resetval            ! reset value (after accumulation)
-    LOGICAL,            INTENT(in), OPTIONAL :: lmiss               ! missing value flag
-    TYPE(t_union_vals),      INTENT(in), OPTIONAL :: missval             ! missing value
+    INTEGER,              INTENT(in), OPTIONAL :: ldims(3)            ! local dimensions
+    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
+    TYPE(t_union_vals),   INTENT(in), OPTIONAL :: initval             ! value if var not available
+    LOGICAL,              INTENT(in), OPTIONAL :: laccu               ! accumulation flag
+    TYPE(t_union_vals),   INTENT(in), OPTIONAL :: resetval            ! reset value (after accumulation)
+    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
+    TYPE(t_union_vals),   INTENT(in), OPTIONAL :: missval             ! missing value
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    REAL(dp),           POINTER,    OPTIONAL :: p4(:,:,:,:)         ! provided pointer
-    LOGICAL,            INTENT(in), OPTIONAL :: verbose             ! print information
+    REAL(dp),             POINTER,    OPTIONAL :: p4(:,:,:,:)         ! provided pointer
+    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     !
     TYPE(t_list_element), POINTER :: new_list_element
     INTEGER :: idims(4)
@@ -515,14 +514,16 @@ CONTAINS
          verbose=verbose)
     !
     IF (.NOT. referenced) THEN
+      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:3), ldims(1:3))
       idims(1) = new_list_element%field%info%used_dimensions(1)
       idims(2) = new_list_element%field%info%used_dimensions(2)
       idims(3) = new_list_element%field%info%used_dimensions(3)
       idims(4) = 1
+      new_list_element%field%var_base_size = 8
       ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r3d',     &
-                   &'allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_r3d',      &
+                   &'allocation of array '//TRIM(name)//' failed')
       ENDIF
       NULLIFY(new_list_element%field%i_ptr)
       NULLIFY(new_list_element%field%l_ptr)
@@ -552,23 +553,23 @@ CONTAINS
        lmiss, missval, info, p4, verbose)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
-    CHARACTER(len=*),   INTENT(in)           :: name                ! name of variable
-    REAL(dp),           POINTER              :: ptr(:,:)            ! reference to field
-    INTEGER,            INTENT(in)           :: grid_representation ! grid type used
+    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
+    REAL(dp),             POINTER              :: ptr(:,:)            ! reference to field
+    INTEGER,              INTENT(in)           :: grid_representation ! grid type used
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER,            INTENT(in), OPTIONAL :: ldims(2)            ! local dimensions
-    LOGICAL,            INTENT(in), OPTIONAL :: lpost               ! output flag
-    LOGICAL,            INTENT(in), OPTIONAL :: lrestart            ! restart flag
-    LOGICAL,            INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
-    TYPE(t_union_vals),      INTENT(in), OPTIONAL :: initval             ! value if var not available
-    LOGICAL,            INTENT(in), OPTIONAL :: laccu               ! accumulation flag
-    TYPE(t_union_vals),      INTENT(in), OPTIONAL :: resetval            ! reset value (after accumulation)
-    LOGICAL,            INTENT(in), OPTIONAL :: lmiss               ! missing value flag
-    TYPE(t_union_vals),      INTENT(in), OPTIONAL :: missval             ! missing value
+    INTEGER,              INTENT(in), OPTIONAL :: ldims(2)            ! local dimensions
+    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
+    TYPE(t_union_vals),   INTENT(in), OPTIONAL :: initval             ! value if var not available
+    LOGICAL,              INTENT(in), OPTIONAL :: laccu               ! accumulation flag
+    TYPE(t_union_vals),   INTENT(in), OPTIONAL :: resetval            ! reset value (after accumulation)
+    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
+    TYPE(t_union_vals),   INTENT(in), OPTIONAL :: missval             ! missing value
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    REAL(dp),           POINTER,    OPTIONAL :: p4(:,:,:,:)         ! provided pointer
-    LOGICAL,            INTENT(in), OPTIONAL :: verbose             ! print information
+    REAL(dp),             POINTER,    OPTIONAL :: p4(:,:,:,:)         ! provided pointer
+    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     !
     TYPE(t_list_element), POINTER :: new_list_element
     INTEGER :: idims(4)
@@ -596,14 +597,16 @@ CONTAINS
          verbose=verbose)
     !
     IF (.NOT. referenced) THEN
+      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:2), ldims(1:2))
       idims(1) = new_list_element%field%info%used_dimensions(1)
       idims(2) = new_list_element%field%info%used_dimensions(2)
       idims(3) = 1
       idims(4) = 1
+      new_list_element%field%var_base_size = 8
       ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r2d',     &
-                   &'allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_r2d',      &
+                   &'allocation of array '//TRIM(name)//' failed')
       ENDIF
       NULLIFY(new_list_element%field%i_ptr)
       NULLIFY(new_list_element%field%l_ptr)
@@ -633,23 +636,23 @@ CONTAINS
        lmiss, missval, info, p4, verbose)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
-    CHARACTER(len=*),   INTENT(in)           :: name                ! name of variable
-    REAL(dp),           POINTER              :: ptr(:)              ! reference to field
-    INTEGER,            INTENT(in)           :: grid_representation ! grid type used
+    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
+    REAL(dp),             POINTER              :: ptr(:)              ! reference to field
+    INTEGER,              INTENT(in)           :: grid_representation ! grid type used
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER,            INTENT(in), OPTIONAL :: ldims(1)            ! local dimensions
-    LOGICAL,            INTENT(in), OPTIONAL :: lpost               ! output flag
-    LOGICAL,            INTENT(in), OPTIONAL :: lrestart            ! restart flag
-    LOGICAL,            INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
-    TYPE(t_union_vals),      INTENT(in), OPTIONAL :: initval             ! value if var not available
-    LOGICAL,            INTENT(in), OPTIONAL :: laccu               ! accumulation flag
-    TYPE(t_union_vals),      INTENT(in), OPTIONAL :: resetval            ! reset value (after accumulation)
-    LOGICAL,            INTENT(in), OPTIONAL :: lmiss               ! missing value flag
-    TYPE(t_union_vals),      INTENT(in), OPTIONAL :: missval             ! missing value
+    INTEGER,              INTENT(in), OPTIONAL :: ldims(1)            ! local dimensions
+    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
+    TYPE(t_union_vals),   INTENT(in), OPTIONAL :: initval             ! value if var not available
+    LOGICAL,              INTENT(in), OPTIONAL :: laccu               ! accumulation flag
+    TYPE(t_union_vals),   INTENT(in), OPTIONAL :: resetval            ! reset value (after accumulation)
+    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
+    TYPE(t_union_vals),   INTENT(in), OPTIONAL :: missval             ! missing value
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    REAL(dp),           POINTER,    OPTIONAL :: p4(:,:,:,:)         ! provided pointer
-    LOGICAL,            INTENT(in), OPTIONAL :: verbose             ! print information
+    REAL(dp),             POINTER,    OPTIONAL :: p4(:,:,:,:)         ! provided pointer
+    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     !
     TYPE(t_list_element), POINTER :: new_list_element
     INTEGER :: idims(4)
@@ -677,14 +680,16 @@ CONTAINS
          verbose=verbose)
     !
     IF (.NOT. referenced) THEN
+      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:1), ldims(1:1))
       idims(1) = new_list_element%field%info%used_dimensions(1)
       idims(2) = 1
       idims(3) = 1
       idims(4) = 1
+      new_list_element%field%var_base_size = 8
       ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r1d',     &
-                   &'allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_r1d',      &
+                   &'allocation of array '//TRIM(name)//' failed')
       ENDIF
       NULLIFY(new_list_element%field%i_ptr)
       NULLIFY(new_list_element%field%l_ptr)
@@ -716,23 +721,23 @@ CONTAINS
        lmiss, missval, info, p4, verbose)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
-    CHARACTER(len=*),   INTENT(in)           :: name                ! name of variable
-    INTEGER,            POINTER              :: ptr(:,:,:,:)        ! reference to field
-    INTEGER,            INTENT(in)           :: grid_representation ! grid type used
+    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
+    INTEGER,              POINTER              :: ptr(:,:,:,:)        ! reference to field
+    INTEGER,              INTENT(in)           :: grid_representation ! grid type used
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER,            INTENT(in), OPTIONAL :: ldims(4)            ! local dimensions
-    LOGICAL,            INTENT(in), OPTIONAL :: lpost               ! output flag
-    LOGICAL,            INTENT(in), OPTIONAL :: lrestart            ! restart flag
-    LOGICAL,            INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
+    INTEGER,              INTENT(in), OPTIONAL :: ldims(4)            ! local dimensions
+    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     TYPE(t_union_vals),   INTENT(in), OPTIONAL :: initval             ! value if var not available
-    LOGICAL,            INTENT(in), OPTIONAL :: laccu               ! accumulation flag
+    LOGICAL,              INTENT(in), OPTIONAL :: laccu               ! accumulation flag
     TYPE(t_union_vals),   INTENT(in), OPTIONAL :: resetval            ! reset value (after accumulation)
-    LOGICAL,            INTENT(in), OPTIONAL :: lmiss               ! missing value flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     TYPE(t_union_vals),   INTENT(in), OPTIONAL :: missval             ! missing value
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    INTEGER,            POINTER,    OPTIONAL :: p4(:,:,:,:)         ! provided pointer
-    LOGICAL,            INTENT(in), OPTIONAL :: verbose             ! print information
+    INTEGER,              POINTER,    OPTIONAL :: p4(:,:,:,:)         ! provided pointer
+    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     !
     TYPE(t_list_element), POINTER :: new_list_element
     INTEGER :: idims(4)
@@ -760,14 +765,16 @@ CONTAINS
          verbose=verbose)
     !
     IF (.NOT. referenced) THEN
+      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
       idims(1) = new_list_element%field%info%used_dimensions(1)
       idims(2) = new_list_element%field%info%used_dimensions(2)
       idims(3) = new_list_element%field%info%used_dimensions(3)
       idims(4) = new_list_element%field%info%used_dimensions(4)
+      new_list_element%field%var_base_size = 4
       ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_i4d',     &
-                   &'allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_i4d',      &
+                   &'allocation of array '//TRIM(name)//' failed')
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%l_ptr)
@@ -797,23 +804,23 @@ CONTAINS
        lmiss, missval, info, p4, verbose)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
-    CHARACTER(len=*),   INTENT(in)           :: name                ! name of variable
-    INTEGER,            POINTER              :: ptr(:,:,:)          ! reference to field
-    INTEGER,            INTENT(in)           :: grid_representation ! grid type used
+    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
+    INTEGER,              POINTER              :: ptr(:,:,:)          ! reference to field
+    INTEGER,              INTENT(in)           :: grid_representation ! grid type used
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER,            INTENT(in), OPTIONAL :: ldims(3)            ! local dimensions
-    LOGICAL,            INTENT(in), OPTIONAL :: lpost               ! output flag
-    LOGICAL,            INTENT(in), OPTIONAL :: lrestart            ! restart flag
-    LOGICAL,            INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
+    INTEGER,              INTENT(in), OPTIONAL :: ldims(3)            ! local dimensions
+    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     TYPE(t_union_vals),   INTENT(in), OPTIONAL :: initval             ! value if var not available
-    LOGICAL,            INTENT(in), OPTIONAL :: laccu               ! accumulation flag
+    LOGICAL,              INTENT(in), OPTIONAL :: laccu               ! accumulation flag
     TYPE(t_union_vals),   INTENT(in), OPTIONAL :: resetval            ! reset value (after accumulation)
-    LOGICAL,            INTENT(in), OPTIONAL :: lmiss               ! missing value flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     TYPE(t_union_vals),   INTENT(in), OPTIONAL :: missval             ! missing value
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    INTEGER,            POINTER,    OPTIONAL :: p4(:,:,:,:)         ! provided pointer
-    LOGICAL,            INTENT(in), OPTIONAL :: verbose             ! print information
+    INTEGER,              POINTER,    OPTIONAL :: p4(:,:,:,:)         ! provided pointer
+    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     !
     TYPE(t_list_element), POINTER :: new_list_element
     INTEGER :: idims(4)
@@ -841,19 +848,20 @@ CONTAINS
          verbose=verbose)
     !
     IF (.NOT. referenced) THEN
+      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:3), ldims(1:3))
       idims(1) = new_list_element%field%info%used_dimensions(1)
       idims(2) = new_list_element%field%info%used_dimensions(2)
       idims(3) = new_list_element%field%info%used_dimensions(3)
       idims(4) = 1
+      new_list_element%field%var_base_size = 4
       ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r3d',     &
-                   &'allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_r3d',      &
+                   &'allocation of array '//TRIM(name)//' failed')
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%l_ptr)
-      this_list%memory_used =  this_list%memory_used              &
-                            & +4*SIZE(new_list_element%field%i_ptr)
+      this_list%memory_used = this_list%memory_used+4*SIZE(new_list_element%field%i_ptr)
     ELSE
       new_list_element%field%i_ptr => p4
     ENDIF
@@ -923,14 +931,16 @@ CONTAINS
          verbose=verbose)
     !
     IF (.NOT. referenced) THEN
+      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:2), ldims(1:2))
       idims(1) = new_list_element%field%info%used_dimensions(1)
       idims(2) = new_list_element%field%info%used_dimensions(2)
       idims(3) = 1
       idims(4) = 1
+      new_list_element%field%var_base_size = 4
       ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r2d',     &
-                   &'allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_r2d',      &
+                   &'allocation of array '//TRIM(name)//' failed')
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%l_ptr)
@@ -1004,14 +1014,16 @@ CONTAINS
          verbose=verbose)
     !
     IF (.NOT. referenced) THEN
+      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:1), ldims(1:1))
       idims(1) = new_list_element%field%info%used_dimensions(1)
       idims(2) = 1
       idims(3) = 1
       idims(4) = 1
+      new_list_element%field%var_base_size = 4
       ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r1d',     &
-                   &'allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_r1d',      &
+                   &'allocation of array '//TRIM(name)//' failed')
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%l_ptr)
@@ -1087,14 +1099,16 @@ CONTAINS
          verbose=verbose)
     !
     IF (.NOT. referenced) THEN
+      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
       idims(1) = new_list_element%field%info%used_dimensions(1)
       idims(2) = new_list_element%field%info%used_dimensions(2)
       idims(3) = new_list_element%field%info%used_dimensions(3)
       idims(4) = new_list_element%field%info%used_dimensions(4)
+      new_list_element%field%var_base_size = 4
       ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r4d',     &
-                   &'allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_r4d',      &
+                   &'allocation of array '//TRIM(name)//' failed')
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%i_ptr)      
@@ -1168,14 +1182,16 @@ CONTAINS
          verbose=verbose)
     !
     IF (.NOT. referenced) THEN
+      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:3), ldims(1:3))
       idims(1) = new_list_element%field%info%used_dimensions(1)
       idims(2) = new_list_element%field%info%used_dimensions(2)
       idims(3) = new_list_element%field%info%used_dimensions(3)
       idims(4) = 1
+      new_list_element%field%var_base_size = 4
       ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r3d',     &
-                   &'allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_r3d',      &
+                   &'allocation of array '//TRIM(name)//' failed')
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%i_ptr)      
@@ -1249,14 +1265,16 @@ CONTAINS
          verbose=verbose)
     !
     IF (.NOT. referenced) THEN
+      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:2), ldims(1:2))
       idims(1) = new_list_element%field%info%used_dimensions(1)
       idims(2) = new_list_element%field%info%used_dimensions(2)
       idims(3) = 1
       idims(4) = 1
+      new_list_element%field%var_base_size = 4
       ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r2d',     &
-                   &'allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_r2d',      &
+                   &'allocation of array '//TRIM(name)//' failed')
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%i_ptr)      
@@ -1330,14 +1348,16 @@ CONTAINS
          verbose=verbose)
     !
     IF (.NOT. referenced) THEN
+      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:1), ldims(1:1))
       idims(1) = new_list_element%field%info%used_dimensions(1)
       idims(2) = 1
       idims(3) = 1
       idims(4) = 1
+      new_list_element%field%var_base_size = 4
       ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r1d',     &
-                   &'allocation of array '//TRIM(name)//'failed')
+        CALL finish('mo_var_list:add_var_list_element_r1d',      &
+                   &'allocation of array '//TRIM(name)//' failed')
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%i_ptr)      
@@ -1362,10 +1382,11 @@ CONTAINS
   ! the element is identified by its name
   !
   SUBROUTINE remove_var_list_element (this_list, name)
-    TYPE(t_var_list),   INTENT(inout) :: this_list
+    TYPE(t_var_list), INTENT(inout) :: this_list
     CHARACTER(len=*), INTENT(in)    :: name   
+    !
     TYPE(t_list_element), POINTER :: ptr
-
+    !
     IF (this_list%first_list_element%field%info%name == name) THEN
       CALL remove_list_element (this_list, this_list%first_list_element)
       RETURN
@@ -1384,85 +1405,212 @@ CONTAINS
   END SUBROUTINE remove_var_list_element
   !------------------------------------------------------------------------------------------------
   !
-  ! Get element of a list, specific routines for pointers of different rank
+  ! Get element of a list
+  !
+  ! Specific routines for pointers of different rank
+  !
+  !================================================================================================ 
+  ! REAL SECTION ----------------------------------------------------------------------------------
   !
   ! obtain pointer to 4d-field
   !
   SUBROUTINE get_var_list_element_r4d (this_list, name, ptr)
-    TYPE(t_var_list),   INTENT(in) :: this_list ! list
+    TYPE(t_var_list), INTENT(in) :: this_list    ! list
     CHARACTER(len=*), INTENT(in) :: name         ! name of variable
     REAL(dp),         POINTER    :: ptr(:,:,:,:) ! reference to allocated field
-
+    !
     TYPE(t_list_element), POINTER :: element
-
+    !
     element => find_list_element (this_list, name)
     NULLIFY (ptr)
     IF (ASSOCIATED (element)) ptr => element%field%r_ptr
-    
+    !
   END SUBROUTINE get_var_list_element_r4d
   !------------------------------------------------------------------------------------------------
   !
   ! obtain pointer to 3d-field
   !
   SUBROUTINE get_var_list_element_r3d (this_list, name, ptr)
-
-    TYPE(t_var_list) ,INTENT(in) :: this_list       ! list
-    CHARACTER (*)   ,INTENT(in) :: name         ! name of variable
-    REAL(dp)        ,POINTER    :: ptr(:,:,:)   ! reference to allocated field
-
+    TYPE(t_var_list), INTENT(in) :: this_list    ! list
+    CHARACTER(len=*), INTENT(in) :: name         ! name of variable
+    REAL(dp),         POINTER    :: ptr(:,:,:)   ! reference to allocated field
+    !
     TYPE(t_list_element), POINTER :: element
     element => find_list_element (this_list, name)
     NULLIFY (ptr)
     IF (ASSOCIATED (element)) ptr => element%field%r_ptr(:,:,:,1)
-
+    !
   END SUBROUTINE get_var_list_element_r3d
   !------------------------------------------------------------------------------------------------
   !
   ! obtain pointer to 2d-field
   !
   SUBROUTINE get_var_list_element_r2d (this_list, name, ptr)
-
-    TYPE(t_var_list)   ,INTENT(in) :: this_list     ! list
-    CHARACTER (*)     ,INTENT(in) :: name       ! name of variable
-    REAL(dp)          ,POINTER    :: ptr(:,:)   ! reference to allocated field
-
+    TYPE(t_var_list), INTENT(in) :: this_list  ! list
+    CHARACTER(len=*), INTENT(in) :: name       ! name of variable
+    REAL(dp),         POINTER    :: ptr(:,:)   ! reference to allocated field
+    !
     TYPE(t_list_element), POINTER :: element
-
+    !
     element => find_list_element (this_list, name)
     NULLIFY (ptr)
     IF (ASSOCIATED (element)) ptr => element%field%r_ptr(:,:,1,1)
-
+    !
   END SUBROUTINE get_var_list_element_r2d
   !------------------------------------------------------------------------------------------------
   !
   ! obtain pointer to 1d-field
   !
   SUBROUTINE get_var_list_element_r1d (this_list, name, ptr)
-
-    TYPE(t_var_list) ,INTENT(in) :: this_list    ! list
-    CHARACTER (*)   ,INTENT(in) :: name      ! name of variable
-    REAL(dp)        ,POINTER    :: ptr(:)    ! reference to allocated field
-
+    TYPE(t_var_list), INTENT(in) :: this_list ! list
+    CHARACTER(len=*), INTENT(in) :: name      ! name of variable
+    REAL(dp),         POINTER    :: ptr(:)    ! reference to allocated field
+    !
     TYPE(t_list_element), POINTER :: element
     element => find_list_element (this_list, name)
     NULLIFY (ptr)
     IF (ASSOCIATED (element)) ptr => element%field%r_ptr(:,1,1,1)
-
+    !
   END SUBROUTINE get_var_list_element_r1d
+  !================================================================================================ 
+  ! INTEGER SECTION -------------------------------------------------------------------------------
+  !
+  ! obtain pointer to 4d-field
+  !
+  SUBROUTINE get_var_list_element_i4d (this_list, name, ptr)
+    TYPE(t_var_list), INTENT(in) :: this_list    ! list
+    CHARACTER(len=*), INTENT(in) :: name         ! name of variable
+    INTEGER,          POINTER    :: ptr(:,:,:,:) ! reference to allocated field
+    !
+    TYPE(t_list_element), POINTER :: element
+    !
+    element => find_list_element (this_list, name)
+    NULLIFY (ptr)
+    IF (ASSOCIATED (element)) ptr => element%field%i_ptr
+    !
+  END SUBROUTINE get_var_list_element_i4d
+  !------------------------------------------------------------------------------------------------
+  !
+  ! obtain pointer to 3d-field
+  !
+  SUBROUTINE get_var_list_element_i3d (this_list, name, ptr)
+    TYPE(t_var_list), INTENT(in) :: this_list    ! list
+    CHARACTER(len=*), INTENT(in) :: name         ! name of variable
+    INTEGER,          POINTER    :: ptr(:,:,:)   ! reference to allocated field
+    !
+    TYPE(t_list_element), POINTER :: element
+    element => find_list_element (this_list, name)
+    NULLIFY (ptr)
+    IF (ASSOCIATED (element)) ptr => element%field%i_ptr(:,:,:,1)
+    !
+  END SUBROUTINE get_var_list_element_i3d
+  !------------------------------------------------------------------------------------------------
+  !
+  ! obtain pointer to 2d-field
+  !
+  SUBROUTINE get_var_list_element_i2d (this_list, name, ptr)
+    TYPE(t_var_list), INTENT(in) :: this_list  ! list
+    CHARACTER(len=*), INTENT(in) :: name       ! name of variable
+    INTEGER,          POINTER    :: ptr(:,:)   ! reference to allocated field
+    !
+    TYPE(t_list_element), POINTER :: element
+    !
+    element => find_list_element (this_list, name)
+    NULLIFY (ptr)
+    IF (ASSOCIATED (element)) ptr => element%field%i_ptr(:,:,1,1)
+    !
+  END SUBROUTINE get_var_list_element_i2d
+  !------------------------------------------------------------------------------------------------
+  !
+  ! obtain pointer to 1d-field
+  !
+  SUBROUTINE get_var_list_element_i1d (this_list, name, ptr)
+    TYPE(t_var_list), INTENT(in) :: this_list ! list
+    CHARACTER(len=*), INTENT(in) :: name      ! name of variable
+    INTEGER,          POINTER    :: ptr(:)    ! reference to allocated field
+    !
+    TYPE(t_list_element), POINTER :: element
+    element => find_list_element (this_list, name)
+    NULLIFY (ptr)
+    IF (ASSOCIATED (element)) ptr => element%field%i_ptr(:,1,1,1)
+    !
+  END SUBROUTINE get_var_list_element_i1d
+  !================================================================================================ 
+  ! LOGICAL SECTION -------------------------------------------------------------------------------
+  !
+  ! obtain pointer to 4d-field
+  !
+  SUBROUTINE get_var_list_element_l4d (this_list, name, ptr)
+    TYPE(t_var_list), INTENT(in) :: this_list    ! list
+    CHARACTER(len=*), INTENT(in) :: name         ! name of variable
+    LOGICAL,          POINTER    :: ptr(:,:,:,:) ! reference to allocated field
+    !
+    TYPE(t_list_element), POINTER :: element
+    !
+    element => find_list_element (this_list, name)
+    NULLIFY (ptr)
+    IF (ASSOCIATED (element)) ptr => element%field%l_ptr
+    !
+  END SUBROUTINE get_var_list_element_l4d
+  !------------------------------------------------------------------------------------------------
+  !
+  ! obtain pointer to 3d-field
+  !
+  SUBROUTINE get_var_list_element_l3d (this_list, name, ptr)
+    TYPE(t_var_list), INTENT(in) :: this_list    ! list
+    CHARACTER(len=*), INTENT(in) :: name         ! name of variable
+    LOGICAL,          POINTER    :: ptr(:,:,:)   ! reference to allocated field
+    !
+    TYPE(t_list_element), POINTER :: element
+    element => find_list_element (this_list, name)
+    NULLIFY (ptr)
+    IF (ASSOCIATED (element)) ptr => element%field%l_ptr(:,:,:,1)
+    !
+  END SUBROUTINE get_var_list_element_l3d
+  !------------------------------------------------------------------------------------------------
+  !
+  ! obtain pointer to 2d-field
+  !
+  SUBROUTINE get_var_list_element_l2d (this_list, name, ptr)
+    TYPE(t_var_list), INTENT(in) :: this_list  ! list
+    CHARACTER(len=*), INTENT(in) :: name       ! name of variable
+    LOGICAL,          POINTER    :: ptr(:,:)   ! reference to allocated field
+    !
+    TYPE(t_list_element), POINTER :: element
+    !
+    element => find_list_element (this_list, name)
+    NULLIFY (ptr)
+    IF (ASSOCIATED (element)) ptr => element%field%l_ptr(:,:,1,1)
+    !
+  END SUBROUTINE get_var_list_element_l2d
+  !------------------------------------------------------------------------------------------------
+  !
+  ! obtain pointer to 1d-field
+  !
+  SUBROUTINE get_var_list_element_l1d (this_list, name, ptr)
+    TYPE(t_var_list), INTENT(in) :: this_list ! list
+    CHARACTER(len=*), INTENT(in) :: name      ! name of variable
+    LOGICAL,          POINTER    :: ptr(:)    ! reference to allocated field
+    !
+    TYPE(t_list_element), POINTER :: element
+    element => find_list_element (this_list, name)
+    NULLIFY (ptr)
+    IF (ASSOCIATED (element)) ptr => element%field%l_ptr(:,1,1,1)
+    !
+  END SUBROUTINE get_var_list_element_l1d
   !------------------------------------------------------------------------------------------------
   !
   ! Print routines for control output and debuggung
   !
   SUBROUTINE print_memory_use (this_list)
-
     TYPE(t_var_list) ,INTENT(in) :: this_list ! list
-
+    !
     WRITE (message_text,'(a16,a,a,i10,a,i4,a)')                 &
          TRIM(this_list%name), '-buffer: ',                        &
          'Memory in use: ', this_list%memory_used/1024, ' kb in ', &
          this_list%list_elements, ' fields.'
     CALL message('',message_text)
-
+    !
   END SUBROUTINE print_memory_use
   !------------------------------------------------------------------------------------------------
   !
@@ -1476,7 +1624,7 @@ CONTAINS
     CALL message('','Status of base memory:')    
     CALL message('','')
     !
-!LK    CALL print_linked_list (this_list)
+    !LK    CALL print_linked_list (this_list)
     !    
   END SUBROUTINE print_memory_table
   !------------------------------------------------------------------------------------------------
@@ -1485,6 +1633,7 @@ CONTAINS
   !
   SUBROUTINE print_sinfo (this_list)
     TYPE(t_var_list),  INTENT(in) :: this_list
+    !
     WRITE (message_text,'(a16,a)') TRIM(this_list%name), '-buffer: '
     CALL message('',message_text)
     CALL message('','')    
@@ -1492,7 +1641,7 @@ CONTAINS
     CALL message('','Statistic of base memory:')
     CALL message('','')
     !
-!LK    CALL print_sinfo_list (this_list)
+    !LK    CALL print_sinfo_list (this_list)
     !
   END SUBROUTINE print_sinfo
   !------------------------------------------------------------------------------------------------

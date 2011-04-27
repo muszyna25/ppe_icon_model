@@ -155,15 +155,15 @@ CONTAINS
       IF (this%field%info%allocated) THEN
         IF (ASSOCIATED(this%field%r_ptr)) THEN
           this_list%memory_used = this_list%memory_used &
-&              -this%field%var_base_size*SIZE(this%field%r_ptr)
+               &                 -this%field%var_base_size*SIZE(this%field%r_ptr)
           DEALLOCATE (this%field%r_ptr)
         ELSE IF (ASSOCIATED(this%field%i_ptr)) THEN
           this_list%memory_used = this_list%memory_used &
-&              -this%field%var_base_size*SIZE(this%field%i_ptr)
+               &                 -this%field%var_base_size*SIZE(this%field%i_ptr)
           DEALLOCATE (this%field%i_ptr)
         ELSE IF (ASSOCIATED(this%field%l_ptr)) THEN
           this_list%memory_used = this_list%memory_used &
-&              -this%field%var_base_size*SIZE(this%field%l_ptr)
+               &                 -this%field%var_base_size*SIZE(this%field%l_ptr)
           DEALLOCATE (this%field%l_ptr)
         ENDIF
         this%field%info%allocated = .FALSE.
@@ -190,15 +190,15 @@ CONTAINS
     IF (this%field%info%allocated) THEN
       IF (ASSOCIATED(this%field%r_ptr)) THEN
         this_list%memory_used = this_list%memory_used &
-&             -this%field%var_base_size*SIZE(this%field%r_ptr)
+             &                 -this%field%var_base_size*SIZE(this%field%r_ptr)
         DEALLOCATE (this%field%r_ptr)
       ELSE IF (ASSOCIATED(this%field%i_ptr)) THEN
         this_list%memory_used = this_list%memory_used &
-&             -this%field%var_base_size*SIZE(this%field%i_ptr)
+             &                 -this%field%var_base_size*SIZE(this%field%i_ptr)
         DEALLOCATE (this%field%i_ptr)
       ELSE IF (ASSOCIATED(this%field%l_ptr)) THEN
         this_list%memory_used = this_list%memory_used &
-&             -this%field%var_base_size*SIZE(this%field%l_ptr)
+             &                 -this%field%var_base_size*SIZE(this%field%l_ptr)
         DEALLOCATE (this%field%l_ptr)
       ENDIF
       this%field%info%allocated = .FALSE.
@@ -275,8 +275,8 @@ CONTAINS
     ELSE
       current_list_element => this_list%first_list_element
       DO WHILE ((ASSOCIATED(current_list_element)) &
-&          .AND. (.NOT. ASSOCIATED(current_list_element%next_list_element, &
-&          delete_this_list_element)))
+           &           .AND. (.NOT. ASSOCIATED(current_list_element%next_list_element, &
+           &           delete_this_list_element)))
         current_list_element => current_list_element%next_list_element
       ENDDO
       IF (.NOT. ASSOCIATED(current_list_element)) THEN
@@ -284,24 +284,24 @@ CONTAINS
         RETURN
       ENDIF
       current_list_element%next_list_element &
-&          => current_list_element%next_list_element%next_list_element
+           &          => current_list_element%next_list_element%next_list_element
     ENDIF
     !
     IF (delete_this_list_element%field%info%allocated) THEN
       IF (ASSOCIATED(delete_this_list_element%field%r_ptr)) THEN
         this_list%memory_used = this_list%memory_used        &
-&             -delete_this_list_element%field%var_base_size &
-&             *SIZE(delete_this_list_element%field%r_ptr)
+             &             -delete_this_list_element%field%var_base_size &
+             &             *SIZE(delete_this_list_element%field%r_ptr)
         DEALLOCATE (delete_this_list_element%field%r_ptr)
       ELSE IF (ASSOCIATED(delete_this_list_element%field%i_ptr)) THEN
         this_list%memory_used = this_list%memory_used        &
-&             -delete_this_list_element%field%var_base_size &
-&             *SIZE(delete_this_list_element%field%i_ptr)
+             &             -delete_this_list_element%field%var_base_size &
+             &             *SIZE(delete_this_list_element%field%i_ptr)
         DEALLOCATE (delete_this_list_element%field%i_ptr)
       ELSE IF (ASSOCIATED(delete_this_list_element%field%l_ptr)) THEN
         this_list%memory_used = this_list%memory_used &
-&             -delete_this_list_element%field%var_base_size &
-&             *SIZE(delete_this_list_element%field%l_ptr)
+             &             -delete_this_list_element%field%var_base_size &
+             &             *SIZE(delete_this_list_element%field%l_ptr)
         DEALLOCATE (delete_this_list_element%field%l_ptr)
       ENDIF
       delete_this_list_element%field%info%allocated = .FALSE.
