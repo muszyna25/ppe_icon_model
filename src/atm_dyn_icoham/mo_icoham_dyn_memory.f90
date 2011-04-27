@@ -11,6 +11,8 @@
 !! This module is the substitute and extended version of the old
 !! "mo_hydro_state".
 !!
+!! This module has been changed for new memory allocation infrastructure (29-04-2012)
+!!
 !! @par Copyright
 !! 2002-2010 by DWD and MPI-M
 !! This software is provided for non-commercial use only.
@@ -488,38 +490,38 @@ CONTAINS
     shape4d_c  = (/kproma, klevp1, kblks_c, ktracer /)
 
     cf_desc    = t_cf_var('geopotential_half', 'm s-1', 'geopotential at half level')
-    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID_HALF)
     CALL add_var( field_list, 'geo_ic', field%geo_ic,                              &
                 & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('vert_vel_half', 'Pa s-1', 'pressure vertical velocity at half level')
-    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID_HALF)
     CALL add_var( field_list, 'wpres_ic', field%wpres_ic,                              &
                 & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('eta_vert_vel', 'Pa s-1', 'eta vertical velocity times dp_deta')
-    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID_HALF)
     CALL add_var( field_list, 'weta', field%weta,                              &
                 & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('pressure_half', 'Pa', 'pressure at half level')
-    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID_HALF)
     CALL add_var( field_list, 'pres_ic', field%pres_ic,                              &
                 & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('pressure_half_new', 'Pa', 'pressure at half level at next time step')
-    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID_HALF)
     CALL add_var( field_list, 'pres_ic_new', field%pres_ic_new,                              &
                 & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('log_pressure', '', 'log of pressure at cell center')
-    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID_HALF)
     CALL add_var( field_list, 'lnp_ic', field%lnp_ic,                              &
                 & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
 
     IF (ntracer > 0) THEN
       cf_desc    = t_cf_var('vert_tracer_flux', 'kg m-1 s-1 ', 'horizontal tracer flux at cell')
-      grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+      grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID_HALF)
       CALL add_var( field_list, 'vfl_tracer', field%vfl_tracer,                        &
                   & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape4d_c )
     END IF
