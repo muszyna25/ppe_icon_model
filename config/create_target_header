@@ -37,8 +37,9 @@ cat >> $output_script << EOF
 # target use_compiler is $use_compiler
 # with mpi=$use_mpi
 # with openmp=$use_openmp
+# memory_model=$use_memory_model
 # submit with $use_submit
-#
+# 
 #=============================================================================
 set -x
 #-----------------------------------------------------------------------------
@@ -188,6 +189,15 @@ set_run_target_blizzard()
         ;;
       "large" )
         set_default total_memory 8000
+        ;;
+      "medium" )
+        set_default total_memory 4000
+        ;;
+      "small" )
+        set_default total_memory 2000
+        ;;
+      "verysmall" )
+        set_default total_memory 1000
         ;;
       * )
         set_default total_memory 4000

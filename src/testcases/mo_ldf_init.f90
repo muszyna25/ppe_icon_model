@@ -380,40 +380,6 @@ CONTAINS
 
                  ctracer = ctracer_list(jt:jt)
 
-                 SELECT CASE(ctracer)
-
-                 CASE('1')
-
-                    DO jc = 1, nlen
-                       lat = pt_patch%cells%center(jc,jb)%lat
-                       lon = pt_patch%cells%center(jc,jb)%lon
-                       pt_hydro_prog%tracer(jc,jk,jb,jt) =  &
-                         tracer_q1_q2(lon, lat, zeta, p_rotate_axis_deg, 0.6_wp)
-                    ENDDO ! cell loop
-
-                 CASE('2')
-
-                    DO jc =1, nlen
-                       lat = pt_patch%cells%center(jc,jb)%lat
-                       lon = pt_patch%cells%center(jc,jb)%lon
-                       pt_hydro_prog%tracer(jc,jk,jb,jt) =  &
-                         tracer_q1_q2(lon, lat, zeta, p_rotate_axis_deg, 1.0_wp)
-                    ENDDO ! cell loop
-
-                 CASE('3')
-
-                    DO jc =1, nlen
-                       lat = pt_patch%cells%center(jc,jb)%lat
-                       lon = pt_patch%cells%center(jc,jb)%lon
-                       pt_hydro_prog%tracer(jc,jk,jb,jt) =  &
-                         tracer_q3(lon, lat, p_rotate_axis_deg)
-                    ENDDO ! cell loop
-
-                 CASE('4')
-                    pt_hydro_prog%tracer(:,jk,jb,jt) = 1._wp
-
-                 END SELECT
-
                  IF (iforcing==ildf_echam) THEN
                    IF(jt == iqv ) THEN
 
@@ -424,7 +390,6 @@ CONTAINS
                               & +pt_hydro_diag%pres_mc(jc,jk,jb)/200000._wp
                          zrhf = MAX(0._wp,zrhf)
                        ELSE
-                        !IF( pt_hydro_diag%pres_mc(jc,jk,jb) <= 50000._wp) zrhf = 0.2_wp
                          IF( pt_hydro_diag%pres_mc(jc,jk,jb) <= 70000._wp) zrhf = 0.55_wp
                          IF( pt_hydro_diag%pres_mc(jc,jk,jb) >  70000._wp) zrhf = 0.9_wp
                        ENDIF
@@ -443,14 +408,10 @@ CONTAINS
                            pt_hydro_prog%tracer(jc,jk,jb,jt) &
                            & = MIN ( 5.e-6_wp, pt_hydro_prog%tracer(jc,jk,jb,jt) )
                      END DO
-!                    flev= FLOAT(nlev)
-!                    flev2 = flev*flev
-!                    fheight=(flev-(jk-1))**1.5
-!                    pt_hydro_prog%tracer(:,jk,jb,jt) = 3.e-3_wp*EXP(-fheight/flev)
 !
                      IF(jb == 1) THEN
                        WRITE(message_text,'(a,i4,f15.4,f15.10,f10.5)') &
-                         & 'jwtest: qv',jk,                            &
+                         & 'LDF-Moist-test: qv',jk,                            &
                          & pt_hydro_diag%pres_mc(nlen,jk,jb)*0.01_wp,  &
                          & pt_hydro_prog%tracer(nlen,jk,jb,jt),        &
                          & pt_hydro_prog%temp(nlen,jk,jb)

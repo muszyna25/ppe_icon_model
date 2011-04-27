@@ -84,6 +84,8 @@ do
       $make_runscript in_folder=$input_folder in_script=${filename} in_script_2=exec.iconrun EXPNAME=${name} mpi_procs=1  cpu_time="08:00:00"
     elif [[ ${name} == *_nwp_* ]] ; then
       $make_runscript in_folder=$input_folder in_script=${filename} in_script_2=exec.iconrun EXPNAME=${filename#*.}  cpu_time="04:00:00" memory_model="verylarge"
+    elif [[ ${name} == *_nah_jww* ]] ||  [[ ${name} == *_nh35_tri_jws* ]] ; then
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script_2=exec.iconrun EXPNAME=${filename#*.}  cpu_time="04:00:00" memory_model="verysmall"
     else
       $make_runscript in_folder=$input_folder in_script=${filename} in_script_2=exec.iconrun EXPNAME=${filename#*.}  cpu_time="04:00:00"
     fi

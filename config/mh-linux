@@ -133,8 +133,8 @@ case "$fortran_compiler" in
         CFLAGS      = -DsunFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -C
         FC          = sunf95
         F77         = sunf95
-        FFLAGS      = -O3 -fpp -fstore -fnonstd  -C -g -u -xcommonchk -DUSE_CRAY_POINTER=0 -D__LOOP_EXCHANGE
-        F77FLAGS    = -O3 -fpp -fstore -fnonstd
+        FFLAGS      = -O3 -fpp -fstore -fnonstd  -C -g -u -DNOMPI -xcommonchk -DUSE_CRAY_POINTER=0 -D__LOOP_EXCHANGE
+        F77FLAGS    = -O3 -fpp -fstore -fnonstd -DNOMPI
 	OMPFLAG     = -xopenmp
         DEFOPT      = -D
         DEFCOPT     = -D

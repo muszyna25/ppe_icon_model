@@ -281,14 +281,12 @@ CONTAINS
     CHARACTER(LEN=1)  :: ctracer
     CHARACTER(LEN=1)  :: anextra ! number of debug fields
     CHARACTER(len=NF_MAX_NAME) :: long_name, units
-    INTEGER :: i, jt, it
+    INTEGER :: i, jt
     INTEGER :: ivar
     INTEGER :: gridid, zaxisid
     INTEGER :: elemid, tableid
 
-    CHARACTER(len=NF_MAX_NAME) :: att_name, att_txt
-    INTEGER                    :: att_int
-    REAL(wp)                   :: att_flt
+    CHARACTER(len=NF_MAX_NAME) :: att_txt
     INTEGER                    :: astatus
 
     !=========================================================================
@@ -646,22 +644,22 @@ CONTAINS
     ! -----------------------------
     IF (ltransport) THEN
        CALL addGlobAttInt('transport_ctl:ihadv_tracer',       &
-               &          ihadv_tracer(max_ntracer),vlistID(k_jg),astatus)
+         &                ihadv_tracer(max_ntracer),vlistID(k_jg),astatus)
        CALL addGlobAttInt('transport_ctl:ivadv_tracer',       &
-               &          ivadv_tracer(max_ntracer),vlistID(k_jg),astatus)
+         &                ivadv_tracer(max_ntracer),vlistID(k_jg),astatus)
        CALL addGlobAttTxtFromLog('transport_ctl:lvadv_tracer',&
-               &          lvadv_tracer,vlistID(k_jg),astatus)
+         &                lvadv_tracer,vlistID(k_jg),astatus)
        CALL addGlobAttTxtFromLog('transport_ctl:lstrang',     &
-               &          lstrang,vlistID(k_jg),astatus)
+         &                lstrang,vlistID(k_jg),astatus)
        CALL addGlobAttInt('transport_ctl:itype_vlimit',       &
-               &          itype_vlimit(max_ntracer),vlistID(k_jg),astatus)
+         &                itype_vlimit(max_ntracer),vlistID(k_jg),astatus)
        CALL addGlobAttInt('transport_ctl:itype_hlimit',       &
-               &          itype_hlimit(max_ntracer),vlistID(k_jg),astatus)
+         &                itype_hlimit(max_ntracer),vlistID(k_jg),astatus)
        CALL addGlobAttInt('transport_ctl:iord_backtraj',iord_backtraj,vlistID(k_jg),astatus)
        CALL addGlobAttInt('transport_ctl:igrad_c_miura',igrad_c_miura,vlistID(k_jg),astatus)
        CALL addGlobAttTxtFromLog('transport_ctl:lclip_tracer',lclip_tracer,vlistID(k_jg),astatus)
-       CALL addGlobAttInt('transport_ctl:iadv_slev',iadv_slev(max_dom,max_ntracer),&
-       &                  vlistID(k_jg),astatus)
+       CALL addGlobAttInt('transport_ctl:iadv_slev',iadv_slev(k_jg,max_ntracer), &
+         &                vlistID(k_jg),astatus)
        CALL addGlobAttFlt('transport_ctl:upstr_beta_adv',upstr_beta_adv,vlistID(k_jg),astatus)
     END IF
     !
@@ -1576,9 +1574,6 @@ CONTAINS
     CHARACTER(len=NF_MAX_NAME) :: long_name, units
     INTEGER :: il, ivar
 
-    CHARACTER(len=NF_MAX_NAME) :: att_name, att_txt
-    INTEGER                    :: att_int
-    REAL(wp)                   :: att_flt
     INTEGER                    :: astatus
 
     CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_outp_oce:setup_vlist_oce'
@@ -2383,7 +2378,7 @@ CONTAINS
       CASE ('RHO');             ptr3 => p_prog%rho
       CASE ('TKE')
         IF (inwp_turb.EQ.1) THEN
-                                ptr3 => dup3(0.5*SQRT(p_prog%tke(:,:,:))); delete = .TRUE.
+                                ptr3 => dup3(0.5_wp*SQRT(p_prog%tke(:,:,:))); delete = .TRUE.
            ELSE
                                 ptr3 => p_prog%tke
            ENDIF
@@ -2467,10 +2462,10 @@ CONTAINS
     INTEGER, INTENT(IN) :: jg
     LOGICAL, INTENT(OUT) :: reset, delete
 
-    INTEGER :: jt
+    ! INTEGER :: jt
     LOGICAL :: not_found
-    CHARACTER(LEN=1) :: ctracer
-    CHARACTER(LEN=1) :: anextra
+    ! CHARACTER(LEN=1) :: ctracer
+    ! CHARACTER(LEN=1) :: anextra
 
     REAL(wp), POINTER :: ptr2d(:,:)
     REAL(wp), POINTER :: ptr3d(:,:,:)
