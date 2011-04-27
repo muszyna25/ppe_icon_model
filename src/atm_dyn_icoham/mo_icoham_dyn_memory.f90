@@ -42,12 +42,21 @@
 MODULE mo_icoham_dyn_memory
 
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: SUCCESS
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
   USE mo_exception,           ONLY: message,finish
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm, t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_model_domain,        ONLY: t_patch
   USE mo_run_nml,             ONLY: ltheta_dyn
   USE mo_run_nml,             ONLY: nlev, nlevp1, ntracer, nproma
+  USE mo_linked_list,         ONLY: t_var_list
+  USE mo_var_list,            ONLY: default_var_list_settings, &
+                                  & add_var,                   &
+                                  & new_var_list,              &
+                                  & delete_var_list
+  USE mo_cf_convention
+  USE mo_grib2
+  USE mo_cdi_constants 
+
 
   IMPLICIT NONE
   PRIVATE
@@ -65,6 +74,16 @@ MODULE mo_icoham_dyn_memory
                                                            !< different grid levels
                                                            !< shape: (n_dom)
 
+  !!--------------------------------------------------------------------------
+  !!                          VARIABLE LISTS
+  !!--------------------------------------------------------------------------
+  TYPE(t_var_list), PUBLIC, POINTER :: hydro_prog_list(:,:)    !< shape: (n_dom,ntimelevel)
+  TYPE(t_var_list), PUBLIC, POINTER :: hydro_diag_list (:)     !< shape: (n_dom)
+  TYPE(t_var_list), PUBLIC, POINTER :: hydro_tend_dyn_list(:)  !< shape: (n_dom)
+  TYPE(t_var_list), PUBLIC, POINTER :: hydro_tend_phy_list (:) !< shape: (n_dom)
+  TYPE(t_var_list), PUBLIC, POINTER :: hydro_prog_out_list(:)  !< shape: (n_dom)
+  TYPE(t_var_list), PUBLIC, POINTER :: hydro_diag_out_list (:) !< shape: (n_dom)
+
 CONTAINS
 
   !!----------------------------------------------------------------------------
@@ -78,17 +97,32 @@ CONTAINS
     INTEGER,INTENT(IN)     :: ntimelevel
     TYPE(t_patch),INTENT(IN) :: p_patch (:)
 
-    INTEGER :: ndomain
-    INTEGER :: jg    !< grid level/domain index
-    INTEGER :: jt    !< time level index
-    INTEGER :: ist   !< system status code
-    !---
+    !local variables
+    CHARACTER(len=MAX_CHAR_LENGTH) :: listname
+    TYPE(t_var_list),POINTER :: listptr
+
+    INTEGER :: ndomain, jg, jt, ist, nblks_c, nblks_e, nblks_v, nlev
 
     CALL message(TRIM(thismodule),'Construction of 3D dynamics state vector started.')
 
     ndomain = SIZE(p_patch)
 
+    !allocate list array
+    ALLOCATE( hydro_prog_list(ndomain,ntimelevel), hydro_diag_list(ndomain), &
+      &       hydro_tend_dyn_list(ndomain), hydro_tend_phy_list(ndomain),    &
+      &       hydro_prog_out_list(ndomain), hydro_diag_out_list(ndomain), STAT=ist)
+    IF (ist/=SUCCESS) CALL finish(TRIM(thismodule), &
+      &'allocation of hydrostatic prog/diag list array failed')
+
+    ! Build a field list and a tendency list for each grid level.
+    ! This includes memory allocation. 
+
     DO jg = 1,ndomain
+
+      nblks_c = p_patch(jg)%nblks_c
+      nblks_e = p_patch(jg)%nblks_e
+      nblks_v = p_patch(jg)%nblks_v
+      nlev    = p_patch(jg)%nlev
 
       !----------------------------
       ! 1.  For time integration:
@@ -100,29 +134,51 @@ CONTAINS
       CALL finish(TRIM(thismodule),'allocation of prognostic state array failed')
 
       DO jt = 1,ntimelevel
-        CALL construct_hydro_state_prog( p_patch(jg), p_hydro_state(jg)%prog(jt) )
+        WRITE(listname,'(a,i2.2,a,i2.2)') 'hydro_prog_domain_',jg,'_at_timlev_',jt
+        listptr => hydro_prog_list(jg,jt)
+        CALL make_hydro_prog_list( nproma, nlev, nblks_c, nblks_e, nblks_v, ntracer, &
+             &         TRIM(listname), listptr, p_hydro_state(jg)%prog(jt) )
       END DO
 
       ! 1.2 Diagnostic variables
-      CALL construct_hydro_state_diag( p_patch(jg), p_hydro_state(jg)%diag )
+      WRITE(listname,'(a,i2.2)') 'hydro_diag_of_domain_',jg
+      listptr => hydro_diag_list(jg)
+      CALL make_hydro_diag_list( nproma, nlev, nblks_c, nblks_e, nblks_v, ntracer,  &
+           &          TRIM(listname), listptr, p_hydro_state(jg)%diag )
 
       ! 1.3 Tendencies
-      CALL construct_hydro_state_prog( p_patch(jg), p_hydro_state(jg)%tend_dyn )
-      CALL construct_hydro_state_prog( p_patch(jg), p_hydro_state(jg)%tend_phy )
+      WRITE(listname,'(a,i2.2)') 'hydro_tend_dyn_of_domain_',jg
+      listptr => hydro_tend_dyn_list(jg)
+      CALL make_hydro_tend_dyn_list( nproma, nlev, nblks_c, nblks_e, nblks_v, ntracer, &
+           &          TRIM(listname), listptr, p_hydro_state(jg)%tend_dyn )
+
+      WRITE(listname,'(a,i2.2)') 'hydro_tend_phy_of_domain_',jg
+      listptr => hydro_tend_phy_list(jg)
+      CALL make_hydro_tend_phy_list( nproma, nlev, nblks_c, nblks_e, nblks_v, ntracer, &
+           &          TRIM(listname), listptr, p_hydro_state(jg)%tend_phy )
 
       !----------------------------
       ! 2.  For organizing output
       !----------------------------
-      CALL construct_hydro_state_prog( p_patch(jg), p_hydro_state(jg)%prog_out )
-      CALL construct_hydro_state_diag( p_patch(jg), p_hydro_state(jg)%diag_out )
+      WRITE(listname,'(a,i2.2)') 'hydro_prog_out_of_domain_',jg
+      listptr => hydro_prog_out_list(jg)
+      CALL make_hydro_prog_list( nproma, nlev, nblks_c, nblks_e, nblks_v, ntracer, &
+           &          TRIM(listname), listptr, p_hydro_state(jg)%prog_out )
+
+      WRITE(listname,'(a,i2.2)') 'hydro_diag_out_of_domain_',jg
+      listptr => hydro_diag_out_list(jg)
+      CALL make_hydro_diag_list( nproma, nlev, nblks_c, nblks_e, nblks_v, ntracer, &
+           &           TRIM(listname), listptr, p_hydro_state(jg)%diag_out )
 
     ENDDO
+
+    NULLIFY(listptr)
     CALL message(TRIM(thismodule),'Construction of 3D dynamics state vector finished.')
 
   END SUBROUTINE construct_icoham_dyn_state
 
   !>
-  !! Subroutine that released memory used by the state vector
+  !! Release memory used by the state variable arrays and list arrays
   !!
   SUBROUTINE destruct_icoham_dyn_state
 
@@ -130,6 +186,8 @@ CONTAINS
     INTEGER :: jt    !< time level index
     INTEGER :: jg    !< grid level/domain index
     INTEGER :: ist   !< system status code
+
+    TYPE(t_var_list),POINTER :: listptr
     !---
 
     CALL message(TRIM(thismodule),'Destruction of 3D dynamics state vector started.')
@@ -141,264 +199,527 @@ CONTAINS
 
       ! Prognostic variables
       DO jt = 1,ntimelevel
-        CALL destruct_hydro_state_prog( p_hydro_state(jg)%prog(jt) )
+        listptr => hydro_prog_list(jg,jt)
+        CALL delete_var_list( listptr )
       END DO
+
+      ! Diagnostic variables
+      listptr => hydro_diag_list(jg)
+      CALL delete_var_list( listptr )
+
+      ! Tendencies
+      listptr => hydro_tend_dyn_list(jg)
+      CALL delete_var_list( listptr )
+
+      listptr => hydro_tend_phy_list(jg)
+      CALL delete_var_list( listptr )
+
+      ! Memory used for organizing output
+      listptr => hydro_prog_out_list(jg)
+      CALL delete_var_list( listptr )
+
+      listptr => hydro_diag_out_list(jg)
+      CALL delete_var_list( listptr )
 
       DEALLOCATE( p_hydro_state(jg)%prog, STAT=ist )
       IF (ist/=SUCCESS) &
       CALL finish(TRIM(thismodule),'deallocation of prognostic state array failed')
 
-      ! Diagnostic variables
-      CALL destruct_hydro_state_diag( p_hydro_state(jg)%diag )
-
-      ! Tendencies
-      CALL destruct_hydro_state_prog( p_hydro_state(jg)%tend_dyn )
-      CALL destruct_hydro_state_prog( p_hydro_state(jg)%tend_phy )
-
-      ! Memory used for organizing output
-      CALL destruct_hydro_state_prog( p_hydro_state(jg)%prog_out )
-      CALL destruct_hydro_state_diag( p_hydro_state(jg)%diag_out )
-
     ENDDO
+
+    NULLIFY(listptr)
+
     CALL message(TRIM(thismodule),'Destruction of 3D dynamics state vector finished.')
 
   END SUBROUTINE destruct_icoham_dyn_state
 
   !>
   !!----------------------------------------------------------------
-  !! For variables of type "t_icoham_dyn_prog"
+  !! For variables in "hydro_prog_list": of type "t_hydro_atm_prog"
   !!----------------------------------------------------------------
   !!
-  SUBROUTINE construct_hydro_state_prog(p_patch, p_prog)
+  SUBROUTINE make_hydro_prog_list( kproma, klev, kblks_c, kblks_e, kblks_v,  & 
+             &                     ktracer, listname, field_list, field    )
 
-    TYPE(t_patch),           INTENT(IN) :: p_patch
-    TYPE(t_hydro_atm_prog),INTENT(INOUT) :: p_prog
+    INTEGER,INTENT(IN) :: kproma, klev, kblks_c, kblks_e, kblks_v, ktracer !< dimension sizes
 
-    INTEGER :: nblks_c, nblks_e
-    INTEGER :: ist
+    CHARACTER(len=*),INTENT(IN) :: listname
 
-    ! Size of the horizontal dimension
+    TYPE(t_var_list),POINTER :: field_list
+    TYPE(t_hydro_atm_prog)   :: field
 
-    nblks_c = p_patch%nblks_c
-    nblks_e = p_patch%nblks_e
+    ! Local variables
+    TYPE(t_cf_var)    ::    cf_desc
+    TYPE(t_grib2_var) :: grib2_desc
 
-    ! Start allocation
+    INTEGER :: shape2d_c(2), shape3d_c(3), shape3d_e(3)
+    INTEGER :: shape4d_c(4), ibit
 
-    ALLOCATE( p_prog% pres_sfc(nproma,     nblks_c),          &
-              p_prog% vn      (nproma,nlev,nblks_e),          &
-              p_prog% temp    (nproma,nlev,nblks_c), STAT=ist )
+    ibit = 16 !size of var in bits
 
-    IF (ist/=SUCCESS) CALL finish(TRIM(thismodule),'allocation failed.')
+    CALL new_var_list( field_list, TRIM(listname) )
+    CALL default_var_list_settings( field_list )
+ 
+    shape2d_c  = (/kproma,       kblks_c         /)
+    shape3d_c  = (/kproma, klev, kblks_c         /)
+    shape3d_e  = (/kproma, klev, kblks_e         /)
+    shape4d_c  = (/kproma, klev, kblks_c, ktracer/)
+
+    ! Register a field list and apply default settings
+    !===========================================================
+    ! For now using default value 255 for unknwon parameters
+    !===========================================================
+
+    !CF:                   long_name      units     std name
+    cf_desc    = t_cf_var('normal_wind', 'm s-1', 'wind normal to the edge')
+
+    !GRIB2: discipline, category, parameter, bits, gridtype, subgridtype, leveltype
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
+
+    CALL add_var( field_list, 'vn', field%vn,                                   &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+
+    cf_desc    = t_cf_var('surface_pressure', 'Pa', 'surface pressure')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'pres_sfc', field%pres_sfc,                        &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_c )
+
+    cf_desc    = t_cf_var('temperature', 'K', 'absolute temperature')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'temp', field%temp,                                &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
 
     IF (ltheta_dyn) THEN
-      ALLOCATE( p_prog% theta(nproma,nlev,nblks_c), STAT=ist )
-      IF (ist/=SUCCESS) CALL finish(TRIM(thismodule),'allocation of theta failed.')
+      cf_desc    = t_cf_var('potential_temperature', 'K', 'potential temperature')
+      grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+      CALL add_var( field_list, 'theta', field%theta,                             &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
     ENDIF
 
     IF (ntracer > 0) THEN
-      ALLOCATE( p_prog% tracer(nproma,nlev,nblks_c,ntracer),STAT=ist )
-      IF (ist/=SUCCESS) CALL finish(TRIM(thismodule),'allocation of tracer field failed.')
+      cf_desc    = t_cf_var('tracer', 'kg kg-1', 'tracer concentration')
+      grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+      CALL add_var( field_list, 'tracer', field%tracer,                            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape4d_c )
     ENDIF
 
-    ! Initialize all fields with zero
+    !Initialize all fields with zero
+    !Comment it so that it can be initialized with NAN 
+!    field% pres_sfc = 0.0_wp
+!    field% vn       = 0.0_wp
+!    field% temp     = 0.0_wp
 
-    p_prog% pres_sfc = 0.0_wp
-    p_prog% vn       = 0.0_wp
-    p_prog% temp     = 0.0_wp
-    p_prog% vn       = 0.0_wp
+!    IF (ltheta_dyn)  field% theta  = 0.0_wp
+!    IF (ntracer > 0) field% tracer = 0.0_wp
 
-    IF (ltheta_dyn)  p_prog% theta  = 0.0_wp
-    IF (ntracer > 0) p_prog% tracer = 0.0_wp
-
-  END SUBROUTINE construct_hydro_state_prog
+  END SUBROUTINE make_hydro_prog_list
 
   !>
-  !!
-  SUBROUTINE destruct_hydro_state_prog( p_prog )
-
-    TYPE(t_hydro_atm_prog),TARGET,INTENT(INOUT) :: p_prog
-
-    INTEGER :: ist
-
-    DEALLOCATE( p_prog% pres_sfc, &
-                p_prog% vn      , &
-                p_prog% temp    , STAT=ist )
-
-    IF (ist/=SUCCESS) CALL finish(TRIM(thismodule),'Deallocation failed.')
-
-    IF (ltheta_dyn) THEN
-      DEALLOCATE( p_prog% theta, STAT=ist )
-      IF (ist/=SUCCESS) CALL finish(TRIM(thismodule),'deallocation of theta failed.')
-    ENDIF
-
-    IF (ntracer > 0) THEN
-      DEALLOCATE( p_prog% tracer, STAT=ist )
-      IF (ist/=SUCCESS) CALL finish(TRIM(thismodule),'deallocation of tracer failed.')
-    ENDIF
-
-  END SUBROUTINE destruct_hydro_state_prog
-
-  !>
   !!----------------------------------------------------------------
-  !! For variables of type "t_icoham_dyn_diag"
+  !! For variables in "hydro_diag_list": of type "t_hydro_atm_diag"
   !!----------------------------------------------------------------
   !!
-  SUBROUTINE construct_hydro_state_diag( p_patch, p_diag )
+  SUBROUTINE make_hydro_diag_list( kproma, klev, kblks_c, kblks_e, kblks_v,  & 
+             &                     ktracer, listname, field_list, field   )
 
-    TYPE(t_patch),           INTENT(IN)    :: p_patch
-    TYPE(t_hydro_atm_diag),INTENT(INOUT) :: p_diag
+    INTEGER,INTENT(IN) :: kproma, klev, kblks_c, kblks_e, kblks_v, ktracer !< dimension sizes
 
-    INTEGER :: nblks_c, nblks_e, nblks_v
-    INTEGER :: ist
+    CHARACTER(len=*),INTENT(IN) :: listname
 
-    ! Size of the horizontal dimension
+    TYPE(t_var_list),POINTER :: field_list
+    TYPE(t_hydro_atm_diag)   :: field
 
-    nblks_c = p_patch%nblks_c
-    nblks_e = p_patch%nblks_e
-    nblks_v = p_patch%nblks_v
+    ! Local variables
+    TYPE(t_cf_var)    ::    cf_desc
+    TYPE(t_grib2_var) :: grib2_desc
 
-   ! Allocate memory
+    INTEGER :: shape3d_c(3), shape3d_e(3), shape3d_v(3), shape4d_e(4)
+    INTEGER :: shape4d_c(4), ibit, klevp1
 
-    ALLOCATE( p_diag% qx          (nproma,nlev  ,nblks_c), &
-            & p_diag% u           (nproma,nlev  ,nblks_c), &
-            & p_diag% v           (nproma,nlev  ,nblks_c), &
-            & p_diag% vt          (nproma,nlev  ,nblks_e), &
-            & p_diag% rel_vort    (nproma,nlev  ,nblks_v), &
-            & p_diag% rel_vort_e  (nproma,nlev  ,nblks_e), &
-            & p_diag% rel_vort_c  (nproma,nlev  ,nblks_c), &
-            & p_diag% div         (nproma,nlev  ,nblks_c), &
-            & p_diag% e_kin       (nproma,nlev  ,nblks_c), &
-            & p_diag% geo_ic      (nproma,nlevp1,nblks_c), &
-            & p_diag% geo_mc      (nproma,nlev  ,nblks_c), &
-            & p_diag% wpres_mc    (nproma,nlev  ,nblks_c), &
-            & p_diag% wpres_ic    (nproma,nlevp1,nblks_c), &
-            & p_diag% weta        (nproma,nlevp1,nblks_c), &
-            & p_diag% pres_ic     (nproma,nlevp1,nblks_c), &
-            & p_diag% pres_ic_new (nproma,nlevp1,nblks_c), &
-            & p_diag% pres_mc     (nproma,nlev  ,nblks_c), &
-            & p_diag% delp_c      (nproma,nlev  ,nblks_c), &
-            & p_diag% delp_c_new  (nproma,nlev  ,nblks_c), &
-            & p_diag% rdelp_c     (nproma,nlev  ,nblks_c), &
-            & p_diag% rdelp_c_new (nproma,nlev  ,nblks_c), &
-            & p_diag% delp_e      (nproma,nlev  ,nblks_e), &
-            & p_diag% delp_v      (nproma,nlev  ,nblks_v), &
-            & p_diag% virt_incr   (nproma,nlev  ,nblks_c), &
-            & p_diag% tempv       (nproma,nlev  ,nblks_c), &
-            & p_diag% rdlnpr_c    (nproma,nlev  ,nblks_c), &
-            & p_diag% rdalpha_c   (nproma,nlev  ,nblks_c), &
-            & p_diag% lnp_ic      (nproma,nlevp1,nblks_c), &
-            & p_diag% mass_flux_e (nproma,nlev  ,nblks_e), &
-            & STAT=ist )
+    ibit = 16 !size of var in bits
 
-    IF (ist/=SUCCESS) CALL finish(TRIM(thismodule),'allocation of diag state failed.')
+    CALL new_var_list( field_list, TRIM(listname) )
+    CALL default_var_list_settings( field_list )
 
-    IF (ltheta_dyn) THEN
-      ALLOCATE( p_diag% exner (nproma,nlev,nblks_c), STAT=ist )
-      IF (ist/=SUCCESS) CALL finish(TRIM(thismodule),'allocation of exner failed.')
-    ENDIF
+    !Variables at full level
 
-    IF (ntracer > 0) THEN
+    shape3d_c  = (/kproma, klev, kblks_c         /)
+    shape3d_e  = (/kproma, klev, kblks_e         /)
+    shape3d_v  = (/kproma, klev, kblks_v         /)
+    shape4d_e  = (/kproma, klev, kblks_e, ktracer /)
 
-      ALLOCATE( p_diag% hfl_tracer (nproma,nlev  ,nblks_e,ntracer), &
-              & p_diag% vfl_tracer (nproma,nlevp1,nblks_c,ntracer), &
-              & STAT=ist )
+    cf_desc    = t_cf_var('condensated_water', 'kg kg-1', 'cloud water + cloud ice')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'qx', field%qx,                                   &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
 
-      IF (ist/=SUCCESS) CALL finish(TRIM(thismodule),'allocation of tracer flux failed.')
-    ENDIF
+    cf_desc    = t_cf_var('eastward_wind', 'm s-1', 'zonal wind')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'u', field%u,                                      &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
 
-    ! Initialize all components with zero
+    cf_desc    = t_cf_var('northward_wind', 'm s-1', 'meridional wind')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'v', field%v,                                       &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
 
-    p_diag% qx          = 0.0_wp
-    p_diag% u           = 0.0_wp
-    p_diag% v           = 0.0_wp
-    p_diag% vt          = 0.0_wp
-    p_diag% rel_vort    = 0.0_wp
-    p_diag% rel_vort_e  = 0.0_wp
-    p_diag% rel_vort_c  = 0.0_wp
-    p_diag% div         = 0.0_wp
-    p_diag% e_kin       = 0.0_wp
-    p_diag% geo_ic      = 0.0_wp
-    p_diag% geo_mc      = 0.0_wp
-    p_diag% wpres_mc    = 0.0_wp
-    p_diag% wpres_ic    = 0.0_wp
-    p_diag% weta        = 0.0_wp
-    p_diag% pres_ic     = 0.0_wp
-    p_diag% pres_ic_new = 0.0_wp
-    p_diag% pres_mc     = 0.0_wp
-    p_diag% delp_c      = 0.0_wp
-    p_diag% delp_c_new  = 0.0_wp
-    p_diag% rdelp_c     = 0.0_wp
-    p_diag% rdelp_c_new = 0.0_wp
-    p_diag% delp_e      = 0.0_wp
-    p_diag% delp_v      = 0.0_wp
-    p_diag% virt_incr   = 0.0_wp
-    p_diag% tempv       = 0.0_wp
-    p_diag% rdlnpr_c    = 0.0_wp
-    p_diag% rdalpha_c   = 0.0_wp
-    p_diag% lnp_ic      = 0.0_wp
-    p_diag% mass_flux_e = 0.0_wp
+    cf_desc    = t_cf_var('tangential_wind', 'm s-1', 'wind tangent to the edge')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'vt', field%vt,                                     &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
 
-    IF (ltheta_dyn) p_diag% exner =0.0_wp
+    cf_desc    = t_cf_var('vorticity_vertex', 's-1', 'relative vorticity at vertices')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_VERTEX, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'rel_vort', field%rel_vort,                           &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_v )
 
-    IF (ntracer > 0) THEN
-      p_diag% hfl_tracer = 0.0_wp
-      p_diag% vfl_tracer = 0.0_wp
+    cf_desc    = t_cf_var('vorticity_edge', 's-1', 'relative vorticity at edges')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'rel_vort_e', field%rel_vort_e,                         &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+
+    cf_desc    = t_cf_var('vorticity_cell', 's-1', 'relative vorticity at cell center')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'rel_vort_c', field%rel_vort_c,                         &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    cf_desc    = t_cf_var('divergence', 's-1', 'wind divergence')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'div', field%div,                                   &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    cf_desc    = t_cf_var('kinetic_energy', 'm2 s-2', 'specific kinetic energy')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'e_kin', field%e_kin,                                  &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    cf_desc    = t_cf_var('geopotential_full', 'm2 s-2', 'geopotential at full level')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'geo_mc', field%geo_mc,                              &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    cf_desc    = t_cf_var('vert_vel_full', 'Pa s-1', 'pressure vertical velocity at full level')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'wpres_mc', field%wpres_mc,                              &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    cf_desc    = t_cf_var('pressure_full', 'Pa', 'pressure at full level')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'pres_mc', field%pres_mc,                              &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    cf_desc    = t_cf_var('delta_pres', 'Pa', 'layer thickness at cell center')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'delp_c', field%delp_c,                              &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    cf_desc    = t_cf_var('delta_pres_new', 'Pa',                                        &
+                 &        'layer thickness at cell center at next time step')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'delp_c_new', field%delp_c_new,                              &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    cf_desc    = t_cf_var('inv_delta_pres', 'Pa-1', 'inverser of layer thickness at cell center')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'rdelp_c', field%rdelp_c,                                    &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    cf_desc    = t_cf_var('inv_delta_pres_new', 'Pa-1',                                    &
+                 & 'inverser of layer thickness at cell center at next time step')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'rdelp_c_new', field%rdelp_c_new,                              &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    cf_desc    = t_cf_var('delta_pres_e', 'Pa', 'layer thickness at edge center')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'delp_e', field%delp_e,                              &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+
+    cf_desc    = t_cf_var('delta_pres_v', 'Pa', 'layer thickness at vertex center')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_VERTEX, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'delp_v', field%delp_v,                              &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_v )
+
+    cf_desc    = t_cf_var('delta_virtual_temp', 'K', 'virtual temperature increment')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'virt_incr', field%virt_incr,                            &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    cf_desc    = t_cf_var('virtual_temperature', 'K', 'virtual temperature')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'tempv', field%tempv,                              &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    cf_desc    = t_cf_var('rd_log_pr', '', 'Rd * ln(p(k+.5)/p(k-.5)) at cell center')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'rdlnpr_c', field%rdlnpr_c,                              &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    cf_desc    = t_cf_var('rd_alpha', '', 'Rd * \alpha at cell center')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'rdalpha_c', field%rdalpha_c,                              &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    cf_desc    = t_cf_var('mass_flux_edge', 'Pa m s-1', 'mass flux at edge')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'mass_flux_e', field%mass_flux_e,                          &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+
+    IF(ltheta_dyn)THEN
+      cf_desc    = t_cf_var('exner', ' ', 'exner function')
+      grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+      CALL add_var( field_list, 'exner', field%exner,                                  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
     END IF
 
-  END SUBROUTINE construct_hydro_state_diag
+    IF (ntracer > 0) THEN
+      cf_desc    = t_cf_var('hor_tracer_flux', 'kg m-1 s-1 ',                          &
+                   &        'horizontal tracer flux at edges')
+      grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
+      CALL add_var( field_list, 'hfl_tracer', field%hfl_tracer,                        &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape4d_e )
+    END IF
+
+    !================================================================
+    !Variables at half level
+    !================================================================
+    klevp1     = nlevp1
+    shape3d_c  = (/kproma, klevp1, kblks_c         /)
+    shape4d_c  = (/kproma, klevp1, kblks_c, ktracer /)
+
+    cf_desc    = t_cf_var('geopotential_half', 'm s-1', 'geopotential at half level')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'geo_ic', field%geo_ic,                              &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    cf_desc    = t_cf_var('vert_vel_half', 'Pa s-1', 'pressure vertical velocity at half level')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'wpres_ic', field%wpres_ic,                              &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    cf_desc    = t_cf_var('eta_vert_vel', 'Pa s-1', 'eta vertical velocity times dp_deta')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'weta', field%weta,                              &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    cf_desc    = t_cf_var('pressure_half', 'Pa', 'pressure at half level')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'pres_ic', field%pres_ic,                              &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    cf_desc    = t_cf_var('pressure_half_new', 'Pa', 'pressure at half level at next time step')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'pres_ic_new', field%pres_ic_new,                              &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    cf_desc    = t_cf_var('log_pressure', '', 'log of pressure at cell center')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'lnp_ic', field%lnp_ic,                              &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    IF (ntracer > 0) THEN
+      cf_desc    = t_cf_var('vert_tracer_flux', 'kg m-1 s-1 ', 'horizontal tracer flux at cell')
+      grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+      CALL add_var( field_list, 'vfl_tracer', field%vfl_tracer,                        &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape4d_c )
+    END IF
+
+
+    ! Initialize all components with zero
+    ! Comment it so that it can be initialized with NAN 
+
+!    field% qx          = 0.0_wp
+!    field% u           = 0.0_wp
+!    field% v           = 0.0_wp
+!    field% vt          = 0.0_wp
+!    field% rel_vort    = 0.0_wp
+!    field% rel_vort_e  = 0.0_wp
+!    field% rel_vort_c  = 0.0_wp
+!    field% div         = 0.0_wp
+!    field% e_kin       = 0.0_wp
+!    field% geo_ic      = 0.0_wp
+!    field% geo_mc      = 0.0_wp
+!    field% wpres_mc    = 0.0_wp
+!    field% wpres_ic    = 0.0_wp
+!    field% weta        = 0.0_wp
+!    field% pres_ic     = 0.0_wp
+!    field% pres_ic_new = 0.0_wp
+!    field% pres_mc     = 0.0_wp
+!    field% delp_c      = 0.0_wp
+!    field% delp_c_new  = 0.0_wp
+!    field% rdelp_c     = 0.0_wp
+!    field% rdelp_c_new = 0.0_wp
+!    field% delp_e      = 0.0_wp
+!    field% delp_v      = 0.0_wp
+!    field% virt_incr   = 0.0_wp
+!    field% tempv       = 0.0_wp
+!    field% rdlnpr_c    = 0.0_wp
+!    field% rdalpha_c   = 0.0_wp
+!    field% lnp_ic      = 0.0_wp
+!    field% mass_flux_e = 0.0_wp
+!
+!    IF (ltheta_dyn) field% exner =0.0_wp
+!
+!    IF (ntracer > 0) THEN
+!      field% hfl_tracer = 0.0_wp
+!      field% vfl_tracer = 0.0_wp
+!    END IF
+
+  END SUBROUTINE make_hydro_diag_list
+
   !>
+  !!----------------------------------------------------------------
+  !! For variables in "hydro_tend_dyn_list": of type "t_hydro_atm_prog"
+  !!----------------------------------------------------------------
   !!
-  !!
-  SUBROUTINE destruct_hydro_state_diag( p_diag )
+  SUBROUTINE make_hydro_tend_dyn_list( kproma, klev, kblks_c, kblks_e, kblks_v,   &
+             &                         ktracer, listname, field_list, field   )
 
-    TYPE(t_hydro_atm_diag),TARGET,INTENT(INOUT) :: p_diag
-    INTEGER :: ist
+    INTEGER,INTENT(IN) :: kproma, klev, kblks_c, kblks_e, kblks_v, ktracer !< dimension sizes
 
-   ! Deallocate memory
+    CHARACTER(len=*),INTENT(IN) :: listname
 
-    DEALLOCATE( p_diag% qx          , &
-              & p_diag% u           , &
-              & p_diag% v           , &
-              & p_diag% vt          , &
-              & p_diag% rel_vort    , &
-              & p_diag% rel_vort_e  , &
-              & p_diag% rel_vort_c  , &
-              & p_diag% div         , &
-              & p_diag% e_kin       , &
-              & p_diag% geo_ic      , &
-              & p_diag% geo_mc      , &
-              & p_diag% wpres_mc    , &
-              & p_diag% wpres_ic    , &
-              & p_diag% weta        , &
-              & p_diag% pres_ic     , &
-              & p_diag% pres_ic_new , &
-              & p_diag% pres_mc     , &
-              & p_diag% delp_c      , &
-              & p_diag% delp_c_new  , &
-              & p_diag% rdelp_c     , &
-              & p_diag% rdelp_c_new , &
-              & p_diag% delp_e      , &
-              & p_diag% delp_v      , &
-              & p_diag% virt_incr   , &
-              & p_diag% tempv       , &
-              & p_diag% rdlnpr_c    , &
-              & p_diag% rdalpha_c   , &
-              & p_diag% lnp_ic      , &
-              & p_diag% mass_flux_e , &
-              & STAT=ist )
+    TYPE(t_var_list),POINTER :: field_list
+    TYPE(t_hydro_atm_prog)   :: field
 
-    IF (ist/=SUCCESS) CALL finish(TRIM(thismodule),'deallocation of diag state failed.')
+    ! Local variables
+    TYPE(t_cf_var)    ::    cf_desc
+    TYPE(t_grib2_var) :: grib2_desc
+
+    INTEGER :: shape2d_c(2), shape3d_c(3), shape3d_e(3)
+    INTEGER :: shape4d_c(4), ibit
+
+    ibit = 16 !size of var in bits
+
+    CALL new_var_list( field_list, TRIM(listname) )
+    CALL default_var_list_settings( field_list )
+ 
+    shape2d_c  = (/kproma,       kblks_c         /)
+    shape3d_c  = (/kproma, klev, kblks_c         /)
+    shape3d_e  = (/kproma, klev, kblks_e         /)
+    shape4d_c  = (/kproma, klev, kblks_c, ktracer/)
+
+    ! Register a field list and apply default settings
+
+    cf_desc    = t_cf_var('normal_wind_tendency', 'm s-2', 'tendency of wind normal to edge')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'tend_vn', field%vn,                                   &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+
+    cf_desc    = t_cf_var('surface_pressure_tendency', 'Pa s-1', 'surface pressure tendency')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'tend_pres_sfc', field%pres_sfc,                        &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_c )
+
+    cf_desc    = t_cf_var('temperature_tendency', 'K s-1', 'absolute temperature tendency')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'tend_temp', field%temp,                                &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
 
     IF (ltheta_dyn) THEN
-      DEALLOCATE( p_diag% exner, STAT=ist )
-      IF (ist/=SUCCESS) CALL finish(TRIM(thismodule),'deallocation of exner failed.')
-    ENDIF
-    
-    IF (ntracer > 0) THEN
-      DEALLOCATE( p_diag% hfl_tracer, p_diag% vfl_tracer, STAT=ist )
-      IF (ist/=SUCCESS) CALL finish(TRIM(thismodule),'deallocation of tracer flux failed.')
+      cf_desc    = t_cf_var('potential_temperature_tendency', 'K s-1',  &
+                   &        'potential temperature tendency')
+      grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+      CALL add_var( field_list, 'tend_theta', field%theta,                             &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
     ENDIF
 
-  END SUBROUTINE destruct_hydro_state_diag
+    IF (ntracer > 0) THEN
+      cf_desc    = t_cf_var('tracer_tendency', 's-1', 'tendency of tracer concentration')
+      grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+      CALL add_var( field_list, 'tend_tracer', field%tracer,                            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape4d_c )
+    ENDIF
+
+    !Initialize all fields with zero
+    !Comment it so that it can be initialized with NAN 
+!    field% pres_sfc = 0.0_wp
+!    field% vn       = 0.0_wp
+!    field% temp     = 0.0_wp
+
+!    IF (ltheta_dyn)  field% theta  = 0.0_wp
+!    IF (ntracer > 0) field% tracer = 0.0_wp
+
+  END SUBROUTINE make_hydro_tend_dyn_list
+
+  !>
+  !!----------------------------------------------------------------
+  !! For variables in "hydro_tend_phy_list": of type "t_hydro_atm_prog"
+  !!----------------------------------------------------------------
+  !!
+  SUBROUTINE make_hydro_tend_phy_list( kproma, klev, kblks_c, kblks_e, kblks_v,   &
+             &                         ktracer, listname, field_list, field   )
+
+    INTEGER,INTENT(IN) :: kproma, klev, kblks_c, kblks_e, kblks_v, ktracer !< dimension sizes
+
+    CHARACTER(len=*),INTENT(IN) :: listname
+
+    TYPE(t_var_list),POINTER :: field_list
+    TYPE(t_hydro_atm_prog)   :: field
+
+    ! Local variables
+    TYPE(t_cf_var)    ::    cf_desc
+    TYPE(t_grib2_var) :: grib2_desc
+
+    INTEGER :: shape2d_c(2), shape3d_c(3), shape3d_e(3)
+    INTEGER :: shape4d_c(4), ibit
+
+    ibit = 16 !size of var in bits
+
+    CALL new_var_list( field_list, TRIM(listname) )
+    CALL default_var_list_settings( field_list )
+ 
+    shape2d_c  = (/kproma,       kblks_c         /)
+    shape3d_c  = (/kproma, klev, kblks_c         /)
+    shape3d_e  = (/kproma, klev, kblks_e         /)
+    shape4d_c  = (/kproma, klev, kblks_c, ktracer/)
+
+    ! Register a field list and apply default settings
+
+    cf_desc    = t_cf_var('phy_normal_wind_tendency', 'm s-2',                       &
+                 &        'physical tendency of wind normal to edge')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'phy_tend_vn', field%vn,                               &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+
+    cf_desc    = t_cf_var('phy_surface_pressure_tendency', 'Pa s-1',                 &
+                 &        'physical surface pressure tendency')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'phy_tend_pres_sfc', field%pres_sfc,                   &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_c )
+
+    cf_desc    = t_cf_var('phy_temperature_tendency', 'K s-1',                       &
+                 &        'physical absolute temperature tendency')
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( field_list, 'phy_tend_temp', field%temp,                           &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    IF (ltheta_dyn) THEN
+      cf_desc    = t_cf_var('phy_potential_temperature_tendency', 'K s-1',           &
+                   &        'physical potential temperature tendency')
+      grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+      CALL add_var( field_list, 'phy_tend_theta', field%theta,                       &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+    ENDIF
+
+    IF (ntracer > 0) THEN
+      cf_desc    = t_cf_var('phy_tracer_tendency', 's-1',                            &
+                   &       'physical tendency of tracer concentration')
+      grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+      CALL add_var( field_list, 'phy_tend_tracer', field%tracer,                        &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape4d_c )
+    ENDIF
+
+    !Initialize all fields with zero
+    !Comment it so that it can be initialized with NAN 
+!    field% pres_sfc = 0.0_wp
+!    field% vn       = 0.0_wp
+!    field% temp     = 0.0_wp
+
+!    IF (ltheta_dyn)  field% theta  = 0.0_wp
+!    IF (ntracer > 0) field% tracer = 0.0_wp
+
+  END SUBROUTINE make_hydro_tend_phy_list
+!------------------------------------------------------------------
 
 END module mo_icoham_dyn_memory
