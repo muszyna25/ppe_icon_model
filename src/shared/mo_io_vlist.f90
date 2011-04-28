@@ -2460,15 +2460,15 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: varname
     INTEGER, INTENT(IN) :: jg
+    REAL(wp), POINTER :: ptr2d(:,:)
+    REAL(wp), POINTER :: ptr3d(:,:,:)
+
     LOGICAL, INTENT(OUT) :: reset, delete
 
     ! INTEGER :: jt
     LOGICAL :: not_found
     ! CHARACTER(LEN=1) :: ctracer
     ! CHARACTER(LEN=1) :: anextra
-
-    REAL(wp), POINTER :: ptr2d(:,:)
-    REAL(wp), POINTER :: ptr3d(:,:,:)
 
     TYPE(t_hydro_ocean_prog), POINTER :: p_prog
     TYPE(t_hydro_ocean_diag), POINTER :: p_diag
