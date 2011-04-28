@@ -297,7 +297,7 @@ CONTAINS
 
       ! construction loop: create components of state array
       DO jp = 1, prlength
-         CALL construct_hydro_ocean_prog(p_patch(jg), p_os(jg)%p_prog(jp))
+         !CALL construct_hydro_ocean_prog(p_patch(jg), p_os(jg)%p_prog(jp))
          CALL add_hydro_ocean_prog_vars(list, p_patch(jg), p_os(jg)%p_prog(jp))
       END DO
 
@@ -414,24 +414,24 @@ CONTAINS
 !   END IF
 
     ! Tracer
-    ALLOCATE(p_os_prog%tracer(nproma,n_zlev,nblks_c, ntrac_oce), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-       CALL finish(TRIM(routine),'allocation for tracers temp. and sal. on cells failed')
-    END IF
+    !ALLOCATE(p_os_prog%tracer(nproma,n_zlev,nblks_c, ntrac_oce), STAT=ist)
+    !IF (ist/=SUCCESS) THEN
+       !CALL finish(TRIM(routine),'allocation for tracers temp. and sal. on cells failed')
+    !END IF
 
 
     ! initialize all components with zero
     !
 !    p_os_prog%h(:,:)    = 0.0_wp
 !    p_os_prog%vn(:,:,:) = 0.0_wp
-    DO n=1,ntrac_oce
-      p_os_prog%tracer(:,:,:,n) = 0.0_wp
-    END DO
+    !DO n=1,ntrac_oce
+      !p_os_prog%tracer(:,:,:,n) = 0.0_wp
+    !END DO
 
     ! initialize tracers temperature and salinity with reference values from namelist
     !
-    p_os_prog%tracer(:,:,:,1) = t_ref  !  temperature
-    p_os_prog%tracer(:,:,:,2) = s_ref  !  salinity
+    !p_os_prog%tracer(:,:,:,1) = t_ref  !  temperature
+    !p_os_prog%tracer(:,:,:,2) = s_ref  !  salinity
 
     !CALL message(TRIM(routine), 'construction of hydrostatic ocean prognostic state finished')
 
@@ -444,8 +444,6 @@ CONTAINS
     TYPE(t_hydro_ocean_prog), INTENT(inout)   :: p_os_prog
 
 
-    ! local variables
-
     INTEGER  :: n
     INTEGER  :: nblks_c, nblks_e !, nblks_v
     INTEGER  :: ist
@@ -453,48 +451,27 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:construct_hydro_ocean_prog'
 
-!-------------------------------------------------------------------------
-
-    !CALL message(TRIM(routine), 'start to construct hydro_ocean prognostic state')
-
+    !-------------------------------------------------------------------------
     nblks_c = p_patch%nblks_c
     nblks_e = p_patch%nblks_e
 
-    ! allocate prognostic part of state vector
-    !
     ! height
     CALL add_var(list, 'h', p_os_prog%h , GRID_UNSTRUCTURED, &
-    &            t_cf_var('h', 'm', 'height'),&
+    &            t_cf_var('h', 'm', 'surface elevation at cell center'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
     &            ldims=(/nproma,nblks_c/))
 
-   !! normal velocity component
+    !! normal velocity component
     CALL add_var(list, 'vn', p_os_prog%vn , GRID_UNSTRUCTURED, &
-    &            t_cf_var('vn', 'm/s', 'normale velocity'),&
+    &            t_cf_var('vn', 'm/s', 'normale velocity on edge,m'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
 
-   !! Tracer
-   !ALLOCATE(p_os_prog%tracer(nproma,n_zlev,nblks_c, ntrac_oce), STAT=ist)
-   !IF (ist/=SUCCESS) THEN
-   !   CALL finish(TRIM(routine),'allocation for tracers temp. and sal. on cells failed')
-   !END IF
-
-
-    ! initialize all components with zero
-    !
-    p_os_prog%h(:,:)    = 0.0_wp
-   !p_os_prog%vn(:,:,:) = 0.0_wp
-   !DO n=1,ntrac_oce
-   !  p_os_prog%tracer(:,:,:,n) = 0.0_wp
-   !END DO
-
-   !! initialize tracers temperature and salinity with reference values from namelist
-   !!
-   !p_os_prog%tracer(:,:,:,1) = t_ref  !  temperature
-   !p_os_prog%tracer(:,:,:,2) = s_ref  !  salinity
-
-   !!CALL message(TRIM(routine), 'construction of hydrostatic ocean prognostic state finished')
+    !! Tracers
+    CALL add_var(list, 'tracers', p_os_prog%tracer , GRID_UNSTRUCTURED, &
+    &            t_cf_var('tracers', '', '1:temperature 2:salinity'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_c,ntrac_oce/) )
 
   END SUBROUTINE
 
@@ -610,6 +587,7 @@ CONTAINS
     END IF
 
     ! vorticity
+    write(*,*) 'allocation of vort in shape ',(/nproma,n_zlev,nblks_v/)
     ALLOCATE(p_os_diag%vort(nproma,n_zlev,nblks_v), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for vorticity at vertices failed')
