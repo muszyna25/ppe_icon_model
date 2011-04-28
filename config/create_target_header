@@ -490,6 +490,7 @@ set_run_target_hpc()
 #-----------------------------------------------------------------------------
 #PBS -q lang
 #PBS -j oe
+#PBS -o LOG.$job_name.o
 #PBS -l select=$use_nodes:ncpus=$use_mpi_procs
 #PBS -m n
 # ===========================

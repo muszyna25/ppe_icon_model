@@ -25,6 +25,7 @@ do_computation=1
 make_plot=1
 plot_file_format=pdf
 TopHeight=35
+plevs=""
 
 # Specify the reference experiment for making the difference plot
 
@@ -68,6 +69,7 @@ echo do_computation=$do_computation               >> set_env
 echo make_plot=$make_plot                         >> set_env
 echo export plot_file_format=$plot_file_format    >> set_env
 echo export TopHeight=$TopHeight                  >> set_env
+echo plevs=\"${plevs}\"                           >> set_env
 
 echo export ref_config=\"$ref_config\"            >> set_env
 echo ref_exp_name=$ref_exp_name                   >> set_env

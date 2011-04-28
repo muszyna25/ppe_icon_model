@@ -111,6 +111,18 @@ export plot_file_format="pdf"
 
 do_computation=1   # (1=ON,0=OFF)
 
+# For the hydrostatic models, model output will be vertically interpolated to 
+# pressure levels before plotting. Specify the pressure levels if
+# you want a set different from the standard 17 levels (e.g., when you 
+# have the upper atmosphere resolved). Note that unit is Pa, not hPa!
+# Example: 
+#      plevs="100000,50000,10000,5000,1000,100"
+#
+# Setting plevs to null, or not setting the variable at all means choosing
+# the standard 17 levels up to 100 hPa.
+
+plevs=""
+
 # To diagnose the zonal mean circulation, the ICON model output 
 # on the geodesic grid needs to be interpolated to a Gaussian grid. 
 # Choose the Gaussian grid by specifying the triangular truncation:
@@ -373,7 +385,9 @@ EOF
                ${ftmp}"_"$timerange"_"PHIS"_zmta_T"$trunc".nc"     \
                ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc"_tmp.nc"
 
-           cdo $silence ml2pl,100000,92500,85000,70000,60000,50000,40000,30000,25000,20000,15000,10000,7000,5000,3000,2000,1000 \
+           p17std="100000,92500,85000,70000,60000,50000,40000,30000,25000,20000,15000,10000,7000,5000,3000,2000,1000"
+           plevs=${plevs:=$p17std}
+           cdo $silence ml2pl,$plevs \
                ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc"_tmp.nc" \
                ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc"_pres.nc"
 

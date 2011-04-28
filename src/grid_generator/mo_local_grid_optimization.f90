@@ -867,7 +867,7 @@ CONTAINS
       IF (use_spring_cellcenters) THEN
 !         max_vertex_edge_ratio = 0.0_wp
 
-!$OMP DO PRIVATE(cell,no_of_cell_edges,j,vertex)
+!$OMP DO PRIVATE(cell,no_of_cell_edges,j,edge)
         DO cell=1,no_of_cells
           cell_center_ref_length(cell) = 0.0_wp
           no_of_cell_edges = 0.0_wp
@@ -883,7 +883,7 @@ CONTAINS
           cell_center_ref_length(cell) =  cell_center_ref_length(cell) * &
             & (centers_ref_length_coeff / no_of_cell_edges)
         ENDDO
-!$OMP ENDDO
+! !$OMP ENDDO
         
         
 !$OMP DO PRIVATE(vertex,vertex_edges,vertex_vector,&
