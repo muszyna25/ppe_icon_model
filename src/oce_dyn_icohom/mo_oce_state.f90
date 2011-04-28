@@ -375,12 +375,8 @@ CONTAINS
 !!
   SUBROUTINE construct_hydro_ocean_prog(p_patch, p_os_prog)
 
-!
     TYPE(t_patch), INTENT(in), TARGET         :: p_patch
     TYPE(t_hydro_ocean_prog), INTENT(inout)   :: p_os_prog
-
-
-    ! local variables
 
     INTEGER  :: n
     INTEGER  :: nblks_c, nblks_e !, nblks_v
@@ -389,41 +385,8 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:construct_hydro_ocean_prog'
 
-!-------------------------------------------------------------------------
-
-    !CALL message(TRIM(routine), 'start to construct hydro_ocean prognostic state')
-
     nblks_c = p_patch%nblks_c
     nblks_e = p_patch%nblks_e
-
-    ! allocate prognostic part of state vector
-    !
-    ! height
-!   ALLOCATE(p_os_prog%h(nproma,nblks_c), STAT=ist)
-!   IF (ist/=SUCCESS) THEN
-!      CALL finish(TRIM(routine),'allocation for h on cells failed')
-!   END IF
-
-    ! normal velocity component
-!   ALLOCATE(p_os_prog%vn(nproma,n_zlev,nblks_e), STAT=ist)
-!   IF (ist/=SUCCESS) THEN
-!      CALL finish(TRIM(routine),'allocation for normal velocity on edges failed')
-!   END IF
-
-    ! Tracer
-    !ALLOCATE(p_os_prog%tracer(nproma,n_zlev,nblks_c, ntrac_oce), STAT=ist)
-    !IF (ist/=SUCCESS) THEN
-       !CALL finish(TRIM(routine),'allocation for tracers temp. and sal. on cells failed')
-    !END IF
-
-
-    ! initialize all components with zero
-    !
-!    p_os_prog%h(:,:)    = 0.0_wp
-!    p_os_prog%vn(:,:,:) = 0.0_wp
-    !DO n=1,ntrac_oce
-      !p_os_prog%tracer(:,:,:,n) = 0.0_wp
-    !END DO
 
     ! initialize tracers temperature and salinity with reference values from namelist
     !
@@ -664,14 +627,14 @@ CONTAINS
     &            ldims=(/nproma,n_zlev,nblks_e/))
 
     ! mass flux
-    CALL add_var(list, 'flux_mass', p_os_diag%flux_mass, GRID_UNSTRUCTURED,&
-    &            t_cf_var('flux_mass','','mass flux at edges'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_e/))
-    CALL add_var(list, 'flux_tracer', p_os_diag%flux_tracer, GRID_UNSTRUCTURED,&
-    &            t_cf_var('flux_tracer','','tracers flux at edges'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_e/))
+    !CALL add_var(list, 'flux_mass', p_os_diag%flux_mass, GRID_UNSTRUCTURED,&
+    !&            t_cf_var('flux_mass','','mass flux at edges'),&
+    !&            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    !&            ldims=(/nproma,n_zlev,nblks_e/))
+    !CALL add_var(list, 'flux_tracer', p_os_diag%flux_tracer, GRID_UNSTRUCTURED,&
+    !&            t_cf_var('flux_tracer','','tracers flux at edges'),&
+    !&            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    !&            ldims=(/nproma,n_zlev,nblks_e/))
 
     ! horizontal velocity advection
     CALL add_var(list, 'veloc_adv_horz', p_os_diag%veloc_adv_horz, GRID_UNSTRUCTURED,&
@@ -972,153 +935,10 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:destruct_hydro_ocean_diag'
 
-!-------------------------------------------------------------------------
-
-    !CALL message(TRIM(routine),' start to destruct hydrostatic ocean diagnostic state')
-
-    ! density
-    DEALLOCATE(p_os_diag%rho, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for density failed')
-    END IF
-
-    ! reconstructed velocity
-    DEALLOCATE(p_os_diag%u, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-       CALL finish(TRIM(routine),'deallocation for u failed')
-    END IF
-
-    DEALLOCATE(p_os_diag%v, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine), 'deallocation for v failed')
-    END IF
-
     DEALLOCATE(p_os_diag%p_vn, STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine), 'deallocation for p_vn failed')
     END IF
-    DEALLOCATE(p_os_diag%ptp_vn, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine), 'deallocation for ptp_vn failed')
-    END IF
-
-    ! predicted normal velocity
-    DEALLOCATE(p_os_diag%vn_pred, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine), 'deallocation for predicted vn failed')
-    END IF
-    DEALLOCATE(p_os_diag%vn_impl_vert_diff, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine), 'deallocation for vn_impl_vert_diff failed')
-    END IF
-
-    DEALLOCATE(p_os_diag%w, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-       CALL finish(TRIM(routine), 'deallocation for vertical velocity failed')
-    END IF
-    DEALLOCATE(p_os_diag%w_old, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-       CALL finish(TRIM(routine), 'deallocation for old vertical velocity failed')
-    END IF
-
-    DEALLOCATE(p_os_diag%w_e, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-       CALL finish(TRIM(routine), 'deallocation for vertical velocity at edges failed')
-    END IF
-
-    DEALLOCATE(p_os_diag%w_prev, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine), 'deallocation for vertical veloc. (cells, prev. timestep) failed')
-    END IF
-
-    ! tangential velocity
-    DEALLOCATE(p_os_diag%vt, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-       CALL finish(TRIM(routine),'deallocation for tangential velocity failed')
-    END IF
-
-    DEALLOCATE(p_os_diag%h_e, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-       CALL finish(TRIM(routine), 'deallocation for surface height at edges failed')
-    END IF
-
-    DEALLOCATE(p_os_diag%thick_c, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-       CALL finish(TRIM(routine), 'deallocation for fluid column at cells failed')
-    END IF
-
-    DEALLOCATE(p_os_diag%thick_e, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-       CALL finish(TRIM(routine), 'deallocation for fluid column at edges failed')
-    END IF
-
-    ! vorticity
-    DEALLOCATE(p_os_diag%vort, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for vorticity failed')
-    END IF
-
-    ! vorticity interpolated to edges
-    DEALLOCATE(p_os_diag%vort_e, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine), 'deallocation for vorticity at edges failed')
-    END IF
-
-    ! kinetic energy
-    DEALLOCATE(p_os_diag%kin, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for kinetic energy failed')
-    END IF
-    ! gradient
-    DEALLOCATE(p_os_diag%grad, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for gradient term failed')
-    END IF
-    ! divergence
-    DEALLOCATE(p_os_diag%div, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-        CALL finish(TRIM(routine),'deallocation for divergence failed')
-    END IF
-
-    ! hydrostatic pressure
-    DEALLOCATE(p_os_diag%press_hyd, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-       CALL finish(TRIM(routine),'deallocation for press_hyd failed')
-    END IF
-
-    DEALLOCATE(p_os_diag%press_grad, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-       CALL finish(TRIM(routine),'deallocation for press_grad failed')
-    END IF
-
-!     DEALLOCATE(p_os_diag%flux_mass, STAT=ist)
-!     IF (ist/=SUCCESS) THEN
-!        CALL finish(TRIM(routine),'deallocation for mass flux failed')
-!     END IF
-!     DEALLOCATE(p_os_diag%flux_tracer, STAT=ist)
-!     IF (ist/=SUCCESS) THEN
-!        CALL finish(TRIM(routine),'deallocation for tracer flux failed')
-!     END IF
-
-    DEALLOCATE(p_os_diag%veloc_adv_horz, STAT=ist)
-    IF (ist/=SUCCESS)THEN
-        CALL finish(TRIM(routine),'deallocation for horizontal veloc advection term failed')
-    ENDIF
-
-    DEALLOCATE(p_os_diag%veloc_adv_vert, STAT=ist)
-    IF (ist/=SUCCESS)THEN
-        CALL finish(TRIM(routine),'deallocation for vertical veloc advection term failed')
-    ENDIF
-
-    DEALLOCATE(p_os_diag%laplacian_horz, STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish(TRIM(routine),'deallocation for horizontal diff. of hor. veloc. term failed')
-    ENDIF
-
-    DEALLOCATE(p_os_diag%laplacian_vert, STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish(TRIM(routine),'deallocation for vertical diff. of hor. veloc. term failed')
-    ENDIF
 
   END SUBROUTINE destruct_hydro_ocean_diag
 
