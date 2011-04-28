@@ -72,11 +72,6 @@ MODULE mo_oce_state
   IMPLICIT NONE
   PRIVATE
 
-! !VERSION CONTROL:
-  CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
-
-  !public interface
-  !
   ! subroutines
   PUBLIC :: construct_hydro_ocean_state
   PUBLIC :: destruct_hydro_ocean_state
@@ -88,8 +83,6 @@ MODULE mo_oce_state
   PUBLIC :: t_hydro_ocean_aux
   PUBLIC :: t_hydro_ocean_diag
 
-  !Private implementation
-  !
   !constructors
   PRIVATE :: construct_hydro_ocean_diag
   PRIVATE :: construct_hydro_ocean_prog
@@ -415,10 +408,10 @@ CONTAINS
 !   END IF
 
     ! normal velocity component
-    ALLOCATE(p_os_prog%vn(nproma,n_zlev,nblks_e), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-       CALL finish(TRIM(routine),'allocation for normal velocity on edges failed')
-    END IF
+!   ALLOCATE(p_os_prog%vn(nproma,n_zlev,nblks_e), STAT=ist)
+!   IF (ist/=SUCCESS) THEN
+!      CALL finish(TRIM(routine),'allocation for normal velocity on edges failed')
+!   END IF
 
     ! Tracer
     ALLOCATE(p_os_prog%tracer(nproma,n_zlev,nblks_c, ntrac_oce), STAT=ist)
@@ -430,7 +423,7 @@ CONTAINS
     ! initialize all components with zero
     !
 !    p_os_prog%h(:,:)    = 0.0_wp
-    p_os_prog%vn(:,:,:) = 0.0_wp
+!    p_os_prog%vn(:,:,:) = 0.0_wp
     DO n=1,ntrac_oce
       p_os_prog%tracer(:,:,:,n) = 0.0_wp
     END DO
@@ -476,10 +469,10 @@ CONTAINS
     &            ldims=(/nproma,nblks_c/))
 
    !! normal velocity component
-   !ALLOCATE(p_os_prog%vn(nproma,n_zlev,nblks_e), STAT=ist)
-   !IF (ist/=SUCCESS) THEN
-   !   CALL finish(TRIM(routine),'allocation for normal velocity on edges failed')
-   !END IF
+    CALL add_var(list, 'vn', p_os_prog%vn , GRID_UNSTRUCTURED, &
+    &            t_cf_var('vn', 'm/s', 'normale velocity'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
 
    !! Tracer
    !ALLOCATE(p_os_prog%tracer(nproma,n_zlev,nblks_c, ntrac_oce), STAT=ist)
@@ -982,7 +975,6 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2006).
   !!
-! SUBROUTINE construct_hydro_ocean_aux(p_patch, p_os_aux, k_no_temp_mem)
   SUBROUTINE construct_hydro_ocean_aux(p_patch, p_os_aux)
 
     TYPE(t_patch),TARGET, INTENT(IN)                :: p_patch
