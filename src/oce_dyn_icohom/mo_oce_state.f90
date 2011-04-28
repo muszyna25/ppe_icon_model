@@ -495,70 +495,10 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:construct_hydro_ocean_diag'
 
-!-------------------------------------------------------------------------
-
-    !CALL message(TRIM(routine), 'start to construct diagnostic hydro ocean state')
-
     ! determine size of arrays
     nblks_c = p_patch%nblks_c
     nblks_e = p_patch%nblks_e
     nblks_v = p_patch%nblks_v
-
-    ! density
-!!  ALLOCATE(p_os_diag%rho(nproma,n_zlev,nblks_c), STAT=ist)
-!!  IF (ist/=SUCCESS) THEN
-!!  CALL finish(TRIM(routine), 'allocation for density failed')
-!!  END IF
-
- !  ! tangential velocity component
- !  ALLOCATE(p_os_diag%vt(nproma,n_zlev,nblks_e), STAT=ist)
- !  IF (ist/=SUCCESS) THEN
-!!    CALL finish(TRIM(routine), 'allocation for tangential velocity at edges failed')
-!!  END IF
-!!
-!!  ALLOCATE(p_os_diag%h_e(nproma,nblks_e), STAT=ist)
-!   IF (ist/=SUCCESS) THEN
-!     CALL finish(TRIM(routine), 'allocation for surface height at edges failed')
-!   END IF
-!
-!   ALLOCATE(p_os_diag%thick_c(nproma,nblks_c), STAT=ist)
-!   IF (ist/=SUCCESS) THEN
-!     CALL finish(TRIM(routine), 'allocation for fluid column thickness at cells failed')
-!   END IF
-!   ALLOCATE(p_os_diag%thick_e(nproma,nblks_e), STAT=ist)
-!   IF (ist/=SUCCESS) THEN
-!     CALL finish(TRIM(routine), 'allocation for fluid column thickness at edges failed')
-!   END IF
-!   ALLOCATE(p_os_diag%w(nproma,n_zlev+1,nblks_c), STAT=ist)
-!   IF (ist/=SUCCESS) THEN
-!     CALL finish(TRIM(routine), 'allocation for vertical velocity at cells failed')
-!   END IF
-!   ALLOCATE(p_os_diag%w_old(nproma,n_zlev+1,nblks_c), STAT=ist)
-!   IF (ist/=SUCCESS) THEN
-!     CALL finish(TRIM(routine), 'allocation for vertical velocity at cells failed')
-!   END IF
-
-!   ALLOCATE(p_os_diag%w_e(nproma,n_zlev+1,nblks_e), STAT=ist)
-!   IF (ist/=SUCCESS) THEN
-!     CALL finish(TRIM(routine), 'allocation for vertical velocity at edges failed')
-!   END IF
-
-!   ALLOCATE(p_os_diag%w_prev(nproma,n_zlev+1,nblks_c), STAT=ist)
-!   IF (ist/=SUCCESS) THEN
-!     CALL finish(TRIM(routine), 'allocation for vert. veloc. at cells at prev. timestep failed')
-!   END IF
-
-    ! reconstructed u velocity component
-!   ALLOCATE(p_os_diag%u(nproma,n_zlev,nblks_c), STAT=ist)
-!   IF (ist/=SUCCESS) THEN
-!     CALL finish(TRIM(routine), 'allocation for u at cells failed')
-!   END IF
-
-    ! reconstructed v velocity component
-!   ALLOCATE(p_os_diag%v(nproma,n_zlev,nblks_c), STAT=ist)
-!   IF (ist/=SUCCESS) THEN
-!     CALL finish(TRIM(routine), 'allocation for v at cells failed')
-!   END IF
 
     !reconstrcuted velocity in cartesian coordinates
     ALLOCATE(p_os_diag%p_vn(nproma,n_zlev,nblks_c), STAT=ist)
@@ -566,143 +506,20 @@ CONTAINS
       CALL finish(TRIM(routine), 'allocation for p_vn at cells failed')
     END IF
 
-    !reconstrcuted velocity in cartesian coordinates
-!   ALLOCATE(p_os_diag%ptp_vn(nproma,n_zlev,nblks_e), STAT=ist)
-!   IF (ist/=SUCCESS) THEN
-!     CALL finish(TRIM(routine), 'allocation for ptp_vn at edges failed')
-!   END IF
+    rl_start = 1
+    rl_end = min_rlcell
 
-    ! predicted vn normal velocity component
-!   ALLOCATE(p_os_diag%vn_pred(nproma,n_zlev,nblks_e), STAT=ist)
-!   IF (ist/=SUCCESS) THEN
-!     CALL finish(TRIM(routine), 'allocation for vn_pred at cells failed')
-!   END IF
-    ! predicted vn normal velocity component
-!   ALLOCATE(p_os_diag%vn_impl_vert_diff(nproma,n_zlev,nblks_e), STAT=ist)
-!   IF (ist/=SUCCESS) THEN
-!     CALL finish(TRIM(routine), 'allocation for vn_impl_vert_diff failed')
-!   END IF
-
-    ! vorticity
-!   ALLOCATE(p_os_diag%vort(nproma,n_zlev,nblks_v), STAT=ist)
-!   IF (ist/=SUCCESS) THEN
-!     CALL finish(TRIM(routine),'allocation for vorticity at vertices failed')
-!   END IF
-
-!   ALLOCATE(p_os_diag%vort_e(nproma,n_zlev,nblks_e), STAT=ist)
-!   IF (ist/=SUCCESS) THEN
-!     CALL finish(TRIM(routine), 'allocation for vorticity at edges failed')
-!   END IF
-
-    ! kinetic energy component
-!   ALLOCATE(p_os_diag%kin(nproma,n_zlev,nblks_c), STAT=ist)
-!   IF (ist/=SUCCESS) THEN
-!     CALL finish(TRIM(routine),'allocation for kinetic energy at cells failed')
-!   END IF
-
-    ! gradient term
-!   ALLOCATE(p_os_diag%grad(nproma,n_zlev,nblks_e), STAT=ist)
-!   IF (ist/=SUCCESS) THEN
-!     CALL finish(TRIM(routine),'allocation for gradient term at edges failed')
-!   END IF
-
-    ! divergence component
-!   ALLOCATE(p_os_diag%div(nproma,n_zlev,nblks_c), STAT=ist)
-!   IF (ist/=SUCCESS) THEN
-!     CALL finish(TRIM(routine),'allocation for divergence at cells failed')
-!   END IF
-
-    ! hydrostatic pressure
-!   ALLOCATE(p_os_diag%press_hyd(nproma,n_zlev,nblks_c) , STAT=ist)
-!   IF (ist/=SUCCESS) THEN
-!     CALL finish(TRIM(routine), 'allocation for hydrostatic pressure at cells failed')
-!   END IF
-
-    ! pressure gradient
-!   ALLOCATE(p_os_diag%press_grad(nproma,n_zlev,nblks_e) , STAT=ist)
-!   IF (ist/=SUCCESS) THEN
-!     CALL finish(TRIM(routine), 'allocation for pressure gradient at edges failed')
-!   END IF
-
-!     ! mass flux
-!     ALLOCATE(p_os_diag%flux_mass(nproma,n_zlev,nblks_e) , STAT=ist)
-!     IF (ist/=SUCCESS) THEN
-!       CALL finish(TRIM(routine),'allocation for mass flux at edges failed')
-!     END IF
-!     ! tracer flux
-!     ALLOCATE(p_os_diag%flux_tracer(nproma,n_zlev,nblks_e), STAT=ist)
-!     IF (ist/=SUCCESS) THEN
-!       CALL finish(TRIM(routine),'allocation for tracer flux at edges failed')
-!     END IF
-
-    ! horizontal velocity advection
-!   ALLOCATE(p_os_diag%veloc_adv_horz(nproma,n_zlev,nblks_e), STAT=ist)
-!   IF (ist/=SUCCESS)THEN
-!     CALL finish(TRIM(routine),'allocation for horizontal velocity advection at edges failed')
-!   ENDIF
-
-    ! vertical velocity advection
-!   ALLOCATE(p_os_diag%veloc_adv_vert(nproma,n_zlev,nblks_e), STAT=ist)
-!   IF (ist/=SUCCESS)THEN
-!     CALL finish(TRIM(routine),'allocation for vertical velocity advection at edges failed')
-!   ENDIF
-
-    ! horizontal diffusion
-!   ALLOCATE(p_os_diag%laplacian_horz(nproma,n_zlev,nblks_e), STAT=ist)
-!   IF (ist/=SUCCESS)THEN
-!     CALL finish(TRIM(routine),'allocation for horizontal diff. of hor. veloc. at edges failed')
-!   ENDIF
-
-!   ALLOCATE(p_os_diag%laplacian_vert(nproma,n_zlev,nblks_e), STAT=ist)
-!   IF (ist/=SUCCESS)THEN
-!     CALL finish(TRIM(routine),'allocation for vertical diff. of hor. veloc. at edges failed')
-!   ENDIF
-
-    ! initialize all components with zero (this is preliminary)
-!   p_os_diag%vt        = 0.0_wp
-!    p_os_diag%rho       = 0.0_wp
-!   p_os_diag%h_e       = 0.0_wp
-!   p_os_diag%thick_c   = 0.0_wp
-!   p_os_diag%thick_e   = 0.0_wp
-!   p_os_diag%w         = 0.0_wp
-!   p_os_diag%w_old     = 0.0_wp
-!   p_os_diag%w_e       = 0.0_wp
-!   p_os_diag%w_prev    = 0.0_wp
-!   p_os_diag%u         = 0.0_wp
-!   p_os_diag%v         = 0.0_wp
-!   p_os_diag%ptp_vn    = 0.0_wp
-!   p_os_diag%vn_pred   = 0.0_wp
-!   p_os_diag%vort      = 0.0_wp
-!   p_os_diag%vort_e    = 0.0_wp
-!   p_os_diag%kin       = 0.0_wp
-!   p_os_diag%grad      = 0.0_wp
-!   p_os_diag%div       = 0.0_wp
-!   p_os_diag%press_hyd = 0.0_wp
-!   p_os_diag%press_grad= 0.0_wp
-!   p_os_diag%vn_impl_vert_diff= 0.0_wp
-!
-!   p_os_diag%veloc_adv_horz=0.0_wp
-!   p_os_diag%veloc_adv_vert=0.0_wp
-!   p_os_diag%laplacian_horz=0.0_wp
-!   p_os_diag%laplacian_vert=0.0_wp
-!
-   rl_start = 1
-   rl_end = min_rlcell
- 
-   i_startblk = p_patch%cells%start_blk(rl_start,1)
-   i_endblk   = p_patch%cells%end_blk(rl_end,1)
-   DO jk=1,n_zlev
-     DO jb = i_startblk, i_endblk
-       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,&
-                        & i_startidx, i_endidx, rl_start, rl_end)
-       DO jc = i_startidx, i_endidx
-         p_os_diag%p_vn(jc,jk,jb)%x=0.0_wp
-       END DO
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,1)
+    DO jk=1,n_zlev
+      DO jb = i_startblk, i_endblk
+        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,&
+        &                  i_startidx, i_endidx, rl_start, rl_end)
+        DO jc = i_startidx, i_endidx
+          p_os_diag%p_vn(jc,jk,jb)%x=0.0_wp
+        END DO
+      END DO
     END DO
-  END DO
-!
-!
-!   !CALL message(TRIM(routine), 'construction of hydrostatic ocean diagnostic state finished')
 
   END SUBROUTINE construct_hydro_ocean_diag
 
@@ -730,10 +547,6 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:construct_hydro_ocean_diag'
 
-!-------------------------------------------------------------------------
-
-    !CALL message(TRIM(routine), 'start to construct diagnostic hydro ocean state')
-
     ! determine size of arrays
     nblks_c = p_patch%nblks_c
     nblks_e = p_patch%nblks_e
@@ -755,6 +568,7 @@ CONTAINS
     &            t_grib2_var(255,255,255,16,GRID_REFERENCE,GRID_EDGE, ZAXIS_HYBRID),&
     &            ldims=(/nproma,nblks_e/))
 
+    ! thicknesses
     CALL add_var(list, 'thick_c', p_os_diag%thick_c, GRID_UNSTRUCTURED,&
     &            t_cf_var('thick_c','m','fluid column thickness at cells'),&
     &            t_grib2_var(255,255,255,16,GRID_REFERENCE,GRID_CELL, ZAXIS_SURFACE),&
@@ -764,26 +578,23 @@ CONTAINS
     &            t_grib2_var(255,255,255,16,GRID_REFERENCE,GRID_EDGE, ZAXIS_SURFACE),&
     &            ldims=(/nproma,nblks_e/))
 
+    ! velocities
     CALL add_var(list, 'w', p_os_diag%w, GRID_UNSTRUCTURED,&
     &            t_cf_var('w','m/s','vertical velocity at cells'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
     &            ldims=(/nproma,n_zlev+1,nblks_c/))
-
     CALL add_var(list, 'w_old', p_os_diag%w_old, GRID_UNSTRUCTURED,&
     &            t_cf_var('w_old','m/s','vertical velocity at cells'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
     &            ldims=(/nproma,n_zlev+1,nblks_c/))
-
     CALL add_var(list, 'w_e', p_os_diag%w_e, GRID_UNSTRUCTURED,&
     &            t_cf_var('w_e','m/s','vertical velocity at edges'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
     &            ldims=(/nproma,n_zlev+1,nblks_e/))
-
     CALL add_var(list, 'w_prev', p_os_diag%w_prev, GRID_UNSTRUCTURED,&
     &            t_cf_var('w_prev','m/s','vertical velocity at edges'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
     &            ldims=(/nproma,n_zlev+1,nblks_c/))
-
     ! reconstructed u velocity component
     CALL add_var(list, 'u', p_os_diag%u, GRID_UNSTRUCTURED,&
     &            t_cf_var('u','m/s','u velocity component'),&
@@ -824,7 +635,6 @@ CONTAINS
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
 
-
     ! kinetic energy component
     CALL add_var(list, 'kin', p_os_diag%kin, GRID_UNSTRUCTURED,&
     &            t_cf_var('kin','J','kinetic energy'),&
@@ -853,16 +663,15 @@ CONTAINS
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
 
-! !   ! mass flux
-! !   ALLOCATE(p_os_diag%flux_mass(nproma,n_zlev,nblks_e) , STAT=ist)
-! !   IF (ist/=SUCCESS) THEN
-! !     CALL finish(TRIM(routine),'allocation for mass flux at edges failed')
-! !   END IF
-! !   ! tracer flux
-! !   ALLOCATE(p_os_diag%flux_tracer(nproma,n_zlev,nblks_e), STAT=ist)
-! !   IF (ist/=SUCCESS) THEN
-! !     CALL finish(TRIM(routine),'allocation for tracer flux at edges failed')
-! !   END IF
+    ! mass flux
+    CALL add_var(list, 'flux_mass', p_os_diag%flux_mass, GRID_UNSTRUCTURED,&
+    &            t_cf_var('flux_mass','','mass flux at edges'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
+    CALL add_var(list, 'flux_tracer', p_os_diag%flux_tracer, GRID_UNSTRUCTURED,&
+    &            t_cf_var('flux_tracer','','tracers flux at edges'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
 
     ! horizontal velocity advection
     CALL add_var(list, 'veloc_adv_horz', p_os_diag%veloc_adv_horz, GRID_UNSTRUCTURED,&
