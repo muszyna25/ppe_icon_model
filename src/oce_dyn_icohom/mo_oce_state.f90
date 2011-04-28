@@ -59,6 +59,16 @@ MODULE mo_oce_state
   USE mo_model_domain_import, ONLY: n_dom
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c
+
+  USE mo_linked_list,  ONLY: t_var_list
+  USE mo_var_list,     ONLY: default_var_list_settings, &
+                           & add_var,                   &
+                           & new_var_list,              &
+                           & delete_var_list
+  USE mo_cf_convention
+  USE mo_grib2
+  USE mo_cdi_constants
+
   IMPLICIT NONE
   PRIVATE
 
@@ -99,7 +109,7 @@ MODULE mo_oce_state
 !
   TYPE t_hydro_ocean_prog
 
-    REAL(wp), ALLOCATABLE ::    &
+    REAL(wp), POINTER ::    &
       &  h(:,:)                ,& ! height of the free surface. Unit: [m]
                                   ! dimension:(nproma, nblks_c)
       &  vn(:,:,:)             ,& ! velocity component normal to cell edge. Unit [m/s]
@@ -117,7 +127,7 @@ MODULE mo_oce_state
 !
   TYPE t_hydro_ocean_diag
 
-    REAL(wp), ALLOCATABLE ::        &
+    REAL(wp), POINTER ::        &
       &  vt(:,:,:)             ,& ! tangential velocity component at edges. Unit [m/s].
                                   ! dimension: (nproma,n_zlev, nblks_e)
       &  rho(:,:,:)            ,& ! density. Unit: [kg/m^3]
@@ -169,7 +179,7 @@ MODULE mo_oce_state
       &  press_grad(:,:,:)       ! hydrostatic pressure gradient term. Unit [m/s]
                                   ! dimension: (nproma, n_zlev, nblks_e)
 
- TYPE(t_cartesian_coordinates), ALLOCATABLE :: p_vn(:,:,:) ! reconstructed velocity at cell center in cartesian coordinates
+ TYPE(t_cartesian_coordinates), POINTER :: p_vn(:,:,:) ! reconstructed velocity at cell center in cartesian coordinates
                                                            ! dimension: (nproma, n_zlev, nblks_c)
 
   END TYPE t_hydro_ocean_diag
@@ -179,7 +189,7 @@ MODULE mo_oce_state
 !
   TYPE t_hydro_ocean_aux
 
-    REAL(wp), ALLOCATABLE ::    &
+    REAL(wp), POINTER ::    &
       &  g_n(:,:,:)            ,& ! explicit velocity term in Adams-Bashford time marching routines,
                                   ! at timelevel n
                                   ! dimension: (nproma, n_zlev, nblks_e)
@@ -226,7 +236,7 @@ MODULE mo_oce_state
       &  bc_bot_tracer(:,:,:)  ,& ! vertical velocity boundary condition at bottom
       &  p_rhs_sfc_eq(:,:)!,      & ! right hand side of surface equation
                                          ! dimension: (nproma,nblks_c)
-     TYPE(t_cartesian_coordinates), ALLOCATABLE :: bc_top_veloc_cc(:,:), &
+     TYPE(t_cartesian_coordinates), POINTER :: bc_top_veloc_cc(:,:), &
                                   &                bc_bot_veloc_cc(:,:)
   END TYPE t_hydro_ocean_aux
 
@@ -235,7 +245,7 @@ MODULE mo_oce_state
 !
   TYPE t_hydro_ocean_state
 
-    TYPE(t_hydro_ocean_prog), ALLOCATABLE :: p_prog(:)    ! time array of prognostic states at
+    TYPE(t_hydro_ocean_prog), POINTER :: p_prog(:)    ! time array of prognostic states at
                                                         ! different time levels
     TYPE(t_hydro_ocean_diag) :: p_diag
     TYPE(t_hydro_ocean_aux)  :: p_aux
@@ -263,41 +273,28 @@ CONTAINS
 !! Developed  by  Peter Korn, MPI-M (2007).
 !!  Modification by Stephan Lorenz, MPI-M, (2010-06-01) - no temporary memory array
 !
-!
-! SUBROUTINE construct_hydro_ocean_state( p_patch, p_os, prog_length, k_no_temp_mem )
+
   SUBROUTINE construct_hydro_ocean_state( p_patch, p_os )
 
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch(n_dom)
     TYPE(t_hydro_ocean_state), TARGET :: p_os(n_dom)
 
-    !INTEGER, OPTIONAL, INTENT(IN)             :: prog_length
-    !INTEGER, OPTIONAL, INTENT(IN)             :: k_no_temp_mem
-
     ! local variables
-
     INTEGER           :: jg
-
     INTEGER           :: i_status, jp, prlength ! local prognostic array length
-    !INTEGER           :: no_temp_memory         ! no of temporary memory elements
+
+    ! variabels for dynamic variable list construction
+    TYPE(t_var_list),POINTER :: list
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:construct_hydro_ocean_state'
 
     CALL message(TRIM(routine), 'start to construct hydro_ocean state' )
 
-    !IF (PRESENT(prog_length)) THEN
-    !  prlength = prog_length
-    !ELSE
-    !  prlength =2
-    !END IF
-
-    !
     ! Using Adams-Bashforth semi-implicit timestepping with 3 prognostic time levels:
     prlength = 3
 
-    ! #slo# preliminary without dimensioning of prog/diag/aux
-
-    !create state array for each domain
+    CALL new_var_list(list, 'ocean_var_list')
     DO jg = 1, n_dom
 
       ALLOCATE(p_os(jg)%p_prog(1:prlength), STAT=i_status)
@@ -308,10 +305,13 @@ CONTAINS
       ! construction loop: create components of state array
       DO jp = 1, prlength
          CALL construct_hydro_ocean_prog(p_patch(jg), p_os(jg)%p_prog(jp))
+         CALL add_hydro_ocean_prog_vars(list, p_patch(jg), p_os(jg)%p_prog(jp))
       END DO
+
      !CALL construct_hydro_ocean_prog(p_patch(jg), p_os(jg)%p_prog)
 
       CALL construct_hydro_ocean_diag(p_patch(jg), p_os(jg)%p_diag)
+      CALL add_hydro_ocean_diag_vars( list, p_patch(jg), p_os(jg)%p_diag)
 
       CALL construct_hydro_ocean_aux(p_patch(jg), p_os(jg)%p_aux)
 
@@ -409,10 +409,10 @@ CONTAINS
     ! allocate prognostic part of state vector
     !
     ! height
-    ALLOCATE(p_os_prog%h(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-       CALL finish(TRIM(routine),'allocation for h on cells failed')
-    END IF
+!   ALLOCATE(p_os_prog%h(nproma,nblks_c), STAT=ist)
+!   IF (ist/=SUCCESS) THEN
+!      CALL finish(TRIM(routine),'allocation for h on cells failed')
+!   END IF
 
     ! normal velocity component
     ALLOCATE(p_os_prog%vn(nproma,n_zlev,nblks_e), STAT=ist)
@@ -429,7 +429,7 @@ CONTAINS
 
     ! initialize all components with zero
     !
-    p_os_prog%h(:,:)    = 0.0_wp
+!    p_os_prog%h(:,:)    = 0.0_wp
     p_os_prog%vn(:,:,:) = 0.0_wp
     DO n=1,ntrac_oce
       p_os_prog%tracer(:,:,:,n) = 0.0_wp
@@ -443,6 +443,67 @@ CONTAINS
     !CALL message(TRIM(routine), 'construction of hydrostatic ocean prognostic state finished')
 
   END SUBROUTINE construct_hydro_ocean_prog
+
+  SUBROUTINE add_hydro_ocean_prog_vars(list, p_patch, p_os_prog)
+
+    TYPE(t_var_list), POINTER :: list
+    TYPE(t_patch), INTENT(in), TARGET         :: p_patch
+    TYPE(t_hydro_ocean_prog), INTENT(inout)   :: p_os_prog
+
+
+    ! local variables
+
+    INTEGER  :: n
+    INTEGER  :: nblks_c, nblks_e !, nblks_v
+    INTEGER  :: ist
+
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      &      routine = 'mo_oce_state:construct_hydro_ocean_prog'
+
+!-------------------------------------------------------------------------
+
+    !CALL message(TRIM(routine), 'start to construct hydro_ocean prognostic state')
+
+    nblks_c = p_patch%nblks_c
+    nblks_e = p_patch%nblks_e
+
+    ! allocate prognostic part of state vector
+    !
+    ! height
+    CALL add_var(list, 'h', p_os_prog%h , GRID_UNSTRUCTURED, &
+    &            t_cf_var('h', 'm', 'height'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,nblks_c/))
+
+   !! normal velocity component
+   !ALLOCATE(p_os_prog%vn(nproma,n_zlev,nblks_e), STAT=ist)
+   !IF (ist/=SUCCESS) THEN
+   !   CALL finish(TRIM(routine),'allocation for normal velocity on edges failed')
+   !END IF
+
+   !! Tracer
+   !ALLOCATE(p_os_prog%tracer(nproma,n_zlev,nblks_c, ntrac_oce), STAT=ist)
+   !IF (ist/=SUCCESS) THEN
+   !   CALL finish(TRIM(routine),'allocation for tracers temp. and sal. on cells failed')
+   !END IF
+
+
+    ! initialize all components with zero
+    !
+    p_os_prog%h(:,:)    = 0.0_wp
+   !p_os_prog%vn(:,:,:) = 0.0_wp
+   !DO n=1,ntrac_oce
+   !  p_os_prog%tracer(:,:,:,n) = 0.0_wp
+   !END DO
+
+   !! initialize tracers temperature and salinity with reference values from namelist
+   !!
+   !p_os_prog%tracer(:,:,:,1) = t_ref  !  temperature
+   !p_os_prog%tracer(:,:,:,2) = s_ref  !  salinity
+
+   !!CALL message(TRIM(routine), 'construction of hydrostatic ocean prognostic state finished')
+
+  END SUBROUTINE
 
   !-------------------------------------------------------------------------
   !>
@@ -477,10 +538,10 @@ CONTAINS
     nblks_v = p_patch%nblks_v
 
     ! density
-    ALLOCATE(p_os_diag%rho(nproma,n_zlev,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-    CALL finish(TRIM(routine), 'allocation for density failed')
-    END IF
+!   ALLOCATE(p_os_diag%rho(nproma,n_zlev,nblks_c), STAT=ist)
+!   IF (ist/=SUCCESS) THEN
+!   CALL finish(TRIM(routine), 'allocation for density failed')
+!   END IF
 
     ! tangential velocity component
     ALLOCATE(p_os_diag%vt(nproma,n_zlev,nblks_e), STAT=ist)
@@ -632,7 +693,7 @@ CONTAINS
 
     ! initialize all components with zero (this is preliminary)
     p_os_diag%vt        = 0.0_wp
-    p_os_diag%rho       = 0.0_wp
+!    p_os_diag%rho       = 0.0_wp
     p_os_diag%h_e       = 0.0_wp
     p_os_diag%thick_c   = 0.0_wp
     p_os_diag%thick_e   = 0.0_wp
@@ -677,6 +738,241 @@ CONTAINS
     !CALL message(TRIM(routine), 'construction of hydrostatic ocean diagnostic state finished')
 
   END SUBROUTINE construct_hydro_ocean_diag
+
+  !-------------------------------------------------------------------------
+  !>
+  !!               Allocation of components of hydrostatic ocean auxiliary state.
+  !!               Initialization of components with zero.
+  !
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2006).
+  !!
+
+  SUBROUTINE add_hydro_ocean_diag_vars(list,p_patch,p_os_diag)
+
+    TYPE(t_var_list), POINTER :: list
+    TYPE(t_patch), TARGET, INTENT(IN)          :: p_patch
+    TYPE(t_hydro_ocean_diag), INTENT(INOUT)    :: p_os_diag
+
+    ! local variables
+
+    INTEGER :: ist
+    INTEGER :: nblks_c, nblks_e, nblks_v
+    INTEGER ::  jc,jb,jk, rl_start, rl_end
+    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      &      routine = 'mo_oce_state:construct_hydro_ocean_diag'
+
+!-------------------------------------------------------------------------
+
+    !CALL message(TRIM(routine), 'start to construct diagnostic hydro ocean state')
+
+    ! determine size of arrays
+    nblks_c = p_patch%nblks_c
+    nblks_e = p_patch%nblks_e
+    nblks_v = p_patch%nblks_v
+
+    ! density
+    CALL add_var(list, 'rho', p_os_diag%rho , GRID_UNSTRUCTURED, &
+    &            t_cf_var('rho', 'kg/m^3', 'density'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_c/))
+
+  ! ! tangential velocity component
+  ! ALLOCATE(p_os_diag%vt(nproma,n_zlev,nblks_e), STAT=ist)
+  ! IF (ist/=SUCCESS) THEN
+  !   CALL finish(TRIM(routine), 'allocation for tangential velocity at edges failed')
+  ! END IF
+
+  ! ALLOCATE(p_os_diag%h_e(nproma,nblks_e), STAT=ist)
+  ! IF (ist/=SUCCESS) THEN
+  !   CALL finish(TRIM(routine), 'allocation for surface height at edges failed')
+  ! END IF
+
+  ! ALLOCATE(p_os_diag%thick_c(nproma,nblks_c), STAT=ist)
+  ! IF (ist/=SUCCESS) THEN
+  !   CALL finish(TRIM(routine), 'allocation for fluid column thickness at cells failed')
+  ! END IF
+  ! ALLOCATE(p_os_diag%thick_e(nproma,nblks_e), STAT=ist)
+  ! IF (ist/=SUCCESS) THEN
+  !   CALL finish(TRIM(routine), 'allocation for fluid column thickness at edges failed')
+  ! END IF
+  ! ALLOCATE(p_os_diag%w(nproma,n_zlev+1,nblks_c), STAT=ist)
+  ! IF (ist/=SUCCESS) THEN
+  !   CALL finish(TRIM(routine), 'allocation for vertical velocity at cells failed')
+  ! END IF
+  ! ALLOCATE(p_os_diag%w_old(nproma,n_zlev+1,nblks_c), STAT=ist)
+  ! IF (ist/=SUCCESS) THEN
+  !   CALL finish(TRIM(routine), 'allocation for vertical velocity at cells failed')
+  ! END IF
+
+  ! ALLOCATE(p_os_diag%w_e(nproma,n_zlev+1,nblks_e), STAT=ist)
+  ! IF (ist/=SUCCESS) THEN
+  !   CALL finish(TRIM(routine), 'allocation for vertical velocity at edges failed')
+  ! END IF
+
+  ! ALLOCATE(p_os_diag%w_prev(nproma,n_zlev+1,nblks_c), STAT=ist)
+  ! IF (ist/=SUCCESS) THEN
+  !   CALL finish(TRIM(routine), 'allocation for vert. veloc. at cells at prev. timestep failed')
+  ! END IF
+
+  ! ! reconstructed u velocity component
+  ! ALLOCATE(p_os_diag%u(nproma,n_zlev,nblks_c), STAT=ist)
+  ! IF (ist/=SUCCESS) THEN
+  !   CALL finish(TRIM(routine), 'allocation for u at cells failed')
+  ! END IF
+
+  ! ! reconstructed v velocity component
+  ! ALLOCATE(p_os_diag%v(nproma,n_zlev,nblks_c), STAT=ist)
+  ! IF (ist/=SUCCESS) THEN
+  !   CALL finish(TRIM(routine), 'allocation for v at cells failed')
+  ! END IF
+
+  ! !reconstrcuted velocity in cartesian coordinates
+  ! ALLOCATE(p_os_diag%p_vn(nproma,n_zlev,nblks_c), STAT=ist)
+  ! IF (ist/=SUCCESS) THEN
+  !   CALL finish(TRIM(routine), 'allocation for p_vn at cells failed')
+  ! END IF
+
+  ! !reconstrcuted velocity in cartesian coordinates
+  ! ALLOCATE(p_os_diag%ptp_vn(nproma,n_zlev,nblks_e), STAT=ist)
+  ! IF (ist/=SUCCESS) THEN
+  !   CALL finish(TRIM(routine), 'allocation for ptp_vn at edges failed')
+  ! END IF
+
+  ! ! predicted vn normal velocity component
+  ! ALLOCATE(p_os_diag%vn_pred(nproma,n_zlev,nblks_e), STAT=ist)
+  ! IF (ist/=SUCCESS) THEN
+  !   CALL finish(TRIM(routine), 'allocation for vn_pred at cells failed')
+  ! END IF
+  ! ! predicted vn normal velocity component
+  ! ALLOCATE(p_os_diag%vn_impl_vert_diff(nproma,n_zlev,nblks_e), STAT=ist)
+  ! IF (ist/=SUCCESS) THEN
+  !   CALL finish(TRIM(routine), 'allocation for vn_impl_vert_diff failed')
+  ! END IF
+
+  ! ! vorticity
+  ! ALLOCATE(p_os_diag%vort(nproma,n_zlev,nblks_v), STAT=ist)
+  ! IF (ist/=SUCCESS) THEN
+  !   CALL finish(TRIM(routine),'allocation for vorticity at vertices failed')
+  ! END IF
+
+  ! ALLOCATE(p_os_diag%vort_e(nproma,n_zlev,nblks_e), STAT=ist)
+  ! IF (ist/=SUCCESS) THEN
+  !   CALL finish(TRIM(routine), 'allocation for vorticity at edges failed')
+  ! END IF
+
+  ! ! kinetic energy component
+  ! ALLOCATE(p_os_diag%kin(nproma,n_zlev,nblks_c), STAT=ist)
+  ! IF (ist/=SUCCESS) THEN
+  !   CALL finish(TRIM(routine),'allocation for kinetic energy at cells failed')
+  ! END IF
+
+  ! ! gradient term
+  ! ALLOCATE(p_os_diag%grad(nproma,n_zlev,nblks_e), STAT=ist)
+  ! IF (ist/=SUCCESS) THEN
+  !   CALL finish(TRIM(routine),'allocation for gradient term at edges failed')
+  ! END IF
+
+  ! ! divergence component
+  ! ALLOCATE(p_os_diag%div(nproma,n_zlev,nblks_c), STAT=ist)
+  ! IF (ist/=SUCCESS) THEN
+  !   CALL finish(TRIM(routine),'allocation for divergence at cells failed')
+  ! END IF
+
+  ! ! hydrostatic pressure
+  ! ALLOCATE(p_os_diag%press_hyd(nproma,n_zlev,nblks_c) , STAT=ist)
+  ! IF (ist/=SUCCESS) THEN
+  !   CALL finish(TRIM(routine), 'allocation for hydrostatic pressure at cells failed')
+  ! END IF
+
+  ! ! pressure gradient
+  ! ALLOCATE(p_os_diag%press_grad(nproma,n_zlev,nblks_e) , STAT=ist)
+  ! IF (ist/=SUCCESS) THEN
+  !   CALL finish(TRIM(routine), 'allocation for pressure gradient at edges failed')
+  ! END IF
+
+! !   ! mass flux
+! !   ALLOCATE(p_os_diag%flux_mass(nproma,n_zlev,nblks_e) , STAT=ist)
+! !   IF (ist/=SUCCESS) THEN
+! !     CALL finish(TRIM(routine),'allocation for mass flux at edges failed')
+! !   END IF
+! !   ! tracer flux
+! !   ALLOCATE(p_os_diag%flux_tracer(nproma,n_zlev,nblks_e), STAT=ist)
+! !   IF (ist/=SUCCESS) THEN
+! !     CALL finish(TRIM(routine),'allocation for tracer flux at edges failed')
+! !   END IF
+
+  ! ! horizontal velocity advection
+  ! ALLOCATE(p_os_diag%veloc_adv_horz(nproma,n_zlev,nblks_e), STAT=ist)
+  ! IF (ist/=SUCCESS)THEN
+  !   CALL finish(TRIM(routine),'allocation for horizontal velocity advection at edges failed')
+  ! ENDIF
+
+  ! ! vertical velocity advection
+  ! ALLOCATE(p_os_diag%veloc_adv_vert(nproma,n_zlev,nblks_e), STAT=ist)
+  ! IF (ist/=SUCCESS)THEN
+  !   CALL finish(TRIM(routine),'allocation for vertical velocity advection at edges failed')
+  ! ENDIF
+
+  ! ! horizontal diffusion
+  ! ALLOCATE(p_os_diag%laplacian_horz(nproma,n_zlev,nblks_e), STAT=ist)
+  ! IF (ist/=SUCCESS)THEN
+  !   CALL finish(TRIM(routine),'allocation for horizontal diff. of hor. veloc. at edges failed')
+  ! ENDIF
+
+  ! ALLOCATE(p_os_diag%laplacian_vert(nproma,n_zlev,nblks_e), STAT=ist)
+  ! IF (ist/=SUCCESS)THEN
+  !   CALL finish(TRIM(routine),'allocation for vertical diff. of hor. veloc. at edges failed')
+  ! ENDIF
+
+  ! ! initialize all components with zero (this is preliminary)
+  ! p_os_diag%vt        = 0.0_wp
+  ! p_os_diag%rho       = 0.0_wp
+  ! p_os_diag%h_e       = 0.0_wp
+  ! p_os_diag%thick_c   = 0.0_wp
+  ! p_os_diag%thick_e   = 0.0_wp
+  ! p_os_diag%w         = 0.0_wp
+  ! p_os_diag%w_old     = 0.0_wp
+  ! p_os_diag%w_e       = 0.0_wp
+  ! p_os_diag%w_prev    = 0.0_wp
+  ! p_os_diag%u         = 0.0_wp
+  ! p_os_diag%v         = 0.0_wp
+  ! p_os_diag%ptp_vn    = 0.0_wp
+  ! p_os_diag%vn_pred   = 0.0_wp
+  ! p_os_diag%vort      = 0.0_wp
+  ! p_os_diag%vort_e    = 0.0_wp
+  ! p_os_diag%kin       = 0.0_wp
+  ! p_os_diag%grad      = 0.0_wp
+  ! p_os_diag%div       = 0.0_wp
+  ! p_os_diag%press_hyd = 0.0_wp
+  ! p_os_diag%press_grad= 0.0_wp
+  ! p_os_diag%vn_impl_vert_diff= 0.0_wp
+
+  ! p_os_diag%veloc_adv_horz=0.0_wp
+  ! p_os_diag%veloc_adv_vert=0.0_wp
+  ! p_os_diag%laplacian_horz=0.0_wp
+  ! p_os_diag%laplacian_vert=0.0_wp
+
+  !rl_start = 1
+  !rl_end = min_rlcell
+
+  !i_startblk = p_patch%cells%start_blk(rl_start,1)
+  !i_endblk   = p_patch%cells%end_blk(rl_end,1)
+  !DO jk=1,n_zlev
+  !  DO jb = i_startblk, i_endblk
+  !    CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,&
+  !                     & i_startidx, i_endidx, rl_start, rl_end)
+  !    DO jc = i_startidx, i_endidx
+  !      p_os_diag%p_vn(jc,jk,jb)%x=0.0_wp
+  !    END DO
+  ! END DO
+  !END DO
+
+
+  ! !CALL message(TRIM(routine), 'construction of hydrostatic ocean diagnostic state finished')
+
+  END SUBROUTINE
 
   !-------------------------------------------------------------------------
   !>
