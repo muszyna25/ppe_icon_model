@@ -338,16 +338,12 @@ CONTAINS
       CALL finish(TRIM(routine),'prog array has length zero')
     END IF
 
+    CALL delete_var_list(ocean_var_list)
+
     DO jg=1, n_dom
 
-      !destruction loop for array components
-      DO jp = 1, prlength
-         CALL destruct_hydro_ocean_prog(p_os(jg)%p_prog(jp))
-      END DO
-
-!     CALL destruct_hydro_ocean_prog(p_os(jg)%p_prog)
       CALL destruct_hydro_ocean_diag(p_os(jg)%p_diag)
-      CALL destruct_hydro_ocean_aux (p_os(jg)%p_aux)
+      CALL destruct_hydro_ocean_aux(p_os(jg)%p_aux)
 
       ! destruct state array
       ist = 1
