@@ -137,7 +137,7 @@ CONTAINS
     !
     ! set non-default list characteristics
     !
-    CALL assign_if_present(this_list%output_type,  output_type)
+    IF (PRESENT(output_type)) CALL assign_if_present(this_list%output_type,  output_type)
     CALL assign_if_present(this_list%restart_type, restart_type)
     CALL assign_if_present(this_list%post_suf,     post_suf) 
     CALL assign_if_present(this_list%rest_suf,     rest_suf) 
