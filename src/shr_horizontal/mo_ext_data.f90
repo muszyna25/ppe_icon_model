@@ -46,6 +46,7 @@ MODULE mo_ext_data
   USE mo_io_units,           ONLY: filename_max
   USE mo_run_nml,            ONLY: nproma, i_cell_type, itopo, locean, &
     &                              iforcing, inwp, fac_smooth_topo, n_iter_smooth_topo
+  USE mo_lnd_nwp_nml,        ONLY: nsfc_subs
   USE mo_model_domain,       ONLY: t_patch
   USE mo_impl_constants,     ONLY: SUCCESS, max_char_length
   USE mo_exception,          ONLY: message, finish
@@ -196,6 +197,10 @@ MODULE mo_ext_data
     ! *** soil parameters ***
     INTEGER, ALLOCATABLE ::   &  !<  soil texture, keys 0-9       []
       &  soiltyp(:,:)            ! index1=1,nproma, index2=1,nblks_c
+
+    INTEGER, ALLOCATABLE ::   &  !<  soil texture, keys 0-9       []
+      &  soiltyp_frac(:,:,:)            ! index1=1,nproma, index3=1,nblks_c
+
 
     REAL(wp), ALLOCATABLE ::   &  !< Near surface temperature (climatological mean)  [ K ]
       &  t_clim(:,:)              !  used as climatological layer (deepest layer) of T_SO
@@ -609,6 +614,11 @@ CONTAINS
           CALL finish (routine,'allocating soiltyp failed')
         ENDIF
 
+        ALLOCATE(ext_data(jg)%atm%soiltyp_frac(nproma,nsfc_subs,nblks_c),STAT=ist)
+        IF (ist /= success) THEN
+          CALL finish (routine,'allocating soiltyp failed')
+        ENDIF
+
         ALLOCATE(ext_data(jg)%atm%t_clim(nproma,nblks_c),STAT=ist)
         IF (ist /= success) THEN
           CALL finish (routine,'allocating t_clim failed')
@@ -669,6 +679,7 @@ CONTAINS
         ext_data(jg)%atm%plant_res_min(:,:) = 0._wp
         ext_data(jg)%atm%t_clim(:,:)        = 0._wp
         ext_data(jg)%atm%soiltyp(:,:)       = 0
+        ext_data(jg)%atm%soiltyp_frac(:,:,:)= 0
 
         ext_data(jg)%atm_td%ndvi_ratio_td(:,:,:)= 0._wp
       ENDIF ! iforcing
@@ -916,6 +927,10 @@ CONTAINS
 
         ! *** soil parameters ***
         DEALLOCATE(ext_data(jg)%atm%soiltyp,STAT=ist)
+        IF (ist /= success) THEN
+          CALL finish (routine,'deallocating soiltyp failed')
+        ENDIF
+        DEALLOCATE(ext_data(jg)%atm%soiltyp_frac,STAT=ist)
         IF (ist /= success) THEN
           CALL finish (routine,'deallocating soiltyp failed')
         ENDIF

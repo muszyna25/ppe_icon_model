@@ -618,6 +618,10 @@ DO jg = 1,n_dom
      CASE ('LDF-Moist')
         !
         ! First initialize the background state
+        !
+        SELECT CASE (ildf_init_type)
+        CASE (1)
+        ! Initialize the background state
         ! similar to the JWw-Moist background state
         !
          CALL ldf_init_prog_state( pt_patch(jg),          &
@@ -629,6 +633,21 @@ DO jg = 1,n_dom
         CALL message(TRIM(routine),'Initial state used in &
                 & the LDF-Moist test: balanced initial    &
                 & conditions similar to the JWw-Moist testcase')
+        !
+        CASE DEFAULT ! isothermal state at rest
+           !
+           CALL init_hydro_state_prog_isoRest( 300._wp, 100000._wp, &
+                & pt_hydro_state(jg)%prog(nnow(jg)) )
+           !
+           CALL message(TRIM(routine),'Initial state used in &
+                & the local diabatic forcing test: isothermal state at rest')
+           !
+           ! Set the surface geopotential to zero
+           !
+           ext_data(jg)%atm%topography_c = 0._wp
+           !
+        END SELECT ! initial conditions of the LDF test
+        !
         !
         IF (.NOT.ltwotime) CALL copy_prog_state(    &
              & pt_hydro_state(jg)%prog(nnow(jg)), & !in

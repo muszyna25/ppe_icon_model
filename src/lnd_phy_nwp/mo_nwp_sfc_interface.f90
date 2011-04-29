@@ -62,7 +62,7 @@ MODULE mo_nwp_sfc_interface
 
   USE mo_atm_phy_nwp_nml,      ONLY: inwp_surface, inwp_satad  
   USE mo_lnd_nwp_nml,          ONLY: nlev_soil, nztlev, nlev_snow, nsfc_subs, &
-    &                                lseaice, llake, lmulti_snow, czmls
+    &                                lseaice, llake, lmulti_snow, zml_soil
 !  USE mo_turbdiff_ras,       ONLY: organize_turbdiff
   USE mo_satad,              ONLY: sat_pres_water, spec_humi  
   USE src_turbdiff,          ONLY: organize_turbdiff
@@ -199,97 +199,97 @@ CONTAINS
 
           
 #ifdef __BOUNDCHECK
-!!$  CALL terra_multlay(   ie=nproma,je=1                            , & ! array dimensions
-!!$                        istarts=i_startidx,iends=i_endidx         , & ! optional start/end indicies
-!!$                        jstarts=1,jends=1                         , & ! optional start/end indicies
-!!$                        ke=nlevp1, nsubs0=1,nsubs1=1      , & ! nsfc_subs
-!!$                        ke_soil=nlev_soil, ke_snow=nlev_snow          , &
-!!$                        czmls                                     , & ! processing soil level structure 
-!!$                        dt=tcall_sfc_jg                           , &
-!!$!
-!!$                        soiltyp       =  ext_data%atm%soiltyp(:,1,jb) , & ! type of the soil (keys 0-9)                     --
-!!$                        plcov         =  ext_data%atm%plcov_mx(:,1,jb)   , & ! fraction of plant cover                         --
-!!$                        rootdp        =  ext_data%atm%root_dp(:,1,jb) , & ! depth of the roots                            ( m  )
-!!$                        sai           =  prm_diag%sai(:,1,jb)         , & ! surface area index                              --
-!!$                        tai           =  prm_diag%tai(:,1,jb)         , & ! transpiration area index                        --
-!!$                        eai           =  prm_diag%eai(:,1,jb)         , & ! earth area (evaporative surface area) index     --
-!!$                        llandmask     =  ext_data%atm%fr_land(:,1,jb) , & ! landpoint mask                                  --
-!!$                        rsmin2d       =  ext_data%atm%plant_res_min(:,jb),  & ! minimum stomata resistance                    ( s/m )
-!!$!
-!!$                        u   = p_diag%u(:,:,jb)                     , & ! zonal wind speed                              ( m/s )
-!!$                        v  = p_diag%v(:,:,jb)                     , & ! meridional wind speed                         ( m/s )
-!!$                        t  = p_diag%temp(:,:,jb)                  , & ! temperature                                   (  k  )
-!!$                        qv = p_prog_rcf%tracer(:,:,jb,iqv)        , & ! specific water vapor content                  (kg/kg)
-!!$                        p0 = p_diag%pres(:,:,jb)                  , & !!!! base state pressure                           (Pa) 
-!!$                        pp = p_diag%pres(:,:,jb)                  , & ! deviation from the reference pressure         ( pa  )
-!!$                        ps = p_diag%pres_sfc(:,:,jb)              , & ! surface pressure                              ( pa  )
-!!$!
-!!$                        t_snow        =  lnd_prog%t_snow(:,1,jb)    , & ! temperature of the snow-surface               (  K  )
-!!$                        t_snow_mult   =  lnd_prog%t_snow_mult(:,:,:,1,jb), & ! temperature of the snow-surface               (  K  )
-!!$                        t_s           =  lnd_prog%t_s(:,:,1,jb)       , & ! temperature of the ground surface             (  K  )
-!!$!                        t_g           =  lnd_prog%t_g(:,jb)       , & ! weighted surface temperature                  (  K  )
-!!$!                        qv_s          =  lnd_prog%qv_s(:,jb)      , & ! specific humidity at the surface              (kg/kg)
-!!$                        w_snow        =  lnd_prog%w_snow(:,:,1,jb)    , & ! water content of snow                         (m H2O)
-!!$                        rho_snow      =  lnd_prog%rho_snow(:,1,jb)  , & ! snow density                                  (kg/m**3)
-!!$                        rho_snow_mult =  lnd_prog%rho_snow_mult(:,:,:,1,jb), & ! snow density                                  (kg/m**3)
-!!$                        h_snow        =  lnd_diag%h_snow(:,1,jb)    , & ! snow height                                   (  m  
-!!$                        w_i           =  lnd_prog%w_i(:,:,1,jb)     , & ! water content of interception water           (m H2O)
-!!$                        t_so          =  lnd_prog%t_so(:,:,:,1,jb)    , & ! soil temperature (main level)                 (  K  )
-!!$                        w_so          =  lnd_prog%w_so(:,:,:,1,jb)    , & ! total water conent (ice + liquid water)       (m H20)
-!!$                        w_so_ice      =  lnd_prog%w_so_ice(:,:,:,1,jb), & ! ice content                                   (m H20)
-!!$                        t_2m          =  prm_diag%t_2m(:,1,jb)      , & ! temperature in 2m                             (  K  )
-!!$                        u_10m         =  prm_diag%u_10m(:,1,jb)     , & ! zonal wind in 10m                             ( m/s )
-!!$                        v_10m         =  prm_diag%v_10m(:,1,jb)     , & ! meridional wind in 10m                        ( m/s )
-!!$                        freshsnow     =  lnd_diag%freshsnow(:,1,jb) , & ! indicator for age of snow in top of snow layer(  -  )
-!!$                        wliq_snow     =  lnd_diag%wliq_snow(:,:,1,jb) , & ! liquid water content in the snow              (m H2O)
-!!$                        wtot_snow     =  lnd_diag%wtot_snow(:,:,1,jb) , & ! total (liquid + solid) water content of snow  (m H2O)
-!!$                        dzh_snow      =  lnd_diag%dzh_snow(:,:,:,1,jb)  , & ! layer thickness between half levels in snow   (  m  )
-!!$                        subsfrac      =  lnd_diag%subsfrac(:,:,1,jb)  , & ! 
-!!$!
-!!$                        prr_con       =  prm_diag%rain_con(:,jb)    , & ! precipitation rate of rain, convective        (kg/m2*s)
-!!$                        prs_con       =  prm_diag%snow_con(:,jb)    , & ! precipitation rate of snow, convective        (kg/m2*s)
-!!$                        prr_gsp       =  prm_diag%rain_gsp(:,jb)    , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
-!!$                        prs_gsp       =  prm_diag%snow_gsp(:,jb)    , & ! precipitation rate of snow, grid-scale        (kg/m2*s)
-!!$                        prg_gsp       =  0.                         , & ! precipitation rate of graupel, grid-scale     (kg/m2*s)
-!!$!
-!!$                        tch           =  prm_diag%tch(:,1,jb)       , & ! turbulent transfer coefficient for heat       ( -- )
-!!$                        tcm           =  prm_diag%tcm(:,1,jb)       , & ! turbulent transfer coefficient for momentum   ( -- )
-!!$                        tfv           =  prm_diag%tfv(:,1,jb)       , & ! laminar reduction factor for evaporation      ( -- )
-!!$! 
-!!$                        sobs          =  prm_diag%swflxsfc (:,1,jb) , & ! solar radiation at the ground                 ( W/m2)
-!!$                        thbs          =  prm_diag%lwflxsfc (:,1,jb) , & ! thermal radiation at the ground               ( W/m2)
-!!$                        pabs          =  prm_diag%swflxsfc (:,1,jb) , & !!!! photosynthetic active radiation               ( W/m2)
-!!$
-!!$! 
-!!$                        runoff_s      =  lnd_diag%runoff_s(:,1,jb)  , & ! surface water runoff; sum over forecast      (kg/m2)
-!!$                        runoff_g      =  lnd_diag%runoff_g(:,1,jb)  , & ! soil water runoff; sum over forecast         (kg/m2)
-!!$                        rstom         =  lnd_diag%rstom(:,jb)     , & ! stomata resistance                           ( s/m )
-!!$                        lhfl_bs       =  lnd_diag%lhfl_bs(:,jb)   , & ! average latent heat flux from bare soil evap.( W/m2)
-!!$                        lhfl_pl       =  lnd_diag%lhfl_pl(:,:,jb)   , & ! average latent heat flux from plants         ( W/m2)
-!!$!
-!!$                        nstart        = 1                         , & ! first time step of the forecast
-!!$                        ntstep        = 1                         , & ! actual time step
-!!$                                                                      ! indices for permutation of three time levels
-!!$                        nold          = 1                         , & ! corresponds to ntstep - 1
-!!$                        nnow          = 1                         , & ! corresponds to ntstep 
-!!$                        nnew          = 1                         , & ! corresponds to ntstep + 1
-!!$                        nztlev                                    , & ! time step scheme 2,3
-!!$                        lmelt       = .TRUE.                      , & ! soil model with melting process
-!!$                        lmelt_var   = .TRUE.                      , & ! freezing temperature dependent on water content
-!!$                        lmulti_snow                               , & ! run the multi-layer snow model
-!!$!
-!!$                        itgscp=3                              , & ! type of grid-scale precipitation physics
-!!$                        ittrvg=2                              , & ! type of vegetation transpiration parameterization
-!!$                        itevsl=2                              , & ! type of parameterization of bare soil evaporation
-!!$                        ittran=2                              , & ! type of surface to atmospher transfer
-!!$                        itroot=2                              , & ! type of root density distribution
-!!$                        itheatcond=2                          , & ! type of soil heat conductivity
-!!$                        ithydbound=3                          , & ! type of hydraulic lower boundary condition
-!!$                        lstomata=.true.                       , & ! map of minimum stomata resistance
-!!$                        l2tls  =.true.                        , & ! forecast with 2-TL integration scheme
-!!$                        lana_rho_snow=.false.                 , & ! if .TRUE., take rho_snow-values from analysis file 
-!!$                        itype_subs=2                              )
-
+           CALL terra_multlay(                &
+                ie=nproma,je=1              , & ! array dimensions
+                istartpar=i_startidx,iendpar=i_endidx         , & ! optional start/end indicies
+                jstartpar=1,jendpar=1                         , & ! optional start/end indicies
+                ke=nlevp1, nsubs0=1,nsubs1=1              , & ! nsfc_subs
+                ke_soil=nlev_soil, ke_snow=nlev_snow      , &
+                czmls=zml_soil                            , & ! processing soil level structure 
+                dt=tcall_sfc_jg                           , &
+                !
+                soiltyp_subs  =  ext_data%atm%soiltyp(:,jb) , & ! (:,1,jb) , & ! type of the soil (keys 0-9)                     --
+                plcov         =  ext_data%atm%plcov_mx(:,jb), & ! ,1, fraction of plant cover                         --
+                rootdp        =  ext_data%atm%root_dp(:,jb) , & ! ,1, depth of the roots                            ( m  )
+                sai           =  prm_diag%sai(:,jb)         , & ! ,1,surface area index                              --
+                tai           =  prm_diag%tai(:,jb)         , & ! ,1, transpiration area index                        --
+                eai           =  prm_diag%eai(:,jb)         , & ! ,1, earth area (evaporative surface area) index     --
+                rlandmask     =  ext_data%atm%fr_land(:,jb) , & ! ,1, landpoint mask                                  --
+                rsmin2d       =  ext_data%atm%plant_res_min(:,jb),  & ! minimum stomata resistance                    ( s/m )
+                !
+                u   = p_diag%u(:,:,jb)                     , & ! zonal wind speed                              ( m/s )
+                v  = p_diag%v(:,:,jb)                     , & ! meridional wind speed                         ( m/s )
+                t  = p_diag%temp(:,:,jb)                  , & ! temperature                                   (  k  )
+                qv = p_prog_rcf%tracer(:,:,jb,iqv)        , & ! specific water vapor content                  (kg/kg)
+                p0 = p_diag%pres(:,:,jb)                  , & !!!!JH base state pressure                           (Pa) 
+                pp = p_diag%pres(:,:,jb)                  , & ! deviation from the reference pressure         ( pa  )
+                ps = p_diag%pres_sfc(:,jb)              , & ! surface pressure                              ( pa  )
+                !
+                t_snow        =  lnd_prog_now%t_snow(:,1,jb)    , & ! temperature of the snow-surface               (  K  )
+                t_snow_mult   =  lnd_prog_now%t_snow_mult(:,:,:,1,jb), & ! temperature of the snow-surface               (  K  )
+                t_s           =  lnd_prog_now%t_s(:,:,1,jb)       , & ! temperature of the ground surface             (  K  )
+                t_g           =  lnd_prog_now%t_g(:,jb)       , & ! weighted surface temperature                  (  K  )
+                qv_s          =  lnd_diag%qv_s(:,jb)      , & ! specific humidity at the surface              (kg/kg)
+                w_snow        =  lnd_prog_now%w_snow(:,:,1,jb)    , & ! water content of snow                         (m H2O)
+                rho_snow      =  lnd_prog_now%rho_snow(:,1,jb)  , & ! snow density                                  (kg/m**3)
+                rho_snow_mult =  lnd_prog_now%rho_snow_mult(:,:,:,1,jb), & ! snow density                                  (kg/m**3)
+                h_snow        =  lnd_diag%h_snow(:,:,1,jb)    , & ! snow height                                   (  m  
+                w_i           =  lnd_prog_now%w_i(:,:,1,jb)     , & ! water content of interception water           (m H2O)
+                t_so          =  lnd_prog_now%t_so(:,:,:,1,jb)    , & ! soil temperature (main level)                 (  K  )
+                w_so          =  lnd_prog_now%w_so(:,:,:,1,jb)    , & ! total water conent (ice + liquid water)       (m H20)
+                w_so_ice      =  lnd_prog_now%w_so_ice(:,:,:,1,jb), & ! ice content                                   (m H20)
+                t_2m          =  prm_diag%t_2m(:,jb)      , & ! ,1, temperature in 2m                             (  K  )
+                u_10m         =  prm_diag%u_10m(:,jb)     , & ! ,1, zonal wind in 10m                             ( m/s )
+                v_10m         =  prm_diag%v_10m(:,jb)     , & ! ,1,  meridional wind in 10m                        ( m/s )
+                freshsnow     =  lnd_diag%freshsnow(:,1,jb) , & ! indicator for age of snow in top of snow layer(  -  )
+                wliq_snow     =  lnd_diag%wliq_snow(:,:,1,jb) , & ! liquid water content in the snow              (m H2O)
+                wtot_snow     =  lnd_diag%wtot_snow(:,:,1,jb) , & ! total (liquid + solid) water content of snow  (m H2O)
+                dzh_snow      =  lnd_prog_now%dzh_snow(:,:,:,1,jb)  , & ! layer thickness between half levels in snow   (  m  )
+                subsfrac      =  lnd_prog_now%subsfrac(:,:,1,jb)  , & ! 
+                !
+                prr_con       =  prm_diag%rain_con(:,jb)    , & ! precipitation rate of rain, convective        (kg/m2*s)
+                prs_con       =  prm_diag%snow_con(:,jb)    , & ! precipitation rate of snow, convective        (kg/m2*s)
+                prr_gsp       =  prm_diag%rain_gsp(:,jb)    , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
+                prs_gsp       =  prm_diag%snow_gsp(:,jb)    , & ! precipitation rate of snow, grid-scale        (kg/m2*s)
+                prg_gsp       =  prm_diag%rain_gsp(:,jb)    , & !!! TEST!! JH precipitation rate of graupel, grid-scale     (kg/m2*s)
+                !
+                tch           =  prm_diag%tch(:,jb)       , & ! ,1,  turbulent transfer coefficient for heat       ( -- )
+                tcm           =  prm_diag%tcm(:,jb)       , & ! ,1, turbulent transfer coefficient for momentum   ( -- )
+                tfv           =  prm_diag%tfv(:,jb)       , & ! ,1, laminar reduction factor for evaporation      ( -- )
+                ! 
+                sobs          =  prm_diag%swflxsfc (:,jb) , & ! ,1, solar radiation at the ground                 ( W/m2)
+                thbs          =  prm_diag%lwflxsfc (:,jb) , & ! ,1, thermal radiation at the ground               ( W/m2)
+                pabs          =  prm_diag%swflxsfc (:,jb) , & !!!! ,1, photosynthetic active radiation               ( W/m2)
+                ! 
+                runoff_s      =  lnd_diag%runoff_s(:,1,jb)  , & ! surface water runoff; sum over forecast      (kg/m2)
+                runoff_g      =  lnd_diag%runoff_g(:,1,jb)  , & ! soil water runoff; sum over forecast         (kg/m2)
+                rstom         =  lnd_diag%rstom(:,1,jb)     , & ! stomata resistance                           ( s/m )
+                lhfl_bs       =  lnd_diag%lhfl_bs(:,1,jb)   , & ! average latent heat flux from bare soil evap.( W/m2)
+                lhfl_pl       =  lnd_diag%lhfl_pl(:,1,jb)   , & ! average latent heat flux from plants         ( W/m2)
+                !
+                nstart        = 1                         , & ! first time step of the forecast
+                ntstep        = 1                         , & ! actual time step
+                                ! indices for permutation of three time levels
+                nold          = 1                         , & ! corresponds to ntstep - 1
+                nnow          = 1                         , & ! corresponds to ntstep 
+                nnew          = 1                         , & ! corresponds to ntstep + 1
+                nztlev        =2                          , & ! time step scheme 2,3
+                lmelt       = .TRUE.                      , & ! soil model with melting process
+                lmelt_var   = .TRUE.                      , & ! freezing temperature dependent on water content
+                lmulti_snow = .FALSE.                     , & ! run the multi-layer snow model
+                !
+                itype_gscp=3                              , & ! type of grid-scale precipitation physics
+                itype_trvg=2                              , & ! type of vegetation transpiration parameterization
+                itype_evsl=2                              , & ! type of parameterization of bare soil evaporation
+                itype_tran=2                              , & ! type of surface to atmospher transfer
+                itype_root=2                              , & ! type of root density distribution
+                itype_heatcond=2                          , & ! type of soil heat conductivity
+                itype_hydbound=3                          , & ! type of hydraulic lower boundary condition
+                lstomata=.true.                       , & ! map of minimum stomata resistance
+                l2tls  =.true.                        , & ! forecast with 2-TL integration scheme
+                lana_rho_snow=.false.                 , & ! if .TRUE., take rho_snow-values from analysis file 
+                itype_subs=2                            & ! type of subscale surface treatment =1 MOSAIC, =2 TILE       
+                                                      )
         IF (ierrstat.NE.0) THEN
            CALL finish(eroutine, errormsg)
         END IF

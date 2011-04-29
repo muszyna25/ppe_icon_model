@@ -51,6 +51,7 @@ TEXT_RUN_FAILED="FAILED"
 TEXT_RUN_OK="OK"
 use_exp_list="false"
 build_post_file="true"
+RUN_POST=""
 #==============================================================================
 #
 # With this function it is possible to stop or continue this script after an 
@@ -101,8 +102,8 @@ warning_on_error()
       printf '%-50s : %s\n' $2 ${TEXT_RUN_OK} >> ../${LOOP_STATUS_FILE}
       if [ "${build_post_file}" == "true" ]
       then 
-        RUN_POST="run_scripts run post.`echo $2 | cut -d '.' -f2`.run"
-        echo "${RUN_POST}" >> ./run_post.sh
+        RUN_POST="${RUN_POST} post.`echo $2 | cut -d '.' -f2`.run"
+        echo "${RUN_POST}" > ./run_post_list
       fi
     fi
 }
@@ -168,16 +169,16 @@ set_test_list ()
   lists=`echo $1 | sed s/,/\ /g`
   lists=`echo $lists | sed s/:/\ /g`
 
-  if [ -a ./run_exp.sh ]
+  if [ -a ./run_exp_list ]
   then
-    rm -f ./run_exp.sh
+    rm -f ./run_exp_list
   fi
 
-  touch ./run_exp.sh
+  touch ./run_exp_list
 
   for list in ${lists}
   do
-    echo "run_scripts run exp.${list}.run" >> ./run_exp.sh
+   echo -n "exp.${list}.run " >> ./run_exp_list
   done
 }
 #==============================================================================
@@ -200,10 +201,9 @@ run_scripts()
 run_scripts_nosubmit()
 {
 # Change to directory 'run' 
-  echo "run_scripts $1 $2"
+  echo "run_scripts $1"
   cd $1
 
-  EXP_FILES=`ls $2`
   
   for EXP_FILE in $EXP_FILES
   do 
@@ -259,11 +259,9 @@ run_scripts_submit()
     return
   fi
 # Change to directory 'run' 
-  echo "run_scripts $1 $2"
+  echo "run_scripts $1"
   cd $1
 
-  EXP_FILES=`ls $2`
-    
   for EXP_FILE in $EXP_FILES
   do 
     run_command="$submit $sync ./$EXP_FILE"
@@ -467,10 +465,10 @@ then
 
   stop_check="warning_on_error"
   build_post_file="false"
-
-  run_scripts run "grid.create_nested_grids.run"
-  run_scripts run "grid.create_builtbot_grids.run"
-
+  EXP_FILES="grid.create_nested_grids.run"
+  run_scripts run 
+  EXP_FILES="grid.create_builtbot_grids.run"
+  run_scripts run
 
 # Check if a 'NOT successful' is in the status file?
 
@@ -502,8 +500,8 @@ then
   LOOP_STATUS_FILE="LOOP_STATUS_EXP_FILE"
 
   rm -f ${LOOP_STATUS_FILE}
-  rm -f ./run/run_post.sh
-  touch ./run/run_post.sh
+  rm -f ./run/run_post_list
+  touch ./run/run_post_list
 
   stop_check="warning_on_error"
   build_post_file="true"
@@ -511,12 +509,16 @@ then
   if [ "${use_exp_list}" == "true" ] 
   then 
     echo "Run one or more special experiments"
-    . ./run_exp.sh
-    rm -f ./run_exp.sh
+    EXP_FILES=`cat ./run_exp_list`
+    rm ./run_exp_list
   else
     echo "Run all exp.test_*.run in run directory"
-    run_scripts run "exp.test_*.run"
+    cd run
+    EXP_FILES=`ls exp.test_*.run`
+    cd ..
   fi
+
+  run_scripts run
 
   ALL_RUNS_OK=`grep ${TEXT_RUN_FAILED} ${LOOP_STATUS_FILE}`
 
@@ -552,26 +554,35 @@ then
   stop_check="warning_on_error"
   build_post_file="false"
 
-  if [  -a ./run/run_post.sh ] 
+  if [  -a ./run/run_post_list ] 
   then 
-    echo "Use spezial file ./run/run_post.sh for post-script run"
-    . ./run/run_post.sh
+    echo "Use spezial file ./run/run_post_list for post-script run"
+    EXP_FILES=`cat ./run/run_post_list` 
   else
     echo "Run all post-script post.test_*.run"
-    run_scripts run "post.test_*.run" 
+    cd run
+    EXP_FILES=`ls post.test_*.run`
+    cd ..
   fi
 
-  ALL_RUNS_OK=`grep ${TEXT_RUN_FAILED} ${LOOP_STATUS_FILE}`
-
-  if [ $? == 0 ]
+  run_scripts run
+  if [  -a ${LOOP_STATUS_FILE} ]
   then
-    echo "One or more Post-Runs were not successful"
-    RETURN_STATUS=1
-  else
-    echo "All Post-Runs were successful"
-    RETURN_STATUS=0
-  fi
+ 
+    ALL_RUNS_OK=`grep ${TEXT_RUN_FAILED} ${LOOP_STATUS_FILE}`
 
+    if [ $? == 0 ]
+    then
+      echo "One or more Post-Runs were not successful"
+      RETURN_STATUS=1
+    else
+      echo "All Post-Runs were successful"
+      RETURN_STATUS=0
+    fi
+  else
+    echo "ALL Post-Runs were not successful"
+    RETURN_STATUS=1
+  fi
 fi
 
 

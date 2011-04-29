@@ -239,7 +239,7 @@ USE data_fields     , ONLY :   &
 
 ! 2. external parameter fields                                        (unit)
 ! ----------------------------
-    soiltyp    ,    & ! type of the soil (keys 0-9)                     --
+    soiltyp_subs    ,    & ! type of the soil (keys 0-9)                     --
     plcov      ,    & ! fraction of plant cover                         --
     rootdp     ,    & ! depth of the roots                            ( m  )
     sai        ,    & ! surface area index                              --
@@ -498,13 +498,13 @@ SUBROUTINE terra_multlay (                &
                   czmls                 , & ! processing soil level structure 
                   dt                    , &
 !
-                  soiltyp      , & ! type of the soil (keys 0-9)                     --
+                  soiltyp_subs      , & ! type of the soil (keys 0-9)                     --
                   plcov        , & ! fraction of plant cover                         --
                   rootdp       , & ! depth of the roots                            ( m  )
                   sai          , & ! surface area index                              --
                   tai          , & ! transpiration area index                        --
                   eai          , & ! earth area (evaporative surface area) index     --
-                  llandmask    , & ! landpoint mask                                  --
+                  rlandmask    , & ! landpoint mask                                  --
                   rsmin2d      ,  & ! minimum stomata resistance                    ( s/m )
 !
                   u            , & ! zonal wind speed                              ( m/s )
@@ -518,8 +518,8 @@ SUBROUTINE terra_multlay (                &
                   t_snow       , & ! temperature of the snow-surface               (  K  )
                   t_snow_mult  , & ! temperature of the snow-surface               (  K  )
                   t_s          , & ! temperature of the ground surface             (  K  )
-!                 t_g          , & ! weighted surface temperature                  (  K  )
-!                 qv_s         , & ! specific humidity at the surface              (kg/kg)
+                 t_g          , & ! weighted surface temperature                  (  K  )
+                 qv_s         , & ! specific humidity at the surface              (kg/kg)
                   w_snow       , & ! water content of snow                         (m H2O)
                   rho_snow     , & ! snow density                                  (kg/m**3)
                   rho_snow_mult, & ! snow density                                  (kg/m**3)
@@ -579,7 +579,8 @@ SUBROUTINE terra_multlay (                &
                   lstomata         , & ! map of minimum stomata resistance
                   l2tls            , & ! forecast with 2-TL integration scheme
                   lana_rho_snow    ,  & ! if .TRUE., take rho_snow-values from analysis file 
-                  itype_subs          )
+                  itype_subs         & 
+                                         )
 
 
 !-------------------------------------------------------------------------------
@@ -607,18 +608,19 @@ IMPLICIT NONE
                   ke_soil, ke_snow      
   REAL    (KIND = ireals), DIMENSION(ke_soil+1), INTENT(IN) :: &
                   czmls           ! processing soil level structure 
-  INTEGER (KIND=iintegers), INTENT(IN)  ::  &
+  REAL    (KIND = ireals), INTENT(IN)  ::  &
                   dt                    
 
+  INTEGER (KIND = iintegers), DIMENSION(ie,je,nsubs1), INTENT(IN) :: & 
+                  soiltyp_subs      ! type of the soil (keys 0-9)                     --
   REAL    (KIND = ireals), DIMENSION(ie,je,nsubs1), INTENT(IN) :: & 
-                  soiltyp      , & ! type of the soil (keys 0-9)                     --
                   plcov        , & ! fraction of plant cover                         --
                   rootdp       , & ! depth of the roots                            ( m  )
                   sai          , & ! surface area index                              --
                   tai          , & ! transpiration area index                        --
                   eai              ! earth area (evaporative surface area) index     --
-  LOGICAL                , DIMENSION(ie,je,nsubs1), INTENT(IN) :: & 
-                  llandmask        ! landpoint mask                                  --
+  REAL    (KIND = ireals)      , DIMENSION(ie,je,nsubs1), INTENT(IN) :: & 
+                  rlandmask        ! landpoint mask fractions                                 --
    REAL    (KIND = ireals), DIMENSION(ie,je), INTENT(IN) :: & 
                  rsmin2d          ! minimum stomata resistance                    ( s/m )
 
@@ -675,19 +677,21 @@ IMPLICIT NONE
                   prr_con      , & ! precipitation rate of rain, convective        (kg/m2*s)
                   prs_con      , & ! precipitation rate of snow, convective        (kg/m2*s)
                   prr_gsp      , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
-                  prs_gsp      , & ! precipitation rate of snow, grid-scale        (kg/m2*s)
+                  prs_gsp          ! precipitation rate of snow, grid-scale        (kg/m2*s)
+  REAL    (KIND = ireals), DIMENSION(ie,je), INTENT(INOUT) ::    &
                   prg_gsp          ! precipitation rate of graupel, grid-scale     (kg/m2*s)
 
   REAL    (KIND = ireals), DIMENSION(ie,je,nsubs1), INTENT(INOUT) :: &
                   tch          , & ! turbulent transfer coefficient for heat       ( -- )
                   tcm          , & ! turbulent transfer coefficient for momentum   ( -- )
-                  tfv          , & ! laminar reduction factor for evaporation      ( -- )
-! 
+                  tfv              ! laminar reduction factor for evaporation      ( -- )
+!
+  REAL    (KIND = ireals), DIMENSION(ie,je,nsubs1), INTENT(IN) :: &
                   sobs         , & ! solar radiation at the ground                 ( W/m2)
                   thbs         , & ! thermal radiation at the ground               ( W/m2)
-                  pabs         , & !!!! photosynthetic active radiation               ( W/m2)
-
-! 
+                  pabs             !!!! photosynthetic active radiation               ( W/m2)
+!
+  REAL    (KIND = ireals), DIMENSION(ie,je,nsubs1), INTENT(INOUT) :: &
                   runoff_s     , & ! surface water runoff; sum over forecast      (kg/m2)
                   runoff_g         ! soil water runoff; sum over forecast         (kg/m2)
   REAL    (KIND = ireals), DIMENSION(ie,je), INTENT(INOUT) :: &
@@ -720,6 +724,9 @@ IMPLICIT NONE
 !--------------------------------------------------------------------------------
 ! TERRA Declarations
 
+! New declaration for ICON
+
+  LOGICAL     llandmask(ie,je,nsubs1)        ! landpoint mask                                  --
 
 !------------------------------------------------------------------------------
 ! Subroutine arguments: None
@@ -1249,6 +1256,12 @@ CHARACTER (LEN=80)                    ::  &
 ! Section I.1: Initializations
 !------------------------------------------------------------------------------
 
+!>JH
+  prg_gsp=0._ireals ! graupel not implemented yet 
+  llandmask=.FALSE.
+  WHERE (rlandmask > 0.5_ireals) llandmask=.TRUE.
+!<JH
+
   ierror = 0
   yerror = '        '
 
@@ -1390,8 +1403,8 @@ do ns=nsubs0,nsubs1
     DO i = istarts, iends
 !subs      IF(llandmask(i,j)) THEN        ! for land-points only
       IF(llandmask(i,j,ns)) THEN        ! for land-points only
-!subs        mstyp       = NINT(soiltyp(i,j))        ! soil type
-        mstyp       = NINT(soiltyp(i,j,ns))        ! soil type
+!subs        mstyp       = NINT(soiltyp_subs(i,j))        ! soil type
+        mstyp       = soiltyp_subs(i,j,ns)        ! soil type
         m_styp(i,j) = mstyp                     ! array for soil type
         zdw   (i,j)  = cdw0  (mstyp)
         zdw1  (i,j)  = cdw1  (mstyp)
@@ -1430,9 +1443,9 @@ do ns=nsubs0,nsubs1
     DO   j = jstarts, jends
       DO i = istarts, iends
 !subs        IF(llandmask(i,j)) THEN        ! for land-points only
-!subs          mstyp           = NINT(soiltyp(i,j))        ! soil type
+!subs          mstyp           = NINT(soiltyp_subs(i,j))        ! soil type
         IF(llandmask(i,j,ns)) THEN        ! for land-points only
-          mstyp           = NINT(soiltyp(i,j,ns))        ! soil type
+          mstyp           = soiltyp_subs(i,j,ns)        ! soil type
           zalam(i,j,kso)  = cala0(mstyp)              ! heat conductivity parameter
         ENDIF
       ENDDO
@@ -2873,9 +2886,9 @@ ENDIF
 DO   j = jstarts, jends
   DO i = istarts, iends
 !subs    IF (llandmask(i,j)) THEN                 ! land-points
-!subs      mstyp        = NINT(soiltyp(i,j))
+!subs      mstyp        = NINT(soiltyp_subs(i,j))
     IF (llandmask(i,j,ns)) THEN                 ! land-points
-      mstyp        = NINT(soiltyp(i,j,ns))
+      mstyp        = soiltyp_subs(i,j,ns)
       m_styp(i,j)  = mstyp
       zsandf(i,j)  = csandf(mstyp)
       zclayf(i,j)  = cclayf(mstyp)

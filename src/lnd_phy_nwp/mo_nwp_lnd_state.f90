@@ -107,7 +107,9 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
          w_i          (:,:,:,:)     , & ! water content of interception water           (m H2O)
          t_so         (:,:,:,:,:) , & ! soil temperature (main level)                 (  K  )
          w_so         (:,:,:,:,:) , & ! total water conent (ice + liquid water)       (m H20)
-         w_so_ice     (:,:,:,:,:)     ! ice content                                   (m H20)
+         w_so_ice     (:,:,:,:,:) , & ! ice content                                   (m H20)
+         dzh_snow(:,:,:,:,:)      , & ! layer thickness between half levels in snow   (  m  )
+         subsfrac(:,:,:,:)            ! 
 
   END TYPE t_lnd_prog
 
@@ -120,13 +122,11 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
       freshsnow(:,:,:) , & ! indicator for age of snow in top of snow layer(  -  )
       wliq_snow(:,:,:,:) , & ! liquid water content in the snow              (m H2O)
       wtot_snow(:,:,:,:) , & ! total (liquid + solid) water content of snow  (m H2O)
-      dzh_snow(:,:,:,:)  , & ! layer thickness between half levels in snow   (  m  )
       runoff_s(:,:,:)  , & ! surface water runoff; sum over forecast      (kg/m2)
       runoff_g(:,:,:)  , & ! soil water runoff; sum over forecast         (kg/m2)
       rstom(:,:,:)     , & ! stomata resistance                           ( s/m )
       lhfl_bs(:,:,:)   , & ! average latent heat flux from bare soil evap.( W/m2)
       lhfl_pl(:,:,:)   , & ! average latent heat flux from plants         ( W/m2)
-      subsfrac(:,:,:)   , & ! 
       fr_seaice(:,:)        !< fraction of sea ice                [ ]   
                             !< as partition of total area of the
                             !< grid element, but set to 0 or 1
@@ -394,6 +394,24 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
   ENDIF
   p_prog_lnd%w_so_ice(:,:,:,:,:) =0.0_wp
 
+
+  ! DZH_SNOW
+  ALLOCATE(p_prog_lnd%dzh_snow(nproma,nlev_snow,nztlev,nsfc_subs,nblks_c), STAT = ist)
+  IF (ist/=SUCCESS)THEN
+    CALL finish('mo_lnd_state:construct_lnd_state_prog', &
+                'allocation for snow layer thickness DZH_SNOW failed')
+  ENDIF
+  p_prog_lnd%dzh_snow(:,:,:,:,:) =0.0_wp
+
+  ! SUBSFRAC
+  ALLOCATE(p_prog_lnd%subsfrac(nproma,nztlev,nsfc_subs,nblks_c), STAT = ist)
+  IF (ist/=SUCCESS)THEN
+    CALL finish('mo_lnd_state:construct_lnd_state_prog', &
+                'allocation for TILE fraction SUBSFRAC  failed')
+  ENDIF
+  p_prog_lnd%subsfrac(:,:,:,:) =0.0_wp
+
+
 ENDIF !inwp_surface
 
 END  SUBROUTINE construct_lnd_state_prog
@@ -465,13 +483,6 @@ END  SUBROUTINE construct_lnd_state_prog
   ENDIF
   p_diag_lnd%wtot_snow(:,:,:,:) =0.0_wp
 
-  ! DZH_SNOW
-  ALLOCATE(p_diag_lnd%dzh_snow(nproma,nztlev,nsfc_subs,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_diag', &
-                'allocation for snow layer thickness DZH_SNOW failed')
-  ENDIF
-  p_diag_lnd%dzh_snow(:,:,:,:) =0.0_wp
 
   ! RUNOFF_S
   ALLOCATE(p_diag_lnd%runoff_s(nproma,nsfc_subs,nblks_c), STAT = ist)
@@ -515,13 +526,6 @@ END  SUBROUTINE construct_lnd_state_prog
   ENDIF
   p_diag_lnd%lhfl_pl(:,:,:) =0.0_wp
 
-  ! SUBSFRAC
-  ALLOCATE(p_diag_lnd%subsfrac(nproma,nsfc_subs,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_diag', &
-                'allocation for TILE fraction SUBSFRAC  failed')
-  ENDIF
-  p_diag_lnd%subsfrac(:,:,:) =0.0_wp
 
   ALLOCATE(p_diag_lnd%fr_seaice(nproma,nblks_c), STAT = ist)
   IF (ist/=SUCCESS)THEN
@@ -645,6 +649,20 @@ END  SUBROUTINE construct_lnd_state_diag
                 'deallocation for soil ice W_SO_ICE failed')
   ENDIF
 
+  ! DZH_SNOW
+  DEALLOCATE(p_prog_lnd%dzh_snow, STAT = ist)
+  IF (ist/=SUCCESS)THEN
+    CALL finish('mo_lnd_state:destruct_lnd_state_prog', &
+                'deallocation for snow layer thickness DZH_SNOW failed')
+  ENDIF
+
+  ! SUBSFRAC
+  DEALLOCATE(p_prog_lnd%subsfrac, STAT = ist)
+  IF (ist/=SUCCESS)THEN
+    CALL finish('mo_lnd_state:destruct_lnd_state_prog', &
+                'deallocation for SUBSFRAC failed')
+  ENDIF
+
 ENDIF! surface
 
 END  SUBROUTINE destruct_lnd_state_prog
@@ -713,13 +731,6 @@ END  SUBROUTINE destruct_lnd_state_prog
   ENDIF
 
 
-  ! DZH_SNOW
-  DEALLOCATE(p_diag_lnd%dzh_snow, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_diag', &
-                'deallocation for snow layer thickness DZH_SNOW failed')
-  ENDIF
-
 
   ! RUNOFF_S
   DEALLOCATE(p_diag_lnd%runoff_s, STAT = ist)
@@ -762,12 +773,6 @@ END  SUBROUTINE destruct_lnd_state_prog
                 'deallocation for average latent heat flux from plants  LHFL_PL  failed')
   ENDIF
  
-  ! SUBSFRAC
-  DEALLOCATE(p_diag_lnd%subsfrac, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_diag', &
-                'deallocation for SUBSFRAC failed')
-  ENDIF
 
   DEALLOCATE(p_diag_lnd%fr_seaice, STAT = ist)
   IF (ist/=SUCCESS)THEN

@@ -201,9 +201,6 @@ echo
 
 script_path=${icon_path}'/scripts/postprocessing/'
 
-#directory with the colomap files
-export NCARG_COLORMAPS=${script_path}color_map:${NCARG_COLORMAPS}
-
 resolution=${horizontal_resolution}${vertical_resolution}
 fori=${model_data_path}${EXP}_${resolution}
 ftmp=${tmp_data_path}${EXP}_${resolution}
@@ -228,6 +225,15 @@ if [ ! -d ${tmp_data_path} ]; then
    mkdir -p ${tmp_data_path} 
 fi
 
+# Create a directory for soft links. This is used later for 
+# computing the time mean from multiple data files.
+
+lnkdir=${tmp_data_path}${clim_istart}"-"${clim_iend}"_lnk"
+if [ -d $lnkdir ]; then
+   rm -rf $lnkdir
+fi
+mkdir $lnkdir
+flnk=${EXP}_${resolution}
 
 #==========================================================================
 # Prepare remappping weights
@@ -293,66 +299,66 @@ if [ $diag_climate -eq 1 ]; then
       while [ $ifile -le $clim_iend ] ; do
         label=$(printf "%04d" $ifile)
 
-        case $Model in 
-        "ICOHAM" | "ICONAM")
+        # Do it only if the selection has not done before
+        if [ ! -f ${ftmp}"_"$label"_"${varname}".nc" ]; then
 
-           cdo $silence selname,${varname} ${fori}"_"$label".nc" \
-                                           ${ftmp}"_"$label"_"${varname}".nc"
-        ;;
-        "ECHAM")
+           case $Model in 
+           "ICOHAM" | "ICONAM")
 
-          if [ ${afterbn[$ie]} -eq 1 ]; then  # dynamics variables
+              cdo $silence selname,${varname} ${fori}"_"$label".nc" \
+                                              ${ftmp}"_"$label"_"${varname}".nc"
+           ;;
+           "ECHAM")
 
-             cat >$Model_$EXP_$varname.nml <<EOF
-             &SELECT
-              TYPE = 20, FORMAT = 2,
-              CODE = ${varcode[$ie]}
-             &END
+             if [ ${afterbn[$ie]} -eq 1 ]; then  # dynamics variables
+
+                cat >$Model_$EXP_$varname.nml <<EOF
+                &SELECT
+                 TYPE = 20, FORMAT = 2,
+                 CODE = ${varcode[$ie]}
+                &END
 EOF
-             after ${fori}"_"$label".nc" \
-                   ${ftmp}"_"$label"_"${varcode[$ie]}".nc" \
-                   < $Model_$EXP_$varname.nml >after.out
+                after ${fori}"_"$label".nc" \
+                      ${ftmp}"_"$label"_"${varcode[$ie]}".nc" \
+                      < $Model_$EXP_$varname.nml >after.out
 
-             cdo $silence setname,${varname} \
-                 ${ftmp}"_"$label"_"${varcode[$ie]}".nc" \
-                 ${ftmp}"_"$label"_"${varname}".nc"
+                cdo $silence setname,${varname} \
+                    ${ftmp}"_"$label"_"${varcode[$ie]}".nc" \
+                    ${ftmp}"_"$label"_"${varname}".nc"
   
-             rm  ${ftmp}"_"$label"_"${varcode[$ie]}".nc"
-             rm  after.out $Model_$EXP_$varname.nml 
+                rm  ${ftmp}"_"$label"_"${varcode[$ie]}".nc"
+                rm  after.out $Model_$EXP_$varname.nml 
 
-          else # physics variables
+             else # physics variables
 
-             cdo $silence setname,$varname -selname,${tmpname[$ie]} \
-                 ${fori}"_"$label".nc" \
-                 ${ftmp}"_"$label"_"$varname".nc"
-          fi
+                cdo $silence setname,$varname -selname,${tmpname[$ie]} \
+                    ${fori}"_"$label".nc" \
+                    ${ftmp}"_"$label"_"$varname".nc"
+             fi
        
-        ;; 
-        *)
-          echo "Wrong model name! Abort."
-          exit
-        esac 
+           ;; 
+           *)
+             echo "Wrong model name! Abort."
+             exit
+           esac 
+           check_error $? "Set/selname,  File $label"
+        fi
 
-        check_error $? "Set/selname: File $label"
+        ln -s ${ftmp}"_"$label"_"$varname".nc" $lnkdir"/"${flnk}"_"$label"_"$varname".nc"
+        check_error $? "Soft link of  File $label"
+
         ifile=` expr $ifile + 1 `
       done
-      check_error $? "Set/selname"
 
-      #-----------------------------------------
-      # Merge all time steps into a single file
-      #-----------------------------------------
-
-      cdo $silence -r copy  \
-          ${ftmp}"_"[0-9][0-9][0-9][0-9]"_"$varname".nc" \
-          ${ftmp}"_"$clim_istart"-"$clim_iend"_"$varname".nc"
-
-      rm ${ftmp}"_"[0-9][0-9][0-9][0-9]"_"$varname".nc"
-      check_error $? "Merging"
-
-      #-----------------------------------------------------------------
-      # Compute time and zonal mean. For the ICON models, interpolation
-      # to Gaus grid is necessary. 
-      #-----------------------------------------------------------------
+      #-------------------------------------------------------------------
+      # Compute time and zonal mean. Note that
+      #  1. In order to avoid merging all time steps into a single file,
+      #     we make use of the operator "ensavg" which accepts multiple
+      #     inputs; To avoid having an extremely long list of input files,
+      #     cdo is called from a temporary directory in which soft links 
+      #     to the actual input files are located.
+      #  2. For the ICON models, interpolation to Gaus grid is necessary. 
+      #-------------------------------------------------------------------
       case $Model in 
       "ICOHAM" | "ICONAM")
          intp="-remap,t${trunc}grid,${weights}"
@@ -362,12 +368,22 @@ EOF
       ;;
       esac
 
+      here=`pwd` ; cd  $lnkdir
+
+      cdo $silence ensavg \
+          ${flnk}"_"[0-9][0-9][0-9][0-9]"_"$varname".nc" \
+          ${ftmp}"_"$timerange"_"$varname"_ensavg.nc"
+
+      check_error $? "cdo ensavg"
+      cd $here
+
       cdo $silence zonavg $intp -timavg \
-          ${ftmp}"_"$timerange"_"$varname".nc"     \
+          ${ftmp}"_"$timerange"_"$varname"_ensavg.nc"    \
           ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc".nc"
 
-      rm ${ftmp}"_"$timerange"_"$varname".nc"
-      check_error $? "Zonal and time mean"
+      check_error $? "Zonal and time average"
+      rm ${ftmp}"_"$timerange"_"$varname"_ensavg.nc"
+      rm -rf ${lnkdir}
 
       #----------------------------------------------------------------------------
       # Interpolate from model levels to pressure levels (hydrostatic models only)
@@ -392,7 +408,7 @@ EOF
                ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc"_pres.nc"
 
            rm  ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc"_tmp.nc"
-           check_error $? "Vertical interpolation"
+           check_error $? "Vertical interpolation ($plevs Pa)"
         fi 
       ;;
       esac 
@@ -443,10 +459,12 @@ EOF
            export PlotFile=${plot_file_path}${EXP}"_"${resolution}"_"$timerange
            export PlotFile=${PlotFile}"_"$varname"_zmta_T"$trunc
           
-           ncl plot_lat-pz.ncl >>ncl_output.log
+           ncl plot_lat-pz.ncl >ncl_output.log
 
+           r1=$?
+           r2=`grep fatal ncl_output.log` ;  echo "$r2"
+           check_error $r1 "=== Plotting zonal mean using plot_lat-pz.ncl"
            echo
-           check_error $? "=== Plotting zonal mean using plot_lat-pz.ncl"
         fi
    fi
 fi

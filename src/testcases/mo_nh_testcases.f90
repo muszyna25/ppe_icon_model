@@ -76,8 +76,7 @@ MODULE mo_nh_testcases
   USE mo_advection_nml,        ONLY: ctracer_list
   USE mo_ncar_testcases,       ONLY: tracer_q1_q2, tracer_q3
   USE mo_nh_pa_test,           ONLY: init_nh_state_prog_patest
-  USE mo_nh_df_test,           ONLY: init_nh_state_prog_dftest  !DR,        &
-!DR    &                                df_distv_barycenter, df_cell_indices 
+  USE mo_nh_df_test,           ONLY: init_nh_state_prog_dftest
   USE mo_nh_hs_test,           ONLY: init_nh_state_prog_held_suarez
   USE mo_nh_ape_exp,           ONLY: init_nh_state_prog_APE
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
@@ -1577,16 +1576,6 @@ MODULE mo_nh_testcases
   CASE ('DF1', 'DF2', 'DF3', 'DF4')  ! 2D deformational flow test case, no mountain
 
     DO jg = 1, n_dom
-!DR      !
-!DR      ! allocate temporary arrays for distance vectors and upwind cells
-!DR      ALLOCATE( df_distv_barycenter(nproma,nlev,p_patch(jg)%nblks_e,2),    &
-!DR        &       df_cell_indices(nproma,nlev,p_patch(jg)%nblks_e,2),        &
-!DR        &       STAT=ist )
-!DR      IF (ist /= SUCCESS) THEN
-!DR        CALL finish ( TRIM(routine),                                     &
-!DR          &  'allocation for df_distv_barycenter, df_cell_indices,'  //  &
-!DR          &  'failed' )
-!DR      ENDIF
 
       CALL init_nh_state_prog_dftest(p_patch(jg),                    &
            &                         p_nh_state(jg)%prog(nnow(jg)),  &

@@ -53,9 +53,9 @@ MODULE mo_nh_df_test
   USE mo_ext_data,            ONLY: t_external_data
   USE mo_math_constants,      ONLY: pi
   USE mo_math_utilities,      ONLY: gnomonic_proj, t_geographical_coordinates, &
-    &                              t_cartesian_coordinates,gc2cc
+    &                              t_cartesian_coordinates, gc2cc
   USE mo_math_operators,      ONLY: div
-  USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
+  USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
   USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_interpolation,       ONLY: t_int_state
   USE mo_run_nml,             ONLY: nproma, ntracer
@@ -158,7 +158,6 @@ CONTAINS
     INTEGER  :: jk,jb,jt   !< loop indices
     INTEGER  :: nblks_c,npromz_c
     INTEGER  :: nlev, nlevp1                   !< number of full and half levels
-    INTEGER  :: ikp1
     INTEGER  :: nlen
 
   !-------------------------------------------------------------------------
@@ -275,21 +274,27 @@ CONTAINS
     REAL(wp), INTENT(IN) :: p_sim_time  !< simulation time in seconds
                                         !< since start
 
-    INTEGER  :: nblks_e, npromz_e
+    INTEGER  :: nblks_e, npromz_e, nblks_v
     INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startblk, i_startidx, i_endidx, i_rcstartlev
-    INTEGER  :: jb,je,jk            !< loop indices
+    INTEGER  :: jb,je,jv,jk         !< loop indices
     REAL(wp) :: z_alpha             !< Earths rotation axis pitch angle in rad
     REAL(wp) :: z_timing_func       !< timing function (responsible for flow
                                     !< reversal)
     REAL(wp) :: u_wind, v_wind      !< zonal and meridional velocity component
     REAL(wp) :: zlon, zlat          !< lon/lat in unrotated system
     REAL(wp) :: zlon_rot, zlat_rot  !< lon/lat in rotated system
+
+    REAL(wp) :: &                   !< streamfunction at vertices
+      &  zpsi(nproma,ptr_patch%nblks_v)
+    INTEGER  :: ilv1, ilv2, ibv1, ibv2
+    REAL(wp) :: iorient             !< system orientation
     !---------------------------------------------------------------------------
 
     ! values for the blocking
     nblks_e  = ptr_patch%nblks_int_e
     npromz_e = ptr_patch%npromz_int_e
+    nblks_v  = ptr_patch%nblks_int_v
 
    ! number of vertical levels
     nlev = ptr_patch%nlev
@@ -447,20 +452,22 @@ CONTAINS
       !
       CASE ('DF4')
 
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,zlon,zlat,zlon_rot,zlat_rot, &
-!$OMP            u_wind,v_wind)
-      DO jb = i_startblk, nblks_e
+!$OMP PARALLEL PRIVATE(i_startblk)
 
-        CALL get_indices_e(ptr_patch, jb, i_startblk, nblks_e, &
+    i_startblk   = ptr_patch%verts%start_blk(i_rcstartlev,1)
+
+!$OMP DO PRIVATE(jb,jv,i_startidx,i_endidx,zlon,zlat,zlon_rot,zlat_rot)
+      DO jb = i_startblk, nblks_v
+
+        CALL get_indices_v(ptr_patch, jb, i_startblk, nblks_v, &
                            i_startidx, i_endidx, i_rcstartlev)
 
-        DO je = i_startidx, i_endidx
+        ! Evaluate stream function at triangle vertices
+        DO jv = i_startidx, i_endidx
 
-          ! location of edge midpoint
-          zlon = ptr_patch%edges%center(je,jb)%lon
-          zlat = ptr_patch%edges%center(je,jb)%lat
-
+          ! location of vertices
+          zlon = ptr_patch%verts%vertex(jv,jb)%lon
+          zlat = ptr_patch%verts%vertex(jv,jb)%lat
 
           ! get zlat, zlon in rotated system with npole at
           ! (npole_lon,npole_lat)
@@ -470,23 +477,94 @@ CONTAINS
 
           zlon_rot = zlon_rot - 2._wp*pi*p_sim_time/tottime
 
-          ! velocity in local east direction
-          u_wind = u4 * SIN(zlon_rot)**2 * SIN(2._wp*zlat_rot)      &
-            &      * z_timing_func + u0*cos(zlat_rot)
+          zpsi(jv,jb) = u4 * SIN(zlon_rot)**2 * COS(zlat_rot)**2  &
+            &           * z_timing_func - u0*sin(zlat_rot)
+        ENDDO
 
-          ! velocity in local north direction
-          v_wind = u4 * SIN(2._wp*zlon_rot) * COS(zlat_rot) * z_timing_func
+      ENDDO
+!$OMP END DO
 
+
+    i_startblk   = ptr_patch%edges%start_blk(i_rcstartlev,1)
+
+!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,ilv1,ilv2,ibv1,ibv2,iorient)
+      DO jb = i_startblk, nblks_e
+
+        CALL get_indices_e(ptr_patch, jb, i_startblk, nblks_e, &
+                           i_startidx, i_endidx, i_rcstartlev)
+
+        ! deduce normal velocity components at edge midpoints from 
+        ! stream function at vertices
+        DO je = i_startidx, i_endidx
+
+          ! get edge vertices
+          ilv1 = ptr_patch%edges%vertex_idx(je,jb,1)
+          ibv1 = ptr_patch%edges%vertex_blk(je,jb,1)
+          ilv2 = ptr_patch%edges%vertex_idx(je,jb,2)
+          ibv2 = ptr_patch%edges%vertex_blk(je,jb,2)
 
           ! compute normal wind component
-          ptr_prog%vn(je,1,jb) =                                   &
-            &     u_wind * ptr_patch%edges%primal_normal(je,jb)%v1 &
-            &   + v_wind * ptr_patch%edges%primal_normal(je,jb)%v2
+          ! this is done by computing the tangential derivative of the 
+          ! streamfunction.
+          ! Note that the tangential direction is defined by
+          ! iorient*(vertex2 - vertex1)
+          !
+          ! DR: I am not quite sure, why I have to multiply with -1 once 
+          ! again, in order to get the correct result. This may have 
+          ! something to do with the fact, that for the system orientation 
+          ! the vector product between the dual normal and the primal normal 
+          ! (dn x pn) is computed and not (pn x dn). 
+          iorient = ptr_patch%edges%system_orientation(je,jb)
 
+          ptr_prog%vn(je,1,jb) = re * iorient                             & 
+            &                  * (zpsi(ilv2,ibv2) - zpsi(ilv1,ibv1))      &
+            &                  / ptr_patch%edges%primal_edge_length(je,jb)
         ENDDO
+
       ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
+
+
+!!$!$OMP PARALLEL
+!!$!$OMP DO PRIVATE(jb,je,i_startidx,i_endidx,zlon,zlat,zlon_rot,zlat_rot, &
+!!$!$OMP            u_wind,v_wind)
+!!$      DO jb = i_startblk, nblks_e
+!!$
+!!$        CALL get_indices_e(ptr_patch, jb, i_startblk, nblks_e, &
+!!$                           i_startidx, i_endidx, i_rcstartlev)
+!!$
+!!$        DO je = i_startidx, i_endidx
+!!$
+!!$          ! location of edge midpoint
+!!$          zlon = ptr_patch%edges%center(je,jb)%lon
+!!$          zlat = ptr_patch%edges%center(je,jb)%lat
+!!$
+!!$
+!!$          ! get zlat, zlon in rotated system with npole at
+!!$          ! (npole_lon,npole_lat)
+!!$          CALL rotated_sphere( npole_lon,npole_lat-z_alpha,  & !<in
+!!$            &                  zlon,zlat,                    & !<in
+!!$            &                  zlon_rot,zlat_rot             ) !<inout
+!!$
+!!$          zlon_rot = zlon_rot - 2._wp*pi*p_sim_time/tottime
+!!$          ! velocity in local east direction
+!!$          u_wind = u4 * SIN(zlon_rot)**2 * SIN(2._wp*zlat_rot)      &
+!!$            &      * z_timing_func + u0*cos(zlat_rot)
+!!$
+!!$          ! velocity in local north direction
+!!$          v_wind = u4 * SIN(2._wp*zlon_rot) * COS(zlat_rot) * z_timing_func
+!!$
+!!$
+!!$          ! compute normal wind component
+!!$          ptr_prog%vn(je,1,jb) =                                   &
+!!$            &     u_wind * ptr_patch%edges%primal_normal(je,jb)%v1 &
+!!$            &   + v_wind * ptr_patch%edges%primal_normal(je,jb)%v2
+!!$
+!!$        ENDDO
+!!$      ENDDO
+!!$!$OMP END DO
+!!$!$OMP END PARALLEL
 
     END SELECT
 

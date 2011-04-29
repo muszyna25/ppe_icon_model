@@ -131,6 +131,7 @@ MODULE mo_math_utilities
   PUBLIC :: qrdec
   PUBLIC :: gnomonic_proj
   PUBLIC :: orthogr_proj
+  PUBLIC :: az_eqdist_proj
   PUBLIC :: gamma_fct
 
 ! ! cartesian coordinate class
@@ -1386,6 +1387,8 @@ sin_d     = z_a/z_sq
 cos_d     = z_b/z_sq
 
 END SUBROUTINE rotate_latlon_vec
+
+
 !-------------------------------------------------------------------------
 !
 !
@@ -1403,24 +1406,65 @@ SUBROUTINE gnomonic_proj( lon_c, lat_c, lon, lat, x, y )
 !
 ! !LITERATURE:
 ! Map Projections: A Working Manual, Snyder, 1987, p. 165
-
 !
-REAL(wp), INTENT(in) :: lat_c, lon_c  ! center on tangent plane
-REAL(wp), INTENT(in) :: lat, lon      ! point to be projected
-REAL(wp), INTENT(out):: x, y          ! coordinates of projected point
+!
+  REAL(wp), INTENT(in) :: lat_c, lon_c  ! center on tangent plane
+  REAL(wp), INTENT(in) :: lat, lon      ! point to be projected
+  REAL(wp), INTENT(out):: x, y          ! coordinates of projected point
 
-
-REAL(wp) :: zk, cosc
+  REAL(wp) :: zk   ! scale factor perpendicular to the radius from the 
+                   ! center of the map
+  REAL(wp) :: cosc ! cosine of the angular distance of the given point 
+                   ! (lat,lon) from the center of projection
 
 !-----------------------------------------------------------------------
 
-cosc = sin(lat_c)*sin(lat) + cos(lat_c)*cos(lat)*cos(lon-lon_c)
-zk   = 1._wp/cosc
+  cosc = sin(lat_c)*sin(lat) + cos(lat_c)*cos(lat)*cos(lon-lon_c)
+  zk   = 1._wp/cosc
 
-x    = zk * cos(lat)*sin(lon-lon_c)
-y    = zk * ( cos(lat_c)*sin(lat) - sin(lat_c)*cos(lat)*cos(lon-lon_c) )
+  x    = zk * cos(lat)*sin(lon-lon_c)
+  y    = zk * ( cos(lat_c)*sin(lat) - sin(lat_c)*cos(lat)*cos(lon-lon_c) )
 
 END SUBROUTINE gnomonic_proj
+
+
+!-------------------------------------------------------------------------
+!
+!
+!>
+!! azimuthal equidistant projection for unit sphere.
+!!
+!! Projects a point
+!! (lat,lon) onto a tangent plane with the origin at (lat_c,lon_c).
+!! The results are the local cartesian coordinates (x,y).
+!!
+!! @par Revision History
+!! developed by Daniel Reinert, DWD, 2011-04-27
+!!
+SUBROUTINE az_eqdist_proj( lon_c, lat_c, lon, lat, x, y )
+!
+! !LITERATURE:
+! Map Projections: A Working Manual, Snyder, 1987, p. 200
+!
+!
+  REAL(wp), INTENT(in) :: lat_c, lon_c  ! center on tangent plane
+  REAL(wp), INTENT(in) :: lat, lon      ! point to be projected
+  REAL(wp), INTENT(out):: x, y          ! coordinates of projected point
+
+  REAL(wp) :: zk   ! scale factor perpendicular to the radius from the 
+                   ! center of the map
+  REAL(wp) :: c    ! angular distance of the given point (lat,lon) 
+                   ! from the center of projection
+
+  !-----------------------------------------------------------------------
+
+  c  = acos(sin(lat_c)*sin(lat) + cos(lat_c)*cos(lat)*cos(lon-lon_c))
+  zk = c/sin(c)
+
+  x  = zk * cos(lat)*sin(lon-lon_c)
+  y  = zk * ( cos(lat_c)*sin(lat) - sin(lat_c)*cos(lat)*cos(lon-lon_c) )
+
+END SUBROUTINE az_eqdist_proj
 
 
 !-------------------------------------------------------------------------
@@ -1440,16 +1484,16 @@ SUBROUTINE orthogr_proj( lon_c, lat_c, lon, lat, x, y )
 !
 ! !LITERATURE:
 ! Map Projections: A Working Manual, Snyder, 1987,  p. 149
-
 !
-REAL(wp), INTENT(in) :: lat_c, lon_c  ! center on tangent plane
-REAL(wp), INTENT(in) :: lat, lon      ! point to be projected
-REAL(wp), INTENT(out):: x, y          ! coordinates of projected point
+!
+  REAL(wp), INTENT(in) :: lat_c, lon_c  ! center on tangent plane
+  REAL(wp), INTENT(in) :: lat, lon      ! point to be projected
+  REAL(wp), INTENT(out):: x, y          ! coordinates of projected point
 
 !-----------------------------------------------------------------------
 
-x = cos(lat)*sin(lon-lon_c)
-y = cos(lat_c)*sin(lat) - sin(lat_c)*cos(lat)*cos(lon-lon_c)
+  x = cos(lat)*sin(lon-lon_c)
+  y = cos(lat_c)*sin(lat) - sin(lat_c)*cos(lat)*cos(lon-lon_c)
 
 END SUBROUTINE orthogr_proj
 
