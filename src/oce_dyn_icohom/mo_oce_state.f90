@@ -779,154 +779,14 @@ CONTAINS
     nblks_e = p_patch%nblks_e
     nblks_v = p_patch%nblks_v
 
-    ! allocation for Adam-Bashford time stepping
-    !ALLOCATE(p_os_aux%g_n(nproma,n_zlev,nblks_e), STAT=ist)
-    !IF (ist/=SUCCESS)THEN
-    !  CALL finish(TRIM(routine),'allocation of expl. term at step n in AB scheme failed')
-    !ENDIF
-
-    !ALLOCATE(p_os_aux%g_nm1(nproma,n_zlev,nblks_e), STAT=ist)
-    !IF (ist/=SUCCESS)THEN
-    !  CALL finish(TRIM(routine),'allocation of expl. term at step n-1 in AB scheme failed')
-    !ENDIF
-
-    !ALLOCATE(p_os_aux%g_nimd(nproma,n_zlev,nblks_e), STAT=ist)
-    !IF (ist/=SUCCESS)THEN
-    !  CALL finish(TRIM(routine),'allocation of expl. term at intermed. step in AB scheme failed')
-    !ENDIF
-
-    !ALLOCATE(p_os_aux%g_n_c_h(nproma,n_zlev,nblks_c,ntrac_oce), STAT=ist)
-    !IF (ist/=SUCCESS)THEN
-    !  CALL finish(TRIM(routine),'allocation of horz expl. tracer term at&
-    !                            & step n in AB scheme failed')
-    !ENDIF
-    !ALLOCATE(p_os_aux%g_nm1_c_h(nproma,n_zlev,nblks_c,ntrac_oce), STAT=ist)
-    !IF (ist/=SUCCESS)THEN
-    !  CALL finish(TRIM(routine),'allocation of horz expl. tracer term at &
-    !                               &step n-1 in AB scheme failed')
-    !ENDIF
-    !ALLOCATE(p_os_aux%g_nimd_c_h(nproma,n_zlev,nblks_c,ntrac_oce), STAT=ist)
-    !IF (ist/=SUCCESS)THEN
-    !  CALL finish(TRIM(routine),'allocation of horz expl. tracer term at&
-    !                          & intermed. step in AB scheme failed')
-    !ENDIF
-
-    !ALLOCATE(p_os_aux%g_n_c_v(nproma,n_zlev,nblks_c,ntrac_oce), STAT=ist)
-    !IF (ist/=SUCCESS)THEN
-    !  CALL finish(TRIM(routine),'allocation of vert expl. tracer term at&
-    !                            & step n in AB scheme failed')
-    !ENDIF
-    !ALLOCATE(p_os_aux%g_nm1_c_v(nproma,n_zlev,nblks_c,ntrac_oce), STAT=ist)
-    !IF (ist/=SUCCESS)THEN
-    !  CALL finish(TRIM(routine),'allocation of vert expl. tracer term at &
-    !                               &step n-1 in AB scheme failed')
-    !ENDIF
-    !ALLOCATE(p_os_aux%g_nimd_c_v(nproma,n_zlev,nblks_c,ntrac_oce), STAT=ist)
-    !IF (ist/=SUCCESS)THEN
-    !  CALL finish(TRIM(routine),'allocation of vert expl. tracer term at&
-    !                          & intermed. step in AB scheme failed')
-    !ENDIF
-
-    !ALLOCATE(p_os_aux%p_rhs_sfc_eq(nproma,nblks_c), STAT=ist)
-    !IF (ist/=SUCCESS)THEN
-    !  CALL finish(TRIM(routine),'allocation of RHS of surface eq. failed')
-    !ENDIF
-
-    !! allocation for boundary conditions
-    !ALLOCATE(p_os_aux%bc_top_u(nproma,nblks_c), STAT=ist)
-    !IF (ist/=SUCCESS) THEN
-    !  CALL finish(TRIM(routine),'allocation of top boundary cond u failed')
-    !END IF
-    !ALLOCATE(p_os_aux%bc_top_v(nproma,nblks_c), STAT=ist)
-    !IF (ist/=SUCCESS) THEN
-    !  CALL finish(TRIM(routine),'allocation of top boundary cond v failed')
-    !END IF
     ALLOCATE(p_os_aux%bc_top_veloc_cc(nproma,nblks_c), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation of top boundary cond cc failed')
     END IF
-    !ALLOCATE(p_os_aux%bc_top_vn(nproma,nblks_e), STAT=ist)
-    !IF (ist/=SUCCESS) THEN
-    !  CALL finish(TRIM(routine),'allocation of top boundary cond vn failed')
-    !END IF
-
-    !ALLOCATE(p_os_aux%bc_bot_u(nproma,nblks_c), STAT=ist)
-    !IF (ist/=SUCCESS) THEN
-    !  CALL finish(TRIM(routine),'allocation of bottom boundary cond u failed')
-    !END IF
-    !ALLOCATE(p_os_aux%bc_bot_v(nproma,nblks_c), STAT=ist)
-    !IF (ist/=SUCCESS) THEN
-    !  CALL finish(TRIM(routine),'allocation of bottom boundary cond v failed')
-    !END IF
     ALLOCATE(p_os_aux%bc_bot_veloc_cc(nproma,nblks_c), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation of top boundary cond cc failed')
     END IF
-    !ALLOCATE(p_os_aux%bc_bot_vn(nproma,nblks_e), STAT=ist)
-    !IF (ist/=SUCCESS) THEN
-    !  CALL finish(TRIM(routine),'allocation of bottom boundary cond vn failed')
-    !END IF
-
-    !ALLOCATE(p_os_aux%bc_bot_w(nproma,nblks_c), STAT=ist)
-    !IF (ist/=SUCCESS) THEN
-    !  CALL finish(TRIM(routine),'allocation of bottom boundary cond w failed')
-    !END IF
-    !ALLOCATE(p_os_aux%bc_top_w(nproma,nblks_c), STAT=ist)
-    !IF (ist/=SUCCESS) THEN
-    !  CALL finish(TRIM(routine),'allocation of top boundary cond w failed')
-    !END IF
-    !ALLOCATE(p_os_aux%bc_bot_tracer(nproma,nblks_c,ntrac_oce), STAT=ist)
-    !IF (ist/=SUCCESS) THEN
-    !  CALL finish(TRIM(routine),'allocation of bottom boundary cond tracer failed')
-    !END IF
-    !ALLOCATE(p_os_aux%bc_top_tracer(nproma,nblks_c,ntrac_oce), STAT=ist)
-    !IF (ist/=SUCCESS) THEN
-    !  CALL finish(TRIM(routine),'allocation of top boundary cond tracer failed')
-    !END IF
-
-  ! ! allocation for divergence of fluxes
-  ! ALLOCATE(p_os_aux%p_div_flux_horiz_act(nproma,n_zlev,nblks_c), STAT=ist)
-  ! IF (ist/=SUCCESS)THEN
-  !   CALL finish(TRIM(routine),'allocation of div flux horiz act failed')
-  ! ENDIF
-  !
-  ! ALLOCATE(p_os_aux%p_div_flux_vert_act(nproma,n_zlev,nblks_c), STAT=ist)
-  ! IF (ist/=SUCCESS)THEN
-  !   CALL finish(TRIM(routine),'allocation of div flux vert act failed')
-  ! ENDIF
-  !
-  ! ALLOCATE(p_os_aux%p_div_flux_horiz_prev(nproma,n_zlev,nblks_c), STAT=ist)
-  ! IF (ist/=SUCCESS)THEN
-  !   CALL finish(TRIM(routine),'allocation of div flux horiz prev failed')
-  ! ENDIF
-  !
-  ! ALLOCATE(p_os_aux%p_div_flux_vert_prev(nproma,n_zlev,nblks_c), STAT=ist)
-  ! IF (ist/=SUCCESS)THEN
-  !   CALL finish(TRIM(routine),'allocation of div flux vert prev failed')
-  ! ENDIF
-
-    ! initialize all components with zero (this is preliminary)
-    !p_os_aux%g_n                   = 0.0_wp
-    !p_os_aux%g_nm1                 = 0.0_wp
-    !p_os_aux%g_nimd                = 0.0_wp
-    !p_os_aux%g_n_c_h               = 0.0_wp
-    !p_os_aux%g_nm1_c_h             = 0.0_wp
-    !p_os_aux%g_nimd_c_h            = 0.0_wp
-    !p_os_aux%g_n_c_v               = 0.0_wp
-    !p_os_aux%g_nm1_c_v             = 0.0_wp
-    !p_os_aux%g_nimd_c_v            = 0.0_wp
-    !p_os_aux%p_rhs_sfc_eq          = 0.0_wp
-    !p_os_aux%bc_top_u              = 0.0_wp
-    !p_os_aux%bc_top_v              = 0.0_wp
-    !p_os_aux%bc_top_vn             = 0.0_wp
-    !p_os_aux%bc_bot_u              = 0.0_wp
-    !p_os_aux%bc_bot_v              = 0.0_wp
-    !p_os_aux%bc_bot_vn             = 0.0_wp
-    !p_os_aux%bc_bot_w              = 0.0_wp
-    !p_os_aux%bc_top_w              = 0.0_wp
-    !p_os_aux%bc_bot_tracer         = 0.0_wp
-    !p_os_aux%bc_top_tracer         = 0.0_wp
-   
     rl_start = 1
     rl_end = min_rlcell
 
@@ -940,7 +800,6 @@ CONTAINS
         p_os_aux%bc_bot_veloc_cc(jc,jb)%x = 0.0_wp
       END DO
    END DO
-    !CALL message(TRIM(routine),'construction of hydrostatic oceans auxiliary state finished')
 
   END SUBROUTINE construct_hydro_ocean_aux
 
@@ -957,8 +816,6 @@ CONTAINS
     TYPE(t_var_list), POINTER :: list
     TYPE(t_patch),TARGET, INTENT(IN)                :: p_patch
     TYPE(t_hydro_ocean_aux), TARGET,INTENT(INOUT)   :: p_os_aux
-
-    ! local variables
 
     INTEGER ::  ist, jc,jb, rl_start, rl_end
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
@@ -980,17 +837,14 @@ CONTAINS
     &            t_cf_var('g_n','',''),&
     &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
-
     CALL add_var(list,'g_nm1',p_os_aux%g_nm1, GRID_UNSTRUCTURED,&
     &            t_cf_var('g_nm1','',''),&
     &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
-
     CALL add_var(list,'g_nimd',p_os_aux%g_nimd, GRID_UNSTRUCTURED,&
     &            t_cf_var('g_nimd','',''),&
     &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
-
     CALL add_var(list,'g_n_c_h',p_os_aux%g_n_c_h, GRID_UNSTRUCTURED,&
     &            t_cf_var('g_n_c_h','',''),&
     &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
@@ -1003,7 +857,6 @@ CONTAINS
     &            t_cf_var('g_nimd_c_h','',''),&
     &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
     &            ldims=(/nproma,n_zlev,nblks_c, ntrac_oce/))
-
     CALL add_var(list,'g_n_c_v',p_os_aux%g_n_c_v, GRID_UNSTRUCTURED,&
     &            t_cf_var('g_n_c_v','',''),&
     &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
@@ -1016,7 +869,6 @@ CONTAINS
     &            t_cf_var('g_nimd_c_v','',''),&
     &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
     &            ldims=(/nproma,n_zlev,nblks_c, ntrac_oce/))
-
     CALL add_var(list,'p_rhs_sfc_eq',p_os_aux%p_rhs_sfc_eq, GRID_UNSTRUCTURED,&
     &            t_cf_var('p_rhs_sfc_eq','',''),&
     &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
