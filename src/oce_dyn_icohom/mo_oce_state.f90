@@ -304,6 +304,7 @@ CONTAINS
       CALL add_hydro_ocean_diag_vars( list, p_patch(jg), p_os(jg)%p_diag)
 
       CALL construct_hydro_ocean_aux(p_patch(jg), p_os(jg)%p_aux)
+      CALL add_hydro_ocean_aux_vars(list,p_patch(jg), p_os(jg)%p_aux)
 
       CALL message(TRIM(routine),'construction of hydrostatic ocean state finished')
 
@@ -434,6 +435,50 @@ CONTAINS
     &            ldims=(/nproma,n_zlev,nblks_c,ntrac_oce/) )
 
   END SUBROUTINE
+
+  !-------------------------------------------------------------------------
+  !>
+  !!               Deallocation of hydrostatic ocean prognostic state.
+  !
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2006).
+  !!
+    SUBROUTINE destruct_hydro_ocean_prog(p_os_prog)
+
+    TYPE(t_hydro_ocean_prog),INTENT(INOUT)      :: p_os_prog
+
+    ! local variables
+
+    INTEGER                                   :: ist
+
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      &      routine = 'mo_oce_state:destruct_hydro_ocean_prog'
+
+!-------------------------------------------------------------------------
+
+    !CALL message(TRIM(routine),' start to destruct hydrostatic ocean prognostic state')
+
+
+    ! deallocate prognostic part of state vector
+    !
+    ! surface height
+    DEALLOCATE(p_os_prog%h, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish('mo_ocean_state:destruct_hydro_ocean_prog', 'deallocation for h failed')
+    END IF
+
+    !normal velocity
+    DEALLOCATE(p_os_prog%vn, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+       CALL finish(TRIM(routine),'deallocation for normal velocity failed')
+    END IF
+
+    DEALLOCATE(p_os_prog%tracer, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+        CALL finish(TRIM(routine), 'deallocation for tracer failed')
+    END IF
+
+  END SUBROUTINE destruct_hydro_ocean_prog
 
   !-------------------------------------------------------------------------
   !>
@@ -680,6 +725,32 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
+  !!               Deallocation of diagnostic hydrostatic ocean state.
+  !
+  !! @par Revision History
+  !! Developed  by  Peter Korn, MPI-M (2005).
+  !!
+  SUBROUTINE destruct_hydro_ocean_diag(p_os_diag)
+
+    TYPE(t_hydro_ocean_diag), INTENT(INOUT) :: p_os_diag
+
+    ! local variables
+
+    INTEGER :: ist
+
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      &      routine = 'mo_oce_state:destruct_hydro_ocean_diag'
+
+    DEALLOCATE(p_os_diag%p_vn, STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine), 'deallocation for p_vn failed')
+    END IF
+
+  END SUBROUTINE destruct_hydro_ocean_diag
+
+
+  !-------------------------------------------------------------------------
+  !>
   !!               Allocation of components of hydrostatic ocean auxiliary state.
   !!               Initialization of components with zero.
   !
@@ -709,109 +780,109 @@ CONTAINS
     nblks_v = p_patch%nblks_v
 
     ! allocation for Adam-Bashford time stepping
-    ALLOCATE(p_os_aux%g_n(nproma,n_zlev,nblks_e), STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish(TRIM(routine),'allocation of expl. term at step n in AB scheme failed')
-    ENDIF
+    !ALLOCATE(p_os_aux%g_n(nproma,n_zlev,nblks_e), STAT=ist)
+    !IF (ist/=SUCCESS)THEN
+    !  CALL finish(TRIM(routine),'allocation of expl. term at step n in AB scheme failed')
+    !ENDIF
 
-    ALLOCATE(p_os_aux%g_nm1(nproma,n_zlev,nblks_e), STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish(TRIM(routine),'allocation of expl. term at step n-1 in AB scheme failed')
-    ENDIF
+    !ALLOCATE(p_os_aux%g_nm1(nproma,n_zlev,nblks_e), STAT=ist)
+    !IF (ist/=SUCCESS)THEN
+    !  CALL finish(TRIM(routine),'allocation of expl. term at step n-1 in AB scheme failed')
+    !ENDIF
 
-    ALLOCATE(p_os_aux%g_nimd(nproma,n_zlev,nblks_e), STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish(TRIM(routine),'allocation of expl. term at intermed. step in AB scheme failed')
-    ENDIF
+    !ALLOCATE(p_os_aux%g_nimd(nproma,n_zlev,nblks_e), STAT=ist)
+    !IF (ist/=SUCCESS)THEN
+    !  CALL finish(TRIM(routine),'allocation of expl. term at intermed. step in AB scheme failed')
+    !ENDIF
 
-    ALLOCATE(p_os_aux%g_n_c_h(nproma,n_zlev,nblks_c,ntrac_oce), STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish(TRIM(routine),'allocation of horz expl. tracer term at&
-                                & step n in AB scheme failed')
-    ENDIF
-    ALLOCATE(p_os_aux%g_nm1_c_h(nproma,n_zlev,nblks_c,ntrac_oce), STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish(TRIM(routine),'allocation of horz expl. tracer term at &
-                                   &step n-1 in AB scheme failed')
-    ENDIF
-    ALLOCATE(p_os_aux%g_nimd_c_h(nproma,n_zlev,nblks_c,ntrac_oce), STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish(TRIM(routine),'allocation of horz expl. tracer term at&
-                              & intermed. step in AB scheme failed')
-    ENDIF
+    !ALLOCATE(p_os_aux%g_n_c_h(nproma,n_zlev,nblks_c,ntrac_oce), STAT=ist)
+    !IF (ist/=SUCCESS)THEN
+    !  CALL finish(TRIM(routine),'allocation of horz expl. tracer term at&
+    !                            & step n in AB scheme failed')
+    !ENDIF
+    !ALLOCATE(p_os_aux%g_nm1_c_h(nproma,n_zlev,nblks_c,ntrac_oce), STAT=ist)
+    !IF (ist/=SUCCESS)THEN
+    !  CALL finish(TRIM(routine),'allocation of horz expl. tracer term at &
+    !                               &step n-1 in AB scheme failed')
+    !ENDIF
+    !ALLOCATE(p_os_aux%g_nimd_c_h(nproma,n_zlev,nblks_c,ntrac_oce), STAT=ist)
+    !IF (ist/=SUCCESS)THEN
+    !  CALL finish(TRIM(routine),'allocation of horz expl. tracer term at&
+    !                          & intermed. step in AB scheme failed')
+    !ENDIF
 
-    ALLOCATE(p_os_aux%g_n_c_v(nproma,n_zlev,nblks_c,ntrac_oce), STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish(TRIM(routine),'allocation of vert expl. tracer term at&
-                                & step n in AB scheme failed')
-    ENDIF
-    ALLOCATE(p_os_aux%g_nm1_c_v(nproma,n_zlev,nblks_c,ntrac_oce), STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish(TRIM(routine),'allocation of vert expl. tracer term at &
-                                   &step n-1 in AB scheme failed')
-    ENDIF
-    ALLOCATE(p_os_aux%g_nimd_c_v(nproma,n_zlev,nblks_c,ntrac_oce), STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish(TRIM(routine),'allocation of vert expl. tracer term at&
-                              & intermed. step in AB scheme failed')
-    ENDIF
+    !ALLOCATE(p_os_aux%g_n_c_v(nproma,n_zlev,nblks_c,ntrac_oce), STAT=ist)
+    !IF (ist/=SUCCESS)THEN
+    !  CALL finish(TRIM(routine),'allocation of vert expl. tracer term at&
+    !                            & step n in AB scheme failed')
+    !ENDIF
+    !ALLOCATE(p_os_aux%g_nm1_c_v(nproma,n_zlev,nblks_c,ntrac_oce), STAT=ist)
+    !IF (ist/=SUCCESS)THEN
+    !  CALL finish(TRIM(routine),'allocation of vert expl. tracer term at &
+    !                               &step n-1 in AB scheme failed')
+    !ENDIF
+    !ALLOCATE(p_os_aux%g_nimd_c_v(nproma,n_zlev,nblks_c,ntrac_oce), STAT=ist)
+    !IF (ist/=SUCCESS)THEN
+    !  CALL finish(TRIM(routine),'allocation of vert expl. tracer term at&
+    !                          & intermed. step in AB scheme failed')
+    !ENDIF
 
-    ALLOCATE(p_os_aux%p_rhs_sfc_eq(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish(TRIM(routine),'allocation of RHS of surface eq. failed')
-    ENDIF
+    !ALLOCATE(p_os_aux%p_rhs_sfc_eq(nproma,nblks_c), STAT=ist)
+    !IF (ist/=SUCCESS)THEN
+    !  CALL finish(TRIM(routine),'allocation of RHS of surface eq. failed')
+    !ENDIF
 
-    ! allocation for boundary conditions
-    ALLOCATE(p_os_aux%bc_top_u(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation of top boundary cond u failed')
-    END IF
-    ALLOCATE(p_os_aux%bc_top_v(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation of top boundary cond v failed')
-    END IF
+    !! allocation for boundary conditions
+    !ALLOCATE(p_os_aux%bc_top_u(nproma,nblks_c), STAT=ist)
+    !IF (ist/=SUCCESS) THEN
+    !  CALL finish(TRIM(routine),'allocation of top boundary cond u failed')
+    !END IF
+    !ALLOCATE(p_os_aux%bc_top_v(nproma,nblks_c), STAT=ist)
+    !IF (ist/=SUCCESS) THEN
+    !  CALL finish(TRIM(routine),'allocation of top boundary cond v failed')
+    !END IF
     ALLOCATE(p_os_aux%bc_top_veloc_cc(nproma,nblks_c), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation of top boundary cond cc failed')
     END IF
-    ALLOCATE(p_os_aux%bc_top_vn(nproma,nblks_e), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation of top boundary cond vn failed')
-    END IF
+    !ALLOCATE(p_os_aux%bc_top_vn(nproma,nblks_e), STAT=ist)
+    !IF (ist/=SUCCESS) THEN
+    !  CALL finish(TRIM(routine),'allocation of top boundary cond vn failed')
+    !END IF
 
-    ALLOCATE(p_os_aux%bc_bot_u(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation of bottom boundary cond u failed')
-    END IF
-    ALLOCATE(p_os_aux%bc_bot_v(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation of bottom boundary cond v failed')
-    END IF
+    !ALLOCATE(p_os_aux%bc_bot_u(nproma,nblks_c), STAT=ist)
+    !IF (ist/=SUCCESS) THEN
+    !  CALL finish(TRIM(routine),'allocation of bottom boundary cond u failed')
+    !END IF
+    !ALLOCATE(p_os_aux%bc_bot_v(nproma,nblks_c), STAT=ist)
+    !IF (ist/=SUCCESS) THEN
+    !  CALL finish(TRIM(routine),'allocation of bottom boundary cond v failed')
+    !END IF
     ALLOCATE(p_os_aux%bc_bot_veloc_cc(nproma,nblks_c), STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation of top boundary cond cc failed')
     END IF
-    ALLOCATE(p_os_aux%bc_bot_vn(nproma,nblks_e), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation of bottom boundary cond vn failed')
-    END IF
+    !ALLOCATE(p_os_aux%bc_bot_vn(nproma,nblks_e), STAT=ist)
+    !IF (ist/=SUCCESS) THEN
+    !  CALL finish(TRIM(routine),'allocation of bottom boundary cond vn failed')
+    !END IF
 
-    ALLOCATE(p_os_aux%bc_bot_w(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation of bottom boundary cond w failed')
-    END IF
-    ALLOCATE(p_os_aux%bc_top_w(nproma,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation of top boundary cond w failed')
-    END IF
-    ALLOCATE(p_os_aux%bc_bot_tracer(nproma,nblks_c,ntrac_oce), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation of bottom boundary cond tracer failed')
-    END IF
-    ALLOCATE(p_os_aux%bc_top_tracer(nproma,nblks_c,ntrac_oce), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation of top boundary cond tracer failed')
-    END IF
+    !ALLOCATE(p_os_aux%bc_bot_w(nproma,nblks_c), STAT=ist)
+    !IF (ist/=SUCCESS) THEN
+    !  CALL finish(TRIM(routine),'allocation of bottom boundary cond w failed')
+    !END IF
+    !ALLOCATE(p_os_aux%bc_top_w(nproma,nblks_c), STAT=ist)
+    !IF (ist/=SUCCESS) THEN
+    !  CALL finish(TRIM(routine),'allocation of top boundary cond w failed')
+    !END IF
+    !ALLOCATE(p_os_aux%bc_bot_tracer(nproma,nblks_c,ntrac_oce), STAT=ist)
+    !IF (ist/=SUCCESS) THEN
+    !  CALL finish(TRIM(routine),'allocation of bottom boundary cond tracer failed')
+    !END IF
+    !ALLOCATE(p_os_aux%bc_top_tracer(nproma,nblks_c,ntrac_oce), STAT=ist)
+    !IF (ist/=SUCCESS) THEN
+    !  CALL finish(TRIM(routine),'allocation of top boundary cond tracer failed')
+    !END IF
 
   ! ! allocation for divergence of fluxes
   ! ALLOCATE(p_os_aux%p_div_flux_horiz_act(nproma,n_zlev,nblks_c), STAT=ist)
@@ -835,26 +906,26 @@ CONTAINS
   ! ENDIF
 
     ! initialize all components with zero (this is preliminary)
-    p_os_aux%g_n                   = 0.0_wp
-    p_os_aux%g_nm1                 = 0.0_wp
-    p_os_aux%g_nimd                = 0.0_wp
-    p_os_aux%g_n_c_h               = 0.0_wp
-    p_os_aux%g_nm1_c_h             = 0.0_wp
-    p_os_aux%g_nimd_c_h            = 0.0_wp
-    p_os_aux%g_n_c_v               = 0.0_wp
-    p_os_aux%g_nm1_c_v             = 0.0_wp
-    p_os_aux%g_nimd_c_v            = 0.0_wp
-    p_os_aux%p_rhs_sfc_eq          = 0.0_wp
-    p_os_aux%bc_top_u              = 0.0_wp
-    p_os_aux%bc_top_v              = 0.0_wp
-    p_os_aux%bc_top_vn             = 0.0_wp
-    p_os_aux%bc_bot_u              = 0.0_wp
-    p_os_aux%bc_bot_v              = 0.0_wp
-    p_os_aux%bc_bot_vn             = 0.0_wp
-    p_os_aux%bc_bot_w              = 0.0_wp
-    p_os_aux%bc_top_w              = 0.0_wp
-    p_os_aux%bc_bot_tracer         = 0.0_wp
-    p_os_aux%bc_top_tracer         = 0.0_wp
+    !p_os_aux%g_n                   = 0.0_wp
+    !p_os_aux%g_nm1                 = 0.0_wp
+    !p_os_aux%g_nimd                = 0.0_wp
+    !p_os_aux%g_n_c_h               = 0.0_wp
+    !p_os_aux%g_nm1_c_h             = 0.0_wp
+    !p_os_aux%g_nimd_c_h            = 0.0_wp
+    !p_os_aux%g_n_c_v               = 0.0_wp
+    !p_os_aux%g_nm1_c_v             = 0.0_wp
+    !p_os_aux%g_nimd_c_v            = 0.0_wp
+    !p_os_aux%p_rhs_sfc_eq          = 0.0_wp
+    !p_os_aux%bc_top_u              = 0.0_wp
+    !p_os_aux%bc_top_v              = 0.0_wp
+    !p_os_aux%bc_top_vn             = 0.0_wp
+    !p_os_aux%bc_bot_u              = 0.0_wp
+    !p_os_aux%bc_bot_v              = 0.0_wp
+    !p_os_aux%bc_bot_vn             = 0.0_wp
+    !p_os_aux%bc_bot_w              = 0.0_wp
+    !p_os_aux%bc_top_w              = 0.0_wp
+    !p_os_aux%bc_bot_tracer         = 0.0_wp
+    !p_os_aux%bc_top_tracer         = 0.0_wp
    
     rl_start = 1
     rl_end = min_rlcell
@@ -875,72 +946,192 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !!               Deallocation of hydrostatic ocean prognostic state.
+  !!               Allocation of components of hydrostatic ocean auxiliary state.
+  !!               Initialization of components with zero.
   !
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2006).
   !!
-    SUBROUTINE destruct_hydro_ocean_prog(p_os_prog)
+  SUBROUTINE add_hydro_ocean_aux_vars(list, p_patch, p_os_aux)
 
-    TYPE(t_hydro_ocean_prog),INTENT(INOUT)      :: p_os_prog
-
-    ! local variables
-
-    INTEGER                                   :: ist
-
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      &      routine = 'mo_oce_state:destruct_hydro_ocean_prog'
-
-!-------------------------------------------------------------------------
-
-    !CALL message(TRIM(routine),' start to destruct hydrostatic ocean prognostic state')
-
-
-    ! deallocate prognostic part of state vector
-    !
-    ! surface height
-    DEALLOCATE(p_os_prog%h, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish('mo_ocean_state:destruct_hydro_ocean_prog', 'deallocation for h failed')
-    END IF
-
-    !normal velocity
-    DEALLOCATE(p_os_prog%vn, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-       CALL finish(TRIM(routine),'deallocation for normal velocity failed')
-    END IF
-
-    DEALLOCATE(p_os_prog%tracer, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-        CALL finish(TRIM(routine), 'deallocation for tracer failed')
-    END IF
-
-  END SUBROUTINE destruct_hydro_ocean_prog
-
-  !-------------------------------------------------------------------------
-  !>
-  !!               Deallocation of diagnostic hydrostatic ocean state.
-  !
-  !! @par Revision History
-  !! Developed  by  Peter Korn, MPI-M (2005).
-  !!
-  SUBROUTINE destruct_hydro_ocean_diag(p_os_diag)
-
-    TYPE(t_hydro_ocean_diag), INTENT(INOUT) :: p_os_diag
+    TYPE(t_var_list), POINTER :: list
+    TYPE(t_patch),TARGET, INTENT(IN)                :: p_patch
+    TYPE(t_hydro_ocean_aux), TARGET,INTENT(INOUT)   :: p_os_aux
 
     ! local variables
 
-    INTEGER :: ist
+    INTEGER ::  ist, jc,jb, rl_start, rl_end
+    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
+    INTEGER ::  nblks_c, nblks_e, nblks_v
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      &      routine = 'mo_oce_state:destruct_hydro_ocean_diag'
+      &      routine = 'mo_oce_state:construct_hydro_ocean_aux'
 
-    DEALLOCATE(p_os_diag%p_vn, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine), 'deallocation for p_vn failed')
-    END IF
+    !-------------------------------------------------------------------------
+    !CALL message(TRIM(routine), 'start to construct hydro ocean auxiliary state')
 
-  END SUBROUTINE destruct_hydro_ocean_diag
+    ! determine size of arrays
+    nblks_c = p_patch%nblks_c
+    nblks_e = p_patch%nblks_e
+    nblks_v = p_patch%nblks_v
+
+    ! allocation for Adam-Bashford time stepping
+    CALL add_var(list,'g_n',p_os_aux%g_n, GRID_UNSTRUCTURED,&
+    &            t_cf_var('g_n','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
+
+    CALL add_var(list,'g_nm1',p_os_aux%g_nm1, GRID_UNSTRUCTURED,&
+    &            t_cf_var('g_nm1','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
+
+    CALL add_var(list,'g_nimd',p_os_aux%g_nimd, GRID_UNSTRUCTURED,&
+    &            t_cf_var('g_nimd','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
+
+    CALL add_var(list,'g_n_c_h',p_os_aux%g_n_c_h, GRID_UNSTRUCTURED,&
+    &            t_cf_var('g_n_c_h','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_c, ntrac_oce/))
+    CALL add_var(list,'g_nm1_c_h',p_os_aux%g_nm1_c_h, GRID_UNSTRUCTURED,&
+    &            t_cf_var('g_nm1_c_h','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_c, ntrac_oce/))
+    CALL add_var(list,'g_nimd_c_h',p_os_aux%g_nimd_c_h, GRID_UNSTRUCTURED,&
+    &            t_cf_var('g_nimd_c_h','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_c, ntrac_oce/))
+
+    CALL add_var(list,'g_n_c_v',p_os_aux%g_n_c_v, GRID_UNSTRUCTURED,&
+    &            t_cf_var('g_n_c_v','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_c, ntrac_oce/))
+    CALL add_var(list,'g_nm1_c_v',p_os_aux%g_nm1_c_v, GRID_UNSTRUCTURED,&
+    &            t_cf_var('g_nm1_c_v','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_c, ntrac_oce/))
+    CALL add_var(list,'g_nimd_c_v',p_os_aux%g_nimd_c_v, GRID_UNSTRUCTURED,&
+    &            t_cf_var('g_nimd_c_v','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_c, ntrac_oce/))
+
+    CALL add_var(list,'p_rhs_sfc_eq',p_os_aux%p_rhs_sfc_eq, GRID_UNSTRUCTURED,&
+    &            t_cf_var('p_rhs_sfc_eq','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_c/))
+
+    ! allocation for boundary conditions
+    CALL add_var(list,'bc_top_u',p_os_aux%bc_top_u, GRID_UNSTRUCTURED,&
+    &            t_cf_var('bc_top_u','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_c/))
+    CALL add_var(list,'bc_top_v',p_os_aux%bc_top_v, GRID_UNSTRUCTURED,&
+    &            t_cf_var('bc_top_v','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_c/))
+    !CALL add_var(list,'bc_top_veloc_cc',p_os_aux%bc_top_veloc_cc, GRID_UNSTRUCTURED,&
+    !&            t_cf_var('bc_top_veloc_cc','',''),&
+    !&            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL,
+    !ZAXIS_SURFACE),&
+    !&            ldims=(/nproma,nblks_c/))
+    CALL add_var(list,'bc_top_vn',p_os_aux%bc_top_vn, GRID_UNSTRUCTURED,&
+    &            t_cf_var('bc_top_vn','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_EDGE, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_e/))
+
+    CALL add_var(list,'bc_bot_u',p_os_aux%bc_bot_u, GRID_UNSTRUCTURED,&
+    &            t_cf_var('bc_bot_u','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_c/))
+    CALL add_var(list,'bc_bot_v',p_os_aux%bc_bot_v, GRID_UNSTRUCTURED,&
+    &            t_cf_var('bc_bot_v','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_c/))
+    !CALL add_var(list,'bc_bot_veloc_cc',p_os_aux%bc_bot_veloc_cc, GRID_UNSTRUCTURED,&
+    !&            t_cf_var('bc_bot_veloc_cc','',''),&
+    !&            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL,
+    !ZAXIS_SURFACE),&
+    !&            ldims=(/nproma,nblks_c/))
+    CALL add_var(list,'bc_bot_vn',p_os_aux%bc_bot_vn, GRID_UNSTRUCTURED,&
+    &            t_cf_var('bc_bot_vn','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_EDGE, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_e/))
+
+    CALL add_var(list,'bc_bot_w',p_os_aux%bc_bot_w, GRID_UNSTRUCTURED,&
+    &            t_cf_var('bc_bot_w','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_c/))
+    CALL add_var(list,'bc_top_w',p_os_aux%bc_top_w, GRID_UNSTRUCTURED,&
+    &            t_cf_var('bc_top_w','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_c/))
+    CALL add_var(list,'bc_bot_tracer',p_os_aux%bc_bot_tracer, GRID_UNSTRUCTURED,&
+    &            t_cf_var('bc_bot_tracer','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_c,ntrac_oce/))
+    CALL add_var(list,'bc_top_tracer',p_os_aux%bc_top_tracer, GRID_UNSTRUCTURED,&
+    &            t_cf_var('bc_top_tracer','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_c,ntrac_oce/))
+
+    ! allocation for divergence of fluxes
+    !CALL add_var(list,'p_div_flux_horiz_act',p_os_aux%p_div_flux_horiz_act, GRID_UNSTRUCTURED,&
+    !&            t_cf_vat('p_div_flux_horiz_act','',''),&
+    !&            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    !&            ldims=(/nproma,n_zlev,nblks_c/))
+    !CALL add_var(list,'p_div_flux_vert_act',p_os_aux%p_div_flux_vert_act, GRID_UNSTRUCTURED,&
+    !&            t_cf_vat('p_div_flux_vert_act','',''),&
+    !&            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    !&            ldims=(/nproma,n_zlev,nblks_c/))
+    !CALL add_var(list,'p_div_flux_horiz_prev',p_os_aux%p_div_flux_horiz_prev, GRID_UNSTRUCTURED,&
+    !&            t_cf_vat('p_div_flux_horiz_prev','',''),&
+    !&            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    !&            ldims=(/nproma,n_zlev,nblks_c/))
+    !CALL add_var(list,'p_div_flux_vert_prev',p_os_aux%p_div_flux_vert_prev, GRID_UNSTRUCTURED,&
+    !&            t_cf_vat('p_div_flux_vert_prev','',''),&
+    !&            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    !&            ldims=(/nproma,n_zlev,nblks_c/))
+
+    ! initialize all components with zero (this is preliminary)
+   ! p_os_aux%g_n                   = 0.0_wp
+   ! p_os_aux%g_nm1                 = 0.0_wp
+   ! p_os_aux%g_nimd                = 0.0_wp
+   ! p_os_aux%g_n_c_h               = 0.0_wp
+   ! p_os_aux%g_nm1_c_h             = 0.0_wp
+   ! p_os_aux%g_nimd_c_h            = 0.0_wp
+   ! p_os_aux%g_n_c_v               = 0.0_wp
+   ! p_os_aux%g_nm1_c_v             = 0.0_wp
+   ! p_os_aux%g_nimd_c_v            = 0.0_wp
+   ! p_os_aux%p_rhs_sfc_eq          = 0.0_wp
+   ! p_os_aux%bc_top_u              = 0.0_wp
+   ! p_os_aux%bc_top_v              = 0.0_wp
+   ! p_os_aux%bc_top_vn             = 0.0_wp
+   ! p_os_aux%bc_bot_u              = 0.0_wp
+   ! p_os_aux%bc_bot_v              = 0.0_wp
+   ! p_os_aux%bc_bot_vn             = 0.0_wp
+   ! p_os_aux%bc_bot_w              = 0.0_wp
+   ! p_os_aux%bc_top_w              = 0.0_wp
+   ! p_os_aux%bc_bot_tracer         = 0.0_wp
+   ! p_os_aux%bc_top_tracer         = 0.0_wp
+
+   ! rl_start = 1
+   ! rl_end = min_rlcell
+
+   ! i_startblk = p_patch%cells%start_blk(rl_start,1)
+   ! i_endblk   = p_patch%cells%end_blk(rl_end,1)
+   ! DO jb = i_startblk, i_endblk
+   !   CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,&
+   !                    & i_startidx, i_endidx, rl_start, rl_end)
+   !   DO jc = i_startidx, i_endidx
+   !     p_os_aux%bc_top_veloc_cc(jc,jb)%x = 0.0_wp
+   !     p_os_aux%bc_bot_veloc_cc(jc,jb)%x = 0.0_wp
+   !   END DO
+   !END DO
+    !CALL message(TRIM(routine),'construction of hydrostatic oceans auxiliary state finished')
+
+  END SUBROUTINE
 
   !-------------------------------------------------------------------------
   !>
