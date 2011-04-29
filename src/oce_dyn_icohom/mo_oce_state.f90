@@ -76,18 +76,18 @@ MODULE mo_oce_state
   PUBLIC :: construct_hydro_ocean_state
   PUBLIC :: destruct_hydro_ocean_state
   PUBLIC :: set_lateral_boundary_values
-  !
-  !variables
+  ! types
   PUBLIC :: t_hydro_ocean_state
   PUBLIC :: t_hydro_ocean_prog
   PUBLIC :: t_hydro_ocean_aux
   PUBLIC :: t_hydro_ocean_diag
-
-  !constructors
+  ! variables
+  TYPE(t_var_list), POINTER, PUBLIC :: ocean_var_list
+  ! constructors
   PRIVATE :: construct_hydro_ocean_diag
   PRIVATE :: construct_hydro_ocean_prog
   PRIVATE :: construct_hydro_ocean_aux
-  !destructors
+  ! destructors
   PRIVATE :: destruct_hydro_ocean_diag
   PRIVATE :: destruct_hydro_ocean_prog
   PRIVATE :: destruct_hydro_ocean_aux
@@ -287,7 +287,7 @@ CONTAINS
     ! Using Adams-Bashforth semi-implicit timestepping with 3 prognostic time levels:
     prlength = 3
 
-    CALL new_var_list(list, 'ocean_var_list')
+    CALL new_var_list(ocean_var_list, 'ocean_var_list')
     DO jg = 1, n_dom
 
       ALLOCATE(p_os(jg)%p_prog(1:prlength), STAT=i_status)
@@ -297,14 +297,11 @@ CONTAINS
 
       ! construction loop: create components of state array
       DO jp = 1, prlength
-         CALL add_hydro_ocean_prog_vars(list, p_patch(jg), p_os(jg)%p_prog(jp))
+         CALL construct_hydro_ocean_prog(p_patch(jg), p_os(jg)%p_prog(jp))
       END DO
 
       CALL construct_hydro_ocean_diag(p_patch(jg), p_os(jg)%p_diag)
-      CALL add_hydro_ocean_diag_vars( list, p_patch(jg), p_os(jg)%p_diag)
-
       CALL construct_hydro_ocean_aux(p_patch(jg), p_os(jg)%p_aux)
-      CALL add_hydro_ocean_aux_vars(list,p_patch(jg), p_os(jg)%p_aux)
 
       CALL message(TRIM(routine),'construction of hydrostatic ocean state finished')
 
@@ -376,30 +373,6 @@ CONTAINS
 !!
   SUBROUTINE construct_hydro_ocean_prog(p_patch, p_os_prog)
 
-    TYPE(t_patch), INTENT(in), TARGET         :: p_patch
-    TYPE(t_hydro_ocean_prog), INTENT(inout)   :: p_os_prog
-
-    INTEGER  :: n
-    INTEGER  :: nblks_c, nblks_e !, nblks_v
-    INTEGER  :: ist
-
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      &      routine = 'mo_oce_state:construct_hydro_ocean_prog'
-
-    nblks_c = p_patch%nblks_c
-    nblks_e = p_patch%nblks_e
-
-    ! initialize tracers temperature and salinity with reference values from namelist
-    !
-    !p_os_prog%tracer(:,:,:,1) = t_ref  !  temperature
-    !p_os_prog%tracer(:,:,:,2) = s_ref  !  salinity
-
-    !CALL message(TRIM(routine), 'construction of hydrostatic ocean prognostic state finished')
-
-  END SUBROUTINE construct_hydro_ocean_prog
-
-  SUBROUTINE add_hydro_ocean_prog_vars(list, p_patch, p_os_prog)
-
     TYPE(t_var_list), POINTER :: list
     TYPE(t_patch), INTENT(in), TARGET         :: p_patch
     TYPE(t_hydro_ocean_prog), INTENT(inout)   :: p_os_prog
@@ -417,24 +390,25 @@ CONTAINS
     nblks_e = p_patch%nblks_e
 
     ! height
-    CALL add_var(list, 'h', p_os_prog%h , GRID_UNSTRUCTURED, &
+    CALL add_var(ocean_var_list, 'h', p_os_prog%h , GRID_UNSTRUCTURED, &
     &            t_cf_var('h', 'm', 'surface elevation at cell center'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
     &            ldims=(/nproma,nblks_c/))
 
     !! normal velocity component
-    CALL add_var(list, 'vn', p_os_prog%vn , GRID_UNSTRUCTURED, &
+    CALL add_var(ocean_var_list, 'vn', p_os_prog%vn , GRID_UNSTRUCTURED, &
     &            t_cf_var('vn', 'm/s', 'normale velocity on edge,m'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
 
     !! Tracers
-    CALL add_var(list, 'tracers', p_os_prog%tracer , GRID_UNSTRUCTURED, &
+    CALL add_var(ocean_var_list, 'tracers', p_os_prog%tracer , GRID_UNSTRUCTURED, &
     &            t_cf_var('tracers', '', '1:temperature 2:salinity'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
     &            ldims=(/nproma,n_zlev,nblks_c,ntrac_oce/) )
 
-  END SUBROUTINE
+  END SUBROUTINE construct_hydro_ocean_prog
+
 
   !-------------------------------------------------------------------------
   !>
@@ -498,7 +472,7 @@ CONTAINS
 
     INTEGER :: ist
     INTEGER :: nblks_c, nblks_e, nblks_v
-    INTEGER ::  jc,jb,jk, rl_start, rl_end
+    INTEGER :: jc,jb,jk, rl_start, rl_end
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:construct_hydro_ocean_diag'
@@ -507,6 +481,151 @@ CONTAINS
     nblks_c = p_patch%nblks_c
     nblks_e = p_patch%nblks_e
     nblks_v = p_patch%nblks_v
+
+    ! density
+    CALL add_var(ocean_var_list, 'rho', p_os_diag%rho , GRID_UNSTRUCTURED, &
+    &            t_cf_var('rho', 'kg/m^3', 'density'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_c/))
+
+    CALL add_var(ocean_var_list, 'vt', p_os_diag%vt, GRID_UNSTRUCTURED,&
+    &            t_cf_var('vt','m/s','tangential velocity at edges'),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE,GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
+
+    CALL add_var(ocean_var_list, 'h_e', p_os_diag%h_e, GRID_UNSTRUCTURED,&
+    &            t_cf_var('h_e','m','surface height ar edges'),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE,GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,nblks_e/))
+
+    ! thicknesses
+    CALL add_var(ocean_var_list, 'thick_c', p_os_diag%thick_c, GRID_UNSTRUCTURED,&
+    &            t_cf_var('thick_c','m','fluid column thickness at cells'),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE,GRID_CELL, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_c/))
+    CALL add_var(ocean_var_list, 'thick_e', p_os_diag%thick_e, GRID_UNSTRUCTURED,&
+    &            t_cf_var('thick_e','m','fluid column thickness at edges'),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE,GRID_EDGE, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_e/))
+
+    ! velocities
+    CALL add_var(ocean_var_list, 'w', p_os_diag%w, GRID_UNSTRUCTURED,&
+    &            t_cf_var('w','m/s','vertical velocity at cells'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev+1,nblks_c/))
+    CALL add_var(ocean_var_list, 'w_old', p_os_diag%w_old, GRID_UNSTRUCTURED,&
+    &            t_cf_var('w_old','m/s','vertical velocity at cells'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev+1,nblks_c/))
+    CALL add_var(ocean_var_list, 'w_e', p_os_diag%w_e, GRID_UNSTRUCTURED,&
+    &            t_cf_var('w_e','m/s','vertical velocity at edges'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev+1,nblks_e/))
+    CALL add_var(ocean_var_list, 'w_prev', p_os_diag%w_prev, GRID_UNSTRUCTURED,&
+    &            t_cf_var('w_prev','m/s','vertical velocity at edges'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev+1,nblks_c/))
+    ! reconstructed u velocity component
+    CALL add_var(ocean_var_list, 'u', p_os_diag%u, GRID_UNSTRUCTURED,&
+    &            t_cf_var('u','m/s','u velocity component'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_c/))
+    ! reconstructed v velocity component
+    CALL add_var(ocean_var_list, 'v', p_os_diag%v, GRID_UNSTRUCTURED,&
+    &            t_cf_var('v','m/s','v velocity component'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_c/))
+    ! reconstrcuted velocity in cartesian coordinates
+!   CALL add_var(ocean_var_list, 'p_vn', p_os_diag%p_vn, GRID_UNSTRUCTURED,&
+!   &            t_cf_var('p_vn','m/s','normal velocity in cartesian coordinates'),&
+!   &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+!   &            ldims=(/nproma,n_zlev,nblks_c/))
+    CALL add_var(ocean_var_list, 'ptp_vn', p_os_diag%ptp_vn, GRID_UNSTRUCTURED,&
+    &            t_cf_var('ptp_vn','m/s','normal velocity in cartesian coordinates'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
+    ! predicted vn normal velocity component
+    CALL add_var(ocean_var_list, 'vn_pred', p_os_diag%vn_pred, GRID_UNSTRUCTURED,&
+    &            t_cf_var('vn_pred','m/s','predicted vn normal velocity component'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
+    ! predicted vn normal velocity component
+    CALL add_var(ocean_var_list, 'vn_impl_vert_diff', p_os_diag%vn_impl_vert_diff,&
+    &            GRID_UNSTRUCTURED,&
+    &            t_cf_var('vn_impl_vert_diff','m/s','predicted vn normal velocity component'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
+
+    ! vorticity
+    CALL add_var(ocean_var_list, 'vort', p_os_diag%vort, GRID_UNSTRUCTURED,&
+    &            t_cf_var('vort','1/s','vorticity'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_VERTEX, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_v/))
+    CALL add_var(ocean_var_list, 'vort_e', p_os_diag%vort_e, GRID_UNSTRUCTURED,&
+    &            t_cf_var('vort_e','1/s','vorticity at edges'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
+
+    ! kinetic energy component
+    CALL add_var(ocean_var_list, 'kin', p_os_diag%kin, GRID_UNSTRUCTURED,&
+    &            t_cf_var('kin','J','kinetic energy'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_c/))
+
+    ! gradient term
+    CALL add_var(ocean_var_list, 'grad', p_os_diag%grad, GRID_UNSTRUCTURED,&
+    &            t_cf_var('grad','','gradient'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
+
+    ! divergence component
+    CALL add_var(ocean_var_list, 'div', p_os_diag%div, GRID_UNSTRUCTURED,&
+    &            t_cf_var('div','','divergence'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_c/))
+
+    ! pressures
+    CALL add_var(ocean_var_list, 'press_hyd', p_os_diag%press_hyd, GRID_UNSTRUCTURED,&
+    &            t_cf_var('press_hyd','','hydrostatic pressure'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_c/))
+    CALL add_var(ocean_var_list, 'press_grad', p_os_diag%press_grad, GRID_UNSTRUCTURED,&
+    &            t_cf_var('press_grad','',' pressure gradient'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
+
+    ! mass flux
+    !CALL add_var(ocean_var_list, 'flux_mass', p_os_diag%flux_mass, GRID_UNSTRUCTURED,&
+    !&            t_cf_var('flux_mass','','mass flux at edges'),&
+    !&            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    !&            ldims=(/nproma,n_zlev,nblks_e/))
+    !CALL add_var(ocean_var_list, 'flux_tracer', p_os_diag%flux_tracer, GRID_UNSTRUCTURED,&
+    !&            t_cf_var('flux_tracer','','tracers flux at edges'),&
+    !&            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    !&            ldims=(/nproma,n_zlev,nblks_e/))
+
+    ! horizontal velocity advection
+    CALL add_var(ocean_var_list, 'veloc_adv_horz', p_os_diag%veloc_adv_horz, GRID_UNSTRUCTURED,&
+    &            t_cf_var('veloc_adv_horz','','horizontal velocity advection'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
+
+    ! vertical velocity advection
+    CALL add_var(ocean_var_list, 'veloc_adv_vert', p_os_diag%veloc_adv_vert, GRID_UNSTRUCTURED,&
+    &            t_cf_var('veloc_adv_vert','','vertical velocity advection'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
+
+    ! horizontal diffusion
+    CALL add_var(ocean_var_list, 'laplacian_horz', p_os_diag%laplacian_horz, GRID_UNSTRUCTURED,&
+    &            t_cf_var('laplacian_horz','','horizontal diffusion'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
+    ! vertical diffusion
+    CALL add_var(ocean_var_list, 'laplacian_vert', p_os_diag%laplacian_vert, GRID_UNSTRUCTURED,&
+    &            t_cf_var('laplacian_vert','','vertical diffusion'),&
+    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
 
     !reconstrcuted velocity in cartesian coordinates
     ALLOCATE(p_os_diag%p_vn(nproma,n_zlev,nblks_c), STAT=ist)
@@ -539,189 +658,6 @@ CONTAINS
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2006).
   !!
-
-  SUBROUTINE add_hydro_ocean_diag_vars(list,p_patch,p_os_diag)
-
-    TYPE(t_var_list), POINTER :: list
-    TYPE(t_patch), TARGET, INTENT(IN)          :: p_patch
-    TYPE(t_hydro_ocean_diag), INTENT(INOUT)    :: p_os_diag
-
-    ! local variables
-
-    INTEGER :: ist
-    INTEGER :: nblks_c, nblks_e, nblks_v
-    INTEGER ::  jc,jb,jk, rl_start, rl_end
-    INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      &      routine = 'mo_oce_state:construct_hydro_ocean_diag'
-
-    ! determine size of arrays
-    nblks_c = p_patch%nblks_c
-    nblks_e = p_patch%nblks_e
-    nblks_v = p_patch%nblks_v
-
-    ! density
-    CALL add_var(list, 'rho', p_os_diag%rho , GRID_UNSTRUCTURED, &
-    &            t_cf_var('rho', 'kg/m^3', 'density'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_c/))
-
-    CALL add_var(list, 'vt', p_os_diag%vt, GRID_UNSTRUCTURED,&
-    &            t_cf_var('vt','m/s','tangential velocity at edges'),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE,GRID_EDGE, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_e/))
-
-    CALL add_var(list, 'h_e', p_os_diag%h_e, GRID_UNSTRUCTURED,&
-    &            t_cf_var('h_e','m','surface height ar edges'),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE,GRID_EDGE, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,nblks_e/))
-
-    ! thicknesses
-    CALL add_var(list, 'thick_c', p_os_diag%thick_c, GRID_UNSTRUCTURED,&
-    &            t_cf_var('thick_c','m','fluid column thickness at cells'),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE,GRID_CELL, ZAXIS_SURFACE),&
-    &            ldims=(/nproma,nblks_c/))
-    CALL add_var(list, 'thick_e', p_os_diag%thick_e, GRID_UNSTRUCTURED,&
-    &            t_cf_var('thick_e','m','fluid column thickness at edges'),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE,GRID_EDGE, ZAXIS_SURFACE),&
-    &            ldims=(/nproma,nblks_e/))
-
-    ! velocities
-    CALL add_var(list, 'w', p_os_diag%w, GRID_UNSTRUCTURED,&
-    &            t_cf_var('w','m/s','vertical velocity at cells'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev+1,nblks_c/))
-    CALL add_var(list, 'w_old', p_os_diag%w_old, GRID_UNSTRUCTURED,&
-    &            t_cf_var('w_old','m/s','vertical velocity at cells'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev+1,nblks_c/))
-    CALL add_var(list, 'w_e', p_os_diag%w_e, GRID_UNSTRUCTURED,&
-    &            t_cf_var('w_e','m/s','vertical velocity at edges'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev+1,nblks_e/))
-    CALL add_var(list, 'w_prev', p_os_diag%w_prev, GRID_UNSTRUCTURED,&
-    &            t_cf_var('w_prev','m/s','vertical velocity at edges'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev+1,nblks_c/))
-    ! reconstructed u velocity component
-    CALL add_var(list, 'u', p_os_diag%u, GRID_UNSTRUCTURED,&
-    &            t_cf_var('u','m/s','u velocity component'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_c/))
-    ! reconstructed v velocity component
-    CALL add_var(list, 'v', p_os_diag%v, GRID_UNSTRUCTURED,&
-    &            t_cf_var('v','m/s','v velocity component'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_c/))
-    ! reconstrcuted velocity in cartesian coordinates
-!   CALL add_var(list, 'p_vn', p_os_diag%p_vn, GRID_UNSTRUCTURED,&
-!   &            t_cf_var('p_vn','m/s','normal velocity in cartesian coordinates'),&
-!   &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
-!   &            ldims=(/nproma,n_zlev,nblks_c/))
-    CALL add_var(list, 'ptp_vn', p_os_diag%ptp_vn, GRID_UNSTRUCTURED,&
-    &            t_cf_var('ptp_vn','m/s','normal velocity in cartesian coordinates'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_e/))
-    ! predicted vn normal velocity component
-    CALL add_var(list, 'vn_pred', p_os_diag%vn_pred, GRID_UNSTRUCTURED,&
-    &            t_cf_var('vn_pred','m/s','predicted vn normal velocity component'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_e/))
-    ! predicted vn normal velocity component
-    CALL add_var(list, 'vn_impl_vert_diff', p_os_diag%vn_impl_vert_diff, GRID_UNSTRUCTURED,&
-    &            t_cf_var('vn_impl_vert_diff','m/s','predicted vn normal velocity component'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_e/))
-
-    ! vorticity
-    CALL add_var(list, 'vort', p_os_diag%vort, GRID_UNSTRUCTURED,&
-    &            t_cf_var('vort','1/s','vorticity'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_VERTEX, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_v/))
-    CALL add_var(list, 'vort_e', p_os_diag%vort_e, GRID_UNSTRUCTURED,&
-    &            t_cf_var('vort_e','1/s','vorticity at edges'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_e/))
-
-    ! kinetic energy component
-    CALL add_var(list, 'kin', p_os_diag%kin, GRID_UNSTRUCTURED,&
-    &            t_cf_var('kin','J','kinetic energy'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_c/))
-
-    ! gradient term
-    CALL add_var(list, 'grad', p_os_diag%grad, GRID_UNSTRUCTURED,&
-    &            t_cf_var('grad','','gradient'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_e/))
-
-    ! divergence component
-    CALL add_var(list, 'div', p_os_diag%div, GRID_UNSTRUCTURED,&
-    &            t_cf_var('div','','divergence'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_c/))
-
-    ! pressures
-    CALL add_var(list, 'press_hyd', p_os_diag%press_hyd, GRID_UNSTRUCTURED,&
-    &            t_cf_var('press_hyd','','hydrostatic pressure'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_c/))
-    CALL add_var(list, 'press_grad', p_os_diag%press_grad, GRID_UNSTRUCTURED,&
-    &            t_cf_var('press_grad','',' pressure gradient'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_e/))
-
-    ! mass flux
-    !CALL add_var(list, 'flux_mass', p_os_diag%flux_mass, GRID_UNSTRUCTURED,&
-    !&            t_cf_var('flux_mass','','mass flux at edges'),&
-    !&            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
-    !&            ldims=(/nproma,n_zlev,nblks_e/))
-    !CALL add_var(list, 'flux_tracer', p_os_diag%flux_tracer, GRID_UNSTRUCTURED,&
-    !&            t_cf_var('flux_tracer','','tracers flux at edges'),&
-    !&            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
-    !&            ldims=(/nproma,n_zlev,nblks_e/))
-
-    ! horizontal velocity advection
-    CALL add_var(list, 'veloc_adv_horz', p_os_diag%veloc_adv_horz, GRID_UNSTRUCTURED,&
-    &            t_cf_var('veloc_adv_horz','','horizontal velocity advection'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_e/))
-
-    ! vertical velocity advection
-    CALL add_var(list, 'veloc_adv_vert', p_os_diag%veloc_adv_vert, GRID_UNSTRUCTURED,&
-    &            t_cf_var('veloc_adv_vert','','vertical velocity advection'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_e/))
-
-    ! horizontal diffusion
-    CALL add_var(list, 'laplacian_horz', p_os_diag%laplacian_horz, GRID_UNSTRUCTURED,&
-    &            t_cf_var('laplacian_horz','','horizontal diffusion'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_e/))
-    ! vertical diffusion
-    CALL add_var(list, 'laplacian_vert', p_os_diag%laplacian_vert, GRID_UNSTRUCTURED,&
-    &            t_cf_var('laplacian_vert','','vertical diffusion'),&
-    &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_e/))
-
-
-!  rl_start = 1
-!  rl_end = min_rlcell
-!
-!  i_startblk = p_patch%cells%start_blk(rl_start,1)
-!  i_endblk   = p_patch%cells%end_blk(rl_end,1)
-!  DO jk=1,n_zlev
-!    DO jb = i_startblk, i_endblk
-!      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,&
-!                       & i_startidx, i_endidx, rl_start, rl_end)
-!      DO jc = i_startidx, i_endidx
-!        p_os_diag%p_vn(jc,jk,jb)%x=0.0_wp
-!      END DO
-!   END DO
-!  END DO
-
-
-  END SUBROUTINE
 
   !-------------------------------------------------------------------------
   !>
@@ -761,7 +697,6 @@ CONTAINS
 
     TYPE(t_patch),TARGET, INTENT(IN)                :: p_patch
     TYPE(t_hydro_ocean_aux), TARGET,INTENT(INOUT)   :: p_os_aux
-!   INTEGER, INTENT(IN)                           :: k_no_temp_mem
 
     ! local variables
 
@@ -778,6 +713,118 @@ CONTAINS
     nblks_c = p_patch%nblks_c
     nblks_e = p_patch%nblks_e
     nblks_v = p_patch%nblks_v
+
+    ! allocation for Adam-Bashford time stepping
+    CALL add_var(ocean_var_list,'g_n',p_os_aux%g_n, GRID_UNSTRUCTURED,&
+    &            t_cf_var('g_n','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
+    CALL add_var(ocean_var_list,'g_nm1',p_os_aux%g_nm1, GRID_UNSTRUCTURED,&
+    &            t_cf_var('g_nm1','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
+    CALL add_var(ocean_var_list,'g_nimd',p_os_aux%g_nimd, GRID_UNSTRUCTURED,&
+    &            t_cf_var('g_nimd','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_e/))
+    CALL add_var(ocean_var_list,'g_n_c_h',p_os_aux%g_n_c_h, GRID_UNSTRUCTURED,&
+    &            t_cf_var('g_n_c_h','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_c, ntrac_oce/))
+    CALL add_var(ocean_var_list,'g_nm1_c_h',p_os_aux%g_nm1_c_h, GRID_UNSTRUCTURED,&
+    &            t_cf_var('g_nm1_c_h','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_c, ntrac_oce/))
+    CALL add_var(ocean_var_list,'g_nimd_c_h',p_os_aux%g_nimd_c_h, GRID_UNSTRUCTURED,&
+    &            t_cf_var('g_nimd_c_h','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_c, ntrac_oce/))
+    CALL add_var(ocean_var_list,'g_n_c_v',p_os_aux%g_n_c_v, GRID_UNSTRUCTURED,&
+    &            t_cf_var('g_n_c_v','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_c, ntrac_oce/))
+    CALL add_var(ocean_var_list,'g_nm1_c_v',p_os_aux%g_nm1_c_v, GRID_UNSTRUCTURED,&
+    &            t_cf_var('g_nm1_c_v','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_c, ntrac_oce/))
+    CALL add_var(ocean_var_list,'g_nimd_c_v',p_os_aux%g_nimd_c_v, GRID_UNSTRUCTURED,&
+    &            t_cf_var('g_nimd_c_v','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    &            ldims=(/nproma,n_zlev,nblks_c, ntrac_oce/))
+    CALL add_var(ocean_var_list,'p_rhs_sfc_eq',p_os_aux%p_rhs_sfc_eq, GRID_UNSTRUCTURED,&
+    &            t_cf_var('p_rhs_sfc_eq','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_c/))
+
+    ! allocation for boundary conditions
+    CALL add_var(ocean_var_list,'bc_top_u',p_os_aux%bc_top_u, GRID_UNSTRUCTURED,&
+    &            t_cf_var('bc_top_u','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_c/))
+    CALL add_var(ocean_var_list,'bc_top_v',p_os_aux%bc_top_v, GRID_UNSTRUCTURED,&
+    &            t_cf_var('bc_top_v','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_c/))
+    !CALL add_var(ocean_var_list,'bc_top_veloc_cc',p_os_aux%bc_top_veloc_cc, GRID_UNSTRUCTURED,&
+    !&            t_cf_var('bc_top_veloc_cc','',''),&
+    !&            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL,ZAXIS_SURFACE),&
+    !&            ldims=(/nproma,nblks_c/))
+    CALL add_var(ocean_var_list,'bc_top_vn',p_os_aux%bc_top_vn, GRID_UNSTRUCTURED,&
+    &            t_cf_var('bc_top_vn','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_EDGE, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_e/))
+
+    CALL add_var(ocean_var_list,'bc_bot_u',p_os_aux%bc_bot_u, GRID_UNSTRUCTURED,&
+    &            t_cf_var('bc_bot_u','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_c/))
+    CALL add_var(ocean_var_list,'bc_bot_v',p_os_aux%bc_bot_v, GRID_UNSTRUCTURED,&
+    &            t_cf_var('bc_bot_v','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_c/))
+    !CALL add_var(ocean_var_list,'bc_bot_veloc_cc',p_os_aux%bc_bot_veloc_cc, GRID_UNSTRUCTURED,&
+    !&            t_cf_var('bc_bot_veloc_cc','',''),&
+    !&            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL,ZAXIS_SURFACE),&
+    !&            ldims=(/nproma,nblks_c/))
+    CALL add_var(ocean_var_list,'bc_bot_vn',p_os_aux%bc_bot_vn, GRID_UNSTRUCTURED,&
+    &            t_cf_var('bc_bot_vn','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_EDGE, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_e/))
+
+    CALL add_var(ocean_var_list,'bc_bot_w',p_os_aux%bc_bot_w, GRID_UNSTRUCTURED,&
+    &            t_cf_var('bc_bot_w','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_c/))
+    CALL add_var(ocean_var_list,'bc_top_w',p_os_aux%bc_top_w, GRID_UNSTRUCTURED,&
+    &            t_cf_var('bc_top_w','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_c/))
+    CALL add_var(ocean_var_list,'bc_bot_tracer',p_os_aux%bc_bot_tracer, GRID_UNSTRUCTURED,&
+    &            t_cf_var('bc_bot_tracer','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_c,ntrac_oce/))
+    CALL add_var(ocean_var_list,'bc_top_tracer',p_os_aux%bc_top_tracer, GRID_UNSTRUCTURED,&
+    &            t_cf_var('bc_top_tracer','',''),&
+    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
+    &            ldims=(/nproma,nblks_c,ntrac_oce/))
+
+    ! allocation for divergence of fluxes
+    !CALL add_var(ocean_var_list,'p_div_flux_horiz_act',p_os_aux%p_div_flux_horiz_act, GRID_UNSTRUCTURED,&
+    !&            t_cf_vat('p_div_flux_horiz_act','',''),&
+    !&            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    !&            ldims=(/nproma,n_zlev,nblks_c/))
+    !CALL add_var(ocean_var_list,'p_div_flux_vert_act',p_os_aux%p_div_flux_vert_act, GRID_UNSTRUCTURED,&
+    !&            t_cf_vat('p_div_flux_vert_act','',''),&
+    !&            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    !&            ldims=(/nproma,n_zlev,nblks_c/))
+    !CALL add_var(ocean_var_list,'p_div_flux_horiz_prev',p_os_aux%p_div_flux_horiz_prev, GRID_UNSTRUCTURED,&
+    !&            t_cf_vat('p_div_flux_horiz_prev','',''),&
+    !&            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    !&            ldims=(/nproma,n_zlev,nblks_c/))
+    !CALL add_var(ocean_var_list,'p_div_flux_vert_prev',p_os_aux%p_div_flux_vert_prev, GRID_UNSTRUCTURED,&
+    !&            t_cf_vat('p_div_flux_vert_prev','',''),&
+    !&            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
+    !&            ldims=(/nproma,n_zlev,nblks_c/))
 
     ALLOCATE(p_os_aux%bc_top_veloc_cc(nproma,nblks_c), STAT=ist)
     IF (ist/=SUCCESS) THEN
@@ -805,188 +852,6 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !!               Allocation of components of hydrostatic ocean auxiliary state.
-  !!               Initialization of components with zero.
-  !
-  !! @par Revision History
-  !! Developed  by  Peter Korn, MPI-M (2006).
-  !!
-  SUBROUTINE add_hydro_ocean_aux_vars(list, p_patch, p_os_aux)
-
-    TYPE(t_var_list), POINTER :: list
-    TYPE(t_patch),TARGET, INTENT(IN)                :: p_patch
-    TYPE(t_hydro_ocean_aux), TARGET,INTENT(INOUT)   :: p_os_aux
-
-    INTEGER ::  ist, jc,jb, rl_start, rl_end
-    INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER ::  nblks_c, nblks_e, nblks_v
-
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      &      routine = 'mo_oce_state:construct_hydro_ocean_aux'
-
-    !-------------------------------------------------------------------------
-    !CALL message(TRIM(routine), 'start to construct hydro ocean auxiliary state')
-
-    ! determine size of arrays
-    nblks_c = p_patch%nblks_c
-    nblks_e = p_patch%nblks_e
-    nblks_v = p_patch%nblks_v
-
-    ! allocation for Adam-Bashford time stepping
-    CALL add_var(list,'g_n',p_os_aux%g_n, GRID_UNSTRUCTURED,&
-    &            t_cf_var('g_n','',''),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_e/))
-    CALL add_var(list,'g_nm1',p_os_aux%g_nm1, GRID_UNSTRUCTURED,&
-    &            t_cf_var('g_nm1','',''),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_e/))
-    CALL add_var(list,'g_nimd',p_os_aux%g_nimd, GRID_UNSTRUCTURED,&
-    &            t_cf_var('g_nimd','',''),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_e/))
-    CALL add_var(list,'g_n_c_h',p_os_aux%g_n_c_h, GRID_UNSTRUCTURED,&
-    &            t_cf_var('g_n_c_h','',''),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_c, ntrac_oce/))
-    CALL add_var(list,'g_nm1_c_h',p_os_aux%g_nm1_c_h, GRID_UNSTRUCTURED,&
-    &            t_cf_var('g_nm1_c_h','',''),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_c, ntrac_oce/))
-    CALL add_var(list,'g_nimd_c_h',p_os_aux%g_nimd_c_h, GRID_UNSTRUCTURED,&
-    &            t_cf_var('g_nimd_c_h','',''),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_c, ntrac_oce/))
-    CALL add_var(list,'g_n_c_v',p_os_aux%g_n_c_v, GRID_UNSTRUCTURED,&
-    &            t_cf_var('g_n_c_v','',''),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_c, ntrac_oce/))
-    CALL add_var(list,'g_nm1_c_v',p_os_aux%g_nm1_c_v, GRID_UNSTRUCTURED,&
-    &            t_cf_var('g_nm1_c_v','',''),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_c, ntrac_oce/))
-    CALL add_var(list,'g_nimd_c_v',p_os_aux%g_nimd_c_v, GRID_UNSTRUCTURED,&
-    &            t_cf_var('g_nimd_c_v','',''),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
-    &            ldims=(/nproma,n_zlev,nblks_c, ntrac_oce/))
-    CALL add_var(list,'p_rhs_sfc_eq',p_os_aux%p_rhs_sfc_eq, GRID_UNSTRUCTURED,&
-    &            t_cf_var('p_rhs_sfc_eq','',''),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
-    &            ldims=(/nproma,nblks_c/))
-
-    ! allocation for boundary conditions
-    CALL add_var(list,'bc_top_u',p_os_aux%bc_top_u, GRID_UNSTRUCTURED,&
-    &            t_cf_var('bc_top_u','',''),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
-    &            ldims=(/nproma,nblks_c/))
-    CALL add_var(list,'bc_top_v',p_os_aux%bc_top_v, GRID_UNSTRUCTURED,&
-    &            t_cf_var('bc_top_v','',''),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
-    &            ldims=(/nproma,nblks_c/))
-    !CALL add_var(list,'bc_top_veloc_cc',p_os_aux%bc_top_veloc_cc, GRID_UNSTRUCTURED,&
-    !&            t_cf_var('bc_top_veloc_cc','',''),&
-    !&            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL,
-    !ZAXIS_SURFACE),&
-    !&            ldims=(/nproma,nblks_c/))
-    CALL add_var(list,'bc_top_vn',p_os_aux%bc_top_vn, GRID_UNSTRUCTURED,&
-    &            t_cf_var('bc_top_vn','',''),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_EDGE, ZAXIS_SURFACE),&
-    &            ldims=(/nproma,nblks_e/))
-
-    CALL add_var(list,'bc_bot_u',p_os_aux%bc_bot_u, GRID_UNSTRUCTURED,&
-    &            t_cf_var('bc_bot_u','',''),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
-    &            ldims=(/nproma,nblks_c/))
-    CALL add_var(list,'bc_bot_v',p_os_aux%bc_bot_v, GRID_UNSTRUCTURED,&
-    &            t_cf_var('bc_bot_v','',''),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
-    &            ldims=(/nproma,nblks_c/))
-    !CALL add_var(list,'bc_bot_veloc_cc',p_os_aux%bc_bot_veloc_cc, GRID_UNSTRUCTURED,&
-    !&            t_cf_var('bc_bot_veloc_cc','',''),&
-    !&            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL,
-    !ZAXIS_SURFACE),&
-    !&            ldims=(/nproma,nblks_c/))
-    CALL add_var(list,'bc_bot_vn',p_os_aux%bc_bot_vn, GRID_UNSTRUCTURED,&
-    &            t_cf_var('bc_bot_vn','',''),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_EDGE, ZAXIS_SURFACE),&
-    &            ldims=(/nproma,nblks_e/))
-
-    CALL add_var(list,'bc_bot_w',p_os_aux%bc_bot_w, GRID_UNSTRUCTURED,&
-    &            t_cf_var('bc_bot_w','',''),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
-    &            ldims=(/nproma,nblks_c/))
-    CALL add_var(list,'bc_top_w',p_os_aux%bc_top_w, GRID_UNSTRUCTURED,&
-    &            t_cf_var('bc_top_w','',''),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
-    &            ldims=(/nproma,nblks_c/))
-    CALL add_var(list,'bc_bot_tracer',p_os_aux%bc_bot_tracer, GRID_UNSTRUCTURED,&
-    &            t_cf_var('bc_bot_tracer','',''),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
-    &            ldims=(/nproma,nblks_c,ntrac_oce/))
-    CALL add_var(list,'bc_top_tracer',p_os_aux%bc_top_tracer, GRID_UNSTRUCTURED,&
-    &            t_cf_var('bc_top_tracer','',''),&
-    &            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE),&
-    &            ldims=(/nproma,nblks_c,ntrac_oce/))
-
-    ! allocation for divergence of fluxes
-    !CALL add_var(list,'p_div_flux_horiz_act',p_os_aux%p_div_flux_horiz_act, GRID_UNSTRUCTURED,&
-    !&            t_cf_vat('p_div_flux_horiz_act','',''),&
-    !&            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
-    !&            ldims=(/nproma,n_zlev,nblks_c/))
-    !CALL add_var(list,'p_div_flux_vert_act',p_os_aux%p_div_flux_vert_act, GRID_UNSTRUCTURED,&
-    !&            t_cf_vat('p_div_flux_vert_act','',''),&
-    !&            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
-    !&            ldims=(/nproma,n_zlev,nblks_c/))
-    !CALL add_var(list,'p_div_flux_horiz_prev',p_os_aux%p_div_flux_horiz_prev, GRID_UNSTRUCTURED,&
-    !&            t_cf_vat('p_div_flux_horiz_prev','',''),&
-    !&            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
-    !&            ldims=(/nproma,n_zlev,nblks_c/))
-    !CALL add_var(list,'p_div_flux_vert_prev',p_os_aux%p_div_flux_vert_prev, GRID_UNSTRUCTURED,&
-    !&            t_cf_vat('p_div_flux_vert_prev','',''),&
-    !&            t_grib2_var(255,255,255,16,GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID),&
-    !&            ldims=(/nproma,n_zlev,nblks_c/))
-
-    ! initialize all components with zero (this is preliminary)
-   ! p_os_aux%g_n                   = 0.0_wp
-   ! p_os_aux%g_nm1                 = 0.0_wp
-   ! p_os_aux%g_nimd                = 0.0_wp
-   ! p_os_aux%g_n_c_h               = 0.0_wp
-   ! p_os_aux%g_nm1_c_h             = 0.0_wp
-   ! p_os_aux%g_nimd_c_h            = 0.0_wp
-   ! p_os_aux%g_n_c_v               = 0.0_wp
-   ! p_os_aux%g_nm1_c_v             = 0.0_wp
-   ! p_os_aux%g_nimd_c_v            = 0.0_wp
-   ! p_os_aux%p_rhs_sfc_eq          = 0.0_wp
-   ! p_os_aux%bc_top_u              = 0.0_wp
-   ! p_os_aux%bc_top_v              = 0.0_wp
-   ! p_os_aux%bc_top_vn             = 0.0_wp
-   ! p_os_aux%bc_bot_u              = 0.0_wp
-   ! p_os_aux%bc_bot_v              = 0.0_wp
-   ! p_os_aux%bc_bot_vn             = 0.0_wp
-   ! p_os_aux%bc_bot_w              = 0.0_wp
-   ! p_os_aux%bc_top_w              = 0.0_wp
-   ! p_os_aux%bc_bot_tracer         = 0.0_wp
-   ! p_os_aux%bc_top_tracer         = 0.0_wp
-
-   ! rl_start = 1
-   ! rl_end = min_rlcell
-
-   ! i_startblk = p_patch%cells%start_blk(rl_start,1)
-   ! i_endblk   = p_patch%cells%end_blk(rl_end,1)
-   ! DO jb = i_startblk, i_endblk
-   !   CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,&
-   !                    & i_startidx, i_endidx, rl_start, rl_end)
-   !   DO jc = i_startidx, i_endidx
-   !     p_os_aux%bc_top_veloc_cc(jc,jb)%x = 0.0_wp
-   !     p_os_aux%bc_bot_veloc_cc(jc,jb)%x = 0.0_wp
-   !   END DO
-   !END DO
-    !CALL message(TRIM(routine),'construction of hydrostatic oceans auxiliary state finished')
-
-  END SUBROUTINE
-
-  !-------------------------------------------------------------------------
-  !>
   !!               Deallocation of auxilliary hydrostatic ocean state.
   !
   !! @par Revision History
@@ -1006,134 +871,15 @@ CONTAINS
 !-------------------------------------------------------------------------
 
 
-    !CALL message(TRIM(routine), 'start to destruct auxiliary hydro ocean state')
-
-
-!   #slo# - no dynamic allocation
-!   CALL deallocate_temp_memory_patch_2d(p_os_aux%p_mem_2d)
-
-    ! deallocation for Adam-Bashford time stepping
-    DEALLOCATE(p_os_aux%g_n, STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish(TRIM(routine),'deallocation of expl. term at step n in AB scheme failed')
-    ENDIF
-
-    DEALLOCATE(p_os_aux%g_nm1, STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish(TRIM(routine),'deallocation of expl. term at step n-1 in AB scheme failed')
-    ENDIF
-
-    DEALLOCATE(p_os_aux%g_nimd, STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish(TRIM(routine),'dealloc. of expl. term at intermed. step in AB scheme failed')
-    ENDIF
-
-    DEALLOCATE(p_os_aux%g_n_c_h, STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish(TRIM(routine),'deallocation of horz expl. tracer term at&
-                                & step n in AB scheme failed')
-    ENDIF
-    DEALLOCATE(p_os_aux%g_nm1_c_h, STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish(TRIM(routine),'deallocation of horz expl. tracer term at &
-                                   &step n-1 in AB scheme failed')
-    ENDIF
-    DEALLOCATE(p_os_aux%g_nimd_c_h, STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish(TRIM(routine),'deallocation of horz expl. tracer term at&
-                              & intermed. step in AB scheme failed')
-    ENDIF
-    DEALLOCATE(p_os_aux%g_n_c_v, STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish(TRIM(routine),'deallocation of vert expl. tracer term at&
-                                & step n in AB scheme failed')
-    ENDIF
-    DEALLOCATE(p_os_aux%g_nm1_c_v, STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish(TRIM(routine),'deallocation of vert expl. tracer term at &
-                                   &step n-1 in AB scheme failed')
-    ENDIF
-    DEALLOCATE(p_os_aux%g_nimd_c_v, STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish(TRIM(routine),'deallocation of vert expl. tracer term at&
-                              & intermed. step in AB scheme failed')
-    ENDIF
-
-
-
-    DEALLOCATE(p_os_aux%p_rhs_sfc_eq, STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish(TRIM(routine),'deallocation of RHS of surface eq. failed')
-    ENDIF
-
-    DEALLOCATE(p_os_aux%bc_top_u, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation of top boundary cond u failed')
-    END IF
-    DEALLOCATE(p_os_aux%bc_top_v, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation of top boundary cond v failed')
-    END IF
-    DEALLOCATE(p_os_aux%bc_top_vn, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation of top boundary cond vn failed')
-    END IF
-
     DEALLOCATE(p_os_aux%bc_top_veloc_cc, STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation of top boundary cond cc failed')
     END IF
 
-    DEALLOCATE(p_os_aux%bc_bot_u, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation of bottom boundary cond u failed')
-    END IF
-    DEALLOCATE(p_os_aux%bc_bot_v, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation of bottom boundary cond v failed')
-    END IF
-    DEALLOCATE(p_os_aux%bc_bot_vn, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation of bottom boundary cond vn failed')
-    END IF
    DEALLOCATE(p_os_aux%bc_bot_veloc_cc, STAT=ist)
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation of bot boundary cond cc failed')
     END IF
-
-  ! DEALLOCATE(p_os_aux%p_div_flux_horiz_act, STAT=ist)
-  ! IF (ist/=SUCCESS)THEN
-  !    CALL finish(TRIM(routine),'deallocation of div flux horiz term failed')
-  ! ENDIF
-  ! DEALLOCATE(p_os_aux%p_div_flux_vert_act, STAT=ist)
-  ! IF (ist/=SUCCESS)THEN
-  !   CALL finish(TRIM(routine),'deallocation of div flux vert term failed')
-  ! ENDIF
-  ! DEALLOCATE(p_os_aux%p_div_flux_horiz_prev, STAT=ist)
-  ! IF (ist/=SUCCESS)THEN
-  !   CALL finish(TRIM(routine),'deallocation of prev div flux horiz term failed')
-  ! ENDIF
-  ! DEALLOCATE(p_os_aux%p_div_flux_vert_prev, STAT=ist)
-  ! IF (ist/=SUCCESS)THEN
-  !      CALL finish(TRIM(routine),'deallocation of prev div flux vert term failed')
-  ! ENDIF
-
-    !semi-implicit coefficient  at edges
-!    IF ( i_oce_stepping == semi_impl_ab ) THEN
-!       DEALLOCATE(p_os_aux%gamma_e, STAT=ist)
-!       IF (ist/=SUCCESS) THEN
-!         CALL finish(TRIM(routine),'deallocation for gamma at edges failed')
-!       END IF
-!       DEALLOCATE(p_os_aux%sigma_nml_e, STAT=ist)
-!       IF (ist/=SUCCESS) THEN
-!         CALL finish(TRIM(routine),'deallocation for sigma_nml_e at edges failed')
-!       END IF
-!       DEALLOCATE(p_os_aux%sigma_tgt_e, STAT=ist)
-!       IF (ist/=SUCCESS) THEN
-!         CALL finish(TRIM(routine),'deallocation for sigma_tgt_e at edges failed')
-!       END IF
-!    END IF
-
 
   END SUBROUTINE destruct_hydro_ocean_aux
 !-------------------------------------------------------------------------
