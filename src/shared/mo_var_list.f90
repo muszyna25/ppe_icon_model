@@ -137,14 +137,14 @@ CONTAINS
     !
     ! set non-default list characteristics
     !
-    IF (PRESENT(output_type)) CALL assign_if_present(this_list%output_type,  output_type)
-    CALL assign_if_present(this_list%restart_type, restart_type)
-    CALL assign_if_present(this_list%post_suf,     post_suf) 
-    CALL assign_if_present(this_list%rest_suf,     rest_suf) 
-    CALL assign_if_present(this_list%init_suf,     init_suf) 
-    CALL assign_if_present(this_list%lpost,        lpost)
-    CALL assign_if_present(this_list%lrestart,     lrestart)
-    CALL assign_if_present(this_list%linitial,     linitial)
+    IF (PRESENT(output_type))  CALL assign_if_present(this_list%output_type,output_type)
+    IF (PRESENT(restart_type)) CALL assign_if_present(this_list%restart_type,restart_type)
+    IF (PRESENT(post_suf))     CALL assign_if_present(this_list%post_suf,post_suf) 
+    IF (PRESENT(rest_suf))     CALL assign_if_present(this_list%rest_suf,rest_suf) 
+    IF (PRESENT(init_suf))     CALL assign_if_present(this_list%init_suf,init_suf) 
+    IF (PRESENT(lpost))        CALL assign_if_present(this_list%lpost,lpost)
+    IF (PRESENT(lrestart))     CALL assign_if_present(this_list%lrestart,lrestart)
+    IF (PRESENT(linitial))     CALL assign_if_present(this_list%linitial,linitial)
     !
   END SUBROUTINE new_var_list
   !------------------------------------------------------------------------------------------------
