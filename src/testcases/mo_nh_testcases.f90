@@ -721,7 +721,7 @@ MODULE mo_nh_testcases
 
 
     IF (iforcing == inwp .AND. (inwp_gscp /= 0 .OR. inwp_convection /= 0)) THEN
-      niter = 1 ! experimentation suggest at least 6 iterations
+      niter = 10 ! experimentation suggest at least 6 iterations
     ELSE
       niter = 1
     ENDIF
