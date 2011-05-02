@@ -289,7 +289,7 @@ CONTAINS
         !   call the saturation adjustment
         !-------------------------------------------------------------------------
 
-#ifdef __BOUNDCHECK
+!#ifdef __BOUNDCHECK
           CALL satad_v_3D( &
                & maxiter  = 10                             ,& !> IN
                & tol      = 1.e-3_wp                       ,& !> IN
@@ -308,26 +308,26 @@ CONTAINS
                & kup      = nlev                            & !> IN
               !& count, errstat,                              !> OUT
                )
-#else
-          CALL satad_v_3D( &
-               & maxiter  = 10                             ,& !> IN
-               & tol      = 1.e-3_wp                       ,& !> IN
-               & te       = pt_diag%temp       (1,1,jb)    ,& !> INOUT
-               & qve      = pt_prog_rcf%tracer (1,1,jb,iqv),& !> INOUT
-               & qce      = pt_prog_rcf%tracer (1,1,jb,iqc),& !> INOUT
-               & rhotot   = pt_prog%rho        (1,1,jb)    ,& !> IN
-               & idim     = nproma                         ,& !> IN
-               & jdim     = 1                              ,& !> IN
-               & kdim     = nlev                           ,& !> IN
-               & ilo      = i_startidx                     ,& !> IN
-               & iup      = i_endidx                       ,& !> IN
-               & jlo      = 1                              ,& !> IN
-               & jup      = 1                              ,& !> IN
-               & klo      = kstart_moist(jg)               ,& !> IN
-               & kup      = nlev                            & !> IN
-              !& count, errstat,                              !> OUT
-               )
-#endif 
+!#else
+!         CALL satad_v_3D( &
+!               & maxiter  = 10                             ,& !> IN
+!               & tol      = 1.e-3_wp                       ,& !> IN
+!               & te       = pt_diag%temp       (1,1,jb)    ,& !> INOUT
+!               & qve      = pt_prog_rcf%tracer (1,1,jb,iqv),& !> INOUT
+!               & qce      = pt_prog_rcf%tracer (1,1,jb,iqc),& !> INOUT
+!               & rhotot   = pt_prog%rho        (1,1,jb)    ,& !> IN
+!               & idim     = nproma                         ,& !> IN
+!               & jdim     = 1                              ,& !> IN
+!               & kdim     = nlev                           ,& !> IN
+!               & ilo      = i_startidx                     ,& !> IN
+!               & iup      = i_endidx                       ,& !> IN
+!               & jlo      = 1                              ,& !> IN
+!               & jup      = 1                              ,& !> IN
+!               & klo      = kstart_moist(jg)               ,& !> IN
+!               & kup      = nlev                            & !> IN
+!              !& count, errstat,                              !> OUT
+!               )
+!#endif 
 
         ! Store exner function for open upper boundary condition
         z_exner_sv(i_startidx:i_endidx,:,jb) = pt_prog%exner(i_startidx:i_endidx,:,jb)
@@ -752,8 +752,7 @@ CONTAINS
 
           rcld = 0.0_wp ! standard deviation of saturation deficit=0 for now, needs to be specified form turbulence
           landseemask(:,jb)   = .FALSE. ! has to come from external parameters later on!!!
-
-#ifdef __BOUNDCHECK
+!#ifdef __BOUNDCHECK
           CALL cover_koe &
 &             (kidia  = i_startidx ,   kfdia  = i_endidx  ,       & !! in:  horizonal begin, end indices
 &              klon = nproma,  kstart = kstart_moist(jg)  ,       & !! in:  horiz. and vert. vector length
@@ -777,31 +776,31 @@ CONTAINS
 &              qv_tot = prm_diag%tot_cld     (:,:,jb,iqv) ,       & !! out: qv       -"-
 &              qc_tot = prm_diag%tot_cld     (:,:,jb,iqc) ,       & !! out: clw      -"-
 &              qi_tot = prm_diag%tot_cld     (:,:,jb,iqi) )         !! out: ci       -"-
-#else
-          CALL cover_koe &
-&             (kidia  = i_startidx ,   kfdia  = i_endidx  ,       & !! in:  horizonal begin, end indices
-&              klon = nproma,  kstart = kstart_moist(jg)  ,       & !! in:  horiz. and vert. vector length
-&              klev   = nlev, icldscheme = inwp_cldcover  ,       & !! in:  cloud cover option
-&              tt     = pt_diag%temp         (1,1,jb)     ,       & !! in:  temperature at full levels
-&              pp     = pt_diag%pres         (1,1,jb)     ,       & !! in:  pressure at full levels
-&              ps     = pt_diag%pres_sfc     (1,jb)       ,       & !! in:  surface pressure at full levels
-&              pgeo   = p_metrics%geopot_agl (1,1,jb)     ,       & !! in:  geopotential height
-&              rho    = pt_prog%rho          (1,1,jb  )   ,       & !! in:  density
-&              rcld   = rcld                              ,       & !! in:  standard deviation of saturation deficit
-&              ldland = landseemask          (1,jb)       ,       & !! in:  land/sea mask
-&              ldcum  = prm_diag%locum       (1,jb)       ,       & !! in:  convection on/off
-&              kcbot  = prm_diag%mbas_con    (1,jb)       ,       & !! in:  convective cloud base
-&              kctop  = prm_diag%mtop_con    (1,jb)       ,       & !! in:  convective cloud top
-&              pmfude_rate = prm_diag%con_udd(1,1,jb,3)   ,       & !! in:  convective updraft detrainment rate
-&              plu         = prm_diag%con_udd(1,1,jb,7)   ,       & !! in:  updraft condensate 
-&              qv     = pt_prog_rcf%tracer   (1,1,jb,iqv) ,       & !! in:  spec. humidity
-&              qc     = pt_prog_rcf%tracer   (1,1,jb,iqc) ,       & !! in:  cloud water
-&              qi     = pt_prog_rcf%tracer   (1,1,jb,iqi) ,       & !! in:  cloud ice
-&              cc_tot = prm_diag%tot_cld     (1,1,jb,icc) ,       & !! out: cloud diagnostics
-&              qv_tot = prm_diag%tot_cld     (1,1,jb,iqv) ,       & !! out: qv       -"-
-&              qc_tot = prm_diag%tot_cld     (1,1,jb,iqc) ,       & !! out: clw      -"-
-&              qi_tot = prm_diag%tot_cld     (1,1,jb,iqi) )         !! out: ci       -"-
-#endif
+!#else
+!          CALL cover_koe &
+!&             (kidia  = i_startidx ,   kfdia  = i_endidx  ,       & !! in:  horizonal begin, end indices
+!&              klon = nproma,  kstart = kstart_moist(jg)  ,       & !! in:  horiz. and vert. vector length
+!&              klev   = nlev, icldscheme = inwp_cldcover  ,       & !! in:  cloud cover option
+!&              tt     = pt_diag%temp         (1,1,jb)     ,       & !! in:  temperature at full levels
+!&              pp     = pt_diag%pres         (1,1,jb)     ,       & !! in:  pressure at full levels
+!&              ps     = pt_diag%pres_sfc     (1,jb)       ,       & !! in:  surface pressure at full levels
+!&              pgeo   = p_metrics%geopot_agl (1,1,jb)     ,       & !! in:  geopotential height
+!&              rho    = pt_prog%rho          (1,1,jb  )   ,       & !! in:  density
+!&              rcld   = rcld                              ,       & !! in:  standard deviation of saturation deficit
+!&              ldland = landseemask          (1,jb)       ,       & !! in:  land/sea mask
+!&              ldcum  = prm_diag%locum       (1,jb)       ,       & !! in:  convection on/off
+!&              kcbot  = prm_diag%mbas_con    (1,jb)       ,       & !! in:  convective cloud base
+!&              kctop  = prm_diag%mtop_con    (1,jb)       ,       & !! in:  convective cloud top
+!&              pmfude_rate = prm_diag%con_udd(1,1,jb,3)   ,       & !! in:  convective updraft detrainment rate
+!&              plu         = prm_diag%con_udd(1,1,jb,7)   ,       & !! in:  updraft condensate 
+!&              qv     = pt_prog_rcf%tracer   (1,1,jb,iqv) ,       & !! in:  spec. humidity
+!&              qc     = pt_prog_rcf%tracer   (1,1,jb,iqc) ,       & !! in:  cloud water
+!&              qi     = pt_prog_rcf%tracer   (1,1,jb,iqi) ,       & !! in:  cloud ice
+!&              cc_tot = prm_diag%tot_cld     (1,1,jb,icc) ,       & !! out: cloud diagnostics
+!&              qv_tot = prm_diag%tot_cld     (1,1,jb,iqv) ,       & !! out: qv       -"-
+!&              qc_tot = prm_diag%tot_cld     (1,1,jb,iqc) ,       & !! out: clw      -"-
+!&              qi_tot = prm_diag%tot_cld     (1,1,jb,iqi) )         !! out: ci       -"-
+!#endif
       ENDDO
   
 !$OMP END DO
@@ -891,7 +890,7 @@ CONTAINS
         z_airmass(i_startidx:i_endidx,:) = p_metrics%ddqz_z_full(i_startidx:i_endidx,:,jb) * &
                                            pt_prog%rho(i_startidx:i_endidx,:,jb)
 
-#ifdef __BOUNDCHECK
+!#ifdef __BOUNDCHECK
         CALL radheat (                   &
         !
         ! input
@@ -918,34 +917,34 @@ CONTAINS
         & pflxsfcsw =prm_diag%swflxsfc (:,jb)   ,&        ! out shortwave surface net flux [W/m2]
         & pflxsfclw =prm_diag%lwflxsfc (:,jb)   ,&        ! out longwave surface net flux  [W/m2]
         & pflxtoasw =prm_diag%swflxtoa (:,jb) )           ! out shortwave toa net flux     [W/m2]
-#else
-        CALL radheat (                   &
-        !
-        ! input
-        ! -----
-        !
-        & jcs=i_startidx                         ,&! in     start index of inner do loop
-        & jce=i_endidx                           ,&! in     end index of inner do loop
-        & kbdim=nproma                           ,&! in     loop length and dimension size
-        & klev=nlev                              ,&! in     vertical dimension size
-        & klevp1=nlevp1                          ,&! in     vertical dimension size
-        & pmair=z_airmass                        ,&! in     layer air mass              [kg/m2]
-        & pq=pt_prog_rcf%tracer(1,1,jb,iqv)      ,&! in     specific moisture           [kg/kg]
-        & pi0=zi0                                ,&! in     solar incoming flux at TOA  [W/m2]
-        & ptsfc=lnd_prog_now%t_g(1,jb)           ,&! in     surface temperature         [K]
-        & ptsfctrad=prm_diag%tsfctrad(1,jb)      ,&! in     sfc temp. used for pflxlw   [K]
-        & ptrmsw=prm_diag%trsolall (1,1,jb)      ,&! in     shortwave net tranmissivity []
-        & pflxlw=prm_diag%lwflxall (1,1,jb)      ,&! in     longwave net flux           [W/m2]
-        !
-        ! output
-        ! ------
-        !
-        & pdtdtradsw=prm_nwp_tend%ddt_temp_radsw (1,1,jb),&! out    rad. heating by SW      [K/s]
-        & pdtdtradlw=prm_nwp_tend%ddt_temp_radlw (1,1,jb),&! out    rad. heating by LW      [K/s]
-        & pflxsfcsw =prm_diag%swflxsfc (1,jb)   ,&         ! out shortwave surface net flux [W/m2]
-        & pflxsfclw =prm_diag%lwflxsfc (1,jb)   ,&         ! out  longwave surface net flux [W/m2]
-        & pflxtoasw =prm_diag%swflxtoa (1,jb) )            ! out shortwave toa net flux     [W/m2]
-#endif
+!#else
+!        CALL radheat (                   &
+!        !
+!        ! input
+!        ! -----
+!        !
+!        & jcs=i_startidx                         ,&! in     start index of inner do loop
+!        & jce=i_endidx                           ,&! in     end index of inner do loop
+!        & kbdim=nproma                           ,&! in     loop length and dimension size
+!        & klev=nlev                              ,&! in     vertical dimension size
+!        & klevp1=nlevp1                          ,&! in     vertical dimension size
+!        & pmair=z_airmass                        ,&! in     layer air mass              [kg/m2]
+!        & pq=pt_prog_rcf%tracer(1,1,jb,iqv)      ,&! in     specific moisture           [kg/kg]
+!        & pi0=zi0                                ,&! in     solar incoming flux at TOA  [W/m2]
+!        & ptsfc=lnd_prog_now%t_g(1,jb)           ,&! in     surface temperature         [K]
+!        & ptsfctrad=prm_diag%tsfctrad(1,jb)      ,&! in     sfc temp. used for pflxlw   [K]
+!        & ptrmsw=prm_diag%trsolall (1,1,jb)      ,&! in     shortwave net tranmissivity []
+!        & pflxlw=prm_diag%lwflxall (1,1,jb)      ,&! in     longwave net flux           [W/m2]
+!        !
+!        ! output
+!        ! ------
+!        !
+!        & pdtdtradsw=prm_nwp_tend%ddt_temp_radsw (1,1,jb),&! out    rad. heating by SW      [K/s]
+!        & pdtdtradlw=prm_nwp_tend%ddt_temp_radlw (1,1,jb),&! out    rad. heating by LW      [K/s]
+!        & pflxsfcsw =prm_diag%swflxsfc (1,jb)   ,&         ! out shortwave surface net flux [W/m2]
+!        & pflxsfclw =prm_diag%lwflxsfc (1,jb)   ,&         ! out  longwave surface net flux [W/m2]
+!        & pflxtoasw =prm_diag%swflxtoa (1,jb) )            ! out shortwave toa net flux     [W/m2]
+!#endif
 
         !sum up for averaged fluxes
         DO jc =  i_startidx, i_endidx

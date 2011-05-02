@@ -142,7 +142,7 @@ CONTAINS
         IF( inwp_gscp == 1 ) THEN
 
 
-#ifdef __BOUNDCHECK
+!#ifdef __BOUNDCHECK
           CALL hydci_pp (                                           &
             & ie     =nproma                            ,    & !> in:  actual array size
             & je     =1                                 ,    & !< in:  dummy  array dimension
@@ -163,28 +163,28 @@ CONTAINS
             & prr_gsp=prm_diag%tracer_rate (:,jb,1)     ,    & !< out: precipitation rate of rain
             & prs_gsp=prm_diag%tracer_rate (:,jb,2)     ,    & !< out: precipitation rate of snow
             & idbg=msg_level, l_cv=.TRUE. )
-#else
-          CALL hydci_pp (                                           &
-            & ie     =nproma                            ,    & !> in:  actual array size
-            & je     =1                                 ,    & !< in:  dummy  array dimension
-            & ke     =nlev                              ,    & !< in:  actual array size
-            & istart =i_startidx                        ,    & !< in:  start index of calculation
-            & iend   =i_endidx                          ,    & !< in:  end index of calculation
-            & kstart =kstart_moist(jg)                  ,    & !< in:  vertical start index
-            & zdt    =tcall_gscp_jg                     ,    & !< in:  timestep
-            & dz     =p_metrics%ddqz_z_full(1,1,jb)     ,    & !< in:  vertical layer thickness
-            & t      =p_diag%temp   (1,1,jb)           ,    & !< in:  temp,tracer,...
-            & p      =p_diag%pres   (1,1,jb)           ,    & !< in:  full level pres
-            & rho    =p_prog%rho    (1,1,jb  )         ,    & !< in:  density
-            & qv     =p_prog_rcf%tracer (1,1,jb,iqv)   ,    & !< in:  spec. humidity
-            & qc     =p_prog_rcf%tracer (1,1,jb,iqc)   ,    & !< in:  cloud water
-            & qi     =p_prog_rcf%tracer (1,1,jb,iqi)   ,    & !< in:  cloud ice
-            & qr     =p_prog_rcf%tracer (1,1,jb,iqr)   ,    & !< in:  rain water
-            & qs     =p_prog_rcf%tracer (1,1,jb,iqs)   ,    & !< in:  snow
-            & prr_gsp=prm_diag%tracer_rate (1,jb,1)     ,    & !< out: precipitation rate of rain
-            & prs_gsp=prm_diag%tracer_rate (1,jb,2)     ,    & !< out: precipitation rate of snow
-            & idbg=msg_level, l_cv=.TRUE. )
-#endif
+!#else
+!          CALL hydci_pp (                                           &
+!            & ie     =nproma                            ,    & !> in:  actual array size
+!            & je     =1                                 ,    & !< in:  dummy  array dimension
+!            & ke     =nlev                              ,    & !< in:  actual array size
+!            & istart =i_startidx                        ,    & !< in:  start index of calculation
+!            & iend   =i_endidx                          ,    & !< in:  end index of calculation
+!            & kstart =kstart_moist(jg)                  ,    & !< in:  vertical start index
+!            & zdt    =tcall_gscp_jg                     ,    & !< in:  timestep
+!            & dz     =p_metrics%ddqz_z_full(1,1,jb)     ,    & !< in:  vertical layer thickness
+!            & t      =p_diag%temp   (1,1,jb)           ,    & !< in:  temp,tracer,...
+!            & p      =p_diag%pres   (1,1,jb)           ,    & !< in:  full level pres
+!            & rho    =p_prog%rho    (1,1,jb  )         ,    & !< in:  density
+!            & qv     =p_prog_rcf%tracer (1,1,jb,iqv)   ,    & !< in:  spec. humidity
+!            & qc     =p_prog_rcf%tracer (1,1,jb,iqc)   ,    & !< in:  cloud water
+!            & qi     =p_prog_rcf%tracer (1,1,jb,iqi)   ,    & !< in:  cloud ice
+!            & qr     =p_prog_rcf%tracer (1,1,jb,iqr)   ,    & !< in:  rain water
+!            & qs     =p_prog_rcf%tracer (1,1,jb,iqs)   ,    & !< in:  snow
+!            & prr_gsp=prm_diag%tracer_rate (1,jb,1)     ,    & !< out: precipitation rate of rain
+!            & prs_gsp=prm_diag%tracer_rate (1,jb,2)     ,    & !< out: precipitation rate of snow
+!            & idbg=msg_level, l_cv=.TRUE. )
+!!#endif
 
         ENDIF ! inwp_gscp
 

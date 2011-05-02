@@ -2386,7 +2386,7 @@ CONTAINS
         IF (inwp_turb.EQ.1) THEN
                                 ptr2 => dup2(prm_diag(jg)%gz0(:,:)/grav); delete = .TRUE.
                               ELSE
-                                ptr2 => prm_diag(jg)%z0m(:,igbm,:)
+                                ptr2 => prm_diag(jg)%z0m(:,:)
         END IF
       CASE ('tend_temp_radsw'); ptr3 => prm_nwp_tend(jg)%ddt_temp_radsw(:,:,:)
       CASE ('tend_temp_radlw'); ptr3 => prm_nwp_tend(jg)%ddt_temp_radlw(:,:,:)

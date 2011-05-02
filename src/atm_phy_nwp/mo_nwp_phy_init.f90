@@ -74,8 +74,8 @@ MODULE mo_nwp_phy_init
 ! for APE_nh experiments
 
   ! air-sea-land interface
-  USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd, &
-    &                                init_sfc_indices
+  USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd !, &
+ !   &                                init_sfc_indices
  ! vertical diffusion
   USE mo_echam_vdiff_params,   ONLY: init_vdiff_params, z0m_min, &
     &                                z0m_oce , tke_min 
@@ -457,7 +457,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
       !<KF temporarly set in, has to moved to general place
       CALL init_convect_tables
 
-      CALL init_sfc_indices( ltestcase, 'APE' ) !call of a hydrostatic testcase
+!      CALL init_sfc_indices( ltestcase, 'APE' ) !call of a hydrostatic testcase
                                                 ! to obtain the demanded parameters
 
       khydromet = 2 !iqt - 1        ! # of hydrometeors
@@ -479,9 +479,9 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 !$OMP END PARALLEL WORKSHARE
 !$OMP END PARALLEL
 
-        IF (iwtr<=nsfc_type) prm_diag% z0m(:,iwtr,:) = 1.e-3_wp !see init_surf in echam (or z0m_oce?)
-        IF (iice<=nsfc_type) prm_diag% z0m(:,iice,:) = 1.e-3_wp !see init_surf in echam (or z0m_ice?)
-        IF (ilnd<=nsfc_type) prm_diag% z0m(:,ilnd,:) = z0m_min ! or maybe a larger value?
+        IF (iwtr<=nsfc_type) prm_diag%z0m_tile(:,iwtr,:) = 1.e-3_wp !see init_surf in echam (or z0m_oce?)
+        IF (iice<=nsfc_type) prm_diag%z0m_tile(:,iice,:) = 1.e-3_wp !see init_surf in echam (or z0m_ice?)
+        IF (ilnd<=nsfc_type) prm_diag%z0m_tile(:,ilnd,:) = z0m_min ! or maybe a larger value?
 
 !    ENDIF
         

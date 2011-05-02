@@ -50,7 +50,7 @@ MODULE mo_atm_phy_nwp_nml
   USE mo_nonhydrostatic_nml,  ONLY: iadv_rcf
   USE mo_dynamics_nml,        ONLY: ldry_dycore
   USE mo_io_nml,              ONLY: lwrite_extra
-  USE mo_run_nml,             ONLY: dtime
+  USE mo_run_nml,             ONLY: dtime, ltestcase
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: n_dom
   USE mo_radiation_nml,       ONLY: read_radiation_nml, irad_o3
@@ -61,6 +61,7 @@ MODULE mo_atm_phy_nwp_nml
     &                               itype_wcld, icldm_turb,                  &
     &                               itype_tran, rlam_heat, rlam_mom, rat_sea
   USE mo_echam_vdiff_params,  ONLY: setup_vdiff
+  USE mo_icoham_sfc_indices, ONLY: init_sfc_indices, nsfc_type
 
   IMPLICIT NONE
 
@@ -102,7 +103,7 @@ MODULE mo_atm_phy_nwp_nml
   INTEGER ::  inwp_surface     !! surface including soil, ocean, ice,lake
   INTEGER ::  nlevs, nztlev    !! number of soil layers, time integration scheme
   INTEGER ::  nlev_snow        !! number of snow layers
-  INTEGER ::  nsfc_type        !! number of TILES
+  INTEGER ::  nsfc_subs        !! number of TILES
 
   INTEGER :: jg
                                !KF should be moved to run_ctl
@@ -134,7 +135,7 @@ MODULE mo_atm_phy_nwp_nml
   NAMELIST/nwp_phy_ctl/inwp_gscp, inwp_satad, inwp_convection, &
     &                  inwp_radiation, inwp_sso, inwp_cldcover, &
     &                  inwp_turb, inwp_surface, nlevs, nztlev,  &
-    &                  nlev_snow, nsfc_type,                    &
+    &                  nlev_snow, nsfc_subs,                    &
     &                  dt_conv, dt_ccov, dt_rad,                &
     &                  dt_radheat,                              &
     &                  dt_sso, dt_gscp, dt_satad,               &
@@ -151,7 +152,7 @@ MODULE mo_atm_phy_nwp_nml
    PUBLIC :: inwp_gscp, inwp_satad, inwp_convection, inwp_radiation
    PUBLIC :: inwp_sso, inwp_cldcover, inwp_turb, inwp_surface
    PUBLIC :: nlevs, nztlev
-   PUBLIC :: nlev_snow, nsfc_type
+   PUBLIC :: nlev_snow,nsfc_subs
    PUBLIC :: dt_conv, dt_ccov, dt_rad, dt_radheat, dt_sso, dt_gscp
    PUBLIC :: dt_satad, dt_update,   dt_turb, dt_sfc,tcall_phy
    PUBLIC :: qi0, qc0
@@ -206,7 +207,11 @@ MODULE mo_atm_phy_nwp_nml
 
     ENDIF
 
-    IF(inwp_turb == 2) CALL setup_vdiff
+    IF(inwp_turb == 2) THEN
+       CALL setup_vdiff
+       CALL init_sfc_indices( ltestcase, 'APE' ) !call of a hydrostatic testcase
+                                             ! to obtain the demanded parameters
+    ENDIF
 
       CALL message(TRIM(routine), 'nwp_physics namelist read in')
   
@@ -241,7 +246,7 @@ MODULE mo_atm_phy_nwp_nml
     nlevs           = 7           !> 7 = default value for number of soil layers
     nztlev          = 2           !> 2 = default value for time integration scheme
     nlev_snow       = 1           !> 1 = default value for number of snow layers
-    nsfc_type       = 1           !> 1 = default value for number of TILES
+    nsfc_subs       = 1           !> 1 = default value for number of TILES
 
     ! initialize the following values with zero to allow for namelist output
     dt_conv (:)  = 0.0_wp

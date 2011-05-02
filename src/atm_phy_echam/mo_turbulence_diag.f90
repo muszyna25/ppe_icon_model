@@ -589,7 +589,8 @@ CONTAINS
     ! COMMON PART OF THE DRAG COEFFICIENTS.
     !-------------------------------------------------------------
 
-    DO jsfc = 1,ksfc_type
+ 
+     DO jsfc = 1,ksfc_type
       IF ( jsfc == idx_lnd ) CYCLE ! computation below is valid only over water and ice
 
       CALL compute_qsat( kproma, kbdim, ppsfc, ptsfc(:,jsfc), pqsat_sfc(:,jsfc) )

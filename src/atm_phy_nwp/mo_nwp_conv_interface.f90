@@ -231,7 +231,7 @@ CONTAINS
         !> Convection
         !-------------------------------------------------------------------------
 
-#ifdef __BOUNDCHECK
+!#ifdef __BOUNDCHECK
           CALL cumastrn &
 &           (kidia  = i_startidx ,                kfdia  = i_endidx           ,& !> IN
 &            klon   = nproma ,     ktdia  = kstart_moist(jg)  , klev = nlev   ,& !! IN
@@ -270,46 +270,46 @@ CONTAINS
 &            prain  =      prm_diag%rain_upd (:,jb)                           ,& !! OUT
 &            pcape =       prm_diag%cape     (:,jb)                           ) !! OUT
 
-#else
-          CALL cumastrn &
-&           (kidia  = i_startidx ,                kfdia  = i_endidx           ,& !> IN
-&            klon   = nproma ,     ktdia  = kstart_moist(jg)  , klev = nlev   ,& !! IN
-&            ldland =  landseemask        (1,jb), ptsphy = tcall_conv_jg      ,& !! IN
-!&           ldland = ext_data%atm%lsm_atm_c(1,jb), ptsphy = tcall_phy_jg(itconv)  ,& !! IN
-&            pten   = p_diag%temp      (1,1,jb)                              ,& !! IN
-&            pqen   = p_prog_rcf%tracer(1,1,jb,iqv)                          ,& !! IN
-&            puen   = p_diag%u         (1,1,jb), pven   = p_diag%v( 1,1,jb) ,& !! IN
-&            plitot = z_plitot          (1,1,jb), pvervel= z_omega_p (1,1,jb) ,& !! IN
-&            pqhfl  = z_qhfl            (1,1,jb), pahfs  = z_shfl    (1,1,jb) ,& !! IN
-&            pap    = p_diag%pres      (1,1,jb), paph   = p_diag%pres_ifc(1,1,jb),& !! IN
-&            pgeo   = p_metrics%geopot_agl(1,1,jb)                        ,& !! IN
-&            pgeoh  = p_metrics%geopot_agl_ifc(1,1,jb)                        ,& !! IN
-&            zdph   = p_diag%dpres_mc    (1,1,jb)                            ,& !! IN
-&            zdgeoh = p_metrics%dgeopot_mc(1,1,jb)                            ,& !! IN
-&            ptent  = z_dtdt                       (1,1,jb)                   ,& !! INOUT
-&            ptenu  = prm_nwp_tend%ddt_u_pconv     (1,1,jb)                   ,& !! OUT
-&            ptenv  = prm_nwp_tend%ddt_v_pconv     (1,1,jb)                   ,& !! OUT
-&            ptenq  = z_dtdqv                      (1,1,jb)                   ,& !! INOUT
-&            ptenl  = prm_nwp_tend%ddt_tracer_pconv(1,1,jb,iqc)               ,& !! OUT
-&            pteni  = prm_nwp_tend%ddt_tracer_pconv(1,1,jb,iqi)               ,& !! OUT
-!&            ptens  = prm_nwp_tend%ddt_tracer_pconv(1,1,jb,iqs)               ,& !! OUT
-&            ldcum  = prm_diag%locum  (1,jb)                                  ,& !! OUT
-&            ktype  = prm_diag%ktype   (1,jb)                                 ,& !! OUT
-&            kcbot  = prm_diag%mbas_con(1,jb)                                 ,& !! OUT
-&            kctop  = prm_diag%mtop_con(1,jb)                                 ,& !! OUT
-&            pmfu   =      prm_diag%con_udd(1,1,jb,1)                         ,& !! OUT
-&            pmfd   =      prm_diag%con_udd(1,1,jb,2)                         ,& !! OUT
-&            pmfude_rate = prm_diag%con_udd(1,1,jb,3)                         ,& !! OUT
-&            pmfdde_rate = prm_diag%con_udd(1,1,jb,4)                         ,& !! OUT
-&            ptu    =      prm_diag%con_udd(1,1,jb,5)                         ,& !! OUT
-&            pqu    =      prm_diag%con_udd(1,1,jb,6)                         ,& !! OUT
-&            plu    =      prm_diag%con_udd(1,1,jb,7)                         ,& !! OUT
-&            pmflxr =      z_mflxr             (1,1,jb)                       ,& !! OUT
-&            pmflxs =      z_mflxs             (1,1,jb)                       ,& !! OUT
-&            prain  =      prm_diag%rain_upd (1,jb)                           ,& !! OUT
-&            pcape =       prm_diag%cape     (1,jb)                           ) !! OUT
+!#else
+!          CALL cumastrn &
+!&           (kidia  = i_startidx ,                kfdia  = i_endidx           ,& !> IN
+!&            klon   = nproma ,     ktdia  = kstart_moist(jg)  , klev = nlev   ,& !! IN
+!&            ldland =  landseemask        (1,jb), ptsphy = tcall_conv_jg      ,& !! IN
+!!&           ldland = ext_data%atm%lsm_atm_c(1,jb), ptsphy = tcall_phy_jg(itconv)  ,& !! IN
+!&            pten   = p_diag%temp      (1,1,jb)                              ,& !! IN
+!&            pqen   = p_prog_rcf%tracer(1,1,jb,iqv)                          ,& !! IN
+!&            puen   = p_diag%u         (1,1,jb), pven   = p_diag%v( 1,1,jb) ,& !! IN
+!&            plitot = z_plitot          (1,1,jb), pvervel= z_omega_p (1,1,jb) ,& !! IN
+!&            pqhfl  = z_qhfl            (1,1,jb), pahfs  = z_shfl    (1,1,jb) ,& !! IN
+!&            pap    = p_diag%pres      (1,1,jb), paph   = p_diag%pres_ifc(1,1,jb),& !! IN
+!&            pgeo   = p_metrics%geopot_agl(1,1,jb)                        ,& !! IN
+!&            pgeoh  = p_metrics%geopot_agl_ifc(1,1,jb)                        ,& !! IN
+!&            zdph   = p_diag%dpres_mc    (1,1,jb)                            ,& !! IN
+!&            zdgeoh = p_metrics%dgeopot_mc(1,1,jb)                            ,& !! IN
+!&            ptent  = z_dtdt                       (1,1,jb)                   ,& !! INOUT
+!&            ptenu  = prm_nwp_tend%ddt_u_pconv     (1,1,jb)                   ,& !! OUT
+!&            ptenv  = prm_nwp_tend%ddt_v_pconv     (1,1,jb)                   ,& !! OUT
+!&            ptenq  = z_dtdqv                      (1,1,jb)                   ,& !! INOUT
+!&            ptenl  = prm_nwp_tend%ddt_tracer_pconv(1,1,jb,iqc)               ,& !! OUT
+!&            pteni  = prm_nwp_tend%ddt_tracer_pconv(1,1,jb,iqi)               ,& !! OUT
+!!&            ptens  = prm_nwp_tend%ddt_tracer_pconv(1,1,jb,iqs)               ,& !! OUT
+!&            ldcum  = prm_diag%locum  (1,jb)                                  ,& !! OUT
+!&            ktype  = prm_diag%ktype   (1,jb)                                 ,& !! OUT
+!&            kcbot  = prm_diag%mbas_con(1,jb)                                 ,& !! OUT
+!&            kctop  = prm_diag%mtop_con(1,jb)                                 ,& !! OUT
+!&            pmfu   =      prm_diag%con_udd(1,1,jb,1)                         ,& !! OUT
+!&            pmfd   =      prm_diag%con_udd(1,1,jb,2)                         ,& !! OUT
+!&            pmfude_rate = prm_diag%con_udd(1,1,jb,3)                         ,& !! OUT
+!&            pmfdde_rate = prm_diag%con_udd(1,1,jb,4)                         ,& !! OUT
+!&            ptu    =      prm_diag%con_udd(1,1,jb,5)                         ,& !! OUT
+!&            pqu    =      prm_diag%con_udd(1,1,jb,6)                         ,& !! OUT
+!&            plu    =      prm_diag%con_udd(1,1,jb,7)                         ,& !! OUT
+!&            pmflxr =      z_mflxr             (1,1,jb)                       ,& !! OUT
+!&            pmflxs =      z_mflxs             (1,1,jb)                       ,& !! OUT
+!&            prain  =      prm_diag%rain_upd (1,jb)                           ,& !! OUT
+!&            pcape =       prm_diag%cape     (1,jb)                           ) !! OUT
 
-#endif
+!#endif
 
         ! Postprocessing on some fields
 

@@ -91,8 +91,6 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
 !
 
 
-
-
 ! prognostic variables state vector
   TYPE t_lnd_prog
 

@@ -281,7 +281,8 @@ CONTAINS
       & p_inc_radheat= dt_radheat(jg),                    &
       & p_sim_time   = p_sim_time,                        &
       & pt_patch     = pt_patch,                          &
-      & zsmu0        = prm_diag%cosmu0(1,1),              &
+!      & zsmu0        = prm_diag%cosmu0(1,1),              &
+      & zsmu0        = prm_diag%cosmu0(:,:),              &
       & zsct         = zsct )
 
     rl_start = 1
@@ -516,7 +517,7 @@ CONTAINS
         albnirdif(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
         prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog_now%t_g(1:i_endidx,jb)
 
-#ifdef __BOUNDCHECK
+!#ifdef __BOUNDCHECK
         CALL radiation(               &
                                 !
                                 ! input
@@ -561,52 +562,52 @@ CONTAINS
           & emter_all  =prm_diag%lwflxall(:,:,jb),&!< out terrestrial flux, all sky, net down
           & trsol_all  =prm_diag%trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
           & opt_halo_cosmu0 = .FALSE. )
-#else
-        CALL radiation(               &
-                                !
-                                ! input
-                                ! -----
-                                !
-                                ! indices and dimensions
-          & jce        =i_endidx             ,&!< in  end   index for loop over block
-          & kbdim      =nproma               ,&!< in  dimension of block over cells
-          & klev       =nlev                 ,&!< in  number of full levels = number of layers
-          & klevp1     =nlevp1               ,&!< in  number of half levels = number of layer ifcs
-                                !
-          & ktype      =itype                ,&!< in     type of convection
-                                !
-                                ! surface: albedo + temperature
-          & zland      =ext_data%atm%fr_land_smt(1,jb)   ,&!< in     land fraction
-          & zglac      =ext_data%atm%fr_glac_smt(1,jb)   ,&!< in     land glacier fraction
-                                !
-          & cos_mu0    =prm_diag%cosmu0 (1,jb)       ,&!< in cos of zenith angle mu0
-          & alb_vis_dir=albvisdir(1,jb)          ,&!< in surface albedo for visible range, direct
-          & alb_nir_dir=albnirdir(1,jb)          ,&!< in surface albedo for near IR range, direct
-          & alb_vis_dif=albvisdif(1,jb)          ,&!< in surface albedo for visible range, diffuse
-          & alb_nir_dif=albnirdif(1,jb)          ,&!< in surface albedo for near IR range, diffuse
-          & tk_sfc     =prm_diag%tsfctrad(1,jb)       ,&!< in     surface temperature
-                                !
-                                ! atmosphere: pressure, tracer mixing ratios and temperature
-          & pp_hl      =pt_diag%pres_ifc  (1,1,jb)    ,&!< in  pres at half levels at t-dt [Pa]
-          & pp_fl      =pt_diag%pres      (1,1,jb)    ,&!< in  pres at full levels at t-dt [Pa]
-          & tk_fl      =pt_diag%temp      (1,1,jb)    ,&!< in  temperature at full level at t-dt
-          & qm_vap     =prm_diag%tot_cld  (1,1,jb,iqv),&!< in  water vapor mass mix ratio at t-dt
-          & qm_liq     =prm_diag%tot_cld  (1,1,jb,iqc),&!< in  cloud water mass mix ratio at t-dt
-          & qm_ice     =prm_diag%tot_cld  (1,1,jb,iqi),&!< in  cloud ice mass mixing ratio at t-dt
-          & qm_o3      =pt_prog_rcf%tracer(1,1,jb,io3),&!< in  o3 mass mixing ratio at t-dt
-          & cdnc       =prm_diag%acdnc    (1,1,jb)    ,&!< in  cloud droplet numb conc. [1/m**3]
-          & cld_frc    =prm_diag%tot_cld  (1,1,jb,icc),&!< in  cld_frac = cloud fraction [m2/m2]
-                                !
-                                ! output
-                                ! ------
-                                !
-          & cld_cvr    =aclcov             (1,jb),&!< out cloud cover in a column [m2/m2]
-          & emter_clr  =prm_diag%lwflxclr(1,1,jb),&!< out terrestrial flux, clear sky, net down
-          & trsol_clr  =prm_diag%trsolclr(1,1,jb),&!< out sol. transmissivity, clear sky, net down
-          & emter_all  =prm_diag%lwflxall(1,1,jb),&!< out terrestrial flux, all   sky, net down
-          & trsol_all  =prm_diag%trsolall(1,1,jb),&!< out solar transmissivity, all sky, net down
-          & opt_halo_cosmu0 = .FALSE. )
-#endif
+!#else
+!        CALL radiation(               &
+!                                !
+!                                ! input
+!                                ! -----
+!                                !
+!                                ! indices and dimensions
+!          & jce        =i_endidx             ,&!< in  end   index for loop over block
+!          & kbdim      =nproma               ,&!< in  dimension of block over cells
+!          & klev       =nlev                 ,&!< in  number of full levels = number of layers
+!          & klevp1     =nlevp1               ,&!< in  number of half levels = number of layer ifcs
+!                                !
+!          & ktype      =itype                ,&!< in     type of convection
+!                                !
+!                                ! surface: albedo + temperature
+!          & zland      =ext_data%atm%fr_land_smt(1,jb)   ,&!< in     land fraction
+!          & zglac      =ext_data%atm%fr_glac_smt(1,jb)   ,&!< in     land glacier fraction
+!                                !
+!          & cos_mu0    =prm_diag%cosmu0 (1,jb)       ,&!< in cos of zenith angle mu0
+!          & alb_vis_dir=albvisdir(1,jb)          ,&!< in surface albedo for visible range, direct
+!          & alb_nir_dir=albnirdir(1,jb)          ,&!< in surface albedo for near IR range, direct
+!          & alb_vis_dif=albvisdif(1,jb)          ,&!< in surface albedo for visible range, diffuse
+!          & alb_nir_dif=albnirdif(1,jb)          ,&!< in surface albedo for near IR range, diffuse
+!          & tk_sfc     =prm_diag%tsfctrad(1,jb)       ,&!< in     surface temperature
+!                                !
+!                                ! atmosphere: pressure, tracer mixing ratios and temperature
+!          & pp_hl      =pt_diag%pres_ifc  (1,1,jb)    ,&!< in  pres at half levels at t-dt [Pa]
+!          & pp_fl      =pt_diag%pres      (1,1,jb)    ,&!< in  pres at full levels at t-dt [Pa]
+!          & tk_fl      =pt_diag%temp      (1,1,jb)    ,&!< in  temperature at full level at t-dt
+!          & qm_vap     =prm_diag%tot_cld  (1,1,jb,iqv),&!< in  water vapor mass mix ratio at t-dt
+!          & qm_liq     =prm_diag%tot_cld  (1,1,jb,iqc),&!< in  cloud water mass mix ratio at t-dt
+!          & qm_ice     =prm_diag%tot_cld  (1,1,jb,iqi),&!< in  cloud ice mass mixing ratio at t-dt
+!          & qm_o3      =pt_prog_rcf%tracer(1,1,jb,io3),&!< in  o3 mass mixing ratio at t-dt
+!          & cdnc       =prm_diag%acdnc    (1,1,jb)    ,&!< in  cloud droplet numb conc. [1/m**3]
+!          & cld_frc    =prm_diag%tot_cld  (1,1,jb,icc),&!< in  cld_frac = cloud fraction [m2/m2]
+!                                !
+!                                ! output
+!                                ! ------
+!                                !
+!          & cld_cvr    =aclcov             (1,jb),&!< out cloud cover in a column [m2/m2]
+!          & emter_clr  =prm_diag%lwflxclr(1,1,jb),&!< out terrestrial flux, clear sky, net down
+!          & trsol_clr  =prm_diag%trsolclr(1,1,jb),&!< out sol. transmissivity, clear sky, net down
+!          & emter_all  =prm_diag%lwflxall(1,1,jb),&!< out terrestrial flux, all   sky, net down
+!          & trsol_all  =prm_diag%trsolall(1,1,jb),&!< out solar transmissivity, all sky, net down
+!          & opt_halo_cosmu0 = .FALSE. )
+!#endif
       ENDDO ! blocks
 
 !$OMP END DO
@@ -755,7 +756,7 @@ CONTAINS
           ENDDO
         ENDIF
 
-#ifdef __BOUNDCHECK
+!#ifdef __BOUNDCHECK
         CALL radiation(               &
                                 !
                                 ! input
@@ -799,52 +800,52 @@ CONTAINS
           & emter_all  =zrg_lwflxall(:,:,jb)  ,&!< out   terrestrial flux, all sky, net down
           & trsol_all  =zrg_trsolall(:,:,jb)  ,&!< out   solar transmissivity, all sky, net down
           & opt_halo_cosmu0 = .FALSE. )
-#else
-        CALL radiation(               &
-                                !
-                                ! input
-                                ! -----
-                                !
-                                ! indices and dimensions
-          & jce        =i_endidx              ,&!< in end index for loop over block
-          & kbdim      =nproma                ,&!< in dimension of block over cells
-          & klev       =nlev                  ,&!< in number of full levels = number of layers
-          & klevp1     =nlevp1                ,&!< in number of half levels = number of layer ifcs
-                                !
-          & ktype      =itype                 ,&!< in     type of convection
-                                !
-          & zland      =zrg_fr_land  (1,jb)   ,&!< in     land mask,     1. over land
-          & zglac      =zrg_fr_glac  (1,jb)   ,&!< in     glacier mask,  1. over land ice
-                                !
-          & cos_mu0    =zrg_cosmu0   (1,jb)   ,&!< in    cos of zenith angle mu0 
-          & alb_vis_dir=zrg_albvisdir(1,jb)   ,&!< in    surface albedo for visible range, direct
-          & alb_nir_dir=zrg_albnirdir(1,jb)   ,&!< in    surface albedo for near IR range, direct
-          & alb_vis_dif=zrg_albvisdif(1,jb)   ,&!< in    surface albedo for visible range, diffuse
-          & alb_nir_dif=zrg_albnirdif(1,jb)   ,&!< in    surface albedo for near IR range, diffuse
-          & tk_sfc     =zrg_tsfc     (1,jb)   ,&!< in    surface temperature
-                                !
-                                ! atmosphere: pressure, tracer mixing ratios and temperature
-          & pp_hl      =zrg_pres_ifc(1,1,jb)     ,&!< in    pressure at half levels at t-dt [Pa]
-          & pp_fl      =zrg_pres    (1,1,jb)     ,&!< in    pressure at full levels at t-dt [Pa]
-          & tk_fl      =zrg_temp    (1,1,jb)     ,&!< in    temperature at full level at t-dt
-          & qm_vap     =zrg_tot_cld (1,1,jb,iqv) ,&!< in    water vapor mass mixing ratio at t-dt
-          & qm_liq     =zrg_tot_cld (1,1,jb,iqc) ,&!< in    cloud water mass mixing ratio at t-dt
-          & qm_ice     =zrg_tot_cld (1,1,jb,iqi) ,&!< in    cloud ice mass mixing ratio at t-dt
-          & qm_o3      =zrg_o3      (1,1,jb)     ,&!< in    O3
-
-          & cdnc       =zrg_acdnc   (1,1,jb)     ,&!< in   cloud droplet numb. conc. [1/m**3]
-          & cld_frc    =zrg_tot_cld (1,1,jb,icc) ,&!< in   cld_frac = cloud fraction [m2/m2]
-                                !
-                                ! output
-                                ! ------
-                                !
-          & cld_cvr    =zrg_aclcov    (1,jb)  ,&!< out  cloud cover in a column [m2/m2]
-          & emter_clr  =zrg_lwflxclr(1,1,jb)  ,&!< out  LW (terrestrial) flux, clear sky, net down
-          & trsol_clr  =zrg_trsolclr(1,1,jb)  ,&!< out  solar transmissivity, clear sky, net down
-          & emter_all  =zrg_lwflxall(1,1,jb)  ,&!< out  terrestrial flux, all ky, net downward
-          & trsol_all  =zrg_trsolall(1,1,jb)  ,&!< out  solar transmissivity, all sky, net down
-          & opt_halo_cosmu0 = .FALSE. )
-#endif
+!#else
+!        CALL radiation(               &
+!                                !
+!                                ! input
+!                                ! -----
+!                                !
+!                                ! indices and dimensions
+!          & jce        =i_endidx              ,&!< in end index for loop over block
+!          & kbdim      =nproma                ,&!< in dimension of block over cells
+!          & klev       =nlev                  ,&!< in number of full levels = number of layers
+!          & klevp1     =nlevp1                ,&!< in number of half levels = number of layer ifcs
+!                                !
+!          & ktype      =itype                 ,&!< in     type of convection
+!                                !
+!          & zland      =zrg_fr_land  (1,jb)   ,&!< in     land mask,     1. over land
+!          & zglac      =zrg_fr_glac  (1,jb)   ,&!< in     glacier mask,  1. over land ice
+!                                !
+!          & cos_mu0    =zrg_cosmu0   (1,jb)   ,&!< in    cos of zenith angle mu0 
+!          & alb_vis_dir=zrg_albvisdir(1,jb)   ,&!< in    surface albedo for visible range, direct
+!          & alb_nir_dir=zrg_albnirdir(1,jb)   ,&!< in    surface albedo for near IR range, direct
+!          & alb_vis_dif=zrg_albvisdif(1,jb)   ,&!< in    surface albedo for visible range, diffuse
+!          & alb_nir_dif=zrg_albnirdif(1,jb)   ,&!< in    surface albedo for near IR range, diffuse
+!          & tk_sfc     =zrg_tsfc     (1,jb)   ,&!< in    surface temperature
+!                                !
+!                                ! atmosphere: pressure, tracer mixing ratios and temperature
+!          & pp_hl      =zrg_pres_ifc(1,1,jb)     ,&!< in    pressure at half levels at t-dt [Pa]
+!          & pp_fl      =zrg_pres    (1,1,jb)     ,&!< in    pressure at full levels at t-dt [Pa]
+!          & tk_fl      =zrg_temp    (1,1,jb)     ,&!< in    temperature at full level at t-dt
+!          & qm_vap     =zrg_tot_cld (1,1,jb,iqv) ,&!< in    water vapor mass mixing ratio at t-dt
+!          & qm_liq     =zrg_tot_cld (1,1,jb,iqc) ,&!< in    cloud water mass mixing ratio at t-dt
+!          & qm_ice     =zrg_tot_cld (1,1,jb,iqi) ,&!< in    cloud ice mass mixing ratio at t-dt
+!          & qm_o3      =zrg_o3      (1,1,jb)     ,&!< in    O3
+!
+!          & cdnc       =zrg_acdnc   (1,1,jb)     ,&!< in   cloud droplet numb. conc. [1/m**3]
+!          & cld_frc    =zrg_tot_cld (1,1,jb,icc) ,&!< in   cld_frac = cloud fraction [m2/m2]
+!                                !
+!                                ! output
+!                                ! ------
+!                                !
+!          & cld_cvr    =zrg_aclcov    (1,jb)  ,&!< out  cloud cover in a column [m2/m2]
+!          & emter_clr  =zrg_lwflxclr(1,1,jb)  ,&!< out  LW (terrestrial) flux, clear sky, net down
+!          & trsol_clr  =zrg_trsolclr(1,1,jb)  ,&!< out  solar transmissivity, clear sky, net down
+!          & emter_all  =zrg_lwflxall(1,1,jb)  ,&!< out  terrestrial flux, all ky, net downward
+!          & trsol_all  =zrg_trsolall(1,1,jb)  ,&!< out  solar transmissivity, all sky, net down
+!          & opt_halo_cosmu0 = .FALSE. )
+!#endif
       ENDDO ! blocks
 
 !$OMP END DO
@@ -907,7 +908,7 @@ CONTAINS
         losol = ANY(lo_sol(i_startidx:i_endidx))
 
 
-#ifdef __BOUNDCHECK
+!#ifdef __BOUNDCHECK
         CALL fesft ( &
                                 !  Input:
           & pti = pt_diag%temp_ifc (:,:,jb) , &! Temperature at layer boundaries
@@ -940,52 +941,52 @@ CONTAINS
           & lthermal =.TRUE., &
           & lcrf = .FALSE., &! control switch for cloud-free calcul.
                                 ! Output:
-          & pflt  = prm_diag%lwflxall(1,1,jb),& !Thermal radiative fluxes at each layer boundary
+          & pflt  = prm_diag%lwflxall(:,:,jb),& !Thermal radiative fluxes at each layer boundary
           & pfls  = zfls  (:,:,jb)  &! solar radiative fluxes at each layer boundary
           & )
-#else
-        CALL fesft ( &
-                                !  Input:
-          & pti = pt_diag%temp_ifc (1,1,jb) , &! Temperature at layer boundaries
-          & pdp = pt_diag%dpres_mc (1,1,jb), &! pressure thickness
-          & pclc_in= prm_diag%tot_cld  (1,1,jb,icc) , &
-          & pqv = prm_diag%tot_cld(1,1,jb,iqv), &!pt_prog_rcf%tracer(1,1,jb,iqv)
-          & pqvs = zsqv(1,1,jb), &!saturation water vapor
-          & pqcwc = prm_diag%tot_cld    (1,1,jb,iqc) ,&
-          & pqiwc = prm_diag%tot_cld    (1,1,jb,iqi) ,&
-          & pduco2 = zduco2 (1,1,jb), &! layer CO2 content
-          & pduo3 = zduo3(1,1,jb),&! layer O3 content
-          & paeq1 = zaeq1(1,1,jb), &
-          & paeq2 = zaeq2(1,1,jb),&
-          & paeq3 = zaeq3(1,1,jb),&
-          & paeq4 = zaeq4(1,1,jb),&
-          & paeq5 = zaeq5(1,1,jb),&
-          & papre_in = pt_diag%pres_sfc (1,jb), & ! Surface pressure
-          & psmu0 = prm_diag%cosmu0 (1,jb) , & ! Cosine of zenith angle
-          & palso = albvisdir(1,jb), & ! solar surface albedo
-          & palth = alb_ther(1,jb), & ! thermal surface albedo
-          & psct = zsct, &! solar constant (at time of year)
-          & kig1s = 1 ,&
-          & kig1e = nproma , &
-          & ki3s = 1, &
-          & ki3e = nlev,&
-          & ki1sc= i_startidx, &
-          & ki1ec= i_endidx, &
-          & lsolar = losol, &! control switch for solar calculations
-          !          & lsolar = .TRUE., &! control switch for solar calculations
-          & lthermal =.TRUE., &
-          & lcrf = .FALSE., &! control switch for cloud-free calcul.
-                                ! Output:
-          & pflt  = prm_diag%lwflxall(1,1,jb),& !Thermal radiative fluxes at each layer boundary
-          & pfls  = zfls  (1,1,jb)  &! solar radiative fluxes at each layer boundary
-          & )
-        !          & pfltf = zfltf (1:i_endidx,1:2,jb),& !cloud_free thermal
-        !          & pflsf = zflsf (1:i_endidx,1:2,jb) ,& !cloud_free solar
-        !          & pflpar= zflpar(1:i_endidx,jb) ,& ! Photosynthetic active radiation
-        !          & pflsp = zflsp (1:i_endidx,jb) ,  & ! direct component of solar radiative flux
-        !          & pflsd = zflsd (1:i_endidx,jb)  ,& ! diffuse downward component of solar flux
-        !          & pflsu = zflsu (1:i_endidx,jb)  ) ! diffuse upward   component of solar flux
-#endif
+!#else
+!        CALL fesft ( &
+!                                !  Input:
+!          & pti = pt_diag%temp_ifc (1,1,jb) , &! Temperature at layer boundaries
+!          & pdp = pt_diag%dpres_mc (1,1,jb), &! pressure thickness
+!          & pclc_in= prm_diag%tot_cld  (1,1,jb,icc) , &
+!          & pqv = prm_diag%tot_cld(1,1,jb,iqv), &!pt_prog_rcf%tracer(1,1,jb,iqv)
+!          & pqvs = zsqv(1,1,jb), &!saturation water vapor
+!          & pqcwc = prm_diag%tot_cld    (1,1,jb,iqc) ,&
+!          & pqiwc = prm_diag%tot_cld    (1,1,jb,iqi) ,&
+!          & pduco2 = zduco2 (1,1,jb), &! layer CO2 content
+!          & pduo3 = zduo3(1,1,jb),&! layer O3 content
+!          & paeq1 = zaeq1(1,1,jb), &
+!          & paeq2 = zaeq2(1,1,jb),&
+!          & paeq3 = zaeq3(1,1,jb),&
+!          & paeq4 = zaeq4(1,1,jb),&
+!          & paeq5 = zaeq5(1,1,jb),&
+!          & papre_in = pt_diag%pres_sfc (1,jb), & ! Surface pressure
+!          & psmu0 = prm_diag%cosmu0 (1,jb) , & ! Cosine of zenith angle
+!          & palso = albvisdir(1,jb), & ! solar surface albedo
+!          & palth = alb_ther(1,jb), & ! thermal surface albedo
+!          & psct = zsct, &! solar constant (at time of year)
+!          & kig1s = 1 ,&
+!          & kig1e = nproma , &
+!          & ki3s = 1, &
+!          & ki3e = nlev,&
+!          & ki1sc= i_startidx, &
+!          & ki1ec= i_endidx, &
+!          & lsolar = losol, &! control switch for solar calculations
+!          !          & lsolar = .TRUE., &! control switch for solar calculations
+!          & lthermal =.TRUE., &
+!          & lcrf = .FALSE., &! control switch for cloud-free calcul.
+!                                ! Output:
+!          & pflt  = prm_diag%lwflxall(1,1,jb),& !Thermal radiative fluxes at each layer boundary
+!          & pfls  = zfls  (1,1,jb)  &! solar radiative fluxes at each layer boundary
+!          & )
+!        !          & pfltf = zfltf (1:i_endidx,1:2,jb),& !cloud_free thermal
+!        !          & pflsf = zflsf (1:i_endidx,1:2,jb) ,& !cloud_free solar
+!        !          & pflpar= zflpar(1:i_endidx,jb) ,& ! Photosynthetic active radiation
+!        !          & pflsp = zflsp (1:i_endidx,jb) ,  & ! direct component of solar radiative flux
+!        !          & pflsd = zflsd (1:i_endidx,jb)  ,& ! diffuse downward component of solar flux
+!        !          & pflsu = zflsu (1:i_endidx,jb)  ) ! diffuse upward   component of solar flux
+!#endif
         zi0 (i_startidx:i_endidx) = prm_diag%cosmu0(i_startidx:i_endidx,jb) * zsct
         ! compute sw transmissivity trsolall from sw fluxes
         DO jk = 1,nlevp1
@@ -1138,7 +1139,7 @@ CONTAINS
         END WHERE
         losol = ANY(lo_sol(i_startidx:i_endidx))
 
-#ifdef __BOUNDCHECK
+!#ifdef __BOUNDCHECK
         CALL fesft ( &
                                 !  Input:
           & pti = zrg_temp_ifc (:,:,jb) , &! Temperature at layer boundaries
@@ -1174,49 +1175,49 @@ CONTAINS
           & pflt  = zrg_lwflxall(:,:,jb) ,& ! Thermal radiative fluxes at each layer boundary
           & pfls  = zrg_fls  (:,:,jb)  &! solar radiative fluxes at each layer boundary
           & )
-#else
-        CALL fesft ( &
-                                !  Input:
-          & pti = zrg_temp_ifc (1,1,jb) , &! Temperature at layer boundaries
-          & pdp = zrg_dpres_mc (1,1,jb), &! pressure thickness
-          & pclc_in= zrg_tot_cld  (1,1,jb,icc) , &
-          & pqv = zrg_tot_cld(1,1,jb,iqv), &!pt_prog_rcf%tracer(1,1,jb,iqv)
-          & pqvs = zrg_sqv(1,1,jb), &!saturation water vapor
-          & pqcwc = zrg_tot_cld    (1,1,jb,iqc) ,&
-          & pqiwc = zrg_tot_cld    (1,1,jb,iqi) ,&
-          & pduco2 = zrg_duco2 (1,1,jb), &! layer CO2 content
-          & pduo3 = zrg_o3  (1,1,jb),&! layer O3 content
-          & paeq1 = zrg_aeq1(1,1,jb), &
-          & paeq2 = zrg_aeq2(1,1,jb),&
-          & paeq3 = zrg_aeq3(1,1,jb),&
-          & paeq4 = zrg_aeq4(1,1,jb),&
-          & paeq5 = zrg_aeq5(1,1,jb),&
-          & papre_in = zrg_pres_sfc (1,jb), & ! Surface pressure
-          & psmu0 = zrg_cosmu0 (1,jb) , & ! Cosine of zenith angle
-          & palso = zrg_albvisdir(1,jb), & ! solar surface albedo
-          & palth = zrg_alb_ther(1,jb), & ! thermal surface albedo
-          & psct = zsct, &! solar constant (at time of year)
-          & kig1s = 1 ,&
-          & kig1e = nproma , &
-          & ki3s = 1, &
-          & ki3e = nlev,&
-          & ki1sc= i_startidx, &
-          & ki1ec= i_endidx, &
-          & lsolar = losol, &! control switch for solar calculations
-          !          & lsolar = .TRUE., &! control switch for solar calculations
-          & lthermal =.TRUE., &
-          & lcrf = .FALSE., &! control switch for cloud-free calcul.
-                                ! Output:
-          & pflt  = zrg_lwflxall(1,1,jb) ,& ! Thermal radiative fluxes at each layer boundary
-          & pfls  = zrg_fls  (1,1,jb)  &! solar radiative fluxes at each layer boundary
-          & )
-        !          & pfltf = zfltf (1:i_endidx,1:2,jb),& !cloud_free thermal
-        !          & pflsf = zflsf (1:i_endidx,1:2,jb) ,& !cloud_free solar
-        !          & pflpar= zflpar(1:i_endidx,jb) ,& ! Photosynthetic active radiation
-        !          & pflsp = zflsp (1:i_endidx,jb) ,  & ! direct component of solar radiative flux
-        !          & pflsd = zflsd (1:i_endidx,jb)  ,& ! diffuse downward component of solar flux
-        !          & pflsu = zflsu (1:i_endidx,jb)  ) ! diffuse upward   component of solar flux
-#endif
+!#else
+!        CALL fesft ( &
+!                                !  Input:
+!          & pti = zrg_temp_ifc (1,1,jb) , &! Temperature at layer boundaries
+!          & pdp = zrg_dpres_mc (1,1,jb), &! pressure thickness
+!          & pclc_in= zrg_tot_cld  (1,1,jb,icc) , &
+!          & pqv = zrg_tot_cld(1,1,jb,iqv), &!pt_prog_rcf%tracer(1,1,jb,iqv)
+!          & pqvs = zrg_sqv(1,1,jb), &!saturation water vapor
+!          & pqcwc = zrg_tot_cld    (1,1,jb,iqc) ,&
+!          & pqiwc = zrg_tot_cld    (1,1,jb,iqi) ,&
+!          & pduco2 = zrg_duco2 (1,1,jb), &! layer CO2 content
+!          & pduo3 = zrg_o3  (1,1,jb),&! layer O3 content
+!          & paeq1 = zrg_aeq1(1,1,jb), &
+!          & paeq2 = zrg_aeq2(1,1,jb),&
+!          & paeq3 = zrg_aeq3(1,1,jb),&
+!          & paeq4 = zrg_aeq4(1,1,jb),&
+!          & paeq5 = zrg_aeq5(1,1,jb),&
+!          & papre_in = zrg_pres_sfc (1,jb), & ! Surface pressure
+!          & psmu0 = zrg_cosmu0 (1,jb) , & ! Cosine of zenith angle
+!          & palso = zrg_albvisdir(1,jb), & ! solar surface albedo
+!          & palth = zrg_alb_ther(1,jb), & ! thermal surface albedo
+!          & psct = zsct, &! solar constant (at time of year)
+!          & kig1s = 1 ,&
+!          & kig1e = nproma , &
+!          & ki3s = 1, &
+!          & ki3e = nlev,&
+!          & ki1sc= i_startidx, &
+!          & ki1ec= i_endidx, &
+!          & lsolar = losol, &! control switch for solar calculations
+!          !          & lsolar = .TRUE., &! control switch for solar calculations
+!          & lthermal =.TRUE., &
+!          & lcrf = .FALSE., &! control switch for cloud-free calcul.
+!                                ! Output:
+!          & pflt  = zrg_lwflxall(1,1,jb) ,& ! Thermal radiative fluxes at each layer boundary
+!          & pfls  = zrg_fls  (1,1,jb)  &! solar radiative fluxes at each layer boundary
+!          & )
+!        !          & pfltf = zfltf (1:i_endidx,1:2,jb),& !cloud_free thermal
+!        !          & pflsf = zflsf (1:i_endidx,1:2,jb) ,& !cloud_free solar
+!        !          & pflpar= zflpar(1:i_endidx,jb) ,& ! Photosynthetic active radiation
+!        !          & pflsp = zflsp (1:i_endidx,jb) ,  & ! direct component of solar radiative flux
+!        !          & pflsd = zflsd (1:i_endidx,jb)  ,& ! diffuse downward component of solar flux
+!        !          & pflsu = zflsu (1:i_endidx,jb)  ) ! diffuse upward   component of solar flux
+!#endif
         
         
         zi0 (i_startidx:i_endidx) = zrg_cosmu0(i_startidx:i_endidx,jb) * zsct

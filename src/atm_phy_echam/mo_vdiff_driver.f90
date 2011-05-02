@@ -77,9 +77,10 @@ CONTAINS
                      ptvm1,      paclc,    ptkem1, ptkem0, pxt_emis,   &! in/inout
 #endif
                      pxvar,      pthvvar,                              &! inout
-                     pustar,     pz0m,        pkedisp,                 &! inout
+                     pustar,     pz0m_tile,       pkedisp,    &! inout
                      pute,       pvte,        ptte,        pqte,       &! inout
                      pxlte,      pxite,       pxtte,                   &! inout
+                     pz0m,                                             &! out
                      pute_vdf,   pvte_vdf,    ptte_vdf,                &! out
                      pqte_vdf,   pxlte_vdf,   pxite_vdf,   pxtte_vdf,  &! out
                      pqsat_tile,                                       &! out
@@ -137,7 +138,7 @@ CONTAINS
                                            !< mixing length; out: computed in sfc_exchange_coeff
                                            !< at step t-dt.
 
-  REAL(wp),INTENT(INOUT) :: pz0m(kbdim,idx_gbm:ksfc_type) !< roughness length
+  REAL(wp),INTENT(INOUT) :: pz0m_tile(kbdim,ksfc_type) !< roughness length
                                                   !< in: values over each surface type computed
                                                   !< during the previous time step;
                                                   !< out: new values computed from the temporally
@@ -155,6 +156,7 @@ CONTAINS
   REAL(wp),INTENT(INOUT) :: pxite(kbdim,klev)
   REAL(wp),INTENT(INOUT) :: pxtte(kbdim,klev,ktrac)
 
+  REAL(wp),INTENT(OUT) :: pz0m(kbdim) !< roughness length
   REAL(wp),INTENT(OUT) :: pute_vdf (kbdim,klev)
   REAL(wp),INTENT(OUT) :: pvte_vdf (kbdim,klev)
   REAL(wp),INTENT(OUT) :: ptte_vdf (kbdim,klev)
@@ -256,7 +258,7 @@ CONTAINS
   CALL sfc_exchange_coeff( kproma, kbdim, ksfc_type,              &! in
                          & idx_wtr, idx_ice, idx_lnd,             &! in
                          & lsfc_mom_flux, lsfc_heat_flux,         &! in
-                         & pz0m(:,1:), ptsfc(:,:),                &! in
+                         & pz0m_tile(:,1:), ptsfc(:,:),                &! in
                          & pfrc(:,:), pghpbl(:),                  &! in
                          & pocu(:),         pocv(:),   ppsfc(:),  &! in
                          & pum1(:,klev),    pvm1  (:,klev),       &! in
@@ -359,12 +361,12 @@ CONTAINS
                        & zqshear, ihpbl, pcfh_tile, pqsat_tile,       &! in
                        & pcfm_tile, pfrc, bb,                         &! in
                        & pkedisp(:),                                  &! inout ("pvdis" in echam)
-                       & pxvar(:,:), pz0m(:,1:ksfc_type),             &! inout
+                       & pxvar(:,:), pz0m_tile(:,1:ksfc_type),             &! inout
                        & pute, pvte, ptte, pqte, pxlte, pxite, pxtte, &! inout
                        & pute_vdf, pvte_vdf, ptte_vdf, pqte_vdf,      &! out
                        & pxlte_vdf, pxite_vdf, pxtte_vdf,             &! out
                        & pxvarprod,                                   &! out ("pvdiffp" in echam)
-                       & pz0m(:,idx_gbm),                             &! out
+                       & pz0m(:),                                     &! out
                        & ptke, pthvvar, pthvsig, pvmixtau,            &! out
                        & pqv_mflux_sfc                                )! out ("pqhfla" in echam)
 
