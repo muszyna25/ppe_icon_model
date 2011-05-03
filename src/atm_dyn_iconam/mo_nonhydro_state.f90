@@ -5,8 +5,14 @@
 !! model variables. They are subdivided in several classes: prognostics
 !! and diagnostics.
 !!
+!! @author Almut Gassmann (MPI-M)
+!! @author Daniel Reinert (DWD-M)
+!!
 !! @par Revision History
 !! Initial release by Almut Gassmann, MPI-M (2009-03-06)
+!! Modification by Daniel Reinert, DWD (2011-05-02)
+!! - Memory allocation method changed from explicit allocation to Luis'
+!!   infrastructure
 !!
 !! @par Copyright
 !! 2002-2009 by DWD and MPI-M
@@ -37,27 +43,27 @@
 !!
 !!
 MODULE mo_nonhydro_state
-!-------------------------------------------------------------------------
-!
-!    ProTeX FORTRAN source: Style 2
-!    modified for ICON project, DWD/MPI-M 2006
-!
-!-------------------------------------------------------------------------
-!
-!
 !
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: SUCCESS
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
   USE mo_exception,           ONLY: message,message_text, finish
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: n_dom, l_limited_area
   USE mo_nonhydrostatic_nml,  ONLY: l_nest_rcf
   USE mo_dynamics_nml,        ONLY: nsav1, nsav2, itime_scheme
-  USE mo_run_nml,             ONLY: nproma, i_cell_type, iforcing,               &
-    &                               inwp, ltransport, ntracer, ntracer_static,   &
+  USE mo_run_nml,             ONLY: nproma, i_cell_type, iforcing,             &
+    &                               inwp, ltransport, ntracer, ntracer_static, &
     &                               inextra_2d, inextra_3d
   USE mo_io_nml,              ONLY: lwrite_extra
-!  USE mo_atm_phy_nwp_nml,     ONLY: inwp_turb
+  USE mo_linked_list,         ONLY: t_var_list
+  USE mo_var_list,            ONLY: default_var_list_settings, &
+    &                               add_var,                   &
+    &                               new_var_list,              &
+    &                               delete_var_list
+  USE mo_cf_convention
+  USE mo_grib2
+  USE mo_cdi_constants
+
 
   IMPLICIT NONE
 
@@ -65,10 +71,10 @@ MODULE mo_nonhydro_state
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: t_nh_prog               ! state vector of prognostic variables
-  PUBLIC :: t_nh_diag               ! state vector of diagnostic variables
-  PUBLIC :: t_nh_metrics            ! state vector of metrics variables
-  PUBLIC :: t_nh_state              ! state vector of nonhydrostatic variables
+  PUBLIC :: t_nh_prog             ! state vector of prognostic variables
+  PUBLIC :: t_nh_diag             ! state vector of diagnostic variables
+  PUBLIC :: t_nh_metrics          ! state vector of metrics variables
+  PUBLIC :: t_nh_state            ! state vector of nonhydrostatic variables
 
   PUBLIC :: construct_nh_state    ! Constructor for the nonhydrostatic state
   PUBLIC :: destruct_nh_state     ! Destructor for the nonhydrostatic state
@@ -78,7 +84,7 @@ MODULE mo_nonhydro_state
   ! prognostic variables state vector
   TYPE t_nh_prog
 
-    REAL(wp), ALLOCATABLE :: &
+    REAL(wp), POINTER :: &
       w(:,:,:),          & !> orthogonal vertical wind (nproma,nlevp1,nblks_c)     [m/s]
       vn(:,:,:),         & !! orthogonal normal wind (nproma,nlev,nblks_e)         [m/s]
       rho(:,:,:),        & !! density (nproma,nlev,nblks_c)                     [kg/m^3]
@@ -94,7 +100,7 @@ MODULE mo_nonhydro_state
   ! diagnostic variables state vector
   TYPE t_nh_diag
 
-    REAL(wp), ALLOCATABLE :: &
+    REAL(wp), POINTER ::    &
     ! a) variables needed for triangles and hexagons
     &  u(:,:,:),            & ! zonal wind (nproma,nlev,nblks_c)               [m/s]
     &  v(:,:,:),            & ! meridional wind (nproma,nlev,nblks_c)          [m/s]
@@ -102,15 +108,16 @@ MODULE mo_nonhydro_state
     &  e_kin(:,:,:),        & ! spec. kinetic energy (nproma,nlev,nblks_c) [m^2/s^2]
     &  omega_z(:,:,:),      & ! vertical vorticity at dual grid
                               ! (nproma,nlev,nblks_v or nblks_e)               [1/s]
-    &  ddt_vn(:,:,:),       & ! normal wind tendency from forcing
-    &  ddt_vn_phy(:,:,:),       & ! normal wind tendency from forcing
-                              ! (nproma,nlev,nblks_e)   [m/s^2]
+    &  ddt_vn(:,:,:),       & ! normal wind tendency from forcing              [m/s^2]
+    &  ddt_vn_phy(:,:,:),   & ! normal wind tendency from forcing
+                              ! (nproma,nlev,nblks_e)                          [m/s^2]
     &  ddt_w(:,:,:),        & ! vert. wind tendency from forcing
-                              ! (nproma,nlevp1,nblks_c)  [m/s^2]
+                              ! (nproma,nlevp1,nblks_c)                        [m/s^2]
     &  ddt_exner(:,:,:),    & ! exner pressure tendency from forcing (nproma,nlev,nblks_c)  [1/s]
-    &  ddt_exner_phy(:,:,:),& ! exner pressure tendency from physical forcing (nproma,nlev,nblks_c)  [1/s]
+    &  ddt_exner_phy(:,:,:),& ! exner pressure tendency from physical forcing 
+                              ! (nproma,nlev,nblks_c)                     [1/s]
     &  ddt_tracer_phy(:,:,:,:), &! physics tendency of tracers
-                              ! (nproma,nlev,nblks_c,ntracer)             [kg/kg/s] !T.R.
+                              ! (nproma,nlev,nblks_c,ntracer)             [kg/kg/s]
     &  ddt_tracer_adv(:,:,:,:), &! advective tendency of tracers          [kg/kg/s]
     &  exner_old(:,:,:),    & ! exner pres from previous step (nproma,nlev,nblks_c)
                             ! *** needs to be saved for restart ***
@@ -166,7 +173,7 @@ MODULE mo_nonhydro_state
     !
     ! c) variables needed for the hexagonal grid only
     &  theta_v_impl(:,:,:), & ! (nnow+nnew)/2 from impl. vert. adv. of theta_v   [K]
-    &  horpgrad(:,:,:),     & ! covariant horizontal pressur gradient term   [m/s^2]
+    &  horpgrad(:,:,:),     & ! covariant horizontal pressure gradient term   [m/s^2]
     &  vn_cov(:,:,:),       & ! covariant normal wind (nproma,nlev,nblks_e)    [m/s]
     &  w_cov(:,:,:),        & ! covariant vert wind (nproma,nlevp1,nblks_c)  [m^2/s]
     &  omega_z_con(:,:,:),  & ! vertical contrav. vorticity (nproma,nlev,nblks_v)
@@ -180,9 +187,9 @@ MODULE mo_nonhydro_state
     &  ddt_w_vort(:,:,:)      ! vert. wind tendency from vorticity flux term
                               ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
 
-    REAL(wp), ALLOCATABLE :: & !
-     &  extra_2d(:,:,:)  ,   & !> extra debug output in 2d and
-     &  extra_3d(:,:,:,:)      !!                       3d
+    REAL(wp), POINTER ::    & !
+     &  extra_2d(:,:,:)  ,  & !> extra debug output in 2d and
+     &  extra_3d(:,:,:,:)     !!                       3d
 
     REAL(wp), POINTER :: &
       vn_con(:,:,:),     &! contravariant normal wind (nproma,nlev,nblks_e)[m/s]
@@ -190,185 +197,197 @@ MODULE mo_nonhydro_state
 
   END TYPE t_nh_diag
 
+
   TYPE t_nh_metrics
 
    ! a) Variables needed for triangles and hexagons
    !
    ! geometric height at the vertical interface of cells (nproma,nlevp1,nblks_c)
-   REAL(wp), ALLOCATABLE :: z_ifc(:,:,:)
+   REAL(wp), POINTER :: z_ifc(:,:,:)
    ! geometric height at full levels (nproma,nlev,nblks_c)
-   REAL(wp), ALLOCATABLE :: z_mc(:,:,:)
+   REAL(wp), POINTER :: z_mc(:,:,:)
    ! geometric height at full level edges (nproma,nlev,nblks_e)
-   REAL(wp), ALLOCATABLE :: z_mc_e(:,:,:)
+   REAL(wp), POINTER :: z_mc_e(:,:,:)
 
    ! slope of the terrain in normal direction (nproma,nlevp1,nblks_e)
-   REAL(wp), ALLOCATABLE :: ddxn_z_half(:,:,:)
+   REAL(wp), POINTER :: ddxn_z_half(:,:,:)
    ! slope of the terrain in normal direction (nproma,nlev,nblks_e)
-   REAL(wp), ALLOCATABLE :: ddxn_z_full(:,:,:)
+   REAL(wp), POINTER :: ddxn_z_full(:,:,:)
    ! slope of the terrain in tangential direction (nproma,nlevp1,nblks_e)
-   REAL(wp), ALLOCATABLE :: ddxt_z_half(:,:,:)
+   REAL(wp), POINTER :: ddxt_z_half(:,:,:)
 
    ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_c)
-   REAL(wp), ALLOCATABLE :: ddqz_z_full(:,:,:)
+   REAL(wp), POINTER :: ddqz_z_full(:,:,:)
    ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_e)
-   REAL(wp), ALLOCATABLE :: ddqz_z_full_e(:,:,:)
+   REAL(wp), POINTER :: ddqz_z_full_e(:,:,:)
    ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlevp1,nblks_c)
-   REAL(wp), ALLOCATABLE :: ddqz_z_half(:,:,:)
+   REAL(wp), POINTER :: ddqz_z_half(:,:,:)
 
    ! 1/dz(k-1)-1/dz(k) (nproma,nlevp1,nblks_c)
-   REAL(wp), ALLOCATABLE :: diff_1_o_dz(:,:,:)
+   REAL(wp), POINTER :: diff_1_o_dz(:,:,:)
    ! 1/(dz(k-1)*dz(k)) (nproma,nlevp1,nblks_c)
-   REAL(wp), ALLOCATABLE :: mult_1_o_dz(:,:,:)
+   REAL(wp), POINTER :: mult_1_o_dz(:,:,:)
 
    ! geopotential at cell center (nproma,nlev,nblks_c)
-   REAL(wp), ALLOCATABLE :: geopot(:,:,:)
+   REAL(wp), POINTER :: geopot(:,:,:)
    ! geopotential at interfaces at cell center (nproma,nlevp1,nblks_c)
-   REAL(wp), ALLOCATABLE :: geopot_ifc(:,:,:)
+   REAL(wp), POINTER :: geopot_ifc(:,:,:)
    ! geopotential above groundlevel at cell center (nproma,nlev,nblks_c)
-   REAL(wp), ALLOCATABLE :: geopot_agl(:,:,:)
+   REAL(wp), POINTER :: geopot_agl(:,:,:)
    ! geopotential above groundlevel at interfaces and cell center (nproma,nlevp1,nblks_c)
-   REAL(wp), ALLOCATABLE :: geopot_agl_ifc(:,:,:)
+   REAL(wp), POINTER :: geopot_agl_ifc(:,:,:)
    ! geopotential at cell center (nproma,nlev,nblks_c)
-   REAL(wp), ALLOCATABLE :: dgeopot_mc(:,:,:)
+   REAL(wp), POINTER :: dgeopot_mc(:,:,:)
 
 
    ! Rayleigh damping on the vertical velocity
-   REAL(wp), ALLOCATABLE :: rayleigh_w(:,:,:)
+   REAL(wp), POINTER :: rayleigh_w(:,:,:)
 
    ! b) Variables needed for the triangular grid only
    !
    ! weighting factor for interpolation from full to half levels (nproma,nlevp1,nblks_c)
-   REAL(wp), ALLOCATABLE :: wgtfac_c(:,:,:)
+   REAL(wp), POINTER :: wgtfac_c(:,:,:)
    ! weighting factor for interpolation from full to half levels (nproma,nlevp1,nblks_e)
-   REAL(wp), ALLOCATABLE :: wgtfac_e(:,:,:)
+   REAL(wp), POINTER :: wgtfac_e(:,:,:)
    ! weighting factor for quadratic interpolation to surface (nproma,3,nblks_c)
-   REAL(wp), ALLOCATABLE :: wgtfacq_c(:,:,:)
+   REAL(wp), POINTER :: wgtfacq_c(:,:,:)
    ! weighting factor for quadratic interpolation to surface (nproma,3,nblks_e)
-   REAL(wp), ALLOCATABLE :: wgtfacq_e(:,:,:)
+   REAL(wp), POINTER :: wgtfacq_e(:,:,:)
    ! weighting factor for quadratic interpolation to model top (nproma,3,nblks_c)
-   REAL(wp), ALLOCATABLE :: wgtfacq1_c(:,:,:)
+   REAL(wp), POINTER :: wgtfacq1_c(:,:,:)
    ! weighting factor for quadratic interpolation to model top (nproma,3,nblks_e)
-   REAL(wp), ALLOCATABLE :: wgtfacq1_e(:,:,:)
+   REAL(wp), POINTER :: wgtfacq1_e(:,:,:)
    ! Inverse layer thickness of full levels (nproma,nlev,nblks_c)
-   REAL(wp), ALLOCATABLE :: inv_ddqz_z_full(:,:,:)
+   REAL(wp), POINTER :: inv_ddqz_z_full(:,:,:)
    ! Inverse distance between full levels jk+1 and jk-1 (nproma,nlev,nblks_c)
-   REAL(wp), ALLOCATABLE :: inv_ddqz_z_half2(:,:,:)
+   REAL(wp), POINTER :: inv_ddqz_z_half2(:,:,:)
    ! Vertical index of neighbor points needed for Taylor-expansion-based pressure gradient
-   INTEGER,  ALLOCATABLE :: vertidx_gradp(:,:,:,:) ! (2,nproma,nlev,nblks_e)
+   INTEGER,  POINTER :: vertidx_gradp(:,:,:,:) ! (2,nproma,nlev,nblks_e)
    ! Height differences between local edge point and neighbor cell points used for
    ! pressure gradient computation (2,nproma,nlev,nblks_e)
-   REAL(wp), ALLOCATABLE :: zdiff_gradp(:,:,:,:)
-   ! extrapolation factor for Exner pressure (slope-dependent for stability optimization) (nproma,nlev,nblks_c)
-   REAL(wp), ALLOCATABLE :: exner_exfac(:,:,:)
+   REAL(wp), POINTER :: zdiff_gradp(:,:,:,:)
+   ! extrapolation factor for Exner pressure (slope-dependent for stability optimization) 
+   ! (nproma,nlev,nblks_c)
+   REAL(wp), POINTER :: exner_exfac(:,:,:)
    ! explicit weight in vertical wind solver (nproma,nblks_c)
-   REAL(wp), ALLOCATABLE :: vwind_expl_wgt(:,:)
+   REAL(wp), POINTER :: vwind_expl_wgt(:,:)
    ! implicit weight in vertical wind solver (nproma,nblks_c)
-   REAL(wp), ALLOCATABLE :: vwind_impl_wgt(:,:)
+   REAL(wp), POINTER :: vwind_impl_wgt(:,:)
    ! Fields for reference atmosphere
-   REAL(wp), ALLOCATABLE :: theta_ref_mc(:,:,:)
-   REAL(wp), ALLOCATABLE :: theta_ref_ic(:,:,:)
-   REAL(wp), ALLOCATABLE :: exner_ref_mc(:,:,:)
-   REAL(wp), ALLOCATABLE :: d_exner_dz_ref_ic(:,:,:)
-   REAL(wp), ALLOCATABLE :: d_exner_dz_ref_mc(:,:,:)
-   REAL(wp), ALLOCATABLE :: d2_exner_dz2_ref_mc(:,:,:)
-   REAL(wp), ALLOCATABLE :: rho_refcorr_ic(:,:,:)
+   REAL(wp), POINTER :: theta_ref_mc(:,:,:)
+   REAL(wp), POINTER :: theta_ref_ic(:,:,:)
+   REAL(wp), POINTER :: exner_ref_mc(:,:,:)
+   REAL(wp), POINTER :: d_exner_dz_ref_ic(:,:,:)
+   REAL(wp), POINTER :: d_exner_dz_ref_mc(:,:,:)
+   REAL(wp), POINTER :: d2_exner_dz2_ref_mc(:,:,:)
+   REAL(wp), POINTER :: rho_refcorr_ic(:,:,:)
    ! Fields for truly horizontal temperature diffusion
-   INTEGER               :: zd_listdim
-   INTEGER,  ALLOCATABLE :: zd_indlist(:,:)
-   INTEGER,  ALLOCATABLE :: zd_blklist(:,:)
-   INTEGER,  ALLOCATABLE :: zd_edgeidx(:,:)
-   INTEGER,  ALLOCATABLE :: zd_edgeblk(:,:)
-   INTEGER,  ALLOCATABLE :: zd_vertidx(:,:)
-   REAL(wp), ALLOCATABLE :: zd_intcoef(:,:)
-   REAL(wp), ALLOCATABLE :: zd_geofac(:,:)
-   REAL(wp), ALLOCATABLE :: zd_e2cell(:,:)
-   REAL(wp), ALLOCATABLE :: zd_diffcoef(:)
+   INTEGER           :: zd_listdim
+   INTEGER,  POINTER :: zd_indlist(:,:)
+   INTEGER,  POINTER :: zd_blklist(:,:)
+   INTEGER,  POINTER :: zd_edgeidx(:,:)
+   INTEGER,  POINTER :: zd_edgeblk(:,:)
+   INTEGER,  POINTER :: zd_vertidx(:,:)
+   REAL(wp), POINTER :: zd_intcoef(:,:)
+   REAL(wp), POINTER :: zd_geofac(:,:)
+   REAL(wp), POINTER :: zd_e2cell(:,:)
+   REAL(wp), POINTER :: zd_diffcoef(:)
    ! Fields for igradp_method = 3
-   INTEGER               :: pg_listdim
-   INTEGER,  ALLOCATABLE :: pg_edgeidx(:)
-   INTEGER,  ALLOCATABLE :: pg_edgeblk(:)
-   INTEGER,  ALLOCATABLE :: pg_vertidx(:)
-   REAL(wp), ALLOCATABLE :: pg_exdist (:)
+   INTEGER           :: pg_listdim
+   INTEGER,  POINTER :: pg_edgeidx(:)
+   INTEGER,  POINTER :: pg_edgeblk(:)
+   INTEGER,  POINTER :: pg_vertidx(:)
+   REAL(wp), POINTER :: pg_exdist (:)
    ! Index lists for grid points on which lateral boundary nudging is applied
-   INTEGER               :: nudge_c_dim, nudge_e_dim
-   INTEGER,  ALLOCATABLE :: nudge_c_idx(:)
-   INTEGER,  ALLOCATABLE :: nudge_e_idx(:)
-   INTEGER,  ALLOCATABLE :: nudge_c_blk(:)
-   INTEGER,  ALLOCATABLE :: nudge_e_blk(:)
+   INTEGER           :: nudge_c_dim, nudge_e_dim
+   INTEGER,  POINTER :: nudge_c_idx(:)
+   INTEGER,  POINTER :: nudge_e_idx(:)
+   INTEGER,  POINTER :: nudge_c_blk(:)
+   INTEGER,  POINTER :: nudge_e_blk(:)
    ! Index lists and mask fields needed to minimize the number of halo communications
    ! a) index lists for halo points belonging to the nest boundary region
-   INTEGER               :: bdy_halo_c_dim  
-   INTEGER,  ALLOCATABLE :: bdy_halo_c_idx(:)
-   INTEGER,  ALLOCATABLE :: bdy_halo_c_blk(:)
+   INTEGER           :: bdy_halo_c_dim  
+   INTEGER,  POINTER :: bdy_halo_c_idx(:)
+   INTEGER,  POINTER :: bdy_halo_c_blk(:)
    ! b) a mask field that excludes boundary halo points
-   LOGICAL,  ALLOCATABLE :: mask_prog_halo_c(:,:)
+   LOGICAL,  POINTER :: mask_prog_halo_c(:,:)
    ! c) index lists for halo points belonging to a nest overlap region
    !    the additional dimension is n_childdom
-   INTEGER,  ALLOCATABLE :: ovlp_halo_c_dim(:)
-   INTEGER,  ALLOCATABLE :: ovlp_halo_c_idx(:,:)
-   INTEGER,  ALLOCATABLE :: ovlp_halo_c_blk(:,:)
+   INTEGER,  POINTER :: ovlp_halo_c_dim(:)
+   INTEGER,  POINTER :: ovlp_halo_c_idx(:,:)
+   INTEGER,  POINTER :: ovlp_halo_c_blk(:,:)
 
 
    ! c) Variables needed for the hexagonal grid only
    !
    ! slope of the coordinate lines towards the North (nproma,nlev,nblks_e)
-   REAL(wp), ALLOCATABLE :: ddnorth_z(:,:,:)
+   REAL(wp), POINTER :: ddnorth_z(:,:,:)
    ! slope of the coordinate lines towards the East (nproma,nlev,nblks_e)
-   REAL(wp), ALLOCATABLE :: ddeast_z(:,:,:)
+   REAL(wp), POINTER :: ddeast_z(:,:,:)
 
    ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_v)
-   REAL(wp), ALLOCATABLE :: ddqz_z_full_v(:,:,:)
+   REAL(wp), POINTER :: ddqz_z_full_v(:,:,:)
    ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlevp1,nblks_e)
-   REAL(wp), ALLOCATABLE :: ddqz_z_half_e(:,:,:)
+   REAL(wp), POINTER :: ddqz_z_half_e(:,:,:)
    ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlevp1,nblks_e)
-   REAL(wp), ALLOCATABLE :: ddqz_z_half_r(:,:,:)
+   REAL(wp), POINTER :: ddqz_z_half_r(:,:,:)
    ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlevp1,nblks_v)
-   REAL(wp), ALLOCATABLE :: ddqz_z_half_v(:,:,:)
+   REAL(wp), POINTER :: ddqz_z_half_v(:,:,:)
 
   END TYPE t_nh_metrics
 
-  ! complete state vector
-  TYPE t_nh_state
-
-    !array of prognostic states at different timelevels
-    TYPE(t_nh_prog),     ALLOCATABLE :: prog(:)
-
-    TYPE(t_nh_diag)              :: diag
-
-    TYPE(t_nh_metrics)           :: metrics
-
-  END TYPE t_nh_state
-
   TYPE :: t_buffer_memory
 
-    REAL(wp), ALLOCATABLE :: send_c1(:,:)
-    REAL(wp), ALLOCATABLE :: recv_c1(:,:)
-    REAL(wp), ALLOCATABLE :: send_c3(:,:)
-    REAL(wp), ALLOCATABLE :: recv_c3(:,:)
-    REAL(wp), ALLOCATABLE :: send_e1(:,:)
-    REAL(wp), ALLOCATABLE :: recv_e1(:,:)
-    REAL(wp), ALLOCATABLE :: send_e2(:,:)
-    REAL(wp), ALLOCATABLE :: recv_e2(:,:)
-    REAL(wp), ALLOCATABLE :: send_e3(:,:)
-    REAL(wp), ALLOCATABLE :: recv_e3(:,:)
-    REAL(wp), ALLOCATABLE :: send_v2(:,:)
-    REAL(wp), ALLOCATABLE :: recv_v2(:,:)
+    REAL(wp), POINTER :: send_c1(:,:)
+    REAL(wp), POINTER :: recv_c1(:,:)
+    REAL(wp), POINTER :: send_c3(:,:)
+    REAL(wp), POINTER :: recv_c3(:,:)
+    REAL(wp), POINTER :: send_e1(:,:)
+    REAL(wp), POINTER :: recv_e1(:,:)
+    REAL(wp), POINTER :: send_e2(:,:)
+    REAL(wp), POINTER :: recv_e2(:,:)
+    REAL(wp), POINTER :: send_e3(:,:)
+    REAL(wp), POINTER :: recv_e3(:,:)
+    REAL(wp), POINTER :: send_v2(:,:)
+    REAL(wp), POINTER :: recv_v2(:,:)
 
   END TYPE t_buffer_memory
 
-  TYPE (t_buffer_memory), ALLOCATABLE :: bufr(:)
+  TYPE (t_buffer_memory), POINTER :: bufr(:)
+
+
+!-------------------------------------------------------------------------
+!                      STATE VECTORS AND LISTS
+!-------------------------------------------------------------------------
+  TYPE t_nh_state
+
+    !array of prognostic states at different timelevels
+    TYPE(t_nh_prog),  POINTER :: prog(:)       !< shape: (timelevels)
+    TYPE(t_var_list), POINTER :: prog_list(:)  !< shape: (timelevels)
+
+    TYPE(t_nh_diag)           :: diag
+    TYPE(t_var_list), POINTER :: diag_list
+
+    TYPE(t_nh_metrics)        :: metrics
+    TYPE(t_var_list), POINTER :: metrics_list
+
+  END TYPE t_nh_state
+
+
 
   CONTAINS
 
 !-------------------------------------------------------------------------
+!!            SUBROUTINES FOR BUILDING AND DELETING VARIABLE LISTS 
 !-------------------------------------------------------------------------
 !
 !
   !>
   !! Constructor for prognostic and diagnostic states.
   !!
-  !! It calls constructors to
-  !! single time level prognostic states, and diagnostic states.
+  !! Top-level procedure for building the prognostic and diagnostic states.
+  !! It calls constructors to single time level prognostic states, and 
+  !! diagnostic states.
   !! Initialization of all components with zero.
   !!
   !! @par Revision History
@@ -376,76 +395,117 @@ MODULE mo_nonhydro_state
   !!
   SUBROUTINE construct_nh_state(p_patch, p_nh_state, n_timelevels)
 !
-  TYPE(t_patch), TARGET, INTENT(IN)       :: p_patch(n_dom) ! patch
-  INTEGER, OPTIONAL, INTENT(IN)         :: n_timelevels ! number of timelevels
+    TYPE(t_patch),     INTENT(IN)   ::  & ! patch
+      &  p_patch(n_dom)
 
-  TYPE(t_nh_state), TARGET, INTENT(INOUT) :: p_nh_state(n_dom)
-                                           ! nh state at different grid levels
-  INTEGER     :: ntl, &! local number of timelevels
-                 ist, &! status
-                 jg,  &! grid level counter
-                 jt    ! time level counter
+    TYPE(t_nh_state),  INTENT(INOUT)::  & ! nh state at different grid levels
+      &  p_nh_state(n_dom)
 
-  LOGICAL     :: l_alloc_tracer
+    INTEGER, OPTIONAL, INTENT(IN)   ::  & ! number of timelevels
+      &  n_timelevels    
 
+    TYPE(t_var_list), POINTER       ::  & ! pointer to single list element
+      &  listptr
+
+    INTEGER  :: ntl, &    ! local number of timelevels
+                ist, &    ! status
+                jg,  &    ! grid level counter
+                jt        ! time level counter
+
+    LOGICAL  :: l_alloc_tracer
+
+    CHARACTER(len=MAX_CHAR_LENGTH) :: listname
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_nonhydro_state:construct_nh_state'
 !-----------------------------------------------------------------------
 
-  DO jg = 1, n_dom
+    CALL message (TRIM(routine), 'Construction of NH state started')
 
-    IF(PRESENT(n_timelevels))THEN
-      ntl = n_timelevels
-    ELSE
-      ntl = 1
-    ENDIF
+    DO jg = 1, n_dom
 
-    ! If grid nesting is not called at every dynamics time step, an extra time
-    ! level is needed for full-field interpolation and boundary-tendency calculation
-    IF (l_nest_rcf .AND. n_dom > 1) THEN
-      ntl = ntl + 1
-      nsav1(jg) = ntl
-    ENDIF
-
-    ! In the presence of grid nesting, another extra time level is needed to save
-    ! the feedback increments
-    ! This extra time level is also used to store the driving-model data in the
-    ! limited-area mode
-    IF (l_limited_area .OR. jg > 1) ntl = ntl + 1
-    nsav2(jg) = ntl
-
-    !create state arrays
-    ALLOCATE(p_nh_state(jg)%prog(1:ntl), STAT=ist)
-    IF(ist/=SUCCESS)THEN
-      CALL finish ('mo_nonhydro_state:construct_nh_state', &
-                   'allocation of prognostic state array failed')
-    ENDIF
-
-    DO jt = 1, ntl
-
-      ! Tracer fields do not need extra time levels because feedback is not incremental
-      ! and the nest-call frequency is always synchronized with the advection time step
-      IF (jt <= n_timelevels) THEN
-        l_alloc_tracer = .TRUE.
+      IF(PRESENT(n_timelevels))THEN
+        ntl = n_timelevels
       ELSE
-        l_alloc_tracer = .FALSE.
+        ntl = 1
       ENDIF
 
-      !construct prognostic state
-      CALL construct_nh_state_prog(p_patch(jg), p_nh_state(jg)%prog(jt), l_alloc_tracer)
+      ! If grid nesting is not called at every dynamics time step, an extra time
+      ! level is needed for full-field interpolation and boundary-tendency calculation
+      IF (l_nest_rcf .AND. n_dom > 1) THEN
+        ntl = ntl + 1
+        nsav1(jg) = ntl
+      ENDIF
+
+      ! In the presence of grid nesting, another extra time level is needed to save
+      ! the feedback increments
+      ! This extra time level is also used to store the driving-model data in the
+      ! limited-area mode
+      IF (l_limited_area .OR. jg > 1) ntl = ntl + 1
+      nsav2(jg) = ntl
+
+      !
+      ! Allocate pointer array p_nh_state(jg)%prog, as well as the 
+      ! corresponding list array for each grid level.
+      !
+      ! create state arrays
+      ALLOCATE(p_nh_state(jg)%prog(1:ntl), STAT=ist)
+      IF(ist/=SUCCESS)THEN
+        CALL finish (TRIM(routine),                               &
+          &          'allocation of prognostic state array failed')
+      ENDIF
+
+      ! create state list
+      ALLOCATE(p_nh_state(jg)%prog_list(1:ntl), STAT=ist)
+      IF(ist/=SUCCESS)THEN
+        CALL finish (TRIM(routine),                                    &
+          &          'allocation of prognostic state list array failed')
+      ENDIF
+
+      !
+      ! Build prog list for every timelevel
+      ! includes memory allocation
+      ! 
+      DO jt = 1, ntl
+
+        ! Tracer fields do not need extra time levels because feedback is not incremental
+        ! and the nest-call frequency is always synchronized with the advection time step
+        IF (jt <= n_timelevels) THEN
+          l_alloc_tracer = .TRUE.
+        ELSE
+          l_alloc_tracer = .FALSE.
+        ENDIF
+
+        WRITE(listname,'(a,i2.2,a,i2.2)') 'nh_state_prog_of_domain_',jg, &
+          &                               '_and_timelev_',jt
+        listptr => p_nh_state(jg)%prog_list(jt)
+        CALL construct_nh_state_prog_list(p_patch(jg), p_nh_state(jg)%prog(jt), &
+          &  listptr, listname, l_alloc_tracer)
+
+      ENDDO
+
+      !
+      ! Build diag state list
+      ! includes memory allocation
+      !
+      WRITE(listname,'(a,i2.2)') 'nh_state_diag_of_domain_',jg
+      CALL construct_nh_state_diag_list(p_patch(jg), p_nh_state(jg)%diag, &
+        &  p_nh_state(jg)%diag_list, listname)
+
+      !
+      ! Build metrics state list
+      ! includes memory allocation
+      !
+      WRITE(listname,'(a,i2.2)') 'nh_state_metrics_of_domain_',jg
+      CALL construct_nh_metrics_list(p_patch(jg), p_nh_state(jg)%metrics, &
+        &  p_nh_state(jg)%metrics_list, listname )
 
     ENDDO
 
-    !construct diagnostic state
-    CALL construct_nh_state_diag(p_patch(jg), p_nh_state(jg)%diag)
-
-    !construct metrics state
-    CALL construct_nh_metrics(p_patch(jg), p_nh_state(jg)%metrics)
-
-  ENDDO
-
-  CALL message ('mo_nonhydro_state:construct_nh_state', &
-                'NH state construction completed')
+    CALL message (TRIM(routine), 'NH state construction completed')
 
   END SUBROUTINE construct_nh_state
+
 
 !-------------------------------------------------------------------------
 !
@@ -461,51 +521,76 @@ MODULE mo_nonhydro_state
   !!
   SUBROUTINE destruct_nh_state(p_nh_state)
 !
+    TYPE(t_nh_state), INTENT(INOUT) :: & ! nh state at different grid levels
+      &  p_nh_state(n_dom)
+                                             
+    TYPE(t_var_list), POINTER       :: & ! pointer to single list element
+      &  listptr
 
-  TYPE(t_nh_state), TARGET, INTENT(INOUT) :: p_nh_state(n_dom)
-                                           ! nh state at different grid levels
-  INTEGER     :: ntl, &! local number of timelevels
-                 ist, &! status
-                 jg,  &! grid level counter
-                 jt    ! time level counter
+    INTEGER  :: ntl, &    ! local number of timelevels
+                ist, &    ! status
+                jg,  &    ! grid level counter
+                jt        ! time level counter
 
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_nonhydro_state:destruct_nh_state'
 !-----------------------------------------------------------------------
 
-  DO jg = 1, n_dom
+    CALL message (TRIM(routine), 'Destruction of NH state started')
 
-    ntl = SIZE(p_nh_state(jg)%prog(:))
-    IF(ntl==0)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state', &
-                  'prognostic array has no timelevels')
-    ENDIF
 
-    !destruct diagnostic state
-    CALL destruct_nh_state_diag(p_nh_state(jg)%diag)
+    DO jg = 1, n_dom
 
-    !destruct metrics state
-    CALL destruct_nh_metrics (p_nh_state(jg)%metrics)
+      ntl = SIZE(p_nh_state(jg)%prog(:))
+      IF(ntl==0)THEN
+        CALL finish(TRIM(routine), 'prognostic array has no timelevels')
+      ENDIF
 
-    DO jt = 1, ntl
+      ! delete diagnostic state list elements
+      listptr => p_nh_state(jg)%diag_list
+      CALL delete_var_list( listptr )
 
-      !destruct prognostic state
-      CALL destruct_nh_state_prog(p_nh_state(jg)%prog(jt))
+      ! delete metrics state list elements
+      listptr => p_nh_state(jg)%metrics_list
+      CALL delete_var_list( listptr )
+
+      ! delete prognostic state list elements
+      DO jt = 1, ntl
+
+        listptr => p_nh_state(jg)%prog_list(jt)
+        CALL delete_var_list( listptr )
+
+      ENDDO
+
+      ! destruct state lists and arrays
+      DEALLOCATE(p_nh_state(jg)%prog_list,             &
+        &        p_nh_state(jg)%diag_list,             &
+        &        p_nh_state(jg)%metrics_list, STAT=ist )
+      IF(ist/=SUCCESS)THEN
+        CALL finish (TRIM(routine),                                     &
+          &          'deallocation of prognostic/diagnostic/metrics' // &
+          &          'state list array failed')
+      ENDIF
+
+      DEALLOCATE(p_nh_state(jg)%prog )!DR,             &
+!DR        &        p_nh_state(jg)%diag,             &
+!DR        &        p_nh_state(jg)%metrics, STAT=ist )
+      IF(ist/=SUCCESS)THEN
+        CALL finish (TRIM(routine),                                     &
+          &          'deallocation of prognostic/diagnostic/metrics' // &
+          &          'state array failed')
+      ENDIF
 
     ENDDO
 
-    !destruct state array
-    DEALLOCATE(p_nh_state(jg)%prog, STAT=ist)
-    IF(ist/=SUCCESS)THEN
-      CALL finish ('mo_nonhydro_state:destruct_nh_state', &
-                   'deallocation of prognostic state array failed')
-    ENDIF
-
-  ENDDO
+    CALL message (TRIM(routine), 'NH state destruction completed')
 
   END SUBROUTINE destruct_nh_state
 
-!-------------------------------------------------------------------------
-!
-!
+
+  !-------------------------------------------------------------------------
+  !
+  !
   !>
   !! Allocation of components of prognostic state.
   !!
@@ -514,187 +599,128 @@ MODULE mo_nonhydro_state
   !! @par Revision History
   !! Initial release by Almut Gassmann (2009-03-06)
   !!
-  SUBROUTINE construct_nh_state_prog (p_patch, p_prog, l_alloc_tracer)
+  SUBROUTINE construct_nh_state_prog_list ( p_patch, p_prog, p_prog_list,  &
+    &                                       listname, l_alloc_tracer)
 !
-  TYPE(t_patch), TARGET, INTENT(IN)     :: p_patch    ! current patch
+    TYPE(t_patch), TARGET, INTENT(IN) :: & !< current patch
+      &  p_patch
 
-  TYPE(t_nh_prog), TARGET, INTENT(INOUT):: p_prog     ! current prognostic state
+    TYPE(t_nh_prog),  INTENT(INOUT)   :: & !< current prognostic state
+      &  p_prog 
 
-  LOGICAL, INTENT(IN) :: l_alloc_tracer  ! allocate tracer fields if true
+    TYPE(t_var_list), POINTER         :: & !< current prognostic state list
+      &  p_prog_list
 
-  INTEGER :: nblks_c, &    ! number of cell blocks to allocate
-             nblks_e, &    ! number of edge blocks to allocate
-             ist           ! status
-  INTEGER :: nlev, nlevp1  ! number of full and half levels
+    CHARACTER(len=*), INTENT(IN)      :: & !< list name
+      &  listname
 
-!-----------------------------------------------------------------------
+    LOGICAL, INTENT(IN) :: l_alloc_tracer  !< allocate tracer fields if true
 
-  !determine size of arrays
-  nblks_c = p_patch%nblks_c
-  nblks_e = p_patch%nblks_e
 
-  ! number of vertical levels
-  nlev   = p_patch%nlev
-  nlevp1 = p_patch%nlevp1
+    TYPE(t_cf_var)    :: cf_desc
+    TYPE(t_grib2_var) :: grib2_desc
 
-  ! vn
-  ALLOCATE(p_prog%vn(nproma,nlev,nblks_e), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_prog', &
-                'allocation for normal wind failed')
-  ENDIF
+    INTEGER :: nblks_c, &    !< number of cell blocks to allocate
+               nblks_e       !< number of edge blocks to allocate
 
-  ! w
-  ALLOCATE(p_prog%w(nproma,nlevp1,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_prog', &
-                'allocation for vertical wind failed')
-  ENDIF
+    INTEGER :: nlev, nlevp1
 
-  ! rho
-  ALLOCATE(p_prog%rho(nproma,nlev,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_prog', &
-                'allocation for density failed')
-  ENDIF
+    INTEGER :: shape3d_c(3), shape3d_e(3), shape3d_chalf(3), &
+      &        shape4d_c(4)
 
-  ! exner
-  ALLOCATE(p_prog%exner(nproma,nlev,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_prog', &
-                'allocation for Exner pressure failed')
-  ENDIF
+    INTEGER :: ientr         !< "entropy" of horizontal slice
+    !--------------------------------------------------------------
 
-  ! theta_v
-  ALLOCATE(p_prog%theta_v(nproma,nlev,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_prog', &
-                'allocation for theta_v failed')
-  ENDIF
+    !determine size of arrays
+    nblks_c = p_patch%nblks_c
+    nblks_e = p_patch%nblks_e
 
-  ! rhotheta_v
-  ALLOCATE(p_prog%rhotheta_v(nproma,nlev,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_prog', &
-                'allocation for rho*theta_v failed')
-  ENDIF
+    ! number of vertical levels
+    nlev   = p_patch%nlev
+    nlevp1 = p_patch%nlevp1
 
-   !tracer
-  IF ( (ltransport .OR. iforcing == inwp) .AND. l_alloc_tracer  ) THEN
-     ALLOCATE(p_prog%tracer(nproma,nlev,nblks_c,ntracer+ntracer_static),STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_prog', &
-       'allocation for tracer failed')
+    ientr = 16   ! "entropy" of horizontal slice
+
+    ! predefined array shapes
+    shape3d_e     = (/nproma, nlev,   nblks_e  /)
+    shape3d_c     = (/nproma, nlev,   nblks_c  /)
+    shape3d_chalf = (/nproma, nlevp1, nblks_c  /)
+    shape4d_c     = (/nproma, nlev,   nblks_c, ntracer+ntracer_static/)
+
+    !
+    ! Register a field list and apply default settings
+    !
+    CALL new_var_list( p_prog_list, TRIM(listname) )
+    CALL default_var_list_settings( p_prog_list )
+
+
+    !------------------------------
+    ! Meteorological quantities
+    !------------------------------
+
+    ! vn          p_prog%vn(nproma,nlev,nblks_e)
+    cf_desc    = t_cf_var('normal_velocity', 'm s-1', 'velocity normal to edge')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
+    CALL add_var( p_prog_list, 'vn', p_prog%vn,                             &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+
+    ! rho         p_prog%rho(nproma,nlev,nblks_c)
+    cf_desc    = t_cf_var('density', 'kg m-3', 'density')
+    grib2_desc = t_grib2_var(0, 3, 10, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( p_prog_list, 'rho', p_prog%rho,                           &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    ! exner       p_prog%exner(nproma,nlev,nblks_c)
+    cf_desc    = t_cf_var('exner_pressure', '-', 'exner pressure')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( p_prog_list, 'exner', p_prog%exner,                         &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    ! theta_v     p_prog%theta_v(nproma,nlev,nblks_c)
+    cf_desc    = t_cf_var('virtual_potential_temperature', 'K', 'virtual potential temperature')
+    grib2_desc = t_grib2_var(0, 0, 1, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( p_prog_list, 'theta_v', p_prog%theta_v,                   &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    ! rhotheta_v  p_prog%rhotheta_v(nproma,nlev,nblks_c)
+    cf_desc    = t_cf_var('rho_virt_pot_temp', 'K', 'rho virt pot temp')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( p_prog_list, 'rhotheta_v', p_prog%rhotheta_v,             &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+    ! tracer       p_prog%tracer(nproma,nlev,nblks_c,ntracer+ntracer_static)
+    IF ( (ltransport .OR. iforcing == inwp) .AND. l_alloc_tracer  ) THEN
+      cf_desc    = t_cf_var('tracer', 'kg kg-1', 'tracer')
+      grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+      CALL add_var( p_prog_list, 'tracer', p_prog%tracer,                   &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape4d_c )
     ENDIF
-  ENDIF
 
+    !
+    ! variables defined at half levels 
+    !
 
+    ! w           p_prog%w(nproma,nlevp1,nblks_c)
+    cf_desc    = t_cf_var('upward air velocity', 'm s-1', 'upward air velocity')
+    grib2_desc = t_grib2_var(0, 2, 9, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID_HALF)
+    CALL add_var( p_prog_list, 'w', p_prog%w,                               &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
 
-
-
-  !tke
-  IF ( iforcing == inwp ) THEN
-    ALLOCATE(p_prog%tke(nproma,nlevp1,nblks_c),STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_prog', &
-       'allocation for tke failed')
+    ! tke          p_prog%tke(nproma,nlevp1,nblks_c)
+    IF ( iforcing == inwp ) THEN
+      cf_desc    = t_cf_var('turbulent_kinetic_energy', 'm2 s-2', 'turbulent kinetic energy')
+      grib2_desc = t_grib2_var(0, 19, 11, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID_HALF)
+      CALL add_var( p_prog_list, 'tke', p_prog%tke,                         &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
     ENDIF
-  ENDIF
 
-  p_prog%vn(:,:,:)         = 0.0_wp
-  p_prog%w(:,:,:)          = 0.0_wp
-  p_prog%rho(:,:,:)        = 0.0_wp
-  p_prog%exner(:,:,:)      = 0.0_wp
-  p_prog%rhotheta_v(:,:,:) = 0.0_wp
-  p_prog%theta_v(:,:,:)    = 0.0_wp
-  IF ( (ltransport .OR. iforcing == inwp ) .AND. l_alloc_tracer ) THEN
-    p_prog%tracer(:,:,:,:) = 0.0_wp
-  ENDIF
- IF ( iforcing == inwp ) THEN
-   p_prog%tke(:,:,:) = 1.e-4_wp
- ENDIF
 
-  END SUBROUTINE construct_nh_state_prog
+  END SUBROUTINE construct_nh_state_prog_list
 
-!-------------------------------------------------------------------------
-!
-!
-  !>
-  !! Deallocation of components of prognostic state.
-  !!
-  !!
-  !! @par Revision History
-  !! Initial release by Almut Gassmann (2009-03-06)
-  !!
-  SUBROUTINE destruct_nh_state_prog (p_prog)
-!
-  TYPE(t_nh_prog), TARGET, INTENT(INOUT) :: p_prog     ! current prognostic state
 
-  INTEGER     :: ist        ! status
 
-!-----------------------------------------------------------------------
 
-  ! vn
-  DEALLOCATE(p_prog%vn, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_prog', &
-                'deallocation for normal wind failed')
-  ENDIF
-
-  ! w
-  DEALLOCATE(p_prog%w, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_prog', &
-                'deallocation for vertical wind failed')
-  ENDIF
-
-  ! rho
-  DEALLOCATE(p_prog%rho, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_prog', &
-                'deallocation for density failed')
-  ENDIF
-
-  ! exner
-  DEALLOCATE(p_prog%exner, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_prog', &
-                'deallocation for Exner pressure failed')
-  ENDIF
-
-  ! theta_v
-  DEALLOCATE(p_prog%theta_v, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_prog', &
-                'deallocation for theta_v failed')
-  ENDIF
-
-  ! rhotheta_v
-  DEALLOCATE(p_prog%rhotheta_v, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_prog', &
-                'deallocation for rho*theta_v failed')
-  ENDIF
-
-  IF ( (ltransport.OR. iforcing == inwp ) .AND. ALLOCATED(p_prog%tracer) ) THEN
-    DEALLOCATE( p_prog%tracer, STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_prog', &
-        'deallocation for tracer failed')
-    ENDIF
-  ENDIF
-
-  IF ( iforcing == 3 .AND. ALLOCATED(p_prog%tke) ) THEN
-    DEALLOCATE( p_prog%tke, STAT=ist)
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_prog', &
-        'deallocation for tke failed')
-    ENDIF
-  ENDIF
-
-  END SUBROUTINE destruct_nh_state_prog
-
-!
+  !-------------------------------------------------------------------------
   !>
   !! Allocation of components of diagnostic state.
   !!
@@ -705,1003 +731,656 @@ MODULE mo_nonhydro_state
   !!
   !! Modification by Kristina Fröhlich, DWD, (2010-10-22)
   !! - added pressure on interfaces
-
-  SUBROUTINE construct_nh_state_diag (p_patch, p_diag)
-!
-  TYPE(t_patch), TARGET, INTENT(IN)     :: p_patch    ! current patch
-
-  TYPE(t_nh_diag), TARGET, INTENT(INOUT):: p_diag     ! current prognostic state
-
-  INTEGER :: nblks_c, &    ! number of cell blocks to allocate
-             nblks_e, &    ! number of edge blocks to allocate
-             nblks_v, &    ! number of vertex blocks to allocate
-             ist           ! status
-  INTEGER :: nlev, nlevp1  ! number of full and half levels
-
-  INTEGER :: n_timlevs     ! number of time levels for advection tendency fields
-
-!-----------------------------------------------------------------------
-
-  !determine size of arrays
-  nblks_c = p_patch%nblks_c
-  nblks_e = p_patch%nblks_e
-  nblks_v = p_patch%nblks_v
-
-  ! number of vertical levels
-  nlev   = p_patch%nlev
-  nlevp1 = p_patch%nlevp1
-
-  IF (itime_scheme == 6) THEN
-   n_timlevs = 2
-  ELSE
-   n_timlevs = 1
-  ENDIF
-
-  ! u
-  ALLOCATE(p_diag%u(nproma,nlev,nblks_c), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for zonal wind failed')
-  ENDIF
-
-  ! v
-  ALLOCATE(p_diag%v(nproma,nlev,nblks_c), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for meridional wind failed')
-  ENDIF
-
-  ! vt
-  ALLOCATE(p_diag%vt(nproma,nlev,nblks_e), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for vt failed')
-  ENDIF
-
-  ! e_kin
-  ALLOCATE(p_diag%e_kin(nproma,nlev,nblks_c), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for specific kinetic energy failed')
-  ENDIF
-
-  ! omega_z
-  ALLOCATE(p_diag%omega_z(nproma,nlev,nblks_v), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for vertical voritcity failed')
-  ENDIF
-
-  ! ddt_vn
-  ALLOCATE(p_diag%ddt_vn(nproma,nlev,nblks_e), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for normal wind tendency failed')
-  ENDIF
-
-  ! ddt_vn_phy
-  ALLOCATE(p_diag%ddt_vn_phy(nproma,nlev,nblks_e), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for normal wind physical tendency failed')
-  ENDIF
-
-  ! ddt_w
-  ALLOCATE(p_diag%ddt_w(nproma,nlevp1,nblks_c), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for vertical wind tendency failed')
-  ENDIF
-
-  ! ddt_exner
-  ALLOCATE(p_diag%ddt_exner(nproma,nlev,nblks_c), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for exner pressure tendency failed')
-  ENDIF
-
-  ! ddt_exner_phy
-  ALLOCATE(p_diag%ddt_exner_phy(nproma,nlev,nblks_c), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for exner pressure physical tendency failed')
-  ENDIF
-
-
-  ! exner_old
-  ALLOCATE(p_diag%exner_old(nproma,nlev,nblks_c), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for old exner pressure failed')
-  ENDIF
-
-  ! w_con
-  ALLOCATE(p_diag%w_con(nproma,nlevp1,nblks_c), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for w_con failed')
-  ENDIF
-
-  ! pres_sfc
-  ALLOCATE(p_diag%pres_sfc(nproma,nblks_c), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for surface pressure failed')
-  ENDIF
-
-  ! temp
-  ALLOCATE(p_diag%temp(nproma,nlev,nblks_c), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for temperature failed')
-  ENDIF
-
-  ! tempv
-  ALLOCATE(p_diag%tempv(nproma,nlev,nblks_c), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for virtual temperature failed')
-  ENDIF
-
-  ! temp_ifc
-  ALLOCATE(p_diag%temp_ifc(nproma,nlevp1,nblks_c), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for temperature failed')
-  ENDIF
-
-  ! pres
-  ALLOCATE(p_diag%pres(nproma,nlev,nblks_c), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for pressure failed')
-  ENDIF
-
-  ! pres_ifc
-  ALLOCATE(p_diag%pres_ifc(nproma,nlevp1,nblks_c), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for pressure on interfaces failed')
-  ENDIF
-
-  ! dpres_mc
-  ALLOCATE(p_diag%dpres_mc(nproma,nlev,nblks_c), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for pressure thickness failed')
-  ENDIF
-
-  ! div
-  ALLOCATE(p_diag%div(nproma,nlev,nblks_c), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for divergence')
-  ENDIF
-
-  ! mass_fl_e
-  ALLOCATE(p_diag%mass_fl_e(nproma,nlev,nblks_e), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for mass_fl_e failed')
-  ENDIF
-
-  ! rho_ic
-  ALLOCATE(p_diag%rho_ic(nproma,nlevp1,nblks_c), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for rho_ic failed')
-  ENDIF
-
-  ! w_concorr_c
-  ALLOCATE(p_diag%w_concorr_c(nproma,nlevp1,nblks_c), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for w_concorr_c failed')
-  ENDIF
-
-  ! e_kinh
-  ALLOCATE(p_diag%e_kinh(nproma,nlev,nblks_c), STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                'allocation for horizontal specific kinetic energy failed')
-  ENDIF
-
-  IF (i_cell_type == 3) THEN
-
-    ! vn_ie
-    ALLOCATE(p_diag%vn_ie(nproma,nlevp1,nblks_e), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for vn_ie failed')
-    ENDIF
-
-    ! theta_v_ic
-    ALLOCATE(p_diag%theta_v_ic(nproma,nlevp1,nblks_c), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for theta_v_ic failed')
-    ENDIF
-
-    ! ddt_vn_adv
-    ALLOCATE(p_diag%ddt_vn_adv(nproma,nlev,nblks_e,n_timlevs), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for normal wind tendency failed')
-    ENDIF
-    ! ddt_w_adv
-    ALLOCATE(p_diag%ddt_w_adv(nproma,nlevp1,nblks_c,n_timlevs), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for vertical wind tendency failed')
-    ENDIF
-
-    ! grf_tend_vn
-    ALLOCATE(p_diag%grf_tend_vn(nproma,nlev,nblks_e), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for grf_tend_vn failed')
-    ENDIF
-
-    ! grf_tend_w
-    ALLOCATE(p_diag%grf_tend_w(nproma,nlevp1,nblks_c), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for grf_tend_w failed')
-    ENDIF
-
-    ! grf_tend_rho
-    ALLOCATE(p_diag%grf_tend_rho(nproma,nlev,nblks_c), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for grf_tend_rho failed')
-    ENDIF
-
-    ! grf_tend_thv
-    ALLOCATE(p_diag%grf_tend_thv(nproma,nlev,nblks_c), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for grf_tend_thv failed')
-    ENDIF
-
-    ! Storage fields for vertical nesting; the middle index (2) addresses the field and its temporal tendency
-
-    ! dvn_ie_int
-    ALLOCATE(p_diag%dvn_ie_int(nproma,nblks_e), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for dvn_ie_int failed')
-    ENDIF
-
-    ! dvn_ie_ubc
-    ALLOCATE(p_diag%dvn_ie_ubc(nproma,nblks_e), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for dvn_ie_ubc failed')
-    ENDIF
-
-    ! drho_ic_int
-    ALLOCATE(p_diag%drho_ic_int(nproma,nblks_c), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for drho_ic_int failed')
-    ENDIF
-
-    ! drho_ic_ubc
-    ALLOCATE(p_diag%drho_ic_ubc(nproma,nblks_c), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for drho_ic_ubc failed')
-    ENDIF
-
-    ! dtheta_v_ic_int
-    ALLOCATE(p_diag%dtheta_v_ic_int(nproma,nblks_c), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for dtheta_v_ic_int failed')
-    ENDIF
-
-    ! dtheta_v_ic_ubc
-    ALLOCATE(p_diag%dtheta_v_ic_ubc(nproma,nblks_c), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for dtheta_v_ic_ubc failed')
-    ENDIF
-
-    ! dw_int
-    ALLOCATE(p_diag%dw_int(nproma,nblks_c), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for dw_int failed')
-    ENDIF
-
-    ! dw_ubc
-    ALLOCATE(p_diag%dw_ubc(nproma,nblks_c), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for dw_ubc failed')
-    ENDIF
-
-    ! q_int
-    ALLOCATE(p_diag%q_int(nproma,nblks_c,ntracer), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for q_int failed')
-    ENDIF
-
-    ! q_ubc
-    ALLOCATE(p_diag%q_ubc(nproma,nblks_c,ntracer), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for q_ubc failed')
-    ENDIF
-
-    ! thermal_exp_fastphy
-    ALLOCATE(p_diag%thermal_exp_fastphy(nproma,nblks_c), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for thermal_exp_fastphy failed')
-    ENDIF
-
-  ELSE IF (i_cell_type == 6) THEN
-
-    ! theta_v_ic
-    ALLOCATE(p_diag%theta_v_ic(nproma,nlevp1,nblks_c), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for theta_v_ic failed')
-    ENDIF
-
-    ! theta_v_impl
-    ALLOCATE(p_diag%theta_v_impl(nproma,nlev,nblks_c), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for theta_v_impl failed')
-    ENDIF
-
-    ! horpgrad
-    ALLOCATE(p_diag%horpgrad(nproma,nlev,nblks_e), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for horpgrad failed')
-    ENDIF
-
-    ! vn_cov
-    ALLOCATE(p_diag%vn_cov(nproma,nlev,nblks_e), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for vn_cov failed')
-    ENDIF
-
-    ! w_cov
-    ALLOCATE(p_diag%w_cov(nproma,nlevp1,nblks_c), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for w_cov failed')
-    ENDIF
-
-    ! omega_t_con
-    ALLOCATE(p_diag%omega_t_con(nproma,nlevp1,nblks_e), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for tangential contrav. voritcity failed')
-    ENDIF
-
-    !omega_x
-    ALLOCATE(p_diag%omega_x(nproma,nlev,nblks_c), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for zonal vorticity failed')
-    ENDIF
-
-    !omega_y
-    ALLOCATE(p_diag%omega_y(nproma,nlev,nblks_c), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for meridional vorticity failed')
-    ENDIF
-
-    ! omega_z_con
-    ALLOCATE(p_diag%omega_z_con(nproma,nlev,nblks_v), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for vertical contrav. voritcity failed')
-    ENDIF
-
-    ! ddt_vn_vort
-    ALLOCATE(p_diag%ddt_vn_vort(nproma,nlev,nblks_e), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for normal wind tendency failed')
-    ENDIF
-
-    ! ddt_w_vort
-    ALLOCATE(p_diag%ddt_w_vort(nproma,nlevp1,nblks_c), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for vertical wind tendency failed')
-    ENDIF
-
-  ENDIF
-
-  !tracers
-  IF ( ltransport ) THEN
-    ! grf_tend_tracer
-    ALLOCATE(p_diag%grf_tend_tracer(nproma,nlev,nblks_c,ntracer), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for grf_tend_tracer failed')
-    ENDIF
-
-    ! hfl_tracer
-    ALLOCATE(p_diag%hfl_tracer(nproma,nlev,nblks_e,ntracer), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for horizontal tracer flux at edges failed')
-    ENDIF
-
-    ! vfl_tracer
-    ALLOCATE(p_diag%vfl_tracer(nproma,nlevp1,nblks_c,ntracer), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for vertical tracer flux at half levels failed')
-    ENDIF
-
-    ! ddt_tracer_adv
-    ALLOCATE(p_diag%ddt_tracer_adv(nproma,nlev,nblks_c,ntracer), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-                  'allocation for ddt_tracer_adv failed')
-    ENDIF
-
-  ENDIF
-
-
-  IF( iforcing== inwp) THEN  !T.R
-    ALLOCATE(p_diag%ddt_tracer_phy(nproma,nlev,nblks_c,ntracer), STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-           'allocation of p_diag%ddt_tracer_phy failed')
-    ENDIF
-  ENDIF
-
-  IF( lwrite_extra) THEN
-    WRITE(0,*)'inextra_2d=',inextra_2d
-  
-    IF(inextra_2d > 0) &
-    ALLOCATE(p_diag%extra_2d(nproma,     nblks_c,inextra_2d), STAT=ist )
-    IF(inextra_3d > 0) &
-    ALLOCATE(p_diag%extra_3d(nproma,nlev,nblks_c,inextra_3d), STAT=ist )
-
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-           'allocation of extra fields for debugging failed')
-    ENDIF
-  ENDIF
-
-
-  p_diag%u(:,:,:)             = 0.0_wp
-  p_diag%v(:,:,:)             = 0.0_wp
-
-  p_diag%vt(:,:,:)            = 0.0_wp
-  p_diag%e_kin(:,:,:)         = 0.0_wp
-  p_diag%omega_z(:,:,:)       = 0.0_wp
-  p_diag%ddt_vn(:,:,:)        = 0.0_wp
-  p_diag%ddt_w(:,:,:)         = 0.0_wp
-  p_diag%ddt_exner(:,:,:)     = 0.0_wp
-  p_diag%exner_old(:,:,:)     = 0.0_wp
-  p_diag%w_con(:,:,:)         = 0.0_wp
-  p_diag%temp(:,:,:)          = 0.0_wp
-  p_diag%tempv(:,:,:)         = 0.0_wp
-  p_diag%temp_ifc(:,:,:)      = 0.0_wp
-  p_diag%pres(:,:,:)          = 0.0_wp
-  p_diag%pres_ifc(:,:,:)      = 0.0_wp
-  p_diag%dpres_mc(:,:,:)      = 0.0_wp
-  p_diag%pres_sfc(:,:)        = 0.0_wp
-  p_diag%div(:,:,:)           = 0.0_wp
-  p_diag%mass_fl_e(:,:,:)     = 0.0_wp
-  p_diag%rho_ic(:,:,:)        = 0.0_wp
-  p_diag%w_concorr_c(:,:,:)   = 0.0_wp
-  p_diag%e_kinh(:,:,:)        = 0.0_wp
-  IF (i_cell_type == 3) THEN
-    p_diag%vn_ie(:,:,:)         = 0.0_wp
-    p_diag%theta_v_ic(:,:,:)    = 0.0_wp
-    p_diag%ddt_vn_adv(:,:,:,:)  = 0.0_wp
-    p_diag%ddt_w_adv(:,:,:,:)   = 0.0_wp
-    p_diag%grf_tend_vn(:,:,:)   = 0.0_wp
-    p_diag%grf_tend_w(:,:,:)    = 0.0_wp
-    p_diag%grf_tend_rho(:,:,:)  = 0.0_wp
-    p_diag%grf_tend_thv(:,:,:)  = 0.0_wp
-    p_diag%dvn_ie_int(:,:)      = 0.0_wp
-    p_diag%dvn_ie_ubc(:,:)      = 0.0_wp
-    p_diag%drho_ic_int(:,:)     = 0.0_wp
-    p_diag%drho_ic_ubc(:,:)     = 0.0_wp
-    p_diag%dtheta_v_ic_int(:,:) = 0.0_wp
-    p_diag%dtheta_v_ic_ubc(:,:) = 0.0_wp
-    p_diag%dw_int(:,:)          = 0.0_wp
-    p_diag%dw_ubc(:,:)          = 0.0_wp
-    p_diag%q_int(:,:,:)         = 0.0_wp
-    p_diag%q_ubc(:,:,:)         = 0.0_wp
-    p_diag%thermal_exp_fastphy(:,:) = 0.0_wp
-  ELSE IF (i_cell_type == 6) THEN
-    p_diag%theta_v_impl(:,:,:)  = 0.0_wp
-    p_diag%theta_v_ic(:,:,:)    = 0.0_wp
-    p_diag%horpgrad(:,:,:)      = 0.0_wp
-    p_diag%vn_cov(:,:,:)        = 0.0_wp
-    p_diag%w_cov(:,:,:)         = 0.0_wp
-    p_diag%omega_x(:,:,:)       = 0.0_wp
-    p_diag%omega_y(:,:,:)       = 0.0_wp
-    p_diag%omega_t_con(:,:,:)   = 0.0_wp
-    p_diag%omega_z_con(:,:,:)   = 0.0_wp
-    p_diag%ddt_vn_vort(:,:,:)   = 0.0_wp
-    p_diag%ddt_w_vort(:,:,:)    = 0.0_wp
-  ENDIF
-  IF ( ltransport ) THEN
-    p_diag%ddt_tracer_adv(:,:,:,:) = 0.0_wp
-    p_diag%grf_tend_tracer(:,:,:,:)= 0.0_wp
-    p_diag%hfl_tracer(:,:,:,:)     = 0.0_wp
-    p_diag%vfl_tracer(:,:,:,:)     = 0.0_wp
-  ENDIF
-  IF ( iforcing == inwp) THEN
-    p_diag%ddt_tracer_phy(:,:,:,:)= 0.0_wp
-  ENDIF
-  p_diag%ddt_vn_phy    (:,:,:)  = 0.0_wp
-  p_diag%ddt_exner_phy (:,:,:)  = 0.0_wp
-
-  IF ( lwrite_extra) THEN
-    IF(inextra_2d > 0) &
-    p_diag%extra_2d   (:,:,:)   = 0.0_wp
-    IF(inextra_3d > 0) &
-    p_diag%extra_3d   (:,:,:,:) = 0.0_wp
-  ENDIF
-  END SUBROUTINE construct_nh_state_diag
-!-------------------------------------------------------------------------
-!
-!
-  !>
-  !! Deallocation of components of diagnostic state.
   !!
-  !!
-  !! @par Revision History
-  !! Initial release by Almut Gassmann (2009-03-06)
-  !!
-  SUBROUTINE destruct_nh_state_diag (p_diag)
+  SUBROUTINE construct_nh_state_diag_list ( p_patch, p_diag, p_diag_list,  &
+    &                                       listname )
 !
-  TYPE(t_nh_diag), TARGET, INTENT(INOUT) :: p_diag     ! current diagnostic state
+    TYPE(t_patch), TARGET, INTENT(IN) :: &  !< current patch
+      &  p_patch
 
-  INTEGER     :: ist        ! status
+    TYPE(t_nh_diag),  INTENT(INOUT)   :: &  !< diagnostic state
+      &  p_diag 
 
-!-----------------------------------------------------------------------
+    TYPE(t_var_list), POINTER         :: &  !< diagnostic state list
+      &  p_diag_list
 
-  ! u
-  DEALLOCATE(p_diag%u, STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                'deallocation for zonal wind failed')
-  ENDIF
+    CHARACTER(len=*), INTENT(IN)      :: &  !< list name
+      &  listname
 
-  ! v
-  DEALLOCATE(p_diag%v, STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                'deallocation for meridional wind failed')
-  ENDIF
+    TYPE(t_cf_var)    :: cf_desc
+    TYPE(t_grib2_var) :: grib2_desc
 
-  ! vt
-  DEALLOCATE(p_diag%vt, STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                'deallocation for vt failed')
-  ENDIF
+    INTEGER :: nblks_c, &    !< number of cell blocks to allocate
+               nblks_e, &    !< number of edge blocks to allocate
+               nblks_v       !< number of vertex blocks to allocate
 
-  ! e_kin
-  DEALLOCATE(p_diag%e_kin, STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                'deallocation for specific kinetic energy failed')
-  ENDIF
+    INTEGER :: nlev, nlevp1
 
-  ! omega_z
-  DEALLOCATE(p_diag%omega_z, STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                'deallocation for vertical voritcity failed')
-  ENDIF
+    INTEGER :: n_timlevs     !< number of time levels for advection 
+                             !< tendency fields
 
-  ! ddt_vn
-  DEALLOCATE(p_diag%ddt_vn, STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                'deallocation for normal wind tendency failed')
-  ENDIF
+    INTEGER :: shape2d_c(2), shape2d_e(2), shape3d_c(3),           &
+      &        shape3d_e(3), shape3d_v(3), shape3d_chalf(3),       &
+      &        shape3d_ehalf(3), shape4d_chalf(4), shape4d_e(4),   &
+      &        shape4d_entl(4), shape4d_chalfntl(4), shape4d_c(4), &
+      &        shape3d_ctra(3), shape2d_extra(3), shape3d_extra(4)
+ 
+    INTEGER :: ientr         !< "entropy" of horizontal slice
+    !--------------------------------------------------------------
 
-  ! ddt_w
-  DEALLOCATE(p_diag%ddt_w, STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                'deallocation for vertical wind tendency failed')
-  ENDIF
+    !determine size of arrays
+    nblks_c = p_patch%nblks_c
+    nblks_e = p_patch%nblks_e
+    nblks_v = p_patch%nblks_v
 
-  ! ddt_exner
-  DEALLOCATE(p_diag%ddt_exner, STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                'deallocation for exner pressure tendency failed')
-  ENDIF
+    ! number of vertical levels
+    nlev   = p_patch%nlev
+    nlevp1 = p_patch%nlevp1
 
-  ! exner_old
-  DEALLOCATE(p_diag%exner_old, STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                'deallocation for old exner pressure failed')
-  ENDIF
-
-  ! w_con
-  DEALLOCATE(p_diag%w_con, STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                'deallocation for w_con failed')
-  ENDIF
-
-  ! pres_sfc
-  DEALLOCATE(p_diag%pres_sfc, STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                'deallocation for surface pressure failed')
-  ENDIF
-
-  ! temp
-  DEALLOCATE(p_diag%temp, STAT=ist )
-  ! tempv
-  DEALLOCATE(p_diag%tempv, STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                'deallocation for temperature failed')
-  ENDIF
-
-  ! temp_ifc
-  DEALLOCATE(p_diag%temp_ifc, STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                'deallocation for temperature on interfaces failed')
-  ENDIF
-
-  ! pres
-  DEALLOCATE(p_diag%pres, STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                'deallocation for pressure failed')
-  ENDIF
-
-  ! pres_ifc
-  DEALLOCATE(p_diag%pres_ifc, STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                'deallocation for pressure failed')
-  ENDIF
-
-  ! dpres_mc
-  DEALLOCATE(p_diag%dpres_mc, STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                'deallocation for pressure thickness failed')
-  ENDIF
-
-
-  ! div
-  DEALLOCATE(p_diag%div, STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                'deallocation for divergence')
-  ENDIF
-
-  ! mass_fl_e
-  DEALLOCATE(p_diag%mass_fl_e, STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                'deallocation for mass_fl_e failed')
-  ENDIF
-
-  ! rho_ic
-  DEALLOCATE(p_diag%rho_ic, STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                'deallocation for rho_ic failed')
-  ENDIF
-
-  ! w_concorr_c
-  DEALLOCATE(p_diag%w_concorr_c, STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                'deallocation for w_concorr_c failed')
-  ENDIF
-
-  ! e_kinh
-  DEALLOCATE(p_diag%e_kinh, STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                'deallocation for horizontal specific kinetic energy failed')
-  ENDIF
-
-  IF (i_cell_type == 3) THEN
-
-    ! vn_ie
-    DEALLOCATE(p_diag%vn_ie, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for vn_ie failed')
+    IF (itime_scheme == 6) THEN
+     n_timlevs = 2
+    ELSE
+     n_timlevs = 1
     ENDIF
 
-    ! theta_v_ic
-    DEALLOCATE(p_diag%theta_v_ic, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for theta_v_ic failed')
+    ientr = 16   ! "entropy" of horizontal slice
+
+    ! predefined array shapes
+    shape2d_c     = (/nproma,          nblks_c    /)
+    shape2d_e     = (/nproma,          nblks_e    /)
+    shape2d_extra = (/nproma, nblks_c, inextra_2d /)
+    shape3d_c     = (/nproma, nlev,    nblks_c    /)
+    shape3d_e     = (/nproma, nlev,    nblks_e    /)
+    shape3d_v     = (/nproma, nlev,    nblks_v    /)
+    shape3d_chalf = (/nproma, nlevp1,  nblks_c    /)
+    shape3d_ehalf = (/nproma, nlevp1,  nblks_e    /)
+    shape3d_ctra  = (/nproma, nblks_c, ntracer    /)
+    shape3d_extra = (/nproma, nlev,    nblks_c, inextra_3d  /)
+    shape4d_c     = (/nproma, nlev,    nblks_c, ntracer     /)
+    shape4d_chalf = (/nproma, nlevp1,  nblks_c, ntracer     /)
+    shape4d_e     = (/nproma, nlev,    nblks_e, ntracer     /)
+    shape4d_entl  = (/nproma, nlev,    nblks_e, n_timlevs   /)
+    shape4d_chalfntl = (/nproma, nlevp1,  nblks_c, n_timlevs/)
+
+
+    !
+    ! Register a field list and apply default settings
+    !
+    CALL new_var_list( p_diag_list, TRIM(listname) )
+    CALL default_var_list_settings( p_diag_list )
+
+
+
+    ! u           p_diag%u(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('eastward_wind', 'm s-1', 'u-component of wind')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( p_diag_list, 'u', p_diag%u,                             &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+    ! v           p_diag%v(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('northward_wind', 'm s-1', 'v-component of wind')
+    grib2_desc = t_grib2_var(0, 2, 3, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( p_diag_list, 'v', p_diag%v,                             &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+    ! vt           p_diag%vt(nproma,nlev,nblks_e)
+    !
+    cf_desc    = t_cf_var('tangential_wind', 'm s-1', 'tangential-component of wind')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
+    CALL add_var( p_diag_list, 'vt', p_diag%vt,                             &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+
+
+    ! e_kin        p_diag%e_kin(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('specific_kinetic_energy', 'm2 s-2', 'specific kinetic energy')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( p_diag_list, 'e_kin', p_diag%e_kin,                             &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+    ! omega_z      p_diag%omega_z(nproma,nlev,nblks_v)
+    !
+    cf_desc    = t_cf_var('vertical_vorticity', 'm s-1', 'vertical voritcity')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_VERTEX, ZAXIS_HYBRID)
+    CALL add_var( p_diag_list, 'omega_z', p_diag%omega_z,                             &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_v )
+
+
+    ! ddt_vn       p_diag%ddt_vn(nproma,nlev,nblks_e)
+    !
+    cf_desc    = t_cf_var('normal_wind_tendency', 'm s-2', 'normal wind tendency')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
+    CALL add_var( p_diag_list, 'ddt_vn', p_diag%ddt_vn,                             &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+
+
+    ! ddt_vn_phy   p_diag%ddt_vn_phy(nproma,nlev,nblks_e)
+    !
+    cf_desc    = t_cf_var('normal_wind_physical_tendency', 'm s-2', &
+      &                   'normal wind physical tendency')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
+    CALL add_var( p_diag_list, 'ddt_vn_phy', p_diag%ddt_vn_phy,                     &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+
+
+    ! ddt_w        p_diag%ddt_w(nproma,nlevp1,nblks_c)
+    !
+    cf_desc    = t_cf_var('vertical_wind_tendency', 'm s-2', 'vertical wind tendency')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID_HALF)
+    CALL add_var( p_diag_list, 'ddt_w', p_diag%ddt_w,                             &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
+
+
+    ! ddt_exner    p_diag%ddt_exner(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('exner_pressure_tendency', 's-1', 'exner pressure tendency')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( p_diag_list, 'ddt_exner', p_diag%ddt_exner,                     &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+    ! ddt_exner_phy  p_diag%ddt_exner_phy(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('exner_pressure_physical_tendency', 's-1', &
+      &                   'exner pressure physical tendency')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( p_diag_list, 'ddt_exner_phy', p_diag%ddt_exner_phy,                     &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+    ! exner_old    p_diag%exner_old(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('old_exner_pressure', '-', 'old exner pressure')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( p_diag_list, 'exner_old', p_diag%exner_old,                     &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+    ! w_con        p_diag%w_con(nproma,nlevp1,nblks_c)
+    !
+    cf_desc    = t_cf_var('contravariant_vertical_wind', 'm s-1', &
+      &                   'contravariant_vertical_wind')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID_HALF)
+    CALL add_var( p_diag_list, 'w_con', p_diag%w_con,                     &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
+
+
+    ! pres_sfc     p_diag%pres_sfc(nproma,nblks_c)
+    !
+    cf_desc    = t_cf_var('surface_pressure', 'Pa', 'surface pressure')
+    grib2_desc = t_grib2_var(0, 3, 0, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE)
+    CALL add_var( p_diag_list, 'pres_sfc', p_diag%pres_sfc,                     &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+    ! temp         p_diag%temp(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('temperature', 'K', 'temperature')
+    grib2_desc = t_grib2_var(0, 0, 0, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( p_diag_list, 'temp', p_diag%temp,                     &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+    ! tempv        p_diag%tempv(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('virtual_temperature', 'K', 'virtual temperature')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( p_diag_list, 'tempv', p_diag%tempv,                     &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+    ! temp_ifc     p_diag%temp_ifc(nproma,nlevp1,nblks_c)
+    !
+    cf_desc    = t_cf_var('temperature', 'K', 'temperature at half level')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID_HALF)
+    CALL add_var( p_diag_list, 'temp_ifc', p_diag%temp_ifc,                     &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
+
+
+    ! pres         p_diag%pres(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('pressure', 'Pa', 'pressure')
+    grib2_desc = t_grib2_var(0, 3, 0, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( p_diag_list, 'pres', p_diag%pres,                     &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+    ! pres_ifc     p_diag%pres_ifc(nproma,nlevp1,nblks_c)
+    !
+    cf_desc    = t_cf_var('pressure', 'Pa', 'pressure at half level')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID_HALF)
+    CALL add_var( p_diag_list, 'pres_ifc', p_diag%pres_ifc,                     &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
+
+
+    ! dpres_mc     p_diag%dpres_mc(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('pressure_thickness', 'Pa', 'pressure thickness')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( p_diag_list, 'dpres_mc', p_diag%dpres_mc,                   &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+    ! div          p_diag%div(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('divergence', 's-1', 'divergence')
+    grib2_desc = t_grib2_var( 0, 2, 13, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( p_diag_list, 'div', p_diag%div,                   &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+    ! mass_fl_e    p_diag%mass_fl_e(nproma,nlev,nblks_e)
+    !
+    cf_desc    = t_cf_var('horizontal_mass_flux_at_edges', 'kg m-1 s-1', &
+       &         'horizontal mass flux at edges')
+    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
+    CALL add_var( p_diag_list, 'mass_fl_e', p_diag%mass_fl_e,                   &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+
+
+    ! rho_ic       p_diag%rho_ic(nproma,nlevp1,nblks_c)
+    !
+    cf_desc    = t_cf_var('density', 'kg m-3', 'density at half level')
+    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID_HALF)
+    CALL add_var( p_diag_list, 'rho_ic', p_diag%rho_ic,                   &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
+
+
+    ! w_concorr_c  p_diag%w_concorr_c(nproma,nlevp1,nblks_c)
+    !
+    cf_desc    = t_cf_var('contravariant_vertical_correction', 'm s-1', &
+      &                   'contravariant vertical correction')
+    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID_HALF)
+    CALL add_var( p_diag_list, 'w_concorr_c', p_diag%w_concorr_c,                   &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
+
+
+    ! e_kinh       p_diag%e_kinh(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('horizontal specific kinetic energy', 'm2 s-2', &
+      &                   'horizontal specific kinetic energy')
+    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    CALL add_var( p_diag_list, 'e_kinh', p_diag%e_kinh,                   &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+    IF (i_cell_type == 3) THEN
+      ! vn_ie        p_diag%vn_ie(nproma,nlevp1,nblks_e)
+      !
+      cf_desc    = t_cf_var('normal_wind_at_half_level', 'm s-1', &
+        &                   'normal wind at half level')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, &
+        &                      ZAXIS_HYBRID_HALF)
+      CALL add_var( p_diag_list, 'vn_ie', p_diag%vn_ie,                   &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_ehalf )
+
+
+      ! theta_v_ic   p_diag%theta_v_ic(nproma,nlevp1,nblks_c)
+      !
+      cf_desc    = t_cf_var('potential_temperature_at_half_levels', 'K', &
+        &                   'potential temperature at half levels')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+        &                      ZAXIS_HYBRID_HALF)
+      CALL add_var( p_diag_list, 'theta_v_ic', p_diag%theta_v_ic,                   &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
+
+
+      ! ddt_vn_adv   p_diag%ddt_vn_adv(nproma,nlev,nblks_e,n_timlevs)
+      !
+      cf_desc    = t_cf_var('advective_normal_wind_tendency', 'm s-2', &
+        &                   'advective normal wind tendency')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
+      CALL add_var( p_diag_list, 'ddt_vn_adv', p_diag%ddt_vn_adv,                &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape4d_entl )
+
+
+      ! ddt_w_adv    p_diag%ddt_w_adv(nproma,nlevp1,nblks_c,n_timlevs)
+      !
+      cf_desc    = t_cf_var('advective_vertical_wind_tendency', 'm s-2', &
+        &                   'advective vertical wind tendency')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+        &                      ZAXIS_HYBRID_HALF)
+      CALL add_var( p_diag_list, 'ddt_w_adv', p_diag%ddt_w_adv,                &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape4d_chalfntl )
+
+
+      ! grf_tend_vn  p_diag%grf_tend_vn(nproma,nlev,nblks_e)
+      !
+      cf_desc    = t_cf_var('normal_wind_tendency', 'm s-2',          &
+        &                   'normal wind tendency (grid refinement)')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
+      CALL add_var( p_diag_list, 'grf_tend_vn', p_diag%grf_tend_vn,                &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+
+
+      ! grf_tend_w  p_diag%grf_tend_w(nproma,nlevp1,nblks_c)
+      !
+      cf_desc    = t_cf_var('vertical_wind_tendency', 'm s-2',          &
+        &                   'vertical wind tendency (grid refinement)')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL,  &
+        &                      ZAXIS_HYBRID_HALF)
+      CALL add_var( p_diag_list, 'grf_tend_w', p_diag%grf_tend_w,                &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
+
+
+      ! grf_tend_rho   p_diag%grf_tend_rho(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('density_tendency', 'kg m-3 s-1',          &
+        &                   'density tendency (grid refinement)')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+      CALL add_var( p_diag_list, 'grf_tend_rho', p_diag%grf_tend_rho,              &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+      ! grf_tend_thv   p_diag%grf_tend_thv(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('virtual_potential_temperature_tendency', 'K s-1',   &
+        &                   'virtual potential temperature tendency (grid refinement)')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+      CALL add_var( p_diag_list, 'grf_tend_thv', p_diag%grf_tend_thv,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+      ! Storage fields for vertical nesting; the middle index (2) addresses 
+      ! the field and its temporal tendency
+
+      ! dvn_ie_int   p_diag%dvn_ie_int(nproma,nblks_e)
+      !
+      cf_desc    = t_cf_var('normal_velocity_parent_interface_level', 'm s-1',   &
+        &                   'normal velocity at parent interface level')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, ZAXIS_SURFACE)
+      CALL add_var( p_diag_list, 'dvn_ie_int', p_diag%dvn_ie_int,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_e )
+
+
+      ! dvn_ie_ubc   p_diag%dvn_ie_ubc(nproma,nblks_e)
+      !
+      cf_desc    = t_cf_var('normal_velocity_child_upper_boundary', 'm s-1',   &
+        &                   'normal velocity at child upper boundary')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, ZAXIS_SURFACE)
+      CALL add_var( p_diag_list, 'dvn_ie_ubc', p_diag%dvn_ie_ubc,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_e )
+
+
+      ! drho_ic_int  p_diag%drho_ic_int(nproma,nblks_c)
+      !
+      cf_desc    = t_cf_var('rho_at_parent_interface_level', 'kg m-3',   &
+        &                   'rho at parent interface level')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE)
+      CALL add_var( p_diag_list, 'drho_ic_int', p_diag%drho_ic_int,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+      ! drho_ic_ubc  p_diag%drho_ic_ubc(nproma,nblks_c)
+      !
+      cf_desc    = t_cf_var('density_at_child_upper_boundary', 'kg m-3',   &
+        &                   'density at child upper boundary')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE)
+      CALL add_var( p_diag_list, 'drho_ic_ubc', p_diag%drho_ic_ubc,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+      ! dtheta_v_ic_int    p_diag%dtheta_v_ic_int(nproma,nblks_c)
+      !
+      cf_desc    = t_cf_var('theta_at_parent_interface_level', 'K',   &
+        &                   'potential temperature at parent interface level')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE)
+      CALL add_var( p_diag_list, 'dtheta_v_ic_int', p_diag%dtheta_v_ic_int,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+      ! dtheta_v_ic_ubc    p_diag%dtheta_v_ic_ubc(nproma,nblks_c)
+      !
+      cf_desc    = t_cf_var('theta_at_child_upper_boundary', 'K',   &
+        &                   'potential temperature at child upper boundary')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE)
+      CALL add_var( p_diag_list, 'dtheta_v_ic_ubc', p_diag%dtheta_v_ic_ubc,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+      ! dw_int       p_diag%dw_int(nproma,nblks_c)
+      !
+      cf_desc    = t_cf_var('w_at_parent_interface_level', 'm s-1',   &
+        &                   'vertical velocity at parent interface level')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE)
+      CALL add_var( p_diag_list, 'dw_int', p_diag%dw_int,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+      ! dw_ubc       p_diag%dw_ubc(nproma,nblks_c)
+      !
+      cf_desc    = t_cf_var('w at child upper boundary', 'm s-1',   &
+        &                   'vertical velocity at child upper boundary')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE)
+      CALL add_var( p_diag_list, 'dw_ubc', p_diag%dw_ubc,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+      ! q_int        p_diag%q_int(nproma,nblks_c,ntracer)
+      !
+      cf_desc    = t_cf_var('q_at_parent_interface_level', 'kg kg-1',   &
+        &                   'q at parent interface level')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE)
+      CALL add_var( p_diag_list, 'q_int', p_diag%q_int,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_ctra )
+
+
+      ! q_ubc        p_diag%q_ubc(nproma,nblks_c,ntracer)
+      !
+      cf_desc    = t_cf_var('q_at_child_upper_boundary', 'kg kg-1',   &
+        &                   'q at child upper boundary')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE)
+      CALL add_var( p_diag_list, 'q_ubc', p_diag%q_ubc,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_ctra )
+
+
+      ! thermal_exp_fastphy     p_diag%thermal_exp_fastphy(nproma,nblks_c)
+      !
+      cf_desc    = t_cf_var('thermal_expansion_due_to_fast_physics', '',   &
+        &                   'thermal expansion due to fast physics')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE)
+      CALL add_var( p_diag_list, 'thermal_exp_fastphy', p_diag%thermal_exp_fastphy,    &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+    ELSE IF (i_cell_type == 6) THEN
+
+      ! theta_v_ic   p_diag%theta_v_ic(nproma,nlevp1,nblks_c)
+      !
+      cf_desc    = t_cf_var('potential_temperature_at_half_level', 'K', &
+        &                   'potential temperature at half level')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+        &                      ZAXIS_HYBRID_HALF)
+      CALL add_var( p_diag_list, 'theta_v_ic', p_diag%theta_v_ic,                   &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
+
+
+      ! theta_v_impl   p_diag%theta_v_impl(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('(nnow+nnew)/2_from_impl._vert._adv._of_theta_v', 'K', &
+        &                   '(nnow+nnew)/2 from impl. vert. adv. of theta_v')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+      CALL add_var( p_diag_list, 'theta_v_impl', p_diag%theta_v_impl,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+      ! horpgrad     p_diag%horpgrad(nproma,nlev,nblks_e)
+      !
+      cf_desc    = t_cf_var('covariant_horizontal_pressure_gradient', 'Pa m-1', &
+        &                   'covariant horizontal pressure gradient')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
+      CALL add_var( p_diag_list, 'horpgrad', p_diag%horpgrad,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+
+
+      ! vn_cov       p_diag%vn_cov(nproma,nlev,nblks_e)
+      !
+      cf_desc    = t_cf_var('covariant_normal_wind', 'm s-1', &
+        &                   'covariant normal wind')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
+      CALL add_var( p_diag_list, 'vn_cov', p_diag%vn_cov,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+
+
+      ! w_cov        p_diag%w_cov(nproma,nlevp1,nblks_c)
+      !
+      cf_desc    = t_cf_var('covariant_vertical_wind', 'm s-1', &
+        &                   'covariant vertical wind at half level')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+        &                      ZAXIS_HYBRID_HALF)
+      CALL add_var( p_diag_list, 'w_cov', p_diag%w_cov,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
+
+
+      ! omega_t_con  p_diag%omega_t_con(nproma,nlevp1,nblks_e)
+      !
+      cf_desc    = t_cf_var('tangential_horiz._contravariant_vorticity', 's-1', &
+        &                   'tangential horiz. contravariant vorticity')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, &
+        &                      ZAXIS_HYBRID_HALF)
+      CALL add_var( p_diag_list, 'omega_t_con', p_diag%omega_t_con,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_ehalf )
+
+
+      ! omega_x      p_diag%omega_x(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('zonal_vorticity', 's-1', 'zonal vorticity')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+      CALL add_var( p_diag_list, 'omega_x', p_diag%omega_x,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+      ! omega_y      p_diag%omega_y(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('meridional_vorticity', 's-1', 'meridional vorticity')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+      CALL add_var( p_diag_list, 'omega_y', p_diag%omega_y,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+      ! omega_z_con  p_diag%omega_z_con(nproma,nlev,nblks_v)
+      !
+      cf_desc    = t_cf_var('vertical_vorticity', 's-1', &
+        &                   'contravariant vertical vorticity')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_VERTEX, &
+        &                      ZAXIS_HYBRID)
+      CALL add_var( p_diag_list, 'omega_z_con', p_diag%omega_z_con,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_v )
+
+
+      ! ddt_vn_vort  p_diag%ddt_vn_vort(nproma,nlev,nblks_e)
+      !
+      cf_desc    = t_cf_var('normal_wind_tendency', 'm s-2', &
+        &                   'normal wind tendency from vorticity flux term')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
+      CALL add_var( p_diag_list, 'ddt_vn_vort', p_diag%ddt_vn_vort,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+
+
+      ! ddt_w_vort   p_diag%ddt_w_vort(nproma,nlevp1,nblks_c)
+      !
+      cf_desc    = t_cf_var('vert._wind_tendency', 'm s-2', &
+        &                   'vert. wind tendency from vorticity flux term')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+        &                      ZAXIS_HYBRID_HALF)
+      CALL add_var( p_diag_list, 'ddt_w_vort', p_diag%ddt_w_vort,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
+
     ENDIF
 
-    ! ddt_vn_adv
-    DEALLOCATE(p_diag%ddt_vn_adv, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for normal wind tendency failed')
+
+    !
+    ! tracers
+    !
+    IF ( ltransport ) THEN
+      ! grf_tend_tracer   p_diag%grf_tend_tracer(nproma,nlev,nblks_c,ntracer)
+      !
+      cf_desc    = t_cf_var('tracer_tendency', 'kg kg-1 s-1', &
+        &                   'tracer_tendency for grid refinement')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+      CALL add_var( p_diag_list, 'grf_tend_tracer', p_diag%grf_tend_tracer,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape4d_c )
+
+
+      ! hfl_tracer   p_diag%hfl_tracer(nproma,nlev,nblks_e,ntracer)
+      !
+      cf_desc    = t_cf_var('horizontal tracer flux', 'kg m-1 s-1', &
+        &                   'horizontal tracer flux')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
+      CALL add_var( p_diag_list, 'hfl_tracer', p_diag%hfl_tracer,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape4d_e )
+
+
+      ! vfl_tracer   p_diag%vfl_tracer(nproma,nlevp1,nblks_c,ntracer)
+      !
+      cf_desc    = t_cf_var('vertical_tracer_flux', 'kg m-1 s-1', &
+        &                   'vertical tracer flux')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+        &                      ZAXIS_HYBRID_HALF)
+      CALL add_var( p_diag_list, 'vfl_tracer', p_diag%vfl_tracer,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape4d_chalf )
+
+
+      ! ddt_tracer_adv   p_diag%ddt_tracer_adv(nproma,nlev,nblks_c,ntracer)
+      !
+      cf_desc    = t_cf_var('advective tracer tendency', 'kg kg-1 s-1', &
+        &                   'advective tracer tendency')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+      CALL add_var( p_diag_list, 'ddt_tracer_adv', p_diag%ddt_tracer_adv,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape4d_c )
+
     ENDIF
 
-    ! ddt_w_adv
-    DEALLOCATE(p_diag%ddt_w_adv, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for vertical wind tendency failed')
+
+
+    IF( iforcing== inwp) THEN  !T.R
+      ! ddt_tracer_phy   p_diag%ddt_tracer_phy(nproma,nlev,nblks_c,ntracer)
+      !
+      cf_desc    = t_cf_var('physical tracer tendency', 'kg kg-1 s-1', &
+        &                   'physical tracer tendency')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+      CALL add_var( p_diag_list, 'ddt_tracer_phy', p_diag%ddt_tracer_phy,            &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape4d_c )
     ENDIF
 
-    ! grf_tend_vn
-    DEALLOCATE(p_diag%grf_tend_vn, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for grf_tend_vn failed')
+
+    IF( lwrite_extra) THEN
+      WRITE(0,*)'inextra_2d=',inextra_2d
+
+      IF(inextra_2d > 0) THEN
+
+        ! extra_2d   p_diag%extra_2d(nproma,nblks_c,inextra_2d)
+        !
+        cf_desc    = t_cf_var('extra_field_2D', '-', 'extra field 2D')
+        grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+          &                      ZAXIS_SURFACE)
+        CALL add_var( p_diag_list, 'extra_2d', p_diag%extra_2d,            &
+                    & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_extra )
+      ENDIF
+
+      IF(inextra_3d > 0) THEN
+
+        ! extra_3d   p_diag%extra_3d(nproma,nlev,nblks_c,inextra_3d)
+        !
+        cf_desc    = t_cf_var('extra_fields_3D', '-', 'extra fields 3D')
+        grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+          &                      ZAXIS_HYBRID)
+        CALL add_var( p_diag_list, 'extra_3d', p_diag%extra_3d,            &
+                    & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_extra )
+
+      ENDIF
     ENDIF
 
-    ! grf_tend_w
-    DEALLOCATE(p_diag%grf_tend_w, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for grf_tend_w failed')
-    ENDIF
 
-    ! grf_tend_rho
-    DEALLOCATE(p_diag%grf_tend_rho, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for grf_tend_rho failed')
-    ENDIF
-
-    ! grf_tend_thv
-    DEALLOCATE(p_diag%grf_tend_thv, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for grf_tend_thv failed')
-    ENDIF
-
-    ! dvn_ie_int
-    DEALLOCATE(p_diag%dvn_ie_int, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for dvn_ie_int failed')
-    ENDIF
-
-    ! dvn_ie_ubc
-    DEALLOCATE(p_diag%dvn_ie_ubc, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for dvn_ie_ubc failed')
-    ENDIF
-
-    ! drho_ic_int
-    DEALLOCATE(p_diag%drho_ic_int, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for drho_ic_int failed')
-    ENDIF
-
-    ! drho_ic_ubc
-    DEALLOCATE(p_diag%drho_ic_ubc, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for drho_ic_ubc failed')
-    ENDIF
-
-    ! dtheta_v_ic_int
-    DEALLOCATE(p_diag%dtheta_v_ic_int, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for dtheta_v_ic_int failed')
-    ENDIF
-
-    ! dtheta_v_ic_ubc
-    DEALLOCATE(p_diag%dtheta_v_ic_ubc, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for dtheta_v_ic_ubc failed')
-    ENDIF
-
-    ! dw_int
-    DEALLOCATE(p_diag%dw_int, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for dw_int failed')
-    ENDIF
-
-    ! dw_ubc
-    DEALLOCATE(p_diag%dw_ubc, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for dw_ubc failed')
-    ENDIF
-
-    ! q_int
-    DEALLOCATE(p_diag%q_int, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for q_int failed')
-    ENDIF
-
-    ! q_ubc
-    DEALLOCATE(p_diag%q_ubc, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for q_ubc failed')
-    ENDIF
-
-    ! thermal_exp_fastphy
-    DEALLOCATE(p_diag%thermal_exp_fastphy, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for thermal_exp_fastphy failed')
-    ENDIF
-
-  ELSE IF (i_cell_type == 6) THEN
-
-    ! theta_v_ic
-    DEALLOCATE(p_diag%theta_v_ic, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for theta_v_ic failed')
-    ENDIF
-
-    ! theta_v_impl
-    DEALLOCATE(p_diag%theta_v_impl, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for theta_v_impl failed')
-    ENDIF
-
-    ! horpgrad
-    DEALLOCATE(p_diag%horpgrad, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for horpgrad failed')
-    ENDIF
-
-    ! vn_cov
-    DEALLOCATE(p_diag%vn_cov, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for vn_cov failed')
-    ENDIF
-
-    ! w_cov
-    DEALLOCATE(p_diag%w_cov, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for w_cov failed')
-    ENDIF
-
-    ! omega_t_con
-    DEALLOCATE(p_diag%omega_t_con, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for tangential contrav. voritcity failed')
-    ENDIF
-
-    !omega_x
-    DEALLOCATE(p_diag%omega_x, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for zonal vorticity failed')
-    ENDIF
-
-    !omega_y
-    DEALLOCATE(p_diag%omega_y, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for meridional vorticity failed')
-    ENDIF
-
-    ! omega_z_con
-    DEALLOCATE(p_diag%omega_z_con, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for vertical contrav. voritcity failed')
-    ENDIF
-
-    ! ddt_vn_vort
-    DEALLOCATE(p_diag%ddt_vn_vort, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for normal wind tendency failed')
-    ENDIF
-
-    ! ddt_w_vort
-    DEALLOCATE(p_diag%ddt_w_vort, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for vertical wind tendency failed')
-    ENDIF
-
-  ENDIF
-
-  !tracers
-  IF ( ltransport ) THEN
-    ! grf_tend_tracer
-    DEALLOCATE(p_diag%grf_tend_tracer, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for grf_tend_tracer failed')
-    ENDIF
-
-    ! hfl_tracer
-    DEALLOCATE(p_diag%hfl_tracer, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for horizontal tracer flux at edges failed')
-    ENDIF
-
-    ! vfl_tracer
-    DEALLOCATE(p_diag%vfl_tracer, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for vertical tracer flux at half levels failed')
-    ENDIF
-
-    ! ddt_tracer_adv
-    DEALLOCATE(p_diag%ddt_tracer_adv, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:destruct_nh_state_diag', &
-                  'deallocation for ddt_tracer_adv failed')
-    ENDIF
-
-  ENDIF
+  END SUBROUTINE construct_nh_state_diag_list
 
 
-  IF( iforcing== inwp) THEN  !T.R
-    DEALLOCATE(p_diag%ddt_tracer_phy, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-           'deallocation of p_diag%ddt_tracer_phy failed')
-    ENDIF
-  ENDIF 
-  DEALLOCATE(p_diag%ddt_vn_phy, STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-         'deallocation of p_diag%ddt_vn_phy failed')
-  ENDIF
-  DEALLOCATE(p_diag%ddt_exner_phy, STAT=ist )
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-         'deallocation of p_diag%ddt_exner_phy failed')
-  ENDIF
 
-  IF( lwrite_extra) THEN  
-    IF(inextra_2d > 0) &
-    DEALLOCATE(p_diag%extra_2d, STAT=ist )
-    IF(inextra_3d > 0) &
-    DEALLOCATE(p_diag%extra_3d, STAT=ist )
-    IF (ist/=SUCCESS)THEN
-      CALL finish('mo_nonhydro_state:construct_nh_state_diag', &
-           'deallocation of debugging extra fields failed')
-    ENDIF
-  ENDIF 
-
-
-  END SUBROUTINE destruct_nh_state_diag
 
   !---------------------------------------------------------------------------
   !>
@@ -1711,626 +1390,562 @@ MODULE mo_nonhydro_state
   !! Initial release by Almut Gassmann (2009-04-14)
   !! Modification by Daniel Reinert, DWD, (2010-04-22)
   !! - added geometric height at full levels
-
-
-  SUBROUTINE construct_nh_metrics(p_patch, p_metrics)
-
-    TYPE(t_patch), TARGET, INTENT(IN) :: p_patch !< patch
-
-    TYPE(t_nh_metrics), TARGET, INTENT(INOUT):: p_metrics ! metrics state
-
-    INTEGER :: nblks_c, nblks_e, nblks_v, ist
-    INTEGER :: nlev, nlevp1        ! number of full levels
-    !------------------------------------------------------------------
-
-      nblks_c = p_patch%nblks_c
-      nblks_e = p_patch%nblks_e
-      nblks_v = p_patch%nblks_v
-
-      ! number of vertical levels
-      nlev   = p_patch%nlev
-      nlevp1 = p_patch%nlevp1
-
-      ! geometric height at the vertical interface of cells
-      ALLOCATE(p_metrics%z_ifc(nproma,nlevp1,nblks_c), STAT = ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for z_ifc failed')
-      ENDIF
-
-      ! geometric height at full levels
-      ALLOCATE(p_metrics%z_mc(nproma,nlev,nblks_c), STAT = ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for z_mc failed')
-      ENDIF
-
-      ! geometric height at full level edges
-      ALLOCATE(p_metrics%z_mc_e(nproma,nlev,nblks_e), STAT = ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for z_mc_e failed')
-      ENDIF
-
-      ! slope of the terrain in normal direction
-      ALLOCATE(p_metrics%ddxn_z_half(nproma,nlevp1,nblks_e),STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for ddxn_z_half failed')
-      ENDIF
-      ! slope of the terrain
-      ALLOCATE(p_metrics%ddxn_z_full(nproma,nlev,nblks_e),STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for ddxn_z_full failed')
-      ENDIF
-      ! slope of the terrain in tangential direction
-      ALLOCATE(p_metrics%ddxt_z_half(nproma,nlevp1,nblks_e),STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for ddxt_z_half failed')
-      ENDIF
-
-      ! functional determinant of the metrics [sqrt(gamma)]
-      ALLOCATE(p_metrics%ddqz_z_full(nproma,nlev,nblks_c), STAT = ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for ddqz_z_full failed')
-      ENDIF
-      ! functional determinant of the metrics [sqrt(gamma)]
-      ALLOCATE(p_metrics%ddqz_z_full_e(nproma,nlev,nblks_e),STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for ddqz_z_full_e failed')
-      ENDIF
-      ! functional determinant of the metrics [sqrt(gamma)]
-      ALLOCATE(p_metrics%ddqz_z_half(nproma,nlevp1,nblks_c),STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for ddqz_z_half failed')
-      ENDIF
-
-      ! 1/dz(k-1)-1/dz(k) 
-      ALLOCATE(p_metrics%diff_1_o_dz(nproma,nlevp1,nblks_c),STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for diff_1_o_dz failed')
-      ENDIF
-      ! 1/(dz(k-1)*dz(k))
-      ALLOCATE(p_metrics%mult_1_o_dz(nproma,nlevp1,nblks_c),STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for mult_1_o_dz failed')
-      ENDIF
-
-      ! geopotential at cell center
-      ALLOCATE(p_metrics%geopot(nproma,nlev,nblks_c), STAT = ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for geopot failed')
-      ENDIF
-
-      ! geopotential on interfaces at cell center
-      ALLOCATE(p_metrics%geopot_ifc(nproma,nlevp1,nblks_c), STAT = ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for geopot_ifc failed')
-      ENDIF
-
-      ! geopotential above groundlevel at cell center
-      ALLOCATE(p_metrics%geopot_agl    (nproma,nlev  ,nblks_c), STAT = ist)
-      ALLOCATE(p_metrics%geopot_agl_ifc(nproma,nlevp1,nblks_c), STAT = ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for geopot_agl failed')
-      ENDIF
-
-      ! geopotential at cell center
-      ALLOCATE(p_metrics%dgeopot_mc(nproma,nlev,nblks_c), STAT = ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for dgeopot_mc failed')
-      ENDIF
-
-
-      ! Rayleigh damping
-      ALLOCATE(p_metrics%rayleigh_w(nproma,nlevp1,nblks_c),STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for rayleigh_w failed')
-      ENDIF
-
-      ! Explicit weight in vertical wind solver
-      ALLOCATE(p_metrics%vwind_expl_wgt(nproma,nblks_c),STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for vwind_expl_wgt failed')
-      ENDIF
-
-      ! Implicit weight in vertical wind solver
-      ALLOCATE(p_metrics%vwind_impl_wgt(nproma,nblks_c),STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                    'allocation for vwind_impl_wgt failed')
-      ENDIF
-
-! These fields are needed for triangles only once the initialization in
-! mo_nh_testcases is properly rewritten for hexagons
-!      IF (i_cell_type== 3) THEN
-        ! weighting factor for interpolation from full to half levels
-        ALLOCATE(p_metrics%wgtfac_c(nproma,nlevp1,nblks_c),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for wgtfac_c failed')
-        ENDIF
-
-       ! weighting factor for interpolation from full to half levels
-        ALLOCATE(p_metrics%wgtfac_e(nproma,nlevp1,nblks_e),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for wgtfac_e failed')
-        ENDIF
-
-       ! weighting factor for quadratic interpolation to surface
-        ALLOCATE(p_metrics%wgtfacq_c(nproma,3,nblks_c),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for wgtfacq_c failed')
-        ENDIF
-
-       ! weighting factor for quadratic interpolation to surface
-        ALLOCATE(p_metrics%wgtfacq_e(nproma,3,nblks_e),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for wgtfacq_e failed')
-        ENDIF
-
-       ! weighting factor for quadratic interpolation to model top
-        ALLOCATE(p_metrics%wgtfacq1_c(nproma,3,nblks_c),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for wgtfacq1_c failed')
-        ENDIF
-
-       ! weighting factor for quadratic interpolation to model top
-        ALLOCATE(p_metrics%wgtfacq1_e(nproma,3,nblks_e),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for wgtfacq1_e failed')
-        ENDIF
-       ! Inverse layer thickness of full levels
-        ALLOCATE(p_metrics%inv_ddqz_z_full(nproma,nlev,nblks_c),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for inv_ddqz_z_full failed')
-        ENDIF
-
-       ! Inverse distance between full levels jk+1 and jk-1
-        ALLOCATE(p_metrics%inv_ddqz_z_half2(nproma,nlev,nblks_c),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for inv_ddqz_z_half2 failed')
-        ENDIF
-
-      IF (i_cell_type== 3) THEN
-       ! Vertical index of neighbor points needed for Taylor-expansion-based pressure gradient
-        ALLOCATE(p_metrics%vertidx_gradp(2,nproma,nlev,nblks_e),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for vertidx_gradp failed')
-        ENDIF
-
-       ! Height differences between local edge point and neighbor cell points used for
-       ! pressure gradient computation
-        ALLOCATE(p_metrics%zdiff_gradp(2,nproma,nlev,nblks_e),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for zdiff_gradp failed')
-        ENDIF
-
-       ! Extrapolation factor for Exner pressure
-        ALLOCATE(p_metrics%exner_exfac(nproma,nlev,nblks_c),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for exner_exfac failed')
-        ENDIF
-
-        ! Reference atmosphere fields
-        ALLOCATE(p_metrics%theta_ref_mc(nproma,nlev,nblks_c),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for theta_ref_mc failed')
-        ENDIF
-
-        ALLOCATE(p_metrics%theta_ref_ic(nproma,nlevp1,nblks_c),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for theta_ref_ic failed')
-        ENDIF
-
-        ALLOCATE(p_metrics%exner_ref_mc(nproma,nlev,nblks_c),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for exner_ref_mc failed')
-        ENDIF
-
-        ALLOCATE(p_metrics%d_exner_dz_ref_ic(nproma,nlevp1,nblks_c),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for d_exner_dz_ref_ic failed')
-        ENDIF
-
-        ALLOCATE(p_metrics%d_exner_dz_ref_mc(nproma,nlev,nblks_c),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for d_exner_dz_ref_mc failed')
-        ENDIF
-
-        ALLOCATE(p_metrics%d2_exner_dz2_ref_mc(nproma,nlev,nblks_c),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for d2_exner_dz2_ref_mc failed')
-        ENDIF
-
-        ALLOCATE(p_metrics%rho_refcorr_ic(nproma,nlevp1,nblks_c),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for rho_refcorr_ic failed')
-        ENDIF
-
-        ALLOCATE(p_metrics%mask_prog_halo_c(nproma,nblks_c),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for mask_prog_halo_c failed')
-        ENDIF
-
-      ELSE IF (i_cell_type== 6) THEN
-!      IF (i_cell_type== 6) THEN
-        ! slope of the coordinate lines in Northern direction
-        ALLOCATE(p_metrics%ddnorth_z(nproma,nlev,nblks_v),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for ddnorth_z failed')
-        ENDIF
-        ! slope of the coordinate lines in Eastern direction
-        ALLOCATE(p_metrics%ddeast_z(nproma,nlev,nblks_v),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for ddeast_z failed')
-        ENDIF
-        ! functional determinant of the metrics [sqrt(gamma)]
-        ALLOCATE(p_metrics%ddqz_z_full_v(nproma,nlev,nblks_v),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for ddqz_z_full_v failed')
-        ENDIF
-
-        ! functional determinant of the metrics [sqrt(gamma)]
-        ALLOCATE(p_metrics%ddqz_z_half_e(nproma,nlevp1,nblks_e),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for ddqz_z_half_e failed')
-        ENDIF
-        ! functional determinant of the metrics [sqrt(gamma)]
-        ALLOCATE(p_metrics%ddqz_z_half_r(nproma,nlevp1,nblks_e),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for ddqz_z_half_r failed')
-        ENDIF
-        ! functional determinant of the metrics [sqrt(gamma)]
-        ALLOCATE(p_metrics%ddqz_z_half_v(nproma,nlevp1,nblks_v),STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:construct_nh_metrics', &
-                      'allocation for ddqz_z_half_v failed')
-        ENDIF
-
-      ENDIF
-
-  END SUBROUTINE construct_nh_metrics
-
-  !>
-  !! Deallocation of components of diagnostic state.
-  !!
-  !!
-  !! @par Revision History
-  !! Initial release by Almut Gassmann (2009-03-06)
-  !!
-  SUBROUTINE destruct_nh_metrics (p_metrics)
+  SUBROUTINE construct_nh_metrics_list ( p_patch, p_metrics, p_metrics_list,  &
+    &                                    listname )
 !
-    TYPE(t_nh_metrics), TARGET, INTENT(INOUT) :: p_metrics     ! current metrics state
+    TYPE(t_patch), TARGET, INTENT(IN) :: &  !< current patch
+      &  p_patch
 
-    INTEGER     :: ist        ! status
+    TYPE(t_nh_metrics),  INTENT(INOUT):: &  !< diagnostic state
+      &  p_metrics 
 
-      ! geometric height at the vertical interface of cells
-      DEALLOCATE(p_metrics%z_ifc, STAT = ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                    'deallocation for z_ifc failed')
-      ENDIF
+    TYPE(t_var_list), POINTER         :: &  !< diagnostic state list
+      &  p_metrics_list
 
-      ! geometric height at full levels
-      DEALLOCATE(p_metrics%z_mc, STAT = ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                    'deallocation for z_mc failed')
-      ENDIF
+    CHARACTER(len=*), INTENT(IN)      :: &  !< list name
+      &  listname
 
-      ! geometric height at full level edges
-      DEALLOCATE(p_metrics%z_mc_e, STAT = ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                    'deallocation for z_mc_e failed')
-      ENDIF
+    TYPE(t_cf_var)    :: cf_desc
+    TYPE(t_grib2_var) :: grib2_desc
 
-      ! slope of the terrain in normal direction
-      DEALLOCATE(p_metrics%ddxn_z_half,STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                    'deallocation for ddxn_z_half failed')
-      ENDIF
-      ! slope of the terrain
-      DEALLOCATE(p_metrics%ddxn_z_full,STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                    'deallocation for ddxn_z_full failed')
-      ENDIF
-      ! slope of the terrain in tangential direction
-      DEALLOCATE(p_metrics%ddxt_z_half,STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                    'deallocation for ddxt_z_half failed')
-      ENDIF
+    INTEGER :: nblks_c, &    !< number of cell blocks to allocate
+               nblks_e, &    !< number of edge blocks to allocate
+               nblks_v       !< number of vertex blocks to allocate
 
-      ! functional determinant of the metrics [sqrt(gamma)]
-      DEALLOCATE(p_metrics%ddqz_z_full, STAT = ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                    'deallocation for ddqz_z_full failed')
-      ENDIF
-      ! functional determinant of the metrics [sqrt(gamma)]
-      DEALLOCATE(p_metrics%ddqz_z_full_e,STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                    'deallocation for ddqz_z_full_e failed')
-      ENDIF
-      ! functional determinant of the metrics [sqrt(gamma)]
-      DEALLOCATE(p_metrics%ddqz_z_half,STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                    'deallocation for ddqz_z_half failed')
-      ENDIF
+    INTEGER :: nlev, nlevp1
 
-      ! 1/dz(k-1)-1/dz(k)
-      DEALLOCATE(p_metrics%diff_1_o_dz,STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                    'deallocation for diff_1_o_dz failed')
-      ENDIF
-      ! 1/(dz(k-1)*dz(k))
-      DEALLOCATE(p_metrics%mult_1_o_dz,STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                    'deallocation for mult_1_o_dz failed')
-      ENDIF
+    INTEGER :: shape2d_c(2), shape3d_c(3), shape3d_e(3),               &
+      &        shape3d_v(3), shape3d_chalf(3), shape3d_ehalf(3),       &
+      &        shape2d_ccubed(3), shape2d_ecubed(3), shape3d_vhalf(3), & 
+      &        shape3d_esquared(4) 
+    INTEGER :: ientr         !< "entropy" of horizontal slice
+    !--------------------------------------------------------------
 
-      ! geopotential at cell center
-      DEALLOCATE(p_metrics%geopot, STAT = ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                    'deallocation for geopot failed')
-      ENDIF
+    nblks_c = p_patch%nblks_c
+    nblks_e = p_patch%nblks_e
+    nblks_v = p_patch%nblks_v
 
-      ! geopotential at cell center
-      DEALLOCATE(p_metrics%geopot_ifc, STAT = ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                    'deallocation for geopot_ifc failed')
-      ENDIF
+    ! number of vertical levels
+    nlev   = p_patch%nlev
+    nlevp1 = p_patch%nlevp1
 
-      ! geopotential at cell center above groundlevel
-      DEALLOCATE(p_metrics%geopot_agl,     STAT = ist)
-      DEALLOCATE(p_metrics%geopot_agl_ifc, STAT = ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                    'deallocation for geopot_agl failed')
-      ENDIF
+    ientr = 16   ! "entropy" of horizontal slice
 
-      ! Rayleigh damping
-      DEALLOCATE(p_metrics%rayleigh_w,STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                    'deallocation for rayleigh_w failed')
-      ENDIF
+    ! predefined array shapes
+    shape2d_c        = (/nproma,          nblks_c    /)     
+    shape2d_ccubed   = (/nproma, 3,       nblks_c    /)     
+    shape2d_ecubed   = (/nproma, 3,       nblks_e    /)     
+    shape3d_c        = (/nproma, nlev,    nblks_c    /)     
+    shape3d_chalf    = (/nproma, nlevp1,  nblks_c    /)      
+    shape3d_e        = (/nproma, nlev,    nblks_e    /)     
+    shape3d_ehalf    = (/nproma, nlevp1,  nblks_e    /)     
+    shape3d_esquared = (/2     , nproma,   nlev,    nblks_e  /)
+    shape3d_v        = (/nproma, nlev,    nblks_v    /)     
+    shape3d_vhalf    = (/nproma, nlev,    nblks_v    /)
 
-      ! Explicit weight in vertical wind solver
-      DEALLOCATE(p_metrics%vwind_expl_wgt,STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                    'deallocation for vwind_expl_wgt failed')
-      ENDIF
 
-      ! Implicit weight in vertical wind solver
-      DEALLOCATE(p_metrics%vwind_impl_wgt,STAT=ist)
-      IF (ist/=SUCCESS)THEN
-        CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                    'deallocation for vwind_impl_wgt failed')
-      ENDIF
+    !
+    ! Register a field list and apply default settings
+    !
+    CALL new_var_list( p_metrics_list, TRIM(listname) )
+    CALL default_var_list_settings( p_metrics_list )
+
+
+    ! geometric height at the vertical interface of cells
+    ! z_ifc        p_metrics%z_ifc(nproma,nlevp1,nblks_c)
+    !
+    cf_desc    = t_cf_var('geometric_height_at_half_level_center', 'm', &
+      &                   'geometric height at half level center')
+    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+      &                      ZAXIS_HYBRID_HALF)
+    CALL add_var( p_metrics_list, 'z_ifc', p_metrics%z_ifc,            &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
+
+
+    ! geometric height at full levels
+    ! z_mc         p_metrics%z_mc(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('geometric_height_at_full_level_center', 'm', &
+      &                   'geometric height at full level center')
+    grib2_desc = t_grib2_var( 0, 3, 6, ientr, GRID_REFERENCE, GRID_CELL, &
+      &                      ZAXIS_HYBRID)
+    CALL add_var( p_metrics_list, 'z_mc', p_metrics%z_mc,            &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+    ! geometric height at full level edges
+    ! z_mc_e       p_metrics%z_mc_e(nproma,nlev,nblks_e)
+    !
+    cf_desc    = t_cf_var('geometric_height_at_full_level_edge', 'm', &
+      &                   'geometric height at full level edge')
+    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, &
+      &                      ZAXIS_HYBRID)
+    CALL add_var( p_metrics_list, 'z_mc_e', p_metrics%z_mc_e,            &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+
+
+    ! slope of the terrain in normal direction (half level)
+    ! ddxn_z_half  p_metrics%ddxn_z_half(nproma,nlevp1,nblks_e)
+    !
+    cf_desc    = t_cf_var('terrain_slope_in_normal_direction', '-', &
+      &                   'terrain slope in normal direction')
+    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, &
+      &                      ZAXIS_HYBRID_HALF)
+    CALL add_var( p_metrics_list, 'ddxn_z_half', p_metrics%ddxn_z_half,        &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_ehalf )
+
+
+    ! slope of the terrain in normal direction (full level)
+    ! ddxn_z_full  p_metrics%ddxn_z_full(nproma,nlev,nblks_e)
+    !
+    cf_desc    = t_cf_var('terrain_slope_in_normal_direction', '-', &
+      &                   'terrain slope in normal direction')
+    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, &
+      &                      ZAXIS_HYBRID)
+    CALL add_var( p_metrics_list, 'ddxn_z_full', p_metrics%ddxn_z_full,        &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+
+
+    ! slope of the terrain in tangential direction (half level)
+    ! ddxt_z_half  p_metrics%ddxt_z_half(nproma,nlevp1,nblks_e)
+    !
+    cf_desc    = t_cf_var('terrain_slope_in_tangential_direction', '-', &
+      &                   'terrain slope in tangential direction')
+    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, &
+      &                      ZAXIS_HYBRID_HALF)
+    CALL add_var( p_metrics_list, 'ddxt_z_half', p_metrics%ddxt_z_half,        &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_ehalf )
+
+
+    ! functional determinant of the metrics [sqrt(gamma)]
+    ! ddqz_z_full  p_metrics%ddqz_z_full(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('metrics_functional_determinant', '-', &
+      &                   'metrics functional determinant')
+    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+      &                      ZAXIS_HYBRID)
+    CALL add_var( p_metrics_list, 'ddqz_z_full', p_metrics%ddqz_z_full,        &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+    ! functional determinant of the metrics [sqrt(gamma)]
+    ! ddqz_z_full_e  p_metrics%ddqz_z_full_e(nproma,nlev,nblks_e)
+    !
+    cf_desc    = t_cf_var('metrics_functional_determinant', '-', &
+      &                   'metrics functional determinant (edge)')
+    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, &
+      &                      ZAXIS_HYBRID)
+    CALL add_var( p_metrics_list, 'ddqz_z_full_e', p_metrics%ddqz_z_full_e,    &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+
+
+    ! functional determinant of the metrics [sqrt(gamma)]
+    ! ddqz_z_half  p_metrics%ddqz_z_half(nproma,nlevp1,nblks_c)
+    !
+    cf_desc    = t_cf_var('metrics_functional_determinant', '-', &
+      &                   'metrics functional determinant')
+    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+      &                      ZAXIS_HYBRID_HALF)
+    CALL add_var( p_metrics_list, 'ddqz_z_half', p_metrics%ddqz_z_half,    &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
+
+
+    ! 1/dz(k-1)-1/dz(k)
+    ! diff_1_o_dz  p_metrics%diff_1_o_dz(nproma,nlevp1,nblks_c)
+    !
+    cf_desc    = t_cf_var('difference_1_over_dz', 'm-1', 'difference 1 over dz')
+    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+      &                      ZAXIS_HYBRID_HALF)
+    CALL add_var( p_metrics_list, 'diff_1_o_dz', p_metrics%diff_1_o_dz,    &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
+
+
+    ! 1/(dz(k-1)*dz(k))
+    ! mult_1_o_dz  p_metrics%mult_1_o_dz(nproma,nlevp1,nblks_c)
+    !
+    cf_desc    = t_cf_var('mult_1_over_dz', 'm-2', 'mult 1 over dz')
+    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+      &                      ZAXIS_HYBRID_HALF)
+    CALL add_var( p_metrics_list, 'mult_1_o_dz', p_metrics%mult_1_o_dz,    &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
+
+
+    ! geopotential at full level cell center
+    ! geopot       p_metrics%geopot(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('geopotential', 'm2 s-2', &
+       &                  'geopotential at full level cell centre')
+    grib2_desc = t_grib2_var( 0, 3, 4, ientr, GRID_REFERENCE, GRID_CELL, &
+      &                      ZAXIS_HYBRID)
+    CALL add_var( p_metrics_list, 'geopot', p_metrics%geopot,    &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+    ! geopotential at half level cell center
+    ! geopot_ifc   p_metrics%geopot_ifc(nproma,nlevp1,nblks_c)
+    !
+    cf_desc    = t_cf_var('geopotential', 'm2 s-2', &
+      &                   'geopotential at half level cell centre')
+    grib2_desc = t_grib2_var( 0, 3, 4, ientr, GRID_REFERENCE, GRID_CELL, &
+      &                      ZAXIS_HYBRID_HALF)
+    CALL add_var( p_metrics_list, 'geopot_ifc', p_metrics%geopot_ifc,    &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
+
+
+    ! geopotential above groundlevel at cell center
+    ! geopot_agl   p_metrics%geopot_agl(nproma,nlev  ,nblks_c)
+    !
+    cf_desc    = t_cf_var('geopotential', 'm2 s-2', &
+      &                   'geopotential above groundlevel at cell center')
+    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+      &                      ZAXIS_HYBRID)
+    CALL add_var( p_metrics_list, 'geopot_agl', p_metrics%geopot_agl,    &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+    ! geopotential above groundlevel at cell center
+    ! geopot_agl_ifc  p_metrics%geopot_agl_ifc(nproma,nlevp1,nblks_c)
+    !
+    cf_desc    = t_cf_var('geopotential', 'm2 s-2', &
+      &                   'geopotential above groundlevel at cell center')
+    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+      &                      ZAXIS_HYBRID_HALF)
+    CALL add_var( p_metrics_list, 'geopot_agl_ifc', p_metrics%geopot_agl_ifc,  &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
+
+
+    ! geopotential at cell center
+    ! dgeopot_mc   p_metrics%dgeopot_mc(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('geopotential', 'm2 s-2', &
+      &                   'geopotential at cell center')
+    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+      &                      ZAXIS_HYBRID)
+    CALL add_var( p_metrics_list, 'dgeopot_mc', p_metrics%dgeopot_mc,  &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+    ! Rayleigh damping
+    ! rayleigh_w   p_metrics%rayleigh_w(nproma,nlevp1,nblks_c)
+    !
+    cf_desc    = t_cf_var('Rayleigh_damping', '-', 'Rayleigh damping')
+    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+      &                      ZAXIS_HYBRID_HALF)
+    CALL add_var( p_metrics_list, 'rayleigh_w', p_metrics%rayleigh_w,  &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
+
+
+    ! Explicit weight in vertical wind solver
+    ! vwind_expl_wgt   p_metrics%vwind_expl_wgt(nproma,nblks_c)
+    !
+    cf_desc    = t_cf_var('Explicit_weight_in_vertical_wind_solver', '-', &
+      &                   'Explicit weight in vertical wind solver')
+    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+      &                      ZAXIS_SURFACE)
+    CALL add_var( p_metrics_list, 'vwind_expl_wgt', p_metrics%vwind_expl_wgt,  &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+    ! Implicit weight in vertical wind solver
+    ! vwind_impl_wgt  p_metrics%vwind_impl_wgt(nproma,nblks_c)
+    !
+    cf_desc    = t_cf_var('Implicit_weight_in_vertical_wind_solver', '-', &
+      &                   'Implicit weight in vertical wind solver')
+    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+      &                      ZAXIS_SURFACE)
+    CALL add_var( p_metrics_list, 'vwind_impl_wgt', p_metrics%vwind_impl_wgt,  &
+                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
 
 ! These fields are needed for triangles only once the initialization in
 ! mo_nh_testcases is properly rewritten for hexagons
-!      IF (i_cell_type== 3) THEN
-        ! weighting factor for interpolation from full to half levels
-        DEALLOCATE(p_metrics%wgtfac_c,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for wgtfac_c failed')
-        ENDIF
-
-       ! weighting factor for interpolation from full to half levels
-        DEALLOCATE(p_metrics%wgtfac_e,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for wgtfac_e failed')
-        ENDIF
-
-       ! weighting factor for quadratic interpolation to surface
-        DEALLOCATE(p_metrics%wgtfacq_c,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for wgtfacq_c failed')
-        ENDIF
-
-       ! weighting factor for quadratic interpolation to surface
-        DEALLOCATE(p_metrics%wgtfacq_e,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for wgtfacq_e failed')
-        ENDIF
-
-       ! weighting factor for quadratic interpolation to model top
-        DEALLOCATE(p_metrics%wgtfacq1_c,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for wgtfacq1_c failed')
-        ENDIF
-
-       ! weighting factor for quadratic interpolation to model top
-        DEALLOCATE(p_metrics%wgtfacq1_e,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for wgtfacq1_e failed')
-        ENDIF
-
-       ! Inverse layer thickness of full levels
-        DEALLOCATE(p_metrics%inv_ddqz_z_full,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for inv_ddqz_z_full failed')
-        ENDIF
-
-       ! Inverse distance between full levels jk+1 and jk-1
-        DEALLOCATE(p_metrics%inv_ddqz_z_half2,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for inv_ddqz_z_half2 failed')
-        ENDIF
-
-      IF (i_cell_type== 3) THEN
-       ! Vertical index of neighbor points needed for Taylor-expansion-based pressure gradient
-        DEALLOCATE(p_metrics%vertidx_gradp,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for vertidx_gradp failed')
-        ENDIF
-
-       ! Height differences between local edge point and neighbor cell points used for
-       ! pressure gradient computation
-        DEALLOCATE(p_metrics%zdiff_gradp,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for zdiff_gradp failed')
-        ENDIF
-
-       ! Extrapolation factor for Exner pressure
-        DEALLOCATE(p_metrics%exner_exfac,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for exner_exfac failed')
-        ENDIF
-
-        ! Reference atmosphere fields
-        DEALLOCATE(p_metrics%theta_ref_mc,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for theta_ref_mc failed')
-        ENDIF
-
-        DEALLOCATE(p_metrics%theta_ref_ic,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for theta_ref_ic failed')
-        ENDIF
-
-        DEALLOCATE(p_metrics%exner_ref_mc,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for exner_ref_mc failed')
-        ENDIF
-
-        DEALLOCATE(p_metrics%d_exner_dz_ref_ic,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for d_exner_dz_ref_ic failed')
-        ENDIF
-
-        DEALLOCATE(p_metrics%d_exner_dz_ref_mc,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for d_exner_dz_ref_mc failed')
-        ENDIF
-
-        DEALLOCATE(p_metrics%d2_exner_dz2_ref_mc,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for d2_exner_dz2_ref_mc failed')
-        ENDIF
-
-        DEALLOCATE(p_metrics%rho_refcorr_ic,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for rho_refcorr_ic failed')
-        ENDIF
-
-        DEALLOCATE(p_metrics%mask_prog_halo_c,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for mask_prog_halo_c failed')
-        ENDIF
-
-      ELSE IF (i_cell_type== 6) THEN
-!      IF (i_cell_type== 6) THEN
-        ! slope of the coordinate lines in Northern direction
-        DEALLOCATE(p_metrics%ddnorth_z,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for ddnorth_z failed')
-        ENDIF
-        ! slope of the coordinate lines in Eastern direction
-        DEALLOCATE(p_metrics%ddeast_z,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for ddeast_z failed')
-        ENDIF
-        ! functional determinant of the metrics [sqrt(gamma)]
-        DEALLOCATE(p_metrics%ddqz_z_full_v,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for ddqz_z_full_v failed')
-        ENDIF
-
-        ! functional determinant of the metrics [sqrt(gamma)]
-        DEALLOCATE(p_metrics%ddqz_z_half_e,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for ddqz_z_half_e failed')
-        ENDIF
-        ! functional determinant of the metrics [sqrt(gamma)]
-        DEALLOCATE(p_metrics%ddqz_z_half_r,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for ddqz_z_half_r failed')
-        ENDIF
-        ! functional determinant of the metrics [sqrt(gamma)]
-        DEALLOCATE(p_metrics%ddqz_z_half_v,STAT=ist)
-        IF (ist/=SUCCESS)THEN
-          CALL finish('mo_nonhydro_state:destruct_nh_metrics', &
-                      'deallocation for ddqz_z_half_v failed')
-        ENDIF
-
-      ENDIF
+!    IF (i_cell_type== 3) THEN
+      ! weighting factor for interpolation from full to half levels
+      ! wgtfac_c     p_metrics%wgtfac_c(nproma,nlevp1,nblks_c)
+      !
+      cf_desc    = t_cf_var('weighting_factor', '-', &
+      &                   'weighting factor for interpolation from full to half levels')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+        &                      ZAXIS_HYBRID_HALF)
+      CALL add_var( p_metrics_list, 'wgtfac_c', p_metrics%wgtfac_c,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
 
 
-  END SUBROUTINE destruct_nh_metrics
+      ! weighting factor for interpolation from full to half levels
+      ! wgtfac_e     p_metrics%wgtfac_e(nproma,nlevp1,nblks_e)
+      !
+      cf_desc    = t_cf_var('weighting_factor', '-', &
+      &                   'weighting factor for interpolation from full to half levels')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, &
+        &                      ZAXIS_HYBRID_HALF)
+      CALL add_var( p_metrics_list, 'wgtfac_e', p_metrics%wgtfac_e,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_ehalf )
+
+
+      ! weighting factor for quadratic interpolation to surface
+      ! wgtfacq_c    p_metrics%wgtfacq_c(nproma,3,nblks_c)
+      !
+      cf_desc    = t_cf_var('weighting_factor', '-', &
+      &                   'weighting factor for quadratic interpolation to surface')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+        &                      ZAXIS_SURFACE)
+      CALL add_var( p_metrics_list, 'wgtfacq_c', p_metrics%wgtfacq_c,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_ccubed )
+
+
+      ! weighting factor for quadratic interpolation to surface
+      ! wgtfacq_e    p_metrics%wgtfacq_e(nproma,3,nblks_e)
+      !
+      cf_desc    = t_cf_var('weighting_factor', '-', &
+      &                   'weighting factor for quadratic interpolation to surface')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, &
+        &                      ZAXIS_SURFACE)
+      CALL add_var( p_metrics_list, 'wgtfacq_e', p_metrics%wgtfacq_e,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_ecubed )
+
+
+      ! weighting factor for quadratic interpolation to model top
+      ! wgtfacq1_c    p_metrics%wgtfacq1_c(nproma,3,nblks_c)
+      !
+      cf_desc    = t_cf_var('weighting_factor', '-', &
+      &                   'weighting factor for quadratic interpolation to model top')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+        &                      ZAXIS_SURFACE)
+      CALL add_var( p_metrics_list, 'wgtfacq1_c', p_metrics%wgtfacq1_c,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_ccubed )
+
+
+      ! weighting factor for quadratic interpolation to model top
+      ! wgtfacq1_e   p_metrics%wgtfacq1_e(nproma,3,nblks_e)
+      !
+      cf_desc    = t_cf_var('weighting_factor', '-', &
+      &                   'weighting factor for quadratic interpolation to model top')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, &
+        &                      ZAXIS_SURFACE)
+      CALL add_var( p_metrics_list, 'wgtfacq1_e', p_metrics%wgtfacq1_e,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_ecubed )
+
+
+      ! Inverse layer thickness of full levels
+      ! inv_ddqz_z_full   p_metrics%inv_ddqz_z_full(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('Inverse_layer_thickness', 'm-1', &
+      &                     'Inverse layer thickness of full levels')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+        &                      ZAXIS_HYBRID)
+      CALL add_var( p_metrics_list, 'inv_ddqz_z_full', p_metrics%inv_ddqz_z_full,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+      ! Inverse distance between full levels jk+1 and jk-1
+      ! inv_ddqz_z_half2  p_metrics%inv_ddqz_z_half2(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('Inverse_distance_between_full_levels', 'm-1', &
+      &                     'Inverse distance between full levels jk+1 and jk-1')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+        &                      ZAXIS_HYBRID)
+      CALL add_var( p_metrics_list, 'inv_ddqz_z_half2', p_metrics%inv_ddqz_z_half2,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+
+    IF (i_cell_type== 3) THEN
+
+      ! Vertical index of neighbor points needed for Taylor-expansion-based pressure gradient
+      ! vertidx_gradp  p_metrics%vertidx_gradp(2,nproma,nlev,nblks_e)
+      !
+      cf_desc    = t_cf_var('Vertical_index', '-', &
+      &                     'Vertical index')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, &
+        &                      ZAXIS_HYBRID)
+      CALL add_var( p_metrics_list, 'vertidx_gradp', p_metrics%vertidx_gradp,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_esquared )
+
+
+      ! Height differences between local edge point and neighbor cell points used for
+      ! pressure gradient computation
+      ! zdiff_gradp  p_metrics%zdiff_gradp(2,nproma,nlev,nblks_e)
+      !
+      cf_desc    = t_cf_var('Height_differences', 'm', &
+      &                     'Height differences')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, &
+        &                      ZAXIS_HYBRID)
+      CALL add_var( p_metrics_list, 'zdiff_gradp', p_metrics%zdiff_gradp,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_esquared )
+
+
+      ! Extrapolation factor for Exner pressure
+      ! exner_exfac  p_metrics%exner_exfac(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('Extrapolation_factor_for_Exner_pressure', '-', &
+      &                     'Extrapolation factor for Exner pressure')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+        &                      ZAXIS_HYBRID)
+      CALL add_var( p_metrics_list, 'exner_exfac', p_metrics%exner_exfac,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+      ! Reference atmosphere field theta
+      ! theta_ref_mc  p_metrics%theta_ref_mc(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('Reference_atmosphere_field_theta', 'K', &
+      &                     'Reference atmosphere field theta')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+        &                      ZAXIS_HYBRID)
+      CALL add_var( p_metrics_list, 'theta_ref_mc', p_metrics%theta_ref_mc,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+      ! Reference atmosphere field theta
+      ! theta_ref_ic  p_metrics%theta_ref_ic(nproma,nlevp1,nblks_c)
+      !
+      cf_desc    = t_cf_var('Reference_atmosphere_field_theta', 'K', &
+      &                     'Reference atmosphere field theta')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+        &                      ZAXIS_HYBRID_HALF)
+      CALL add_var( p_metrics_list, 'theta_ref_ic', p_metrics%theta_ref_ic,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
+
+
+      ! Reference atmosphere field exner
+      ! exner_ref_mc  p_metrics%exner_ref_mc(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('Reference_atmosphere_field_exner', '-', &
+      &                     'Reference atmosphere field exner')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+        &                      ZAXIS_HYBRID)
+      CALL add_var( p_metrics_list, 'exner_ref_mc', p_metrics%exner_ref_mc,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+      ! Reference atmosphere field exner
+      ! d_exner_dz_ref_ic  p_metrics%d_exner_dz_ref_ic(nproma,nlevp1,nblks_c)
+      !
+      cf_desc    = t_cf_var('Reference_atmosphere_field_exner', '-', &
+      &                     'Reference atmosphere field exner')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+        &                      ZAXIS_HYBRID_HALF)
+      CALL add_var( p_metrics_list, 'd_exner_dz_ref_ic', p_metrics%d_exner_dz_ref_ic,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
+
+
+      ! Reference atmosphere field exner
+      ! d_exner_dz_ref_mc  p_metrics%d_exner_dz_ref_mc(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('Reference_atmosphere_field_exner', '-', &
+      &                     'Reference atmosphere field exner')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+        &                      ZAXIS_HYBRID)
+      CALL add_var( p_metrics_list, 'd_exner_dz_ref_mc', p_metrics%d_exner_dz_ref_mc,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+      ! Reference atmosphere field exner
+      ! d2_exner_dz2_ref_mc  p_metrics%d2_exner_dz2_ref_mc(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('Reference_atmosphere_field_exner', '-', &
+      &                     'Reference atmosphere field exner')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+        &                      ZAXIS_HYBRID)
+      CALL add_var( p_metrics_list, 'd2_exner_dz2_ref_mc', p_metrics%d2_exner_dz2_ref_mc,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+      ! Reference atmosphere field rho
+      ! rho_refcorr_ic  p_metrics%rho_refcorr_ic(nproma,nlevp1,nblks_c)
+      !
+      cf_desc    = t_cf_var('Reference_atmosphere_field_rho', '-', &
+      &                     'Reference atmosphere field rho')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+        &                      ZAXIS_HYBRID_HALF)
+      CALL add_var( p_metrics_list, 'rho_refcorr_ic', p_metrics%rho_refcorr_ic,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_chalf )
+
+
+      ! mask field that excludes boundary halo points
+      ! mask_prog_halo_c  p_metrics%mask_prog_halo_c(nproma,nblks_c)
+      !
+      cf_desc    = t_cf_var('mask_field', '-', &
+      &                     'mask field that excludes boundary halo points')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+        &                      ZAXIS_SURFACE)
+      CALL add_var( p_metrics_list, 'mask_prog_halo_c', p_metrics%mask_prog_halo_c,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+    ELSE IF (i_cell_type== 6) THEN
+
+
+      ! slope of the coordinate lines in Northern direction
+      ! ddnorth_z    p_metrics%ddnorth_z(nproma,nlev,nblks_v)
+      !
+      cf_desc    = t_cf_var('slope_of_coordinate_lines_in_Northern_direction', '-', &
+      &                     'slope of coordinate lines in Northern direction')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_VERTEX, &
+        &                      ZAXIS_HYBRID)
+      CALL add_var( p_metrics_list, 'ddnorth_z', p_metrics%ddnorth_z,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_v )
+
+
+      ! slope of the coordinate lines in Eastern direction
+      ! ddeast_z     p_metrics%ddeast_z(nproma,nlev,nblks_v)
+      !
+      cf_desc    = t_cf_var('slope_of_coordinate_lines_in_Eastern_direction', '-', &
+      &                     'slope of coordinate lines in Eastern direction')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_VERTEX, &
+        &                      ZAXIS_HYBRID)
+      CALL add_var( p_metrics_list, 'ddeast_z', p_metrics%ddeast_z,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_v )
+
+
+      ! functional determinant of the metrics [sqrt(gamma)]
+      ! ddqz_z_full_v   p_metrics%ddqz_z_full_v(nproma,nlev,nblks_v)
+      !
+      cf_desc    = t_cf_var('metrics_functional_determinant', '-', &
+      &                     'metrics functional determinant')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_VERTEX, &
+        &                      ZAXIS_HYBRID)
+      CALL add_var( p_metrics_list, 'ddqz_z_full_v', p_metrics%ddqz_z_full_v,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_v )
+
+
+      ! functional determinant of the metrics [sqrt(gamma)]
+      ! ddqz_z_half_e   p_metrics%ddqz_z_half_e(nproma,nlevp1,nblks_e)
+      !
+      cf_desc    = t_cf_var('metrics_functional_determinant', '-', &
+      &                     'metrics functional determinant')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, &
+        &                      ZAXIS_HYBRID_HALF)
+      CALL add_var( p_metrics_list, 'ddqz_z_half_e', p_metrics%ddqz_z_half_e,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_ehalf )
+
+
+      ! functional determinant of the metrics [sqrt(gamma)]
+      ! ddqz_z_half_r   p_metrics%ddqz_z_half_r(nproma,nlevp1,nblks_e)
+      !
+      cf_desc    = t_cf_var('metrics_functional_determinant', '-', &
+      &                     'metrics functional determinant')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE, &
+        &                      ZAXIS_HYBRID_HALF)
+      CALL add_var( p_metrics_list, 'ddqz_z_half_r', p_metrics%ddqz_z_half_r,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_ehalf )
+
+
+      ! functional determinant of the metrics [sqrt(gamma)]
+      ! ddqz_z_half_v   p_metrics%ddqz_z_half_v(nproma,nlevp1,nblks_v)
+      !
+      cf_desc    = t_cf_var('metrics_functional_determinant', '-', &
+      &                     'metrics functional determinant')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_VERTEX, &
+        &                      ZAXIS_HYBRID_HALF)
+      CALL add_var( p_metrics_list, 'ddqz_z_half_v', p_metrics%ddqz_z_half_v,  &
+                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_vhalf )
+
+    ENDIF
+
+
+  END SUBROUTINE construct_nh_metrics_list
 
 
 END MODULE mo_nonhydro_state

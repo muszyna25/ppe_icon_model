@@ -9,7 +9,8 @@ MODULE mo_util_hash
   INTERFACE
     FUNCTION hashword(text, text_len, inithash) RESULT(hash) &
          BIND(C,NAME='hashword')
-      IMPORT :: C_INT, C_CHAR
+      USE ISO_C_BINDING, ONLY: C_INT, C_CHAR
+!DR      IMPORT :: C_INT, C_CHAR
       INTEGER(C_INT) :: hash
       CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: text
       INTEGER(C_INT) :: text_len
