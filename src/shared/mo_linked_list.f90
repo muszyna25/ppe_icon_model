@@ -8,12 +8,11 @@ MODULE mo_linked_list
   !
   ! Luis Kornblueh, MPI,             original code
   ! Andreas Rhodin, MPI, April 2001, extended and documented
-  ! Luis Kornblueh, MPI, April 2011, adapted for ICON
+  ! Luis Kornblueh, MPI, April 2011, rewritten for ICON
   !----------------------------------------------------------------------------
   !
-  USE mo_kind,             ONLY: dp, i8
-  USE mo_exception,        ONLY: message_text, finish, message
-  USE mo_util_string,      ONLY: separator
+  USE mo_kind,             ONLY: i8
+  USE mo_exception,        ONLY: finish, message
   USE mo_var_list_element, ONLY: t_var_list_element
   !
   IMPLICIT NONE
@@ -27,11 +26,11 @@ MODULE mo_linked_list
   PUBLIC :: delete_list         ! clean up the list
   !
   PUBLIC :: append_list_element ! add an element to the list
-  PUBLIC :: remove_list_element ! remove one element from the list
+  PUBLIC :: delete_list_element ! remove one element from the list
   PUBLIC :: find_list_element   ! find an element in the list
   !
-  ! Type list_element provides the entry to the actual information 
-  ! and a reference to the next element in the list.
+  ! t_list_element provides the entry to the actual information 
+  ! and a reference to the next element in the list
   !  
   TYPE t_list_element
     TYPE(t_var_list_element)      :: field
@@ -40,36 +39,23 @@ MODULE mo_linked_list
   !
   TYPE t_var_list
     INTEGER                       :: key                ! hash value of name   
-    CHARACTER(len=16)             :: name               ! stream name
+    CHARACTER(len=64)             :: name               ! stream name
     TYPE(t_list_element), POINTER :: first_list_element ! reference to first
     INTEGER(i8)                   :: memory_used        ! memory allocated
     INTEGER                       :: list_elements      ! allocated elements
-    !
-    ! Postprocessing information
-    !
-    LOGICAL                       :: lpost           ! postprocessing stream
-    LOGICAL                       :: lrestart        ! restart stream
-    LOGICAL                       :: linitial        ! initial stream
-    !
-    CHARACTER(len=128)            :: filename        ! name of file
-    !
-    CHARACTER(len=8)              :: post_suf        ! suffix of output  file
-    CHARACTER(len=8)              :: rest_suf        ! suffix of restart file
-    CHARACTER(len=8)              :: init_suf        ! suffix of initial file
-    !
-    ! CDI support and handler
-    !
-    LOGICAL                       :: first           ! first var_list in file
-    !
-    INTEGER                       :: output_type      ! CDI format
-    INTEGER                       :: restart_type     ! CDI format
-    INTEGER                       :: compression_type ! CDI comp. type
-    !
-    INTEGER                       :: fileID           ! CDI file ID
-    INTEGER                       :: vlistID          ! CDI vlist ID
-    !
-    INTEGER                       :: timestep         ! Output timestep
-    !
+    LOGICAL                       :: lpost              ! postprocessing stream
+    LOGICAL                       :: laccu              ! accumulation
+    LOGICAL                       :: lmiss              ! missing values
+    LOGICAL                       :: lrestart           ! restart stream
+    LOGICAL                       :: linitial           ! initial stream
+    CHARACTER(len=128)            :: filename           ! name of file
+    CHARACTER(len=8)              :: post_suf           ! suffix of output  file
+    CHARACTER(len=8)              :: rest_suf           ! suffix of restart file
+    CHARACTER(len=8)              :: init_suf           ! suffix of initial file
+    LOGICAL                       :: first              ! first var_list in file
+    INTEGER                       :: output_type        ! CDI format
+    INTEGER                       :: restart_type       ! CDI format
+    INTEGER                       :: compression_type   ! CDI compression type
   END TYPE t_var_list
   !
 CONTAINS
@@ -85,12 +71,14 @@ CONTAINS
     this_list%key                = 0
     this_list%name               = ''
     this_list%first_list_element => NULL()
-    this_list%memory_used        = 0
+    this_list%memory_used        = 0_i8
     this_list%list_elements      = 0
     !
-    this_list%lpost              = .TRUE.
-    this_list%lrestart           = .TRUE.
-    this_list%linitial           = .TRUE.
+    this_list%lpost              = .FALSE.
+    this_list%laccu              = .FALSE.
+    this_list%lmiss              = .FALSE.
+    this_list%lrestart           = .FALSE.
+    this_list%linitial           = .FALSE.
     !
     this_list%filename           = ''
     !
@@ -104,11 +92,6 @@ CONTAINS
     this_list%restart_type       = -1
     this_list%compression_type   = -1
     !
-    this_list%fileID             = -1
-    this_list%vlistID            = -1
-    !
-    this_list%timestep           = -1
-    !
   END SUBROUTINE new_list
   !-----------------------------------------------------------------------------
   !
@@ -119,17 +102,15 @@ CONTAINS
     !
     TYPE(t_var_list), INTENT(inout) :: this_list
     !
-    CALL delete_list_element(this_list, this_list%first_list_element)
+    CALL delete_list_elements(this_list, this_list%first_list_element)
     !
     this_list%first_list_element => NULL()
     !
     IF (this_list%memory_used /= 0_i8) THEN
-      CALL message('', 'List delete didn''t work properly (memory counter) ...')
       CALL finish ('delete_list', 'List delete didnt work proper (memory counter)')
     ENDIF
     !
     IF (this_list%list_elements /= 0) THEN
-      CALL message('', 'List delele didn''t work proper (element counter) ...')
       CALL finish ('delete_list', 'List delete didnt work proper (element counter)')
     ENDIF
     !
@@ -138,7 +119,7 @@ CONTAINS
   !
   ! deallocate a list element and all its sucessors
   !
-  SUBROUTINE delete_list_element(this_list, this_list_element)
+  SUBROUTINE delete_list_elements(this_list, this_list_element)
     !
     TYPE(t_var_list),     INTENT(inout) :: this_list
     TYPE(t_list_element), POINTER       :: this_list_element
@@ -147,6 +128,7 @@ CONTAINS
     !
     next => this_list_element
     this_list_element => NULL()
+    !
     DO
       IF (.NOT. ASSOCIATED(next)) EXIT
       this => next
@@ -170,43 +152,9 @@ CONTAINS
       ENDIF
       this_list%list_elements = this_list%list_elements-1
       DEALLOCATE (this)
-    END DO
+     END DO
     !
-  END SUBROUTINE delete_list_element
-  !-----------------------------------------------------------------------------
-  !
-  ! remove an element from the list which is identified by its pointer
-  !
-  SUBROUTINE remove_list_element(this_list, this_list_element)
-    !
-    TYPE(t_var_list),     INTENT(inout) :: this_list
-    TYPE(t_list_element), POINTER       :: this_list_element
-    !
-    TYPE(t_list_element), POINTER :: this
-    !
-    this => this_list_element
-    this_list_element => this_list_element%next_list_element
-    !
-    IF (this%field%info%allocated) THEN
-      IF (ASSOCIATED(this%field%r_ptr)) THEN
-        this_list%memory_used = this_list%memory_used &
-             &                 -this%field%var_base_size*SIZE(this%field%r_ptr)
-        DEALLOCATE (this%field%r_ptr)
-      ELSE IF (ASSOCIATED(this%field%i_ptr)) THEN
-        this_list%memory_used = this_list%memory_used &
-             &                 -this%field%var_base_size*SIZE(this%field%i_ptr)
-        DEALLOCATE (this%field%i_ptr)
-      ELSE IF (ASSOCIATED(this%field%l_ptr)) THEN
-        this_list%memory_used = this_list%memory_used &
-             &                 -this%field%var_base_size*SIZE(this%field%l_ptr)
-        DEALLOCATE (this%field%l_ptr)
-      ENDIF
-      this%field%info%allocated = .FALSE.
-    ENDIF
-    this_list%list_elements = this_list%list_elements-1
-    DEALLOCATE (this)
-    !
-  END SUBROUTINE remove_list_element
+  END SUBROUTINE delete_list_elements
   !-----------------------------------------------------------------------------
   SUBROUTINE create_list_element (this_list, current_list_element)
     !
@@ -217,8 +165,7 @@ CONTAINS
     !
     ALLOCATE (current_list_element, STAT=ist)
     IF (ist /= 0) THEN
-      CALL message('', 'Cannot add element to linked list ...')
-      CALL finish('create_list_element','Cannot add element to linked list')
+      CALL finish('create_list_element','Cannot add element to linked list ...')
     ENDIF
     this_list%list_elements = this_list%list_elements+1
     !
@@ -230,8 +177,7 @@ CONTAINS
   END SUBROUTINE create_list_element
   !-----------------------------------------------------------------------------
   !
-  ! Add a list element to the linked list, if code is present, order with 
-  ! respect to the grib code else search for end of the list to append
+  ! add a list element to the linked list
   !
   SUBROUTINE append_list_element (this_list, new_list_element)
     !
@@ -263,7 +209,7 @@ CONTAINS
     !
   END SUBROUTINE append_list_element
   !-----------------------------------------------------------------------------
-  SUBROUTINE delete_one_list_element (this_list, delete_this_list_element)
+  SUBROUTINE delete_list_element (this_list, delete_this_list_element)
     !
     TYPE(t_var_list),     INTENT(inout) :: this_list
     TYPE(t_list_element), POINTER       :: delete_this_list_element
@@ -289,19 +235,19 @@ CONTAINS
     !
     IF (delete_this_list_element%field%info%allocated) THEN
       IF (ASSOCIATED(delete_this_list_element%field%r_ptr)) THEN
-        this_list%memory_used = this_list%memory_used        &
-             &             -delete_this_list_element%field%var_base_size &
-             &             *SIZE(delete_this_list_element%field%r_ptr)
+        this_list%memory_used = this_list%memory_used                        &
+             &                 -delete_this_list_element%field%var_base_size &
+             &                 *SIZE(delete_this_list_element%field%r_ptr)
         DEALLOCATE (delete_this_list_element%field%r_ptr)
       ELSE IF (ASSOCIATED(delete_this_list_element%field%i_ptr)) THEN
-        this_list%memory_used = this_list%memory_used        &
-             &             -delete_this_list_element%field%var_base_size &
-             &             *SIZE(delete_this_list_element%field%i_ptr)
+        this_list%memory_used = this_list%memory_used                        &
+             &                 -delete_this_list_element%field%var_base_size &
+             &                 *SIZE(delete_this_list_element%field%i_ptr)
         DEALLOCATE (delete_this_list_element%field%i_ptr)
       ELSE IF (ASSOCIATED(delete_this_list_element%field%l_ptr)) THEN
-        this_list%memory_used = this_list%memory_used &
-             &             -delete_this_list_element%field%var_base_size &
-             &             *SIZE(delete_this_list_element%field%l_ptr)
+        this_list%memory_used = this_list%memory_used                        &
+             &                 -delete_this_list_element%field%var_base_size &
+             &                 *SIZE(delete_this_list_element%field%l_ptr)
         DEALLOCATE (delete_this_list_element%field%l_ptr)
       ENDIF
       delete_this_list_element%field%info%allocated = .FALSE.
@@ -310,7 +256,7 @@ CONTAINS
     this_list%list_elements = this_list%list_elements-1
     DEALLOCATE (delete_this_list_element)
     !
-  END SUBROUTINE delete_one_list_element
+  END SUBROUTINE delete_list_element
   !-----------------------------------------------------------------------------
   !
   ! Should be overloaded to be able to search for the different information 
