@@ -17,6 +17,14 @@
 #==========================================================================
 #                          USER'S SPECIFICATIONS 
 #--------------------------------------------------------------------------
+
+if [ "x$1" != "x" ]
+then
+  set_env=$1 
+else
+  set_env=/null
+fi
+
 # 1. About the model output
 #--------------------------------------------------------------------------
 # 1.1 The directory in which the model output can be found. 
@@ -98,13 +106,12 @@ cd ${NCL_SCRIPT_DIR}
 
 export NCARG_COLORMAP_PATH=$NCARG_ROOT/lib/ncarg/colormaps:./
 
-if [ -f ../set_env ] 
+if [ -f ${set_env} ] 
 then 
-
   echo " "
-  echo " !!!!! Use setting from ../set_env"
+  echo " !!!!! Use setting from ./${set_env}"
   echo " "
-  source ../set_env
+  source ./${set_env}
 fi
 
 # For the NCL plotting scripts

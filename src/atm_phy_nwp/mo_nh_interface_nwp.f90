@@ -720,10 +720,13 @@ CONTAINS
     ! qv_tot is zero otherwise
     IF ( lcall_phy_jg(itccov) ) THEN
 
-      ! cloud cover needs to be diagnosed on the full domain because subroutine radiation
-      ! is not set up properly for usage with nested domains and thus needs to be computed 
-      ! on the full domain
-      rl_start = grf_bdywidth_c+1
+      ! When using a reduced grid for radiation, part of the boundary points need
+      ! to be included in order to compute spatial gradients for back-interpolation
+      IF (lredgrid) THEN
+        rl_start = grf_bdywidth_c-1
+      ELSE
+        rl_start = grf_bdywidth_c+1
+      ENDIF
       rl_end   = min_rlcell_int
 
       i_startblk = pt_patch%cells%start_blk(rl_start,1)
@@ -1228,8 +1231,14 @@ CONTAINS
 
         CALL get_indices_e(pt_patch, jb, i_startblk, i_endblk, &
 &                            i_startidx, i_endidx, rl_start, rl_end)
+
+#ifdef __LOOP_EXCHANGE
+        DO jce = i_startidx, i_endidx
+          DO jk = 1, nlev
+#else
         DO jk = 1, nlev
           DO jce = i_startidx, i_endidx
+#endif
 
             pt_diag%ddt_vn_phy(jce,jk,jb) =   pt_int_state%c_lin_e(jce,1,jb)           &
 &                                 * ( z_ddt_u_tot(iidx(jce,jb,1),jk,iblk(jce,jb,1))    &

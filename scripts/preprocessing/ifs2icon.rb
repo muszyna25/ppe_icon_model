@@ -91,6 +91,18 @@ module Cdo
       warn "Operator #{sym.to_s} not found"
     end
   end
+
+  # Call an operator chain without checking opeartors
+  def Cdo.chainCall(chain,*args)
+    io = args.find {|a| a.class == Hash}
+    args.delete_if {|a| a.class == Hash}
+    if /(info|show|griddes)/.match(sym)
+      run(" -#{chain} #{io[:in]} ",$stdout)
+    else
+      opts = args.empty? ? '' : ',' + args.reject {|a| a.class == Hash}.join(',')
+      run(" -#{chain}#{opts} #{io[:in]} ",io[:out],io[:options])
+    end
+  end
 end
 # ==============================================================================
 # Option handling
@@ -100,6 +112,7 @@ class PreProcOptions
     options                    = OpenStruct.new
     options.interpolation_type = :simple
     options.verbose            = false
+    options.openmp             = 2
 
     opts = OptionParser.new do |opts|
       opts.banner = "Usage: ifs2icon.rb [options]"
@@ -128,29 +141,23 @@ class PreProcOptions
       # optional configuration file using JSON like format
       jsonStringExample=<<-EOF
                   [
-                    ["Description"                        , "dwd"     , "ecmwf", "id" , "grid", "typeOfLayer", "nlevel", "GP", "I", "Notes"]                   ,
-                    ["temperature "                       , "T"       , "T"    , "130", "cell", "hybridLayer", "nlev"  , "1" , "Q", ""]                        ,
-                    ["zonal wind comp. u"                 , "U"       , "U"    , "131", "cell", "hybridLayer", "nlev"  , "2" , "Q", ""]                        ,
-                    ["meridional wind comp. v "           , "V"       , "V"    , "132", "cell", "hybridLayer", "nlev"  , "2" , "Q", ""]                        ,
-                    ["normal velocity"                    , "VN "     , ""     , ""   , "edge", "hybridLayer", "nlev"  , "2" , "" , "comp. using U and V"]     ,
-                    ["vertical velocity"                  , "OMEGA"   , "W"    , "135", "cell", "hybridLayer", "nlev+1", "1" , "" , ""]                        ,
-                    ["Pressure"                           , "P"       , "PRES" , ""   , "cell", "hybridLayer", "nlev"  , "1" , "" , ""]                        ,
-                    ["air density"                        , "RHO"     , ""     , ""   , "cell", "hybridLayer", "nlev"  , "1" , "" , "use gas eq. RHO=f(T,p,(qv))"],
-                    ["virtual potential temperature"      , "THETA_V" , ""     , ""   , "cell", "hybridLayer", "nlev"  , "1" , "" , "computed inside ICON"]    ,
-                    ["exner pressure "                    , "EXNER"   , ""     , ""   , "cell", "hybridLayer", "nlev"  , "1" , "" , ""]                        ,
-                    ["specific humidity"                  , "QV"      , "Q"    , "133", "cell", "hybridLayer", "nlev"  , "1" , "Q", ""]                        ,
-                    ["cloud liquid water content"         , "QC"      , "CLWC" , "246", "cell", "hybridLayer", "nlev"  , "1" , "Q", ""]                        ,
-                    ["cloud ice content"                  , "QI"      , "CIWC" , "247", "cell", "hybridLayer", "nlev"  , "1" , "Q", ""]                        ,
-                    ["rain water content"                 , "QR"      , "CRWC" , "75" , "cell", "hybridLayer", "nlev"  , "1" , "Q", ""]                        ,
-                    ["snow water content"                 , "QS"      , "CSWC" , "76" , "cell", "hybridLayer", "nlev"  , "1" , "Q", ""]                        ,
-                    ["ozone mixing ratio"                 , "O3"      , "O3"   , "203", "cell", "hybridLayer", "nlev"  , "1" , "Q", ""]                        ,
-                    ["surface pressure"                   , "PS"      , "LNSP" , "152", "cell", "surface"    , "1"     , "1" , "Q", ""]                        ,
-                    ["specific humidity at surface"       , "QV_S"    , ""     , ""   , "cell", "surface"    , "1"     , "1" , "M", "take Q at lowest level ?"],
-                    ["snow temperature"                   , "T_SNOW"  , "TSN"  , "238", "cell", "surface"    , "1"     , "1" , "M", ""]                        ,
-                    ["water content of snow"              , "W_SNOW"  , "SD"   , "141", "cell", "surface"    , "1"     , "1" , "M", ""]                        ,
-                    ["density of snow"                    , "RHO_SNOW", "RSN"  , "33" , "cell", "surface"    , "1"     , "1" , "M", ""]                        ,
-                    ["water cont. of interception storage", "W_I"     , "SRC"  , "198", "cell", "surface"    , "1"     , "1" , "M", ""]                        ,
-                    ["surface roughness"                  , "Z0"      , "SR"   , "173", "cell", "surface"    , "1"     , "1" , "M", ""]
+                    ["Description"       , "inputname", "outputname", "code", "grid", "typeOfLayer", "nlevel", "GP", "I", "Notes"],
+                    ["temperature "      , "T"        , "T"         , "130" , "cell", "hybridLayer", "nlev"  , "1" , "Q", ""]     ,
+                    ["zonal wind comp. u", "U"        , "U"         , "131" , "cell", "hybridLayer", "nlev"  , "2" , "Q", ""]     ,
+                    ["normal velocity"   , "VN "      , ""          , ""    , "edge", "hybridLayer", "nlev"  , "2" , "" , ""]     ,
+                    ["vertical velocity" , "OMEGA"    , "W"         , "135" , "cell", "hybridLayer", "nlev+1", "1" , "" , ""]     ,
+                    ["Pressure"          , "P"        , "PRES"      , ""    , "cell", "hybridLayer", "nlev"  , "1" , "" , ""]     ,
+                    ["air density"       , "RHO"      , ""          , ""    , "cell", "hybridLayer", "nlev"  , "1" , "" , ""]     ,
+                    ["exner pressure "   , "EXNER"    , ""          , ""    , "cell", "hybridLayer", "nlev"  , "1" , "" , ""]     ,
+                    ["specific humidity" , "QV"       , "Q"         , "133" , "cell", "hybridLayer", "nlev"  , "1" , "Q", ""]     ,
+                    ["cloud ice content" , "QI"       , "CIWC"      , "247" , "cell", "hybridLayer", "nlev"  , "1" , "Q", ""]     ,
+                    ["rain water content", "QR"       , "CRWC"      , "75"  , "cell", "hybridLayer", "nlev"  , "1" , "Q", ""]     ,
+                    ["snow water content", "QS"       , "CSWC"      , "76"  , "cell", "hybridLayer", "nlev"  , "1" , "Q", ""]     ,
+                    ["ozone mixing ratio", "O3"       , "O3"        , "203" , "cell", "hybridLayer", "nlev"  , "1" , "Q", ""]     ,
+                    ["surface pressure"  , "PS"       , "LNSP"      , "152" , "cell", "surface"    , "1"     , "1" , "Q", ""]     ,
+                    ["snow temperature"  , "T_SNOW"   , "TSN"       , "238" , "cell", "surface"    , "1"     , "1" , "M", ""]     ,
+                    ["density of snow"   , "RHO_SNOW" , "RSN"       , "33"  , "cell", "surface"    , "1"     , "1" , "M", ""]     ,
+                    ["surface roughness" , "Z0"       , "SR"        , "173" , "cell", "surface"    , "1"     , "1" , "M", ""]
                   ]
                 EOF
       opts.on("-j", "--json-config-file FILE", "Use FILE as JSON configuration file","Format example:\n"+jsonStringExample) do |data|
@@ -168,9 +175,17 @@ class PreProcOptions
         options.outputVars = list
       end
 
-      # Boolean switch.
+      # Set OpenMP multithreadding for CDO
+      opts.on("-P", "--openmp p", Numeric, "Set number of OpenMP threads to <p>") do |p|
+        options.openmp = p
+      end
+
+      # Boolean switches
       opts.on("-s", "--strict", "Process only variables which have valid entry in the configuration") do |v|
         options.strict = v
+      end
+      opts.on("-C", "--check", "Check input file and configuration on which output variables are available.") do |v|
+        options.check = v
       end
       opts.on("-v", "--[no-]verbose", "Run verbosely") do |v|
         options.verbose = v
@@ -218,31 +233,43 @@ end
 # variable substitution between icon and Eecmwf
 module Ecmwf2Icon
   _defaultConfig =[
-    ['Description'                        , 'dwd'     , 'ecmwf', 'id' , 'grid', 'typeOfLayer', 'nlevel', 'GP', 'I', 'Notes']                                ,
-    ['temperature '                       , 'T'       , 'T'    , '130', 'cell', 'hybridLayer', 'nlev'  , '1' , 'Q', '']                                     ,
-    ['zonal wind comp. u'                 , 'U'       , 'U'    , '131', 'cell', 'hybridLayer', 'nlev'  , '2' , 'Q', '']                                     ,
-    ['meridional wind comp. v '           , 'V'       , 'V'    , '132', 'cell', 'hybridLayer', 'nlev'  , '2' , 'Q', '']                                     ,
-    ['normal velocity'                    , 'VN '     , ''     , ''   , 'edge', 'hybridLayer', 'nlev'  , '2' , '' , 'comp. using U and V']                  ,
-    ['vertical velocity'                  , 'OMEGA'   , 'W'    , '135', 'cell', 'hybridLayer', 'nlev+1', '1' , '' , 'hydr. Approximation Omega -> w (Pa/s -> m/s)r']                                                    ,
-    ['Pressure'                           , 'P'       , 'PRES' , ''   , 'cell', 'hybridLayer', 'nlev'  , '1' , '' , '? use pressure or density ? if pressure, for vertical interpolation take pressure deviation from reference pp=pres-ref'],
-    ['air density'                        , 'RHO'     , ''     , ''   , 'cell', 'hybridLayer', 'nlev'  , '1' , '' , 'use gas eq. RHO=f(T,p,(qv))'],
-    ['virtual potential temperature'      , 'THETA_V' , ''     , ''   , 'cell', 'hybridLayer', 'nlev'  , '1' , '' , 'to be computed inside ICON']           ,
-    ['exner pressure '                    , 'EXNER'   , ''     , ''   , 'cell', 'hybridLayer', 'nlev'  , '1' , '' , '']                                     ,
-    ['specific humidity'                  , 'QV'      , 'Q'    , '133', 'cell', 'hybridLayer', 'nlev'  , '1' , 'Q', '']                                     ,
-    ['cloud liquid water content'         , 'QC'      , 'CLWC' , '246', 'cell', 'hybridLayer', 'nlev'  , '1' , 'Q', '']                                     ,
-    ['cloud ice content'                  , 'QI'      , 'CIWC' , '247', 'cell', 'hybridLayer', 'nlev'  , '1' , 'Q', '']                                     ,
-    ['rain water content'                 , 'QR'      , 'CRWC' , '75' , 'cell', 'hybridLayer', 'nlev'  , '1' , 'Q', '']                                     ,
-    ['snow water content'                 , 'QS'      , 'CSWC' , '76' , 'cell', 'hybridLayer', 'nlev'  , '1' , 'Q', '']                                     ,
-    ['ozone mixing ratio'                 , 'O3'      , 'O3'   , '203', 'cell', 'hybridLayer', 'nlev'  , '1' , 'Q', '']                                     ,
-    ['surface pressure'                   , 'PS'      , 'LNSP' , '152', 'cell', 'surface'    , '1'     , '1' , 'Q', '']                                     ,
-    ['specific humidity at surface'       , 'QV_S'    , ''     , ''   , 'cell', 'surface'    , '1'     , '1' , 'M', 'take Q at lowest level ?']             ,
-    ['snow temperature'                   , 'T_SNOW'  , 'TSN'  , '238', 'cell', 'surface'    , '1'     , '1' , 'M', '']                                     ,
-    ['water content of snow'              , 'W_SNOW'  , 'SD'   , '141', 'cell', 'surface'    , '1'     , '1' , 'M', '']                                     ,
-    ['density of snow'                    , 'RHO_SNOW', 'RSN'  , '33' , 'cell', 'surface'    , '1'     , '1' , 'M', '']                                     ,
-    ['water cont. of interception storage', 'W_I'     , 'SRC'  , '198', 'cell', 'surface'    , '1'     , '1' , 'M', '']                                     ,
-    ['surface roughness'                  , 'Z0'      , 'SR'   , '173', 'cell', 'surface'    , '1'     , '1' , 'M', '']
+    ['Description'                        , 'outputname', 'inputname', 'code', 'grid', 'typeOfLayer', 'nlevel', 'GP', 'I', 'Notes']                                        ,
+    ['temperature '                       , 'T'         , 'T'        , '130' , 'cell', 'hybridLayer', 'nlev'  , '1' , 'Q', '']                                             ,
+    ['zonal wind comp. u'                 , 'U'         , 'U'        , '131' , 'cell', 'hybridLayer', 'nlev'  , '2' , 'Q', '']                                             ,
+    ['meridional wind comp. v '           , 'V'         , 'V'        , '132' , 'cell', 'hybridLayer', 'nlev'  , '2' , 'Q', '']                                             ,
+    ['normal velocity'                    , 'VN '       , ''         , ''    , 'edge', 'hybridLayer', 'nlev'  , '2' , '' , 'comp. using U and V']                          ,
+    ['vertical velocity'                  , 'OMEGA'     , 'W'        , '135' , 'cell', 'hybridLayer', 'nlev+1', '1' , '' , 'hydr. Approximation Omega -> w (Pa/s -> m/s)r'],
+    ['Pressure'                           , 'P'         , 'PRES'     , ''    , 'cell', 'hybridLayer', 'nlev'  , '1' , '' , '? use pressure or density ? if pressure        , for vertical interpolation take pressure deviation from reference pp=pres-ref'],
+    ['air density'                        , 'RHO'       , ''         , ''    , 'cell', 'hybridLayer', 'nlev'  , '1' , '' , 'use gas eq. RHO=f(T                            , p                                                                              , (qv))'],
+    ['virtual potential temperature'      , 'THETA_V'   , ''         , ''    , 'cell', 'hybridLayer', 'nlev'  , '1' , '' , 'to be computed inside ICON']                   ,
+    ['exner pressure '                    , 'EXNER'     , ''         , ''    , 'cell', 'hybridLayer', 'nlev'  , '1' , '' , '']                                             ,
+    ['specific humidity'                  , 'QV'        , 'Q'        , '133' , 'cell', 'hybridLayer', 'nlev'  , '1' , 'Q', '']                                             ,
+    ['cloud liquid water content'         , 'QC'        , 'CLWC'     , '246' , 'cell', 'hybridLayer', 'nlev'  , '1' , 'Q', '']                                             ,
+    ['cloud ice content'                  , 'QI'        , 'CIWC'     , '247' , 'cell', 'hybridLayer', 'nlev'  , '1' , 'Q', '']                                             ,
+    ['rain water content'                 , 'QR'        , 'CRWC'     , '75'  , 'cell', 'hybridLayer', 'nlev'  , '1' , 'Q', '']                                             ,
+    ['snow water content'                 , 'QS'        , 'CSWC'     , '76'  , 'cell', 'hybridLayer', 'nlev'  , '1' , 'Q', '']                                             ,
+    ['ozone mixing ratio'                 , 'O3'        , 'O3'       , '203' , 'cell', 'hybridLayer', 'nlev'  , '1' , 'Q', '']                                             ,
+    ['surface pressure'                   , 'PS'        , 'LNSP'     , '152' , 'cell', 'surface'    , '1'     , '1' , 'Q', '']                                             ,
+    ['specific humidity at surface'       , 'QV_S'      , ''         , ''    , 'cell', 'surface'    , '1'     , '1' , 'M', 'take Q at lowest level ?']                     ,
+    ['snow temperature'                   , 'T_SNOW'    , 'TSN'      , '238' , 'cell', 'surface'    , '1'     , '1' , 'M', '']                                             ,
+    ['water content of snow'              , 'W_SNOW'    , 'SD'       , '141' , 'cell', 'surface'    , '1'     , '1' , 'M', '']                                             ,
+    ['density of snow'                    , 'RHO_SNOW'  , 'RSN'      , '33'  , 'cell', 'surface'    , '1'     , '1' , 'M', '']                                             ,
+    ['water cont. of interception storage', 'W_I'       , 'SRC'      , '198' , 'cell', 'surface'    , '1'     , '1' , 'M', '']                                             ,
+    ['surface roughness'                  , 'Z0'        , 'SR'       , '173' , 'cell', 'surface'    , '1'     , '1' , 'M', '']
   ]
   DefaultConfig = ExtCsv.new('array','plain',_defaultConfig.transpose)
+
+  DefaultColumnNames =
+    {
+      :outName                 => :outputname,
+      :inName                  => :inputname,
+      :code                    => :code,
+      :grid                    => :grid,
+      :levType                 => :typeOfLayer,
+      :nlevels                 => :nlevel,
+      :info                    => :Description,
+      :horizontalInterpolation => :I
+    }
 
   DefaultInputVars = {
     135 => nil, # W vertival velocity
@@ -280,27 +307,38 @@ module Ecmwf2Icon
     config
   end
 
+  def Ecmwf2Icon.displayConfig(config,verbose=false, debug=false)
+    Dbg.msg(config.columns(DefaultColumnNames[:code],
+                           DefaultColumnNames[:outName],
+                           DefaultColumnNames[:inName],
+                           DefaultColumnNames[:info]).to_string("tsv",false),
+            verbose,
+            debug)
+  end
+
   def Ecmwf2Icon.hasCode?(code)
-    return true if @config.id.include?(code)
+    return true if @config.send(DefaultColumnNames[:code]).include?(code)
     return false
   end
+
   def Ecmwf2Icon.grid(varid,conf)
     case
     when varid.kind_of?(Numeric)
-      return conf.selectBy(:id => "'#{varid}'").grid[0]
+      return conf.selectBy(DefaultColumnNames[:code] => "'#{varid}'").grid[0]
     when varid.kind_of?(String)
-      return conf.selectBy(:dwd => varid).grid[0]
+      return conf.selectBy(DefaultColumnNames[:outName] => varid).grid[0]
     end
     warn "Could not find grid information for var '#{varid}'!"
     warn "Check config with 'checkConfig'"
     exit
   end
+
   def Ecmwf2Icon.hasGridinfo?(varid,conf)
     case
     when varid.kind_of?(Numeric)
-      return true if %w[cell edge vertex].include?(conf.selectBy(:id => "'#{varid}'").grid[0])
+      return true if %w[cell edge vertex].include?(conf.selectBy(DefaultColumnNames[:code] => "'#{varid}'").grid[0])
     when varid.kind_of?(String)
-      return true if %w[cell edge vertex].include?(conf.selectBy(:dwd => varid).grid[0])
+      return true if %w[cell edge vertex].include?(conf.selectBy(DefaultColumnNames[:outName] => varid).grid[0])
     end
     return false
   end
@@ -309,8 +347,8 @@ module Ecmwf2Icon
     Ecmwf2Icon.checkGriddes(config)
   end
 
-  def Ecmwf2Icon.checkGriddes(configObject = @config)
-    return false unless configObject.grid.uniq.sort == %w[cell edge vertex]
+  def Ecmwf2Icon.checkGriddes(configObject)
+    return false unless configObject.send(DefaultColumnNames[:grid]).uniq.sort == %w[cell edge vertex]
     return true
   end
 # def checkNames(configObject)
@@ -348,17 +386,28 @@ class Ifs2Icon
 
   include Ecmwf2Icon
 
+  # These variables are dummies to make the 3 different grids accessable to
+  # CDO. They are created by ICON's grid generator
   GRID_VARIABLES = {
     :cell   => :ifs2icon_cell_grid,
     :edge   => :ifs2icon_edge_grid,
     :vertex => :ifs2icon_vertex_grid
   }
-  @@_tempfiles = [] # this only for using ruby's tempfile library for creating
-                    # valid filenames for the intermediate data files
+
+  # Intermediate filenames are created multithreaded. This  prevents them  from
+  # beeing garbage collected and enables a threadsafe use of ruby's tempfile
+  # library
+  @@_tempfiles = []
 
   attr_accessor :inVars, :outVars, :rules, :config, :ifile
 
   def initialize(options)
+
+    @lock = Mutex.new
+
+    # required computation for creating the output variables
+    # TODO this is still a dummy for later implentation steps
+    @rules    = {}
 
     @options = options
     @options.freeze
@@ -381,45 +430,52 @@ class Ifs2Icon
 
     Ecmwf2Icon.checkConfig(@config)
 
-    # Then check variables from the configuration data
-    displayConfiguration
+    Ecmwf2Icon.displayConfig(@config,@options.verbose, @options.debug)
+
+    prepareGridfiles
 
     @ifile = @options.inputfile
 
     # Read input variables form File
     @inVars = getInputVariables
 
-    # Check output variables form the cmdline option if they have valid grid info in the configuration
-    @outVars = getAndCheckOutputVariables
-
-    # Check which input variabels have a valid configuration (use names for netcdf input and codes for grib1)
+    # Check which input variabels have a valid configuration
     checkConfigOnInputVariables
+  end
 
-    # rules represent the required computation for creating the output variables
-    @rules    = {}
+  def checkForPossibleOutput
+    ovars = checkConfigOnInputVariables
+    puts "Possible output variables are #{ovars.join(',')}" 
+  end
 
-    @lock = Mutex.new
-
-    prepareGridfiles
-#    Dbg.msg(IO.popen("ls -crtlh /tmp/Ifs2Icon*").read,true,@options.debug)
-
+  def run
     readVars
 
-#    Dbg.msg(IO.popen("ls -crtlh /tmp/Ifs2Icon*").read,true,@options.debug)
+    # Check output variables form the cmdline option if they have valid grid
+    # info in the configuration
+    @outVars = getAndCheckOutputVariables if @outVars.empty?
+
     computeOutputVars
-#    Dbg.msg(IO.popen("ls -crtlh /tmp/Ifs2Icon*").read,true,@options.debug)
 
     applyLSM
 
     consistencyCheck
 
     writeOutput(@options.outputfile)
-
   end
 
-  def displayConfiguration
-    Dbg.msg(@config.columns(:id,:dwd,:ecmwf,:Description).to_string("tsv",false),@options.verbose, @options.debug)
+  # Create files for later usage as grid description for the remapping
+  def prepareGridfiles
+    GRID_VARIABLES.each {|k,v|
+      Dbg.msg("Selecting #{k} grid from #{@options.gridfile}",false, @options.debug)
+      varfile = tfile
+      Cdo.selname(v,:in => @options.gridfile,:out => varfile)
+      @gridVars[v] = varfile
+      Dbg.msg("#{k} grid is now in #{varfile}",false, @options.debug)
+      Dbg.msg(IO.popen("ls -crtlh #{varfile}").read,false,@options.debug)
+    }
   end
+
   def getInputVariables
     inVars = {}
     # Use names for netcdf files and codes for grib input files
@@ -434,6 +490,7 @@ class Ifs2Icon
 
     inVars
   end
+
   def getAndCheckOutputVariables
     outVars = {}
     oVars   = @options.outputVars.nil? ? Ecmwf2Icon::DefaultOutputVars : @options.outputVars
@@ -441,7 +498,7 @@ class Ifs2Icon
     Dbg.msg("Outout vars to be checked: #{oVars.join(" ")}",false,@options.debug)
     # * grid information must be provided in the configuration
     oVars.each {|outVar|
-      Dbg.msg("Checking output variable '#{outVar}' ... ",false, @options.debug)
+      Dbg.msg("Checking output variable '#{outVar}' for grid desc in configuration ... ",false, @options.debug)
       unless Ecmwf2Icon.hasGridinfo?(outVar,@config)
         warn "Cannot find grid information of variable '#{outVar}'!"
         warn "Abort #{__FILE__} !"
@@ -454,17 +511,7 @@ class Ifs2Icon
     outVars
   end
 
-  # Create files for later usage as grid description for the remapping
-  def prepareGridfiles
-    GRID_VARIABLES.each {|k,v|
-      Dbg.msg("Selecting #{k} grid from #{@options.gridfile}",@options.verbose, @options.debug)
-      varfile = tfile
-      Cdo.selname(v,:in => @options.gridfile,:out => varfile)
-      @gridVars[v] = varfile
-      Dbg.msg("#{k} grid is now in #{varfile}",@options.verbose, @options.debug)
-      Dbg.msg(IO.popen("ls -crtlh #{varfile}").read,false,@options.debug)
-    }
-  end
+  # Split the input file into one file per variable
   def readVars
     threads = []
     @inVars.keys.each {|k|
@@ -475,7 +522,7 @@ class Ifs2Icon
     threads.each {|t| t.join}
   end
 
-  # Every variable 'var' is read from the input and saved into another file. 
+  # Every variable 'var' is read from the input and saved into another temporary file
   def readVar(var,varfile)
     operator = case var
                when Fixnum then 'selcode'
@@ -490,46 +537,64 @@ class Ifs2Icon
   # create a file for a given varriable on a certain grid
   def createVar(name); end
 
-  # For which input variabes does exist a valid configuration?
+  # For which input variabes does exist a valid configuration? 
+  # use names for netcdf input and codes for grib1
   def checkConfigOnInputVariables
+    possibleOutputVars = []
     @inVars.each_key {|var|
       case var
       when Fixnum
-        conf = @config.selectBy(:id => var)
-        dwd, ecmwf, desc = conf.dwd[0], conf.ecmwf[0], conf.Description[0]
-        Dbg.msg("Input variable with code '#{var}' has names: (dwd:#{dwd},ecmwf:#{ecmwf},desc:#{desc})",@options.verbose,@options.debug)
+        conf = @config.selectBy(:code => var)
       when String
-        conf = @config.selectBy(:ecmwf => var)
-        if conf.size == 0 then
-          Dbg.msg("Cannot find variable '#{var}' as a ecmwf name. Checking other names",@options.verbose, @options.debug)
-          conf = @config.selectBy(:dwd => var)
-        end
-        code = conf.id[0]
-        Dbg.msg("Input variable with name '#{var}' has code:#{code}",@options.verbose,@options.debug)
+        conf = @config.selectBy(:inputname => var)
       else
         warn "Wrong class for variable identifier of '#{var}'!"
+        exit 1
+      end
+      if conf.size != 0
+        outvar, invar, code, desc = conf.datasets(:outputname, :inputname, :code, :Description)[0]
+        possibleOutputVars << outvar
+        Dbg.msg("Found info for code:#{code} => dwd:#{outvar}, ecmwf:#{invar}, desc:#{desc})",
+                @options.verbose,
+                @options.debug)
+      else
+        Dbg.msg("Input variable with code '#{var}' has no config",
+                @options.verbose,
+                @options.debug)
       end
     }
+    possibleOutputVars
   end
+
+  # Main method for setting the preprocessing output
   def computeOutputVars
     Dbg.msg("Start computing output variables",false,@options.debug)
     Dbg.msg("Do only remapping of the required output varialbes if they are present in the input file",
             @options.verbose,@options.debug)
 
+    ths = []
     @outVars.each_key {|ovar|
       Dbg.msg("Processing '#{ovar}' ...",@options.verbose,@options.debug)
 
+      ths << Thread.new(ovar) {|ovar|
       # determine the grid of the variable
       grid     = Ecmwf2Icon.grid(ovar,@config).to_sym
       gridfile = @gridVars[GRID_VARIABLES[grid]]
 
-      # remap the variable onto it icon grid
-      ivar              = @config.selectBy(:dwd => ovar).id[0].to_i
+      # remap the variable onto its icon grid provided in the configuration
+      ivar              = @config.selectBy(:outputname => ovar).code[0].to_i
       copyfile, outfile = tfile, tfile
-      Cdo.copy(:in => @inVars[ivar],:out => copyfile,:options => "-f nc")
-      Cdo.remapcon(gridfile,:in => copyfile,:out => outfile,:options => '-P 8')
-      @outVars[ovar] = outfile
+
+      # create netcdf version of the input
+      Cdo.chainCall("setname,#{ovar} -copy",:in => @inVars[ivar],:out => copyfile,:options => "-f nc")
+
+      # Perform conservative remapping
+      Cdo.remapcon(gridfile,:in => copyfile,:out => outfile,:options => "-P #{@options.openmp}")
+
+      @lock.synchronize { @outVars[ovar] = outfile }
+      }
     }
+    ths.each {|t| t.join}
   end
 
   def applyLSM
@@ -551,14 +616,14 @@ class Ifs2Icon
   end
   def tfile
     t = Tempfile.new(self.class.to_s)
-    @@_tempfiles << t #TODO: avoid this! it has to be done otherwise temp files vanish
+    @@_tempfiles << t
     t.path
   end
   private :readVars, :readVar, :remapVar, :tfile
 end
 
 # MEMO ========================================================================
-#  grid description is done via the folling shortcuts: 
+#  grid description is done via the folling shortcuts:
 #   |v|vertex|
 #   |c|cell|
 #   |e|edge|
@@ -604,19 +669,25 @@ if __FILE__ == $0
     options  = PreProcOptions.parse(ARGV)
     pp options if options.debug
     Cdo.Debug = options.debug if options.verbose
+    #=======================================================
     p    = Ifs2Icon.new(options)
-    #pp p if options.debug
+    if options.check
+      p.checkForPossibleOutput
+    else
+      p.run
+    end
   when 'ext'
     conf = Ecmwf2Icon::DefaultConfig
     puts Ecmwf2Icon::DefaultConfig.to_string("tsv")
     #   puts Ecmwf2Icon::DefaultConfig.datacolumns
-    puts "ecmwf's name of 'OMEGA' is '#{conf.selectBy(:dwd => 'OMEGA').ecmwf[0]}'"
+    puts "ecmwf's name of 'OMEGA' is '#{conf.selectBy(:outputname => 'OMEGA').inputname[0]}'"
   when 'cdo'
     include Cdo
     Cdo.Debug = ENV['debug'].nil? ? false : true
     ifile = '/home/ram/data/examples/T.jan.nc'
     puts Cdo.seltimestep(1,:in => Cdo.selname('T',:in =>ifile),:out => 'ofile.nc')
     pp Cdo.showcode(:in => ifile)
+    pp Cdo.showcode(:in => 'ofile.nc')
     pp Cdo.showname(:in => "IFS.grb")
   end
 end

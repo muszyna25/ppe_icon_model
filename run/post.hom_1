@@ -1,7 +1,7 @@
 #=============================================================================
 #
 # This section sets up the environment for the proper postprocessing script.
-# Parameters are passed by the "set_env" file to be executed by the pp script.
+# Parameters are passed by the "${set_env}" file to be executed by the pp script.
 #
 #-----------------------------------------------------------------------------
 
@@ -48,19 +48,22 @@ fi
 
 cd ../scripts/postprocessing/testcases
 
-# Remove old set_env file
+# define individual set-env file
+set_env="Post.${EXP}.set_env"
+
+# Remove old ${set_env} file
 #
-if [ -f set_env ] 
+if [ -f ${set_env} ] 
 then 
-  rm -f set_env
+  rm -f ${set_env}
 fi
 
-# Write new set_env file
+# Write new ${set_env} file
 #
-echo "EXP=\"${EXP}\""                                     >  set_env
-echo "horizontal_resolution=\"${horizontal_resolution}\"" >> set_env
-echo "vertical_resolution=\"${vertical_resolution}\""     >> set_env
-#echo "config_string=\"${config_string}\""                 >> set_env
+echo "EXP=\"${EXP}\""                                     >  ${set_env}
+echo "horizontal_resolution=\"${horizontal_resolution}\"" >> ${set_env}
+echo "vertical_resolution=\"${vertical_resolution}\""     >> ${set_env}
+#echo "config_string=\"${config_string}\""                 >> ${set_env}
 
 # Load modules for CDO and NCL
 #
@@ -88,14 +91,14 @@ echo "-- ---------------------------------------------------------"
 echo "-- hom_1_postpro_driver.bash starts at $(date) --"
 echo "-- ---------------------------------------------------------"
 #
-./hom_1_postpro_driver.bash
+./hom_1_postpro_driver.bash ${set_env}
 STATUS=$?
 
 echo "-- ---------------------------------------------------------"
 echo "-- hom_1_postpro_driver.bash ends at $(date) --"
 echo "-- ---------------------------------------------------------"
 
-rm -f set_env
+rm -f ${set_env}
 
 check_error $? "Creating of Plots"
 

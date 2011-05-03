@@ -1,6 +1,6 @@
 #=============================================================================#
 # This section sets up the environment for the proper postprocessing script.
-# Parameters are passed by the "set_env" file to be executed by the pp script.
+# Parameters are passed by the "${set_env}" file to be executed by the pp script.
 #
 #-----------------------------------------------------------------------------
 
@@ -25,20 +25,23 @@ gridopt="spr0.90"
 
 cd ../scripts/postprocessing/testcases
 
-# Remove old set_env file
+# define individual set-env file
+set_env="Post.${EXP}.set_env"
+
+# Remove old ${set_env} file
 #
-if [ -f set_env ] 
+if [ -f ${set_env} ] 
 then 
-  rm -f set_env
+  rm -f ${set_env}
 fi
 
-# Write new set_env file
+# Write new ${set_env} file
 #
-echo "EXPN=\"${EXPN}\""                                  >  set_env
-echo "Root=\"${Root}\""                                  >> set_env
-echo "Bis=\"${Bis}\""                                    >> set_env
-echo "ver_res=\"${ver_res}\""                            >> set_env
-echo "gridopt=\"${gridopt}\""                            >> set_env
+echo "EXPN=\"${EXPN}\""                                  >  ${set_env}
+echo "Root=\"${Root}\""                                  >> ${set_env}
+echo "Bis=\"${Bis}\""                                    >> ${set_env}
+echo "ver_res=\"${ver_res}\""                            >> ${set_env}
+echo "gridopt=\"${gridopt}\""                            >> ${set_env}
 
 # Load NCL resources
 #
@@ -50,13 +53,13 @@ echo "-- ---------------------------------------------------------"
 echo "-- error_postpro_driver.bash starts at $(date) --"
 echo "-- ---------------------------------------------------------"
 #
-./error_postpro_driver.bash
+./error_postpro_driver.bash ${set_env}
 STATUS=$?
 
 echo "-- ---------------------------------------------------------"
 echo "-- error_postpro_driver.bash ends at $(date) --"
 echo "-- ---------------------------------------------------------"
-rm -f set_env
+rm -f ${set_env}
 
 check_error $STATUS "Creating of Plots"
 

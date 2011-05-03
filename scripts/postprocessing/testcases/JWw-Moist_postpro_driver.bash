@@ -43,6 +43,15 @@ check_error()
 #==========================================================================
 #                          USER'S SPECIFICATIONS 
 #--------------------------------------------------------------------------
+# Check if a parameter is given
+
+if [ "x$1" != "x" ]
+then
+  set_env=$1 
+else
+  set_env=/null
+fi
+
 # 1. About the model output
 #--------------------------------------------------------------------------
 # 1.0 Which model is it, ECHAM or ICOHAM?
@@ -162,13 +171,13 @@ interp_cloud=1
 
 rm_tmp_files=1
 
-if [ -f set_env ] 
+if [ -f ${set_env} ] 
 then 
 
   echo " "
-  echo " !!!!! Use setting from ./set_env"
+  echo " !!!!! Use setting from ./${set_env}"
   echo " "
-  source ./set_env
+  source ./${set_env}
 fi
 
 # Where should the plot files be located? Don't forget the trailing "/".

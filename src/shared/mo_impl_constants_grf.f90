@@ -61,8 +61,8 @@ MODULE mo_impl_constants_grf
   INTEGER, PARAMETER :: grf_bdyintp_end_c   = - grf_bdywidth_c/2
   INTEGER, PARAMETER :: grf_bdyintp_end_e   = -(grf_bdywidth_e+1)/2
 
-  ! Start refin_ctrl level of overlap area with nested domain
-  INTEGER, PARAMETER :: grf_ovlparea_start_c = -1
+  ! Start refin_ctrl level of overlap area with nested domain (prognostic part plus one halo row)
+  INTEGER, PARAMETER :: grf_ovlparea_start_c = -2
 
   ! Start refin_ctrl levels for feedback (as seen from the parent domain)
   INTEGER, PARAMETER :: grf_fbk_start_c = -3

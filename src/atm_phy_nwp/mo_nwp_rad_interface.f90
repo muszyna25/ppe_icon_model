@@ -43,7 +43,7 @@ MODULE mo_nwp_rad_interface
     &                                io3, icc, ntracer, ntracer_static
   USE mo_grf_interpolation,    ONLY: t_gridref_state
   USE mo_impl_constants,       ONLY: min_rlcell, min_rlcell_int
-  USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
+  USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
   USE mo_interpolation,        ONLY: t_int_state
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
@@ -714,7 +714,7 @@ CONTAINS
         & zrg_albnirdif, zrg_tsfc, zrg_pres_ifc, zrg_pres, zrg_temp,    &
         & zrg_acdnc, zrg_tot_cld, zrg_o3                              )
 
-      rl_start = -2
+      rl_start = grf_ovlparea_start_c
       rl_end   = min_rlcell_int
 
       i_startblk = ptr_pp%cells%start_blk(rl_start,i_chidx)
@@ -1116,7 +1116,7 @@ CONTAINS
         & zrg_tot_cld, zrg_sqv ,zrg_duco2, zrg_o3,                                           &
         & zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5,zrg_pres_sfc     )
 
-      rl_start = -2
+      rl_start = grf_ovlparea_start_c
       rl_end   = min_rlcell_int
 
       i_startblk = ptr_pp%cells%start_blk(rl_start,i_chidx)

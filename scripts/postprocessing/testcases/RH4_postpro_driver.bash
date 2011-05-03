@@ -37,6 +37,13 @@ check_error()
 
 #==========================================================================
 #                          USER'S SPECIFICATIONS
+if [ "x$1" != "x" ]
+then
+  set_env=$1 
+else
+  set_env=/null
+fi
+
 #--------------------------------------------------------------------------
 # 1. About the model output
 #--------------------------------------------------------------------------
@@ -125,14 +132,12 @@ rm_tmp_files=1
 
 # Check if there is a local file 'set_env' whith includes a special setting of the values
 
-if [ -f set_env ] 
+if [ -f ${set_env} ] 
 then 
-
   echo " "
-  echo " !!!!! Use setting from ./set_env"
+  echo " !!!!! Use setting from ./${set_env}"
   echo " "
-  # Load the special settings from set_env
-  source ./set_env
+  source ./${set_env}
 fi
 
 model_data_path="${icon_path}experiments/$EXP/"

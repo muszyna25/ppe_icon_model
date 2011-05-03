@@ -410,6 +410,9 @@ CONTAINS
       ENDDO
     ENDDO
 
+    ! This is needed for the special case that patch0 is to be created without a nest
+    max_childdom = MAX(1,max_childdom)
+
 
     ! write control output of namelist variables
 

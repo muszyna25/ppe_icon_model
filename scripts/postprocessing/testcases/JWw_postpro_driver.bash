@@ -43,11 +43,23 @@ set -ex
 
 #==========================================================================
 #                          USER'S SPECIFICATIONS 
+# Check if a parameter is given
+
+if [ "x$1" != "x" ]
+then
+  set_env=$1 
+else
+  set_env=/null
+fi
+
 #--------------------------------------------------------------------------
 # 1. About the model output
 #--------------------------------------------------------------------------
 # 1.1 The directory in which the model output can be found. 
 # Don't forget the trailing "/".
+
+
+echo "JWw_postpro_driver.bash \$\$ $$"
 
 # for automatic testing
 dir=`pwd -P`
@@ -188,13 +200,13 @@ grid_optimization="spr0.90"
 rm_tmp_files=1
 
 
-if [ -f set_env ] 
+if [ -f ${set_env} ] 
 then 
 
   echo " "
-  echo " !!!!! Use setting from ./set_env"
+  echo " !!!!! Use setting from ./${set_env}"
   echo " "
-  source ./set_env
+  source ./${set_env}
 fi
 
 

@@ -34,12 +34,21 @@ check_error()
 
 set -ex
 #
-if [ -f set_env ] 
+# Check if a parameter is given
+
+if [ "x$1" != "x" ]
+then
+  set_env=$1 
+else
+  set_env=/null
+fi
+
+if [ -f ${set_env} ] 
 then 
   echo " "
-  echo " !!!!! Use setting from ./set_env"
+  echo " !!!!! Use setting from ./${set_env}"
   echo " "
-  source ./set_env
+  source ./${set_env}
 fi
 
 #==========================================================================

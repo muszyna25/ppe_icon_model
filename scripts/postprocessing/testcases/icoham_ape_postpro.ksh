@@ -35,47 +35,50 @@ ref_resolution=${horizontal_resolution}${vertical_resolution}
 ref_timerange="151-220"
 ref_data_path=$tmp_data_path
 
+# define individual set-env file
+set_env="Post.${EXP}.set_env"
+
 #
 cd ./APE_postpro
 
-# Remove old set_env file
+# Remove old ${set_env} file
  
-if [ -f set_env ]; then
-  rm -f set_env
+if [ -f ${set_env} ]; then
+  rm -f ${set_env}
 fi
 
-# Write new set_env file
+# Write new ${set_env} file
  
-echo Model=$Model                                 >  set_env
-echo EXP=$EXP                                     >> set_env
-echo export exp_config=\"$exp_config\"            >> set_env
+echo Model=$Model                                 >  ${set_env}
+echo EXP=$EXP                                     >> ${set_env}
+echo export exp_config=\"$exp_config\"            >> ${set_env}
 
-echo cell_type=$cell_type                         >> set_env
-echo horizontal_resolution=$horizontal_resolution >> set_env
-echo vertical_resolution=$vertical_resolution     >> set_env
+echo cell_type=$cell_type                         >> ${set_env}
+echo horizontal_resolution=$horizontal_resolution >> ${set_env}
+echo vertical_resolution=$vertical_resolution     >> ${set_env}
 
-echo model_data_path=$model_data_path             >> set_env
-echo remap_weights_path=$remap_weights_path       >> set_env
-echo plot_file_path=$plot_file_path               >> set_env
-echo tmp_data_path=$tmp_data_path                 >> set_env
+echo model_data_path=$model_data_path             >> ${set_env}
+echo remap_weights_path=$remap_weights_path       >> ${set_env}
+echo plot_file_path=$plot_file_path               >> ${set_env}
+echo tmp_data_path=$tmp_data_path                 >> ${set_env}
 
-echo compute_remap_weights=$compute_remap_weights >> set_env
-echo grid_optimization=$grid_optimization         >> set_env
-echo trunc=$trunc                                 >> set_env
-echo diag_climate=$diag_climate                   >> set_env
-echo clim_istart=$clim_istart                     >> set_env
-echo clim_iend=$clim_iend                         >> set_env
-echo do_computation=$do_computation               >> set_env
-echo make_plot=$make_plot                         >> set_env
-echo export plot_file_format=$plot_file_format    >> set_env
-echo export TopHeight=$TopHeight                  >> set_env
-echo plevs=\"${plevs}\"                           >> set_env
+echo compute_remap_weights=$compute_remap_weights >> ${set_env}
+echo grid_optimization=$grid_optimization         >> ${set_env}
+echo trunc=$trunc                                 >> ${set_env}
+echo diag_climate=$diag_climate                   >> ${set_env}
+echo clim_istart=$clim_istart                     >> ${set_env}
+echo clim_iend=$clim_iend                         >> ${set_env}
+echo do_computation=$do_computation               >> ${set_env}
+echo make_plot=$make_plot                         >> ${set_env}
+echo export plot_file_format=$plot_file_format    >> ${set_env}
+echo export TopHeight=$TopHeight                  >> ${set_env}
+echo plevs=\"${plevs}\"                           >> ${set_env}
 
-echo export ref_config=\"$ref_config\"            >> set_env
-echo ref_exp_name=$ref_exp_name                   >> set_env
-echo ref_resolution=$ref_resolution               >> set_env
-echo ref_data_path=$ref_data_path                 >> set_env
-echo ref_timerange=$ref_timerange                 >> set_env
+echo export ref_config=\"$ref_config\"            >> ${set_env}
+echo ref_exp_name=$ref_exp_name                   >> ${set_env}
+echo ref_resolution=$ref_resolution               >> ${set_env}
+echo ref_data_path=$ref_data_path                 >> ${set_env}
+echo ref_timerange=$ref_timerange                 >> ${set_env}
 
 # Remove old "ncl_output.log"  file
 
@@ -96,7 +99,7 @@ for var in PS PHIS T U V OMEGA Qv Qw Qi ACLC ; do
   ./zonal_clim.ksh $var
 
   # Switch off repeated computation
-  echo compute_remap_weights=0 >> set_env
+  echo compute_remap_weights=0 >> ${set_env}
 done
 
 exit
