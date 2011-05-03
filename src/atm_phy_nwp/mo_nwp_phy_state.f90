@@ -394,7 +394,9 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
     INTEGER :: shape3dkp1(3)
     INTEGER :: ientr
 
-    ientr = 16 ! "entropy" of horizontal slice
+    ientr = 16 ! bits "entropy" of horizontal slice
+
+
 
     shape2d    = (/nproma,            kblks         /)
     shape3d    = (/nproma, klev,      kblks         /)
@@ -477,7 +479,7 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
     cf_desc    = t_cf_var('rain_upd', 'unit ', 'rain in updroughts')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE)
     CALL add_var( diag_list, 'rain_upd', diag%rain_upd,                             &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d) !,&
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
  !               &  lmiss=.true.,     missval=0._wp                      )
 
     ! &      diag%con_udd(nproma,nblks_c)
@@ -492,7 +494,7 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
     cf_desc    = t_cf_var('mbas_com', '', 'cloud base level index')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HEIGHT)
     CALL add_var( diag_list, 'mbas_con', diag%mbas_con,                             &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc,ldims=shape2d)! ,&
+                & GRID_UNSTRUCTURED, ZAXIS_HEIGHT, cf_desc, grib2_desc,ldims=shape2d)! ,&
 !                &  lmiss=.true.,     missval=0                      )
 
     ! &      diag%mtop_con(nproma,nblks_c)
@@ -506,7 +508,7 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
     cf_desc    = t_cf_var('locum,', '', 'convective  activity indicator')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HEIGHT)
     CALL add_var( diag_list, 'locum,', diag%locum,                             &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc,ldims=shape2d)! ,&
+                & GRID_UNSTRUCTURED, ZAXIS_HEIGHT, cf_desc, grib2_desc,ldims=shape2d)! ,&
 !                &  lmiss=.true.,    missval=.false.                    )
 
     ! &      diag%ktype(nproma,nblks_c)
@@ -528,7 +530,7 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
     cf_desc    = t_cf_var('tot_cld', ' ','total cloud variables (cc,qv,qc,qi)')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HEIGHT)
     CALL add_var( diag_list, 'tot_cld', diag%tot_cld,                             &
-                & GRID_UNSTRUCTURED,, ZAXIS_HEIGHT cf_desc, grib2_desc,&
+                & GRID_UNSTRUCTURED, ZAXIS_HEIGHT, cf_desc, grib2_desc,&
                 &                         ldims=(/nproma,klev,kblks,4/))!,&
 !                &  lmiss=.true.,     missval=0._wp                      )
 
@@ -874,7 +876,7 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
     cf_desc    = t_cf_var('z0m', '','geopotential of the top of the atmospheric boundary layer')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE)
     CALL add_var( diag_list, 'z0m', diag%z0m,                             &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d )!,&
+                & GRID_UNSTRUCTURED,ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )!,&
 !                &  lmiss=.true.,     missval=0._wp                      )
 
     ! &      diag%ustar(nproma,nblks_c)
@@ -888,7 +890,7 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
     cf_desc    = t_cf_var('kedisp','','KE dissipation rate')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE)
     CALL add_var( diag_list, 'kedisp', diag%kedisp,                             &
-                & GRID_UNSTRUCTURE, ZAXIS_SURFACED, cf_desc, grib2_desc, ldims=shape2d) !,&
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
  !               &  lmiss=.true.,     missval=0._wp                      )
 
     ! &      diag%ocu(nproma,nblks_c)
@@ -1123,35 +1125,35 @@ SUBROUTINE new_nwp_phy_tend_list( klev, klevp1, kblks,   &
          &                            'short wave radiative temperature tendency')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HEIGHT)
     CALL add_var( phy_tend_list, 'ddt_temp_radsw', phy_tend%ddt_temp_radsw,           &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED, ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d )
 
    ! &      phy_tend%ddt_temp_radlw(nproma,nlev,nblks)
     cf_desc    = t_cf_var('temp_tend_radlw', 'K s-1', &
          &                            'long wave radiative temperature tendency')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HEIGHT)
     CALL add_var( phy_tend_list, 'ddt_temp_radlw', phy_tend%ddt_temp_radlw,        &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d  )
+                & GRID_UNSTRUCTURED, ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d  )
 
    ! &      phy_tend%ddt_temp_turb(nproma,nlev,nblks)
     cf_desc    = t_cf_var('temp_tend_turb', 'K s-1', &
          &                            'turbulence temperature tendency')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HEIGHT)
     CALL add_var( phy_tend_list, 'ddt_temp_turb', phy_tend%ddt_temp_turb,        &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED, ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d )
 
    ! &      phy_tend%ddt_temp_sso(nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('temp_tend_sso', 'K s-1', &
          &                            'sso temperature tendency')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HEIGHT)
     CALL add_var( phy_tend_list, 'ddt_temp_sso', phy_tend%ddt_temp_sso,        &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED, ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d )
 
    ! &      phy_tend%ddt_temp_gwd(nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('ddt_temp_gwd', 'K s-1', &
          &                            'GWD temperature tendency')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HEIGHT)
     CALL add_var( phy_tend_list, 'ddt_temp_gwd', phy_tend%ddt_temp_gwd,        &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d ) !,&
+                & GRID_UNSTRUCTURED, ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d ) !,&
 !                &  lmiss=.true.,     missval=0._wp                      )
 
    ! &      phy_tend%ddt_temp_pconv(nproma,nlev,nblks),          &
@@ -1159,14 +1161,14 @@ SUBROUTINE new_nwp_phy_tend_list( klev, klevp1, kblks,   &
          &                            'convection temperature tendency')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HEIGHT)
     CALL add_var( phy_tend_list, 'ddt_temp_pconv', phy_tend%ddt_temp_pconv,        &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED,ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d )
 
    ! &      phy_tend%ddt_temp_pscl(nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('ddt_temp_pscl', 'K s-1', &
          &                            'cloud microphysical temperature tendency')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HEIGHT)
     CALL add_var( phy_tend_list, 'ddt_temp_pscl', phy_tend%ddt_temp_pscl,        &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED,ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d )
 
 
     !------------------------------
@@ -1178,28 +1180,28 @@ SUBROUTINE new_nwp_phy_tend_list( klev, klevp1, kblks,   &
          &                            'turbulence tendency of zonal wind')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HEIGHT)
     CALL add_var( phy_tend_list, 'ddt_u_turb', phy_tend%ddt_u_turb,        &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d)
+                & GRID_UNSTRUCTURED, ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d)
 
    ! &      phy_tend%ddt_u_sso(nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('ddt_u_sso', 'm s-2', &
          &                            'sso tendency of zonal wind')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HEIGHT)
     CALL add_var( phy_tend_list, 'ddt_u_sso', phy_tend%ddt_u_sso,        &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED, ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d )
 
    ! &      phy_tend%ddt_u_gwd(nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('ddt_u_gwd', 'm s-2', &
          &                            'GWD tendency of zonal wind')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HEIGHT)
     CALL add_var( phy_tend_list, 'ddt_u_gwd', phy_tend%ddt_u_gwd,        &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED, ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d )
 
    ! &      phy_tend%ddt_u_pconv(nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('ddt_u_pconv', 'm s-2', &
          &                            'convection tendency of zonal wind')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HEIGHT)
     CALL add_var( phy_tend_list, 'ddt_u_pconv', phy_tend%ddt_u_pconv,        &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d)
+                & GRID_UNSTRUCTURED, ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d)
 
 
     !------------------------------
@@ -1211,28 +1213,28 @@ SUBROUTINE new_nwp_phy_tend_list( klev, klevp1, kblks,   &
          &                            'turbulence tendency of meridional wind')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HEIGHT)
     CALL add_var( phy_tend_list, 'ddt_v_turb', phy_tend%ddt_v_turb,        &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d)
+                & GRID_UNSTRUCTURED, ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d)
 
    ! &      phy_tend%ddt_v_sso(nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('ddt_v_sso', 'm s-2', &
          &                            'sso tendency of meridional wind')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HEIGHT)
     CALL add_var( phy_tend_list, 'ddt_v_sso', phy_tend%ddt_v_sso,        &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED,ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d )
 
    ! &      phy_tend%ddt_v_gwd(nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('ddt_v_gwd', 'm s-2', &
          &                            'GWD tendency of meridional wind')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HEIGHT)
     CALL add_var( phy_tend_list, 'ddt_v_gwd', phy_tend%ddt_v_gwd,        &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED, ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d )
 
    ! &      phy_tend%ddt_v_pconv(nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('ddt_v_pconv', 'm s-2', &
          &                            'convection tendency of meridional wind')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HEIGHT)
     CALL add_var( phy_tend_list, 'ddt_v_pconv', phy_tend%ddt_v_pconv,        &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED,ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d )
 
     !------------------------------
     ! Moist tracer tendencies
@@ -1243,7 +1245,7 @@ SUBROUTINE new_nwp_phy_tend_list( klev, klevp1, kblks,   &
          &                            'turbulence tendency of tracers')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HEIGHT)
     CALL add_var( phy_tend_list, 'ddt_tracer_turb', phy_tend%ddt_tracer_turb,        &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape4d)
+                & GRID_UNSTRUCTURED,ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape4d)
 
 
    ! &      phy_tend%ddt_tracer_pconv(nproma,nlev,nblks,iqcond),          &
@@ -1251,14 +1253,14 @@ SUBROUTINE new_nwp_phy_tend_list( klev, klevp1, kblks,   &
          &                            'convective tendency y of tracers')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HEIGHT)
     CALL add_var( phy_tend_list, 'ddt_tracer_pconv', phy_tend%ddt_tracer_pconv,        &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape4d )
+                & GRID_UNSTRUCTURED,ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape4d )
 
    ! &      phy_tend%ddt_tracer_pscl(nproma,nlev,nblks,iqcond)
     cf_desc    = t_cf_var('ddt_tracer_pscl', 's-1', &
          &                            'cloud microphysical tendency y of tracers')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HEIGHT)
     CALL add_var( phy_tend_list, 'ddt_tracer_pscl', phy_tend%ddt_tracer_pscl,        &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape4d )
+                & GRID_UNSTRUCTURED,ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape4d )
 
     !------------------------------
     ! TKE tendency
@@ -1269,7 +1271,7 @@ SUBROUTINE new_nwp_phy_tend_list( klev, klevp1, kblks,   &
          &                            'tendency of turbulent kinetic energy ')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, ZAXIS_HEIGHT)
     CALL add_var( phy_tend_list, 'ddt_tke', phy_tend%ddt_tke,             &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d )
+                & GRID_UNSTRUCTURED, ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d )
 
 !
 !! Initialize fields
