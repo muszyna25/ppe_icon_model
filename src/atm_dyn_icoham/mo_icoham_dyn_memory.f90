@@ -278,31 +278,31 @@ CONTAINS
     !GRIB2: discipline, category, parameter, bits, gridtype, subgridtype, leveltype
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
 
-    CALL add_var( field_list, 'vn', field%vn,                                   &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+    CALL add_var( field_list, 'vn', field%vn,                                            &
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_e )
 
     cf_desc    = t_cf_var('surface_pressure', 'Pa', 'surface pressure')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
-    CALL add_var( field_list, 'pres_sfc', field%pres_sfc,                        &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_c )
+    CALL add_var( field_list, 'pres_sfc', field%pres_sfc,                               &
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape2d_c )
 
     cf_desc    = t_cf_var('temperature', 'K', 'absolute temperature')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
-    CALL add_var( field_list, 'temp', field%temp,                                &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+    CALL add_var( field_list, 'temp', field%temp,                                       &
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
 
     IF (ltheta_dyn) THEN
       cf_desc    = t_cf_var('potential_temperature', 'K', 'potential temperature')
       grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
-      CALL add_var( field_list, 'theta', field%theta,                             &
-                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+      CALL add_var( field_list, 'theta', field%theta,                                     &
+                  & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
     ENDIF
 
     IF (ntracer > 0) THEN
       cf_desc    = t_cf_var('tracer', 'kg kg-1', 'tracer concentration')
       grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
-      CALL add_var( field_list, 'tracer', field%tracer,                            &
-                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape4d_c )
+      CALL add_var( field_list, 'tracer', field%tracer,                                   &
+                  & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape4d_c )
     ENDIF
 
     !Initialize all fields with zero
@@ -353,125 +353,125 @@ CONTAINS
     cf_desc    = t_cf_var('condensated_water', 'kg kg-1', 'cloud water + cloud ice')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
     CALL add_var( field_list, 'qx', field%qx,                                   &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('eastward_wind', 'm s-1', 'zonal wind')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
     CALL add_var( field_list, 'u', field%u,                                      &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('northward_wind', 'm s-1', 'meridional wind')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
     CALL add_var( field_list, 'v', field%v,                                       &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('tangential_wind', 'm s-1', 'wind tangent to the edge')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
     CALL add_var( field_list, 'vt', field%vt,                                     &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_e )
 
     cf_desc    = t_cf_var('vorticity_vertex', 's-1', 'relative vorticity at vertices')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_VERTEX, ZAXIS_HYBRID)
     CALL add_var( field_list, 'rel_vort', field%rel_vort,                           &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_v )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_v )
 
     cf_desc    = t_cf_var('vorticity_edge', 's-1', 'relative vorticity at edges')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
     CALL add_var( field_list, 'rel_vort_e', field%rel_vort_e,                         &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_e )
 
     cf_desc    = t_cf_var('vorticity_cell', 's-1', 'relative vorticity at cell center')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
     CALL add_var( field_list, 'rel_vort_c', field%rel_vort_c,                         &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('divergence', 's-1', 'wind divergence')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
     CALL add_var( field_list, 'div', field%div,                                   &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('kinetic_energy', 'm2 s-2', 'specific kinetic energy')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
     CALL add_var( field_list, 'e_kin', field%e_kin,                                  &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('geopotential_full', 'm2 s-2', 'geopotential at full level')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
     CALL add_var( field_list, 'geo_mc', field%geo_mc,                              &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('vert_vel_full', 'Pa s-1', 'pressure vertical velocity at full level')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
     CALL add_var( field_list, 'wpres_mc', field%wpres_mc,                              &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('pressure_full', 'Pa', 'pressure at full level')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
     CALL add_var( field_list, 'pres_mc', field%pres_mc,                              &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('delta_pres', 'Pa', 'layer thickness at cell center')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
     CALL add_var( field_list, 'delp_c', field%delp_c,                              &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('delta_pres_new', 'Pa',                                        &
                  &        'layer thickness at cell center at next time step')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
     CALL add_var( field_list, 'delp_c_new', field%delp_c_new,                              &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('inv_delta_pres', 'Pa-1', 'inverser of layer thickness at cell center')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
     CALL add_var( field_list, 'rdelp_c', field%rdelp_c,                                    &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('inv_delta_pres_new', 'Pa-1',                                    &
                  & 'inverser of layer thickness at cell center at next time step')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
     CALL add_var( field_list, 'rdelp_c_new', field%rdelp_c_new,                              &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('delta_pres_e', 'Pa', 'layer thickness at edge center')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
     CALL add_var( field_list, 'delp_e', field%delp_e,                              &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_e )
 
     cf_desc    = t_cf_var('delta_pres_v', 'Pa', 'layer thickness at vertex center')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_VERTEX, ZAXIS_HYBRID)
     CALL add_var( field_list, 'delp_v', field%delp_v,                              &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_v )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_v )
 
     cf_desc    = t_cf_var('delta_virtual_temp', 'K', 'virtual temperature increment')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
     CALL add_var( field_list, 'virt_incr', field%virt_incr,                            &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('virtual_temperature', 'K', 'virtual temperature')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
     CALL add_var( field_list, 'tempv', field%tempv,                              &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('rd_log_pr', '', 'Rd * ln(p(k+.5)/p(k-.5)) at cell center')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
     CALL add_var( field_list, 'rdlnpr_c', field%rdlnpr_c,                              &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('rd_alpha', '', 'Rd * \alpha at cell center')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
     CALL add_var( field_list, 'rdalpha_c', field%rdalpha_c,                              &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('mass_flux_edge', 'Pa m s-1', 'mass flux at edge')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
     CALL add_var( field_list, 'mass_flux_e', field%mass_flux_e,                          &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_e )
 
     IF(ltheta_dyn)THEN
       cf_desc    = t_cf_var('exner', ' ', 'exner function')
       grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
       CALL add_var( field_list, 'exner', field%exner,                                  &
-                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                  & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
     END IF
 
     IF (ntracer > 0) THEN
@@ -479,7 +479,7 @@ CONTAINS
                    &        'horizontal tracer flux at edges')
       grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
       CALL add_var( field_list, 'hfl_tracer', field%hfl_tracer,                        &
-                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape4d_e )
+                  & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape4d_e )
     END IF
 
     !================================================================
@@ -492,38 +492,38 @@ CONTAINS
     cf_desc    = t_cf_var('geopotential_half', 'm s-1', 'geopotential at half level')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID_HALF)
     CALL add_var( field_list, 'geo_ic', field%geo_ic,                              &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('vert_vel_half', 'Pa s-1', 'pressure vertical velocity at half level')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID_HALF)
     CALL add_var( field_list, 'wpres_ic', field%wpres_ic,                              &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('eta_vert_vel', 'Pa s-1', 'eta vertical velocity times dp_deta')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID_HALF)
     CALL add_var( field_list, 'weta', field%weta,                              &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('pressure_half', 'Pa', 'pressure at half level')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID_HALF)
     CALL add_var( field_list, 'pres_ic', field%pres_ic,                              &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('pressure_half_new', 'Pa', 'pressure at half level at next time step')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID_HALF)
     CALL add_var( field_list, 'pres_ic_new', field%pres_ic_new,                              &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d_c )
 
     cf_desc    = t_cf_var('log_pressure', '', 'log of pressure at cell center')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID_HALF)
     CALL add_var( field_list, 'lnp_ic', field%lnp_ic,                              &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3d_c )
 
     IF (ntracer > 0) THEN
       cf_desc    = t_cf_var('vert_tracer_flux', 'kg m-1 s-1 ', 'horizontal tracer flux at cell')
       grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID_HALF)
       CALL add_var( field_list, 'vfl_tracer', field%vfl_tracer,                        &
-                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape4d_c )
+                  & GRID_UNSTRUCTURED, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape4d_c )
     END IF
 
 
@@ -606,31 +606,31 @@ CONTAINS
     cf_desc    = t_cf_var('normal_wind_tendency', 'm s-2', 'tendency of wind normal to edge')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
     CALL add_var( field_list, 'tend_vn', field%vn,                                   &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_e )
 
     cf_desc    = t_cf_var('surface_pressure_tendency', 'Pa s-1', 'surface pressure tendency')
-    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE)
     CALL add_var( field_list, 'tend_pres_sfc', field%pres_sfc,                        &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
     cf_desc    = t_cf_var('temperature_tendency', 'K s-1', 'absolute temperature tendency')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
     CALL add_var( field_list, 'tend_temp', field%temp,                                &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
 
     IF (ltheta_dyn) THEN
       cf_desc    = t_cf_var('potential_temperature_tendency', 'K s-1',  &
                    &        'potential temperature tendency')
       grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
       CALL add_var( field_list, 'tend_theta', field%theta,                             &
-                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                  & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
     ENDIF
 
     IF (ntracer > 0) THEN
       cf_desc    = t_cf_var('tracer_tendency', 's-1', 'tendency of tracer concentration')
       grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
       CALL add_var( field_list, 'tend_tracer', field%tracer,                            &
-                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape4d_c )
+                  & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape4d_c )
     ENDIF
 
     !Initialize all fields with zero
@@ -682,26 +682,26 @@ CONTAINS
                  &        'physical tendency of wind normal to edge')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_EDGE, ZAXIS_HYBRID)
     CALL add_var( field_list, 'phy_tend_vn', field%vn,                               &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_e )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_e )
 
     cf_desc    = t_cf_var('phy_surface_pressure_tendency', 'Pa s-1',                 &
                  &        'physical surface pressure tendency')
-    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
+    grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_SURFACE)
     CALL add_var( field_list, 'phy_tend_pres_sfc', field%pres_sfc,                   &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape2d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
     cf_desc    = t_cf_var('phy_temperature_tendency', 'K s-1',                       &
                  &        'physical absolute temperature tendency')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
     CALL add_var( field_list, 'phy_tend_temp', field%temp,                           &
-                & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
 
     IF (ltheta_dyn) THEN
       cf_desc    = t_cf_var('phy_potential_temperature_tendency', 'K s-1',           &
                    &        'physical potential temperature tendency')
       grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
       CALL add_var( field_list, 'phy_tend_theta', field%theta,                       &
-                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape3d_c )
+                  & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d_c )
     ENDIF
 
     IF (ntracer > 0) THEN
@@ -709,7 +709,7 @@ CONTAINS
                    &       'physical tendency of tracer concentration')
       grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL, ZAXIS_HYBRID)
       CALL add_var( field_list, 'phy_tend_tracer', field%tracer,                        &
-                  & GRID_UNSTRUCTURED, cf_desc, grib2_desc, ldims=shape4d_c )
+                  & GRID_UNSTRUCTURED, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape4d_c )
     ENDIF
 
     !Initialize all fields with zero
