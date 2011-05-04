@@ -124,7 +124,8 @@ CONTAINS
     IF(.NOT. ASSOCIATED(this_list)) THEN
       nvar_lists = nvar_lists + 1
       IF (nvar_lists > max_var_lists) THEN
-        CALL finish('new_list', 'var_lists container overflow, increase "max_var_lists" in mo_var_list.f90')
+        CALL finish('new_list', 'var_lists container overflow, increase "max_var_lists" &
+          &in mo_var_list.f90')
       ENDIF
       this_list => var_lists(nvar_lists)
     ENDIF
