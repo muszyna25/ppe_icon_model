@@ -82,7 +82,7 @@ PROGRAM postpro
 
 USE mo_kind
 USE mo_model_domain,         ONLY: t_patch
-USE mo_ext_data,             ONLY: t_external_data, construct_ext_data_atm
+USE mo_ext_data,             ONLY: t_external_data, construct_ext_data
 USE mo_model_domain_import,  ONLY: n_dom, nroot, parent_id,      &
                                  & start_lev, import_patches,    &
                                  & grid_nml_setup, destruct_patches
@@ -266,7 +266,7 @@ CALL grid_nml_setup             !reads namelist group grid_ctl
       CALL finish('postpro','allocation for ext_data failed')
     ENDIF
 
-    CALL construct_ext_data_atm (p_patch, ext_data)
+    CALL construct_ext_data (p_patch, ext_data)
 
     CALL prepare_ha_integration(p_patch, p_int_state, p_grf_state, p_hydro_state)
 

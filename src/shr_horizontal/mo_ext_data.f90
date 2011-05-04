@@ -1,8 +1,8 @@
 !>
 !! Definition, allocation/deallocation and reading of external datasets
 !!
-!! This module contains the type-declaration for the external datasets.
-!! including subroutines for memory allocation/deallocation and reading.
+!! This module contains the type-declaration for the external datasets,
+!! including memory allocation/deallocation and reading.
 !!
 !! @author Daniel Reinert, DWD
 !! @author Hermann Asensio, DWD
@@ -12,6 +12,9 @@
 !! Initial revision by Daniel Reinert, DWD (2010-07-12)
 !! Modification by Hermann Asensio, DWD (2010-07-16)
 !!  - add miscellaneous variables for external parameters
+!! Modification by Daniel Reinert, DWD (2011-05-03)
+!! - Memory allocation method changed from explicit allocation to Luis'
+!!   infrastructure
 !!
 !! @par Copyright
 !! 2002-2010 by DWD and MPI-M
@@ -53,14 +56,21 @@ MODULE mo_ext_data
   USE mo_model_domimp_setup, ONLY: reshape_real, reshape_int
   USE mo_grid_nml,           ONLY: n_dom
   USE mo_interpolation,      ONLY: t_int_state, cells2verts_scalar
-  USE mo_math_operators,     ONLY: nabla4_scalar!, nabla2_scalar
+  USE mo_math_operators,     ONLY: nabla4_scalar
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_sync,               ONLY: SYNC_C, SYNC_V, sync_patch_array
   USE mo_mpi,                ONLY: p_pe, p_io, p_bcast
   USE mo_parallel_nml,       ONLY: p_test_run, p_comm_work_test, p_comm_work
   USE mo_communication,      ONLY: idx_no, blk_no
+  USE mo_linked_list,        ONLY: t_var_list
+  USE mo_var_list,           ONLY: default_var_list_settings, &
+    &                              add_var,                   &
+    &                              new_var_list,              &
+    &                              delete_var_list
+  USE mo_cf_convention
+  USE mo_grib2
+  USE mo_cdi_constants
 
-!  USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
 
   IMPLICIT NONE
 
@@ -79,9 +89,8 @@ MODULE mo_ext_data
   PUBLIC :: ext_data
 
   PUBLIC :: init_ext_data
-  PUBLIC :: construct_ext_data_atm  ! PUBLIC attribute only necessary for postpro.f90
-  PUBLIC :: destruct_ext_data_atm
-  PUBLIC :: destruct_ext_data_oce
+  PUBLIC :: construct_ext_data  ! PUBLIC attribute only necessary for postpro.f90
+  PUBLIC :: destruct_ext_data
 
 
   !>
@@ -91,125 +100,135 @@ MODULE mo_ext_data
   !!
   TYPE :: t_external_atmos
 
+    !
     ! *** Topography ***
-    REAL(wp), ALLOCATABLE ::   &  !< topographic height at cell centers      [m]
-      &  topography_c(:,:)        ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !< topographic height at cell centers      [m]
+      &  topography_c(:,:)     ! index1=1,nproma, index2=1,nblks_c
 
-    REAL(wp), ALLOCATABLE ::   &  !< smoothed topographic height at cell centers [m]
-      &  topography_smt_c(:,:)    ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !< smoothed topographic height at cell centers [m]
+      &  topography_smt_c(:,:) ! index1=1,nproma, index2=1,nblks_c
 
-    REAL(wp), ALLOCATABLE ::   &  !< topographic height at cell edges        [m]
-      &  topography_e(:,:)        ! index1=1,nproma, index2=1,nblks_e
+    REAL(wp), POINTER ::   &   !< topographic height at cell edges        [m]
+      &  topography_e(:,:)     ! index1=1,nproma, index2=1,nblks_e
 
-    REAL(wp), ALLOCATABLE ::   &  !< topographic height at cell vertices     [m]
-      &  topography_v(:,:)        ! index1=1,nproma, index2=1,nblks_v
+    REAL(wp), POINTER ::   &   !< topographic height at cell vertices     [m]
+      &  topography_v(:,:)     ! index1=1,nproma, index2=1,nblks_v
 
-    REAL(wp), ALLOCATABLE ::   &  !< smoothed topographic height at vertices [m]
-      &  topography_smt_v(:,:)    ! index1=1,nproma, index2=1,nblks_v
+    REAL(wp), POINTER ::   &   !< smoothed topographic height at vertices [m]
+      &  topography_smt_v(:,:) ! index1=1,nproma, index2=1,nblks_v
 
-    REAL(wp), ALLOCATABLE ::   &  !< geometric height times grav        [m**2/s**2]
-      &  fis(:,:)                 ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !< geopotential (S)                        [m**2/s**2]
+      &  fis(:,:)              ! index1=1,nproma, index2=1,nblks_c
 
 
+    !
     ! *** Land-Sea-Mask ***
-    INTEGER, ALLOCATABLE ::    &  !< land-sea-mask for cell centers          [ ]
-      &  lsm_atm_c(:,:)           ! index1=1,nproma, index2=1,nblks_c
+    INTEGER, POINTER  ::   &   !< land-sea-mask for cell centers          [ ]
+      &  lsm_atm_c(:,:)        ! index1=1,nproma, index2=1,nblks_c
 
-    INTEGER, ALLOCATABLE ::    &  !< land-sea-mask for cell edges            [ ]
-      &  lsm_atm_e(:,:)           ! index1=1,nproma, index2=1,nblks_e
+    INTEGER, POINTER  ::   &   !< land-sea-mask for cell edges            [ ]
+      &  lsm_atm_e(:,:)        ! index1=1,nproma, index2=1,nblks_e
 
-    INTEGER, ALLOCATABLE ::    &  !< land-sea-mask for cell vertices         [ ]
-      &  lsm_atm_v(:,:)           ! index1=1,nproma, index2=1,nblks_v
-
-
-    REAL(wp), ALLOCATABLE ::    &  !< fraction land in a grid element        [ ]
-      &  fr_land(:,:)              ! 0. for water, 1.0 indicates 100% land
-                                   ! index1=1,nproma, index2=1,nblks_c
-
-    REAL(wp), ALLOCATABLE ::    &  !< fraction land glacier in a grid element [ ]
-      &  fr_glac(:,:)              ! 1.0 indicates 100% glacier
-                                   ! index1=1,nproma, index2=1,nblks_c    
-    REAL(wp), ALLOCATABLE ::    &  !< fraction land in a grid element        [ ]
-      &  fr_land_smt(:,:)          !  = smoothed fr_land
-
-    REAL(wp), ALLOCATABLE ::    &  !< fraction land glacier in a grid element [ ]
-      &  fr_glac_smt(:,:)          ! = smoothed fr_glac
-
-    
-   ! *** roghness length ***
-    REAL(wp), ALLOCATABLE ::    &  !< surface roughness                      [m]
-      &  z0(:,:)                   ! index1=1,nproma, index2=1,nblks_c
+    INTEGER, POINTER  ::   &   !< land-sea-mask for cell vertices         [ ]
+      &  lsm_atm_v(:,:)        ! index1=1,nproma, index2=1,nblks_v
 
 
+    REAL(wp), POINTER ::   &   !< fraction land in a grid element         [ ]
+      &  fr_land(:,:)          ! 0. for water, 1.0 indicates 100% land
+                               ! index1=1,nproma, index2=1,nblks_c
+
+    REAL(wp), POINTER ::    &  !< fraction land glacier in a grid element [ ]
+      &  fr_glac(:,:)          ! 1.0 indicates 100% glacier
+                               ! index1=1,nproma, index2=1,nblks_c    
+
+    REAL(wp), POINTER ::   &   !< fraction sea ice cover in a grid element [ ]
+      &  fr_ice(:,:)           ! 1.0 indicates 100% ice
+                               ! index1=1,nproma, index2=1,nblks_c 
+   
+    REAL(wp), POINTER ::   &   !< fraction land in a grid element         [ ]
+      &  fr_land_smt(:,:)      !  = smoothed fr_land
+
+    REAL(wp), POINTER ::   &   !< fraction sea ice cover in a grid element [ ]
+      &  fr_ice_smt(:,:)       ! = smoothed fr_ice
+
+    REAL(wp), POINTER ::   &   !< fraction land glacier in a grid element [ ]
+      &  fr_glac_smt(:,:)      ! = smoothed fr_glac
+
+
+    !  
+    ! *** roughness length ***
+    REAL(wp), POINTER ::   &   !< surface roughness                       [m]
+      &  z0(:,:)               ! index1=1,nproma, index2=1,nblks_c
+
+
+    !
     ! *** FLake ***
-    REAL(wp), ALLOCATABLE ::    &  !< fraction of fresh water                [ ]
-      &  fr_lake(:,:)              ! as partition of total area of the
-                                   ! grid element
-                                   ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !< fraction of fresh water                 [ ]
+      &  fr_lake(:,:)          ! as partition of total area of the
+                               ! grid element
+                               ! index1=1,nproma, index2=1,nblks_c
 
-    REAL(wp), ALLOCATABLE ::    &  !< lake depth                             [m]
-      &  depth_lk(:,:)             ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !< lake depth                              [m]
+      &  depth_lk(:,:)         ! index1=1,nproma, index2=1,nblks_c
 
+
+    !
     ! *** subgrid scale orography ***
-    REAL(wp), ALLOCATABLE ::    &  !< standard deviation of sub-grid scale orography [m]
-      &  sso_stdh(:,:)             ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !< standard deviation of sub-grid scale orography [m]
+      &  sso_stdh(:,:)         ! index1=1,nproma, index2=1,nblks_c
 
-    REAL(wp), ALLOCATABLE ::    &  !< anisotropy of sub-grid scale orography  [ ]
-      &  sso_gamma(:,:)            ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !< anisotropy of sub-grid scale orography  [ ]
+      &  sso_gamma(:,:)        ! index1=1,nproma, index2=1,nblks_c
 
-    REAL(wp), ALLOCATABLE ::    &  !< angle betw. principal axis of orography and E [rad]
-      &  sso_theta(:,:)            ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !< angle betw. principal axis of orography and E [rad]
+      &  sso_theta(:,:)        ! index1=1,nproma, index2=1,nblks_c
 
-    REAL(wp), ALLOCATABLE ::    &  !< mean slope of sub-grid scale orography [ ]
-      &  sso_sigma(:,:)            ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !< mean slope of sub-grid scale orography  [ ]
+      &  sso_sigma(:,:)        ! index1=1,nproma, index2=1,nblks_c
 
 
+    !
     ! *** vegetation parameters ***
+    REAL(wp), POINTER ::   &   !< ground fraction covered by plants (vegetation period)  [ ]
+      & plcov_mx(:,:)          ! index1=1,nproma, index2=1,nblks_c
 
-    REAL(wp), ALLOCATABLE ::    &  !< ground fraction covered by plants (vegetation period)  [ ]
-      & plcov_mx(:,:)              ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !< leaf area index (vegetation period)     [ ]
+      &  lai_mx(:,:)           ! index1=1,nproma, index2=1,nblks_c
 
+    REAL(wp), POINTER ::   &   !< root depth                              [m]
+      &  rootdp(:,:)           ! index1=1,nproma, index2=1,nblks_c
 
-    REAL(wp), ALLOCATABLE ::    &  !< leaf area index (vegetation period)   [ ]
-      &  lai_mx(:,:)               ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !< ground fraction covered by evergreen forest [ ]
+      &  for_e(:,:)            ! index1=1,nproma, index2=1,nblks_c
 
+    REAL(wp), POINTER ::   &   !< ground fraction covered by deciduous forest [ ]
+      &  for_d(:,:)            ! index1=1,nproma, index2=1,nblks_c
 
-    REAL(wp), ALLOCATABLE ::    &  !< root depth  [ m ]
-      &  root_dp(:,:)              ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !< urban area fraction                     [ ]
+      &  urban(:,:)            ! index1=1,nproma, index2=1,nblks_c
 
+    REAL(wp), POINTER ::   &   !< minimum value of stomata resistance     [ s/m ]
+      &  rsmin(:,:)            ! index1=1,nproma, index2=1,nblks_c
 
-    REAL(wp), ALLOCATABLE ::    &  !< ground fraction covered by evergreen forest   [ ]
-      &  forest_e(:,:)                ! index1=1,nproma, index2=1,nblks_c
-
-
-    REAL(wp), ALLOCATABLE ::    &  !< ground fraction covered by deciduous forest   [ ]
-      &  forest_d(:,:)                ! index1=1,nproma, index2=1,nblks_c
-
-
-    REAL(wp), ALLOCATABLE ::    &  !< minimum value of stomata resistance  [ s/m ]
-      &  plant_res_min(:,:)        ! index1=1,nproma, index2=1,nblks_c
-
-
-  !  REAL(wp), ALLOCATABLE ::   &  !<  ratio of NDVI to annual maximum NDVI [ ]
-  !    &  ndvi_ratio(:,:)          ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !< annual maximum NDVI                     [ ]
+      &  ndvi_max(:,:)         ! index1=1,nproma, index2=1,nblks_c
 
 
+
+    !
     ! *** soil parameters ***
-    INTEGER, ALLOCATABLE ::   &  !<  soil texture, keys 0-9       []
-      &  soiltyp(:,:)            ! index1=1,nproma, index2=1,nblks_c
+    INTEGER, POINTER  ::   &   !< soil texture, keys 0-9                  [ ]
+      &  soiltyp(:,:)          ! index1=1,nproma, index2=1,nblks_c
 
-    INTEGER, ALLOCATABLE ::   &  !<  soil texture, keys 0-9       []
-      &  soiltyp_frac(:,:,:)            ! index1=1,nproma, index3=1,nblks_c
+    REAL(wp), POINTER ::   &   !< Near surface temperature (climatological mean)  [ K ]
+      &  t_cl(:,:)             !  used as climatological layer (deepest layer) of T_SO
+                               ! index1=1,nproma, index2=1,nblks_c
 
+    REAL(wp), POINTER ::   &   !< longwave surface emissivity             [ ]
+      &  emis_rad(:,:)         ! index1=1,nproma, index2=1,nblks_c
 
-    REAL(wp), ALLOCATABLE ::   &  !< Near surface temperature (climatological mean)  [ K ]
-      &  t_clim(:,:)              !  used as climatological layer (deepest layer) of T_SO
-                                  ! index1=1,nproma, index2=1,nblks_c
-
-
-    ! *** parameters for radiation ***
-    REAL(wp), ALLOCATABLE ::   &  !<         []
-      &  opt_thick(:,:)           ! index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::  &    !< Landuse class fraction                  [ ]
+      & lu_class_fraction(:,:,:) ! index1=1,nproma, index2=1,nblks_c, index3=1,nclass_lu
 
   END TYPE t_external_atmos
 
@@ -219,18 +238,42 @@ MODULE mo_ext_data
   !! atmosphere external data class (time dependent)
   !!
   !! Contains auxiliary time dependent versions of some external atmospheric data
-  !! fields already which are already defined in external_atmos. These fields will
+  !! fields which are already defined in external_atmos. These fields will
   !! be used to store e.g. montly means from which updated external data can be
   !! derived. The updated interpolated fields can be copied into the time independent
   !! counterparts, which are defined in external_atmos.
   !!
   TYPE :: t_external_atmos_td
 
-    REAL(wp), ALLOCATABLE ::   &  !<  (monthly) ratio of NDVI to annual maximum NDVI [ ]
-      &  ndvi_ratio_td(:,:,:)     ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
+    !
+    ! *** radiation parameters ***
+    REAL(wp), POINTER ::   &   !< aerosol optical thickness of black carbon    [ ]
+      &  aer_bc(:,:,:)         ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
 
-    REAL(wp), ALLOCATABLE ::   &  !<         []
-      &  opt_thick_td(:,:,:)      ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
+    REAL(wp), POINTER ::   &   !< aerosol optical thickness of ambient aerosol [ ]
+      &  aer_dust(:,:,:)       ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
+
+    REAL(wp), POINTER ::   &   !< aerosol optical thickness of particulate     [ ]
+      &  aer_org(:,:,:)        !< organic_matter_ambient_aerosol             
+                               ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
+
+    REAL(wp), POINTER ::   &   !< aerosol optical thickness of sulfate aerosol [ ]
+      &  aer_so4(:,:,:)        ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
+
+    REAL(wp), POINTER ::   &   !< aerosol optical thickness of seasalt aerosol [ ]
+      &  aer_ss(:,:,:)         ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
+
+
+
+    !
+    ! *** vegetation parameters ***
+    REAL(wp), POINTER ::   &   !< normalized difference vegetation index [ ]
+      &  ndvi(:,:,:)           !< (monthly mean)
+                               ! index1=1,nproma, index2=1,nblks_c, index3=1,ntimes
+
+    REAL(wp), POINTER ::   &   !< (monthly) proportion of actual value/maximum 
+      &  ndvi_mrat(:,:)        !< normalized differential vegetation index   [ ]
+                               ! index1=1,nproma, index2=1,nblks_c
 
   END TYPE t_external_atmos_td
 
@@ -243,23 +286,23 @@ MODULE mo_ext_data
   !!
   TYPE :: t_external_ocean
 
-    REAL(wp), ALLOCATABLE ::   &  !<  topographic height at cell centers  [m]
-      &  bathymetry_c(:,:)        !  index1=1,nproma, index2=1,nblks_c
+    REAL(wp), POINTER ::   &   !<  topographic height at cell centers  [m]
+      &  bathymetry_c(:,:)     !  index1=1,nproma, index2=1,nblks_c
 
-    REAL(wp), ALLOCATABLE ::   &  !<  topographic height at cell edges    [m]
-      &  bathymetry_e(:,:)        ! index1=1,nproma, index2=1,nblks_e
+    REAL(wp), POINTER ::   &   !<  topographic height at cell edges    [m]
+      &  bathymetry_e(:,:)     ! index1=1,nproma, index2=1,nblks_e
 
-    REAL(wp), ALLOCATABLE ::   &  !<  topographic height at cell vertices [m]
-      &  bathymetry_v(:,:)        ! index1=1,nproma, index2=1,nblks_v
+    REAL(wp), POINTER ::   &   !<  topographic height at cell vertices [m]
+      &  bathymetry_v(:,:)     ! index1=1,nproma, index2=1,nblks_v
 
-    INTEGER, ALLOCATABLE ::    &  !< land-sea-mask for cell centers
-      &  lsm_oce_c(:,:,:)         ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_c
+    INTEGER, POINTER ::    &   !< land-sea-mask for cell centers
+      &  lsm_oce_c(:,:,:)      ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_c
 
-    INTEGER, ALLOCATABLE ::    &  !< land-sea-mask for cell edges
-      &  lsm_oce_e(:,:,:)         ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_e
+    INTEGER, POINTER ::    &   !< land-sea-mask for cell edges
+      &  lsm_oce_e(:,:,:)      ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_e
 
-    INTEGER, ALLOCATABLE ::    &  !< land-sea-mask for cell vertices
-      &  lsm_oce_v(:,:,:)         ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_v
+    INTEGER, POINTER ::    &   !< land-sea-mask for cell vertices
+      &  lsm_oce_v(:,:,:)      ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_v
 
     !  Pointer to array that contains indices of boundary cells
     !  and number of boundary cells. A cell is a boundary cell, if
@@ -269,8 +312,8 @@ MODULE mo_ext_data
     !  Ocean cells have maximal 2 boundary edges
     !
     ! index1=1,n_land_sea_boundary_c
-    INTEGER, ALLOCATABLE :: land_sea_boundary_idx_c(:)
-    INTEGER, ALLOCATABLE :: land_sea_boundary_blk_c(:)
+    INTEGER, POINTER :: land_sea_boundary_idx_c(:)
+    INTEGER, POINTER :: land_sea_boundary_blk_c(:)
     INTEGER :: n_land_sea_boundary_c
 
     !
@@ -280,8 +323,8 @@ MODULE mo_ext_data
     !  The indices are local, i.e. with respect to the patch.
     !
     ! index1=1,n_land_sea_boundary_e
-    INTEGER, ALLOCATABLE :: land_sea_boundary_idx_e(:)
-    INTEGER, ALLOCATABLE :: land_sea_boundary_blk_e(:)
+    INTEGER, POINTER :: land_sea_boundary_idx_e(:)
+    INTEGER, POINTER :: land_sea_boundary_blk_e(:)
     INTEGER :: n_land_sea_boundary_e
 
     !
@@ -293,8 +336,8 @@ MODULE mo_ext_data
     !  Ocean vertices have cells of different type among its neighbor cells.
     !
     ! index1=1,n_land_sea_boundary_v
-    INTEGER, ALLOCATABLE :: land_sea_boundary_idx_v(:)
-    INTEGER, ALLOCATABLE :: land_sea_boundary_blk_v(:)
+    INTEGER, POINTER :: land_sea_boundary_idx_v(:)
+    INTEGER, POINTER :: land_sea_boundary_blk_v(:)
     INTEGER :: n_land_sea_boundary_v
 
   END TYPE t_external_ocean
@@ -304,7 +347,7 @@ MODULE mo_ext_data
 !  !>
 !  !! ocean external data class (time dependent)
 !  !!
-!  !! This data type contains additional auxiliary time dependent versions of
+!  !! This data type contains auxiliary time dependent versions of
 !  !! some external oceanic data fields already defined in external_ocean. These
 !  !! fields will be used to store e.g. montly means from which interpolated external
 !  !! data can be derived. The updated fields are copied into the time independent
@@ -316,17 +359,23 @@ MODULE mo_ext_data
 
 
   !>
-  !! External data class
+  !! External data class including lists
   !!
-  !! External data class
+  !! External data class including lists
   !!
   TYPE :: t_external_data
 
     TYPE(t_external_atmos)    :: atm
-    TYPE(t_external_atmos_td) :: atm_td
+    TYPE(t_var_list), POINTER :: atm_list
 
-    TYPE(t_external_ocean) :: oce
-    TYPE(t_external_ocean) :: oce_td
+    TYPE(t_external_atmos_td) :: atm_td
+    TYPE(t_var_list), POINTER :: atm_td_list
+
+    TYPE(t_external_ocean)    :: oce
+    TYPE(t_var_list), POINTER :: oce_list
+
+!    TYPE(t_external_ocean_td) :: oce_td
+!    TYPE(t_var_list), POINTER :: oce_td_list
 
   END TYPE t_external_data
 
@@ -344,7 +393,8 @@ CONTAINS
   !! Init external data for atmosphere and ocean
   !!
   !! Init external data for atmosphere and ocean.
-  !! 1. Memory is allocated.
+  !! 1. Build data structure, including field lists and 
+  !!    memory allocation.
   !! 2. External data are read in from netCDF file (optional)
   !!
   !! @par Revision History
@@ -363,14 +413,9 @@ CONTAINS
 
 !-------------------------------------------------------------------------
 
-    ! Allocate memory for atmospheric external data
-    CALL construct_ext_data_atm (p_patch, ext_data)
-
-! #Daniel#: This still has to be coded
-    ! Allocate memory for oceanic external data
-!DR    IF ( locean ) THEN
-!DR      CALL construct_ext_data_oce (p_patch, ext_data)
-!DR    ENDIF
+    ! top-level procedure for building data structures for 
+    ! external data.
+    CALL construct_ext_data(p_patch, ext_data)
 
 
     ! Check, whether external data should be read from file
@@ -414,603 +459,706 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   !>
-  !! Allocate memory for atmospheric external data
+  !! Top-level procedure for building external data structure
   !!
-  !! Allocate memory for atmospheric external data
+  !! Top-level procedure for building external data structure
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2010-07-12)
   !!
-  SUBROUTINE construct_ext_data_atm (p_patch, ext_data)
+  SUBROUTINE construct_ext_data (p_patch, ext_data)
 
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_external_data),  INTENT(INOUT) :: ext_data(:)
 
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data:construct_ext_data_atm'
+    TYPE(t_var_list), POINTER  ::  & ! pointer to single list element
+      &  listptr
 
-    INTEGER :: nblks_c, nblks_e, nblks_v
-    INTEGER :: ntimes
     INTEGER :: jg
-    INTEGER :: ist  ! status variable
+
+    CHARACTER(len=MAX_CHAR_LENGTH) :: listname
+
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = 'mo_ext_data:construct_ext_data'
+
 !-------------------------------------------------------------------------
 
-    DO jg = 1,n_dom
 
-      ! values for the blocking
-      nblks_c = p_patch(jg)%nblks_c
-      nblks_e = p_patch(jg)%nblks_e
-      nblks_v = p_patch(jg)%nblks_v
+    CALL message (TRIM(routine), 'Construction of data structure for' // &
+      &                          'external data started')
 
+    DO jg = 1, n_dom
 
-      !topographic height at cells, edges and vertices
       !
-      !cells
-      ALLOCATE(ext_data(jg)%atm%topography_c(nproma,nblks_c),STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'allocating topography_c failed')
-      ENDIF
-      !
-      !smoothed at cells
-      ALLOCATE(ext_data(jg)%atm%topography_smt_c(nproma,nblks_c),STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'allocating topography_smt_c failed')
-      ENDIF
-      !
-      !edges
-      ALLOCATE(ext_data(jg)%atm%topography_e(nproma,nblks_e),STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'allocating topography_e failed')
-      ENDIF
-      !
-      !vertices
-      ALLOCATE(ext_data(jg)%atm%topography_v(nproma,nblks_v),STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'allocating topography_v failed')
-      ENDIF
-      !
-      !smoothed at vertices
-      ALLOCATE(ext_data(jg)%atm%topography_smt_v(nproma,nblks_v),STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'allocating topography_smt_v failed')
-      ENDIF
+      ! Build external data list for constant in time atmospheric fields
+      WRITE(listname,'(a,i2.2)') 'ext_data_atm_list_of_domain_',jg
+      listptr => ext_data(jg)%atm_list
+      CALL construct_ext_data_atm_list(p_patch(jg), ext_data(jg)%atm, &
+        &                              listptr, TRIM(listname))
 
 
       !
-      ! !land sea mask for cells, edges and vertices
-      !
-      !cells
-      ALLOCATE(ext_data(jg)%atm%lsm_atm_c(nproma,nblks_c),STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'allocating lsm_atm_c failed')
-      ENDIF
-      !
-      !edges
-      ALLOCATE(ext_data(jg)%atm%lsm_atm_e(nproma,nblks_e),STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'allocating lsm_atm_e failed')
-      ENDIF
-      !
-      !vertices
-      ALLOCATE(ext_data(jg)%atm%lsm_atm_v(nproma,nblks_v),STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'allocating lsm_atm_v failed')
-      ENDIF
-
-      ! fr_land
-      ALLOCATE(ext_data(jg)%atm%fr_land(nproma,nblks_c),STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'allocating fr_land failed')
-      ENDIF
-
-      ! maybe the next three (fr_glac, fr_land_smt, fr_glac_smt)
-      ! should be moved into corresponding if block
-      ! fr_glac
-      ALLOCATE(ext_data(jg)%atm%fr_glac(nproma,nblks_c),STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'allocating fr_glac failed')
-      ENDIF
-
-      ! fr_land_smt
-      ALLOCATE(ext_data(jg)%atm%fr_land_smt(nproma,nblks_c),STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'allocating fr_land_smt failed')
-      ENDIF
-
-      ! fr_glac_smt
-      ALLOCATE(ext_data(jg)%atm%fr_glac_smt(nproma,nblks_c),STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'allocating fr_glac_smt failed')
-      ENDIF      
+      ! Build external data list for time-dependent atmospheric fields
+      WRITE(listname,'(a,i2.2)') 'ext_data_atm_td_list_of_domain_',jg
+      listptr => ext_data(jg)%atm_td_list
+      CALL construct_ext_data_atm_td_list(p_patch(jg), ext_data(jg)%atm_td, &
+        &                                 listptr, TRIM(listname))
 
       !
-      ! !geometric height times grav
-      !
-      ALLOCATE(ext_data(jg)%atm%fis(nproma,nblks_c),STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'allocating fis failed')
-      ENDIF
-
-
-      ! Several IF-statements are necessary in order to allocate only
-      ! those fields which are necessary for the chosen
-      ! parameterizations.
-
-      ! external parameter for NWP forcing
-      IF (iforcing == inwp) THEN
-
-        ! *** roughness length ***
-        ALLOCATE(ext_data(jg)%atm%z0(nproma,nblks_c),STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'allocating z0 failed')
-        ENDIF
-
-        ! *** FLake ***
-        ALLOCATE(ext_data(jg)%atm%fr_lake(nproma,nblks_c),STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'allocating fr_lake failed')
-        ENDIF
-
-        ALLOCATE(ext_data(jg)%atm%depth_lk(nproma,nblks_c),STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'allocating depth_lk failed')
-        ENDIF
-
-        ! *** subgrid scale orography ***
-        ALLOCATE(ext_data(jg)%atm%sso_stdh(nproma,nblks_c),STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'allocating sso_stdh failed')
-        ENDIF
-
-        ALLOCATE(ext_data(jg)%atm%sso_gamma(nproma,nblks_c),STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'allocating sso_gamma failed')
-        ENDIF
-
-        ALLOCATE(ext_data(jg)%atm%sso_theta(nproma,nblks_c),STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'allocating sso_theta failed')
-        ENDIF
-
-        ALLOCATE(ext_data(jg)%atm%sso_sigma(nproma,nblks_c),STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'allocating sso_sigma failed')
-        ENDIF
-
-        ! *** vegetation parameters ***
-        ALLOCATE(ext_data(jg)%atm%plcov_mx(nproma,nblks_c),STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'allocating plcov_mx failed')
-        ENDIF
-
-        ALLOCATE(ext_data(jg)%atm%lai_mx(nproma,nblks_c),STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'allocating lai_mx failed')
-        ENDIF
-
-        ALLOCATE(ext_data(jg)%atm%root_dp(nproma,nblks_c),STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'allocating root_dp failed')
-        ENDIF
-
-        ALLOCATE(ext_data(jg)%atm%forest_e(nproma,nblks_c),STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'allocating forest_e failed')
-        ENDIF
-
-        ALLOCATE(ext_data(jg)%atm%forest_d(nproma,nblks_c),STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'allocating forest_d failed')
-        ENDIF
-
-        ALLOCATE(ext_data(jg)%atm%plant_res_min(nproma,nblks_c),STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'allocating plant_res_min failed')
-        ENDIF
-
-        ! *** soil parameters ***
-        ALLOCATE(ext_data(jg)%atm%soiltyp(nproma,nblks_c),STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'allocating soiltyp failed')
-        ENDIF
-
-        ALLOCATE(ext_data(jg)%atm%soiltyp_frac(nproma,nsfc_subs,nblks_c),STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'allocating soiltyp failed')
-        ENDIF
-
-        ALLOCATE(ext_data(jg)%atm%t_clim(nproma,nblks_c),STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'allocating t_clim failed')
-        ENDIF
-
-        ! *** time dependent external parameters ***
-        ! monthly mean data
-        ntimes = 12
-
-        ALLOCATE(ext_data(jg)%atm_td%ndvi_ratio_td(nproma,nblks_c,ntimes),STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'allocating ndvi_ratio_td failed')
-        ENDIF
-
-
-      ENDIF ! iforcing
-
-
-
-! #Hermann#
-! Echam physics external parameter have to be alllocated and initialized as well
-
-! #Daniel#
-! time dependent fields need to be allocated and initialized as well.
-!
+      ! Build external data list for constant in time oceanic fields
+      ! ### to be done ###
 
       !
-      ! Initialize all fields with zero
-      !
-      ext_data(jg)%atm%topography_c(:,:)    = 0._wp
-      ext_data(jg)%atm%topography_smt_c(:,:)= 0._wp
-      ext_data(jg)%atm%topography_e(:,:)    = 0._wp
-      ext_data(jg)%atm%topography_v(:,:)    = 0._wp
-      ext_data(jg)%atm%topography_smt_v(:,:)= 0._wp
-      ext_data(jg)%atm%lsm_atm_c(:,:)       = 0
-      ext_data(jg)%atm%lsm_atm_e(:,:)       = 0
-      ext_data(jg)%atm%lsm_atm_v(:,:)       = 0
-      ext_data(jg)%atm%fr_land(:,:)         = 0._wp
-      ext_data(jg)%atm%fr_glac(:,:)         = 0._wp
-      ext_data(jg)%atm%fr_land_smt(:,:)     = 0._wp
-      ext_data(jg)%atm%fr_glac_smt(:,:)     = 0._wp
-      ext_data(jg)%atm%fis(:,:)             = 0._wp
-
-      ! external parameter for NWP forcing
-      IF (iforcing == inwp) THEN
-        ext_data(jg)%atm%z0(:,:)            = 0._wp
-        ext_data(jg)%atm%fr_lake(:,:)       = 0._wp
-        ext_data(jg)%atm%depth_lk(:,:)      = 0._wp
-        ext_data(jg)%atm%sso_stdh(:,:)      = 0._wp
-        ext_data(jg)%atm%sso_gamma(:,:)     = 0._wp
-        ext_data(jg)%atm%sso_theta(:,:)     = 0._wp
-        ext_data(jg)%atm%sso_sigma(:,:)     = 0._wp
-        ext_data(jg)%atm%plcov_mx(:,:)      = 0._wp
-        ext_data(jg)%atm%lai_mx(:,:)        = 0._wp
-        ext_data(jg)%atm%root_dp(:,:)       = 0._wp
-        ext_data(jg)%atm%forest_e(:,:)      = 0._wp
-        ext_data(jg)%atm%forest_d(:,:)      = 0._wp
-        ext_data(jg)%atm%plant_res_min(:,:) = 0._wp
-        ext_data(jg)%atm%t_clim(:,:)        = 0._wp
-        ext_data(jg)%atm%soiltyp(:,:)       = 0
-        ext_data(jg)%atm%soiltyp_frac(:,:,:)= 0
-
-        ext_data(jg)%atm_td%ndvi_ratio_td(:,:,:)= 0._wp
-      ENDIF ! iforcing
+      ! Build external data list for time-dependent oceanic fields
+      ! ### to be done ###
 
     END DO
 
-  END SUBROUTINE construct_ext_data_atm
+    CALL message (TRIM(routine), 'Construction of data structure for' // &
+      &                          'external data finished')
 
+  END SUBROUTINE construct_ext_data
 
-
-  !-------------------------------------------------------------------------
-  !>
-  !! Allocate memory for oceanic external data
-  !!
-  !! Allocate memory for oceanic external data
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2010-07-12)
-  !!
-  SUBROUTINE construct_ext_data_oce (p_patch, ext_data)
-
-    TYPE(t_patch),           TARGET,INTENT(IN)    :: p_patch(:)  ! please do not remove
-    TYPE(t_external_data),   TARGET,INTENT(INOUT) :: ext_data(:) ! please do not remove
-
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data:construct_ext_data_oce'
-
-!DR    INTEGER :: nblks_c, nblks_e, nblks_v
-!DR    INTEGER :: jg
-!DR    INTEGER :: ist  ! status variable
-!-------------------------------------------------------------------------
-
-    CALL finish(TRIM(routine),'sorry, not implemented yet')
-
-!    DO jg = 1,n_dom
-
-!      ! values for the blocking
-!      nblks_c = p_patch(jg)%nblks_c
-!      nblks_e = p_patch(jg)%nblks_e
-!      nblks_v = p_patch(jg)%nblks_v
-
-!     ALLOCATE(ext_data(jg)%oce%land_sea_boundary_idx_c(,),  &
-!       &      ext_data(jg)%land_sea_boundary_blk_c(,),  &
-!       &        STAT=ist)
-!     IF(ist/=SUCCESS)THEN
-!       CALL finish  (routine,'allocating land_sea_boundary_c failed')
-!     ENDIF
-
-!     ALLOCATE(ext_data(jg)%oce%land_sea_boundary_idx_e(,),  &
-!       &      ext_data(jg)%oce%land_sea_boundary_blk_e(,),  &
-!       &        STAT=ist)
-!     IF(ist/=SUCCESS)THEN
-!       CALL finish  (routine,'allocating land_sea_boundary_e failed')
-!     ENDIF
-
-!     ALLOCATE(ext_data(jg)%oce%land_sea_boundary_idx_v(,),  &
-!       &      ext_data(jg)%oce%land_sea_boundary_idx_v(,),  &
-!       &        STAT=ist)
-!     IF(ist/=SUCCESS)THEN
-!       CALL finish  (routine,'allocating land_sea_boundary_v failed')
-!     ENDIF
-
-!   ENDDO
-
-  END SUBROUTINE construct_ext_data_oce
 
 
 
   !-------------------------------------------------------------------------
+  !
+  !
   !>
-  !! Deallocate memory for atmospheric external data
+  !! Allocation of atmospheric external data structure
   !!
-  !! Deallocate memory for atmospheric external data
+  !! Allocation of atmospheric external data structure (constant in time 
+  !! elements).
+  !!
+  !! Initialization of elements with zero.
   !!
   !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2010-07-12)
+  !! Initial release by Daniel Reinert (2011-05-03)
   !!
-  SUBROUTINE destruct_ext_data_atm (ext_data)
+  SUBROUTINE construct_ext_data_atm_list ( p_patch, p_ext_atm, p_ext_atm_list, &
+    &                                      listname)
+!
+    TYPE(t_patch), TARGET, INTENT(IN)     :: & !< current patch
+      &  p_patch
 
-    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
+    TYPE(t_external_atmos), INTENT(INOUT) :: & !< current external data structure
+      &  p_ext_atm 
 
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data:destruct_ext_data_atm'
+    TYPE(t_var_list), POINTER         :: & !< current external data list
+      &  p_ext_atm_list
+
+    CHARACTER(len=*), INTENT(IN)      :: & !< list name
+      &  listname
+
+    TYPE(t_cf_var)    :: cf_desc
+    TYPE(t_grib2_var) :: grib2_desc
+
+    INTEGER :: nblks_c, &    !< number of cell blocks to allocate
+      &        nblks_e, &    !< number of edge blocks to allocate
+      &        nblks_v       !< number of vertex blocks to allocate
+
+    INTEGER :: shape2d_c(2), shape2d_e(2), shape2d_v(2)
+
+    INTEGER :: ientr         !< "entropy" of horizontal slice
+    !--------------------------------------------------------------
+
+    !determine size of arrays
+    nblks_c = p_patch%nblks_c
+    nblks_e = p_patch%nblks_e
+    nblks_v = p_patch%nblks_v
+
+
+    ientr = 16   ! "entropy" of horizontal slice
+
+    ! predefined array shapes
+    shape2d_c = (/ nproma, nblks_c /)
+    shape2d_e = (/ nproma, nblks_e /)
+    shape2d_v = (/ nproma, nblks_v /)
+
+    !
+    ! Register a field list and apply default settings
+    !
+    CALL new_var_list( p_ext_atm_list, TRIM(listname) )
+    CALL default_var_list_settings( p_ext_atm_list )
+
+
+
+    ! topography height at cell center
+    !
+    ! topography_c  p_ext_atm%topography_c(nproma,nblks_c)
+    cf_desc    = t_cf_var('surface_height', 'm', &
+      &                   'geometric height of the earths surface above sea level')
+    grib2_desc = t_grib2_var( 2, 0, 7, ientr, GRID_REFERENCE, GRID_CELL, &
+      &          ZAXIS_SURFACE)
+    CALL add_var( p_ext_atm_list, 'topography_c', p_ext_atm%topography_c,      &
+      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+    ! smoothed topography height at cell center
+    !
+    ! topography_smt_c  p_ext_atm%topography_smt_c(nproma,nblks_c)
+    cf_desc    = t_cf_var('smoothed_surface_height', 'm', &
+      &                   'smoothed geometric height of the earths surface above sea level')
+    grib2_desc = t_grib2_var( 2, 0, 7, ientr, GRID_REFERENCE, GRID_CELL, &
+      &          ZAXIS_SURFACE)
+    CALL add_var( p_ext_atm_list, 'topography_smt_c', p_ext_atm%topography_smt_c, &
+      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+    ! topography height at edge midpoint
+    !
+    ! topography_e  p_ext_atm%topography_e(nproma,nblks_e)
+    cf_desc    = t_cf_var('surface_height', 'm', &
+      &                   'geometric height of the earths surface above sea level')
+    grib2_desc = t_grib2_var( 2, 0, 7, ientr, GRID_REFERENCE, GRID_EDGE, &
+      &          ZAXIS_SURFACE)
+    CALL add_var( p_ext_atm_list, 'topography_e', p_ext_atm%topography_e, &
+      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
+
+
+    ! topography height at vertex
+    !
+    ! topography_v  p_ext_atm%topography_v(nproma,nblks_v)
+    cf_desc    = t_cf_var('surface_height', 'm', &
+      &                   'geometric height of the earths surface above sea level')
+    grib2_desc = t_grib2_var( 2, 0, 7, ientr, GRID_REFERENCE, GRID_VERTEX, &
+      &          ZAXIS_SURFACE)
+    CALL add_var( p_ext_atm_list, 'topography_v', p_ext_atm%topography_v, &
+      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_v )
+
+
+    ! smoothed topography height at vertex
+    !
+    ! topography_smt_v  p_ext_atm%topography_smt_v(nproma,nblks_v)
+    cf_desc    = t_cf_var('smoothed_surface_height', 'm', &
+      &                   'smoothed geometric height of the earths surface above sea level')
+    grib2_desc = t_grib2_var( 2, 0, 7, ientr, GRID_REFERENCE, GRID_VERTEX, &
+      &          ZAXIS_SURFACE)
+    CALL add_var( p_ext_atm_list, 'topography_smt_v', p_ext_atm%topography_smt_v, &
+      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_v )
+
+
+    ! land sea mask for cells
+    !
+    ! lsm_atm_c    p_ext_atm%lsm_atm_c(nproma,nblks_c)
+    cf_desc    = t_cf_var('land_sea_mask_(cell)', '-', &
+      &                   'land sea mask (cell)')
+    grib2_desc = t_grib2_var( 2, 0, 0, ientr, GRID_REFERENCE, GRID_CELL, &
+      &          ZAXIS_SURFACE)
+    CALL add_var( p_ext_atm_list, 'lsm_atm_c', p_ext_atm%lsm_atm_c, &
+      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+    ! land sea mask for edges
+    !
+    ! lsm_atm_e    p_ext_atm%lsm_atm_e(nproma,nblks_e)
+    cf_desc    = t_cf_var('land_sea_mask_(edge)', '-', &
+      &                   'land sea mask (edge)')
+    grib2_desc = t_grib2_var( 2, 0, 0, ientr, GRID_REFERENCE, GRID_EDGE, &
+      &          ZAXIS_SURFACE)
+    CALL add_var( p_ext_atm_list, 'lsm_atm_e', p_ext_atm%lsm_atm_e, &
+      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
+
+
+    ! land fraction
+    !
+    ! fr_land      p_ext_atm%fr_land(nproma,nblks_c)
+    cf_desc    = t_cf_var('land_area_fraction', '-', 'Fraction land')
+    grib2_desc = t_grib2_var( 2, 0, 0, ientr, GRID_REFERENCE, GRID_CELL, &
+      &          ZAXIS_SURFACE)
+    CALL add_var( p_ext_atm_list, 'fr_land', p_ext_atm%fr_land, &
+      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+    ! glacier fraction
+    !
+    ! fr_glac      p_ext_atm%fr_glac(nproma,nblks_c)
+    cf_desc    = t_cf_var('glacier_area_fraction', '-', 'Fraction glacier')
+    grib2_desc = t_grib2_var( 2, 0, 192, ientr, GRID_REFERENCE, GRID_CELL, &
+      &          ZAXIS_SURFACE)
+    CALL add_var( p_ext_atm_list, 'fr_glac', p_ext_atm%fr_glac, &
+      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+    ! maybe the next three (ice, fr_land_smt, fr_ice_smt)
+    ! should be moved into corresponding if block
+
+    ! sea Ice fraction
+    !
+    ! fr_ice       p_ext_atm%fr_ice(nproma,nblks_c)
+    cf_desc    = t_cf_var('Sea_ice_fraction', '-', 'Sea ice fraction')
+    grib2_desc = t_grib2_var( 10, 2, 0, ientr, GRID_REFERENCE, GRID_CELL, &
+      &          ZAXIS_SURFACE)
+    CALL add_var( p_ext_atm_list, 'fr_ice', p_ext_atm%fr_ice, &
+      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+    ! land fraction (smoothed)
+    !
+    ! fr_land_smt  p_ext_atm%fr_land_smt(nproma,nblks_c)
+    cf_desc    = t_cf_var('land_area_fraction_(smoothed)', '-', &
+      &                   'land area fraction (smoothed)')
+    grib2_desc = t_grib2_var( 2, 0, 0, ientr, GRID_REFERENCE, GRID_CELL, &
+      &          ZAXIS_SURFACE)
+    CALL add_var( p_ext_atm_list, 'fr_land_smt', p_ext_atm%fr_land_smt, &
+      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+    ! glacier area fraction (smoothed)
+    !
+    ! fr_glac_smt  p_ext_atm%fr_glac_smt(nproma,nblks_c)
+    cf_desc    = t_cf_var('glacier_area_fraction_(smoothed)', '-', &
+      &                   'glacier area fraction (smoothed)')
+    grib2_desc = t_grib2_var( 2, 0, 192, ientr, GRID_REFERENCE, GRID_CELL, &
+      &          ZAXIS_SURFACE)
+    CALL add_var( p_ext_atm_list, 'fr_glac_smt', p_ext_atm%fr_glac_smt, &
+      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+    ! sea Ice fraction (smoothed)
+    !
+    ! fr_ice_smt  p_ext_atm%fr_glac_smt(nproma,nblks_c)
+    cf_desc    = t_cf_var('Sea_ice_fraction (smoothed)', '-', &
+      &                   'Sea ice fraction (smoothed)')
+    grib2_desc = t_grib2_var( 10, 2, 0, ientr, GRID_REFERENCE, GRID_CELL, &
+      &          ZAXIS_SURFACE)
+    CALL add_var( p_ext_atm_list, 'fr_ice_smt', p_ext_atm%fr_ice_smt, &
+      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+    ! geopotential (s)
+    !
+    ! fis          p_ext_atm%fis(nproma,nblks_c)
+    cf_desc    = t_cf_var('Geopotential_(s)', 'm2 s-2', &
+      &                   'Geopotential (s)')
+    grib2_desc = t_grib2_var( 0, 3, 4, ientr, GRID_REFERENCE, GRID_CELL, &
+      &          ZAXIS_SURFACE)
+    CALL add_var( p_ext_atm_list, 'fis', p_ext_atm%fis, &
+      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+
+    ! Several IF-statements are necessary in order to allocate only
+    ! those fields which are necessary for the chosen
+    ! parameterizations.
+
+    ! external parameter for NWP forcing
+    IF (iforcing == inwp) THEN
+
+      ! roughness length
+      !
+      ! z0           p_ext_atm%z0(nproma,nblks_c)
+      cf_desc    = t_cf_var('roughtness_length', 'm', 'roughtness length')
+      grib2_desc = t_grib2_var( 2, 0, 1, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_list, 'z0', p_ext_atm%z0, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+      ! fraction lake
+      !
+      ! fr_lake      p_ext_atm%fr_lake(nproma,nblks_c)
+      cf_desc    = t_cf_var('fraction_lake', '-', 'fraction lake')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_list, 'fr_lake', p_ext_atm%fr_lake, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+      ! lake depth
+      !
+      ! depth_lk     p_ext_atm%depth_lk(nproma,nblks_c)
+      cf_desc    = t_cf_var('lake_depth', '-', 'lake depth')
+      grib2_desc = t_grib2_var( 192, 228, 7, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_list, 'depth_lk', p_ext_atm%depth_lk, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+
+
+      !--------------------------------
+      ! sub-gridscale orography
+      !--------------------------------
+
+      ! Standard deviation of sub-grid scale orography
+      !
+      ! sso_stdh     p_ext_atm%sso_stdh(nproma,nblks_c)
+      cf_desc    = t_cf_var('standard_deviation_of_height', 'm',&
+        &                   'Standard deviation of sub-grid scale orography')
+      grib2_desc = t_grib2_var( 0, 3, 20, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_list, 'sso_stdh', p_ext_atm%sso_stdh, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+      ! Anisotropy of sub-gridscale orography
+      !
+      ! sso_gamma    p_ext_atm%sso_gamma(nproma,nblks_c)
+      cf_desc    = t_cf_var('anisotropy_factor', '-',&
+        &                   'Anisotropy of sub-gridscale orography')
+      grib2_desc = t_grib2_var( 0, 3, 20, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_list, 'sso_gamma', p_ext_atm%sso_gamma, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+      ! Angle of sub-gridscale orography
+      !
+      ! sso_theta    p_ext_atm%sso_theta(nproma,nblks_c)
+      cf_desc    = t_cf_var('angle_of_principal_axis', 'radians',&
+        &                   'Angle of sub-gridscale orography')
+      grib2_desc = t_grib2_var( 0, 3, 21, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_list, 'sso_theta', p_ext_atm%sso_theta, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+      ! Slope of sub-gridscale orography
+      !
+      ! sso_sigma    p_ext_atm%sso_sigma(nproma,nblks_c)
+      cf_desc    = t_cf_var('slope_of_terrain', '-',&
+        &                   'Slope of sub-gridscale orography')
+      grib2_desc = t_grib2_var( 0, 3, 22, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_list, 'sso_sigma', p_ext_atm%sso_sigma, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+
+
+      !--------------------------------
+      ! vegetation parameters
+      !--------------------------------
+
+      ! Plant covering degree in the vegetation phase
+      !
+      ! plcov_mx     p_ext_atm%plcov_mx(nproma,nblks_c)
+      cf_desc    = t_cf_var('vegetation_area_fraction_vegetation_period', '-',&
+        &                   'Plant covering degree in the vegetation phase')
+      grib2_desc = t_grib2_var( 2, 0, 4, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_list, 'plcov_mx', p_ext_atm%plcov_mx, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+      ! Max Leaf area index
+      !
+      ! lai_mx       p_ext_atm%lai_mx(nproma,nblks_c)
+      cf_desc    = t_cf_var('leaf_area_index_vegetation_period', '-',&
+        &                   'Leaf Area Index Maximum')
+      grib2_desc = t_grib2_var( 2, 0, 28, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_list, 'lai_mx', p_ext_atm%lai_mx, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+      ! root depth of vegetation
+      !
+      ! rootdp      p_ext_atm%rootdp(nproma,nblks_c)
+      cf_desc    = t_cf_var('root_depth_of_vegetation', 'm',&
+        &                   'root depth of vegetation')
+      grib2_desc = t_grib2_var( 2, 0, 32, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_list, 'rootdp', p_ext_atm%rootdp, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+      ! evergreen forest
+      !
+      ! for_e        p_ext_atm%for_e(nproma,nblks_c)
+      cf_desc    = t_cf_var('fraction_of_evergreen_forest_cover', '-',&
+        &                   'Fraction of evergreen forest')
+      grib2_desc = t_grib2_var( 2, 0, 29, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_list, 'for_e', p_ext_atm%for_e, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+      ! deciduous forest
+      !
+      ! for_d     p_ext_atm%for_d(nproma,nblks_c)
+      cf_desc    = t_cf_var('fraction_of_deciduous_forest_cover', '-',&
+        &                   'Fraction of deciduous forest')
+      grib2_desc = t_grib2_var( 2, 0, 30, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_list, 'for_d', p_ext_atm%for_d, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+      ! urban area fraction
+      !
+      ! urban        p_ext_atm%urban(nproma,nblks_c)
+      cf_desc    = t_cf_var('fraction_of_urban_areas', '-',&
+        &                   'urban area fraction')
+      grib2_desc = t_grib2_var( 2, 0, 30, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_list, 'urban', p_ext_atm%urban, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+      ! Minimal stomata resistence
+      !
+      ! rsmin        p_ext_atm%rsmin(nproma,nblks_c)
+      cf_desc    = t_cf_var('RSMIN', 's m-1', 'Minimal stomata resistence')
+      grib2_desc = t_grib2_var( 2, 0, 16, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_list, 'rsmin', p_ext_atm%rsmin, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+      ! NDVI yearly maximum
+      !
+      ! ndvi_max        p_ext_atm%ndvi_max(nproma,nblks_c)
+      cf_desc    = t_cf_var('normalized_difference_vegetation_index', '-', &
+        &                   'NDVI yearly maximum')
+      grib2_desc = t_grib2_var( 2, 0, 31, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_list, 'ndvi_max', p_ext_atm%ndvi_max, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+
+      !--------------------------------
+      ! soil parameters
+      !--------------------------------
+
+      ! soil type
+      !
+      ! soiltyp      p_ext_atm%soiltyp(nproma,nblks_c)
+      cf_desc    = t_cf_var('soil_type', '-','soil type')
+      grib2_desc = t_grib2_var( 2, 3, 0, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_list, 'soiltyp', p_ext_atm%soiltyp, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+      ! Climat. temperature
+      !
+      ! t_cl         p_ext_atm%t_cl(nproma,nblks_c)
+      cf_desc    = t_cf_var('soil_temperature', 'K',                  &
+        &                   'CRU near surface temperature climatology')
+      grib2_desc = t_grib2_var( 2, 3, 18, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_list, 't_cl', p_ext_atm%t_cl, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+      ! longwave surface emissivity
+      !
+      ! emis_rad     p_ext_atm%emis_rad(nproma,nblks_c)
+      cf_desc    = t_cf_var('emis_rad', '-', 'longwave surface emissivity')
+      grib2_desc = t_grib2_var( 2, 3, 196, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_list, 'emis_rad', p_ext_atm%emis_rad, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+    ENDIF ! iforcing
+
+
+! #Hermann#
+! Echam physics external parameter have to be allocated and initialized as well
+
+  END SUBROUTINE construct_ext_data_atm_list
+
+
+
+  !-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! Allocation of atmospheric external data structure
+  !!
+  !! Allocation of atmospheric external data structure (time dependent  
+  !! elements).
+  !!
+  !! Initialization of elements with zero.
+  !!
+  !! @par Revision History
+  !! Initial release by Daniel Reinert (2011-05-03)
+  !!
+  SUBROUTINE construct_ext_data_atm_td_list ( p_patch, p_ext_atm_td, &
+    &                              p_ext_atm_td_list, listname)
+!
+    TYPE(t_patch), TARGET, INTENT(IN)     :: & !< current patch
+      &  p_patch
+
+    TYPE(t_external_atmos_td), INTENT(INOUT) :: & !< current external data structure
+      &  p_ext_atm_td 
+
+    TYPE(t_var_list), POINTER         :: & !< current external data list
+      &  p_ext_atm_td_list
+
+    CHARACTER(len=*), INTENT(IN)      :: & !< list name
+      &  listname
+
+    TYPE(t_cf_var)    :: cf_desc
+    TYPE(t_grib2_var) :: grib2_desc
+
+    INTEGER :: nblks_c      !< number of cell blocks to allocate
+
+    INTEGER :: shape3d_c(3)
+
+    INTEGER :: ientr         !< "entropy" of horizontal slice
+    INTEGER :: ntimes        !< number of time slices
+    !--------------------------------------------------------------
+
+    !determine size of arrays
+    nblks_c = p_patch%nblks_c
+
+    ientr  = 16   ! "entropy" of horizontal slice
+    ntimes = 12   ! number of time slices
+
+    ! predefined array shapes
+    shape3d_c = (/ nproma, nblks_c, ntimes /)
+
+
+    !
+    ! Register a field list and apply default settings
+    !
+    CALL new_var_list( p_ext_atm_td_list, TRIM(listname) )
+    CALL default_var_list_settings( p_ext_atm_td_list )
+
+
+      !--------------------------------
+      ! radiation parameters
+      !--------------------------------
+
+      ! Black carbon aerosol
+      !
+      ! aer_bc       p_ext_atm%aer_bc(nproma,nblks_c,ntimes)
+      cf_desc    = t_cf_var('aerosol optical thickness of black carbon', '-',   &
+        &                   'atmosphere_absorption_optical_thickness_due_to_' //&
+        &                   'black_carbon_ambient_aerosol')
+      grib2_desc = t_grib2_var( 0, 13, 195, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_td_list, 'aer_bc', p_ext_atm_td%aer_bc, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+      ! Dust aerosol
+      !
+      ! aer_dust     p_ext_atm%aer_dust(nproma,nblks_c,ntimes)
+      cf_desc    = t_cf_var('aot_dust', '-', &
+        &                   'atmosphere absorption optical thickness due '//  &
+        &                   'to dust ambient aerosol')
+      grib2_desc = t_grib2_var( 0, 13, 193, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_td_list, 'aer_dust', p_ext_atm_td%aer_dust, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+      ! Organic aerosol
+      !
+      ! aer_org      p_ext_atm%aer_org(nproma,nblks_c,ntimes)
+      cf_desc    = t_cf_var('aot_org', '-', &
+        &                   'atmosphere absorption optical thickness due '//  &
+        &                   'to particulate organic matter ambient aerosol')
+      grib2_desc = t_grib2_var( 0, 13, 194, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_td_list, 'aer_org', p_ext_atm_td%aer_org, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+      ! Sulfate aerosol
+      !
+      ! aer_so4      p_ext_atm%aer_so4(nproma,nblks_c,ntimes)
+      cf_desc    = t_cf_var('aot_so4', '-', &
+        &                   'atmosphere absorption optical thickness due '//  &
+        &                   'to sulfate_ambient_aerosol')
+      grib2_desc = t_grib2_var( 0, 13, 192, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_td_list, 'aer_so4', p_ext_atm_td%aer_so4, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+      ! Seasalt aerosol
+      !
+      ! aer_ss       p_ext_atm%aer_ss(nproma,nblks_c,ntimes)
+      cf_desc    = t_cf_var('aot_ss', '-', &
+        &                   'atmosphere absorption optical thickness due '//  &
+        &                   'to seasalt_ambient_aerosol')
+      grib2_desc = t_grib2_var( 0, 13, 196, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_td_list, 'aer_ss', p_ext_atm_td%aer_ss, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+      !--------------------------------
+      ! vegetation parameters
+      !--------------------------------
+
+      ! monthly mean normalized difference vegetation index
+      !
+      ! ndvi         p_ext_atm%ndvi(nproma,nblks_c,ntimes)
+      cf_desc    = t_cf_var('normalized_difference_vegetation_index', '-', &
+        &                   'monthly mean NDVI')
+      grib2_desc = t_grib2_var( 2, 0, 217, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_td_list, 'ndvi', p_ext_atm_td%ndvi, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+      ! (monthly) proportion of actual value/maximum NDVI
+      !
+      ! ndvi_mrat     p_ext_atm%ndvi_mrat(nproma,nblks_c,ntimes)
+      cf_desc    = t_cf_var('normalized_difference_vegetation_index', '-', &
+        &                   '(monthly) proportion of actual value/maximum ' // &
+        &                   'normalized differential vegetation index')
+      grib2_desc = t_grib2_var( 2, 0, 192, ientr, GRID_REFERENCE, GRID_CELL, &
+        &          ZAXIS_SURFACE)
+      CALL add_var( p_ext_atm_td_list, 'ndvi_mrat', p_ext_atm_td%ndvi_mrat, &
+        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+
+
+  END SUBROUTINE construct_ext_data_atm_td_list
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Destruct external data data structure and lists
+  !!
+  !! Destruct external data data structure and lists
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2011-05-04)
+  !!
+  SUBROUTINE destruct_ext_data
 
     INTEGER :: jg
-    INTEGER :: ist     ! status variable
 
+    TYPE(t_var_list),POINTER :: listptr
+
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = 'mo_ext_data:destruct_ext_data'
 !-------------------------------------------------------------------------
+
+    CALL message (TRIM(routine), 'Destruction of data structure for' // &
+      &                          'external data started')
 
     DO jg = 1,n_dom
 
-      !topographic height at cells, edges and vertices
-      !
-      !cells
-      DEALLOCATE(ext_data(jg)%atm%topography_c,STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'deallocating topography_c failed')
-      ENDIF
-      !
-      !smoothed at cells
-      DEALLOCATE(ext_data(jg)%atm%topography_smt_c,STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'deallocating topography_smt_c failed')
-      ENDIF
-      !
-      !edges
-      DEALLOCATE(ext_data(jg)%atm%topography_e,STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'deallocating topography_e failed')
-      ENDIF
-      !
-      !vertices
-      DEALLOCATE(ext_data(jg)%atm%topography_v,STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'deallocating topography_v failed')
-      ENDIF
-      !
-      !smoothed at vertices
-      DEALLOCATE(ext_data(jg)%atm%topography_smt_v,STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'deallocating topography_smt_v failed')
-      ENDIF
+      ! Delete list of constant in time atmospheric elements
+      listptr => ext_data(jg)%atm_list
+      CALL delete_var_list( listptr )
 
+      ! Delete list of time-dependent atmospheric elements
+      listptr => ext_data(jg)%atm_td_list
+      CALL delete_var_list( listptr )
 
-      !
-      ! !land sea mask for cells, edges and vertices
-      !
-      !cells
-      DEALLOCATE(ext_data(jg)%atm%lsm_atm_c,STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'deallocating lsm_atm_c failed')
-      ENDIF
-      !
-      !edges
-      DEALLOCATE(ext_data(jg)%atm%lsm_atm_e,STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'deallocating lsm_atm_e failed')
-      ENDIF
-      !
-      !vertices
-      DEALLOCATE(ext_data(jg)%atm%lsm_atm_v,STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'deallocating lsm_atm_v failed')
-      ENDIF
+      ! Delete list of constant in time oceanic elements
+      ! ### to be added if necessary ###
 
+      ! Delete list of time-dependent oceanic elements
+      ! ### to be added if necessary ###
 
-      !
-      !fr_land
-      DEALLOCATE(ext_data(jg)%atm%fr_land,STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'deallocating fr_land failed')
-      ENDIF
-      !fr_glac
-      DEALLOCATE(ext_data(jg)%atm%fr_glac,STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'deallocating fr_glac failed')
-      ENDIF
-      !fr_land_smt
-      DEALLOCATE(ext_data(jg)%atm%fr_land_smt,STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'deallocating fr_land_smt failed')
-      ENDIF
-      !fr_glac_smt
-      DEALLOCATE(ext_data(jg)%atm%fr_glac_smt,STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'deallocating fr_glac_smt failed')
-      ENDIF
+    ENDDO
 
-      !
-      ! geometric height times grav
-      DEALLOCATE(ext_data(jg)%atm%fis,STAT=ist)
-      IF (ist /= success) THEN
-        CALL finish (routine,'deallocating fis failed')
-      ENDIF
+    CALL message (TRIM(routine), 'Destruction of data structure for' // &
+      &                          'external data started')
 
+  END SUBROUTINE destruct_ext_data
 
-      !
-      ! external parameter for NWP forcing
-      !
-      IF (iforcing == inwp) THEN
-
-        ! *** roghness length ***
-        DEALLOCATE(ext_data(jg)%atm%z0,STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'deallocating z0 failed')
-        ENDIF
-
-        ! *** FLake ***
-        DEALLOCATE(ext_data(jg)%atm%fr_lake,STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'deallocating fr_lake failed')
-        ENDIF
-
-        DEALLOCATE(ext_data(jg)%atm%depth_lk,STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'deallocating depth_lk failed')
-        ENDIF
-
-        ! *** subgrid scale orography ***
-        DEALLOCATE(ext_data(jg)%atm%sso_stdh,STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'deallocating sso_stdh failed')
-        ENDIF
-
-        DEALLOCATE(ext_data(jg)%atm%sso_gamma,STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'deallocating sso_gamma failed')
-        ENDIF
-
-        DEALLOCATE(ext_data(jg)%atm%sso_sigma,STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'deallocating sso_sigma failed')
-        ENDIF
-
-        ! *** vegetation parameters ***
-        DEALLOCATE(ext_data(jg)%atm%plcov_mx,STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'deallocating plcov_mx failed')
-        ENDIF
-
-        DEALLOCATE(ext_data(jg)%atm%lai_mx,STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'deallocating lai_mx failed')
-        ENDIF
-
-        DEALLOCATE(ext_data(jg)%atm%root_dp,STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'deallocating root_dp failed')
-        ENDIF
-
-        DEALLOCATE(ext_data(jg)%atm%forest_e,STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'deallocating forest_e failed')
-        ENDIF
-
-        DEALLOCATE(ext_data(jg)%atm%forest_d,STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'deallocating forest_d failed')
-        ENDIF
-
-        DEALLOCATE(ext_data(jg)%atm%plant_res_min,STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'deallocating plant_res_min failed')
-        ENDIF
-
-        ! *** soil parameters ***
-        DEALLOCATE(ext_data(jg)%atm%soiltyp,STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'deallocating soiltyp failed')
-        ENDIF
-        DEALLOCATE(ext_data(jg)%atm%soiltyp_frac,STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'deallocating soiltyp failed')
-        ENDIF
-
-        DEALLOCATE(ext_data(jg)%atm%t_clim,STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'deallocating t_clim failed')
-        ENDIF
-
-        ! *** time dependent external parameters ***
-
-        DEALLOCATE(ext_data(jg)%atm_td%ndvi_ratio_td,STAT=ist)
-        IF (ist /= success) THEN
-          CALL finish (routine,'deallocating ndvi_ratio_td failed')
-        ENDIF
-
-
-      ENDIF ! iforcing
-
-! #Hermann#
-! Echam physics external parameter have to be dealllocated as well
-
-! #Daniel#
-! time dependent fields need to be deallocated as well.
-!
-
-    END DO
-
-  END SUBROUTINE destruct_ext_data_atm
-
-
-  !-------------------------------------------------------------------------
-  !>
-  !! Deallocate memory for oceanic external data
-  !!
-  !! Deallocate memory for oceanic external data
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2010-07-12)
-  !!
-  SUBROUTINE destruct_ext_data_oce (ext_data)
-
-    TYPE(t_external_data), TARGET, INTENT(INOUT) :: ext_data(:) ! please do not remove
-
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data:destruct_ext_data_oce'
-
-!DR    INTEGER :: jg
-!DR    INTEGER :: ist     ! status variable
-
-!-------------------------------------------------------------------------
-
-    CALL finish(TRIM(routine),'sorry, not implemented yet')
-
-!    DO jg = 1,n_dom
-
-!     DEALLOCATE(ext_data(jg)%oce%land_sea_boundary_idx_c,  &
-!       &        ext_data(jg)%oce%land_sea_boundary_blk_c,  &
-!       &        STAT=ist)
-!     IF(ist/=SUCCESS)THEN
-!       CALL finish  (routine,'deallocating land_sea_boundary_c failed')
-!     ENDIF
-
-!     DEALLOCATE(ext_data(jg)%oce%land_sea_boundary_idx_e,  &
-!       &        ext_data(jg)%oce%land_sea_boundary_blk_e,  &
-!       &        STAT=ist)
-!     IF(ist/=SUCCESS)THEN
-!       CALL finish  (routine,'deallocating land_sea_boundary_e failed')
-!     ENDIF
-
-!     DEALLOCATE(ext_data(jg)%oce%land_sea_boundary_idx_v,  &
-!       &        ext_data(jg)%oce%land_sea_boundary_idx_v,  &
-!       &        STAT=ist)
-!     IF(ist/=SUCCESS)THEN
-!       CALL finish  (routine,'deallocating for land_sea_boundary_v failed')
-!     ENDIF
-
-!   ENDDO
-
-  END SUBROUTINE destruct_ext_data_oce
 
 
 
@@ -1098,13 +1246,16 @@ CONTAINS
       !
       !-------------------------------------------------------
 
+
       ! triangle center
 
       IF (i_cell_type == 3) THEN     ! triangular grid
-        CALL read_netcdf_data (ncid, 'topography_c', p_patch(jg)%n_patch_cells_g,       &
+
+        CALL read_netcdf_data (ncid, 'topography_v', p_patch(jg)%n_patch_cells_g,       &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     ext_data(jg)%atm%topography_c)
       ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+
         CALL read_netcdf_data (ncid, 'topography_c', p_patch(jg)%n_patch_verts_g,       &
           &                     p_patch(jg)%n_patch_verts, p_patch(jg)%verts%glb_index, &
           &                     ext_data(jg)%atm%topography_v)
@@ -1127,8 +1278,21 @@ CONTAINS
         CALL read_netcdf_data (ncid, 'fr_land', p_patch(jg)%n_patch_cells_g,              &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,   &
           &                     ext_data(jg)%atm%fr_land)
-        
+
+        CALL read_netcdf_data (ncid, 'ice', p_patch(jg)%n_patch_cells_g,                &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     ext_data(jg)%atm%fr_ice)
+
         IF (iforcing == inwp) THEN
+
+          CALL read_netcdf_data (ncid, 'fr_lake', p_patch(jg)%n_patch_cells_g,            &
+            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+            &                     ext_data(jg)%atm%fr_lake)
+
+          CALL read_netcdf_data (ncid, 'depth_lk', p_patch(jg)%n_patch_cells_g,           &
+            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+            &                     ext_data(jg)%atm%depth_lk)
+
           CALL read_netcdf_data (ncid, 'plcov_mx', p_patch(jg)%n_patch_cells_g,           &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                     ext_data(jg)%atm%plcov_mx)
@@ -1137,25 +1301,46 @@ CONTAINS
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                     ext_data(jg)%atm%lai_mx)
 
-          CALL read_netcdf_data (ncid, 'rs_min', p_patch(jg)%n_patch_cells_g,             &
+          CALL read_netcdf_data (ncid, 'rootdp', p_patch(jg)%n_patch_cells_g,             &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%plant_res_min)
+            &                     ext_data(jg)%atm%rootdp)
+
+          CALL read_netcdf_data (ncid, 'rsmin', p_patch(jg)%n_patch_cells_g,             &
+            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+            &                     ext_data(jg)%atm%rsmin)
 
           CALL read_netcdf_data (ncid, 'for_d', p_patch(jg)%n_patch_cells_g,              &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%forest_d)
+            &                     ext_data(jg)%atm%for_d)
 
           CALL read_netcdf_data (ncid, 'for_e', p_patch(jg)%n_patch_cells_g,              &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%forest_e)
+            &                     ext_data(jg)%atm%for_e)
 
-          CALL read_netcdf_data (ncid, 'root', p_patch(jg)%n_patch_cells_g,               &
+          CALL read_netcdf_data (ncid, 'urban', p_patch(jg)%n_patch_cells_g,              &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%root_dp)
+            &                     ext_data(jg)%atm%urban)
+
 
           CALL read_netcdf_data (ncid, 'z0', p_patch(jg)%n_patch_cells_g,                 &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                     ext_data(jg)%atm%z0)
+
+          CALL read_netcdf_data (ncid, 'ndvi_max', p_patch(jg)%n_patch_cells_g,           &
+            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+            &                     ext_data(jg)%atm%ndvi_max)
+
+          CALL read_netcdf_data_int (ncid, 'soiltyp', p_patch(jg)%n_patch_cells_g,        &
+            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+            &                     ext_data(jg)%atm%soiltyp)
+
+          CALL read_netcdf_data (ncid, 't_cl', p_patch(jg)%n_patch_cells_g,               &
+            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+            &                     ext_data(jg)%atm%t_cl)
+
+          CALL read_netcdf_data (ncid, 'emis_rad', p_patch(jg)%n_patch_cells_g,           &
+            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+            &                     ext_data(jg)%atm%emis_rad)
 
           CALL read_netcdf_data (ncid, 'sso_stdh', p_patch(jg)%n_patch_cells_g,           &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
@@ -1169,24 +1354,13 @@ CONTAINS
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                     ext_data(jg)%atm%sso_gamma)
 
-
           CALL read_netcdf_data (ncid, 'sso_sigma', p_patch(jg)%n_patch_cells_g,          &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                     ext_data(jg)%atm%sso_sigma)
 
-
-          CALL read_netcdf_data (ncid, 'tem_clim', p_patch(jg)%n_patch_cells_g,           &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%t_clim)
-
-
-          CALL read_netcdf_data_int (ncid, 'soiltype_fao', p_patch(jg)%n_patch_cells_g,   &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%soiltyp)
-
         ENDIF ! (iforcing == inwp)
         
-!      ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+      ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
 
       ENDIF
 
@@ -1332,6 +1506,7 @@ CONTAINS
 
   END SUBROUTINE nf
 
+  !-------------------------------------------------------------------------
 
    SUBROUTINE smooth_topography (p_patch, p_int)
 

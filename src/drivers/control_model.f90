@@ -230,9 +230,8 @@ PROGRAM control_model
   !
   USE mo_ha_stepping,         ONLY: prepare_ha_integration, perform_ha_stepping
   USE mo_nh_stepping,         ONLY: prepare_nh_integration, perform_nh_stepping
-   ! External data
-  USE mo_ext_data,            ONLY: ext_data, init_ext_data, &
-    &                               destruct_ext_data_atm
+
+  USE mo_ext_data,            ONLY: ext_data, init_ext_data, destruct_ext_data
 
 !  USE mo_nwp_phy_init,          ONLY: init_nwp_phy
 !!$  USE mo_gscp_cosmo,          ONLY: hydci_pp_init
@@ -916,15 +915,12 @@ PROGRAM control_model
   !
   ! Deallocate external data
   !
-  IF (iequations /= ihs_ocean) THEN
-    CALL destruct_ext_data_atm (ext_data)
-!DR  CALL destruct_ext_data_oce (ext_data)
+  CALL destruct_ext_data
 
   ! deallocate ext_data array
-    DEALLOCATE(ext_data, STAT=ist)
-    IF (ist/=success) THEN
-      CALL finish('control_model', 'deallocation of ext_data')
-    ENDIF
+  DEALLOCATE(ext_data, STAT=ist)
+  IF (ist/=success) THEN
+    CALL finish('control_model', 'deallocation of ext_data')
   ENDIF
 
 
