@@ -1,3 +1,5 @@
+!OPTION! -cont -msg o
+!! this command should fix the problem of copying arrays in a subroutine call
 !>
 !! This module is the interface between nwp_nh_interface to the 
 !! turbulence parameterisations:

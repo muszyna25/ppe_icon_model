@@ -1,3 +1,5 @@
+!OPTION! -cont
+!! this command should fix the problem of copying arrays in a subroutine call
 !>
 !!
 !! @brief prepares and postprocesses the fields for and from nwp physics
