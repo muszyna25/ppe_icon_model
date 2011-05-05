@@ -178,12 +178,12 @@ CONTAINS
 
     IF (msg_level >= 15) THEN
       WRITE(message_text,'(a,3E15.7)') ' bottom TKE before turbulence now = ', &
-           &  p_prog_now_rcf%tke(30,nlev+1,12), p_prog_now_rcf%tke(30,nlev,12),&
-           &  p_prog_now_rcf%tke(30,nlev-1,12)
+           &  p_prog_now_rcf%tke(2,nlev+1,12), p_prog_now_rcf%tke(2,nlev,12),&
+           &  p_prog_now_rcf%tke(2,nlev-1,12)
      CALL message('', TRIM(message_text))
       WRITE(message_text,'(a,3E15.7)') ' bottom TKE before turbulence new = ', &
-           &  p_prog_rcf%tke(30,nlev+1,12), p_prog_rcf%tke(30,nlev,12),&
-          &  p_prog_rcf%tke(30,nlev-1,12)
+           &  p_prog_rcf%tke(2,nlev+1,12), p_prog_rcf%tke(2,nlev,12),&
+          &  p_prog_rcf%tke(2,nlev-1,12)
       CALL message('', TRIM(message_text))
     ENDIF
 
@@ -493,12 +493,12 @@ CONTAINS
 
     IF (msg_level >= 15) THEN
       WRITE(message_text,'(a,3E15.7)') ' bottom TKE after turbulence = ', &
-           &  p_prog_now_rcf%tke(30,nlev+1,12), p_prog_now_rcf%tke(30,nlev,12),&
-           &  p_prog_now_rcf%tke(30,nlev-11,12)
+           &  p_prog_now_rcf%tke(2,nlev+1,12), p_prog_now_rcf%tke(2,nlev,12),&
+           &  p_prog_now_rcf%tke(2,nlev-11,12)
      CALL message('', TRIM(message_text))
       WRITE(message_text,'(a,3E15.7)') ' bottom TKE after turbulence = ', &
-           &  p_prog_rcf%tke(30,nlev+1,12), p_prog_rcf%tke(30,nlev,12),&
-          &  p_prog_rcf%tke(30,nlev-1,12)
+           &  p_prog_rcf%tke(2,nlev+1,12), p_prog_rcf%tke(2,nlev,12),&
+          &  p_prog_rcf%tke(2,nlev-1,12)
       CALL message('', TRIM(message_text))
     ENDIF
 

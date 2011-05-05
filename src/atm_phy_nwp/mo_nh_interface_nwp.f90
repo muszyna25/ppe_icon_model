@@ -52,7 +52,7 @@ MODULE mo_nh_interface_nwp
   USE mo_kind,               ONLY: wp
 
   USE mo_timer,              ONLY: timer_physics, timer_start, timer_stop
-  USE mo_exception,          ONLY: message, message_text, finish
+  USE mo_exception,          ONLY: message, message_text !, finish
   USE mo_impl_constants,     ONLY: itconv, itccov, itrad, itgscp,         &
     &                              itsatad, itupdate, itturb, itsfc, itradheat,  &
     &                              itsso,                                 &
@@ -60,8 +60,7 @@ MODULE mo_nh_interface_nwp
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_interpolation,      ONLY: rbf_vec_interpol_cell, edges2cells_scalar
-  USE mo_grf_interpolation,  ONLY: t_gridref_single_state, &
-    &                              t_gridref_state
+  USE mo_grf_interpolation,  ONLY: t_gridref_state!,t_gridref_single_state, &
   USE mo_model_domain,       ONLY: t_patch
   USE mo_interpolation,      ONLY: t_int_state
   USE mo_nonhydro_state,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
@@ -69,15 +68,15 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_lnd_state,      ONLY: t_lnd_prog, t_lnd_diag!, t_lnd_state
   USE mo_ext_data,           ONLY: t_external_data
   USE mo_nwp_phy_state,      ONLY: t_nwp_phy_diag,&
-                                 & t_nwp_phy_tend, prm_diag
+                                 & t_nwp_phy_tend!, prm_diag
   USE mo_run_nml,            ONLY: nproma, ntracer, i_cell_type, iqv, iqc, iqi, &
        &                              iqr, iqs, icc, msg_level, ltimer
   USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd_o_rd 
 
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 
-  USE mo_atm_phy_nwp_nml,    ONLY: inwp_cldcover, inwp_radiation,  dt_rad,&
-                                   inwp_sso
+  USE mo_atm_phy_nwp_nml,    ONLY: inwp_cldcover, inwp_radiation !,&
+!                                   inwp_sso
   USE mo_cover_koe,          ONLY: cover_koe
   USE mo_satad,              ONLY: satad_v_3D
   USE mo_radiation,          ONLY: radheat, pre_radiation_nwp
@@ -191,12 +190,7 @@ CONTAINS
     REAL(wp)  z_qsum       !< summand of virtual increment
     REAL(wp)  z_ddt_qsum   !< summand of tendency of virtual increment
 
-    INTEGER :: ierrstat=0
-    CHARACTER (LEN=25) :: eroutine=''
-    CHARACTER (LEN=80) :: errormsg=''
-
     !KF temporary field
-
     LOGICAL:: landseemask(nproma,pt_patch%nblks_c)
 
     REAL(wp) :: rcld(nproma,pt_patch%nlevp1)
@@ -234,7 +228,8 @@ CONTAINS
       CALL nh_update_prog_phy(pt_patch              ,& !in
            &                  tcall_phy_jg(itupdate),& !in
            &                  pt_diag               ,& !in
-           &                  pt_prog_rcf   )!inout tracer
+           &                  prm_diag              ,& !inout phyfields 
+           &                  pt_prog_rcf            )!inout tracer
 
     ENDIF
 
@@ -1274,13 +1269,13 @@ CONTAINS
   !-------------------------------------------------------------------------
 
 
-  SUBROUTINE nh_update_prog_phy(pt_patch, pdtime, pt_diag, pt_prog_rcf)
+  SUBROUTINE nh_update_prog_phy(pt_patch, pdtime, pt_diag, prm_diag, pt_prog_rcf)
 
-    TYPE(t_patch),   INTENT(IN)      :: pt_patch     !!grid/patch info.
-    TYPE(t_nh_diag), INTENT(INOUT)   :: pt_diag      !!the diagnostic variables
-    TYPE(t_nh_prog), INTENT(INOUT)   :: pt_prog_rcf  !!the tracer field at
+    TYPE(t_patch),       INTENT(IN)   :: pt_patch     !!grid/patch info.
+    TYPE(t_nh_diag),     INTENT(INOUT):: pt_diag      !!the diagnostic variables
+    TYPE(t_nwp_phy_diag),INTENT(inout):: prm_diag     !!the physics variables
+    TYPE(t_nh_prog),     INTENT(INOUT):: pt_prog_rcf  !!the tracer field at
                                                    !!reduced calling frequency
-
     REAL(wp),INTENT(in)            :: pdtime
 
     ! Local array bounds:
@@ -1328,20 +1323,20 @@ CONTAINS
         ENDDO
       ENDDO
 
-      prm_diag(jg)%rain_con(i_startidx:i_endidx,jb) =                                        &
-  &                                          prm_diag(jg)%rain_con(i_startidx:i_endidx,jb)   &
+      prm_diag%rain_con(i_startidx:i_endidx,jb) =                                        &
+  &                                          prm_diag%rain_con(i_startidx:i_endidx,jb)   &
   &                                        + pdtime                                          &
-  &                                        * prm_diag(jg)%tracer_rate(i_startidx:i_endidx,jb,3)
-      prm_diag(jg)%snow_con(i_startidx:i_endidx,jb) =                                        &
-  &                                          prm_diag(jg)%snow_con(i_startidx:i_endidx,jb)   &
+  &                                        * prm_diag%tracer_rate(i_startidx:i_endidx,jb,3)
+      prm_diag%snow_con(i_startidx:i_endidx,jb) =                                        &
+  &                                          prm_diag%snow_con(i_startidx:i_endidx,jb)   &
   &                                        + pdtime                                          &
-  &                                        * prm_diag(jg)%tracer_rate(i_startidx:i_endidx,jb,4)
+  &                                        * prm_diag%tracer_rate(i_startidx:i_endidx,jb,4)
 
-      prm_diag(jg)%tot_prec(i_startidx:i_endidx,jb) =                                        &
-  &                                       prm_diag(jg)%tot_prec(i_startidx:i_endidx,jb)      &
+      prm_diag%tot_prec(i_startidx:i_endidx,jb) =                                        &
+  &                                       prm_diag%tot_prec(i_startidx:i_endidx,jb)      &
   &                                    +  pdtime                                             &
-  &                                    * (prm_diag(jg)%tracer_rate (i_startidx:i_endidx,jb,3)&
-  &                                    +  prm_diag(jg)%tracer_rate (i_startidx:i_endidx,jb,4))
+  &                                    * (prm_diag%tracer_rate (i_startidx:i_endidx,jb,3)&
+  &                                    +  prm_diag%tracer_rate (i_startidx:i_endidx,jb,4))
 
 
     ENDDO

@@ -93,7 +93,7 @@ fi
 #      interpolation from model levels to pressure levels).
  
 for var in PS PHIS T U V OMEGA Qv Qw Qi ACLC ; do
-  ./zonal_clim.ksh $var
+  ./zonal_clim.ksh -v ${var} -e ${set_env} 
 done
 
 exit

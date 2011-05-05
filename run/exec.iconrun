@@ -139,7 +139,7 @@ case ${IEQ} in
         VGRIDNAME=atm_hyb_sz_${N}
         #
         cp -f ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
-        check_error $? "cp -f ${VGRIDDIR}/${VGRIDNAME}"
+        warning $? "cp -f ${VGRIDDIR}/${VGRIDNAME} failed"
         #
         ;;
     -1 )

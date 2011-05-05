@@ -21,11 +21,16 @@ trunc=63
 diag_climate=1
 clim_istart=171
 clim_iend=172
+evol_istart=1
+evol_iend=3
 do_computation=1
 make_plot=1
 plot_file_format=pdf
 TopHeight=35
 plevs=""
+plev_evol=""
+hlev_evol=""
+mlev_evol=""
 
 # Specify the reference experiment for making the difference plot
 
@@ -68,11 +73,16 @@ echo trunc=$trunc                                 >> ${set_env}
 echo diag_climate=$diag_climate                   >> ${set_env}
 echo clim_istart=$clim_istart                     >> ${set_env}
 echo clim_iend=$clim_iend                         >> ${set_env}
+echo evol_istart=$evol_istart                     >> ${set_env}
+echo evol_iend=$evol_iend                         >> ${set_env}
 echo do_computation=$do_computation               >> ${set_env}
 echo make_plot=$make_plot                         >> ${set_env}
 echo export plot_file_format=$plot_file_format    >> ${set_env}
 echo export TopHeight=$TopHeight                  >> ${set_env}
 echo plevs=\"${plevs}\"                           >> ${set_env}
+echo plev_evol=\"${plev_evol}\"                   >> ${set_env}
+echo hlev_evol=\"${hlev_evol}\"                   >> ${set_env}
+echo mlev_evol=\"${mlev_evol}\"                   >> ${set_env}
 
 echo export ref_config=\"$ref_config\"            >> ${set_env}
 echo ref_exp_name=$ref_exp_name                   >> ${set_env}
@@ -86,7 +96,7 @@ if [ -f ncl_output.log ]; then
   rm -f ncl_output.log
 fi
 
-# Run script
+# Run scripts
 #
 # Note: Make sure that
 #   1. all variable listed below exist in model output and 
@@ -94,12 +104,16 @@ fi
 #   2. PS and PHIS are processed before any other variable
 #      (because they are needed for the vertical 
 #      interpolation from model levels to pressure levels).
+#
+# === Zonal mean climate (vertical cross section)===
  
 for var in PS PHIS T U V OMEGA Qv Qw Qi ACLC ; do
-  ./zonal_clim.ksh $var
-
-  # Switch off repeated computation
-  echo compute_remap_weights=0 >> ${set_env}
+  ./zonal_clim.ksh -v ${var} -e ${set_env}
 done
 
+# === Hovmoller diagrams (evolution plots) ====
+
+for var in PS PHIS T ; do
+  ./hovmoller.ksh -v ${var} -e ${set_env}
+done
 exit

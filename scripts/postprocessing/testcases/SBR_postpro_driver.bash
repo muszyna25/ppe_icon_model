@@ -17,7 +17,7 @@
 #==========================================================================
 #                          USER'S SPECIFICATIONS 
 #--------------------------------------------------------------------------
-
+set -x
 if [ "x$1" != "x" ]
 then
   set_env=$1 
@@ -90,6 +90,14 @@ echo "**********************************************************"
 echo 
 echo "=== Postprocessing started..."
 
+if [ -f ${set_env} ] 
+then 
+  echo " "
+  echo " !!!!! Use setting from ./${set_env}"
+  echo " "
+  source ./${set_env}
+fi
+
 
 #===================== Info ==================================
 # Temporary variables
@@ -105,14 +113,6 @@ cd ${NCL_SCRIPT_DIR}
 # Make sure that NCL finds the color maps defined in this directory.
 
 export NCARG_COLORMAP_PATH=$NCARG_ROOT/lib/ncarg/colormaps:./
-
-if [ -f ${set_env} ] 
-then 
-  echo " "
-  echo " !!!!! Use setting from ./${set_env}"
-  echo " "
-  source ./${set_env}
-fi
 
 # For the NCL plotting scripts
 

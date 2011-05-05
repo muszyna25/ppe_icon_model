@@ -495,7 +495,7 @@ SUBROUTINE hydci_pp(                 &
     qr              ,    & !! specific rain content                         (kg/kg)
     qs                     !! specific snow content                         (kg/kg)
 
-  REAL(KIND=ireals), DIMENSION(ie,je), INTENT(OUT) ::   &
+  REAL(KIND=ireals), DIMENSION(ie,je), INTENT(INOUT) ::   &
     prr_gsp,             & !> precipitation rate of rain, grid-scale        (kg/(m2*s))
     prs_gsp                !! precipitation rate of snow, grid-scale        (kg/(m2*s))
 

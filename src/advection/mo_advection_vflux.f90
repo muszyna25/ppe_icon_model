@@ -82,6 +82,7 @@ MODULE mo_advection_vflux
    &                                v_ppm_slimiter_mo, v_ppm_slimiter_sm,     &
    &                                vflx_limiter_pd, vflx_limiter_pd_ha
   USE mo_loopindices,         ONLY: get_indices_c
+  USE mo_nonhydrostatic_nml,  ONLY: iadv_rcf
 
   IMPLICIT NONE
 
@@ -2055,7 +2056,7 @@ CONTAINS
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
 
-    INTEGER, PARAMETER :: nlist_max=3    !< maximum number of index lists
+    INTEGER  :: nlist_max                !< maximum number of index lists
     INTEGER  :: nlist_p, nlist_m         !< list number
     INTEGER  :: nlist                    !< list loop variable
 
@@ -2143,6 +2144,10 @@ CONTAINS
     ELSE
       i_rlend = min_rlcell_int
     ENDIF
+
+    ! maximum number of lists; this setting ensures that the CFL stability range
+    ! is approximately the same as for the dynamical core
+    nlist_max = iadv_rcf
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)

@@ -457,7 +457,7 @@ INTEGER :: jg
   ! This stencil is not available when refin_ctrl=1
   i_startblk = ptr_patch%verts%start_blk(2,1)
 
-!$OMP PARALLEL PRIVATE(ile,ibe)
+!$OMP PARALLEL PRIVATE(ile,ibe,ist)
   ALLOCATE( ile(rbf_vec_dim_v), ibe(rbf_vec_dim_v), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:rbf_vec_index_vertex',  &
@@ -721,7 +721,7 @@ REAL(wp) ::  checksum_u,checksum_v ! to check if sum of interpolation coefficien
   ! The start block depends on the width of the stencil
   i_startblk = ptr_patch%cells%start_blk(i_rcstartlev,1)
 
-!$OMP PARALLEL PRIVATE (z_rbfmat,z_diag,z_rbfval,z_rhs1,z_rhs2)
+!$OMP PARALLEL PRIVATE (z_rbfmat,z_diag,z_rbfval,z_rhs1,z_rhs2, ist)
   ALLOCATE( z_rbfmat(nproma,rbf_vec_dim_c,rbf_vec_dim_c),  &
             z_diag(nproma,rbf_vec_dim_c),                  &
             z_rbfval(nproma,rbf_vec_dim_c),                &
@@ -1147,7 +1147,7 @@ REAL(wp), DIMENSION(:,:,:,:), POINTER :: ptr_coeff  ! pointer to output coeffici
   i_outunit  = 520
 
 
-!$OMP PARALLEL PRIVATE (z_rbfmat,z_diag,z_rbfval,z_rhs1,z_rhs2)
+!$OMP PARALLEL PRIVATE (z_rbfmat,z_diag,z_rbfval,z_rhs1,z_rhs2, ist)
   ALLOCATE( z_rbfmat(nproma,rbf_vec_dim_v,rbf_vec_dim_v),  &
             z_diag(nproma,rbf_vec_dim_v),                  &
             z_rbfval(nproma,rbf_vec_dim_v),                &
@@ -1478,7 +1478,7 @@ TYPE(t_tangent_vectors), DIMENSION(:,:), POINTER :: ptr_orient_out
   ! base unit for optional debug output
   i_outunit  = 530
 
-!$OMP PARALLEL PRIVATE (z_rbfmat,z_diag,z_rbfval)
+!$OMP PARALLEL PRIVATE (z_rbfmat,z_diag,z_rbfval, ist)
   ALLOCATE( z_rbfmat(nproma,rbf_vec_dim_e,rbf_vec_dim_e),  &
             z_diag(nproma,rbf_vec_dim_e),                  &
             z_rbfval(nproma,rbf_vec_dim_e), STAT=ist )

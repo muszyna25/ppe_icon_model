@@ -104,19 +104,19 @@ fi
 
 # DWD parallel execution (alternative to loop)
 cat > zonal.list << EOF_LIST
-  zonal_clim.ksh T
-  zonal_clim.ksh U
-  zonal_clim.ksh V
-  zonal_clim.ksh W
-  zonal_clim.ksh CC
-  zonal_clim.ksh QV
-  zonal_clim.ksh QC
-  zonal_clim.ksh QI
-  zonal_clim.ksh Q1
-  zonal_clim.ksh Q2
-  zonal_clim.ksh Q3
-  zonal_clim.ksh Q4
-  zonal_clim.ksh Q5
+  zonal_clim.ksh -v T  -e ${set_env}
+  zonal_clim.ksh -v U  -e ${set_env}
+  zonal_clim.ksh -v V  -e ${set_env}
+  zonal_clim.ksh -v W  -e ${set_env}
+  zonal_clim.ksh -v CC -e ${set_env}
+  zonal_clim.ksh -v QV -e ${set_env}
+  zonal_clim.ksh -v QC -e ${set_env}
+  zonal_clim.ksh -v QI -e ${set_env}
+  zonal_clim.ksh -v Q1 -e ${set_env}
+  zonal_clim.ksh -v Q2 -e ${set_env}
+  zonal_clim.ksh -v Q3 -e ${set_env}
+  zonal_clim.ksh -v Q4 -e ${set_env}
+  zonal_clim.ksh -v Q5 -e ${set_env}
 EOF_LIST
 /e/uhome/for1han/bin/pshell -p7 -f zonal.list
 

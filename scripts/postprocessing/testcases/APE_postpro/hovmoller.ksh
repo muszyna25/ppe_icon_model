@@ -75,39 +75,16 @@ exp_config="$Model $horizontal_resolution$vertical_resolution"
 #--------------------------------------------------------------------------
 # 2. Decide what to do
 #--------------------------------------------------------------------------
-# A complete set of the contour plots includes
-#
-#   a. evolution of...
-#   b. time-and-zonal-mean of the user-specified period
-#
-# If you want to have data and/or plot of (a), set the next variable to 1:
-
-#diag_evolution=0
-
 # This script assumes that the output has been split into a series of files. 
 # The first file is named ${EXP}"_RxBxxLxx_0001",the second one "_0002",
-# and so on. Now specify the starting and ending file indices for diagnosis (a)
-# (see above)
+# and so on. Now specify the starting and ending file indices for the 
+# Hovmoller plot.
 
-#evol_istart=210
-#evol_iend=211
-
-# If you want to have data and/or plot of (b), set the next variable to 1
-#
-diag_climate=1
-
-#clim_istart=$evol_istart
-#clim_iend=$evol_iend
-
-clim_istart=151
-clim_iend=220
-
+evol_istart=1
+evol_iend=10
 
 # If you want to obtain plots, set the next variable to 1 
 make_plot=1
-
-# Top of vertical domain [km] in vertical cross section plots
-export TopHeight=35 
 
 # What format do you want, pdf, eps or ps?
 export plot_file_format="pdf"
@@ -121,17 +98,10 @@ export plot_file_format="pdf"
 
 do_computation=1   # (1=ON,0=OFF)
 
-# For the hydrostatic models, model output will be vertically interpolated to 
-# pressure levels before plotting. Specify the pressure levels if
-# you want a set different from the standard 17 levels (e.g., when you 
-# have the upper atmosphere resolved). Note that unit is Pa, not hPa!
-# Example: 
-#      plevs="100000,50000,10000,5000,1000,100"
-#
-# Setting plevs to null, or not setting the variable at all means choosing
-# the standard 17 levels up to 100 hPa.
+# Setting plev_evol to null, or not setting the variable at all means 
+# choosing the default: plev_evol="85000,50000,20000,10000" (unit: Pa).
 
-plevs=""
+plev_evol=""
 
 # To diagnose the zonal mean circulation, the ICON model output 
 # on the geodesic grid needs to be interpolated to a Gaussian grid. 
@@ -179,15 +149,6 @@ plot_file_path="${model_data_path}plots/"
 tmp_data_path="${model_data_path}tmp/"
 
 #--------------------------------------------------------------------------
-# Specify the reference experiment for making difference plots
-
-ref_config="ref exp"
-ref_expname=$EXP
-ref_resolution=${horizontal_resolution}_${vertical_resolution}
-ref_timerange="${clim_istart}-${clim_iend}"
-ref_datapath=$tmp_data_path
-
-#--------------------------------------------------------------------------
 # Do you want CDO to run in silence mode, or to report everything
 # it is doing?
 
@@ -196,13 +157,14 @@ cdo_silence=1   #( 1 = silence mode; 0 = detailed report )
 #--------------------------------------------------------------------------
 #                    END OF USER'S SPECIFICATIONS 
 #==========================================================================
-if [ -f $set_env ] ; then
-  source ./$set_env
+
+if [ -f ${set_env} ] ; then
+  source ./${set_env}
 fi
 
 echo
 echo "**********************************************************"
-echo "***    ICON Tool Kit for APE: Zonal-mean Climate       ***"
+echo "***    ICON Tool Kit for APE: Hovmoller diagram        ***"
 echo "**********************************************************"
 echo 
 
@@ -237,7 +199,7 @@ fi
 # Create a directory for soft links. This is used later for 
 # computing the time mean from multiple data files.
 
-lnkdir=${tmp_data_path}${clim_istart}"-"${clim_iend}"_lnk"
+lnkdir=${tmp_data_path}${evol_istart}"-"${evol_iend}"_lnk"
 if [ -d $lnkdir ]; then
    rm -rf $lnkdir
 fi
@@ -270,7 +232,7 @@ if [[ ${compute_remap_weights} -eq 1 && ! -a ${weights} ]]; then
  echo
  echo "=== Computing remapping weights (ICON to Gaussian) ..."
 
- label=$(printf "%04d" ${clim_istart})
+ label=$(printf "%04d" ${evol_istart})
  cdo $silence gendis,t${trunc}grid \
      -seltimestep,1 -selname,PS ${fori}"_"${label}".nc" ${weights}
 
@@ -279,12 +241,10 @@ if [[ ${compute_remap_weights} -eq 1 && ! -a ${weights} ]]; then
 fi
 
 #========================================================================
-# Zonal mean climate: calculate and plot
+# Calculate zonal statistics
 #========================================================================
 
-if [ $diag_climate -eq 1 ]; then
-
-    timerange=${clim_istart}"-"${clim_iend}
+    timerange=${evol_istart}"-"${evol_iend}
 
     # Look up the user-specified variable name in a registry in order to
     # inquire necessary information for data postprocessing and plotting.
@@ -299,16 +259,17 @@ if [ $diag_climate -eq 1 ]; then
     if [ $do_computation -eq 1 ]; then
 
       echo
-      echo "=== Computing statistics for variable $varname ..."
+      echo "=== Computing zonal statistics for variable $varname ..."
 
-      #------------------
-      # Select variables 
-      #------------------
-      ifile=$clim_istart
-      while [ $ifile -le $clim_iend ] ; do
+      ifile=$evol_istart
+      while [ $ifile -le $evol_iend ] ; do
         label=$(printf "%04d" $ifile)
+        echo 
+        echo File $label
 
-        # Do it only if the selection has not done before
+        #------------------------------------------------------
+        # Select variables (if this has not been done before)
+        #------------------------------------------------------
         if [ ! -f ${ftmp}"_"$label"_"${varname}".nc" ]; then
 
            case $Model in 
@@ -350,23 +311,92 @@ EOF
              echo "Wrong model name! Abort."
              exit
            esac 
-           check_error $? "Set/selname,  File $label"
+           check_error $? " - Set/selname"
         fi
 
-        ln -s ${ftmp}"_"$label"_"$varname".nc" $lnkdir"/"${flnk}"_"$label"_"$varname".nc"
-        check_error $? "Soft link of  File $label"
+#       ln -s ${ftmp}"_"$label"_"$varname".nc" $lnkdir"/"${flnk}"_"$label"_"$varname".nc"
+#       check_error $? "Soft link of  File $label"
+
+        #----------------------------------------------------------------------------
+        # Interpolate from model levels to pressure/height levels
+        # or simply select the model levels the user specified.
+        #----------------------------------------------------------------------------
+
+        if [ ${plev_evol:-0} -eq 0 ]; then   # User didn't specify any pressure level
+         if [ ${hlev_evol:-0} -eq 0 ]; then  # User didn't specify any height level
+          if [ ${mlev_evol:-0} -eq 0 ]; then # User didn't specify any model level
+           
+           # User didn't specify any kind of levels. Will use default pressure values.
+           levtype="p"
+           cmd="ml2pl"
+           levs="85000,50000,20000,10000"    # default pressure levels
+   
+          else # Will select model levels
+           levtype="m"
+           cmd="sellevel"
+           levs=${mlev_evol}
+          fi
+         else  # Will interpolate to height levels
+           levtype="h"
+           cmd="ml2hl"
+           levs=${hlev_evol}
+         fi
+        else   # Will interpolate to user-specified pessure values
+           levtype="p"
+           cmd="ml2pl"
+           levs=${plev_evol} 
+        fi
+
+        case $varname in 
+        "PS" | "PHIS")
+           echo " - Vertical interpolation/level selection skipped for $varname" 
+        ;;
+        *) 
+
+          if [[ $levtype == "p" || $levtype == "h" ]]; then
+          
+            filein=${ftmp}"_"$label"_"$varname"_ml2phl_tmp.nc"
+
+            # Merge PS and PHIS with $varname into one file
+            if [ ! -a $filein ]; then
+              cdo $silence merge \
+                  ${ftmp}"_"$label"_"$varname".nc" \
+                  ${ftmp}"_"$label"_"PS".nc"       \
+                  ${ftmp}"_"$label"_"PHIS".nc"     \
+                  ${ftmp}"_"$label"_"$varname"_ml2phl_tmp.nc"
+            fi
+
+          else
+            filein=${ftmp}"_"$label"_"$varname".nc"
+          fi
+
+          # Vertical interpolation or level selection
+
+          list=`echo $levs | sed 's/,/ /g'`
+
+          for lev in $list ; do
+            fileout=${ftmp}"_"$label"_"$varname"_"$levtype$lev".nc"
+            echo input: $filein
+            echo output: $fileout
+            if [ ! -a $fileout ]; then
+              cdo $silence $cmd,$lev $filein $fileout
+              check_error $? " - ${cmd}, ${lev}"
+            fi 
+          done
+        ;;
+        esac #$varname
 
         ifile=` expr $ifile + 1 `
       done
+      exit
+      #####################################################################
+      # contents below not revised yet!
 
       #-------------------------------------------------------------------
-      # Compute time and zonal mean. Note that
-      #  1. In order to avoid merging all time steps into a single file,
-      #     we make use of the operator "ensavg" which accepts multiple
-      #     inputs; To avoid having an extremely long list of input files,
-      #     cdo is called from a temporary directory in which soft links 
-      #     to the actual input files are located.
-      #  2. For the ICON models, interpolation to Gaus grid is necessary. 
+      # Compute zonal statistics for each time step. Note that
+      #  1. For the ICON models, interpolation to Gaus grid is necessary. 
+      #  2. In order to avoid merging all time steps into a single file,
+      #     we let the NCL plotting script read data from multiple files. 
       #-------------------------------------------------------------------
       case $Model in 
       "ICOHAM" | "ICONAM")
@@ -394,33 +424,6 @@ EOF
       rm ${ftmp}"_"$timerange"_"$varname"_ensavg.nc"
       rm -rf ${lnkdir}
 
-      #----------------------------------------------------------------------------
-      # Interpolate from model levels to pressure levels (hydrostatic models only)
-      #----------------------------------------------------------------------------
-      case $Model in 
-      "ICOHAM" | "ECHAM")
-
-        if [ $varname == "PS" ] || [ $varname == "PHIS" ] ; then
-           echo PS and PHIS - skip ml2pl.
-        else
-
-           cdo $silence merge \
-               ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc".nc" \
-               ${ftmp}"_"$timerange"_"PS"_zmta_T"$trunc".nc"       \
-               ${ftmp}"_"$timerange"_"PHIS"_zmta_T"$trunc".nc"     \
-               ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc"_tmp.nc"
-
-           p17std="100000,92500,85000,70000,60000,50000,40000,30000,25000,20000,15000,10000,7000,5000,3000,2000,1000"
-           plevs=${plevs:=$p17std}
-           cdo $silence ml2pl,$plevs \
-               ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc"_tmp.nc" \
-               ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc"_pres.nc"
-
-           rm  ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc"_tmp.nc"
-           check_error $? "Vertical interpolation ($plevs Pa)"
-        fi 
-      ;;
-      esac 
 
    fi # do_computation -eq 1
 

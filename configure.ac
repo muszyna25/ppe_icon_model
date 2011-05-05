@@ -43,6 +43,7 @@ if test x$with_fortran != x; then
 else
     fortran_compiler="default"
 fi
+make_command="make"
 
 AC_ARG_WITH([openmp],
   [AS_HELP_STRING([--with-openmp],
@@ -835,10 +836,12 @@ else
   use_mpi=yes
 fi
 
-if test $use_mpi = yes ; then
-  load_modules="$load_modules $load_mpi_modules"
-else
-  load_modules="$load_modules $load_nompi_modules"
+if test x$load_module != x ; then
+  if test $use_mpi = yes ; then
+    load_modules="$load_modules $load_mpi_modules"
+  else
+    load_modules="$load_modules $load_nompi_modules"
+  fi
 fi
 
 # general command for running a progmam
@@ -853,7 +856,6 @@ fi
 
 echo Creating set-up.info...
 cat > config/set-up.info << EOF
-
 #############################
 # set-up.info created by configure
 # do not modify this file

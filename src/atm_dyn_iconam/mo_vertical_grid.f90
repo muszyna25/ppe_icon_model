@@ -418,7 +418,7 @@ MODULE mo_vertical_grid
       ENDIF
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk, z_fac1, z_fac2, z_topo_dev)
+!$OMP DO PRIVATE(jb, nlen, jk, jk1, z_fac1, z_fac2, z_topo_dev)
       DO jb = 1,nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -598,7 +598,7 @@ MODULE mo_vertical_grid
       i_startblk = p_patch(jg)%edges%start_blk(2,1)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk, z_fac1, z_fac2, z_topo_dev)
+!$OMP DO PRIVATE(jb, nlen, jk, jk1, z_fac1, z_fac2, z_topo_dev)
       DO jb = 1,nblks_v
         IF (jb /= nblks_v) THEN
            nlen = nproma

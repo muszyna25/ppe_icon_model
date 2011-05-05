@@ -255,6 +255,7 @@ end
     plotMode = "vector"
     ; performe the remapping
     remapFilename="remapnn_"+iFile
+    print("#=====================================================================================")
     print("Looking for remapped file: "+remapFilename)
     remapedFiles = systemfunc("ls "+remapFilename)
     if (isstring(remapedFiles(0)) .and. remapedFiles(0).eq.remapFilename) then
@@ -262,7 +263,7 @@ end
       print("Print remove this intermediate file, if it was NOT automatically created from your inpur file "+iFile+"!")
     else
       print("Use CDO to perform remapping: Create intermediate file: "+remapFilename)
-      print("Print remove this intermediate file, if it was NOT automatically created from your inpur file "+iFile+"!")
+      print("Remove this intermediate file, if it was NOT automatically created from your inpur file "+iFile+"!")
       if ( useMask ) then
         cmd = "cdo -P 8 -remapnn,"+resolution+" -selname,"+maskName+","+str_join(vecVars,",")+" "+iFile+" "+remapFilename
         if DEBUG then
@@ -280,7 +281,23 @@ end
   end if
 
   if (plotMode.eq."vector") then
-   iFile = remapFilename
+   ; Check if the remapped files is correct
+   orgFile   = addfile (iFile , "r")
+   remapFile = addfile(remapFilename,"r")
+   orgDims   = getvardims(orgFile)
+   remapDims = getvardims(remapFile)
+   orgTime   = getfilevardimsizes(orgFile,"time")
+   remapTime = getfilevardimsizes(remapFile,"time")
+   if ( orgTime .eq. remapTime ) then
+     iFile = remapFilename
+   else
+     print("#=====================================================================================")
+     print("Remapped File '"+remapFilename+"' seems to be wrong: Has different number of timesteps")
+     print("Original file has "+orgTime(0)+" timesteps")
+     print("Remapped File has "+remapTime(0)+" timesteps")
+     print("Abort!")
+     exit
+   end if
   end if
 
   File = addfile( iFile, "r" )
@@ -676,10 +693,10 @@ end
   ResC@lbLabelAutoStride        = True
   ResC@lbLabelFontHeightF       = FontHeight1     ;   color bar labels
 
-  ResC@gsnLeftString        = LeftString
-  ResC@gsnRightString       = RightString
-  ResC@gsnCenterString      = CenterString
-  ResC@tiMainString         = TitleString
+  ResC@gsnLeftString   = LeftString
+  ResC@gsnRightString  = RightString
+  ResC@gsnCenterString = CenterString
+  ResC@tiMainString    = TitleString
 
 
   if (selMode .eq. "manual") then

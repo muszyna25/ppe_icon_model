@@ -113,26 +113,24 @@ EOF
 
 
 if [[ "x$use_load_profile" != "x" ]]; then
+  if [[ "x$use_load_modules" != "x" ]]; then
+    profile_filename=`echo $use_load_profile | cut -d ' ' -f2`
 cat >> $output_script << EOF
 #=============================================================================
 # load profile
+if [ -e  $profile_filename ] ; then
 $use_load_profile
 #=============================================================================
-EOF
-fi
-
-
-if [[ "x$use_load_modules" != "x" ]]; then
-cat >> $output_script << EOF
 #=============================================================================
 # load modules
 module purge
 module load "\$loadmodule"
 module list
 #=============================================================================
+fi
 EOF
 fi
-
+fi
 
 if [[ "x$use_netcdflibpath" != "x" ]]; then
 cat >> $output_script << EOF
@@ -545,10 +543,12 @@ set_run_target_sx9()
    
   cat >> $output_script << EOF
 # ================
-# nec at DWD
+#### BATCH_SYSTEM=NQS2 ####
 # ================
 #PBS -q normal
 #PBS -j o
+#PBS -N $job_name
+#PBS -o LOG.$job_name.o
 #PBS -l  cpunum_job=$cpunum_job
 #PBS -b $use_nodes
 #PBS -T mpisx

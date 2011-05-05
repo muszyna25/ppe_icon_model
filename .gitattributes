@@ -590,6 +590,7 @@ run/exp.hat_jww-moist_cld-cnv-vdf -text
 run/exp.hat_jww_echam -text
 run/exp.iconrun -text
 run/exp.nah_jww -text
+run/exp.nat_ape_r2b4 -text
 run/exp.nat_jww_nwp_mpiomp -text
 run/exp.nh35_heldsuarez -text
 run/exp.nh35_tri_jws -text
@@ -732,6 +733,7 @@ scripts/postprocessing/plotcatalog/step_next.gif -text
 scripts/postprocessing/plotcatalog/step_prev.gif -text
 scripts/postprocessing/plotcatalog/style.css -text
 scripts/postprocessing/testcases/APE_postpro/hgt_to_pres.ncl -text
+scripts/postprocessing/testcases/APE_postpro/hovmoller.ksh -text
 scripts/postprocessing/testcases/APE_postpro/lookup_variable.ksh -text
 scripts/postprocessing/testcases/APE_postpro/plot_lat-pz.ncl -text
 scripts/postprocessing/testcases/APE_postpro/zonal_clim.ksh -text

@@ -70,11 +70,11 @@ begin
   if (Model .eq. "ICONAM" ) then
    if (var .eq. "TKE" .or. var .eq. "W" ) then
     height_var="ZH3"
-    vlev="ilev"
+    vlev="lev_2"
     extra_level=1
    else
     height_var="ZF3"
-    vlev="mlev"
+    vlev="lev"
     extra_level=0
    end if
   end if

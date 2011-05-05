@@ -84,8 +84,11 @@ CONTAINS
     REAL(wp) :: z_fs, z_speccomb, z_specmult, z_specparm, z_tauray
     INTEGER :: laytrop_min, laytrop_max
 
+
+!     write(0,*) "icount=",icount
     laytrop_min = MINVAL(k_laytrop(1:icount))
     laytrop_max = MAXVAL(k_laytrop(1:icount))
+!     write(0,*) "laytrop_min, laytrop_max=",laytrop_min, laytrop_max
 
     i_nlayers = klev
     i_laysolfr(:) = i_nlayers
@@ -186,12 +189,15 @@ CONTAINS
        ENDDO
     ENDDO
 
+!     write(0,*) "icount=",icount
+!     write(0,*) "laytrop_max+1,i_nlayers=",laytrop_max+1,i_nlayers
     DO i_lay = laytrop_max+1, i_nlayers
        DO iplon = 1, icount
          IF (k_jp(iplon,i_lay-1) < layreffr &
               &  .AND. k_jp(iplon,i_lay) >= layreffr)  i_laysolfr(iplon) = i_lay
          ind0 = ((k_jp(iplon,i_lay)-13)*5+(k_jt(iplon,i_lay)-1))*nspb(16) + 1
          ind1 = ((k_jp(iplon,i_lay)-12)*5+(k_jt1(iplon,i_lay)-1))*nspb(16)+ 1
+!          write(0,*) "ind0,ind1=",ind0,ind1
          z_tauray = p_colmol(iplon,i_lay) * rayl
 !CDIR EXPAND=NG16
          DO ig = 1, ng16
@@ -206,6 +212,7 @@ CONTAINS
        ENDDO
     ENDDO
 
+!     write(0,*) "srtm_taumol16 ends!"
   END SUBROUTINE srtm_taumol16
   !-----------------------------------------------------------------------------
   !>
