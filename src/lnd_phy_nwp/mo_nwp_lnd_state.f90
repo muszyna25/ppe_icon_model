@@ -64,13 +64,21 @@ USE mo_impl_constants,      ONLY: SUCCESS
 !!$USE mo_global_variables,    ONLY: l_nest_rcf
 USE mo_dynamics_nml,        ONLY: nsav1, nsav2
 USE mo_run_nml,             ONLY: nproma
-USE mo_exception,           ONLY: message, finish
+USE mo_exception,           ONLY: message, finish, message_text
 USE mo_model_domain,        ONLY: t_patch
 USE mo_model_domain_import, ONLY: n_dom, l_limited_area
 USE mo_atm_phy_nwp_nml,     ONLY: inwp_surface
 USE mo_lnd_nwp_nml,         ONLY: nlev_soil,nztlev,nlev_snow, &
                                   nsfc_subs
 
+USE mo_linked_list,         ONLY: t_var_list
+USE mo_var_list,            ONLY: default_var_list_settings, &
+                                & add_var,                   &
+                                & new_var_list,              &
+                                & delete_var_list
+USE mo_cf_convention
+USE mo_grib2
+USE mo_cdi_constants 
 
 IMPLICIT NONE
 PRIVATE
@@ -91,10 +99,12 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
 !
 
 
+
+
 ! prognostic variables state vector
   TYPE t_lnd_prog
 
-  REAL(wp), ALLOCATABLE :: &
+  REAL(wp), POINTER :: & ! JH old ALLOCATABLE
          t_snow       (:,:,:)     , & ! temperature of the snow-surface               (  K  )
          t_snow_mult  (:,:,:,:,:) , & ! temperature of the snow-surface               (  K  )
          t_s          (:,:,:,:)   , & ! temperature of the ground surface             (  K  )
@@ -108,13 +118,11 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
          w_so_ice     (:,:,:,:,:) , & ! ice content                                   (m H20)
          dzh_snow(:,:,:,:,:)      , & ! layer thickness between half levels in snow   (  m  )
          subsfrac(:,:,:,:)            ! 
-
   END TYPE t_lnd_prog
 
   TYPE t_lnd_diag
 
-  REAL(wp), ALLOCATABLE :: &
-!
+  REAL(wp), POINTER :: & ! JH old ALLOCATABLE
       qv_s (:,:)       , & ! specific humidity at the surface              (kg/kg)
       h_snow(:,:,:,:)    , & ! snow height                                   (  m  
       freshsnow(:,:,:) , & ! indicator for age of snow in top of snow layer(  -  )
@@ -135,7 +143,7 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
 ! complete state vector
   TYPE t_lnd_state
 
-    TYPE(t_lnd_prog), ALLOCATABLE :: prog_lnd(:)
+    TYPE(t_lnd_prog), POINTER :: prog_lnd(:)
 
     TYPE(t_lnd_diag) :: diag_lnd
 
@@ -781,6 +789,109 @@ END  SUBROUTINE destruct_lnd_state_prog
 ENDIF
 END  SUBROUTINE destruct_lnd_state_diag
 !-------------------------------------------------------------------------
+
+SUBROUTINE new_nwp_lnd_diag_list( kztlev, ksfc_subs, kblks,   &
+                     & listname, diag_list, p_diag_lnd)
+
+    INTEGER,INTENT(IN) :: kztlev, ksfc_subs, kblks !< dimension sizes
+
+    CHARACTER(len=*),INTENT(IN) :: listname
+
+    TYPE(t_var_list),POINTER :: diag_list
+    TYPE(t_lnd_diag)     :: p_diag_lnd
+
+    ! Local variables
+
+    TYPE(t_cf_var)    ::    cf_desc
+    TYPE(t_grib2_var) :: grib2_desc
+
+    INTEGER :: ist, shape2d(2), shape3d_subs(3), shape4d_subs(4), shapesfc(3)
+    INTEGER :: ientr
+
+    ientr = 16 ! "entropy" of horizontal slice
+
+    shape2d    = (/nproma,        kblks         /)
+    shape3d_subs   = (/nproma, ksfc_subs,  kblks    /)
+    shape4d_subs    = (/nproma, kztlev, ksfc_subs,  kblks    /)
+!    shapend    = (/nproma,        kblks, 4      /)
+
+    ! Register a field list and apply default settings
+
+    CALL new_var_list( diag_list, TRIM(listname) )
+    CALL default_var_list_settings( diag_list )
+
+    !------------------------------
+    ! Meteorological quantities
+    !------------------------------
+
+    ! & p_diag_lnd%qv_s(nproma,nblks_c)
+    cf_desc    = t_cf_var('qv_s ', 'kg/kg ', 'specific humidity at the surface ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'qv_s', p_diag_lnd%qv_s,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape2d )    
+
+    ! & p_diag_lnd%h_snow(nproma,nztlev,nsfc_subs,nblks_c)
+    cf_desc    = t_cf_var('h_snow ', 'm ', 'snow height ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'h_snow', p_diag_lnd%h_snow,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape4d_subs )  
+
+    ! & p_diag_lnd%freshsnow(nproma,nsfc_subs,nblks_c)
+    cf_desc    = t_cf_var('freshsnow ', '- ', 'indicator for age of snow in top of snow layer ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'freshsnow', p_diag_lnd%freshsnow,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape3d_subs )
+
+    ! & p_diag_lnd%wliq_snow(nproma,nztlev,nsfc_subs,nblks_c)
+    cf_desc    = t_cf_var('wliq_snow ', 'm H2O ', 'liquid water content in the snow ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'wliq_snow', p_diag_lnd%wliq_snow,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape4d_subs )
+
+       ! & p_diag_lnd%wtot_snow(nproma,nztlev,nsfc_subs,nblks_c)
+    cf_desc    = t_cf_var('wtot_snow ', 'm H2O ', 'total water content in the snow ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'wtot_snow', p_diag_lnd%wtot_snow,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape4d_subs )
+
+    ! & p_diag_lnd%runoff_s(nproma,nsfc_subs,nblks_c)
+    cf_desc    = t_cf_var('runoff_s ', 'kg/m2 ', 'surface water runoff; sum over forecast ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'runoff_s', p_diag_lnd%runoff_s,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape3d_subs )
+
+    ! & p_diag_lnd%runoff_g(nproma,nsfc_subs,nblks_c)
+    cf_desc    = t_cf_var('runoff_g ', 'kg/m2 ', 'soil water runoff; sum over forecast ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'runoff_g', p_diag_lnd%runoff_g,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape3d_subs )
+
+    ! & p_diag_lnd%rstom(nproma,nsfc_subs,nblks_c)
+    cf_desc    = t_cf_var('rstom ', 's/m ', 'stomata resistance ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'rstom', p_diag_lnd%rstom,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape3d_subs )
+
+    ! & p_diag_lnd%lhfl_bs(nproma,nsfc_subs,nblks_c)
+    cf_desc    = t_cf_var('lhfl_bs ', 'W/m2 ', 'average latent heat flux from bare soil evap. ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'lhfl_bs', p_diag_lnd%lhfl_bs,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape3d_subs )
+
+    ! & p_diag_lnd%lhfl_pl(nproma,nsfc_subs,nblks_c)
+    cf_desc    = t_cf_var('lhfl_pl ', 'W/m2 ', 'average latent heat flux from plants ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'lhfl_pl', p_diag_lnd%lhfl_pl,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape3d_subs )
+
+    ! & p_diag_lnd%fr_seaice(nproma,nblks_c)
+    cf_desc    = t_cf_var(' fr_seaice ', '- ', 'fraction of sea ice ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'fr_seaice', p_diag_lnd%fr_seaice,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape2d )    
+
+
+END SUBROUTINE  new_nwp_lnd_diag_list
 
 !
 !-------------------------------------------------------------------------

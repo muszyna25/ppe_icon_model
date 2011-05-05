@@ -210,12 +210,12 @@ CONTAINS
                 !
                 soiltyp_subs  =  ext_data%atm%soiltyp(:,jb) , & ! (:,1,jb) , & ! type of the soil (keys 0-9)                     --
                 plcov         =  ext_data%atm%plcov_mx(:,jb), & ! ,1, fraction of plant cover                         --
-                rootdp        =  ext_data%atm%root_dp(:,jb) , & ! ,1, depth of the roots                            ( m  )
+                rootdp        =  ext_data%atm%rootdp(:,jb) , & ! ,1, depth of the roots                            ( m  )
                 sai           =  prm_diag%sai(:,jb)         , & ! ,1,surface area index                              --
                 tai           =  prm_diag%tai(:,jb)         , & ! ,1, transpiration area index                        --
                 eai           =  prm_diag%eai(:,jb)         , & ! ,1, earth area (evaporative surface area) index     --
                 rlandmask     =  ext_data%atm%fr_land(:,jb) , & ! ,1, landpoint mask                                  --
-                rsmin2d       =  ext_data%atm%plant_res_min(:,jb),  & ! minimum stomata resistance                    ( s/m )
+                rsmin2d       =  ext_data%atm%rsmin(:,jb),  & ! minimum stomata resistance                    ( s/m )
                 !
                 u   = p_diag%u(:,:,jb)                     , & ! zonal wind speed                              ( m/s )
                 v  = p_diag%v(:,:,jb)                     , & ! meridional wind speed                         ( m/s )
