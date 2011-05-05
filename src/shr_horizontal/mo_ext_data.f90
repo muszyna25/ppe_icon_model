@@ -220,6 +220,9 @@ MODULE mo_ext_data
     INTEGER, POINTER  ::   &   !< soil texture, keys 0-9                  [ ]
       &  soiltyp(:,:)          ! index1=1,nproma, index2=1,nblks_c
 
+    INTEGER, POINTER  ::   &   !<  soil texture, keys 0-9       []
+      &  soiltyp_frac(:,:,:)   ! index1=1,nproma, index2=1,nblks_c, index3=1,nsfc_subs
+
     REAL(wp), POINTER ::   &   !< Near surface temperature (climatological mean)  [ K ]
       &  t_cl(:,:)             !  used as climatological layer (deepest layer) of T_SO
                                ! index1=1,nproma, index2=1,nblks_c
@@ -558,7 +561,8 @@ CONTAINS
       &        nblks_e, &    !< number of edge blocks to allocate
       &        nblks_v       !< number of vertex blocks to allocate
 
-    INTEGER :: shape2d_c(2), shape2d_e(2), shape2d_v(2)
+    INTEGER :: shape2d_c(2), shape2d_e(2), shape2d_v(2), &
+      &        shape3d_c(3)
 
     INTEGER :: ientr         !< "entropy" of horizontal slice
     !--------------------------------------------------------------
@@ -575,6 +579,7 @@ CONTAINS
     shape2d_c = (/ nproma, nblks_c /)
     shape2d_e = (/ nproma, nblks_e /)
     shape2d_v = (/ nproma, nblks_v /)
+!DR    shape3d_c = (/ nproma, nblks_c, nsfc_subs /)
 
     !
     ! Register a field list and apply default settings
@@ -899,6 +904,16 @@ CONTAINS
       grib2_desc = t_grib2_var( 2, 3, 0, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'soiltyp', p_ext_atm%soiltyp, &
         &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+!DR      ! soil texture, keys 0-9
+!DR      !
+!DR      ! soiltyp_frac    p_ext_atm%soiltyp_frac(nproma,nblks_c,nsfc_subs)
+!DR      cf_desc    = t_cf_var('soil_texture', '-','soil texture')
+!DR      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+!DR      CALL add_var( p_ext_atm_list, 'soiltyp_frac', p_ext_atm%soiltyp_frac, &
+!DR        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+
 
       ! Climat. temperature
       !
