@@ -1,3 +1,7 @@
+#ifdef __xlC__
+!@PROCESS NOHOT
+!@PROCESS NOOPTimize
+#endif
 !>
 !! Initializes and controls the time stepping in the nonhydrostatic model.
 !!
@@ -92,6 +96,7 @@ MODULE mo_nh_stepping
                                     kinetic_energy,             &
                                     impl_vert_adv_vn
   USE mo_solve_nonhydro,      ONLY: solve_nh
+  USE mo_solve_nh_async,      ONLY: solve_nh_ahc
   USE mo_advection_stepping,  ONLY: step_advection
   USE mo_nh_dtp_interface,    ONLY: prepare_tracer
   USE mo_nh_diffusion,        ONLY: diffusion_tria, diffusion_hex
@@ -107,6 +112,7 @@ MODULE mo_nh_stepping
   USE mo_vertical_grid,       ONLY: set_nh_metrics
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
+
   IMPLICIT NONE
 
   PRIVATE
@@ -183,8 +189,6 @@ MODULE mo_nh_stepping
 
   PUBLIC :: prepare_nh_integration, perform_nh_stepping
 
-
-
   CONTAINS
 
 !-------------------------------------------------------------------------
@@ -229,12 +233,10 @@ MODULE mo_nh_stepping
   ENDIF
 
   END SUBROUTINE prepare_nh_integration
-!-------------------------------------------------------------------------
-!
-!
+
+
+  !-------------------------------------------------------------------------
   !>
-  !! Organizes nonhydrostatic time stepping.
-  !!
   !! Organizes nonhydrostatic time stepping
   !! Currently we assume to have only one grid level.
   !!
@@ -252,8 +254,62 @@ MODULE mo_nh_stepping
   TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
   TYPE(t_datetime), INTENT(INOUT)      :: datetime
 
+  INTEGER                              :: jg
+
+!-----------------------------------------------------------------------
+
+  CALL allocate_nh_stepping (p_patch, p_int_state, p_grf_state, p_nh_state, &
+                                  datetime, n_io, n_file, n_diag)
+
+  IF (iforcing==inwp) THEN
+    DO jg=1, n_dom
+      CALL init_nwp_phy( dtime                 ,&
+           & p_patch(jg)                       ,&
+           & p_nh_state(jg)%metrics            ,&
+           & p_nh_state(jg)%prog(nnow(jg))     ,&
+           & p_nh_state(jg)%prog(nnew(jg))     ,&
+           & p_nh_state(jg)%diag               ,&
+           & prm_diag(jg)                      ,&
+           & prm_nwp_tend(jg)                  ,&
+           & p_lnd_state(jg)%prog_lnd(nnow(jg)),&
+           & p_lnd_state(jg)%prog_lnd(nnew(jg)),&
+           & p_lnd_state(jg)%diag_lnd          ,&
+           & ext_data(jg)                      ,&
+           & mean_charlen(jg)                   )
+    ENDDO
+  ENDIF
+
+  CALL perform_nh_timeloop (p_patch, p_int_state, p_grf_state, p_nh_state, &
+                            datetime, n_io, n_file, n_diag)
+
+  CALL deallocate_nh_stepping (p_patch, p_int_state, p_grf_state, p_nh_state, &
+                                  datetime, n_io, n_file, n_diag)
+
+
+  END SUBROUTINE perform_nh_stepping
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Organizes nonhydrostatic time stepping
+  !! Currently we assume to have only one grid level.
+  !!
+  !! @par Revision History
+  !! Initial release by Almut Gassmann, (2009-04-15)
+  !!
+  SUBROUTINE perform_nh_timeloop (p_patch, p_int_state, p_grf_state, p_nh_state, &
+                                  datetime, n_io, n_file, n_diag)
+!
+  TYPE(t_patch), TARGET, INTENT(IN)            :: p_patch(n_dom_start:n_dom)
+  TYPE(t_int_state), TARGET, INTENT(IN)        :: p_int_state(n_dom_start:n_dom)
+  TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom_start:n_dom)
+  INTEGER, INTENT(IN)                          :: n_io, n_file, n_diag
+
+  TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
+  TYPE(t_datetime), INTENT(INOUT)      :: datetime
+
   REAL(wp)                             :: sim_time(n_dom)
-  INTEGER                              :: jfile, jstep, jb, nlen, jg, nt
+  INTEGER                              :: jfile, jstep, jb, nlen, jg
   INTEGER                              :: ist
   REAL(wp)                             :: vnmax, wmax
   REAL(wp)                             :: vn_aux(p_patch(1)%nblks_int_e)
@@ -265,8 +321,218 @@ MODULE mo_nh_stepping
   sim_time(:) = 0._wp
 
   jfile = 1
-  nt = ntracer
 
+  IF (ltimer) CALL timer_start(timer_total)
+
+  TIME_LOOP: DO jstep = 1, nsteps
+
+    CALL add_time(dtime,0,0,0,datetime)
+
+    WRITE(message_text,'(a,i10)') 'TIME STEP n: ', jstep
+    CALL message('non-hydro_atmos',message_text)
+
+    IF (msg_level >= 5) THEN ! print maximum velocities in global domain
+
+      p_vn => p_nh_state(1)%prog(nnow(1))%vn
+      p_w  => p_nh_state(1)%prog(nnow(1))%w
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb, nlen)
+      DO jb = 1, p_patch(1)%nblks_int_e
+        IF (jb /= p_patch(1)%nblks_int_e) THEN
+          nlen = nproma
+        ELSE
+          nlen = p_patch(1)%npromz_int_e
+        ENDIF
+        vn_aux(jb) = MAXVAL(ABS(p_vn(1:nlen,:,jb)))
+      ENDDO
+!$OMP END DO
+!$OMP DO PRIVATE(jb, nlen)
+      DO jb = 1, p_patch(1)%nblks_int_c
+        IF (jb /= p_patch(1)%nblks_int_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = p_patch(1)%npromz_int_c
+        ENDIF
+        w_aux(jb) = MAXVAL(ABS(p_w(1:nlen,:,jb)))
+      ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+      vnmax = MAXVAL(vn_aux)
+      wmax  = MAXVAL(w_aux)
+
+      vnmax = global_max(vnmax) ! Get max over all PEs
+      wmax  = global_max(wmax) ! Get max over all PEs
+
+      WRITE(message_text,'(a,2e14.6)') 'MAXABS VN, W ', vnmax, wmax
+      CALL message('non-hydro_atmos',message_text)
+
+    ENDIF ! msg_level >= 5
+
+    ! Store first old exner pressure
+    ! (to prepare some kind of divergence damping, or to account for
+    ! physically based 'implicit weights' in forward backward time stepping)
+    IF (jstep == 1) THEN
+!$OMP PARALLEL PRIVATE(jg)
+      DO jg = 1, n_dom
+!$OMP WORKSHARE
+        p_nh_state(jg)%diag%exner_old(:,:,:)=&
+        & p_nh_state(jg)%prog(nnow(1))%exner(:,:,:)
+!$OMP END WORKSHARE
+      ENDDO
+!$OMP END PARALLEL
+    ENDIF
+
+    IF (MOD(jstep,n_io) == 0 .OR. jstep==nsteps) THEN
+      l_outputtime = .TRUE. ! Output is written at the end of the time step,
+    ELSE                    ! thus diagnostic quantities need to be computed
+      l_outputtime = .FALSE.
+    ENDIF
+
+    IF (jstep == 1 .OR. MOD(jstep,n_diag) == 0 .OR. jstep==nsteps) THEN
+      l_diagtime = .TRUE. ! Diagnostic output is written at the end of the time step,
+                          ! thus diagnostic quantities need to be computed
+    ENDIF
+
+    ! dynamics stepping
+    CALL integrate_nh(p_nh_state, p_patch, p_int_state, p_grf_state, &
+                      1, jstep, dtime, sim_time, 1)
+    ! output of results
+    ! note: nnew has been replaced by nnow here because the update
+    IF (l_outputtime) THEN
+
+      CALL write_output( datetime, sim_time(1) )
+      CALL message('','Output at:')
+      CALL print_datetime(datetime)
+
+    ENDIF
+
+    ! Diagnostics computation is not yet properly MPI-parallelized
+#ifdef NOMPI
+    IF(i_cell_type == 3) THEN
+      IF (l_diagtime .AND. p_nprocs == 1 .AND. (lstep_adv(1) .OR. jstep==nsteps))  THEN
+        IF (jstep == iadv_rcf) THEN
+          CALL supervise_total_integrals_nh(1, p_patch(1:), p_nh_state, nnow, nnow_rcf)
+        ELSE
+          CALL supervise_total_integrals_nh(jstep, p_patch(1:), p_nh_state, nnow, nnow_rcf)
+        ENDIF
+        l_diagtime = .FALSE.
+      ENDIF
+    ENDIF
+#endif
+    IF(i_cell_type == 6 .AND. l_diagtime) THEN
+      CALL supervise_total_integrals_nh(jstep, p_patch(1:), p_nh_state, nnow, nnow_rcf)
+    ENDIF
+
+
+    ! close the current output file and trigger a new one
+    IF (MOD(jstep,n_file) == 0 .and. jstep/=nsteps) THEN
+
+      jfile = jfile +1
+      call init_output_files(jfile)
+
+    ENDIF
+
+  ENDDO TIME_LOOP
+
+  IF (ltimer) CALL timer_stop(timer_total)
+
+
+  END SUBROUTINE perform_nh_timeloop
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !! @par Revision History
+  !!
+  SUBROUTINE deallocate_nh_stepping (p_patch, p_int_state, p_grf_state, p_nh_state, &
+                                  datetime, n_io, n_file, n_diag)
+!
+  TYPE(t_patch), TARGET, INTENT(IN)            :: p_patch(n_dom_start:n_dom)
+  TYPE(t_int_state), TARGET, INTENT(IN)        :: p_int_state(n_dom_start:n_dom)
+  TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom_start:n_dom)
+  INTEGER, INTENT(IN)                          :: n_io, n_file, n_diag
+
+  TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
+  TYPE(t_datetime), INTENT(INOUT)      :: datetime
+
+  INTEGER                              ::  jb, nlen, jg, ist
+
+!-----------------------------------------------------------------------
+  !
+  ! deallocate auxiliary fields for tracer transport and rcf
+  !
+  DO jg = 1, n_dom
+    DEALLOCATE( prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,    &
+      &         prep_adv(jg)%vn_traj, prep_adv(jg)%w_traj,             &
+      &         prep_adv(jg)%rhodz_mc_now, prep_adv(jg)%rhodz_mc_new,  &
+      &         prep_adv(jg)%rho_ic, prep_adv(jg)%topflx_tra, STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ( 'mo_nh_stepping: perform_nh_stepping',            &
+        &    'deallocation for mass_flx_me, mass_flx_ic, vn_traj,' // &
+        &    'w_traj, rhodz_mc_now, rhodz_mc_new, rho_ic, '        // &
+        &    'topflx_tra failed' )
+    ENDIF
+    DEALLOCATE(bufr(jg)%send_c1, &
+      &      bufr(jg)%recv_c1,bufr(jg)%send_c3,bufr(jg)%recv_c3, &
+      &      bufr(jg)%send_e1,bufr(jg)%recv_e1,bufr(jg)%send_e2, &
+      &      bufr(jg)%recv_e2,bufr(jg)%send_e3,bufr(jg)%recv_e3, &
+      &      bufr(jg)%send_v2,bufr(jg)%recv_v2, STAT=ist )
+    IF (ist /= SUCCESS) &
+      CALL finish ( 'mo_nh_stepping: perform_nh_stepping',  &
+      &    'deallocation of MPI exchange buffers failed' )
+  ENDDO
+
+  DEALLOCATE( bufr, STAT=ist )
+  IF (ist /= SUCCESS) &
+    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',            &
+      &    'deallocation of bufr failed' )
+
+  DEALLOCATE( prep_adv, STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',              &
+      &    'deallocation for prep_adv failed' )
+  ENDIF
+
+  DEALLOCATE( jstep_adv, STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',              &
+      &    'deallocation for jstep_adv failed' )
+  ENDIF
+
+  !
+  ! deallocate flow control variables
+  !
+  DEALLOCATE( lstep_adv, lcall_phy, linit_slowphy, linit_dyn, t_elapsed_phy, STAT=ist )
+  IF (ist /= SUCCESS) THEN
+    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',          &
+      &    'deallocation for lstep_adv, lcall_phy,' //            &
+      &    't_elapsed_phy failed' )
+  ENDIF
+
+  END SUBROUTINE deallocate_nh_stepping
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !! @par Revision History
+  !!
+  SUBROUTINE allocate_nh_stepping (p_patch, p_int_state, p_grf_state, p_nh_state, &
+                                  datetime, n_io, n_file, n_diag)
+!
+  TYPE(t_patch), TARGET, INTENT(IN)            :: p_patch(n_dom_start:n_dom)
+  TYPE(t_int_state), TARGET, INTENT(IN)        :: p_int_state(n_dom_start:n_dom)
+  TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom_start:n_dom)
+  INTEGER, INTENT(IN)                          :: n_io, n_file, n_diag
+
+  TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
+  TYPE(t_datetime), INTENT(INOUT)      :: datetime
+
+  INTEGER                              :: nlen, jg
+  INTEGER                              :: ist
+
+!-----------------------------------------------------------------------
   ! Allocate global buffers for MPI communication
   ALLOCATE(bufr(n_dom), STAT=ist )
   IF (ist /= SUCCESS) THEN
@@ -353,204 +619,13 @@ MODULE mo_nh_stepping
 
   ENDDO
 
-  IF (iforcing==inwp) THEN
-
-    DO jg=1, n_dom
-      CALL init_nwp_phy( dtime                 ,&
-           & p_patch(jg)                       ,&
-           & p_nh_state(jg)%metrics            ,&
-           & p_nh_state(jg)%prog(nnow(jg))     ,&
-           & p_nh_state(jg)%prog(nnew(jg))     ,&
-           & p_nh_state(jg)%diag               ,&
-           & prm_diag(jg)                      ,&
-           & prm_nwp_tend(jg)                  ,&
-           & p_lnd_state(jg)%prog_lnd(nnow(jg)),&
-           & p_lnd_state(jg)%prog_lnd(nnew(jg)),&
-           & p_lnd_state(jg)%diag_lnd          ,&
-           & ext_data(jg)                      ,&
-           & mean_charlen(jg)                   )
-    ENDDO
-  ENDIF
-
-  IF (ltimer) CALL timer_start(timer_total)
-
-  TIME_LOOP: DO jstep = 1, nsteps
-
-    CALL add_time(dtime,0,0,0,datetime)
-
-    WRITE(message_text,'(a,i10)') 'TIME STEP n: ', jstep
-    CALL message('non-hydro_atmos',message_text)
-
-    IF (msg_level >= 5) THEN ! print maximum velocities in global domain
-
-      p_vn => p_nh_state(1)%prog(nnow(1))%vn
-      p_w  => p_nh_state(1)%prog(nnow(1))%w
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen)
-      DO jb = 1, p_patch(1)%nblks_int_e
-        IF (jb /= p_patch(1)%nblks_int_e) THEN
-          nlen = nproma
-        ELSE
-          nlen = p_patch(1)%npromz_int_e
-        ENDIF
-        vn_aux(jb) = MAXVAL(ABS(p_vn(1:nlen,:,jb)))
-      ENDDO
-!$OMP END DO
-!$OMP DO PRIVATE(jb, nlen)
-      DO jb = 1, p_patch(1)%nblks_int_c
-        IF (jb /= p_patch(1)%nblks_int_c) THEN
-          nlen = nproma
-        ELSE
-          nlen = p_patch(1)%npromz_int_c
-        ENDIF
-        w_aux(jb) = MAXVAL(ABS(p_w(1:nlen,:,jb)))
-      ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
-
-      vnmax = MAXVAL(vn_aux)
-      wmax  = MAXVAL(w_aux)
-
-      vnmax = global_max(vnmax) ! Get max over all PEs
-      wmax  = global_max(wmax) ! Get max over all PEs
-
-      WRITE(message_text,'(a,2e14.6)') 'MAXABS VN, W ', vnmax, wmax
-      CALL message('non-hydro_atmos',message_text)
-
-    ENDIF ! msg_level >= 5
-
-    ! Store first old exner pressure
-    ! (to prepare some kind of divergence damping, or to account for
-    ! physically based 'implicit weights' in forward backward time stepping)
-    IF (jstep == 1) THEN
-!$OMP PARALLEL PRIVATE(jg)
-      DO jg = 1, n_dom
-!$OMP WORKSHARE
-        p_nh_state(jg)%diag%exner_old(:,:,:)=&
-        & p_nh_state(jg)%prog(nnow(1))%exner(:,:,:)
-!$OMP END WORKSHARE
-      ENDDO
-!$OMP END PARALLEL
-    ENDIF
-
-    IF (MOD(jstep,n_io) == 0 .OR. jstep==nsteps) THEN
-      l_outputtime = .TRUE. ! Output is written at the end of the time step,
-    ELSE                    ! thus diagnostic quantities need to be computed
-      l_outputtime = .FALSE.
-    ENDIF
-
-    IF (jstep == 1 .OR. MOD(jstep,n_diag) == 0 .OR. jstep==nsteps) THEN
-      l_diagtime = .TRUE. ! Diagnostic output is written at the end of the time step,
-                          ! thus diagnostic quantities need to be computed
-    ENDIF
-
-    ! dynamics stepping
-    ! GZ: will include physics tendencies in the future, so once we should rename this routine
-    CALL dynamics_integration(p_nh_state, p_patch, p_int_state, p_grf_state, &
-                              1, jstep, dtime, sim_time, 1)
-
-    ! output of results
-    ! note: nnew has been replaced by nnow here because the update
-    IF (l_outputtime) THEN
-
-      CALL write_output( datetime, sim_time(1) )
-      CALL message('','Output at:')
-      CALL print_datetime(datetime)
-
-    ENDIF
-
-    ! Diagnostics computation is not yet properly MPI-parallelized
-#ifdef NOMPI
-    IF(i_cell_type == 3) THEN
-      IF (l_diagtime .AND. p_nprocs == 1 .AND. (lstep_adv(1) .OR. jstep==nsteps))  THEN
-        IF (jstep == iadv_rcf) THEN
-          CALL supervise_total_integrals_nh(1, p_patch(1:), p_nh_state, nnow, nnow_rcf)
-        ELSE
-          CALL supervise_total_integrals_nh(jstep, p_patch(1:), p_nh_state, nnow, nnow_rcf)
-        ENDIF
-        l_diagtime = .FALSE.
-      ENDIF
-    ENDIF
-#endif
-    IF(i_cell_type == 6 .AND. l_diagtime) THEN
-      CALL supervise_total_integrals_nh(jstep, p_patch(1:), p_nh_state, nnow, nnow_rcf)
-    ENDIF
-
-
-    ! close the current output file and trigger a new one
-    IF (MOD(jstep,n_file) == 0 .and. jstep/=nsteps) THEN
-
-      jfile = jfile +1
-      call init_output_files(jfile)
-
-    ENDIF
-
-  ENDDO TIME_LOOP
-
-  IF (ltimer) CALL timer_stop(timer_total)
-
-
-  !
-  ! deallocate auxiliary fields for tracer transport and rcf
-  !
-  DO jg = 1, n_dom
-    DEALLOCATE( prep_adv(jg)%mass_flx_me, prep_adv(jg)%mass_flx_ic,    &
-      &         prep_adv(jg)%vn_traj, prep_adv(jg)%w_traj,             &
-      &         prep_adv(jg)%rhodz_mc_now, prep_adv(jg)%rhodz_mc_new,  &
-      &         prep_adv(jg)%rho_ic, prep_adv(jg)%topflx_tra, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish ( 'mo_nh_stepping: perform_nh_stepping',            &
-        &    'deallocation for mass_flx_me, mass_flx_ic, vn_traj,' // &
-        &    'w_traj, rhodz_mc_now, rhodz_mc_new, rho_ic, '        // &
-        &    'topflx_tra failed' )
-    ENDIF
-    DEALLOCATE(bufr(jg)%send_c1, &
-      &      bufr(jg)%recv_c1,bufr(jg)%send_c3,bufr(jg)%recv_c3, &
-      &      bufr(jg)%send_e1,bufr(jg)%recv_e1,bufr(jg)%send_e2, &
-      &      bufr(jg)%recv_e2,bufr(jg)%send_e3,bufr(jg)%recv_e3, &
-      &      bufr(jg)%send_v2,bufr(jg)%recv_v2, STAT=ist )
-    IF (ist /= SUCCESS) &
-      CALL finish ( 'mo_nh_stepping: perform_nh_stepping',  &
-      &    'deallocation of MPI exchange buffers failed' )
-  ENDDO
-
-  DEALLOCATE( bufr, STAT=ist )
-  IF (ist /= SUCCESS) &
-    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',            &
-      &    'deallocation of bufr failed' )
-
-  DEALLOCATE( prep_adv, STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',              &
-      &    'deallocation for prep_adv failed' )
-  ENDIF
-
-  DEALLOCATE( jstep_adv, STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',              &
-      &    'deallocation for jstep_adv failed' )
-  ENDIF
-
-  !
-  ! deallocate flow control variables
-  !
-  DEALLOCATE( lstep_adv, lcall_phy, linit_slowphy, linit_dyn, t_elapsed_phy, STAT=ist )
-  IF (ist /= SUCCESS) THEN
-    CALL finish ( 'mo_nh_stepping: perform_nh_stepping',          &
-      &    'deallocation for lstep_adv, lcall_phy,' //            &
-      &    't_elapsed_phy failed' )
-  ENDIF
-
-
-
-  END SUBROUTINE perform_nh_stepping
+  END SUBROUTINE allocate_nh_stepping
 
 !-----------------------------------------------------------------------------
 
   !-----------------------------------------------------------------------------
   !>
-  !! dynamics_integration
+  !! integrate_nh
   !!
   !! Performs dynamics time stepping:  Rotational modes (helicity bracket) and
   !! divergent modes (Poisson bracket) are splitted using Strang splitting.
@@ -564,9 +639,13 @@ MODULE mo_nh_stepping
   !! Modification by Daniel Reinert, DWD (2010-07-23)
   !!  - optional reduced calling frequency for transport and physics
   !!
-  RECURSIVE SUBROUTINE dynamics_integration (p_nh_state, p_patch, p_int_state,  &
+#ifdef __NO_NESTING__
+   SUBROUTINE integrate_nh (p_nh_state, p_patch, p_int_state,        &
   &        p_grf_state, jg, nstep_global, dt_loc, sim_time, num_steps)
-
+#else
+  RECURSIVE SUBROUTINE integrate_nh (p_nh_state, p_patch, p_int_state,  &
+  &        p_grf_state, jg, nstep_global, dt_loc, sim_time, num_steps)
+#endif
     TYPE(t_patch), TARGET, INTENT(in)    :: p_patch(n_dom_start:n_dom)    !< patch
     TYPE(t_int_state),TARGET,INTENT(in)  :: p_int_state(n_dom_start:n_dom)!< interpolation state
     TYPE(t_nh_state), TARGET, INTENT(inout) :: p_nh_state(n_dom) !< nonhydrostatic state
@@ -647,7 +726,7 @@ MODULE mo_nh_stepping
       n_save = nsav2(jg)
 
       WRITE(message_text,'(a)') 'save initial fields for outer boundary nudging'
-       CALL message('dynamics integration', TRIM(message_text))
+       CALL message('integrate_nh', TRIM(message_text))
 
       p_nh_state(jg)%prog(n_save)%vn      = p_nh_state(jg)%prog(n_now)%vn
       p_nh_state(jg)%prog(n_save)%w       = p_nh_state(jg)%prog(n_now)%w
@@ -856,7 +935,7 @@ MODULE mo_nh_stepping
 
           IF (msg_level >= 10) THEN
             WRITE(message_text,'(a,i4,9l4)') 'initial call of slow physics',jg , lcall_phy(jg,:9)
-            CALL message('dynamics integration', TRIM(message_text))
+            CALL message('integrate_nh', TRIM(message_text))
           ENDIF
 
           ! NOTE (DR): To me it is not clear yet, which timestep should be
@@ -898,13 +977,13 @@ MODULE mo_nh_stepping
 
           IF (msg_level >= 10) THEN
             WRITE(message_text,'(a,i4,9l4)') 'call physics packages',jg , lcall_phy(jg,:9)
-            CALL message('dynamics integration', TRIM(message_text))
+            CALL message('integrate_nh', TRIM(message_text))
             IF(ltransport) THEN
               WRITE(message_text,'(a,i4,l4)') 'call advection',jg , lstep_adv(jg)
-              CALL message('dynamics integration', TRIM(message_text))
+              CALL message('integrate_nh', TRIM(message_text))
             ELSE IF(.NOT. ltransport) THEN
               WRITE(message_text,'(a,l4)') 'no advection, ltransport=', ltransport
-              CALL message('dynamics integration', TRIM(message_text))
+              CALL message('integrate_nh', TRIM(message_text))
             ENDIF
           ENDIF
         ENDIF
@@ -930,12 +1009,19 @@ MODULE mo_nh_stepping
             linit_vertnest(2) = .FALSE.
           ENDIF
 
-          CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),         &
+          IF (itype_comm <= 2) THEN
+            CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),       &
                         n_now, n_new, linit_dyn(jg), linit_vertnest, l_bdy_nudge, dt_loc)
 
           IF (lhdiff_vn) &
-          CALL diffusion_tria(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,           &
+            CALL diffusion_tria(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,         &
                    p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), bufr(jg), dt_loc)
+          ELSE
+            ! call version for asynchronous halo communication, 
+            ! combining solve and Smagorinsky diffusion
+            CALL solve_nh_ahc(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),   &
+                        n_now, n_new, linit_dyn(jg), linit_vertnest, l_bdy_nudge, dt_loc)
+          ENDIF
 
         ELSE ! hexagonal case
 
@@ -1073,6 +1159,7 @@ MODULE mo_nh_stepping
         l_call_nests = .FALSE.
       ENDIF
 
+#ifndef __NO_NESTING__
       IF (l_call_nests .AND. p_patch(jg)%n_childdom > 0) THEN
 
         dt_sub = dt_loc/2._wp
@@ -1130,7 +1217,7 @@ MODULE mo_nh_stepping
           IF(p_patch(jgc)%n_patch_cells > 0) THEN
             IF(proc_split) CALL push_glob_comm(p_patch(jgc)%comm, p_patch(jgc)%proc0)
             ! Recursive call to process_grid_level for child grid level
-            CALL dynamics_integration( p_nh_state, p_patch, p_int_state,  &
+            CALL integrate_nh( p_nh_state, p_patch, p_int_state,           &
               p_grf_state, jgc, nstep_global, dt_sub, sim_time, nsteps_nest)
             IF(proc_split) CALL pop_glob_comm()
           ENDIF
@@ -1152,6 +1239,7 @@ MODULE mo_nh_stepping
         ENDDO
 
       ENDIF
+#endif
 
       IF (l_outputtime) THEN ! compute diagnostic quantities
         p_vn  => p_nh_state(jg)%prog(n_new)%vn
@@ -1239,7 +1327,7 @@ MODULE mo_nh_stepping
 
     ENDDO
 
-  END SUBROUTINE dynamics_integration
+  END SUBROUTINE integrate_nh
   !-----------------------------------------------------------------------------
   !>
   !! momentum_adv

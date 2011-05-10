@@ -187,13 +187,13 @@ PROGRAM control_model
 
   ! Horizontal interpolation
   !
-  USE mo_intp_state,          ONLY: setup_interpol,              & ! process interpol. ctl. params.
-    &                               construct_2d_interpol_state, &
+  USE mo_interpol_nml,        ONLY: interpol_nml_setup   ! process interpol. ctl. params.
+  USE mo_intp_state,          ONLY: construct_2d_interpol_state, &
     &                               destruct_2d_interpol_state
   USE mo_interpolation,       ONLY: rbf_vec_interpol_cell,       &
     &                               edges2cells_scalar
-  USE mo_grf_interpolation,   ONLY: setup_gridref,        & ! process grid refinement ctl. params.
-    &                               construct_2d_gridref_state,  &
+  USE mo_gridref_nml,         ONLY: gridref_nml_setup
+  USE mo_grf_interpolation,   ONLY: construct_2d_gridref_state,  &
     &                               destruct_2d_gridref_state
 
   ! Vertical grid
@@ -443,13 +443,13 @@ PROGRAM control_model
   ! - Calculate interpolation coefficients.
   !------------------------------------------------------------------
 
-  CALL setup_gridref
+  CALL gridref_nml_setup
 
   ! interpolation state not used for ocean model
   ! #slo# - temporarily switched on for comparison with rbf-reconstruction
   !IF (iequations /= ihs_ocean) THEN
 
-    CALL setup_interpol(p_patch_global)
+    CALL interpol_nml_setup(p_patch_global)
 
     !
     ! allocate type for interpolation state

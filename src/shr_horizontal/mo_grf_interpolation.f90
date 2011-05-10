@@ -46,16 +46,17 @@ MODULE mo_grf_interpolation
 !
 !-------------------------------------------------------------------------
 
-  USE mo_grf_intp_data_strc, ONLY: rbf_vec_kern_grf_e, rbf_scale_grf_e, &
-       &                           grf_intmethod_c, grf_intmethod_e,    &
-       &                           grf_intmethod_ct, grf_velfbk,        &
-       &                           grf_scalfbk, grf_tracfbk,            &
-       &                           grf_idw_exp_e12, grf_idw_exp_e34,    &
-       &                           denom_diffu_v, denom_diffu_t,        &
-       &                           t_gridref_single_state, t_gridref_state
+  USE mo_grf_intp_data_strc, ONLY: t_gridref_single_state, t_gridref_state
 
-  USE mo_grf_intp_state,     ONLY: setup_gridref,              &
-       &                           construct_2d_gridref_state, &
+  USE mo_gridref_nml,        ONLY: gridref_nml_setup, rbf_vec_kern_grf_e, &
+    &                              rbf_scale_grf_e,                       &
+    &                              grf_velfbk, grf_scalfbk, grf_tracfbk,  &
+    &                              grf_idw_exp_e12, grf_idw_exp_e34,      &
+    &                              grf_intmethod_c, grf_intmethod_e,      &
+    &                              grf_intmethod_ct, denom_diffu_v,       &
+    &                              denom_diffu_t
+
+  USE mo_grf_intp_state,     ONLY: construct_2d_gridref_state, &
        &                           destruct_2d_gridref_state
 
   PUBLIC  ! all that is USEd above

@@ -638,7 +638,9 @@ scripts/.gmtcommands -text
 scripts/buildbot_scripts/ICON.cfg -text
 scripts/buildbot_scripts/README -text
 scripts/buildbot_scripts/bb_make -text
+scripts/buildbot_scripts/bb_make_doc -text
 scripts/buildbot_scripts/bb_run -text
+scripts/buildbot_scripts/bb_run_doc -text
 scripts/buildbot_scripts/bb_run_parallel -text
 scripts/buildbot_scripts/bb_run_seq -text
 scripts/buildbot_scripts/buildbot.tac.blizzard1 -text
@@ -658,6 +660,7 @@ scripts/buildbot_scripts/public_html/model_compare/EXPs_6 -text
 scripts/buildbot_scripts/public_html/model_compare/ScreenStyle.css -text
 scripts/buildbot_scripts/public_html/model_compare/compare_template.html -text
 scripts/buildbot_scripts/public_html/model_compare/convert2jpg.ksh -text
+scripts/buildbot_scripts/public_html/model_compare/create_exp_html.sh -text
 scripts/buildbot_scripts/public_html/model_compare/create_html.ksh -text
 scripts/buildbot_scripts/public_html/model_compare/crontab.info -text
 scripts/buildbot_scripts/public_html/model_compare/crontjob_create_plots.ksh -text
@@ -669,10 +672,10 @@ scripts/buildbot_scripts/public_html/model_compare/dir.squall -text
 scripts/buildbot_scripts/public_html/model_compare/dir.tornado -text
 scripts/buildbot_scripts/public_html/model_compare/get_eps-files.ksh -text
 scripts/buildbot_scripts/public_html/model_compare/job_info_template.txt -text
-scripts/buildbot_scripts/public_html/model_compare/test_R2B05_JWmoistradnh_mpiomp.html -text
 scripts/buildbot_scripts/public_html/model_compare/test_hat_jww.html -text
 scripts/buildbot_scripts/public_html/model_compare/test_hom_1.html -text
 scripts/buildbot_scripts/public_html/model_compare/test_nah_jww.html -text
+scripts/buildbot_scripts/public_html/model_compare/test_nat_jww_nwp_mpiomp.html -text
 scripts/buildbot_scripts/public_html/model_compare/test_nh35_tri_jws.html -text
 scripts/buildbot_scripts/public_html/model_compare/test_nh3_tri_tracer_solid_body.html -text
 scripts/cdo_scripts/cdo_ntl -text
@@ -733,9 +736,10 @@ scripts/postprocessing/plotcatalog/step_next.gif -text
 scripts/postprocessing/plotcatalog/step_prev.gif -text
 scripts/postprocessing/plotcatalog/style.css -text
 scripts/postprocessing/testcases/APE_postpro/hgt_to_pres.ncl -text
-scripts/postprocessing/testcases/APE_postpro/hovmoller.ksh -text
+scripts/postprocessing/testcases/APE_postpro/lat-time.ksh -text
 scripts/postprocessing/testcases/APE_postpro/lookup_variable.ksh -text
 scripts/postprocessing/testcases/APE_postpro/plot_lat-pz.ncl -text
+scripts/postprocessing/testcases/APE_postpro/plot_lat-time.ncl -text
 scripts/postprocessing/testcases/APE_postpro/zonal_clim.ksh -text
 scripts/postprocessing/testcases/HS_postpro_driver.bash -text
 scripts/postprocessing/testcases/HS_postpro_scripts/HS_plot_PS-mean_time_series.ncl -text
@@ -843,6 +847,7 @@ src/atm_dyn_iconam/mo_nh_nest_utilities.f90 -text
 src/atm_dyn_iconam/mo_nh_prog_util.f90 -text
 src/atm_dyn_iconam/mo_nh_stepping.f90 -text
 src/atm_dyn_iconam/mo_nonhydro_state.f90 -text
+src/atm_dyn_iconam/mo_solve_nh_async.f90 -text
 src/atm_dyn_iconam/mo_solve_nonhydro.f90 -text
 src/atm_dyn_iconam/mo_vector_operations.f90 -text
 src/atm_dyn_iconam/mo_vertical_grid.f90 -text
@@ -988,8 +993,11 @@ src/namelists/mo_atm_phy_nwp_nml.f90 -text
 src/namelists/mo_diffusion_nml.f90 -text
 src/namelists/mo_dynamics_nml.f90 -text
 src/namelists/mo_echam_phy_nml.f90 -text
+src/namelists/mo_echam_vdiff_nml.f90 -text
 src/namelists/mo_global_variables.f90 -text
 src/namelists/mo_grid_nml.f90 -text
+src/namelists/mo_gridref_nml.f90 -text
+src/namelists/mo_interpol_nml.f90 -text
 src/namelists/mo_io_nml.f90 -text
 src/namelists/mo_lnd_nwp_nml.f90 -text
 src/namelists/mo_nonhydrostatic_nml.f90 -text

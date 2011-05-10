@@ -121,6 +121,8 @@
 !!    reconstruction.
 !!  Modification by Almut Gassmann, MPI-M (2010-01-12)
 !!  - generalize p_int%primal_normal_ec and p_int%edge_cell_length to hexagons
+!!  Modification by Constantin Junk, MPI-M (2011-05-05)
+!!  - moved setup of interpol_ctl variables to namelists/mo_interpol_nml
 !!
 !! @par Copyright
 !! 2002-2007 by DWD and MPI-M
@@ -171,283 +173,25 @@ USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
 USE mo_run_nml,             ONLY: nproma, i_cell_type, ltransport, iequations
 USE mo_mpi,                 ONLY: p_pe, p_io
 
+USE mo_interpol_nml
 USE mo_intp_data_strc
 USE mo_intp_rbf_coeffs
 USE mo_intp_coeffs
+
+
 
 IMPLICIT NONE
 
 PRIVATE
 
-NAMELIST/interpol_ctl/ llsq_high_consv, lsq_high_ord,       &
-                       rbf_vec_kern_c, rbf_vec_scale_c,     &
-  &                    rbf_vec_kern_v, rbf_vec_scale_v,     &
-  &                    rbf_vec_kern_e, rbf_vec_scale_e,     &
-  &                    i_cori_method,  nudge_max_coeff,     &
-  &                    nudge_efold_width, nudge_zone_width, &
-  &                    l_corner_vort
-
-PUBLIC :: setup_interpol, construct_2d_interpol_state, destruct_2d_interpol_state
+!!CJPUBLIC :: setup_interpol, 
+PUBLIC :: construct_2d_interpol_state, destruct_2d_interpol_state
 PUBLIC :: allocate_int_state, deallocate_int_state
 
 CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
 
 CONTAINS
-
-!-------------------------------------------------------------------------
-!
-!-------------------------------------------------------------------------
-!
-!
-!>
-!!   Set up the configuration for vector reconstruction.
-!!
-!!
-!! @par Revision History
-!!   by Hui Wan, MPI-M (2007-02-26).
-!!
-SUBROUTINE setup_interpol (p_patch)
-!
-TYPE(t_patch), TARGET, INTENT(in) :: p_patch(n_dom_start:)
-
-! !local variables
-INTEGER :: i_status, jg, jlev
-
-CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = 'mo_intp_state: setup_interpol'
-
-!-----------------------------------------------------------------------
-
-!-----------------------------------------------------------------------
-! set default values
-!-----------------------------------------------------------------------
-
-CALL message(TRIM(routine),'default settings')
-
-! LSQ reconstruction at cell center
-llsq_high_consv  = .TRUE.   ! conservative reconstruction
-lsq_high_ord     = 3        ! cubic polynomial
-! RBF vector reconstruction at cell centers
-rbf_vec_dim_c   = 9         ! use 2nd order reconstruction
-rbf_vec_kern_c  = 1         ! use Gaussian kernel
-! RBF vector reconstruction at vertices
-rbf_vec_dim_v   = 6         ! use 6-point reconstruction
-rbf_vec_kern_v  = 1         ! use Gaussian kernel
-! RBF vector reconstruction at edge midpoints
-rbf_vec_dim_e   = 4         ! use 4-point reconstruction
-rbf_vec_kern_e  = 3         ! use Inverse multiquadric kernel
-! Stencil size for reconstruction of gradient at cell midpoints
-rbf_c2grad_dim  = 10
-
-! Initialize namelist fields for scaling factors (dimension 1:depth) with dummy values
-! A meaningful initialization follows after reading the namelist
-rbf_vec_scale_c(:) = -1.0_wp
-rbf_vec_scale_v(:) = -1.0_wp
-rbf_vec_scale_e(:) = -1.0_wp
-
-! Initialize the namelist for the method for the vorticity flux term
-i_cori_method = 3
-l_corner_vort=.TRUE.
-
-! Coefficients for lateral boundary nudging
-nudge_max_coeff   = 0.02_wp  ! Maximum nudging coefficient
-nudge_efold_width = 2._wp    ! e-folding width in units of cell rows
-nudge_zone_width  = 8        ! Width of nudging zone in units of cell rows
-
-!-----------------------------------------------------------------------
-! read namelist
-!-----------------------------------------------------------------------
-
-CALL position_nml ('interpol_ctl', status=i_status)
-SELECT CASE (i_status)
-CASE (POSITIONED)
-  READ (nnml, interpol_ctl)
-END SELECT
-
-! write the contents of the namelist to an ASCII file
-
-IF(p_pe == p_io) WRITE(nnml_output,nml=interpol_ctl)
-
-
-! If RBF scaling factors are not supplied by the namelist, they are now
-! initialized with meaningful values depending on the grid level and the
-! stencil size
-
-! Please note: RBF scaling factors for p_patch(0) (if it exists)
-! are not set here - they are taken from p_patch(1) in the setup routines
-
-! rbf_vec_scale_c - values are specified for Gaussian kernel
-! (need to be smaller for inv. multiquadric)
-DO jg = 1, n_dom
-  ! Check if scale factor is set in the namelist
-  IF (rbf_vec_scale_c(jg) > 0.0_wp) CYCLE
-  jlev = p_patch(jg)%level
-  IF (jlev <= 9) THEN
-    rbf_vec_scale_c(jg) = 0.5_wp
-  ELSE IF (jlev == 10) THEN
-    rbf_vec_scale_c(jg) = 0.45_wp
-  ELSE IF (jlev == 11) THEN
-    rbf_vec_scale_c(jg) = 0.3_wp
-  ELSE IF (jlev == 12) THEN
-    rbf_vec_scale_c(jg) = 0.1_wp
-  ELSE IF (jlev == 13) THEN
-    rbf_vec_scale_c(jg) = 0.03_wp
-  ELSE
-    rbf_vec_scale_c(jg) = 0.01_wp
-  ENDIF
-ENDDO
-
-! rbf_vec_scale_v
-DO jg = 1, n_dom
-  ! Check if scale factor is set in the namelist
-  IF (rbf_vec_scale_v(jg) > 0.0_wp) CYCLE
-  jlev = p_patch(jg)%level
-  IF (jlev <= 10) THEN
-    rbf_vec_scale_v(jg) = 0.5_wp
-  ELSE IF (jlev == 11) THEN
-    rbf_vec_scale_v(jg) = 0.4_wp
-  ELSE IF (jlev == 12) THEN
-    rbf_vec_scale_v(jg) = 0.25_wp
-  ELSE IF (jlev == 13) THEN
-    rbf_vec_scale_v(jg) = 0.07_wp
-  ELSE
-    rbf_vec_scale_v(jg) = 0.02_wp
-  ENDIF
-ENDDO
-
-! rbf_vec_scale_e - values are specified for inverse multiquadric kernel
-DO jg = 1, n_dom
-  ! Check if scale factor is set in the namelist
-  IF (rbf_vec_scale_e(jg) > 0.0_wp) CYCLE
-  jlev = p_patch(jg)%level
-  IF (jlev <= 10) THEN
-    rbf_vec_scale_e(jg) = 0.5_wp
-  ELSE IF (jlev == 11) THEN
-    rbf_vec_scale_e(jg) = 0.45_wp
-  ELSE IF (jlev == 12) THEN
-    rbf_vec_scale_e(jg) = 0.37_wp
-  ELSE IF (jlev == 13) THEN
-    rbf_vec_scale_e(jg) = 0.25_wp
-  ELSE
-    rbf_vec_scale_e(jg) = 0.1_wp
-  ENDIF
-ENDDO
-
-!-----------------------------------------------------------------------
-! check the validity of the configuration
-!-----------------------------------------------------------------------
-
-IF ((rbf_vec_kern_c/=1 ).AND.(rbf_vec_kern_c/=3)) THEN
-  CALL finish( TRIM(routine),'wrong value of rbf_vec_kern_c, must be 1 or 3')
-ENDIF
-
-DO jg = 1, n_dom
-  IF (rbf_vec_scale_c(jg) < 1e-10_wp) THEN
-    CALL finish( TRIM(routine),'wrong value of rbf_vec_scale_c')
-  ELSE IF ((rbf_vec_scale_c(jg) < 0.01_wp).OR.(rbf_vec_scale_c(jg) > 0.6_wp)) THEN
-    CALL message( TRIM(routine),'WARNING: ')
-    CALL message('','! recommended range for rbf_vec_scale_c')
-    CALL message('','! is 0.01 <= rbf_vec_scale_c <= 0.6')
-  ENDIF
-ENDDO
-
-IF (.NOT.((rbf_vec_kern_v==1 ).OR.(rbf_vec_kern_v==3))) THEN
-  CALL finish( TRIM(routine),'wrong value of rbf_vec_kern_v, must be 1 or 3')
-ENDIF
-
-DO jg = 1, n_dom
-  IF (rbf_vec_scale_v(jg) < 1e-10_wp) THEN
-    CALL finish( TRIM(routine),'wrong value of rbf_vec_scale_v')
-  ELSE IF ((rbf_vec_scale_v(jg) < 0.02_wp).OR.(rbf_vec_scale_v(jg) > 1.0_wp)) THEN
-    CALL message( TRIM(routine),'WARNING: ')
-    CALL message('','! recommended range for rbf_vec_scale_v')
-   CALL message('','! is 0.02 <= rbf_vec_scale_v <= 1.0')
-  ENDIF
-ENDDO
-
-IF (.NOT.((rbf_vec_kern_e==1 ).OR.(rbf_vec_kern_e==3))) THEN
-  CALL finish( TRIM(routine),'wrong value of rbf_vec_kern_e, must be 1 or 3')
-ENDIF
-
-DO jg = 1, n_dom
-  IF (rbf_vec_scale_e(jg) < 1e-10_wp) THEN
-    CALL finish( TRIM(routine),'wrong value of rbf_vec_scale_e')
-  ELSE IF ((rbf_vec_scale_e(jg) < 0.05_wp).OR.(rbf_vec_scale_e(jg) > 0.6_wp)) THEN
-    CALL message( TRIM(routine),'WARNING: ')
-    CALL message('','! recommended range for rbf_vec_scale_e')
-    CALL message('','! is 0.05 <= rbf_vec_scale_e <= 0.6')
-  ENDIF
-ENDDO
-
-IF (lplane .AND. i_cell_type==3) THEN
-  CALL finish( TRIM(routine),&
-    'currently, only the hexagon version runs on a plane')
-ENDIF
-
-! set the number of unknowns in the least squares reconstruction, and the
-! stencil size, depending on the chosen polynomial order (lsq_high_ord).
-! lsq_high_ord=1 : linear polynomial           : 2 unknowns with a 3-point stencil
-! lsq_high_ord=2 : quadratic polynomial        : 5 unknowns with a 9-point stencil
-! lsq_high_ord=30: poor man's cubic polynomial : 7 unknowns with a 9-point stencil
-! lsq_high_ord=3 : full cubic polynomial       : 9 unknowns with a 9-point stencil
-IF (i_cell_type == 3) THEN
-
-  !
-  ! Settings for linear lsq reconstruction
-  !
-  lsq_lin_set%l_consv = .FALSE.
-  lsq_lin_set%dim_c   = 3
-  lsq_lin_set%dim_unk = 2
-
-
-  !
-  ! Settings for high order lsq reconstruction
-  !
-  lsq_high_set%l_consv = llsq_high_consv
-
-  IF (lsq_high_ord == 2) THEN
-    lsq_high_set%dim_c   = 9
-    lsq_high_set%dim_unk = 5
-  ELSE IF (lsq_high_ord == 30) THEN
-    lsq_high_set%dim_c   = 9
-    lsq_high_set%dim_unk = 7
-  ELSE IF (lsq_high_ord == 3) THEN
-    lsq_high_set%dim_c   = 9
-    lsq_high_set%dim_unk = 9
-  ELSE
-    CALL finish( TRIM(routine),'wrong value of lsq_high_ord, must be 2,30 or 3')
-  ENDIF
-
-  ! triangular grid: just avoid that thickness is averaged at edges as it is
-  ! needed in the hexagonal grid
-  i_cori_method=1
-
-ENDIF
-
-! In case of a hexagonal model, we perform a quadratic reconstruction, and check
-! for i_cori_method
-IF (i_cell_type == 6) THEN
-  ! ... quadratic reconstruction
-  lsq_high_set%dim_c   = 6
-  lsq_high_set%dim_unk = 5
-  ! ... check i_cori_method
-  IF (i_cori_method <1 .OR. i_cori_method>4) THEN
-    CALL finish( TRIM(routine),'value of i_cori_method out of range [1,2,3,4]')
-  ENDIF
-
-  sick_a=0.0_wp
-  SELECT CASE (i_cori_method)
-  CASE (2) 
-    sick_a=0.375 
-  CASE (3)
-    sick_a=0.75
-  END SELECT
-  sick_o = 1.0_wp-sick_a
-
-ENDIF
-
-
-END SUBROUTINE setup_interpol
 
 !-------------------------------------------------------------------------
 !

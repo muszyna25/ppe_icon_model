@@ -38,17 +38,17 @@
 MODULE mo_nwp_sfc_interface
 
   USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: message, message_text, finish
-  USE mo_mpi,                  ONLY: p_pe, p_nprocs
-  USE mo_parallel_nml,         ONLY: p_test_pe, p_test_run
-  USE mo_sync,                 ONLY: SYNC_C, sync_patch_array_mult
+  USE mo_exception,            ONLY: message, message_text , finish
+!  USE mo_mpi,                  ONLY: p_pe, p_nprocs
+!  USE mo_parallel_nml,         ONLY: p_test_pe, p_test_run
+!  USE mo_sync,                 ONLY: SYNC_C, sync_patch_array_mult
 
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_grf_interpolation,    ONLY: t_gridref_state
+!  USE mo_grf_interpolation,    ONLY: t_gridref_state
   USE mo_impl_constants,       ONLY: min_rlcell_int
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
-  USE mo_subdivision,          ONLY: p_patch_local_parent
+ ! USE mo_subdivision,          ONLY: p_patch_local_parent
 
   USE mo_ext_data,             ONLY: t_external_data
   USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag,&
@@ -57,8 +57,8 @@ MODULE mo_nwp_sfc_interface
        &                             t_nwp_phy_tend
   USE mo_nwp_lnd_state,        ONLY: t_lnd_prog, t_lnd_diag
 
-  USE mo_run_nml,              ONLY: nproma, msg_level, ntracer, iqv, iqc, &
-    &                                iqi, iqr, iqs,icc, inextra_2d
+  USE mo_run_nml,              ONLY: nproma, msg_level, iqv, &
+    &                                 icc!, inextra_2d
 
   USE mo_atm_phy_nwp_nml,      ONLY: inwp_surface, inwp_satad  
   USE mo_lnd_nwp_nml,          ONLY: nlev_soil, nztlev, nlev_snow, nsfc_subs, &
@@ -198,7 +198,7 @@ CONTAINS
 
 
           
-#ifdef __BOUNDCHECK
+! #ifdef __BOUNDCHECK
            CALL terra_multlay(                &
                 ie=nproma,je=1              , & ! array dimensions
                 istartpar=i_startidx,iendpar=i_endidx         , & ! optional start/end indicies
@@ -294,11 +294,7 @@ CONTAINS
            CALL finish(eroutine, errormsg)
         END IF
 
-
-        IF (ierrstat.NE.0) THEN
-           CALL finish(eroutine, errormsg)
-        END IF
-#endif
+! #endif
   
       ELSE IF ( inwp_surface == 2 ) THEN
 

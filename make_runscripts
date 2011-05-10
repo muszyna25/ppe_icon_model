@@ -104,7 +104,7 @@ file_list=`ls post.*`
 cd $base_folder
 for filename in $file_list
 do
-  if [[ $filename != *.run && $filename != *~ ]] ; then
+  if [[ $filename != *.run && $filename != *~ &&  $filename != *.status ]] ; then
     $make_runscript in_folder=$input_folder in_script=${filename} out_script=${filename}.run with_mpi="no" with_openmp="no" cpu_time="01:00:00"
   fi
 done

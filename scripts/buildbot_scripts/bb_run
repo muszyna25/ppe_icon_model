@@ -258,6 +258,18 @@ run_scripts_submit()
     STATUS=1
     return
   fi
+  if [ $submit = "qsubw" ]
+  then
+    echo "====================================================================================== "
+    echo "                  "
+    echo "The job is not send to the SX9 because "
+    echo "only experiment jobs should run on sx9. And this has firt to be included into the run "
+    echo "                  "
+    echo "====================================================================================== "
+    STATUS=1
+    return
+  fi
+
 # Change to directory 'run' 
   echo "run_scripts $1"
   cd $1

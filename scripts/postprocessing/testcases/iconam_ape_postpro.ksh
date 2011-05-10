@@ -1,6 +1,6 @@
 #! /bin/ksh
 
-# Specify the experiment to be processed
+#--- General specifications ---
 
 expnum="exp03"
 expnum2="exp03"   #for comparison in plots, data must pre-exist
@@ -21,27 +21,37 @@ tmp_data_path=$model_data_path/tmp/
 compute_remap_weights=0
 grid_optimization="spr0.90"
 trunc=85
-diag_climate=1
-clim_istart=1
-clim_iend=2
+
 do_computation=1
 make_plot=1
 plot_file_format=ps
 wkOrientation=landscape
-TopHeight=50
 
-# Specify the reference experiment for making the difference plot
+#--- Vertical cross section of zonal mean climate ---
+
+diag_climate=1
+clim_istart=1
+clim_iend=2
+TopHeight=50
 
 ref_config="$expnum2"   # string will show up in the difference plot
 ref_exp_name=$EXP
 ref_resolution=${horizontal_resolution}${vertical_resolution}
-ref_timerange="1-2"
+ref_timerange="1-1"
 ref_data_path="/e/uwork/mkoehler/icon/experiments/"${expnum2}"/tmp/"
 
-# define individual set-env file
-set_env="Post.${EXP}.set_env"
+#--- Evolution of zonal mean/variance on individual vertical levels ---
 
-#=================================================================
+evol_istart=1
+evol_iend=2
+plev_evol=""
+hlev_evol=""
+mlev_evol="80,69,52,38,11"
+
+#==========
+# set env
+
+set_env="Post.${EXP}.set_env."`date +%F-%H%M%S-%N`
 
 cd ./APE_postpro
 
@@ -69,37 +79,38 @@ echo tmp_data_path=$tmp_data_path                 >> ${set_env}
 echo compute_remap_weights=$compute_remap_weights >> ${set_env}
 echo grid_optimization=$grid_optimization         >> ${set_env}
 echo trunc=$trunc                                 >> ${set_env}
-echo diag_climate=$diag_climate                   >> ${set_env}
-echo clim_istart=$clim_istart                     >> ${set_env}
-echo clim_iend=$clim_iend                         >> ${set_env}
+
 echo do_computation=$do_computation               >> ${set_env}
 echo make_plot=$make_plot                         >> ${set_env}
 echo export plot_file_format=$plot_file_format    >> ${set_env}
 echo export wkOrientation=$wkOrientation          >> ${set_env}
-echo export TopHeight=$TopHeight                  >> ${set_env}
 
+echo diag_climate=$diag_climate                   >> ${set_env}
+echo clim_istart=$clim_istart                     >> ${set_env}
+echo clim_iend=$clim_iend                         >> ${set_env}
+echo export TopHeight=$TopHeight                  >> ${set_env}
 echo export ref_config=\"$ref_config\"            >> ${set_env}
 echo ref_exp_name=$ref_exp_name                   >> ${set_env}
 echo ref_resolution=$ref_resolution               >> ${set_env}
 echo ref_data_path=$ref_data_path                 >> ${set_env}
 echo ref_timerange=$ref_timerange                 >> ${set_env}
 
+echo evol_istart=$evol_istart                     >> ${set_env}           
+echo evol_iend=$evol_iend                         >> ${set_env}           
+echo plev_evol=\"${plev_evol}\"                   >> ${set_env}           
+echo hlev_evol=\"${hlev_evol}\"                   >> ${set_env}           
+echo mlev_evol=\"${mlev_evol}\"                   >> ${set_env}           
 
-# Remove old "ncl_output.log"  file
-
-if [ -f ncl_output.log ]; then
-  rm -f ncl_output.log 
-fi
-
-# Run script(s)
+#=============
+# Run scripts
 
 # NOTE: Any variable listed below must exist in model output and 
 # have been registered in "lookup_variable.ksh".
 
+# --- Zonal mean climate (vertical cross section) ---
+
 #for var in T U V W QV Q1 QC Q2 QI Q3 Q4 Q5 CC ; do
-#  ./zonal_clim.ksh $var
-#  # Switch off repeated computation                                                 
-#  echo compute_remap_weights=0 >> ${set_env}
+#  ./zonal_clim.ksh -v $var -e ${set_env}
 #done
 
 # DWD parallel execution (alternative to loop)
@@ -120,4 +131,16 @@ cat > zonal.list << EOF_LIST
 EOF_LIST
 /e/uhome/for1han/bin/pshell -p7 -f zonal.list
 
+# --- Evolution plots ---                                                 
+                                                                          
+for var in T ; do                                                 
+  ./lat-time.ksh -v ${var} -e ${set_env}                                  
+done                                                                      
+                                                                          
+#==========                                                               
+# Clean up                                                                
+                                                                          
+if [ -f ${set_env} ]; then                                                
+  rm -f ${set_env}                                                        
+fi                               
 exit

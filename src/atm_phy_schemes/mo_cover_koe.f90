@@ -174,7 +174,7 @@ REAL(KIND=wp), DIMENSION(klon,klev), INTENT(IN) ::   &
   & pmfude_rate      , & ! convective updraft detrainment rate           (kg/(m3*s))
   & plu                  ! updraft condensate                            (kg/kg)
 
-REAL(KIND=wp), DIMENSION(klon,klev), INTENT(OUT) ::   &
+REAL(KIND=wp), DIMENSION(klon,klev), INTENT(INOUT) ::   &
   & cc_tot           , & ! cloud cover diagnostic
   & qv_tot           , & ! specific water vapor content diagnostic       (kg/kg)
   & qc_tot           , & ! specific cloud water content diagnostic       (kg/kg)

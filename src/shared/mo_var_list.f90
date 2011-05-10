@@ -299,7 +299,7 @@ CONTAINS
     this_info%name                = ''
     !
     this_info%cf                  = t_cf_var('', '', '')
-    this_info%grib2               = t_grib2_var(-1, -1, -1, -1, -1, -1, -1)
+    this_info%grib2               = t_grib2_var(-1, -1, -1, -1, -1, -1)
     !
     this_info%allocated           = .FALSE.
     this_info%ndims               = 0

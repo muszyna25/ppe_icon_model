@@ -1,5 +1,3 @@
-!OPTION! -cont
-!! this command should fix the problem of copying arrays in a subroutine call
 !>
 !!
 !! @brief prepares and postprocesses the fields for and from nwp physics
@@ -306,7 +304,7 @@ CONTAINS
               !& count, errstat,                              !> OUT
                )
 !#else
-!         CALL satad_v_3D( &
+!          CALL satad_v_3D( &
 !               & maxiter  = 10                             ,& !> IN
 !               & tol      = 1.e-3_wp                       ,& !> IN
 !               & te       = pt_diag%temp       (1,1,jb)    ,& !> INOUT
@@ -752,6 +750,7 @@ CONTAINS
 
           rcld = 0.0_wp ! standard deviation of saturation deficit=0 for now, needs to be specified form turbulence
           landseemask(:,jb)   = .FALSE. ! has to come from external parameters later on!!!
+
 !#ifdef __BOUNDCHECK
           CALL cover_koe &
 &             (kidia  = i_startidx ,   kfdia  = i_endidx  ,       & !! in:  horizonal begin, end indices
@@ -889,6 +888,11 @@ CONTAINS
         prm_diag%flxdwswtoa(i_startidx:i_endidx,jb) = zi0 (i_startidx:i_endidx)
         z_airmass(i_startidx:i_endidx,:) = p_metrics%ddqz_z_full(i_startidx:i_endidx,:,jb) * &
                                            pt_prog%rho(i_startidx:i_endidx,:,jb)
+
+!test KF
+        prm_diag%swflxsfc (:,jb)=0._wp
+        prm_diag%lwflxsfc (:,jb)=0._wp
+        prm_diag%swflxtoa (:,jb)=0._wp
 
 !#ifdef __BOUNDCHECK
         CALL radheat (                   &

@@ -15,6 +15,8 @@
 !! Created by Guenther Zaengl, DWD (2009-02-09)
 !! Modification by Guenther Zaengl, DWD (2009-06-22)
 !! - preparation for generalized grid refinement (affects all subroutines)
+!! Modification by Constantin Junk, MPI-M (2011-05-05)
+!! - moved setup_gridref to mo_gridref_nml
 !!
 !! @par Copyright
 !! 2002-2007 by DWD and MPI-M
@@ -56,120 +58,25 @@ MODULE mo_grf_intp_state
 !
 !
 USE mo_kind,                ONLY: wp
-USE mo_io_units,            ONLY: nnml, nnml_output
 USE mo_exception,           ONLY: message, finish
-USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, min_rlcell_int, min_rledge_int
+USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, min_rledge_int
 USE mo_model_domain,        ONLY: t_patch
 USE mo_model_domain_import, ONLY: n_dom, n_dom_start
-USE mo_namelist,            ONLY: position_nml, POSITIONED
 USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
-USE mo_run_nml,             ONLY: nproma, lshallow_water
-USE mo_mpi,                 ONLY: p_pe, p_io
+USE mo_run_nml,             ONLY: nproma
 
 USE mo_grf_intp_data_strc
 USE mo_grf_intp_coeffs
+USE mo_gridref_nml
 
 IMPLICIT NONE
 
 PRIVATE
 
-CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
-PUBLIC ::setup_gridref, construct_2d_gridref_state, destruct_2d_gridref_state
+PUBLIC ::construct_2d_gridref_state, destruct_2d_gridref_state
 PUBLIC ::allocate_grf_state, deallocate_grf_state
 
-NAMELIST/gridref_ctl/  rbf_vec_kern_grf_e, rbf_scale_grf_e,             &
-  &                    grf_velfbk, grf_scalfbk, grf_tracfbk,            &
-  &                    grf_idw_exp_e12, grf_idw_exp_e34,                &
-  &                    grf_intmethod_c, grf_intmethod_e,                &
-  &                    grf_intmethod_ct, denom_diffu_v, denom_diffu_t
-
 CONTAINS
-
-!-------------------------------------------------------------------------
-!
-!-------------------------------------------------------------------------
-!
-!
-
-!>
-!!   Set up the configuration for grid refinement.
-!!
-!!
-!! @par Revision History
-!!  Created by Guenther Zaengl, MPI-M (2009-02-09).
-!!
-SUBROUTINE setup_gridref
-!
-! !local variables
-INTEGER :: i_status
-
-CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = 'mo_grf_interpolation: setup_gridref'
-
-!-----------------------------------------------------------------------
-
-!-----------------------------------------------------------------------
-! set default values
-!-----------------------------------------------------------------------
-
-CALL message(TRIM(routine),'default settings')
-
-! Switch for interpolation method used for cell-based dynamical
-grf_intmethod_c   = 2         ! 1: copying, 2: gradient-based interpolation
-! Switch for interpolation method used for tracer variables
-grf_intmethod_ct  = 2         ! 1: copying, 2: gradient-based interpolation
-! Currently, grf_intmethod_c is used for temperature only; other variables are copied
-grf_intmethod_e   = 4         ! 1: IDW, 2: RBF, 3: IDW/gradient-based, 4: RBF/gradient-based
-! Switch for velocity feedback method.
-grf_velfbk      = 1         ! 1: average over child edges 1 and 2
-                            ! 2: 2nd-order method using RBF reconstruction to child vertices
-! Switch for feedback method for scalar dynamical variables
-grf_scalfbk     = 2         ! 1: area-weighted averaging
-                            ! 2: bilinear interpolation
-! Switch for feedback method for passive tracer variables
-grf_tracfbk     = 2         ! 1: area-weighted averaging
-                            ! 2: bilinear interpolation
-
-! Exponents for IDW interpolation function
-grf_idw_exp_e12  = 1.2_wp   ! child edges 1 and 2
-grf_idw_exp_e34  = 1.7_wp   ! child edges 3 and 4
-
-! RBF kernels for grid refinement interpolation
-rbf_vec_kern_grf_e = 1        ! 1: Gaussian, 2: 1/(1+r**2), 3: inverse multiquadric
-
-! zero whole arrays
-rbf_scale_grf_e(:) = 0.0_wp
-
-! Initialize namelist fields for scaling factors (dimension 1:n_dom); used part only
-rbf_scale_grf_e(1:n_dom) = 0.5_wp  ! default setting for vector grf interpolation
-
-! Denominator for temperature boundary diffusion
-denom_diffu_t = 135._wp
-
-! Denominator for velocity boundary diffusion
-IF (lshallow_water) THEN
-  denom_diffu_v = 250._wp
-ELSE
-  denom_diffu_v = 200._wp
-ENDIF
-
-
-!-----------------------------------------------------------------------
-! read namelist
-!-----------------------------------------------------------------------
-
-CALL position_nml ('gridref_ctl', status=i_status)
-SELECT CASE (i_status)
-CASE (POSITIONED)
-  READ (nnml, gridref_ctl)
-END SELECT
-
-! write the contents of the namelist to an ASCII file
-
-   IF(p_pe == p_io) WRITE(nnml_output,nml=gridref_ctl)
-
-
-END SUBROUTINE setup_gridref
 
 !-------------------------------------------------------------------------
 !

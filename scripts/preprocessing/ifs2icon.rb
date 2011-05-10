@@ -194,6 +194,16 @@ class PreProcOptions
         options.debug = v
       end
 
+      # create zlevel options for each given output variables
+      options.zlevels = {}
+      opts.on("-z","--zlevels varName0,lev0,lev1,levN,varName1,lev0,...",
+              Array,
+              "'list' of target zlevel values for the output variables") {|list|
+                list.slice_before {|v| v.to_i.to_s != v}.each {|sublist|
+                  options.zlevels[sublist[0]] = sublist[1..-1]
+                }
+      }
+
       opts.separator ""
       opts.separator "Common options:"
 
@@ -214,7 +224,7 @@ class PreProcOptions
     opts.parse!(args)
 
     begin
-      mandatory = [:outputfile, :inputfile,:gridfile]
+      mandatory = [:outputfile, :inputfile, :gridfile]
       missing = mandatory.select{ |param| options.send(param).nil? }
       if not missing.empty?
         warn "Missing options: #{missing.join(', ')}"
@@ -368,6 +378,43 @@ module Dbg
     end
   end
 end
+
+# ==============================================================================
+# Sized Queue for limiting the number of parallel jobs
+class JobQueue
+  attr_reader :size, :queue, :threads
+
+  def initialize(size)
+    @size  = size
+    @queue = Queue.new
+  end
+
+  def push(*items)
+    items.flatten.each {|it| @queue << it}
+  end
+
+  def run
+    @threads = (1..@size).map {|i|
+      Thread.new(@queue) {|q|
+        until ( q == ( task = q.deq ) )
+          system(task)
+        end
+      }
+    }
+    @threads.size.times { @queue.enq @queue}
+    @threads.each {|t| t.join}
+  end
+end
+# example script
+# if $0 == __FILE__
+#   size = 8
+#   cmds = (0...1000).map {|i|
+#     "cdo remapnn,r10x10 /home/ram/data/examples/T.jan.nc ~/#{i}.nc"
+#   }
+#   q = JobQueue.new(size)
+#   q.push(cmds)
+#   q.run
+# end
 
 class PreProc; end
 # ==============================================================================
@@ -668,6 +715,7 @@ if __FILE__ == $0
   when 'proc'
     options  = PreProcOptions.parse(ARGV)
     pp options if options.debug
+    exit
     Cdo.Debug = options.debug if options.verbose
     #=======================================================
     p    = Ifs2Icon.new(options)

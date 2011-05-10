@@ -43,7 +43,8 @@ MODULE mo_vdiff_upward_sweep
   USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, ih, iqv,         &
                                  & sfc_solve, rhs_bksub, vdiff_tendencies
 #ifdef __ICON__
-  USE mo_echam_vdiff_params, ONLY: tpfac2, itop, lsfc_heat_flux
+  USE mo_echam_vdiff_params, ONLY: tpfac2, itop
+  USE mo_echam_vdiff_nml,    ONLY: lsfc_heat_flux
 #else
   USE mo_physc2,             ONLY: tpfac2, itop
 #endif
@@ -172,7 +173,7 @@ CONTAINS
                                                       !< at the new time step t
     REAL(wp),INTENT(OUT) :: pthvsig      (kbdim)      !< sqrt( variance of theta_v )
   
-    REAL(wp),INTENT(OUT) :: ptke  (kbdim,klev)
+    REAL(wp),INTENT(INOUT) :: ptke  (kbdim,klev)
   
     !-----------------------------------------------------------------------
     ! 5. Handle fractional surfaces (tiles) and obtain solution of 

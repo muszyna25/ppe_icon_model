@@ -45,8 +45,8 @@ MODULE mo_vdiff_downward_sweep
                                  & matrix_setup_elim, rhs_setup, rhs_elim
 #ifdef __ICON__
   USE mo_physical_constants, ONLY: grav, rd
-  USE mo_echam_vdiff_params, ONLY: tpfac1, tpfac2, itop,        &
-                                 & lsfc_mom_flux, lsfc_heat_flux
+  USE mo_echam_vdiff_params, ONLY: tpfac1, tpfac2, itop
+  USE mo_echam_vdiff_nml,    ONLY: lsfc_mom_flux, lsfc_heat_flux
 #else
   USE mo_constants, ONLY: grav=>g, rd
   USE mo_physc2,    ONLY: tpfac1, tpfac2, itop

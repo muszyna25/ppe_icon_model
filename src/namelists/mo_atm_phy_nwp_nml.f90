@@ -60,8 +60,8 @@ MODULE mo_atm_phy_nwp_nml
     &                               tkhmin, tkmmin, c_diff,                  &
     &                               itype_wcld, icldm_turb,                  &
     &                               itype_tran, rlam_heat, rlam_mom, rat_sea
-  USE mo_echam_vdiff_params,  ONLY: setup_vdiff
-  USE mo_icoham_sfc_indices, ONLY: init_sfc_indices, nsfc_type
+  USE mo_echam_vdiff_nml,     ONLY: echam_vdiff_nml_setup
+  USE mo_icoham_sfc_indices,  ONLY: init_sfc_indices, nsfc_type
 
   IMPLICIT NONE
 
@@ -208,7 +208,7 @@ MODULE mo_atm_phy_nwp_nml
     ENDIF
 
     IF(inwp_turb == 2) THEN
-       CALL setup_vdiff
+       CALL echam_vdiff_nml_setup
        CALL init_sfc_indices( ltestcase, 'APE' ) !call of a hydrostatic testcase
                                              ! to obtain the demanded parameters
     ENDIF

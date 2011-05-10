@@ -46,7 +46,7 @@ MODULE mo_echam_phy_setup
   USE mo_radiation_nml,      ONLY: radiation_nml, read_radiation_nml, irad_o3
   USE mo_echam_conv_params,  ONLY: echam_conv_ctl, setup_convection
   USE mo_run_nml,            ONLY: ltestcase, ntracer, io3
-  USE mo_echam_vdiff_params, ONLY: echam_vdiff_ctl, setup_vdiff
+  USE mo_echam_vdiff_nml,    ONLY: echam_vdiff_ctl, echam_vdiff_nml_setup
   USE mo_hydro_testcases,    ONLY: ctest_name
   USE mo_io_units,           ONLY: nnml_output
   USE mo_mpi,                ONLY: p_pe, p_io
@@ -72,7 +72,7 @@ CONTAINS
 
     IF (lrad)   CALL read_radiation_nml
     IF (lconv)  CALL setup_convection
-    IF (lvdiff) CALL setup_vdiff
+    IF (lvdiff) CALL echam_vdiff_nml_setup
 !!$ IF (lcond)  CALL setup_cloud
 !!$ IF (lmlo)   CALL setup_mixlayer_ocean
 

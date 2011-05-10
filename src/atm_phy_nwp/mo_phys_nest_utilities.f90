@@ -240,6 +240,7 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,        &
     p_q_o3       = 0._wp
   ENDIF
 
+
   ! Now average input fields to parent grid cells
 
   ! Start/End block in the parent domain
@@ -1168,6 +1169,10 @@ SUBROUTINE interpol_phys_grf (ptr_pp,ptr_pc,ptr_int, ptr_grf, jg, jgc, jn )
   REAL(wp) :: z_aux3d_p(nproma,nfields,ptr_pp%nblks_c), &
               z_aux3d_c(nproma,nfields,ptr_pc%nblks_c)
 
+  IF (p_test_run) THEN
+     z_aux3d_p(:,:,:) = 0._wp
+  ENDIF
+
   i_startblk = ptr_pp%cells%start_blk(1,1)
   i_endblk   = ptr_pp%nblks_c
 
@@ -1177,8 +1182,9 @@ SUBROUTINE interpol_phys_grf (ptr_pp,ptr_pc,ptr_int, ptr_grf, jg, jgc, jn )
 
     CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, i_startidx, i_endidx, 1)
 
-    DO jc = i_startidx, i_endidx
 
+
+    DO jc = i_startidx, i_endidx
       z_aux3d_p(jc,1,jb) = prm_diag(jg)%tot_prec(jc,jb)
       z_aux3d_p(jc,2,jb) = prm_diag(jg)%rain_gsp(jc,jb)
       z_aux3d_p(jc,3,jb) = prm_diag(jg)%snow_gsp(jc,jb)
@@ -1252,7 +1258,7 @@ SUBROUTINE feedback_phys_diag(p_patch, p_grf_state, jg, jgp)
   TYPE(t_patch),      POINTER     :: p_pp => NULL()
 
   ! Indices
-  INTEGER :: jb, jc, jk, i_chidx, i_nchdom, &
+  INTEGER :: jb, jc, i_chidx, i_nchdom, &
              i_startblk, i_endblk, i_startidx, i_endidx, nblks_c_lp
 
   INTEGER, DIMENSION(:,:,:), POINTER :: iidx, iblk
@@ -1309,7 +1315,7 @@ SUBROUTINE feedback_phys_diag(p_patch, p_grf_state, jg, jgp)
   i_endblk   = p_gcp%end_blk(min_rlcell_int,i_chidx)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc)
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                           &
@@ -1377,7 +1383,7 @@ SUBROUTINE feedback_phys_diag(p_patch, p_grf_state, jg, jgp)
   i_endblk   = p_patch(jgp)%cells%end_blk(min_rlcell_int,i_chidx)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc)
   DO jb = i_startblk, i_endblk
 
     CALL get_indices_c(p_patch(jgp), jb, i_startblk, i_endblk, &
@@ -1399,7 +1405,6 @@ SUBROUTINE feedback_phys_diag(p_patch, p_grf_state, jg, jgp)
 
 
   DEALLOCATE(z_aux3d_lp, z_aux3d_par)
-
 
 END SUBROUTINE feedback_phys_diag
 

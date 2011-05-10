@@ -230,7 +230,7 @@ create_ocean_grid()
   # respective icon topography file interpolated from regular topography file $TOPFILE
   TOPICON=iconR${R}B${Bm1}-topo.nc
   # respective elevation file to read topography in icon grid for decision of sea-land-mask
-  if [[ $TOPFILE == "" ]]; then
+  if [[ $TOPFILE = "" ]] ; then
     ELEVF=""
   else
     ELEVF="$GRIDDIR/$TOPICON"
@@ -280,7 +280,7 @@ cat > $parameterFile << EOF
 EOF
 
   #-----------------------------------------------------------------------------
-  if [[ "x$optimize_ocean_grids" == "x.true." ]] ; then
+  if [[ "x$optimize_ocean_grids" = "x.true." ]] ; then
     use_optimization='.true.'
   else
     use_optimization='.false.'    
@@ -297,7 +297,7 @@ EOF
   #-----------------------------------------------------------------------------
   # plot sea -land mask
   nclscript=../scripts/postprocessing/tools/plotIconSphereGrid.ncl
-  if [[ "x$plot_grid" == "x.true." ]] ; then
+  if [[ "x$plot_grid" = "x.true." ]] ; then
     grid_name=\"$GRIDDIR/$OCEGRID\"
     echo ncl $nclscript \'grid=\"$GRIDDIR/$OCEGRID\"\'   \'var=\"edge_elevation\"\' > __tmp__
     echo ncl $nclscript \'grid=\"$GRIDDIR/$OCEGRID\"\'   \'var=\"edge_sea_land_mask\"\' > __tmp__

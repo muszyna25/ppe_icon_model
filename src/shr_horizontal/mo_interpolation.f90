@@ -152,13 +152,13 @@ MODULE mo_interpolation
   !
   !
   !
-  USE mo_intp_data_strc, ONLY: i_cori_method, sick_a, sick_o, l_corner_vort,                 &
-       &                       rbf_vec_kern_c, rbf_vec_kern_v, rbf_vec_kern_e,               &
-       &                       llsq_high_consv, lsq_high_ord, t_lsq, t_lsq_set, lsq_high_set,&
+  USE mo_intp_data_strc, ONLY: sick_a, sick_o, t_lsq, t_lsq_set, t_int_state, t_gauss_quad
+
+  USE mo_interpol_nml,   ONLY: i_cori_method, l_corner_vort, rbf_vec_kern_c, rbf_vec_kern_v, &
+       &                       rbf_vec_kern_e, llsq_high_consv, lsq_high_ord, lsq_high_set,  &
        &                       rbf_vec_dim_c, rbf_vec_dim_v, rbf_vec_dim_e, rbf_c2grad_dim,  &
        &                       rbf_vec_scale_c, rbf_vec_scale_v, rbf_vec_scale_e,            &
-       &                       t_int_state, t_gauss_quad, nudge_max_coeff,                   &
-       &                       nudge_efold_width, nudge_zone_width
+       &                       nudge_max_coeff, nudge_efold_width, nudge_zone_width
 
   USE mo_intp_rbf      , ONLY: rbf_vec_interpol_cell, rbf_interpol_c2grad,  &
        &                       rbf_vec_interpol_vertex, rbf_vec_interpol_edge

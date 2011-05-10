@@ -2,7 +2,7 @@
 . /client/etc/profile.zmaw
 module load svn
 
-MACHINES="mpipc22 mpipc91 mpipc56 blizzard tornado squall"
+MACHINES="mpipc22 mpipc91 mpipc63 blizzard tornado1 squall"
 #
 TARGET_PATH=/scratch/local1/m211098/master_ICON/public_html/model_compare
 echo "=============  Begin  ==========================="

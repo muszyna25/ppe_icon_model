@@ -1,6 +1,6 @@
 #! /bin/ksh
 
-# Specify the experiment to be processed
+#--- General specifications ---
 
 Model=ICOHAM
 EXP=hat_ape_qobs_moist_RH00-clip  # String will show up in the plot
@@ -18,21 +18,18 @@ tmp_data_path=$model_data_path/tmp/
 compute_remap_weights=1
 grid_optimization="spr0.90"
 trunc=63
-diag_climate=1
-clim_istart=171
-clim_iend=172
-evol_istart=1
-evol_iend=3
+
 do_computation=1
 make_plot=1
 plot_file_format=pdf
-TopHeight=35
-plevs=""
-plev_evol=""
-hlev_evol=""
-mlev_evol=""
 
-# Specify the reference experiment for making the difference plot
+#--- Vertical cross section of zonal mean climate ---
+
+diag_climate=1
+clim_istart=171
+clim_iend=172
+TopHeight=35
+plev_clim=""
 
 ref_config="same run, days 151-220"  # String will show up in the difference plot
 ref_exp_name=$EXP
@@ -40,10 +37,19 @@ ref_resolution=${horizontal_resolution}${vertical_resolution}
 ref_timerange="151-220"
 ref_data_path=$tmp_data_path
 
-# define individual set-env file
-set_env="Post.${EXP}.set_env"
+#--- Evolution of zonal mean/variance on individual vertical levels ---
 
-#
+evol_istart=1
+evol_iend=220
+plev_evol="85000"
+hlev_evol=""
+mlev_evol=""
+
+#==========
+# set env
+
+set_env="Post.${EXP}.set_env."`date +%F-%H%M%S-%N`
+
 cd ./APE_postpro
 
 # Remove old ${set_env} file
@@ -70,32 +76,29 @@ echo tmp_data_path=$tmp_data_path                 >> ${set_env}
 echo compute_remap_weights=$compute_remap_weights >> ${set_env}
 echo grid_optimization=$grid_optimization         >> ${set_env}
 echo trunc=$trunc                                 >> ${set_env}
-echo diag_climate=$diag_climate                   >> ${set_env}
-echo clim_istart=$clim_istart                     >> ${set_env}
-echo clim_iend=$clim_iend                         >> ${set_env}
-echo evol_istart=$evol_istart                     >> ${set_env}
-echo evol_iend=$evol_iend                         >> ${set_env}
+
 echo do_computation=$do_computation               >> ${set_env}
 echo make_plot=$make_plot                         >> ${set_env}
 echo export plot_file_format=$plot_file_format    >> ${set_env}
-echo export TopHeight=$TopHeight                  >> ${set_env}
-echo plevs=\"${plevs}\"                           >> ${set_env}
-echo plev_evol=\"${plev_evol}\"                   >> ${set_env}
-echo hlev_evol=\"${hlev_evol}\"                   >> ${set_env}
-echo mlev_evol=\"${mlev_evol}\"                   >> ${set_env}
 
+echo diag_climate=$diag_climate                   >> ${set_env}
+echo clim_istart=$clim_istart                     >> ${set_env}
+echo clim_iend=$clim_iend                         >> ${set_env}
+echo export TopHeight=$TopHeight                  >> ${set_env}
+echo plev_clim=\"${plev_clim}\"                   >> ${set_env}
 echo export ref_config=\"$ref_config\"            >> ${set_env}
 echo ref_exp_name=$ref_exp_name                   >> ${set_env}
 echo ref_resolution=$ref_resolution               >> ${set_env}
 echo ref_data_path=$ref_data_path                 >> ${set_env}
 echo ref_timerange=$ref_timerange                 >> ${set_env}
 
-# Remove old "ncl_output.log"  file
+echo evol_istart=$evol_istart                     >> ${set_env}
+echo evol_iend=$evol_iend                         >> ${set_env}
+echo plev_evol=\"${plev_evol}\"                   >> ${set_env}
+echo hlev_evol=\"${hlev_evol}\"                   >> ${set_env}
+echo mlev_evol=\"${mlev_evol}\"                   >> ${set_env}
 
-if [ -f ncl_output.log ]; then
-  rm -f ncl_output.log
-fi
-
+#=============
 # Run scripts
 #
 # Note: Make sure that
@@ -105,15 +108,22 @@ fi
 #      (because they are needed for the vertical 
 #      interpolation from model levels to pressure levels).
 #
-# === Zonal mean climate (vertical cross section)===
+# --- Zonal mean climate (vertical cross section)---
  
 for var in PS PHIS T U V OMEGA Qv Qw Qi ACLC ; do
   ./zonal_clim.ksh -v ${var} -e ${set_env}
 done
 
-# === Hovmoller diagrams (evolution plots) ====
+# --- Evolution plots ---
 
 for var in PS PHIS T ; do
-  ./hovmoller.ksh -v ${var} -e ${set_env}
+  ./lat-time.ksh -v ${var} -e ${set_env}
 done
+
+#==========
+# Clean up
+
+if [ -f ${set_env} ]; then
+  rm -f ${set_env}
+fi
 exit

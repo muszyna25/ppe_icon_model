@@ -875,7 +875,8 @@ I &
 1&
 &
 1: use local memory for exchange buffers \\
-2: use global memory for exchange buffers &
+2: use global memory for exchange buffers \\
+3: asynchronous halo communication for dynamical core (NH tria only)&
 \tabularnewline
 
 \hline 
@@ -2985,7 +2986,7 @@ lvdiff = .TRUE.
 \hline %---
 \end{longtable}
 
-Defined and used in: src/atm\_phy\_echam/mo\_echam\_vdiff\_parameters.f90
+Defined and used in: src/namelists/mo\_echam\_vdiff\_nml.f90
 
 %----------------------- end of switches for ECHAM turbulent mixing scheme --------------------
 
@@ -3341,7 +3342,7 @@ i\_cori\_method=3
 \hline
 \end{longtable}
 
-Defined and used in: src/shr\_horizontal/mo\_intp\_state.f90
+Defined and used in: src/namelists/mo\_interpol\_nml.f90
 
 
 \subsection{gridref\_ctl}
@@ -3545,7 +3546,7 @@ n\_dom>1\tabularnewline
 \hline 
 \end{longtable}
 
-Defined and used in: src/shr\_horizontal/mo\_grf\_intp\_state.f90
+Defined and used in: src/namelists/mo\_gridref\_nml.f90
 
 \subsection{Namelist parameters for testcases (NAMELIST\_ICON)}
 

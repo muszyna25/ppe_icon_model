@@ -50,7 +50,7 @@ MODULE mo_nwp_phy_init
   USE mo_impl_constants,     ONLY: min_rlcell
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_run_nml,            ONLY: ltestcase, iqv, iqc,       &
-       &                           iqt, ntracer, nproma, &
+       &                          nproma, &
        &                           msg_level
   USE mo_atm_phy_nwp_nml,    ONLY: inwp_gscp, inwp_convection,&
        &                           inwp_radiation, inwp_turb,inwp_surface
@@ -78,7 +78,7 @@ MODULE mo_nwp_phy_init
  !   &                                init_sfc_indices
  ! vertical diffusion
   USE mo_echam_vdiff_params,   ONLY: init_vdiff_params, z0m_min, &
-    &                                z0m_oce , tke_min 
+    &                                tke_min 
   USE mo_vdiff_solver,         ONLY: init_vdiff_solver
 
 

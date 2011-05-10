@@ -113,6 +113,9 @@
 !!    reconstruction.
 !!  Modification by Almut Gassmann, MPI-M (2010-01-12)
 !!  - generalize p_int%primal_normal_ec and p_int%edge_cell_length to hexagons
+!!  Modification by Constantin Junk, MPI-M (2011-05-05)
+!!  - moved interpol_ctl namelist variables to namelists/mo_interpol_ctl
+!!  
 !!
 !! @par Copyright
 !! 2002-2007 by DWD and MPI-M
@@ -162,66 +165,12 @@ IMPLICIT NONE
 !       They are declared to be public
 PUBLIC
 
-INTEGER  :: rbf_vec_kern_c,   & ! parameter determining the type
-            rbf_vec_kern_v,   & ! of vector rbf kernel
-            rbf_vec_kern_e
-
-INTEGER  :: i_cori_method       ! Identifier for the method with wich the tangential
-                                ! wind reconstruction in Coriolis force is computed,
-                                ! if the Thuburn method is used. (To be
-                                ! implemented for triangles, currently only for
-                                ! hexagons)
-                                ! i_cori_method = 1 : Almut's method for reconstruction
-                                !                     but TRSK method for PV
-                                ! i_cori_method = 2 : Thuburn/Ringler/Skamarock/Klemp
-                                ! i_cori_method = 3 : Almut's method for reconstruction
-                                !                     Almut's method also for PV
-                                ! i_cori_method = 4 : Almut's method for reconstruction, 
-                                !                     but PV on averaged on vertices
 REAL(wp) :: sick_a, sick_o      ! if i_cori_method >= 2: To avoid the SICK instability
                                 ! (Symmetric Instability of Computational Kind or
                                 !  Hollingsworth instability), an average of the kinetic
                                 ! energy and thus of the mass flux must be defined.
                                 ! sick_a is to be given in the namelist as the weight of
                                 ! the fully averaged kinetic energy, sick_o=1-sick_a.
-LOGICAL :: l_corner_vort        ! yields for i_cori_method>=3
-                                ! Decision wheter the hexagon vector reconstruction is
-                                ! combined with either of the two vorticities :
-                                ! .TRUE. : Three rhombi are combined to the corner
-                                !          and afterwards averaged to the hexagon center
-                                ! .FALSE.: 6 rhombi are directly averaged to the
-                                !          hexagon center (original method).  
-                                ! After the writing of the paper to be published in JCP 
-                                ! it seems that l_corner_vort=.TRUE. should be the right way.
-
-INTEGER  :: rbf_vec_dim_c,    & ! parameter determining the size
-            rbf_vec_dim_v,    & ! of vector rbf stencil
-            rbf_vec_dim_e,    & !
-            rbf_c2grad_dim      ! ... and for cell-to-gradient reconstruction
-
-! Parameter fields determining the scale factor used by the vector rbf
-! interpolator.
-! Note: these fields are defined on each grid level; to allow the namelist input
-! going from 1 to depth (rather than from start_lev to end_lev), the namelist input
-! fields defined here differ from those used in the model
-REAL(wp) :: rbf_vec_scale_c(max_dom),  &
-            rbf_vec_scale_v(max_dom),  &
-            rbf_vec_scale_e(max_dom)
-
-! Namelist variables setting up the lateral boundary nudging (applicable to limited-area
-! runs and one-way nesting). The nudging coefficients start with nudge_max_coeff in
-! the cell row bordering to the boundary interpolation zone, and decay exponentially
-! with nudge_efold_width (in units of cell rows)
-REAL(wp) :: nudge_max_coeff, nudge_efold_width
-INTEGER  :: nudge_zone_width     ! total width of nudging zone in units of cell rows
-
-
-LOGICAL  :: llsq_high_consv     ! flag to determine whether the high order least 
-                                ! squares reconstruction should be conservative
-
-INTEGER  :: lsq_high_ord        ! specific order for higher order lsq
-
-
 TYPE t_lsq_set
   LOGICAL :: l_consv             ! flag to determine whether the least squares
                                  ! reconstruction should be conservative
@@ -230,11 +179,6 @@ TYPE t_lsq_set
     &        dim_unk             ! parameter determining the dimension of the solution
                                  ! vector (== number of unknowns) of the lsq system
 END TYPE t_lsq_set
-
-
-
-TYPE(t_lsq_set) :: lsq_lin_set, &! Parameter settings for linear and higher order  
-  &                lsq_high_set  ! least squares
 
 TYPE t_lsq
   ! fields related to weighted least squares polynomial reconstruction

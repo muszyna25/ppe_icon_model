@@ -46,8 +46,8 @@ MODULE mo_vdiff_driver
                                  & sfc_solve, rhs_bksub, vdiff_tendencies
 #ifdef __ICON__
   USE mo_physical_constants, ONLY: grav, rd
-  USE mo_echam_vdiff_params, ONLY: tpfac1, tpfac2, itop,        &
-                                 & lsfc_mom_flux, lsfc_heat_flux
+  USE mo_echam_vdiff_params, ONLY: tpfac1, tpfac2, itop
+  USE mo_echam_vdiff_nml,    ONLY: lsfc_mom_flux, lsfc_heat_flux
 #else
   USE mo_constants, ONLY: grav=>g, rd
   USE mo_physc2,    ONLY: tpfac1, tpfac2, itop
@@ -172,7 +172,7 @@ CONTAINS
   REAL(wp),INTENT(OUT) :: pqv_mflux_sfc(kbdim)      !< surface mass flux of water vapour
   REAL(wp),INTENT(OUT) :: pthvsig      (kbdim)      !< sqrt( variance of theta_v )
 
-  REAL(wp),INTENT(OUT) :: ptke  (kbdim,klev)
+  REAL(wp),INTENT(INOUT) :: ptke  (kbdim,klev)
   REAL(wp),INTENT(OUT) :: pghpbl(kbdim)
   INTEGER, INTENT(OUT) :: ihpbl (kbdim)
 

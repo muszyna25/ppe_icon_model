@@ -61,8 +61,10 @@ CHARACTER(len=*), PARAMETER :: version = '$Id$'
 !subroutines
 PUBLIC :: blk_no, idx_no, idx_1d
 PUBLIC :: setup_comm_pattern, exchange_data, exchange_data_reverse,   &
-          exchange_data_mult, exchange_data_grf,                      &
-          start_delayed_exchange, do_delayed_exchange, exchange_data_gm
+          exchange_data_mult, exchange_data_grf, exchange_data_gm,    &
+          start_delayed_exchange, do_delayed_exchange,                &
+          start_async_comm, complete_async_comm
+
 !
 !variables
 
@@ -1411,6 +1413,210 @@ SUBROUTINE exchange_data_gm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1,
 #endif
 
 END SUBROUTINE exchange_data_gm
+
+
+!>
+!! Starts asynchronous halo communication by filling the send buffer and issueing
+!! non-blocking send and receive calls
+!!
+!! @par Revision History
+!! Initial version by Guenther Zaengl, Feb 2011, based on work by Rainer Johanni
+!!
+SUBROUTINE start_async_comm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1, recv2, recv3, &
+                            recv4, recv5, recv4d)
+
+   TYPE(t_comm_pattern), INTENT(IN) :: p_pat
+
+   REAL(wp), INTENT(INOUT), TARGET, OPTIONAL ::  &
+     recv1(:,:,:), recv2(:,:,:), recv3(:,:,:), recv4(:,:,:), recv5(:,:,:), recv4d(:,:,:,:)
+
+   INTEGER, INTENT(IN)           :: nfields, ndim2tot
+
+   REAL(wp) , INTENT(INOUT) :: send_buf(:,:),recv_buf(:,:)
+
+   TYPE t_fieldptr
+     REAL(wp), POINTER :: fld(:,:,:)
+   END TYPE t_fieldptr
+
+   TYPE(t_fieldptr) :: recv(nfields)
+   INTEGER        :: ndim2(nfields), noffset(nfields)
+
+   INTEGER :: i, k, ik, jb, jl, n, np, irs, ire, iss, ise
+
+!-----------------------------------------------------------------------
+
+   IF(p_nprocs == 1 .OR. p_pe == p_test_pe) RETURN
+
+   ! Set pointers to input fields
+   IF (PRESENT(recv4d)) THEN
+     DO i = 1, nfields
+       recv(i)%fld => recv4d(:,:,:,i)
+     ENDDO
+   ELSE
+     IF (PRESENT(recv1)) THEN
+       recv(1)%fld => recv1
+       IF (PRESENT(recv2)) THEN
+         recv(2)%fld => recv2
+         IF (PRESENT(recv3)) THEN
+           recv(3)%fld => recv3
+           IF (PRESENT(recv4)) THEN
+             recv(4)%fld => recv4
+             IF (PRESENT(recv5)) THEN
+               recv(5)%fld => recv5
+             ENDIF
+           ENDIF
+         ENDIF
+       ENDIF
+     ENDIF
+   ENDIF
+
+   noffset(1) = 0
+   ndim2(1)   = SIZE(recv(1)%fld,2)
+   DO n = 2, nfields
+     noffset(n) = noffset(n-1)+ndim2(n-1)
+     ndim2(n)   = SIZE(recv(n)%fld,2)
+   ENDDO
+
+   ! Set up send buffer
+#ifdef __SX__
+   DO n = 1, nfields
+!CDIR UNROLL=6
+     DO k = 1, ndim2(n)
+       DO i = 1, p_pat%n_send
+         send_buf(k+noffset(n),i) = &
+           recv(n)%fld(p_pat%send_src_idx(i),k,p_pat%send_src_blk(i))
+       ENDDO
+     ENDDO
+   ENDDO
+#else
+   DO i = 1, p_pat%n_send
+     jb = p_pat%send_src_blk(i)
+     jl = p_pat%send_src_idx(i)
+     DO n = 1, nfields
+       DO k = 1, ndim2(n)
+         send_buf(k+noffset(n),i) = recv(n)%fld(jl,k,jb)
+       ENDDO
+     ENDDO
+   ENDDO
+#endif
+
+
+   ! Now issue the non-blocking send and receive calls
+   DO np = 0, p_n_work-1 ! loop over PEs where to send the data
+
+    iss = p_pat%send_limits(np)+1
+    ise = p_pat%send_limits(np+1)
+
+    irs = p_pat%recv_limits(np)+1
+    ire = p_pat%recv_limits(np+1)
+
+    IF(ise >= iss) &
+      CALL p_isend(send_buf(1,iss), np, 1, p_count=(ise-iss+1)*ndim2tot, comm=p_comm_work)
+
+    IF(ire >= irs) &
+      CALL p_irecv(recv_buf(1,irs), np, 1, p_count=(ire-irs+1)*ndim2tot, comm=p_comm_work)
+
+   ENDDO
+
+
+END SUBROUTINE start_async_comm
+
+
+
+!>
+!! Completes asynchronous halo communication by filling the receive buffer after completion
+!! of the exchange process
+!!
+!! @par Revision History
+!! Initial version by Guenther Zaengl, Feb 2011, based on work by Rainer Johanni
+!!
+SUBROUTINE complete_async_comm(p_pat, nfields, ndim2tot, recv_buf, recv1, recv2, recv3, &
+                               recv4, recv5, recv4d)
+
+   TYPE(t_comm_pattern), INTENT(IN) :: p_pat
+
+   REAL(wp), INTENT(INOUT), TARGET, OPTIONAL ::  &
+     recv1(:,:,:), recv2(:,:,:), recv3(:,:,:), recv4(:,:,:), recv5(:,:,:), recv4d(:,:,:,:)
+
+   INTEGER, INTENT(IN)      :: nfields, ndim2tot
+
+   REAL(wp) , INTENT(INOUT) :: recv_buf(:,:)
+
+   TYPE t_fieldptr
+     REAL(wp), POINTER :: fld(:,:,:)
+   END TYPE t_fieldptr
+
+   TYPE(t_fieldptr) :: recv(nfields)
+   INTEGER        :: ndim2(nfields), noffset(nfields)
+
+   INTEGER :: i, k, ik, jb, jl, n, np, irs, ire, iss, ise
+
+!-----------------------------------------------------------------------
+
+   IF(p_nprocs == 1 .OR. p_pe == p_test_pe) RETURN
+
+   ! Set pointers to output fields
+   IF (PRESENT(recv4d)) THEN
+     DO i = 1, nfields
+       recv(i)%fld => recv4d(:,:,:,i)
+     ENDDO
+   ELSE
+     IF (PRESENT(recv1)) THEN
+       recv(1)%fld => recv1
+       IF (PRESENT(recv2)) THEN
+         recv(2)%fld => recv2
+         IF (PRESENT(recv3)) THEN
+           recv(3)%fld => recv3
+           IF (PRESENT(recv4)) THEN
+             recv(4)%fld => recv4
+             IF (PRESENT(recv5)) THEN
+               recv(5)%fld => recv5
+             ENDIF
+           ENDIF
+         ENDIF
+       ENDIF
+     ENDIF
+   ENDIF
+
+   noffset(1) = 0
+   ndim2(1)   = SIZE(recv(1)%fld,2)
+   DO n = 2, nfields
+     noffset(n) = noffset(n-1)+ndim2(n-1)
+     ndim2(n)   = SIZE(recv(n)%fld,2)
+   ENDDO
+
+ 
+   ! Wait for all outstanding requests (issued in start_async_comm) to finish
+
+   CALL p_wait
+
+   ! Fill in receive buffer
+
+#ifdef __SX__
+   DO n = 1, nfields
+!CDIR UNROLL=6
+     DO k = 1, ndim2(n)
+       DO i = 1, p_pat%n_pnts
+         recv(n)%fld(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) =   &
+           recv_buf(k+noffset(n),p_pat%recv_src(i))
+       ENDDO
+     ENDDO
+   ENDDO
+#else
+   DO i = 1, p_pat%n_pnts
+     jb = p_pat%recv_dst_blk(i)
+     jl = p_pat%recv_dst_idx(i)
+     ik  = p_pat%recv_src(i)
+     DO n = 1, nfields
+       DO k = 1, ndim2(n)
+         recv(n)%fld(jl,k,jb) = recv_buf(k+noffset(n),ik)
+       ENDDO
+     ENDDO
+   ENDDO
+#endif
+
+
+END SUBROUTINE complete_async_comm
 
 
 !>

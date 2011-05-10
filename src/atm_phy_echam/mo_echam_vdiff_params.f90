@@ -5,6 +5,8 @@
 !!
 !! @par Revision History
 !! First version by Hui Wan, MPI-M (2010-08-31)
+!! Modification by Constantin Junk, MPI-M (2011-05-05)
+!! - moved echam_vdiff_ctl and setup_vdiff to namelists/mo_echam_vdiff_nml
 !!
 !! @par Copyright
 !! 2002-2010 by DWD and MPI-M
@@ -36,10 +38,6 @@
 MODULE mo_echam_vdiff_params
 
   USE mo_kind,              ONLY: wp
- !USE mo_impl_constants,    ONLY: SUCCESS
-  USE mo_exception,         ONLY: print_value, message
-  USE mo_namelist,          ONLY: position_nml, POSITIONED
-  USE mo_io_units,          ONLY: nnml
   USE mo_physical_constants,ONLY: grav
 
   IMPLICIT NONE
@@ -52,18 +50,8 @@ MODULE mo_echam_vdiff_params
   PUBLIC :: cons2, cons25, cons5                        !< parameters
   PUBLIC :: cvdifts, tpfac1, tpfac2, tpfac3, tpfac4     !< parameters
   PUBLIC :: itop, itopp1, ibl, iblm1, iblmin, iblmax    !< parameters
-  PUBLIC :: echam_vdiff_ctl                             !< namelist
-  PUBLIC :: setup_vdiff, init_vdiff_params              !< subroutine
+  PUBLIC :: init_vdiff_params              !< subroutine
 
-  !--------------------
-  ! Namelist variables
-  !--------------------
-
-  LOGICAL,PUBLIC :: lsfc_mom_flux   !< switch on/off surface momentum flux
-  LOGICAL,PUBLIC :: lsfc_heat_flux  !< switch on/off surface heat flux
-                                    !< (sensible AND latent)
-
-  NAMELIST/echam_vdiff_ctl/ lsfc_mom_flux, lsfc_heat_flux
 
   !-------------------
   ! Module parameters
@@ -123,37 +111,6 @@ MODULE mo_echam_vdiff_params
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 CONTAINS
-  !>
-  !!
-  SUBROUTINE setup_vdiff
-
-    INTEGER :: ist
-
-    ! Set default values
-
-    lsfc_mom_flux  = .TRUE.
-    lsfc_heat_flux = .TRUE.
-
-    ! Read namelist (every CPU does this)
-
-    CALL position_nml('echam_vdiff_ctl',status=ist)
-    SELECT CASE (ist)
-    CASE (POSITIONED)
-      READ (nnml, echam_vdiff_ctl)
-    END SELECT
-
-    ! Check validity; send values to stdout
-
-    CALL message('','')
-    CALL message('','------- namelist echam_vdiff_ctl --------')
-
-    CALL print_value(' lsfc_mom_flux  ',lsfc_mom_flux)
-    CALL print_value(' lsfc_heat_flux ',lsfc_heat_flux)
-
-    CALL message('','---------------------------')
-    CALL message('','')
-
-  END SUBROUTINE setup_vdiff
   !-------------
   !>
   !!

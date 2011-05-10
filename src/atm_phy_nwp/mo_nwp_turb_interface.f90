@@ -178,12 +178,12 @@ CONTAINS
 
     IF (msg_level >= 15) THEN
       WRITE(message_text,'(a,3E15.7)') ' bottom TKE before turbulence now = ', &
-           &  p_prog_now_rcf%tke(2,nlev+1,12), p_prog_now_rcf%tke(2,nlev,12),&
-           &  p_prog_now_rcf%tke(2,nlev-1,12)
+           &  p_prog_now_rcf%tke(1,nlev+1,12), p_prog_now_rcf%tke(1,nlev,12),&
+           &  p_prog_now_rcf%tke(1,nlev-1,12)
      CALL message('', TRIM(message_text))
       WRITE(message_text,'(a,3E15.7)') ' bottom TKE before turbulence new = ', &
-           &  p_prog_rcf%tke(2,nlev+1,12), p_prog_rcf%tke(2,nlev,12),&
-          &  p_prog_rcf%tke(2,nlev-1,12)
+           &  p_prog_rcf%tke(1,nlev+1,12), p_prog_rcf%tke(1,nlev,12),&
+          &  p_prog_rcf%tke(1,nlev-1,12)
       CALL message('', TRIM(message_text))
     ENDIF
 
@@ -395,6 +395,7 @@ CONTAINS
           prm_nwp_tend%ddt_tracer_turb(1:i_endidx,:,jb,iqv:iqi) = 0._wp
           prm_nwp_tend%ddt_u_turb     (1:i_endidx,:,jb)         = 0._wp
           prm_nwp_tend%ddt_v_turb     (1:i_endidx,:,jb)         = 0._wp
+!          p_prog_rcf%tke              (1:i_endidx,:,jb)         = 0._wp
 
           ! KF as long as if nsfc_type = 1 
           zdummy_tsfc (1:i_endidx,nsfc_type,jb) = &
@@ -406,7 +407,7 @@ CONTAINS
           DO jk = 1, nlev
             p_diag%u(1:i_startidx-1,jk,jb) = 0._wp
             p_diag%v(1:i_startidx-1,jk,jb) = 0._wp
-          ENDDO
+         ENDDO
          
 
           CALL vdiff( kproma = i_endidx, kbdim   = nproma,                                   &
@@ -453,7 +454,7 @@ CONTAINS
                 & pqsat_tile = zdummy_qvsfc  (:,:,jb)                                  ,&! out
                 & pxvarprod= zdummy_o7(:,:,jb),         pvmixtau = zdummy_o8 (:,:,jb)  ,&! out
                 & pqv_mflux_sfc=prm_diag%qhfl_s (:,jb), pthvsig  = zdummy_oh (:,jb)    ,&! out
-                & ptke     = p_prog_rcf%tke (:,2:nlevp1,jb), ihpbl = idummy_oh (:,jb)  ,&! out
+                & ptke     = p_prog_rcf%tke (:,2:nlevp1,jb), ihpbl = idummy_oh (:,jb)  ,&! inout
                 & pghpbl   = prm_diag%ghpbl (:,jb), pri =  prm_diag%ri (:,2:nlevp1,jb) ,&! out
                 & pmixlen  = prm_diag%mixlen (:,2:nlevp1,jb)                           ,&! out
                 & pcfm     = prm_diag%cfm    (:,2:nlevp1,jb)                           ,&! out
@@ -493,12 +494,12 @@ CONTAINS
 
     IF (msg_level >= 15) THEN
       WRITE(message_text,'(a,3E15.7)') ' bottom TKE after turbulence = ', &
-           &  p_prog_now_rcf%tke(2,nlev+1,12), p_prog_now_rcf%tke(2,nlev,12),&
-           &  p_prog_now_rcf%tke(2,nlev-11,12)
+           &  p_prog_now_rcf%tke(2,nlev+1,12), p_prog_now_rcf%tke(1,nlev,12),&
+           &  p_prog_now_rcf%tke(1,nlev-11,12)
      CALL message('', TRIM(message_text))
       WRITE(message_text,'(a,3E15.7)') ' bottom TKE after turbulence = ', &
-           &  p_prog_rcf%tke(2,nlev+1,12), p_prog_rcf%tke(2,nlev,12),&
-          &  p_prog_rcf%tke(2,nlev-1,12)
+           &  p_prog_rcf%tke(1,nlev+1,12), p_prog_rcf%tke(1,nlev,12),&
+          &  p_prog_rcf%tke(1,nlev-1,12)
       CALL message('', TRIM(message_text))
     ENDIF
 

@@ -83,6 +83,7 @@ MODULE mo_advection_vflux
    &                                vflx_limiter_pd, vflx_limiter_pd_ha
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_nonhydrostatic_nml,  ONLY: iadv_rcf
+  USE mo_sync,                ONLY: global_max
 
   IMPLICIT NONE
 
@@ -2085,9 +2086,6 @@ CONTAINS
     INTEGER  :: counter_p, counter_m, &  !< check whether any of the points has 
       &  counter_jip, counter_jim        !< CFL>nlist_p/m
 
-    REAL(wp) ::   &                      !< Integer flux
-      &  z_flx_int(nproma,p_patch%nlevp1,p_patch%nblks_c)
-
     REAL(wp) ::   &                      !< high order flux
       &  z_flx_frac_high(nproma,p_patch%nlevp1,p_patch%nblks_c)
 
@@ -2109,6 +2107,13 @@ CONTAINS
 
     REAL(wp) ::   &                      !< dummy variable
       &  z_dummy
+
+    REAL(wp) ::   &                      !< maximum CFL within one layer, and domain-wide maximum
+      &  max_cfl_lay(nproma), max_cfl_tot
+
+    REAL(wp) ::   &                      !< auxiliaries for fractional CFL number computation
+      &  z_aux_p(nproma), z_aux_m(nproma)
+
     !-----------------------------------------------------------------------
 
 
@@ -2125,6 +2130,10 @@ CONTAINS
       l_out_edgeval = opt_lout_edge
     ELSE
       l_out_edgeval = .FALSE.
+    ENDIF
+
+    IF (l_out_edgeval) THEN
+      coeff_grid = -1 ! needs to be set in case of a call from the hexagonal NH code
     ENDIF
 
     IF ( PRESENT(opt_topflx_tra) ) THEN
@@ -2187,20 +2196,14 @@ CONTAINS
           &  'i_levlist_m, i_listdim_p, i_listdim_m, jk_int_p, '       //  &
           &  'jk_int_m, z_cflfrac_p, z_cflfrac_m, max_cfl_blk  failed '    )
       ENDIF
-
-      IF (msg_level >= 11) THEN
-        ! otherwise an error occurs when running in debug mode
-        max_cfl_blk(:) = 0._wp
-      ENDIF
     END IF
 
 
-!$OMP PARALLEL PRIVATE(coeff_grid)
+!$OMP PARALLEL
     !
     ! The contravariant mass flux should never exactly vanish
     !
     IF (l_out_edgeval) THEN
-      coeff_grid=-1 ! assume that this is only used in nh model
 !$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx)
       DO jb = i_startblk, i_endblk
 
@@ -2217,14 +2220,14 @@ CONTAINS
     ENDIF
 
 
-
     !
     ! 1. Compute density weighted (fractional) Courant number 
     !    for w<0 (weta>0) and w>0 (weta<0) and integer shift s
     !
     IF (ld_compute) THEN
 !$OMP DO PRIVATE(jb,jk,jc,ikm1,i_startidx,i_endidx,z_dummy,nlist_p,nlist_m, &
-!$OMP            counter_p,counter_m,counter_jip,counter_jim,max_cfl)
+!$OMP            counter_p,counter_m,counter_jip,counter_jim,max_cfl,       &
+!$OMP            max_cfl_lay,z_aux_p,z_aux_m)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c( p_patch, jb, i_startblk, i_endblk,       &
@@ -2264,9 +2267,11 @@ CONTAINS
           max_cfl(jc,jk) = MAX(z_cflfrac_p(jc,jk,jb),z_cflfrac_m(jc,jk,jb))
         ENDDO
 
+        max_cfl_lay(jk) = MAXVAL(max_cfl(i_startidx:i_endidx,jk))
+
       ENDDO
 
-      max_cfl_blk(jb) = MAXVAL(max_cfl(i_startidx:i_endidx,slevp1:nlev))
+      max_cfl_blk(jb) = MAXVAL(max_cfl_lay(slevp1:nlev))
 
 
       ! If CFL>1 then split the CFL number into the fractional CFL number 
@@ -2275,11 +2280,11 @@ CONTAINS
 
         DO jk = slevp1, nlev
 
+          IF (max_cfl_lay(jk) <= 1._wp) CYCLE
+
           ! start construction of fractional Courant number
-          z_cflfrac_p(i_startidx:i_endidx,jk,jb) = p_dtime                  &
-             &              * ABS(p_mflx_contra_v(i_startidx:i_endidx,jk,jb))
-          z_cflfrac_m(i_startidx:i_endidx,jk,jb) = p_dtime                  &
-             &              * ABS(p_mflx_contra_v(i_startidx:i_endidx,jk,jb))
+          z_aux_p(i_startidx:i_endidx) = p_dtime*ABS(p_mflx_contra_v(i_startidx:i_endidx,jk,jb))
+          z_aux_m(i_startidx:i_endidx) = z_aux_p(i_startidx:i_endidx)
 
           ! initialize list number
           nlist_p = 0
@@ -2303,11 +2308,11 @@ CONTAINS
 
             DO jc = i_startidx, i_endidx
 
-              IF ( z_cflfrac_p(jc,jk,jb) > p_cellmass_now(jc,jk_int_p(jc,jk,jb),jb) &
-                &  .AND. jk_int_p(jc,jk,jb) <= nlev-1 ) THEN
+              IF ( z_aux_p(jc) > p_cellmass_now(jc,jk_int_p(jc,jk,jb),jb)    &
+                &  .AND. jk_int_p(jc,jk,jb) <= nlev-1                        &
+                &  .AND. coeff_grid * p_mflx_contra_v(jc,jk,jb) < 0._wp ) THEN
 
-                z_cflfrac_p(jc,jk,jb) = z_cflfrac_p(jc,jk,jb)                   &
-                  &                   - p_cellmass_now(jc,jk_int_p(jc,jk,jb),jb)
+                z_aux_p(jc) = z_aux_p(jc) - p_cellmass_now(jc,jk_int_p(jc,jk,jb),jb)
 
                 ! update shift index
                 jk_int_p(jc,jk,jb) = jk_int_p(jc,jk,jb) + 1
@@ -2322,10 +2327,8 @@ CONTAINS
                 i_indlist_p(counter_jip,nlist_p,jb) = jc
                 i_levlist_p(counter_jip,nlist_p,jb) = jk
 
-              ELSE
                 ! compute fractional Courant number
-                z_cflfrac_p(jc,jk,jb) = z_cflfrac_p(jc,jk,jb)                    &
-                 &                    / p_cellmass_now(jc,jk_int_p(jc,jk,jb),jb)
+                z_cflfrac_p(jc,jk,jb) = z_aux_p(jc) / p_cellmass_now(jc,jk_int_p(jc,jk,jb),jb)
 
               ENDIF
 
@@ -2350,14 +2353,13 @@ CONTAINS
             ! since otherwise the following DO-Loop will not vectorize.
             counter_jim = i_listdim_m(nlist_m,jb)
 
-
             DO jc = i_startidx, i_endidx
 
-              IF ( z_cflfrac_m(jc,jk,jb) > p_cellmass_now(jc,jk_int_m(jc,jk,jb),jb) &
-                & .AND. jk_int_m(jc,jk,jb) >= slevp1) THEN
+              IF ( z_aux_m(jc) > p_cellmass_now(jc,jk_int_m(jc,jk,jb),jb)    &
+                &  .AND. jk_int_m(jc,jk,jb) >= slevp1                        &
+                &  .AND. coeff_grid * p_mflx_contra_v(jc,jk,jb) > 0._wp ) THEN
 
-                 z_cflfrac_m(jc,jk,jb) = z_cflfrac_m(jc,jk,jb)                   &
-                  &                    - p_cellmass_now(jc,jk_int_m(jc,jk,jb),jb)
+                z_aux_m(jc) = z_aux_m(jc) - p_cellmass_now(jc,jk_int_m(jc,jk,jb),jb)
 
                 ! Index shift
                 jk_int_m(jc,jk,jb) = jk_int_m(jc,jk,jb) - 1
@@ -2372,10 +2374,8 @@ CONTAINS
                 i_indlist_m(counter_jim,nlist_m,jb) = jc
                 i_levlist_m(counter_jim,nlist_m,jb) = jk
 
-              ELSE
                 ! compute fractional Courant number
-                z_cflfrac_m(jc,jk,jb) = z_cflfrac_m(jc,jk,jb)                   &
-                  &                   / p_cellmass_now(jc,jk_int_m(jc,jk,jb),jb)
+                z_cflfrac_m(jc,jk,jb) = z_aux_m(jc) / p_cellmass_now(jc,jk_int_m(jc,jk,jb),jb)
               ENDIF
 
             END DO ! end loop over cells
@@ -2393,15 +2393,7 @@ CONTAINS
 
     ENDDO ! end loop over blocks
 !$OMP END DO
-
-!$OMP SINGLE
-    IF (msg_level >= 11) THEN ! print maximum vertical CFL number
-      WRITE(message_text,'(e16.8)') MAXVAL(max_cfl_blk(:))
-      CALL message('maximum vertical CFL:',message_text)
-    ENDIF ! msg_level >= 11
-!$OMP END SINGLE NOWAIT
-    END IF
-
+    END IF ! ld_compute
 
     !
     ! 2. Compute monotonized slope
@@ -2585,8 +2577,61 @@ CONTAINS
         &                 i_startidx, i_endidx, i_rlstart, i_rlend )
 
 
-      ! we need to distinguish between integer- and fractional fluxes, 
-      ! ONLY IF CFL>1 anywhere within the given block. Otherwise not !
+      !
+      ! First compute fluxes for the CFL<1 case for all grid points
+      ! On the grid points where CFL>1, they will be overwritten afterwards 
+      ! This part has been adopted from the restricted time step PPM-scheme.
+      !
+      DO jk = slevp1, nlev
+
+        ! index of top half level
+        ikm1 = jk -1
+
+        DO jc = i_startidx, i_endidx
+
+          ! if w < 0 , weta > 0 (physical downwelling)
+          !
+          ! note that the second coeff_grid factor in front of z_delta_p 
+          ! is obsolete due to a compensating (-) sign emerging from the 
+          ! computation of z_delta_p.
+          z_delta_m = z_face_up(jc,ikm1,jb) - z_face_low(jc,ikm1,jb)
+          z_a11     = p_cc(jc,ikm1,jb)                                  &
+            &       - 0.5_wp * (z_face_low(jc,ikm1,jb) + z_face_up(jc,ikm1,jb))
+
+          z_lext_1(jc,jk) = p_cc(jc,ikm1,jb)                            &
+            &  - (0.5_wp * z_delta_m * (1._wp - z_cflfrac_m(jc,jk,jb))) &
+            &  - z_a11*(1._wp - 3._wp*z_cflfrac_m(jc,jk,jb)             &
+            &  + 2._wp*z_cflfrac_m(jc,jk,jb)*z_cflfrac_m(jc,jk,jb))
+
+
+          ! if w > 0 , weta < 0 (physical upwelling)
+          !
+          ! note that the second coeff_grid factor in front of z_delta_p 
+          ! is obsolete due to a compensating (-) sign emerging from the 
+          ! computation of z_delta_p.
+          z_delta_p = z_face_up(jc,jk,jb) - z_face_low(jc,jk,jb)
+          z_a12     = p_cc(jc,jk,jb)                                    &
+            &       - 0.5_wp * (z_face_low(jc,jk,jb) + z_face_up(jc,jk,jb))
+
+          z_lext_2(jc,jk) = p_cc(jc,jk,jb)                              &
+            &  + (0.5_wp * z_delta_p * (1._wp - z_cflfrac_p(jc,jk,jb))) &
+            &  - z_a12*(1._wp - 3._wp*z_cflfrac_p(jc,jk,jb)             &
+            &  + 2._wp*z_cflfrac_p(jc,jk,jb)*z_cflfrac_p(jc,jk,jb))
+
+          !
+          ! full flux
+          !
+          p_upflux(jc,jk,jb) =                                  &
+            &  laxfr_upflux_v( p_mflx_contra_v(jc,jk,jb),       &
+            &                z_lext_1(jc,jk), z_lext_2(jc,jk),  &
+            &                coeff_grid )
+
+        END DO ! end loop over cells
+
+      ENDDO ! end loop over vertical levels
+
+
+      ! Now execute the special computations needed for CFL>1:
       IF (max_cfl_blk(jb) > 1._wp) THEN
 
         ! Coment by DR: I think that this initialization could be 
@@ -2620,6 +2665,45 @@ CONTAINS
 
           ENDDO  ! loop over cells in i_indlist_p
 
+        ENDDO
+
+        ! Now use the first list (containing all points with CFL>1 and upward flux)
+        ! to compute the corrected fluxes
+        IF (i_listdim_p(1,jb) > 0) THEN
+!CDIR NODEP
+          DO ji_p=1,i_listdim_p(1,jb)
+
+            ! get jc and jk index from precomputed list
+            jc = i_indlist_p(ji_p,1,jb)
+            jk = i_levlist_p(ji_p,1,jb)
+
+            ! fractional upward flux
+            ! note that the second coeff_grid factor in front of z_delta_p 
+            ! is obsolete due to a compensating (-) sign emerging from the 
+            ! computation of z_delta_p.
+            z_delta_p = z_face_up(jc,jk_int_p(jc,jk,jb),jb)                &
+              &         - z_face_low(jc,jk_int_p(jc,jk,jb),jb)
+            z_a12     = p_cc(jc,jk_int_p(jc,jk,jb),jb)                     &
+              &         - 0.5_wp * (z_face_low(jc,jk_int_p(jc,jk,jb),jb)   &
+              &         + z_face_up(jc,jk_int_p(jc,jk,jb),jb))
+
+
+            ! fractional high order flux   
+            z_flx_frac_high(jc,jk,jb) = ( - coeff_grid                              &
+              &         * p_cellmass_now(jc,jk_int_p(jc,jk,jb),jb)                  &
+              &         * z_cflfrac_p(jc,jk,jb) *( p_cc(jc,jk_int_p(jc,jk,jb),jb)   &
+              &         + (0.5_wp * z_delta_p * (1._wp - z_cflfrac_p(jc,jk,jb)))    &
+              &         - z_a12*(1._wp - 3._wp*z_cflfrac_p(jc,jk,jb)                &
+              &         + 2._wp*z_cflfrac_p(jc,jk,jb)**2) ) )                       &
+              &         / p_dtime
+
+            ! full flux (integer- plus fractional flux)
+            p_upflux(jc,jk,jb) = z_iflx_p(jc,jk)/p_dtime + z_flx_frac_high(jc,jk,jb)
+
+          ENDDO
+        ENDIF
+
+        DO nlist = 1, nlist_max
 
           IF (i_listdim_m(nlist,jb) == 0) CYCLE
 
@@ -2646,155 +2730,41 @@ CONTAINS
 
         ENDDO  ! loop over index lists
 
+        ! Now use the first list (containing all points with CFL>1 and downward flux)
+        ! to compute the corrected fluxes
+        IF (i_listdim_m(1,jb) > 0) THEN
+!CDIR NODEP
+          DO ji_m=1,i_listdim_m(1,jb)
+
+            ! get jc and jk index from precomputed list
+            jc = i_indlist_m(ji_m,1,jb)
+            jk = i_levlist_m(ji_m,1,jb)
+
+            ! fractional downward flux
+            ! note that the second coeff_grid factor in front of z_delta_p 
+            ! is obsolete due to a compensating (-) sign emerging from the 
+            ! computation of z_delta_p.
+            z_delta_m = z_face_up(jc,jk_int_m(jc,jk,jb),jb)                &
+              &         - z_face_low(jc,jk_int_m(jc,jk,jb),jb)
+            z_a11     = p_cc(jc,jk_int_m(jc,jk,jb),jb)                     &
+              &         - 0.5_wp * (z_face_low(jc,jk_int_m(jc,jk,jb),jb)   &
+              &         + z_face_up(jc,jk_int_m(jc,jk,jb),jb))
 
 
-        ! compute fractional flux as well as total flux (sum of integer- and 
-        ! fractional flux)
-        DO jk = slevp1, nlev
-
-          DO jc = i_startidx, i_endidx
-
-            ! Note that currently coeff_grid=-1 for NH-version
-            IF (coeff_grid * p_mflx_contra_v(jc,jk,jb) < 0._wp ) THEN
-
-              ! fractional flux
-              ! if w > 0 , weta < 0 (physical upwelling)
-              ! note that the second coeff_grid factor in front of z_delta_p 
-              ! is obsolete due to a compensating (-) sign emerging from the 
-              ! computation of z_delta_p.
-              z_delta_p = z_face_up(jc,jk_int_p(jc,jk,jb),jb)                &
-                &         - z_face_low(jc,jk_int_p(jc,jk,jb),jb)
-              z_a12     = p_cc(jc,jk_int_p(jc,jk,jb),jb)                     &
-                &         - 0.5_wp * (z_face_low(jc,jk_int_p(jc,jk,jb),jb)   &
-                &         + z_face_up(jc,jk_int_p(jc,jk,jb),jb))
-
-
-              ! fractional high order flux   
-              z_flx_frac_high(jc,jk,jb) = ( - coeff_grid                              &
-                &         * p_cellmass_now(jc,jk_int_p(jc,jk,jb),jb)                  &
-                &         * z_cflfrac_p(jc,jk,jb) *( p_cc(jc,jk_int_p(jc,jk,jb),jb)   &
-                &         + (0.5_wp * z_delta_p * (1._wp - z_cflfrac_p(jc,jk,jb)))    &
-                &         - z_a12*(1._wp - 3._wp*z_cflfrac_p(jc,jk,jb)                &
-                &         + 2._wp*z_cflfrac_p(jc,jk,jb)**2) ) )                       &
-                &         / p_dtime
-
-
-              ! integer flux
-              z_flx_int(jc,jk,jb)= z_iflx_p(jc,jk)/p_dtime
-
-
-!DR              ! fractional low order flux
-!DR              z_flx_frac_low(jc,jk,jb) = ( - coeff_grid                            &
-!DR                &         * p_cellmass_now(jc,jk_int(jc,jk,jb),jb)                 &
-!DR                &         * z_cflfrac_p(jc,jk,jb) * p_cc(jc,jk_int(jc,jk,jb),jb) ) &
-!DR                &         / p_dtime
-
-            ELSE
-
-              ! fractional flux
-              ! if w < 0 , weta > 0 (physical downwelling)
-              ! note that the second coeff_grid factor in front of z_delta_p 
-              ! is obsolete due to a compensating (-) sign emerging from the 
-              ! computation of z_delta_p.
-              z_delta_m = z_face_up(jc,jk_int_m(jc,jk,jb),jb)                &
-                &         - z_face_low(jc,jk_int_m(jc,jk,jb),jb)
-              z_a11     = p_cc(jc,jk_int_m(jc,jk,jb),jb)                     &
-                &         - 0.5_wp * (z_face_low(jc,jk_int_m(jc,jk,jb),jb)   &
-                &         + z_face_up(jc,jk_int_m(jc,jk,jb),jb))
-
-
-              ! fractional high order flux           
-              z_flx_frac_high(jc,jk,jb)= ( coeff_grid                                 &
-                &         * p_cellmass_now(jc,jk_int_m(jc,jk,jb),jb)                  &
-                &         * z_cflfrac_m(jc,jk,jb) * ( p_cc(jc,jk_int_m(jc,jk,jb),jb)  &
-                &         - (0.5_wp * z_delta_m * (1._wp - z_cflfrac_m(jc,jk,jb)))    &
-                &         - z_a11*(1._wp - 3._wp*z_cflfrac_m(jc,jk,jb)                &
-                &         + 2._wp*z_cflfrac_m(jc,jk,jb)**2) ) )                       &
-                &         / p_dtime
-
-
-              ! integer flux
-              z_flx_int(jc,jk,jb)= z_iflx_m(jc,jk)/p_dtime
-
-!DR              ! fractional low order flux
-!DR              z_flx_frac_low(jc,jk,jb)= ( coeff_grid                                 &
-!DR                &         * p_cellmass_now(jc,jk_int_m(jc,jk,jb),jb)                 &
-!DR                &         * z_cflfrac_m(jc,jk,jb) * p_cc(jc,jk_int_m(jc,jk,jb),jb) ) &
-!DR                &         / p_dtime
-
-
-            ENDIF
+            ! fractional high order flux           
+            z_flx_frac_high(jc,jk,jb)= ( coeff_grid                                 &
+              &         * p_cellmass_now(jc,jk_int_m(jc,jk,jb),jb)                  &
+              &         * z_cflfrac_m(jc,jk,jb) * ( p_cc(jc,jk_int_m(jc,jk,jb),jb)  &
+              &         - (0.5_wp * z_delta_m * (1._wp - z_cflfrac_m(jc,jk,jb)))    &
+              &         - z_a11*(1._wp - 3._wp*z_cflfrac_m(jc,jk,jb)                &
+              &         + 2._wp*z_cflfrac_m(jc,jk,jb)**2) ) )                       &
+              &         / p_dtime
 
             ! full flux (integer- plus fractional flux)
-            p_upflux(jc,jk,jb) = z_flx_int(jc,jk,jb) + z_flx_frac_high(jc,jk,jb)
+            p_upflux(jc,jk,jb) = z_iflx_m(jc,jk)/p_dtime + z_flx_frac_high(jc,jk,jb)
 
-          ENDDO ! end loop over cells
-
-        ENDDO ! end loop over vertical levels
-
-
-      ELSE
-
-        !
-        ! since all grid points belonging to block jb have CFL<1, 
-        ! we can use an alternative (cheaper) flux computation 
-        ! without any indirect adressing. Furthermore, since integer fluxes 
-        ! are zero, the total flux equals the fractional flux.
-        ! This part has been adopted from the restricted time step PPM-scheme.
-        !
-        DO jk = slevp1, nlev
-
-          ! index of top half level
-          ikm1 = jk -1
-
-          DO jc = i_startidx, i_endidx
-
-            ! if w < 0 , weta > 0 (physical downwelling)
-            !
-            ! note that the second coeff_grid factor in front of z_delta_p 
-            ! is obsolete due to a compensating (-) sign emerging from the 
-            ! computation of z_delta_p.
-            z_delta_m = z_face_up(jc,ikm1,jb) - z_face_low(jc,ikm1,jb)
-            z_a11     = p_cc(jc,ikm1,jb)                                  &
-              &       - 0.5_wp * (z_face_low(jc,ikm1,jb) + z_face_up(jc,ikm1,jb))
-
-            z_lext_1(jc,jk) = p_cc(jc,ikm1,jb)                            &
-              &  - (0.5_wp * z_delta_m * (1._wp - z_cflfrac_m(jc,jk,jb))) &
-              &  - z_a11*(1._wp - 3._wp*z_cflfrac_m(jc,jk,jb)             &
-              &  + 2._wp*z_cflfrac_m(jc,jk,jb)*z_cflfrac_m(jc,jk,jb))
-
-
-            ! if w > 0 , weta < 0 (physical upwelling)
-            !
-            ! note that the second coeff_grid factor in front of z_delta_p 
-            ! is obsolete due to a compensating (-) sign emerging from the 
-            ! computation of z_delta_p.
-            z_delta_p = z_face_up(jc,jk,jb) - z_face_low(jc,jk,jb)
-            z_a12     = p_cc(jc,jk,jb)                                    &
-              &       - 0.5_wp * (z_face_low(jc,jk,jb) + z_face_up(jc,jk,jb))
-
-            z_lext_2(jc,jk) = p_cc(jc,jk,jb)                              &
-              &  + (0.5_wp * z_delta_p * (1._wp - z_cflfrac_p(jc,jk,jb))) &
-              &  - z_a12*(1._wp - 3._wp*z_cflfrac_p(jc,jk,jb)             &
-              &  + 2._wp*z_cflfrac_p(jc,jk,jb)*z_cflfrac_p(jc,jk,jb))
-
-            !
-            ! full flux
-            !
-            p_upflux(jc,jk,jb) =                                  &
-              &  laxfr_upflux_v( p_mflx_contra_v(jc,jk,jb),       &
-              &                z_lext_1(jc,jk), z_lext_2(jc,jk),  &
-              &                coeff_grid )
-
-!DR            ! (fractional) low order flux
-!DR            z_flx_frac_low(jc,jk,jb)=
-!DR              &  laxfr_upflux_v( p_mflx_contra_v(jc,jk,jb),       &
-!DR              &                p_cc(jc,ikm1,jb), p_cc(jc,jk,jb),  &
-!DR              &                coeff_grid )
-
-          END DO ! end loop over cells
-
-        ENDDO ! end loop over vertical levels
+          ENDDO
+        ENDIF
 
       ENDIF  ! IF (max_cfl_blk(jb) > 1)
 
@@ -2854,6 +2824,19 @@ CONTAINS
           &                   opt_rlend=i_rlend, opt_slev=slev      ) !in
       ENDIF
     ENDIF
+
+
+    IF ( ld_compute .AND. msg_level >= 11 ) THEN ! print maximum vertical CFL number
+
+      max_cfl_tot = MAXVAL(max_cfl_blk(i_startblk:i_endblk))
+
+      ! Take maximum over all PEs
+      max_cfl_tot = global_max(max_cfl_tot)
+
+      WRITE(message_text,'(e16.8)') max_cfl_tot
+      CALL message('maximum vertical CFL:',message_text)
+
+    END IF
 
 
     IF ( ld_cleanup ) THEN

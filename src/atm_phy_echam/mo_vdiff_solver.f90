@@ -809,7 +809,7 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pxvarprod(kbdim,klev)
 
     REAL(wp),INTENT(OUT) :: pz0m    (kbdim)
-    REAL(wp),INTENT(OUT) :: ptke    (kbdim,klev)
+    REAL(wp),INTENT(INOUT) :: ptke    (kbdim,klev)
     REAL(wp),INTENT(OUT) :: pthvvar (kbdim,klev)
     REAL(wp),INTENT(OUT) :: pthvsig (kbdim)
     REAL(wp),INTENT(OUT) :: pvmixtau(kbdim,klev)

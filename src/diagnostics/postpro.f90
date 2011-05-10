@@ -102,10 +102,11 @@ USE mo_err_norm,             ONLY: t_errors, err_norm
 USE mo_io_vlist,             ONLY: de_reshape1
 USE mo_vertical_coord_table, ONLY: init_vertical_coord_table
 USE mo_ha_stepping,          ONLY: prepare_ha_integration
-USE mo_intp_state,           ONLY: setup_interpol,               &
-                                    construct_2d_interpol_state
+USE mo_interpol_nml,         ONLY: interpol_nml_setup
+USE mo_intp_state,           ONLY: construct_2d_interpol_state
 USE mo_interpolation,        ONLY: t_int_state
-USE mo_grf_interpolation,    ONLY: setup_gridref, t_gridref_state, &
+USE mo_gridref_nml,          ONLY: gridref_nml_setup
+USE mo_grf_interpolation,    ONLY: t_gridref_state, &
                                     construct_2d_gridref_state
 USE mo_math_constants,       ONLY: pi
 USE mo_physical_constants,   ONLY: re
@@ -232,9 +233,9 @@ CALL grid_nml_setup             !reads namelist group grid_ctl
     CALL dynamics_nml_setup(n_dom)
   END IF
   IF (n_dom > 1) THEN
-    CALL setup_gridref
+    CALL gridref_nml_setup
   ENDIF
-  CALL setup_interpol(p_patch)
+  CALL interpol_nml_setup(p_patch)
 
   !
   ! allocate type for interpolation state

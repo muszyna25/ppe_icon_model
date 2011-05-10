@@ -1,0 +1,23 @@
+#!/bin/ksh
+#------------------------------------------------------------------------------
+# This script is called on all buildbot slaves and should be used 
+# to build doxygen generated source code documentation
+# First version by Walter Sauf (MPI-M, 2011-05-05)
+#
+# $Rev$:     Revision of last commit
+# $Author$:  Author of last commit
+# $Date$:    Date of last commit
+#------------------------------------------------------------------------------
+
+
+. /client/etc/profile.zmaw
+
+echo "The bb_run_doc script was called"
+
+cd doc
+
+cp -a html doxygen
+
+chmod -R 775 doxygen
+
+# scp -r -p doxygen redmine-icon@hoshi:./icon/html/

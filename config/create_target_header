@@ -50,7 +50,7 @@ check_error()
     #   \$1 = error status: 0 = OK, not 0 = ERROR
     #   \$2 = error message
 
-    if [ "\${STATUS_FILE}" == "" ]
+    if [ "\${STATUS_FILE}" = "" ]
     then
       STATUS_FILE=\${basedir}/.status.file
     fi
@@ -60,6 +60,7 @@ check_error()
 
     if [ \$1 != 0 ] 
     then
+        echo "QSUBW_ERROR: JOB_%HOSTNAME%_%PID%: RC = $1"
         echo "check_error()"
         echo "   ERROR : \$2"
         exit \$1
@@ -118,7 +119,7 @@ if [[ "x$use_load_profile" != "x" ]]; then
 cat >> $output_script << EOF
 #=============================================================================
 # load profile
-if [ -e  $profile_filename ] ; then
+if [ -a  $profile_filename ] ; then
 $use_load_profile
 #=============================================================================
 #=============================================================================

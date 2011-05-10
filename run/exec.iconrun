@@ -150,12 +150,12 @@ case ${IEQ} in
         # ---------------
         HGRIDNAME=iconR${R}B0${B}-grid.nc
         # default path for grid
-        if [[ x$HGRIDDIR  == x ]]; then
+        if [[ x$HGRIDDIR  = x ]] ; then
           HGRIDDIR=${ICONDIR}/grids
         fi
         #
         # default grid names for aqua planet/Stommel basin/etopo topography
-        if [[ x$OGRIDNAME  == x ]]; then
+        if [[ x$OGRIDNAME  = x ]] ; then
           if [[ x$USE_AQUAP = "xY" ]] ; then
             OGRIDNAME=iconR${R}B0${B}-ocean_aqua_planet.nc
           # OGRIDNAME=iconR${R}B0${B}-ocean_aqua_planet_${OPT}.nc  #  ?include optimization?

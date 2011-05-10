@@ -130,6 +130,8 @@ MODULE mo_dump_restore
                                    lplane, l_limited_area, max_childdom, parent_id
   USE mo_intp_data_strc      ! We need all from that module
   USE mo_grf_intp_data_strc  ! We need all from that module
+  USE mo_interpol_nml        ! We need all from that module
+  USE mo_gridref_nml         ! We need all from that module         
   USE mo_mpi,                ONLY: p_nprocs
   USE mo_parallel_nml,       ONLY: p_n_work, p_pe_work
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e

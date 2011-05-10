@@ -2603,6 +2603,7 @@ CONTAINS
             CALL finish('write_vlist','Unsupported value of iequations')
         END SELECT
 
+
         SELECT CASE(outvar_desc(ivar, jg)%type)
           CASE (GATHER_C)
             n_tot = p_patch(jg)%n_patch_cells_g
@@ -2621,8 +2622,10 @@ CONTAINS
         IF(ASSOCIATED(ptr2)) THEN
 
           IF(p_pe == p_io) ALLOCATE(streamvar1(n_tot))
+
           CALL gather_array1( outvar_desc(ivar, jg)%type, p_patch(jg), ptr2, &
                &                        streamvar1,outvar_desc(ivar,jg)%name )
+
           IF(p_pe == p_io) THEN
             CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar1, 0)
             DEALLOCATE(streamvar1)

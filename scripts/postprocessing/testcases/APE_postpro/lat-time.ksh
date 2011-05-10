@@ -70,7 +70,7 @@ vertical_resolution="L31"
 # 1.5 The experiment identifier that will appear in the plots, e.g.,
 # "brk R2B5L31" 
 
-exp_config="$Model $horizontal_resolution$vertical_resolution"
+export exp_config="$Model $horizontal_resolution$vertical_resolution"
 
 #--------------------------------------------------------------------------
 # 2. Decide what to do
@@ -78,7 +78,7 @@ exp_config="$Model $horizontal_resolution$vertical_resolution"
 # This script assumes that the output has been split into a series of files. 
 # The first file is named ${EXP}"_RxBxxLxx_0001",the second one "_0002",
 # and so on. Now specify the starting and ending file indices for the 
-# Hovmoller plot.
+# evolution plot.
 
 evol_istart=1
 evol_iend=10
@@ -98,8 +98,17 @@ export plot_file_format="pdf"
 
 do_computation=1   # (1=ON,0=OFF)
 
-# Setting plev_evol to null, or not setting the variable at all means 
-# choosing the default: plev_evol="85000,50000,20000,10000" (unit: Pa).
+# Select vertical levels: 
+#   - plev_evol for pressure levels (unit: Pa)
+#   - hlev_evol for height levels   (unit: km)
+#   - mlev_evol for model levels (i.e., level indices 1, 2, etc.)
+# If the user assigns a meaningful (i.e., not null) string to 
+# one of the three variables, the corresponding vertical levels
+# will be selected; If the user does not set any of the three variables
+# or sets all of them to null (""), the default pressure levels
+# (85000,50000,20000,10000 Pa) will be selected; If more than one 
+# of the three variables are assigned meaningful strings, the order
+# of precedence is: plev_evol > hlev_evol > mlev_evol.
 
 plev_evol=""
 
@@ -132,11 +141,6 @@ remap_weights_path="${model_data_path}remap_weights/"
 
 grid_optimization="spr0.90"
 
-# Remove these files after finishing the diagnoses? 
-# (1=REMOVE,0=SAVE FOR LATER USE)
-
-rm_tmp_files=0
-
 # Where should the plot files be located? Don't forget the trailing "/".
 
 plot_file_path="${model_data_path}plots/"
@@ -162,9 +166,37 @@ if [ -f ${set_env} ] ; then
   source ./${set_env}
 fi
 
+# Check user's specification of vertical levels
+
+if [ ${plev_evol:-0} -eq 0 ]; then   # User didn't specify any pressure level
+ if [ ${hlev_evol:-0} -eq 0 ]; then  # User didn't specify any height level
+  if [ ${mlev_evol:-0} -eq 0 ]; then # User didn't specify any model level
+   
+   # User didn't specify any kind of levels. Will use default pressure values.
+   levtype="p"
+   cmd="ml2pl"
+   levs="85000,50000,20000,10000"    # default pressure levels
+
+  else # Will select model levels
+   levtype="m"
+   cmd="sellevel"
+   levs=${mlev_evol}
+  fi
+ else  # Will interpolate to height levels
+   levtype="h"
+   cmd="ml2hl"
+   levs=${hlev_evol}
+ fi
+else   # Will interpolate to user-specified pessure values
+   levtype="p"
+   cmd="ml2pl"
+   levs=${plev_evol} 
+fi
+level_list=`echo $levs | sed 's/,/ /g'`
+
 echo
 echo "**********************************************************"
-echo "***    ICON Tool Kit for APE: Hovmoller diagram        ***"
+echo "***      ICON Tool Kit for APE: evolution plot         ***"
 echo "**********************************************************"
 echo 
 
@@ -197,14 +229,14 @@ if [ ! -d ${tmp_data_path} ]; then
 fi
 
 # Create a directory for soft links. This is used later for 
-# computing the time mean from multiple data files.
+# reading zonal statistics from multiple files.
 
-lnkdir=${tmp_data_path}${evol_istart}"-"${evol_iend}"_lnk"
+datetime=`date +%F-%H%M%S-%N`
+lnkdir=${tmp_data_path}"lnk_"$datetime
 if [ -d $lnkdir ]; then
    rm -rf $lnkdir
 fi
 mkdir $lnkdir
-flnk=${EXP}_${resolution}
 
 #==========================================================================
 # Prepare remappping weights
@@ -262,9 +294,8 @@ fi
       echo "=== Computing zonal statistics for variable $varname ..."
 
       ifile=$evol_istart
-      while [ $ifile -le $evol_iend ] ; do
+      while [ $ifile -le $evol_iend ] ; do  #loooooooooooooooooooooooooooooooop
         label=$(printf "%04d" $ifile)
-        echo 
         echo File $label
 
         #------------------------------------------------------
@@ -275,8 +306,8 @@ fi
            case $Model in 
            "ICOHAM" | "ICONAM")
 
-              cdo $silence selname,${varname} ${fori}"_"$label".nc" \
-                                              ${ftmp}"_"$label"_"${varname}".nc"
+              cdo $silence -r selname,${varname} ${fori}"_"$label".nc" \
+                                                 ${ftmp}"_"$label"_"${varname}".nc"
            ;;
            "ECHAM")
 
@@ -292,7 +323,7 @@ EOF
                       ${ftmp}"_"$label"_"${varcode[$ie]}".nc" \
                       < $Model_$EXP_$varname.nml >after.out
 
-                cdo $silence setname,${varname} \
+                cdo $silence -r setname,${varname} \
                     ${ftmp}"_"$label"_"${varcode[$ie]}".nc" \
                     ${ftmp}"_"$label"_"${varname}".nc"
   
@@ -301,7 +332,7 @@ EOF
 
              else # physics variables
 
-                cdo $silence setname,$varname -selname,${tmpname[$ie]} \
+                cdo $silence -r setname,$varname -selname,${tmpname[$ie]} \
                     ${fori}"_"$label".nc" \
                     ${ftmp}"_"$label"_"$varname".nc"
              fi
@@ -311,48 +342,18 @@ EOF
              echo "Wrong model name! Abort."
              exit
            esac 
-           check_error $? " - Set/selname"
+           check_error $? ' - Set/selname'
         fi
-
-#       ln -s ${ftmp}"_"$label"_"$varname".nc" $lnkdir"/"${flnk}"_"$label"_"$varname".nc"
-#       check_error $? "Soft link of  File $label"
 
         #----------------------------------------------------------------------------
         # Interpolate from model levels to pressure/height levels
         # or simply select the model levels the user specified.
         #----------------------------------------------------------------------------
-
-        if [ ${plev_evol:-0} -eq 0 ]; then   # User didn't specify any pressure level
-         if [ ${hlev_evol:-0} -eq 0 ]; then  # User didn't specify any height level
-          if [ ${mlev_evol:-0} -eq 0 ]; then # User didn't specify any model level
-           
-           # User didn't specify any kind of levels. Will use default pressure values.
-           levtype="p"
-           cmd="ml2pl"
-           levs="85000,50000,20000,10000"    # default pressure levels
-   
-          else # Will select model levels
-           levtype="m"
-           cmd="sellevel"
-           levs=${mlev_evol}
-          fi
-         else  # Will interpolate to height levels
-           levtype="h"
-           cmd="ml2hl"
-           levs=${hlev_evol}
-         fi
-        else   # Will interpolate to user-specified pessure values
-           levtype="p"
-           cmd="ml2pl"
-           levs=${plev_evol} 
-        fi
-
         case $varname in 
         "PS" | "PHIS")
            echo " - Vertical interpolation/level selection skipped for $varname" 
         ;;
         *) 
-
           if [[ $levtype == "p" || $levtype == "h" ]]; then
           
             filein=${ftmp}"_"$label"_"$varname"_ml2phl_tmp.nc"
@@ -363,7 +364,8 @@ EOF
                   ${ftmp}"_"$label"_"$varname".nc" \
                   ${ftmp}"_"$label"_"PS".nc"       \
                   ${ftmp}"_"$label"_"PHIS".nc"     \
-                  ${ftmp}"_"$label"_"$varname"_ml2phl_tmp.nc"
+                  $filein 
+              check_error $? " - Merge $varname with PS and PHIS"
             fi
 
           else
@@ -372,12 +374,9 @@ EOF
 
           # Vertical interpolation or level selection
 
-          list=`echo $levs | sed 's/,/ /g'`
-
-          for lev in $list ; do
+          for lev in $level_list ; do
             fileout=${ftmp}"_"$label"_"$varname"_"$levtype$lev".nc"
-            echo input: $filein
-            echo output: $fileout
+
             if [ ! -a $fileout ]; then
               cdo $silence $cmd,$lev $filein $fileout
               check_error $? " - ${cmd}, ${lev}"
@@ -386,119 +385,101 @@ EOF
         ;;
         esac #$varname
 
+
+        #-------------------------------------------------------------------
+        # Compute zonal statistics for each time step. Note that
+        #  1. For the ICON models, interpolation to Gaus grid is necessary. 
+        #  2. We do not merge all time steps into a single file but rather
+        #     let the NCL plotting script read data from multiple files. 
+        #  3. Soft links to the zonal mean data files are created to facilitate 
+        #     data loading in NCL.
+        #-------------------------------------------------------------------
+        case $varname in 
+        "PS" | "PHIS")
+           echo " - Computation of zonal statistics skipped for $varname" ;;
+        *) 
+
+          case $Model in 
+          "ICOHAM" | "ICONAM") intp="-remap,t${trunc}grid,${weights}" ;;
+          "ECHAM")             intp="" ;;
+          esac
+
+          for lev in $level_list ; do
+            filein=${ftmp}"_"$label"_"$varname"_"$levtype$lev".nc"
+
+           #for stat in zonavg zonvar ; do
+            for stat in zonavg ; do
+              fileout=${ftmp}"_"$label"_"$varname"_"$levtype$lev"_T"$trunc"_"$stat".nc"
+
+              if [ ! -a $fileout ]; then
+                cdo $silence $stat $intp $filein $fileout 
+                check_error $? " - $stat"
+              fi
+
+              flnk=$lnkdir"/"${EXP}_${resolution}
+              flnk=$flnk"_"$label"_"$varname"_"$levtype$lev"_T"$trunc"_"$stat".nc"
+              if [ ! -a $flnk ]; then
+                ln -s $fileout $flnk
+              fi
+            done
+          done
+
+        ;;
+        esac
+        #----
+
         ifile=` expr $ifile + 1 `
-      done
-      exit
-      #####################################################################
-      # contents below not revised yet!
-
-      #-------------------------------------------------------------------
-      # Compute zonal statistics for each time step. Note that
-      #  1. For the ICON models, interpolation to Gaus grid is necessary. 
-      #  2. In order to avoid merging all time steps into a single file,
-      #     we let the NCL plotting script read data from multiple files. 
-      #-------------------------------------------------------------------
-      case $Model in 
-      "ICOHAM" | "ICONAM")
-         intp="-remap,t${trunc}grid,${weights}"
-      ;;
-      "ECHAM")
-         intp=""
-      ;;
-      esac
-
-      here=`pwd` ; cd  $lnkdir
-
-      cdo $silence ensavg \
-          ${flnk}"_"[0-9][0-9][0-9][0-9]"_"$varname".nc" \
-          ${ftmp}"_"$timerange"_"$varname"_ensavg.nc"
-
-      check_error $? "cdo ensavg"
-      cd $here
-
-      cdo $silence zonavg $intp -timavg \
-          ${ftmp}"_"$timerange"_"$varname"_ensavg.nc"    \
-          ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc".nc"
-
-      check_error $? "Zonal and time average"
-      rm ${ftmp}"_"$timerange"_"$varname"_ensavg.nc"
-      rm -rf ${lnkdir}
-
-
-   fi # do_computation -eq 1
+      done  #loooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooop
+    fi # do_computation -eq 1
 
    #-----------------------------
    # Plotting
    #-----------------------------
    if [ $make_plot -eq 1 ] ; then
 
-        if [ $varname == "PS" ] || [ $varname == "PHIS" ] ; then
-           echo PS and PHIS - skip plotting
-        else
-           export resolution ref_resolution
-           export timerange  ref_timerange
-           export LongName=${longname[$ie]}
-           export Scale=${plotscale[$ie]}
-           export Min=${plotmin[$ie]}
-           export Max=${plotmax[$ie]}
-           export Int=${plotint[$ie]}
-           export DiffMax=${diffmax[$ie]}
-           export DiffInt=${diffint[$ie]}
-           export ColorMap=${colormap[$ie]}
-           export ColorStart=${colorstart[$ie]}
-           export ColorEnd=${colorend[$ie]}
-           export DiffColorMap=${diffcolormap[$ie]}
-           export DiffColorStart=${diffcolorstart[$ie]}
-           export DiffColorEnd=${diffcolorend[$ie]}
+     echo
+     if [ $varname == "PS" ] || [ $varname == "PHIS" ] ; then
+       echo "=== Plotting skipped for ${varname}."
+     else
 
-           case $Model in 
-           "ICOHAM" | "ECHAM")
+       export resolution
+       export timerange
+       export evol_istart evol_iend
+       export LongName=${longname[$ie]}
+       export Scale=${plotscale[$ie]}
+       export Min=${plotmin[$ie]}
+       export Max=${plotmax[$ie]}
+       export Int=${plotint[$ie]}
+       export ColorMap=${colormap[$ie]}
+       export ColorStart=${colorstart[$ie]}
+       export ColorEnd=${colorend[$ie]}
+       export DataFNameP1=${lnkdir}"/"${EXP}_${resolution}"_"
 
-             export YAxis="pressure"
-             export DataFile=${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc"_pres.nc"
-             export DataFile2=$ref_data_path"/"$ref_exp_name"_"$ref_resolution
-             export DataFile2=$DataFile2"_"$ref_timerange"_"$varname"_zmta_T"$trunc"_pres.nc"
-           ;;
-           "ICONAM") 
+       for lev in $level_list ; do
+      #for stat in zonavg zonvar ; do
+       for stat in zonavg ; do
 
-             export YAxis="height"
-             export DataFile=${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc".nc"
-             export DataFile2=$ref_data_path"/"$ref_exp_name"_"$ref_resolution
-             export DataFile2=$DataFile2"_"$ref_timerange"_"$varname"_zmta_T"$trunc".nc"
-           ;;
-           esac 
+         export DataFNameP2="_"$varname"_"$levtype$lev"_T"$trunc"_"$stat".nc"
+         export PlotFile=${plot_file_path}${EXP}"_"${resolution}"_"$timerange
+         export PlotFile=${PlotFile}"_"$varname"_"$levtype$lev"_T"$trunc"_"$stat"-evol"
+        
+         echo "=== Plotting time evolution ($levtype$lev, $stat) ..."  
+         ncl plot_lat-time.ncl >ncl_output_${datetime}.log
 
-           export PlotFile=${plot_file_path}${EXP}"_"${resolution}"_"$timerange
-           export PlotFile=${PlotFile}"_"$varname"_zmta_T"$trunc
-          
-           ncl plot_lat-pz.ncl >ncl_output.log
+         r1=$?
+         r2=`grep -i fatal ncl_output_${datetime}.log` ;  echo "$r2"
+         check_error $r1 "=== Plotting time evolution ($levtype$lev, $stat) using plot_lat-time.ncl"
+         rm ncl_output_${datetime}.log
 
-           r1=$?
-           r2=`grep fatal ncl_output.log` ;  echo "$r2"
-           check_error $r1 "=== Plotting zonal mean using plot_lat-pz.ncl"
-           echo
-        fi
-   fi
-fi
+       done
+       done
+     fi
+   fi #if make_plot -eq 1
 
 #========================================================================
 # Clean up
 #========================================================================
 
-echo
-echo "=== Plots can be found in "${plot_file_path}
-
-if [ $rm_tmp_files -eq 1 ]; then
-
-   rm ${tmp_data_path}/${EXP}_${resolution}*.nc 
-
-   if [ `ls ${tmp_data_path} |wc -l` -eq 0 ]; then
-      rm -rf ${tmp_data_path}
-   fi 
-   echo "=== Temporary data have been removed."
-
-else
-   echo "=== Temporary data can be found in "${tmp_data_path}
+if [ -d $lnkdir ]; then
+   rm -rf $lnkdir
 fi
-
-exit

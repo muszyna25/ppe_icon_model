@@ -75,42 +75,19 @@ exp_config="$Model $horizontal_resolution$vertical_resolution"
 #--------------------------------------------------------------------------
 # 2. Decide what to do
 #--------------------------------------------------------------------------
-# A complete set of the contour plots includes
-#
-#   a. evolution of...
-#   b. time-and-zonal-mean of the user-specified period
-#
-# If you want to have data and/or plot of (a), set the next variable to 1:
-
-#diag_evolution=0
-
-# This script assumes that the output has been split into a series of files. 
-# The first file is named ${EXP}"_RxBxxLxx_0001",the second one "_0002",
-# and so on. Now specify the starting and ending file indices for diagnosis (a)
-# (see above)
-
-#evol_istart=210
-#evol_iend=211
-
-# If you want to have data and/or plot of (b), set the next variable to 1
-#
 diag_climate=1
-
-#clim_istart=$evol_istart
-#clim_iend=$evol_iend
 
 clim_istart=151
 clim_iend=220
 
-
 # If you want to obtain plots, set the next variable to 1 
 make_plot=1
 
-# Top of vertical domain [km] in vertical cross section plots
-export TopHeight=35 
-
 # What format do you want, pdf, eps or ps?
 export plot_file_format="pdf"
+
+# Top of vertical domain [km] in vertical cross section plots
+export TopHeight=35 
 
 # Set the orientation to "landscape" if you explicitly set it so.
 # (No specification means NCL default - "portrait".)
@@ -126,12 +103,12 @@ do_computation=1   # (1=ON,0=OFF)
 # you want a set different from the standard 17 levels (e.g., when you 
 # have the upper atmosphere resolved). Note that unit is Pa, not hPa!
 # Example: 
-#      plevs="100000,50000,10000,5000,1000,100"
+#      plev_clim="100000,50000,10000,5000,1000,100"
 #
-# Setting plevs to null, or not setting the variable at all means choosing
+# Setting plev_clim to null, or not setting the variable at all means choosing
 # the standard 17 levels up to 100 hPa.
 
-plevs=""
+plev_clim=""
 
 # To diagnose the zonal mean circulation, the ICON model output 
 # on the geodesic grid needs to be interpolated to a Gaussian grid. 
@@ -161,11 +138,6 @@ remap_weights_path="${model_data_path}remap_weights/"
 #   "spr0.90" : spring dynamics, with spring coefficient 0.90
 
 grid_optimization="spr0.90"
-
-# Remove these files after finishing the diagnoses? 
-# (1=REMOVE,0=SAVE FOR LATER USE)
-
-rm_tmp_files=0
 
 # Where should the plot files be located? Don't forget the trailing "/".
 
@@ -234,15 +206,20 @@ if [ ! -d ${tmp_data_path} ]; then
    mkdir -p ${tmp_data_path} 
 fi
 
-# Create a directory for soft links. This is used later for 
-# computing the time mean from multiple data files.
 
-lnkdir=${tmp_data_path}${clim_istart}"-"${clim_iend}"_lnk"
-if [ -d $lnkdir ]; then
-   rm -rf $lnkdir
-fi
-mkdir $lnkdir
-flnk=${EXP}_${resolution}
+# Do not process file 0001 of any ICON model unless this is the only file 
+# to process, because the first file contains one more time step 
+# (i.e., the initial conditions) than the other files, thus causes problem
+# for "cdo ensavg".
+
+ case $Model in 
+ "ICOHAM" | "ICONAM")
+   if [[ $clim_istart -eq 1 && $clim_iend -gt 1 ]]; then
+      clim_istart=2
+      echo WARNING: clim_istart reset to 2 !
+   fi
+ ;;
+ esac
 
 #==========================================================================
 # Prepare remappping weights
@@ -282,24 +259,35 @@ fi
 # Zonal mean climate: calculate and plot
 #========================================================================
 
-if [ $diag_climate -eq 1 ]; then
+  timerange=${clim_istart}"-"${clim_iend}
 
-    timerange=${clim_istart}"-"${clim_iend}
+  # Look up the user-specified variable name in a registry in order to
+  # inquire necessary information for data postprocessing and plotting.
+  # The script lookup_variable.ksh returns the entry ID (as variable "ie"), 
+  # all cause exit if the variable is not found in the registry.
 
-    # Look up the user-specified variable name in a registry in order to
-    # inquire necessary information for data postprocessing and plotting.
-    # The script lookup_variable.ksh returns the entry ID (as variable "ie"), 
-    # all cause exit if the variable is not found in the registry.
+  export varname
+  . ./lookup_variable.ksh $varname
 
-    export varname
-    . ./lookup_variable.ksh $varname
+  # Pre-plot data processing
 
-    # Pre-plot data processing
+  if [ $do_computation -eq 1 ]; then
 
-    if [ $do_computation -eq 1 ]; then
+    echo
+    echo "=== Computing statistics for variable $varname ..."
 
-      echo
-      echo "=== Computing statistics for variable $varname ..."
+    if [ ! -a ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc".nc" ]; then
+
+      # Create a directory for soft links. This is used for 
+      # computing time mean from multiple data files.
+      
+      datetime=`date +%F-%H%M%S-%N`
+      lnkdir=${tmp_data_path}"lnk_"$datetime
+      if [ -d $lnkdir ]; then
+         rm -rf $lnkdir
+      fi
+      mkdir $lnkdir
+      flnk=${EXP}_${resolution}
 
       #------------------
       # Select variables 
@@ -377,7 +365,7 @@ EOF
       ;;
       esac
 
-      here=`pwd` ; cd  $lnkdir
+      here=`pwd` ; cd $lnkdir
 
       cdo $silence ensavg \
           ${flnk}"_"[0-9][0-9][0-9][0-9]"_"$varname".nc" \
@@ -392,35 +380,41 @@ EOF
 
       check_error $? "Zonal and time average"
       rm ${ftmp}"_"$timerange"_"$varname"_ensavg.nc"
+
       rm -rf ${lnkdir}
 
-      #----------------------------------------------------------------------------
-      # Interpolate from model levels to pressure levels (hydrostatic models only)
-      #----------------------------------------------------------------------------
-      case $Model in 
-      "ICOHAM" | "ECHAM")
+    fi #if ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc".nc" does not exist
 
-        if [ $varname == "PS" ] || [ $varname == "PHIS" ] ; then
-           echo PS and PHIS - skip ml2pl.
-        else
+    #----------------------------------------------------------------------------
+    # Interpolate from model levels to pressure levels (hydrostatic models only).
+    # This operation is always performed when do_computation=1 because
+    # we can not easily tell from the file name whether the vertical levels
+    # contained in the file are exactly the same as the user's specification.
+    #----------------------------------------------------------------------------
+    case $Model in 
+    "ICOHAM" | "ECHAM")
 
-           cdo $silence merge \
-               ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc".nc" \
-               ${ftmp}"_"$timerange"_"PS"_zmta_T"$trunc".nc"       \
-               ${ftmp}"_"$timerange"_"PHIS"_zmta_T"$trunc".nc"     \
-               ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc"_tmp.nc"
+      if [ $varname == "PS" ] || [ $varname == "PHIS" ] ; then
+         echo - ml2pl skipped for ${varname}.
+      else
 
-           p17std="100000,92500,85000,70000,60000,50000,40000,30000,25000,20000,15000,10000,7000,5000,3000,2000,1000"
-           plevs=${plevs:=$p17std}
-           cdo $silence ml2pl,$plevs \
-               ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc"_tmp.nc" \
-               ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc"_pres.nc"
+         cdo $silence merge \
+             ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc".nc" \
+             ${ftmp}"_"$timerange"_"PS"_zmta_T"$trunc".nc"       \
+             ${ftmp}"_"$timerange"_"PHIS"_zmta_T"$trunc".nc"     \
+             ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc"_tmp.nc"
 
-           rm  ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc"_tmp.nc"
-           check_error $? "Vertical interpolation ($plevs Pa)"
-        fi 
-      ;;
-      esac 
+         p17std="100000,92500,85000,70000,60000,50000,40000,30000,25000,20000,15000,10000,7000,5000,3000,2000,1000"
+         plev_clim=${plev_clim:=$p17std}
+         cdo $silence ml2pl,$plev_clim \
+             ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc"_tmp.nc" \
+             ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc"_pres.nc"
+
+         rm  ${ftmp}"_"$timerange"_"$varname"_zmta_T"$trunc"_tmp.nc"
+         check_error $? "Vertical interpolation ($plev_clim Pa)"
+      fi 
+    ;;
+    esac 
 
    fi # do_computation -eq 1
 
@@ -468,34 +462,11 @@ EOF
            export PlotFile=${plot_file_path}${EXP}"_"${resolution}"_"$timerange
            export PlotFile=${PlotFile}"_"$varname"_zmta_T"$trunc
           
-           ncl plot_lat-pz.ncl >ncl_output.log
+           ncl plot_lat-pz.ncl >ncl_output_${datetime}.log
 
            r1=$?
-           r2=`grep fatal ncl_output.log` ;  echo "$r2"
+           r2=`grep -i fatal ncl_output_${datetime}.log` ;  echo "$r2"
            check_error $r1 "=== Plotting zonal mean using plot_lat-pz.ncl"
-           echo
+           rm ncl_output_${datetime}.log
         fi
    fi
-fi
-
-#========================================================================
-# Clean up
-#========================================================================
-
-echo
-echo "=== Plots can be found in "${plot_file_path}
-
-if [ $rm_tmp_files -eq 1 ]; then
-
-   rm ${tmp_data_path}/${EXP}_${resolution}*.nc 
-
-   if [ `ls ${tmp_data_path} |wc -l` -eq 0 ]; then
-      rm -rf ${tmp_data_path}
-   fi 
-   echo "=== Temporary data have been removed."
-
-else
-   echo "=== Temporary data can be found in "${tmp_data_path}
-fi
-
-exit

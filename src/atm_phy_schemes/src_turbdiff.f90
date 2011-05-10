@@ -203,10 +203,8 @@ USE mo_data_turbdiff, ONLY : &
 !
     b1,           & ! variables for computing the saturation steam pressure
     b2w,          & ! over water (w) and ice (e)
-    b2i,          & !               -- " --
     b3,           & !               -- " --
     b4w,          & !               -- " --
-    b4i,          & !               -- " --
     b234w,        & ! b2w * (b3 - b4w)
     uc1,          & ! variable for computing the rate of cloud cover in 
     uc2,          & ! the unsaturated case
@@ -218,6 +216,7 @@ USE mo_data_turbdiff, ONLY : &
 USE data_turbdiff, ONLY : &
     lsso,         & ! SSO-Scheme is active
     lconv,        &   ! confection scheme is active
+    a_hshr,       & ! factor for horizontal shear production of TKE
 #endif
 #ifdef __ICON__
 USE mo_data_turbdiff, ONLY : &
@@ -259,7 +258,6 @@ USE mo_data_turbdiff, ONLY : &
     d_m=>d_mom,   & ! factor for turbulent momentum dissipation
 !
     c_diff,       & ! factor for turbulent diffusion of TKE
-    a_hshr,       & ! factor for horizontal shear production of TKE
     a_stab,       & ! factor for stability correction of turbulent length scale
 !
     tkhmin,       & ! minimal diffusion coefficients for heat
@@ -353,9 +351,9 @@ REAL (KIND=ireals), PARAMETER :: &
 
 REAL (KIND=ireals) :: &
     z1d2=z1/z2,&
-    z1d3=z1/z3,&
-    z2d3=z2/z3,&
-    z3d2=z3/z2
+    z1d3=z1/z3 !,&
+!    z2d3=z2/z3,&
+!    z3d2=z3/z2
 
 INTEGER (KIND=iintegers) :: &
     istat=0, ilocstat=0
@@ -608,9 +606,12 @@ SUBROUTINE organize_turbdiff (action,iini,lstfnct, dt_var,dt_tke, nprv,ntur,ntim
           ie, je, ke, ke1, kcm, vst, &
           istart, iend, istartu, iendu, istartpar, iendpar, istartv, iendv, &
           jstart, jend, jstartu, jendu, jstartpar, jendpar, jstartv, jendv, &
-          ntstep, &
 !    
-          l_hori, eddlon, eddlat, edadlat, acrlat, &
+          l_hori, &
+#ifdef __COSMO__
+          ntstep, &
+          eddlon, eddlat, edadlat, acrlat, &
+#endif
           hhl, dp0, &
 !    
           fr_land, depth_lk, sai, &
@@ -622,7 +623,11 @@ SUBROUTINE organize_turbdiff (action,iini,lstfnct, dt_var,dt_tke, nprv,ntur,ntim
 !    
           gz0, tcm, tch, tfm, tfh, tfv, &
           tke, tkvm, tkvh, rcld, &
-          edr, tket_sso, tket_hshr, tket_conv, &
+          edr, tket_sso,             &
+#ifdef __COSMO__
+          tket_hshr,&
+#endif
+          tket_conv, &
 !    
           u_tens, v_tens, t_tens, qv_tens, qc_tens, tketens, &
           qvt_diff, ut_sso, vt_sso, &
@@ -719,13 +724,6 @@ INTEGER (KIND=iintegers), INTENT(IN) :: &
     jstartv,   jendv,   & ! start and end index for meridional wind component
     jstartpar, jendpar    ! start and end index including model boundary lines
 
-! Time step indices:
-! -----------------------------------------------------------------------
-
-INTEGER (KIND=iintegers), OPTIONAL, INTENT(IN) :: &
-!
-    ntstep          ! current time step
-
 REAL (KIND=ireals), INTENT(IN) :: &
 !
 ! Constants related to the earth, the coordinate system 
@@ -734,15 +732,25 @@ REAL (KIND=ireals), INTENT(IN) :: &
 !
     l_hori          ! horizontal grid spacing (m)
 
+#ifdef __COSMO__
+! Time step indices:
+! -----------------------------------------------------------------------
+
+INTEGER (KIND=iintegers), OPTIONAL, INTENT(IN) :: &
+!
+    ntstep          ! current time step
+
 REAL (KIND=ireals), OPTIONAL, INTENT(IN) :: &
 !
     eddlon,       & ! 1 / dlon
     eddlat,       & ! 1 / dlat
     edadlat         ! 1 / (r_earth * dlat)
 
+
 REAL (KIND=ireals), DIMENSION(je,2), OPTIONAL, INTENT(IN) :: &
 !
     acrlat          ! 1 / ( crlat * r_earth)
+#endif
 
 REAL (KIND=ireals), DIMENSION(ie,je,ke1), INTENT(IN) :: &
 !
@@ -870,9 +878,13 @@ REAL (KIND=ireals), DIMENSION(ie,je,ke), OPTIONAL, INTENT(IN) :: &
 
 REAL (KIND=ireals), DIMENSION(ie,je,ke), OPTIONAL, INTENT(OUT) :: &
 !
-     tket_sso,     & ! TKE-tendency due to SSO wake production       (m2/s3)
+     tket_sso      ! TKE-tendency due to SSO wake production       (m2/s3)
+
+#ifdef __COSMO__
+REAL (KIND=ireals), DIMENSION(ie,je,ke), OPTIONAL, INTENT(OUT) :: &
      tket_hshr       ! TKE-tendency due to (sep.) horiz. shear       (m2/s3)
- 
+#endif
+
 REAL (KIND=ireals), DIMENSION(ie,je,ke), OPTIONAL, INTENT(OUT) :: &
 !
      qvt_diff        ! qd-tendency due to diffusion                  ( 1/s )
@@ -889,7 +901,7 @@ REAL (KIND=ireals), DIMENSION(ie,je), INTENT(OUT) :: &
      u_10m,        & ! zonal wind in 10m                             ( m/s )
      v_10m           ! meridional wind in 10m                        ( m/s )
 
- REAL (KIND=ireals), DIMENSION(ie,je), OPTIONAL, INTENT(OUT) :: &
+ REAL (KIND=ireals), DIMENSION(ie,je), OPTIONAL, INTENT(INOUT) :: &
 !
      shfl_s,       & ! sensible heat flux at the surface             (W/m2) (positive upward)
      lhfl_s          ! latent   heat flux at the surface             (W/m2) (positive upward)
@@ -1392,7 +1404,9 @@ SUBROUTINE turbtran(dt_tke)
               it_durch        !Durchgangsindex der Iterationen
 
 !     Lokale real Variablen:
-
+#ifdef SCLM
+      REAL (KIND=ireals) ::  teta,qvap
+#endif
       REAL (KIND=ireals) :: &
 !
 !          Hilfsvariablen:
@@ -1403,7 +1417,7 @@ SUBROUTINE turbtran(dt_tke)
 !     Platzh. fuer Temperaturen, Druck, Wasserdampf-Mischungsverhaeltniss und
 !     dessen Ableitung nach der Temperatur:
 !
-           teta,patm,qvap, qsat_dT, &
+          patm, qsat_dT, &
 !
 !     Platzh. fuer relat. Wolkenanteil, virtuellen Faktor und Exner-Faktor:
 !
@@ -1967,8 +1981,6 @@ INTEGER (KIND=iintegers) ::  &
             END DO
             END DO
          END IF   
-
-!print *,"ntstep=",ntstep," it_tran=",it_durch," ntur=",ntur," tke=",tke(im,jm,ke1,ntur)
 
 ! 4g)    Bestimmung der neuen stabilitaetsabh. Laengenskalen:
 
@@ -2757,6 +2769,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 !     3-d Hilfsfelder
 !
            hlp(ie,je,ke1), &
+           zaux_rcld(ie,je,ke1),&
 !
 !     Flusskonversionsmatrix, um von den turb. Flussdichten der 2
 !     scalaren Erhaltungsgroessen (bzgl. feuchtadiab. vert. Verrueck.)
@@ -3082,15 +3095,18 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
       ELSEIF (icldm_turb.EQ.2) THEN
 !        spezielle Diagnose von Wasserwolken:
 
+         zaux_rcld(:,:,:)=0._ireals
+
          CALL turb_cloud (ie, je, ke,ke1,           1,ke, &
               istartpar,iendpar, jstartpar,jendpar, 1,ke, &
               prs, ps, rcld, t, qv, qc,                   &
-              rcld, hlp                                     )
+              zaux_rcld, hlp                                     )
 
          DO k=1,ke
             DO j=jstartpar,jendpar
             DO i=istartpar,iendpar    
-               hlp(i,j,k)=hlp(i,j,k)-qc(i,j,k)
+               hlp(i,j,k) =hlp(i,j,k)-qc(i,j,k)
+               rcld(i,j,k)=zaux_rcld(i,j,k)
             END DO
             END DO
          END DO
@@ -4267,8 +4283,6 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
          IF (it_durch.LT.it_end) THEN
             nvor=ntur !benutze nun aktuelle TKE-Werte als Vorgaengerwerte
          END IF   
-
-!print *,"ntstep=",ntstep," it_diff=",it_durch," ntur=",ntur," tke=",tke(im,jm,ke1,ntur)
 
       END DO !Iterationen ueber it_durch
 
@@ -6097,7 +6111,7 @@ SUBROUTINE stab_funct (sm, sh, fm2, fh2, frc, tvs, tls, i_st,i_en, j_st,j_en)
         j_st, j_en    !start- and end index of horizontal j-loop
 
    REAL (KIND=ireals)          :: &
-        d0, d1, d2, d3, d4 ,d5 ,d6
+         d1, d2, d3, d4 ,d5 ,d6
 
    REAL (KIND=ireals) :: &
         a11, a12, a22, a21, &
@@ -6248,7 +6262,7 @@ REAL (KIND=ireals), OPTIONAL, INTENT(IN) :: & !
 
 ! Array arguments with intent(out):
 
-REAL (KIND=ireals), INTENT(OUT) :: &
+REAL (KIND=ireals), INTENT(INOUT) :: &
   clc (ie,je,kcs:kce),  & ! stratiform subgrid-scale cloud cover
   clwc(ie,je,kcs:kce)     ! liquid water content of ""
 
@@ -6388,7 +6402,6 @@ REAL (KIND=ireals) :: &
 
      ENDDO
      ENDDO
-
   ENDDO
 
 END SUBROUTINE turb_cloud

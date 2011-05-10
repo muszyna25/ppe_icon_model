@@ -1339,7 +1339,7 @@ CONTAINS
       &     pdtdtradsw (kbdim,klev), & ! shortwave temperature tendency           [K/s]
       &     pdtdtradlw (kbdim,klev)    ! longwave temperature tendency            [K/s]
 
-    REAL(wp), INTENT(out), OPTIONAL :: &
+    REAL(wp), INTENT(inout), OPTIONAL :: &
       &     pflxsfcsw (kbdim), &       ! shortwave surface net flux [W/m2]
       &     pflxsfclw (kbdim), &       ! longwave surface net flux [W/m2]
       &     pflxtoasw (kbdim)          ! shortwave toa net flux [W/m2]
