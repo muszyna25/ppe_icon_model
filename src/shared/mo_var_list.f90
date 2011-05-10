@@ -33,14 +33,17 @@ MODULE mo_var_list
   PUBLIC :: get_var                   ! obtain reference to existing list entry
 
   INTERFACE add_var  ! create a new list entry
+    MODULE PROCEDURE add_var_list_element_r5d
     MODULE PROCEDURE add_var_list_element_r4d
     MODULE PROCEDURE add_var_list_element_r3d 
     MODULE PROCEDURE add_var_list_element_r2d 
     MODULE PROCEDURE add_var_list_element_r1d 
+    MODULE PROCEDURE add_var_list_element_i5d
     MODULE PROCEDURE add_var_list_element_i4d
     MODULE PROCEDURE add_var_list_element_i3d 
     MODULE PROCEDURE add_var_list_element_i2d 
     MODULE PROCEDURE add_var_list_element_i1d 
+    MODULE PROCEDURE add_var_list_element_l5d
     MODULE PROCEDURE add_var_list_element_l4d
     MODULE PROCEDURE add_var_list_element_l3d 
     MODULE PROCEDURE add_var_list_element_l2d 
@@ -48,14 +51,17 @@ MODULE mo_var_list
   END INTERFACE add_var
   
   INTERFACE get_var  ! obtain reference to a list entry
+    MODULE PROCEDURE get_var_list_element_r5d
     MODULE PROCEDURE get_var_list_element_r4d
     MODULE PROCEDURE get_var_list_element_r3d
     MODULE PROCEDURE get_var_list_element_r2d
     MODULE PROCEDURE get_var_list_element_r1d
+    MODULE PROCEDURE get_var_list_element_i5d
     MODULE PROCEDURE get_var_list_element_i4d
     MODULE PROCEDURE get_var_list_element_i3d
     MODULE PROCEDURE get_var_list_element_i2d
     MODULE PROCEDURE get_var_list_element_i1d
+    MODULE PROCEDURE get_var_list_element_l5d
     MODULE PROCEDURE get_var_list_element_l4d
     MODULE PROCEDURE get_var_list_element_l3d
     MODULE PROCEDURE get_var_list_element_l2d
@@ -293,7 +299,7 @@ CONTAINS
     this_info%name                = ''
     !
     this_info%cf                  = t_cf_var('', '', '')
-    this_info%grib2               = t_grib2_var(-1, -1, -1, -1, -1, -1)
+    this_info%grib2               = t_grib2_var(-1, -1, -1, -1, -1, -1, -1)
     !
     this_info%allocated           = .FALSE.
     this_info%ndims               = 0
@@ -389,13 +395,104 @@ CONTAINS
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
   ! create (allocate) a new table entry
+  ! optionally obtain pointer to 5d-field
+  ! optionally overwrite default meta data 
+  !
+  SUBROUTINE add_var_list_element_r5d(this_list, name, ptr,    &
+       hgrid, vgrid, cf, grib2, ldims, lpost,           &
+       lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
+       lmiss, missval_r, info, p5, verbose)
+    !
+    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
+    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
+    REAL(dp),             POINTER              :: ptr(:,:,:,:,:)      ! reference to field
+    INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type used
+    INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
+    TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
+    TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
+    INTEGER,              INTENT(in), OPTIONAL :: ldims(5)            ! local dimensions
+    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
+    REAL(dp),             INTENT(in), OPTIONAL :: initval_r           ! value if var not available
+    LOGICAL,              INTENT(in), OPTIONAL :: laccu               ! accumulation flag
+    REAL(dp),             INTENT(in), OPTIONAL :: resetval_r          ! reset value (after accumulation)
+    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
+    REAL(dp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
+    TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
+    REAL(dp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
+    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
+    !
+    TYPE(t_list_element), POINTER :: new_list_element
+    TYPE(t_union_vals) :: missval, initval, resetval
+    INTEGER :: idims(5)
+    INTEGER :: istat
+    LOGICAL :: referenced
+    !
+    ! add list entry
+     !
+    CALL append_list_element (this_list, new_list_element)
+    new_list_element%field%info = default_var_list_metadata(this_list)
+    !
+    ! and set meta data
+    !
+    IF (PRESENT(p5)) THEN
+      referenced = .TRUE.
+      new_list_element%field%info%allocated = .TRUE.
+    ELSE
+      referenced = .FALSE.
+    ENDIF
+    !
+    CALL assign_if_present(missval%rval, missval_r)
+    CALL assign_if_present(initval%rval, initval_r)
+    CALL assign_if_present(resetval%rval, resetval_r)
+    CALL set_var_metadata (new_list_element%field%info,                   &
+         name=name, hgrid=hgrid, vgrid=vgrid,                             & 
+         cf=cf, grib2=grib2, ldims=ldims, lpost=lpost,                    &
+         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
+         laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
+         verbose=verbose)
+    !
+    IF (.NOT. referenced) THEN
+      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:5), ldims(1:5))
+      idims(1) = new_list_element%field%info%used_dimensions(1)
+      idims(2) = new_list_element%field%info%used_dimensions(2)
+      idims(3) = new_list_element%field%info%used_dimensions(3)
+      idims(4) = new_list_element%field%info%used_dimensions(4)
+      idims(5) = new_list_element%field%info%used_dimensions(5)
+      new_list_element%field%info%ndims = 5
+      new_list_element%field%var_base_size = 8
+      ALLOCATE(new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+      IF (istat /= 0) THEN
+        CALL finish('mo_var_list:add_var_list_element_r5d','allocation of array '//TRIM(name)//' failed')
+      ELSE
+        new_list_element%field%info%allocated = .TRUE.
+      ENDIF
+      NULLIFY(new_list_element%field%i_ptr)
+      NULLIFY(new_list_element%field%l_ptr)
+      this_list%memory_used = this_list%memory_used+8*SIZE(new_list_element%field%r_ptr)
+    ELSE
+      new_list_element%field%r_ptr => p5
+    ENDIF
+    ptr => new_list_element%field%r_ptr(:,:,:,:,:)
+    IF(PRESENT(info)) info => new_list_element%field%info
+    !
+    IF (PRESENT(lmiss)) THEN
+      new_list_element%field%r_ptr = new_list_element%field%info%missval%rval
+    ELSE
+      new_list_element%field%r_ptr = 0.0_dp
+    END IF
+    !
+  END SUBROUTINE add_var_list_element_r5d
+  !------------------------------------------------------------------------------------------------
+  ! create (allocate) a new table entry
   ! optionally obtain pointer to 4d-field
   ! optionally overwrite default meta data 
   !
   SUBROUTINE add_var_list_element_r4d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, lpost,           &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
-       lmiss, missval_r, info, p4, verbose)
+       lmiss, missval_r, info, p5, verbose)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -414,12 +511,12 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     REAL(dp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    REAL(dp),             POINTER,    OPTIONAL :: p4(:,:,:,:)         ! provided pointer
+    REAL(dp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(4)
+    INTEGER :: idims(5)
     INTEGER :: istat
     LOGICAL :: referenced
     !
@@ -430,7 +527,7 @@ CONTAINS
     !
     ! and set meta data
     !
-    IF (PRESENT(p4)) THEN
+    IF (PRESENT(p5)) THEN
       referenced = .TRUE.
       new_list_element%field%info%allocated = .TRUE.
     ELSE
@@ -453,9 +550,10 @@ CONTAINS
       idims(2) = new_list_element%field%info%used_dimensions(2)
       idims(3) = new_list_element%field%info%used_dimensions(3)
       idims(4) = new_list_element%field%info%used_dimensions(4)
+      idims(5) = 1
       new_list_element%field%info%ndims = 4
       new_list_element%field%var_base_size = 8
-      ALLOCATE(new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
+      ALLOCATE(new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
         CALL finish('mo_var_list:add_var_list_element_r4d',      &
                    &'allocation of array '//TRIM(name)//' failed')
@@ -466,9 +564,9 @@ CONTAINS
       NULLIFY(new_list_element%field%l_ptr)
       this_list%memory_used = this_list%memory_used+8*SIZE(new_list_element%field%r_ptr)
     ELSE
-      new_list_element%field%r_ptr => p4
+      new_list_element%field%r_ptr => p5
     ENDIF
-    ptr => new_list_element%field%r_ptr(:,:,:,:)
+    ptr => new_list_element%field%r_ptr(:,:,:,:,1)
     IF(PRESENT(info)) info => new_list_element%field%info
     !
     IF (PRESENT(lmiss)) THEN
@@ -487,7 +585,7 @@ CONTAINS
   SUBROUTINE add_var_list_element_r3d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, lpost,           &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
-       lmiss, missval_r, info, p4, verbose)
+       lmiss, missval_r, info, p5, verbose)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -502,16 +600,16 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
     REAL(dp),             INTENT(in), OPTIONAL :: initval_r           ! value if var not available
     LOGICAL,              INTENT(in), OPTIONAL :: laccu               ! accumulation flag
-    REAL(dp),             INTENT(in), OPTIONAL :: resetval_r            ! reset value (after accumulation)
+    REAL(dp),             INTENT(in), OPTIONAL :: resetval_r          ! reset value (after accumulation)
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
-    REAL(dp),             INTENT(in), OPTIONAL :: missval_r             ! missing value
+    REAL(dp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    REAL(dp),             POINTER,    OPTIONAL :: p4(:,:,:,:)         ! provided pointer
+    REAL(dp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(4)
+    INTEGER :: idims(5)
     INTEGER :: istat
     LOGICAL :: referenced
     !
@@ -522,7 +620,7 @@ CONTAINS
     !
     ! and set meta data
     !
-    IF (PRESENT(p4)) THEN
+    IF (PRESENT(p5)) THEN
       referenced = .TRUE.
       new_list_element%field%info%allocated = .TRUE.
     ELSE
@@ -545,9 +643,10 @@ CONTAINS
       idims(2) = new_list_element%field%info%used_dimensions(2)
       idims(3) = new_list_element%field%info%used_dimensions(3)
       idims(4) = 1
+      idims(5) = 1
       new_list_element%field%info%ndims = 3
       new_list_element%field%var_base_size = 8
-      ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
+      ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
         CALL finish('mo_var_list:add_var_list_element_r3d',      &
                    &'allocation of array '//TRIM(name)//' failed')
@@ -558,9 +657,9 @@ CONTAINS
       NULLIFY(new_list_element%field%l_ptr)
       this_list%memory_used = this_list%memory_used+8*SIZE(new_list_element%field%r_ptr)
     ELSE
-      new_list_element%field%r_ptr => p4
+      new_list_element%field%r_ptr => p5
     ENDIF
-    ptr => new_list_element%field%r_ptr(:,:,:,1)
+    ptr => new_list_element%field%r_ptr(:,:,:,1,1)
     IF(PRESENT(info)) info => new_list_element%field%info
     !
     IF (PRESENT(lmiss)) THEN
@@ -579,7 +678,7 @@ CONTAINS
   SUBROUTINE add_var_list_element_r2d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, lpost,           &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
-       lmiss, missval_r, info, p4, verbose)
+       lmiss, missval_r, info, p5, verbose)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -598,12 +697,12 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     REAL(dp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    REAL(dp),             POINTER,    OPTIONAL :: p4(:,:,:,:)         ! provided pointer
+    REAL(dp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(4)
+    INTEGER :: idims(5)
     INTEGER :: istat
     LOGICAL :: referenced
     !
@@ -614,7 +713,7 @@ CONTAINS
     !
     ! and set meta data
     !
-    IF (PRESENT(p4)) THEN
+    IF (PRESENT(p5)) THEN
       referenced = .TRUE.
       new_list_element%field%info%allocated = .TRUE.
     ELSE
@@ -637,9 +736,10 @@ CONTAINS
       idims(2) = new_list_element%field%info%used_dimensions(2)
       idims(3) = 1
       idims(4) = 1
+      idims(5) = 1
       new_list_element%field%info%ndims = 2
       new_list_element%field%var_base_size = 8
-      ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
+      ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
         CALL finish('mo_var_list:add_var_list_element_r2d',      &
                    &'allocation of array '//TRIM(name)//' failed')
@@ -650,9 +750,9 @@ CONTAINS
       NULLIFY(new_list_element%field%l_ptr)
       this_list%memory_used = this_list%memory_used+8*SIZE(new_list_element%field%r_ptr)
     ELSE
-      new_list_element%field%r_ptr => p4
+      new_list_element%field%r_ptr => p5
     ENDIF
-    ptr => new_list_element%field%r_ptr(:,:,1,1)
+    ptr => new_list_element%field%r_ptr(:,:,1,1,1)
     IF(PRESENT(info)) info => new_list_element%field%info
     !
     IF (PRESENT(lmiss)) THEN
@@ -671,7 +771,7 @@ CONTAINS
   SUBROUTINE add_var_list_element_r1d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, lpost,           &
        lrestart, lrestart_cont, initval_r, laccu, resetval_r,  &
-       lmiss, missval_r, info, p4, verbose)
+       lmiss, missval_r, info, p5, verbose)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -690,12 +790,12 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     REAL(dp),             INTENT(in), OPTIONAL :: missval_r           ! missing value
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    REAL(dp),             POINTER,    OPTIONAL :: p4(:,:,:,:)         ! provided pointer
+    REAL(dp),             POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(4)
+    INTEGER :: idims(5)
     INTEGER :: istat
     LOGICAL :: referenced
     !
@@ -706,7 +806,7 @@ CONTAINS
     !
     ! and set meta data
     !
-    IF (PRESENT(p4)) THEN
+    IF (PRESENT(p5)) THEN
       referenced = .TRUE.
       new_list_element%field%info%allocated = .TRUE.
     ELSE
@@ -729,9 +829,10 @@ CONTAINS
       idims(2) = 1
       idims(3) = 1
       idims(4) = 1
+      idims(5) = 1
       new_list_element%field%info%ndims = 1
       new_list_element%field%var_base_size = 8
-      ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
+      ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
         CALL finish('mo_var_list:add_var_list_element_r1d',      &
                    &'allocation of array '//TRIM(name)//' failed')
@@ -742,9 +843,9 @@ CONTAINS
       NULLIFY(new_list_element%field%l_ptr)
       this_list%memory_used = this_list%memory_used+8*SIZE(new_list_element%field%r_ptr)
     ELSE
-      new_list_element%field%r_ptr => p4
+      new_list_element%field%r_ptr => p5
     ENDIF
-    ptr => new_list_element%field%r_ptr(:,1,1,1)
+    ptr => new_list_element%field%r_ptr(:,1,1,1,1)
     IF(PRESENT(info)) info => new_list_element%field%info
     !
     IF (PRESENT(lmiss)) THEN
@@ -762,10 +863,102 @@ CONTAINS
   ! optionally obtain pointer to 4d-field
   ! optionally overwrite default meta data 
   !
+  SUBROUTINE add_var_list_element_i5d(this_list, name, ptr,    &
+       hgrid, vgrid, cf, grib2, ldims, lpost,           &
+       lrestart, lrestart_cont, initval_i, laccu, resetval_i,  &
+       lmiss, missval_i, info, p5, verbose)
+    !
+    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
+    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
+    INTEGER,              POINTER              :: ptr(:,:,:,:,:)      ! reference to field
+    INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type used
+    INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
+    TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
+    TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
+    INTEGER,              INTENT(in), OPTIONAL :: ldims(5)            ! local dimensions
+    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
+    INTEGER,              INTENT(in), OPTIONAL :: initval_i           ! value if var not available
+    LOGICAL,              INTENT(in), OPTIONAL :: laccu               ! accumulation flag
+    INTEGER,              INTENT(in), OPTIONAL :: resetval_i          ! reset value (after accumulation)
+    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
+    INTEGER,              INTENT(in), OPTIONAL :: missval_i           ! missing value
+    TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
+    INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
+    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
+    !
+    TYPE(t_list_element), POINTER :: new_list_element
+    TYPE(t_union_vals) :: missval, initval, resetval
+    INTEGER :: idims(5)
+    INTEGER :: istat
+    LOGICAL :: referenced
+    !
+    ! add list entry
+    !
+    CALL append_list_element (this_list, new_list_element)
+    new_list_element%field%info = default_var_list_metadata(this_list)
+    !
+    ! and set meta data
+    !
+    IF (PRESENT(p5)) THEN
+      referenced = .TRUE.
+      new_list_element%field%info%allocated = .TRUE.
+    ELSE
+      referenced = .FALSE.
+    ENDIF
+    !
+    CALL assign_if_present(missval%ival, missval_i)
+    CALL assign_if_present(initval%ival, initval_i)
+    CALL assign_if_present(resetval%ival, resetval_i)
+    CALL set_var_metadata (new_list_element%field%info,                   &
+         name=name, hgrid=hgrid, vgrid=vgrid,                             & 
+         cf=cf, grib2=grib2, ldims=ldims, lpost=lpost,                    &
+         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
+         laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
+         verbose=verbose)
+    !
+    IF (.NOT. referenced) THEN
+      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:5), ldims(1:5))
+      idims(1) = new_list_element%field%info%used_dimensions(1)
+      idims(2) = new_list_element%field%info%used_dimensions(2)
+      idims(3) = new_list_element%field%info%used_dimensions(3)
+      idims(4) = new_list_element%field%info%used_dimensions(4)
+      idims(5) = new_list_element%field%info%used_dimensions(5)
+      new_list_element%field%info%ndims = 5
+      new_list_element%field%var_base_size = 4
+      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+      IF (istat /= 0) THEN
+        CALL finish('mo_var_list:add_var_list_element_i4d','allocation of array '//TRIM(name)//' failed')
+      ELSE
+        new_list_element%field%info%allocated = .TRUE.
+      ENDIF
+      NULLIFY(new_list_element%field%r_ptr)
+      NULLIFY(new_list_element%field%l_ptr)
+      this_list%memory_used = this_list%memory_used+4*SIZE(new_list_element%field%i_ptr)
+    ELSE
+      new_list_element%field%i_ptr => p5
+    ENDIF
+    ptr => new_list_element%field%i_ptr(:,:,:,:,:)
+    IF(PRESENT(info)) info => new_list_element%field%info
+    !
+    IF (PRESENT(lmiss)) THEN
+      new_list_element%field%i_ptr = new_list_element%field%info%missval%ival
+    ELSE
+      new_list_element%field%i_ptr = 0
+    END IF
+    !
+  END SUBROUTINE add_var_list_element_i5d
+  !------------------------------------------------------------------------------------------------
+  !
+  ! create (allocate) a new table entry
+  ! optionally obtain pointer to 4d-field
+  ! optionally overwrite default meta data 
+  !
   SUBROUTINE add_var_list_element_i4d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, lpost,           &
        lrestart, lrestart_cont, initval_i, laccu, resetval_i,  &
-       lmiss, missval_i, info, p4, verbose)
+       lmiss, missval_i, info, p5, verbose)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -784,12 +977,12 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     INTEGER,              INTENT(in), OPTIONAL :: missval_i           ! missing value
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    INTEGER,              POINTER,    OPTIONAL :: p4(:,:,:,:)         ! provided pointer
+    INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(4)
+    INTEGER :: idims(5)
     INTEGER :: istat
     LOGICAL :: referenced
     !
@@ -800,7 +993,7 @@ CONTAINS
     !
     ! and set meta data
     !
-    IF (PRESENT(p4)) THEN
+    IF (PRESENT(p5)) THEN
       referenced = .TRUE.
       new_list_element%field%info%allocated = .TRUE.
     ELSE
@@ -823,9 +1016,10 @@ CONTAINS
       idims(2) = new_list_element%field%info%used_dimensions(2)
       idims(3) = new_list_element%field%info%used_dimensions(3)
       idims(4) = new_list_element%field%info%used_dimensions(4)
+      idims(5) = 1
       new_list_element%field%info%ndims = 4
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
+      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
         CALL finish('mo_var_list:add_var_list_element_i4d',      &
                    &'allocation of array '//TRIM(name)//' failed')
@@ -836,9 +1030,9 @@ CONTAINS
       NULLIFY(new_list_element%field%l_ptr)
       this_list%memory_used = this_list%memory_used+4*SIZE(new_list_element%field%i_ptr)
     ELSE
-      new_list_element%field%i_ptr => p4
+      new_list_element%field%i_ptr => p5
     ENDIF
-    ptr => new_list_element%field%i_ptr(:,:,:,:)
+    ptr => new_list_element%field%i_ptr(:,:,:,:,1)
     IF(PRESENT(info)) info => new_list_element%field%info
     !
     IF (PRESENT(lmiss)) THEN
@@ -857,7 +1051,7 @@ CONTAINS
   SUBROUTINE add_var_list_element_i3d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, lpost,           &
        lrestart, lrestart_cont, initval_i, laccu, resetval_i,  &
-       lmiss, missval_i, info, p4, verbose)
+       lmiss, missval_i, info, p5, verbose)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -876,12 +1070,12 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     INTEGER,              INTENT(in), OPTIONAL :: missval_i           ! missing value
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    INTEGER,              POINTER,    OPTIONAL :: p4(:,:,:,:)         ! provided pointer
+    INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(4)
+    INTEGER :: idims(5)
     INTEGER :: istat
     LOGICAL :: referenced
     !
@@ -892,7 +1086,7 @@ CONTAINS
     !
     ! and set meta data
     !
-    IF (PRESENT(p4)) THEN
+    IF (PRESENT(p5)) THEN
       referenced = .TRUE.
       new_list_element%field%info%allocated = .TRUE.
     ELSE
@@ -915,9 +1109,10 @@ CONTAINS
       idims(2) = new_list_element%field%info%used_dimensions(2)
       idims(3) = new_list_element%field%info%used_dimensions(3)
       idims(4) = 1
+      idims(5) = 1
       new_list_element%field%info%ndims = 3
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
+      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
         CALL finish('mo_var_list:add_var_list_element_r3d',      &
                    &'allocation of array '//TRIM(name)//' failed')
@@ -928,9 +1123,9 @@ CONTAINS
       NULLIFY(new_list_element%field%l_ptr)
       this_list%memory_used = this_list%memory_used+4*SIZE(new_list_element%field%i_ptr)
     ELSE
-      new_list_element%field%i_ptr => p4
+      new_list_element%field%i_ptr => p5
     ENDIF
-    ptr => new_list_element%field%i_ptr(:,:,:,1)
+    ptr => new_list_element%field%i_ptr(:,:,:,1,1)
     IF(PRESENT(info)) info => new_list_element%field%info
     !
     IF (PRESENT(lmiss)) THEN
@@ -949,7 +1144,7 @@ CONTAINS
   SUBROUTINE add_var_list_element_i2d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, lpost,           &
        lrestart, lrestart_cont, initval_i, laccu, resetval_i,  &
-       lmiss, missval_i, info, p4, verbose)
+       lmiss, missval_i, info, p5, verbose)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -968,12 +1163,12 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     INTEGER,              INTENT(in), OPTIONAL :: missval_i           ! missing value
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    INTEGER,              POINTER,    OPTIONAL :: p4(:,:,:,:)         ! provided pointer
+    INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(4)
+    INTEGER :: idims(5)
     INTEGER :: istat
     LOGICAL :: referenced
     !
@@ -984,7 +1179,7 @@ CONTAINS
     !
     ! and set meta data
     !
-    IF (PRESENT(p4)) THEN
+    IF (PRESENT(p5)) THEN
       referenced = .TRUE.
       new_list_element%field%info%allocated = .TRUE.
     ELSE
@@ -1007,9 +1202,10 @@ CONTAINS
       idims(2) = new_list_element%field%info%used_dimensions(2)
       idims(3) = 1
       idims(4) = 1
+      idims(5) = 1
       new_list_element%field%info%ndims = 2
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
+      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
         CALL finish('mo_var_list:add_var_list_element_r2d',      &
                    &'allocation of array '//TRIM(name)//' failed')
@@ -1020,9 +1216,9 @@ CONTAINS
       NULLIFY(new_list_element%field%l_ptr)
       this_list%memory_used = this_list%memory_used+4*SIZE(new_list_element%field%i_ptr)
     ELSE
-      new_list_element%field%i_ptr => p4
+      new_list_element%field%i_ptr => p5
     ENDIF
-    ptr => new_list_element%field%i_ptr(:,:,1,1)
+    ptr => new_list_element%field%i_ptr(:,:,1,1,1)
     IF(PRESENT(info)) info => new_list_element%field%info
     !
     IF (PRESENT(lmiss)) THEN
@@ -1041,7 +1237,7 @@ CONTAINS
   SUBROUTINE add_var_list_element_i1d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, lpost,           &
        lrestart, lrestart_cont, initval_i, laccu, resetval_i,  &
-       lmiss, missval_i, info, p4, verbose)
+       lmiss, missval_i, info, p5, verbose)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1060,12 +1256,12 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     INTEGER,              INTENT(in), OPTIONAL :: missval_i           ! missing value
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    INTEGER,              POINTER,    OPTIONAL :: p4(:,:,:,:)         ! provided pointer
+    INTEGER,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(4)
+    INTEGER :: idims(5)
     INTEGER :: istat
     LOGICAL :: referenced
     !
@@ -1076,7 +1272,7 @@ CONTAINS
     !
     ! and set meta data
     !
-    IF (PRESENT(p4)) THEN
+    IF (PRESENT(p5)) THEN
       referenced = .TRUE.
       new_list_element%field%info%allocated = .TRUE.
     ELSE
@@ -1099,9 +1295,10 @@ CONTAINS
       idims(2) = 1
       idims(3) = 1
       idims(4) = 1
+      idims(5) = 1
       new_list_element%field%info%ndims = 1
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
+      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
         CALL finish('mo_var_list:add_var_list_element_r1d',      &
                    &'allocation of array '//TRIM(name)//' failed')
@@ -1112,9 +1309,9 @@ CONTAINS
       NULLIFY(new_list_element%field%l_ptr)
       this_list%memory_used = this_list%memory_used+4*SIZE(new_list_element%field%i_ptr)
     ELSE
-      new_list_element%field%i_ptr => p4
+      new_list_element%field%i_ptr => p5
     ENDIF
-    ptr => new_list_element%field%i_ptr(:,1,1,1)
+    ptr => new_list_element%field%i_ptr(:,1,1,1,1)
     IF(PRESENT(info)) info => new_list_element%field%info
     !
     IF (PRESENT(lmiss)) THEN
@@ -1132,19 +1329,19 @@ CONTAINS
   ! optionally obtain pointer to 4d-field
   ! optionally overwrite default meta data 
   !
-  SUBROUTINE add_var_list_element_l4d(this_list, name, ptr,    &
+  SUBROUTINE add_var_list_element_l5d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, lpost,           &
        lrestart, lrestart_cont, initval_l, laccu, resetval_l,  &
-       lmiss, missval_l, info, p4, verbose)
+       lmiss, missval_l, info, p5, verbose)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
-    LOGICAL,              POINTER              :: ptr(:,:,:,:)        ! reference to field
+    LOGICAL,              POINTER              :: ptr(:,:,:,:,:)      ! reference to field
     INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type used
     INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
     TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
     TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
-    INTEGER,              INTENT(in), OPTIONAL :: ldims(4)            ! local dimensions
+    INTEGER,              INTENT(in), OPTIONAL :: ldims(5)            ! local dimensions
     LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
     LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
@@ -1154,12 +1351,12 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     LOGICAL,              INTENT(in), OPTIONAL :: missval_l           ! missing value
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    LOGICAL,              POINTER,    OPTIONAL :: p4(:,:,:,:)         ! provided pointer
+    LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(4)
+    INTEGER :: idims(5)
     INTEGER :: istat
     LOGICAL :: referenced
     !
@@ -1170,7 +1367,7 @@ CONTAINS
     !
     ! and set meta data
     !
-    IF (PRESENT(p4)) THEN
+    IF (PRESENT(p5)) THEN
       referenced = .TRUE.
       new_list_element%field%info%allocated = .TRUE.
     ELSE
@@ -1193,9 +1390,102 @@ CONTAINS
       idims(2) = new_list_element%field%info%used_dimensions(2)
       idims(3) = new_list_element%field%info%used_dimensions(3)
       idims(4) = new_list_element%field%info%used_dimensions(4)
+      idims(5) = new_list_element%field%info%used_dimensions(5)
+      new_list_element%field%info%ndims = 5
+      new_list_element%field%var_base_size = 4
+      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
+      IF (istat /= 0) THEN
+        CALL finish('mo_var_list:add_var_list_element_r4d','allocation of array '//TRIM(name)//' failed')
+      ELSE
+        new_list_element%field%info%allocated = .TRUE.
+      ENDIF
+      NULLIFY(new_list_element%field%r_ptr)
+      NULLIFY(new_list_element%field%i_ptr)      
+      this_list%memory_used = this_list%memory_used+4*SIZE(new_list_element%field%l_ptr)
+    ELSE
+      new_list_element%field%l_ptr => p5
+    ENDIF
+    ptr => new_list_element%field%l_ptr(:,:,:,:,:)
+    IF(PRESENT(info)) info => new_list_element%field%info
+    !
+    IF (PRESENT(lmiss)) THEN
+      new_list_element%field%l_ptr = new_list_element%field%info%missval%lval
+    ELSE
+      new_list_element%field%l_ptr = .FALSE.
+    END IF
+    !
+  END SUBROUTINE add_var_list_element_l5d
+  !------------------------------------------------------------------------------------------------
+  !
+  ! create (allocate) a new table entry
+  ! optionally obtain pointer to 4d-field
+  ! optionally overwrite default meta data 
+  !
+  SUBROUTINE add_var_list_element_l4d(this_list, name, ptr,    &
+       hgrid, vgrid, cf, grib2, ldims, lpost,           &
+       lrestart, lrestart_cont, initval_l, laccu, resetval_l,  &
+       lmiss, missval_l, info, p5, verbose)
+    !
+    TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
+    CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
+    LOGICAL,              POINTER              :: ptr(:,:,:,:)        ! reference to field
+    INTEGER,              INTENT(in)           :: hgrid               ! horizontal grid type used
+    INTEGER,              INTENT(in)           :: vgrid               ! vertical grid type used
+    TYPE(t_cf_var),       INTENT(in)           :: cf                  ! CF related metadata
+    TYPE(t_grib2_var),    INTENT(in)           :: grib2               ! GRIB2 related metadata
+    INTEGER,              INTENT(in), OPTIONAL :: ldims(4)            ! local dimensions
+    LOGICAL,              INTENT(in), OPTIONAL :: lpost               ! output flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart            ! restart flag
+    LOGICAL,              INTENT(in), OPTIONAL :: lrestart_cont       ! continue restart if var not available
+    LOGICAL,              INTENT(in), OPTIONAL :: initval_l           ! value if var not available
+    LOGICAL,              INTENT(in), OPTIONAL :: laccu               ! accumulation flag
+    LOGICAL,              INTENT(in), OPTIONAL :: resetval_l          ! reset value (after accumulation)
+    LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
+    LOGICAL,              INTENT(in), OPTIONAL :: missval_l           ! missing value
+    TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
+    LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
+    LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
+    !
+    TYPE(t_list_element), POINTER :: new_list_element
+    TYPE(t_union_vals) :: missval, initval, resetval
+    INTEGER :: idims(5)
+    INTEGER :: istat
+    LOGICAL :: referenced
+    !
+    ! add list entry
+    !
+    CALL append_list_element (this_list, new_list_element)
+    new_list_element%field%info = default_var_list_metadata(this_list)
+    !
+    ! and set meta data
+    !
+    IF (PRESENT(p5)) THEN
+      referenced = .TRUE.
+      new_list_element%field%info%allocated = .TRUE.
+    ELSE
+      referenced = .FALSE.
+    ENDIF
+    !
+    CALL assign_if_present(missval%lval, missval_l)
+    CALL assign_if_present(initval%lval, initval_l)
+    CALL assign_if_present(resetval%lval, resetval_l)
+    CALL set_var_metadata (new_list_element%field%info,                   &
+         name=name, hgrid=hgrid, vgrid=vgrid,                             & 
+         cf=cf, grib2=grib2, ldims=ldims, lpost=lpost,                    &
+         lrestart=lrestart, lrestart_cont=lrestart_cont, initval=initval, &
+         laccu=laccu, resetval=resetval, lmiss=lmiss, missval=missval,    & 
+         verbose=verbose)
+    !
+    IF (.NOT. referenced) THEN
+      CALL assign_if_present(new_list_element%field%info%used_dimensions(1:4), ldims(1:4))
+      idims(1) = new_list_element%field%info%used_dimensions(1)
+      idims(2) = new_list_element%field%info%used_dimensions(2)
+      idims(3) = new_list_element%field%info%used_dimensions(3)
+      idims(4) = new_list_element%field%info%used_dimensions(4)
+      idims(5) = 1
       new_list_element%field%info%ndims = 4
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
+      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
         CALL finish('mo_var_list:add_var_list_element_r4d',      &
                    &'allocation of array '//TRIM(name)//' failed')
@@ -1206,9 +1496,9 @@ CONTAINS
       NULLIFY(new_list_element%field%i_ptr)      
       this_list%memory_used = this_list%memory_used+4*SIZE(new_list_element%field%l_ptr)
     ELSE
-      new_list_element%field%l_ptr => p4
+      new_list_element%field%l_ptr => p5
     ENDIF
-    ptr => new_list_element%field%l_ptr(:,:,:,:)
+    ptr => new_list_element%field%l_ptr(:,:,:,:,1)
     IF(PRESENT(info)) info => new_list_element%field%info
     !
     IF (PRESENT(lmiss)) THEN
@@ -1227,7 +1517,7 @@ CONTAINS
   SUBROUTINE add_var_list_element_l3d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, lpost,           &
        lrestart, lrestart_cont, initval_l, laccu, resetval_l,  &
-       lmiss, missval_l, info, p4, verbose)
+       lmiss, missval_l, info, p5, verbose)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1246,12 +1536,12 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     LOGICAL,              INTENT(in), OPTIONAL :: missval_l           ! missing value
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    LOGICAL,              POINTER,    OPTIONAL :: p4(:,:,:,:)         ! provided pointer
+    LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(4)
+    INTEGER :: idims(5)
     INTEGER :: istat
     LOGICAL :: referenced
     !
@@ -1262,7 +1552,7 @@ CONTAINS
     !
     ! and set meta data
     !
-    IF (PRESENT(p4)) THEN
+    IF (PRESENT(p5)) THEN
       referenced = .TRUE.
       new_list_element%field%info%allocated = .TRUE.
     ELSE
@@ -1285,9 +1575,10 @@ CONTAINS
       idims(2) = new_list_element%field%info%used_dimensions(2)
       idims(3) = new_list_element%field%info%used_dimensions(3)
       idims(4) = 1
+      idims(5) = 1
       new_list_element%field%info%ndims = 3
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
+      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
         CALL finish('mo_var_list:add_var_list_element_r3d',      &
                    &'allocation of array '//TRIM(name)//' failed')
@@ -1298,9 +1589,9 @@ CONTAINS
       NULLIFY(new_list_element%field%i_ptr)      
       this_list%memory_used = this_list%memory_used+4*SIZE(new_list_element%field%l_ptr)
     ELSE
-      new_list_element%field%l_ptr => p4
+      new_list_element%field%l_ptr => p5
     ENDIF
-    ptr => new_list_element%field%l_ptr(:,:,:,1)
+    ptr => new_list_element%field%l_ptr(:,:,:,1,1)
     IF(PRESENT(info)) info => new_list_element%field%info
     !
     IF (PRESENT(lmiss)) THEN
@@ -1319,7 +1610,7 @@ CONTAINS
   SUBROUTINE add_var_list_element_l2d(this_list, name, ptr, &
        hgrid, vgrid, cf, grib2, ldims, lpost,       &
        lrestart, lrestart_cont, initval_l, laccu, resetval_l,  &
-       lmiss, missval_l, info, p4, verbose)
+       lmiss, missval_l, info, p5, verbose)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1338,12 +1629,12 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     LOGICAL,              INTENT(in), OPTIONAL :: missval_l           ! missing value
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    LOGICAL,              POINTER,    OPTIONAL :: p4(:,:,:,:)         ! provided pointer
+    LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(4)
+    INTEGER :: idims(5)
     INTEGER :: istat
     LOGICAL :: referenced
     !
@@ -1354,7 +1645,7 @@ CONTAINS
     !
     ! and set meta data
     !
-    IF (PRESENT(p4)) THEN
+    IF (PRESENT(p5)) THEN
       referenced = .TRUE.
       new_list_element%field%info%allocated = .TRUE.
     ELSE
@@ -1377,9 +1668,10 @@ CONTAINS
       idims(2) = new_list_element%field%info%used_dimensions(2)
       idims(3) = 1
       idims(4) = 1
+      idims(5) = 1
       new_list_element%field%info%ndims = 2
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
+      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
         CALL finish('mo_var_list:add_var_list_element_r2d',      &
                    &'allocation of array '//TRIM(name)//' failed')
@@ -1390,9 +1682,9 @@ CONTAINS
       NULLIFY(new_list_element%field%i_ptr)      
       this_list%memory_used = this_list%memory_used+4*SIZE(new_list_element%field%l_ptr)
     ELSE
-      new_list_element%field%l_ptr => p4
+      new_list_element%field%l_ptr => p5
     ENDIF
-    ptr => new_list_element%field%l_ptr(:,:,1,1)
+    ptr => new_list_element%field%l_ptr(:,:,1,1,1)
     IF(PRESENT(info)) info => new_list_element%field%info
     !
     IF (PRESENT(lmiss)) THEN
@@ -1411,7 +1703,7 @@ CONTAINS
   SUBROUTINE add_var_list_element_l1d(this_list, name, ptr,    &
        hgrid, vgrid, cf, grib2, ldims, lpost,           &
        lrestart, lrestart_cont, initval_l, laccu, resetval_l,  &
-       lmiss, missval_l, info, p4, verbose)
+       lmiss, missval_l, info, p5, verbose)
     !
     TYPE(t_var_list),     INTENT(inout)        :: this_list           ! list
     CHARACTER(len=*),     INTENT(in)           :: name                ! name of variable
@@ -1430,12 +1722,12 @@ CONTAINS
     LOGICAL,              INTENT(in), OPTIONAL :: lmiss               ! missing value flag
     LOGICAL,              INTENT(in), OPTIONAL :: missval_l           ! missing value
     TYPE(t_var_metadata), POINTER,    OPTIONAL :: info                ! returns reference to metadata
-    LOGICAL,              POINTER,    OPTIONAL :: p4(:,:,:,:)         ! provided pointer
+    LOGICAL,              POINTER,    OPTIONAL :: p5(:,:,:,:,:)       ! provided pointer
     LOGICAL,              INTENT(in), OPTIONAL :: verbose             ! print information
     !
     TYPE(t_list_element), POINTER :: new_list_element
     TYPE(t_union_vals) :: missval, initval, resetval
-    INTEGER :: idims(4)
+    INTEGER :: idims(5)
     INTEGER :: istat
     LOGICAL :: referenced
     !
@@ -1446,7 +1738,7 @@ CONTAINS
     !
     ! and set meta data
     !
-    IF (PRESENT(p4)) THEN
+    IF (PRESENT(p5)) THEN
       referenced = .TRUE.
       new_list_element%field%info%allocated = .TRUE.
     ELSE
@@ -1469,9 +1761,10 @@ CONTAINS
       idims(2) = 1
       idims(3) = 1
       idims(4) = 1
+      idims(5) = 1
       new_list_element%field%info%ndims = 1
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4)), STAT=istat)
+      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
         CALL finish('mo_var_list:add_var_list_element_r1d',      &
                    &'allocation of array '//TRIM(name)//' failed')
@@ -1482,9 +1775,9 @@ CONTAINS
       NULLIFY(new_list_element%field%i_ptr)      
       this_list%memory_used = this_list%memory_used+4*SIZE(new_list_element%field%l_ptr)
     ELSE
-      new_list_element%field%l_ptr => p4
+      new_list_element%field%l_ptr => p5
     ENDIF
-    ptr => new_list_element%field%l_ptr(:,1,1,1)
+    ptr => new_list_element%field%l_ptr(:,1,1,1,1)
     IF(PRESENT(info)) info => new_list_element%field%info
     !
     IF (PRESENT(lmiss)) THEN
@@ -1533,6 +1826,22 @@ CONTAINS
   !
   ! obtain pointer to 4d-field
   !
+  SUBROUTINE get_var_list_element_r5d (this_list, name, ptr)
+    TYPE(t_var_list), INTENT(in) :: this_list      ! list
+    CHARACTER(len=*), INTENT(in) :: name           ! name of variable
+    REAL(dp),         POINTER    :: ptr(:,:,:,:,:) ! reference to allocated field
+    !
+    TYPE(t_list_element), POINTER :: element
+    !
+    element => find_list_element (this_list, name)
+    NULLIFY (ptr)
+    IF (ASSOCIATED (element)) ptr => element%field%r_ptr(:,:,:,:,:)
+    !
+  END SUBROUTINE get_var_list_element_r5d
+  !------------------------------------------------------------------------------------------------
+  !
+  ! obtain pointer to 4d-field
+  !
   SUBROUTINE get_var_list_element_r4d (this_list, name, ptr)
     TYPE(t_var_list), INTENT(in) :: this_list    ! list
     CHARACTER(len=*), INTENT(in) :: name         ! name of variable
@@ -1542,7 +1851,7 @@ CONTAINS
     !
     element => find_list_element (this_list, name)
     NULLIFY (ptr)
-    IF (ASSOCIATED (element)) ptr => element%field%r_ptr
+    IF (ASSOCIATED (element)) ptr => element%field%r_ptr(:,:,:,:,1)
     !
   END SUBROUTINE get_var_list_element_r4d
   !------------------------------------------------------------------------------------------------
@@ -1557,7 +1866,7 @@ CONTAINS
     TYPE(t_list_element), POINTER :: element
     element => find_list_element (this_list, name)
     NULLIFY (ptr)
-    IF (ASSOCIATED (element)) ptr => element%field%r_ptr(:,:,:,1)
+    IF (ASSOCIATED (element)) ptr => element%field%r_ptr(:,:,:,1,1)
     !
   END SUBROUTINE get_var_list_element_r3d
   !------------------------------------------------------------------------------------------------
@@ -1573,7 +1882,7 @@ CONTAINS
     !
     element => find_list_element (this_list, name)
     NULLIFY (ptr)
-    IF (ASSOCIATED (element)) ptr => element%field%r_ptr(:,:,1,1)
+    IF (ASSOCIATED (element)) ptr => element%field%r_ptr(:,:,1,1,1)
     !
   END SUBROUTINE get_var_list_element_r2d
   !------------------------------------------------------------------------------------------------
@@ -1588,11 +1897,27 @@ CONTAINS
     TYPE(t_list_element), POINTER :: element
     element => find_list_element (this_list, name)
     NULLIFY (ptr)
-    IF (ASSOCIATED (element)) ptr => element%field%r_ptr(:,1,1,1)
+    IF (ASSOCIATED (element)) ptr => element%field%r_ptr(:,1,1,1,1)
     !
   END SUBROUTINE get_var_list_element_r1d
   !================================================================================================ 
   ! INTEGER SECTION -------------------------------------------------------------------------------
+  !
+  ! obtain pointer to 5d-field
+  !
+  SUBROUTINE get_var_list_element_i5d (this_list, name, ptr)
+    TYPE(t_var_list), INTENT(in) :: this_list      ! list
+    CHARACTER(len=*), INTENT(in) :: name           ! name of variable
+    INTEGER,          POINTER    :: ptr(:,:,:,:,:) ! reference to allocated field
+    !
+    TYPE(t_list_element), POINTER :: element
+    !
+    element => find_list_element (this_list, name)
+    NULLIFY (ptr)
+    IF (ASSOCIATED (element)) ptr => element%field%i_ptr(:,:,:,:,:)
+    !
+  END SUBROUTINE get_var_list_element_i5d
+  !------------------------------------------------------------------------------------------------
   !
   ! obtain pointer to 4d-field
   !
@@ -1605,7 +1930,7 @@ CONTAINS
     !
     element => find_list_element (this_list, name)
     NULLIFY (ptr)
-    IF (ASSOCIATED (element)) ptr => element%field%i_ptr
+    IF (ASSOCIATED (element)) ptr => element%field%i_ptr(:,:,:,:,1)
     !
   END SUBROUTINE get_var_list_element_i4d
   !------------------------------------------------------------------------------------------------
@@ -1620,7 +1945,7 @@ CONTAINS
     TYPE(t_list_element), POINTER :: element
     element => find_list_element (this_list, name)
     NULLIFY (ptr)
-    IF (ASSOCIATED (element)) ptr => element%field%i_ptr(:,:,:,1)
+    IF (ASSOCIATED (element)) ptr => element%field%i_ptr(:,:,:,1,1)
     !
   END SUBROUTINE get_var_list_element_i3d
   !------------------------------------------------------------------------------------------------
@@ -1636,7 +1961,7 @@ CONTAINS
     !
     element => find_list_element (this_list, name)
     NULLIFY (ptr)
-    IF (ASSOCIATED (element)) ptr => element%field%i_ptr(:,:,1,1)
+    IF (ASSOCIATED (element)) ptr => element%field%i_ptr(:,:,1,1,1)
     !
   END SUBROUTINE get_var_list_element_i2d
   !------------------------------------------------------------------------------------------------
@@ -1651,11 +1976,27 @@ CONTAINS
     TYPE(t_list_element), POINTER :: element
     element => find_list_element (this_list, name)
     NULLIFY (ptr)
-    IF (ASSOCIATED (element)) ptr => element%field%i_ptr(:,1,1,1)
+    IF (ASSOCIATED (element)) ptr => element%field%i_ptr(:,1,1,1,1)
     !
   END SUBROUTINE get_var_list_element_i1d
   !================================================================================================ 
   ! LOGICAL SECTION -------------------------------------------------------------------------------
+  !
+  ! obtain pointer to 5d-field
+  !
+  SUBROUTINE get_var_list_element_l5d (this_list, name, ptr)
+    TYPE(t_var_list), INTENT(in) :: this_list      ! list
+    CHARACTER(len=*), INTENT(in) :: name           ! name of variable
+    LOGICAL,          POINTER    :: ptr(:,:,:,:,:) ! reference to allocated field
+    !
+    TYPE(t_list_element), POINTER :: element
+    !
+    element => find_list_element (this_list, name)
+    NULLIFY (ptr)
+    IF (ASSOCIATED (element)) ptr => element%field%l_ptr(:,:,:,:,:)
+    !
+  END SUBROUTINE get_var_list_element_l5d
+  !------------------------------------------------------------------------------------------------
   !
   ! obtain pointer to 4d-field
   !
@@ -1668,7 +2009,7 @@ CONTAINS
     !
     element => find_list_element (this_list, name)
     NULLIFY (ptr)
-    IF (ASSOCIATED (element)) ptr => element%field%l_ptr
+    IF (ASSOCIATED (element)) ptr => element%field%l_ptr(:,:,:,:,1)
     !
   END SUBROUTINE get_var_list_element_l4d
   !------------------------------------------------------------------------------------------------
@@ -1683,7 +2024,7 @@ CONTAINS
     TYPE(t_list_element), POINTER :: element
     element => find_list_element (this_list, name)
     NULLIFY (ptr)
-    IF (ASSOCIATED (element)) ptr => element%field%l_ptr(:,:,:,1)
+    IF (ASSOCIATED (element)) ptr => element%field%l_ptr(:,:,:,1,1)
     !
   END SUBROUTINE get_var_list_element_l3d
   !------------------------------------------------------------------------------------------------
@@ -1699,7 +2040,7 @@ CONTAINS
     !
     element => find_list_element (this_list, name)
     NULLIFY (ptr)
-    IF (ASSOCIATED (element)) ptr => element%field%l_ptr(:,:,1,1)
+    IF (ASSOCIATED (element)) ptr => element%field%l_ptr(:,:,1,1,1)
     !
   END SUBROUTINE get_var_list_element_l2d
   !------------------------------------------------------------------------------------------------
@@ -1714,7 +2055,7 @@ CONTAINS
     TYPE(t_list_element), POINTER :: element
     element => find_list_element (this_list, name)
     NULLIFY (ptr)
-    IF (ASSOCIATED (element)) ptr => element%field%l_ptr(:,1,1,1)
+    IF (ASSOCIATED (element)) ptr => element%field%l_ptr(:,1,1,1,1)
     !
   END SUBROUTINE get_var_list_element_l1d
   !------------------------------------------------------------------------------------------------

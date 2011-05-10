@@ -26,7 +26,7 @@ MODULE mo_var_metadata
     !
     LOGICAL            :: allocated             ! allocation status
     INTEGER            :: ndims                 ! number of dimensions used
-    INTEGER            :: used_dimensions(4)    ! final dimensions of variable
+    INTEGER            :: used_dimensions(5)    ! final dimensions of variable
     ! 
     LOGICAL            :: lrestart              ! write field to restart
     LOGICAL            :: lpost                 ! write field to output
