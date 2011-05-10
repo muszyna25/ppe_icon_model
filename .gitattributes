@@ -890,6 +890,7 @@ src/atm_phy_echam/mo_vdiff_solver.f90 -text
 src/atm_phy_echam/mo_vdiff_upward_sweep.f90 -text
 src/atm_phy_nwp/mo_nh_interface_nwp.f90 -text
 src/atm_phy_nwp/mo_nwp_conv_interface.f90 -text
+src/atm_phy_nwp/mo_nwp_diagnosis.f90 -text
 src/atm_phy_nwp/mo_nwp_gscp_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_phy_init.f90 -text
 src/atm_phy_nwp/mo_nwp_phy_state.f90 -text

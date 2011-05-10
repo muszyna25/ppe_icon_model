@@ -993,9 +993,26 @@ CONTAINS
           CALL addVar(TimeVar(TRIM(name),TRIM(name),&
           &                   'kg/kg',elemid,tableid,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
-          &           k_jg)
+          &           k_jg)          
         END IF
       END DO
+      DO jt = 1, 3
+        IF (lwrite_tracer(jt)) THEN
+          ctracer = ctracer_list(jt:jt)
+          WRITE(name,'(A2,A1)') "TQ", ctracer
+          CALL addVar(TimeVar(TRIM(name),TRIM(name),&
+          &                   'kg/m**2',222,128,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &           k_jg)
+          WRITE(name,'(A4,A1)') "A_TQ", ctracer
+          CALL addVar(TimeVar(TRIM(name),TRIM(name),&
+          &                   'kg/m**2',222,128,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &           k_jg)
+          
+        END IF
+      END DO
+
     END IF
 
   ! debug fields:
@@ -1138,9 +1155,9 @@ CONTAINS
         &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
         &           k_jg)
         CALL addVar(TimeVar('TOT_PREC',&
-        &                   'grid-scale accumulated surface total precipitation',&
-        &                   'kg/m**2', 61, 2,&
-        &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+        &                'grid-scale plus convective accumulated surface total precipitation',&
+        &                'kg/m**2', 61, 2,&
+        &                vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
         &           k_jg)
       CASE (iecham,ildf_echam)
         !--- aprl ---
@@ -1212,12 +1229,64 @@ CONTAINS
         &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
         &           k_jg)
         !--- total cloud cover ---
-      CALL addVar(TimeVar('CC',&
+        CALL addVar(TimeVar('CC',&
         &                 'total cloud cover',&
         &                 '(0-1)', 94, 128,&
         &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
         &          k_jg)
+
+        !--- vertically integrated total water vapor---
+        CALL addVar(TimeVar('TQV',&
+        &                   'vertically integrated total water vapor',&
+        &                   'kg/m**2', 95, 128,&
+        &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+        &           k_jg)
+        !--- vertically integrated total cloud water ---
+        CALL addVar(TimeVar('TQC',&
+        &                   'vertically integrated total cloud water',&
+        &                   'kk/m**2', 96, 128,&
+        &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+        &           k_jg)
+        !--- vertically integrated total cloud ice ---
+        CALL addVar(TimeVar('TQI',&
+        &                   'vertically integrated total cloud ice',&
+        &                   'kg/m**2', 97, 128,&
+        &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+        &           k_jg)
+        !--- cloud cover assuming Maximum-Random overlap ---
+        CALL addVar(TimeVar('TCC',&
+        &                   'cloud cover assuming Maximum-Random overlap',&
+        &                   '(0-1)', 98, 128,&
+        &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+        &           k_jg)
+
+        !--- average over the forcast time vertically integrated total water vapor---
+        CALL addVar(TimeVar('A_TQV',&
+        &               'average over forcast vertically integrated total water vapor',&
+        &               'km/m**2', 99, 128,&
+        &               vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+        &               k_jg)
+        !--- average over the forcast time vertically integrated total cloud water ---
+        CALL addVar(TimeVar('A_TQC',&
+        &             'average over forcast vertically integrated total cloud water',&
+        &             'kg/m**2',101, 128,&
+        &             vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+        &             k_jg)
+        !--- average over the forcast time vertically integrated total cloud ice ---
+        CALL addVar(TimeVar('A_TQI',&
+        &             'average over forcast vertically integrated total cloud ice',&
+        &             'kg/m**2',102, 128,&
+        &             vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+        &             k_jg)
+        !--- average over the forecast time of the  cloud cover ---
+        CALL addVar(TimeVar('A_TCC',&
+        &               'average over the forecast time of the cloud cover',&
+        &               '(0-1)', 103, 128,&
+        &               vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+        &               k_jg)
+
       CASE (iecham,ildf_echam)
+
         !--- aclcov ---
       CALL addVar(TimeVar('ACLCOV',&
         &                 'total cloud cover',&
@@ -2264,6 +2333,7 @@ CONTAINS
           RETURN
         ENDIF
       ENDDO
+
       DO jt = 1, iqcond
         ctracer = ctracer_list(jt:jt)
         IF(varname == 'tend_q'//ctracer//'_cnv') THEN
@@ -2344,6 +2414,14 @@ CONTAINS
       CASE ('QC');              ptr3 => prm_diag(jg)%tot_cld(:,:,:,iqc)
       CASE ('QI');              ptr3 => prm_diag(jg)%tot_cld(:,:,:,iqi)
       CASE ('CC');              ptr3 => prm_diag(jg)%tot_cld(:,:,:,icc)
+      CASE ('TQV');             ptr2 => prm_diag(jg)%tot_cld_vi(:,:,iqv)
+      CASE ('TQC');             ptr2 => prm_diag(jg)%tot_cld_vi(:,:,iqc)
+      CASE ('TQI');             ptr2 => prm_diag(jg)%tot_cld_vi(:,:,iqi)
+      CASE ('TCC');             ptr2 => prm_diag(jg)%tot_cld_vi(:,:,icc)
+      CASE ('A_TQV');           ptr2 => prm_diag(jg)%a_tot_cld_vi(:,:,iqv)
+      CASE ('A_TQC');           ptr2 => prm_diag(jg)%a_tot_cld_vi(:,:,iqc)
+      CASE ('A_TQI');           ptr2 => prm_diag(jg)%a_tot_cld_vi(:,:,iqi)
+      CASE ('A_TCC');           ptr2 => prm_diag(jg)%a_tot_cld_vi(:,:,icc)
       CASE ('ZF3');             ptr3 => p_nh_state(jg)%metrics%z_mc
       CASE ('ZH3');             ptr3 => p_nh_state(jg)%metrics%z_ifc
       CASE ('PRR_GSP');         ptr2 => prm_diag(jg)%tracer_rate(:,:,1)
@@ -2359,14 +2437,10 @@ CONTAINS
       CASE ('lwflxsfc');        ptr2 => prm_diag(jg)%lwflxsfc(:,:)
       CASE ('swflxtoa');        ptr2 => prm_diag(jg)%swflxtoa(:,:)
       CASE ('lwflxtoa');        ptr2 => prm_diag(jg)%lwflxall(:,1,:)
-      CASE ('swflxsfc_avg')
-        ptr2 => dup2(prm_diag(jg)%swflxsfc_avg(:,:)/z_sim_time); delete = .TRUE.
-      CASE ('lwflxsfc_avg')
-        ptr2 => dup2(prm_diag(jg)%lwflxsfc_avg(:,:)/z_sim_time); delete = .TRUE.       
-      CASE ('swflxtoa_avg')
-        ptr2 => dup2(prm_diag(jg)%swflxtoa_avg(:,:)/z_sim_time); delete = .TRUE.
-      CASE ('lwflxtoa_avg')
-        ptr2 => dup2(prm_diag(jg)%lwflxtoa_avg(:,:)/z_sim_time); delete = .TRUE.
+      CASE ('swflxsfc_avg');    ptr2 => prm_diag(jg)%swflxsfc_avg(:,:)
+      CASE ('lwflxsfc_avg');    ptr2 => prm_diag(jg)%lwflxsfc_avg(:,:)       
+      CASE ('swflxtoa_avg');    ptr2 => prm_diag(jg)%swflxtoa_avg(:,:)
+      CASE ('lwflxtoa_avg');    ptr2 => prm_diag(jg)%lwflxtoa_avg(:,:)
       CASE ('T_G');             ptr2 => p_prog_lnd%t_g
       CASE ('QV_S');            ptr2 => p_diag_lnd%qv_s
       CASE ('ASHFL_S');         ptr2 => prm_diag(jg)%shfl_s ! KF not yet averaged!
@@ -2410,6 +2484,18 @@ CONTAINS
         ctracer = ctracer_list(jt:jt)
         IF(varname == 'Q'//ctracer) THEN
           ptr3 => p_prog%tracer(:,:,:,jt)
+          RETURN
+        ENDIF
+      ENDDO
+
+      DO jt = 1, 3
+        ctracer = ctracer_list(jt:jt)
+        IF(varname == 'TQ'//ctracer) THEN
+          ptr2 => p_diag%tracer_vi(:,:,jt)
+          RETURN
+        ENDIF
+        IF(varname == 'A_TQ'//ctracer) THEN
+          ptr2 => p_diag%a_tracer_vi(:,:,jt)
           RETURN
         ENDIF
       ENDDO

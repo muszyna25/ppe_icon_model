@@ -2109,7 +2109,7 @@ CONTAINS
       &  z_dummy
 
     REAL(wp) ::   &                      !< maximum CFL within one layer, and domain-wide maximum
-      &  max_cfl_lay(nproma), max_cfl_tot
+      &  max_cfl_lay(p_patch%nlev), max_cfl_tot
 
     REAL(wp) ::   &                      !< auxiliaries for fractional CFL number computation
       &  z_aux_p(nproma), z_aux_m(nproma)

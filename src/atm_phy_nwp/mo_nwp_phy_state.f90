@@ -112,7 +112,7 @@ TYPE t_nwp_phy_diag
        &   snow_gsp(:,:),       & !! accumulated grid_scale surface snow
        &   rain_con(:,:),       & !! accumulated convective surface rain
        &   snow_con(:,:),       & !! accumulated convective surface snow
-       &   tot_prec(:,:),       & !! accumulated grid-scale surface total precipitation
+       &   tot_prec(:,:),       & !! accumulated grid-scale plus convective surface total precipitation
        &   cape    (:,:),       & !! convective available energy
        &   con_gust(:,:),       & !! convective gusts near surface
        &   con_udd(:,:,:,:),    & !!(nproma,nlev,nblks,8) convective up/downdraft fields
@@ -128,7 +128,11 @@ TYPE t_nwp_phy_diag
        &  lhfl_s(:,:),          & !! latent   heat flux (surface) ( W/m2)
        &  qhfl_s(:,:),          & !!      moisture flux (surface) ( W/m2)
        &  tot_cld(:,:,:,:),     & !! total cloud variables (cc,qv,qc,qi)
-       &  tot_cld_vi(:,:,:),    & !! total cloud variables (cc,qv,qc,qi) vertical integrated
+       &  tot_cld_vi(:,:,:),    & !! vertically integrated tot_cld (cc,qv,qc,qi) 
+                                  !! for cc, instead of the vertically integrated value, 
+                                  !! this is the cloud cover assuming maximum-random overlap
+       &  a_tot_cld_vi(:,:,:),  & !! average since the last output of the 
+                                  !! vertically integrated tot_cld (cc,qv,qc,qi)  
        &  cosmu0(:,:),          & !! cosine of solar zenith angle
        &  vio3(:,:),            & !! vertically integrated ozone amount (Pa O3)
        &  hmo3(:,:),            & !! height of O3 maximum (Pa)
@@ -141,10 +145,10 @@ TYPE t_nwp_phy_diag
        &  trsolall(:,:,:),      & !! shortwave net tranmissivity []
        &  swflxsfc(:,:),        & !! shortwave net flux at surface [W/m2]
        &  swflxtoa(:,:),        & !! shortwave net flux at toa [W/m2]
-       &  lwflxsfc_avg(:,:),    & !! longwave net flux at surface [W/m2], mean since model start
-       &  swflxsfc_avg(:,:),    & !! shortwave net flux at surface [W/m2], mean since model start
-       &  lwflxtoa_avg(:,:),    & !! longwave net flux at toa [W/m2], mean since model start
-       &  swflxtoa_avg(:,:),    & !! shortwave net flux at toa [W/m2], mean since model start
+       &  lwflxsfc_avg(:,:),    & !! longwave net flux at surface [W/m2], mean since last output
+       &  swflxsfc_avg(:,:),    & !! shortwave net flux at surface [W/m2], mean since last output
+       &  lwflxtoa_avg(:,:),    & !! longwave net flux at toa [W/m2], mean since last output
+       &  swflxtoa_avg(:,:),    & !! shortwave net flux at toa [W/m2], mean since last output
        &  acdnc(:,:,:)            !! cloud droplet number concentration [1/m**3]
   
 
@@ -522,6 +526,14 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
     cf_desc    = t_cf_var('tot_cld_vi', 'unit ','vertical integr total cloud variables')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tot_cld_vi', diag%tot_cld_vi,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_HEIGHT, cf_desc, grib2_desc, &
+                &                                 ldims=(/nproma,kblks,4/))!,&
+!                &  lmiss=.true.,     missval=0._wp                      )
+
+   ! &      diag%a_tot_cld_vi(nproma,nblks_c,4)
+    cf_desc    = t_cf_var('a_tot_cld_vi', 'unit ','vertical integr total cloud variables')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'a_tot_cld_vi', diag%a_tot_cld_vi,         &
                 & GRID_UNSTRUCTURED, ZAXIS_HEIGHT, cf_desc, grib2_desc, &
                 &                                 ldims=(/nproma,kblks,4/))!,&
 !                &  lmiss=.true.,     missval=0._wp                      )
@@ -1012,6 +1024,7 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
   diag%qhfl_s      = 0._wp !!
   diag%tot_cld     = 0._wp !!
   diag%tot_cld_vi  = 0._wp !!
+  diag%a_tot_cld_vi= 0._wp !!
   diag%flxdwswtoa  = 0._wp
   diag%cosmu0      = 0._wp
   diag%vio3        = 0._wp

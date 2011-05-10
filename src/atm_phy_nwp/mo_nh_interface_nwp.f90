@@ -88,6 +88,7 @@ MODULE mo_nh_interface_nwp
                                    SYNC_C, SYNC_C1
   USE mo_mpi,                ONLY: p_nprocs
   USE mo_parallel_nml,       ONLY: p_test_run
+  USE mo_nwp_diagnosis,      ONLY: nwp_diagnosis
 
   IMPLICIT NONE
 
@@ -1264,6 +1265,15 @@ CONTAINS
       ENDIF
 
     ENDIF ! iaction
+
+    CALL nwp_diagnosis(lcall_phy_jg,lredgrid,jstep,     & !input
+                            & tcall_phy_jg,p_sim_time,             & !input
+                            & kstart_moist(jg),                    & !input
+                            & pt_patch, pt_int_state, p_metrics,   & !input
+                            & pt_prog,                             & !in
+                            & pt_diag,                            & !inout
+                            & prm_diag,prm_nwp_tend)   
+
 
     IF (ltimer) CALL timer_stop(timer_physics)
 
