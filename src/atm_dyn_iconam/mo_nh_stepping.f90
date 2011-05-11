@@ -406,6 +406,7 @@ MODULE mo_nh_stepping
      !Divide the accumulated values by the output time interval to have the 
      ! mean values.  Reinizialize the accumulated variables to zero after   
 
+    IF(lforcing) THEN
      IF ( MOD(jstep,n_io) == 0) THEN 
       t_out = n_io * dtime  
      ELSE  ! (jsteps = nsteps and  MOD(jstep,n_io) != 0)
@@ -425,6 +426,7 @@ MODULE mo_nh_stepping
        p_nh_state(jg)%diag%a_tracer_vi   = p_nh_state(jg)%diag%a_tracer_vi / &
                                       & t_out
       END DO
+   ENDIF
      !
     END IF
 
@@ -435,7 +437,7 @@ MODULE mo_nh_stepping
 
     END IF
 
-    IF (l_outputtime) THEN
+    IF (l_outputtime .AND. lforcing ) THEN
      ! Reinizialize the accumulated variables to zero      
      IF ( MOD(jstep,n_io) == 0) THEN 
       t_out = n_io * dtime  
@@ -444,7 +446,6 @@ MODULE mo_nh_stepping
      END IF
       DO jg=1, n_dom
        prm_diag(jg)%a_tot_cld_vi = 0.0_wp
-
        prm_diag(jg)%lwflxsfc_avg = 0.0_wp
        prm_diag(jg)%swflxsfc_avg = 0.0_wp
        prm_diag(jg)%lwflxtoa_avg = 0.0_wp
@@ -1232,6 +1233,9 @@ MODULE mo_nh_stepping
         DO jn = 1, p_patch(jg)%n_childdom
 
           jgc = p_patch(jg)%child_id(jn)
+
+          write(0,*)'nh_stepp vor bound int',jn,jgc,&
+               SIZE(p_patch),lbound(p_patch),ubound(p_patch)
 
           ! Interpolate tendencies to lateral boundaries of refined mesh (jgc)
           CALL boundary_interpolation(p_patch,p_nh_state,p_int_state,p_grf_state, &

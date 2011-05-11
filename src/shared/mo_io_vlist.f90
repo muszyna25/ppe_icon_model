@@ -996,6 +996,7 @@ CONTAINS
           &           k_jg)          
         END IF
       END DO
+      IF (iforcing == inwp)THEN
       DO jt = 1, 3
         IF (lwrite_tracer(jt)) THEN
           ctracer = ctracer_list(jt:jt)
@@ -1012,6 +1013,7 @@ CONTAINS
           
         END IF
       END DO
+   ENDIF
 
     END IF
 

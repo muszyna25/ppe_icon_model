@@ -2539,9 +2539,12 @@ CONTAINS
         &                     z_face_up, z_face_low,              & !inout
         &                     opt_rlstart=i_rlstart,              & !in
         &                     opt_rlend=i_rlend, opt_slev=slev    ) !in
-    ELSE
-      ! simply copy face values to 'face_up' and 'face_low' arrays
+    ENDIF
+
 !$OMP PARALLEL
+
+     IF (p_itype_vlimit /= islopel_vsm .AND. p_itype_vlimit /= islopel_vm) THEN
+      ! simply copy face values to 'face_up' and 'face_low' arrays
 !$OMP DO PRIVATE(jk,ikp1,jb,i_startidx,i_endidx)
       DO jb = i_startblk, i_endblk
 
@@ -2556,10 +2559,7 @@ CONTAINS
         ENDDO
       ENDDO
 !$OMP ENDDO
-!$OMP END PARALLEL
     ENDIF
-
-
 
     !
     ! 5. calculation of upwind fluxes. IF CFL > 1, the fluxes are the sum of
@@ -2568,7 +2568,6 @@ CONTAINS
     !    assuming a piecewise parabolic approx. for the subgrid distribution.
     !
 
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,nlist,ji_p,ji_m,i_startidx,i_endidx,jk_shift,z_iflx_m, &
 !$OMP            z_iflx_p,z_delta_m,z_delta_p,z_a11,z_a12,ikm1,z_lext_1,z_lext_2)
     DO jb = i_startblk, i_endblk
