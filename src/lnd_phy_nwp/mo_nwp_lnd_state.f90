@@ -114,10 +114,10 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
          rho_snow_mult(:,:,:,:,:)   , & ! snow density                                  (kg/m**3)
          w_i          (:,:,:,:)     , & ! water content of interception water           (m H2O)
          t_so         (:,:,:,:,:) , & ! soil temperature (main level)                 (  K  )
-         w_so         (:,:,:,:,:) , & ! total water conent (ice + liquid water)       (m H20)
+         w_so         (:,:,:,:,:) , & ! total water content (ice + liquid water)       (m H20)
          w_so_ice     (:,:,:,:,:) , & ! ice content                                   (m H20)
-         dzh_snow(:,:,:,:,:)      , & ! layer thickness between half levels in snow   (  m  )
-         subsfrac(:,:,:,:)            ! 
+         dzh_snow     (:,:,:,:,:)      , & ! layer thickness between half levels in snow   (  m  )
+         subsfrac     (:,:,:,:)            ! 
   END TYPE t_lnd_prog
 
   TYPE t_lnd_diag
@@ -789,6 +789,125 @@ END  SUBROUTINE destruct_lnd_state_prog
 ENDIF
 END  SUBROUTINE destruct_lnd_state_diag
 !-------------------------------------------------------------------------
+SUBROUTINE new_nwp_lnd_prog_list( klev_snow, klev_soil, kztlev, ksfc_subs, kblks,   &
+                     & listname, prog_list, p_prog_lnd)
+
+    INTEGER,INTENT(IN) :: klev_snow, klev_soil, kztlev, ksfc_subs, kblks !< dimension sizes
+
+    CHARACTER(len=*),INTENT(IN) :: listname
+
+    TYPE(t_var_list),POINTER :: prog_list
+    TYPE(t_lnd_prog)     :: p_prog_lnd
+
+    ! Local variables
+
+    TYPE(t_cf_var)    ::    cf_desc
+    TYPE(t_grib2_var) :: grib2_desc
+
+    INTEGER :: ist, shape2d(2), shape3d_subs(3), shape4d_subs(4)
+    INTEGER :: shape5d_snow_subs(5), shape5d_soil_subs(5)
+    INTEGER :: ientr
+
+    ientr = 16 ! "entropy" of horizontal slice
+
+    shape2d    = (/nproma,        kblks         /)
+    shape3d_subs   = (/nproma, ksfc_subs,  kblks    /)
+    shape4d_subs    = (/nproma, kztlev, ksfc_subs,  kblks    /)
+    shape5d_snow_subs    = (/nproma, klev_snow, kztlev, ksfc_subs,  kblks    /)
+    shape5d_soil_subs    = (/nproma, klev_soil, kztlev, ksfc_subs,  kblks    /)
+
+
+    ! Register a field list and apply default settings
+
+    CALL new_var_list( prog_list, TRIM(listname) )
+    CALL default_var_list_settings( prog_list )
+
+    !------------------------------
+    ! Meteorological quantities
+    !------------------------------
+
+    ! & p_prog_lnd%t_g(nproma,nblks_c), STAT = ist)
+    cf_desc    = t_cf_var('t_g ', 'K ', 'weighted surface temperature ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( prog_list, 'qv_s', p_prog_lnd%t_g,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape2d )    
+
+
+    ! & p_prog_lnd%t_snow(nproma,nsfc_subs,nblks_c)
+    cf_desc    = t_cf_var('t_snow ', 'K ', 'temperature of the snow-surface ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( prog_list, 't_snow', p_prog_lnd%t_snow,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape3d_subs )   
+
+    ! & p_prog_lnd%t_snow_mult(nproma,nlev_snow,nztlev,nsfc_subs,nblks_c)
+    cf_desc    = t_cf_var('t_snow_mult ', 'K ', 'temperature of the snow-surface ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( prog_list, 't_snow_mult', p_prog_lnd%t_snow_mult,                    &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape5d_snow_subs )  
+
+    ! & p_prog_lnd%t_s(nproma,nztlev,nsfc_subs,nblks_c)
+    cf_desc    = t_cf_var('t_s ', 'K ', 'temperature of ground surface ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( prog_list, 't_s', p_prog_lnd%t_s,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape4d_subs )  
+
+    ! & p_prog_lnd%w_snow(nproma,nztlev,nsfc_subs,nblks_c)
+    cf_desc    = t_cf_var('w_snow ', 'm H2O ', 'water content of snow ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( prog_list, 'w_snow', p_prog_lnd%w_snow,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape4d_subs )    
+
+    ! & p_prog_lnd%rho_snow(nproma,nsfc_subs,nblks_c)
+    cf_desc    = t_cf_var('rho_snow ', 'kg/m**3 ', 'snow density ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( prog_list, 'rho_snow', p_prog_lnd%rho_snow,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape3d_subs )    
+
+
+    ! & p_prog_lnd%rho_snow_mult(nproma,nlev_snow,nztlev,nsfc_subs,nblks_c)
+    cf_desc    = t_cf_var('rho_snow_mult ', 'kg/m**3 ', 'snow density ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( prog_list, 'rho_snow_mult', p_prog_lnd%rho_snow_mult,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape5d_snow_subs )    
+
+    ! & p_prog_lnd%w_i(nproma,nztlev,nsfc_subs,nblks_c)
+    cf_desc    = t_cf_var('w_i ', 'm H2O ', 'water content of interception water ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( prog_list, 'w_i', p_prog_lnd%w_i,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape4d_subs )  
+
+    ! & p_prog_lnd%t_so(nproma,nlev_soil,nztlev,nsfc_subs,nblks_c) 
+    cf_desc    = t_cf_var('t_so ', 'K ', 'soil temperature (main level) ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( prog_list, 't_so', p_prog_lnd%t_so,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape5d_soil_subs )  
+
+   ! & p_prog_lnd%w_so(nproma,nlev_soil,nztlev,nsfc_subs,nblks_c)
+    cf_desc    = t_cf_var('w_so ', 'm H20 ', 'total water content (ice + liquid water) ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( prog_list, 'w_so', p_prog_lnd%w_so,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape5d_soil_subs )
+
+    ! & p_prog_lnd%w_so_ice(nproma,nlev_soil,nztlev,nsfc_subs,nblks_c)
+    cf_desc    = t_cf_var('w_so_ice ', 'm H20 ', 'ice content ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( prog_list, 'w_so_ice', p_prog_lnd%w_so_ice,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape5d_soil_subs )
+
+    ! & p_prog_lnd%dzh_snow(nproma,nlev_snow,nztlev,nsfc_subs,nblks_c)
+    cf_desc    = t_cf_var('dzh_snow ', 'm ', 'layer thickness between half levels in snow ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( prog_list, 'dzh_snow', p_prog_lnd%dzh_snow,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape5d_snow_subs )
+ 
+    ! & p_prog_lnd%subsfrac(nproma,nztlev,nsfc_subs,nblks_c)
+    cf_desc    = t_cf_var('subsfrac ', '- ', 'subscale fraction ')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( prog_list, 'subsfrac', p_prog_lnd%subsfrac,                             &
+                & GRID_UNSTRUCTURED, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape4d_subs )  
+
+
+END SUBROUTINE new_nwp_lnd_prog_list
 
 SUBROUTINE new_nwp_lnd_diag_list( kztlev, ksfc_subs, kblks,   &
                      & listname, diag_list, p_diag_lnd)
