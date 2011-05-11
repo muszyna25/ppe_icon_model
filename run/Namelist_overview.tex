@@ -1268,6 +1268,22 @@ L &
 Restore patch/interpolation/grid refinement states
 from NetCDF dump files instead of calculating them.&
 \tabularnewline
+\hline 
+lrestart&
+L &
+.FALSE.&
+&
+defines if restart files will be generated.&
+\tabularnewline
+\hline 
+dt\_restart&
+R &
+$86400.*30. \, s$ &
+&
+time intervall for restart files&
+Note:
+$IF (.NOT. lrestart)$ $ dt\_restart=0.$
+\tabularnewline
 \hline
 \end{longtable}
 
