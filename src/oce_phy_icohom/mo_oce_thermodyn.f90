@@ -107,7 +107,7 @@ CONTAINS
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
 
-  REAL(wp) :: z_full, z_box, max_den, min_den, max_pres, min_pres!, p_hyd(4)
+  REAL(wp) :: z_full, z_box!, max_den, min_den, max_pres, min_pres!, p_hyd(4)
 
   !-------------------------------------------------------------------------
   !CALL message (TRIM(routine), 'start')
@@ -160,10 +160,8 @@ CONTAINS
 ! 
 !           z_box = (rho(jc,jk-1,jb)-p_phys_param%rho_ref)*ppatch%patch_oce%del_zlev_m(jk-1)&
 !                &+ (rho(jc,jk,jb)  -p_phys_param%rho_ref)*ppatch%patch_oce%del_zlev_m(jk)
-! 
-! 
 !           p_hyd(jk) = p_hyd(jk-1)&
-!                            &+ p_phys_param%rho_inv*grav*0.5_wp*z_box
+!                    &+ p_phys_param%rho_inv*grav*0.5_wp*z_box
 !         ELSE
 !           press_hyd(jc,jk,jb) = 0.0_wp
 !        ENDIF
@@ -265,9 +263,7 @@ CONTAINS
   INTEGER :: jc, jk, jb
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-
   !-------------------------------------------------------------------------
-
   rl_start   = 1
   rl_end     = min_rlcell
   i_startblk = ppatch%cells%start_blk(rl_start,1)
@@ -325,7 +321,7 @@ CONTAINS
   REAL(wp) :: z_t
   REAL(wp) :: z_s
   REAL(wp) :: z_rhopot, z_bulk, pz 
-  INTEGER  :: slev, end_lev
+  !INTEGER  :: slev, end_lev
   INTEGER  :: jc, jk, jb
   INTEGER  :: rl_start, rl_end
   INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx

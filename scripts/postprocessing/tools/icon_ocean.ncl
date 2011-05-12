@@ -1,26 +1,33 @@
 ;---------------------------------------------------------------
-; Usage:
-;   ncl icon_ocean.ncl 'iFile="oceanTest/testfile.nc"' 'varName="W"' minVar=-1.0 maxVar=0.5 'mapLLC=(/35.0, -8/)'  'mapURC=(/55, 8/)' timeStep=1 levIndex=1
-;   ncl icon_ocean.ncl 'iFile="oceanTest/testfile.nc"' 'varName="ELEV"' minVar=-1.0 maxVar=0.5 'mapLLC=(/35.0, -8/)'  'mapURC=(/55, 8/)' timeStep=1
-
-;   masking:
-;     ncl icon_ocean.ncl 'iFile="oce_aqua_planet_O.R2B04L4_0001.nc"' 'varName="ELEV"' 'oFile="test"' 'maskName="wet_c"' 
-;     ncl icon_ocean.ncl 'iFile="oce_aqua_planet_O.R2B04L4_0001.nc"' 'varName="ELEV"' 'oFile="test"' 'maskName="topo"' 'maskFile="icon_mask.nc"' 
-;
-;  vectorplot:
-;     ncl icon_ocean.ncl 'iFile="oce.nc"' 'vecVars="u-veloc v-veloc"' 'oFile="test"'
-;---------------------------------------------------------------
 ; This script makes contour plots of ocean state
-; Parameter:
+;---------------------------------------------------------------
+;  - last changes by Stephan - 05/2011
+;
+;---------------------------------------------------------------
+; Usage:
+;   ncl icon_ocean.ncl 'iFile="path/file.nc"' 'varName="W"'    'mapLLC=(/35.0, -8/)' 'mapURC=(/55, 8/)'
+;   ncl icon_ocean.ncl 'iFile="path/file.nc"' 'varName="ELEV"' 'oFile="test"' timeStep=1 levIndex=1
+
+; Masking:
+;   ncl icon_ocean.ncl 'iFile="oce_aqua_planet_O.R2B04L4_0001.nc"' 'varName="ELEV"' 'maskName="wet_c"' 
+;   ncl icon_ocean.ncl 'iFile="oce.nc"' 'varName="W"' 'maskName="topo"' 'maskFile="icon_mask.nc"' 
+;
+; Vectorplot:
+;   ncl icon_ocean.ncl 'iFile="oce.nc"' 'vecVars="u-veloc v-veloc"' 'oFile="test"'
+;---------------------------------------------------------------
+;
+; Required Parameter:
 ; iFile         : input file
 ; oFile         : plot file
+;
+; Optional Parameter:
 ; oType         : output graphics format (ps, eps, png, ...)
 ; varName       : name of the variable to (contour) plot
 ; vecVars       : space separated string of the 2 vector components u and v to draw a vector plot
 ; resolution    : resolution string whish is used for remapping the icon data to regular grid
 ; minVar/maxVar : min/maximal Value to plot
 ; timeStep      : no of timestep
-; levIndex      : level index
+; levIndex      : vertical level index
 ; mapLLC        : (lon,lat) value array of the Lower Left Corner of the map
 ; mapURC        : (lon,lat) ------- || ------- Upper Right Corner of the map
 ;                  use -180 to 180 for longitude !
@@ -32,13 +39,18 @@
 ; contLevs      : set a number of labels for manual selMode only. It will not set this number
 ;                 directly, but is used for computing the contour level spacing. default=10
 ; mapType       : projection type (default: lonlat), other: ortho (not compatible with showGrid)
+; projSat       : projection type Satellite (default: CylindricalEquidistant, not comp. with "ortho"?)
+;                  but compatible with showGrid and mapLLC/URC
 ; maskName      : variable to mask with. maskName is expected NOT to have time dimension
-; maskFile      : optional Filename of the mask variable maskName - it's only taken into account, if maskName is given
+;                  'maskName="none"' is same as default (no mask variable)
+; maskFile      : optional Filename of the mask variable maskName
+;                  it's only taken into account, if maskName is given
 ; lStrg         : left string
-; rstrg         : right string
+; rStrg         : right string
 ; tStrg         : title string
 ; bStrg         : base string - default is the time stamp
 ; showPreview   : (logical) draw a preview window
+; maxView       : (logical) maximize plot area on paper (not for buildbot -> convert to png)
 ; colormap      : string for predefined colormaps of the plot
 ; showGrid      : display polygon lines with filled colors instead of contour plot (experimental)
 ; showNcd       : display NDC Grid to find Normalized Device Coordinates on the plot
@@ -61,7 +73,7 @@ begin
   end if 
 end
 ;-------------------------------------------------------------------------------
-function createLevels(minVar, maxVar, minScale)
+function createLevels(minVar, maxVar, scaleLimit)
 begin
   delimiter = "|"
   tics4positive     = (/1, 2, 5/)
@@ -89,7 +101,6 @@ begin
 
   myScale    = logfirst
   levels     = ""
-  scaleLimit = 2
   if (first .eq. 0) then
     levels = str_concat((/levels,delimiter,"0"/))
   end if 
@@ -147,6 +158,9 @@ end
   if(.not. isvar("showPreview")) then
     showPreview = False
   end if
+  if(.not. isvar("maxView")) then
+    maxView = False
+  end if
   if(.not. isvar("iFile")) then
     iFile       = "test_hom_1_O.R2B04L4_0001.nc"
   end if
@@ -167,8 +181,8 @@ end
       exit
     end if
   end if
-  if(.not. isvar("minScale")) then
-    minScale = -1
+  if(.not. isvar("scaleLimit")) then
+    scaleLimit = 2
   end if
 
   if(.not. isvar("selMode")) then
@@ -203,6 +217,9 @@ end
   if (.not.isvar("mapType"))
     mapType     = "lonlat"
   end if
+  if (.not.isvar("projSat"))
+    projSat     = False
+  end if
   if (.not.isvar("maskName"))
     useMask     = False
   else
@@ -212,8 +229,12 @@ end
     else
       useMask  = True
       if (.not.isvar("maskFile"))
-        if (DEBUG) then
-          print("Use internal mask variable " +maskName)
+        if (maskName.eq."none") then
+          useMask = False
+        else
+          if (DEBUG) then
+            print("Use internal mask variable " +maskName)
+          end if
         end if
       else
         if (DEBUG) then
@@ -255,54 +276,30 @@ end
     plotMode = "vector"
     ; performe the remapping
     remapFilename="remapnn_"+iFile
-    print("#=====================================================================================")
-    print("Looking for remapped file: "+remapFilename)
     remapedFiles = systemfunc("ls "+remapFilename)
     if (isstring(remapedFiles(0)) .and. remapedFiles(0).eq.remapFilename) then
       print("Take "+remapFilename+" for accessing vector variables "+str_join(vecVars,","))
-      print("Print remove this intermediate file, if it was NOT automatically created from your inpur file "+iFile+"!")
     else
-      print("Use CDO to perform remapping: Create intermediate file: "+remapFilename)
-      print("Remove this intermediate file, if it was NOT automatically created from your inpur file "+iFile+"!")
-      if ( useMask ) then
-        cmd = "cdo -P 8 -remapnn,"+resolution+" -selname,"+maskName+","+str_join(vecVars,",")+" "+iFile+" "+remapFilename
-        if DEBUG then
-          print(cmd)
-        end if
-        system(cmd)
+      print("Use CDO to perform remapping")
+      if (isstring(maskName)) then
+      system("cdo -P 8 -remapnn,"+resolution+" -selname,"+maskName+","+str_join(vecVars,",")+" "+iFile+" "+remapFilename)
       else
-        cmd = "cdo -P 8 -remapnn,"+resolution+" -selname,"+str_join(vecVars,",")+" "+iFile+" "+remapFilename
-        if DEBUG then
-          print(cmd)
-        end if
-      system(cmd)
+      system("cdo -P 8 -remapnn,"+resolution+" -selname,"+str_join(vecVars,",")+" "+iFile+" "+remapFilename)
       end if
     end if
   end if
 
   if (plotMode.eq."vector") then
-   ; Check if the remapped files is correct
-   orgFile   = addfile (iFile , "r")
-   remapFile = addfile(remapFilename,"r")
-   orgDims   = getvardims(orgFile)
-   remapDims = getvardims(remapFile)
-   orgTime   = getfilevardimsizes(orgFile,"time")
-   remapTime = getfilevardimsizes(remapFile,"time")
-   if ( orgTime .eq. remapTime ) then
-     iFile = remapFilename
-   else
-     print("#=====================================================================================")
-     print("Remapped File '"+remapFilename+"' seems to be wrong: Has different number of timesteps")
-     print("Original file has "+orgTime(0)+" timesteps")
-     print("Remapped File has "+remapTime(0)+" timesteps")
-     print("Abort!")
-     exit
-   end if
+   iFile = remapFilename
   end if
 
   File = addfile( iFile, "r" )
 
   filevarnames = getfilevarnames(File)
+  ; if (DEBUG) then
+  ;   print("variable names in file: "+filevarnames)
+  ; end if
+
   ; check if varName can be found in iFile
   if (plotMode.eq."vector") then
     do ivar = 0, 1
@@ -321,7 +318,7 @@ end
   if( useMask ) then
     if ( .not.isvar("maskFile") ) then
       if ( .not. any(filevarnames.eq.maskName) ) then
-        print("NOPE! Mask-Variable could not be found.")
+        print("NOPE! Mask-Variable "+maskName+" could not be found.")
         exit
       end if
     else
@@ -446,32 +443,20 @@ end
     end if
 
     if ( useMask ) then
-      var = mask(var,maskVar,0)
+      ; set variable var to missing, where var is not equal mvalue (3rd parameter)
+      var = mask(var,maskVar,1)
+      ;slm = maskVar - 0.5
+      ;var = mask ( var, slm, 0.5)
+      ;slm = where ( maskVar .gt. 0.1, 1., -999. )
+      ;var@_FillValue = -999.  ; not necessary
+      ;var = where ( maskVar .lt. 0.5, var, var@_FillValue )
     end if
   else
     uvarname = varnames(0)
     vvarname = varnames(1)
-    udims  = getfilevardims(File,uvarname)
-    vdims  = getfilevardims(File,vvarname)
-    if (str_join(udims,"").ne.str_join(vdims,"")) then
-      print("u-Variable and v-Variable must have the same dimensions!")
-      exit
-    end if
-    noOfDims  = dimsizes(udims)
-    noOfDims  = noOfDims(0)
-    usableVar = False
-    if (noOfDims .eq. 4) then        ; dims: (time,lev,x,y)
-      uvar = File->$uvarname$(timeStep,levIndex,:,:)
-      vvar = File->$vvarname$(timeStep,levIndex,:,:)
-    end if
-    if (noOfDims .eq. 3) then        ; dims: (time,x,y)
-      uvar = File->$uvarname$(timeStep,:,:)
-      vvar = File->$vvarname$(timeStep,:,:)
-    end if
-    if (noOfDims .eq. 2) then        ; dims: (x,y)
-      uvar = File->$uvarname$(:,:)
-      vvar = File->$vvarname$(:,:)
-    end if
+    uvar     = File->$uvarname$(timeStep,levIndex,:,:)
+    vvar     = File->$vvarname$(timeStep,levIndex,:,:)
+
     if (scaleFactor .ne. 1) then
       uvar = uvar*scaleFactor
       vvar = vvar*scaleFactor
@@ -479,18 +464,6 @@ end
     if ( useMask ) then
       uvar = mask(uvar,maskVar,0)
       vvar = mask(vvar,maskVar,0)
-    end if
-    velocity = sqrt(uvar*uvar + vvar*vvar)
-    ; set minVar/maxVar for plotting
-    if(.not. isvar("minVar")) then
-      minVar = min(velocity)
-    end if
-    if(.not. isvar("maxVar")) then
-      maxVar = max(velocity)
-    end if
-    if ( minVar .gt. maxVar ) then
-      print("minVar has to be larger than maxVar")
-      exit
     end if
   end if
 
@@ -617,10 +590,7 @@ end
     minute  = doubletointeger(floor((86400*dayfrag - hour*3600)/60))
     second  = doubletointeger(86400*dayfrag - hour*3600 - minute*60)
     timeStr = str_join((/day,hour,minute,second/),"|")
-    if (plotMode.eq."vector") then
-      varName = "Velocity"
-    end if
-    lStrg   = (/varName,"(time "+timeStep+"["+timeStr+"],","pllev "+levIndex+")"/)
+    lStrg   = (/varName,"(plstep "+timeStep+"["+timeStr+"],","pllev "+levIndex+")"/)
   end if
   LeftString   = str_join(lStrg," ")
 
@@ -652,7 +622,7 @@ end
   ResC                      = True
 
   ResC@gsnMaximize          = False
-; ResC@gsnMaximize          = True
+  if (maxView) ResC@gsnMaximize = True end if
 ; ResC@gsnPaperOrientation  = "landscape"  ; turns plot on paper
 ; ResC@wkPaperSize          = "A4"
   ResC@gsnFrame             = False
@@ -660,7 +630,7 @@ end
 
   ResC@cnFillOn             = True   ;  writes labelbar, no contour labels
   ResC@cnLinesOn            = True
-;  ResC@cnInfoLabelOn        = False
+  ResC@cnInfoLabelOn        = False
 
   FontHeight0               = 0.012
   FontHeight1               = 0.015
@@ -676,9 +646,17 @@ end
 
 
 
-;  ResC@mpFillOn               = True
+  ResC@mpFillOn               = True
+  ResC@cnFillOn               = True
   if (useMask) then
-    ResC@cnMissingValFillColor = -1
+    ;ResC@cnMissingValFillColor = -1
+    ;ResC@wkColorMap             = [ "red", "green", "coral4", "gray85" ]  ; syntax?
+    ;ResC@cnMissingValFillColor = "green"  ; syntax ok, but not defined?
+    ;newcolor = NhlNewColor(0.70,0.70,0.70, wks) ; error when trying to set first color?
+    newcolor = NhlNewColor(wks,0.85,0.85,0.85)   ; add gray to colormap
+    ;ResC@gsnSpreadColorStart   = 1
+    ResC@gsnSpreadColorEnd     = 19  ; last color number not known?
+    ResC@cnMissingValFillColor = 20  ; last color is used for missing values
   end if
 
   if (plotMode.eq."scalar") then
@@ -693,34 +671,31 @@ end
   ResC@lbLabelAutoStride        = True
   ResC@lbLabelFontHeightF       = FontHeight1     ;   color bar labels
 
-  ResC@gsnLeftString   = LeftString
-  ResC@gsnRightString  = RightString
-  ResC@gsnCenterString = CenterString
-  ResC@tiMainString    = TitleString
+  ResC@gsnLeftString            = LeftString
+  ResC@gsnRightString           = RightString
+  ResC@gsnCenterString          = CenterString
+  ResC@tiMainString             = TitleString
 
 
   if (selMode .eq. "manual") then
     ResC@cnLevelSelectionMode = "ManualLevels"
     ResC@cnMinLevelValF       = minVar
     ResC@cnMaxLevelValF       = maxVar
-    if (DEBUG) then
-      print("Manual Plotlevel setting......")
-      print("minVal: " + minVar)
-      print("maxVal: " + maxVar)
-    end if
     diffLog10                 = log10(abs(maxVar-minVar))
 ;   if (diffLog10 .lt. 0) then
-      ResC@cnLevelSpacingF      = 10^(floor(diffLog10))/contLevs
+      ResC@cnLevelSpacingF    = 10^(floor(diffLog10))/contLevs
 ;   else
-;     ResC@cnLevelSpacingF      = 10^(floor(diffLog10))/contLevs
+;     ResC@cnLevelSpacingF    = 10^(floor(diffLog10))/contLevs
 ;   end if
   end if
+
   if (selMode .eq. "halflog") then
     ResC@cnLevelSelectionMode = "ExplicitLevels"
-    plotLevels = createLevels(minVar,maxVar,minScale)
+    plotLevels = createLevels(minVar,maxVar,scaleLimit)
     if (DEBUG) print("plotlevels = "+plotLevels) end if
     ResC@cnLevels             = plotLevels
   end if
+
   ResC@cnFillMode           = "rasterfill"
   ResC@cnRasterSmoothingOn  = True
   ResC@mpGreatCircleLinesOn = True
@@ -728,22 +703,38 @@ end
   if (mapType .eq. "ortho") then
     ResC@mpProjection          = "Orthographic" 
     ResC@mpPerimOn             = False    ; turn off box around plot
-    ResC@mpCenterLonF          = 0.    ; specify the plot domain
-    ResC@mpCenterLatF          = 0.      ;
-    ResC@mpMinLatF             = 0.      ;
-    ResC@mpMaxLatF             = 180.      ;
-
     ResC@mpGridAndLimbOn       = True     ; draw grid lines and limb line
     ResC@mpGridLineDashPattern = 2        ; choose pattern used to draw the grid
 
   else
     ResC@mpProjection         = "CylindricalEquidistant"
     ResC@mpLimitMode          = "LatLon"
-    ResC@mpMinLatF            = mapLLC(1)
-    ResC@mpMaxLatF            = mapURC(1)
-    ResC@mpMinLonF            = mapLLC(0)
-    ResC@mpMaxLonF            = mapURC(0)
-    ResC@mpCenterLonF   = ( ResC@mpMaxLonF - ResC@mpMinLonF)/2
+  end if
+
+  ; bounds of plotting area (not used for Orthographic)
+  ResC@mpMinLatF    = mapLLC(1)
+  ResC@mpMaxLatF    = mapURC(1)
+  ResC@mpMinLonF    = mapLLC(0)
+  ResC@mpMaxLonF    = mapURC(0)
+  ; center of view (for Orthographic and Sattelite only)
+  ResC@mpCenterLonF = (ResC@mpMaxLonF+ResC@mpMinLonF)/2 
+  ResC@mpCenterLatF = (ResC@mpMaxLatF+ResC@mpMinLatF)/2 
+
+  if (projSat) then
+    ResC@mpProjection         = "Satellite"
+    ; reduce are to be shown
+    ResC@mpMinLatF      = ResC@mpMinLatF + 10
+    ResC@mpMaxLatF      = ResC@mpMaxLatF - 10
+    ResC@mpMinLonF      = ResC@mpMinLonF + 10
+    ResC@mpMaxLonF      = ResC@mpMaxLonF - 10
+  end if
+
+  if (DEBUG) then
+    print("mapType: "+mapType)
+    print("projSat: "+projSat)
+    print("CentLon/Lat="+ResC@mpCenterLonF+"; "+ResC@mpCenterLatF)
+    print("Min/MaxLatF="+ResC@mpMinLatF+"; "+ResC@mpMaxLatF)
+    print("Min/MaxLonF="+ResC@mpMinLonF+"; "+ResC@mpMaxLonF)
   end if
 
   if (showGrid) then
@@ -840,23 +831,20 @@ end
 ;   wallClockElapseTime(wcStrt, "triangle plot", 0)
     if (showPreview) frame(xwks) end if
 
-  else    ; showGrid
+  else    ; no showGrid
     ; 2011-03-17: error - gsn_vector expects uvar and vvar on lat/lon grid!
     ;  - maybe the attributes could be used to assign the lat/lon of the cell-variables
     ;    on a 2-dim lat/lon variable
     if (plotMode.eq."vector")
-     ResC@vcRefMagnitudeF         = 5.0              ; make vectors larger
-     ResC@vcRefLengthF            = 8.0            ; ref vec length
-     ResC@vcGlyphStyle            = "CurlyVector"    ; turn on curly vectors
-     ResC@vcMinDistanceF          = 0.017            ; thin out vectors
-
-      vc = gsn_csm_vector_scalar_map(wks,uvar,vvar,sqrt(uvar*uvar+vvar*vvar),ResC)
-      ;vc = gsn_csm_vector(wks,uvar,vvar,ResC)
-      ;vc = gsn_csm_vector_scalar(wks,uvar,vvar,uvar*uvar+vvar*vvar,ResC)
+      vc = gsn_csm_vector_scalar_map(wks,uvar,vvar,uvar*uvar+vvar*vvar,ResC)
     else  ; shaded contours
-      plot  = gsn_csm_contour_map_ce(wks,var,ResC)
+      plot  = gsn_csm_contour_map(wks,var,ResC)
+      ;plot  = gsn_csm_contour_map_ce(wks,var,ResC) ; for CylindricalEquidistant:
+      ;           no diff to gsn_csm_contour_map ?
+      ;plot  = gsn_csm_contour(wks,var,ResC)  ; x/y-Plot, no map definitions allowed
       if (showPreview) then
-        xplot = gsn_csm_contour_map_ce(xwks,var,ResC)
+        ;xplot = gsn_csm_contour_map_ce(xwks,var,ResC)
+        xplot = gsn_csm_contour_map(xwks,var,ResC)
         frame(xwks)
       end if
     end if

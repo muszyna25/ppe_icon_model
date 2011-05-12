@@ -48,7 +48,8 @@ MODULE mo_vertical_grid
   USE mo_model_domain_import, ONLY: n_dom
   USE mo_nonhydrostatic_nml,  ONLY: rayleigh_coeff,damp_height, igradp_method, ivctype,  & 
     &                               vwind_offctr, exner_expol, l_zdiffu_t, thslp_zdiffu, &
-    &                               thhgtd_zdiffu, htop_moist_proc, kstart_moist
+    &                               thhgtd_zdiffu, htop_moist_proc, htop_qvadv,          &
+    &                               kstart_moist, kstart_qv
   USE mo_sleve_nml,           ONLY: sleve_nml_setup, min_lay_thckn, top_height, decay_scale_1,   &
     &                               decay_scale_2, decay_exp, flat_height, stretch_fac
   USE mo_run_nml,             ONLY: ltestcase, nproma, i_cell_type, msg_level
@@ -798,6 +799,21 @@ MODULE mo_vertical_grid
       IF (kstart_moist(jg) > 1 .AND. msg_level >= 10) THEN
         WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
           '; computation of moist physics processes starts in layer ', kstart_moist(jg)
+        CALL message('mo_vertical_grid',message_text)
+      ENDIF
+
+      ! Determine start level for QV advection (specified by htop_qvadv)
+      DO jk = 1, nlev
+        jk1 = jk + nshift_total(jg)
+        IF (0.5_wp*(vct_a(jk1)+vct_a(jk1+1)) < htop_qvadv) THEN
+          kstart_qv(jg) = jk
+          EXIT
+        ENDIF
+      ENDDO
+
+      IF (kstart_qv(jg) > 1 .AND. msg_level >= 10) THEN
+        WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
+          '; computation of QV advection starts in layer ', kstart_qv(jg)
         CALL message('mo_vertical_grid',message_text)
       ENDIF
 

@@ -72,9 +72,9 @@ USE mo_oce_index,              ONLY: c_b, c_i, c_k, ldbg, form4ar, init_index_te
 USE mo_oce_forcing,            ONLY: t_ho_sfc_flx,construct_ho_sfcflx, update_ho_sfcflx
 USE mo_interpolation,          ONLY: t_int_state
 USE mo_oce_init,               ONLY: init_ho_testcases
-!USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
-!                                  & construct_oce_diagnostics,&
-!                                  & destruct_oce_diagnostics, t_oce_timeseries
+USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
+                                  & construct_oce_diagnostics,&
+                                  & destruct_oce_diagnostics, t_oce_timeseries
 IMPLICIT NONE
 
 PRIVATE
@@ -121,7 +121,7 @@ CONTAINS
   INTEGER :: jt, jg, n_temp
   INTEGER :: jstep, jfile, jlev
   LOGICAL :: l_exist
-  !TYPE(t_oce_timeseries), POINTER :: oce_ts
+  TYPE(t_oce_timeseries), POINTER :: oce_ts
 
   CHARACTER(LEN=filename_max)  :: outputfile, gridfile
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
@@ -144,29 +144,23 @@ CONTAINS
   jfile = 1
 
   CALL init_index_test( ppatch, pstate_oce )
-
-  !CALL construct_oce_diagnostics( ppatch(jg), pstate_oce(jg), oce_ts)
+  IF ( iswm_oce == 1 ) THEN
+    CALL construct_oce_diagnostics( ppatch(jg), pstate_oce(jg), oce_ts)
+  ENDIF
 
   IF (ltimer) CALL timer_start(timer_total)
 
   !------------------------------------------------------------------
   ! call the dynamical core: start the time loop
   !------------------------------------------------------------------
-
   TIME_LOOP: DO jstep = 1, nsteps
 
     write(*,*)'-----------timestep:',jstep
 
     !In case of a time-varying forcing: 
-    !CALL update_ho_sfcflx(ppatch(jg), p_sfc_flx)
-
-
-    ! #slo# Put the steps from mo_ocean_semi_implicit_ab here!
-    !  - avoid second definition of i_ost_idx/blk/ilv for tests
+    CALL update_ho_sfcflx(ppatch(jg), p_sfc_flx)
 
     ! solve for new free surface
-    !CALL message (TRIM(routine), 'calculate free surface')
-
     CALL solve_free_surface_eq_ab (ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param, &
       &                            jstep, p_int(jg))
 
@@ -175,15 +169,15 @@ CONTAINS
     CALL calc_normal_velocity_ab(ppatch(jg), pstate_oce(jg))
 
     IF ( iswm_oce /= 1 ) THEN
-
       ! Step 5: calculate vertical velocity from continuity equation under incompressiblity condition
       CALL calc_vert_velocity( ppatch(jg), pstate_oce(jg))
-
-      ! Step 6 transport tracer and diffuse them
-      IF(no_tracer>=1)THEN
-        CALL advect_tracer_ab(ppatch(jg), pstate_oce(jg), p_phys_param,p_sfc_flx, jstep)
-       ENDIF
     ENDIF
+
+    ! Step 6 transport tracer and diffuse them
+    IF(no_tracer>=1)THEN
+      CALL advect_tracer_ab(ppatch(jg), pstate_oce(jg), p_phys_param,p_sfc_flx, jstep)
+    ENDIF
+
 
     ! Step 7: Swap time indices before output
     !         half time levels of semi-implicit Adams-Bashforth timestepping are
@@ -194,26 +188,22 @@ CONTAINS
 
    !Actually diagnostics for 3D not implemented, PK March 2011 
    IF ( iswm_oce == 1 ) THEN
-    !CALL calculate_oce_diagnostics( ppatch(jg),    &
-    !                              & pstate_oce(jg),&
-    !                              & p_sfc_flx,     &
-    !                              & p_phys_param,  &
-    !                              & jstep,         &
-    !                              & oce_ts)
+    CALL calculate_oce_diagnostics( ppatch(jg),    &
+                                  & pstate_oce(jg),&
+                                  & p_sfc_flx,     &
+                                  & p_phys_param,  &
+                                  & jstep,         &
+                                  & oce_ts)
    ENDIF 
     ! Step 8: test output
 !     IF (ldbg) WRITE(*,'(a,i5,2(a,g20.12))') '*** After jstep = ',jstep, &
 !       &  '  Elevation h =', pstate_oce(jg)%p_prog(nold(jg))%h(c_i,c_b), &
 !       &  '  Velocity  u =', pstate_oce(jg)%p_diag%u_pred(c_i,c_k,c_b)
-
      IF ( (jstep/=1 .AND. MOD(jstep-1,n_io)==0) .OR. jstep==nsteps ) THEN
-
-
       CALL message (TRIM(routine),'Write output at:')
       CALL print_datetime(datetime)
 
       CALL write_vlist_oce( ppatch(jg), pstate_oce(jg), p_sfc_flx, datetime )
-
     END IF
 
     ! close the current output file and trigger a new one
@@ -241,21 +231,21 @@ CONTAINS
 
     ! One integration cycle finished on the lowest grid level (coarsest
     ! resolution). Set model time.
-
     CALL add_time(dtime,0,0,0,datetime)
 
-    CALL message (TRIM(routine),'Step completed at:')
-    CALL print_datetime(datetime)
+!     CALL message (TRIM(routine),'Step completed at:')
+!     CALL print_datetime(datetime)
 
   ENDDO TIME_LOOP
+  IF ( iswm_oce == 1 ) THEN
+    CALL destruct_oce_diagnostics(oce_ts)
+   ENDIF
 
-  !CALL destruct_oce_diagnostics(oce_ts)
-
-  IF (ldbg) THEN
-    WRITE(*,*)  ' After run:'
-    WRITE(*,form4ar) ' Elevation h at cell   =', pstate_oce(jg)%p_prog(jt)%h(c_i,c_b),  &
-      &              '  Tracer 1 =', pstate_oce(jg)%p_prog(jt)%tracer(c_i,c_k,c_b,1)
-  ENDIF
+!   IF (ldbg) THEN
+!     WRITE(*,*)  ' After run:'
+!     WRITE(*,form4ar) ' Elevation h at cell   =', pstate_oce(jg)%p_prog(jt)%h(c_i,c_b),  &
+!       &              '  Tracer 1 =', pstate_oce(jg)%p_prog(jt)%tracer(c_i,c_k,c_b,1)
+!   ENDIF
 
   IF (ltimer) CALL timer_stop(timer_total)
 

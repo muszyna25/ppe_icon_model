@@ -46,12 +46,12 @@ MODULE mo_oce_diffusion
 USE mo_kind,                      ONLY: wp
 !USE mo_mpi,                       ONLY: p_pe, p_io
 USE mo_physical_constants
-USE mo_math_utilities,            ONLY: t_cartesian_coordinates!, gc2cc
+USE mo_math_utilities,            ONLY: t_cartesian_coordinates, gvec2cvec!, gc2cc
 USE mo_impl_constants,            ONLY: boundary, sea_boundary ,max_char_length, &
   &                                     min_rlcell, min_rledge, min_rlcell,      &
   &                                     max_char_length
 USE mo_run_nml,                   ONLY: nproma
-USE mo_ocean_nml,                 ONLY: n_zlev
+USE mo_ocean_nml,                 ONLY: n_zlev, iswm_oce
 USE mo_run_nml,                   ONLY: dtime
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, t_hydro_ocean_aux
 USE mo_model_domain,              ONLY: t_patch
@@ -173,7 +173,6 @@ DO jb = i_startblk_c, i_endblk_c
 
   CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
                      i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
-
 #ifdef __SX__
 !CDIR UNROLL=6
 #endif
@@ -217,8 +216,8 @@ TYPE(t_hydro_ocean_diag)          :: p_diag
 REAL(wp), INTENT(out)             :: laplacian_vn_out(nproma,n_zlev,p_patch%nblks_e)
 !
 !Local variables
-INTEGER :: slev, elev     
-INTEGER :: jk, jb, je,jc
+INTEGER :: slev, elev
+INTEGER :: jk, jb, je!,jc
 INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
 INTEGER :: rl_start_e, rl_end_e
 INTEGER :: il_c1, ib_c1, il_c2, ib_c2
@@ -317,42 +316,38 @@ DO jk = slev, elev
       !  this condition could then be omitted here
      IF (p_patch%patch_oce%dolic_c(jc,jb) >= 2) THEN
 
-      !1a) 0cean surface
-      IF ( jk==slev ) THEN
+      !1a) ocean surface 
+     IF(jk==slev)THEN
 
-!           z_adv_u_i(jc,jk,jb) = &
-!           &(       (top_bc_u_c(jc,jb)-u_c(jc,jk,jb))/(p_patch%patch_oce%del_zlev_i(jk)+h_c(jc,jb))&
-!           & -K_veloc_v*(u_c(jc,jk,jb)-u_c(jc,jk+1,jb))/p_patch%patch_oce%del_zlev_i(jk+1))/p_patch%patch_oce%del_zlev_m(jk)
-          z_adv_u_i(jc,jk,jb)%x = &
-          &( p_aux%bc_top_veloc_cc(jc,jb)%x &
-          & -p_param%A_veloc_v(jc,jk,jb)*(p_diag%p_vn(jc,jk,jb)%x-p_diag%p_vn(jc,jk+1,jb)%x) &
-          & /p_patch%patch_oce%del_zlev_i(jk+1))&
-          & /p_patch%patch_oce%del_zlev_m(jk)
-!write(*,*)'MIM:vert-diff:top',jc,jk,jb, z_adv_u_i(jc,jk,jb)%x, p_aux%bc_top_veloc_cc(jc,jb)%x
-!        ENDIF
+          z_adv_u_i(jc,jk,jb)%x =                              &
+          &( p_aux%bc_top_veloc_cc(jc,jb)%x                    &
+          &- p_param%A_veloc_v(jc,jk,jb)                       &
+          &*(p_diag%p_vn(jc,jk,jb)%x-p_diag%p_vn(jc,jk+1,jb)%x)&
+          &/p_patch%patch_oce%del_zlev_i(jk))/p_patch%patch_oce%del_zlev_m(jk)
       !1b) ocean bottom 
       ELSEIF ( jk == p_patch%patch_oce%dolic_c(jc,jb) ) THEN
 
 !        IF(p_patch%patch_oce%n_zlev>=2)THEN
           z_adv_u_i(jc,jk,jb)%x&
           & = (p_param%A_veloc_v(jc,jk,jb)&
-          &*(p_diag%p_vn(jc,elev-1,jb)%x-p_diag%p_vn(jc,elev,jb)%x) &
-          & / p_patch%patch_oce%del_zlev_i(elev-1)&
-          & - p_aux%bc_bot_veloc_cc(jc,jb)%x)/p_patch%patch_oce%del_zlev_m(elev)
+          &*(p_diag%p_vn(jc,jk-1,jb)%x-p_diag%p_vn(jc,jk,jb)%x) &
+          & / p_patch%patch_oce%del_zlev_i(jk-1)&
+          & - p_aux%bc_bot_veloc_cc(jc,jb)%x)/p_patch%patch_oce%del_zlev_m(jk)
           !write(*,*)'u-diff botom:',jk,u_c(jc,elev-1,jb),u_c(jc,elev,jb),u_c(jc,elev,jb),bot_bc_u_c(jc,jb), z_adv_u_i(jc,jk,jb)
 !        ENDIF
       !1c) ocean interior 
       ELSEIF( jk>slev .AND. jk < p_patch%patch_oce%dolic_c(jc,jb) ) THEN
 
         z_adv_u_i(jc,jk,jb)%x&
-        & = p_param%A_veloc_v(jc,jk,jb) *&
-     & ( (p_diag%p_vn(jc,jk-1,jb)%x-p_diag%p_vn(jc,jk,jb)%x)  /p_patch%patch_oce%del_zlev_i(jk-1)&
-     & - (p_diag%p_vn(jc,jk,jb)%x  -p_diag%p_vn(jc,jk+1,jb)%x)/p_patch%patch_oce%del_zlev_i(jk))/&
+        & = &
+     & ( p_param%A_veloc_v(jc,jk-1,jb)*(p_diag%p_vn(jc,jk-1,jb)%x-p_diag%p_vn(jc,jk,jb)%x)&
+     &  /p_patch%patch_oce%del_zlev_i(jk-1)&
+     & - p_param%A_veloc_v(jc,jk,jb)*(p_diag%p_vn(jc,jk,jb)%x  -p_diag%p_vn(jc,jk+1,jb)%x)&
+     & /p_patch%patch_oce%del_zlev_i(jk))/&
      & p_patch%patch_oce%del_zlev_m(jk)
 ! write(*,*)'u-diff interior:',jk,u_c(jc,jk-1,jb),u_c(jc,jk,jb),u_c(jc,jk,jb),u_c(jc,jk+1,jb), z_adv_u_i(jc,jk,jb),&
 ! &p_patch%patch_oce%dolic_c(jc,jb) 
       !1c) ocean bottom 
-
         ENDIF  ! jk-condition
       ENDIF    ! at least 2 vertical layers
     END DO
@@ -362,10 +357,10 @@ END DO
 ! Step 2: Map result of previous calculations from cell centers to edges (for all vertical layers)  
 CALL map_cell2edges( p_patch, z_adv_u_i, laplacian_vn_out)
 
-DO jk=slev, elev
-  WRITE(*,*)'MAX/MIN vert diffusion ',jk, &
-    &        MAXVAL(laplacian_vn_out(:,jk,:)), MINVAL(laplacian_vn_out(:,jk,:))
-END DO
+! DO jk=slev, elev
+!   WRITE(*,*)'MAX/MIN vert diffusion ',jk, &
+!     &        MAXVAL(laplacian_vn_out(:,jk,:)), MINVAL(laplacian_vn_out(:,jk,:))
+! END DO
 
 END subroutine velocity_diffusion_vert_mimetic
 !-------------------------------------------------------------------------  
@@ -404,7 +399,7 @@ REAL(wp)            :: laplacian_vn_out(:,:,:)
 INTEGER :: slev, elev     ! vertical start and end level
 INTEGER :: jc, jk, jb
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-
+TYPE(t_cartesian_coordinates) :: zu_cc(nproma,n_zlev,p_patch%nblks_c)
 REAL(wp) :: z_adv_u_i(nproma,n_zlev+1,p_patch%nblks_c),  &
   &         z_adv_v_i(nproma,n_zlev+1,p_patch%nblks_c),  &
   &         z_adv_u_m(nproma,n_zlev,p_patch%nblks_c),  &
@@ -423,8 +418,6 @@ slev       = 1
 elev       = n_zlev
 i_startblk = p_patch%cells%start_blk(1,1)
 i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
-
-
 !1 Vertical derivative of cell velocity vector times horizontal velocity
 DO jk = slev, elev
 
@@ -432,49 +425,38 @@ DO jk = slev, elev
     CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, 1,min_rlcell)
     DO jc = i_startidx, i_endidx
+    IF ( p_patch%patch_oce%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
       !1a) 0cean surface
       !check if we have at least two layers of water
      !IF (p_patch%patch_oce%dolic_c(jc,jb) >= 2) THEN
       IF(jk==slev)THEN
           ! u-component
-!           z_adv_u_i(jc,jk,jb) = &
-!           &(       (top_bc_u_c(jc,jb)-u_c(jc,jk,jb))/(p_patch%patch_oce%del_zlev_i(jk)+h_c(jc,jb))&
-!           & -K_veloc_v*(u_c(jc,jk,jb)-u_c(jc,jk+1,jb))/p_patch%patch_oce%del_zlev_i(jk+1))/p_patch%patch_oce%del_zlev_m(jk)
-          z_adv_u_i(jc,jk,jb) = &
-          &(       top_bc_u_c(jc,jb) &
+          z_adv_u_i(jc,jk,jb) =      &
+          &( top_bc_u_c(jc,jb)       &
           & -p_param%A_veloc_v(jc,jk,jb)*(u_c(jc,jk,jb)-u_c(jc,jk+1,jb)) &
           & /p_patch%patch_oce%del_zlev_i(jk))/p_patch%patch_oce%del_zlev_m(jk)
           ! v-component
-!           z_adv_v_i(jc,jk,jb) = K_veloc_v*&
-!           &( (top_bc_v_c(jc,jb)-v_c(jc,jk,jb))/(p_patch%patch_oce%del_zlev_i(jk)+h_c(jc,jb))&
-!           & -(    v_c(jc,jk,jb)-v_c(jc,jk+1,jb))/p_patch%patch_oce%del_zlev_i(jk+1))/p_patch%patch_oce%del_zlev_m(jk)
-          z_adv_v_i(jc,jk,jb) = &
-          &( top_bc_v_c(jc,jb)&
-          & -p_param%A_veloc_v(jc,jk,jb)*(    v_c(jc,jk,jb)-v_c(jc,jk+1,jb))&
+          z_adv_v_i(jc,jk,jb) =      &
+          &( top_bc_v_c(jc,jb)       &
+          & -p_param%A_veloc_v(jc,jk,jb)*(v_c(jc,jk,jb)-v_c(jc,jk+1,jb))&
           &/p_patch%patch_oce%del_zlev_i(jk)) &
           & /p_patch%patch_oce%del_zlev_m(jk)
-!write(*,*)'RBD:vert-diff:top',jc,jk,jb, z_adv_u_i(jc,jk,jb),top_bc_u_c(jc,jb)
+          !write(*,*)'RBD:vert-diff:top',jc,jk,jb, z_adv_u_i(jc,jk,jb),top_bc_u_c(jc,jb)
+
       !1b) ocean bottom 
       ELSEIF ( jk == p_patch%patch_oce%dolic_c(jc,jb) ) THEN
 
         IF(p_patch%patch_oce%n_zlev>=2)THEN
           ! u-component
-!           z_adv_u_i(jc,jk,jb)&
-!           & = (K_veloc_v*(u_c(jc,elev-1,jb)-u_c(jc,elev,jb))/ p_patch%patch_oce%del_zlev_i(elev-1)&
-!           & -(u_c(jc,elev,jb)-bot_bc_u_c(jc,jb))/ p_patch%patch_oce%del_zlev_i(elev))/p_patch%patch_oce%del_zlev_m(elev)
-          z_adv_u_i(jc,jk,jb)&
-        & = (p_param%A_veloc_v(jc,jk,jb)*(u_c(jc,elev-1,jb)-u_c(jc,elev,jb))/&
-           & p_patch%patch_oce%del_zlev_i(elev-1)&
-        & - bot_bc_u_c(jc,jb))/p_patch%patch_oce%del_zlev_m(elev)
-
-!           z_adv_v_i(jc,jk,jb)&
-!           & = (K_veloc_v*(v_c(jc,elev-1,jb)-v_c(jc,elev,jb))/ p_patch%patch_oce%del_zlev_i(elev-1)&
-!           & -(v_c(jc,elev,jb)-bot_bc_v_c(jc,jb))/ p_patch%patch_oce%del_zlev_i(elev))/p_patch%patch_oce%del_zlev_m(elev)
+          z_adv_u_i(jc,jk,jb)              &
+          & = (p_param%A_veloc_v(jc,jk,jb)*(u_c(jc,jk-1,jb)-u_c(jc,jk,jb))&
+          & /p_patch%patch_oce%del_zlev_i(jk-1)&
+          & - bot_bc_u_c(jc,jb))/p_patch%patch_oce%del_zlev_m(jk)
+          ! v-component
           z_adv_v_i(jc,jk,jb)&
-        & = (p_param%A_veloc_v(jc,jk,jb)*(v_c(jc,elev-1,jb)-v_c(jc,elev,jb))/&
-        & p_patch%patch_oce%del_zlev_i(elev-1)&
-        & -bot_bc_v_c(jc,jb))/p_patch%patch_oce%del_zlev_m(elev)
-
+          & = (p_param%A_veloc_v(jc,jk,jb)*(v_c(jc,jk-1,jb)-v_c(jc,jk,jb))&
+          & /p_patch%patch_oce%del_zlev_i(jk-1)&
+          & -bot_bc_v_c(jc,jb))/p_patch%patch_oce%del_zlev_m(jk)
         !write(*,*)'u-diff botom:',jk,u_c(jc,elev-1,jb),u_c(jc,elev,jb),u_c(jc,elev,jb),bot_bc_u_c(jc,jb), z_adv_u_i(jc,jk,jb)
         ENDIF
 
@@ -482,42 +464,49 @@ DO jk = slev, elev
       ELSEIF(jk>slev .AND. jk < p_patch%patch_oce%dolic_c(jc,jb) ) THEN
         ! u-component
         z_adv_u_i(jc,jk,jb)&
-        & = p_param%A_veloc_v(jc,jk,jb) *&
-        & ( (u_c(jc,jk-1,jb)-u_c(jc,jk,jb))/p_patch%patch_oce%del_zlev_i(jk-1)&
-        & - (u_c(jc,jk,jb)-u_c(jc,jk+1,jb))/p_patch%patch_oce%del_zlev_i(jk)) &
+        & = &
+        & ( p_param%A_veloc_v(jc,jk-1,jb)*(u_c(jc,jk-1,jb)-u_c(jc,jk,jb))&
+        &/p_patch%patch_oce%del_zlev_i(jk-1)&
+        & - p_param%A_veloc_v(jc,jk,jb)  *(u_c(jc,jk,jb)-u_c(jc,jk+1,jb))&
+        &/p_patch%patch_oce%del_zlev_i(jk)) &
         & / p_patch%patch_oce%del_zlev_m(jk)
         ! v-component
         z_adv_v_i(jc,jk,jb)&
-        & = p_param%A_veloc_v(jc,jk,jb)*&
-        & ( (v_c(jc,jk-1,jb)-v_c(jc,jk,jb))/p_patch%patch_oce%del_zlev_i(jk-1)&
-        & - (v_c(jc,jk,jb)-v_c(jc,jk+1,jb))/p_patch%patch_oce%del_zlev_i(jk)) &
+        & = &
+        & ( p_param%A_veloc_v(jc,jk-1,jb)*(v_c(jc,jk-1,jb)-v_c(jc,jk,jb))&
+        &/p_patch%patch_oce%del_zlev_i(jk-1)&
+        & - p_param%A_veloc_v(jc,jk,jb)  *(v_c(jc,jk,jb)-v_c(jc,jk+1,jb))&
+        &/p_patch%patch_oce%del_zlev_i(jk)) &
         & / p_patch%patch_oce%del_zlev_m(jk)
+
 ! write(*,*)'u-diff interior:',jk,u_c(jc,jk-1,jb),u_c(jc,jk,jb),u_c(jc,jk,jb),u_c(jc,jk+1,jb), z_adv_u_i(jc,jk,jb),&
 ! &p_patch%patch_oce%dolic_c(jc,jb) 
       !1c) ocean bottom 
 
       ENDIF  ! jk-condition
+      ENDIF
+      CALL gvec2cvec( z_adv_u_i(jc,jk,jb), z_adv_v_i(jc,jk,jb),       &
+      &               p_patch%cells%center(jc,jb)%lon,                &
+      &               p_patch%cells%center(jc,jb)%lat,                &
+      &               zu_cc(jc,jk,jb)%x(1),zu_cc(jc,jk,jb)%x(2),zu_cc(jc,jk,jb)%x(3))
+
     !ENDIF   ! at least 2 vertical layers
     END DO
   END DO
 END DO
 
- DO jk=slev, elev
-   WRITE(*,*)'MAX/MIN vert diff A:',jk, &
-     &        MAXVAL(z_adv_u_i(:,jk,:)), MINVAL(z_adv_u_i(:,jk,:)),&
-     &        MAXVAL(z_adv_v_i(:,jk,:)), MINVAL(z_adv_v_i(:,jk,:))
- END DO
+!  DO jk=slev, elev
+!    WRITE(*,*)'MAX/MIN vert diff A:',jk, &
+!      &        MAXVAL(z_adv_u_i(:,jk,:)), MINVAL(z_adv_u_i(:,jk,:)),&
+!      &        MAXVAL(z_adv_v_i(:,jk,:)), MINVAL(z_adv_v_i(:,jk,:))
+!  END DO
 
 ! Step 2: Map result of previous calculations from cell centers to edges (for all vertical layers)
-CALL primal_map_c2e( p_patch,&
-                   & z_adv_u_i,&
-                   & z_adv_v_i,&
-                   & laplacian_vn_out )
-
-DO jk=slev, elev
-  WRITE(*,*)'MAX/MIN vert diffusion ',jk, &
-    &        MAXVAL(laplacian_vn_out(:,jk,:)), MINVAL(laplacian_vn_out(:,jk,:))
-END DO
+CALL map_cell2edges( p_patch, zu_cc, laplacian_vn_out)
+ DO jk=slev, elev
+   WRITE(*,*)'MAX/MIN vert diffusion ',jk, &
+     &        MAXVAL(laplacian_vn_out(:,jk,:)), MINVAL(laplacian_vn_out(:,jk,:))
+ END DO
 
 END subroutine velocity_diffusion_vert_rbf
 !------------------------------------------------------------------------
@@ -530,7 +519,7 @@ TYPE(t_patch), TARGET, INTENT(in) :: p_patch
 REAL(wp), INTENT(in)              :: trac_in(nproma,n_zlev,p_patch%nblks_c)
 TYPE(t_hydro_ocean_state), TARGET :: p_os
 REAL(wp), INTENT(in)              :: K_T(:,:,:) !mixing coefficient for tracer
-REAL(wp), INTENT(out)             :: diff_flx(nproma,n_zlev,p_patch%nblks_e)
+REAL(wp), INTENT(inout)           :: diff_flx(nproma,n_zlev,p_patch%nblks_e)
 !
 !
 !Local variables
@@ -543,48 +532,74 @@ REAL(wp) :: delta_z
 ! CHARACTER(len=max_char_length), PARAMETER :: &
 !        & routine = ('mo_ocediffusion:tracer_diffusion_horz')
 !-------------------------------------------------------------------------------
-!CALL message (TRIM(routine), 'start')        
-!i_startblk_c = p_patch%cells%start_blk(1,1)
-!i_endblk_c   = p_patch%cells%end_blk(min_rlcell,1)
+rl_start = 1
+rl_end   = min_rledge
+
+slev = 1
+elev = n_zlev
 
 i_startblk_e = p_patch%edges%start_blk(1,1)
 i_endblk_e   = p_patch%edges%end_blk(min_rledge,1)
 
-slev = 1
-elev = n_zlev
-rl_start = 1
-rl_end   = min_rlcell
+IF ( iswm_oce /= 1) THEN
+  DO jb = i_startblk_e, i_endblk_e
+    CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e,&
+                     &  i_startidx_e, i_endidx_e,&
+                     &  rl_start, rl_end)
+    DO jk = slev, elev
 
-DO jb = i_startblk_e, i_endblk_e
-  CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e,&
-                   &  i_startidx_e, i_endidx_e,&
-                   &  rl_start, rl_end)
-  DO jk = slev, elev
+      delta_z  = p_patch%patch_oce%del_zlev_m(jk)
 
-    delta_z  = p_patch%patch_oce%del_zlev_m(jk)
+      DO je = i_startidx_e, i_endidx_e
 
-    DO je = i_startidx_e, i_endidx_e
+        IF(jk==slev) delta_z = p_patch%patch_oce%del_zlev_m(slev) + p_os%p_diag%h_e(je,jb)
 
-      IF(jk==slev) delta_z = p_patch%patch_oce%del_zlev_m(slev) + p_os%p_diag%h_e(je,jb)
+        !Get indices of two adjacent triangles
+        il_c1 = p_patch%edges%cell_idx(je,jb,1)
+        ib_c1 = p_patch%edges%cell_blk(je,jb,1)
+        il_c2 = p_patch%edges%cell_idx(je,jb,2)
+        ib_c2 = p_patch%edges%cell_blk(je,jb,2)
 
-      !Get indices of two adjacent triangles
-      il_c1 = p_patch%edges%cell_idx(je,jb,1)
-      ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-      il_c2 = p_patch%edges%cell_idx(je,jb,2)
-      ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-
-      IF ( p_patch%patch_oce%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-        diff_flx(je,jk,jb) = K_T(je,jk,jb)*delta_z&
-                   &*(trac_in(il_c2,jk,ib_c2)-trac_in(il_c1,jk,ib_c1))&
-                   &/p_patch%edges%dual_edge_length(je,jb)
-      ELSE
-        diff_flx(je,jk,jb) = 0.0_wp
-      ENDIF 
-
-    ENDDO
+        IF ( p_patch%patch_oce%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+          diff_flx(je,jk,jb) = K_T(je,jk,jb)*delta_z&
+                     &*(trac_in(il_c2,jk,ib_c2)-trac_in(il_c1,jk,ib_c1))&
+                     &/p_patch%edges%dual_edge_length(je,jb)
+        ELSE
+          diff_flx(je,jk,jb) = 0.0_wp
+        ENDIF
+      ENDDO
+    END DO
   END DO
-END DO
+ELSEIF ( iswm_oce == 1) THEN
+  DO jb = i_startblk_e, i_endblk_e
+    CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e,&
+                     &  i_startidx_e, i_endidx_e,&
+                     &  rl_start, rl_end)
+    DO jk = slev, elev
+      DO je = i_startidx_e, i_endidx_e
 
+        !Get indices of two adjacent triangles
+        il_c1 = p_patch%edges%cell_idx(je,jb,1)
+        ib_c1 = p_patch%edges%cell_blk(je,jb,1)
+        il_c2 = p_patch%edges%cell_idx(je,jb,2)
+        ib_c2 = p_patch%edges%cell_blk(je,jb,2)
+
+        IF ( p_patch%patch_oce%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+
+         delta_z  = p_os%p_diag%thick_e(je,jb)
+
+          diff_flx(je,jk,jb) = K_T(je,jk,jb)*delta_z&
+                     &*(trac_in(il_c2,jk,ib_c2)-trac_in(il_c1,jk,ib_c1))&
+                     &/p_patch%edges%dual_edge_length(je,jb)
+write(123,*)'trac diffusive flux',je,jk,jb,diff_flx(je,jk,jb),K_T(je,jk,jb),&
+&trac_in(il_c2,jk,ib_c2),trac_in(il_c1,jk,ib_c1)
+        ELSE
+          diff_flx(je,jk,jb) = 0.0_wp
+        ENDIF
+      ENDDO
+    END DO
+  END DO
+ENDIF
 ! Apply divergence to mixing times gradient to get laplacian
 !CALL div_oce( z_grad, p_patch, laplacian_trac_out)
 
@@ -655,9 +670,13 @@ DO jk = slev, elev+1
         ENDIF
       !1c) ocean interior 
       ELSEIF ( jk>slev .AND.  jk <= p_patch%patch_oce%dolic_c(jc,jb) ) THEN
-        diff_flx(jc,jk,jb)&
-        & = A_v(jc,jk,jb) &
-        & * (trac_c(jc,jk-1,jb)-trac_c(jc,jk,jb))/dz(jc,jk,jb)! p_patch%patch_oce%del_zlev_i(jk)
+        IF(dz(jc,jk,jb)/=0.0_wp)THEN
+          diff_flx(jc,jk,jb)&
+          & = A_v(jc,jk,jb) &
+          & * (trac_c(jc,jk-1,jb)-trac_c(jc,jk,jb))/dz(jc,jk,jb)! p_patch%patch_oce%del_zlev_i(jk)
+        ELSE
+          diff_flx(jc,jk,jb)= 0.0_wp
+        ENDIF
       ENDIF
     END DO
   END DO
@@ -824,7 +843,7 @@ REAL(wp), INTENT(out)             :: diff_column(:,:,:)
 !
 !Local variables
 INTEGER :: slev, elev
-INTEGER :: jc, jk, jb
+INTEGER :: je, jk, jb
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
 REAL(wp) :: a(1:n_zlev), b(1:n_zlev), c(1:n_zlev)
 REAL(wp) :: z_trac_rhs(1:n_zlev)
@@ -835,8 +854,8 @@ INTEGER  :: z_dolic
 ! CHARACTER(len=max_char_length), PARAMETER :: &
 !        & routine = ('mo_oce_diffusion:tracer_diffusion_impl')
 !-----------------------------------------------------------------------
-i_startblk = p_patch%cells%start_blk(1,1)
-i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
+i_startblk = p_patch%edges%start_blk(1,1)
+i_endblk   = p_patch%edges%end_blk(min_rledge,1)
 slev       = 1
 elev       = n_zlev
 
@@ -851,41 +870,42 @@ zbar(slev:n_zlev) = 0.0_wp
 z_trac_rhs(slev:n_zlev)= 0.0_wp
 
 DO jb = i_startblk, i_endblk
-  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, 1,min_rlcell)
-  DO jc = i_startidx, i_endidx
+  CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, 1,min_rledge)
+  DO je = i_startidx, i_endidx
 
-    z_dolic             = p_patch%patch_oce%dolic_c(jc,jb)
+    z_dolic             = p_patch%patch_oce%dolic_e(je,jb)
     Z(slev:n_zlev)      = p_patch%patch_oce%zlev_m(slev:n_zlev)
     zbar(slev:n_zlev+1) = p_patch%patch_oce%zlev_i(slev:n_zlev+1)
    
   IF ( z_dolic >=3 ) THEN
+  IF ( p_patch%patch_oce%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
     !Fill triangular matrix
     !b is diagonal a nd c are lower and upper band
     DO jk = slev+1, z_dolic-1  
       zinv  = 1.0_wp/(zbar(jk)-zbar(jk+1))     
-      a(jk) = -A_v(jc,jk,jb)/(Z(jk-1)-Z(jk))*zinv
-      c(jk) = -A_v(jc,jk+1,jb)/(Z(jk)-Z(jk+1))*zinv
+      a(jk) = -A_v(je,jk,jb)/(Z(jk-1)-Z(jk))*zinv
+      c(jk) = -A_v(je,jk+1,jb)/(Z(jk)-Z(jk+1))*zinv
       b(jk) = -a(jk)-c(jk)+dt_inv
     END DO
 
     ! The first row
     zinv = 1.0_wp/(zbar(1)-zbar(2))
-    c(1) = -A_v(jc,2,jb)/(Z(1)-Z(2))*zinv
-    a(1) = p_os_aux%bc_top_vn(jc,jb)
+    c(1) = -A_v(je,2,jb)/(Z(1)-Z(2))*zinv
+    a(1) = p_os_aux%bc_top_vn(je,jb)
     b(1) = -c(1)+dt_inv
 
     ! The last row
     zinv       = 1.0_wp/(zbar(z_dolic-1)-zbar(z_dolic))
-    a(z_dolic) = -A_v(jc,z_dolic,jb)/(Z(z_dolic-1)-Z(z_dolic-2))*zinv
+    a(z_dolic) = -A_v(je,z_dolic,jb)/(Z(z_dolic-1)-Z(z_dolic-2))*zinv
     b(z_dolic) = -a(z_dolic)+dt_inv
-    c(z_dolic) = p_os_aux%bc_bot_vn(jc,jb)
-
+    c(z_dolic) = p_os_aux%bc_bot_vn(je,jb)
+!write(*,*)'a(1) ',je,jb,a(1) 
     ! The matrix is now complete, fill the rhs 
-    z_trac_rhs(2:z_dolic)=field_column(jc,2:z_dolic,jb)*dt_inv
+    z_trac_rhs(2:z_dolic)=field_column(je,2:z_dolic,jb)*dt_inv
 
     !  The first row contains also surface forcing
-    z_trac_rhs(1)=dt_inv*field_column(jc,1,jb) !-1.0e-6*heat_flux(n)/(4.2_wp)+10.0_wp*alpha*(Tsurf(n)-TF(1,n)) 
+    z_trac_rhs(1)=dt_inv*field_column(je,1,jb)
 
     ! =============================================
     ! Prepare coefficients and rhs (scale with diagonal element)
@@ -916,10 +936,13 @@ DO jb = i_startblk, i_endblk
 
     ! Now update of fields
     DO jk=1,z_dolic
-      diff_column(jc,jk,jb) = z_trac_rhs(jk)
+      diff_column(je,jk,jb) = z_trac_rhs(jk)
     END DO
   ELSE
-    diff_column(jc,:,jb) = field_column(jc,:,jb)
+    diff_column(je,:,jb) = 0.0_wp
+  ENDIF
+  ELSE
+    diff_column(je,:,jb) = field_column(je,:,jb)
   ENDIF
   END DO
 END DO
@@ -1028,5 +1051,258 @@ END subroutine veloc_diffusion_vert_impl
 ! 
 ! END subroutine tracer_diffusion_vert_old
 !   !-------------------------------------------------------------------------
+!
+!
+!>
+!!
+!! IMPORTANT: It is assumed that the velocity vector reconstruction from
+!! edges to cells has been done before.
+!!
+!! input:  lives on cells (velocity points)
+!! output: lives on edges (velocity points)
+!!
+!! @par Revision History
+!! Developed  by  Peter Korn, MPI-M (2010).
+!!
+SUBROUTINE velocity_diffusion_vert_mim_old( p_patch, p_diag, p_aux,h_c,p_param, laplacian_vn_out)
+TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+TYPE(t_hydro_ocean_diag)          :: p_diag
+TYPE(t_hydro_ocean_aux)           :: p_aux
+REAL(wp), INTENT(in)              :: h_c(:,:) 
+TYPE(t_ho_params), INTENT(in)     :: p_param
+REAL(wp)                          :: laplacian_vn_out(:,:,:)
 
+INTEGER :: slev, elev     ! vertical start and end level
+INTEGER :: jc, jk, jb
+INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch%nblks_c),  &
+  &                              z_adv_u_m(nproma,n_zlev,p_patch%nblks_c)
+! CHARACTER(len=max_char_length), PARAMETER :: &
+!        & routine = ('mo_oce_diffusion:veloc diffusion vert mimetic')
+!-----------------------------------------------------------------------
+z_adv_u_i(nproma,n_zlev+1,p_patch%nblks_c)%x = 0.0_wp
+z_adv_u_m(nproma,n_zlev,p_patch%nblks_c)%x   = 0.0_wp
+
+slev       = 1
+elev       = n_zlev
+i_startblk = p_patch%cells%start_blk(1,1)
+i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
+
+!1 Vertical derivative of cell velocity vector times horizontal velocity
+DO jk = slev, elev
+  DO jb = i_startblk, i_endblk
+    CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, 1,min_rlcell)
+    DO jc = i_startidx, i_endidx
+      !check if we have at least two layers of water
+      !  #slo# - 2011-04-01 - Is this really intended here
+      !  maybe this condition should be fulfilled everywhere
+      !  then it must be calculated in fill_vertical_domain
+      !  this condition could then be omitted here
+     IF (p_patch%patch_oce%dolic_c(jc,jb) >= 2) THEN
+
+      !1a) 0cean surface
+      IF ( jk==slev ) THEN
+
+!           z_adv_u_i(jc,jk,jb) = &
+!           &(       (top_bc_u_c(jc,jb)-u_c(jc,jk,jb))/(p_patch%patch_oce%del_zlev_i(jk)+h_c(jc,jb))&
+!           & -K_veloc_v*(u_c(jc,jk,jb)-u_c(jc,jk+1,jb))/p_patch%patch_oce%del_zlev_i(jk+1))/p_patch%patch_oce%del_zlev_m(jk)
+          z_adv_u_i(jc,jk,jb)%x = &
+          &( p_aux%bc_top_veloc_cc(jc,jb)%x &
+          & -p_param%A_veloc_v(jc,jk,jb)*(p_diag%p_vn(jc,jk,jb)%x-p_diag%p_vn(jc,jk+1,jb)%x) &
+          & /p_patch%patch_oce%del_zlev_i(jk+1))&
+          & /p_patch%patch_oce%del_zlev_m(jk)
+!write(*,*)'MIM:vert-diff:top',jc,jk,jb, z_adv_u_i(jc,jk,jb)%x, p_aux%bc_top_veloc_cc(jc,jb)%x
+!        ENDIF
+      !1b) ocean bottom 
+      ELSEIF ( jk == p_patch%patch_oce%dolic_c(jc,jb) ) THEN
+
+!        IF(p_patch%patch_oce%n_zlev>=2)THEN
+          z_adv_u_i(jc,jk,jb)%x&
+          & = (p_param%A_veloc_v(jc,jk,jb)&
+          &*(p_diag%p_vn(jc,elev-1,jb)%x-p_diag%p_vn(jc,elev,jb)%x) &
+          & / p_patch%patch_oce%del_zlev_i(elev-1)&
+          & - p_aux%bc_bot_veloc_cc(jc,jb)%x)/p_patch%patch_oce%del_zlev_m(elev)
+          !write(*,*)'u-diff botom:',jk,u_c(jc,elev-1,jb),u_c(jc,elev,jb),u_c(jc,elev,jb),bot_bc_u_c(jc,jb), z_adv_u_i(jc,jk,jb)
+!        ENDIF
+      !1c) ocean interior 
+      ELSEIF( jk>slev .AND. jk < p_patch%patch_oce%dolic_c(jc,jb) ) THEN
+
+        z_adv_u_i(jc,jk,jb)%x&
+        & = p_param%A_veloc_v(jc,jk,jb) *&
+     & ( (p_diag%p_vn(jc,jk-1,jb)%x-p_diag%p_vn(jc,jk,jb)%x)  /p_patch%patch_oce%del_zlev_i(jk-1)&
+     & - (p_diag%p_vn(jc,jk,jb)%x  -p_diag%p_vn(jc,jk+1,jb)%x)/p_patch%patch_oce%del_zlev_i(jk))/&
+     & p_patch%patch_oce%del_zlev_m(jk)
+! write(*,*)'u-diff interior:',jk,u_c(jc,jk-1,jb),u_c(jc,jk,jb),u_c(jc,jk,jb),u_c(jc,jk+1,jb), z_adv_u_i(jc,jk,jb),&
+! &p_patch%patch_oce%dolic_c(jc,jb) 
+      !1c) ocean bottom 
+
+        ENDIF  ! jk-condition
+      ENDIF    ! at least 2 vertical layers
+    END DO
+  END DO
+END DO
+
+! Step 2: Map result of previous calculations from cell centers to edges (for all vertical layers)  
+CALL map_cell2edges( p_patch, z_adv_u_i, laplacian_vn_out)
+
+! DO jk=slev, elev
+!   WRITE(*,*)'MAX/MIN vert diffusion ',jk, &
+!     &        MAXVAL(laplacian_vn_out(:,jk,:)), MINVAL(laplacian_vn_out(:,jk,:))
+! END DO
+
+END subroutine velocity_diffusion_vert_mim_old
+!-------------------------------------------------------------------------  
+!
+!
+!>
+!!
+!! IMPORTANT: It is assumed that the velocity vector reconstruction from
+!! edges to cells has been done before.
+!!
+!! input:  lives on cells (velocity points)
+!! output: lives on edges (velocity points)
+!!
+!! @par Revision History
+!! Developed  by  Peter Korn, MPI-M (2010).
+!!
+SUBROUTINE velocity_diffusion_vert_rbf_old( p_patch, u_c, v_c, h_c, top_bc_u_c, top_bc_v_c,&
+                        &  bot_bc_u_c,  bot_bc_v_c,p_param, laplacian_vn_out)
+TYPE(t_patch), TARGET, INTENT(in) :: p_patch
+! Components of cell based variable which is vertically advected
+REAL(wp), INTENT(inout) :: u_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
+REAL(wp), INTENT(inout) :: v_c(:,:,:) ! dim: (nproma,n_zlev,nblks_c)
+REAL(wp), INTENT(in) :: h_c(:,:) ! dim: (nproma,nblks_c)
+!
+! Top boundary condition for cell based variables
+REAL(wp), INTENT(in) :: top_bc_u_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
+REAL(wp), INTENT(in) :: top_bc_v_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
+!
+! Bottom boundary condition for cell based variables
+REAL(wp), INTENT(in) :: bot_bc_u_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
+REAL(wp), INTENT(in) :: bot_bc_v_c(:,:) ! dim: (nproma,n_zlev,nblks_c)
+TYPE(t_ho_params), INTENT(in)     :: p_param
+! variable in which horizontally advected velocity is stored
+REAL(wp)            :: laplacian_vn_out(:,:,:)
+
+INTEGER :: slev, elev     ! vertical start and end level
+INTEGER :: jc, jk, jb
+INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
+
+REAL(wp) :: z_adv_u_i(nproma,n_zlev+1,p_patch%nblks_c),  &
+  &         z_adv_v_i(nproma,n_zlev+1,p_patch%nblks_c),  &
+  &         z_adv_u_m(nproma,n_zlev,p_patch%nblks_c),  &
+  &         z_adv_v_m(nproma,n_zlev,p_patch%nblks_c)
+! CHARACTER(len=max_char_length), PARAMETER :: &
+!        & routine = ('mo_oce_diffusion:veloc diffusion vert rbf')
+!-----------------------------------------------------------------------
+
+! #slo# set local variable to zero due to nag -nan compiler-option
+z_adv_u_i(:,:,:) = 0.0_wp
+z_adv_v_i(:,:,:) = 0.0_wp
+z_adv_u_m(:,:,:) = 0.0_wp
+z_adv_v_m(:,:,:) = 0.0_wp
+
+slev       = 1
+elev       = n_zlev
+i_startblk = p_patch%cells%start_blk(1,1)
+i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
+
+
+!1 Vertical derivative of cell velocity vector times horizontal velocity
+DO jk = slev, elev
+
+  DO jb = i_startblk, i_endblk
+    CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, 1,min_rlcell)
+    DO jc = i_startidx, i_endidx
+      !1a) 0cean surface
+      !check if we have at least two layers of water
+     !IF (p_patch%patch_oce%dolic_c(jc,jb) >= 2) THEN
+      IF(jk==slev)THEN
+          ! u-component
+!           z_adv_u_i(jc,jk,jb) = &
+!           &(       (top_bc_u_c(jc,jb)-u_c(jc,jk,jb))/(p_patch%patch_oce%del_zlev_i(jk)+h_c(jc,jb))&
+!           & -K_veloc_v*(u_c(jc,jk,jb)-u_c(jc,jk+1,jb))/p_patch%patch_oce%del_zlev_i(jk+1))/p_patch%patch_oce%del_zlev_m(jk)
+          z_adv_u_i(jc,jk,jb) = &
+          &(       top_bc_u_c(jc,jb) &
+          & -p_param%A_veloc_v(jc,jk,jb)*(u_c(jc,jk,jb)-u_c(jc,jk+1,jb)) &
+          & /p_patch%patch_oce%del_zlev_i(jk))/p_patch%patch_oce%del_zlev_m(jk)
+          ! v-component
+!           z_adv_v_i(jc,jk,jb) = K_veloc_v*&
+!           &( (top_bc_v_c(jc,jb)-v_c(jc,jk,jb))/(p_patch%patch_oce%del_zlev_i(jk)+h_c(jc,jb))&
+!           & -(    v_c(jc,jk,jb)-v_c(jc,jk+1,jb))/p_patch%patch_oce%del_zlev_i(jk+1))/p_patch%patch_oce%del_zlev_m(jk)
+          z_adv_v_i(jc,jk,jb) = &
+          &( top_bc_v_c(jc,jb)&
+          & -p_param%A_veloc_v(jc,jk,jb)*(    v_c(jc,jk,jb)-v_c(jc,jk+1,jb))&
+          &/p_patch%patch_oce%del_zlev_i(jk)) &
+          & /p_patch%patch_oce%del_zlev_m(jk)
+!write(*,*)'RBD:vert-diff:top',jc,jk,jb, z_adv_u_i(jc,jk,jb),top_bc_u_c(jc,jb)
+      !1b) ocean bottom 
+      ELSEIF ( jk == p_patch%patch_oce%dolic_c(jc,jb) ) THEN
+
+        IF(p_patch%patch_oce%n_zlev>=2)THEN
+          ! u-component
+!           z_adv_u_i(jc,jk,jb)&
+!           & = (K_veloc_v*(u_c(jc,elev-1,jb)-u_c(jc,elev,jb))/ p_patch%patch_oce%del_zlev_i(elev-1)&
+!           & -(u_c(jc,elev,jb)-bot_bc_u_c(jc,jb))/ p_patch%patch_oce%del_zlev_i(elev))/p_patch%patch_oce%del_zlev_m(elev)
+          z_adv_u_i(jc,jk,jb)&
+        & = (p_param%A_veloc_v(jc,jk,jb)*(u_c(jc,elev-1,jb)-u_c(jc,elev,jb))/&
+           & p_patch%patch_oce%del_zlev_i(elev-1)&
+        & - bot_bc_u_c(jc,jb))/p_patch%patch_oce%del_zlev_m(elev)
+
+!           z_adv_v_i(jc,jk,jb)&
+!           & = (K_veloc_v*(v_c(jc,elev-1,jb)-v_c(jc,elev,jb))/ p_patch%patch_oce%del_zlev_i(elev-1)&
+!           & -(v_c(jc,elev,jb)-bot_bc_v_c(jc,jb))/ p_patch%patch_oce%del_zlev_i(elev))/p_patch%patch_oce%del_zlev_m(elev)
+          z_adv_v_i(jc,jk,jb)&
+        & = (p_param%A_veloc_v(jc,jk,jb)*(v_c(jc,elev-1,jb)-v_c(jc,elev,jb))/&
+        & p_patch%patch_oce%del_zlev_i(elev-1)&
+        & -bot_bc_v_c(jc,jb))/p_patch%patch_oce%del_zlev_m(elev)
+
+        !write(*,*)'u-diff botom:',jk,u_c(jc,elev-1,jb),u_c(jc,elev,jb),u_c(jc,elev,jb),bot_bc_u_c(jc,jb), z_adv_u_i(jc,jk,jb)
+        ENDIF
+
+      !1c) ocean interior 
+      ELSEIF(jk>slev .AND. jk < p_patch%patch_oce%dolic_c(jc,jb) ) THEN
+        ! u-component
+        z_adv_u_i(jc,jk,jb)&
+        & = p_param%A_veloc_v(jc,jk,jb) *&
+        & ( (u_c(jc,jk-1,jb)-u_c(jc,jk,jb))/p_patch%patch_oce%del_zlev_i(jk-1)&
+        & - (u_c(jc,jk,jb)-u_c(jc,jk+1,jb))/p_patch%patch_oce%del_zlev_i(jk)) &
+        & / p_patch%patch_oce%del_zlev_m(jk)
+        ! v-component
+        z_adv_v_i(jc,jk,jb)&
+        & = p_param%A_veloc_v(jc,jk,jb)*&
+        & ( (v_c(jc,jk-1,jb)-v_c(jc,jk,jb))/p_patch%patch_oce%del_zlev_i(jk-1)&
+        & - (v_c(jc,jk,jb)-v_c(jc,jk+1,jb))/p_patch%patch_oce%del_zlev_i(jk)) &
+        & / p_patch%patch_oce%del_zlev_m(jk)
+! write(*,*)'u-diff interior:',jk,u_c(jc,jk-1,jb),u_c(jc,jk,jb),u_c(jc,jk,jb),u_c(jc,jk+1,jb), z_adv_u_i(jc,jk,jb),&
+! &p_patch%patch_oce%dolic_c(jc,jb) 
+      !1c) ocean bottom 
+
+      ENDIF  ! jk-condition
+    !ENDIF   ! at least 2 vertical layers
+    END DO
+  END DO
+END DO
+
+!  DO jk=slev, elev
+!    WRITE(*,*)'MAX/MIN vert diff A:',jk, &
+!      &        MAXVAL(z_adv_u_i(:,jk,:)), MINVAL(z_adv_u_i(:,jk,:)),&
+!      &        MAXVAL(z_adv_v_i(:,jk,:)), MINVAL(z_adv_v_i(:,jk,:))
+!  END DO
+
+! Step 2: Map result of previous calculations from cell centers to edges (for all vertical layers)
+CALL primal_map_c2e( p_patch,&
+                   & z_adv_u_i,&
+                   & z_adv_v_i,&
+                   & laplacian_vn_out )
+
+! DO jk=slev, elev
+!   WRITE(*,*)'MAX/MIN vert diffusion ',jk, &
+!     &        MAXVAL(laplacian_vn_out(:,jk,:)), MINVAL(laplacian_vn_out(:,jk,:))
+! END DO
+
+END subroutine velocity_diffusion_vert_rbf_old
+!------------------------------------------------------------------------
 END MODULE mo_oce_diffusion

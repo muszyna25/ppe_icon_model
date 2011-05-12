@@ -74,6 +74,10 @@ MODULE mo_nonhydrostatic_nml
   REAL(wp):: htop_moist_proc ! Top height (in m) of the part of the model domain
                             ! where processes related to moist physics are computed
   INTEGER :: kstart_moist(max_dom) ! related flow control variable (NOT a namelist variable)
+  REAL(wp):: htop_qvadv     ! Top height (in m) up to which water vapor is advected
+                            ! workaround to circumvent CFL instability in the stratopause
+                            ! region for aquaplanet experiments
+  INTEGER :: kstart_qv(max_dom) ! related flow control variable (NOT a namelist variable)
 
   ! Parameters active with i_cell_type=3 only
   REAL(wp):: damp_height(max_dom)    ! height at which damping starts
@@ -108,7 +112,8 @@ MODULE mo_nonhydrostatic_nml
                                ltheta_up_hori, l_impl_vert_adv, gmres_rtol_nh, &
                                iadv_rcf, ivctype, upstr_beta, l_open_ubc,  &
                                l_nest_rcf, l_zdiffu_t, thslp_zdiffu, thhgtd_zdiffu, &
-                               k2_updamp_coeff, l_masscorr_nest, htop_moist_proc
+                               k2_updamp_coeff, l_masscorr_nest, htop_moist_proc, &
+                               htop_qvadv
   !
   CONTAINS
 
@@ -151,7 +156,9 @@ MODULE mo_nonhydrostatic_nml
   ! (set to 200 km, which in practice means that moist physics is
   ! computed everywhere by default)
   htop_moist_proc = 200000._wp
+  htop_qvadv      = 250000._wp
   kstart_moist(:) = 1
+  kstart_qv(:)    = 1
 
   ! Settings for icell_type=3
   damp_height(1)    = 17500.0_wp

@@ -85,7 +85,8 @@ CONTAINS
   !
   !  @par Revision History
   !  Initial version by Martin Koehler, DWD (2010-08-23)
-  !
+  !  Revision by Martin Koehler, DWD (2011-11)
+  !    * take out p<500hPa limit in thin cirrus correction
   !
   !  LITERATURE
   !  ....

@@ -85,19 +85,24 @@ varname="ELEV"
 maxvar=8                                        # initial elevation: +-10 m
 minvar=-8
 selmode="halflog"
-selmode="manual"
+selmode="manual"                                #  use max/minvar
 selmode="auto"                                  #  no max/minvar used
-map=""                                          #  use global map
-map="'mapLLC=(/-60,-35/)' 'mapURC=(/60,35/)'"   #  use local lat/lon-map 
+MAP=""                                          #  use global map
+MAP="'mapLLC=(/-60,-35/)' 'mapURC=(/60,35/)'"   #  use local lat/lon-map (at equator)
+MAP="'mapLLC=(/-95,  5/)' 'mapURC=(/40,85/)'"   #  use local lat/lon-map (10-80N)
 plotstep=12                                     #  3 days, 6-hourly data
 plotstep=4                                      #  1 day,  6-hourly data
+mname="wet_c"                                   #  grey shading outside basin
+PROJSAT=" "                                     #  Projection: Cylindrical Equidistant
+PROJSAT="projSat=True"                          #  Projection: Sattelite view
 
 
 # these parameters are stored in here-document due to necessary single and double quotes:
 cat >scr_${EXP}_nclcmd.here <<eo_here
   ncl ${ncl_script_path}icon_ocean.ncl \
       'iFile="$ifile"' 'oFile="$ofile"' 'varName="$varname"' 'oType="$otype"' \
-      'selMode="$selmode"' minVar=$minvar maxVar=$maxvar $map timeStep=$plotstep
+      'selMode="$selmode"' minVar=$minvar maxVar=$maxvar $MAP timeStep=$plotstep \
+      'maskName="$mname"' $PROJSAT
 eo_here
 
 # run the ncl script

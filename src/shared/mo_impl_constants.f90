@@ -126,9 +126,13 @@ MODULE mo_impl_constants
   INTEGER,PARAMETER :: BOUNDARY      =  0  !  edge where cells are differing
   INTEGER,PARAMETER :: SEA_BOUNDARY  = -1  !  e.g. wet cell with neighbouring land cell
   INTEGER,PARAMETER :: SEA           = -2  !  inner sea
-  !INTEGER,PARAMETER :: LAND     = 0
-  !INTEGER,PARAMETER :: SEA      = 1
-  !INTEGER,PARAMETER :: BOUNDARY = 2
+
+  INTEGER,PARAMETER :: ZERO_CORIOLIS                 = 0
+  INTEGER,PARAMETER ::  FULL_CORIOLIS                  = 1
+  INTEGER,PARAMETER ::  BETA_PLANE_CORIOLIS    = 2
+  INTEGER,PARAMETER ::  F_PLANE_CORIOLIS           =  3
+
+
 
   ! dimensions of index list fields and index ranges for which grid points are reordered
   ! according to the refin_ctrl values

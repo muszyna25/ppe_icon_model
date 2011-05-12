@@ -298,8 +298,7 @@ EOF
   # plot sea -land mask
   nclscript=../scripts/postprocessing/tools/plotIconSphereGrid.ncl
   if [[ "x$plot_grid" = "x.true." ]] ; then
-    grid_name=\"$GRIDDIR/$OCEGRID\"
-    echo ncl $nclscript \'grid=\"$GRIDDIR/$OCEGRID\"\'   \'var=\"edge_elevation\"\' > __tmp__
+#   echo ncl $nclscript \'grid=\"$GRIDDIR/$OCEGRID\"\'   \'var=\"edge_elevation\"\' > __tmp__
     echo ncl $nclscript \'grid=\"$GRIDDIR/$OCEGRID\"\'   \'var=\"edge_sea_land_mask\"\' > __tmp__
     chmod +x  __tmp__
     ./__tmp__
@@ -315,25 +314,26 @@ EOF
 if [[ x$create_basin = "x.true." ]] ; then
   # grid parameters
   R=2                   # nroot
-  B=4                   # the final resolution of the grid
-  REFINE_ITERATIONS=4   # iterations on the initial basin
+  B=4                   # no. of bisections applied for the global grid
+  REFINE_ITERATIONS=3   # no. of refinements after smoothing ocean boundary
+                        #  - resolution for smoothing is ((B-REFINE_ITERATIONS))
   optimize_ocean_grids=".true."
   only_get_sea_land_mask=".true."
   smooth_ocean_boundary=".true."
   #bathymetry parameters
   MINDEPTH="-6.0"       # minimum bathymetry depth to consider grid point as sea [m] in elevation file
-  SEADEPTH="-2800.0"    # set ocean bathymetry to constant (flat bottom)
+  SEADEPTH="-2700.0"    # set ocean bathymetry to constant (flat bottom)
   INTMTH=3              # edge elevation interpolation method: 1= linear, 2=min,  3=max
   # topography file
   TOPFILE=""            # no topography file used for the basin
   #conditions
   no_of_conditions=1
-  patch_shape=2            # 1=orthogonal, 2= circle
-  rectangle_xradious=0.0   # x radius for orthogonal
-  rectangle_yradious=0.0   # y radius for orthogonal
-  circle_radious=40.0      # radius of circle
-  patch_center_x=0.0
-  patch_center_y=0.0
+  patch_shape=1              #  Parameter for new Stommel basin:
+  rectangle_xradious=50.0
+  rectangle_yradious=30.0
+  circle_radious=0.0
+  patch_center_x=-25.0
+  patch_center_y=45.0
  # patch_shape=1            # 1=orthogonal, 2= circle
  # rectangle_xradious=40.0  # x radius for orthogonal
  # rectangle_yradious=30.0  # y radius for orthogonal
@@ -341,6 +341,7 @@ if [[ x$create_basin = "x.true." ]] ; then
  # patch_center_x=0.0       
  # patch_center_y=30.0
   # output grid name
+  # OCEGRID=iconR${R}B0${B}-ocean_bas10-80N.nc  #  new Stommel basin 10-80N
   OCEGRID=iconR${R}B0${B}-ocean_basin.nc
   ATMOGRID=iconR${R}B0${B}-atmo_basin.nc
 

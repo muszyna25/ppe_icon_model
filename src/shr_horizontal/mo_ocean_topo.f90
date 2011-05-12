@@ -348,6 +348,13 @@ CONTAINS
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocating edge2vert_coeff failed')
     ENDIF
+
+   ALLOCATE(ptr_patch%patch_oce%edge2vert_vector_cc(nproma,nblks_e,1:6),STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish (routine,'allocating edge2vert_vector failed')
+    ENDIF
+
+
     !coefficients for transposed edge to vertex mapping.
     !Dimension: nproma,nblks_e encode number of edges,
     !1:2 is number of vertex neighbors per edge
@@ -440,6 +447,7 @@ CONTAINS
       !ptr_patch%patch_oce%edge2vert_coeff_t(:,:,:)%x(ie)    = 0.0_wp
       ptr_patch%patch_oce%edge2vert_coeff_cc(:,:,:)%x(ie)    = 0.0_wp
       ptr_patch%patch_oce%edge2vert_coeff_cc_t(:,:,:)%x(ie)  = 0.0_wp
+      ptr_patch%patch_oce%edge2vert_vector_cc(:,:,:)%x(ie)   = 0.0_wp
     END DO
     ptr_patch%patch_oce%fixed_vol_norm      = 0.0_wp
     ptr_patch%patch_oce%variable_vol_norm   = 0.0_wp
@@ -477,9 +485,6 @@ CONTAINS
     ! Calculate reconstruction weights needed in patch_ocean
     !
     CALL init_scalar_product( ptr_patch )
-
-! write(*,*)'now call orig scalar'
-     !CALL init_scalar_product_orig( ptr_patch )
     !
     ! Calculate geometrical factors used in divergence and rotation
     !
@@ -509,7 +514,7 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
                & routine = ('mo_ocean_topo:read_netcdf_ocean_domain')
     LOGICAL :: l_exist
-    INTEGER :: i_lev, no_cells, no_edges, minlsm, maxlsm
+    INTEGER :: i_lev, no_cells, no_edges!, minlsm, maxlsm
     INTEGER :: ncid, dimid, varid, nfloc_stat
     INTEGER :: array_c_int (ptr_patch%n_patch_cells), &  ! slo: todo: set zero!
             &  array_e_int (ptr_patch%n_patch_edges)
@@ -774,11 +779,10 @@ CONTAINS
 
     REAL(wp):: perc_lnd_c(n_zlev), perc_gllnd_c
     REAL(wp):: perc_lnd_e(n_zlev), perc_gllnd_e
-    INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
-
-    INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-    INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-    INTEGER :: rl_start_e, rl_end_e, rl_start_c, rl_end_c
+    !INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+    !INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
+    !INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
+    !INTEGER :: rl_start_e, rl_end_e!, rl_start_c, rl_end_c
     !-----------------------------------------------------------------------------
 
     CALL message (TRIM(routine), 'start')
@@ -1390,7 +1394,7 @@ CONTAINS
     !REAL(wp) :: edge_length_c2_e1, edge_length_c2_e2,edge_length_c2_e3
     LOGICAL, PARAMETER :: MID_POINT_DUAL_EDGE = .TRUE. !Please do not change this unless
                                                        !you are sure, you know what you do.
-    LOGICAL, PARAMETER :: LARC_LENGTH = .FALSE. 
+    LOGICAL, PARAMETER :: LARC_LENGTH = .FALSE.
     !-----------------------------------------------------------------------
     CALL message (TRIM(routine), 'start')
 
@@ -1399,87 +1403,6 @@ CONTAINS
 
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,1)
-
-!     !Step 1: calculation of coefficients for primal grid
-!     CELL_BLK_LOOP: DO jb = i_startblk, i_endblk
-! 
-!       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-! 
-!       CELL_IDX_LOOP: DO jc =  i_startidx, i_endidx
-! 
-!         !transform coordinates of edge midpoint ie to new coordinate system
-!         DO ie=1, no_cell_edges
-! 
-!           ile = p_patch%cells%edge_idx(jc,jb,ie)
-!           ibe = p_patch%cells%edge_blk(jc,jb,ie)
-! 
-!           cc_edge(ie) = gc2cc(p_patch%edges%center(ile,ibe))
-! 
-!           !Adjacent cells
-!           il_c1 = p_patch%edges%cell_idx(ile,ibe,1)
-!           ib_c1 = p_patch%edges%cell_blk(ile,ibe,1)
-!           il_c2 = p_patch%edges%cell_idx(ile,ibe,2)
-!           ib_c2 = p_patch%edges%cell_blk(ile,ibe,2)
-! 
-!           xx1 = gc2cc(p_patch%cells%center(il_c1,ib_c1))
-!           xx2 = gc2cc(p_patch%cells%center(il_c2,ib_c2))
-! 
-! 
-!            !calculate cell edge distances
-!            IF(LARC_LENGTH)THEN
-!              norm=SQRT(SUM(xx1%x*xx1%x))
-!              xx1%x= xx1%x/norm
-! 
-!              norm=SQRT(SUM(xx2%x*xx2%x))
-!              xx2%x= xx2%x/norm
-! 
-!              norm=SQRT(SUM(cc_edge(ie)%x*cc_edge(ie)%x))
-!              cc_edge(ie)%x =  cc_edge(ie)%x/norm
-! 
-!              z_cell_edge_dist(ie,1) = arc_length(cc_edge(ie),xx1)
-!              z_cell_edge_dist(ie,2) = arc_length(cc_edge(ie),xx2)
-!              !z_cell_edge_dist(ie,1) = p_patch%edges%edge_cell_length(ile,ibe,1)/re 
-!              !z_cell_edge_dist(ie,2) = p_patch%edges%edge_cell_length(ile,ibe,2)/re 
-!            ELSE
-!              z_cell_edge_dist(ie,1) = SQRT(SUM((cc_edge(ie)%x - xx1%x)*(cc_edge(ie)%x - xx1%x)))
-!              z_cell_edge_dist(ie,2) = SQRT(SUM((cc_edge(ie)%x - xx2%x)*(cc_edge(ie)%x - xx2%x)))
-!             !write(*,*)'length 1:', z_cell_edge_dist(ie,1),z_cell_edge_dist(ie,2),&
-!             !&arc_length(cc_edge(ie),xx1),arc_length(cc_edge(ie),xx2) 
-!            ENDIF 
-!            !calculate edge length of moved triangle
-!            !adjacent vertices of moved edge
-!            il_v1 = p_patch%edges%vertex_idx(ile,ibe,1)
-!            ib_v1 = p_patch%edges%vertex_blk(ile,ibe,1)
-!            il_v2 = p_patch%edges%vertex_idx(ile,ibe,2)
-!            ib_v2 = p_patch%edges%vertex_blk(ile,ibe,2)
-!            xx1 = gc2cc(p_patch%verts%vertex(il_v1,ib_v1))
-!            xx2 = gc2cc(p_patch%verts%vertex(il_v2,ib_v2))
-!            IF(LARC_LENGTH)THEN
-!              norm=SQRT(SUM(xx1%x*xx1%x))
-!              xx1%x= xx1%x/norm
-!              norm=SQRT(SUM(xx2%x*xx2%x))
-!              xx2%x= xx2%x/norm
-!              z_edge_length(ie) = arc_length(xx1,xx2) 
-!              !z_edge_length(ie) = p_patch%edges%primal_edge_length(ile,ibe)/re
-!              !write(*,*)'arc length',arc_length(xx2,xx1),z_edge_length(ie),SQRT(SUM((xx2%x-xx1%x)*(xx2%x-xx1%x)))
-!            ELSE
-!              z_edge_length(ie) = SQRT(SUM( (xx2%x - xx1%x)*(xx2%x - xx1%x)))
-!              !write(*,*)'length 2:', z_edge_length(ie),arc_length(xx1,xx2)
-!            ENDIF
-!            IF(p_patch%edges%cell_idx(ile,ibe,1)==jc.AND.&
-!            & p_patch%edges%cell_blk(ile,ibe,1)==jb)THEN
-!              cell_edge_distance = z_cell_edge_dist(ie,1)
-!            ELSEIF(p_patch%edges%cell_idx(ile,ibe,2)==jc.AND.&
-!            & p_patch%edges%cell_blk(ile,ibe,2)==jb)THEN
-!              cell_edge_distance = z_cell_edge_dist(ie,2)
-!            ENDIF
-!            !aggregate volume of cell
-!            p_patch%patch_oce%fixed_vol_norm(jc,jb) = p_patch%patch_oce%fixed_vol_norm(jc,jb) &
-!                                                   & + 0.5_wp*cell_edge_distance*z_edge_length(ie)
-!            p_patch%patch_oce%variable_vol_norm(jc,jb,ie) = 0.5_wp*cell_edge_distance*z_edge_length(ie)
-!          END DO
-!        END DO CELL_IDX_LOOP
-!      END DO CELL_BLK_LOOP
 
      rl_start_e = 1
      rl_end_e = min_rledge
@@ -1579,13 +1502,15 @@ CONTAINS
            p_patch%patch_oce%dist_cell2edge(iil_c1(ie),iib_c1(ie),2) = z_cell_edge_dist_c1(ie,2)
 
            z_vec_c1(ie)%x =  cc_edge(ie)%x - cc_c1%x     !p_patch%edges%primal_cart_normal(iil_c1(ie),iib_c1(ie))
-
-           p_patch%patch_oce%edge2cell_coeff_cc(il_c1,ib_c1,ie)%x =                          &
-             &               z_vec_c1(ie)%x*p_patch%cells%edge_orientation(il_c1,ib_c1,ie) * &
-             &              z_edge_length(ie)
-
-           !aggregate volume of cell
            norm = SQRT(SUM( z_vec_c1(ie)%x* z_vec_c1(ie)%x))
+
+           p_patch%patch_oce%edge2cell_coeff_cc(il_c1,ib_c1,ie)%x&
+           & = z_vec_c1(ie)%x*p_patch%cells%edge_orientation(il_c1,ib_c1,ie)*z_edge_length(ie)
+
+!test
+!z_vec_c1(ie)%x =z_vec_c1(ie)%x/norm
+!write(*,*)'vec:normal:',z_vec_c1(ie)%x,p_patch%edges%primal_cart_normal(iil_c1(ie),iib_c1(ie))%x 
+!---------
                  p_patch%patch_oce%fixed_vol_norm(il_c1,ib_c1) = &
              &   p_patch%patch_oce%fixed_vol_norm(il_c1,ib_c1) + 0.5_wp*norm*z_edge_length(ie)
            p_patch%patch_oce%variable_vol_norm(il_c1,ib_c1,ie) = 0.5_wp*norm*z_edge_length(ie)
@@ -1663,12 +1588,12 @@ CONTAINS
            p_patch%patch_oce%dist_cell2edge(iil_c2(ie),iib_c2(ie),1) = z_cell_edge_dist_c1(ie,1)
            p_patch%patch_oce%dist_cell2edge(iil_c2(ie),iib_c2(ie),2) = z_cell_edge_dist_c1(ie,2)
 
-           z_vec_c2(ie)%x =  cc_edge(ie)%x - cc_c2%x
+           z_vec_c2(ie)%x =  cc_edge(ie)%x - cc_c2%x  !p_patch%edges%primal_cart_normal(iil_c2(ie),iib_c2(ie))
+           norm = SQRT(SUM( z_vec_c2(ie)%x* z_vec_c2(ie)%x))
 
            p_patch%patch_oce%edge2cell_coeff_cc(il_c2,ib_c2,ie)%x&
              & = z_vec_c2(ie)%x*p_patch%cells%edge_orientation(il_c2,ib_c2,ie)*z_edge_length(ie)
 
-           norm = SQRT(SUM( z_vec_c2(ie)%x* z_vec_c2(ie)%x))
            p_patch%patch_oce%fixed_vol_norm(il_c2,ib_c2) &
              & = p_patch%patch_oce%fixed_vol_norm(il_c2,ib_c2) + 0.5_wp*norm*z_edge_length(ie)
 
@@ -1678,7 +1603,7 @@ CONTAINS
          END DO
        END DO EDGE_IDX_LOOP_PRIMAL
      END DO EDGE_BLK_LOOP_PRIMAL
-
+!stop
     rl_start = 1 
     rl_end = min_rledge
 
@@ -1789,8 +1714,12 @@ CONTAINS
           xx2%x= xx2%x/norm
 
            cell2cell_cc%x       = xx2%x - xx1%x
-           norm_c1_c2           = SQRT(SUM(cell2cell_cc%x*cell2cell_cc%x)) !arc_length(xx1,xx2)!
-           dual_edge_length(ie) = norm_c1_c2          !!dual_edge_length(ie) = p_patch%edges%dual_edge_length(il_e,ib_e)/re !
+           IF(LARC_LENGTH)THEN
+             norm_c1_c2 = arc_length(xx1,xx2)
+           ELSE
+             norm_c1_c2 = SQRT(SUM(cell2cell_cc%x*cell2cell_cc%x)) 
+           ENDIF 
+           dual_edge_length(ie) = norm_c1_c2
 !           cell2cell_cc%x       = cell2cell_cc%x/norm_c1_c2 
 
           IF(MID_POINT_DUAL_EDGE)THEN
@@ -1824,43 +1753,40 @@ CONTAINS
 !           vert2vert_cc(jv,jb,ie)%x   = vert2vert_cc(jv, jb, ie)%x/norm
           norm = SQRT(SUM(vert1_midedge_cc(jv,jb,ie)%x*vert1_midedge_cc(jv,jb,ie)%x))
           vert1_midedge_cc(jv, jb, ie)%x = vert1_midedge_cc(jv, jb, ie)%x/norm
+
           norm = SQRT(SUM(vert2_midedge_cc(jv,jb,ie)%x*vert2_midedge_cc(jv,jb,ie)%x))
           vert2_midedge_cc(jv, jb, ie)%x = vert2_midedge_cc(jv, jb, ie)%x/norm
 
 
-          !calculate vertex edge distance
-          vert_edge_dist(ie,1)&
-          & = SQRT(SUM((cc_dual_edge(ie)%x - xx1%x)*(cc_dual_edge(ie)%x - xx1%x)))
-          vert_edge_dist(ie,2)&
-          & = SQRT(SUM((cc_dual_edge(ie)%x - xx2%x)*(cc_dual_edge(ie)%x - xx2%x)))
-          vert_dual_mid_dist(ie,1)&
-          & = SQRT(SUM((cc_mid_dual_edge(ie)%x - xx1%x)*(cc_mid_dual_edge(ie)%x - xx1%x)))
-          vert_dual_mid_dist(ie,2)&
-          & = SQRT(SUM((cc_mid_dual_edge(ie)%x - xx2%x)*(cc_mid_dual_edge(ie)%x - xx2%x)))
-
-!             vert_edge_dist(ie,1) = arc_length (cc_dual_edge(ie), xx1) 
-!             vert_edge_dist(ie,2) = arc_length (cc_dual_edge(ie), xx2) 
-!             vert_dual_mid_dist(ie,1)= arc_length (cc_mid_dual_edge(ie), xx1) 
-!             vert_dual_mid_dist(ie,2)= arc_length (cc_mid_dual_edge(ie), xx2)
+          !calculate vertex edge distance 
+          IF(LARC_LENGTH)THEN
+            vert_edge_dist(ie,1) = arc_length (cc_dual_edge(ie), xx1) 
+            vert_edge_dist(ie,2) = arc_length (cc_dual_edge(ie), xx2) 
+            vert_dual_mid_dist(ie,1)= arc_length (cc_mid_dual_edge(ie), xx1) 
+            vert_dual_mid_dist(ie,2)= arc_length (cc_mid_dual_edge(ie), xx2)
+          ELSE
+            vert_edge_dist(ie,1)&
+            & = SQRT(SUM((cc_dual_edge(ie)%x - xx1%x)*(cc_dual_edge(ie)%x - xx1%x)))
+            vert_edge_dist(ie,2)&
+            & = SQRT(SUM((cc_dual_edge(ie)%x - xx2%x)*(cc_dual_edge(ie)%x - xx2%x)))
+            vert_dual_mid_dist(ie,1)&
+            & = SQRT(SUM((cc_mid_dual_edge(ie)%x - xx1%x)*(cc_mid_dual_edge(ie)%x - xx1%x)))
+            vert_dual_mid_dist(ie,2)&
+            & = SQRT(SUM((cc_mid_dual_edge(ie)%x - xx2%x)*(cc_mid_dual_edge(ie)%x - xx2%x)))
+          ENDIF
 
           !calculate normal vector that is perpendicular to vertex-vertex- and edge position vector
           !If one uses the edge position vector this results in the moved primal normal. Later
           !edge position vector has to be replaced by the midpoint of the dual edge.
-!           recon_vec_cc   = vector_product(vert2vert_cc(jv, jb, ie), cc_mid_dual_edge(ie))
-!           norm           = SQRT(SUM(recon_vec_cc%x*recon_vec_cc%x))
-!           recon_vec_cc%x = recon_vec_cc%x/norm
           recon_vec_cc_v1(ie) = vector_product(vert1_midedge_cc(jv, jb, ie), cc_mid_dual_edge(ie))
           norm                = SQRT(SUM(recon_vec_cc_v1(ie)%x*recon_vec_cc_v1(ie)%x))
           recon_vec_cc_v1(ie)%x = recon_vec_cc_v1(ie)%x/norm
-          recon_vec_cc_v2(ie)   = vector_product(vert2_midedge_cc(jv, jb, ie), &
-            &                                    cc_mid_dual_edge(ie))
-          norm           = SQRT(SUM(recon_vec_cc_v2(ie)%x*recon_vec_cc_v2(ie)%x))
+
+          recon_vec_cc_v2(ie)   = vector_product(vert2_midedge_cc(jv,jb,ie), cc_mid_dual_edge(ie))
+          norm                  = SQRT(SUM(recon_vec_cc_v2(ie)%x*recon_vec_cc_v2(ie)%x))
           recon_vec_cc_v2(ie)%x = recon_vec_cc_v2(ie)%x/norm
 
           !Fix orientation
-!           z_tmp =  DOT_PRODUCT(recon_vec_cc%x, cell2cell_cc%x)
-!           IF (z_tmp <0._wp) recon_vec_cc%x = -1._wp * recon_vec_cc%x
-!           z_tmp =  DOT_PRODUCT(recon_vec_cc_v1(ie)%x, cell2cell_cc%x)
           z_tmp = DOT_PRODUCT(recon_vec_cc_v1(ie)%x, p_patch%edges%primal_cart_normal(il_e,ib_e)%x)
           IF (z_tmp <0._wp) recon_vec_cc_v1(ie)%x = -1._wp * recon_vec_cc_v1(ie)%x
 
@@ -1869,18 +1795,20 @@ CONTAINS
 
 
           !write(*,*)'recon vec:primal 1:', il_e,ib_e,ie,recon_vec_cc%x, p_patch%edges%primal_cart_normal(il_e,ib_e)%x
-          !Transform to geographical coordinates 
-!            gc_dual_edge(ie)=cc2gc(cc_mid_dual_edge(ie))!cc2gc(cc_dual_edge(ie))!
-!            CALL cvec2gvec ( recon_vec_cc%x(1), recon_vec_cc%x(2), recon_vec_cc%x(3), &
-!              &              gc_dual_edge(ie)%lon, gc_dual_edge(ie)%lat,              &
-!              &              recon_vec_gc(ie)%lon, recon_vec_gc(ie)%lat )
-
           IF      ( (p_patch%edges%vertex_idx(il_e,ib_e,1) == jv) .and. &
                     (p_patch%edges%vertex_blk(il_e,ib_e,1) == jb) ) THEN
 
             vert_edge_distance     = vert_edge_dist(ie,1)
             vert_dual_mid_distance = vert_dual_mid_dist(ie,1)
             recon_vec_cc           = recon_vec_cc_v1(ie)
+
+            p_patch%patch_oce%edge2vert_vector_cc(jv,jb,ie)=&
+            &vector_product(vert1_midedge_cc(jv, jb, ie), cc_mid_dual_edge(ie))
+            z_tmp = DOT_PRODUCT(p_patch%patch_oce%edge2vert_vector_cc(jv,jb,ie)%x,&
+            &p_patch%edges%primal_cart_normal(il_e,ib_e)%x)
+            IF (z_tmp <0._wp) p_patch%patch_oce%edge2vert_vector_cc(jv,jb,ie)%x&
+            & = -1._wp * p_patch%patch_oce%edge2vert_vector_cc(jv,jb,ie)%x
+
 
           ELSE IF ( (p_patch%edges%vertex_idx(il_e,ib_e,2) == jv) .and. &
                     (p_patch%edges%vertex_blk(il_e,ib_e,2) == jb) ) THEN
@@ -1889,22 +1817,26 @@ CONTAINS
             vert_dual_mid_distance = vert_dual_mid_dist(ie,2)
             recon_vec_cc           = recon_vec_cc_v2(ie)
 
+            p_patch%patch_oce%edge2vert_vector_cc(jv,jb,ie)=&
+            &vector_product(vert2_midedge_cc(jv, jb, ie), cc_mid_dual_edge(ie))
+            z_tmp = DOT_PRODUCT(p_patch%patch_oce%edge2vert_vector_cc(jv,jb,ie)%x,&
+            & p_patch%edges%primal_cart_normal(il_e,ib_e)%x)
+            IF (z_tmp <0._wp) p_patch%patch_oce%edge2vert_vector_cc(jv,jb,ie)%x =&
+            & -1._wp * p_patch%patch_oce%edge2vert_vector_cc(jv,jb,ie)%x
           ELSE
             CALL message (TRIM(routine), 'WARNING - vert_edge_distance not found')
             write(*,*) 'p_patch%edges%vertex_idx(il_e,ib_e,1)=', &
                         p_patch%edges%vertex_idx(il_e,ib_e,1)
           END IF
-!           p_patch%patch_oce%edge2vert_coeff(jv,jb,ie,1) = &
-!             & recon_vec_gc(ie)%lon*(dual_edge_length(ie)*vert_dual_mid_distance)
-!           p_patch%patch_oce%edge2vert_coeff(jv,jb,ie,2) = &
-!             & recon_vec_gc(ie)%lat*(dual_edge_length(ie)*vert_dual_mid_distance)
-
 
            p_patch%patch_oce%variable_dual_vol_norm(jv,jb,ie) = &
                    &0.5_wp*dual_edge_length(ie)*vert_dual_mid_distance!vert_edge_distance*dual_edge_length(ie)!
 
           p_patch%patch_oce%edge2vert_coeff_cc(jv,jb,ie)%x=&
             &recon_vec_cc%x*dual_edge_length(ie)*vert_dual_mid_distance
+
+
+          !p_patch%patch_oce%edge2vert_vector_cc(jv,jb,ie)%x=recon_vec_cc%x
 
         norm_v1_v2 = SQRT(SUM(vert1_midedge_cc(jv, jb, ie)%x*vert1_midedge_cc(jv, jb, ie)%x))&
                   &+ SQRT(SUM(vert2_midedge_cc(jv, jb, ie)%x*vert2_midedge_cc(jv, jb, ie)%x))
@@ -1920,953 +1852,9 @@ CONTAINS
       ENDDO VERT_IDX_LOOP
     END DO VERT_BLK_LOOP
 
-!     !Now we calculate the coefficients for the transposed of the edge to vertex mapping
-!     i_startblk = p_patch%edges%start_blk(rl_start,1)
-!     i_endblk   = p_patch%edges%end_blk(rl_end,1)
-! 
-!     EDGE_BLK_LOOP_2 : DO jb = i_startblk, i_endblk
-! 
-!       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-! 
-!       EDGE_IDX_LOOP_2: DO je =  i_startidx, i_endidx
-! 
-!         !Step 1: get relevant coordinates and vectors
-!         !
-!         !Get indices of two adjacent vertices and cells
-!         il_v1 = p_patch%edges%vertex_idx(je,jb,1)
-!         ib_v1 = p_patch%edges%vertex_blk(je,jb,1)
-!         il_v2 = p_patch%edges%vertex_idx(je,jb,2)
-!         ib_v2 = p_patch%edges%vertex_blk(je,jb,2)
-! 
-!         il_c1 = p_patch%edges%cell_idx(je,jb,1)
-!         ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-!         il_c2 = p_patch%edges%cell_idx(je,jb,2)
-!         ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-! 
-!         xx1 = gc2cc(p_patch%cells%center(il_c1,ib_c1))
-!         norm=SQRT(SUM(xx1%x*xx1%x))
-!         xx1%x= xx1%x/norm
-!         xx2 = gc2cc(p_patch%cells%center(il_c2,ib_c2))
-!         norm=SQRT(SUM(xx2%x*xx2%x))
-!         xx2%x= xx2%x/norm
-! 
-!         !cartesian coordinates of edge and neighbor cells
-!         IF(MID_POINT_DUAL_EDGE)THEN
-!         cc_e0%x =0.5_wp*(xx2%x+xx1%x) !cc_edge(ie)%x
-!         ELSE
-!           cc_e0 = gc2cc(p_patch%edges%center(je,jb))
-!         ENDIF
-! 
-!         cc_v1 = gc2cc(p_patch%verts%vertex(il_v1,ib_v1))
-!         cc_v2 = gc2cc(p_patch%verts%vertex(il_v2,ib_v2))
-! 
-!         !cartesian vectors from: vertex 2 to vertex 1
-!         ! vertex 1 to edge je and vertex 2 to edge je
-!         cv_v1_v2%x = cc_v2%x - cc_v1%x
-!         cv_v1_e0%x = cc_e0%x - cc_v1%x
-!         cv_v2_e0%x = cc_e0%x - cc_v2%x
-! 
-!         norm_v1_e0 = SQRT(SUM(cv_v1_e0%x*cv_v1_e0%x))
-!         norm_v2_e0 = SQRT(SUM(cv_v2_e0%x*cv_v2_e0%x))
-! 
-!         IF(mid_point_dual_edge)THEN
-!           !norm_v1_v2 = norm_v1_e0 + norm_v2_e0
-!            norm_v1_v2 = arc_length(cc_v2, cc_e0)&
-!                       &+arc_length(cc_v1, cc_e0)
-!         ELSE 
-!           norm_v1_v2 = SQRT(SUM(cv_v1_e0%x*cv_v1_e0%x)) + SQRT(SUM(cv_v2_e0%x*cv_v2_e0%x))!!sqrt(sum(cv_v1_v2%x*cv_v1_v2%x))!
-!           !norm_v1_v2 = arc_length(cc_v2, cc_v1)
-!         ENDIF
-! 
-! !         p_patch%patch_oce%edge2vert_coeff_t(je,jb,1)%x = cv_v1_e0%x * &
-! !           &    ( p_patch%edges%system_orientation(je,jb)/norm_v1_v2 )
-! ! 
-! !         p_patch%patch_oce%edge2vert_coeff_t(je,jb,2)%x = cv_v2_e0%x * &
-! !           &    ( p_patch%edges%system_orientation(je,jb)/norm_v1_v2 )
-! 
-!       END DO EDGE_IDX_LOOP_2
-!     END DO EDGE_BLK_LOOP_2
-
     CALL message (TRIM(routine), 'end')
-
   END SUBROUTINE init_scalar_product
 !-------------------------------------------------------------------------
-! function calc_edge_length_cc(p_patch, edge_idx, edge_blk) RESULT(edge_length)
-! 
-! TYPE(t_patch), INTENT(inout) :: p_patch
-! INTEGER, INTENT(in)          :: edge_idx
-! INTEGER, INTENT(in)          :: edge_blk
-! REAL(wp)                     :: edge_length
-! 
-! !lOCAL VARIABLES
-! INTEGER :: il_v1, il_v2  
-! INTEGER :: ib_v1, ib_v2
-! !INTEGER :: ie  
-! TYPE(t_cartesian_coordinates)    :: cc_v1, cc_v2!, cv_v1_v2
-! !-----------------------------------------  
-! 
-! !get indices of vertices adjacent to edge 
-! il_v1 = p_patch%edges%vertex_idx(edge_idx,edge_blk,1)
-! ib_v1 = p_patch%edges%vertex_blk(edge_idx,edge_blk,1)
-! 
-! il_v2 = p_patch%edges%vertex_idx(edge_idx,edge_blk,2)
-! ib_v2 = p_patch%edges%vertex_blk(edge_idx,edge_blk,2)
-! 
-! cc_v1 = gc2cc(p_patch%verts%vertex(il_v1,ib_v1))
-! cc_v2 = gc2cc(p_patch%verts%vertex(il_v2,ib_v2))
-! 
-! edge_length = SQRT(SUM( (cc_v2%x - cc_v1%x)&
-!                      &* (cc_v2%x - cc_v1%x) ))
-! end function calc_edge_length_cc
-!   !-------------------------------------------------------------------------
-! function calc_cell_edge_dist_cc(p_patch,&
-!                               & edge_idx, edge_blk,&
-!                               & cell_idx, cell_blk) RESULT(cell_edge_dist)
-! 
-! TYPE(t_patch), INTENT(inout) :: p_patch
-! INTEGER, INTENT(in)          :: edge_idx
-! INTEGER, INTENT(in)          :: edge_blk
-! INTEGER, INTENT(in)          :: cell_idx
-! INTEGER, INTENT(in)          :: cell_blk
-! REAL(wp)                     :: cell_edge_dist
-! 
-! !lOCAL VARIABLES
-! INTEGER :: il_c1, il_c2  
-! INTEGER :: ib_c1, ib_c2
-! !INTEGER :: ie  
-! TYPE(t_cartesian_coordinates) :: cc_c, cc_e, cc_x
-! !-----------------------------------------  
-! 
-! !get indices of cells adjacent to edge 
-! il_c1 = p_patch%edges%cell_idx(edge_idx,edge_blk,1)
-! ib_c1 = p_patch%edges%cell_blk(edge_idx,edge_blk,1)
-! il_c2 = p_patch%edges%cell_idx(edge_idx,edge_blk,2)
-! ib_c2 = p_patch%edges%cell_blk(edge_idx,edge_blk,2)
-! 
-! !cart coord of two adjacent cells
-! cc_c = gc2cc(p_patch%cells%center(cell_idx,cell_blk))
-! cc_e = gc2cc(p_patch%edges%center(edge_idx,edge_blk))
-! 
-! !determine point in the middle between c1 and c2
-! cc_x%x = (cc_e%x-cc_c%x)
-! 
-! cell_edge_dist = SQRT(SUM( cc_x%x*cc_x%x))
-! end function calc_cell_edge_dist_cc
-  !
-  !>
-  !! Computes the coefficients that determine the scalar product on the primal grid. This
-  !! scalar product depends on the grid geometry only and  is used to formulate the primitive
-  !! equations in weak form. The coefficients are applied in module "mo_scalar_product".
-  !! The following components of the data type "ocean_patch" are filled:
-  !!   edge2cell_coeff  : coefficients for edge to cell mapping
-  !!   edge2cell_coeff_t: coefficients for transposed of edge to cell mappings
-  !!   edge2vert_coeff  : coefficients for edge to vertex mapping
-  !!   edge2vert_coeff_t: coefficients for transposed of edge to vertex mappings
-  !!   fixed_vol_norm   : summed volume weight of moved cell
-  !!   variable_vol_norm: volume weight at the edges of moved cell
-  !!
-  !! @par Revision History
-  !!  developed by Peter Korn, MPI-M  2010-09
-  !!  Modification by Stephan Lorenz, 2010-11
-  !!
-!   SUBROUTINE init_scalar_product_orig( p_patch)
-! 
-!     !  patch on which computation is performed
-!     !
-!     TYPE(t_patch), TARGET, INTENT(inout) :: p_patch
-! 
-!     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-!     & routine = ('mo_ocean_topo:init_scalar_product')
-! 
-!     INTEGER, PARAMETER :: no_cell_edges = 3
-!     INTEGER, PARAMETER :: no_vert_edges = 6
-!     INTEGER :: jb, je, jc, jv, ie, ile, ibe, ie_1, ie_2
-!     INTEGER :: il_e, ib_e, it_vertedges
-!     INTEGER :: il_c1, ib_c1, il_c2, ib_c2, il_v1, il_v2, ib_v1, ib_v2
-! 
-!     !INTEGER :: il_c1_e1, il_c1_e2, il_c1_e3, ib_c1_e3!ib_c1_e1, ib_c1_e2, 
-!     !INTEGER :: il_c2_e1, ib_c2_e1, il_c2_e2, ib_c2_e2, il_c2_e3, ib_c2_e3
-! 
-!     INTEGER :: rl_start, rl_end
-!     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-! 
-!     REAL(wp) :: z_lon, z_lat, z_rlong, z_rlat, z_long_c, z_lat_c
-!     REAL(wp) :: z_twopi, z_longmax, z_longmin, z_tmp
-!     REAL(wp) :: cell_edge_dist(no_cell_edges,2)
-!     REAL(wp) :: cell_edge_distance
-!     REAL(wp) :: norm_c1_c2, norm_c0_e, norm_v1_v2, norm, norm_v1_e0, norm_v2_e0
-!     REAL(wp) :: dual_edge_length(no_vert_edges)
-!     REAL(wp) :: edge_length(no_cell_edges)
-!     REAL(wp) :: vert_edge_dist(no_vert_edges,2)    
-!     REAL(wp) :: vert_dual_mid_dist(no_vert_edges,2)
-!     REAL(wp) :: vert_edge_distance, vert_dual_mid_distance!, dist_edge_cell, dist_vert_vert
-! 
-!     TYPE(t_geographical_coordinates) :: gc_edge(no_cell_edges), gc_dual_edge(no_vert_edges)
-!     TYPE(t_geographical_coordinates) :: gc_c0, gc_v0, gc_e0
-!     TYPE(t_geographical_coordinates) :: ll1, ll2!, ll3
-!     TYPE(t_cartesian_coordinates)    :: cc_edge(no_cell_edges), cc_dual_edge(no_vert_edges)
-!     TYPE(t_cartesian_coordinates)    :: xx1,xx2!,xx3
-!     TYPE(t_cartesian_coordinates)    :: normal_cc(no_cell_edges)
-!     TYPE(t_cartesian_coordinates)    :: cell2cell_cc
-!     TYPE(t_cartesian_coordinates)    :: cc_c1, cc_c2, cc_e0, cc_c0, cc_v0, cc_v1, cc_v2
-!     TYPE(t_cartesian_coordinates)    :: cv_c1_e0, cv_c2_e0, cv_c1_c2
-!     TYPE(t_cartesian_coordinates)    :: cv_v1_e0, cv_v2_e0, cv_v1_v2
-!     TYPE(t_cartesian_coordinates)    :: cc_mid_dual_edge(no_vert_edges)
-!     TYPE(t_cartesian_coordinates)    :: vert2vert_cc(nproma,p_patch%nblks_v,no_vert_edges)
-!     TYPE(t_cartesian_coordinates)    :: recon_vec_cc
-!     TYPE(t_geographical_coordinates) :: recon_vec_gc(no_vert_edges)
-!     TYPE(t_geographical_coordinates) :: normal_gc(no_cell_edges)
-! 
-! 
-! !    TYPE(t_cartesian_coordinates)    :: cc_c1_e1, cc_c1_e2, cc_c1_e3
-! !    TYPE(t_cartesian_coordinates)    :: cc_c2_e1, cc_c2_e2, cc_c2_e3
-! !    TYPE(t_cartesian_coordinates)    :: cv_c1_e1, cv_c1_e2, cv_c1_e3
-! !    TYPE(t_cartesian_coordinates)    :: cv_c2_e1, cv_c2_e2, cv_c2_e3
-! 
-!     !REAL(wp) :: edge_length_c1_e1, edge_length_c1_e2,edge_length_c1_e3
-!     !REAL(wp) :: edge_length_c2_e1, edge_length_c2_e2,edge_length_c2_e3
-!     !TYPE(t_geographical_coordinates) :: gc_tmp(2)
-!     LOGICAL, PARAMETER :: MID_POINT_DUAL_EDGE = .TRUE. !Please do not change this unless
-!                                                        !you are sure, you know what you do.
-!     !-----------------------------------------------------------------------
-! 
-!     rl_start = 1  ! #slo# changed to 1 - 2010-11-15
-!     rl_end = min_rledge
-! 
-!     i_startblk = p_patch%edges%start_blk(rl_start,1)
-!     i_endblk   = p_patch%edges%end_blk(rl_end,1)
-! 
-!     CALL message (TRIM(routine), 'start')
-! 
-! !!$OMP PARALLEL  PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
-!     z_twopi  = 2.0_wp * pi
-! 
-!     ! set fixed_vol_norm to zero before summing up
-!     p_patch%patch_oce%fixed_vol_norm = 0.0_wp
-! 
-!     rl_start = 1  ! #slo# changed to 1 - 2010-11-15
-!     rl_end = min_rlcell
-! 
-!     i_startblk = p_patch%cells%start_blk(rl_start,1)
-!     i_endblk   = p_patch%cells%end_blk(rl_end,1)
-! 
-!     !Step 1: calculation of coefficients for primal grid
-!     CELL_BLK_LOOP: DO jb = i_startblk, i_endblk
-! 
-!       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-! 
-!       CELL_IDX_LOOP: DO jc =  i_startidx, i_endidx
-! 
-!         !triangle center origin of new coordinate system
-!         z_rlong = p_patch%cells%center(jc,jb)%lon
-!         z_rlat  = p_patch%cells%center(jc,jb)%lat
-! 
-!         gc_c0%lon = z_rlong
-!         gc_c0%lat = z_rlat
-!         cc_c0     = gc2cc(gc_c0)
-! 
-!         !new coordinates
-!         z_long_c = 0._wp
-!         z_lat_c  = 0._wp
-!         IF (z_long_c>pi)  z_long_c = z_long_c - z_twopi
-! 
-! 
-!         !transform coordinates of edge midpoint ie to new coordinate system
-!         DO ie=1, no_cell_edges
-! 
-!           ile = p_patch%cells%edge_idx(jc,jb,ie)
-!           ibe = p_patch%cells%edge_blk(jc,jb,ie)
-! !check          IF(iie/=p_patch%nedges+1)THEN
-!           CALL disp_new( p_patch%edges%center(ile,ibe)%lon,&
-!                        & p_patch%edges%center(ile,ibe)%lat,&
-!                        & z_rlong,z_rlat,&
-!                        & gc_edge(ie)%lon,gc_edge(ie)%lat)
-!              cc_edge(ie) = gc2cc(gc_edge(ie))
-!         END DO
-! 
-!         !all longitudes between -pi and pi
-!         IF(ie==3)THEN
-!         z_longmax = MAX( gc_edge(1)%lon, gc_edge(2)%lon, gc_edge(3)%lon )
-!         z_longmin = MIN( gc_edge(1)%lon, gc_edge(2)%lon, gc_edge(3)%lon )
-! 
-!         IF( z_longmax-z_longmin>pi )THEN
-!           IF( z_long_c>pi )  z_long_c  = z_long_c - z_twopi
-!           IF( gc_edge(1)%lon>pi ) gc_edge(1)%lon = gc_edge(1)%lon -z_twopi
-!           IF( gc_edge(2)%lon>pi ) gc_edge(2)%lon = gc_edge(2)%lon -z_twopi
-!           IF( gc_edge(3)%lon>pi ) gc_edge(3)%lon = gc_edge(3)%lon -z_twopi
-!         ENDIF
-!         ENDIF
-!         DO ie=1, no_cell_edges
-! 
-!           ile = p_patch%cells%edge_idx(jc,jb,ie)
-!           ibe = p_patch%cells%edge_blk(jc,jb,ie)
-! 
-!           !calculate new triangle normal in 3d cartesian and geographical coordinates
-!           !Move adjacent cells to new coordinate system
-!           il_c1 = p_patch%edges%cell_idx(ile,ibe,1)
-!           ib_c1 = p_patch%edges%cell_blk(ile,ibe,1)
-!           il_c2 = p_patch%edges%cell_idx(ile,ibe,2)
-!           ib_c2 = p_patch%edges%cell_blk(ile,ibe,2)
-! 
-!           CALL disp_new( p_patch%cells%center(il_c1,ib_c1)%lon, &
-!             &            p_patch%cells%center(il_c1,ib_c1)%lat, &
-!             &            z_rlong,z_rlat, ll1%lon,ll1%lat)
-! 
-!           CALL disp_new( p_patch%cells%center(il_c2,ib_c2)%lon, &
-!             &            p_patch%cells%center(il_c2,ib_c2)%lat, &
-!             &            z_rlong,z_rlat, ll2%lon,ll2%lat)
-! 
-!             xx1 = gc2cc(ll1)
-!             xx2 = gc2cc(ll2)
-! 
-!             !calculate normal in cartesian coordinates
-!             normal_cc(ie)%x = (xx2%x - xx1%x)
-!             norm_c0_e       = SQRT(SUM(normal_cc(ie)%x*normal_cc(ie)%x))  !arc_length(xx1,xx2) !
-!             normal_cc(ie)%x =  normal_cc(ie)%x/norm_c0_e
-! 
-!            !normal at moved cell edge in geographical coordinates
-!            CALL cvec2gvec ( normal_cc(ie)%x(1), normal_cc(ie)%x(2), normal_cc(ie)%x(3),&
-!                           & gc_edge(ie)%lon, gc_edge(ie)%lat,&
-!                           & normal_gc(ie)%lon,normal_gc(ie)%lat )
-! 
-!            !calculate cell edge distances from moved entities
-!            cell_edge_dist(ie,1) = SQRT(SUM((cc_edge(ie)%x - xx1%x)*(cc_edge(ie)%x - xx1%x)))
-!            cell_edge_dist(ie,2) = SQRT(SUM((cc_edge(ie)%x - xx2%x)*(cc_edge(ie)%x - xx2%x)))
-! 
-!            !calculate edge length of moved triangle
-!            !adjacent vertices of moved edge
-!            il_v1 = p_patch%edges%vertex_idx(ile,ibe,1)
-!            ib_v1 = p_patch%edges%vertex_blk(ile,ibe,1)
-!            il_v2 = p_patch%edges%vertex_idx(ile,ibe,2)
-!            ib_v2 = p_patch%edges%vertex_blk(ile,ibe,2)
-! 
-!            !vertex 1 & 2 coordinates w.r.t. coordinates sytem in triangle center
-!            CALL disp_new( p_patch%verts%vertex(il_v1,ib_v1)%lon, &
-!                         & p_patch%verts%vertex(il_v1,ib_v1)%lat, &
-!                         & z_rlong,z_rlat, ll1%lon,ll1%lat )
-!            CALL disp_new( p_patch%verts%vertex(il_v2,ib_v2)%lon, &
-!                         & p_patch%verts%vertex(il_v2,ib_v2)%lat, &
-!                         & z_rlong,z_rlat, ll2%lon,ll2%lat )
-!            xx1 = gc2cc(ll1)
-!            xx2 = gc2cc(ll2)
-! 
-!            edge_length(ie) =  SQRT(SUM( (xx2%x - xx1%x)*(xx2%x - xx1%x))) !arc_length(xx1,xx2) !
-!        END DO
-! 
-!       DO ie=1, no_cell_edges
-! 
-!        ile = p_patch%cells%edge_idx(jc,jb,ie)
-!        ibe = p_patch%cells%edge_blk(jc,jb,ie)
-! 
-! 
-!        IF(p_patch%edges%cell_idx(ile,ibe,1)==jc.AND.&
-!         & p_patch%edges%cell_blk(ile,ibe,1)==jb)THEN
-!          cell_edge_distance = cell_edge_dist(ie,1)
-!        ELSEIF(p_patch%edges%cell_idx(ile,ibe,2)==jc.AND.&
-!         & p_patch%edges%cell_blk(ile,ibe,2)==jb)THEN
-!          cell_edge_distance = cell_edge_dist(ie,2)
-!        ENDIF
-! 
-!        !aggregate volume of moved cell
-!        p_patch%patch_oce%fixed_vol_norm(jc,jb) = p_patch%patch_oce%fixed_vol_norm(jc,jb) &
-!                                              & + 0.5_wp*cell_edge_distance*edge_length(ie)
-! 
-!        p_patch%patch_oce%variable_vol_norm(jc,jb,ie) = 0.5_wp*cell_edge_distance*edge_length(ie)
-! 
-!         p_patch%patch_oce%edge2cell_coeff(jc,jb,ie,1)&
-!         & = normal_gc(ie)%lon*cell_edge_distance*edge_length(ie)
-!         p_patch%patch_oce%edge2cell_coeff(jc,jb,ie,2)&
-!         & = normal_gc(ie)%lat*cell_edge_distance*edge_length(ie)
-! 
-!         END DO
-!       END DO CELL_IDX_LOOP
-!     END DO CELL_BLK_LOOP
-! 
-!     !Now we calculate the coefficients of the transposed of the edge to cell mapping,
-!     !i.e. coefficients for a cell to edge mapping
-! 
-!     rl_start = 1  ! #slo# changed to 1 - 2010-11-15
-!     rl_end = min_rledge
-! 
-!     i_startblk = p_patch%edges%start_blk(rl_start,1)
-!     i_endblk   = p_patch%edges%end_blk(rl_end,1)
-! 
-! 
-!     EDGE_BLK_LOOP: DO jb = i_startblk, i_endblk
-! 
-!       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-! 
-!       EDGE_IDX_LOOP: DO je =  i_startidx, i_endidx
-! 
-!         !Get indices of two adjacent triangles
-!         il_c1 = p_patch%edges%cell_idx(je,jb,1)
-!         ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-!         il_c2 = p_patch%edges%cell_idx(je,jb,2)
-!         ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-! 
-!         !cartesian coordinates of edge and neighbor cells on 1-sphere
-!         cc_e0 = gc2cc(p_patch%edges%center(je,jb))
-!         cc_c1 = gc2cc(p_patch%cells%center(il_c1,ib_c1))
-!         cc_c2 = gc2cc(p_patch%cells%center(il_c2,ib_c2))
-!         !cartesian vectors from:
-!         !cell 2 to cell 1, cell 1 to edge je and cell 2 to edge je
-!         cv_c1_c2%x = (cc_c1%x - cc_c2%x)
-!         cv_c1_e0%x = (cc_e0%x - cc_c1%x)
-!         cv_c2_e0%x = (cc_e0%x - cc_c2%x)
-! 
-!         norm_c1_c2 = SQRT(SUM(cv_c1_c2%x*cv_c1_c2%x))
-! 
-!         !Determine which edge of both of the two adjacent cells corresponds to the
-!         !actual edge "je". This information is used below for the edge-orientation.
-!         ! #slo# check if ie_1 ie_2 are set here correctly - gcc compiler warnings
-!         DO ie=1,no_cell_edges
-!           IF (p_patch%cells%edge_idx(il_c1,ib_c1,ie) == je.AND.&
-!             & p_patch%cells%edge_blk(il_c1,ib_c1,ie) == jb) THEN
-!             ie_1 = ie
-!           END IF
-!           IF (p_patch%cells%edge_idx(il_c2,ib_c2,ie) == je.AND.&
-!             & p_patch%cells%edge_blk(il_c2,ib_c2,ie) == jb) THEN
-!             ie_2 = ie
-!           END IF
-!         END DO
-!          p_patch%patch_oce%edge2cell_coeff_t(je,jb,1)%x&
-!          & = cv_c1_e0%x * p_patch%cells%edge_orientation(il_c1,ib_c1,ie_1)/norm_c1_c2
-!          p_patch%patch_oce%edge2cell_coeff_t(je,jb,2)%x&
-!          & = cv_c2_e0%x * p_patch%cells%edge_orientation(il_c2,ib_c2,ie_2)/norm_c1_c2
-! 
-!       END DO EDGE_IDX_LOOP
-!     END DO EDGE_BLK_LOOP
-! !!$OMP END DO
-! !!$OMP END PARALLEL
-!     !------------------------------------------------------------------------------
-!     !Step 2: calculation of coefficients for dual grid
-! 
-!     rl_start = 1  ! #slo# changed to 1 - 2010-11-15
-!     rl_end = min_rlvert
-! 
-!     i_startblk = p_patch%verts%start_blk(rl_start,1)
-!     i_endblk   = p_patch%verts%end_blk(rl_end,1)
-! 
-! 
-!     VERT_BLK_LOOP: DO jb = i_startblk, i_endblk
-! 
-!       CALL get_indices_v(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-! 
-!       VERT_IDX_LOOP: DO jv =  i_startidx, i_endidx
-! 
-!         ! current number of edges around vertex (5 or 6)
-!         it_vertedges = p_patch%verts%num_edges(jv,jb)
-! 
-!         z_lon = p_patch%verts%vertex(jv,jb)%lon
-!         z_lat = p_patch%verts%vertex(jv,jb)%lat
-! 
-!         !vertex center origin of new coordinate system
-!         z_rlong = p_patch%verts%vertex(jv,jb)%lon
-!         z_rlat  = p_patch%verts%vertex(jv,jb)%lat
-! 
-!         gc_v0%lon = z_rlong
-!         gc_v0%lat = z_rlat
-!         cc_v0     = gc2cc(gc_v0)
-! 
-!         !new coordinates
-!         z_long_c = 0._wp
-!         z_lat_c  = 0._wp
-!         IF (z_long_c>pi)  z_long_c = z_long_c - z_twopi
-! 
-!         !transform coordinates of edge midpoint ie to new coordinate system
-!         DO ie=1, no_vert_edges
-! 
-!           ! calculate coefficients for existing edges only
-!           IF (ie > it_vertedges) CYCLE
-! 
-!           il_e = p_patch%verts%edge_idx(jv,jb,ie)
-!           ib_e = p_patch%verts%edge_blk(jv,jb,ie)
-! 
-!           CALL disp_new( p_patch%edges%center(il_e,ib_e)%lon,&
-!                        & p_patch%edges%center(il_e,ib_e)%lat,&
-!                        & z_rlong,z_rlat,&
-!                        & gc_dual_edge(ie)%lon,gc_dual_edge(ie)%lat)
-!           cc_dual_edge(ie) = gc2cc(gc_dual_edge(ie))
-!         END DO
-! 
-!         !all longitudes between -pi and pi
-!         z_longmax = MAX( gc_dual_edge(1)%lon, gc_dual_edge(2)%lon, gc_dual_edge(3)%lon )
-!         z_longmin = MIN( gc_dual_edge(1)%lon, gc_dual_edge(2)%lon, gc_dual_edge(3)%lon )
-! 
-!         IF( z_longmax-z_longmin>pi )THEN
-!           IF( z_long_c>pi )  z_long_c  = z_long_c - z_twopi
-!           IF( gc_dual_edge(1)%lon>pi ) gc_dual_edge(1)%lon = gc_dual_edge(1)%lon -z_twopi
-!           IF( gc_dual_edge(2)%lon>pi ) gc_dual_edge(2)%lon = gc_dual_edge(2)%lon -z_twopi
-!           IF( gc_dual_edge(3)%lon>pi ) gc_dual_edge(3)%lon = gc_dual_edge(3)%lon -z_twopi
-!         ENDIF
-! 
-!         DO ie=1, no_vert_edges
-! 
-!           ! calculate coefficients for existing edges only
-!           IF (ie > it_vertedges) CYCLE
-! 
-!           il_e = p_patch%verts%edge_idx(jv,jb,ie)
-!           ib_e = p_patch%verts%edge_blk(jv,jb,ie)
-! 
-!           !Parts of this code parrallels the implementation in the grid-generator
-!           !module "mo_geometry".
-!           !
-!           !1) determine normal vector from adjacent cell to adjacent cell
-!           !   in cartesian coordinate for moved dual cell
-!           !Get indices of two adjacent triangles
-!           il_c1 = p_patch%edges%cell_idx(il_e,ib_e,1)
-!           ib_c1 = p_patch%edges%cell_blk(il_e,ib_e,1)
-!           il_c2 = p_patch%edges%cell_idx(il_e,ib_e,2)
-!           ib_c2 = p_patch%edges%cell_blk(il_e,ib_e,2)
-! 
-!           CALL disp_new( p_patch%cells%center(il_c1,ib_c1)%lon,&
-!                        & p_patch%cells%center(il_c1,ib_c1)%lat,&
-!                        & z_rlong,z_rlat,&
-!                        & ll1%lon,ll1%lat)
-! 
-!           CALL disp_new( p_patch%cells%center(il_c2,ib_c2)%lon,&
-!                        & p_patch%cells%center(il_c2,ib_c2)%lat,&
-!                        & z_rlong,z_rlat,&
-!                        & ll2%lon,ll2%lat )
-!           xx1 = gc2cc(ll1)
-!           xx2 = gc2cc(ll2)
-! 
-!           cell2cell_cc%x       = (xx2%x - xx1%x)
-!           norm_c1_c2           = SQRT(SUM(cell2cell_cc%x*cell2cell_cc%x))
-!           dual_edge_length(ie) = norm_c1_c2
-!           cell2cell_cc%x       = cell2cell_cc%x/norm_c1_c2
-!           IF(MID_POINT_DUAL_EDGE)THEN
-!             cc_mid_dual_edge(ie)%x = 0.5_wp*(xx2%x+xx1%x)
-!           ELSE
-!             cc_mid_dual_edge(ie)%x = cc_dual_edge(ie)%x
-!           ENDIF
-!           !2) determine vector from adjacent vertex to adjacent vertex
-!           !   in cartesian coordinate for moved dual cell
-!           !Get indices of two adjacent vertices
-!           il_v1 = p_patch%edges%vertex_idx(il_e,ib_e,1)
-!           ib_v1 = p_patch%edges%vertex_blk(il_e,ib_e,1)
-!           il_v2 = p_patch%edges%vertex_idx(il_e,ib_e,2)
-!           ib_v2 = p_patch%edges%vertex_blk(il_e,ib_e,2)
-! 
-!           CALL disp_new( p_patch%verts%vertex(il_v1,ib_v1)%lon,&
-!                        & p_patch%verts%vertex(il_v1,ib_v1)%lat,&
-!                        & z_rlong,z_rlat,&
-!                        & ll1%lon,ll1%lat)
-!           CALL disp_new( p_patch%verts%vertex(il_v2,ib_v2)%lon,&
-!                        & p_patch%verts%vertex(il_v2,ib_v2)%lat,&
-!                        & z_rlong,z_rlat,&
-!                        & ll2%lon,ll2%lat )
-!           xx1 = gc2cc(ll1)
-!           xx2 = gc2cc(ll2)
-! 
-!           vert2vert_cc(jv, jb, ie)%x = xx2%x - xx1%x
-! 
-!           !calculate vertex edge distance
-! !           vert_edge_dist(ie,1)&
-! !           & = SQRT(SUM((cc_dual_edge(ie)%x - xx1%x)*(cc_dual_edge(ie)%x - xx1%x)))
-! !           vert_edge_dist(ie,2)&
-! !           & = SQRT(SUM((cc_dual_edge(ie)%x - xx2%x)*(cc_dual_edge(ie)%x - xx2%x)))
-! ! 
-! !           vert_dual_mid_dist(ie,1)&
-! !           & = SQRT(SUM((cc_mid_dual_edge(ie)%x - xx1%x)*(cc_mid_dual_edge(ie)%x - xx1%x)))
-! !           vert_dual_mid_dist(ie,2)&
-! !           & = SQRT(SUM((cc_mid_dual_edge(ie)%x - xx2%x)*(cc_mid_dual_edge(ie)%x - xx2%x)))
-! 
-!           vert_edge_dist(ie,1) = arc_length (cc_dual_edge(ie), xx1) 
-!           vert_edge_dist(ie,2) = arc_length (cc_dual_edge(ie), xx2) 
-! 
-!           vert_dual_mid_dist(ie,1)= arc_length (cc_mid_dual_edge(ie), xx1) 
-!           vert_dual_mid_dist(ie,2)= arc_length (cc_mid_dual_edge(ie), xx2)
-! 
-! 
-!           !calculate normal vector that is perpendicular to vertex-vertex- and edge position vector
-!           !If one uses the edge position vector this results in the moved primal normal. Later
-!           !edge position vector has to be replaced by the midpoint of the dual edge.
-!           recon_vec_cc   = vector_product(vert2vert_cc(jv, jb, ie), cc_mid_dual_edge(ie))
-! 
-!           norm           = SQRT(SUM(recon_vec_cc%x*recon_vec_cc%x))
-!           recon_vec_cc%x = recon_vec_cc%x/norm
-! 
-!           !Fix orientation
-!           z_tmp =  DOT_PRODUCT(recon_vec_cc%x, cell2cell_cc%x)
-!           IF (z_tmp <0._wp) recon_vec_cc%x = -1._wp * recon_vec_cc%x
-! 
-!           !Transform to geographical coordinates
-! !gc_dual_edge(ie)=cc2gc(cc_mid_dual_edge(ie))
-!           CALL cvec2gvec ( recon_vec_cc%x(1), recon_vec_cc%x(2), recon_vec_cc%x(3), &
-!             &              gc_dual_edge(ie)%lon, gc_dual_edge(ie)%lat,              &
-!             &              recon_vec_gc(ie)%lon, recon_vec_gc(ie)%lat )
-! 
-!         END DO
-! 
-!         DO ie=1, no_vert_edges
-! 
-!           ! calculate coefficients for existing edges only
-!           IF (ie > it_vertedges) CYCLE
-! 
-!           il_e = p_patch%verts%edge_idx(jv,jb,ie)
-!           ib_e = p_patch%verts%edge_blk(jv,jb,ie)
-! 
-!           IF      ( (p_patch%edges%vertex_idx(il_e,ib_e,1) == jv) .and. &
-!                     (p_patch%edges%vertex_blk(il_e,ib_e,1) == jb) ) THEN
-!             vert_edge_distance     = vert_edge_dist(ie,1)
-!             vert_dual_mid_distance = vert_dual_mid_dist(ie,1)
-!           ELSE IF ( (p_patch%edges%vertex_idx(il_e,ib_e,2) == jv) .and. &
-!                     (p_patch%edges%vertex_blk(il_e,ib_e,2) == jb) ) THEN
-!             vert_edge_distance     = vert_edge_dist(ie,2)
-!             vert_dual_mid_distance = vert_dual_mid_dist(ie,2)
-!           ELSE
-!             CALL message (TRIM(routine), 'WARNING - vert_edge_distance not found')
-!             write(*,*) 'p_patch%edges%vertex_idx(il_e,ib_e,1)=', &
-!                         p_patch%edges%vertex_idx(il_e,ib_e,1)
-!           END IF
-!           p_patch%patch_oce%edge2vert_coeff(jv,jb,ie,1) = &
-!             & recon_vec_gc(ie)%lon*vert_dual_mid_distance*dual_edge_length(ie)
-! 
-!           p_patch%patch_oce%edge2vert_coeff(jv,jb,ie,2) = &
-!             & recon_vec_gc(ie)%lat*vert_dual_mid_distance*dual_edge_length(ie)
-! 
-!           p_patch%patch_oce%variable_dual_vol_norm(jv,jb,ie) = &
-!                   &0.5_wp*vert_edge_distance*dual_edge_length(ie)
-! 
-! !write(*,*)'edge2vert coeff',(jb-1)*16+jv, jv,jb,ie,p_patch%patch_oce%edge2vert_coeff(jv,jb,ie,1)&
-! !&, p_patch%patch_oce%edge2vert_coeff(jv,jb,ie,2)
-!         END DO
-! 
-! !        DO ie=1, no_vert_edges
-! ! write(*,*)'edge2vert coeff',(jb-1)*16+jv, jv,jb,ie,p_patch%patch_oce%edge2vert_coeff(jv,jb,ie,1)&
-! ! &, p_patch%patch_oce%edge2vert_coeff(jv,jb,ie,2), p_patch%patch_oce%variable_dual_vol_norm(jv,jb,ie) 
-! ! end do
-!       ENDDO VERT_IDX_LOOP
-!     END DO VERT_BLK_LOOP
-! 
-! 
-! 
-!     !Now we calculate the coefficients for the transposed of the edge to vertex mapping
-!     i_startblk = p_patch%edges%start_blk(rl_start,1)
-!     i_endblk   = p_patch%edges%end_blk(rl_end,1)
-! 
-!     EDGE_BLK_LOOP_2 : DO jb = i_startblk, i_endblk
-! 
-!       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-! 
-!       EDGE_IDX_LOOP_2: DO je =  i_startidx, i_endidx
-! 
-!         !Step 1: get relevant coordinates and vectors
-!         !
-!         !Get indices of two adjacent vertices and cells
-!         il_v1 = p_patch%edges%vertex_idx(je,jb,1)
-!         ib_v1 = p_patch%edges%vertex_blk(je,jb,1)
-!         il_v2 = p_patch%edges%vertex_idx(je,jb,2)
-!         ib_v2 = p_patch%edges%vertex_blk(je,jb,2)
-! 
-!         il_c1 = p_patch%edges%cell_idx(je,jb,1)
-!         ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-!         il_c2 = p_patch%edges%cell_idx(je,jb,2)
-!         ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-! 
-! 
-! !         ll1%lon = p_patch%cells%center(il_c1,ib_c1)%lon
-! !         ll1%lat = p_patch%cells%center(il_c1,ib_c1)%lat
-! !         ll2%lon = p_patch%cells%center(il_c2,ib_c2)%lon
-! !         ll2%lat = p_patch%cells%center(il_c2,ib_c2)%lat
-! 
-!         xx1 = gc2cc(p_patch%cells%center(il_c1,ib_c1))          !gc2cc(ll1)
-!         xx2 = gc2cc(p_patch%cells%center(il_c2,ib_c2))         !gc2cc(ll2)
-! 
-!         !cartesian coordinates of edge and neighbor cells
-!         IF(MID_POINT_DUAL_EDGE)THEN
-!         cc_e0%x =0.5_wp*(xx2%x+xx1%x) !cc_edge(ie)%x
-!         ELSE
-!           cc_e0 = gc2cc(p_patch%edges%center(je,jb))
-!         ENDIF
-! 
-!         gc_e0 = cc2gc(cc_e0)
-! 
-!         cc_v1 = gc2cc(p_patch%verts%vertex(il_v1,ib_v1))
-!         cc_v2 = gc2cc(p_patch%verts%vertex(il_v2,ib_v2))
-! 
-!         !cartesian vectors from: vertex 2 to vertex 1
-!         ! vertex 1 to edge je and vertex 2 to edge je
-!         cv_v1_v2%x = (cc_v2%x - cc_v1%x)
-!         cv_v1_e0%x = (cc_e0%x - cc_v1%x)
-!         cv_v2_e0%x = (cc_e0%x - cc_v2%x)
-! 
-!         norm_v1_e0  = SQRT(SUM(cv_v1_e0%x*cv_v1_e0%x))
-!         norm_v2_e0  = SQRT(SUM(cv_v2_e0%x*cv_v2_e0%x))
-! 
-!         if(mid_point_dual_edge)then
-!           norm_v1_v2 = norm_v1_e0 + norm_v2_e0
-!         else 
-!           norm_v1_v2 = sqrt(sum(cv_v1_v2%x*cv_v1_v2%x))
-!        endif
-!  
-!         p_patch%patch_oce%edge2vert_coeff_t(je,jb,1)%x = cv_v1_e0%x * &
-!           &    ( p_patch%edges%system_orientation(je,jb)/norm_v1_v2 )
-! 
-!         p_patch%patch_oce%edge2vert_coeff_t(je,jb,2)%x = cv_v2_e0%x * &
-!           &    ( p_patch%edges%system_orientation(je,jb)/norm_v1_v2 )
-! 
-!       END DO EDGE_IDX_LOOP_2
-!     END DO EDGE_BLK_LOOP_2
-! 
-!     CALL message (TRIM(routine), 'end')
-! 
-!   END SUBROUTINE init_scalar_product_orig
-! ! !-------------------------------------------------------------------------------------
-! !   !
-! !   !>
-! !   !! Computes the coefficients that determine the scalar product on the primal grid. This
-! !   !! scalar product depends on the grid geometry only and  is used to formulate the primitive
-! !   !! equations in weak form. The coefficients are applied in module "mo_scalar_product".
-! !   !! The following components of the data type "ocean_patch" are filled:
-! !   !!   edge2cell_coeff  : coefficients for edge to cell mapping
-! !   !!   edge2cell_coeff_t: coefficients for transposed of edge to cell mappings
-! !   !!   edge2vert_coeff  : coefficients for edge to vertex mapping
-! !   !!   edge2vert_coeff_t: coefficients for transposed of edge to vertex mappings
-! !   !!   fixed_vol_norm   : summed volume weight of moved cell
-! !   !!   variable_vol_norm: volume weight at the edges of moved cell
-! !   !!
-! !   !! @par Revision History
-! !   !!  developed by Peter Korn, MPI-M  2010-09
-! !   !!  Modification by Stephan Lorenz, 2010-11
-! !   !!
-! !   SUBROUTINE init_scalar_product_OK( p_patch)
-! ! 
-! !     !  patch on which computation is performed
-! !     !
-! !     TYPE(t_patch), TARGET, INTENT(inout) :: p_patch
-! ! 
-! !     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-! !     & routine = ('mo_ocean_topo:init_scalar_product')
-! ! 
-! !     INTEGER, PARAMETER :: no_cell_edges = 3
-! !     INTEGER, PARAMETER :: no_vert_edges = 6
-! !     INTEGER :: jb, je, jc, jv, ie, ile, ibe, ie_1, ie_2
-! !     INTEGER :: il_e, ib_e, it_vertedges,k
-! !     INTEGER :: il_c1, ib_c1, il_c2, ib_c2
-! !     INTEGER :: il_v1, il_v2, ib_v1, ib_v2
-! ! 
-! !     INTEGER :: iil_c1(no_cell_edges), iil_c2(no_cell_edges)
-! !     INTEGER :: iib_c1(no_cell_edges), iib_c2(no_cell_edges)
-! ! 
-! !     INTEGER :: il_c1_e1, ib_c1_e1, il_c1_e2, ib_c1_e2, il_c1_e3, ib_c1_e3
-! !     INTEGER :: il_c2_e1, ib_c2_e1, il_c2_e2, ib_c2_e2, il_c2_e3, ib_c2_e3
-! ! 
-! !     INTEGER :: rl_start, rl_end
-! !     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-! ! 
-! !     REAL(wp) :: z_lon, z_lat, z_u,z_v,z_rlong, z_rlat, z_long_c, z_lat_c
-! !     REAL(wp) :: z_twopi, z_longmax, z_longmin, z_tmp
-! !     REAL(wp) :: cell_edge_dist(no_cell_edges,2)
-! !     REAL(wp) :: cell_edge_distance
-! !     REAL(wp) :: norm_c1_c2, norm_c0_e, norm_v1_v2, norm, norm_v1_e0, norm_v2_e0
-! !     REAL(wp) :: dual_edge_length(no_vert_edges)
-! !     REAL(wp) :: edge_length(no_cell_edges)
-! !     REAL(wp) :: vert_edge_dist(no_vert_edges,2)    
-! !     REAL(wp) :: vert_dual_mid_dist(no_vert_edges,2)
-! !     REAL(wp) :: vert_edge_distance, vert_dual_mid_distance!, dist_edge_cell, dist_vert_vert
-! ! 
-! !     TYPE(t_geographical_coordinates) :: gc_edge(no_cell_edges), gc_dual_edge(no_vert_edges)
-! !     TYPE(t_geographical_coordinates) :: gc_c0, gc_v0, gc_e0
-! !     TYPE(t_geographical_coordinates) :: ll1, ll2, ll3
-! !     TYPE(t_cartesian_coordinates)    :: cc_edge(no_cell_edges), cc_dual_edge(no_vert_edges)
-! !     TYPE(t_cartesian_coordinates)    :: xx1,xx2,xx3
-! !     TYPE(t_cartesian_coordinates)    :: normal_cc(no_cell_edges)
-! !     TYPE(t_cartesian_coordinates)    :: cell2cell_cc
-! !     TYPE(t_cartesian_coordinates)    :: cc_c1, cc_c2, cc_e0, cc_c0, cc_v0, cc_v1, cc_v2
-! !     TYPE(t_cartesian_coordinates)    :: cv_c1_e0, cv_c2_e0, cv_c1_c2
-! !     TYPE(t_cartesian_coordinates)    :: cv_v1_e0, cv_v2_e0, cv_v1_v2
-! !     TYPE(t_cartesian_coordinates)    :: cc_mid_dual_edge(no_vert_edges)
-! !     TYPE(t_cartesian_coordinates)    :: vert2vert_cc(nproma,p_patch%nblks_v,no_vert_edges)
-! !     TYPE(t_cartesian_coordinates)    :: recon_vec_cc
-! !     TYPE(t_geographical_coordinates) :: recon_vec_gc(no_vert_edges)
-! !     TYPE(t_geographical_coordinates) :: normal_gc(no_cell_edges)
-! ! 
-! ! 
-! !     TYPE(t_cartesian_coordinates)    :: cc_c1_e1, cc_c1_e2, cc_c1_e3
-! !     TYPE(t_cartesian_coordinates)    :: cc_c2_e1, cc_c2_e2, cc_c2_e3
-! !     TYPE(t_cartesian_coordinates)    :: cv_c1_e1, cv_c1_e2, cv_c1_e3
-! !     TYPE(t_cartesian_coordinates)    :: cv_c2_e1, cv_c2_e2, cv_c2_e3
-! !     TYPE(t_cartesian_coordinates)    :: z_vec_c1(no_cell_edges),z_vec_c2(no_cell_edges), z_vec
-! ! 
-! !     REAL(wp) :: length
-! !     REAL(wp) :: z_edge_length(no_cell_edges)
-! !     REAL(wp) :: z_cell_edge_dist_c1(no_cell_edges),z_cell_edge_dist_c2(no_cell_edges)
-! ! 
-! !     REAL(wp) :: vn(nproma,1,p_patch%nblks_e)
-! !     REAL(wp) :: ptp_vn(nproma,1,p_patch%nblks_e), tmp_1, tmp_2
-! ! 
-! !     REAL(wp) :: edge_length_c1_e1, edge_length_c1_e2,edge_length_c1_e3
-! !     REAL(wp) :: edge_length_c2_e1, edge_length_c2_e2,edge_length_c2_e3
-! !     !TYPE(t_geographical_coordinates) :: gc_tmp(2)
-! !     LOGICAL, PARAMETER :: MID_POINT_DUAL_EDGE = .TRUE. !Please do not change this unless
-! !                                                        !you are sure, you know what you do.
-! !     !-----------------------------------------------------------------------
-! !     CALL message (TRIM(routine), 'start')
-! ! 
-! !     rl_start = 1
-! !     rl_end = min_rledge
-! ! 
-! !     i_startblk = p_patch%edges%start_blk(rl_start,1)
-! !     i_endblk   = p_patch%edges%end_blk(rl_end,1)
-! ! 
-! !     EDGE_BLK_LOOP: DO jb = i_startblk, i_endblk
-! ! 
-! !       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
-! ! 
-! !       EDGE_IDX_LOOP: DO je =  i_startidx, i_endidx
-! ! 
-! !         !Get indices of two adjacent triangles
-! !         il_c1 = p_patch%edges%cell_idx(je,jb,1)
-! !         ib_c1 = p_patch%edges%cell_blk(je,jb,1)
-! !         il_c2 = p_patch%edges%cell_idx(je,jb,2)
-! !         ib_c2 = p_patch%edges%cell_blk(je,jb,2)
-! ! 
-! !         p_patch%patch_oce%fixed_vol_norm(il_c1,ib_c1)     = 0.0_wp
-! !         p_patch%patch_oce%fixed_vol_norm(il_c2,ib_c2)     = 0.0_wp
-! !         p_patch%patch_oce%variable_vol_norm(il_c1,ib_c1,:)= 0.0_wp
-! !         p_patch%patch_oce%variable_vol_norm(il_c2,ib_c2,:)= 0.0_wp
-! ! 
-! !         !normals in cell 1
-! !         DO ie=1,no_cell_edges
-! ! 
-! !           iil_c1(ie) = p_patch%cells%edge_idx(il_c1,ib_c1,ie)
-! !           iib_c1(ie) = p_patch%cells%edge_blk(il_c1,ib_c1,ie)
-! ! 
-! ! !           z_lon = p_patch%edges%center(iil_c1(ie),iib_c1(ie))%lon
-! ! !           z_lat = p_patch%edges%center(iil_c1(ie),iib_c1(ie))%lat
-! ! !           ! zonal and meridional component of primal normal
-! ! !           z_u = p_patch%edges%primal_normal(iil_c1(ie),iib_c1(ie))%v1
-! ! !           z_v = p_patch%edges%primal_normal(iil_c1(ie),iib_c1(ie))%v2
-! ! !           ! calculate Cartesian components of primal normal
-! ! !           CALL gvec2cvec( z_u, z_v,&
-! ! !                         & z_lon, z_lat,&
-! ! !                         & z_vec_c1(ie)%x(1), z_vec_c1(ie)%x(2), z_vec_c1(ie)%x(3) )
-! ! !           length = SQRT( DOT_PRODUCT(z_vec_c1(ie)%x(1:3),z_vec_c1(ie)%x(1:3)) )
-! ! !           z_vec_c1(ie)%x = z_vec_c1(ie)%x/length
-! ! 
-! !          z_vec_c1(ie) = p_patch%edges%primal_cart_normal(iil_c1(ie),iib_c1(ie))
-! ! 
-! !           !idx/blk of two neighbor cells to iil_c1(ie), iib_c1(ie)
-! !          il_c1_e1 = p_patch%edges%cell_idx(iil_c1(ie),iib_c1(ie),1)
-! !          ib_c1_e1 = p_patch%edges%cell_blk(iil_c1(ie),iib_c1(ie),1)
-! ! 
-! !          il_c1_e2 = p_patch%edges%cell_idx(iil_c1(ie),iib_c1(ie),2)
-! !          ib_c1_e2 = p_patch%edges%cell_blk(iil_c1(ie),iib_c1(ie),2) 
-! ! 
-! ! 
-! !          IF(il_c1_e1==il_c1.AND.ib_c1_e1==ib_c1)THEN
-! !           k=1
-! !          ELSEIF(il_c1_e2==il_c1.AND.ib_c1_e2==ib_c1)THEN
-! !           k=2
-! !          ENDIF
-! !          z_cell_edge_dist_c1(ie)=p_patch%edges%edge_cell_length(iil_c1(ie),iib_c1(ie),k)/re 
-! !          z_edge_length(ie) = p_patch%edges%primal_edge_length(iil_c1(ie),iib_c1(ie))/re
-! ! 
-! ! !             z_edge_length(ie)      = calc_edge_length_cc(p_patch, iil_c1(ie),iib_c1(ie))
-! ! !             z_cell_edge_dist_c1(ie)= calc_cell_edge_dist_cc(p_patch,&
-! ! !                                    & iil_c1(ie),iib_c1(ie),&
-! ! !                                    & il_c1,ib_c1 )
-! ! 
-! !            p_patch%patch_oce%edge2cell_coeff_cc(il_c1,ib_c1,ie)%x(1)&
-! !            & = z_vec_c1(ie)%x(1)*z_cell_edge_dist_c1(ie)*z_edge_length(ie)
-! ! 
-! !            p_patch%patch_oce%edge2cell_coeff_cc(il_c1,ib_c1,ie)%x(2)&
-! !            & = z_vec_c1(ie)%x(2)*z_cell_edge_dist_c1(ie)*z_edge_length(ie)
-! ! 
-! !            p_patch%patch_oce%edge2cell_coeff_cc(il_c1,ib_c1,ie)%x(3)&
-! !            & = z_vec_c1(ie)%x(3)*z_cell_edge_dist_c1(ie)*z_edge_length(ie)
-! ! 
-! ! !          norm_fact = norm_fact + z_cell_edge_dist_c1(ie)*z_edge_length(ie)
-! !           p_patch%patch_oce%fixed_vol_norm(il_c1,ib_c1)&
-! !           & = p_patch%patch_oce%fixed_vol_norm(il_c1,ib_c1)&
-! !           & + 0.5_wp*z_cell_edge_dist_c1(ie)*z_edge_length(ie)
-! !           p_patch%patch_oce%variable_vol_norm(il_c1,ib_c1,ie)&
-! !           & = 0.5_wp*z_cell_edge_dist_c1(ie)*z_edge_length(ie)
-! !         END DO
-! ! 
-! !         !normals in cell 2
-! !         DO ie=1,no_cell_edges
-! ! 
-! !           iil_c2(ie) = p_patch%cells%edge_idx(il_c2,ib_c2,ie)
-! !           iib_c2(ie) = p_patch%cells%edge_blk(il_c2,ib_c2,ie)
-! ! 
-! ! !           z_lon = p_patch%edges%center(iil_c2(ie),iib_c2(ie))%lon
-! ! !           z_lat = p_patch%edges%center(iil_c2(ie),iib_c2(ie))%lat
-! ! !           ! zonal and meridional component of primal normal
-! ! !           z_u = p_patch%edges%primal_normal(iil_c2(ie),iib_c2(ie))%v1
-! ! !           z_v = p_patch%edges%primal_normal(iil_c2(ie),iib_c2(ie))%v2
-! ! !           ! calculate Cartesian components of primal normal
-! ! !           CALL gvec2cvec( z_u, z_v,&
-! ! !                         & z_lon, z_lat,&
-! ! !                         & z_vec_c2(ie)%x(1), z_vec_c2(ie)%x(2), z_vec_c2(ie)%x(3) )
-! ! !           length = SQRT( DOT_PRODUCT(z_vec_c2(ie)%x(1:3),z_vec_c2(ie)%x(1:3)) )
-! ! !           z_vec_c2(ie)%x=z_vec_c2(ie)%x/length
-! ! 
-! !           z_vec_c2(ie) = p_patch%edges%primal_cart_normal(iil_c2(ie),iib_c2(ie))
-! ! 
-! !           !idx/blk of two neighbor cells to iil_c2(ie), iib_c2(ie)
-! !           il_c1_e1 = p_patch%edges%cell_idx(iil_c2(ie),iib_c2(ie),1)
-! !           ib_c1_e1 = p_patch%edges%cell_blk(iil_c2(ie),iib_c2(ie),1)
-! ! 
-! !           il_c1_e2 = p_patch%edges%cell_idx(iil_c2(ie),iib_c2(ie),2)
-! !           ib_c1_e2 = p_patch%edges%cell_blk(iil_c2(ie),iib_c2(ie),2) 
-! ! 
-! ! 
-! !           IF(il_c1_e1==il_c2.AND.ib_c1_e1==ib_c2)THEN
-! !             k=1
-! !           ELSEIF(il_c1_e2==il_c2.AND.ib_c1_e2==ib_c2)THEN
-! !             k=2
-! !           ENDIF
-! !            z_cell_edge_dist_c2(ie)=p_patch%edges%edge_cell_length(iil_c2(ie),iib_c2(ie),k)/re 
-! !            z_edge_length(ie) = p_patch%edges%primal_edge_length(iil_c2(ie),iib_c2(ie))/re
-! ! 
-! ! !            z_edge_length(ie)      = calc_edge_length_cc(p_patch, iil_c2(ie),iib_c2(ie))
-! ! !            z_cell_edge_dist_c2(ie)= calc_cell_edge_dist_cc(p_patch,&
-! ! !                                   & iil_c2(ie),iib_c2(ie),&
-! ! !                                   & il_c2,ib_c2 )
-! ! 
-! !           p_patch%patch_oce%edge2cell_coeff_cc(il_c2,ib_c2,ie)%x(1)&
-! !           & = z_vec_c2(ie)%x(1)*z_cell_edge_dist_c2(ie)*z_edge_length(ie)
-! ! 
-! !           p_patch%patch_oce%edge2cell_coeff_cc(il_c2,ib_c2,ie)%x(2)&
-! !           & = z_vec_c2(ie)%x(2)*z_cell_edge_dist_c2(ie)*z_edge_length(ie)
-! ! 
-! !           p_patch%patch_oce%edge2cell_coeff_cc(il_c2,ib_c2,ie)%x(3)&
-! !           & = z_vec_c2(ie)%x(3)*z_cell_edge_dist_c2(ie)*z_edge_length(ie)
-! ! 
-! !           p_patch%patch_oce%fixed_vol_norm(il_c2,ib_c2)&
-! !           & = p_patch%patch_oce%fixed_vol_norm(il_c2,ib_c2)&
-! !           & + 0.5_wp*z_cell_edge_dist_c2(ie)*z_edge_length(ie)
-! !           p_patch%patch_oce%variable_vol_norm(il_c2,ib_c2,ie) &
-! !           &= 0.5_wp*z_cell_edge_dist_c2(ie)*z_edge_length(ie)
-! !         END DO
-! ! 
-! ! 
-! !         !calculate transposed coeff
-! !         DO ie=1,no_cell_edges
-! !           IF (p_patch%cells%edge_idx(il_c1,ib_c1,ie) == je.AND.&
-! !             & p_patch%cells%edge_blk(il_c1,ib_c1,ie) == jb) THEN
-! !             ie_1 = ie
-! !           END IF
-! !           IF (p_patch%cells%edge_idx(il_c2,ib_c2,ie) == je.AND.&
-! !             & p_patch%cells%edge_blk(il_c2,ib_c2,ie) == jb) THEN
-! !             ie_2 = ie
-! !           END IF
-! !        END DO
-! !        p_patch%patch_oce%edge2cell_coeff_t(je,jb,1)%x = z_vec_c1(ie_1)%x &
-! !        &  * p_patch%cells%edge_orientation(il_c1,ib_c1,ie_1)/z_cell_edge_dist_c1(ie_1)
-! !        p_patch%patch_oce%edge2cell_coeff_t(je,jb,2)%x = z_vec_c1(ie_2)%x &
-! !        &  * p_patch%cells%edge_orientation(il_c2,ib_c2,ie_2)/z_cell_edge_dist_c2(ie_2)
-! ! 
-! !       END DO EDGE_IDX_LOOP
-! !     END DO EDGE_BLK_LOOP
-! ! 
-! !     CALL message (TRIM(routine), 'end')
-! ! 
-! !   END SUBROUTINE init_scalar_product_OK
-  !-------------------------------------------------------------------------
   !
   !
   !>

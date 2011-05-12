@@ -106,7 +106,7 @@ MODULE mo_io_vlist
     &                               gmres_rtol_nh, iadv_rcf, ivctype,           &
     &                               upstr_beta, l_open_ubc, l_nest_rcf,         &
     &                               l_zdiffu_t, thslp_zdiffu, thhgtd_zdiffu
-  USE mo_ocean_nml,           ONLY: n_zlev, iforc_oce,ntrac_oce
+  USE mo_ocean_nml,           ONLY: n_zlev, iforc_oce,ntrac_oce,no_tracer
   USE mo_dynamics_nml,        ONLY: itime_scheme, lsi_3d, asselin_coeff,        &
     &                               idiv_method, divavg_cntrwgt,                &
     &                               ileapfrog_startup, si_2tls, si_cmin,        &
@@ -1648,10 +1648,17 @@ CONTAINS
 
     CHARACTER(len=4) :: name
     CHARACTER(len=NF_MAX_NAME) :: long_name, units
-    INTEGER :: il, ivar
+    INTEGER :: il, ivar,itracer
 
     INTEGER                    :: astatus
+    INTEGER, PARAMETER         :: max_tracer = 2
+    CHARACTER(len=max_char_length) :: tracer_names(max_tracer),&
+    &                                 tracer_units(max_tracer),&
+    &                                 tracer_longnames(max_tracer)
+    INTEGER                    :: tracer_codes(max_tracer)
+    INTEGER                    :: trace_counter
 
+    CHARACTER(len=max_char_length) :: msg
     CHARACTER(len=max_char_length), PARAMETER :: routine = 'mo_outp_oce:setup_vlist_oce'
 
     !-------------------------------------------------------------------------
@@ -1659,9 +1666,20 @@ CONTAINS
     CALL message (TRIM(routine), 'start')
 
     !------------------------------------------------------------------
+    ! set tracer names
+    !------------------------------------------------------------------
+    tracer_names(1)     = 'T'
+    tracer_names(2)     = 'S'
+    tracer_longnames(1) = 'potential temperature'
+    tracer_longnames(2) = 'salinity'
+    tracer_units(1)     = 'deg C'
+    tracer_units(2)     = 'psu'
+    tracer_codes(1)     = 200
+    tracer_codes(2)     = 201
+
+    !------------------------------------------------------------------
     ! no grid refinement allowed here so far
     !------------------------------------------------------------------
-
     IF (k_jg > 1 ) THEN
       CALL finish(TRIM(routine), ' k_jg > 1 is not allowed')
     END IF
@@ -2056,10 +2074,25 @@ CONTAINS
     &           k_jg)
     CALL nf(nf_close(ncid))
 
+    ! tracer fields
+    IF (no_tracer > max_tracer) THEN
+      CALL message(TRIM(routine), 'no_tracer is larger than max_tracer -> limitted to 2')
+      trace_counter = max_tracer
+    ELSE
+      trace_counter = no_tracer
+    END IF
+    DO itracer = 1, trace_counter
+      msg='Create tracer: '//TRIM(tracer_names(itracer))
+      CALL message(TRIM(routine), TRIM(msg))
+      CALL addVar(TimeVar(TRIM(tracer_names(itracer)),TRIM(tracer_longnames(itracer)),&
+      &                   tracer_units(itracer),tracer_codes(itracer),128,        &
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisIDdepth_m(k_jg)),  &
+      &           k_jg)
+    END DO
+
     !=========================================================================
     ! open file for writing (using netCDF)
     !
-
     streamID(k_jg) = streamOpenWrite(TRIM(vlist_filename), FILETYPE_NC2)
     IF (streamID(k_jg) < 0) THEN
       CALL finish('setup_vlist_oce', cdiStringError(streamID(k_jg)))
@@ -2589,6 +2622,8 @@ CONTAINS
       CASE ('forc-u');       ptr2d => forcing%forc_wind_u
       CASE ('forc-v');       ptr2d => forcing%forc_wind_v
       CASE ('VN');           ptr3d => p_prog%vn
+      CASE ('T');            ptr3d => p_prog%tracer(:,:,:,1)
+      CASE ('S');            ptr3d => p_prog%tracer(:,:,:,2)
       CASE ('VORT');         ptr3d => p_diag%vort
       CASE ('u-veloc');      ptr3d => p_diag%u
       CASE ('v-veloc');      ptr3d => p_diag%v

@@ -633,19 +633,6 @@ PROGRAM control_model
     CALL init_ext_data (p_patch(1:), p_int_state, ext_data)
   ENDIF
 
-
-  !------------------------------------------------------------------
-  ! Daniel: Suggestion for point 5 of Feature #333
-  ! (5. Subroutine to setup model components depending on this 
-  ! namelist, to be called after all namelists have been read, and 
-  ! a synoptic check has been done)
-  !------------------------------------------------------------------
-  ! set dependent variables/model components, depending on this (transport) 
-  ! namelist and potentially others
-  IF (ltransport) THEN 
-    CALL setup_transport
-  ENDIF
-
   !------------------------------------------------------------------
   ! Prepare raw data output file
   !------------------------------------------------------------------
@@ -704,6 +691,19 @@ PROGRAM control_model
   CASE DEFAULT
     !
   END SELECT
+
+
+  !------------------------------------------------------------------
+  ! Daniel: Suggestion for point 5 of Feature #333
+  ! (5. Subroutine to setup model components depending on this 
+  ! namelist, to be called after all namelists have been read, and 
+  ! a synoptic check has been done)
+  !------------------------------------------------------------------
+  ! set dependent variables/model components, depending on this (transport) 
+  ! namelist and potentially others
+  IF (ltransport) THEN 
+    CALL setup_transport
+  ENDIF
 
   !------------------------------------------------------------------
   ! Close the namelist files.

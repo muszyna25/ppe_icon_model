@@ -90,7 +90,6 @@ MODULE mo_ocean_nml
 
   ! parameterized forcing for ocean model:
   INTEGER            :: iforc_oce       =   0   ! index of parameterized forcing
-  !INTEGER, PARAMETER :: inoforcing     =   0   ! no or zero forcing - set above
   INTEGER, PARAMETER :: analyt_stat     =  11   ! stationary harmonic wind forcing
   INTEGER, PARAMETER :: core_forc       =  12   ! forcing from CORE database
   INTEGER, PARAMETER :: core_annwind    =  13   ! annual mean CORE winds
@@ -140,7 +139,7 @@ MODULE mo_ocean_nml
 
   ! parameterized shallow water mode in the ocean model
   INTEGER            :: iswm_oce        =   0  ! switch for shallow water mode (1 = on, 0 = 3dim)
-  INTEGER            :: idisc_scheme   =    0  ! discreization scheme: 1 for mimetic, 
+  INTEGER            :: idisc_scheme   =    0  ! discretization scheme: 1 for mimetic, 
                                                ! 2 for RBF-type of discretization
  
   ! parameters for Adams-Bashforth semi-implicit time stepping scheme
@@ -163,11 +162,23 @@ MODULE mo_ocean_nml
   REAL(wp) :: k_pot_temp_v          = 0.0_wp   ! vertical mixing coefficient for pot. temperature
   REAL(wp) :: k_sal_h               = 0.0_wp   ! horizontal diffusion coefficient for salinity
   REAL(wp) :: k_sal_v               = 0.0_wp   ! vertical diffusion coefficient for salinity
-                                               
+
   REAL(wp) :: t_ref                 = 0.0_wp   ! reference temperature for initialization
   REAL(wp) :: s_ref                 = 0.0_wp   ! reference salinity for initialization
   REAL(wp) :: bottom_drag_coeff     = 0.002_wp ! chezy coefficient for bottom friction
   REAL(wp) :: wstress_coeff         = 1.e-4_wp ! windstress coefficient
+
+  INTEGER  :: coriolis_type         = 1        !0=zero Coriolis, the non-rottaing case
+                                               !1=full varying Coriolis
+                                               !2=beta-plane approximation to Coriolis
+                                               !3=f-plane approximation to Coriolis
+                                               !The data below are used to set up in basin configuration
+                                               !the Coriolis (f/beta-plane) and to adjust the analytic wind forcing
+  REAL(wp) :: basin_center_lat     = 0.0_wp    !lat-lon coordinate of basin center, used 
+  REAL(wp) :: basin_center_lon     = 0.0_wp    !in (non-global) basin configuration such as the Stommel-type tests
+  REAL(wp) :: basin_width_deg      = 0.0_wp    !basin extension in x-direction, units are degrees
+  REAL(wp) :: basin_height_deg     = 0.0_wp    !basin extension in y-direction, units are degrees
+                                               
 
   LOGICAL  :: lviscous              =  .TRUE.  ! include friction or not
   LOGICAL  :: l_inverse_flip_flop   = .FALSE.  ! true=complete discrete scalarproduct (slow)
@@ -181,7 +192,8 @@ MODULE mo_ocean_nml
     &                 expl_vertical_tracer_diff,                           & 
     &                 k_veloc_h, k_veloc_v,  k_pot_temp_h, k_pot_temp_v,   &
     &                 k_sal_h, k_sal_v, lviscous, l_inverse_flip_flop,     &
-    &                 t_ref, s_ref, bottom_drag_coeff, wstress_coeff
+    &                 t_ref, s_ref, bottom_drag_coeff, wstress_coeff, coriolis_type,&
+    &                 basin_center_lat, basin_center_lon, basin_width_deg,basin_height_deg
 
 
 

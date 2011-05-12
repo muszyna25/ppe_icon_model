@@ -639,7 +639,7 @@ CONTAINS
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,&
         &                  i_startidx, i_endidx, rl_start, rl_end)
         DO jc = i_startidx, i_endidx
-          p_os_diag%p_vn(jc,jk,jb)%x=0.0_wp
+          p_os_diag%p_vn(jc,jk,jb)%x(:)=0.0_wp
         END DO
       END DO
     END DO

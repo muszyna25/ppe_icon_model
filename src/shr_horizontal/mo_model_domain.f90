@@ -640,8 +640,6 @@ TYPE t_patch_ocean
   !  index=1,nproma, index2=1,nblks_c, index3=1,3
   ! other choice would be index2=1,nblks_e, index3=1,2
   ! Eventually switch to other second indexing if this is more appropriate
-  !TYPE(t_tangent_vectors), ALLOCATABLE :: cell2edge_vec(:,:,:)
-  !TYPE(t_tangent_vectors), ALLOCATABLE :: cell2edge_weight(:,:,:)
 
   ! Vector pointing from vertex (dual center) to midpoint of dual edge (/= midpoint of primal edge).
   ! In the associated vertex2dualedge_mid_weight-array the vertex2dualedge_mid_vec is multiplied by
@@ -650,12 +648,7 @@ TYPE t_patch_ocean
   !  index=1,nproma, index2=1,nblks_v, index3=1,6
   ! other choice index2=1,nblks_e, index3=1,2
   ! Eventually switch to other second indexing if this is more appropriate
-  !TYPE(t_tangent_vectors), ALLOCATABLE :: vertex2dualedge_mid_vec(:,:,:)
-  !TYPE(t_tangent_vectors), ALLOCATABLE :: vertex2dualedge_mid_weight(:,:,:)
-
-  ! #slo#: PRELIMINARY
-  !  new constructs for new PtP core:
-  !REAL(wp),                      ALLOCATABLE :: edge2cell_coeff(:,:,:,:)
+  !  new constructs for mimetic core:
   TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2cell_coeff_cc(:,:,:)
   TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2cell_coeff_cc_t(:,:,:)
 
@@ -664,7 +657,7 @@ TYPE t_patch_ocean
 
   TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_coeff_cc(:,:,:)
   TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_coeff_cc_t(:,:,:)
-
+  TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_vector_cc(:,:,:)
 
   REAL(wp), ALLOCATABLE :: fixed_vol_norm(:,:)
   REAL(wp), ALLOCATABLE :: variable_vol_norm(:,:,:)

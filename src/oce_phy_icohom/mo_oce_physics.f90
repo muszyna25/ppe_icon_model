@@ -52,7 +52,8 @@ MODULE mo_oce_physics
 !
 USE mo_kind,                ONLY: wp
 USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_v,&
-                            &  k_pot_temp_h, k_pot_temp_v, k_sal_h, k_sal_v, no_tracer
+                            &  k_pot_temp_h, k_pot_temp_v, k_sal_h, k_sal_v, no_tracer,&
+                            &  expl_vertical_velocity_diff
 USE mo_run_nml,             ONLY: nproma
 USE mo_model_domain,        ONLY: t_patch
 USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, &!! min_rledge, min_rlvert,      &
@@ -331,10 +332,18 @@ CONTAINS
        CALL finish(TRIM(routine), 'allocation for horizontal background tracer diffusion failed')
      END IF
 
-    ALLOCATE(params_oce%A_veloc_v(nproma,n_zlev,nblks_c), STAT=ist)
-     IF (ist/=SUCCESS) THEN
-       CALL finish(TRIM(routine), 'allocation for vertical velocity diffusion failed')
-     END IF
+    IF(expl_vertical_velocity_diff==0)THEN !explicit
+      ALLOCATE(params_oce%A_veloc_v(nproma,n_zlev,nblks_c), STAT=ist)
+       IF (ist/=SUCCESS) THEN
+         CALL finish(TRIM(routine), 'allocation for vertical velocity diffusion failed')
+       END IF
+    ELSEIF(expl_vertical_velocity_diff==1)THEN !implicit
+      ALLOCATE(params_oce%A_veloc_v(nproma,n_zlev,nblks_e), STAT=ist)
+       IF (ist/=SUCCESS) THEN
+         CALL finish(TRIM(routine), 'allocation for vertical velocity diffusion failed')
+       END IF
+    ENDIF
+
 
     ALLOCATE(params_oce%A_tracer_v(nproma,n_zlev,nblks_c,no_tracer), STAT=ist)
      IF (ist/=SUCCESS) THEN
@@ -466,6 +475,7 @@ CONTAINS
     z_bv   = 0.0_wp
     z_a    = 0.0_wp
     dz_inv = 0.0_wp
+    z_shear= 0.0_wp
     DO i_no_trac=1, no_tracer
       DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
@@ -486,6 +496,7 @@ CONTAINS
               z_shear =&
               & DOT_PRODUCT(p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x,&
                            &p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x)       !sum((Uelem(:,nz-1,nelem) - Uelem(:, nz, nelem))**2)
+write(*,*)'shear',z_shear
               z_shear = z_shear*dz_inv*dz_inv
               z_a     = z_shear/(z_shear+10.0_wp*z_bv)
 

@@ -175,8 +175,10 @@ end
   res@mpProjection         = projection
   res@mpPerimOn            = False             ; turn off box around plot
   res@mpFillOn             = False
-  centerLon = 0.0
-  centerLat = 0.0
+  centerLon = -25.0  ;  view for new Stommel basin
+  centerLat =  40.0   ;  view for new Stommel basin
+; centerLon =  0.0
+; centerLat =  0.0
   latRadius = 90.0
   lonRadius = 90.0    
   res@mpCenterLonF   = centerLon         ; choose center lon
@@ -379,7 +381,8 @@ end
     system("acroread "+graphicsFile+"."+graphicsFormat +" &")
   end if
   if (graphicsFormat .eq. "ps" ) then
-    system("kghostview "+graphicsFile+"."+graphicsFormat +" &")
+;   system("kghostview "+graphicsFile+"."+graphicsFormat +" &")
+    system("gv "        +graphicsFile+"."+graphicsFormat +" &")
   end if
 
 end

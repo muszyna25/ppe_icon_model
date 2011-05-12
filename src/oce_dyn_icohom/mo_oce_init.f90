@@ -55,7 +55,9 @@ USE mo_kind,               ONLY: wp
 USE mo_physical_constants, ONLY: re, rre, omega, rgrav
 USE mo_math_constants
 USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, &
-   &                             itestcase_oce, testcase_zero, testcase_init, testcase_file!, &
+   &                             itestcase_oce, testcase_zero, testcase_init, testcase_file,&
+                                 & basin_center_lat, basin_center_lon, basin_width_deg,&
+                                 & basin_height_deg  
 !  &                             iforc_oce, inoforcing, analyt_forc, core_forc, full_forc, &
 !  &                             core_annwind, wstress_coeff
 USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, & !success,               &
@@ -119,8 +121,8 @@ CONTAINS
     INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
     INTEGER :: rl_start, rl_end_e,rl_end_c
     REAL(wp)::  z_lat, z_lon 
-    REAL(wp):: zonal_str, z_dst, z_lat_deg, z_tmp
-    TYPE(t_cartesian_coordinates)    :: p_x 
+    REAL(wp):: z_dst, z_lat_deg, z_tmp
+    !TYPE(t_cartesian_coordinates)    :: p_x 
     TYPE(t_geographical_coordinates) :: p_pos
     !REAL(wp), PARAMETER :: tprof(20)=(/ 18.13, 17.80, 17.15, 16.09, 15.04, 13.24, 11.82, 9.902, &
     !  &   8.484, 7.341, 5.727, 4.589, 3.807, 3.062, 2.481, 2.194, 1.789, 1.266, 1.070, 0.9211 /)
@@ -130,7 +132,8 @@ CONTAINS
     !  & 34.678772, 34.717495, 34.738304, 34.741512, 34.738205, 34.729176, 34.723465 /)
 
     REAL(wp) , PARAMETER :: tprof_4layerStommel(4) = (/20.0_wp,10.0_wp,8.0_wp,6.0_wp/)
-    REAL(wp) , PARAMETER :: sprof_4layerStommel(4) = (/0.0_wp,0.0_wp,0.0_wp,0.0_wp/)
+    REAL(wp) , PARAMETER :: sprof_4layerStommel(4) = &
+    &(/34.699219_wp, 34.798244_wp, 34.904964_wp, 34.976841_wp/)
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_init:init_ho_testcases'
   !-------------------------------------------------------------------------
   CALL message (TRIM(routine), 'start')
@@ -160,7 +163,8 @@ CONTAINS
         CALL message(TRIM(routine), 'Simple Initialization of testcases (30)')
         CALL message(TRIM(routine), ' - here: 4-layer Stommel Testcase for T and S')
         !CALL init_testcase(ppatch, itestcase)
-
+        ! #slo# 2011-05-11 - dolic set to 4 no longer nec.
+        !ppatch%patch_oce%dolic_c(:,:)      = 4
         !init temperature and salinity with vertical profiles
         DO jk=1,n_zlev
           DO jb = i_startblk_c, i_endblk_c    
@@ -168,6 +172,9 @@ CONTAINS
                       & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 
             DO jc = i_startidx_c, i_endidx_c
+               !z_lat = ppatch%cells%center(jc,jb)%lat
+               !z_lon = ppatch%cells%center(jc,jb)%lon
+
               IF ( ppatch%patch_oce%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
                 !Temperature
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = tprof_4layerStommel(jk)
@@ -178,26 +185,11 @@ CONTAINS
                 p_os%p_prog(nnew(1))%tracer(jc,jk,jb,1) = tprof_4layerStommel(jk)
                 !Salinity
                 p_os%p_prog(nnew(1))%tracer(jc,jk,jb,2) = sprof_4layerStommel(jk)
+                !p_os%p_prog(nold(1))%h(jc,jb) = 1.0E-7*test5_h( z_lon, z_lat, 0.0_wp)
               ENDIF
             END DO
           END DO
         END DO
-!     !init normal velocity
-!     DO jb = i_startblk_e, i_endblk_e    
-!       CALL get_indices_e(ppatch, jb, i_startblk_e, i_endblk_e,&
-!                   & i_startidx_e, i_endidx_e, rl_start, rl_end_e)
-!       DO je = i_startidx_e, i_endidx_e
-!         z_lat = ppatch%edges%center(je,jb)%lat
-!         z_lon = ppatch%edges%center(je,jb)%lon
-! 
-!             p_os%p_prog(nold(1))%vn(je,:,jb) = test_usbr_u(z_lon, z_lat,0.0_wp)* &
-!             &                                ppatch%edges%primal_normal(je,jb)%v1&
-!             &                                + test_usbr_v(z_lon, z_lat,0.0_wp)* &
-!             &                                ppatch%edges%primal_normal(je,jb)%v2
-! !        write(*,*)'vn', je,jb,p_os%p_prog(nold(1))%vn(je,1,jb),z_lon, z_lat 
-! 
-!       END DO
-!     END DO
 
     CASE (31)
       CALL message(TRIM(routine), 'Simple Initialization of testcases (31)')
@@ -254,9 +246,11 @@ CONTAINS
 
     CASE (32) !from Sergy Danilov
       CALL message(TRIM(routine), 'Simple Initialization of testcases (32)')
-      CALL message(TRIM(routine), ' - here: Danilovs Mung gyre flow')
+      CALL message(TRIM(routine), ' - here: Danilovs Munck gyre flow')
+      ! #slo# 2011-05-11 - dolic set to 4 no longer nec.
+      !ppatch%patch_oce%dolic_c(:,:)      = 4
 
-      p_os%p_prog(nold(1))%tracer(:,:,:,1) = 20.0_wp
+      
 
       p_pos%lon = 0.0_wp
       p_pos%lat = 0.0_wp
@@ -266,40 +260,30 @@ CONTAINS
          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
 
         DO jc = i_startidx_c, i_endidx_c
-
           z_lat = ppatch%cells%center(jc,jb)%lat
           z_lon = ppatch%cells%center(jc,jb)%lon
 
-          zonal_str = -0.2_wp *cos(pi*(z_lat-30.0_wp*deg2rad)/(9.0_wp*deg2rad)) 
-          p_sfc_flx%forc_wind_cc(jc,jb)%x(1) = -zonal_str*sin(z_lon)
-          p_sfc_flx%forc_wind_cc(jc,jb)%x(2) = -zonal_str*cos(z_lon)
-          p_sfc_flx%forc_wind_cc(jc,jb)%x(3) = 0.0_wp
-          CALL cvec2gvec(p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
-                       & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
-                       & p_sfc_flx%forc_wind_cc(jc,jb)%x(3),&
-                       & p_pos%lon, p_pos%lat,              &
-                       & p_sfc_flx%forc_wind_u(jc,jb),      &
-                       & p_sfc_flx%forc_wind_v(jc,jb))
-! write(*,*)'Danilovs Wind', jc,jb,p_sfc_flx%forc_wind_cc(jc,jb)%x, &
-! &p_sfc_flx%forc_wind_u(jc,jb), p_sfc_flx%forc_wind_v(jc,jb)
-
-              DO jk=1,n_zlev
-                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
+          DO jk=1,n_zlev
+            IF ( ppatch%patch_oce%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = 20.0_wp
+            p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
                 & = p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
                 &-ppatch%patch_oce%zlev_m(jk)*15.0_wp/4000.0_wp
-                !!TF(nz,n)=TF(nz,n)+Z(nz)*15.0/4000.0   
-              END DO
+            ENDIF
+          END DO
 
-!Add temperature perturbation
-!            z_dst=sqrt((z_lat-44.5_wp*deg2rad)**2+(z_lon-4.5_wp*deg2rad)**2)
-!            IF(z_dst<=1.5_wp*deg2rad)THEN! cycle
-!              DO jk=1,n_zlev
-!                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
-!                & = p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
-!                &+0.1_wp*exp(-(z_dst/(1.5_wp*deg2rad))**2)&
-!                &*sin(pi*abs(ppatch%patch_oce%zlev_m(jk))/4000.0_wp)
-!              END DO
-!           ENDIF
+           !Add temperature perturbation
+           z_dst=sqrt((z_lat-45.5_wp*deg2rad)**2+(z_lon-4.5_wp*deg2rad)**2)
+!write(123,*)'zdist',z_lat,z_lon,z_dst,10.5_wp*deg2rad
+           IF(z_dst<=25.5_wp*deg2rad)cycle
+             DO jk=1,n_zlev
+               IF ( ppatch%patch_oce%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+               p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
+               & = p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
+               &+20.1_wp*exp(-(z_dst/(1.5_wp*deg2rad))**2)&
+               &*sin(pi*abs(ppatch%patch_oce%zlev_m(jk))/4000.0_wp)
+               ENDIF
+             END DO
         END DO
       END DO
 
@@ -310,27 +294,16 @@ CONTAINS
 
           z_lat = ppatch%cells%center(jc,jb)%lat
           z_lon = ppatch%cells%center(jc,jb)%lon
+          IF ( ppatch%patch_oce%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+            z_dst=sqrt((z_lat-45.5_wp*deg2rad)**2+(z_lon-4.5_wp*deg2rad)**2)
 
-          z_dst=sqrt((z_lat-44.5_wp*deg2rad)**2+(z_lon-4.5_wp*deg2rad)**2)
-
-          IF(z_dst<=3.7_wp*deg2rad)THEN! cycle
-          p_os%p_prog(nold(1))%h(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
-                                       &-0.3_wp*exp(-(z_dst/(2.2_wp*deg2rad))**2)
-          ENDIF
+            IF(z_dst<=15.5_wp*deg2rad) cycle
+            p_os%p_prog(nold(1))%h(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
+                                         &-0.3_wp*exp(-(z_dst/(2.2_wp*deg2rad))**2)
+            ENDIF
         END DO
       END DO
-!       DO jb = i_startblk_c, i_endblk_c    
-!         CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
-!          &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
-!         DO jc = i_startidx_c, i_endidx_c
-!           DO jk=1,n_zlev
-!             IF(p_os%p_prog(nold(1))%h(jc,jb)/=0.0&
-!          &.OR. p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)/=0.0_wp)&
-!            write(*,*)'init height/temp:',jc,jb,jk,&
-!            &p_os%p_prog(nold(1))%h(jc,jb), p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)
-!           END DO
-!         END DO
-!       END DO
+
     CASE (33) !collpasing density front testcase, taken from Stuhne-Peltier (JCP, 2006)
 
       p_os%p_prog(nold(1))%tracer(:,:,:,1) = 20.0_wp
@@ -384,13 +357,6 @@ ELSEIF( iswm_oce == 1 )THEN
 
       CALL message(TRIM(routine), 'Shallow-Water-Testcase (25)')
       CALL message(TRIM(routine), ' - here: h and bathy for solid body rotation (Laeuter Test)')
-      rl_start = 1
-      rl_end_c = min_rlcell
-      rl_end_e = min_rledge
-      i_startblk_e = ppatch%edges%start_blk(rl_start,1)
-      i_endblk_e   = ppatch%edges%end_blk(rl_end_e,1)
-      i_startblk_c = ppatch%cells%start_blk(rl_start,1)
-      i_endblk_c   = ppatch%cells%end_blk(rl_end_c,1)    
 
       ppatch%patch_oce%lsm_oce_c(:,:,:) = sea
       ppatch%patch_oce%lsm_oce_e(:,:,:) = sea
@@ -434,13 +400,6 @@ ELSEIF( iswm_oce == 1 )THEN
     CASE (26)
       CALL message(TRIM(routine), 'Shallow-Water-Testcase (26)')
       CALL message(TRIM(routine), ' - here: h and bathy of Williamson Test 5')
-      rl_start = 1
-      rl_end_c = min_rlcell
-      rl_end_e = min_rledge
-      i_startblk_e = ppatch%edges%start_blk(rl_start,1)
-      i_endblk_e   = ppatch%edges%end_blk(rl_end_e,1)
-      i_startblk_c = ppatch%cells%start_blk(rl_start,1)
-      i_endblk_c   = ppatch%cells%end_blk(rl_end_c,1)    
 
       ppatch%patch_oce%lsm_oce_c(:,:,:) = sea
       ppatch%patch_oce%lsm_oce_e(:,:,:) = sea
@@ -478,6 +437,36 @@ ELSEIF( iswm_oce == 1 )THEN
           ! write(*,*)'vn', je,jb,p_os%p_prog(nold(1))%vn(je,1,jb),z_lon, z_lat 
         END DO
       END DO
+
+    CASE(27)
+      p_os%p_prog(nold(1))%h  = 0.0_wp
+      p_os%p_prog(nold(1))%vn = 0.0_wp
+      p_os%p_prog(nnew(1))%vn = 0.0_wp
+      p_os%p_prog(nold(1))%tracer(:,1,:,1) = 0.0_wp
+      p_os%p_prog(nnew(1))%tracer(:,1,:,1) = 0.0_wp
+      DO jb = i_startblk_c, i_endblk_c    
+        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
+                    & i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+        DO jc = i_startidx_c, i_endidx_c
+         ppatch%patch_oce%bathymetry_c(jc,jb) = -200._wp
+         ppatch%patch_oce%dolic_c(jc,jb)      = 1 
+
+          !latitude given in radians
+           z_lat = ppatch%cells%center(jc,jb)%lat
+           z_lat_deg = z_lat*rad2deg
+           !Impose emperature profile. Profile
+           !depends on latitude only
+           IF(abs(z_lat_deg-basin_center_lat)>=0.0_wp*basin_height_deg)THEN 
+             p_os%p_prog(nold(1))%tracer(jc,1,jb,1) = 5.0_wp 
+             p_os%p_prog(nnew(1))%tracer(jc,1,jb,1) = 5.0_wp
+           ELSEIF(abs(z_lat_deg-basin_center_lat)<0.0_wp*basin_height_deg)THEN 
+             p_os%p_prog(nold(1))%tracer(jc,1,jb,1) = 10.0_wp
+             p_os%p_prog(nnew(1))%tracer(jc,1,jb,1) = 10.0_wp
+           ENDIF
+!           !write(90,*)'lat-degrees', jc,jb,z_lat, z_lat_deg, p_os%p_prog(nold(1))%tracer(jc,1,jb,1)
+        END DO
+      END DO
+
     CASE DEFAULT
      CALL finish(TRIM(routine), 'CHOSEN INITIALIZATION NOT SUPPORTED - TERMINATE')
   END SELECT

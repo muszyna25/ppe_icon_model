@@ -60,8 +60,8 @@ run_commmand="$bindir/grid_command"
 #-----------------------------------------------------------------------------
 # First generate graphs
 R=2    # nroot (the first dissection will be a bisection)
-B=5    # highest grid level to reach (number of consequent bisections)
-maxlev_optim=4  # highest grid level to apply optimizations
+B=6    # highest grid level to reach (number of consequent bisections)
+maxlev_optim=6  # highest grid level to apply optimizations
 
 cat > NAMELIST_GRAPH << EOF
 &graph_ini 

@@ -56,7 +56,7 @@ MODULE mo_advection_nml
   USE mo_namelist,            ONLY: position_nml, POSITIONED
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_radiation_nml,       ONLY: irad_o3
-  USE mo_nonhydrostatic_nml,  ONLY: l_open_ubc, kstart_moist
+  USE mo_nonhydrostatic_nml,  ONLY: l_open_ubc, kstart_moist, kstart_qv
 
   IMPLICIT NONE
 
@@ -552,7 +552,7 @@ CONTAINS
       DO jg = 1, n_dom
         ! Set iadv_slev to kstart_moist for all tracers but QV
         iadv_slev(jg,:)   = kstart_moist(jg)
-        iadv_slev(jg,iqv) = 1
+        iadv_slev(jg,iqv) = kstart_qv(jg)
       ENDDO
     ELSE
       iadv_slev(1:n_dom,:) = 1

@@ -50,9 +50,10 @@ IEQ=-1            # equation system
 #                    -1=hydrost. ocean
 #
 # length of the integration in timesteps or days
-NSTEPS=48            # for short model test - set NDAYS to zero when using NSTEPS
-NDAYS=0              # number of model days to run - use alternatively to NSTEPS
-#                    
+#
+NSTEPS=0            # for short model test - set NDAYS to zero when using NSTEPS
+NDAYS=360              # number of model days to run - use alternatively to NSTEPS
+
 DTIME=900            # time step in seconds
 INIMONTH=3           # start month of integration
 INIYEAR=2011         # start year of integration
@@ -123,7 +124,7 @@ cat > NAMELIST_${EXPNAME} << EOF
   iswm_oce        =   0          ! switch for one layer shallow water model (iswm_oce=1) or 3-d
   i_oce_stepping  =   1          ! switch for different core formulations
   idisc_scheme  = 1               !1 = mimetic discretization, 2 =  rbf discretization
-  l_inverse_flip_flop = .FALSE. !within mimetic discreization selection for full scalar product (slow) or reduced scalarproduct variant (fast and default)
+  l_inverse_flip_flop = .FALSE. !within mimetic discretization selection for full scalar product (slow) or reduced scalarproduct variant (fast and default)
   i_oce_stepping  =   1
   iforc_oce       =   11
   wstress_coeff   =   0.1
@@ -133,22 +134,33 @@ cat > NAMELIST_${EXPNAME} << EOF
                                                                        !32=Multilayer Munk-Gyre test (simlar to 30, but following parameters from Sergey Danilov)
                                                                        !33=Collapsing density front, requires realistic lsm and topography
   i_bc_veloc_lateral  =  0                              !boundary conditions for normal velocity for lateral walls, ocean top and ocean bottom
-  i_bc_veloc_top      =  0
-  i_bc_veloc_bot      =  0
-  ab_beta         =   0.7                               !parameters for Adams-Bashford timestepping 
-  ab_gam          =  0.7
+  i_bc_veloc_top      =  1
+  i_bc_veloc_bot      =  1
+  ab_beta         =   0.6                               !parameters for Adams-Bashford timestepping 
+  ab_gam          =  0.6
   solver_tolerance = 1.0e-6
   EOS_TYPE           = 2                                !1=linear EOS, 2= (nonlinear) Jacket-McDoudgall-formulation
-  no_tracer        = 1
+  no_tracer        = 0
   expl_vertical_velocity_diff = 0                       !0=explicit, 1 = implicit  
   expl_vertical_tracer_diff   = 0                       !0=explicit, 1 = implicit
-  k_veloc_h       =   4000.0                            !horizontal viscosity coeff for velocity, both values are taken from MITgc mdocumentation for multilayer-Stommel test 
+  k_veloc_h       =   400.0                            !horizontal viscosity coeff for velocity, both values are taken from MITgc mdocumentation for multilayer-Stommel test 
   k_veloc_v       =   0.01                              !vertical viscosity coeff for velocity
   k_pot_temp_h = 200.0
   k_pot_temp_v = 0.01
   k_sal_h            =0.0
   k_sal_v            = 0.0
-  bottom_drag_coeff    = 0.0025
+  bottom_drag_coeff    = 0.0025 
+coriolis_type = 2                                        !0=zero Coriolis, the non-rotating case
+                                                                    !1=full varying Coriolis
+                                                                    !2=beta-plane approximation to Coriolis
+                                                                    !3=f-plane approximation to Coriolis
+                                                                    !IMPORTANT: SOME TESTCASES REQUIRE SPECIFIC SETTING. 
+                                                                    !EXAMPLE: For Stommel-type in 2D- and 3D on a basin (testcase 27 and/or 30) select F or BETA-PLANE.
+                                                                    !Alternatively the basin can be shifted appropriately, but this is currently not possible due to the grid generator.
+ basin_center_lat     = 30.0    !lat-lon coordinate of basin center, used 
+ basin_center_lon    = 0.0       !in (non-global) basin configuration such as the Stommel-type tests
+ basin_width_deg    =  80.0    !basin extension in x-direction, units are degrees
+ basin_height_deg  = 60.0    !basin extension in y-direction, units are degrees
 /
 EOF
 
@@ -185,7 +197,6 @@ EOF
 # 20 levels, low top resolution guess:
 #  n_zlev         =   20
 # dzlev_m(1:20)   =   20.0,   30.0,   50.0,   50.0,   50.0,  100.0,  150.0,  200.0,  250.0,  300.0,
-#                    400.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0
                   
 # 20 levels MPIOM GR60 Helmuth
 # n_zlev          =   20
