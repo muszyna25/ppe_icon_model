@@ -76,13 +76,12 @@ MODULE mo_advection_vflux
     &                               ippm_v, ippm_vcfl, islopel_vsm,           &
     &                               islopel_vm, ifluxl_vpd, ino_flx,          &
     &                               izero_grad, iparent_flx, lcompute,        &
-    &                               lcleanup
+    &                               lcleanup, ivcfl_max
   USE mo_advection_utils,     ONLY: laxfr_upflux_v, laxfr_upflux
   USE mo_advection_limiter,   ONLY: v_muscl_slimiter_mo, v_muscl_slimiter_sm, &
    &                                v_ppm_slimiter_mo, v_ppm_slimiter_sm,     &
    &                                vflx_limiter_pd, vflx_limiter_pd_ha
   USE mo_loopindices,         ONLY: get_indices_c
-  USE mo_nonhydrostatic_nml,  ONLY: iadv_rcf
   USE mo_sync,                ONLY: global_max
 
   IMPLICIT NONE
@@ -338,16 +337,6 @@ CONTAINS
             &                      opt_rlstart=opt_rlstart,                  &! in
             &                      opt_rlend=opt_rlend                       )! in
 
-        CASE( ippm_v )
-          ! CALL third order PPM
-          CALL upwind_vflux_ppm( p_patch, p_cc(:,:,:,jt), p_iubc_adv,  &! in
-            &                  p_mflx_contra_v, p_w_contra, p_dtime,   &! in
-            &                  p_itype_vlimit(jt), p_cellhgt_mc_now,   &! in
-            &                  p_rcellhgt_mc_now, p_upflux(:,:,:,jt),  &! in,out
-            &                  opt_slev=p_iadv_slev(jt),               &! in
-            &                  opt_rlstart=opt_rlstart,                &! in
-            &                  opt_rlend=opt_rlend                     )! in
-
         CASE( ippm_vcfl )
           ! CALL third order PPM which handles long time steps (i.e. CFL>1)
           CALL upwind_vflux_ppm_cfl( p_patch, p_cc(:,:,:,jt), p_iubc_adv,    &! in
@@ -358,6 +347,16 @@ CONTAINS
             &                  opt_slev=p_iadv_slev(jt),                     &! in
             &                  opt_rlstart=opt_rlstart,                      &! in
             &                  opt_rlend=opt_rlend                           )! in
+
+        CASE( ippm_v )
+          ! CALL third order PPM
+          CALL upwind_vflux_ppm( p_patch, p_cc(:,:,:,jt), p_iubc_adv,  &! in
+            &                  p_mflx_contra_v, p_w_contra, p_dtime,   &! in
+            &                  p_itype_vlimit(jt), p_cellhgt_mc_now,   &! in
+            &                  p_rcellhgt_mc_now, p_upflux(:,:,:,jt),  &! in,out
+            &                  opt_slev=p_iadv_slev(jt),               &! in
+            &                  opt_rlstart=opt_rlstart,                &! in
+            &                  opt_rlend=opt_rlend                     )! in
 
         END SELECT
       END DO  ! Tracer loop
@@ -2154,9 +2153,8 @@ CONTAINS
       i_rlend = min_rlcell_int
     ENDIF
 
-    ! maximum number of lists; this setting ensures that the CFL stability range
-    ! is approximately the same as for the dynamical core
-    nlist_max = iadv_rcf
+    ! maximum number of lists
+    nlist_max = ivcfl_max - 1
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
@@ -2218,6 +2216,7 @@ CONTAINS
       ENDDO
 !$OMP END DO
     ENDIF
+
 
 
     !
@@ -2294,7 +2293,7 @@ CONTAINS
           counter_p = 1
           counter_m = 1
 
-          ! loop until no point has CFL > nlist_p, or nlist_p > nlist_max
+          ! loop until no point has CFL > 1, or nlist_p > nlist_max
           DO WHILE(counter_p > 0 .AND. nlist_p < nlist_max )
 
             ! get number of current list
@@ -2364,7 +2363,7 @@ CONTAINS
                 ! Index shift
                 jk_int_m(jc,jk,jb) = jk_int_m(jc,jk,jb) - 1
 
-                ! tests whether we need to loop once again
+                ! checks whether we need to loop once again
                 counter_m = counter_m + 1
 
                 ! Fill index lists with those points that need index shifts
@@ -2394,6 +2393,8 @@ CONTAINS
     ENDDO ! end loop over blocks
 !$OMP END DO
     END IF ! ld_compute
+
+
 
     !
     ! 2. Compute monotonized slope
@@ -2561,6 +2562,8 @@ CONTAINS
 !$OMP ENDDO
     ENDIF
 
+
+
     !
     ! 5. calculation of upwind fluxes. IF CFL > 1, the fluxes are the sum of
     !    integer-fluxes and a fractional flux. IF CFL <1 the fluxes are only
@@ -2577,7 +2580,7 @@ CONTAINS
 
 
       !
-      ! First compute fluxes for the CFL<1 case for all grid points
+      ! 5a. First compute fluxes for the CFL<1 case for all grid points
       ! On the grid points where CFL>1, they will be overwritten afterwards 
       ! This part has been adopted from the restricted time step PPM-scheme.
       !
@@ -2625,16 +2628,25 @@ CONTAINS
             &                z_lext_1(jc,jk), z_lext_2(jc,jk),  &
             &                coeff_grid )
 
+
+!DR          ! (fractional) low order flux
+!DR          z_flx_frac_low(jc,jk,jb)=
+!DR            &  laxfr_upflux_v( p_mflx_contra_v(jc,jk,jb),       &
+!DR            &                p_cc(jc,ikm1,jb), p_cc(jc,jk,jb),  &
+!DR            &                coeff_grid )
+
         END DO ! end loop over cells
 
       ENDDO ! end loop over vertical levels
 
 
-      ! Now execute the special computations needed for CFL>1:
+
+      !
+      ! 5b. Now execute the special computations needed for CFL>1:
+      !     Computation of integer fluxes and a fractional flux
+      !
       IF (max_cfl_blk(jb) > 1._wp) THEN
 
-        ! Coment by DR: I think that this initialization could be 
-        ! moved into the following IF-statement
         z_iflx_m(i_startidx:i_endidx,slev:nlevp1) = 0._wp
         z_iflx_p(i_startidx:i_endidx,slev:nlevp1) = 0._wp
 
@@ -2664,7 +2676,8 @@ CONTAINS
 
           ENDDO  ! loop over cells in i_indlist_p
 
-        ENDDO
+        ENDDO ! list loop
+
 
         ! Now use the first list (containing all points with CFL>1 and upward flux)
         ! to compute the corrected fluxes
@@ -2677,6 +2690,7 @@ CONTAINS
             jk = i_levlist_p(ji_p,1,jb)
 
             ! fractional upward flux
+            ! if w > 0 , weta < 0 (physical upwelling)
             ! note that the second coeff_grid factor in front of z_delta_p 
             ! is obsolete due to a compensating (-) sign emerging from the 
             ! computation of z_delta_p.
@@ -2696,11 +2710,12 @@ CONTAINS
               &         + 2._wp*z_cflfrac_p(jc,jk,jb)**2) ) )                       &
               &         / p_dtime
 
-            ! full flux (integer- plus fractional flux)
+            ! full flux (integer- plus high order fractional flux)
             p_upflux(jc,jk,jb) = z_iflx_p(jc,jk)/p_dtime + z_flx_frac_high(jc,jk,jb)
 
           ENDDO
         ENDIF
+
 
         DO nlist = 1, nlist_max
 
@@ -2729,6 +2744,7 @@ CONTAINS
 
         ENDDO  ! loop over index lists
 
+
         ! Now use the first list (containing all points with CFL>1 and downward flux)
         ! to compute the corrected fluxes
         IF (i_listdim_m(1,jb) > 0) THEN
@@ -2740,6 +2756,7 @@ CONTAINS
             jk = i_levlist_m(ji_m,1,jb)
 
             ! fractional downward flux
+            ! if w < 0 , weta > 0 (physical downwelling)
             ! note that the second coeff_grid factor in front of z_delta_p 
             ! is obsolete due to a compensating (-) sign emerging from the 
             ! computation of z_delta_p.
@@ -2825,7 +2842,10 @@ CONTAINS
     ENDIF
 
 
-    IF ( ld_compute .AND. msg_level >= 11 ) THEN ! print maximum vertical CFL number
+    !
+    ! If desired, print maximum vertical CFL number
+    !
+    IF ( ld_compute .AND. msg_level >= 11 ) THEN
 
       max_cfl_tot = MAXVAL(max_cfl_blk(i_startblk:i_endblk))
 

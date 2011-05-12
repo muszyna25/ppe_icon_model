@@ -114,14 +114,18 @@ MODULE mo_advection_nml
                                   !< reconstruction method at cell center
                                   !< for second order miura scheme
 
+  INTEGER :: ivcfl_max            !< determines stability range of vertical 
+                                  !< ppm-scheme (approximate allowable maximum 
+                                  !< CFL-number)
+
   REAL(wp) :: upstr_beta_adv      !< later, it should be combined with 
                                   !< upstr_beta in non-hydrostatic namelist
 
 
   NAMELIST/transport_ctl/ ihadv_tracer, ivadv_tracer, lvadv_tracer,   &
-    &                     itype_vlimit, itype_hlimit, iord_backtraj,  &
-    &                     lclip_tracer, ctracer_list, igrad_c_miura,  &
-    &                     lstrang, upstr_beta_adv
+    &                     itype_vlimit, ivcfl_max, itype_hlimit,      &
+    &                     iord_backtraj, lclip_tracer, ctracer_list,  &
+    &                     igrad_c_miura, lstrang, upstr_beta_adv
 
 
   !---------------------!
@@ -219,9 +223,9 @@ MODULE mo_advection_nml
                                         !< at cell center
 
 
-  PUBLIC :: transport_ctl, ihadv_tracer, ivadv_tracer, lvadv_tracer,  &
-    &       itype_vlimit, itype_hlimit, iord_backtraj, lclip_tracer,  &
-    &       ctracer_list, igrad_c_miura, lstrang, upstr_beta_adv
+  PUBLIC :: transport_ctl, ihadv_tracer, ivadv_tracer, lvadv_tracer,           &
+    &       itype_vlimit, ivcfl_max, itype_hlimit, iord_backtraj,              &
+    &       lclip_tracer, ctracer_list, igrad_c_miura, lstrang, upstr_beta_adv
 
   PUBLIC :: iadv_slev, iubc_adv, cSTR, coeff_grid, iup, imiura, imiura3,   &
     &       inol, islopel_sm, islopel_m, ifluxl_m, ifluxl_sm, iup_v,       &
@@ -292,6 +296,7 @@ CONTAINS
     END SELECT
     ivadv_tracer(:) = ippm_vcfl   ! PPM vertical advection scheme
     itype_vlimit(:) = islopel_vsm ! semi-monotonous slope limiter
+    ivcfl_max       = 5           ! CFL-stability range for vertical advection
     iadv_slev(:,:)  = 1           ! vertical start level
     iord_backtraj   = 1           ! 1st order backward trajectory
     lvadv_tracer    = .TRUE.      ! vertical advection yes/no

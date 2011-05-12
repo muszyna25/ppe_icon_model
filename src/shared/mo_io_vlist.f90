@@ -251,6 +251,9 @@ MODULE mo_io_vlist
 
   TYPE(t_outvar_desc), PUBLIC :: outvar_desc(max_outvars, max_gridlevs)
 
+  CHARACTER(len=MAX_CHAR_LENGTH) :: &  !< list of total columsn integrated
+    &  tc_tracer_list                  ! tracers
+
 
 CONTAINS
 
@@ -872,6 +875,8 @@ CONTAINS
       END IF
     END IF
 
+    tc_tracer_list ='VCI' ! corresponding to vapour, cloud water, cloud ice
+
     !-------------------------------------------------------------------------
     ! register variables
     !
@@ -999,7 +1004,7 @@ CONTAINS
       IF (iforcing == inwp)THEN
       DO jt = 1, 3
         IF (lwrite_tracer(jt)) THEN
-          ctracer = ctracer_list(jt:jt)
+          ctracer = tc_tracer_list(jt:jt)
           WRITE(name,'(A2,A1)') "TQ", ctracer
           CALL addVar(TimeVar(TRIM(name),TRIM(name),&
           &                   'kg/m**2',222,128,&

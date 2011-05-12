@@ -240,7 +240,7 @@ CONTAINS
                                         !< HA: [kg/kg]
                                         !< dim: (nproma,nblks_c,ntracer)
 
-    REAL(wp), INTENT(OUT), OPTIONAL :: & !< advective tendency    [kg/kg/s]
+    REAL(wp), INTENT(INOUT), OPTIONAL :: & !< advective tendency    [kg/kg/s]
       &  opt_ddt_tracer_adv(:,:,:,:)     !< dim: (nproma,nlev,nblks_c,ntracer)
 
 

@@ -2131,9 +2131,17 @@ parameter to select 3rd order (=1) or 4th order (=0) advection, or something inb
 ihadv\_tracer=iup3
 \tabularnewline
 \hline
+ivcfl\_max&
+I&
+5&
+&
+determines stability range of vertical PPM-scheme in terms of the maximum allowable CFL-number&
+ivadv\_tracer=3
+\tabularnewline
+\hline
 \end{longtable}
 
-Defined and used in: src/advection/mo\_advection\_utils.f90
+Defined and used in: src/namelists/mo\_advection\_nml.f90
 
 
 

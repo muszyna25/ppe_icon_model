@@ -715,7 +715,6 @@ if __FILE__ == $0
   when 'proc'
     options  = PreProcOptions.parse(ARGV)
     pp options if options.debug
-    exit
     Cdo.Debug = options.debug if options.verbose
     #=======================================================
     p    = Ifs2Icon.new(options)
