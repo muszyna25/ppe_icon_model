@@ -1042,6 +1042,7 @@ src/shared/mo_grib2.f90 -text
 src/shared/mo_impl_constants.f90 -text
 src/shared/mo_impl_constants_grf.f90 -text
 src/shared/mo_io_async.f90 -text
+src/shared/mo_io_restart.f90 -text
 src/shared/mo_io_units.f90 -text
 src/shared/mo_io_vlist.f90 -text
 src/shared/mo_kind.f90 -text
@@ -1065,6 +1066,7 @@ src/shared/mo_util_backtrace.f90 -text
 src/shared/mo_util_hash.f90 -text
 src/shared/mo_util_postgresql.f90_off -text
 src/shared/mo_util_string.f90 -text
+src/shared/mo_util_sysinfo.f90 -text
 src/shared/mo_util_system.f90_off -text
 src/shared/mo_var_list.f90 -text
 src/shared/mo_var_list_element.f90 -text
