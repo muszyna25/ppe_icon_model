@@ -796,8 +796,8 @@ SUBROUTINE new_nwp_lnd_prog_list( klev_snow, klev_soil, kztlev, ksfc_subs, kblks
 
     CHARACTER(len=*),INTENT(IN) :: listname
 
-    TYPE(t_var_list),POINTER :: prog_list
-    TYPE(t_lnd_prog)     :: p_prog_lnd
+    TYPE(t_var_list),INTENT(INOUT) :: prog_list
+    TYPE(t_lnd_prog),INTENT(INOUT) :: p_prog_lnd
 
     ! Local variables
 
@@ -916,8 +916,8 @@ SUBROUTINE new_nwp_lnd_diag_list( kztlev, ksfc_subs, kblks,   &
 
     CHARACTER(len=*),INTENT(IN) :: listname
 
-    TYPE(t_var_list),POINTER :: diag_list
-    TYPE(t_lnd_diag)     :: p_diag_lnd
+    TYPE(t_var_list),INTENT(INOUT) :: diag_list
+    TYPE(t_lnd_diag),INTENT(INOUT) :: p_diag_lnd
 
     ! Local variables
 
