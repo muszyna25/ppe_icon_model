@@ -26,6 +26,7 @@ MODULE mo_var_list
 
   PUBLIC :: default_var_list_settings ! set default settings for a whole list
 
+  PUBLIC :: t_var_list
   PUBLIC :: var_lists                 ! vector of output var_lists
   PUBLIC :: nvar_lists                ! number of output var_lists defined so far
 
@@ -81,8 +82,9 @@ MODULE mo_var_list
   
   INTEGER, PARAMETER             :: max_var_lists  = 128      ! max number of output var_lists
   INTEGER,                  SAVE :: nvar_lists =  0           ! var_lists allocated so far
+  !
   TYPE(t_var_list), TARGET, SAVE :: var_lists(max_var_lists)  ! memory buffer array
-  
+  !
 CONTAINS
   !------------------------------------------------------------------------------------------------
   !
@@ -93,7 +95,7 @@ CONTAINS
        &                   post_suf, rest_suf, init_suf, lpost, lrestart, &
        &                   linitial)
     !
-    TYPE(t_var_list), POINTER              :: this_list    ! anchor
+    TYPE(t_var_list), INTENT(inout)        :: this_list    ! anchor
     CHARACTER(len=*), INTENT(in)           :: name         ! name of output var_list
     INTEGER,          INTENT(in), OPTIONAL :: output_type  ! 'GRIB2' or 'NetCDF'
     INTEGER,          INTENT(in), OPTIONAL :: restart_type ! 'GRIB2' or 'NetCDF'
@@ -108,53 +110,59 @@ CONTAINS
     !
     CALL message('new_var_list','adding new var_list '//TRIM(name))
     !
-    ! name must be unique
-    !
-    NULLIFY (this_list)
-    !
-    ! look if name exists already in list
-    !
-    IF (ANY(var_lists(1:nvar_lists)%name == name)) THEN
-      CALL finish('new_list', 'output var_list '//TRIM(name)//' already used.')
-    ENDIF
-    !
-    ! find next free entry
+    ! look, if name exists already in list
     !
     DO i = 1, nvar_lists    
-      IF (var_lists(i)%name == '') THEN
-        this_list => var_lists(i)
+      IF (var_lists(i)%p%name == name) THEN
+        CALL finish('new_list', 'output var_list '//TRIM(name)//' already used.')
+      ENDIF
+    ENDDO
+    !
+    this_list%p => NULL()
+    !
+    ! - check, if there is an entry without name in the existing vector
+    !
+    DO i = 1, nvar_lists    
+      IF (var_lists(i)%p%name == '') THEN
+        this_list%p => var_lists(i)%p
         EXIT
       ENDIF
     END DO
     !
-    IF(.NOT. ASSOCIATED(this_list)) THEN
+    ! - if not successful, append to vector of lists
+    !
+    IF(.NOT. ASSOCIATED(this_list%p)) THEN
       nvar_lists = nvar_lists + 1
       IF (nvar_lists > max_var_lists) THEN
-        CALL finish('new_list', 'var_lists container overflow, increase "max_var_lists" &
-          &in mo_var_list.f90')
+        CALL finish('new_list', 'var_lists container overflow, increase "max_var_lists" in mo_var_list.f90')
       ENDIF
-      this_list => var_lists(nvar_lists)
     ENDIF
     !
-    CALL new_list (this_list)
+    CALL new_list (var_lists(nvar_lists))
+    !
+    ! connect anchor and backbone by referencing
+    !
+    this_list%p => var_lists(nvar_lists)%p
     !
     ! set default list characteristics
     !
-    this_list%name     = name
-    this_list%post_suf = '_'//TRIM(name)
-    this_list%rest_suf = this_list%post_suf
-    this_list%init_suf = this_list%post_suf
+    this_list%p%name     = name
+    this_list%p%post_suf = '_'//TRIM(name)
+    this_list%p%rest_suf = this_list%p%post_suf
+    this_list%p%init_suf = this_list%p%post_suf
     !
     ! set non-default list characteristics
     !
-    CALL assign_if_present(this_list%output_type,  output_type)
-    CALL assign_if_present(this_list%restart_type, restart_type)
-    CALL assign_if_present(this_list%post_suf,     post_suf)
-    CALL assign_if_present(this_list%rest_suf,     rest_suf)
-    CALL assign_if_present(this_list%init_suf,     init_suf)
-    CALL assign_if_present(this_list%lpost,        lpost)
-    CALL assign_if_present(this_list%lrestart,     lrestart)
-    CALL assign_if_present(this_list%linitial,     linitial)
+    CALL assign_if_present(this_list%p%output_type,  output_type)
+    CALL assign_if_present(this_list%p%restart_type, restart_type)
+    CALL assign_if_present(this_list%p%post_suf,     post_suf) 
+    CALL assign_if_present(this_list%p%rest_suf,     rest_suf) 
+    CALL assign_if_present(this_list%p%init_suf,     init_suf) 
+    CALL assign_if_present(this_list%p%lpost,        lpost)
+    CALL assign_if_present(this_list%p%lrestart,     lrestart)
+    CALL assign_if_present(this_list%p%linitial,     linitial)
+    !
+    CALL message('new_var_list','new variable list '//TRIM(this_list%p%name)//' added successful')
     !
   END SUBROUTINE new_var_list
   !------------------------------------------------------------------------------------------------
@@ -171,7 +179,7 @@ CONTAINS
     NULLIFY (this_list)
     !
     DO i = 1, nvar_lists
-      IF (var_lists(i)%name == name) THEN
+      IF (var_lists(i)%p%name == name) THEN
         this_list => var_lists(i)
         EXIT
       ENDIF
@@ -196,14 +204,14 @@ CONTAINS
     LOGICAL,          INTENT(in), OPTIONAL :: lrestart       ! in standard restartfile
     LOGICAL,          INTENT(in), OPTIONAL :: linitial       ! in standard initialfile
     !
-    IF (PRESENT(output_type)) CALL assign_if_present(this_list%output_type,  output_type)
-    CALL assign_if_present(this_list%restart_type, restart_type)
-    CALL assign_if_present(this_list%post_suf,     post_suf) 
-    CALL assign_if_present(this_list%rest_suf,     rest_suf) 
-    CALL assign_if_present(this_list%init_suf,     init_suf) 
-    CALL assign_if_present(this_list%lpost,        lpost)
-    CALL assign_if_present(this_list%lrestart,     lrestart)
-    CALL assign_if_present(this_list%linitial,     linitial)
+    CALL assign_if_present(this_list%p%output_type,  output_type)
+    CALL assign_if_present(this_list%p%restart_type, restart_type)
+    CALL assign_if_present(this_list%p%post_suf,     post_suf) 
+    CALL assign_if_present(this_list%p%rest_suf,     rest_suf) 
+    CALL assign_if_present(this_list%p%init_suf,     init_suf) 
+    CALL assign_if_present(this_list%p%lpost,        lpost)
+    CALL assign_if_present(this_list%p%lrestart,     lrestart)
+    CALL assign_if_present(this_list%p%linitial,     linitial)
     !
   END SUBROUTINE set_var_list
   !------------------------------------------------------------------------------------------------
@@ -212,11 +220,11 @@ CONTAINS
   !
   SUBROUTINE delete_var_list(this_list)
     !
-    TYPE(t_var_list), POINTER :: this_list
+    TYPE(t_var_list) :: this_list
     !
-    IF (ASSOCIATED(this_list)) THEN
+    IF (ASSOCIATED(this_list%p)) THEN
       CALL delete_list(this_list)
-      NULLIFY(this_list)
+      DEALLOCATE(this_list%p)
     ENDIF
     !
   END SUBROUTINE delete_var_list
@@ -276,16 +284,16 @@ CONTAINS
     INTEGER,            INTENT(in), OPTIONAL :: restart_type     ! restart file type 
     INTEGER,            INTENT(in), OPTIONAL :: compression_type ! compression type
     !
-    CALL assign_if_present (this_list%lpost,            lpost)
-    CALL assign_if_present (this_list%lrestart,         lrestart)
-    CALL assign_if_present (this_list%linitial,         linitial)
-    CALL assign_if_present (this_list%filename,         filename)
-    CALL assign_if_present (this_list%post_suf,         post_suf)
-    CALL assign_if_present (this_list%rest_suf,         rest_suf)
-    CALL assign_if_present (this_list%init_suf,         init_suf)
-    CALL assign_if_present (this_list%output_type,      output_type)
-    CALL assign_if_present (this_list%restart_type,     restart_type)
-    CALL assign_if_present (this_list%compression_type, compression_type)
+    CALL assign_if_present (this_list%p%lpost,            lpost)
+    CALL assign_if_present (this_list%p%lrestart,         lrestart)
+    CALL assign_if_present (this_list%p%linitial,         linitial)
+    CALL assign_if_present (this_list%p%filename,         filename)
+    CALL assign_if_present (this_list%p%post_suf,         post_suf)
+    CALL assign_if_present (this_list%p%rest_suf,         rest_suf)
+    CALL assign_if_present (this_list%p%init_suf,         init_suf)
+    CALL assign_if_present (this_list%p%output_type,      output_type)
+    CALL assign_if_present (this_list%p%restart_type,     restart_type)
+    CALL assign_if_present (this_list%p%compression_type, compression_type)
     !
   END SUBROUTINE default_var_list_settings
   !------------------------------------------------------------------------------------------------
@@ -305,18 +313,21 @@ CONTAINS
     this_info%ndims               = 0
     this_info%used_dimensions(:)  = 0
     !
-    this_info%lpost               = this_list%lpost
-    this_info%laccu               = this_list%laccu
+    this_info%lpost               = this_list%p%lpost
+    this_info%laccu               = this_list%p%laccu
     this_info%resetval            = t_union_vals( 0.0_dp, 0, .FALSE.)
-    this_info%lrestart            = this_list%lrestart
+    this_info%lrestart            = this_list%p%lrestart
     this_info%lrestart_cont       = .FALSE.
     this_info%lrestart_read       = .FALSE.
-    this_info%lmiss               = this_list%lmiss
+    this_info%lmiss               = this_list%p%lmiss
     this_info%missval             = t_union_vals( 0.0_dp, 0, .FALSE.)
     this_info%initval             = t_union_vals( 0.0_dp, 0, .FALSE.)
     !
     this_info%hgrid               = -1
     this_info%vgrid               = -1
+    !
+    this_info%cdiGridID           = -1
+    this_info%cdiZaxisID          = -1
     !
   END FUNCTION default_var_list_metadata
   !------------------------------------------------------------------------------------------------
@@ -462,17 +473,15 @@ CONTAINS
       idims(5) = new_list_element%field%info%used_dimensions(5)
       new_list_element%field%info%ndims = 5
       new_list_element%field%var_base_size = 8
-      ALLOCATE(new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), &
-              &STAT=istat)
+      ALLOCATE(new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r5d',      &
-                   &'allocation of array '//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r5d','allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
       NULLIFY(new_list_element%field%i_ptr)
       NULLIFY(new_list_element%field%l_ptr)
-      this_list%memory_used = this_list%memory_used+8*SIZE(new_list_element%field%r_ptr)
+      this_list%p%memory_used = this_list%p%memory_used+8*SIZE(new_list_element%field%r_ptr)
     ELSE
       new_list_element%field%r_ptr => p5
     ENDIF
@@ -555,17 +564,15 @@ CONTAINS
       idims(5) = 1
       new_list_element%field%info%ndims = 4
       new_list_element%field%var_base_size = 8
-      ALLOCATE(new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)),&
-              &STAT=istat)
+      ALLOCATE(new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r4d',      &
-                   &'allocation of array '//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r4d','allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
       NULLIFY(new_list_element%field%i_ptr)
       NULLIFY(new_list_element%field%l_ptr)
-      this_list%memory_used = this_list%memory_used+8*SIZE(new_list_element%field%r_ptr)
+      this_list%p%memory_used = this_list%p%memory_used+8*SIZE(new_list_element%field%r_ptr)
     ELSE
       new_list_element%field%r_ptr => p5
     ENDIF
@@ -649,17 +656,15 @@ CONTAINS
       idims(5) = 1
       new_list_element%field%info%ndims = 3
       new_list_element%field%var_base_size = 8
-      ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)),&
-               &STAT=istat)
+      ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r3d',      &
-                   &'allocation of array '//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r3d','allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
       NULLIFY(new_list_element%field%i_ptr)
       NULLIFY(new_list_element%field%l_ptr)
-      this_list%memory_used = this_list%memory_used+8*SIZE(new_list_element%field%r_ptr)
+      this_list%p%memory_used = this_list%p%memory_used+8*SIZE(new_list_element%field%r_ptr)
     ELSE
       new_list_element%field%r_ptr => p5
     ENDIF
@@ -743,17 +748,15 @@ CONTAINS
       idims(5) = 1
       new_list_element%field%info%ndims = 2
       new_list_element%field%var_base_size = 8
-      ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)),&
-               &STAT=istat)
+      ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r2d',      &
-                   &'allocation of array '//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r2d','allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
       NULLIFY(new_list_element%field%i_ptr)
       NULLIFY(new_list_element%field%l_ptr)
-      this_list%memory_used = this_list%memory_used+8*SIZE(new_list_element%field%r_ptr)
+      this_list%p%memory_used = this_list%p%memory_used+8*SIZE(new_list_element%field%r_ptr)
     ELSE
       new_list_element%field%r_ptr => p5
     ENDIF
@@ -837,17 +840,15 @@ CONTAINS
       idims(5) = 1
       new_list_element%field%info%ndims = 1
       new_list_element%field%var_base_size = 8
-      ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)),&
-               &STAT=istat)
+      ALLOCATE (new_list_element%field%r_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r1d',      &
-                   &'allocation of array '//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r1d','allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
       NULLIFY(new_list_element%field%i_ptr)
       NULLIFY(new_list_element%field%l_ptr)
-      this_list%memory_used = this_list%memory_used+8*SIZE(new_list_element%field%r_ptr)
+      this_list%p%memory_used = this_list%p%memory_used+8*SIZE(new_list_element%field%r_ptr)
     ELSE
       new_list_element%field%r_ptr => p5
     ENDIF
@@ -933,17 +934,15 @@ CONTAINS
       idims(5) = new_list_element%field%info%used_dimensions(5)
       new_list_element%field%info%ndims = 5
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)),&
-               &STAT=istat)
+      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_i4d',      &
-                   &'allocation of array '//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_i4d','allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%l_ptr)
-      this_list%memory_used = this_list%memory_used+4*SIZE(new_list_element%field%i_ptr)
+      this_list%p%memory_used = this_list%p%memory_used+4*SIZE(new_list_element%field%i_ptr)
     ELSE
       new_list_element%field%i_ptr => p5
     ENDIF
@@ -1027,17 +1026,15 @@ CONTAINS
       idims(5) = 1
       new_list_element%field%info%ndims = 4
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)),&
-               &STAT=istat)
+      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_i4d',      &
-                   &'allocation of array '//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_i4d','allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%l_ptr)
-      this_list%memory_used = this_list%memory_used+4*SIZE(new_list_element%field%i_ptr)
+      this_list%p%memory_used = this_list%p%memory_used+4*SIZE(new_list_element%field%i_ptr)
     ELSE
       new_list_element%field%i_ptr => p5
     ENDIF
@@ -1121,17 +1118,15 @@ CONTAINS
       idims(5) = 1
       new_list_element%field%info%ndims = 3
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)),&
-               &STAT=istat)
+      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r3d',      &
-                   &'allocation of array '//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r3d','allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%l_ptr)
-      this_list%memory_used = this_list%memory_used+4*SIZE(new_list_element%field%i_ptr)
+      this_list%p%memory_used = this_list%p%memory_used+4*SIZE(new_list_element%field%i_ptr)
     ELSE
       new_list_element%field%i_ptr => p5
     ENDIF
@@ -1215,17 +1210,15 @@ CONTAINS
       idims(5) = 1
       new_list_element%field%info%ndims = 2
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)),&
-               &STAT=istat)
+      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r2d',      &
-                   &'allocation of array '//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r2d','allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%l_ptr)
-      this_list%memory_used = this_list%memory_used+4*SIZE(new_list_element%field%i_ptr)
+      this_list%p%memory_used = this_list%p%memory_used+4*SIZE(new_list_element%field%i_ptr)
     ELSE
       new_list_element%field%i_ptr => p5
     ENDIF
@@ -1309,17 +1302,15 @@ CONTAINS
       idims(5) = 1
       new_list_element%field%info%ndims = 1
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)),&
-               &STAT=istat)
+      ALLOCATE (new_list_element%field%i_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r1d',      &
-                   &'allocation of array '//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r1d','allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%l_ptr)
-      this_list%memory_used = this_list%memory_used+4*SIZE(new_list_element%field%i_ptr)
+      this_list%p%memory_used = this_list%p%memory_used+4*SIZE(new_list_element%field%i_ptr)
     ELSE
       new_list_element%field%i_ptr => p5
     ENDIF
@@ -1405,17 +1396,15 @@ CONTAINS
       idims(5) = new_list_element%field%info%used_dimensions(5)
       new_list_element%field%info%ndims = 5
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)),&
-               &STAT=istat)
+      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r4d',      &
-                   &'allocation of array '//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r4d','allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%i_ptr)      
-      this_list%memory_used = this_list%memory_used+4*SIZE(new_list_element%field%l_ptr)
+      this_list%p%memory_used = this_list%p%memory_used+4*SIZE(new_list_element%field%l_ptr)
     ELSE
       new_list_element%field%l_ptr => p5
     ENDIF
@@ -1499,17 +1488,15 @@ CONTAINS
       idims(5) = 1
       new_list_element%field%info%ndims = 4
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)),&
-               &STAT=istat)
+      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r4d',      &
-                   &'allocation of array '//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r4d','allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%i_ptr)      
-      this_list%memory_used = this_list%memory_used+4*SIZE(new_list_element%field%l_ptr)
+      this_list%p%memory_used = this_list%p%memory_used+4*SIZE(new_list_element%field%l_ptr)
     ELSE
       new_list_element%field%l_ptr => p5
     ENDIF
@@ -1593,17 +1580,15 @@ CONTAINS
       idims(5) = 1
       new_list_element%field%info%ndims = 3
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)),&
-               &STAT=istat)
+      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r3d',      &
-                   &'allocation of array '//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r3d','allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%i_ptr)      
-      this_list%memory_used = this_list%memory_used+4*SIZE(new_list_element%field%l_ptr)
+      this_list%p%memory_used = this_list%p%memory_used+4*SIZE(new_list_element%field%l_ptr)
     ELSE
       new_list_element%field%l_ptr => p5
     ENDIF
@@ -1687,17 +1672,15 @@ CONTAINS
       idims(5) = 1
       new_list_element%field%info%ndims = 2
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)),&
-               &STAT=istat)
+      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r2d',      &
-                   &'allocation of array '//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r2d','allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%i_ptr)      
-      this_list%memory_used = this_list%memory_used+4*SIZE(new_list_element%field%l_ptr)
+      this_list%p%memory_used = this_list%p%memory_used+4*SIZE(new_list_element%field%l_ptr)
     ELSE
       new_list_element%field%l_ptr => p5
     ENDIF
@@ -1781,17 +1764,15 @@ CONTAINS
       idims(5) = 1
       new_list_element%field%info%ndims = 1
       new_list_element%field%var_base_size = 4
-      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)),&
-               &STAT=istat)
+      ALLOCATE (new_list_element%field%l_ptr(idims(1), idims(2), idims(3), idims(4), idims(5)), STAT=istat)
       IF (istat /= 0) THEN
-        CALL finish('mo_var_list:add_var_list_element_r1d',      &
-                   &'allocation of array '//TRIM(name)//' failed')
+        CALL finish('mo_var_list:add_var_list_element_r1d','allocation of array '//TRIM(name)//' failed')
       ELSE
         new_list_element%field%info%allocated = .TRUE.
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%i_ptr)      
-      this_list%memory_used = this_list%memory_used+4*SIZE(new_list_element%field%l_ptr)
+      this_list%p%memory_used = this_list%p%memory_used+4*SIZE(new_list_element%field%l_ptr)
     ELSE
       new_list_element%field%l_ptr => p5
     ENDIF
@@ -1817,11 +1798,11 @@ CONTAINS
     !
     TYPE(t_list_element), POINTER :: ptr
     !
-    IF (this_list%first_list_element%field%info%name == name) THEN
-      CALL delete_list_element (this_list, this_list%first_list_element)
+    IF (this_list%p%first_list_element%field%info%name == name) THEN
+      CALL delete_list_element (this_list, this_list%p%first_list_element)
       RETURN
     ELSE
-      ptr => this_list%first_list_element
+      ptr => this_list%p%first_list_element
       DO
         IF (.NOT.ASSOCIATED (ptr%next_list_element)) EXIT
         IF (ptr%next_list_element%field%info%name == name) THEN
@@ -2085,15 +2066,15 @@ CONTAINS
     LOGICAL, INTENT(in), OPTIONAL :: ldetailed
     !
     IF (PRESENT(ldetailed)) THEN
-      WRITE (message_text,'(a32,a,a,i10,a,i4,a)')                  &
-           TRIM(this_list%name), '-buffer: ',                      &
-           'Memory in use: ', this_list%memory_used, ' bytes in ', &
-           this_list%list_elements, ' fields.'
+      WRITE (message_text,'(a32,a,a,i10,a,i4,a)')                    &
+           TRIM(this_list%p%name), '-buffer: ',                      &
+           'Memory in use: ', this_list%p%memory_used, ' bytes in ', &
+           this_list%p%list_elements, ' fields.'
     ELSE
-      WRITE (message_text,'(a32,a,a,i10,a,i6,a)')                    &
-           TRIM(this_list%name), '-buffer: ',                        &
-           'Memory in use: ', this_list%memory_used/1024, ' kb in ', &
-           this_list%list_elements, ' fields.'
+      WRITE (message_text,'(a32,a,a,i10,a,i6,a)')                      &
+           TRIM(this_list%p%name), '-buffer: ',                        &
+           'Memory in use: ', this_list%p%memory_used/1024, ' kb in ', &
+           this_list%p%list_elements, ' fields.'
     ENDIF
     CALL message('',message_text)
     !
@@ -2111,10 +2092,10 @@ CONTAINS
     !
     CALL message('','')
     CALL message('','')
-    CALL message('','Status of variable list '//TRIM(this_list%name)//':')    
+    CALL message('','Status of variable list '//TRIM(this_list%p%name)//':')    
     CALL message('','')
     !
-    this_list_element => this_list%first_list_element
+    this_list_element => this_list%p%first_list_element
     !
     DO WHILE (ASSOCIATED(this_list_element))
       ! 
@@ -2206,7 +2187,7 @@ CONTAINS
   SUBROUTINE print_sinfo (this_list)
     TYPE(t_var_list),  INTENT(in) :: this_list
     !
-    WRITE (message_text,'(a16,a)') TRIM(this_list%name), '-buffer: '
+    WRITE (message_text,'(a16,a)') TRIM(this_list%p%name), '-buffer: '
     CALL message('',message_text)
     CALL message('','')    
     CALL message('','')
@@ -2257,7 +2238,7 @@ CONTAINS
       !
       DO i = 1, nvar_lists
         IF (PRESENT(in_var_list)) THEN
-          IF (in_var_list /= var_lists(i)%name) CYCLE
+          IF (in_var_list /= var_lists(i)%p%name) CYCLE
         ENDIF
         link => find_list_element (var_lists(i), name)
         IF (ASSOCIATED(link)) THEN

@@ -79,12 +79,12 @@ MODULE mo_icoham_dyn_memory
   !!--------------------------------------------------------------------------
   !!                          VARIABLE LISTS
   !!--------------------------------------------------------------------------
-  TYPE(t_var_list), PUBLIC, POINTER :: hydro_prog_list(:,:)    !< shape: (n_dom,ntimelevel)
-  TYPE(t_var_list), PUBLIC, POINTER :: hydro_diag_list (:)     !< shape: (n_dom)
-  TYPE(t_var_list), PUBLIC, POINTER :: hydro_tend_dyn_list(:)  !< shape: (n_dom)
-  TYPE(t_var_list), PUBLIC, POINTER :: hydro_tend_phy_list (:) !< shape: (n_dom)
-  TYPE(t_var_list), PUBLIC, POINTER :: hydro_prog_out_list(:)  !< shape: (n_dom)
-  TYPE(t_var_list), PUBLIC, POINTER :: hydro_diag_out_list (:) !< shape: (n_dom)
+  TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_prog_list(:,:)    !< shape: (n_dom,ntimelevel)
+  TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_diag_list(:)      !< shape: (n_dom)
+  TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_tend_dyn_list(:)  !< shape: (n_dom)
+  TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_tend_phy_list(:)  !< shape: (n_dom)
+  TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_prog_out_list(:)  !< shape: (n_dom)
+  TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_diag_out_list(:)  !< shape: (n_dom)
 
 CONTAINS
 
@@ -96,12 +96,11 @@ CONTAINS
   !!
   SUBROUTINE construct_icoham_dyn_state( ntimelevel, p_patch )
 
-    INTEGER,INTENT(IN)     :: ntimelevel
+    INTEGER,INTENT(IN)       :: ntimelevel
     TYPE(t_patch),INTENT(IN) :: p_patch (:)
 
     !local variables
     CHARACTER(len=MAX_CHAR_LENGTH) :: listname
-    TYPE(t_var_list),POINTER :: listptr
 
     INTEGER :: ndomain, jg, jt, ist, nblks_c, nblks_e, nblks_v, nlev
 
@@ -137,44 +136,43 @@ CONTAINS
 
       DO jt = 1,ntimelevel
         WRITE(listname,'(a,i2.2,a,i2.2)') 'hydro_prog_domain_',jg,'_at_timlev_',jt
-        listptr => hydro_prog_list(jg,jt)
         CALL make_hydro_prog_list( nproma, nlev, nblks_c, nblks_e, nblks_v, ntracer, &
-             &         TRIM(listname), listptr, p_hydro_state(jg)%prog(jt) )
+                                 & TRIM(listname), hydro_prog_list(jg,jt),           &
+                                 & p_hydro_state(jg)%prog(jt) )
       END DO
 
       ! 1.2 Diagnostic variables
       WRITE(listname,'(a,i2.2)') 'hydro_diag_of_domain_',jg
-      listptr => hydro_diag_list(jg)
       CALL make_hydro_diag_list( nproma, nlev, nblks_c, nblks_e, nblks_v, ntracer,  &
-           &          TRIM(listname), listptr, p_hydro_state(jg)%diag )
+                               & TRIM(listname), hydro_diag_list(jg),               &
+                               & p_hydro_state(jg)%diag )
 
       ! 1.3 Tendencies
       WRITE(listname,'(a,i2.2)') 'hydro_tend_dyn_of_domain_',jg
-      listptr => hydro_tend_dyn_list(jg)
       CALL make_hydro_tend_dyn_list( nproma, nlev, nblks_c, nblks_e, nblks_v, ntracer, &
-           &          TRIM(listname), listptr, p_hydro_state(jg)%tend_dyn )
+                                   & TRIM(listname), hydro_tend_dyn_list(jg),          &
+                                   & p_hydro_state(jg)%tend_dyn )
 
       WRITE(listname,'(a,i2.2)') 'hydro_tend_phy_of_domain_',jg
-      listptr => hydro_tend_phy_list(jg)
       CALL make_hydro_tend_phy_list( nproma, nlev, nblks_c, nblks_e, nblks_v, ntracer, &
-           &          TRIM(listname), listptr, p_hydro_state(jg)%tend_phy )
+                                   & TRIM(listname), hydro_tend_phy_list(jg),          &
+                                   & p_hydro_state(jg)%tend_phy )
 
       !----------------------------
       ! 2.  For organizing output
       !----------------------------
       WRITE(listname,'(a,i2.2)') 'hydro_prog_out_of_domain_',jg
-      listptr => hydro_prog_out_list(jg)
       CALL make_hydro_prog_list( nproma, nlev, nblks_c, nblks_e, nblks_v, ntracer, &
-           &          TRIM(listname), listptr, p_hydro_state(jg)%prog_out )
+                               & TRIM(listname), hydro_prog_out_list(jg),          &
+                               & p_hydro_state(jg)%prog_out )
 
       WRITE(listname,'(a,i2.2)') 'hydro_diag_out_of_domain_',jg
-      listptr => hydro_diag_out_list(jg)
       CALL make_hydro_diag_list( nproma, nlev, nblks_c, nblks_e, nblks_v, ntracer, &
-           &           TRIM(listname), listptr, p_hydro_state(jg)%diag_out )
+                               & TRIM(listname), hydro_diag_out_list(jg),          &
+                               & p_hydro_state(jg)%diag_out )
 
     ENDDO
 
-    NULLIFY(listptr)
     CALL message(TRIM(thismodule),'Construction of 3D dynamics state vector finished.')
 
   END SUBROUTINE construct_icoham_dyn_state
@@ -189,7 +187,6 @@ CONTAINS
     INTEGER :: jg    !< grid level/domain index
     INTEGER :: ist   !< system status code
 
-    TYPE(t_var_list),POINTER :: listptr
     !---
 
     CALL message(TRIM(thismodule),'Destruction of 3D dynamics state vector started.')
@@ -201,35 +198,25 @@ CONTAINS
 
       ! Prognostic variables
       DO jt = 1,ntimelevel
-        listptr => hydro_prog_list(jg,jt)
-        CALL delete_var_list( listptr )
+        CALL delete_var_list( hydro_prog_list(jg,jt) )
       END DO
 
       ! Diagnostic variables
-      listptr => hydro_diag_list(jg)
-      CALL delete_var_list( listptr )
+      CALL delete_var_list( hydro_diag_list(jg) )
 
       ! Tendencies
-      listptr => hydro_tend_dyn_list(jg)
-      CALL delete_var_list( listptr )
-
-      listptr => hydro_tend_phy_list(jg)
-      CALL delete_var_list( listptr )
+      CALL delete_var_list( hydro_tend_dyn_list(jg) )
+      CALL delete_var_list( hydro_tend_phy_list(jg) )
 
       ! Memory used for organizing output
-      listptr => hydro_prog_out_list(jg)
-      CALL delete_var_list( listptr )
-
-      listptr => hydro_diag_out_list(jg)
-      CALL delete_var_list( listptr )
+      CALL delete_var_list( hydro_prog_out_list(jg) )
+      CALL delete_var_list( hydro_diag_out_list(jg) )
 
       DEALLOCATE( p_hydro_state(jg)%prog, STAT=ist )
       IF (ist/=SUCCESS) &
       CALL finish(TRIM(thismodule),'deallocation of prognostic state array failed')
 
     ENDDO
-
-    NULLIFY(listptr)
 
     CALL message(TRIM(thismodule),'Destruction of 3D dynamics state vector finished.')
 
@@ -241,14 +228,14 @@ CONTAINS
   !!----------------------------------------------------------------
   !!
   SUBROUTINE make_hydro_prog_list( kproma, klev, kblks_c, kblks_e, kblks_v,  & 
-             &                     ktracer, listname, field_list, field    )
+                                 & ktracer, listname, field_list, field    )
 
     INTEGER,INTENT(IN) :: kproma, klev, kblks_c, kblks_e, kblks_v, ktracer !< dimension sizes
 
     CHARACTER(len=*),INTENT(IN) :: listname
 
-    TYPE(t_var_list),POINTER :: field_list
-    TYPE(t_hydro_atm_prog)   :: field
+    TYPE(t_var_list)      ,INTENT(INOUT) :: field_list
+    TYPE(t_hydro_atm_prog),INTENT(INOUT) :: field
 
     ! Local variables
     TYPE(t_cf_var)    ::    cf_desc
@@ -327,14 +314,14 @@ CONTAINS
   !!----------------------------------------------------------------
   !!
   SUBROUTINE make_hydro_diag_list( kproma, klev, kblks_c, kblks_e, kblks_v,  & 
-             &                     ktracer, listname, field_list, field   )
+                                 & ktracer, listname, field_list, field   )
 
     INTEGER,INTENT(IN) :: kproma, klev, kblks_c, kblks_e, kblks_v, ktracer !< dimension sizes
 
     CHARACTER(len=*),INTENT(IN) :: listname
 
-    TYPE(t_var_list),POINTER :: field_list
-    TYPE(t_hydro_atm_diag)   :: field
+    TYPE(t_var_list)      ,INTENT(INOUT) :: field_list
+    TYPE(t_hydro_atm_diag),INTENT(INOUT) :: field
 
     ! Local variables
     TYPE(t_cf_var)    ::    cf_desc
@@ -612,14 +599,14 @@ CONTAINS
   !!----------------------------------------------------------------
   !!
   SUBROUTINE make_hydro_tend_dyn_list( kproma, klev, kblks_c, kblks_e, kblks_v,   &
-             &                         ktracer, listname, field_list, field   )
+                                     & ktracer, listname, field_list, field   )
 
     INTEGER,INTENT(IN) :: kproma, klev, kblks_c, kblks_e, kblks_v, ktracer !< dimension sizes
 
     CHARACTER(len=*),INTENT(IN) :: listname
 
-    TYPE(t_var_list),POINTER :: field_list
-    TYPE(t_hydro_atm_prog)   :: field
+    TYPE(t_var_list)      ,INTENT(INOUT) :: field_list
+    TYPE(t_hydro_atm_prog),INTENT(INOUT) :: field
 
     ! Local variables
     TYPE(t_cf_var)    ::    cf_desc
@@ -692,14 +679,14 @@ CONTAINS
   !!----------------------------------------------------------------
   !!
   SUBROUTINE make_hydro_tend_phy_list( kproma, klev, kblks_c, kblks_e, kblks_v,   &
-             &                         ktracer, listname, field_list, field   )
+                                     & ktracer, listname, field_list, field   )
 
     INTEGER,INTENT(IN) :: kproma, klev, kblks_c, kblks_e, kblks_v, ktracer !< dimension sizes
 
     CHARACTER(len=*),INTENT(IN) :: listname
 
-    TYPE(t_var_list),POINTER :: field_list
-    TYPE(t_hydro_atm_prog)   :: field
+    TYPE(t_var_list)      ,INTENT(INOUT) :: field_list
+    TYPE(t_hydro_atm_prog),INTENT(INOUT) :: field
 
     ! Local variables
     TYPE(t_cf_var)    ::    cf_desc

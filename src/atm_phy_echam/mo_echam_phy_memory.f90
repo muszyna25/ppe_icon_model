@@ -336,14 +336,14 @@ MODULE mo_echam_phy_memory
   !! The variable names have the prefix "prm_" in order to emphasize that they
   !! are defined for and used in parameterisations.
 
-  TYPE(t_echam_phy_field),POINTER :: prm_field(:)  !< shape: (n_dom)
-  TYPE(t_echam_phy_tend ),POINTER :: prm_tend (:)  !< shape: (n_dom)
+  TYPE(t_echam_phy_field),ALLOCATABLE,TARGET :: prm_field(:)  !< shape: (n_dom)
+  TYPE(t_echam_phy_tend ),ALLOCATABLE,TARGET :: prm_tend (:)  !< shape: (n_dom)
 
   !!--------------------------------------------------------------------------
   !!                          VARIABLE LISTS
   !!--------------------------------------------------------------------------
-  TYPE(t_var_list),POINTER :: prm_field_list(:)  !< shape: (n_dom)
-  TYPE(t_var_list),POINTER :: prm_tend_list (:)  !< shape: (n_dom)
+  TYPE(t_var_list),ALLOCATABLE :: prm_field_list(:)  !< shape: (n_dom)
+  TYPE(t_var_list),ALLOCATABLE :: prm_tend_list (:)  !< shape: (n_dom)
  
 CONTAINS
   !!--------------------------------------------------------------------------
@@ -358,7 +358,6 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH) :: listname
     INTEGER :: ndomain, jg, ist, nblks, nlev
 
-    TYPE(t_var_list),POINTER :: listptr
     !---
 
     CALL message(TRIM(thismodule),'(new) Construction of ECHAM physics state started.')
@@ -384,16 +383,13 @@ CONTAINS
       nlev  = patch_array(jg)%nlev
 
       WRITE(listname,'(a,i2.2)') 'prm_field_of_domain_',jg
-      listptr => prm_field_list(jg)
-      CALL new_echam_phy_field_list( nproma, nlev, nblks, ntracer, nsfc_type, &
-                                   & TRIM(listname), listptr, prm_field(jg)   )
+      CALL new_echam_phy_field_list( nproma, nlev, nblks, ntracer, nsfc_type,          &
+                                   & TRIM(listname), prm_field_list(jg), prm_field(jg) )
 
       WRITE(listname,'(a,i2.2)') 'prm_tend_of_domain_',jg
-      listptr => prm_tend_list(jg)
-      CALL new_echam_phy_tend_list ( nproma, nlev, nblks, ntracer,         &
-                                   & TRIM(listname), listptr, prm_tend(jg) )
+      CALL new_echam_phy_tend_list ( nproma, nlev, nblks, ntracer,                   &
+                                   & TRIM(listname), prm_tend_list(jg), prm_tend(jg) )
     ENDDO
-    NULLIFY(listptr)
     CALL message(TRIM(thismodule),'Construction of ECHAM physics state finished.')
 
   END SUBROUTINE construct_echam_phy_state
@@ -407,20 +403,15 @@ CONTAINS
     INTEGER :: jg       !< grid level/domain index
     INTEGER :: ist      !< system status code
 
-    TYPE(t_var_list),POINTER :: listptr
     !---
     CALL message(TRIM(thismodule),'Destruction of ECHAM physics state started.')
 
     ndomain = SIZE(prm_field)
 
     DO jg = 1,ndomain
-      listptr => prm_field_list(jg)
-      CALL delete_var_list( listptr )
-
-      listptr => prm_tend_list (jg)
-      CALL delete_var_list( listptr )
+      CALL delete_var_list( prm_field_list(jg) )
+      CALL delete_var_list( prm_tend_list (jg) )
     ENDDO
-    NULLIFY(listptr)
 
     DEALLOCATE( prm_field_list, prm_tend_list, STAT=ist )
     IF (ist/=SUCCESS) CALL finish(TRIM(thismodule), &
@@ -444,8 +435,8 @@ CONTAINS
 
     CHARACTER(len=*),INTENT(IN) :: listname
 
-    TYPE(t_var_list),POINTER :: field_list
-    TYPE(t_echam_phy_field)  :: field
+    TYPE(t_var_list),       INTENT(INOUT) :: field_list
+    TYPE(t_echam_phy_field),INTENT(INOUT) :: field
 
     ! Local variables
 
@@ -1035,8 +1026,8 @@ CONTAINS
 
     CHARACTER(len=*),INTENT(IN) :: listname
 
-    TYPE(t_var_list),POINTER :: tend_list
-    TYPE(t_echam_phy_tend)   :: tend
+    TYPE(t_var_list)      ,INTENT(INOUT) :: tend_list
+    TYPE(t_echam_phy_tend),INTENT(INOUT) :: tend
 
     ! Local variables
 

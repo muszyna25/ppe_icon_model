@@ -41,6 +41,10 @@ MODULE mo_var_metadata
     INTEGER            :: hgrid                 ! CDI horizontal grid type
     INTEGER            :: vgrid                 ! CDI vertical grid type
     !
+    INTEGER            :: cdiVarID
+    INTEGER            :: cdiGridID
+    INTEGER            :: cdiZaxisID
+    !
   END TYPE t_var_metadata
 
   PUBLIC :: t_union_vals

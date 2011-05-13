@@ -249,15 +249,15 @@ END TYPE t_nwp_phy_tend
 !!--------------------------------------------------------------------------
 !!                          STATE VARIABLES 
 !!--------------------------------------------------------------------------
-  TYPE(t_nwp_phy_diag), POINTER :: prm_diag(:)     !< shape: (n_dom)
-  TYPE(t_nwp_phy_tend), POINTER :: prm_nwp_tend(:) !< shape: (n_dom)
+  TYPE(t_nwp_phy_diag), ALLOCATABLE :: prm_diag(:)     !< shape: (n_dom)
+  TYPE(t_nwp_phy_tend), ALLOCATABLE :: prm_nwp_tend(:) !< shape: (n_dom)
 !-------------------------------------------------------------------------
   
 !!--------------------------------------------------------------------------
 !!                          VARIABLE LISTS
 !!--------------------------------------------------------------------------
-  TYPE(t_var_list),POINTER :: prm_nwp_diag_list(:)  !< shape: (n_dom)
-  TYPE(t_var_list),POINTER :: prm_nwp_tend_list(:)  !< shape: (n_dom)
+  TYPE(t_var_list),ALLOCATABLE :: prm_nwp_diag_list(:)  !< shape: (n_dom)
+  TYPE(t_var_list),ALLOCATABLE :: prm_nwp_tend_list(:)  !< shape: (n_dom)
  
 
 CONTAINS
@@ -270,9 +270,6 @@ TYPE(t_patch), TARGET, INTENT(in) :: p_patch(n_dom)
 
 CHARACTER(len=MAX_CHAR_LENGTH) :: listname
 INTEGER ::  jg,ist, nblks_c, nlev, nlevp1
-
-TYPE(t_var_list),POINTER :: listptr
-!---
 
 !-----------------------------------------------------------------------
 
@@ -311,22 +308,14 @@ CALL message('mo_nwp_phy_state:construct_nwp_state', &
      
      WRITE(listname,'(a,i2.2)') 'prm_diag_of_domain_',jg
      
-     listptr => prm_nwp_diag_list(jg)
      CALL new_nwp_phy_diag_list( nlev, nlevp1, nblks_c,&
-                 & TRIM(listname), listptr, prm_diag(jg))
+                               & TRIM(listname), prm_nwp_diag_list(jg), prm_diag(jg))
      !
      WRITE(listname,'(a,i2.2)') 'prm_tend_of_domain_',jg
-     listptr => prm_nwp_tend_list(jg)
      CALL new_nwp_phy_tend_list ( nlev,nlevp1, nblks_c,&
-          & TRIM(listname), listptr, prm_nwp_tend(jg) )
+                                & TRIM(listname), prm_nwp_tend_list(jg), prm_nwp_tend(jg))
   ENDDO
   
-  NULLIFY(listptr)
-
-!  CALL construct_nwp_phy_diag_list(p_patch)
-!
-!  CALL construct_nwp_phy_tend_list(p_patch )
-
   CALL message('mo_nwp_phy_state:construct_nwp_state', &
     'construction of state vector finished')
 
@@ -337,22 +326,13 @@ SUBROUTINE destruct_nwp_phy_state
 
   INTEGER :: jg,ist  !< grid level/domain index
 
-  TYPE(t_var_list),POINTER :: listptr
-
   CALL message('mo_nwp_phy_state:destruct_nwp_phy_state', &
   'start to destruct 3D state vector')
 
-   DO jg = 1,n_dom
-      listptr => prm_nwp_diag_list(jg)
-      CALL delete_var_list( listptr )
-
-      listptr => prm_nwp_tend_list (jg)
-      CALL delete_var_list( listptr )
-    ENDDO
-    NULLIFY(listptr)
-
-!  CALL destruct_nwp_phy_diag
-!  CALL destruct_nwp_phy_tend
+  DO jg = 1,n_dom
+    CALL delete_var_list( prm_nwp_diag_list(jg) )
+    CALL delete_var_list( prm_nwp_tend_list (jg) )
+  ENDDO
 
   !This array is only defined via its patches
   DEALLOCATE(mean_charlen, STAT=ist)
@@ -386,8 +366,8 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
 
     CHARACTER(len=*),INTENT(IN) :: listname
 
-    TYPE(t_var_list),POINTER :: diag_list
-    TYPE(t_nwp_phy_diag)     :: diag
+    TYPE(t_var_list)    ,INTENT(INOUT) :: diag_list
+    TYPE(t_nwp_phy_diag),INTENT(INOUT) :: diag
 
     ! Local variables
 
@@ -400,14 +380,11 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
 
     ientr = 16 ! bits "entropy" of horizontal slice
 
-
-
     shape2d    = (/nproma,            kblks         /)
     shape3d    = (/nproma, klev,      kblks         /)
     shape3dkp1 = (/nproma, klevp1,    kblks         /)
     shape4d    = (/nproma, klev,      kblks, iqcond /)
     shapesfc   = (/nproma, nsfc_type, kblks         /)
-
 
     ! Register a field list and apply default settings
 
@@ -1108,8 +1085,8 @@ SUBROUTINE new_nwp_phy_tend_list( klev, klevp1, kblks,   &
 
     CHARACTER(len=*),INTENT(IN) :: listname
 
-    TYPE(t_var_list),POINTER :: phy_tend_list
-    TYPE(t_nwp_phy_tend)     :: phy_tend
+    TYPE(t_var_list)    ,INTENT(INOUT) :: phy_tend_list
+    TYPE(t_nwp_phy_tend),INTENT(INOUT) :: phy_tend
 
     ! Local variables
 

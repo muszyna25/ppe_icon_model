@@ -364,14 +364,14 @@ MODULE mo_nonhydro_state
   TYPE t_nh_state
 
     !array of prognostic states at different timelevels
-    TYPE(t_nh_prog),  POINTER :: prog(:)       !< shape: (timelevels)
-    TYPE(t_var_list), POINTER :: prog_list(:)  !< shape: (timelevels)
+    TYPE(t_nh_prog),  ALLOCATABLE :: prog(:)       !< shape: (timelevels)
+    TYPE(t_var_list), ALLOCATABLE :: prog_list(:)  !< shape: (timelevels)
 
-    TYPE(t_nh_diag)           :: diag
-    TYPE(t_var_list), POINTER :: diag_list
+    TYPE(t_nh_diag)    :: diag
+    TYPE(t_var_list)   :: diag_list
 
-    TYPE(t_nh_metrics)        :: metrics
-    TYPE(t_var_list), POINTER :: metrics_list
+    TYPE(t_nh_metrics) :: metrics
+    TYPE(t_var_list)   :: metrics_list
 
   END TYPE t_nh_state
 
@@ -405,9 +405,6 @@ MODULE mo_nonhydro_state
 
     INTEGER, OPTIONAL, INTENT(IN)   ::  & ! number of timelevels
       &  n_timelevels    
-
-    TYPE(t_var_list), POINTER       ::  & ! pointer to single list element
-      &  listptr
 
     INTEGER  :: ntl, &    ! local number of timelevels
                 ist, &    ! status
@@ -480,9 +477,8 @@ MODULE mo_nonhydro_state
 
         WRITE(listname,'(a,i2.2,a,i2.2)') 'nh_state_prog_of_domain_',jg, &
           &                               '_and_timelev_',jt
-        listptr => p_nh_state(jg)%prog_list(jt)
         CALL construct_nh_state_prog_list(p_patch(jg), p_nh_state(jg)%prog(jt), &
-          &  listptr, listname, l_alloc_tracer)
+          &  p_nh_state(jg)%prog_list(jt), listname, l_alloc_tracer)
 
       ENDDO
 
@@ -526,9 +522,6 @@ MODULE mo_nonhydro_state
     TYPE(t_nh_state), INTENT(INOUT) :: & ! nh state at different grid levels
       &  p_nh_state(n_dom)
                                              
-    TYPE(t_var_list), POINTER       :: & ! pointer to single list element
-      &  listptr
-
     INTEGER  :: ntl, &    ! local number of timelevels
                 ist, &    ! status
                 jg,  &    ! grid level counter
@@ -549,37 +542,24 @@ MODULE mo_nonhydro_state
       ENDIF
 
       ! delete diagnostic state list elements
-      listptr => p_nh_state(jg)%diag_list
-      CALL delete_var_list( listptr )
+      CALL delete_var_list( p_nh_state(jg)%diag_list )
 
       ! delete metrics state list elements
-      listptr => p_nh_state(jg)%metrics_list
-      CALL delete_var_list( listptr )
+      CALL delete_var_list( p_nh_state(jg)%metrics_list )
 
       ! delete prognostic state list elements
       DO jt = 1, ntl
-
-        listptr => p_nh_state(jg)%prog_list(jt)
-        CALL delete_var_list( listptr )
-
+        CALL delete_var_list( p_nh_state(jg)%prog_list(jt) )
       ENDDO
 
       ! destruct state lists and arrays
-      DEALLOCATE(p_nh_state(jg)%prog_list,             &
-        &        p_nh_state(jg)%diag_list,             &
-        &        p_nh_state(jg)%metrics_list, STAT=ist )
-      IF(ist/=SUCCESS)THEN
-        CALL finish (TRIM(routine),                                     &
-          &          'deallocation of prognostic/diagnostic/metrics' // &
-          &          'state list array failed')
-      ENDIF
+      DEALLOCATE(p_nh_state(jg)%prog_list, STAT=ist )
+      IF(ist/=SUCCESS) CALL finish (TRIM(routine),&
+        & 'deallocation of prognostic state list array failed')
 
       DEALLOCATE(p_nh_state(jg)%prog )
-      IF(ist/=SUCCESS)THEN
-        CALL finish (TRIM(routine),                                     &
-          &          'deallocation of prognostic/diagnostic/metrics' // &
-          &          'state array failed')
-      ENDIF
+      IF(ist/=SUCCESS) CALL finish (TRIM(routine),&
+        & 'deallocation of prognostic state array failed')
 
     ENDDO
 
@@ -608,8 +588,7 @@ MODULE mo_nonhydro_state
     TYPE(t_nh_prog),  INTENT(INOUT)   :: & !< current prognostic state
       &  p_prog 
 
-    TYPE(t_var_list), POINTER         :: & !< current prognostic state list
-      &  p_prog_list
+    TYPE(t_var_list), INTENT(INOUT)   :: p_prog_list !< current prognostic state list
 
     CHARACTER(len=*), INTENT(IN)      :: & !< list name
       &  listname
@@ -755,8 +734,7 @@ MODULE mo_nonhydro_state
     TYPE(t_nh_diag),  INTENT(INOUT)   :: &  !< diagnostic state
       &  p_diag 
 
-    TYPE(t_var_list), POINTER         :: &  !< diagnostic state list
-      &  p_diag_list
+    TYPE(t_var_list), INTENT(INOUT)   :: p_diag_list  !< diagnostic state list
 
     CHARACTER(len=*), INTENT(IN)      :: &  !< list name
       &  listname
@@ -1474,8 +1452,7 @@ MODULE mo_nonhydro_state
     TYPE(t_nh_metrics),  INTENT(INOUT):: &  !< diagnostic state
       &  p_metrics 
 
-    TYPE(t_var_list), POINTER         :: &  !< diagnostic state list
-      &  p_metrics_list
+    TYPE(t_var_list), INTENT(INOUT) :: p_metrics_list   !< diagnostic state list
 
     CHARACTER(len=*), INTENT(IN)      :: &  !< list name
       &  listname

@@ -49,11 +49,10 @@ MODULE mo_ext_data
   USE mo_io_units,           ONLY: filename_max
   USE mo_run_nml,            ONLY: nproma, i_cell_type, itopo, locean, &
     &                              iforcing, inwp, fac_smooth_topo, n_iter_smooth_topo
-  USE mo_lnd_nwp_nml,        ONLY: nsfc_subs
+ !USE mo_lnd_nwp_nml,        ONLY: nsfc_subs
   USE mo_model_domain,       ONLY: t_patch
   USE mo_impl_constants,     ONLY: SUCCESS, max_char_length
   USE mo_exception,          ONLY: message, finish
-  USE mo_model_domimp_setup, ONLY: reshape_real, reshape_int
   USE mo_grid_nml,           ONLY: n_dom
   USE mo_interpolation,      ONLY: t_int_state, cells2verts_scalar
   USE mo_math_operators,     ONLY: nabla4_scalar
@@ -369,13 +368,13 @@ MODULE mo_ext_data
   TYPE :: t_external_data
 
     TYPE(t_external_atmos)    :: atm
-    TYPE(t_var_list), POINTER :: atm_list
+    TYPE(t_var_list)          :: atm_list
 
     TYPE(t_external_atmos_td) :: atm_td
-    TYPE(t_var_list), POINTER :: atm_td_list
+    TYPE(t_var_list)          :: atm_td_list
 
     TYPE(t_external_ocean)    :: oce
-    TYPE(t_var_list), POINTER :: oce_list
+    TYPE(t_var_list)          :: oce_list
 
 !    TYPE(t_external_ocean_td) :: oce_td
 !    TYPE(t_var_list), POINTER :: oce_td_list
@@ -474,9 +473,6 @@ CONTAINS
     TYPE(t_patch),          INTENT(IN)    :: p_patch(:)
     TYPE(t_external_data),  INTENT(INOUT) :: ext_data(:)
 
-    TYPE(t_var_list), POINTER  ::  & ! pointer to single list element
-      &  listptr
-
     INTEGER :: jg
 
     CHARACTER(len=MAX_CHAR_LENGTH) :: listname
@@ -495,17 +491,15 @@ CONTAINS
       !
       ! Build external data list for constant in time atmospheric fields
       WRITE(listname,'(a,i2.2)') 'ext_data_atm_list_of_domain_',jg
-      listptr => ext_data(jg)%atm_list
-      CALL construct_ext_data_atm_list(p_patch(jg), ext_data(jg)%atm, &
-        &                              listptr, TRIM(listname))
+      CALL construct_ext_data_atm_list(p_patch(jg), ext_data(jg)%atm,       &
+        &                              ext_data(jg)%atm_list, TRIM(listname))
 
 
       !
       ! Build external data list for time-dependent atmospheric fields
       WRITE(listname,'(a,i2.2)') 'ext_data_atm_td_list_of_domain_',jg
-      listptr => ext_data(jg)%atm_td_list
-      CALL construct_ext_data_atm_td_list(p_patch(jg), ext_data(jg)%atm_td, &
-        &                                 listptr, TRIM(listname))
+      CALL construct_ext_data_atm_td_list(p_patch(jg), ext_data(jg)%atm_td,       &
+        &                                 ext_data(jg)%atm_td_list, TRIM(listname))
 
       !
       ! Build external data list for constant in time oceanic fields
@@ -548,8 +542,7 @@ CONTAINS
     TYPE(t_external_atmos), INTENT(INOUT) :: & !< current external data structure
       &  p_ext_atm 
 
-    TYPE(t_var_list), POINTER         :: & !< current external data list
-      &  p_ext_atm_list
+    TYPE(t_var_list) :: p_ext_atm_list !< current external data list
 
     CHARACTER(len=*), INTENT(IN)      :: & !< list name
       &  listname
@@ -561,8 +554,7 @@ CONTAINS
       &        nblks_e, &    !< number of edge blocks to allocate
       &        nblks_v       !< number of vertex blocks to allocate
 
-    INTEGER :: shape2d_c(2), shape2d_e(2), shape2d_v(2), &
-      &        shape3d_c(3)
+    INTEGER :: shape2d_c(2), shape2d_e(2), shape2d_v(2) !, shape3d_c(3)
 
     INTEGER :: ientr         !< "entropy" of horizontal slice
     !--------------------------------------------------------------
@@ -579,7 +571,7 @@ CONTAINS
     shape2d_c = (/ nproma, nblks_c /)
     shape2d_e = (/ nproma, nblks_e /)
     shape2d_v = (/ nproma, nblks_v /)
-!DR    shape3d_c = (/ nproma, nblks_c, nsfc_subs /)
+!DR shape3d_c = (/ nproma, nblks_c, nsfc_subs /)
 
     !
     ! Register a field list and apply default settings
@@ -967,8 +959,7 @@ CONTAINS
     TYPE(t_external_atmos_td), INTENT(INOUT) :: & !< current external data structure
       &  p_ext_atm_td 
 
-    TYPE(t_var_list), POINTER         :: & !< current external data list
-      &  p_ext_atm_td_list
+    TYPE(t_var_list) :: p_ext_atm_td_list  !< current external data list
 
     CHARACTER(len=*), INTENT(IN)      :: & !< list name
       &  listname
@@ -1113,12 +1104,10 @@ CONTAINS
     DO jg = 1,n_dom
 
       ! Delete list of constant in time atmospheric elements
-      listptr => ext_data(jg)%atm_list
-      CALL delete_var_list( listptr )
+      CALL delete_var_list( ext_data(jg)%atm_list )
 
       ! Delete list of time-dependent atmospheric elements
-      listptr => ext_data(jg)%atm_td_list
-      CALL delete_var_list( listptr )
+      CALL delete_var_list( ext_data(jg)%atm_td_list )
 
       ! Delete list of constant in time oceanic elements
       ! ### to be added if necessary ###

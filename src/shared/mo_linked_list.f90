@@ -37,7 +37,7 @@ MODULE mo_linked_list
     TYPE(t_list_element), POINTER :: next_list_element
   END TYPE t_list_element
   !
-  TYPE t_var_list
+  TYPE t_var_list_intrinsic
     INTEGER                       :: key                ! hash value of name   
     CHARACTER(len=64)             :: name               ! stream name
     TYPE(t_list_element), POINTER :: first_list_element ! reference to first
@@ -56,7 +56,31 @@ MODULE mo_linked_list
     INTEGER                       :: output_type        ! CDI format
     INTEGER                       :: restart_type       ! CDI format
     INTEGER                       :: compression_type   ! CDI compression type
-  END TYPE t_var_list
+    LOGICAL                       :: opened             ! true, if file opened
+    CHARACTER(len=128)            :: suffix             ! filename extensions to add to 
+                                                        ! (actually denotes the file to write to)
+    !--------------------------------------------------------------------------------------------
+    ! Internal used handler for cdi
+    INTEGER                       :: cdiFileId          ! cdi file handler
+    INTEGER                       :: cdiVlistId         ! cdi vlist handler
+    !
+    INTEGER                       :: cdiCellGridID
+    INTEGER                       :: cdiVertGridID
+    INTEGER                       :: cdiEdgeGridID
+    !
+    INTEGER                       :: cdiSurfZaxisID
+    INTEGER                       :: cdiHalfZaxisID
+    INTEGER                       :: cdiFullZaxisID
+    !
+    INTEGER                       :: cdiTaxisID
+    !
+    INTEGER                       :: cdiTimeIndex
+    !
+  END TYPE t_var_list_intrinsic
+  !
+  TYPE t_var_list
+    TYPE(t_var_list_intrinsic), POINTER :: p
+  END type t_var_list
   !
 CONTAINS
   !
@@ -66,32 +90,49 @@ CONTAINS
   ! nullify anchor to linked lisat
   !
   SUBROUTINE new_list(this_list)
-    TYPE(t_var_list), INTENT(out) :: this_list
+    TYPE(t_var_list), INTENT(inout) :: this_list
     !
-    this_list%key                = 0
-    this_list%name               = ''
-    this_list%first_list_element => NULL()
-    this_list%memory_used        = 0_i8
-    this_list%list_elements      = 0
+    ALLOCATE(this_list%p)
     !
-    this_list%lpost              = .FALSE.
-    this_list%laccu              = .FALSE.
-    this_list%lmiss              = .FALSE.
-    this_list%lrestart           = .FALSE.
-    this_list%linitial           = .FALSE.
+    this_list%p%key                = 0
+    this_list%p%name               = ''
+    this_list%p%first_list_element => NULL()
+    this_list%p%memory_used        = 0_i8
+    this_list%p%list_elements      = 0
     !
-    this_list%filename           = ''
+    this_list%p%lpost              = .FALSE.
+    this_list%p%laccu              = .FALSE.
+    this_list%p%lmiss              = .FALSE.
+    this_list%p%lrestart           = .FALSE.
+    this_list%p%linitial           = .FALSE.
     !
-    this_list%post_suf           = ''
-    this_list%rest_suf           = ''
-    this_list%init_suf           = ''
+    this_list%p%filename           = ''
     !
-    this_list%first              = .FALSE.
+    this_list%p%post_suf           = ''
+    this_list%p%rest_suf           = ''
+    this_list%p%init_suf           = ''
     !
-    this_list%output_type        = -1
-    this_list%restart_type       = -1
-    this_list%compression_type   = -1
+    this_list%p%first              = .FALSE.
     !
+    this_list%p%output_type        = -1
+    this_list%p%restart_type       = -1
+    this_list%p%compression_type   = -1
+    !
+    this_list%p%opened             = .FALSE.
+    this_list%p%suffix             = ''
+    !
+    this_list%p%cdiFileID          = -1
+    this_list%p%cdiVlistID         = -1
+    this_list%p%cdiCellGridID      = -1
+    this_list%p%cdiVertGridID      = -1
+    this_list%p%cdiEdgeGridID      = -1
+    !
+    this_list%p%cdiSurfZaxisID     = -1
+    this_list%p%cdiHalfZaxisID     = -1
+    this_list%p%cdiFullZaxisID     = -1
+    !
+    this_list%p%cdiTaxisID         = -1
+    this_list%p%cdiTimeIndex       = -1
   END SUBROUTINE new_list
   !-----------------------------------------------------------------------------
   !
@@ -99,25 +140,24 @@ CONTAINS
   ! check if all elements are removed
   !
   SUBROUTINE delete_list(this_list)
-    !
     TYPE(t_var_list), INTENT(inout) :: this_list
     !
-    CALL delete_list_elements(this_list, this_list%first_list_element)
+    CALL delete_list_elements(this_list, this_list%p%first_list_element)
     !
-    this_list%first_list_element => NULL()
+    this_list%p%first_list_element => NULL()
     !
-    IF (this_list%memory_used /= 0_i8) THEN
+    IF (this_list%p%memory_used /= 0_i8) THEN
       CALL finish ('delete_list', 'List delete didnt work proper (memory counter)')
     ENDIF
     !
-    IF (this_list%list_elements /= 0) THEN
+    IF (this_list%p%list_elements /= 0) THEN
       CALL finish ('delete_list', 'List delete didnt work proper (element counter)')
     ENDIF
     !
   END SUBROUTINE delete_list
   !-----------------------------------------------------------------------------
   !
-  ! deallocate a list element and all its sucessors
+  ! deallocate a list element and all its sucessors, private routine
   !
   SUBROUTINE delete_list_elements(this_list, this_list_element)
     !
@@ -136,21 +176,21 @@ CONTAINS
       !
       IF (this%field%info%allocated) THEN
         IF (ASSOCIATED(this%field%r_ptr)) THEN
-          this_list%memory_used = this_list%memory_used &
+          this_list%p%memory_used = this_list%p%memory_used &
                &                 -this%field%var_base_size*SIZE(this%field%r_ptr)
           DEALLOCATE (this%field%r_ptr)
         ELSE IF (ASSOCIATED(this%field%i_ptr)) THEN
-          this_list%memory_used = this_list%memory_used &
+          this_list%p%memory_used = this_list%p%memory_used &
                &                 -this%field%var_base_size*SIZE(this%field%i_ptr)
           DEALLOCATE (this%field%i_ptr)
         ELSE IF (ASSOCIATED(this%field%l_ptr)) THEN
-          this_list%memory_used = this_list%memory_used &
+          this_list%p%memory_used = this_list%p%memory_used &
                &                 -this%field%var_base_size*SIZE(this%field%l_ptr)
           DEALLOCATE (this%field%l_ptr)
         ENDIF
         this%field%info%allocated = .FALSE.
       ENDIF
-      this_list%list_elements = this_list%list_elements-1
+      this_list%p%list_elements = this_list%p%list_elements-1
       DEALLOCATE (this)
      END DO
     !
@@ -167,7 +207,7 @@ CONTAINS
     IF (ist /= 0) THEN
       CALL finish('create_list_element','Cannot add element to linked list ...')
     ENDIF
-    this_list%list_elements = this_list%list_elements+1
+    this_list%p%list_elements = this_list%p%list_elements+1
     !
     current_list_element%next_list_element => NULL()
     current_list_element%field%r_ptr       => NULL()
@@ -188,15 +228,15 @@ CONTAINS
     !
     ! insert as first element if list is empty
     !
-    IF (.NOT. ASSOCIATED (this_list%first_list_element)) THEN
-      CALL create_list_element (this_list, this_list%first_list_element)
-      new_list_element => this_list%first_list_element
+    IF (.NOT. ASSOCIATED (this_list%p%first_list_element)) THEN
+      CALL create_list_element (this_list, this_list%p%first_list_element)
+      new_list_element => this_list%p%first_list_element
       RETURN
     ENDIF
     !
     ! loop over list elements to find position
     !
-    current_list_element => this_list%first_list_element
+    current_list_element => this_list%p%first_list_element
     DO WHILE (ASSOCIATED(current_list_element%next_list_element)) 
       current_list_element => current_list_element%next_list_element
     ENDDO
@@ -216,10 +256,10 @@ CONTAINS
     !
     TYPE(t_list_element), POINTER :: current_list_element
     !
-    IF (ASSOCIATED(delete_this_list_element, this_list%first_list_element)) THEN
-      this_list%first_list_element => delete_this_list_element%next_list_element
+    IF (ASSOCIATED(delete_this_list_element, this_list%p%first_list_element)) THEN
+      this_list%p%first_list_element => delete_this_list_element%next_list_element
     ELSE
-      current_list_element => this_list%first_list_element
+      current_list_element => this_list%p%first_list_element
       DO WHILE ((ASSOCIATED(current_list_element)) &
            &           .AND. (.NOT. ASSOCIATED(current_list_element%next_list_element, &
            &           delete_this_list_element)))
@@ -235,17 +275,17 @@ CONTAINS
     !
     IF (delete_this_list_element%field%info%allocated) THEN
       IF (ASSOCIATED(delete_this_list_element%field%r_ptr)) THEN
-        this_list%memory_used = this_list%memory_used                        &
+        this_list%p%memory_used = this_list%p%memory_used                    &
              &                 -delete_this_list_element%field%var_base_size &
              &                 *SIZE(delete_this_list_element%field%r_ptr)
         DEALLOCATE (delete_this_list_element%field%r_ptr)
       ELSE IF (ASSOCIATED(delete_this_list_element%field%i_ptr)) THEN
-        this_list%memory_used = this_list%memory_used                        &
+        this_list%p%memory_used = this_list%p%memory_used                    &
              &                 -delete_this_list_element%field%var_base_size &
              &                 *SIZE(delete_this_list_element%field%i_ptr)
         DEALLOCATE (delete_this_list_element%field%i_ptr)
       ELSE IF (ASSOCIATED(delete_this_list_element%field%l_ptr)) THEN
-        this_list%memory_used = this_list%memory_used                        &
+        this_list%p%memory_used = this_list%p%memory_used                        &
              &                 -delete_this_list_element%field%var_base_size &
              &                 *SIZE(delete_this_list_element%field%l_ptr)
         DEALLOCATE (delete_this_list_element%field%l_ptr)
@@ -253,7 +293,7 @@ CONTAINS
       delete_this_list_element%field%info%allocated = .FALSE.
     ENDIF
     !
-    this_list%list_elements = this_list%list_elements-1
+    this_list%p%list_elements = this_list%p%list_elements-1
     DEALLOCATE (delete_this_list_element)
     !
   END SUBROUTINE delete_list_element
@@ -270,7 +310,7 @@ CONTAINS
     !
     TYPE(t_list_element), POINTER :: this_list_element
     !
-    this_list_element => this_list%first_list_element
+    this_list_element => this_list%p%first_list_element
     DO WHILE (ASSOCIATED(this_list_element))
       IF (name == this_list_element%field%info%name) THEN
         RETURN

@@ -82,7 +82,7 @@ MODULE mo_oce_state
   PUBLIC :: t_hydro_ocean_aux
   PUBLIC :: t_hydro_ocean_diag
   ! variables
-  TYPE(t_var_list), POINTER, PUBLIC :: ocean_var_list
+  TYPE(t_var_list), PUBLIC :: ocean_var_list
   ! constructors
   PRIVATE :: construct_hydro_ocean_diag
   PRIVATE :: construct_hydro_ocean_prog
@@ -277,7 +277,7 @@ CONTAINS
     INTEGER           :: i_status, jp, prlength ! local prognostic array length
 
     ! variabels for dynamic variable list construction
-    TYPE(t_var_list),POINTER :: list
+    TYPE(t_var_list) :: list
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:construct_hydro_ocean_state'
@@ -369,7 +369,7 @@ CONTAINS
 !!
   SUBROUTINE construct_hydro_ocean_prog(p_patch, p_os_prog)
 
-    TYPE(t_var_list), POINTER :: list
+    TYPE(t_var_list) :: list
     TYPE(t_patch), INTENT(in), TARGET         :: p_patch
     TYPE(t_hydro_ocean_prog), INTENT(inout)   :: p_os_prog
 
