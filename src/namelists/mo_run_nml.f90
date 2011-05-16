@@ -136,9 +136,6 @@ MODULE mo_run_nml
   REAL(wp)           :: dtime               ! [s] length of a time step
   REAL(wp)           :: dtrk(3)    ! [s] Runge Kutta 3 time steps [s]
 
-  ! restart file frequency
-  REAL(wp)           :: dt_restart   ! [s]
-
   ! equations to be solved
   ! ----------------------
   INTEGER            :: iequations          ! equation system:
@@ -263,7 +260,7 @@ MODULE mo_run_nml
     &                ltestcase, lcorio, itopo, msg_level,  &
     &                ldump_states, lrestore_states, ltimer,&
     &                inextra_2d, inextra_3d ,              &
-    &                lrestart, dt_restart
+    &                lrestart
 
 !--------------------------------------------------------------------
 ! for external parameters
@@ -411,8 +408,7 @@ MODULE mo_run_nml
    lrestore_states = .FALSE.
 
    ! restart
-   lrestart        =.FALSE.
-   dt_restart      = 86400._wp*30._wp 
+   lrestart        =.FALSE.  ! default is an initial run
 
    ! The following values are deduced from the namelist variables:
    ! auxiliary switches set as function of iequations
@@ -490,9 +486,6 @@ MODULE mo_run_nml
 
    ! time step
    IF (dtime  <= 0._wp) CALL finish(routine,'"dtime" must be positive')
-
-   ! restart
-   IF(.NOT. lrestart ) dt_restart = 0._wp
 
    ! initial date and time
    ini_datetime%calendar = calendar

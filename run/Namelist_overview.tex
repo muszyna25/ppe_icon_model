@@ -918,6 +918,14 @@ Scope
 \endhead
 
 \hline 
+lrestart&
+L &
+.FALSE.&
+&
+If .TRUE., simulation starts from a model state read from restart file(s).&
+\tabularnewline
+
+\hline 
 nproma &
 I &
 1&
@@ -1269,22 +1277,6 @@ Restore patch/interpolation/grid refinement states
 from NetCDF dump files instead of calculating them.&
 \tabularnewline
 \hline 
-lrestart&
-L &
-.FALSE.&
-&
-defines if restart files will be generated.&
-\tabularnewline
-\hline 
-dt\_restart&
-R &
-$86400.*30. \, s$ &
-&
-time intervall for restart files&
-Note:
-$IF (.NOT. lrestart)$ $ dt\_restart=0.$
-\tabularnewline
-\hline
 \end{longtable}
 
 Defined and used in: src/namelists/mo\_run\_nml.f90
@@ -3116,6 +3108,11 @@ s&
 Time increment of triggering new output file&
 \tabularnewline
 \hline 
+dt\_restart&
+R & 2592000. & s &
+time interval for writing restart files&
+\tabularnewline
+\hline
 lkeep\_in\_sync&
 L&
 .FALSE. &

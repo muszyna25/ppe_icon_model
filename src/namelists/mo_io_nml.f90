@@ -80,6 +80,7 @@ MODULE mo_io_nml
   REAL(wp):: dt_data                    ! output timestep [seconds]
   REAL(wp):: dt_diag                    ! diagnostic output timestep [seconds]
   REAL(wp):: dt_file                    ! timestep [seconds] for triggering new output file
+  REAL(wp):: dt_restart                 ! timestep [seconds] for triggering new restart file
   !
   !
   !
@@ -100,7 +101,7 @@ MODULE mo_io_nml
   LOGICAL :: lwrite_extra               ! if .true., write out extra fields
 
 
-  NAMELIST/io_ctl/ out_expname, out_filetype, dt_data, dt_file, dt_diag,  &
+  NAMELIST/io_ctl/ out_expname, out_filetype, dt_data, dt_file, dt_diag, dt_restart, &
     &              lwrite_vorticity, lwrite_divergence, lwrite_omega, lwrite_pres, lwrite_z3, &
     &              lwrite_tracer, lwrite_tend_phy, lwrite_radiation, lwrite_precip,           &
     &              lwrite_cloud, lkeep_in_sync,lwrite_tke,lwrite_surface,lwrite_extra
@@ -154,9 +155,10 @@ SUBROUTINE io_nml_setup
   out_expname   = 'IIIEEEETTTT'
   out_filetype  = 2
 
-  dt_data       = 21600.0_wp
-  dt_file       = 2592000._wp
-  dt_diag       = dtime
+  dt_data       = 21600.0_wp   !  6 hours
+  dt_file       = 2592000._wp  ! 30 days
+  dt_restart    = 2592000._wp  ! 30 days
+  dt_diag       = dtime        !  1 time step
   lkeep_in_sync = .FALSE.
 
   lwrite_vorticity   = .TRUE.
