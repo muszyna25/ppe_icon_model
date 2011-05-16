@@ -884,7 +884,7 @@ PROGRAM control_model
     !
   CASE (inwp)
     CALL destruct_nwp_phy_state
-    CALL destruct_nwp_lnd_state(p_lnd_state)
+    CALL destruct_nwp_lnd_state(p_lnd_state,n_timelevels=2)
     !
 !!$  CASE (impiom)
 !!$    CALL destruct_mpiom_phy_state

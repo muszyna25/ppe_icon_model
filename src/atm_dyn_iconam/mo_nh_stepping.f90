@@ -1234,8 +1234,8 @@ MODULE mo_nh_stepping
 
           jgc = p_patch(jg)%child_id(jn)
 
-          write(0,*)'nh_stepp vor bound int',jn,jgc,&
-               SIZE(p_patch),lbound(p_patch),ubound(p_patch)
+!          write(0,*)'nh_stepp vor bound int',jn,jgc,&
+!               SIZE(p_patch),lbound(p_patch),ubound(p_patch)
 
           ! Interpolate tendencies to lateral boundaries of refined mesh (jgc)
           CALL boundary_interpolation(p_patch,p_nh_state,p_int_state,p_grf_state, &

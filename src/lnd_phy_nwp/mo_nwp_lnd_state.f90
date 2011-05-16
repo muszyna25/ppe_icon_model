@@ -60,14 +60,16 @@ MODULE mo_nwp_lnd_state
 ! !USES:
 
 USE mo_kind,                ONLY: wp
-USE mo_impl_constants,      ONLY: SUCCESS
+USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
 !!$USE mo_global_variables,    ONLY: l_nest_rcf
 USE mo_dynamics_nml,        ONLY: nsav1, nsav2
 USE mo_run_nml,             ONLY: nproma
 USE mo_exception,           ONLY: message, finish, message_text
 USE mo_model_domain,        ONLY: t_patch
 USE mo_model_domain_import, ONLY: n_dom, l_limited_area
+USE mo_nonhydrostatic_nml,  ONLY: l_nest_rcf
 USE mo_atm_phy_nwp_nml,     ONLY: inwp_surface
+
 USE mo_lnd_nwp_nml,         ONLY: nlev_soil,nztlev,nlev_snow, &
                                   nsfc_subs
 
@@ -98,7 +100,7 @@ PUBLIC :: t_lnd_prog   !!       for prognostic variables
 PUBLIC :: t_lnd_diag   !!       for diagnostic variables
 !
 
-
+!PUBLIC ::  lnd_prog_nwp_list,lnd_diag_nwp_list !< variable lists
 
 
 ! prognostic variables state vector
@@ -141,15 +143,19 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
 
 
 ! complete state vector
+
+!!--------------------------------------------------------------------------
+!!                          VARIABLE LISTS
+!! has to be declared to gether in order to allocate clean for the 
+!! different domains and timelevels
+!!--------------------------------------------------------------------------
   TYPE t_lnd_state
-
-    TYPE(t_lnd_prog), POINTER :: prog_lnd(:)
-
-    TYPE(t_lnd_diag) :: diag_lnd
-
+    TYPE(t_lnd_prog), ALLOCATABLE :: prog_lnd(:)
+    TYPE(t_var_list), ALLOCATABLE :: lnd_prog_nwp_list(:)  !<  shape: (ntimelevel)
+    TYPE(t_lnd_diag), ALLOCATABLE :: diag_lnd
+    TYPE(t_var_list), ALLOCATABLE :: lnd_diag_nwp_list    !< shape: (n_dom)
   END TYPE t_lnd_state
-
-
+ 
 
   CONTAINS
 
@@ -177,17 +183,28 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
   INTEGER     :: ntl, &! local number of timelevels
                  ist, &! status
                  jg,  &! grid level counter
-                 jt    ! time level counter
+                 jt,  &! time level counter
+                nblks_c ! number of blocks of cells
 
+  CHARACTER(len=MAX_CHAR_LENGTH) :: listname
 !-----------------------------------------------------------------------
 
+     write(0,*)'begin lnd_state time level=',ntl
+
+
   DO jg = 1, n_dom
+
+     write(0,*)'lnd_state dom=',jg
 
     IF(PRESENT(n_timelevels))THEN
       ntl = n_timelevels
     ELSE
       ntl = 1
     ENDIF
+   
+    !
+     !determine size of arrays
+     nblks_c = p_patch(jg)%nblks_c
 
 !!$    ! If grid nesting is not called at every dynamics time step, an extra time
 !!$    ! level is needed for full-field interpolation and boundary-tendency calculation
@@ -203,21 +220,37 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
     IF (l_limited_area .OR. jg > 1) ntl = ntl + 1
     nsav2(jg) = ntl
 
-    !create state arrays
-    ALLOCATE(p_lnd_state(jg)%prog_lnd(1:ntl), STAT=ist)
+    !create state arrays and lists
+    ALLOCATE(p_lnd_state(jg)%prog_lnd(1:ntl), &
+         &   p_lnd_state(jg)%lnd_prog_nwp_list(1:ntl),STAT=ist)
     IF(ist/=SUCCESS)THEN
-      CALL finish ('mo_nonhydro_state:construct_lnd_state', &
+      CALL finish ('mo_nwp_lnd_state:construct_lnd_state', &
            'allocation of land prognostic state array failed')
+    ENDIF
+
+    ALLOCATE(p_lnd_state(jg)%diag_lnd,          &
+         &   p_lnd_state(jg)%lnd_diag_nwp_list, STAT=ist)
+    IF(ist/=SUCCESS)THEN
+    CALL finish ('mo_nwp_lnd_state:construct_nwp_state', &
+      'allocation of diagnostic physical array and list failed')
     ENDIF
 
     DO jt = 1, ntl
             !construct prognostic state
-      CALL construct_lnd_state_prog(p_patch(jg),p_lnd_state(jg)%prog_lnd(jt))
+      WRITE(listname,'(a,i2.2,a,i2.2)') 'lnd_prog_of_domain_',jg, &
+          &                               '_and_timelev_',jt
 
+     write(0,*)'lnd_state timelevel=',jt,'and domain= ',jg
+
+      CALL  new_nwp_lnd_prog_list(nblks_c, TRIM(listname),&
+     &   p_lnd_state(jg)%lnd_prog_nwp_list(jt), p_lnd_state(jg)%prog_lnd(jt))
     ENDDO
 
+!
+     WRITE(listname,'(a,i2.2)') 'lnd_diag_of_domain_',jg
     !construct diagnostic state
-    CALL construct_lnd_state_diag(p_patch(jg), p_lnd_state(jg)%diag_lnd)
+    CALL new_nwp_lnd_diag_list( nblks_c, TRIM(listname),&
+         &   p_lnd_state(jg)%lnd_diag_nwp_list,p_lnd_state(jg)%diag_lnd)
 
   ENDDO !ndom
 
@@ -238,561 +271,66 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
   !! @par Revision History
   !! Initial release by Kristina Froehlich (2010-11-09)
   !!
-  SUBROUTINE destruct_nwp_lnd_state(p_lnd_state)
-!
+  SUBROUTINE destruct_nwp_lnd_state(p_lnd_state, n_timelevels)
+   !
+    INTEGER, OPTIONAL, INTENT(IN)     :: n_timelevels ! number of timelevels
+    TYPE(t_lnd_state),  INTENT(INOUT) :: & 
+                            &  p_lnd_state(n_dom)      ! land state at different grid levels
 
-  TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(n_dom)
-                                           ! nh state at different grid levels
-  INTEGER     :: ntl, &! local number of timelevels
-                 ist, &! status
-                 jg,  &! grid level counter
-                 jt    ! time level counter
+    INTEGER :: ntl, &! local number of timelevels
+               ist, &! status
+                jg, &! grid level counter
+                jt   ! time level counter
 
 !-----------------------------------------------------------------------
 
+
+
   DO jg = 1, n_dom
 
-    ntl = SIZE(p_lnd_state(jg)%prog_lnd(:))
-    IF(ntl==0)THEN
-      CALL finish('mo_lnad_state:destruct_lnd_state', &
-                  'prognostic array has no timelevels')
+    IF(PRESENT(n_timelevels))THEN
+      ntl = n_timelevels
+    ELSE
+      ntl = 1
     ENDIF
 
+    IF(ntl==0)THEN
+      CALL finish('mo_land_state:destruct_lnd_state', &
+                  'prognostic array has no timelevels')
+    ENDIF
     !destruct diagnostic state
-!    CALL destruct_lnd_state_diag(lnd_state(jg)%diag)
+    CALL delete_var_list( p_lnd_state(jg)%lnd_diag_nwp_list )
 
     DO jt = 1, ntl
-
-      !destruct prognostic state
-      CALL destruct_lnd_state_prog(p_lnd_state(jg)%prog_lnd(jt))
-
+      !destruct prognostic state 
+       CALL delete_var_list(p_lnd_state(jg)%lnd_prog_nwp_list(jt) )
     ENDDO
 
-    DEALLOCATE(p_lnd_state(jg)%prog_lnd, STAT=ist)
+    DEALLOCATE(p_lnd_state(jg)%prog_lnd,&
+         &     p_lnd_state(jg)%lnd_prog_nwp_list, STAT=ist)
       IF(ist/=SUCCESS)THEN
         CALL finish ('mo_lnd_state:destruct_lnd_state', &
              'deallocation of land prognostic state array failed')
       ENDIF
 
-      CALL destruct_lnd_state_diag(p_lnd_state(jg)%diag_lnd )
-
+    DEALLOCATE(p_lnd_state(jg)%diag_lnd,&
+    &          p_lnd_state(jg)%lnd_diag_nwp_list, STAT=ist)
+      IF(ist/=SUCCESS)THEN
+        CALL finish ('mo_lnd_state:destruct_lnd_state', &
+             'deallocation of land diagnostic state array failed')
+     ENDIF
   ENDDO
 
   END SUBROUTINE destruct_nwp_lnd_state
 
 !-------------------------------------------------------------------------
+!-------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------
-  !>
-  !! Allocation of components of prognostic state.
-  !!
-  !! Initialization of components with zero.
-  !!
-  !! @par Revision History
-  !! Initial release by Kristina Froehlich (2010-11-09)
-  !!
-  SUBROUTINE construct_lnd_state_prog (p_patch, p_prog_lnd)
-!
-  TYPE(t_patch), TARGET, INTENT(IN)     :: p_patch    ! current patch
-
-  TYPE(t_lnd_prog), TARGET, INTENT(INOUT):: p_prog_lnd     ! current prognostic state
-
-  INTEGER     :: nblks_c, & ! number of cell blocks to allocate
-                 ist        ! status
-
-!-----------------------------------------------------------------------
-
-  !determine size of arrays
-  nblks_c = p_patch%nblks_c
-
-
-  ! T_g
-  ALLOCATE(p_prog_lnd%t_g(nproma,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_prog', &
-                'allocation for weighted surface temperature T_G failed')
-  ENDIF
-  p_prog_lnd%t_g(:,:) =0.0_wp
-
-  IF(inwp_surface > 0) THEN
-
-  ! T_snow
-  ALLOCATE(p_prog_lnd%t_snow(nproma,nsfc_subs,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_prog', &
-                'allocation for surface temperature T_SNOW failed')
-  ENDIF
-  p_prog_lnd%t_snow(:,:,:) =0.0_wp
-
-
-  ! T_snow_mult
-  ALLOCATE(p_prog_lnd%t_snow_mult(nproma,nlev_snow,nztlev,nsfc_subs,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_prog', &
-                'allocation for surface temperature T_SNOW_MULT failed')
-  ENDIF
-  p_prog_lnd%t_snow_mult(:,:,:,:,:) =0.0_wp
-
-
-  ! T_s
-  ALLOCATE(p_prog_lnd%t_s(nproma,nztlev,nsfc_subs,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_prog', &
-                'allocation for surface temperature T_S failed')
-  ENDIF
-  p_prog_lnd%t_s(:,:,:,:) =0.0_wp
-
-
- ! W_snow
-  ALLOCATE(p_prog_lnd%w_snow(nproma,nztlev,nsfc_subs,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_prog', &
-                'allocation for   water content of snow W_SNOW failed')
-  ENDIF
-  p_prog_lnd%w_snow(:,:,:,:) =0.0_wp
-
- ! Rho_snow
-  ALLOCATE(p_prog_lnd%rho_snow(nproma,nsfc_subs,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_prog', &
-                'allocation for  snow density RHO_SNOW failed')
-  ENDIF
-  p_prog_lnd%rho_snow(:,:,:) =0.0_wp
-
- ! Rho_snow_mult
-  ALLOCATE(p_prog_lnd%rho_snow_mult(nproma,nlev_snow,nztlev,nsfc_subs,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_prog', &
-                'allocation for  snow density RHO_SNOW_MULT failed')
-  ENDIF
-  p_prog_lnd%rho_snow_mult(:,:,:,:,:) =0.0_wp
-
-  ! W_I
-  ALLOCATE(p_prog_lnd%w_i(nproma,nztlev,nsfc_subs,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_prog', &
-                'allocation for interception store W_I failed')
-  ENDIF
-  p_prog_lnd%w_i(:,:,:,:) =0.0_wp
-
-  ! T_SO
-  ALLOCATE(p_prog_lnd%t_so(nproma,nlev_soil,nztlev,nsfc_subs,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_prog', &
-                'allocation for soil temperature T_SO failed')
-  ENDIF
-  p_prog_lnd%t_so(:,:,:,:,:) =0.0_wp
-
-
-  ! W_SO
-  ALLOCATE(p_prog_lnd%w_so(nproma,nlev_soil,nztlev,nsfc_subs,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_prog', &
-                'allocation for soil moisture W_SO failed')
-  ENDIF
-  p_prog_lnd%w_so(:,:,:,:,:) =0.0_wp
-
-  ! W_SO_ICE
-  ALLOCATE(p_prog_lnd%w_so_ice(nproma,nlev_soil,nztlev,nsfc_subs,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_prog', &
-                'allocation for soil ice W_SO_ICE failed')
-  ENDIF
-  p_prog_lnd%w_so_ice(:,:,:,:,:) =0.0_wp
-
-
-  ! DZH_SNOW
-  ALLOCATE(p_prog_lnd%dzh_snow(nproma,nlev_snow,nztlev,nsfc_subs,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_prog', &
-                'allocation for snow layer thickness DZH_SNOW failed')
-  ENDIF
-  p_prog_lnd%dzh_snow(:,:,:,:,:) =0.0_wp
-
-  ! SUBSFRAC
-  ALLOCATE(p_prog_lnd%subsfrac(nproma,nztlev,nsfc_subs,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_prog', &
-                'allocation for TILE fraction SUBSFRAC  failed')
-  ENDIF
-  p_prog_lnd%subsfrac(:,:,:,:) =0.0_wp
-
-
-ENDIF !inwp_surface
-
-END  SUBROUTINE construct_lnd_state_prog
-
-!-------------------------------------------------------------------------
-  !>
-  !! Allocation of components of diagnostic state.
-  !!
-  !! Initialization of components with zero.
-  !!
-  !! @par Revision History
-  !! Initial release by Kristina Froehlich (2010-11-09)
-  !!
-  SUBROUTINE construct_lnd_state_diag (p_patch, p_diag_lnd)
-!
-  TYPE(t_patch), TARGET, INTENT(IN)     :: p_patch    !  patch
-
-  TYPE(t_lnd_diag), TARGET, INTENT(INOUT):: p_diag_lnd !diagnostic state
-
-  INTEGER     :: nblks_c, & ! number of cell blocks to allocate
-                 ist        ! status
-
-!-----------------------------------------------------------------------
-
-  !determine size of arrays
-  nblks_c = p_patch%nblks_c
-
- ! qv_s
-  ALLOCATE(p_diag_lnd%qv_s(nproma,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_diag', &
-                'allocation for surface moisture QV_S failed')
-  ENDIF
-  p_diag_lnd%qv_s(:,:) =0.0_wp
-
-
-  IF(inwp_surface > 0) THEN
-  ! H_SNOW
-  ALLOCATE(p_diag_lnd%h_snow(nproma,nztlev,nsfc_subs,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_diag', &
-                'allocation for snow height H_SNOW failed')
-  ENDIF
-  p_diag_lnd%h_snow(:,:,:,:) =0.0_wp
-
- 
-  ! FRESHSNOW
-  ALLOCATE(p_diag_lnd%freshsnow(nproma,nsfc_subs,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_diag', &
-                'allocation for snow age FRESHSNOW failed')
-  ENDIF
-  p_diag_lnd%freshsnow(:,:,:) =0.0_wp
-
-  ! WLIQ_SNOW
-  ALLOCATE(p_diag_lnd%wliq_snow(nproma,nztlev,nsfc_subs,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_diag', &
-                'allocation for snow  liquid water content WLIQ_SNOW failed')
-  ENDIF
-  p_diag_lnd%wliq_snow(:,:,:,:) =0.0_wp
-
-
-  ! WTOT_SNOW
-  ALLOCATE(p_diag_lnd%wtot_snow(nproma,nztlev,nsfc_subs,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_diag', &
-                'allocation for snow total  water content WTOT_SNOW failed')
-  ENDIF
-  p_diag_lnd%wtot_snow(:,:,:,:) =0.0_wp
-
-
-  ! RUNOFF_S
-  ALLOCATE(p_diag_lnd%runoff_s(nproma,nsfc_subs,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_diag', &
-                'allocation for surface runoff RUNOFF_S failed')
-  ENDIF
-  p_diag_lnd%runoff_s(:,:,:) =0.0_wp
-
-  ! RUNOFF_G
-  ALLOCATE(p_diag_lnd%runoff_g(nproma,nsfc_subs,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_diag', &
-                'allocation for ground runoff RUNOFF_G failed')
-  ENDIF
-  p_diag_lnd%runoff_g(:,:,:) =0.0_wp
-
-
-  ! RSTOM
-  ALLOCATE(p_diag_lnd%rstom(nproma,nsfc_subs,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_diag', &
-                'allocation for  stomata resistance RSTOM  failed')
-  ENDIF
-  p_diag_lnd%rstom(:,:,:) =0.0_wp
-
-  ! LHFL_BS
-  ALLOCATE(p_diag_lnd%lhfl_bs(nproma,nsfc_subs,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_diag', &
-                'allocation for latent heat flux from bare soil LHFL_BS  failed')
-  ENDIF
-  p_diag_lnd%lhfl_bs(:,:,:) =0.0_wp
-
-
-  ! LHFL_PL
-  ALLOCATE(p_diag_lnd%lhfl_pl(nproma,nsfc_subs,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_diag', &
-                'allocation for average latent heat flux from plants  LHFL_PL  failed')
-  ENDIF
-  p_diag_lnd%lhfl_pl(:,:,:) =0.0_wp
-
-
-  ALLOCATE(p_diag_lnd%fr_seaice(nproma,nblks_c), STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:construct_lnd_state_diag', &
-                'allocation for land variables at surface FR_SEAICE failed')
-  ENDIF
-  p_diag_lnd%fr_seaice(:,:) = 0._wp
-
-  ENDIF
-
-END  SUBROUTINE construct_lnd_state_diag
-
-
-!-------------------------------------------------------------------------
-!
-!
-  !>
-  !! Deallocation of components of prognostic state.
-  !!
-  !!
-  !! @par Revision History
-  !! Initial release by Almut Gassmann (2009-03-06)
-  !!
-  SUBROUTINE destruct_lnd_state_prog (p_prog_lnd)
-!
-  TYPE(t_lnd_prog), TARGET, INTENT(INOUT) :: p_prog_lnd     ! current prognostic state
-
-  INTEGER     :: ist        ! status
-
-!-----------------------------------------------------------------------
-
-  ! T_g
-  DEALLOCATE(p_prog_lnd%t_g, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_prog', &
-                'deallocation for weighted surface temperature T_G failed')
-  ENDIF
-
-  IF(inwp_surface > 0) THEN
-
-  ! T_snow
-  DEALLOCATE(p_prog_lnd%t_snow, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_prog', &
-                'deallocation for surface temperature T_SNOW failed')
-  ENDIF
-
-
-
-  ! T_snow_mult
-  DEALLOCATE(p_prog_lnd%t_snow_mult, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_prog', &
-                'deallocation for surface temperature T_SNOW_MULT failed')
-  ENDIF
-
-
-
-  ! T_s
-  DEALLOCATE(p_prog_lnd%t_s, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_prog', &
-                'deallocation for surface temperature T_S failed')
-  ENDIF
-
-
-
- ! W_snow
-  DEALLOCATE(p_prog_lnd%w_snow, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_prog', &
-                'deallocation for   water content of snow W_SNOW failed')
-  ENDIF
-
-
- ! Rho_snow
-  DEALLOCATE(p_prog_lnd%rho_snow, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_prog', &
-                'deallocation for  snow density RHO_SNOW failed')
-  ENDIF
-
-
- ! Rho_snow_mult
-  DEALLOCATE(p_prog_lnd%rho_snow_mult, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_prog', &
-                'deallocation for  snow density RHO_SNOW_MULT failed')
-  ENDIF
-
-
-  ! W_I
-  DEALLOCATE(p_prog_lnd%w_i, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_prog', &
-                'deallocation for interception store W_I failed')
-  ENDIF
-
-
-  ! T_SO
-  DEALLOCATE(p_prog_lnd%t_so, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_prog', &
-                'deallocation for soil temperature T_SO failed')
-  ENDIF
-
-
-
-  ! W_SO
-  DEALLOCATE(p_prog_lnd%w_so, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_prog', &
-                'deallocation for soil moisture W_SO failed')
-  ENDIF
-
-
-  ! W_SO_ICE
-  DEALLOCATE(p_prog_lnd%w_so_ice, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_prog', &
-                'deallocation for soil ice W_SO_ICE failed')
-  ENDIF
-
-  ! DZH_SNOW
-  DEALLOCATE(p_prog_lnd%dzh_snow, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_prog', &
-                'deallocation for snow layer thickness DZH_SNOW failed')
-  ENDIF
-
-  ! SUBSFRAC
-  DEALLOCATE(p_prog_lnd%subsfrac, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_prog', &
-                'deallocation for SUBSFRAC failed')
-  ENDIF
-
-ENDIF! surface
-
-END  SUBROUTINE destruct_lnd_state_prog
-!-------------------------------------------------------------------------
-!
-
-
-  !>
-  !! Deallocation of components of prognostic state.
-  !!
-  !!
-  !! @par Revision History
-  !! Initial release by Almut Gassmann (2009-03-06)
-  !!
-  SUBROUTINE destruct_lnd_state_diag (p_diag_lnd)
-!
-  TYPE(t_lnd_diag), TARGET, INTENT(INOUT) :: p_diag_lnd     ! current prognostic state
-
-  INTEGER     :: ist        ! status
-
-!-----------------------------------------------------------------------
-
-
-
-
- ! qv_s
-  DEALLOCATE(p_diag_lnd%qv_s, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_diag', &
-                'deallocation for surface moisture QV_S failed')
-  ENDIF
-
-  IF(inwp_surface > 0) THEN
-  
-  ! H_SNOW
-  DEALLOCATE(p_diag_lnd%h_snow, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_diag', &
-                'deallocation for snow height H_SNOW failed')
-  ENDIF
-
-
- 
-  ! FRESHSNOW
-  DEALLOCATE(p_diag_lnd%freshsnow, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_diag', &
-                'deallocation for snow age FRESHSNOW failed')
-  ENDIF
-
-
-  ! WLIQ_SNOW
-  DEALLOCATE(p_diag_lnd%wliq_snow, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_diag', &
-                'deallocation for snow  liquid water content WLIQ_SNOW failed')
-  ENDIF
-
-
-
-  ! WTOT_SNOW
-  DEALLOCATE(p_diag_lnd%wtot_snow, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_diag', &
-                'deallocation for snow total  water content WTOT_SNOW failed')
-  ENDIF
-
-
-
-  ! RUNOFF_S
-  DEALLOCATE(p_diag_lnd%runoff_s, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_diag', &
-                'deallocation for surface runoff RUNOFF_S failed')
-  ENDIF
-
-
-  ! RUNOFF_G
-  DEALLOCATE(p_diag_lnd%runoff_g, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_diag', &
-                'deallocation for ground runoff RUNOFF_G failed')
-  ENDIF
-
-
-
-  ! RSTOM
-  DEALLOCATE(p_diag_lnd%rstom, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_diag', &
-                'deallocation for  stomata resistance RSTOM  failed')
-  ENDIF
-
-
-  ! LHFL_BS
-  DEALLOCATE(p_diag_lnd%lhfl_bs, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_diag', &
-                'deallocation for latent heat flux from bare soil LHFL_BS  failed')
-  ENDIF
-
-
-
-  ! LHFL_PL
-  DEALLOCATE(p_diag_lnd%lhfl_pl, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_diag', &
-                'deallocation for average latent heat flux from plants  LHFL_PL  failed')
-  ENDIF
- 
-
-  DEALLOCATE(p_diag_lnd%fr_seaice, STAT = ist)
-  IF (ist/=SUCCESS)THEN
-    CALL finish('mo_lnd_state:destruct_lnd_state_diag', &
-                'deallocation for land variables at surface  failed')
-  ENDIF
-
-ENDIF
-END  SUBROUTINE destruct_lnd_state_diag
-!-------------------------------------------------------------------------
-SUBROUTINE new_nwp_lnd_prog_list( klev_snow, klev_soil, kztlev, ksfc_subs, kblks,   &
+SUBROUTINE new_nwp_lnd_prog_list( kblks,   &
                      & listname, prog_list, p_prog_lnd)
 
-    INTEGER,INTENT(IN) :: klev_snow, klev_soil, kztlev, ksfc_subs, kblks !< dimension sizes
+    INTEGER,INTENT(IN) ::  kblks !< dimension sizes
 
     CHARACTER(len=*),INTENT(IN) :: listname
 
@@ -804,17 +342,17 @@ SUBROUTINE new_nwp_lnd_prog_list( klev_snow, klev_soil, kztlev, ksfc_subs, kblks
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    INTEGER :: ist, shape2d(2), shape3d_subs(3), shape4d_subs(4)
+    INTEGER :: shape2d(2), shape3d_subs(3), shape4d_subs(4)
     INTEGER :: shape5d_snow_subs(5), shape5d_soil_subs(5)
     INTEGER :: ientr
 
     ientr = 16 ! "entropy" of horizontal slice
 
-    shape2d    = (/nproma,        kblks         /)
-    shape3d_subs   = (/nproma, ksfc_subs,  kblks    /)
-    shape4d_subs    = (/nproma, kztlev, ksfc_subs,  kblks    /)
-    shape5d_snow_subs    = (/nproma, klev_snow, kztlev, ksfc_subs,  kblks    /)
-    shape5d_soil_subs    = (/nproma, klev_soil, kztlev, ksfc_subs,  kblks    /)
+    shape2d              = (/nproma, kblks   /)
+    shape3d_subs         = (/nproma, nsfc_subs, kblks  /)
+    shape4d_subs         = (/nproma, nztlev, nsfc_subs,  kblks /)
+    shape5d_snow_subs    = (/nproma, nlev_snow, nztlev, nsfc_subs,  kblks /)
+    shape5d_soil_subs    = (/nproma, nlev_soil, nztlev, nsfc_subs,  kblks /)
 
 
     ! Register a field list and apply default settings
@@ -830,89 +368,101 @@ SUBROUTINE new_nwp_lnd_prog_list( klev_snow, klev_soil, kztlev, ksfc_subs, kblks
     cf_desc    = t_cf_var('t_g ', 'K ', 'weighted surface temperature ')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, 'qv_s', p_prog_lnd%t_g,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape2d )    
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape2d )    
 
 
     ! & p_prog_lnd%t_snow(nproma,nsfc_subs,nblks_c)
     cf_desc    = t_cf_var('t_snow ', 'K ', 'temperature of the snow-surface ')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, 't_snow', p_prog_lnd%t_snow,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape3d_subs )   
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape3d_subs )   
 
     ! & p_prog_lnd%t_snow_mult(nproma,nlev_snow,nztlev,nsfc_subs,nblks_c)
     cf_desc    = t_cf_var('t_snow_mult ', 'K ', 'temperature of the snow-surface ')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, 't_snow_mult', p_prog_lnd%t_snow_mult,                    &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape5d_snow_subs )  
+     & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape5d_snow_subs )  
 
     ! & p_prog_lnd%t_s(nproma,nztlev,nsfc_subs,nblks_c)
     cf_desc    = t_cf_var('t_s ', 'K ', 'temperature of ground surface ')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, 't_s', p_prog_lnd%t_s,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape4d_subs )  
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape4d_subs )  
 
     ! & p_prog_lnd%w_snow(nproma,nztlev,nsfc_subs,nblks_c)
     cf_desc    = t_cf_var('w_snow ', 'm H2O ', 'water content of snow ')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, 'w_snow', p_prog_lnd%w_snow,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape4d_subs )    
+          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape4d_subs)
 
     ! & p_prog_lnd%rho_snow(nproma,nsfc_subs,nblks_c)
     cf_desc    = t_cf_var('rho_snow ', 'kg/m**3 ', 'snow density ')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, 'rho_snow', p_prog_lnd%rho_snow,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape3d_subs )    
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape3d_subs )    
 
 
     ! & p_prog_lnd%rho_snow_mult(nproma,nlev_snow,nztlev,nsfc_subs,nblks_c)
     cf_desc    = t_cf_var('rho_snow_mult ', 'kg/m**3 ', 'snow density ')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( prog_list, 'rho_snow_mult', p_prog_lnd%rho_snow_mult,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape5d_snow_subs )    
+    CALL add_var( prog_list, 'rho_snow_mult', p_prog_lnd%rho_snow_mult,                  &
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape5d_snow_subs)
 
     ! & p_prog_lnd%w_i(nproma,nztlev,nsfc_subs,nblks_c)
     cf_desc    = t_cf_var('w_i ', 'm H2O ', 'water content of interception water ')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, 'w_i', p_prog_lnd%w_i,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape4d_subs )  
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape4d_subs )  
 
     ! & p_prog_lnd%t_so(nproma,nlev_soil,nztlev,nsfc_subs,nblks_c) 
     cf_desc    = t_cf_var('t_so ', 'K ', 'soil temperature (main level) ')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, 't_so', p_prog_lnd%t_so,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape5d_soil_subs )  
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape5d_soil_subs )  
 
    ! & p_prog_lnd%w_so(nproma,nlev_soil,nztlev,nsfc_subs,nblks_c)
     cf_desc    = t_cf_var('w_so ', 'm H20 ', 'total water content (ice + liquid water) ')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, 'w_so', p_prog_lnd%w_so,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape5d_soil_subs )
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape5d_soil_subs )
 
     ! & p_prog_lnd%w_so_ice(nproma,nlev_soil,nztlev,nsfc_subs,nblks_c)
     cf_desc    = t_cf_var('w_so_ice ', 'm H20 ', 'ice content ')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, 'w_so_ice', p_prog_lnd%w_so_ice,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape5d_soil_subs )
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape5d_soil_subs )
 
     ! & p_prog_lnd%dzh_snow(nproma,nlev_snow,nztlev,nsfc_subs,nblks_c)
     cf_desc    = t_cf_var('dzh_snow ', 'm ', 'layer thickness between half levels in snow ')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, 'dzh_snow', p_prog_lnd%dzh_snow,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape5d_snow_subs )
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape5d_snow_subs )
  
     ! & p_prog_lnd%subsfrac(nproma,nztlev,nsfc_subs,nblks_c)
     cf_desc    = t_cf_var('subsfrac ', '- ', 'subscale fraction ')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, 'subsfrac', p_prog_lnd%subsfrac,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape4d_subs )  
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape4d_subs)
 
+    p_prog_lnd%t_g(:,:)                 = 0.0_wp
+    p_prog_lnd%t_snow(:,:,:)            = 0.0_wp
+    p_prog_lnd%t_snow_mult(:,:,:,:,:)   = 0.0_wp
+    p_prog_lnd%t_s(:,:,:,:)             = 0.0_wp
+    p_prog_lnd%w_snow(:,:,:,:)          = 0.0_wp
+    p_prog_lnd%rho_snow(:,:,:)          = 0.0_wp
+    p_prog_lnd%rho_snow_mult(:,:,:,:,:) = 0.0_wp
+    p_prog_lnd%w_i(:,:,:,:)             = 0.0_wp
+    p_prog_lnd%t_so(:,:,:,:,:)          = 0.0_wp
+    p_prog_lnd%w_so(:,:,:,:,:)          = 0.0_wp
+    p_prog_lnd%w_so_ice(:,:,:,:,:)      = 0.0_wp
+    p_prog_lnd%dzh_snow(:,:,:,:,:)      = 0.0_wp
+    p_prog_lnd%subsfrac(:,:,:,:)        = 0.0_wp
 
 END SUBROUTINE new_nwp_lnd_prog_list
 
-SUBROUTINE new_nwp_lnd_diag_list( kztlev, ksfc_subs, kblks,   &
-                     & listname, diag_list, p_diag_lnd)
+SUBROUTINE new_nwp_lnd_diag_list( kblks, listname, diag_list, p_diag_lnd)
 
-    INTEGER,INTENT(IN) :: kztlev, ksfc_subs, kblks !< dimension sizes
+    INTEGER,INTENT(IN) ::  kblks !< dimension sizes
 
     CHARACTER(len=*),INTENT(IN) :: listname
 
@@ -924,15 +474,14 @@ SUBROUTINE new_nwp_lnd_diag_list( kztlev, ksfc_subs, kblks,   &
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    INTEGER :: ist, shape2d(2), shape3d_subs(3), shape4d_subs(4), shapesfc(3)
+    INTEGER :: shape2d(2), shape3d_subs(3), shape4d_subs(4), shapesfc(3)
     INTEGER :: ientr
 
     ientr = 16 ! "entropy" of horizontal slice
 
-    shape2d    = (/nproma,        kblks         /)
-    shape3d_subs   = (/nproma, ksfc_subs,  kblks    /)
-    shape4d_subs    = (/nproma, kztlev, ksfc_subs,  kblks    /)
-!    shapend    = (/nproma,        kblks, 4      /)
+    shape2d      = (/nproma, kblks         /)
+    shape3d_subs = (/nproma, nsfc_subs,  kblks    /)
+    shape4d_subs = (/nproma, nztlev, nsfc_subs,  kblks    /)
 
     ! Register a field list and apply default settings
 
@@ -953,7 +502,7 @@ SUBROUTINE new_nwp_lnd_diag_list( kztlev, ksfc_subs, kblks,   &
     cf_desc    = t_cf_var('h_snow ', 'm ', 'snow height ')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'h_snow', p_diag_lnd%h_snow,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape4d_subs )  
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape4d_subs )  
 
     ! & p_diag_lnd%freshsnow(nproma,nsfc_subs,nblks_c)
     cf_desc    = t_cf_var('freshsnow ', '- ', 'indicator for age of snow in top of snow layer ')
@@ -1009,6 +558,17 @@ SUBROUTINE new_nwp_lnd_diag_list( kztlev, ksfc_subs, kblks,   &
     CALL add_var( diag_list, 'fr_seaice', p_diag_lnd%fr_seaice,                             &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape2d )    
 
+  p_diag_lnd%qv_s(:,:)          = 0._wp
+  p_diag_lnd%h_snow(:,:,:,:)    = 0._wp
+  p_diag_lnd%freshsnow(:,:,:)   = 0._wp
+  p_diag_lnd%wliq_snow(:,:,:,:) = 0._wp
+  p_diag_lnd%wtot_snow(:,:,:,:) = 0._wp
+  p_diag_lnd%runoff_s(:,:,:)    = 0._wp
+  p_diag_lnd%runoff_g(:,:,:)    = 0._wp
+  p_diag_lnd%rstom(:,:,:)       = 0._wp
+  p_diag_lnd%lhfl_bs(:,:,:)     = 0._wp
+  p_diag_lnd%lhfl_pl(:,:,:)     = 0._wp
+  p_diag_lnd%fr_seaice(:,:)     = 0._wp
 
 END SUBROUTINE  new_nwp_lnd_diag_list
 

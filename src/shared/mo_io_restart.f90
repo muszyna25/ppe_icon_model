@@ -236,11 +236,14 @@ CONTAINS
     ! set CD-Convention required global attributes
     !
     CALL set_restart_attribute('title', 'ICON simulation')
-    CALL set_restart_attribute('institution', 'Max Planck Institute for Meteorology/Deutscher Wetterdienst')
+    CALL set_restart_attribute('institution', &
+         &                     'Max Planck Institute for Meteorology/Deutscher Wetterdienst')
     CALL set_restart_attribute('source', model_name//'-'//model_version)
-    CALL set_restart_attribute('history', executable(1:nlend)//' at '//date_string(1:8)//' '//time_string(1:6))
+    CALL set_restart_attribute('history', &
+         &              executable(1:nlend)//' at '//date_string(1:8)//' '//time_string(1:6))
     CALL set_restart_attribute('references', 'see MPIM/DWD publications')
-    CALL set_restart_attribute('comment', TRIM(user_name)//' on '//TRIM(host_name)//' ('//TRIM(os_name)//')')
+    CALL set_restart_attribute('comment', &
+         &                TRIM(user_name)//' on '//TRIM(host_name)//' ('//TRIM(os_name)//')')
     !
     ! define horizontal grids
     !
@@ -378,7 +381,8 @@ CONTAINS
               DO ihg = 1, nh_grids
                 SELECT CASE (hgrid_def(ihg)%type)
                 CASE (GRID_UNSTRUCTURED_CELL)
-                  var_lists(i)%p%cdiCellGridID = gridCreate(GRID_UNSTRUCTURED, hgrid_def(ihg)%nelements)
+                  var_lists(i)%p%cdiCellGridID = gridCreate(GRID_UNSTRUCTURED,&
+                       &                               hgrid_def(ihg)%nelements)
                   CALL gridDefNvertex(var_lists(i)%p%cdiCellGridID, hgrid_def(ihg)%nvertices)
                   !
                   CALL gridDefXname(var_lists(i)%p%cdiCellGridID, 'clon')
@@ -390,7 +394,8 @@ CONTAINS
                   CALL gridDefYunits(var_lists(i)%p%cdiCellGridID, 'radians')
                   !
                 CASE (GRID_UNSTRUCTURED_VERT)
-                  var_lists(i)%p%cdiVertGridID = gridCreate(GRID_UNSTRUCTURED, hgrid_def(ihg)%nelements)
+                  var_lists(i)%p%cdiVertGridID = gridCreate(GRID_UNSTRUCTURED,&
+                       &                               hgrid_def(ihg)%nelements)
                   CALL gridDefNvertex(var_lists(i)%p%cdiVertGridID, hgrid_def(ihg)%nvertices)
                   !
                   CALL gridDefXname(var_lists(i)%p%cdiVertGridID, 'vlon')
@@ -402,7 +407,8 @@ CONTAINS
                   CALL gridDefYunits(var_lists(i)%p%cdiVertGridID, 'radians')
                   !
                 CASE (GRID_UNSTRUCTURED_EDGE)
-                  var_lists(i)%p%cdiEdgeGridID = gridCreate(GRID_UNSTRUCTURED, hgrid_def(ihg)%nelements)
+                  var_lists(i)%p%cdiEdgeGridID = gridCreate(GRID_UNSTRUCTURED,&
+                       &                               hgrid_def(ihg)%nelements)
                   CALL gridDefNvertex(var_lists(i)%p%cdiEdgeGridID, hgrid_def(ihg)%nvertices)
                   !
                   CALL gridDefXname(var_lists(i)%p%cdiEdgeGridID, 'elon')
@@ -421,13 +427,15 @@ CONTAINS
               DO ivg = 1, nv_grids
                 SELECT CASE (vgrid_def(ivg)%type)
                 CASE (ZAXIS_SURFACE)
-                  var_lists(i)%p%cdiSurfZaxisID = zaxisCreate(ZAXIS_SURFACE, vgrid_def(ivg)%nlevels)
+                  var_lists(i)%p%cdiSurfZaxisID = zaxisCreate(ZAXIS_SURFACE, &
+                       &                               vgrid_def(ivg)%nlevels)
                   ALLOCATE(levels(1))
                   levels(1) = 0.0_wp
                   CALL zaxisDefLevels(var_lists(i)%p%cdiSurfZaxisID, levels)
                   DEALLOCATE(levels)
                 CASE (ZAXIS_HYBRID)
-                  var_lists(i)%p%cdiFullZaxisID = zaxisCreate(ZAXIS_HYBRID, vgrid_def(ivg)%nlevels)
+                  var_lists(i)%p%cdiFullZaxisID = zaxisCreate(ZAXIS_HYBRID, &
+                       &                               vgrid_def(ivg)%nlevels)
                   ALLOCATE(levels(vgrid_def(ivg)%nlevels))
                   DO k = 1, vgrid_def(ivg)%nlevels
                     levels(k) = REAL(k,wp)
@@ -435,9 +443,11 @@ CONTAINS
                   CALL zaxisDefLevels(var_lists(i)%p%cdiFullZaxisID, levels)
                   DEALLOCATE(levels)
                   nlevp1 = vgrid_def(ivg)%nlevels+1
-                  CALL zaxisDefVct(var_lists(i)%p%cdiFullZaxisID, 2*nlevp1, private_vct(1:2*nlevp1))
+                  CALL zaxisDefVct(var_lists(i)%p%cdiFullZaxisID, 2*nlevp1, &
+                       &                              private_vct(1:2*nlevp1))
                 CASE (ZAXIS_HYBRID_HALF)
-                  var_lists(i)%p%cdiHalfZaxisID  = zaxisCreate(ZAXIS_HYBRID_HALF, vgrid_def(ivg)%nlevels)
+                  var_lists(i)%p%cdiHalfZaxisID  = zaxisCreate(ZAXIS_HYBRID_HALF,&
+                       &                                   vgrid_def(ivg)%nlevels)
                   ALLOCATE(levels(vgrid_def(ivg)%nlevels))
                   DO k = 1, vgrid_def(ivg)%nlevels
                     levels(k) = REAL(k,wp)
@@ -445,7 +455,8 @@ CONTAINS
                   CALL zaxisDefLevels(var_lists(i)%p%cdiHalfZaxisID, levels)
                   DEALLOCATE(levels)
                   nlevp1 = vgrid_def(ivg)%nlevels
-                  CALL zaxisDefVct(var_lists(i)%p%cdiHalfZaxisID, 2*nlevp1, private_vct(1:2*nlevp1))
+                  CALL zaxisDefVct(var_lists(i)%p%cdiHalfZaxisID, 2*nlevp1, &
+                       &                              private_vct(1:2*nlevp1))
                 END SELECT
               ENDDO
               !
@@ -647,7 +658,8 @@ CONTAINS
               CALL message('','Write netCDF2 restart for : '//TRIM(private_restart_time))
             CASE (FILETYPE_NC4)
               IF (var_lists(i)%p%compression_type == COMPRESS_ZIP) THEN
-                CALL message('','Write compressed netCDF4 restart for : '//TRIM(private_restart_time))
+                CALL message('','Write compressed netCDF4 restart for : '&
+                     &                        //TRIM(private_restart_time))
               ELSE
                 CALL message('','Write netCDF4 restart for : '//TRIM(private_restart_time))
               END IF

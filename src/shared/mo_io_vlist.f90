@@ -2432,8 +2432,8 @@ CONTAINS
     IF (iforcing==inwp) THEN
 !      p_prm_diag     => prm_diag(jg)
 !      p_prm_nwp_tend => prm_nwp_tend(jg)
-      p_prog_lnd     => p_lnd_state(jg)%prog_lnd(nnow(jg))
-      p_diag_lnd     => p_lnd_state(jg)%diag_lnd
+!      p_prog_lnd     => p_lnd_state(jg)%prog_lnd(nnow(jg))
+!      p_diag_lnd     => p_lnd_state(jg)%diag_lnd
     ENDIF
 
     ptr2 => NULL()
@@ -2481,8 +2481,8 @@ CONTAINS
       CASE ('lwflxsfc_avg');    ptr2 => prm_diag(jg)%lwflxsfc_avg(:,:)       
       CASE ('swflxtoa_avg');    ptr2 => prm_diag(jg)%swflxtoa_avg(:,:)
       CASE ('lwflxtoa_avg');    ptr2 => prm_diag(jg)%lwflxtoa_avg(:,:)
-      CASE ('T_G');             ptr2 => p_prog_lnd%t_g
-      CASE ('QV_S');            ptr2 => p_diag_lnd%qv_s
+!      CASE ('T_G');             ptr2 => p_prog_lnd%t_g
+!      CASE ('QV_S');            ptr2 => p_diag_lnd%qv_s
       CASE ('ASHFL_S');         ptr2 => prm_diag(jg)%shfl_s ! KF not yet averaged!
       CASE ('ALHFL_S');         ptr2 => prm_diag(jg)%lhfl_s ! KF not yet averaged!
       CASE ('VOR');             ptr3 => p_diag%omega_z
