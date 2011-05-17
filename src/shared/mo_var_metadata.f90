@@ -38,6 +38,10 @@ MODULE mo_var_metadata
     LOGICAL            :: lrestart_read         ! field has been set from restart file
     TYPE(t_union_vals) :: initval               ! value if not in restart file
     !     
+    LOGICAL            :: lcontainer            ! true, if this is a container
+    LOGICAL            :: lcontained            ! true, if this is in a container
+    INTEGER            :: ncontained            ! index in container   
+    !
     INTEGER            :: hgrid                 ! CDI horizontal grid type
     INTEGER            :: vgrid                 ! CDI vertical grid type
     !

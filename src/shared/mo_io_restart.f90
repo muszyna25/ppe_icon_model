@@ -93,6 +93,9 @@ MODULE mo_io_restart
   CHARACTER(len=32) :: private_restart_time = '' 
   REAL(wp), ALLOCATABLE :: private_vct(:)
   !
+  LOGICAL, SAVE :: lvct_initialised = .FALSE. 
+  LOGICAL, SAVE :: lrestart_initialised = .FALSE. 
+  !
   INTEGER :: private_nc  = -1
   INTEGER :: private_ncv = -1
   INTEGER :: private_nv  = -1
@@ -135,8 +138,10 @@ CONTAINS
   !
   SUBROUTINE set_restart_vct(vct)
     REAL(wp), INTENT(in) :: vct(:)
+    IF (lvct_initialised) RETURN
     ALLOCATE(private_vct(SIZE(vct)))
     private_vct(:) = vct(:)
+    lvct_initialised = .TRUE.
   END SUBROUTINE set_restart_vct
   !------------------------------------------------------------------------------------------------
   !
@@ -213,6 +218,8 @@ CONTAINS
 
     INTEGER :: nlena, nlenb, nlenc, nlend
     !
+    IF (lrestart_initialised) RETURN
+    !
     executable = ''
     user_name  = ''
     os_name    = ''
@@ -269,6 +276,8 @@ CONTAINS
     private_nvv = nvv
     private_ne  = ne
     private_nev = nev
+    !
+    lrestart_initialised = .TRUE.
     !
   END SUBROUTINE init_restart
   !------------------------------------------------------------------------------------------------
@@ -506,27 +515,33 @@ CONTAINS
   END SUBROUTINE open_restart_files
   !------------------------------------------------------------------------------------------------
   !
+  ! define variables and attributes
+  !
   SUBROUTINE addVarListToVlist(this_list, vlistID)
     TYPE (t_var_list), INTENT(inout) :: this_list
     INTEGER,           INTENT(inout) :: vlistID
     !      
-    TYPE (t_list_element), POINTER :: le
-    TYPE (t_list_element), TARGET  :: first
     TYPE (t_var_metadata), POINTER :: info
+    TYPE (t_list_element), POINTER :: element
+    TYPE (t_list_element), TARGET  :: start_with
     !
     INTEGER :: varID, gridID, zaxisID
     !
     REAL(wp) :: casted_missval
     !
-    first%next_list_element => this_list%p%first_list_element
+    element => start_with
+    element%next_list_element => this_list%p%first_list_element
     !
-    ! define variables and attributes
-    !
-    le => first
-    all_list_elements: DO
-      le => le%next_list_element
-      IF (.NOT.ASSOCIATED(le)) EXIT
-      info => le%field%info
+    for_all_list_elements: DO
+      !
+      element => element%next_list_element
+      IF (.NOT.ASSOCIATED(element)) EXIT
+      !
+      ! retrieve information from actual linked list element
+      !
+      info => element%field%info
+      !
+      ! skip this field ?
       !
       IF (.NOT. info%lrestart) CYCLE
       !
@@ -581,9 +596,9 @@ CONTAINS
       IF (info%cf%units /= '') CALL vlistDefVarUnits(vlistID, varID, info%cf%units)
 
       IF (info%lmiss) THEN
-        IF (ASSOCIATED(le%field%r_ptr)) THEN
+        IF (ASSOCIATED(element%field%r_ptr)) THEN
           casted_missval = info%missval%rval
-        ELSE IF (ASSOCIATED(le%field%i_ptr)) THEN
+        ELSE IF (ASSOCIATED(element%field%i_ptr)) THEN
           casted_missval = info%missval%ival
         ELSE
           IF (info%missval%lval) THEN
@@ -595,7 +610,7 @@ CONTAINS
         CALL vlistDefVarMissval(vlistID, varID, casted_missval)
       ENDIF
       !
-    ENDDO all_list_elements
+    ENDDO for_all_list_elements
     !
   END SUBROUTINE addVarListToVlist
   !------------------------------------------------------------------------------------------------
@@ -731,43 +746,60 @@ CONTAINS
     !
     TYPE (t_var_metadata), POINTER :: info
     TYPE (t_list_element), POINTER :: element
+    TYPE (t_list_element), TARGET  :: start_with
     !
     REAL(wp), POINTER :: ptr2d(:,:)   ! 2d field distributed over processors
     REAL(wp), POINTER :: ptr3d(:,:,:) ! 3d field distributed over processors
     !
     REAL(wp), POINTER :: z5d(:,:,:,:,:) ! field gathered on I/O processor
     !
-    INTEGER :: gdims(5)
+    INTEGER :: gdims(5), nindex
     !
     ! Loop over all fields in linked list
     !
-    element => this_list%p%first_list_element    
-    DO
+    element => start_with
+    element%next_list_element => this_list%p%first_list_element    
+    !
+    for_all_list_elements: DO
+      !
+      element => element%next_list_element
+      IF (.NOT.ASSOCIATED(element)) EXIT
       !
       ptr2d => NULL()
       ptr3d => NULL()
       !
       ! retrieve information from actual linked list element
       !
-      info     => element%field%info 
+      info => element%field%info 
+      !
+      ! skip this field ?
+      !
+      write (0,*) ' ... handle '//TRIM(info%name)
+      !
+      IF (.NOT. info%lrestart) CYCLE
+      !
+      IF (info%lcontained) THEN 
+        nindex = info%ncontained
+      ELSE
+        nindex = 1
+      ENDIF
+      !
       SELECT CASE (info%ndims)
       CASE (1)
         CALL finish('write_restart_var_list','1d arrays not handled yet.')
       CASE (2)
-        ptr2d => element%field%r_ptr(:,:,1,1,1)
+        ptr2d => element%field%r_ptr(:,:,nindex,1,1)
       CASE (3)
-        ptr3d => element%field%r_ptr(:,:,:,1,1)
+        ptr3d => element%field%r_ptr(:,:,:,nindex,1)
       CASE (4)
         CALL finish('write_restart_var_list','4d arrays not handled yet.')
       CASE (5)
         CALL finish('write_restart_var_list','5d arrays not handled yet.')
+      CASE DEFAULT 
+        CALL finish('write_restart_var_list','dimension not set.')        
       END SELECT
       !
       gridtype = info%hgrid
-      !
-      ! skip this field ?
-      !
-      IF (.NOT. info%lrestart) CYCLE
       !
       ! allocate temporary global array on output processor
       ! and gather field from other processors
@@ -820,9 +852,7 @@ CONTAINS
       !
       IF (ASSOCIATED (z5d)) DEALLOCATE (z5d)
       !
-      element => element%next_list_element
-      IF (.NOT.ASSOCIATED(element)) EXIT
-    END DO
+    END DO for_all_list_elements
     !
   END SUBROUTINE write_restart_var_list
   !------------------------------------------------------------------------------------------------
@@ -842,12 +872,14 @@ CONTAINS
     fileID  = this_list%p%cdiFileID
     varID   = info%cdiVarID
     !
-   !write (0,*) varID, TRIM(info%name), ubound(array)
+    write (0,*) 'call streamWriteVar          ', varID, TRIM(info%name), ubound(array)
    !DO k = 1, SIZE(array,2)
    !  write (0,'(i5,2e12.4)') k, array(1,k,1,1,1), array(SIZE(array,1),k,1,1,1)
    !ENDDO
     !
     CALL streamWriteVar(fileID, varID, array, 0)
+    !
+    write (0,*) 'returned from streamWriteVar ', varID, TRIM(info%name), ubound(array)
     !
   END SUBROUTINE write_var
   !------------------------------------------------------------------------------------------------
@@ -869,6 +901,14 @@ CONTAINS
       ENDIF
     ENDDO
     !
+    DEALLOCATE(private_vct)
+    lvct_initialised = .FALSE.
+    !
+    nglob_atts = 0
+    nh_grids   = 0
+    nv_grids   = 0
+    nt_axis    = 0
+    lrestart_initialised = .FALSE.
     !
   END SUBROUTINE cleanup_restart
   !------------------------------------------------------------------------------------------------

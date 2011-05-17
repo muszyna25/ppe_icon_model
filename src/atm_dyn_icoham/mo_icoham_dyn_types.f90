@@ -43,6 +43,13 @@ MODULE mo_icoham_dyn_types
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
   !>
+  !! Derived data type for building pointer arrays
+  !!
+  TYPE t_ptr3d
+    REAL(wp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
+  END TYPE t_ptr3d
+
+  !>
   !!--------------------------------------------------------------------------
   !! Derived data type for prognostic variables. The same type is used for
   !! tendencies
@@ -55,6 +62,8 @@ MODULE mo_icoham_dyn_types
     &     temp(:,:,:),  &!< temperature [K]              (nproma,nlev,nblks_c)
     &    theta(:,:,:),  &!< potential temperature [K]    (nproma,nlev,nblks_c)
     &   tracer(:,:,:,:)  !< tracer concentration [kg/kg] (nproma,nlev,nblks_c,ntracer)
+
+    TYPE(t_ptr3d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
 
   END TYPE t_hydro_atm_prog
 
@@ -98,6 +107,9 @@ MODULE mo_icoham_dyn_types
     &   rdalpha_c(:,:,:),   &!< Rd * alpha              ,shape:(nproma,nlev,nblks_c)
     &      lnp_ic(:,:,:),   &!< ln(p),shape:(nproma,nlevp1,nblks_c)
     & mass_flux_e(:,:,:)     !< mass flux at edges (nproma,nlev,nblks_e)
+
+    TYPE(t_ptr3d),ALLOCATABLE :: hfl_tracer_ptr(:)  !< pointer array: one pointer for each tracer
+    TYPE(t_ptr3d),ALLOCATABLE :: vfl_tracer_ptr(:)  !< pointer array: one pointer for each tracer
 
   END TYPE t_hydro_atm_diag
 

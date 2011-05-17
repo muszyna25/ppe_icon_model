@@ -50,9 +50,10 @@ MODULE mo_icoham_dyn_memory
   USE mo_model_domain,        ONLY: t_patch
   USE mo_run_nml,             ONLY: ltheta_dyn
   USE mo_run_nml,             ONLY: nlev, nlevp1, ntracer, nproma
+  USE mo_advection_nml,       ONLY: ctracer_list
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: default_var_list_settings, &
-                                  & add_var,                   &
+                                  & add_var, add_ref,          &
                                   & new_var_list,              &
                                   & delete_var_list
   USE mo_cf_convention
@@ -242,7 +243,7 @@ CONTAINS
     TYPE(t_grib2_var) :: grib2_desc
 
     INTEGER :: shape2d_c(2), shape3d_c(3), shape3d_e(3)
-    INTEGER :: shape4d_c(4), ibit
+    INTEGER :: ibit, jtrc
 
     ibit = 16 !size of var in bits
 
@@ -251,22 +252,17 @@ CONTAINS
                                   & lrestart=.TRUE.,           &
                                   & restart_type=FILETYPE_NC2  )
  
-    shape2d_c  = (/kproma,       kblks_c         /)
-    shape3d_c  = (/kproma, klev, kblks_c         /)
-    shape3d_e  = (/kproma, klev, kblks_e         /)
-    shape4d_c  = (/kproma, klev, kblks_c, ktracer/)
+    shape2d_c  = (/kproma,       kblks_c/)
+    shape3d_c  = (/kproma, klev, kblks_c/)
+    shape3d_e  = (/kproma, klev, kblks_e/)
 
     ! Register a field list and apply default settings
     !===========================================================
     ! For now using default value 255 for unknwon parameters
     !===========================================================
 
-    !CF:                   long_name      units     std name
     cf_desc    = t_cf_var('normal_wind', 'm s-1', 'wind normal to the edge')
-
-    !GRIB2: discipline, category, parameter, bits, gridtype, subgridtype, leveltype
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_EDGE)
-
     CALL add_var( field_list, 'vn', field%vn,          &
                 & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID,&
                 & cf_desc, grib2_desc, ldims=shape3d_e )
@@ -291,13 +287,31 @@ CONTAINS
                   & cf_desc, grib2_desc, ldims=shape3d_c )
     ENDIF
 
-    IF (ntracer > 0) THEN
-      cf_desc    = t_cf_var('tracer', 'kg kg-1', 'tracer concentration')
-      grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( field_list, 'tracer', field%tracer,  &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,&
-                  & cf_desc, grib2_desc, ldims=shape4d_c )
-    ENDIF
+    IF (ktracer > 0) THEN
+
+      ! Tracer array for (model) internal use
+
+      CALL add_var( field_list, 'tracer', field%tracer,                         &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                       &
+                  & t_cf_var('tracer', 'kg kg-1', 'tracer concentration'),      &
+                  & t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL),&
+                  & ldims = (/kproma,klev,kblks_c,ktracer/),                    &
+                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.          )
+
+      ! Referrence to individual tracer, for I/O
+
+      ALLOCATE(field%tracer_ptr(ktracer))
+      DO jtrc = 1,ktracer
+
+        CALL add_ref( field_list, 'tracer',                                         &
+                    & 'tracer_'//ctracer_list(jtrc:jtrc), field%tracer_ptr(jtrc)%p, &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                         &
+                    & t_cf_var('tracer_'//ctracer_list(jtrc:jtrc), 'kg kg-1', ''),  &
+                    & t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL),  &
+                    & ldims=(/kproma,klev,kblks_c/))
+
+      END DO
+    ENDIF ! ktracer > 0
 
     !Initialize all fields with zero
     !Comment it so that it can be initialized with NAN 
@@ -306,7 +320,7 @@ CONTAINS
 !    field% temp     = 0.0_wp
 
 !    IF (ltheta_dyn)  field% theta  = 0.0_wp
-!    IF (ntracer > 0) field% tracer = 0.0_wp
+!    IF (ktracer > 0) field% tracer = 0.0_wp
 
   END SUBROUTINE make_hydro_prog_list
 
@@ -330,7 +344,7 @@ CONTAINS
     TYPE(t_grib2_var) :: grib2_desc
 
     INTEGER :: shape3d_c(3), shape3d_e(3), shape3d_v(3), shape4d_e(4)
-    INTEGER :: shape4d_c(4), ibit, klevp1
+    INTEGER :: ibit, klevp1, jtrc
 
     ibit = 16 !size of var in bits
 
@@ -494,21 +508,11 @@ CONTAINS
                   & cf_desc, grib2_desc, ldims=shape3d_c )
     END IF
 
-    IF (ntracer > 0) THEN
-      cf_desc    = t_cf_var('hor_tracer_flux', 'kg m-1 s-1 ',                          &
-                   &        'horizontal tracer flux at edges')
-      grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_EDGE)
-      CALL add_var( field_list, 'hfl_tracer', field%hfl_tracer, &
-                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID,       &
-                  & cf_desc, grib2_desc, ldims=shape4d_e )
-    END IF
-
     !================================================================
     !Variables at half level
     !================================================================
     klevp1     = nlevp1
     shape3d_c  = (/kproma, klevp1, kblks_c         /)
-    shape4d_c  = (/kproma, klevp1, kblks_c, ktracer /)
 
     cf_desc    = t_cf_var('geopotential_half', 'm s-1', 'geopotential at half level')
     grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL)
@@ -546,15 +550,53 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, &
                 & cf_desc, grib2_desc, ldims=shape3d_c )
 
-    IF (ntracer > 0) THEN
-      cf_desc    = t_cf_var('vert_tracer_flux', 'kg m-1 s-1 ', 'horizontal tracer flux at cell')
-      grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( field_list, 'vfl_tracer', field%vfl_tracer, &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF,  &
-                  & cf_desc, grib2_desc, ldims=shape4d_c )
-    END IF
 
+    !------------------------
+    ! Tracers
+    !------------------------
+    IF (ktracer > 0) THEN
 
+      ! Tracer flux arrays for (model) internal use
+
+      CALL add_var( field_list, 'hfl_tracer', field%hfl_tracer,                        &
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID,                              &
+                  & t_cf_var('hfl_tracer', 'kg m-1 s-1', 'horizontal flux of tracer'), &
+                  & t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_EDGE),       &
+                  & ldims = (/kproma,klev,kblks_e,ktracer/),                           &
+                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.                 )
+
+      CALL add_var( field_list, 'vfl_tracer', field%vfl_tracer,                      &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF,                       &
+                  & t_cf_var('vfl_tracer', 'kg m-1 s-1', 'vertical flux of tracer'), &
+                  & t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL),     &
+                  & ldims = (/kproma,klevp1,kblks_c,ktracer/),                       &
+                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.               )
+
+      ! Referrence to fluxes individual tracer, for I/O
+
+      ALLOCATE(field%hfl_tracer_ptr(ktracer))
+      ALLOCATE(field%vfl_tracer_ptr(ktracer))
+
+      DO jtrc = 1,ktracer
+
+        CALL add_ref( field_list, 'hfl_tracer',                                             &
+                    & 'hfl_tracer_'//ctracer_list(jtrc:jtrc), field%hfl_tracer_ptr(jtrc)%p, &
+                    & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID,                                 &
+                    & t_cf_var('hfl_q'//ctracer_list(jtrc:jtrc), 'kg m-1 s-1', ''),         &
+                    & t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_EDGE),          &
+                    & ldims = (/kproma,klev,kblks_e/)                                       )
+
+        CALL add_ref( field_list, 'vfl_tracer',                                             &
+                    & 'vfl_tracer_'//ctracer_list(jtrc:jtrc), field%vfl_tracer_ptr(jtrc)%p, &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF,                            &
+                    & t_cf_var('hfl_q'//ctracer_list(jtrc:jtrc), 'kg m-1 s-1', ''),         &
+                    & t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL),          &
+                    & ldims = (/kproma,klevp1,kblks_c/)                                     )
+
+      END DO
+    ENDIF ! ktracer > 0
+
+    !-----------------------------------------------------
     ! Initialize all components with zero
     ! Comment it so that it can be initialized with NAN 
 
@@ -590,7 +632,7 @@ CONTAINS
 !
 !    IF (ltheta_dyn) field% exner =0.0_wp
 !
-!    IF (ntracer > 0) THEN
+!    IF (ktracer > 0) THEN
 !      field% hfl_tracer = 0.0_wp
 !      field% vfl_tracer = 0.0_wp
 !    END IF
@@ -617,7 +659,7 @@ CONTAINS
     TYPE(t_grib2_var) :: grib2_desc
 
     INTEGER :: shape2d_c(2), shape3d_c(3), shape3d_e(3)
-    INTEGER :: shape4d_c(4), ibit
+    INTEGER :: ibit, jtrc
 
     ibit = 16 !size of var in bits
 
@@ -626,10 +668,9 @@ CONTAINS
                                   & lrestart=.TRUE.,           &
                                   & restart_type=FILETYPE_NC2  )
  
-    shape2d_c  = (/kproma,       kblks_c         /)
-    shape3d_c  = (/kproma, klev, kblks_c         /)
-    shape3d_e  = (/kproma, klev, kblks_e         /)
-    shape4d_c  = (/kproma, klev, kblks_c, ktracer/)
+    shape2d_c  = (/kproma,       kblks_c/)
+    shape3d_c  = (/kproma, klev, kblks_c/)
+    shape3d_e  = (/kproma, klev, kblks_e/)
 
     ! Register a field list and apply default settings
 
@@ -660,13 +701,34 @@ CONTAINS
                   & cf_desc, grib2_desc, ldims=shape3d_c )
     ENDIF
 
-    IF (ntracer > 0) THEN
-      cf_desc    = t_cf_var('tracer_tendency', 's-1', 'tendency of tracer concentration')
-      grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( field_list, 'tend_tracer', field%tracer, &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,    &
-                  & cf_desc, grib2_desc, ldims=shape4d_c )
-    ENDIF
+    !----------
+    ! tracers
+    !----------
+    IF (ktracer > 0) THEN
+
+      ! Tracer array for (model) internal use
+
+      CALL add_var( field_list, 'tend_tracer', field%tracer,                    &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                       &
+                  & t_cf_var('tracer_tendency', 's-1', 'tracer tendency'),      &
+                  & t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL),&
+                  & ldims = (/kproma,klev,kblks_c,ktracer/),                    &
+                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.          )
+
+      ! Referrence to individual tracer, for I/O
+
+      ALLOCATE(field%tracer_ptr(ktracer))
+      DO jtrc = 1,ktracer
+
+        CALL add_ref( field_list, 'tend_tracer',                                         &
+                    & 'tend_tracer_'//ctracer_list(jtrc:jtrc), field%tracer_ptr(jtrc)%p, &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                              &
+                    & t_cf_var('tend_tracer_'//ctracer_list(jtrc:jtrc), 's-1', ''),      &
+                    & t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL),       &
+                    & ldims=(/kproma,klev,kblks_c/))
+
+      END DO
+    ENDIF ! ktracer > 0
 
     !Initialize all fields with zero
     !Comment it so that it can be initialized with NAN 
@@ -675,7 +737,7 @@ CONTAINS
 !    field% temp     = 0.0_wp
 
 !    IF (ltheta_dyn)  field% theta  = 0.0_wp
-!    IF (ntracer > 0) field% tracer = 0.0_wp
+!    IF (ktracer > 0) field% tracer = 0.0_wp
 
   END SUBROUTINE make_hydro_tend_dyn_list
 
@@ -699,7 +761,7 @@ CONTAINS
     TYPE(t_grib2_var) :: grib2_desc
 
     INTEGER :: shape2d_c(2), shape3d_c(3), shape3d_e(3)
-    INTEGER :: shape4d_c(4), ibit
+    INTEGER :: ibit, jtrc
 
     ibit = 16 !size of var in bits
 
@@ -708,10 +770,9 @@ CONTAINS
                                   & lrestart=.TRUE.,           &
                                   & restart_type=FILETYPE_NC2  )
  
-    shape2d_c  = (/kproma,       kblks_c         /)
-    shape3d_c  = (/kproma, klev, kblks_c         /)
-    shape3d_e  = (/kproma, klev, kblks_e         /)
-    shape4d_c  = (/kproma, klev, kblks_c, ktracer/)
+    shape2d_c  = (/kproma,       kblks_c/)
+    shape3d_c  = (/kproma, klev, kblks_c/)
+    shape3d_e  = (/kproma, klev, kblks_e/)
 
     ! Register a field list and apply default settings
 
@@ -745,14 +806,34 @@ CONTAINS
                   & cf_desc, grib2_desc, ldims=shape3d_c )
     ENDIF
 
-    IF (ntracer > 0) THEN
-      cf_desc    = t_cf_var('phy_tracer_tendency', 's-1', &
-                   &       'physical tendency of tracer concentration')
-      grib2_desc = t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( field_list, 'phy_tend_tracer', field%tracer, &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,        &
-                  & cf_desc, grib2_desc, ldims=shape4d_c )
-    ENDIF
+    !----------
+    ! tracers
+    !----------
+    IF (ktracer > 0) THEN
+
+      ! Tracer array for (model) internal use
+
+      CALL add_var( field_list, 'phy_tend_tracer', field%tracer,                &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                       &
+                  & t_cf_var('tracer_tendency_phy', 's-1', 'tracer tendency'),  &
+                  & t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL),&
+                  & ldims = (/kproma,klev,kblks_c,ktracer/),                    &
+                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.          )
+
+      ! Referrence to individual tracer, for I/O
+
+      ALLOCATE(field%tracer_ptr(ktracer))
+      DO jtrc = 1,ktracer
+
+        CALL add_ref( field_list, 'phy_tend_tracer',                                         &
+                    & 'phy_tend_tracer_'//ctracer_list(jtrc:jtrc), field%tracer_ptr(jtrc)%p, &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                                  &
+                    & t_cf_var('phy_tend_tracer_'//ctracer_list(jtrc:jtrc), 's-1', ''),      &
+                    & t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL),           &
+                    & ldims=(/kproma,klev,kblks_c/))
+
+      END DO
+    ENDIF ! ktracer > 0
 
     !Initialize all fields with zero
     !Comment it so that it can be initialized with NAN 
@@ -761,7 +842,7 @@ CONTAINS
 !    field% temp     = 0.0_wp
 
 !    IF (ltheta_dyn)  field% theta  = 0.0_wp
-!    IF (ntracer > 0) field% tracer = 0.0_wp
+!    IF (ktracer > 0) field% tracer = 0.0_wp
 
   END SUBROUTINE make_hydro_tend_phy_list
 !------------------------------------------------------------------

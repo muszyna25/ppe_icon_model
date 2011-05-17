@@ -530,7 +530,8 @@ CONTAINS
                      & psteplen,                        &! in, time step (2*dt if leapfrog)
                      & field%coriol(:,jb),              &! in, Coriolis parameter
                      & zfrc(:,:),                       &! in, area fraction of each sfc type
-                     & field% tsfc_tile(:,:,jb),        &! in, surface temperature
+                    !& field% tsfc_tile(:,:,jb),        &! in, surface temperature
+                     & field% tsfc_tile(:,jb,:),        &! in, surface temperature
                      & field% ocu (:,jb),               &! in, ocean sfc velocity, u-component
                      & field% ocv (:,jb),               &! in, ocean sfc velocity, v-component
                      & field% presi_old(:,nlevp1,jb), &! in, sfc pressure
@@ -551,18 +552,22 @@ CONTAINS
                      & zxt_emis(:,:),                   &! in, zxtems
                      & field% thvvar(:,:,jb),           &! in, variance of theta_v at step t-dt
                      & field%   xvar(:,:,jb),           &! in
-                     & field% z0m_tile(:,:,jb),         &! in
+                    !& field% z0m_tile(:,:,jb),         &! in
+                     & field% z0m_tile(:,jb,:),         &! in
                      & field%  tkem1(:,:,jb),           &! in, TKE at step t-dt
                      & field%  ustar(:,  jb),           &! inout
-                     & field% qs_sfc_tile(:,:,jb),      &! out, sfc specific humidity at saturation
+                    !& field% qs_sfc_tile(:,:,jb),      &! out, sfc specific humidity at saturation
+                     & field% qs_sfc_tile(:,jb,:),      &! out, sfc specific humidity at saturation
                      & ihpbl(:),                        &! out, for "vdiff_up"
                      & field%    ghpbl(:,jb),           &! out, for output
                      & field%      ri (:,:,jb),         &! out, for output
                      & field%  mixlen (:,:,jb),         &! out, for output
                      & field% cfm     (:,:,jb),         &! out, for output
-                     & field% cfm_tile(:,:,jb),         &! out, for output and "vdiff_up"
+                    !& field% cfm_tile(:,:,jb),         &! out, for output and "vdiff_up"
+                     & field% cfm_tile(:,jb,:),         &! out, for output and "vdiff_up"
                      & field% cfh     (:,:,jb),         &! out, for output
-                     & field% cfh_tile(:,:,jb),         &! out, for output and "vdiff_up"
+                    !& field% cfh_tile(:,:,jb),         &! out, for output and "vdiff_up"
+                     & field% cfh_tile(:,jb,:),         &! out, for output and "vdiff_up"
                      & field% cfv     (:,:,jb),         &! out, for output
                      & field% cftke   (:,:,jb),         &! out, for output
                      & field% cfthv   (:,:,jb),         &! out, for output
@@ -611,9 +616,12 @@ CONTAINS
                    & zfrc(:,:),                       &! in, area fraction of each sfc type
                    & field% ocu (:,jb),               &! in, ocean sfc velocity, u-component
                    & field% ocv (:,jb),               &! in, ocean sfc velocity, v-component
-                   & field% cfm_tile(:,:,jb),         &! in
-                   & field% cfh_tile(:,:,jb),         &! in
-                   & field% qs_sfc_tile(:,:,jb),      &! in, sfc spec. humidity at saturation
+                  !& field% cfm_tile(:,:,jb),         &! in
+                  !& field% cfh_tile(:,:,jb),         &! in
+                   & field% cfm_tile(:,jb,:),         &! in
+                   & field% cfh_tile(:,jb,:),         &! in
+                  !& field% qs_sfc_tile(:,:,jb),      &! in, sfc spec. humidity at saturation
+                   & field% qs_sfc_tile(:,jb,:),      &! in, sfc spec. humidity at saturation
                    & zaa, zaa_btm, zprfac_sfc(:),     &! in, from "vdiff_down"
                    & zcpt_sfc_tile(:,:),              &! in, from "vdiff"down"
                    &   ihpbl(:),                      &! in, from "vdiff_down"
@@ -634,7 +642,8 @@ CONTAINS
                    & zbb, zbb_btm,                    &! inout
                    & zthvvar(:,:),                    &! inout
                    & field%   xvar(:,:,jb),           &! inout
-                   & field% z0m_tile(:,:,jb),         &! inout
+                  !& field% z0m_tile(:,:,jb),         &! inout
+                   & field% z0m_tile(:,jb,:),         &! inout
                    & field% kedisp(:,  jb),           &! inout, "vdis" in ECHAM
                    &  tend%    u(:,:,jb),             &! inout
                    &  tend%    v(:,:,jb),             &! inout

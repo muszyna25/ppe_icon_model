@@ -55,13 +55,14 @@ MODULE mo_echam_phy_memory
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
   USE mo_exception,           ONLY: message, finish
   USE mo_run_nml,             ONLY: nproma, ntracer
+  USE mo_advection_nml,       ONLY: ctracer_list
   USE mo_icoham_sfc_indices,  ONLY: nsfc_type
  !USE mo_echam_phy_nml,       ONLY: lvdiff
   USE mo_model_domain,        ONLY: t_patch
 
   USE mo_linked_list,  ONLY: t_var_list
   USE mo_var_list,     ONLY: default_var_list_settings, &
-                           & add_var,                   &
+                           & add_var, add_ref,          &
                            & new_var_list,              &
                            & delete_var_list
   USE mo_cf_convention
@@ -84,6 +85,17 @@ MODULE mo_echam_phy_memory
   !!--------------------------------------------------------------------------
   !!                               DATA TYPES
   !!--------------------------------------------------------------------------
+  !>
+  !! Derived data types for building pointer arrays
+  !!
+  TYPE t_ptr2d
+    REAL(wp),POINTER :: p(:,:)    ! pointer to 2D (spatial) array
+  END TYPE t_ptr2d
+
+  TYPE t_ptr3d
+    REAL(wp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
+  END TYPE t_ptr3d
+
   !>
   !! Derived data type: t_echam_phy_field
   !!
@@ -135,6 +147,8 @@ MODULE mo_echam_phy_memory
       & presm_old (:,:,:),  &!< [Pa]    pressure at full levels at time step "old"
       & presi_new (:,:,:),  &!< [Pa]    pressure at half levels at time step "new"
       & presm_new (:,:,:)    !< [Pa]    pressure at full levels at time step "new"
+
+    TYPE(t_ptr3d),ALLOCATABLE :: q_ptr(:)
 
 
     ! Radiation
@@ -220,6 +234,8 @@ MODULE mo_echam_phy_memory
       & cftke   (:,:,:),     &!< turbulent exchange coefficient
       & cfthv   (:,:,:)       !< turbulent exchange coefficient
 
+    TYPE(t_ptr2d),ALLOCATABLE :: cfm_tile_ptr(:)
+    TYPE(t_ptr2d),ALLOCATABLE :: cfh_tile_ptr(:)
 
     REAL(wp),POINTER ::     &
       & coriol(:,:),        &!< Coriolis parameter, needed for diagnosing PBL height.
@@ -230,6 +246,8 @@ MODULE mo_echam_phy_memory
       & kedisp(:,:),        &!< time-mean (or integrated?) vertically integrated dissipation of kinetic energy
       & ocu   (:,:),        &!< eastward  velocity of ocean surface current
       & ocv   (:,:)          !< northward velocity of ocean surface current
+
+    TYPE(t_ptr2d),ALLOCATABLE :: z0m_tile_ptr(:)
 
     ! need only for vdiff ----
 
@@ -247,6 +265,9 @@ MODULE mo_echam_phy_memory
       & tsfc_tile (:,:,:),  &!< surface temperature over land/water/ice (tsw/l/i in memory_g3b)
       & tsfc      (:,  :),  &!< surface temperature, grid box mean
       & qs_sfc_tile(:,:,:)   !< saturation specitifc humidity at surface 
+
+    TYPE(t_ptr2d),ALLOCATABLE ::   tsfc_tile_ptr(:)
+    TYPE(t_ptr2d),ALLOCATABLE :: qs_sfc_tile_ptr(:)
 
 !!$    ! Variables for debugging
 !!$    REAL(wp),POINTER :: &
@@ -327,6 +348,11 @@ MODULE mo_echam_phy_memory
       !
       & temp_radsw  (:,:,:)  , & !< Temp-tendency from radiation
       & temp_radlw  (:,:,:)      !< Temp-tendency from radiation
+
+    TYPE(t_ptr3d),ALLOCATABLE ::     q_ptr(:)
+    TYPE(t_ptr3d),ALLOCATABLE :: q_cld_ptr(:)
+    TYPE(t_ptr3d),ALLOCATABLE :: q_cnv_ptr(:)
+    TYPE(t_ptr3d),ALLOCATABLE :: q_vdf_ptr(:)
 
   END TYPE t_echam_phy_tend
 
@@ -444,13 +470,14 @@ CONTAINS
     TYPE(t_grib2_var) :: grib2_desc
 
     INTEGER :: ist, shape2d(2), shape3d(3), shape4d(4), shapesfc(3)
-    INTEGER :: ientr
+    INTEGER :: ientr, jsfc, jtrc
+
+    CHARACTER(LEN=1) :: csfc
 
     ientr = 16 ! "entropy" of horizontal slice
 
-    shape2d  = (/kproma,       kblks         /)
-    shape3d  = (/kproma, klev, kblks         /)
-    shape4d  = (/kproma, klev, kblks, ktracer/)
+    shape2d  = (/kproma,       kblks/)
+    shape3d  = (/kproma, klev, kblks/)
 
     ! Register a field list and apply default settings
 
@@ -494,10 +521,22 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
     ! &       field% q         (nproma,nlev  ,nblks,ntracer),  &
-    cf_desc    = t_cf_var('tracer', 'kg kg-1', 'tracer concentration')
-    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, 'q', field%q,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape4d )
+    CALL add_var( field_list, 'q', field%q,                                    &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                        &
+                & t_cf_var('q', 'kg kg-1', ''),                                &
+                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
+                & ldims = (/kproma,klev,kblks,ktracer/),                       &
+                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+
+    ALLOCATE(field%q_ptr(ktracer))                                                   
+    DO jtrc = 1,ktracer                                                                   
+      CALL add_ref( field_list, 'q',                                             &
+                  & 'q_'//ctracer_list(jtrc:jtrc), field%q_ptr(jtrc)%p,          &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                        &
+                  & t_cf_var('q_'//ctracer_list(jtrc:jtrc), 'kg kg-1', ''),      &
+                  & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
+                  & ldims=(/kproma,klev,kblks/))                                        
+    END DO                                                                                
 
     ! &       field% qx        (nproma,nlev  ,nblks),          &
     cf_desc    = t_cf_var('condensated_water', 'kg kg-1', 'cloud water + cloud ice')
@@ -813,7 +852,8 @@ CONTAINS
 
       shape2d  = (/kproma,            kblks/)
       shape3d  = (/kproma, klev,      kblks/)
-      shapesfc = (/kproma, ksfc_type, kblks/)
+     !shapesfc = (/kproma, ksfc_type, kblks/)
+      shapesfc = (/kproma, kblks, ksfc_type/)
 
      !ALLOCATE( field% ri     (nproma,nlev,nblks), &
       cf_desc    = t_cf_var('richardson_number', ' ', 'moist Richardson number')
@@ -846,6 +886,7 @@ CONTAINS
       CALL add_var( field_list, 'tkem1', field%tkem1,                   &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
+     !---------
      !ALLOCATE( field% cfm    (nproma,nlev,     nblks), &
       cf_desc    = t_cf_var('turb_exchng_coeff_momentum', '', '')
       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
@@ -853,11 +894,25 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
       ! &       field% cfm_tile(nproma,nsfc_type,nblks), &
-      cf_desc    = t_cf_var('turb_exchng_coeff_momentum', '', '')
-      grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( field_list, 'cfm_tile', field%cfm_tile,              &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shapesfc )
+      CALL add_var( field_list, 'cfm_tile', field%cfm_tile,                      &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
+                  & t_cf_var('turb_exchng_coeff_momentum', '', ''),              &
+                  & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
+                  & ldims=shapesfc,                                              &
+                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
 
+      ALLOCATE(field%cfm_tile_ptr(ksfc_type))
+      DO jsfc = 1,ksfc_type
+        WRITE(csfc,'(i1)') jsfc 
+        CALL add_ref( field_list, 'cfm_tile',                                      &
+                    & 'cfm_tile_'//csfc, field%cfm_tile_ptr(jsfc)%p,               &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
+                    & t_cf_var('turb_exchng_coeff_momentum_'//csfc, '', ''),       &
+                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
+                    & ldims=shape2d )
+      END DO
+
+      !---------
       ! &       field% cfh    (nproma,nlev,     nblks), &
       cf_desc    = t_cf_var('turb_exchng_coeff_heat', '', '')
       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
@@ -865,11 +920,25 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
       ! &       field% cfh_tile(nproma,nsfc_type,nblks), &
-      cf_desc    = t_cf_var('turb_exchng_coeff_heat', '', '')
-      grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( field_list, 'cfh_tile', field%cfh_tile,              &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shapesfc )
+      CALL add_var( field_list, 'cfh_tile', field%cfh_tile,                      &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
+                  & t_cf_var('turb_exchng_coeff_heat', '', ''),                  &
+                  & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
+                  & ldims=shapesfc,                                              &
+                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
 
+      ALLOCATE(field%cfh_tile_ptr(ksfc_type))
+      DO jsfc = 1,ksfc_type
+        WRITE(csfc,'(i1)') jsfc 
+        CALL add_ref( field_list, 'cfh_tile',                                      &
+                    & 'cfh_tile_'//csfc, field%cfh_tile_ptr(jsfc)%p,               &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
+                    & t_cf_var('turb_exchng_coeff_heat_'//csfc, '', ''),           &
+                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
+                    & ldims=shape2d )
+      END DO
+
+      !---------
       ! &       field% cfv    (nproma,nlev,     nblks), &
       cf_desc    = t_cf_var('turb_exchng_coeff_water_var', '', '')
       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
@@ -900,17 +969,32 @@ CONTAINS
       CALL add_var( field_list, 'ghpbl', field%ghpbl,                   &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
-      ! &       field% z0m_tile(nproma,nsfc_type,nblks), &
-      cf_desc    = t_cf_var('z0m_tile', '', 'aerodynamic roughness length')
-      grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( field_list, 'z0m_tile', field%z0m_tile,              &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shapesfc )
-
+      !-----------------------------------
       ! &       field% z0m(nproma,nblks), &
       cf_desc    = t_cf_var('z0m', '', 'aerodynamic roughness length, grid box mean')
       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( field_list, 'z0m', field%z0m,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+
+      ! &       field% z0m_tile(nproma,nsfc_type,nblks), &
+      CALL add_var( field_list, 'z0m_tile', field%z0m_tile,                      &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
+                  & t_cf_var('z0m_tile', '', 'aerodynamic roughness length'),    &
+                  & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
+                  & ldims=shapesfc,                                              &
+                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+
+      ALLOCATE(field%z0m_tile_ptr(ksfc_type))
+      DO jsfc = 1,ksfc_type
+        WRITE(csfc,'(i1)') jsfc 
+        CALL add_ref( field_list, 'z0m_tile',                                      &
+                    & 'z0m_tile_'//csfc, field%z0m_tile_ptr(jsfc)%p,               &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
+                    & t_cf_var('z0m_tile_'//csfc, '',''),                          &
+                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
+                    & ldims=shape2d )
+      END DO
+      !-----------------------------------
 
       ! &       field% ustar  (nproma,nblks),                &
       cf_desc    = t_cf_var('fricktion_velocity', 'm s-1', 'friction velocity')
@@ -944,14 +1028,19 @@ CONTAINS
    !ALLOCATE( field% lfland (nproma, nblks),                 &
     cf_desc    = t_cf_var('lfland', '', '')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, 'lfland', field%lfland,                 &
-              & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+    CALL add_var( field_list, 'lfland', field%lfland,                &
+              & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,               &
+              & cf_desc, grib2_desc, ldims=shape2d, lrestart=.FALSE. )
 
     ! &       field% lfglac (nproma, nblks),                 &
     cf_desc    = t_cf_var('lfglac', '', '')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, 'lfglac', field%lfglac,                 &
-              & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
+              & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                &
+              & cf_desc, grib2_desc, ldims=shape2d, lrestart=.FALSE. )
+
+  ! ALLOCATE( field% lfland (kproma, kblks), &
+  !         & field% lfglac (kproma, kblks)  ) 
 
     ! &       field% lsmask (nproma, nblks),                 &
     cf_desc    = t_cf_var('land_cover', '', 'land cover')
@@ -977,23 +1066,52 @@ CONTAINS
     CALL add_var( field_list, 'icefrc', field%icefrc,                 &
               & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
-    ! &       field% tsfc_tile(nproma, nsfc_type, nblks), &
-    cf_desc    = t_cf_var('surface_temperature', '', 'surface temperature')
-    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, 'tsfc_tile', field%tsfc_tile,            &
-              & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shapesfc )
-
+    !-----------------------------------
     ! &       field% tsfc(nproma,nblks), &
     cf_desc    = t_cf_var('surface_temperature', '', 'surface temperature')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, 'tsfc', field%tsfc,                     &
               & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
+    ! &       field% tsfc_tile(nproma,nsfc_type,nblks), &
+    CALL add_var( field_list, 'tsfc_tile', field%tsfc_tile,                    &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
+                & t_cf_var('tsfc_tile', '', 'skin temperature'),               &
+                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
+                & ldims=shapesfc,                                              &
+                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+
+    ALLOCATE(field%tsfc_tile_ptr(ksfc_type))
+    DO jsfc = 1,ksfc_type
+      WRITE(csfc,'(i1)') jsfc 
+      CALL add_ref( field_list, 'tsfc_tile',                                     &
+                  & 'tsfc_tile_'//csfc, field%tsfc_tile_ptr(jsfc)%p,             &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
+                  & t_cf_var('tsfc_tile_'//csfc, '', ''),                        &
+                  & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
+                  & ldims=shape2d )
+    END DO
+    !-----------------------------------
+
     ! &       field% qs_sfc_tile (nproma,nsfc_type, nblks), &
-    cf_desc    = t_cf_var('saturation_humidity', '', 'saturation humidity')
-    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( field_list, 'qs_sfc_tile', field%qs_sfc_tile,        &
-              & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shapesfc )
+    CALL add_var( field_list, 'qs_sfc_tile', field%qs_sfc_tile,                &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
+                & t_cf_var('qs_sfc_tile', '', ''),                             &
+                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
+                & ldims=shapesfc,                                              &
+                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+
+    ALLOCATE(field%qs_sfc_tile_ptr(ksfc_type))
+    DO jsfc = 1,ksfc_type
+      WRITE(csfc,'(i1)') jsfc 
+      CALL add_ref( field_list, 'qs_sfc_tile',                                   &
+                  & 'qs_sfc_tile_'//csfc, field%qs_sfc_tile_ptr(jsfc)%p,         &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
+                  & t_cf_var('qs_sfc_tile_'//csfc, '', ''),                      &
+                  & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
+                  & ldims=shape2d )
+    END DO
+    !-----------------------------------
 
 !!$    ! Variables for debugging
 !!$    ALLOCATE( field% debug_2d_1(nproma,         nblks), &
@@ -1036,14 +1154,13 @@ CONTAINS
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    INTEGER :: ist, shape3d(3), shape4d(4)
-    INTEGER :: ientr
+    INTEGER :: ist, shape3d(3)
+    INTEGER :: ientr, jtrc
     !------------------------------
 
     ientr = 16 ! "entropy" of horizontal slice
 
-    shape3d  = (/kproma, klev, kblks         /)
-    shape4d  = (/kproma, klev, kblks, ktracer/)
+    shape3d  = (/kproma, klev, kblks/)
 
     CALL new_var_list( tend_list, TRIM(listname) )
     CALL default_var_list_settings( tend_list,                 &
@@ -1132,37 +1249,84 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
     !------------------------------
-    ! Tracer tendencies
+    ! Detrainment
     !------------------------------
-    ! &       tend%    q      (nproma,nlev,nblks,ntracer),  &
-    cf_desc    = t_cf_var('tracer_tendency', 's-1', '')
-    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, 'tend_q', tend%q,                          &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape4d )
-
-    ! &       tend%    q_cld  (nproma,nlev,nblks,ntracer),  &
-    cf_desc    = t_cf_var('tracer_tendency_condensational', 's-1', '')
-    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, 'tend_q_cld', tend%q_cld,                  &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape4d )
-
-    ! &       tend%    q_cnv  (nproma,nlev,nblks,ntracer),  &
-    cf_desc    = t_cf_var('tracer_tendency_convective', 's-1', '')
-    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, 'tend_q_cnv', tend%q_cnv,                  &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape4d )
-
     ! &       tend%    x_dtr  (nproma,nlev,nblks),          &
     cf_desc    = t_cf_var('detrain_rate', 's-1', '')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( tend_list, 'tend_x_dtr', tend%x_dtr,                  &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
-    ! &       tend%    q_vdf  (nproma,nlev,nblks,ntracer),  &
-    cf_desc    = t_cf_var('tracer_tendency_turbulent', 's-1', '')
-    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( tend_list, 'tend_q_vdf', tend%q_vdf,                  &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape4d )
+    !-------------------
+    ! Tracer tendencies
+    !-------------------
+    ! Tracer arrays for (model) internal use                                               
+                                                                                            
+    CALL add_var( tend_list, 'tend_q', tend%q,                                 &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                        &
+                & t_cf_var('tend_q', 's-1', 'tracer tendency'),                &
+                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
+                & ldims = (/kproma,klev,kblks,ktracer/),                       &
+                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+
+    CALL add_var( tend_list, 'tend_q_cld', tend%q_cld,                            &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                           &
+                & t_cf_var('tend_q_cld', 's-1', 'tracer tendency condensational'),&           
+                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
+                & ldims = (/kproma,klev,kblks,ktracer/),                          &
+                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.              )
+
+    CALL add_var( tend_list, 'tend_q_cnv', tend%q_cnv,                         &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                        &
+                & t_cf_var('tend_q_cnv', 's-1', 'tracer tendency convective'), &           
+                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
+                & ldims = (/kproma,klev,kblks,ktracer/),                       &
+                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+
+    CALL add_var( tend_list, 'tend_q_vdf', tend%q_vdf,                         &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                        &
+                & t_cf_var('tend_q_vdf', 's-1', 'tracer tendency turbulent'),  &           
+                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
+                & ldims = (/kproma,klev,kblks,ktracer/),                       &
+                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+
+    ! Referrence to individual tracer, for I/O                                            
+                                                                                            
+    ALLOCATE(tend%     q_ptr(ktracer))
+    ALLOCATE(tend% q_cld_ptr(ktracer))
+    ALLOCATE(tend% q_cnv_ptr(ktracer))
+    ALLOCATE(tend% q_vdf_ptr(ktracer))
+
+    DO jtrc = 1,ktracer                                                                   
+                                                                                          
+      CALL add_ref( tend_list, 'tend_q',                                           &       
+                  & 'tend_q_'//ctracer_list(jtrc:jtrc), tend%q_ptr(jtrc)%p,        &       
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                          &       
+                  & t_cf_var('tend_q_'//ctracer_list(jtrc:jtrc), 's-1', ''),       &       
+                  & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),  &       
+                  & ldims=(/kproma,klev,kblks/))                                        
+                                                                                          
+      CALL add_ref( tend_list, 'tend_q_cld',                                        &       
+                  & 'tend_q_cld_'//ctracer_list(jtrc:jtrc), tend%q_cld_ptr(jtrc)%p, &       
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                           &       
+                  & t_cf_var('tend_q_cld_'//ctracer_list(jtrc:jtrc), 's-1', ''),    &       
+                  & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &       
+                  & ldims=(/kproma,klev,kblks/))                                        
+
+      CALL add_ref( tend_list, 'tend_q_cnv',                                        &       
+                  & 'tend_q_cnv_'//ctracer_list(jtrc:jtrc), tend%q_cnv_ptr(jtrc)%p, &       
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                           &       
+                  & t_cf_var('tend_q_cnv_'//ctracer_list(jtrc:jtrc), 's-1', ''),    &       
+                  & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &       
+                  & ldims=(/kproma,klev,kblks/))                                        
+
+      CALL add_ref( tend_list, 'tend_q_vdf',                                        &       
+                  & 'tend_q_vdf_'//ctracer_list(jtrc:jtrc), tend%q_vdf_ptr(jtrc)%p, &       
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                           &       
+                  & t_cf_var('tend_q_cnv_'//ctracer_list(jtrc:jtrc), 's-1', ''),    &       
+                  & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &       
+                  & ldims=(/kproma,klev,kblks/))                                        
+    END DO                                                                                
 
   END SUBROUTINE new_echam_phy_tend_list
   !-------------

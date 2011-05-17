@@ -291,14 +291,19 @@ CONTAINS
     CHARACTER(LEN=20) :: string
     CHARACTER(LEN=3 ) :: cmp
 
-    !--------------------------
-    CALL set_restart_time( iso8601(datetime) )  ! Time tag
-    CALL set_restart_vct( pvct )                ! Vertical coordinate (A's and B's)
+    !----------------
+    ! Initialization
 
-    ! Experiment name, model version, dimension sizes
-    CALL init_restart( TRIM(out_expname), '1.2.2',                     &
-                     & kcell, icelltype, kvert, 9-icelltype, kedge, 4, &
-                     & klev )
+    CALL set_restart_vct( pvct )  ! Vertical coordinate (A's and B's)
+
+    CALL init_restart( TRIM(out_expname), &! exp name
+                     & '1.2.2',           &! model version
+                     & kcell, icelltype,  &! total # of cells, # of vertices per cell
+                     & kvert, 9-icelltype,&! total # of vertices, # of vertices per dual cell
+                     & kedge, 4,          &! total # of cells, shape of control volume for edge 
+                     & klev              ) ! total # of vertical layers
+
+    CALL set_restart_time( iso8601(datetime) )  ! Time tag
 
     ! Open new file, write data, close and then clean-up.
 
@@ -307,7 +312,7 @@ CONTAINS
     ELSE ; cmp = "oce"
     END IF 
 
-    CALL open_restart_files(TRIM(string),cmp)
+    CALL open_restart_files( TRIM(string),cmp )
     CALL write_restart
     CALL close_restart_files
     CALL cleanup_restart
