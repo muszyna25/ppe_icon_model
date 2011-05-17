@@ -389,7 +389,9 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
     ! Register a field list and apply default settings
 
     CALL new_var_list( diag_list, TRIM(listname) )
-    CALL default_var_list_settings( diag_list )
+    CALL default_var_list_settings( diag_list,                 &
+                                  & lrestart=.TRUE.,           &
+                                  & restart_type=FILETYPE_NC2  )
 
     !------------------------------
     ! Meteorological quantities
@@ -1103,7 +1105,9 @@ SUBROUTINE new_nwp_phy_tend_list( klev, klevp1, kblks,   &
 
 
     CALL new_var_list( phy_tend_list, TRIM(listname) )
-    CALL default_var_list_settings( phy_tend_list )
+    CALL default_var_list_settings( phy_tend_list,             &
+                                  & lrestart=.TRUE.,           &
+                                  & restart_type=FILETYPE_NC2  )
 
     
     !------------------------------

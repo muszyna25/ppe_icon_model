@@ -48,7 +48,8 @@ MODULE mo_ext_data
   USE mo_kind
   USE mo_io_units,           ONLY: filename_max
   USE mo_run_nml,            ONLY: nproma, i_cell_type, itopo, locean, &
-    &                              iforcing, inwp, fac_smooth_topo, n_iter_smooth_topo
+    &                              iforcing, inwp, iequations,         &
+    &                              fac_smooth_topo, n_iter_smooth_topo
  !USE mo_lnd_nwp_nml,        ONLY: nsfc_subs
   USE mo_model_domain,       ONLY: t_patch
   USE mo_impl_constants,     ONLY: SUCCESS, max_char_length
@@ -495,11 +496,14 @@ CONTAINS
         &                              ext_data(jg)%atm_list, TRIM(listname))
 
 
-      !
-      ! Build external data list for time-dependent atmospheric fields
-      WRITE(listname,'(a,i2.2)') 'ext_data_atm_td_list_of_domain_',jg
-      CALL construct_ext_data_atm_td_list(p_patch(jg), ext_data(jg)%atm_td,       &
-        &                                 ext_data(jg)%atm_td_list, TRIM(listname))
+      IF (iforcing==inwp) THEN
+       
+        ! Build external data list for time-dependent atmospheric fields
+        WRITE(listname,'(a,i2.2)') 'ext_data_atm_td_list_of_domain_',jg
+        CALL construct_ext_data_atm_td_list(p_patch(jg), ext_data(jg)%atm_td,       &
+          &                                 ext_data(jg)%atm_td_list, TRIM(listname))
+
+      END IF
 
       !
       ! Build external data list for constant in time oceanic fields
@@ -577,7 +581,9 @@ CONTAINS
     ! Register a field list and apply default settings
     !
     CALL new_var_list( p_ext_atm_list, TRIM(listname) )
-    CALL default_var_list_settings( p_ext_atm_list )
+    CALL default_var_list_settings( p_ext_atm_list,            &
+                                  & lrestart=.TRUE.,           &
+                                  & restart_type=FILETYPE_NC2  )
 
 
 
@@ -588,8 +594,10 @@ CONTAINS
       &                   'geometric height of the earths surface above sea level')
     grib2_desc = t_grib2_var( 2, 0, 7, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'topography_c', p_ext_atm%topography_c,      &
-      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
+
+  IF (iequations==3) THEN
 
     ! smoothed topography height at cell center
     !
@@ -598,7 +606,7 @@ CONTAINS
       &                   'smoothed geometric height of the earths surface above sea level')
     grib2_desc = t_grib2_var( 2, 0, 7, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'topography_smt_c', p_ext_atm%topography_smt_c, &
-      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
     ! topography height at edge midpoint
@@ -608,7 +616,7 @@ CONTAINS
       &                   'geometric height of the earths surface above sea level')
     grib2_desc = t_grib2_var( 2, 0, 7, ientr, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_ext_atm_list, 'topography_e', p_ext_atm%topography_e, &
-      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
+      &           GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
 
 
     ! topography height at vertex
@@ -618,7 +626,7 @@ CONTAINS
       &                   'geometric height of the earths surface above sea level')
     grib2_desc = t_grib2_var( 2, 0, 7, ientr, GRID_REFERENCE, GRID_VERTEX)
     CALL add_var( p_ext_atm_list, 'topography_v', p_ext_atm%topography_v, &
-      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_v )
+      &           GRID_UNSTRUCTURED_VERT, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_v )
 
 
     ! smoothed topography height at vertex
@@ -628,7 +636,7 @@ CONTAINS
       &                   'smoothed geometric height of the earths surface above sea level')
     grib2_desc = t_grib2_var( 2, 0, 7, ientr, GRID_REFERENCE, GRID_VERTEX)
     CALL add_var( p_ext_atm_list, 'topography_smt_v', p_ext_atm%topography_smt_v, &
-      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_v )
+      &           GRID_UNSTRUCTURED_VERT, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_v )
 
 
     ! land sea mask for cells
@@ -638,7 +646,7 @@ CONTAINS
       &                   'land sea mask (cell)')
     grib2_desc = t_grib2_var( 2, 0, 0, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'lsm_atm_c', p_ext_atm%lsm_atm_c, &
-      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
     ! land sea mask for edges
@@ -648,7 +656,7 @@ CONTAINS
       &                   'land sea mask (edge)')
     grib2_desc = t_grib2_var( 2, 0, 0, ientr, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_ext_atm_list, 'lsm_atm_e', p_ext_atm%lsm_atm_e, &
-      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
+      &           GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
 
 
     ! land fraction
@@ -657,7 +665,7 @@ CONTAINS
     cf_desc    = t_cf_var('land_area_fraction', '-', 'Fraction land')
     grib2_desc = t_grib2_var( 2, 0, 0, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'fr_land', p_ext_atm%fr_land, &
-      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
     ! glacier fraction
@@ -666,7 +674,7 @@ CONTAINS
     cf_desc    = t_cf_var('glacier_area_fraction', '-', 'Fraction glacier')
     grib2_desc = t_grib2_var( 2, 0, 192, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'fr_glac', p_ext_atm%fr_glac, &
-      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
     ! maybe the next three (ice, fr_land_smt, fr_ice_smt)
@@ -678,7 +686,7 @@ CONTAINS
     cf_desc    = t_cf_var('Sea_ice_fraction', '-', 'Sea ice fraction')
     grib2_desc = t_grib2_var( 10, 2, 0, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'fr_ice', p_ext_atm%fr_ice, &
-      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
     ! land fraction (smoothed)
@@ -688,7 +696,7 @@ CONTAINS
       &                   'land area fraction (smoothed)')
     grib2_desc = t_grib2_var( 2, 0, 0, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'fr_land_smt', p_ext_atm%fr_land_smt, &
-      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
     ! glacier area fraction (smoothed)
@@ -698,7 +706,7 @@ CONTAINS
       &                   'glacier area fraction (smoothed)')
     grib2_desc = t_grib2_var( 2, 0, 192, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'fr_glac_smt', p_ext_atm%fr_glac_smt, &
-      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
     ! sea Ice fraction (smoothed)
@@ -708,7 +716,7 @@ CONTAINS
       &                   'Sea ice fraction (smoothed)')
     grib2_desc = t_grib2_var( 10, 2, 0, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'fr_ice_smt', p_ext_atm%fr_ice_smt, &
-      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
     ! geopotential (s)
@@ -718,7 +726,7 @@ CONTAINS
       &                   'Geopotential (s)')
     grib2_desc = t_grib2_var( 0, 3, 4, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'fis', p_ext_atm%fis, &
-      &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
 
@@ -735,7 +743,7 @@ CONTAINS
       cf_desc    = t_cf_var('roughtness_length', 'm', 'roughtness length')
       grib2_desc = t_grib2_var( 2, 0, 1, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'z0', p_ext_atm%z0, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
       ! fraction lake
       !
@@ -743,7 +751,7 @@ CONTAINS
       cf_desc    = t_cf_var('fraction_lake', '-', 'fraction lake')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'fr_lake', p_ext_atm%fr_lake, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
       ! lake depth
@@ -752,7 +760,7 @@ CONTAINS
       cf_desc    = t_cf_var('lake_depth', '-', 'lake depth')
       grib2_desc = t_grib2_var( 192, 228, 7, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'depth_lk', p_ext_atm%depth_lk, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
       !--------------------------------
@@ -766,7 +774,7 @@ CONTAINS
         &                   'Standard deviation of sub-grid scale orography')
       grib2_desc = t_grib2_var( 0, 3, 20, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'sso_stdh', p_ext_atm%sso_stdh, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
       ! Anisotropy of sub-gridscale orography
@@ -776,7 +784,7 @@ CONTAINS
         &                   'Anisotropy of sub-gridscale orography')
       grib2_desc = t_grib2_var( 0, 3, 20, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'sso_gamma', p_ext_atm%sso_gamma, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
       ! Angle of sub-gridscale orography
@@ -786,7 +794,7 @@ CONTAINS
         &                   'Angle of sub-gridscale orography')
       grib2_desc = t_grib2_var( 0, 3, 21, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'sso_theta', p_ext_atm%sso_theta, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
       ! Slope of sub-gridscale orography
@@ -796,7 +804,7 @@ CONTAINS
         &                   'Slope of sub-gridscale orography')
       grib2_desc = t_grib2_var( 0, 3, 22, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'sso_sigma', p_ext_atm%sso_sigma, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
 
@@ -812,7 +820,7 @@ CONTAINS
         &                   'Plant covering degree in the vegetation phase')
       grib2_desc = t_grib2_var( 2, 0, 4, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'plcov_mx', p_ext_atm%plcov_mx, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
       ! Max Leaf area index
@@ -822,7 +830,7 @@ CONTAINS
         &                   'Leaf Area Index Maximum')
       grib2_desc = t_grib2_var( 2, 0, 28, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'lai_mx', p_ext_atm%lai_mx, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
       ! root depth of vegetation
@@ -832,7 +840,7 @@ CONTAINS
         &                   'root depth of vegetation')
       grib2_desc = t_grib2_var( 2, 0, 32, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'rootdp', p_ext_atm%rootdp, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
       ! evergreen forest
@@ -842,7 +850,7 @@ CONTAINS
         &                   'Fraction of evergreen forest')
       grib2_desc = t_grib2_var( 2, 0, 29, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'for_e', p_ext_atm%for_e, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
       ! deciduous forest
@@ -852,7 +860,7 @@ CONTAINS
         &                   'Fraction of deciduous forest')
       grib2_desc = t_grib2_var( 2, 0, 30, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'for_d', p_ext_atm%for_d, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
       ! urban area fraction
@@ -862,7 +870,7 @@ CONTAINS
         &                   'urban area fraction')
       grib2_desc = t_grib2_var( 2, 0, 30, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'urban', p_ext_atm%urban, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
       ! Minimal stomata resistence
@@ -871,7 +879,7 @@ CONTAINS
       cf_desc    = t_cf_var('RSMIN', 's m-1', 'Minimal stomata resistence')
       grib2_desc = t_grib2_var( 2, 0, 16, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'rsmin', p_ext_atm%rsmin, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
       ! NDVI yearly maximum
@@ -881,7 +889,7 @@ CONTAINS
         &                   'NDVI yearly maximum')
       grib2_desc = t_grib2_var( 2, 0, 31, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'ndvi_max', p_ext_atm%ndvi_max, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
 
@@ -895,7 +903,7 @@ CONTAINS
       cf_desc    = t_cf_var('soil_type', '-','soil type')
       grib2_desc = t_grib2_var( 2, 3, 0, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'soiltyp', p_ext_atm%soiltyp, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
 !DR      ! soil texture, keys 0-9
@@ -904,7 +912,7 @@ CONTAINS
 !DR      cf_desc    = t_cf_var('soil_texture', '-','soil texture')
 !DR      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
 !DR      CALL add_var( p_ext_atm_list, 'soiltyp_frac', p_ext_atm%soiltyp_frac, &
-!DR        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+!DR        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
 
 
       ! Climat. temperature
@@ -914,7 +922,7 @@ CONTAINS
         &                   'CRU near surface temperature climatology')
       grib2_desc = t_grib2_var( 2, 3, 18, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 't_cl', p_ext_atm%t_cl, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
       ! longwave surface emissivity
@@ -923,10 +931,11 @@ CONTAINS
       cf_desc    = t_cf_var('emis_rad', '-', 'longwave surface emissivity')
       grib2_desc = t_grib2_var( 2, 3, 196, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'emis_rad', p_ext_atm%emis_rad, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
-    ENDIF ! iforcing
+    ENDIF ! iforcing = nwp
+  ENDIF ! iequations = 3
 
 
 ! #Hermann#
@@ -989,7 +998,9 @@ CONTAINS
     ! Register a field list and apply default settings
     !
     CALL new_var_list( p_ext_atm_td_list, TRIM(listname) )
-    CALL default_var_list_settings( p_ext_atm_td_list )
+    CALL default_var_list_settings( p_ext_atm_td_list,         &
+                                  & lrestart=.TRUE.,           &
+                                  & restart_type=FILETYPE_NC2  )
 
 
       !--------------------------------
@@ -1004,7 +1015,7 @@ CONTAINS
         &                   'black_carbon_ambient_aerosol')
       grib2_desc = t_grib2_var( 0, 13, 195, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_td_list, 'aer_bc', p_ext_atm_td%aer_bc, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
 
 
       ! Dust aerosol
@@ -1015,7 +1026,7 @@ CONTAINS
         &                   'to dust ambient aerosol')
       grib2_desc = t_grib2_var( 0, 13, 193, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_td_list, 'aer_dust', p_ext_atm_td%aer_dust, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
 
 
       ! Organic aerosol
@@ -1026,7 +1037,7 @@ CONTAINS
         &                   'to particulate organic matter ambient aerosol')
       grib2_desc = t_grib2_var( 0, 13, 194, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_td_list, 'aer_org', p_ext_atm_td%aer_org, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
 
 
       ! Sulfate aerosol
@@ -1037,7 +1048,7 @@ CONTAINS
         &                   'to sulfate_ambient_aerosol')
       grib2_desc = t_grib2_var( 0, 13, 192, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_td_list, 'aer_so4', p_ext_atm_td%aer_so4, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
 
 
       ! Seasalt aerosol
@@ -1048,7 +1059,7 @@ CONTAINS
         &                   'to seasalt_ambient_aerosol')
       grib2_desc = t_grib2_var( 0, 13, 196, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_td_list, 'aer_ss', p_ext_atm_td%aer_ss, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
 
 
       !--------------------------------
@@ -1062,7 +1073,7 @@ CONTAINS
         &                   'monthly mean NDVI')
       grib2_desc = t_grib2_var( 2, 0, 217, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_td_list, 'ndvi', p_ext_atm_td%ndvi, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
 
 
       ! (monthly) proportion of actual value/maximum NDVI
@@ -1073,7 +1084,7 @@ CONTAINS
         &                   'normalized differential vegetation index')
       grib2_desc = t_grib2_var( 2, 0, 192, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_td_list, 'ndvi_mrat', p_ext_atm_td%ndvi_mrat, &
-        &           GRID_UNSTRUCTURED, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
 
 
   END SUBROUTINE construct_ext_data_atm_td_list

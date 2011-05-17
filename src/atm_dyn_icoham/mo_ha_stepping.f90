@@ -49,9 +49,11 @@ MODULE mo_ha_stepping
   USE mo_ext_data,            ONLY: ext_data
   USE mo_model_domain_import, ONLY: n_dom
   USE mo_dynamics_nml,        ONLY: ltwotime, itime_scheme, nold, nnow
-  USE mo_io_nml,              ONLY: l_outputtime, lprepare_output, l_diagtime
+  USE mo_io_nml,              ONLY: l_outputtime, lprepare_output, l_diagtime,  &
+                                  & l_restarttime
   USE mo_run_nml,             ONLY: lshallow_water, nsteps, dtime,ltheta_dyn,   &
-                                    ldynamics, ltransport, msg_level, ltimer
+                                  & ldynamics, ltransport, msg_level, ltimer,   &
+                                  & iequations, i_cell_type
   USE mo_hydro_testcases,     ONLY: init_testcase
   USE mo_si_correction,       ONLY: init_si_params
   USE mo_ha_rungekutta,       ONLY: init_RungeKutta
@@ -59,13 +61,16 @@ MODULE mo_ha_stepping
   USE mo_ha_prog_util,        ONLY: copy_prog_state
   USE mo_ha_diag_util,        ONLY: update_diag_state, update_dyn_output
   USE mo_expensive_functions, ONLY: convert_t2theta
-  USE mo_output,              ONLY: init_output_files, write_output
+  USE mo_output,              ONLY: init_output_files, write_output, &
+                                  & create_restart_file
   USE mo_hierarchy_management,ONLY: process_grid, interpolate_diagnostics
   USE mo_grf_interpolation,   ONLY: t_gridref_state
   USE mo_impl_constants,      ONLY: LEAPFROG_EXPL, LEAPFROG_SI, &
                                     RK4, SSPRK54
   USE mo_timer,               ONLY: timer_total, timer_start, timer_stop
   USE mo_sync,                ONLY: global_max
+  USE mo_vertical_coord_table,ONLY: vct
+  USE mo_grid_nml,            ONLY: nroot
 
   IMPLICIT NONE
 
@@ -201,13 +206,14 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Almut Gassmann (2009-03-04)
   !!
-  SUBROUTINE perform_ha_stepping (p_patch, p_int_state, p_grf_state,      &
-    &                             p_hydro_state, datetime, n_io, n_file, n_diag)
+  SUBROUTINE perform_ha_stepping( p_patch, p_int_state, p_grf_state,      &
+                                & p_hydro_state, datetime,                &
+                                & n_io, n_file, n_restart, n_diag)
 !
   TYPE(t_patch), TARGET, INTENT(IN)         :: p_patch(n_dom)
   TYPE(t_int_state), TARGET, INTENT(IN)     :: p_int_state(n_dom)
   TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom)
-  INTEGER, INTENT(IN)                     :: n_io, n_file, n_diag
+  INTEGER, INTENT(IN) :: n_io, n_file, n_restart, n_diag
 
   TYPE(t_datetime), INTENT(INOUT)         :: datetime
   TYPE(t_hydro_atm), TARGET, INTENT(INOUT):: p_hydro_state(n_dom)
@@ -276,6 +282,12 @@ CONTAINS
       lprepare_output(:) = .FALSE.
     ENDIF
 
+    IF ( (jstep/=1 .AND. MOD(jstep-1,n_restart)==0) .OR. jstep==nsteps ) THEN
+      l_restarttime = .TRUE.
+    ELSE
+      l_restarttime = .FALSE.
+    ENDIF
+
     IF ( MOD(jstep-1,n_diag)==0 .OR. jstep==nsteps ) THEN
       l_diagtime = .TRUE. ! Diagnostic output is done at the end of the
     ELSE                  ! time step
@@ -321,6 +333,24 @@ CONTAINS
 
     ENDIF !l_outputtime
 
+    !--------------------------------------------------------------------------
+    ! Write restart file
+    !--------------------------------------------------------------------------
+    IF (l_restarttime) THEN
+      DO jg = 1, n_dom
+        CALL create_restart_file( iequations, datetime,         &
+                                & p_patch(jg)%nlev, vct,        &
+                                & jg, nroot, p_patch(jg)%level, &
+                                & p_patch(jg)%n_patch_cells_g,  &
+                                & p_patch(jg)%n_patch_verts_g,  &
+                                & p_patch(jg)%n_patch_edges_g,  &
+                                & i_cell_type                   )
+      END DO
+    END IF
+
+    !--------------------------------------------------------------------------
+    ! Diagnose global integrals
+    !--------------------------------------------------------------------------
     IF (l_diagtime) &
     CALL supervise_total_integrals( jstep, p_patch, p_hydro_state, nnow )
 
@@ -332,9 +362,10 @@ CONTAINS
 
     ENDIF
 
+    !--------------------------------------------------------------------------
     ! One integration cycle finished on the lowest grid level (coarsest
     ! resolution). Set model time.
-
+    !--------------------------------------------------------------------------
     CALL add_time(dtime,0,0,0,datetime)
 
   ENDDO TIME_LOOP

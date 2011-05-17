@@ -247,7 +247,9 @@ CONTAINS
     ibit = 16 !size of var in bits
 
     CALL new_var_list( field_list, TRIM(listname) )
-    CALL default_var_list_settings( field_list )
+    CALL default_var_list_settings( field_list,                &
+                                  & lrestart=.TRUE.,           &
+                                  & restart_type=FILETYPE_NC2  )
  
     shape2d_c  = (/kproma,       kblks_c         /)
     shape3d_c  = (/kproma, klev, kblks_c         /)
@@ -333,7 +335,9 @@ CONTAINS
     ibit = 16 !size of var in bits
 
     CALL new_var_list( field_list, TRIM(listname) )
-    CALL default_var_list_settings( field_list )
+    CALL default_var_list_settings( field_list,                & 
+                                  & lrestart=.TRUE.,           &
+                                  & restart_type=FILETYPE_NC2  )
 
     !Variables at full level
 
@@ -618,7 +622,9 @@ CONTAINS
     ibit = 16 !size of var in bits
 
     CALL new_var_list( field_list, TRIM(listname) )
-    CALL default_var_list_settings( field_list )
+    CALL default_var_list_settings( field_list,                &
+                                  & lrestart=.TRUE.,           &
+                                  & restart_type=FILETYPE_NC2  )
  
     shape2d_c  = (/kproma,       kblks_c         /)
     shape3d_c  = (/kproma, klev, kblks_c         /)
@@ -698,7 +704,9 @@ CONTAINS
     ibit = 16 !size of var in bits
 
     CALL new_var_list( field_list, TRIM(listname) )
-    CALL default_var_list_settings( field_list )
+    CALL default_var_list_settings( field_list,                &
+                                  & lrestart=.TRUE.,           &
+                                  & restart_type=FILETYPE_NC2  )
  
     shape2d_c  = (/kproma,       kblks_c         /)
     shape3d_c  = (/kproma, klev, kblks_c         /)

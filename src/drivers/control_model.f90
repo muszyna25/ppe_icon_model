@@ -123,6 +123,7 @@ PROGRAM control_model
      &                              dt_data,              & !    :
      &                              dt_file,              & !    :
      &                              dt_diag,              & !    :
+     &                              dt_restart,           & !
      &                              lprepare_output         ! internal parameter
   USE mo_run_nml,             ONLY: run_nml_setup,            & ! process run control parameters
      &                              ini_datetime,         & !    namelist parameter
@@ -257,7 +258,7 @@ PROGRAM control_model
   TYPE(t_ho_physics)                              :: p_physics_oce
   TYPE(t_datetime)                                :: datetime
 
-  INTEGER                                 :: n_io, jg, jfile, n_file, ist, n_diag
+  INTEGER :: n_io, jg, jfile, n_file, ist, n_diag, n_restart
 
 !  INTEGER, PARAMETER                      :: izdebug = 1
 
@@ -769,26 +770,28 @@ PROGRAM control_model
     !
   END SELECT
 
+  !---------------------------------------------------------
+  ! The most primitive event handling algorithm: 
+  ! compute time step interval for taking a certain action
+  !---------------------------------------------------------
+
+  n_io      = NINT(dt_data/dtime)        ! write output 
+  n_file    = NINT(dt_file/dtime)        ! trigger new output file
+  n_restart = NINT(dt_restart/dtime)     ! write restart files
+  n_diag    = MAX(1,NINT(dt_diag/dtime)) ! diagnose of total integrals
+
   !------------------------------------------------------------------
   ! Now start the time stepping:
   ! The special initial time step for the three time level schemes
   ! is executed within process_grid_level
   !------------------------------------------------------------------
 
-  ! number of timesteps per output interval
-  n_io   = NINT(dt_data/dtime)
-
-  ! number of timesteps per output file
-  n_file = NINT(dt_file/dtime)
-
-  ! number of timesteps per diagnosis of total integrals
-  n_diag = MAX(1,NINT(dt_diag/dtime))
-
   SELECT CASE (iequations)
     !
   CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
     CALL perform_ha_stepping(p_patch(1:), p_int_state(1:), p_grf_state(1:), &
-         &                   p_hydro_state, datetime, n_io, n_file, n_diag)
+         &                   p_hydro_state, datetime,                       &
+         &                   n_io, n_file, n_restart, n_diag  )
     !
   CASE (inh_atmosphere)
     CALL perform_nh_stepping(p_patch, p_int_state, p_grf_state, p_nh_state, &

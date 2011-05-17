@@ -455,7 +455,9 @@ CONTAINS
     ! Register a field list and apply default settings
 
     CALL new_var_list( field_list, TRIM(listname) )
-    CALL default_var_list_settings( field_list )
+    CALL default_var_list_settings( field_list,                &
+                                  & lrestart=.TRUE.,           &
+                                  & restart_type=FILETYPE_NC2  )
 
     !------------------------------
     ! Meteorological quantities
@@ -1044,7 +1046,9 @@ CONTAINS
     shape4d  = (/kproma, klev, kblks, ktracer/)
 
     CALL new_var_list( tend_list, TRIM(listname) )
-    CALL default_var_list_settings( tend_list )
+    CALL default_var_list_settings( tend_list,                 &
+                                  & lrestart=.TRUE.,           &
+                                  & restart_type=FILETYPE_NC2  )
 
     !------------------------------
     ! Temperature tendencies

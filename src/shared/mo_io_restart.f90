@@ -842,10 +842,10 @@ CONTAINS
     fileID  = this_list%p%cdiFileID
     varID   = info%cdiVarID
     !
-    write (0,*) varID, TRIM(info%name), ubound(array)
-    DO k = 1, SIZE(array,2)
-      write (0,'(i5,2e12.4)') k, array(1,k,1,1,1), array(SIZE(array,1),k,1,1,1)
-    ENDDO
+   !write (0,*) varID, TRIM(info%name), ubound(array)
+   !DO k = 1, SIZE(array,2)
+   !  write (0,'(i5,2e12.4)') k, array(1,k,1,1,1), array(SIZE(array,1),k,1,1,1)
+   !ENDDO
     !
     CALL streamWriteVar(fileID, varID, array, 0)
     !

@@ -37,7 +37,7 @@
 !!
 MODULE mo_output
 
-  USE mo_exception,           ONLY: message, finish
+  USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: max_dom
   USE mo_kind,                ONLY: wp
   USE mo_mpi,                 ONLY: p_pe, p_io
@@ -51,7 +51,7 @@ MODULE mo_output
      &                              ihs_atm_theta,        &
      &                              inh_atmosphere,       &
      &                              ishallow_water,ihs_ocean
-  USE mo_atmo_control,        ONLY: p_patch, p_nh_state
+  USE mo_atmo_control,        ONLY: p_patch
   USE mo_io_vlist,            ONLY: setup_vlist, destruct_vlist,           &
      &                              open_output_vlist, close_output_vlist, &
      &                              write_vlist
@@ -59,7 +59,10 @@ MODULE mo_output
   USE mo_io_async,            ONLY: setup_io_procs, shutdown_io_procs, &
     &                               output_async, set_output_file
   USE mo_datetime,            ONLY: t_datetime
-  USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
+  USE mo_io_restart,          ONLY: set_restart_time, set_restart_vct, &
+                                  & init_restart, open_restart_files,  &
+                                  & write_restart, close_restart_files,&
+                                  & cleanup_restart
 
 
   IMPLICIT NONE
@@ -75,6 +78,7 @@ MODULE mo_output
   ! Public routines:
 
   PUBLIC :: init_output_files, close_output_files, write_output
+  PUBLIC :: create_restart_file
 
 
 CONTAINS
@@ -270,5 +274,53 @@ CONTAINS
     ENDIF
   
   END SUBROUTINE write_output
+
+  !-------------
+  !>
+  !! 
+  SUBROUTINE create_restart_file( ieqn, datetime, klev, pvct, jg,        &
+                                & kr, kb, kcell, kvert, kedge, icelltype )
+
+    INTEGER, INTENT(IN) :: ieqn    ! atm? oce? lnd?
+    TYPE(t_datetime),INTENT(IN) :: datetime
+    INTEGER, INTENT(IN) :: klev
+    REAL(wp),INTENT(IN) :: pvct(:) 
+    INTEGER, INTENT(IN) :: jg, kr, kb  ! D?R?B?
+    INTEGER, INTENT(IN) :: kcell, kvert, kedge, icelltype
+   
+    CHARACTER(LEN=20) :: string
+    CHARACTER(LEN=3 ) :: cmp
+
+    !--------------------------
+    ! Time info
+
+    WRITE(string,'(i4.4,2i2.2,a,3i2.2,a)')                             &
+         & datetime%year, datetime%month,  datetime%day,          'T', & 
+         & datetime%hour, datetime%minute, NINT(datetime%second), 'Z'
+    CALL set_restart_time(string)
+
+    ! Vertical coordinate (A's and B's)
+    CALL set_restart_vct(pvct)
+
+    ! Experiment name, model version, dimension sizes
+    CALL init_restart( TRIM(out_expname), '1.2.2',                     &
+                     & kcell, icelltype, kvert, 9-icelltype, kedge, 4, &
+                     & klev )
+
+    ! Open new file, write data, close and then clean-up.
+
+    WRITE(string,'(2(a,i1),a,i2.2)') 'restart.icon_D',jg,'R',kr,'B',kb
+    IF (ieqn.GT.0) THEN
+      cmp = "atm"
+    ELSE
+      cmp = "oce"
+    END IF 
+
+    CALL open_restart_files(TRIM(string),cmp)
+    CALL write_restart
+    CALL close_restart_files
+    CALL cleanup_restart
+    
+  END SUBROUTINE create_restart_file
 
 END MODULE mo_output

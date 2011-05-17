@@ -358,7 +358,9 @@ SUBROUTINE new_nwp_lnd_prog_list( kblks,   &
     ! Register a field list and apply default settings
 
     CALL new_var_list( prog_list, TRIM(listname) )
-    CALL default_var_list_settings( prog_list )
+    CALL default_var_list_settings( prog_list,                 &
+                                  & lrestart=.TRUE.,           &
+                                  & restart_type=FILETYPE_NC2  )
 
     !------------------------------
     ! Meteorological quantities
@@ -486,7 +488,9 @@ SUBROUTINE new_nwp_lnd_diag_list( kblks, listname, diag_list, p_diag_lnd)
     ! Register a field list and apply default settings
 
     CALL new_var_list( diag_list, TRIM(listname) )
-    CALL default_var_list_settings( diag_list )
+    CALL default_var_list_settings( diag_list,                 &
+                                  & lrestart=.TRUE.,           &
+                                  & restart_type=FILETYPE_NC2  )
 
     !------------------------------
     ! Meteorological quantities

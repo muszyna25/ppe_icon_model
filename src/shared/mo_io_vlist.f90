@@ -2430,8 +2430,8 @@ CONTAINS
     p_diag => p_nh_state(jg)%diag
 
     IF (iforcing==inwp) THEN
-      p_prm_diag     => prm_diag(jg)
-      p_prm_nwp_tend => prm_nwp_tend(jg)
+     !p_prm_diag     => prm_diag(jg)
+     !p_prm_nwp_tend => prm_nwp_tend(jg)
       p_prog_lnd     => p_lnd_state(jg)%prog_lnd(nnow(jg))
       p_diag_lnd     => p_lnd_state(jg)%diag_lnd
     ENDIF
