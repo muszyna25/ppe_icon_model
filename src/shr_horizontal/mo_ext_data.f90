@@ -1117,8 +1117,10 @@ CONTAINS
       ! Delete list of constant in time atmospheric elements
       CALL delete_var_list( ext_data(jg)%atm_list )
 
+      IF (iforcing==inwp) THEN
       ! Delete list of time-dependent atmospheric elements
       CALL delete_var_list( ext_data(jg)%atm_td_list )
+      END IF
 
       ! Delete list of constant in time oceanic elements
       ! ### to be added if necessary ###
