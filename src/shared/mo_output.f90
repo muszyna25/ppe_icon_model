@@ -58,7 +58,7 @@ MODULE mo_output
   USE mo_io_vlist,            ONLY: setup_vlist_oce
   USE mo_io_async,            ONLY: setup_io_procs, shutdown_io_procs, &
     &                               output_async, set_output_file
-  USE mo_datetime,            ONLY: t_datetime
+  USE mo_datetime,            ONLY: t_datetime,iso8601
   USE mo_io_restart,          ONLY: set_restart_time, set_restart_vct, &
                                   & init_restart, open_restart_files,  &
                                   & write_restart, close_restart_files,&
@@ -292,15 +292,8 @@ CONTAINS
     CHARACTER(LEN=3 ) :: cmp
 
     !--------------------------
-    ! Time info
-
-    WRITE(string,'(i4.4,2i2.2,a,3i2.2,a)')                             &
-         & datetime%year, datetime%month,  datetime%day,          'T', & 
-         & datetime%hour, datetime%minute, NINT(datetime%second), 'Z'
-    CALL set_restart_time(string)
-
-    ! Vertical coordinate (A's and B's)
-    CALL set_restart_vct(pvct)
+    CALL set_restart_time( iso8601(datetime) )  ! Time tag
+    CALL set_restart_vct( pvct )                ! Vertical coordinate (A's and B's)
 
     ! Experiment name, model version, dimension sizes
     CALL init_restart( TRIM(out_expname), '1.2.2',                     &
@@ -310,10 +303,8 @@ CONTAINS
     ! Open new file, write data, close and then clean-up.
 
     WRITE(string,'(2(a,i1),a,i2.2)') 'restart.icon_D',jg,'R',kr,'B',kb
-    IF (ieqn.GT.0) THEN
-      cmp = "atm"
-    ELSE
-      cmp = "oce"
+    IF (ieqn.GT.0) THEN ; cmp = "atm"
+    ELSE ; cmp = "oce"
     END IF 
 
     CALL open_restart_files(TRIM(string),cmp)

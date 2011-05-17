@@ -106,7 +106,8 @@ MODULE mo_datetime
     &   print_datetime_all  ,& ! print a datetime variable, including: 
     &   print_calendar      ,& ! print calendar info
     &   print_datetime      ,& ! print date and time
-    &   print_auxinfos         ! print auxiliary date and time info
+    &   print_auxinfos      ,& ! print auxiliary date and time info
+    &   iso8601                ! convert (yr,mo,dy,hr,mn,s) to a string of iso8601 format
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -980,5 +981,21 @@ CONTAINS
     CALL message('mo_datetime/print_auxinfos ', message_text)
 
   END SUBROUTINE print_auxinfos
+  !---
+  !>
+  !! 
+  !! Input: year, month, day, hour, minute, second
+  !! Output: string in the format of "yyyymmddThhmmssZ"
+  !!
+  FUNCTION iso8601( datetime )
+
+    TYPE(t_datetime),INTENT(IN) :: datetime
+    CHARACTER(len=16) :: iso8601 
+
+    WRITE(iso8601,'(i4.4,2i2.2,a,3i2.2,a)')                            &
+         & datetime%year, datetime%month,  datetime%day,          'T', &
+         & datetime%hour, datetime%minute, NINT(datetime%second), 'Z'
+
+  END FUNCTION iso8601
 
 END MODULE mo_datetime
