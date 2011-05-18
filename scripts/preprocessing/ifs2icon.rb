@@ -45,7 +45,7 @@ module Cdo
     cmd       = @@CDO + ' 2>&1'
     help      = IO.popen(cmd).readlines.map {|l| l.chomp.lstrip}
     if 5 >= help.size
-      warn "Operators could not get listed by running the CDO binary (#{$opts[:bin]})"
+      warn "Operators could not get listed by running the CDO binary (#{@@CDO})"
       exit
     else
       help[help.index("Operators:")+1].split
@@ -74,6 +74,23 @@ module Cdo
     call(cmd)
     return ofile
   end
+
+  # Call an operator chain without checking opeartors
+  def Cdo.chainCall(chain,*args)
+    io = args.find {|a| a.class == Hash}
+    args.delete_if {|a| a.class == Hash}
+
+    chain   = chain.strip
+    firstOp = chain[0...[chain.index(','),chain.index(' ')].min]
+    firstOp = firstOp[1..-1] if firstOp[0] == '-'
+    if /(info|show|griddes)/.match(firstOp)
+      Cdo.run(" #{chain} #{io[:in]} ",$stdout)
+    else
+      opts = args.empty? ? '' : ',' + args.reject {|a| a.class == Hash}.join(',')
+      Cdo.run(" #{chain}#{opts} #{io[:in]} ",io[:out],io[:options])
+    end
+  end
+
   def Cdo.method_missing(sym, *args, &block)
     # args is expected to look like [opt1,...,optN,:in => iStream,:out => oStream] where
     # iStream could be another CDO call (timmax(selname(Temp,U,V,ifile.nc))
@@ -89,18 +106,6 @@ module Cdo
       end
     else
       warn "Operator #{sym.to_s} not found"
-    end
-  end
-
-  # Call an operator chain without checking opeartors
-  def Cdo.chainCall(chain,*args)
-    io = args.find {|a| a.class == Hash}
-    args.delete_if {|a| a.class == Hash}
-    if /(info|show|griddes)/.match(sym)
-      run(" -#{chain} #{io[:in]} ",$stdout)
-    else
-      opts = args.empty? ? '' : ',' + args.reject {|a| a.class == Hash}.join(',')
-      run(" -#{chain}#{opts} #{io[:in]} ",io[:out],io[:options])
     end
   end
 end
@@ -163,6 +168,12 @@ class PreProcOptions
       opts.on("-j", "--json-config-file FILE", "Use FILE as JSON configuration file","Format example:\n"+jsonStringExample) do |data|
         options.configurationdata = data
       end
+      opts.on("-V","--vct-file FILE","FILE should containt a vertable coordinates table for the required number of z levels") do |file|
+        options.vctFile = file
+      end
+      opts.on("-O","--orography-file FILE","FILE should containt the required orography") do |file|
+        options.oroFile = file
+      end
 
       # Optional argument with keyword completion.
       opts.on("-t", "--interpolation-type [TYPE]", [:simple, :bilinear, :bicubic],
@@ -187,7 +198,7 @@ class PreProcOptions
       opts.on("-C", "--check", "Check input file and configuration on which output variables are available.") do |v|
         options.check = v
       end
-      opts.on("-v", "--[no-]verbose", "Run verbosely") do |v|
+      opts.on("-v", "--verbose", "Run verbosely") do |v|
         options.verbose = v
       end
       opts.on("-D", "--debug", "Run in debug mode") do |v|
@@ -624,21 +635,21 @@ class Ifs2Icon
       Dbg.msg("Processing '#{ovar}' ...",@options.verbose,@options.debug)
 
       ths << Thread.new(ovar) {|ovar|
-      # determine the grid of the variable
-      grid     = Ecmwf2Icon.grid(ovar,@config).to_sym
-      gridfile = @gridVars[GRID_VARIABLES[grid]]
+        # determine the grid of the variable
+        grid     = Ecmwf2Icon.grid(ovar,@config).to_sym
+        gridfile = @gridVars[GRID_VARIABLES[grid]]
 
-      # remap the variable onto its icon grid provided in the configuration
-      ivar              = @config.selectBy(:outputname => ovar).code[0].to_i
-      copyfile, outfile = tfile, tfile
+        # remap the variable onto its icon grid provided in the configuration
+        ivar              = @config.selectBy(:outputname => ovar).code[0].to_i
+        copyfile, outfile = tfile, tfile
 
-      # create netcdf version of the input
-      Cdo.chainCall("setname,#{ovar} -copy",:in => @inVars[ivar],:out => copyfile,:options => "-f nc")
+        # create netcdf version of the input
+        Cdo.chainCall("-setname,#{ovar} -copy",:in => @inVars[ivar],:out => copyfile,:options => "-f nc")
 
-      # Perform conservative remapping
-      Cdo.remapcon(gridfile,:in => copyfile,:out => outfile,:options => "-P #{@options.openmp}")
+        # Perform conservative remapping
+        Cdo.remapcon(gridfile,:in => copyfile,:out => outfile,:options => "-P #{@options.openmp}")
 
-      @lock.synchronize { @outVars[ovar] = outfile }
+        @lock.synchronize { @outVars[ovar] = outfile }
       }
     }
     ths.each {|t| t.join}

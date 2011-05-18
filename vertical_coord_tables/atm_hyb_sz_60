@@ -1,4 +1,4 @@
-    k     vct_a(k) [Pa]   vct_b(k) []
+#    k     vct_a(k) [Pa]   vct_b(k) []
     1  12000.0000000000  0.0000000000
     2  11800.0000000000  0.0000000000
     3  11600.0000000000  0.0000000000
@@ -60,13 +60,13 @@
    59    400.0000000000  0.9600000000
    60    200.0000000000  0.9800000000
    61      0.0000000000  1.0000000000
-=====================================
-Source:
-- Daniel Reinert, r1713
-- ?
-Comments:
-- useful for pure advection test case
-- equidistant spacing (\Delta z=200m) with z_0=0m and z_top=12km
-- coefficient B decreases linearly from 1 at z_0=0m to 0 at z=10km.
-References:
-- ?
+# =====================================
+# Source:
+# - Daniel Reinert, r1713
+# - ?
+# Comments:
+# - useful for pure advection test case
+# - equidistant spacing (\Delta z=200m) with z_0=0m and z_top=12km
+# - coefficient B decreases linearly from 1 at z_0=0m to 0 at z=10km.
+# References:
+# - ?

@@ -133,8 +133,8 @@ case "$fortran_compiler" in
         CFLAGS      = -DsunFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -C
         FC          = sunf95
         F77         = sunf95
-        FFLAGS      = -O3 -fpp -fstore -fnonstd  -C -g -u -DNOMPI -xcommonchk -DUSE_CRAY_POINTER=0 -D__LOOP_EXCHANGE
-        F77FLAGS    = -O3 -fpp -fstore -fnonstd -DNOMPI
+        FFLAGS      = -O0 -fpp -fstore -fnonstd -g -u -xcommonchk -DUSE_CRAY_POINTER=0 -D__LOOP_EXCHANGE
+        F77FLAGS    = -O0 -fpp -fstore -fnonstd
 	OMPFLAG     = -xopenmp
         DEFOPT      = -D
         DEFCOPT     = -D
@@ -149,8 +149,8 @@ case "$fortran_compiler" in
         CFLAGS      = -O -DsunFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE
         FC          = sunf95
         F77         = sunf95
-        FFLAGS      = -O0 -fpp -fstore -fnonstd -g -C -DNOMPI -XList  -D__BOUNDCHECK -DUSE_CRAY_POINTER=0
-        F77FLAGS    = -O0 -fpp -fstore -fnonstd -g -C -DNOMPI
+        FFLAGS      = -O0 -fpp -fstore -fnonstd -g -C -XList  -D__BOUNDCHECK -DUSE_CRAY_POINTER=0
+        F77FLAGS    = -O0 -fpp -fstore -fnonstd -g -C
 	OMPFLAG     =
         DEFOPT      = -D
         DEFCOPT     = -D

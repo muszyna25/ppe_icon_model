@@ -275,8 +275,8 @@ set_run_target_blizzard()
 # @ $resources
 # @ $wall_clock_limit
 # @ job_name     = $job_name
-# @ output       = LOG.\$(job_name).o\$(jobid)
-# @ error        = LOG.\$(job_name).o\$(jobid)
+# @ output       = LOG.\$(job_name).o
+# @ error        = LOG.\$(job_name).o
 # @ notification = error
 # @ $account
 # @ queue
@@ -361,7 +361,7 @@ set_run_target_squall()
 # squall.zmaw.de batch job parameters
 # --------------------
 #$ -S /bin/bash
-#$ -o LOG.$job_name.\$JOB_ID.o
+#$ -o LOG.$job_name.o
 #$ -j y
 #$ -cwd
 #$ -pe linux64 $use_mpi_procs
@@ -428,7 +428,7 @@ set_run_target_tornado()
 # tornado.dkrz.de batch job parameters
 # ---------------------------
 #$ -S /bin/bash
-#$ -o LOG.$job_name.\$JOB_ID.o
+#$ -o LOG.$job_name.o
 #$ -N $job_name
 #$ $s_cpu_time
 #$ $resources

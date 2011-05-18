@@ -549,7 +549,7 @@ CONTAINS
                      & field% geom(:,:,jb),             &! in, pgeom1 = geopotential above ground
                      & field%   tv(:,:,jb),             &! in, virtual temperaturea
                      & field% aclc(:,:,jb),             &! in, cloud fraction
-                     & zxt_emis(:,:),                   &! in, zxtems
+                     & zxt_emis,                        &! in, zxtems
                      & field% thvvar(:,:,jb),           &! in, variance of theta_v at step t-dt
                      & field%   xvar(:,:,jb),           &! in
                     !& field% z0m_tile(:,:,jb),         &! in

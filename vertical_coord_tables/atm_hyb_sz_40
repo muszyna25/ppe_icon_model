@@ -1,4 +1,4 @@
-    k     vct_a(k) [m]   vct_b(k) []
+#    k     vct_a(k) [m]   vct_b(k) []
     1  35000.0000000000  0.0000000000
     2  32500.0000000000  0.0000000000
     3  30000.0000000000  0.0000000000
@@ -40,7 +40,7 @@
    39    152.9479064941  0.9887729302
    40     67.6838989258  0.9950316950
    41      0.0000000000  1.0000000000
-=====================================
-HYB_PARAMS table for nonhydrostatic model
-Comments: Added (arbitrarily) five more levels to 
-          the 35 levels file to have a higher top.
+# =====================================
+# HYB_PARAMS table for nonhydrostatic model
+# Comments: Added (arbitrarily) five more levels to 
+#           the 35 levels file to have a higher top.

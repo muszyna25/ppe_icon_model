@@ -1,4 +1,4 @@
-    k     vct_a(k) [Pa]   vct_b(k) []
+#    k     vct_a(k) [Pa]   vct_b(k) []
     1  27381.9054049070  0.0000000000
     2  26991.9442204250  0.0142415650
     3  26590.5390359760  0.0289010701
@@ -40,12 +40,12 @@
    39   2098.4115047143  0.9233650298
    40   1061.2704694889  0.9612419058
    41      0.0000000000  1.0000000000
-=====================================
-Source:
-- Marco Giorgetta, r652
-- ?
-Comments:
-- Resolves atmosphere from surface to 279 hPa.
-- Does not include the full atmosphere: ptop=274 hPa.
-References:
-- ?
+# =====================================
+# Source:
+# - Marco Giorgetta, r652
+# - ?
+# Comments:
+# - Resolves atmosphere from surface to 279 hPa.
+# - Does not include the full atmosphere: ptop=274 hPa.
+# References:
+# - ?

@@ -67,7 +67,7 @@ MODULE mo_exception
   INTEGER, PARAMETER :: em_param = 4   !< report parameter value
   INTEGER, PARAMETER :: em_debug = 5   !< debugging message
 
-  CHARACTER(len=132) :: message_text = ''
+  CHARACTER(len=256) :: message_text = ''
 
   LOGICAL :: l_debug = .FALSE.
   LOGICAL :: l_log   = .FALSE.

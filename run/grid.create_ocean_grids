@@ -267,9 +267,9 @@ cat > $parameterFile << EOF
 &create_ocean_grid
   only_get_sea_land_mask    = $only_get_sea_land_mask
   smooth_ocean_boundary     = $smooth_ocean_boundary
-  output_ocean_file         = '$GRIDDIR/$OCEGRID'
+  output_ocean_file         = '$OCEGRID'
   output_atmo_file         = ''
-  input_file                = '$GRIDDIR/$INPGRID'
+  input_file                = '$INPGRID'
   elevation_file            = '$ELEVF'             ! elevation file on icon grid
   elevation_field           = 'ROSE'               ! array name in output file
   min_sea_depth             = $MINDEPTH

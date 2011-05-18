@@ -1,4 +1,4 @@
-    k      vct_a(k) [Pa]        vct_b(k) []
+#    k      vct_a(k) [Pa]        vct_b(k) []
     1      0.00000000000      0.00000000000
     2      1.98918528294      0.00000000000
     3      6.57208964360      0.00000000000
@@ -47,16 +47,16 @@
    46      0.00000000000      0.97300000000
    47      0.00000000000      0.99230000000
    48      0.00000000000      1.00000000000
-==============================================
-Source:
-- Hui Wan, r3471
-- Variables vct_a and vct_b in
-  /scratch/work/system/pool/data/ECHAM6/T63/T63L47_jan_spec.nc
-  from MPI-M.
-Comments:
-- Standard vertical grid for ECHAM6 simulations including the
-  troposphere, stratosphere and mesosphere.
-- Resolves atmosphere from surface to 1 Pa (0.01 mbar).
-- Includes mass of the whole atmosphere: ptop=0.
-References:
-- n.a.
+# ==============================================
+# Source:
+# - Hui Wan, r3471
+# - Variables vct_a and vct_b in
+#   /scratch/work/system/pool/data/ECHAM6/T63/T63L47_jan_spec.nc
+#   from MPI-M.
+# Comments:
+# - Standard vertical grid for ECHAM6 simulations including the
+#   troposphere, stratosphere and mesosphere.
+# - Resolves atmosphere from surface to 1 Pa (0.01 mbar).
+# - Includes mass of the whole atmosphere: ptop=0.
+# References:
+# - n.a.
