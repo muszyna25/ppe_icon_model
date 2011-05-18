@@ -38,7 +38,7 @@ MODULE mo_ha_dtp_interface
 
   USE mo_kind,               ONLY: wp
   USE mo_dynamics_nml,       ONLY: itime_scheme
-  USE mo_run_nml,            ONLY: nproma, nlev, nlevp1, ntracer, i_cell_type,ltheta_dyn
+  USE mo_run_nml,            ONLY: nproma, nlev, nlevp1, i_cell_type,ltheta_dyn
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data,           ONLY: t_external_data
   USE mo_interpolation,      ONLY: t_int_state, verts2edges_scalar,       &

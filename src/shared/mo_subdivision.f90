@@ -59,7 +59,7 @@ MODULE mo_subdivision
   !
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: success, min_rlcell, max_rlcell,  &
-    & min_rledge, max_rledge, min_rlvert, max_rlvert, max_dom,       &
+    & min_rledge, max_rledge, min_rlvert, max_rlvert,                &
     & min_rlcell_int, min_rledge_int, min_rlvert_int, max_hw
   USE mo_math_constants,     ONLY: pi
   USE mo_exception,          ONLY: finish, message

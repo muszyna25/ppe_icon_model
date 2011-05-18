@@ -56,9 +56,8 @@ MODULE mo_dynamics_nml
 !
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_impl_constants,     ONLY: max_char_length, max_dom, max_ntracer,    &
-                                   unknown, tracer_only, leapfrog_expl,      &
-                                   leapfrog_si, ab2
+  USE mo_impl_constants,     ONLY: max_char_length, unknown, tracer_only, &
+                                   leapfrog_expl, leapfrog_si, ab2
   USE mo_physical_constants, ONLY: grav
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned

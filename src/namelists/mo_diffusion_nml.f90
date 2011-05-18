@@ -43,8 +43,7 @@ MODULE mo_diffusion_nml
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, message_text, finish, print_value
-  USE mo_impl_constants,      ONLY: max_char_length, max_dom, max_ntracer,    &
-                                    unknown, tracer_only, SUCCESS
+  USE mo_impl_constants,      ONLY: max_char_length, max_dom, SUCCESS
   USE mo_physical_constants,  ONLY: grav
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, positioned

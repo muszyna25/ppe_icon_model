@@ -58,11 +58,10 @@ MODULE mo_io_async
   USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: max_dom
   USE mo_datetime,            ONLY: t_datetime
-  USE mo_mpi,                 ONLY: p_pe, p_io, p_nprocs, p_bcast, p_barrier, p_stop, p_real_dp, &
-                                    p_send, p_recv
+  USE mo_mpi,                 ONLY: p_pe, p_bcast, p_barrier, p_stop, p_real_dp, p_send, p_recv
   USE mo_parallel_nml,        ONLY: p_pe_work, p_test_pe, p_work_pe0, p_io_pe0,                  &
    &                                p_comm_work, p_comm_work_io, p_comm_work_2_io,               &
-   &                                num_test_procs, num_work_procs, num_io_procs, pio_type
+   &                                num_work_procs, num_io_procs, pio_type
   USE mo_global_variables,    ONLY: setup_physics
   USE mo_nonhydrostatic_nml,  ONLY: ivctype, nonhydrostatic_nml_setup
   USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
@@ -81,7 +80,7 @@ MODULE mo_io_async
    &                                vlist_set_date_time, vlist_start_step, vlist_write_var,      &
    &                                num_output_vars, outvar_desc,                                &
    &                                get_outvar_ptr_ha, get_outvar_ptr_nh
-  USE mo_grid_nml,            ONLY: grid_nml_setup, n_dom, parent_id
+  USE mo_grid_nml,            ONLY: n_dom, parent_id
   USE mo_vertical_coord_table,ONLY: init_vertical_coord_table
   USE mo_vertical_grid,       ONLY: init_hybrid_coord, init_sleve_coord
   USE mo_advection_nml,       ONLY: transport_nml_setup
@@ -90,7 +89,6 @@ MODULE mo_io_async
   !-------------------------------------------------------------------------------------------------
   ! Needed only for compute PEs, patches are NOT set on I/O PEs
 
-  USE mo_model_domain,        ONLY: t_patch
   USE mo_atmo_control,        ONLY: p_patch
 
   ! End of needed only for compute PEs

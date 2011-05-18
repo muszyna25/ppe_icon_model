@@ -52,7 +52,7 @@ cat > NAMELIST_${EXPNAME} << EOF
  ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
  ldynamics   = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
  ltransport  = .TRUE.       ! switch on tracer transport   --> transport_ctl
- ntracer     = 4            ! number of tracers
+ ntracer     = 3            ! number of tracers
  iforcing    = 2            ! ECHAM physics                --> echam_phy_nml
 /
 &testcase_ctl
@@ -72,7 +72,7 @@ cat > NAMELIST_${EXPNAME} << EOF
 &diffusion_ctl
 /
 &transport_ctl
- ctracer_list='vwi4'        ! water vapour, cloud water, cloud ice, constant field
+ ctracer_list='vwi'         ! water vapour, cloud water, cloud ice, constant field
 /
 &echam_phy_nml
  lrad = .FALSE.             ! no radiation, only convection, large-scale condensation and vdiff

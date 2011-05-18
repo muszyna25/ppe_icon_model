@@ -54,9 +54,7 @@ MODULE mo_run_nml
 
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_impl_constants,     ONLY: max_char_length, max_dom, max_ntracer, &
-                                   unknown, tracer_only, leapfrog_expl,   &
-                                   leapfrog_si, ab2
+  USE mo_impl_constants,     ONLY: max_char_length, max_dom, max_ntracer
   USE mo_physical_constants, ONLY: grav
   USE mo_datetime,           ONLY: t_datetime, proleptic_gregorian,          &
     &                              date_to_time, add_time, print_datetime_all
@@ -622,14 +620,14 @@ MODULE mo_run_nml
 
   SELECT CASE(iforcing)
   CASE (iecham,ildf_echam)
-    IF (ntracer<4) CALL finish( TRIM(routine),'ECHAM forcing needs at least 4 tracers')
+    IF (ntracer<3) CALL finish( TRIM(routine),'ECHAM forcing needs at least 3 tracers')
     iqv    = 1     !> water vapour
     iqc    = 2     !! cloud water
     iqi    = 3     !! ice
     iqcond = iqi   !! index of last hydrometeor to ease summation over all of them
+    iqt    = 4     !! starting index of non-water species 
     io3    = 5     !! O3
     ico2   = 6     !! CO2
-    iqt    = 4     !! start index of other tracers than hydrometeors
   CASE (inwp)
     iqv    = 1     !> water vapour
     iqc    = 2     !! cloud water

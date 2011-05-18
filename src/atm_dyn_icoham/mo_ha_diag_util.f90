@@ -51,10 +51,9 @@ MODULE mo_ha_diag_util
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_interpolation,      ONLY: t_int_state, cells2verts_scalar,        &
                                    cells2edges_scalar, edges2cells_scalar, &
-                                   verts2cells_scalar, verts2edges_scalar, &
-                                   edges2verts_scalar, &
+                                   verts2edges_scalar, edges2verts_scalar, &
                                    rbf_vec_interpol_cell, cell_avg,        &
-                                   i_cori_method, sick_a, sick_o, l_corner_vort
+                                   i_cori_method, sick_a, sick_o
   USE mo_eta_coord_diag,     ONLY: half_level_pressure, full_level_pressure, &
                                    auxhyb, geopot
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e

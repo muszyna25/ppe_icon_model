@@ -1675,7 +1675,6 @@ CONTAINS
 
     IF(p%n_childdom>0) THEN
       CALL def_var('grf.fbk_dom_area',   nf_double, dim_n_childdom)
-      CALL def_var('grf.fbk_dom_volume', nf_double, dim_nlev, dim_n_childdom)
     ENDIF
 
     IF(p%n_patch_cells <= 0) RETURN
@@ -1741,7 +1740,6 @@ CONTAINS
 
     IF(p%n_childdom>0) THEN
       CALL uvar_io(    'grf.fbk_dom_area',   pg%fbk_dom_area)
-      CALL uvar_io(    'grf.fbk_dom_volume', pg%fbk_dom_volume)
     ENDIF
 
     IF(p%n_patch_cells <= 0) RETURN
@@ -2192,7 +2190,9 @@ CONTAINS
         ! Note: the first nshift-value refers to the global domain
         p_patch(jg)%nshift = 0
       ENDIF
+    ENDDO
 
+    DO jg = 1, n_dom
       ! Set nshift_child in the same way as in domimp_patches
       IF (p_patch(jg)%n_childdom >= 1) THEN
         p_patch(jg)%nshift_child = p_patch(p_patch(jg)%child_id(1))%nshift
@@ -2204,7 +2204,6 @@ CONTAINS
       ELSE
         p_patch(jg)%nshift_child = 0
       ENDIF
-
     ENDDO
 
     IF (n_dom_start == 0) THEN ! reduced grid for radiation
@@ -2236,8 +2235,8 @@ CONTAINS
         p_patch_local_parent(jg)%rank   = 0 ! Not needed
         p_patch_local_parent(jg)%n_proc = 0 ! Not needed
         p_patch_local_parent(jg)%proc0  = 0 ! Not needed
-        p_patch_local_parent(jg)%nlev   = p_patch(p_patch(jg)%id)%nlev
-        p_patch_local_parent(jg)%nlevp1 = p_patch(p_patch(jg)%id)%nlevp1
+        p_patch_local_parent(jg)%nlev   = p_patch(jgp)%nlev
+        p_patch_local_parent(jg)%nlevp1 = p_patch(jgp)%nlevp1
         p_patch_local_parent(jg)%nshift = 0
         p_patch_local_parent(jg)%nshift_child = 0
       ENDDO

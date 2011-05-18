@@ -74,7 +74,8 @@ MODULE m_dyn
   USE mo_dynamics_nml,       ONLY: idiv_method,lref_temp
   USE mo_io_nml,             ONLY: l_outputtime, lwrite_omega
   USE mo_run_nml,            ONLY: nproma,nlev, nlevp1,iqv,                &
-                                   ntracer, iforcing, iecham,ildf_echam, inwp
+                                   iforcing, iecham,ildf_echam, inwp,      &
+                                   iqc, iqi, iqr, iqs
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_interpolation,      ONLY: t_int_state, cell_avg,                    &
                                  & cells2edges_scalar, edges2cells_scalar, &
@@ -148,7 +149,7 @@ MODULE m_dyn
 
 ! Local scalars:
 
-  INTEGER  :: jb, jk, je, jc ,jt! loop indices
+  INTEGER  :: jb, jk, je, jc ! loop indices
   INTEGER  :: jkp            ! vertical level indices
   REAL(wp) :: rovcp          ! R/cp
 
@@ -440,13 +441,25 @@ MODULE m_dyn
    SELECT CASE (iforcing)
    CASE (iecham, ildf_echam, inwp)  ! real physics with moist atmosphere
 
-     DO jt = 2, ntracer
+     IF (iforcing==inwp) THEN
+
        DO jk = 1, nlev
          DO jc = i_startidx,i_endidx
-           z_aux_tracer(jc,jk,jb) = z_aux_tracer(jc,jk,jb)+pt_prog%tracer(jc,jk,jb,jt)
+           z_aux_tracer(jc,jk,jb) =   pt_prog%tracer(jc,jk,jb,iqc) &
+                                  & + pt_prog%tracer(jc,jk,jb,iqi) &
+                                  & + pt_prog%tracer(jc,jk,jb,iqr) &
+                                  & + pt_prog%tracer(jc,jk,jb,iqs)
          ENDDO
        ENDDO
-     ENDDO
+
+     ELSE
+       DO jk = 1, nlev
+         DO jc = i_startidx,i_endidx
+           z_aux_tracer(jc,jk,jb) =   pt_prog%tracer(jc,jk,jb,iqc) &
+                                  & + pt_prog%tracer(jc,jk,jb,iqi)  
+         ENDDO
+       ENDDO
+     END IF
 
      pt_diag%virt_incr(i_startidx:i_endidx,:,jb) =                     &
           &  vtmpc1*pt_prog%tracer(i_startidx:i_endidx,:,jb,iqv)       &
