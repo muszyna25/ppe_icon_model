@@ -44,7 +44,7 @@ MODULE mo_echam_phy_setup
     &                              lrad, lconv, lvdiff, lssodrag,        &
     &                              llandsurf, lice, lmeltpond, lhd, lmlo
   USE mo_radiation_nml,      ONLY: radiation_nml, read_radiation_nml, irad_o3
-  USE mo_echam_conv_params,  ONLY: echam_conv_ctl, setup_convection
+  USE mo_echam_conv_nml,     ONLY: echam_conv_ctl, echam_conv_nml_setup
   USE mo_run_nml,            ONLY: ltestcase, ntracer, io3
   USE mo_echam_vdiff_nml,    ONLY: echam_vdiff_ctl, echam_vdiff_nml_setup
   USE mo_hydro_testcases,    ONLY: ctest_name
@@ -71,7 +71,7 @@ CONTAINS
     ! Read and check process namelists dependent on echam_phy_nml
 
     IF (lrad)   CALL read_radiation_nml
-    IF (lconv)  CALL setup_convection
+    IF (lconv)  CALL echam_conv_nml_setup
     IF (lvdiff) CALL echam_vdiff_nml_setup
 !!$ IF (lcond)  CALL setup_cloud
 !!$ IF (lmlo)   CALL setup_mixlayer_ocean

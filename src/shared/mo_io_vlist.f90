@@ -143,9 +143,10 @@ MODULE mo_io_vlist
     &                               iord_backtraj, lclip_tracer, ctracer_list,  &
     &                               igrad_c_miura, iadv_slev, lstrang,          &
     &                               upstr_beta_adv
-  USE mo_echam_conv_params,   ONLY: lmfpen, lmfmid, lmfscv, lmfdd,  lmfdudv,    &
+  USE mo_echam_conv_nml,      ONLY: lmfpen, lmfmid, lmfscv, lmfdd,  lmfdudv,    &
     &                               iconv, cmftau, cmfctop, cprcon,             &
-    &                               cminbuoy, entrpen, dlev
+    &                               cminbuoy, entrpen, dlev, entrmid, entrscv,  &
+    &                               entrdd, cmfdeps
   USE mo_icoham_sfc_indices,  ONLY: igbm
   USE mo_vertical_coord_table,ONLY: vct
   USE mo_model_domain_import, ONLY: start_lev, nroot, n_dom, lfeedback, lplane
@@ -713,10 +714,14 @@ CONTAINS
            CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfdudv',lmfdudv,vlistID(k_jg),astatus)
            CALL addGlobAttInt('echam_conv_ctl:iconv',iconv,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:cmftau',cmftau,vlistID(k_jg),astatus)
+           CALL addGlobAttFlt('echam_conv_ctl:cmfdeps',cmfdeps,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:cmfctop',cmfctop,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:cprcon',cprcon,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:cminbuoy',cminbuoy,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:entrpen',entrpen,vlistID(k_jg),astatus)
+           CALL addGlobAttFlt('echam_conv_ctl:entrmid',entrmid,vlistID(k_jg),astatus)
+           CALL addGlobAttFlt('echam_conv_ctl:entrscv',entrscv,vlistID(k_jg),astatus)
+           CALL addGlobAttFlt('echam_conv_ctl:entrdd',entrdd,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:dlev',dlev,vlistID(k_jg),astatus)
       END IF
 

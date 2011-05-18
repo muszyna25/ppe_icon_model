@@ -61,7 +61,6 @@ MODULE mo_echam_phy_init
 
   ! cumulus convection
   USE mo_convect_tables,       ONLY: init_convect_tables
-  USE mo_echam_conv_params,    ONLY: cuparam
 
   ! stratiform clouds and cloud cover
   USE mo_echam_cloud_params,   ONLY: init_cloud_tables, sucloud, cvarmin
@@ -148,8 +147,8 @@ CONTAINS
     IF (lconv.OR.lcond.OR.lvdiff)  CALL init_convect_tables
 
     ! For cumulus convection
-
-    IF (lconv) CALL cuparam
+    !CJ: former cuparam now inlcuded in echam_conv_nml_setup
+    !CALL cuparam
 
     ! For large scale condensation
 

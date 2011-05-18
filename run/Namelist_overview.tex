@@ -2934,6 +2934,14 @@ across the top of cloud &
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
 \hline %---
+cmfdeps &
+R &
+0.3 &&
+Fractional convective mass flux for downdrafts at lfs (valid range [0,1])
+&
+iforcing = 2 .AND. lconv = .TRUE.
+\tabularnewline
+\hline %---
 cprcon &
 R &
 1.0e-4 &&
@@ -2952,6 +2960,27 @@ entrpen &
 R &
 1.0e-4 &&
 Entrainment rate for penetrative convection.&
+iforcing = 2 .AND. lconv = .TRUE.
+\tabularnewline
+\hline %---
+entrmid &
+R &
+1.0e-4 &&
+entrainment rate for midlevel convection.&
+iforcing = 2 .AND. lconv = .TRUE.
+\tabularnewline
+\hline %---
+entrscv &
+R &
+3.0e-4 &&
+entrainment rate for shallow convection.&
+iforcing = 2 .AND. lconv = .TRUE.
+\tabularnewline
+\hline %---
+entrdd &
+R &
+2.0e-4 &&
+entrainment rate for cumulus downdrafts.&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
 \hline %---

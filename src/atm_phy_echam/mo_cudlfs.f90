@@ -40,7 +40,7 @@ MODULE mo_cudlfs
   USE mo_cuadjtqi,           ONLY : cuadjtqi
 #ifdef __ICON__
   USE mo_physical_constants, ONLY : vtmpc1
-  USE mo_echam_conv_params,  ONLY : lmfdudv, lmfdd, cmfdeps, ncvmicro
+  USE mo_echam_conv_nml,     ONLY : lmfdudv, lmfdd, cmfdeps, ncvmicro
 #else
   USE mo_constants,          ONLY : vtmpc1
   USE mo_cumulus_flux,       ONLY : lmfdudv, lmfdd, cmfdeps

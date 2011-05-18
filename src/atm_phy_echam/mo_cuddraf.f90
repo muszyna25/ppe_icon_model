@@ -40,7 +40,7 @@ MODULE mo_cuddraf
   USE mo_cuadjtqi,           ONLY : cuadjtqi
 #ifdef __ICON__
   USE mo_physical_constants, ONLY : g=>grav, rd, vtmpc1
-  USE mo_echam_conv_params,  ONLY : lmfdudv, cmfcmin, entrdd, ncvmicro
+  USE mo_echam_conv_nml,     ONLY : lmfdudv, cmfcmin, entrdd, ncvmicro
 #else
   USE mo_constants,          ONLY : g, rd, vtmpc1
   USE mo_cumulus_flux,       ONLY : lmfdudv, cmfcmin, entrdd

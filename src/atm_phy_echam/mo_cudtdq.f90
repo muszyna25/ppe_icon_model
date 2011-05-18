@@ -39,7 +39,7 @@ MODULE mo_cudtdq
 
 #ifdef __ICON__
   USE mo_physical_constants, ONLY: alv, als, alf, tmelt, g=>grav
-  USE mo_echam_conv_params,  ONLY: ncvmicro
+  USE mo_echam_conv_nml,  ONLY: ncvmicro
 #else
   USE mo_constants,          ONLY: alv, als, alf, tmelt, g
   USE mo_tracdef,            ONLY: trlist

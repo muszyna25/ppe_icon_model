@@ -38,7 +38,7 @@ MODULE mo_cuentrt
   USE mo_kind,               ONLY: dp
 #ifdef __ICON__
   USE mo_physical_constants, ONLY: g=>grav, rd, vtmpc1
-  USE mo_echam_conv_params,  ONLY: centrmax, cmfcmin
+  USE mo_echam_conv_nml,     ONLY: centrmax, cmfcmin
 #else
   USE mo_constants,          ONLY: g, rd, vtmpc1
   USE mo_cumulus_flux,       ONLY: centrmax, cmfcmin

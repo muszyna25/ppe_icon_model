@@ -49,7 +49,7 @@ MODULE mo_cuasc
 
 #ifdef __ICON__
   USE mo_physical_constants, ONLY : g=>grav, tmelt, vtmpc1, rv, rd, alv, als
-  USE mo_echam_conv_params,  ONLY : lmfdudv, lmfmid, nmctop, cmfcmin, cprcon,      &
+  USE mo_echam_conv_nml,     ONLY : lmfdudv, lmfmid, nmctop, cmfcmin, cprcon,      &
                                     cmfctop, centrmax, cbfac, cminbuoy, cmaxbuoy,  &
                                     ncvmicro, dlev
   USE mo_echam_cloud_params, ONLY : csecfrl

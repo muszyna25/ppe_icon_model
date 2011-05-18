@@ -38,7 +38,7 @@ MODULE mo_cubasmc
   USE mo_kind,               ONLY : dp
 #ifdef __ICON__
   USE mo_physical_constants, ONLY : g=>grav
-  USE mo_echam_conv_params,  ONLY : lmfdudv, entrmid, cmfcmin, cmfcmax
+  USE mo_echam_conv_nml,     ONLY : lmfdudv, entrmid, cmfcmin, cmfcmax
 #else
   USE mo_constants,     ONLY : g
   USE mo_cumulus_flux,  ONLY : lmfdudv, entrmid, cmfcmin, cmfcmax

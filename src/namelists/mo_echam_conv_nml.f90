@@ -1,18 +1,16 @@
 !>
-!! <Short description of module for listings and indices>
-!!
-!! <Describe the concepts of the procedures and algorithms used in the module.>
-!! <Details of procedures are documented below with their definitions.>
-!! <Include any applicable external references inline as module::procedure,>
-!! <external_procedure(), or by using @see.>
-!! <Don't forget references to literature.>
-!!
-!! @author <name, affiliation>
-!! @author <name, affiliation>
+!! Namelist for the configuration of the convection parameters
 !!
 !!
 !! @par Revision History
-!! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
+!! Revision history in mo_echam_conv_params.f90 (r4370)
+!! Modification by Constantin Junk, MPI-M (2011-05-11)
+!! - moved namelist parameters, setup_convection and cuparam
+!!   to new module mo_echam_conv_nml
+!! - included subroutine cuparam in setup_convection
+!! - renamed setup_convection echam_conv_nml_setup
+!! - moved echam_vdiff namelist variables and subroutine setup_vdiff
+!!   from mo_echam_vdiff_params to namelists/mo_echam_vdiff_nml
 !!
 !! @par Copyright
 !! 2002-2010 by DWD and MPI-M
@@ -41,15 +39,15 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-MODULE mo_echam_conv_params
+MODULE mo_echam_conv_nml
 
-  USE mo_kind,              ONLY: wp
-  USE mo_impl_constants,    ONLY: SUCCESS
-  USE mo_exception,         ONLY: print_value,message,message_text,finish
-  USE mo_namelist,          ONLY: position_nml, POSITIONED
-  USE mo_io_units,          ONLY: nnml
-  USE mo_run_nml,           ONLY: nlev,nlevp1,nvclev
-  USE mo_physical_constants,ONLY: grav
+  USE mo_kind,                ONLY: wp
+  USE mo_impl_constants,      ONLY: SUCCESS
+  USE mo_exception,           ONLY: print_value,message,message_text,finish
+  USE mo_namelist,            ONLY: position_nml, POSITIONED
+  USE mo_io_units,            ONLY: nnml
+  USE mo_run_nml,             ONLY: nlev,nlevp1,nvclev
+  USE mo_physical_constants,  ONLY: grav
   USE mo_vertical_coord_table,ONLY: vct,ceta
 
   IMPLICIT NONE
@@ -64,10 +62,14 @@ MODULE mo_echam_conv_params
   PUBLIC  :: ncvmicro, nauto                        !< parameters
   PUBLIC  :: nmctop, dlev                           !< parameters
   PUBLIC  :: echam_conv_ctl                         !< namelist
-  PUBLIC  :: setup_convection                       !< subroutine
-  PUBLIC  :: cuparam,cleanup_cuparam                !< subroutines
+  PUBLIC  :: echam_conv_nml_setup                   !< subroutine
+  PUBLIC  :: cleanup_cuparam                        !< subroutine 
 
-  ! module parameters
+  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
+  !--------------------------------------------------------------!
+  ! echam_conv_nml namelist variables and auxiliary parameters
+  !--------------------------------------------------------------!
 
   INTEGER :: ncvmicro     !< 0 or 1. Scheme for convective microphysics
   INTEGER :: nauto        !< 1 or 2. autoconversion scheme
@@ -82,6 +84,7 @@ MODULE mo_echam_conv_params
 
   REAL(wp) :: dlev     !< "zdlev" in subroutine "cuasc". Critical thickness (unit: Pa)
                        !< necessary for the onset of convective precipitation
+
   REAL(wp) :: cmftau   !< characteristic adjustment time scale
                        !< (replaces "ztau" in "cumastr"
   REAL(wp) :: cmfdeps  !< fractional convective mass flux for downdrafts at lfs
@@ -89,8 +92,10 @@ MODULE mo_echam_conv_params
   REAL(wp) :: cmfcmin  !< minimum massflux value (for safety)
   REAL(wp) :: cmfcmax  !< maximum massflux value allowed for
   REAL(wp) :: centrmax !<
-  REAL(wp) :: cminbuoy !< minimum excess buoyancy
+
   REAL(wp) :: cmaxbuoy !< maximum excess buoyancy
+  REAL(wp) :: cminbuoy !< minimum excess buoyancy
+
   REAL(wp) :: cbfac    !< factor for std dev of virtual pot temp
 
   REAL(wp) :: entrpen  !< entrainment rate for penetrative convection
@@ -109,41 +114,61 @@ MODULE mo_echam_conv_params
 
   NAMELIST/echam_conv_ctl/ nauto,ncvmicro,iconv,lconvmassfix,       &
     &                      lmfpen,lmfmid,lmfscv,lmfdd,lmfdudv,      &
-    &                      cmftau,cmfctop,cprcon,cminbuoy,entrpen,  &
-    &                      dlev
-
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+    &                      cmftau,cmfctop,cprcon,cmfdeps,cminbuoy,  &
+    &                      entrpen, entrmid,entrscv,entrdd,dlev
 
 CONTAINS
-  !>
-  !!
-  SUBROUTINE setup_convection
+ !>
+ !!  Initialization of the convection namelist
+ !!
+ !!
+ !! @par Revision History
+ !! Modification by Constantin Junk, MPI-M (2011-05-11)
+ !! - included subroutine cuparam in setup_convection
+ !! - renamed setup_convection echam_conv_nml_setup
+ !!
+  SUBROUTINE echam_conv_nml_setup
 
-    INTEGER :: ist
+    REAL(wp) :: za, zb
+    REAL(wp) :: zp(nlev), zph(nlevp1)
+    INTEGER  :: jk, ist
 
-    ! Set default values
+    !------------------------------------------------------------
+    ! set up the default values for echam_conv_ctl
+    !------------------------------------------------------------
 
-    ncvmicro = 0
-    nauto    = 1
-
-    iconv    = 1
-    lmfpen   = .TRUE.
-    lmfmid   = .TRUE.
-    lmfscv   = .TRUE.
-    lmfdd    = .TRUE.
-    lmfdudv  = .TRUE.
-
+    ncvmicro     = 0
+    nauto        = 1
+    iconv        = 1
+    lmfpen       = .TRUE.
+    lmfmid       = .TRUE.
+    lmfscv       = .TRUE.
+    lmfdd        = .TRUE.
+    lmfdudv      = .TRUE.
     lconvmassfix = .FALSE.
+    cmftau       = 10800._wp  ! 3 hours
+    cmfctop      = 0.3_wp
+    cmfdeps      = 0.3_wp     ! Fractional massflux for downdrafts at lfs
+    cprcon       = 1.E-4_wp
+    cminbuoy     = 0.025_wp
+    entrpen      = 1.0E-4_wp  ! average entrainment rate for penetrative convection
+    entrmid      = 1.0E-4_wp  ! average entrainment rate for midlevel convection
+    entrscv      = 3.0E-4_wp  ! average entrainment rate for shallow convection
+    entrdd       = 2.0E-4_wp  ! average entrainment rate for downdrafts
+    dlev         = 3.0E4_wp   ! 300 hPa
 
-    cmftau   = 10800._wp  ! 3 hours
-    cmfctop  = 0.3_wp
-    cprcon   = 1.E-4_wp
-    cminbuoy = 0.025_wp
-    entrpen  = 1.0E-4_wp  ! average entrainment rate for penetrative convection
+    ! Set default values of auxiliary parameters
 
-    dlev     = 3.0E4_wp   ! 300 hPa
+    cmfcmin    = 1.E-10_wp  ! Minimum massflux value (for safety)
+    cmfcmax    = 1.0_wp     ! Maximum massflux value allowed for updrafts etc
+    cmaxbuoy   = 1.0_wp
+    cbfac      = 1.0_wp
+    centrmax   = 3.E-4_wp
 
-    ! Read namelist (every CPU does this)
+    !------------------------------------------------------------
+    ! Read the namelist
+    !------------------------------------------------------------
+    ! (done so far by all MPI processes)
 
     CALL position_nml('echam_conv_ctl',status=ist)
     SELECT CASE (ist)
@@ -151,7 +176,9 @@ CONTAINS
       READ (nnml, echam_conv_ctl)
     END SELECT
 
-    ! Check validity; send values to stdout
+    !------------------------------------------------------------
+    ! check the consistency of the parameters
+    !------------------------------------------------------------
 
     CALL message('','')
     CALL message('','------- namelist echam_conv_ctl --------')
@@ -160,7 +187,7 @@ CONTAINS
     CASE (0)
       CALL message('','--- ncvmicro = 0')
     CASE DEFAULT
-      CALL finish('setup_convection','ncvmicro > 0 not yet supported in ICON')
+      CALL finish('echam_conv_nml_setup','ncvmicro > 0 not yet supported in ICON')
     END SELECT
 
     SELECT CASE(nauto)
@@ -172,7 +199,7 @@ CONTAINS
     CASE DEFAULT
       WRITE(message_text,'(a,i0,a)') 'nauto = ',nauto,' is not supported'
       CALL message('NAMELIST echam_conv_ctl',message_text)
-      CALL finish('setup_convection','Run terminated')
+      CALL finish('echam_conv_nml_setup','Run terminated')
     END SELECT
 
     SELECT CASE (iconv)
@@ -185,7 +212,7 @@ CONTAINS
     CASE default
       WRITE(message_text,'(a,i0,a)') 'iconv = ',iconv,' is not supported'
       CALL message('NAMELIST echam_conv_ctl',message_text)
-      CALL finish('setup_convection','Run terminated')
+      CALL finish('echam_conv_nml_setup','Run terminated')
     END SELECT
 
     CALL print_value(' lmfpen  ',lmfpen)
@@ -195,7 +222,7 @@ CONTAINS
     CALL print_value(' lmfdudv ',lmfdudv)
     CALL print_value(' lconvmassfix = ',lconvmassfix)
 
-   !cmftau = MIN(10800._wp,cmftau)
+    !cmftau = MIN(10800._wp,cmftau)
     CALL print_value(' cmftau   ',cmftau)
     CALL print_value(' cmfctop  ',cmfctop)
     CALL print_value(' cprcon   ',cprcon)
@@ -206,27 +233,9 @@ CONTAINS
     CALL message('','---------------------------')
     CALL message('','')
 
-  END SUBROUTINE setup_convection
-  !-------------
-  !>
-  !!
-  SUBROUTINE cuparam
-
-    REAL(wp) :: za, zb
-    REAL(wp) :: zp(nlev), zph(nlevp1)
-    INTEGER  :: jk, ist
-
-    entrmid = 1.0E-4_wp  ! average entrainment rate for midlevel convection
-    entrscv = 3.0E-4_wp  ! average entrainment rate for shallow convection
-
-    entrdd  = 2.0E-4_wp  ! average entrainment rate for downdrafts
-    cmfdeps = 0.3_wp     ! Fractional massflux for downdrafts at lfs
-    cmfcmin = 1.E-10_wp  ! Minimum massflux value (for safety)
-    cmfcmax = 1.0_wp     ! Maximum massflux value allowed for updrafts etc
-
-    cmaxbuoy = 1.0_wp
-    cbfac    = 1.0_wp
-    centrmax = 3.E-4_wp
+    !------------------------------------------------------------
+    ! CJ: calculations from the former cuparam subroutine
+    !------------------------------------------------------------
 
     ! Determine highest level *nmctop* for cloud base of midlevel convection
     ! assuming nmctop=9 (300 hPa) for the standard 19 level model
@@ -265,10 +274,8 @@ CONTAINS
        cevapcu(jk) = 1.93E-6_wp*261._wp*SQRT(cevapcu(jk))*0.5_wp/grav
     END DO
 
-  END SUBROUTINE cuparam
-  !-------------
-  !>
-  !!
+  END SUBROUTINE echam_conv_nml_setup
+  !------------
   SUBROUTINE cleanup_cuparam
 
     INTEGER :: ist
@@ -278,6 +285,4 @@ CONTAINS
 
   END SUBROUTINE cleanup_cuparam
   !-------------
-
-END MODULE mo_echam_conv_params
-
+END MODULE mo_echam_conv_nml

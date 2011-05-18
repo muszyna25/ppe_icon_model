@@ -39,7 +39,7 @@ MODULE mo_cuasct
 
 #ifdef __ICON__
   USE mo_physical_constants, ONLY : g=>grav, vtmpc1
-  USE mo_echam_conv_params,  ONLY : lmfdudv, lmfmid, nmctop, cmfcmin, cprcon   &
+  USE mo_echam_conv_nml,     ONLY : lmfdudv, lmfmid, nmctop, cmfcmin, cprcon   &
                                   , cmfctop, cbfac, cminbuoy, cmaxbuoy, dlev
 #else
   USE mo_control,      ONLY : nn

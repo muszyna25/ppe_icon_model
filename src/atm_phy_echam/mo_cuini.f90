@@ -45,7 +45,7 @@ MODULE mo_cuini
 
 #ifdef __ICON__
   USE mo_physical_constants, ONLY: rd, cpd
-  USE mo_echam_conv_params,  ONLY: ncvmicro
+  USE mo_echam_conv_nml,     ONLY: ncvmicro
 #else
   USE mo_constants,          ONLY: rd, cpd
   USE mo_param_switches,     ONLY: ncvmicro

@@ -39,7 +39,7 @@ MODULE mo_cubase
   USE mo_cuadjtq,            ONLY: cuadjtq_idx
 #ifdef __ICON__
   USE mo_physical_constants, ONLY: vtmpc1
-  USE mo_echam_conv_params,  ONLY: lmfdudv, cbfac, cminbuoy, cmaxbuoy
+  USE mo_echam_conv_nml,     ONLY: lmfdudv, cbfac, cminbuoy, cmaxbuoy
 #else
   USE mo_constants,          ONLY: vtmpc1
   USE mo_cumulus_flux,       ONLY: lmfdudv, cbfac, cminbuoy, cmaxbuoy

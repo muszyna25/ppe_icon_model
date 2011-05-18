@@ -42,7 +42,7 @@ MODULE mo_cuadjtqi
 #ifdef __ICON__
   USE mo_physical_constants, ONLY: vtmpc1, tmelt
   USE mo_echam_cloud_params, ONLY: cthomi, csecfrl
-  USE mo_echam_conv_params,  ONLY: ncvmicro
+  USE mo_echam_conv_nml,     ONLY: ncvmicro
 #else
   USE mo_constants,          ONLY: vtmpc1, tmelt
   USE mo_cloud,              ONLY: cthomi, csecfrl

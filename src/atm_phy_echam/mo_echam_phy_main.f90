@@ -53,7 +53,7 @@ MODULE mo_echam_phy_main
   USE mo_hydro_testcases,     ONLY: ctest_name
   USE mo_vertical_coord_table,ONLY: nlevm1
   USE mo_echam_phy_nml,       ONLY: lcond, lcover, lconv, lrad, lvdiff
-  USE mo_echam_conv_params,   ONLY: iconv
+  USE mo_echam_conv_nml,      ONLY: iconv
   USE mo_cucall,              ONLY: cucall
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
     &                               t_echam_phy_tend,  prm_tend

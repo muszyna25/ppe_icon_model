@@ -34,7 +34,7 @@
 MODULE mo_echam_phy_cleanup
 
   USE mo_echam_phy_nml,      ONLY: lconv, lvdiff
-  USE mo_echam_conv_params,  ONLY: cleanup_cuparam
+  USE mo_echam_conv_nml,     ONLY: cleanup_cuparam
   USE mo_vdiff_solver,       ONLY: cleanup_vdiff_solver
 
   IMPLICIT NONE

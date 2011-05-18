@@ -164,7 +164,7 @@ CONTAINS
            !Amplitude of the forcing depending on testcase setup
 
            IF (iforcing == ildf_echam) THEN
-                 zTempA  = 5.E-5_wp
+                 zTempA  = 1.E-5_wp
            ELSE
               IF  (ildf_init_type == 0) THEN
                  zTempA  = 1.E-6_wp

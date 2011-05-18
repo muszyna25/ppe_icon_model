@@ -42,7 +42,7 @@ MODULE mo_cumastrt
 
 #ifdef __ICON__
   USE mo_physical_constants,  ONLY: g=>grav, alv, als, tmelt, vtmpc1
-  USE mo_echam_conv_params,   ONLY: entrpen, entrscv,      &
+  USE mo_echam_conv_nml,      ONLY: entrpen, entrscv,      &
                                   & lmfdd, cmfdeps, lmfdudv
 #else
   USE mo_constants,           ONLY: g, alv, als, tmelt, vtmpc1

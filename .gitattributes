@@ -873,7 +873,6 @@ src/atm_phy_echam/mo_cumastr.f90 -text
 src/atm_phy_echam/mo_cumastrh.f90 -text
 src/atm_phy_echam/mo_cumastrt.f90 -text
 src/atm_phy_echam/mo_echam_cloud_params.f90 -text
-src/atm_phy_echam/mo_echam_conv_params.f90 -text
 src/atm_phy_echam/mo_echam_phy_cleanup.f90 -text
 src/atm_phy_echam/mo_echam_phy_init.f90 -text
 src/atm_phy_echam/mo_echam_phy_interface.f90 -text
@@ -993,6 +992,7 @@ src/namelists/mo_advection_nml.f90 -text
 src/namelists/mo_atm_phy_nwp_nml.f90 -text
 src/namelists/mo_diffusion_nml.f90 -text
 src/namelists/mo_dynamics_nml.f90 -text
+src/namelists/mo_echam_conv_nml.f90 -text
 src/namelists/mo_echam_phy_nml.f90 -text
 src/namelists/mo_echam_vdiff_nml.f90 -text
 src/namelists/mo_global_variables.f90 -text

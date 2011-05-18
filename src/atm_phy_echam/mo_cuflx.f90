@@ -39,7 +39,7 @@ MODULE mo_cuflx
 
 #ifdef __ICON__
   USE mo_physical_constants,  ONLY: g=>grav, alf, cpd, tmelt, vtmpc2
-  USE mo_echam_conv_params,   ONLY: cevapcu, ncvmicro
+  USE mo_echam_conv_nml,      ONLY: cevapcu, ncvmicro
 #else
   USE mo_constants,           ONLY: g, alf, cpd, tmelt, vtmpc2, rd
   USE mo_physc2,              ONLY: cevapcu
