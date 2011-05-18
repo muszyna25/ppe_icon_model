@@ -272,11 +272,12 @@ CONTAINS
   !
   ! Set default meta data of output var_list
   !
-  SUBROUTINE default_var_list_settings (this_list,                                  &
-       &                                filename,                                   &
-       &                                lpost, lrestart, linitial,                  &
-       &                                post_suf, rest_suf, init_suf,               &
-       &                                output_type, restart_type, compression_type) 
+  SUBROUTINE default_var_list_settings (this_list,                                   &
+       &                                filename,                                    &
+       &                                lpost, lrestart, linitial,                   &
+       &                                post_suf, rest_suf, init_suf,                &
+       &                                output_type, restart_type, compression_type, &
+       &                                model_type) 
     !
     TYPE(t_var_list),   INTENT(inout)        :: this_list        ! output var_list
     LOGICAL,            INTENT(in), OPTIONAL :: lpost            ! to output 
@@ -289,6 +290,7 @@ CONTAINS
     INTEGER,            INTENT(in), OPTIONAL :: output_type      ! output file type
     INTEGER,            INTENT(in), OPTIONAL :: restart_type     ! restart file type 
     INTEGER,            INTENT(in), OPTIONAL :: compression_type ! compression type
+    CHARACTER(len=*),   INTENT(in), OPTIONAL :: model_type       ! output file associated
     !
     CALL assign_if_present (this_list%p%lpost,            lpost)
     CALL assign_if_present (this_list%p%lrestart,         lrestart)
@@ -300,6 +302,7 @@ CONTAINS
     CALL assign_if_present (this_list%p%output_type,      output_type)
     CALL assign_if_present (this_list%p%restart_type,     restart_type)
     CALL assign_if_present (this_list%p%compression_type, compression_type)
+    CALL assign_if_present (this_list%p%model_type,       model_type)
     !
   END SUBROUTINE default_var_list_settings
   !------------------------------------------------------------------------------------------------
@@ -2415,7 +2418,8 @@ CONTAINS
     !
     DO WHILE (ASSOCIATED(this_list_element))
       ! 
-      IF (this_list_element%field%info%name /= '') THEN
+      IF (this_list_element%field%info%name /= '' .AND. &
+           .NOT. this_list_element%field%info%lcontainer) THEN
         !
         WRITE (message_text,'(a,a)')       &
              'Table entry name                            : ', &

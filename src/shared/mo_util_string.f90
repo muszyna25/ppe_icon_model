@@ -35,120 +35,138 @@
 !!
 !!
 MODULE mo_util_string
-!-------------------------------------------------------------------------
-!
-!    ProTeX FORTRAN source: Style 2
-!    modified for ICON project, DWD/MPI-M 2006
-!
-!-------------------------------------------------------------------------
-!
-!
-!
-
+  !
+  ! String conversion utilities
+  !
   IMPLICIT NONE
-
+  !
   PRIVATE
-
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
-! !PUBLIC ENTITIES
-  PUBLIC :: tolower        ! Conversion   : 'ABCXYZ' -> 'abcxyz'
+  !
+  PUBLIC :: tolower        ! Conversion   : 'ABCXYZ' -> 'abcxyz'   
   PUBLIC :: toupper        ! Conversion   : 'abcxyz' -> 'ABCXYZ'
   PUBLIC :: char2          ! Conversion   : INTEGER  -> CHAR (LEN=2)
   PUBLIC :: separator      ! Format string: (/"-----...-----"/)
-
-! !DEFINED PARAMETERS
-  CHARACTER(len=*), PARAMETER :: separator = REPEAT('-',78)
-
-  CONTAINS
-
-!-------------------------------------------------------------------------
-!
-!-------------------------------------------------------------------------
-!
-
-  !>
-  !!   Conversion: Uppercase -> Lowercase.
-  !!
-  !!
-  FUNCTION tolower (upper)
-
-
-    CHARACTER(LEN=*)              ,INTENT(in) :: upper
-    CHARACTER(LEN=LEN_TRIM(upper))            :: tolower
-
-    INTEGER            :: i
-    INTEGER ,PARAMETER :: idel = ICHAR('a')-ICHAR('A')
-
-!-------------------------------------------------------------------------
-
-    DO i=1,LEN_TRIM(upper)
-      IF (ICHAR(upper(i:i)) >= ICHAR('A') .AND. &
-          ICHAR(upper(i:i)) <= ICHAR('Z')) THEN
-        tolower(i:i) = CHAR( ICHAR(upper(i:i)) + idel )
+  PUBLIC :: int2string     ! returns integer n as a string
+  PUBLIC :: real2string    ! returns real n as a string
+  PUBLIC :: logical2string ! returns logical n as a string
+  !
+  INTERFACE real2string
+    MODULE PROCEDURE float2string
+    MODULE PROCEDURE double2string
+  END INTERFACE real2string
+  !
+  CHARACTER(len=*), PARAMETER :: separator = REPEAT('-',100)
+  !
+CONTAINS
+  !
+  !------------------------------------------------------------------------------------------------
+  !
+  ! Conversion: Uppercase -> Lowercase
+  !
+  FUNCTION tolower (uppercase)
+    CHARACTER(len=*), INTENT(in) :: uppercase
+    CHARACTER(len=LEN_TRIM(uppercase)) :: tolower
+    !
+    INTEGER, PARAMETER :: idel = ICHAR('a')-ICHAR('A')
+    INTEGER :: i
+    !
+    DO i = 1, LEN_TRIM(uppercase)
+      IF (ICHAR(uppercase(i:i)) >= ICHAR('A') .AND. ICHAR(uppercase(i:i)) <= ICHAR('Z')) THEN
+        tolower(i:i) = CHAR( ICHAR(uppercase(i:i)) + idel )
       ELSE
-        tolower(i:i) = upper(i:i)
-      END IF
-    END DO
-
+        tolower(i:i) = uppercase(i:i)
+      ENDIF
+    ENDDO
+    !
   END FUNCTION tolower
-!-------------------------------------------------------------------------
-!
-
-  !>
-  !!   Conversion: Lowercase -> Uppercase.
-  !!
-  !!
-  FUNCTION toupper (lower)
-
-
-    CHARACTER(LEN=*)              ,INTENT(in) :: lower
-    CHARACTER(LEN=LEN_TRIM(lower))            :: toupper
-
-    INTEGER            :: i
-    INTEGER ,PARAMETER :: idel = ICHAR('A')-ICHAR('a')
-
-!-------------------------------------------------------------------------
-
-    DO i=1,LEN_TRIM(lower)
-      IF (ICHAR(lower(i:i)) >= ICHAR('a') .AND. &
-          ICHAR(lower(i:i)) <= ICHAR('z')) THEN
-        toupper(i:i) = CHAR( ICHAR(lower(i:i)) + idel )
+  !------------------------------------------------------------------------------------------------
+  !
+  ! Conversion: Lowercase -> Uppercase
+  !
+  FUNCTION toupper (lowercase)
+    CHARACTER(len=*), INTENT(in) :: lowercase
+    CHARACTER(len=LEN_TRIM(lowercase)) :: toupper
+    !
+    INTEGER, PARAMETER :: idel = ICHAR('A')-ICHAR('a')
+    INTEGER :: i
+    !
+    DO i = 1, LEN_TRIM(lowercase)
+      IF (ICHAR(lowercase(i:i)) >= ICHAR('a') .AND. ICHAR(lowercase(i:i)) <= ICHAR('z')) THEN
+        toupper(i:i) = CHAR( ICHAR(lowercase(i:i)) + idel )
       ELSE
-        toupper(i:i) = lower(i:i)
-      END IF
-    END DO
-
+        toupper(i:i) = lowercase(i:i)
+      ENDIF
+    ENDDO
+    !
   END FUNCTION toupper
-
-!-------------------------------------------------------------------------
-!
-
-  !>
-  !!    Conversion: INTEGER -> CHARACTER(LEN=2).
-  !!
-  !!
+  !------------------------------------------------------------------------------------------------
+  !
+  ! Conversion: INTEGER -> CHARACTER(LEN=2)
+  !
   FUNCTION char2 (i, zero)
-
-
-    CHARACTER(LEN=2)                       :: char2 ! result
-    INTEGER          ,INTENT(in)           :: i     ! argument
-    CHARACTER        ,INTENT(in) ,OPTIONAL :: zero  ! padding instead of '0'
-
-    INTEGER ,PARAMETER :: i0 = ICHAR ('0')
-!-------------------------------------------------------------------------
-
-    IF (i>99 .OR. i<0) THEN
+    CHARACTER(len=2) :: char2 ! result
+    INTEGER,   INTENT(in)           :: i     ! argument
+    CHARACTER, INTENT(in), OPTIONAL :: zero  ! padding instead of '0'
+    !
+    INTEGER, PARAMETER :: i0 = ICHAR ('0')
+    !
+    IF (i > 99 .OR. i < 0) THEN
       char2 = '**'
     ELSE
       char2(1:1) = CHAR(    i/10  + i0)
       char2(2:2) = CHAR(MOD(i,10) + i0)
     ENDIF
-
-    IF(PRESENT(zero)) THEN
+    !
+    IF (PRESENT(zero)) THEN
       IF(char2(1:1) == '0') char2(1:1) = zero
       IF(char2(2:2) == '0') char2(2:2) = zero
     ENDIF
+    !
   END FUNCTION char2
-
+  !------------------------------------------------------------------------------------------------
+  !
+  ! returns integer n as a string (often needed in printing messages)
+  !
+  FUNCTION int2string(n)
+    CHARACTER(len=10) :: int2string ! result
+    INTEGER, INTENT(in) :: n
+    !
+    WRITE(int2string,'(I10)') n
+    int2string = ADJUSTL(int2string)
+    !
+  END FUNCTION int2string
+  !------------------------------------------------------------------------------------------------
+  !
+  ! returns real n as a string (often needed in printing messages)
+  !
+  FUNCTION float2string(n) 
+    CHARACTER(len=32) :: float2string ! result
+    REAL, INTENT(in) :: n
+    !
+    WRITE(float2string,'(g32.5)') n
+    float2string = ADJUSTL(float2string)
+    !
+  END FUNCTION float2string
+  !
+  FUNCTION double2string(n) 
+    CHARACTER(len=32) :: double2string ! result
+    DOUBLE PRECISION, INTENT(in) :: n
+    !
+    WRITE(double2string,'(g32.5)') n
+    double2string = ADJUSTL(double2string)
+    !
+  END FUNCTION double2string
+  !------------------------------------------------------------------------------------------------
+  !
+  ! returns integer n as a string (often needed in printing messages)
+  !
+  FUNCTION logical2string(n)
+    CHARACTER(len=10) :: logical2string ! result
+    LOGICAL, INTENT(in) :: n
+    !
+    WRITE(logical2string,'(l10)') n
+    logical2string = ADJUSTL(logical2string)
+    !
+  END FUNCTION logical2string
+  !
 END MODULE mo_util_string

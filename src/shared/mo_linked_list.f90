@@ -39,7 +39,7 @@ MODULE mo_linked_list
   !
   TYPE t_var_list_intrinsic
     INTEGER                       :: key                ! hash value of name   
-    CHARACTER(len=64)             :: name               ! stream name
+    CHARACTER(len=128)            :: name               ! stream name
     TYPE(t_list_element), POINTER :: first_list_element ! reference to first
     INTEGER(i8)                   :: memory_used        ! memory allocated
     INTEGER                       :: list_elements      ! allocated elements
@@ -48,7 +48,7 @@ MODULE mo_linked_list
     LOGICAL                       :: lmiss              ! missing values
     LOGICAL                       :: lrestart           ! restart stream
     LOGICAL                       :: linitial           ! initial stream
-    CHARACTER(len=128)            :: filename           ! name of file
+    CHARACTER(len=256)            :: filename           ! name of file
     CHARACTER(len=8)              :: post_suf           ! suffix of output  file
     CHARACTER(len=8)              :: rest_suf           ! suffix of restart file
     CHARACTER(len=8)              :: init_suf           ! suffix of initial file
@@ -57,8 +57,7 @@ MODULE mo_linked_list
     INTEGER                       :: restart_type       ! CDI format
     INTEGER                       :: compression_type   ! CDI compression type
     LOGICAL                       :: opened             ! true, if file opened
-    CHARACTER(len=128)            :: suffix             ! filename extensions to add to 
-                                                        ! (actually denotes the file to write to)
+    CHARACTER(len=8)              :: model_type         ! store model type
     !--------------------------------------------------------------------------------------------
     ! Internal used handler for cdi
     INTEGER                       :: cdiFileId          ! cdi file handler
@@ -119,7 +118,7 @@ CONTAINS
     this_list%p%compression_type   = -1
     !
     this_list%p%opened             = .FALSE.
-    this_list%p%suffix             = ''
+    this_list%p%model_type         = 'atm'
     !
     this_list%p%cdiFileID          = -1
     this_list%p%cdiVlistID         = -1

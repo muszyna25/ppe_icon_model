@@ -53,7 +53,7 @@ MODULE mo_ha_stepping
                                   & l_restarttime
   USE mo_run_nml,             ONLY: lshallow_water, nsteps, dtime,ltheta_dyn,   &
                                   & ldynamics, ltransport, msg_level, ltimer,   &
-                                  & iequations, i_cell_type
+                                  & i_cell_type
   USE mo_hydro_testcases,     ONLY: init_testcase
   USE mo_si_correction,       ONLY: init_si_params
   USE mo_ha_rungekutta,       ONLY: init_RungeKutta
@@ -338,7 +338,7 @@ CONTAINS
     !--------------------------------------------------------------------------
     IF (l_restarttime) THEN
       DO jg = 1, n_dom
-        CALL create_restart_file( iequations, datetime,         &
+        CALL create_restart_file( datetime,                     &
                                 & p_patch(jg)%nlev, vct,        &
                                 & jg, nroot, p_patch(jg)%level, &
                                 & p_patch(jg)%n_patch_cells_g,  &

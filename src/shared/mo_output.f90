@@ -59,9 +59,9 @@ MODULE mo_output
   USE mo_io_async,            ONLY: setup_io_procs, shutdown_io_procs, &
     &                               output_async, set_output_file
   USE mo_datetime,            ONLY: t_datetime,iso8601
-  USE mo_io_restart,          ONLY: set_restart_time, set_restart_vct, &
-                                  & init_restart, open_restart_files,  &
-                                  & write_restart, close_restart_files,&
+  USE mo_io_restart,          ONLY: set_restart_time, set_restart_vct,         &
+                                  & init_restart, open_writing_restart_files,  &
+                                  & write_restart, close_writing_restart_files,&
                                   & cleanup_restart
 
 
@@ -278,10 +278,9 @@ CONTAINS
   !-------------
   !>
   !! 
-  SUBROUTINE create_restart_file( ieqn, datetime, klev, pvct, jg,        &
+  SUBROUTINE create_restart_file( datetime, klev, pvct, jg,              &
                                 & kr, kb, kcell, kvert, kedge, icelltype )
 
-    INTEGER, INTENT(IN) :: ieqn    ! atm? oce? lnd?
     TYPE(t_datetime),INTENT(IN) :: datetime
     INTEGER, INTENT(IN) :: klev
     REAL(wp),INTENT(IN) :: pvct(:) 
@@ -289,7 +288,6 @@ CONTAINS
     INTEGER, INTENT(IN) :: kcell, kvert, kedge, icelltype
    
     CHARACTER(LEN=20) :: string
-    CHARACTER(LEN=3 ) :: cmp
 
     !----------------
     ! Initialization
@@ -308,13 +306,10 @@ CONTAINS
     ! Open new file, write data, close and then clean-up.
 
     WRITE(string,'(2(a,i1),a,i2.2)') 'restart.icon_D',jg,'R',kr,'B',kb
-    IF (ieqn.GT.0) THEN ; cmp = "atm"
-    ELSE ; cmp = "oce"
-    END IF 
 
-    CALL open_restart_files( TRIM(string),cmp )
+    CALL open_writing_restart_files( TRIM(string) )
     CALL write_restart
-    CALL close_restart_files
+    CALL close_writing_restart_files
     CALL cleanup_restart
     
   END SUBROUTINE create_restart_file

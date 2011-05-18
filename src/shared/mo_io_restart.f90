@@ -1,42 +1,10 @@
-!  Files may be described using local pathnames or remote URIs (URLs,
-! OpenDAP IDs). File descriptors may be absolute or relative to a base
-! address, as in HTML.
-!
-! When pointing to an external file, attributes holding the timestamp and
-! MD5 checksum may optionally be specfied. If the checksum of an
-! externalfile does not match, it is an error. The timestamp is not
-! definitive, but may be used to decide whether or not to trigger a
-! checksum.
-!
-! Encoding pathnames, checksums and timestamps carries a penalty: the
-! system is brittle to any changes. The use of relative pathnames is
-! recommended: this at least permits whole directory trees to be moved
-! with little pain.
-!
-! dimensions:
-!    string = 255;
-! variables:
-!    char base(string); 
-!    char external(string); 
-!    char local(string); 
-! base = "http://icon.zmaw.de/icon-grids/";
-!    base:standard_name = "link_base_path";
-! external = "grid.nc";
-!    external:standard_name = "link_path";
-!    external:md5_checksum = "<md5 checksum>"; 
-!    external:timestamp = "<iso8601>";
-! local = "/pool/data/ICON/grid-data/grid.nc";
-!    local:standard_name = "link_path";
-!    local:md5_checksum = "<md5 checksum>"; 
-!    local:timestamp = "<iso8601>";
-!    local:link_spec_version = "1.0";
-!     
 MODULE mo_io_restart
   !
   USE mo_kind,          ONLY: wp
   USE mo_exception,     ONLY: finish, message, message_text
   USE mo_util_string,   ONLY: separator
   USE mo_util_sysinfo,  ONLY: util_user_name, util_os_system, util_node_name 
+  USE mo_util_symlink,  ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_var_metadata,  ONLY: t_var_metadata
   USE mo_linked_list,   ONLY: t_list_element
   USE mo_var_list,      ONLY: t_var_list, nvar_lists, var_lists
@@ -52,9 +20,12 @@ MODULE mo_io_restart
   PUBLIC :: set_restart_time
   PUBLIC :: set_restart_vct
   PUBLIC :: init_restart
-  PUBLIC :: open_restart_files
+  PUBLIC :: open_writing_restart_files
   PUBLIC :: write_restart
-  PUBLIC :: close_restart_files
+  PUBLIC :: close_writing_restart_files
+  PUBLIC :: open_reading_restart_files
+!  PUBLIC :: read_restart
+!  PUBLIC :: close_reading_restart_files
   PUBLIC :: cleanup_restart
   !
   TYPE t_gl_att
@@ -285,9 +256,8 @@ CONTAINS
   ! Loop over all the output streams and open the associated files. Set
   ! unit numbers (file IDs) for all streams associated with a file.
   !
-  SUBROUTINE open_restart_files(basename, model_type)
+  SUBROUTINE open_writing_restart_files(basename)
     CHARACTER(len=*), INTENT(in) :: basename
-    CHARACTER(len=*), INTENT(in) :: model_type
     !
     CHARACTER(len=1024) :: restart_filename
     INTEGER :: status, i ,j, k, ia, ihg, ivg, nlevp1
@@ -298,7 +268,6 @@ CONTAINS
     IF (private_restart_time == '') THEN
       CALL finish('open_restart_files','restart time not set')
     ENDIF
-    restart_filename = basename//'_'//TRIM(private_restart_time)//'_'//model_type//'.nc'
     !
     ! print header for restart var_lists
     !
@@ -319,9 +288,13 @@ CONTAINS
     !
     DO i = 1, nvar_lists
       !
-      ! skip if file is already opened
+      ! skip, if file is already opened
       !
       IF (var_lists(i)%p%opened) CYCLE
+      !
+      ! skip, if var_list is not required for restarting
+      !
+      IF (.NOT. var_lists(i)%p%lrestart) CYCLE
       !
       ! check restart file type
       !
@@ -329,182 +302,189 @@ CONTAINS
       CASE (FILETYPE_NC)
         CALL finish('open_restart_files','netCDF classic not supported')
       CASE (FILETYPE_NC2, FILETYPE_NC4)
-        ! that is ok, both formats can write more than 2GB files
+        ! this is ok, both formats can write more than 2GB files
       CASE default
         CALL finish('open_restart_files','unknown restart_type')
       END SELECT
       !
-      ! loop over all output streams corresponding to the same file
+      var_lists(i)%p%first = .TRUE.
       !
-      DO j = i, nvar_lists
+      restart_filename = basename//'_'//TRIM(private_restart_time) &
+           &                     //'_'//TRIM(var_lists(i)%p%model_type)//'.nc'
+      !
+      IF (p_parallel_io) THEN
+        SELECT CASE (var_lists(i)%p%restart_type)
+        CASE (FILETYPE_NC2)
+          var_lists(i)%p%cdiFileID = streamOpenWrite(restart_filename, FILETYPE_NC2)
+        CASE (FILETYPE_NC4)
+          var_lists(i)%p%cdiFileID = streamOpenWrite(restart_filename, FILETYPE_NC4)
+        END SELECT
+        !
+        var_lists(i)%p%filename = TRIM(restart_filename)
+        !
+        IF (var_lists(i)%p%cdiFileID < 0) THEN
+          WRITE(message_text,'(a)') cdiStringError(var_lists(i)%p%cdiFileID)
+          CALL message('',message_text)
+          CALL finish ('open_restart_files', 'open failed on '//TRIM(restart_filename))
+        ELSE
+          var_lists(i)%p%opened = .TRUE.
+        END IF
+        !
+        ! The following sections add the file global properties collected in init_restart
+        !
+        ! 1. create cdi vlist 
+        !
+        var_lists(i)%p%cdiVlistID = vlistCreate()
+        !
+        !    set cdi internal time index to 0 for writing time slices in netCDF
+        !
+        var_lists(i)%p%cdiTimeIndex = 0
+        !
+        ! 2. add global variables
+        !
+        DO ia = 1, nglob_atts
+          status = vlistDefAttTxt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL,       &
+               &                  TRIM(global_restart_attributes(ia)%name),    &
+               &                  LEN_TRIM(global_restart_attributes(ia)%val), &
+               &                  TRIM(global_restart_attributes(ia)%val))
+        END DO
+        !
+        ! 3. add horizontal grid descriptions
+        !
+        DO ihg = 1, nh_grids
+          SELECT CASE (hgrid_def(ihg)%type)
+          CASE (GRID_UNSTRUCTURED_CELL)
+            var_lists(i)%p%cdiCellGridID = gridCreate(GRID_UNSTRUCTURED, hgrid_def(ihg)%nelements)
+            CALL gridDefNvertex(var_lists(i)%p%cdiCellGridID, hgrid_def(ihg)%nvertices)
+            !
+            CALL gridDefXname(var_lists(i)%p%cdiCellGridID, 'clon')
+            CALL gridDefXlongname(var_lists(i)%p%cdiCellGridID, 'center longitude')
+            CALL gridDefXunits(var_lists(i)%p%cdiCellGridID, 'radians')
+            !
+            CALL gridDefYname(var_lists(i)%p%cdiCellGridID, 'clat')
+            CALL gridDefYlongname(var_lists(i)%p%cdiCellGridID, 'center latitude')
+            CALL gridDefYunits(var_lists(i)%p%cdiCellGridID, 'radians')
+            !
+          CASE (GRID_UNSTRUCTURED_VERT)
+            var_lists(i)%p%cdiVertGridID = gridCreate(GRID_UNSTRUCTURED, hgrid_def(ihg)%nelements)
+            CALL gridDefNvertex(var_lists(i)%p%cdiVertGridID, hgrid_def(ihg)%nvertices)
+            !
+            CALL gridDefXname(var_lists(i)%p%cdiVertGridID, 'vlon')
+            CALL gridDefXlongname(var_lists(i)%p%cdiVertGridID, 'vertex longitude')
+            CALL gridDefXunits(var_lists(i)%p%cdiVertGridID, 'radians')
+            !
+            CALL gridDefYname(var_lists(i)%p%cdiVertGridID, 'vlat')
+            CALL gridDefYlongname(var_lists(i)%p%cdiVertGridID, 'vertex latitude')
+            CALL gridDefYunits(var_lists(i)%p%cdiVertGridID, 'radians')
+            !
+          CASE (GRID_UNSTRUCTURED_EDGE)
+            var_lists(i)%p%cdiEdgeGridID = gridCreate(GRID_UNSTRUCTURED, hgrid_def(ihg)%nelements)
+            CALL gridDefNvertex(var_lists(i)%p%cdiEdgeGridID, hgrid_def(ihg)%nvertices)
+            !
+            CALL gridDefXname(var_lists(i)%p%cdiEdgeGridID, 'elon')
+            CALL gridDefXlongname(var_lists(i)%p%cdiEdgeGridID, 'edge longitude')
+            CALL gridDefXunits(var_lists(i)%p%cdiEdgeGridID, 'radians')
+            !
+            CALL gridDefYname(var_lists(i)%p%cdiEdgeGridID, 'elat')
+            CALL gridDefYlongname(var_lists(i)%p%cdiEdgeGridID, 'edge latitude')
+            CALL gridDefYunits(var_lists(i)%p%cdiEdgeGridID, 'radians')
+            !
+          END SELECT
+        ENDDO
+        !
+        ! 4. add vertical grid descriptions
+        !
+        DO ivg = 1, nv_grids
+          SELECT CASE (vgrid_def(ivg)%type)
+          CASE (ZAXIS_SURFACE)
+            var_lists(i)%p%cdiSurfZaxisID = zaxisCreate(ZAXIS_SURFACE, vgrid_def(ivg)%nlevels)
+            ALLOCATE(levels(1))
+            levels(1) = 0.0_wp
+            CALL zaxisDefLevels(var_lists(i)%p%cdiSurfZaxisID, levels)
+            DEALLOCATE(levels)
+          CASE (ZAXIS_HYBRID)
+            var_lists(i)%p%cdiFullZaxisID = zaxisCreate(ZAXIS_HYBRID, vgrid_def(ivg)%nlevels)
+            ALLOCATE(levels(vgrid_def(ivg)%nlevels))
+            DO k = 1, vgrid_def(ivg)%nlevels
+              levels(k) = REAL(k,wp)
+            END DO
+            CALL zaxisDefLevels(var_lists(i)%p%cdiFullZaxisID, levels)
+            DEALLOCATE(levels)
+            nlevp1 = vgrid_def(ivg)%nlevels+1
+            CALL zaxisDefVct(var_lists(i)%p%cdiFullZaxisID, 2*nlevp1, private_vct(1:2*nlevp1))
+          CASE (ZAXIS_HYBRID_HALF)
+            var_lists(i)%p%cdiHalfZaxisID  = zaxisCreate(ZAXIS_HYBRID_HALF, vgrid_def(ivg)%nlevels)
+            ALLOCATE(levels(vgrid_def(ivg)%nlevels))
+            DO k = 1, vgrid_def(ivg)%nlevels
+              levels(k) = REAL(k,wp)
+            END DO
+            CALL zaxisDefLevels(var_lists(i)%p%cdiHalfZaxisID, levels)
+            DEALLOCATE(levels)
+            nlevp1 = vgrid_def(ivg)%nlevels
+            CALL zaxisDefVct(var_lists(i)%p%cdiHalfZaxisID, 2*nlevp1, private_vct(1:2*nlevp1))
+          END SELECT
+        ENDDO
+        !
+        ! 5. restart does contain absolute time 
+        !
+        var_lists(i)%p%cdiTaxisID = taxisCreate(TAXIS_ABSOLUTE)
+        CALL vlistDefTaxis(var_lists(i)%p%cdiVlistID, var_lists(i)%p%cdiTaxisID)
+      ENDIF
+      !
+      ! add variables
+      !
+      IF (p_parallel_io) THEN
+        !
+        CALL addVarListToVlist(var_lists(i), var_lists(i)%p%cdiVlistID)
+        !
+        WRITE(message_text,'(t1,a49,t50,a31,t84,i6,t94,l5)')        &
+             restart_filename, var_lists(i)%p%name,             &
+             var_lists(i)%p%cdiFileID, var_lists(i)%p%lrestart
+        CALL message('',message_text)
+      ENDIF
+      !
+      ! loop over all other output var_lists eventually corresponding to the same file
+      !
+      DO j = 1, nvar_lists
+        !
+        IF (var_lists(j)%p%opened) CYCLE
+        IF (.NOT. var_lists(j)%p%lrestart) CYCLE
         !
         IF (var_lists(j)%p%restart_type /= var_lists(i)%p%restart_type) THEN
           CALL finish('open_output_streams', 'different file types for the same restart file')
         ENDIF
         !
-        ! open file
-        !
-        IF (i==j) THEN
+        IF (var_lists(i)%p%model_type == var_lists(j)%p%model_type) THEN 
+          var_lists(j)%p%opened = .TRUE.
+          var_lists(j)%p%filename = var_lists(i)%p%filename          
           !
-          IF (var_lists(i)%p%lrestart) THEN
+          ! set file IDs of all associated restart files
+          !
+          var_lists(j)%p%cdiFileID      = var_lists(i)%p%cdiFileID
+          var_lists(j)%p%cdiVlistID     = var_lists(i)%p%cdiVlistID
+          var_lists(j)%p%cdiCellGridID  = var_lists(i)%p%cdiCellGridID
+          var_lists(j)%p%cdiVertGridID  = var_lists(i)%p%cdiVertGridID
+          var_lists(j)%p%cdiEdgeGridID  = var_lists(i)%p%cdiEdgeGridID
+          var_lists(j)%p%cdiSurfZaxisID = var_lists(i)%p%cdiSurfZaxisID 
+          var_lists(j)%p%cdiFullZaxisID = var_lists(i)%p%cdiFullZaxisID 
+          var_lists(j)%p%cdiHalfZaxisID = var_lists(i)%p%cdiHalfZaxisID 
+          var_lists(j)%p%cdiTaxisID     = var_lists(i)%p%cdiTaxisID
+          !
+          ! add variables to already existing cdi vlists
+          !
+          IF (p_parallel_io) THEN
             !
-            var_lists(i)%p%first = .TRUE.
+            CALL addVarListToVlist(var_lists(j), var_lists(j)%p%cdiVlistID)
             !
-            IF (p_parallel_io) THEN
-              SELECT CASE (var_lists(i)%p%restart_type)
-              CASE (FILETYPE_NC2)
-                var_lists(i)%p%cdiFileID = streamOpenWrite(restart_filename, FILETYPE_NC2)
-              CASE (FILETYPE_NC4)
-                var_lists(i)%p%cdiFileID = streamOpenWrite(restart_filename, FILETYPE_NC4)
-              END SELECT
-              !
-              IF (var_lists(i)%p%cdiFileID < 0) THEN
-                WRITE(message_text,'(a)') cdiStringError(var_lists(i)%p%cdiFileID)
-                CALL message('',message_text)
-                CALL finish ('open_restart_files', 'open failed on '//TRIM(restart_filename))
-              ELSE
-                var_lists(i)%p%opened = .TRUE.
-              END IF
-              !
-              ! The following sections add the file global properties collected in init_restart
-              !
-              ! 1. create cdi vlist 
-              !
-              var_lists(i)%p%cdiVlistID = vlistCreate()
-              !
-              !    set cdi internal time index to 0 for writing time slices in netCDF
-              !
-              var_lists(i)%p%cdiTimeIndex = 0
-              !
-              ! 2. add global variables
-              !
-              DO ia = 1, nglob_atts
-                status = vlistDefAttTxt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL,       &
-                     &                  TRIM(global_restart_attributes(ia)%name),    &
-                     &                  LEN_TRIM(global_restart_attributes(ia)%val), &
-                     &                  TRIM(global_restart_attributes(ia)%val))
-              END DO
-              !
-              ! 3. add horizontal grid descriptions
-              !
-              DO ihg = 1, nh_grids
-                SELECT CASE (hgrid_def(ihg)%type)
-                CASE (GRID_UNSTRUCTURED_CELL)
-                  var_lists(i)%p%cdiCellGridID = gridCreate(GRID_UNSTRUCTURED,&
-                       &                               hgrid_def(ihg)%nelements)
-                  CALL gridDefNvertex(var_lists(i)%p%cdiCellGridID, hgrid_def(ihg)%nvertices)
-                  !
-                  CALL gridDefXname(var_lists(i)%p%cdiCellGridID, 'clon')
-                  CALL gridDefXlongname(var_lists(i)%p%cdiCellGridID, 'center longitude')
-                  CALL gridDefXunits(var_lists(i)%p%cdiCellGridID, 'radians')
-                  !
-                  CALL gridDefYname(var_lists(i)%p%cdiCellGridID, 'clat')
-                  CALL gridDefYlongname(var_lists(i)%p%cdiCellGridID, 'center latitude')
-                  CALL gridDefYunits(var_lists(i)%p%cdiCellGridID, 'radians')
-                  !
-                CASE (GRID_UNSTRUCTURED_VERT)
-                  var_lists(i)%p%cdiVertGridID = gridCreate(GRID_UNSTRUCTURED,&
-                       &                               hgrid_def(ihg)%nelements)
-                  CALL gridDefNvertex(var_lists(i)%p%cdiVertGridID, hgrid_def(ihg)%nvertices)
-                  !
-                  CALL gridDefXname(var_lists(i)%p%cdiVertGridID, 'vlon')
-                  CALL gridDefXlongname(var_lists(i)%p%cdiVertGridID, 'vertex longitude')
-                  CALL gridDefXunits(var_lists(i)%p%cdiVertGridID, 'radians')
-                  !
-                  CALL gridDefYname(var_lists(i)%p%cdiVertGridID, 'vlat')
-                  CALL gridDefYlongname(var_lists(i)%p%cdiVertGridID, 'vertex latitude')
-                  CALL gridDefYunits(var_lists(i)%p%cdiVertGridID, 'radians')
-                  !
-                CASE (GRID_UNSTRUCTURED_EDGE)
-                  var_lists(i)%p%cdiEdgeGridID = gridCreate(GRID_UNSTRUCTURED,&
-                       &                               hgrid_def(ihg)%nelements)
-                  CALL gridDefNvertex(var_lists(i)%p%cdiEdgeGridID, hgrid_def(ihg)%nvertices)
-                  !
-                  CALL gridDefXname(var_lists(i)%p%cdiEdgeGridID, 'elon')
-                  CALL gridDefXlongname(var_lists(i)%p%cdiEdgeGridID, 'edge longitude')
-                  CALL gridDefXunits(var_lists(i)%p%cdiEdgeGridID, 'radians')
-                  !
-                  CALL gridDefYname(var_lists(i)%p%cdiEdgeGridID, 'elat')
-                  CALL gridDefYlongname(var_lists(i)%p%cdiEdgeGridID, 'edge latitude')
-                  CALL gridDefYunits(var_lists(i)%p%cdiEdgeGridID, 'radians')
-                  !
-                END SELECT
-              ENDDO
-              !
-              ! 4. add vertical grid descriptions
-              !
-              DO ivg = 1, nv_grids
-                SELECT CASE (vgrid_def(ivg)%type)
-                CASE (ZAXIS_SURFACE)
-                  var_lists(i)%p%cdiSurfZaxisID = zaxisCreate(ZAXIS_SURFACE, &
-                       &                               vgrid_def(ivg)%nlevels)
-                  ALLOCATE(levels(1))
-                  levels(1) = 0.0_wp
-                  CALL zaxisDefLevels(var_lists(i)%p%cdiSurfZaxisID, levels)
-                  DEALLOCATE(levels)
-                CASE (ZAXIS_HYBRID)
-                  var_lists(i)%p%cdiFullZaxisID = zaxisCreate(ZAXIS_HYBRID, &
-                       &                               vgrid_def(ivg)%nlevels)
-                  ALLOCATE(levels(vgrid_def(ivg)%nlevels))
-                  DO k = 1, vgrid_def(ivg)%nlevels
-                    levels(k) = REAL(k,wp)
-                  END DO
-                  CALL zaxisDefLevels(var_lists(i)%p%cdiFullZaxisID, levels)
-                  DEALLOCATE(levels)
-                  nlevp1 = vgrid_def(ivg)%nlevels+1
-                  CALL zaxisDefVct(var_lists(i)%p%cdiFullZaxisID, 2*nlevp1, &
-                       &                              private_vct(1:2*nlevp1))
-                CASE (ZAXIS_HYBRID_HALF)
-                  var_lists(i)%p%cdiHalfZaxisID  = zaxisCreate(ZAXIS_HYBRID_HALF,&
-                       &                                   vgrid_def(ivg)%nlevels)
-                  ALLOCATE(levels(vgrid_def(ivg)%nlevels))
-                  DO k = 1, vgrid_def(ivg)%nlevels
-                    levels(k) = REAL(k,wp)
-                  END DO
-                  CALL zaxisDefLevels(var_lists(i)%p%cdiHalfZaxisID, levels)
-                  DEALLOCATE(levels)
-                  nlevp1 = vgrid_def(ivg)%nlevels
-                  CALL zaxisDefVct(var_lists(i)%p%cdiHalfZaxisID, 2*nlevp1, &
-                       &                              private_vct(1:2*nlevp1))
-                END SELECT
-              ENDDO
-              !
-              ! 5. restart does contain absolute time 
-              !
-              var_lists(i)%p%cdiTaxisID = taxisCreate(TAXIS_ABSOLUTE)
-              CALL vlistDefTaxis(var_lists(i)%p%cdiVlistID, var_lists(i)%p%cdiTaxisID)
-            ENDIF
-          ELSE
-            EXIT
+            WRITE(message_text,'(t1,a49,t50,a31,t84,i6,t94,l5)')        &
+                 restart_filename, var_lists(j)%p%name,             &
+                 var_lists(j)%p%cdiFileID, var_lists(j)%p%lrestart
+            CALL message('',message_text)
           ENDIF
-        ENDIF
-        !
-        ! set file IDs of all associated restart files
-        !
-        IF (.NOT. var_lists(i)%p%lrestart) CYCLE
-        !
-        var_lists(j)%p%cdiFileID      = var_lists(i)%p%cdiFileID
-        var_lists(j)%p%cdiVlistID     = var_lists(i)%p%cdiVlistID
-        var_lists(j)%p%cdiCellGridID  = var_lists(i)%p%cdiCellGridID
-        var_lists(j)%p%cdiVertGridID  = var_lists(i)%p%cdiVertGridID
-        var_lists(j)%p%cdiEdgeGridID  = var_lists(i)%p%cdiEdgeGridID
-        var_lists(j)%p%cdiSurfZaxisID = var_lists(i)%p%cdiSurfZaxisID 
-        var_lists(j)%p%cdiFullZaxisID = var_lists(i)%p%cdiFullZaxisID 
-        var_lists(j)%p%cdiHalfZaxisID = var_lists(i)%p%cdiHalfZaxisID 
-        var_lists(j)%p%cdiTaxisID     = var_lists(j)%p%cdiTaxisID
-        ! 
-        IF (p_parallel_io) THEN
-          !
-          CALL addVarListToVlist(var_lists(j), var_lists(j)%p%cdiVlistID)
-          !
-          WRITE(message_text,'(t1,a49,t50,a31,t84,i6,t94,l5)')        &
-               restart_filename, var_lists(j)%p%name,             &
-               var_lists(j)%p%cdiFileID, var_lists(j)%p%lrestart
-          CALL message('',message_text)
         ENDIF
       ENDDO
       !      
-      IF (p_parallel_io .AND. var_lists(i)%p%lrestart) THEN
+      IF (p_parallel_io .AND. var_lists(i)%p%first) THEN
         CALL streamDefVlist(var_lists(i)%p%cdiFileID, var_lists(i)%p%cdiVlistID)
       ENDIF
       !
@@ -512,7 +492,7 @@ CONTAINS
     !    
     CALL message('','')
     !
-  END SUBROUTINE open_restart_files
+  END SUBROUTINE open_writing_restart_files
   !------------------------------------------------------------------------------------------------
   !
   ! define variables and attributes
@@ -551,15 +531,12 @@ CONTAINS
       CASE(GRID_UNSTRUCTURED_CELL)
         info%cdiGridID = this_list%p%cdiCellGridID
         gridID = info%cdiGridID
-        write(0,*) TRIM(info%name), ' ... cell'
       CASE(GRID_UNSTRUCTURED_VERT)
         info%cdiGridID = this_list%p%cdiVertGridID
         gridID = info%cdiGridID
-        write(0,*) TRIM(info%name), ' ... vertex'
       CASE(GRID_UNSTRUCTURED_EDGE)
         info%cdiGridID = this_list%p%cdiEdgeGridID
         gridID = info%cdiGridID
-        write(0,*) TRIM(info%name), ' ... edge'
       END SELECT
       !
       ! set z axis ID
@@ -568,15 +545,12 @@ CONTAINS
       CASE (ZAXIS_SURFACE)
         info%cdiZaxisID =  this_list%p%cdiSurfZaxisID
         zaxisID = info%cdiZaxisID
-        write(0,*) TRIM(info%name), ' ... surface'
       CASE (ZAXIS_HYBRID)
         info%cdiZaxisID =  this_list%p%cdiFullZaxisID
         zaxisID = info%cdiZaxisID
-        write(0,*) TRIM(info%name), ' ... full'
       CASE (ZAXIS_HYBRID_HALF)
         info%cdiZaxisID =  this_list%p%cdiHalfZaxisID
         zaxisID = info%cdiZaxisID
-        write(0,*) TRIM(info%name), ' ... half'
       END SELECT
       !
       IF ( gridID  == -1 ) THEN
@@ -615,86 +589,106 @@ CONTAINS
   END SUBROUTINE addVarListToVlist
   !------------------------------------------------------------------------------------------------
   !
-  SUBROUTINE close_restart_files
+  SUBROUTINE close_writing_restart_files
     !
     ! Loop over all the output streams and close the associated files, set
     ! opened to false
     !
-    INTEGER :: i
+    CHARACTER(len=80) :: linkname
+    INTEGER :: i, iret, fileID
     !
-    write(0,*) ' ... entered close_restart_files ...'
+    CALL message('',separator)
+    CALL message('','')
+    CALL message('','Close restart files:')
+    CALL message('','')
+    WRITE(message_text,'(t1,a,t50,a,t84,a)') 'file', 'link target', 'file ID'
+    CALL message('',message_text)
+    CALL message('','')
+    !
     close_all_lists: DO i = 1, nvar_lists
       !
-      write (0,*) ' ... check '//TRIM(var_lists(i)%p%name), var_lists(i)%p%opened
       IF (var_lists(i)%p%opened) THEN
-        IF (p_parallel_io) THEN
-          write(0,*) ' ... close '//TRIM(var_lists(i)%p%name)
+        IF (p_parallel_io .AND. var_lists(i)%p%first) THEN
+          !
+          fileID = var_lists(i)%p%cdiFileID
+          !
           CALL streamClose(var_lists(i)%p%cdiFileID)
           CALL vlistDestroy(var_lists(i)%p%cdiVlistID)
+          !
+          linkname = 'restart_'//TRIM(var_lists(i)%p%model_type)//'.nc'
+          IF (util_islink(TRIM(linkname))) THEN
+            iret = util_unlink(TRIM(linkname))
+          ENDIF
+          iret = util_symlink(TRIM(var_lists(i)%p%filename),TRIM(linkname))
+          !
+          WRITE(message_text,'(t1,a,t50,a,t84,i6)') &
+               TRIM(var_lists(i)%p%filename), TRIM(linkname), fileID
+          CALL message('',message_text)
+          !
         ENDIF
+        var_lists(i)%p%filename   = ''
       ENDIF
     ENDDO close_all_lists
+    CALL message('','')
     !
     ! reset all var list properties related to cdi files
     !
     reset_all_lists: DO i = 1, nvar_lists
       var_lists(i)%p%cdiFileID = -1
       var_lists(i)%p%opened = .FALSE.
+      var_lists(i)%p%first  = .FALSE.
     ENDDO reset_all_lists
     !
     private_restart_time = ''
     !
-  END SUBROUTINE close_restart_files
+  END SUBROUTINE close_writing_restart_files
   !------------------------------------------------------------------------------------------------
   !
   ! loop over all var_lists for restart
   !
   SUBROUTINE write_restart
     INTEGER :: i,j
-    LOGICAL :: time_written, write_info
+    LOGICAL :: write_info
     !
-    write_info = .TRUE.
+    write_info   = .TRUE.
     !
     ! pick up first stream associated with each file
     !
     DO i = 1, nvar_lists
-      IF (.NOT. var_lists(i)%p%first) CYCLE
-      time_written = .FALSE.
-      !
-      ! loop over all streams associated with the file
-      !
-      DO j = i, nvar_lists
-        IF (var_lists(j)%p%restart_type == var_lists(i)%p%restart_type .AND. &
-            var_lists(j)%p%cdiFileID    == var_lists(i)%p%cdiFileID   ) THEN 
-          !
-          IF (write_info) THEN
-            SELECT CASE (var_lists(i)%p%restart_type)
-            CASE (FILETYPE_NC2)
-              CALL message('','Write netCDF2 restart for : '//TRIM(private_restart_time))
-            CASE (FILETYPE_NC4)
-              IF (var_lists(i)%p%compression_type == COMPRESS_ZIP) THEN
-                CALL message('','Write compressed netCDF4 restart for : '&
-                     &                        //TRIM(private_restart_time))
-              ELSE
-                CALL message('','Write netCDF4 restart for : '//TRIM(private_restart_time))
-              END IF
-            END SELECT
-            write_info = .FALSE.
-          ENDIF
-          !
-          ! write time information to netCDF file
-          !
-          IF ( (p_parallel_io) .AND. .NOT. time_written) THEN
-            CALL write_time_to_restart(var_lists(i))
-            time_written = .TRUE.
-          ENDIF
-          !
-          ! write variables
-          !
-          CALL write_restart_var_list(var_lists(j))
-          !
+      IF (var_lists(i)%p%first) THEN
+        IF (write_info) THEN
+          SELECT CASE (var_lists(i)%p%restart_type)
+          CASE (FILETYPE_NC2)
+            CALL message('','Write netCDF2 restart for : '//TRIM(private_restart_time))
+          CASE (FILETYPE_NC4)
+            IF (var_lists(i)%p%compression_type == COMPRESS_ZIP) THEN
+              CALL message('','Write compressed netCDF4 restart for : '//TRIM(private_restart_time))
+            ELSE
+              CALL message('','Write netCDF4 restart for : '//TRIM(private_restart_time))
+            END IF
+          END SELECT
         ENDIF
-      ENDDO
+        write_info = .FALSE.
+        !
+        ! write time information to netCDF file
+        !
+        IF (p_parallel_io) THEN
+          CALL write_time_to_restart(var_lists(i))
+        ENDIF
+        !
+        ! loop over all streams associated with the file
+        !
+        DO j = i, nvar_lists
+          IF (var_lists(j)%p%cdiFileID == var_lists(i)%p%cdiFileID) THEN 
+            !
+            !
+            ! write variables
+            !
+            CALL write_restart_var_list(var_lists(j))
+            !
+          ENDIF
+        ENDDO
+      ENDIF
     ENDDO
     !
   END SUBROUTINE write_restart
@@ -774,8 +768,6 @@ CONTAINS
       !
       ! skip this field ?
       !
-      write (0,*) ' ... handle '//TRIM(info%name)
-      !
       IF (.NOT. info%lrestart) CYCLE
       !
       IF (info%lcontained) THEN 
@@ -840,7 +832,6 @@ CONTAINS
       CASE default
         CALL finish('out_stream','unknown grid type')
       END SELECT
-      write (0,*) ' ... '//TRIM(info%name)//' ... ', info%ndims, gdims
       !
       ! write data
       !
@@ -867,19 +858,10 @@ CONTAINS
     INTEGER :: fileID                       ! File ID
     INTEGER :: varID                        ! Variable ID
     !
-    INTEGER :: k
-    !
     fileID  = this_list%p%cdiFileID
     varID   = info%cdiVarID
     !
-    write (0,*) 'call streamWriteVar          ', varID, TRIM(info%name), ubound(array)
-   !DO k = 1, SIZE(array,2)
-   !  write (0,'(i5,2e12.4)') k, array(1,k,1,1,1), array(SIZE(array,1),k,1,1,1)
-   !ENDDO
-    !
     CALL streamWriteVar(fileID, varID, array, 0)
-    !
-    write (0,*) 'returned from streamWriteVar ', varID, TRIM(info%name), ubound(array)
     !
   END SUBROUTINE write_var
   !------------------------------------------------------------------------------------------------
@@ -898,6 +880,16 @@ CONTAINS
         CALL zaxisDestroy(var_lists(i)%p%cdiSurfZaxisID)
         CALL zaxisDestroy(var_lists(i)%p%cdiFullZaxisID)
         CALL zaxisDestroy(var_lists(i)%p%cdiHalfZaxisID)
+        var_lists(i)%p%cdiFileId      = CDI_UNDEFID
+        var_lists(i)%p%cdiVlistId     = CDI_UNDEFID
+        var_lists(i)%p%cdiCellGridID  = CDI_UNDEFID
+        var_lists(i)%p%cdiVertGridID  = CDI_UNDEFID
+        var_lists(i)%p%cdiEdgeGridID  = CDI_UNDEFID
+        var_lists(i)%p%cdiSurfZaxisID = CDI_UNDEFID
+        var_lists(i)%p%cdiHalfZaxisID = CDI_UNDEFID
+        var_lists(i)%p%cdiFullZaxisID = CDI_UNDEFID
+        var_lists(i)%p%cdiTaxisID     = CDI_UNDEFID
+        var_lists(i)%p%cdiTimeIndex   = CDI_UNDEFID
       ENDIF
     ENDDO
     !
@@ -918,7 +910,6 @@ CONTAINS
     REAL(wp), POINTER                      :: out_array(:,:,:,:,:)
     CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
     REAL(wp), POINTER :: z1d(:)
-    write (0,*) ' ... reorder cells 2d '//TRIM(name)
     z1d => out_array(:,1,1,1,1)
 #ifdef NOMPI
     CALL reorder_2d(in_array, z1d)
@@ -930,7 +921,6 @@ CONTAINS
     REAL(wp), POINTER                      :: out_array(:,:,:,:,:)
     CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
     REAL(wp), POINTER :: z2d(:,:)
-    write (0,*) ' ... reorder cells 3d '//TRIM(name)
     z2d => out_array(:,:,1,1,1)
 #ifdef NOMPI
     CALL reorder_3d(in_array, z2d)
@@ -942,7 +932,6 @@ CONTAINS
     REAL(wp), POINTER                      :: out_array(:,:,:,:,:)
     CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
     REAL(wp), POINTER :: z1d(:)
-    write (0,*) ' ... reorder vertices 2d '//TRIM(name)
     z1d => out_array(:,1,1,1,1)
 #ifdef NOMPI
     CALL reorder_2d(in_array, z1d)
@@ -954,7 +943,6 @@ CONTAINS
     REAL(wp), POINTER                      :: out_array(:,:,:,:,:)
     CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
     REAL(wp), POINTER :: z2d(:,:)
-    write (0,*) ' ... reorder vertices 3d '//TRIM(name)
     z2d => out_array(:,:,1,1,1)
 #ifdef NOMPI
     CALL reorder_3d(in_array, z2d)
@@ -966,7 +954,6 @@ CONTAINS
     REAL(wp), POINTER                      :: out_array(:,:,:,:,:)
     CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
     REAL(wp), POINTER :: z1d(:)
-    write (0,*) ' ... reorder edges 2d '//TRIM(name)
     z1d => out_array(:,1,1,1,1)
 #ifdef NOMPI
     CALL reorder_2d(in_array, z1d)
@@ -978,7 +965,6 @@ CONTAINS
     REAL(wp), POINTER                      :: out_array(:,:,:,:,:)
     CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
     REAL(wp), POINTER :: z2d(:,:)
-    write (0,*) ' ... reorder edges 3d '//TRIM(name)
     z2d => out_array(:,:,1,1,1)
 #ifdef NOMPI
     CALL reorder_3d(in_array, z2d)
@@ -1021,8 +1007,6 @@ CONTAINS
     isize_out = SIZE(out,1)
     isize_lev = SIZE(in,2)
     idiscrep = isize_in-isize_out
-    write (0,*) 'isize_in, isize_out, isize_lev, idiscrep = ', &
-         isize_in, SIZE(in,1), SIZE(in,2), SIZE(in,3), isize_out, isize_lev, idiscrep
     !
     IF (idiscrep /= 0 )THEN
       ALLOCATE (lmask(isize_in))
@@ -1033,7 +1017,6 @@ CONTAINS
     DO k = 1, isize_lev
       IF (idiscrep /= 0 )THEN
         out(:,k) = PACK(RESHAPE(in(:,k,:),(/isize_in/)),lmask)
-!LK        write (0,'(i5,2e12.4)') k, out(1,k), out(isize_out,k)
       ELSE
         out(:,k) =      RESHAPE(in(:,k,:),(/isize_out/))
       ENDIF
@@ -1044,5 +1027,61 @@ CONTAINS
     ENDIF
     !
   END SUBROUTINE reorder_3d
+  !
+  SUBROUTINE open_reading_restart_files(model_type)
+    CHARACTER(len=*), INTENT(in) :: model_type
+    !
+!!$    TYPE (t_list_element), POINTER :: element
+!!$    TYPE (t_list_element), TARGET  :: start_with
+    !
+    CHARACTER(len=80) :: restart_filename, name
+    !
+    INTEGER :: fileID, vlistID, taxisID, varID
+    INTEGER :: idate, itime
+    !
+    INTEGER :: iret
+    !
+    restart_filename = 'restart_'//TRIM(model_type)//'.nc'
+    !
+    IF (.NOT. util_islink(TRIM(restart_filename))) THEN
+      iret = util_rename(TRIM(restart_filename), TRIM(restart_filename)//'.bak')
+      iret = util_symlink(TRIM(restart_filename)//'.bak', TRIM(restart_filename))
+    ENDIF
+    !
+    fileID  = streamOpenRead(restart_filename)
+    vlistID = streamInqVlist(fileID)
+    taxisID = vlistInqTaxis(vlistID)
+    !
+    idate = taxisInqVdate(taxisID)
+    itime = taxisInqVtime(taxisID)
+    !
+!    write(0,*) idate, itime
+    DO varID = 0, vlistNvars(vlistID)-1
+      CALL vlistInqVarName(vlistID, varID, name)
+!      write (0,*) ' ... read name '//TRIM(name)
+    ENDDO
+    !
+!!$    for_all_lists: DO i = 1, nvar_lists
+!!$
+!!$      element => start_with
+!!$      element%next_list_element => var_lists(i)%p%first_list_element
+!!$      !
+!!$      for_all_list_elements: DO
+!!$        element => element%next_list_element
+!!$        IF (.NOT.ASSOCIATED(element)) EXIT
+!!$        !
+!!$
+!!$
+!!$        !    vlistInqVarName
+!!$
+!!$        !    streamReadVar
+!!$
+!!$      ENDDO for_all_list_elements
+!!$    ENDDO for_all_lists
+
+    CALL streamClose(fileID)
+!    CALL vlistDestroy(vlistID)
+
+  END SUBROUTINE open_reading_restart_files
   !
 END MODULE mo_io_restart
