@@ -1,25 +1,21 @@
 MODULE mo_linked_list
   !
   ! This is a specific linked list implementation for handling ICON output.
-  ! When Fortran 2003 is availbale on almost all production machines this 
+  ! When Fortran 2003 is available on almost all production machines this 
   ! should be replaced by a proper generic version.
   !
-  ! Authors:
-  !
-  ! Luis Kornblueh, MPI,             original code
-  ! Andreas Rhodin, MPI, April 2001, extended and documented
-  ! Luis Kornblueh, MPI, April 2011, rewritten for ICON
   !----------------------------------------------------------------------------
   !
   USE mo_kind,             ONLY: i8
   USE mo_exception,        ONLY: finish, message
   USE mo_var_list_element, ONLY: t_var_list_element
+  USE mo_util_hash,        ONLY: util_hashword
   !
   IMPLICIT NONE
   !
   PRIVATE
   !
-  PUBLIC :: t_var_list            ! anchor for a whole list
+  PUBLIC :: t_var_list          ! anchor for a whole list
   PUBLIC :: t_list_element
   !
   PUBLIC :: new_list            ! construct an (empty) list
@@ -308,10 +304,13 @@ CONTAINS
     CHARACTER(len=*),   INTENT(in) :: name
     !
     TYPE(t_list_element), POINTER :: this_list_element
+    INTEGER :: key
+    !
+    key = util_hashword(name, LEN_TRIM(name), 0)
     !
     this_list_element => this_list%p%first_list_element
     DO WHILE (ASSOCIATED(this_list_element))
-      IF (name == this_list_element%field%info%name) THEN
+      IF (key == this_list_element%field%info%key) THEN
         RETURN
       ENDIF
       this_list_element => this_list_element%next_list_element

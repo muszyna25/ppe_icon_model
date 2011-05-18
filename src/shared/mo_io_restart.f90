@@ -2,13 +2,14 @@ MODULE mo_io_restart
   !
   USE mo_kind,          ONLY: wp
   USE mo_exception,     ONLY: finish, message, message_text
+  USE mo_var_metadata,  ONLY: t_var_metadata
+  USE mo_linked_list,   ONLY: t_list_element, find_list_element
+  USE mo_var_list,      ONLY: t_var_list, nvar_lists, var_lists
+  USE mo_cdi_constants
   USE mo_util_string,   ONLY: separator
   USE mo_util_sysinfo,  ONLY: util_user_name, util_os_system, util_node_name 
   USE mo_util_symlink,  ONLY: util_symlink, util_rename, util_islink, util_unlink
-  USE mo_var_metadata,  ONLY: t_var_metadata
-  USE mo_linked_list,   ONLY: t_list_element
-  USE mo_var_list,      ONLY: t_var_list, nvar_lists, var_lists
-  USE mo_cdi_constants
+  USE mo_util_hash,     ONLY: util_hashword
 #ifndef NOMPI
   USE mo_mpi,           ONLY: p_parallel_io
 #endif
@@ -23,9 +24,7 @@ MODULE mo_io_restart
   PUBLIC :: open_writing_restart_files
   PUBLIC :: write_restart
   PUBLIC :: close_writing_restart_files
-  PUBLIC :: open_reading_restart_files
-!  PUBLIC :: read_restart
-!  PUBLIC :: close_reading_restart_files
+  PUBLIC :: read_restart_files
   PUBLIC :: cleanup_restart
   !
   TYPE t_gl_att
@@ -1028,60 +1027,83 @@ CONTAINS
     !
   END SUBROUTINE reorder_3d
   !
-  SUBROUTINE open_reading_restart_files(model_type)
-    CHARACTER(len=*), INTENT(in) :: model_type
-    !
-!!$    TYPE (t_list_element), POINTER :: element
-!!$    TYPE (t_list_element), TARGET  :: start_with
+  SUBROUTINE read_restart_files
     !
     CHARACTER(len=80) :: restart_filename, name
     !
     INTEGER :: fileID, vlistID, taxisID, varID
     INTEGER :: idate, itime
     !
-    INTEGER :: iret
+    TYPE model_search
+      CHARACTER(len=8) :: abbreviation
+      INTEGER          :: key
+    END type model_search
+    TYPE(model_search) :: abbreviations(nvar_lists)
     !
-    restart_filename = 'restart_'//TRIM(model_type)//'.nc'
+    TYPE (t_list_element), POINTER :: element
+    CHARACTER(len=8) :: model_type
+    INTEGER :: n, nfiles, i, iret, key
     !
-    IF (.NOT. util_islink(TRIM(restart_filename))) THEN
-      iret = util_rename(TRIM(restart_filename), TRIM(restart_filename)//'.bak')
-      iret = util_symlink(TRIM(restart_filename)//'.bak', TRIM(restart_filename))
-    ENDIF
+    abbreviations(1:nvar_lists)%key = 0
+    n = 1
+    for_all_model_types: DO i = 1, nvar_lists
+      key = util_hashword(var_lists(i)%p%model_type, LEN_TRIM(var_lists(i)%p%model_type), 0)
+      IF (.NOT. ANY(abbreviations(1:n)%key == key)) THEN 
+        abbreviations(n)%abbreviation = var_lists(i)%p%model_type
+        abbreviations(n)%key = key
+        n = n+1
+      ENDIF
+    ENDDO for_all_model_types
+    nfiles = n-1
     !
-    fileID  = streamOpenRead(restart_filename)
-    vlistID = streamInqVlist(fileID)
-    taxisID = vlistInqTaxis(vlistID)
+    CALL message('','')
+    CALL message('',separator)
+    CALL message('','')
     !
-    idate = taxisInqVdate(taxisID)
-    itime = taxisInqVtime(taxisID)
+    for_all_files: DO n = 1, nfiles
+      model_type =TRIM(abbreviations(n)%abbreviation)
+      restart_filename = 'restart_'//TRIM(model_type)//'.nc'
+      !
+      IF (.NOT. util_islink(TRIM(restart_filename))) THEN
+        iret = util_rename(TRIM(restart_filename), TRIM(restart_filename)//'.bak')
+        iret = util_symlink(TRIM(restart_filename)//'.bak', TRIM(restart_filename))
+      ENDIF
+      !
+      fileID  = streamOpenRead(restart_filename)
+      vlistID = streamInqVlist(fileID)
+      taxisID = vlistInqTaxis(vlistID)
+      !
+      idate = taxisInqVdate(taxisID)
+      itime = taxisInqVtime(taxisID)
+      !
+      WRITE(message_text,'(a,i8.8,a,i6.6,a,a)') &
+           'Read restart for : ', idate, 'T', itime, 'Z from ',TRIM(restart_filename)
+      CALL message('',message_text)      
+      !
+      for_all_vars: DO varID = 0, vlistNvars(vlistID)-1
+        !
+        CALL vlistInqVarName(vlistID, varID, name)
+        !
+        for_all_lists: DO i = 1, nvar_lists
+          IF (var_lists(i)%p%model_type == model_type) THEN
+            element => find_list_element(var_lists(i), TRIM(name))
+            IF (ASSOCIATED(element)) THEN
+              write (0,*) ' ... found ',TRIM(element%field%info%name)
+              CYCLE for_all_vars
+            ENDIF
+          ENDIF
+        ENDDO for_all_lists
+        CALL message('reading_restart_file','Variable '//TRIM(name)//' not defined.')
+      ENDDO for_all_vars
+      !
+      CALL streamClose(fileID)
+      !
+    ENDDO for_all_files
     !
-!    write(0,*) idate, itime
-    DO varID = 0, vlistNvars(vlistID)-1
-      CALL vlistInqVarName(vlistID, varID, name)
-!      write (0,*) ' ... read name '//TRIM(name)
-    ENDDO
+    CALL message('','')
+    CALL message('',separator)
+    CALL message('','')
     !
-!!$    for_all_lists: DO i = 1, nvar_lists
-!!$
-!!$      element => start_with
-!!$      element%next_list_element => var_lists(i)%p%first_list_element
-!!$      !
-!!$      for_all_list_elements: DO
-!!$        element => element%next_list_element
-!!$        IF (.NOT.ASSOCIATED(element)) EXIT
-!!$        !
-!!$
-!!$
-!!$        !    vlistInqVarName
-!!$
-!!$        !    streamReadVar
-!!$
-!!$      ENDDO for_all_list_elements
-!!$    ENDDO for_all_lists
-
-    CALL streamClose(fileID)
-!    CALL vlistDestroy(vlistID)
-
-  END SUBROUTINE open_reading_restart_files
+  END SUBROUTINE read_restart_files
   !
 END MODULE mo_io_restart

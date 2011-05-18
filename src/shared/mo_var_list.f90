@@ -11,6 +11,7 @@ MODULE mo_var_list
        &                         find_list_element,          &
        &                         delete_list_element 
   USE mo_exception,        ONLY: message, message_text, finish
+  USE mo_util_hash,        ONLY: util_hashword
 
   IMPLICIT NONE
 
@@ -114,8 +115,6 @@ CONTAINS
     !
     INTEGER :: i
     !
-    CALL message('new_var_list','adding new var_list '//TRIM(name))
-    !
     ! look, if name exists already in list
     !
     DO i = 1, nvar_lists    
@@ -168,7 +167,8 @@ CONTAINS
     CALL assign_if_present(this_list%p%lrestart,     lrestart)
     CALL assign_if_present(this_list%p%linitial,     linitial)
     !
-    CALL message('new_var_list','new variable list '//TRIM(this_list%p%name)//' added successful')
+    CALL message('','')
+    CALL message('','adding new var_list '//TRIM(name))
     !
   END SUBROUTINE new_var_list
   !------------------------------------------------------------------------------------------------
@@ -387,6 +387,10 @@ CONTAINS
     CALL assign_if_present (info%name,  name)
     CALL assign_if_present (info%cf,    cf)
     CALL assign_if_present (info%grib2, grib2)
+    !
+    ! hash variable name for fast search
+    !
+    IF (PRESENT(name)) info%key = util_hashword(name, LEN_TRIM(name), 0)
     !
     CALL assign_if_present (info%used_dimensions(1:SIZE(ldims)), ldims)
     !
