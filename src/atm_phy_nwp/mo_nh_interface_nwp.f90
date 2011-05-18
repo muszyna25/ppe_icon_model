@@ -950,18 +950,29 @@ CONTAINS
 !        & pflxsfclw =prm_diag%lwflxsfc (1,jb)   ,&         ! out  longwave surface net flux [W/m2]
 !        & pflxtoasw =prm_diag%swflxtoa (1,jb) )            ! out shortwave toa net flux     [W/m2]
 !#endif
+        IF ( p_sim_time .GT. 1.e-1 ) THEN
 
-        !sum up for averaged fluxes
-        DO jc =  i_startidx, i_endidx
-          prm_diag%swflxsfc_avg(jc,jb) = prm_diag%swflxsfc_avg(jc,jb) &
-            &                            + tcall_phy_jg(itradheat) * prm_diag%swflxsfc(jc,jb)
-          prm_diag%lwflxsfc_avg(jc,jb) = prm_diag%lwflxsfc_avg(jc,jb) &
-            &                            + tcall_phy_jg(itradheat) * prm_diag%lwflxsfc(jc,jb)
-          prm_diag%swflxtoa_avg(jc,jb) = prm_diag%swflxtoa_avg(jc,jb) &
-            &                            + tcall_phy_jg(itradheat) * prm_diag%swflxtoa(jc,jb)
-          prm_diag%lwflxtoa_avg(jc,jb) = prm_diag%lwflxtoa_avg(jc,jb) &
-            &                            + tcall_phy_jg(itradheat) * prm_diag%lwflxall(jc,1,jb)
-        ENDDO
+         !sum up for averaged fluxes
+         DO jc =  i_startidx, i_endidx
+          prm_diag%swflxsfc_avg(jc,jb) = ( prm_diag%swflxsfc_avg(jc,jb)                   &
+                                 &  * (p_sim_time - tcall_phy_jg(itradheat))              &
+                                 &  + tcall_phy_jg(itradheat) * prm_diag%swflxsfc(jc,jb)) &
+                                 &  / p_sim_time
+          prm_diag%lwflxsfc_avg(jc,jb) = ( prm_diag%lwflxsfc_avg(jc,jb)                   &
+                                 &  * (p_sim_time - tcall_phy_jg(itradheat))              &
+                                 &  + tcall_phy_jg(itradheat) * prm_diag%lwflxsfc(jc,jb)) &
+                                 &  / p_sim_time
+          prm_diag%swflxtoa_avg(jc,jb) = ( prm_diag%swflxtoa_avg(jc,jb)                   &
+                                 &  * (p_sim_time - tcall_phy_jg(itradheat))              &
+                                 &  + tcall_phy_jg(itradheat) * prm_diag%swflxtoa(jc,jb)) &
+                                 &  / p_sim_time
+          prm_diag%lwflxtoa_avg(jc,jb) = ( prm_diag%lwflxtoa_avg(jc,jb)                   &
+                                 &  * (p_sim_time - tcall_phy_jg(itradheat))              &
+                                &  + tcall_phy_jg(itradheat) * prm_diag%lwflxall(jc,1,jb)) &
+                                &  / p_sim_time
+         ENDDO
+
+        END IF
 
       ENDDO ! blocks
 

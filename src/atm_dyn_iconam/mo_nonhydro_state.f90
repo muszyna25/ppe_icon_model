@@ -120,7 +120,7 @@ MODULE mo_nonhydro_state
                               ! (nproma,nlev,nblks_c,ntracer)             [kg/kg/s]
     &  ddt_tracer_adv(:,:,:,:), &! advective tendency of tracers          [kg/kg/s]
     &  tracer_vi(:,:,:),    & ! vertically integrated tracers(for q1,q2,q3) [kg/m**2]
-    &  a_tracer_vi(:,:,:),  & ! average since last output of tracer_vi [kg/m**2]
+    &  tracer_vi_avg(:,:,:),& ! average since last output of tracer_vi [kg/m**2]
     &  exner_old(:,:,:),    & ! exner pres from previous step (nproma,nlev,nblks_c)
                             ! *** needs to be saved for restart ***
     &  w_con(:,:,:),        & ! contravariant vert wind (nproma,nlevp1,nblks_c)[1/s]
@@ -1384,11 +1384,11 @@ MODULE mo_nonhydro_state
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
                   & ldims=(/nproma, nblks_c,3/) )
 
-      ! a_tracer_vi(nproma,nblks_c,3), only Q1, Q2, Q3
-      cf_desc    = t_cf_var('a_tracer_vi', '', 'a_tracer_vi')
+      ! tracer_vi_avg(nproma,nblks_c,3), only Q1, Q2, Q3
+      cf_desc    = t_cf_var('tracer_vi_avg', '', 'tracer_vi_avg')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_diag_list, 'a_tracer_vi', p_diag%a_tracer_vi,             &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+      CALL add_var( p_diag_list, 'tracer_vi_avg', p_diag%tracer_vi_avg,             &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,      &
                   & ldims=(/nproma, nblks_c,3/) )
     ENDIF
 

@@ -219,7 +219,11 @@ CONTAINS
 
     END IF !cloud cover
 
-! accumulate values of the vertically integrated total cloud contents (for iqv, iqc, iqi)
+! average values of the vertically integrated total cloud contents (for iqv, iqc, iqi, icc)
+! from the model start
+
+
+    IF ( p_sim_time .GT. 1.e-1 ) THEN
 
 !$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc)
       DO jb = i_startblk, i_endblk
@@ -228,16 +232,20 @@ CONTAINS
           & i_startidx, i_endidx, rl_start, rl_end)
           DO jc = i_startidx, i_endidx
 
-           prm_diag%a_tot_cld_vi(jc,jb,1:3) =  prm_diag%a_tot_cld_vi(jc,jb,1:3) &
-                               &  + prm_diag%tot_cld_vi(jc,jb,1:3)              &
-                               &  * tcall_phy_jg(itupdate) 
+           prm_diag%tot_cld_vi_avg(jc,jb,1:4) = ( prm_diag%tot_cld_vi_avg(jc,jb,1:4) &
+                               &  * (p_sim_time - tcall_phy_jg(itupdate))        &
+                               &  + prm_diag%tot_cld_vi(jc,jb,1:4)               &
+                               &  * tcall_phy_jg(itupdate) )                 &
+                               & / p_sim_time 
           ENDDO
       ENDDO ! nblks     
 !$OMP END DO
 
- !! Calculate vertically integrated values of the prognostic tracers q1, q2 and q3 
- !! and accumulated values of the vertically integrated values
+    END IF
 
+ !! Calculate vertically integrated values of the grid-scale tracers q1, q2 and q3 
+ !! and average values of the vertically integrated values from the model start 
+ 
 !$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc,jk,z_help)
       DO jb = i_startblk, i_endblk
 
@@ -254,13 +262,38 @@ CONTAINS
 
           ENDDO
         ENDDO
-        DO jc = i_startidx, i_endidx 
-          pt_diag%a_tracer_vi(jc,jb,1:3) =  pt_diag%a_tracer_vi(jc,jb,1:3) &
-                              &  + pt_diag%tracer_vi(jc,jb,1:3)            &
-                              &  * tcall_phy_jg(itupdate) 
-        ENDDO
+        IF ( p_sim_time .GT. 1.e-1 ) THEN
+         DO jc = i_startidx, i_endidx 
+          pt_diag%tracer_vi_avg(jc,jb,1:3) = ( pt_diag%tracer_vi_avg(jc,jb,1:3) &
+                              &  * (p_sim_time - tcall_phy_jg(itupdate))    &
+                              &  + pt_diag%tracer_vi(jc,jb,1:3)             &
+                              &  * tcall_phy_jg(itupdate) )                 &
+                              & / p_sim_time
+         ENDDO
+        END IF
       ENDDO ! nblks   
 !$OMP END DO
+
+
+! average from the model start of total precipitation rate 
+
+
+    IF ( p_sim_time .GT. 1.e-1 ) THEN
+
+!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc)
+      DO jb = i_startblk, i_endblk
+        !
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+          & i_startidx, i_endidx, rl_start, rl_end)
+          DO jc = i_startidx, i_endidx
+
+           prm_diag%tot_prec_rate_avg(jc,jb) =  prm_diag%tot_prec(jc,jb) &
+                               & / p_sim_time 
+          ENDDO
+      ENDDO ! nblks     
+!$OMP END DO
+     END IF
+
 
 !$OMP END PARALLEL  
 

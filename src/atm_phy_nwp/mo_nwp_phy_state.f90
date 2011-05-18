@@ -113,6 +113,9 @@ TYPE t_nwp_phy_diag
        &   rain_con(:,:),       & !! accumulated convective surface rain
        &   snow_con(:,:),       & !! accumulated convective surface snow
        &   tot_prec(:,:),       & !! accumulated grid-scale plus convective surface total precipitation
+       &   tot_prec_rate_avg(:,:),   & !! average since model start of 
+                                  !! grid-scale plus convective surface 
+                                  !! total precipitation rate
        &   cape    (:,:),       & !! convective available energy
        &   con_gust(:,:),       & !! convective gusts near surface
        &   con_udd(:,:,:,:),    & !!(nproma,nlev,nblks,8) convective up/downdraft fields
@@ -126,12 +129,12 @@ TYPE t_nwp_phy_diag
        &  rain_upd(:,:),        & !! total precipitation produced in updrafts (prain)
        &  shfl_s(:,:),          & !! sensible heat flux (surface) ( W/m2)
        &  lhfl_s(:,:),          & !! latent   heat flux (surface) ( W/m2)
-       &  qhfl_s(:,:),          & !!      moisture flux (surface) ( W/m2)
+       &  qhfl_s(:,:),          & !!      moisture flux (surface) ( Kg/m2/s)
        &  tot_cld(:,:,:,:),     & !! total cloud variables (cc,qv,qc,qi)
        &  tot_cld_vi(:,:,:),    & !! vertically integrated tot_cld (cc,qv,qc,qi) 
                                   !! for cc, instead of the vertically integrated value, 
                                   !! this is the cloud cover assuming maximum-random overlap
-       &  a_tot_cld_vi(:,:,:),  & !! average since the last output of the 
+       &  tot_cld_vi_avg(:,:,:),& !! average since the last output of the 
                                   !! vertically integrated tot_cld (cc,qv,qc,qi)  
        &  cosmu0(:,:),          & !! cosine of solar zenith angle
        &  vio3(:,:),            & !! vertically integrated ozone amount (Pa O3)
@@ -438,9 +441,16 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
  !               &  lmiss=.true.,     missval=0._wp                      )
 
     ! &      diag%tot_prec(nproma,nblks_c)
-    cf_desc    = t_cf_var('snow_con', 'kg m-2', 'convective snow')
+    cf_desc    = t_cf_var('tot_prec', '', 'total precip')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tot_prec', diag%tot_prec,                             &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)! ,&
+ !               &  lmiss=.true.,     missval=0._wp                      )
+
+    ! &      diag%tot_prec_rate_avg(nproma,nblks_c)
+    cf_desc    = t_cf_var('tot_prec_rate_avg', '', 'total precip, time average')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'tot_prec_rate_avg', diag%tot_prec_rate_avg,                      &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)! ,&
  !               &  lmiss=.true.,     missval=0._wp                      )
 
@@ -509,10 +519,10 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
                 &                                 ldims=(/nproma,kblks,4/))!,&
 !                &  lmiss=.true.,     missval=0._wp                      )
 
-   ! &      diag%a_tot_cld_vi(nproma,nblks_c,4)
-    cf_desc    = t_cf_var('a_tot_cld_vi', 'unit ','vertical integr total cloud variables')
+   ! &      diag%tot_cld_vi_avg(nproma,nblks_c,4)
+    cf_desc    = t_cf_var('tot_cld_vi_avg', 'unit ','vertical integr total cloud variables')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, 'a_tot_cld_vi', diag%a_tot_cld_vi,         &
+    CALL add_var( diag_list, 'tot_cld_vi_avg', diag%tot_cld_vi_avg,          &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc, &
                 &                                 ldims=(/nproma,kblks,4/))!,&
 !                &  lmiss=.true.,     missval=0._wp                      )
@@ -994,6 +1004,7 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
   diag%rain_con    = 0._wp !!  accumulated convective rain
   diag%snow_con    = 0._wp !!  accumulated convective snow
   diag%tot_prec    = 0._wp !!  accumulated total precipitation
+  diag%tot_prec_rate_avg = 0._wp !! total precipitation rate, average from model start
   diag%cape        = 0._wp !!
   diag%con_gust    = 0._wp !!
   diag%con_udd     = 0._wp !!
@@ -1003,7 +1014,7 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
   diag%qhfl_s      = 0._wp !!
   diag%tot_cld     = 0._wp !!
   diag%tot_cld_vi  = 0._wp !!
-  diag%a_tot_cld_vi= 0._wp !!
+  diag%tot_cld_vi_avg = 0._wp !!
   diag%flxdwswtoa  = 0._wp
   diag%cosmu0      = 0._wp
   diag%vio3        = 0._wp

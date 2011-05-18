@@ -402,33 +402,7 @@ MODULE mo_nh_stepping
                       1, jstep, dtime, sim_time, 1)
     ! output of results
     ! note: nnew has been replaced by nnow here because the update
-    IF (l_outputtime) THEN
-     !Divide the accumulated values by the output time interval to have the 
-     ! mean values.  Reinizialize the accumulated variables to zero after   
 
-    IF(lforcing) THEN
-     IF ( MOD(jstep,n_io) == 0) THEN 
-      t_out = n_io * dtime  
-     ELSE  ! (jsteps = nsteps and  MOD(jstep,n_io) != 0)
-      t_out = MOD(jstep,n_io) * dtime
-     END IF
-      DO jg=1, n_dom
-       prm_diag(jg)%a_tot_cld_vi = prm_diag(jg)%a_tot_cld_vi / &
-                                       & t_out
-       prm_diag(jg)%lwflxsfc_avg = prm_diag(jg)%lwflxsfc_avg / &
-                                      & t_out
-       prm_diag(jg)%swflxsfc_avg = prm_diag(jg)%swflxsfc_avg / &
-                                      & t_out
-       prm_diag(jg)%lwflxtoa_avg = prm_diag(jg)%lwflxtoa_avg / &
-                                      & t_out
-       prm_diag(jg)%swflxtoa_avg = prm_diag(jg)%swflxtoa_avg / &
-                                      & t_out
-       p_nh_state(jg)%diag%a_tracer_vi   = p_nh_state(jg)%diag%a_tracer_vi / &
-                                      & t_out
-      END DO
-   ENDIF
-     !
-    END IF
 
     IF (l_outputtime) THEN
       CALL write_output( datetime, sim_time(1) )
@@ -437,23 +411,7 @@ MODULE mo_nh_stepping
 
     END IF
 
-    IF (l_outputtime .AND. lforcing ) THEN
-     ! Reinizialize the accumulated variables to zero      
-     IF ( MOD(jstep,n_io) == 0) THEN 
-      t_out = n_io * dtime  
-     ELSE  ! (jsteps = nsteps and  MOD(jstep,n_io) != 0)
-      t_out = MOD(jstep,n_io) * dtime
-     END IF
-      DO jg=1, n_dom
-       prm_diag(jg)%a_tot_cld_vi = 0.0_wp
-       prm_diag(jg)%lwflxsfc_avg = 0.0_wp
-       prm_diag(jg)%swflxsfc_avg = 0.0_wp
-       prm_diag(jg)%lwflxtoa_avg = 0.0_wp
-       prm_diag(jg)%swflxtoa_avg = 0.0_wp
-       p_nh_state(jg)%diag%a_tracer_vi   = 0.0_wp
-     END DO
 
-    ENDIF
 
     ! Diagnostics computation is not yet properly MPI-parallelized
 #ifdef NOMPI
