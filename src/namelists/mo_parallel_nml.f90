@@ -140,18 +140,25 @@ MODULE mo_parallel_nml
   ! 2 = isend, recv
   INTEGER :: iorder_sendrecv = 1
 
+  INTEGER :: radiation_threads = 1
+  INTEGER :: nh_stepping_threads = 1
+  
   NAMELIST/parallel_ctl/ n_ghost_rows, division_method, &
        &                 p_test_run,   l_test_openmp,   &
                          l_log_checks, l_fast_sum,      &
                          num_io_procs, pio_type,        &
-                         itype_comm,   iorder_sendrecv
+                         itype_comm,   iorder_sendrecv, &
+                         radiation_threads, nh_stepping_threads
 
 
   ! Exported routines:
 
   PUBLIC :: parallel_nml_setup
-
+  
   ! Exported variables:
+#ifdef __OMP_RADIATION__
+  PUBLIC :: radiation_threads, nh_stepping_threads
+#endif
 
   PUBLIC :: n_ghost_rows,                                             &
        &    div_from_file, div_geometric, div_metis, division_method, &

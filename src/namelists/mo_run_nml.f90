@@ -227,6 +227,7 @@ MODULE mo_run_nml
   ! timer
   ! -----
   LOGICAL  :: ltimer     ! if .TRUE.,  the timer is switched on
+  INTEGER  :: timers_level = 1  ! what level of timers to run
 
   ! dump/restore
   ! ------------
@@ -257,7 +258,7 @@ MODULE mo_run_nml
     &                ldynamics, ltransport, iforcing,      &
     &                ltestcase, lcorio, itopo, msg_level,  &
     &                ldump_states, lrestore_states, ltimer,&
-    &                inextra_2d, inextra_3d ,              &
+    &                timers_level, inextra_2d, inextra_3d, &
     &                lrestart
 
 !--------------------------------------------------------------------
