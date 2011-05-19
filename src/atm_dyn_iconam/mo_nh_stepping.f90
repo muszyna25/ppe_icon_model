@@ -113,6 +113,13 @@ MODULE mo_nh_stepping
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
 
+#ifdef __OMP_RADIATION__  
+  USE mo_nwp_rad_interface,   ONLY: nwp_start_omp_radiation_thread, model_end_thread, &
+    & radiation_thread_status, model_thread_status, thread_busy
+ 
+  USE mo_parallel_nml,        ONLY: nh_stepping_threads
+#endif
+  
   IMPLICIT NONE
 
   PRIVATE
@@ -256,6 +263,9 @@ MODULE mo_nh_stepping
 
   INTEGER                              :: jg
 
+!$  INTEGER omp_get_num_threads
+!$  INTEGER omp_get_max_threads
+!$  INTEGER omp_get_max_active_levels
 !-----------------------------------------------------------------------
 
   CALL allocate_nh_stepping (p_patch, p_int_state, p_grf_state, p_nh_state, &
@@ -279,8 +289,34 @@ MODULE mo_nh_stepping
     ENDDO
   ENDIF
 
+#ifdef __OMP_RADIATION__
+  radiation_thread_status = thread_busy
+  model_thread_status     = thread_busy
+  CALL omp_set_nested(.true.)
+  CALL omp_set_num_threads(2)
+  write(0,*) 'omp_get_max_active_levels=',omp_get_max_active_levels
+  write(0,*) 'omp_get_max_threads=',omp_get_max_threads()
+!$OMP PARALLEL SECTIONS
+!$OMP SECTION
+!$  CALL omp_set_num_threads(nh_stepping_threads)
+  write(0,*) 'This is the nh_timeloop, max threads=',omp_get_max_threads()
+  write(0,*) 'omp_get_num_threads=',omp_get_num_threads()
+#endif
+
   CALL perform_nh_timeloop (p_patch, p_int_state, p_grf_state, p_nh_state, &
                             datetime, n_io, n_file, n_diag)
+
+#ifdef __OMP_RADIATION__  
+  CALL model_end_thread()
+
+!$OMP SECTION
+  write(0,*) 'This is the nwp_parallel_radiation_thread, max threads=',&
+    omp_get_max_threads()
+  CALL nwp_start_omp_radiation_thread()
+  
+!$OMP END PARALLEL SECTIONS
+#endif
+
 
   CALL deallocate_nh_stepping (p_patch, p_int_state, p_grf_state, p_nh_state, &
                                   datetime, n_io, n_file, n_diag)
@@ -289,7 +325,7 @@ MODULE mo_nh_stepping
   END SUBROUTINE perform_nh_stepping
   !-------------------------------------------------------------------------
 
-  !-------------------------------------------------------------------------
+ !-------------------------------------------------------------------------
   !>
   !! Organizes nonhydrostatic time stepping
   !! Currently we assume to have only one grid level.
@@ -318,6 +354,7 @@ MODULE mo_nh_stepping
 
   REAL(wp)                             :: t_out
 
+!$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
 
   sim_time(:) = 0._wp
@@ -377,6 +414,7 @@ MODULE mo_nh_stepping
     ! physically based 'implicit weights' in forward backward time stepping)
     IF (jstep == 1) THEN
 !$OMP PARALLEL PRIVATE(jg)
+!   write(0,*) 'Entering perform_nh_timeloop, threads=',omp_get_num_threads()
       DO jg = 1, n_dom
 !$OMP WORKSHARE
         p_nh_state(jg)%diag%exner_old(:,:,:)=&
@@ -405,11 +443,12 @@ MODULE mo_nh_stepping
 
 
     IF (l_outputtime) THEN
+
       CALL write_output( datetime, sim_time(1) )
       CALL message('','Output at:')
       CALL print_datetime(datetime)
 
-    END IF
+    ENDIF
 
 
 

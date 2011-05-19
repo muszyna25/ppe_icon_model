@@ -49,9 +49,11 @@ MODULE mo_nh_interface_nwp
 
   USE mo_kind,               ONLY: wp
 
-  USE mo_timer,              ONLY: timer_physics, timer_start, timer_stop
-  USE mo_exception,          ONLY: message, message_text !, finish
-  USE mo_impl_constants,     ONLY: itconv, itccov, itrad, itgscp,         &
+ ! USE mo_timer,              ONLY: timer_physics, timer_start, timer_stop, &
+  USE mo_timer
+  
+  USE mo_exception,          ONLY: message, message_text, finish
+  USE mo_impl_constants,     ONLY: SUCCESS, itconv, itccov, itrad, itgscp,         &
     &                              itsatad, itupdate, itturb, itsfc, itradheat,  &
     &                              itsso,                                 &
     &                              min_rlcell_int, min_rledge_int, min_rlcell
@@ -68,7 +70,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_phy_state,      ONLY: t_nwp_phy_diag,&
                                  & t_nwp_phy_tend!, prm_diag
   USE mo_run_nml,            ONLY: nproma, ntracer, i_cell_type, iqv, iqc, iqi, &
-       &                              iqr, iqs, icc, msg_level, ltimer
+       &                              iqr, iqs, icc, msg_level, ltimer, timers_level
   USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd_o_rd 
 
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
@@ -89,6 +91,7 @@ MODULE mo_nh_interface_nwp
   USE mo_mpi,                ONLY: p_nprocs
   USE mo_parallel_nml,       ONLY: p_test_run
   USE mo_nwp_diagnosis,      ONLY: nwp_diagnosis
+  USE mo_communication,      ONLY: time_sync
 
   IMPLICIT NONE
 
@@ -194,7 +197,14 @@ CONTAINS
 
     REAL(wp) :: rcld(nproma,pt_patch%nlevp1)
 
+    INTEGER, ALLOCATABLE :: start_c_bl_idx(:),end_c_bl_idx(:)
+    INTEGER, ALLOCATABLE :: start_e_bl_idx(:),end_e_bl_idx(:)
+    INTEGER :: i_c_startblk, i_c_endblk,  i_e_startblk, i_e_endblk, ist
+    INTEGER :: idx1,idx2,iblk1,iblk2
 
+
+!     write(0,*) "Entering nwp_nh_interface"
+!     write(0,*) "========================="
     IF (ltimer) CALL timer_start(timer_physics)
 
     ! local variables related to the blocking
@@ -224,12 +234,16 @@ CONTAINS
       IF (msg_level >= 12) &
            & CALL message('mo_nh_interface_nwp:', 'update_tracers')
 
+      IF (timers_level > 2) CALL timer_start(timer_update_prog_phy)
+      
       CALL nh_update_prog_phy(pt_patch              ,& !in
            &                  tcall_phy_jg(itupdate),& !in
            &                  pt_diag               ,& !in
            &                  prm_diag              ,& !inout phyfields 
            &                  pt_prog_rcf            )!inout tracer
 
+      IF (timers_level > 2) CALL timer_stop(timer_update_prog_phy)
+    
     ENDIF
 
     !!-------------------------------------------------------------------------
@@ -242,15 +256,18 @@ CONTAINS
            & CALL message('mo_nh_interface_nwp:', 'satad')
 
 
-        CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf,    &
-             &                              pt_diag, pt_patch,       &
-             &                              opt_calc_temp=.TRUE.,    &
-             &                              opt_calc_pres=.TRUE.,    &
-             &                              opt_rlend=min_rlcell_int,&
-             &                              opt_slev=kstart_moist(jg))
+      IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
+        
+      CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf,    &
+           &                              pt_diag, pt_patch,       &
+           &                              opt_calc_temp=.TRUE.,    &
+           &                              opt_calc_pres=.TRUE.,    &
+           &                              opt_rlend=min_rlcell_int,&
+           &                              opt_slev=kstart_moist(jg))
 
+      IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)
 
-     IF (msg_level >= 15) THEN
+      IF (msg_level >= 15) THEN
 
         CALL message('mo_nh_interface_nwp:', 'before satad')
 
@@ -286,6 +303,7 @@ CONTAINS
         !-------------------------------------------------------------------------
 
 !#ifdef __BOUNDCHECK
+          IF (timers_level > 2) CALL timer_start(timer_satad_v_3D)
           CALL satad_v_3D( &
                & maxiter  = 10                             ,& !> IN
                & tol      = 1.e-3_wp                       ,& !> IN
@@ -304,7 +322,9 @@ CONTAINS
                & kup      = nlev                            & !> IN
               !& count, errstat,                              !> OUT
                )
+          IF (timers_level > 2) CALL timer_stop(timer_satad_v_3D)
 !#else
+!          IF (timers_level > 2) CALL timer_start(timer_satad_v_3D)
 !          CALL satad_v_3D( &
 !               & maxiter  = 10                             ,& !> IN
 !               & tol      = 1.e-3_wp                       ,& !> IN
@@ -323,8 +343,10 @@ CONTAINS
 !               & kup      = nlev                            & !> IN
 !              !& count, errstat,                              !> OUT
 !               )
+!          IF (timers_level > 2) CALL timer_stop(timer_satad_v_3D)
 !#endif 
 
+        IF (timers_level > 2) CALL timer_start(timer_phys_exner)
         ! Store exner function for open upper boundary condition
         z_exner_sv(i_startidx:i_endidx,:,jb) = pt_prog%exner(i_startidx:i_endidx,:,jb)
 
@@ -355,6 +377,7 @@ CONTAINS
 
           ENDDO
         ENDDO
+        IF (timers_level > 2) CALL timer_stop(timer_phys_exner)
       ENDDO ! nblks
 
 !$OMP END DO
@@ -391,6 +414,8 @@ CONTAINS
       IF (msg_level >= 12) &
            & CALL message('mo_nh_interface_nwp:', 'reconstruct u/v')
 
+      IF (timers_level > 3) CALL timer_start(timer_phys_u_v)
+      
       SELECT CASE (i_cell_type)
       CASE (3)
         CALL rbf_vec_interpol_cell(pt_prog%vn,            & !< normal wind comp.
@@ -404,6 +429,7 @@ CONTAINS
           &                     pt_int_state%hex_north,pt_diag%v)
       END SELECT
 
+      IF (timers_level > 3) CALL timer_stop(timer_phys_u_v)
 
       IF (msg_level >= 15) THEN
         WRITE(message_text,'(a,2E10.3)') 'max/min vn  = ',&
@@ -443,17 +469,20 @@ CONTAINS
       !!
       !-------------------------------------------------------------------------
 
+      IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
       CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf, &
         & pt_diag, pt_patch,       &
         & opt_calc_temp =.TRUE.,   &
         & opt_calc_pres =.TRUE.,   &
         & opt_calc_tempv=.TRUE.,   &
         & opt_rlend=min_rlcell_int )
-
+      IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)
+    
     ENDIF 
 
     IF (  lcall_phy_jg(itturb)) THEN
 
+      IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
       CALL nwp_turbulence (  tcall_phy_jg(itturb),              & !>input
                             & pt_patch, p_metrics,              & !>input
                             & ext_data, mean_charlen,           & !>input
@@ -462,6 +491,7 @@ CONTAINS
                             & pt_diag ,                         & !>inout
                             & prm_diag,prm_nwp_tend,            & !>inout 
                             & lnd_prog_now,lnd_diag             )!>inout
+      IF (timers_level > 1) CALL timer_stop(timer_nwp_turbulence)
     ENDIF !lcall(itturb)
 
     !-------------------------------------------------------------------------
@@ -476,19 +506,23 @@ CONTAINS
       !! no update from prognostic variables is needed. virtual temperature
       !! no INPUT in microphysics
 
+      IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
       CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf, &
                             &  pt_diag, pt_patch,               &
                             &  opt_calc_temp =.FALSE.,          &
                             &  opt_calc_pres =.TRUE.,           &
                             &  opt_calc_tempv=.FALSE.,          &
                             &  opt_rlend=min_rlcell_int         )
+      IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)
 
+      IF (timers_level > 1) CALL timer_start(timer_nwp_microphysics)
       CALL nwp_microphysics ( tcall_phy_jg(itgscp),             & !>input
                             & pt_patch, p_metrics,              & !>input
                             & pt_prog,                          & !>inout
                             & pt_prog_rcf,                      & !>inout
                             & pt_diag ,                         & !>inout
                             & prm_diag                          ) !>inout 
+      IF (timers_level > 1) CALL timer_stop(timer_nwp_microphysics)
 
     ENDIF
 
@@ -496,13 +530,17 @@ CONTAINS
       & lcall_phy_jg(itgscp)   .OR. lcall_phy_jg(itturb)  ) THEN
 
       ! Synchronize tracers if any of the updating processes was active
+      IF (timers_level > 1) CALL timer_start(timer_phys_sync_patch)
       CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer, f4din=pt_prog_rcf%tracer, &
                                  lpart4d=.TRUE.)
+      IF (timers_level > 1) CALL timer_stop(timer_phys_sync_patch)
 
     ENDIF
 
     IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. &
-      & lcall_phy_jg(itturb)                            ) THEN
+      & lcall_phy_jg(itturb)) THEN
+      
+      IF (timers_level > 1) CALL timer_start(timer_fast_phys)
 
       ! Remark: in the (unusual) case that satad is used without any other physics,
       ! recalculation of the thermodynamic variables is duplicated here. However,
@@ -645,6 +683,8 @@ CONTAINS
                             & lnd_prog_now,lnd_diag             )!>inout
     ENDIF !lcall(itsfc)
 
+    IF (timers_level > 1) CALL timer_stop(timer_fast_phys)
+   
    ENDIF ! end of fast physics part
 
     !!-------------------------------------------------------------------------
@@ -671,6 +711,7 @@ CONTAINS
       !!
       !-------------------------------------------------------------------------
 
+      IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
       IF ( .NOT. (lcall_phy_jg(itgscp) .OR. lcall_phy_jg(itturb))) THEN
 
         ! If slow physics is called without fast physics (which should happen
@@ -692,6 +733,7 @@ CONTAINS
 
 
       ENDIF
+      IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)
     ENDIF ! checking slow physics
 
 
@@ -700,6 +742,7 @@ CONTAINS
       IF (msg_level >= 12) &
 &           CALL message('mo_nh_interface', 'convection')
 
+      IF (timers_level > 2) CALL timer_start(timer_nwp_convection)
       CALL nwp_convection (  tcall_phy_jg(itconv),              & !>input
                             & pt_patch, p_metrics,              & !>input
 !                            & ext_data,                         & !>input
@@ -707,6 +750,7 @@ CONTAINS
                             & pt_prog_rcf,                      & !>input
                             & pt_diag ,                         & !>inout
                             & prm_diag,prm_nwp_tend             ) !>inout 
+      IF (timers_level > 2) CALL timer_stop(timer_nwp_convection)
 
     ENDIF! convection
 
@@ -753,6 +797,7 @@ CONTAINS
           landseemask(:,jb)   = .FALSE. ! has to come from external parameters later on!!!
 
 !#ifdef __BOUNDCHECK
+          IF (timers_level > 2) CALL timer_start(timer_cover_koe)
           CALL cover_koe &
 &             (kidia  = i_startidx ,   kfdia  = i_endidx  ,       & !! in:  horizonal begin, end indices
 &              klon = nproma,  kstart = kstart_moist(jg)  ,       & !! in:  horiz. and vert. vector length
@@ -776,7 +821,9 @@ CONTAINS
 &              qv_tot = prm_diag%tot_cld     (:,:,jb,iqv) ,       & !! out: qv       -"-
 &              qc_tot = prm_diag%tot_cld     (:,:,jb,iqc) ,       & !! out: clw      -"-
 &              qi_tot = prm_diag%tot_cld     (:,:,jb,iqi) )         !! out: ci       -"-
+          IF (timers_level > 2) CALL timer_stop(timer_cover_koe)
 !#else
+!          IF (timers_level > 2) CALL timer_start(timer_cover_koe)
 !          CALL cover_koe &
 !&             (kidia  = i_startidx ,   kfdia  = i_endidx  ,       & !! in:  horizonal begin, end indices
 !&              klon = nproma,  kstart = kstart_moist(jg)  ,       & !! in:  horiz. and vert. vector length
@@ -800,6 +847,7 @@ CONTAINS
 !&              qv_tot = prm_diag%tot_cld     (1,1,jb,iqv) ,       & !! out: qv       -"-
 !&              qc_tot = prm_diag%tot_cld     (1,1,jb,iqc) ,       & !! out: clw      -"-
 !&              qi_tot = prm_diag%tot_cld     (1,1,jb,iqi) )         !! out: ci       -"-
+!          IF (timers_level > 2) CALL timer_stop(timer_cover_koe)
 !#endif
       ENDDO
   
@@ -817,6 +865,7 @@ CONTAINS
       ! To be on the safe side and to avoid confusion during development,
       ! do the diagnosis of t and p also here.
       ! May be removed when final state is reached.
+      IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
       IF ( inwp_radiation == 1 ) THEN
         CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf, &
           &                               pt_diag, pt_patch,      &
@@ -836,7 +885,9 @@ CONTAINS
           &                               opt_rlend=min_rlcell_int  )
  
       ENDIF
+      IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)
     
+      IF (ltimer) CALL timer_start(timer_nwp_radiation)
       CALL nwp_radiation (lredgrid,p_sim_time,   & ! in
            &              pt_patch,pt_par_patch, & ! in
            &              pt_par_int_state,      & ! in
@@ -845,7 +896,8 @@ CONTAINS
            &              pt_prog,pt_prog_rcf,   & ! inout
            &              pt_diag,prm_diag,      & ! inout
            &              lnd_prog_now           ) ! in
-
+      IF (ltimer) CALL timer_stop(timer_nwp_radiation)
+     
     ENDIF
 
 
@@ -859,6 +911,8 @@ CONTAINS
 &           CALL message('mo_nh_interface', 'radiative heating')
 
 
+      IF (timers_level > 1) CALL timer_start(timer_pre_radiation_nwp)
+      
       CALL pre_radiation_nwp (                       &
         & kbdim      = nproma,                       &
         & p_inc_rad  = tcall_phy_jg(itradheat),      &
@@ -866,6 +920,8 @@ CONTAINS
         & pt_patch   = pt_patch,                     &
         & zsmu0      = zcosmu0,                      &
         & zsct       = zsct )
+      IF (timers_level > 1) CALL timer_stop(timer_pre_radiation_nwp)
+      
       
     !in order to account for mesh refinement
     rl_start = grf_bdywidth_c+1
@@ -874,6 +930,7 @@ CONTAINS
     i_startblk = pt_patch%cells%start_blk(rl_start,1)
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
       
+    IF (timers_level > 2) CALL timer_start(timer_radheat)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,zi0,z_airmass)
 !
@@ -979,6 +1036,8 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
+      IF (timers_level > 2) CALL timer_stop(timer_radheat)
+      
       IF (msg_level >= 14) THEN
         WRITE(message_text,'(a,2E10.3)') 'max/min SW transmissivity  = ',&
              & MAXVAL (prm_diag%trsolall(:,:,:)), MINVAL(prm_diag%trsolall(:,:,:))
@@ -1012,6 +1071,7 @@ CONTAINS
     i_startblk = pt_patch%cells%start_blk(rl_start,1)
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
+    IF (timers_level > 3) CALL timer_start(timer_sso)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx), SCHEDULE(guided)
 
@@ -1064,21 +1124,25 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL   
 
-      ENDIF ! inwp_sso
+    IF (timers_level > 3) CALL timer_stop(timer_sso)
+    ENDIF ! inwp_sso
      
+    IF (ltimer) CALL timer_start(timer_physic_acc)
     !-------------------------------------------------------------------------
     !>  accumulate scalar tendencies of slow_physics
     !-------------------------------------------------------------------------
     IF (lcall_phy_jg(itradheat) .OR. lcall_phy_jg(itconv) & 
 &       .OR. lcall_phy_jg(itccov).OR. lcall_phy_jg(itsso)) THEN
 
+      IF (timers_level > 2) CALL timer_start(timer_physic_acc_1)
 
-    !in order to account for mesh refinement
-    rl_start = grf_bdywidth_c+1
-    rl_end   = min_rlcell_int
 
-    i_startblk = pt_patch%cells%start_blk(rl_start,1)
-    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+      !in order to account for mesh refinement
+      rl_start = grf_bdywidth_c+1
+      rl_end   = min_rlcell_int
+
+      i_startblk = pt_patch%cells%start_blk(rl_start,1)
+      i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
       
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx, i_endidx , z_qsum, z_ddt_qsum)
@@ -1158,7 +1222,7 @@ CONTAINS
 !$OMP END PARALLEL
 
 
-    IF (msg_level >= 15) THEN
+      IF (msg_level >= 15) THEN
 
         WRITE(message_text,'(a,2E15.5)') ' max/min z_ddt_temp = ',&
           & MAXVAL( z_ddt_temp(:,:,:)),  &
@@ -1174,6 +1238,7 @@ CONTAINS
         CALL message('', TRIM(message_text))
       ENDIF
 
+      IF (timers_level > 2) CALL timer_stop(timer_physic_acc_1)
     ENDIF ! slow physics tendency accumulation
 
   !--------------------------------------------------------
@@ -1189,8 +1254,119 @@ CONTAINS
         z_ddt_v_tot = 0._wp
       ENDIF
 
-!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
+#ifdef __LOOP_EXCHANGE
 
+      IF (timers_level > 2) CALL timer_start(timer_physic_acc_2)
+      
+      i_c_startblk = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
+      i_c_endblk   = pt_patch%cells%end_blk(min_rlcell_int,i_nchdom)
+      i_e_startblk = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
+      i_e_endblk   = pt_patch%edges%end_blk(min_rledge_int,i_nchdom)
+
+      ALLOCATE(start_c_bl_idx(i_c_endblk),end_c_bl_idx(i_c_endblk),&
+        start_e_bl_idx(i_e_endblk),end_e_bl_idx(i_e_endblk), STAT=ist )
+      IF (ist /= SUCCESS) THEN
+        CALL finish ( 'nwp_nh_interface',           &
+        &      'allocation of bl_idx failed' )
+      ENDIF
+      
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb)
+      DO jb = i_c_startblk, i_c_endblk
+        CALL get_indices_c(pt_patch, jb, i_c_startblk, i_c_endblk, &
+           start_c_bl_idx(jb), end_c_bl_idx(jb), &
+           grf_bdywidth_c+1, min_rlcell_int)
+      ENDDO
+!$OMP END DO NOWAIT
+!$OMP DO PRIVATE(jb)
+      DO jb = i_e_startblk, i_e_endblk
+        CALL get_indices_e(pt_patch, jb, i_e_startblk, i_e_endblk, &
+           start_e_bl_idx(jb), end_e_bl_idx(jb), &
+           grf_bdywidth_e+1, min_rledge_int)
+      ENDDO
+!$OMP END DO
+
+!$OMP DO PRIVATE(jb,jk,jc)
+      DO jb = i_c_startblk, i_c_endblk        
+!IBM*  ASSERT (NODEPS)
+        DO jk = 1, nlev
+!IBM*  ASSERT (NODEPS)
+          DO jc=start_c_bl_idx(jb),end_c_bl_idx(jb)
+            z_ddt_u_tot(jc,jk,jb) = &
+      &      prm_nwp_tend%ddt_u_turb (jc,jk,jb)&
+      &      + prm_nwp_tend%ddt_u_gwd  (jc,jk,jb)&
+      &      + prm_nwp_tend%ddt_u_sso  (jc,jk,jb)&
+      &      + prm_nwp_tend%ddt_u_pconv(jc,jk,jb)
+          ENDDO
+        ENDDO
+      ENDDO
+!$OMP END DO NOWAIT
+
+!$OMP DO PRIVATE(jb,jk,jc)
+      DO jb = i_c_startblk, i_c_endblk
+!IBM*  ASSERT (NODEPS)
+        DO jk = 1, nlev
+!IBM*  ASSERT (NODEPS)
+          DO jc=start_c_bl_idx(jb),end_c_bl_idx(jb)
+            z_ddt_v_tot(jc,jk,jb) =                                            &
+      &      prm_nwp_tend%ddt_v_turb   (jc,jk,jb)&
+      &      + prm_nwp_tend%ddt_v_gwd  (jc,jk,jb)&
+      &      + prm_nwp_tend%ddt_v_sso  (jc,jk,jb)&
+      &      + prm_nwp_tend%ddt_v_pconv(jc,jk,jb)
+          ENDDO
+        ENDDO
+      ENDDO
+!$OMP END DO NOWAIT
+!$OMP END PARALLEL
+
+      IF (timers_level > 2) time_sync=.true.
+      IF (timers_level > 1) CALL timer_start(timer_physic_sync)
+      CALL sync_patch_array_mult(SYNC_C1, pt_patch, 2, z_ddt_u_tot, z_ddt_v_tot)
+      IF (timers_level > 1) CALL timer_stop(timer_physic_sync)
+      IF (timers_level > 3) CALL timer_start(timer_physic_acc_2_2)
+      time_sync=.false.
+      !-------------------------------------------------------------------------
+      !>
+      !!    @par Interpolation from  u,v onto v_n
+      !!      ddt_vn_phy  =interpol(ddt_u_tot)+interpol(ddt_v_tot)
+      !!      Calculate normal velocity at edge midpoints
+      !-------------------------------------------------------------------------
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jce,idx1,idx2,iblk1,iblk2,jk)
+      DO jb = i_e_startblk, i_e_endblk
+!IBM*  ASSERT (NODEPS)
+        DO jce = start_e_bl_idx(jb), end_e_bl_idx(jb)
+          idx1=iidx(jce,jb,1)
+          idx2=iidx(jce,jb,2)
+          iblk1=iblk(jce,jb,1)
+          iblk2=iblk(jce,jb,2)
+!IBM*  ASSERT (NODEPS)
+          DO jk = 1, nlev
+            pt_diag%ddt_vn_phy(jce,jk,jb) =   pt_int_state%c_lin_e(jce,1,jb)           &
+&                * ( z_ddt_u_tot(idx1,jk,iblk1)    &
+&                *  pt_patch%edges%primal_normal_cell(jce,jb,1)%v1  &
+&                + z_ddt_v_tot(idx1,jk,iblk1)    &
+&                *  pt_patch%edges%primal_normal_cell(jce,jb,1)%v2 )&
+&              + pt_int_state%c_lin_e(jce,2,jb)     &
+&                   * ( z_ddt_u_tot(idx2,jk,iblk2)    &
+&                   * pt_patch%edges%primal_normal_cell(jce,jb,2)%v1  &
+&                   +  z_ddt_v_tot(idx2,jk,iblk2)    &
+&                   *  pt_patch%edges%primal_normal_cell(jce,jb,2)%v2 )
+          ENDDO
+        ENDDO
+      ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+      DEALLOCATE(start_c_bl_idx,end_c_bl_idx,start_e_bl_idx,end_e_bl_idx)
+ 
+      IF (timers_level > 2)    CALL timer_stop(timer_physic_acc_2)
+      IF (timers_level > 3)    CALL timer_stop(timer_physic_acc_2_2)
+#else
+
+      IF (ltimer) CALL timer_start(timer_physic_acc_2)
+!$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
       rl_start = grf_bdywidth_c+1
       rl_end   = min_rlcell_int
 
@@ -1269,6 +1445,9 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
+      IF (ltimer) CALL timer_stop(timer_physic_acc_2)
+#endif
+
       IF (msg_level >= 15) THEN
         WRITE(message_text,'(a,2(E10.3,2x))') 'max/min ddt_vn  = ',&
              & MAXVAL (pt_diag%ddt_vn_phy(:,:,:) ), MINVAL(pt_diag%ddt_vn_phy(:,:,:)  )
@@ -1277,6 +1456,7 @@ CONTAINS
 
     ENDIF ! iaction
 
+    IF (ltimer) CALL timer_stop(timer_physic_acc)
     CALL nwp_diagnosis(lcall_phy_jg,lredgrid,jstep,     & !input
                             & tcall_phy_jg,p_sim_time,             & !input
                             & kstart_moist(jg),                    & !input

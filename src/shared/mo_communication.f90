@@ -50,6 +50,7 @@ USE mo_exception,          ONLY: finish
 USE mo_run_nml,            ONLY: nproma
 USE mo_mpi,                ONLY: p_pe, p_nprocs, p_send, p_recv, p_irecv, p_wait, p_isend
 USE mo_parallel_nml,       ONLY: p_pe_work, p_test_pe, p_n_work, p_comm_work, iorder_sendrecv
+USE mo_timer,              ONLY: timer_start, timer_stop, timer_sync_data
 
 IMPLICIT NONE
 
@@ -65,6 +66,7 @@ PUBLIC :: setup_comm_pattern, exchange_data, exchange_data_reverse,   &
           start_delayed_exchange, do_delayed_exchange,                &
           start_async_comm, complete_async_comm
 
+PUBLIC :: time_sync
 !
 !variables
 
@@ -124,6 +126,8 @@ END TYPE
 TYPE(t_request) :: delayed_request(max_delayed_requests)
 
 LOGICAL :: use_exchange_delayed = .FALSE.
+
+LOGICAL :: time_sync = .false.
 
 
 INTERFACE exchange_data
@@ -811,6 +815,8 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
    LOGICAL :: lsend, ladd, l_par
 
 !-----------------------------------------------------------------------
+   IF (time_sync) CALL timer_start(timer_sync_data)
+
 
    lsend     = .FALSE.
    ladd      = .FALSE.
@@ -910,6 +916,7 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
          ENDIF
        ENDIF
      ENDDO
+     IF (time_sync) CALL timer_stop(timer_sync_data)
      RETURN
    ENDIF
 
@@ -1100,6 +1107,8 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
      ENDDO
    ENDDO
 #endif
+     
+   IF (time_sync) CALL timer_stop(timer_sync_data)
 
 END SUBROUTINE exchange_data_mult
 

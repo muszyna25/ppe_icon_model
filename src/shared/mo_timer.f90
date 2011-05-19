@@ -50,9 +50,11 @@ MODULE mo_timer
 
   PUBLIC :: timer_total                         !< IDs of timers
 
+  PUBLIC :: timer_omp_radiation, timer_omp_model
   PUBLIC :: timer_solve_nh
-  PUBLIC :: timer_physics                         !< IDs of timers
-  PUBLIC :: timer_radiation, timer_radheat
+  PUBLIC :: timer_physics
+                        !< IDs of timers
+  PUBLIC :: timer_radiation
 
   PUBLIC :: timer_lrtm_1, timer_lrtm_2
 
@@ -64,7 +66,28 @@ MODULE mo_timer
   PUBLIC :: timer_vdiff
   PUBLIC :: timer_echam_phy
   PUBLIC :: timer_dyn2phy, timer_phy2dyn
-
+  
+  PUBLIC :: timer_update_prog_phy
+  PUBLIC :: timer_diagnose_pres_temp
+  PUBLIC :: timer_satad_v_3D
+  PUBLIC :: timer_phys_exner
+  PUBLIC :: timer_phys_u_v
+  PUBLIC :: timer_nwp_turbulence
+  PUBLIC :: timer_nwp_microphysics
+  PUBLIC :: timer_phys_sync_patch
+  PUBLIC :: timer_fast_phys
+  PUBLIC :: timer_nwp_convection
+  PUBLIC :: timer_nwp_radiation
+  PUBLIC :: timer_pre_radiation_nwp
+  PUBLIC :: timer_radheat
+  PUBLIC :: timer_physic_acc, timer_physic_acc_1,timer_physic_acc_2
+  PUBLIC :: timer_physic_sync, timer_physic_acc_2_2
+  PUBLIC :: timer_sync_data, timer_sync_wait
+  PUBLIC :: timer_sync_delay,timer_sync_outbuffer
+  PUBLIC :: timer_sync_psend_1, timer_sync_isend_2, timer_sync_recv_2,timer_sync_isend_3
+  PUBLIC :: timer_sso
+  PUBLIC :: timer_cover_koe
+  
   PUBLIC :: ltimer                              !< if .true., switch on timer
 
   !-------------------
@@ -73,10 +96,31 @@ MODULE mo_timer
 
   ! ID of timer for total model integration time
   INTEGER :: timer_total
+  INTEGER :: timer_omp_radiation, timer_omp_model
 
   INTEGER :: timer_solve_nh
   INTEGER :: timer_physics
+  INTEGER :: timer_update_prog_phy
+  INTEGER :: timer_diagnose_pres_temp
+  INTEGER :: timer_satad_v_3D
+  INTEGER :: timer_phys_exner
+  INTEGER :: timer_phys_u_v
+  INTEGER :: timer_nwp_turbulence
+  INTEGER :: timer_nwp_microphysics
+  INTEGER :: timer_phys_sync_patch
+  INTEGER :: timer_fast_phys
+  INTEGER :: timer_nwp_convection
+  INTEGER :: timer_nwp_radiation
+  INTEGER :: timer_pre_radiation_nwp
+  INTEGER :: timer_physic_acc, timer_physic_acc_1,timer_physic_acc_2
+  INTEGER :: timer_physic_sync, timer_physic_acc_2_2
+  INTEGER :: timer_sync_data, timer_sync_wait
+  INTEGER :: timer_sync_delay,timer_sync_outbuffer
+  INTEGER :: timer_sync_psend_1, timer_sync_isend_2, timer_sync_recv_2,timer_sync_isend_3
 
+  INTEGER :: timer_sso
+  INTEGER :: timer_cover_koe
+  
   ! Timer ID's for horizontal operators
   INTEGER :: timer_div
   INTEGER :: timer_grad
@@ -106,9 +150,45 @@ CONTAINS
   SUBROUTINE init_timer
 
     timer_total     = new_timer("total")
+    timer_omp_radiation = new_timer("omp_radiation")
+    timer_omp_model = new_timer("omp_model")
+
     timer_solve_nh  = new_timer("solve_nh")
+    
     timer_physics   = new_timer("physics")
+    timer_nwp_radiation = new_timer("nwp_radiation")
+    timer_physic_acc = new_timer("physic_acc")
+    timer_phys_exner = new_timer("phys_exner")
+    timer_physic_acc_1 = new_timer("physic_acc_1")
+    timer_physic_acc_2 = new_timer("physic_acc_2")
+    timer_physic_sync = new_timer("physic_sync")
+    timer_sync_data = new_timer("sync_data")
+    timer_sync_delay = new_timer("sync_delay")
+    timer_sync_outbuffer = new_timer("sync_outbuffer")
+    timer_sync_psend_1 = new_timer("sync_psend_1")
+    timer_sync_isend_2 = new_timer("sync_isend_2")
+    timer_sync_recv_2 = new_timer("sync_recv_2")
+    timer_sync_isend_3 = new_timer("sync_isend_3")
+    timer_sync_wait = new_timer("sync_wait")
+    
+    timer_physic_acc_2_2 = new_timer("physic_acc_2_2")
+
+    timer_update_prog_phy = new_timer("update_prog_phy")
+    timer_diagnose_pres_temp = new_timer("diagnose_pres_temp")
+    timer_satad_v_3D = new_timer("satad_v_3D")
+    timer_phys_u_v = new_timer("phys_u_v")
+    timer_nwp_turbulence = new_timer("nwp_turbulence")
+    timer_nwp_microphysics = new_timer("nwp_microphysics")
+    timer_phys_sync_patch = new_timer("phys_sync_patch")
+    timer_fast_phys = new_timer("fast_phys")
+    timer_nwp_convection = new_timer("nwp_convection")
+    timer_pre_radiation_nwp = new_timer("pre_radiation_nwp")
+    timer_radheat = new_timer("radheat")
+    timer_sso = new_timer("sso")
+    timer_cover_koe = new_timer("cover_koe")
+        
     timer_radiation = new_timer("radiation")
+    
     timer_lrtm_1    = new_timer("rad_lrtm_1")
     timer_lrtm_2    = new_timer("rad_lrtm_2")
 

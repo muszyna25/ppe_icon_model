@@ -268,11 +268,14 @@ CONTAINS
     INTEGER :: it
 
     DO it = 1, top_timer
-      rt(it)%tot    = 0.0_dp
-      rt(it)%min    = 0.0_dp
-      rt(it)%max    = 0.0_dp
-      rt(it)%last   = 0.0_dp
-      rt(it)%call_n = 0
+!$omp parallel
+      rt(it) = rt_init
+!       rt(it)%tot    = 0.0_dp
+!       rt(it)%min    = 0.0_dp
+!       rt(it)%max    = 0.0_dp
+!       rt(it)%last   = 0.0_dp
+!       rt(it)%call_n = 0
+!$omp end parallel
     ENDDO
 
   END SUBROUTINE timer_reset_all
@@ -284,11 +287,14 @@ CONTAINS
     IF (it < 1 .OR. it > top_timer) &
          CALL real_timer_abort(it,'timer_reset: timer out of bounds')
 
-    rt(it)%tot    = 0.0_dp
-    rt(it)%min    = 0.0_dp
-    rt(it)%max    = 0.0_dp
-    rt(it)%last   = 0.0_dp
-    rt(it)%call_n = 0
+!$omp parallel
+    rt(it) = rt_init
+!$omp end parallel
+!     rt(it)%tot    = 0.0_dp
+!     rt(it)%min    = 0.0_dp
+!     rt(it)%max    = 0.0_dp
+!     rt(it)%last   = 0.0_dp
+!     rt(it)%call_n = 0
 
   END SUBROUTINE timer_reset
 
@@ -767,12 +773,12 @@ CONTAINS
     ENDIF
     tot_str = time_str(total)
     IF (tid == -1) THEN
-      WRITE (message_text,'(a22,i6,4a12)') '    '//srt(it)%text, &
-           rt(it)%call_n, min_str, avg_str, max_str, tot_str
+      WRITE (message_text,'(a32,i6,4a12,f10.3)') '    '//srt(it)%text, &
+           rt(it)%call_n, min_str, avg_str, max_str, tot_str, total
       CALL message ('',message_text,all_print=.TRUE.)
     ELSE
-      WRITE (message_text,'(i2,a20,i6,4a12)') tid,': '//srt(it)%text, &
-           rt(it)%call_n, min_str, avg_str, max_str, tot_str
+      WRITE (message_text,'(i2,a32,i6,4a12,f10.3)') tid,': '//srt(it)%text, &
+           rt(it)%call_n, min_str, avg_str, max_str, tot_str, total
       CALL message ('',message_text,all_print=.TRUE.)
     ENDIF
 
