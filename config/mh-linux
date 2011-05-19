@@ -115,10 +115,13 @@ case "$fortran_compiler" in
         ;;
     intel)
         config_compiler=intel
+        #  CC     = icc
+        # CFLAGS      = -fpe0 -msse2 -pc64  -DpgiFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE
         CFLAGS      = "$CFLAGS" -DpgiFortran
         FC          = ifort
         FDEBUG      = -check bounds -check pointers -check uninit -debug -g
         FFLAGS      = "$FDEBUG" -O2 -msse2 -fltconsistency -fpe0 -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
+ #       FFLAGS      = "$FDEBUG" -O0 -msse2 -fltconsistency -fpe0 -pc64 -fpp -traceback  -D__LOOP_EXCHANGE
         F77         = "$FC"
         F77FLAGS    = "$FFLAGS"
         OMPFLAG     = -openmp
@@ -360,7 +363,8 @@ case "$ac_sitename" in
 			MPIROOT            = /sw/lenny-x64/mpi/mpich2-1.3.1-static-intel12
 			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
 			load_mpi_modules   = "mpich2/1.3.1-static-intel12"
-			load_modules       = "intel/12.0.084" "gcc/4.5.2" "${load_modules}"
+                        load_modules       = "intel/12.0.084" "gcc/4.5.2" "${load_modules}"
+                        # load_modules      = "intel/12.2.137" "gcc/4.5.2" "${load_modules}"
 			;;
 		    sun)
 			NETCDFROOT         = /sw/lenny-x64/netcdf-4.1.1-static-sun12
