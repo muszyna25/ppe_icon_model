@@ -1364,14 +1364,19 @@ CONTAINS
         &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
         &                   k_jg)
         !--- Fluxes ....---
-        CALL addVar(TimeVar('ASHFL_S',&
+        CALL addVar(TimeVar('SHFL_S_avg',&
         &                   'averaged sensible heat flux at surface',&
         &                   'W/m^2', 122, 201,&  !999 == WMO here
         &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
         &                   k_jg)
-        CALL addVar(TimeVar('ALHFL_S',&
+        CALL addVar(TimeVar('LHFL_S_avg',&
         &                   'averaged latent heat flux at surface',&
         &                   'W/m^2', 121, 201,& !999 ==  WMO here
+        &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+        &                   k_jg)
+        CALL addVar(TimeVar('EVAP_RATE_avg',&
+        &                   'averaged moisture flux rate (evap. rate) at surface',&
+        &                   'kg/m*2/s', 121, 201,& !999 ==  WMO here
         &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
         &                   k_jg)
 
@@ -2492,8 +2497,9 @@ CONTAINS
       CASE ('lwflxtoa_avg');    ptr2 => prm_diag(jg)%lwflxtoa_avg(:,:)
 !      CASE ('T_G');             ptr2 => p_prog_lnd%t_g
 !      CASE ('QV_S');            ptr2 => p_diag_lnd%qv_s
-      CASE ('ASHFL_S');         ptr2 => prm_diag(jg)%shfl_s ! KF not yet averaged!
-      CASE ('ALHFL_S');         ptr2 => prm_diag(jg)%lhfl_s ! KF not yet averaged!
+      CASE ('SHFL_S_avg');      ptr2 => prm_diag(jg)%shfl_s_avg 
+      CASE ('LHFL_S_avg');      ptr2 => prm_diag(jg)%lhfl_s_avg
+      CASE ('EVAP_RATE_avg');   ptr2 => prm_diag(jg)%qhfl_s_avg     
       CASE ('VOR');             ptr3 => p_diag%omega_z
       CASE ('DIV');             ptr3 => p_diag%div
       CASE ('THETA_V');         ptr3 => p_prog%theta_v

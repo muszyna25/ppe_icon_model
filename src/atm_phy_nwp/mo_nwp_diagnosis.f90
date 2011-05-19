@@ -68,14 +68,16 @@ MODULE mo_nwp_diagnosis
                                  & t_nwp_phy_tend,  prm_diag
   USE mo_run_nml,            ONLY: nproma, ntracer, i_cell_type, iqv, iqc, iqi, &
        &                              iqr, iqs, icc, msg_level, ltimer
-  USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd_o_rd
+  USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd_o_rd, &
+                                   lh_v     => alv      !! latent heat of vapourization
 
   USE mo_atm_phy_nwp_nml,    ONLY: inwp_cldcover, inwp_radiation,  dt_rad,&
-                                   inwp_sso 
+                                   inwp_sso, inwp_turb 
   USE mo_sync,               ONLY: sync_patch_array, sync_patch_array_mult, &
                                    SYNC_C, SYNC_C1
   USE mo_mpi,                ONLY: p_nprocs
   USE mo_parallel_nml,       ONLY: p_test_run
+ 
 
 
   IMPLICIT NONE
@@ -141,7 +143,7 @@ CONTAINS
 
     REAL(wp):: z_help
 
-    INTEGER :: jc,jk,jb,jce,jt      !block index
+    INTEGER :: jc,jk,jb,jt      !block index
     INTEGER :: kstart_moist
 !    INTEGER :: jg                !domain id
 
@@ -294,6 +296,50 @@ CONTAINS
 !$OMP END DO
      END IF
 
+
+! latent heat, sensible heat and evaporation rate at surface. Calculation of average values 
+! since model start
+
+    IF ( p_sim_time .GT. 1.e-1 ) THEN
+
+!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc)
+      DO jb = i_startblk, i_endblk
+        !
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+          & i_startidx, i_endidx, rl_start, rl_end)
+          DO jc = i_startidx, i_endidx
+
+           prm_diag%lhfl_s_avg(jc,jb) = ( prm_diag%lhfl_s_avg(jc,jb) &
+                               &  * (p_sim_time - tcall_phy_jg(itupdate))        &
+                               &  + prm_diag%lhfl_s(jc,jb)               &
+                               &  * tcall_phy_jg(itupdate) )                 &
+                               & / p_sim_time 
+           prm_diag%shfl_s_avg(jc,jb) = ( prm_diag%shfl_s_avg(jc,jb) &
+                               &  * (p_sim_time - tcall_phy_jg(itupdate))        &
+                               &  + prm_diag%shfl_s(jc,jb)               &
+                               &  * tcall_phy_jg(itupdate) )                 &
+                               & / p_sim_time 
+           IF (inwp_turb == 1) THEN
+             prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb) &
+                               &  * (p_sim_time - tcall_phy_jg(itupdate))       &
+                               &  + prm_diag%lhfl_s(jc,jb)/lh_v               &
+                               &  * tcall_phy_jg(itupdate) )                 &
+                               & / p_sim_time
+
+           ELSEIF (inwp_turb == 2) THEN
+             prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb) &
+                               &  * (p_sim_time - tcall_phy_jg(itupdate))        &
+                               &  + prm_diag%qhfl_s(jc,jb)               &
+                               &  * tcall_phy_jg(itupdate) )                 &
+                               & / p_sim_time
+           ENDIF
+
+          ENDDO
+      ENDDO ! nblks     
+!$OMP END DO
+
+    END IF
+    
 
 !$OMP END PARALLEL  
 

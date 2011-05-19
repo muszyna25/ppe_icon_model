@@ -130,11 +130,16 @@ TYPE t_nwp_phy_diag
        &  shfl_s(:,:),          & !! sensible heat flux (surface) ( W/m2)
        &  lhfl_s(:,:),          & !! latent   heat flux (surface) ( W/m2)
        &  qhfl_s(:,:),          & !!      moisture flux (surface) ( Kg/m2/s)
+                                  !!      = evaporation rate at surface
+       &  shfl_s_avg(:,:),      & !! average since model start of shfl_s ( W/m2)
+       &  lhfl_s_avg(:,:),      & !! average since model start of lhfl_s ( W/m2)
+       &  qhfl_s_avg(:,:),      & !! average since model start of qhfl_s ( Kg/m2/s) 
+                                  !! = average of evaporation rate at surface
        &  tot_cld(:,:,:,:),     & !! total cloud variables (cc,qv,qc,qi)
        &  tot_cld_vi(:,:,:),    & !! vertically integrated tot_cld (cc,qv,qc,qi) 
                                   !! for cc, instead of the vertically integrated value, 
                                   !! this is the cloud cover assuming maximum-random overlap
-       &  tot_cld_vi_avg(:,:,:),& !! average since the last output of the 
+       &  tot_cld_vi_avg(:,:,:),& !! average since model start of the 
                                   !! vertically integrated tot_cld (cc,qv,qc,qi)  
        &  cosmu0(:,:),          & !! cosine of solar zenith angle
        &  vio3(:,:),            & !! vertically integrated ozone amount (Pa O3)
@@ -716,6 +721,12 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
  !               &  lmiss=.true.,     missval=0._wp                      )
 
+    cf_desc    = t_cf_var('shfl_s_avg', 'W m-2 ', 'surface sensible heat flux, time avg')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'shfl_s_avg', diag%shfl_s_avg,                             &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
+ !               &  lmiss=.true.,     missval=0._wp                      )
+
     ! &      diag%lhfl_s(nproma,nblks_c)
     cf_desc    = t_cf_var('lhfl_s', 'W m-2 ', 'surface latent heat flux')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
@@ -723,10 +734,22 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
  !               &  lmiss=.true.,     missval=0._wp                      )
 
+    cf_desc    = t_cf_var('lhfl_s_avg', 'W m-2 ', 'surface latent heat flux, time avg')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'lhfl_s_avg', diag%lhfl_s_avg,                             &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
+ !               &  lmiss=.true.,     missval=0._wp                      )
+
    ! &      diag%qhfl_s(nproma,nblks_c)
-    cf_desc    = t_cf_var('qhfl_s', 'W m-2 ', 'surface moisture flux')
+    cf_desc    = t_cf_var('qhfl_s', 'Kg m-2 s-1', 'surface moisture flux')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'qhfl_s', diag%qhfl_s,                             &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
+ !               &  lmiss=.true.,     missval=0._wp                      )
+
+    cf_desc    = t_cf_var('qhfl_s_avg', 'Kg m-2 s-1', 'surface moisture flux')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'qhfl_s_avg', diag%qhfl_s_avg,                             &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
  !               &  lmiss=.true.,     missval=0._wp                      )
 
@@ -1010,8 +1033,11 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
   diag%con_udd     = 0._wp !!
   diag%rain_upd    = 0._wp !!
   diag%shfl_s      = 0._wp !!
+  diag%shfl_s_avg  = 0._wp !!
   diag%lhfl_s      = 0._wp !!
+  diag%lhfl_s_avg  = 0._wp !!
   diag%qhfl_s      = 0._wp !!
+  diag%qhfl_s_avg  = 0._wp !!
   diag%tot_cld     = 0._wp !!
   diag%tot_cld_vi  = 0._wp !!
   diag%tot_cld_vi_avg = 0._wp !!
