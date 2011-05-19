@@ -70,7 +70,8 @@ CHARACTER(len=*), PARAMETER :: version = '$Id$'
 !modules interface-------------------------------------------
 !subroutines
 PUBLIC :: sync_patch_array, check_patch_array,                        &
-          global_sum_array, global_sum_array2, global_sum_array3,     &
+          global_sum_array, omp_global_sum_array,                     &
+          global_sum_array2, global_sum_array3,                       &
           sync_patch_array_mult, push_glob_comm, pop_glob_comm,       &
           global_min, global_max, sync_patch_array_gm
 
@@ -686,22 +687,18 @@ SUBROUTINE check_patch_array_4(typ, p_patch, arr, opt_varname)
 
 END SUBROUTINE check_patch_array_4
 !-------------------------------------------------------------------------
-!
-!
 
+!-------------------------------------------------------------------------
 !>
-!! Calculates the global sum of zfield and checks for consistency.
-!!
 !! Calculates the global sum of zfield and checks for consistency
 !! when doing a verification run.
-!! This routine shuold be called from within an OMP parallel Region!
+!! This routine shuold be called outside an OMP parallel Region!
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
 !!
 FUNCTION global_sum_array (zfield) RESULT (global_sum)
 
-!
   REAL(wp),          INTENT(in) :: zfield(:, :)
   REAL(wp)                      :: global_sum
   REAL(wp)                      :: sum_on_testpe(1)
@@ -718,7 +715,50 @@ FUNCTION global_sum_array (zfield) RESULT (global_sum)
   IF(l_fast_sum) THEN
     global_sum = simple_sum(zfield, SIZE(zfield), p_comm_glob)
   ELSE
-    global_sum = order_insensitive_ieee64_sum(zfield, SIZE(zfield), p_comm_glob)
+    global_sum = order_insensit_ieee64_sum(zfield, SIZE(zfield), p_comm_glob)
+  ENDIF
+
+  IF(p_test_run) THEN
+    IF(l_fast_sum) THEN
+      CALL check_result( (/ global_sum /), 'global_sum_array', sum_on_testpe)
+      global_sum = sum_on_testpe(1)
+    ELSE
+      CALL check_result( (/ global_sum /), 'global_sum_array')
+    ENDIF
+  ENDIF
+
+END FUNCTION global_sum_array
+
+
+!-------------------------------------------------------------------------
+!>
+!! Calculates the global sum of zfield and checks for consistency
+!! when doing a verification run.
+!! This routine shuold be called from within an OMP parallel Region!
+!!
+!! @par Revision History
+!! Initial version by Rainer Johanni, Nov 2009
+!!
+FUNCTION omp_global_sum_array (zfield) RESULT (global_sum)
+
+!
+  REAL(wp),          INTENT(in) :: zfield(:, :)
+  REAL(wp)                      :: global_sum
+  REAL(wp)                      :: sum_on_testpe(1)
+
+  INTEGER :: p_comm_glob
+!-----------------------------------------------------------------------
+
+  IF(comm_lev==0) THEN
+    p_comm_glob = p_comm_work
+  ELSE
+    p_comm_glob = glob_comm(comm_lev)
+  ENDIF
+
+  IF(l_fast_sum) THEN
+    global_sum = omp_simple_sum(zfield, SIZE(zfield), p_comm_glob)
+  ELSE
+    global_sum = omp_order_insensit_ieee64_sum(zfield, SIZE(zfield), p_comm_glob)
   ENDIF
 
   IF(p_test_run) THEN
@@ -734,7 +774,7 @@ FUNCTION global_sum_array (zfield) RESULT (global_sum)
 !$OMP BARRIER
   ENDIF
 
-END FUNCTION global_sum_array
+END FUNCTION omp_global_sum_array
 
 
 !-------------------------------------------------------------------------
@@ -1113,13 +1153,12 @@ FUNCTION global_sum_array3 (nfields,ldiff,f3din,f3dd,f3din2,f3dd2,f4din,f4dd,dif
    DEALLOCATE (ff,itmp,isum,iexp,fact,r_fact,rval,abs_max,aux_sum)
 
 END FUNCTION global_sum_array3
-
 !-------------------------------------------------------------------------------
 
+!-------------------------------------------------------------------------------
 !> global_min/global_max family:
 !! Calculate global min/max (using current communicator) and compare
 !! result to result on test PE (in case of a test run)
-
 FUNCTION global_min_0d(zfield) RESULT(global_min)
 
   REAL(wp), INTENT(IN) :: zfield
@@ -1134,9 +1173,9 @@ FUNCTION global_min_0d(zfield) RESULT(global_min)
   IF(p_test_run) CALL check_result( (/ global_min /), 'global_min' )
 
 END FUNCTION global_min_0d
-
 !-------------------------------------------------------------------------------
 
+!-------------------------------------------------------------------------------
 FUNCTION global_min_1d(zfield) RESULT(global_min)
 
   REAL(wp), INTENT(IN) :: zfield(:)
@@ -1151,9 +1190,9 @@ FUNCTION global_min_1d(zfield) RESULT(global_min)
   IF(p_test_run) CALL check_result( global_min, 'global_min' )
 
 END FUNCTION global_min_1d
-
 !-------------------------------------------------------------------------------
 
+!-------------------------------------------------------------------------------
 FUNCTION global_max_0d(zfield) RESULT(global_max)
 
   REAL(wp), INTENT(IN) :: zfield
@@ -1168,9 +1207,9 @@ FUNCTION global_max_0d(zfield) RESULT(global_max)
   IF(p_test_run) CALL check_result( (/ global_max /), 'global_max' )
 
 END FUNCTION global_max_0d
-
 !-------------------------------------------------------------------------------
 
+!-------------------------------------------------------------------------------
 FUNCTION global_max_1d(zfield) RESULT(global_max)
 
   REAL(wp), INTENT(IN) :: zfield(:)
@@ -1235,11 +1274,7 @@ END SUBROUTINE check_result
 
 
 !-------------------------------------------------------------------------------
-!
-
 !>
-!! This routine calculates the sum of an array of IEEE 64 bit.
-!!
 !! This routine calculates the sum of an array of IEEE 64 bit
 !! floating point values in an order insensitve way.
 !! This is done by calculating the sum in INTEGER arithmetic,
@@ -1254,7 +1289,7 @@ END SUBROUTINE check_result
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
 !!
-FUNCTION order_insensitive_ieee64_sum(vals, num_vals, mpi_comm) RESULT(global_sum)
+FUNCTION omp_order_insensit_ieee64_sum(vals, num_vals, mpi_comm) RESULT(global_sum)
 
 !
    INTEGER  :: num_vals, mpi_comm
@@ -1383,14 +1418,174 @@ FUNCTION order_insensitive_ieee64_sum(vals, num_vals, mpi_comm) RESULT(global_su
        global_sum = global_sum - (REAL(ival1,dp)*r_fact) - (REAL(ival2,dp)*r_fact)*r_two_30
     ENDIF
 
-END FUNCTION order_insensitive_ieee64_sum
+END FUNCTION omp_order_insensit_ieee64_sum
 !-------------------------------------------------------------------------------
-!
-!
 
+
+!-------------------------------------------------------------------------------
 !>
-!! This routine calculates the sum of an array in the.
+!! This routine calculates the sum of an array of IEEE 64 bit
+!! floating point values in an order insensitve way.
+!! This is done by calculating the sum in INTEGER arithmetic,
+!! so it is always exactly the same for any permutation of the numbers
+!! (even among several processors).
+!! Since 60 bits are used for the mantissa of each operand (and even more
+!! for the accumulator), this sum should be almost always more precise
+!! than naivly summing up the operands.
+!! ATTENTION: When compiled with OpenMP in effect, this routine
+!! should be called outside an omp parallel region!!!!
 !!
+!! @par Revision History
+!! Initial version by Rainer Johanni, Nov 2009
+!!
+FUNCTION order_insensit_ieee64_sum(vals, num_vals, mpi_comm) RESULT(global_sum)
+
+!
+   INTEGER  :: num_vals, mpi_comm
+   REAL(dp) :: vals(num_vals)
+
+   REAL(dp) :: global_sum
+
+   INTEGER(i8)       :: itmp(2),  ival1, ival2
+   INTEGER(i8), SAVE :: isum(2) ! This must be a shared variable
+   INTEGER           :: i, iexp
+   REAL(dp), SAVE    :: abs_max ! This must be a shared variable
+   REAL(dp)          :: fact, r_fact, rval
+
+   REAL(dp), PARAMETER :: two_30 = 1073741824._dp ! 2.**30
+   REAL(dp), PARAMETER :: r_two_30 = 1._dp/two_30
+
+#if defined (__SX__) || defined (__PGI)
+   INTEGER(i8) :: mask30
+   DATA mask30 / z'000000003fffffff' / ! last 30 bits set
+#else
+   INTEGER(i8), PARAMETER :: mask30 = INT(z'000000003fffffff',i8)
+#endif
+
+!-----------------------------------------------------------------------
+
+   ! Set shared variables in a MASTER region
+   abs_max = 0._dp
+   isum(:) = 0_i8
+   ! Get the maximum absolute value of all numbers.
+   DO i=1,num_vals
+      abs_max = MAX(abs_max, ABS(vals(i)))
+   ENDDO
+   rval = abs_max
+   abs_max = p_max(rval, comm=mpi_comm)
+   ! If abs_max is 0, all input values are 0
+   ! and we are done
+   IF(abs_max == 0.0_dp) THEN
+      global_sum = 0._dp
+      RETURN
+   ENDIF
+
+   ! Get the exponent of abs_max for scaling
+
+   iexp = EXPONENT(abs_max)
+
+   ! If the exponent is too small, return 0 in order to avoid
+   ! problems with overflow below
+
+   IF(iexp < -980) THEN
+      global_sum = 0._dp
+      RETURN
+   ENDIF
+
+   ! Calculate a factor for scaling the input numbers
+   ! so that the maximum absolute value of a scaled number
+   ! is below 2**30
+
+   fact = SCALE(1._dp,30-iexp) ! same as 2**(30-iexp)
+   r_fact = SCALE(1._dp,iexp-30) ! 1./fact
+
+   ! Sum up all numbers as scaled integers
+   DO i=1,num_vals
+
+      ! Scale number into range -2**30 < rval < 2**30
+      ! and store integer part in ival1
+
+      rval = vals(i)*fact
+      ival1 = INT(rval,i8)
+
+      ! Scale fraction by 2**30 and store integer part in ival2
+
+      ival2 = INT((rval - REAL(ival1,dp))*two_30,i8)
+
+      ! Sum up ival1 and ival2; since we are using 8-byte integers
+      ! for the sum there are no problems with overflow
+
+      isum(1) = isum(1) + ival1
+      isum(2) = isum(2) + ival2
+
+   ENDDO
+   itmp = isum
+   isum = p_sum(itmp, comm=mpi_comm)
+   
+   ! Scale integer numbers back to real numbers and add them.
+   ! For safety, we use only positive INTEGERS < 2**30 when converting to REAL
+
+    IF(isum(1) >= 0_i8)THEN
+       ival1 = ISHFT(isum(1),-30)
+       ival2 = IAND (isum(1),mask30)
+       global_sum = (REAL(ival1,dp)*r_fact)*two_30 + REAL(ival2,dp)*r_fact
+    ELSE
+       ival1 = ISHFT(ABS(isum(1)),-30)
+       ival2 = IAND (ABS(isum(1)),mask30)
+       global_sum = (REAL(ival1,dp)*r_fact)*two_30 + REAL(ival2,dp)*r_fact
+       global_sum = -global_sum
+    ENDIF
+
+    IF(isum(2) >= 0_i8)THEN
+       ival1 = ISHFT(isum(2),-30)
+       ival2 = IAND (isum(2),mask30)
+       global_sum = global_sum + (REAL(ival1,dp)*r_fact) + (REAL(ival2,dp)*r_fact)*r_two_30
+    ELSE
+       ival1 = ISHFT(ABS(isum(2)),-30)
+       ival2 = IAND (ABS(isum(2)),mask30)
+       global_sum = global_sum - (REAL(ival1,dp)*r_fact) - (REAL(ival2,dp)*r_fact)*r_two_30
+    ENDIF
+
+END FUNCTION order_insensit_ieee64_sum
+!-------------------------------------------------------------------------------
+
+!-------------------------------------------------------------------------------
+!>
+!! This routine calculates the sum of an array in the
+!! straightforward way in parallel.
+!! ATTENTION: When compiled with OpenMP in effect, this routine
+!! should be called outside a parallel omp region!!!!
+!!
+!! @par Revision History
+!! Initial version by Rainer Johanni, Nov 2009
+!!
+FUNCTION simple_sum(vals, num_vals, mpi_comm) RESULT(global_sum)
+
+!
+   INTEGER  :: num_vals, mpi_comm
+   REAL(dp) :: vals(num_vals)
+
+   REAL(dp) :: global_sum
+
+   INTEGER :: i
+   REAL(dp), SAVE :: s, res
+
+!-----------------------------------------------------------------------
+
+   s = 0._dp
+   ! Sum up all numbers
+   DO i=1,num_vals
+      s = s + vals(i)
+   ENDDO
+   res = p_sum(s, comm=mpi_comm)
+
+   global_sum = res
+
+END FUNCTION simple_sum
+!-------------------------------------------------------------------------
+
+!-------------------------------------------------------------------------------
+!>
 !! This routine calculates the sum of an array in the
 !! straightforward way in parallel.
 !! ATTENTION: When compiled with OpenMP in effect, this routine
@@ -1399,7 +1594,7 @@ END FUNCTION order_insensitive_ieee64_sum
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
 !!
-FUNCTION simple_sum(vals, num_vals, mpi_comm) RESULT(global_sum)
+FUNCTION omp_simple_sum(vals, num_vals, mpi_comm) RESULT(global_sum)
 
 !
    INTEGER  :: num_vals, mpi_comm
@@ -1434,8 +1629,10 @@ FUNCTION simple_sum(vals, num_vals, mpi_comm) RESULT(global_sum)
 
    global_sum = res
 
-END FUNCTION simple_sum
+END FUNCTION omp_simple_sum
 !-------------------------------------------------------------------------
+
+
 !-------------------------------------------------------------------------
 ! exact_ieee64_sum is currently unused !!!
 ! Please note: If it should ever be reactivated, it needs an

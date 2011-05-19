@@ -75,7 +75,7 @@ cat > NAMELIST_${EXPNAME} << EOF
  inwp_radiation  = 1        ! 1: RRTM, 2: Ritter-Geleyn
  inwp_turb       = 1        ! 1: Raschendorfer, 2: ECHAM, 3: EDMF-DUALM
  inwp_sso        = 0
- inwp_surface    = 1
+ inwp_surface    = 0
  dt_conv         = 900
  dt_rad          = 1800
  dt_sso          = 900

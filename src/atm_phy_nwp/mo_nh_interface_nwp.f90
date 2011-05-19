@@ -1254,7 +1254,7 @@ CONTAINS
         z_ddt_v_tot = 0._wp
       ENDIF
 
-#ifdef __LOOP_EXCHANGE
+#ifdef __xlC__
 
       IF (timers_level > 2) CALL timer_start(timer_physic_acc_2)
       

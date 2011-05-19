@@ -61,7 +61,7 @@ do
   fi
 done
 #  Create the grid generator for builtbot
-$make_runscript in_folder=$input_folder in_script=grid.create_atmo_grids in_script_2=grid.create_ocean_grids out_script=grid.create_builtbot_grids.run mpi_procs=1 cpu_time="00:30:00"
+$make_runscript in_folder=$input_folder in_script=grid.create_atmo_grids in_script_2=grid.create_ocean_grids out_script=grid.create_bb_grids.run mpi_procs=1 cpu_time="00:30:00"
 
 
 

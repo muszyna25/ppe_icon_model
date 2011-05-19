@@ -2005,7 +2005,11 @@ SUBROUTINE exchange_data_2(p_pat, recv, send, add, send_lbound2)
 
    ENDIF
 
-   tmp_recv(:,1,:) = recv(:,:)
+   IF (PRESENT(send)) THEN
+     tmp_recv(:,1,:) = 0._wp
+   ELSE
+     tmp_recv(:,1,:) = recv(:,:)
+   ENDIF
 
    IF(PRESENT(send) .AND. PRESENT(send_lbound2)) THEN
       IF(PRESENT(add)) THEN

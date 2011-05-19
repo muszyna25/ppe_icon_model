@@ -64,7 +64,7 @@ MODULE m_gmres
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_gmres
   USE mo_interpolation,       ONLY: t_int_state
   USE mo_nonhydro_state,      ONLY: t_nh_metrics
-  USE mo_sync,                ONLY: global_sum_array
+  USE mo_sync,                ONLY: omp_global_sum_array
 
   IMPLICIT NONE
 
@@ -268,7 +268,7 @@ CONTAINS
      ENDDO
 !$OMP END DO
 
-   rn2_aux = SQRT(global_sum_array(z))
+   rn2_aux = SQRT(omp_global_sum_array(z))
 #endif
 
    IF (myThreadNo == 0) rn2(1) = rn2_aux
@@ -343,7 +343,7 @@ CONTAINS
      ENDDO
 !$OMP END DO
 
-     h_aux = global_sum_array(z)
+     h_aux = omp_global_sum_array(z)
 #endif
 
      IF (myThreadNo == 0) h(k,i) = h_aux
@@ -392,7 +392,7 @@ CONTAINS
      ENDDO
 !$OMP END DO
 
-     h_aux = SQRT(global_sum_array(z))
+     h_aux = SQRT(omp_global_sum_array(z))
 #endif
 
      IF (myThreadNo == 0) h(i+1,i) = h_aux
@@ -640,7 +640,7 @@ CONTAINS
    ENDDO
 !$OMP END DO
 
-   rn2_aux = SQRT(global_sum_array(z))
+   rn2_aux = SQRT(omp_global_sum_array(z))
 #endif
 
    IF (myThreadNo == 0) rn2(1) = rn2_aux
@@ -716,7 +716,7 @@ CONTAINS
      ENDDO
 !$OMP END DO
 
-     h_aux = global_sum_array(z)
+     h_aux = omp_global_sum_array(z)
 #endif
 
      IF (myThreadNo == 0) h(k,i) = h_aux
@@ -761,7 +761,7 @@ CONTAINS
      ENDDO
 !$OMP END DO
 
-     h_aux = SQRT(global_sum_array(z))
+     h_aux = SQRT(omp_global_sum_array(z))
 #endif
 
      IF (myThreadNo == 0) h(i+1,i) = h_aux

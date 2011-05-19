@@ -10,17 +10,30 @@
 # $Date$:    Date of last commit
 #-------------------------------------------------------------------
 
-. ../setting
+REV=$1
+BB_SYSTEM=$2
+BB_SLAVE=$3
 
-echo "WORKING_PATH ${WORKING_PATH}"
-SQURCE_PATH=${WORKING_PATH}/experiments/$1/plots
+if [ "x${BB_SLAVE}" = "x" ]
+then
+  echo "!!!! BB_SLAVE not set "
+  exit 1
+fi
 
-TARGET_PATH=`dirname ${WORKING_PATH}`
-TARGET_PATH=`basename ${TARGET_PATH}`
+if [ -d /tmp/${BB_SLAVE} ]
+then
+  rm -rf /tmp/${BB_SLAVE} 
+fi
 
-echo "SQURCE_DIR $SQURCE_PATH"
-echo "TARGET_DIR $TARGET_PATH"
+echo "BB_SYSTEM=${BB_SYSTEM}"
+echo "BB_SLAVE=${BB_SLAVE}"
 
-cd ${SQURCE_PATH}
-scp *.eps mpipc91.mpi.zmaw.de:/scratch/local1/m211098/master_ICON/public_html/model_compare/eps/${TARGET_PATH}/.
-ssh mpipc91.mpi.zmaw.de /scratch/local1/m211098/master_ICON/public_html/model_compare/convert2jpg.ksh ${TARGET_PATH}
+#REV=`svn info | grep Revision | cut -d ':' -f2`
+echo "REV=${REV}"
+
+mkdir /tmp/${BB_SLAVE} 
+echo "_COMPUTER_ ${BB_SYSTEM}" > /tmp/${BB_SLAVE}/job_info.txt
+echo "_BUILDER_ ${BB_SLAVE}" >> /tmp/${BB_SLAVE}/job_info.txt
+echo "_REVISION_ ${REV}" >> /tmp/${BB_SLAVE}/job_info.txt
+
+find experiments -name '*.eps' -exec cp {} /tmp/${BB_SLAVE}/. \;

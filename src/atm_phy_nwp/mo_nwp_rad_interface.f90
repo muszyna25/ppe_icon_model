@@ -37,12 +37,12 @@
 MODULE mo_nwp_rad_interface
 
   USE mo_atm_phy_nwp_nml,      ONLY: inwp_radiation, dt_rad, dt_radheat
-  USE mo_exception,            ONLY: message !, message_text, finish
+  USE mo_exception,            ONLY: message,  finish !message_tex
   USE mo_ext_data,             ONLY: t_external_data
   USE mo_run_nml,              ONLY: nproma, msg_level, iqv, iqc, iqi, &
     &                                io3, icc, ntracer, ntracer_static
   USE mo_grf_interpolation,    ONLY: t_gridref_state
-  USE mo_impl_constants,       ONLY: min_rlcell_int!, min_rlcell
+  USE mo_impl_constants,       ONLY: min_rlcell_int !, min_rlcell 
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
   USE mo_interpolation,        ONLY: t_int_state
   USE mo_kind,                 ONLY: wp
@@ -63,22 +63,84 @@ MODULE mo_nwp_rad_interface
   USE mo_radiation_rg_par,     ONLY: aerdis
   USE mo_satad,                ONLY: qsat_rho
   USE mo_subdivision,          ONLY: p_patch_local_parent
-!  USE mo_sync,                 ONLY: SYNC_C, sync_patch_array_mult
-  
+!   USE mo_sync,                 ONLY: SYNC_C, sync_patch_array_mult
+
+#ifdef __OMP_RADIATION__  
+  USE mo_parallel_nml,        ONLY: radiation_threads
+  USE mo_timer,               ONLY: timer_omp_radiation, timer_omp_model, timer_start, timer_stop
+#endif
+
   IMPLICIT NONE
 
   PRIVATE
 
-!!$  PUBLIC  :: parameters, &
+!!$  PUBLIC :: parameters, &
 !!$    &        types,      &
 !!$    &        variables,  &
 !!$    &        procedures
 
-  PUBLIC  ::  nwp_radiation
+  PUBLIC ::  nwp_radiation
+  
+#ifdef __OMP_RADIATION__  
+  PUBLIC ::  nwp_start_omp_radiation_thread, model_end_thread
+  PUBLIC ::  radiation_thread_status, model_thread_status, thread_busy
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  
+  INTEGER, PARAMETER :: thread_busy = 1
+  INTEGER, PARAMETER :: thread_waits = 2
+  INTEGER, PARAMETER :: thread_in_barrier = 3
+  INTEGER, PARAMETER :: thread_ready = 4
+  INTEGER, PARAMETER :: thread_ends = 5
+  
+  INTEGER :: radiation_thread_status, model_thread_status
+  
+  LOGICAL:: continue_radiation_thread = .true.
+!  LOGICAL:: radiation_barier = .false.
+  INTEGER:: no_radiation_barriers = 0
+  INTEGER:: no_model_barriers = 0
 
-  REAL(wp), PARAMETER ::  &
+  
+
+  TYPE t_nwp_omp_radiation_data
+
+    ! input
+    TYPE(t_patch),        POINTER :: pt_patch     !<grid/patch info.
+    TYPE(t_external_data),POINTER :: ext_data
+    TYPE(t_nh_prog),      POINTER :: pt_prog_rcf !<the prognostic variables (with
+    TYPE(t_nh_diag),      POINTER :: pt_diag     !<the diagnostic variables
+    TYPE(t_nwp_phy_diag), POINTER :: prm_diag
+    TYPE(t_lnd_prog),     POINTER :: lnd_prog_now
+    
+    REAL(wp)              :: p_sim_time
+    
+    REAL(wp), ALLOCATABLE::  fr_land_smt(:,:)   !< fraction land in a grid element        [ ]
+                                                 !  = smoothed fr_land
+    REAL(wp), ALLOCATABLE::  fr_glac_smt(:,:)   !< fraction land glacier in a grid element [ ]
+                                                 ! = smoothed fr_glac
+    REAL(wp), ALLOCATABLE::  cosmu0(:,:)        ! cosine of solar zenith angle
+    REAL(wp), ALLOCATABLE::  tsfctrad(:,:)      ! surface temperature at trad [K]
+    REAL(wp), ALLOCATABLE::  pres_ifc(:,:,:)    ! pressure at interfaces (nproma,nlevp1,nblks_c)  [Pa]
+    REAL(wp), ALLOCATABLE::  pres(:,:,:)        ! pressure (nproma,nlev,nblks_c)                  [Pa]
+    REAL(wp), ALLOCATABLE::  temp(:,:,:)        ! temperature (nproma,nlev,nblks_c)                 [K]
+    REAL(wp), ALLOCATABLE::  tot_cld(:,:,:,:)   ! total cloud variables (cc,qv,qc,qi)
+    REAL(wp), ALLOCATABLE::  qm_o3(:,:,:)       ! in o3 mass mixing ratio
+    REAL(wp), ALLOCATABLE::  acdnc(:,:,:)       ! cloud droplet number concentration [1/m**3]
+
+    ! output
+    REAL(wp), ALLOCATABLE::  lwflxclr(:,:,:)    ! longwave clear-sky net flux [W/m2]
+    REAL(wp), ALLOCATABLE::  trsolclr(:,:,:)    ! shortwave clear-sky net tranmissivity []
+    REAL(wp), ALLOCATABLE::  lwflxall(:,:,:)    ! longwave net flux           [W/m2]
+    REAL(wp), ALLOCATABLE::  trsolall(:,:,:)    ! shortwave net tranmissivity []
+    
+  END TYPE t_nwp_omp_radiation_data
+
+  TYPE(t_nwp_omp_radiation_data):: omp_radiation_data
+    
+#endif
+
+  CHARACTER(len=*), PARAMETER:: version = '$Id$'
+
+  REAL(wp), PARAMETER::  &
     & zaeops = 0.05_wp,   &
     & zaeopl = 0.2_wp,    &
     & zaeopu = 0.1_wp,    &
@@ -90,7 +152,639 @@ MODULE mo_nwp_rad_interface
 !      & zaeadk(1:3) = (/0.3876E-03_wp,0.6693E-02_wp,0.8563E-03_wp/)
 
 CONTAINS
+
+#ifdef __OMP_RADIATION__  
+  !-----------------------------------------
+  !>
+  SUBROUTINE allocate_omp_radiation_data()
+
+    INTEGER:: nblks_c, nlev, nlevp1
+    INTEGER:: ist, total_status
+
+    ! wait until omp_radiation_data%pt_patch is initialized
+    ist=radiation_barrier()
+    
+    nblks_c = omp_radiation_data%pt_patch%nblks_c
+!     write(0,*) "nproma,nblks_c=",nproma,nblks_c
+    ! number of vertical levels
+    nlev   = omp_radiation_data%pt_patch%nlev
+    nlevp1 = omp_radiation_data%pt_patch%nlevp1
+!     write(0,*) "nlev,nlevp1=",nlev,nlevp1
+
+    total_status=0
+    ! input    
+    ALLOCATE(omp_radiation_data%fr_land_smt(nproma,nblks_c),STAT=ist)
+    total_status=total_status+ist
+    ALLOCATE(omp_radiation_data%fr_glac_smt(nproma,nblks_c),STAT=ist)
+    total_status=total_status+ist
+    ALLOCATE(omp_radiation_data%cosmu0(nproma,nblks_c), STAT=ist ) 
+    total_status=total_status+ist
+    ALLOCATE(omp_radiation_data%tsfctrad(nproma,nblks_c), STAT=ist ) 
+    total_status=total_status+ist
+    ALLOCATE(omp_radiation_data%pres_ifc(nproma,nlevp1,nblks_c), STAT=ist )
+    total_status=total_status+ist
+    ALLOCATE(omp_radiation_data%pres(nproma,nlev,nblks_c), STAT=ist )
+    total_status=total_status+ist
+    ALLOCATE(omp_radiation_data%temp(nproma,nlev,nblks_c), STAT=ist )
+    total_status=total_status+ist
+    ALLOCATE(omp_radiation_data%tot_cld(nproma,nlev,nblks_c,4), STAT=ist )
+    total_status=total_status+ist
+    ALLOCATE(omp_radiation_data%qm_o3(nproma,nlev,nblks_c), STAT=ist)
+    total_status=total_status+ist
+    ALLOCATE(omp_radiation_data%acdnc(nproma,nlev,nblks_c), STAT=ist ) 
+    total_status=total_status+ist
+
+    ! output
+    ALLOCATE(omp_radiation_data%lwflxclr(nproma,nlevp1,nblks_c), STAT=ist ) 
+    total_status=total_status+ist
+    ALLOCATE(omp_radiation_data%trsolclr(nproma,nlevp1,nblks_c), STAT=ist ) 
+    total_status=total_status+ist
+    ALLOCATE(omp_radiation_data%lwflxall(nproma,nlevp1,nblks_c), STAT=ist ) 
+    total_status=total_status+ist
+    ALLOCATE(omp_radiation_data%trsolall(nproma,nlevp1,nblks_c), STAT=ist ) 
+    total_status=total_status+ist
+    
+!     write(0,*) "allocate omp_radiation_data is done!"
   
+    IF (total_status /= 0 ) THEN
+      CALL finish ("allocate_omp_radiation_data",'allocating omp_radiation_data failed')
+    ENDIF
+
+!     write(0,*) "zero in..."
+    omp_radiation_data%p_sim_time = 0.0_wp
+    omp_radiation_data%fr_land_smt(:,:) = 0.0_wp   !< fraction land in a grid element        [ ]
+                                                 !  = smoothed fr_land
+    omp_radiation_data%fr_glac_smt(:,:) = 0.0_wp   !< fraction land glacier in a grid element [ ]
+                                                 ! = smoothed fr_glac
+    omp_radiation_data%cosmu0(:,:) = 0.0_wp        ! cosine of solar zenith angle
+    omp_radiation_data%tsfctrad(:,:) = 0.0_wp      ! surface temperature at trad [K]
+    omp_radiation_data%pres_ifc(:,:,:) = 0.0_wp    ! pressure at interfaces (nproma,nlevp1,nblks_c)  [Pa]
+    omp_radiation_data%pres(:,:,:)  = 0.0_wp      ! pressure (nproma,nlev,nblks_c)                  [Pa]
+    omp_radiation_data%temp(:,:,:)  = 0.0_wp       ! temperature (nproma,nlev,nblks_c)                 [K]
+    omp_radiation_data%tot_cld(:,:,:,:) = 0.0_wp   ! total cloud variables (cc,qv,qc,qi)
+    omp_radiation_data%qm_o3(:,:,:)  = 0.0_wp      ! in o3 mass mixing ratio
+    omp_radiation_data%acdnc(:,:,:) = 0.0_wp       ! cloud droplet number concentration [1/m**3]
+
+!     write(0,*) "zero out..."
+    ! output
+    omp_radiation_data%lwflxclr(:,:,:) = 0.0_wp   ! longwave clear-sky net flux [W/m2]
+    omp_radiation_data%trsolclr(:,:,:) = 0.0_wp    ! shortwave clear-sky net tranmissivity []
+    omp_radiation_data%lwflxall(:,:,:) = 0.0_wp   ! longwave net flux           [W/m2]
+    omp_radiation_data%trsolall(:,:,:) = 0.0_wp   ! shortwave net tranmissivity []
+    
+    ! notify that omp_radiation_data is allocated
+    ist=radiation_barrier()
+    
+!     write(0,*) "allocate_omp_radiation_data exits"
+  END SUBROUTINE allocate_omp_radiation_data
+  !-----------------------------------------
+  
+  !-----------------------------------------
+  !>
+  LOGICAL FUNCTION thread_not_busy(thread_status)
+
+    INTEGER, INTENT(in) :: thread_status
+    
+    IF (thread_status == thread_busy ) THEN
+      thread_not_busy = .false.
+    ELSE
+      thread_not_busy = .true.
+    ENDIF
+          
+  END FUNCTION thread_not_busy
+  !-----------------------------------------
+  
+  !-----------------------------------------
+  !>
+  LOGICAL FUNCTION thread_is_ready(thread_status)
+
+    INTEGER, INTENT(in) :: thread_status
+
+   ! write(0,*) "thread_is_ready(thread_status):", thread_status
+    IF (thread_status == thread_ready ) THEN
+      thread_is_ready = .true.
+    ELSE
+      thread_is_ready = .false.
+    ENDIF
+          
+  END FUNCTION thread_is_ready
+  !-----------------------------------------
+
+  !-----------------------------------------
+  !>
+  INTEGER FUNCTION sync_thread_to(thread_from_status,thread_to_status)
+
+    INTEGER, INTENT(inout) :: thread_from_status,  thread_to_status
+    
+    INTEGER wait_cnt
+
+    thread_from_status=thread_waits
+    
+    wait_cnt=0
+    DO WHILE (.true.)
+!$OMP FLUSH(thread_from_status,thread_to_status)
+      IF ( thread_not_busy(thread_to_status)) EXIT
+!       write(0,*) "thread_is_busy(thread_status):", thread_status
+      wait_cnt = wait_cnt + 1
+    ENDDO
+        
+    IF (thread_to_status == thread_ends) THEN
+      sync_thread_to = thread_ends
+      RETURN 
+    ENDIF  
+   
+!   at this point both threads are not busy
+!   aknk by sendind to the opposite site thread_ready
+    thread_to_status = thread_ready
+    wait_cnt=0
+    DO WHILE (.true.)
+!$OMP FLUSH(thread_from_status,thread_to_status)
+      IF ( thread_is_ready(thread_from_status)) EXIT
+      wait_cnt = wait_cnt + 1
+    ENDDO    
+
+    thread_from_status=thread_busy
+!$OMP FLUSH(thread_from_status,thread_to_status)
+    sync_thread_to = thread_ready
+        
+    RETURN
+    
+  END FUNCTION sync_thread_to
+  !-----------------------------------------
+
+  !-----------------------------------------
+  !>
+  INTEGER FUNCTION wait_for_nobusy_thread(thread_status)
+
+    INTEGER, INTENT(inout) :: thread_status
+    
+    INTEGER wait_cnt
+    
+    wait_cnt=0
+    DO WHILE (.true.)
+!$OMP FLUSH(thread_status)
+      IF ( thread_not_busy(thread_status)) EXIT
+!       write(0,*) "thread_is_busy(thread_status):", thread_status
+      wait_cnt = wait_cnt + 1
+    ENDDO    
+    wait_for_nobusy_thread=wait_cnt
+    RETURN
+    
+  END FUNCTION wait_for_nobusy_thread
+  !-----------------------------------------
+
+!   !-----------------------------------------
+!   !>
+!   INTEGER FUNCTION wait_for_ready_thread(thread_status)
+! 
+!     INTEGER, INTENT(inout) :: thread_status
+!     
+!     INTEGER wait_cnt
+!     
+!     wait_cnt=0
+!     DO WHILE (.true.)
+! !$OMP FLUSH(thread_status)
+!       IF ( thread_is_ready(thread_status)) EXIT
+!       wait_cnt = wait_cnt + 1
+!     ENDDO    
+!     wait_for_ready_thread=wait_cnt
+!     RETURN
+!     
+!   END FUNCTION wait_for_ready_thread
+!   !-----------------------------------------
+
+    
+  !-----------------------------------------
+  !>
+  ! This is the radiation thread barrier
+  INTEGER FUNCTION radiation_barrier()
+
+    INTEGER sync_result
+    
+    write(0,*) "radiation_barrier starts..."
+    IF ( .NOT. continue_radiation_thread) THEN
+      radiation_barrier=0
+      write(0,*) "radiation_barrier: .NOT. continue_radiation_thread."
+      RETURN
+    ENDIF
+    sync_result = sync_thread_to(radiation_thread_status, model_thread_status)
+    IF (sync_result == thread_ends) THEN
+      write(0,*) "Reached stop_radiation_thread."
+      radiation_thread_status = thread_ends
+      continue_radiation_thread = .false.
+      radiation_barrier  = thread_ends
+      RETURN
+    ENDIF  
+    no_radiation_barriers = no_radiation_barriers + 1
+    write(0,*) "no_radiation_barriers=", no_radiation_barriers
+         
+!  this BARRIER does not comply with OpenMP standards
+! !$OMP BARRIER
+!     DO WHILE (.NOT. radiation_barier)
+! !$OMP BARRIER
+!     ENDDO
+!     radiation_barier = .false.
+! !$OMP FLUSH
+    radiation_barrier = sync_result 
+    RETURN
+    
+  END FUNCTION radiation_barrier
+  !-----------------------------------------
+
+
+  !-----------------------------------------
+  !>
+  ! This is the model thread barrier
+  INTEGER FUNCTION model_barrier()
+    
+    INTEGER sync_result
+ 
+    write(0,*) "model_barrier starts..."
+    
+    sync_result = sync_thread_to(model_thread_status, radiation_thread_status)
+     
+    no_model_barriers = no_model_barriers + 1
+    write(0,*) "no_model_barriers=", no_model_barriers
+   
+    model_barrier=sync_result
+    RETURN
+      
+  END FUNCTION model_barrier
+  !-----------------------------------------
+
+  !-----------------------------------------
+  !>
+  SUBROUTINE model_end_thread()
+
+    model_thread_status = thread_ends
+!$OMP FLUSH(model_thread_status)
+    write(0,*) 'Reached model_end_thread'
+
+  END SUBROUTINE model_end_thread
+  !-----------------------------------------
+
+  !-----------------------------------------
+  !>
+  SUBROUTINE receive_in_omp_radiation_data()
+
+    INTEGER :: wait_cnt
+!     write(0,*) 'receive_in_omp_radiation_data starts'
+    ! start receving input
+    wait_cnt=radiation_barrier()
+    ! end of receive input
+    wait_cnt=radiation_barrier()
+!     write(0,*) 'receive_in_omp_radiation_data exits'
+  
+  END SUBROUTINE receive_in_omp_radiation_data
+  !-----------------------------------------
+
+
+  !-----------------------------------------
+  !>
+  SUBROUTINE send_out_omp_radiation_data()
+  
+    INTEGER :: wait_cnt
+    ! write(0,*) 'send_out_omp_radiation_data starts'
+    ! start receving input
+    wait_cnt=radiation_barrier()
+    ! end of receive input
+    wait_cnt=radiation_barrier()
+!     write(0,*) 'send_out_omp_radiation_data exits'
+  
+  END SUBROUTINE send_out_omp_radiation_data
+  !-----------------------------------------
+
+  !-----------------------------------------
+  !>
+  ! Send the input omp_radiation_data
+  SUBROUTINE send_in_omp_radiation_data(p_sim_time )
+    
+    REAL(wp), INTENT(in)  :: p_sim_time
+    INTEGER :: wait_cnt
+    
+!     write(0,*) 'send_in_omp_radiation_data starts'
+    wait_cnt=model_barrier()
+!$OMP PARALLEL WORKSHARE
+    omp_radiation_data%p_sim_time       = p_sim_time
+    omp_radiation_data%fr_land_smt(:,:) = omp_radiation_data%ext_data%atm%fr_land_smt(:,:)
+    omp_radiation_data%fr_glac_smt(:,:) = omp_radiation_data%ext_data%atm%fr_glac_smt(:,:)
+    omp_radiation_data%tsfctrad(:,:)    = omp_radiation_data%prm_diag%tsfctrad(:,:)
+    omp_radiation_data%tsfctrad(:,:)    = omp_radiation_data%lnd_prog_now%t_g(:,:)
+    ! fill also the prm_diag%tsfctrad(:,:) !
+    omp_radiation_data%prm_diag%tsfctrad(:,:) = omp_radiation_data%lnd_prog_now%t_g(:,:)
+    omp_radiation_data%pres_ifc(:,:,:)  = omp_radiation_data%pt_diag%pres_ifc(:,:,:)
+    omp_radiation_data%pres(:,:,:)      = omp_radiation_data%pt_diag%pres(:,:,:)
+    omp_radiation_data%temp(:,:,:)      = omp_radiation_data%pt_diag%temp(:,:,:)
+    omp_radiation_data%tot_cld(:,:,:,:) = omp_radiation_data%prm_diag%tot_cld(:,:,:,:)
+    omp_radiation_data%qm_o3(:,:,:)     = omp_radiation_data%pt_prog_rcf%tracer(:,:,:,io3)
+    omp_radiation_data%acdnc(:,:,:)     = omp_radiation_data%prm_diag%acdnc(:,:,:)
+!$OMP END PARALLEL WORKSHARE
+    wait_cnt=model_barrier()
+!     write(0,*) 'send_in_omp_radiation_data ends'
+
+  END SUBROUTINE send_in_omp_radiation_data
+  !-----------------------------------------
+  
+  !-----------------------------------------
+  !>
+  ! Receive the output omp_radiation_data
+  SUBROUTINE receive_out_omp_radiation_data()
+        
+    INTEGER :: wait_cnt
+!     write(0,*) 'receive_out_omp_radiation_data starts'
+    wait_cnt=model_barrier()
+
+    
+#ifdef __TEST_OMP_RADIATION__  
+    ! compare to the sequential version
+    CALL nwp_rrtm_radiation ( omp_radiation_data%p_sim_time,omp_radiation_data%pt_patch, &
+      & omp_radiation_data%ext_data, omp_radiation_data%pt_prog_rcf, &
+      & omp_radiation_data%pt_diag,omp_radiation_data%prm_diag, omp_radiation_data%lnd_prog_now )
+
+    IF (MAXVAL(ABS(omp_radiation_data%prm_diag%lwflxclr(:,:,:) &
+                - omp_radiation_data%lwflxclr(:,:,:))) /= 0.0_wp) THEN
+      CALL finish("receive_out_omp_radiation_data","lwflxclr differs")
+    ENDIF
+    
+    IF (MAXVAL(ABS(omp_radiation_data%prm_diag%trsolclr(:,:,:) &
+                - omp_radiation_data%trsolclr(:,:,:))) /= 0.0_wp) THEN
+      CALL finish("receive_out_omp_radiation_data","trsolclr differs")
+    ENDIF
+    
+    IF (MAXVAL(ABS(omp_radiation_data%prm_diag%lwflxall(:,:,:) &
+                - omp_radiation_data%lwflxall(:,:,:))) /= 0.0_wp) THEN
+      CALL finish("receive_out_omp_radiation_data","lwflxall differs")
+    ENDIF
+    
+    IF (MAXVAL(ABS(omp_radiation_data%prm_diag%trsolall(:,:,:) &
+                - omp_radiation_data%trsolall(:,:,:))) /= 0.0_wp) THEN
+      CALL finish("receive_out_omp_radiation_data","trsolall differs")
+    ENDIF
+#endif
+    
+!$OMP PARALLEL WORKSHARE
+    omp_radiation_data%prm_diag%lwflxclr(:,:,:) =omp_radiation_data%lwflxclr(:,:,:)
+    omp_radiation_data%prm_diag%trsolclr(:,:,:) =omp_radiation_data%trsolclr(:,:,:)
+    omp_radiation_data%prm_diag%lwflxall(:,:,:) =omp_radiation_data%lwflxall(:,:,:)
+    omp_radiation_data%prm_diag%trsolall(:,:,:) =omp_radiation_data%trsolall(:,:,:)
+!$OMP END PARALLEL WORKSHARE
+    wait_cnt=model_barrier()
+!     write(0,*) 'receive_out_omp_radiation_data ends'
+
+  END SUBROUTINE receive_out_omp_radiation_data
+  !-----------------------------------------
+  
+  !-----------------------------------------
+  !>
+  SUBROUTINE nwp_start_omp_radiation_thread()
+
+!$  INTEGER omp_get_num_threads
+
+     write(0,*) 'Entering nwp_start_omp_radiation_thread, threads=',&
+       omp_get_num_threads()
+    CALL omp_set_num_threads(radiation_threads)
+!$OMP PARALLEL
+    write(0,*) 'nwp_start_omp_radiation_thread parallel, threads=',&
+      omp_get_num_threads()
+!$OMP END PARALLEL
+
+    !--------------------------------------
+    ! first call of the radiation thread
+    ! we need to allocate the omp_radiation_data
+    CALL allocate_omp_radiation_data()
+    
+    ! receive input data
+    CALL receive_in_omp_radiation_data()
+
+    ! calculate radiation
+    CALL nwp_omp_rrtm_radiation_thread()
+
+    ! sent the result
+    CALL send_out_omp_radiation_data()
+    
+    !---------------------------
+    !  radiation loop
+    !  loop until the stepping is done
+    
+    DO WHILE (continue_radiation_thread)
+      ! calculate radiation
+
+      ! this is for testing
+#ifndef __TEST_OMP_RADIATION__
+      CALL timer_start(timer_omp_radiation)
+      CALL nwp_omp_rrtm_radiation_thread()
+      CALL timer_stop(timer_omp_radiation)
+#endif
+
+!       CALL timer_start(timer_omp_radiation)
+      CALL receive_in_omp_radiation_data()
+!       CALL timer_stop(timer_omp_radiation)
+      
+#ifdef __TEST_OMP_RADIATION__
+      CALL nwp_omp_rrtm_radiation_thread()
+#endif
+      
+      CALL send_out_omp_radiation_data()
+
+    ENDDO
+    !---------------------------
+
+    write(0,*) 'Leaving nwp_parallel_radiation_thread'
+
+  END SUBROUTINE nwp_start_omp_radiation_thread
+  
+
+
+  !---------------------------------------------------------------------------------------
+  !>
+  SUBROUTINE nwp_omp_rrtm_interface ( p_sim_time,pt_patch, &
+    & ext_data,pt_prog_rcf,pt_diag,prm_diag, &
+    & lnd_prog_now )
+
+!    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
+!      &  routine = 'mo_nwp_rad_interface:'
+
+    REAL(wp),INTENT(in)         :: p_sim_time
+
+    TYPE(t_patch),        TARGET, INTENT(in)    :: pt_patch     !<grid/patch info.
+    TYPE(t_external_data),TARGET, INTENT(in)    :: ext_data
+    TYPE(t_nh_prog),      TARGET, INTENT(inout) :: pt_prog_rcf !<the prognostic variables (with
+    TYPE(t_nh_diag),      TARGET, INTENT(in)    :: pt_diag     !<the diagnostic variables
+    TYPE(t_nwp_phy_diag), TARGET, INTENT(inout) :: prm_diag
+    TYPE(t_lnd_prog),     TARGET, INTENT(inout) :: lnd_prog_now
+    
+    INTEGER :: wait_cnt
+
+    write(0,*) "Entering nwp_omp_rrtm_interface..."
+    IF (no_model_barriers == 0) THEN
+      ! this is the first call to the radiation thread
+      ! first pass the patch info and wait to allocate the buffers
+      omp_radiation_data%pt_patch => pt_patch
+      omp_radiation_data%ext_data =>  ext_data
+      omp_radiation_data%pt_prog_rcf  =>  pt_prog_rcf
+      omp_radiation_data%pt_diag =>  pt_diag
+      omp_radiation_data%prm_diag =>  prm_diag
+      omp_radiation_data%lnd_prog_now =>  lnd_prog_now
+      
+      wait_cnt=model_barrier()
+      ! wait until the omp_radiation_data is allocated      
+      wait_cnt=model_barrier()
+      
+!     ELSE
+!       CALL timer_stop(timer_omp_model)    
+    ENDIF
+
+    ! now sent the input data
+    CALL send_in_omp_radiation_data(p_sim_time)
+
+    ! and receive the output data
+    CALL receive_out_omp_radiation_data()    
+!     CALL timer_start(timer_omp_model)
+
+    write(0,*) "Leaving nwp_omp_rrtm_interface..."
+    
+  END SUBROUTINE nwp_omp_rrtm_interface
+  !---------------------------------------------------------------------------------------
+
+  !---------------------------------------------------------------------------------------
+  !>
+  SUBROUTINE nwp_omp_rrtm_radiation_thread ( )
+
+    REAL(wp):: albvisdir     (nproma,omp_radiation_data%pt_patch%nblks_c) !<
+    REAL(wp):: albnirdir     (nproma,omp_radiation_data%pt_patch%nblks_c) !<
+    REAL(wp):: albvisdif     (nproma,omp_radiation_data%pt_patch%nblks_c) !<
+    REAL(wp):: albnirdif     (nproma,omp_radiation_data%pt_patch%nblks_c) !<
+    REAL(wp):: aclcov        (nproma,omp_radiation_data%pt_patch%nblks_c) !<
+
+    INTEGER :: itype(nproma)   !< type of convection
+
+    ! Local scalars:
+    REAL(wp):: zsct        ! solar constant (at time of year)
+    REAL(wp):: cosmu0_dark ! minimum cosmu0, for smaller values no shortwave calculations
+    INTEGER:: jc,jk,jb
+    INTEGER:: jg                !domain id
+    INTEGER:: nlev, nlevp1      !< number of full and half levels
+
+    INTEGER:: rl_start, rl_end
+    INTEGER:: i_startblk, i_endblk    !> blocks
+    INTEGER:: i_startidx, i_endidx    !< slices
+    INTEGER:: i_nchdom                !< domain index
+    INTEGER:: i_chidx
+    LOGICAL:: l_parallel
+
+    i_nchdom  = MAX(1,omp_radiation_data%pt_patch%n_childdom)
+    jg        = omp_radiation_data%pt_patch%id
+
+    ! number of vertical levels
+    nlev   = omp_radiation_data%pt_patch%nlev
+    nlevp1 = omp_radiation_data%pt_patch%nlevp1
+
+    !-------------------------------------------------------------------------
+    !> Radiation setup
+    !-------------------------------------------------------------------------
+   ! determine minimum cosmu0 value
+    ! for cosmu0 values smaller than that don't do shortwave calculations
+    cosmu0_dark = -1.e-9_wp
+
+    ! Calculation of zenith angle optimal during dt_rad.
+    ! (For radheat, actual zenith angle is calculated separately.)
+    CALL pre_radiation_nwp_steps (                        &
+      & kbdim        = nproma,                            &
+      & cosmu0_dark  = cosmu0_dark,                       &
+      & p_inc_rad    = dt_rad(jg),                        &
+      & p_inc_radheat= dt_radheat(jg),                    &
+      & p_sim_time   = omp_radiation_data%p_sim_time,     &
+      & pt_patch     = omp_radiation_data%pt_patch,       &
+      & zsmu0        = omp_radiation_data%cosmu0(:,:),    &
+      & zsct         = zsct )
+
+
+    !-------------------------------------------------------------------------
+    !> Radiation
+    !-------------------------------------------------------------------------
+
+
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
+
+    i_startblk = omp_radiation_data%pt_patch%cells%start_blk(rl_start,1)
+    i_endblk   = omp_radiation_data%pt_patch%cells%end_blk(rl_end,i_nchdom)
+
+    IF (msg_level >= 12) &
+      &           CALL message('mo_nwp_rad_interface', 'RRTM radiation on full grid')
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,itype),SCHEDULE(guided)
+    !
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(omp_radiation_data%pt_patch, jb, i_startblk, i_endblk, &
+        &                i_startidx, i_endidx, rl_start, rl_end)
+
+
+      ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
+      itype(1:i_endidx) = 0 !INT(field%rtype(1:i_endidx,jb))
+
+      albvisdir(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
+      albnirdir(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
+      albvisdif(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
+      albnirdif(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
+
+      CALL radiation(               &
+                              !
+                              ! input
+                              ! -----
+                              !
+                              ! indices and dimensions
+        & jce        =i_endidx             ,&!< in  end   index for loop over block
+        & kbdim      =nproma               ,&!< in  dimension of block over cells
+        & klev       =nlev                 ,&!< in  number of full levels = number of layers
+        & klevp1     =nlevp1               ,&!< in  number of half levels = number of layer ifcs
+                              !
+        & ktype      =itype                ,&!< in     type of convection
+                              !
+                              ! surface: albedo + temperature
+        & zland      =omp_radiation_data%fr_land_smt(:,jb)   ,&!< in     land fraction
+        & zglac      =omp_radiation_data%fr_glac_smt(:,jb)   ,&!< in     land glacier fraction
+                              !
+        & cos_mu0    =omp_radiation_data%cosmu0  (:,jb) ,&!< in  cos of zenith angle mu0
+        & alb_vis_dir=albvisdir        (:,jb) ,&!< in surface albedo for visible range, direct
+        & alb_nir_dir=albnirdir        (:,jb) ,&!< in surface albedo for near IR range, direct
+        & alb_vis_dif=albvisdif        (:,jb) ,&!< in surface albedo for visible range, diffuse
+        & alb_nir_dif=albnirdif        (:,jb) ,&!< in surface albedo for near IR range, diffuse
+        & tk_sfc     =omp_radiation_data%tsfctrad(:,jb) ,&!< in surface temperature
+                              !
+                              ! atmosphere: pressure, tracer mixing ratios and temperature
+        & pp_hl  =omp_radiation_data%pres_ifc(:,:,jb)    ,&!< in pres at half levels at t-dt [Pa]
+        & pp_fl  =omp_radiation_data%pres    (:,:,jb)    ,&!< in pres at full levels at t-dt [Pa]
+        & tk_fl  =omp_radiation_data%temp    (:,:,jb)    ,&!< in temperature at full level at t-dt
+        & qm_vap =omp_radiation_data%tot_cld (:,:,jb,iqv),&!< in water vapor mass mix ratio at t-dt
+        & qm_liq =omp_radiation_data%tot_cld (:,:,jb,iqc),&!< in cloud water mass mix ratio at t-dt
+        & qm_ice =omp_radiation_data%tot_cld (:,:,jb,iqi),&!< in cloud ice mass mixing ratio at t-dt
+        & qm_o3  =omp_radiation_data%qm_o3   (:,:,jb) ,   &!< in o3 mass mixing ratio at t-dt
+        & cdnc   =omp_radiation_data%acdnc   (:,:,jb)    ,&!< in cloud droplet numb conc. [1/m**3]
+        & cld_frc=omp_radiation_data%tot_cld (:,:,jb,icc),&!< in cloud fraction [m2/m2]
+                              !
+                              ! output
+                              ! ------
+                              !
+        & cld_cvr    =aclcov             (:,jb),&!< out cloud cover in a column [m2/m2]
+        & emter_clr  =omp_radiation_data%lwflxclr(:,:,jb),&!< out terrestrial flux, clear sky, net down
+        & trsol_clr  =omp_radiation_data%trsolclr(:,:,jb),&!< out sol. transmissivity, clear sky, net down
+        & emter_all  =omp_radiation_data%lwflxall(:,:,jb),&!< out terrestrial flux, all sky, net down
+        & trsol_all  =omp_radiation_data%trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
+        & opt_halo_cosmu0 = .FALSE. )
+      ENDDO ! blocks
+
+!$OMP END DO
+!$OMP END PARALLEL
+
+  END SUBROUTINE nwp_omp_rrtm_radiation_thread
+  !---------------------------------------------------------------------------------------
+#endif
+
+  
+  !---------------------------------------------------------------------------------------
   !>
   !! This subroutine is the interface between nwp_nh_interface to the radiation schemes.
   !! Depending on inwp_radiation, it can call RRTM (1) or Ritter-Geleyn (2).
@@ -99,43 +793,57 @@ CONTAINS
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
   SUBROUTINE nwp_radiation ( lredgrid, p_sim_time,pt_patch,pt_par_patch, &
-    & pt_par_int_state, pt_par_grf_state,ext_data,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
+    & pt_par_int_state, pt_par_grf_state, ext_data,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
     & lnd_prog_now )
 
-!    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+!    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
     
-    LOGICAL, INTENT(in)          :: lredgrid        !< use reduced grid for radiation
+    LOGICAL, INTENT(in)         :: lredgrid        !< use reduced grid for radiation
 
-    REAL(wp),INTENT(in)          :: p_sim_time
+    REAL(wp),INTENT(in)         :: p_sim_time
 
-    TYPE(t_patch),        TARGET,INTENT(in)  :: pt_patch     !<grid/patch info.
-    TYPE(t_patch),        TARGET,INTENT(in)  :: pt_par_patch !<grid/patch info (parent grid)
+    TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
+    TYPE(t_patch),        TARGET,INTENT(in) :: pt_par_patch !<grid/patch info (parent grid)
     TYPE(t_int_state),    TARGET,INTENT(in):: pt_par_int_state  !< " for parent grid
-    TYPE(t_gridref_state),TARGET,INTENT(in)  :: pt_par_grf_state  !< grid refinement state
-    TYPE(t_external_data),INTENT(in):: ext_data   
-    TYPE(t_nh_prog), TARGET, INTENT(inout)   :: pt_prog     !<the prognostic variables
-    TYPE(t_nh_prog), TARGET, INTENT(inout)   :: pt_prog_rcf !<the prognostic variables (with
+    TYPE(t_gridref_state),TARGET,INTENT(in) :: pt_par_grf_state  !< grid refinement state
+    TYPE(t_external_data),INTENT(in):: ext_data
+    TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog     !<the prognostic variables
+    TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog_rcf !<the prognostic variables (with
     !< reduced calling frequency for tracers!
-    TYPE(t_nh_diag), TARGET, INTENT(inout)   :: pt_diag     !<the diagnostic variables
-    TYPE(t_nwp_phy_diag),       INTENT(inout) :: prm_diag
-    TYPE(t_lnd_prog),           INTENT(inout) :: lnd_prog_now
+    TYPE(t_nh_diag), TARGET, INTENT(inout)  :: pt_diag     !<the diagnostic variables
+    TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
+    TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog_now
 
 
-
-    IF ( inwp_radiation == 1 .AND. .NOT. lredgrid ) THEN      
-
-      CALL nwp_rrtm_radiation ( lredgrid, p_sim_time,pt_patch,pt_par_patch, &
-        & pt_par_int_state, pt_par_grf_state,ext_data,&
-        & pt_prog,pt_prog_rcf,pt_diag,prm_diag, lnd_prog_now )
+    IF ( inwp_radiation == 1 ) THEN
+       
+      CALL nwp_rrtm_ozon ( p_sim_time,pt_patch, &
+        & pt_prog_rcf,pt_diag,prm_diag )
     
-    ELSE IF ( inwp_radiation == 1 .AND. lredgrid) THEN
+      IF ( .NOT. lredgrid ) THEN
 
-      CALL nwp_rrtm_radiation_reduced ( lredgrid, p_sim_time,pt_patch,pt_par_patch, &
-        & pt_par_int_state, pt_par_grf_state,ext_data,&
-        & pt_prog,pt_prog_rcf,pt_diag,prm_diag, lnd_prog_now )
+#ifdef __OMP_RADIATION__  
+        CALL nwp_omp_rrtm_interface ( p_sim_time,pt_patch, &
+          & ext_data, pt_prog_rcf, pt_diag, prm_diag, lnd_prog_now )
+#else
+        CALL nwp_rrtm_radiation ( p_sim_time,pt_patch, &
+          & ext_data, pt_prog_rcf, pt_diag, prm_diag, lnd_prog_now )
+#endif
+    
+      ELSE 
 
-    ELSEIF ( inwp_radiation == 2 .AND. .NOT. lredgrid) THEN
+        CALL nwp_rrtm_radiation_reduced (  p_sim_time,pt_patch,pt_par_patch, &
+          & pt_par_int_state, pt_par_grf_state,ext_data,&
+          & pt_prog_rcf,pt_diag,prm_diag, lnd_prog_now )
+          
+      ENDIF
+
+      RETURN
+    ENDIF !inwp_radiation = 1
+   
+
+    IF ( inwp_radiation == 2 .AND. .NOT. lredgrid) THEN
     
       CALL nwp_rg_radiation ( lredgrid, p_sim_time,pt_patch,pt_par_patch, &
         & pt_par_int_state, pt_par_grf_state,ext_data,&
@@ -159,43 +867,34 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rrtm_ozon ( lredgrid, p_sim_time,pt_patch,pt_par_patch, &
-    & pt_par_int_state, pt_par_grf_state,ext_data,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
-    & lnd_prog_now )
+  SUBROUTINE nwp_rrtm_ozon ( p_sim_time,pt_patch, &
+    & pt_prog_rcf,pt_diag,prm_diag )
 
-!    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+!    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
 
-    LOGICAL, INTENT(in)          :: lredgrid        !< use reduced grid for radiation
+    REAL(wp),INTENT(in)         :: p_sim_time
 
-    REAL(wp),INTENT(in)          :: p_sim_time
-
-    TYPE(t_patch),        TARGET,INTENT(in)  :: pt_patch     !<grid/patch info.
-    TYPE(t_patch),        TARGET,INTENT(in)  :: pt_par_patch !<grid/patch info (parent grid)
-    TYPE(t_int_state),    TARGET,INTENT(in):: pt_par_int_state  !< " for parent grid
-    TYPE(t_gridref_state),TARGET,INTENT(in)  :: pt_par_grf_state  !< grid refinement state
-    TYPE(t_external_data),INTENT(in):: ext_data
-    TYPE(t_nh_prog), TARGET, INTENT(inout)   :: pt_prog     !<the prognostic variables
-    TYPE(t_nh_prog), TARGET, INTENT(inout)   :: pt_prog_rcf !<the prognostic variables (with
+    TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
+    TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog_rcf !<the prognostic variables (with
     !< reduced calling frequency for tracers!
-    TYPE(t_nh_diag), TARGET, INTENT(inout)   :: pt_diag     !<the diagnostic variables
-    TYPE(t_nwp_phy_diag),       INTENT(inout) :: prm_diag
-    TYPE(t_lnd_prog),           INTENT(inout) :: lnd_prog_now
+    TYPE(t_nh_diag), TARGET, INTENT(in)  :: pt_diag     !<the diagnostic variables
+    TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
 
 
-    INTEGER  :: itype(nproma)   !< type of convection
+    INTEGER :: itype(nproma)   !< type of convection
 
     ! for Ritter-Geleyn radiation:
-    REAL(wp) :: zduo3(nproma,pt_patch%nlev,pt_patch%nblks_c)
+    REAL(wp):: zduo3(nproma,pt_patch%nlev,pt_patch%nblks_c)
     ! for ozone:
-    REAL(wp) :: &
+    REAL(wp):: &
       & zptop32(nproma,pt_patch%nblks_c), &
       & zo3_hm (nproma,pt_patch%nblks_c), &
       & zo3_top (nproma,pt_patch%nblks_c), &
       & zpbot32(nproma,pt_patch%nblks_c), &
       & zo3_bot (nproma,pt_patch%nblks_c)
     ! for aerosols with Ritter-Geleyn:
-    REAL(wp) :: &
+    REAL(wp):: &
       & zsign(nproma,pt_patch%nlevp1), &
       & zvdaes(nproma,pt_patch%nlevp1), &
       & zvdael(nproma,pt_patch%nlevp1), &
@@ -209,17 +908,17 @@ CONTAINS
 
 
     ! Local scalars:
-    INTEGER :: jc,jk,jb
-    INTEGER :: jg                !domain id
-    INTEGER :: nlev, nlevp1      !< number of full and half levels
-    INTEGER :: nblks_par_c       !nblks for reduced grid
+    INTEGER:: jc,jk,jb
+    INTEGER:: jg                !domain id
+    INTEGER:: nlev, nlevp1      !< number of full and half levels
+    INTEGER:: nblks_par_c       !nblks for reduced grid
 
-    INTEGER :: rl_start, rl_end
-    INTEGER :: i_startblk, i_endblk    !> blocks
-    INTEGER :: i_startidx, i_endidx    !< slices
-    INTEGER :: i_nchdom                !< domain index
-    INTEGER :: i_chidx
-    LOGICAL :: l_parallel
+    INTEGER:: rl_start, rl_end
+    INTEGER:: i_startblk, i_endblk    !> blocks
+    INTEGER:: i_startidx, i_endidx    !< slices
+    INTEGER:: i_nchdom                !< domain index
+    INTEGER:: i_chidx
+    LOGICAL:: l_parallel
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
@@ -371,53 +1070,45 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rrtm_radiation ( lredgrid, p_sim_time,pt_patch,pt_par_patch, &
-    & pt_par_int_state, pt_par_grf_state,ext_data,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
+  SUBROUTINE nwp_rrtm_radiation ( p_sim_time,pt_patch, &
+    & ext_data,pt_prog_rcf,pt_diag,prm_diag, &
     & lnd_prog_now )
 
-!    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+!    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
 
-    LOGICAL, INTENT(in)          :: lredgrid        !< use reduced grid for radiation
+    REAL(wp),INTENT(in)         :: p_sim_time
 
-    REAL(wp),INTENT(in)          :: p_sim_time
-
-    TYPE(t_patch),        TARGET,INTENT(in)  :: pt_patch     !<grid/patch info.
-    TYPE(t_patch),        TARGET,INTENT(in)  :: pt_par_patch !<grid/patch info (parent grid)
-    TYPE(t_int_state),    TARGET,INTENT(in):: pt_par_int_state  !< " for parent grid
-    TYPE(t_gridref_state),TARGET,INTENT(in)  :: pt_par_grf_state  !< grid refinement state
+    TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
     TYPE(t_external_data),INTENT(in):: ext_data
-    TYPE(t_nh_prog), TARGET, INTENT(inout)   :: pt_prog     !<the prognostic variables
-    TYPE(t_nh_prog), TARGET, INTENT(inout)   :: pt_prog_rcf !<the prognostic variables (with
+    TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog_rcf !<the prognostic variables (with
     !< reduced calling frequency for tracers!
-    TYPE(t_nh_diag), TARGET, INTENT(inout)   :: pt_diag     !<the diagnostic variables
-    TYPE(t_nwp_phy_diag),       INTENT(inout) :: prm_diag
-    TYPE(t_lnd_prog),           INTENT(inout) :: lnd_prog_now
+    TYPE(t_nh_diag), TARGET, INTENT(in)  :: pt_diag     !<the diagnostic variables
+    TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
+    TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog_now
 
-    REAL(wp) :: albvisdir     (nproma,pt_patch%nblks_c) !<
-    REAL(wp) :: albnirdir     (nproma,pt_patch%nblks_c) !<
-    REAL(wp) :: albvisdif     (nproma,pt_patch%nblks_c) !<
-    REAL(wp) :: albnirdif     (nproma,pt_patch%nblks_c) !<
-    REAL(wp) :: aclcov        (nproma,pt_patch%nblks_c) !<
-    ! Pointer to parent patach or local parent patch for reduced grid
-    TYPE(t_patch), POINTER        :: ptr_pp
+    REAL(wp):: albvisdir     (nproma,pt_patch%nblks_c) !<
+    REAL(wp):: albnirdir     (nproma,pt_patch%nblks_c) !<
+    REAL(wp):: albvisdif     (nproma,pt_patch%nblks_c) !<
+    REAL(wp):: albnirdif     (nproma,pt_patch%nblks_c) !<
+    REAL(wp):: aclcov        (nproma,pt_patch%nblks_c) !<
 
-    INTEGER  :: itype(nproma)   !< type of convection
+    INTEGER :: itype(nproma)   !< type of convection
 
     ! Local scalars:
-    REAL(wp) :: zsct        ! solar constant (at time of year)
-    REAL(wp) :: cosmu0_dark ! minimum cosmu0, for smaller values no shortwave calculations
-    INTEGER :: jc,jk,jb
-    INTEGER :: jg                !domain id
-    INTEGER :: nlev, nlevp1      !< number of full and half levels
-    INTEGER :: nblks_par_c       !nblks for reduced grid
+    REAL(wp):: zsct        ! solar constant (at time of year)
+    REAL(wp):: cosmu0_dark ! minimum cosmu0, for smaller values no shortwave calculations
+    INTEGER:: jc,jk,jb
+    INTEGER:: jg                !domain id
+    INTEGER:: nlev, nlevp1      !< number of full and half levels
+    INTEGER:: nblks_par_c       !nblks for reduced grid
 
-    INTEGER :: rl_start, rl_end
-    INTEGER :: i_startblk, i_endblk    !> blocks
-    INTEGER :: i_startidx, i_endidx    !< slices
-    INTEGER :: i_nchdom                !< domain index
-    INTEGER :: i_chidx
-    LOGICAL :: l_parallel
+    INTEGER:: rl_start, rl_end
+    INTEGER:: i_startblk, i_endblk    !> blocks
+    INTEGER:: i_startidx, i_endidx    !< slices
+    INTEGER:: i_nchdom                !< domain index
+    INTEGER:: i_chidx
+    LOGICAL:: l_parallel
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
@@ -429,18 +1120,10 @@ CONTAINS
     !-------------------------------------------------------------------------
     !> Radiation setup
     !-------------------------------------------------------------------------
-    CALL nwp_rrtm_ozon ( lredgrid, p_sim_time,pt_patch,pt_par_patch, &
-      & pt_par_int_state, pt_par_grf_state,ext_data,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
-      & lnd_prog_now )
 
     ! determine minimum cosmu0 value
     ! for cosmu0 values smaller than that don't do shortwave calculations
-    SELECT CASE (inwp_radiation)
-    CASE (1)
-      cosmu0_dark = -1.e-9_wp
-    CASE (2)
-      cosmu0_dark =  1.e-9_wp
-    END SELECT
+    cosmu0_dark = -1.e-9_wp
 
     ! Calculation of zenith angle optimal during dt_rad.
     ! (For radheat, actual zenith angle is calculated separately.)
@@ -451,7 +1134,6 @@ CONTAINS
       & p_inc_radheat= dt_radheat(jg),                    &
       & p_sim_time   = p_sim_time,                        &
       & pt_patch     = pt_patch,                          &
-     !& zsmu0        = prm_diag%cosmu0(1,1),              &
       & zsmu0        = prm_diag%cosmu0(:,:),              &
       & zsct         = zsct )
 
@@ -466,127 +1148,122 @@ CONTAINS
     i_startblk = pt_patch%cells%start_blk(rl_start,1)
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
-    IF ( inwp_radiation == 1 .AND. .NOT. lredgrid ) THEN
-
-      IF (msg_level >= 12) &
-        &           CALL message('mo_nwp_rad_interface', 'RRTM radiation on full grid')
+    IF (msg_level >= 12) &
+      &           CALL message('mo_nwp_rad_interface', 'RRTM radiation on full grid')
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,itype),SCHEDULE(guided)
-      !
-      DO jb = i_startblk, i_endblk
+    !
+    DO jb = i_startblk, i_endblk
 
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-          &                         i_startidx, i_endidx, rl_start, rl_end)
+      CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+        &                         i_startidx, i_endidx, rl_start, rl_end)
 
 
-        ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-        itype(1:i_endidx) = 0 !INT(field%rtype(1:i_endidx,jb))
+      ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
+      itype(1:i_endidx) = 0 !INT(field%rtype(1:i_endidx,jb))
 
-        albvisdir(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
-        albnirdir(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
-        albvisdif(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
-        albnirdif(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
-        prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog_now%t_g(1:i_endidx,jb)
+      albvisdir(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
+      albnirdir(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
+      albvisdif(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
+      albnirdif(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
+      prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog_now%t_g(1:i_endidx,jb)
 
-!#ifdef __BOUNDCHECK
-        CALL radiation(               &
-                                !
-                                ! input
-                                ! -----
-                                !
-                                ! indices and dimensions
-          & jce        =i_endidx             ,&!< in  end   index for loop over block
-          & kbdim      =nproma               ,&!< in  dimension of block over cells
-          & klev       =nlev                 ,&!< in  number of full levels = number of layers
-          & klevp1     =nlevp1               ,&!< in  number of half levels = number of layer ifcs
-                                !
-          & ktype      =itype                ,&!< in     type of convection
-                                !
-                                ! surface: albedo + temperature
-          & zland      =ext_data%atm%fr_land_smt(:,jb)   ,&!< in     land fraction
-          & zglac      =ext_data%atm%fr_glac_smt(:,jb)   ,&!< in     land glacier fraction
-                                !
-          & cos_mu0    =prm_diag%cosmu0  (:,jb) ,&!< in  cos of zenith angle mu0
-          & alb_vis_dir=albvisdir        (:,jb) ,&!< in surface albedo for visible range, direct
-          & alb_nir_dir=albnirdir        (:,jb) ,&!< in surface albedo for near IR range, direct
-          & alb_vis_dif=albvisdif        (:,jb) ,&!< in surface albedo for visible range, diffuse
-          & alb_nir_dif=albnirdif        (:,jb) ,&!< in surface albedo for near IR range, diffuse
-          & tk_sfc     =prm_diag%tsfctrad(:,jb) ,&!< in surface temperature
-                                !
-                                ! atmosphere: pressure, tracer mixing ratios and temperature
-          & pp_hl      =pt_diag%pres_ifc  (:,:,jb)     ,&!< in  pres at half levels at t-dt [Pa]
-          & pp_fl      =pt_diag%pres      (:,:,jb)     ,&!< in  pres at full levels at t-dt [Pa]
-          & tk_fl      =pt_diag%temp      (:,:,jb)     ,&!< in  temperature at full level at t-dt
-          & qm_vap     =prm_diag%tot_cld  (:,:,jb,iqv) ,&!< in  water vapor mass mix ratio at t-dt
-          & qm_liq     =prm_diag%tot_cld  (:,:,jb,iqc) ,&!< in cloud water mass mix ratio at t-dt
-          & qm_ice     =prm_diag%tot_cld  (:,:,jb,iqi) ,&!< in cloud ice mass mixing ratio at t-dt
-          & qm_o3      =pt_prog_rcf%tracer(:,:,jb,io3) ,&!< in o3 mass mixing ratio at t-dt
-          & cdnc       =prm_diag%acdnc    (:,:,jb)     ,&!< in  cloud droplet numb conc. [1/m**3]
-          & cld_frc    =prm_diag%tot_cld  (:,:,jb,icc) ,&!< in  cloud fraction [m2/m2]
-                                !
-                                ! output
-                                ! ------
-                                !
-          & cld_cvr    =aclcov             (:,jb),&!< out cloud cover in a column [m2/m2]
-          & emter_clr  =prm_diag%lwflxclr(:,:,jb),&!< out terrestrial flux, clear sky, net down
-          & trsol_clr  =prm_diag%trsolclr(:,:,jb),&!< out sol. transmissivity, clear sky, net down
-          & emter_all  =prm_diag%lwflxall(:,:,jb),&!< out terrestrial flux, all sky, net down
-          & trsol_all  =prm_diag%trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
-          & opt_halo_cosmu0 = .FALSE. )
-!#else
-!        CALL radiation(               &
-!                                !
-!                                ! input
-!                                ! -----
-!                                !
-!                                ! indices and dimensions
-!          & jce        =i_endidx             ,&!< in  end   index for loop over block
-!          & kbdim      =nproma               ,&!< in  dimension of block over cells
-!          & klev       =nlev                 ,&!< in  number of full levels = number of layers
-!          & klevp1     =nlevp1               ,&!< in  number of half levels = number of layer ifcs
-!                                !
-!          & ktype      =itype                ,&!< in     type of convection
-!                                !
-!                                ! surface: albedo + temperature
-!          & zland      =ext_data%atm%fr_land_smt(1,jb)   ,&!< in     land fraction
-!          & zglac      =ext_data%atm%fr_glac_smt(1,jb)   ,&!< in     land glacier fraction
-!                                !
-!          & cos_mu0    =prm_diag%cosmu0 (1,jb)       ,&!< in cos of zenith angle mu0
-!          & alb_vis_dir=albvisdir(1,jb)          ,&!< in surface albedo for visible range, direct
-!          & alb_nir_dir=albnirdir(1,jb)          ,&!< in surface albedo for near IR range, direct
-!          & alb_vis_dif=albvisdif(1,jb)          ,&!< in surface albedo for visible range, diffuse
-!          & alb_nir_dif=albnirdif(1,jb)          ,&!< in surface albedo for near IR range, diffuse
-!          & tk_sfc     =prm_diag%tsfctrad(1,jb)       ,&!< in     surface temperature
-!                                !
-!                                ! atmosphere: pressure, tracer mixing ratios and temperature
-!          & pp_hl      =pt_diag%pres_ifc  (1,1,jb)    ,&!< in  pres at half levels at t-dt [Pa]
-!          & pp_fl      =pt_diag%pres      (1,1,jb)    ,&!< in  pres at full levels at t-dt [Pa]
-!          & tk_fl      =pt_diag%temp      (1,1,jb)    ,&!< in  temperature at full level at t-dt
-!          & qm_vap     =prm_diag%tot_cld  (1,1,jb,iqv),&!< in  water vapor mass mix ratio at t-dt
-!          & qm_liq     =prm_diag%tot_cld  (1,1,jb,iqc),&!< in  cloud water mass mix ratio at t-dt
-!          & qm_ice     =prm_diag%tot_cld  (1,1,jb,iqi),&!< in  cloud ice mass mixing ratio at t-dt
-!          & qm_o3      =pt_prog_rcf%tracer(1,1,jb,io3),&!< in  o3 mass mixing ratio at t-dt
-!          & cdnc       =prm_diag%acdnc    (1,1,jb)    ,&!< in  cloud droplet numb conc. [1/m**3]
-!          & cld_frc    =prm_diag%tot_cld  (1,1,jb,icc),&!< in  cld_frac = cloud fraction [m2/m2]
-!                                !
-!                                ! output
-!                                ! ------
-!                                !
-!          & cld_cvr    =aclcov             (1,jb),&!< out cloud cover in a column [m2/m2]
-!          & emter_clr  =prm_diag%lwflxclr(1,1,jb),&!< out terrestrial flux, clear sky, net down
-!          & trsol_clr  =prm_diag%trsolclr(1,1,jb),&!< out sol. transmissivity, clear sky, net down
-!          & emter_all  =prm_diag%lwflxall(1,1,jb),&!< out terrestrial flux, all   sky, net down
-!          & trsol_all  =prm_diag%trsolall(1,1,jb),&!< out solar transmissivity, all sky, net down
-!          & opt_halo_cosmu0 = .FALSE. )
-!#endif
+! #ifdef __BOUNDCHECK
+      CALL radiation(               &
+                              !
+                              ! input
+                              ! -----
+                              !
+                              ! indices and dimensions
+        & jce        =i_endidx             ,&!< in  end   index for loop over block
+        & kbdim      =nproma               ,&!< in  dimension of block over cells
+        & klev       =nlev                 ,&!< in  number of full levels = number of layers
+        & klevp1     =nlevp1               ,&!< in  number of half levels = number of layer ifcs
+                              !
+        & ktype      =itype                ,&!< in     type of convection
+                              !
+                              ! surface: albedo + temperature
+        & zland      =ext_data%atm%fr_land_smt(:,jb)   ,&!< in     land fraction
+        & zglac      =ext_data%atm%fr_glac_smt(:,jb)   ,&!< in     land glacier fraction
+                              !
+        & cos_mu0    =prm_diag%cosmu0  (:,jb) ,&!< in  cos of zenith angle mu0
+        & alb_vis_dir=albvisdir        (:,jb) ,&!< in surface albedo for visible range, direct
+        & alb_nir_dir=albnirdir        (:,jb) ,&!< in surface albedo for near IR range, direct
+        & alb_vis_dif=albvisdif        (:,jb) ,&!< in surface albedo for visible range, diffuse
+        & alb_nir_dif=albnirdif        (:,jb) ,&!< in surface albedo for near IR range, diffuse
+        & tk_sfc     =prm_diag%tsfctrad(:,jb) ,&!< in surface temperature
+                              !
+                              ! atmosphere: pressure, tracer mixing ratios and temperature
+        & pp_hl      =pt_diag%pres_ifc  (:,:,jb)     ,&!< in  pres at half levels at t-dt [Pa]
+        & pp_fl      =pt_diag%pres      (:,:,jb)     ,&!< in  pres at full levels at t-dt [Pa]
+        & tk_fl      =pt_diag%temp      (:,:,jb)     ,&!< in  temperature at full level at t-dt
+        & qm_vap     =prm_diag%tot_cld  (:,:,jb,iqv) ,&!< in  water vapor mass mix ratio at t-dt
+        & qm_liq     =prm_diag%tot_cld  (:,:,jb,iqc) ,&!< in cloud water mass mix ratio at t-dt
+        & qm_ice     =prm_diag%tot_cld  (:,:,jb,iqi) ,&!< in cloud ice mass mixing ratio at t-dt
+        & qm_o3      =pt_prog_rcf%tracer(:,:,jb,io3) ,&!< in o3 mass mixing ratio at t-dt
+        & cdnc       =prm_diag%acdnc    (:,:,jb)     ,&!< in  cloud droplet numb conc. [1/m**3]
+        & cld_frc    =prm_diag%tot_cld  (:,:,jb,icc) ,&!< in  cloud fraction [m2/m2]
+                              !
+                              ! output
+                              ! ------
+                              !
+        & cld_cvr    =aclcov             (:,jb),&!< out cloud cover in a column [m2/m2]
+        & emter_clr  =prm_diag%lwflxclr(:,:,jb),&!< out terrestrial flux, clear sky, net down
+        & trsol_clr  =prm_diag%trsolclr(:,:,jb),&!< out sol. transmissivity, clear sky, net down
+        & emter_all  =prm_diag%lwflxall(:,:,jb),&!< out terrestrial flux, all sky, net down
+        & trsol_all  =prm_diag%trsolall(:,:,jb),&!< out solar transmissivity, all sky, net down
+        & opt_halo_cosmu0 = .FALSE. )
+! #else
+!       CALL radiation(               &
+!                               !
+!                               ! input
+!                               ! -----
+!                               !
+!                               ! indices and dimensions
+!         & jce        =i_endidx             ,&!< in  end   index for loop over block
+!         & kbdim      =nproma               ,&!< in  dimension of block over cells
+!         & klev       =nlev                 ,&!< in  number of full levels = number of layers
+!         & klevp1     =nlevp1               ,&!< in  number of half levels = number of layer ifcs
+!                               !
+!         & ktype      =itype                ,&!< in     type of convection
+!                               !
+!                               ! surface: albedo + temperature
+!         & zland      =ext_data%atm%fr_land_smt(1,jb)   ,&!< in     land fraction
+!         & zglac      =ext_data%atm%fr_glac_smt(1,jb)   ,&!< in     land glacier fraction
+!                               !
+!         & cos_mu0    =prm_diag%cosmu0 (1,jb)       ,&!< in cos of zenith angle mu0
+!         & alb_vis_dir=albvisdir(1,jb)          ,&!< in surface albedo for visible range, direct
+!         & alb_nir_dir=albnirdir(1,jb)          ,&!< in surface albedo for near IR range, direct
+!         & alb_vis_dif=albvisdif(1,jb)          ,&!< in surface albedo for visible range, diffuse
+!         & alb_nir_dif=albnirdif(1,jb)          ,&!< in surface albedo for near IR range, diffuse
+!         & tk_sfc     =prm_diag%tsfctrad(1,jb)       ,&!< in     surface temperature
+!                               !
+!                               ! atmosphere: pressure, tracer mixing ratios and temperature
+!         & pp_hl      =pt_diag%pres_ifc  (1,1,jb)    ,&!< in  pres at half levels at t-dt [Pa]
+!         & pp_fl      =pt_diag%pres      (1,1,jb)    ,&!< in  pres at full levels at t-dt [Pa]
+!         & tk_fl      =pt_diag%temp      (1,1,jb)    ,&!< in  temperature at full level at t-dt
+!         & qm_vap     =prm_diag%tot_cld  (1,1,jb,iqv),&!< in  water vapor mass mix ratio at t-dt
+!         & qm_liq     =prm_diag%tot_cld  (1,1,jb,iqc),&!< in  cloud water mass mix ratio at t-dt
+!         & qm_ice     =prm_diag%tot_cld  (1,1,jb,iqi),&!< in  cloud ice mass mixing ratio at t-dt
+!         & qm_o3      =pt_prog_rcf%tracer(1,1,jb,io3),&!< in  o3 mass mixing ratio at t-dt
+!         & cdnc       =prm_diag%acdnc    (1,1,jb)    ,&!< in  cloud droplet numb conc. [1/m**3]
+!         & cld_frc    =prm_diag%tot_cld  (1,1,jb,icc),&!< in  cld_frac = cloud fraction [m2/m2]
+!                               !
+!                               ! output
+!                               ! ------
+!                               !
+!         & cld_cvr    =aclcov             (1,jb),&!< out cloud cover in a column [m2/m2]
+!         & emter_clr  =prm_diag%lwflxclr(1,1,jb),&!< out terrestrial flux, clear sky, net down
+!         & trsol_clr  =prm_diag%trsolclr(1,1,jb),&!< out sol. transmissivity, clear sky, net down
+!         & emter_all  =prm_diag%lwflxall(1,1,jb),&!< out terrestrial flux, all   sky, net down
+!         & trsol_all  =prm_diag%trsolall(1,1,jb),&!< out solar transmissivity, all sky, net down
+!         & opt_halo_cosmu0 = .FALSE. )
+! #endif
       ENDDO ! blocks
 
 !$OMP END DO
 !$OMP END PARALLEL
-
-
-    ENDIF
 
   END SUBROUTINE nwp_rrtm_radiation
   !---------------------------------------------------------------------------------------
@@ -598,85 +1275,82 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rrtm_radiation_reduced ( lredgrid, p_sim_time,pt_patch,pt_par_patch, &
-    & pt_par_int_state, pt_par_grf_state,ext_data,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
+  SUBROUTINE nwp_rrtm_radiation_reduced ( p_sim_time,pt_patch,pt_par_patch, &
+    & pt_par_int_state, pt_par_grf_state,ext_data,pt_prog_rcf,pt_diag,prm_diag, &
     & lnd_prog_now )
 
-!    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+!    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
 
-    LOGICAL, INTENT(in)          :: lredgrid        !< use reduced grid for radiation
+    REAL(wp),INTENT(in)         :: p_sim_time
 
-    REAL(wp),INTENT(in)          :: p_sim_time
-
-    TYPE(t_patch),        TARGET,INTENT(in)  :: pt_patch     !<grid/patch info.
-    TYPE(t_patch),        TARGET,INTENT(in)  :: pt_par_patch !<grid/patch info (parent grid)
+    TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
+    TYPE(t_patch),        TARGET,INTENT(in) :: pt_par_patch !<grid/patch info (parent grid)
     TYPE(t_int_state),    TARGET,INTENT(in):: pt_par_int_state  !< " for parent grid
-    TYPE(t_gridref_state),TARGET,INTENT(in)  :: pt_par_grf_state  !< grid refinement state
+    TYPE(t_gridref_state),TARGET,INTENT(in) :: pt_par_grf_state  !< grid refinement state
     TYPE(t_external_data),INTENT(in):: ext_data
-    TYPE(t_nh_prog), TARGET, INTENT(inout)   :: pt_prog     !<the prognostic variables
-    TYPE(t_nh_prog), TARGET, INTENT(inout)   :: pt_prog_rcf !<the prognostic variables (with
+    TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog_rcf !<the prognostic variables (with
     !< reduced calling frequency for tracers!
-    TYPE(t_nh_diag), TARGET, INTENT(inout)   :: pt_diag     !<the diagnostic variables
-    TYPE(t_nwp_phy_diag),       INTENT(inout) :: prm_diag
-    TYPE(t_lnd_prog),           INTENT(inout) :: lnd_prog_now
+    TYPE(t_nh_diag), TARGET,    INTENT(inout):: pt_diag     !<the diagnostic variables
+    TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
+    TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog_now
 
-!    REAL(wp) :: z_cosmu0      (nproma,pt_patch%nblks_c) !< Cosine of zenith angle
-    REAL(wp) :: albvisdir     (nproma,pt_patch%nblks_c) !<
-    REAL(wp) :: albnirdir     (nproma,pt_patch%nblks_c) !<
-    REAL(wp) :: albvisdif     (nproma,pt_patch%nblks_c) !<
-    REAL(wp) :: albnirdif     (nproma,pt_patch%nblks_c) !<
-    REAL(wp) :: aclcov        (nproma,pt_patch%nblks_c) !<
+!    REAL(wp):: z_cosmu0      (nproma,pt_patch%nblks_c) !< Cosine of zenith angle
+    REAL(wp):: albvisdir     (nproma,pt_patch%nblks_c) !<
+    REAL(wp):: albnirdir     (nproma,pt_patch%nblks_c) !<
+    REAL(wp):: albvisdif     (nproma,pt_patch%nblks_c) !<
+    REAL(wp):: albnirdif     (nproma,pt_patch%nblks_c) !<
+    REAL(wp):: aclcov        (nproma,pt_patch%nblks_c) !<
     ! For radiation on reduced grid
     ! These fields need to be allocatable because they have different dimensions for
     ! the global grid and nested grids, and for runs with/without MPI parallelization
     ! Input fields
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_fr_land  (:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_fr_glac  (:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_cosmu0   (:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_albvisdir(:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_albnirdir(:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_albvisdif(:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_albnirdif(:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_tsfc     (:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_pres_ifc (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_pres     (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_temp     (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_o3       (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_acdnc    (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_tot_cld  (:,:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_fr_land  (:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_fr_glac  (:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_cosmu0   (:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_albvisdir(:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_albnirdir(:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_albvisdif(:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_albnirdif(:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_tsfc     (:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_pres_ifc (:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_pres     (:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_temp     (:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_o3       (:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_acdnc    (:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_tot_cld  (:,:,:,:)
     ! Output fields
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_aclcov   (:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_lwflxclr (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_lwflxall (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_trsolclr (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_trsolall (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_fls (:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_aclcov   (:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_lwflxclr (:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_lwflxall (:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_trsolclr (:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_trsolall (:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_fls (:,:,:)
     ! Pointer to parent patach or local parent patch for reduced grid
-    TYPE(t_patch), POINTER        :: ptr_pp
+    TYPE(t_patch), POINTER       :: ptr_pp
 
-    INTEGER  :: itype(nproma)   !< type of convection
+    INTEGER :: itype(nproma)   !< type of convection
 
-    REAL(wp) :: zi0        (nproma)  !< solar incoming radiation at TOA   [W/m2]
-!!$    REAL(wp) :: zflt(nproma,pt_patch%nlevp1 ,pt_patch%nblks_c)
-    REAL(wp) :: zfls(nproma,pt_patch%nlevp1 ,pt_patch%nblks_c)
-    REAL(wp) :: alb_ther    (nproma,pt_patch%nblks_c) !!
+    REAL(wp):: zi0        (nproma)  !< solar incoming radiation at TOA   [W/m2]
+!!$    REAL(wp):: zflt(nproma,pt_patch%nlevp1 ,pt_patch%nblks_c)
+    REAL(wp):: zfls(nproma,pt_patch%nlevp1 ,pt_patch%nblks_c)
+    REAL(wp):: alb_ther    (nproma,pt_patch%nblks_c) !!
 
 
     ! Local scalars:
-    REAL(wp) :: zsct        ! solar constant (at time of year)
-    REAL(wp) :: cosmu0_dark ! minimum cosmu0, for smaller values no shortwave calculations
-    INTEGER :: jc,jk,jb
-    INTEGER :: jg                !domain id
-    INTEGER :: nlev, nlevp1      !< number of full and half levels
-    INTEGER :: nblks_par_c       !nblks for reduced grid
+    REAL(wp):: zsct        ! solar constant (at time of year)
+    REAL(wp):: cosmu0_dark ! minimum cosmu0, for smaller values no shortwave calculations
+    INTEGER:: jc,jk,jb
+    INTEGER:: jg                !domain id
+    INTEGER:: nlev, nlevp1      !< number of full and half levels
+    INTEGER:: nblks_par_c       !nblks for reduced grid
 
-    INTEGER :: rl_start, rl_end
-    INTEGER :: i_startblk, i_endblk    !> blocks
-    INTEGER :: i_startidx, i_endidx    !< slices
-    INTEGER :: i_nchdom                !< domain index
-    INTEGER :: i_chidx
-    LOGICAL :: l_parallel
+    INTEGER:: rl_start, rl_end
+    INTEGER:: i_startblk, i_endblk    !> blocks
+    INTEGER:: i_startidx, i_endidx    !< slices
+    INTEGER:: i_nchdom                !< domain index
+    INTEGER:: i_chidx
+    LOGICAL:: l_parallel
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
@@ -688,11 +1362,6 @@ CONTAINS
     !-------------------------------------------------------------------------
     !> Radiation setup
     !-------------------------------------------------------------------------
-    CALL nwp_rrtm_ozon ( lredgrid, p_sim_time,pt_patch,pt_par_patch, &
-      & pt_par_int_state, pt_par_grf_state,ext_data,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
-      & lnd_prog_now )
-
-
 
     ! determine minimum cosmu0 value
     ! for cosmu0 values smaller than that don't do shortwave calculations
@@ -725,8 +1394,6 @@ CONTAINS
 
     i_startblk = pt_patch%cells%start_blk(rl_start,1)
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-
-    IF ( inwp_radiation == 1 .AND. lredgrid) THEN
 
       ! section for computing radiation on reduced grid
 
@@ -973,8 +1640,6 @@ CONTAINS
         zrg_tsfc, zrg_pres_ifc, zrg_pres, zrg_temp, zrg_o3, zrg_acdnc, zrg_tot_cld,       &
         zrg_aclcov, zrg_lwflxclr, zrg_lwflxall, zrg_trsolclr, zrg_trsolall,     &
         zrg_fr_land,zrg_fr_glac)
-
-      END IF
       
   END SUBROUTINE nwp_rrtm_radiation_reduced
 
@@ -987,83 +1652,83 @@ CONTAINS
     & pt_par_int_state, pt_par_grf_state,ext_data,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
     & lnd_prog_now )
 
-!    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+!    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
 
-!    REAL(wp), PARAMETER ::  &
+!    REAL(wp), PARAMETER::  &
 !      & zqco2 = 0.5014E-03_wp*353.9_wp/330._wp ! CO2 (mixing ratio 353.9 ppm (like vmr_co2))
 
-    LOGICAL, INTENT(in)          :: lredgrid        !< use reduced grid for radiation
+    LOGICAL, INTENT(in)         :: lredgrid        !< use reduced grid for radiation
 
-    REAL(wp),INTENT(in)          :: p_sim_time
+    REAL(wp),INTENT(in)         :: p_sim_time
 
-    TYPE(t_patch),        TARGET,INTENT(in)  :: pt_patch     !<grid/patch info.
-    TYPE(t_patch),        TARGET,INTENT(in)  :: pt_par_patch !<grid/patch info (parent grid)
+    TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
+    TYPE(t_patch),        TARGET,INTENT(in) :: pt_par_patch !<grid/patch info (parent grid)
     TYPE(t_int_state),    TARGET,INTENT(in):: pt_par_int_state  !< " for parent grid
-    TYPE(t_gridref_state),TARGET,INTENT(in)  :: pt_par_grf_state  !< grid refinement state
+    TYPE(t_gridref_state),TARGET,INTENT(in) :: pt_par_grf_state  !< grid refinement state
     TYPE(t_external_data),INTENT(in):: ext_data
-    TYPE(t_nh_prog), TARGET, INTENT(inout)   :: pt_prog     !<the prognostic variables
-    TYPE(t_nh_prog), TARGET, INTENT(inout)   :: pt_prog_rcf !<the prognostic variables (with
+    TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog     !<the prognostic variables
+    TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog_rcf !<the prognostic variables (with
     !< reduced calling frequency for tracers!
-    TYPE(t_nh_diag), TARGET, INTENT(inout)   :: pt_diag     !<the diagnostic variables
-    TYPE(t_nwp_phy_diag),       INTENT(inout) :: prm_diag
-    TYPE(t_lnd_prog),           INTENT(inout) :: lnd_prog_now
+    TYPE(t_nh_diag), TARGET, INTENT(inout)  :: pt_diag     !<the diagnostic variables
+    TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
+    TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog_now
 
-!    REAL(wp) :: z_cosmu0      (nproma,pt_patch%nblks_c) !< Cosine of zenith angle
-    REAL(wp) :: albvisdir     (nproma,pt_patch%nblks_c) !<
-    REAL(wp) :: albnirdir     (nproma,pt_patch%nblks_c) !<
-    REAL(wp) :: albvisdif     (nproma,pt_patch%nblks_c) !<
-    REAL(wp) :: albnirdif     (nproma,pt_patch%nblks_c) !<
-    REAL(wp) :: aclcov        (nproma,pt_patch%nblks_c) !<
+!    REAL(wp):: z_cosmu0      (nproma,pt_patch%nblks_c) !< Cosine of zenith angle
+    REAL(wp):: albvisdir     (nproma,pt_patch%nblks_c) !<
+    REAL(wp):: albnirdir     (nproma,pt_patch%nblks_c) !<
+    REAL(wp):: albvisdif     (nproma,pt_patch%nblks_c) !<
+    REAL(wp):: albnirdif     (nproma,pt_patch%nblks_c) !<
+    REAL(wp):: aclcov        (nproma,pt_patch%nblks_c) !<
 
-    INTEGER  :: itype(nproma)   !< type of convection
+    INTEGER :: itype(nproma)   !< type of convection
 
-    REAL(wp) :: zi0        (nproma)  !< solar incoming radiation at TOA   [W/m2]
+    REAL(wp):: zi0        (nproma)  !< solar incoming radiation at TOA   [W/m2]
     ! for Ritter-Geleyn radiation:
-    REAL(wp) :: zqco2
-    REAL(wp) :: zsqv     (nproma,pt_patch%nlev,pt_patch%nblks_c) !< saturation water vapor mixing ratio
-!!$    REAL(wp) :: zflt(nproma,pt_patch%nlevp1 ,pt_patch%nblks_c)
-    REAL(wp) :: zfls(nproma,pt_patch%nlevp1 ,pt_patch%nblks_c)
-!!$    REAL(wp) :: zfltf(nproma,2 ,pt_patch%nblks_c)
-!!$    REAL(wp) :: zflsf(nproma,2 ,pt_patch%nblks_c)
-!!$    REAL(wp) :: zflpar(nproma,pt_patch%nblks_c)
-!!$    REAL(wp) :: zflsp(nproma,pt_patch%nblks_c)
-!!$    REAL(wp) :: zflsd(nproma,pt_patch%nblks_c)
-!!$    REAL(wp) :: zflsu(nproma,pt_patch%nblks_c)
-    REAL(wp) :: zduo3(nproma,pt_patch%nlev,pt_patch%nblks_c)
-    REAL(wp) :: zaeq1(nproma,pt_patch%nlev,pt_patch%nblks_c)
-    REAL(wp) :: zaeq2(nproma,pt_patch%nlev,pt_patch%nblks_c)
-    REAL(wp) :: zaeq3(nproma,pt_patch%nlev,pt_patch%nblks_c)
-    REAL(wp) :: zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c)
-    REAL(wp) :: zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)
-    REAL(wp) :: zduco2(nproma,pt_patch%nlev,pt_patch%nblks_c)
-    REAL(wp) :: alb_ther    (nproma,pt_patch%nblks_c) !!
-    LOGICAL  :: lo_sol (nproma)
-    LOGICAL  :: losol
+    REAL(wp):: zqco2
+    REAL(wp):: zsqv     (nproma,pt_patch%nlev,pt_patch%nblks_c) !< saturation water vapor mixing ratio
+!!$    REAL(wp):: zflt(nproma,pt_patch%nlevp1 ,pt_patch%nblks_c)
+    REAL(wp):: zfls(nproma,pt_patch%nlevp1 ,pt_patch%nblks_c)
+!!$    REAL(wp):: zfltf(nproma,2 ,pt_patch%nblks_c)
+!!$    REAL(wp):: zflsf(nproma,2 ,pt_patch%nblks_c)
+!!$    REAL(wp):: zflpar(nproma,pt_patch%nblks_c)
+!!$    REAL(wp):: zflsp(nproma,pt_patch%nblks_c)
+!!$    REAL(wp):: zflsd(nproma,pt_patch%nblks_c)
+!!$    REAL(wp):: zflsu(nproma,pt_patch%nblks_c)
+    REAL(wp):: zduo3(nproma,pt_patch%nlev,pt_patch%nblks_c)
+    REAL(wp):: zaeq1(nproma,pt_patch%nlev,pt_patch%nblks_c)
+    REAL(wp):: zaeq2(nproma,pt_patch%nlev,pt_patch%nblks_c)
+    REAL(wp):: zaeq3(nproma,pt_patch%nlev,pt_patch%nblks_c)
+    REAL(wp):: zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c)
+    REAL(wp):: zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)
+    REAL(wp):: zduco2(nproma,pt_patch%nlev,pt_patch%nblks_c)
+    REAL(wp):: alb_ther    (nproma,pt_patch%nblks_c) !!
+    LOGICAL :: lo_sol (nproma)
+    LOGICAL :: losol
     ! For Ritter-Geleyn radiation on reduced grid additionally
     ! These fields need to be allocatable because they have different dimensions for
     ! the global grid and nested grids, and for runs with/without MPI parallelization
     ! Input fields
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_alb_ther(:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_pres_sfc(:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_temp_ifc(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_dpres_mc(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_sqv(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_duco2(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_aeq1(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_aeq2(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_aeq3(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_aeq4(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_aeq5(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_alb_ther(:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_pres_sfc(:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_temp_ifc(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_dpres_mc(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_sqv(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_duco2(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq1(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq2(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq3(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq4(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq5(:,:,:)
     ! for ozone:
-    REAL(wp) :: &
+    REAL(wp):: &
       & zptop32(nproma,pt_patch%nblks_c), &
       & zo3_hm (nproma,pt_patch%nblks_c), &
       & zo3_top (nproma,pt_patch%nblks_c), &
       & zpbot32(nproma,pt_patch%nblks_c), &
       & zo3_bot (nproma,pt_patch%nblks_c)
     ! for aerosols with Ritter-Geleyn:
-    REAL(wp) :: &
+    REAL(wp):: &
       & zsign(nproma,pt_patch%nlevp1), &
       & zvdaes(nproma,pt_patch%nlevp1), &
       & zvdael(nproma,pt_patch%nlevp1), &
@@ -1078,19 +1743,19 @@ CONTAINS
 
 
     ! Local scalars:
-    REAL(wp) :: zsct        ! solar constant (at time of year)
-    REAL(wp) :: cosmu0_dark ! minimum cosmu0, for smaller values no shortwave calculations
-    INTEGER :: jc,jk,jb
-    INTEGER :: jg                !domain id
-    INTEGER :: nlev, nlevp1      !< number of full and half levels
-    INTEGER :: nblks_par_c       !nblks for reduced grid
+    REAL(wp):: zsct        ! solar constant (at time of year)
+    REAL(wp):: cosmu0_dark ! minimum cosmu0, for smaller values no shortwave calculations
+    INTEGER:: jc,jk,jb
+    INTEGER:: jg                !domain id
+    INTEGER:: nlev, nlevp1      !< number of full and half levels
+    INTEGER:: nblks_par_c       !nblks for reduced grid
 
-    INTEGER :: rl_start, rl_end
-    INTEGER :: i_startblk, i_endblk    !> blocks
-    INTEGER :: i_startidx, i_endidx    !< slices
-    INTEGER :: i_nchdom                !< domain index
-    INTEGER :: i_chidx
-    LOGICAL :: l_parallel
+    INTEGER:: rl_start, rl_end
+    INTEGER:: i_startblk, i_endblk    !> blocks
+    INTEGER:: i_startidx, i_endidx    !< slices
+    INTEGER:: i_nchdom                !< domain index
+    INTEGER:: i_chidx
+    LOGICAL:: l_parallel
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
@@ -1138,6 +1803,7 @@ CONTAINS
       & p_inc_radheat= dt_radheat(jg),                    &
       & p_sim_time   = p_sim_time,                        &
       & pt_patch     = pt_patch,                          &
+     !& zsmu0        = prm_diag%cosmu0(1,1),              &
       & zsmu0        = prm_diag%cosmu0(:,:),              &
       & zsct         = zsct )
 
@@ -1506,110 +2172,110 @@ CONTAINS
     & pt_par_int_state, pt_par_grf_state,ext_data,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
     & lnd_prog_now )
 
-!    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+!    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
 
-!    REAL(wp), PARAMETER ::  &
+!    REAL(wp), PARAMETER::  &
 !      & zqco2 = 0.5014E-03_wp*353.9_wp/330._wp ! CO2 (mixing ratio 353.9 ppm (like vmr_co2))
 
-    LOGICAL, INTENT(in)          :: lredgrid        !< use reduced grid for radiation
+    LOGICAL, INTENT(in)         :: lredgrid        !< use reduced grid for radiation
 
-    REAL(wp),INTENT(in)          :: p_sim_time
+    REAL(wp),INTENT(in)         :: p_sim_time
 
-    TYPE(t_patch),        TARGET,INTENT(in)  :: pt_patch     !<grid/patch info.
-    TYPE(t_patch),        TARGET,INTENT(in)  :: pt_par_patch !<grid/patch info (parent grid)
+    TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
+    TYPE(t_patch),        TARGET,INTENT(in) :: pt_par_patch !<grid/patch info (parent grid)
     TYPE(t_int_state),    TARGET,INTENT(in):: pt_par_int_state  !< " for parent grid
-    TYPE(t_gridref_state),TARGET,INTENT(in)  :: pt_par_grf_state  !< grid refinement state
+    TYPE(t_gridref_state),TARGET,INTENT(in) :: pt_par_grf_state  !< grid refinement state
     TYPE(t_external_data),INTENT(in):: ext_data
-    TYPE(t_nh_prog), TARGET, INTENT(inout)   :: pt_prog     !<the prognostic variables
-    TYPE(t_nh_prog), TARGET, INTENT(inout)   :: pt_prog_rcf !<the prognostic variables (with
+    TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog     !<the prognostic variables
+    TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog_rcf !<the prognostic variables (with
     !< reduced calling frequency for tracers!
-    TYPE(t_nh_diag), TARGET, INTENT(inout)   :: pt_diag     !<the diagnostic variables
-    TYPE(t_nwp_phy_diag),       INTENT(inout) :: prm_diag
-    TYPE(t_lnd_prog),           INTENT(inout) :: lnd_prog_now
+    TYPE(t_nh_diag), TARGET, INTENT(inout)  :: pt_diag     !<the diagnostic variables
+    TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
+    TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog_now
 
-!    REAL(wp) :: z_cosmu0      (nproma,pt_patch%nblks_c) !< Cosine of zenith angle
-    REAL(wp) :: albvisdir     (nproma,pt_patch%nblks_c) !<
-    REAL(wp) :: albnirdir     (nproma,pt_patch%nblks_c) !<
-    REAL(wp) :: albvisdif     (nproma,pt_patch%nblks_c) !<
-    REAL(wp) :: albnirdif     (nproma,pt_patch%nblks_c) !<
-    REAL(wp) :: aclcov        (nproma,pt_patch%nblks_c) !<
+!    REAL(wp):: z_cosmu0      (nproma,pt_patch%nblks_c) !< Cosine of zenith angle
+    REAL(wp):: albvisdir     (nproma,pt_patch%nblks_c) !<
+    REAL(wp):: albnirdir     (nproma,pt_patch%nblks_c) !<
+    REAL(wp):: albvisdif     (nproma,pt_patch%nblks_c) !<
+    REAL(wp):: albnirdif     (nproma,pt_patch%nblks_c) !<
+    REAL(wp):: aclcov        (nproma,pt_patch%nblks_c) !<
     ! For radiation on reduced grid
     ! These fields need to be allocatable because they have different dimensions for
     ! the global grid and nested grids, and for runs with/without MPI parallelization
     ! Input fields
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_fr_land  (:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_fr_glac  (:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_cosmu0   (:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_albvisdir(:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_albnirdir(:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_albvisdif(:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_albnirdif(:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_tsfc     (:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_pres_ifc (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_pres     (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_temp     (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_o3       (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_acdnc    (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_tot_cld  (:,:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_fr_land  (:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_fr_glac  (:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_cosmu0   (:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_albvisdir(:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_albnirdir(:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_albvisdif(:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_albnirdif(:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_tsfc     (:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_pres_ifc (:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_pres     (:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_temp     (:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_o3       (:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_acdnc    (:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_tot_cld  (:,:,:,:)
     ! Output fields
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_aclcov   (:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_lwflxclr (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_lwflxall (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_trsolclr (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_trsolall (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_fls (:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_aclcov   (:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_lwflxclr (:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_lwflxall (:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_trsolclr (:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_trsolall (:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_fls (:,:,:)
     ! Pointer to parent patach or local parent patch for reduced grid
-    TYPE(t_patch), POINTER        :: ptr_pp
+    TYPE(t_patch), POINTER       :: ptr_pp
 
-    INTEGER  :: itype(nproma)   !< type of convection
+    INTEGER :: itype(nproma)   !< type of convection
 
-    REAL(wp) :: zi0        (nproma)  !< solar incoming radiation at TOA   [W/m2]
+    REAL(wp):: zi0        (nproma)  !< solar incoming radiation at TOA   [W/m2]
     ! for Ritter-Geleyn radiation:
-    REAL(wp) :: zqco2
-    REAL(wp) :: zsqv     (nproma,pt_patch%nlev,pt_patch%nblks_c) !< saturation water vapor mixing ratio
-!!$    REAL(wp) :: zflt(nproma,pt_patch%nlevp1 ,pt_patch%nblks_c)
-    REAL(wp) :: zfls(nproma,pt_patch%nlevp1 ,pt_patch%nblks_c)
-!!$    REAL(wp) :: zfltf(nproma,2 ,pt_patch%nblks_c)
-!!$    REAL(wp) :: zflsf(nproma,2 ,pt_patch%nblks_c)
-!!$    REAL(wp) :: zflpar(nproma,pt_patch%nblks_c)
-!!$    REAL(wp) :: zflsp(nproma,pt_patch%nblks_c)
-!!$    REAL(wp) :: zflsd(nproma,pt_patch%nblks_c)
-!!$    REAL(wp) :: zflsu(nproma,pt_patch%nblks_c)
-    REAL(wp) :: zduo3(nproma,pt_patch%nlev,pt_patch%nblks_c)
-    REAL(wp) :: zaeq1(nproma,pt_patch%nlev,pt_patch%nblks_c)
-    REAL(wp) :: zaeq2(nproma,pt_patch%nlev,pt_patch%nblks_c)
-    REAL(wp) :: zaeq3(nproma,pt_patch%nlev,pt_patch%nblks_c)
-    REAL(wp) :: zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c)
-    REAL(wp) :: zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)
-    REAL(wp) :: zduco2(nproma,pt_patch%nlev,pt_patch%nblks_c)
-    REAL(wp) :: alb_ther    (nproma,pt_patch%nblks_c) !!
-    LOGICAL  :: lo_sol (nproma)
-    LOGICAL  :: losol
+    REAL(wp):: zqco2
+    REAL(wp):: zsqv     (nproma,pt_patch%nlev,pt_patch%nblks_c) !< saturation water vapor mixing ratio
+!!$    REAL(wp):: zflt(nproma,pt_patch%nlevp1 ,pt_patch%nblks_c)
+    REAL(wp):: zfls(nproma,pt_patch%nlevp1 ,pt_patch%nblks_c)
+!!$    REAL(wp):: zfltf(nproma,2 ,pt_patch%nblks_c)
+!!$    REAL(wp):: zflsf(nproma,2 ,pt_patch%nblks_c)
+!!$    REAL(wp):: zflpar(nproma,pt_patch%nblks_c)
+!!$    REAL(wp):: zflsp(nproma,pt_patch%nblks_c)
+!!$    REAL(wp):: zflsd(nproma,pt_patch%nblks_c)
+!!$    REAL(wp):: zflsu(nproma,pt_patch%nblks_c)
+    REAL(wp):: zduo3(nproma,pt_patch%nlev,pt_patch%nblks_c)
+    REAL(wp):: zaeq1(nproma,pt_patch%nlev,pt_patch%nblks_c)
+    REAL(wp):: zaeq2(nproma,pt_patch%nlev,pt_patch%nblks_c)
+    REAL(wp):: zaeq3(nproma,pt_patch%nlev,pt_patch%nblks_c)
+    REAL(wp):: zaeq4(nproma,pt_patch%nlev,pt_patch%nblks_c)
+    REAL(wp):: zaeq5(nproma,pt_patch%nlev,pt_patch%nblks_c)
+    REAL(wp):: zduco2(nproma,pt_patch%nlev,pt_patch%nblks_c)
+    REAL(wp):: alb_ther    (nproma,pt_patch%nblks_c) !!
+    LOGICAL :: lo_sol (nproma)
+    LOGICAL :: losol
     ! For Ritter-Geleyn radiation on reduced grid additionally
     ! These fields need to be allocatable because they have different dimensions for
     ! the global grid and nested grids, and for runs with/without MPI parallelization
     ! Input fields
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_alb_ther(:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_pres_sfc(:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_temp_ifc(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_dpres_mc(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_sqv(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_duco2(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_aeq1(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_aeq2(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_aeq3(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_aeq4(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET :: zrg_aeq5(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_alb_ther(:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_pres_sfc(:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_temp_ifc(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_dpres_mc(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_sqv(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_duco2(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq1(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq2(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq3(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq4(:,:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq5(:,:,:)
     ! for ozone:
-    REAL(wp) :: &
+    REAL(wp):: &
       & zptop32(nproma,pt_patch%nblks_c), &
       & zo3_hm (nproma,pt_patch%nblks_c), &
       & zo3_top (nproma,pt_patch%nblks_c), &
       & zpbot32(nproma,pt_patch%nblks_c), &
       & zo3_bot (nproma,pt_patch%nblks_c)
     ! for aerosols with Ritter-Geleyn:
-    REAL(wp) :: &
+    REAL(wp):: &
       & zsign(nproma,pt_patch%nlevp1), &
       & zvdaes(nproma,pt_patch%nlevp1), &
       & zvdael(nproma,pt_patch%nlevp1), &
@@ -1621,7 +2287,7 @@ CONTAINS
       &  zaequo   (nproma,pt_patch%nblks_c), zaequn,                 &
       & zaeqlo   (nproma,pt_patch%nblks_c), zaeqln,                 &
       & zaeqso   (nproma,pt_patch%nblks_c), zaeqsn
-    REAL(wp), PARAMETER ::  &
+    REAL(wp), PARAMETER::  &
       & zaeops = 0.05_wp, &
       & zaeopl = 0.2_wp, &
       & zaeopu = 0.1_wp, &
@@ -1634,19 +2300,19 @@ CONTAINS
 
 
     ! Local scalars:
-    REAL(wp) :: zsct        ! solar constant (at time of year)
-    REAL(wp) :: cosmu0_dark ! minimum cosmu0, for smaller values no shortwave calculations
-    INTEGER :: jc,jk,jb
-    INTEGER :: jg                !domain id
-    INTEGER :: nlev, nlevp1      !< number of full and half levels
-    INTEGER :: nblks_par_c       !nblks for reduced grid
+    REAL(wp):: zsct        ! solar constant (at time of year)
+    REAL(wp):: cosmu0_dark ! minimum cosmu0, for smaller values no shortwave calculations
+    INTEGER:: jc,jk,jb
+    INTEGER:: jg                !domain id
+    INTEGER:: nlev, nlevp1      !< number of full and half levels
+    INTEGER:: nblks_par_c       !nblks for reduced grid
 
-    INTEGER :: rl_start, rl_end
-    INTEGER :: i_startblk, i_endblk    !> blocks
-    INTEGER :: i_startidx, i_endidx    !< slices
-    INTEGER :: i_nchdom                !< domain index
-    INTEGER :: i_chidx
-    LOGICAL :: l_parallel
+    INTEGER:: rl_start, rl_end
+    INTEGER:: i_startblk, i_endblk    !> blocks
+    INTEGER:: i_startidx, i_endidx    !< slices
+    INTEGER:: i_nchdom                !< domain index
+    INTEGER:: i_chidx
+    LOGICAL:: l_parallel
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id

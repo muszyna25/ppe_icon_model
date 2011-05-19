@@ -121,7 +121,7 @@ CONTAINS
 
   CHARACTER(LEN=1) :: ctracer
 
-  REAL(wp) :: lon,lat,tmp0,tmp1,tmp2,tmp3,tmp4,tmp5, rot_lon, rot_lat
+  REAL(wp) :: lon,lat,tmp0,tmp1,tmp2,tmp3,tmp4,tmp5,tmp6, rot_lon, rot_lat
   REAL(wp) :: zeta,zcos12z,zcos32z,zsinz,zcosysq,zsin2ysq,zsiny,zcosy,ztemp
   REAL(wp) :: zrotate_axis_rad, zu, zv
 
@@ -187,7 +187,7 @@ CONTAINS
      npromz_v  = pt_patch%npromz_int_v
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,nlen,lon,lat,rot_lon,rot_lat,zsiny,zcosy,tmp1,tmp2,tmp3,tmp4,tmp5)
+!$OMP DO PRIVATE(jb,jc,nlen,lon,lat,rot_lon,rot_lat,zsiny,zcosy,tmp1,tmp2,tmp3,tmp4,tmp5,tmp6)
      DO jb = 1, nblks_c
         IF (jb /= nblks_c) THEN
            nlen = nproma
@@ -218,10 +218,11 @@ CONTAINS
            tmp2  = tmp1*(-2._wp*zsiny**6*(1._wp/3._wp+zcosy**2) + 1.0_wp/6.3_wp)
            tmp3  = omega*re*(8._wp/5._wp*zcosy**3*(2._wp/3._wp+zsiny**2) - pi/4_wp)
            tmp4  = 8._wp*(1._wp-2._wp/3._wp*zsiny**2)*zsiny**4 - 88._wp/105._wp
-           tmp5  = zcosy**3*(4._wp*zcosy - 8._wp/3._wp) +pi/2._wp -3.2_wp/1.5_wp
+           tmp5  = omega*re*(8._wp/3._wp*zcosy**3 - pi/2._wp )
+           tmp6  = 4._wp*zcosy**4 -3.2_wp/1.5_wp
 
 
-           pt_ext_data%atm%topography_c(jc,jb) = (tmp1*(tmp2+tmp3+tmp4)+tmp5)*rgrav
+           pt_ext_data%atm%topography_c(jc,jb) = (tmp1*(tmp2+tmp3+tmp4)-tmp5+tmp6)*rgrav
            ! Coriolis parameter
            pt_patch%cells%f_c(jc,jb) = 2.0_wp*omega*(SIN(lat)*COS(zrotate_axis_rad)&
                                      -COS(lon)*COS(lat)*SIN(zrotate_axis_rad))
