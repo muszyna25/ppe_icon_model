@@ -39,6 +39,7 @@ MODULE mo_icoham_dyn_types
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: t_hydro_atm_prog, t_hydro_atm_diag, t_hydro_atm
+  PUBLIC :: t_ptr3d
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 

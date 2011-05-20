@@ -17,6 +17,7 @@ MODULE mo_linked_list
   !
   PUBLIC :: t_var_list          ! anchor for a whole list
   PUBLIC :: t_list_element
+  PUBLIC :: t_var_list_intrinsic
   !
   PUBLIC :: new_list            ! construct an (empty) list
   PUBLIC :: delete_list         ! clean up the list
