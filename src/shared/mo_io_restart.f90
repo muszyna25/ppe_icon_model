@@ -661,7 +661,8 @@ CONTAINS
             CALL message('','Write netCDF2 restart for : '//TRIM(private_restart_time))
           CASE (FILETYPE_NC4)
             IF (var_lists(i)%p%compression_type == COMPRESS_ZIP) THEN
-              CALL message('','Write compressed netCDF4 restart for : '//TRIM(private_restart_time))
+              CALL message('','Write compressed netCDF4 restart for : ' &
+                          &//TRIM(private_restart_time))
             ELSE
               CALL message('','Write netCDF4 restart for : '//TRIM(private_restart_time))
             END IF

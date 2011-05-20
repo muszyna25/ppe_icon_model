@@ -398,7 +398,8 @@ CONTAINS
     &            ldims=(/nproma,n_zlev,nblks_e/))
 
     !! Tracers
-    CALL add_var(ocean_var_list, 'tracers', p_os_prog%tracer , GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, &
+    CALL add_var(ocean_var_list, 'tracers', p_os_prog%tracer , &
+    &            GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, &
     &            t_cf_var('tracers', '', '1:temperature 2:salinity'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
     &            ldims=(/nproma,n_zlev,nblks_c,ntrac_oce/) )
@@ -495,11 +496,13 @@ CONTAINS
     &            ldims=(/nproma,nblks_e/))
 
     ! thicknesses
-    CALL add_var(ocean_var_list, 'thick_c', p_os_diag%thick_c, GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, &
+    CALL add_var(ocean_var_list, 'thick_c', p_os_diag%thick_c,  &
+    &            GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, &
     &            t_cf_var('thick_c','m','fluid column thickness at cells'),&
     &            t_grib2_var(255,255,255,16,GRID_REFERENCE,GRID_CELL),&
     &            ldims=(/nproma,nblks_c/))
-    CALL add_var(ocean_var_list, 'thick_e', p_os_diag%thick_e, GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, &
+    CALL add_var(ocean_var_list, 'thick_e', p_os_diag%thick_e, &
+    &            GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, &
     &            t_cf_var('thick_e','m','fluid column thickness at edges'),&
     &            t_grib2_var(255,255,255,16,GRID_REFERENCE,GRID_EDGE),&
     &            ldims=(/nproma,nblks_e/))
@@ -517,7 +520,8 @@ CONTAINS
     &            t_cf_var('w_e','m/s','vertical velocity at edges'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev+1,nblks_e/))
-    CALL add_var(ocean_var_list, 'w_prev', p_os_diag%w_prev, GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, &
+    CALL add_var(ocean_var_list, 'w_prev', p_os_diag%w_prev, &
+    &            GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, &
     &            t_cf_var('w_prev','m/s','vertical velocity at edges'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev+1,nblks_c/))
@@ -536,12 +540,14 @@ CONTAINS
 !   &            t_cf_var('p_vn','m/s','normal velocity in cartesian coordinates'),&
 !   &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
 !   &            ldims=(/nproma,n_zlev,nblks_c/))
-    CALL add_var(ocean_var_list, 'ptp_vn', p_os_diag%ptp_vn, GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, &
+    CALL add_var(ocean_var_list, 'ptp_vn', p_os_diag%ptp_vn, &
+    &            GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, &
     &            t_cf_var('ptp_vn','m/s','normal velocity in cartesian coordinates'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
     ! predicted vn normal velocity component
-    CALL add_var(ocean_var_list, 'vn_pred', p_os_diag%vn_pred, GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, &
+    CALL add_var(ocean_var_list, 'vn_pred', p_os_diag%vn_pred, &
+    &            GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, &
     &            t_cf_var('vn_pred','m/s','predicted vn normal velocity component'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
@@ -553,11 +559,13 @@ CONTAINS
     &            ldims=(/nproma,n_zlev,nblks_e/))
 
     ! vorticity
-    CALL add_var(ocean_var_list, 'vort', p_os_diag%vort, GRID_UNSTRUCTURED_VERT, ZAXIS_HYBRID, &
+    CALL add_var(ocean_var_list, 'vort', p_os_diag%vort, &
+    &            GRID_UNSTRUCTURED_VERT, ZAXIS_HYBRID, &
     &            t_cf_var('vort','1/s','vorticity'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_VERTEX),&
     &            ldims=(/nproma,n_zlev,nblks_v/))
-    CALL add_var(ocean_var_list, 'vort_e', p_os_diag%vort_e, GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, &
+    CALL add_var(ocean_var_list, 'vort_e', p_os_diag%vort_e, &
+    &            GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, &
     &            t_cf_var('vort_e','1/s','vorticity at edges'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
@@ -601,24 +609,28 @@ CONTAINS
     !&            ldims=(/nproma,n_zlev,nblks_e/))
 
     ! horizontal velocity advection
-    CALL add_var(ocean_var_list, 'veloc_adv_horz', p_os_diag%veloc_adv_horz, GRID_UNSTRUCTURED_EDGE,&
+    CALL add_var(ocean_var_list, 'veloc_adv_horz', p_os_diag%veloc_adv_horz, &
+    &            GRID_UNSTRUCTURED_EDGE,&
     &            ZAXIS_HYBRID, t_cf_var('veloc_adv_horz','','horizontal velocity advection'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
 
     ! vertical velocity advection
-    CALL add_var(ocean_var_list, 'veloc_adv_vert', p_os_diag%veloc_adv_vert, GRID_UNSTRUCTURED_EDGE,&
+    CALL add_var(ocean_var_list, 'veloc_adv_vert', p_os_diag%veloc_adv_vert, &
+    &            GRID_UNSTRUCTURED_EDGE,&
     &            ZAXIS_HYBRID, t_cf_var('veloc_adv_vert','','vertical velocity advection'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
 
     ! horizontal diffusion
-    CALL add_var(ocean_var_list, 'laplacian_horz', p_os_diag%laplacian_horz, GRID_UNSTRUCTURED_EDGE,&
+    CALL add_var(ocean_var_list, 'laplacian_horz', p_os_diag%laplacian_horz, &
+    &            GRID_UNSTRUCTURED_EDGE,&
     &            ZAXIS_HYBRID, t_cf_var('laplacian_horz','','horizontal diffusion'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
     ! vertical diffusion
-    CALL add_var(ocean_var_list, 'laplacian_vert', p_os_diag%laplacian_vert, GRID_UNSTRUCTURED_EDGE,&
+    CALL add_var(ocean_var_list, 'laplacian_vert', p_os_diag%laplacian_vert, &
+    &            GRID_UNSTRUCTURED_EDGE,&
     &            ZAXIS_HYBRID, t_cf_var('laplacian_vert','','vertical diffusion'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_EDGE),&
     &            ldims=(/nproma,n_zlev,nblks_e/))
