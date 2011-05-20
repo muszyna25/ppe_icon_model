@@ -152,8 +152,8 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
   TYPE t_lnd_state
     TYPE(t_lnd_prog), ALLOCATABLE :: prog_lnd(:)
     TYPE(t_var_list), ALLOCATABLE :: lnd_prog_nwp_list(:)  !<  shape: (ntimelevel)
-    TYPE(t_lnd_diag), ALLOCATABLE :: diag_lnd
-    TYPE(t_var_list), ALLOCATABLE :: lnd_diag_nwp_list    !< shape: (n_dom)
+    TYPE(t_lnd_diag)              :: diag_lnd
+    TYPE(t_var_list)              :: lnd_diag_nwp_list
   END TYPE t_lnd_state
  
 
@@ -228,12 +228,14 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
            'allocation of land prognostic state array failed')
     ENDIF
 
-    ALLOCATE(p_lnd_state(jg)%diag_lnd,          &
-         &   p_lnd_state(jg)%lnd_diag_nwp_list, STAT=ist)
-    IF(ist/=SUCCESS)THEN
-    CALL finish ('mo_nwp_lnd_state:construct_nwp_state', &
-      'allocation of diagnostic physical array and list failed')
-    ENDIF
+   !HW: p_lnd_state(jg)%diag_lnd is neither pointer nor array, thus
+   !does not need allocation.
+   !ALLOCATE(p_lnd_state(jg)%diag_lnd,          &
+   !     &   p_lnd_state(jg)%lnd_diag_nwp_list, STAT=ist)
+   !IF(ist/=SUCCESS)THEN
+   !CALL finish ('mo_nwp_lnd_state:construct_nwp_state', &
+   !  'allocation of diagnostic physical array and list failed')
+   !ENDIF
 
     DO jt = 1, ntl
             !construct prognostic state
@@ -313,12 +315,12 @@ PUBLIC :: t_lnd_diag   !!       for diagnostic variables
              'deallocation of land prognostic state array failed')
       ENDIF
 
-    DEALLOCATE(p_lnd_state(jg)%diag_lnd,&
-    &          p_lnd_state(jg)%lnd_diag_nwp_list, STAT=ist)
-      IF(ist/=SUCCESS)THEN
-        CALL finish ('mo_lnd_state:destruct_lnd_state', &
-             'deallocation of land diagnostic state array failed')
-     ENDIF
+   !DEALLOCATE(p_lnd_state(jg)%diag_lnd,&
+   !&          p_lnd_state(jg)%lnd_diag_nwp_list, STAT=ist)
+   !  IF(ist/=SUCCESS)THEN
+   !    CALL finish ('mo_lnd_state:destruct_lnd_state', &
+   !         'deallocation of land diagnostic state array failed')
+   ! ENDIF
   ENDDO
 
   END SUBROUTINE destruct_nwp_lnd_state
