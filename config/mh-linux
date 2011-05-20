@@ -149,7 +149,7 @@ case "$fortran_compiler" in
     sun-debug)
         config_compiler=sun_debug
         CC          = gcc
-        CFLAGS      = -O -DsunFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE
+        CFLAGS      = -O -DsunFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -std=c99
         FC          = sunf95
         F77         = sunf95
         FFLAGS      = -O0 -fpp -fstore -fnonstd -g -C -XList  -D__BOUNDCHECK -DUSE_CRAY_POINTER=0
@@ -226,7 +226,9 @@ case "$ac_sitename" in
                     pgi)
                         IB_LIBS    = -lrdmacm -libverbs -lnuma -ldl -Wl,--export-dynamic -lnsl -lutil -lm -ldl
                         MPIROOT    = /sw/sles10-x64/ofed/openmpi-1.4.0-pgi9
+                  #     MPIROOT    = /sw/sles10-x64/ofed/openmpi-1.4.3-pgi11
                         MPI_LIB    = -lmpi_f90 -lmpi_f77 -lmpi -lopen-rte -lopen-pal "$IB_LIBS" 
+                  #       load_modules="PGI/11.3" "gcc/4.5.2" "${load_modules}"
                         load_modules="PGI/11.0" "gcc/4.5.2" "${load_modules}"
                         ;;
                     intel)
@@ -356,7 +358,7 @@ case "$ac_sitename" in
 			MPIROOT            = /sw/lenny-x64/mpi/mpich2-1.3.1-static-pgi11
 			MPI_LIB            = -lmpichf90 -lmpich -lopa -lmpl -lpthread -lrt
 			load_mpi_modules   = "mpich2/1.3.1-static-pgi11"
-			load_modules       = "pgi/11.1" "gcc/4.5.2" "${load_modules}"
+			load_modules       = "pgi/11.4" "gcc/4.5.2" "${load_modules}"
 			;;
 		    intel)
 			NETCDFROOT         = /sw/lenny-x64/netcdf-4.1.1-static-intel12

@@ -213,8 +213,9 @@ run_scripts_nosubmit()
     echo " "
     echo "---------------------------------------------------------"
     echo "Start. ./$EXP_FILE"
-    ./$EXP_FILE
+    ./$EXP_FILE > LOG.${EXP_FILE}.o 2>&1
     STATUS=$?
+    cat LOG.${EXP_FILE}.o
     echo "---------------------------------------------------------"
     echo " "
     echo " Script: ${EXP_FILE} stops at $(date)"
@@ -291,6 +292,7 @@ run_scripts_submit()
 
   # wait for all jobs to finish
   wait
+  sleep 10
   
   # print and check the results
   for EXP_FILE in $EXP_FILES

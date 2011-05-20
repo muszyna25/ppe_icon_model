@@ -1,10 +1,10 @@
 !>
-!! This module is the interface between nwp_nh_interface to the 
+!! This module is the interface between nwp_nh_interface to the
 !! gravity wave drag related parameterisations:
 !! inwp_sso == 1 == COSMO subgrid scale orographic gravity wave drag
 !! inwp_gwd == 1 == IFS non-orographic gravity wave dragxs
 !!
-!! @author    J. SCINOCCIA -- Original Fortran Code 
+!! @author    J. SCINOCCIA -- Original Fortran Code
 !! @author    A. Orr  -- Rewritten in IFS format   E.C.M.W.F.     August 2008
 !!
 !! @par Revision History
@@ -43,9 +43,9 @@ MODULE mo_nwp_gw_interface
   USE mo_exception,            ONLY: message, message_text, finish
   USE mo_mpi,                  ONLY: p_pe, p_nprocs
   USE mo_parallel_nml,         ONLY: p_test_pe, p_test_run
- 
+
   USE mo_model_domain,         ONLY: t_patch
- 
+
   USE mo_impl_constants,       ONLY: min_rlcell_int
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
@@ -79,7 +79,7 @@ CONTAINS
                          &   ext_data,                  & !>input
                          &   p_prog,                    & !>in
                          &   p_diag ,                   & !>inout
-                         &   prm_diag,prm_nwp_tend      ) !>inout 
+                         &   prm_diag,prm_nwp_tend      ) !>inout
 
 
 
@@ -91,14 +91,14 @@ CONTAINS
     TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag        !<the atm phys vars
     TYPE(t_nwp_phy_tend),TARGET, INTENT(inout):: prm_nwp_tend    !< atm tend vars
 
-    REAL(wp),                    INTENT(in)   :: tcall_sso_jg   !< time interval for 
+    REAL(wp),                    INTENT(in)   :: tcall_sso_jg   !< time interval for
                                                                  !< sso
-    !REAL(wp),                    INTENT(in)   :: tcall_gwd_jg   !< time interval for 
-    !                                                             !< gwd 
+    !REAL(wp),                    INTENT(in)   :: tcall_gwd_jg   !< time interval for
+    !                                                             !< gwd
 
     ! Local array bounds:
 
-    INTEGER :: nblks_c                !< number of blocks for cells 
+    INTEGER :: nblks_c                !< number of blocks for cells
     INTEGER :: npromz_c                !< length of last block line
     INTEGER :: nlev, nlevp1            !< number of full and half levels
     INTEGER :: rl_start, rl_end
@@ -106,11 +106,11 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
 
-    REAL(wp) ::            &           !< != zonal component of vertical momentum flux (Pa)  
-      &  z_fluxu(nproma,p_patch%nlevp1  ,p_patch%nblks_c) 
-    REAL(wp) ::            &           !< != meridional component of vertical momentum flux (Pa)  
-      &  z_fluxv (nproma,p_patch%nlevp1  ,p_patch%nblks_c) 
-     
+    REAL(wp) ::            &           !< != zonal component of vertical momentum flux (Pa)
+      &  z_fluxu(nproma,p_patch%nlevp1  ,p_patch%nblks_c)
+    REAL(wp) ::            &           !< != meridional component of vertical momentum flux (Pa)
+      &  z_fluxv (nproma,p_patch%nlevp1  ,p_patch%nblks_c)
+
     INTEGER :: jk,jc,jb,jg                !<block indeces
 
 
@@ -127,7 +127,7 @@ CONTAINS
 
     ! domain ID
     jg     = p_patch%id
-  
+
     !in order to account for mesh refinement
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
@@ -140,10 +140,8 @@ CONTAINS
 &           CALL message('mo_nwp_gw_interface', 'subgrid scale orography')
 
 
-!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx),SCHEDULE(guided)
-  
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx), SCHEDULE(guided)
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx),SCHEDULE(guided)
 
     DO jb = i_startblk, i_endblk
 
@@ -209,10 +207,10 @@ CONTAINS
    !        & pfif      = p_metrics%geopot_agl     (:,:,jb),  & !< in:  full level geopote
    !       &pglat      = p_patch%cells%center(jc,jb)%lat, &
    !       & pprecip   = p_diag%tot_prec(:,jb)            ,&
-   !        & ptenu    =prm_nwp_tend%ddt_u_gwd   (:,:,jb),  & !< out: u-tendency 
-    !      & ptenv     =prm_nwp_tend%ddt_v_gwd   (:,:,jb),  & !< out: v-tendency 
+   !        & ptenu    =prm_nwp_tend%ddt_u_gwd   (:,:,jb),  & !< out: u-tendency
+    !      & ptenv     =prm_nwp_tend%ddt_v_gwd   (:,:,jb),  & !< out: v-tendency
     !      & pfluxu= z_fluxv (:,:,jb) ,&
-    !      & pfluxv =z_fluxv (:,:,jb)   ) !< 
+    !      & pfluxv =z_fluxv (:,:,jb)   ) !<
          !ENDIF
 
     ENDDO ! jb
@@ -220,7 +218,7 @@ CONTAINS
 
 
 !$OMP END DO
-!$OMP END PARALLEL   
+!$OMP END PARALLEL
 
 
   END SUBROUTINE nwp_gwdrag
