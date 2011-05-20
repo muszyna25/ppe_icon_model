@@ -67,7 +67,8 @@ MODULE mo_nwp_diagnosis
   USE mo_nwp_phy_state,      ONLY: t_nwp_phy_diag,&
                                  & t_nwp_phy_tend,  prm_diag
   USE mo_run_nml,            ONLY: nproma, ntracer, i_cell_type, iqv, iqc, iqi, &
-       &                              iqr, iqs, icc, msg_level, ltimer
+       &                              iqr, iqs, icc, msg_level, ltimer,         &
+                                      ini_datetime
   USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd_o_rd, &
                                    lh_v     => alv      !! latent heat of vapourization
 
@@ -106,7 +107,7 @@ CONTAINS
                             & tcall_phy_jg,p_sim_time,             & !input
                             & kstart_moist,                        & !input
                             & pt_patch, pt_int_state, p_metrics,   & !input
-                            & pt_prog,                             & !in
+                            & pt_prog, pt_prog_rcf,                & !in
                             & pt_diag,                            & !inout
                             & prm_diag,prm_nwp_tend)    
                             
@@ -125,12 +126,20 @@ CONTAINS
     TYPE(t_patch),        TARGET,INTENT(in):: pt_patch     !<grid/patch info.
     TYPE(t_nh_diag), TARGET, INTENT(inout) :: pt_diag     !<the diagnostic variables
     TYPE(t_nh_prog), TARGET, INTENT(inout) :: pt_prog     !<the prognostic variables
+    TYPE(t_nh_prog), TARGET, INTENT(inout) :: pt_prog_rcf !<the prognostic variables (with
+                                                          !< red. calling frequency for tracers!
+
 
     TYPE(t_int_state),    TARGET,INTENT(in):: pt_int_state      !< interpolation state
     TYPE(t_nh_metrics)   ,       INTENT(in):: p_metrics
 
     TYPE(t_nwp_phy_diag),       INTENT(inout) :: prm_diag
     TYPE(t_nwp_phy_tend),TARGET,INTENT(inout) :: prm_nwp_tend
+
+    ! Local
+
+    REAL(wp), PARAMETER :: dt_s6avg = 21600._wp   !6 hours in seconds
+    LOGICAL :: l_s6avg
 
     ! Local array bounds:
 
@@ -139,13 +148,11 @@ CONTAINS
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
-    ! local
 
-    REAL(wp):: z_help
+    REAL(wp):: z_help, p_sim_time_s6
 
     INTEGER :: jc,jk,jb,jt      !block index
     INTEGER :: kstart_moist
-!    INTEGER :: jg                !domain id
 
     INTEGER :: ioverlap(nproma)
     REAL(wp):: cld_cov(nproma)
@@ -154,7 +161,6 @@ CONTAINS
     ! local variables related to the blocking
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
-!    jg        = pt_patch%id
     ! number of vertical levels
     nlev   = pt_patch%nlev
     nlevp1 = pt_patch%nlevp1    
@@ -260,7 +266,7 @@ CONTAINS
 
             z_help = p_metrics%ddqz_z_full(jc,jk,jb) * pt_prog%rho(jc,jk,jb)  
             pt_diag%tracer_vi(jc, jb,1:3) = pt_diag%tracer_vi(jc, jb,1:3)    + &
-                                            z_help * pt_prog%tracer(jc,jk,jb,1:3) 
+                                            z_help * pt_prog_rcf%tracer(jc,jk,jb,1:3) 
 
           ENDDO
         ENDDO
@@ -277,7 +283,8 @@ CONTAINS
 !$OMP END DO
 
 
-! average from the model start of total precipitation rate 
+! average from the model start of total precipitation rate ,
+!         convective precipitation rate and grid-scale precipitation rate
 
 
     IF ( p_sim_time .GT. 1.e-1 ) THEN
@@ -290,7 +297,14 @@ CONTAINS
           DO jc = i_startidx, i_endidx
 
            prm_diag%tot_prec_rate_avg(jc,jb) =  prm_diag%tot_prec(jc,jb) &
+                               & / p_sim_time  
+           prm_diag%con_prec_rate_avg(jc,jb) =  (prm_diag%rain_con(jc,jb) & 
+                               & + prm_diag%snow_con(jc,jb))             &
                                & / p_sim_time 
+           prm_diag%gsp_prec_rate_avg(jc,jb) =  (prm_diag%rain_gsp(jc,jb) &
+                               & + prm_diag%snow_gsp(jc,jb)) &
+                               & / p_sim_time
+
           ENDDO
       ENDDO ! nblks     
 !$OMP END DO
@@ -339,7 +353,58 @@ CONTAINS
 !$OMP END DO
 
     END IF
-    
+ 
+! Check if it is 00, 06, 12 or 18 UTC. In this case update the value of 
+!    dt_s6avg average variables 
+
+    IF (MOD(p_sim_time + ini_datetime%daysec, dt_s6avg) == 0 .AND. p_sim_time > 0.1) THEN
+       l_s6avg = .TRUE.
+       p_sim_time_s6 = INT( (p_sim_time+ini_datetime%daysec)/dt_s6avg) * dt_s6avg
+    ELSE
+       l_s6avg = .FALSE.
+    END IF
+   ! WRITE(0,*) "diag", p_sim_time, ini_datetime%daysec, dt_s6avg, & 
+   !               & MOD(p_sim_time + ini_datetime%daysec, dt_s6avg), l_s6avg
+
+   
+    IF (l_s6avg ) THEN
+!$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc)
+      DO jb = i_startblk, i_endblk
+        !
+        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+          & i_startidx, i_endidx, rl_start, rl_end)
+          DO jc = i_startidx, i_endidx
+            prm_diag%u_10m_s6avg(jc,jb) = ( prm_diag%u_10m_s6avg(jc,jb)    &
+                                    & * (p_sim_time_s6 - dt_s6avg)        &
+                                    & + prm_diag%u_10m(jc,jb)              &
+                                    & * dt_s6avg )                        &
+                                    & / p_sim_time_s6
+            prm_diag%v_10m_s6avg(jc,jb) = ( prm_diag%v_10m_s6avg(jc,jb)    &
+                                    & * (p_sim_time_s6 - dt_s6avg)        &
+                                    & + prm_diag%v_10m(jc,jb)              &
+                                    & * dt_s6avg )                        &
+                                    & / p_sim_time_s6
+            prm_diag%t_2m_s6avg(jc,jb) = ( prm_diag%t_2m_s6avg(jc,jb)    &
+                                    & * (p_sim_time_s6 - dt_s6avg)        &
+                                    & + prm_diag%t_2m(jc,jb)              &
+                                    & * dt_s6avg )                        &
+                                    & / p_sim_time_s6
+            prm_diag%qv_2m_s6avg(jc,jb) = ( prm_diag%qv_2m_s6avg(jc,jb)    &
+                                    & * (p_sim_time_s6 - dt_s6avg)        &
+                                    & + prm_diag%qv_2m(jc,jb)              &
+                                    & * dt_s6avg )                        &
+                                    & / p_sim_time_s6
+
+
+            pt_diag%pres_sfc_s6avg(jc,jb) = ( pt_diag%pres_sfc_s6avg(jc,jb)    &
+                                    & * (p_sim_time_s6 - dt_s6avg)        &
+                                    & + pt_diag%pres_sfc(jc,jb)              &
+                                    & * dt_s6avg )                        &
+                                    & / p_sim_time_s6
+          ENDDO
+      ENDDO ! nblks     
+!$OMP END DO
+    END IF
 
 !$OMP END PARALLEL  
 

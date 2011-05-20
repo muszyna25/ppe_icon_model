@@ -168,8 +168,8 @@ REAL (KIND=ireals) ::         &
   c_scld     =  1.0_ireals,   & !factor for liquid water flux density in sub grid scale clouds
 
   ! Minimal diffusion coefficients in [m^2/s] for vertical
-  tkhmin     =  1.0_ireals,   & ! scalar (heat) transport
-  tkmmin     =  1.0_ireals      ! momentum transport
+  tkhmin     =  0.1_ireals,   & ! scalar (heat) transport
+  tkmmin     =  0.1_ireals      ! momentum transport
 
 
 ! 5. Numerical parameters:

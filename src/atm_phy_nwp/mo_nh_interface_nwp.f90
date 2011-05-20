@@ -202,7 +202,6 @@ CONTAINS
     INTEGER :: i_c_startblk, i_c_endblk,  i_e_startblk, i_e_endblk, ist
     INTEGER :: idx1,idx2,iblk1,iblk2
 
-
 !     write(0,*) "Entering nwp_nh_interface"
 !     write(0,*) "========================="
     IF (ltimer) CALL timer_start(timer_physics)
@@ -1456,14 +1455,19 @@ CONTAINS
 
     ENDIF ! iaction
 
+
     IF (ltimer) CALL timer_stop(timer_physic_acc)
-    CALL nwp_diagnosis(lcall_phy_jg,lredgrid,jstep,     & !input
+
+    IF (jstep .GT. 1 .OR. (jstep == 1 .AND. lcall_phy_jg(itupdate))) THEN
+     CALL nwp_diagnosis(lcall_phy_jg,lredgrid,jstep,     & !input
+
                             & tcall_phy_jg,p_sim_time,             & !input
                             & kstart_moist(jg),                    & !input
                             & pt_patch, pt_int_state, p_metrics,   & !input
-                            & pt_prog,                             & !in
+                            & pt_prog, pt_prog_rcf,                & !in
                             & pt_diag,                            & !inout
                             & prm_diag,prm_nwp_tend)   
+    END IF
 
 
     IF (ltimer) CALL timer_stop(timer_physics)

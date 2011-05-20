@@ -116,6 +116,10 @@ TYPE t_nwp_phy_diag
        &   tot_prec_rate_avg(:,:),   & !! average since model start of 
                                   !! grid-scale plus convective surface 
                                   !! total precipitation rate
+       &   con_prec_rate_avg(:,:),   & !! average since model start of 
+                                  !! convective surface precipitation rate
+       &   gsp_prec_rate_avg(:,:),   & !! average since model start of 
+                                  !! grid-scale surface precipitation rate
        &   cape    (:,:),       & !! convective available energy
        &   con_gust(:,:),       & !! convective gusts near surface
        &   con_udd(:,:,:,:),    & !!(nproma,nlev,nblks,8) convective up/downdraft fields
@@ -177,11 +181,15 @@ TYPE t_nwp_phy_diag
        tkvh(:,:,:),         & !! turbulent diffusion coefficients for heat     (m/s2 )
        h_ice(:,:),          & !! ice thickness                                 (  m  )
        t_2m(:,:)       ,    & !! temperature in 2m                             (  K  )
+       t_2m_s6avg(:,:),     & !! 6 hourly sample 2 m temperature average       (  K  )
        qv_2m (:,:)     ,    & !! specific water vapor content in 2m            (kg/kg)
+       qv_2m_s6avg(:,:),     & !! 6 hourly sample 2 m specific water vapor content average   (kg/kg)
        td_2m (:,:)     ,    & !! dew-point in 2m                               (  K  )
        rh_2m (:,:)     ,    & !! relative humidity in 2m                       (  %  )
        u_10m (:,:)     ,    & !! zonal wind in 10m                             ( m/s )
        v_10m (:,:)     ,    & !! meridional wind in 10m                        ( m/s )
+       u_10m_s6avg (:,:),    & !! 6 hourly sample 10m zonal wind  average      ( m/s )
+       v_10m_s6avg (:,:),    & !! 6 hourly sample 10m  meridional wind average ( m/s )
        edr   (:,:,:)          !! eddy dissipation rate
 !
 
@@ -459,6 +467,19 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)! ,&
  !               &  lmiss=.true.,     missval=0._wp                      )
 
+    ! &      diag%con_prec_rate_avg(nproma,nblks_c)
+    cf_desc    = t_cf_var('con_prec_rate_avg', '', 'convective precip, time average')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'con_prec_rate_avg', diag%con_prec_rate_avg,                      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)! ,&
+
+    ! &      diag%gsp_prec_rate_avg(nproma,nblks_c)
+    cf_desc    = t_cf_var('gsp_prec_rate_avg', '', 'gridscale precip, time average')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'gsp_prec_rate_avg', diag%gsp_prec_rate_avg,                      &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)! ,&
+
+ !               &  lmiss=.true.,     missval=0._wp                      )
     ! &      diag%cape(nproma,nblks_c)
     cf_desc    = t_cf_var('cape', 'J kg-1 ', 'conv avail pot energy')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
@@ -679,7 +700,6 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
 !                &  lmiss=.true.,     missval=0._wp                      )
 
-
     !------------------
     !Radiation 3D variables
 
@@ -823,10 +843,24 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
  !               &  lmiss=.true.,     missval=0._wp                      )
 
+  ! &      diag%t_2m_s6avg(nproma,nblks_c)
+    cf_desc    = t_cf_var('t_2m_s6avg', 'K ','temperature in 2m')
+    grib2_desc = t_grib2_var(0, 0, 0, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 't_2m_s6avg', diag%t_2m_s6avg,                             &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
+ !               &  lmiss=.true.,     missval=0._wp                      )
+
   ! &      diag%qv_2m(nproma,nblks_c)
     cf_desc    = t_cf_var('qv_2m', 'kg kg-1 ','specific water vapor content in 2m')
     grib2_desc = t_grib2_var(0, 1, 0, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'qv_2m', diag%qv_2m,                             &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
+!                &  lmiss=.true.,     missval=0._wp                      )
+
+  ! &      diag%qv_2m_s6avg(nproma,nblks_c)
+    cf_desc    = t_cf_var('qv_2m_s6avg', 'kg kg-1 ','specific water vapor content in 2m')
+    grib2_desc = t_grib2_var(0, 1, 0, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'qv_2m_s6avg', diag%qv_2m_s6avg,                             &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
 !                &  lmiss=.true.,     missval=0._wp                      )
 
@@ -851,10 +885,24 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
 !                &  lmiss=.true.,     missval=0._wp                      )
 
+  ! &      diag%u_10m_s6avg(nproma,nblks_c)
+    cf_desc    = t_cf_var('u_10m_s6avg', ' ','zonal wind in 10m')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'u_10m_s6avg', diag%u_10m_s6avg,                             &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
+!                &  lmiss=.true.,     missval=0._wp                      )
+
   ! &      diag%v_10m(nproma,nblks_c)
     cf_desc    = t_cf_var('v_10m', ' ','meridional wind in 10m')
     grib2_desc = t_grib2_var(0, 2, 3, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'v_10m', diag%v_10m,                             &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
+ !               &  lmiss=.true.,     missval=0._wp                      )
+
+  ! &      diag%v_10m_s6avg(nproma,nblks_c)
+    cf_desc    = t_cf_var('v_10m_s6avg', ' ','meridional wind in 10m')
+    grib2_desc = t_grib2_var(0, 2, 3, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'v_10m_s6avg', diag%v_10m_s6avg,                             &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
  !               &  lmiss=.true.,     missval=0._wp                      )
 
@@ -1028,6 +1076,8 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
   diag%snow_con    = 0._wp !!  accumulated convective snow
   diag%tot_prec    = 0._wp !!  accumulated total precipitation
   diag%tot_prec_rate_avg = 0._wp !! total precipitation rate, average from model start
+  diag%con_prec_rate_avg = 0._wp !! conv. precipitation rate, average from model start
+  diag%gsp_prec_rate_avg = 0._wp !! gsp   precipitation rate, average from model start
   diag%cape        = 0._wp !!
   diag%con_gust    = 0._wp !!
   diag%con_udd     = 0._wp !!
@@ -1080,14 +1130,18 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
     diag%tkvh     = 0._wp
     diag%h_ice    = 0._wp
     diag%t_2m     = 0._wp
+    diag%t_2m_s6avg = 0._wp
     diag%qv_2m    = 0._wp
+    diag%qv_2m_s6avg = 0._wp
     diag%td_2m    = 0._wp
     diag%rh_2m    = 0._wp
     diag%u_10m    = 0._wp
     diag%v_10m    = 0._wp
+    diag%u_10m_s6avg = 0._wp
+    diag%v_10m_s6avg = 0._wp
     diag%edr      = 0._wp
  
-    IF(inwp_turb == 2) THEN
+   !IF(inwp_turb == 2) THEN
       diag% ri      = 0._wp 
       diag% mixlen  = 0._wp 
       diag% thvvar  = 0._wp 
@@ -1105,14 +1159,10 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
       diag% kedisp  = 0._wp 
       diag% ocu     = 0._wp 
       diag% ocv     = 0._wp 
-    ENDIF
-
+   !ENDIF
 
     CALL message('mo_nwp_phy_state:construct_nwp_phy_diag', &
                  'construction of NWP physical fields finished')  
-
-
-
 
 END SUBROUTINE new_nwp_phy_diag_list
 

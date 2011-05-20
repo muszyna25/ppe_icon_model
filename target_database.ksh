@@ -103,6 +103,9 @@ case ${target} in
     hpc | hpc_noomp)
        configureoption="--with-fortran=sun-noomp"
         ;;
+    hpc_sun_debug)
+       configureoption="--with-fortran=sun-debug --without-mpi"
+        ;;
     hpc_serial )
         configureoption="--with-fortran=sun --without-mpi"
         ;;

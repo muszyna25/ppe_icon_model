@@ -130,6 +130,7 @@ MODULE mo_nonhydro_state
     &  pres(:,:,:),         & ! pressure (nproma,nlev,nblks_c)                  [Pa]
     &  pres_ifc(:,:,:),     & ! pressure at interfaces (nproma,nlevp1,nblks_c)  [Pa]
     &  pres_sfc(:,:),       & ! diagnosed surface pressure (nproma,nblks_c)     [Pa]
+    &  pres_sfc_s6avg(:,:), & ! 6 hourly sample  surface pressure average       [Pa]
     &  dpres_mc(:,:,:),     & ! pressure thickness at masspoints(nproma,nlevp,nblks_c)  [Pa]
     &  hfl_tracer(:,:,:,:), & ! horizontal tracer flux at edges             [kg/m/s]
                               ! (nproma,nlev,nblks_e,ntracer)
@@ -824,7 +825,6 @@ MODULE mo_nonhydro_state
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
                 & ldims=shape3d_c )
 
-
     ! vt           p_diag%vt(nproma,nlev,nblks_e)
     !
     cf_desc    = t_cf_var('tangential_wind', 'm s-1', 'tangential-component of wind')
@@ -925,6 +925,12 @@ MODULE mo_nonhydro_state
     CALL add_var( p_diag_list, 'pres_sfc', p_diag%pres_sfc,                     &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
+    ! pres_sfc_s6avg     p_diag%pres_sfc_s6avg(nproma,nblks_c)
+    !
+    cf_desc    = t_cf_var('surface_pressure', 'Pa', 'surface pressure')
+    grib2_desc = t_grib2_var(0, 3, 0, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_diag_list, 'pres_sfc_s6avg', p_diag%pres_sfc_s6avg,                     &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
     ! temp         p_diag%temp(nproma,nlev,nblks_c)
     !
@@ -1088,7 +1094,6 @@ MODULE mo_nonhydro_state
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
                   & ldims=shape3d_chalf )
 
-
       ! grf_tend_rho   p_diag%grf_tend_rho(nproma,nlev,nblks_c)
       !
       cf_desc    = t_cf_var('density_tendency', 'kg m-3 s-1',                   &
@@ -1097,7 +1102,6 @@ MODULE mo_nonhydro_state
       CALL add_var( p_diag_list, 'grf_tend_rho', p_diag%grf_tend_rho,           &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
                   & ldims=shape3d_c )
-
 
       ! grf_tend_thv   p_diag%grf_tend_thv(nproma,nlev,nblks_c)
       !

@@ -891,6 +891,7 @@ src/atm_phy_nwp/mo_nh_interface_nwp.f90 -text
 src/atm_phy_nwp/mo_nwp_conv_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_diagnosis.f90 -text
 src/atm_phy_nwp/mo_nwp_gscp_interface.f90 -text
+src/atm_phy_nwp/mo_nwp_gw_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_phy_init.f90 -text
 src/atm_phy_nwp/mo_nwp_phy_state.f90 -text
 src/atm_phy_nwp/mo_nwp_rad_interface.f90 -text

@@ -1174,6 +1174,16 @@ CONTAINS
         &                'kg/m**2/s', 61, 2,&
         &                vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
         &           k_jg)
+        CALL addVar(TimeVar('CON_PREC_RATE_avg',&
+        &                'average convective surface precipitation rate',&
+        &                'kg/m**2/s', 61, 2,&
+        &                vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+        &           k_jg)
+        CALL addVar(TimeVar('GSP_PREC_RATE_avg',&
+        &                'average grid-scale surface precipitation rate',&
+        &                'kg/m**2/s', 61, 2,&
+        &                vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+        &           k_jg)
       CASE (iecham,ildf_echam)
         !--- aprl ---
         CALL addVar(TimeVar('APRL',&
@@ -1379,7 +1389,51 @@ CONTAINS
         &                   'kg/m*2/s', 121, 201,& !999 ==  WMO here
         &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
         &                   k_jg)
-
+        CALL addVar(TimeVar('PS_s6avg',&
+        &                   '6 hourly sample surface pressure average',&
+        &                   'Pa', 134, 128,&
+        &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+        &           k_jg)
+        CALL addVar(TimeVar('T_2m',&
+        &                   '2 m Temperature',&
+        &                   'K', 134, 128,&
+        &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+        &           k_jg)
+        CALL addVar(TimeVar('T_2m_s6avg',&
+        &                   '6 hourly sample 2 m Temperature average',&
+        &                   'K', 134, 128,&
+        &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+        &           k_jg)
+        CALL addVar(TimeVar('QV_2m',&
+        &                   '2 m specific humidity ',&
+        &                   'Kg/kg', 134, 128,&
+        &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+        &           k_jg)
+        CALL addVar(TimeVar('QV_2m_s6avg',&
+        &                   '6 hourly sample 2 m specific humidity average',&
+        &                   'Kg/kg', 134, 128,&
+        &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+        &           k_jg)
+        CALL addVar(TimeVar('U_10m',&
+        &                   '10 m zonal wind',&
+        &                   'K', 134, 128,&
+        &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+        &           k_jg)
+        CALL addVar(TimeVar('V_10m',&
+        &                   '10 m meridional wind',&
+        &                   'K', 134, 128,&
+        &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+        &           k_jg)
+        CALL addVar(TimeVar('U_10m_s6avg',&
+        &                   '6 hourly sample 10 m zonal wind average',&
+        &                   'K', 134, 128,&
+        &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+        &           k_jg)
+        CALL addVar(TimeVar('V_10m_s6avg',&
+        &                   '6 hourly sample 10 m meridional wind average',&
+        &                   'K', 134, 128,&
+        &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+        &           k_jg)
       END SELECT
     ENDIF !lwrite_surface
 
@@ -2457,11 +2511,20 @@ CONTAINS
 
     SELECT CASE(varname)
       CASE ('PS');              ptr2 => p_diag%pres_sfc
+      CASE ('PS_s6avg');        ptr2 => p_diag%pres_sfc_s6avg
       CASE ('T');               ptr3 => p_diag%temp
+      CASE ('T_2m' );           ptr2 => prm_diag(jg)%t_2m
+      CASE ('T_2m_s6avg' );     ptr2 => prm_diag(jg)%t_2m_s6avg
+      CASE ('QV_2m' );           ptr2 => prm_diag(jg)%qv_2m
+      CASE ('QV_2m_s6avg' );     ptr2 => prm_diag(jg)%qv_2m_s6avg
       CASE ('normal_velocity'); ptr3 => p_prog%vn
       CASE ('U');               ptr3 => p_diag%u
       CASE ('V');               ptr3 => p_diag%v
       CASE ('W');               ptr3 => p_prog%w
+      CASE ('U_10m');           ptr2 => prm_diag(jg)%u_10m
+      CASE ('V_10m');           ptr2 => prm_diag(jg)%v_10m
+      CASE ('U_10m_s6avg');     ptr2 => prm_diag(jg)%u_10m_s6avg
+      CASE ('V_10m_s6avg');     ptr2 => prm_diag(jg)%v_10m_s6avg
       CASE ('P');               ptr3 => p_diag%pres
       CASE ('QV');              ptr3 => prm_diag(jg)%tot_cld(:,:,:,iqv)
       CASE ('QC');              ptr3 => prm_diag(jg)%tot_cld(:,:,:,iqc)
@@ -2485,6 +2548,8 @@ CONTAINS
       CASE ('SNOW_CON');        ptr2 => prm_diag(jg)%snow_con(:,:)
       CASE ('TOT_PREC');        ptr2 => prm_diag(jg)%tot_prec(:,:)
       CASE ('TOT_PREC_RATE_avg'); ptr2 => prm_diag(jg)%tot_prec_rate_avg(:,:)
+      CASE ('CON_PREC_RATE_avg'); ptr2 => prm_diag(jg)%con_prec_rate_avg(:,:)
+      CASE ('GSP_PREC_RATE_avg'); ptr2 => prm_diag(jg)%gsp_prec_rate_avg(:,:)
       CASE ('cosmu0');          ptr2 => prm_diag(jg)%cosmu0(:,:)
       CASE ('flxdwswtoa');      ptr2 => prm_diag(jg)%flxdwswtoa(:,:)
       CASE ('swflxsfc');        ptr2 => prm_diag(jg)%swflxsfc(:,:)

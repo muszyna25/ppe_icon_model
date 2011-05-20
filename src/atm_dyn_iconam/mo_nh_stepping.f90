@@ -885,6 +885,14 @@ MODULE mo_nh_stepping
       ! (called at the advective time step) for thermodynamical and tracer variables
 
 
+      ! PR: The update of sim_time is moved to the beginning of the time step. 
+      !  Then it has the updated value when it is passed to the physics interface subroutine
+      !  Daniel, you have to adjust the advection experiments to it.
+      !  I should discuss again with Thorsten if it is OK for the radiation
+      !
+      ! counter for simulation time in seconds
+      sim_time(jg) = sim_time(jg) + dt_loc
+
       IF (itime_scheme == 1) THEN
         !------------------
         ! Pure advection
@@ -989,7 +997,7 @@ MODULE mo_nh_stepping
             &                   lredgrid_phys(jg),               & !in
             &                   nstep_global,                    & !in
             &                   tcall_phy(jg,:),                 & !in
-            &                   sim_time(jg),                    & !in
+            &                   sim_time(jg),                    & !in 
             &                   p_patch(jg)  ,                   & !in
             &                   p_int_state(jg),                 & !in
             &                   p_nh_state(jg)%metrics ,         & !in
@@ -1156,7 +1164,7 @@ MODULE mo_nh_stepping
             &                   lredgrid_phys(jg),               & !in
             &                   nstep_global,                    & !in
             &                   t_elapsed_phy(jg,:),             & !in
-            &                   sim_time(jg),                    & !in
+            &                   sim_time(jg),                    & !in  
             &                   p_patch(jg)  ,                   & !in
             &                   p_int_state(jg),                 & !in
             &                   p_nh_state(jg)%metrics ,         & !in
@@ -1184,9 +1192,6 @@ MODULE mo_nh_stepping
         ENDIF
 
       ENDIF  ! itime_scheme
-
-      ! counter for simulation time in seconds
-      sim_time(jg) = sim_time(jg) + dt_loc
 
       ! If there are nested domains...
       IF (l_nest_rcf .AND. lstep_adv(jg))  THEN
