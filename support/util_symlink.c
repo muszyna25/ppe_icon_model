@@ -1,5 +1,15 @@
+#define _POSIX_C_SOURCE 200112L 
+
+#include "config.h"
+
 #include <errno.h>
+
+#include <sys/types.h>
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#elif HAVE_SYS_UNISTD_H
+#include <sys/unistd.h>
+#endif
 
 int util_islink(char *path)
 {

@@ -13,7 +13,6 @@
 #include <sys/unistd.h>
 #endif
 
-#include <sys/types.h>
 #include <sys/utsname.h>
 
 #ifdef _AIX
@@ -115,7 +114,7 @@ void util_node_name(char *name, int *actual_len)
     }
 
   /* if FQDN is returned remove domainname */
-  if ((fqdn = index(name,'.')) != NULL) 
+  if ((fqdn = strchr(name,'.')) != NULL) 
     {
       *fqdn = '\0';
     }

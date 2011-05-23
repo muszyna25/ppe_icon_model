@@ -89,46 +89,45 @@ MODULE mo_io_units
   INTEGER, PARAMETER :: nin   = 5     ! standard input
   INTEGER, PARAMETER :: nout  = 6     ! standard output
 
-  INTEGER, PARAMETER :: nan   = -1    ! unit given back, when nothing
-                                      ! in the allowed range is available
+  INTEGER, PARAMETER, PRIVATE :: none = -1  ! unit given back, when nothing 
+                                            ! in the allowed range is available
 
   INTEGER :: nnml_output ! unit of the ASCII output that contains the
                          ! namelist variables and their actual values.
 !-------------------------------------------------------------------------
 
 CONTAINS
-
+  !
   FUNCTION find_next_free_unit(istart,istop) RESULT(iunit)
     INTEGER :: iunit
     INTEGER, INTENT(in) :: istart, istop
+    !
     INTEGER :: kstart, kstop
-    LOGICAL :: found, opened
+    LOGICAL :: lfound, lopened
     INTEGER :: i
-    CHARACTER(len=32) :: info
-
-    found = .FALSE.
+    ! 
+    lfound = .FALSE.
+    !
     kstart = istart
     kstop  = istop
     IF (kstart < 10) kstart = 10
     IF (kstop <= kstart) kstop = kstart+10
+    !
     DO i = kstart, kstop
-      INQUIRE(unit=i, opened=opened)
-      IF (.NOT. opened) THEN
+      INQUIRE(unit=i, opened=lopened)
+      IF (.NOT. lopened) THEN
         iunit = i
-        found = .TRUE.
+        lfound = .TRUE.
         EXIT
       END IF
     END DO
-
-    IF (.NOT. found) THEN
-      WRITE(info,'(a,i0,a,i0,a)') &
-           'No unit in range <', kstart, ':', kstop, '> free.'
-      WRITE(nerr,'(a,a,a)') 'find_next_free_unit', ': ',TRIM(info)
-      iunit = nan
+    !  
+    IF (.NOT. lfound) THEN
+      iunit = none
     END IF
-
+    !   
   END FUNCTION find_next_free_unit
-
+  !
 END MODULE mo_io_units
 
 
