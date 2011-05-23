@@ -101,7 +101,7 @@ USE mo_exception,            ONLY: message,finish
 USE mo_err_norm,             ONLY: t_errors, err_norm
 USE mo_io_vlist,             ONLY: de_reshape1
 USE mo_vertical_coord_table, ONLY: init_vertical_coord_table
-USE mo_ha_stepping,          ONLY: prepare_ha_integration
+USE mo_ha_stepping,          ONLY: prepare_ha_dyn, initcond_ha_dyn
 USE mo_interpol_nml,         ONLY: interpol_nml_setup
 USE mo_intp_state,           ONLY: construct_2d_interpol_state
 USE mo_interpolation,        ONLY: t_int_state
@@ -269,7 +269,8 @@ CALL grid_nml_setup             !reads namelist group grid_ctl
 
     CALL construct_ext_data (p_patch, ext_data)
 
-    CALL prepare_ha_integration(p_patch, p_int_state, p_grf_state, p_hydro_state)
+    CALL prepare_ha_dyn(p_patch)
+    CALL initcond_ha_dyn(p_patch, p_int_state, p_grf_state, p_hydro_state)
 
 
 CALL close_nml

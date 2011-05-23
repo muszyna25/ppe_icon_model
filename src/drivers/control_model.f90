@@ -717,8 +717,8 @@ PROGRAM control_model
     !   specified initial conditions if this is an initial run. 
 
     IF (lrestart) THEN
-      call finish('control model, lrestart' ,'check read_restart_files first')
       CALL read_restart_files
+      call message('control model:' ,'normal exit from read_restart_files')
     ELSE
       CALL initcond_ha_dyn( p_patch(1:), p_int_state(1:), p_grf_state(1:), p_hydro_state )
       IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
