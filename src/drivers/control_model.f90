@@ -125,8 +125,9 @@ PROGRAM control_model
      &                              dt_diag,              & !    :
      &                              dt_restart,           & !
      &                              lprepare_output         ! internal parameter
-  USE mo_run_nml,             ONLY: run_nml_setup,            & ! process run control parameters
-     &                              ini_datetime,         & !    namelist parameter
+  USE mo_run_nml,             ONLY: run_nml_setup,        & ! process run control parameters
+     &                              lrestart,             & ! namelist parameter 
+     &                              ini_datetime,         & !    : 
      &                              dtime,                & !    :
      &                              i_cell_type,          & !    :
      &                              ltransport,           & !    :
@@ -213,7 +214,7 @@ PROGRAM control_model
   !
   USE mo_echam_phy_memory,    ONLY: destruct_echam_phy_state
   USE mo_echam_phy_setup,     ONLY: setup_echam_phy
-  USE mo_echam_phy_init,      ONLY: init_echam_phy
+  USE mo_echam_phy_init,      ONLY: prepare_echam_phy, initcond_echam_phy
   USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
   USE mo_gmt_output,          ONLY: setup_gmt_output
   USE mo_nwp_phy_state,       ONLY: construct_nwp_phy_state,   &
@@ -226,11 +227,11 @@ PROGRAM control_model
 !!$  USE mo_mpiom_phy_state,     ONLY: construct_mpiom_phy_state, &
 !!$    &                               destruct_mpiom_phy_state
 
-  USE mo_impl_constants,      ONLY: success
+  USE mo_impl_constants,      ONLY: success, MAX_CHAR_LENGTH
 
   ! Time integration
   !
-  USE mo_ha_stepping,         ONLY: prepare_ha_integration, perform_ha_stepping
+  USE mo_ha_stepping,         ONLY: prepare_ha_dyn, initcond_ha_dyn, perform_ha_stepping
   USE mo_nh_stepping,         ONLY: prepare_nh_integration, perform_nh_stepping
 
   USE mo_ext_data,            ONLY: ext_data, init_ext_data, destruct_ext_data
@@ -247,7 +248,18 @@ PROGRAM control_model
 
   USE mo_oce_forcing,         ONLY: t_ho_sfc_flx
   USE mo_oce_physics,         ONLY: t_ho_params, t_ho_physics
+
+  USE mo_io_restart,          ONLY: read_restart_info_file, read_restart_files
+
   IMPLICIT NONE
+
+  ! For a restart run: name of the grid files retrieved from the master file
+  ! "restart.info". Scalar for now. Should be an array of shape (n_dom) later
+
+  CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
+
+  !
+  LOGICAL :: lsuccess
 
   ! Ad-hoc declaration for the hydrostatic ocean state variables.
   ! This declaration and the declarations for the atmospheric model states, see
@@ -320,12 +332,25 @@ PROGRAM control_model
   ! as well as the selected test case.
 
   CALL run_nml_setup
-  !
-  !
+ 
+  ! Once we know that this is going to be a restart run, read the file
+  ! "restart.info" (the master file in ASCII format) to find out
+  ! which NetCDF files the model should read in order to retrieve 
+  ! all necessary information to continue the simulation as if there 
+  ! had not been any interruption.
+
+  IF (lrestart) THEN
+    CALL read_restart_info_file(grid_file_name, lsuccess) ! out, out
+    IF (.NOT. lsuccess) CALL finish('','Failed to read restart.info')
+    IF (lsuccess) write(0,*) trim(grid_file_name)
+  END IF
+
+  !-------------------------------------------------------------------
+  ! Read namelists for the ocean model
+  !-------------------------------------------------------------------
   IF (locean) THEN
      CALL setup_ocean_nml
   END IF
-  
 
   !-------------------------------------------------------------------
   ! Initialize basic timers for "total", "div", "grad" and "gmres"
@@ -672,23 +697,42 @@ PROGRAM control_model
   CALL init_output_files(jfile)
 
 
-  ! Prepare time integration
+  ! Prepare for time integration
   !
   SELECT CASE (iequations)
-    !
+  !-------------------------------------------------
   CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
-    CALL prepare_ha_integration(p_patch(1:), p_int_state(1:), p_grf_state(1:), p_hydro_state)
-    IF (iforcing==iecham)     CALL init_echam_phy( p_patch(1:),p_hydro_state )
-    IF (iforcing==ildf_echam) CALL init_echam_phy( p_patch(1:),p_hydro_state )
-    !Comment: init_echam_phy needs to be called after the initialization of dynamics states is done
-    !
+
+    ! Initialize parameters and solvers; 
+    ! Allocate memory for model state vectors.
+
+    CALL prepare_ha_dyn( p_patch(1:) )
+    IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
+      CALL prepare_echam_phy( p_patch(1:) )
+    END IF
+
+    ! Set initial condition for time integration:
+    ! - read model state from restart file(s) if this is a resumed run;
+    ! - compute initial condition for test cases, or read externally 
+    !   specified initial conditions if this is an initial run. 
+
+    IF (lrestart) THEN
+      call finish('control model, lrestart' ,'check read_restart_files first')
+      CALL read_restart_files
+    ELSE
+      CALL initcond_ha_dyn( p_patch(1:), p_int_state(1:), p_grf_state(1:), p_hydro_state )
+      IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
+        CALL initcond_echam_phy( p_patch(1:),p_hydro_state )
+      END IF
+    END IF
+
+  !--------------------
   CASE (inh_atmosphere)
     CALL prepare_nh_integration(p_patch(1:), p_nh_state, p_int_state(1:), p_grf_state(1:))
     !
   CASE (ihs_ocean)
     CALL prepare_ho_integration(p_patch(1:), p_hyoce_state, p_sfc_flx, p_phys_param, p_physics_oce)
 
-    !
   CASE DEFAULT
     !
   END SELECT

@@ -83,7 +83,7 @@ MODULE mo_echam_phy_init
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC  :: init_echam_phy
+  PUBLIC  :: prepare_echam_phy, initcond_echam_phy
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -96,10 +96,9 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Hui Wan, MPI-M (2010-07)
   !!
-  SUBROUTINE init_echam_phy( p_patch, p_hydro_state )
+  SUBROUTINE prepare_echam_phy( p_patch )
 
-    TYPE(t_patch)      ,INTENT(IN) :: p_patch(:)
-    TYPE(t_hydro_atm),INTENT(IN) :: p_hydro_state(:)
+    TYPE(t_patch),INTENT(IN) :: p_patch(:)
     INTEGER :: khydromet, ktrac
 
     !-------------------------------------------------------------------
@@ -155,21 +154,19 @@ CONTAINS
     IF (lcond) THEN
       CALL init_cloud_tables
       CALL sucloud( nlev, vct        &
-!!$        &         , lmidatm=.FALSE.  &
+!!$     &         , lmidatm=.FALSE.  &
         &         , lcouple=.FALSE.  &
         &         , lipcc=.FALSE.    &
-!!$        &         , lham=.FALSE.     &
+!!$     &         , lham=.FALSE.     &
         &         )
     END IF
 
     !-------------------------------------------------------------------
-    ! Allocate memory for the state vectors "prm_field" and "prm_tend";
-    ! Give intial values to some of their components.
+    ! Allocate memory for the state vectors "prm_field" and "prm_tend"
     !-------------------------------------------------------------------
     CALL construct_echam_phy_state( p_patch )
-    CALL init_phy_memory( p_patch, p_hydro_state )
 
-  END SUBROUTINE init_echam_phy
+  END SUBROUTINE prepare_echam_phy
   !-------------
   !>
   !! Loop over all grid levels and give proper values to some components
@@ -179,9 +176,9 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Hui Wan, MPI-M (2010-07)
   !!
-  SUBROUTINE init_phy_memory( p_patch, p_hydro_state )
+  SUBROUTINE initcond_echam_phy( p_patch, p_hydro_state )
 
-    TYPE(t_patch)      ,INTENT(IN) :: p_patch(:)
+    TYPE(t_patch)    ,INTENT(IN) :: p_patch(:)
     TYPE(t_hydro_atm),INTENT(IN) :: p_hydro_state(:)
 
     ! local variables and pointers
@@ -417,7 +414,7 @@ CONTAINS
       NULLIFY( field,tend )
     ENDDO !domain loop
 
-  END SUBROUTINE init_phy_memory
+  END SUBROUTINE initcond_echam_phy
   !-------------
 
 END MODULE mo_echam_phy_init

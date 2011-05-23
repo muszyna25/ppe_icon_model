@@ -53,7 +53,7 @@ MODULE mo_ha_stepping
                                   & l_restarttime
   USE mo_run_nml,             ONLY: lshallow_water, nsteps, dtime,ltheta_dyn,   &
                                   & ldynamics, ltransport, msg_level, ltimer,   &
-                                  & i_cell_type
+                                  & i_cell_type, ltestcase
   USE mo_hydro_testcases,     ONLY: init_testcase
   USE mo_si_correction,       ONLY: init_si_params
   USE mo_ha_rungekutta,       ONLY: init_RungeKutta
@@ -79,31 +79,36 @@ MODULE mo_ha_stepping
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: prepare_ha_integration , perform_ha_stepping
+  PUBLIC :: prepare_ha_dyn, initcond_ha_dyn
+  PUBLIC :: perform_ha_stepping
 
 CONTAINS
 
   !>
-  !! Initialisation of the hydrostatic state and initial conditions.
   !!
-  !! @par Revision History
-  !! Initial release by Almut Gassmann (2008-03-04)
-  !! Sequence of the executable blocks changed by Hui Wan (2010-02-12)
-  !!
-  SUBROUTINE prepare_ha_integration (p_patch, p_int_state, p_grf_state, p_hydro_state)
+  SUBROUTINE prepare_ha_dyn( p_patch )
 
-    TYPE(t_patch),      TARGET,INTENT(INout)  :: p_patch(n_dom)
-    TYPE(t_int_state),  TARGET,INTENT(IN)     :: p_int_state(n_dom)
-    TYPE(t_gridref_state), TARGET, INTENT(IN) :: p_grf_state(n_dom)
-    TYPE(t_hydro_atm),TARGET,INTENT(INOUT)  :: p_hydro_state(n_dom)
+    TYPE(t_patch),TARGET,INTENT(IN) :: p_patch(n_dom)
+    INTEGER :: nadd, ntl
 
-    INTEGER :: nadd, ntl, jg, istep, jn, jgc
+    !-----------------------------------
+    ! Set up scheme-specific constants
+    !-----------------------------------
+    SELECT CASE (itime_scheme)
+
+    CASE (LEAPFROG_SI)
+      CALL init_si_params
+
+    CASE (RK4,SSPRK54)
+      CALL init_RungeKutta(itime_scheme)
+    END SELECT
 
     !-------------------------------------------------------------
     ! Allocate memory for the state vector of the dynamical core
     !-------------------------------------------------------------
     ! In case of grid refinement, an extra "time level" is added
     ! for computing boundary tendencies and feedback increments
+
     IF (n_dom > 1) THEN
       nadd = 1
     ELSE
@@ -120,11 +125,23 @@ CONTAINS
 
     CALL construct_icoham_dyn_state( ntl, p_patch )
 
+  END SUBROUTINE prepare_ha_dyn
+  !-------------
+  !>
+  !!
+  SUBROUTINE initcond_ha_dyn( p_patch, p_int_state, p_grf_state, p_hydro_state )
+
+    TYPE(t_patch),        TARGET,INTENT(INout) :: p_patch(n_dom)
+    TYPE(t_int_state),    TARGET,INTENT(IN)    :: p_int_state(n_dom)
+    TYPE(t_gridref_state),TARGET,INTENT(IN)    :: p_grf_state(n_dom)
+    TYPE(t_hydro_atm),    TARGET,INTENT(INOUT) :: p_hydro_state(n_dom)
+
+    INTEGER :: jg, istep, jn, jgc
+
     !--------------------------------------------------
     ! Assign initial condition to prognostic variables
     !--------------------------------------------------
-
-    CALL init_testcase( p_patch, p_hydro_state, p_int_state)
+    IF (ltestcase) CALL init_testcase( p_patch, p_hydro_state, p_int_state)
 
     ! Convert temperature to potential temperature if the latter is
     ! chosen as a prognostic variable.
@@ -169,7 +186,6 @@ CONTAINS
                                     p_hydro_state(jgc)%diag_out,  &
                                     p_int_state,p_grf_state,jg,jgc)
      ENDDO
-
    ENDDO
 
    !--------------------------------------------------------------
@@ -183,23 +199,8 @@ CONTAINS
    istep = 0
    CALL supervise_total_integrals( istep, p_patch, p_hydro_state, nnow )
 
-   !-----------------------------------
-   ! Set up scheme-specific constants
-   !-----------------------------------
-   SELECT CASE (itime_scheme)
-
-   CASE (LEAPFROG_SI)
-     CALL init_si_params
-
-   CASE (RK4,SSPRK54)
-     CALL init_RungeKutta(itime_scheme)
-   END SELECT
-
-   CALL message('hydro_atmos', 'Initialization done')
-
-  END SUBROUTINE prepare_ha_integration
+  END SUBROUTINE initcond_ha_dyn
   !--------
-
   !>
   !! Organizes the hydrostatic model time stepping.
   !!
