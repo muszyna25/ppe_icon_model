@@ -62,7 +62,7 @@ MODULE mo_output
   USE mo_io_restart,          ONLY: set_restart_time, set_restart_vct,         &
                                   & init_restart, open_writing_restart_files,  &
                                   & write_restart, close_writing_restart_files,&
-                                  & cleanup_restart
+                                  & finish_restart
 
 
   IMPLICIT NONE
@@ -310,7 +310,7 @@ CONTAINS
     CALL open_writing_restart_files( TRIM(string) )
     CALL write_restart
     CALL close_writing_restart_files
-    CALL cleanup_restart
+    CALL finish_restart
     
   END SUBROUTINE create_restart_file
 

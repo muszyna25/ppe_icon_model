@@ -71,6 +71,7 @@ MODULE mo_ha_stepping
   USE mo_sync,                ONLY: global_max
   USE mo_vertical_coord_table,ONLY: vct
   USE mo_grid_nml,            ONLY: nroot
+  USE mo_io_restart,          ONLY: write_restart_info_file
 
   IMPLICIT NONE
 
@@ -346,6 +347,13 @@ CONTAINS
                                 & p_patch(jg)%n_patch_edges_g,  &
                                 & i_cell_type                   )
       END DO
+
+      ! Create the master (meta) file in ASCII format which contains
+      ! info about which files should be read in for a restart run.
+      ! What we have here at the moment is not a proper handling of 
+      ! multiple domains, but rather a temporary implementation, just for testing.
+
+      CALL write_restart_info_file
     END IF
 
     !--------------------------------------------------------------------------

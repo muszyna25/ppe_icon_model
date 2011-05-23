@@ -10,6 +10,7 @@ MODULE mo_io_restart
   USE mo_util_sysinfo,  ONLY: util_user_name, util_os_system, util_node_name 
   USE mo_util_symlink,  ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_util_hash,     ONLY: util_hashword
+  USE mo_io_units,      ONLY: find_next_free_unit, filename_max
 #ifndef NOMPI
   USE mo_mpi,           ONLY: p_parallel_io
 #endif
@@ -25,7 +26,19 @@ MODULE mo_io_restart
   PUBLIC :: write_restart
   PUBLIC :: close_writing_restart_files
   PUBLIC :: read_restart_files
-  PUBLIC :: cleanup_restart
+  PUBLIC :: finish_restart
+  PUBLIC :: write_restart_info_file
+  PUBLIC :: read_restart_info_file
+  !
+  TYPE t_restart_files
+    CHARACTER(len=64) :: functionality
+    CHARACTER(len=64) :: filename
+    CHARACTER(len=64) :: linkname
+  END type t_restart_files
+  INTEGER, PARAMETER :: max_restart_files = 257
+  INTEGER, SAVE :: nrestart_files = 0 
+  TYPE(t_restart_files), ALLOCATABLE :: restart_files(:)
+  !
   !
   TYPE t_gl_att
     CHARACTER(len=64) :: name
@@ -34,7 +47,7 @@ MODULE mo_io_restart
   !
   INTEGER, PARAMETER :: max_gl_atts = 128
   INTEGER, SAVE :: nglob_atts = 0 
-  TYPE(t_gl_att), POINTER :: global_restart_attributes(:) => NULL()
+  TYPE(t_gl_att), ALLOCATABLE :: global_restart_attributes(:)
   !
   TYPE t_h_grid
     INTEGER :: type
@@ -73,9 +86,18 @@ MODULE mo_io_restart
   INTEGER :: private_ne  = -1
   INTEGER :: private_nev = -1
   !
+  CHARACTER(len=12), PARAMETER :: restart_info_file = 'restart.info'
+  !
 #ifdef NOMPI
   LOGICAL :: p_parallel_io = .TRUE.
 #endif
+  !
+  INTERFACE reorder
+    MODULE PROCEDURE reorder_foreward_2d
+    MODULE PROCEDURE reorder_foreward_3d
+    MODULE PROCEDURE reorder_backward_2d
+    MODULE PROCEDURE reorder_backward_3d
+  END INTERFACE reorder
   !
   INTERFACE gather_cells
     MODULE PROCEDURE gather_cells_2d
@@ -92,8 +114,99 @@ MODULE mo_io_restart
     MODULE PROCEDURE gather_vertices_3d
   END INTERFACE gather_vertices
   !
+  INTERFACE scatter_cells
+    MODULE PROCEDURE scatter_cells_2d
+    MODULE PROCEDURE scatter_cells_3d
+  END INTERFACE scatter_cells
+  !
+  INTERFACE scatter_edges
+    MODULE PROCEDURE scatter_edges_2d
+    MODULE PROCEDURE scatter_edges_3d
+  END INTERFACE scatter_edges
+  !
+  INTERFACE scatter_vertices
+    MODULE PROCEDURE scatter_vertices_2d
+    MODULE PROCEDURE scatter_vertices_3d
+  END INTERFACE scatter_vertices
+  !
   !------------------------------------------------------------------------------------------------
 CONTAINS
+  !------------------------------------------------------------------------------------------------
+  !
+  SUBROUTINE set_restart_filenames(functionality, filename)
+    CHARACTER(len=*), INTENT(in) :: functionality
+    CHARACTER(len=*), INTENT(in) :: filename
+    IF (.NOT. ALLOCATED(restart_files)) THEN
+      ALLOCATE(restart_files(max_restart_files))
+    ENDIF
+    nrestart_files = nrestart_files+1
+    IF (nrestart_files > max_restart_files) THEN
+      CALL finish('set_restart_filenames','too many restart filenames')
+    ELSE
+      restart_files(nrestart_files)%functionality = functionality
+      restart_files(nrestart_files)%filename      = filename
+      ! need to get the links target name
+    ENDIF    
+  END SUBROUTINE set_restart_filenames
+  !
+  SUBROUTINE get_restart_filenames()
+  END SUBROUTINE get_restart_filenames
+  !
+  SUBROUTINE write_restart_info_file
+    INTEGER :: nrf
+    nrf = find_next_free_unit(10,100)
+    OPEN(nrf,file=restart_info_file)
+    WRITE(nrf, '(a,a)')                &
+         'gridspec: grid_D01_atm.nc', &
+         ' ! here should be the physical filename including path'
+    CLOSE(nrf)
+    CALL message('',restart_info_file//' written')
+  END SUBROUTINE write_restart_info_file
+  !
+  SUBROUTINE read_restart_info_file(gridspecfile, status)
+    LOGICAL,          INTENT(out) :: status
+    CHARACTER(len=*), INTENT(out) :: gridspecfile
+    !
+    LOGICAL :: lexist
+    INTEGER :: delimiter, comment
+    INTEGER :: nrf, ios
+    CHARACTER(len=256) :: iomsg, functionality
+    CHARACTER(len=filename_max) :: buffer, line
+    !
+    CALL message('',restart_info_file//' to be read')
+    status = .FALSE. ! initially
+    gridspecfile = ''
+    !
+    INQUIRE(FILE=restart_info_file,exist=lexist)
+    IF (.NOT. lexist) THEN
+      CALL finish('read_restart_info_file',restart_info_file//' is missing')
+    ENDIF
+    !
+    nrf = find_next_free_unit(10,100)
+    ! just to be pedantic: status='old'
+    OPEN(nrf,file=restart_info_file,STATUS='OLD')
+    for_all_lines: DO
+      READ(nrf, '(a)', IOSTAT=ios, IOMSG=iomsg) buffer
+      IF (ios < 0) THEN
+        EXIT ! information missing 
+      ELSE IF (ios > 0) THEN
+        CALL finish('read_restart_info_file',restart_info_file//' read error '//TRIM(iomsg))
+      END IF
+      line = ADJUSTL(buffer)
+      delimiter = INDEX(line,':')
+      IF (delimiter == 0) CYCLE
+      functionality = TRIM(line(1:delimiter))
+      IF (functionality(1:8) == 'gridspec') THEN
+        comment = INDEX(line,'!')
+        gridspecfile = TRIM(ADJUSTL(line(delimiter+1:comment-1)))
+        status = .TRUE.
+        EXIT
+      ENDIF
+    ENDDO for_all_lines
+    CLOSE(nrf)
+    !
+  END SUBROUTINE read_restart_info_file
+  !
   !------------------------------------------------------------------------------------------------
   !
   ! YYYYMMDDThhmmssZ (T is a separator and Z means UTC as timezone)
@@ -118,7 +231,7 @@ CONTAINS
   SUBROUTINE set_restart_attribute(attribute_name, attribute_value)
     CHARACTER(len=*), INTENT(in) :: attribute_name
     CHARACTER(len=*), INTENT(in) :: attribute_value
-    IF (.NOT. ASSOCIATED(global_restart_attributes)) THEN
+    IF (.NOT. ALLOCATED(global_restart_attributes)) THEN
       ALLOCATE(global_restart_attributes(max_gl_atts))
     ENDIF
     nglob_atts = nglob_atts+1
@@ -594,7 +707,7 @@ CONTAINS
     ! opened to false
     !
     CHARACTER(len=80) :: linkname
-    INTEGER :: i, iret, fileID
+    INTEGER :: i, j, iret, fileID, vlistID
     !
     CALL message('',separator)
     CALL message('','')
@@ -611,8 +724,14 @@ CONTAINS
           !
           fileID = var_lists(i)%p%cdiFileID
           !
-          CALL streamClose(var_lists(i)%p%cdiFileID)
-          CALL vlistDestroy(var_lists(i)%p%cdiVlistID)
+          IF (fileID /= CDI_UNDEFID) THEN
+            CALL streamClose(var_lists(i)%p%cdiFileID)
+            DO j = 1, nvar_lists
+              IF (fileID == var_lists(j)%p%cdiFileID) THEN
+                var_lists(j)%p%cdiFileID = CDI_UNDEFID
+              ENDIF
+            ENDDO
+          ENDIF
           !
           linkname = 'restart_'//TRIM(var_lists(i)%p%model_type)//'.nc'
           IF (util_islink(TRIM(linkname))) THEN
@@ -628,12 +747,23 @@ CONTAINS
         var_lists(i)%p%filename   = ''
       ENDIF
     ENDDO close_all_lists
+    !
+    for_all_vlists: DO i = 1, nvar_lists
+      vlistID = var_lists(i)%p%cdiVlistID
+      IF (vlistID /= CDI_UNDEFID) THEN
+        CALL vlistDestroy(var_lists(i)%p%cdiVlistID)
+        DO j = 1, nvar_lists
+          IF (vlistID == var_lists(j)%p%cdiVlistID) THEN
+            var_lists(j)%p%cdiVlistID = CDI_UNDEFID
+          ENDIF
+        ENDDO
+      ENDIF
+    ENDDO for_all_vlists
     CALL message('','')
     !
     ! reset all var list properties related to cdi files
     !
     reset_all_lists: DO i = 1, nvar_lists
-      var_lists(i)%p%cdiFileID = -1
       var_lists(i)%p%opened = .FALSE.
       var_lists(i)%p%first  = .FALSE.
     ENDDO reset_all_lists
@@ -857,22 +987,23 @@ CONTAINS
     !
     INTEGER :: fileID                       ! File ID
     INTEGER :: varID                        ! Variable ID
+    INTEGER :: nmiss = 0
     !
     fileID  = this_list%p%cdiFileID
     varID   = info%cdiVarID
     !
-    CALL streamWriteVar(fileID, varID, array, 0)
+    CALL streamWriteVar(fileID, varID, array, nmiss)
     !
   END SUBROUTINE write_var
   !------------------------------------------------------------------------------------------------
   !
   ! deallocate module variables
   !
-  SUBROUTINE cleanup_restart
+  SUBROUTINE finish_restart
 
     INTEGER :: i
 
-    DO i = 1, nvar_lists    
+    for_all_var_lists: DO i = 1, nvar_lists    
       IF (var_lists(i)%p%cdiFileID >= 0) THEN
         CALL gridDestroy(var_lists(i)%p%cdiCellGridID)
         CALL gridDestroy(var_lists(i)%p%cdiVertGridID)
@@ -891,18 +1022,20 @@ CONTAINS
         var_lists(i)%p%cdiTaxisID     = CDI_UNDEFID
         var_lists(i)%p%cdiTimeIndex   = CDI_UNDEFID
       ENDIF
-    ENDDO
+    ENDDO for_all_var_lists
     !
     DEALLOCATE(private_vct)
     lvct_initialised = .FALSE.
     !
+    DEALLOCATE(global_restart_attributes)
     nglob_atts = 0
+    !
     nh_grids   = 0
     nv_grids   = 0
     nt_axis    = 0
     lrestart_initialised = .FALSE.
     !
-  END SUBROUTINE cleanup_restart
+  END SUBROUTINE finish_restart
   !------------------------------------------------------------------------------------------------
   !
   SUBROUTINE gather_cells_2d(in_array, out_array, name)
@@ -912,7 +1045,7 @@ CONTAINS
     REAL(wp), POINTER :: z1d(:)
     z1d => out_array(:,1,1,1,1)
 #ifdef NOMPI
-    CALL reorder_2d(in_array, z1d)
+    CALL reorder(in_array, z1d)
 #endif
   END SUBROUTINE gather_cells_2d
   !
@@ -923,7 +1056,7 @@ CONTAINS
     REAL(wp), POINTER :: z2d(:,:)
     z2d => out_array(:,:,1,1,1)
 #ifdef NOMPI
-    CALL reorder_3d(in_array, z2d)
+    CALL reorder(in_array, z2d)
 #endif
   END SUBROUTINE gather_cells_3d
   !
@@ -934,7 +1067,7 @@ CONTAINS
     REAL(wp), POINTER :: z1d(:)
     z1d => out_array(:,1,1,1,1)
 #ifdef NOMPI
-    CALL reorder_2d(in_array, z1d)
+    CALL reorder(in_array, z1d)
 #endif
   END SUBROUTINE gather_vertices_2d
   !
@@ -945,7 +1078,7 @@ CONTAINS
     REAL(wp), POINTER :: z2d(:,:)
     z2d => out_array(:,:,1,1,1)
 #ifdef NOMPI
-    CALL reorder_3d(in_array, z2d)
+    CALL reorder(in_array, z2d)
 #endif
   END SUBROUTINE gather_vertices_3d
   !
@@ -956,7 +1089,7 @@ CONTAINS
     REAL(wp), POINTER :: z1d(:)
     z1d => out_array(:,1,1,1,1)
 #ifdef NOMPI
-    CALL reorder_2d(in_array, z1d)
+    CALL reorder(in_array, z1d)
 #endif
   END SUBROUTINE gather_edges_2d
   !
@@ -967,11 +1100,79 @@ CONTAINS
     REAL(wp), POINTER :: z2d(:,:)
     z2d => out_array(:,:,1,1,1)
 #ifdef NOMPI
-    CALL reorder_3d(in_array, z2d)
+    CALL reorder(in_array, z2d)
 #endif
   END SUBROUTINE gather_edges_3d
+  !------------------------------------------------------------------------------------------------
   !
-  SUBROUTINE reorder_2d(in, out)
+  SUBROUTINE scatter_cells_2d(in_array, out_array, name)
+    REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
+    REAL(wp), POINTER                      :: out_array(:,:)
+    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
+    REAL(wp), POINTER :: z1d(:)
+    z1d => in_array(:,1,1,1,1)
+#ifdef NOMPI
+    CALL reorder(z1d, out_array)
+#endif
+  END SUBROUTINE scatter_cells_2d
+  !
+  SUBROUTINE scatter_cells_3d(in_array, out_array, name)
+    REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
+    REAL(wp), POINTER                      :: out_array(:,:,:)
+    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
+    REAL(wp), POINTER :: z2d(:,:)
+    z2d => in_array(:,:,1,1,1)
+#ifdef NOMPI
+    CALL reorder(z2d, out_array)
+#endif
+  END SUBROUTINE scatter_cells_3d
+  !
+  SUBROUTINE scatter_vertices_2d(in_array, out_array, name)
+    REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
+    REAL(wp), POINTER                      :: out_array(:,:)
+    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
+    REAL(wp), POINTER :: z1d(:)
+    z1d => in_array(:,1,1,1,1)
+#ifdef NOMPI
+    CALL reorder(z1d, out_array)
+#endif
+  END SUBROUTINE scatter_vertices_2d
+  !
+  SUBROUTINE scatter_vertices_3d(in_array, out_array, name)
+    REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
+    REAL(wp), POINTER                      :: out_array(:,:,:)
+    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
+    REAL(wp), POINTER :: z2d(:,:)
+    z2d => in_array(:,:,1,1,1)
+#ifdef NOMPI
+    CALL reorder(z2d, out_array)
+#endif
+  END SUBROUTINE scatter_vertices_3d
+  !
+  SUBROUTINE scatter_edges_2d(in_array, out_array, name)
+    REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
+    REAL(wp), POINTER                      :: out_array(:,:)
+    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
+    REAL(wp), POINTER :: z1d(:)
+    z1d => in_array(:,1,1,1,1)
+#ifdef NOMPI
+    CALL reorder(z1d, out_array)
+#endif
+  END SUBROUTINE scatter_edges_2d
+  !
+  SUBROUTINE scatter_edges_3d(in_array, out_array, name)
+    REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
+    REAL(wp), POINTER                      :: out_array(:,:,:)
+    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
+    REAL(wp), POINTER :: z2d(:,:)
+    z2d => in_array(:,:,1,1,1)
+#ifdef NOMPI
+    CALL reorder(z2d, out_array)
+#endif
+  END SUBROUTINE scatter_edges_3d
+  !------------------------------------------------------------------------------------------------
+  !
+  SUBROUTINE reorder_backward_2d(in, out)
     REAL(wp), INTENT(in)    :: in(:,:)
     REAL(wp), INTENT(inout) :: out(:)
     !
@@ -982,7 +1183,7 @@ CONTAINS
     isize_in  = SIZE(in)
     isize_out = SIZE(out)
     idiscrep = isize_in-isize_out
-
+    !
     IF(idiscrep == 0 )THEN
       out = RESHAPE(in,(/ isize_out /))
     ELSE
@@ -992,10 +1193,10 @@ CONTAINS
       out = PACK(RESHAPE(in,(/isize_in/)),lmask)
       DEALLOCATE (lmask)
     ENDIF
-
-  END SUBROUTINE reorder_2d
+    !
+  END SUBROUTINE reorder_backward_2d
   !
-  SUBROUTINE reorder_3d(in, out)
+  SUBROUTINE reorder_backward_3d(in, out)
     REAL(wp), INTENT(in)    :: in(:,:,:)
     REAL(wp), INTENT(inout) :: out(:,:)
     !
@@ -1026,14 +1227,80 @@ CONTAINS
       DEALLOCATE (lmask)
     ENDIF
     !
-  END SUBROUTINE reorder_3d
+  END SUBROUTINE reorder_backward_3d
+  !
+  SUBROUTINE reorder_foreward_2d(in, out)
+    REAL(wp), INTENT(in)    :: in(:)
+    REAL(wp), INTENT(inout) :: out(:,:)
+    !
+    REAL(wp), ALLOCATABLE :: rpad(:)
+    INTEGER :: isize_nproma, isize_nblks
+    INTEGER :: isize_in, isize_out
+    INTEGER :: idiscrep
+    !
+    isize_in = SIZE(in)
+    isize_out = SIZE(out)
+    idiscrep = isize_out-isize_in
+    !
+    isize_nproma = SIZE(out,1)
+    isize_nblks = SIZE(out,2)
+    !
+    IF (idiscrep == 0) THEN
+      out = RESHAPE(in,(/isize_nproma,isize_nblks/))
+    ELSE
+      ALLOCATE(rpad(idiscrep))
+      rpad = 0.0_wp
+      out = RESHAPE(in,(/isize_nproma,isize_nblks/),rpad)
+      DEALLOCATE(rpad)
+    ENDIF
+    !
+  END SUBROUTINE reorder_foreward_2d
+  !
+  SUBROUTINE reorder_foreward_3d(in, out)
+    REAL(wp), INTENT(in)    :: in(:,:)
+    REAL(wp), INTENT(inout) :: out(:,:,:)
+    !
+    !
+    REAL(wp), ALLOCATABLE :: rpad(:)
+    INTEGER :: isize_nproma, isize_nblks
+    INTEGER :: isize_in, isize_out, isize_lev
+    INTEGER :: idiscrep, k
+    !
+    isize_in = SIZE(in,1)
+    isize_out = SIZE(out,1)*SIZE(out,3)
+    isize_lev = SIZE(in,2)
+    idiscrep = isize_out-isize_in
+    !
+    isize_nproma = SIZE(out,1)
+    isize_nblks = SIZE(out,3)
+    !
+    IF (idiscrep /= 0) THEN
+      ALLOCATE(rpad(idiscrep))
+      rpad = 0.0_wp
+    ENDIF
+    !
+    DO k = 1, isize_lev
+      IF (idiscrep == 0) THEN
+        out(:,k,:) = RESHAPE(in(:,k),(/isize_nproma,isize_nblks/))
+      ELSE
+        out(:,k,:) = RESHAPE(in(:,k),(/isize_nproma,isize_nblks/), rpad)
+      ENDIF
+    ENDDO
+    !
+    IF (idiscrep /= 0) THEN
+      DEALLOCATE(rpad)
+    ENDIF
+    !
+  END SUBROUTINE reorder_foreward_3d
+  !------------------------------------------------------------------------------------------------
   !
   SUBROUTINE read_restart_files
     !
     CHARACTER(len=80) :: restart_filename, name
     !
-    INTEGER :: fileID, vlistID, taxisID, varID
+    INTEGER :: fileID, vlistID, gridID, zaxisID, taxisID, varID
     INTEGER :: idate, itime
+    INTEGER :: ic, il
     !
     TYPE model_search
       CHARACTER(len=8) :: abbreviation
@@ -1042,8 +1309,16 @@ CONTAINS
     TYPE(model_search) :: abbreviations(nvar_lists)
     !
     TYPE (t_list_element), POINTER :: element
+    TYPE (t_var_metadata), POINTER :: info
+    !
     CHARACTER(len=8) :: model_type
-    INTEGER :: n, nfiles, i, iret, key
+    INTEGER :: n, nfiles, i, iret, istat, key, vgrid
+    INTEGER :: gdims(5), nindex, nmiss
+    !
+    REAL(wp), POINTER :: z5d(:,:,:,:,:)
+    !
+    REAL(wp), POINTER :: ptr2d(:,:)
+    REAL(wp), POINTER :: ptr3d(:,:,:)
     !
     abbreviations(1:nvar_lists)%key = 0
     n = 1
@@ -1089,7 +1364,76 @@ CONTAINS
           IF (var_lists(i)%p%model_type == model_type) THEN
             element => find_list_element(var_lists(i), TRIM(name))
             IF (ASSOCIATED(element)) THEN
-              write (0,*) ' ... found ',TRIM(element%field%info%name)
+              !
+              info => element%field%info
+              !
+              ! allocate temporary global array on output processor
+              ! and gather field from other processors
+              !
+              !
+              NULLIFY(z5d)
+              !
+              NULLIFY(ptr2d)
+              NULLIFY(ptr3d)
+              !
+              gridID = vlistInqVarGrid(vlistID, varID)
+              ic = gridInqSize(gridID)
+              zaxisID = vlistInqVarZaxis(vlistID, varID)
+              vgrid = zaxisInqType(zaxisID)
+              IF (vgrid == ZAXIS_HYBRID .OR. vgrid == ZAXIS_HYBRID_HALF) THEN
+                il = zaxisInqSize(zaxisID)
+              ELSE
+                il = 1
+              ENDIF
+              !
+              gdims(:) = (/ ic, il, 1, 1, 1 /)
+              ALLOCATE(z5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)),STAT=istat)
+              IF (istat /= 0) THEN
+                CALL finish('','allocation of z5d failed ...')
+              ENDIF
+              !
+              CALL streamReadVar(fileID, varID, z5d, nmiss)
+              !
+              IF (info%lcontained) THEN
+                nindex = info%ncontained
+              ELSE
+                nindex = 1  
+              ENDIF
+              !
+              SELECT CASE (info%hgrid)
+              CASE (GRID_UNSTRUCTURED_CELL)
+                IF (info%ndims == 2) THEN
+                  ptr2d => element%field%r_ptr(:,:,nindex,1,1) 
+                  CALL scatter_cells(z5d, ptr2d, info%name)
+                ELSE
+                  ptr3d => element%field%r_ptr(:,:,:,nindex,1) 
+                  CALL scatter_cells(z5d, ptr3d, info%name)
+                ENDIF
+              CASE (GRID_UNSTRUCTURED_VERT)
+                IF (info%ndims == 2) THEN
+                  ptr2d => element%field%r_ptr(:,:,nindex,1,1) 
+                  CALL scatter_vertices(z5d, ptr2d, info%name)
+                ELSE
+                  ptr3d => element%field%r_ptr(:,:,:,nindex,1) 
+                  CALL scatter_vertices(z5d, ptr3d, info%name)
+                ENDIF
+              CASE (GRID_UNSTRUCTURED_EDGE)
+                IF (info%ndims == 2) THEN
+                  ptr2d => element%field%r_ptr(:,:,nindex,1,1) 
+                  CALL scatter_edges(z5d, ptr2d, info%name)
+                ELSE
+                  ptr3d => element%field%r_ptr(:,:,:,nindex,1) 
+                  CALL scatter_edges(z5d, ptr3d, info%name)
+                ENDIF
+              CASE default
+                CALL finish('out_stream','unknown grid type')
+              END SELECT
+              !
+              ! deallocate temporary global arrays
+              !
+              IF (ASSOCIATED (z5d)) DEALLOCATE (z5d)
+              !
+              write (0,*) ' ... read ',TRIM(element%field%info%name)
               CYCLE for_all_vars
             ENDIF
           ENDIF
