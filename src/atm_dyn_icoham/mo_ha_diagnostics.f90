@@ -58,29 +58,118 @@ MODULE mo_ha_diagnostics
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-! !MODULE VARIABLE:
+  ! ASCII files that contain the global integrals
 
-! Total mass, energy and tracer at time step n-1. Used in the calculation of
-! the relative errors respect to the previous time step.
+  CHARACTER (len=MAX_CHAR_LENGTH) :: file_ti, file_tti  ! file names
+  INTEGER :: n_file_ti, n_file_tti                      ! I/O units
+
+  ! Total mass, energy and tracer at time step n-1. Used in the calculation of
+  ! the relative errors respect to the previous time step.
 
   REAL(wp) :: total_mass_old, total_energy_old
   REAL(wp), ALLOCATABLE :: total_tracer_old(:)
 
-! Total mass, energy and tracer at time step 1. Used in the calculation of
-! the relative errors respect to time step 1.
+  ! Total mass, energy and tracer at time step 1. Used in the calculation of
+  ! the relative errors respect to time step 1.
 
   REAL(wp) :: total_mass_ini, total_energy_ini
   REAL(wp), ALLOCATABLE :: total_tracer_ini(:)
 
+  PUBLIC :: init_total_integrals
   PUBLIC :: supervise_total_integrals
 
   CONTAINS
 
-!-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
+  !>
+  !! Initialization subroutine for global integrals:
+  !! opens ascii output file; allocates memory.
+  !!
+  !! @Revision History
+  !! Separated from subroutine supervise_total_integrals by Hui Wan (MPI-M, 2011-05-24)
+  !! when implementing the restart functionality.
+  !!
+  SUBROUTINE init_total_integrals
 
-!-------------------------------------------------------------------------
-!
-!
+    INTEGER :: ist
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: thisroutine = "init_total_integrals"
+
+    IF (.NOT.lshallow_water) THEN
+      !---------------------------------------------------------
+      ! Open file and allocate memory for total mass and energy
+      
+      file_ti   = 'total_integrals.dat'
+      n_file_ti = find_next_free_unit(10,20)
+      
+      OPEN(UNIT=n_file_ti,FILE=TRIM(file_ti),FORM='FORMATTED',IOSTAT=ist)
+      IF (ist/=SUCCESS) THEN
+        CALL finish( TRIM(thisroutine),'could not create data file' )
+      ENDIF
+      
+      WRITE (n_file_ti,'(A22,A22,6A40)') &
+           ' TIMESTEP            ,',&
+           ' ELAPSED TIME    (hr),',&
+           ' TOTAL MASS      (kg),',&
+           ' RELATIVE ERROR to step N-1 (MASS)',&
+           ' RELATIVE ERROR to step 1 (MASS)',&
+           ' TOTAL ENERGY     (J),',&
+           ' RELATIVE ERROR to step N-1 (ENERGY)',&
+           ' RELATIVE ERROR to step 1 (ENERGY)'
+
+      !---------------------------------------------------------
+      ! Open file and allocate memory for tracer diagnostics
+      
+      IF (ntracer > 0) THEN
+
+         ALLOCATE(total_tracer_old(ntracer), STAT=ist)
+         IF(ist/=SUCCESS)THEN
+           CALL finish ( TRIM(thisroutine), 'allocation of total_tracer_old failed')
+         ENDIF
+         ALLOCATE(total_tracer_ini(ntracer), STAT=ist)
+         IF(ist/=SUCCESS)THEN
+           CALL finish ( TRIM(thisroutine), 'allocation of total_tracer_ini failed')
+         ENDIF
+
+         file_tti   = 'tracer_total_integrals.dat'
+         n_file_tti = find_next_free_unit(10,20)
+
+         OPEN(UNIT=n_file_tti,FILE=TRIM(file_tti),FORM='FORMATTED',IOSTAT=ist)
+         IF (ist/=SUCCESS) THEN
+           CALL finish( TRIM(thisroutine),'could not open data file for tracers')
+         ENDIF
+         WRITE (n_file_tti,'(A22,A22,A22,3A40)') &
+              ' TIMESTEP            ,',&
+              ' ELAPSED TIME    (hr),',&
+              ' TRACER NR        (#),',&
+              ' TOTAL TRACER   (kg),',&
+              ' RELATIVE ERROR to step N-1(TRACER)',&
+              ' RELATIVE ERROR to step 1 (TRACER)'
+
+      ENDIF ! ntracer > 0
+
+   !=====================
+   ! Shallow water model
+   !=====================   
+   ELSE
+
+      file_ti   = 'total_integrals.dat'
+      n_file_ti = find_next_free_unit(10,20)
+      OPEN(UNIT=n_file_ti,FILE=TRIM(file_ti),FORM='FORMATTED',IOSTAT=ist)
+      IF (ist/=SUCCESS) THEN
+        CALL finish( TRIM(thisroutine),'could not open datafile')
+      ENDIF
+      WRITE (n_file_ti,'(A24,A24,A24,A24,A24,A24)') &
+           ' TIMESTEP              ,',&
+           ' ELAPSED TIME      (hr),',&
+           ' TOTAL MASS       (m^3),',&
+           ' TOTAL ENERGY (m^5/s^2),',&
+           ' TOT. CIRCULAT. (m^2/s),',&
+           ' TOT. ENSTROPHY (m/s^2),'
+
+    ENDIF ! .NOT.lshallow_water
+        
+  END SUBROUTINE init_total_integrals
+  !-------------
   !>
   !! This routine computes and prints the total mass and energy.
   !!
@@ -103,12 +192,13 @@ MODULE mo_ha_diagnostics
   !! Modification by Almut Gassmann, MPI-M (2010-06-01)
   !! - Compute enstrophy and circulation based on the dual grid philosophy.
   !!   Dual grid means rhombi for hexagon model and hexagons for triangular model.
-
+  !! Modification by Hui Wan, MPI-M (2011-05-24)
+  !! - Moved the initialization part into a separate subroutine.
+  !!
   SUBROUTINE supervise_total_integrals (k_step,p_patch,p_hydro_state,ntimlev)
 
-
   INTEGER,                   INTENT(in)  :: k_step          ! actual time step
-  TYPE(t_patch), TARGET,       INTENT(IN)  :: p_patch(n_dom)  ! Patch
+  TYPE(t_patch), TARGET,     INTENT(IN)  :: p_patch(n_dom)  ! Patch
   TYPE(t_hydro_atm), TARGET, INTENT(in)  :: p_hydro_state(n_dom) ! State
   INTEGER,                   INTENT(in)  :: ntimlev(n_dom)  ! time level
 
@@ -118,92 +208,42 @@ MODULE mo_ha_diagnostics
   INTEGER  :: jg, jb, jc, jk, jt, jx, & ! loop counters
        &      nlen,                   & ! array shapes
        &      npromz_c, nblks_c,      & ! array shapes
-       &      npromz_v, nblks_v,      & ! array shapes
-       &      istat,                  & ! status variable
-       &      ist                       ! status variable
-  INTEGER, SAVE :: n_file_ti, n_file_tti ! file identifier
-  CHARACTER (len=MAX_CHAR_LENGTH) :: file_ti, file_tti
+       &      npromz_v, nblks_v         ! array shapes
+  
   REAL (wp):: z_total_mass, z_total_energy, z_elapsed_time, z_help, &
               z_total_circulation, z_total_enstrophy
   REAL (wp):: z_total_tracer(ntracer)
   REAL (wp):: z_mass(nproma,p_patch(1)%nblks_c)
   REAL (wp):: z_energy(nproma,p_patch(1)%nblks_c)
   REAL (wp):: z_aux_tracer(nproma,p_patch(1)%nblks_c,ntracer)
+  
   REAL (wp), ALLOCATABLE :: z_circulation(:,:), z_enstrophy(:,:)
-  REAL (wp), DIMENSION(:,:), POINTER :: ptr_cori, ptr_area
+  REAL (wp), POINTER :: ptr_cori(:,:), ptr_area(:,:)
 
-! Relative errors respect to step n-1
+  ! Relative errors respect to step n-1
 
   REAL (wp) :: z_rel_err_mass             ! relative error of total mass
   REAL (wp) :: z_rel_err_energy           ! relative error of total energy
   REAL (wp) :: z_rel_err_tracer(ntracer)  ! relative error of total tracer
 
-! Relative errors respect to step 1
+  ! Relative errors respect to step 1
 
   REAL (wp) :: z_rel_err_mass_s1             ! relative error of total mass
   REAL (wp) :: z_rel_err_energy_s1           ! relative error of total energy
   REAL (wp) :: z_rel_err_tracer_s1(ntracer)  ! relative error of total tracer
-!KF
-  REAL (wp):: z_total_moist
-!-----------------------------------------------------------------------
+  REAL (wp) :: z_total_moist
 
+  !================================================
+  ! Hydrostatic model
+  !================================================
   IF (.NOT. lshallow_water) THEN
 
-
-    ! Open the datafile (mass and energy)
-    IF (k_step == 0) THEN
-
-     IF(p_pe == p_io) THEN
-      file_ti   = 'total_integrals.dat'
-      n_file_ti = find_next_free_unit(10,20)
-      OPEN(UNIT=n_file_ti,FILE=TRIM(file_ti),FORM='FORMATTED',IOSTAT=istat)
-      IF (istat/=SUCCESS) THEN
-        CALL finish('supervise_total_integrals','could not open datafile')
-      ENDIF
-      WRITE (n_file_ti,'(A22,A22,6A40)') &
-           ' TIMESTEP            ,',&
-           ' ELAPSED TIME    (hr),',&
-           ' TOTAL MASS      (kg),',&
-           ' RELATIVE ERROR to step N-1 (MASS)',&
-           ' RELATIVE ERROR to step 1 (MASS)',&
-           ' TOTAL ENERGY     (J),',&
-           ' RELATIVE ERROR to step N-1 (ENERGY)',&
-           ' RELATIVE ERROR to step 1 (ENERGY)'
-
-
-      ! Open the datafile (tracer diagnostic)
-      IF (ntracer > 0) THEN
-
-         ALLOCATE(total_tracer_old(ntracer), STAT=ist)
-         IF(ist/=SUCCESS)THEN
-            CALL finish ('mo_ha_diagnostics:supervise_total_integrals', &
-                 'allocation of total_tracer_old failed')
-         ENDIF
-         ALLOCATE(total_tracer_ini(ntracer), STAT=ist)
-         IF(ist/=SUCCESS)THEN
-            CALL finish ('mo_ha_diagnostics:supervise_total_integrals', &
-                 'allocation of total_tracer_ini failed')
-         ENDIF
-
-         file_tti   = 'tracer_total_integrals.dat'
-         n_file_tti = find_next_free_unit(10,20)
-         OPEN(UNIT=n_file_tti,FILE=TRIM(file_tti),FORM='FORMATTED',IOSTAT=istat)
-         IF (istat/=SUCCESS) THEN
-           CALL finish('supervise_total_integrals','could not open datafile')
-         ENDIF
-         WRITE (n_file_tti,'(A22,A22,A22,3A40)') &
-              ' TIMESTEP            ,',&
-              ' ELAPSED TIME    (hr),',&
-              ' TRACER NR        (#),',&
-              ' TOTAL TRACER   (kg),',&
-              ' RELATIVE ERROR to step N-1(TRACER)',&
-              ' RELATIVE ERROR to step 1 (TRACER)'
-      ENDIF
-     ENDIF ! p_pe == p_io
-
-    ELSE
-
       z_elapsed_time = dtime*REAL(k_step,wp)/3600.0_wp
+      
+      !---------------------------
+      ! Total air mass and energy
+      !---------------------------
+      
       z_total_mass   = 0.0_wp
       z_total_energy = 0.0_wp
       z_mass(:,:)    = 0.0_wp
@@ -267,6 +307,9 @@ MODULE mo_ha_diagnostics
 !$OMP END DO
 #endif
 
+      !---------------------------
+      ! Total mass of tracers
+      !---------------------------
       IF (ntracer >0) THEN
 
         DO jt=1, ntracer
@@ -336,13 +379,14 @@ MODULE mo_ha_diagnostics
           total_tracer_ini(:) = z_total_tracer(:)
         ENDIF
 
-
       ELSE
         z_rel_err_mass     = z_total_mass/total_mass_old - 1._wp
         z_rel_err_energy   = z_total_energy/total_energy_old - 1._wp
         z_rel_err_mass_s1  = z_total_mass/total_mass_ini - 1._wp
         z_rel_err_energy_s1= z_total_energy/total_energy_ini - 1._wp
+
         IF (ntracer > 0) THEN
+        
           DO jt=1, ntracer
             IF(total_tracer_old(jt) == 0._wp) THEN
               z_rel_err_tracer(jt) = 0._wp
@@ -360,8 +404,8 @@ MODULE mo_ha_diagnostics
             ENDIF
           ENDDO
 
-        ENDIF
-      ENDIF
+        ENDIF ! ntracer > 0
+      ENDIF ! p_pe == p_io
 
       ! save the total integrals for the next step
       total_mass_old = z_total_mass
@@ -394,31 +438,13 @@ MODULE mo_ha_diagnostics
           DEALLOCATE(total_tracer_old)
         ENDIF
       ENDIF
+ 
      ENDIF ! p_pe == p_io
 
-    ENDIF !write only for kstep>0
-
-  ELSE ! lshallow_water
-
-    ! Open the datafile
-    IF (k_step == 0) THEN
-     IF(p_pe == p_io) THEN
-      file_ti   = 'total_integrals.dat'
-      n_file_ti = find_next_free_unit(10,20)
-      OPEN(UNIT=n_file_ti,FILE=TRIM(file_ti),FORM='FORMATTED',IOSTAT=istat)
-      IF (istat/=SUCCESS) THEN
-        CALL finish('supervise_total_integrals','could not open datafile')
-      ENDIF
-      WRITE (n_file_ti,'(A24,A24,A24,A24,A24,A24)') &
-           ' TIMESTEP              ,',&
-           ' ELAPSED TIME      (hr),',&
-           ' TOTAL MASS       (m^3),',&
-           ' TOTAL ENERGY (m^5/s^2),',&
-           ' TOT. CIRCULAT. (m^2/s),',&
-           ' TOT. ENSTROPHY (m/s^2),'
-     ENDIF ! p_pe == p_io
-
-    ELSE
+  !=====================================================
+  ! Shallow water model model (lshallow_water = .TRUE.)
+  !=====================================================
+  ELSE
 
       z_elapsed_time = dtime*REAL(k_step,wp)/3600.0_wp
       z_total_mass   = 0.0_wp
@@ -493,11 +519,10 @@ MODULE mo_ha_diagnostics
         ENDIF
       ENDIF ! p_pe == p_io
 
-    ENDIF !write only if kstep>0
+  ENDIF !(.NOT.lshallow_water)
 
-  ENDIF
-
-END SUBROUTINE supervise_total_integrals
+  END SUBROUTINE supervise_total_integrals
+  !-------------
 
 !SUBROUTINE vertical_integral (kstep,p_patch,p_hydro_state,ntimlev)
 

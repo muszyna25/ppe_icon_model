@@ -1,3 +1,5 @@
+#define NOMPI
+
 MODULE mo_io_restart
   !
   USE mo_kind,          ONLY: wp

@@ -57,7 +57,8 @@ MODULE mo_ha_stepping
   USE mo_hydro_testcases,     ONLY: init_testcase
   USE mo_si_correction,       ONLY: init_si_params
   USE mo_ha_rungekutta,       ONLY: init_RungeKutta
-  USE mo_ha_diagnostics,      ONLY: supervise_total_integrals
+  USE mo_ha_diagnostics,      ONLY: supervise_total_integrals, &
+                                  & init_total_integrals
   USE mo_ha_prog_util,        ONLY: copy_prog_state
   USE mo_ha_diag_util,        ONLY: update_diag_state, update_dyn_output
   USE mo_expensive_functions, ONLY: convert_t2theta
@@ -103,6 +104,11 @@ CONTAINS
       CALL init_RungeKutta(itime_scheme)
     END SELECT
 
+    !---------------------------------------------------------------
+    ! Open file and allocate memory for diagnosing global integrals
+    !---------------------------------------------------------------
+    CALL init_total_integrals
+
     !-------------------------------------------------------------
     ! Allocate memory for the state vector of the dynamical core
     !-------------------------------------------------------------
@@ -136,7 +142,7 @@ CONTAINS
     TYPE(t_gridref_state),TARGET,INTENT(IN)    :: p_grf_state(n_dom)
     TYPE(t_hydro_atm),    TARGET,INTENT(INOUT) :: p_hydro_state(n_dom)
 
-    INTEGER :: jg, istep, jn, jgc
+    INTEGER :: jg, jn, jgc
 
     !--------------------------------------------------
     ! Assign initial condition to prognostic variables
@@ -187,17 +193,6 @@ CONTAINS
                                     p_int_state,p_grf_state,jg,jgc)
      ENDDO
    ENDDO
-
-   !--------------------------------------------------------------
-   ! Write out initial conditions and some diagnostic quantities
-   ! Note: netcdf output is done after returning to the calling
-   ! unit, in this case the main program
-   !--------------------------------------------------------------
-   ! Note, Ekin and vorticity are not yet available here. Only mass and
-   ! tracer mass are correctly computed in the following call.
-
-   istep = 0
-   CALL supervise_total_integrals( istep, p_patch, p_hydro_state, nnow )
 
   END SUBROUTINE initcond_ha_dyn
   !--------
