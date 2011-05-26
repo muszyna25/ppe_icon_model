@@ -250,6 +250,7 @@ PROGRAM control_model
   USE mo_oce_physics,         ONLY: t_ho_params, t_ho_physics
 
   USE mo_io_restart,          ONLY: read_restart_info_file, read_restart_files
+  USE mo_io_restart_namelist, ONLY: read_restart_namelists
 
   IMPLICIT NONE
 
@@ -313,7 +314,7 @@ PROGRAM control_model
   CALL message('control_model','start model initialization.')
 
   !-------------------------------------------------------------------
-  ! step 1: Open the namelist file and read most basic namelists.
+  ! step 1: Open the master namelist file and read most basic namelists.
   !-------------------------------------------------------------------
 
   CALL open_nml('NAMELIST_ICON')
@@ -333,17 +334,38 @@ PROGRAM control_model
 
   CALL run_nml_setup
  
-  ! Once we know that this is going to be a restart run, read the file
-  ! "restart.info" (the master file in ASCII format) to find out
-  ! which NetCDF files the model should read in order to retrieve 
-  ! all necessary information to continue the simulation as if there 
-  ! had not been any interruption.
-
+  !-------------------------------------------------------------------
+  ! Read restart master file and the previously used namelist setups 
+  !-------------------------------------------------------------------
   IF (lrestart) THEN
+
+    ! Once we know that this is going to be a restart run, read the file
+    ! "restart.info" (the master file in ASCII format) to find out
+    ! which NetCDF files the model should read in order to retrieve 
+    ! all necessary information to continue the simulation as if there 
+    ! had not been any interruption.
+
     CALL read_restart_info_file(grid_file_name, lsuccess) ! out, out
-    IF (.NOT. lsuccess) CALL finish('','Failed to read restart.info')
-    IF (lsuccess) write(0,*) trim(grid_file_name)
-  END IF
+
+    IF (lsuccess) THEN
+      CALL message( 'running model in restart mode',    &
+                  &'horizontal grid should be read from'&
+                  &//TRIM(grid_file_name) )
+    ELSE
+      CALL finish('','Failed to read restart.info')
+    END IF
+
+    ! Read in all namelists used in the previous run
+    ! and store them in a buffer. These values will overwrite the 
+    ! model default, and will later be overwritten if the user has 
+    ! specified something different for this integraion.
+    ! (Question: should we read the name of the file from restart.info,
+    ! if the namelists are not read from the same file as where
+    ! the state variables are stored?)
+
+    CALL read_restart_namelists('restart_atm.nc')
+    write(*,*) 'read restart.namelist'
+  END IF ! lrestart
 
   !-------------------------------------------------------------------
   ! Read namelists for the ocean model
