@@ -1064,10 +1064,10 @@ src/shared/mo_sync.f90 -text
 src/shared/mo_time_base.f90 -text
 src/shared/mo_timer.f90 -text
 src/shared/mo_util_backtrace.f90 -text
+src/shared/mo_util_file.f90 -text
 src/shared/mo_util_hash.f90 -text
 src/shared/mo_util_postgresql.f90_off -text
 src/shared/mo_util_string.f90 -text
-src/shared/mo_util_symlink.f90 -text
 src/shared/mo_util_sysinfo.f90 -text
 src/shared/mo_util_system.f90_off -text
 src/shared/mo_var_list.f90 -text
@@ -1138,11 +1138,11 @@ support/rtc_sx.s -text
 support/util_backtrace.c -text
 support/util_backtrace.c_luis -text
 support/util_convert.c -text
+support/util_file.c -text
 support/util_hash.c -text
 support/util_pbio.c -text
 support/util_postgresql.c -text
 support/util_reshape.c -text
-support/util_symlink.c -text
 support/util_sysinfo.c -text
 support/util_system.c -text
 support/util_system.c_luis -text

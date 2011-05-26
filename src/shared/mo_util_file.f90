@@ -1,4 +1,4 @@
-MODULE mo_util_symlink
+MODULE mo_util_file
 
   USE, INTRINSIC ::  ISO_C_BINDING, ONLY: C_INT, C_CHAR, C_NULL_CHAR
   
@@ -55,11 +55,48 @@ MODULE mo_util_symlink
       CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: new_filename
     END FUNCTION private_rename
   END INTERFACE
-  
+
+  INTERFACE
+    FUNCTION private_tmpnam_len() RESULT(maxlen) BIND(C,NAME='util_tmpnam_len')
+#ifdef __SX__
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT
+#else
+      IMPORT :: C_INT
+#endif
+      INTEGER(C_INT) :: maxlen
+    END FUNCTION private_tmpnam_len
+  END INTERFACE
+
+  INTERFACE
+    FUNCTION private_tmpnam(filename) RESULT(flen) BIND(C,NAME='util_tmpnam')
+#ifdef __SX__
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_CHAR, C_INT
+#else
+      IMPORT :: C_CHAR, C_INT
+#endif
+      INTEGER(C_INT) :: flen
+      CHARACTER(C_CHAR), DIMENSION(*), INTENT(inout) :: filename
+    END FUNCTION private_tmpnam
+  END INTERFACE
+
+  INTERFACE
+    FUNCTION private_filesize(filename) RESULT(flen) BIND(C,NAME='util_filesize')
+#ifdef __SX__
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
+#else
+      IMPORT :: C_INT, C_CHAR
+#endif
+      INTEGER(C_INT) :: flen
+      CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: filename
+    END FUNCTION private_filesize
+  END INTERFACE
+
   PUBLIC :: util_symlink
   PUBLIC :: util_unlink
   PUBLIC :: util_islink
   PUBLIC :: util_rename
+  PUBLIC :: util_tmpnam
+  PUBLIC :: util_filesize
 
 CONTAINS
 
@@ -92,6 +129,31 @@ CONTAINS
     iret = private_rename(TRIM(old_filename)//C_NULL_CHAR, TRIM(new_filename)//C_NULL_CHAR)
   END FUNCTION util_rename
     
-END MODULE mo_util_symlink
+  FUNCTION util_tmpnam(filename, klen) RESULT(flen)
+    INTEGER :: flen
+    CHARACTER, DIMENSION(*), INTENT(out) :: filename
+    INTEGER,                 INTENT(in)  :: klen
+    !
+    CHARACTER(C_CHAR), ALLOCATABLE :: tf(:)    
+    INTEGER :: maxlen
+    !
+    maxlen = private_tmpnam_len()
+    ALLOCATE(tf(maxlen))
+    flen = private_tmpnam(tf)
+    IF (flen > klen) THEN
+      flen = -1
+    ELSE
+      filename(1:flen) = tf(1:flen)
+    ENDIF
+    DEALLOCATE(tf)
+  END FUNCTION util_tmpnam
+
+  FUNCTION util_filesize(filename) RESULT(flen)
+    INTEGER :: flen
+    CHARACTER(len=*), INTENT(in) :: filename
+    flen = private_filesize(TRIM(filename)//C_NULL_CHAR)
+  END FUNCTION util_filesize
+
+END MODULE mo_util_file
 
 

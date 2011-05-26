@@ -2,25 +2,29 @@
 
 MODULE mo_io_restart
   !
-  USE mo_kind,          ONLY: wp
-  USE mo_exception,     ONLY: finish, message, message_text
-  USE mo_var_metadata,  ONLY: t_var_metadata
-  USE mo_linked_list,   ONLY: t_list_element, find_list_element
-  USE mo_var_list,      ONLY: t_var_list, nvar_lists, var_lists
+  USE mo_kind,                  ONLY: wp
+  USE mo_exception,             ONLY: finish, message, message_text
+  USE mo_var_metadata,          ONLY: t_var_metadata
+  USE mo_linked_list,           ONLY: t_list_element, find_list_element
+  USE mo_var_list,              ONLY: t_var_list, nvar_lists, var_lists
   USE mo_cdi_constants
-  USE mo_util_string,   ONLY: separator
-  USE mo_util_sysinfo,  ONLY: util_user_name, util_os_system, util_node_name 
-  USE mo_util_symlink,  ONLY: util_symlink, util_rename, util_islink, util_unlink
-  USE mo_util_hash,     ONLY: util_hashword
-  USE mo_io_units,      ONLY: find_next_free_unit, filename_max
+  USE mo_util_string,           ONLY: separator
+  USE mo_util_sysinfo,          ONLY: util_user_name, util_os_system, util_node_name 
+  USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
+  USE mo_util_hash,             ONLY: util_hashword
+  USE mo_io_restart_namelist,   ONLY: nmls, restart_namelist   
+  USE mo_io_restart_distribute, ONLY: gather_cells, gather_edges, gather_vertices, &
+       &                              scatter_cells, scatter_edges, scatter_vertices  
+  USE mo_io_units,              ONLY: find_next_free_unit, filename_max
 #ifndef NOMPI
-  USE mo_mpi,           ONLY: p_parallel_io
+  USE mo_mpi,                   ONLY: p_parallel_io
 #endif
   !
   IMPLICIT NONE
   !
   PRIVATE
   !
+  PUBLIC :: set_restart_attribute
   PUBLIC :: set_restart_time
   PUBLIC :: set_restart_vct
   PUBLIC :: init_restart
@@ -41,15 +45,38 @@ MODULE mo_io_restart
   INTEGER, SAVE :: nrestart_files = 0 
   TYPE(t_restart_files), ALLOCATABLE :: restart_files(:)
   !
+  !------------------------------------------------------------------------------------------------
   !
-  TYPE t_gl_att
+  TYPE t_att_text
     CHARACTER(len=64) :: name
     CHARACTER(len=64) :: val
-  END TYPE t_gl_att
+  END TYPE t_att_text
   !
-  INTEGER, PARAMETER :: max_gl_atts = 128
-  INTEGER, SAVE :: nglob_atts = 0 
-  TYPE(t_gl_att), ALLOCATABLE :: global_restart_attributes(:)
+  TYPE t_att_real
+    CHARACTER(len=64) :: name
+    REAL(wp)          :: val
+  END TYPE t_att_real
+  TYPE t_att_int
+    CHARACTER(len=64) :: name
+    INTEGER           :: val
+  END TYPE t_att_int
+  TYPE t_att_bool
+    CHARACTER(len=64) :: name
+    LOGICAL           :: val
+    INTEGER           :: store
+  END TYPE t_att_bool
+  !
+  INTEGER, PARAMETER :: nmax_atts = 256
+  INTEGER, SAVE :: natts_text = 0
+  INTEGER, SAVE :: natts_real = 0 
+  INTEGER, SAVE :: natts_int  = 0 
+  INTEGER, SAVE :: natts_bool = 0 
+  TYPE(t_att_text), ALLOCATABLE :: restart_attributes_text(:)
+  TYPE(t_att_real), ALLOCATABLE :: restart_attributes_real(:)
+  TYPE(t_att_int),  ALLOCATABLE :: restart_attributes_int(:)
+  TYPE(t_att_bool), ALLOCATABLE :: restart_attributes_bool(:)
+  !
+  !------------------------------------------------------------------------------------------------
   !
   TYPE t_h_grid
     INTEGER :: type
@@ -94,42 +121,12 @@ MODULE mo_io_restart
   LOGICAL :: p_parallel_io = .TRUE.
 #endif
   !
-  INTERFACE reorder
-    MODULE PROCEDURE reorder_foreward_2d
-    MODULE PROCEDURE reorder_foreward_3d
-    MODULE PROCEDURE reorder_backward_2d
-    MODULE PROCEDURE reorder_backward_3d
-  END INTERFACE reorder
-  !
-  INTERFACE gather_cells
-    MODULE PROCEDURE gather_cells_2d
-    MODULE PROCEDURE gather_cells_3d
-  END INTERFACE gather_cells
-  !
-  INTERFACE gather_edges
-    MODULE PROCEDURE gather_edges_2d
-    MODULE PROCEDURE gather_edges_3d
-  END INTERFACE gather_edges
-  !
-  INTERFACE gather_vertices
-    MODULE PROCEDURE gather_vertices_2d
-    MODULE PROCEDURE gather_vertices_3d
-  END INTERFACE gather_vertices
-  !
-  INTERFACE scatter_cells
-    MODULE PROCEDURE scatter_cells_2d
-    MODULE PROCEDURE scatter_cells_3d
-  END INTERFACE scatter_cells
-  !
-  INTERFACE scatter_edges
-    MODULE PROCEDURE scatter_edges_2d
-    MODULE PROCEDURE scatter_edges_3d
-  END INTERFACE scatter_edges
-  !
-  INTERFACE scatter_vertices
-    MODULE PROCEDURE scatter_vertices_2d
-    MODULE PROCEDURE scatter_vertices_3d
-  END INTERFACE scatter_vertices
+  INTERFACE set_restart_attribute
+    MODULE PROCEDURE set_restart_attribute_text
+    MODULE PROCEDURE set_restart_attribute_real
+    MODULE PROCEDURE set_restart_attribute_int
+    MODULE PROCEDURE set_restart_attribute_bool
+  END INTERFACE set_restart_attribute
   !
   !------------------------------------------------------------------------------------------------
 CONTAINS
@@ -230,20 +227,71 @@ CONTAINS
   END SUBROUTINE set_restart_vct
   !------------------------------------------------------------------------------------------------
   !
-  SUBROUTINE set_restart_attribute(attribute_name, attribute_value)
+  SUBROUTINE set_restart_attribute_text(attribute_name, attribute_value)
     CHARACTER(len=*), INTENT(in) :: attribute_name
     CHARACTER(len=*), INTENT(in) :: attribute_value
-    IF (.NOT. ALLOCATED(global_restart_attributes)) THEN
-      ALLOCATE(global_restart_attributes(max_gl_atts))
+    IF (.NOT. ALLOCATED(restart_attributes_text)) THEN
+      ALLOCATE(restart_attributes_text(nmax_atts))
     ENDIF
-    nglob_atts = nglob_atts+1
-    IF (nglob_atts > max_gl_atts) THEN
-      CALL finish('set_restart_attributes','too many global attributes for restart file')
+    natts_text = natts_text+1
+    IF (natts_text > nmax_atts) THEN
+      CALL finish('set_restart_attribute_text','too many restart attributes for restart file')
     ELSE
-      global_restart_attributes(nglob_atts)%name = attribute_name
-      global_restart_attributes(nglob_atts)%val = attribute_value
+      restart_attributes_text(natts_text)%name = attribute_name
+      restart_attributes_text(natts_text)%val = attribute_value
     ENDIF    
-  END SUBROUTINE set_restart_attribute
+  END SUBROUTINE set_restart_attribute_text
+  !
+  SUBROUTINE set_restart_attribute_real(attribute_name, attribute_value)
+    CHARACTER(len=*), INTENT(in) :: attribute_name
+    REAL(wp),         INTENT(in) :: attribute_value
+    IF (.NOT. ALLOCATED(restart_attributes_real)) THEN
+      ALLOCATE(restart_attributes_real(nmax_atts))
+    ENDIF
+    natts_real = natts_real+1
+    IF (natts_real > nmax_atts) THEN
+      CALL finish('set_restart_attribute_real','too many restart attributes for restart file')
+    ELSE
+      restart_attributes_real(natts_real)%name = attribute_name
+      restart_attributes_real(natts_real)%val  = attribute_value
+    ENDIF    
+  END SUBROUTINE set_restart_attribute_real
+  !
+  SUBROUTINE set_restart_attribute_int(attribute_name, attribute_value)
+    CHARACTER(len=*), INTENT(in) :: attribute_name
+    INTEGER,          INTENT(in) :: attribute_value
+    IF (.NOT. ALLOCATED(restart_attributes_int)) THEN
+      ALLOCATE(restart_attributes_int(nmax_atts))
+    ENDIF
+    natts_int = natts_int+1
+    IF (natts_int > nmax_atts) THEN
+      CALL finish('set_restart_attribute_int','too many restart attributes for restart file')
+    ELSE
+      restart_attributes_int(natts_int)%name = attribute_name
+      restart_attributes_int(natts_int)%val = attribute_value
+    ENDIF    
+  END SUBROUTINE set_restart_attribute_int
+  !
+  SUBROUTINE set_restart_attribute_bool(attribute_name, attribute_value)
+    CHARACTER(len=*), INTENT(in) :: attribute_name
+    LOGICAL,          INTENT(in) :: attribute_value
+    IF (.NOT. ALLOCATED(restart_attributes_bool)) THEN
+      ALLOCATE(restart_attributes_bool(nmax_atts))
+    ENDIF
+    natts_bool = natts_bool+1
+    IF (natts_bool > nmax_atts) THEN
+      CALL finish('set_restart_attribute_bools','too many restart attributes for restart file')
+    ELSE
+      restart_attributes_bool(natts_bool)%name = attribute_name
+      restart_attributes_bool(natts_bool)%val = attribute_value
+      ! for storing follows the C convention: false = 0, true = 1
+      IF (attribute_value) THEN
+        restart_attributes_bool(natts_bool)%store = 1        
+      ELSE
+        restart_attributes_bool(natts_bool)%store = 0        
+      ENDIF
+    ENDIF    
+  END SUBROUTINE set_restart_attribute_bool
   !------------------------------------------------------------------------------------------------
   !
   SUBROUTINE set_horizontal_grid(grid_type, nelements, nvertices)
@@ -454,14 +502,55 @@ CONTAINS
         !
         var_lists(i)%p%cdiTimeIndex = 0
         !
-        ! 2. add global variables
+        ! 2. add global attributes
         !
-        DO ia = 1, nglob_atts
-          status = vlistDefAttTxt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL,       &
-               &                  TRIM(global_restart_attributes(ia)%name),    &
-               &                  LEN_TRIM(global_restart_attributes(ia)%val), &
-               &                  TRIM(global_restart_attributes(ia)%val))
+        ! 2.1 namelists as text attributes 
+        !
+        DO ia = 1, nmls
+          status = vlistDefAttTxt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL, &
+               &                  TRIM(restart_namelist(i)%name),        &
+               &                  LEN_TRIM(restart_namelist(i)%text),    &
+               &                  TRIM(restart_namelist(i)%text))
+        ENDDO
+        !
+        ! 2.2 text attributes
+        !
+        DO ia = 1, natts_text
+          status = vlistDefAttTxt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL,     &
+               &                  TRIM(restart_attributes_text(ia)%name),    &
+               &                  LEN_TRIM(restart_attributes_text(ia)%val), &
+               &                  TRIM(restart_attributes_text(ia)%val))
         END DO
+        !
+        ! 2.3 real attributes
+        !
+        DO ia = 1, natts_real
+          status = vlistDefAttFlt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL,  &
+               &                  TRIM(restart_attributes_real(ia)%name), &
+               &                  DATATYPE_FLT64,                         &
+               &                  1,                                      &
+               &                  restart_attributes_real(ia)%val)
+        ENDDO
+        !
+        ! 2.4 integer attributes
+        !
+        DO ia = 1, natts_int
+          status = vlistDefAttInt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL,  &
+               &                  TRIM(restart_attributes_int(ia)%name),  &
+               &                  DATATYPE_INT32,                         &
+               &                  1,                                      &
+               &                  restart_attributes_int(ia)%val)
+        ENDDO
+        !
+        ! 2.5 logical attributes
+        !
+        DO ia = 1, natts_bool
+          status = vlistDefAttInt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL,  &
+               &                  TRIM(restart_attributes_bool(ia)%name), &
+               &                  DATATYPE_INT32,                         &
+               &                  1,                                      &
+               &                  restart_attributes_bool(ia)%store)
+        ENDDO
         !
         ! 3. add horizontal grid descriptions
         !
@@ -1029,8 +1118,8 @@ CONTAINS
     DEALLOCATE(private_vct)
     lvct_initialised = .FALSE.
     !
-    DEALLOCATE(global_restart_attributes)
-    nglob_atts = 0
+    DEALLOCATE(restart_attributes_text)
+    natts_text = 0
     !
     nh_grids   = 0
     nv_grids   = 0
@@ -1038,262 +1127,6 @@ CONTAINS
     lrestart_initialised = .FALSE.
     !
   END SUBROUTINE finish_restart
-  !------------------------------------------------------------------------------------------------
-  !
-  SUBROUTINE gather_cells_2d(in_array, out_array, name)
-    REAL(wp),                   INTENT(in) :: in_array(:,:)
-    REAL(wp), POINTER                      :: out_array(:,:,:,:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z1d(:)
-    z1d => out_array(:,1,1,1,1)
-#ifdef NOMPI
-    CALL reorder(in_array, z1d)
-#endif
-  END SUBROUTINE gather_cells_2d
-  !
-  SUBROUTINE gather_cells_3d(in_array, out_array, name)
-    REAL(wp),                   INTENT(in) :: in_array(:,:,:)
-    REAL(wp), POINTER                      :: out_array(:,:,:,:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z2d(:,:)
-    z2d => out_array(:,:,1,1,1)
-#ifdef NOMPI
-    CALL reorder(in_array, z2d)
-#endif
-  END SUBROUTINE gather_cells_3d
-  !
-  SUBROUTINE gather_vertices_2d(in_array, out_array, name)
-    REAL(wp),                   INTENT(in) :: in_array(:,:)
-    REAL(wp), POINTER                      :: out_array(:,:,:,:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z1d(:)
-    z1d => out_array(:,1,1,1,1)
-#ifdef NOMPI
-    CALL reorder(in_array, z1d)
-#endif
-  END SUBROUTINE gather_vertices_2d
-  !
-  SUBROUTINE gather_vertices_3d(in_array, out_array, name)
-    REAL(wp),                   INTENT(in) :: in_array(:,:,:)
-    REAL(wp), POINTER                      :: out_array(:,:,:,:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z2d(:,:)
-    z2d => out_array(:,:,1,1,1)
-#ifdef NOMPI
-    CALL reorder(in_array, z2d)
-#endif
-  END SUBROUTINE gather_vertices_3d
-  !
-  SUBROUTINE gather_edges_2d(in_array, out_array, name)
-    REAL(wp),                   INTENT(in) :: in_array(:,:)
-    REAL(wp), POINTER                      :: out_array(:,:,:,:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z1d(:)
-    z1d => out_array(:,1,1,1,1)
-#ifdef NOMPI
-    CALL reorder(in_array, z1d)
-#endif
-  END SUBROUTINE gather_edges_2d
-  !
-  SUBROUTINE gather_edges_3d(in_array, out_array, name)
-    REAL(wp),                   INTENT(in) :: in_array(:,:,:)
-    REAL(wp), POINTER                      :: out_array(:,:,:,:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z2d(:,:)
-    z2d => out_array(:,:,1,1,1)
-#ifdef NOMPI
-    CALL reorder(in_array, z2d)
-#endif
-  END SUBROUTINE gather_edges_3d
-  !------------------------------------------------------------------------------------------------
-  !
-  SUBROUTINE scatter_cells_2d(in_array, out_array, name)
-    REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
-    REAL(wp), POINTER                      :: out_array(:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z1d(:)
-    z1d => in_array(:,1,1,1,1)
-#ifdef NOMPI
-    CALL reorder(z1d, out_array)
-#endif
-  END SUBROUTINE scatter_cells_2d
-  !
-  SUBROUTINE scatter_cells_3d(in_array, out_array, name)
-    REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
-    REAL(wp), POINTER                      :: out_array(:,:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z2d(:,:)
-    z2d => in_array(:,:,1,1,1)
-#ifdef NOMPI
-    CALL reorder(z2d, out_array)
-#endif
-  END SUBROUTINE scatter_cells_3d
-  !
-  SUBROUTINE scatter_vertices_2d(in_array, out_array, name)
-    REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
-    REAL(wp), POINTER                      :: out_array(:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z1d(:)
-    z1d => in_array(:,1,1,1,1)
-#ifdef NOMPI
-    CALL reorder(z1d, out_array)
-#endif
-  END SUBROUTINE scatter_vertices_2d
-  !
-  SUBROUTINE scatter_vertices_3d(in_array, out_array, name)
-    REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
-    REAL(wp), POINTER                      :: out_array(:,:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z2d(:,:)
-    z2d => in_array(:,:,1,1,1)
-#ifdef NOMPI
-    CALL reorder(z2d, out_array)
-#endif
-  END SUBROUTINE scatter_vertices_3d
-  !
-  SUBROUTINE scatter_edges_2d(in_array, out_array, name)
-    REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
-    REAL(wp), POINTER                      :: out_array(:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z1d(:)
-    z1d => in_array(:,1,1,1,1)
-#ifdef NOMPI
-    CALL reorder(z1d, out_array)
-#endif
-  END SUBROUTINE scatter_edges_2d
-  !
-  SUBROUTINE scatter_edges_3d(in_array, out_array, name)
-    REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
-    REAL(wp), POINTER                      :: out_array(:,:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z2d(:,:)
-    z2d => in_array(:,:,1,1,1)
-#ifdef NOMPI
-    CALL reorder(z2d, out_array)
-#endif
-  END SUBROUTINE scatter_edges_3d
-  !------------------------------------------------------------------------------------------------
-  !
-  SUBROUTINE reorder_backward_2d(in, out)
-    REAL(wp), INTENT(in)    :: in(:,:)
-    REAL(wp), INTENT(inout) :: out(:)
-    !
-    LOGICAL, ALLOCATABLE    :: lmask(:)
-    INTEGER ::  isize_in, isize_out
-    INTEGER :: idiscrep
-    !
-    isize_in  = SIZE(in)
-    isize_out = SIZE(out)
-    idiscrep = isize_in-isize_out
-    !
-    IF(idiscrep == 0 )THEN
-      out = RESHAPE(in,(/ isize_out /))
-    ELSE
-      ALLOCATE (lmask(isize_in))
-      lmask(1:isize_out) = .TRUE.
-      lmask(isize_out+1:isize_in) = .FALSE.
-      out = PACK(RESHAPE(in,(/isize_in/)),lmask)
-      DEALLOCATE (lmask)
-    ENDIF
-    !
-  END SUBROUTINE reorder_backward_2d
-  !
-  SUBROUTINE reorder_backward_3d(in, out)
-    REAL(wp), INTENT(in)    :: in(:,:,:)
-    REAL(wp), INTENT(inout) :: out(:,:)
-    !
-    LOGICAL, ALLOCATABLE    :: lmask(:)
-    INTEGER ::isize_in, isize_out, isize_lev
-    INTEGER :: idiscrep, k
-    !
-    isize_in  = SIZE(in,1)*SIZE(in,3)
-    isize_out = SIZE(out,1)
-    isize_lev = SIZE(in,2)
-    idiscrep = isize_in-isize_out
-    !
-    IF (idiscrep /= 0 )THEN
-      ALLOCATE (lmask(isize_in))
-      lmask(1:isize_out) = .TRUE.
-      lmask(isize_out+1:isize_in) = .FALSE.
-    ENDIF
-    !
-    DO k = 1, isize_lev
-      IF (idiscrep /= 0 )THEN
-        out(:,k) = PACK(RESHAPE(in(:,k,:),(/isize_in/)),lmask)
-      ELSE
-        out(:,k) =      RESHAPE(in(:,k,:),(/isize_out/))
-      ENDIF
-    ENDDO
-    !   
-    IF (idiscrep /= 0 )THEN
-      DEALLOCATE (lmask)
-    ENDIF
-    !
-  END SUBROUTINE reorder_backward_3d
-  !
-  SUBROUTINE reorder_foreward_2d(in, out)
-    REAL(wp), INTENT(in)    :: in(:)
-    REAL(wp), INTENT(inout) :: out(:,:)
-    !
-    REAL(wp), ALLOCATABLE :: rpad(:)
-    INTEGER :: isize_nproma, isize_nblks
-    INTEGER :: isize_in, isize_out
-    INTEGER :: idiscrep
-    !
-    isize_in = SIZE(in)
-    isize_out = SIZE(out)
-    idiscrep = isize_out-isize_in
-    !
-    isize_nproma = SIZE(out,1)
-    isize_nblks = SIZE(out,2)
-    !
-    IF (idiscrep == 0) THEN
-      out = RESHAPE(in,(/isize_nproma,isize_nblks/))
-    ELSE
-      ALLOCATE(rpad(idiscrep))
-      rpad = 0.0_wp
-      out = RESHAPE(in,(/isize_nproma,isize_nblks/),rpad)
-      DEALLOCATE(rpad)
-    ENDIF
-    !
-  END SUBROUTINE reorder_foreward_2d
-  !
-  SUBROUTINE reorder_foreward_3d(in, out)
-    REAL(wp), INTENT(in)    :: in(:,:)
-    REAL(wp), INTENT(inout) :: out(:,:,:)
-    !
-    !
-    REAL(wp), ALLOCATABLE :: rpad(:)
-    INTEGER :: isize_nproma, isize_nblks
-    INTEGER :: isize_in, isize_out, isize_lev
-    INTEGER :: idiscrep, k
-    !
-    isize_in = SIZE(in,1)
-    isize_out = SIZE(out,1)*SIZE(out,3)
-    isize_lev = SIZE(in,2)
-    idiscrep = isize_out-isize_in
-    !
-    isize_nproma = SIZE(out,1)
-    isize_nblks = SIZE(out,3)
-    !
-    IF (idiscrep /= 0) THEN
-      ALLOCATE(rpad(idiscrep))
-      rpad = 0.0_wp
-    ENDIF
-    !
-    DO k = 1, isize_lev
-      IF (idiscrep == 0) THEN
-        out(:,k,:) = RESHAPE(in(:,k),(/isize_nproma,isize_nblks/))
-      ELSE
-        out(:,k,:) = RESHAPE(in(:,k),(/isize_nproma,isize_nblks/), rpad)
-      ENDIF
-    ENDDO
-    !
-    IF (idiscrep /= 0) THEN
-      DEALLOCATE(rpad)
-    ENDIF
-    !
-  END SUBROUTINE reorder_foreward_3d
   !------------------------------------------------------------------------------------------------
   !
   SUBROUTINE read_restart_files
