@@ -62,7 +62,7 @@ MODULE mo_output
   USE mo_io_restart,          ONLY: set_restart_time, set_restart_vct,         &
                                   & init_restart, open_writing_restart_files,  &
                                   & write_restart, close_writing_restart_files,&
-                                  & finish_restart
+                                  & finish_restart, set_restart_attribute
 
 
   IMPLICIT NONE
@@ -291,6 +291,13 @@ CONTAINS
 
     !----------------
     ! Initialization
+
+    CALL set_restart_attribute( 'current_year'  , datetime%year   )   
+    CALL set_restart_attribute( 'current_month' , datetime%month  )
+    CALL set_restart_attribute( 'current_day'   , datetime%day    )   
+    CALL set_restart_attribute( 'current_hour'  , datetime%hour   )   
+    CALL set_restart_attribute( 'current_minute', datetime%minute )
+    CALL set_restart_attribute( 'current_second', datetime%second )
 
     CALL set_restart_vct( pvct )  ! Vertical coordinate (A's and B's)
 

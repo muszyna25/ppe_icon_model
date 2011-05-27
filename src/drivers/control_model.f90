@@ -95,7 +95,6 @@ PROGRAM control_model
   USE mo_mpi,                 ONLY: p_start, p_stop, p_pe, p_io, p_nprocs
   USE mo_timer,               ONLY: init_timer, print_timer
   USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output
-  USE mo_datetime,            ONLY: t_datetime
   USE mo_output,              ONLY: init_output_files, close_output_files, write_output
   USE mo_io_vlist,            ONLY: write_vlist_oce, destruct_vlist_oce
 
@@ -126,8 +125,9 @@ PROGRAM control_model
      &                              dt_restart,           & !
      &                              lprepare_output         ! internal parameter
   USE mo_master_nml,          ONLY: master_nml_setup, lrestart
-  USE mo_run_nml,             ONLY: run_nml_setup,        & ! process run control parameters
-     &                              ini_datetime,         & !    namelist parameters
+  USE mo_run_nml,             ONLY: run_nml_setup,        & ! subroutine 
+     &                              current_datetime,     & ! module variable 
+     &                              ini_datetime,         & ! namelist parameters
      &                              dtime,                & !    :
      &                              i_cell_type,          & !    :
      &                              ltransport,           & !    :
@@ -148,7 +148,7 @@ PROGRAM control_model
      &                              iheldsuarez,          & !    :
      &                              iecham,               & !    :
      &                              inwp,                 & !    :
-!!$     &                              impiom,               & !    :
+!!$  &                              impiom,               & !    :
      &                              ldump_states,         & ! flag if states should be dumped
      &                              lrestore_states         ! flag if states should be restored
 
@@ -249,7 +249,8 @@ PROGRAM control_model
   USE mo_oce_forcing,         ONLY: t_ho_sfc_flx
   USE mo_oce_physics,         ONLY: t_ho_params, t_ho_physics
 
-  USE mo_io_restart,          ONLY: read_restart_info_file, read_restart_files
+  USE mo_io_restart,          ONLY: read_restart_info_file, read_restart_files, &
+                                  & read_restart_attributes
   USE mo_io_restart_namelist, ONLY: read_restart_namelists
 
   IMPLICIT NONE
@@ -269,7 +270,6 @@ PROGRAM control_model
   TYPE(t_ho_sfc_flx)                              :: p_sfc_flx
   TYPE (t_ho_params)                              :: p_phys_param 
   TYPE(t_ho_physics)                              :: p_physics_oce
-  TYPE(t_datetime)                                :: datetime
 
   INTEGER :: n_io, jg, jfile, n_file, ist, n_diag, n_restart
 
@@ -344,15 +344,16 @@ PROGRAM control_model
       CALL finish('','Failed to read restart.info')
     END IF
 
-    ! Read in all namelists used in the previous run
+    ! Read all namelists used in the previous run
     ! and store them in a buffer. These values will overwrite the 
     ! model default, and will later be overwritten if the user has 
     ! specified something different for this integraion.
-    ! (Question: should we read the name of the file from restart.info,
-    ! if the namelists are not read from the same file as where
-    ! the state variables are stored?)
 
     CALL read_restart_namelists('restart_atm.nc')
+
+    ! Read all global attributs in the restart file 
+
+    CALL read_restart_attributes('restart_atm.nc')
 
   END IF ! lrestart
 
@@ -380,15 +381,14 @@ PROGRAM control_model
 
   IF (ltimer) CALL init_timer
 
-  ! parallel_nml_setup must be called after setup_run since it needs
-  ! some variables read in setup_run
+  ! parallel_nml_setup must be called after run_nml_setup since it needs
+  ! some variables read in run_nml_setup
 
   CALL parallel_nml_setup
 
   !-------------------------------------------------------------------
   ! Initialize date and time
   !-------------------------------------------------------------------
-  datetime = ini_datetime
 
   IF (ltestcase) THEN
 
@@ -827,10 +827,10 @@ PROGRAM control_model
   CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta, inh_atmosphere)
     ! Note: here the derived output variables are not yet available
     ! (omega, divergence, vorticity)
-    CALL write_output( datetime )
+    CALL write_output( current_datetime )
     !
   CASE (ihs_ocean)
-    CALL write_vlist_oce( p_patch(1:), p_hyoce_state, p_sfc_flx, datetime )
+    CALL write_vlist_oce( p_patch(1:), p_hyoce_state, p_sfc_flx, current_datetime )
     !
   CASE DEFAULT
     !
@@ -856,19 +856,19 @@ PROGRAM control_model
     !
   CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
     CALL perform_ha_stepping(p_patch(1:), p_int_state(1:), p_grf_state(1:), &
-         &                   p_hydro_state, datetime,                       &
+         &                   p_hydro_state, current_datetime,               &
          &                   n_io, n_file, n_restart, n_diag  )
     !
   CASE (inh_atmosphere)
     CALL perform_nh_stepping(p_patch, p_int_state, p_grf_state, p_nh_state, &
-         &                   datetime, n_io, n_file, n_diag)
+         &                   current_datetime, n_io, n_file, n_diag)
     !
   CASE (ihs_ocean)
 
-    CALL perform_ho_stepping( p_patch(1:), p_hyoce_state,&
-                            & datetime, n_io, n_file,    &
-                            & p_int_state(1:),           &
-                            & p_sfc_flx,                 &
+    CALL perform_ho_stepping( p_patch(1:), p_hyoce_state,    &
+                            & current_datetime, n_io, n_file,&
+                            & p_int_state(1:),               &
+                            & p_sfc_flx,                     &
                             & p_phys_param)
   CASE DEFAULT
     !

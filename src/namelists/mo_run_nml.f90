@@ -1,6 +1,4 @@
 !>
-!!        Contains the variables to set up the run.
-!!
 !!        
 !! @par Revision History
 !!   Revision History in mo_global_variables.f90 (r3513)
@@ -41,26 +39,20 @@
 !!
 !!
 MODULE mo_run_nml
-!-------------------------------------------------------------------------
-!
-!    ProTeX FORTRAN source: Style 2
-!    modified for ICON project, DWD/MPI-M 2006
-!
-!-------------------------------------------------------------------------
-!
-!
-!
-!
 
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_impl_constants,     ONLY: max_char_length, max_dom, max_ntracer
   USE mo_physical_constants, ONLY: grav
   USE mo_datetime,           ONLY: t_datetime, proleptic_gregorian,          &
-    &                              date_to_time, add_time, print_datetime_all
+                                 & date_to_time, add_time, print_datetime_all
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned
   USE mo_mpi,                ONLY: p_pe, p_io
+  USE mo_master_nml,         ONLY: lrestart
+  USE mo_io_restart,         ONLY: get_restart_attribute
+  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
+                                 & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
 
@@ -115,6 +107,9 @@ MODULE mo_run_nml
   REAL(wp)           :: ini_second
   ! - data and time structure
   TYPE(t_datetime)   :: ini_datetime
+  !
+  ! current model time, not a namelist variable
+  TYPE(t_datetime)   :: current_datetime
   !
   ! end date and time
   ! - namelist variables
@@ -280,50 +275,43 @@ MODULE mo_run_nml
   !
 
 
-  CONTAINS
-
-!-------------------------------------------------------------------------
-
-!-------------------------------------------------------------------------
-!
-!
-
- !>
- !!  Initialization of variables that contain general information.
- !!
- !!               Initialization of variables that contain general information
- !!               about the model run. The configuration is read from
- !!               namelist 'run_ctl'.
- !!
- !! @par Revision History
- !!  Reading of the namelist and checking of the validity were
- !!  in some other modules in the earlier version of the shallow water model.
- !!  Moved to this module by Hui Wan, MPI-M (2007-02-23)
- !!  The character parameter <i>routine</i> was introduced and used
- !!  for error information by Hui Wan, MPI-M (2007-02-23).
- !!  Modified by Almut Gassmann, MPI-M (2008-09-23)
- !!  - introduced i_cell_type, lidealized and lshallow_water
- !!  Modified by Marco Giorgetta, MPI-M (2009-02-23)
- !!  - lidealized replaced by ltestcase
- !!  Modification by Constantin Junk, MPI-M (2010-02-22)
- !!  - changes to consistency checks
- !!
- SUBROUTINE run_nml_setup
+CONTAINS
+  !-------------------------------------------------------------------------
+  !>
+  !!  Initialization of variables that contain general information.
+  !!
+  !!  Initialization of variables that contain general information
+  !!  about the model run. The configuration is read from
+  !!  namelist 'run_ctl'.
+  !!
+  !! @par Revision History
+  !!  Reading of the namelist and checking of the validity were
+  !!  in some other modules in the earlier version of the shallow water model.
+  !!  Moved to this module by Hui Wan, MPI-M (2007-02-23)
+  !!  The character parameter <i>routine</i> was introduced and used
+  !!  for error information by Hui Wan, MPI-M (2007-02-23).
+  !!  Modified by Almut Gassmann, MPI-M (2008-09-23)
+  !!  - introduced i_cell_type, lidealized and lshallow_water
+  !!  Modified by Marco Giorgetta, MPI-M (2009-02-23)
+  !!  - lidealized replaced by ltestcase
+  !!  Modification by Constantin Junk, MPI-M (2010-02-22)
+  !!  - changes to consistency checks
+  !!
+  SUBROUTINE run_nml_setup
                                                
-!
-! !local variable
-   INTEGER  :: i_status
-   REAL(wp) :: ini_datetime_calsec, end_datetime_calsec, length_sec
+   INTEGER  :: istat, funit, calendar_old
+   INTEGER  :: ini_year_old, ini_month_old, ini_day_old, ini_hour_old, ini_minute_old
+   INTEGER  :: restart_year, restart_month, restart_day, restart_hour, restart_minute
+   REAL(wp) :: ini_second_old
+   REAL(wp) :: restart_second
+   REAL(wp) :: cur_datetime_calsec, end_datetime_calsec, length_sec
 
-   CHARACTER(len=max_char_length), PARAMETER :: &
-     &  routine = 'mo_run_nml/run_nml_setup'
+   CHARACTER(len=max_char_length), PARAMETER ::   &
+            &  routine = 'mo_run_nml/run_nml_setup'
 
-!-----------------------------------------------------------------------
-   
    !------------------------------------------------------------
-   ! 3.0 set up the default values for run_ctl
+   ! 1. set up the default values for run_ctl
    !------------------------------------------------------------
-
    ! initialization
    iinit          = ianalytic
 
@@ -413,246 +401,322 @@ MODULE mo_run_nml
    inextra_2d      = 0           !> no extra output 2D fields
    inextra_3d      = 0           !> no extra output 3D fields
 
-   !------------------------------------------------------------
-   ! 4.0 Read the namelist to evaluate if a restart file shall
-   !     be used to configure and initialize the model, and if
-   !     so take read the run_ctl parameters from the restart
-   !     file.
-   !------------------------------------------------------------
-   ! (done so far by all MPI processes)
+    !------------------------------------------------------------------------                  
+    ! 2.  If this is a resumed integration...
+    !------------------------------------------------------------------------                  
+    IF (lrestart) THEN                                                                 
 
-   CALL position_nml ('run_ctl', status=i_status)
-   SELECT CASE (i_status)
-   CASE (positioned)
-     READ (nnml, run_ctl)
-   END SELECT
+      ! 2.1 Overwrite the defaults above by values in the restart file 
+      funit = open_and_restore_namelist('run_ctl')
+      READ(funit,NML=run_ctl)
+      CALL close_tmpfile(funit)
+     ! for testing
+      WRITE (0,*) 'contents of namelist ...'
+      WRITE (0,NML=run_ctl)
 
-!!CJ: if restart option available, one has to think about
-!!    calling a read_restart_run_nml subroutine
-!!
-!!   SELECT CASE (iinit)
-!!   CASE (ianalytic)
-!!     ! nothing to be done here
-!!$   CASE (irestart)
-!!$     CALL read_restart_run_nml
-!!   CASE default
-!!     CALL finish(routine,'run_nml variable "iinit" is not valid')
-!!   END SELECT
+      ! 2.2 Save the initial date and time of the old run
 
-   !------------------------------------------------------------
-   ! 5.0 Read the namelist again and overwrite the run_ctl
-   !     parameters, as defined so far, by values from
-   !     the namelist file.
-   !------------------------------------------------------------
-   ! (done so far by all MPI processes)
+      calendar_old    = calendar
+      ini_year_old    = ini_year
+      ini_month_old   = ini_month
+      ini_day_old     = ini_day
+      ini_hour_old    = ini_hour
+      ini_minute_old  = ini_minute
+      ini_second_old  = ini_second
 
-!!   CALL position_nml ('run_ctl', status=i_status)
-!!  SELECT CASE (i_status)
-!!   CASE (positioned)
-!!     READ (nnml, run_ctl)
-!!   END SELECT
+      ! 2.2 Inquire the date and time at which the previous run stopped
 
-   !------------------------------------------------------------
-   ! 6.0 check the consistency of the parameters
-   !------------------------------------------------------------
+      CALL get_restart_attribute( 'current_year'  , restart_year   )
+      CALL get_restart_attribute( 'current_month' , restart_month  )
+      CALL get_restart_attribute( 'current_day'   , restart_day    )
+      CALL get_restart_attribute( 'current_hour'  , restart_hour   )
+      CALL get_restart_attribute( 'current_minute', restart_minute )
+      CALL get_restart_attribute( 'current_second', restart_second )
 
-   IF (nproma<=0) CALL finish(TRIM(routine),'"nproma" must be positive')
+    END IF
 
-   IF (nlev < 1)  CALL finish(TRIM(routine),'"nlev" must be positive')
-   nlevp1 = nlev+1
-   nvclev = nlevp1
-
-   ! vertical nesting
-   IF (.NOT. lvert_nest) THEN
-     ! overwrite num_lev with nlev
-     num_lev(1:max_dom) = nlev
-     ! set nshift to 0
-     nshift(1:max_dom) = 0 
-   ENDIF
-   num_levp1(1:max_dom) = num_lev(1:max_dom) + 1
-
-   IF (ANY(num_lev < 0)) CALL finish(TRIM(routine),'"num_lev" must be positive')
-   IF (ANY(nshift < 0)) CALL finish(TRIM(routine),'"nshift" must be positive')
-
-   ! time step
-   IF (dtime  <= 0._wp) CALL finish(routine,'"dtime" must be positive')
-
-   ! initial date and time
-   ini_datetime%calendar = calendar
-   ini_datetime%year     = ini_year
-   ini_datetime%month    = ini_month
-   ini_datetime%day      = ini_day
-   ini_datetime%hour     = ini_hour
-   ini_datetime%minute   = ini_minute
-   ini_datetime%second   = ini_second
-   CALL date_to_time      (ini_datetime) ! fill date time structure
-   CALL message(' ',' ')
-   CALL message(routine,'Initial date and time')
-   CALL message(routine,'---------------------')
-   CALL print_datetime_all(ini_datetime)  ! print all date and time components
-
-   ! end and length of integration
-   IF (nsteps/=0) THEN
-     IF (nsteps < 0    ) CALL finish(routine,'"nsteps" must not be negative')
-     length_sec   = REAL(nsteps,wp)*dtime
-     end_datetime = ini_datetime
-     CALL add_time(length_sec,0,0,0,end_datetime)
-     !
-   ELSE IF (run_day/=0 .OR. run_hour/=0 .OR. run_minute/=0 .OR. run_second/=0.0_wp) THEN
-     IF (run_day    < 0    ) CALL finish(routine,'"run_day" must not be negative')
-     IF (run_hour   < 0    ) CALL finish(routine,'"run_hour" must not be negative')
-     IF (run_minute < 0    ) CALL finish(routine,'"run_minute" must not be negative')
-     IF (run_second < 0._wp) CALL finish(routine,'"run_second" must not be negative')
-     !
-     end_datetime = ini_datetime
-     CALL add_time(run_second,run_minute,run_hour,run_day,end_datetime)
-     !
-     ini_datetime_calsec    = (REAL(ini_datetime%calday,wp)+ini_datetime%caltime) &
-       &                      *REAL(ini_datetime%daylen,wp)
-     end_datetime_calsec    = (REAL(end_datetime%calday,wp)+end_datetime%caltime) &
-       &                      *REAL(end_datetime%daylen,wp)
-     nsteps=INT((end_datetime_calsec-ini_datetime_calsec)/dtime)
-     !
-   ELSE
-     ! compute nsteps from ini_datetime, end_datetime and dtime
-     end_datetime%calendar = calendar
-     end_datetime%year     = end_year
-     end_datetime%month    = end_month
-     end_datetime%day      = end_day
-     end_datetime%hour     = end_hour
-     end_datetime%minute   = end_minute
-     end_datetime%second   = end_second
-     CALL date_to_time      (end_datetime) ! fill date time structure
-     !
-     ini_datetime_calsec    = (REAL(ini_datetime%calday,wp)+ini_datetime%caltime) &
-       &                      *REAL(ini_datetime%daylen,wp)
-     end_datetime_calsec    = (REAL(end_datetime%calday,wp)+end_datetime%caltime) &
-       &                      *REAL(end_datetime%daylen,wp)
-     IF (end_datetime_calsec < ini_datetime_calsec) &
-       & CALL finish(routine,'The end date and time must not be before the initial date and time')
-     !
-     nsteps=INT((end_datetime_calsec-ini_datetime_calsec)/dtime)
-     !
-   END IF
-   !
-   CALL message(' ',' ')
-   CALL message(routine,'End date and time')
-   CALL message(routine,'-----------------')
-   CALL print_datetime_all(end_datetime)  ! print all date and time components
-   !
-   CALL message(' ',' ')
-   CALL message(routine,'Length of run')
-   CALL message(routine,'-------------')
-   WRITE (message_text,'(a,f7.2)') 'dtime [s] :',dtime
-   CALL message(routine,message_text)
-   WRITE (message_text,'(a,i7)')   'nsteps    :',nsteps
-   CALL message(routine,message_text)
-   CALL message(' ',' ')
-
-   SELECT CASE (i_cell_type)
-   CASE (itri,ihex)
-     ! ok
-   CASE default
-     CALL finish( TRIM(routine),'wrong cell type specifier, "i_cell_type" must be 3 or 6')
-   END SELECT
-
-   SELECT CASE (iequations)
-   CASE (ishallow_water)
-     lshallow_water = .TRUE.
-     IF ( nlev/=1 ) THEN
-       CALL finish(TRIM(routine),'Shallow water model needs nlev=1')
-     ENDIF
-     ltheta_dyn     = .FALSE.
-   CASE (ihs_atm_temp)
-     latmosphere    = .TRUE.
-     lhydrostatic   = .TRUE.
-     ltheta_dyn     = .FALSE.
-   CASE (ihs_atm_theta)
-     latmosphere    = .TRUE.
-     lhydrostatic   = .TRUE.
-     ltheta_dyn     = .TRUE.
-   CASE (inh_atmosphere)
-     latmosphere    = .TRUE.
-     lhydrostatic   = .FALSE.
-   CASE (ihs_ocean)
-     locean         = .TRUE.
-     lhydrostatic   = .TRUE.
-   CASE default
-     CALL finish( TRIM(routine),'wrong equation specifier iequations')
-   END SELECT
-
-   SELECT CASE (iforcing)
-   CASE (iheldsuarez, inwp, iecham, ildf_echam, impiom)
-    lforcing = .TRUE.
-   CASE (inoforcing, ildf_dry)
-    lforcing = .FALSE.
-   CASE DEFAULT
-     CALL finish( TRIM(routine),'wrong forcing specifier iforcing')
-   END SELECT
-
-
-   IF (lhydrostatic) THEN
-    ! If running the HYDROSTATIC version,
-    ! let the model integrate one more step after the desired end of
-    ! simulation in order to get the proper output. This additional step is
-    ! necessary because the HYDROSTATIC model writes out values of step N
-    ! after the integration from N to N+1 is finished.
-
-    nsteps = nsteps + 1
-
-    ! The additional step is not needed in the NON-hydrostatic version because
-    ! in this case the model writes out values of step N
-    ! after the integration from N-1 to N is finished.
-   ENDIF
-
-
-   IF(ntracer<0 .OR. ntracer>max_ntracer) THEN
-     CALL finish( TRIM(routine),'wrong number of tracers. Valid range: 0<= ntracer <=20')
-   ENDIF
-
-  SELECT CASE(iforcing)
-  CASE (iecham,ildf_echam)
-    IF (ntracer<3) CALL finish( TRIM(routine),'ECHAM forcing needs at least 3 tracers')
-    iqv    = 1     !> water vapour
-    iqc    = 2     !! cloud water
-    iqi    = 3     !! ice
-    iqcond = iqi   !! index of last hydrometeor to ease summation over all of them
-    iqt    = 4     !! starting index of non-water species 
-    io3    = 5     !! O3
-    ico2   = 6     !! CO2
-  CASE (inwp)
-    iqv    = 1     !> water vapour
-    iqc    = 2     !! cloud water
-    iqi    = 3     !! ice
-    iqr    = 4     !! rain water
-    iqs    = 5     !! snow
-    iqcond = iqs   !! index of last hydrometeor to ease summation over all of them
-    io3    = 6     !! O3
-    ico2   = 7     !! CO2
-    iqt    = 6     !! start index of other tracers than hydrometeors
-  END SELECT
-
-  SELECT CASE (itopo)
-  CASE (0,2)
-    ! ok
-  CASE (1)
-    ! set up the default values
-    fac_smooth_topo  = 0.015625_wp
-    n_iter_smooth_topo = 35
-    ! read namelist for external parameters
-    CALL position_nml ('ext_par_ctl', status=i_status)
-    SELECT CASE (i_status)
-    CASE (positioned)
-      READ (nnml, ext_par_ctl)
+    !------------------------------------------------------------------------
+    ! 3. Read user's (new) specifications. (Done so far by all MPI processes)
+    !------------------------------------------------------------------------
+    CALL position_nml('run_ctl', STATUS=istat)
+    SELECT CASE (istat)
+    CASE (POSITIONED)
+      READ (nnml, run_ctl)
     END SELECT
-!    write the contents of the namelist to an ASCII file
-     IF(p_pe == p_io) WRITE(nnml_output,nml=ext_par_ctl)
-  CASE default
-     CALL finish( TRIM(routine),'wrong topography specifier, itopo must be in {0,1,2}]')
-  END SELECT
 
-   ! write the contents of the namelist to an ASCII file
-   IF(p_pe == p_io) WRITE(nnml_output,nml=run_ctl)
+    !---------------------------------------------------------------
+    ! 4. Check whether the namelist varibles have reasonable values
+    !---------------------------------------------------------------
+
+    IF (nproma<=0) CALL finish(TRIM(routine),'"nproma" must be positive')
+
+    IF (nlev < 1)  CALL finish(TRIM(routine),'"nlev" must be positive')
+    nlevp1 = nlev+1
+    nvclev = nlevp1
+
+    ! vertical nesting
+    IF (.NOT. lvert_nest) THEN
+      ! overwrite num_lev with nlev
+      num_lev(1:max_dom) = nlev
+      ! set nshift to 0
+      nshift(1:max_dom) = 0 
+    ENDIF
+    num_levp1(1:max_dom) = num_lev(1:max_dom) + 1
+
+    IF (ANY(num_lev < 0)) CALL finish(TRIM(routine),'"num_lev" must be positive')
+    IF (ANY(nshift < 0)) CALL finish(TRIM(routine),'"nshift" must be positive')
+
+    SELECT CASE (i_cell_type)
+    CASE (itri,ihex)
+      ! ok
+    CASE default
+      CALL finish( TRIM(routine),'wrong cell type specifier, "i_cell_type" must be 3 or 6')
+    END SELECT
+
+    SELECT CASE (iequations)
+    CASE (ishallow_water)
+      lshallow_water = .TRUE.
+      IF ( nlev/=1 ) THEN
+        CALL finish(TRIM(routine),'Shallow water model needs nlev=1')
+      ENDIF
+      ltheta_dyn     = .FALSE.
+    CASE (ihs_atm_temp)
+      latmosphere    = .TRUE.
+      lhydrostatic   = .TRUE.
+      ltheta_dyn     = .FALSE.
+    CASE (ihs_atm_theta)
+      latmosphere    = .TRUE.
+      lhydrostatic   = .TRUE.
+      ltheta_dyn     = .TRUE.
+    CASE (inh_atmosphere)
+      latmosphere    = .TRUE.
+      lhydrostatic   = .FALSE.
+    CASE (ihs_ocean)
+      locean         = .TRUE.
+      lhydrostatic   = .TRUE.
+    CASE default
+      CALL finish( TRIM(routine),'wrong equation specifier iequations')
+    END SELECT
+
+    SELECT CASE (iforcing)
+    CASE (iheldsuarez, inwp, iecham, ildf_echam, impiom)
+     lforcing = .TRUE.
+    CASE (inoforcing, ildf_dry)
+     lforcing = .FALSE.
+    CASE DEFAULT
+      CALL finish( TRIM(routine),'wrong forcing specifier iforcing')
+    END SELECT
+
+    IF(ntracer<0 .OR. ntracer>max_ntracer) THEN
+      CALL finish( TRIM(routine),'wrong number of tracers. Valid range: 0<= ntracer <=20')
+    ENDIF
+
+    SELECT CASE(iforcing)
+    CASE (iecham,ildf_echam)
+      IF (ntracer<3) CALL finish( TRIM(routine),'ECHAM forcing needs at least 3 tracers')
+      iqv    = 1     !> water vapour
+      iqc    = 2     !! cloud water
+      iqi    = 3     !! ice
+      iqcond = iqi   !! index of last hydrometeor to ease summation over all of them
+      iqt    = 4     !! starting index of non-water species 
+      io3    = 5     !! O3
+      ico2   = 6     !! CO2
+    CASE (inwp)
+      iqv    = 1     !> water vapour
+      iqc    = 2     !! cloud water
+      iqi    = 3     !! ice
+      iqr    = 4     !! rain water
+      iqs    = 5     !! snow
+      iqcond = iqs   !! index of last hydrometeor to ease summation over all of them
+      io3    = 6     !! O3
+      ico2   = 7     !! CO2
+      iqt    = 6     !! start index of other tracers than hydrometeors
+    END SELECT
+
+    ! time step
+    IF (dtime  <= 0._wp) CALL finish(routine,'"dtime" must be positive')
+
+    !---------------------------------------------------------------
+    ! 5. Set up model time
+    !---------------------------------------------------------------
+    ! 5.1 Initial date and time
+
+    ini_datetime%calendar = calendar
+    ini_datetime%year     = ini_year
+    ini_datetime%month    = ini_month
+    ini_datetime%day      = ini_day
+    ini_datetime%hour     = ini_hour
+    ini_datetime%minute   = ini_minute
+    ini_datetime%second   = ini_second
+
+    CALL date_to_time(ini_datetime) ! fill date time structure
+    CALL message(' ',' ')
+    CALL message(routine,'Initial date and time')
+    CALL message(routine,'---------------------')
+    CALL print_datetime_all(ini_datetime)  ! print all date and time components
+
+    ! 5.2 Current date and time:
+    ! If the initial date and time are different from those in the restart file,
+    ! we regard this integration as a new one with its own calendar. 
+    ! Model time at which the previous run stopped is thus not relevant. 
+    ! Simulation will start from the user-specified initial time (which is
+    ! also the current model time).
+
+    IF (calendar  /=calendar_old   .OR.                                 &
+        ini_year  /=ini_year_old   .OR. ini_month  /=ini_month_old .OR. &
+        ini_day   /=ini_day_old    .OR. ini_hour   /=ini_hour_old  .OR. &
+        ini_minute/=ini_minute_old .oR. ini_second /=ini_second_old     ) THEN
+
+      current_datetime = ini_datetime
+
+    ELSE
+
+      current_datetime%calendar = calendar
+      current_datetime%year     = restart_year
+      current_datetime%month    = restart_month
+      current_datetime%day      = restart_day
+      current_datetime%hour     = restart_hour
+      current_datetime%minute   = restart_minute
+      current_datetime%second   = restart_second
+      CALL date_to_time(current_datetime) ! fill date time structure
+
+    END IF
+
+    CALL message(' ',' ')
+    CALL message(' ',' ')
+    CALL message(routine,'Current date and time')
+    CALL message(routine,'---------------------')
+    CALL print_datetime_all(current_datetime)  ! print all date and time components
+
+    ! 5.3 End date and time, and length of integration
+    !     Here we define "nsteps" as the number of time steps THIS integration
+    !     will last, regardless of the restart status.
+
+    IF (nsteps/=0) THEN
+
+      IF (nsteps < 0) CALL finish(routine,'"nsteps" must not be negative')
+      length_sec   = REAL(nsteps,wp)*dtime
+      end_datetime = current_datetime
+      CALL add_time(length_sec,0,0,0,end_datetime)
+      !
+    ELSE IF (run_day/=0 .OR. run_hour/=0 .OR. run_minute/=0 .OR. run_second/=0.0_wp) THEN
+      IF (run_day    < 0    ) CALL finish(routine,'"run_day" must not be negative')
+      IF (run_hour   < 0    ) CALL finish(routine,'"run_hour" must not be negative')
+      IF (run_minute < 0    ) CALL finish(routine,'"run_minute" must not be negative')
+      IF (run_second < 0._wp) CALL finish(routine,'"run_second" must not be negative')
+      !
+      end_datetime = current_datetime
+      CALL add_time(run_second,run_minute,run_hour,run_day,end_datetime)
+      !
+      cur_datetime_calsec = (REAL(current_datetime%calday,wp)+current_datetime%caltime) &
+        &                   *REAL(current_datetime%daylen,wp)
+      end_datetime_calsec = (REAL(end_datetime%calday,wp)+end_datetime%caltime) &
+        &                   *REAL(end_datetime%daylen,wp)
+      nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
+      !
+    ELSE
+      ! compute nsteps from current_datetime, end_datetime and dtime
+      end_datetime%calendar = calendar
+      end_datetime%year     = end_year
+      end_datetime%month    = end_month
+      end_datetime%day      = end_day
+      end_datetime%hour     = end_hour
+      end_datetime%minute   = end_minute
+      end_datetime%second   = end_second
+      CALL date_to_time      (end_datetime) ! fill date time structure
+      !
+      cur_datetime_calsec = (REAL(current_datetime%calday,wp)+current_datetime%caltime) &
+        &                   *REAL(current_datetime%daylen,wp)
+      end_datetime_calsec = (REAL(end_datetime%calday,wp)+end_datetime%caltime) &
+        &                   *REAL(end_datetime%daylen,wp)
+      IF (end_datetime_calsec < cur_datetime_calsec) &
+        & CALL finish(routine,'The end date and time must not be before the current date and time')
+      !
+      nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
+      !
+    END IF
+
+    ! This should probably be changed..................................
+    IF (lhydrostatic) THEN
+     ! If running the HYDROSTATIC version,
+     ! let the model integrate one more step after the desired end of
+     ! simulation in order to get the proper output. This additional step is
+     ! necessary because the HYDROSTATIC model writes out values of step N
+     ! after the integration from N to N+1 is finished.
+
+     nsteps = nsteps + 1
+
+     ! The additional step is not needed in the NON-hydrostatic version because
+     ! in this case the model writes out values of step N
+     ! after the integration from N-1 to N is finished.
+    ENDIF
+    !..................................................................
+    !
+    CALL message(' ',' ')
+    CALL message(routine,'End date and time')
+    CALL message(routine,'-----------------')
+    CALL print_datetime_all(end_datetime)  ! print all date and time components
+    !
+    CALL message(' ',' ')
+    CALL message(routine,'Length of run')
+    CALL message(routine,'-------------')
+    WRITE (message_text,'(a,f7.2)') 'dtime [s] :',dtime
+    CALL message(routine,message_text)
+    WRITE (message_text,'(a,i7)')   'nsteps    :',nsteps
+    CALL message(routine,message_text)
+    CALL message(' ',' ')
+
+
+    !-----------------------------------------------------
+    ! Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=run_ctl)
+    CALL store_and_close_namelist(funit, 'run_ctl')
+    write(0,*) 'stored run_ctl'
+
+    ! write the contents of the namelist to an ASCII file
+    IF(p_pe == p_io) WRITE(nnml_output,nml=run_ctl)
+
+
+    !-----------------------------------------------------------
+    ! Topography
+    !-----------------------------------------------------------
+    SELECT CASE (itopo)
+    CASE (0,2)
+      ! ok
+    CASE (1)
+
+      ! set up the default values
+      fac_smooth_topo    = 0.015625_wp
+      n_iter_smooth_topo = 35
+
+      ! If this is a resumed integration, overwrite the defaults above 
+      ! by values in the previous integration.
+      IF (lrestart) THEN
+        funit = open_and_restore_namelist('ext_par_ctl')
+        READ(funit,NML=ext_par_ctl)
+        CALL close_tmpfile(funit)
+      END IF
+
+      ! read namelist for external parameters
+      CALL position_nml ('ext_par_ctl', status=istat)
+      SELECT CASE (istat)
+      CASE (POSITIONED)
+        READ (nnml, ext_par_ctl)
+      END SELECT
+
+      ! Store the namelist for restart
+      funit = open_tmpfile()
+      WRITE(funit,NML=ext_par_ctl)
+      CALL store_and_close_namelist(funit, 'ext_par_ctl')
+
+      !write the contents of the namelist to an ASCII file
+      IF(p_pe == p_io) WRITE(nnml_output,nml=ext_par_ctl)
+
+    CASE default
+       CALL finish( TRIM(routine),'wrong topography specifier, itopo must be in {0,1,2}]')
+    END SELECT
 
 
  END SUBROUTINE run_nml_setup

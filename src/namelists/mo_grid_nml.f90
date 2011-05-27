@@ -102,7 +102,7 @@ CONTAINS
   !!
   SUBROUTINE grid_nml_setup
                                                 
-    INTEGER  :: ist, i, funit
+    INTEGER  :: istat, i, funit
     CHARACTER(len=max_char_length), PARAMETER ::     &
              &  routine = 'mo_grid_nml/grid_nml_setup'
  
@@ -128,23 +128,22 @@ CONTAINS
  
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
-    ! by values in the previous integration. (Don't get confused by
-    ! the name of the subroutine.)
+    ! by values in the previous integration.
     !----------------------------------------------------------------
     IF (lrestart) THEN
       funit = open_and_restore_namelist('grid_ctl')
-      READ(funit,NML=grid_ctl) ; write(0,*)
-      CALL close_tmpfile(funit); write(0,*)
-     !! for testing
-     !WRITE (0,*) 'contents of namelist ...'
-     !WRITE (0,NML=grid_ctl)
+      READ(funit,NML=grid_ctl)
+      CALL close_tmpfile(funit)
+     ! for testing
+      WRITE (0,*) 'contents of namelist ...'
+      WRITE (0,NML=grid_ctl)
     END IF
 
     !--------------------------------------------------------------------
     ! Read user's (new) specifications (Done so far by all MPI processes)
     !--------------------------------------------------------------------
-    CALL position_nml ('grid_ctl', status=ist)
-    IF (ist == POSITIONED) THEN
+    CALL position_nml ('grid_ctl', status=istat)
+    IF (istat == POSITIONED) THEN
       READ (nnml, grid_ctl)
     ENDIF
 
@@ -172,6 +171,7 @@ CONTAINS
     funit = open_tmpfile()
     WRITE(funit,NML=grid_ctl)
     CALL store_and_close_namelist(funit, 'grid_ctl')
+    write(0,*) 'stored grid_ctl'
 
     ! Write the contents of the namelist to an ASCII file.
     ! Probably will be removed later.

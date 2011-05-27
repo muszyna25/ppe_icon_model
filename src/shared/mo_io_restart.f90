@@ -25,6 +25,7 @@ MODULE mo_io_restart
   PRIVATE
   !
   PUBLIC :: set_restart_attribute
+  PUBLIC :: get_restart_attribute
   PUBLIC :: set_restart_time
   PUBLIC :: set_restart_vct
   PUBLIC :: init_restart
@@ -32,6 +33,7 @@ MODULE mo_io_restart
   PUBLIC :: write_restart
   PUBLIC :: close_writing_restart_files
   PUBLIC :: read_restart_files
+  PUBLIC :: read_restart_attributes
   PUBLIC :: finish_restart
   PUBLIC :: write_restart_info_file
   PUBLIC :: read_restart_info_file
@@ -127,6 +129,13 @@ MODULE mo_io_restart
     MODULE PROCEDURE set_restart_attribute_int
     MODULE PROCEDURE set_restart_attribute_bool
   END INTERFACE set_restart_attribute
+  !
+  INTERFACE get_restart_attribute
+    MODULE PROCEDURE get_restart_attribute_text
+    MODULE PROCEDURE get_restart_attribute_real
+    MODULE PROCEDURE get_restart_attribute_int
+    MODULE PROCEDURE get_restart_attribute_bool
+  END INTERFACE get_restart_attribute
   !
   !------------------------------------------------------------------------------------------------
 CONTAINS
@@ -227,6 +236,59 @@ CONTAINS
   END SUBROUTINE set_restart_vct
   !------------------------------------------------------------------------------------------------
   !
+  SUBROUTINE get_restart_attribute_text(attribute_name, attribute_value)
+    CHARACTER(len=*), INTENT(in)  :: attribute_name
+    CHARACTER(len=*), INTENT(out) :: attribute_value
+    INTEGER :: i
+    DO i = 1, natts_text
+      IF (TRIM(attribute_name) == TRIM(restart_attributes_text(i)%name)) THEN
+        attribute_value = TRIM(restart_attributes_text(i)%val)
+        RETURN
+      ENDIF
+    ENDDO
+    CALL finish('','Attribute '//TRIM(attribute_name)//' not found.')
+  END SUBROUTINE get_restart_attribute_text
+  !
+  SUBROUTINE get_restart_attribute_real(attribute_name, attribute_value)
+    CHARACTER(len=*), INTENT(in)  :: attribute_name
+    REAL(wp),         INTENT(out) :: attribute_value
+    INTEGER :: i
+    DO i = 1, natts_real
+      IF (TRIM(attribute_name) == TRIM(restart_attributes_real(i)%name)) THEN
+        attribute_value = restart_attributes_real(i)%val
+        RETURN
+      ENDIF
+    ENDDO
+    CALL finish('','Attribute '//TRIM(attribute_name)//' not found.')
+  END SUBROUTINE get_restart_attribute_real
+  !
+  SUBROUTINE get_restart_attribute_int(attribute_name, attribute_value)
+    CHARACTER(len=*), INTENT(in)  :: attribute_name
+    INTEGER,          INTENT(out) :: attribute_value
+    INTEGER :: i
+    DO i = 1, natts_int
+      IF (TRIM(attribute_name) == TRIM(restart_attributes_int(i)%name)) THEN
+        attribute_value = restart_attributes_int(i)%val
+        RETURN
+      ENDIF
+    ENDDO
+    CALL finish('','Attribute '//TRIM(attribute_name)//' not found.')
+  END SUBROUTINE get_restart_attribute_int
+  !
+  SUBROUTINE get_restart_attribute_bool(attribute_name, attribute_value)
+    CHARACTER(len=*), INTENT(in)  :: attribute_name
+    LOGICAL,          INTENT(out) :: attribute_value
+    INTEGER :: i
+    DO i = 1, natts_bool
+      IF (TRIM(attribute_name) == TRIM(restart_attributes_bool(i)%name)) THEN
+        attribute_value = restart_attributes_bool(i)%val
+        RETURN
+      ENDIF
+    ENDDO
+    CALL finish('','Attribute '//TRIM(attribute_name)//' not found.')
+  END SUBROUTINE get_restart_attribute_bool
+  !------------------------------------------------------------------------------------------------
+  !
   SUBROUTINE set_restart_attribute_text(attribute_name, attribute_value)
     CHARACTER(len=*), INTENT(in) :: attribute_name
     CHARACTER(len=*), INTENT(in) :: attribute_value
@@ -282,7 +344,7 @@ CONTAINS
     IF (natts_bool > nmax_atts) THEN
       CALL finish('set_restart_attribute_bools','too many restart attributes for restart file')
     ELSE
-      restart_attributes_bool(natts_bool)%name = attribute_name
+      restart_attributes_bool(natts_bool)%name = 'bool_'//TRIM(attribute_name)
       restart_attributes_bool(natts_bool)%val = attribute_value
       ! for storing follows the C convention: false = 0, true = 1
       IF (attribute_value) THEN
@@ -373,7 +435,7 @@ CONTAINS
     CALL util_node_name (tmp_string, nlenc)
     host_name = tmp_string(1:nlenc)    
     !
-    ! set CD-Convention required global attributes
+    ! set CD-Convention required restart attributes
     !
     CALL set_restart_attribute('title', 'ICON simulation')
     CALL set_restart_attribute('institution', &
@@ -1182,6 +1244,7 @@ CONTAINS
       !
       fileID  = streamOpenRead(restart_filename)
       vlistID = streamInqVlist(fileID)
+      !
       taxisID = vlistInqTaxis(vlistID)
       !
       idate = taxisInqVdate(taxisID)
@@ -1190,6 +1253,8 @@ CONTAINS
       WRITE(message_text,'(a,i8.8,a,i6.6,a,a)') &
            'Read restart for : ', idate, 'T', itime, 'Z from ',TRIM(restart_filename)
       CALL message('',message_text)      
+      !
+      CALL read_attributes(vlistID)
       !
       for_all_vars: DO varID = 0, vlistNvars(vlistID)-1
         !
@@ -1285,5 +1350,82 @@ CONTAINS
     CALL message('','')
     !
   END SUBROUTINE read_restart_files
-  !
+      !
+      SUBROUTINE read_attributes(vlistID)
+        INTEGER, INTENT(in) :: vlistID
+        !
+        CHARACTER(len=64) :: att_name
+        INTEGER :: natts, att_type, att_len
+        INTEGER :: status, text_len, mlen, i
+        !
+        status = vlistInqNatts(vlistID, CDI_GLOBAL, natts)
+        !
+        IF (.NOT. ALLOCATED(restart_attributes_text)) THEN
+          ALLOCATE(restart_attributes_text(nmax_atts))
+        ENDIF
+        natts_text = 0
+        !
+        IF (.NOT. ALLOCATED(restart_attributes_real)) THEN
+          ALLOCATE(restart_attributes_real(nmax_atts))
+        ENDIF
+        natts_real = 0 
+        !
+        IF (.NOT. ALLOCATED(restart_attributes_int)) THEN
+          ALLOCATE(restart_attributes_int(nmax_atts))
+        ENDIF
+        natts_int  = 0 
+        !
+        IF (.NOT. ALLOCATED(restart_attributes_bool)) THEN
+          ALLOCATE(restart_attributes_bool(nmax_atts))
+        ENDIF
+        natts_bool = 0 
+        !
+        DO i = 0, natts-1
+          status = vlistInqAtt(vlistID, CDI_GLOBAL, i, att_name, att_type, att_len)
+          IF ( att_name(1:4) == 'nml_') CYCLE ! skip this, it is a namelist 
+          SELECT CASE(att_type)
+          CASE(DATATYPE_FLT64)
+            natts_real = natts_real+1
+            restart_attributes_real(natts_real)%name = TRIM(att_name)
+            mlen = 1
+            status =  vlistInqAttFlt(vlistID, CDI_GLOBAL, &              
+                 &                   TRIM(att_name), mlen, restart_attributes_real(natts_real)%val)
+          CASE(DATATYPE_INT32)
+            IF (att_name(1:5) == 'bool_') THEN
+              natts_bool = natts_bool+1
+              restart_attributes_bool(natts_bool)%name = TRIM(att_name(6:))
+              mlen = 1
+              status =  vlistInqAttInt(vlistID, CDI_GLOBAL, &              
+                   &                   TRIM(att_name), mlen, restart_attributes_bool(natts_bool)%store)
+              restart_attributes_bool(natts_bool)%val = (restart_attributes_bool(natts_bool)%store == 1)
+            ELSE
+              natts_int = natts_int+1
+              restart_attributes_int(natts_int)%name = TRIM(att_name)
+              mlen = 1
+              status =  vlistInqAttInt(vlistID, CDI_GLOBAL, &              
+                   &                   TRIM(att_name), mlen, restart_attributes_int(natts_int)%val)
+            ENDIF
+          CASE(DATATYPE_TXT)
+            natts_text = natts_text+1
+            restart_attributes_text(natts_text)%name = TRIM(att_name)
+            text_len = att_len
+            status =  vlistInqAttTxt(vlistID, CDI_GLOBAL, &
+                 &                   TRIM(att_name), text_len, restart_attributes_text(natts_text)%val)
+          END SELECT
+        ENDDO
+        !
+      END SUBROUTINE read_attributes
+      !
+  SUBROUTINE read_restart_attributes(filename)                                          
+    CHARACTER(len=*), INTENT(in) :: filename                                           
+    INTEGER :: fileID, vlistID                                                         
+    !                                                                                  
+    fileID  = streamOpenRead(TRIM(filename))                                           
+    vlistID = streamInqVlist(fileID)                                                   
+    !                                                                                  
+    CALL read_attributes(vlistID)
+    CALL streamClose(fileID)                                                           
+    !                                                                                  
+  END SUBROUTINE read_restart_attributes
+
 END MODULE mo_io_restart
