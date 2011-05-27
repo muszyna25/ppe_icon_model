@@ -239,11 +239,6 @@ MODULE mo_run_nml
   !
   LOGICAL :: ltheta_dyn ! if .true., use potential temperature times delta p as prognostic variable
 
-  ! restart
-  !-----------
-  LOGICAL :: lrestart
-
-
   NAMELIST /run_ctl/ iinit,                                &
     &                nproma, nlev, num_lev, nshift,        &
     &                lvert_nest, ntracer, calendar,        &
@@ -258,8 +253,7 @@ MODULE mo_run_nml
     &                ldynamics, ltransport, iforcing,      &
     &                ltestcase, lcorio, itopo, msg_level,  &
     &                ldump_states, lrestore_states, ltimer,&
-    &                timers_level, inextra_2d, inextra_3d, &
-    &                lrestart
+    &                timers_level, inextra_2d, inextra_3d
 
 !--------------------------------------------------------------------
 ! for external parameters
@@ -405,9 +399,6 @@ MODULE mo_run_nml
    ! dump/restore
    ldump_states    = .FALSE.
    lrestore_states = .FALSE.
-
-   ! restart
-   lrestart        =.FALSE.  ! default is an initial run
 
    ! The following values are deduced from the namelist variables:
    ! auxiliary switches set as function of iequations

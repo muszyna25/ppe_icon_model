@@ -41,7 +41,7 @@ MODULE mo_grid_nml
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, MAX_DOM
   USE mo_math_constants,     ONLY: rad2deg
   USE mo_mpi,                ONLY: p_pe, p_io
-  USE mo_run_nml,            ONLY: lrestart
+  USE mo_master_nml,         ONLY: lrestart
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, POSITIONED
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &

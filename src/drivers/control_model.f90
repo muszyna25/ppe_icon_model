@@ -125,9 +125,9 @@ PROGRAM control_model
      &                              dt_diag,              & !    :
      &                              dt_restart,           & !
      &                              lprepare_output         ! internal parameter
+  USE mo_master_nml,          ONLY: master_nml_setup, lrestart
   USE mo_run_nml,             ONLY: run_nml_setup,        & ! process run control parameters
-     &                              lrestart,             & ! namelist parameter 
-     &                              ini_datetime,         & !    : 
+     &                              ini_datetime,         & !    namelist parameters
      &                              dtime,                & !    :
      &                              i_cell_type,          & !    :
      &                              ltransport,           & !    :
@@ -310,30 +310,19 @@ PROGRAM control_model
   !-------------------------------------------------------------------
 
   CALL p_start('ICON')
-
   CALL message('control_model','start model initialization.')
 
   !-------------------------------------------------------------------
   ! step 1: Open the master namelist file and read most basic namelists.
+  ! Create a new file in which all the namelist variables and their
+  ! actual values used in the model run will be stored.
   !-------------------------------------------------------------------
 
   CALL open_nml('NAMELIST_ICON')
-
-  ! Create a new file in which all the namelist variables and their
-  ! actual values used in the model run will be stored.
-
   IF(p_pe == p_io) CALL open_nml_output('NAMELIST_ICON_output')
 
-  ! The namelists ('run_nml' and 'testcase_ctl') are read in seperate
-  ! subroutines. The validity of the user-specified configurations is
-  ! checked right after each namelist is read.
-  ! The two 'setup' subroutines above must be called before grid and patch
-  ! import because during the import procedure the topography and land-sea
-  ! mask will be initialized. They are related to the atmos/ocean switch
-  ! as well as the selected test case.
+  CALL master_nml_setup
 
-  CALL run_nml_setup
- 
   !-------------------------------------------------------------------
   ! Read restart master file and the previously used namelist setups 
   !-------------------------------------------------------------------
@@ -364,9 +353,20 @@ PROGRAM control_model
     ! the state variables are stored?)
 
     CALL read_restart_namelists('restart_atm.nc')
-    write(*,*) 'read restart.namelist'
+
   END IF ! lrestart
 
+  !-------------------------------------------------------------------
+  ! The namelists ('run_nml' and 'testcase_ctl') are read in seperate
+  ! subroutines. The validity of the user-specified configurations is
+  ! checked right after each namelist is read.
+  ! The two 'setup' subroutines above must be called before grid and patch
+  ! import because during the import procedure the topography and land-sea
+  ! mask will be initialized. They are related to the atmos/ocean switch
+  ! as well as the selected test case.
+
+  CALL run_nml_setup
+ 
   !-------------------------------------------------------------------
   ! Read namelists for the ocean model
   !-------------------------------------------------------------------

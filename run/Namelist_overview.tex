@@ -686,6 +686,37 @@ Defined in \verb+mo_create_torus_grid.f90+. See the run script \verb+run/create_
 
 \section{Namelist parameters defining the ICON model (NAMELIST\_ICON)}
 
+%-------------------------------------------------------------------
+% master_nml: the minimum one needs to specify about an integration 
+%-------------------------------------------------------------------
+\subsection{master\_nml}
+
+\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
+\hline %--- 
+Parameter&
+Type&
+Default&
+Unit&
+Description&
+Scope
+\tabularnewline
+\hline %---
+\endhead
+
+\hline %---
+lrestart&
+L &
+.FALSE.&
+&
+If .TRUE., simulation starts from a model state read from restart file(s).&
+\tabularnewline
+
+\hline %---
+\end{longtable}
+
+%-------------------------------------------------------------------
+% grid_ctl: horizontal grid
+%-------------------------------------------------------------------
 \subsection{grid\_ctl}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{2cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
@@ -903,7 +934,8 @@ Experimental!&
 Defined and used in: src/shared/mo\_parallel\_ctl.f90
 
 
-\subsection{run\_nml}
+
+\subsection{run\_ctl}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
 \hline %--- 
@@ -917,13 +949,6 @@ Scope
 \hline %---
 \endhead
 
-\hline %---
-lrestart&
-L &
-.FALSE.&
-&
-If .TRUE., simulation starts from a model state read from restart file(s).&
-\tabularnewline
 
 \hline %--- 
 nproma &
