@@ -96,12 +96,8 @@ CONTAINS
     ! Set up scheme-specific constants
     !-----------------------------------
     SELECT CASE (itime_scheme)
-
-    CASE (LEAPFROG_SI)
-      CALL init_si_params
-
-    CASE (RK4,SSPRK54)
-      CALL init_RungeKutta(itime_scheme)
+    CASE (LEAPFROG_SI) ; CALL init_si_params
+    CASE (RK4,SSPRK54) ; CALL init_RungeKutta(itime_scheme)
     END SELECT
 
     !---------------------------------------------------------------
@@ -279,7 +275,7 @@ CONTAINS
       lprepare_output(:) = .FALSE.
     ENDIF
 
-    IF ( (jstep/=1 .AND. MOD(jstep-1,n_restart)==0) .OR. jstep==nsteps ) THEN
+    IF ( MOD(jstep,n_restart)==0 ) THEN
       l_restarttime = .TRUE.
     ELSE
       l_restarttime = .FALSE.
@@ -331,6 +327,26 @@ CONTAINS
     ENDIF !l_outputtime
 
     !--------------------------------------------------------------------------
+    ! Diagnose global integrals
+    !--------------------------------------------------------------------------
+    IF (l_diagtime) &
+    CALL supervise_total_integrals( jstep, p_patch, p_hydro_state, nnow )
+
+    ! close the current output file and trigger a new one
+    IF (jstep/=1.AND.(MOD(jstep-1,n_file)==0).AND.jstep/=nsteps) THEN
+
+      jfile = jfile +1
+      CALL init_output_files(jfile)
+
+    ENDIF
+
+    !--------------------------------------------------------------------------
+    ! One integration cycle finished on the lowest grid level (coarsest
+    ! resolution). Set model time.
+    !--------------------------------------------------------------------------
+    CALL add_time(dtime,0,0,0,datetime)
+
+    !--------------------------------------------------------------------------
     ! Write restart file
     !--------------------------------------------------------------------------
     IF (l_restarttime) THEN
@@ -351,26 +367,6 @@ CONTAINS
 
       CALL write_restart_info_file
     END IF
-
-    !--------------------------------------------------------------------------
-    ! Diagnose global integrals
-    !--------------------------------------------------------------------------
-    IF (l_diagtime) &
-    CALL supervise_total_integrals( jstep, p_patch, p_hydro_state, nnow )
-
-    ! close the current output file and trigger a new one
-    IF (jstep/=1.AND.(MOD(jstep-1,n_file)==0).AND.jstep/=nsteps) THEN
-
-      jfile = jfile +1
-      CALL init_output_files(jfile)
-
-    ENDIF
-
-    !--------------------------------------------------------------------------
-    ! One integration cycle finished on the lowest grid level (coarsest
-    ! resolution). Set model time.
-    !--------------------------------------------------------------------------
-    CALL add_time(dtime,0,0,0,datetime)
 
   ENDDO TIME_LOOP
 
