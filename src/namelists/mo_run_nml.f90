@@ -402,7 +402,7 @@ CONTAINS
    inextra_3d      = 0           !> no extra output 3D fields
 
     !------------------------------------------------------------------------                  
-    ! 2.  If this is a resumed integration...
+    ! 2. If this is a resumed integration...
     !------------------------------------------------------------------------                  
     IF (lrestart) THEN                                                                 
 
@@ -414,7 +414,7 @@ CONTAINS
       WRITE (0,*) 'contents of namelist ...'
       WRITE (0,NML=run_ctl)
 
-      ! 2.2 Save the initial date and time of the old run
+      ! 2.2 Save the calendar and initial date/time of the old run
 
       calendar_old    = calendar
       ini_year_old    = ini_year
@@ -424,7 +424,7 @@ CONTAINS
       ini_minute_old  = ini_minute
       ini_second_old  = ini_second
 
-      ! 2.2 Inquire the date and time at which the previous run stopped
+      ! 2.2 Inquire the date/time at which the previous run stopped
 
       CALL get_restart_attribute( 'current_year'  , restart_year   )
       CALL get_restart_attribute( 'current_month' , restart_month  )
@@ -556,11 +556,11 @@ CONTAINS
     CALL print_datetime_all(ini_datetime)  ! print all date and time components
 
     ! 5.2 Current date and time:
-    ! If the initial date and time are different from those in the restart file,
+    ! If the calendar or initial date/time is different from those in the restart file,
     ! we regard this integration as a new one with its own calendar. 
     ! Model time at which the previous run stopped is thus not relevant. 
-    ! Simulation will start from the user-specified initial time (which is
-    ! also the current model time).
+    ! Simulation will start from the user-specified initial date/time, which is
+    ! also the current model date/time.
 
     IF (calendar  /=calendar_old   .OR.                                 &
         ini_year  /=ini_year_old   .OR. ini_month  /=ini_month_old .OR. &
@@ -630,7 +630,8 @@ CONTAINS
       end_datetime_calsec = (REAL(end_datetime%calday,wp)+end_datetime%caltime) &
         &                   *REAL(end_datetime%daylen,wp)
       IF (end_datetime_calsec < cur_datetime_calsec) &
-        & CALL finish(routine,'The end date and time must not be before the current date and time')
+        & CALL finish(routine,'The end date and time must not be '// &
+        &            'before the current date and time')
       !
       nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
       !

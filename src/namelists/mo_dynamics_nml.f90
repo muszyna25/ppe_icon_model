@@ -44,45 +44,36 @@
 !!
 !!
 MODULE mo_dynamics_nml
-!-------------------------------------------------------------------------
-!
-!    ProTeX FORTRAN source: Style 2
-!    modified for ICON project, DWD/MPI-M 2006
-!
-!-------------------------------------------------------------------------
-!
-!
-!
-!
+
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_impl_constants,     ONLY: max_char_length, unknown, tracer_only, &
-                                   leapfrog_expl, leapfrog_si, ab2
+  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, UNKNOWN, TRACER_ONLY, &
+                                   LEAPFROG_EXPL, LEAPFROG_SI, AB2
   USE mo_physical_constants, ONLY: grav
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned
   USE mo_mpi,                ONLY: p_pe, p_io
   USE mo_run_nml,            ONLY: ltransport,dtime,ntracer,i_cell_type,      &
-    &                              iforcing,lshallow_water,inwp, ihs_atm_temp,&
-    &                              ihs_atm_theta,iequations
-
+    &                              iforcing,lshallow_water,INWP, IHS_ATM_TEMP,&
+    &                              IHS_ATM_THETA,iequations
+  USE mo_master_nml,         ONLY: lrestart
+  USE mo_io_restart,         ONLY: get_restart_attribute
+  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist !,   &       
+!                                & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
+  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
+  CHARACTER(len=*),PARAMETER,PRIVATE :: modelname    = 'icon'
+  CHARACTER(len=*),PARAMETER,PRIVATE :: modelversion = 'dev'
 
   PUBLIC
 
-  CHARACTER(len=*), PARAMETER :: modelname    = 'icon'
-  CHARACTER(len=*), PARAMETER :: modelversion = 'dev'
-
-  ! ------------------------------------------------------------------------
-  ! 1.0 Namelist variables and auxiliary parameters setting up the
-  !     configuration of the dynamical core
-  ! ------------------------------------------------------------------------
-  !
-
-  ! time stepping scheme ---------------------------------------------------------
+  !---------------------------------------------------------------
+  ! Namelist variables and auxiliary parameters setting up the
+  ! configuration of the dynamical core
+  !---------------------------------------------------------------
+  ! time stepping scheme 
 
   INTEGER  :: itime_scheme       ! parameter used to select the time stepping scheme
                                  ! = 1, explicit 2 time level scheme
@@ -112,11 +103,6 @@ MODULE mo_dynamics_nml
   INTEGER  :: si_expl_scheme     ! scheme for the explicit part of the
                                  ! 2-time-level semi-implicit time integration.
                                  ! See mo_impl_constants for the options.
-
-  REAL(wp) :: gdt, gsi_2tlsdt, gsi_2tls2dt, g1msi_2tlsdt  ! coefficients in
-                                 ! semi-implicit schemes. They are not explicitly
-                                 ! specified by the user, but derived from some
-                                 ! of the parameters above.
 
   REAL(wp) :: si_coeff           !  = 0 : explicit scheme(for *d*,*t*,*alps*).
                                  !  = 1 : semi implicit scheme.
@@ -149,19 +135,6 @@ MODULE mo_dynamics_nml
 
   REAL(wp) :: divavg_cntrwgt  ! weight of central cell for divergence averaging
 
-  !time level variables
-
-  INTEGER, ALLOCATABLE, DIMENSION (:) :: nold, nnow, nnew ! variables denoting time levels
-                                                          ! WARNING: nold used only in three
-                                                          ! time level discretization;
-                                                          ! These are NOT namelist parameters!
-
-  INTEGER, ALLOCATABLE, DIMENSION (:) :: nsav1, nsav2 ! extra 'time levels' of prognostic variables
-                                                      ! needed to compute boundary tendencies and
-                                                      ! feedback increments
-
-  INTEGER, ALLOCATABLE, DIMENSION (:) :: nnow_rcf, nnew_rcf ! extra time levels for reduced
-                                                            ! calling frequency (rcf)
 
   
   LOGICAL :: ldry_dycore ! if .TRUE., ignore the effact of water vapor,
@@ -176,213 +149,241 @@ MODULE mo_dynamics_nml
                        & si_cmin, lsi_3d, si_expl_scheme,              &
                        & ldry_dycore, lref_temp
 
-  !
-  ! -----------------------------------------------------------------------
-  ! 2.0 Declaration of dependent control variables 
-  ! -----------------------------------------------------------------------
-  !
-  LOGICAL  :: ltwotime           ! if .TRUE., two time level discretizations are used,
-                                 ! if .FALSE., three time level discretizations are used
+  !------------------------------------------------------------------------
+  ! Dependent variables 
+  !------------------------------------------------------------------------
 
-  !
-  CONTAINS
+  LOGICAL  :: ltwotime       ! if .TRUE., two time level discretizations are used,
+                             ! if .FALSE., three time level discretizations are used
+  REAL(wp) :: gdt            ! coefficients in
+  REAL(wp) :: gsi_2tlsdt     ! semi-implicit schemes. They are not explicitly
+  REAL(wp) :: gsi_2tls2dt    ! specified by the user, but derived from some
+  REAL(wp) :: g1msi_2tlsdt   ! of the parameters above.
 
+  ! time level variables
 
+  INTEGER,ALLOCATABLE :: nold(:), nnow(:), nnew(:) ! variables denoting time levels
+  INTEGER,ALLOCATABLE :: nsav1(:), nsav2(:)        ! extra 'time levels' of prognostic variables
+                                                   ! needed to compute boundary tendencies and
+                                                   ! feedback increments
+  INTEGER,ALLOCATABLE :: nnow_rcf(:), nnew_rcf(:)  ! extra time levels for reduced
+                                                   ! calling frequency (rcf)
 
-!-------------------------------------------------------------------------
-!
-!
+CONTAINS
 
- !>
- !!    Initialization of variables that set up the configuration.
- !!
- !!               Initialization of variables that set up the configuration
- !!               of the dynamical core using values read from
- !!               namelist 'dyn_ctl' and 'ocean_ctl'.
- !!               Some consequent parameters, e.g.
- !!               the diffusion coefficients, are also set here.
- !!
- !! @par Revision History
- !!  by Hui Wan, MPI-M (2007-02-23)
- !! Modification by A. Gassmann, MPI-M (2007-06-12)
- !!   changed violating criteria for diffusion coefficients according to stability
- !!   analysis (cf. Durran:"Numerical methods for wave equations in geophysical
- !!   fluid dynamics", pages 136 ff.)
- !! Modification by Jochen Foerstner, DWD (2008-05-06)
- !!   new namelist variables: lsimpson_dyn, lsimpson_tradv to switch on the
- !!   Simpson's rule for the quadrature in the formulation of the divergence
- !!   operator.
- !! Modification by Jochen Foerstner, DWD (2008-07-16)
- !!   new namelist variable: lrbf_vec_int_edge to switch on the vector RBF
- !!   reconstruction at edge midpoints (instead of averaging cell centered
- !!   values to the edges).
- !! Modification by Almut Gassmann, MPI-M (2008-09-23)
- !!  -remove dxmin: estimate the dual edge length by nroot and start_lev
- !!  -clean up dyn_ctl and remove unnecessary variables
- !! @par
- !! Input Parameters
- !!
- SUBROUTINE dynamics_nml_setup(i_ndom)
+  !>
+  !! @brief Initialization of variables that set up the dynamica core.
+  !!
+  !! Initialization of variables that set up the configuration
+  !! of the dynamical core using values read from
+  !! namelist 'dynamics_ctl'.
+  !!
+  !! @par Revision History
+  !!  by Hui Wan, MPI-M (2007-02-23)
+  !! Modification by A. Gassmann, MPI-M (2007-06-12)
+  !!   changed violating criteria for diffusion coefficients according to stability
+  !!   analysis (cf. Durran:"Numerical methods for wave equations in geophysical
+  !!   fluid dynamics", pages 136 ff.)
+  !! Modification by Jochen Foerstner, DWD (2008-05-06)
+  !!   new namelist variables: lsimpson_dyn, lsimpson_tradv to switch on the
+  !!   Simpson's rule for the quadrature in the formulation of the divergence
+  !!   operator.
+  !! Modification by Jochen Foerstner, DWD (2008-07-16)
+  !!   new namelist variable: lrbf_vec_int_edge to switch on the vector RBF
+  !!   reconstruction at edge midpoints (instead of averaging cell centered
+  !!   values to the edges).
+  !! Modification by Almut Gassmann, MPI-M (2008-09-23)
+  !!  -remove dxmin: estimate the dual edge length by nroot and start_lev
+  !!  -clean up dyn_ctl and remove unnecessary variables
+  !!
+  SUBROUTINE dynamics_nml_setup(i_ndom)
 
-   INTEGER, INTENT(IN) :: i_ndom !< dimension for time level variables
+    INTEGER, INTENT(IN) :: i_ndom
+ 
+    INTEGER :: istat, funit, jdom
 
-   !local variable
-   INTEGER :: i_status
+    CHARACTER(len=MAX_CHAR_LENGTH),PARAMETER ::             &
+             & routine = 'mo_dynamics_nml/dynamics_nml_setup'
+ 
+    CHARACTER(len=MAX_CHAR_LENGTH) :: string
+ 
+    !------------------------------------------------------------
+    ! 1. Set up the default values for dynamics_ctl
+    !------------------------------------------------------------
+ 
+    itime_scheme      = LEAPFROG_SI
+    ileapfrog_startup = 1
+    asselin_coeff     = 0.1_wp
+ 
+    si_2tls           = 0.6_wp
+    si_expl_scheme    = AB2 
+ 
+    si_coeff          = 1.0_wp
+    si_offctr         = 0.7_wp
+    lsi_3d            = .FALSE.
+    si_rtol           = 1.e-3_wp
+    si_cmin           = 30._wp
+ 
+    idiv_method       = 1
+    divavg_cntrwgt    = 0.5_wp
+ 
+    SELECT CASE (iequations)
+    CASE (IHS_ATM_TEMP, IHS_ATM_THETA)
+      ldry_dycore       = .TRUE.
+      lref_temp         = .FALSE.
+    END SELECT
 
-   CHARACTER(len=max_char_length), PARAMETER :: &
-                                   routine = 'mo_dynamics_nml/setup_dynamics:'
+    !------------------------------------------------------------------------
+    ! 2. If this is a resumed integration...
+    !------------------------------------------------------------------------
+   !IF (lrestart) THEN
 
-   CHARACTER(len=max_char_length) :: string
+   !  ! 2.1 Overwrite the defaults above by values in the restart file
+   !  funit = open_and_restore_namelist('dynamics_ctl')
+   !  READ(funit,NML=dynamics_ctl)
+   !  CALL close_tmpfile(funit)
+   !  ! for testing
+   !  WRITE (0,*) 'contents of namelist ...'
+   !  WRITE (0,NML=dynamics_ctl)
 
-   !------------------------------------------------------------
-   ! 3.0 set up the default values for dynamics_ctl
-   !------------------------------------------------------------
-   !
-   itime_scheme      = leapfrog_si
-   ileapfrog_startup = 1
-   asselin_coeff     = 0.1_wp
+   !END IF
 
-   si_2tls           = 0.6_wp
-   si_expl_scheme    = ab2
+    !------------------------------------------------------------------------
+    ! 3. Read user's (new) specifications. (Done so far by all MPI processes)
+    !------------------------------------------------------------------------
+    CALL position_nml ('dynamics_ctl', STATUS=istat)
+    SELECT CASE (istat)
+    CASE (POSITIONED)
+      READ (nnml, dynamics_ctl)
+    END SELECT
 
-   si_coeff          = 1.0_wp
-   si_offctr         = 0.7_wp
-   lsi_3d            = .FALSE.
-   si_rtol           = 1.e-3_wp
-   si_cmin           = 30._wp
-
-   idiv_method       = 1
-   divavg_cntrwgt    = 0.5_wp
-
-   SELECT CASE (iequations)
-   CASE (ihs_atm_temp, ihs_atm_theta)
-     ldry_dycore       = .TRUE.
-     lref_temp         = .FALSE.
-   END SELECT
-
-  !------------------------------------------------------------
-  ! 4.0 Read the namelist to evaluate if a restart file shall
-  !     be used to configure and initialize the model, and if
-  !     so take read the dynamics_ctl parameters from the restart
-  !     file.
-  !------------------------------------------------------------
-  ! (done so far by all MPI processes)
-
-   CALL position_nml ('dynamics_ctl', status=i_status)
-   SELECT CASE (i_status)
-   CASE (positioned)
-     READ (nnml, dynamics_ctl)
-   END SELECT
-
-!  write the contents of the namelist to an ASCII file
-
-   IF(p_pe == p_io) WRITE(nnml_output,nml=dynamics_ctl)
-
-  !------------------------------------------------------------
-  ! 5.0 check the consistency of the parameters
-  !------------------------------------------------------------
-  !
-
-  ! for the time stepping scheme
-
-  IF (si_offctr>1._wp.OR.si_offctr<0._wp) THEN
+    !------------------------------------------------------------
+    ! 4. Check the consistency of the parameters
+    !------------------------------------------------------------
+    ! for the time stepping scheme
+  
+    IF (si_offctr>1._wp.OR.si_offctr<0._wp) THEN
       CALL finish( TRIM(routine), 'Invalid offcentering parameter.'//&
-           'Valid range for si_offctr is [0,1].')
-  ENDIF
-
-  IF (lshallow_water .AND. lsi_3d) THEN
+                 & 'Valid range for si_offctr is [0,1].')
+    ENDIF
+  
+    IF (lshallow_water .AND. lsi_3d) THEN
       CALL message( TRIM(routine), 'In shallow water mode lsi_3d is set to .FALSE.')
       lsi_3d=.FALSE.
-  ENDIF
-
-
-  IF((itime_scheme<=0).OR.(itime_scheme>=unknown)) THEN
-    WRITE(string,'(A,i2)') &
-    'wrong value of itime_scheme, must be 1 ...', unknown -1
-    CALL finish( TRIM(routine),TRIM(string))
-  ENDIF
-
-  IF((itime_scheme==tracer_only).AND.(.NOT.ltransport)) THEN
-    WRITE(string,'(A,i2,A)') &
-    'itime_scheme set to ', tracer_only, 'but ltransport to .FALSE.'
-    CALL finish( TRIM(routine),TRIM(string))
-  ENDIF
-
-  IF(ltransport .AND. ntracer <= 0 .AND. iforcing/=inwp) THEN
-    CALL finish( TRIM(routine),'tracer advection not possible for ntracer=0')
-    ! [for nwp forcing ntracer setting is treated in setup_transport]
-  ENDIF
-
-  IF(asselin_coeff<0._wp) THEN
-    CALL finish( TRIM(routine),'wrong (negative) coefficient of Asselin filter')
-  ENDIF
-
-  IF(si_2tls<0.5_wp) THEN
-    CALL finish( TRIM(routine),&
-                 'off centering parameter si_2tls outside stability range')
-  ENDIF
-
-  IF(si_2tls>1._wp) THEN
-    CALL finish( TRIM(routine),'off centering parameter si_2tls larger than 1')
-  ENDIF
-
-  IF (i_cell_type/=3) THEN
-    idiv_method = 1
-  ENDIF
-  IF (idiv_method > 2 .OR. idiv_method < 1 )THEN
-     CALL finish(TRIM(routine),'Error: idiv_method must be 1 or 2 !')
-  ENDIF
-
-  SELECT CASE (iequations)
-  CASE (ihs_atm_temp, ihs_atm_theta)
-
-    IF (ldry_dycore) THEN
-      CALL message(TRIM(routine),'running the DRY dynamical core')
-    ELSE
-      CALL message(TRIM(routine),'running the dynamical core with tracer')
     ENDIF
-
-    IF (lref_temp) THEN
-      CALL message(TRIM(routine), &
-           'use of reference temperature switched ON in ' // &
-           'calculation of pressure gradient force.')
-    ELSE
-      CALL message(TRIM(routine), &
-           'use of reference temperature switched OFF in ' // &
-           'calculation of pressure gradient force.')
+  
+    IF((itime_scheme<=0).OR.(itime_scheme>=unknown)) THEN
+      WRITE(string,'(A,i2)') &
+      'wrong value of itime_scheme, must be 1 ...', unknown -1
+      CALL finish( TRIM(routine),TRIM(string))
     ENDIF
+  
+    IF((itime_scheme==tracer_only).AND.(.NOT.ltransport)) THEN
+      WRITE(string,'(A,i2,A)') &
+      'itime_scheme set to ', tracer_only, 'but ltransport to .FALSE.'
+      CALL finish( TRIM(routine),TRIM(string))
+    ENDIF
+  
+    IF(ltransport .AND. ntracer <= 0 .AND. iforcing/=INWP) THEN
+      CALL finish( TRIM(routine),'tracer advection not possible for ntracer=0')
+      ! [for nwp forcing ntracer setting is treated in setup_transport]
+    ENDIF
+  
+    IF(asselin_coeff<0._wp) THEN
+      CALL finish( TRIM(routine),'wrong (negative) coefficient of Asselin filter')
+    ENDIF
+  
+    IF(si_2tls<0.5_wp) THEN
+      CALL finish( TRIM(routine),&
+                   'off centering parameter si_2tls outside stability range')
+    ENDIF
+  
+    IF(si_2tls>1._wp) THEN
+      CALL finish( TRIM(routine),'off centering parameter si_2tls larger than 1')
+    ENDIF
+  
+    IF (i_cell_type/=3) THEN
+      idiv_method = 1
+    ENDIF
+    IF (idiv_method > 2 .OR. idiv_method < 1 )THEN
+       CALL finish(TRIM(routine),'Error: idiv_method must be 1 or 2 !')
+    ENDIF
+  
+    SELECT CASE (iequations)
+    CASE (IHS_ATM_TEMP, IHS_ATM_THETA)
+  
+      IF (ldry_dycore) THEN
+        CALL message(TRIM(routine),'running the DRY dynamical core')
+      ELSE
+        CALL message(TRIM(routine),'running the dynamical core with tracer')
+      ENDIF
+  
+      IF (lref_temp) THEN
+        CALL message(TRIM(routine), &
+             'use of reference temperature switched ON in ' // &
+             'calculation of pressure gradient force.')
+      ELSE
+        CALL message(TRIM(routine), &
+             'use of reference temperature switched OFF in ' // &
+             'calculation of pressure gradient force.')
+      ENDIF
+  
+    END SELECT
 
-  END SELECT
+    !-----------------------------------------------------
+    ! 5. Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=dynamics_ctl)
+    CALL store_and_close_namelist(funit, 'dynamics_ctl')
+    write(0,*) 'stored dynamics_ctl'
 
-  !-----------------------------------------------------------------------
-  ! initialize time scheme
-  !-----------------------------------------------------------------------
-  ALLOCATE (nnow(i_ndom),nnew(i_ndom),nold(i_ndom),nsav1(i_ndom),        &
-    &       nsav2(i_ndom),nnow_rcf(i_ndom), nnew_rcf(i_ndom))
+    ! write the contents of the namelist to an ASCII file
+    IF(p_pe == p_io) WRITE(nnml_output,nml=dynamics_ctl)
 
-    nnow=1
-    nnew=2
-    nold=3
-    nnow_rcf=1
-    nnew_rcf=2
+    !-----------------------------------------------------------------------
+    ! 6. Assign value to dependent variables 
+    !-----------------------------------------------------------------------
+    ALLOCATE( nnow(i_ndom),nnew(i_ndom),nold(i_ndom),nsav1(i_ndom), &
+            & nsav2(i_ndom),nnow_rcf(i_ndom), nnew_rcf(i_ndom))
 
+    IF (lrestart) THEN
+      ! Read time level indices from restart file.
+      ! NOTE: this part will be modified later for a proper handling 
+      ! of multiple domains!!!
 
-     IF (itime_scheme /= leapfrog_expl .AND. itime_scheme /= leapfrog_si ) THEN
-       ltwotime = .TRUE.
-     ! nsav1=0
-     ! nsav2=3
-     ELSE
-       ltwotime = .FALSE.
-     ! nsav1=0
-     ! nsav2=4
-     END IF
+      IF (i_ndom>1) &
+      CALL finish(TRIM(routine),'Restart functionality can not handle multiple domains (yet)')
+
+      jdom = 1  ! only consider one domain at the moment
+      !DO jdom = 1,i_ndom
+        CALL get_restart_attribute( 'nold'    ,nold    (jdom) )
+        CALL get_restart_attribute( 'nnow'    ,nnow    (jdom) )
+        CALL get_restart_attribute( 'nnew'    ,nnew    (jdom) )
+        CALL get_restart_attribute( 'nnow_rcf',nnow_rcf(jdom) )
+        CALL get_restart_attribute( 'nnew_rcf',nnew_rcf(jdom) )
+      !END DO
+
+    ELSE
+      nnow(:) = 1
+      nnew(:) = 2
+      nold(:) = 3
+      nnow_rcf(:) = 1
+      nnew_rcf(:) = 2
+    END IF
+
+    IF (itime_scheme/=LEAPFROG_EXPL .AND. itime_scheme/=LEAPFROG_SI ) THEN
+      ltwotime = .TRUE.
+    ELSE
+      ltwotime = .FALSE.
+    END IF
 
     ! For two time-level schemes, we also allocate 3 prognostic state vectors:
     ! new, now AND old. The "old" vector is used as an temporary vector,
     ! e.g., for the stages in the Runge-Kutta method.
 
-     nsav1=0
-     nsav2=4
+    nsav1 = 0
+    nsav2 = 4
 
     !-----------------------------------------------------------------------
     ! assign value to variables that are frequently used by
@@ -394,58 +395,15 @@ MODULE mo_dynamics_nml
     gsi_2tls2dt = gsi_2tlsdt*si_2tls*dtime
     g1msi_2tlsdt= (1._wp -si_2tls)*gdt
 
-END SUBROUTINE dynamics_nml_setup
-!
-!--------------------------------------------------------------------
-!
-SUBROUTINE deallocate_timelevs
+  END SUBROUTINE dynamics_nml_setup
+  !-------------
+  !>
+  !!
+  SUBROUTINE cleanup_dyn_params 
 
-  DEALLOCATE(nnow,nnew,nold,nsav1,nsav2,nnow_rcf,nnew_rcf)
+    DEALLOCATE(nnow,nnew,nold,nsav1,nsav2,nnow_rcf,nnew_rcf)
 
-END SUBROUTINE deallocate_timelevs
-!
-!--------------------------------------------------------------------
-!
+  END SUBROUTINE cleanup_dyn_params 
+  !-------------
+
 END MODULE mo_dynamics_nml
-
-!!$  !>
-!!$  !! "read_restart_radiation_nml" reads the parameters of the radiation
-!!$  !! namelist from the global attributes of a restart file in netcdf format.
-!!$  !!
-!!$  !! @par Revision History
-!!$  !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
-!!$  !!
-!!$  SUBROUTINE read_restart_radiation_nml
-!!$
-!!$    CALL finish('mo_radiation_nml/read_restart_radiation_nml', &
-!!$      &         'This subroutine is not yet available')
-!!$
-!!$  END SUBROUTINE read_restart_radiation_nml
-!!$
-!!$  !>
-!!$  !! "write_restart_radiation_nml" writes the parameters of the radiation
-!!$  !! namelist as global attributes to a restart file in netcdf format.
-!!$  !!
-!!$  !! @par Revision History
-!!$  !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
-!!$  !!
-!!$  SUBROUTINE write_restart_radiation_nml
-!!$
-!!$    CALL finish('mo_radiation_nml/write_restart_radiation_nml', &
-!!$      &         'This subroutine is not yet available')
-!!$
-!!$  END SUBROUTINE write_restart_radiation_nml
-!!$
-!!$  !>
-!!$  !! "write_rawdata_radiation_nml" writes the parameters of the radiation
-!!$  !! namelist as global attributes to a raw data file in netcdf format.
-!!$  !!
-!!$  !! @par Revision History
-!!$  !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
-!!$  !!
-!!$  SUBROUTINE write_rawdata_radiation_nml
-!!$
-!!$    CALL finish('mo_radiation_nml/write_rawdata_radiation_nml', &
-!!$      &         'This subroutine is not yet available')
-!!$
-!!$  END SUBROUTINE write_rawdata_radiation_nml

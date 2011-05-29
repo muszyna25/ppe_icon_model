@@ -116,7 +116,7 @@ PROGRAM control_model
      &                              nonhydrostatic_nml_setup
   USE mo_ocean_nml,           ONLY: setup_ocean_nml
   USE mo_dynamics_nml,        ONLY: dynamics_nml_setup,   &
-     &                              deallocate_timelevs
+     &                              cleanup_dyn_params 
   USE mo_diffusion_nml,       ONLY: diffusion_nml_setup
   USE mo_io_nml,              ONLY: io_nml_setup,         & ! process I/O
      &                              dt_data,              & !    :
@@ -1018,8 +1018,7 @@ PROGRAM control_model
 
   ! deallocate time level variables
   !
-  CALL deallocate_timelevs
-
+  CALL cleanup_dyn_params 
   CALL message('control_model','clean-up finished')
 
   ! Shut down MPI

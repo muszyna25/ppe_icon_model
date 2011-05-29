@@ -51,9 +51,14 @@ MODULE mo_master_nml
 
 CONTAINS
   !>
-  !! @brief 
+  !! Set up and read in namelist master_nml, which contains
+  !! the minimum information one needs in order to start a simulation, 
+  !! e.g., whether it's an initial run or a resumed simulation.
+  !! Note that this namelist is not read from or written to 
+  !! restart file(s).
   !!
   !! @par Revision History
+  !! First version by Hui Wan (MPI-M, 2011-05-27)
   !!
   SUBROUTINE master_nml_setup
                                                 

@@ -41,11 +41,11 @@ MODULE mo_grid_nml
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, MAX_DOM
   USE mo_math_constants,     ONLY: rad2deg
   USE mo_mpi,                ONLY: p_pe, p_io
-  USE mo_master_nml,         ONLY: lrestart
+! USE mo_master_nml,         ONLY: lrestart
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, POSITIONED
-  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
-                                 & open_and_restore_namelist, close_tmpfile
+  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist !,   &
+!                                & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
 
@@ -130,14 +130,14 @@ CONTAINS
     ! If this is a resumed integration, overwrite the defaults above 
     ! by values in the previous integration.
     !----------------------------------------------------------------
-    IF (lrestart) THEN
-      funit = open_and_restore_namelist('grid_ctl')
-      READ(funit,NML=grid_ctl)
-      CALL close_tmpfile(funit)
-     ! for testing
-      WRITE (0,*) 'contents of namelist ...'
-      WRITE (0,NML=grid_ctl)
-    END IF
+!   IF (lrestart) THEN
+!     funit = open_and_restore_namelist('grid_ctl')
+!     READ(funit,NML=grid_ctl)
+!     CALL close_tmpfile(funit)
+!    ! for testing
+!     WRITE (0,*) 'contents of namelist ...'
+!     WRITE (0,NML=grid_ctl)
+!   END IF
 
     !--------------------------------------------------------------------
     ! Read user's (new) specifications (Done so far by all MPI processes)

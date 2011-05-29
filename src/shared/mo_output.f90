@@ -63,6 +63,7 @@ MODULE mo_output
                                   & init_restart, open_writing_restart_files,  &
                                   & write_restart, close_writing_restart_files,&
                                   & finish_restart, set_restart_attribute
+  USE mo_dynamics_nml,        ONLY: nold, nnow, nnew, nnow_rcf, nnew_rcf
 
 
   IMPLICIT NONE
@@ -298,6 +299,12 @@ CONTAINS
     CALL set_restart_attribute( 'current_hour'  , datetime%hour   )   
     CALL set_restart_attribute( 'current_minute', datetime%minute )
     CALL set_restart_attribute( 'current_second', datetime%second )
+
+    CALL set_restart_attribute( 'nold'    , nold    (jg))
+    CALL set_restart_attribute( 'nnow'    , nnow    (jg))
+    CALL set_restart_attribute( 'nnew'    , nnew    (jg))
+    CALL set_restart_attribute( 'nnow_rcf', nnow_rcf(jg))
+    CALL set_restart_attribute( 'nnew_rcf', nnew_rcf(jg))
 
     CALL set_restart_vct( pvct )  ! Vertical coordinate (A's and B's)
 
