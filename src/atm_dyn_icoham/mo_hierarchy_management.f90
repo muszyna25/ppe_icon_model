@@ -110,7 +110,7 @@ MODULE mo_hierarchy_management
   USE mo_communication,       ONLY: start_delayed_exchange, do_delayed_exchange
   USE mo_subdivision,         ONLY: proc_split
   USE mo_ldf_test,            ONLY: ldf_temp
-
+  USE mo_master_nml,          ONLY: lrestart
 
   IMPLICIT NONE
   PRIVATE
@@ -328,7 +328,8 @@ CONTAINS
         jstep = ns
       ENDIF
 
-      IF ( (.NOT.ltwotime).AND.(nstep_global==1).AND.(.NOT.l_3tl_init(jg)) ) THEN
+      IF ( (.NOT.lrestart).AND. &
+         & (.NOT.ltwotime).AND.(nstep_global==1).AND.(.NOT.l_3tl_init(jg)) ) THEN
         !==========================================================================
         ! Special treatment for 3 time level schemes
         !==========================================================================

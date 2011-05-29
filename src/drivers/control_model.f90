@@ -127,7 +127,6 @@ PROGRAM control_model
   USE mo_master_nml,          ONLY: master_nml_setup, lrestart
   USE mo_run_nml,             ONLY: run_nml_setup,        & ! subroutine 
      &                              current_datetime,     & ! module variable 
-     &                              ini_datetime,         & ! namelist parameters
      &                              dtime,                & !    :
      &                              i_cell_type,          & !    :
      &                              ltransport,           & !    :
@@ -214,7 +213,8 @@ PROGRAM control_model
   !
   USE mo_echam_phy_memory,    ONLY: destruct_echam_phy_state
   USE mo_echam_phy_setup,     ONLY: setup_echam_phy
-  USE mo_echam_phy_init,      ONLY: prepare_echam_phy, initcond_echam_phy
+  USE mo_echam_phy_init,      ONLY: prepare_echam_phy, initcond_echam_phy, &
+                                  & additional_restart_init
   USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
   USE mo_gmt_output,          ONLY: setup_gmt_output
   USE mo_nwp_phy_state,       ONLY: construct_nwp_phy_state,   &
@@ -725,28 +725,43 @@ PROGRAM control_model
   !-------------------------------------------------
   CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
 
+    !------------------------------------------------------------------
     ! Initialize parameters and solvers; 
     ! Allocate memory for model state vectors.
-
+    !------------------------------------------------------------------
     CALL prepare_ha_dyn( p_patch(1:) )
     IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
       CALL prepare_echam_phy( p_patch(1:) )
     END IF
 
-    ! Set initial condition for time integration:
-    ! - read model state from restart file(s) if this is a resumed run;
-    ! - compute initial condition for test cases, or read externally 
-    !   specified initial conditions if this is an initial run. 
-
+    !------------------------------------------------------------------
+    ! Set initial conditions for time integration.
+    !------------------------------------------------------------------
     IF (lrestart) THEN
+    ! This is an resumed integration. Read model state from restart file(s).
+
       CALL read_restart_files
-      call message('control model:' ,'normal exit from read_restart_files')
-    ELSE
-      CALL initcond_ha_dyn( p_patch(1:), p_int_state(1:), p_grf_state(1:), p_hydro_state )
+      CALL message('control model:' ,'normal exit from read_restart_files')
+
+      ! Initialize logical variables in echam physics state.
+      ! This is necessary for now because logical arrays can not yet be
+      ! written into restart files.
+
       IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
-        CALL initcond_echam_phy( p_patch(1:),p_hydro_state )
+        CALL additional_restart_init( p_patch(1:) )
       END IF
-    END IF
+
+    ELSE 
+    ! This is an initial run. Compute initial condition for test cases, 
+    ! or read externally given initial conditions. 
+
+      CALL initcond_ha_dyn( p_patch(1:), p_int_state(1:),  &
+                          & p_grf_state(1:), p_hydro_state )
+
+      IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM)      & 
+      CALL initcond_echam_phy( p_patch(1:),p_hydro_state )
+
+    END IF ! lrestart
 
   !--------------------
   CASE (inh_atmosphere)

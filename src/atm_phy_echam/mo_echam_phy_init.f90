@@ -36,7 +36,7 @@
 MODULE mo_echam_phy_init
 
   USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: finish, message
+  USE mo_exception,            ONLY: finish
 
   ! model configuration
   USE mo_dynamics_nml,       ONLY: nnow
@@ -84,6 +84,7 @@ MODULE mo_echam_phy_init
   IMPLICIT NONE
   PRIVATE
   PUBLIC  :: prepare_echam_phy, initcond_echam_phy
+  PUBLIC  :: additional_restart_init
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -416,6 +417,57 @@ CONTAINS
 
   END SUBROUTINE initcond_echam_phy
   !-------------
+  !>
+  !!
+  SUBROUTINE additional_restart_init( p_patch )
+
+    TYPE(t_patch),INTENT(IN) :: p_patch(:)
+    INTEGER :: ndomain, nblks_c, jg, jb, jbs, jc, jcs, jce
+    TYPE(t_echam_phy_field),POINTER :: field => NULL()
+
+    !----
+    ! total number of domains/ grid levels
+
+    ndomain = SIZE(prm_field)
+    IF (ndomain.eq.0) CALL finish('init_phy_memory', &
+       & 'ERROR: array prm_field has zero length')
+
+    !-------------------------
+    ! Loop over all domains
+    !-------------------------
+    DO jg = 1,ndomain
+
+      field => prm_field(jg)
+
+      !----------------------------------------
+      ! Loop over all blocks in domain jg
+      !----------------------------------------
+      nblks_c = p_patch(jg)%nblks_int_c
+      jbs     = p_patch(jg)%cells%start_blk(2,1)
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,jcs,jce,jk)
+      DO jb = jbs,nblks_c
+        CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
+
+        ! Initialize the flag lfland (.TRUE. if the fraction of land in 
+        ! a grid box is larger than zero). In ECHAM a local array
+        ! is initialized in each call of the subroutine "physc"
+
+        DO jc = jcs,jce
+          field%lfland(jc,jb) = field%lsmask(jc,jb).GT.0._wp
+          field%lfglac(jc,jb) = field%glac  (jc,jb).GT.0._wp
+          ! DWD NWP version
+        ! field%lfland(jc,jb) = ext_data(jg)%atm%lsm_atm_c(jc,jb) > 0
+        ! field%lfglac(jc,jb) = ext_data(jg)%atm%soiltyp  (jc,jb) == 1 ! soiltyp=ice
+        ENDDO !jc
+      ENDDO   !jb
+!$OMP END DO
+!$OMP END PARALLEL
+
+    ENDDO !jg
+    write(0,*) 'additional_restat_init'
+
+  END SUBROUTINE additional_restart_init
 
 END MODULE mo_echam_phy_init
 
