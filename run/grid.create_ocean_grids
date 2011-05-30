@@ -30,6 +30,19 @@
 # smooth_ocean_boundary=[.true.][.false.]  
 # 
 #-----------------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------------
+if [[ "x$target" = "xsx9" ]] ; then
+  echo "Disabled for ${target}. Copying grids from buildbot.grids."
+  cp  ../../../../buildbot.grids/* ${basedir}/grids
+  check_error 0 "create_nested_grids"
+  exit 0
+fi
+#-----------------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------------
 create_basin=".true."
 create_aqua_planet=".true."
 create_etopo40_planet=".true."

@@ -15,8 +15,8 @@
 # nec at DWD
 # 
 # submit: 
-#   qsub run_ICON_R2B4_APE.new
-#   qstat | grep jhelmert
+#   qsub run_ICONAM_R2B4_APE
+#   qstat | grep mkoehler
 #   nqstat
 #   dayfile #hpcjob-id ("F" updating)
 #   nqcat -n 200 -o #hpcjob-id
@@ -33,8 +33,8 @@
 #PBS -q lang
 #PBS -m n
 #PBS -r n
-#PBS -l walltime=24:00:00
-#PBS -o /e/uhome/jhelmert/wq
+#PBS -l walltime=48:00:00
+#PBS -o /e/uhome/mkoehler/wq
 #PBS -j oe
 #PBS -W umask=0027
 
@@ -49,12 +49,13 @@ PATH=${PATH}:/e/rhome/routfor/routfox/abs     #CDO netcdf operators
 PATH=${PATH}:/e/uhome/for1han/bin             #various scripts
 export PATH
 
-DATA_DIR="/e/uwork/jhelmert/icon"     #/e/uwork, /e/uscratch, /e/gtmp
-#DATA_DIR="/e/uscratch/jhelmert/icon" #/e/uwork, /e/uscratch, /e/gtmp
+USER="mkoehler"
+DATA_DIR="/e/uwork/"${USER}"/icon"     #/e/uwork, /e/uscratch, /e/gtmp
+#DATA_DIR="/e/uscratch/"${USER}"/icon" #/e/uwork, /e/uscratch, /e/gtmp
                                       #or transfer data to oflxs04:/uwork1
 
 # Directories:
-EDIR="exp01"                          # working directory
+EDIR="exp16"                          # working directory
 EXPNAME="APE"                         # experiment identifier
 IDIR="GRIDR2"                         # input directory
 
@@ -62,7 +63,7 @@ IDIR="GRIDR2"                         # input directory
 EXPDIR=${DATA_DIR}/experiments/${EDIR}
 mkdir -p ${EXPDIR}
 
- 
+
 #-----------------------------------------------------------------------------
 # Basic specifications of the simulation
 # --------------------------------------
@@ -70,8 +71,8 @@ mkdir -p ${EXPDIR}
 # These values need to be stored in variables, which are needed to
 # construct filenames  or directories:
 
-R=2               # nroot (division of icosahedron edges)
-B=4               # number of bisections applied for the global grid
+RR=2              # nroot (division of icosahedron edges)
+BB=4              # number of bisections applied for the global grid
 NLEV=90           # nlev = number of full levels
 OPT="spr0.90"     # grid optimization
 ICELL=3           # cell grid type, 3 triangles, 6 hexagons
@@ -92,12 +93,12 @@ IFORCING=3        # forcing to the equation system
 # Here the length of the integration is converted from number of days
 # to number of timesteps.
 
-DTIME=225                     # time step in seconds
+DTIME=225                     # time step in seconds (150, 180, 225, 300)
 DT_DATA=`expr 12 \* 3600  `   # output each 12 hours
 DT_DIAG=`expr 24 \* 3600  `   # ascii diagnostic output each 24 hours
 DT_FILE=`expr 10 \* 86400 `   # 10 days per file
 #DT_FILE=`expr 1  \* 3600 `   # 10 days per file
-NDAYS=1                       # number of days to run
+NDAYS=400                     # number of days to run
 
 
 #-----------------------------------------------------------------------------
@@ -123,11 +124,11 @@ cat > NAMELIST_ICON << EOF_NL
 &nwp_phy_ctl
  inwp_gscp       = 1
  inwp_convection = 1
- inwp_cldcover   = 3        ! 0: no cld, 1: grid scale, 3: COSMO
+ inwp_cldcover   = 3        ! 0: no cld, 1: grid scale, 3: COSMO, 4: new diagnostic
  inwp_radiation  = 1        ! 1: RRTM, 2: Ritter-Geleyn
- inwp_turb       = 1        ! 1: Raschendorfer, 2: ECHAM, 3: EDMF-DUALM
+ inwp_turb       = 2        ! 1: Raschendorfer, 2: ECHAM, 3: EDMF-DUALM
  inwp_sso        = 0
- inwp_surface    = 1
+ inwp_surface    = 0
  dt_conv         = 900
  dt_rad          = 1800
  dt_sso          = 900
@@ -153,7 +154,7 @@ cat > NAMELIST_ICON << EOF_NL
  iadv_rcf        = 2        ! microphysics and turb and sat adj every 2 dynamic steps (2 or 4)
  exner_expol     = 0.60     ! exner function extrapolation?
  rayleigh_coeff  = 0.05     ! Rayleigh coefficient for damping in upper levels
- damp_height     = 35000.   ! damping height (set about 10km below top)
+ damp_height     = 35000.   ! damping height (set about 10km below top, 5-10 levels)
  vwind_offctr    = 0.2      ! off-centering for time differencing (like alpha in turb)
  l_open_ubc      = .TRUE.   ! top open upper boundary condition. might help to go higher
 /
@@ -182,8 +183,8 @@ cat > NAMELIST_ICON << EOF_NL
  lwrite_divergence = .TRUE.
 /
 &grid_ctl
- nroot       = ${R}         ! root division of icosahedron edges
- start_lev   = ${B}         ! number of bisections applied for the base grid
+ nroot       = ${RR}        ! root division of icosahedron edges
+ start_lev   = ${BB}        ! number of bisections applied for the base grid
 /
 &dynamics_ctl
  idiv_method     = 1
@@ -230,10 +231,6 @@ cat > NAMELIST_ICON << EOF_NL
 /
 EOF_NL
 
-#tkhmin          = 0.01     ! [m2/s, default 1] min diffusion coefficient for scalars (q, theta)
-#tkmmin          = 0.01     ! [m2/s, default 1] min diffusion coefficient for momentum
-#                           ! (not yet active)
-
 mv -f NAMELIST_ICON ${EXPDIR}
 
 
@@ -241,13 +238,13 @@ mv -f NAMELIST_ICON ${EXPDIR}
 # job on NEC
 #-----------
 
-cat > /e/uhome/jhelmert/wq/job.nec_tmp.$$ <<EOF_NEC
+cat > /e/uhome/${USER}/wq/job.nec_tmp.$$ <<EOF_NEC
 #### BATCH_SYSTEM=NQS2 ####
 
 #PBS -N icon
 #PBS -q normal@sx9esiox1
 #PBS -j o
-#PBS -o /e/uhome/jhelmert/wq/o.icon_par.$$
+#PBS -o /e/uhome/${USER}/wq/o.icon_model.$$
 #PBS -l cpunum_job=16
 #PBS -b 1
 #PBS -l elapstim_req=86400
@@ -270,8 +267,8 @@ export F_PROGINF=DETAIL
 
 # determine architecture
 #arch=sx9-nec-superux-sx9ftr 
-arch=sx9-nec-superux-sx9debug 
-#arch=sx9-nec-superux-sx9omp
+#arch=sx9-nec-superux-sx9debug 
+arch=sx9-nec-superux-sx9omp
 #arch=sx9-nec-superux-sx9mpiomp
 
 # determine base directory (../icon-dev)
@@ -315,15 +312,30 @@ EOF_NEC
 #----------------
 
 # copy plotting files
-PLOTDIR=/e/uhome/jhelmert/ncl
+PLOTDIR=/e/uhome/${USER}/ncl
 cp ${PLOTDIR}/iconplot.zonal.parallel.s    \
-   ${PLOTDIR}/iconplot.zonal.parallel.list \
    ${PLOTDIR}/iconplot.zonal-vert.ncl      \
    ${PLOTDIR}/iconplot.zonal-time.ncl      \
    ${PLOTDIR}/iconplot.maps.ncl    ${EXPDIR}
 
+cat > ${EXPDIR}/iconplot.zonal.list << EOF_LIST
+iconplot.zonal.parallel.s -v T
+iconplot.zonal.parallel.s -v U
+iconplot.zonal.parallel.s -v V
+iconplot.zonal.parallel.s -v W
+iconplot.zonal.parallel.s -v CC
+iconplot.zonal.parallel.s -v QV
+iconplot.zonal.parallel.s -v QC
+iconplot.zonal.parallel.s -v QI
+iconplot.zonal.parallel.s -v Q1
+iconplot.zonal.parallel.s -v Q2
+iconplot.zonal.parallel.s -v Q3
+iconplot.zonal.parallel.s -v Q4
+iconplot.zonal.parallel.s -v Q5
+EOF_LIST
+
 # submit job to NEC and wait
-qsubw /e/uhome/jhelmert/wq/job.nec_tmp.$$
+qsubw /e/uhome/${USER}/wq/job.nec_tmp.$$
 rc=${?}
 if [[ ":${rc}" != ':0' ]] ; then
    exit 201
@@ -331,9 +343,13 @@ fi
 
 # plotting on HPC
 cd ${EXPDIR}
-/e/uhome/for1han/bin/pshell -p7 -f iconplot.zonal.parallel.list
+/e/uhome/for1han/bin/pshell -p7 -f iconplot.zonal.list
 ./iconplot.zonal.parallel.s
 ncl iconplot.maps.ncl
+
+# save data to ecfs
+emkdir dwd:/${USER}/icon-exp/{EDIR}
+ecp {EXPNAME}_R{RR}B0{BB}L{NLEV}_*.nc dwd:/${USER}/icon-exp/{EDIR}
 
 
 #-----------------------------------------------------------------------------

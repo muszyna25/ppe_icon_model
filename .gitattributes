@@ -44,6 +44,7 @@ blas/idamax.f -text
 blas/lsame.f -text
 blas/xerbla.f -text
 /build_all -text
+config/README_compiler_issues -text
 config/config.guess -text
 config/config.h.SX -text
 config/config.h.in -text
@@ -577,6 +578,7 @@ lapack/ilazlc.f -text
 lapack/ilazlr.f -text
 lapack/iparmq.f -text
 lapack/izmax1.f -text
+/make_post_runscripts -text
 /make_runscripts -text
 run/Namelist_overview.pdf -text
 run/Namelist_overview.tex -text

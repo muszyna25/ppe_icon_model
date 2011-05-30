@@ -5,6 +5,17 @@
 # This script creates optimized ICON grids using
 # a combination of optimizations
 #-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+if [[ "x$target" = "xsx9" ]] ; then
+  echo "Disabled for ${target}. Copying grids from buildbot.grids."
+  cp  ../../../../buildbot.grids/* ${basedir}/grids
+  check_error 0 "create_nested_grids"
+  exit 0
+fi
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
 make_symm_grids="true"
 #-----------------------------------------------------------------------------
 GRIDDIR=grids

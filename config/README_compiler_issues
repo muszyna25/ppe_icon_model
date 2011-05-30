@@ -1,0 +1,31 @@
+Here we list the known problems with compiler (and system) configurations and possible solutions if there are some.
+When we edit we add the date.
+
+============================================================================================
+Revision History
+
+first notes: Kristina Froehlich, MPI-M 2011-05-25
+
+============================================================================================
+
+SYSTEMS
+
+32-bit maschines are not recommended to use for developing purposes, since the model is too big and needs too much memory that might cause trouble.
+
+
+COMPILERS
+
+1) gcc
+
+2)NAG
+
+ is not able to generate grids. Please run first the gcc to create grids
+
+3) intel
+ known to show up stacksize problems
+
+4) PGI
+ possible compilation bug with regard to bounds?
+
+
+

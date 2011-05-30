@@ -14,17 +14,25 @@ cd $WRKDIR
 #-----------------------------------------------------------------------------
 
 
+#-----------------------------------------------------------------------------
+if [[ "x$target" = "xsx9" ]] ; then
+  echo "Disabled for ${target}. Copying grids from buildbot.grids."
+  cp  ../../../../buildbot.grids/* .
+  check_error 0 "create_nested_grids"
+  exit 0
+fi
+
 if [[ "x$target" = "xmpipc" ]] ; then
   if [[ "x$compiler" = "xnag" ]]; then
     echo "Disabled for ${compiler}."
-    check_error 0 "create_global_grids"
+    check_error 0 "create_nested_grids"
     exit 0    
   fi
 else  
   if [[ "x$compiler" = "xnag" || "x$compiler" = "xpgi" ]]; then
     echo "Disabled for ${compiler}. Copying grids from buildbot.grids."
     cp  ../../../../buildbot.grids/* .
-    check_error 0 "create_global_grids"
+    check_error 0 "create_nested_grids"
     exit 0
   fi
 fi
