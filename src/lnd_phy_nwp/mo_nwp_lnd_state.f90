@@ -380,14 +380,15 @@ SUBROUTINE new_nwp_lnd_prog_list( kblks,   &
                                   & restart_type=FILETYPE_NC2  )
 
     !------------------------------
-    ! Meteorological quantities
-    !------------------------------
 
     ! & p_prog_lnd%t_g(nproma,nblks_c), STAT = ist)
     cf_desc    = t_cf_var('t_g ', 'K ', 'weighted surface temperature ')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, 't_g', p_prog_lnd%t_g,                             &
-         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape2d )    
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape2d )
+    p_prog_lnd%t_g(:,:) = 0.0_wp
+
+  IF (inwp_surface > 0) THEN
 
     ! & p_prog_lnd%t_gt(nproma,nztlev,nsfc_subs,nblks_c), STAT = ist)
     cf_desc    = t_cf_var('t_gt', 'K ', 'weighted surface temperature ')
@@ -467,7 +468,6 @@ SUBROUTINE new_nwp_lnd_prog_list( kblks,   &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape5d_snow_subs )
  
 
-    p_prog_lnd%t_g(:,:)                 = 0.0_wp
     p_prog_lnd%t_gt(:,:,:,:)            = 290.4_wp
     p_prog_lnd%t_snow(:,:,:,:)          = 0.0_wp
     p_prog_lnd%t_snow_mult(:,:,:,:,:)   = 0.0_wp
@@ -500,6 +500,8 @@ SUBROUTINE new_nwp_lnd_prog_list( kblks,   &
 
     p_prog_lnd%w_so_ice(:,:,:,:,:)      = 0.0_wp
     p_prog_lnd%dzh_snow(:,:,:,:,:)      = 0.0_wp
+
+  END IF !inwp_surface > 0
 
 END SUBROUTINE new_nwp_lnd_prog_list
 
@@ -538,8 +540,6 @@ SUBROUTINE new_nwp_lnd_diag_list( kblks, listname, diag_list, p_diag_lnd)
                                   & lrestart=.TRUE.,           &
                                   & restart_type=FILETYPE_NC2  )
 
-    !------------------------------
-    ! Meteorological quantities
     !------------------------------
 
     ! & p_diag_lnd%qv_s(nproma,nblks_c)

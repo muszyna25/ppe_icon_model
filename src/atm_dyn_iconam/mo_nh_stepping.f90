@@ -903,18 +903,18 @@ MODULE mo_nh_stepping
         CASE ('PA') ! solid body rotation
 
           ! set time-variant vertical velocity
-          CALL set_nh_w_rho( p_patch(jg),p_nh_state(jg)%metrics,&! in
-            & jstep_adv(jg)%marchuk_order, dt_loc, sim_time(jg),&! in
-            &               p_nh_state(jg)%prog(n_new)%w,       &! inout
-            &               p_nh_state(jg)%diag%pres,           &! inout
-            &               p_nh_state(jg)%diag%rho_ic          )! inout
+          CALL set_nh_w_rho( p_patch(jg),p_nh_state(jg)%metrics,       &! in
+            & jstep_adv(jg)%marchuk_order, dt_loc, sim_time(jg)-dt_loc,&! in
+            &               p_nh_state(jg)%prog(n_new)%w,              &! inout
+            &               p_nh_state(jg)%diag%pres,                  &! inout
+            &               p_nh_state(jg)%diag%rho_ic                 )! inout
 
         CASE ('DF1', 'DF2', 'DF3', 'DF4') ! deformational flow
 
           ! get velocity field
           CALL get_nh_df_velocity( p_patch(jg), p_nh_state(jg)%prog(n_new), &
             &                     nh_test_name, rotate_axis_deg,            &
-            &                     sim_time(jg)+dt_rcf )
+            &                     sim_time(jg)-dt_loc+dt_rcf )
 
           ! get mass flux and new \rho. The latter one is only computed,
           ! if the density equation is re-integrated.

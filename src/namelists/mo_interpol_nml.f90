@@ -344,7 +344,8 @@ SUBROUTINE interpol_nml_setup(p_patch)
     !
     ! Settings for linear lsq reconstruction
     !
-    lsq_lin_set%l_consv = .FALSE.
+!DR    lsq_lin_set%l_consv = .FALSE.
+    lsq_lin_set%l_consv = .TRUE.
     lsq_lin_set%dim_c   = 3
     lsq_lin_set%dim_unk = 2
 
