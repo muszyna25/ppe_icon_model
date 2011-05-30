@@ -25,7 +25,6 @@
 ; varName       : name of the variable to (contour) plot
 ; vecVars       : space separated string of the 2 vector components u and v to draw a vector plot
 ; resolution    : resolution string whish is used for remapping the icon data to regular grid
-; minVar/maxVar : min/maximal Value to plot
 ; timeStep      : no of timestep
 ; levIndex      : vertical level index
 ; mapLLC        : (lon,lat) value array of the Lower Left Corner of the map
@@ -36,11 +35,14 @@
 ;                  halflog (uses half logarythmic levels,i.e. 1,2,5 per decade), 
 ;                  manual (automatic linear spacing with usage of minVar and maxVar)
 ;                  auto (default: let do ncl the spacing)
-; contLevs      : set a number of labels for manual selMode only. It will not set this number
-;                 directly, but is used for computing the contour level spacing. default=10
+; minVar/maxVar : min/maximal Value to plot for selMode=manual or halflog
+; numLevs       : set a number of labels for manual selMode only. NumCol=numLevs+2
+;                 (Not set directly, but used for computing the contour level spacing. default=10)
+; contLevs      : set individual contour levels (not yet)
 ; mapType       : projection type (default: lonlat), other: ortho (not compatible with showGrid)
 ; projSat       : projection type Satellite (default: CylindricalEquidistant, not comp. with "ortho"?)
 ;                  but compatible with showGrid and mapLLC/URC
+; mapLine       : (logical) draws continent lines on the plot (foreground/transparent)
 ; maskName      : variable to mask with. maskName is expected NOT to have time dimension
 ;                  'maskName="none"' is same as default (no mask variable)
 ; maskFile      : optional Filename of the mask variable maskName
@@ -48,7 +50,7 @@
 ; lStrg         : left string
 ; rStrg         : right string
 ; tStrg         : title string
-; bStrg         : base string - default is the time stamp
+; bStrg         : base string - default is prgr name and time stamp only
 ; showPreview   : (logical) draw a preview window
 ; maxView       : (logical) maximize plot area on paper (not for buildbot -> convert to png)
 ; colormap      : string for predefined colormaps of the plot
@@ -64,6 +66,14 @@
  load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/shea_util.ncl"
 
 ;-------------------------------------------------------------------------------
+; some global defaults
+  DEFAULTLON = "clon"
+  DEFAULTLAT = "clat"
+  RAD2DEG    = 45./atan(1.)
+  PLOTMODE   = "scalar"
+  ABORTMSG   = "Abort Script."
+  NUMLEVS    = 10
+;-------------------------------------------------------------------------------
 function sign(val)
 begin
   if (val.eq.0) then
@@ -71,6 +81,156 @@ begin
   else
     return(val/abs(val))
   end if 
+end
+;-------------------------------------------------------------------------------
+function has_time(dims)
+begin
+  if (any(dims.eq."time")) then
+    return(True)
+  else
+    return(False)
+  end if
+end
+;-------------------------------------------------------------------------------
+function var_has_time(varname,filehandle)
+begin
+  dims  = getfilevardims(filehandle,varname)
+  if ( ismissing(any(dims.eq."time")) ) then
+    return(False)
+  else
+    return(True)
+  end if
+end
+;-------------------------------------------------------------------------------
+function selIconVar(varname,filehandle,timestep,levelindex)
+begin
+    dims      = getfilevardims(filehandle,varname)
+    noOfDims  = dimsizes(dims)
+    noOfDims  = noOfDims(0)
+    usableVar = False
+    if ( has_time(dims) ) then
+      if (noOfDims .eq. 3) then        ; dims: (time,lev,cell)
+        var = filehandle->$varname$(timestep,levelindex,:)
+        usableVar = True
+      end if
+      if (noOfDims .eq. 2) then        ; dims: (time,cell)
+        var = filehandle->$varname$(timestep,:)
+        usableVar = True
+      end if
+      if (noOfDims .eq. 1) then        ; dims: (time)
+        var = filehandle->$varname$(:)
+        usableVar = True
+      end if
+    else
+; TODO: support for 4D tracer fields
+;     if (noOfDims .eq. 3) then        ; dims: (lev,cell,tracerID)
+;       var = filehandle->$varname$(levIndex,:,tracer)
+;       usableVar = True
+;     end if
+      if (noOfDims .eq. 2) then        ; dims: (lev,cell)
+        var = filehandle->$varname$(levelindex,:)
+        usableVar = True
+      end if
+      if (noOfDims .eq. 1) then        ; dims: (cell)
+        var = filehandle->$varname$(:)
+        usableVar = True
+      end if
+    end if
+    if (.not. usableVar) then
+      print("Warning! Could not read " +  varname + " from input file")
+      exit
+    end if
+    return var
+end
+;-------------------------------------------------------------------------------
+function selRegularVar(varname,filehandle,timestep,levelindex)
+begin
+    dims      = getfilevardims(filehandle,varname)
+    noOfDims  = dimsizes(dims)
+    noOfDims  = noOfDims(0)
+    usableVar = False
+    if ( has_time(dims) ) then
+      if (noOfDims .eq. 4) then        ; dims: (time,lev,x,y)
+        var = filehandle->$varname$(timestep,levelindex,:,:)
+        usableVar = True
+      end if
+      if (noOfDims .eq. 3) then        ; dims: (time,x,y)
+        var = filehandle->$varname$(timestep,:,:)
+        usableVar = True
+      end if
+      if (noOfDims .eq. 2) then        ; dims: (x,y)
+        var = filehandle->$varname$(:,:)
+        usableVar = True
+      end if
+      if (noOfDims .eq. 1) then        ; dims: (time)
+        var = filehandle->$varname$(:)
+        usableVar = True
+      end if
+    else
+      if (noOfDims .eq. 3) then        ; dims: (lev,x,y)
+        var = filehandle->$varname$(levelindex,:,:)
+        usableVar = True
+      end if
+      if (noOfDims .eq. 2) then        ; dims: (x,y)
+        var = filehandle->$varname$(:,:)
+        usableVar = True
+      end if
+      if (noOfDims .eq. 1) then        ; dims: (x)
+        var = filehandle->$varname$(:)
+        usableVar = True
+      end if
+    end if
+    if (.not. usableVar) then
+      print("Warning! Could not read " +  varname + " from input file")
+      exit
+    end if
+    return var
+end
+;-------------------------------------------------------------------------------
+procedure scaleVar(var,scalefactor)
+local scalefactor
+begin
+    if (scalefactor .ne. 1) then
+      var = var*scalefactor
+    end if
+end
+;-------------------------------------------------------------------------------
+function getGridType(variable)
+begin
+  str   = variable@coordinates
+  gtype = stringtocharacter(str)
+  if (gtype(0) .eq. "c") then
+    str = "cell"
+  end if
+  if (gtype(0) .eq. "e") then
+    str = "edge"
+  end if
+  if (gtype(0) .eq. "v") then
+    str = "vertex"
+  end if
+  return str
+end
+;-------------------------------------------------------------------------------
+function getCoordinates(variable,filehandle)
+begin
+  lonlat = str_split(variable@coordinates," ")
+  lon    = lonlat(0)
+  lat    = lonlat(1)
+  x      = filehandle->$lon$
+  y      = filehandle->$lat$
+
+  return (/x,y/)
+end
+;-------------------------------------------------------------------------------
+function getLonLats(variable,filehandle)
+begin
+  lonlat  = str_split(variable@coordinates," ")
+  lon     = lonlat(0)
+  lat     = lonlat(1)
+  x       = filehandle->$lon$*RAD2DEG
+  y       = filehandle->$lat$*RAD2DEG
+
+  return (/x,y/)
 end
 ;-------------------------------------------------------------------------------
 function createLevels(minVar, maxVar, scaleLimit)
@@ -110,41 +270,586 @@ begin
     do scaleChange=1,scaleLimit
       do ticIndex=0,2
         current = - tics(ticIndex)*10^(logfirst-scaleChange)
-        levels = str_concat((/levels,delimiter,flt2string(current)/))
+        levels = str_concat((/levels,delimiter,flt2string(doubletofloat(current))/))
       end do
     end do
   end if
   if (first.lt.0 .and. last.gt.0) then
     levels = str_concat((/levels,delimiter,"0"/))
   end if
- if (last .gt. 0) then
-   tics = tics4positive
-   if (first.lt.0) then 
-     startScale = min((/logfirst, loglast/)) - scaleLimit
-   else
-     startScale = min((/logfirst, loglast/))
-   end if 
-   j = 0
-   do while (current.lt.(last/10))
-     myScale = startScale + j
-     do ticIndex=0,2
-       current = tics(ticIndex)*10^(myScale)
-       levels = str_concat((/levels,delimiter,flt2string(current)/))
-     end do
-     j = j + 1
-   end do
-   levels = str_concat((/levels,delimiter,flt2string(last)/))
- end if
+  if (last .gt. 0) then
+    tics = tics4positive
+    if (first.lt.0) then
+      startScale = min((/logfirst, loglast/)) - scaleLimit
+    else
+      startScale = min((/logfirst, loglast/))
+    end if
+    j = 0
+    do while (current.lt.(last/10))
+      myScale = startScale + j
+      do ticIndex=0,2
+        current = tics(ticIndex)*10^(myScale)
+        levels = str_concat((/levels,delimiter,flt2string(doubletofloat(current))/))
+      end do
+      j = j + 1
+    end do
+    levels = str_concat((/levels,delimiter,flt2string(doubletofloat(last))/))
+  end if
 
   return(str_split(levels,"|"))
 end
-;procedure initOptions(plotMode,
 ;---------------------------------------------------------------
+procedure printVarNames(filehandle)
+begin
+  filevarnames = getfilevarnames(filehandle)
+  print("variable names in file: "+filevarnames)
+end
+;---------------------------------------------------------------
+procedure printVar(varname, filehandle)
+begin
+  dims  = getfilevardims(filehandle,varname)
+  sizes = filevardimsizes(filehandle,varname)
+  var   = filehandle->$varname$
+  ; Print info about variable, its dimensions and attributes
+  print(dimsizes(sizes) + " Dimensions:")
+  if(.not.any(ismissing(dims))) then
+    do j = 0, dimsizes(dims) -1
+      print( j + ") " + dims(j) + ": " + sizes(j))
+    end do
+  end if
+  atts = getfilevaratts(filehandle,varname)
+  if(.not.any(ismissing(atts))) then
+    do k = 0, dimsizes(atts) -1
+      print(atts(k) + ": " +filehandle->$varname$@$atts(k)$)
+      if (atts(k) .eq. "coordinates") then
+        coordinates = var@$atts(k)$
+      else
+        coordinates = DEFAULTLON + " " + DEFAULTLAT
+      end if
+    end do
+  end if
+end
+;---------------------------------------------------------------
+procedure checkVarname(varname, filehandle)
+begin
+  filevarnames = getfilevarnames(filehandle)
+  if (.not. any(filevarnames.eq.varname)) then
+    print("Could not find variable "+varname+"!")
+    exit
+  end if
+  return True
+end
+;---------------------------------------------------------------
+procedure checkDimsOfVars(varname0,varname1,filehandle)
+begin
+  if (str_join(getfilevardims(filehandle,varname0),"") .ne. str_join(getfilevardims(filehandle,varname1),"")) then
+    print("Variables '"+varname0+"' and '"+varname1+"' must have the same dimensions!")
+    print(ABORTMSG)
+    exit
+  end if
+end
+;---------------------------------------------------------------
+function getMaskVar(maskvarname,filehandle,hasOtherMaskfile,timestep,levelindex,plotmode)
+begin
+  if (hasOtherMaskfile) then
+    filehandle = addfile( maskFile, "r" )
+  end if
+  checkVarname(maskvarname, filehandle)
+  if (plotmode.eq."scalar") then
+    maskvar = selIconVar(maskvarname,filehandle,timestep,levelindex)
+  else
+    maskvar = selRegularVar(maskvarname,filehandle,timestep,levelindex)
+  end if
+
+  return maskvar
+end
+;---------------------------------------------------------------
+function getMaskDim(maskvarname,filehandle,hasOtherMaskfile)
+begin
+  if (hasOtherMaskfile) then
+    filehandle   = addfile( maskFile, "r" )
+  end if
+  checkVarname(maskvarname, filehandle)
+  maskdims = getfilevardims(filehandle,maskvarname)
+
+  return maskdims
+end
+;---------------------------------------------------------------
+function remapForVecPlot(iFile,resolution,useMask,debug)
+begin
+  remapFilename="remapnn_"+iFile
+  print("#=====================================================================================")
+  print("Looking for remapped file: "+remapFilename)
+  remapedFiles = systemfunc("ls "+remapFilename)
+  if (isstring(remapedFiles(0)) .and. remapedFiles(0).eq.remapFilename) then
+    print("Take "+remapFilename+" for accessing vector variables "+str_join(vecVars,","))
+    print("Print remove this intermediate file, if it was NOT automatically created from your inpur file "+iFile+"!")
+  else
+    print("Use CDO to perform remapping: Create intermediate file: "+remapFilename)
+    print("Remove this intermediate file, if it was NOT automatically created from your inpur file "+iFile+"!")
+    if ( useMask ) then
+      cmd = "cdo -P 8 -remapnn,"+resolution+" -selname,"+maskName+","+str_join(vecVars,",")+" "+iFile+" "+remapFilename
+      if debug then
+        print(cmd)
+      end if
+      system(cmd)
+    else
+      cmd = "cdo -P 8 -remapnn,"+resolution+" -selname,"+str_join(vecVars,",")+" "+iFile+" "+remapFilename
+      if debug then
+        print(cmd)
+      end if
+    system(cmd)
+    end if
+  end if
+  return remapFilename
+end
+;---------------------------------------------------------------
+procedure checkRemappedFile(infilename,remapfilename)
+begin
+  orgFile   = addfile (infilename , "r")
+  remapFile = addfile(remapfilename,"r")
+  orgDims   = getvardims(orgFile)
+  remapDims = getvardims(remapFile)
+  orgTime   = getfilevardimsizes(orgFile,"time")
+  remapTime = getfilevardimsizes(remapFile,"time")
+  if ( orgTime .eq. remapTime ) then
+    infilename = remapfilename
+  else
+    print("#=====================================================================================")
+    print("Remapped File '"+remapFilename+"' seems to be wrong: Has different number of timesteps")
+    print("Original file has "+orgTime(0)+" timesteps")
+    print("Remapped File has "+remapTime(0)+" timesteps")
+    print(ABORTMSG)
+    exit
+  end if
+end
+;---------------------------------------------------------------
+function getBoundsOfCoordinates(variable,filehandle)
+begin
+    lonlat = str_split(variable@coordinates," ")
+    lon    = lonlat(0)
+    lat    = lonlat(1)
+
+
+    boundslonName = filehandle->$lon$@bounds
+    boundslatName = filehandle->$lat$@bounds
+    boundslon     = filehandle->$boundslonName$ * RAD2DEG
+    boundslat     = filehandle->$boundslatName$ * RAD2DEG
+
+    return (/boundslon, boundslat/)
+end
+;---------------------------------------------------------------
+procedure setBoundsEnds(blon,blat,lonmin,lonmax,latmin,latmax)
+begin
+  latmax=max(blat)
+  latmin=min(blat)
+  lonmax=max(blon)
+  lonmin=min(blon)
+
+  if ( lonmin.lt.0 ) then
+  ; longitudes are given in the range [-180,180]
+    lonmin = -180.
+    lonmax =  180.
+  else
+  ; longitudes are given in the range [0,360]
+    lonmin =    0.
+    lonmax =  360.
+  end if
+end
+;---------------------------------------------------------------
+procedure checkLongitude(x,boundslon,lonmin,lonmax,debug)
+begin
+  dlon      = 80.
+  ncell_tot = dimsizes(x)  ; total # of cells
+  nfix      = 0            ; count the # of problematic cells
+
+  do icell = 0, ncell_tot-1
+    if ( any(boundslon(icell,:).le.(lonmin+dlon)) .and. \
+         any(boundslon(icell,:).gt.(lonmax-dlon))       ) then
+
+      bl1=boundslon(icell,0)
+      bl2=boundslon(icell,1)
+      bl3=boundslon(icell,2)
+
+      boundslon(icell,:) = where(boundslon(icell,:).gt.(lonmax-dlon), \;
+                           boundslon(icell,:)-360.,             \; where true
+                           boundslon(icell,:) )                  ; where false
+
+      bn1=boundslon(icell,0)
+      bn2=boundslon(icell,1)
+      bn3=boundslon(icell,2)
+
+      if (debug) then
+        print("cell="+icell+" lon="+bl1+", "+bl2+", "+bl3+" changed into " \
+                           +" lon="+bn1+", "+bn2+", "+bn3)
+      end if
+
+      nfix = nfix +1
+    end if
+  end do
+  print("Longitude(s) of "+nfix+" cells corrected to avoid plotting problem.")
+end
+;---------------------------------------------------------------
+procedure setLevels(selmode,resource,minvar,maxvar,scalelimit,numlevs,debug)
+begin
+  if (selmode .eq. "manual") then
+    resource@cnLevelSelectionMode = "ManualLevels"
+    resource@cnMinLevelValF       = minvar
+    resource@cnMaxLevelValF       = maxvar
+;    diffLog10                 = log10(abs(maxVar-minVar))
+;;   if (diffLog10 .lt. 0) then
+;      resource@cnLevelSpacingF    = 10^(floor(diffLog10))/numLevs
+;;   else
+;;     resource@cnLevelSpacingF    = 10^(floor(diffLog10))/numLevs
+;;   end if
+    diffspacing               = abs(maxvar-minvar)/(numlevs)
+    resource@cnLevelSpacingF      = diffspacing
+    if (debug) then
+      print("Manual Plotlevel setting......")
+      print("  minVal  : " + minvar)
+      print("  maxVal  : " + maxvar)
+      print("  numLevs: " + numlevs)
+    end if
+  end if
+
+  if (selmode .eq. "halflog") then
+    resource@cnLevelSelectionMode = "ExplicitLevels"
+    plotLevels = createLevels(minvar,maxvar,scalelimit)
+    if (debug) print("plotlevels = "+plotLevels) end if
+    resource@cnLevels             = plotLevels
+  end if
+end
+;---------------------------------------------------------------
+procedure setDefaultResource(resource)
+begin
+  resource@gsnMaximize          = False
+; resource@gsnPaperOrientation  = "landscape"  ; turns plot on paper
+; resource@wkPaperSize          = "A4"
+  resource@gsnFrame             = False
+  resource@gsnSpreadColors      = True
+
+  resource@cnFillOn             = True   ;  writes labelbar, no contour labels
+  resource@cnLinesOn            = True
+  resource@cnInfoLabelOn        = False
+
+  FontHeight0               = 0.012
+  FontHeight1               = 0.015
+  FontHeight2               = 0.017
+  FontHeight3               = 0.020
+
+  resource@tiXAxisFontHeightF   = FontHeight0
+  resource@tiYAxisFontHeightF   = FontHeight0
+  resource@tmXBLabelFontHeightF = FontHeight0
+  resource@tmYLLabelFontHeightF = FontHeight0
+  resource@tmXBLabelJust        = "CenterCenter"
+  resource@gsnStringFontHeightF = FontHeight0
+
+  resource@mpFillOn               = True
+  resource@cnFillOn               = True
+
+  resource@lbLabelBarOn             = True
+  resource@pmLabelBarHeightF        = 0.12
+  resource@pmLabelBarWidthF         = 0.80
+  resource@pmLabelBarOrthogonalPosF = 0.15
+  resource@lbLabelAutoStride        = True
+  resource@lbLabelFontHeightF       = FontHeight1     ;   color bar labels
+
+  resource@cnFillMode           = "rasterfill"
+  resource@cnRasterSmoothingOn  = True
+  resource@mpGreatCircleLinesOn = True
+
+end
+;---------------------------------------------------------------
+procedure setPlotCaptions(resource,leftstring,rightstring,centerstring,titlestring)
+begin
+  resource@gsnLeftString   = leftstring
+  resource@gsnRightString  = rightstring
+  resource@gsnCenterString = centerstring
+  vesource@tiMainString    = titlestring
+end
+;---------------------------------------------------------------
+procedure setAutomaticPlotCaptions(resource,plotmode,varname,filehandle,filename,timestep,levelindex)
+local varname
+begin
+  ; titles
+  if(.not. isvar("lStrg")) then
+    hastime = var_has_time(varname, filehandle)
+    if (hastime) then
+      timeval = filehandle->time(timestep)
+      dayfrag = timeval - floor(timeval)
+      day     = doubletointeger(floor(timeval))
+      hour    = doubletointeger(floor(86400*dayfrag/3600))
+      minute  = doubletointeger(floor((86400*dayfrag - hour*3600)/60))
+      second  = doubletointeger(86400*dayfrag - hour*3600 - minute*60)
+      timeStr = str_join((/day,hour,minute,second/),"|")
+      if (plotmode.eq."vector") then
+        varname = "Velocity"
+      end if
+      lStrg   = (/varname,"(plstep "+timestep+"["+timeStr+"],","pllev "+levelindex+")"/)
+   else
+     lStrg   = (/varname,"(","pllev "+levelindex+")"/)
+   end if
+  end if
+  leftstring   = str_join(lStrg," ")
+
+  if(.not. isvar("rStrg")) then
+    rStrg      = (/filename/)
+  end if
+  rightstring  = str_join(rStrg," ")
+
+  if(.not. isvar("tStrg")) then
+    tStrg        = "ICON"
+  end if
+  titlestring  = str_join(tStrg," ")
+  centerstring = ""
+
+  resource@gsnLeftString   = leftstring
+  resource@gsnRightString  = rightstring
+  resource@gsnCenterString = centerstring
+  resource@tiMainString    = titlestring
+end
+;---------------------------------------------------------------
+procedure setMapType(resource,maptype)
+begin
+  if (maptype .eq. "ortho") then
+    resource@mpProjection          = "Orthographic"
+    resource@mpPerimOn             = False    ; turn off box around plot
+    resource@mpGridAndLimbOn       = True     ; draw grid lines and limb line
+    resource@mpGridLineDashPattern = 2        ; choose pattern used to draw the grid
+
+  else
+    resource@mpProjection         = "CylindricalEquidistant"
+    resource@mpLimitMode          = "LatLon"
+  end if
+end
+;---------------------------------------------------------------
+procedure selMapCut(resource,mapllc,mapurc)
+begin
+  ; bounds of plotting area (not used for Orthographic)
+  resource@mpMinLatF    = mapllc(1)
+  resource@mpMaxLatF    = mapurc(1)
+  resource@mpMinLonF    = mapllc(0)
+  resource@mpMaxLonF    = mapurc(0)
+
+  ; center of view (for Orthographic and Sattelite only)
+  resource@mpCenterLonF = (resource@mpMaxLonF+resource@mpMinLonF)/2
+  resource@mpCenterLatF = (resource@mpMaxLatF+resource@mpMinLatF)/2
+end
+;---------------------------------------------------------------
+procedure  setSateliteProj(resource,projsat)
+begin
+  if (projsat) then
+    resource@mpProjection = "Satellite"
+    resource@mpMinLatF    = resource@mpMinLatF + 10
+    resource@mpMaxLatF    = resource@mpMaxLatF - 10
+    resource@mpMinLonF    = resource@mpMinLonF + 10
+    resource@mpMaxLonF    = resource@mpMaxLonF - 10
+  end if
+end
+;---------------------------------------------------------------
+procedure setMapVisibility(resource,mapline)
+begin
+  if (mapline) then
+    resource@mpGeophysicalLineColor = "foreground"
+  else
+    resource@mpGeophysicalLineColor = "transparent"
+  end if
+end
+;---------------------------------------------------------------
+procedure checkMinMaxVar(minvar,maxvar)
+begin
+  if ( minvar .gt. maxvar ) then
+    print("minVar has to be larger than maxVar")
+    exit
+  end if
+end
+;---------------------------------------------------------------
+function getLshiftForNDCString(mystring)
+begin
+  lshift = (strlen(mystring)/2 - 1)/100.0
+  if (strlen(mystring) .gt. 4)
+  lshift = lshift - lshift/5 + 0.1/strlen(mystring)
+  else
+  lshift = lshift + 0.01
+  end if
+
+  return lshift
+end
+;---------------------------------------------------------------
+procedure setBaseString(workstation,plot,resource,basestring)
+begin
+  resource@txFontHeightF = 0.01 ; if this is changed, please adjust the implementation of getLshiftForNDCString()
+  gsn_text_ndc(workstation,basestring,getLshiftForNDCString(basestring),.01,resource)
+end
+;---------------------------------------------------------------
+procedure setAutomaticBaseString(workstation,resource)
+begin
+  if(.not. isvar("bStrg")) then
+    bStrg      = ""
+  end if
+  basestr     = str_join(bStrg," ")
+  ; base string: plot file name + basestring + time stamp
+  ; attention: virtual page changes when lon/lat ratio changes
+  BaseString = "Prgr icon_ocean.ncl: " + " " + basestr + " " + systemfunc("date")
+  resource@txFontHeightF = 0.011
+  gsn_text_ndc(workstation,BaseString,getLshiftForNDCString(BaseString),.12,resource)  ; TODO: string align left
+end
+;---------------------------------------------------------------
+procedure setMaskColor(wks,resource)
+begin
+  newcolor = NhlNewColor(wks,0.85,0.85,0.85)   ; add gray to colormap
+  ;resource@gsnSpreadColorStart  = 1
+  resource@gsnSpreadColorEnd     = 19  ; last color number not known?
+  resource@cnMissingValFillColor = 20  ; last color is used for missing values
+end
+;---------------------------------------------------------------
+procedure setCoordinates(resource,lons,lats)
+begin
+  resource@sfXArray = lons
+  resource@sfYArray = lats
+end
+;---------------------------------------------------------------
+procedure showMapInfo(resource,maptype,projsat,mapline)
+begin
+  print("mapType: "+maptype)
+  print("projSat: "+projsat)
+  print("mapLine: "+mapline)
+  print("CentLon/Lat="+resource@mpCenterLonF+"; "+resource@mpCenterLatF)
+  print("Min/MaxLatF="+resource@mpMinLatF+"; "+resource@mpMaxLatF)
+  print("Min/MaxLonF="+resource@mpMinLonF+"; "+resource@mpMaxLonF)
+end
+;---------------------------------------------------------------
+function getFlags(var,boundslon,boundslat,resource)
+begin
+  flags = new(dimsizes(var),logical,"No_FillValue")
+  do i = 0,dimsizes(var) - 1
+    flags(i) = where(all(boundslon(i,:) .gt. resource@mpMaxLonF) .or. \
+                     all(boundslon(i,:) .lt. resource@mpMinLonF) .or. \
+                     all(boundslat(i,:) .gt. resource@mpMaxLatF) .or. \
+                     all(boundslat(i,:) .lt. resource@mpMinLatF), \
+                     False, True)
+  end do
+  return flags
+end
+;---------------------------------------------------------------
+procedure setDefaultVectorPlot(resource, refmagnitude, reflength, style, mindistance)
+begin
+  resource@vcRefMagnitudeF         = refmagnitude ; make vectors larger
+  resource@vcRefLengthF            = reflength    ; reference vector length
+  resource@vcGlyphStyle            = style        ; turn on curly vectors
+  resource@vcMinDistanceF          = mindistance  ; thin out vectors
+end
+;---------------------------------------------------------------
+function getColorsFromPlot(plot)
+begin
+  getvalues plot@contour
+    "cnFillColors" : colors
+  end getvalues
+  return colors
+end
+;---------------------------------------------------------------
+function getLevelsFromPlot(plot)
+begin
+  getvalues plot@contour
+    "cnLevels"     : levels
+  end getvalues
+  return levels
+end
+;---------------------------------------------------------------
+procedure printGridPlotInfo(colors,levels,flags)
+begin
+  print(colors)
+  print(levels)
+  print ("Outside the plot area:           " + dimsizes(ind(flags .eq. False)) + \
+      " triangles - not plotted")
+end
+;---------------------------------------------------------------
+function setupGridResource(var,levels,colors,boundslon,boundslat,wks,plot,debug)
+begin
+  pres             = True
+  pres@gsEdgesOn   = True   ; Turn on edges
+  pres@gsFillIndex = 0      ; Solid fill, the default
+
+  ; First draw the triangles associated with the lowest level.
+  i = 0
+  vlow = ind(var .lt. levels(i))
+  ; if no index vlow is found with values less than levels(0), vlow is missing value:
+  if (.not. ismissing(vlow(0))) then
+    do j = 0, dimsizes(vlow)-1
+      pres@gsFillColor = colors(i)   ; first color
+      gsn_polygon(wks,plot,boundslon(vlow(j),:),boundslat(vlow(j),:),pres)
+    end do
+  end if
+  if (debug) then
+    print("i=" + i + ", Values smaller than       "+levels(i)+": " + dimsizes(vlow) + \
+          " triangles considered, color= " + colors(i))
+  end if
+  delete(vlow)
+
+  ; Now draw the triangles between the lowest and highest levels.
+  do i = 0, dimsizes(levels) -2
+    vind = ind(var .ge. levels(i) .and. var .lt. levels(i+1))
+    ; if no index is found, vind is missing value:
+    if (.not. ismissing(vind(0))) then
+    do j = 0, dimsizes(vind)-1
+      pres@gsFillColor = colors(i+1)
+                       gsn_polygon( wks,plot,   boundslon(vind(j),:),boundslat(vind(j),:),pres)
+    end do
+    end if
+    if (debug) then
+      print ("i=" + i + ", Values between " + levels(i) + " and " + levels(i+1) +": "\
+             +dimsizes(vind) + " triangles considered, color= " + colors(i+1))
+    end if
+    delete(vind)
+  end do
+
+  ; Finally draw the triangles associated with the highest level.
+  i = dimsizes(levels) -1
+  vhig = ind(var .ge. levels(i) )
+
+  ; if no index vhig is found with values larger levels(max-1), vhig is missing value:
+  if (.not. ismissing(vhig(0))) then
+  do j = 0, dimsizes(vhig) -1
+    pres@gsFillColor = colors(i+1)
+                     gsn_polygon( wks,plot,   boundslon(vhig(j),:),boundslat(vhig(j),:),pres)
+  end do
+  end if
+  if (debug) then
+    print ("i=" + i + ", Values   larger than      "+levels(i) +": " \
+           + dimsizes(vhig) + " triangles considered, color= " + colors(i+1))
+  end if
+  delete(vhig)
+
+  return pres
+end
+;---------------------------------------------------------------
+procedure plotGrid(workstation,plot,variable,x,filehandle,resource,debug)
+begin
+  bounds    = getBoundsOfCoordinates(variable,filehandle)
+  boundslon = bounds(0,:,:)
+  boundslat = bounds(1,:,:)
+
+  latmax=flt2dble(0.0)
+  latmin=flt2dble(0.0)
+  lonmax=flt2dble(0.0)
+  lonmin=flt2dble(0.0)
+  setBoundsEnds(boundslon,boundslat,lonmin,lonmax,latmin,latmax)
+  checkLongitude(x,boundslon,lonmin,lonmax,debug)
+
+  flags = getFlags(variable,boundslon,boundslat,resource)
+
+  colors = getColorsFromPlot(plot)
+  levels = getLevelsFromPlot(plot)
+
+  if (debug) printGridPlotInfo(colors,levels,flags) end if
+
+  pres = setupGridResource(variable,levels,colors,boundslon,boundslat,workstation,plot,debug)
+end
+;===============================================================
+;----- MAIN PROGRAM --------------------------------------------
  begin
-
-  plotMode  = "scalar"
-
-  rad2deg   = 45./atan(1.)
+;- options handling + checking
+  plotMode  = PLOTMODE
 
   wcStrt    = systemfunc("date")
 
@@ -152,74 +857,59 @@ end
 
   Model     = "Icon: explicit ocean test"
 
-  if(.not. isvar("DEBUG")) then
-    DEBUG       = False
-  end if
-  if(.not. isvar("showPreview")) then
-    showPreview = False
-  end if
-  if(.not. isvar("maxView")) then
-    maxView = False
-  end if
+  ; input/output files
   if(.not. isvar("iFile")) then
-    iFile       = "test_hom_1_O.R2B04L4_0001.nc"
-  end if
-  if(.not. isvar("oFile")) then
-    ext      = get_file_suffix(iFile,0)
-    oFile    = ext@fBase
-   ; ext      = get_file_suffix(systemfunc("basename "+iFile),0)
-   ; oFile    = ext@fBase
-  end if
-  if(.not. isvar("oType")) then
-    oType    = "eps"
-  end if
-  if(.not. isvar("contLevs")) then
-    contLevs  = 10
+    print("Input file is required! Use iFile option.")
+    print(ABORTMSG)
+    exit
   else
-    if (contLevs .lt. 1) then
-      print("WARNING: contLevs must be >= 1")
+    if ( .not. isfilepresent(iFile) )
+      print("Could not read from input file: "+iFile+"!")
+      print(ABORTMSG)
       exit
     end if
   end if
-  if(.not. isvar("scaleLimit")) then
-    scaleLimit = 2
+  if(.not. isvar("oType")) oType = "eps" end if
+  if(.not. isvar("oFile")) then
+    ext      = get_file_suffix(iFile,0)
+    oFile    = ext@fBase
+  end if
+  print("Outputfile '"+str_concat((/oFile,".",oType/))+"' will be creates in "+systemfunc("dirname "+iFile))
+
+  if(.not. isvar("numLevs")) then
+    numLevs  = NUMLEVS
+  else
+    if (numLevs .lt. 1) then
+      print("WARNING: numLevs must be >= 1")
+      print(ABORTMSG)
+      exit
+    end if
   end if
 
-  if(.not. isvar("selMode")) then
-    selMode     = "auto"
-  end if
+  if (.not. isvar("DEBUG"))       DEBUG       = False           end if
+  if (.not. isvar("showPreview")) showPreview = False           end if
+  if (.not. isvar("showGrid"))    showGrid    = False           end if
+  if (.not. isvar("showNdc"))     showNdc     = False           end if
+  if (.not. isvar("maxView"))     maxView     = False           end if
+  if (.not. isvar("scaleLimit"))  scaleLimit  = 2               end if
+  if (.not. isvar("selMode"))     selMode     = "auto"          end if
+  if (.not. isvar("varName"))     varName     = "ELEV"          end if
+  if (.not. isvar("timeStep"))    timeStep    = 0               end if
+  if (.not. isvar("levIndex"))    levIndex    = 0               end if
+  if (.not. isvar("scaleFactor")) scaleFactor = 1               end if
+  if (.not. isvar("colormap"))    colormap    = "BlueDarkRed18" end if
 
-  if (.not. isvar("varName")) then
-    varName     = "ELEV"
-  end if
-  if (.not. isvar("timeStep")) then
-    timeStep    = 0
-  end if
-  if (.not. isvar("levIndex")) then
-    levIndex    = 0
-  end if
+  if (.not.isvar("mapLLC"))       mapLLC      = (/-180.,-90./)  end if
+  if (.not.isvar("mapURC"))       mapURC      = (/180.0,90.0/)  end if
+  if (.not.isvar("mapType"))      mapType     = "lonlat"        end if
+  if (.not.isvar("projSat"))      projSat     = False           end if
+  if (.not.isvar("mapLine"))      mapLine     = True            end if
+  if (.not.isvar("resolution"))   resolution  = "r90x45"        end if
+  ; default + optional coordinates
+  if (isvar("lonCo"))             DEFAULTLON  = lonCo           end if
+  if (isvar("latCo"))             DEFAULTLAT  = latCo           end if
 
-  if (.not. isvar("scaleFactor")) then
-    scaleFactor       = 1
-  end if
-
-  if(.not. isvar("colormap")) then
-    colormap = "BlueDarkRed18"
-  end if
-
-; map info
-  if (.not.isvar("mapLLC"))
-    mapLLC      = (/-180.,-90./)
-  end if
-  if (.not.isvar("mapURC"))
-    mapURC      = (/180.0,90.0/)
-  end if
-  if (.not.isvar("mapType"))
-    mapType     = "lonlat"
-  end if
-  if (.not.isvar("projSat"))
-    projSat     = False
-  end if
+  ; mask handling
   if (.not.isvar("maskName"))
     useMask     = False
   else
@@ -243,29 +933,9 @@ end
       end if
     end if
   end if
-  if (.not.isvar("showGrid"))
-    showGrid    = False
-  end if
-  if (.not.isvar("showNdc"))
-    showNdc     = False
-  end if
 
-  ; default + optional coordinates
-  defaultLon = "clon"
-  defaultLat = "clat"
-  if (isvar("lonCo"))
-    defaultLon    = lonCo
-  end if
-  if (isvar("latCo"))
-    defaultLat    = latCo
-  end if
-
-  if (.not.isvar("resolution")) then
-    resolution="r90x45"
-  end if
 
   ; expect a regular grid for vector plot as you get it from
-  ;   cdo -P 8 remapnn,r360x180 -selname,wet_c,u-veloc,v-veloc icon_oce.nc vectors.nc
   if (isvar("vecVars")) then
     ; expectes is a string or an array of size 2: "u-veloc v-veloc" or (/"u-veloc","v-veloc"/)
     if (isstring(vecVars)) then
@@ -274,588 +944,183 @@ end
       vecVars = vecVars_
     end if
     plotMode = "vector"
-    ; performe the remapping
-    remapFilename="remapnn_"+iFile
-    remapedFiles = systemfunc("ls "+remapFilename)
-    if (isstring(remapedFiles(0)) .and. remapedFiles(0).eq.remapFilename) then
-      print("Take "+remapFilename+" for accessing vector variables "+str_join(vecVars,","))
-    else
-      print("Use CDO to perform remapping")
-      if (isstring(maskName)) then
-      system("cdo -P 8 -remapnn,"+resolution+" -selname,"+maskName+","+str_join(vecVars,",")+" "+iFile+" "+remapFilename)
-      else
-      system("cdo -P 8 -remapnn,"+resolution+" -selname,"+str_join(vecVars,",")+" "+iFile+" "+remapFilename)
-      end if
-    end if
   end if
 
   if (plotMode.eq."vector") then
-   iFile = remapFilename
+    ; performe some remapping to a regular grid because ncl cannot draw vector
+    ; from unstructured grids
+    remapFilename = remapForVecPlot(iFile,resolution,useMask,DEBUG)
+    checkRemappedFile(iFile,remapFilename)
   end if
 
   File = addfile( iFile, "r" )
 
-  filevarnames = getfilevarnames(File)
-  ; if (DEBUG) then
-  ;   print("variable names in file: "+filevarnames)
-  ; end if
+  if (DEBUG) printVarNames(File) end if
 
-  ; check if varName can be found in iFile
-  if (plotMode.eq."vector") then
-    do ivar = 0, 1
-      if ( .not. any(filevarnames.eq.vecVars(ivar)) ) then
-        print("NOPE! Vector variable "+vecVars(ivar)+" could not be found.")
-        exit
-      end if
-    end do
-  else
-    if ( .not. any(filevarnames.eq.varName) ) then
-      print("NOPE! Variable could not be found.")
-      exit
-    end if
-  end if
-  ; Check for presence of mask variable
+  ;Read mask variable
   if( useMask ) then
-    if ( .not.isvar("maskFile") ) then
-      if ( .not. any(filevarnames.eq.maskName) ) then
-        print("NOPE! Mask-Variable "+maskName+" could not be found.")
-        exit
-      end if
-    else
-      mFile = addfile( maskFile, "r" )
-      maskfilevarnames = getfilevarnames(mFile)
-      if ( .not. any(maskfilevarnames.eq.maskName) ) then
-        print("NOPE! Mask-Variable could not be found.")
-        exit
-      end if
-    end if
+    maskVar = getMaskVar(maskName,File,isvar("maskFile"),timeStep,levIndex,plotMode)
+    maskDim = getMaskDim(maskName,File,isvar("maskFile"))
   end if
 
-  if (any(filevarnames.eq."time")) then
-    timeVal = File->time(timeStep)
-  else
-    print("Variable has only one dimension! Time is not avaliable")
-  end if
-
-  if (plotMode.eq."vector") then 
+  if (plotMode.eq."vector") then
     varnames = vecVars
   else
     varnames = (/varName/)
   end if
   print("Plot variables: " + varnames)
 
-  ;varArray = new(1,typeof(File->$varnames(0)$),"No_FillValue")
+  ; Reading data variables =====================================================
+  if (plotMode.eq."scalar") then ; scalar mode ================================
 
-  if (plotMode.eq."scalar") then
-    dims  = getfilevardims(File,varName)
-    sizes = filevardimsizes(File,varName)
-    var   = File->$varName$
-    print(dimsizes(sizes) + " Dimensions:")
-    if(.not.any(ismissing(dims))) then
-      do j = 0, dimsizes(dims) -1
-        print( j + ") " + dims(j) + ": " + sizes(j))
-      end do
-    end if
-    atts = getfilevaratts(File,varName)
-    if(.not.any(ismissing(atts))) then
-      do k = 0, dimsizes(atts) -1
-        print(atts(k) + ": " +File->$varName$@$atts(k)$)
-        if (atts(k) .eq. "coordinates") then
-          coordinates = var@$atts(k)$
-        else
-          coordinates = defaultLon + " " + defaultLat
-        end if
-      end do
-    end if
-    delete(var)
+    printVar(varName, File)
 
-    ;Read mask variable
-    if( useMask ) then
-      if (isvar("maskFile")) then
-        maskVar = mFile->$maskName$
-        mdims  = getfilevardims(mFile,maskName)
-      else
-        maskVar = File->$maskName$
-        mdims  = getfilevardims(File,maskName)
-      end if
-      print("Found maskVar: "+maskName)
-      ; Select the correct level
-      maskDimsSize = dimsizes(mdims)
-      print(mdims)
-      print(dims)
-      if (2.eq.maskDimsSize) then
-        maskVar_ = maskVar(levIndex,:)
-        delete(maskVar)
-        maskVar = maskVar_
-      end if
-    end if
+    var = selIconVar(varName,File,timeStep,levIndex)
 
-  ; Read variable and its coordinates from file
-    noOfDims  = dimsizes(dims)
-    noOfDims  = noOfDims(0)
-    usableVar = False
-    if (noOfDims .eq. 3) then        ; dims: (time,lev,cell) 
-      var = File->$varName$(timeStep,levIndex,:)
-      usableVar = True
-      checkgrid = dims(2)
-    end if
-    if (noOfDims .eq. 2) then        ; dims: (time,cell)
-      var = File->$varName$(timeStep,:)
-      usableVar = True
-      checkgrid = dims(1)
-    end if
-    if (noOfDims .eq. 1) then        ; dims: (cell)
-      var = File->$varName$(:)
-      usableVar = True
-      checkgrid = dims(0)
-    end if
-    if (.not. usableVar) then
-      print("Warning! Could not read " +  varName + " from input file")
-      exit
-    end if
+    scaleVar(var,scaleFactor)
 
-    if (scaleFactor .ne. 1) then
-      var = var*scaleFactor
-    end if
+    lonlats = getLonLats(var,File)
+    x       = lonlats(0,:)
+    y       = lonlats(1,:)
 
-    lonlat = str_split(coordinates," ")
-    lon    = lonlat(0)
-    lat    = lonlat(1)
-    x      = File->$lon$ *rad2deg
-    y      = File->$lat$ *rad2deg
+    if (DEBUG) if (useMask) print(maskDim) end if end if
 
-    if (DEBUG) then
-      print(dims)
-      print(atts)
-      print(coordinates)
-    end if
-
-    ; set minVar/maxVar for plotting
-    if(.not. isvar("minVar")) then
-      minVar = min(var)
-    end if
-    if(.not. isvar("maxVar")) then
-      maxVar = max(var)
-    end if
-    if ( minVar .gt. maxVar ) then
-      print("minVar has to be larger than maxVar")
-      exit
-    end if
+    ; set minVar_maxVar for plotting
+    if(.not. isvar("minVar")) minVar = min(var) end if
+    if(.not. isvar("maxVar")) maxVar = max(var) end if
+    checkMinMaxVar(minVar,maxVar)
 
     if ( useMask ) then
-      ; set variable var to missing, where var is not equal mvalue (3rd parameter)
+      ; set variable var to missing, where var is not equal mvalue (3rd
+      ; parameter)
       var = mask(var,maskVar,1)
       ;slm = maskVar - 0.5
       ;var = mask ( var, slm, 0.5)
-      ;slm = where ( maskVar .gt. 0.1, 1., -999. )
-      ;var@_FillValue = -999.  ; not necessary
-      ;var = where ( maskVar .lt. 0.5, var, var@_FillValue )
     end if
-  else
+
+  else ; vector mode ==========================================================
+
     uvarname = varnames(0)
     vvarname = varnames(1)
-    uvar     = File->$uvarname$(timeStep,levIndex,:,:)
-    vvar     = File->$vvarname$(timeStep,levIndex,:,:)
 
-    if (scaleFactor .ne. 1) then
-      uvar = uvar*scaleFactor
-      vvar = vvar*scaleFactor
-    end if
+    checkDimsOfVars(uvarname,vvarname,File)
+
+    uvar = selRegularVar(uvarname,File,timeStep,levIndex)
+    vvar = selRegularVar(vvarname,File,timeStep,levIndex)
+
+    scaleVar(uvar,scaleFactor)
+    scaleVar(vvar,scaleFactor)
+
     if ( useMask ) then
-      uvar = mask(uvar,maskVar,0)
-      vvar = mask(vvar,maskVar,0)
-    end if
-  end if
-
-  ; settings for showgrid
-  if (showGrid) then
-
-    print("checkgrid="+checkgrid)
-
-    ; false use of name "cell3" - use attributes instead
-    if (checkgrid .eq. "cell3") then
-      print("Variable" +varName+ " is located on gridtype " +checkgrid)
-      print(" - with showGrid=True plotting of hexagons not yet implemented")
-      print(" - routine exits now")
-      exit
-    end if
- ;  if (plVec)
- ;    print(" - with showGrid=True plotting of Vectors not possible")
- ;    print(" - routine exits now")
- ;    exit
- ;  end if
-
-    boundslonName = File->$lon$@bounds
-    boundslatName = File->$lat$@bounds
-    boundslon     = File->$boundslonName$ * rad2deg
-    boundslat     = File->$boundslatName$ * rad2deg
- ;  use -180 to 180 for mapLLC etc. - error with this correction:
- ;  boundslon = where(boundslon.lt.0, boundslon + 360, boundslon)
-
-    latmax=max(boundslat)
-    latmin=min(boundslat)
-    lonmax=max(boundslon)
-    lonmin=min(boundslon)
-
-    if ( lonmin.lt.0 ) then
-    ; longitudes are given in the range [-180,180]
-      lonmin = -180.
-      lonmax =  180.
-    else
-    ; longitudes are given in the range [0,360]
-      lonmin =    0.
-      lonmax =  360.
+      uvar = mask(uvar,maskVar,1)
+      vvar = mask(vvar,maskVar,1)
     end if
 
-    if (DEBUG) then
-      print("longitude min/max: " + lonmin + " " + lonmax)  
-      print("latitude  min/max: " + latmin + " " + latmax)  
-    end if
+    velocity = sqrt(uvar*uvar + vvar*vvar)
+    ; set minVar/maxVar for plotting
+    if(.not. isvar("minVar")) minVar = min(velocity) end if
+    if(.not. isvar("maxVar")) maxVar = max(velocity) end if
+    checkMinMaxVar(minVar,maxVar)
+  end if ; Reading data variables =============================================
 
-    ;-----------------------------------------------------------
-    ; IMPORTANT: to avoid plotting problem
-    ;-----------------------------------------------------------
-    ; check longitude
-
-    dlon      = 80.
-    ncell_tot = dimsizes(x)  ; total # of cells
-    nfix      = 0            ; count the # of problematic cells
-
-    do icell = 0, ncell_tot-1 
-      if ( any(boundslon(icell,:).le.(lonmin+dlon)) .and. \
-           any(boundslon(icell,:).gt.(lonmax-dlon))       ) then
-
-        bl1=boundslon(icell,0)
-        bl2=boundslon(icell,1)
-        bl3=boundslon(icell,2)
-
-        boundslon(icell,:) = where(boundslon(icell,:).gt.(lonmax-dlon), \; 
-                             boundslon(icell,:)-360.,             \; where true
-                             boundslon(icell,:) )                  ; where false 
-
-        bn1=boundslon(icell,0)
-        bn2=boundslon(icell,1)
-        bn3=boundslon(icell,2)
-
-        if (DEBUG) then
-          print("cell="+icell+" lon="+bl1+", "+bl2+", "+bl3+" changed into " \
-                             +" lon="+bn1+", "+bn2+", "+bn3)
-        end if
-
-        nfix = nfix +1
-      end if
-    end do
-    print("Longitude(s) of "+nfix+" cells corrected to avoid plotting problem.")
-
-  end if  ;  showgrid
-
-  ;-----------------------------------------------------------
-  ; Check output graphics format - rotate eps if necessary
-  ;if (oType .eq. "eps") then
-  ; the following is not what we want 
-  ; ResC@gsnPaperOrientation = "portrait"  ; turns plot on paper
-  ;  - we want to rotate the frame orientation including the "paper"
-  ;end if
-
-;---------------------------------------------------------------
+  ;---------------------------------------------------------------
   if (DEBUG) then
-    print("time "+timeVal)
-    print("iFile    = "+iFile)
-    print("oFile    = "+oFile)
+    if ( var_has_time(varName, File) ) then
+      timeVal = File->time(timeStep)
+      print("time "+timeVal)
+    end if
+    print("iFile       = "+iFile)
+    print("oFile       = "+oFile)
     print("Graphics format is " +oType)
-    print("varName  = "+varName)
-    print("timeStep = "+timeStep)
-    print("mapLLC(lon)   = "+mapLLC(0))
-    print("mapLLC(lat)   = "+mapLLC(1))
-    print("mapURC(lon)   = "+mapURC(0))
-    print("mapURC(lat)   = "+mapURC(1))
-    print("minVar   = "+minVar)
-    print("maxVar   = "+maxVar)
-    if (useMask) then 
-      print("maskName   = "+maskName)
+    print("varName     = "+varName)
+    print("timeStep    = "+timeStep)
+    print("mapLLC(lon) = "+mapLLC(0))
+    print("mapLLC(lat) = "+mapLLC(1))
+    print("mapURC(lon) = "+mapURC(0))
+    print("mapURC(lat) = "+mapURC(1))
+    print("minVar      = "+minVar)
+    print("maxVar      = "+maxVar)
+    if (useMask) then
+    print("maskName    = "+maskName)
     end if
   end if
-;---------------------------------------------------------------
-;---------------------------------------------------------------
-; make plot
-;---------------------------------------------------------------
+  ;---------------------------------------------------------------
 
-  ; grid plotting
-
-  ; titles
-  if(.not. isvar("lStrg")) then
-    dayfrag = timeVal - floor(timeVal)
-    day     = doubletointeger(floor(timeVal))
-    hour    = doubletointeger(floor(86400*dayfrag/3600))
-    minute  = doubletointeger(floor((86400*dayfrag - hour*3600)/60))
-    second  = doubletointeger(86400*dayfrag - hour*3600 - minute*60)
-    timeStr = str_join((/day,hour,minute,second/),"|")
-    lStrg   = (/varName,"(plstep "+timeStep+"["+timeStr+"],","pllev "+levIndex+")"/)
-  end if
-  LeftString   = str_join(lStrg," ")
-
-  if(.not. isvar("rStrg")) then
-    rStrg      = (/iFile/)
-  end if
-  RightString  = str_join(rStrg," ")
-
-  if(.not. isvar("tStrg")) then
-    tStrg        = "ICON" 
-  end if
-  TitleString  = str_join(tStrg," ")
-  CenterString = ""
-
-  if(.not. isvar("bStrg")) then
-    bStrg      = wcStrt
-  end if
-
+  ;---------------------------------------------------------------
+  ; make the plot
+  ;---------------------------------------------------------------
+  ; preparations
   wks = gsn_open_wks(oType,oFile)
 
   if (showNdc) drawNDCGrid(wks) end if
 
   gsn_define_colormap(wks,colormap)
+
   if (showPreview) then
     xwks = gsn_open_wks("x11","x11")
     gsn_define_colormap(xwks,colormap)
   end if
 
-  ResC                      = True
+  ResC = True
 
-  ResC@gsnMaximize          = False
+  setDefaultResource(ResC)
+
   if (maxView) ResC@gsnMaximize = True end if
-; ResC@gsnPaperOrientation  = "landscape"  ; turns plot on paper
-; ResC@wkPaperSize          = "A4"
-  ResC@gsnFrame             = False
-  ResC@gsnSpreadColors      = True
 
-  ResC@cnFillOn             = True   ;  writes labelbar, no contour labels
-  ResC@cnLinesOn            = True
-  ResC@cnInfoLabelOn        = False
+  if (useMask) setMaskColor(wks,ResC) end if
 
-  FontHeight0               = 0.012
-  FontHeight1               = 0.015
-  FontHeight2               = 0.017
-  FontHeight3               = 0.020
+  if (plotMode.eq."scalar") setCoordinates(ResC,x,y) end if
 
-  ResC@tiXAxisFontHeightF   = FontHeight0
-  ResC@tiYAxisFontHeightF   = FontHeight0
-  ResC@tmXBLabelFontHeightF = FontHeight0
-  ResC@tmYLLabelFontHeightF = FontHeight0
-  ResC@tmXBLabelJust        = "CenterCenter"
-  ResC@gsnStringFontHeightF = FontHeight0
+  setAutomaticPlotCaptions(ResC,plotMode,varName,File,iFile,timeStep,levIndex)
 
+  setAutomaticBaseString(wks,ResC)
+  if (showPreview) setAutomaticBaseString(xwks,ResC) end if
 
+  setLevels(selMode,ResC,minVar,maxVar,scaleLimit,numLevs,DEBUG)
 
-  ResC@mpFillOn               = True
-  ResC@cnFillOn               = True
-  if (useMask) then
-    ;ResC@cnMissingValFillColor = -1
-    ;ResC@wkColorMap             = [ "red", "green", "coral4", "gray85" ]  ; syntax?
-    ;ResC@cnMissingValFillColor = "green"  ; syntax ok, but not defined?
-    ;newcolor = NhlNewColor(0.70,0.70,0.70, wks) ; error when trying to set first color?
-    newcolor = NhlNewColor(wks,0.85,0.85,0.85)   ; add gray to colormap
-    ;ResC@gsnSpreadColorStart   = 1
-    ResC@gsnSpreadColorEnd     = 19  ; last color number not known?
-    ResC@cnMissingValFillColor = 20  ; last color is used for missing values
-  end if
+  setMapType(ResC,mapType)
 
-  if (plotMode.eq."scalar") then
-    ResC@sfXArray = x      ; triangular mesh
-    ResC@sfYArray = y
-  end if
+  selMapCut(ResC,mapLLC,mapURC)
 
-  ResC@lbLabelBarOn             = True 
-  ResC@pmLabelBarHeightF        = 0.12
-  ResC@pmLabelBarWidthF         = 0.80
-  ResC@pmLabelBarOrthogonalPosF = 0.15
-  ResC@lbLabelAutoStride        = True
-  ResC@lbLabelFontHeightF       = FontHeight1     ;   color bar labels
+  setSateliteProj(ResC,projSat)
 
-  ResC@gsnLeftString            = LeftString
-  ResC@gsnRightString           = RightString
-  ResC@gsnCenterString          = CenterString
-  ResC@tiMainString             = TitleString
+  setMapVisibility(ResC,mapLine)
 
+  if (DEBUG) print("Gridtype is "+getGridType(var)) end if
+  if (DEBUG) showMapInfo(ResC,mapType,projSat,mapLine) end if
 
-  if (selMode .eq. "manual") then
-    ResC@cnLevelSelectionMode = "ManualLevels"
-    ResC@cnMinLevelValF       = minVar
-    ResC@cnMaxLevelValF       = maxVar
-    diffLog10                 = log10(abs(maxVar-minVar))
-;   if (diffLog10 .lt. 0) then
-      ResC@cnLevelSpacingF    = 10^(floor(diffLog10))/contLevs
-;   else
-;     ResC@cnLevelSpacingF    = 10^(floor(diffLog10))/contLevs
-;   end if
-  end if
+  ; MAIN PLOT CALLS ===========================================================
+  if (plotMode .eq. "vector") then ; vector plot ==============================
+    if (showGrid) then
+      print("#= WARNING =============================================")
+      print("Display Vectors and the underlying grid is not usefull, ")
+      print("because original data is interpolated to a regular grid for vector representation.")
+      print(ABORTMSG)
+      exit
+    else
+      setDefaultVectorPlot(ResC,5.0,8.0,"CurlyVector",0.017)
 
-  if (selMode .eq. "halflog") then
-    ResC@cnLevelSelectionMode = "ExplicitLevels"
-    plotLevels = createLevels(minVar,maxVar,scaleLimit)
-    if (DEBUG) print("plotlevels = "+plotLevels) end if
-    ResC@cnLevels             = plotLevels
-  end if
-
-  ResC@cnFillMode           = "rasterfill"
-  ResC@cnRasterSmoothingOn  = True
-  ResC@mpGreatCircleLinesOn = True
-
-  if (mapType .eq. "ortho") then
-    ResC@mpProjection          = "Orthographic" 
-    ResC@mpPerimOn             = False    ; turn off box around plot
-    ResC@mpGridAndLimbOn       = True     ; draw grid lines and limb line
-    ResC@mpGridLineDashPattern = 2        ; choose pattern used to draw the grid
-
-  else
-    ResC@mpProjection         = "CylindricalEquidistant"
-    ResC@mpLimitMode          = "LatLon"
-  end if
-
-  ; bounds of plotting area (not used for Orthographic)
-  ResC@mpMinLatF    = mapLLC(1)
-  ResC@mpMaxLatF    = mapURC(1)
-  ResC@mpMinLonF    = mapLLC(0)
-  ResC@mpMaxLonF    = mapURC(0)
-  ; center of view (for Orthographic and Sattelite only)
-  ResC@mpCenterLonF = (ResC@mpMaxLonF+ResC@mpMinLonF)/2 
-  ResC@mpCenterLatF = (ResC@mpMaxLatF+ResC@mpMinLatF)/2 
-
-  if (projSat) then
-    ResC@mpProjection         = "Satellite"
-    ; reduce are to be shown
-    ResC@mpMinLatF      = ResC@mpMinLatF + 10
-    ResC@mpMaxLatF      = ResC@mpMaxLatF - 10
-    ResC@mpMinLonF      = ResC@mpMinLonF + 10
-    ResC@mpMaxLonF      = ResC@mpMaxLonF - 10
-  end if
-
-  if (DEBUG) then
-    print("mapType: "+mapType)
-    print("projSat: "+projSat)
-    print("CentLon/Lat="+ResC@mpCenterLonF+"; "+ResC@mpCenterLatF)
-    print("Min/MaxLatF="+ResC@mpMinLatF+"; "+ResC@mpMaxLatF)
-    print("Min/MaxLonF="+ResC@mpMinLonF+"; "+ResC@mpMaxLonF)
-  end if
-
-  if (showGrid) then
-
-    plot = gsn_csm_contour_map(wks,var,ResC)
-  ; plot = gsn_csm_map(wks,ResC)
-    if (showPreview) preview = gsn_csm_contour_map(xwks,var,ResC) end if
-    getvalues plot@contour
-      "cnLevels"     : levels
-      "cnFillColors" : colors
-    end getvalues
-
-    flags = new(dimsizes(var),logical,"No_FillValue")
-    do i = 0,dimsizes(var) - 1
-      flags(i) = where(all(boundslon(i,:) .gt. ResC@mpMaxLonF) .or. \
-                       all(boundslon(i,:) .lt. ResC@mpMinLonF) .or. \
-                       all(boundslat(i,:) .gt. ResC@mpMaxLatF) .or. \
-                       all(boundslat(i,:) .lt. ResC@mpMinLatF), \
-                       False, True)
-    end do
-    if (DEBUG) then
-      print(colors)
-      print(levels)
-      print ("Outside the plot area:           " + dimsizes(ind(flags .eq. False)) + \
-             " triangles - not plotted")
-    end if
-
-    ; Set up a resource list for the polygons.
-    pres             = True
-    pres@gsEdgesOn   = True   ; Turn on edges
-    pres@gsFillIndex = 0      ; Solid fill, the default
-
-    ; First draw the triangles associated with the lowest level.
-    i = 0
-    vlow = ind(var .lt. levels(i))
-    ; if no index vlow is found with values less than levels(0), vlow is missing value:
-    if (.not. ismissing(vlow(0))) then
-      do j = 0, dimsizes(vlow)-1
-        pres@gsFillColor = colors(i)   ; first color
-        gsn_polygon(wks,plot,boundslon(vlow(j),:),boundslat(vlow(j),:),pres)
-        if (showPreview) gsn_polygon(xwks,preview,boundslon(vlow(j),:),boundslat(vlow(j),:),pres) end if
-      end do
-    end if
-    if (DEBUG) then
-      print("i=" + i + ", Values smaller than       "+levels(i)+": " + dimsizes(vlow) + \
-            " triangles considered, color= " + colors(i))
-    end if
-    delete(vlow)
-
-    ; Now draw the triangles between the lowest and highest levels.
-    do i = 0, dimsizes(levels) -2
-      vind = ind(var .ge. levels(i) .and. var .lt. levels(i+1))
-      ; if no index is found, vind is missing value:
-      if (.not. ismissing(vind(0))) then
-      do j = 0, dimsizes(vind)-1
-        pres@gsFillColor = colors(i+1)
-                         gsn_polygon( wks,plot,   boundslon(vind(j),:),boundslat(vind(j),:),pres)
-        if (showPreview) gsn_polygon(xwks,preview,boundslon(vind(j),:),boundslat(vind(j),:),pres) end if
-      end do
+      if ( showPreview ) then
+        x11 = gsn_csm_vector_scalar_map(xwks,uvar,vvar,uvar*uvar+vvar*vvar,ResC)
       end if
-      if (DEBUG) then
-        print ("i=" + i + ", Values between " + levels(i) + " and " + levels(i+1) +": "\
-               +dimsizes(vind) + " triangles considered, color= " + colors(i+1))
-      end if
-      delete(vind)
-    end do
-
-    ; Finally draw the triangles associated with the highest level.
-    i = dimsizes(levels) -1
-    vhig = ind(var .ge. levels(i) )
-
-    ; if no index vhig is found with values larger levels(max-1), vhig is missing value:
-    if (.not. ismissing(vhig(0))) then
-    do j = 0, dimsizes(vhig) -1
-      pres@gsFillColor = colors(i+1)
-                       gsn_polygon( wks,plot,   boundslon(vhig(j),:),boundslat(vhig(j),:),pres)
-      if (showPreview) gsn_polygon(xwks,preview,boundslon(vhig(j),:),boundslat(vhig(j),:),pres) end if
-    end do
-    end if
-    if (DEBUG) then
-      print ("i=" + i + ", Values   larger than      "+levels(i) +": " \
-             + dimsizes(vhig) + " triangles considered, color= " + colors(i+1))
-    end if
-    delete(vhig)
-
-    ; old try and error - 2011-03
-    ; wherehig = where(var .ge. levels(i),True,False)
-      ; check index of vhig to decide for plotting the triangle:
-      ; print("j="+j+" wherehig="+wherehig(vhig(j))+" vhig="+vhig(j)+" var="+var(vhig))
-      ; print("j="+j+" vhig="+vhig(j)+" var="+var(vhig))
-;     if (.not. flags(vhig(j))) continue end if
-;     if (.not. wherehig(vhig(j))) continue end if
-
-;   wallClockElapseTime(wcStrt, "triangle plot", 0)
-    if (showPreview) frame(xwks) end if
-
-  else    ; no showGrid
-    ; 2011-03-17: error - gsn_vector expects uvar and vvar on lat/lon grid!
-    ;  - maybe the attributes could be used to assign the lat/lon of the cell-variables
-    ;    on a 2-dim lat/lon variable
-    if (plotMode.eq."vector")
       vc = gsn_csm_vector_scalar_map(wks,uvar,vvar,uvar*uvar+vvar*vvar,ResC)
-    else  ; shaded contours
-      plot  = gsn_csm_contour_map(wks,var,ResC)
-      ;plot  = gsn_csm_contour_map_ce(wks,var,ResC) ; for CylindricalEquidistant:
-      ;           no diff to gsn_csm_contour_map ?
-      ;plot  = gsn_csm_contour(wks,var,ResC)  ; x/y-Plot, no map definitions allowed
+    end if
+  else ; contour plot =========================================================
+    plot                     = gsn_csm_contour_map(wks,var,ResC)
+    if (showPreview) preview = gsn_csm_contour_map(xwks,var,ResC) end if
+
+    if (showGrid) then
       if (showPreview) then
-        ;xplot = gsn_csm_contour_map_ce(xwks,var,ResC)
-        xplot = gsn_csm_contour_map(xwks,var,ResC)
-        frame(xwks)
+        plotGrid(xwks,preview,var,x,File,ResC,DEBUG)
+        print("#=======================================================")
+        print("For reasons of performance, the preview of a grid plot is not written to the output file be default")
+        print("Please set 'showPreview=False' on the command line!")
+      else
+        plotGrid(wks,plot,var,x,File,ResC,DEBUG)
       end if
     end if
-  end if  ; showGrid
+  end if
 
-  ; base string: time stamp
-  ; attention: virtual page changes when lon/lat ratio changes
-  txres               = True
-  txres@txFontHeightF = 0.011
-  gsn_text_ndc(wks,bStrg,.87,.12,txres)
-
-  ; frame overwrites the string?
+  if (showPreview) frame(xwks) end if
   frame(wks)
 end
