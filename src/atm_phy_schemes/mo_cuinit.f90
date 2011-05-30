@@ -511,7 +511,7 @@ LOGICAL ::         ll_ldbase(klon),&
  & lldsc(klon),     llfirst(klon)
 LOGICAL ::     llreset,        llresetjl(klon)
 
-INTEGER(KIND=jpim) :: icall, ik, ikb, is, jk, jl, jkk, jkt1, jkt2, jkt, jkb
+INTEGER(KIND=jpim) :: icall, ik, is, jk, jl, jkk, jkt1, jkt2, jkt, jkb
 
 REAL(KIND=jprb)    :: zsenh(klon,klev),&
  & zqenh(klon,klev),&
@@ -658,7 +658,7 @@ DO jkk=klev,ktdia-1+jkt1,-1 ! Big external loop for level testing:
 
       DO jl=kidia,kfdia
         IF (llgo_on(jl)) THEN
-          zrho  = paph(jl,jkk+1)/(rd*(pten(jl,jkk)*(1.+retv*pqen(jl,jkk))))
+          zrho  = paph(jl,jkk+1)/(rd*(pten(jl,jkk)*(1.0_JPRB+retv*pqen(jl,jkk))))
           zkhvfl= (pahfs(jl,jkk+1)*zrcpd+retv*pten(jl,jkk)*pqhfl(jl,jkk+1))/zrho
 !          ZUST  = MAX(SQRT(PSSTRU(JL)**2 + PSSTRV(JL)**2),ZREPUST)     !u* (repust=10e-4)
 !          ZWS=ZUST**3._JPRB- 1.5_JPRB*RKAP*ZKHVFL*PGEOH(JL,KLEV)/PTEN(JL,KLEV)
@@ -690,7 +690,7 @@ DO jkk=klev,ktdia-1+jkt1,-1 ! Big external loop for level testing:
 
       DO jl=kidia,kfdia
         IF (llgo_on(jl)) THEN
-          zrho  = paph(jl,jkk+1)/(rd*(pten(jl,jkk)*(1.+retv*pqen(jl,jkk))))
+          zrho  = paph(jl,jkk+1)/(rd*(pten(jl,jkk)*(1.0_JPRB+retv*pqen(jl,jkk))))
           !ZRHO  = rho_atm(jl,jkk)
           !<KF
           ilab(jl,jkk)= 1
@@ -899,7 +899,7 @@ DO jkk=klev,ktdia-1+jkt1,-1 ! Big external loop for level testing:
           zalfaw=foealfa(ztu(jl,ik))
           zfacw=r5les/((ztu(jl,ik)-r4les)**2)
           zfaci=r5ies/((ztu(jl,ik)-r4ies)**2)
-          zfac=zalfaw*zfacw+(1.-zalfaw)*zfaci
+          zfac=zalfaw*zfacw+(1.0_JPRB-zalfaw)*zfaci
           zesdp=foeewm(ztu(jl,ik))/paph(jl,ik)
           zcor=1.0_JPRB/(1.0_JPRB-retv*zesdp)
           zdqsdt=zfac*zcor*zqsu

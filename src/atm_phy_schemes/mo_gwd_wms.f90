@@ -175,7 +175,7 @@ CONTAINS
     REAL(KIND=jprb) :: zgauss(klon), zfluxlaun(klon), zcngl(klon)
     REAL(KIND=jprb) :: zcons1,zcons2,zdelp,zrgpts
     
-    REAL(KIND=jprb) :: zhook_handle
+!     REAL(KIND=jprb) :: zhook_handle
     
     !--------------------------------------------------------------------------
     
@@ -277,7 +277,7 @@ CONTAINS
     !*       SET UP AZIMUTH DIRECTIONS AND SOME TRIG FACTORS
     !*       -----------------------------------------------
     
-    zang=2_JPRB*rpi/iazidim
+    zang=2.0_JPRB*rpi/REAL(iazidim,jprb)
     zaz_fct=1.0_JPRB
     
     ! get normalization factor to ensure that the same amount of momentum
@@ -287,7 +287,7 @@ CONTAINS
     
     znorm=0.0_JPRB
     DO iazi=1,iazidim
-      zang1=(iazi-1)*zang
+      zang1=(REAL(iazi,jprb)-1.0_jprb)*zang
       zcosang(iazi)=COS(zang1)
       zsinang(iazi)=SIN(zang1)
       znorm=znorm+ABS(zcosang(iazi))

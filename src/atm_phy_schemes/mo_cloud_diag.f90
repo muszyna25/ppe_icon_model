@@ -344,7 +344,7 @@ REAL (KIND=ireals), INTENT(OUT) :: &
 ! -----------------------------
 
 INTEGER (KIND=iintegers) :: &
-  i,j,k,n                   ! loop indices
+  i,j,k                   ! loop indices
 
 REAL (KIND=ireals), PARAMETER :: &
   zsig_max = 1.0E-3_ireals,  & ! max. standard deviation of saturation deficit

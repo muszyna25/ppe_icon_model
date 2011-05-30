@@ -55,7 +55,8 @@ MODULE mo_lnd_nwp_nml
   INTEGER ::  nlev_snow        !! number of snow layers
   INTEGER ::  nsfc_subs        !! number of TILES
 
-  REAL(wp), DIMENSION(8):: zml_soil=(/ 0.005,0.02,0.06,0.18,0.54,1.62,4.86,14.58 /)
+  REAL(wp), DIMENSION(8):: zml_soil=(/ 0.005_wp,0.02_wp,0.06_wp,0.18_wp,0.54_wp,1.62_wp,&
+    & 4.86_wp,14.58_wp /)
 
   LOGICAL ::       &
        lseaice,    & !> forecast with sea ice model

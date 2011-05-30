@@ -136,7 +136,6 @@ MODULE mo_nonhydrostatic_nml
 
   CHARACTER(len=max_char_length), PARAMETER :: &
             routine = '(mo_nonhydrostatic_nml/nonhydrostatic_nml_setup:'
-  CHARACTER(len=max_char_length) :: string
 
 
   !local variable

@@ -28,17 +28,15 @@ eval_argument ()
   "openmp_threads" ) use_openmp_threads=$2
 #     echo "use_openmp_threads=$use_openmp_threads"
   ;;
+  "omp_stacksize" ) use_omp_stacksize=$2
+  ;;
   "resources" ) use_resources=$2
-#     echo "use_resources=$resources"
   ;;
   "memory_model" ) use_memory_model=$2
-#     echo "use_memory_model=$resources"
   ;;
   "memory" ) use_memory=$2
-#     echo "use_memory=$resources"
   ;;
   "node_usage" ) use_node_usage=$2
-#     echo "use_node_usage=$use_node_usage"
   ;;
   "no_of_nodes" ) use_nodes=$2
   ;;

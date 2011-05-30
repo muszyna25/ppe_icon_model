@@ -96,7 +96,7 @@ CONTAINS
     TYPE(t_cartesian_coordinates) :: cartesian_center,edge_vector, edge_normal_vector, x,y
     TYPE(t_cartesian_coordinates) :: circumcenters_vector,tmp_vector
 
-    REAL(wp) :: real_tmp,cell_area,re_square,lon,lat
+    REAL(wp) :: real_tmp,re_square,lon,lat
 
     INTEGER :: no_of_input_cells, no_of_input_edges, no_of_input_verts
     INTEGER :: i,j,cell_index,edge_index,vertex_index
@@ -429,7 +429,7 @@ CONTAINS
     INTEGER :: no_of_cells, max_no_of_vertices
     INTEGER :: no_of_verts, max_vert_connectivity
 
-    INTEGER :: vertex_no, cell_idx, vert_idx, edge_idx, no_of_neigbors
+    INTEGER :: vertex_no, cell_idx, vert_idx, no_of_neigbors
     
     INTEGER :: cell_no, edge_1, edge_2,  vertex_1, vertex_2
 !     INTEGER :: bnd_edge_1, bnd_edge_2, bnd_cell_1, bnd_cell_2

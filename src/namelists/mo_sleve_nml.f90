@@ -100,9 +100,8 @@ CONTAINS
 
  SUBROUTINE sleve_nml_setup
 
-  CHARACTER(len=max_char_length), PARAMETER :: &
-            routine = 'mo_sleve_nml/sleve_nml_setup:'
-  CHARACTER(len=max_char_length) :: string
+!   CHARACTER(len=max_char_length), PARAMETER :: &
+!             routine = 'mo_sleve_nml/sleve_nml_setup:'
 
 
   !local variable

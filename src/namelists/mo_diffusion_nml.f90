@@ -143,7 +143,7 @@ MODULE mo_diffusion_nml
    hdiff_smag_fac    = 0.15_wp
    hdiff_tv_ratio    = 1.0_wp
 
-   k2_pres_max = -99.                                                     
+   k2_pres_max = -99.0_wp                                                    
    k2_klev_max = 0
 
    !------------------------------------------------------------

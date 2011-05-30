@@ -458,7 +458,7 @@ DO jl=kidia,kfdia
   kctop(jl)=kcbot(jl)
   IF(ldcum(jl)) THEN
     ikb=kcbot(jl)
-    pkineu(jl,ikb)=0.5*pwubase(jl)**2
+    pkineu(jl,ikb)=0.5_JPRB*pwubase(jl)**2
     pmfu(jl,ikb)=pmfub(jl)
     pmfus(jl,ikb)=pmfub(jl)*(rcpd*ptu(jl,ikb)+pgeoh(jl,ikb))
     pmfuq(jl,ikb)=pmfub(jl)*pqu(jl,ikb)
@@ -708,14 +708,14 @@ DO jk=klev-1,ktdia+2,-1
 !! troposphere
 
           IF(zdmfen(jl) > 0.0_JPRB)THEN
-            zdken=MIN(1.0_JPRB,(1 + rg*z_cwdrag)*&
+            zdken=MIN(1.0_JPRB,(1.0_JPRB + rg*z_cwdrag)*&
              & zdmfen(jl)/MAX(rmfcmin,pmfu(jl,jk+1)))
           ELSE
-            zdken=MIN(1.0_JPRB,(1 + rg*z_cwdrag)*&
+            zdken=MIN(1.0_JPRB,(1.0_JPRB + rg*z_cwdrag)*&
              & zdmfde(jl)/MAX(rmfcmin,pmfu(jl,jk+1)))
           ENDIF
 
-          pkineu(jl,jk)=(pkineu(jl,jk+1)*(1-zdken)+zdkbuo)/(1+zdken)
+          pkineu(jl,jk)=(pkineu(jl,jk+1)*(1.0_JPRB-zdken)+zdkbuo)/(1.0_JPRB+zdken)
           IF(zbuo(jl,jk) < 0.0_JPRB ) THEN ! .AND.klab(jl,jk+1) == 2) THEN
             zkedke=pkineu(jl,jk)/MAX(1.e-10_JPRB,pkineu(jl,jk+1))
             zkedke=MAX(0.0_JPRB,MIN(1.0_JPRB,zkedke))
@@ -805,7 +805,7 @@ DO jk=klev-1,ktdia+2,-1
 !>           PARAMETERS FOR BERGERON-FINDEISEN PROCESS (T < -5C)
 
             zdt=MIN(rtbercu-rticecu,MAX(rtber-ptu(jl,jk),0.0_JPRB))
-            zcbf=1+z_cprc2*SQRT(zdt)
+            zcbf=1.0_JPRB+z_cprc2*SQRT(zdt)
             zzco=zprcon*zcbf
             zlcrit=zdnoprc/zcbf
 

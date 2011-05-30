@@ -166,7 +166,7 @@ CONTAINS
 
     ! Local scalars:
 
-    INTEGER :: jc,jk,jb,jce,jt      !block index
+    INTEGER :: jc,jk,jb,jce      !block index
     INTEGER :: jg                !domain id
 
     INTEGER,  POINTER ::  iidx(:,:,:), iblk(:,:,:)
@@ -197,11 +197,6 @@ CONTAINS
     LOGICAL:: landseemask(nproma,pt_patch%nblks_c)
 
     REAL(wp) :: rcld(nproma,pt_patch%nlevp1)
-
-    INTEGER, ALLOCATABLE :: start_c_bl_idx(:),end_c_bl_idx(:)
-    INTEGER, ALLOCATABLE :: start_e_bl_idx(:),end_e_bl_idx(:)
-    INTEGER :: i_c_startblk, i_c_endblk,  i_e_startblk, i_e_endblk, ist
-    INTEGER :: idx1,idx2,iblk1,iblk2
 
 !     write(0,*) "Entering nwp_nh_interface"
 !     write(0,*) "========================="
@@ -1205,117 +1200,6 @@ CONTAINS
         z_ddt_v_tot = 0._wp
       ENDIF
 
-#ifdef __xlC__
-
-      IF (timers_level > 2) CALL timer_start(timer_physic_acc_2)
-      
-      i_c_startblk = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
-      i_c_endblk   = pt_patch%cells%end_blk(min_rlcell_int,i_nchdom)
-      i_e_startblk = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
-      i_e_endblk   = pt_patch%edges%end_blk(min_rledge_int,i_nchdom)
-
-      ALLOCATE(start_c_bl_idx(i_c_endblk),end_c_bl_idx(i_c_endblk),&
-        start_e_bl_idx(i_e_endblk),end_e_bl_idx(i_e_endblk), STAT=ist )
-      IF (ist /= SUCCESS) THEN
-        CALL finish ( 'nwp_nh_interface',           &
-        &      'allocation of bl_idx failed' )
-      ENDIF
-      
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb)
-      DO jb = i_c_startblk, i_c_endblk
-        CALL get_indices_c(pt_patch, jb, i_c_startblk, i_c_endblk, &
-           start_c_bl_idx(jb), end_c_bl_idx(jb), &
-           grf_bdywidth_c+1, min_rlcell_int)
-      ENDDO
-!$OMP END DO NOWAIT
-!$OMP DO PRIVATE(jb)
-      DO jb = i_e_startblk, i_e_endblk
-        CALL get_indices_e(pt_patch, jb, i_e_startblk, i_e_endblk, &
-           start_e_bl_idx(jb), end_e_bl_idx(jb), &
-           grf_bdywidth_e+1, min_rledge_int)
-      ENDDO
-!$OMP END DO
-
-!$OMP DO PRIVATE(jb,jk,jc)
-      DO jb = i_c_startblk, i_c_endblk        
-!IBM*  ASSERT (NODEPS)
-        DO jk = 1, nlev
-!IBM*  ASSERT (NODEPS)
-          DO jc=start_c_bl_idx(jb),end_c_bl_idx(jb)
-            z_ddt_u_tot(jc,jk,jb) = &
-      &      prm_nwp_tend%ddt_u_turb (jc,jk,jb)&
-      &      + prm_nwp_tend%ddt_u_gwd  (jc,jk,jb)&
-      &      + prm_nwp_tend%ddt_u_sso  (jc,jk,jb)&
-      &      + prm_nwp_tend%ddt_u_pconv(jc,jk,jb)
-          ENDDO
-        ENDDO
-      ENDDO
-!$OMP END DO NOWAIT
-
-!$OMP DO PRIVATE(jb,jk,jc)
-      DO jb = i_c_startblk, i_c_endblk
-!IBM*  ASSERT (NODEPS)
-        DO jk = 1, nlev
-!IBM*  ASSERT (NODEPS)
-          DO jc=start_c_bl_idx(jb),end_c_bl_idx(jb)
-            z_ddt_v_tot(jc,jk,jb) =                                            &
-      &      prm_nwp_tend%ddt_v_turb   (jc,jk,jb)&
-      &      + prm_nwp_tend%ddt_v_gwd  (jc,jk,jb)&
-      &      + prm_nwp_tend%ddt_v_sso  (jc,jk,jb)&
-      &      + prm_nwp_tend%ddt_v_pconv(jc,jk,jb)
-          ENDDO
-        ENDDO
-      ENDDO
-!$OMP END DO NOWAIT
-!$OMP END PARALLEL
-
-      IF (timers_level > 2) time_sync=.true.
-      IF (timers_level > 1) CALL timer_start(timer_physic_sync)
-      CALL sync_patch_array_mult(SYNC_C1, pt_patch, 2, z_ddt_u_tot, z_ddt_v_tot)
-      IF (timers_level > 1) CALL timer_stop(timer_physic_sync)
-      IF (timers_level > 3) CALL timer_start(timer_physic_acc_2_2)
-      time_sync=.false.
-      !-------------------------------------------------------------------------
-      !>
-      !!    @par Interpolation from  u,v onto v_n
-      !!      ddt_vn_phy  =interpol(ddt_u_tot)+interpol(ddt_v_tot)
-      !!      Calculate normal velocity at edge midpoints
-      !-------------------------------------------------------------------------
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jce,idx1,idx2,iblk1,iblk2,jk)
-      DO jb = i_e_startblk, i_e_endblk
-!IBM*  ASSERT (NODEPS)
-        DO jce = start_e_bl_idx(jb), end_e_bl_idx(jb)
-          idx1=iidx(jce,jb,1)
-          idx2=iidx(jce,jb,2)
-          iblk1=iblk(jce,jb,1)
-          iblk2=iblk(jce,jb,2)
-!IBM*  ASSERT (NODEPS)
-          DO jk = 1, nlev
-            pt_diag%ddt_vn_phy(jce,jk,jb) =   pt_int_state%c_lin_e(jce,1,jb)           &
-&                * ( z_ddt_u_tot(idx1,jk,iblk1)    &
-&                *  pt_patch%edges%primal_normal_cell(jce,jb,1)%v1  &
-&                + z_ddt_v_tot(idx1,jk,iblk1)    &
-&                *  pt_patch%edges%primal_normal_cell(jce,jb,1)%v2 )&
-&              + pt_int_state%c_lin_e(jce,2,jb)     &
-&                   * ( z_ddt_u_tot(idx2,jk,iblk2)    &
-&                   * pt_patch%edges%primal_normal_cell(jce,jb,2)%v1  &
-&                   +  z_ddt_v_tot(idx2,jk,iblk2)    &
-&                   *  pt_patch%edges%primal_normal_cell(jce,jb,2)%v2 )
-          ENDDO
-        ENDDO
-      ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
-
-      DEALLOCATE(start_c_bl_idx,end_c_bl_idx,start_e_bl_idx,end_e_bl_idx)
- 
-      IF (timers_level > 2)    CALL timer_stop(timer_physic_acc_2)
-      IF (timers_level > 3)    CALL timer_stop(timer_physic_acc_2_2)
-#else
-
       IF (ltimer) CALL timer_start(timer_physic_acc_2)
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,i_startblk,i_endblk)
       rl_start = grf_bdywidth_c+1
@@ -1397,7 +1281,6 @@ CONTAINS
 !$OMP END PARALLEL
 
       IF (ltimer) CALL timer_stop(timer_physic_acc_2)
-#endif
 
       IF (msg_level >= 15) THEN
         WRITE(message_text,'(a,2(E10.3,2x))') 'max/min ddt_vn  = ',&

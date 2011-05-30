@@ -269,7 +269,7 @@ case "$ac_sitename" in
                 NETCDFROOT  = /usr/local/pkg
                 config_target=hpc
                 make_command="make"
-                submit="qsub"
+                submit="qsubw"
                 ;;
         esac
         ;;

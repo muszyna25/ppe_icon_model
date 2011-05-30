@@ -265,7 +265,7 @@ CONTAINS
   !! in pressure coordinate.
   !!
   SUBROUTINE update_pres_delp_c( p_patch, p_pres_sfc,              &! in
-                                 p_pres_mc, p_pres_ic, p_delp_mc   )! inout                     ! inout
+                                 p_pres_mc, p_pres_ic, p_delp_mc   )! inout
 
     TYPE(t_patch),TARGET,INTENT(in) :: p_patch            !< grid info
 

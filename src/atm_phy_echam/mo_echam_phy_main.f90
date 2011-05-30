@@ -401,7 +401,7 @@ CONTAINS
           & field% q(:,:,jb,iqc)     ,&!< in     qm_liq = cloud water mass mixing ratio at t-dt
           & field% q(:,:,jb,iqi)     ,&!< in     qm_ice = cloud ice mass mixing ratio at t-dt
           & field% q(:,:,jb,io3)     ,&!< in     qm_o3 = o3 mass mixing ratio at t-dt
-!!$          & field% geom(:,:,jb)      ,&!< in     pgeom1 = geopotential above ground at t-dt [m2/s2]
+!!$       & field% geom(:,:,jb)     ,&!< in     pgeom1 = geopotential above ground at t-dt [m2/s2]
           & field% acdnc(:,:,jb)     ,&!< in     cld_frac = cloud fraction [m2/m2]
           & field% aclc(:,:,jb)      ,&!< in     cld_frac = cloud fraction [m2/m2]
           !

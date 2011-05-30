@@ -86,7 +86,7 @@ CONTAINS
   SUBROUTINE check_grid_file(in_file)
     CHARACTER(LEN=filename_max), INTENT(in) :: in_file
 
-    INTEGER :: grid_id, error_status
+    INTEGER :: grid_id
 
     CALL message('===============','===============')
     CALL message('check_grid_file',TRIM(in_file))
@@ -301,9 +301,9 @@ CONTAINS
     REAL(wp):: max_dual_area, min_dual_area
     REAL(wp):: max_dual_edge, min_dual_edge, max_dual_edge_ratio
 
-    INTEGER :: dual_grid_id
-    TYPE(t_grid), POINTER :: dual_grid
-    TYPE(t_cartesian_coordinates), POINTER :: dual_barycenters(:)
+!     INTEGER :: dual_grid_id
+!     TYPE(t_grid), POINTER :: dual_grid
+!     TYPE(t_cartesian_coordinates), POINTER :: dual_barycenters(:)
     REAL(wp):: max_barycenter_distance
 
 
@@ -740,7 +740,7 @@ CONTAINS
     TYPE(t_grid_edges), POINTER :: edges
     TYPE(t_grid_vertices), POINTER :: verts
     INTEGER :: no_of_cells
-    INTEGER :: cell,ncell,j,k,edge_no,neib_cells,vertex
+    INTEGER :: cell,ncell,j,k,vertex
     LOGICAL :: found
 
     in_grid => get_grid(in_grid_id)

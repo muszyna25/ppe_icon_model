@@ -553,7 +553,6 @@ MODULE mo_nh_testcases
                     nlen, nblks_e, npromz_e,  nblks_c, npromz_c
   INTEGER        :: i_startidx, i_endidx, i_startblk, icount
   INTEGER        :: nlev, nlevp1        !< number of full and half levels
-  INTEGER        :: ist     !< status variable
 
   REAL(wp), DIMENSION(nproma) ::  &
              z_lat,z_siny,z_cosy, z_fac1, z_fac2, zeta_old, zcoszetav, &

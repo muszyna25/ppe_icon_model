@@ -1056,7 +1056,7 @@ END FUNCTION concatenate_grids
     TYPE(t_grid_vertices), POINTER :: verts
     TYPE(t_grid_edges), POINTER :: edges
 
-    INTEGER :: max_connectivity, vert_no, edge, cell, i, j, no_of_conn_edges
+    INTEGER :: max_connectivity, vert_no, edge, i, j, no_of_conn_edges
     
     INTEGER, POINTER :: cell_index(:), edge_index(:), edge_orientation(:)
 

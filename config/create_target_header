@@ -29,6 +29,8 @@ else
   start="$use_mpi_startrun"
 fi
 
+set_default use_omp_stacksize 50M
+
 cat >> $output_script << EOF
 #=============================================================================
 #
@@ -102,10 +104,10 @@ START="\$start"
 # openmp environment variables
 # ----------------------------
 export OMP_NUM_THREADS=${use_openmp_threads}
+export ICON_THREADS=${use_openmp_threads}
 export OMP_SCHEDULE="static"
 export OMP_DYNAMIC="false"
-export OMP_STACKSIZE=50M
-export ICON_THREADS=${use_openmp_threads}
+export OMP_STACKSIZE=${use_omp_stacksize}
 #-----------------------------------------------------------------------------
 # absolute paths of directories
 calldir=\$(pwd)
@@ -497,7 +499,7 @@ set_run_target_hpc()
     
   cat >> $output_script << EOF
 # ===========================
-# hpc@DWD batch job parameters
+#### BATCH_SYSTEM=PBS ####
 #-----------------------------------------------------------------------------
 #PBS -q lang
 #PBS -j oe

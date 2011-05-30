@@ -169,12 +169,13 @@ CONTAINS
 #ifdef NOMPI
   REAL(wp):: sum_aux(nblks)
 #endif
-  INTEGER :: jb, jk, nlen, ndim2
+  INTEGER :: jb, nlen, ndim2
 
   INTEGER :: mnblks, mnpromz
 
 #ifndef NOMPI
   REAL(wp) :: z(SIZE(x,1),SIZE(x,3)) ! needed for global sums
+  INTEGER :: jk
 #endif
 
   INTEGER :: myThreadNo

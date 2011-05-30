@@ -253,7 +253,7 @@ CONTAINS
     END IF
 
     DO jl=1,jce
-      zkap(jl) = zkap_cont*(zland(jl)-zglac(jl)) + zkap_mrtm*(1.-zland(jl)+zglac(jl))
+      zkap(jl) = zkap_cont*(zland(jl)-zglac(jl)) + zkap_mrtm*(1.0_wp-zland(jl)+zglac(jl))
     ENDDO
 
 

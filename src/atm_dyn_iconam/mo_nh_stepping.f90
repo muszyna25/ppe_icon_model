@@ -268,8 +268,7 @@ MODULE mo_nh_stepping
 !$  INTEGER omp_get_max_active_levels
 !-----------------------------------------------------------------------
 
-  CALL allocate_nh_stepping (p_patch, p_int_state, p_grf_state, p_nh_state, &
-                                  datetime, n_io, n_file, n_diag)
+  CALL allocate_nh_stepping (p_patch)
 
   IF (iforcing==inwp) THEN
     DO jg=1, n_dom
@@ -318,8 +317,7 @@ MODULE mo_nh_stepping
 #endif
 
 
-  CALL deallocate_nh_stepping (p_patch, p_int_state, p_grf_state, p_nh_state, &
-                                  datetime, n_io, n_file, n_diag)
+  CALL deallocate_nh_stepping ()
 
 
   END SUBROUTINE perform_nh_stepping
@@ -346,13 +344,10 @@ MODULE mo_nh_stepping
 
   REAL(wp)                             :: sim_time(n_dom)
   INTEGER                              :: jfile, jstep, jb, nlen, jg
-  INTEGER                              :: ist
   REAL(wp)                             :: vnmax, wmax
   REAL(wp)                             :: vn_aux(p_patch(1)%nblks_int_e)
   REAL(wp)                             :: w_aux(p_patch(1)%nblks_int_c)
   REAL(wp), DIMENSION(:,:,:), POINTER  :: p_vn, p_w
-
-  REAL(wp)                             :: t_out
 
 !$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
@@ -490,18 +485,10 @@ MODULE mo_nh_stepping
   !>
   !! @par Revision History
   !!
-  SUBROUTINE deallocate_nh_stepping (p_patch, p_int_state, p_grf_state, p_nh_state, &
-                                  datetime, n_io, n_file, n_diag)
+  SUBROUTINE deallocate_nh_stepping ()
 !
-  TYPE(t_patch), TARGET, INTENT(IN)            :: p_patch(n_dom_start:n_dom)
-  TYPE(t_int_state), TARGET, INTENT(IN)        :: p_int_state(n_dom_start:n_dom)
-  TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom_start:n_dom)
-  INTEGER, INTENT(IN)                          :: n_io, n_file, n_diag
 
-  TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
-  TYPE(t_datetime), INTENT(INOUT)      :: datetime
-
-  INTEGER                              ::  jb, nlen, jg, ist
+  INTEGER                              ::  jg, ist
 
 !-----------------------------------------------------------------------
   !
@@ -562,18 +549,11 @@ MODULE mo_nh_stepping
   !>
   !! @par Revision History
   !!
-  SUBROUTINE allocate_nh_stepping (p_patch, p_int_state, p_grf_state, p_nh_state, &
-                                  datetime, n_io, n_file, n_diag)
+  SUBROUTINE allocate_nh_stepping (p_patch)
 !
   TYPE(t_patch), TARGET, INTENT(IN)            :: p_patch(n_dom_start:n_dom)
-  TYPE(t_int_state), TARGET, INTENT(IN)        :: p_int_state(n_dom_start:n_dom)
-  TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom_start:n_dom)
-  INTEGER, INTENT(IN)                          :: n_io, n_file, n_diag
 
-  TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
-  TYPE(t_datetime), INTENT(INOUT)      :: datetime
-
-  INTEGER                              :: nlen, jg
+  INTEGER                              :: jg !, nlen
   INTEGER                              :: ist
 
 !-----------------------------------------------------------------------
@@ -726,7 +706,7 @@ MODULE mo_nh_stepping
                              ! i.e. for starting new integration sweep
 
     ! Switch to determine manner of OpenMP parallelization in interpol_scal_grf
-    LOGICAL :: lpar_fields=.FALSE.
+!     LOGICAL :: lpar_fields=.FALSE.
 
     ! Switch to determine if nested domains are called at a given time step
     LOGICAL :: l_call_nests = .FALSE.
@@ -1650,8 +1630,8 @@ MODULE mo_nh_stepping
         CALL finish ('mo_nh_stepping:supervise_total_integrals_nh', &
                      'allocation of z_total_tracer_0 failed')
      ENDIF
-     z_total_tracer_old = 0
-     z_total_tracer_0   = 0
+     z_total_tracer_old = 0.0_wp
+     z_total_tracer_0   = 0.0_wp
   END IF
 
   ! Open the datafile

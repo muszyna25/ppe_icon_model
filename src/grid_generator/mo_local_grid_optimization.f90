@@ -470,9 +470,9 @@ CONTAINS
     REAL(wp),  ALLOCATABLE :: vertex_edge_ref_length(:)
     REAL(wp),  ALLOCATABLE :: cell_center_ref_length(:)
     REAL(wp),  ALLOCATABLE :: edge_ref_length(:)
-   REAL(wp) :: ref_length, diff_length, local_coeff
+   REAL(wp) :: ref_length, diff_length
 
-    INTEGER :: vertex_edges, cell_edges, edge_cells
+    INTEGER :: vertex_edges
 !     REAL(wp) :: max_vertex_edge, min_vertex_edge, max_vertex_edge_ratio
     LOGICAL :: is_triangle_grid, use_spring_cellcenters
     

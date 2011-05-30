@@ -103,9 +103,7 @@ CONTAINS
   SUBROUTINE grid_nml_setup
                                                 
     INTEGER  :: istat, i, funit
-    CHARACTER(len=max_char_length), PARAMETER ::     &
-             &  routine = 'mo_grid_nml/grid_nml_setup'
- 
+
     !------------------------------------------------------------
     ! Set up the default values for grid_ctl
     !------------------------------------------------------------

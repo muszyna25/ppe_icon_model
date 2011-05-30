@@ -72,26 +72,28 @@ MODULE mo_nwp_sfc_interface
 !  USE mo_icoham_sfc_indices, ONLY: nsfc_type, igbm, iwtr, iice, ilnd
   USE mo_vdiff_driver,       ONLY: vdiff
   USE mo_echam_vdiff_params, ONLY: z0m_oce
-  USE mo_physical_constants, ONLY: t0_melt => tmelt,& ! absolute zero for temperature
-                                   r_v   => rv    , & ! gas constant for water vapour
-                                   r_d   => rd    , & ! gas constant for dry air
-                                   rvd_m_o=>vtmpc1, & ! r_v/r_d - 1
-                                   o_m_rdv        , & ! 1 - r_d/r_v
-                                   rdv            , & ! r_d / r_v
-                                   lh_v  => alv   , & ! latent heat of vapourization
-                                   lh_s  => als   , & ! latent heat of sublimation
-                                   lh_f  => alf   , & ! latent heat of fusion
-                                   cp_d  => cpd   , & ! specific heat of dry air at constant press
-                                   cpdr  => rcpd  , & ! (specific heat of dry air at constant press)^-1
-                                   g     => grav  , & ! acceleration due to gravity
-                                   sigma => stbo  , & ! Boltzmann-constant
-                                   rdocp => rd_o_cpd  ! r_d / cp_d
-  USE mo_convect_tables,   ONLY:   b1    => c1es  , & !! constants for computing the sat. vapour
-                                   b2w   => c3les , & !! pressure over water (l) and ice (i)
-                                   b2i   => c3ies , & !!               -- " --
-                                   b4w   => c4les , & !!               -- " --
-                                   b4i   => c4ies , & !!               -- " --
-                                   b234w => c5les     !!               -- " --
+  USE mo_physical_constants, ONLY: &
+     t0_melt => tmelt,& ! absolute zero for temperature
+     r_v   => rv    , & ! gas constant for water vapour
+     r_d   => rd    , & ! gas constant for dry air
+     rvd_m_o=>vtmpc1, & ! r_v/r_d - 1
+     o_m_rdv        , & ! 1 - r_d/r_v
+     rdv            , & ! r_d / r_v
+     lh_v  => alv   , & ! latent heat of vapourization
+     lh_s  => als   , & ! latent heat of sublimation
+     lh_f  => alf   , & ! latent heat of fusion
+     cp_d  => cpd   , & ! specific heat of dry air at constant press
+     cpdr  => rcpd  , & ! (specific heat of dry air at constant press)^-1
+     g     => grav  , & ! acceleration due to gravity
+     sigma => stbo  , & ! Boltzmann-constant
+     rdocp => rd_o_cpd  ! r_d / cp_d
+  USE mo_convect_tables,   ONLY:   &
+     b1    => c1es  , & !! constants for computing the sat. vapour
+     b2w   => c3les , & !! pressure over water (l) and ice (i)
+     b2i   => c3ies , & !!               -- " --
+     b4w   => c4les , & !!               -- " --
+     b4i   => c4ies , & !!               -- " --
+     b234w => c5les     !!               -- " --
   USE mo_cuparameters,       ONLY: rho_w => rhoh2o    ! density of liquid water (kg/m^3)
   USE mo_phyparam_soil
   USE mo_nwp_phy_init
