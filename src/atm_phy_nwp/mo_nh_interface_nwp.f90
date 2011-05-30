@@ -55,7 +55,7 @@ MODULE mo_nh_interface_nwp
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_impl_constants,     ONLY: SUCCESS, itconv, itccov, itrad, itgscp,         &
     &                              itsatad, itupdate, itturb, itsfc, itradheat,  &
-    &                              itsso,                                 &
+    &                              itsso,itgwd,                               &
     &                              min_rlcell_int, min_rledge_int, min_rlcell
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
@@ -80,7 +80,8 @@ MODULE mo_nh_interface_nwp
   USE mo_cover_koe,          ONLY: cover_koe
   USE mo_satad,              ONLY: satad_v_3D
   USE mo_radiation,          ONLY: radheat, pre_radiation_nwp
-  USE mo_sso_cosmo,          ONLY: sso
+ ! USE mo_sso_cosmo,          ONLY: sso
+  USE mo_nwp_gw_interface,   ONLY: nwp_gwdrag 
   USE mo_nwp_gscp_interface, ONLY: nwp_microphysics
   USE mo_nwp_turb_interface, ONLY: nwp_turbulence
   USE mo_nwp_sfc_interface,  ONLY: nwp_surface
@@ -692,7 +693,8 @@ CONTAINS
 
 
     IF (lcall_phy_jg(itrad) .OR.  lcall_phy_jg(itconv) &
-&     .OR. lcall_phy_jg(itccov) .OR. lcall_phy_jg(itsso)) THEN
+&     .OR. lcall_phy_jg(itccov) .OR. lcall_phy_jg(itsso) &
+&                                 .OR. lcall_phy_jg(itgwd)) THEN
 
       IF (msg_level >= 12) &
 &           CALL message('mo_nh_interface', 'diagnose pres/temp for slow physics')
@@ -1055,73 +1057,23 @@ CONTAINS
     ENDIF  ! inwp_radiation
 
     !-------------------------------------------------------------------------
-    !  SSO cosmo
+    !  Gravity waves drag: orographic and non-orographic
     !-------------------------------------------------------------------------
 
-    IF (lcall_phy_jg(itsso)) THEN
+    IF (lcall_phy_jg(itsso) .OR. lcall_phy_jg(itgwd)) THEN
 
-      IF (msg_level >= 12) &
-&           CALL message('mo_nh_interface', 'subgrid scale orography')
+       IF (msg_level >= 12) &
+&           CALL message('mo_nh_interface', 'gravity waves')
 
-    !in order to account for mesh refinement
-    rl_start = grf_bdywidth_c+1
-    rl_end   = min_rlcell
+        IF (timers_level > 3) CALL timer_start(timer_sso)
 
-    i_startblk = pt_patch%cells%start_blk(rl_start,1)
-    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-
-    IF (timers_level > 3) CALL timer_start(timer_sso)
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx), SCHEDULE(guided)
-
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-        & i_startidx, i_endidx, rl_start, rl_end)
-
-          !tendencies  have to be set to zero
-          DO jc = i_startidx, i_endidx
-            prm_nwp_tend%ddt_u_sso   (1:i_endidx,:,jb) = 0._wp
-            prm_nwp_tend%ddt_v_sso   (1:i_endidx,:,jb) = 0._wp
-            prm_nwp_tend%ddt_temp_sso(1:i_endidx,:,jb) = 0._wp
-          ENDDO
-
-        ! since we have only currently one scheme for sso, it
-        ! is sufficient to ask for the timing
-
-        !IF (inwp_sso == 1) THEN
-
-        CALL sso(                                          &
-          & ie        =nproma                           ,  & !> in:  actual array size
-          & je        =1                                ,  & !< in:  dummy  array dimension
-          & ke        =nlev                             ,  & !< in:  actual array size
-          & ke1       =nlevp1                           ,  & !< in:  ke + 1
-          & istart    =i_startidx                       ,  & !< in:  start index of calculation
-          & iend      =i_endidx                         ,  & !< in:  end index of calculation
-          & jstart    =1                                ,  & !< in:  dummy start index of calculation
-          & jend      =1                                ,  & !< in:  dummy end index of calculation
-          & ppf       =pt_diag%pres             (:,:,jb),  & !< in:  full level pressure
-          & pph       =pt_diag%pres_ifc         (:,:,jb),  & !< in:  half level pressure
-          & pfif      =p_metrics%geopot_agl     (:,:,jb),  & !< in:  full level geopotential height
-          & pt        =pt_diag%temp             (:,:,jb),  & !< in:  temperature
-          & pu        =pt_diag%u                (:,:,jb),  & !< in:  zonal wind component
-          & pv        =pt_diag%v                (:,:,jb),  & !< in:  meridional wind component
-          & pfis      =p_metrics%geopot_agl_ifc (:,nlevp1,jb),& !< in:surface geopotential height
-          & psso_stdh =ext_data%atm%sso_stdh    (:,jb)  ,  & !< in:  standard deviation
-          & psso_gamma=ext_data%atm%sso_gamma   (:,jb)  ,  & !< in:  anisotropy
-          & psso_theta=ext_data%atm%sso_theta   (:,jb)  ,  & !< in:  angle
-          & psso_sigma=ext_data%atm%sso_sigma   (:,jb)  ,  & !< in:  slope
-          & pdt       =tcall_phy_jg(itsso)              ,  & !< in:  time step
-          & ldebug    =.FALSE.                          ,  & !< in:  debug control switch
-          & pdu_sso   =prm_nwp_tend%ddt_u_sso   (:,:,jb),  & !< out: u-tendency due to SSO
-          & pdv_sso   =prm_nwp_tend%ddt_v_sso   (:,:,jb),  & !< out: v-tendency due to SSO
-          & pdt_sso   =prm_nwp_tend%ddt_temp_sso(:,:,jb)   ) !< out: temperature tendency due to SSO
-
-         !ENDIF
-    ENDDO ! jb
-
-!$OMP END DO
-!$OMP END PARALLEL   
+       CALL nwp_gwdrag  (  tcall_phy_jg(itsso),             & !>input
+                          &tcall_phy_jg(itgwd),             & !> input
+                            &   pt_patch,p_metrics,         & !>input
+                            &   ext_data,                   & !>input
+                            &   pt_prog,                    & !>in
+                            &   pt_diag ,                   & !>inout
+                            &   prm_diag,prm_nwp_tend      ) !>inout
 
     IF (timers_level > 3) CALL timer_stop(timer_sso)
     ENDIF ! inwp_sso

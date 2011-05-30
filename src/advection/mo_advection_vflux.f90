@@ -2132,7 +2132,7 @@ CONTAINS
     ENDIF
 
     IF (l_out_edgeval) THEN
-      coeff_grid = -1 ! needs to be set in case of a call from the hexagonal NH code
+      coeff_grid = -1._wp ! needs to be set in case of a call from the hexagonal NH code
     ENDIF
 
     IF ( PRESENT(opt_topflx_tra) ) THEN

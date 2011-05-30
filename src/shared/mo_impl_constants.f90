@@ -200,8 +200,9 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: itradheat=  9 !calculation of radiative heating rates from radiative
                                       !fluxes with updated solar zenith angle
   INTEGER, PARAMETER :: itsfc    =  10
+  INTEGER, PARAMETER :: itgwd    =  11
 
-  INTEGER, PARAMETER :: iphysproc = 10! for NWP:
+  INTEGER, PARAMETER :: iphysproc = 11! for NWP:
                                       ! number of slow physical processes:
                                       ! convection, sscloud cover, radiation, radheat, sso,
                                       ! microphysics, saturation adjustment, tracerupdate

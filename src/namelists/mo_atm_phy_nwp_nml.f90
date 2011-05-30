@@ -42,7 +42,7 @@ MODULE mo_atm_phy_nwp_nml
   USE mo_kind,                ONLY: wp
   USE mo_impl_constants,      ONLY: max_dom,MAX_CHAR_LENGTH,itconv,itccov,&
     &                               itrad,itradheat, itsso,itgscp,itsatad,itupdate,&
-    &                               itturb, itsfc,  iphysproc
+    &                               itturb, itsfc,  itgwd, iphysproc
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_namelist,            ONLY: position_nml, POSITIONED
   USE mo_mpi,                 ONLY: p_pe, p_io
@@ -83,6 +83,7 @@ MODULE mo_atm_phy_nwp_nml
   REAL(wp) :: dt_rad(max_dom)    !! "-"                     radiation
   REAL(wp) :: dt_radheat(max_dom)!! "-" rad. heating from radiative fluxes with updated cosmu0 
   REAL(wp) :: dt_sso(max_dom)    !! "-"  for subscale orographic gravity waves
+  REAL(wp) :: dt_gwd(max_dom)    !! "-"  for subscale gravity waves
   REAL(wp) :: dt_gscp(max_dom)   !! field element for microphysics
   REAL(wp) :: dt_turb(max_dom)   !! field element for turbulence
   REAL(wp) :: dt_sfc(max_dom)    !! field element for surface
@@ -98,6 +99,7 @@ MODULE mo_atm_phy_nwp_nml
   INTEGER ::  inwp_convection  !! convection
   INTEGER ::  inwp_radiation   !! radiation
   INTEGER ::  inwp_sso         !! sso
+  INTEGER ::  inwp_gwd         !! non-orographic gravity wave drag
   INTEGER ::  inwp_cldcover    !! cloud cover
   INTEGER ::  inwp_turb        !! turbulence
   INTEGER ::  inwp_surface     !! surface including soil, ocean, ice,lake
@@ -134,12 +136,13 @@ MODULE mo_atm_phy_nwp_nml
 
   NAMELIST/nwp_phy_ctl/inwp_gscp, inwp_satad, inwp_convection, &
     &                  inwp_radiation, inwp_sso, inwp_cldcover, &
+    &                  inwp_gwd,                                &
     &                  inwp_turb, inwp_surface, nlevs, nztlev,  &
     &                  nlev_snow, nsfc_subs,                    &
     &                  dt_conv, dt_ccov, dt_rad,                &
     &                  dt_radheat,                              &
     &                  dt_sso, dt_gscp, dt_satad,               &
-    &                  dt_turb, dt_sfc,                         & !, inextra_2d,inextra_3d
+    &                  dt_turb, dt_sfc, dt_gwd,                 & 
     &                  imode_turb,                              &
     &                  limpltkediff, ltkesso, lexpcor,          &
     &                  tur_len, pat_len, a_stab,                &
@@ -151,10 +154,12 @@ MODULE mo_atm_phy_nwp_nml
    PUBLIC :: setup_nwp_phy !, set_inwp_nml, read_inwp_nml
    PUBLIC :: inwp_gscp, inwp_satad, inwp_convection, inwp_radiation
    PUBLIC :: inwp_sso, inwp_cldcover, inwp_turb, inwp_surface
+   PUBLIC :: inwp_gwd
    PUBLIC :: nlevs, nztlev
    PUBLIC :: nlev_snow,nsfc_subs
    PUBLIC :: dt_conv, dt_ccov, dt_rad, dt_radheat, dt_sso, dt_gscp
    PUBLIC :: dt_satad, dt_update,   dt_turb, dt_sfc,tcall_phy
+   PUBLIC :: dt_gwd
    PUBLIC :: qi0, qc0
    PUBLIC :: lseaice, llake, l3dturb,  lprog_tke, lmulti_snow
 
@@ -239,6 +244,7 @@ MODULE mo_atm_phy_nwp_nml
     inwp_convection = 0           !> 0 = no convection
     inwp_radiation  = 0           !> 0 = no radiation
     inwp_sso        = 0           !> 0 = no sso
+    inwp_gwd        = 0           !> 0 = no gwd, 1= IFS gwd scheme
     inwp_cldcover   = 1           !> 1 = use grid-scale clouds for radiation
     inwp_turb       = 0           !> 0 = no turbulence,1= cosmo/turbdiff,2=echam/vdiff
     inwp_surface    = 0           !> 0 = no surface, 1 =  cosmo surface
@@ -253,6 +259,7 @@ MODULE mo_atm_phy_nwp_nml
     dt_ccov (:)  = 0.0_wp
     dt_rad  (:)  = 0.0_wp
     dt_sso  (:)  = 0.0_wp
+    dt_gwd  (:)  = 0.0_wp
     dt_gscp (:)  = 0.0_wp
     dt_turb (:)  = 0.0_wp
     dt_sfc  (:)  = 0.0_wp
@@ -267,6 +274,7 @@ MODULE mo_atm_phy_nwp_nml
         dt_ccov (jg) = dt_conv(jg)  !presently not used; cloud cover is synchronized with radiation
         dt_rad  (jg) = 1800._wp     !seconds
         dt_sso  (jg) = dt_conv(jg)  !seconds
+        dt_gwd  (jg) = 600._wp     !seconds
 
         !> intervals coupled to advective timestep
         !! all three processes have to take place at the same
@@ -296,6 +304,7 @@ MODULE mo_atm_phy_nwp_nml
         dt_ccov (jg) = dt_conv(jg)  !presently not used; cloud cover is synchronized with radiation
         dt_rad  (jg) = 1800._wp     !seconds
         dt_sso  (jg) = 3600._wp     !seconds
+        dt_gwd  (jg) = 3600._wp     !seconds
         dt_gscp (jg) = 100._wp      !seconds
         dt_turb (jg) = 100._wp      !seconds
         dt_sfc  (jg) = 100._wp      !seconds
@@ -394,6 +403,12 @@ MODULE mo_atm_phy_nwp_nml
         tcall_phy(jg,itsso) =  0._wp
       ELSE
         tcall_phy(jg,itsso) =  dt_sso(jg)           ! seconds
+      ENDIF
+
+      IF ( inwp_gwd == 0 ) THEN          ! 0 = no sso
+        tcall_phy(jg,itgwd) =  0._wp
+      ELSE
+        tcall_phy(jg,itgwd) =  dt_gwd(jg)           ! seconds
       ENDIF
 
       IF ( inwp_gscp == 0 ) THEN         ! 0 = no microphysics

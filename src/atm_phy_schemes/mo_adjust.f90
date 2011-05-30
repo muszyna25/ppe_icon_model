@@ -616,7 +616,7 @@ MODULE mo_adjust
       
       IF(kcall == 3) THEN
 
-!DIR$IVDEP 
+!DIR$ IVDEP 
 !OCL NOVREC
         IF(n_vmass <=  0)  THEN ! Not using Vector MASS
            DO jl=kidia,kfdia

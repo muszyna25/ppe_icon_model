@@ -56,9 +56,9 @@ MODULE mo_nwp_gw_interface
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag,prm_diag,&
     &                                t_nwp_phy_tend
   USE mo_run_nml,              ONLY: nproma, msg_level
-   USE mo_atm_phy_nwp_nml,     ONLY: inwp_sso !, inwp_gwd
+   USE mo_atm_phy_nwp_nml,     ONLY: inwp_sso , inwp_gwd
   USE mo_sso_cosmo,            ONLY: sso
- ! USE mo_gwd_wms,              ONLY: gwdrag_wms
+  USE mo_gwd_wms,              ONLY: gwdrag_wms
 
 
   IMPLICIT NONE
@@ -74,7 +74,7 @@ CONTAINS
   !!-------------------------------------------------------------------------
   !!
   SUBROUTINE nwp_gwdrag  ( tcall_sso_jg,              & !>input
- !                        &  tcall_gwd_jg,               & !> input
+                         &  tcall_gwd_jg,               & !> input
                          &   p_patch,p_metrics,         & !>input
                          &   ext_data,                  & !>input
                          &   p_prog,                    & !>in
@@ -93,7 +93,7 @@ CONTAINS
 
     REAL(wp),                    INTENT(in)   :: tcall_sso_jg   !< time interval for
                                                                  !< sso
-    !REAL(wp),                    INTENT(in)   :: tcall_gwd_jg   !< time interval for
+    REAL(wp),                    INTENT(in)   :: tcall_gwd_jg   !< time interval for
     !                                                             !< gwd
 
     ! Local array bounds:
@@ -168,8 +168,8 @@ CONTAINS
           & ke1       =nlevp1                           ,  & !< in:  ke + 1
           & istart    =i_startidx                       ,  & !< in:  start index of calculation
           & iend      =i_endidx                         ,  & !< in:  end index of calculation
-          & jstart    =1                                ,  & !< in:  dummy start index of calculation
-          & jend      =1                                ,  & !< in:  dummy end index of calculation
+          & jstart    =1                                ,  & !< in:  dummy start index 
+          & jend      =1                                ,  & !< in:  dummy end index
           & ppf       =p_diag%pres             (:,:,jb),  & !< in:  full level pressure
           & pph       =p_diag%pres_ifc         (:,:,jb),  & !< in:  half level pressure
           & pfif      =p_metrics%geopot_agl     (:,:,jb),  & !< in:  full level geopotential height
@@ -185,33 +185,36 @@ CONTAINS
           & ldebug    =.FALSE.                          ,  & !< in:  debug control switch
           & pdu_sso   =prm_nwp_tend%ddt_u_sso   (:,:,jb),  & !< out: u-tendency due to SSO
           & pdv_sso   =prm_nwp_tend%ddt_v_sso   (:,:,jb),  & !< out: v-tendency due to SSO
-          & pdt_sso   =prm_nwp_tend%ddt_temp_sso(:,:,jb)   ) !< out: temperature tendency due to SSO
+          & pdt_sso   =prm_nwp_tend%ddt_temp_sso(:,:,jb)   ) !< out: temperature tendency
+                                                             ! due to SSO
 
          ENDIF
 
 
 
-!        IF (inwp_gwd == 1) THEN
+        IF (inwp_gwd == 1) THEN
 
-!        CALL gwdrag_wms(                                          &
-!          & kidia       = i_startidx             ,  & !> in:  actual array size
-!           & kfdia     =i_endidx
-!           & klev        =nlev                             ,  & !< in:  actual array size
-!           &klevp1      = nlevp1  ,&
-!           & pdstep    = tcall_gwd_jg                    ,  & !< in:  time step
-!           & ptm1        =p_diag%temp             (:,:,jb),  & !< in:  temperature
- !          & pum1        =p_diag%u                (:,:,jb),  & !< in:  zonal wind component
-  !         & pvm1        =p_diag%v                (:,:,jb),  & !< in:  meridional wind component
-  !         & papm1     =p_diag%pres             (:,:,jb),  & !< in:  full level pressure
-   !        & paphm1      =p_diag%pres_ifc         (:,:,jb),  & !< in:  half level pressure
-   !        & pfif      = p_metrics%geopot_agl     (:,:,jb),  & !< in:  full level geopote
-   !       &pglat      = p_patch%cells%center(jc,jb)%lat, &
-   !       & pprecip   = p_diag%tot_prec(:,jb)            ,&
-   !        & ptenu    =prm_nwp_tend%ddt_u_gwd   (:,:,jb),  & !< out: u-tendency
-    !      & ptenv     =prm_nwp_tend%ddt_v_gwd   (:,:,jb),  & !< out: v-tendency
-    !      & pfluxu= z_fluxv (:,:,jb) ,&
-    !      & pfluxv =z_fluxv (:,:,jb)   ) !<
-         !ENDIF
+        CALL gwdrag_wms(                                  &
+           & kidia    = i_startidx                      , & 
+           & kfdia    = i_endidx                        , &
+           & klon     = nproma                          , &
+           & klev     = nlev                            ,  & !< in:  actual array size
+           & klevp1   = nlevp1                           ,&
+           & ptstep   = tcall_gwd_jg                    , & !< in:  time step
+           & ptm1     = p_diag%temp             (:,:,jb),  & !< in:  temperature
+           & pum1     = p_diag%u                (:,:,jb),  & !< in:  zonal wind component
+           & pvm1     = p_diag%v                (:,:,jb),  & !< in:  meridional wind component
+           & papm1    = p_diag%pres             (:,:,jb),  & !< in:  full level pressure
+           & paphm1   = p_diag%pres_ifc         (:,:,jb),  & !< in:  half level pressure
+           & pgeo1    = p_metrics%geopot_agl   (:,:,jb),  & !< in:  full level geopote
+           & pgelat   = p_patch%cells%center   (:,jb)%lat, &
+           & pprecip  = prm_diag%tot_prec       (:,jb)    ,&
+           & ptenu    = prm_nwp_tend%ddt_u_gwd   (:,:,jb),  & !< out: u-tendency
+           & ptenv    = prm_nwp_tend%ddt_v_gwd   (:,:,jb),  & !< out: v-tendency
+           & pfluxu   = z_fluxv (:,:,jb) ,&
+           & pfluxv   = z_fluxv (:,:,jb)   ) !<
+       
+        ENDIF
 
     ENDDO ! jb
 

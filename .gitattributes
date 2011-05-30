@@ -898,6 +898,7 @@ src/atm_phy_nwp/mo_nwp_rad_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_turb_interface.f90 -text
 src/atm_phy_nwp/mo_phys_nest_utilities.f90 -text
 src/atm_phy_schemes/data_flake.f90 -text
+src/atm_phy_schemes/data_gwd.f90 -text
 src/atm_phy_schemes/data_turbulence.f90 -text
 src/atm_phy_schemes/mo_adjust.f90 -text
 src/atm_phy_schemes/mo_cloud_diag.f90 -text
@@ -913,6 +914,7 @@ src/atm_phy_schemes/mo_cumaster.f90 -text
 src/atm_phy_schemes/mo_cuparameters.f90 -text
 src/atm_phy_schemes/mo_data_turbdiff.f90 -text
 src/atm_phy_schemes/mo_gscp_cosmo.f90 -text
+src/atm_phy_schemes/mo_gwd_wms.f90 -text
 src/atm_phy_schemes/mo_ham_aerosol_params.f90 -text
 src/atm_phy_schemes/mo_lrtm_coeffs.f90 -text
 src/atm_phy_schemes/mo_lrtm_driver.f90 -text

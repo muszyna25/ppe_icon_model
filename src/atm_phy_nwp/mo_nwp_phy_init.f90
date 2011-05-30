@@ -53,7 +53,8 @@ MODULE mo_nwp_phy_init
        &                          nproma, &
        &                           msg_level
   USE mo_atm_phy_nwp_nml,    ONLY: inwp_gscp, inwp_convection,&
-       &                           inwp_radiation, inwp_turb,inwp_surface
+       &                           inwp_radiation, inwp_turb,inwp_surface,&
+       &                           inwp_gwd
   !radiation
   USE mo_newcld_optics,        ONLY: setup_newcld_optics
   USE mo_lrtm_setup,           ONLY: lrtm_setup
@@ -84,6 +85,8 @@ MODULE mo_nwp_phy_init
 
   USE mo_satad,                ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                                spec_humi,qsat_rho !! Specific humidity
+
+  USE data_gwd,                ONLY: sugwwms
 
   USE mo_nh_testcases,         ONLY: nh_test_name, ape_sst_case
   USE mo_ape_params,           ONLY: ape_sst
@@ -204,6 +207,13 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     !< characteristic gridlength needed by convection and turbulence
     !--------------------------------------------------------------
       CALL mean_domain_values (p_patch,mean_charlen)
+
+    !--------------------------------------------------------------
+    !>reference pressure
+    !--------------------------------------------------------------
+      DO jk = nlevp1, 1, -1
+         pref(jk)= p0sl * EXP( -vct_a (jk)/h_scal)
+      ENDDO
 
     !------------------------------------------
     !< call for cloud microphysics
@@ -333,10 +343,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init convection')
 ! Please take care for scale-dependent initializations!
 
-!>reference pressure
-    DO jk = nlevp1, 1, -1
-        pref(jk)= p0sl * EXP( -vct_a (jk)/h_scal)
-    ENDDO
+
 
       nsmax = INT(2._wp*pi*re/mean_charlen)
 
@@ -495,13 +502,14 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 
   IF ( inwp_surface == 1 ) THEN  ! TERRA
 
-
-
   END IF
 
+  IF ( inwp_gwd == 1 ) THEN  ! IFS gwd scheme
 
+     CALL sugwwms(nflevg= nlevp1, ppref=pref)
+     CALL message('mo_nwp_phy_init:', 'non-orog GWs initialized')
 
-
+  END IF
 
 END SUBROUTINE init_nwp_phy
 
