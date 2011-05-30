@@ -561,7 +561,7 @@ SUBROUTINE terra_multlay (                &
                   nstart       , & ! first time step of the forecast
                   ntstep       , & ! actual time step
                                    ! indices for permutation of three time levels
-                  nold         , & ! corresponds to ntstep - 1
+!                 nold         , & ! corresponds to ntstep - 1
                   nnow         , & ! corresponds to ntstep 
                   nnew         , & ! corresponds to ntstep + 1
                   nztlev          , & ! time step scheme 2,3
@@ -593,7 +593,7 @@ IMPLICIT NONE
                   nstart       , & ! first time step of the forecast
                   ntstep       , & ! actual time step
                                    ! indices for permutation of three time levels
-                  nold         , & ! corresponds to ntstep - 1
+!                 nold         , & ! corresponds to ntstep - 1
                   nnow         , & ! corresponds to ntstep 
                   nnew         , & ! corresponds to ntstep + 1
                   nztlev              ! time step scheme 2,3 
@@ -987,14 +987,11 @@ CHARACTER (LEN=80)                    ::  &
     zdqs           , & ! derivative of zqs with respect to T_s
     zqsnow         , & ! saturation humidty at T_snow and ps
     zdqsnow        , & ! derivative of zqs with respect to T_snow
-
 !   Local scalars for transfer coefficient limitation calculations and for
 !   treatment of possible problems at lateral boundaries
-
     zch_soil = 1.400E06_ireals ,& ! approximate average heat capacity of soil (J/m**3 K)
     zlim_dtdt = 2.5_ireals   ,&! maximum allowed temperature increment (K) in
                                ! one time step in  uppermost soil layer
-
    zdT_snow                            ,& ! maximum possible increment in snow layer before
                                           ! melting sets in
    zg1       (ie         ,je         ) ,& ! heat flux between two uppermost soil layers (W/m**2)
@@ -1256,6 +1253,8 @@ CHARACTER (LEN=80)                    ::  &
 ! Section I.1: Initializations
 !------------------------------------------------------------------------------
 
+
+
 !>JH
   prg_gsp=0._ireals ! graupel not implemented yet 
   llandmask=.FALSE.
@@ -1294,6 +1293,8 @@ CHARACTER (LEN=80)                    ::  &
 
 ! Computation of derived constants
 
+
+
   zrhwddt = rho_w/zdt     ! density of liquid water/timestep
   zdtdrhw = zdt/rho_w     ! timestep/density of liquid water
 
@@ -1315,6 +1316,10 @@ CHARACTER (LEN=80)                    ::  &
     zdzms(kso) = zmls(kso) - zmls(kso-1)   ! layer thickness betw. main levels
   ENDDO
 
+
+  WRITE(*,*) subsfrac(1,1,1),subsfrac(1,1,2),t_so(1,1,:,:,:),'cf_snow ',cf_snow
+
+
 !subs em
 IF(itype_subs .EQ. 2) THEN    ! tiles
   IF (ntstep == 0) THEN
@@ -1322,6 +1327,8 @@ IF(itype_subs .EQ. 2) THEN    ! tiles
       DO   j = jstarts, jends
         DO i = istarts, iends
           IF (llandmask(i,j,ns)) THEN  ! for landpoints only  !check is not necessary
+
+!    PRINT *,nsubs0,nsubs1,i,j,ns,'subsfrac(i,j,:)',subsfrac(i,j,ns-1),subsfrac(i,j,ns)
 
             IF (w_snow(i,j,nx,ns).NE.w_snow(i,j,nx,ns-1)) &
               & PRINT *,i,j,'w_snow(i,j,nx,ns).ne.w_snow(i,j,nx,ns-1)'
@@ -1388,6 +1395,8 @@ IF(itype_subs .EQ. 2) THEN    ! tiles
 END IF
 !em>
 
+
+
 !subs amf
 !print *,'t_g    in TERRA, begin',t_g (340,186,nnow,:)
 !print *,'t_snow in TERRA, begin',t_snow(340,186,nnow,:)
@@ -1437,6 +1446,9 @@ do ns=nsubs0,nsubs1
       ENDIF
     ENDDO
   ENDDO
+
+
+
 
   ! Set three-dimensional variables
   DO kso = 1, ke_soil
@@ -1489,6 +1501,8 @@ do ns=nsubs0,nsubs1
         END DO
       END DO
     END DO
+
+  WRITE(*,*) 'W_SO: ',w_so (1,1,:,:,:),'zadp: ',zadp(1,1),'zdzhs: ',zdzhs(:)
 
 !   adjust temperature profile in lower soil layers, if temperature of first soil
 !   layer was reduced due to the detection of snow (e.g. in the analysis)
@@ -1722,6 +1736,9 @@ do ns=nsubs0,nsubs1
 ! End of timestep 0 preparations
 ! ==============================
 
+
+
+
 ! To ensure t_s = t_so(1) also at gme2lm-modified lateral boundaries by
 ! modifying the soil temperature profile:
   DO kso   = 1,ke_soil+1
@@ -1771,6 +1788,8 @@ do ns=nsubs0,nsubs1
       END DO
     END DO
   END DO
+
+  WRITE(*,*) 'zw_fr: ',zw_fr(1,1,:)
 
 ! Determine the layer indices and total depth for water content averaging
 ! (in soil evaporation after Dickinson)
@@ -1923,6 +1942,7 @@ ENDIF
                                +(v(i,j,ke,nx) + v(i,jm1,ke,nx))**2 )
 !subs        ztvs       = t_g (i,j,nx)*(1.0_ireals + rvd_m_o*qv_s(i,j,nx))
         ztvs       = t_g (i,j,nx,ns)*(1.0_ireals + rvd_m_o*qv_s(i,j,nx,ns))
+IF(i.eq.1 .and. j.eq.1)  print *,ns,'ztvs',ztvs,t_g (i,j,nx,ns),rvd_m_o,qv_s(i,j,nx,ns)
         !  'potential' temperature of lowest atmospheric layer
         zplow          = p0(i,j,ke) + pp(i,j,ke,nx)
         zth_low (i,j)  =  t(i,j,ke,nx) *( (ps(i,j,nx)/zplow)**rdocp )
@@ -2148,6 +2168,8 @@ ENDIF
     ENDDO
   ENDDO
 
+  WRITE(*,*) 'TERRA-DIAG END I.1 +++++++++> ',t_so(1,1,:,nnew,:)
+
 !------------------------------------------------------------------------------
 ! Section I.2: temperatures, water contents (in mH2O), surface pressure, 
 !------------------------------------------------------------------------------
@@ -2336,6 +2358,8 @@ ENDIF
         ! density*transfer coefficient*wind velocity
         zrhoch(i,j)    = ztmch(i,j)*(1._ireals/g) + zepsi
 
+IF(i.eq.1 .and. j.eq.1) &
+ print *,ns,'zplow',p0(i,j,ke) , pp(i,j,ke,nx)
         ! saturation specific humidity for t_s and t_snow and first derivative
         z2iw        = zts_pm(i,j)*b2w + (1._ireals - zts_pm(i,j))*b2i
         z4iw        = zts_pm(i,j)*b4w + (1._ireals - zts_pm(i,j))*b4i
@@ -2360,6 +2384,9 @@ ENDIF
       END IF
     ENDDO
   ENDDO
+
+  WRITE(*,*) 'TERRA-DIAG END I.2 +++++++++> ',t_so(1,1,:,nnew,:)
+
 
 !------------------------------------------------------------------------------
 ! Section I.3: heat conductivity, frozen fraction, snow and
@@ -2390,7 +2417,7 @@ ENDIF
 !subs        IF (.NOT. l2tls) h_snow(i,j,nold) = zdz_snow(i,j)
         h_snow(i,j,nnew,ns) = zdz_snow(i,j)
         h_snow(i,j,nnow,ns) = zdz_snow(i,j)
-        IF (.NOT. l2tls) h_snow(i,j,nold,ns) = zdz_snow(i,j)
+!        IF (.NOT. l2tls) h_snow(i,j,nold,ns) = zdz_snow(i,j)
 
 !       constrain snow depth and consider this constraint for the computation
 !       of average snow density of snow layer
@@ -2406,6 +2433,10 @@ ENDIF
       END IF
     ENDDO
   ENDDO
+
+
+  WRITE(*,*) 'TERRA-DIAG END I.3 +++++++++> ',t_so(1,1,:,nnew,:)
+
 
 !------------------------------------------------------------------------------
 ! Section I.4: Hydrology, 1.Section
@@ -2801,7 +2832,7 @@ ENDIF
 ! End of former module procedure terra1_multlay
 !------------------------------------------------------------------------------
 
-
+  WRITE(*,*) 'TERRA-DIAG END I.4 +++++++++> ',t_so(1,1,:,nnew,:)
 
 !------------------------------------------------------------------------------
 ! Former SUBROUTINE terra2_multlay (yerror, ierror)
@@ -2876,6 +2907,7 @@ ENDIF
     END DO
   END IF
 
+  WRITE(*,*) 'TERRA-DIAG END II.1 +++++++++> ',t_so(1,1,:,nnew,:)
 
 !------------------------------------------------------------------------------
 ! Section II.2: Prepare basic surface properties and create some local
@@ -2919,6 +2951,8 @@ DO   kso = 1,ke_soil+1
     END DO
   END DO
 END DO      !soil layers
+
+  WRITE(*,*) 'TERRA-DIAG END II.2 +++++++++> ',t_so(1,1,:,nnew,:)
 
 !------------------------------------------------------------------------------
 ! Section II.3: Estimate thermal surface fluxes
@@ -3054,6 +3088,8 @@ END DO      !soil layers
       END IF            ! land-points only
     END DO
   END DO
+
+  WRITE(*,*) 'TERRA-DIAG END II.3 +++++++++> ',t_so(1,1,:,nnew,:)
 
 !------------------------------------------------------------------------------
 ! Section II.4: Soil water transport and runoff from soil layers
@@ -3368,6 +3404,7 @@ DO kso = 2,ke_soil+1
           zredm = 1.-zice_fr_kso/(zlw_fr_kso+zice_fr_kso)
           zklw_fr_kso_new = zredm*zkw(i,j) * EXP(zkw1(i,j)* &
                             (zporv(i,j) - zlw_fr_kso_new)/(zporv(i,j) - zadp(i,j)) )
+
           ! actual gravitation water flux
 !subs          IF (w_so(i,j,kso,nnew).LT.1.01_ireals*zadp(i,j)*zdzhs(kso)) zklw_fr_kso_new=0._ireals
           IF (w_so(i,j,kso,nnew,ns).LT.1.01_ireals*zadp(i,j)*zdzhs(kso)) zklw_fr_kso_new=0._ireals
@@ -3390,7 +3427,6 @@ DO kso = 2,ke_soil+1
                   (1.0-exp(-zdhydcond_dlwfr/zdlw_fr_kso*0.5*zdzms(ke_soil_hy+1)))* &
                   zdelta_sm
           ENDIF
-
         END IF 
       END IF          ! land-points only
     END DO
@@ -3451,6 +3487,8 @@ END DO
       END DO
     END DO
   END DO         ! end loop over soil layers
+
+  WRITE(*,*) 'TERRA-DIAG END II.4 +++++++++> ',t_so(1,1,:,nnew,:)
 
 !------------------------------------------------------------------------------
 ! Section II.5: Soil surface heat flux (thermal forcing)
@@ -3746,13 +3784,13 @@ END DO
         ! total forcing for uppermost soil layer
         zfor_s(i,j) = zrnet_s + zshfl_s + zlhfl_s + zsprs       &
                          + zf_snow(i,j) * (1._ireals-ztsnow_pm(i,j)) * zgsb(i,j)
-!>JH IF(i.eq.i_loc .and. j.eq.j_loc .and. my_cart_id.eq.isub) &
-! print *,ns,'zfor_s',zfor_s(i,j),zrnet_s,zshfl_s,zlhfl_s,zsprs,zf_snow(i,j) * (1._ireals-ztsnow_pm(i,j)) * zgsb(i,j)
       END IF          ! land-points only
     END DO
    END DO
 
  ENDIF ! lmulti_snow
+
+  WRITE(*,*) 'TERRA-DIAG END II.5 +++++++++> ',t_so(1,1,:,nnew,:)
 
 !------------------------------------------------------------------------------
 ! Section II.6: Solution of the heat conduction equation, freezing/melting
@@ -3817,6 +3855,8 @@ DO kso = 2,ke_soil
   END DO
 END DO        ! soil layers
 
+  WRITE(*,*) 'TERRA-DIAG END II.6 - 1 +++++++++> ',t_so(1,1,:,nnew,:)
+
 DO   j = jstarts, jends
   DO i = istarts, iends
 !subs    IF (llandmask(i,j)) THEN          ! land-points only
@@ -3845,6 +3885,11 @@ DO   j = jstarts, jends
       zagc(i,j,ke_soil+1) = 0.0_ireals
 !subs      zagd(i,j,ke_soil+1) = t_so(i,j,ke_soil+1,nx)
       zagd(i,j,ke_soil+1) = t_so(i,j,ke_soil+1,nx,ns)
+IF(i.eq.1.and.j.eq.1) WRITE(*,*) 'END II.6 - 2 +++++++++> zaga ',zaga(1,1,0),zaga(1,1,1),zaga(1,1,ke_soil+1)
+IF(i.eq.1.and.j.eq.1) WRITE(*,*) 'END II.6 - 2 +++++++++> zagb ',zagb(1,1,0),zagb(1,1,1),zagb(1,1,ke_soil+1)
+IF(i.eq.1.and.j.eq.1) WRITE(*,*) 'END II.6 - 2 +++++++++> zagc ',zagc(1,1,0),zagc(1,1,1),zagc(1,1,ke_soil+1)
+IF(i.eq.1.and.j.eq.1) WRITE(*,*) 'END II.6 - 2 +++++++++> zagd ',zagd(1,1,0),zagd(1,1,1),zagd(1,1,ke_soil+1)
+IF(i.eq.1.and.j.eq.1) WRITE(*,*) 'END II.6 - 2 +++++++++> zfor_s(i,j) ',zfor_s(i,j),zalam(i,j,1),zalfa,zdzms(1)
     END IF          ! land-points only
   END DO
 END DO
@@ -3886,6 +3931,9 @@ DO   j = jstarts, jends
   END DO
 END DO
 
+  WRITE(*,*) 'TERRA-DIAG END II.6 - 2.1 +++++++++> ',t_so(1,1,:,nnew,:),'zaga ',zaga(1,1,:),'zagb ',zagb(1,1,:), &
+    'zagc ',zagc(1,1,:),'zagd ',zagd(1,1,:), 'zage ',zage(1,1,:)
+
 DO kso = ke_soil,0,-1
   DO   j = jstarts, jends
     DO i = istarts, iends
@@ -3905,6 +3953,9 @@ DO kso = ke_soil,0,-1
   END DO
 END DO                ! soil layers
 
+  WRITE(*,*) 'TERRA-DIAG END II.6 - 2.2 +++++++++> ',t_so(1,1,:,nnew,:),'zaga ',zaga(1,1,:),'zagb ',zagb(1,1,:), &
+    'zagc ',zagc(1,1,:),'zagd ',zagd(1,1,:), 'zage ',zage(1,1,:)
+
 DO   j = jstarts, jends
   DO i = istarts, iends
 !subs    IF (llandmask(i,j)) THEN          ! land-points only
@@ -3914,6 +3965,8 @@ DO   j = jstarts, jends
     END IF          ! land-points only
   END DO
 END DO
+
+  WRITE(*,*) 'TERRA-DIAG END II.6 - 3 +++++++++> ',t_so(1,1,:,nnew,:),'zage ',zage(1,1,:)
 
 IF (lmulti_snow) THEN
   DO   j = jstarts, jends
@@ -4047,6 +4100,8 @@ IF (lmulti_snow) THEN
   END DO
 END IF
 
+ WRITE(*,*) 'TERRA-DIAG END II.6 - 4 +++++++++> ',t_so(1,1,:,nnew,:)
+
 IF(lmelt) THEN
   IF(.NOT.lmelt_var) THEN
     DO kso = 1,ke_soil
@@ -4091,6 +4146,7 @@ IF(lmelt) THEN
 !subs          IF (llandmask(i,j)) THEN ! land points only,
           IF (llandmask(i,j,ns)) THEN ! land points only,
             IF (m_styp(i,j).ge.3) THEN ! neither ice or rocks
+            WRITE(*,*) 'TERRA-DIAG END II.6 4.0 +++++++++> ',t_so(1,1,:,nnew,:)
               ztx      = t0_melt
               zw_m(i,j)     = zporv(i,j)*zdzhs(kso)
 !subs              IF(t_so(i,j,kso,nnew).LT.(t0_melt-zepsi)) THEN
@@ -4128,6 +4184,7 @@ IF(lmelt) THEN
 !             to cases without any freezing/melting, in these cases the
 !             original temperature is reproduced.
 !subs              t_so(i,j,kso,nnew) = ztx + (zdelwice - zdwi_max)*       &
+            WRITE(*,*) 'TERRA-DIAG END II.6 4.1 +++++++++> ',t_so(1,1,:,nnew,ns),'lhf ',lh_f, 'zroc ',zroc(i,j,:)
               t_so(i,j,kso,nnew,ns) = ztx + (zdelwice - zdwi_max)*       &
                                    (lh_f*rho_w)/(zroc(i,j,kso)*zdzhs(kso))
 !IF(i.eq.340 .and. j.eq.186 .and. kso.eq.1) &
@@ -4140,6 +4197,8 @@ IF(lmelt) THEN
     ENDDO
   ENDIF   ! lmelt_var
 END IF ! lmelt
+
+  WRITE(*,*) 'TERRA-DIAG END II.6 +++++++++> '
 
 !------------------------------------------------------------------------------
 ! Section II.7: Energy budget and temperature prediction at snow-surface
@@ -4218,6 +4277,8 @@ END IF ! lmelt
       END DO
     ENDDO
   ENDIF
+
+  WRITE(*,*) 'TERRA-DIAG END II.7 +++++++++> '
 
 !------------------------------------------------------------------------------
 ! Section II.8: Melting of snow ,infiltration and surface runoff of snow water
@@ -4640,6 +4701,8 @@ END DO
   END DO
 END IF
 
+  WRITE(*,*) 'TERRA-DIAG END II.8 +++++++++> '
+
 !------------------------------------------------------------------------------
 ! Section II.9: Final updating of prognostic values
 !------------------------------------------------------------------------------
@@ -4967,9 +5030,13 @@ enddo
   CALL collapse(.FALSE., ie, je, istartpar, iendpar, jstartpar, jendpar)
 #endif
 
+  WRITE(*,*) 'TERRA-DIAG END II.9 END MODULE +++++++++> '
+
 !------------------------------------------------------------------------------
 ! End of module procedure terra_multlay
 !------------------------------------------------------------------------------
+
+
 
 END SUBROUTINE terra_multlay
 

@@ -42,6 +42,9 @@ fi
 ls -ld ${EXPDIR}
 if [ ! -d ${EXPDIR} ]; then
     mkdir ${EXPDIR}
+else
+   rm -rf ${EXPDIR}
+   mkdir  ${EXPDIR}
 fi
 ls -ld ${EXPDIR}
 check_error $? "${EXPDIR} does not exist?"
@@ -72,16 +75,16 @@ case ${IEQ} in
         AGRIDNAME=iconR${R}B0${B}-grid_${OPT}.nc
         HGRIDNAME=iconR${R}B0${B}-grid.nc
         #
-        cp -f ${HGRIDDIR}/${AGRIDNAME} ${EXPDIR}/${HGRIDNAME}
-        check_error $? "cp -f ${HGRIDDIR}/${AGRIDNAME}"
+        ln -s ${HGRIDDIR}/${AGRIDNAME} ${EXPDIR}/${HGRIDNAME}
+        check_error $? "ln -s ${HGRIDDIR}/${AGRIDNAME}"
         #
         # vertical grid
         # -------------
         VGRIDDIR=${ICONDIR}/vertical_coord_tables
         VGRIDNAME=atm_hyb_sp_${N}
         #
-        cp -f ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
-        check_error $? "cp -f ${VGRIDDIR}/${VGRIDNAME}"
+        ln -s ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
+        check_error $? "ln -s ${VGRIDDIR}/${VGRIDNAME}"
         #
         ;;
      3 )
@@ -101,8 +104,8 @@ case ${IEQ} in
         AGRIDNAME=iconR${R}B0${B}-grid_${OPT}.nc
         HGRIDNAME=iconR${R}B0${B}-grid.nc
 
-        cp -f ${HGRIDDIR}/${AGRIDNAME} ${EXPDIR}/${HGRIDNAME}
-        check_error $? "cp -f ${HGRIDDIR}/${AGRIDNAME}"
+        ln -s ${HGRIDDIR}/${AGRIDNAME} ${EXPDIR}/${HGRIDNAME}
+        check_error $? "ln -s ${HGRIDDIR}/${AGRIDNAME}"
         
         else
 
@@ -122,8 +125,8 @@ case ${IEQ} in
 
          AGRIDNAME=iconR${R}B0${B_C}_DOM0${DOM_C}.nc
          HGRIDNAME=iconR${R}B0${B_C}_DOM0${DOM_C}-grid.nc
-         cp -f ${HGRIDDIR}/${AGRIDNAME} ${EXPDIR}/${HGRIDNAME}
-         check_error $? "cp -f ${HGRIDDIR}/${AGRIDNAME}"
+         ln -s ${HGRIDDIR}/${AGRIDNAME} ${EXPDIR}/${HGRIDNAME}
+         check_error $? "ln -s ${HGRIDDIR}/${AGRIDNAME}"
 
          B_C=`expr $B_C + 1`
          DOM_C=`expr $DOM_C + 1`
@@ -138,8 +141,8 @@ case ${IEQ} in
         VGRIDDIR=${ICONDIR}/vertical_coord_tables
         VGRIDNAME=atm_hyb_sz_${N}
         #
-        cp -f ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
-        warning $? "cp -f ${VGRIDDIR}/${VGRIDNAME} failed"
+        ln -s ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
+        warning $? "ln -s ${VGRIDDIR}/${VGRIDNAME} failed"
         #
         ;;
     -1 )
@@ -168,8 +171,8 @@ case ${IEQ} in
           fi
         fi
         #
-        cp -f ${HGRIDDIR}/${OGRIDNAME} ${EXPDIR}/${HGRIDNAME}
-        check_error $? "cp -f ${HGRIDDIR}/${OGRIDNAME}"
+        ln -s ${HGRIDDIR}/${OGRIDNAME} ${EXPDIR}/${HGRIDNAME}
+        check_error $? "ln -s $ {HGRIDDIR}/${OGRIDNAME}"
         #
         # vertical grid
         # -------------

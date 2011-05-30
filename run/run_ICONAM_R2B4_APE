@@ -62,7 +62,7 @@ IDIR="GRIDR2"                         # input directory
 EXPDIR=${DATA_DIR}/experiments/${EDIR}
 mkdir -p ${EXPDIR}
 
-
+ 
 #-----------------------------------------------------------------------------
 # Basic specifications of the simulation
 # --------------------------------------
@@ -209,6 +209,15 @@ cat > NAMELIST_ICON << EOF_NL
  hdiff_multfac    = 1.0
  hdiff_tv_ratio   = 1.0
 /
+&lnd_ctl
+    nlev_soil       = 7     ! 7 = default value for number of soil layers
+    nztlev          = 2     ! 2 = default value for time integration scheme
+    nlev_snow       = 1     ! 0 = default value for number of snow layers
+    nsfc_subs       = 2     ! 1 = default value for number of TILES
+    lseaice    = .FALSE.
+    llake      = .FALSE.
+    lmulti_snow= .FALSE.
+/
 &hydrostatic_ctl
 /
 &interpol_ctl
@@ -260,7 +269,8 @@ fi
 export F_PROGINF=DETAIL
 
 # determine architecture
-arch=sx9-nec-superux-sx9ftr
+#arch=sx9-nec-superux-sx9ftr 
+arch=sx9-nec-superux-sx9debug 
 #arch=sx9-nec-superux-sx9omp
 #arch=sx9-nec-superux-sx9mpiomp
 
