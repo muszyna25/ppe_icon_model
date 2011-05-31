@@ -40,7 +40,7 @@ MODULE mo_master_nml
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
-  PUBLIC :: master_nml_setup
+  PUBLIC
 
   !-------------------------------------------------------------------------
   ! Namelist variables 

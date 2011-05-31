@@ -1395,22 +1395,23 @@ CONTAINS
               natts_bool = natts_bool+1
               restart_attributes_bool(natts_bool)%name = TRIM(att_name(6:))
               mlen = 1
-              status =  vlistInqAttInt(vlistID, CDI_GLOBAL, &              
-                   &                   TRIM(att_name), mlen, restart_attributes_bool(natts_bool)%store)
-              restart_attributes_bool(natts_bool)%val = (restart_attributes_bool(natts_bool)%store == 1)
+              status =  vlistInqAttInt(vlistID, CDI_GLOBAL,  &              
+                     &  TRIM(att_name), mlen, restart_attributes_bool(natts_bool)%store)
+              restart_attributes_bool(natts_bool)%val = &
+                     &  (restart_attributes_bool(natts_bool)%store == 1)
             ELSE
               natts_int = natts_int+1
               restart_attributes_int(natts_int)%name = TRIM(att_name)
               mlen = 1
               status =  vlistInqAttInt(vlistID, CDI_GLOBAL, &              
-                   &                   TRIM(att_name), mlen, restart_attributes_int(natts_int)%val)
+                   &    TRIM(att_name), mlen, restart_attributes_int(natts_int)%val)
             ENDIF
           CASE(DATATYPE_TXT)
             natts_text = natts_text+1
             restart_attributes_text(natts_text)%name = TRIM(att_name)
             text_len = att_len
             status =  vlistInqAttTxt(vlistID, CDI_GLOBAL, &
-                 &                   TRIM(att_name), text_len, restart_attributes_text(natts_text)%val)
+                 &    TRIM(att_name), text_len, restart_attributes_text(natts_text)%val)
           END SELECT
         ENDDO
         !
