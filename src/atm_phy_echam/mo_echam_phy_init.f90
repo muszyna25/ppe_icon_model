@@ -445,7 +445,7 @@ CONTAINS
       nblks_c = p_patch(jg)%nblks_int_c
       jbs     = p_patch(jg)%cells%start_blk(2,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jcs,jce,jk)
+!$OMP DO PRIVATE(jb,jc,jcs,jce)
       DO jb = jbs,nblks_c
         CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
 
