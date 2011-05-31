@@ -199,7 +199,7 @@ PUBLIC :: t_tiles
   CHARACTER(len=MAX_CHAR_LENGTH) :: listname
 !-----------------------------------------------------------------------
 
-     write(0,*)'begin lnd_state time level=',ntl
+   ! write(0,*)'begin lnd_state time level=',ntl
 
 
   DO jg = 1, n_dom

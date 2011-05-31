@@ -1501,7 +1501,7 @@ MODULE mo_nonhydro_state
     shape3d_ehalf    = (/nproma, nlevp1 , nblks_e    /)     
     shape3d_esquared = (/2     , nproma , nlev   , nblks_e /)
     shape3d_v        = (/nproma, nlev   , nblks_v    /)     
-    shape3d_vhalf    = (/nproma, nlev   , nblks_v    /)
+    shape3d_vhalf    = (/nproma, nlevp1 , nblks_v    /)
 
 
     !
