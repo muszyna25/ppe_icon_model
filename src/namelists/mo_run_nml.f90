@@ -556,31 +556,41 @@ CONTAINS
     CALL print_datetime_all(ini_datetime)  ! print all date and time components
 
     ! 5.2 Current date and time:
-    ! If the calendar or initial date/time is different from those in the restart file,
-    ! we regard this integration as a new one with its own calendar. 
-    ! Model time at which the previous run stopped is thus not relevant. 
-    ! Simulation will start from the user-specified initial date/time, which is
-    ! also the current model date/time.
 
-    IF (calendar  /=calendar_old   .OR.                                 &
-        ini_year  /=ini_year_old   .OR. ini_month  /=ini_month_old .OR. &
-        ini_day   /=ini_day_old    .OR. ini_hour   /=ini_hour_old  .OR. &
-        ini_minute/=ini_minute_old .oR. ini_second /=ini_second_old     ) THEN
+    IF (lrestart) THEN
+      ! In a resumed integration, if the calendar or initial date/time 
+      ! is different from those in the restart file,
+      ! we regard this integration as a new one with its own calendar. 
+      ! Model time at which the previous run stopped is thus not relevant. 
+      ! Simulation will start from the user-specified initial date/time,
+      ! which is also the current model date/time.
 
-      current_datetime = ini_datetime
+      IF (calendar  /=calendar_old   .OR.                                 &
+          ini_year  /=ini_year_old   .OR. ini_month  /=ini_month_old .OR. &
+          ini_day   /=ini_day_old    .OR. ini_hour   /=ini_hour_old  .OR. &
+          ini_minute/=ini_minute_old .oR. ini_second /=ini_second_old     ) THEN
+
+        current_datetime = ini_datetime
+
+      ELSE
+      ! Otherwise we start from the point when the previous integration stopped.
+
+        current_datetime%calendar = calendar
+        current_datetime%year     = restart_year
+        current_datetime%month    = restart_month
+        current_datetime%day      = restart_day
+        current_datetime%hour     = restart_hour
+        current_datetime%minute   = restart_minute
+        current_datetime%second   = restart_second
+
+        CALL date_to_time(current_datetime) ! fill date time structure
+      END IF
 
     ELSE
+      ! In an initial run, current date/time is, naturally, the initial date/time
+      current_datetime = ini_datetime
 
-      current_datetime%calendar = calendar
-      current_datetime%year     = restart_year
-      current_datetime%month    = restart_month
-      current_datetime%day      = restart_day
-      current_datetime%hour     = restart_hour
-      current_datetime%minute   = restart_minute
-      current_datetime%second   = restart_second
-      CALL date_to_time(current_datetime) ! fill date time structure
-
-    END IF
+    END IF !lrestart
 
     CALL message(' ',' ')
     CALL message(' ',' ')
