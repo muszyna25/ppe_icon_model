@@ -1,9 +1,7 @@
-#if ! defined (__GNUC__)
-#ifdef __INTEL_COMPILER
- ! don't use HAVE_F2003
+#if defined (__GNUC__) || defined (__INTEL_COMPILER) || defined (__SUNPRO_F95)
+! do not use F2003
 #else
 #define HAVE_F2003
-#endif
 #endif
 MODULE mo_io_restart_namelist
   !
@@ -23,6 +21,10 @@ MODULE mo_io_restart_namelist
   PUBLIC :: read_restart_namelists
   PUBLIC :: nmls
   PUBLIC :: restart_namelist
+#ifdef __SUNPRO_F95
+  PUBLIC :: t_att_namelist  ! The Sun compiler does not allow a public 
+                            ! variable declared as a private type
+#endif
   !
   INTEGER, PARAMETER :: nmllen_max = 4096
   !

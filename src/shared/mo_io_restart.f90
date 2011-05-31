@@ -980,7 +980,7 @@ CONTAINS
   ! set time for restart in cdi format
   !
   SUBROUTINE write_time_to_restart (this_list)
-    TYPE (t_var_list), INTENT(in) :: this_list
+    TYPE (t_var_list), INTENT(inout) :: this_list
     !
     INTEGER :: fileID, idate, itime, iret
     !
