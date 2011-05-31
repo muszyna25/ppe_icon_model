@@ -1,5 +1,9 @@
 #if ! defined (__GNUC__)
+#ifdef __INTEL_COMPILER
+ ! don't use HAVE_F2003
+#else
 #define HAVE_F2003
+#endif
 #endif
 MODULE mo_io_restart_namelist
   !

@@ -311,6 +311,7 @@ PROGRAM control_model
 
   CALL p_start('ICON')
   CALL message('control_model','start model initialization.')
+  CALL message('','')
 
   !-------------------------------------------------------------------
   ! step 1: Open the master namelist file and read most basic namelists.
@@ -337,9 +338,9 @@ PROGRAM control_model
     CALL read_restart_info_file(grid_file_name, lsuccess) ! out, out
 
     IF (lsuccess) THEN
-      CALL message( 'running model in restart mode',    &
-                  &'horizontal grid should be read from'&
-                  &//TRIM(grid_file_name) )
+      CALL message( 'Running model in restart mode',      &
+                  & 'horizontal grid should be read from '&
+                  & //TRIM(grid_file_name) )
     ELSE
       CALL finish('','Failed to read restart.info')
     END IF
@@ -350,10 +351,12 @@ PROGRAM control_model
     ! specified something different for this integraion.
 
     CALL read_restart_namelists('restart_atm.nc')
+    CALL message('Read namelists from restart file','successful')
 
     ! Read all global attributs in the restart file 
 
     CALL read_restart_attributes('restart_atm.nc')
+    CALL message('Read of attributes from restart file','successful')
 
   END IF ! lrestart
 
