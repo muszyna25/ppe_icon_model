@@ -106,11 +106,11 @@ CONTAINS
 !
 !  Options:
 !  (0) no clouds
-!  (1) grid-scale cloud cover [1 or 0]
-!  (2) clouds as in turbulence
+!  (1) diagnostic cloud cover
+!  (2) prognostic total water variance (not yet started)
 !  (3) clouds as in COSMO
-!  (4) diagnostic cloud cover          (in progress)
-!  (5) prognostic total water variance (not started)
+!  (4) clouds as in turbulence
+!  (5) grid-scale cloud cover [1 or 0]
 !  
 !-------------------------------------------------------------------------
 
@@ -193,28 +193,28 @@ INTEGER (KIND=i4) :: &
 REAL(KIND=wp), DIMENSION(klon,klev)  :: &
   & cc_turb, qc_turb, qi_turb, &
   & cc_conv, qc_conv, qi_conv, &
-  & cc_grid, qc_grid, qi_grid, &
+  & cc_turb_liq, cc_turb_ice , &
   & p0
 
 REAL(KIND=wp) :: &
   & t_g(klon)
 
-!! Local parameters:
-!! -----------------
-
-REAL(wp), PARAMETER  :: &
-  & zcldlim = 1.0e-6_wp  ! threshold of cloud water/ice for cloud cover  (kg/kg)
-
-REAL(KIND=wp) :: &
-  & taudecay
-
 REAL(KIND=wp) ::          &
   fgew   , fgee   , fgqv   , fgqs , & ! name of statement functions
   ztt    , zzpv   , zzpa   , zzps , &
-  zt_ice1, zt_ice2, zf_ice
+  zt_ice1, zt_ice2, zf_ice , deltaq , qisat_grid
 
 REAL(KIND=wp), DIMENSION(klon,klev)  :: &
   zqlsat , zqisat
+
+!! Local parameters:
+!! -----------------
+
+REAL(KIND=wp), PARAMETER  :: &
+  & zcldlim  = 1.0e-6_wp, & ! threshold of cloud water/ice for cloud cover  (kg/kg)
+  & taudecay = 1800.0_wp, & ! decay time scale of convective anvils
+  & box_liq  = 0.1_wp   , & ! box width scale liquid clouds
+  & box_ice  = 0.05_wp      ! box width scale ice clouds
 
 !-----------------------------------------------------------------------
 
@@ -226,8 +226,6 @@ REAL(KIND=wp), DIMENSION(klon,klev)  :: &
 
 ! statement function to calculate specific humitdity
   fgqv(zzpv,zzpa)      = rdv * zzpv / (zzpa - (1._wp-rdv)*zzpv)           ! zzpv: vapour pressure
-! safety for p ~ e (saturation value in stratosphere):
-! fgqv(zzpv,zzpa)      = rdv * zzpv / (max(zzpa,zzpv) - (1._wp-rdv)*zzpv) ! zzpv: vapour pressure
 
 ! statement function to calculate saturation specific humidities from RH=esat/e (proper and safe)
   fgqs(zzps,zzpv,zzpa) = rdv * zzps / (zzpa - (1._wp-rdv)*zzpv)           ! zzps: saturation vapour pressure
@@ -285,36 +283,85 @@ CASE( 0 )
 
 !-----------------------------------------------------------------------
 
-! grid-scale cloud cover [1 or 0]
+! diagnostic cloud cover
 CASE( 1 )
 
   DO jk = kstart,klev
     DO jl = kidia,kfdia
-      qc_tot(jl,jk) = qc(jl,jk)
-      qi_tot(jl,jk) = qi(jl,jk)
-      IF ( qc(jl,jk) + qi(jl,jk) > zcldlim ) THEN
-        cc_tot(jl,jk) = 1.0_wp
-      ELSE
-        cc_tot(jl,jk) = 0.0_wp
+
+! stratiform cloud
+!  liquid cloud
+     !assumed box distribution, width 0.2 qlsat, saturation above qlsat
+      deltaq = box_liq * zqlsat(jl,jk)                                        ! box width = 2*deltaq
+      IF ( ( qv(jl,jk) + qc(jl,jk) - deltaq ) > zqlsat(jl,jk) ) THEN
+        cc_turb_liq(jl,jk) = 1.0_wp
+        qc_turb  (jl,jk)   = qv(jl,jk) + qc(jl,jk) - zqlsat(jl,jk)
+      ELSE 
+        cc_turb_liq(jl,jk) = ( qv(jl,jk) + qc(jl,jk) + deltaq - zqlsat(jl,jk) )    / (2*deltaq)
+        IF ( cc_turb_liq(jl,jk) > 0.0_wp ) THEN
+          qc_turb  (jl,jk) = ( qv(jl,jk) + qc(jl,jk) + deltaq - zqlsat(jl,jk) )**2 / (4*deltaq)
+        ELSE
+          qc_turb  (jl,jk) = 0.0_wp
+        ENDIF
       ENDIF
+
+!  ice cloud
+     !ice cloud: assumed box distribution, width 0.1 qisat, saturation above qv 
+     !           (qv is microphysical threshold for ice as seen by grid scale microphysics)
+      IF ( qi(jl,jk) > zcldlim ) THEN
+       !deltaq     = min( box_ice * zqisat(jl,jk), 10._wp * qi(jl,jk) )       ! box width = 2*deltaq
+        deltaq     = box_ice * zqisat(jl,jk)                                  ! box width = 2*deltaq
+        qisat_grid = max( qv(jl,jk), zqisat(jl,jk) )                          ! qsat grid-scale
+       !qisat_grid = zqisat(jl,jk)                                            ! qsat grid-scale
+        IF ( ( qv(jl,jk) + qi(jl,jk) - deltaq) > qisat_grid ) THEN
+          cc_turb_ice(jl,jk) = 1.0_wp
+          qi_turb    (jl,jk) = qv(jl,jk) + qi(jl,jk) - qisat_grid
+        ELSE
+          cc_turb_ice(jl,jk) = ( qv(jl,jk) + qi(jl,jk) + deltaq - qisat_grid  )    / (2*deltaq)
+          IF ( cc_turb_ice(jl,jk) > 0.0_wp ) THEN
+            qi_turb  (jl,jk) = ( qv(jl,jk) + qi(jl,jk) + deltaq - qisat_grid  )**2 / (4*deltaq)
+          ELSE
+            qi_turb  (jl,jk) = 0.0_wp
+          ENDIF
+        ENDIF
+      ELSE
+        cc_turb_ice(jl,jk) = 0.0_wp
+        qi_turb    (jl,jk) = 0.0_wp    
+      ENDIF
+
+      cc_turb(jl,jk) = max( cc_turb_liq(jl,jk), cc_turb_ice(jl,jk) )          ! max overlap liq/ice
+      cc_turb(jl,jk) = min(max(0.0_wp,cc_turb(jl,jk)),1.0_wp)
+      qc_turb(jl,jk) =     max(0.0_wp,qc_turb(jl,jk))
+      qi_turb(jl,jk) =     max(0.0_wp,qi_turb(jl,jk))
+
+
+! convective cloud
+      cc_conv(jl,jk) = pmfude_rate(jl,jk) / rho(jl,jk) * taudecay             ! cc = detrainment / rho * tau,decay
+      qc_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*      foealfa(tt(jl,jk))   ! ql up  foealfa = liquid/(liquid+ice)
+      qi_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*( 1 - foealfa(tt(jl,jk)) ) ! qi up
+      cc_conv(jl,jk) = min(max(0.0_wp,cc_conv(jl,jk)),1.0_wp)
+      qc_conv(jl,jk) = min(max(0.0_wp,qc_conv(jl,jk)),0.1_wp*qv(jl,jk))       ! qc limit to 10%qv
+      qi_conv(jl,jk) = min(max(0.0_wp,qi_conv(jl,jk)),0.1_wp*qv(jl,jk))       ! qi limit to 10%qv
+     !cc_conv(jl,jk) = 0.0_wp
+     !qc_conv(jl,jk) = 0.0_wp
+     !qi_conv(jl,jk) = 0.0_wp
+
+     !combination
+      cc_tot(jl,jk)  = max( cc_turb(jl,jk), cc_conv(jl,jk) )
+      qc_tot(jl,jk)  = max( qc_turb(jl,jk), qc_conv(jl,jk) )
+      qi_tot(jl,jk)  = max( qi_turb(jl,jk), qi_conv(jl,jk) )
+
     ENDDO
   ENDDO
 
 !-----------------------------------------------------------------------
 
-! cloud cover as in turbulence
+! prognostic total water variance
 CASE( 2 )
 
-  itype_wcld = 2     ! 2: Gaussian calculation; 1: Sundqvist type
-  p0         = 0.0_wp! base state presssure set to zero, pp is full pressure
-
-  CALL cloud_diag ( cc_tot, qc_tot,                   &
-                    kidia, kfdia, 1, 1, kstart, klev, &
-                    klon , 1 , klev,                  &
-                    tt, qv, qc, pp, p0, rcld, ps,     &
-                    itype_wcld )
-
-  qi_tot     = 0.0_wp
+  cc_tot = 0.0_wp
+  qc_tot = 0.0_wp
+  qi_tot = 0.0_wp
 
 !-----------------------------------------------------------------------
 
@@ -365,56 +412,39 @@ CASE( 3 )
  !cc_tot = cc_turb   ! CC=turb for testing
  !cc_tot = cc_conv   ! CC=conv for testing
 
+
 !-----------------------------------------------------------------------
 
-! diagnostic cloud cover
+! cloud cover as in turbulence
 CASE( 4 )
+
+  itype_wcld = 2     ! 2: Gaussian calculation; 1: Sundqvist type
+  p0         = 0.0_wp! base state presssure set to zero, pp is full pressure
+
+  CALL cloud_diag ( cc_tot, qc_tot,                   &
+                    kidia, kfdia, 1, 1, kstart, klev, &
+                    klon , 1 , klev,                  &
+                    tt, qv, qc, pp, p0, rcld, ps,     &
+                    itype_wcld )
+
+  qi_tot     = 0.0_wp
+
+!-----------------------------------------------------------------------
+
+! grid-scale cloud cover [1 or 0]
+CASE( 5 )
 
   DO jk = kstart,klev
     DO jl = kidia,kfdia
-
-     !turbulence or RH based
-      cc_turb(jl,jk) = 0.0_wp
-      qc_turb(jl,jk) = 0.0_wp
-      qi_turb(jl,jk) = 0.0_wp
-
-     !convection
-      taudecay = 1800_wp
-      cc_conv(jl,jk) = pmfude_rate(jl,jk) / rho(jl,jk) * taudecay             ! cc = detrainment / rho * tau,decay
-      qc_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*      foealfa(tt(jl,jk))   ! ql up  foealfa = liquid/(liquid+ice)
-      qi_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*( 1 - foealfa(tt(jl,jk)) ) ! qi up
-      cc_conv(jl,jk) = min(max(0.0_wp,cc_conv(jl,jk)),1.0_wp)
-      qc_conv(jl,jk) = min(max(0.0_wp,qc_conv(jl,jk)),0.1_wp*qv(jl,jk))       ! qc limit to 10%qv
-      qi_conv(jl,jk) = min(max(0.0_wp,qi_conv(jl,jk)),0.1_wp*qv(jl,jk))       ! qi limit to 10%qv
-     !cc_conv(jl,jk) = 0.0_wp
-     !qc_conv(jl,jk) = 0.0_wp
-     !qi_conv(jl,jk) = 0.0_wp
-
-     !grid-scale
       IF ( qc(jl,jk) + qi(jl,jk) > zcldlim ) THEN
-        cc_grid(jl,jk) = 1.0_wp
+        cc_tot(jl,jk) = 1.0_wp
       ELSE
-        cc_grid(jl,jk) = 0.0_wp
+        cc_tot(jl,jk) = 0.0_wp
       ENDIF
-      qc_grid(jl,jk) = qc(jl,jk)
-      qi_grid(jl,jk) = qi(jl,jk)
-
-     !combination
-      cc_tot(jl,jk)  = max(cc_turb(jl,jk), cc_conv(jl,jk), cc_grid(jl,jk))
-      qc_tot(jl,jk)  = max(qc_turb(jl,jk), qc_conv(jl,jk), qc_grid(jl,jk))
-      qi_tot(jl,jk)  = max(qi_turb(jl,jk), qi_conv(jl,jk), qi_grid(jl,jk))
-
+      qc_tot(jl,jk) = qc(jl,jk)
+      qi_tot(jl,jk) = qi(jl,jk)
     ENDDO
   ENDDO
-
-!-----------------------------------------------------------------------
-
-! prognostic total water variance
-CASE( 5 )
-
-  cc_tot = 0.0_wp
-  qc_tot = 0.0_wp
-  qi_tot = 0.0_wp
 
 !-----------------------------------------------------------------------
 

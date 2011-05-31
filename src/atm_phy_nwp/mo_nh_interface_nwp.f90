@@ -775,10 +775,11 @@ CONTAINS
       !> Cloud water distribution: cloud cover, cloud water, cloud ice
       !  inwp_cldcover =    
       !  (0) no clouds
-      !  (1) grid-scale cloud cover [1 or 0]
-      !  (2) clouds as in turbulence
+      !  (1) diagnostic cloud cover
+      !  (2) prognostic total water variance (not yet started)
       !  (3) clouds as in COSMO
-      !  (4) diagnostic cloud cover          (in progress)
+      !  (4) clouds as in turbulence
+      !  (5) grid-scale cloud cover [1 or 0]
       !-------------------------------------------------------------------------
 
 !$OMP PARALLEL

@@ -534,6 +534,7 @@ CONTAINS
         DO jl=kidia,kfdia
           IF(zdfl(jl,jk,iazi)>0.0_JPRB) THEN
             zatmp=zcrt(jl,jk,iazi)
+!CDIR EXPAND=incdim
             DO inc=1,incdim
               zatmp=zatmp+zci(inc)*&
                 & zacc(jl,inc,iazi)*zflux(jl,inc,iazi)*zdci(inc)

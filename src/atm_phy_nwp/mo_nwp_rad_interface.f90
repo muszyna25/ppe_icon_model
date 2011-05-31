@@ -289,6 +289,7 @@ CONTAINS
     ENDDO
         
     IF (thread_to_status == thread_ends) THEN
+      write(0,*) "Received thread_ends"
       sync_thread_to = thread_ends
       RETURN 
     ENDIF  
@@ -378,14 +379,7 @@ CONTAINS
     no_radiation_barriers = no_radiation_barriers + 1
     write(0,*) "no_radiation_barriers=", no_radiation_barriers
          
-!  this BARRIER does not comply with OpenMP standards
-! !$OMP BARRIER
-!     DO WHILE (.NOT. radiation_barier)
-! !$OMP BARRIER
-!     ENDDO
-!     radiation_barier = .false.
-! !$OMP FLUSH
-    radiation_barrier = sync_result 
+    radiation_barrier = sync_result
     RETURN
     
   END FUNCTION radiation_barrier
@@ -540,9 +534,10 @@ CONTAINS
 
 !$  INTEGER omp_get_num_threads
 
+!$  CALL omp_set_num_threads(radiation_threads)
+
      write(0,*) 'Entering nwp_start_omp_radiation_thread, threads=',&
        omp_get_num_threads()
-    CALL omp_set_num_threads(radiation_threads)
 !$OMP PARALLEL
     write(0,*) 'nwp_start_omp_radiation_thread parallel, threads=',&
       omp_get_num_threads()

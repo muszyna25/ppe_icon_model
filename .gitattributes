@@ -98,6 +98,8 @@ doc/resources/img/mpglogo.pdf -text svneol=unset#unset
 doc/resources/img/mpglogo.png -text
 doc/resources/img/mpilogo.pdf -text
 doc/resources/img/mpilogo.png -text
+doc/science1/detrainment_anvil.pdf -text
+doc/science1/detrainment_anvil.ppt -text
 doc/science1/fig_edge_volume.pdf -text
 doc/science1/fig_edge_volume.tex -text
 doc/science1/fig_main_boxes.pdf -text
@@ -106,8 +108,12 @@ doc/science1/fig_primal_dual.pdf -text
 doc/science1/fig_primal_dual.tex -text
 doc/science1/fig_vortex_boxes.pdf -text
 doc/science1/fig_vortex_boxes.tex -text
+doc/science1/icon-docu-cloud.pdf -text
+doc/science1/icon-docu-cloud.tex -text
 doc/science1/icon_science.pdf -text svneol=unset#unset
 doc/science1/icon_science.tex -text
+doc/science1/liquidPDF.pdf -text
+doc/science1/liquidPDF.pptx -text
 doc/science1/model_equations_ICONAM.tex -text
 doc/science1/specials_triangle_ICONAM.tex -text
 doc/science1/terrain_following_ICONAM.tex -text

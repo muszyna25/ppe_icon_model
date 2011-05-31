@@ -202,6 +202,7 @@ CONTAINS
           &   nactday        = itaja,          &
           &   acthour        = zstunde )
 
+        ie = kbdim
         DO jb = 1, pt_patch%nblks_c
 
           IF (jb == pt_patch%nblks_c) ie = pt_patch%npromz_c

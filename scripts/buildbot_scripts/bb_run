@@ -556,8 +556,7 @@ fi
 
 if [ "${run_ALL}" == "1" -o "${run_POST}" -eq "1" ]
 then
-
-  if [ sx9 ] 
+  if [  "x$target" = "xsx9" ] 
   then
      cp config/set-up.info config/set-up.info.bac
      echo  'use_target="hpc"' >> config/set-up.info

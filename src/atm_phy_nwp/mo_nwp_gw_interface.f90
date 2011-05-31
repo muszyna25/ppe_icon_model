@@ -151,12 +151,10 @@ CONTAINS
 
       IF (inwp_sso == 1) THEN
 
-          !tendencies  have to be set to zero
-          DO jc = i_startidx, i_endidx
-            prm_nwp_tend%ddt_u_sso   (1:i_endidx,:,jb) = 0._wp
-            prm_nwp_tend%ddt_v_sso   (1:i_endidx,:,jb) = 0._wp
-            prm_nwp_tend%ddt_temp_sso(1:i_endidx,:,jb) = 0._wp
-          ENDDO
+        !tendencies  have to be set to zero
+        prm_nwp_tend%ddt_u_sso   (:,:,jb) = 0._wp
+        prm_nwp_tend%ddt_v_sso   (:,:,jb) = 0._wp
+        prm_nwp_tend%ddt_temp_sso(:,:,jb) = 0._wp
 
         ! since we have only currently one scheme for sso, it
         ! is sufficient to ask for the timing

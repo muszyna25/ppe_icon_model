@@ -278,7 +278,7 @@ CONTAINS
     jbs   = p_patch%cells%start_blk(grf_bdywidth_c+1,1)
     nblks = p_patch%nblks_int_c
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jcs,jce,ztime_radtran,ztime_radheat,ltrig_rad), SCHEDULE(guided)
+!$OMP DO PRIVATE(jb,jcs,jce), SCHEDULE(guided)
     DO jb = jbs,nblks
 
       CALL get_indices_c(p_patch, jb,jbs,nblks, jcs,jce, grf_bdywidth_c+1)
