@@ -168,7 +168,6 @@ CONTAINS
     CALL assign_if_present(this_list%p%lrestart,     lrestart)
     CALL assign_if_present(this_list%p%linitial,     linitial)
     !
-    CALL message('','')
     CALL message('','adding new var_list '//TRIM(name))
     !
   END SUBROUTINE new_var_list

@@ -1157,13 +1157,14 @@ CONTAINS
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    INTEGER :: ist, shape3d(3)
+    INTEGER :: ist, shape3d(3), shape_trc(4)
     INTEGER :: ientr, jtrc
     !------------------------------
 
     ientr = 16 ! "entropy" of horizontal slice
 
-    shape3d  = (/kproma, klev, kblks/)
+    shape3d   = (/kproma, klev, kblks/)
+    shape_trc = (/kproma, klev, kblks, ktracer/)
 
     CALL new_var_list( tend_list, TRIM(listname) )
     CALL default_var_list_settings( tend_list,                 &
@@ -1269,28 +1270,28 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                        &
                 & t_cf_var('tend_q', 's-1', 'tracer tendency'),                &
                 & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
-                & ldims = (/kproma,klev,kblks,ktracer/),                       &
+                & ldims = shape_trc,                                           &
                 & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
 
     CALL add_var( tend_list, prefix//'q_cld', tend%q_cld,                         &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                           &
                 & t_cf_var('tend_q_cld', 's-1', 'tracer tendency condensational'),&           
                 & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
-                & ldims = (/kproma,klev,kblks,ktracer/),                          &
+                & ldims = shape_trc,                                              &
                 & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.              )
 
     CALL add_var( tend_list, prefix//'q_cnv', tend%q_cnv,                      &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                        &
                 & t_cf_var('tend_q_cnv', 's-1', 'tracer tendency convective'), &           
                 & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
-                & ldims = (/kproma,klev,kblks,ktracer/),                       &
+                & ldims = shape_trc,                                           &
                 & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
 
     CALL add_var( tend_list, prefix//'q_vdf', tend%q_vdf,                      &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                        &
                 & t_cf_var('tend_q_vdf', 's-1', 'tracer tendency turbulent'),  &           
                 & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
-                & ldims = (/kproma,klev,kblks,ktracer/),                       &
+                & ldims = shape_trc,                                           &
                 & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
 
     ! Referrence to individual tracer, for I/O                                            
