@@ -1004,7 +1004,7 @@ PROGRAM control_model
   !
   ! Deallocate external data
   !
-  CALL destruct_ext_data
+  IF (iequations /= ihs_ocean) CALL destruct_ext_data
 
   ! deallocate ext_data array
   DEALLOCATE(ext_data, STAT=ist)
