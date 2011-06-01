@@ -406,23 +406,25 @@ CONTAINS
     !------------------------------------------------------------------------                  
     IF (lrestart) THEN                                                                 
 
-      ! 2.1 Overwrite the defaults above by values in the restart file 
-      funit = open_and_restore_namelist('run_ctl')
-      READ(funit,NML=run_ctl)
-      CALL close_tmpfile(funit)
-     ! for testing
-      WRITE (0,*) 'contents of namelist ...'
-      WRITE (0,NML=run_ctl)
+!!!!!!!!!!! temporarily removed till the namelist I/O problem gets solved +++++++ 
+!     ! 2.1 Overwrite the defaults above by values in the restart file 
+!     funit = open_and_restore_namelist('run_ctl')
+!     READ(funit,NML=run_ctl)
+!     CALL close_tmpfile(funit)
+!    ! for testing
+!     WRITE (0,*) 'contents of namelist ...'
+!     WRITE (0,NML=run_ctl)
 
-      ! 2.2 Save the calendar and initial date/time of the old run
+!     ! 2.2 Save the calendar and initial date/time of the old run
 
-      calendar_old    = calendar
-      ini_year_old    = ini_year
-      ini_month_old   = ini_month
-      ini_day_old     = ini_day
-      ini_hour_old    = ini_hour
-      ini_minute_old  = ini_minute
-      ini_second_old  = ini_second
+!     calendar_old    = calendar
+!     ini_year_old    = ini_year
+!     ini_month_old   = ini_month
+!     ini_day_old     = ini_day
+!     ini_hour_old    = ini_hour
+!     ini_minute_old  = ini_minute
+!     ini_second_old  = ini_second
+!!!!!!!!!!! temporarily removed till the namelist I/O problem gets solved =======
 
       ! 2.2 Inquire the date/time at which the previous run stopped
 
@@ -565,14 +567,14 @@ CONTAINS
       ! Simulation will start from the user-specified initial date/time,
       ! which is also the current model date/time.
 
-      IF (calendar  /=calendar_old   .OR.                                 &
-          ini_year  /=ini_year_old   .OR. ini_month  /=ini_month_old .OR. &
-          ini_day   /=ini_day_old    .OR. ini_hour   /=ini_hour_old  .OR. &
-          ini_minute/=ini_minute_old .oR. ini_second /=ini_second_old     ) THEN
+    ! IF (calendar  /=calendar_old   .OR.                                 &
+    !     ini_year  /=ini_year_old   .OR. ini_month  /=ini_month_old .OR. &
+    !     ini_day   /=ini_day_old    .OR. ini_hour   /=ini_hour_old  .OR. &
+    !     ini_minute/=ini_minute_old .oR. ini_second /=ini_second_old     ) THEN
 
-        current_datetime = ini_datetime
+    !   current_datetime = ini_datetime
 
-      ELSE
+    ! ELSE
       ! Otherwise we start from the point when the previous integration stopped.
 
         current_datetime%calendar = calendar
@@ -584,7 +586,7 @@ CONTAINS
         current_datetime%second   = restart_second
 
         CALL date_to_time(current_datetime) ! fill date time structure
-      END IF
+    ! END IF
 
     ELSE
       ! In an initial run, current date/time is, naturally, the initial date/time

@@ -251,7 +251,7 @@ PROGRAM control_model
 
   USE mo_io_restart,          ONLY: read_restart_info_file, read_restart_files, &
                                   & read_restart_attributes
-  USE mo_io_restart_namelist, ONLY: read_restart_namelists
+ !USE mo_io_restart_namelist, ONLY: read_restart_namelists
 
   IMPLICIT NONE
 
@@ -350,8 +350,8 @@ PROGRAM control_model
     ! model default, and will later be overwritten if the user has 
     ! specified something different for this integraion.
 
-    CALL read_restart_namelists('restart_atm.nc')
-    CALL message('Read namelists from restart file','successful')
+   !CALL read_restart_namelists('restart_atm.nc')
+   !CALL message('Read namelists from restart file','successful')
 
     ! Read all global attributs in the restart file 
 
