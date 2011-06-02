@@ -50,10 +50,10 @@ MODULE mo_ha_stepping
   USE mo_model_domain_import, ONLY: n_dom
   USE mo_dynamics_nml,        ONLY: ltwotime, itime_scheme, nold, nnow
   USE mo_io_nml,              ONLY: l_outputtime, lprepare_output, l_diagtime,  &
-                                  & l_restarttime
+                                  & l_checkpoint_time
   USE mo_run_nml,             ONLY: lshallow_water, nsteps, dtime,ltheta_dyn,   &
                                   & ldynamics, ltransport, msg_level, ltimer,   &
-                                  & i_cell_type, ltestcase
+                                  & i_cell_type, ltestcase, lrestart
   USE mo_hydro_testcases,     ONLY: init_testcase
   USE mo_si_correction,       ONLY: init_si_params
   USE mo_ha_rungekutta,       ONLY: init_RungeKutta
@@ -87,6 +87,8 @@ CONTAINS
 
   !>
   !!
+  !! Hui Wan (MPI-M, 2011-05)
+  !!
   SUBROUTINE prepare_ha_dyn( p_patch )
 
     TYPE(t_patch),TARGET,INTENT(IN) :: p_patch(n_dom)
@@ -111,10 +113,8 @@ CONTAINS
     ! In case of grid refinement, an extra "time level" is added
     ! for computing boundary tendencies and feedback increments
 
-    IF (n_dom > 1) THEN
-      nadd = 1
-    ELSE
-      nadd = 0
+    IF (n_dom > 1) THEN ; nadd = 1
+    ELSE                ; nadd = 0
     ENDIF
 
     SELECT CASE (itime_scheme)
@@ -199,22 +199,25 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Almut Gassmann (2009-03-04)
   !!
-  SUBROUTINE perform_ha_stepping( p_patch, p_int_state, p_grf_state,      &
-                                & p_hydro_state, datetime,                &
-                                & n_io, n_file, n_restart, n_diag)
+  SUBROUTINE perform_ha_stepping( p_patch, p_int_state, p_grf_state,  &
+                                & p_hydro_state, datetime,            &
+                                & n_io, n_file, n_checkpoint, n_diag, &
+                                & jfile                               )
 !
   TYPE(t_patch), TARGET, INTENT(IN)         :: p_patch(n_dom)
   TYPE(t_int_state), TARGET, INTENT(IN)     :: p_int_state(n_dom)
   TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom)
-  INTEGER, INTENT(IN) :: n_io, n_file, n_restart, n_diag
+  INTEGER, INTENT(IN) :: n_io, n_file, n_checkpoint, n_diag
+  INTEGER, INTENT(INOUT) :: jfile
 
   TYPE(t_datetime), INTENT(INOUT)         :: datetime
   TYPE(t_hydro_atm), TARGET, INTENT(INOUT):: p_hydro_state(n_dom)
 
-  REAL(wp)                                :: sim_time(n_dom)
-  INTEGER                                 :: jg, jn, jgc, jstep, jfile
-  LOGICAL                                 :: l_3tl_init(n_dom)
   REAL(wp), DIMENSION(:,:,:), POINTER     :: p_vn  => NULL()
+  REAL(wp) :: sim_time(n_dom)
+  INTEGER  :: jg, jn, jgc, jstep
+  LOGICAL  :: l_3tl_init(n_dom)
+  LOGICAL  :: l_init_step
 
 #ifdef _OPENMP
   INTEGER  :: jb
@@ -226,8 +229,6 @@ CONTAINS
 
 !-----------------------------------------------------------------------
   sim_time(:) = 0._wp
-
-  jfile = 1
 
   IF (ltimer) CALL timer_start(timer_total)
 
@@ -267,7 +268,12 @@ CONTAINS
     ! modified within this integration cycle. Therefore at the end of the
     ! cycle, we write out variables of time step n rather than n+1.
 
-    IF ( (jstep/=1 .AND. MOD(jstep-1,n_io)==0) .OR. jstep==nsteps ) THEN
+    l_init_step = (.NOT.lrestart).AND.(jstep==1) ! This is the very first step 
+                                                 ! of an initial run. Initial
+                                                 ! conditions have already been
+                                                 ! written out.
+
+    IF ( MOD(jstep-1,n_io)==0 .AND. (.NOT.l_init_step) ) THEN
       l_outputtime       = .TRUE. ! Output at the end of the time step
       lprepare_output(:) = .TRUE. ! Prepare output values on all grid levels
     ELSE
@@ -275,10 +281,10 @@ CONTAINS
       lprepare_output(:) = .FALSE.
     ENDIF
 
-    IF ( MOD(jstep,n_restart)==0 ) THEN
-      l_restarttime = .TRUE.
+    IF ( MOD(jstep,n_checkpoint)==0 ) THEN
+      l_checkpoint_time = .TRUE.
     ELSE
-      l_restarttime = .FALSE.
+      l_checkpoint_time = .FALSE.
     ENDIF
 
     IF ( MOD(jstep-1,n_diag)==0 .OR. jstep==nsteps ) THEN
@@ -303,7 +309,7 @@ CONTAINS
       &                1, jstep, l_3tl_init, dtime, sim_time, 1, datetime )
 
     !--------------------------------------------------------------------------
-    ! output of results and error statistics
+    ! Write output (prognostic and diagnostic variables) 
     !--------------------------------------------------------------------------
     IF (l_outputtime) THEN
 
@@ -326,19 +332,19 @@ CONTAINS
 
     ENDIF !l_outputtime
 
+    ! If it's time, close the current output file and trigger a new one
+
+    IF (jstep/=1.AND.(MOD(jstep-1,n_file)==0).AND.jstep/=nsteps) THEN
+      jfile = jfile +1
+
+      CALL init_output_files(jfile,lclose=.TRUE.)
+    ENDIF
+
     !--------------------------------------------------------------------------
     ! Diagnose global integrals
     !--------------------------------------------------------------------------
     IF (l_diagtime) &
     CALL supervise_total_integrals( jstep, p_patch, p_hydro_state, nnow )
-
-    ! close the current output file and trigger a new one
-    IF (jstep/=1.AND.(MOD(jstep-1,n_file)==0).AND.jstep/=nsteps) THEN
-
-      jfile = jfile +1
-      CALL init_output_files(jfile)
-
-    ENDIF
 
     !--------------------------------------------------------------------------
     ! One integration cycle finished on the lowest grid level (coarsest
@@ -349,7 +355,7 @@ CONTAINS
     !--------------------------------------------------------------------------
     ! Write restart file
     !--------------------------------------------------------------------------
-    IF (l_restarttime) THEN
+    IF (l_checkpoint_time) THEN
       DO jg = 1, n_dom
         CALL create_restart_file( datetime,                     &
                                 & p_patch(jg)%nlev, vct,        &
@@ -357,7 +363,7 @@ CONTAINS
                                 & p_patch(jg)%n_patch_cells_g,  &
                                 & p_patch(jg)%n_patch_verts_g,  &
                                 & p_patch(jg)%n_patch_edges_g,  &
-                                & i_cell_type                   )
+                                & i_cell_type, jfile            )
       END DO
 
       ! Create the master (meta) file in ASCII format which contains

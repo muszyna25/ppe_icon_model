@@ -94,16 +94,17 @@ CONTAINS
   !! * Create data variable definitions
   !! For jfile=1 some additional refinement initializations are done.
 
-  SUBROUTINE init_output_files(jfile)
+  SUBROUTINE init_output_files(jfile, lclose)
 
     INTEGER, INTENT(IN) :: jfile !> Number of fileset to open
+    LOGICAL, INTENT(IN) :: lclose !> lclose old file
 
     INTEGER :: jg, jlev
     INTEGER :: nlev              !< number of full levels
     CHARACTER(LEN=filename_max) :: gridtype, outputfile
     CHARACTER(LEN=filename_max), SAVE :: gridfile(max_dom)
 
-    IF(jfile == 1) THEN
+    IF(.NOT.lclose) THEN
 
       ! This is the first call - initialize
 
@@ -279,14 +280,18 @@ CONTAINS
   !-------------
   !>
   !! 
+  !! Hui Wan (MPI-M, 2011-05)
+  !!
   SUBROUTINE create_restart_file( datetime, klev, pvct, jg,              &
-                                & kr, kb, kcell, kvert, kedge, icelltype )
+                                & kr, kb, kcell, kvert, kedge, icelltype,&
+                                & jfile )
 
     TYPE(t_datetime),INTENT(IN) :: datetime
     INTEGER, INTENT(IN) :: klev
     REAL(wp),INTENT(IN) :: pvct(:) 
     INTEGER, INTENT(IN) :: jg, kr, kb  ! D?R?B?
     INTEGER, INTENT(IN) :: kcell, kvert, kedge, icelltype
+    INTEGER, INTENT(IN) :: jfile  ! current output file index
    
     CHARACTER(LEN=20) :: string
 
@@ -305,6 +310,8 @@ CONTAINS
     CALL set_restart_attribute( 'nnew'    , nnew    (jg))
     CALL set_restart_attribute( 'nnow_rcf', nnow_rcf(jg))
     CALL set_restart_attribute( 'nnew_rcf', nnew_rcf(jg))
+
+    CALL set_restart_attribute( 'next_output_file', jfile+1 )
 
     CALL set_restart_vct( pvct )  ! Vertical coordinate (A's and B's)
 

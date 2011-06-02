@@ -250,7 +250,7 @@ PROGRAM control_model
   USE mo_oce_physics,         ONLY: t_ho_params, t_ho_physics
 
   USE mo_io_restart,          ONLY: read_restart_info_file, read_restart_files, &
-                                  & read_restart_attributes
+                                  & read_restart_attributes, get_restart_attribute
  !USE mo_io_restart_namelist, ONLY: read_restart_namelists
 
   IMPLICIT NONE
@@ -271,7 +271,8 @@ PROGRAM control_model
   TYPE (t_ho_params)                              :: p_phys_param 
   TYPE(t_ho_physics)                              :: p_physics_oce
 
-  INTEGER :: n_io, jg, jfile, n_file, ist, n_diag, n_restart
+  INTEGER :: n_io, jg, n_file, ist, n_diag, n_chkpt
+  INTEGER :: jfile
 
 !  INTEGER, PARAMETER                      :: izdebug = 1
 
@@ -684,16 +685,6 @@ PROGRAM control_model
     CALL init_ext_data (p_patch(1:), p_int_state, ext_data)
   ENDIF
 
-  !------------------------------------------------------------------
-  ! Prepare raw data output file
-  !------------------------------------------------------------------
-
-  ! The index of the output file starts from 1.
-  jfile   = 1
-
-  ! Set up global attributes and variable lists for NetCDF output file
-  !
-
   ! Parameterized forcing:
   ! 1. Create forcing state variables
   ! 2. Set up parameterizations
@@ -719,13 +710,20 @@ PROGRAM control_model
     CALL finish('control_model:','iforcing has value that is not allowed')
   END SELECT
 
-  CALL init_output_files(jfile)
+  !------------------------------------------------------------------
+  ! Prepare output file
+  !------------------------------------------------------------------
+  IF (lrestart) THEN
+    CALL get_restart_attribute('next_output_file',jfile)
+  ELSE
+    jfile = 1
+  END IF
+  CALL init_output_files(jfile, lclose=.FALSE.)
 
-
+  !--------------------------------------------------------------------
   ! Prepare for time integration
-  !
+  !--------------------------------------------------------------------
   SELECT CASE (iequations)
-  !-------------------------------------------------
   CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
 
     !------------------------------------------------------------------
@@ -800,8 +798,10 @@ PROGRAM control_model
   END IF
 
   !------------------------------------------------------------------
-  !  get and plot some of the inital values
+  ! Get and plot some of the inital values
   !------------------------------------------------------------------
+  IF (.NOT.lrestart) THEN
+
   ! diagnose u and v to have meaningful initial output
 
   DO jg = 1, n_dom
@@ -853,16 +853,17 @@ PROGRAM control_model
   CASE DEFAULT
     !
   END SELECT
+  END IF ! not lrestart
 
   !---------------------------------------------------------
   ! The most primitive event handling algorithm: 
   ! compute time step interval for taking a certain action
   !---------------------------------------------------------
 
-  n_io      = NINT(dt_data/dtime)        ! write output 
-  n_file    = NINT(dt_file/dtime)        ! trigger new output file
-  n_restart = NINT(dt_restart/dtime)     ! write restart files
-  n_diag    = MAX(1,NINT(dt_diag/dtime)) ! diagnose of total integrals
+  n_io    = NINT(dt_data/dtime)        ! write output 
+  n_file  = NINT(dt_file/dtime)        ! trigger new output file
+  n_chkpt = NINT(dt_restart/dtime)     ! write restart files
+  n_diag  = MAX(1,NINT(dt_diag/dtime)) ! diagnose of total integrals
 
   !------------------------------------------------------------------
   ! Now start the time stepping:
@@ -875,7 +876,7 @@ PROGRAM control_model
   CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
     CALL perform_ha_stepping(p_patch(1:), p_int_state(1:), p_grf_state(1:), &
          &                   p_hydro_state, current_datetime,               &
-         &                   n_io, n_file, n_restart, n_diag  )
+         &                   n_io, n_file, n_chkpt, n_diag, jfile           )
     !
   CASE (inh_atmosphere)
     CALL perform_nh_stepping(p_patch, p_int_state, p_grf_state, p_nh_state, &

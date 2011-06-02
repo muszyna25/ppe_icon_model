@@ -113,7 +113,7 @@ MODULE mo_io_nml
   ! -----------------------------------------------------------------------
   !
   LOGICAL :: l_outputtime         ! if .true., output is written at the end of the time step.
-  LOGICAL :: l_restarttime        ! if .true., restart file is written at the end of the time step.
+  LOGICAL :: l_checkpoint_time    ! if .true., restart file is written at the end of the time step.
   LOGICAL :: l_diagtime           ! if .true., diagnostic output is computed and written
                                   ! at the end of the time step.
 

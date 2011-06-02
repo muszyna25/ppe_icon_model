@@ -469,7 +469,7 @@ MODULE mo_nh_stepping
     IF (MOD(jstep,n_file) == 0 .and. jstep/=nsteps) THEN
 
       jfile = jfile +1
-      call init_output_files(jfile)
+      call init_output_files(jfile,lclose=.TRUE.)
 
     ENDIF
 
