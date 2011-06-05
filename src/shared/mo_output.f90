@@ -293,7 +293,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: kcell, kvert, kedge, icelltype
     INTEGER, INTENT(IN) :: jfile  ! current output file index
    
-    CHARACTER(LEN=20) :: string
+    CHARACTER(LEN=21) :: string
 
     !----------------
     ! Initialization
@@ -326,7 +326,7 @@ CONTAINS
 
     ! Open new file, write data, close and then clean-up.
 
-    WRITE(string,'(2(a,i1),a,i2.2)') 'restart.icon_D',jg,'R',kr,'B',kb
+    WRITE(string,'(a,i2.2,a,i1,a,i2.2)') 'restart.icon_D',jg,'R',kr,'B',kb
 
     CALL open_writing_restart_files( TRIM(string) )
     CALL write_restart

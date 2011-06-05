@@ -368,8 +368,6 @@ CONTAINS
 
       ! Create the master (meta) file in ASCII format which contains
       ! info about which files should be read in for a restart run.
-      ! What we have here at the moment is not a proper handling of 
-      ! multiple domains, but rather a temporary implementation, just for testing.
 
       CALL write_restart_info_file
     END IF

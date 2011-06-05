@@ -379,6 +379,11 @@ SUBROUTINE interpol_nml_setup(p_patch)
     ! ... quadratic reconstruction
     lsq_high_set%dim_c   = 6
     lsq_high_set%dim_unk = 5
+    ! ... linear reconstruction is not used in the hexagonal model.
+    ! However, if we do not initialize these variables, they will get 
+    ! value zero, and cause problem in the dump/restore functionality.
+    lsq_lin_set%dim_c   = 3
+    lsq_lin_set%dim_unk = 2
     ! ... check i_cori_method
     IF (i_cori_method <1 .OR. i_cori_method>4) THEN
       CALL finish( TRIM(routine),'value of i_cori_method out of range [1,2,3,4]')

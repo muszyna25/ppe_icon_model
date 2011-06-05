@@ -493,8 +493,8 @@ CONTAINS
                              & p_int_state%tria_aw_rhom, &
                              & p_diag%rel_vort_e )
       CALL sync_patch_array( SYNC_E, p_patch, p_diag%rel_vort_e )
-      CALL edges2cells_scalar( p_diag%rel_vort, p_patch, &
-                             & p_int_state%r_aw_c,       &
+      CALL edges2cells_scalar( p_diag%rel_vort_e, p_patch, &
+                             & p_int_state%r_aw_c,         &
                              & p_diag%rel_vort_c   )
     END SELECT
 
