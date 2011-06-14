@@ -122,7 +122,7 @@ PROGRAM control_model
      &                              dt_data,              & !    :
      &                              dt_file,              & !    :
      &                              dt_diag,              & !    :
-     &                              dt_restart,           & !
+     &                              dt_checkpoint,        & !
      &                              lprepare_output         ! internal parameter
   USE mo_master_nml,          ONLY: master_nml_setup, lrestart
   USE mo_run_nml,             ONLY: run_nml_setup,        & ! subroutine 
@@ -862,7 +862,7 @@ PROGRAM control_model
 
   n_io    = NINT(dt_data/dtime)        ! write output 
   n_file  = NINT(dt_file/dtime)        ! trigger new output file
-  n_chkpt = NINT(dt_restart/dtime)     ! write restart files
+  n_chkpt = NINT(dt_checkpoint/dtime)  ! write restart files
   n_diag  = MAX(1,NINT(dt_diag/dtime)) ! diagnose of total integrals
 
   !------------------------------------------------------------------
