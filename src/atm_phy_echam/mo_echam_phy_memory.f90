@@ -1167,9 +1167,7 @@ CONTAINS
     shape_trc = (/kproma, klev, kblks, ktracer/)
 
     CALL new_var_list( tend_list, TRIM(listname) )
-    CALL default_var_list_settings( tend_list,                 &
-                                  & lrestart=.TRUE.,           &
-                                  & restart_type=FILETYPE_NC2  )
+    CALL default_var_list_settings( tend_list, lrestart=.FALSE. )
 
     !------------------------------
     ! Temperature tendencies

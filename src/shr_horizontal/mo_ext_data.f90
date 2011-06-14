@@ -52,7 +52,7 @@ MODULE mo_ext_data
     &                              fac_smooth_topo, n_iter_smooth_topo
  !USE mo_lnd_nwp_nml,        ONLY: nsfc_subs
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_impl_constants,     ONLY: SUCCESS, max_char_length
+  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_exception,          ONLY: message, finish
   USE mo_grid_nml,           ONLY: n_dom
   USE mo_interpolation,      ONLY: t_int_state, cells2verts_scalar
@@ -491,7 +491,7 @@ CONTAINS
 
       !
       ! Build external data list for constant in time atmospheric fields
-      WRITE(listname,'(a,i2.2)') 'ext_data_atm_list_of_domain_',jg
+      WRITE(listname,'(a,i2.2)') 'ext_data_atm_D',jg
       CALL construct_ext_data_atm_list(p_patch(jg), ext_data(jg)%atm,       &
         &                              ext_data(jg)%atm_list, TRIM(listname))
 
@@ -499,7 +499,7 @@ CONTAINS
       IF (iforcing==inwp) THEN
        
         ! Build external data list for time-dependent atmospheric fields
-        WRITE(listname,'(a,i2.2)') 'ext_data_atm_td_list_of_domain_',jg
+        WRITE(listname,'(a,i2.2)') 'ext_data_atm_td_D',jg
         CALL construct_ext_data_atm_td_list(p_patch(jg), ext_data(jg)%atm_td,       &
           &                                 ext_data(jg)%atm_td_list, TRIM(listname))
 
@@ -1120,10 +1120,7 @@ CONTAINS
   SUBROUTINE destruct_ext_data
 
     INTEGER :: jg
-
-    TYPE(t_var_list),POINTER :: listptr
-
-    CHARACTER(len=max_char_length), PARAMETER :: &
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       routine = 'mo_ext_data:destruct_ext_data'
 !-------------------------------------------------------------------------
 
