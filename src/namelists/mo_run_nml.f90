@@ -129,6 +129,10 @@ MODULE mo_run_nml
   REAL(wp)           :: dtime               ! [s] length of a time step
   REAL(wp)           :: dtrk(3)    ! [s] Runge Kutta 3 time steps [s]
 
+  ! restart interval
+  ! ----------------
+  REAL(wp)           :: dt_restart          ! [s] length of a restart cycle 
+
   ! equations to be solved
   ! ----------------------
   INTEGER            :: iequations          ! equation system:
@@ -243,7 +247,7 @@ MODULE mo_run_nml
     &                end_hour, end_minute, end_second,     &
     &                run_day,                              &
     &                run_hour, run_minute, run_second,     &
-    &                nsteps, dtime,                        &
+    &                nsteps, dt_restart, dtime,            &
     &                iequations, i_cell_type,              &
     &                ldynamics, ltransport, iforcing,      &
     &                ltestcase, lcorio, itopo, msg_level,  &
@@ -362,6 +366,9 @@ CONTAINS
    !
    ! initialize nsteps with zero
    nsteps         = 0
+   !
+   ! length of restart cycle
+   dt_restart     = 86400._wp*30._wp   ! = 30 days
    !
    ! time step
    dtime          = 600._wp   ! [s] for R2B04 + semi-implicit time steppping
@@ -649,6 +656,8 @@ CONTAINS
       !
     END IF
 
+    nsteps = MIN(nsteps,INT(dt_restart/dtime))
+
    !removed by Hui Wan, 2011-06-02
    !! This should probably be changed..................................
    !IF (lhydrostatic) THEN
@@ -670,10 +679,17 @@ CONTAINS
     CALL message(routine,'End date and time')
     CALL message(routine,'-----------------')
     CALL print_datetime_all(end_datetime)  ! print all date and time components
-    !
+
     CALL message(' ',' ')
-    CALL message(routine,'Length of run')
-    CALL message(routine,'-------------')
+    CALL message(routine,'Length of restart cycle')
+    CALL message(routine,'-----------------------')
+    WRITE(message_text,'(a,f10.2,a,f16.10,a)') &
+         &'dt_restart :',dt_restart,' seconds =', dt_restart/86400._wp, ' days'
+    CALL message(routine,message_text)
+
+    CALL message(' ',' ')
+    CALL message(routine,'Length of this run')
+    CALL message(routine,'------------------')
     WRITE (message_text,'(a,f7.2)') 'dtime [s] :',dtime
     CALL message(routine,message_text)
     WRITE (message_text,'(a,i7)')   'nsteps    :',nsteps
