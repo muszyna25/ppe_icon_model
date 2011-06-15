@@ -61,17 +61,17 @@ IEQ=-1            # equation system
 #
 # length of the integration in timesteps or days
 NSTEPS=0             # for short model test - set NDAYS to zero when using NSTEPS
-NDAYS=360            # number of model days to run - use alternatively to NSTEPS
+NDAYS=1              # number of model days to run - use alternatively to NSTEPS
 #                    
 DTIME=900            # time step in seconds
 INIMONTH=3           # start month of integration
 INIYEAR=2011         # start year of integration
 # HGRIDDIR=""                                    # ocean grid path is default "$ICONDIR/grids"
-  HGRIDDIR=/pool/data/ICON/grids                 # grid path is "pool"
+# HGRIDDIR=/pool/data/ICON/grids                 # grid path is "pool"
 # OGRIDNAME=""                                   # ocean horizontal grid file name is default
-  OGRIDNAME=iconR${R}B0${B}-ocean_basin_0_60.nc  # grid file name for Peter's pentagonal basin
+# OGRIDNAME=iconR${R}B0${B}-ocean_basin_0_60.nc  # grid file name for Peter's pentagonal basin
 # USE_AQUAP="Y"      # "Y": ocean horizontal gridfile base is "aqua_planet"
-# USE_ETOPO="Y"      # "Y": ocean horizontal gridfile base is "etopo40_flat"
+  USE_ETOPO="Y"      # "Y": ocean horizontal gridfile base is "etopo40_flat"
 # USE_BASIN="Y"      # "Y": ocean horizontal gridfile base is "bas10-80N"
 #-----------------------------------------------------------------------------
 #
@@ -125,7 +125,7 @@ cat > NAMELIST_${EXPNAME} << EOF
   str_proc_tst = 'abt',
     'vel', 'dif', 'trc', '   ', '   ', '   ', '   ', '   '
                                  ! define strings for processes to be printed out in debug mode
-  rlat_in = 20.0  rlon_in = 22.0 ! lat/lon-location of one cell debug output
+  rlat_in = 30.0 rlon_in = -70.0 ! lat/lon-location of one cell debug output
   h_val=1.0 t_val=1.0            ! initial values for elevation and temperature at one cell
 /
 &ocean_ctl
@@ -139,12 +139,12 @@ cat > NAMELIST_${EXPNAME} << EOF
                                  ! .TRUE. : full scalar product (slow)
                                  ! .FALSE.: reduced scalarproduct variant (fast and default)
   iforc_oce          =   11      ! ocean forcing: 0=no forcing, 11=stationary wind
-  itestcase_oce      =   32      ! 25=shallow-water-Laeuter-Test; 26=shallow-water-Williamson test5;
+  itestcase_oce      =   30      ! 25=shallow-water-Laeuter-Test; 26=shallow-water-Williamson test5;
                                  ! 30=3D-multilayer Stommel; 31=3D-gravity wave
                                  ! 32=Multilayer Munk-Gyre test (following Sergey Danilov)
                                  ! 33=Collapsing density front, requires realistic lsm and topography
-  ab_beta            = 0.6       ! parameter for Adam-Bashforth time-stepping
-  ab_gam             = 0.6       ! parameter for Adam-Bashforth time-stepping
+  ab_beta            = 0.51      ! parameter for Adam-Bashforth time-stepping
+  ab_gam             = 0.51      ! parameter for Adam-Bashforth time-stepping
   k_veloc_h          =  500.0    ! horizontal viscosity coefficient for velocity
   k_veloc_v          = 0.01      ! vertical viscosity coefficient for velocity
   k_pot_temp_h       =  200.0    ! horizontal viscosity coefficient for temperature
@@ -153,17 +153,17 @@ cat > NAMELIST_${EXPNAME} << EOF
   k_sal_v            = 0.0       ! vertical viscosity coefficient for salinity
   solver_tolerance   = 1.0e-6
   EOS_TYPE           = 2         ! 1=linear EOS, 2= (nonlinear) Jacket-McDoudgall density-formulation
-  no_tracer          = 0         ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
+  no_tracer          = 1         ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
   i_bc_veloc_lateral = 0         ! Boundary condition for normal velocity for lateral walls
   i_bc_veloc_top     = 1         ! Boundary condition for normal velocity for ocean top
-  i_bc_veloc_bot     = 1         ! Boundary condition for normal velocity for ocean bottom
+  i_bc_veloc_bot     = 0         ! Boundary condition for normal velocity for ocean bottom
   bottom_drag_coeff  = 0.0025    ! Chezy coefficient for bottom friction
   wstress_coeff      = 0.2       ! wind stress coefficient for top boundary forcing
   basin_center_lat   = 30.0      ! lat-lon coordinate of basin center, used 
   basin_center_lon   =  0.0      ! in (non-global) basin configuration such as the Stommel-type tests
   basin_width_deg    = 80.0      ! basin extension in x-direction, units are degrees
   basin_height_deg   = 60.0      ! basin extension in y-direction, units are degrees
-  coriolis_type      = 2         ! 0=zero Coriolis, the non-rotating case
+  coriolis_type      = 1         ! 0=zero Coriolis, the non-rotating case
                                  ! 1=full varying Coriolis
                                  ! 2=beta-plane (linear) approximation to Coriolis
                                  ! 3=f-plane (constant) approximation to Coriolis
@@ -208,6 +208,7 @@ EOF
 # 20 levels, low top resolution guess:
 #  n_zlev         =   20
 # dzlev_m(1:20)   =   20.0,   30.0,   50.0,   50.0,   50.0,  100.0,  150.0,  200.0,  250.0,  300.0,
+#                    400.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0
                   
 # 20 levels MPIOM GR60 Helmuth
 # n_zlev          =   20
@@ -231,6 +232,4 @@ EOF
 #                     76.,79.,83.,87.,91.,95.,99.,104.,108.,113.,
 #                     119.,124.,130.,136.,142.,149.,155.,163.,170.,178.,
 #                     186.,195.,204.,213.,223.,233.,244.,255.,267.,279.,
-#-----------------------------------------------------------------------------
-# manual set of the grid file
-#-----------------------------------------------------------------------------
+

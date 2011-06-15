@@ -906,7 +906,7 @@ CONTAINS
     REAL(wp)                  :: vn(:,:,:)
 
     ! local variables
-    INTEGER :: jb,je, jk
+    INTEGER :: jb, je, jk !, il_v, ib_v, ie, iv_ctr, il_e, ib_e
     INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
     INTEGER :: rl_start_e, rl_end_e
     INTEGER :: slev,elev 
@@ -933,9 +933,30 @@ DO jb=i_startblk_e, i_endblk_e
         IF ( p_patch%patch_oce%lsm_oce_e(je,jk,jb) >= boundary ) THEN
           vn(je,jk,jb) = 0.0_wp
         ENDIF
+
+!         il_v = p_patch%edges%vertex_idx(je,jb,1)
+!         ib_v = p_patch%edges%vertex_blk(je,jb,1)
+!         iv_ctr = 0
+! 
+!         DO ie=1, p_patch%verts%num_edges(il_v,ib_v)
+!           il_e = p_patch%verts%edge_idx(il_v,ib_v,ie)
+!           ib_e = p_patch%verts%edge_blk(il_v,ib_v,ie)
+! 
+!           IF ( p_patch%patch_oce%lsm_oce_e(il_e,jk,ib_e) /=sea ) THEN
+!             iv_ctr = iv_ctr+1
+!           ENDIF
+!         END DO
+!         IF(iv_ctr==1)THEN
+!           DO ie=1, p_patch%verts%num_edges(il_v,ib_v)
+!             il_e = p_patch%verts%edge_idx(il_v,ib_v,ie)
+!             ib_e = p_patch%verts%edge_blk(il_v,ib_v,ie)
+!             vn(il_e,jk,ib_e) = 0.0_wp
+!           END DO
+!         ENDIF
       END DO
   END DO
 END DO
+
 
 
 

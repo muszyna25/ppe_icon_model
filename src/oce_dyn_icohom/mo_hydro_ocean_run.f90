@@ -49,7 +49,7 @@ MODULE mo_hydro_ocean_run
 USE mo_impl_constants,         ONLY: max_char_length
 USE mo_model_domain,           ONLY: t_patch
 USE mo_model_domain_import,    ONLY: n_dom, nroot
-USE mo_ocean_nml,              ONLY: n_zlev, iswm_oce, no_tracer
+USE mo_ocean_nml,              ONLY: n_zlev, iswm_oce, no_tracer,itestcase_oce
 USE mo_dynamics_nml,           ONLY: nold,nnew
 USE mo_io_nml,                 ONLY: out_expname
 USE mo_run_nml,                ONLY: nsteps, dtime, ltimer
@@ -157,8 +157,12 @@ CONTAINS
 
     write(*,*)'-----------timestep:',jstep
 
+    IF(itestcase_oce==28)THEN
+      CALL advect_tracer_ab(ppatch(jg), pstate_oce(jg), p_phys_param,p_sfc_flx, jstep)
+    ELSE
+
     !In case of a time-varying forcing: 
-    CALL update_ho_sfcflx(ppatch(jg), p_sfc_flx)
+    CALL update_ho_sfcflx(ppatch(jg), pstate_oce(jg), p_sfc_flx)
 
     ! solve for new free surface
     CALL solve_free_surface_eq_ab (ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param, &
@@ -177,7 +181,7 @@ CONTAINS
     IF(no_tracer>=1)THEN
       CALL advect_tracer_ab(ppatch(jg), pstate_oce(jg), p_phys_param,p_sfc_flx, jstep)
     ENDIF
-
+    ENDIF
 
     ! Step 7: Swap time indices before output
     !         half time levels of semi-implicit Adams-Bashforth timestepping are

@@ -51,25 +51,25 @@ USE mo_run_nml,             ONLY: nproma
 USE mo_math_constants
 USE mo_physical_constants
 USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, &
-                                & sea_boundary, sea, boundary, &
-                                & FULL_CORIOLIS,BETA_PLANE_CORIOLIS,&
-                                &  F_PLANE_CORIOLIS, ZERO_CORIOLIS
+  &                               sea_boundary, sea, boundary, &
+  &                               full_coriolis, beta_plane_coriolis,&
+  &                               f_plane_coriolis, zero_coriolis
 USE mo_model_domain,        ONLY: t_patch
-USE mo_ocean_nml,           ONLY: n_zlev,iswm_oce, ab_beta, ab_gam,L_INVERSE_FLIP_FLOP,&
-                                 & CORIOLIS_TYPE, basin_center_lat, basin_center_lon,  &
-                                 & basin_width_deg, basin_height_deg  
+USE mo_ocean_nml,           ONLY: n_zlev,iswm_oce, ab_beta, ab_gam, L_INVERSE_FLIP_FLOP, &
+  &                               CORIOLIS_TYPE, basin_center_lat!, basin_center_lon,  &
+!  &                               basin_width_deg, basin_height_deg  
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-USE mo_oce_state,   ONLY: t_hydro_ocean_diag, t_hydro_ocean_aux
-USE mo_oce_math_operators,  ONLY: rot_vertex_ocean, grad_fd_norm_oce
-USE mo_math_utilities,     ONLY: gvec2cvec
-USE mo_scalar_product,      ONLY: map_cell2edges,  dual_flip_flop, &
-  &                               primal_map_c2e, map_edges2edges
-USE mo_interpolation,      ONLY: t_int_state, rbf_vec_interpol_edge,&
-                                 &edges2cells_scalar, verts2edges_scalar,&
-                                 &rbf_vec_interpol_cell
-!USE mo_oce_index,              ONLY: c_k, ne_b, ne_i, form4ar! , ldbg
+USE mo_oce_state,           ONLY: t_hydro_ocean_diag, t_hydro_ocean_aux
+USE mo_oce_math_operators,  ONLY: rot_vertex_ocean,rot_vertex_ocean_origin,rot_vertex_ocean_total,&
+ &                                grad_fd_norm_oce
+USE mo_math_utilities,      ONLY: gvec2cvec, t_cartesian_coordinates!gc2cc,cc2gc
 
-USE mo_math_utilities,     ONLY: t_cartesian_coordinates
+USE mo_scalar_product,      ONLY: map_cell2edges, dual_flip_flop, &
+  &                               primal_map_c2e, map_edges2edges
+USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_edge,&
+  &                               edges2cells_scalar, verts2edges_scalar,&
+  &                               rbf_vec_interpol_cell
+!USE mo_oce_index,              ONLY: c_k, ne_b, ne_i, form4ar! , ldbg
 IMPLICIT NONE
 
 PRIVATE
@@ -130,10 +130,10 @@ TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL :: p_int
 
 
 INTEGER :: slev, elev     ! vertical start and end level
-INTEGER :: jk, jb, je, jv,jc!,ile,ibe, ie, jev
+INTEGER :: jk, jb, jc, je!, jv, ile, ibe, ie, jev
 INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
 INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-INTEGER :: i_startblk_v, i_endblk_v, i_startidx_v, i_endidx_v
+INTEGER :: i_startblk_v, i_endblk_v!, i_startidx_v, i_endidx_v
 INTEGER :: rl_start_e, rl_end_e, rl_start_v, rl_end_v, rl_start_c, rl_end_c
 !INTEGER ::  i_v1_idx, i_v1_blk, i_v2_idx, i_v2_blk
 REAL(wp) :: z_e  (nproma,n_zlev,p_patch%nblks_e)
@@ -145,19 +145,21 @@ REAL(wp) :: z_grad_ekin_RBF(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_kin_RBF_e(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_kin_RBF_c(nproma,n_zlev,p_patch%nblks_c)
 !REAL(wp) :: z_tmp
-REAL(wp) :: z_beta_plane_vort
-REAL(wp) :: z_lat_basin_center_deg
+!REAL(wp) :: z_beta_plane_vort
+!REAL(wp) :: z_f_plane_vort
+!REAL(wp) :: z_lat_basin_center
+!REAL(wp) :: z_y
 !INTEGER :: i_v1_ctr, i_v2_ctr
 !INTEGER :: i_ctr
 !INTEGER :: il_c1, ib_c1, il_c2, ib_c2
 !INTEGER :: il_e1, ib_e1,il_e2, ib_e2, il_e3, ib_e3
 INTEGER :: ile1, ibe1, ile2, ibe2, ile3, ibe3
-REAL(wp) :: z_weight, z_weight_e1,z_weight_e2, z_weight_e3
+REAL(wp) :: z_weight_e1, z_weight_e2, z_weight_e3!, z_weight
 !ARRAYS FOR TESTING
 REAL(wp) :: z_vt(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_vort_e(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_vort_flx_RBF(nproma,n_zlev,p_patch%nblks_e)
-REAL(wp) :: z_veloc_adv_horz_e(nproma,n_zlev,p_patch%nblks_e)
+!REAL(wp) :: z_veloc_adv_horz_e(nproma,n_zlev,p_patch%nblks_e)
 LOGICAL, PARAMETER :: L_DEBUG = .TRUE. 
 !-----------------------------------------------------------------------
 ! #slo# set local variable to zero due to nag -nan compiler-option
@@ -191,102 +193,15 @@ slev = 1
 elev = n_zlev
 !z_e = ab_gam*vn_new + (1.0_wp-ab_gam)*vn_old
 
-! calculate relative vorticity for all vertical layers
-!  - tangential velocity (0) needed for no-slip boundary only
-!CALL rot_vertex_ocean( vn_old, p_diag%vt, p_patch, p_diag%vort)
-!CALL rot_vertex_ocean( z_e, p_diag%vt, p_patch, p_diag%vort)
-CALL rot_vertex_ocean(p_diag%ptp_vn,p_diag%vt, p_patch, p_diag%vort)
-
-SELECT CASE (CORIOLIS_TYPE)
-
-CASE(FULL_CORIOLIS)
-
-  ! add global to relative vorticity to obtain total vorticity
-  DO jb = i_startblk_v, i_endblk_v
-    CALL get_indices_v(p_patch, jb, i_startblk_v, i_endblk_v, &
-                       i_startidx_v, i_endidx_v, rl_start_v, rl_end_v)
-    DO jk = slev, elev
-      DO jv = i_startidx_v, i_endidx_v
-         z_vort_glb(jv,jk,jb) = p_diag%vort(jv,jk,jb) + p_patch%verts%f_v(jv,jb)
-        !z_vort_glb(jv,jk,jb) = p_patch%verts%f_v(jv,jb)
-      ENDDO
-    END DO
-  END DO
-
-CASE(BETA_PLANE_CORIOLIS)
-  z_lat_basin_center_deg = basin_center_lat
-  DO jb = i_startblk_v, i_endblk_v
-    CALL get_indices_v(p_patch, jb, i_startblk_v, i_endblk_v, &
-                       i_startidx_v, i_endidx_v, rl_start_v, rl_end_v)
-    DO jk = slev, elev
-      DO jv = i_startidx_v, i_endidx_v
-!        i_ctr= 0
-!         DO jev=1,6
-!           ile = p_patch%verts%edge_idx(jv,jb,jev)
-!           ibe = p_patch%verts%edge_blk(jv,jb,jev)
-!           IF ( p_patch%patch_oce%lsm_oce_e(ile,jk,ibe) == sea ) THEN
-!             i_ctr=i_ctr+1
-!           ENDIF
-!           IF(i_ctr==6)THEN
-              z_beta_plane_vort =  2.0_wp*omega*(sin(z_lat_basin_center_deg*deg2rad)&
-                             &+(cos(z_lat_basin_center_deg*deg2rad))/re&
-                             &*p_patch%verts%vertex(jv,jb)%lat)
-             z_vort_glb(jv,jk,jb) =  z_beta_plane_vort +p_diag%vort(jv,jk,jb)
-
-!           ELSE
-!              z_vort_glb(jv,jk,jb) = 0.0_wp
-!           ENDIF
-!         ENDDO
-      ENDDO
-    END DO
-  END DO
-
-CASE(F_PLANE_CORIOLIS)
-
-  z_lat_basin_center_deg = basin_center_lat
-  z_beta_plane_vort      =  2.0_wp*omega*sin(z_lat_basin_center_deg*deg2rad)
-
-  DO jb = i_startblk_v,i_endblk_v
-    CALL get_indices_v( p_patch, jb, i_startblk_v, i_endblk_v, &
-    &                              i_startidx_v, i_endidx_v, rl_start_v,rl_end_v)
-    DO jk = slev, elev
-       DO jv=i_startidx_v, i_endidx_v
-!         i_ctr= 0
-!         DO jev=1,6
-!           ile = p_patch%verts%edge_idx(jv,jb,jev)
-!           ibe = p_patch%verts%edge_blk(jv,jb,jev)
-!           IF ( p_patch%patch_oce%lsm_oce_e(ile,jk,ibe) == sea ) THEN
-!             i_ctr=i_ctr+1
-!           ENDIF
-!           IF(i_ctr==6)THEN
-            z_vort_glb(jv,jk,jb) = p_diag%vort(jv,jk,jb) + z_beta_plane_vort
-!           ELSE
-!              z_vort_glb(jv,jk,jb) = 0.0_wp
-!           ENDIF
-!         ENDDO
-      END DO
-    END DO
-  ENDDO
-
-CASE(ZERO_CORIOLIS)
-  DO jb = i_startblk_v,i_endblk_v
-    CALL get_indices_e( p_patch, jb, i_startblk_v, i_endblk_v, &
-    &                              i_startidx_v, i_endidx_v, rl_start_v,rl_end_v)
-    DO jk = slev, elev
-      DO jv=i_startidx_v, i_endidx_v
-          z_vort_glb(jv,jk,jb) =  p_diag%vort(jv,jk,jb)
-      END DO
-    END DO
-  ENDDO
-
-END SELECT
-
+! calculate global vorticity for all vertical layers
+!CALL rot_vertex_ocean_total(p_diag%ptp_vn, p_patch, p_diag%vort)
+CALL rot_vertex_ocean_total(vn_old, p_patch, p_diag%vort)
 
 !calculate vorticity flux across dual edge
 IF ( iswm_oce == 1 ) THEN
-  z_vort_flx(:,:,:) = dual_flip_flop(p_patch, vn_old, vn_new, z_vort_glb,p_diag%thick_e)!p_diag%h_e
+  z_vort_flx(:,:,:) = dual_flip_flop(p_patch, vn_old, vn_new, p_diag%vort,p_diag%thick_e)!p_diag%h_e
 ELSEIF ( iswm_oce /= 1 ) THEN
-  z_vort_flx(:,:,:) = dual_flip_flop(p_patch, vn_old, vn_new, z_vort_glb, p_diag%h_e)
+  z_vort_flx(:,:,:) = dual_flip_flop(p_patch, vn_old, vn_new, p_diag%vort, p_diag%h_e)
 ENDIF
  DO jk = slev, elev
  write(*,*)'max/min vorticity:              ', jk,MAXVAL(p_diag%vort(:,jk,:)),&
@@ -336,7 +251,7 @@ DO jb = i_startblk_e,i_endblk_e
     DO je=i_startidx_e, i_endidx_e
       IF ( p_patch%patch_oce%lsm_oce_e(je,jk,jb) == boundary ) THEN
         p_diag%vt(je,jk,jb) = 0.0_wp
-             vn_old(je,jk,jb) = 0.0_wp
+        vn_old(je,jk,jb) = 0.0_wp
       ENDIF
     END DO
   END DO
@@ -346,9 +261,6 @@ CALL rot_vertex_ocean(vn_old, p_diag%vt, p_patch, p_diag%vort)
 CALL verts2edges_scalar( p_diag%vort, p_patch, p_int%v_1o2_e, &
                          z_vort_e, opt_slev=slev,opt_elev=elev, opt_rlstart=3)
 
-SELECT CASE (CORIOLIS_TYPE)
-
-CASE(FULL_CORIOLIS)
   DO jb = i_startblk_e,i_endblk_e
     CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, &
       &                              i_startidx_e, i_endidx_e, rl_start_e,rl_end_e)
@@ -363,58 +275,7 @@ CASE(FULL_CORIOLIS)
       END DO
     END DO
   ENDDO
-CASE(BETA_PLANE_CORIOLIS)
-  z_lat_basin_center_deg = basin_center_lat
-  DO jb = i_startblk_e,i_endblk_e
-    CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, &
-    &                              i_startidx_e, i_endidx_e, rl_start_e,rl_end_e)
-    DO jk = slev, elev
-      DO je=i_startidx_e, i_endidx_e
-        IF ( p_patch%patch_oce%lsm_oce_e(je,jk,jb) == sea ) THEN
-          z_beta_plane_vort =  2.0_wp*omega*(sin(z_lat_basin_center_deg*deg2rad)&
-                           &+(cos(z_lat_basin_center_deg*deg2rad))/re           &
-                           &*p_patch%edges%center(je,jb)%lat)
-          z_vort_flx_RBF(je,jk,jb) =&
-          & p_diag%vt(je,jk,jb)*(z_vort_e(je,jk,jb)+ z_beta_plane_vort)
-        ELSE
-          z_vort_flx_RBF(je,jk,jb) = 0.0_wp
-        ENDIF
-      END DO
-    END DO
-  ENDDO
-CASE(F_PLANE_CORIOLIS)
-  z_lat_basin_center_deg = basin_center_lat
-  z_beta_plane_vort      =  2.0_wp*omega*sin(z_lat_basin_center_deg*deg2rad)
 
-  DO jb = i_startblk_e,i_endblk_e
-    CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, &
-    &                              i_startidx_e, i_endidx_e, rl_start_e,rl_end_e)
-    DO jk = slev, elev
-      DO je=i_startidx_e, i_endidx_e
-        IF ( p_patch%patch_oce%lsm_oce_e(je,jk,jb) == sea ) THEN
-          z_vort_flx_RBF(je,jk,jb) =&
-          & p_diag%vt(je,jk,jb)*(z_vort_e(je,jk,jb)+ z_beta_plane_vort)
-        ELSE
-          z_vort_flx_RBF(je,jk,jb) = 0.0_wp
-        ENDIF
-      END DO
-    END DO
-  ENDDO
-CASE(ZERO_CORIOLIS)
-  DO jb = i_startblk_e,i_endblk_e
-    CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, &
-    &                              i_startidx_e, i_endidx_e, rl_start_e,rl_end_e)
-    DO jk = slev, elev
-      DO je=i_startidx_e, i_endidx_e
-        IF ( p_patch%patch_oce%lsm_oce_e(je,jk,jb) == sea ) THEN
-          z_vort_flx_RBF(je,jk,jb) = p_diag%vt(je,jk,jb)*z_vort_e(je,jk,jb)
-        ELSE
-          z_vort_flx_RBF(je,jk,jb) = 0.0_wp
-        ENDIF
-      END DO
-    END DO
-  ENDDO
-END SELECT
 CALL rbf_vec_interpol_cell( vn_old, p_patch, p_int, p_diag%u,  &
   &                         p_diag%v, opt_slev=slev, opt_elev=elev)
   !write(*,*)'max/min vort flux:', MAXVAL(z_vort_flx_RBF(:,1,:)),MINVAL(z_vort_flx_RBF(:,1,:)) 
@@ -483,7 +344,7 @@ DO jb = i_startblk_e, i_endblk_e
     DO je = i_startidx_e, i_endidx_e
 
       !z_veloc_adv_horz_e(je,jk,jb)  = z_vort_flx_RBF(je,jk,jb) + z_grad_ekin_RBF(je,jk,jb) 
-      !veloc_adv_horz_e(je,jk,jb)= z_vort_flx_RBF(je,jk,jb) + z_grad_ekin_RBF(je,jk,jb)
+      !veloc_adv_horz_e(je,jk,jb)= z_vort_flx(je,jk,jb) + z_grad_ekin_RBF(je,jk,jb)
       !veloc_adv_horz_e(je,jk,jb)    = z_vort_flx_RBF(je,jk,jb)+ p_diag%grad(je,jk,jb)
       veloc_adv_horz_e(je,jk,jb)    = z_vort_flx(je,jk,jb) + p_diag%grad(je,jk,jb)
 !        write(*,*)'horz adv:vort-flx:vort-flx-RBF',je,jk,jb,z_vort_flx(je,1,jb), &
@@ -661,7 +522,7 @@ INTEGER :: i_v1_idx, i_v1_blk, i_v2_idx, i_v2_blk
 INTEGER :: jev, ile,ibe, i_v1_ctr, i_v2_ctr 
 REAL(wp) :: z_e  (nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_vort_glb(nproma,n_zlev,p_patch%nblks_v)
-!REAL(wp) :: z_vort_flx(nproma,n_zlev,p_patch%nblks_e)
+!REAL(wp) :: z_y
 REAL(wp) :: z_grad_ekin_RBF(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_kin_RBF_e(nproma,n_zlev,p_patch%nblks_e)
 INTEGER :: ile1, ibe1, ile2, ibe2, ile3, ibe3
@@ -670,8 +531,9 @@ REAL(wp) :: z_vort_e(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_vort_flx_RBF(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_kin_e_RBF(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_weight_e1,z_weight_e2, z_weight_e3!, z_weight
-REAL(wp) :: z_beta_plane_vort
-REAL(wp) :: z_lat_basin_center_deg
+!REAL(wp) :: z_beta_plane_vort
+!REAL(wp) :: z_f_plane_vort
+!REAL(wp) :: z_lat_basin_center
 !-----------------------------------------------------------------------
 ! #slo# set local variable to zero due to nag -nan compiler-option
 z_e             (:,:,:) = 0.0_wp
@@ -714,7 +576,9 @@ DO jb = i_startblk_e,i_endblk_e
   END DO
 END DO
 
-CALL rot_vertex_ocean(vn, p_diag%vt, p_patch, p_diag%vort)
+!CALL rot_vertex_ocean(vn, p_diag%vt, p_patch, p_diag%vort)
+CALL rot_vertex_ocean_origin(vn, p_diag%vt, p_patch, p_diag%vort)
+!CALL rot_vertex_ocean_total(vn, p_patch, p_diag%vort)
 ! CALL verts2edges_scalar( p_diag%vort, p_patch, p_int%v_1o2_e, &
 !                          z_vort_e, opt_slev=slev,opt_elev=elev, opt_rlstart=3)
 
@@ -750,17 +614,25 @@ CALL rot_vertex_ocean(vn, p_diag%vt, p_patch, p_diag%vort)
 
            z_vort_e(je,jk,jb) =&
            & 0.5_wp*(p_diag%vort(i_v1_idx,jk,i_v1_blk)&
-           &+        p_diag%vort(i_v2_idx,jk,i_v2_blk))!+p_patch%edges%f_e(je,jb)
+           &+        p_diag%vort(i_v2_idx,jk,i_v2_blk))
 
-!         ELSEIF(   i_v1_ctr==p_patch%verts%num_edges(i_v1_idx,i_v1_blk)&
-!         &.AND.i_v2_ctr <p_patch%verts%num_edges(i_v2_idx,i_v2_blk))THEN
-! 
-!           z_vort_e(je,jk,jb) = p_diag%vort(i_v1_idx,jk,i_v1_blk)
-! 
-!         ELSEIF(   i_v1_ctr<p_patch%verts%num_edges(i_v1_idx,i_v1_blk)&
-!         &.AND.i_v2_ctr==p_patch%verts%num_edges(i_v2_idx,i_v2_blk))THEN
+         ELSEIF(   i_v1_ctr==p_patch%verts%num_edges(i_v1_idx,i_v1_blk)&
+         &.AND.i_v2_ctr <p_patch%verts%num_edges(i_v2_idx,i_v2_blk))THEN
 
-          z_vort_e(je,jk,jb) = p_diag%vort(i_v2_idx,jk,i_v2_blk)
+           z_vort_e(je,jk,jb) = (REAL(i_v1_ctr,wp)*p_diag%vort(i_v1_idx,jk,i_v1_blk)&
+           &+ REAL(i_v2_ctr,wp)*p_diag%vort(i_v2_idx,jk,i_v2_blk))/REAL(i_v1_ctr+i_v2_ctr,wp)
+
+         ELSEIF(   i_v1_ctr<p_patch%verts%num_edges(i_v1_idx,i_v1_blk)&
+         &.AND.i_v2_ctr==p_patch%verts%num_edges(i_v2_idx,i_v2_blk))THEN
+
+           z_vort_e(je,jk,jb) = (REAL(i_v1_ctr,wp)*p_diag%vort(i_v1_idx,jk,i_v1_blk)&
+           &+ REAL(i_v2_ctr,wp)*p_diag%vort(i_v2_idx,jk,i_v2_blk))/REAL(i_v1_ctr+i_v2_ctr,wp)
+
+         ELSEIF(   i_v1_ctr<p_patch%verts%num_edges(i_v1_idx,i_v1_blk)&
+         &.AND.i_v2_ctr<p_patch%verts%num_edges(i_v2_idx,i_v2_blk))THEN
+
+           z_vort_e(je,jk,jb) = (REAL(i_v1_ctr,wp)*p_diag%vort(i_v1_idx,jk,i_v1_blk)&
+           &+ REAL(i_v2_ctr,wp)*p_diag%vort(i_v2_idx,jk,i_v2_blk))/REAL(i_v1_ctr+i_v2_ctr,wp)
          ELSE
            z_vort_e(je,jk,jb) = 0.0_wp
         ENDIF
@@ -778,10 +650,6 @@ CALL rot_vertex_ocean(vn, p_diag%vt, p_patch, p_diag%vort)
     END DO
   ENDDO
 
-SELECT CASE (CORIOLIS_TYPE)
-
-CASE(FULL_CORIOLIS)
-
   DO jb = i_startblk_e,i_endblk_e
     CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, &
       &                              i_startidx_e, i_endidx_e, rl_start_e,rl_end_e)
@@ -789,70 +657,13 @@ CASE(FULL_CORIOLIS)
       DO je=i_startidx_e, i_endidx_e
         IF ( p_patch%patch_oce%lsm_oce_e(je,jk,jb) == sea ) THEN
          z_vort_flx_RBF(je,jk,jb) =&
-          & p_diag%vt(je,jk,jb)*(z_vort_e(je,jk,jb)+ p_patch%edges%f_e(je,jb))         !& p_diag%vt(je,jk,jb)*p_patch%edges%f_e(je,jb)
+          & p_diag%vt(je,jk,jb)*(z_vort_e(je,jk,jb)+ p_patch%edges%f_e(je,jb))
         ELSE
           z_vort_flx_RBF(je,jk,jb) = 0.0_wp
         ENDIF
       END DO
     END DO
   ENDDO
-CASE(BETA_PLANE_CORIOLIS)
-  z_lat_basin_center_deg = 30.0_wp
-  DO jb = i_startblk_e,i_endblk_e
-    CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, &
-    &                              i_startidx_e, i_endidx_e, rl_start_e,rl_end_e)
-    DO jk = slev, elev
-      DO je=i_startidx_e, i_endidx_e
-        !write(123,*)'lat',je,jb,p_patch%edges%center(je,jb)%lat,p_patch%edges%center(je,jb)%lat*rad2deg
-        IF ( p_patch%patch_oce%lsm_oce_e(je,jk,jb) == sea ) THEN
-          z_beta_plane_vort =  2.0_wp*omega*(sin(z_lat_basin_center_deg*deg2rad)&
-                           &+(cos(z_lat_basin_center_deg*deg2rad))/re           &
-                           &*p_patch%edges%center(je,jb)%lat)
-          z_vort_flx_RBF(je,jk,jb) =&
-          & p_diag%vt(je,jk,jb)*(z_vort_e(je,jk,jb)+ z_beta_plane_vort)
-        ELSE
-          z_vort_flx_RBF(je,jk,jb) = 0.0_wp
-        ENDIF
-      END DO
-    END DO
-  ENDDO
-CASE(F_PLANE_CORIOLIS)
-  z_lat_basin_center_deg = 30.0_wp
-  z_beta_plane_vort      =  2.0_wp*omega*sin(z_lat_basin_center_deg*deg2rad)
-
-  DO jb = i_startblk_e,i_endblk_e
-    CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, &
-    &                              i_startidx_e, i_endidx_e, rl_start_e,rl_end_e)
-    DO jk = slev, elev
-      DO je=i_startidx_e, i_endidx_e
-        !write(123,*)'lat',je,jb,p_patch%edges%center(je,jb)%lat,p_patch%edges%center(je,jb)%lat*rad2deg
-        IF ( p_patch%patch_oce%lsm_oce_e(je,jk,jb) == sea ) THEN
-          z_vort_flx_RBF(je,jk,jb) =&
-          & p_diag%vt(je,jk,jb)*(z_vort_e(je,jk,jb)+ z_beta_plane_vort)
-        ELSE
-          z_vort_flx_RBF(je,jk,jb) = 0.0_wp
-        ENDIF
-      END DO
-    END DO
-  ENDDO
-CASE(ZERO_CORIOLIS)
-  DO jb = i_startblk_e,i_endblk_e
-    CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, &
-    &                              i_startidx_e, i_endidx_e, rl_start_e,rl_end_e)
-    DO jk = slev, elev
-      DO je=i_startidx_e, i_endidx_e
-        !write(123,*)'lat',je,jb,p_patch%edges%center(je,jb)%lat,p_patch%edges%center(je,jb)%lat*rad2deg
-        IF ( p_patch%patch_oce%lsm_oce_e(je,jk,jb) == sea ) THEN
-          z_vort_flx_RBF(je,jk,jb) = p_diag%vt(je,jk,jb)*z_vort_e(je,jk,jb)
-        ELSE
-          z_vort_flx_RBF(je,jk,jb) = 0.0_wp
-        ENDIF
-      END DO
-    END DO
-  ENDDO
-
-END SELECT
-
 
 CALL rbf_vec_interpol_cell( vn, p_patch, p_int, p_diag%u,  &
   &                         p_diag%v, opt_slev=slev, opt_elev=elev)
@@ -1044,28 +855,20 @@ DO jb = i_startblk, i_endblk
                        i_startidx, i_endidx, 1,min_rlcell)
   DO jc = i_startidx, i_endidx
     z_dolic = p_patch%patch_oce%dolic_c(jc,jb)
-    DO jk = slev,z_dolic
-
-      !check if we are on land: To be replaced by 3D lsm
-      !IF (p_patch%patch_oce%dolic_c(jc,jb) /= 0) THEN
-        ! #slo# 2011-05-11 - where is bc_top_veloc?
-        !1b) ocean bottom 
-        IF ( jk == p_patch%patch_oce%dolic_c(jc,jb) ) THEN
-
-          z_adv_u_i(jc,jk,jb)%x = p_diag%w(jc,jk-1,jb)*p_aux%bc_bot_veloc_cc(jc,jb)%x
-
-        !1c) ocean interior 
-        ELSEIF( jk >slev .AND. jk < p_patch%patch_oce%dolic_c(jc,jb))THEN
-
-          z_adv_u_i(jc,jk,jb)%x&
-            & = p_diag%w(jc,jk-1,jb)*(p_diag%p_vn(jc,jk-1,jb)%x - p_diag%p_vn(jc,jk,jb)%x)&
-            & / p_patch%patch_oce%del_zlev_i(jk-1)
-! ! write(*,*)'vert adv:v: ',jk, jc,jb,w_c(jc,jk,jb),&
+    ! #slo# 2011-05-11 - where is  1a) bc_top_veloc?
+    ! 1b) ocean interior 
+    DO jk = slev+1, z_dolic-1
+        z_adv_u_i(jc,jk,jb)%x&
+          & = p_diag%w(jc,jk-1,jb)*(p_diag%p_vn(jc,jk-1,jb)%x - p_diag%p_vn(jc,jk,jb)%x)&
+          & / p_patch%patch_oce%del_zlev_i(jk-1)
+! write(*,*)'vert adv:v: ',jk, jc,jb,w_c(jc,jk,jb),&
 !&( p_diag%p_vn(jc,jk-1,jb)%x - p_diag%p_vn(jc,jk,jb)%x )
-
-        ENDIF
-      !ENDIF
     END DO
+    ! 1c) ocean bottom
+    ! #slo# 2011-05-12 - is w(0) defined? Secure for dolic>1 at wet points
+    IF ( z_dolic>0 ) &  ! wet points only 
+      & z_adv_u_i(jc,z_dolic,jb)%x = p_diag%w(jc,z_dolic-1,jb)*p_aux%bc_bot_veloc_cc(jc,jb)%x
+
   END DO
 ! write(*,*)'A max/min vert adv:',jk, maxval(z_adv_u_i(:,jk,:)), minval(z_adv_u_i(:,jk,:)),&
 ! & maxval(z_adv_v_i(:,jk,:)), minval(z_adv_v_i(:,jk,:))
@@ -1074,49 +877,32 @@ END DO
 ! ! Step 2: Map product of vertical velocity & vertical derivative from top of prism to mid position.
 ! ! This mapping is the transposed of the vertical differencing.
 ! 
-! !1) From surface down to one layer before bottom
-!     #slo# 2011-05-11 - replace by consistent formulation: as in step 1 - incl. bottom layer
-DO jk = slev, elev-1
-  DO jb = i_startblk, i_endblk
-!   z_dolic = p_patch%patch_oce%dolic_c(jc,jb)
-!   DO jk = slev,z_dolic
-    CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, 1,min_rlcell)
-    DO jc = i_startidx, i_endidx
-      ! #slo# 2011-04-01 - dolic_c is now correct
-      IF ( jk <= p_patch%patch_oce%dolic_c(jc,jb) ) THEN  ! #slo# 05-11 - jk<dolic_c ??
+DO jb = i_startblk, i_endblk
+  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,  &
+    &                i_startidx, i_endidx, 1,min_rlcell)
+  DO jc = i_startidx, i_endidx
+    z_dolic = p_patch%patch_oce%dolic_c(jc,jb)
+    ! 2b) ocean interior
+    DO jk = slev,z_dolic-1
         z_adv_u_m(jc,jk,jb)%x &
         & = (p_patch%patch_oce%del_zlev_i(jk+1)*z_adv_u_i(jc,jk+1,jb)%x&
         & +  p_patch%patch_oce%del_zlev_i(jk)*z_adv_u_i(jc,jk,jb)%x) &
         & / (p_patch%patch_oce%del_zlev_i(jk+1)+p_patch%patch_oce%del_zlev_i(jk))
-      ENDIF
     END DO
+    ! 2c) ocean bottom
+    IF ( z_dolic>0 ) &  ! wet points only
+      &  z_adv_u_m(jc,z_dolic,jb)%x = 0.0_wp
+! #slo# 2011-05-11 - Attention: dolic (not elev) must be used here for non-zero values
+!     & = (0.5_wp*p_patch%patch_oce%del_zlev_m(z_dolic)*z_adv_u_i(jc,z_dolic+1,jb)%x&
+!     & +         p_patch%patch_oce%del_zlev_i(z_dolic)*z_adv_u_i(jc,z_dolic,  jb)%x)&
+!     & / (2.0_wp*p_patch%patch_oce%del_zlev_m(z_dolic))
   END DO
 ! write(*,*)'B max/min vert adv:',jk, maxval(z_adv_u_m(:,jk,:)), minval(z_adv_u_m(:,jk,:)),&
 ! & maxval(z_adv_v_m(:,jk,:)), minval(z_adv_v_m(:,jk,:))
 END DO
 
-! !Bottom layer
-! !The value of p_patch%patch_oce%del_zlev_i at the botom is 0.5*p_patch%patch_oce%del_zlev_m
-! !The dimensioning of the first arrays requires to seperate the vertical loop.
-DO jb = i_startblk, i_endblk
-  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-    &                i_startidx, i_endidx, 1,min_rlcell)
-  DO jc = i_startidx, i_endidx
-    ! #slo# 2011-05-11 - replace by consistent formulation: vertical loop down to dolic
-    IF ( p_patch%patch_oce%dolic_c(jc,jb)>0 ) THEN  ! wet points only
-      z_dolic = p_patch%patch_oce%dolic_c(jc,jb)
-      z_adv_u_m(jc,z_dolic,jb)%x = 0.0_wp!&
-! #slo# 2011-05-11 - Attention: not elev but dolic must be used here for non-zero values
-!       & = (0.5_wp*p_patch%patch_oce%del_zlev_m(elev)*z_adv_u_i(jc,elev+1,jb)%x&
-!       & +         p_patch%patch_oce%del_zlev_i(elev)*z_adv_u_i(jc,elev,jb)%x) &
-!       & / (2.0_wp*p_patch%patch_oce%del_zlev_m(elev))
-    END IF
-  END DO
-END DO
-
 ! ! Step 3: Map result of previous calculations from cell centers to edges (for all vertical layers)
-CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e,&
+CALL map_cell2edges( p_patch, z_adv_u_m, veloc_adv_vert_e, &
   &                  opt_slev=slev, opt_elev=elev )
 
 !  DO jk=1,n_zlev
@@ -1177,8 +963,8 @@ REAL(wp), INTENT(out) :: veloc_adv_vert_e(:,:,:)
 INTEGER :: slev, elev     ! vertical start and end level
 INTEGER :: jc, jk, jb, z_dolic
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-REAL(wp) :: dzi, dzi_m1, dzi_p1
-REAL(wp) :: dzm, dzm_m1, dzm_p1
+REAL(wp) :: dzi, dzi_m1!, dzi_p1
+REAL(wp) :: dzm, dzm_m1!, dzm_p1
 
 REAL(wp) :: z_adv_diff_u(nproma,n_zlev,p_patch%nblks_c),  &
   &         z_adv_diff_v(nproma,n_zlev,p_patch%nblks_c),  &

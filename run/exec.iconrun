@@ -164,10 +164,12 @@ case ${IEQ} in
           # OGRIDNAME=iconR${R}B0${B}-ocean_aqua_planet_${OPT}.nc  #  ?include optimization?
           fi
           if [[ x$USE_ETOPO = "xY" ]] ; then
-            OGRIDNAME=iconR${R}B0${B}-ocean_etopo40_planet.nc
+          # OGRIDNAME=iconR${R}B0${B}-ocean_etopo40_planet.nc      #  including bathymetry
+            OGRIDNAME=iconR${R}B0${B}-ocean_etopo40_flat.nc        #  flat bottom
           fi
           if [[ x$USE_BASIN = "xY" ]] ; then
-            OGRIDNAME=iconR${R}B0${B}-ocean_basin.nc
+          # OGRIDNAME=iconR${R}B0${B}-ocean_basin.nc               #  standard name
+            OGRIDNAME=iconR${R}B0${B}-ocean_bas10-80N.nc           #  new Stommel basin 10-80N
           fi
         fi
         #

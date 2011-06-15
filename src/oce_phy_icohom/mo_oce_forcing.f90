@@ -56,10 +56,11 @@ MODULE mo_oce_forcing
 USE mo_kind,                ONLY: wp
 USE mo_run_nml,             ONLY: nproma
 USE mo_ocean_nml,           ONLY: iforc_oce, analyt_stat, no_tracer,itestcase_oce, &
-                                 & basin_center_lat, basin_center_lon, basin_width_deg,&
-                                 & basin_height_deg  
-
+                                & basin_center_lat, basin_center_lon, basin_width_deg,&
+                                & basin_height_deg  
+USE mo_dynamics_nml,        ONLY: nold
 USE mo_model_domain,        ONLY: t_patch
+USE mo_oce_state,           ONLY: t_hydro_ocean_state
 USE mo_exception,           ONLY: finish, message !, message_text
 USE mo_math_constants,      ONLY: pi, deg2rad
 USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, sea_boundary!,    &
@@ -98,9 +99,7 @@ TYPE t_ho_sfc_flx
     &  forc_freshw(:,:),   &    !(mass-)forcing of height equation (fresh-water flux)
     &  forc_tracer(:,:,:), &    !forcing of tracers. Last index refers to tracer id (1=temperature, 2=salinity)
     &  forc_tracer_relax(:,:,:) !tracer relaxation. Last index refers to tracer id (1=temperature, 2=salinity)
-!     &  forc_heat(:,:),     & ! forcing of temperature equation (heat-flux)
-!     &  forc_temp(:,:),     & ! forcing of temperature equation (restoring)
-!     &  forc_sal(:,:)         ! forcing of salinity equation (restoring)
+
 
     TYPE(t_cartesian_coordinates), ALLOCATABLE :: forc_wind_cc(:,:) !wind forcing with cartesian vector, located at cell centers
 
@@ -228,7 +227,7 @@ CONTAINS
   p_sfc_flx%forc_wind_u   = 0.0_wp
   p_sfc_flx%forc_wind_v   = 0.0_wp
   p_sfc_flx%forc_freshw   = 0.0_wp
-
+ 
   DO jb = i_startblk_c, i_endblk_c
     CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c,&
                      & i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
@@ -306,9 +305,10 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
-  SUBROUTINE update_ho_sfcflx(p_patch, p_sfc_flx)
+  SUBROUTINE update_ho_sfcflx(p_patch, p_os, p_sfc_flx)
 
   TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
+  TYPE(t_hydro_ocean_state)         :: p_os
   TYPE(t_ho_sfc_flx)                :: p_sfc_flx
   !
   ! local variables
@@ -328,27 +328,31 @@ CONTAINS
   REAL(wp) :: z_forc_period = 1.0_wp !=1.0: single gyre
                                      !=2.0: double gyre
                                      !=n.0: n-gyre 
-  REAL(wp) :: y_length_deg           !basin extension in y direction in degrees
+  REAL(wp) :: y_length               !basin extension in y direction in degrees
+  !REAL(wp) :: z_T_obs(nproma,p_patch%nblks_c)
+  REAL(wp) :: z_T_init(nproma,p_patch%nblks_c)
+  REAL(wp) :: z_perlat, z_perlon, z_permax, z_perwid, z_relax, z_dst
+  INTEGER :: z_dolic
   CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_forcing:update_ho_sfcflx'
   !-------------------------------------------------------------------------
-    rl_start_c = 1
-    rl_end_c = min_rlcell
-    i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
-    i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
+  rl_start_c   = 1
+  rl_end_c     = min_rlcell
+  i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
+  i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
 
-
-  !IF(FORCING_TYPE==ANALYTICAL_STATIONARY)THEN
   SELECT CASE (iforc_oce)
 
   CASE (0)
+
     CALL message(TRIM(routine), 'No wind forcing applied' )
 
   CASE (analyt_stat)
 
-  SELECT CASE (itestcase_oce)
+    SELECT CASE (itestcase_oce)
 
-  CASE(27)
-      y_length_deg = basin_height_deg
+    CASE(27)
+      CALL message(TRIM(routine), 'Testcase (27): Apply stationary wind forcing' )
+      y_length = basin_height_deg * deg2rad
       DO jb = i_startblk_c, i_endblk_c    
         CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
          &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
@@ -361,7 +365,7 @@ CONTAINS
             z_lon = p_patch%cells%center(jc,jb)%lon
 
             p_sfc_flx%forc_wind_u(jc,jb) =&
-            & cos(z_forc_period*pi*(z_lat-y_length_deg*deg2rad)/(y_length_deg*deg2rad)) 
+            & cos(z_forc_period*pi*(z_lat-y_length)/y_length) 
             !p_sfc_flx%forc_wind_u(jc,jb) = sin(pi*(z_lat/(60.0_wp*deg2rad))) 
           ELSE
             p_sfc_flx%forc_wind_u(jc,jb) = 0.0_wp
@@ -376,82 +380,83 @@ CONTAINS
                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
-!write(*,*)'sfc forcing', jc,jb,p_sfc_flx%forc_wind_u(jc,jb), p_sfc_flx%forc_wind_v(jc,jb)
+  !write(*,*)'sfc forcing', jc,jb,p_sfc_flx%forc_wind_u(jc,jb), p_sfc_flx%forc_wind_v(jc,jb)
 
 
-!           IF(p_patch%patch_oce%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
-!             !domain is from 30 deg north to -30 deg south, length=60 degrees 
-!             !zonal_str = cos(pi*(z_lat-60.0_wp*deg2rad)/(120.0_wp*deg2rad)) 
-!             zonal_str = cos(pi*(z_lat-60*deg2rad)/(60.0_wp*deg2rad))
-!             p_sfc_flx%forc_wind_cc(jc,jb)%x(1) = zonal_str*sin(z_lon)
-!             p_sfc_flx%forc_wind_cc(jc,jb)%x(2) = zonal_str*cos(z_lon)
-!             p_sfc_flx%forc_wind_cc(jc,jb)%x(3) = 0.0_wp
-!             CALL cvec2gvec(p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
-!                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
-!                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(3),&
-!                          & z_lon, z_lat,                      &
-!                          & p_sfc_flx%forc_wind_u(jc,jb),      &
-!                          & p_sfc_flx%forc_wind_v(jc,jb))
-! ! write(*,*)'Danilovs Wind', jc,jb,p_sfc_flx%forc_wind_cc(jc,jb)%x(1:2), &
-! ! &p_sfc_flx%forc_wind_u(jc,jb), p_sfc_flx%forc_wind_v(jc,jb)
-!            ELSE
-!              p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
-!              p_sfc_flx%forc_wind_u(jc,jb)       = 0.0_wp
-!              p_sfc_flx%forc_wind_v(jc,jb)       = 0.0_wp
-!            ENDIF 
+  !           IF(p_patch%patch_oce%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
+  !             !domain is from 30 deg north to -30 deg south, length=60 degrees 
+  !             !zonal_str = cos(pi*(z_lat-60.0_wp*deg2rad)/(120.0_wp*deg2rad)) 
+  !             zonal_str = cos(pi*(z_lat-60*deg2rad)/(60.0_wp*deg2rad))
+  !             p_sfc_flx%forc_wind_cc(jc,jb)%x(1) = zonal_str*sin(z_lon)
+  !             p_sfc_flx%forc_wind_cc(jc,jb)%x(2) = zonal_str*cos(z_lon)
+  !             p_sfc_flx%forc_wind_cc(jc,jb)%x(3) = 0.0_wp
+  !             CALL cvec2gvec(p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
+  !                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
+  !                          & p_sfc_flx%forc_wind_cc(jc,jb)%x(3),&
+  !                          & z_lon, z_lat,                      &
+  !                          & p_sfc_flx%forc_wind_u(jc,jb),      &
+  !                          & p_sfc_flx%forc_wind_v(jc,jb))
+  ! ! write(*,*)'Danilovs Wind', jc,jb,p_sfc_flx%forc_wind_cc(jc,jb)%x(1:2), &
+  ! ! &p_sfc_flx%forc_wind_u(jc,jb), p_sfc_flx%forc_wind_v(jc,jb)
+  !            ELSE
+  !              p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
+  !              p_sfc_flx%forc_wind_u(jc,jb)       = 0.0_wp
+  !              p_sfc_flx%forc_wind_v(jc,jb)       = 0.0_wp
+  !            ENDIF 
         END DO
       END DO
 
-  CASE(30)
-    CALL message(TRIM(routine), 'Apply stationary wind forcing' )
-    !This implements formula (75), (76) in the Williamson JCP paper from 1992
+    CASE(30)
+      CALL message(TRIM(routine), 'Testcase (30): Apply stationary wind forcing' )
+      !This implements formula (75), (76) in the Williamson JCP paper from 1992
 
-    ! #slo# 2010-12-08: Stommel gyre test (see MITGCM and Comblen et al. 2008)
-    ! Tau = tau_0 * sin(Pi*phi/L_phi)
-    ! A 60x60 deg ocean basin is used here - 30W-30E, 30S-30N (=-pi/3,+pi/3), L_phi=60 deg = pi/6
-    !Latitudes in ICON vary from -pi/2 to pi/2, if the latitude equals 0, then the
-    !forcing should be maximal, i.e. the cos has to evaluate to 1 and its argument should equal 0.
-    !tau_0   = wstress_coeff       !  see MITGCM
-    !z_L_phi = pi/6.0_wp
-    y_length_deg = basin_height_deg
-    DO jb = i_startblk_c, i_endblk_c
+      ! #slo# 2010-12-08: Stommel gyre test (see MITGCM and Comblen et al. 2008)
+      ! Tau = tau_0 * sin(Pi*phi/L_phi)
+      ! A 60x60 deg ocean basin is used here - 30W-30E, 30S-30N (=-pi/3,+pi/3), L_phi=60 deg = pi/6
+      !Latitudes in ICON vary from -pi/2 to pi/2, if the latitude equals 0, then the
+      !forcing should be maximal, i.e. the cos has to evaluate to 1 and its argument should equal 0.
+      !tau_0   = wstress_coeff       !  see MITGCM
+      !z_L_phi = pi/6.0_wp
+      y_length = basin_height_deg * deg2rad
+      DO jb = i_startblk_c, i_endblk_c
 
-      CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, &
-      &                                i_startidx_c, i_endidx_c,rl_start_c,rl_end_c)
-      DO jc = i_startidx_c, i_endidx_c
+        CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, &
+        &                                i_startidx_c, i_endidx_c,rl_start_c,rl_end_c)
+        DO jc = i_startidx_c, i_endidx_c
 
-        z_lat = p_patch%cells%center(jc,jb)%lat
-        z_lon = p_patch%cells%center(jc,jb)%lon
+          z_lat = p_patch%cells%center(jc,jb)%lat
+          z_lon = p_patch%cells%center(jc,jb)%lon
 
-        IF(p_patch%patch_oce%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
+          IF(p_patch%patch_oce%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
 
-          p_sfc_flx%forc_wind_u(jc,jb) = cos(z_forc_period*pi*(z_lat-y_length_deg*deg2rad)&
-                                       &/(y_length_deg*deg2rad)) 
-          !p_sfc_flx%forc_wind_u(jc,jb) = sin(pi*(z_lat/(60.0_wp*deg2rad))) 
-        ELSE
-          p_sfc_flx%forc_wind_u(jc,jb) = 0.0_wp
-        ENDIF !write(*,*)'forc',jc,jb, z_lat, z_lat*180.0_wp/pi, p_sfc_flx%forc_wind_u(jc,jb) 
-        p_sfc_flx%forc_wind_v(jc,jb) = 0.0_wp
+            p_sfc_flx%forc_wind_u(jc,jb) = cos(z_forc_period*pi*(z_lat-y_length)&
+                                         &/y_length) 
+            !p_sfc_flx%forc_wind_u(jc,jb) = sin(pi*(z_lat/(60.0_wp*deg2rad))) 
+          ELSE
+            p_sfc_flx%forc_wind_u(jc,jb) = 0.0_wp
+          ENDIF !write(*,*)'forc',jc,jb, z_lat, z_lat*180.0_wp/pi, p_sfc_flx%forc_wind_u(jc,jb) 
+          p_sfc_flx%forc_wind_v(jc,jb) = 0.0_wp
 
-        !Init cartesian wind
-        IF(p_patch%patch_oce%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
-          CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),      &
-                         & p_sfc_flx%forc_wind_v(jc,jb),      &
-                         & p_patch%cells%center(jc,jb)%lon,   &
-                         & p_patch%cells%center(jc,jb)%lat,   &
-                         & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
-                         & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
-                         & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
-                         !write(*,*)'sfc forcing', jc,jb,p_sfc_flx%forc_wind_u(jc,jb), p_sfc_flx%forc_wind_v(jc,jb)
-        ELSE
-          p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
-        ENDIF
+          !Init cartesian wind
+          IF(p_patch%patch_oce%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
+            CALL gvec2cvec(  p_sfc_flx%forc_wind_u(jc,jb),      &
+                           & p_sfc_flx%forc_wind_v(jc,jb),      &
+                           & p_patch%cells%center(jc,jb)%lon,   &
+                           & p_patch%cells%center(jc,jb)%lat,   &
+                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(1),&
+                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(2),&
+                           & p_sfc_flx%forc_wind_cc(jc,jb)%x(3))
+                           !write(*,*)'sfc forcing', jc,jb,p_sfc_flx%forc_wind_u(jc,jb), p_sfc_flx%forc_wind_v(jc,jb)
+          ELSE
+            p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
+          ENDIF
+        END DO
       END DO
-   END DO
-   write(*,*)'max/min-Forcing',maxval(p_sfc_flx%forc_wind_u), minval(p_sfc_flx%forc_wind_u)
+      write(*,*)'max/min-Forcing',maxval(p_sfc_flx%forc_wind_u), minval(p_sfc_flx%forc_wind_u)
 
-   CASE(32)
-      y_length_deg = basin_height_deg
+    CASE(32)
+      CALL message(TRIM(routine), 'Testcase (32): Apply stationary wind forcing' )
+      y_length = basin_height_deg * deg2rad
       DO jb = i_startblk_c, i_endblk_c    
         CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
          &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)
@@ -463,7 +468,7 @@ CONTAINS
           IF(p_patch%patch_oce%lsm_oce_c(jc,1,jb)<=sea_boundary)THEN
             !domain is from 30 deg north to -30 deg south, length=60 degrees 
             !zonal_str = cos(pi*(z_lat-60.0_wp*deg2rad)/(120.0_wp*deg2rad)) 
-            zonal_str = cos(z_forc_period*pi*(z_lat-y_length_deg*deg2rad)/(y_length_deg*deg2rad))
+            zonal_str = cos(z_forc_period*pi*z_lat-y_length/y_length)
             p_sfc_flx%forc_wind_cc(jc,jb)%x(1) = zonal_str*sin(z_lon)
             p_sfc_flx%forc_wind_cc(jc,jb)%x(2) = zonal_str*cos(z_lon)
             p_sfc_flx%forc_wind_cc(jc,jb)%x(3) = 0.0_wp
@@ -474,8 +479,67 @@ CONTAINS
                          & z_lon, z_lat,                      &
                          & p_sfc_flx%forc_wind_u(jc,jb),      &
                          & p_sfc_flx%forc_wind_v(jc,jb))
-! write(*,*)'Danilovs Wind', jc,jb,p_sfc_flx%forc_wind_cc(jc,jb)%x(1:2), &
-! &p_sfc_flx%forc_wind_u(jc,jb), p_sfc_flx%forc_wind_v(jc,jb)
+
+
+            ! Add temperature perturbation at new values
+           z_perlat = basin_center_lat + 0.1_wp*basin_height_deg!             !45.5_wp
+           z_perlon =  0.1_wp*basin_width_deg                                 !4.5_wp
+           z_permax  = 10.0_wp!20.1_wp
+           z_perwid  =  5.0_wp!1.5_wp
+
+!           z_permax  = 20.1_wp
+!           z_perwid  =  1.5_wp
+!             z_perlat  = 25.0_wp
+!             z_perlon  = 8.0_wp
+!             z_permax  = -2.0_wp
+!             z_perwid  =  5.0_wp
+            z_relax = 10.0_wp/(30.0_wp*24.0_wp*3600.0_wp)
+
+            z_lat = p_patch%cells%center(jc,jb)%lat
+            z_lon = p_patch%cells%center(jc,jb)%lon
+
+            z_dolic = p_patch%patch_oce%dolic_c(jc,jb)
+            IF (z_dolic > 0) THEN
+              ! jk=1:  250m  T= 20 - 0.9375 = 19.0625
+              ! jk=2:  750m  T= 20 - 2.8125 = 17.1875
+              ! jk=3: 1250m  T= 20 - 4.6875 = 15.3125
+              ! jk=4: 1750m  T= 20 - 6.5625 = 13.4375
+
+              z_dst=sqrt((z_lat-z_perlat*deg2rad)**2+(z_lon-z_perlon*deg2rad)**2)
+              !write(123,*)'zdist',z_lat,z_lon,z_dst,10.5_wp*deg2rad
+              ! at distance > 25.5 degrees: 
+              !  e.g. at 30 deg distance the added perturbation would be ~ exp(-400) ~ 0.0
+              ! Now without cycle in loop - perturbation is very small at z_dst>10 deg
+              !  e.g. at 3 deg distance is
+              !   T(jk=1)=19.0625+20.1*exp(-4)*sin(pi* 250/4000) = 19.06 + 20.1*0.18*0.06 = 19.28
+              !   T(jk=4)=13.4375+20.1*exp(-4)*sin(pi*1750/4000) = 13.44 + 20.1*0.18*0.42 = 15.00
+
+              !init temperature
+              z_T_init(jc,jb) = 20.0_wp&
+              & - p_patch%patch_oce%zlev_i(1)*15.0_wp/p_patch%patch_oce%zlev_i(z_dolic+1)
+
+               !add local hot perturbation 
+!              IF(z_dst<=3.5_wp*deg2rad)THEN
+                z_T_init(jc,jb)= z_T_init(jc,jb)  &
+                &   + z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2) &
+                &   * sin(pi*p_patch%patch_oce%zlev_m(1)/p_patch%patch_oce%zlev_i(z_dolic+1))
+!              ENDIF
+
+              !Add local cold perturbation
+              !IF(z_dst<=5.0_wp*deg2rad)THEN
+              z_T_init(jc,jb) = z_T_init(jc,jb)     &
+              &   - z_permax*exp(-(z_dst/(z_perwid*deg2rad))**2)
+
+              p_sfc_flx%forc_tracer_relax(jc,jb,1)=z_T_init(jc,jb)
+
+              p_sfc_flx%forc_tracer(jc,jb, 1)=z_relax*p_patch%patch_oce%del_zlev_i(1)*&
+              &          (p_sfc_flx%forc_tracer_relax(jc,jb,1)&
+              &         -p_os%p_prog(nold(1))%tracer(jc,1,jb,1))
+              !ENDIF 
+            END IF
+
+  ! write(*,*)'Danilovs Wind', jc,jb,p_sfc_flx%forc_wind_cc(jc,jb)%x(1:2), &
+  ! &p_sfc_flx%forc_wind_u(jc,jb), p_sfc_flx%forc_wind_v(jc,jb)
            ELSE
              p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
              p_sfc_flx%forc_wind_u(jc,jb)       = 0.0_wp
@@ -484,20 +548,23 @@ CONTAINS
 
         END DO
       END DO
+      write(*,*)'max/min-Wind-Forcing',maxval(p_sfc_flx%forc_wind_u), minval(p_sfc_flx%forc_wind_u)
+      write(*,*)'max/min-Temp-Flux',maxval(p_sfc_flx%forc_tracer(:,:,1)),&
+                                  & minval(p_sfc_flx%forc_tracer(:,:,1))
 
-   CASE DEFAULT
-    CALL message(TRIM(routine), 'STOP: Analytical Forcing for this testcase not implemented' )
-   CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION NOT SUPPORTED - TERMINATE')
-  END SELECT
+    CASE DEFAULT
+      CALL message(TRIM(routine), 'STOP: Analytical Forcing for this testcase not implemented' )
+      CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION NOT SUPPORTED - TERMINATE')
+    END SELECT
 
 ! CASE(NCEP)
-!   CALL message(TRIM(routine), 'STOP: Option not implemented yet' )
+!   CALL message(TRIM(routine), 'STOP: Option NCEP not implemented yet' )
 ! CASE(CORE)
-!   CALL message(TRIM(routine), 'STOP: Option not implemented yet' )
+!   CALL message(TRIM(routine), 'STOP: Option CORE not implemented yet' )
 
   CASE DEFAULT
     CALL message(TRIM(routine), 'STOP: Forcing option not implemented yet' )
-!   CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION NOT SUPPORTED - TERMINATE')
+    CALL finish(TRIM(routine), 'CHOSEN FORCING OPTION NOT SUPPORTED - TERMINATE')
   END SELECT
 
   END SUBROUTINE update_ho_sfcflx

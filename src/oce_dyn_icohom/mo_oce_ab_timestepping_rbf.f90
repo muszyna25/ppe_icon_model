@@ -174,6 +174,15 @@ write(*,*)'on entry: vn:',&
 & maxval(p_os%p_prog(nnew(1))%vn),minval(p_os%p_prog(nnew(1))%vn),&
 & maxval(p_os%p_prog(nold(1))%vn),minval(p_os%p_prog(nold(1))%vn)
 
+! #slo# 2011-05-23 - new abort condition for elevation and vn:
+IF ( (maxval(p_os%p_prog(nnew(1))%h)  >  1.e20_wp) .or. &
+  &  (minval(p_os%p_prog(nnew(1))%h)  < -1.e20_wp) .or. &
+  &  (maxval(p_os%p_prog(nold(1))%vn) >  1.e20_wp) .or. &
+  &  (minval(p_os%p_prog(nnew(1))%vn) < -1.e20_wp) ) THEN
+     CALL message('Solve free surface AB mimetic: ',' INSTABIL VN or H - stop now ')
+     CALL finish ('Solve free surface AB mimetic: ',' INSTABIL VN or H !!')
+END IF
+
 !calculte velocity reconstructions to be used in the sbr below. Results
 !of thus reconstruction processa re stored in diag%vt and in diag%u and diag%v
 CALL rbf_vec_interpol_edge( p_os%p_prog(nold(1))%vn,&
@@ -216,7 +225,7 @@ write(876,*)'main RBF max/min u, v:',&
   END DO
 END DO
 
-CALL update_ho_sfcflx(p_patch, p_sfc_flx)
+!CALL update_ho_sfcflx(p_patch, p_os, p_sfc_flx)
 
 ! Apply windstress 
 CALL top_bound_cond_horz_veloc(p_patch, p_os, p_phys_param, p_sfc_flx,  &
@@ -270,17 +279,17 @@ z_h_c = 0.0_wp!p_os%p_prog(nold(1))%h
 
 !The lhs needs complete thicknesses at edges for 3D and SWE (including bathymetry)
 !IF( iswm_oce == 1 ) THEN  
-  z_h_e = p_os%p_diag%thick_e
+  z_h_e = p_os%p_diag%thick_e   ! fluid thickness
 !ELSEIF( iswm_oce /= 1 ) THEN 
-!  z_h_e = p_os%p_diag%h_e         ! #slo# 2011-02-21 bugfix (for mimetic only)
+!  z_h_e = p_os%p_diag%h_e      ! #slo# 2011-02-21 bugfix (for mimetic only)
 !ENDIF
 
-CALL gmres_oce( z_h_c,                  &  ! x. Input is the first guess
-      &        lhs_surface_height_ab_RBF,   &  ! function calculating l.h.s.
-      &        z_h_e,                   &
-      &        p_os%p_diag%thick_c,     &
-      &        p_os%p_prog(nold(1))%h,  &
-      &        p_patch,                 & 
+CALL gmres_oce( z_h_c,                   &  ! arg 1 of lhs. x input is the first guess
+      &        lhs_surface_height_ab_RBF,&  ! function calculating l.h.s.
+      &        z_h_e,                   &   !arg 5 of lhs
+      &        p_os%p_diag%thick_c,     &   !arg 6 of lhs, not used, just for compatibility with interface gmres_oce (also used for mimetic)
+      &        p_os%p_prog(nold(1))%h,  &   !arg 2 of lhs
+      &        p_patch,                 &   !arg 3 of lhs
       &        p_patch%nblks_c,         &
       &        p_patch%npromz_c,        &
       &        z_implcoeff,             &
@@ -792,15 +801,18 @@ END SUBROUTINE fill_rhs4surface_eq_ab_RBF
 !! Developed  by  Peter Korn, MPI-M (2010).
 !-------------------------------------------------------------------------
 
-FUNCTION lhs_surface_height_ab_RBF( p_x, h_old, p_patch, coeff, h_e, thickness_c) RESULT(p_lhs)
+FUNCTION lhs_surface_height_ab_RBF( p_x, h_old,&
+                                 & p_patch,    &
+                                 & coeff,      &
+                                 & thickness_e,&
+                                 & thickness_c) RESULT(p_lhs)
 !
-REAL(wp),    INTENT(IN)   :: p_x(:,:)         ! dimension: (nproma,p_patch%nblks_c)
-REAL(wp),    INTENT(IN)   :: h_old(:,:)
+REAL(wp),    INTENT(IN)   :: p_x(:,:)         ! actual iteration of height, dimension: (nproma,p_patch%nblks_c)
+REAL(wp),    INTENT(IN)   :: h_old(:,:)       ! dimension: (nproma,p_patch%nblks_c)
 TYPE(t_patch), INTENT(in) :: p_patch          ! patch on which computation is performed
 REAL(wp),    INTENT(in)   :: coeff
-REAL(wp),    INTENT(in)   :: h_e(:,:)         !SW-case: thickness at edges
-                                              !3S-case: surface height at edges
-REAL(wp),    INTENT(in)   :: thickness_c(:,:) !thickness of fluid column    
+REAL(wp),    INTENT(in)   :: thickness_e(:,:) !thickness of fluid column at edges
+REAL(wp),    INTENT(in)   :: thickness_c(:,:) !not used, just for compatibility with interface gmres_oce (also used for mimetic)
 !
 ! Left-hand side calculated from iterated height
 REAL(wp) :: p_lhs(SIZE(p_x,1), SIZE(p_x,2))  ! (nproma,p_patch%nblks_c)
@@ -824,7 +836,7 @@ i_endblk   = p_patch%cells%end_blk(rl_end,1)
 !Step 1) Calculate gradient of iterated height.
 CALL grad_fd_norm_oce_2D( p_x, p_patch, z_grad_h(:,1,:))
 
-z_e(:,1,:)=z_grad_h(:,1,:)*h_e
+z_e(:,1,:)=z_grad_h(:,1,:)*thickness_e
 
 !write(*,*)'LHS:max/min :', maxval(z_e(:,1,:)), minval(z_e(:,1,:))
 ! rl_start = 1
@@ -853,7 +865,6 @@ DO jb = i_startblk, i_endblk
    ENDIF
   END DO
 END DO
-!p_lhs(:,:) = (p_x(:,:)- gdt2*ab_gam*ab_beta*div_z_c(:,1,:))/gdt2
 
 !  rl_start = 1
 !  rl_end = min_rlcell

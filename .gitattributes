@@ -598,6 +598,8 @@ run/exp.hat_jww -text
 run/exp.hat_jww-moist_cld-cnv-vdf -text
 run/exp.hat_jww-moist_cld-cnv-vdf-gwh -text
 run/exp.hat_jww_echam -text
+run/exp.hom_aqpl -text
+run/exp.hom_lsm_flat -text
 run/exp.iconrun -text
 run/exp.nah_jww -text
 run/exp.nat_ape_r2b4 -text
@@ -613,7 +615,7 @@ run/exp.slo_hom_1 -text
 run/exp.stommel -text
 run/exp.test_hat_jww -text
 run/exp.test_hat_jww-moist_cld-cnv-vdf -text
-run/exp.test_hom_1 -text
+run/exp.test_hom_lsm -text
 run/exp.test_nah_jww -text
 run/exp.test_nat_jww_nwp_mpiomp -text
 run/exp.test_nh35_tri_jws -text
@@ -647,6 +649,7 @@ run/test_local_patch_refinement -text
 scripts/.gmtcommands -text
 scripts/buildbot_scripts/ICON.cfg -text
 scripts/buildbot_scripts/README -text
+scripts/buildbot_scripts/archive_exp.ksh -text
 scripts/buildbot_scripts/bb_make -text
 scripts/buildbot_scripts/bb_make_doc -text
 scripts/buildbot_scripts/bb_run -text
@@ -784,9 +787,11 @@ scripts/postprocessing/tools/PLOT_examples/icon_triangles_mesh.ncl -text
 scripts/postprocessing/tools/PLOT_examples/icon_vectorplots.ncl -text
 scripts/postprocessing/tools/PLOT_examples/vertical_transection.ncl -text
 scripts/postprocessing/tools/README -text
+scripts/postprocessing/tools/Rakefile -text
 scripts/postprocessing/tools/color_map/testcmapshort.rgb -text
 scripts/postprocessing/tools/exportvars.bash -text
 scripts/postprocessing/tools/icon_ocean.ncl -text
+scripts/postprocessing/tools/icon_plot_lib.ncl -text
 scripts/postprocessing/tools/iconplot_ncl/iconplot.maps.echam.ncl -text
 scripts/postprocessing/tools/iconplot_ncl/iconplot.maps.ncl -text
 scripts/postprocessing/tools/iconplot_ncl/iconplot.zonal-time.echam.ncl -text

@@ -284,6 +284,7 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
         ! runtime is now avoided. Instead, the multiplication with
         ! lsq_weights_c(jc,js,jb) has been shifted into the transposed
         ! Q-matrix.
+!PK: here the landboundary is taken into account
         z_d(jc,jk,1) = p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) - p_cc(jc,jk,jb)
         z_d(jc,jk,2) = p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) - p_cc(jc,jk,jb)
         z_d(jc,jk,3) = p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3)) - p_cc(jc,jk,jb)

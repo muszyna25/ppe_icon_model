@@ -61,18 +61,18 @@ IEQ=-1            # equation system
 #
 # length of the integration in timesteps or days
 NSTEPS=0             # for short model test - set NDAYS to zero when using NSTEPS
-NDAYS=1              # number of model days to run - use alternatively to NSTEPS
+NDAYS=360            # number of model days to run - use alternatively to NSTEPS
 #                    
 DTIME=900            # time step in seconds
 INIMONTH=3           # start month of integration
 INIYEAR=2011         # start year of integration
-# HGRIDDIR=""        # ocean horizontal grid path is default "$ICONDIR/grids"
-# OGRIDNAME="ocegridR2B04.hex40c.spr0.90.nc"   # ocean horizontal grid filename apart from default
-# OGRIDNAME=""       # ocean horizontal grid name is default
+# HGRIDDIR=""                                    # ocean grid path is default "$ICONDIR/grids"
+# HGRIDDIR=/pool/data/ICON/grids                 # grid path is "pool"
+# OGRIDNAME=""                                   # ocean horizontal grid file name is default
+# OGRIDNAME=iconR${R}B0${B}-ocean_basin_0_60.nc  # grid file name for Peter's pentagonal basin
 # USE_AQUAP="Y"      # "Y": ocean horizontal gridfile base is "aqua_planet"
-# USE_ETOPO="Y"      # "Y": ocean horizontal gridfile base is "etopo40"
-  USE_BASIN="Y"      # "Y": ocean horizontal gridfile base is "basin" - Stommel basin
-#
+# USE_ETOPO="Y"      # "Y": ocean horizontal gridfile base is "etopo40_flat"
+  USE_BASIN="Y"      # "Y": ocean horizontal gridfile base is "bas10-80N"
 #-----------------------------------------------------------------------------
 #
 # ICON namelist parameters
@@ -120,8 +120,12 @@ cat > NAMELIST_${EXPNAME} << EOF
 &regularization_ctl
 /
 &octst_ctl
-  i_dbg_oce=1                    ! initialize one cell debug output via mo_index_oce
-  rlat_in = 30.0 rlon_in = -60.0 ! lat/lon-location of one cell debug output
+  i_dbg_oce=1                    ! initialize MIN/MAX  debug output via mo_index_oce
+  i_dbg_inx=0                    ! initialize one cell debug output via mo_index_oce
+  str_proc_tst = 'abt',
+    'vel', 'dif', 'trc', '   ', '   ', '   ', '   ', '   '
+                                 ! define strings for processes to be printed out in debug mode
+  rlat_in = 30.0 rlon_in = -70.0 ! lat/lon-location of one cell debug output
   h_val=1.0 t_val=1.0            ! initial values for elevation and temperature at one cell
 /
 &ocean_ctl
@@ -131,21 +135,30 @@ cat > NAMELIST_${EXPNAME} << EOF
   iswm_oce           =    0      ! switch for one layer shallow water model (iswm_oce=1) or 3-d
   i_oce_stepping     =    1      ! switch for different core formulations
   idisc_scheme       =    1      ! 1=mimetic discretization, 2=rbf discretization
-  iforc_oce          =   11      ! ocean forcing: 0=no forcing, 11=stationary wind
-  itestcase_oce      =   30      ! 25=shallow-water-Laeuter-Test; 26=shallow-water-Williamson test5;
+  l_inverse_flip_flop = .FALSE.  ! within mimetic discretization:
+                                 ! .TRUE. : full scalar product (slow)
+                                 ! .FALSE.: reduced scalarproduct variant (fast and default)
+  iforc_oce          =    0      ! ocean forcing: 0=no forcing, 11=stationary wind
+  itestcase_oce      =   31      ! 25=shallow-water-Laeuter-Test; 26=shallow-water-Williamson test5;
                                  ! 30=3D-multilayer Stommel; 31=3D-gravity wave
-  ab_beta            = 0.5       ! parameter for Adam-Bashforth time-stepping
-  ab_gam             = 0.5       ! parameter for Adam-Bashforth time-stepping
+                                 ! 32=Multilayer Munk-Gyre test (following Sergey Danilov)
+                                 ! 33=Collapsing density front, requires realistic lsm and topography
+  ab_beta            = 0.51      ! parameter for Adam-Bashforth time-stepping
+  ab_gam             = 0.51      ! parameter for Adam-Bashforth time-stepping
   k_veloc_h          =  500.0    ! horizontal viscosity coefficient for velocity
   k_veloc_v          = 0.01      ! vertical viscosity coefficient for velocity
+  k_pot_temp_h       =  200.0    ! horizontal viscosity coefficient for temperature
+  k_pot_temp_v       = 0.01      ! vertical viscosity coefficient for temperature
+  k_sal_h            = 0.0       ! horizontal viscosity coefficient for salinity
+  k_sal_v            = 0.0       ! vertical viscosity coefficient for salinity
   solver_tolerance   = 1.0e-6
-  bottom_drag_coeff  = 0.0025    ! Chezy coefficient for bottom friction
-  wstress_coeff      = 0.2       ! wind stress coefficient for top boundary forcing
   EOS_TYPE           = 2         ! 1=linear EOS, 2= (nonlinear) Jacket-McDoudgall density-formulation
   no_tracer          = 0         ! tracer-transport: 0=no transport, 1=temperature, 2=temp. and salinity
-  i_bc_veloc_lateral = 0         ! BC for normal velocity for lateral walls
-  i_bc_veloc_top     = 1         ! BC for normal velocity for ocean top
-  i_bc_veloc_bot     = 0         ! BC for normal velocity for ocean bottom
+  i_bc_veloc_lateral = 0         ! Boundary condition for normal velocity for lateral walls
+  i_bc_veloc_top     = 1         ! Boundary condition for normal velocity for ocean top
+  i_bc_veloc_bot     = 0         ! Boundary condition for normal velocity for ocean bottom
+  bottom_drag_coeff  = 0.0025    ! Chezy coefficient for bottom friction
+  wstress_coeff      = 0.2       ! wind stress coefficient for top boundary forcing
   basin_center_lat   = 30.0      ! lat-lon coordinate of basin center, used 
   basin_center_lon   =  0.0      ! in (non-global) basin configuration such as the Stommel-type tests
   basin_width_deg    = 80.0      ! basin extension in x-direction, units are degrees
@@ -154,8 +167,9 @@ cat > NAMELIST_${EXPNAME} << EOF
                                  ! 1=full varying Coriolis
                                  ! 2=beta-plane (linear) approximation to Coriolis
                                  ! 3=f-plane (constant) approximation to Coriolis
-                                 ! IMPORTANT: SOME TESTCASES REQUIRE SPECIFIC SETTING. 
-                                 !  e.g., for Stommel-type basin (2D- and 3D, testcase 27 and/or 30) select F or BETA-PLANE.
+                                 ! IMPORTANT: SOME TESTCASES REQUIRE SPECIFIC SETTINGS: 
+                                 !  for Stommel-type basin (2D- and 3D, testcase 27 and/or 30) select
+                                 !  f- or beta-plane.
   expl_vertical_velocity_diff = 0  ! 0=explicit, 1 = implicit  
   expl_vertical_tracer_diff   = 0  ! 0=explicit, 1 = implicit
 /

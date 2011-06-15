@@ -120,6 +120,7 @@ SUBROUTINE cover_koe( &
   & tt                              , & ! in:    temperature (main levels)
   & pp                              , & ! in:    pressure (")
   & ps                              , & ! in:    surface pressure
+  & t_g                             , & ! in;    surface temperature
   & pgeo                            , & ! in:    geopotential
   & rho                             , & ! in:    density
   & rcld                            , & ! inout: standard deviation of saturation deficit
@@ -156,7 +157,8 @@ REAL(KIND=wp), DIMENSION(klon,klev), INTENT(IN) ::  &
   & qi                   ! specific cloud ice   content                  (kg/kg)
 
 REAL(KIND=wp), DIMENSION(klon), INTENT(IN) ::  &
-  & ps                   ! standard deviation of saturation deficit
+  & ps               , & ! surface pressure
+  & t_g                  ! surface temperature
 
 REAL(KIND=wp), DIMENSION(klon,klev+1), INTENT(INOUT) ::  &
   & rcld                 ! standard deviation of saturation deficit
@@ -196,8 +198,6 @@ REAL(KIND=wp), DIMENSION(klon,klev)  :: &
   & cc_turb_liq, cc_turb_ice , &
   & p0
 
-REAL(KIND=wp) :: &
-  & t_g(klon)
 
 REAL(KIND=wp) ::          &
   fgew   , fgee   , fgqv   , fgqs , & ! name of statement functions
@@ -373,9 +373,9 @@ CASE( 3 )
   icldm_rad  = 3            ! 3:      standard COSMO/GME
   itype_wcld = 2            ! cloud calculation in cloud_diag (only active if used)
   p0         = 0.0_wp       ! base state presssure set to zero, pp is full pressure
-  DO jl = kidia,kfdia
-    t_g(jl)  = tt(jl,klev)  ! should be surface temperature!
-  ENDDO
+  !DO jl = kidia,kfdia
+  !  t_g(jl)  = tt(jl,klev)  ! should be surface temperature!
+  !ENDDO
 
   CALL cover_cosmo ( &
     klon       ,    & ! number of grid points in zonal direction

@@ -52,8 +52,8 @@ USE mo_run_nml,            ONLY: nproma
 USE mo_impl_constants,     ONLY: max_char_length, sea_boundary, sea,&
   &                              min_rlcell, min_rledge !, min_rlvert
 USE mo_model_domain,       ONLY: t_patch
-USE mo_ocean_nml,          ONLY: idisc_scheme,  wstress_coeff, n_zlev, &
-  &                              i_bc_veloc_top, i_bc_veloc_bot,iswm_oce
+USE mo_ocean_nml,          ONLY: idisc_scheme,  wstress_coeff, &
+  &                              i_bc_veloc_top, i_bc_veloc_bot, iswm_oce
 USE mo_dynamics_nml,       ONLY: nold,nnew
 USE mo_run_nml,            ONLY: dtime
 USE mo_exception,          ONLY: message
@@ -102,19 +102,20 @@ CONTAINS
   SUBROUTINE top_bound_cond_horz_veloc( p_patch, p_os, p_phys_param, p_sfc_flx, &
     &        top_bc_u_c, top_bc_v_c, top_bc_u_cc )
     !
-    TYPE(t_patch)               :: p_patch      ! patch on which computation is performed
-    TYPE(t_hydro_ocean_state), INTENT(INOUT)   :: p_os        ! ocean state variable
-    TYPE(t_ho_params)           :: p_phys_param ! physical parameters
-    TYPE(t_ho_sfc_flx)          :: p_sfc_flx   ! external data
-    REAL(wp)                    :: top_bc_u_c(:,:) ! ! Top boundary condition
-    REAL(wp)                    :: top_bc_v_c(:,:) ! dim: (nproma,nblks_c)
+    TYPE(t_patch)                              :: p_patch
+    TYPE(t_hydro_ocean_state), INTENT(INOUT)   :: p_os            ! ocean state variable
+    TYPE(t_ho_params)                          :: p_phys_param    ! physical parameters
+    TYPE(t_ho_sfc_flx)                         :: p_sfc_flx       ! external data
+    REAL(wp)                                   :: top_bc_u_c(:,:) ! Top boundary condition
+    REAL(wp)                                   :: top_bc_v_c(:,:) ! dim: (nproma,nblks_c)
     TYPE(t_cartesian_coordinates), INTENT(OUT) :: top_bc_u_cc(:,:)
+
     !Local variables
     !REAL(wp) :: z_cln, z_sln, z_clt, z_slt
     INTEGER :: jc, jb
     INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
     INTEGER :: rl_start, rl_end
-    REAL(wp):: z_x(3)
+    REAL(wp):: z_x(3), z_thick_forc
     !REAL(wp) :: x,y,z
      CHARACTER(len=max_char_length), PARAMETER :: &
             & routine = ('mo_oce_boundcond:top_bound_cond_veloc')
@@ -128,96 +129,78 @@ CONTAINS
     SELECT CASE (i_bc_veloc_top) !The value of 'top_boundary_condition' was set in namelist
 
     CASE (0)
+
       CALL message (TRIM(routine),'ZERO top velocity boundary conditions chosen')
 
       DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
           &                i_startidx_c, i_endidx_c, rl_start, rl_end)
         DO jc = i_startidx_c, i_endidx_c
-
             top_bc_u_c(jc,jb) = 0.0_wp
             top_bc_v_c(jc,jb) = 0.0_wp
             p_os%p_aux%bc_top_veloc_cc(jc,jb)%x(:)=0.0_wp
-
         END DO
       END DO
+
     CASE (1)!Forced by wind stored in p_os%p_aux%bc_top_veloc
 
-
-      IF ( iswm_oce /= 1 ) THEN 
-
-        !CALL message (TRIM(routine),'WIND_ONLY top velocity boundary conditions chosen')
-        DO jb = i_startblk_c, i_endblk_c
-          CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
-            &                i_startidx_c, i_endidx_c, rl_start, rl_end)
-           DO jc = i_startidx_c, i_endidx_c
-             IF(p_patch%patch_oce%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
-
-               top_bc_u_c(jc,jb) = wstress_coeff*p_sfc_flx%forc_wind_u(jc,jb)&
-                 &/(p_phys_param%rho_ref*p_os%p_diag%thick_c(jc,jb))
-
-               top_bc_v_c(jc,jb) = wstress_coeff*p_sfc_flx%forc_wind_v(jc,jb)&
-                 &/(p_phys_param%rho_ref*p_os%p_diag%thick_c(jc,jb))
-!              write(*,*)'top bc gc:', jc,jb, top_bc_u_c(jc,jb), top_bc_v_c(jc,jb)
-
-               top_bc_u_cc(jc,jb)%x =&
-                 & wstress_coeff*p_sfc_flx%forc_wind_cc(jc,jb)%x&
-                 &/(p_phys_param%rho_ref*p_os%p_diag%thick_c(jc,jb))
-
-             ELSE
-               top_bc_u_c(jc,jb)    =0.0_wp
-               top_bc_v_c(jc,jb)    =0.0_wp
-               top_bc_u_cc(jc,jb)%x =0.0_wp
-            ENDIF
-          END DO
-        END DO
-
-      ELSEIF ( iswm_oce == 1 ) THEN 
-
-        !CALL message (TRIM(routine),'WIND_ONLY top velocity boundary conditions chosen')
-        DO jb = i_startblk_c, i_endblk_c
-          CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
-            &                i_startidx_c, i_endidx_c, rl_start, rl_end)
-           DO jc = i_startidx_c, i_endidx_c
-             IF(p_patch%patch_oce%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
-
-               top_bc_u_c(jc,jb) = wstress_coeff*p_sfc_flx%forc_wind_u(jc,jb)&
-                     &/(p_phys_param%rho_ref*p_os%p_diag%thick_c(jc,jb))
-
-               top_bc_v_c(jc,jb) = wstress_coeff*p_sfc_flx%forc_wind_v(jc,jb)&
-                     &/(p_phys_param%rho_ref*p_os%p_diag%thick_c(jc,jb))
-
-               top_bc_u_cc(jc,jb)%x = wstress_coeff*p_sfc_flx%forc_wind_cc(jc,jb)%x&
-                     &/(p_phys_param%rho_ref*p_os%p_diag%thick_c(jc,jb))
-
-             ELSE
-               top_bc_u_c(jc,jb)    =0.0_wp
-               top_bc_v_c(jc,jb)    =0.0_wp
-               top_bc_u_cc(jc,jb)%x =0.0_wp
-            ENDIF
-          END DO
-        END DO
-       ENDIF
-
-     CASE (2)!forced by difference between wind field in p_os%p_aux%bc_top_veloc and ocean velocity at top layer
+      !CALL message (TRIM(routine),'WIND_ONLY top velocity boundary conditions chosen')
       DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
           &                i_startidx_c, i_endidx_c, rl_start, rl_end)
-
         DO jc = i_startidx_c, i_endidx_c
           IF(p_patch%patch_oce%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
+          
+            ! 3d-case: top layer only
+            ! SWM    : whole fluid column
+            z_thick_forc = p_patch%patch_oce%del_zlev_m(1)
+            if (iswm_oce == 1) z_thick_forc = p_os%p_diag%thick_c(jc,jb)
 
-            top_bc_u_c(jc,jb) = wstress_coeff*( p_sfc_flx%forc_wind_u(jc,jb)    &
-              &               - p_os%p_diag%u(jc,top,jb) )&
-              &               /(p_phys_param%rho_ref*p_os%p_diag%thick_c(jc,jb))
-            top_bc_v_c(jc,jb) = wstress_coeff*( p_sfc_flx%forc_wind_v(jc,jb)    &
-              &               - p_os%p_diag%v(jc,top,jb) )&
-              &               /(p_phys_param%rho_ref*p_os%p_diag%thick_c(jc,jb))
+            top_bc_u_c(jc,jb) = wstress_coeff*p_sfc_flx%forc_wind_u(jc,jb)&
+              &/(p_phys_param%rho_ref*z_thick_forc)
+
+            top_bc_v_c(jc,jb) = wstress_coeff*p_sfc_flx%forc_wind_v(jc,jb)&
+              &/(p_phys_param%rho_ref*z_thick_forc)
+!           write(*,*)'top bc gc:', jc,jb, top_bc_u_c(jc,jb), top_bc_v_c(jc,jb)
 
             top_bc_u_cc(jc,jb)%x =&
-            & wstress_coeff*p_sfc_flx%forc_wind_cc(jc,jb)%x&
-            &/(p_phys_param%rho_ref*p_os%p_diag%thick_c(jc,jb))
+              & wstress_coeff*p_sfc_flx%forc_wind_cc(jc,jb)%x&
+              &/(p_phys_param%rho_ref*z_thick_forc)
 
+          ELSE
+            top_bc_u_c(jc,jb)    =0.0_wp
+            top_bc_v_c(jc,jb)    =0.0_wp
+            top_bc_u_cc(jc,jb)%x =0.0_wp
+          ENDIF
+        END DO
+      END DO
+
+    CASE (2)!forced by difference between wind field in p_os%p_aux%bc_top_veloc and ocean velocity at top layer
+
+      DO jb = i_startblk_c, i_endblk_c
+        CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
+          &                i_startidx_c, i_endidx_c, rl_start, rl_end)
+     
+        DO jc = i_startidx_c, i_endidx_c
+     
+          IF(p_patch%patch_oce%lsm_oce_c(jc,1,jb) <= sea_boundary)THEN
+           
+            ! 3d-case: top layer only
+            ! SWM    : whole fluid column
+            z_thick_forc = p_patch%patch_oce%del_zlev_m(1)
+            if (iswm_oce == 1) z_thick_forc = p_os%p_diag%thick_c(jc,jb)
+     
+            top_bc_u_c(jc,jb) = wstress_coeff*( p_sfc_flx%forc_wind_u(jc,jb)    &
+              &               - p_os%p_diag%u(jc,top,jb) )&
+              &               /(p_phys_param%rho_ref*z_thick_forc)
+            top_bc_v_c(jc,jb) = wstress_coeff*( p_sfc_flx%forc_wind_v(jc,jb)    &
+              &               - p_os%p_diag%v(jc,top,jb) )&
+              &               /(p_phys_param%rho_ref*z_thick_forc)
+     
+            top_bc_u_cc(jc,jb)%x =&
+            & wstress_coeff*p_sfc_flx%forc_wind_cc(jc,jb)%x&
+            &/(p_phys_param%rho_ref*z_thick_forc)
+     
           ELSE
             top_bc_u_c(jc,jb)    = 0.0_wp
             top_bc_v_c(jc,jb)    = 0.0_wp
@@ -227,7 +210,7 @@ CONTAINS
         END DO
       END DO
     END SELECT
-
+     
     CALL map_cell2edges_2D( p_patch, top_bc_u_cc, p_os%p_aux%bc_top_vn)
 
     !p_os%p_aux%bc_top_vn = p_os%p_aux%bc_top_vn/
@@ -293,17 +276,20 @@ write(*,*)'MAX/MIN: top boundary cond:vn',maxval(p_os%p_aux%bc_top_vn), &
         DO jc = i_startidx, i_endidx
 
           z_dolic = p_patch%patch_oce%dolic_c(jc,jb)
-          z_norm  = SQRT(2.0_wp*p_os%p_diag%kin(jc,z_dolic,jb))
+          IF ( z_dolic>0 ) THEN  ! wet points only 
 
-          p_os%p_aux%bc_bot_veloc_cc(jc,jb)%x =&
-               & -p_phys_param%bottom_drag_coeff*z_norm*p_os%p_diag%p_vn(jc,z_dolic,jb)%x 
+            z_norm  = SQRT(2.0_wp*p_os%p_diag%kin(jc,z_dolic,jb))
 
-          p_os%p_aux%bc_bot_u(jc,jb)=&
-               & -p_phys_param%bottom_drag_coeff*z_norm*p_os%p_diag%u(jc,z_dolic,jb)
- 
-          p_os%p_aux%bc_bot_v(jc,jb)=&
-               & -p_phys_param%bottom_drag_coeff*z_norm*p_os%p_diag%v(jc,z_dolic,jb)
+            p_os%p_aux%bc_bot_veloc_cc(jc,jb)%x =&
+                 & -p_phys_param%bottom_drag_coeff*z_norm*p_os%p_diag%p_vn(jc,z_dolic,jb)%x 
 
+            p_os%p_aux%bc_bot_u(jc,jb)=&
+                 & -p_phys_param%bottom_drag_coeff*z_norm*p_os%p_diag%u(jc,z_dolic,jb)
+
+            p_os%p_aux%bc_bot_v(jc,jb)=&
+                 & -p_phys_param%bottom_drag_coeff*z_norm*p_os%p_diag%v(jc,z_dolic,jb)
+
+          END IF
         END DO
       END DO
 !   write(*,*)'min/max bottom bc uv:',&
@@ -311,11 +297,10 @@ write(*,*)'MAX/MIN: top boundary cond:vn',maxval(p_os%p_aux%bc_top_vn), &
 !  & minval(p_os%p_aux%bc_bot_v),maxval(p_os%p_aux%bc_bot_v) 
 
     CASE(2)!Bottom friction and topographic slope
-
-       CALL message (TRIM(routine), &
+      CALL message (TRIM(routine), &
          &  'TOPOGRAPHY_SLOPE bottom velocity boundary conditions not implemented yet')
-     CASE DEFAULT
-       CALL message (TRIM(routine),'choosen wrong bottom velocity boundary conditions') 
+    CASE DEFAULT
+      CALL message (TRIM(routine),'choosen wrong bottom velocity boundary conditions') 
     END SELECT
  
     CALL map_cell2edges_2D( p_patch, p_os%p_aux%bc_bot_veloc_cc, p_os%p_aux%bc_bot_vn)
@@ -534,10 +519,9 @@ write(*,*)'MAX/MIN: bot boundary cond:vn',maxval(p_os%p_aux%bc_bot_vn), &
   !
   !  
   !>
-  !! Computes bottom boundary condition for tracer specified by tracer_id.
+  !! Computes top boundary condition for tracer specified by tracer_id.
   !! d C/dz
   !!
-  !1
   !!
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).
@@ -577,7 +561,6 @@ write(*,*)'MAX/MIN: bot boundary cond:vn',maxval(p_os%p_aux%bc_bot_vn), &
   !>
   !! Computes bottom boundary condition for tracer specified by tracer_id.
   !! 
-  !1
   !! 
   !! @par Revision History
   !! Developed  by  Peter Korn, MPI-M (2010).

@@ -126,7 +126,7 @@ INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_e
 IF(idisc_scheme==1)THEN!Mimetic discretization
   FLUX_CALCULATION = MIMETIC
 ELSEIF(idisc_scheme==2)THEN!RBF discretization
-  FLUX_CALCULATION = UPWIND
+  FLUX_CALCULATION = CENTRAL
 ENDIF
 
 CALL update_ho_params(p_patch, p_os, p_param)
@@ -374,11 +374,11 @@ ELSEIF ( iswm_oce == 1) THEN
          z_h_tmp(jc,1,jb) = delta_z 
          z_trac_c(jc,1,jb)= trac_old(jc,1,jb)*delta_z
          !write(123,*)'tracer',jc,jb,z_trac_c(jc,1,jb),trac_old(jc,1,jb),delta_z
-         ELSE
+       ELSE
          z_h_tmp(jc,1,jb) = 0.0_wp 
          z_trac_c(jc,1,jb)= 0.0_wp
-        ENDIF
-      END DO
+      ENDIF
+    END DO
   END DO
 ENDIF
 !Step 1) Horizontal advection and diffusion
@@ -422,7 +422,7 @@ CASE(MIMETIC)
         z_vn_c(jc,jk,jb)%x(:) =0.0_wp
         z_vn_c2(jc,jk,jb)%x(:)=0.0_wp
         IF (jk == 1)THEN
-          delta_z = p_os%p_prog(nold(1))%h(jc,jb) +p_patch%patch_oce%del_zlev_m(jk)
+          delta_z = p_patch%patch_oce%del_zlev_m(jk)+p_os%p_prog(nold(1))%h(jc,jb)
 
           z_vn_c(jc,jk,jb)%x  = trac_old(jc,jk,jb)*delta_z*p_os%p_diag%p_vn(jc,jk,jb)%x
           z_vn_c2(jc,jk,jb)%x = delta_z*p_os%p_diag%p_vn(jc,jk,jb)%x
@@ -448,6 +448,11 @@ CALL div_oce( z_mass_flux_h, p_patch, z_div_mass_flux_h)
  &maxval(z_adv_flux_h(:,jk,:)),&
  &minval(z_adv_flux_h(:,jk,:))
  END DO
+ DO jk = 1, n_zlev
+ write(*,*)'max/min mass-flux:',jk,&
+ &maxval(z_mass_flux_h(:,jk,:)),&
+ &minval(z_mass_flux_h(:,jk,:))
+ END DO
 !calculate (dummy) height consistent with divergence of mass flux
 DO jk=1,n_zlev
   DO jb = i_startblk_c, i_endblk_c
@@ -462,11 +467,11 @@ DO jk=1,n_zlev
     END DO
   END DO!write(*,*)'max/min h_dummy:',maxval(z_h(:,jk,:)),minval(z_h(:,jk,:))
 END DO 
-! DO jk = 1, n_zlev
-!  write(*,*)'max/min z_h:',jk,&
-!  &maxval(z_h(:,jk,:)),&
-!  &minval(z_h(:,jk,:))
-!  END DO
+ DO jk = 1, n_zlev
+  write(*,*)'max/min dummy height:',jk,&
+  &maxval(z_h(:,jk,:)),&
+  &minval(z_h(:,jk,:))
+  END DO
 IF(present(h_tmp))THEN
   h_tmp = z_h 
 ENDIF
@@ -1467,8 +1472,9 @@ CASE(MIMETIC)
         IF (jk == 1)THEN
           delta_z = p_os%p_prog(nold(1))%h(jc,jb) +p_patch%patch_oce%del_zlev_m(jk)!+p_os%p_prog(nold(1))%h(jc,jb)
 
-          z_vn_c(jc,jk,jb)%x  = trac_old(jc,jk,jb)*delta_z*p_os%p_diag%p_vn(jc,jk,jb)%x
-          z_vn_c2(jc,jk,jb)%x = delta_z*p_os%p_diag%p_vn(jc,jk,jb)%x
+          z_vn_c(jc,jk,jb)%x  = trac_old(jc,jk,jb)*delta_z*p_os%p_diag%p_vn(jc,jk,jb)%x&
+          &*p_patch%cells%area(jc,jb)
+          z_vn_c2(jc,jk,jb)%x = delta_z*p_os%p_diag%p_vn(jc,jk,jb)%x*p_patch%cells%area(jc,jb)
          ELSE
           z_vn_c(jc,jk,jb)%x = trac_old(jc,jk,jb)*p_os%p_diag%p_vn(jc,jk,jb)%x
           z_vn_c2(jc,jk,jb)%x= p_os%p_diag%p_vn(jc,jk,jb)%x
@@ -1477,8 +1483,8 @@ CASE(MIMETIC)
     END DO
   END DO
 
-  CALL map_cell2edges( p_patch, z_vn_c, z_adv_flux_h )
-  CALL map_cell2edges( p_patch, z_vn_c2, z_mass_flux_h )
+   CALL map_cell2edges( p_patch, z_vn_c, z_adv_flux_h )
+   CALL map_cell2edges( p_patch, z_vn_c2, z_mass_flux_h )
 END SELECT
  
 !Step 4) calculate horizontal divergence

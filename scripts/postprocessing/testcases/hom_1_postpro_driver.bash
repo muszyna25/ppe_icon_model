@@ -9,6 +9,7 @@
 #
 # Short description:
 #  - first test version: 1 plot of elevation after 3 days = 12 plot_steps (6-h writing)
+#  - update to exp.hom_lsm_flat for 1 day (2011-06)
 #
 # Software needed:
 # - CDO (Climate Data Operators, www.mpimet.mpg.de/cdo) 
@@ -80,34 +81,38 @@ cd $model_data_path
 # Parameters for ncl including double quotes
 ifile="${EXP}_O.${resolution}_0001.nc"
 ofile="${EXP}_${resolution}_ELEV"
-otype="eps"                                     # plot file format
-varname="ELEV"
-maxvar=8                                        # initial elevation: +-10 m
+ofile="${EXP}_${resolution}_W"                  #  Vertical velocity
+otype="eps"                                     #  plot file format
+varname="ELEV"                                  #  Surface elevation
+varname="W"                                     #  Vertical velocity
+maxvar=8                                        #  initial elevation: +-10 m
 minvar=-8
 selmode="halflog"
 selmode="manual"                                #  use max/minvar
 selmode="auto"                                  #  no max/minvar used
-MAP=""                                          #  use global map
 MAP="'mapLLC=(/-60,-35/)' 'mapURC=(/60,35/)'"   #  use local lat/lon-map (at equator)
 MAP="'mapLLC=(/-95,  5/)' 'mapURC=(/40,85/)'"   #  use local lat/lon-map (10-80N)
+MAP=""                                          #  global map
 plotstep=12                                     #  3 days, 6-hourly data
 plotstep=4                                      #  1 day,  6-hourly data
 mname="wet_c"                                   #  grey shading outside basin
-PROJSAT=" "                                     #  Projection: Cylindrical Equidistant
 PROJSAT="projSat=True"                          #  Projection: Sattelite view
-
+PROJSAT=" "                                     #  Projection: Cylindrical Equidistant
+bstrg="S.J.Lorenz;"                             #  base string
+tstrg="ICON Ocean"                              #  title string
 
 # these parameters are stored in here-document due to necessary single and double quotes:
 cat >scr_${EXP}_nclcmd.here <<eo_here
   ncl ${ncl_script_path}icon_ocean.ncl \
       'iFile="$ifile"' 'oFile="$ofile"' 'varName="$varname"' 'oType="$otype"' \
       'selMode="$selmode"' minVar=$minvar maxVar=$maxvar $MAP timeStep=$plotstep \
-      'maskName="$mname"' $PROJSAT
+      'maskName="$mname"' $PROJSAT 'bStrg="$bstrg"' 'tStrg="$tstrg"'
 eo_here
 
 # run the ncl script
 echo
-echo "=== Plotting ocean elevation ..."
+#echo "=== Plotting ocean elevation ..."
+echo "=== Plotting vertical velocity ..."
 source ./scr_${EXP}_nclcmd.here
 mkdir plots
 echo "new Dir"

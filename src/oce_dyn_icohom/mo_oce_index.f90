@@ -38,8 +38,9 @@ MODULE mo_oce_index
 !
 USE mo_kind,                   ONLY: wp
 USE mo_mpi,                    ONLY: p_pe, p_io
+USE mo_io_units,               ONLY: nerr
 USE mo_run_nml,                ONLY: nproma, nsteps
-USE mo_ocean_nml,              ONLY: n_zlev, i_dbg_oce,   &
+USE mo_ocean_nml,              ONLY: n_zlev, i_dbg_oce, i_dbg_inx, str_proc_tst, &
   &                                  i_oct_blk, i_oct_idx, i_oct_ilv, rlon_in, rlat_in
 ! &                                  i_ocv_blk, i_ocv_idx, i_ocv_ilv, t_val,  &
 USE mo_dynamics_nml,           ONLY: nold,nnew
@@ -63,6 +64,7 @@ CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 ! indices of cells and neighbours for debug output set by namelist octst_ctl
 INTEGER :: c_b, c_i, c_k, ne_b(3), ne_i(3), nc_b(3), nc_i(3), nv_b(3), nv_i(3)
+INTEGER :: jkc, jkdim, ipl_src
 
 ! format variables for degug output
 CHARACTER(len=95) :: form4ar
@@ -72,13 +74,13 @@ LOGICAL :: ldbg
 
 PUBLIC :: init_index_test
 PUBLIC :: search_latlonindex
-PUBLIC :: print_mxmn_2d
-PUBLIC :: print_mxmn_3d
+PUBLIC :: print_mxmn
 
 ! Public variables:
 PUBLIC :: c_b, c_i, c_k, ne_b, ne_i, nc_b, nc_i, nv_b, nv_i
 PUBLIC :: form4ar
 PUBLIC :: ldbg
+PUBLIC :: jkc, jkdim, ipl_src
 
 
 CONTAINS
@@ -413,77 +415,79 @@ CONTAINS
   !!
   !! Print out min and max of a 2-dimensional array. Reduce writing effort for a simple print.
   !! The print is controlled by a parameter that is set via namelist octst_ctl
-  !! 
   !!
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2011-01)
   !
-  !
-  !SUBROUTINE print_maxmin ( ppatch, ipr_mxmn, p_array, lev, ndimblk, str_prmxmn )
-  SUBROUTINE print_mxmn_2d ( ipr_mxmn, p_array, ndimblk, str_prmxmn )
+! SUBROUTINE print_mxmn ( str_prntdes, klev, p_array, &
+!   &                     ndimz, ndimblk, str_proc_src, str_proc_tst, ipl_mxmn, iplix_opt )
+  SUBROUTINE print_mxmn ( str_prntdes, klev, p_array, &
+    &                     ndimz, ndimblk, str_proc_src, ipl_proc_src )
 
   !TYPE(t_patch), TARGET, INTENT(IN) :: ppatch(n_dom)
-  INTEGER,               INTENT(IN) :: ipr_mxmn               ! switch for writing maxmin
-  INTEGER,               INTENT(IN) :: ndimblk                ! nblk dimension of array
-  REAL(wp),              INTENT(IN) :: p_array(nproma,ndimblk) ! 2-dim array
-  CHARACTER(len=*),      INTENT(IN) :: str_prmxmn             ! description of array
+  INTEGER,               INTENT(IN) :: klev               ! single level to write maxmin
+  CHARACTER(len=*),      INTENT(IN) :: str_prntdes        ! description of array
+  ! array to print out values: vertical dimension could be 1 for 2-dim arrays, first dimension is nproma
+  INTEGER,               INTENT(IN) :: ndimz              ! vertical dimension of array (1 = no vert. dim.)
+  INTEGER,               INTENT(IN) :: ndimblk            ! nblk dimension of array
+  REAL(wp),              INTENT(IN) :: p_array(nproma, ndimz, ndimblk) ! 3-dim array
+  CHARACTER(len=3),      INTENT(IN) :: str_proc_src       ! defined string for source of current process
+  INTEGER,               INTENT(IN) :: ipl_proc_src       ! source process level for print output 
+ !INTEGER, OPTIONAL,     INTENT(IN) :: out                ! output channel
+ !INTEGER, OPTIONAL,     INTENT(IN) :: iplix_opt          ! output level for writing values at index
+ !INTEGER, OPTIONAL,     INTENT(IN) :: proutchn           ! channel number for writing
 
   CHARACTER(len=25)  strout
+  INTEGER            iout, icheck_str_proc, jstr
 
-  IF (ipr_mxmn == 0 ) RETURN
+  !IF (PRESENT(out)) THEN
+  !  iout = out
+  !ELSE
+  !  iout = nerr
+  !END IF
+  ! as long as not all write statements are replaced by calls of print_mxmn:
+  iout = nerr
+  iout = 6
 
-  99 FORMAT(a,a20,a,i3,1p2e28.16)
+  ! compare defined source string with namelist-given output string:
+  icheck_str_proc = 0
+  DO jstr = 1, 10
+    IF (str_proc_src == str_proc_tst(jstr)) THEN
+      icheck_str_proc = 1
+    END IF
+  END DO
 
-  strout=TRIM(str_prmxmn)
-  IF (p_pe == p_io) THEN
-    WRITE(*,99) ' MAX/MIN ',strout,':',0, &
-      &           maxval(p_array(1:nproma,1:ndimblk)),     &
-      &           minval(p_array(1:nproma,1:ndimblk))
-  END IF
-
-  END SUBROUTINE print_mxmn_2d
-
-  !-------------------------------------------------------------------------
-  !>
-  !! Print out min and max of a 3-dimensional array.
-  !!
-  !! Print out min and max of a 3-dimensional array. Reduce writing effort for a simple print.
-  !! The print is controlled by a parameter that is set via namelist octst_ctl
-  !! 
-  !!
-  !! @par Revision History
-  !! Initial release by Stephan Lorenz, MPI-M (2011-01)
-  !
-  !
-  !SUBROUTINE print_maxmin ( ppatch, ipr_mxmn, p_array, lev, ndimblk, str_prmxmn )
-  SUBROUTINE print_mxmn_3d ( ipr_mxmn, p_array, lev, ndimblk, str_prmxmn )
-
-  !TYPE(t_patch), TARGET, INTENT(IN) :: ppatch(n_dom)
-  INTEGER,               INTENT(IN) :: ipr_mxmn               ! switch for writing maxmin
-  INTEGER,               INTENT(IN) :: lev                    ! single level to write maxmin
-  INTEGER,               INTENT(IN) :: ndimblk                ! nblk dimension of array
-  REAL(wp),              INTENT(IN) :: p_array(nproma,lev,ndimblk) ! 3-dim array
-  CHARACTER(len=*),      INTENT(IN) :: str_prmxmn             ! description of array
-
-  CHARACTER(len=25)  strout
-
-  IF (ipr_mxmn == 0 ) RETURN
+  ! if str_proc_src not found in str_proc_tst - no output
+  IF (icheck_str_proc == 0 ) RETURN
 
   99 FORMAT(a,a20,a,i3,1p2e28.16)
+  strout=TRIM(str_prntdes)
 
-  strout=TRIM(str_prmxmn)
-  IF (p_pe == p_io) THEN
-    WRITE(*,99) ' MAX/MIN ',strout,':',lev, &
-      &           maxval(p_array(1:nproma,lev,1:ndimblk)),     &
-      &           minval(p_array(1:nproma,lev,1:ndimblk))
+  ! check print output level ipl_proc_src (1-5) with namelist given values for output at index:
+  ! i_dbg_inx (0-5) - no to complete output
+  IF (i_dbg_inx >= ipl_proc_src ) THEN
+!   WRITE(iout,98) ' VALUE at jb=..,ji=..'
+    WRITE(iout,99) ' VALUE   ',strout,':',klev, 1.0
   END IF
 
-  ! z.B. 
-  ! min/max vn_pred:           1 -0.55488596690566672       0.55488709137885694
-  ! MAX/MIN xxvn_pred           :  1    0.554887091378857       -0.554885966905667
+  ! check print output level ipl_proc_src (1-5) with namelist given values for MIN/MAX output:
+  ! i_dbg_oce (0-5) - no to complete output
+  IF (i_dbg_oce < ipl_proc_src ) RETURN
 
+  ! check for output of values at index
+ !IF ( PRESENT(iplix_opt)) THEN
+ !  ipl_indx = iplix_opt
+ !ELSE
+ !  ipl_indx = 0
+ !END IF
 
-  END SUBROUTINE print_mxmn_3d
+  IF (p_pe == p_io) THEN
+    WRITE(iout,99) ' MAX/MIN ',strout,':',klev, &
+      &              maxval(p_array(1:nproma,klev,1:ndimblk)),     &
+      &              minval(p_array(1:nproma,klev,1:ndimblk))
+  END IF
+
+  END SUBROUTINE print_mxmn
 
 END MODULE mo_oce_index
 

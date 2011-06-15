@@ -62,6 +62,7 @@ USE mo_exception,           ONLY: message, finish
 USE mo_oce_state,           ONLY: t_hydro_ocean_state!, t_hydro_ocean_diag
 USE mo_physical_constants,  ONLY: grav
 USE mo_loopindices,         ONLY: get_indices_c
+USE mo_math_constants,      ONLY: pi 
 IMPLICIT NONE
 
 
@@ -464,13 +465,17 @@ CONTAINS
    TYPE (t_ho_params), INTENT(INOUT) :: params_oce
 !   ! Local variables
    INTEGER  :: ist, jc, jb, jk, i_no_trac
+   INTEGER  :: il_e1, ib_e1,il_e2, ib_e2,il_e3, ib_e3
    INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_end_c
    REAL(wp) :: z_bv, z_a, dz_inv, z_shear
+   REAL(wp) :: z_Ri
+   REAL(wp) :: z_edge_ave 
 !   !-------------------------------------------------------------------------
     rl_start_c   = 1
     rl_end_c     = min_rlcell
     i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
     i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
+
 
     z_bv   = 0.0_wp
     z_a    = 0.0_wp
@@ -480,34 +485,75 @@ CONTAINS
       DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
         &                   rl_start_c, rl_end_c)
+
         DO jk = 2, n_zlev
           dz_inv = 1.0_wp/(p_patch%patch_oce%zlev_m(jk-1)-p_patch%patch_oce%zlev_m(jk))
 
           DO jc = i_startidx_c, i_endidx_c
-          IF ( p_patch%patch_oce%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-            z_bv  = -grav*dz_inv&
-            &*(p_os%p_diag%rho(jc,jk-1,jb)-p_os%p_diag%rho(jc,jk,jb))&
-            &/params_oce%rho_ref
+            IF ( p_patch%patch_oce%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
 
-            IF (z_bv<0.0_wp)THEN
-              z_a=1.0_wp 
-              params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = params_oce%A_tracer_v_back(i_no_trac)
-            ELSE
-              z_shear =&
-              & DOT_PRODUCT(p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x,&
-                           &p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x)       !sum((Uelem(:,nz-1,nelem) - Uelem(:, nz, nelem))**2)
-write(*,*)'shear',z_shear
-              z_shear = z_shear*dz_inv*dz_inv
-              z_a     = z_shear/(z_shear+10.0_wp*z_bv)
+               z_bv  = dz_inv&
+               &*(p_os%p_diag%rho(jc,jk-1,jb)-p_os%p_diag%rho(jc,jk,jb))&
+               &/params_oce%rho_ref
+               z_shear =&
+               & DOT_PRODUCT(p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x,&
+                              &p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x)
 
-              params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = params_oce%A_tracer_v_back(i_no_trac)&
-                                                       & +0.05_wp*z_a*z_a*z_a
-              write(*,*)'Mixing coeffs',jc,jk,jb,&
-              &params_oce%A_tracer_v(jc,jk,jb,1),&
-              &params_oce%A_tracer_v_back(i_no_trac), z_a 
+               z_Ri = z_bv/(z_shear + 0.05_wp)
+               IF(z_Ri>0.0_wp)THEN
+                 params_oce%A_tracer_v(jc,jk,jb, i_no_trac) &
+                 &= params_oce%A_tracer_v_back(i_no_trac)&
+                 & + ( params_oce%A_veloc_v(jc,jk,jb)/(1.0_wp+5.0_wp*z_Ri))
+
+!                write(*,*)'Mixing coeffs',jc,jk,jb,&
+!                &params_oce%A_tracer_v(jc,jk,jb,1),&
+!                &params_oce%A_tracer_v_back(i_no_trac), z_Ri 
+
+               ELSE
+                 params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = params_oce%A_tracer_v_back(i_no_trac)
+               ENDIF
+
+! il_e1 = p_patch%cells%edge_idx(jc,jb,1)
+! ib_e1 = p_patch%cells%edge_blk(jc,jb,1)
+! il_e2 = p_patch%cells%edge_idx(jc,jb,2)
+! ib_e2 = p_patch%cells%edge_blk(jc,jb,2)
+! il_e3 = p_patch%cells%edge_idx(jc,jb,3)
+! ib_e3 = p_patch%cells%edge_blk(jc,jb,3)
+! 
+! z_edge_ave = (p_patch%edges%primal_edge_length(il_e1,ib_e1)&
+!             &+p_patch%edges%primal_edge_length(il_e2,ib_e2)&
+!             &+p_patch%edges%primal_edge_length(il_e3,ib_e3))/3.0_wp
+! params_oce%A_veloc_v(jc,jk,jb)= 4.0_wp*pi*cos(p_patch%cells%center(jc,jb)%lat&
+! &* (sqrt(3.0_wp)*z_edge_ave/pi)*(sqrt(3.0_wp)*z_edge_ave/pi)*(sqrt(3.0_wp)*z_edge_ave/pi))
+! write(*,*)' A_v',jc,jk,jb,params_oce%A_veloc_v(jc,jk,jb)
+
+!               !------------------------------------
+!               z_bv  = -grav*dz_inv&
+!               &*(p_os%p_diag%rho(jc,jk-1,jb)-p_os%p_diag%rho(jc,jk,jb))&
+!               &/params_oce%rho_ref
+! 
+!               IF (z_bv<0.0_wp)THEN
+!                 z_a=1.0_wp 
+!               ELSE
+!                 z_shear =&
+!                 & DOT_PRODUCT(p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x,&
+!                              &p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x)       !sum((Uelem(:,nz-1,nelem) - Uelem(:, nz, nelem))**2)
+! !write(*,*)'shear',z_shear
+!                 z_shear = z_shear*dz_inv*dz_inv
+! 
+!                 IF(z_shear==0.0_wp)THEN 
+!                   z_a=1.0_wp
+!                 ELSE
+!                   z_a     = z_shear/(z_shear+10.0_wp*z_bv)
+!                 ENDIF
+!                 params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = params_oce%A_tracer_v_back(i_no_trac)&
+!                                                        & +0.05_wp*z_a*z_a*z_a
+!                 write(*,*)'Mixing coeffs',jc,jk,jb,&
+!                 &params_oce%A_tracer_v(jc,jk,jb,1),&
+!                 &params_oce%A_tracer_v_back(i_no_trac), z_a 
+               !------------------------------------------
+               !ENDIF
             ENDIF
-
-          ENDIF
           END DO
         END DO
       END DO

@@ -288,7 +288,7 @@ TYPE(t_ho_params), INTENT(in)     :: p_param
 REAL(wp)                          :: laplacian_vn_out(:,:,:)
 
 INTEGER :: slev, elev     ! vertical start and end level
-INTEGER :: jc, jk, jb
+INTEGER :: jc, jk, jb, z_dolic
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
 TYPE(t_cartesian_coordinates) :: z_adv_u_i(nproma,n_zlev+1,p_patch%nblks_c),  &
   &                              z_adv_u_m(nproma,n_zlev,p_patch%nblks_c)
@@ -304,55 +304,57 @@ i_startblk = p_patch%cells%start_blk(1,1)
 i_endblk   = p_patch%cells%end_blk(min_rlcell,1)
 
 !1 Vertical derivative of cell velocity vector times horizontal velocity
-DO jk = slev, elev
-  DO jb = i_startblk, i_endblk
-    CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                       i_startidx, i_endidx, 1,min_rlcell)
-    DO jc = i_startidx, i_endidx
-      !check if we have at least two layers of water
-      !  #slo# - 2011-04-01 - Is this really intended here
-      !  maybe this condition should be fulfilled everywhere
-      !  then it must be calculated in fill_vertical_domain
-      !  this condition could then be omitted here
-     IF (p_patch%patch_oce%dolic_c(jc,jb) >= 2) THEN
-
+! loop runs now from slev to z_dolic:
+!DO jk = slev, elev
+DO jb = i_startblk, i_endblk
+  CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                     i_startidx, i_endidx, 1,min_rlcell)
+  DO jc = i_startidx, i_endidx
+    !check if we have at least two layers of water
+    !  #slo# - 2011-04-01 - Is this really intended here
+    !  #slo# - 2011-05-25 - with z_dolic and update in fill_vertical_domain now ok. 
+    !IF (p_patch%patch_oce%dolic_c(jc,jb) >= 2) THEN
+    z_dolic = p_patch%patch_oce%dolic_c(jc,jb)
+    IF (z_dolic > 0) THEN
       !1a) ocean surface 
-     IF(jk==slev)THEN
-
-          z_adv_u_i(jc,jk,jb)%x =                              &
-          &( p_aux%bc_top_veloc_cc(jc,jb)%x                    &
-          &- p_param%A_veloc_v(jc,jk,jb)                       &
-          &*(p_diag%p_vn(jc,jk,jb)%x-p_diag%p_vn(jc,jk+1,jb)%x)&
-          &/p_patch%patch_oce%del_zlev_i(jk))/p_patch%patch_oce%del_zlev_m(jk)
+      !IF(jk==slev)THEN
+      jk = slev
+      z_adv_u_i(jc,jk,jb)%x =                              &
+      &( p_aux%bc_top_veloc_cc(jc,jb)%x                    &
+      &- p_param%A_veloc_v(jc,jk,jb)                       &
+      &*(p_diag%p_vn(jc,jk,jb)%x-p_diag%p_vn(jc,jk+1,jb)%x)&
+      &/p_patch%patch_oce%del_zlev_i(jk))/p_patch%patch_oce%del_zlev_m(jk)
       !1b) ocean bottom 
-      ELSEIF ( jk == p_patch%patch_oce%dolic_c(jc,jb) ) THEN
-
+      !ELSEIF ( jk == p_patch%patch_oce%dolic_c(jc,jb) ) THEN
+      !ELSEIF ( jk == z_dolic ) THEN
+      jk = z_dolic
 !        IF(p_patch%patch_oce%n_zlev>=2)THEN
-          z_adv_u_i(jc,jk,jb)%x&
-          & = (p_param%A_veloc_v(jc,jk,jb)&
-          &*(p_diag%p_vn(jc,jk-1,jb)%x-p_diag%p_vn(jc,jk,jb)%x) &
-          & / p_patch%patch_oce%del_zlev_i(jk-1)&
-          & - p_aux%bc_bot_veloc_cc(jc,jb)%x)/p_patch%patch_oce%del_zlev_m(jk)
-          !write(*,*)'u-diff botom:',jk,u_c(jc,elev-1,jb),u_c(jc,elev,jb),u_c(jc,elev,jb),bot_bc_u_c(jc,jb), z_adv_u_i(jc,jk,jb)
+      z_adv_u_i(jc,jk,jb)%x&
+      & = (p_param%A_veloc_v(jc,jk,jb)&
+      &*(p_diag%p_vn(jc,jk-1,jb)%x-p_diag%p_vn(jc,jk,jb)%x) &
+      & / p_patch%patch_oce%del_zlev_i(jk-1)&
+      & - p_aux%bc_bot_veloc_cc(jc,jb)%x)/p_patch%patch_oce%del_zlev_m(jk)
+      !write(*,*)'u-diff botom:',jk,u_c(jc,elev-1,jb),u_c(jc,elev,jb),u_c(jc,elev,jb), &
+      !  &        bot_bc_u_c(jc,jb), z_adv_u_i(jc,jk,jb)
 !        ENDIF
       !1c) ocean interior 
-      ELSEIF( jk>slev .AND. jk < p_patch%patch_oce%dolic_c(jc,jb) ) THEN
-
-        z_adv_u_i(jc,jk,jb)%x&
-        & = &
-     & ( p_param%A_veloc_v(jc,jk-1,jb)*(p_diag%p_vn(jc,jk-1,jb)%x-p_diag%p_vn(jc,jk,jb)%x)&
-     &  /p_patch%patch_oce%del_zlev_i(jk-1)&
-     & - p_param%A_veloc_v(jc,jk,jb)*(p_diag%p_vn(jc,jk,jb)%x  -p_diag%p_vn(jc,jk+1,jb)%x)&
-     & /p_patch%patch_oce%del_zlev_i(jk))/&
-     & p_patch%patch_oce%del_zlev_m(jk)
-! write(*,*)'u-diff interior:',jk,u_c(jc,jk-1,jb),u_c(jc,jk,jb),u_c(jc,jk,jb),u_c(jc,jk+1,jb), z_adv_u_i(jc,jk,jb),&
-! &p_patch%patch_oce%dolic_c(jc,jb) 
-      !1c) ocean bottom 
-        ENDIF  ! jk-condition
-      ENDIF    ! at least 2 vertical layers
+      !ELSEIF( jk>slev .AND. jk < p_patch%patch_oce%dolic_c(jc,jb) ) THEN
+      DO jk = slev+1, z_dolic-1
+         z_adv_u_i(jc,jk,jb)%x&
+         & = ( p_param%A_veloc_v(jc,jk-1,jb)*(p_diag%p_vn(jc,jk-1,jb)%x-p_diag%p_vn(jc,jk,jb)%x)&
+         &   /p_patch%patch_oce%del_zlev_i(jk-1)&
+         &  - p_param%A_veloc_v(jc,jk,jb)*(p_diag%p_vn(jc,jk,jb)%x  -p_diag%p_vn(jc,jk+1,jb)%x)&
+         &   /p_patch%patch_oce%del_zlev_i(jk))/&
+         &    p_patch%patch_oce%del_zlev_m(jk)
+! write(*,*)'u-diff interior:',jk,u_c(jc,jk-1,jb),u_c(jc,jk,jb),u_c(jc,jk,jb),u_c(jc,jk+1,jb), &
+!   &        z_adv_u_i(jc,jk,jb), p_patch%patch_oce%dolic_c(jc,jb) 
+      ! ENDIF  ! jk-condition
+     !ENDIF    ! at least 2 vertical layers
+      END DO ! jk ocean interior
+      ENDIF  ! dolic>0
     END DO
   END DO
-END DO
+!END DO
 
 ! Step 2: Map result of previous calculations from cell centers to edges (for all vertical layers)  
 CALL map_cell2edges( p_patch, z_adv_u_i, laplacian_vn_out)

@@ -127,10 +127,10 @@ MODULE mo_impl_constants
   INTEGER,PARAMETER :: SEA_BOUNDARY  = -1  !  e.g. wet cell with neighbouring land cell
   INTEGER,PARAMETER :: SEA           = -2  !  inner sea
 
-  INTEGER,PARAMETER :: ZERO_CORIOLIS                 = 0
-  INTEGER,PARAMETER ::  FULL_CORIOLIS                  = 1
-  INTEGER,PARAMETER ::  BETA_PLANE_CORIOLIS    = 2
-  INTEGER,PARAMETER ::  F_PLANE_CORIOLIS           =  3
+  INTEGER,PARAMETER :: ZERO_CORIOLIS       = 0
+  INTEGER,PARAMETER :: FULL_CORIOLIS       = 1
+  INTEGER,PARAMETER :: BETA_PLANE_CORIOLIS = 2
+  INTEGER,PARAMETER :: F_PLANE_CORIOLIS    = 3
 
 
 

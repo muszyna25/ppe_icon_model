@@ -168,16 +168,16 @@ MODULE mo_ocean_nml
   REAL(wp) :: bottom_drag_coeff     = 0.002_wp ! chezy coefficient for bottom friction
   REAL(wp) :: wstress_coeff         = 1.e-4_wp ! windstress coefficient
 
-  INTEGER  :: coriolis_type         = 1        !0=zero Coriolis, the non-rottaing case
-                                               !1=full varying Coriolis
-                                               !2=beta-plane approximation to Coriolis
-                                               !3=f-plane approximation to Coriolis
-                                               !The data below are used to set up in basin configuration
-                                               !the Coriolis (f/beta-plane) and to adjust the analytic wind forcing
-  REAL(wp) :: basin_center_lat     = 0.0_wp    !lat-lon coordinate of basin center, used 
-  REAL(wp) :: basin_center_lon     = 0.0_wp    !in (non-global) basin configuration such as the Stommel-type tests
-  REAL(wp) :: basin_width_deg      = 0.0_wp    !basin extension in x-direction, units are degrees
-  REAL(wp) :: basin_height_deg     = 0.0_wp    !basin extension in y-direction, units are degrees
+  INTEGER  :: coriolis_type         = 1        ! 0=zero Coriolis, the non-rotating case
+                                               ! 1=full varying Coriolis
+                                               ! 2=beta-plane (linear) approximation to Coriolis
+                                               ! 3=f-plane (constant) approximation to Coriolis
+                                               ! The variables below are used to set up in basin configuration
+                                               ! the Coriolis (f/beta-plane) and to adjust the analytic wind forcing
+  REAL(wp) :: basin_center_lat     = 0.0_wp    ! lat-lon coordinate of basin center, used 
+  REAL(wp) :: basin_center_lon     = 0.0_wp    ! in (non-global) basin configuration such as the Stommel-type tests
+  REAL(wp) :: basin_width_deg      = 0.0_wp    ! basin extension in x-direction, units are degrees
+  REAL(wp) :: basin_height_deg     = 0.0_wp    ! basin extension in y-direction, units are degrees
                                                
 
   LOGICAL  :: lviscous              =  .TRUE.  ! include friction or not
@@ -210,8 +210,9 @@ MODULE mo_ocean_nml
   REAL(wp) :: t_val     = 0.0_wp  ! input test value for temperature
   !REAL(wp) :: s_val     = 0.0_wp  ! input  test value for salinity
 
-  ! switch for debugging of ocean core
+  ! switches for level of debugging the ocean core
   INTEGER  :: i_dbg_oce = 0       ! different levels of debug output (1-5, 0: no output)
+  INTEGER  :: i_dbg_inx = 0       ! different levels of debug output of values at indices given below
 
   ! longitude/latitude location of single cell output for debugging
   REAL(wp) :: rlat_in   = 0.0_wp  ! latitude of cell for debug output
@@ -222,9 +223,12 @@ MODULE mo_ocean_nml
   INTEGER  :: i_oct_idx = 0       ! output test index
   INTEGER  :: i_oct_ilv = 1       ! output test level
 
-  NAMELIST/octst_ctl/   i_dbg_oce, i_oct_blk, i_oct_idx, i_oct_ilv,     &
-    &                   h_val, t_val, i_ocv_blk, i_ocv_idx, i_ocv_ilv,  &
-    &                   rlat_in, rlon_in
+  CHARACTER(len=3) :: str_proc_tst(10)   ! namelist string of source processes to print
+
+  NAMELIST/octst_ctl/   i_oct_blk, i_oct_idx, i_oct_ilv,     &
+    &                   i_ocv_blk, i_ocv_idx, i_ocv_ilv,     &
+    &                   i_dbg_oce, i_dbg_inx, str_proc_tst,  &
+    &                   h_val, t_val, rlat_in, rlon_in
 
   CONTAINS
 
@@ -315,6 +319,19 @@ MODULE mo_ocean_nml
      ! 6.0 Read octst_ctl namelist
      !------------------------------------------------------------
      ! (done so far by all MPI processes)
+
+     ! 3-char string with marked processes to be printed out for debug purposes
+     str_proc_tst =  (/  & 
+       &  'abm', &  ! main timestepping routines       in mo_oce_ab_timestepping (mimetic/rbf)
+       &  'vel', &  ! velocity advection and diffusion in mo_oce_veloc_advection
+       &  'dif', &  ! diffusion                        in mo_oce_diffusion
+       &  'trc', &  ! tracer advection and diffusion   in mo_oce_tracer_transport
+       &  '   ', &  ! ...
+       &  '   ', &  ! ...
+       &  '   ', &
+       &  '   ', &
+       &  '   ', &
+       &  '   '  /)
 
      CALL position_nml ('octst_ctl', status=i_status)
      SELECT CASE (i_status)

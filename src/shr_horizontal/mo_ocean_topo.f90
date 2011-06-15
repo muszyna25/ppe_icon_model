@@ -121,16 +121,18 @@ USE mo_kind,               ONLY: wp
 USE mo_io_units,           ONLY: filename_max!, nerr
 USE mo_impl_constants,     ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
   &                              success, max_char_length,                          &
-  &                              min_rlcell, min_rledge, min_rlvert
+  &                              min_rlcell, min_rledge, min_rlvert,                &
+  &                              full_coriolis, beta_plane_coriolis,                &
+  &                              f_plane_coriolis, zero_coriolis
 USE mo_exception,          ONLY: message_text, message, finish
 USE mo_model_domain,       ONLY: t_patch
-USE mo_ocean_nml,          ONLY: n_zlev, dzlev_m
+USE mo_ocean_nml,          ONLY: n_zlev, dzlev_m, CORIOLIS_TYPE, basin_center_lat, basin_height_deg
 USE mo_run_nml,            ONLY: nproma, i_cell_type
 USE mo_math_utilities,     ONLY: gc2cc,cc2gc,       &
   &                              t_geographical_coordinates, t_cartesian_coordinates,   &
   &                              vector_product, arc_length
-!USE mo_math_constants,     ONLY: pi
-!USE mo_physical_constants,     ONLY: re!, rre, omega, rgrav
+USE mo_math_constants,     ONLY: pi, deg2rad
+USE mo_physical_constants, ONLY: re, omega!, rgrav
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real
 USE mo_grid_nml,           ONLY: nroot
@@ -145,9 +147,9 @@ INCLUDE 'netcdf.inc'
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 PUBLIC :: init_ocean_patch
-PUBLIC :: init_scalar_product
-PUBLIC :: calc_geo_factors
-
+PRIVATE :: init_scalar_product
+PRIVATE :: calc_geo_factors
+PRIVATE :: init_coriolis
 TYPE(t_patch), POINTER :: ptr_patch ! patch on specific level
 !-------------------------------------------------------------------------
 
@@ -489,10 +491,119 @@ CONTAINS
     ! Calculate geometrical factors used in divergence and rotation
     !
     CALL calc_geo_factors( ptr_patch )
+    !
+    ! Init coriolis force:perform modification if f- or beta-plane approximation
+    !is cosen in namlist
+    CALL init_coriolis( ptr_patch )
 
     CALL message (TRIM(routine), 'end')
 
   END SUBROUTINE init_ocean_patch
+!-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! Modifies the already calculated Coriolis force, if beta-, f-plane or the nonrotating case 
+  !! is selected in the namelist. The tangent plane is associated to the center of the basin that is 
+  !! specified in the namelist. An alternative would be to associate it to the nearest edge/vertex, but
+  !! this is not implemented yet, and i expect it to have a minor effect.
+  !!
+  !! The Coriolis parameter is specified for edges (needed in RBF-discretization) and at vertices (needed
+  !! in mimetic discreization).
+  !! The land-sea masks are not taken into account here. This would require to extend the 2D-coriolis-structure
+  !! to a 3D one
+  !!
+  !! @par Revision History
+  !!  developed by Peter Korn, 2011
+  !!
+  SUBROUTINE init_coriolis( ptr_patch )
+    !
+    IMPLICIT NONE
+    !
+    !
+    TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
+    !
+    INTEGER :: jb, je, jv
+    INTEGER :: rl_start_e, rl_end_e
+    INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
+    INTEGER :: rl_start_v, rl_end_v
+    INTEGER :: i_startblk_v, i_endblk_v, i_startidx_v, i_endidx_v
+    TYPE(t_geographical_coordinates) :: gc1,gc2 
+    TYPE(t_cartesian_coordinates) :: xx1, xx2
+    REAL(wp) :: z_y, z_lat_basin_center
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    & routine = ('mo_ocean_topo:init_coriolis')
+    !-----------------------------------------------------------------------
+   rl_start_e = 1
+   rl_end_e   = min_rledge
+   rl_start_v = 1
+   rl_end_v   = min_rlvert
+
+   i_startblk_e = ptr_patch%edges%start_blk(rl_start_e,1)
+   i_endblk_e   = ptr_patch%edges%end_blk(rl_end_e,1)
+   i_startblk_v = ptr_patch%verts%start_blk(rl_start_v,1)
+   i_endblk_v   = ptr_patch%verts%end_blk(rl_end_v,1)
+
+    CALL message (TRIM(routine), 'start')
+
+    SELECT CASE (CORIOLIS_TYPE)
+
+    CASE(FULL_CORIOLIS)
+      !Nothing to do: full coriolis is already set
+      RETURN
+
+    CASE(BETA_PLANE_CORIOLIS)
+      z_lat_basin_center = basin_center_lat * deg2rad
+      gc1%lat = basin_center_lat* deg2rad - 0.5_wp*basin_height_deg*deg2rad
+      gc1%lon = 0.0_wp
+      xx1=gc2cc(gc1)
+
+     DO jb = i_startblk_v, i_endblk_v
+       CALL get_indices_v(ptr_patch, jb, i_startblk_v, i_endblk_v, &
+                         i_startidx_v, i_endidx_v, rl_start_v, rl_end_v)
+       DO jv = i_startidx_v, i_endidx_v
+           !z_y = re*(ptr_patch%verts%vertex(jv,jb)%lat - z_lat_basin_center) 
+           gc2%lat = ptr_patch%verts%vertex(jv,jb)%lat*deg2rad
+           gc2%lon = 0.0_wp
+           xx2=gc2cc(gc2)        
+           z_y = re*arc_length(xx2,xx1)
+           ptr_patch%verts%f_v(jv,jb) = 2.0_wp*omega*( sin(z_lat_basin_center)     &
+           &                          + (cos(z_lat_basin_center)/re)*z_y)
+! write(*,*)'beta', jv,jb,z_beta_plane_vort,2.0_wp*omega*sin(z_lat_basin_center),&
+! &2.0_wp*omega*((cos(z_lat_basin_center)/re)*z_y)
+       END DO
+     END DO
+
+
+     DO jb = i_startblk_e, i_endblk_e
+       CALL get_indices_e(ptr_patch, jb, i_startblk_e, i_endblk_e, &
+                         i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
+       DO je = i_startidx_e, i_endidx_e
+         ! depends on basin_center_lat only - not dependent on center_lon, basin_width or height 
+         z_y = ptr_patch%edges%center(je,jb)%lat - z_lat_basin_center
+         ptr_patch%edges%f_e(je,jb) = 2.0_wp*omega*( sin(z_lat_basin_center)     &
+         &                          + (cos(z_lat_basin_center)/re)*z_y)
+       END DO
+     END DO
+
+
+    CASE(F_PLANE_CORIOLIS)
+
+     z_lat_basin_center = basin_center_lat * deg2rad
+
+     ptr_patch%edges%f_e  = 2.0_wp*omega*sin(z_lat_basin_center)
+     ptr_patch%verts%f_v  = 2.0_wp*omega*sin(z_lat_basin_center)
+
+
+   CASE(ZERO_CORIOLIS)
+     ptr_patch%verts%f_v = 0.0_wp
+     ptr_patch%edges%f_e = 0.0_wp
+   END SELECT
+
+
+    CALL message (TRIM(routine), 'end')
+
+  END SUBROUTINE init_coriolis
 
   !-----------------------------------------------------------------------------
   !>
@@ -514,17 +625,14 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
                & routine = ('mo_ocean_topo:read_netcdf_ocean_domain')
     LOGICAL :: l_exist
-    INTEGER :: i_lev, no_cells, no_edges!, minlsm, maxlsm
+    INTEGER :: i_lev, no_cells, no_edges
     INTEGER :: ncid, dimid, varid, nfloc_stat
     INTEGER :: array_c_int (ptr_patch%n_patch_cells), &  ! slo: todo: set zero!
             &  array_e_int (ptr_patch%n_patch_edges)
     REAL(wp):: array_c_real(ptr_patch%n_patch_cells), &
             &  array_e_real(ptr_patch%n_patch_edges)
 
-   !INTEGER :: jk, je, jb
-   !INTEGER :: rl_start, rl_end
-   !INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
-   !INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
+    INTEGER :: jc, jb, nblks_c, npromz_c, no_sbd, no_sea, no_lnd, no_lbd, nlen
     !--------------------------------------------------------------------------
 
     CALL message (TRIM(routine), 'start')
@@ -579,6 +687,30 @@ CONTAINS
       ptr_patch%patch_oce%lsm_oce_c(:,1,:) = -2
     END IF
 
+    no_sbd = 0
+    no_sea = 0
+    no_lnd = 0
+    no_lbd = 0
+    nblks_c  = ptr_patch%nblks_int_c
+    npromz_c = ptr_patch%npromz_int_c
+    DO jb = 1, nblks_c
+      IF (jb /= nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz_c
+      ENDIF
+      DO jc = 1, nlen
+        IF (ptr_patch%patch_oce%lsm_oce_c(jc,1,jb) == -2) no_sea = no_sea+1
+        IF (ptr_patch%patch_oce%lsm_oce_c(jc,1,jb) == -1) no_sbd = no_sbd+1
+        IF (ptr_patch%patch_oce%lsm_oce_c(jc,1,jb) ==  1) no_lbd = no_lbd+1
+        IF (ptr_patch%patch_oce%lsm_oce_c(jc,1,jb) ==  2) no_lnd = no_lnd+1
+      END DO
+    END DO
+
+    WRITE(message_text,'(4(a,i6))') 'sea_boundary=', no_sbd,'  inner_sea   =',no_sea, &
+      &                           '  inner_land  =', no_lnd,'  lnd_boundary=',no_lbd
+    CALL message( TRIM(routine),TRIM(message_text))
+
     ! get land-sea-mask on edges
     nfloc_stat = nf_inq_varid(ncid, 'edge_sea_land_mask', varid)
     IF (nfloc_stat == nf_noerr ) THEN
@@ -615,135 +747,6 @@ CONTAINS
       ptr_patch%patch_oce%bathymetry_e(:,:) = -3000.0_wp
     END IF
 
-    !  #slo# 2010-12-07 - ERROR lsm_c=0, lsm_e=-2 in create_ocean_grid for
-    !                     grid_geometry_conditions=1, use cell_elevation instead
-  ! maxlsm = MAXVAL(ptr_patch%patch_oce%lsm_oce_e(:,1,:))
-  ! minlsm = MINVAL(ptr_patch%patch_oce%lsm_oce_e(:,1,:))
-
-  ! IF (maxlsm == -2 .and. minlsm == -2) THEN
-
-  !   CALL message( TRIM(routine),'WARNING: INCORRECT land-sea-mask, use bathy for correction')
-
-  !   ! warning - no boundaries set - must be done by grid generator
-  !   ptr_patch%patch_oce%lsm_oce_c(:,1,:) = 2
-  !   WHERE ( ptr_patch%patch_oce%bathymetry_c(:,:) < -6.0_wp )  ! MPIOM surface cell = 6m
-  !     ptr_patch%patch_oce%lsm_oce_c(:,1,:) = -2
-  !   END WHERE
-  !   ptr_patch%patch_oce%lsm_oce_e(:,1,:) = 2
-  !   WHERE ( ptr_patch%patch_oce%bathymetry_e(:,:) < -6.0_wp )  ! MPIOM surface cell = 6m
-  !     ptr_patch%patch_oce%lsm_oce_e(:,1,:) = -2
-  !   END WHERE
-
-  ! END IF
-
-    !  #slo# 2010-12-16 - lsm_e=1 and -1 for boundary edges in create_ocean_grid
-    !                     correct these values to zero (=boundary)
-  ! CALL message( TRIM(routine),'WARNING: land-sea-mask on edges - set to 0 for boundaries')
-  ! !CALL message( TRIM(routine),'WARNING: bathymetry    on edges - set to 0 for boundaries')
-  ! WHERE ( ptr_patch%patch_oce%lsm_oce_e(:,1,:) == 1 .OR. &
-  !         ptr_patch%patch_oce%lsm_oce_e(:,1,:) == -1 ) 
-  !   ptr_patch%patch_oce%lsm_oce_e(:,1,:) = 0
-  !   ptr_patch%patch_oce%bathymetry_e(:,:) = 0.0_wp
-  ! END WHERE
-  ! !  #slo# 2010-12-16 - lsm_c=-1 at too many grid-points
-  ! !                     correct these values to -2 (=sea)
-  ! CALL message( TRIM(routine),'WARNING: land-sea-mask on cells - set to -2 for sea-boundaries')
-  ! WHERE ( ptr_patch%patch_oce%lsm_oce_c(:,1,:) == -1 ) 
-  !   ptr_patch%patch_oce%lsm_oce_c(:,1,:) = -2
-  ! END WHERE
-
-  ! !  #slo# 2011-03-22: workaroung for issue 961
-  ! !   - lsm_e=0 (boundary) but bathy_e is deep (Stommel basin) -> set bathy_e=0.
-  ! CALL message( TRIM(routine),'WARNING: bathymetry    on edges - set to 0 for boundaries')
-  ! WHERE ( ptr_patch%patch_oce%lsm_oce_e(:,1,:) == 0 )
-  !   ptr_patch%patch_oce%bathymetry_e(:,:) = 0.0_wp
-  ! END WHERE
-
-    !write(*,*) 'read_netcdf_ocean_domain: lsm_oce_c:'
-    !write(*,'(45i2)') ptr_patch%patch_oce%lsm_oce_c(:,1,:)
-! #slo# 2011-02-28: levels below surface do not exist before fill_vertical_domain is called
-!    DO jk = 1, n_zlev
-!      WHERE ( ptr_patch%patch_oce%lsm_oce_e(:,jk,:) == 1 .OR. &
-!             ptr_patch%patch_oce%lsm_oce_e(:,jk,:) == -1 ) 
-!       ptr_patch%patch_oce%lsm_oce_e(:,jk,:) = 0
-!       ptr_patch%patch_oce%bathymetry_e(:,:) = 0.0_wp
-!     END WHERE
-!     !  #slo# 2010-12-16 - lsm_c=-1 at too many grid-points
-!     !                     correct these values to -2 (=sea)
-!     CALL message( TRIM(routine),'WARNING: land-sea-mask on cells - set to -2 for sea-boundaries')
-!     WHERE ( ptr_patch%patch_oce%lsm_oce_c(:,jk,:) == -1 ) 
-!       ptr_patch%patch_oce%lsm_oce_c(:,jk,:) = -2
-!     END WHERE
-!   END DO
-
-!     !consistency check
-!     rl_start = 1
-!     rl_end = min_rledge
-!     i_startblk = ptr_patch%edges%start_blk(rl_start,1)
-!     i_endblk   = ptr_patch%edges%end_blk(rl_end,1)
-! 
-!     iidx => ptr_patch%edges%cell_idx
-!     iblk => ptr_patch%edges%cell_blk
-! 
-!     !Case: neighbor cells 1 and 2 are of the same type, but common edge is different
-!     DO jb = i_startblk, i_endblk
-!       CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
-!                         i_startidx, i_endidx, rl_start, rl_end)
-!       DO jk = 1, n_zlev
-! 
-!         DO je = i_startidx, i_endidx
-! 
-!           IF ( (ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2))&
-!           & == ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1)))&
-!           &.AND.ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1))<0) THEN
-! 
-!             IF(   ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1))&
-!                & /= ptr_patch%patch_oce%lsm_oce_e(je,jk,jb))THEN
-!               write(*,*)'WARNING: INCONSISTENT LSM', jk, je,jb,iidx(je,jb,2),iblk(je,jb,2),&
-!                                                            & iidx(je,jb,1),iblk(je,jb,1)
-!               write(*,*)'lsm values:cell1, cell2, edge:',&
-!               &ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1)),&
-!               &ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2)),&
-!               &ptr_patch%patch_oce%lsm_oce_e(je,jk,jb)
-!               write(*,*)'apply correction'
-!               ptr_patch%patch_oce%lsm_oce_e(je,jk,jb)&
-!               & = ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2))
-!             ENDIF
-!           ENDIF
-!         ENDDO
-!       END DO
-!     END DO
-! 
-!  !Case: neighbor cells 1 and 2 are of different type, but common edge is not boundary
-!   DO jb = i_startblk, i_endblk
-!     CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
-!                         i_startidx, i_endidx, rl_start, rl_end)
-!     DO jk = 1, n_zlev
-!       DO je = i_startidx, i_endidx
-! 
-! 
-!         IF ( ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2))&
-!         & /= ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1))&
-!         &.AND.(    ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1))<0&
-!               &.OR.ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2))<0)) THEN
-! 
-!           IF( ptr_patch%patch_oce%lsm_oce_e(je,jk,jb)/=boundary)THEN
-!             write(*,*)'WARNING: NON-BOUNDARY-EDGE BETWEEN BOUNDARY CELLS', jk, je,jb,iidx(je,jb,2),iblk(je,jb,2),&
-!                                                                                    & iidx(je,jb,1),iblk(je,jb,1)
-!           write(*,*)'lsm values:cell1, cell2, edge:',&
-!            &ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1)),&
-!            &ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2)),&
-!            &ptr_patch%patch_oce%lsm_oce_e(je,jk,jb)
-!           write(*,*)'apply correction'
-!               ptr_patch%patch_oce%lsm_oce_e(je,jk,jb) = boundary
-!         ENDIF
-! 
-!       ENDIF
-!     ENDDO
-!   END DO
-! END DO
-
-
   END SUBROUTINE read_netcdf_ocean_domain
 
   !-----------------------------------------------------------------------------
@@ -761,6 +764,8 @@ CONTAINS
   !! Initial release by Stephan Lorenz, MPI-M (2010-02-19)
   !! Modified by Stephan Lorenz,        MPI-M (2010-08)
   !!  - fill dolic and sea_boundary as well
+  !! Modified by Stephan Lorenz,        MPI-M (2011-05)
+  !!  - level below surface receives same land-sea-mask
   !!
   SUBROUTINE fill_vertical_ocean_domain ()
 
@@ -770,7 +775,7 @@ CONTAINS
 
     INTEGER :: jb, jc, je, jk, ji, nblks_c, nblks_e, npromz_c, npromz_e
     INTEGER :: rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
-    INTEGER :: n_zlvp, noct1_c, noct1_e, inolsm
+    INTEGER :: n_zlvp, noct1_c, noct1_e, noctb_e, nocsb_c, noclb_c, inolsm
     INTEGER :: nolnd_c(n_zlev), nosea_c(n_zlev), nogllnd_c, noglsea_c
     INTEGER :: nolnd_e(n_zlev), nosea_e(n_zlev), nogllnd_e, noglsea_e
     INTEGER :: nobnd_e(n_zlev), nosbd_c(n_zlev), nolbd_c(n_zlev)
@@ -779,10 +784,7 @@ CONTAINS
 
     REAL(wp):: perc_lnd_c(n_zlev), perc_gllnd_c
     REAL(wp):: perc_lnd_e(n_zlev), perc_gllnd_e
-    !INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
-    !INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
-    !INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
-    !INTEGER :: rl_start_e, rl_end_e!, rl_start_c, rl_end_c
+
     !-----------------------------------------------------------------------------
 
     CALL message (TRIM(routine), 'start')
@@ -851,6 +853,9 @@ CONTAINS
     nogllbd_c = 0
     noct1_c = 0
     noct1_e = 0
+    noctb_e = 0
+    nocsb_c = 0
+    noclb_c = 0
 
    !jk=0
    !do jc=1,nproma
@@ -917,7 +922,21 @@ CONTAINS
             IF (ptr_patch%patch_oce%bathymetry_c(je,jb) <= -ptr_patch%patch_oce%zlev_m(jk)) &
               &   noct1_c = noct1_c+1
 
-          ELSE
+          !  second level of lsm and dolic defined by surface level, not the current bathymetry
+          ELSE IF (jk == 2) THEN
+
+            ! dependent on jk-1:
+            ptr_patch%patch_oce%lsm_oce_c(je,jk,jb) = ptr_patch%patch_oce%lsm_oce_c(je,jk-1,jb)
+            IF (ptr_patch%patch_oce%lsm_oce_c(je,jk,jb) <= -1) THEN
+              nosea_c(jk) = nosea_c(jk)+1
+              ptr_patch%patch_oce%dolic_c(je,jb) = jk
+            ELSE IF (ptr_patch%patch_oce%lsm_oce_c(je,jk-1,jb) >=  1) THEN
+              nolnd_c(jk) = nolnd_c(jk)+1
+            ELSE ! 0 not defined
+              STOP ' lsm_oce_c = 0'
+            END IF
+
+          ELSE  ! jk>2
 
             IF (ptr_patch%patch_oce%bathymetry_c(je,jb) <= -ptr_patch%patch_oce%zlev_m(jk)) THEN
               nosea_c(jk)=nosea_c(jk)+1
@@ -977,7 +996,19 @@ CONTAINS
               noct1_e = noct1_e+1
             ENDIF
 
-          ELSE  ! jk>1
+          !  second level of lsm and dolic defined by surface level, not the current bathymetry
+          ELSE IF (jk == 2) THEN
+
+            ! dependent on jk-1:
+            ptr_patch%patch_oce%lsm_oce_e(je,jk,jb) = ptr_patch%patch_oce%lsm_oce_e(je,jk-1,jb)
+            IF (ptr_patch%patch_oce%lsm_oce_e(je,jk,jb) == -2 ) THEN
+              nosea_e(jk)=nosea_e(jk)+1
+              ptr_patch%patch_oce%dolic_e(je,jb) = jk
+            ELSE
+              nolnd_e(jk)=nolnd_e(jk)+1
+            END IF
+
+          ELSE  ! jk>2
 
             IF (ptr_patch%patch_oce%bathymetry_e(je,jb) <= -ptr_patch%patch_oce%zlev_m(jk)) THEN
               nosea_e(jk)=nosea_e(jk)+1
@@ -1010,7 +1041,7 @@ CONTAINS
       ! set values for BOUNDARY at edges (get values of neighbouring cells)
       !  - if the two corresponding cells are differing then edge is BOUNDARY
       !    (they are not both LAND or SEA)
-      !  - no output of number of BOUNDARY yet
+      !  - done for jk>2 only, checks for read lsm in jk=1
 
       nobnd_e(jk)=0
 
@@ -1030,24 +1061,36 @@ CONTAINS
         IDX_LOOP_E: DO je =  i_startidx, i_endidx
 
           ! Get indices/blks of cells 1 and 2 adjacent to edge (je,jb)
-          ! #slo# 2010/12: check with grid-generator
-          !IF (jk >= 2) THEN
-            iic1 = ptr_patch%edges%cell_idx(je,jb,1)
-            ibc1 = ptr_patch%edges%cell_blk(je,jb,1)
-            iic2 = ptr_patch%edges%cell_idx(je,jb,2)
-            ibc2 = ptr_patch%edges%cell_blk(je,jb,2)
-            !
-            ! cells may have -2, -1, 1, 2 for sea, sea_boundary, land_boundary, land:
+          ! #slo# 2011-05-17:
+          !  - set all layers except for the two surface layers which are set by gridgen
+          !  - count numbers for all layers
+          !  - check number for surface layer
+          iic1 = ptr_patch%edges%cell_idx(je,jb,1)
+          ibc1 = ptr_patch%edges%cell_blk(je,jb,1)
+          iic2 = ptr_patch%edges%cell_idx(je,jb,2)
+          ibc2 = ptr_patch%edges%cell_blk(je,jb,2)
+          !
+          ! cells may have -2, -1, 1, 2 for sea, sea_boundary, land_boundary, land:
+          IF (jk == 1) THEN
+            ! counts number of boundaries for jk=1
+            IF ( (ptr_patch%patch_oce%lsm_oce_c(iic1,jk,ibc1) < 0)  .and.   &
+              &  (ptr_patch%patch_oce%lsm_oce_c(iic2,jk,ibc2) > 0) )        &
+              &   noctb_e=noctb_e + 1
+            IF ( (ptr_patch%patch_oce%lsm_oce_c(iic1,jk,ibc1) > 0)  .and.   &
+              &  (ptr_patch%patch_oce%lsm_oce_c(iic2,jk,ibc2) < 0) )        &
+              &   noctb_e=noctb_e + 1
+          END IF  !  jk = 1
+          IF (jk > 2) THEN
             IF ( (ptr_patch%patch_oce%lsm_oce_c(iic1,jk,ibc1) < 0)  .and.   &
               &  (ptr_patch%patch_oce%lsm_oce_c(iic2,jk,ibc2) > 0) )        &
               &   ptr_patch%patch_oce%lsm_oce_e(je,jk,jb) = BOUNDARY
             IF ( (ptr_patch%patch_oce%lsm_oce_c(iic1,jk,ibc1) > 0)  .and.   &
               &  (ptr_patch%patch_oce%lsm_oce_c(iic2,jk,ibc2) < 0) )        &
               &   ptr_patch%patch_oce%lsm_oce_e(je,jk,jb) = BOUNDARY
-            IF ( ptr_patch%patch_oce%lsm_oce_e(je,jk,jb) == BOUNDARY )      &
-              &  nobnd_e(jk)=nobnd_e(jk)+1
+          END IF  !  jk > 2
+          IF ( ptr_patch%patch_oce%lsm_oce_e(je,jk,jb) == BOUNDARY )      &
+            &  nobnd_e(jk)=nobnd_e(jk)+1
 
-          !END IF  !  jk >=2
 
         END DO IDX_LOOP_E
 
@@ -1058,6 +1101,7 @@ CONTAINS
       !  - get values of neighbouring edges
       !  - if one of 3 edges of a sea-cell is BOUNDARY then cell is SEA_BOUNDARY
       !  - if one of 3 edges of a land-cell is BOUNDARY then cell is LAND_BOUNDARY
+      !  - done for jk>2 only, checks for read lsm in jk=1
 
       nosbd_c(jk)=0
       nolbd_c(jk)=0
@@ -1077,57 +1121,53 @@ CONTAINS
 
         IDX_LOOP_C: DO jc =  i_startidx, i_endidx
 
-          !IF (jk >= 2) THEN  ! #slo# 2010-12-07 - including surface while gridgen not complete
+          ! #slo# 2011-05-17
+          !  - set all layers except for the two surface layers which are set by gridgen
+          !  - count numbers for all layers
+          !  - check number for surface layer
 
-            ! sea points
-            IF (ptr_patch%patch_oce%lsm_oce_c(jc,jk,jb) < 0) THEN
-            ! #slo# 2010-12-16 - corrected in read-bathy for wrong slm,
-            ! could also be done here with:
-            ! ptr_patch%patch_oce%lsm_oce_c(jc,jk,jb) = SEA
-              DO ji = 1, 3
-                ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
-                idxe = ptr_patch%cells%edge_idx(jc,jb,ji)
-                ible = ptr_patch%cells%edge_blk(jc,jb,ji)
-                ! if one of lsm_e is boundary then lsm_c is sea_boundary
-                IF ( ptr_patch%patch_oce%lsm_oce_e(idxe,jk,ible) == BOUNDARY ) &
-                  &  ptr_patch%patch_oce%lsm_oce_c(jc,jk,jb) = SEA_BOUNDARY
-         !      IF ( ptr_patch%patch_oce%lsm_oce_e(idxe,jk,ible) == BOUNDARY.and.jk==1 ) &
-         !        & WRITE(*,'(a,8i4)') '  lsm_e, lsm_c, idxe, ible, jc, jb, jk: ', &
-         !        &             ptr_patch%patch_oce%lsm_oce_e(idxe,jk,ible), &
-         !        &             ptr_patch%patch_oce%lsm_oce_c(jc,jk,jb), &
-         !        &   idxe, ible, jc, jb, jk
-              END DO
-              IF ( ptr_patch%patch_oce%lsm_oce_c(jc,jk,jb) == SEA_BOUNDARY )   &
-                &  nosbd_c(jk)=nosbd_c(jk)+1
-         !    if (jk==1.and.ptr_patch%patch_oce%lsm_oce_c(jc,jk,jb) == SEA_BOUNDARY) then
-         !      WRITE(*,'(a,6i4)') ' lsm_c, jc, jb, jk: ', &
-         !        &             ptr_patch%patch_oce%lsm_oce_c(jc,jk,jb), &
-         !        &   jc, jb, jk
-         !    endif
-         !    if (jk==2) then
-         !      IF ( ptr_patch%patch_oce%lsm_oce_c(jc,1,jb) /= &
-         !      &    ptr_patch%patch_oce%lsm_oce_c(jc,2,jb))  &
-         !      & WRITE(*,*) ' lsm_c(1),lsm_c(2), jc, jb, jk: ', &
-         !          &             ptr_patch%patch_oce%lsm_oce_c(jc,1,jb), &
-         !          &             ptr_patch%patch_oce%lsm_oce_c(jc,2,jb), &
-         !          &   jc, jb, jk
-         !   endif
-            END IF  !  lsm_c < 0
-
-            ! land points
-            IF (ptr_patch%patch_oce%lsm_oce_c(jc,jk,jb) > 0) THEN
-              DO ji = 1, 3
+          ! sea points
+          IF (ptr_patch%patch_oce%lsm_oce_c(jc,jk,jb) < 0) THEN
+          ! #slo# 2010-12-16 - corrected in read-bathy for wrong slm,
+          ! could also be done here with:
+          ! ptr_patch%patch_oce%lsm_oce_c(jc,jk,jb) = SEA
+            DO ji = 1, 3
               ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
-                idxe = ptr_patch%cells%edge_idx(jc,jb,ji)
-                ible = ptr_patch%cells%edge_blk(jc,jb,ji)
-                IF ( ptr_patch%patch_oce%lsm_oce_e(idxe,jk,ible) == BOUNDARY ) &
-                  &  ptr_patch%patch_oce%lsm_oce_c(jc,jk,jb) = LAND_BOUNDARY
-              END DO
-              IF ( ptr_patch%patch_oce%lsm_oce_c(jc,jk,jb) == LAND_BOUNDARY )   &
-                &  nolbd_c(jk)=nolbd_c(jk)+1
-            END IF  !  lsm_c > 0
+              idxe = ptr_patch%cells%edge_idx(jc,jb,ji)
+              ible = ptr_patch%cells%edge_blk(jc,jb,ji)
+              ! if one of lsm_e is boundary then lsm_c is sea_boundary
+              IF ( ptr_patch%patch_oce%lsm_oce_e(idxe,jk,ible) == BOUNDARY .AND. jk  > 2) &
+                &  ptr_patch%patch_oce%lsm_oce_c(jc,jk,jb) = SEA_BOUNDARY
+              ! counts number of sea-boundaries for jk=1 - only one boundary is allowed
+              IF ( ptr_patch%patch_oce%lsm_oce_e(idxe,jk,ible) == BOUNDARY .AND. jk == 1) &
+                &  nocsb_c=nocsb_c + 1
 
-          !END IF  !  jk >=2
+            END DO
+            IF ( ptr_patch%patch_oce%lsm_oce_c(jc,jk,jb) == SEA_BOUNDARY )  &
+              &  nosbd_c(jk)=nosbd_c(jk)+1
+          END IF  !  lsm_c < 0
+
+          ! land points
+          IF (ptr_patch%patch_oce%lsm_oce_c(jc,jk,jb) > 0) THEN
+
+            DO ji = 1, 3
+              ! Get indices/blks of edges 1 to 3 adjacent to cell (jc,jb)
+              idxe = ptr_patch%cells%edge_idx(jc,jb,ji)
+              ible = ptr_patch%cells%edge_blk(jc,jb,ji)
+              ! if one of lsm_e is boundary then lsm_c is land_boundary
+              IF ( ptr_patch%patch_oce%lsm_oce_e(idxe,jk,ible) == BOUNDARY .AND. jk  > 2 ) &
+                &  ptr_patch%patch_oce%lsm_oce_c(jc,jk,jb) = LAND_BOUNDARY
+              ! counts number of land-boundaries for jk=1 - one land cell may have 2 boundaries
+              IF ( ptr_patch%patch_oce%lsm_oce_e(idxe,jk,ible) == BOUNDARY .AND. jk == 1 ) THEN
+                   noclb_c=noclb_c + 1
+                   EXIT
+              END IF
+            END DO
+
+            IF ( ptr_patch%patch_oce%lsm_oce_c(jc,jk,jb) == LAND_BOUNDARY )   &
+              &  nolbd_c(jk)=nolbd_c(jk)+1
+
+          END IF  !  lsm_c > 0
 
         END DO  IDX_LOOP_C
 
@@ -1141,7 +1181,7 @@ CONTAINS
     ! Output the levels
     WRITE(message_text,'(a,a)') &
     &     'LEVEL   zlev_m  Thickness   zlev_i  Distance ', &
-    &     '    SEA_c    LAND_c  PERC_LND     SEA_e    LAND_e BOUND_e   SEA_B. LAND_B.'
+    &     '    SEA_c    LAND_c  PERC_LND     SEA_e    LAND_e   BND_e   SEA_B. LAND_B.'
     CALL message('', TRIM(message_text))
     DO jk = 1, n_zlev
       WRITE(message_text,'(a,i3,4f10.2,2i10,f10.2,2i10,3i8)') '.',  &
@@ -1189,7 +1229,28 @@ CONTAINS
       CALL message(routine, TRIM(message_text))
     END IF
 
+    ! Boundary warnings in case of inconsistency in read land-sea-mask
+    IF ( nobnd_e(1) /= noctb_e ) THEN
+      WRITE(message_text,'(a,i8,a,i8)') &
+        &   'WARNING - surface boundary edges read = ',nobnd_e(1), &
+        &   ' - calculated from bathymetry = ',noctb_e
+      CALL message(routine, TRIM(message_text))
+    END IF
+    IF ( nosbd_c(1) /= nocsb_c ) THEN
+      WRITE(message_text,'(a,i8,a,i8)') &
+        &   'WARNING - surface sea-boundary cells read = ',nosbd_c(1), &
+        &   ' - calculated from bathymetry = ',nocsb_c
+      CALL message(routine, TRIM(message_text))
+    END IF
+    IF ( nolbd_c(1) /= noclb_c ) THEN
+      WRITE(message_text,'(a,i8,a,i8)') &
+        &   'WARNING - surface land-boundary cells read = ',nolbd_c(1), &
+        &   ' - calculated from bathymetry = ',noclb_c
+      CALL message(routine, TRIM(message_text))
+    END IF
+
     !-----------------------------
+    ! real bathymetry should not be used since individual bottom layer thickness is not implemented
     ! set values of bathymetry to new non-individual dolic values
 
     DO jb = 1, nblks_c
@@ -1230,66 +1291,6 @@ CONTAINS
 
     CALL message (TRIM(routine), 'end')
 
-! iidx => ptr_patch%edges%cell_idx
-! iblk => ptr_patch%edges%cell_blk
-! 
-!     !Case: neighbor cells 1 and 2 are of the same type, but common edge is different
-!     DO jb = i_startblk, i_endblk
-!       CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
-!                         i_startidx, i_endidx, rl_start, rl_end)
-!       DO jk = 1, n_zlev
-! 
-!         DO je = i_startidx, i_endidx
-! 
-!           IF ( (ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2))&
-!           & == ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1)))&
-!           &.AND.ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1))<0) THEN
-! 
-!             IF(   ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1))&
-!                & /= ptr_patch%patch_oce%lsm_oce_e(je,jk,jb))THEN
-!               write(*,*)'fill_vertical WARNING: INCONSISTENT LSM', jk, &!je,jb,iidx(je,jb,2),iblk(je,jb,2),&
-!                                                           ! & iidx(je,jb,1),iblk(je,jb,1)
-!               !write(*,*)'lsm values:cell1, cell2, edge:',&
-!               &ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1)),&
-!               &ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2)),&
-!               &ptr_patch%patch_oce%lsm_oce_e(je,jk,jb)
-!               write(*,*)'apply correction'
-!               ptr_patch%patch_oce%lsm_oce_e(je,jk,jb)&
-!               & = ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2))
-!             ENDIF
-!           ENDIF
-!         ENDDO
-!       END DO
-!     END DO
-! 
-!  !Case: neighbor cells 1 and 2 are of different type, but common edge is not boundary
-!   DO jb = i_startblk, i_endblk
-!     CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
-!                         i_startidx, i_endidx, rl_start, rl_end)
-!     DO jk = 1, n_zlev
-!       DO je = i_startidx, i_endidx
-! 
-! 
-!         IF ( ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2))&
-!         & /= ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1))&
-!         &.AND.(    ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1))<0&
-!               &.OR.ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2))<0)) THEN
-! 
-!           IF( ptr_patch%patch_oce%lsm_oce_e(je,jk,jb)/=boundary)THEN
-!             write(*,*)'fill_vertical WARNING: NON-BOUNDARY-EDGE BETWEEN BOUNDARY CELLS', jk,&! je,jb,iidx(je,jb,2),iblk(je,jb,2),&
-!                                                                    !                & iidx(je,jb,1),iblk(je,jb,1)
-!           !write(*,*)'lsm values:cell1, cell2, edge:',&
-!            &ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1)),&
-!            &ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2)),&
-!            &ptr_patch%patch_oce%lsm_oce_e(je,jk,jb)
-!           write(*,*)'apply correction'
-!               ptr_patch%patch_oce%lsm_oce_e(je,jk,jb) = boundary
-!         ENDIF
-! 
-!       ENDIF
-!     ENDDO
-!   END DO
-! END DO
   END SUBROUTINE fill_vertical_ocean_domain
   !-------------------------------------------------------------------------
   !
@@ -1603,7 +1604,6 @@ CONTAINS
          END DO
        END DO EDGE_IDX_LOOP_PRIMAL
      END DO EDGE_BLK_LOOP_PRIMAL
-!stop
     rl_start = 1 
     rl_end = min_rledge
 

@@ -802,6 +802,7 @@ CONTAINS
 &              tt     = pt_diag%temp         (:,:,jb)     ,       & !! in:  temperature at full levels
 &              pp     = pt_diag%pres         (:,:,jb)     ,       & !! in:  pressure at full levels
 &              ps     = pt_diag%pres_sfc     (:,jb)       ,       & !! in:  surface pressure at full levels
+&              t_g    = lnd_prog_now%t_g     (:,jb)       ,       & !! in:  surface temperature
 &              pgeo   = p_metrics%geopot_agl (:,:,jb)     ,       & !! in:  geopotential height
 &              rho    = pt_prog%rho          (:,:,jb  )   ,       & !! in:  density
 &              rcld   = rcld                              ,       & !! in:  standard deviation of saturation deficit
@@ -828,6 +829,7 @@ CONTAINS
 !&              tt     = pt_diag%temp         (1,1,jb)     ,       & !! in:  temperature at full levels
 !&              pp     = pt_diag%pres         (1,1,jb)     ,       & !! in:  pressure at full levels
 !&              ps     = pt_diag%pres_sfc     (1,jb)       ,       & !! in:  surface pressure at full levels
+!&              t_g    = lnd_prog_now%t_g     (1,jb)       ,       & !! in:  surface temperature  
 !&              pgeo   = p_metrics%geopot_agl (1,1,jb)     ,       & !! in:  geopotential height
 !&              rho    = pt_prog%rho          (1,1,jb  )   ,       & !! in:  density
 !&              rcld   = rcld                              ,       & !! in:  standard deviation of saturation deficit

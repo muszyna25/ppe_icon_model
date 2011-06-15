@@ -77,7 +77,8 @@ PUBLIC :: grad_fd_norm_oce
 PUBLIC :: grad_fd_norm_oce_2D
 PUBLIC :: div_oce
 PUBLIC :: rot_vertex_ocean
-PUBLIC :: rot_vertex_ocean_old
+PUBLIC :: rot_vertex_ocean_origin
+PUBLIC :: rot_vertex_ocean_total
 PUBLIC :: nabla2_vec_ocean
 PUBLIC :: height_related_quantities
 
@@ -329,11 +330,8 @@ CASE (6) ! (i_cell_type == 6)
           &    psi_c(iidx(je,jb,1),jk,iblk(je,jb,1)) )  &
           &  * ptr_patch%edges%inv_dual_edge_length(je,jb) &
           &  * ptr_patch%edges%system_orientation(je,jb)
-
     ENDDO
-
   END DO
-
 END DO
 
 !$OMP END DO
@@ -468,10 +466,8 @@ CASE (6) ! (i_cell_type == 6)
           &    psi_c(iidx(je,jb,1),iblk(je,jb,1)) )  &
           &  * ptr_patch%edges%inv_dual_edge_length(je,jb) &
           &  * ptr_patch%edges%system_orientation(je,jb)
-
     ENDDO
   END DO
-
 !$OMP END DO
 END SELECT
 !$OMP END PARALLEL
@@ -701,7 +697,287 @@ END SELECT
 IF (ltimer) CALL timer_stop(timer_div)
 #endif
 END SUBROUTINE div_oce
+!-------------------------------------------------------------------------
+!
+!>
+!! Computes the discrete rotation at vertices in presence of boundaries as in the ocean setting.
+!!
+!! Computes in presence of boundaries the discrete rotation at vertices
+!! of triangle cells (centers of dual grid cells) from a vector field
+!! given by its components in the directions normal to triangle edges and
+!! takes the presence of boundaries into account.
+!! Boundary condition:
+!! inviscid case: normal velocity component is zero
+!! viscous case: normal and tangential velocity are zero
+!!
+!! @par Revision History
+!! Developed and tested  by L.Bonaventura  (2002-4).
+!! Adapted to new grid and patch structure by P. Korn (2005).
+!! Some further changes by L. Bonaventura August 2005.
+!! Implementation of both boundary conditions by P. Korn (2006)
+!! Modifications by P. Korn, MPI-M(2007-2)
+!! -Switch fom array arguments to pointers
+!! Modifications by Almut Gassmann, MPI-M (2007-04-20)
+!! - abandon grid for the sake of patch
+!! - DUMMY EDGE COMES NOW AS THE LAST EDGE AFTER THE BOUNDARY EDGES
+!! Modifications by Peter Korn, MPI-M (2010-04)
+!! Modifications by Stephan Lorenz, MPI-M (2010-06)
+!!
+SUBROUTINE rot_vertex_ocean_total( u_vec_e, ptr_patch, rot_vec_v,  &
+  &                          opt_slev, opt_elev, opt_rlstart, opt_rlend )
 
+! input:  lives on edges (velocity points)
+! output: lives on vertices of triangle
+!
+INTEGER, PARAMETER :: ino_dual_edges = 6
+!
+!  patch on which computation is performed
+!
+TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
+!
+!  edge based variable of which rotation is computed
+!   velocity normal to edges
+REAL(wp), INTENT(in) ::  &
+  &  u_vec_e(:,:,:) ! dim: (nproma,n_zlev,nblks_e)
+!
+
+INTEGER, INTENT(in), OPTIONAL ::  &
+  &  opt_slev    ! optional vertical start level
+
+INTEGER, INTENT(in), OPTIONAL ::  &
+  &  opt_elev    ! optional vertical end level
+
+INTEGER, INTENT(in), OPTIONAL ::  &
+  &  opt_rlstart, opt_rlend   ! start and end values of refin_ctrl flag
+!
+!  vertex based variable in which rotation is stored
+REAL(wp), INTENT(out) :: rot_vec_v(:,:,:) ! dim: (nproma,n_zlev,nblks_v)
+
+REAL(wp) :: ztmp
+REAL(wp) :: zarea_fraction
+
+INTEGER :: slev, elev     ! vertical start and end level
+INTEGER :: jv, jk, jb, jev
+INTEGER :: ile, ibe!, il, ib, ill
+INTEGER :: ik, ikk
+INTEGER :: rl_start, rl_end
+INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+
+INTEGER :: iwet_edge_idx(ino_dual_edges)   !line indices of non-boundary edges
+INTEGER :: iwet_cell_idx(2*ino_dual_edges) !line indices of cells adjacent to non-boundary edges
+                                           !double counting allowed
+INTEGER :: iwet_edge_blk(ino_dual_edges)   !block indices of non-boundary edges
+INTEGER :: iwet_cell_blk(2*ino_dual_edges) !block indices of cells adjacent to non-boundary edges
+                                           !double counting allowed
+INTEGER :: iwet_cell_ctr
+INTEGER :: icell_idx_1, icell_blk_1
+INTEGER :: icell_idx_2, icell_blk_2
+!-----------------------------------------------------------------------
+! check optional arguments
+IF ( PRESENT(opt_slev) ) THEN
+  slev = opt_slev
+ELSE
+  slev = 1
+END IF
+IF ( PRESENT(opt_elev) ) THEN
+  elev = opt_elev
+ELSE
+  elev = n_zlev
+END IF
+
+IF ( PRESENT(opt_rlstart) ) THEN
+  IF (opt_rlstart == 1) THEN
+    CALL finish ('mo_math_operators:rot_vertex_ocean',  &
+          &      'opt_rlstart must not be equal to 1')
+  ENDIF
+  rl_start = opt_rlstart
+ELSE
+  rl_start = 2
+END IF
+IF ( PRESENT(opt_rlend) ) THEN
+  rl_end = opt_rlend
+ELSE
+  rl_end = min_rlvert
+END IF
+
+! #slo# due to nag -nan compiler-option
+rot_vec_v(:,:,:) = 0.0_wp ! dim: (nproma,n_zlev,nblks_v)
+
+
+! values for the blocking
+i_nchdom   = MAX(1,ptr_patch%n_childdom)
+i_startblk = ptr_patch%verts%start_blk(rl_start,1)
+i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
+
+!
+!  loop through over all patch vertices (and blocks)
+!
+DO jb = i_startblk, i_endblk
+
+  CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
+                     i_startidx, i_endidx, rl_start, rl_end)
+
+  !
+  ! compute the discrete rotation for vertex jv by
+  ! finite volume approximation
+  ! (see Bonaventura and Ringler MWR 2005);
+  ! multiplication of the vector component vec_e by
+  ! the appropriate dual cell based verts%edge_orientation
+  ! is required to obtain the correct value for the
+  ! application of Stokes theorem (which requires the scalar
+  ! product of the vector field with the tangent unit vectors
+  ! going around dual cell jv COUNTERCLOKWISE;
+  ! since the positive direction for the vec_e components is
+  ! not necessarily the one yelding counterclockwise rotation
+  ! around dual cell jv, a correction coefficient (equal to +-1)
+  ! is necessary, given by g%verts%edge_orientation
+  !
+  ! At the end local curl is divided by area of dual cell,
+  ! if boundaries are present, not the complete area of the
+  ! dual cell counts but only the 'wet' part. This wet part
+  ! is accumulated in variable 'zarea_fraction'.
+
+  DO jk = slev, elev
+
+!$OMP PARALLEL DO SCHEDULE(runtime) DEFAULT(PRIVATE)  &
+!$OMP   SHARED(u_vec_e,ptr_patch,rot_vec_v,jb) FIRSTPRIVATE(jk)
+    DO jv = i_startidx, i_endidx
+
+      ztmp = 0.0_wp
+
+      !init indices
+      iwet_cell_idx(:) = 0
+      iwet_edge_idx(:) = 0
+      iwet_cell_blk(:) = 0
+      iwet_edge_blk(:) = 0
+
+      iwet_cell_ctr   = 0
+
+      zarea_fraction  = 0.0_wp
+
+      DO jev = 1, ptr_patch%verts%num_edges(jv,jb)
+
+        !
+        ! get line and block indices of edge jev around vertex jv
+        !
+        ile = ptr_patch%verts%edge_idx(jv,jb,jev)
+        ibe = ptr_patch%verts%edge_blk(jv,jb,jev)
+
+        !Check, if edge is sea or boundary edge and take care of dummy edge
+        ! edge with indices ile, ibe is sea edge
+        IF ( ptr_patch%patch_oce%lsm_oce_e(ile,jk,ibe) <= sea_boundary ) THEN
+
+          !Distinguish the following cases
+          ! edge ie_k is
+          !a) ocean edge: compute as usual,
+          !b) land edge: do not consider it
+          !c) boundary edge take:
+          !   1) Inviscid fluid: normal velocity at boundary is zero
+          !   2) Viscous fluid:  normal and tangential velocity at boundary are zero
+          ! sea, sea_boundary, boundary (edges only), land_boundary, land =
+          !  -2,      -1,         0,                  1,             2
+
+          !add contribution of normal velocity at edge (ile,ibe) to rotation
+          ztmp = ztmp + (u_vec_e(ile,jk,ibe)) &
+          !&  + 0.5_wp*ptr_patch%edges%primal_edge_length(ile,ibe)*ptr_patch%edges%f_e(ile,ibe))&
+          & * ptr_patch%edges%dual_edge_length(ile,ibe)  &
+          & * ptr_patch%verts%edge_orientation(jv,jb,jev)
+
+          !increase ctr, store edge (ile,ibe) as wet edge idx, blk
+          !and store simply both of the adjacent cells as wet cells
+          !the double counting of cells is handled below and only
+          !if boundary edges are present in this dual cell
+          iwet_cell_ctr          = iwet_cell_ctr + 1
+          iwet_edge_idx(jev)     = ile
+          iwet_edge_blk(jev)     = ibe
+          iwet_cell_idx(2*jev)   = ptr_patch%edges%cell_idx(ile,ibe,1)
+          iwet_cell_idx(2*jev-1) = ptr_patch%edges%cell_idx(ile,ibe,2)
+          iwet_cell_blk(2*jev)   = ptr_patch%edges%cell_blk(ile,ibe,1)
+          iwet_cell_blk(2*jev-1) = ptr_patch%edges%cell_blk(ile,ibe,2)
+
+        ! edge with indices ile, ibe is boundary edge
+        ELSE IF ( ptr_patch%patch_oce%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
+
+          !dual edge length = distance between adjacent triangle centers
+          !if edge belongs to boundary only half of this length is taken into account
+          !
+          !add half contribution of normal velocity at edge "ie" to rotation
+          ztmp = ztmp + (u_vec_e(ile,jk,ibe))&
+          !&  + 0.5_wp*ptr_patch%edges%primal_edge_length(ile,ibe)*ptr_patch%edges%f_e(ile,ibe))  &
+          &  * 0.5_wp * ptr_patch%edges%dual_edge_length(ile,ibe)  &
+          &           * ptr_patch%verts%edge_orientation(jv,jb,jev)
+
+          !increase ctr, store ie_k as wet edge idx
+          !and store simply both of the adjacent cells as wet cells
+          !the double counting of cells is handled below and only
+          !if boundary edges are present in this dual cell
+          iwet_cell_ctr      = iwet_cell_ctr + 1
+          iwet_edge_idx(jev) = ile
+          iwet_edge_blk(jev) = ibe
+          icell_idx_1        = ptr_patch%edges%cell_idx(ile,ibe,1)
+          icell_idx_2        = ptr_patch%edges%cell_idx(ile,ibe,2)
+          icell_blk_1        = ptr_patch%edges%cell_blk(ile,ibe,1)
+          icell_blk_2        = ptr_patch%edges%cell_blk(ile,ibe,2)
+
+          !check which one is the ocean cell and store it
+          IF ( ptr_patch%patch_oce%lsm_oce_c(icell_idx_1,jk,icell_blk_1) <= sea_boundary ) THEN
+            iwet_cell_idx(2*jev)  = icell_idx_1
+            iwet_cell_idx(2*jev-1)= 0
+            iwet_cell_blk(2*jev)  = icell_blk_1
+            iwet_cell_blk(2*jev-1)= 0
+          ELSE
+            iwet_cell_idx(2*jev)  = icell_idx_2
+            iwet_cell_idx(2*jev-1)= 0
+            iwet_cell_blk(2*jev)  = icell_blk_2
+            iwet_cell_blk(2*jev-1)= 0
+          END IF
+        END IF
+      END DO
+      !
+      !divide by hex/pentagon area, if all dual cells are in the ocean interior
+      !divide by apropriate fraction if boundaries are involved
+      IF ( iwet_cell_ctr == ptr_patch%verts%num_edges(jv,jb) ) THEN
+
+        rot_vec_v(jv,jk,jb) = ztmp / ptr_patch%verts%dual_area(jv,jb)!&
+                            !&+ ptr_patch%verts%f_v(jv,jb)
+
+      ELSE
+
+        !eliminate double counted wet cells,
+        !i.e. set index to zero, if it occurs twice
+        DO ik = 1, 2*ino_dual_edges
+          DO ikk = ik+1, 2*ino_dual_edges
+            IF ( iwet_cell_idx(ikk) == iwet_cell_idx(ik) .AND.  &
+              &  iwet_cell_blk(ikk) == iwet_cell_blk(ik) .AND.  &
+              &  iwet_cell_idx(ik) /= 0 .AND. iwet_cell_blk(ik) /= 0 ) THEN
+
+              iwet_cell_idx(ikk) = 0
+              iwet_cell_blk(ikk) = 0
+
+            ENDIF
+          END DO
+        END DO
+        !loop over wet cells again and accumulate area of wet cell
+        DO ik = 1, 2*ino_dual_edges
+          IF ( iwet_cell_idx(ik) /= 0 .AND. iwet_cell_blk(ik) /= 0 ) THEN
+            zarea_fraction = zarea_fraction  &
+              &            + ptr_patch%cells%area(iwet_cell_idx(ik),iwet_cell_blk(ik))
+          ENDIF
+        END DO
+
+        ! no division by zero in case of zero-test (#slo# 2010-06-09)
+        IF (zarea_fraction == 0.0_wp) THEN
+          rot_vec_v(jv,jk,jb) = 0.0_wp
+        ELSE
+          rot_vec_v(jv,jk,jb) = ztmp / zarea_fraction!&
+          !&+ ptr_patch%verts%f_v(jv,jb)*((iwet_cell_ctr)/ptr_patch%verts%num_edges(jv,jb))
+        ENDIF
+      ENDIF
+    END DO
+!$OMP END PARALLEL DO
+  END DO
+END DO
+END SUBROUTINE rot_vertex_ocean_total
 !-------------------------------------------------------------------------
 !
 !>
@@ -767,7 +1043,7 @@ REAL(wp) :: zarea_fraction
 INTEGER :: slev, elev     ! vertical start and end level
 INTEGER :: jv, jk, jb, jev
 INTEGER :: ile, ibe!, il, ib, ill
-INTEGER :: ik!, ikk
+!INTEGER :: ik, ikk
 INTEGER :: rl_start, rl_end
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
 
@@ -940,7 +1216,7 @@ END SUBROUTINE rot_vertex_ocean
 !! Modifications by Peter Korn, MPI-M (2010-04)
 !! Modifications by Stephan Lorenz, MPI-M (2010-06)
 !!
-SUBROUTINE rot_vertex_ocean_old( u_vec_e, v_vec_e, ptr_patch, rot_vec_v,  &
+SUBROUTINE rot_vertex_ocean_origin( u_vec_e, v_vec_e, ptr_patch, rot_vec_v,  &
   &                          opt_slev, opt_elev, opt_rlstart, opt_rlend )
 
 ! input:  lives on edges (velocity points)
@@ -1098,7 +1374,7 @@ DO jb = i_startblk, i_endblk
           !  -2,      -1,         0,                  1,             2
 
           !add contribution of normal velocity at edge (ile,ibe) to rotation
-          ztmp = ztmp + u_vec_e(ile,jk,ibe)  &
+          ztmp = ztmp + u_vec_e(ile,jk,ibe)                &
             & * ptr_patch%edges%dual_edge_length(ile,ibe)  &
             & * ptr_patch%verts%edge_orientation(jv,jb,jev)
 
@@ -1121,7 +1397,7 @@ DO jb = i_startblk, i_endblk
           !if edge belongs to boundary only half of this length is taken into account
           !
           !add half contribution of normal velocity at edge "ie" to rotation
-          ztmp = ztmp + u_vec_e(ile,jk,ibe)  &
+          ztmp = ztmp + u_vec_e(ile,jk,ibe)                          &
             &  * 0.5_wp * ptr_patch%edges%dual_edge_length(ile,ibe)  &
             &           * ptr_patch%verts%edge_orientation(jv,jb,jev)
 
@@ -1177,11 +1453,9 @@ DO jb = i_startblk, i_endblk
               CALL finish ('rot_vertex_ocean:',&
                 'Serious error in vorticity computation: none of three edges')
             END IF
-
             ztmp = ztmp + v_vec_e(ile,jk,ibe)  &
               & * ptr_patch%edges%primal_edge_length(ile,ibe)&
               & * ptr_patch%cells%edge_orientation(il,ib,ill)
-
           END IF
 
         END IF
@@ -1226,17 +1500,12 @@ DO jb = i_startblk, i_endblk
         ELSE
           rot_vec_v(jv,jk,jb) = ztmp / zarea_fraction
         ENDIF
-
       ENDIF
-
     END DO
 !$OMP END PARALLEL DO
-
   END DO
-
 END DO
-
-END SUBROUTINE rot_vertex_ocean_old
+END SUBROUTINE rot_vertex_ocean_origin
 !-------------------------------------------------------------------------
 !
 !>

@@ -75,7 +75,6 @@ PUBLIC :: map_edges2cell
 PUBLIC :: primal_map_c2e
 PUBLIC :: dual_flip_flop
 PUBLIC :: map_edges2edges
-
 interface map_edges2cell
 
   module procedure map_edges2cell_with_height
@@ -116,24 +115,21 @@ CONTAINS
   REAL(wp)                  :: vn_out_e(SIZE(vn_old_e,1), SIZE(vn_old_e,2), SIZE(vn_old_e,3))
 
   !Local variables
-  INTEGER, PARAMETER :: no_vert_edges = 6
+  !INTEGER, PARAMETER :: no_vert_edges = 6
   INTEGER :: slev, elev
   !INTEGER :: rl_start_v, rl_end_v
   INTEGER :: rl_start_e, rl_end_e
   !INTEGER :: i_startblk_v, i_endblk_v, i_startidx_v, i_endidx_v
   INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
   INTEGER :: il_v1, il_v2, ib_v1, ib_v2, il_e, ib_e
-  INTEGER :: je, jb, jv, ie, jk, iie_v1, iie_v2
+  INTEGER :: je, jb, ie, jk, iie_v1, iie_v2!, jv 
 
   REAL(wp) :: z_thick, z_weight!, z_tmp1, z_tmp2
   !REAL(wp) :: z_vn
+  REAL(wp) :: z_mean
   REAL(wp) :: z_vn_e(nproma,n_zlev,p_patch%nblks_e)
-  !TYPE(t_cartesian_coordinates) :: u_v_cc(SIZE(vort_v,1),SIZE(vort_v,3))
   TYPE(t_cartesian_coordinates) :: u_v1_cc!(SIZE(vort_v,1),SIZE(vort_v,3))
   TYPE(t_cartesian_coordinates) :: u_v2_cc!(SIZE(vort_v,1),SIZE(vort_v,3))
-  !TYPE(t_cartesian_coordinates) ::  u_tmp(SIZE(vort_v,1),SIZE(vort_v,3))
-  !REAL(wp) :: u_v(SIZE(vort_v,1),SIZE(vort_v,3))
-  !REAL(wp) :: v_v(SIZE(vort_v,1),SIZE(vort_v,3))
   INTEGER  :: i_v1_ctr, i_v2_ctr
 
   !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
@@ -205,7 +201,7 @@ CONTAINS
              ENDIF
            ENDIF 
 
-           IF ( p_patch%patch_oce%lsm_oce_e(il_e,jk,ib_e) == sea ) THEN
+           IF ( p_patch%patch_oce%lsm_oce_e(il_e,jk,ib_e) <= sea_boundary ) THEN
              z_weight = z_weight + p_patch%patch_oce%variable_dual_vol_norm(il_v1,ib_v1,ie)*z_thick
              u_v1_cc%x = u_v1_cc%x +                      &
              &           p_patch%patch_oce%edge2vert_coeff_cc(il_v1,ib_v1,ie)%x * &
@@ -217,7 +213,7 @@ CONTAINS
             u_v1_cc%x = u_v1_cc%x/z_weight
         ENDIF
         !Multiply vector with global vorticity
-        u_v1_cc%x = u_v1_cc%x * vort_v(il_v1,jk,ib_v1)
+        !u_v1_cc%x = u_v1_cc%x * vort_v(il_v1,jk,ib_v1)
 
 
         u_v2_cc%x   = 0.0_wp
@@ -242,7 +238,7 @@ CONTAINS
              ENDIF
            ENDIF 
 
-           IF ( p_patch%patch_oce%lsm_oce_e(il_e,jk,ib_e) == sea ) THEN
+           IF ( p_patch%patch_oce%lsm_oce_e(il_e,jk,ib_e)  <= sea_boundary ) THEN
              z_weight = z_weight + p_patch%patch_oce%variable_dual_vol_norm(il_v2,ib_v2,ie)*z_thick
              u_v2_cc%x = u_v2_cc%x +                      &
              &           p_patch%patch_oce%edge2vert_coeff_cc(il_v2,ib_v2,ie)%x * &
@@ -254,12 +250,19 @@ CONTAINS
             u_v2_cc%x = u_v2_cc%x/z_weight
         ENDIF
         !Multiply vector with global vorticity
-        u_v2_cc%x = u_v2_cc%x * vort_v(il_v2,jk,ib_v2)
+        !u_v2_cc%x = u_v2_cc%x * vort_v(il_v2,jk,ib_v2)
 
-
+!  IF(i_v1_ctr/=6.or.i_v2_ctr/=6)then
+!  write(*,*)'vertex 1:2 counter',i_v1_ctr, i_v2_ctr,&
+! &p_patch%verts%num_edges(il_v1,ib_v1),&
+! &p_patch%verts%num_edges(il_v2,ib_v2)
+!  ENDIF
          IF(   i_v1_ctr==p_patch%verts%num_edges(il_v1,ib_v1)&
          &.AND.i_v2_ctr==p_patch%verts%num_edges(il_v2,ib_v2))THEN
- 
+
+   u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
+   u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
+
            vn_out_e(je,jk,jb) = &
           &- DOT_PRODUCT(u_v2_cc%x,p_patch%patch_oce%edge2vert_coeff_cc_t(je,jb,2)%x)&
           &+ DOT_PRODUCT(u_v1_cc%x,p_patch%patch_oce%edge2vert_coeff_cc_t(je,jb,1)%x)
@@ -274,19 +277,47 @@ CONTAINS
 ! ! ENDIF
 
 
-!         ELSEIF( i_v1_ctr==p_patch%verts%num_edges(il_v1,ib_v1)&
-!         &.AND.  i_v2_ctr< p_patch%verts%num_edges(il_v2,ib_v2))THEN
-! 
-!           vn_out_e(je,jk,jb) = &
-!          & 2.0_wp*DOT_PRODUCT(u_v1_cc%x,p_patch%patch_oce%edge2vert_coeff_cc_t(je,jb,1)%x)
-! 
-!         ELSEIF( i_v1_ctr<p_patch%verts%num_edges(il_v1,ib_v1)&
-!         &.AND.  i_v2_ctr==p_patch%verts%num_edges(il_v2,ib_v2))THEN
-! 
-!           vn_out_e(je,jk,jb) = &
-!          & -2.0_wp*DOT_PRODUCT(u_v2_cc%x,p_patch%patch_oce%edge2vert_coeff_cc_t(je,jb,2)%x)
-         ENDIF
+         ELSEIF( i_v1_ctr==p_patch%verts%num_edges(il_v1,ib_v1)&
+         &.AND.  i_v2_ctr< p_patch%verts%num_edges(il_v2,ib_v2))THEN
+   z_mean = (REAL(i_v1_ctr,wp)*vort_v(il_v1,jk,ib_v1)+REAL(i_v2_ctr,wp)*vort_v(il_v2,jk,ib_v2))&
+   &/REAL(i_v1_ctr+i_v2_ctr,wp)
+   u_v1_cc%x=u_v1_cc%x*(vort_v(il_v1,jk,ib_v1)+p_patch%verts%f_v(il_v1,ib_v1))
+   u_v2_cc%x=u_v2_cc%x*(z_mean+p_patch%verts%f_v(il_v2,ib_v2))
 
+           vn_out_e(je,jk,jb) = &
+          &- DOT_PRODUCT(u_v2_cc%x,p_patch%patch_oce%edge2vert_coeff_cc_t(je,jb,2)%x)&
+          &+ DOT_PRODUCT(u_v1_cc%x,p_patch%patch_oce%edge2vert_coeff_cc_t(je,jb,1)%x)
+!            vn_out_e(je,jk,jb) = &
+!           & 2.0_wp*DOT_PRODUCT(u_v1_cc%x,p_patch%patch_oce%edge2vert_coeff_cc_t(je,jb,1)%x)
+
+
+         ELSEIF( i_v1_ctr<p_patch%verts%num_edges(il_v1,ib_v1)&
+         &.AND.  i_v2_ctr==p_patch%verts%num_edges(il_v2,ib_v2))THEN
+!z_mean = 0.5_wp*(vort_v(il_v1,jk,ib_v1)+vort_v(il_v1,jk,ib_v1))
+   z_mean = (REAL(i_v1_ctr,wp)*vort_v(il_v1,jk,ib_v1)+REAL(i_v2_ctr,wp)*vort_v(il_v2,jk,ib_v2))&
+   &/REAL(i_v1_ctr+i_v2_ctr,wp)
+   u_v1_cc%x=u_v1_cc%x*(z_mean+p_patch%verts%f_v(il_v1,ib_v1))
+   u_v2_cc%x=u_v2_cc%x*(vort_v(il_v2,jk,ib_v2)+p_patch%verts%f_v(il_v2,ib_v2))
+
+           vn_out_e(je,jk,jb) = &
+          &- DOT_PRODUCT(u_v2_cc%x,p_patch%patch_oce%edge2vert_coeff_cc_t(je,jb,2)%x)&
+          &+ DOT_PRODUCT(u_v1_cc%x,p_patch%patch_oce%edge2vert_coeff_cc_t(je,jb,1)%x)
+!            vn_out_e(je,jk,jb) = &
+!           & -2.0_wp*DOT_PRODUCT(u_v2_cc%x,p_patch%patch_oce%edge2vert_coeff_cc_t(je,jb,2)%x)
+!          !ENDIF
+
+         ELSEIF( i_v1_ctr<p_patch%verts%num_edges(il_v1,ib_v1)&
+         &.AND.  i_v2_ctr<p_patch%verts%num_edges(il_v2,ib_v2))THEN
+
+   z_mean = (REAL(i_v1_ctr,wp)*vort_v(il_v1,jk,ib_v1)+REAL(i_v2_ctr,wp)*vort_v(il_v2,jk,ib_v2))&
+   &/REAL(i_v1_ctr+i_v2_ctr,wp)
+   u_v1_cc%x=u_v1_cc%x*(z_mean+p_patch%verts%f_v(il_v1,ib_v1))
+   u_v2_cc%x=u_v2_cc%x*(z_mean+p_patch%verts%f_v(il_v2,ib_v2))
+
+           vn_out_e(je,jk,jb) = &
+          &- DOT_PRODUCT(u_v2_cc%x,p_patch%patch_oce%edge2vert_coeff_cc_t(je,jb,2)%x)&
+          &+ DOT_PRODUCT(u_v1_cc%x,p_patch%patch_oce%edge2vert_coeff_cc_t(je,jb,1)%x)
+          ENDIF
        ELSE
          vn_out_e(je,jk,jb)= 0.0_wp
        ENDIF
@@ -300,7 +331,7 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
   END DO LEVEL_LOOP
-
+!stop
   END FUNCTION dual_flip_flop
 !  !-------------------------------------------------------------------------
 !   !
@@ -570,29 +601,6 @@ DO jb = i_startblk_c, i_endblk_c
   !calculate kinetic energy
   DO jk = slev, elev
     DO jc =  i_startidx_c, i_endidx_c
-
-!       il_e1 = p_patch%cells%edge_idx(jc,jb,1)
-!       ib_e1 = p_patch%cells%edge_blk(jc,jb,1)
-!       il_e2 = p_patch%cells%edge_idx(jc,jb,2)
-!       ib_e2 = p_patch%cells%edge_blk(jc,jb,2)
-!       il_e3 = p_patch%cells%edge_idx(jc,jb,3)
-!       ib_e3 = p_patch%cells%edge_blk(jc,jb,3)
-!      z_kin(jc,jk,jb) = 0.5_wp*(z_vn_e(il_e1,jk,ib_e1)*z_vn_e(il_e1,jk,ib_e1)&
-!            &*p_patch%edges%primal_edge_length(il_e1,ib_e1)&
-!            &*p_patch%edges%dual_edge_length(il_e1,ib_e1)&
-!            &+z_vn_e(il_e2,jk,ib_e2)*z_vn_e(il_e2,jk,ib_e2)&
-!            &*p_patch%edges%primal_edge_length(il_e2,ib_e2)&
-!            &*p_patch%edges%dual_edge_length(il_e2,ib_e2)&
-!            &+z_vn_e(il_e2,jk,ib_e2)*z_vn_e(il_e2,jk,ib_e2)&
-!            &*p_patch%edges%primal_edge_length(il_e2,ib_e2)&
-!            &*p_patch%edges%dual_edge_length(il_e2,ib_e2))! 
-!     z_kin(jc,jk,jb)=z_kin(jc,jk,jb)/(p_patch%edges%primal_edge_length(il_e1,ib_e1)&
-!           &*p_patch%edges%dual_edge_length(il_e1,ib_e1)&
-!           &+p_patch%edges%primal_edge_length(il_e2,ib_e2)&
-!           &*p_patch%edges%dual_edge_length(il_e2,ib_e2)&
-!           &+p_patch%edges%primal_edge_length(il_e2,ib_e2)&
-!           &*p_patch%edges%dual_edge_length(il_e2,ib_e2))
-!     p_diag%kin(jc,jk,jb) = z_kin(jc,jk,jb)
 
        IF ( p_patch%patch_oce%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
          p_diag%kin(jc,jk,jb) = 0.0_wp
@@ -1027,7 +1035,7 @@ END DO EDGE_BLK_LOOP
   REAL(wp), INTENT(IN)                       :: vn_e(:,:,:)    ! input (nproma,n_zlev,nblks_e)
                                                                ! 3D case: h_e is surface elevation at edges
   TYPE(t_cartesian_coordinates),INTENT(INOUT):: p_vn_c(:,:,:)  ! outputput (nproma,n_zlev,nblks_c)
-  REAL(wp), INTENT(IN)                       :: h_e(:,:)       ! SW-case: h_e is thicknerss at edges 
+  REAL(wp), INTENT(IN)                       :: h_e(:,:)       ! SW-case: h_e is thickness at edges 
   INTEGER, INTENT(IN), OPTIONAL              :: opt_slev       ! optional vertical start level
   INTEGER, INTENT(IN), OPTIONAL              :: opt_elev       ! optional vertical end level
 
@@ -1086,10 +1094,10 @@ IF ( iswm_oce == 1 ) THEN
           il_e = p_patch%cells%edge_idx(jc,jb,ie)
           ib_e = p_patch%cells%edge_blk(jc,jb,ie)
 
-          z_weight = z_weight + p_patch%patch_oce%variable_vol_norm(jc,jb,ie)!*h_e(il_e,ib_e)
+          z_weight = z_weight + p_patch%patch_oce%variable_vol_norm(jc,jb,ie)*h_e(il_e,ib_e)
           p_vn_c(jc,jk,jb)%x = p_vn_c(jc,jk,jb)%x&
                            & + p_patch%patch_oce%edge2cell_coeff_cc(jc,jb,ie)%x&
-                           & * vn_e(il_e,jk,ib_e) !* h_e(il_e,ib_e)
+                           & * vn_e(il_e,jk,ib_e) * h_e(il_e,ib_e)
         END DO
         IF(p_patch%patch_oce%lsm_oce_c(jc,jk,jb) <= sea_boundary)THEN
           p_vn_c(jc,jk,jb)%x = p_vn_c(jc,jk,jb)%x / z_weight

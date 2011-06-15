@@ -1,0 +1,12 @@
+SRC   = ["icon_plot_lib.ncl"]
+HOSTS = ["m300064@squall","m300064@blizzard"]
+DIR   = '/pool/data/ICON/tools'
+DST   = HOSTS.map {|v| v + ':' + DIR}
+CP    = 'scp -p'
+LS    = 'ls -crtlh'
+task :install do
+  SRC.each {|src| DST.each {|dst| sh [CP,src,dst].join(' ') }}
+end
+task :check do
+  SRC.each {|src| HOSTS.each {|host| sh ['ssh',host,['"',LS,DIR,'"'].join(' ')].join(' ') }}
+end
