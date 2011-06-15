@@ -380,7 +380,7 @@ MODULE mo_vertical_grid
       ! The HALF LEVEL where the model layer are flat, moves one layer upward.
       ! there could also be a zero there
       nflat = nflat-1
-    CASE (3)
+    CASE DEFAULT
       l_half_lev_centr = .FALSE.
     END SELECT
 
@@ -565,7 +565,7 @@ MODULE mo_vertical_grid
 
           ! geopotential above ground (at full levels)
           DO jk = 2,nlevp1
-            p_nh(jg)%metrics%geopot_agl(1:nlen,jk-1,jb) =  0.5 *              &
+            p_nh(jg)%metrics%geopot_agl(1:nlen,jk-1,jb) =  0.5_wp *           &
            &              ( p_nh(jg)%metrics%geopot_agl_ifc(1:nlen,jk-1  ,jb )&
            &              + p_nh(jg)%metrics%geopot_agl_ifc(1:nlen,jk    ,jb))
           ENDDO

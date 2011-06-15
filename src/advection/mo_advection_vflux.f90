@@ -386,8 +386,8 @@ CONTAINS
     &                         p_upflux, opt_topflx_tra, opt_slev,         &
     &                         opt_rlstart, opt_rlend )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_vflux: upwind_vflux_up'
+!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+!!$      &  routine = 'mo_advection_vflux: upwind_vflux_up'
 
     TYPE(t_patch), TARGET, INTENT(IN) ::  & !< patch on which computation is performed
       &  p_patch
@@ -1409,8 +1409,8 @@ CONTAINS
     &                      opt_lout_edge, opt_topflx_tra, opt_slev,         &
     &                      opt_rlstart, opt_rlend )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_vflux: upwind_vflux_ppm'
+!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+!!$      &  routine = 'mo_advection_vflux: upwind_vflux_ppm'
 
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation is performed
       &  p_patch
@@ -2891,8 +2891,8 @@ CONTAINS
     &                    i_start, i_end, parent_topflx, upflx_top,      &
     &                    upflx_bottom )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_vflux: set_ubc_adv'
+!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+!!$      &  routine = 'mo_advection_vflux: set_ubc_adv'
 
     REAL(wp), INTENT(IN)     :: & !< computed tracer flux at second half level
       &  upflx_top_p1(nproma)

@@ -892,11 +892,7 @@ contains
           !  a minor species, adjust the column amount of N2O by an empirical factor
           !  to obtain the proper contribution.
           chi_n2o = coln2o(jl,lay)/coldry(jl,lay)
-#ifdef __WP__
           ratn2o = 1.e20_wp*chi_n2o/chi_mls(4,jp(jl,lay)+1)
-#else
-          ratn2o = 1.e20*chi_n2o/chi_mls(4,jp(jl,lay)+1)
-#endif
           if (ratn2o .gt. 1.5_wp) then
             adjfac = 0.5_wp+(ratn2o-0.5_wp)**0.65_wp
             adjcoln2o = adjfac*chi_mls(4,jp(jl,lay)+1)*coldry(jl,lay)*1.e-20_wp
@@ -1172,11 +1168,7 @@ contains
           !  a minor species, adjust the column amount of N2O by an empirical factor
           !  to obtain the proper contribution.
           chi_n2o = coln2o(jl,lay)/coldry(jl,lay)
-#ifdef __WP__
           ratn2o = 1.e20_wp*chi_n2o/chi_mls(4,jp(jl,lay)+1)
-#else
-          ratn2o = 1.e20*chi_n2o/chi_mls(4,jp(jl,lay)+1)
-#endif
           if (ratn2o .gt. 1.5_wp) then
             adjfac = 0.5_wp+(ratn2o-0.5_wp)**0.65_wp
             adjcoln2o = adjfac*chi_mls(4,jp(jl,lay)+1)*coldry(jl,lay)*1.e-20_wp

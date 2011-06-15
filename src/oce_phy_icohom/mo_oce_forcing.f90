@@ -323,7 +323,7 @@ CONTAINS
   !REAL(wp), PARAMETER :: u_0 = 1.0_wp
   !REAL(wp) :: u_0, rforc, hforc
   !REAL(wp) :: tau_0
-  REAL(wp) :: zonal_str, z_dst, z_lat_deg, z_tmp
+  REAL(wp) :: zonal_str
   REAL(wp) :: z_lat, z_lon
   REAL(wp) :: z_forc_period = 1.0_wp !=1.0: single gyre
                                      !=2.0: double gyre

@@ -213,7 +213,7 @@ REAL(KIND=wp), DIMENSION(klon,klev)  :: &
 REAL(KIND=wp), PARAMETER  :: &
   & zcldlim  = 1.0e-6_wp, & ! threshold of cloud water/ice for cloud cover  (kg/kg)
   & taudecay = 1800.0_wp, & ! decay time scale of convective anvils
-  & box_liq  = 0.1_wp   , & ! box width scale liquid clouds
+  & box_liq  = 0.05_wp  , & ! box width scale liquid clouds
   & box_ice  = 0.05_wp      ! box width scale ice clouds
 
 !-----------------------------------------------------------------------
@@ -336,7 +336,8 @@ CASE( 1 )
 
 
 ! convective cloud
-      cc_conv(jl,jk) = pmfude_rate(jl,jk) / rho(jl,jk) * taudecay             ! cc = detrainment / rho * tau,decay
+      cc_conv(jl,jk) = ( pmfude_rate(jl,jk) / rho(jl,jk) ) &                  ! cc = detrainment / rho / 
+                   & / ( pmfude_rate(jl,jk) / rho(jl,jk) + 1.0_wp / taudecay )!      ( Du/rho + 1/tau,decay )
       qc_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*      foealfa(tt(jl,jk))   ! ql up  foealfa = liquid/(liquid+ice)
       qi_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*( 1 - foealfa(tt(jl,jk)) ) ! qi up
       cc_conv(jl,jk) = min(max(0.0_wp,cc_conv(jl,jk)),1.0_wp)
@@ -346,7 +347,7 @@ CASE( 1 )
      !qc_conv(jl,jk) = 0.0_wp
      !qi_conv(jl,jk) = 0.0_wp
 
-     !combination
+! combination strat/conv cloud
       cc_tot(jl,jk)  = max( cc_turb(jl,jk), cc_conv(jl,jk) )
       qc_tot(jl,jk)  = max( qc_turb(jl,jk), qc_conv(jl,jk) )
       qi_tot(jl,jk)  = max( qi_turb(jl,jk), qi_conv(jl,jk) )
@@ -385,16 +386,16 @@ CASE( 3 )
     kfdia      ,    & !    -"- (i-end)
     1          ,    & !    -"- (j-end)
     kstart     ,    & ! vertical start index
-    tt         ,    & ! temperature                                   (  k  )
-    ps         ,    & ! surface pressure                              ( pa  )
-    p0         ,    & ! reference pressure at full levels             ( pa  )
-    pp         ,    & ! deviation from the reference pressure         ( pa  )
+    tt         ,    & ! temperature                                   (  K  )
+    ps         ,    & ! surface pressure                              ( Pa  )
+    p0         ,    & ! reference pressure at full levels             ( Pa  )
+    pp         ,    & ! deviation from the reference pressure         ( Pa  )
     pgeo       ,    & ! geopotential                                  (m2/s2)
     qv         ,    & ! specific water vapor content                  (kg/kg)
     qc         ,    & ! specific cloud water content                  (kg/kg)
     qi         ,    & ! specific cloud ice content                    (kg/kg)
     rcld       ,    & ! standard deviation of saturation deficit
-    t_g        ,    & ! weighted surface temperature                  (  k  )
+    t_g        ,    & ! weighted surface temperature                  (  K  )
     cc_turb    ,    & ! OUT: subgrid-scale stratiform cloud cover     (  1  )
     cc_conv    ,    & ! OUT: cloud cover due to convection            (  1  )
     icldm_rad  ,    & ! mode of cloud representation in radiation parametr.

@@ -656,8 +656,9 @@ CONTAINS
     INTEGER, POINTER :: n_own(:), iidx(:)
     REAL(wp), ALLOCATABLE :: var1(:), var2(:)
     CHARACTER*10 ctime
-#ifdef __SX__
-!It may be necessary that var1 is in global memory on NEC
+#if defined (__SX__) && !defined (NOMPI)
+! It may be necessary that var1 is in global memory on NEC
+! (Note: this is only allowed when we compile with MPI.)
 !CDIR GM_ARRAY(var1)
 #endif
 

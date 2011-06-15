@@ -853,7 +853,8 @@ CONTAINS
     ENDIF !lcond
 
     ! Done. Disassociate pointers.
-    NULLIFY(field,tend)
+    ! GZ: causes segfault under OpenMP
+    ! NULLIFY(field,tend)
 
   END SUBROUTINE physc
   !-------------

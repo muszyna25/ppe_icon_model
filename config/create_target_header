@@ -9,6 +9,12 @@
 # Based on previous scripts by Marco Giorgetta and Hermann Asensio
 #
 #==============================================================================
+# Basic parameters in this script
+# -----------------------------
+# use_nodes  =  no of nodes to run
+# use_mpi_procs = number of mpi procs per node
+#
+#==============================================================================
 
 
 set_default()
@@ -21,8 +27,6 @@ set_default()
 
 start_header()
 {
-no_of_nodes=$use_nodes
-mpi_procs=$use_mpi_procs
 if [[ "$use_mpi" == "no" ]]; then
   start=""
 else
@@ -96,8 +100,8 @@ NPROMA=$use_nproma
 # MPI variables
 # ----------------------------
 mpi_root=$use_mpi_root
-no_of_nodes=$no_of_nodes
-mpi_procs=$mpi_procs
+no_of_nodes=$use_nodes
+mpi_procs=$use_mpi_procs
 start="$start"
 START="\$start"
 # ----------------------------
@@ -576,11 +580,22 @@ set_run_target_sx9()
 if [[ -n \${PBS_O_WORKDIR} ]] ; then
   cd \${PBS_O_WORKDIR}
 fi
+#-----------------------------------------------------------------------------
+EOF
+
+  
+  # create header
+  start_header
+
+
+  cat >> $output_script << EOF
+#-----------------------------------------------------------------------------
+# for PBS change to directory where job was submitted
+# (without this job is started in HOME)
+if [[ -n \${PBS_O_WORKDIR} ]] ; then
+  cd \${PBS_O_WORKDIR}
+fi
 export F_PROGINF=DETAIL
-export OMP_NUM_THREADS=$use_openmp_threads
-export ICON_THREADS=$use_openmp_threads
-export OMP_SCHEDULE="static"
-export OMP_DYNAMIC="false"
 export MPIMULTITASKMIX=$mpimultitaskmix
 export NMPITASKS=$use_mpi_procs
 export NC_BLOCKSIZE=128mb
@@ -590,9 +605,6 @@ export MPIEXPORT="MPIPROGINF F_PROGINF NC_BLOCKSIZE MPIMULTITASKMIX OMP_NUM_THRE
 
 #-----------------------------------------------------------------------------
 EOF
-  
-  # create header
-  start_header
 
 }
 
@@ -638,6 +650,7 @@ cat > $output_script << EOF
 #!$use_shell
 #=============================================================================
 EOF
+
   set_run_target_${use_target}
 
 }

@@ -470,12 +470,13 @@ CONTAINS
     REAL(wp),  ALLOCATABLE :: vertex_edge_ref_length(:)
     REAL(wp),  ALLOCATABLE :: cell_center_ref_length(:)
     REAL(wp),  ALLOCATABLE :: edge_ref_length(:)
-   REAL(wp) :: ref_length, diff_length
+!    REAL(wp) :: ref_length
+   REAL(wp) :: diff_length
 
     INTEGER :: vertex_edges
 !     REAL(wp) :: max_vertex_edge, min_vertex_edge, max_vertex_edge_ratio
     LOGICAL :: is_triangle_grid, use_spring_cellcenters
-    
+
     INTEGER :: dual_grid_id, istat
     TYPE(t_grid), POINTER :: dual_grid
     TYPE(t_cartesian_coordinates), POINTER :: dual_barycenters(:)
@@ -483,7 +484,7 @@ CONTAINS
     REAL(wp), POINTER :: vertex_ref_length(:)
     REAL(wp) :: R_refine_ratio_coeff
 !     REAL(wp) :: tmp_max,tmp_min
-    
+
     CHARACTER(*), PARAMETER :: method_name = "optimize_grid_methods"
     ! INTEGER :: dual_grid_id
 
@@ -887,7 +888,7 @@ CONTAINS
         
         
 !$OMP DO PRIVATE(vertex,vertex_edges,vertex_vector,&
-!$OMP    j, cell,  ref_length, vertex_centers_vector, vertex_centers_length)
+!$OMP    j, cell,vertex_centers_vector, vertex_centers_length)
         DO vertex = start_vertex, end_vertex
 !           max_vertex_edge = 0.0_wp
 !           min_vertex_edge = 1E100_wp

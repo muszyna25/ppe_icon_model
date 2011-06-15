@@ -60,8 +60,7 @@ Clouds are distinguished by their origin into stratiform and convective clouds.
 The top-hat or box-function is one of the most simple assumed PDF.  It will be 
 used to describe the distribution of water in a grid box.  The liquid and ice 
 clouds are treated separately due to their different microphysical time-scales 
-involved.  For mixed-phase clouds the liquid and ice clouds are assumed to exhibit
-a maximum overlap.
+involved. 
 
 \subsubsection{liquid cloud}
 
@@ -138,14 +137,17 @@ with $q_{thresh}$.  This sub-grid ice cloud is only applied when grid-scale ice 
 
 \subsubsection{mixed phase cloud}
 
-Mixed-phase liquid/ice stratiform clouds are treated by assuming maximum overlap. 
+Mixed-phase liquid/ice stratiform clouds are treated by assuming that they occupy the same volume.  
+The mixed-phase cloud cover is then the maximum of $CC_{liq}$ and $CC_{ice}$.  Note that if 
+$\triangle q_{liq} = \triangle q_{ice}$ then $CC_{ice} > CC_{liq}$ following equ. \ref{eq:cc}.
+ 
 
 
 \subsubsection{tuning parameters}
 
-The width of the box function needs to be specified.  For liquid clouds we assume $\triangle q = 0.1 q_{sat,liq}$
+The width of the box function needs to be specified.  For liquid clouds we assume $\triangle q = 0.05 q_{sat,liq}$
 and for ice clouds a narrower $\triangle q = 0.05 q_{sat,ice}$.  This corresponds to a threshold 
-relative humidity of 90\% and 95\% respectively.
+relative humidity of 95\%.
 
 
 \subsection{Convective clouds}
@@ -154,14 +156,23 @@ The Tiedtke (1989) convection scheme provides detrainment properties that we are
 (see figure \ref{fg:anvil}).  In particular three parameters calculated by the convection scheme are available:
 detrainment rate $D_u$, updraft liquid water $q_{l,up}$ and ice water $q_{i,up}$.  The anvil cloud cover can
 be estimated from
-
+%
 \begin{equation}
-\frac{\partial CC}{t} = \frac{D_u}{\rho} - \frac{CC}{\tau_{diss}}.
-\label{eq:diss}
+\frac{\partial CC}{t} = (1-CC) \frac{D_u}{\rho} - \frac{CC}{\tau_{decay}}.
+\label{eq:decay}
 \end{equation}
-
-The time derivative is neglected to arrive at a diagnostic equation that can be solved for $CC$.  The anvil
-dissipation time-scale $\tau_{diss}$ is set to 30min
+%
+The time derivative is neglected to arrive at a diagnostic equation that can be solved for $CC$.  
+%
+\begin{equation}
+CC= \frac{\frac{D_u}{\rho}}{\frac{D_u}{\rho} + \frac{1}{\tau_{decay}}}
+\label{eq:decay2}
+\end{equation}
+%
+The anvil decay time-scale $\tau_{diss}$ is currently set to 30min.  
+Observations of anvil life times are on the order of a few hours.   
+This decay time-scale should be dependent on environmental 
+relative humidity (Tiedtke 1993, eq. 30-32).
 
 \begin{figure}[t]
 \centering
@@ -171,12 +182,13 @@ dissipation time-scale $\tau_{diss}$ is set to 30min
 \end{figure}
 
 The updraft values $q_{l,up}$ and $q_{i,up}$ are used as in-cloud specific water and ice.  They are limited to $0.1*q_v$.
-One might consider to write similar decay equations as in equ. \ref{eq:diss} for the updraft water values.
+One might consider to write similar decay equations as in equ. \ref{eq:decay} for the updraft water values.
 
 
 \subsection{Mixed stratifom/convective clouds}
 
-The maximum value in $CC$, $\overline{q_l}$ and $\overline{q_i}$ is used.
+If stratiform and convective clouds exist in the same grid-box, 
+the maximum value for $CC$, $\overline{q_l}$ and $\overline{q_i}$ is used.
 
 
 %-------------------------------------------------------------------------

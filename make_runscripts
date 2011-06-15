@@ -72,6 +72,7 @@ $make_runscript in_folder=$input_folder in_script=grid.create_atmo_grids in_scri
 #
 # Note: The ICON experiments require the definition of the EXPNAME=<name> variable
 #==============================================================================
+omp_stacksize=200M
 cd $input_folder
 file_list=`ls exp.*`
 cd $base_folder
@@ -83,11 +84,11 @@ do
     if [[ ${name} == *_hom_* ]]; then
       $make_runscript in_folder=$input_folder in_script=${filename} in_script_2=exec.iconrun EXPNAME=${name} mpi_procs=1  cpu_time="08:00:00"
     elif [[ ${name} == *_nwp_* ]] ; then
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script_2=exec.iconrun EXPNAME=${filename#*.}  cpu_time="04:00:00" memory_model="verylarge"
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script_2=exec.iconrun EXPNAME=${filename#*.}  cpu_time="04:00:00" memory_model="verylarge"  omp_stacksize=$omp_stacksize
     elif [[ ${name} == *_nah_jww* || ${name} == *_nh35_tri_jws* ]] ; then
       $make_runscript in_folder=$input_folder in_script=${filename} in_script_2=exec.iconrun EXPNAME=${filename#*.}  cpu_time="04:00:00" memory_model="verysmall"
     else
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script_2=exec.iconrun EXPNAME=${filename#*.}  cpu_time="04:00:00"
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script_2=exec.iconrun EXPNAME=${filename#*.}  cpu_time="04:00:00" omp_stacksize=$omp_stacksize
     fi
   fi
 done

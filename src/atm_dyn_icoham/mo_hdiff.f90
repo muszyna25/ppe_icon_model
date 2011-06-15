@@ -575,7 +575,7 @@ MODULE mo_hdiff
        IF (lhdiff_vn) THEN
 
          ! mean area edge
-         z_mean_area_edge=8.0*pi*re*re/pt_patch%n_patch_edges_g
+         z_mean_area_edge=8.0_wp*pi*re*re/pt_patch%n_patch_edges_g
 
          ! c) compute thicknesses at vertices
          CALL cells2verts_scalar(pt_diag%delp_c, pt_patch, pt_int%cells_aw_verts, z_delp_v)

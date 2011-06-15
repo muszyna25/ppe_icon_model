@@ -275,7 +275,7 @@ IF (p_patch%id > 1) THEN
   p_patch%edges%quad_area(:,1:i_startblk)            = 0._wp
   p_patch%edges%quad_idx(:,1:i_startblk,1:4)         = 0
   p_patch%edges%quad_blk(:,1:i_startblk,1:4)         = 0
-  p_patch%edges%quad_orientation(:,1:i_startblk,1:4) = 0
+  p_patch%edges%quad_orientation(:,1:i_startblk,1:4) = 0._wp
 !$OMP END WORKSHARE
 ENDIF
 

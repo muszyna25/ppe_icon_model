@@ -488,7 +488,7 @@ CONTAINS
   TYPE(t_hydro_ocean_diag)  :: p_diag
 
   !Local variables
-  INTEGER, PARAMETER :: no_cell_edges = 3
+  !INTEGER, PARAMETER :: no_cell_edges = 3
   INTEGER :: slev, elev
   INTEGER :: rl_start_c, rl_end_c!, rl_start_e, rl_end_e 
   INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
@@ -1186,7 +1186,7 @@ ENDIF
   !INTEGER :: i_startblk_e, i_endblk_e!, i_startidx_e, i_endidx_e
   !INTEGER :: il_c1, ib_c1, il_c2, ib_c2
   INTEGER :: il_e, ib_e
-  INTEGER :: jc, jb, jk, ie,je
+  INTEGER :: jc, jb, jk, ie
   !REAL(wp) :: z_weight
   !CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
   !  & routine = ('mo_scalar_product:primal_map_e2c')

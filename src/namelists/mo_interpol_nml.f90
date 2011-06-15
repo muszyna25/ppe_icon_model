@@ -392,9 +392,9 @@ SUBROUTINE interpol_nml_setup(p_patch)
     sick_a=0.0_wp
     SELECT CASE (i_cori_method)
     CASE (2) 
-      sick_a=0.375 
+      sick_a=0.375_wp
     CASE (3)
-      sick_a=0.75
+      sick_a=0.75_wp
     END SELECT
     sick_o = 1.0_wp-sick_a
 

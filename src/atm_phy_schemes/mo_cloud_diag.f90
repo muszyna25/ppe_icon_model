@@ -432,7 +432,7 @@ REAL (KIND=ireals) :: &
             ELSEIF ( q >= zq_max ) THEN
               ql = gam * dq
             ELSE
-              ql = gam * sig * (q+q_crit) * (q+zq_max) / (2_ireals*(q_crit+zq_max))
+              ql = gam * sig * (q+q_crit) * (q+zq_max) / (2.0_ireals*(q_crit+zq_max))
             ENDIF
           ENDIF
 

@@ -910,8 +910,9 @@ CONTAINS
     INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
     INTEGER :: rl_start_e, rl_end_e
     INTEGER :: slev,elev 
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      &      routine = 'mo_oce_state:set_lateral_boundary_values'
+!!$    CHARACTER(len=max_char_length), PARAMETER :: &
+!!$      &      routine = 'mo_oce_state: set_lateral_boundary_values'
+
 !---------------------------------------------------------------
 
 ! blocking

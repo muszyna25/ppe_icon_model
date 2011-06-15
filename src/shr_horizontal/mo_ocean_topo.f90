@@ -521,7 +521,7 @@ CONTAINS
     REAL(wp):: array_c_real(ptr_patch%n_patch_cells), &
             &  array_e_real(ptr_patch%n_patch_edges)
 
-   INTEGER :: jk !,je, jb
+   !INTEGER :: jk, je, jb
    !INTEGER :: rl_start, rl_end
    !INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
    !INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk

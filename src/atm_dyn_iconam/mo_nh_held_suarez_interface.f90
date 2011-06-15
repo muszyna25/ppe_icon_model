@@ -100,8 +100,8 @@ CONTAINS
     REAL(wp), DIMENSION(:,:,:), POINTER :: ptr_ddt_vn
     REAL(wp), DIMENSION(:,:,:), POINTER :: ptr_ddt_exner
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine =  &
-                                   '(mo_nh_held_suarez_interface) held_suarez_nh_interface:'
+!!$    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine =  &
+!!$                                   '(mo_nh_held_suarez_interface) held_suarez_nh_interface:'
 
     !-------------------------------------------------------------------------
     ! Dimension parameters related to refinement and MPI parallelisation
