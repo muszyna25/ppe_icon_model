@@ -49,7 +49,7 @@ the specified Fortran namelists. Programs are stored in <icon home>/build/<archi
 \begin{center}
 \begin{tabular}{llll}
 Namelist file     & Purpose             & Made by script & Used by program  \\
-\hline %--- 
+\hline 
 NAMELIST\_GRAPH   & Generate graphs     & create\_global\_grids.run & grid\_command \\
 NAMELIST\_GRID    & Generate grids      & create\_global\_grids.run & grid\_command \\
 NAMELIST\_GRIDREF & Gen. nested domains & create\_global\_grids.run & grid\_command \\
@@ -88,30 +88,30 @@ given at the end of each table.
 \subsubsection{graph\_ini (NAMELIST\_GRAPH)}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
-\hline %--- 
+\hline 
 nroot&
 I&
 2&
 &
 root subdivision of initial edges&
 \tabularnewline
-\hline %--- 
+\hline 
 grid\_levels&
 I&
 4&
 &
 number of edge bisections following the root subdivision&
 \tabularnewline
-\hline %--- 
+\hline 
 lplane&
 L&
 .FALSE.&
@@ -119,7 +119,7 @@ L&
 switch for generating a double periodic planar grid. The root level
 consists of 8 triangles.&
 \tabularnewline
-\hline %---
+\hline
 \end{longtable}
 
 Defined and used in: src/grid\_generator/mo\_io\_graph.f90
@@ -128,37 +128,37 @@ Defined and used in: src/grid\_generator/mo\_io\_graph.f90
 \subsubsection{grid\_ini (NAMELIST\_GRID)}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
-\hline %--- 
+\hline 
 nroot&
 I&
 2&
 &
 root subdivision of initial edges&
 \tabularnewline
-\hline %--- 
+\hline 
 grid\_levels&
 I&
 4&
 &
 number of edge bisections following the root subdivision&
 \tabularnewline
-\hline %--- 
+\hline 
 lplane&
 L&
 .FALSE.&
 &
 switch for generating planar grid. The root level consists of 8 triangles.&
 \tabularnewline
-\hline %---
+\hline
 \end{longtable}
 
 Defined and used in: src/grid\_generator/mo\_io\_grid.f90
@@ -167,16 +167,16 @@ Defined and used in: src/grid\_generator/mo\_io\_grid.f90
 \subsubsection{grid\_options (NAMELIST\_GRID)}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
-\hline %--- 
+\hline 
 x\_rot\_angle&
 R&
 0.0&
@@ -185,7 +185,7 @@ Rotation of the icosahedron about the x-axis (connecting the origin
 and {[}0$^\circ$E, 0$^\circ$N])&
 \tabularnewline
 \endfirsthead
-\hline %--- 
+\hline 
 y\_rot\_angle &
 R&
 0.0&
@@ -193,7 +193,7 @@ deg&
 Rotation of the icosahedron about the y-axis (connecting the origin
 and {[}90$^\circ$E, 0$^\circ$N), done after the rotation about the x-axis.&
 \tabularnewline
-\hline %--- 
+\hline 
 z\_rot\_angle &
 R&
 0.0&
@@ -201,7 +201,7 @@ deg&
 rotation of the icosahedron about the z-axis (connecting the origin
 and {[}0$^\circ$E, 90$^\circ$N), done after the rotation about the y-axis.&
 \tabularnewline
-\hline %--- 
+\hline 
 itype\_optimize&
 I&
 4&
@@ -238,28 +238,28 @@ Grid optimization type&
 &
 4: spring dynamics&
 \tabularnewline
-\hline %--- 
+\hline 
 l\_c\_grid &
 L &
 .FALSE. &
 &
 C-grid constraint on last level&
 \tabularnewline
-\hline %--- 
+\hline 
 maxlev\_optim &
 I &
 100 &
 &
 Maximum grid level where the optimization is applied&
 i\_type\_optimize = 1 or 4 \tabularnewline
-\hline %--- 
+\hline 
 beta\_spring &
 R &
 0.90&
 &
 tuning factor for target grid length &
 i\_type\_optimize = 4 \tabularnewline
-\hline %---
+\hline
 \end{longtable}
 
 Defined and used in: src/grid\_generator/mo\_io\_grid.f90
@@ -268,23 +268,23 @@ Defined and used in: src/grid\_generator/mo\_io\_grid.f90
 \subsubsection{plane\_options (NAMELIST\_GRID)}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
-\hline %--- 
+\hline 
 tria\_arc\_km &
 R &
 10.0 &
 km&
 length of triangle edge on plane&
 lplane=.TRUE.\tabularnewline
-\hline %---
+\hline
 \endfirsthead
 \end{longtable}
 
@@ -299,44 +299,44 @@ Currently the planar option can only be used as an $f$-plane.
 \subsubsection{gridref\_ini (NAMELIST\_GRIDREF)}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{2cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
-\hline %--- 
+\hline 
 grid\_root&
 I&
 2&
 &
 root subdivision of initial edges&
 \tabularnewline
-\hline %--- 
+\hline 
 start\_lev&
 I&
 4&
 &
 number of edge bisections following the root subdivision&
 \tabularnewline
-\hline %--- 
+\hline 
 n\_dom&
 I&
 2&
 &
 number of logical model domains, including the global one&
 \tabularnewline
-\hline %--- 
+\hline 
 n\_phys\_dom&
 I&
 n\_dom&
 &
 number of physical model domains, may be larger than n\_dom (in this case, domain merging is applied)&
 \tabularnewline
-\hline %--- 
+\hline 
 parent\_id&
 I(n\_phys\_ dom-1)&
 i&
@@ -344,7 +344,7 @@ i&
 ID of parent domain (first entry refers to first nested domain; needs to be
 specified only in case of more than one nested domain per grid level)&
 \tabularnewline
-\hline %--- 
+\hline 
 logical\_id&
 I(n\_phys\_ dom-1)&
 i+1&
@@ -352,28 +352,28 @@ i+1&
 logical grid ID of parent domain (first entry refers to first nested domain; needs to be
 specified only in case of domain merging, i.e. n\_dom $<$ n\_phys\_dom) &
 \tabularnewline
-\hline %--- 
+\hline 
 l\_plot&
 L&
 .FALSE.&
 &
 produces GMT plots showing the locations of the nested domains&
 \tabularnewline
-\hline %---
+\hline
 l\_circ&
 L&
 .TRUE.&
 &
 Create circular (.T.) or rectangular (.F.) refined domains &
 \tabularnewline
-\hline %--- 
+\hline 
 l\_rotate&
 L&
 .FALSE.&
 &
 Rotates center point into the equator in case of l\_circ = .FALSE. & lcirc=.FALSE.
 \tabularnewline
-\hline %--- 
+\hline 
 write\_hierarchy&
 I&
 1&
@@ -382,7 +382,7 @@ I&
 1: Output in addition parent grid of global model domain (required for computing physics on a reduced grid) \\
 2: Output all grids back to level 0 (required for hierarchical search algorithms) &
 \tabularnewline
-\hline %--- 
+\hline 
 bdy\_indexing\_depth&
 I&
 max\_rlcell (=8)&
@@ -391,7 +391,7 @@ Number of cell rows along the lateral boundary of a model domain for which the r
 fields contain the distance from the lateral boundary; needs to be enlarged when lateral
 boundary nudging is required for one-way nesting &
 \tabularnewline
-\hline %--- 
+\hline 
 radius&
 R(n\_dom-1)&
 30.&
@@ -399,7 +399,7 @@ deg&
 radius of nested domain (first entry refers to first nested domain; needs to be
 specified for each nested domain separately)&
 lcirc=.TRUE. \tabularnewline
-\hline %--- 
+\hline 
 hwidth\_lon&
 R(n\_dom-1)&
 20.&
@@ -407,7 +407,7 @@ deg&
 zonal half-width of refined domain (first entry refers to first nested domain; needs to be
 specified for each nested domain separately)&
 lcirc=.FALSE. \tabularnewline
-\hline %--- 
+\hline 
 hwidth\_lat&
 R(n\_dom-1)&
 20.&
@@ -415,7 +415,7 @@ deg&
 meridional half-width of refined domain (first entry refers to first nested domain; needs to be
 specified for each nested domain separately)&
 lcirc=.FALSE. \tabularnewline
-\hline %--- 
+\hline 
 center\_lon&
 R(n\_dom-1)&
 90.&
@@ -423,7 +423,7 @@ deg&
 center longitude of refined domain (first entry refers to first nested domain; needs to be
 specified for each nested domain separately)&
 \tabularnewline
-\hline %--- 
+\hline 
 center\_lat&
 R(n\_dom-1)&
 30.&
@@ -431,7 +431,7 @@ deg&
 center latitude of refined domain (first entry refers to first nested domain; needs to be
 specified for each nested domain separately)&
 \tabularnewline
-\hline %---
+\hline
 \end{longtable}
 
 Defined and used in: src/grid\_generator/mo\_gridrefinement.f90
@@ -447,44 +447,44 @@ The ocean grids are created by the script \verb+run/create_ocen_grid.run+
 
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
-\hline %--- 
+\hline 
 no\_of\_conditions &
 I &
 0 &
 &
 Number of geometric conditions &
 \tabularnewline
-\hline %---
+\hline
 patch\_shape &
 I(no\_of\_conditions) &
 0 &
 &
 1=rectangle; 2=circle &
 \tabularnewline
-\hline %---
+\hline
 patch\_center\_x &
 R(no\_of\_conditions) &
 0.0 &
 degrees &
 longitude of patch center &
 \tabularnewline
-\hline %---
+\hline
 patch\_center\_y &
 R(no\_of\_conditions) &
 0.0 &
 degrees &
 latitude of patch center &
 \tabularnewline
-\hline %---
+\hline
 rectangle\_xradious &
 R(no\_of\_conditions) &
 0.0 &
@@ -492,7 +492,7 @@ degrees &
 half meridional extension of a rectangular patch &
 patch\_shape=1
 \tabularnewline
-\hline %---
+\hline
 rectangle\_yradious &
 R(no\_of\_conditions) &
 0.0 &
@@ -500,7 +500,7 @@ degrees &
 half zonal extension of a rectangular patch &
 patch\_shape=1
 \tabularnewline
-\hline %---
+\hline
 circle\_radious &
 R(no\_of\_conditions) &
 0.0 &
@@ -508,7 +508,7 @@ degrees &
 radius of a circular patch &
 patch\_shape=2
 \tabularnewline
-\hline %---
+\hline
 \endfirsthead
 \end{longtable}
 
@@ -519,37 +519,37 @@ Defined in \verb+mo_grid_conditions.f90+
 \subsubsection{create\_ocean\_grid}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
-\hline %--- 
+\hline 
 only\_get\_sea\_land\_mask &
 L &
 .false. &
 &
 .true.:returns the whole grid with a sea-land mask; .false.:returns only the ocean grid &
 \tabularnewline
-\hline %---
+\hline
 smooth\_ocean\_boundary &
 L &
 .true. &
 &
 .true.:smooths the ocean boundaries so no triabgle has two boundary edges; .false.:no smoothing&
 \tabularnewline
-\hline %---
+\hline
 input\_file &
 C &
 &
 &
 name of the input grid file &
 \tabularnewline
-\hline %---
+\hline
 elevation\_file &
 C &
 &
@@ -557,7 +557,7 @@ C &
 name of the file containing cell elevation values for the input\_file  &
 no\_of\_conditions=0
 \tabularnewline
-\hline %---
+\hline
 elevation\_field &
 C &
 &
@@ -565,42 +565,42 @@ C &
 name of the field containing the cell elevation values  &
 no\_of\_conditions=0
 \tabularnewline
-\hline %---
+\hline
 min\_sea\_depth &
 R &
 0.0 &
 m (negative)&
 if cell elevation < min\_sea\_depth then the cell is consider sea   &
 \tabularnewline
-\hline %---
+\hline
 set\_sea\_depth &
 R &
 0.0 &
 m (negative)&
 if not 0, then sea cells are of set\_sea\_depth elevation  &
 \tabularnewline
-\hline %---
+\hline
 set\_min\_sea\_depth &
 R &
 0.0 &
 m (negative)&
 if not 0, then sea cells have a maximum of set\_min\_sea\_depth elevation  &
 \tabularnewline
-\hline %---
+\hline
 edge\_elev\_interp\_method &
 I &
 2 &
 &
 compute edge elevation from cells using: linear interpolation=1; min value   = 2  &
 \tabularnewline
-\hline %---
+\hline
 output\_refined\_ocean\_file &
 C &
 &
 &
 name of the output refined ocean grid file &
 \tabularnewline
-\hline %---
+\hline
 \endfirsthead
 \end{longtable}
 
@@ -613,72 +613,72 @@ Defined in \verb+mo_create_ocean_grid.f90+
 
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
-\hline %--- 
+\hline 
 y\_no\_of\_rows &
 I &
  &
 4 &
 number of triangle rows of the torus grid &
 \tabularnewline
-\hline %---
+\hline
 x\_no\_of\_columns &
 I &
  &
 8 &
 number of triangle columns of the torus grid &
 \tabularnewline
-\hline %---
+\hline
 edge\_length &
 R &
 m &
 1000.0 &
 the triangle edge length&
 \tabularnewline
-\hline %---
+\hline
 x\_center &
 R &
 m &
 0.0 &
 the x coordinate of the torus center&
 \tabularnewline
-\hline %---
+\hline
 y\_center &
 R &
 m &
 0.0 &
 the y coordinate of the torus center&
 \tabularnewline
-\hline %---
+\hline
 out\_file\_name &
 C &
  &
 &
 the torus grid file name &
 \tabularnewline
-\hline %---
+\hline
 unfolded\_torus\_file\_name &
 C &
  &
 &
 the unfolded torus grid file name (for plotting) &
 \tabularnewline
-\hline %---
+\hline
 ascii\_filename &
 C &
  &
 &
 the unfolded torus grid ascci file name (for plotting) &
 \tabularnewline
-\hline %---
+\hline
 \endfirsthead
 \end{longtable}
 
@@ -692,7 +692,7 @@ Defined in \verb+mo_create_torus_grid.f90+. See the run script \verb+run/create_
 \subsection{master\_nml}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline
 Parameter&
 Type&
 Default&
@@ -700,10 +700,10 @@ Unit&
 Description&
 Scope
 \tabularnewline
-\hline %---
+\hline
 \endhead
 
-\hline %---
+\hline
 lrestart&
 L &
 .FALSE.&
@@ -711,46 +711,47 @@ L &
 If .TRUE., simulation starts from a model state read from restart file(s).&
 \tabularnewline
 
-\hline %---
+\hline
 \end{longtable}
 
 %-------------------------------------------------------------------
 % grid_ctl: horizontal grid
 %-------------------------------------------------------------------
+
 \subsection{grid\_ctl}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{2cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
-\hline %--- 
+\hline 
 nroot &
 I &
 2&
 &
 root subdivision of initial edges&
 \tabularnewline
-\hline %--- 
+\hline 
 start\_lev &
 I &
 4&
 &
 coarsest bisection level&
 \tabularnewline
-\hline %--- 
+\hline 
 n\_dom &
 I &
 1&
 &
 number of model domains, 1 = global domain only&
 \tabularnewline
-\hline %--- 
+\hline 
 parent\_id&
 I(n\_dom-1)&
 i&
@@ -759,7 +760,7 @@ ID of parent domain (first entry refers to first nested domain; needs to be
 specified only in case of more than one nested domain per grid level)\\ MUST
 be the same as in gridref\_ini & n\_dom>1
 \tabularnewline
-\hline %--- 
+\hline 
 lfeedback &
 L(n\_dom) &
 .TRUE.&
@@ -769,7 +770,7 @@ for all nested domains; to turn off feedback for selected nested domains, set lf
 and set ``.false." for the desired model domains&
 n\_dom>1
 \tabularnewline
-\hline %--- 
+\hline 
 patch\_weight &
 R(n\_dom) &
 0.&
@@ -783,14 +784,14 @@ patch\_weight is not used. However, patch\_weight must be set to 0 for these pat
 to avoid confusion.&
 n\_dom>1
 \tabularnewline
-\hline %--- 
+\hline 
 lplane &
 L &
 .FALSE.&
 &
 planar option&
 \tabularnewline
-\hline %--- 
+\hline 
 corio\_lat &
 R &
 0.0&
@@ -798,7 +799,7 @@ deg&
 Center of the f-plane is located at this geographical latitude &
 lplane=.TRUE.
 \tabularnewline
-\hline %--- 
+\hline 
 lpatch0 &
 L &
 .FALSE.&
@@ -806,7 +807,7 @@ L &
 If set to .true. an additional patch one level below the root patch is allocated and read
 so that physics calculations on a coarser grid are possible &
 \tabularnewline
-\hline %--- 
+\hline 
 lredgrid\_phys &
 L &
 .FALSE.&
@@ -814,7 +815,7 @@ L &
 If set to .true.  is calculated on a reduced grid (= one grid level higher);
 requires lpatch0=.TRUE. &
 \tabularnewline
-\hline %---
+\hline
 \end{longtable}
 
 Defined and used in: src/namelists/mo\_grid\_nml.f90
@@ -828,17 +829,17 @@ dynamics, transport, physics etc.
 \subsection{parallel\_ctl}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
 
-\hline %--- 
+\hline 
 n\_ghost\_rows &
 I &
 1&
@@ -846,7 +847,7 @@ I &
 number of halo cell rows&
 \tabularnewline
 
-\hline %--- 
+\hline 
 division\_method &
 I &
 1&
@@ -857,7 +858,7 @@ method of domain decomposition\\
 2: use METIS&
 \tabularnewline
 
-\hline %--- 
+\hline 
 p\_test\_run &
 L &
 .FALSE.&
@@ -866,7 +867,7 @@ L &
 processes full domain) &
 \tabularnewline
 
-\hline %--- 
+\hline 
 l\_test\_openmp &
 L &
 .FALSE.&
@@ -875,7 +876,7 @@ if .TRUE. is combined with p\_test\_run=.TRUE. and OpenMP paralllelization,
 the test PE gets only 1 thread in order to verify the OpenMP paralllelization&
 \tabularnewline
 
-\hline %--- 
+\hline 
 l\_log\_checks &
 L &
 .FALSE.&
@@ -884,7 +885,7 @@ if .TRUE. messages are generated during each synchonization step
 (use for debugging only)&
 \tabularnewline
 
-\hline %--- 
+\hline 
 l\_fast\_sum &
 L &
 .FALSE.&
@@ -892,7 +893,7 @@ L &
 if .TRUE., use fast (not processor-configuration-invariant) global summation&
 \tabularnewline
 
-\hline %--- 
+\hline 
 iorder\_sendrecv &
 I &
 1&
@@ -900,7 +901,7 @@ I &
 Sequence of send/receive calls: 1 = irecv/send; 2 = isend/recv; 3 = isend/irecv &
 \tabularnewline
 
-\hline %--- 
+\hline 
 itype\_comm &
 I &
 1&
@@ -910,7 +911,7 @@ I &
 3: asynchronous halo communication for dynamical core (NH tria only)&
 \tabularnewline
 
-\hline %--- 
+\hline 
 num\_io\_procs &
 I &
 0&
@@ -918,7 +919,7 @@ I &
 Number of I/O processors (running exclusively for doing I/O)&
 \tabularnewline
 
-\hline %--- 
+\hline 
 pio\_type &
 I &
 1&
@@ -927,18 +928,17 @@ Type of parallel I/O. Only used if number of I/O processors greater number of do
 Experimental!&
 \tabularnewline
 
-\hline %--- 
+\hline 
 
 \end{longtable}
 
 Defined and used in: src/shared/mo\_parallel\_ctl.f90
 
 
-
 \subsection{run\_ctl}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
@@ -946,11 +946,10 @@ Unit&
 Description&
 Scope
 \tabularnewline
-\hline %---
+\hline
 \endhead
 
-
-\hline %--- 
+\hline 
 nproma &
 I &
 1&
@@ -958,7 +957,7 @@ I &
 chunk length&
 \tabularnewline
 
-\hline %--- 
+\hline 
 nlev&
 I&
 31&
@@ -966,7 +965,7 @@ I&
 Number of full levels (atm. or ocean)&
 \tabularnewline
 
-\hline %--- 
+\hline 
 num\_nlev&
 I(n\_dom)&
 31&
@@ -975,7 +974,7 @@ Number of full levels (atm.) for each domain&
 lvert\_nest=.TRUE.
 \tabularnewline
 
-\hline %--- 
+\hline 
 nshift&
 I(n\_dom)&
 0&
@@ -983,7 +982,7 @@ I(n\_dom)&
 vertical half level of parent domain which coincides with upper boundary of the current domain&
 lvert\_nest=.TRUE.
 \tabularnewline
-\hline %---
+\hline
 lvert\_nest &
 L &
 .FALSE.&
@@ -991,7 +990,7 @@ L &
 If set to .true. vertical nesting is switched on (i.e.\ variable number of vertical levels) &
 \tabularnewline
 
-\hline %--- 
+\hline 
 ntracer&
 I&
 0&
@@ -999,7 +998,7 @@ I&
 number of tracers&
 \tabularnewline
 
-\hline %--- 
+\hline 
 dtime &
 R &
 600.0&
@@ -1013,7 +1012,7 @@ time step&
 Std. time step for ICOHAM R2B04 = 600s&
 \tabularnewline
 
-\hline %--- 
+\hline 
 calendar&
 I&
 1&
@@ -1039,7 +1038,7 @@ Calendar type: &
 2=30day/month,360day/year&
 \tabularnewline
 
-\hline %--- 
+\hline 
 &
 &
 &
@@ -1083,7 +1082,7 @@ s&
 &
 \tabularnewline
 
-\hline %--- 
+\hline 
 &
 &
 &
@@ -1127,7 +1126,7 @@ s&
 &
 \tabularnewline
 
-\hline %--- 
+\hline 
 &
 &
 &
@@ -1183,7 +1182,13 @@ R &
 number of additional seconds of the run&
 \tabularnewline
 
-\hline %--- 
+\hline 
+dt\_restart &
+R & 86400.*30.& s &
+Length of restart cycle in seconds.
+\tabularnewline
+
+\hline 
 iequations&
 I&
 1&
@@ -1195,7 +1200,7 @@ Equations and prognostic variables. Use positive indices for the atmosphere and 
 3: non-hydrostatic atmosphere\\
 -1: hydrostatic ocean&
 \tabularnewline
-\hline %--- 
+\hline 
 i\_cell\_type&
 I &
 3&
@@ -1205,21 +1210,21 @@ Cell type\\
 4: quadrilateral cells (to be done)\\
 6: pentagonal/hexagonal cells&
 \tabularnewline
-\hline %--- 
+\hline 
 ldynamics&
 L&
 .TRUE.&
 &
 Read namelist 'dynamics\_ctl' and compute adiabatic dynamic tendencies&
 \tabularnewline
-\hline %--- 
+\hline 
 ltransport&
 L&
 .FALSE.&
 &
 Read namelist 'transport\_ctl' and compute tracer tendencies by transport&
 \tabularnewline
-\hline %--- 
+\hline 
 iforcing&
 I&
 0&
@@ -1234,28 +1239,28 @@ atmosphere and negative indices for the ocean.\\
 5: local diabatic forcing with physics\\
 -1: MPIOM forcing (to be done)&
 \tabularnewline
-\hline %--- 
+\hline 
 ltestcase &
 L &
 .TRUE.&
 &
 Idealized testcase runs&
 \tabularnewline
-\hline %--- 
+\hline 
 lcorio &
 L &
 .TRUE.&
 &
 Coriolis force&
 \tabularnewline
-\hline %--- 
+\hline 
 itopo&
 I &
 0&
 &
 topography (not yet implemented)&
 \tabularnewline
-\hline %--- 
+\hline 
 msg\_level&
 I &
 10&
@@ -1263,28 +1268,28 @@ I &
 controls how much printout is written during runtime. \\
 For values less than 5, only the time step is written.&
 \tabularnewline
-\hline %--- 
+\hline 
 inextra\_2d&
 I &
 0&&
 Number of 2D Fields for diagnostic/debugging output. &
 iequations = 3 {\color{red}(to be done for 1, 2)}
 \tabularnewline
-\hline %--- 
+\hline 
 inextra\_3d&
 I &
 0&&
 Number of 3D Fields for diagnostic/debugging output. &
 iequations = 3 {\color{red}(to be done for 1, 2)}
 \tabularnewline
-\hline %--- 
+\hline 
 ltimer&
 L &
 .TRUE.&
 &
 TRUE: Timer for monitoring thr runtime of specific routines is on (FALSE = off)&
 \tabularnewline
-\hline %--- 
+\hline 
 ldump\_states&
 L &
 .FALSE.&
@@ -1293,7 +1298,7 @@ Dump patch/interpolation/grid refinement state of every
 patch (after subdivision in case of a parallel run)
 to a Netcdf file and exit program.&
 \tabularnewline
-\hline %--- 
+\hline 
 lrestore\_states&
 L &
 .FALSE.&
@@ -1301,7 +1306,7 @@ L &
 Restore patch/interpolation/grid refinement states
 from NetCDF dump files instead of calculating them.&
 \tabularnewline
-\hline %---
+\hline
 \end{longtable}
 
 Defined and used in: src/namelists/mo\_run\_nml.f90
@@ -1309,16 +1314,16 @@ Defined and used in: src/namelists/mo\_run\_nml.f90
 \subsection{dynamics\_ctl (used if run\_nml/ldynamics=.TRUE.)}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
-\hline %--- 
+\hline 
 idiv\_method&
 I&
 1&
@@ -1338,7 +1343,7 @@ Non-hydrostatic atm.~model: for averaged normal components &
 &
 2: bilinear averaging of divergence&
 \tabularnewline
-\hline %--- 
+\hline 
 divavg\_cntrwgt&
 R&
 0.5&
@@ -1346,14 +1351,14 @@ R&
 Weight of central cell for divergence averaging&
 idiv\_method= 2 
 \tabularnewline
-\hline %--- 
+\hline 
 lsi\_3d&
 L&
 .FALSE.&
 &
 3D GMRES solver or decomposistion into 2D problems&
 lshallow\_water=.FALSE. and itime\_scheme=4\tabularnewline
-\hline %--- 
+\hline 
 itime\_scheme&
 I&
 4&
@@ -1416,7 +1421,7 @@ Time integration scheme:&
 &
 6: same as default, but usage of velocity tendencies at (nnow+nnew)/2& iequations=3 and i\_cell\_type=3
 \tabularnewline
-\hline %--- 
+\hline 
 ileapfrog\_startup&
 I&
 1&
@@ -1424,21 +1429,21 @@ I&
 How to integrate the first time step when the leapfrog scheme
 is chosen. 1 = Euler forward; 2 = a series of sub-steps. &
 itime\_scheme= 3 or 4 \tabularnewline
-\hline %--- 
+\hline 
 asselin\_coeff&
 R&
 0.1&
 &
 Asselin filter coefficient&
 itime\_scheme= 3 or 4 \tabularnewline
-\hline %--- 
+\hline 
 si\_2tls &
 R &
 0.6 &
 &
 weight of time step n+1. Valid range: [0,1] &
 itime\_scheme=2\tabularnewline
-\hline %---
+\hline
 si\_expl\_scheme &
 I &
 2 &
@@ -1447,7 +1452,7 @@ scheme for the explicit part used in the 2 time level
 semi-implicit time stepping scheme. 1 = Euler forward;
 2 = Adams-Bashforth 2nd order &
 itime\_scheme=2\tabularnewline
-\hline %--- 
+\hline 
 si\_cmin&
 R &
 30.0 &
@@ -1455,28 +1460,28 @@ m/s&
 semi implicit correction is done for eigenmodes with speeds larger
 than si\_cmin&
 itime\_scheme=4 and lsi\_3d=.FALSE.\tabularnewline
-\hline %--- 
+\hline 
 si\_coeff&
 R &
 1.0 &
 &
 weight of the semi implicit correction&
 itime\_scheme=4 \tabularnewline
-\hline %--- 
+\hline 
 si\_offctr&
 R &
 0.7 &
 &
 future implict weight for si correction&
 itime\_scheme=4 \tabularnewline
-\hline %--- 
+\hline 
 si\_rtol &
 R &
 1.0e-3 &
 &
 relative tolerance for GMRES solver&
 itime\_scheme=4 \tabularnewline
-\hline %---
+\hline
 ldry\_dycore &
 L &
 .TRUE. &
@@ -1484,7 +1489,7 @@ L &
 Assume dry atmosphere &
 iequations$\in$\{1,2\}
 \tabularnewline
-\hline %--- 
+\hline 
 lref\_temp &
 L &
 .FALSE. &
@@ -1492,7 +1497,7 @@ L &
 Set a background temperature profile as base state &
 iequations$\in$\{1,2\}
 \tabularnewline
-\hline %---
+\hline
 \end{longtable}
 
 Defined and used in: src/namelists/mo\_dynamics\_nml.f90
@@ -1500,16 +1505,16 @@ Defined and used in: src/namelists/mo\_dynamics\_nml.f90
 \subsection{nonhydrostatic\_ctl (used if run\_nml/iequations=3)}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
-\hline %--- 
+\hline 
 rayleigh\_coeff&
 R(n\_dom)&
 0.05&
@@ -1517,29 +1522,21 @@ R(n\_dom)&
 Rayleigh damping coefficient (Klemp, Dudhia, Hassiotis: MWR136, pp.3987-4004)&
 i\_cell\_type=3
 \tabularnewline
-\hline %--- 
+\hline 
 damp\_height&
 R(n\_dom)&
 17500.0&
 m&
 Height in which Rayleigh damping starts&
 \tabularnewline
-\hline %--- 
+\hline 
 htop\_moist\_proc&
 R&
 200000.0&
 m&
 Height above which moist physics and advection of cloud and precipitation variables are turned off&
 \tabularnewline
-\hline %--- 
-htop\_qvadv&
-R&
-250000.0&
-m&
-Height above which advection of water vapor is turned off (should be larger than 
-htop\_moist\_proc; use with care!!!)&
-\tabularnewline
-\hline %--- 
+\hline 
 k2\_updamp\_coeff&
 R&
 2.0e6&
@@ -1547,7 +1544,7 @@ R&
 enhanced 2nd order diffusion coefficient in upper damping layer&
 i\_cell\_type=6, hdiff\_order=3 (Smagorinski)
 \tabularnewline
-\hline %--- 
+\hline 
 vwind\_offctr&
 R&
 0.05&
@@ -1555,7 +1552,7 @@ R&
 Off-centering in vertical wind solver&
 i\_cell\_type=3
 \tabularnewline
-\hline %--- 
+\hline 
 ivctype&
 I&
 1&
@@ -1564,7 +1561,7 @@ Type of vertical coordinate:\\
 1: Gal-Chen hybrid \\
 2: SLEVE (uses sleve\_ctl)&
 \tabularnewline
-\hline %--- 
+\hline 
 iadv\_rcf&
 I&
 1&
@@ -1574,7 +1571,7 @@ reduced calling frequency (rcf) for transport\\
 2: transport every 2. step \\
 4: $\dots$ &
 \tabularnewline
-\hline %--- 
+\hline 
 l\_nest\_rcf&
 L&
 .TRUE.&
@@ -1583,7 +1580,7 @@ Synchronize interpolation/feedback calls with advection (transport) time steps.
 l\_nest\_rcf is automatically reset to .FALSE. if iadv\_rcf=1 &
 i\_cell\_type=3
 \tabularnewline
-\hline %--- 
+\hline 
 l\_masscorr\_nest&
 L&
 .FALSE.&
@@ -1591,7 +1588,7 @@ L&
 Apply mass conservation correction also in nested domain &
 i\_cell\_type=3
 \tabularnewline
-\hline %--- 
+\hline 
 iadv\_rhotheta&
 I&
 2&
@@ -1607,7 +1604,7 @@ i\_cell\_type=3
 &
 3: 3rd order Miura horizontal (not recommended)&
 \tabularnewline
-\hline %--- 
+\hline 
 igradp\_method&
 I&
 1&
@@ -1618,7 +1615,7 @@ Discretization of horizontal pressure gradient:\\
 3: Similar discretization as option 2, but uses hydrostatic approximation for downward extrapolation over steep slopes&
 i\_cell\_type=3
 \tabularnewline
-\hline %--- 
+\hline 
 l\_zdiffu\_t&
 L&
 .FALSE.&
@@ -1626,7 +1623,7 @@ L&
 .TRUE.: Compute Smagorinsky temperature diffusion truly horizontally over steep slopes&
 i\_cell\_type=3 .AND. hdiff\_order=5 .AND. lhdiff\_temp = .true.
 \tabularnewline
-\hline %--- 
+\hline 
 thslp\_zdiffu&
 R&
 0.025&
@@ -1634,7 +1631,7 @@ R&
 Slope threshold above which truly horizontal temperature diffusion is activated&
 i\_cell\_type=3 .AND. hdiff\_order=5 .AND. lhdiff\_temp=.true. .AND. l\_zdiffu\_t=.true.
 \tabularnewline
-\hline %---
+\hline
 thhgtd\_zdiffu&
 R&
 200&
@@ -1643,7 +1640,7 @@ Threshold of height difference between neighboring grid points above which
 truly horizontal temperature diffusion is activated (alternative criterion to thslp\_zdiffu)&
 i\_cell\_type=3 .AND. hdiff\_order=5 .AND. lhdiff\_temp=.true. .AND. l\_zdiffu\_t=.true.
 \tabularnewline
-\hline %--- 
+\hline 
 exner\_expol&
 R&
 0.5&
@@ -1651,7 +1648,7 @@ R&
 Temporal extrapolation (fraction of dt) of Exner function for computation of horizontal pressure gradient&
 i\_cell\_type=3
 \tabularnewline
-\hline %--- 
+\hline 
 l\_open\_ubc&
 L&
 .FALSE.&
@@ -1659,7 +1656,7 @@ L&
 .TRUE.: Use open upper boundary condition (rather than w=0) to better conserve sea-level pressure in the presence of diabatic heating&
 i\_cell\_type=3
 \tabularnewline
-\hline %--- 
+\hline 
 ltheta\_up\_hori &
 L&
 .FALSE.&
@@ -1667,7 +1664,7 @@ L&
 upstream biased horizontal advection for theta (see also upstr\_beta)&
 i\_cell\_type=6
 \tabularnewline
-\hline %--- 
+\hline 
 upstr\_beta &
 R&
 1.0&
@@ -1675,7 +1672,7 @@ R&
 Selection of order for horiz.~theta advection: 3rd order=1.0, 4th order=0.0  &
 i\_cell\_type=6
 \tabularnewline
-\hline %---
+\hline
 gmres\_rtol\_nh &
 R&
 1.0e-6&
@@ -1683,7 +1680,7 @@ R&
 relative tolerance for convergence in gmres solver &
 i\_cell\_type=6
 \tabularnewline
-\hline %---
+\hline
 l\_impl\_vert\_adv&
 L&
 .TRUE.&
@@ -1691,7 +1688,7 @@ L&
 implicit vertical advection for horizontal velocity and potential temperature (Implicit vertical advection for $\rho$ and $w$ is automatically included in the new 5band matrix solver for divergent modes. For theta, one of Daniels schemes is envisaged for the future.)  &
 i\_cell\_type=6
 \tabularnewline
-\hline %---
+\hline
 \end{longtable}
 
 Defined and used in: src/namelists/mo\_nonhydrostatic\_nml.f90
@@ -1700,65 +1697,65 @@ Defined and used in: src/namelists/mo\_nonhydrostatic\_nml.f90
 \subsection{sleve\_ctl (used if nonhydrostatic\_ctl/ivctype=2)}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
-\hline %--- 
+\hline 
 min\_lay\_thckn&
 R&
 50&
 m&
 Layer thickness of lowermost layer&
 \tabularnewline
-\hline %--- 
+\hline 
 top\_height&
 R&
 23500.0&
 m&
 Height of model top&
 \tabularnewline
-\hline %--- 
+\hline 
 stretch\_fac&
 R&
 1.0&
 &
 Stretching factor to vary distribution of model levels; values $<$1 increase the layer thickness near the model top&
 \tabularnewline
-\hline %--- 
+\hline 
 decay\_scale\_1&
 R&
 4000&
 m&
 Decay scale of large-scale topography component&
 \tabularnewline
-\hline %--- 
+\hline 
 decay\_scale\_2&
 R&
 2500&
 m&
 Decay scale of small-scale topography component&
 \tabularnewline
-\hline %--- 
+\hline 
 decay\_exp&
 R&
 1.2&
 &
 Exponent of decay function&
 \tabularnewline
-\hline %--- 
+\hline 
 flat\_height &
 R&
 16000&
 m&
 Height above which the coordinate surfaces are flat&
 \tabularnewline
-\hline %---
+\hline
 \end{longtable}
 
 Defined and used in: src/namelists/mo\_sleve\_nml.f90
@@ -1767,30 +1764,30 @@ Defined and used in: src/namelists/mo\_sleve\_nml.f90
 \subsection{diffusion\_ctl}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
-\hline %--- 
+\hline 
 lhdiff\_temp&
 L&
 .TRUE. &
 &
 Diffusion on the temperature field&
 \tabularnewline
-\hline %--- 
+\hline 
 lhdiff\_vn&
 L&
 .TRUE. &
 &
 Diffusion on the horizontal wind field&
 \tabularnewline
-\hline %--- 
+\hline 
 hdiff\_order&
 I&
 4&
@@ -1845,7 +1842,7 @@ $\nabla^{4}$ for the lower levels.  &
 24 and 42 currently allowed only in the hydrostatic atm model
 (run\_nml/iequation = 1 or 2).
 \tabularnewline
-\hline %--- 
+\hline 
 k2\_pres\_max&
 R&
 -99.&
@@ -1853,7 +1850,7 @@ Pa &
 Pressure level above which $\nabla^2$ diffusion is applied.&
 hdiff\_order = 24 or 42, and run\_nml/iequation = 1 or 2. 
 \tabularnewline
-\hline %--- 
+\hline 
 k2\_klev\_max&
 I&
 0&&
@@ -1864,7 +1861,7 @@ k2\_klev\_max is reset accordingly during the initialization
 of a model run.&
 hdiff\_order = 24 or 42, and run\_nml/iequation = 1 or 2. 
 \tabularnewline
-\hline %--- 
+\hline 
 hdiff\_efdt\_ratio&
 R&
 1.0 &
@@ -1872,14 +1869,14 @@ R&
 ratio of e-folding time to time step (or 2{*} time step when using
 a 3 time level time stepping scheme) (only for triangles currently) &
 \tabularnewline
-\hline %--- 
+\hline 
 hdiff\_tv\_ratio&
 R&
 1.0&
 &
 Ratio of diffusion coefficients for temperature and normal wind: $T:v_{n}$&
 \tabularnewline
-\hline %--- 
+\hline 
 hdiff\_multfac&
 R&
 1.0&
@@ -1887,14 +1884,14 @@ R&
 Multiplication factor of normalized diffusion coefficient for nested
 domains&
 n\_dom>1\tabularnewline
-\hline %--- 
+\hline 
 hdiff\_smag\_fac&
 R&
 0.15&
 &
 Scaling factor for Smagorinsky diffusion&
 for triangles only with iequations=3, for hexagons with hdiff\_order=3 \tabularnewline
-\hline %---
+\hline
 \end{longtable}
 
 Defined and used in: src/namelists/mo\_diffusion\_nml.f90
@@ -1903,16 +1900,16 @@ Defined and used in: src/namelists/mo\_diffusion\_nml.f90
 \subsection{transport\_ctl (used if run\_nml/ltransport=.TRUE.)}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
-\hline %--- 
+\hline 
 ihadv\_tracer&
 I(ntracer)&
 2&
@@ -1952,7 +1949,7 @@ lsq\_high\_ord $\in$ [2,3]
 4: up3 (3rd or 4th order upstream)&
 if i\_cell\_type=6
 \tabularnewline
-\hline %--- 
+\hline 
 ivadv\_tracer&
 I(ntracer)&
 3&
@@ -1995,14 +1992,14 @@ Vert. transport scheme:&
 &
 30: ppm (3rd order)&
 \tabularnewline
-\hline %--- 
+\hline 
 lvadv\_tracer&
 L&
 .TRUE.&
 &
 calculate vertical tracer advection&
 \tabularnewline
-\hline %--- 
+\hline 
 lstrang &
 L&
 .FALSE.&
@@ -2021,14 +2018,14 @@ splitting into fractional steps &
 &
 - first order Godunov splitting (.FALSE.)&
 \tabularnewline
-\hline %--- 
+\hline 
 ctracer\_list&
 C&
 ''&
 &
 list of tracer names &
 \tabularnewline
-\hline %--- 
+\hline 
 itype\_hlimit&
 I(ntracer)&
 3&
@@ -2065,7 +2062,7 @@ ihadv\_tracer='miura[3]'\tabularnewline
 &
 4: positive definite flux limiter&
 ihadv\_tracer='miura[3]', 'iup3[4]'\tabularnewline
-\hline %--- 
+\hline 
 itype\_vlimit&
 I(ntracer)&
 1&
@@ -2096,7 +2093,7 @@ Type of limiter for vertical transport:&
 &
 4: positive definite flux limiter&
 \tabularnewline
-\hline %--- 
+\hline 
 iord\_backtraj&
 I&
 1&
@@ -2115,7 +2112,7 @@ order of backward trajectory calculation:&
 &
 2: second order (iterative; currently 1 iteration hardcoded)&
 ihadv\_tracer='miura'\tabularnewline
-\hline %--- 
+\hline 
 igrad\_c\_miura&
 I&
 1&
@@ -2140,14 +2137,14 @@ ihadv\_tracer=2\tabularnewline
 &
 3: gradient reconstruction (RBF) at cell center on the basis of normal gradients at edges&
 \tabularnewline
-\hline %---
+\hline
 lclip\_tracer&
 L&
 .FALSE.&
 &
 Clipping negative values&
 \tabularnewline
-\hline %--- 
+\hline 
 upstr\_beta\_adv&
 R&
 1.0&
@@ -2155,7 +2152,7 @@ R&
 parameter to select 3rd order (=1) or 4th order (=0) advection, or something inbetween (0..1)&
 ihadv\_tracer=iup3
 \tabularnewline
-\hline %---
+\hline
 ivcfl\_max&
 I&
 5&
@@ -2163,7 +2160,14 @@ I&
 determines stability range of vertical PPM-scheme in terms of the maximum allowable CFL-number&
 ivadv\_tracer=3
 \tabularnewline
-\hline %---
+\hline
+llsq\_svd&
+L&
+.FALSE.&
+&
+use QR decomposition (FALSE) or SV decomposition (TRUE) for least squares design matrix A&
+\tabularnewline
+\hline
 \end{longtable}
 
 Defined and used in: src/namelists/mo\_advection\_nml.f90
@@ -2173,16 +2177,16 @@ Defined and used in: src/namelists/mo\_advection\_nml.f90
 \subsection{nwp\_phy\_ctl}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{2.cm}|>{\raggedright}p{1.2cm}|>{\raggedright}p{1.2cm}|>{\raggedright}p{5.5cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
-\hline %--- 
+\hline 
 inwp\_gscp&
 I&
 0&
@@ -2204,7 +2208,7 @@ run\_nml/iforcing = inwp
 1: hydci (COSMO-EU microphysics)
 &
 \tabularnewline
-\hline %--- 
+\hline 
 inwp\_convection&
 I&
 0&
@@ -2226,7 +2230,7 @@ convection
 1: Tiedtke/Bechtold convection
 &
 \tabularnewline
-\hline %--- 
+\hline 
 inwp\_cldcover&
 I&
 1&
@@ -2245,14 +2249,14 @@ cloud cover scheme for radiation
 &
 &
 &
-1: diagnostic dlouc scheme
+1: grid-scale clouds and QV
 &
 \tabularnewline
 &
 &
 &
 &
-2: prognostic total water variance
+2: clouds from COSMO turbulence scheme
 &
 \tabularnewline
 &
@@ -2262,21 +2266,7 @@ cloud cover scheme for radiation
 3: clouds from COSMO SGS cloud scheme
 &
 \tabularnewline
-&
-&
-&
-&
-4: clouds from COSMO turbulence scheme
-&
-\tabularnewline
-&
-&
-&
-&
-5: grid-scale clouds
-&
-\tabularnewline
-\hline %--- 
+\hline 
 inwp\_radiation&
 I&
 0&
@@ -2305,7 +2295,7 @@ radiation
 2: Ritter-Geleyn radiation
 &
 \tabularnewline
-\hline %--- 
+\hline 
 inwp\_satad&
 I&
 1&
@@ -2327,7 +2317,7 @@ saturation adjustment
 1: 
 &
 \tabularnewline
-\hline %--- 
+\hline 
 inwp\_turb&
 I&
 0&
@@ -2356,7 +2346,7 @@ vertical diffusion and transfer
 2: ECHAM diffusion
 &
 \tabularnewline
-\hline %--- 
+\hline 
 inwp\_sso&
 I&
 0&
@@ -2378,7 +2368,7 @@ subgrid scale orographic drag
 1: 
 &
 \tabularnewline
-\hline %--- 
+\hline 
 inwp\_surface&
 I&
 0&
@@ -2400,7 +2390,7 @@ surface scheme
 1: 
 &
 \tabularnewline
-\hline %--- 
+\hline 
  dt\_conv &
 R&
 600.&
@@ -2422,7 +2412,7 @@ currently each subdomain has
 the same value
 &
 \tabularnewline
-\hline %--- 
+\hline 
  dt\_rad &
 R&
 1800.&
@@ -2444,7 +2434,7 @@ currently each subdomain has
 the same value
 &
 \tabularnewline
-\hline %--- 
+\hline 
  dt\_sso &
 R&
 3600.&
@@ -2466,7 +2456,7 @@ currently each subdomain has
 the same value
 &
 \tabularnewline
-\hline %--- 
+\hline 
  dt\_ccov &
 R&
 dt\_conv&
@@ -2489,7 +2479,7 @@ currently is not used
 the same value
 &
 \tabularnewline
-\hline %--- 
+\hline 
 dt\_gscp &
 R&
 iadv\_rcf * dtime &
@@ -2512,7 +2502,7 @@ not recomended to change
 it is halved
 &
 \tabularnewline
-\hline %--- 
+\hline 
 dt\_satad &
 R&
 iadv\_rcf * dtime &
@@ -2535,7 +2525,7 @@ not recomended to change
 it is halved
 &
 \tabularnewline
-\hline %--- 
+\hline 
 dt\_turb &
 R&
 dt\_gscp &
@@ -2558,7 +2548,7 @@ not recomended to change
 it is halved
 &
 \tabularnewline
-\hline %--- 
+\hline 
 dt\_radheat &
 R&
 dt\_satad &
@@ -2581,180 +2571,7 @@ not recomended to change
 it is halved
 &
 \tabularnewline
-
-
-
-
-\hline %---
-imode\_turb & 
-I & 
-3 & 
-& 
-mode for calculation of vertical turbulent flux
-divergence of 1-st order variables  \newline
-0,1 :only for COSMO                 \newline
-2    :explicit                      \newline
-3    :implicit without moist corr.  \newline
-4    :implicit in conserv. vars.    \newline &
-inwp\_turb = 1
-\tabularnewline
-
-\hline %---
-limpltkediff & 
-L & 
-.TRUE. & 
-& 
-use implicit TKE-diffusion &
-inwp\_turb = 1
-\tabularnewline
-
-\hline %---
-lexpcor & 
-L & 
-.FALSE. & 
- & 
-use explicit moist corrections of the implicitly calculated turbulent diffusion &
-inwp\_turb = 1
-\tabularnewline
-
-\hline %---
-ltkesso & 
-L & 
-.FALSE. & 
- & 
-calculation of SSO-wake turbulence production for TKE, if SSO-tendencies 
-for momentum are present \newline
-.TRUE. is currently operational with COSMO &
-inwp\_turb = 1
-\tabularnewline
-
-\hline %---
-tur\_len & 
-R & 
-500.0 & 
-m & 
-asymptotic turbulent length scale divided by v' Karman-constant \newline
->0 (say in [100, 1000]) &
-inwp\_turb = 1
-\tabularnewline
-
-\hline %---
-pat\_len & 
-R & 
-500.0 & 
-m & 
-effective length scale of surface patterns \newline
->=0 & 
-inwp\_turb = 1
-\tabularnewline
-
-\hline %---
-a\_stab & 
-R & 
-0.0 & 
- & 
-factor for stability correction of turbulent length scale \newline
-[0, 1] &
-inwp\_turb = 1
-\tabularnewline
-
-\hline %---
-tkhmin & 
-R & 
-0.1 & 
-m2/s & 
-minimal turbulent diffusion coefficient for heat &
-inwp\_turb = 1
-\tabularnewline
-
-\hline %---
-tkmmin & 
-R & 
-0.1 & 
- & 
-minimal diffusion coefficient for momentum &
-inwp\_turb = 1
-\tabularnewline
-
-\hline %---
-c\_diff & 
-R & 
-0.2 & 
- & 
-length scale factors for turbulent transport of TKE &
-inwp\_turb = 1
-\tabularnewline
-
-\hline %---
-itype\_wcld & 
-I & 
-2 & 
- & 
-type of water cloud diagnosis for turbulence \newline
-1: based on relative hum.                    \newline
-2: statistical saturation adj. &
-inwp\_turb = 1
-\tabularnewline
-
-\hline %---
-icldm\_turb & 
-I & 
-2 & 
- & 
-mode of cloud representation in turbulence parameterization \newline
--1: ignoring cloud water completely (pure dry scheme) \newline
-0: no clouds considered (all cloud water is evaporated) \newline
-1: only grid scale condensation possible \newline
-2: sub grid scale condensation according to 'itype\_wcld' &
-inwp\_turb = 1
-\tabularnewline
-
-\hline %---
-itype\_tran & 
-I & 
-2 & 
- & 
-type of the transfer scheme \newline
-1: only for COSMO &
-inwp\_turb = 1
-\tabularnewline
-
-\hline %---
-rlam\_heat & 
-R & 
-1.0 & 
- & 
-scaling factor of the laminar boundary layer for heat \newline
->=0 (the larger the more laminar transport resistance &
-inwp\_turb = 1
-\tabularnewline
-
-\hline %---
-rlam\_mom & 
-R & 
-0.0 & 
- & 
-scaling factor of the laminar boundary layer for momentum \newline
->=0 (near 0.0 due to roughness layer form drag)  &
-inwp\_turb = 1
-\tabularnewline
-
-\hline %---
-rat\_sea & 
-R & 
-20.0 & 
- & 
-ratio of laminar scaling factors for heat over sea and land \newline
->1 (since uppermost water layer is moving with the wind) &
-inwp\_turb = 1
-\tabularnewline
-
-
-
-
-
-
-\hline %---
+\hline 
 \end{longtable}
 
 
@@ -2764,14 +2581,14 @@ Defined and used in: src/namelists/mo\_atm\_phy\_nwp\_nml.f90
 \subsection{radiation\_nml}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1.4cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %---
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
 \hline %---end of head---
 ldiur &
@@ -2780,14 +2597,14 @@ L&
 &
 switch for solar irradiation: \\.TRUE.:diurnal cycle, \\.FALSE.:zonally averaged irradiation&
 \tabularnewline
-\hline %---
+\hline %---end of head---
 nmonth &
 I&
 0&
 &
 0: Earth circles on orbit\\1-12: Earth orbit position fixed for specified month&
 \tabularnewline
-\hline %---
+\hline %---end of head---
 yr\_perp &
 L&
 -99999&
@@ -2795,7 +2612,7 @@ L&
 year used for lyr\_perp = .TRUE.&
 \tabularnewline
 
-\hline %---
+\hline %---end of head---
 lyr\_perp &
 L&
 .FALSE.&
@@ -2803,7 +2620,7 @@ L&
 .FALSE.: transient Earth orbit following VSOP87 \\ .TRUE.: Earth orbit of year yr\_perp of the VSOP87 orbit is perpertuated &
 \tabularnewline
 
-\hline %---
+\hline %---end of head---
 dt\_rad &
 R&
 7200.&
@@ -2880,7 +2697,7 @@ R&
 &
 Volume mixing ratio of the radiative agents&
 \tabularnewline
-\hline %---
+\hline
 \end{longtable}
 
 Defined and used in: src/namelists/mo\_radiation\_nml.f90
@@ -2889,14 +2706,14 @@ Defined and used in: src/namelists/mo\_radiation\_nml.f90
 \subsection{nwp\_lnd\_nml}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1.4cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
 \hline %---end of head---
 nlev\_soil &
@@ -2905,7 +2722,7 @@ I&
 &
 number of soil layers&
 \tabularnewline
-\hline %---
+\hline %---end of head---
 nlev\_snow &
 I&
 1&
@@ -2913,42 +2730,42 @@ I&
 number of snow layers\\
 for {\tt lmulti\_snow=.true.}&
 \tabularnewline
-\hline %---
+\hline %---end of head---
 nsfc\_subs &
 I&
 1&
 &
 number of tiles&
 \tabularnewline
-\hline %---
+\hline %---end of head---
 nztlev &
 I&
 2&
 &
 used time integration scheme&
 \tabularnewline
-\hline %---
+\hline %---end of head---
 lmulti\_snow &
 L&
 .FALSE.&
 &
 .TRUE. for use of multi-layer snow model&
 \tabularnewline
-\hline %---
+\hline %---end of head---
 lseaice &
 L&
 .FALSE.&
 &
 .TRUE. for use of sea-ice model&
 \tabularnewline
-\hline %---
+\hline %---end of head---
 llake &
 L&
 .FALSE.&
 &
 .TRUE. for use of lake model&
 \tabularnewline
-\hline %---
+\hline %---end of head---
 \end{longtable}
 
 Defined and used in: src/namelists/mo\_nwp\_lnd\_nml.f90
@@ -2957,14 +2774,14 @@ Defined and used in: src/namelists/mo\_nwp\_lnd\_nml.f90
 \subsection{echam\_phy\_nml}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1.4cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
 \hline %---end of head---
 lrad &
@@ -3146,14 +2963,6 @@ across the top of cloud &
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
 \hline %---
-cmfdeps &
-R &
-0.3 &&
-Fractional convective mass flux for downdrafts at lfs (valid range [0,1])
-&
-iforcing = 2 .AND. lconv = .TRUE.
-\tabularnewline
-\hline %---
 cprcon &
 R &
 1.0e-4 &&
@@ -3172,27 +2981,6 @@ entrpen &
 R &
 1.0e-4 &&
 Entrainment rate for penetrative convection.&
-iforcing = 2 .AND. lconv = .TRUE.
-\tabularnewline
-\hline %---
-entrmid &
-R &
-1.0e-4 &&
-entrainment rate for midlevel convection.&
-iforcing = 2 .AND. lconv = .TRUE.
-\tabularnewline
-\hline %---
-entrscv &
-R &
-3.0e-4 &&
-entrainment rate for shallow convection.&
-iforcing = 2 .AND. lconv = .TRUE.
-\tabularnewline
-\hline %---
-entrdd &
-R &
-2.0e-4 &&
-entrainment rate for cumulus downdrafts.&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
 \hline %---
@@ -3224,7 +3012,7 @@ Defined and used in: src/atm\_phy\_echam/mo\_echam\_conv\_parameters.f90
 \subsection{echam\_vdiff\_ctl}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1.4cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
@@ -3232,7 +3020,7 @@ Unit&
 Description&
 Scope
 \tabularnewline
-\hline %---
+\hline
 \endhead
 \hline %---end of head---
 lsfc\_mon\_flux &
@@ -3260,65 +3048,65 @@ Defined and used in: src/namelists/mo\_echam\_vdiff\_nml.f90
 \subsection{io\_ctl}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1.4cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
-\hline %--- 
+\hline 
 out\_expname &
 C&
 'IIIEEEETTTT'&
 &
 Outfile basename&
 \tabularnewline
-\hline %--- 
+\hline 
 lwrite\_omega &
 L&
 .TRUE.&
 &
 write out vertical velocity in pressure coords.&
 lshallow\_water=.FALSE.\tabularnewline
-\hline %--- 
+\hline 
 lwrite\_pres &
 L&
 .TRUE.&
 &
 write out full level pressure&
 lshallow\_water=.FALSE.\tabularnewline
-\hline %--- 
+\hline 
 lwrite\_vorticity &
 L&
 .TRUE.&
 &
 write out averaged vorticity at cells &
 \tabularnewline
-\hline %--- 
+\hline 
 lwrite\_divergence &
 L&
 .TRUE.&
 &
 write out divergence at cells &
 \tabularnewline
-\hline %--- 
+\hline 
 lwrite\_z3 &
 L&
 .TRUE.&
 &
 write out geopotential on full levels&
 lshallow\_water=.FALSE.\tabularnewline
-\hline %--- 
+\hline 
 lwrite\_tracer &
 L(ntracer)&
 .TRUE.&
 &
 write out tracer at cells &
 \tabularnewline
-\hline %--- 
+\hline 
 out\_filetype&
 I&
 2 &
@@ -3327,40 +3115,42 @@ Type of output format:\\
 1: GRIB1 (not yet implemented)\\
 2: netCDF&
 \tabularnewline
-\hline %--- 
+\hline 
 dt\_data&
 R&
 21600.0 &
 s&
 Output time increment&
 \tabularnewline
-\hline %--- 
+\hline 
 dt\_diag&
 R&
 dtime &
 &
 diagnostic integral output timestep &
 \tabularnewline
-\hline %--- 
+\hline 
 dt\_file&
 R&
 2592000 &
 s&
 Time increment of triggering new output file&
 \tabularnewline
-\hline %---
-dt\_restart&
-R & 2592000. & s &
-time interval for writing restart files&
+
+\hline 
+dt\_checkpoint&
+R& 2592000 & s&
+Time interval for writing restart files&
 \tabularnewline
-\hline %--- 
+
+\hline 
 lkeep\_in\_sync&
 L&
 .FALSE. &
 &
 Sync output stream with file on disk after each timestep&
 \tabularnewline
-\hline %---
+\hline
 lwrite\_tend\_phy &
 L&
 .TRUE. \\ .FALSE. \\ (Scope) &
@@ -3369,7 +3159,7 @@ Physics induced tendencies.&
 .TRUE. if iforcing=iecham\\
 .FALSE. else
 \tabularnewline
-\hline %---
+\hline
 lwrite\_radiation &
 L&
 .TRUE. \\ .FALSE.\\ (Scope) &
@@ -3378,7 +3168,7 @@ Radiation related fields.&
 .TRUE. if iforcing=iecham or inwp\\
 .FALSE. else
 \tabularnewline
-\hline %---
+\hline
 lwrite\_precip &
 L&
 .TRUE. \\ .FALSE.\\ (Scope) &
@@ -3387,7 +3177,7 @@ Precipitation &
 .TRUE. if iforcing=iecham or inwp\\
 .FALSE. else
 \tabularnewline
-\hline %---
+\hline
 lwrite\_cloud&
 L&
 .TRUE. \\ .FALSE. \\ (Scope) &
@@ -3396,7 +3186,7 @@ Cloud variables &
 .TRUE. if iforcing=iecham or inwp\\
 .FALSE. else
 \tabularnewline
-\hline %---
+\hline
 lwrite\_tke&
 L&
 .TRUE. &
@@ -3405,7 +3195,7 @@ TKE &
 .FALSE. per Default \\
 .TRUE. if set (AND iforcing =nwp)
 \tabularnewline
-\hline %---
+\hline
 lwrite\_surface&
 L&
 .FALSE. &
@@ -3414,7 +3204,7 @@ surface variables &
 .TRUE. if set (AND iforcing =nwp)\\
 .FALSE. else
 \tabularnewline
-\hline %---
+\hline
 lwrite\_extra&
 L&
 .FALSE. &
@@ -3423,7 +3213,7 @@ debug fields &
 .TRUE. if inextra\_2d /\_3d $> 0$ \\
 .FALSE. else
 \tabularnewline
-\hline %---
+\hline
 \end{longtable}
 
 Defined and used in: src/namelists/mo\_io\_nml.f90
@@ -3431,16 +3221,16 @@ Defined and used in: src/namelists/mo\_io\_nml.f90
 \subsection{interpol\_ctl}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
-\hline %--- 
+\hline 
 rbf\_vec\_kern\_c&
 I&
 1&
@@ -3459,7 +3249,7 @@ Kernel type for reconstruction at cell centres:&
 &
 3: inverse multiquadric &
 \tabularnewline
-\hline %--- 
+\hline 
 rbf\_vec\_kern\_e&
 I&
 3&
@@ -3478,7 +3268,7 @@ Kernel type for reconstruction at edges:&
 &
 3: inverse multiquadric &
 \tabularnewline
-\hline %--- 
+\hline 
 rbf\_vec\_kern\_v&
 I&
 1&
@@ -3497,56 +3287,56 @@ Kernel type for reconstruction at vertices:&
 &
 3: inverse multiquadric &
 \tabularnewline
-\hline %--- 
+\hline 
 rbf\_vec\_scale\_c&
 R(n\_dom)&
 resolution-dependent&
 &
 Scale factor for RBF reconstruction at cell centres&
 \tabularnewline
-\hline %--- 
+\hline 
 rbf\_vec\_scale\_e&
 R(n\_dom)&
 resolution-dependent&
 &
 Scale factor for RBF reconstruction at edges&
 \tabularnewline
-\hline %--- 
+\hline 
 rbf\_vec\_scale\_v&
 R(n\_dom)&
 resolution-dependent&
 &
 Scale factor for RBF reconstruction at vertices&
 \tabularnewline
-\hline %--- 
+\hline 
 nudge\_max\_coeff&
 R&
 0.02&
 &
 Maximum relaxation coefficient for lateral boundary nudging&
 \tabularnewline
-\hline %--- 
+\hline 
 nudge\_efold\_width&
 R&
 2.5&
 &
 e-folding width (in units of cell rows) for lateral boundary nudging coefficient &
 \tabularnewline
-\hline %--- 
+\hline 
 nudge\_zone\_width&
 I&
 8&
 &
 Total width (in units of cell rows) for lateral boundary nudging zone&
 \tabularnewline
-\hline %--- 
+\hline 
 llsq\_high\_consv&
 L&
 .TRUE.&
 &
 conservative (T) or non-conservative (F) least-squares reconstruction for high order transport&
 \tabularnewline
-\hline %---
+\hline
 lsq\_high\_ord&
 I&
 3&
@@ -3571,7 +3361,7 @@ polynomial order for high order reconstruction&
 &
 3: cubic &
 \tabularnewline
-\hline %---
+\hline
 i\_cori\_method&
 I&
 3&
@@ -3601,7 +3391,7 @@ currently only for i\_cell\_type=6
 3: Almut's method for tangential wind and PV usage
 &
 \tabularnewline
-\hline %---
+\hline
 l\_corner\_vort&
 L&
 .TRUE.&
@@ -3609,7 +3399,7 @@ L&
 switch whether the rhombus averaged corner vorticity is averaged to the hexagon (.TRUE.) or the rhombi are directly averaged to the hexagon (.FALSE.)&
 i\_cori\_method=3
 \tabularnewline
-\hline %---
+\hline
 \end{longtable}
 
 Defined and used in: src/namelists/mo\_interpol\_nml.f90
@@ -3618,16 +3408,16 @@ Defined and used in: src/namelists/mo\_interpol\_nml.f90
 \subsection{gridref\_ctl}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
-\hline %--- 
+\hline 
 grf\_intmethod\_c&
 I&
 2&
@@ -3646,7 +3436,7 @@ n\_dom>1\tabularnewline
 &
 2: gradient-based interpolation &
 \tabularnewline
-\hline %--- 
+\hline 
 grf\_intmethod\_ct&
 I&
 2&
@@ -3665,7 +3455,7 @@ n\_dom>1\tabularnewline
 &
 2: gradient-based interpolation &
 \tabularnewline
-\hline %--- 
+\hline 
 grf\_intmethod\_e&
 I&
 4&
@@ -3696,7 +3486,7 @@ n\_dom>1\tabularnewline
 &
 4: combination gradient-based / RBF &
 \tabularnewline
-\hline %--- 
+\hline 
 grf\_velfbk&
 I&
 1&
@@ -3715,7 +3505,7 @@ n\_dom>1\tabularnewline
 &
 2: 2nd-order method using RBF interpolation &
 \tabularnewline
-\hline %--- 
+\hline 
 grf\_scalfbk&
 I&
 2&
@@ -3734,7 +3524,7 @@ n\_dom>1\tabularnewline
 &
 2: bilinear interpolation &
 \tabularnewline
-\hline %--- 
+\hline 
 grf\_tracfbk&
 I&
 2&
@@ -3753,21 +3543,21 @@ n\_dom>1\tabularnewline
 &
 2: bilinear interpolation &
 \tabularnewline
-\hline %--- 
+\hline 
 grf\_idw\_exp\_e12&
 R&
 1.2&
 &
 exponent of generalized IDW function for child edges 1/2 &
 n\_dom>1\tabularnewline
-\hline %--- 
+\hline 
 grf\_idw\_exp\_e34&
 R&
 1.7&
 &
 exponent of generalized IDW function for child edges 3/4 &
 n\_dom>1\tabularnewline
-\hline %--- 
+\hline 
 rbf\_vec\_kern\_grf\_e&
 I&
 1&
@@ -3792,28 +3582,28 @@ n\_dom>1\tabularnewline
 &
 3: inverse multiquadric &
 \tabularnewline
-\hline %--- 
+\hline 
 rbf\_scale\_grf\_e&
 R&
 0.5&
 &
 RBF scale factor for grid refinement (edges)&
 n\_dom>1\tabularnewline
-\hline %--- 
+\hline 
 denom\_diffu\_t&
 R&
 135&
 &
 Deniminator for lateral boundary diffusion of temperature&
 n\_dom>1\tabularnewline
-\hline %--- 
+\hline 
 denom\_diffu\_v&
 R&
 200&
 &
 Deniminator for lateral boundary diffusion of velocity&
 n\_dom>1\tabularnewline
-\hline %--- 
+\hline 
 \end{longtable}
 
 Defined and used in: src/namelists/mo\_gridref\_nml.f90
@@ -3829,16 +3619,16 @@ conditions are computed internally.
 \subsubsection{testcase\_ctl (Scope: ltestcase=.TRUE. and iequations=[0,1,2] in run\_nml)}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
-\hline %--- 
+\hline 
 ctest\_name&
 C&
 'JWw'&
@@ -3985,98 +3775,98 @@ ntracer = 2\tabularnewline
 'RH': Rossby-Haurwitz wave test&
 lshallow\_water=.FALSE.
 \tabularnewline
-\hline %--- 
+\hline 
 rotate\_axis\_deg&
 R&
 0.0&
 deg&
 Earth's rotation axis pitch angle&
 ctest\_name= 'Will\_2', 'Will\_3', 'JWs', 'JWw', 'PA', 'DF1234', \tabularnewline
-\hline %--- 
+\hline 
 gw\_brunt\_vais&
 R&
 0.01&
 1/s&
 Brunt Vaisala frequency&
 ctest\_name= 'GW'\tabularnewline
-\hline %--- 
+\hline 
 gw\_u0&
 R&
 0.0&
 m/s&
 zonal wind parameter&
 ctest\_name= 'GW'\tabularnewline
-\hline %--- 
+\hline 
 gw\_lon\_deg&
 R&
 180.0&
 deg&
 longitude of initial perturbation&
 ctest\_name= 'GW'\tabularnewline
-\hline %--- 
+\hline 
 gw\_lat\_deg&
 R&
 0.0&
 deg&
 latitude of initial perturbation&
 ctest\_name= 'GW'\tabularnewline
-\hline %--- 
+\hline 
 jw\_uptb&
 R&
 1.0&
 m/s (?)&
 amplitude of the wave pertubation&
 ctest\_name= 'JWw'\tabularnewline
-\hline %--- 
+\hline 
 mountctr\_lon\_deg&
 R&
 90.0&
 deg&
 longitude of mountain peak&
 ctest\_name= 'MRW(2)'\tabularnewline
-\hline %--- 
+\hline 
 mountctr\_lat\_deg&
 R&
 30.0&
 deg&
 latitude of mountain peak&
 ctest\_name= 'MRW(2)'\tabularnewline
-\hline %--- 
+\hline 
 mountctr\_height&
 R&
 2000.0&
 m&
 mountain height&
 ctest\_name= 'MRW(2)'\tabularnewline
-\hline %--- 
+\hline 
 mountctr\_half\_width&
 R&
 1500000.0&
 m&
 mountain half width&
 ctest\_name= 'MRW(2)'\tabularnewline
-\hline %--- 
+\hline 
 mount\_u0&
 R&
 20.0&
 m/s&
 wind speed for MRW cases&
 ctest\_name= 'MRW(2)'\tabularnewline
-\hline %--- 
+\hline 
 rh\_wavenum&
 I&
 4&
 &
 wave number&
 ctest\_name= 'RH'\tabularnewline
-\hline %--- 
+\hline 
 rh\_init\_shift\_deg&
 R&
 0.0&
 deg&
 pattern shift&
 ctest\_name= 'RH'\tabularnewline
-\hline %--- 
+\hline 
 ihs\_init\_type&
 I&
 1&
@@ -4086,7 +3876,7 @@ state defined in the JWs test case; other integers: isothermal state
 (T=300 K, ps=1000 hPa, u=v=0.)&
 ctest\_name= 'HS'
 \tabularnewline
-\hline %--- 
+\hline 
 lhs\_vn\_ptb&
 L&
 .TRUE.&
@@ -4094,7 +3884,7 @@ L&
 Add random noise to the initial wind field in the Held-Suarez test. &
 ctest\_name= 'HS'
 \tabularnewline
-\hline %--- 
+\hline 
 hs\_vn\_ptb\_scale&
 R&
 1.&
@@ -4103,7 +3893,7 @@ Magnitude of the random noise added to the initial wind field in the
 Held-Suarez test. &
 ctest\_name= 'HS'
 \tabularnewline
-\hline %--- 
+\hline 
 lrh\_linear\_pres&
 L&
 .FALSE.&
@@ -4111,7 +3901,7 @@ L&
 Initialize the relative humidity using a linear function of pressure. &
 ctest\_name= 'JWw-Moist','APE', 'LDF-Moist'
 \tabularnewline
-\hline %--- 
+\hline 
 rh\_at\_1000hpa&
 R&
 0.75&
@@ -4119,7 +3909,7 @@ R&
 relative humidity \[0,1\] at 1000 hPa &
 ctest\_name= 'JWw-Moist','APE', 'LDF-Moist'
 \tabularnewline
-\hline %--- 
+\hline 
 linit\_tracer\_fv&
 L&
 .TRUE.&
@@ -4127,7 +3917,7 @@ L&
 Finite volume initialization for tracer fields &
 ctest\_name='PA'
 \tabularnewline
-\hline %---
+\hline
 ape\_sst\_case&
 C&
 'sst1'&
@@ -4165,7 +3955,7 @@ SST distribution selection&
 &
 'sst\_qobs': Qobs SST distribution exp.&
 \tabularnewline
-\hline %--- 
+\hline 
 ildf\_init\_type&
 I&
 0&
@@ -4175,7 +3965,7 @@ state defined in the JWs test case; other: isothermal state
 (T=300 K, ps=1000 hPa, u=v=0.)&
 ctest\_name= 'LDF'
 \tabularnewline
-\hline %---
+\hline
 ldf\_symm&
 L&
 .TRUE.&
@@ -4195,7 +3985,7 @@ Shape of local diabatic forcing:&
 &
 .FALSE.: local diabatic forcing asym. about the equator (at 30 N)&
 \tabularnewline
-\hline %---
+\hline
 \end{longtable}
 
 Defined and used in: src/testcases/mo\_hydro\_testcases.f90
@@ -4203,16 +3993,16 @@ Defined and used in: src/testcases/mo\_hydro\_testcases.f90
 \subsubsection{nh\_testcase\_ctl (Scope: ltestcase=.TRUE. and iequations=3 in run\_nml)}
 
 \begin{longtable}{|>{\raggedright}p{4cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
-\hline %--- 
+\hline 
 nh\_test\_name&
 C&
 'jabw'&
@@ -4303,7 +4093,7 @@ with Jablonowski Williamson initial conditions and zero topography.&
 'APE\_nh': Initializes the APE experiments. At the moment 
  with T=300K, ps=1013.25hPa, u=v=w=0).&
 \tabularnewline
-\hline %---
+\hline
 jw\_up&
 R&
 1.0&
@@ -4311,7 +4101,7 @@ m/s&
 amplitude of the u-perturbation in jabw test case&
 nh\_test\_name='jabw'
 \tabularnewline
-\hline %---
+\hline
 u0\_mrw&
 R&
 20.0&
@@ -4319,7 +4109,7 @@ m/s&
 wind speed for mrw case&
 nh\_test\_name= 'mrw(2)\_nh'
 \tabularnewline
-\hline %---
+\hline
 mount\_height\_mrw&
 R&
 2000.0&
@@ -4327,7 +4117,7 @@ m&
 maximum mount height in mrw(2) and mwbr\_const&
 nh\_test\_name= 'mrw(2)\_nh' and 'mwbr\_const'
 \tabularnewline
-\hline %---
+\hline
 mount\_half\_width&
 R&
 1500000.0&
@@ -4335,7 +4125,7 @@ m&
 half width of mountain in mrw(2), mwbr\_const and bell &
 nh\_test\_name= 'mrw(2)\_nh', 'mwbr\_const' and 'bell'
 \tabularnewline
-\hline %---
+\hline
 mount\_lonctr\_mrw\_deg&
 R&
 90.&
@@ -4343,7 +4133,7 @@ degrees&
 lon of mountain center in mrw(2) and mwbr\_const&
 nh\_test\_name= 'mrw(2)\_nh' and 'mwbr\_const'
 \tabularnewline
-\hline %---
+\hline
 mount\_latctr\_mrw\_deg&
 R&
 30.&
@@ -4351,7 +4141,7 @@ degrees&
 lat of mountain center in mrw(2) and mwbr\_const&
 nh\_test\_name= 'mrw(2)\_nh' and 'mwbr\_const'
 \tabularnewline
-\hline %---
+\hline
 u0\_mwbr\_const&
 R&
 20.0&
@@ -4359,7 +4149,7 @@ m/s&
 wind speed for mwbr\_const case&
 nh\_test\_name= 'mwbr\_const'
 \tabularnewline
-\hline %---
+\hline
 temp\_i\_mwbr\_const&
 R&
 288.0&
@@ -4367,7 +4157,7 @@ K&
 temp at isothermal lower layer for mwbr\_const case&
 nh\_test\_name= 'mwbr\_const'
 \tabularnewline
-\hline %---
+\hline
 p\_int\_mwbr\_const&
 R&
 70000.&
@@ -4375,7 +4165,7 @@ Pa&
 pres at the interface of the two layers for mwbr\_const case&
 nh\_test\_name= 'mwbr\_const'
 \tabularnewline
-\hline %---
+\hline
 bruntvais\_u\_mwbr\_const&
 R&
 0.025&
@@ -4383,7 +4173,7 @@ R&
 constant brunt vaissala frequency at upper layer for mwbr\_const case&
 nh\_test\_name= 'mwbr\_const'
 \tabularnewline
-\hline %---
+\hline
 mount\_height&
 R&
 100.0&
@@ -4391,7 +4181,7 @@ m&
 peak height of mountain&
 nh\_test\_name=  'bell'
 \tabularnewline
-\hline %---
+\hline
 layer\_thickness&
 R&
 -999.0&
@@ -4399,7 +4189,7 @@ m&
 thickness of vertical layers&
 If layer\_thickness < 0, the vertical level distribution is read in from externally given HYB\_PARAMS\_XX.
 \tabularnewline
-\hline %---
+\hline
 n\_flat\_level&
 I&
 2&
@@ -4407,7 +4197,7 @@ I&
 level number for which the layer is still flat and not terrain-following&
 layer\_thickness > 0
 \tabularnewline
-\hline %---
+\hline
 nh\_u0&
 R&
 0.0&
@@ -4415,7 +4205,7 @@ m/s&
 initial constant zonal wind speed &
 nh\_test\_name = 'bell'
 \tabularnewline
-\hline %---
+\hline
 nh\_t0&
 R&
 300.0&
@@ -4423,7 +4213,7 @@ K&
 initial temperature at lowest level &
 nh\_test\_name = 'bell'
 \tabularnewline
-\hline %---
+\hline
 nh\_brunt\_vais&
 R&
 0.01&
@@ -4431,7 +4221,7 @@ R&
 initial Brunt-Vaisala frequency &
 nh\_test\_name = 'bell'
 \tabularnewline
-\hline %---
+\hline
 torus\_domain\_length&
 R&
 100000.0&
@@ -4439,28 +4229,28 @@ m&
 length of slice domain &
 nh\_test\_name = 'bell', lplane=.TRUE.
 \tabularnewline
-\hline %---
+\hline
 rotate\_axis\_deg&
 R&
 0.0&
 deg&
 Earth's rotation axis pitch angle&
 nh\_test\_name= 'PA' \tabularnewline
-\hline %---
+\hline
 lhs\_nh\_vn\_ptb&
 L&
 .TRUE.&
 &
 Add random noise to the initial wind field in the Held-Suarez test. &
 nh\_test\_name= 'HS\_nh'\tabularnewline
-\hline %--- 
+\hline 
 lhs\_fric\_heat&
 L&
 .FALSE.&
 &
 add frictional heating from Rayleigh friction in the Held-Suarez test.&
 nh\_test\_name= 'HS\_nh'\tabularnewline
-\hline %--- 
+\hline 
 hs\_nh\_vn\_ptb\_scale&
 R&
 1.&
@@ -4468,21 +4258,21 @@ m/s &
 Magnitude of the random noise added to the initial wind field in the
 Held-Suarez test. &
 nh\_test\_name= 'HS\_nh'\tabularnewline
-\hline %---
+\hline
 rh\_at\_1000hpa&
 R&
 0.7&
 1 &
 relative humidity at 1000 hPa &
 nh\_test\_name= 'jabw', nh\_test\_name= 'mrw'\tabularnewline
-\hline %---
+\hline
 qv\_max&
 R&
 20.e-3&
 kg/kg &
 specific humidity in the tropics &
 nh\_test\_name= 'jabw', nh\_test\_name= 'mrw'\tabularnewline
-\hline %---
+\hline
 ape\_sst\_case&
 C&
 'sst1'&
@@ -4520,7 +4310,7 @@ SST distribution selection&
 &
 'sst\_qobs': Qobs SST distribution exp.&
 \tabularnewline
-\hline %--- 
+\hline 
 linit\_tracer\_fv&
 L&
 .TRUE.&
@@ -4528,7 +4318,7 @@ L&
 Finite volume initialization for tracer fields &
 ctest\_name='PA'
 \tabularnewline
-\hline %---
+\hline
 \end{longtable}
 
 Defined and used in: src/testcases/mo\_nh\_testcases.f90
@@ -4538,16 +4328,16 @@ Defined and used in: src/testcases/mo\_nh\_testcases.f90
 \subsection{ext\_par\_ctl (Scope: itopo=1 in run\_nml)}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline %--- 
+\hline 
 Parameter&
 Type&
 Default&
 Unit&
 Description&
 Scope\tabularnewline
-\hline %---
+\hline
 \endhead
-\hline %--- 
+\hline 
 n\_iter\_smooth\_topo &
 I &
 35&
@@ -4556,7 +4346,7 @@ iterations of topography smoother
 &
 itopo = 1
 \tabularnewline
-\hline %--- 
+\hline 
 fac\_smooth\_topo&
 R &
 0.015625&
@@ -4565,7 +4355,7 @@ pre-factor of topography smoother
 &
 n\_iter\_smooth\_topo > 0
 \tabularnewline
-\hline %---
+\hline 
 \end{longtable}
 
 Defined and used in: src/namelists/mo\_global\_variables.f90

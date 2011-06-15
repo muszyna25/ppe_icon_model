@@ -660,6 +660,15 @@ INTEGER :: idummy
         &          'allocation for lsq_rmat_utri_c failed')
     ENDIF
     !
+    ! lsq_pseudoinv
+    !
+    ALLOCATE (ptr_int%lsq_lin%lsq_pseudoinv(nproma, lsq_lin_set%dim_unk,              &
+      &       lsq_lin_set%dim_c, nblks_c), STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('mo_interpolation:construct_int_state',                            &
+        &             'allocation for lsq_pseudoinv failed')
+    ENDIF
+    !
     ! lsq_moments
     !
     ALLOCATE (ptr_int%lsq_lin%lsq_moments(nproma, nblks_c, lsq_lin_set%dim_unk),      &
@@ -741,6 +750,15 @@ INTEGER :: idummy
     IF (ist /= SUCCESS) THEN
       CALL finish ('mo_interpolation:construct_int_state',&
         &          'allocation for lsq_rmat_utri_c failed')
+    ENDIF
+    !
+    ! lsq_pseudoinv
+    !
+    ALLOCATE (ptr_int%lsq_high%lsq_pseudoinv(nproma, lsq_high_set%dim_unk,            &
+      &       lsq_high_set%dim_c, nblks_c), STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('mo_interpolation:construct_int_state',                            &
+        &             'allocation for lsq_pseudoinv failed')
     ENDIF
     !
     ! lsq_moments
@@ -826,6 +844,14 @@ INTEGER :: idummy
         &          'allocation for lsq_rmat_utri_c failed')
     ENDIF
     !
+    ! lsq_pseudoinv
+    !
+    ALLOCATE (ptr_int%lsq_lin%lsq_pseudoinv(0, 0, 0, 0), STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('mo_interpolation:construct_int_state',                       &
+        &             'allocation for lsq_pseudoinv failed')
+    ENDIF
+    !
     ! lsq_moments
     !
     ALLOCATE (ptr_int%lsq_lin%lsq_moments(0, 0, 0), STAT=ist )
@@ -899,6 +925,14 @@ INTEGER :: idummy
     IF (ist /= SUCCESS) THEN
       CALL finish ('mo_interpolation:construct_int_state',&
         &          'allocation for lsq_rmat_utri_c failed')
+    ENDIF
+    !
+    ! lsq_pseudoinv
+    !
+    ALLOCATE (ptr_int%lsq_high%lsq_pseudoinv(0, 0, 0, 0), STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('mo_interpolation:construct_int_state',                     &
+        &             'allocation for lsq_pseudoinv failed')
     ENDIF
     !
     ! lsq_moments
@@ -1186,6 +1220,7 @@ INTEGER :: idummy
     ptr_int%lsq_lin%lsq_qtmat_c       = 0._wp
     ptr_int%lsq_lin%lsq_rmat_rdiag_c  = 0._wp
     ptr_int%lsq_lin%lsq_rmat_utri_c   = 0._wp
+    ptr_int%lsq_lin%lsq_pseudoinv     = 0._wp
     ptr_int%lsq_lin%lsq_moments       = 0._wp
     ptr_int%lsq_lin%lsq_moments_hat   = 0._wp
 
@@ -1196,6 +1231,7 @@ INTEGER :: idummy
     ptr_int%lsq_high%lsq_qtmat_c      = 0._wp
     ptr_int%lsq_high%lsq_rmat_rdiag_c = 0._wp
     ptr_int%lsq_high%lsq_rmat_utri_c  = 0._wp
+    ptr_int%lsq_high%lsq_pseudoinv    = 0._wp
     ptr_int%lsq_high%lsq_moments      = 0._wp
     ptr_int%lsq_high%lsq_moments_hat  = 0._wp
   END IF
@@ -1356,14 +1392,14 @@ DO jg = n_dom_start, n_dom
         &                      lsq_lin_set%dim_c )
       CALL lsq_compute_coeff_cell( ptr_patch(jg), ptr_int_state(jg)%lsq_lin,  &
         &                      lsq_lin_set%l_consv, lsq_lin_set%dim_c,        &
-        &                      lsq_lin_set%dim_unk )
+        &                      lsq_lin_set%dim_unk, lsq_lin_set%wgt_exp )
     ENDIF
 
     CALL lsq_stencil_create( ptr_patch(jg), ptr_int_state(jg)%lsq_high,     &
       &                   lsq_high_set%dim_c )
     CALL lsq_compute_coeff_cell( ptr_patch(jg), ptr_int_state(jg)%lsq_high, &
       &                       lsq_high_set%l_consv, lsq_high_set%dim_c,     &
-      &                       lsq_high_set%dim_unk )
+      &                       lsq_high_set%dim_unk, lsq_high_set%wgt_exp )
   ENDIF
 
 ENDDO
@@ -1788,6 +1824,14 @@ INTEGER :: ist
         &          'deallocation for lsq_rmat_utri_c failed')
     ENDIF
     !
+    ! lsq_pseudoinv
+    !
+    DEALLOCATE (ptr_int%lsq_lin%lsq_pseudoinv, STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('mo_interpolation:destruct_int_state',                    &
+        &          'deallocation for lsq_pseudoinv failed')
+    ENDIF
+    !
     ! lsq_moments
     !
     DEALLOCATE (ptr_int%lsq_lin%lsq_moments, STAT=ist )
@@ -1862,6 +1906,14 @@ INTEGER :: ist
     IF (ist /= SUCCESS) THEN
       CALL finish ('mo_interpolation:destruct_int_state',                    &
         &          'deallocation for lsq_rmat_utri_c failed')
+    ENDIF
+    !
+    ! lsq_pseudoinv
+    !
+    DEALLOCATE (ptr_int%lsq_high%lsq_pseudoinv, STAT=ist )
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('mo_interpolation:destruct_int_state',                    &
+        &          'deallocation for lsq_pseudoinv failed')
     ENDIF
     !
     ! lsq_moments

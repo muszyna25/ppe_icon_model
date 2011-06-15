@@ -48,7 +48,7 @@ fi
 # The $make_runscript command directs to the ./config/make_target_runscript
 make_runscript="$use_shell ./config/make_target_runscript"
 #==============================================================================
-#  Create the grid generator runs cripts
+#  Create the grid generator run scripts
 #  NOTE: The grid generator runs with 1 MPI proccess, but can use the default OPENMP threads
 #==============================================================================
 cd $input_folder
@@ -56,7 +56,7 @@ file_list=`ls grid.*`
 cd $base_folder
 for filename in $file_list
 do
-  if [[ $filename != *.run && $filename != *~ ]] ; then
+  if [[ $filename != *.run && $filename != *~ && $filename != *.status ]] ; then
     $make_runscript in_folder=$input_folder in_script=${filename}  mpi_procs=1 cpu_time="00:30:00"
   fi
 done

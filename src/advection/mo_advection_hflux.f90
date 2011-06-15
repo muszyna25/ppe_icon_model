@@ -79,9 +79,12 @@ MODULE mo_advection_hflux
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS, TRACER_ONLY, &
     &                               min_rledge_int, min_rledge, min_rlcell_int
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_math_operators,      ONLY: grad_green_gauss_cell, recon_lsq_cell_l, &
-    &                               recon_lsq_cell_q, recon_lsq_cell_cpoor,  &
-    &                               recon_lsq_cell_c, directional_laplace
+  USE mo_math_operators,      ONLY: grad_green_gauss_cell, recon_lsq_cell_l,    &
+    &                               recon_lsq_cell_q, recon_lsq_cell_cpoor,     &
+    &                               recon_lsq_cell_c, directional_laplace,      &
+    &                               recon_lsq_cell_l_svd, recon_lsq_cell_q_svd, &
+    &                               recon_lsq_cell_cpoor_svd,                   &
+    &                               recon_lsq_cell_c_svd
   USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_edge,      &
     &                               rbf_interpol_c2grad, lsq_high_ord,       &
     &                               lsq_high_set, cells2edges_scalar
@@ -92,7 +95,7 @@ MODULE mo_advection_hflux
   USE mo_parallel_nml,        ONLY: p_test_run, n_ghost_rows
   USE mo_advection_nml,       ONLY: iup, imiura, imiura3, islopel_sm,         &
     &                               islopel_m, ifluxl_m, ifluxl_sm, lcompute, &
-    &                               lcleanup, upstr_beta_adv, iup3
+    &                               lcleanup, upstr_beta_adv, iup3, llsq_svd
   USE mo_advection_utils,     ONLY: laxfr_upflux, back_traj_o1, back_traj_o2,     &
     &                               back_traj_dreg_o1, prep_gauss_quadrature_q,   &
     &                               prep_gauss_quadrature_cpoor,                  &
@@ -155,10 +158,10 @@ CONTAINS
     TYPE(t_int_state), TARGET, INTENT(IN) ::  & !< pointer to data structure for interpolation
       &  p_int
 
-    REAL(wp),TARGET, INTENT(IN) ::     &   !< advected cell centered variable
+    REAL(wp),TARGET, INTENT(IN) ::  & !< advected cell centered variable
       &  p_cc(:,:,:,:)              !< dim: (nproma,nlev,nblks_c,ntracer)
 
-    REAL(wp),TARGET, INTENT(IN) ::     &   !< advected cell centered variable step (n)
+    REAL(wp),TARGET, INTENT(IN) ::  & !< advected cell centered variable step (n)
       &  p_c0(:,:,:,:)              !< dim: (nproma,nlev,nblks_c,ntracer)
 
     REAL(wp), INTENT(IN) ::     &   !< contravariant horizontal mass flux
@@ -183,8 +186,8 @@ CONTAINS
     INTEGER, INTENT(IN) ::      &   !< vertical start level for advection
       &  p_iadv_slev(:)             !< dim: (ntracer)
 
-    INTEGER, INTENT(IN) :: p_iord_backtraj   !< parameter to select the spacial order
-                                             !< of accuracy for the backward trajectory
+    INTEGER, INTENT(IN) ::      &   !< parameter to select the spacial order
+      &  p_iord_backtraj            !< of accuracy for the backward trajectory
 
     REAL(wp), INTENT(INOUT) ::  &   !< variable in which the upwind flux is stored
       &  p_upflux(:,:,:,:)          !< dim: (nproma,nlev,nblks_e,ntracer)
@@ -612,8 +615,13 @@ CONTAINS
     !
     IF (p_igrad_c_miura == 1) THEN
       ! least squares method
+      IF (llsq_svd) THEN
+      CALL recon_lsq_cell_l_svd( p_cc, p_patch, p_int%lsq_lin, z_lsq_coeff,   &
+        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c)
+      ELSE
       CALL recon_lsq_cell_l( p_cc, p_patch, p_int%lsq_lin, z_lsq_coeff,       &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c)
+      ENDIF
 
       ptr_cc   => z_lsq_coeff(:,:,:,1)   ! first coefficient of lsq rec.
       ptr_grad => z_lsq_coeff(:,:,:,2:3) ! gradients of lsq rec.
@@ -1182,22 +1190,39 @@ CONTAINS
     IF (lsq_high_ord == 2) THEN
       ! quadratic reconstruction
       ! (computation of 6 coefficients -> z_lsq_coeff )
-      CALL recon_lsq_cell_q( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,       &
-        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c,&
+      IF (llsq_svd) THEN
+      CALL recon_lsq_cell_q_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
+        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=4 )
-
+      ELSE
+      CALL recon_lsq_cell_q( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,        &
+        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
+        &                    opt_rlstart=4 )
+      ENDIF
     ELSE IF (lsq_high_ord == 30) THEN
       ! cubic reconstruction without cross derivatives
       ! (computation of 8 coefficients -> z_lsq_coeff )
-      CALL recon_lsq_cell_cpoor( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,   &
-        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c,&
+      IF (llsq_svd) THEN
+      CALL recon_lsq_cell_cpoor_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,&
+        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=4 )
+      ELSE
+      CALL recon_lsq_cell_cpoor( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
+        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
+        &                    opt_rlstart=4 )
+      ENDIF
     ELSE IF (lsq_high_ord == 3) THEN
       ! cubic reconstruction with cross derivatives
       ! (computation of 10 coefficients -> z_lsq_coeff )
-      CALL recon_lsq_cell_c( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,       &
-        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c,&
+      IF (llsq_svd) THEN
+      CALL recon_lsq_cell_c_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
+        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=4 )
+      ELSE
+      CALL recon_lsq_cell_c( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,        &
+        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
+        &                    opt_rlstart=4 )
+      ENDIF
     ENDIF
 
 

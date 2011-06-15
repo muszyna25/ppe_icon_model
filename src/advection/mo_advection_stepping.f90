@@ -225,8 +225,9 @@ CONTAINS
                                      !< dim: (nproma,nlevp1,nblks_c,ntracer)
 
     REAL(wp), INTENT(IN), OPTIONAL :: & !< NH: half level density at n+1/2 (only necessary
-      &  opt_rho_ic(:,:,:)              !< for the NH-core, when muscl_cfl or ppm_cfl
-                                        !< is applied in vertical direction)
+      &  opt_rho_ic(:,:,:)              !< for the NH-core, when muscl_cfl is applied 
+                                        !< in vertical direction)
+                                        !< NH: [kg/m**3]
                                         !< HA: --
                                         !< dim: (nproma,nlevp1,nblks_c)
 

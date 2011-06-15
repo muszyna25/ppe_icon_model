@@ -114,15 +114,15 @@ MODULE mo_math_divrot
 !
 !
 !
-USE mo_kind,               ONLY: wp
-USE mo_impl_constants,     ONLY: SEA, min_rlcell, min_rledge, min_rlvert
-USE mo_interpolation,      ONLY: t_int_state, t_lsq, lsq_high_set
-USE mo_model_domain,       ONLY: t_patch
+USE mo_kind,                ONLY: wp
+USE mo_impl_constants,      ONLY: SEA, min_rlcell, min_rledge, min_rlvert
+USE mo_interpolation,       ONLY: t_int_state, t_lsq, lsq_high_set
+USE mo_model_domain,        ONLY: t_patch
 USE mo_model_domain_import, ONLY: l_limited_area
 USE mo_run_nml,             ONLY: nproma, i_cell_type !, ltimer
-USE mo_exception,          ONLY: finish
+USE mo_exception,           ONLY: finish
+USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 ! USE mo_timer,              ONLY: timer_start, timer_stop, timer_div
-USE mo_loopindices,        ONLY: get_indices_c, get_indices_e, get_indices_v
 
 IMPLICIT NONE
 
@@ -131,7 +131,10 @@ PRIVATE
 CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 
-PUBLIC :: recon_lsq_cell_l, recon_lsq_cell_q, recon_lsq_cell_cpoor, recon_lsq_cell_c
+PUBLIC :: recon_lsq_cell_l, recon_lsq_cell_l_svd
+PUBLIC :: recon_lsq_cell_q, recon_lsq_cell_q_svd
+PUBLIC :: recon_lsq_cell_cpoor, recon_lsq_cell_cpoor_svd
+PUBLIC :: recon_lsq_cell_c, recon_lsq_cell_c_svd
 PUBLIC :: div, div_avg
 PUBLIC :: div_quad_twoadjcells
 PUBLIC :: rot_vertex
@@ -325,6 +328,170 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP END PARALLEL
 
 END SUBROUTINE recon_lsq_cell_l
+
+
+
+!-------------------------------------------------------------------------
+!
+!
+!>
+!! Computes coefficients (i.e. derivatives) for cell centered linear
+!! reconstruction.
+!!
+!! DESCRIPTION:
+!! recon: reconstruction of subgrid distribution
+!! lsq  : least-squares method
+!! cell : solution coefficients defined at cell center
+!! l    : linear reconstruction
+!!
+!! The least squares approach is used. Solves Ax = b via Singular 
+!! Value Decomposition (SVD)
+!! x = PINV(A) * b
+!!
+!! Matrices have the following size and shape:
+!! PINV(A): Pseudo or Moore-Penrose inverse of A (via SVD) (2 x 3)
+!! b: input vector (3 x 1)
+!! x: solution vector (2 x 1)
+!! only works on triangular grid yet
+!!
+!! @par Revision History
+!! Developed and tested by Daniel Reinert, DWD (2011-05-26)
+!!
+SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
+  &                           opt_slev, opt_elev, opt_rlstart,      &
+  &                           opt_rlend )
+
+  TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation 
+    &  ptr_patch                          !< is performed
+
+  TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
+    &  ptr_int_lsq
+
+  REAL(wp), INTENT(IN)          ::  &   !<  cell centered variable
+    &  p_cc(:,:,:)
+
+  INTEGER, INTENT(IN), OPTIONAL ::  &   !< optional vertical start level
+    &  opt_slev
+
+  INTEGER, INTENT(IN), OPTIONAL ::  &   !< optional vertical end level
+    &  opt_elev
+
+  INTEGER, INTENT(IN), OPTIONAL ::  &   !< start and end values of refin_ctrl flag
+    &  opt_rlstart, opt_rlend
+
+  REAL(wp), INTENT(INOUT) ::  &  !< cell based coefficients (geographical components)
+    &  p_coeff(:,:,:,:)          !< (constant and gradients in latitudinal and
+                                 !< longitudinal direction)
+
+  REAL(wp)  ::   &               !< weights * difference of scalars i j
+    &  z_b(nproma,ptr_patch%nlev,3)
+
+  INTEGER, POINTER ::   &            !< Pointer to line and block indices of
+    &  iidx(:,:,:), iblk(:,:,:)      !< required stencil
+  INTEGER :: slev, elev              !< vertical start and end level
+  INTEGER :: jc, jk, jb              !< index of cell, vertical level and block
+  INTEGER :: rl_start, rl_end
+  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+
+
+  !-----------------------------------------------------------------------
+
+  ! check optional arguments
+  IF ( PRESENT(opt_slev) ) THEN
+    slev = opt_slev
+  ELSE
+    slev = 1
+  END IF
+  IF ( PRESENT(opt_elev) ) THEN
+    elev = opt_elev
+  ELSE
+    elev = ptr_patch%nlev
+  END IF
+  IF ( PRESENT(opt_rlstart) ) THEN
+    rl_start = opt_rlstart
+  ELSE
+    rl_start = 2
+  END IF
+  IF ( PRESENT(opt_rlend) ) THEN
+    rl_end = opt_rlend
+  ELSE
+    rl_end = min_rlcell
+  END IF
+
+
+  ! values for the blocking
+  i_nchdom   = MAX(1,ptr_patch%n_childdom)
+  i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+  i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+
+  ! pointers to line and block indices of stencil
+  iidx => ptr_patch%cells%neighbor_idx
+  iblk => ptr_patch%cells%neighbor_blk
+
+
+
+  !
+  ! 1. reconstruction of cell based gradient (geographical components)
+  !
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,jk,i_startidx,i_endidx,z_b), SCHEDULE(runtime)
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, rl_start, rl_end)
+
+#ifdef __LOOP_EXCHANGE
+    DO jc = i_startidx, i_endidx
+      DO jk = slev, elev
+#else
+!CDIR UNROLL=4
+    DO jk = slev, elev
+      DO jc = i_startidx, i_endidx
+#endif
+
+        ! note that the multiplication with lsq_weights_c(jc,js,jb) at
+        ! runtime is now avoided. Instead, the weights have been shifted 
+        ! into the pseudoinverse.
+        z_b(jc,jk,1) = p_cc(iidx(jc,jb,1),jk,iblk(jc,jb,1)) - p_cc(jc,jk,jb)
+        z_b(jc,jk,2) = p_cc(iidx(jc,jb,2),jk,iblk(jc,jb,2)) - p_cc(jc,jk,jb)
+        z_b(jc,jk,3) = p_cc(iidx(jc,jb,3),jk,iblk(jc,jb,3)) - p_cc(jc,jk,jb)
+
+      END DO ! end loop over cells
+    END DO ! end loop over vertical levels
+
+    !
+    ! 2. compute cell based coefficients for linear reconstruction
+    !    calculate matrix vector product PINV(A) * b
+    !
+    DO jk = slev, elev
+      DO jc = i_startidx, i_endidx
+
+        ! meridional
+        p_coeff(jc,jk,jb,3) = ptr_int_lsq%lsq_pseudoinv(jc,2,1,jb) * z_b(jc,jk,1)  &
+          &                 + ptr_int_lsq%lsq_pseudoinv(jc,2,2,jb) * z_b(jc,jk,2)  &
+          &                 + ptr_int_lsq%lsq_pseudoinv(jc,2,3,jb) * z_b(jc,jk,3)
+
+        ! zonal
+        p_coeff(jc,jk,jb,2) = ptr_int_lsq%lsq_pseudoinv(jc,1,1,jb) * z_b(jc,jk,1)  &
+          &                 + ptr_int_lsq%lsq_pseudoinv(jc,1,2,jb) * z_b(jc,jk,2)  &
+          &                 + ptr_int_lsq%lsq_pseudoinv(jc,1,3,jb) * z_b(jc,jk,3)
+
+        ! At the end, the coefficient c0 is derived from the linear constraint
+        !
+        ! constant
+        p_coeff(jc,jk,jb,1) = p_cc(jc,jk,jb)                                         &
+          &                 - p_coeff(jc,jk,jb,2) * ptr_int_lsq%lsq_moments(jc,jb,1) &
+          &                 - p_coeff(jc,jk,jb,3) * ptr_int_lsq%lsq_moments(jc,jb,2)
+
+
+      END DO ! end loop over cells
+    END DO ! end loop over vertical levels
+
+  END DO ! end loop over blocks
+!$OMP END DO
+!$OMP END PARALLEL
+
+END SUBROUTINE recon_lsq_cell_l_svd
 
 
 
@@ -650,6 +817,280 @@ ENDIF
 END SUBROUTINE recon_lsq_cell_q
 
 
+
+!-------------------------------------------------------------------------
+!
+!
+!>
+!! Computes coefficients (i.e. derivatives) for cell centered quadratic
+!! reconstruction.
+!!
+!! DESCRIPTION:
+!! recon: reconstruction of subgrid distribution
+!! lsq  : least-squares method
+!! cell : solution coefficients defined at cell center
+!! q    : quadratic reconstruction
+!!
+!! Computes unknown coefficients (derivatives) of a quadratic polynomial,
+!! using the least-squares method. The coefficients are provided at cell 
+!! centers in a local 2D cartesian system (tangential plane).
+!!
+!! Mathematically we solve Ax = b via Singular Value Decomposition (SVD)
+!! x = PINV(A) * b
+!!
+!! Matrices have the following size and shape (triangular grid) :
+!! PINV(A): Pseudo or Moore-Penrose inverse of A (via SVD) (5 x 9)
+!! b  : input vector (LHS) (9 x 1)
+!! x  : solution vector (unknowns) (5 x 1)
+!!
+!! Coefficients:
+!! p_coeff(jc,jk,jb,1) : C0
+!! p_coeff(jc,jk,jb,2) : C1 (dPhi_dx)
+!! p_coeff(jc,jk,jb,3) : C2 (dPhi_dy)
+!! p_coeff(jc,jk,jb,4) : C3 (0.5*ddPhi_ddx)
+!! p_coeff(jc,jk,jb,5) : C4 (0.5*ddPhi_ddy)
+!! p_coeff(jc,jk,jb,6) : C5 (ddPhi_dxdy)
+!!
+!!
+!! @par Revision History
+!!  Developed and tested by Daniel Reinert, DWD (2011-05-31)
+!!
+!! !LITERATURE
+!! Ollivier-Gooch et al (2002): A High-Order-Accurate Unstructured Mesh
+!! Finite-Volume Scheme for the Advection-Diffusion Equation, J. Comput. Phys.,
+!! 181, 729-752
+!!
+SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
+  &                               opt_slev, opt_elev, opt_rlstart,      &
+  &                               opt_rlend )
+
+  TYPE(t_patch), INTENT(IN) ::   & !< patch on which computation
+    &  ptr_patch                   !< is performed
+                                        
+  TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
+    &  ptr_int_lsq
+
+  REAL(wp), INTENT(IN) ::           & !< cell centered variable
+    &  p_cc(:,:,:)
+
+  INTEGER, INTENT(IN), OPTIONAL ::  & !< optional vertical start level
+    &  opt_slev
+
+  INTEGER, INTENT(IN), OPTIONAL ::  & !< optional vertical end level
+    &  opt_elev
+
+  INTEGER, INTENT(IN), OPTIONAL ::  & !< start and end values of refin_ctrl flag
+    &  opt_rlstart, opt_rlend
+
+  REAL(wp), INTENT(INOUT)  ::  &  !< cell based coefficients (geographical components)
+    &  p_coeff(:,:,:,:)           !< physically this vector contains gradients, second
+                                  !< derivatives, one mixed derivative and a constant
+                                  !< coefficient for zonal and meridional direction
+
+  REAL(wp)  ::           &        !< difference of scalars i j
+    &  z_b(lsq_high_set%dim_c,nproma,ptr_patch%nlev)
+
+  INTEGER, POINTER  ::   &        !< Pointer to line and block indices of
+    &  iidx(:,:,:), iblk(:,:,:)   !< required stencil
+  INTEGER :: slev, elev           !< vertical start and end level
+  INTEGER :: jc, jk, jb           !< index of cell, vertical level and block
+  INTEGER :: js                   !< loop index for cells in stencil
+  INTEGER :: rl_start, rl_end
+  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+
+  !-----------------------------------------------------------------------
+
+  ! check optional arguments
+  IF ( PRESENT(opt_slev) ) THEN
+    slev = opt_slev
+  ELSE
+    slev = 1
+  END IF
+  IF ( PRESENT(opt_elev) ) THEN
+    elev = opt_elev
+  ELSE
+    elev = ptr_patch%nlev
+  END IF
+  IF ( PRESENT(opt_rlstart) ) THEN
+    rl_start = opt_rlstart
+  ELSE
+    rl_start = 2
+  END IF
+  IF ( PRESENT(opt_rlend) ) THEN
+    rl_end = opt_rlend
+  ELSE
+    rl_end = min_rlcell
+  END IF
+
+
+  ! values for the blocking
+  i_nchdom   = MAX(1,ptr_patch%n_childdom)
+  i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+  i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+
+  ! pointers to line and block indices of required stencil
+  iidx => ptr_int_lsq%lsq_idx_c
+  iblk => ptr_int_lsq%lsq_blk_c
+
+
+  IF (i_cell_type == 3) THEN
+
+
+!$OMP PARALLEL
+
+  IF (ptr_patch%id > 1) THEN
+!$OMP WORKSHARE
+    p_coeff(:,:,1:i_startblk,1:6) = 0._wp
+!$OMP END WORKSHARE
+  ENDIF
+
+!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_b), SCHEDULE(runtime)
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, rl_start, rl_end)
+
+    !
+    ! 1. compute right hand side of linear system
+    !
+#ifdef __LOOP_EXCHANGE
+    DO jc = i_startidx, i_endidx
+      DO jk = slev, elev
+#else
+!CDIR UNROLL=5
+    DO jk = slev, elev
+      DO jc = i_startidx, i_endidx
+#endif
+
+!CDIR EXPAND=9
+        DO js = 1, 9
+          ! original version
+          !z_b(js) = ptr_int_lsq%lsq_weights_c(jc,js,jb)                   &
+          !  &     * (p_cc(iidx(jc,jb,js),jk,iblk(jc,jb,js)) - p_cc(jc,jk,jb))
+
+          ! note that multiplication with lsq_weights_c(jc,js,jb) during 
+          ! runtime is now avoided. Instead, the weights have been shifted 
+          ! into the pseudoinverse.
+          z_b(js,jc,jk) = p_cc(iidx(jc,jb,js),jk,iblk(jc,jb,js)) - p_cc(jc,jk,jb)
+        ENDDO
+      ENDDO
+    ENDDO
+
+
+
+    !
+    ! 2. compute cell based coefficients for quadratic reconstruction
+    !    calculate matrix vector product PINV(A) * b
+    !
+    DO jk = slev, elev
+
+      DO jc = i_startidx, i_endidx
+
+        ! (intrinsic function matmul not applied, due to massive
+        ! performance penalty on the NEC. Instead the intrinsic dot product
+        ! function is used.
+!CDIR BEGIN EXPAND=9
+        p_coeff(jc,jk,jb,6) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,5,1:9,jb), &
+          &                               z_b(1:9,jc,jk))
+        p_coeff(jc,jk,jb,5) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,4,1:9,jb), &
+          &                               z_b(1:9,jc,jk))
+        p_coeff(jc,jk,jb,4) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,3,1:9,jb), &
+          &                               z_b(1:9,jc,jk))
+        p_coeff(jc,jk,jb,3) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,2,1:9,jb), &
+          &                               z_b(1:9,jc,jk))
+        p_coeff(jc,jk,jb,2) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,1,1:9,jb), &
+          &                               z_b(1:9,jc,jk))
+!CDIR END
+
+
+        ! At the end, the coefficient c0 is derived from the linear constraint
+        !
+        p_coeff(jc,jk,jb,1) = p_cc(jc,jk,jb) - DOT_PRODUCT(p_coeff(jc,jk,jb,2:6), &
+          &                   ptr_int_lsq%lsq_moments(jc,jb,1:5))
+
+
+      END DO ! end loop over cells
+
+    END DO ! end loop over vertical levels
+
+  END DO ! end loop over blocks
+!$OMP END DO
+!$OMP END PARALLEL
+
+ELSEIF (i_cell_type == 6) THEN
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_b), SCHEDULE(runtime)
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, rl_start, rl_end)
+
+    !
+    ! 1. compute right hand side of linear system
+    !
+!CDIR UNROLL=5
+    DO jk = slev, elev
+
+      DO jc = i_startidx, i_endidx
+
+!CDIR EXPAND=6
+        DO js = 1, 6
+          ! original version
+          !z_b(js) = ptr_int_lsq%lsq_weights_c(jc,js,jb)                   &
+          !  &     * (p_cc(iidx(jc,jb,js),jk,iblk(jc,jb,js)) - p_cc(jc,jk,jb))
+
+          ! note that the multiplication with lsq_weights_c(jc,js,jb) at
+          ! runtime is now avoided. Instead, the multiplication has been
+          ! shifted into the pseudoinverse.
+
+          z_b(js,jc,jk) = p_cc(iidx(jc,jb,js),jk,iblk(jc,jb,js)) - p_cc(jc,jk,jb)
+        ENDDO
+      ENDDO
+    ENDDO
+
+    !
+    ! 2. compute cell based coefficients for quadratic reconstruction
+    !    calculate matrix vector product PINV(A) * b
+    !
+    DO jk = slev, elev
+
+      DO jc = i_startidx, i_endidx
+
+        ! (intrinsic function matmul not applied, due to massive
+        ! performance penalty on the NEC. Instead the intrinsic dot product
+        ! function is applied
+!CDIR BEGIN EXPAND=6
+        p_coeff(jc,jk,jb,6) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,5,1:6,jb), &
+          &                               z_b(1:6,jc,jk))
+        p_coeff(jc,jk,jb,5) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,4,1:6,jb), &
+          &                               z_b(1:6,jc,jk))
+        p_coeff(jc,jk,jb,4) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,3,1:6,jb), &
+          &                               z_b(1:6,jc,jk))
+
+        !p_coeff(jc,jk,jb,3) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,2,1:6,jb), &
+        !  &                               z_b(1:6,jc,jk))
+        !p_coeff(jc,jk,jb,2) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,1,1:6,jb), &
+        !  &                               z_b(1:6,jc,jk))
+!CDIR END
+
+        !p_coeff(jc,jk,jb,1) = p_cc(jc,jk,jb) - DOT_PRODUCT(p_coeff(jc,jk,jb,2:6), &
+        !  &                   ptr_int_lsq%lsq_moments(jc,jb,1:5))
+
+
+      END DO ! end loop over cells
+
+    END DO ! end loop over vertical levels
+
+  END DO ! end loop over blocks
+!$OMP END DO
+!$OMP END PARALLEL
+
+ENDIF
+
+END SUBROUTINE recon_lsq_cell_q_svd
+
+
 !-------------------------------------------------------------------------
 !
 !
@@ -901,6 +1342,215 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
 
 END SUBROUTINE recon_lsq_cell_cpoor
+
+
+
+!--------------------------------------------------
+!
+!
+!>
+!! Computes coefficients (i.e. derivatives) for cell centered poor man's
+!! cubic reconstruction.
+!!
+!! DESCRIPTION:
+!! recon: reconstruction of subgrid distribution
+!! lsq  : least-squares method
+!! cell : solution coefficients defined at cell center
+!! c    : cubic reconstruction
+!!
+!! Computes unknown coefficients (derivatives) of a cubic polynomial,
+!! without cross derivatives, using the least-squares method. The 
+!! coefficients are provided at cell centers in a local 2D cartesian 
+!! system (tangential plane).
+!!
+!! Mathematically we solve Ax = b via Singular Value Decomposition (SVD)
+!! x = PINV(A) * b
+!!
+!! Matrices have the following size and shape (triangular grid) :
+!! PINV(A): Pseudo or Moore-Penrose inverse of A (via SVD) (7 x 9)
+!! b  : input vector (LHS) (9 x 1)
+!! x  : solution vector (unknowns) (7 x 1)
+!!
+!! Coefficients
+!! p_coeff(jc,jk,jb,1) : C0
+!! p_coeff(jc,jk,jb,2) : C1 (dPhi_dx)
+!! p_coeff(jc,jk,jb,3) : C2 (dPhi_dy)
+!! p_coeff(jc,jk,jb,4) : C3 (1/2*ddPhi_ddx)
+!! p_coeff(jc,jk,jb,5) : C4 (1/2*ddPhi_ddy)
+!! p_coeff(jc,jk,jb,6) : C5 (ddPhi_dxdy)
+!! p_coeff(jc,jk,jb,7) : C6 (1/6*dddPhi_dddx)
+!! p_coeff(jc,jk,jb,8) : C7 (1/6*dddPhi_dddy)
+!!
+!! works only on triangular grid yet
+!!
+!! @par Revision History
+!!  Developed and tested by Daniel Reinert, DWD (2011-05-31)
+!!
+!! !LITERATURE
+!! Ollivier-Gooch et al (2002): A High-Order-Accurate Unstructured Mesh
+!! Finite-Volume Scheme for the Advection-Diffusion Equation, J. Comput. Phys.,
+!! 181, 729-752
+!!
+SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
+  &                               opt_slev, opt_elev, opt_rlstart, opt_rlend )
+
+  TYPE(t_patch), INTENT(IN) :: & !< patch on which computation
+    &  ptr_patch                 !< is performed
+                                        
+  TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
+    &  ptr_int_lsq
+
+  REAL(wp), INTENT(IN) ::           & !< cell centered variable
+    &  p_cc(:,:,:)
+
+  INTEGER, INTENT(IN), OPTIONAL ::  & !< optional vertical start level
+    &  opt_slev
+
+  INTEGER, INTENT(IN), OPTIONAL ::  & !< optional vertical end level
+    &  opt_elev
+
+  INTEGER, INTENT(IN), OPTIONAL ::  & !< start and end values of refin_ctrl flag
+    &  opt_rlstart, opt_rlend
+
+  REAL(wp), INTENT(INOUT)  ::  &  !< cell based coefficients (geographical components)
+    &  p_coeff(:,:,:,:)           !< physically this vector contains gradients, second
+                                  !< and third derivatives, one mixed derivative and a
+                                  !< constant coefficient for zonal and meridional
+                                  !< direction
+
+  REAL(wp)  ::           &        !< difference of scalars i j
+    &  z_b(lsq_high_set%dim_c,nproma,ptr_patch%nlev)
+
+  INTEGER, POINTER  ::   &        !< Pointer to line and block indices of
+    &  iidx(:,:,:), iblk(:,:,:)   !< required stencil
+  INTEGER :: slev, elev           !< vertical start and end level
+  INTEGER :: jc, jk, jb           !< index of cell, vertical level and block
+  INTEGER :: js                   !< loop index for cells in stencil
+  INTEGER :: rl_start, rl_end
+  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+
+  !-----------------------------------------------------------------------
+
+  ! check optional arguments
+  IF ( PRESENT(opt_slev) ) THEN
+    slev = opt_slev
+  ELSE
+    slev = 1
+  END IF
+  IF ( PRESENT(opt_elev) ) THEN
+    elev = opt_elev
+  ELSE
+    elev = ptr_patch%nlev
+  END IF
+  IF ( PRESENT(opt_rlstart) ) THEN
+    rl_start = opt_rlstart
+  ELSE
+    rl_start = 2
+  END IF
+  IF ( PRESENT(opt_rlend) ) THEN
+    rl_end = opt_rlend
+  ELSE
+    rl_end = min_rlcell
+  END IF
+
+
+  ! values for the blocking
+  i_nchdom   = MAX(1,ptr_patch%n_childdom)
+  i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+  i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+
+  ! pointers to line and block indices of required stencil
+  iidx => ptr_int_lsq%lsq_idx_c
+  iblk => ptr_int_lsq%lsq_blk_c
+
+
+!$OMP PARALLEL
+
+  IF (ptr_patch%id > 1) THEN
+!$OMP WORKSHARE
+    p_coeff(:,:,1:i_startblk,1:8) = 0._wp
+!$OMP END WORKSHARE
+  ENDIF
+
+!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_b), SCHEDULE(runtime)
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, rl_start, rl_end)
+
+    !
+    ! 1. compute right hand side of linear system
+    !
+#ifdef __LOOP_EXCHANGE
+    DO jc = i_startidx, i_endidx
+      DO jk = slev, elev
+#else
+!CDIR UNROLL=5
+    DO jk = slev, elev
+      DO jc = i_startidx, i_endidx
+#endif
+
+!CDIR EXPAND=9
+        DO js = 1, 9
+          ! original version
+          !z_b(js) = ptr_int_lsq%lsq_weights_c(jc,js,jb)                   &
+          !  &     * (p_cc(iidx(jc,jb,js),jk,iblk(jc,jb,js)) - p_cc(jc,jk,jb))
+
+          ! note that multiplication with lsq_weights_c(jc,js,jb) during 
+          ! runtime is now avoided. Instead, the weights have been shifted 
+          ! into the pseudoinverse.
+
+          z_b(js,jc,jk) = p_cc(iidx(jc,jb,js),jk,iblk(jc,jb,js)) - p_cc(jc,jk,jb)
+        ENDDO
+      ENDDO
+    ENDDO
+
+
+
+    !
+    ! 2. compute cell based coefficients for poor man's cubic reconstruction
+    !    calculate matrix vector product PINV(A) * b
+    !
+    DO jk = slev, elev
+
+      DO jc = i_startidx, i_endidx
+
+        ! (intrinsic function matmul not applied, due to massive
+        ! performance penalty on the NEC. Instead the intrinsic dot product
+        ! function is used.
+!CDIR BEGIN EXPAND=9
+        p_coeff(jc,jk,jb,8) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,7,1:9,jb), &
+          &                               z_b(1:9,jc,jk))
+        p_coeff(jc,jk,jb,7) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,6,1:9,jb), &
+          &                               z_b(1:9,jc,jk))
+        p_coeff(jc,jk,jb,6) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,5,1:9,jb), &
+          &                               z_b(1:9,jc,jk))
+        p_coeff(jc,jk,jb,5) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,4,1:9,jb), &
+          &                               z_b(1:9,jc,jk))
+        p_coeff(jc,jk,jb,4) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,3,1:9,jb), &
+          &                               z_b(1:9,jc,jk))
+        p_coeff(jc,jk,jb,3) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,2,1:9,jb), &
+          &                               z_b(1:9,jc,jk))
+        p_coeff(jc,jk,jb,2) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,1,1:9,jb), &
+          &                               z_b(1:9,jc,jk))
+!CDIR END
+
+        ! At the end, the coefficient c0 is derived from the linear constraint
+        !
+!CDIR EXPAND=7
+        p_coeff(jc,jk,jb,1) = p_cc(jc,jk,jb) - DOT_PRODUCT(p_coeff(jc,jk,jb,2:8), &
+          &                   ptr_int_lsq%lsq_moments(jc,jb,1:7))
+
+      END DO ! end loop over cells
+
+    END DO ! end loop over vertical levels
+
+  END DO ! end loop over blocks
+!$OMP END DO
+!$OMP END PARALLEL
+
+
+END SUBROUTINE recon_lsq_cell_cpoor_svd
 
 
 !-------------------------------------------------------------------------
@@ -1176,6 +1826,225 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 
 
 END SUBROUTINE recon_lsq_cell_c
+
+
+
+
+!--------------------------------------------------
+!
+!
+!>
+!! Computes coefficients (i.e. derivatives) for cell centered cubic
+!! reconstruction.
+!!
+!! DESCRIPTION:
+!! recon: reconstruction of subgrid distribution
+!! lsq  : least-squares method
+!! cell : solution coefficients defined at cell center
+!! c    : cubic reconstruction
+!!
+!! Computes unknown coefficients (derivatives) of a cubic polynomial,
+!! using the least-squares method. The coefficients are provided at 
+!! cell centers in a local 2D cartesian system (tangential plane).
+!!
+!! Mathematically we solve Ax = b via Singular Value Decomposition (SVD)
+!! x = PINV(A) * b
+!!
+!! Matrices have the following size and shape (triangular grid) :
+!! PINV(A): Pseudo or Moore-Penrose inverse of A (via SVD) (9 x 9)
+!! b  : input vector (LHS) (9 x 1)
+!! x  : solution vector (unknowns) (9 x 1)
+!!
+!! Coefficients
+!! p_coeff(jc,jk,jb, 1) : C0
+!! p_coeff(jc,jk,jb, 2) : C1 (dPhi_dx)
+!! p_coeff(jc,jk,jb, 3) : C2 (dPhi_dy)
+!! p_coeff(jc,jk,jb, 4) : C3 (1/2*ddPhi_ddx)
+!! p_coeff(jc,jk,jb, 5) : C4 (1/2*ddPhi_ddy)
+!! p_coeff(jc,jk,jb, 6) : C5 (ddPhi_dxdy)
+!! p_coeff(jc,jk,jb, 7) : C6 (1/6*dddPhi_dddx)
+!! p_coeff(jc,jk,jb, 8) : C7 (1/6*dddPhi_dddy)
+!! p_coeff(jc,jk,jb, 9) : C8 (1/2*dddPhi_ddxdy)
+!! p_coeff(jc,jk,jb,10) : C9 (1/2*dddPhi_dxddy)
+!!
+!! works only on triangular grid yet
+!!
+!! @par Revision History
+!!  Developed and tested by Daniel Reinert, DWD (2011-05-31)
+!!
+!! !LITERATURE
+!! Ollivier-Gooch et al (2002): A High-Order-Accurate Unstructured Mesh
+!! Finite-Volume Scheme for the Advection-Diffusion Equation, J. Comput. Phys.,
+!! 181, 729-752
+!!
+SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
+  &                               opt_slev, opt_elev, opt_rlstart,      &
+  &                               opt_rlend )
+
+  TYPE(t_patch), INTENT(IN) :: & !< patch on which computation
+    &  ptr_patch                 !< is performed
+                                        
+  TYPE(t_lsq), TARGET, INTENT(IN) :: &  !< data structure for interpolation
+    &  ptr_int_lsq
+
+  REAL(wp), INTENT(IN) ::           & !< cell centered variable
+    &  p_cc(:,:,:)
+
+  INTEGER, INTENT(IN), OPTIONAL ::  & !< optional vertical start level
+    &  opt_slev
+
+  INTEGER, INTENT(IN), OPTIONAL ::  & !< optional vertical end level
+    &  opt_elev
+
+  INTEGER, INTENT(IN), OPTIONAL ::  & !< start and end values of refin_ctrl flag
+    &  opt_rlstart, opt_rlend
+
+  REAL(wp), INTENT(INOUT)  ::  &  !< cell based coefficients (geographical components)
+    &  p_coeff(:,:,:,:)           !< physically this vector contains gradients, second
+                                  !< and third derivatives, one mixed derivative and a
+                                  !< constant coefficient for zonal and meridional
+                                  !< direction
+
+  REAL(wp)  ::           &        !< difference of scalars i j
+    &  z_b(lsq_high_set%dim_c,nproma,ptr_patch%nlev)
+
+  INTEGER, POINTER  ::   &        !< Pointer to line and block indices of
+    &  iidx(:,:,:), iblk(:,:,:)   !< required stencil
+  INTEGER :: slev, elev           !< vertical start and end level
+  INTEGER :: jc, jk, jb           !< index of cell, vertical level and block
+  INTEGER :: js                   !< loop index for cells in stencil
+  INTEGER :: rl_start, rl_end
+  INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
+
+  !-----------------------------------------------------------------------
+
+  ! check optional arguments
+  IF ( PRESENT(opt_slev) ) THEN
+    slev = opt_slev
+  ELSE
+    slev = 1
+  END IF
+  IF ( PRESENT(opt_elev) ) THEN
+    elev = opt_elev
+  ELSE
+    elev = ptr_patch%nlev
+  END IF
+  IF ( PRESENT(opt_rlstart) ) THEN
+    rl_start = opt_rlstart
+  ELSE
+    rl_start = 2
+  END IF
+  IF ( PRESENT(opt_rlend) ) THEN
+    rl_end = opt_rlend
+  ELSE
+    rl_end = min_rlcell
+  END IF
+
+
+  ! values for the blocking
+  i_nchdom   = MAX(1,ptr_patch%n_childdom)
+  i_startblk = ptr_patch%cells%start_blk(rl_start,1)
+  i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
+
+  ! pointers to line and block indices of required stencil
+  iidx => ptr_int_lsq%lsq_idx_c
+  iblk => ptr_int_lsq%lsq_blk_c
+
+
+
+!$OMP PARALLEL
+
+  IF (ptr_patch%id > 1) THEN
+!$OMP WORKSHARE
+    p_coeff(:,:,1:i_startblk,1:10) = 0._wp
+!$OMP END WORKSHARE
+  ENDIF
+
+!$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_b), SCHEDULE(runtime)
+  DO jb = i_startblk, i_endblk
+
+    CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
+                       i_startidx, i_endidx, rl_start, rl_end)
+
+    !
+    ! 1. compute right hand side of linear system
+    !
+#ifdef __LOOP_EXCHANGE
+    DO jc = i_startidx, i_endidx
+      DO jk = slev, elev
+#else
+!CDIR UNROLL=5
+    DO jk = slev, elev
+      DO jc = i_startidx, i_endidx
+#endif
+
+!CDIR EXPAND=9
+        DO js = 1, 9
+          ! original version
+          !z_d(js) = ptr_int_lsq%lsq_weights_c(jc,js,jb)                   &
+          !  &     * (p_cc(iidx(jc,jb,js),jk,iblk(jc,jb,js)) - p_cc(jc,jk,jb))
+
+          ! note that multiplication with lsq_weights_c(jc,js,jb) during 
+          ! runtime is now avoided. Instead, the weights have been shifted 
+          ! into the pseudoinverse.
+
+          z_b(js,jc,jk) = p_cc(iidx(jc,jb,js),jk,iblk(jc,jb,js)) - p_cc(jc,jk,jb)
+        ENDDO
+      ENDDO
+    ENDDO
+
+
+
+    !
+    ! 2. compute cell based coefficients for cubic reconstruction
+    !    calculate matrix vector product PINV(A) * b
+    !
+    DO jk = slev, elev
+
+      DO jc = i_startidx, i_endidx
+
+        ! (intrinsic function matmul not applied, due to massive
+        ! performance penalty on the NEC. Instead the intrinsic dot product
+        ! function is applied
+!CDIR BEGIN EXPAND=9
+
+        p_coeff(jc,jk,jb,10) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,9,1:9,jb), &
+          &                               z_b(1:9,jc,jk))
+        p_coeff(jc,jk,jb, 9) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,8,1:9,jb), &
+          &                               z_b(1:9,jc,jk))
+        p_coeff(jc,jk,jb, 8) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,7,1:9,jb), &
+          &                               z_b(1:9,jc,jk))
+        p_coeff(jc,jk,jb, 7) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,6,1:9,jb), &
+          &                               z_b(1:9,jc,jk))
+        p_coeff(jc,jk,jb, 6) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,5,1:9,jb), &
+          &                               z_b(1:9,jc,jk))
+        p_coeff(jc,jk,jb, 5) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,4,1:9,jb), &
+          &                               z_b(1:9,jc,jk))
+        p_coeff(jc,jk,jb, 4) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,3,1:9,jb), &
+          &                               z_b(1:9,jc,jk))
+        p_coeff(jc,jk,jb, 3) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,2,1:9,jb), &
+          &                               z_b(1:9,jc,jk))
+        p_coeff(jc,jk,jb, 2) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,1,1:9,jb), &
+          &                               z_b(1:9,jc,jk))
+
+!CDIR END
+
+
+!CDIR BEGIN EXPAND=9
+        p_coeff(jc,jk,jb,1)  = p_cc(jc,jk,jb) - DOT_PRODUCT(p_coeff(jc,jk,jb,2:10), &
+          &                    ptr_int_lsq%lsq_moments(jc,jb,1:9))
+
+
+      END DO ! end loop over cells
+
+    END DO ! end loop over vertical levels
+
+  END DO ! end loop over blocks
+!$OMP END DO
+!$OMP END PARALLEL
+
+
+END SUBROUTINE recon_lsq_cell_c_svd
 
 !-------------------------------------------------------------------------
 !

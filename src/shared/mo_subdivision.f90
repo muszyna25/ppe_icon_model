@@ -2780,6 +2780,8 @@ CONTAINS
           & wrk_int_state_in%lsq_lin%lsq_rmat_rdiag_c(jl_g, :, jb_g)
         wrk_int_state_out%lsq_lin%lsq_rmat_utri_c(jl, :, jb) = &
           & wrk_int_state_in%lsq_lin%lsq_rmat_utri_c(jl_g, :, jb_g)
+        wrk_int_state_out%lsq_lin%lsq_pseudoinv(jl, :, :, jb) = &
+          & wrk_int_state_in%lsq_lin%lsq_pseudoinv(jl_g, :, :, jb_g)
 
         wrk_int_state_out%lsq_lin%lsq_moments(jl, jb, :)     = &
           & wrk_int_state_in%lsq_lin%lsq_moments(jl_g, jb_g, :)
@@ -2808,6 +2810,8 @@ CONTAINS
           & wrk_int_state_in%lsq_high%lsq_rmat_rdiag_c(jl_g, :, jb_g)
         wrk_int_state_out%lsq_high%lsq_rmat_utri_c(jl, :, jb) = &
           & wrk_int_state_in%lsq_high%lsq_rmat_utri_c(jl_g, :, jb_g)
+        wrk_int_state_out%lsq_high%lsq_pseudoinv(jl, :, :, jb) = &
+          & wrk_int_state_in%lsq_high%lsq_pseudoinv(jl_g, :, :, jb_g)
 
         wrk_int_state_out%lsq_high%lsq_moments(jl, jb, :)     = &
           & wrk_int_state_in%lsq_high%lsq_moments(jl_g, jb_g, :)

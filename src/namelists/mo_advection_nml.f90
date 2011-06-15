@@ -96,6 +96,10 @@ MODULE mo_advection_nml
   LOGICAL :: lstrang              !< if .TRUE., use complete Strang splitting
                                   !< (\Delta t/2 vert)+(\Delta t hor)+(\Delta t/2 vert)
 
+  LOGICAL :: llsq_svd             !< least squares reconstruction with 
+                                  !< singular value decomposition (TRUE) or 
+                                  !< QR decomposition (FALSE) of design matrix A
+
   INTEGER :: &                    !< parameter used to select the limiter
     &  itype_vlimit(max_ntracer)  !< for vertical transport
                                
@@ -125,7 +129,8 @@ MODULE mo_advection_nml
   NAMELIST/transport_ctl/ ihadv_tracer, ivadv_tracer, lvadv_tracer,   &
     &                     itype_vlimit, ivcfl_max, itype_hlimit,      &
     &                     iord_backtraj, lclip_tracer, ctracer_list,  &
-    &                     igrad_c_miura, lstrang, upstr_beta_adv
+    &                     igrad_c_miura, lstrang, upstr_beta_adv,     &
+    &                     llsq_svd
 
 
   !---------------------!
@@ -225,7 +230,8 @@ MODULE mo_advection_nml
 
   PUBLIC :: transport_ctl, ihadv_tracer, ivadv_tracer, lvadv_tracer,           &
     &       itype_vlimit, ivcfl_max, itype_hlimit, iord_backtraj,              &
-    &       lclip_tracer, ctracer_list, igrad_c_miura, lstrang, upstr_beta_adv
+    &       lclip_tracer, ctracer_list, igrad_c_miura, lstrang, upstr_beta_adv,&
+    &       llsq_svd
 
   PUBLIC :: iadv_slev, iubc_adv, cSTR, coeff_grid, iup, imiura, imiura3,   &
     &       inol, islopel_sm, islopel_m, ifluxl_m, ifluxl_sm, iup_v,       &
@@ -307,6 +313,7 @@ CONTAINS
 
     upstr_beta_adv = 1.0_wp       ! =1.0 selects 3rd order advection in up3
                                   ! =0.0 selects 4th order advection in up3
+    llsq_svd        = .FALSE.     ! apply QR-decomposition
 
     !
     ! 2. read namelist

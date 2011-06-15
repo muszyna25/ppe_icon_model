@@ -1455,6 +1455,8 @@ CONTAINS
       &          nf_double,dim_ncells, dim_lsq_dim_unk_lin, dim_lsq_dim_c_lin)
     CALL def_var('int.lin.lsq_rmat_rdiag_c',nf_double,dim_ncells, dim_lsq_dim_unk_lin) ! nproma,lsq_dim_unk,nblks_c
     CALL def_var('int.lin.lsq_rmat_utri_c', nf_double,dim_ncells, dim_lsq_dim_unk2_lin) ! nproma,idummy,nblks_c
+    CALL def_var('int.lin.lsq_pseudoinv'  , & ! nproma,lsq_dim_unk,lsq_dim_c,nblks_c
+      &          nf_double,dim_ncells, dim_lsq_dim_unk_lin, dim_lsq_dim_c_lin)
     CALL def_var('int.lin.lsq_moments',     nf_double,dim_ncells, dim_lsq_dim_unk_lin) ! nproma,nblks_c,lsq_dim_unk
     CALL def_var('int.lin.lsq_moments_hat', & ! nproma,nblks_c,lsq_dim_c,lsq_dim_unk
       &          nf_double,dim_ncells, dim_lsq_dim_c_lin, dim_lsq_dim_unk_lin)
@@ -1466,6 +1468,8 @@ CONTAINS
       &          nf_double,dim_ncells, dim_lsq_dim_unk_high, dim_lsq_dim_c_high)
     CALL def_var('int.high.lsq_rmat_rdiag_c',nf_double,dim_ncells, dim_lsq_dim_unk_high) ! nproma,lsq_dim_unk,nblks_c
     CALL def_var('int.high.lsq_rmat_utri_c', nf_double,dim_ncells, dim_lsq_dim_unk2_high) ! nproma,idummy,nblks_c
+    CALL def_var('int.high.lsq_pseudoinv'  , & ! nproma,lsq_dim_unk,lsq_dim_c,nblks_c
+      &          nf_double,dim_ncells, dim_lsq_dim_unk_high, dim_lsq_dim_c_high)
     CALL def_var('int.high.lsq_moments',     nf_double,dim_ncells, dim_lsq_dim_unk_high) ! nproma,nblks_c,lsq_dim_unk
     CALL def_var('int.high.lsq_moments_hat', & ! nproma,nblks_c,lsq_dim_c,lsq_dim_unk
       &          nf_double,dim_ncells, dim_lsq_dim_c_high, dim_lsq_dim_unk_high)
@@ -1580,6 +1584,7 @@ CONTAINS
     CALL bvar_io(1,4,'int.lin.lsq_qtmat_c',     pi%lsq_lin%lsq_qtmat_c     ) ! nproma,lsq_dim_unk,lsq_dim_c,nblks_c
     CALL bvar_io(1,3,'int.lin.lsq_rmat_rdiag_c',pi%lsq_lin%lsq_rmat_rdiag_c) ! nproma,lsq_dim_unk,nblks_c
     CALL bvar_io(1,3,'int.lin.lsq_rmat_utri_c', pi%lsq_lin%lsq_rmat_utri_c ) ! nproma,idummy,nblks_c
+    CALL bvar_io(1,4,'int.lin.lsq_pseudoinv',   pi%lsq_lin%lsq_pseudoinv   ) ! nproma,lsq_dim_unk,lsq_dim_c,nblks_c
     CALL bvar_io(1,2,'int.lin.lsq_moments',     pi%lsq_lin%lsq_moments     ) ! nproma,nblks_c,lsq_dim_unk
     CALL bvar_io(1,2,'int.lin.lsq_moments_hat', pi%lsq_lin%lsq_moments_hat ) ! nproma,nblks_c,lsq_dim_c,lsq_dim_unk
 
@@ -1589,6 +1594,7 @@ CONTAINS
     CALL bvar_io(1,4,'int.high.lsq_qtmat_c',     pi%lsq_high%lsq_qtmat_c     ) ! nproma,lsq_dim_unk,lsq_dim_c,nblks_c
     CALL bvar_io(1,3,'int.high.lsq_rmat_rdiag_c',pi%lsq_high%lsq_rmat_rdiag_c) ! nproma,lsq_dim_unk,nblks_c
     CALL bvar_io(1,3,'int.high.lsq_rmat_utri_c', pi%lsq_high%lsq_rmat_utri_c ) ! nproma,idummy,nblks_c
+    CALL bvar_io(1,4,'int.high.lsq_pseudoinv',   pi%lsq_high%lsq_pseudoinv   ) ! nproma,lsq_dim_unk,lsq_dim_c,nblks_c
     CALL bvar_io(1,2,'int.high.lsq_moments',     pi%lsq_high%lsq_moments     ) ! nproma,nblks_c,lsq_dim_unk
     CALL bvar_io(1,2,'int.high.lsq_moments_hat', pi%lsq_high%lsq_moments_hat ) ! nproma,nblks_c,lsq_dim_c,lsq_dim_unk
     END IF

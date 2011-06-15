@@ -118,7 +118,10 @@ MODULE mo_math_operators
   USE mo_math_divrot   , ONLY: div, div_avg, div_quad_twoadjcells,           &
        &                       rot_vertex, rot_vertex_atmos,                 &
        &                       recon_lsq_cell_l, recon_lsq_cell_q,           &
-       &                       recon_lsq_cell_cpoor, recon_lsq_cell_c
+       &                       recon_lsq_cell_cpoor, recon_lsq_cell_c,       &
+       &                       recon_lsq_cell_l_svd, recon_lsq_cell_q_svd,   &
+       &                       recon_lsq_cell_cpoor_svd,                     &
+       &                       recon_lsq_cell_c_svd
 
   PUBLIC ! all that is USEd above
 

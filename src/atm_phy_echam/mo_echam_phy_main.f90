@@ -101,8 +101,8 @@ CONTAINS
                                           !< computation, scaled into radians
     ! Local variables
 
-    TYPE(t_echam_phy_field),POINTER :: field => NULL()
-    TYPE(t_echam_phy_tend) ,POINTER :: tend  => NULL()
+    TYPE(t_echam_phy_field),POINTER :: field 
+    TYPE(t_echam_phy_tend) ,POINTER :: tend
 
     REAL(wp) :: zbetaa (nbdim,nlev)   !< qt distribution minimum in beta
     REAL(wp) :: zbetab (nbdim,nlev)   !< qt distribution maximum in beta
@@ -853,8 +853,7 @@ CONTAINS
     ENDIF !lcond
 
     ! Done. Disassociate pointers.
-    ! GZ: causes segfault under OpenMP
-    ! NULLIFY(field,tend)
+    NULLIFY(field,tend)
 
   END SUBROUTINE physc
   !-------------

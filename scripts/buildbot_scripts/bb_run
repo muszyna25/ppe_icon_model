@@ -353,7 +353,7 @@ then
   do     
     p=`echo $para | cut -d '-' -f2 | cut -d '=' -f1`
     v=`echo $para | cut -d '=' -f2`
-    echo "p: $p v: $v"
+#    echo "p: $p v: $v"
     case ${p} in
       section)
         set_section_info "$v"
@@ -381,15 +381,20 @@ then
 
 fi
 
-if [ "x$BB_SLAVE" != "x" -a "$target" == "NotSet" ]   # --> from environment variable BB_SLAVE
+if [ "x$BB_SLAVE" != "x"  ]   # --> from environment variable BB_SLAVE
 then
 
     target="$BB_SLAVE"
     source='$BB_SLAVE'
 
 else                         # --> as default
+  if [ "$target" == "NotSet" ]
+  then
     target="default"
     source="$scriptname"
+  else
+    source="bb_run parameter"
+  fi
 fi
 
 echo "$scriptname: target          = $target (source = $source)"
@@ -556,11 +561,12 @@ fi
 
 if [ "${run_ALL}" == "1" -o "${run_POST}" -eq "1" ]
 then
-  if [  "x$target" = "xsx9" ] 
+  TARGET_TMP=`echo $target | cut -c1-3`
+  echo "TARGET_TMP $TARGET_TMP"
+  if [  "x${TARGET_TMP}" = "xsx9" ]
   then
      cp config/set-up.info config/set-up.info.bac
      echo  'use_target="hpc"' >> config/set-up.info
-     echo  'use_submit="qsub"' >> config/set-up.info
   #   ./configure postscripts setup=hpc
      ./make_post_runscripts
      cp config/set-up.info config/set-up.info.hpc

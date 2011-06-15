@@ -2,6 +2,8 @@
 # Due to the fact, that it will make heavy use of CDO, there is an CDO issue
 # for that topic: https://code.zmaw.de/issues/612
 #
+# Main ICON issue is https://code.zmaw.de/issues/735
+#
 # Use 'rdoc ifs2icon.rb' to get documentation
 
 require 'tempfile'
@@ -114,10 +116,10 @@ end
 class PreProcOptions
   def self.parse(args)
     # The options specified on the command line will be collected in *options*.
-    options                    = OpenStruct.new
-    options.interpolation_type = :simple
-    options.verbose            = false
-    options.openmp             = 2
+    options                    = {}
+    options[:interpolation_type] = :simple
+    options[:verbose]            = false
+    options[:openmp]             = 2
 
     opts = OptionParser.new do |opts|
       opts.banner = "Usage: ifs2icon.rb [options]"
@@ -128,25 +130,25 @@ class PreProcOptions
       # Mandatory arguments
       opts.on("-g", "--grid-file FILE",
               "Use FILE read grid definition/resolution") do |file|
-        options.gridfile = file
+        options[:gridfile] = file
               end
       opts.on("-i", "--input-file FILE",
               "Use FILE read input variables") do |file|
-        options.inputfile = file
+        options[:inputfile] = file
               end
       opts.on("-o", "--output-file FILE",
               "Use FILE write output variables") do |file|
-        options.outputfile = file
+        options[:outputfile] = file
               end
 
       # optional configuration file using csv like format
-      opts.on("-c", "--config-file FILE", "Use FILE as configuration file", "Format should be a separated columns text file (e.g. csv)") do |file|
-        options.configurationfile = file
+      opts.on("--txt-config FILE", "Use FILE as configuration file", "Format should be a separated columns text file (e.g. csv)") do |file|
+        options[:config] = Ecmwf2Icon::readConfig(file,'file')
       end
       # optional configuration file using JSON like format
       jsonStringExample=<<-EOF
                   [
-                    ["Description"       , "inputname", "outputname", "code", "grid", "typeOfLayer", "nlevel", "GP", "I", "Notes"],
+                    ["description"       , "outputname", "inputname", "code", "grid", "typeOfLayer", "nlevel", "GP", "I", "Notes"],
                     ["temperature "      , "T"        , "T"         , "130" , "cell", "hybridLayer", "nlev"  , "1" , "Q", ""]     ,
                     ["zonal wind comp. u", "U"        , "U"         , "131" , "cell", "hybridLayer", "nlev"  , "2" , "Q", ""]     ,
                     ["normal velocity"   , "VN "      , ""          , ""    , "edge", "hybridLayer", "nlev"  , "2" , "" , ""]     ,
@@ -165,54 +167,84 @@ class PreProcOptions
                     ["surface roughness" , "Z0"       , "SR"        , "173" , "cell", "surface"    , "1"     , "1" , "M", ""]
                   ]
                 EOF
-      opts.on("-j", "--json-config-file FILE", "Use FILE as JSON configuration file","Format example:\n"+jsonStringExample) do |data|
-        options.configurationdata = data
+      opts.on("--json-config FILE", "Use FILE as JSON configuration file","Format example:\n"+jsonStringExample) do |file|
+        options[:config] = Ecmwf2Icon::readConfig(file,'file','json')
       end
+      opts.on("-c", "--global-config", "<filename>", String, :REQUIRED) do |file|
+        options[:configfile] = file
+        # instead of using all these options, a config file can be specified
+        load file #if Module.constants.include?("PreProcOpts")
+        PreProcOpts.constants.each {|const|
+          val = PreProcOpts.const_get(const)
+          case const.to_s
+          when 'CONFIG' then
+            val = Ecmwf2Icon::readConfig(val,'string','json')
+          when 'ZLEVELS' then
+            val = val.split(',')
+          when 'OUTPUTVARS' then
+            val = val.split(',')
+          else
+            puts "Parsing value of #{const.to_s}" if options[:debug]
+          end
+          const = const.to_s.downcase.to_sym
+          options[const] = val
+        }
+      end
+
       opts.on("-V","--vct-file FILE","FILE should containt a vertable coordinates table for the required number of z levels") do |file|
-        options.vctFile = file
+        options[:vctfile] = file
       end
       opts.on("-O","--orography-file FILE","FILE should containt the required orography") do |file|
-        options.oroFile = file
+        options[:orofile] = file
       end
 
       # Optional argument with keyword completion.
       opts.on("-t", "--interpolation-type [TYPE]", [:simple, :bilinear, :bicubic],
               "Select interpolation type (simple, bilinear, bicubic)") do |t|
-        options.interpolation_type = t
-              end
+        options[:interpolation_type] = t
+      end
+      # Optional argument with keyword completion.
+      opts.on("-m", "--model-type [TYPE]", [:hydrostatic, :nonhydrostatic],
+              "Select model type (hydrostatic, nonhydrostatic)") do |t|
+        options[:model_type] = t
+      end
       #
       # List of output variables
       opts.on("-O", "--output-variables x,y,z", Array, "'list' of output variables") do |list|
-        options.outputVars = list
+        options[:outputvars] = list
       end
 
       # Set OpenMP multithreadding for CDO
       opts.on("-P", "--openmp p", Numeric, "Set number of OpenMP threads to <p>") do |p|
-        options.openmp = p
+        options[:openmp] = p
       end
 
       # Boolean switches
       opts.on("-s", "--strict", "Process only variables which have valid entry in the configuration") do |v|
-        options.strict = v
+        options[:strict] = v
       end
       opts.on("-C", "--check", "Check input file and configuration on which output variables are available.") do |v|
-        options.check = v
+        options[:check] = v
       end
       opts.on("-v", "--verbose", "Run verbosely") do |v|
-        options.verbose = v
+        options[:verbose] = v
       end
       opts.on("-D", "--debug", "Run in debug mode") do |v|
-        options.debug = v
+        options[:debug] = v
       end
 
       # create zlevel options for each given output variables
-      options.zlevels = {}
-      opts.on("-z","--zlevels varName0,lev0,lev1,levN,varName1,lev0,...",
+      options[:zlevels] = {}
+      opts.on("-z","--zlevels lev0,lev1,..,levN",
               Array,
-              "'list' of target zlevel values for the output variables") {|list|
-                list.slice_before {|v| v.to_i.to_s != v}.each {|sublist|
-                  options.zlevels[sublist[0]] = sublist[1..-1]
-                }
+              "'list' of target zlevel (hydrostatic case)") {|list|
+        options[:zlevels] = list
+      }
+      options[:zcoordinates] = {}
+      opts.on("-Z","--zcoordinates FILE",
+              String,
+              "File with the 3D height field (nonhydrostatic case)") {|file|
+        options[:zcoordinates] = file
       }
 
       opts.separator ""
@@ -235,8 +267,8 @@ class PreProcOptions
     opts.parse!(args)
 
     begin
-      mandatory = [:outputfile, :inputfile, :gridfile]
-      missing = mandatory.select{ |param| options.send(param).nil? }
+      mandatory = [:outputfile, :inputfile, :gridfile, :outputvars]
+      missing = mandatory.select{ |param| options[param].nil? }
       if not missing.empty?
         warn "Missing options: #{missing.join(', ')}"
         puts opts
@@ -249,12 +281,19 @@ class PreProcOptions
     end
     options
   end
+  def self.splitLevels(list)
+    ret = {}
+    list.slice_before {|v| v.to_i.to_s != v}.each {|sublist|
+      ret[sublist[0]] = sublist[1..-1]
+    }
+    ret
+  end
 end
 # ==============================================================================
 # variable substitution between icon and Eecmwf
 module Ecmwf2Icon
   _defaultConfig =[
-    ['Description'                        , 'outputname', 'inputname', 'code', 'grid', 'typeOfLayer', 'nlevel', 'GP', 'I', 'Notes']                                        ,
+    ['description'                        , 'outputname', 'inputname', 'code', 'grid', 'typeOfLayer', 'nlevel', 'GP', 'I', 'Notes']                                        ,
     ['temperature '                       , 'T'         , 'T'        , '130' , 'cell', 'hybridLayer', 'nlev'  , '1' , 'Q', '']                                             ,
     ['zonal wind comp. u'                 , 'U'         , 'U'        , '131' , 'cell', 'hybridLayer', 'nlev'  , '2' , 'Q', '']                                             ,
     ['meridional wind comp. v '           , 'V'         , 'V'        , '132' , 'cell', 'hybridLayer', 'nlev'  , '2' , 'Q', '']                                             ,
@@ -271,6 +310,7 @@ module Ecmwf2Icon
     ['snow water content'                 , 'QS'        , 'CSWC'     , '76'  , 'cell', 'hybridLayer', 'nlev'  , '1' , 'Q', '']                                             ,
     ['ozone mixing ratio'                 , 'O3'        , 'O3'       , '203' , 'cell', 'hybridLayer', 'nlev'  , '1' , 'Q', '']                                             ,
     ['surface pressure'                   , 'PS'        , 'LNSP'     , '152' , 'cell', 'surface'    , '1'     , '1' , 'Q', '']                                             ,
+    ["geopotential "                      , "GEOSP"     , "GEOSP"    , "129" , "cell", "surface"    , "1"     , "1" , "Q", ""]     ,
     ['specific humidity at surface'       , 'QV_S'      , ''         , ''    , 'cell', 'surface'    , '1'     , '1' , 'M', 'take Q at lowest level ?']                     ,
     ['snow temperature'                   , 'T_SNOW'    , 'TSN'      , '238' , 'cell', 'surface'    , '1'     , '1' , 'M', '']                                             ,
     ['water content of snow'              , 'W_SNOW'    , 'SD'       , '141' , 'cell', 'surface'    , '1'     , '1' , 'M', '']                                             ,
@@ -288,42 +328,35 @@ module Ecmwf2Icon
       :grid                    => :grid,
       :levType                 => :typeOfLayer,
       :nlevels                 => :nlevel,
-      :info                    => :Description,
+      :info                    => :description,
       :horizontalInterpolation => :I
     }
-
-  DefaultInputVars = {
-    135 => nil, # W vertival velocity
-    129 => nil, # Z geopotential
-    130 => nil, # T Temperature
-    133 => nil, # Q spec. humidity
-    138 => nil, # vor vorticity
-    152 => nil, # lnsp Logarithm of surface pressure
-    155 => nil, # div divergence
-    203 => nil  # o3 ozone mass mixing ratio
-  }
-
-  DefaultOutputVars = %w[U V T]
-
-  State = {}
 
   def defaultConfig
     DefaultConfig
   end
 
-  def readConfig(configFile,itype='txt')
-    case itype
-    when 'txt'
-      config = ExtCsv.new("file","txt",configFile)
-      unless Ecmwf2Icon.check(@config)
-        warn "Cannot read in file #{configFile}! Please check its structure"
+  def Ecmwf2Icon.readConfig(configData,dataType,dataFormat='txt')
+    case dataType
+    when 'file'
+      case dataFormat
+      when 'txt'
+        config = ExtCsv.new("file","txt",configData)
+        unless Ecmwf2Icon.check(@config)
+          warn "Cannot read in file #{configFile}! Please check its structure"
+          exit
+        end
+      when 'json'
+        config = ExtCsv.new('array','plain',JSON.parse(File.open(configData,"r").read).transpose)
+      else
+        warn 'Unusable input type for configuration data'
         exit
       end
-    when 'json'
-      config = ExtCsv.new('array','plain',JSON.parse(File.open(configFile,"r").read).transpose)
-    else
-      warn 'Unusable input type for configuration data'
-      exit
+    when 'string'
+      case dataFormat
+      when 'json'
+        config = ExtCsv.new('array','plain',JSON.parse(configData).transpose)
+      end
     end
     config
   end
@@ -377,6 +410,7 @@ module Ecmwf2Icon
 #   codes = configObject.id.delete_if {|code| code.to_i == 0 and code != '0'}
 # end
 end
+
 # ==============================================================================
 # Debuging facilities
 module Dbg
@@ -439,19 +473,7 @@ class JobQueue
     raise "can't determine 'number_of_processors' for '#{RUBY_PLATFORM}'"
   end
 end
-# example script
-# if $0 == __FILE__
-#   size = 8
-#   cmds = (0...1000).map {|i|
-#     "cdo remapnn,r10x10 /home/ram/data/examples/T.jan.nc ~/#{i}.nc"
-#   }
-#   q = JobQueue.new(size)
-#   q.push(cmds)
-#   q.run
-# end
 
-class PreProc; end
-# ==============================================================================
 # A preprocessor should basically constist fof the following parts
 # * knowledge about required in and output variables
 # * rules for computing the output from the input variables
@@ -459,10 +481,9 @@ class PreProc; end
 # The folloing steps have to be done
 # * read input variables
 # * compute the output variables
-# * map output variables onto the required grid
-# * (optional) apply land-see-mask
-# * (optional) to concistency checks
-
+# * map output variables onto the required grid and vertical coordinates
+# * (TODO) apply land-see-mask
+# * (TODO) to concistency checks
 class Ifs2Icon
 
   include Ecmwf2Icon
@@ -479,62 +500,93 @@ class Ifs2Icon
   # beeing garbage collected and enables a threadsafe use of ruby's tempfile
   # library
   @@_tempfiles = []
+  @@_preout    = ''
 
-  attr_accessor :inVars, :outVars, :rules, :config, :ifile
+  attr_accessor :invars, :outvars, :config, :ifile
 
   def initialize(options)
 
     @lock = Mutex.new
-
-    # required computation for creating the output variables
-    # TODO this is still a dummy for later implentation steps
-    @rules    = {}
 
     @options = options
     @options.freeze
 
     @tempfiles = []
 
-    @inVars, @outVars, @gridVars = {}, {}, {}
+    @invars, @outvars, @gridvars = {}, {}, {}
 
     # Create internal configuration state
-    if @options.configurationfile
-      Dbg.msg('Use configuration data from TXT file',@options.verbose)
-      @config = readConfig(@options.configurationfile)
-    elsif @options.configurationdata
-      Dbg.msg('Use configuration data from JSON file',@options.verbose)
-      @config = readConfig(@options.configurationdata,'json')
-    else
-      Dbg.msg('Use default configuration',@options.verbose)
+    if @options[:config].nil?
+      warn "Configuration is not provided. Internal default is used instead."
       @config = Ecmwf2Icon::DefaultConfig
+    else
+      @config = @options[:config]
     end
 
     Ecmwf2Icon.checkConfig(@config)
 
-    Ecmwf2Icon.displayConfig(@config,@options.verbose, @options.debug)
+    Ecmwf2Icon.displayConfig(@config,@options[:verbose], @options[:debug])
 
     prepareGridfiles
 
-    @ifile = @options.inputfile
+    @ifile, @ofile = @options[:inputfile], @options[:outputfile]
 
     # Read input variables form File
-    @inVars = getInputVariables
+    @invars = getInputVariables
 
-    # Check which input variabels have a valid configuration
-    checkConfigOnInputVariables
+    # Check which input/output variabels have a valid configuration
+    checkConfigOnIOVariables
+
+    @options[:outputvars].each {|ov| @outvars[ov] = nil}
   end
 
-  def checkForPossibleOutput
-    ovars = checkConfigOnInputVariables
-    puts "Possible output variables are #{ovars.join(',')}" 
+  # Check which input variable has a valid entry in the configuration and
+  # ensure that the required output variables have valid grid info
+  # After this check the list of output variables supplied by the user can be used
+  def checkConfigOnIOVariables
+    possibleOutputVars = []
+    @invars.each_key {|var|
+      case var
+      when Fixnum
+        conf = @config.selectBy(:code => var)
+      when String
+        conf = @config.selectBy(:inputname => var)
+      else
+        warn "Wrong class for variable identifier of '#{var}'!"
+        exit 1
+      end
+      if conf.size != 0
+        outvar, invar, code, desc = conf.datasets(*DefaultColumnNames.values_at(:outName, :inName, :code, :info))[0]
+        possibleOutputVars << outvar
+        Dbg.msg("Found info for code:#{code} => dwd:#{outvar}, ecmwf:#{invar}, desc:#{desc})",
+                @options[:verbose],
+                @options[:debug])
+      else
+        Dbg.msg("Input variable with code '#{var}' has no config",
+                @options[:verbose],
+                @options[:debug])
+      end
+    }
+    #check if all output variables have a config entry
+    if @options[:outputvars] - possibleOutputVars != []
+      warn "Outout variables #{(@options[:outputvars] - possibleOutputVars).join(',')} cannot be computed because of missing configuration"
+      exit -1
+    end
+    #check if all output variables have grid information in config
+    @options[:outputvars].each {|outVar|
+      Dbg.msg("Checking output variable '#{outVar}' for grid desc in configuration ... ",false, @options[:debug])
+      unless Ecmwf2Icon.hasGridinfo?(outVar,@config)
+        warn "Cannot find grid information of variable '#{outVar}'!"
+        warn "Abort #{__FILE__} !"
+        exit 1
+      else
+        Dbg.msg("Output variable '#{outVar}' is valid and will be put on #{Ecmwf2Icon.grid(outVar,@config)} grid",@options[:verbose],false)
+      end
+    }
   end
 
   def run
     readVars
-
-    # Check output variables form the cmdline option if they have valid grid
-    # info in the configuration
-    @outVars = getAndCheckOutputVariables if @outVars.empty?
 
     computeOutputVars
 
@@ -542,61 +594,41 @@ class Ifs2Icon
 
     consistencyCheck
 
-    writeOutput(@options.outputfile)
+    writeOutput
   end
 
   # Create files for later usage as grid description for the remapping
   def prepareGridfiles
     GRID_VARIABLES.each {|k,v|
-      Dbg.msg("Selecting #{k} grid from #{@options.gridfile}",false, @options.debug)
+      Dbg.msg("Selecting #{k} grid from #{@options[:gridfile]}",false, @options[:debug])
       varfile = tfile
-      Cdo.selname(v,:in => @options.gridfile,:out => varfile)
-      @gridVars[v] = varfile
-      Dbg.msg("#{k} grid is now in #{varfile}",false, @options.debug)
-      Dbg.msg(IO.popen("ls -crtlh #{varfile}").read,false,@options.debug)
+      Cdo.selname(v,:in => @options[:gridfile],:out => varfile)
+      @gridvars[v] = varfile
+      Dbg.msg("#{k} grid is now in #{varfile}",false, @options[:debug])
+      Dbg.msg(IO.popen("ls -crtlh #{varfile}").read,false,@options[:debug])
     }
   end
 
   def getInputVariables
-    inVars = {}
+    invars = {}
     # Use names for netcdf files and codes for grib input files
     operator  = /grb/.match(File.extname(@ifile)) ? :showcode : :showname
     inputVars = Cdo.send(operator,:in => @ifile)
     # Use numbers as identifiers for grib input
     inputVars.map!(& :to_i) if operator == :showcode
 
-    Dbg.msg("Found these variables in the input file = #{inputVars.join(",")} in input file",@options.verbose,@options.debug)
+    Dbg.msg("Found these variables in the input file = #{inputVars.join(",")} in input file",@options[:verbose],@options[:debug])
 
-    inputVars.each {|ivar| inVars[ivar] = nil}
+    inputVars.each {|ivar| invars[ivar] = nil}
 
-    inVars
-  end
-
-  def getAndCheckOutputVariables
-    outVars = {}
-    oVars   = @options.outputVars.nil? ? Ecmwf2Icon::DefaultOutputVars : @options.outputVars
-
-    Dbg.msg("Outout vars to be checked: #{oVars.join(" ")}",false,@options.debug)
-    # * grid information must be provided in the configuration
-    oVars.each {|outVar|
-      Dbg.msg("Checking output variable '#{outVar}' for grid desc in configuration ... ",false, @options.debug)
-      unless Ecmwf2Icon.hasGridinfo?(outVar,@config)
-        warn "Cannot find grid information of variable '#{outVar}'!"
-        warn "Abort #{__FILE__} !"
-        exit 1
-      else
-        Dbg.msg("Output variable '#{outVar}' is valid and will be put on #{Ecmwf2Icon.grid(outVar,@config)} grid",@options.verbose,false)
-        outVars[outVar] = nil
-      end
-    }
-    outVars
+    invars
   end
 
   # Split the input file into one file per variable
   def readVars
     threads = []
-    @inVars.keys.each {|k|
-      Dbg.msg("Reading variable '#{k}' ...",false,@options.debug)
+    @invars.keys.each {|k|
+      Dbg.msg("Reading variable '#{k}' ...",false,@options[:debug])
       varfile = tfile
       threads << Thread.new(k) {|v| readVar(v,varfile) }
     }
@@ -612,88 +644,77 @@ class Ifs2Icon
                  warn "Wrong usage of variable identifier for '#{var}' (class #{var.class})!"
                end
     Cdo.send(operator,var,:in => @ifile, :out => varfile)
-    @lock.synchronize {@inVars[var] = varfile}
-  end
-
-  # create a file for a given varriable on a certain grid
-  def createVar(name); end
-
-  # For which input variabes does exist a valid configuration? 
-  # use names for netcdf input and codes for grib1
-  def checkConfigOnInputVariables
-    possibleOutputVars = []
-    @inVars.each_key {|var|
-      case var
-      when Fixnum
-        conf = @config.selectBy(:code => var)
-      when String
-        conf = @config.selectBy(:inputname => var)
-      else
-        warn "Wrong class for variable identifier of '#{var}'!"
-        exit 1
-      end
-      if conf.size != 0
-        outvar, invar, code, desc = conf.datasets(:outputname, :inputname, :code, :Description)[0]
-        possibleOutputVars << outvar
-        Dbg.msg("Found info for code:#{code} => dwd:#{outvar}, ecmwf:#{invar}, desc:#{desc})",
-                @options.verbose,
-                @options.debug)
-      else
-        Dbg.msg("Input variable with code '#{var}' has no config",
-                @options.verbose,
-                @options.debug)
-      end
-    }
-    possibleOutputVars
+    @lock.synchronize {@invars[var] = varfile}
   end
 
   # Main method for setting the preprocessing output
   def computeOutputVars
-    Dbg.msg("Start computing output variables",false,@options.debug)
+    Dbg.msg("Start computing output variables",false,@options[:debug])
     Dbg.msg("Do only remapping of the required output varialbes if they are present in the input file",
-            @options.verbose,@options.debug)
+            @options[:verbose],@options[:debug])
 
+    horizontalInterpolation
+
+    verticalInterpolation
+  end
+
+  def horizontalInterpolation
     ths = []
-    @outVars.each_key {|ovar|
-      Dbg.msg("Processing '#{ovar}' ...",@options.verbose,@options.debug)
+    @outvars.each_key {|ovar|
+      Dbg.msg("Processing '#{ovar}' ...",@options[:verbose],@options[:debug])
 
       ths << Thread.new(ovar) {|ovar|
         # determine the grid of the variable
         grid     = Ecmwf2Icon.grid(ovar,@config).to_sym
-        gridfile = @gridVars[GRID_VARIABLES[grid]]
+        gridfile = @gridvars[GRID_VARIABLES[grid]]
 
         # remap the variable onto its icon grid provided in the configuration
-        ivar              = @config.selectBy(:outputname => ovar).code[0].to_i
+        ivar              = @config.selectBy(DefaultColumnNames[:outName] => ovar).code[0].to_i
         copyfile, outfile = tfile, tfile
 
         # create netcdf version of the input
-        Cdo.chainCall("-setname,#{ovar} -copy",:in => @inVars[ivar],:out => copyfile,:options => "-f nc")
+        Cdo.chainCall("-setname,#{ovar} -copy",:in => @invars[ivar],:out => copyfile,:options => "-f nc")
 
         # Perform conservative remapping
-        Cdo.remapcon(gridfile,:in => copyfile,:out => outfile,:options => "-P #{@options.openmp}")
+        Cdo.remapcon(gridfile,:in => copyfile,:out => outfile,:options => "-P #{@options[:openmp]}")
 
-        @lock.synchronize { @outVars[ovar] = outfile }
+        @lock.synchronize { @outvars[ovar] = outfile }
       }
     }
     ths.each {|t| t.join}
   end
 
-  def applyLSM
+  def verticalInterpolation
+    # merge all horizontal interpolations together
+    intermediateFile, hybridlayerfile, reallayerfile = tfile, tfile, tfile
+    Dbg.msg("Compining files into output file '#{intermediateFile}'",@options[:verbose], @options[:debug])
+    Dbg.msg(@outvars.keys.join(" "),@options[:verbose], @options[:debug])
+    Cdo.merge(:in => @outvars.values.join(" "),:out => intermediateFile)
+    # perform vertical interpolation wrt. original surface pressure and orography
+    Cdo.remapeta(@options[:vctfile],@options[:orofile],:in => intermediateFile,:out => hybridlayerfile)
+    if @options[:model_type] == 'hydrostatic'
+      # perform hybrid2realLevel conversion
+      Cdo.ml2hl(@options[:zlevels].reverse.join(','),:in => hybridlayerfile, :out => reallayerfile)
+      @_preout = reallayerfile
+    else
+      #perform interpolation of 3D height field
+      warn "Vertical interpolation onto a 3D vertical coordinate is not implemented, yet!"
+      exit
+    end
   end
 
-  def consistencyCheck
+  def writeOutput
+    Cdo.copy(:in => @_preout,:out => @ofile)
   end
 
-  def writeOutput(ofile='ifs2icon.grb')
-    Dbg.msg("Compining files into output file '#{ofile}'",@options.verbose, @options.debug)
-    Cdo.merge(:in => @outVars.values.join(" "),:out => ofile)
-  end
-
-  def remapVar
-  end
+  # create a file for a given varriable on a certain grid
+  def createVar(name); end
+  def remapVar; end
+  def applyLSM; end
+  def consistencyCheck; end
 
   def iCodes
-    @inVars.keys
+    @invars.keys
   end
   def tfile
     t = Tempfile.new(self.class.to_s)
@@ -704,14 +725,6 @@ class Ifs2Icon
 end
 
 # MEMO ========================================================================
-#  grid description is done via the folling shortcuts:
-#   |v|vertex|
-#   |c|cell|
-#   |e|edge|
-#   |t|time|
-#   |l|level|
-# a variabel with lifes on the a (time,level,cell) grid wil get the description tlc
-#
 # ATMOSPHERE:
 # Hydrostatic states: 
 # TYPE t_hydro_atm_prog
@@ -722,25 +735,6 @@ end
 #   &    theta(:,:,:),  &!< potential temperature [K]    (nproma,nlev,nblks_c)
 #   &   tracer(:,:,:,:)  !< tracer concentration [kg/kg] (nproma,nlev,nblks_c,ntracer)
 # END TYPE t_hydro_atm_prog
-# TYPE t_hydro_ocean_prog
-#
-#   REAL(wp), ALLOCATABLE ::    &
-#     &  h(:,:) [ELEV]               ,& ! height of the free surface. Unit: [m] ! dimension:(nproma, nblks_c)
-#     &  vn(:,:,:)             ,& ! velocity component normal to cell edge. Unit [m/s] ! dimension: (nproma, n_zlev, nblks_e) ICON can compute vn out of u and v (primal_map_e2c)
-#     &  tracer(:,:,:,:)          ! tracer concentration.  ! dimension: (nproma, n_zlev, nblks_c, ntrac_oce)
-#                                 ! Ordering of tracers: 
-#                                 !   1) pot_temp:= potential temperature, Unit: [deg C] (pt)
-#                                 !   2) salinity:= salinity, Unit [psu] (sal)
-#
-# END TYPE t_hydro_ocean_prog
-#
-# OCEAN:
-# MPIOM:
-# CALL varlist_add(ocean_varlist,new_var('zo','sea_surface_height_above_sea_level','m',1,zo,'p','s'))
-# CALL varlist_add(ocean_varlist,new_var('tho','sea_water_potential_temperature','C',2,tho,'p','c'))
-# CALL varlist_add(ocean_varlist,new_var('uko','sea_water_x_velocity','m s-1',3,uko,'u','c',staggered=.true.))
-# CALL varlist_add(ocean_varlist,new_var('vke','sea_water_y_velocity','m s-1',4,vke,'v','c',staggered=.true.))
-# CALL varlist_add(ocean_varlist,new_var('sao','sea_water_salinity','psu',5,sao,'p','c'))
 # =============================================================================
 
 if __FILE__ == $0
@@ -748,11 +742,11 @@ if __FILE__ == $0
   case test
   when 'proc'
     options  = PreProcOptions.parse(ARGV)
-    pp options if options.debug
-    Cdo.Debug = options.debug if options.verbose
+    pp options if options[:debug]
+    Cdo.Debug = options[:debug] if options[:verbose]
     #=======================================================
     p    = Ifs2Icon.new(options)
-    if options.check
+    if options[:check]
       p.checkForPossibleOutput
     else
       p.run
@@ -772,3 +766,9 @@ if __FILE__ == $0
     pp Cdo.showname(:in => "IFS.grb")
   end
 end
+
+# =============================================================================
+# Open Points:
+# * verification to hydrostatic model
+# * orography on edges
+# * 3D vertical coordinate

@@ -137,7 +137,7 @@ MODULE mo_interpol_nml
       &     nudge_efold_width, nudge_zone_width, &
       &     l_corner_vort,rbf_vec_dim_c,         &
       &     rbf_vec_dim_v,rbf_vec_dim_e,         &
-      &     rbf_c2grad_dim, lsq_high_set,         &
+      &     rbf_c2grad_dim, lsq_high_set,        &
       &     lsq_lin_set
 
   PUBLIC :: interpol_nml_setup
@@ -344,10 +344,10 @@ SUBROUTINE interpol_nml_setup(p_patch)
     !
     ! Settings for linear lsq reconstruction
     !
-!DR    lsq_lin_set%l_consv = .FALSE.
-    lsq_lin_set%l_consv = .TRUE.
+    lsq_lin_set%l_consv = .FALSE.
     lsq_lin_set%dim_c   = 3
     lsq_lin_set%dim_unk = 2
+    lsq_lin_set%wgt_exp = 2
 
     !
     ! Settings for high order lsq reconstruction
@@ -357,12 +357,15 @@ SUBROUTINE interpol_nml_setup(p_patch)
     IF (lsq_high_ord == 2) THEN
       lsq_high_set%dim_c   = 9
       lsq_high_set%dim_unk = 5
+      lsq_high_set%wgt_exp = 3
     ELSE IF (lsq_high_ord == 30) THEN
       lsq_high_set%dim_c   = 9
       lsq_high_set%dim_unk = 7
+      lsq_high_set%wgt_exp = 2
     ELSE IF (lsq_high_ord == 3) THEN
       lsq_high_set%dim_c   = 9
       lsq_high_set%dim_unk = 9
+      lsq_high_set%wgt_exp = 0
     ELSE
       CALL finish( TRIM(routine),'wrong value of lsq_high_ord, must be 2,30 or 3')
     ENDIF
@@ -379,11 +382,13 @@ SUBROUTINE interpol_nml_setup(p_patch)
     ! ... quadratic reconstruction
     lsq_high_set%dim_c   = 6
     lsq_high_set%dim_unk = 5
+    lsq_high_set%wgt_exp = 2
     ! ... linear reconstruction is not used in the hexagonal model.
     ! However, if we do not initialize these variables, they will get 
     ! value zero, and cause problem in the dump/restore functionality.
     lsq_lin_set%dim_c   = 3
     lsq_lin_set%dim_unk = 2
+
     ! ... check i_cori_method
     IF (i_cori_method <1 .OR. i_cori_method>4) THEN
       CALL finish( TRIM(routine),'value of i_cori_method out of range [1,2,3,4]')

@@ -31,6 +31,10 @@
 \usepackage{alltt}
 \usepackage{times}
 \usepackage{amsmath}
+\usepackage{longtable}
+\usepackage{lscape}
+\usepackage{setspace}
+\usepackage{tabularx}
 
 
 %\usepackage{pdftricks}  %uncomment if needed
@@ -75,10 +79,13 @@ rulesepcolor=\color{mpggreen}}}{}
 \fbox{\begin{minipage}{15cm}{#1}\end{minipage}}\marginpar\textbf{NOTE}
 }
 
+\newcolumntype{x}[1]{%
+>{\centering\hspace{0pt}}p{#1}}%
+
 %-----------------------------------------------------------------------------
 \newcommand{\icon}{\color{mpggreen}\texttt{echam}\color{black}~}
 \newcommand{\directory}[1]{\color{mpggreen}\texttt{#1}\color{black}}
-\newcommand{\filename}[1]{\color{mpggreen}\texttt{#1}\color{black}}
+%\newcommand{\filename}[1]{\color{mpggreen}\texttt{#1}\color{black}}
 \newcommand{\environment}[1]{\color{mpggreen}\texttt{#1}\color{black}}
 %-----------------------------------------------------------------------------
 
@@ -161,7 +168,7 @@ Max Planck Institute for Meteorology\\
 
 %\input{ICONAM - Physics}
 
-%\input{Advection}
+\input{transport_arlists}
 
 %\input{Gridnesting}
 

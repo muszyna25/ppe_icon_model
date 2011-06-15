@@ -147,6 +147,7 @@ doc/technical/icon_technical.tex -text
 doc/technical/icon_technical.toc -text
 doc/technical/icondoc_fig1.pdf -text svneol=unset#unset
 doc/technical/icondoc_fig2.pdf -text
+doc/technical/transport_arlists.tex -text
 include/cdi.inc -text
 lapack/dbbcsd.f -text
 lapack/dbdsdc.f -text
@@ -649,8 +650,6 @@ scripts/buildbot_scripts/bb_make -text
 scripts/buildbot_scripts/bb_make_doc -text
 scripts/buildbot_scripts/bb_run -text
 scripts/buildbot_scripts/bb_run_doc -text
-scripts/buildbot_scripts/bb_run_parallel -text
-scripts/buildbot_scripts/bb_run_seq -text
 scripts/buildbot_scripts/buildbot.tac.blizzard1 -text
 scripts/buildbot_scripts/buildbot.tac.mpipc22 -text
 scripts/buildbot_scripts/buildbot.tac.squall1 -text
@@ -817,6 +816,7 @@ scripts/postprocessing/tools/plot_vcs_driver.bash -text
 scripts/postprocessing/tools/plotdiff.ncl -text
 scripts/postprocessing/tools/plotvar.ncl -text
 scripts/preprocessing/cdo.rb -text
+scripts/preprocessing/ifs2icon.conf -text
 scripts/preprocessing/ifs2icon.rb -text
 src/advection/mo_advection_hflux.f90 -text
 src/advection/mo_advection_limiter.f90 -text

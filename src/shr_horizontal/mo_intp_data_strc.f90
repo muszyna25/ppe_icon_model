@@ -171,14 +171,18 @@ REAL(wp) :: sick_a, sick_o      ! if i_cori_method >= 2: To avoid the SICK insta
                                 ! energy and thus of the mass flux must be defined.
                                 ! sick_a is to be given in the namelist as the weight of
                                 ! the fully averaged kinetic energy, sick_o=1-sick_a.
-TYPE t_lsq_set
-  LOGICAL :: l_consv             ! flag to determine whether the least squares
-                                 ! reconstruction should be conservative
 
-  INTEGER :: dim_c,        &     ! parameter determining the size of the lsq stencil
-    &        dim_unk             ! parameter determining the dimension of the solution
-                                 ! vector (== number of unknowns) of the lsq system
+TYPE t_lsq_set
+  LOGICAL :: l_consv            ! flag to determine whether the least squares
+                                ! reconstruction should be conservative
+
+  INTEGER :: dim_c,        &    ! parameter determining the size of the lsq stencil
+    &        dim_unk            ! parameter determining the dimension of the solution
+                                ! vector (== number of unknowns) of the lsq system
+
+  INTEGER :: wgt_exp            ! least squares weighting exponent
 END TYPE t_lsq_set
+
 
 TYPE t_lsq
   ! fields related to weighted least squares polynomial reconstruction
@@ -201,6 +205,9 @@ TYPE t_lsq
                                                  ! elements of R-matrix (starting from the bottom
                                                  ! right)
                                                  ! (nproma,(lsq_dim_unk^2-lsq_dim_unk)/2,nblks_c)
+  REAL(wp), ALLOCATABLE :: lsq_pseudoinv(:,:,:,:)! pseudo (or Moore-Penrose) inverse of lsq 
+                                                 ! design matrix A
+                                                 ! (nproma,lsq_dim_unk,lsq_dim_c,nblks_c) 
   REAL(wp), ALLOCATABLE :: lsq_moments(:,:,:)      ! Moments (x^ny^m)_{i} for control volume
                                                    ! (nproma,nblks_c,lsq_dim_unk)
   REAL(wp), ALLOCATABLE :: lsq_moments_hat(:,:,:,:)! Moments (\hat{x^ny^m}_{ij}) for control volume

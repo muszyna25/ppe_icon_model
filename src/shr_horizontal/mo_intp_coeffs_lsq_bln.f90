@@ -171,6 +171,7 @@ USE mo_model_domain,        ONLY: t_patch
 USE mo_math_utilities,      ONLY: gnomonic_proj, rotate_latlon, qrdec
 USE mo_run_nml,             ONLY: nproma, i_cell_type
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
+USE mo_advection_nml,       ONLY: llsq_svd
 
 USE mo_intp_data_strc
 
@@ -401,7 +402,7 @@ END SUBROUTINE lsq_stencil_create
 !! - generalization to arbitrary order of reconstruction (yet 2nd or 3rd order)
 !!
 SUBROUTINE lsq_compute_coeff_cell( ptr_patch, ptr_int_lsq, llsq_rec_consv, &
-  &                                lsq_dim_c, lsq_dim_unk )
+  &                                lsq_dim_c, lsq_dim_unk, lsq_wgt_exp )
 !
 
 !
@@ -417,6 +418,9 @@ INTEGER, INTENT(IN)  ::  &  ! parameter determining the size of the lsq stencil
 
 INTEGER, INTENT(IN)  ::  &  ! parameter determining the dimension of the solution 
   &  lsq_dim_unk
+
+INTEGER, INTENT(IN)  ::  &  ! least squares weighting exponent 
+  &  lsq_wgt_exp
 
 REAL(wp), DIMENSION(lsq_dim_c,2) ::  &      ! geographical coordinates of all cell centers
   & xytemp_c                                ! in the stencil
@@ -478,7 +482,34 @@ INTEGER :: i_rcstartlev                ! refinement control start level
 INTEGER :: ist                         ! status
 INTEGER :: nverts
 INTEGER :: jecp
+INTEGER :: jja, jjb, jjk               ! loop indices for Moore-Penrose inverse
+
+REAL(wp) ::   &                        ! least squares design matrix (for single cell)
+  &  za(lsq_dim_c,lsq_dim_unk)
+
+REAL(wp) ::   &                        ! singular values of lsq design matrix A
+  &  zs(lsq_dim_unk,nproma)            ! min(lsq_dim_c,lsq_dim_unk)
+
+REAL(wp) ::   &                        ! U matrix of SVD. Columns of U are the left
+  &  zu  (lsq_dim_c,lsq_dim_c,nproma)  ! singular vectors of A
+
+REAL(wp) ::   &                        ! TRANSPOSE of V matrix of SVD. Columns of V are 
+  &  zv_t(lsq_dim_unk,lsq_dim_unk,nproma) ! the right singular vectors of A.
+
+
+INTEGER, PARAMETER  :: &     ! size of work array for SVD lapack routine
+  &  lwork=10000 
+REAL(wp) ::   &              ! work array for SVD lapack routine
+  &  zwork(lwork)
+INTEGER  ::   &              ! work array for SVD lapack routine
+  & ziwork(8*min(lsq_dim_c,lsq_dim_unk))
+
+
+!DR for DEBUG purposes
+REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
+
 !--------------------------------------------------------------------
+
 
   CALL message('mo_interpolation:lsq_compute_coeff_cell', '')
 
@@ -504,8 +535,8 @@ INTEGER :: jecp
 
 
 !!$OMP PARALLEL
-!!$OMP DO PRIVATE(jb,jc,js,jec,i_startidx,i_endidx,jlv,jbv,ilc_s,ibc_s,  &
-!!$OMP            xloc,yloc,xytemp_c,xytemp_v,z_norm, distxy_v,z_rcarea, &
+!!$OMP DO PRIVATE(jb,jc,js,jec,i_startidx,i_endidx,jlv,jbv,ilc_s,ibc_s, &
+!!$OMP            xloc,yloc,xytemp_c,xytemp_v,z_norm,distxy_v,z_rcarea, &
 !!$OMP            delx,dely,fx,fy,fxx,fyy,fxy,jecp,nverts)
   DO jb = i_startblk, nblks_c
 
@@ -574,13 +605,16 @@ INTEGER :: jecp
       DO js = 1, ptr_ncells(jc,jb)
         CALL gnomonic_proj( xloc, yloc, xytemp_c(js,1), xytemp_c(js,2),  &! in
          &                  z_dist_g(jc,jb,js,1), z_dist_g(jc,jb,js,2) )  ! out
+
       ENDDO
       ! multiply with earth radius and store
       z_dist_g(jc,jb,1:ptr_ncells(jc,jb),:) = re*z_dist_g(jc,jb,1:ptr_ncells(jc,jb),:)
 
 
+
     !
-    ! b: compute weights for weighted least squares system
+    ! b: compute normalized weights for weighted least squares system
+    !    The closest cell circumcenter is assigned weight of w=1. 
     !
       DO js = 1, ptr_ncells(jc,jb)
         z_norm = SQRT(DOT_PRODUCT(z_dist_g(jc,jb,js,1:2),z_dist_g(jc,jb,js,1:2)))
@@ -588,8 +622,15 @@ INTEGER :: jecp
         !
         ! weights for weighted least squares system
         !
-        ptr_int_lsq%lsq_weights_c(jc,js,jb)= 1._wp/(z_norm * z_norm)
+        ptr_int_lsq%lsq_weights_c(jc,js,jb)= 1._wp/(z_norm**lsq_wgt_exp)
+
       ENDDO
+      !
+      ! Normalization
+      !
+      ptr_int_lsq%lsq_weights_c(jc,1:ptr_ncells(jc,jb),jb)=                &
+        &     ptr_int_lsq%lsq_weights_c(jc,1:ptr_ncells(jc,jb),jb)         &
+        &   / MAXVAL(ptr_int_lsq%lsq_weights_c(jc,1:ptr_ncells(jc,jb),jb))
 
 
 
@@ -606,6 +647,7 @@ INTEGER :: jecp
         DO jec=1,nverts
           CALL gnomonic_proj( xloc, yloc, xytemp_v(jec,1), xytemp_v(jec,2),  &
            &                 distxy_v(jec,1), distxy_v(jec,2) )
+
         ENDDO
       ! multiply with earth radius
         distxy_v(1:nverts,1:2) = re * distxy_v(1:nverts,1:2)
@@ -803,16 +845,17 @@ INTEGER :: jecp
 !! loop parallelized.
 !!$OMP END PARALLEL
 
-!!$OMP PARALLEL
-!!$OMP DO PRIVATE(jb,jc,js,ju,i_startidx,i_endidx,ilc_s,ibc_s,z_lsq_mat_c,  &
-!!$OMP            z_qmat,z_rmat)
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jc,js,ju,jja,jjb,jjk,i_startidx,i_endidx,ilc_s,ibc_s, &
+!$OMP            z_lsq_mat_c,zs,zu,zv_t,zwork,ziwork,ist,za_debug,        &
+!$OMP            z_qmat,z_rmat,cnt,jrow,nel,za)
   DO jb = i_startblk, nblks_c
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, nblks_c, &
                        i_startidx, i_endidx, i_rcstartlev)
 
     !
-    ! 4. for each cell, calculate normal equation matrix
+    ! 4. for each cell, calculate LSQ design matrix A
     !
     DO jc = i_startidx, i_endidx
 
@@ -899,9 +942,9 @@ INTEGER :: jecp
       ENDDO
 
 
-      ! loop over rows of lsq matrix (all cells in the stencil)
+      ! loop over rows of lsq design matrix (all cells in the stencil)
       DO js = 1, ptr_ncells(jc,jb)
-        ! loop over columns of lsq matrix (number of unknowns)
+        ! loop over columns of lsq design matrix (number of unknowns)
         DO ju = 1,lsq_dim_unk
 
           z_lsq_mat_c(jc,js,ju) = ptr_int_lsq%lsq_weights_c(jc,js,jb)                         &
@@ -913,11 +956,19 @@ INTEGER :: jecp
          z_lsq_mat_c(jc,lsq_dim_c,:) = 0.0_wp
        ENDIF
 
-
     ENDDO   ! loop over cells
 
 
-    ! 5. QR-factorization of normal equation matrix
+
+    !
+    ! compute QR decomposition and Singular Value Decomposition (SVD)
+    ! of least squares design matrix A. For the time being both methods are 
+    ! retained.
+
+    !
+    ! 5a. QR-factorization of design matrix A
+    !
+    IF (.NOT. llsq_svd) THEN
     CALL qrdec(lsq_dim_c, lsq_dim_unk, i_startidx, & ! in
      &         i_endidx, z_lsq_mat_c,              & ! in
      &         z_qmat, z_rmat)                       ! out
@@ -933,21 +984,21 @@ INTEGER :: jecp
       !
       ! a. Save reciprocal values of the diagonal elements
       !
-        DO ju = 1,lsq_dim_unk
-          ptr_int_lsq%lsq_rmat_rdiag_c(jc,ju,jb) = 1._wp/z_rmat(jc,ju,ju)
-        ENDDO
+      DO ju = 1,lsq_dim_unk
+        ptr_int_lsq%lsq_rmat_rdiag_c(jc,ju,jb) = 1._wp/z_rmat(jc,ju,ju)
+      ENDDO
 
       !
       ! b. Save upper triangular elements without diagonal elements in a 1D-array
       !    (starting from the bottom right)
       !
-        cnt = 1
-        DO jrow = lsq_dim_unk-1,1,-1
-          ! number of elements to store
-          nel = lsq_dim_unk - jrow
-          ptr_int_lsq%lsq_rmat_utri_c(jc,cnt:cnt+nel-1,jb) = z_rmat(jc,jrow,jrow+1:lsq_dim_unk)
-          cnt = cnt + nel
-        ENDDO
+      cnt = 1
+      DO jrow = lsq_dim_unk-1,1,-1
+        ! number of elements to store
+        nel = lsq_dim_unk - jrow
+        ptr_int_lsq%lsq_rmat_utri_c(jc,cnt:cnt+nel-1,jb) = z_rmat(jc,jrow,jrow+1:lsq_dim_unk)
+        cnt = cnt + nel
+      ENDDO
 
 
       ! Multiply ith column of the transposed Q-matrix (corresponds to the
@@ -962,11 +1013,92 @@ INTEGER :: jecp
 
     END DO  ! loop over cells
 
+    ELSE   ! llsq_svd=.TRUE.
 
+    !
+    ! 5b. Singular value decomposition of lsq design matrix A
+    ! !!! does not vectorize, unfortunately !!!
+    DO jc = i_startidx, i_endidx
+
+      ! A = U * SIGMA * transpose(V)
+      !
+      ! z_lsq_mat_c : M x N least squares design matrix A            (IN)
+      ! zu          : M x M orthogonal matrix U                      (OUT)
+      ! zv_t        : N x N orthogonal matrix V                      (OUT)
+      ! zs          : min(M,N) Singular values of A                  (OUT)
+      ! zwork       : workspace(1,LWORK)                             (OUT)
+      ! lwork       : 3*min(M,N)                                     (IN)
+      !              + max(max(M,N),4*min(M,N)*min(M,N)+4*min(M,N))  (IN) 
+      ! iwork       : workspace(8*min(M,N))                          (IN)
+
+      za(:,:) = z_lsq_mat_c(jc,:,:)
+      CALL DGESDD('A',                 & !in
+        &         lsq_dim_c,           & !in
+        &         lsq_dim_unk,         & !in
+        &         za(:,:)            , & !inout Note: destroyed on output
+        &         lsq_dim_c,           & !in
+        &         zs(:,jc),            & !out
+        &         zu(:,:,jc),          & !out
+        &         lsq_dim_c,           & !in
+        &         zv_t(:,:,jc),        & !out
+        &         lsq_dim_unk,         & !in
+        &         zwork,               & !out
+        &         lwork,               & !in
+        &         ziwork,              & !inout
+        &         ist                  ) !out                      
+      IF (ist /= SUCCESS) THEN
+        CALL finish ('mo_interpolation:lsq_compute_coeff_cell',   &
+          &             'singular value decomposition failed')
+      ENDIF
+
+    ENDDO
+
+    ! compute Moore-Penrose inverse
+    ! INVERSE(A):: V * INVERSE(SIGMA) * TRANSPOSE(U) and store
+    ! note that the ith column is multiplied with the ith weight 
+    ! in order to avoid the weighting of the r.h.s. during runtime.
+    DO jja = 1, lsq_dim_unk
+      DO jjb = 1, lsq_dim_c 
+        DO jjk = 1, lsq_dim_unk
+          DO jc = i_startidx, i_endidx
+            ptr_int_lsq%lsq_pseudoinv(jc,jja,jjb,jb) =            &
+              &  ptr_int_lsq%lsq_pseudoinv(jc,jja,jjb,jb)         &
+              &  + zv_t(jjk,jja,jc) /zs(jjk,jc) * zu(jjb,jjk,jc)  &
+              &  * ptr_int_lsq%lsq_weights_c(jc,jjb,jb)
+          ENDDO
+        ENDDO
+      ENDDO
+    ENDDO
+
+!!!!!DEBUG !!!
+#ifdef DEBUG_COEFF
+    za_debug(:,:,:)  = 0._wp
+    ! RE-COMPUTE A:: U * SIGMA * TRANSPOSE(V)  !!! Funktioniert
+    DO jja = 1, lsq_dim_c
+      DO jjb = 1, lsq_dim_unk
+        DO jjk = 1, lsq_dim_unk  !lsq_dim_c
+          DO jc = i_startidx, i_endidx
+            za_debug(jc,jja,jjb) = za_debug(jc,jja,jjb)  &
+              &  + zu(jja,jjk,jc) * zs(jjk,jc) * zv_t(jjk,jjb,jc)
+          ENDDO
+        ENDDO
+      ENDDO
+    ENDDO
+
+    write(0,*) "za_debug(10,:,:)- z_lsq_mat_c(10,:,:)",za_debug(10,:,:)- z_lsq_mat_c(10,:,:)
+    write(0,*) "za_debug(55,:,:)- z_lsq_mat_c(55,:,:)",za_debug(55,:,:)- z_lsq_mat_c(55,:,:)
+    write(0,*) "zs(:,10) ",zs(:,10)
+    write(0,*) "zs(:,55) ",zs(:,55)
+    write(0,*) "ptr_int_lsq%lsq_weights_c(10,:,jb)",ptr_int_lsq%lsq_weights_c(10,:,jb)
+    write(0,*) "ptr_int_lsq%lsq_weights_c(55,:,jb)",ptr_int_lsq%lsq_weights_c(55,:,jb)
+#endif
+!!!! END DEBUG !!!
+
+    ENDIF  ! llsq_svd
 
   END DO  ! loop over blocks
-!!$OMP END DO
-!!$OMP END PARALLEL
+!$OMP END DO
+!$OMP END PARALLEL
 
 
   DEALLOCATE (z_dist_g, STAT=ist )
