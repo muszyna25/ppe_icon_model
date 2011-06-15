@@ -133,7 +133,7 @@ MODULE mo_io_vlist
     &                               iequations, ihs_atm_temp, ihs_atm_theta,    &
     &                               inh_atmosphere, ishallow_water,             &
     &                               lvert_nest, inextra_2d,inextra_3d
-  USE mo_echam_phy_nml,       ONLY: lrad,lvdiff,lconv,lcond,lcover
+  USE mo_echam_phy_nml,       ONLY: lrad,lvdiff,lconv,lcond,lcover,lgw_hines
   USE mo_atm_phy_nwp_nml,     ONLY: inwp_gscp, inwp_gscp, inwp_convection,      &
     &                               inwp_radiation, inwp_sso, inwp_cldcover,    &
     &                               inwp_turb, dt_conv, dt_rad_nml => dt_rad,   &
@@ -147,6 +147,7 @@ MODULE mo_io_vlist
     &                               iconv, cmftau, cmfctop, cprcon,             &
     &                               cminbuoy, entrpen, dlev, entrmid, entrscv,  &
     &                               entrdd, cmfdeps
+!!$  USE mo_gw_hines_nml,        ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
   USE mo_icoham_sfc_indices,  ONLY: igbm
   USE mo_vertical_coord_table,ONLY: vct
   USE mo_model_domain_import, ONLY: start_lev, nroot, n_dom, lfeedback, lplane
@@ -694,6 +695,7 @@ CONTAINS
       SELECT CASE (iforcing)
 
       CASE (iecham,ildf_echam)
+        !
         !!! Parameters of /echam_phy_nml/
         !--------------------------------
         CALL addGlobAttTxtFromLog('echam_phy_nml:lrad',lrad,vlistID(k_jg),astatus)
@@ -701,9 +703,11 @@ CONTAINS
         CALL addGlobAttTxtFromLog('echam_phy_nml:lconv',lconv,vlistID(k_jg),astatus)
         CALL addGlobAttTxtFromLog('echam_phy_nml:lcond',lcond,vlistID(k_jg),astatus)
         CALL addGlobAttTxtFromLog('echam_phy_nml:lcover',lcover,vlistID(k_jg),astatus)
+        CALL addGlobAttTxtFromLog('echam_phy_nml:lgw_hines',lgw_hines,vlistID(k_jg),astatus)
+        !
         !!! Parameters of /echam_conv_ctl/
-        !--------------------------------
-        IF ( lconv ) then
+        !---------------------------------
+        IF ( lconv ) THEN
            CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfpen',lmfpen,vlistID(k_jg),astatus)
            CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfmid',lmfmid,vlistID(k_jg),astatus)
            CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfscv',lmfscv,vlistID(k_jg),astatus)
@@ -720,7 +724,17 @@ CONTAINS
            CALL addGlobAttFlt('echam_conv_ctl:entrscv',entrscv,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:entrdd',entrdd,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:dlev',dlev,vlistID(k_jg),astatus)
-      END IF
+        END IF
+        !
+!!$        !!! Parameters of /gw_hines_nml/
+!!$        !-------------------------------
+!!$        IF (lgw_hines) THEN
+!!$          CALL addGlobAttTxtFromLog('gw_hines_nml:lheatcal',lheatcal,vlistID(k_jg),astatus)
+!!$          CALL addGlobAttInt('gw_hines_nml:emiss_lev',emiss_lev,vlistID(k_jg),astatus)
+!!$          CALL addGlobAttFlt('gw_hines_nml:rmscon',rmscon,vlistID(k_jg),astatus)
+!!$          CALL addGlobAttFlt('gw_hines_nml:kstar',kstar,vlistID(k_jg),astatus)
+!!$          CALL addGlobAttFlt('gw_hines_nml:m_min',m_min,vlistID(k_jg),astatus)
+!!$        END IF
 
       CASE (inwp)
         !!! Parameters of /nwp_phy_ctl/
@@ -1467,6 +1481,11 @@ CONTAINS
         &                   'K/s', 105, 999,&
         &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
         &           k_jg)
+        CALL addVar(TimeVar('tend_temp_gwh', &
+        &                   'temperature tendency caused by gravity wave dissipation',&
+        &                   'K/s', 106, 999,&
+        &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
+        &           k_jg)
 
         ! u-wind tendency
         CALL addVar(TimeVar('tend_u_cnv',&
@@ -1479,6 +1498,11 @@ CONTAINS
         &                   'm/s2', 112, 999,&
         &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
         &           k_jg)
+        CALL addVar(TimeVar('tend_u_gwh',&
+        &                   'zonal wind tendency caused by gravity wave dissipation',&
+        &                   'm/s2', 113, 999,&
+        &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
+        &           k_jg)
 
         ! v-wind tendency
         CALL addVar(TimeVar('tend_v_cnv',&
@@ -1489,6 +1513,11 @@ CONTAINS
         CALL addVar(TimeVar('tend_v_vdf',&
         &                   'meridional wind tendency caused by turbulent mixing',&
         &                   'm/s2', 122, 999,&
+        &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
+        &           k_jg)
+        CALL addVar(TimeVar('tend_v_gwh',&
+        &                   'meridional wind tendency caused by gravity wave dissipation',&
+        &                   'm/s2', 123, 999,&
         &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
         &           k_jg)
 
@@ -2399,10 +2428,13 @@ CONTAINS
       CASE ('tend_temp_cld');   ptr3 => prm_tend(jg)%temp_cld
       CASE ('tend_temp_cnv');   ptr3 => prm_tend(jg)%temp_cnv
       CASE ('tend_temp_vdf');   ptr3 => prm_tend(jg)%temp_vdf
+      CASE ('tend_temp_gwh');   ptr3 => prm_tend(jg)%temp_gwh
       CASE ('tend_u_cnv');      ptr3 => prm_tend(jg)%u_cnv
       CASE ('tend_u_vdf');      ptr3 => prm_tend(jg)%u_vdf
+      CASE ('tend_u_gwh');      ptr3 => prm_tend(jg)%u_gwh
       CASE ('tend_v_cnv');      ptr3 => prm_tend(jg)%v_cnv
       CASE ('tend_v_vdf');      ptr3 => prm_tend(jg)%v_vdf
+      CASE ('tend_v_gwh');      ptr3 => prm_tend(jg)%v_gwh
       !KF specify jt first!!
 !      CASE ('tend_qX_cnv');     ptr3 => prm_tend(jg)%q_cnv(:,:,:,jt)
 !      CASE ('tend_qX_vdf');     ptr3 => prm_tend(jg)%q_vdf(:,:,:,jt)

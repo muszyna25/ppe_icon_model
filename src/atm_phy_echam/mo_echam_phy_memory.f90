@@ -315,15 +315,15 @@ MODULE mo_echam_phy_memory
       !
       ! cloud microphysics
       !
-      & temp_cld    (:,:,:)  , & !< T tendency from cloud microphysical processes
+      & temp_cld    (:,:,:)  , & !< temperature tendency from cloud microphysical processes
       &    q_cld    (:,:,:,:), & !< tracer tendency from cloud microphysical process
       !
       ! cumulus convection
       !
       & temp_cnv    (:,:,:),   & !< temperature tendency from cumulus convection
-      &    u_cnv    (:,:,:),   & !< Zonal      wind tendency from cumulus convection
-      &    v_cnv    (:,:,:),   & !< Meridional wind tendency from cumulus convection
-      &    q_cnv    (:,:,:,:), & !< tracer tendency due to cumulus convection
+      &    u_cnv    (:,:,:),   & !< u-wind tendency from cumulus convection
+      &    v_cnv    (:,:,:),   & !< v-wind tendency from cumulus convection
+      &    q_cnv    (:,:,:,:), & !< tracer tendency from cumulus convection
       &    x_dtr    (:,:,:),   & !< cloud water/ice tendency due to detrainment (memory_g3b:xtec)
       !
       ! vertical turbulent mixing ("vdiff")
@@ -333,11 +333,11 @@ MODULE mo_echam_phy_memory
       &    v_vdf  (:,:,:),     & !< v-wind tendency due to turbulent mixing
       &    q_vdf  (:,:,:,:),   & !< tracer tendency due to turbulent mixing
       !
-      ! atmospheric gravity wave drag
+      ! Hines param. for atmospheric gravity waves
       !
-!!$      & u_gwd       (:,:,:)  , & !< ZonalW-tendency from gravity wave drag
-!!$      & v_gwd       (:,:,:)  , & !< MeridW-tendency from gravity wave drag
-!!$      & temp_gwd    (:,:,:)  , & !< Temp-tendency from gravity wave drag
+      & u_gwh       (:,:,:)  , & !< u-wind tendency from Hines gravity wave param.
+      & v_gwh       (:,:,:)  , & !< v-wind tendency from Hines gravity wave param.
+      & temp_gwh    (:,:,:)  , & !< temperature tendency from Hines gravity wave param.
       !
       ! subgrid scale orographic (sso) blocking and gravity wave drag
       !
@@ -1208,6 +1208,12 @@ CONTAINS
     CALL add_var( tend_list, prefix//'temp_vdf', tend%temp_vdf,            &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
+    ! &       tend% temp_gwh  (nproma,nlev,nblks),          &
+    cf_desc    = t_cf_var('temperature_tendency_Hines_gw', 'K s-1', '')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( tend_list, prefix//'temp_gwh', tend%temp_gwh,            &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+
     !------------------------------
     ! U-wind tendencies
     !------------------------------
@@ -1229,6 +1235,12 @@ CONTAINS
     CALL add_var( tend_list, prefix//'u_vdf', tend%u_vdf,                  &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
+    ! &       tend%    u_gwh  (nproma,nlev,nblks),          &
+    cf_desc    = t_cf_var('u_wind_tendency_Hines_gw', 'm s-2', '')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( tend_list, prefix//'u_gwh', tend%u_gwh,                  &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+
     !------------------------------
     ! V-wind tendencies
     !------------------------------
@@ -1248,6 +1260,12 @@ CONTAINS
     cf_desc    = t_cf_var('v_wind_tendency_turbulent', 'm s-2', '')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( tend_list, prefix//'v_vdf', tend%v_vdf,                  &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+
+    ! &       tend%    v_gwh  (nproma,nlev,nblks),          &
+    cf_desc    = t_cf_var('v_wind_tendency_Hines_gw', 'm s-2', '')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( tend_list, prefix//'v_gwh', tend%v_gwh,                  &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
     !------------------------------

@@ -52,7 +52,7 @@ MODULE mo_echam_phy_main
     &                               iqv, iqc, iqi, io3, iqt, ltimer
   USE mo_hydro_testcases,     ONLY: ctest_name
   USE mo_vertical_coord_table,ONLY: nlevm1
-  USE mo_echam_phy_nml,       ONLY: lcond, lcover, lconv, lrad, lvdiff
+  USE mo_echam_phy_nml,       ONLY: lcond, lcover, lconv, lrad, lvdiff, lgw_hines
   USE mo_echam_conv_nml,      ONLY: iconv
   USE mo_cucall,              ONLY: cucall
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
@@ -60,7 +60,8 @@ MODULE mo_echam_phy_main
   USE mo_timer,               ONLY: timer_start, timer_stop,          &
     &                               timer_cover, timer_cloud,         &
     &                               timer_radheat,                    &
-    &                               timer_cucall, timer_vdiff
+    &                               timer_cucall, timer_vdiff,        &
+    &                               timer_gw_hines
   USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
   USE mo_icoham_sfc_indices,  ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_cloud,               ONLY: cloud
@@ -72,6 +73,7 @@ MODULE mo_echam_phy_main
   USE mo_vdiff_upward_sweep,  ONLY: vdiff_up
   USE mo_vdiff_solver,        ONLY: nvar_vdiff, nmatrix,        &
                                   & ih_vdiff=>ih, iqv_vdiff=>iqv
+  USE mo_gw_hines,            ONLY: gw_hines
   ! provisional to get coordinates
   USE mo_atmo_control,        ONLY: p_patch
 
@@ -534,7 +536,7 @@ CONTAINS
                      & field% tsfc_tile(:,jb,:),        &! in, surface temperature
                      & field% ocu (:,jb),               &! in, ocean sfc velocity, u-component
                      & field% ocv (:,jb),               &! in, ocean sfc velocity, v-component
-                     & field% presi_old(:,nlevp1,jb), &! in, sfc pressure
+                     & field% presi_old(:,nlevp1,jb),   &! in, sfc pressure
                      & field%    u(:,:,jb),             &! in, um1
                      & field%    v(:,:,jb),             &! in, vm1
                      & field% temp(:,:,jb),             &! in, tm1
@@ -702,12 +704,49 @@ CONTAINS
     ENDIF !lvdiff
 
     !-------------------------------------------------------------------
-    ! 6. CONVECTION PARAMETERISATION
+    ! 6. ATMOSPHERIC GRAVITY WAVES
+    !-------------------------------------------------------------------
+
+    ! 6.1   CALL SUBROUTINE GW_HINES
+
+    IF (lgw_hines) THEN
+
+      IF (ltimer) call timer_start(timer_gw_hines)
+
+      CALL gw_hines (                           &
+!!$        &             krow,                     &
+        &             jce, nbdim, nlev,         &
+        &             field% presi_old(:,:,jb), &
+        &             field% presm_old(:,:,jb), &
+        &             field% temp(:,:,jb),      &
+        &             field%    u(:,:,jb),      &
+        &             field%    v(:,:,jb),      &
+!!$        &             aprflux(:,krow),          &
+        &             tend% temp_gwh(:,:,jb),   &
+        &             tend%    u_gwh(:,:,jb),   &
+        &             tend%    v_gwh(:,:,jb) )
+
+      IF (ltimer) call timer_stop(timer_gw_hines)
+
+      tend% temp(jcs:jce,:,jb) = tend% temp(jcs:jce,:,jb) + tend% temp_gwh(jcs:jce,:,jb)
+      tend%    u(jcs:jce,:,jb) = tend%    u(jcs:jce,:,jb) + tend%    u_gwh(jcs:jce,:,jb)
+      tend%    v(jcs:jce,:,jb) = tend%    v(jcs:jce,:,jb) + tend%    v_gwh(jcs:jce,:,jb)
+
+    ELSE ! NECESSARY COMPUTATIONS IF GW_HINES IS BY-PASSED
+
+      tend% temp_gwh(jcs:jce,:,jb) = 0._wp
+      tend%    u_gwh(jcs:jce,:,jb) = 0._wp
+      tend%    v_gwh(jcs:jce,:,jb) = 0._wp
+
+    END IF !lgw_hines
+
+    !-------------------------------------------------------------------
+    ! 7. CONVECTION PARAMETERISATION
     !-------------------------------------------------------------------
     itype(jcs:jce) = 0
 
-    ! 6.3.1   INITIALIZE ARRAYS FOR CONVECTIVE PRECIPITATION
-    !         AND COPY ARRAYS FOR CONVECTIVE CLOUD PARAMETERS
+    ! 7.1   INITIALIZE ARRAYS FOR CONVECTIVE PRECIPITATION
+    !       AND COPY ARRAYS FOR CONVECTIVE CLOUD PARAMETERS
 
     tend% x_dtr(jcs:jce,:,jb) = 0._wp
     zqtec  (jcs:jce,:) = 0._wp
@@ -719,7 +758,7 @@ CONTAINS
     field% rsfc(jcs:jce,jb) = 0._wp
     field% ssfc(jcs:jce,jb) = 0._wp
 
-    ! 6.3.3   CALL SUBROUTINE CUCALL FOR CUMULUS PARAMETERIZATION
+    ! 7.2   CALL SUBROUTINE CUCALL FOR CUMULUS PARAMETERIZATION
 
     IF (lconv) THEN
 
@@ -780,6 +819,7 @@ CONTAINS
 
       tend% u_cnv(jcs:jce,:,jb) = 0._wp
       tend% v_cnv(jcs:jce,:,jb) = 0._wp
+
     ENDIF !lconv
 
     !-------------------------------------------------------------

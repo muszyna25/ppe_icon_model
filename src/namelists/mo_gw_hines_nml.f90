@@ -1,0 +1,152 @@
+!>
+!! Namelist for the configuration of the vertical diffusion
+!!
+!!
+!! @par Revision History
+!! Revision history in mo_echam_vdiff_params.f90 (r4300)
+!! Modification by Constantin Junk, MPI-M (2011-05-05)
+!! - moved echam_vdiff namelist variables and subroutine setup_vdiff
+!!   from mo_echam_vdiff_params to namelists/mo_echam_vdiff_nml
+!!
+!! @par Copyright
+!! 2002-2010 by DWD and MPI-M
+!! This software is provided for non-commercial use only.
+!! See the LICENSE and the WARRANTY conditions.
+!!
+!! @par License
+!! The use of ICON is hereby granted free of charge for an unlimited time,
+!! provided the following rules are accepted and applied:
+!! <ol>
+!! <li> You may use or modify this code for your own non commercial and non
+!!    violent purposes.
+!! <li> The code may not be re-distributed without the consent of the authors.
+!! <li> The copyright notice and statement of authorship must appear in all
+!!    copies.
+!! <li> You accept the warranty conditions (see WARRANTY).
+!! <li> In case you intend to use the code commercially, we oblige you to sign
+!!    an according license agreement with DWD and MPI-M.
+!! </ol>
+!!
+!! @par Warranty
+!! This code has been tested up to a certain level. Defects and weaknesses,
+!! which may be included in the code, do not establish any warranties by the
+!! authors.
+!! The authors do not make any warranty, express or implied, or assume any
+!! liability or responsibility for the use, acquisition or application of this
+!! software.
+!!
+MODULE mo_gw_hines_nml
+
+  USE mo_kind,       ONLY: wp
+  USE mo_io_units,   ONLY: nnml
+  USE mo_exception,  ONLY: message, print_value
+  USE mo_namelist,   ONLY: position_nml, POSITIONED
+
+  IMPLICIT NONE
+
+  PRIVATE
+
+  PUBLIC :: gw_hines_nml_setup      !< setup subroutine for Hines gravity wave parameterization
+  PUBLIC :: gw_hines_nml            !< namelist for Hines gravity wave parameterization
+
+  PUBLIC :: lheatcal, emiss_lev, rmscon, kstar, m_min
+!!$  PUBLIC :: lfront, rms_front, front_thres
+!!$  PUBLIC :: lozpr, pcrit, pcons
+!!$  PUBLIC :: lrmscon_lat, lat_rmscon_lo, lat_rmscon_hi, rmscon_lo, rmscon_hi
+
+  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
+  !-----------------------------------!
+  ! gw_hines_nml namelist variables   !
+  !-----------------------------------!
+
+  LOGICAL  :: lheatcal      !< true : compute momentum flux dep., heating and diffusion coefficient
+                            !< false: compute only momentum flux deposition
+
+  INTEGER  :: emiss_lev     !< root mean square gravity wave wind at lowest level (m/s)
+  REAL(wp) :: rmscon        !< number of levels above the ground at which gw are emitted
+  REAL(wp) :: kstar         !< typical gravity wave horizontal wavenumber (1/m)
+  REAL(wp) :: m_min         !< minimum bound in  vertical wavenumber (1/m)
+
+!!$  LOGICAL  :: lfront        !< true: compute gw sources emerging from fronts and background
+!!$                            !< (Charron and Manzini, 2002)
+!!$  REAL(wp) :: rms_front     !< rms frontal gw wind at source level  (m/s)
+!!$  REAL(wp) :: front_thres   !< minimum value of the frontogenesis function, for which
+!!$                            !< gravity waves are emitted from fronts [(K/m)^2/hour]
+!!$
+!!$  LOGICAL  :: lozpr         !< true: for background enhancement associated with precipitation
+!!$                            !< (Manzini et al., 1997)
+!!$  REAL(wp) :: pcrit         !< critical precipitation value (mm/d), above which 
+!!$                            !< gravity wave rms wind enhancement is applied
+!!$  REAL(wp) :: pcons         !< adimensional factor for background enhancement 
+!!$                            !< associated with precipitation
+!!$
+!!$  LOGICAL  :: lrmscon_lat   !< true:   use latitude dependent rmscon as defined
+!!$                            !< through rmscon_lo, rmscon_hi, lat_rmscon_lo, and lat_rmscon_hi
+!!$                            !< false:  use uniform rmscon
+!!$                            !< attention: may be overwritten if lfront or lozpr is true
+!!$  REAL(wp) :: lat_rmscon_lo !< rmscon_lo is used equatorward of this latitude (degN)
+!!$  REAL(wp) :: lat_rmscon_hi !< rmscon_hi is used poleward of this latitude (degN)
+!!$  REAL(wp) :: rmscon_lo     !< rmscon used equatorward of lat_rmscon_lo
+!!$  REAL(wp) :: rmscon_hi     !< rmscon used poleward of lat_rmscon_hi
+
+
+NAMELIST /gw_hines_nml/ &
+  & lheatcal, rmscon, emiss_lev, kstar, m_min !!$,                    &
+!!$  & lfront, rms_front, front_thres,                                &
+!!$  & lozpr, pcrit, pcons,                                           &
+!!$  & lrmscon_lat, lat_rmscon_lo, lat_rmscon_hi, rmscon_lo, rmscon_hi
+
+CONTAINS
+!-------------------------------------------------------------------------
+!
+!-------------------------------------------------------------------------
+!
+!
+!>
+!!   Set Hines parameterization for atmospheric gravity waves
+!!
+!!
+!! @par Revision History
+!!   Revision History in mo_echam_vdiff_params (r4300)
+!!   Modification by Constantin Junk, MPI-M (2011-05-05)
+!!   - renamed setup_vdiff to echam_vdiff_nml_setup
+!!
+
+  SUBROUTINE gw_hines_nml_setup
+
+    INTEGER :: ist
+
+    lheatcal = .TRUE.
+
+    emiss_lev = 10          ! is correct for L31 and L47
+    rmscon    = 1.0_wp      ! default value used in ECHAM5
+    kstar     = 5.0e-5_wp   ! = 2*pi/(126000 m)
+    m_min     = 0.0_wp
+
+
+    ! Read namelist (every CPU does this)
+
+    CALL position_nml('gw_hines_nml',status=ist)
+    SELECT CASE (ist)
+    CASE (POSITIONED)
+      READ (nnml, gw_hines_nml)
+    END SELECT
+
+    ! Check validity; send values to stdout
+
+    CALL message('','')
+    CALL message('','------- namelist gw_hines_nml --------')
+
+    CALL print_value(' lheatcal  ',lheatcal )
+    CALL print_value(' emiss_lev ',emiss_lev)
+    CALL print_value(' rmscon    ',rmscon   )
+    CALL print_value(' kstar     ',kstar    )
+    CALL print_value(' m_min     ',m_min    )
+
+    CALL message('','--------------------------------------')
+    CALL message('','')
+
+  END SUBROUTINE gw_hines_nml_setup
+
+END MODULE mo_gw_hines_nml

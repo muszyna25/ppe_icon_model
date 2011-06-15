@@ -64,6 +64,7 @@ MODULE mo_timer
   PUBLIC :: timer_cover, timer_cloud
   PUBLIC :: timer_cucall
   PUBLIC :: timer_vdiff
+  PUBLIC :: timer_gw_hines
   PUBLIC :: timer_echam_phy
   PUBLIC :: timer_dyn2phy, timer_phy2dyn
   
@@ -138,6 +139,7 @@ MODULE mo_timer
   INTEGER :: timer_radheat
   INTEGER :: timer_cucall
   INTEGER :: timer_vdiff
+  INTEGER :: timer_gw_hines
   INTEGER :: timer_echam_phy
 
   ! Timer ID's for physics-dynamics coupling
@@ -201,11 +203,9 @@ CONTAINS
 
     timer_cover     = new_timer("cover")
     timer_cloud     = new_timer("cloud")
-
-    timer_radheat   = new_timer("radheat")
-
     timer_cucall    = new_timer("cucall")
     timer_vdiff     = new_timer("vdiff")
+    timer_gw_hines  = new_timer("gw_hines")
     timer_echam_phy = new_timer("echam_phy")
     timer_dyn2phy   = new_timer("dyn2phy")
     timer_phy2dyn   = new_timer("phy2dyn")

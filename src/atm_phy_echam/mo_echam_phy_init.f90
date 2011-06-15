@@ -394,6 +394,10 @@ CONTAINS
       tend%    u_vdf(:,:,:)   = 0._wp
       tend%    v_vdf(:,:,:)   = 0._wp
 
+      tend% temp_gwh(:,:,:)   = 0._wp
+      tend%    u_gwh(:,:,:)   = 0._wp
+      tend%    v_gwh(:,:,:)   = 0._wp
+
 !!$      field% debug_2d_1(:,  :) = 0.0_wp
 !!$      field% debug_2d_2(:,  :) = 0.0_wp
 !!$      field% debug_2d_3(:,  :) = 0.0_wp

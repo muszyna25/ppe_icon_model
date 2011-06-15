@@ -61,14 +61,14 @@ MODULE mo_echam_phy_nml
   LOGICAL :: llandsurf = .FALSE.  !<  .true. for surface exchanges. (lsurf in ECHAM6)
   LOGICAL :: lssodrag  = .FALSE.  !<  .true. for subgrid scale orographic drag,
   !                                    by blocking and gravity waves (lgwdrag in ECHAM6)
-  LOGICAL :: lagwdrag  = .FALSE.  !<  .true. for atmospheric gravity wave drag
+  LOGICAL :: lgw_hines  = .FALSE. !<  .true. for atmospheric gravity wave drag
   LOGICAL :: lice      = .FALSE.  !<  .true. for sea-ice temperature calculation
   LOGICAL :: lmeltpond = .FALSE.  !<  .true. for calculation of meltponds
   LOGICAL :: lmlo      = .FALSE.  !<  .true. for mixed layer ocean
   LOGICAL :: lhd       = .FALSE.  !<  .true. for hydrologic discharge model
   LOGICAL :: lmidatm   = .FALSE.  !<  .true. for middle atmosphere model version
 
-  NAMELIST /echam_phy_nml/ lrad, lvdiff, lconv, lcond, lcover, lssodrag, lagwdrag, &
+  NAMELIST /echam_phy_nml/ lrad, lvdiff, lconv, lcond, lcover, lssodrag, lgw_hines, &
     &                      llandsurf, lice, lmeltpond, lmlo, lhd, lmidatm
 
 CONTAINS

@@ -40,13 +40,15 @@
 MODULE mo_echam_phy_setup
 
   USE mo_exception,          ONLY: message, finish, print_value
-  USE mo_echam_phy_nml,      ONLY: read_echam_phy_nml, echam_phy_nml,    &
-    &                              lrad, lconv, lvdiff, lssodrag,        &
+  USE mo_echam_phy_nml,      ONLY: read_echam_phy_nml, echam_phy_nml,     &
+    &                              lrad, lconv, lvdiff,                   &
+    &                              lssodrag, lgw_hines,                   &
     &                              llandsurf, lice, lmeltpond, lhd, lmlo
   USE mo_radiation_nml,      ONLY: radiation_nml, read_radiation_nml, irad_o3
   USE mo_echam_conv_nml,     ONLY: echam_conv_ctl, echam_conv_nml_setup
   USE mo_run_nml,            ONLY: ltestcase, ntracer, io3
   USE mo_echam_vdiff_nml,    ONLY: echam_vdiff_ctl, echam_vdiff_nml_setup
+  USE mo_gw_hines_nml,       ONLY: gw_hines_nml, gw_hines_nml_setup
   USE mo_hydro_testcases,    ONLY: ctest_name
   USE mo_io_units,           ONLY: nnml_output
   USE mo_mpi,                ONLY: p_pe, p_io
@@ -70,11 +72,12 @@ CONTAINS
 
     ! Read and check process namelists dependent on echam_phy_nml
 
-    IF (lrad)   CALL read_radiation_nml
-    IF (lconv)  CALL echam_conv_nml_setup
-    IF (lvdiff) CALL echam_vdiff_nml_setup
-!!$ IF (lcond)  CALL setup_cloud
-!!$ IF (lmlo)   CALL setup_mixlayer_ocean
+    IF (lrad)      CALL read_radiation_nml
+    IF (lconv)     CALL echam_conv_nml_setup
+    IF (lvdiff)    CALL echam_vdiff_nml_setup
+    IF (lgw_hines) CALL gw_hines_nml_setup
+!!$ IF (lcond)     CALL setup_cloud
+!!$ IF (lmlo)      CALL setup_mixlayer_ocean
 
     ! Check whether echam_phy_nml is properly set for test cases;
     ! Check whether the process namelists are consistent with
@@ -86,9 +89,10 @@ CONTAINS
 
     IF (p_pe == p_io) THEN
       WRITE(nnml_output,nml=echam_phy_nml)
-      IF (lrad)   WRITE(nnml_output,nml=radiation_nml)
-      IF (lconv)  WRITE(nnml_output,nml=echam_conv_ctl)
-      IF (lvdiff) WRITE(nnml_output,nml=echam_vdiff_ctl)
+      IF (lrad)      WRITE(nnml_output,nml=radiation_nml)
+      IF (lconv)     WRITE(nnml_output,nml=echam_conv_ctl)
+      IF (lvdiff)    WRITE(nnml_output,nml=echam_vdiff_ctl)
+      IF (lgw_hines) WRITE(nnml_output,nml=gw_hines_nml)
     END IF
 
   END SUBROUTINE setup_echam_phy
@@ -157,4 +161,3 @@ CONTAINS
   !-------------
 
 END MODULE mo_echam_phy_setup
-

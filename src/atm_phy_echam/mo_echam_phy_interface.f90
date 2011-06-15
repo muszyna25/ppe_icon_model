@@ -41,7 +41,7 @@ MODULE mo_echam_phy_interface
   USE mo_datetime,          ONLY: t_datetime, print_datetime, add_time
   USE mo_math_constants,    ONLY: pi
   USE mo_model_domain,      ONLY: t_patch
-  USE mo_echam_phy_nml,     ONLY: lconv, lvdiff, lrad
+  USE mo_echam_phy_nml,     ONLY: lconv, lvdiff, lrad, lgw_hines
   USE mo_echam_phy_memory,  ONLY: prm_field, prm_tend
   USE mo_icoham_dyn_types,  ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_interpolation,     ONLY: t_int_state, rbf_vec_interpol_cell, & 
@@ -327,7 +327,7 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-    lany_uv_tend = lconv.OR.lvdiff  !.OR.lssodrag.OR.lagwdrag
+    lany_uv_tend = lconv.OR.lvdiff.OR.lgw_hines !.OR.lssodrag
     IF (lany_uv_tend) THEN
 
       ! Accumulate wind tendencies contributed by various parameterized processes.
@@ -339,9 +339,11 @@ CONTAINS
         CALL get_indices_c(p_patch, jb,jbs,nblks, jcs,jce, grf_bdywidth_c+1)
 
         zdudt(jcs:jce,:,jb) =   prm_tend(jg)% u_cnv(jcs:jce,:,jb) &
-                            & + prm_tend(jg)% u_vdf(jcs:jce,:,jb)
+                            & + prm_tend(jg)% u_vdf(jcs:jce,:,jb) &
+                            & + prm_tend(jg)% u_gwh(jcs:jce,:,jb)
         zdvdt(jcs:jce,:,jb) =   prm_tend(jg)% v_cnv(jcs:jce,:,jb) &
-                            & + prm_tend(jg)% v_vdf(jcs:jce,:,jb)
+                            & + prm_tend(jg)% v_vdf(jcs:jce,:,jb) &
+                            & + prm_tend(jg)% v_gwh(jcs:jce,:,jb)
       ENDDO
 !$OMP END PARALLEL DO
 

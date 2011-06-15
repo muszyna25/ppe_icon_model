@@ -596,6 +596,7 @@ run/exp.hat_heldsuarez -text
 run/exp.hat_icoham_ape -text
 run/exp.hat_jww -text
 run/exp.hat_jww-moist_cld-cnv-vdf -text
+run/exp.hat_jww-moist_cld-cnv-vdf-gwh -text
 run/exp.hat_jww_echam -text
 run/exp.iconrun -text
 run/exp.nah_jww -text
@@ -888,6 +889,7 @@ src/atm_phy_echam/mo_echam_phy_main.f90 -text
 src/atm_phy_echam/mo_echam_phy_memory.f90 -text
 src/atm_phy_echam/mo_echam_phy_setup.f90 -text
 src/atm_phy_echam/mo_echam_vdiff_params.f90 -text
+src/atm_phy_echam/mo_gw_hines.f90 -text
 src/atm_phy_echam/mo_icoham_sfc_indices.f90 -text
 src/atm_phy_echam/mo_surface.f90_off -text
 src/atm_phy_echam/mo_turbulence_diag.f90 -text
@@ -1009,6 +1011,7 @@ src/namelists/mo_echam_vdiff_nml.f90 -text
 src/namelists/mo_global_variables.f90 -text
 src/namelists/mo_grid_nml.f90 -text
 src/namelists/mo_gridref_nml.f90 -text
+src/namelists/mo_gw_hines_nml.f90 -text
 src/namelists/mo_interpol_nml.f90 -text
 src/namelists/mo_io_nml.f90 -text
 src/namelists/mo_lnd_nwp_nml.f90 -text
