@@ -573,9 +573,9 @@ CONTAINS
         !
         DO ia = 1, nmls
           status = vlistDefAttTxt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL, &
-               &                  TRIM(restart_namelist(i)%name),        &
-               &                  LEN_TRIM(restart_namelist(i)%text),    &
-               &                  TRIM(restart_namelist(i)%text))
+               &                  TRIM(restart_namelist(ia)%name),       &
+               &                  LEN_TRIM(restart_namelist(ia)%text),   &
+               &                  TRIM(restart_namelist(ia)%text))
         ENDDO
         !
         ! 2.2 text attributes
