@@ -44,10 +44,13 @@ MODULE mo_gridref_nml
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_exception,           ONLY: message, finish
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
+! USE mo_master_nml,          ONLY: lrestart
   USE mo_model_domain_import, ONLY: n_dom
   USE mo_namelist,            ONLY: position_nml, POSITIONED
   USE mo_run_nml,             ONLY: lshallow_water
   USE mo_mpi,                 ONLY: p_pe, p_io
+  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist !,   &
+!                                & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
 
@@ -112,9 +115,8 @@ CONTAINS
 !!  - renamed setup_gridref to gridref_nml_setup
 !!
 SUBROUTINE gridref_nml_setup
-!
-  ! !local variables
-  INTEGER :: i_status
+
+  INTEGER :: istat, funit
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = 'mo_gridref_nml:setup_gridref'
 
@@ -163,16 +165,35 @@ SUBROUTINE gridref_nml_setup
     denom_diffu_v = 200._wp
   ENDIF
 
-  !------------------------------------------------------------
-  !     Read the namelist
-  !------------------------------------------------------------
-  ! (done so far by all MPI processes)
+    !----------------------------------------------------------------
+    ! If this is a resumed integration, overwrite the defaults above 
+    ! by values in the previous integration.
+    !----------------------------------------------------------------
+!   IF (lrestart) THEN
+!     funit = open_and_restore_namelist('gridref_ctl')
+!     READ(funit,NML=gridref_ctl)
+!     CALL close_tmpfile(funit)
+!    ! for testing
+!     WRITE (0,*) 'contents of namelist ...'
+!     WRITE (0,NML=gridref_ctl)
+!   END IF
 
-  CALL position_nml ('gridref_ctl', status=i_status)
-  SELECT CASE (i_status)
-  CASE (POSITIONED)
-    READ (nnml, gridref_ctl)
-  END SELECT
+    !--------------------------------------------------------------------
+    ! Read user's (new) specifications (Done so far by all MPI processes)
+    !--------------------------------------------------------------------
+    CALL position_nml ('gridref_ctl', STATUS=istat)
+    SELECT CASE (istat)
+    CASE (POSITIONED)
+      READ (nnml, gridref_ctl)
+    END SELECT
+
+    !-----------------------------------------------------
+    ! Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=gridref_ctl)                                                             
+    CALL store_and_close_namelist(funit, 'gridref_ctl')                                      
+    write(0,*) 'stored gridref_ctl'
 
   ! write the contents of the namelist to an ASCII file
   

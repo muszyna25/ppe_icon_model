@@ -47,10 +47,13 @@ MODULE mo_diffusion_nml
   USE mo_physical_constants,  ONLY: grav
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, positioned
+! USE mo_master_nml,          ONLY: lrestart
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_run_nml,             ONLY: lshallow_water,i_cell_type,nlev, &
                                   & latmosphere, lhydrostatic
   USE mo_vertical_coord_table,ONLY: vct_a, vct_b, apzero
+  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist !,   &
+!                                & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
@@ -124,7 +127,7 @@ MODULE mo_diffusion_nml
    INTEGER, INTENT(IN) :: parent_id(max_dom-1) !< list of parent ID's
    INTEGER, INTENT(IN) :: i_ndom !< dimension for time level variables
 
-   INTEGER  :: i_status, jg, ist, jk
+   INTEGER  :: istat, jg, ist, jk, funit
    REAL(wp) :: zpres(nlev+1)
 
    CHARACTER(len=max_char_length), PARAMETER :: &
@@ -146,19 +149,27 @@ MODULE mo_diffusion_nml
    k2_pres_max = -99.0_wp                                                    
    k2_klev_max = 0
 
-   !------------------------------------------------------------
-   ! 2.0 Read the namelist to evaluate if a restart file shall
-   !     be used to configure and initialize the model, and if
-   !     so take read the dynamics_ctl parameters from the restart
-   !     file.
-   !------------------------------------------------------------
-   ! (done so far by all MPI processes)
+    !----------------------------------------------------------------
+    ! If this is a resumed integration, overwrite the defaults above 
+    ! by values in the previous integration.
+    !----------------------------------------------------------------
+!   IF (lrestart) THEN
+!     funit = open_and_restore_namelist('diffusion_ctl')
+!     READ(funit,NML=diffusion_ctl)
+!     CALL close_tmpfile(funit)
+!    ! for testing
+!     WRITE (0,*) 'contents of namelist ...'
+!     WRITE (0,NML=diffusion_ctl)
+!   END IF
 
-   CALL position_nml ('diffusion_ctl', status=i_status)
-   SELECT CASE (i_status)
-   CASE (positioned)
-     READ (nnml, diffusion_ctl)
-   END SELECT
+    !--------------------------------------------------------------------
+    ! Read user's (new) specifications (Done so far by all MPI processes)
+    !--------------------------------------------------------------------
+    CALL position_nml ('diffusion_ctl', status=istat)
+    SELECT CASE (istat)
+    CASE (POSITIONED)
+      READ (nnml, diffusion_ctl)
+    END SELECT
 
    !------------------------------------------------------------
    ! 4.0 check the consistency of the parameters
@@ -269,6 +280,14 @@ MODULE mo_diffusion_nml
 
     END IF ! hdiff_order==24.OR.hdiff_order==42
 
+    !-----------------------------------------------------
+    ! Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=diffusion_ctl)
+    CALL store_and_close_namelist(funit, 'diffusion_ctl')
+    write(0,*) 'stored diffusion_ctl'
+
     ! Write the contents of the namelist to an ASCII file
     IF(p_pe == p_io) WRITE(nnml_output,nml=diffusion_ctl)
 
@@ -298,45 +317,3 @@ MODULE mo_diffusion_nml
   END SUBROUTINE diffusion_nml_setup
   !-------------
 END MODULE mo_diffusion_nml
-
-!!$  !>
-!!$  !! "read_restart_radiation_nml" reads the parameters of the radiation
-!!$  !! namelist from the global attributes of a restart file in netcdf format.
-!!$  !!
-!!$  !! @par Revision History
-!!$  !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
-!!$  !!
-!!$  SUBROUTINE read_restart_radiation_nml
-!!$
-!!$    CALL finish('mo_radiation_nml/read_restart_radiation_nml', &
-!!$      &         'This subroutine is not yet available')
-!!$
-!!$  END SUBROUTINE read_restart_radiation_nml
-!!$
-!!$  !>
-!!$  !! "write_restart_radiation_nml" writes the parameters of the radiation
-!!$  !! namelist as global attributes to a restart file in netcdf format.
-!!$  !!
-!!$  !! @par Revision History
-!!$  !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
-!!$  !!
-!!$  SUBROUTINE write_restart_radiation_nml
-!!$
-!!$    CALL finish('mo_radiation_nml/write_restart_radiation_nml', &
-!!$      &         'This subroutine is not yet available')
-!!$
-!!$  END SUBROUTINE write_restart_radiation_nml
-!!$
-!!$  !>
-!!$  !! "write_rawdata_radiation_nml" writes the parameters of the radiation
-!!$  !! namelist as global attributes to a raw data file in netcdf format.
-!!$  !!
-!!$  !! @par Revision History
-!!$  !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
-!!$  !!
-!!$  SUBROUTINE write_rawdata_radiation_nml
-!!$
-!!$    CALL finish('mo_radiation_nml/write_rawdata_radiation_nml', &
-!!$      &         'This subroutine is not yet available')
-!!$
-!!$  END SUBROUTINE write_rawdata_radiation_nml

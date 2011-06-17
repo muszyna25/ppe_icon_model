@@ -38,6 +38,7 @@ MODULE mo_parallel_nml
   USE mo_exception,          ONLY: message, finish
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, POSITIONED
+! USE mo_master_nml,         ONLY: lrestart
   USE mo_run_nml,            ONLY: lrestore_states
   USE mo_mpi,                ONLY: p_pe, p_io, p_nprocs, p_all_comm
 #ifndef NOMPI
@@ -47,6 +48,8 @@ MODULE mo_parallel_nml
 #else
   USE mo_mpi,                ONLY:  p_comm_work, p_comm_work_test
 #endif
+  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist !,   &
+!                                & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
 
@@ -171,37 +174,38 @@ MODULE mo_parallel_nml
        &    pio_type, itype_comm, iorder_sendrecv
 
   CONTAINS
-!-------------------------------------------------------------------------
-!-------------------------------------------------------------------------
-!
-!
+  !>
+  !!
+  !! @par Revision History
+  !! Initial version by Rainer Johanni, Nov 2009
+  !! Adapted for I/O PEs, Rainer Johanni, Nov 2010
+  !!
+  SUBROUTINE parallel_nml_setup
 
-!>
-!!               Initialization of variables for parallel run.
-!!
-!!
-!! @par Revision History
-!! Initial version by Rainer Johanni, Nov 2009
-!! Adapted for I/O PEs, Rainer Johanni, Nov 2010
-!!
-SUBROUTINE parallel_nml_setup
-!
-! !local variable
-  INTEGER :: i_status, my_color, peer_comm, p_error
+    INTEGER :: istat, my_color, peer_comm, p_error
+    INTEGER :: funit
 
-!-----------------------------------------------------------------------
-   
-  !------------------------------------------------------------
-  ! 2.0 Read the namelist
-  !------------------------------------------------------------
+    !----------------------------------------------------------------
+    ! If this is a resumed integration, overwrite the defaults above
+    ! by values in the previous integration.
+    !----------------------------------------------------------------
+!   IF (lrestart) THEN
+!     funit = open_and_restore_namelist('parallel_ctl')
+!     READ(funit,NML=parallel_ctl)
+!     CALL close_tmpfile(funit)
+!    ! for testing
+!     WRITE (0,*) 'contents of namelist ...'
+!     WRITE (0,NML=parallel_ctl)
+!   END IF
 
-  CALL position_nml ('parallel_ctl', status=i_status)
-  SELECT CASE (i_status)
-  CASE (POSITIONED)
-    READ (nnml, parallel_ctl)
-  END SELECT
-
-!-----------------------------------------------------------------------
+    !--------------------------------------------------------------------
+    ! Read user's (new) specifications (Done so far by all MPI processes) 
+    !--------------------------------------------------------------------
+    CALL position_nml ('parallel_ctl', STATUS=istat)
+    SELECT CASE (istat)
+    CASE (POSITIONED)
+      READ (nnml, parallel_ctl)
+    END SELECT
 
   !------------------------------------------------------------
   ! 3.0 check the consistency of the parameters
@@ -276,11 +280,16 @@ SUBROUTINE parallel_nml_setup
 
   ! no checks for l_fast_sum
 
-!-----------------------------------------------------------------------
+    !-----------------------------------------------------
+    ! Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=parallel_ctl)
+    CALL store_and_close_namelist(funit, 'parallel_ctl')
+    write(0,*) 'stored parallel_ctl'
 
-  ! write the final namelist to an ASCII file
-  ! -----------------------------------------
-  IF (p_pe == p_io) WRITE(nnml_output,nml=parallel_ctl)
+    ! Write the final namelist to an ASCII file
+    IF (p_pe == p_io) WRITE(nnml_output,nml=parallel_ctl)
 
 !-----------------------------------------------------------------------
 

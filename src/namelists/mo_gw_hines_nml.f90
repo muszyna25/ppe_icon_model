@@ -41,6 +41,9 @@ MODULE mo_gw_hines_nml
   USE mo_io_units,   ONLY: nnml
   USE mo_exception,  ONLY: message, print_value
   USE mo_namelist,   ONLY: position_nml, POSITIONED
+! USE mo_master_nml, ONLY: lrestart
+  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist !,   &                                             
+!                                & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
 
@@ -98,24 +101,17 @@ NAMELIST /gw_hines_nml/ &
 !!$  & lrmscon_lat, lat_rmscon_lo, lat_rmscon_hi, rmscon_lo, rmscon_hi
 
 CONTAINS
-!-------------------------------------------------------------------------
-!
-!-------------------------------------------------------------------------
-!
-!
-!>
-!!   Set Hines parameterization for atmospheric gravity waves
-!!
-!!
-!! @par Revision History
-!!   Revision History in mo_echam_vdiff_params (r4300)
-!!   Modification by Constantin Junk, MPI-M (2011-05-05)
-!!   - renamed setup_vdiff to echam_vdiff_nml_setup
-!!
-
+  !>
+  !! Set Hines parameterization for atmospheric gravity waves
+  !!
+  !! @par Revision History
+  !!   Revision History in mo_echam_vdiff_params (r4300)
+  !!   Modification by Constantin Junk, MPI-M (2011-05-05)
+  !!   - renamed setup_vdiff to echam_vdiff_nml_setup
+  !!
   SUBROUTINE gw_hines_nml_setup
 
-    INTEGER :: ist
+    INTEGER :: ist, funit
 
     lheatcal = .TRUE.
 
@@ -124,10 +120,23 @@ CONTAINS
     kstar     = 5.0e-5_wp   ! = 2*pi/(126000 m)
     m_min     = 0.0_wp
 
-
-    ! Read namelist (every CPU does this)
-
-    CALL position_nml('gw_hines_nml',status=ist)
+    !----------------------------------------------------------------
+    ! If this is a resumed integration, overwrite the defaults above
+    ! by values used in the previous integration.
+    !----------------------------------------------------------------
+!   IF (lrestart) THEN
+!     funit = open_and_restore_namelist('gw_hines_nml')
+!     READ(funit,NML=gw_hines_nml)
+!     CALL close_tmpfile(funit)
+!    ! for testing
+!     WRITE (0,*) 'contents of namelist ...'
+!     WRITE (0,NML=gw_hines_nml)
+!   END IF
+                                                                                          
+    !--------------------------------------------------------------------                 
+    ! Read user's (new) specifications (Done so far by all MPI processes)                 
+    !--------------------------------------------------------------------
+    CALL position_nml('gw_hines_nml',STATUS=ist)
     SELECT CASE (ist)
     CASE (POSITIONED)
       READ (nnml, gw_hines_nml)
@@ -146,6 +155,14 @@ CONTAINS
 
     CALL message('','--------------------------------------')
     CALL message('','')
+
+    !-----------------------------------------------------                                
+    ! Store the namelist for restart                                                      
+    !-----------------------------------------------------                                
+    funit = open_tmpfile()                                                                
+    WRITE(funit,NML=gw_hines_nml)                                                             
+    CALL store_and_close_namelist(funit, 'gw_hines_nml')                                      
+    write(0,*) 'stored gw_hines_nml'
 
   END SUBROUTINE gw_hines_nml_setup
 

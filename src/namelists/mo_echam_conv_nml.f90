@@ -49,6 +49,9 @@ MODULE mo_echam_conv_nml
   USE mo_run_nml,             ONLY: nlev,nlevp1,nvclev
   USE mo_physical_constants,  ONLY: grav
   USE mo_vertical_coord_table,ONLY: vct,ceta
+! USE mo_master_nml,          ONLY: lrestart
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist !,   &                                             
+!                                 & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
   PRIVATE
@@ -118,20 +121,19 @@ MODULE mo_echam_conv_nml
     &                      entrpen, entrmid,entrscv,entrdd,dlev
 
 CONTAINS
- !>
- !!  Initialization of the convection namelist
- !!
- !!
- !! @par Revision History
- !! Modification by Constantin Junk, MPI-M (2011-05-11)
- !! - included subroutine cuparam in setup_convection
- !! - renamed setup_convection echam_conv_nml_setup
- !!
+  !>
+  !! Initialization of the convection namelist
+  !!
+  !! @par Revision History
+  !! Modification by Constantin Junk, MPI-M (2011-05-11)
+  !! - included subroutine cuparam in setup_convection
+  !! - renamed setup_convection echam_conv_nml_setup
+  !!
   SUBROUTINE echam_conv_nml_setup
 
     REAL(wp) :: za, zb
     REAL(wp) :: zp(nlev), zph(nlevp1)
-    INTEGER  :: jk, ist
+    INTEGER  :: jk, ist, funit
 
     !------------------------------------------------------------
     ! set up the default values for echam_conv_ctl
@@ -165,12 +167,20 @@ CONTAINS
     cbfac      = 1.0_wp
     centrmax   = 3.E-4_wp
 
-    !------------------------------------------------------------
-    ! Read the namelist
-    !------------------------------------------------------------
-    ! (done so far by all MPI processes)
+    !----------------------------------------------------------------
+    ! If this is a resumed integration, overwrite the defaults above
+    ! by values in the previous integration.
+    !----------------------------------------------------------------
+!   IF (lrestart) THEN
+!     funit = open_and_restore_namelist('echam_conv_ctl')
+!     READ(funit,NML=echam_conv_ctl)
+!     CALL close_tmpfile(funit)
+!    ! for testing
+!     WRITE (0,*) 'contents of namelist ...'
+!     WRITE (0,NML=echam_conv_ctl)
+!   END IF
 
-    CALL position_nml('echam_conv_ctl',status=ist)
+    CALL position_nml('echam_conv_ctl',STATUS=ist)
     SELECT CASE (ist)
     CASE (POSITIONED)
       READ (nnml, echam_conv_ctl)
@@ -179,7 +189,6 @@ CONTAINS
     !------------------------------------------------------------
     ! check the consistency of the parameters
     !------------------------------------------------------------
-
     CALL message('','')
     CALL message('','------- namelist echam_conv_ctl --------')
 
@@ -233,6 +242,14 @@ CONTAINS
     CALL message('','---------------------------')
     CALL message('','')
 
+    !-----------------------------------------------------
+    ! Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=echam_conv_ctl)
+    CALL store_and_close_namelist(funit, 'echam_conv_ctl')
+    write(0,*) 'stored echam_conv_ctl'
+
     !------------------------------------------------------------
     ! CJ: calculations from the former cuparam subroutine
     !------------------------------------------------------------
@@ -276,6 +293,8 @@ CONTAINS
 
   END SUBROUTINE echam_conv_nml_setup
   !------------
+  !>
+  !!
   SUBROUTINE cleanup_cuparam
 
     INTEGER :: ist

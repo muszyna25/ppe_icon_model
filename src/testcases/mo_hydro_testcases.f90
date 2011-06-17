@@ -71,6 +71,9 @@ MODULE mo_hydro_testcases
   USE mo_impl_constants,  ONLY: SUCCESS, MAX_CHAR_LENGTH, TRACER_ONLY
   USE mo_io_units,        ONLY: nnml, nnml_output
   USE mo_namelist,        ONLY: position_nml, POSITIONED
+! USE mo_master_nml,      ONLY: lrestart
+  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist !,   &
+!                                & open_and_restore_namelist, close_tmpfile
   USE mo_model_domain,    ONLY: t_patch
   USE mo_ext_data,        ONLY: ext_data
   USE mo_model_domain_import,ONLY: n_dom
@@ -171,7 +174,7 @@ MODULE mo_hydro_testcases
  SUBROUTINE setup_testcase
 !
 ! !local variable
-   INTEGER :: i_status
+   INTEGER :: istat, funit
    INTEGER :: nlev            !< number of full levels
 
    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = &
@@ -220,47 +223,45 @@ MODULE mo_hydro_testcases
    ildf_init_type     = 0      ! isothermal atmosphere at rest
    ldf_symm           = .TRUE. ! forcing symmetric about the equator
 
-! read namelist
+    !----------------------------------------------------------------
+    ! If this is a resumed integration, overwrite the defaults above
+    ! by values in the previous integration.
+    !----------------------------------------------------------------
+!   IF (lrestart) THEN
+!     funit = open_and_restore_namelist('testcase_ctl')
+!     READ(funit,NML=testcase_ctl)
+!     CALL close_tmpfile(funit)
+!    ! for testing
+!     WRITE (0,*) 'contents of namelist ...'
+!     WRITE (0,NML=testcase_ctl)
+!   END IF
 
-   CALL position_nml ('testcase_ctl', status=i_status)
-   SELECT CASE (i_status)
-   CASE (POSITIONED)
-     READ (nnml, testcase_ctl)
-   END SELECT
+    !--------------------------------------------------------------------
+    ! Read user's (new) specifications (Done so far by all MPI processes)
+    !--------------------------------------------------------------------
 
-   IF ((TRIM(ctest_name)=='GW') .AND. (nlev /= 20)) THEN
-     CALL finish(TRIM(routine),'nlev MUST be 20 for the gravity-wave test case')
-   ENDIF
-   IF ((TRIM(ctest_name)/='GW') .AND. (nlev == 20)) THEN
-     CALL finish(TRIM(routine),'nlev=20 is allowed ONLY for the gravity-wave test case')
-   ENDIF
-   IF ((TRIM(ctest_name)=='SV') .AND. ntracer /= 2 ) THEN
-     CALL finish(TRIM(routine), &
-       & 'ntracer MUST be 2 for the stationary vortex test case')
-   ENDIF 
-   IF ((TRIM(ctest_name)=='DF1') .AND. ntracer == 1 ) THEN
-     CALL finish(TRIM(routine), &
-       & 'ntracer MUST be >=2 for the deformational flow test case 1')
-   ENDIF 
-   IF ((TRIM(ctest_name)=='DF2') .AND. ntracer == 1 ) THEN
-     CALL finish(TRIM(routine), &
-       & 'ntracer MUST be >=2 for the deformational flow test case 2')
-   ENDIF 
-   IF ((TRIM(ctest_name)=='DF3') .AND. ntracer == 1 ) THEN
-     CALL finish(TRIM(routine), &
-       & 'ntracer MUST be >=2 for the deformational flow test case 3')
-   ENDIF 
-   IF ((TRIM(ctest_name)=='DF4') .AND. ntracer == 1 ) THEN
-     CALL finish(TRIM(routine), &
-       & 'ntracer MUST be >=2 for the deformational flow test case 4')
-   ENDIF     
+    CALL position_nml ('testcase_ctl', STATUS=istat)
+    SELECT CASE (istat)
+    CASE (POSITIONED)
+      READ (nnml, testcase_ctl)
+    END SELECT
 
+    !-----------------------------------------------------
+    ! Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=testcase_ctl)
+    CALL store_and_close_namelist(funit, 'testcase_ctl')
+    write(0,*) 'stored testcase_ctl'
 
-! write the contents of the namelist to an ASCII file
+    ! Write the contents of the namelist to an ASCII file.
+    ! Probably will be removed later.
 
-   IF(p_pe == p_io) WRITE(nnml_output,nml=testcase_ctl)
+    IF(p_pe == p_io) WRITE(nnml_output,nml=testcase_ctl)
 
 
+   !---------------------------------------------------------------------------
+   !---------------------------------------------------------------------------
    IF (.NOT. lshallow_water) THEN
 
       SELECT CASE (TRIM(ctest_name))
@@ -339,10 +340,41 @@ MODULE mo_hydro_testcases
         CALL message(TRIM(routine),'running the Pure 2D-Advection test.')
       CASE default
         CALL finish(TRIM(routine),'unknown choice of CTEST_NAME')
-
       END SELECT
 
    ENDIF
+
+   !---------------------------------------------------------------------------
+   ! Cross-check (should be moved somewhere else)
+   !---------------------------------------------------------------------------
+
+   IF ((TRIM(ctest_name)=='GW') .AND. (nlev /= 20)) THEN
+     CALL finish(TRIM(routine),'nlev MUST be 20 for the gravity-wave test case')
+   ENDIF
+   IF ((TRIM(ctest_name)/='GW') .AND. (nlev == 20)) THEN
+     CALL finish(TRIM(routine),'nlev=20 is allowed ONLY for the gravity-wave test case')
+   ENDIF
+   IF ((TRIM(ctest_name)=='SV') .AND. ntracer /= 2 ) THEN
+     CALL finish(TRIM(routine), &
+       & 'ntracer MUST be 2 for the stationary vortex test case')
+   ENDIF 
+   IF ((TRIM(ctest_name)=='DF1') .AND. ntracer == 1 ) THEN
+     CALL finish(TRIM(routine), &
+       & 'ntracer MUST be >=2 for the deformational flow test case 1')
+   ENDIF 
+   IF ((TRIM(ctest_name)=='DF2') .AND. ntracer == 1 ) THEN
+     CALL finish(TRIM(routine), &
+       & 'ntracer MUST be >=2 for the deformational flow test case 2')
+   ENDIF 
+   IF ((TRIM(ctest_name)=='DF3') .AND. ntracer == 1 ) THEN
+     CALL finish(TRIM(routine), &
+       & 'ntracer MUST be >=2 for the deformational flow test case 3')
+   ENDIF 
+   IF ((TRIM(ctest_name)=='DF4') .AND. ntracer == 1 ) THEN
+     CALL finish(TRIM(routine), &
+       & 'ntracer MUST be >=2 for the deformational flow test case 4')
+   ENDIF     
+
 
 END SUBROUTINE setup_testcase
 !-------------------------------------------------------------------------

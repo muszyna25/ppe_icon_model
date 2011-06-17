@@ -40,6 +40,9 @@ MODULE mo_echam_vdiff_nml
   USE mo_io_units,            ONLY: nnml
   USE mo_exception,           ONLY: message, print_value
   USE mo_namelist,            ONLY: position_nml, POSITIONED
+! USE mo_master_nml,          ONLY: lrestart
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist !,   &                                             
+!                                 & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
 
@@ -50,9 +53,9 @@ MODULE mo_echam_vdiff_nml
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  !--------------------------------------!
-  ! echam_vdiff_nml namelist variables   !
-  !--------------------------------------!
+  !--------------------
+  ! namelist variables   
+  !--------------------
 
   LOGICAL,PUBLIC :: lsfc_mom_flux   !< switch on/off surface momentum flux
   LOGICAL,PUBLIC :: lsfc_heat_flux  !< switch on/off surface heat flux
@@ -60,34 +63,39 @@ MODULE mo_echam_vdiff_nml
 
   NAMELIST/echam_vdiff_ctl/ lsfc_mom_flux, lsfc_heat_flux
 
-
 CONTAINS
-!-------------------------------------------------------------------------
-!
-!-------------------------------------------------------------------------
-!
-!
-!>
-!!   Set up vertical diffusion
-!!
-!!
-!! @par Revision History
-!!   Revision History in mo_echam_vdiff_params (r4300)
-!!   Modification by Constantin Junk, MPI-M (2011-05-05)
-!!   - renamed setup_vdiff to echam_vdiff_nml_setup
-!!
-
+  !>
+  !! Set up vertical diffusion
+  !!
+  !! @par Revision History
+  !!   Revision History in mo_echam_vdiff_params (r4300)
+  !!   Modification by Constantin Junk, MPI-M (2011-05-05)
+  !!   - renamed setup_vdiff to echam_vdiff_nml_setup
+  !!
   SUBROUTINE echam_vdiff_nml_setup
 
-    INTEGER :: ist
-
+    INTEGER :: ist, funit
 
     lsfc_mom_flux  = .TRUE.
     lsfc_heat_flux = .TRUE.
 
-    ! Read namelist (every CPU does this)
+    !----------------------------------------------------------------
+    ! If this is a resumed integration, overwrite the defaults above 
+    ! by values in the previous integration.
+    !----------------------------------------------------------------
+!   IF (lrestart) THEN
+!     funit = open_and_restore_namelist('echam_vdiff_ctl')
+!     READ(funit,NML=echam_vdiff_ctl)
+!     CALL close_tmpfile(funit)
+!    ! for testing
+!     WRITE (0,*) 'contents of namelist ...'
+!     WRITE (0,NML=echam_vdiff_ctl)
+!   END IF
 
-    CALL position_nml('echam_vdiff_ctl',status=ist)
+    !---------------------------------------------------------------------
+    ! Read user's (new) specifications (Done so far by all MPI processes)
+    !---------------------------------------------------------------------
+    CALL position_nml('echam_vdiff_ctl',STATUS=ist)
     SELECT CASE (ist)
     CASE (POSITIONED)
       READ (nnml, echam_vdiff_ctl)
@@ -103,6 +111,14 @@ CONTAINS
 
     CALL message('','---------------------------')
     CALL message('','')
+
+    !-----------------------------------------------------
+    ! Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=echam_vdiff_ctl)
+    CALL store_and_close_namelist(funit, 'echam_vdiff_ctl')
+    write(0,*) 'stored echam_vdiff_ctl'
 
   END SUBROUTINE echam_vdiff_nml_setup
 

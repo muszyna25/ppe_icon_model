@@ -46,6 +46,7 @@ MODULE mo_advection_nml
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_io_units,            ONLY: nnml,nnml_output
+! USE mo_master_nml,          ONLY: lrestart
   USE mo_run_nml,             ONLY: ntracer, ntracer_static, num_lev, nlev, &
     &                               iequations, i_cell_type, iforcing,      &
     &                               inoforcing, iheldsuarez, iecham, inwp,  &
@@ -57,6 +58,8 @@ MODULE mo_advection_nml
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_radiation_nml,       ONLY: irad_o3
   USE mo_nonhydrostatic_nml,  ONLY: l_open_ubc, kstart_moist, kstart_qv
+  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist !,   &
+!                                & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
 
@@ -279,7 +282,7 @@ CONTAINS
   !!
   SUBROUTINE transport_nml_setup
     !
-    INTEGER :: i_status, i_listlen
+    INTEGER :: istat, i_listlen, funit
     INTEGER :: jt          !< tracer loop index
     INTEGER :: z_nogo(2)   !< for consistency check
 
@@ -315,16 +318,27 @@ CONTAINS
                                   ! =0.0 selects 4th order advection in up3
     llsq_svd        = .FALSE.     ! apply QR-decomposition
 
-    !
-    ! 2. read namelist
-    !
-    CALL position_nml ('transport_ctl', status=i_status)
-    SELECT CASE (i_status)
+    !----------------------------------------------------------------
+    ! If this is a resumed integration, overwrite the defaults above 
+    ! by values in the previous integration.
+    !----------------------------------------------------------------
+!   IF (lrestart) THEN
+!     funit = open_and_restore_namelist('transport_ctl')
+!     READ(funit,NML=transport_ctl)
+!     CALL close_tmpfile(funit)
+!    ! for testing
+!     WRITE (0,*) 'contents of namelist ...'
+!     WRITE (0,NML=transport_ctl)
+!   END IF
+
+    !--------------------------------------------------------------------
+    ! Read user's (new) specifications (Done so far by all MPI processes)
+    !--------------------------------------------------------------------
+    CALL position_nml ('transport_ctl', STATUS=istat)
+    SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, transport_ctl)
     END SELECT
-
-
 
     !
     ! 3. check consistency of NAMELIST-parameters
@@ -498,7 +512,13 @@ CONTAINS
       ENDIF
     ENDIF
 
-
+    !-----------------------------------------------------
+    ! Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=transport_ctl)                                                             
+    CALL store_and_close_namelist(funit, 'transport_ctl')                                      
+    write(0,*) 'stored transport_ctl'
     !    
     ! 4. write the contents of the namelist to an ASCII file
     !

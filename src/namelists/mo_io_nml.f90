@@ -60,6 +60,8 @@ MODULE mo_io_nml
   USE mo_run_nml,            ONLY: inwp,iecham,ltransport,dtime,ntracer,          &
     &                              iforcing,lshallow_water,iequations,            &
     &                              inextra_2d, inextra_3d,ildf_echam
+  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist !,   &
+!                                & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
 
@@ -143,11 +145,8 @@ MODULE mo_io_nml
 !!     - moved subroutine to new module mo_io_nml
 !!
 SUBROUTINE io_nml_setup
-!
-! !local variable
-  INTEGER :: i_status
 
-!-----------------------------------------------------------------------
+  INTEGER :: istat, funit
 
   !------------------------------------------------------------
   ! 3.0 set up the default values for run_ctl
@@ -199,19 +198,27 @@ SUBROUTINE io_nml_setup
     lwrite_extra     = .FALSE. 
   END SELECT
 
-  !------------------------------------------------------------
-  ! 4.0 Read the namelist to evaluate if a restart file shall
-  !     be used to configure and initialize the model, and if
-  !     so take read the run_ctl parameters from the restart
-  !     file.
-  !------------------------------------------------------------
-  ! (done so far by all MPI processes)
-
-  CALL position_nml ('io_ctl', status=i_status)
-  SELECT CASE (i_status)
-  CASE (positioned)
-     READ (nnml, io_ctl)
-  END SELECT
+    !----------------------------------------------------------------
+    ! If this is a resumed integration, overwrite the defaults above 
+    ! by values in the previous integration.
+    !----------------------------------------------------------------
+!   IF (lrestart) THEN
+!     funit = open_and_restore_namelist('io_ctl')
+!     READ(funit,NML=io_ctl)
+!     CALL close_tmpfile(funit)
+!    ! for testing
+!     WRITE (0,*) 'contents of namelist ...'
+!     WRITE (0,NML=io_ctl)
+!   END IF
+                                                                                          
+    !---------------------------------------------------------------------                 
+    ! Read user's (new) specifications (Done so far by all MPI processes)                 
+    !---------------------------------------------------------------------
+    CALL position_nml ('io_ctl', STATUS=istat)
+    SELECT CASE (istat)
+    CASE (positioned)
+       READ (nnml, io_ctl)
+    END SELECT
 
   IF (lshallow_water) THEN
      lwrite_z3     = .FALSE.
@@ -250,9 +257,6 @@ SUBROUTINE io_nml_setup
     ! Do nothing. Keep the initial values, if not specified in namelist.
   END SELECT
 
-
-!KF  This has to be moved to the module io_namelist
-
   IF (( inextra_2D > 0) .OR. (inextra_3D > 0) ) THEN 
      lwrite_extra = .TRUE.
        WRITE(message_text,'(a,2I4,a,L4)') &
@@ -263,53 +267,18 @@ SUBROUTINE io_nml_setup
    IF (inextra_2D == 0 .AND. inextra_3D == 0 .AND. lwrite_extra) &
         CALL finish('io_namelist','need to specify extra fields for extra output')
 
-  ! write the contents of the namelist to an ASCII file
+    !-----------------------------------------------------                                
+    ! Store the namelist for restart                                                      
+    !-----------------------------------------------------                                
+    funit = open_tmpfile()                                                                
+    WRITE(funit,NML=io_ctl)                                                             
+    CALL store_and_close_namelist(funit, 'io_ctl')                                      
+    write(0,*) 'stored io_ctl'
 
-  IF(p_pe == p_io) WRITE(nnml_output,nml=io_ctl)
+    ! write the contents of the namelist to an ASCII file
 
-!
-END SUBROUTINE io_nml_setup
+    IF(p_pe == p_io) WRITE(nnml_output,nml=io_ctl)
+
+  END SUBROUTINE io_nml_setup
 
 END MODULE mo_io_nml
-
-!!$  !>
-!!$  !! "read_restart_radiation_nml" reads the parameters of the radiation
-!!$  !! namelist from the global attributes of a restart file in netcdf format.
-!!$  !!
-!!$  !! @par Revision History
-!!$  !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
-!!$  !!
-!!$  SUBROUTINE read_restart_radiation_nml
-!!$
-!!$    CALL finish('mo_radiation_nml/read_restart_radiation_nml', &
-!!$      &         'This subroutine is not yet available')
-!!$
-!!$  END SUBROUTINE read_restart_radiation_nml
-!!$
-!!$  !>
-!!$  !! "write_restart_radiation_nml" writes the parameters of the radiation
-!!$  !! namelist as global attributes to a restart file in netcdf format.
-!!$  !!
-!!$  !! @par Revision History
-!!$  !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
-!!$  !!
-!!$  SUBROUTINE write_restart_radiation_nml
-!!$
-!!$    CALL finish('mo_radiation_nml/write_restart_radiation_nml', &
-!!$      &         'This subroutine is not yet available')
-!!$
-!!$  END SUBROUTINE write_restart_radiation_nml
-!!$
-!!$  !>
-!!$  !! "write_rawdata_radiation_nml" writes the parameters of the radiation
-!!$  !! namelist as global attributes to a raw data file in netcdf format.
-!!$  !!
-!!$  !! @par Revision History
-!!$  !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
-!!$  !!
-!!$  SUBROUTINE write_rawdata_radiation_nml
-!!$
-!!$    CALL finish('mo_radiation_nml/write_rawdata_radiation_nml', &
-!!$      &         'This subroutine is not yet available')
-!!$
-!!$  END SUBROUTINE write_rawdata_radiation_nml

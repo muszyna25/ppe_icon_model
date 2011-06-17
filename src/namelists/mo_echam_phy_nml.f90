@@ -47,6 +47,9 @@ MODULE mo_echam_phy_nml
 
   USE mo_namelist,       ONLY: position_nml, POSITIONED
   USE mo_io_units,       ONLY: nnml
+! USE mo_master_nml,     ONLY: lrestart
+  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist !,   &                                             
+!                                & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
   PUBLIC
@@ -76,15 +79,37 @@ CONTAINS
   !!
   SUBROUTINE read_echam_phy_nml
 
-    INTEGER :: ist
+    INTEGER :: istat, funit
 
-    ! Read namelist (every CPU does this)
-
-    CALL position_nml ('echam_phy_nml', STATUS=ist)
-    SELECT CASE (ist)
+    !----------------------------------------------------------------
+    ! If this is a resumed integration, overwrite the defaults above 
+    ! by values used in the previous integration.
+    !----------------------------------------------------------------
+!   IF (lrestart) THEN
+!     funit = open_and_restore_namelist('echam_phy_nml')
+!     READ(funit,NML=echam_phy_nml)
+!     CALL close_tmpfile(funit)
+!    ! for testing
+!     WRITE (0,*) 'contents of namelist ...'
+!     WRITE (0,NML=echam_phy_nml)
+!   END IF
+                                                                                          
+    !---------------------------------------------------------------------
+    ! Read user's (new) specifications (Done so far by all MPI processes)
+    !---------------------------------------------------------------------
+    CALL position_nml ('echam_phy_nml', STATUS=istat)
+    SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, echam_phy_nml)
     END SELECT
+
+    !-----------------------------------------------------                                
+    ! Store the namelist for restart                                                      
+    !-----------------------------------------------------                                
+    funit = open_tmpfile()                                                                
+    WRITE(funit,NML=echam_phy_nml)                                                             
+    CALL store_and_close_namelist(funit, 'echam_phy_nml')                                      
+    write(0,*) 'stored echam_phy_nml'
 
   END SUBROUTINE read_echam_phy_nml
 

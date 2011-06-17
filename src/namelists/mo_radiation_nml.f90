@@ -48,6 +48,9 @@ MODULE mo_radiation_nml
   USE mo_namelist,           ONLY: position_nml, positioned
   USE mo_io_units,           ONLY: nnml
   USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o, amo2
+! USE mo_master_nml,         ONLY: lrestart
+  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist !,   &                                             
+!                                & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
   PUBLIC
@@ -157,7 +160,6 @@ MODULE mo_radiation_nml
   REAL(wp) :: mmr_co2, mmr_ch4, mmr_n2o, mmr_o2                ! setup_radiation
 
 CONTAINS
-
   !>
   !! "read_radiation_nml" reads the radiation_nml namelist from the namelist file.
   !!
@@ -172,20 +174,42 @@ CONTAINS
   !!
   SUBROUTINE read_radiation_nml
 
-    INTEGER :: ist      !< status variable for namelist positioning
+    INTEGER :: ist, funit   !< status variable for namelist positioning
 
     ! For nwp, we want to have seasonal orbit and diurnal cycle as default:
     IF (iforcing==inwp) izenith=4
-    
-    ! Read namelist
-    ! -------------
-    ! (done by all MPI processes)
-    !
+   
+    !----------------------------------------------------------------
+    ! If this is a resumed integration, overwrite the defaults above
+    ! by values in the previous integration.
+    !----------------------------------------------------------------
+!   IF (lrestart) THEN
+!     funit = open_and_restore_namelist('radiation_nml')
+!     READ(funit,NML=radiation_nml)
+!     CALL close_tmpfile(funit)
+!    ! for testing
+!     WRITE (0,*) 'contents of namelist ...'
+!     WRITE (0,NML=radiation_nml)
+!   END IF
+
+    !---------------------------------------------------------------------
+    ! Read user's (new) specifications (Done so far by all MPI processes)
+    !---------------------------------------------------------------------
     CALL position_nml ('radiation_nml', STATUS=ist)
     SELECT CASE (ist)
     CASE (positioned)
       READ (nnml, radiation_nml)
     END SELECT
+
+    ! Checks (none so far)
+
+    !-----------------------------------------------------
+    ! Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=radiation_nml)
+    CALL store_and_close_namelist(funit, 'radiation_nml')
+    write(0,*) 'stored radiation_nml'
 
     ! Set dependent variables
     ! -----------------------
@@ -194,12 +218,7 @@ CONTAINS
     mmr_n2o = vmr_n2o * amn2o/amd
     mmr_o2  = vmr_o2  * amo2 /amd
 
-    ! Checks
-    ! ------
-    ! (none so far)
-
   END SUBROUTINE read_radiation_nml
-
 
 !!$  !>
 !!$  !! "read_restart_radiation_nml" reads the parameters of the radiation
