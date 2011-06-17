@@ -1,5 +1,3 @@
-#include "config.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -7,11 +5,7 @@
 #include <pwd.h>
 
 #include <sys/types.h>
-#ifdef HAVE_UNISTD_H
 #include <unistd.h>
-#elif HAVE_SYS_UNISTD_H
-#include <sys/unistd.h>
-#endif
 
 #include <sys/utsname.h>
 

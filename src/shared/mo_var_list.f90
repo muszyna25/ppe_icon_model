@@ -1,6 +1,6 @@
 MODULE mo_var_list
 
-  USE mo_kind,             ONLY: wp
+  USE mo_kind,             ONLY: wp, i8
   USE mo_cf_convention,    ONLY: t_cf_var
   USE mo_grib2,            ONLY: t_grib2_var
   USE mo_var_metadata,     ONLY: t_var_metadata, t_union_vals
@@ -168,6 +168,7 @@ CONTAINS
     CALL assign_if_present(this_list%p%lrestart,     lrestart)
     CALL assign_if_present(this_list%p%linitial,     linitial)
     !
+    CALL message('','')
     CALL message('','adding new var_list '//TRIM(name))
     !
   END SUBROUTINE new_var_list
@@ -1546,7 +1547,8 @@ CONTAINS
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%i_ptr)      
-      this_list%p%memory_used = this_list%p%memory_used+4*SIZE(new_list_element%field%l_ptr)
+      this_list%p%memory_used = this_list%p%memory_used &
+           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%l_ptr),i8)
     ELSE
       new_list_element%field%l_ptr => p5
     ENDIF
@@ -1640,7 +1642,8 @@ CONTAINS
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%i_ptr)      
-      this_list%p%memory_used = this_list%p%memory_used+4*SIZE(new_list_element%field%l_ptr)
+      this_list%p%memory_used = this_list%p%memory_used &
+           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%l_ptr),i8)
     ELSE
       new_list_element%field%l_ptr => p5
     ENDIF
@@ -1734,7 +1737,8 @@ CONTAINS
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%i_ptr)      
-      this_list%p%memory_used = this_list%p%memory_used+4*SIZE(new_list_element%field%l_ptr)
+      this_list%p%memory_used = this_list%p%memory_used &
+           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%l_ptr),i8)
     ELSE
       new_list_element%field%l_ptr => p5
     ENDIF
@@ -1828,7 +1832,8 @@ CONTAINS
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%i_ptr)      
-      this_list%p%memory_used = this_list%p%memory_used+4*SIZE(new_list_element%field%l_ptr)
+      this_list%p%memory_used = this_list%p%memory_used &
+           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%l_ptr),i8)
     ELSE
       new_list_element%field%l_ptr => p5
     ENDIF
@@ -2424,9 +2429,9 @@ CONTAINS
            'Memory in use: ', this_list%p%memory_used, ' bytes in ', &
            this_list%p%list_elements, ' fields.'
     ELSE
-      WRITE (message_text,'(a32,a,a,i10,a,i6,a)')                      &
-           TRIM(this_list%p%name), '-buffer: ',                        &
-           'Memory in use: ', this_list%p%memory_used/1024, ' kb in ', &
+      WRITE (message_text,'(a32,a,a,i10,a,i6,a)')                         &
+           TRIM(this_list%p%name), '-buffer: ',                           &
+           'Memory in use: ', this_list%p%memory_used/1024_i8, ' kb in ', &
            this_list%p%list_elements, ' fields.'
     ENDIF
     CALL message('',message_text)

@@ -1,6 +1,4 @@
-#if defined (__GNUC__) || defined (__INTEL_COMPILER) || defined (__SUNPRO_F95)
-! do not use F2003
-#else
+#if ! (defined (__GNUC__) || defined(__SX__) || defined(__PGI) || defined(__SUNPRO_F95) || defined(__INTEL_COMPILER))
 #define HAVE_F2003
 #endif
 MODULE mo_io_restart_namelist
@@ -19,6 +17,7 @@ MODULE mo_io_restart_namelist
   PUBLIC :: open_and_restore_namelist
   PUBLIC :: close_tmpfile
   PUBLIC :: read_restart_namelists
+  PUBLIC :: delete_restart_namelists
   PUBLIC :: nmls
   PUBLIC :: restart_namelist
 #ifdef __SUNPRO_F95
@@ -26,7 +25,9 @@ MODULE mo_io_restart_namelist
                             ! variable declared as a private type
 #endif
   !
+#ifndef HAVE_F2003
   INTEGER, PARAMETER :: nmllen_max = 4096
+#endif
   !
   TYPE t_att_namelist
     CHARACTER(len=64) :: name
@@ -43,28 +44,66 @@ MODULE mo_io_restart_namelist
   !
 CONTAINS
   !
+  SUBROUTINE delete_restart_namelists
+#ifdef HAVE_F2003
+    INTEGER :: i
+    DO i = 1, nmls
+      IF (ALLOCATED(restart_namelist(i)%text)) THEN
+        DEALLOCATE(restart_namelist(i)%text)
+      ENDIF
+    ENDDO
+#endif    
+    IF (ALLOCATED(restart_namelist)) THEN
+      DEALLOCATE(restart_namelist)
+    ENDIF
+    nmls = 0
+  END SUBROUTINE delete_restart_namelists
+  !
   SUBROUTINE set_restart_namelist(namelist_name, namelist_text)
     CHARACTER(len=*), INTENT(in) :: namelist_name
     CHARACTER(len=*), INTENT(in) :: namelist_text
 #ifdef HAVE_F2003
     INTEGER :: text_len
 #endif
+    INTEGER :: i
+    !
     IF (.NOT. ALLOCATED(restart_namelist)) THEN
       ALLOCATE(restart_namelist(nmax_nmls))
     ENDIF
+    !
+    ! look, if entry has to be overwritten
+    !
+    DO i = 1, nmls
+      IF ('nml_'//TRIM(namelist_name) == TRIM(restart_namelist(i)%name)) THEN
+#ifdef HAVE_F2003
+        text_len = LEN_TRIM(namelist_text)
+        DEALLOCATE(restart_namelist(i)%text) 
+        ALLOCATE(CHARACTER(len=text_len) :: restart_namelist(i)%text)
+#else
+        restart_namelist(i)%text = ''
+#endif
+        restart_namelist(nmls)%text = namelist_text
+        RETURN
+      ENDIF
+    ENDDO
+    ! 
+    ! ok, we have a new entry
+    !
     nmls = nmls+1
     IF (nmls > nmax_nmls) THEN
       CALL finish('set_restart_namelist', &
            &      'too many restart attributes for restart file')
     ELSE
-      restart_namelist(nmls)%name = 'nml_'//namelist_name
+      restart_namelist(nmls)%name = 'nml_'//TRIM(namelist_name)
 #ifdef HAVE_F2003
       text_len = LEN_TRIM(namelist_text)
       IF (ALLOCATED(restart_namelist(nmls)%text)) DEALLOCATE(restart_namelist(nmls)%text) 
       ALLOCATE(CHARACTER(len=text_len) :: restart_namelist(nmls)%text)
+#else
+      restart_namelist(nmls)%text = ''
 #endif
       restart_namelist(nmls)%text = namelist_text
-    ENDIF    
+    ENDIF
   END SUBROUTINE set_restart_namelist
   !
   SUBROUTINE get_restart_namelist(namelist_name, namelist_text)
@@ -75,7 +114,6 @@ CONTAINS
 #else
     CHARACTER(len=*),              INTENT(out) :: namelist_text
 #endif
-    !
     INTEGER :: i
     !
     DO i = 1, nmls
@@ -137,6 +175,7 @@ CONTAINS
            'The problem could be solved by increasing nmllen_max in mo_io_restart_namelist.f90.')
       CALL finish('','namelist '//TRIM(name)//' is too long, saving in restart file fails.')
     ENDIF
+    nmlbuf = ''
 #endif
     !
     OPEN(UNIT=funit, FILE=TRIM(filename), ACTION='read', ACCESS='stream')
@@ -178,7 +217,8 @@ CONTAINS
     DEALLOCATE(nmlbuf)
 #endif
     !
-    OPEN(UNIT=funit, FILE=filename(1:flen), ACTION='read', ACCESS='sequential')
+    OPEN( UNIT=funit, FILE=filename(1:flen), ACTION='read', &
+        & ACCESS='sequential', DELIM='apostrophe')
     !    
   END FUNCTION open_and_restore_namelist
   !
@@ -243,6 +283,8 @@ CONTAINS
 #ifdef HAVE_F2003
       IF (ALLOCATED(restart_namelist(nmls)%text)) DEALLOCATE(restart_namelist(nmls)%text) 
       ALLOCATE(CHARACTER(len=nmllen) :: restart_namelist(nmls)%text)
+#else
+      restart_namelist(nmls)%text = ''      
 #endif
       restart_namelist(nmls)%text = nmlbuf
 #ifdef HAVE_F2003

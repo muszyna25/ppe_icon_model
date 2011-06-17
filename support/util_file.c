@@ -1,46 +1,47 @@
-#define _POSIX_C_SOURCE 200112L 
-
-#include "config.h"
+#define _POSIX_C_SOURCE 200112L
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 
-#include <sys/types.h>
-#ifdef HAVE_UNISTD_H
 #include <unistd.h>
-#elif HAVE_SYS_UNISTD_H
-#include <sys/unistd.h>
-#endif
 
+#include <sys/types.h>
 #include <sys/stat.h>
 
 int util_islink(char *path)
 {
-#ifdef PATH_MAX
-  char buf[PATH_MAX];  
-#else
-  char buf[1024];
-#endif
+  char *buf;
   ssize_t len;
+  long max_buf_len;
+  int iret;
+
+  iret = -1;
+
+  max_buf_len = pathconf("/", _PC_NAME_MAX);
+
+  buf = (char *) malloc(max_buf_len*sizeof(char));
   
-  if ((len = readlink(path, buf, sizeof(buf)-1)) != -1)
+  if ((len = readlink(path, buf, max_buf_len-1)) != -1)
     {
       buf[len] = '\0';
       /* file is a link ..., return C true */
-      return 1;
+      iret = 1;
     }
   else
     {
       if (errno == EINVAL)
 	{
 	  /* file is not a link ... */
-	  return 0;
+	  iret = 0;
 	}
     }
+
+  free(buf);
   
   /* something else went wrong ... */
-  return -1;
+  return iret;
 }
 
 int util_tmpnam_len(void)
@@ -53,6 +54,7 @@ int util_tmpnam(char *filename)
   char *ptr;
 
   ptr = tmpnam(filename);
+
   return strlen(filename);
 }
 

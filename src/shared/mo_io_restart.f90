@@ -437,15 +437,18 @@ CONTAINS
     !
     ! set CD-Convention required restart attributes
     !
-    CALL set_restart_attribute('title', 'ICON simulation')
+    CALL set_restart_attribute('title',       &
+         'ICON simulation')
     CALL set_restart_attribute('institution', &
-         &                     'Max Planck Institute for Meteorology/Deutscher Wetterdienst')
-    CALL set_restart_attribute('source', model_name//'-'//model_version)
-    CALL set_restart_attribute('history', &
-         &              executable(1:nlend)//' at '//date_string(1:8)//' '//time_string(1:6))
-    CALL set_restart_attribute('references', 'see MPIM/DWD publications')
-    CALL set_restart_attribute('comment', &
-         &                TRIM(user_name)//' on '//TRIM(host_name)//' ('//TRIM(os_name)//')')
+         'Max Planck Institute for Meteorology/Deutscher Wetterdienst')
+    CALL set_restart_attribute('source',      &
+         model_name//'-'//model_version)
+    CALL set_restart_attribute('history',     &
+         executable(1:nlend)//' at '//date_string(1:8)//' '//time_string(1:6))
+    CALL set_restart_attribute('references',  &
+         'see MPIM/DWD publications')
+    CALL set_restart_attribute('comment',     &
+         TRIM(user_name)//' on '//TRIM(host_name)//' ('//TRIM(os_name)//')')
     !
     ! define horizontal grids
     !
@@ -838,7 +841,7 @@ CONTAINS
         IF (ASSOCIATED(element%field%r_ptr)) THEN
           casted_missval = info%missval%rval
         ELSE IF (ASSOCIATED(element%field%i_ptr)) THEN
-          casted_missval = info%missval%ival
+          casted_missval = REAL(info%missval%ival,wp)
         ELSE
           IF (info%missval%lval) THEN
             casted_missval = 1.0_wp
@@ -944,8 +947,8 @@ CONTAINS
             CALL message('','Write netCDF2 restart for : '//TRIM(private_restart_time))
           CASE (FILETYPE_NC4)
             IF (var_lists(i)%p%compression_type == COMPRESS_ZIP) THEN
-              CALL message('','Write compressed netCDF4 restart for : ' &
-                          &//TRIM(private_restart_time))
+              CALL message('', &
+                   'Write compressed netCDF4 restart for : '//TRIM(private_restart_time))
             ELSE
               CALL message('','Write netCDF4 restart for : '//TRIM(private_restart_time))
             END IF
@@ -1025,10 +1028,10 @@ CONTAINS
     TYPE (t_list_element), POINTER :: element
     TYPE (t_list_element), TARGET  :: start_with
     !
-    REAL(wp), POINTER :: ptr2d(:,:)   ! 2d field distributed over processors
-    REAL(wp), POINTER :: ptr3d(:,:,:) ! 3d field distributed over processors
+    REAL(wp), POINTER :: rptr2d(:,:)   ! 2d field distributed over processors
+    REAL(wp), POINTER :: rptr3d(:,:,:) ! 3d field distributed over processors
     !
-    REAL(wp), POINTER :: z5d(:,:,:,:,:) ! field gathered on I/O processor
+    REAL(wp), POINTER :: r5d(:,:,:,:,:) ! field gathered on I/O processor
     !
     INTEGER :: gdims(5), nindex
     !
@@ -1042,8 +1045,8 @@ CONTAINS
       element => element%next_list_element
       IF (.NOT.ASSOCIATED(element)) EXIT
       !
-      ptr2d => NULL()
-      ptr3d => NULL()
+      rptr2d => NULL()
+      rptr3d => NULL()
       !
       ! retrieve information from actual linked list element
       !
@@ -1063,9 +1066,9 @@ CONTAINS
       CASE (1)
         CALL finish('write_restart_var_list','1d arrays not handled yet.')
       CASE (2)
-        ptr2d => element%field%r_ptr(:,:,nindex,1,1)
+        rptr2d => element%field%r_ptr(:,:,nindex,1,1)
       CASE (3)
-        ptr3d => element%field%r_ptr(:,:,:,nindex,1)
+        rptr3d => element%field%r_ptr(:,:,:,nindex,1)
       CASE (4)
         CALL finish('write_restart_var_list','4d arrays not handled yet.')
       CASE (5)
@@ -1079,38 +1082,38 @@ CONTAINS
       ! allocate temporary global array on output processor
       ! and gather field from other processors
       !
-      NULLIFY(z5d)
+      NULLIFY(r5d)
       !
       SELECT CASE (gridtype)
       CASE (GRID_UNSTRUCTURED_CELL)
         IF (info%ndims == 2) THEN
           gdims(:) = (/ private_nc, 1, 1, 1, 1 /)
-          ALLOCATE(z5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_cells(ptr2d, z5d, info%name)
+          ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
+          CALL gather_cells(rptr2d, r5d, info%name)
         ELSE
           gdims(:) = (/ private_nc, info%used_dimensions(2), 1, 1, 1 /)
-          ALLOCATE(z5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_cells(ptr3d, z5d, info%name)
+          ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
+          CALL gather_cells(rptr3d, r5d, info%name)
         ENDIF
       CASE (GRID_UNSTRUCTURED_VERT)
         IF (info%ndims == 2) THEN
           gdims(:) = (/ private_nv, 1, 1, 1, 1 /)
-          ALLOCATE(z5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_vertices(ptr2d, z5d, info%name)
+          ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
+          CALL gather_vertices(rptr2d, r5d, info%name)
         ELSE
           gdims(:) = (/ private_nv, info%used_dimensions(2), 1, 1, 1 /)
-          ALLOCATE(z5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_vertices(ptr3d, z5d, info%name)
+          ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
+          CALL gather_vertices(rptr3d, r5d, info%name)
         ENDIF
       CASE (GRID_UNSTRUCTURED_EDGE)
         IF (info%ndims == 2) THEN
           gdims(:) = (/ private_ne, 1, 1, 1, 1 /)
-          ALLOCATE(z5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_edges(ptr2d, z5d, info%name)
+          ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
+          CALL gather_edges(rptr2d, r5d, info%name)
         ELSE
           gdims(:) = (/ private_ne, info%used_dimensions(2), 1, 1, 1 /)
-          ALLOCATE(z5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_edges(ptr3d, z5d, info%name)
+          ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
+          CALL gather_edges(rptr3d, r5d, info%name)
         ENDIF
       CASE default
         CALL finish('out_stream','unknown grid type')
@@ -1119,12 +1122,12 @@ CONTAINS
       ! write data
       !
       IF (p_parallel_io) THEN
-        CALL write_var (this_list, info, z5d)
+        CALL write_var (this_list, info, r5d)
       END IF
       !
       ! deallocate temporary global arrays
       !
-      IF (ASSOCIATED (z5d)) DEALLOCATE (z5d)
+      IF (ASSOCIATED (r5d)) DEALLOCATE (r5d)
       !
     END DO for_all_list_elements
     !
@@ -1212,10 +1215,10 @@ CONTAINS
     INTEGER :: n, nfiles, i, iret, istat, key, vgrid
     INTEGER :: gdims(5), nindex, nmiss
     !
-    REAL(wp), POINTER :: z5d(:,:,:,:,:)
+    REAL(wp), POINTER :: r5d(:,:,:,:,:)
     !
-    REAL(wp), POINTER :: ptr2d(:,:)
-    REAL(wp), POINTER :: ptr3d(:,:,:)
+    REAL(wp), POINTER :: rptr2d(:,:)
+    REAL(wp), POINTER :: rptr3d(:,:,:)
     !
     abbreviations(1:nvar_lists)%key = 0
     n = 1
@@ -1271,10 +1274,10 @@ CONTAINS
               ! and gather field from other processors
               !
               !
-              NULLIFY(z5d)
+              NULLIFY(r5d)
               !
-              NULLIFY(ptr2d)
-              NULLIFY(ptr3d)
+              NULLIFY(rptr2d)
+              NULLIFY(rptr3d)
               !
               gridID = vlistInqVarGrid(vlistID, varID)
               ic = gridInqSize(gridID)
@@ -1287,12 +1290,12 @@ CONTAINS
               ENDIF
               !
               gdims(:) = (/ ic, il, 1, 1, 1 /)
-              ALLOCATE(z5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)),STAT=istat)
+              ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)),STAT=istat)
               IF (istat /= 0) THEN
-                CALL finish('','allocation of z5d failed ...')
+                CALL finish('','allocation of r5d failed ...')
               ENDIF
               !
-              CALL streamReadVar(fileID, varID, z5d, nmiss)
+              CALL streamReadVar(fileID, varID, r5d, nmiss)
               !
               IF (info%lcontained) THEN
                 nindex = info%ncontained
@@ -1303,27 +1306,27 @@ CONTAINS
               SELECT CASE (info%hgrid)
               CASE (GRID_UNSTRUCTURED_CELL)
                 IF (info%ndims == 2) THEN
-                  ptr2d => element%field%r_ptr(:,:,nindex,1,1) 
-                  CALL scatter_cells(z5d, ptr2d, info%name)
+                  rptr2d => element%field%r_ptr(:,:,nindex,1,1) 
+                  CALL scatter_cells(r5d, rptr2d, info%name)
                 ELSE
-                  ptr3d => element%field%r_ptr(:,:,:,nindex,1) 
-                  CALL scatter_cells(z5d, ptr3d, info%name)
+                  rptr3d => element%field%r_ptr(:,:,:,nindex,1) 
+                  CALL scatter_cells(r5d, rptr3d, info%name)
                 ENDIF
               CASE (GRID_UNSTRUCTURED_VERT)
                 IF (info%ndims == 2) THEN
-                  ptr2d => element%field%r_ptr(:,:,nindex,1,1) 
-                  CALL scatter_vertices(z5d, ptr2d, info%name)
+                  rptr2d => element%field%r_ptr(:,:,nindex,1,1) 
+                  CALL scatter_vertices(r5d, rptr2d, info%name)
                 ELSE
-                  ptr3d => element%field%r_ptr(:,:,:,nindex,1) 
-                  CALL scatter_vertices(z5d, ptr3d, info%name)
+                  rptr3d => element%field%r_ptr(:,:,:,nindex,1) 
+                  CALL scatter_vertices(r5d, rptr3d, info%name)
                 ENDIF
               CASE (GRID_UNSTRUCTURED_EDGE)
                 IF (info%ndims == 2) THEN
-                  ptr2d => element%field%r_ptr(:,:,nindex,1,1) 
-                  CALL scatter_edges(z5d, ptr2d, info%name)
+                  rptr2d => element%field%r_ptr(:,:,nindex,1,1) 
+                  CALL scatter_edges(r5d, rptr2d, info%name)
                 ELSE
-                  ptr3d => element%field%r_ptr(:,:,:,nindex,1) 
-                  CALL scatter_edges(z5d, ptr3d, info%name)
+                  rptr3d => element%field%r_ptr(:,:,:,nindex,1) 
+                  CALL scatter_edges(r5d, rptr3d, info%name)
                 ENDIF
               CASE default
                 CALL finish('out_stream','unknown grid type')
@@ -1331,7 +1334,7 @@ CONTAINS
               !
               ! deallocate temporary global arrays
               !
-              IF (ASSOCIATED (z5d)) DEALLOCATE (z5d)
+              IF (ASSOCIATED (r5d)) DEALLOCATE (r5d)
               !
               write (0,*) ' ... read ',TRIM(element%field%info%name)
               CYCLE for_all_vars
@@ -1350,83 +1353,88 @@ CONTAINS
     CALL message('','')
     !
   END SUBROUTINE read_restart_files
-      !
-      SUBROUTINE read_attributes(vlistID)
-        INTEGER, INTENT(in) :: vlistID
-        !
-        CHARACTER(len=64) :: att_name
-        INTEGER :: natts, att_type, att_len
-        INTEGER :: status, text_len, mlen, i
-        !
-        status = vlistInqNatts(vlistID, CDI_GLOBAL, natts)
-        !
-        IF (.NOT. ALLOCATED(restart_attributes_text)) THEN
-          ALLOCATE(restart_attributes_text(nmax_atts))
-        ENDIF
-        natts_text = 0
-        !
-        IF (.NOT. ALLOCATED(restart_attributes_real)) THEN
-          ALLOCATE(restart_attributes_real(nmax_atts))
-        ENDIF
-        natts_real = 0 
-        !
-        IF (.NOT. ALLOCATED(restart_attributes_int)) THEN
-          ALLOCATE(restart_attributes_int(nmax_atts))
-        ENDIF
-        natts_int  = 0 
-        !
-        IF (.NOT. ALLOCATED(restart_attributes_bool)) THEN
-          ALLOCATE(restart_attributes_bool(nmax_atts))
-        ENDIF
-        natts_bool = 0 
-        !
-        DO i = 0, natts-1
-          status = vlistInqAtt(vlistID, CDI_GLOBAL, i, att_name, att_type, att_len)
-          IF ( att_name(1:4) == 'nml_') CYCLE ! skip this, it is a namelist 
-          SELECT CASE(att_type)
-          CASE(DATATYPE_FLT64)
-            natts_real = natts_real+1
-            restart_attributes_real(natts_real)%name = TRIM(att_name)
-            mlen = 1
-            status =  vlistInqAttFlt(vlistID, CDI_GLOBAL, &              
-                 &                   TRIM(att_name), mlen, restart_attributes_real(natts_real)%val)
-          CASE(DATATYPE_INT32)
-            IF (att_name(1:5) == 'bool_') THEN
-              natts_bool = natts_bool+1
-              restart_attributes_bool(natts_bool)%name = TRIM(att_name(6:))
-              mlen = 1
-              status =  vlistInqAttInt(vlistID, CDI_GLOBAL,  &              
-                     &  TRIM(att_name), mlen, restart_attributes_bool(natts_bool)%store)
-              restart_attributes_bool(natts_bool)%val = &
-                     &  (restart_attributes_bool(natts_bool)%store == 1)
-            ELSE
-              natts_int = natts_int+1
-              restart_attributes_int(natts_int)%name = TRIM(att_name)
-              mlen = 1
-              status =  vlistInqAttInt(vlistID, CDI_GLOBAL, &              
-                   &    TRIM(att_name), mlen, restart_attributes_int(natts_int)%val)
-            ENDIF
-          CASE(DATATYPE_TXT)
-            natts_text = natts_text+1
-            restart_attributes_text(natts_text)%name = TRIM(att_name)
-            text_len = att_len
-            status =  vlistInqAttTxt(vlistID, CDI_GLOBAL, &
-                 &    TRIM(att_name), text_len, restart_attributes_text(natts_text)%val)
-          END SELECT
-        ENDDO
-        !
-      END SUBROUTINE read_attributes
-      !
-  SUBROUTINE read_restart_attributes(filename)                                          
-    CHARACTER(len=*), INTENT(in) :: filename                                           
-    INTEGER :: fileID, vlistID                                                         
-    !                                                                                  
-    fileID  = streamOpenRead(TRIM(filename))                                           
-    vlistID = streamInqVlist(fileID)                                                   
-    !                                                                                  
+  !
+  SUBROUTINE read_restart_attributes(filename)
+    CHARACTER(len=*), INTENT(in) :: filename
+    INTEGER :: fileID, vlistID
+    !
+    fileID = streamOpenRead(TRIM(filename))
+    vlistID = streamInqVlist(fileID)
+    !
     CALL read_attributes(vlistID)
-    CALL streamClose(fileID)                                                           
-    !                                                                                  
+    !
+    CALL streamClose(fileID)
+    !
   END SUBROUTINE read_restart_attributes
-
+  !
+  SUBROUTINE read_attributes(vlistID)
+    INTEGER, INTENT(in) :: vlistID
+    !
+    CHARACTER(len=64) :: att_name
+    INTEGER :: natts, att_type, att_len
+    INTEGER :: status, text_len, mlen
+    !
+    INTEGER :: i
+    !
+    status = vlistInqNatts(vlistID, CDI_GLOBAL, natts)
+    !
+    IF (.NOT. ALLOCATED(restart_attributes_text)) THEN
+      ALLOCATE(restart_attributes_text(nmax_atts))
+    ENDIF
+    natts_text = 0
+    !
+    IF (.NOT. ALLOCATED(restart_attributes_real)) THEN
+      ALLOCATE(restart_attributes_real(nmax_atts))
+    ENDIF
+    natts_real = 0 
+    !
+    IF (.NOT. ALLOCATED(restart_attributes_int)) THEN
+      ALLOCATE(restart_attributes_int(nmax_atts))
+    ENDIF
+    natts_int  = 0 
+    !
+    IF (.NOT. ALLOCATED(restart_attributes_bool)) THEN
+      ALLOCATE(restart_attributes_bool(nmax_atts))
+    ENDIF
+    natts_bool = 0 
+    !
+    DO i = 0, natts-1
+      status = vlistInqAtt(vlistID, CDI_GLOBAL, i, att_name, att_type, att_len)
+      IF ( att_name(1:4) == 'nml_') CYCLE ! skip this, it is a namelist 
+      SELECT CASE(att_type)
+      CASE(DATATYPE_FLT64)
+        natts_real = natts_real+1
+        restart_attributes_real(natts_real)%name = TRIM(att_name)
+        mlen = 1
+        status =  vlistInqAttFlt(vlistID, CDI_GLOBAL, &              
+             &                   TRIM(att_name), mlen, restart_attributes_real(natts_real)%val)
+      CASE(DATATYPE_INT32)
+        IF (att_name(1:5) == 'bool_') THEN
+          natts_bool = natts_bool+1
+          restart_attributes_bool(natts_bool)%name = TRIM(att_name(6:))
+          mlen = 1
+          status =  vlistInqAttInt(vlistID, CDI_GLOBAL, &              
+               &                   TRIM(att_name), mlen, restart_attributes_bool(natts_bool)%store)
+          restart_attributes_bool(natts_bool)%val = &
+               (restart_attributes_bool(natts_bool)%store == 1)
+        ELSE
+          natts_int = natts_int+1
+          restart_attributes_int(natts_int)%name = TRIM(att_name)
+          mlen = 1
+          status =  vlistInqAttInt(vlistID, CDI_GLOBAL, &              
+               &                   TRIM(att_name), mlen, restart_attributes_int(natts_int)%val)
+        ENDIF
+      CASE(DATATYPE_TXT)
+        natts_text = natts_text+1
+        restart_attributes_text(natts_text)%name = TRIM(att_name)
+        text_len = att_len
+        restart_attributes_text(natts_text)%val = ''
+        status =  vlistInqAttTxt(vlistID, CDI_GLOBAL, &
+             &                   TRIM(att_name), text_len, restart_attributes_text(natts_text)%val)
+      END SELECT
+    ENDDO
+    !
+  END SUBROUTINE read_attributes
+  !
+  !
 END MODULE mo_io_restart
