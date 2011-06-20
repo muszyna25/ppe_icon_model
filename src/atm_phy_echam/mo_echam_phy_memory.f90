@@ -387,7 +387,7 @@ CONTAINS
 
     !---
 
-    CALL message(TRIM(thismodule),'(new) Construction of ECHAM physics state started.')
+    CALL message(TRIM(thismodule),'Construction of ECHAM physics state started.')
 
     ! Allocate pointer arrays prm_field and prm_tend, 
     ! as well as the corresponding list arrays.

@@ -193,9 +193,6 @@ MODULE mo_parallel_nml
       funit = open_and_restore_namelist('parallel_ctl')
       READ(funit,NML=parallel_ctl)
       CALL close_tmpfile(funit)
-     ! for testing
-      WRITE (0,*) 'contents of namelist ...'
-      WRITE (0,NML=parallel_ctl)
     END IF
 
     !--------------------------------------------------------------------
@@ -286,7 +283,6 @@ MODULE mo_parallel_nml
     funit = open_tmpfile()
     WRITE(funit,NML=parallel_ctl)
     CALL store_and_close_namelist(funit, 'parallel_ctl')
-    write(0,*) 'stored parallel_ctl'
 
     ! Write the final namelist to an ASCII file
     IF (p_pe == p_io) WRITE(nnml_output,nml=parallel_ctl)

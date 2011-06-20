@@ -57,11 +57,12 @@ MODULE mo_io_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned
   USE mo_mpi,                ONLY: p_pe, p_io
-  USE mo_run_nml,            ONLY: inwp,iecham,ltransport,dtime,ntracer,          &
-    &                              iforcing,lshallow_water,iequations,            &
-    &                              inextra_2d, inextra_3d,ildf_echam
-  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist !,   &
-!                                & open_and_restore_namelist, close_tmpfile
+  USE mo_master_nml,         ONLY: lrestart
+  USE mo_run_nml,            ONLY: inwp,iecham,ltransport,dtime,ntracer,     &
+                                 & iforcing,lshallow_water,iequations,       &
+                                 & inextra_2d, inextra_3d,ildf_echam
+  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
+                                 & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
 
@@ -202,14 +203,11 @@ SUBROUTINE io_nml_setup
     ! If this is a resumed integration, overwrite the defaults above 
     ! by values in the previous integration.
     !----------------------------------------------------------------
-!   IF (lrestart) THEN
-!     funit = open_and_restore_namelist('io_ctl')
-!     READ(funit,NML=io_ctl)
-!     CALL close_tmpfile(funit)
-!    ! for testing
-!     WRITE (0,*) 'contents of namelist ...'
-!     WRITE (0,NML=io_ctl)
-!   END IF
+    IF (lrestart) THEN
+      funit = open_and_restore_namelist('io_ctl')
+      READ(funit,NML=io_ctl)
+      CALL close_tmpfile(funit)
+    END IF
                                                                                           
     !---------------------------------------------------------------------                 
     ! Read user's (new) specifications (Done so far by all MPI processes)                 
@@ -273,7 +271,6 @@ SUBROUTINE io_nml_setup
     funit = open_tmpfile()                                                                
     WRITE(funit,NML=io_ctl)                                                             
     CALL store_and_close_namelist(funit, 'io_ctl')                                      
-    write(0,*) 'stored io_ctl'
 
     ! write the contents of the namelist to an ASCII file
 

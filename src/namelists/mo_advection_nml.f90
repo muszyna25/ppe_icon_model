@@ -46,7 +46,7 @@ MODULE mo_advection_nml
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_io_units,            ONLY: nnml,nnml_output
-! USE mo_master_nml,          ONLY: lrestart
+  USE mo_master_nml,          ONLY: lrestart
   USE mo_run_nml,             ONLY: ntracer, ntracer_static, num_lev, nlev, &
     &                               iequations, i_cell_type, iforcing,      &
     &                               inoforcing, iheldsuarez, iecham, inwp,  &
@@ -58,8 +58,8 @@ MODULE mo_advection_nml
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_radiation_nml,       ONLY: irad_o3
   USE mo_nonhydrostatic_nml,  ONLY: l_open_ubc, kstart_moist, kstart_qv
-  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist !,   &
-!                                & open_and_restore_namelist, close_tmpfile
+  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,  &
+                                 & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
 
@@ -320,16 +320,13 @@ CONTAINS
 
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
-    ! by values in the previous integration.
+    ! by values used in the previous integration.
     !----------------------------------------------------------------
-!   IF (lrestart) THEN
-!     funit = open_and_restore_namelist('transport_ctl')
-!     READ(funit,NML=transport_ctl)
-!     CALL close_tmpfile(funit)
-!    ! for testing
-!     WRITE (0,*) 'contents of namelist ...'
-!     WRITE (0,NML=transport_ctl)
-!   END IF
+    IF (lrestart) THEN
+      funit = open_and_restore_namelist('transport_ctl')
+      READ(funit,NML=transport_ctl)
+      CALL close_tmpfile(funit)
+    END IF
 
     !--------------------------------------------------------------------
     ! Read user's (new) specifications (Done so far by all MPI processes)
@@ -518,8 +515,7 @@ CONTAINS
     funit = open_tmpfile()
     WRITE(funit,NML=transport_ctl)                                                             
     CALL store_and_close_namelist(funit, 'transport_ctl')                                      
-    write(0,*) 'stored transport_ctl'
-    !    
+
     ! 4. write the contents of the namelist to an ASCII file
     !
     IF(p_pe == p_io) WRITE(nnml_output,nml=transport_ctl)

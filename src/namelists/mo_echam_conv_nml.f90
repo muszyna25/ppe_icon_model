@@ -49,9 +49,9 @@ MODULE mo_echam_conv_nml
   USE mo_run_nml,             ONLY: nlev,nlevp1,nvclev
   USE mo_physical_constants,  ONLY: grav
   USE mo_vertical_coord_table,ONLY: vct,ceta
-! USE mo_master_nml,          ONLY: lrestart
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist !,   &                                             
-!                                 & open_and_restore_namelist, close_tmpfile
+  USE mo_master_nml,          ONLY: lrestart
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &                                             
+                                  & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
   PRIVATE
@@ -171,15 +171,15 @@ CONTAINS
     ! If this is a resumed integration, overwrite the defaults above
     ! by values in the previous integration.
     !----------------------------------------------------------------
-!   IF (lrestart) THEN
-!     funit = open_and_restore_namelist('echam_conv_ctl')
-!     READ(funit,NML=echam_conv_ctl)
-!     CALL close_tmpfile(funit)
-!    ! for testing
-!     WRITE (0,*) 'contents of namelist ...'
-!     WRITE (0,NML=echam_conv_ctl)
-!   END IF
+    IF (lrestart) THEN
+      funit = open_and_restore_namelist('echam_conv_ctl')
+      READ(funit,NML=echam_conv_ctl)
+      CALL close_tmpfile(funit)
+    END IF
 
+    !-------------------------------------------------------------------------
+    ! 3. Read user's (new) specifications. (Done so far by all MPI processes)
+    !-------------------------------------------------------------------------
     CALL position_nml('echam_conv_ctl',STATUS=ist)
     SELECT CASE (ist)
     CASE (POSITIONED)
@@ -248,7 +248,6 @@ CONTAINS
     funit = open_tmpfile()
     WRITE(funit,NML=echam_conv_ctl)
     CALL store_and_close_namelist(funit, 'echam_conv_ctl')
-    write(0,*) 'stored echam_conv_ctl'
 
     !------------------------------------------------------------
     ! CJ: calculations from the former cuparam subroutine

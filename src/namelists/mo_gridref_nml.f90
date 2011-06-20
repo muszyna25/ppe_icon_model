@@ -44,13 +44,13 @@ MODULE mo_gridref_nml
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_exception,           ONLY: message, finish
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
-! USE mo_master_nml,          ONLY: lrestart
+  USE mo_master_nml,          ONLY: lrestart
   USE mo_model_domain_import, ONLY: n_dom
   USE mo_namelist,            ONLY: position_nml, POSITIONED
   USE mo_run_nml,             ONLY: lshallow_water
   USE mo_mpi,                 ONLY: p_pe, p_io
-  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist !,   &
-!                                & open_and_restore_namelist, close_tmpfile
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
+                                  & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
 
@@ -169,14 +169,11 @@ SUBROUTINE gridref_nml_setup
     ! If this is a resumed integration, overwrite the defaults above 
     ! by values in the previous integration.
     !----------------------------------------------------------------
-!   IF (lrestart) THEN
-!     funit = open_and_restore_namelist('gridref_ctl')
-!     READ(funit,NML=gridref_ctl)
-!     CALL close_tmpfile(funit)
-!    ! for testing
-!     WRITE (0,*) 'contents of namelist ...'
-!     WRITE (0,NML=gridref_ctl)
-!   END IF
+    IF (lrestart) THEN
+      funit = open_and_restore_namelist('gridref_ctl')
+      READ(funit,NML=gridref_ctl)
+      CALL close_tmpfile(funit)
+    END IF
 
     !--------------------------------------------------------------------
     ! Read user's (new) specifications (Done so far by all MPI processes)
@@ -193,7 +190,6 @@ SUBROUTINE gridref_nml_setup
     funit = open_tmpfile()
     WRITE(funit,NML=gridref_ctl)                                                             
     CALL store_and_close_namelist(funit, 'gridref_ctl')                                      
-    write(0,*) 'stored gridref_ctl'
 
   ! write the contents of the namelist to an ASCII file
   

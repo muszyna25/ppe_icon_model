@@ -40,9 +40,9 @@ MODULE mo_echam_vdiff_nml
   USE mo_io_units,            ONLY: nnml
   USE mo_exception,           ONLY: message, print_value
   USE mo_namelist,            ONLY: position_nml, POSITIONED
-! USE mo_master_nml,          ONLY: lrestart
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist !,   &                                             
-!                                 & open_and_restore_namelist, close_tmpfile
+  USE mo_master_nml,          ONLY: lrestart
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &                                             
+                                  & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
 
@@ -83,14 +83,11 @@ CONTAINS
     ! If this is a resumed integration, overwrite the defaults above 
     ! by values in the previous integration.
     !----------------------------------------------------------------
-!   IF (lrestart) THEN
-!     funit = open_and_restore_namelist('echam_vdiff_ctl')
-!     READ(funit,NML=echam_vdiff_ctl)
-!     CALL close_tmpfile(funit)
-!    ! for testing
-!     WRITE (0,*) 'contents of namelist ...'
-!     WRITE (0,NML=echam_vdiff_ctl)
-!   END IF
+    IF (lrestart) THEN
+      funit = open_and_restore_namelist('echam_vdiff_ctl')
+      READ(funit,NML=echam_vdiff_ctl)
+      CALL close_tmpfile(funit)
+    END IF
 
     !---------------------------------------------------------------------
     ! Read user's (new) specifications (Done so far by all MPI processes)
@@ -118,7 +115,6 @@ CONTAINS
     funit = open_tmpfile()
     WRITE(funit,NML=echam_vdiff_ctl)
     CALL store_and_close_namelist(funit, 'echam_vdiff_ctl')
-    write(0,*) 'stored echam_vdiff_ctl'
 
   END SUBROUTINE echam_vdiff_nml_setup
 

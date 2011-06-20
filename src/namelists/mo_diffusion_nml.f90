@@ -47,13 +47,13 @@ MODULE mo_diffusion_nml
   USE mo_physical_constants,  ONLY: grav
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, positioned
-! USE mo_master_nml,          ONLY: lrestart
+  USE mo_master_nml,          ONLY: lrestart
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_run_nml,             ONLY: lshallow_water,i_cell_type,nlev, &
                                   & latmosphere, lhydrostatic
   USE mo_vertical_coord_table,ONLY: vct_a, vct_b, apzero
-  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist !,   &
-!                                & open_and_restore_namelist, close_tmpfile
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
+                                  & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
@@ -153,14 +153,11 @@ MODULE mo_diffusion_nml
     ! If this is a resumed integration, overwrite the defaults above 
     ! by values in the previous integration.
     !----------------------------------------------------------------
-!   IF (lrestart) THEN
-!     funit = open_and_restore_namelist('diffusion_ctl')
-!     READ(funit,NML=diffusion_ctl)
-!     CALL close_tmpfile(funit)
-!    ! for testing
-!     WRITE (0,*) 'contents of namelist ...'
-!     WRITE (0,NML=diffusion_ctl)
-!   END IF
+    IF (lrestart) THEN
+      funit = open_and_restore_namelist('diffusion_ctl')
+      READ(funit,NML=diffusion_ctl)
+      CALL close_tmpfile(funit)
+    END IF
 
     !--------------------------------------------------------------------
     ! Read user's (new) specifications (Done so far by all MPI processes)
@@ -286,7 +283,6 @@ MODULE mo_diffusion_nml
     funit = open_tmpfile()
     WRITE(funit,NML=diffusion_ctl)
     CALL store_and_close_namelist(funit, 'diffusion_ctl')
-    write(0,*) 'stored diffusion_ctl'
 
     ! Write the contents of the namelist to an ASCII file
     IF(p_pe == p_io) WRITE(nnml_output,nml=diffusion_ctl)

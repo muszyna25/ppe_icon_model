@@ -132,9 +132,6 @@ CONTAINS
       funit = open_and_restore_namelist('grid_ctl')
       READ(funit,NML=grid_ctl)
       CALL close_tmpfile(funit)
-     ! for testing
-      WRITE (0,*) 'contents of namelist ...'
-      WRITE (0,NML=grid_ctl)
     END IF
 
     !--------------------------------------------------------------------
@@ -169,7 +166,6 @@ CONTAINS
     funit = open_tmpfile()
     WRITE(funit,NML=grid_ctl)
     CALL store_and_close_namelist(funit, 'grid_ctl')
-    write(0,*) 'stored grid_ctl'
 
     ! Write the contents of the namelist to an ASCII file.
     ! Probably will be removed later.

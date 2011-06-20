@@ -418,9 +418,6 @@ CONTAINS
       funit = open_and_restore_namelist('run_ctl')
       READ(funit,NML=run_ctl)
       CALL close_tmpfile(funit)
-     ! for testing
-      WRITE (0,*) 'contents of namelist ...'
-      WRITE (0,NML=run_ctl)
 
       ! 2.2 Save the calendar and initial date/time of the old run
 
@@ -702,11 +699,9 @@ CONTAINS
     funit = open_tmpfile()
     WRITE(funit,NML=run_ctl)
     CALL store_and_close_namelist(funit, 'run_ctl')
-    write(0,*) 'stored run_ctl'
 
     ! write the contents of the namelist to an ASCII file
     IF(p_pe == p_io) WRITE(nnml_output,nml=run_ctl)
-
 
     !-----------------------------------------------------------
     ! Topography
@@ -747,49 +742,6 @@ CONTAINS
        CALL finish( TRIM(routine),'wrong topography specifier, itopo must be in {0,1,2}]')
     END SELECT
 
-
  END SUBROUTINE run_nml_setup
 
 END MODULE mo_run_nml
-
-!!$  !>
-!!$  !! "read_restart_radiation_nml" reads the parameters of the radiation
-!!$  !! namelist from the global attributes of a restart file in netcdf format.
-!!$  !!
-!!$  !! @par Revision History
-!!$  !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
-!!$  !!
-!!$  SUBROUTINE read_restart_radiation_nml
-!!$
-!!$    CALL finish('mo_radiation_nml/read_restart_radiation_nml', &
-!!$      &         'This subroutine is not yet available')
-!!$
-!!$  END SUBROUTINE read_restart_radiation_nml
-!!$
-!!$  !>
-!!$  !! "write_restart_radiation_nml" writes the parameters of the radiation
-!!$  !! namelist as global attributes to a restart file in netcdf format.
-!!$  !!
-!!$  !! @par Revision History
-!!$  !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
-!!$  !!
-!!$  SUBROUTINE write_restart_radiation_nml
-!!$
-!!$    CALL finish('mo_radiation_nml/write_restart_radiation_nml', &
-!!$      &         'This subroutine is not yet available')
-!!$
-!!$  END SUBROUTINE write_restart_radiation_nml
-!!$
-!!$  !>
-!!$  !! "write_rawdata_radiation_nml" writes the parameters of the radiation
-!!$  !! namelist as global attributes to a raw data file in netcdf format.
-!!$  !!
-!!$  !! @par Revision History
-!!$  !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
-!!$  !!
-!!$  SUBROUTINE write_rawdata_radiation_nml
-!!$
-!!$    CALL finish('mo_radiation_nml/write_rawdata_radiation_nml', &
-!!$      &         'This subroutine is not yet available')
-!!$
-!!$  END SUBROUTINE write_rawdata_radiation_nml

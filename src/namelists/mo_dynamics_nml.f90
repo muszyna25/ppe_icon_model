@@ -234,18 +234,13 @@ CONTAINS
     END SELECT
 
     !------------------------------------------------------------------------
-    ! 2. If this is a resumed integration...
+    ! 2. If this is a resumed integration, overwrite the defaults above by 
+    !    values in the restart file
     !------------------------------------------------------------------------
     IF (lrestart) THEN
-
-      ! 2.1 Overwrite the defaults above by values in the restart file
       funit = open_and_restore_namelist('dynamics_ctl')
       READ(funit,NML=dynamics_ctl)
       CALL close_tmpfile(funit)
-      ! for testing
-      WRITE (0,*) 'contents of namelist ...'
-      WRITE (0,NML=dynamics_ctl)
-
     END IF
 
     !------------------------------------------------------------------------
@@ -336,7 +331,6 @@ CONTAINS
     funit = open_tmpfile()
     WRITE(funit,NML=dynamics_ctl)
     CALL store_and_close_namelist(funit, 'dynamics_ctl')
-    write(0,*) 'stored dynamics_ctl'
 
     ! write the contents of the namelist to an ASCII file
     IF(p_pe == p_io) WRITE(nnml_output,nml=dynamics_ctl)

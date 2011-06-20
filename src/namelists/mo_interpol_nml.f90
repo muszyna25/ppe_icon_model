@@ -43,15 +43,15 @@ MODULE mo_interpol_nml
   USE mo_model_domain_import, ONLY: n_dom, lplane, n_dom_start
   USE mo_namelist,            ONLY: position_nml, POSITIONED
   USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH
-! USE mo_master_nml,          ONLY: lrestart
+  USE mo_master_nml,          ONLY: lrestart
   USE mo_run_nml,             ONLY: i_cell_type
   USE mo_intp_data_strc,      ONLY: t_lsq_set, sick_a, sick_o
   USE mo_kind,                ONLY: wp
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_exception,           ONLY: message, finish
-  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist !,   &
-!                                & open_and_restore_namelist, close_tmpfile
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
+                                  & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
 
@@ -207,16 +207,13 @@ SUBROUTINE interpol_nml_setup(p_patch)
 
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
-    ! by values in the previous integration.
+    ! by values used in the previous integration.
     !----------------------------------------------------------------
-!   IF (lrestart) THEN
-!     funit = open_and_restore_namelist('interpol_ctl')
-!     READ(funit,NML=interpol_ctl)
-!     CALL close_tmpfile(funit)
-!    ! for testing
-!     WRITE (0,*) 'contents of namelist ...'
-!     WRITE (0,NML=interpol_ctl)
-!   END IF
+    IF (lrestart) THEN
+      funit = open_and_restore_namelist('interpol_ctl')
+      READ(funit,NML=interpol_ctl)
+      CALL close_tmpfile(funit)
+    END IF
 
     !--------------------------------------------------------------------
     ! Read user's (new) specifications (Done so far by all MPI processes)
@@ -233,7 +230,6 @@ SUBROUTINE interpol_nml_setup(p_patch)
     funit = open_tmpfile()
     WRITE(funit,NML=interpol_ctl)
     CALL store_and_close_namelist(funit, 'interpol_ctl')
-    write(0,*) 'stored interpol_ctl'
 
    ! If RBF scaling factors are not supplied by the namelist, they are now
    ! initialized with meaningful values depending on the grid level and the
@@ -353,8 +349,6 @@ SUBROUTINE interpol_nml_setup(p_patch)
    ! write the contents of the namelist to an ASCII file
 
    IF(p_pe == p_io) WRITE(nnml_output,nml=interpol_ctl)
-
-
 
   ! set the number of unknowns in the least squares reconstruction, and the
   ! stencil size, depending on the chosen polynomial order (lsq_high_ord).

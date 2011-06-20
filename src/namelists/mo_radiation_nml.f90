@@ -48,9 +48,9 @@ MODULE mo_radiation_nml
   USE mo_namelist,           ONLY: position_nml, positioned
   USE mo_io_units,           ONLY: nnml
   USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o, amo2
-! USE mo_master_nml,         ONLY: lrestart
-  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist !,   &                                             
-!                                & open_and_restore_namelist, close_tmpfile
+  USE mo_master_nml,         ONLY: lrestart
+  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist, &                                             
+                                 & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
   PUBLIC
@@ -183,14 +183,11 @@ CONTAINS
     ! If this is a resumed integration, overwrite the defaults above
     ! by values in the previous integration.
     !----------------------------------------------------------------
-!   IF (lrestart) THEN
-!     funit = open_and_restore_namelist('radiation_nml')
-!     READ(funit,NML=radiation_nml)
-!     CALL close_tmpfile(funit)
-!    ! for testing
-!     WRITE (0,*) 'contents of namelist ...'
-!     WRITE (0,NML=radiation_nml)
-!   END IF
+    IF (lrestart) THEN
+      funit = open_and_restore_namelist('radiation_nml')
+      READ(funit,NML=radiation_nml)
+      CALL close_tmpfile(funit)
+    END IF
 
     !---------------------------------------------------------------------
     ! Read user's (new) specifications (Done so far by all MPI processes)
@@ -209,7 +206,6 @@ CONTAINS
     funit = open_tmpfile()
     WRITE(funit,NML=radiation_nml)
     CALL store_and_close_namelist(funit, 'radiation_nml')
-    write(0,*) 'stored radiation_nml'
 
     ! Set dependent variables
     ! -----------------------

@@ -339,8 +339,8 @@ PROGRAM control_model
     CALL read_restart_info_file(grid_file_name, lsuccess) ! out, out
 
     IF (lsuccess) THEN
-      CALL message( 'Running model in restart mode',      &
-                  & 'horizontal grid should be read from '&
+      CALL message( '', 'Running model in restart mode. '   &
+                  & //'horizontal grid should be read from '&
                   & //TRIM(grid_file_name) )
     ELSE
       CALL finish('','Failed to read restart.info')
