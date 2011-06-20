@@ -58,8 +58,8 @@ MODULE mo_dynamics_nml
     &                              IHS_ATM_THETA,iequations
   USE mo_master_nml,         ONLY: lrestart
   USE mo_io_restart,         ONLY: get_restart_attribute
-  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist !,   &       
-!                                & open_and_restore_namelist, close_tmpfile
+  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &       
+                                 & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
 
@@ -236,17 +236,17 @@ CONTAINS
     !------------------------------------------------------------------------
     ! 2. If this is a resumed integration...
     !------------------------------------------------------------------------
-   !IF (lrestart) THEN
+    IF (lrestart) THEN
 
-   !  ! 2.1 Overwrite the defaults above by values in the restart file
-   !  funit = open_and_restore_namelist('dynamics_ctl')
-   !  READ(funit,NML=dynamics_ctl)
-   !  CALL close_tmpfile(funit)
-   !  ! for testing
-   !  WRITE (0,*) 'contents of namelist ...'
-   !  WRITE (0,NML=dynamics_ctl)
+      ! 2.1 Overwrite the defaults above by values in the restart file
+      funit = open_and_restore_namelist('dynamics_ctl')
+      READ(funit,NML=dynamics_ctl)
+      CALL close_tmpfile(funit)
+      ! for testing
+      WRITE (0,*) 'contents of namelist ...'
+      WRITE (0,NML=dynamics_ctl)
 
-   !END IF
+    END IF
 
     !------------------------------------------------------------------------
     ! 3. Read user's (new) specifications. (Done so far by all MPI processes)

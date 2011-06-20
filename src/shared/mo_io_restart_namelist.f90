@@ -17,6 +17,7 @@ MODULE mo_io_restart_namelist
   PUBLIC :: open_and_restore_namelist
   PUBLIC :: close_tmpfile
   PUBLIC :: read_restart_namelists
+  PUBLIC :: get_restart_namelist
   PUBLIC :: delete_restart_namelists
   PUBLIC :: nmls
   PUBLIC :: restart_namelist
@@ -41,6 +42,11 @@ MODULE mo_io_restart_namelist
   INTEGER, PARAMETER :: nmax_nmls = 64
   INTEGER, SAVE :: nmls = 0
   TYPE(t_att_namelist), ALLOCATABLE :: restart_namelist(:)
+  !
+  INTERFACE get_restart_namelist
+    MODULE PROCEDURE get_restart_namelist_by_name
+    MODULE PROCEDURE get_restart_namelist_by_index
+  END INTERFACE get_restart_namelist
   !
 CONTAINS
   !
@@ -82,7 +88,8 @@ CONTAINS
 #else
         restart_namelist(i)%text = ''
 #endif
-        restart_namelist(nmls)%text = namelist_text
+        restart_namelist(i)%text = TRIM(namelist_text)
+
         RETURN
       ENDIF
     ENDDO
@@ -104,9 +111,10 @@ CONTAINS
 #endif
       restart_namelist(nmls)%text = namelist_text
     ENDIF
+    !
   END SUBROUTINE set_restart_namelist
   !
-  SUBROUTINE get_restart_namelist(namelist_name, namelist_text)
+  SUBROUTINE get_restart_namelist_by_name(namelist_name, namelist_text)
     CHARACTER(len=*),              INTENT(in)  :: namelist_name
 #ifdef HAVE_F2003
     INTEGER :: text_len
@@ -116,21 +124,36 @@ CONTAINS
 #endif
     INTEGER :: i
     !
+    namelist_text = ''
+    !
     DO i = 1, nmls
-      IF (TRIM(namelist_name) == TRIM(restart_namelist(i)%name)) THEN
+      IF ('nml_'//TRIM(namelist_name) == TRIM(restart_namelist(i)%name)) THEN
 #ifdef HAVE_F2003
         text_len = LEN(restart_namelist(i)%text)
         IF (ALLOCATED(namelist_text)) DEALLOCATE(namelist_text)
         ALLOCATE(CHARACTER(len=text_len) :: namelist_text)
 #endif
-        namelist_text = restart_namelist(i)%text
+        namelist_text = TRIM(restart_namelist(i)%text)
         RETURN
       ENDIF
     ENDDO
     !
     CALL finish('','namelist '//TRIM(namelist_name)//' not available in restart file.')
     !
-  END SUBROUTINE get_restart_namelist
+  END SUBROUTINE get_restart_namelist_by_name
+  !
+  SUBROUTINE get_restart_namelist_by_index(namelist_index, namelist_name)
+    INTEGER,          INTENT(in)  :: namelist_index
+    CHARACTER(len=*), INTENT(out) :: namelist_name
+    !
+    IF (nmls > nmax_nmls) THEN
+      CALL finish('get_restart_namelist','index out of range.')
+    ELSE
+      namelist_name = ''
+      namelist_name = TRIM(restart_namelist(namelist_index)%name(5:))
+    ENDIF
+    !
+  END SUBROUTINE get_restart_namelist_by_index
   !
   FUNCTION open_tmpfile() RESULT(funit)
     INTEGER :: funit
@@ -159,7 +182,7 @@ CONTAINS
 #endif
     INTEGER :: iret
     !
-    INQUIRE(funit,NAME=filename)
+    INQUIRE(funit, NAME=filename)
     !
     CLOSE(funit)
     !
@@ -259,6 +282,8 @@ CONTAINS
     status = vlistInqNatts(vlistID, CDI_GLOBAL, natts)
     !
     DO i = 0, natts-1
+      att_name = ''
+      att_len = 0
       status = vlistInqAtt(vlistID, CDI_GLOBAL, i, att_name, att_type, att_len)
       IF ( att_name(1:4) /= 'nml_') CYCLE ! skip this, it is not a namelist 
       nmllen = att_len
@@ -279,14 +304,14 @@ CONTAINS
         CALL finish('set_restart_namelist', &
              &      'too many restart attributes for restart file')
       ENDIF
-      restart_namelist(nmls)%name = TRIM(att_name(5:))
+      restart_namelist(nmls)%name = TRIM(att_name)
 #ifdef HAVE_F2003
       IF (ALLOCATED(restart_namelist(nmls)%text)) DEALLOCATE(restart_namelist(nmls)%text) 
       ALLOCATE(CHARACTER(len=nmllen) :: restart_namelist(nmls)%text)
 #else
       restart_namelist(nmls)%text = ''      
 #endif
-      restart_namelist(nmls)%text = nmlbuf
+      restart_namelist(nmls)%text = nmlbuf(1:nmllen)
 #ifdef HAVE_F2003
       DEALLOCATE(nmlbuf)
 #endif

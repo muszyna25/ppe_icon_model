@@ -413,7 +413,8 @@ CONTAINS
     !------------------------------------------------------------------------                  
     IF (lrestart) THEN                                                                 
 
-      ! 2.1 Overwrite the defaults above by values in the restart file 
+      ! 2.1 Overwrite the defaults above by values in the restart file
+
       funit = open_and_restore_namelist('run_ctl')
       READ(funit,NML=run_ctl)
       CALL close_tmpfile(funit)

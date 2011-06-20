@@ -38,7 +38,7 @@ MODULE mo_parallel_nml
   USE mo_exception,          ONLY: message, finish
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, POSITIONED
-! USE mo_master_nml,         ONLY: lrestart
+  USE mo_master_nml,         ONLY: lrestart
   USE mo_run_nml,            ONLY: lrestore_states
   USE mo_mpi,                ONLY: p_pe, p_io, p_nprocs, p_all_comm
 #ifndef NOMPI
@@ -48,8 +48,8 @@ MODULE mo_parallel_nml
 #else
   USE mo_mpi,                ONLY:  p_comm_work, p_comm_work_test
 #endif
-  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist !,   &
-!                                & open_and_restore_namelist, close_tmpfile
+  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
+                                 & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
 
@@ -189,14 +189,14 @@ MODULE mo_parallel_nml
     ! If this is a resumed integration, overwrite the defaults above
     ! by values in the previous integration.
     !----------------------------------------------------------------
-!   IF (lrestart) THEN
-!     funit = open_and_restore_namelist('parallel_ctl')
-!     READ(funit,NML=parallel_ctl)
-!     CALL close_tmpfile(funit)
-!    ! for testing
-!     WRITE (0,*) 'contents of namelist ...'
-!     WRITE (0,NML=parallel_ctl)
-!   END IF
+    IF (lrestart) THEN
+      funit = open_and_restore_namelist('parallel_ctl')
+      READ(funit,NML=parallel_ctl)
+      CALL close_tmpfile(funit)
+     ! for testing
+      WRITE (0,*) 'contents of namelist ...'
+      WRITE (0,NML=parallel_ctl)
+    END IF
 
     !--------------------------------------------------------------------
     ! Read user's (new) specifications (Done so far by all MPI processes) 
