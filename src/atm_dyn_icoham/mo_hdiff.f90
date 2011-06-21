@@ -737,21 +737,21 @@ MODULE mo_hdiff
                DO jv = i_startidx, i_endidx
 
                  ! j) frictional heating at vertices
-                 z_fric_heat_v(jv,jk,jb) = -0.5_wp* (&
+                 z_fric_heat_v(jv,jk,jb) = 0.5_wp* (&
                  & ((pt_patch%verts%edge_orientation(jv,jb,1)+1.0_wp) &
-                 &  *z_turb_flx_v2(ivei(jv,jb,1),jk,iveb(jv,jb,1))    &
+                 &  *z_turb_flx_v1(ivei(jv,jb,1),jk,iveb(jv,jb,1))    &
                  & -(pt_patch%verts%edge_orientation(jv,jb,1)-1.0_wp) &
-                 &  *z_turb_flx_v1(ivei(jv,jb,1),jk,iveb(jv,jb,1)))   &
+                 &  *z_turb_flx_v2(ivei(jv,jb,1),jk,iveb(jv,jb,1)))   &
                  &*pt_new%vn(ivei(jv,jb,1),jk,iveb(jv,jb,1))*pt_int%geofac_rot(jv,1,jb) &
                  &+((pt_patch%verts%edge_orientation(jv,jb,2)+1.0_wp) &
-                 &  *z_turb_flx_v2(ivei(jv,jb,2),jk,iveb(jv,jb,2))    &
+                 &  *z_turb_flx_v1(ivei(jv,jb,2),jk,iveb(jv,jb,2))    &
                  & -(pt_patch%verts%edge_orientation(jv,jb,2)-1.0_wp) &
-                 &  *z_turb_flx_v1(ivei(jv,jb,2),jk,iveb(jv,jb,2)))   &
+                 &  *z_turb_flx_v2(ivei(jv,jb,2),jk,iveb(jv,jb,2)))   &
                  &*pt_new%vn(ivei(jv,jb,2),jk,iveb(jv,jb,2))*pt_int%geofac_rot(jv,2,jb) &
                  &+((pt_patch%verts%edge_orientation(jv,jb,3)+1.0_wp) &
-                 &  *z_turb_flx_v2(ivei(jv,jb,3),jk,iveb(jv,jb,3))    &
+                 &  *z_turb_flx_v1(ivei(jv,jb,3),jk,iveb(jv,jb,3))    &
                  & -(pt_patch%verts%edge_orientation(jv,jb,3)-1.0_wp) &
-                 &  *z_turb_flx_v1(ivei(jv,jb,3),jk,iveb(jv,jb,3)))   &
+                 &  *z_turb_flx_v2(ivei(jv,jb,3),jk,iveb(jv,jb,3)))   &
                  &*pt_new%vn(ivei(jv,jb,3),jk,iveb(jv,jb,3))*pt_int%geofac_rot(jv,3,jb))
 
                ENDDO

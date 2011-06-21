@@ -53,14 +53,12 @@
 MODULE mo_divergent_modes
 
   USE mo_kind,                ONLY: wp
-  USE mo_nonhydrostatic_nml,  ONLY: gmres_rtol_nh, &
-    &                               upstr_beta, ltheta_up_hori, l_impl_vert_adv
-  USE mo_run_nml,             ONLY: nproma
+  USE mo_nonhydrostatic_nml,  ONLY: gmres_rtol_nh, upstr_beta, ltheta_up_hori
+  USE mo_run_nml,             ONLY: nproma, dtime
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: lplane
-  USE mo_interpolation,       ONLY: t_int_state, i_cori_method, sick_a, sick_o, &
-                                    cells2edges_scalar, edges2cells_scalar, &
-                                    verts2edges_scalar, cells2verts_scalar
+  USE mo_interpolation,       ONLY: t_int_state,  &
+                                    cells2edges_scalar, edges2cells_scalar
   USE mo_nonhydro_state,      ONLY: t_nh_state, t_nh_metrics
   USE mo_physical_constants,  ONLY: cpd, rd, cvd, cvd_o_rd, rd_o_cpd
   USE mo_math_operators,      ONLY: div, grad_fd_norm, grad_dir_edge,  &
@@ -78,7 +76,7 @@ MODULE mo_divergent_modes
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: divergent_modes_5band, impl_vert_adv_theta
+  PUBLIC :: divergent_modes_5band, impl_vert_adv_theta, impl_vert_adv_theta_5diag
 
   CONTAINS
 
@@ -92,30 +90,22 @@ MODULE mo_divergent_modes
   !! @par Revision History
   !! Initial release by Almut Gassmann (2011-01-03)
   !!
-  SUBROUTINE divergent_modes_5band (p_nh, p_patch, p_int, know, knew, l_predictor, p_dtime)
+  SUBROUTINE divergent_modes_5band (p_nh, p_patch, p_int, know, knew, l_predictor)
 
     TYPE(t_nh_state),INTENT(INOUT):: p_nh
     TYPE(t_int_state),TARGET,INTENT(IN) :: p_int
     TYPE(t_patch),TARGET,INTENT(IN):: p_patch
     LOGICAL,         INTENT(IN) :: l_predictor
     INTEGER,         INTENT(IN) :: know, knew
-    REAL(wp),        INTENT(IN) :: p_dtime
 
     INTEGER  :: nblks_c, nblks_e, npromz_c, npromz_e, nlen, jb, jk
     INTEGER  :: nlev, nlevp1              !< number of full and half levels
 
-    REAL(wp) :: z_rho_e         (nproma,p_patch%nlev  ,p_patch%nblks_e), &
-                z_theta_v_e     (nproma,p_patch%nlev  ,p_patch%nblks_e), &
+    REAL(wp) :: z_theta_v_e     (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_ddxn_emech_e  (nproma,p_patch%nlev  ,p_patch%nblks_e), &
-                z_ddxn_exner_e  (nproma,p_patch%nlev  ,p_patch%nblks_e), &
-                z_ddxn_theta_v_e(nproma,p_patch%nlev  ,p_patch%nblks_e), &
-                z_lapl_theta_v_e(nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_theta_v_fl_e  (nproma,p_patch%nlev  ,p_patch%nblks_e), &
                 z_grad_corr_e_k (nproma,p_patch%nlev  ,p_patch%nblks_e), &
-                z_jn_vn_e       (nproma,p_patch%nlevp1,p_patch%nblks_e), &
-                z_rho_star_e    (nproma,p_patch%nlevp1,p_patch%nblks_e), &
-                z_vn_star       (nproma,p_patch%nlevp1,p_patch%nblks_e), &
-                z_rho_a         (nproma,p_patch%nlevp1,p_patch%nblks_e)
+                z_jn_vn_e       (nproma,p_patch%nlevp1,p_patch%nblks_e)
 
     REAL(wp) :: z_mass_fl_div   (nproma,p_patch%nlev  ,p_patch%nblks_c), &
                 z_exner_mean    (nproma,p_patch%nlev  ,p_patch%nblks_c), &
@@ -126,20 +116,12 @@ MODULE mo_divergent_modes
                 z_grad_corr_c_l (nproma,p_patch%nlevp1,p_patch%nblks_c), &
                 z_theta_v_l     (nproma,p_patch%nlevp1,p_patch%nblks_c), &
                 z_th_ddz_exner_c(nproma,p_patch%nlevp1,p_patch%nblks_c), &
-                z_contr_corr_c  (nproma,p_patch%nlevp1,p_patch%nblks_c), &
-                z_w_rhs_wo_pgrad(nproma,p_patch%nlevp1,p_patch%nblks_c), &
-                z_theta_v_ave   (nproma,p_patch%nlev  ,p_patch%nblks_c)
-
-    REAL(wp) :: z_ddz_theta_l   (nproma,p_patch%nlevp1,p_patch%nblks_c), &
-                z_ddz_theta_k   (nproma,p_patch%nlev  ,p_patch%nblks_c), &
-                z_ddz_theta_e_k (nproma,p_patch%nlev  ,p_patch%nblks_e), &
-                z_lapl_terrain_e(nproma,p_patch%nlev  ,p_patch%nblks_e)
+                z_contr_corr_c  (nproma,p_patch%nlevp1,p_patch%nblks_c)
 
     REAL(wp) :: z_w_expl        (nproma,p_patch%nlevp1                ), &
                 z_kinw_expl_ic  (nproma,p_patch%nlevp1                ), &
                 z_rho_expl_ic   (nproma,p_patch%nlevp1                ), &
                 z_kinw_expl_mc  (nproma,p_patch%nlev                  ), &
-                z_contr_w_fl_l  (nproma,p_patch%nlevp1                ), &
                 z_rho_expl      (nproma,p_patch%nlev                  ), &
                 z_exner_expl    (nproma,p_patch%nlev                  )
 
@@ -162,11 +144,8 @@ MODULE mo_divergent_modes
                 z_gaepm         (nproma,p_patch%nlevp1                ), &
                 z_gaepd         (nproma,p_patch%nlevp1                )
 
-    REAL(wp) :: z_rho_v         (nproma,p_patch%nlev  ,p_patch%nblks_v)
-
     REAL(wp) :: z_k             (nproma                       ), &
-                z_l             (nproma                       ), &
-                z_help          (nproma                       )
+                z_l             (nproma                       )
 
     ! for the GMRES solver (needed for the lower boundary condition)
     REAL(wp), PARAMETER :: z_1o2 = 0.5_wp
@@ -190,7 +169,7 @@ MODULE mo_divergent_modes
     !======================================================
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk, z_help)
+!$OMP DO PRIVATE(jb, nlen, jk)
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
         nlen = nproma
@@ -205,136 +184,68 @@ MODULE mo_divergent_modes
         ! - horizontal kinetic energy with vector from RK
         z_emech_kin3d(1:nlen,jk,jb) = p_nh%diag%e_kin (1:nlen,jk,jb) &
         &                        + p_nh%metrics%geopot(1:nlen,jk,jb)
-        ! off-centered exner pressure only for horizontal direction
-        ! (see scientific documentation)
-        z_exner_mean(1:nlen,jk,jb) = &
-        &  (rd_o_cpd-0.5_wp)*p_nh%diag%exner_old  (1:nlen,jk,jb) &
-        & +(1.5_wp-rd_o_cpd)*p_nh%prog(know)%exner(1:nlen,jk,jb)
       ENDDO
-      IF ( l_predictor) THEN ! average the old and the estimates values
+      IF (l_predictor) THEN ! first call
         DO jk = 1, nlev
-          z_theta_v_ave(1:nlen,jk,jb) = p_nh%prog(know)%theta_v(1:nlen,jk,jb)
+          ! off-centered exner pressure only for horizontal direction
+          ! (see scientific documentation)
+          z_exner_mean(1:nlen,jk,jb) = &
+          &  (rd_o_cpd-0.5_wp)*p_nh%diag%exner_old  (1:nlen,jk,jb) &
+          & +(1.5_wp-rd_o_cpd)*p_nh%prog(know)%exner(1:nlen,jk,jb)
         ENDDO
-      ELSE
+        p_nh%diag%rho_ic(1:nlen,1,jb) = 0.0_wp
+        DO jk = 2,nlev
+          ! density at interface levels
+          p_nh%diag%rho_ic(1:nlen,jk,jb) =0.5_wp*(p_nh%prog(know)%rho(1:nlen,jk-1,jb) &
+          &                                     + p_nh%prog(know)%rho(1:nlen,jk  ,jb))
+        ENDDO
+        p_nh%diag%rho_ic(1:nlen,nlevp1,jb) = 0.0_wp
+      ELSE ! second call
         DO jk = 1, nlev
-          z_theta_v_ave(1:nlen,jk,jb) = 0.5_wp *   &
-          & (p_nh%prog(know)%theta_v(1:nlen,jk,jb) &
-          & +p_nh%prog(knew)%theta_v(1:nlen,jk,jb) )
+          ! store old exner if the current call is the main step
+          p_nh%diag%exner_old(1:nlen,jk,jb)=p_nh%prog(know)%exner(1:nlen,jk,jb)
         ENDDO
       ENDIF
       ! theta at interfaces
       z_theta_v_l     (1:nlen,1,jb) = 0.0_wp
-      IF( l_impl_vert_adv) THEN
         DO jk = 2, nlev
           z_theta_v_l(1:nlen,jk,jb) =0.5_wp &
           & *(p_nh%diag%theta_v_impl(1:nlen,jk-1,jb) &
           & + p_nh%diag%theta_v_impl(1:nlen,jk  ,jb) )
         ENDDO
-      ELSE 
-        DO jk = 2, nlev
-          z_theta_v_l(1:nlen,jk,jb) =0.5_wp &
-          & *(z_theta_v_ave(1:nlen,jk-1,jb) + z_theta_v_ave(1:nlen,jk,jb) )
-        ENDDO
-      ENDIF
       z_theta_v_l     (1:nlen,nlevp1,jb) = 0.0_wp
-
       ! vertical measures
-      p_nh%diag%rho_ic(1:nlen,1,jb) = 0.0_wp
       DO jk = 2, nlev
-        ! vertical derivative of exner pressure (for vn-equation)
-        z_help(1:nlen) = ( p_nh%prog(know)%exner(1:nlen,jk-1,jb) &
-        &                 -p_nh%prog(know)%exner(1:nlen,jk  ,jb))&
-        &             / p_nh%metrics%ddqz_z_half(1:nlen,jk  ,jb)
-        ! density at interface levels
-        p_nh%diag%rho_ic(1:nlen,jk,jb) =0.5_wp*(p_nh%prog(know)%rho(1:nlen,jk-1,jb) &
-        &                                     + p_nh%prog(know)%rho(1:nlen,jk  ,jb))
         ! vertical pressure gradient * theta_v (for w-equation)
-        z_th_ddz_exner_c(1:nlen,jk,jb) = z_theta_v_l(1:nlen,jk,jb)*z_help(1:nlen)
+        z_th_ddz_exner_c(1:nlen,jk,jb) = z_theta_v_l(1:nlen,jk  ,jb) &
+        &                   *( p_nh%prog(know)%exner(1:nlen,jk-1,jb) &
+        &                     -p_nh%prog(know)%exner(1:nlen,jk  ,jb))&
+        &                 / p_nh%metrics%ddqz_z_half(1:nlen,jk  ,jb)
         ! metric correction for horizontal velocity equation
-        z_grad_corr_c_l(1:nlen,jk,jb) =     (z_emech_kin3d(1:nlen,jk-1,jb) &
-        &                                   -z_emech_kin3d(1:nlen,jk  ,jb))&
-        &                       / p_nh%metrics%ddqz_z_half(1:nlen,jk  ,jb) &
-        &                            +cpd*z_th_ddz_exner_c(1:nlen,jk  ,jb)
-        ! RHS of w ... continued
-        z_w_rhs_wo_pgrad(1:nlen,jk,jb) =   -(z_emech_kin2d(1:nlen,jk-1,jb) &
-        &                                   -z_emech_kin2d(1:nlen,jk  ,jb))&
-        &                       / p_nh%metrics%ddqz_z_half(1:nlen,jk  ,jb) &
-        &                            +p_nh%diag%ddt_w_vort(1:nlen,jk  ,jb)
+        z_grad_corr_c_l(1:nlen,jk,jb) = (z_emech_kin3d(1:nlen,jk-1,jb) &
+        &                               -z_emech_kin3d(1:nlen,jk  ,jb))&
+        &                   / p_nh%metrics%ddqz_z_half(1:nlen,jk  ,jb) &
+        &                        +cpd*z_th_ddz_exner_c(1:nlen,jk  ,jb)
       ENDDO
-      p_nh%diag%rho_ic(1:nlen,nlevp1,jb) = 0.0_wp
-      z_grad_corr_c_l (1:nlen,nlevp1,jb) = p_nh%prog(know)%w(1:nlen,nlevp1,jb)/p_dtime
+      z_grad_corr_c_l (1:nlen,nlevp1,jb) = p_nh%prog(know)%w(1:nlen,nlevp1,jb)/dtime
       ! metric correction for gradient must be fist averaged vertically
       DO jk = nflat+1, nlev
-        z_grad_corr_c_k(1:nlen,jk,jb) = 0.5_wp/p_nh%metrics%ddqz_z_full(1:nlen,jk,jb)&
-        &*(z_grad_corr_c_l(1:nlen,jk  ,jb)*p_nh%metrics%ddqz_z_half(1:nlen,jk  ,jb)  &
-        & +z_grad_corr_c_l(1:nlen,jk+1,jb)*p_nh%metrics%ddqz_z_half(1:nlen,jk+1,jb))
+        z_grad_corr_c_k(1:nlen,jk,jb) = 0.5_wp/p_nh%metrics%ddqz_z_full(1:nlen,jk,jb) &
+        &  *(z_grad_corr_c_l(1:nlen,jk  ,jb)*p_nh%metrics%ddqz_z_half(1:nlen,jk  ,jb) &
+        &   +z_grad_corr_c_l(1:nlen,jk+1,jb)*p_nh%metrics%ddqz_z_half(1:nlen,jk+1,jb))
       ENDDO
     ENDDO
 !$OMP END DO
-
-    ! store old exner if the current call is the main step
-    IF (.NOT. l_predictor) THEN
-!$OMP WORKSHARE
-      p_nh%diag%exner_old(:,:,:)=p_nh%prog(know)%exner(:,:,:)
-!$OMP END WORKSHARE
-    ENDIF
 !$OMP END PARALLEL
 
     ! 2) What can be done on edges
     !=============================
-
-    ! density at edges
-    CALL cells2edges_scalar(p_nh%prog(know)%rho,p_patch,p_int%c_lin_e,z_rho_e)
-    IF (.NOT. l_predictor) THEN  ! second call
-      CALL cells2edges_scalar(p_nh%prog(knew)%rho,p_patch,p_int%c_lin_e,z_rho_star_e)
-    ENDIF
-
-    IF (i_cori_method >= 2) THEN
-      IF(p_test_run) z_rho_v=0.0_wp
-      CALL cells2verts_scalar(p_nh%prog(know)%rho,p_patch,p_int%cells_aw_verts,z_rho_v)
-      CALL sync_patch_array(SYNC_V,p_patch,z_rho_v)
-      CALL verts2edges_scalar(z_rho_v,p_patch,p_int%v_1o2_e,z_rho_a)
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,nlen)
-      DO jb = 1,nblks_e
-        IF (jb /= nblks_e) THEN
-          nlen = nproma
-        ELSE
-          nlen = npromz_e
-        ENDIF
-        DO jk = 1,nlev
-          z_rho_e(1:nlen,jk,jb) = sick_a*z_rho_a(1:nlen,jk,jb)&
-          &                      +sick_o*z_rho_e(1:nlen,jk,jb)
-        ENDDO
-      ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
-      IF (.NOT. l_predictor) THEN  ! second call
-        IF(p_test_run) z_rho_v=0.0_wp
-        CALL cells2verts_scalar(p_nh%prog(knew)%rho,p_patch,p_int%cells_aw_verts,z_rho_v)
-        CALL sync_patch_array(SYNC_V,p_patch,z_rho_v)
-        CALL verts2edges_scalar(z_rho_v,p_patch,p_int%v_1o2_e,z_rho_a)
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,nlen)
-        DO jb = 1,nblks_e
-          IF (jb /= nblks_e) THEN
-            nlen = nproma
-          ELSE
-            nlen = npromz_e
-          ENDIF
-          DO jk = 1,nlev
-            z_rho_star_e(1:nlen,jk,jb) = sick_a*z_rho_a     (1:nlen,jk,jb)&
-            &                           +sick_o*z_rho_star_e(1:nlen,jk,jb)
-          ENDDO
-        ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
-      ENDIF
-    ENDIF
-
-    ! horizontal gradient of Exner pressure, only needed in the first step
-    IF ( l_predictor ) THEN
-      CALL grad_fd_norm(z_exner_mean, p_patch, z_ddxn_exner_e)
+    IF (l_predictor) THEN
+      ! edge value of theta
+      CALL advection_edges (p_nh%prog(know)%theta_v,p_nh%prog(know)%vn,&
+      &                     p_patch,p_nh%metrics,p_int,z_theta_v_e)
+      ! horizontal gradient of Exner pressure
+      CALL grad_fd_norm(z_exner_mean, p_patch, p_nh%diag%horpgrad)
     ENDIF
 
     ! Compute horizontal gradient of mechanical energy
@@ -343,77 +254,6 @@ MODULE mo_divergent_modes
     ! Compute the horizontal average of the metric correction to the gradient
     CALL cells2edges_scalar(z_grad_corr_c_k, p_patch, p_int%c_lin_e, &
          &                  z_grad_corr_e_k, nflat+1, nlev)
-
-    ! virtual potential temperature at edges
-    CALL cells2edges_scalar(z_theta_v_ave,p_patch,p_int%c_lin_e,z_theta_v_e)
-
-    IF (ltheta_up_hori) THEN
-      !include terrain following correction here
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,nlen)
-      DO jb = 1,nblks_c
-        IF (jb /= nblks_c) THEN
-          nlen = nproma
-        ELSE
-          nlen = npromz_c
-        ENDIF
-        !1) vertical gradient of potential temperatur
-        DO jk = 2,nlev
-          z_ddz_theta_l(1:nlen,jk,jb) = &
-          & z_theta_v_ave(1:nlen,jk-1,jb)-z_theta_v_ave(1:nlen,jk  ,jb) 
-        ENDDO
-        z_ddz_theta_l(1:nlen,1,jb)      = z_ddz_theta_l(1:nlen,2,jb)
-        z_ddz_theta_l(1:nlen,nlevp1,jb) = z_ddz_theta_l(1:nlen,nlev,jb)
-        !2) average gradient to main level
-        DO jk = 1,nlev
-          z_ddz_theta_k(1:nlen,jk,jb)=0.5_wp/p_nh%metrics%ddqz_z_full(1:nlen,jk,jb)&
-          &*(z_ddz_theta_l(1:nlen,jk,jb)+z_ddz_theta_l(1:nlen,jk+1,jb))
-        ENDDO
-      ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
-      !3) average to edges
-      CALL cells2edges_scalar(z_ddz_theta_k,p_patch,p_int%c_lin_e,z_ddz_theta_e_k)
-
-      IF (lplane) THEN
-        ! compute horizontal gradient of potential temperature
-        CALL grad_fd_norm(z_theta_v_ave,p_patch,z_ddxn_theta_v_e)
-        CALL sync_patch_array(SYNC_E,p_patch,z_ddxn_theta_v_e)
-        ! compute directional laplace
-        CALL grad_dir_edge(p_nh%prog(know)%vn,z_ddxn_theta_v_e,p_patch,p_int,&
-        &                  z_lapl_theta_v_e)
-        ! terrain following correction
-        CALL grad_dir_edge(p_nh%prog(know)%vn,p_nh%metrics%ddxn_z_full,p_patch,p_int,&
-        &                  z_lapl_terrain_e)
-      ELSE
-        CALL directional_laplace(p_nh%prog(know)%vn,z_theta_v_ave,&
-        &                        p_patch,p_int,upstr_beta,z_lapl_theta_v_e)
-        CALL directional_laplace(p_nh%prog(know)%vn,p_nh%metrics%z_mc,&
-        &                        p_patch,p_int,upstr_beta,z_lapl_terrain_e)
-      ENDIF
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk)
-      DO jb = 1, nblks_e
-        IF (jb /= nblks_e) THEN
-          nlen = nproma
-        ELSE
-          nlen = npromz_e
-        ENDIF
-        DO jk = 1, nlev
-            ! terrain following correction
-            z_lapl_theta_v_e(1:nlen,jk,jb)=z_lapl_theta_v_e(1:nlen,jk,jb) &
-            & - z_ddz_theta_e_k(1:nlen,jk,jb)*z_lapl_terrain_e(1:nlen,jk,jb)    
-            ! edge value
-            z_theta_v_e(1:nlen,jk,jb) = z_theta_v_e(1:nlen,jk,jb) &
-            & - p_patch%edges%dual_edge_length(1:nlen,jb)  &
-            & * p_patch%edges%dual_edge_length(1:nlen,jb)  &
-            & /6.0_wp * z_lapl_theta_v_e(1:nlen,jk,jb)
-        ENDDO
-      ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
-    ENDIF
 
     ! 3) Compute horizontal velocity equation
     !========================================
@@ -426,26 +266,25 @@ MODULE mo_divergent_modes
       ELSE
         nlen = npromz_e
       ENDIF
-      IF (.NOT. l_predictor) THEN ! second call (knew value is estimate)
-        z_vn_star(1:nlen,1:nlev,jb) = p_nh%prog(knew)%vn(1:nlen,1:nlev,jb)
-      ENDIF
       IF ( l_predictor ) THEN  ! the pressure gradient term is the same in both calls
         DO jk = 1, nlev        ! note: the metric correction is not, as it contains the
           p_nh%diag%horpgrad(1:nlen,jk,jb) = &                      ! kinetic energy
-          & -cpd*z_theta_v_e(1:nlen,jk,jb)*z_ddxn_exner_e(1:nlen,jk,jb)
+          &  cpd*z_theta_v_e(1:nlen,jk,jb)*p_nh%diag%horpgrad(1:nlen,jk,jb)
         ENDDO
       ENDIF
       DO jk = 1, nflat
         p_nh%prog(knew)%vn(1:nlen,jk,jb)=p_nh%prog(know)%vn(1:nlen,jk,jb)&
-        &   +p_dtime*(p_nh%diag%ddt_vn_vort(1:nlen,jk,jb) &
-        &            +p_nh%diag%ddt_vn_phy (1:nlen,jk,jb) &
-        &-z_ddxn_emech_e(1:nlen,jk,jb)+p_nh%diag%horpgrad(1:nlen,jk,jb))
+        &                     +dtime*(p_nh%diag%ddt_vn_vort(1:nlen,jk,jb)&
+        &                            +p_nh%diag%ddt_vn_phy (1:nlen,jk,jb)&
+        &                            -z_ddxn_emech_e       (1:nlen,jk,jb)&
+        &                            -p_nh%diag%horpgrad   (1:nlen,jk,jb))
       ENDDO
       DO jk = nflat+1,nlev
         p_nh%prog(knew)%vn(1:nlen,jk,jb)=p_nh%prog(know)%vn(1:nlen,jk,jb)&
-        &   +p_dtime*(p_nh%diag%ddt_vn_vort(1:nlen,jk,jb) &
-        &            +p_nh%diag%ddt_vn_phy (1:nlen,jk,jb) &
-        &-z_ddxn_emech_e(1:nlen,jk,jb)+p_nh%diag%horpgrad(1:nlen,jk,jb)&
+        &                     +dtime*(p_nh%diag%ddt_vn_vort(1:nlen,jk,jb)&
+        &                            +p_nh%diag%ddt_vn_phy (1:nlen,jk,jb)&
+        &                            -z_ddxn_emech_e       (1:nlen,jk,jb)&
+        &                            -p_nh%diag%horpgrad   (1:nlen,jk,jb)&
         & +p_nh%metrics%ddxn_z_full(1:nlen,jk,jb)*z_grad_corr_e_k(1:nlen,jk,jb))
       ENDDO
     ENDDO
@@ -491,17 +330,30 @@ MODULE mo_divergent_modes
       ENDIF
       ! This becomes averaged the lower boundary condition for w
       z_jn_vn_e(1:nlen,nlevp1,jb) = p_nh%prog(knew)%vn(1:nlen,nlev,jb) &
-      &                     * p_nh%metrics%ddxn_z_full(1:nlen,nlev,jb)
+      &                     * p_nh%metrics%ddxn_z_full(1:nlen,nlev,jb) &
+      &                   * p_nh%metrics%ddqz_z_full_e(1:nlen,nlev,jb)
     ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
     ! prog(knew)%w(:,nlevp1,:)
     CALL edges2cells_scalar(z_jn_vn_e,p_patch,p_int%e_inn_c,&
          &                  p_nh%prog(knew)%w,nlevp1,nlevp1)
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,nlen)
+    DO jb = 1,nblks_c
+      IF (jb /= nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz_c
+      ENDIF
+      ! The ddqz_z_full is needed here as vn is defined at full levels (see above)
+      p_nh%prog(knew)%w(1:nlen,nlevp1,jb)=p_nh%prog(knew)%w(1:nlen,nlevp1,jb) &
+      &                           /p_nh%metrics%ddqz_z_full(1:nlen,nlev,jb)
+    ENDDO
+!$OMP END DO
 
     ! 4) finalize horizontal part
     !============================
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb, nlen, jk)
     DO jb=1,nblks_e
       IF (jb /= nblks_e) THEN
@@ -512,28 +364,21 @@ MODULE mo_divergent_modes
       ! Fluxes at edges
       IF (l_predictor) THEN
         DO jk = 1,nlev
-          p_nh%diag%mass_fl_e(1:nlen,jk,jb) = z_rho_e(1:nlen,jk,jb) &
-          &                       *p_nh%prog(knew)%vn(1:nlen,jk,jb) &
-          &               *p_nh%metrics%ddqz_z_full_e(1:nlen,jk,jb)
-          z_theta_v_fl_e(1:nlen,jk,jb)= p_nh%diag%mass_fl_e(1:nlen,jk,jb) &
-          &                                    *z_theta_v_e(1:nlen,jk,jb)
+          p_nh%diag%mass_fl_e(1:nlen,jk,jb) = p_nh%diag%rho_e(1:nlen,jk,jb) &
+          &                               *p_nh%prog(knew)%vn(1:nlen,jk,jb) &
+          &                       *p_nh%metrics%ddqz_z_full_e(1:nlen,jk,jb)
         ENDDO
       ELSE
         DO jk = 1,nlev
           p_nh%diag%mass_fl_e(1:nlen,jk,jb)   =   &
-          &  0.5_wp*(z_rho_e(1:nlen,jk,jb)*p_nh%prog(knew)%vn(1:nlen,jk,jb) &
-          &         +z_rho_star_e(1:nlen,jk,jb)*z_vn_star(1:nlen,jk,jb)) &
-          &             *p_nh%metrics%ddqz_z_full_e(1:nlen,jk,jb)
-          z_theta_v_fl_e(1:nlen,jk,jb)= p_nh%diag%mass_fl_e(1:nlen,jk,jb) &
-          &                                    *z_theta_v_e(1:nlen,jk,jb)
+          & 0.5_wp*(p_nh%diag%rho_e(1:nlen,jk,jb)+p_nh%diag%rho_star_e(1:nlen,jk,jb))&
+          &        *p_nh%prog(knew)%vn(1:nlen,jk,jb) &
+          &*p_nh%metrics%ddqz_z_full_e(1:nlen,jk,jb)
         ENDDO
-        ! Final prognostic value for v
-        p_nh%prog(knew)%vn(1:nlen,1:nlev,jb)=0.5_wp* &
-        & (p_nh%prog(knew)%vn(1:nlen,1:nlev,jb) + z_vn_star(1:nlen,1:nlev,jb))
       ENDIF
       ! metric correction for the divergence
       DO jk = nflat+1,nlev
-        z_jn_vn_e(1:nlen,jk,jb)= - p_nh%prog(knew)%vn(1:nlen,jk,jb) &
+        z_jn_vn_e(1:nlen,jk,jb)=  p_nh%diag%mass_fl_e(1:nlen,jk,jb) &
         &                   *p_nh%metrics%ddxn_z_full(1:nlen,jk,jb)
       ENDDO
     ENDDO
@@ -543,16 +388,37 @@ MODULE mo_divergent_modes
     CALL edges2cells_scalar(z_jn_vn_e,p_patch,p_int%e_inn_c,&
                             z_contr_corr_c,nflat+1,nlev)
 
+    IF (.NOT. l_predictor) THEN
+      ! edge value of theta
+      CALL advection_edges (p_nh%diag%theta_v_ave,p_nh%prog(knew)%vn,&
+      &                     p_patch,p_nh%metrics,p_int,z_theta_v_e)
+    ENDIF
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb, nlen, jk)
+    DO jb=1,nblks_e
+      IF (jb /= nblks_e) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz_e
+      ENDIF
+      DO jk = 1,nlev
+        z_theta_v_fl_e(1:nlen,jk,jb)= p_nh%diag%mass_fl_e(1:nlen,jk,jb) &
+        &                                    *z_theta_v_e(1:nlen,jk,jb)
+      ENDDO
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
     ! horizontal divergences
     CALL div(p_nh%diag%mass_fl_e   , p_patch, p_int, z_mass_fl_div   )
     CALL div(z_theta_v_fl_e, p_patch, p_int, z_theta_v_fl_div)
-    CALL sync_patch_array(SYNC_C,p_patch,z_theta_v_fl_div)
 
     ! 5) Vertical solution (5band matrix)
     !====================================
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,z_contr_w_fl_l,z_w_expl,z_rho_expl,z_exner_expl,&
+!$OMP DO PRIVATE(jb,nlen,jk,z_w_expl,z_rho_expl,z_exner_expl,&
 !$OMP    z_rho_expl_ic,z_kinw_expl_ic,z_kinw_expl_mc,&
 !$OMP    z_alpha,z_beta,z_gamma,z_delta,z_epsil,z_gaep,z_gaepd,z_gaepm,&
 !$OMP    z_a,z_b,z_c,z_d,z_e,z_r,z_q,z_m,z_k,z_l,z_u,z_v)
@@ -565,31 +431,38 @@ MODULE mo_divergent_modes
 
       ! contravariant vertical velocity times density for explicit part
       z_contr_corr_c(1:nlen,nflat,jb) = 0.0_wp
-      z_contr_w_fl_l(1:nlen,1:nflat) = 0.0_wp
+      DO jk = nflat+1,nlev
+        z_contr_corr_c(1:nlen,jk,jb) = z_contr_corr_c(1:nlen,jk,jb) &
+        &                   /p_nh%metrics%ddqz_z_full(1:nlen,jk,jb)
+      ENDDO
+      p_nh%diag%w_concorr_c(1:nlen,1:nflat,jb)= 0.0_wp
       DO jk = nflat+1,nlev
         p_nh%diag%w_concorr_c(1:nlen,jk,jb)= &
-        & -0.5_wp*(z_contr_corr_c(1:nlen,jk,jb)+z_contr_corr_c(1:nlen,jk-1,jb))
-        z_contr_w_fl_l(1:nlen,jk) = -p_nh%diag%rho_ic(1:nlen,jk,jb)*&
-        &                            p_nh%diag%w_concorr_c(1:nlen,jk,jb)
+        & 0.5_wp*(z_contr_corr_c(1:nlen,jk,jb)+z_contr_corr_c(1:nlen,jk-1,jb))
       ENDDO
-      z_contr_w_fl_l(1:nlen,nlevp1) = 0.0_wp
+      p_nh%diag%w_concorr_c(1:nlen,nlevp1,jb)= 0.0_wp
 
       ! beta, explicit parts of rho and exner
       DO jk = 1, nlev
-        z_beta(1:nlen,jk)=p_dtime*rd*p_nh%prog(know)%exner(1:nlen,jk  ,jb) &
-        &                 /(cvd*p_nh%prog(know)%rhotheta_v(1:nlen,jk  ,jb) &
-        &                        *p_nh%metrics%ddqz_z_full(1:nlen,jk  ,jb))
-        z_rho_expl(1:nlen,jk)=         p_nh%prog(know)%rho(1:nlen,jk  ,jb) &
-        &                -p_dtime/p_nh%metrics%ddqz_z_full(1:nlen,jk  ,jb) &
-        &                                  *(z_mass_fl_div(1:nlen,jk  ,jb) &
-        &                                  +z_contr_w_fl_l(1:nlen,jk     ) &
-        &                                  -z_contr_w_fl_l(1:nlen,jk+1   ))
-        z_exner_expl(1:nlen,jk)=     p_nh%prog(know)%exner(1:nlen,jk  ,jb) &
-        &                                          -z_beta(1:nlen,jk     ) &
-        &                               *(z_theta_v_fl_div(1:nlen,jk  ,jb) &
-        &      +z_theta_v_l(1:nlen,jk  ,jb)*z_contr_w_fl_l(1:nlen,jk     ) &
-        &      -z_theta_v_l(1:nlen,jk+1,jb)*z_contr_w_fl_l(1:nlen,jk+1   ))&
-        &                + p_dtime*p_nh%diag%ddt_exner_phy(1:nlen,jk  ,jb)
+        z_beta(1:nlen,jk)=   dtime*rd*p_nh%prog(know)%exner(1:nlen,jk  ,jb) &
+        &                  /(cvd*p_nh%prog(know)%rhotheta_v(1:nlen,jk  ,jb) &
+        &                         *p_nh%metrics%ddqz_z_full(1:nlen,jk  ,jb))
+        z_rho_expl(1:nlen,jk)=          p_nh%prog(know)%rho(1:nlen,jk  ,jb) &
+        &                   -dtime/p_nh%metrics%ddqz_z_full(1:nlen,jk  ,jb) &
+        &                                   *(z_mass_fl_div(1:nlen,jk  ,jb) &
+        &                            -p_nh%diag%w_concorr_c(1:nlen,jk  ,jb) &
+        &                            +p_nh%diag%w_concorr_c(1:nlen,jk+1,jb))
+        z_exner_expl(1:nlen,jk)=      p_nh%prog(know)%exner(1:nlen,jk  ,jb) &
+        &                                           -z_beta(1:nlen,jk     ) &
+        &                                *(z_theta_v_fl_div(1:nlen,jk  ,jb) &
+        &-z_theta_v_l(1:nlen,jk  ,jb)*p_nh%diag%w_concorr_c(1:nlen,jk  ,jb) &
+        &+z_theta_v_l(1:nlen,jk+1,jb)*p_nh%diag%w_concorr_c(1:nlen,jk+1,jb))&
+        &                   + dtime*p_nh%diag%ddt_exner_phy(1:nlen,jk  ,jb)
+      ENDDO
+      ! to be compatible with other tracer advection (until found a solution for that)
+      DO jk = nflat+1,nlev
+        p_nh%diag%w_concorr_c(1:nlen,jk,jb)= &
+        & p_nh%diag%w_concorr_c(1:nlen,jk,jb)/p_nh%diag%rho_ic(1:nlen,jk,jb)
       ENDDO
 
       ! upper boundary condition for w
@@ -597,9 +470,13 @@ MODULE mo_divergent_modes
       z_kinw_expl_ic(1:nlen,1)=0.0_wp
       DO jk = 2, nlev
         ! explicit part for w
-        z_w_expl(1:nlen,jk) = p_nh%prog(know)%w(1:nlen,jk,jb) &
-        &           + p_dtime*(z_w_rhs_wo_pgrad(1:nlen,jk,jb) &
-        &                  -rd*z_th_ddz_exner_c(1:nlen,jk,jb))
+        z_w_expl(1:nlen,jk) = p_nh%prog(know)%w(1:nlen,jk  ,jb) &
+        &             + dtime*( -(z_emech_kin2d(1:nlen,jk-1,jb) &
+        &                        -z_emech_kin2d(1:nlen,jk  ,jb))&
+        &            / p_nh%metrics%ddqz_z_half(1:nlen,jk  ,jb) &
+        &                 +p_nh%diag%ddt_w_vort(1:nlen,jk  ,jb) &
+        &                  +p_nh%diag%ddt_w_phy(1:nlen,jk  ,jb) &
+        &                  -rd*z_th_ddz_exner_c(1:nlen,jk  ,jb))
         ! density at interface levels
         z_rho_expl_ic(1:nlen,jk)  = 0.5_wp*(z_rho_expl(1:nlen,jk-1) &
         &                                 + z_rho_expl(1:nlen,jk  ))
@@ -621,10 +498,10 @@ MODULE mo_divergent_modes
       ! right hand side, and greek variables
       z_gaep(1:nlen,1     ) = 0.0_wp
       DO jk = 2, nlev
-        z_delta(1:nlen,jk) = 0.5_wp*p_dtime*p_nh%diag%rho_ic(1:nlen,jk,jb) &
-        &                          /p_nh%metrics%ddqz_z_half(1:nlen,jk,jb)
+        z_delta(1:nlen,jk) = 0.5_wp*dtime*p_nh%diag%rho_ic(1:nlen,jk,jb) &
+        &                        /p_nh%metrics%ddqz_z_half(1:nlen,jk,jb)
         z_alpha(1:nlen,jk) = z_delta(1:nlen,jk)*cvd*z_theta_v_l(1:nlen,jk,jb)
-        z_gamma(1:nlen,jk) = 0.25_wp*p_dtime*p_nh%prog(know)%w(1:nlen,jk,jb)
+        z_gamma(1:nlen,jk) = 0.25_wp*dtime*p_nh%prog(know)%w(1:nlen,jk,jb)
         z_epsil(1:nlen,jk) = 0.5_wp*p_nh%prog(know)%w(1:nlen,jk,jb) &
         & * p_nh%metrics%ddqz_z_half(1:nlen,jk,jb)/p_nh%diag%rho_ic(1:nlen,jk,jb)
 
@@ -707,7 +584,7 @@ MODULE mo_divergent_modes
 
         ! density
         p_nh%prog(knew)%rho(1:nlen,jk,jb)=  z_rho_expl(1:nlen,jk)&
-        &     -p_dtime/p_nh%metrics%ddqz_z_full(1:nlen,jk,jb)&
+        &     -dtime/p_nh%metrics%ddqz_z_full(1:nlen,jk,jb)&
         &     *(z_m(1:nlen,jk)-z_m(1:nlen,jk+1))
 
         ! exner
@@ -774,8 +651,8 @@ MODULE mo_divergent_modes
                 w_knew_e (nproma,1,p_patch%nblks_e), &
                 w_knew_c (nproma,1,p_patch%nblks_c)
 
-    INTEGER :: nblks_e, npromz_e, nlen, jb
-    INTEGER :: nlev            !< number of full levels
+    INTEGER :: nblks_e, npromz_e, nblks_c, npromz_c, nlen, jb
+    INTEGER :: nlev, nlevp1            !< number of vertical levels
 
     !--------------------------------------------------------
 
@@ -783,9 +660,12 @@ MODULE mo_divergent_modes
 
     nblks_e   = p_patch%nblks_int_e
     npromz_e  = p_patch%npromz_int_e
+    nblks_c   = p_patch%nblks_int_c
+    npromz_c  = p_patch%npromz_int_c
 
     ! number of vertical levels
     nlev = p_patch%nlev
+    nlevp1 = p_patch%nlevp1
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, nlen)
@@ -795,12 +675,32 @@ MODULE mo_divergent_modes
       ELSE
         nlen = npromz_e
       ENDIF
-      z_jn_vn_e(1:nlen,1,jb) = p_vn(1:nlen,jb)*p_metrics%ddxn_z_full(1:nlen,nlev,jb)
+      z_jn_vn_e(1:nlen,1,jb) = p_vn(1:nlen,jb) &
+      & *p_metrics%ddxn_z_full(1:nlen,nlev,jb) &
+      & *p_metrics%ddqz_z_full_e(1:nlen,nlev,jb)
     ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
 
     CALL edges2cells_scalar(z_jn_vn_e,p_patch,p_int%e_inn_c,w_knew_c,1,1)
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb, nlen)
+    DO jb=1,nblks_c
+      IF (jb /= nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz_c
+      ENDIF
+      w_knew_c(1:nlen,1,jb)=w_knew_c(1:nlen,1     ,jb)&
+      &       /p_metrics%ddqz_z_full(1:nlen,nlev  ,jb)&
+      &       /p_metrics%ddqz_z_full(1:nlen,nlev  ,jb)&
+      &       *p_metrics%ddqz_z_half(1:nlen,nlevp1,jb)&
+      &       *p_coeff
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
     CALL cells2edges_scalar(w_knew_c,p_patch,p_int%c_lin_e,w_knew_e,1,1)
 
 !$OMP PARALLEL
@@ -811,8 +711,8 @@ MODULE mo_divergent_modes
       ELSE
         nlen = npromz_e
       ENDIF
-      p_lhs(1:nlen,jb) = p_vn(1:nlen,jb) + p_coeff * w_knew_e(1:nlen,1,jb) &
-      &                            * p_metrics%ddxn_z_full(1:nlen,nlev,jb)
+      p_lhs(1:nlen,jb) = p_vn(1:nlen,jb) + w_knew_e(1:nlen,1   ,jb) &
+      &                     * p_metrics%ddxn_z_full(1:nlen,nlev,jb)
     ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
@@ -831,7 +731,7 @@ MODULE mo_divergent_modes
   !! @par Revision History
   !! Initial release by Almut Gassmann (2011-01-11)
   !!
-  SUBROUTINE impl_vert_adv_theta (p_th,p_mflx_w_con,p_rho,p_patch,p_metrics,p_dtime,p_ti)
+  SUBROUTINE impl_vert_adv_theta (p_th,p_mflx_w_con,p_rho,p_patch,p_metrics,p_ti)
 
     ! Passed variables
     REAL(wp), INTENT(in)              :: p_th(:,:,:)  !< potential temperature
@@ -840,7 +740,6 @@ MODULE mo_divergent_modes
     REAL(wp), INTENT(in)              :: p_rho(:,:,:) !< density
     TYPE(t_patch), TARGET, INTENT(IN) :: p_patch      !< patch
     TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics    !< metrics
-    REAL(wp), INTENT(IN)              :: p_dtime      !< time step
     REAL(wp), INTENT(inout)           :: p_ti(:,:,:)  &
     &  ;  !< implicit potential temperature: (theta_v(nnow)+theta_v(nnew))/2
 
@@ -869,7 +768,7 @@ MODULE mo_divergent_modes
       ENDIF
       DO jk = 1, nlev
         p_ti(1:nlen,jk,jb) = p_th(1:nlen,jk,jb)
-        z_fac(1:nlen)  = 0.25_wp*p_dtime/p_metrics%ddqz_z_full(1:nlen,jk,jb) &
+        z_fac(1:nlen)  = 0.25_wp*dtime/p_metrics%ddqz_z_full(1:nlen,jk,jb) &
         &                /p_rho(1:nlen,jk,jb)
         z_b(1:nlen,jk) = 1.0_wp-z_fac(1:nlen)*(p_mflx_w_con(1:nlen,jk  ,jb)&
         &                                     -p_mflx_w_con(1:nlen,jk+1,jb))
@@ -892,6 +791,261 @@ MODULE mo_divergent_modes
 !$OMP END PARALLEL
 
   END SUBROUTINE impl_vert_adv_theta
+  !----------------------------------------------------------------------------
+  !>
+  !! impl_vert_adv_theta_5diag
+  !!
+  !! Implicit vertical advection for theta_v
+  !! 5 diagonal matrix is solved.
+  !!
+  !! @par Revision History
+  !! Initial release by Almut Gassmann (2011-05-06)
+  !!
+  SUBROUTINE impl_vert_adv_theta_5diag (p_th,p_mflx_w_con,p_rho,p_patch,p_metrics,p_ti)
+
+    ! Passed variables
+    REAL(wp), INTENT(in)              :: p_th(:,:,:)  !< potential temperature
+    REAL(wp), INTENT(in)              :: p_mflx_w_con(:,:,:) &
+    & ;  !< vertical contravariant mass flux 
+    REAL(wp), INTENT(in)              :: p_rho(:,:,:) !< density
+    TYPE(t_patch), TARGET, INTENT(IN) :: p_patch      !< patch
+    TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics    !< metrics
+    REAL(wp), INTENT(inout)           :: p_ti(:,:,:)  &
+    &  ;  !< implicit potential temperature: (theta_v(nnow)+theta_v(nnew))/2
+
+    ! Local variables
+    REAL(wp):: z_a(nproma,p_patch%nlev), &
+      &        z_b(nproma,p_patch%nlev), &
+      &        z_c(nproma,p_patch%nlev), &
+      &        z_d(nproma,p_patch%nlev), &
+      &        z_e(nproma,p_patch%nlev), &
+      &        z_m(nproma,p_patch%nlev), &
+      &        z_q(nproma,p_patch%nlev), &
+      &        z_r(nproma,p_patch%nlev), &
+      &        z_u(nproma,p_patch%nlev), &
+      &        z_v(nproma,p_patch%nlev), &
+      &        z_k(nproma), &
+      &        z_l(nproma)
+    REAL(wp):: z_sig_p(nproma,p_patch%nlevp1), &
+      &        z_sig_m(nproma,p_patch%nlevp1)
+    REAL(wp):: z_fac(nproma,p_patch%nlev)  !< auxiliary vectors
+    INTEGER :: nblks_c, npromz_c, jb, jk, nlen
+    INTEGER :: nlev,nlevp1
+    !--------------------------------------------------------------------------
+
+    nblks_c   = p_patch%nblks_int_c
+    npromz_c  = p_patch%npromz_int_c
+    nlev  = p_patch%nlev
+    nlev  = p_patch%nlevp1
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb, nlen, jk, z_a, z_b, z_c, z_d, z_e, z_q, z_r, z_fac, z_sig_p, z_sig_m, &
+!$OMP            z_k, z_l, z_u, z_v, z_m)
+    DO jb = 1,nblks_c
+      IF (jb /= nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz_c
+      ENDIF
+
+      ! setup matrix coeffs and rhs
+      z_sig_p(1:nlen,1)=0.0_wp
+      z_sig_m(1:nlen,1)=0.0_wp
+      DO jk = 2, nlev
+        z_sig_p(1:nlen,jk) = (0.5_wp+upstr_beta*SIGN(0.5_wp,p_mflx_w_con(1:nlen,jk,jb)))/6.0_wp
+        z_sig_m(1:nlen,jk) = (0.5_wp-upstr_beta*SIGN(0.5_wp,p_mflx_w_con(1:nlen,jk,jb)))/6.0_wp
+      ENDDO
+      z_sig_p(1:nlen,nlevp1)= 0.0_wp ! no flux
+      z_sig_m(1:nlen,nlevp1)= 0.0_wp
+      z_sig_m(1:nlen,2)     = 0.0_wp ! higher order only for upward flux allowed
+      z_sig_p(1:nlen,nlev)  = 0.0_wp ! higher order only for downward flux allowed
+      DO jk = 1, nlev
+        z_r(1:nlen,jk)  = p_th(1:nlen,jk,jb) ! rhs
+        z_fac(1:nlen,jk)= 0.5_wp*dtime/p_metrics%ddqz_z_full(1:nlen,jk,jb)/p_rho(1:nlen,jk,jb)
+      ENDDO
+      DO jk = 3, nlev
+        z_a(1:nlen,jk) = -z_fac(1:nlen,jk)*p_mflx_w_con(1:nlen,jk  ,jb)*z_sig_m(1:nlen,jk  ) &
+        & * p_metrics%ddqz_z_half(1:nlen,jk  ,jb) / p_metrics%ddqz_z_full(1:nlen,jk  ,jb)
+      ENDDO
+      DO jk = 1, nlev-2
+        z_e(1:nlen,jk) =  z_fac(1:nlen,jk)*p_mflx_w_con(1:nlen,jk+1,jb)*z_sig_p(1:nlen,jk+1) &
+        & * p_metrics%ddqz_z_half(1:nlen,jk+1,jb) / p_metrics%ddqz_z_full(1:nlen,jk+1,jb)
+      ENDDO
+      DO jk = 2, nlev
+        z_b(1:nlen,jk) = z_fac(1:nlen,jk)*( &
+        &  p_mflx_w_con(1:nlen,jk  ,jb)*(0.5_wp+2.0_wp*z_sig_m(1:nlen,jk  )-z_sig_p(1:nlen,jk  ) &
+        & *p_metrics%ddqz_z_half(1:nlen,jk+1,jb)/p_metrics%ddqz_z_full(1:nlen,jk,jb)) &
+        & +p_mflx_w_con(1:nlen,jk+1,jb)*z_sig_m(1:nlen,jk+1) &
+        & *p_metrics%ddqz_z_half(1:nlen,jk+1,jb)/p_metrics%ddqz_z_full(1:nlen,jk,jb))
+      ENDDO
+      DO jk = 1, nlev-1
+        z_d(1:nlen,jk) = z_fac(1:nlen,jk)*( &
+        & -p_mflx_w_con(1:nlen,jk  ,jb)*z_sig_p(1:nlen,jk  ) &
+        & *p_metrics%ddqz_z_half(1:nlen,jk  ,jb)/p_metrics%ddqz_z_full(1:nlen,jk,jb) & 
+        & -p_mflx_w_con(1:nlen,jk+1,jb)*(0.5_wp+2.0_wp*z_sig_p(1:nlen,jk+1)-z_sig_m(1:nlen,jk+1) &
+        & *p_metrics%ddqz_z_half(1:nlen,jk  ,jb)/p_metrics%ddqz_z_full(1:nlen,jk,jb)))
+      ENDDO
+      z_c(1:nlen,1) = 1.0_wp+z_fac(1:nlen,1)*( &
+      & -p_mflx_w_con(1:nlen,2,jb)*(-0.5_wp-z_sig_p(1:nlen,2) &
+      & *p_metrics%ddqz_z_half(1:nlen,3,jb)/p_metrics%ddqz_z_full(1:nlen,2,jb)))
+      DO jk = 2, nlev-1
+        z_c(1:nlen,jk) = 1.0_wp+z_fac(1:nlen,jk)*( &
+        &  p_mflx_w_con(1:nlen,jk  ,jb)*(-0.5_wp+2.0_wp*z_sig_p(1:nlen,jk  )-z_sig_m(1:nlen,jk  )&
+        & *p_metrics%ddqz_z_half(1:nlen,jk-1,jb)/p_metrics%ddqz_z_full(1:nlen,jk-1,jb)) & 
+        & -p_mflx_w_con(1:nlen,jk+1,jb)*(-0.5_wp+2.0_wp*z_sig_m(1:nlen,jk+1)-z_sig_p(1:nlen,jk+1)&
+        & *p_metrics%ddqz_z_half(1:nlen,jk+2,jb)/p_metrics%ddqz_z_full(1:nlen,jk+1,jb))) 
+      ENDDO
+      z_c(1:nlen,nlev) = 1.0_wp+z_fac(1:nlen,nlev)*( &
+      &  p_mflx_w_con(1:nlen,nlev,jb)*(-0.5_wp-z_sig_m(1:nlen,nlev) &
+      & *p_metrics%ddqz_z_half(1:nlen,nlev-1,jb)/p_metrics%ddqz_z_full(1:nlen,nlev-1,jb)))
+      
+      ! Solve pentadiagonal matrix 
+      !---------------------------------------------
+
+      z_u(1:nlen,1) = z_c(1:nlen,1)
+      z_v(1:nlen,1) = z_d(1:nlen,1)
+      z_q(1:nlen,1) = z_r(1:nlen,1)
+
+      z_l(1:nlen)   = z_b(1:nlen,2)/z_u(1:nlen,1)
+      z_u(1:nlen,2) = z_c(1:nlen,2)-z_l(1:nlen)*z_v(1:nlen,1)
+      z_v(1:nlen,2) = z_d(1:nlen,2)-z_l(1:nlen)*z_e(1:nlen,1)
+      z_q(1:nlen,2) = z_r(1:nlen,2)-z_l(1:nlen)*z_q(1:nlen,1)
+
+      DO jk = 3, nlev-1
+        z_k(1:nlen)   = z_a(1:nlen,jk)/z_u(1:nlen,jk-2)
+        z_l(1:nlen)   =(z_b(1:nlen,jk)-z_k(1:nlen)*z_v(1:nlen,jk-2))/z_u(1:nlen,jk-1)
+        z_u(1:nlen,jk)= z_c(1:nlen,jk)-z_k(1:nlen)*z_e(1:nlen,jk-2)-z_l(1:nlen)*z_v(1:nlen,jk-1)
+        z_v(1:nlen,jk)= z_d(1:nlen,jk)                             -z_l(1:nlen)*z_e(1:nlen,jk-1)
+        z_q(1:nlen,jk)= z_r(1:nlen,jk)-z_k(1:nlen)*z_q(1:nlen,jk-2)-z_l(1:nlen)*z_q(1:nlen,jk-1)
+      ENDDO
+      z_k(1:nlen)     = z_a(1:nlen,nlev)/z_u(1:nlen,nlev-2)
+      z_l(1:nlen)     =(z_b(1:nlen,nlev)-z_k(1:nlen)*z_v(1:nlen,nlev-2))/z_u(1:nlen,nlev-1)
+      z_u(1:nlen,nlev)= z_c(1:nlen,nlev)-z_k(1:nlen)*z_e(1:nlen,nlev-2)&
+      &                 -z_l(1:nlen)*z_v(1:nlen,nlev-1)
+      z_q(1:nlen,nlev)= z_r(1:nlen,nlev)-z_k(1:nlen)*z_q(1:nlen,nlev-2)&
+      &                 -z_l(1:nlen)*z_q(1:nlen,nlev-1)
+
+      z_m(1:nlen,nlev) = z_q(1:nlen,nlev)/z_u(1:nlen,nlev)
+      z_m(1:nlen,nlev-1) = (z_q(1:nlen,nlev-1)-z_v(1:nlen,nlev-1)*z_m(1:nlen,nlev)) &
+      &                    /z_u(1:nlen,nlev-1)
+      DO jk = nlev-2,1,-1
+        z_m(1:nlen,jk) = (z_q(1:nlen,jk)-z_v(1:nlen,jk)*z_m(1:nlen,jk+1)&
+        & -z_e(1:nlen,jk)*z_m(1:nlen,jk+2))/z_u(1:nlen,jk)
+      ENDDO 
+
+      DO jk = 1, nlev
+        p_ti(1:nlen,jk,jb) = z_m(1:nlen,jk)
+      ENDDO 
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+  END SUBROUTINE impl_vert_adv_theta_5diag
+  !----------------------------------------------------------------------------
+  !>
+  !! advection_edges
+  !!
+  !! supply the edge value for horizontal advection
+  !! (Skamarock and Gassmann, MWR, 2011)
+  !!
+  !! @par Revision History
+  !! Initial release by Almut Gassmann (2011-04-11)
+  !!
+  SUBROUTINE advection_edges (p_s_c,p_vn,p_patch,p_metrics,p_int,p_s_e)
+
+    ! Passed variables
+    REAL(wp), INTENT(in)              :: p_s_c(:,:,:) !< scalar value at centers
+    REAL(wp), INTENT(in)              :: p_vn(:,:,:)  !< horizontal velocity
+    TYPE(t_patch), TARGET, INTENT(IN) :: p_patch      !< patch
+    TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics    !< metrics
+    TYPE(t_int_state), INTENT(IN)     :: p_int        !< interpolation state
+    REAL(wp), INTENT(inout)           :: p_s_e(:,:,:) !< scalar value at edges
+
+    ! Local variables
+    INTEGER :: nblks_c, nblks_e, npromz_c, npromz_e, nlen, jk, jb
+    INTEGER :: nlev, nlevp1
+    REAL(wp):: z_ddz_s_cl      (nproma,p_patch%nlevp1,p_patch%nblks_c), &
+               z_ddz_s_ck      (nproma,p_patch%nlev  ,p_patch%nblks_c), &
+               z_ddz_s_ek      (nproma,p_patch%nlev  ,p_patch%nblks_e), &
+               z_ddxn_s_e      (nproma,p_patch%nlev  ,p_patch%nblks_e), &
+               z_lapl_s_e      (nproma,p_patch%nlev  ,p_patch%nblks_e), &
+               z_lapl_terrain_e(nproma,p_patch%nlev  ,p_patch%nblks_e)
+    !--------------------------------------------------------------------------
+
+    nblks_c   = p_patch%nblks_int_c
+    npromz_c  = p_patch%npromz_int_c
+    nblks_e   = p_patch%nblks_int_e
+    npromz_e  = p_patch%npromz_int_e
+    nlev      = p_patch%nlev
+    nlevp1    = p_patch%nlevp1
+
+    ! scalar value averaged to edges
+    CALL cells2edges_scalar(p_s_c,p_patch,p_int%c_lin_e,p_s_e)
+
+    IF (ltheta_up_hori) THEN
+      !include terrain following correction here
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,nlen)
+      DO jb = 1,nblks_c
+        IF (jb /= nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = npromz_c
+        ENDIF
+        !1) vertical gradient of scalar
+        DO jk = 2,nlev
+          z_ddz_s_cl(1:nlen,jk,jb) = p_s_c(1:nlen,jk-1,jb)-p_s_c(1:nlen,jk,jb) 
+        ENDDO
+        z_ddz_s_cl(1:nlen,1,jb)      = z_ddz_s_cl(1:nlen,2,jb)
+        z_ddz_s_cl(1:nlen,nlevp1,jb) = z_ddz_s_cl(1:nlen,nlev,jb)
+        !2) average gradient to main level
+        DO jk = 1,nlev
+          z_ddz_s_ck(1:nlen,jk,jb)=0.5_wp/p_metrics%ddqz_z_full(1:nlen,jk,jb)&
+          &*(z_ddz_s_cl(1:nlen,jk,jb)+z_ddz_s_cl(1:nlen,jk+1,jb))
+        ENDDO
+      ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+      !3) average to edges
+      CALL cells2edges_scalar(z_ddz_s_ck,p_patch,p_int%c_lin_e,z_ddz_s_ek)
+
+      IF (lplane) THEN
+        ! compute horizontal gradient of potential temperature
+        CALL grad_fd_norm(p_s_c,p_patch,z_ddxn_s_e)
+        CALL sync_patch_array(SYNC_E,p_patch,z_ddxn_s_e)
+        ! compute directional laplace
+        CALL grad_dir_edge(p_vn,z_ddxn_s_e,p_patch,p_int,z_lapl_s_e)
+        ! terrain following correction
+        CALL grad_dir_edge(p_vn,p_metrics%ddxn_z_full,p_patch,p_int,z_lapl_terrain_e)
+      ELSE
+        CALL directional_laplace(p_vn,p_s_c,p_patch,p_int,upstr_beta,z_lapl_s_e)
+        CALL directional_laplace(p_vn,p_metrics%z_mc,p_patch,p_int,upstr_beta,z_lapl_terrain_e)
+      ENDIF
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb, nlen, jk)
+      DO jb = 1, nblks_e
+        IF (jb /= nblks_e) THEN
+          nlen = nproma
+        ELSE
+          nlen = npromz_e
+        ENDIF
+        DO jk = 1, nlev
+            ! terrain following correction
+            z_lapl_s_e(1:nlen,jk,jb)=z_lapl_s_e(1:nlen,jk,jb) &
+            & - z_ddz_s_ek(1:nlen,jk,jb)*z_lapl_terrain_e(1:nlen,jk,jb)    
+            ! edge value
+            p_s_e(1:nlen,jk,jb) = p_s_e(1:nlen,jk,jb) &
+            & - p_patch%edges%dual_edge_length(1:nlen,jb)  &
+            & * p_patch%edges%dual_edge_length(1:nlen,jb)  &
+            & /6.0_wp * z_lapl_s_e(1:nlen,jk,jb)
+        ENDDO
+      ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+    ENDIF
+
+  END SUBROUTINE advection_edges
   !----------------------------------------------------------------------------
 
 END MODULE mo_divergent_modes

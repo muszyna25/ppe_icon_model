@@ -21,7 +21,7 @@ MODULE mo_mpi
 
   ! subroutines defined, overloaded depending on argument type
 
-  PUBLIC :: p_start, p_stop, p_abort
+  PUBLIC :: p_start,  p_start_reset, p_stop, p_abort
   PUBLIC :: p_send, p_recv, p_sendrecv, p_bcast, p_barrier
   PUBLIC :: p_isend, p_irecv, p_wait, p_wait_any
   PUBLIC :: p_gather, p_max, p_min, p_sum, p_global_sum, p_field_sum
@@ -279,6 +279,105 @@ MODULE mo_mpi
   END INTERFACE
 
 CONTAINS
+
+  SUBROUTINE p_start_reset ( communicator )
+
+    INTEGER, INTENT(in) :: communicator
+
+    LOGICAL             :: l_mpi_is_initialised
+
+    ! reset some values derived from original MPI communicator
+    ! p_all_comm with values derived from a new "communicator"
+    ! It is intended that the new communicator contain all processes
+    ! of a certain component (atmosphere, ocean, sea-ice, land, ... ) 
+
+#ifndef NOMPI
+    CALL MPI_INITIALIZED(l_mpi_is_initialised, p_error)
+
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a)') ' MPI_INITITIALIZED failed.'
+       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
+       STOP
+    END IF
+
+    IF ( .NOT. l_mpi_is_initialised ) THEN
+       WRITE (nerr,'(a)') ' MPI_Init or p_start needs to be called first.'
+       STOP
+    ENDIF
+
+    ! free original communicator
+
+    CALL MPI_COMM_FREE(p_all_comm, p_error)
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a)') ' MPI_COMM_FREE failed. p_start needs to be called before.'
+       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
+       CALL p_abort
+    END IF
+
+    ! assign MPI communicator generated elsewhere to p_all_comm
+
+    CALL MPI_COMM_DUP(communicator, p_all_comm, p_error)
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a)') ' MPI_COMM_DUP failed for p_all_comm.'
+       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
+       CALL p_abort
+    END IF
+
+    ! get local PE identification
+
+    CALL MPI_COMM_RANK (p_all_comm, mype, p_error)
+
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a)') ' MPI_COMM_RANK failed.'
+       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
+       CALL p_abort
+    ELSE
+#ifdef DEBUG
+       WRITE (nerr,'(a,i4,a)') ' Component PE ', mype, ' started.'
+#endif
+    END IF
+#else
+    mype = 0
+#endif
+
+    ! get number of available PEs
+
+#ifndef NOMPI
+    CALL MPI_COMM_SIZE (p_all_comm, npes, p_error)
+
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a)') ' PE: ', mype, ' MPI_COMM_SIZE failed.'
+       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
+       CALL p_abort
+    END IF
+#else
+    npes = 1
+#endif
+
+    IF (npes < 2) THEN
+       p_parallel    = .FALSE.
+       p_parallel_io = .TRUE.   ! can always do I/O
+       IF (mype == 0) THEN
+          WRITE (nerr,'(a)') '  Single processor run.'
+       END IF
+       p_pe = 0
+       p_nprocs = 1
+    ELSE
+       p_parallel = .TRUE.
+       IF (mype == p_io) THEN
+          p_parallel_io = .TRUE.
+       ELSE
+          p_parallel_io = .FALSE.
+       END IF
+       IF (mype == 0) THEN
+          WRITE (nerr,'(a,i0,a)') '  Run on ', npes, ' processors.'
+       END IF
+       p_pe = mype
+       p_nprocs = npes
+    END IF
+
+  END SUBROUTINE p_start_reset
+
 
   SUBROUTINE p_start(model_name)
 
@@ -610,9 +709,24 @@ CONTAINS
       WRITE (nerr,*)
     ENDIF
 
+#ifndef NOMPI
+    CALL MPI_COMM_DUP(p_all_comm,p_comm_work,p_error)
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a)') ' MPI_COMM_DUP failed for p_comm_work.'
+       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
+       CALL p_abort
+    END IF
+
+    CALL MPI_COMM_DUP(p_all_comm,p_comm_work_test,p_error)
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a)') ' MPI_COMM_DUP failed for p_comm_work_test.'
+       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
+       CALL p_abort
+    END IF
+#else
     p_comm_work=p_all_comm
     p_comm_work_test=p_all_comm
-
+#endif
   END SUBROUTINE p_start
 
   SUBROUTINE p_stop

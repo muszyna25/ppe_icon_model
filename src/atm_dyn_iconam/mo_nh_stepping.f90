@@ -50,7 +50,7 @@ MODULE mo_nh_stepping
   USE mo_kind,                ONLY: wp
   USE mo_nonhydro_state,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics, &
                                     construct_nh_state, t_buffer_memory, bufr
-  USE mo_nonhydrostatic_nml,  ONLY: iadv_rcf, l_nest_rcf, l_impl_vert_adv
+  USE mo_nonhydrostatic_nml,  ONLY: iadv_rcf, l_nest_rcf, ltheta_up_vert
   USE mo_diffusion_nml,       ONLY: lhdiff_vn
   USE mo_dynamics_nml,        ONLY: nnow, nnew, nnow_rcf, nnew_rcf,                 &
     &                               nsav1, nsav2, itime_scheme
@@ -70,8 +70,13 @@ MODULE mo_nh_stepping
     &                               rotate_axis_deg
   USE mo_nh_pa_test,          ONLY: set_nh_w_rho
   USE mo_nh_df_test,          ONLY: get_nh_df_velocity, get_nh_df_mflx_rho
-  USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_cell, edges2cells_scalar,&
-                                    verts2edges_scalar, edges2verts_scalar
+  USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_cell, &
+                                    edges2cells_scalar,&
+                                    verts2edges_scalar,&
+                                    edges2verts_scalar,&
+                                    cells2verts_scalar,&
+                                    cells2edges_scalar,&
+                                    sick_a, sick_o
   USE mo_grf_interpolation,   ONLY: t_gridref_state
   USE mo_grf_bdyintp,         ONLY: interpol_scal_grf
   USE mo_nh_nest_utilities,   ONLY: compute_tendencies, boundary_interpolation, &
@@ -86,11 +91,12 @@ MODULE mo_nh_stepping
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH,iphysproc,itconv,   &
     &                               itccov, itrad, itradheat, itsso, itsatad
   USE mo_physical_constants,  ONLY: cvd, cvd_o_rd
-  USE mo_divergent_modes,     ONLY: divergent_modes_5band, impl_vert_adv_theta
+  USE mo_divergent_modes,     ONLY: divergent_modes_5band, impl_vert_adv_theta, &
+                                    impl_vert_adv_theta_5diag
   USE mo_math_operators,      ONLY: nabla2_scalar, nabla2_vec, div_avg, div
   USE mo_vector_operations,   ONLY: covariant_velocities,       &
                                     contravariant_vorticities,  &
-                                    contravariant_velocities,   &
+                                    contravariant_vert_mass_flux,&
                                     orthogonal_vorticities,     &
                                     vorticity_tendencies,       &
                                     kinetic_energy,             &
@@ -1062,22 +1068,22 @@ MODULE mo_nh_stepping
           !-----------------------------------------------------------
 
           CALL momentum_adv(p_nh_state(jg), p_patch(jg), p_int_state(jg), n_now, n_new, &
-                            l_predictor, dt_loc)
+                            l_predictor)
           ! 2. predictor step -> knew values
           !---------------------------------
           CALL divergent_modes_5band(p_nh_state(jg), p_patch(jg), p_int_state(jg), n_now, &
-                                     n_new, l_predictor, dt_loc)
+                                     n_new, l_predictor)
 
           linit_dyn(jg) = .FALSE.
           l_predictor = .FALSE.
           ! 3. nonlinear advection terms (knew) for the main step
           !------------------------------------------------------
           CALL momentum_adv(p_nh_state(jg), p_patch(jg), p_int_state(jg), n_now, &
-                             n_new, l_predictor, dt_loc)
+                             n_new, l_predictor)
           ! 4. main prediction step
           !------------------------
           CALL divergent_modes_5band(p_nh_state(jg), p_patch(jg), p_int_state(jg), n_now, &
-                                     n_new, l_predictor, dt_loc)
+                                     n_new, l_predictor)
         ENDIF
 
 
@@ -1369,110 +1375,235 @@ MODULE mo_nh_stepping
   !! - adjustment to new time stepping scheme
   !! Modification by Almut Gassman, MPI-M (2011-01)
   !! - RK2 stepping and implicit vertical advection
+  !! Complete rewriting by Almut Gassmann, MPI-M (2011-04)
+  !! - avoid double evaluations in the dynamical core, improved consistencies
   !!
-  SUBROUTINE momentum_adv(p_nh,p_patch,p_int_state,know,knew,l_predictor,p_dtime)
+  SUBROUTINE momentum_adv(p_nh,p_patch,p_int,know,knew,l_predictor)
 
     IMPLICIT NONE
 
     TYPE(t_patch), TARGET, INTENT(in)    :: p_patch    !< single patch
-    TYPE(t_int_state),TARGET,INTENT(in)  :: p_int_state!< single interpolation state
+    TYPE(t_int_state),TARGET,INTENT(in)  :: p_int      !< single interpolation state
     TYPE(t_nh_state),TARGET,INTENT(inout):: p_nh       !< nh state
     INTEGER, INTENT(in)                  :: know, knew !< time levels involved
-    LOGICAL, INTENT(in)                  :: l_predictor!< flag for time stepping state
-    REAL(wp), INTENT(in)                 :: p_dtime
+    !INTEGER, INTENT(in)                  :: k_call_no  !< counter for time stepping state
+    LOGICAL, INTENT(in)                  :: l_predictor  !< counter for time stepping state
 
-    REAL(wp), POINTER:: p_w(:,:,:)   !< vertical velocity
-    REAL(wp), POINTER:: p_vn(:,:,:)  !< horizontal velocity
-    REAL(wp), POINTER:: p_vi(:,:,:)  !< implicit horizontal velocity
-    REAL(wp), POINTER:: p_rho(:,:,:) !< density
-    REAL(wp), TARGET:: z_vn(nproma,p_patch%nlev,p_patch%nblks_e)
-    REAL(wp), TARGET:: z_rho(nproma,p_patch%nlev,p_patch%nblks_c)
-    REAL(wp), TARGET:: z_w(nproma,p_patch%nlevp1,p_patch%nblks_c)
-    REAL(wp), TARGET:: z_vn_impl(nproma,p_patch%nlev,p_patch%nblks_e)
-    REAL(wp):: z_rho_ic(nproma,p_patch%nlevp1,p_patch%nblks_c)
-    REAL(wp):: z_mflx_w_con(nproma,p_patch%nlevp1,p_patch%nblks_c)
-    INTEGER :: nblks_c, npromz_c, nlen, jk, jb !!, i_vadv_th
-    INTEGER :: nlev, nlevp1          !< number of full and half levels
+    REAL(wp),POINTER :: p_w(:,:,:)
+    REAL(wp),POINTER :: p_vn(:,:,:)
+    REAL(wp),POINTER :: p_rho(:,:,:)
+    REAL(wp),POINTER :: p_rho_e(:,:,:)
+    REAL(wp):: z_vn_impl    (nproma,p_patch%nlev  ,p_patch%nblks_e), &
+    &          z_rho_l      (nproma,p_patch%nlevp1,p_patch%nblks_c), &
+    &          z_rho_e_l    (nproma,p_patch%nlevp1,p_patch%nblks_e), &
+    &          z_rho_e_lnt  (nproma,p_patch%nlevp1,p_patch%nblks_e), &
+    &          z_rho_v      (nproma,p_patch%nlev  ,p_patch%nblks_v), &
+    &          z_rho_a      (nproma,p_patch%nlev  ,p_patch%nblks_e), &
+    &          z_wmflx_ort  (nproma,p_patch%nlevp1,p_patch%nblks_c), &
+    &          z_wmflx_ort_e(nproma,p_patch%nlevp1,p_patch%nblks_e), &
+    &          z_wmflx_con  (nproma,p_patch%nlevp1,p_patch%nblks_c), &
+    &          z_wmflx_con_e(nproma,p_patch%nlevp1,p_patch%nblks_e), &
+    &          z_tmp_v_l    (nproma,p_patch%nlevp1,p_patch%nblks_v), &
+    &          z_tmp_e_l    (nproma,p_patch%nlevp1,p_patch%nblks_e), &
+    &          z_theta_v_impl(nproma,p_patch%nlev ,p_patch%nblks_c)
+    INTEGER :: nblks_c, npromz_c, nblks_e, npromz_e, nlen, jk, jb, nlev, nlevp1
+
     !--------------------------------------------------------------------------
 
-    ! number of vertical levels
-    nlev   = p_patch%nlev
-    nlevp1 = p_patch%nlevp1
+    nblks_c  = p_patch%nblks_int_c
+    npromz_c = p_patch%npromz_int_c
+    nblks_e  = p_patch%nblks_int_e
+    npromz_e = p_patch%npromz_int_e
+    nlev     = p_patch%nlev
+    nlevp1   = p_patch%nlevp1
 
-    IF (l_predictor) THEN
-      p_vn => p_nh%prog(know)%vn
-      p_rho => p_nh%prog(know)%rho
-      p_w => p_nh%prog(know)%w
-    ELSE
-      z_vn(:,:,:) = 0.5_wp*(p_nh%prog(know)%vn(:,:,:)+p_nh%prog(knew)%vn(:,:,:))
-      p_vn  => z_vn
-      z_rho(:,:,:) = 0.5_wp*(p_nh%prog(know)%rho(:,:,:)+p_nh%prog(knew)%rho(:,:,:))
-      p_rho => z_rho
-      z_w(:,:,:) = 0.5_wp*(p_nh%prog(know)%w(:,:,:)+p_nh%prog(knew)%w(:,:,:))
-      p_w  => z_w
-    ENDIF
+    IF (l_predictor) THEN ! first call
 
-    IF (l_impl_vert_adv) THEN
-
-      ! contravariant vertical velocity
-      CALL contravariant_velocities (p_vn,p_w,p_patch,p_int_state,p_nh%metrics,p_nh%diag,.TRUE.)
-
-      ! implicit vertical advection for horizontal velocity
-      !----------------------------------------------------
-
-      CALL impl_vert_adv_vn(p_nh%prog(know)%vn,p_nh%diag%w_con,p_patch,&
-      &                     p_int_state,p_nh%metrics,p_dtime,z_vn_impl)
-      p_vi => z_vn_impl
-
-      ! implicit vertical advection for theta
-      !--------------------------------------
-
-      ! in contrast to the velocity equation, (where the rhos essentially cancel out, because both,
-      ! the potential vorticity (=tracer) and the vertical velocity are on half levels), we need the
-      ! contravariant mass flux here (because the tracer is on main levels)
-
-      ! contravariant mass flux
-      nblks_c   = p_patch%nblks_int_c
-      npromz_c  = p_patch%npromz_int_c
+      ! density at edges
+      CALL cells2edges_scalar(p_nh%prog(know)%rho,p_patch,p_int%c_lin_e,p_nh%diag%rho_e)
+      CALL cells2verts_scalar(p_nh%prog(know)%rho,p_patch,p_int%cells_aw_verts,z_rho_v)
+      CALL verts2edges_scalar(z_rho_v,p_patch,p_int%v_1o2_e,z_rho_a)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk)
-      DO jb = 1,nblks_c
-        IF (jb /= nblks_c) THEN
+!$OMP DO PRIVATE(jb,jk,nlen)
+      DO jb = 1,nblks_e
+        IF (jb /= nblks_e) THEN
           nlen = nproma
         ELSE
-          nlen = npromz_c
+          nlen = npromz_e
         ENDIF
-        z_mflx_w_con(1:nlen,1,jb) = 0.0_wp
-        z_rho_ic(1:nlen,1,jb) = 0.0_wp
-        DO jk = 2,nlev
-          z_rho_ic(1:nlen,jk,jb) =  0.5_wp*(p_rho(1:nlen,jk-1,jb)+p_rho(1:nlen,jk,jb))
-          z_mflx_w_con(1:nlen,jk,jb)=p_nh%diag%w_con(1:nlen,jk,jb)*z_rho_ic(1:nlen,jk,jb)
+        DO jk = 1,nlev
+          p_nh%diag%rho_e(1:nlen,jk,jb) = sick_a*z_rho_a(1:nlen,jk,jb)&
+          &                      +sick_o*p_nh%diag%rho_e(1:nlen,jk,jb)
         ENDDO
-        z_mflx_w_con(1:nlen,nlevp1,jb) = 0.0_wp
-        z_rho_ic(1:nlen,1,jb) = 0.0_wp
       ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
 
-      CALL impl_vert_adv_theta(p_nh%prog(know)%theta_v,z_mflx_w_con,p_rho,p_patch,&
-      &                        p_nh%metrics,p_dtime,p_nh%diag%theta_v_impl)
+      p_rho_e => p_nh%diag%rho_e
+      p_vn    => p_nh%prog(know)%vn
+      p_rho   => p_nh%prog(know)%rho
+      p_w     => p_nh%prog(know)%w
 
-    ELSE
+    ELSEIF(.NOT.l_predictor) THEN ! second call
 
-      p_vi => p_vn
+      ! density at edges
+      CALL cells2edges_scalar(p_nh%prog(knew)%rho,p_patch,p_int%c_lin_e,p_nh%diag%rho_star_e)
+      CALL cells2verts_scalar(p_nh%prog(knew)%rho,p_patch,p_int%cells_aw_verts,z_rho_v)
+      CALL verts2edges_scalar(z_rho_v,p_patch,p_int%v_1o2_e,z_rho_a)
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,nlen)
+      DO jb = 1,nblks_e
+        IF (jb /= nblks_e) THEN
+          nlen = nproma
+        ELSE
+          nlen = npromz_e
+        ENDIF
+        DO jk = 1,nlev
+          p_nh%diag%rho_star_e(1:nlen,jk,jb) = sick_a*z_rho_a(1:nlen,jk,jb)&
+          &                      +sick_o*p_nh%diag%rho_star_e(1:nlen,jk,jb)
+        ENDDO
+      ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+      p_rho_e => p_nh%diag%rho_star_e
+      p_vn    => p_nh%prog(knew)%vn
+      p_rho   => p_nh%prog(knew)%rho
+      p_w     => p_nh%prog(knew)%w
 
     ENDIF
 
-    CALL kinetic_energy(       p_vn,p_vi,p_w,p_patch,p_int_state,p_nh%metrics,p_nh%diag)
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb, jk)
+    DO jb = 1,p_patch%nblks_c
+      ! density at half levels
+      z_rho_l(1:nproma,1,jb)     = p_rho(1:nproma,1,jb)
+      DO jk=2,nlev
+        z_rho_l(1:nproma,jk,jb)  = 0.5_wp*(p_rho(1:nproma,jk-1,jb)+p_rho(1:nproma,jk,jb))
+      ENDDO
+      z_rho_l(1:nproma,nlevp1,jb)= p_rho(1:nproma,nlev,jb)
+      ! orthogonal vertical mass flux
+      DO jk = 1, nlevp1
+        z_wmflx_ort(1:nproma,jk,jb)= p_w(1:nproma,jk,jb)*z_rho_l(1:nproma,jk,jb)
+      ENDDO
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
 
-    CALL covariant_velocities(      p_vn,p_w,p_patch,p_int_state,p_nh%metrics,p_nh%diag)
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb, jk)
+    DO jb = 1,p_patch%nblks_e
+      ! density at half levels and edges with tilde
+      z_rho_e_l(1:nproma,1,jb)     = p_rho_e(1:nproma,1,jb)
+      DO jk=2,nlev
+        z_rho_e_l(1:nproma,jk,jb)  = 0.5_wp*(p_rho_e(1:nproma,jk-1,jb)+p_rho_e(1:nproma,jk,jb))
+      ENDDO
+      z_rho_e_l(1:nproma,nlevp1,jb)= p_rho_e(1:nproma,nlev,jb)
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
 
-    CALL contravariant_vorticities(p_vn,p_vi,p_patch,p_int_state,p_nh%metrics,p_nh%diag)
+    ! unaveraged rho at half level edges (needed for horiz. pot. vorticity)
+    CALL cells2edges_scalar(z_rho_l,p_patch,p_int%c_lin_e,z_rho_e_lnt,1,nlevp1)
 
-    CALL orthogonal_vorticities(             p_patch,p_int_state,p_nh%metrics,p_nh%diag)
+    ! contravariant vertical mass flux (does not use the tilde averages rho*w)
+    CALL contravariant_vert_mass_flux(p_vn,p_rho_e,z_wmflx_ort,p_patch,p_int,&
+    &                                 p_nh%metrics,z_wmflx_con,.TRUE.)
+    CALL sync_patch_array(SYNC_C,p_patch,z_wmflx_con)
 
-    CALL vorticity_tendencies(p_vn,p_vi,p_w,p_rho,p_patch,p_int_state,p_nh%metrics,p_nh%diag)
+    ! implicit vertical advection for theta with the above contrav. vert. mass flux
+    IF (ltheta_up_vert) THEN
+      CALL impl_vert_adv_theta_5diag(p_nh%prog(know)%theta_v,z_wmflx_con,p_rho,p_patch,&
+      &                        p_nh%metrics,z_theta_v_impl)
+    ELSE
+      CALL impl_vert_adv_theta(p_nh%prog(know)%theta_v,z_wmflx_con,p_rho,p_patch,&
+      &                        p_nh%metrics,z_theta_v_impl)
+    ENDIF
+    IF (l_predictor) THEN
+!$OMP PARALLEL
+!$OMP WORKSHARE
+      p_nh%diag%theta_v_impl(:,:,:)=z_theta_v_impl(:,:,:)
+!$OMP END WORKSHARE
+!$OMP END PARALLEL
+    ELSE
+!$OMP PARALLEL
+!$OMP WORKSHARE
+      p_nh%diag%theta_v_impl(:,:,:)=0.5_wp*(p_nh%diag%theta_v_impl(:,:,:)+z_theta_v_impl(:,:,:))
+      p_nh%diag%theta_v_ave(:,:,:) =0.5_wp*(p_nh%prog(know)%theta_v(:,:,:)&
+      &                                    +p_nh%prog(knew)%theta_v(:,:,:))
+!$OMP END WORKSHARE
+!$OMP END PARALLEL
+    ENDIF
 
+    ! vertical mass flux at edges
+    CALL cells2edges_scalar(z_wmflx_con,p_patch,p_int%c_lin_e,z_wmflx_con_e,1,nlevp1)
+    CALL cells2edges_scalar(z_wmflx_ort,p_patch,p_int%c_lin_e,z_wmflx_ort_e,1,nlevp1)
+
+    ! contravariant vertical mass flux (does use the tilde averages rho*w)
+    CALL cells2verts_scalar(z_wmflx_ort,p_patch,p_int%cells_aw_verts,z_tmp_v_l,1,nlevp1)
+    CALL verts2edges_scalar(z_tmp_v_l,p_patch,p_int%v_1o2_e,z_tmp_e_l,1,nlevp1)
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,nlen)
+    DO jb = 1,nblks_e
+      IF (jb /= nblks_e) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz_e
+      ENDIF
+      DO jk = 2, nlev
+        ! here is only the metric correction stored which is not averaged
+        z_wmflx_con_e(1:nlen,jk,jb) = z_wmflx_con_e(1:nlen,jk,jb)-z_wmflx_ort_e(1:nlen,jk,jb)
+      ENDDO
+      DO jk = 1, nlevp1
+        ! now the vertical flux is averaged
+        z_wmflx_ort_e(1:nlen,jk,jb) = sick_a*z_tmp_e_l(1:nlen,jk,jb) &
+        &                            +sick_o*z_wmflx_ort_e(1:nlen,jk,jb)
+      ENDDO
+      DO jk = 2, nlev
+        ! the full contravariant values is there again
+        z_wmflx_con_e(1:nlen,jk,jb) = z_wmflx_con_e(1:nlen,jk,jb)+z_wmflx_ort_e(1:nlen,jk,jb)
+      ENDDO
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,nlen)
+    DO jb = 1,nblks_e
+      IF (jb /= nblks_e) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz_e
+      ENDIF
+      DO jk = 2, nlev
+        ! the rho cancel here (from horiz. pot. vorticity)
+        ! z_rho_e_l has not tilde e average
+        z_wmflx_con_e(1:nlen,jk,jb) = z_wmflx_con_e(1:nlen,jk,jb)/z_rho_e_lnt(1:nlen,jk,jb)
+      ENDDO
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+    ! implicit vertical advection for horizontal velocity
+    CALL impl_vert_adv_vn(p_nh%prog(know)%vn,z_wmflx_con_e,p_patch,p_nh%metrics,z_vn_impl)
+
+    ! covariant velocities
+    CALL covariant_velocities(p_vn,p_w,p_patch,p_int,p_nh%metrics,p_nh%diag)
+
+    ! contravariant vorticities
+    CALL contravariant_vorticities(p_vn,z_vn_impl,p_patch,p_int,p_nh%metrics,p_nh%diag)
+
+    ! orthogonal vorticities
+    CALL orthogonal_vorticities(p_patch,p_int,p_nh%metrics,p_nh%diag)
+
+    ! vorticity flux term
+    CALL vorticity_tendencies(p_vn,z_vn_impl,z_wmflx_ort_e,p_rho,p_rho_e,z_rho_e_l,&
+    &                         p_patch,p_int,p_nh%metrics,p_nh%diag,l_predictor)
+
+    ! kinetic energy
+    CALL kinetic_energy(p_vn,z_vn_impl,p_w,p_patch,p_int,p_nh%metrics,p_nh%diag,2,&
+    & l_predictor)
 
   END SUBROUTINE momentum_adv
   !-----------------------------------------------------------------------------

@@ -11,29 +11,86 @@
 #-------------------------------------------------------------------
 
 REV=$1
-BB_SYSTEM=$2
-BB_SLAVE=$3
+SLAVE=$2
+BUILDER=$3
+BUILDER_NR=$4
+DATE=`date '+%Y-%m-%d'`
 
-if [ "x${BB_SLAVE}" = "x" ]
+
+#===============================================================
+# functions
+#===============================================================
+
+copy_files ()
+{
+
+  for file in $FILES
+  do
+    dir_name=`echo $file | cut -d '/' -f2-10`
+    name=`basename $dir_name`
+    dir=`dirname $dir_name`
+#    echo "DIR: $dir NAME: $name"
+    mkdir -p ${BASE_DIR}/${dir}
+#    echo "Copy:"
+#    echo "Source: experiments/${dir}/${name}"
+#    echo "Target: ${BASE_DIR}/${dir}/${name}"
+    cp experiments/${dir}/${name} ${BASE_DIR}/${dir}/${name}
+  done
+}
+
+#===============================================================
+# Script begin
+#===============================================================
+
+#---------------------------------------------------------------------
+#---------------------------------------------------------------------
+# Save Plots for Buildbot web-Page
+#---------------------------------------------------------------------
+#---------------------------------------------------------------------
+
+if [ "x${BUILDER}" = "x" ]
 then
-  echo "!!!! BB_SLAVE not set "
+  echo "!!!! BUILDER not set "
   exit 1
 fi
 
-if [ -d /tmp/${BB_SLAVE} ]
+if [ -d /tmp/${BUILDER} ]
 then
-  rm -rf /tmp/${BB_SLAVE} 
+  rm -rf /tmp/${BUILDER} 
 fi
 
-echo "BB_SYSTEM=${BB_SYSTEM}"
-echo "BB_SLAVE=${BB_SLAVE}"
+echo "BB_SYSTEM=${SLAVE}"
+echo "BB_SLAVE=${BUILDER}"
 
 #REV=`svn info | grep Revision | cut -d ':' -f2`
 echo "REV=${REV}"
 
-mkdir /tmp/${BB_SLAVE} 
-echo "_COMPUTER_ ${BB_SYSTEM}" > /tmp/${BB_SLAVE}/job_info.txt
-echo "_BUILDER_ ${BB_SLAVE}" >> /tmp/${BB_SLAVE}/job_info.txt
-echo "_REVISION_ ${REV}" >> /tmp/${BB_SLAVE}/job_info.txt
+mkdir /tmp/${BUILDER} 
+echo "_COMPUTER_ ${SLAVE}" > /tmp/${BUILDER}/job_info.txt
+echo "_BUILDER_ ${BUILDER}" >> /tmp/${BUILDER}/job_info.txt
+echo "_REVISION_ ${REV}" >> /tmp/${BUILDER}/job_info.txt
 
-find experiments -name '*.eps' -exec cp {} /tmp/${BB_SLAVE}/. \;
+find experiments -name '*.eps' -exec cp {} /tmp/${BUILDER}/. \;
+
+#---------------------------------------------------------------------
+#---------------------------------------------------------------------
+# Save Plots for archive
+#---------------------------------------------------------------------
+#---------------------------------------------------------------------
+
+BASE_DIR=/tmp/BuildBot/${BUILDER}/archive/${DATE}/buildbot/${BUILDER}/${BUILDER_NR}
+
+if [ -d /tmp/BuildBot/${BUILDER}/archive ]
+then
+  rm -rf /tmp/BuildBot/${BUILDER}/archive
+fi
+
+mkdir -p ${BASE_DIR}
+
+echo "Copy eps-files"
+FILES=`find experiments -name '*.eps'`
+copy_files
+
+echo "Copy ps-files"
+FILES=`find experiments -name '*.ps'`
+copy_files

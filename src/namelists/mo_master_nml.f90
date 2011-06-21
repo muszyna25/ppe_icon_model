@@ -1,10 +1,11 @@
 !>
-!! @brief 
+!! @brief Master namelist.
 !!        
 !! @par Revision History
+!! Created by Rene Redler (2011-03-22)
 !!
 !! @par Copyright
-!! 2002-2010 by DWD and MPI-M
+!! 2010-2011 by DWD and MPI-M
 !! This software is provided for non-commercial use only.
 !! See the LICENSE and the WARRANTY conditions.
 !!
@@ -32,9 +33,14 @@
 !!
 MODULE mo_master_nml
 
-  USE mo_mpi,                ONLY: p_pe, p_io
-  USE mo_io_units,           ONLY: nnml, nnml_output
-  USE mo_namelist,           ONLY: position_nml, POSITIONED
+  USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH
+  USE mo_exception,      ONLY: warning, message_text, finish
+  USE mo_mpi,            ONLY: p_nprocs
+  USE mo_io_units,       ONLY: filename_max, nnml
+  USE mo_namelist,       ONLY: open_nml, position_nml, POSITIONED
+  USE mo_icon_cpl,       ONLY: complist,                           &
+                             & nbr_ICON_comps,                     &
+                             & ICON_ocean_index, ICON_atmos_index
 
   IMPLICIT NONE
 
@@ -47,38 +53,99 @@ MODULE mo_master_nml
   !-------------------------------------------------------------------------
   LOGICAL :: lrestart
 
-  NAMELIST/master_nml/ lrestart
+  ! Component models
+
+  CHARACTER(len=132) :: atmo_name
+  CHARACTER(len=filename_max) :: atmo_namelist_filename
+  CHARACTER(len=filename_max) :: atmo_restart_info_filename
+  LOGICAL :: l_atmo_active
+  INTEGER :: atmo_min_rank
+  INTEGER :: atmo_max_rank
+  INTEGER :: atmo_inc_rank
+
+  CHARACTER(len=132) :: ocean_name
+  CHARACTER(len=filename_max) :: ocean_namelist_filename
+  CHARACTER(len=filename_max) :: ocean_restart_info_filename
+  LOGICAL :: l_ocean_active
+  INTEGER :: ocean_min_rank
+  INTEGER :: ocean_max_rank
+  INTEGER :: ocean_inc_rank
+
+  NAMELIST /master_ctl/ l_atmo_active, atmo_name, atmo_namelist_filename,    &
+                      & atmo_min_rank, atmo_max_rank, atmo_inc_rank,         &
+                      & atmo_restart_info_filename,                          &
+                      & l_ocean_active, ocean_name, ocean_namelist_filename, &
+                      & ocean_min_rank, ocean_max_rank, ocean_inc_rank,      &
+                      & ocean_restart_info_filename,                         &
+                      & lrestart
 
 CONTAINS
   !>
-  !! Set up and read in namelist master_nml, which contains
-  !! the minimum information one needs in order to start a simulation, 
-  !! e.g., whether it's an initial run or a resumed simulation.
-  !! Note that this namelist is not read from or written to 
-  !! restart file(s).
+  !! Initialization of variables that contain general information
+  !! about the coupled model run. The configuration is read from
+  !! namelist 'master_ctl'.
   !!
   !! @par Revision History
-  !! First version by Hui Wan (MPI-M, 2011-05-27)
   !!
-  SUBROUTINE master_nml_setup
-                                                
-    INTEGER  :: ist
- 
-    ! Default values
+  INTEGER FUNCTION read_master_namelist(namelist_filename)
+    
+    CHARACTER(LEN=*), INTENT(in) :: namelist_filename
+    !
+    ! Local variables
+    !
+    INTEGER :: istat
+    INTEGER :: i, str_len
+    CHARACTER(len=MAX_CHAR_LENGTH) :: routine = 'mo_master_nml:read_master_namelist'
 
-    lrestart = .FALSE. 
+    !------------------------------------------------------------
+    ! 1. Set default values
+    !------------------------------------------------------------
+    lrestart      = .FALSE.
 
-    ! Read user's (new) specifications (Done so far by all MPI processes)
+    atmo_name     = ""
+    atmo_namelist_filename     = "NAMELIST_ICON"
+    atmo_restart_info_filename = "restart.info"
+    l_atmo_active = .FALSE.
+    atmo_min_rank = 0
+    atmo_max_rank = p_nprocs
+    atmo_inc_rank = 1
 
-    CALL position_nml ('master_nml', status=ist)
-    IF (ist == POSITIONED) THEN
-      READ (nnml, master_nml)
+    ocean_name     = ""
+    ocean_namelist_filename     = "NAMELIST_ICON"
+    ocean_restart_info_filename = "restart.info"
+    l_ocean_active = .FALSE.
+    ocean_min_rank = 0
+    ocean_max_rank = p_nprocs
+    ocean_inc_rank = 1
+
+    !------------------------------------------------------------------
+    ! 2. Read user's specifications (done so far by all MPI processes)
+    !------------------------------------------------------------------
+
+    OPEN( nnml, FILE=TRIM(namelist_filename), IOSTAT=istat, &
+        & STATUS='old', ACTION='read', DELIM='apostrophe')
+
+    IF (istat/=0) THEN
+      CALL warning(namelist_filename,"not found")
+      read_master_namelist=-1
+      RETURN
     ENDIF
+    
+    CALL position_nml('master_ctl',STATUS=istat)
+    
+    IF (istat/=POSITIONED) THEN
 
-    ! Write the contents of the namelist to an ASCII file.
+      CALL finish( TRIM(routine), &
+                 & 'Namelist master_ctl not found in file '  &
+                 & //TRIM(namelist_filename) )
 
-    IF(p_pe == p_io) WRITE(nnml_output,nml=master_nml)
+      read_master_namelist=-2
+      RETURN      
+    ENDIF
+        
+    READ (nnml, master_ctl)
+    CLOSE (nnml, IOSTAT=istat)
 
- END SUBROUTINE master_nml_setup
+  END FUNCTION read_master_namelist
 
 END MODULE mo_master_nml

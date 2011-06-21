@@ -100,16 +100,14 @@ MODULE mo_nonhydrostatic_nml
   LOGICAL  :: ltheta_up_hori! horizontal 3rd order advection of theta_v
   REAL(wp) :: upstr_beta    ! =1 for 3rd order upstream, =0 for 4th order centered
                             ! theta advection
-  LOGICAL :: l_impl_vert_adv! implicit vertical advection for horizontal velocity
-                            ! Note: Implicit vertical advections for rho and w are
-                            ! boiled into the 5band matrix vertical solver 
+  LOGICAL :: ltheta_up_vert ! upwind vertical advection of theta
   REAL(wp) :: k2_updamp_coeff ! 2nd order additional horizontal diffusion
                             ! coefficient in the upper damping zone
 
 
   NAMELIST/nonhydrostatic_ctl/ rayleigh_coeff, damp_height, iadv_rhotheta, &
                                vwind_offctr, igradp_method, exner_expol,   &
-                               ltheta_up_hori, l_impl_vert_adv, gmres_rtol_nh, &
+                               ltheta_up_hori, ltheta_up_vert, gmres_rtol_nh, &
                                iadv_rcf, ivctype, upstr_beta, l_open_ubc,  &
                                l_nest_rcf, l_zdiffu_t, thslp_zdiffu, thhgtd_zdiffu, &
                                k2_updamp_coeff, l_masscorr_nest, htop_moist_proc, &
@@ -184,7 +182,7 @@ MODULE mo_nonhydrostatic_nml
   ltheta_up_hori =.FALSE.
   gmres_rtol_nh  = 1.0e-6_wp
   upstr_beta     = 1.0_wp
-  l_impl_vert_adv=.TRUE.
+  ltheta_up_vert = .FALSE.
   k2_updamp_coeff= 2.0e6_wp
   !
   !

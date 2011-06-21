@@ -102,7 +102,7 @@ MODULE mo_io_vlist
   USE mo_global_variables,    ONLY: modelname, modelversion
   USE mo_nonhydrostatic_nml,  ONLY: rayleigh_coeff, damp_height, iadv_rhotheta, &
     &                               vwind_offctr, igradp_method, exner_expol,   &
-    &                               ltheta_up_hori, l_impl_vert_adv,            &
+    &                               ltheta_up_hori, ltheta_up_vert,             &
     &                               gmres_rtol_nh, iadv_rcf, ivctype,           &
     &                               upstr_beta, l_open_ubc, l_nest_rcf,         &
     &                               l_zdiffu_t, thslp_zdiffu, thhgtd_zdiffu
@@ -622,8 +622,8 @@ CONTAINS
        ELSEIF (i_cell_type == 6) THEN
          CALL addGlobAttTxtFromLog('nonhydrostatic_ctl:ltheta_up_hori', &
                  &         ltheta_up_hori,vlistID(k_jg),astatus)
-         CALL addGlobAttTxtFromLog('nonhydrostatic_ctl:l_impl_vert_adv',&
-                 &         l_impl_vert_adv,vlistID(k_jg),astatus)
+         CALL addGlobAttTxtFromLog('nonhydrostatic_ctl:ltheta_up_vert',&
+                 &         ltheta_up_vert,vlistID(k_jg),astatus)
          CALL addGlobAttFlt('nonhydrostatic_ctl:gmres_rtol_nh',      &
                  &         gmres_rtol_nh,vlistID(k_jg),astatus)
          CALL addGlobAttFlt('nonhydrostatic_ctl:upstr_beta',      &

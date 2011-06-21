@@ -176,9 +176,12 @@ MODULE mo_nonhydro_state
     !
     ! c) variables needed for the hexagonal grid only
     &  theta_v_impl(:,:,:), & ! (nnow+nnew)/2 from impl. vert. adv. of theta_v   [K]
+    &  theta_v_ave(:,:,:),  & ! time average from horiz. adv. of theta_v         [K]
     &  horpgrad(:,:,:),     & ! covariant horizontal pressure gradient term   [m/s^2]
     &  vn_cov(:,:,:),       & ! covariant normal wind (nproma,nlev,nblks_e)    [m/s]
     &  w_cov(:,:,:),        & ! covariant vert wind (nproma,nlevp1,nblks_c)  [m^2/s]
+    &  rho_e(:,:,:),        & ! density at edges nnow                       [kg/m^3]
+    &  rho_star_e(:,:,:),   & ! density at edges estim. step                [kg/m^3]
     &  omega_z_con(:,:,:),  & ! vertical contrav. vorticity (nproma,nlev,nblks_v)
                               ! at vertices                                    [1/s]
     &  omega_t_con(:,:,:),  & ! tangential horiz. contravariant vorticity
@@ -187,7 +190,9 @@ MODULE mo_nonhydro_state
     &  omega_y(:,:,:),      & ! meridional vorticity (nproma,nlev,nblks_c)     [1/s]
     &  ddt_vn_vort(:,:,:),  & ! normal wind tendency from vorticity flux term
                               ! (nproma,nlev,nblks_e,1:3)                    [m/s^2]
-    &  ddt_w_vort(:,:,:)      ! vert. wind tendency from vorticity flux term
+    &  ddt_w_vort(:,:,:),   & ! vert. wind tendency from vorticity flux term
+                              ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
+    &  ddt_w_phy(:,:,:)       ! vert. wind tendency from phyiscs
                               ! (nproma,nlevp1,nblks_c,1:3)                  [m/s^2]
 
     REAL(wp), POINTER ::    & !
@@ -223,6 +228,8 @@ MODULE mo_nonhydro_state
    REAL(wp), POINTER :: ddqz_z_full(:,:,:)
    ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_e)
    REAL(wp), POINTER :: ddqz_z_full_e(:,:,:)
+   ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlev,nblks_e)
+   REAL(wp), POINTER :: ddqz_z_full_r(:,:,:)
    ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlevp1,nblks_c)
    REAL(wp), POINTER :: ddqz_z_half(:,:,:)
 
@@ -332,10 +339,6 @@ MODULE mo_nonhydro_state
    REAL(wp), POINTER :: ddqz_z_full_v(:,:,:)
    ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlevp1,nblks_e)
    REAL(wp), POINTER :: ddqz_z_half_e(:,:,:)
-   ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlevp1,nblks_e)
-   REAL(wp), POINTER :: ddqz_z_half_r(:,:,:)
-   ! functional determinant of the metrics [sqrt(gamma)] (nproma,nlevp1,nblks_v)
-   REAL(wp), POINTER :: ddqz_z_half_v(:,:,:)
 
   END TYPE t_nh_metrics
 
@@ -1247,6 +1250,15 @@ MODULE mo_nonhydro_state
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
                   & ldims=shape3d_c )
 
+      ! theta_v_ave   p_diag%theta_v_ave(nproma,nlev,nblks_c)
+      !
+      cf_desc    = t_cf_var('time average from horiz. adv. of theta_v', 'K', &
+        &                   'time average from horiz. adv. of theta_v')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_list, 'theta_v_ave', p_diag%theta_v_ave,           &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & ldims=shape3d_c )
+
 
       ! horpgrad     p_diag%horpgrad(nproma,nlev,nblks_e)
       !
@@ -1277,6 +1289,23 @@ MODULE mo_nonhydro_state
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  & 
                   & ldims=shape3d_chalf )
 
+      ! rho_e        p_diag%rho_e(nproma,nlev,nblks_e)
+      !
+      cf_desc    = t_cf_var('density_at_edges_nnow', 'm s-1',                   &
+        &                   'density_at_edges_nnow')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
+      CALL add_var( p_diag_list, 'rho_e', p_diag%rho_e,                              &
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & ldims=shape3d_e )
+
+      ! rho_star_e   p_diag%rho_star_e(nproma,nlev,nblks_e)
+      !
+      cf_desc    = t_cf_var('density_at_edges_estim_step', 'm s-1',                  &
+        &                   'density_at_edges_estim_step')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
+      CALL add_var( p_diag_list, 'rho_star_e', p_diag%rho_star_e,                    &
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & ldims=shape3d_e )
 
       ! omega_t_con  p_diag%omega_t_con(nproma,nlevp1,nblks_e)
       !
@@ -1332,6 +1361,15 @@ MODULE mo_nonhydro_state
         &                   'vert. wind tendency from vorticity flux term')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'ddt_w_vort', p_diag%ddt_w_vort,               &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
+                  & ldims=shape3d_chalf )
+
+      ! ddt_w_phy   p_diag%ddt_w_phy(nproma,nlevp1,nblks_c)
+      !
+      cf_desc    = t_cf_var('vert_wind_tendency_phy', 'm s-2',                     &
+        &                   'vertical wind tendency from physics')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_list, 'ddt_w_phy', p_diag%ddt_w_phy,                      &
                   & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
                   & ldims=shape3d_chalf )
 
@@ -1971,6 +2009,15 @@ MODULE mo_nonhydro_state
                   & GRID_UNSTRUCTURED_VERT, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
                   & ldims=shape3d_v )
 
+      ! functional determinant of the metrics [sqrt(gamma)]
+      ! ddqz_z_full_r   p_metrics%ddqz_z_full_r(nproma,nlev,nblks_e)
+      !
+      cf_desc    = t_cf_var('metrics_functional_determinant', '-',              &
+      &                     'metrics functional determinant')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
+      CALL add_var( p_metrics_list, 'ddqz_z_full_r', p_metrics%ddqz_z_full_r,   &
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
+                  & ldims=shape3d_e )
 
       ! functional determinant of the metrics [sqrt(gamma)]
       ! ddqz_z_half_e   p_metrics%ddqz_z_half_e(nproma,nlevp1,nblks_e)
@@ -1981,28 +2028,6 @@ MODULE mo_nonhydro_state
       CALL add_var( p_metrics_list, 'ddqz_z_half_e', p_metrics%ddqz_z_half_e,   &
                   & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
                   & ldims=shape3d_ehalf )
-
-
-      ! functional determinant of the metrics [sqrt(gamma)]
-      ! ddqz_z_half_r   p_metrics%ddqz_z_half_r(nproma,nlevp1,nblks_e)
-      !
-      cf_desc    = t_cf_var('metrics_functional_determinant', '-',              &
-      &                     'metrics functional determinant')
-      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
-      CALL add_var( p_metrics_list, 'ddqz_z_half_r', p_metrics%ddqz_z_half_r,   &
-                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
-                  & ldims=shape3d_ehalf )
-
-
-      ! functional determinant of the metrics [sqrt(gamma)]
-      ! ddqz_z_half_v   p_metrics%ddqz_z_half_v(nproma,nlevp1,nblks_v)
-      !
-      cf_desc    = t_cf_var('metrics_functional_determinant', '-',              &
-      &                     'metrics functional determinant')
-      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_VERTEX)
-      CALL add_var( p_metrics_list, 'ddqz_z_half_v', p_metrics%ddqz_z_half_v,   &
-                  & GRID_UNSTRUCTURED_VERT, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
-                  & ldims=shape3d_vhalf )
 
     ENDIF
 

@@ -237,7 +237,7 @@ class PreProcOptions
       options[:zlevels] = {}
       opts.on("-z","--zlevels lev0,lev1,..,levN",
               Array,
-              "'list' of target zlevel (hydrostatic case)") {|list|
+              "'list' of target zlevels (not required for initial ICON data)") {|list|
         options[:zlevels] = list
       }
       options[:zcoordinates] = {}
@@ -690,9 +690,9 @@ class Ifs2Icon
     Dbg.msg("Compining files into output file '#{intermediateFile}'",@options[:verbose], @options[:debug])
     Dbg.msg(@outvars.keys.join(" "),@options[:verbose], @options[:debug])
     Cdo.merge(:in => @outvars.values.join(" "),:out => intermediateFile)
-    # perform vertical interpolation wrt. original surface pressure and orography
-    Cdo.remapeta(@options[:vctfile],@options[:orofile],:in => intermediateFile,:out => hybridlayerfile)
     if @options[:model_type] == 'hydrostatic'
+      # perform vertical interpolation wrt. original surface pressure and orography
+      Cdo.remapeta(@options[:vctfile],@options[:orofile],:in => intermediateFile,:out => hybridlayerfile)
       # perform hybrid2realLevel conversion
       Cdo.ml2hl(@options[:zlevels].reverse.join(','),:in => hybridlayerfile, :out => reallayerfile)
       @_preout = reallayerfile

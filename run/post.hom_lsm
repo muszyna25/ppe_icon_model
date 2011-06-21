@@ -7,8 +7,8 @@
 
 #-----------------------------------------------------------------------------
 # Set parameters for postprocessing
-#  - should be passed by the exp.test_hom_1 script
-EXP="test_hom_1"
+#  - should be passed by the exp.test_hom_lsm script
+EXP="test_hom_lsm"
 horizontal_resolution="R2B04"
 vertical_resolution="L4"
 
@@ -88,14 +88,14 @@ export NCARG_USRRESFILE=${WORKING_PATH}/scripts/postprocessing/.hluresfile
 
 # Start postprocessing script
 echo "-- ---------------------------------------------------------"
-echo "-- hom_1_postpro_driver.bash starts at $(date) --"
+echo "-- hom_lsm_postpro_driver.bash starts at $(date) --"
 echo "-- ---------------------------------------------------------"
 #
-./hom_1_postpro_driver.bash ${set_env}
+./hom_lsm_postpro_driver.bash ${set_env}
 STATUS=$?
 
 echo "-- ---------------------------------------------------------"
-echo "-- hom_1_postpro_driver.bash ends at $(date) --"
+echo "-- hom_lsm_postpro_driver.bash ends at $(date) --"
 echo "-- ---------------------------------------------------------"
 
 rm -f ${set_env}

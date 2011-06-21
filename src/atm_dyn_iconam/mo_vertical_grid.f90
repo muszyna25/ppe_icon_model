@@ -724,9 +724,8 @@ MODULE mo_vertical_grid
 
         IF (p_test_run) THEN
           p_nh(jg)%metrics%ddqz_z_half_e = 0._wp
-          p_nh(jg)%metrics%ddqz_z_half_v = 0._wp
           p_nh(jg)%metrics%ddqz_z_full_v = 0._wp
-          p_nh(jg)%metrics%ddqz_z_half_r = 0._wp
+          p_nh(jg)%metrics%ddqz_z_full_r = 0._wp
         ENDIF
         ! functional determinant at half level the edges
         CALL cells2edges_scalar(p_nh(jg)%metrics%ddqz_z_half, &
@@ -735,24 +734,18 @@ MODULE mo_vertical_grid
 
         CALL sync_patch_array(SYNC_E,p_patch(jg),p_nh(jg)%metrics%ddqz_z_half_e)
 
-        ! functional determinant at half level dual centers
-        CALL cells2verts_scalar(p_nh(jg)%metrics%ddqz_z_half, &
-                                p_patch(jg),p_int(jg)%cells_aw_verts, &
-                                p_nh(jg)%metrics%ddqz_z_half_v, 1, nlevp1)
-
         ! functional determinant at full level dual centers
         CALL cells2verts_scalar(p_nh(jg)%metrics%ddqz_z_full, &
                                 p_patch(jg),p_int(jg)%cells_aw_verts, &
                                 p_nh(jg)%metrics%ddqz_z_full_v, 1, nlev)
 
-        CALL sync_patch_array_mult(SYNC_V,p_patch(jg),2,p_nh(jg)%metrics%ddqz_z_half_v, &
-                                   p_nh(jg)%metrics%ddqz_z_full_v)
+        CALL sync_patch_array(SYNC_V,p_patch(jg), p_nh(jg)%metrics%ddqz_z_full_v)
 
-        CALL verts2edges_scalar(p_nh(jg)%metrics%ddqz_z_half_v, &
+        CALL verts2edges_scalar(p_nh(jg)%metrics%ddqz_z_full_v, &
                                 p_patch(jg), p_int(jg)%tria_aw_rhom, &
-                                p_nh(jg)%metrics%ddqz_z_half_r, 1, nlevp1)
+                                p_nh(jg)%metrics%ddqz_z_full_r)
 
-        CALL sync_patch_array(SYNC_E,p_patch(jg),p_nh(jg)%metrics%ddqz_z_half_r)
+        CALL sync_patch_array(SYNC_E,p_patch(jg),p_nh(jg)%metrics%ddqz_z_full_r)
 
         iidx => p_patch(jg)%verts%edge_idx
         iblk => p_patch(jg)%verts%edge_blk

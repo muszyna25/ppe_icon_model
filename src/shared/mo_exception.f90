@@ -54,7 +54,7 @@ MODULE mo_exception
   PRIVATE
 
   PUBLIC :: message_text
-  PUBLIC :: message, finish, print_status, print_value
+  PUBLIC :: message, warning, finish, print_status, print_value
   PUBLIC :: em_none, em_info, em_warn, em_error, em_param, em_debug
   PUBLIC :: open_log, close_log
   PUBLIC :: debug_messages_on, debug_messages_off
@@ -180,6 +180,23 @@ CONTAINS
 
   END SUBROUTINE finish
   !-------------
+  
+
+  !-------------
+  !>
+  !!
+  SUBROUTINE warning (name, text)
+
+    CHARACTER (len=*), INTENT(in) :: name
+    CHARACTER (len=*), INTENT(in) :: text
+
+    CALL message (name, text, level=em_warn)
+
+  END SUBROUTINE warning
+  !-------------
+  
+
+  !-------------
   !>
   !!
   SUBROUTINE message (name, text, out, level, all_print, adjust_right)
@@ -256,6 +273,9 @@ CONTAINS
    END IF
 
   END SUBROUTINE message
+  !-------------
+  
+
   !-------------
   !>
   !!

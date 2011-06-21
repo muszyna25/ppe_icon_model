@@ -178,7 +178,7 @@ set_test_list ()
 
   for list in ${lists}
   do
-   echo -n "exp.${list}.run " >> ./run_exp_list
+   echo "exp.${list}.run " >> ./run_exp_list
   done
 }
 #==============================================================================
