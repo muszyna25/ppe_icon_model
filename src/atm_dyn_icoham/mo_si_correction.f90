@@ -191,7 +191,7 @@ MODULE mo_si_correction
 
   REAL(wp) :: z_maxi       ! for checking whether the eigenvalues are real
 
-  CHARACTER(len=MAX_CHAR_LENGTH) :: routine = 'init_si_params'
+  CHARACTER(len=MAX_CHAR_LENGTH) :: routine = 'mo_si_correction:init_si_params'
   CHARACTER(len=MAX_CHAR_LENGTH) :: string
 !-------------------------------------------------------------------------
 
@@ -528,6 +528,10 @@ ENDIF
 !  Original version by Hui Wan (MPI-M, 2008-01)
 !  Code resturcturing by Almut Gassmann, MPI-M, (2008-09-18)
 !
+
+  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_si_correction:add_si_correction_2d'
+
   REAL(wp),       INTENT(IN) :: p_dtime      ! time step in seconds
   TYPE(t_patch),TARGET,INTENT(IN) :: pt_patch     ! single patch
   TYPE(t_int_state),INTENT(IN) :: pt_int_state ! single interpolation state
@@ -816,9 +820,9 @@ ENDIF
       IF (lmaxiter) THEN
          CALL finish('GMRES solver: ','NOT YET CONVERGED !!')
       ELSE IF (msg_level >= 10) THEN
-         WRITE(string,'(a,i4,a,e20.10)') 'iteration ', niter,  &
+         WRITE(string,'(a,i4,a,e20.10)') 'GMRES solver: iteration ', niter,  &
                                          ', residual = ', ABS(z_residual(niter))
-         CALL message('GMRES solver: ',TRIM(string))
+         CALL message(TRIM(routine),TRIM(string))
       ENDIF !check convergence
 
    ENDDO !mode loop
@@ -1150,6 +1154,9 @@ ENDIF
 !  Code restructuring by Almut Gassmann, MPI-M (2008-09-19)
 !
 
+  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_si_correction:add_si_correction_3d'
+
   REAL(wp)                       :: p_dtime   ! time step in seconds
   TYPE(t_patch),TARGET,INTENT(IN)  :: pt_patch  ! single patch
   TYPE(t_int_state),  INTENT(IN)   :: pt_int_state ! single interpolation state
@@ -1362,9 +1369,9 @@ ENDIF
    IF (lmaxiter) THEN
       CALL finish('GMRES solver: ','NOT YET CONVERGED !!')
    ELSE  IF (msg_level >= 10) THEN
-      WRITE(string,'(a,i4,a,e20.10)') 'iteration ', niter,  &
+      WRITE(string,'(a,i4,a,e20.10)') 'GMRES solver: iteration ', niter,  &
                                       ', residual = ', ABS(z_residual(niter))
-      CALL message('GMRES solver: ',TRIM(string))
+      CALL message(TRIM(routine),TRIM(string))
    ENDIF
 
 !======================================================================

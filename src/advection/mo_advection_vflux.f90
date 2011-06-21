@@ -1964,7 +1964,7 @@ CONTAINS
     &                      opt_rlstart, opt_rlend )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_advection_vflux: upwind_vflux_ppm_cfl'
+      &  routine = 'mo_advection_vflux:upwind_vflux_ppm_cfl'
 
     TYPE(t_patch), TARGET, INTENT(IN) ::  &  !< patch on which computation is performed
       &  p_patch
@@ -2852,8 +2852,8 @@ CONTAINS
       ! Take maximum over all PEs
       max_cfl_tot = global_max(max_cfl_tot)
 
-      WRITE(message_text,'(e16.8)') max_cfl_tot
-      CALL message('maximum vertical CFL:',message_text)
+      WRITE(message_text,'(a,e16.8)') 'maximum vertical CFL =',max_cfl_tot
+      CALL message(TRIM(routine),message_text)
 
     END IF
 

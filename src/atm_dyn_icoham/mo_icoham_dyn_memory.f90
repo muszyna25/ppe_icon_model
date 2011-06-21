@@ -96,6 +96,9 @@ CONTAINS
   !!
   SUBROUTINE construct_icoham_dyn_state( ntimelevel, p_patch )
 
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_icoham_dyn_memory:construct_icoham_dyn_state'
+
     INTEGER,INTENT(IN)       :: ntimelevel
     TYPE(t_patch),INTENT(IN) :: p_patch (:)
 
@@ -104,7 +107,7 @@ CONTAINS
 
     INTEGER :: ndomain, jg, jt, ist, nblks_c, nblks_e, nblks_v, nlev
 
-    CALL message(TRIM(thismodule),'Construction of 3D dynamics state vector started.')
+    CALL message(TRIM(routine),'Construction of 3D dynamics state vector started.')
 
     ndomain = SIZE(p_patch)
 
@@ -203,7 +206,7 @@ CONTAINS
 
     ENDDO
 
-    CALL message(TRIM(thismodule),'Construction of 3D dynamics state vector finished.')
+    CALL message(TRIM(routine),'Construction of 3D dynamics state vector finished.')
 
   END SUBROUTINE construct_icoham_dyn_state
 
@@ -212,6 +215,9 @@ CONTAINS
   !!
   SUBROUTINE destruct_icoham_dyn_state
 
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_icoham_dyn_memory:destruct_icoham_dyn_state'
+
     INTEGER :: ntimelevel, ndomain
     INTEGER :: jt    !< time level index
     INTEGER :: jg    !< grid level/domain index
@@ -219,7 +225,7 @@ CONTAINS
 
     !---
 
-    CALL message(TRIM(thismodule),'Destruction of 3D dynamics state vector started.')
+    CALL message(TRIM(routine),'Destruction of 3D dynamics state vector started.')
 
     ndomain    = SIZE(p_hydro_state)
     ntimelevel = SIZE(p_hydro_state(1)%prog)
@@ -248,7 +254,7 @@ CONTAINS
 
     ENDDO
 
-    CALL message(TRIM(thismodule),'Destruction of 3D dynamics state vector finished.')
+    CALL message(TRIM(routine),'Destruction of 3D dynamics state vector finished.')
 
   END SUBROUTINE destruct_icoham_dyn_state
 

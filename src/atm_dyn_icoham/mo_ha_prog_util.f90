@@ -109,6 +109,9 @@ CONTAINS
                                 lupdate_ps, lupdate_theta, lupdate_tracer, &
                                 p_prog, opt_prog )
 
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_ha_prog_util:update_prog_state'
+
     REAL(wp),INTENT(IN)      :: pdtime
     TYPE(t_patch),INTENT(IN) :: p_patch
 
@@ -171,10 +174,10 @@ CONTAINS
 
       WRITE(message_text,'(a,2(E10.3,2x))') ' min tracer qc,qi = ',&
            MINVAL(ptr_out%tracer(:,:,:,iqc)),MINVAL(ptr_out%tracer(:,:,:,iqi))
-      CALL message('mo_ha_prog_util', TRIM(message_text))
+      CALL message(TRIM(routine), TRIM(message_text))
       WRITE(message_text,'(a,2(E10.3,2x))') ' min tracer qr,qs = ',&
            MINVAL(ptr_out%tracer(:,:,:,iqr)),MINVAL(ptr_out%tracer(:,:,:,iqs))
-      CALL message('mo_ha_prog_util', TRIM(message_text))
+      CALL message(TRIM(routine), TRIM(message_text))
     ENDIF
 
     ! Update edge-based variable
@@ -225,6 +228,9 @@ CONTAINS
                                          pt_prog,  & ! inout
                                          pscale, nproma, nlev) ! input
 
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_ha_prog_util:hydro_state_prog_add_random'
+
     TYPE(t_patch)            :: pt_patch
     TYPE(t_hydro_atm_prog) :: pt_prog
 
@@ -246,7 +252,7 @@ CONTAINS
 
     CHARACTER(len=MAX_CHAR_LENGTH) :: string
     !-----
-    CALL message('','=========== generating random number =============')
+    CALL message(TRIM(routine),'=========== generating random number =============')
 
     !-----------------------------------------------------------
     ! 1. prepare memory for the seed
@@ -254,7 +260,7 @@ CONTAINS
 
     CALL RANDOM_SEED(SIZE=seed_size)
     WRITE(string,*) 'The size of the intrinsic seed is', seed_size
-    CALL message('',TRIM(string))
+    CALL message(TRIM(routine),TRIM(string))
 
     ALLOCATE( seed_array(seed_size), STAT=ist)
     IF(ist/=SUCCESS)THEN
@@ -282,13 +288,13 @@ CONTAINS
                  & + DateTimeArray(7)
 
     WRITE(string,*) 'the seed trigger is', seed_trigger
-    CALL message('',TRIM(string))
+    CALL message(TRIM(routine),TRIM(string))
 
     DO js=1,seed_size
        seed_array(js)=ABS(seed_trigger)+(js-1)
     ENDDO
 
-    CALL message('','Seed generated')
+    CALL message(TRIM(routine),'Seed generated')
 
     !-----------------------------------------------------------
     ! 3. generate random numbers and perturb the normal wind
@@ -314,7 +320,7 @@ CONTAINS
 
     DEALLOCATE( seed_array, STAT=ist)
     IF(ist/=SUCCESS) CALL finish('random number:','deallocation of seed_array failed')
-    CALL message('','=========================================')
+    CALL message(TRIM(routine),'=========================================')
 
   END SUBROUTINE hydro_state_prog_add_random
   !-------------

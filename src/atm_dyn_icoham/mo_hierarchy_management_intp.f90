@@ -70,7 +70,8 @@ USE mo_run_nml,             ONLY: msg_level, ltransport, nproma, nlev,    &
                                   ntracer, lshallow_water, ltheta_dyn
 USE mo_icoham_dyn_types,    ONLY: t_hydro_atm, t_hydro_atm_prog,  &
                                   t_hydro_atm_diag
-USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge, min_rledge_int
+USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge, min_rledge_int, &
+    &                             MAX_CHAR_LENGTH
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
 USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, &
                                   grf_bdyintp_end_c, &
@@ -113,7 +114,8 @@ CONTAINS
 !!
 SUBROUTINE interpolate_tendencies (p_patch,p_hydro_state,p_int_state,p_grf_state,jg,jgc)
 
-
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_hierarchy_management_intp:interpolate_tendencies'
 
 TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_patch(n_dom)
 TYPE(t_hydro_atm), TARGET, INTENT(INOUT) ::  p_hydro_state(n_dom)
@@ -152,7 +154,7 @@ INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
 
 IF (msg_level >= 10) THEN
   WRITE(message_text,'(a,i2,a,i2)') '========= Interpolate:',jg,' =>',jgc
-  CALL message('interpolate_tendencies',message_text)
+  CALL message(TRIM(routine),message_text)
 ENDIF
 
 p_parent_tend => p_hydro_state(jg)%tend_dyn
@@ -470,6 +472,8 @@ END SUBROUTINE boundary_tendencies
 !!
 SUBROUTINE feedback(p_patch, p_hydro_state, p_int_state, p_grf_state, jg, jgp)
 
+CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_hierarchy_management_intp:feedback'
 
 TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_patch(n_dom)
 TYPE(t_hydro_atm), TARGET, INTENT(INOUT) ::  p_hydro_state(n_dom)
@@ -524,7 +528,7 @@ REAL(wp), DIMENSION(:,:),   POINTER :: p_fbarea
 
 IF (msg_level >= 10) THEN
   WRITE(message_text,'(a,i2,a,i2)') '========= Feedback:',jg,' =>',jgp
-  CALL message('feedback',message_text)
+  CALL message(TRIM(routine),message_text)
 ENDIF
 
 IF (p_nprocs == 1 .OR. p_pe == p_test_pe) THEN

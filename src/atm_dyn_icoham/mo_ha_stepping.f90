@@ -67,7 +67,7 @@ MODULE mo_ha_stepping
   USE mo_hierarchy_management,ONLY: process_grid, interpolate_diagnostics
   USE mo_grf_interpolation,   ONLY: t_gridref_state
   USE mo_impl_constants,      ONLY: LEAPFROG_EXPL, LEAPFROG_SI, &
-                                    RK4, SSPRK54
+                                    RK4, SSPRK54, MAX_CHAR_LENGTH
   USE mo_timer,               ONLY: timer_total, timer_start, timer_stop
   USE mo_sync,                ONLY: global_max
   USE mo_vertical_coord_table,ONLY: vct
@@ -204,6 +204,9 @@ CONTAINS
                                 & n_io, n_file, n_checkpoint, n_diag, &
                                 & jfile                               )
 !
+  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_ha_stepping:perform_ha_stepping'
+
   TYPE(t_patch), TARGET, INTENT(IN)         :: p_patch(n_dom)
   TYPE(t_int_state), TARGET, INTENT(IN)     :: p_int_state(n_dom)
   TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom)
@@ -255,7 +258,7 @@ CONTAINS
 #endif
       vnmax = global_max(vnmax) ! Get max over all PEs
       WRITE(message_text,'(a,e14.6)') 'MAXABS VN ', vnmax
-      CALL message('hydro_atmos',message_text)
+      CALL message(TRIM(routine),message_text)
     ENDIF
 
     !--------------------------------------------------------------------------
@@ -327,7 +330,7 @@ CONTAINS
       ENDIF
 
       CALL write_output( datetime )
-      CALL message('mo_ha_stepping:perform_ha_stepping','Output at:')
+      CALL message(TRIM(routine),'Output at:')
       CALL print_datetime(datetime)
 
     ENDIF !l_outputtime

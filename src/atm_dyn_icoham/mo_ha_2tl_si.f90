@@ -82,7 +82,7 @@ MODULE mo_ha_2tl_si
                           p_now, p_ext_data,                &
                           p_new, p_diag, p_tend_dyn )
 
-  CHARACTER(len=*),PARAMETER :: routine = 'step_2tl_si'
+  CHARACTER(len=*),PARAMETER :: routine = 'mo_ha_2tl_si:step_2tl_si'
 
   !! arguments
 
@@ -223,9 +223,9 @@ MODULE mo_ha_2tl_si
    IF (lmaxiter) THEN
       CALL finish('GMRES solver: ','NOT YET CONVERGED !!')
    ELSE
-      WRITE(string,'(a,i4,a,e20.10)') 'iteration ', niter,  &
+      WRITE(string,'(a,i4,a,e20.10)') 'GMRES solver: iteration ', niter,  &
                                     ', residual = ', ABS(z_residual(niter))
-      CALL message('GMRES solver: ',TRIM(string))
+      CALL message(TRIM(routine),TRIM(string))
    ENDIF
 
 !---------------------------------------------------------
@@ -277,6 +277,9 @@ MODULE mo_ha_2tl_si
                         pt_diag, pt_tend_save,                   &! inout
                         p_dvn, p_dtemp, p_dps )                   ! out
   !! Arguments
+
+  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_ha_2tl_si:tend_expl'
 
   REAL(wp),INTENT(IN) :: p_dtime               !< time step in seconds
 
@@ -330,7 +333,7 @@ MODULE mo_ha_2tl_si
   ENDIF
 
   WRITE(string,'(a,i2)') 'si slow comp =',ischeme
-  CALL message('mo_ha_2tl_si: tend_expl',TRIM(string))
+  CALL message(TRIM(routine),TRIM(string))
 
   SELECT CASE(ischeme)
   CASE(EULER_FORWARD)
