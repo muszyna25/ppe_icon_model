@@ -776,7 +776,7 @@ scripts/postprocessing/testcases/echam_ape_postpro.ksh -text
 scripts/postprocessing/testcases/error_postpro_driver.bash -text
 scripts/postprocessing/testcases/error_postpro_scripts/norm_err_std.ncl -text
 scripts/postprocessing/testcases/error_postpro_scripts/plot_err_evol.ncl -text
-scripts/postprocessing/testcases/hom_1_postpro_driver.bash -text
+scripts/postprocessing/testcases/hom_lsm_postpro_driver.bash -text
 scripts/postprocessing/testcases/icoham_ape_postpro.ksh -text
 scripts/postprocessing/testcases/iconam_ape_postpro.ksh -text
 scripts/postprocessing/tools/MRW_mountain/MRW_mountain_R2B04.nc -text

@@ -479,13 +479,10 @@ INTEGER :: i_startblk                  ! start block
 INTEGER :: i_startidx                  ! start index
 INTEGER :: i_endidx                    ! end index
 INTEGER :: i_rcstartlev                ! refinement control start level
-INTEGER :: ist                         ! status
+INTEGER :: ist, icheck                 ! status
 INTEGER :: nverts
 INTEGER :: jecp
 INTEGER :: jja, jjb, jjk               ! loop indices for Moore-Penrose inverse
-
-REAL(wp) ::   &                        ! least squares design matrix (for single cell)
-  &  za(lsq_dim_c,lsq_dim_unk)
 
 REAL(wp) ::   &                        ! singular values of lsq design matrix A
   &  zs(lsq_dim_unk,nproma)            ! min(lsq_dim_c,lsq_dim_unk)
@@ -507,7 +504,6 @@ INTEGER  ::   &              ! work array for SVD lapack routine
 
 !DR for DEBUG purposes
 REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
-
 !--------------------------------------------------------------------
 
 
@@ -847,8 +843,8 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,js,ju,jja,jjb,jjk,i_startidx,i_endidx,ilc_s,ibc_s, &
-!$OMP            z_lsq_mat_c,zs,zu,zv_t,zwork,ziwork,ist,za_debug,        &
-!$OMP            z_qmat,z_rmat,cnt,jrow,nel,za)
+!$OMP            z_lsq_mat_c,zs,zu,zv_t,zwork,ziwork,ist,icheck,za_debug, &
+!$OMP            z_qmat,z_rmat,cnt,jrow,nel)
   DO jb = i_startblk, nblks_c
 
     CALL get_indices_c(ptr_patch, jb, i_startblk, nblks_c, &
@@ -1018,6 +1014,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
     !
     ! 5b. Singular value decomposition of lsq design matrix A
     ! !!! does not vectorize, unfortunately !!!
+    ist = 0
     DO jc = i_startidx, i_endidx
 
       ! A = U * SIGMA * transpose(V)
@@ -1031,11 +1028,10 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
       !              + max(max(M,N),4*min(M,N)*min(M,N)+4*min(M,N))  (IN) 
       ! iwork       : workspace(8*min(M,N))                          (IN)
 
-      za(:,:) = z_lsq_mat_c(jc,:,:)
       CALL DGESDD('A',                 & !in
         &         lsq_dim_c,           & !in
         &         lsq_dim_unk,         & !in
-        &         za(:,:)            , & !inout Note: destroyed on output
+        &         z_lsq_mat_c(jc,:,:), & !inout Note: destroyed on output
         &         lsq_dim_c,           & !in
         &         zs(:,jc),            & !out
         &         zu(:,:,jc),          & !out
@@ -1045,13 +1041,13 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
         &         zwork,               & !out
         &         lwork,               & !in
         &         ziwork,              & !inout
-        &         ist                  ) !out                      
-      IF (ist /= SUCCESS) THEN
-        CALL finish ('mo_interpolation:lsq_compute_coeff_cell',   &
-          &             'singular value decomposition failed')
-      ENDIF
-
+        &         icheck               ) !out                     
+      ist = ist + icheck
     ENDDO
+    IF (ist /= SUCCESS) THEN
+      CALL finish ('mo_interpolation:lsq_compute_coeff_cell',   &
+        &             'singular value decomposition failed')
+    ENDIF
 
     ! compute Moore-Penrose inverse
     ! INVERSE(A):: V * INVERSE(SIGMA) * TRANSPOSE(U) and store

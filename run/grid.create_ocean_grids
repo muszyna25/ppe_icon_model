@@ -334,6 +334,7 @@ if [[ x$create_basin = "x.true." ]] ; then
   only_get_sea_land_mask=".true."
   smooth_ocean_boundary=".true."
   #bathymetry parameters
+  MINDEPTH="-1.0"       # not used here, but needed for the namelist
   SEADEPTH="-12000.0"   # set ocean bathymetry to constant (flat bottom)
   INTMTH=3              # edge elevation interpolation method: 1= linear, 2=min,  3=max
   # topography file
@@ -372,6 +373,7 @@ if [[ x$create_aqua_planet = "x.true." ]] ; then
   only_get_sea_land_mask=".true."
   smooth_ocean_boundary=".false."
   #bathymetry parameters
+  MINDEPTH="-1.0"       # not used here, but needed for the namelist
   SEADEPTH="-12000.0"   # set ocean bathymetry to constant (flat bottom)
   INTMTH=3              # edge elevation interpolation method: 1= linear, 2=min,  3=max
   # topography file
