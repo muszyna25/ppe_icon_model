@@ -202,8 +202,8 @@ CONTAINS
   SUBROUTINE io_main_proc
   END SUBROUTINE io_main_proc
 
-  SUBROUTINE setup_io_procs(gridfile)
-    CHARACTER(LEN=*), INTENT(INOUT) :: gridfile(:)
+  SUBROUTINE setup_io_procs()
+!     CHARACTER(LEN=*), INTENT(INOUT) :: gridfile(:)
   END SUBROUTINE setup_io_procs
 
   SUBROUTINE shutdown_io_procs
@@ -901,9 +901,9 @@ CONTAINS
   !>
   !! Send setup from compute PEs to I/O PEs
 
-  SUBROUTINE setup_io_procs(gridfile)
+  SUBROUTINE setup_io_procs()
 
-    CHARACTER(LEN=*), INTENT(INOUT) :: gridfile(:)
+!     CHARACTER(LEN=*), INTENT(INOUT) :: gridfile(:)
 
     INTEGER :: jg, i, n, n_dims(3), nbytes_real, mpierr, nlev, type
     INTEGER (KIND=MPI_ADDRESS_KIND) :: mem_size, mem_bytes
@@ -918,7 +918,7 @@ CONTAINS
 
     IF(p_pe == p_test_pe) THEN
       DO jg = 1, n_dom
-        CALL setup_vlist( TRIM(gridfile(jg)), jg )
+        CALL setup_vlist( p_patch(jg)%grid_filename, jg )
       ENDDO
       RETURN
     ENDIF
@@ -938,7 +938,7 @@ CONTAINS
       CALL p_bcast(p_patch(jg)%verts%owner_g, bcast_root(), p_comm_work_2_io)
 
       ! Send name of grid file for building vlist
-      CALL p_bcast(gridfile(jg), bcast_root(), p_comm_work_2_io)
+      CALL p_bcast(p_patch(jg)%grid_filename, bcast_root(), p_comm_work_2_io)
 
     ENDDO
 

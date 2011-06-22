@@ -46,9 +46,9 @@
 PROGRAM control_model
 
 
-  USE mo_exception,           ONLY: finish !, message
+  USE mo_exception,           ONLY: finish
   USE mo_io_units,            ONLY: filename_max
-!$ USE mo_exception,          ONLY: message_text     ! use only if compiled with OpenMP
+!$ USE mo_exception,          ONLY: message_text, message     ! use only if compiled with OpenMP
 
   USE mo_mpi,                 ONLY: p_start, p_stop !, p_start_reset
 ! USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output

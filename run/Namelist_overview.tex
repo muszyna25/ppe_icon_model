@@ -849,6 +849,40 @@ L &
 If set to .true.  is calculated on a reduced grid (= one grid level higher);
 requires lpatch0=.TRUE. &
 \tabularnewline
+\hline 
+dynamics\_grid\_ filename &
+C &
+&
+&
+Array of the grid filenames to be used by the dycore. &
+\tabularnewline
+\hline 
+dynamics\_parent\_ grid\_id &
+I &
+&
+&
+Array of the indexes of the parent grid filenames, as described by the dynamics\_grid\_filename array.
+Indexes start at 1, an index of 0 indicates no parent. &
+\tabularnewline
+\hline 
+radiation\_grid\_ filename &
+C &
+&
+&
+Array of the grid filenames to be used for the radiation model.
+Filled only if the radiation grid is different from the dycore grid. &
+\tabularnewline
+\hline 
+dynamics\_radiation \_grid\_link &
+I &
+&
+&
+Array of the indexes linking the dycore grids, as described by the dynamics\_grid\_filename array,
+and the radiation\_grid\_filename array. It provides the link index of the radiation\_grid\_filename,
+for each entry of the dynamics\_grid\_filename array.
+Indexes start at 1, an index of 0 indicates that the radiation grid is the same as the dycore grid.
+Only needs to be filled when the radiation\_grid\_filename is defined. &
+\tabularnewline
 \hline
 \end{longtable}
 

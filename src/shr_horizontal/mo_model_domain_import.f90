@@ -109,8 +109,11 @@ MODULE mo_model_domain_import
   USE mo_grid_nml,             ONLY: grid_nml_setup, start_lev, nroot, n_dom,       & 
        &                             parent_id, lfeedback, lplane, l_limited_area,  &
        &                             corio_lat, max_childdom, n_dom_start,          &
-       &                             lredgrid_phys
-
+       &                             lredgrid_phys,                    &
+       & dynamics_grid_filename,  dynamics_parent_grid_id,             &
+       & radiation_grid_filename, dynamics_radiation_grid_link,        &
+       & no_of_dynamics_grids, no_of_radiation_grids   
+ 
   USE mo_model_domimp_patches, ONLY: import_patches, destruct_patches
 
   PUBLIC  ! all that is USEd above

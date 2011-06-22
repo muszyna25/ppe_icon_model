@@ -102,7 +102,7 @@ CONTAINS
     INTEGER :: jg, jlev
     INTEGER :: nlev              !< number of full levels
     CHARACTER(LEN=filename_max) :: gridtype, outputfile
-    CHARACTER(LEN=filename_max), SAVE :: gridfile(max_dom)
+    CHARACTER(LEN=filename_max) :: gridfile(max_dom)
 
     IF(.NOT.lclose) THEN
 
@@ -144,7 +144,7 @@ CONTAINS
         ! Set up vlist for this grid level
         ! Please note: setup_vlist only sets up the vlist, it does not open any output file!
 
-        IF(iequations /= ihs_ocean) CALL setup_vlist( TRIM(gridfile(jg)), jg )
+        IF(iequations /= ihs_ocean) CALL setup_vlist( TRIM(p_patch(jg)%grid_filename), jg )
 
       ENDDO
 
@@ -199,7 +199,7 @@ CONTAINS
 
       IF (iequations == ihs_ocean) THEN
         ! #slo# must be aligned with general output
-        CALL setup_vlist_oce( p_patch(1:), TRIM(gridfile(jg)), TRIM(outputfile), jg )
+        CALL setup_vlist_oce( p_patch(1:), TRIM(p_patch(jg)%grid_filename), TRIM(outputfile), jg )
       ELSE
         IF(num_io_procs == 0) THEN
           IF(p_pe == p_io) CALL open_output_vlist(TRIM(outputfile), jg)
@@ -213,7 +213,7 @@ CONTAINS
     ! Setup I/O PEs if this is the initial call and I/O PEs are enabled
     ! Note that this has to be done AFTER the output files are set!
 
-    IF(jfile == 1 .AND. num_io_procs>0) CALL setup_io_procs(gridfile)
+    IF(jfile == 1 .AND. num_io_procs>0) CALL setup_io_procs()
 
 
   END SUBROUTINE init_output_files

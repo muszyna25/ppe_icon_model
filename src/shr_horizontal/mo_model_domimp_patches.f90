@@ -123,8 +123,13 @@ USE mo_run_nml,            ONLY: locean, nproma, i_cell_type, nlev, nlevp1,     
      &                           num_lev, num_levp1, nshift
 USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real, calculate_cart_normal,&
      &                           init_quad_twoadjcells, init_coriolis
-USE mo_grid_nml,           ONLY: start_lev, nroot, n_dom, n_dom_start, parent_id, &
-     &                           lfeedback, lplane, l_limited_area, max_childdom 
+! USE mo_grid_nml,           ONLY: start_lev, nroot, n_dom, n_dom_start, parent_id, &
+!      &                           lfeedback, lplane, l_limited_area, max_childdom
+USE mo_grid_nml,           ONLY: start_lev, nroot, n_dom, n_dom_start,    &
+     &                           lfeedback, l_limited_area, max_childdom, &
+     & dynamics_grid_filename,  dynamics_parent_grid_id,  &
+     & radiation_grid_filename, dynamics_radiation_grid_link,   &
+     & no_of_dynamics_grids, no_of_radiation_grids   
 !DR USE mo_model_domimp_topo,  ONLY: init_topography
 USE mo_ocean_topo,         ONLY: init_ocean_patch
 
@@ -240,14 +245,15 @@ DO jg = 1, n_dom
     p_patch(jg)%parent_id = 0
   ELSE
     ! Note: the first element of parent_id refers to jg=2
-    p_patch(jg)%level = p_patch(parent_id(jg-1))%level + 1
-    p_patch(jg)%parent_id = parent_id(jg-1)
+    p_patch(jg)%level = p_patch(dynamics_parent_grid_id(jg))%level + 1
+!     p_patch(jg)%parent_id = parent_id(jg-1)
+    p_patch(jg)%parent_id = dynamics_parent_grid_id(jg)
   ENDIF
 
   n_chd = 0
 
   DO jg1 = jg+1, n_dom
-    IF (jg == parent_id(jg1-1)) THEN
+    IF (jg == dynamics_parent_grid_id(jg1)) THEN
       n_chd = n_chd + 1
       p_patch(jg)%child_id(n_chd) = jg1
       p_patch(jg1)%parent_child_index = n_chd
@@ -311,32 +317,38 @@ p_patch(n_dom_start:n_dom)%max_childdom =  max_childdom
 
 !init patch by reading data from file
 !required: path to patch directory and file names, see top of module
-l_exist = .FALSE.
+! l_exist = .FALSE.
 
-IF (lplane) THEN
-  gridtype='plan'
-ELSE
-  gridtype='icon'
-END IF
+! IF (lplane) THEN
+!   gridtype='plan'
+! ELSE
+!   gridtype='icon'
+! END IF
 
 GRID_LEVEL_LOOP: DO jg = n_dom_start, n_dom
 
-  jlev = p_patch(jg)%level
+!   jlev = p_patch(jg)%level
 
   ! Allow file names without "DOM" specifier if n_dom=1.
-  IF (n_dom == 1) THEN
-    ! Check if file name without "DOM" specifier exists.
-    WRITE (patch_file,'(a,a,i0,a,i2.2,a)') &
-         & TRIM(gridtype),'R',nroot,'B',jlev,'-grid.nc'
-    INQUIRE (FILE=patch_file, EXIST=l_exist)
-    ! Otherwise use file name with "DOM" specifier
-    IF (.NOT. l_exist)                                            &
-         & WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)')              &
-         & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
+!   IF (n_dom == 1) THEN
+!     ! Check if file name without "DOM" specifier exists.
+!     WRITE (patch_file,'(a,a,i0,a,i2.2,a)') &
+!          & TRIM(gridtype),'R',nroot,'B',jlev,'-grid.nc'
+!     INQUIRE (FILE=patch_file, EXIST=l_exist)
+!     ! Otherwise use file name with "DOM" specifier
+!     IF (.NOT. l_exist)                                            &
+!          & WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)')              &
+!          & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
+!   ELSE
+!     ! n_dom >1 --> "'_DOM',jg" required in file name
+!     WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)') &
+!          & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
+!   ENDIF
+
+  IF (jg==0) THEN
+    patch_file = radiation_grid_filename(1)
   ELSE
-    ! n_dom >1 --> "'_DOM',jg" required in file name
-    WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)') &
-         & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
+    patch_file = dynamics_grid_filename(jg)
   ENDIF
 
   p_single_patch => p_patch(jg)
@@ -591,6 +603,7 @@ ipar_id = p_patch%parent_id
 !
 ! start to fill patch type
 !
+p_patch%grid_filename=patch_file
 
 CALL message ('mo_model_domimp_patches:read_patch', 'start to init patch')
 

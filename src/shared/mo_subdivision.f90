@@ -1016,6 +1016,7 @@ CONTAINS
     wrk_p_patch%max_childdom  = wrk_p_patch_g%max_childdom
 
     ! Set other scalar members of patch here too ..
+    wrk_p_patch%grid_filename = wrk_p_patch_g%grid_filename
     wrk_p_patch%level = wrk_p_patch_g%level
     wrk_p_patch%id    = wrk_p_patch_g%id
     wrk_p_patch%parent_id = wrk_p_patch_g%parent_id
@@ -3234,6 +3235,7 @@ CONTAINS
 
     INTEGER :: i, j, jl, jb, jl_v, jb_v, nc
     REAL(wp), ALLOCATABLE :: cell_desc(:,:)
+    REAL(wp)              :: cclat, cclon
 
     !-----------------------------------------------------------------------
 
@@ -3280,21 +3282,51 @@ CONTAINS
 
       ELSE
 
-        ! Patch should be divided for radiation calculations,
-        ! i.e. every patch should contain 2 distinct areas from
-        ! opposite regions of the earth.
-        ! We do that by mapping cells with negative lattitudes
-        ! to the opposed position on earth.
-        ! Since this is for radiation calculations, "toothed" edges
-        ! don't matter and so we use the cell centers for subdivision.
+        ! Patch division for radiation calculations:
+        ! To minimize load imbalance, every patch contains 10 areas
+        ! distributed in a way similar as the "diamonds" in GME
+        ! This is accomplished by mapping all cells to one section  
+        ! lying in the NH and having a width of 0.4*pi (72 deg) 
 
-        IF(wrk_divide_patch%cells%center(jl,jb)%lat>=0._wp) THEN
-          cell_desc(1,nc) = wrk_divide_patch%cells%center(jl,jb)%lat
-          cell_desc(2,nc) = wrk_divide_patch%cells%center(jl,jb)%lon
-        ELSE
-          cell_desc(1,nc) = -wrk_divide_patch%cells%center(jl,jb)%lat
-          cell_desc(2,nc) =  wrk_divide_patch%cells%center(jl,jb)%lon + pi
-          IF(cell_desc(2,nc)>pi) cell_desc(2,nc) = cell_desc(2,nc) - 2._wp*pi
+        cclat = wrk_divide_patch%cells%center(jl,jb)%lat
+        cclon = wrk_divide_patch%cells%center(jl,jb)%lon
+
+        IF (cclat>=0._wp .AND. cclon>=-0.2_wp*pi .AND. cclon<=0.2_wp*pi) THEN
+          cell_desc(1,nc) = cclat
+          cell_desc(2,nc) = cclon
+        ELSE IF (cclat>=0._wp .AND. cclon>=0.2_wp*pi .AND. cclon<=0.6_wp*pi) THEN
+          cell_desc(1,nc) = cclat
+          cell_desc(2,nc) = cclon - 0.4*pi
+        ELSE IF (cclat>=0._wp .AND. cclon>=0.6_wp*pi) THEN
+          cell_desc(1,nc) = cclat
+          cell_desc(2,nc) = cclon - 0.8*pi
+        ELSE IF (cclat>=0._wp .AND. cclon<=-0.6_wp*pi) THEN
+          cell_desc(1,nc) = cclat
+          cell_desc(2,nc) = cclon + 0.8*pi
+        ELSE IF (cclat>=0._wp .AND. cclon>=-0.6_wp*pi .AND. cclon<=-0.2_wp*pi) THEN
+          cell_desc(1,nc) = cclat
+          cell_desc(2,nc) = cclon + 0.4*pi
+        ELSE IF (cclat<0._wp .AND. (cclon<=-0.8_wp*pi .OR. cclon>=0.8_wp*pi)) THEN
+          cell_desc(1,nc) = -cclat
+          cell_desc(2,nc) = cclon + pi
+        ELSE IF (cclat<0._wp .AND. cclon>=-0.8_wp*pi .AND. cclon<=-0.4_wp*pi) THEN
+          cell_desc(1,nc) = -cclat
+          cell_desc(2,nc) = cclon + 0.6*pi
+        ELSE IF (cclat<0._wp .AND. cclon>=-0.4_wp*pi .AND. cclon<=0.0_wp*pi) THEN
+          cell_desc(1,nc) = -cclat
+          cell_desc(2,nc) = cclon + 0.2*pi
+        ELSE IF (cclat<0._wp .AND. cclon>=0.0_wp*pi .AND. cclon<=0.4_wp*pi) THEN
+          cell_desc(1,nc) = -cclat
+          cell_desc(2,nc) = cclon - 0.2*pi
+        ELSE IF (cclat<0._wp .AND. cclon>=0.4_wp*pi .AND. cclon<=0.8_wp*pi) THEN
+          cell_desc(1,nc) = -cclat
+          cell_desc(2,nc) = cclon - 0.6*pi
+        ENDIF
+
+        IF (cell_desc(2,nc)>pi) THEN
+          cell_desc(2,nc) = cell_desc(2,nc) - 2._wp*pi
+        ELSE IF (cell_desc(2,nc)<-pi) THEN
+          cell_desc(2,nc) = cell_desc(2,nc) + 2._wp*pi
         ENDIF
 
       ENDIF

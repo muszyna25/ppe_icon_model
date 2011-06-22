@@ -102,6 +102,7 @@ USE mo_kind
 USE mo_math_utilities, ONLY: t_geographical_coordinates, t_cartesian_coordinates
 USE mo_impl_constants, ONLY: max_dom
 USE mo_communication,  ONLY: t_comm_pattern
+USE mo_io_units,       ONLY: filename_max
 
 IMPLICIT NONE
 
@@ -691,6 +692,8 @@ TYPE t_patch
   !
   ! !  level in grid hierarchy on which patch lives
   !
+  CHARACTER(LEN=filename_max) :: grid_filename
+  
   INTEGER :: level
   !
   ! domain ID of current domain
