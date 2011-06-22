@@ -26,6 +26,20 @@
 \usepackage{babel}
 \makeatother
 
+\newenvironment{longtab}{
+\begin{longtable}{|>{\raggedright}p{5.5cm}|>{\raggedright}p{0.8cm}|>{\raggedright}p{3.2cm}|>{\raggedright}p{1cm}|>{\raggedright}p{5cm}|>{\raggedright}p{3.5cm}|}
+\hline
+Parameter&
+Type&
+Default&
+Unit&
+Description&
+Scope
+\tabularnewline
+\hline
+\endhead
+}{\end{longtable}}
+
 \begin{document}
 
 \title{ICON Namelist Overview}
@@ -684,25 +698,14 @@ the unfolded torus grid ascci file name (for plotting) &
 
 Defined in \verb+mo_create_torus_grid.f90+. See the run script \verb+run/create_torus_grid.run+.
 
-\section{Namelist parameters defining the ICON model (NAMELIST\_ICON)}
+\section{Namelist parameters defining the ICON model}
 
 %-------------------------------------------------------------------
-% master_nml: the minimum one needs to specify about an integration 
+% master_ctl: the minimum one needs to specify about an integration
 %-------------------------------------------------------------------
-\subsection{master\_nml}
+\subsection{master\_ctl}
 
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope
-\tabularnewline
-\hline
-\endhead
-
+\begin{longtab}
 \hline
 lrestart&
 L &
@@ -712,12 +715,43 @@ If .TRUE., simulation starts from a model state read from restart file(s).&
 \tabularnewline
 
 \hline
-\end{longtable}
+atmo\_restart\_info\_filename&
+C &
+'restart.info'&
+&
+Name (including full path) of the restart info file for the atm model &
+\tabularnewline
+
+\hline
+ocean\_restart\_info\_filename&
+C &
+'restart.info'&
+&
+Name (including full path) of the restart info file for the ocean model &
+\tabularnewline
+
+\hline
+atmo\_namelist\_filename&
+C &
+'NAMELIST\_ICON'&
+&
+Name (including full path) of the atmosphere-specific namelist file &
+\tabularnewline
+
+\hline
+ocean\_namelist\_filename&
+C &
+'NAMELIST\_ICON'&
+&
+Name (including full path) of the ocean-specific namelist file &
+\tabularnewline
+
+\hline
+\end{longtab}
 
 %-------------------------------------------------------------------
 % grid_ctl: horizontal grid
 %-------------------------------------------------------------------
-
 \subsection{grid\_ctl}
 
 \begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{2cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
@@ -1182,7 +1216,7 @@ R &
 number of additional seconds of the run&
 \tabularnewline
 
-\hline 
+\hline
 dt\_restart &
 R & 86400.*30.& s &
 Length of restart cycle in seconds.
@@ -3137,7 +3171,7 @@ s&
 Time increment of triggering new output file&
 \tabularnewline
 
-\hline 
+\hline
 dt\_checkpoint&
 R& 2592000 & s&
 Time interval for writing restart files&
