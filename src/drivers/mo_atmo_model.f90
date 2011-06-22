@@ -35,12 +35,11 @@
 MODULE mo_atmo_model
 
   USE mo_exception,           ONLY: message, finish
-  USE mo_mpi,                 ONLY: p_start, p_stop, p_pe, p_io, p_nprocs
+  USE mo_mpi,                 ONLY: p_stop, p_pe, p_io, p_nprocs
   USE mo_timer,               ONLY: init_timer, print_timer
   USE mo_master_nml,          ONLY: lrestart
   USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output
   USE mo_output,              ONLY: init_output_files, close_output_files, write_output
-  USE mo_io_vlist,            ONLY: write_vlist_oce, destruct_vlist_oce
 
   USE mo_parallel_nml,        ONLY: parallel_nml_setup,   & ! process parallel run ctl. params.
     & p_comm_work_test, p_comm_input_bcast, & ! communicators
@@ -79,7 +78,6 @@ MODULE mo_atmo_model
     & ihs_atm_theta,        & !    :
     & inh_atmosphere,       & !    :
     & ishallow_water,       & !    :
-    & ihs_ocean,            & !
     & iforcing,             & !    namelist parameter
     & ildf_dry,             & !    :
     & ildf_echam,           & !    :
@@ -275,7 +273,8 @@ CONTAINS
       CASE (inh_atmosphere)
         CALL setup_nh_testcase
         
-      CASE default
+      CASE DEFAULT
+        CALL finish( TRIM(routine),' invalid value for iequations!' )
       END SELECT
       
     ENDIF
@@ -344,7 +343,7 @@ CONTAINS
     CASE (inh_atmosphere)
       CALL nonhydrostatic_nml_setup
       
-    CASE default
+    CASE DEFAULT
     END SELECT
     
     !------------------------------------------------------------------
@@ -412,7 +411,7 @@ CONTAINS
       ELSE IF (ivctype == 2) THEN
         CALL init_sleve_coord(p_patch_global(1)%nlev)
       ENDIF
-    CASE default
+    CASE DEFAULT
     END SELECT
  
     ! For the NH model, the initialization routines called from
@@ -466,11 +465,8 @@ CONTAINS
       ! or the divided states have been read, just set pointers
       
       p_patch => p_patch_global
-      ! #slo# - temporarily switched on for comparison with rbf-reconstruction
-      !IF (iequations /= ihs_ocean) THEN
       p_int_state => p_int_state_global
       p_grf_state => p_grf_state_global
-      !ENDIF
       
       IF(p_nprocs == 1 .OR. p_pe == p_test_pe) THEN
         p_patch(:)%comm = p_comm_work
@@ -593,7 +589,7 @@ CONTAINS
     ! This is an resumed integration. Read model state from restart file(s).
 
       CALL read_restart_files
-      CALL message('control model:' ,'normal exit from read_restart_files')
+      CALL message(TRIM(routine),'normal exit from read_restart_files')
 
       ! Initialize logical variables in echam physics state.
       ! This is necessary for now because logical arrays can not yet be
@@ -604,8 +600,8 @@ CONTAINS
       END IF                                                                                   
 
     ELSE
-    ! This is an initial run. Compute initial condition for test cases,
-    ! or read externally given initial conditions.
+    ! This is an initial run (cold start). Compute initial condition for 
+    ! test cases, or read externally given initial conditions.
 
       CALL initcond_ha_dyn( p_patch(1:), p_int_state(1:),  &
                           & p_grf_state(1:), p_hydro_state )
@@ -678,18 +674,14 @@ CONTAINS
             & p_int_state(jg)%hex_north,p_nh_state(jg)%diag%v)
         END SELECT
 
-      CASE default
+      CASE DEFAULT
       END SELECT
     ENDDO
     
-    SELECT CASE (iequations)
-    CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta, inh_atmosphere)
-      ! Note: here the derived output variables are not yet available
-      ! (omega, divergence, vorticity)
-      CALL write_output( current_datetime )
+    ! Note: here the derived output variables are not yet available
+    ! (omega, divergence, vorticity)
+    CALL write_output( current_datetime )
 
-    CASE default
-    END SELECT
     END IF ! not lrestart
 
     !---------------------------------------------------------
