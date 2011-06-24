@@ -41,7 +41,7 @@ MODULE mo_nh_diagnose_pres_temp
   USE mo_nwp_lnd_state,       ONLY: t_lnd_prog
   USE mo_run_nml,             ONLY: nproma, iqv, iqc, iqi, iqs, iqr, &
     &                               lforcing, iforcing
-  USE mo_impl_constants,      ONLY: min_rlcell
+  USE mo_impl_constants,      ONLY: min_rlcell, MAX_CHAR_LENGTH 
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_physical_constants,  ONLY: rd, grav, vtmpc1, p0ref, rd_o_cpd
 
@@ -68,6 +68,10 @@ MODULE mo_nh_diagnose_pres_temp
   SUBROUTINE diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf, pt_diag, pt_patch, &
     &                            opt_calc_temp, opt_calc_pres, opt_calc_tempv, &
     &                            lnd_prog, opt_calc_temp_ifc, opt_slev, opt_rlend )
+
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_nh_diagnose_pres_temp:diagnose_pres_temp'
 
     TYPE(t_nh_metrics), INTENT(IN)    :: p_metrics
     TYPE(t_nh_prog),    INTENT(IN)    :: pt_prog      !!the prognostic variables
@@ -287,7 +291,7 @@ MODULE mo_nh_diagnose_pres_temp
         IF ( MINVAL( pt_diag%dpres_mc(i_startidx:i_endidx,:,jb)) < 0._wp ) THEN
           WRITE(message_text,'(a,(f20.10))') 'negative pressure thickness!!  = ',&
                & MINVAL(pt_diag%dpres_mc(i_startidx:i_endidx,:,jb) )
-          CALL message('', TRIM(message_text))
+          CALL message(TRIM(routine), TRIM(message_text))
         ENDIF
         
       ENDIF ! calc_pres

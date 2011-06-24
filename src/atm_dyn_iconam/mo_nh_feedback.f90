@@ -48,7 +48,8 @@ USE mo_dynamics_nml,        ONLY: nnow, nnew, nnew_rcf, nsav1, nsav2,       &
 USE mo_run_nml,             ONLY: ltransport, iforcing, nproma, msg_level,  &
                                   ntracer
 USE mo_nonhydro_state,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
-USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlcell_int, min_rledge_int
+USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlcell_int, min_rledge_int, &
+            &                     MAX_CHAR_LENGTH
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
 USE mo_impl_constants_grf,  ONLY: grf_fbk_start_c, grf_fbk_start_e,          &
                                   grf_bdywidth_c
@@ -88,6 +89,9 @@ CONTAINS
 !! to using fbk_wgt (see above routine)
 !!
 SUBROUTINE feedback(p_patch, p_nh_state, p_int_state, p_grf_state, jg, jgp, l_trac_fbk)
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_nh_feedback:feedback'
 
 
 TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_patch(n_dom_start:n_dom)
@@ -156,7 +160,7 @@ REAL(wp), DIMENSION(:,:),   POINTER :: p_fbarea
 
 IF (msg_level >= 10) THEN
   WRITE(message_text,'(a,i2,a,i2)') '========= Feedback:',jg,' =>',jgp
-  CALL message('feedback',message_text)
+  CALL message(TRIM(routine),message_text)
 ENDIF
 
 IF (p_nprocs == 1 .OR. p_pe == p_test_pe) THEN

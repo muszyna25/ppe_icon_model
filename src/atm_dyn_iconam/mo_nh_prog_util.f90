@@ -68,6 +68,9 @@ CONTAINS
                                          p_nh_prog,  & ! inout
                                          pscale, nproma, nlev) ! input
 
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_nh_prog_util:nh_prog_add_random'
+
     TYPE(t_patch)            :: p_patch
     TYPE(t_nh_prog) :: p_nh_prog
 
@@ -89,7 +92,7 @@ CONTAINS
 
     CHARACTER(len=MAX_CHAR_LENGTH) :: string
     !-----
-    CALL message('','=========== generating random number =============')
+    CALL message(TRIM(routine),'=========== generating random number =============')
 
     !-----------------------------------------------------------
     ! 1. prepare memory for the seed

@@ -50,7 +50,8 @@ USE mo_dynamics_nml,        ONLY: nnow, nnew, nnew_rcf, nsav1, nsav2,       &
                                   nnow_rcf
 USE mo_run_nml,             ONLY: ltransport, nproma, msg_level, ntracer, lvert_nest
 USE mo_nonhydro_state,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
-USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlcell_int, min_rledge_int
+USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlcell_int, min_rledge_int, &
+      &                           MAX_CHAR_LENGTH
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
 USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c,                       &
                                   grf_bdyintp_end_c, grf_bdyintp_end_e,      &
@@ -365,7 +366,8 @@ END SUBROUTINE compute_tendencies
 SUBROUTINE boundary_interpolation (p_patch,p_nh_state,p_int_state,p_grf_state,jg,jgc, &
   &                                ntp_dyn,ntc_dyn,ntp_tr,ntc_tr,lstep_adv            )
 
-
+CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_nh_nest_utilities:boundary_interpolation'
 
 TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_patch(n_dom_start:n_dom)
 TYPE(t_nh_state), TARGET, INTENT(INOUT)    ::  p_nh_state(n_dom)
@@ -425,7 +427,7 @@ LOGICAL :: l_child_vertnest
 
 IF (msg_level >= 10) THEN
   WRITE(message_text,'(a,i2,a,i2)') '========= Interpolate:',jg,' =>',jgc
-  CALL message('boundary_interpolation',message_text)
+  CALL message(TRIM(routine),message_text)
 ENDIF
 
 !$  num_threads_omp = omp_get_max_threads()
@@ -747,6 +749,8 @@ END SUBROUTINE boundary_interpolation
 !! Developed  by Guenther Zaengl, DWD, 2010-06-18
 SUBROUTINE prep_bdy_nudging(p_patch, p_nh_state, p_int_state, p_grf_state, jgp, jg, lstep_adv)
 
+CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_nh_nest_utilities:prep_bdy_nudging'
 
 TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_patch(n_dom_start:n_dom)
 TYPE(t_nh_state), TARGET, INTENT(INOUT)    ::  p_nh_state(n_dom)
@@ -797,8 +801,8 @@ REAL(wp), DIMENSION(:,:,:), POINTER :: p_fbkwgt, p_fbkwgt_tr, p_fbkwgt_v
 !-----------------------------------------------------------------------
 
 IF (msg_level >= 10) THEN
-  WRITE(message_text,'(a,i2,a,i2)') '========= Boundary nudging:',jg
-  CALL message('1-way-nesting',message_text)
+  WRITE(message_text,'(a,i2,a,i2)') '1-way nesting: == Boundary nudging:',jg
+  CALL message(TRIM(routine),message_text)
 ENDIF
 
 IF (p_nprocs == 1 .OR. p_pe == p_test_pe) THEN

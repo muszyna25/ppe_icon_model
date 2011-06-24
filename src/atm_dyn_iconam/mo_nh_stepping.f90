@@ -340,6 +340,9 @@ MODULE mo_nh_stepping
   SUBROUTINE perform_nh_timeloop (p_patch, p_int_state, p_grf_state, p_nh_state, &
                                   datetime, n_io, n_file, n_diag)
 !
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_nh_stepping:perform_nh_timeloop'
+
   TYPE(t_patch), TARGET, INTENT(IN)            :: p_patch(n_dom_start:n_dom)
   TYPE(t_int_state), TARGET, INTENT(IN)        :: p_int_state(n_dom_start:n_dom)
   TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom_start:n_dom)
@@ -369,7 +372,7 @@ MODULE mo_nh_stepping
     CALL add_time(dtime,0,0,0,datetime)
 
     WRITE(message_text,'(a,i10)') 'TIME STEP n: ', jstep
-    CALL message('non-hydro_atmos',message_text)
+    CALL message(TRIM(routine),message_text)
 
     IF (msg_level >= 5) THEN ! print maximum velocities in global domain
 
@@ -406,7 +409,7 @@ MODULE mo_nh_stepping
       wmax  = global_max(wmax) ! Get max over all PEs
 
       WRITE(message_text,'(a,2e14.6)') 'MAXABS VN, W ', vnmax, wmax
-      CALL message('non-hydro_atmos',message_text)
+      CALL message(TRIM(routine),message_text)
 
     ENDIF ! msg_level >= 5
 
@@ -493,6 +496,8 @@ MODULE mo_nh_stepping
   !!
   SUBROUTINE deallocate_nh_stepping ()
 !
+
+
 
   INTEGER                              ::  jg, ist
 
@@ -676,6 +681,10 @@ MODULE mo_nh_stepping
   RECURSIVE SUBROUTINE integrate_nh (p_nh_state, p_patch, p_int_state,  &
   &        p_grf_state, jg, nstep_global, dt_loc, sim_time, num_steps)
 #endif
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_nh_stepping:integrate_nh'
+
     TYPE(t_patch), TARGET, INTENT(in)    :: p_patch(n_dom_start:n_dom)    !< patch
     TYPE(t_int_state),TARGET,INTENT(in)  :: p_int_state(n_dom_start:n_dom)!< interpolation state
     TYPE(t_nh_state), TARGET, INTENT(inout) :: p_nh_state(n_dom) !< nonhydrostatic state
@@ -756,7 +765,7 @@ MODULE mo_nh_stepping
       n_save = nsav2(jg)
 
       WRITE(message_text,'(a)') 'save initial fields for outer boundary nudging'
-       CALL message('integrate_nh', TRIM(message_text))
+       CALL message(TRIM(routine), TRIM(message_text))
 
       p_nh_state(jg)%prog(n_save)%vn      = p_nh_state(jg)%prog(n_now)%vn
       p_nh_state(jg)%prog(n_save)%w       = p_nh_state(jg)%prog(n_now)%w
@@ -971,7 +980,7 @@ MODULE mo_nh_stepping
 
           IF (msg_level >= 10) THEN
             WRITE(message_text,'(a,i4,9l4)') 'initial call of slow physics',jg , lcall_phy(jg,:9)
-            CALL message('integrate_nh', TRIM(message_text))
+            CALL message(TRIM(routine), TRIM(message_text))
           ENDIF
 
           ! NOTE (DR): To me it is not clear yet, which timestep should be
@@ -1013,13 +1022,13 @@ MODULE mo_nh_stepping
 
           IF (msg_level >= 10) THEN
             WRITE(message_text,'(a,i4,9l4)') 'call physics packages',jg , lcall_phy(jg,:9)
-            CALL message('integrate_nh', TRIM(message_text))
+            CALL message(TRIM(routine), TRIM(message_text))
             IF(ltransport) THEN
               WRITE(message_text,'(a,i4,l4)') 'call advection',jg , lstep_adv(jg)
-              CALL message('integrate_nh', TRIM(message_text))
+              CALL message(TRIM(routine), TRIM(message_text))
             ELSE IF(.NOT. ltransport) THEN
               WRITE(message_text,'(a,l4)') 'no advection, ltransport=', ltransport
-              CALL message('integrate_nh', TRIM(message_text))
+              CALL message(TRIM(routine), TRIM(message_text))
             ENDIF
           ENDIF
         ENDIF

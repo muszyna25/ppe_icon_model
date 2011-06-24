@@ -105,6 +105,9 @@ MODULE mo_vertical_grid
   !!
   SUBROUTINE init_hybrid_coord(nlev)
 
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_vertical_grid:init_hybrid_coord'
+
     INTEGER, INTENT(IN) :: nlev  !< number of full levels
     REAL(wp) :: z_height, z_flat
     INTEGER  :: jk, ist
@@ -139,19 +142,19 @@ MODULE mo_vertical_grid
 
       ALLOCATE(vct_a(nlevp1), STAT=ist)
       IF(ist/=SUCCESS)THEN
-        CALL finish ('mo_vertical_grid:init_hybrid_coord', &
+        CALL finish (TRIM(routine), &
                      'allocation of vct_a failed')
       ENDIF
 
       ALLOCATE(vct_b(nlevp1), STAT=ist)
       IF(ist/=SUCCESS)THEN
-        CALL finish ('mo_vertical_grid:init_hybrid_coord', &
+        CALL finish (TRIM(routine), &
                      'allocation of vct_b failed')
       ENDIF
 
       ALLOCATE(vct(nlevp1*2), STAT=ist)
       IF(ist/=SUCCESS)THEN
-        CALL finish ('mo_vertical_grid:init_hybrid_coord', &
+        CALL finish (TRIM(routine), &
                      'allocation of vct failed')
       ENDIF
 
@@ -176,7 +179,7 @@ MODULE mo_vertical_grid
 
     ENDIF
 
-    CALL message('mo_vertical_grid: init_hybrid_coord', '')
+    CALL message(TRIM(routine), '')
 
   END SUBROUTINE init_hybrid_coord
 
@@ -191,6 +194,9 @@ MODULE mo_vertical_grid
   !! Initial release by Guenther Zaengl, DWD, (2010-07-21)
   !!
   SUBROUTINE init_sleve_coord(nlev)
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_vertical_grid:init_sleve_coord'
 
     INTEGER, INTENT(IN) :: nlev  !< number of full levels
     REAL(wp) :: z_exp
@@ -259,7 +265,7 @@ MODULE mo_vertical_grid
     nflat = MAX(1,nflat)
     nflatlev(1) = nflat
 
-    CALL message('mo_vertical_grid: init_sleve_coord', '')
+    CALL message(TRIM(routine), '')
 
     IF (msg_level >= 15) THEN
      WRITE(message_text,'(a)') 'Heights of coordinate half levels (m):'
@@ -267,7 +273,7 @@ MODULE mo_vertical_grid
 
       DO jk = 1, nlevp1
        WRITE(message_text,'(a,i4,F12.3)') 'jk, vct_a: ',jk, vct_a(jk)
-        CALL message('', TRIM(message_text))
+        CALL message(TRIM(routine), TRIM(message_text))
       ENDDO
     ENDIF
 
@@ -349,6 +355,9 @@ MODULE mo_vertical_grid
   !!
   SUBROUTINE set_nh_metrics(p_patch, p_nh, p_int)
 
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_vertical_grid:set_nh_metrics'
+
     TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch(n_dom)  !< patch
     TYPE(t_nh_state), INTENT(INOUT)      :: p_nh(n_dom)
     TYPE(t_int_state),  INTENT(IN)       :: p_int(n_dom)
@@ -409,7 +418,7 @@ MODULE mo_vertical_grid
       ENDIF
       IF (i_cell_type == 6) nflatlev(jg) = nflat
       IF (jg > 1 .AND. nshift_total(jg) > 0 .AND. nflatlev(jg) < 1) THEN
-        CALL finish ('mo_vertical_grid:set_nh_metrics', &
+        CALL finish (TRIM(routine), &
                      'nflat must be more than the top of the innermost nested domain')
       ENDIF
 
@@ -584,7 +593,7 @@ MODULE mo_vertical_grid
        WRITE(message_text,'(a,i4,3E15.5)') 'GEOPOT full/half,dgeopot  = ',jk,&
           &  p_nh(jg)%metrics%geopot_agl(1,jk,2), p_nh(jg)%metrics%geopot_agl_ifc(1,jk,2),&
           &  p_nh(jg)%metrics%dgeopot_mc(1,jk,2)
-        CALL message('', TRIM(message_text))
+        CALL message(TRIM(routine), TRIM(message_text))
       ENDDO
     ENDIF
 
@@ -792,7 +801,7 @@ MODULE mo_vertical_grid
       IF (kstart_moist(jg) > 1 .AND. msg_level >= 10) THEN
         WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
           '; computation of moist physics processes starts in layer ', kstart_moist(jg)
-        CALL message('mo_vertical_grid',message_text)
+        CALL message(TRIM(routine),message_text)
       ENDIF
 
       ! Determine start level for QV advection (specified by htop_qvadv)
@@ -807,7 +816,7 @@ MODULE mo_vertical_grid
       IF (kstart_qv(jg) > 1 .AND. msg_level >= 10) THEN
         WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
           '; computation of QV advection starts in layer ', kstart_qv(jg)
-        CALL message('mo_vertical_grid',message_text)
+        CALL message(TRIM(routine),message_text)
       ENDIF
 
       ! Rayleigh damping properties
@@ -854,7 +863,7 @@ MODULE mo_vertical_grid
       IF (msg_level >= 10) THEN
         WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
           '; end index of Rayleigh damping layer: ', nrdmax(jg)
-        CALL message('mo_vertical_grid',message_text)
+        CALL message(TRIM(routine),message_text)
       ENDIF
 
       ! Compute variable Exner extrapolation factors and offcentering coefficients for the
@@ -1189,12 +1198,12 @@ MODULE mo_vertical_grid
         z_maxhdiff = MAXVAL(z_maxhgtd)
         z_maxhdiff = global_max(z_maxhdiff)
         WRITE(message_text,'(a,f8.4)') 'Maximum vertical wind offcentering: ', z_offctr
-        CALL message('mo_vertical_grid',message_text)
+        CALL message(TRIM(routine),message_text)
         WRITE(message_text,'(a,f8.4)') 'Maximum slope: ', z_maxslope
-        CALL message('mo_vertical_grid',message_text)
+        CALL message(TRIM(routine),message_text)
         WRITE(message_text,'(a,f8.1)') 'Maximum height difference between adjacent points: ', &
           z_maxhdiff
-        CALL message('mo_vertical_grid',message_text)
+        CALL message(TRIM(routine),message_text)
       ENDIF
 
       DEALLOCATE (z_maxslp,z_maxhgtd)
@@ -1557,6 +1566,9 @@ MODULE mo_vertical_grid
   !!
   SUBROUTINE prepare_zdiffu(p_patch, p_nh, p_int, maxslp, maxhgtd)
 
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_vertical_grid:prepare_zdiffu'
+
     TYPE(t_patch), TARGET, INTENT(INOUT) :: p_patch
     TYPE(t_nh_state), INTENT(INOUT)      :: p_nh
     TYPE(t_int_state), TARGET,INTENT(IN) :: p_int
@@ -1816,7 +1828,7 @@ MODULE mo_vertical_grid
 
     IF (msg_level >= 10) THEN
       WRITE(message_text,'(a,i10)') 'Number of z-diffusion points: ', numpoints
-      CALL message('mo_vertical_grid:prepare_zdiffu',message_text)
+      CALL message(TRIM(routine),message_text)
     ENDIF
 
   END SUBROUTINE prepare_zdiffu
