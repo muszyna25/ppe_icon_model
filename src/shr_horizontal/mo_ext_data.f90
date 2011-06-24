@@ -223,7 +223,7 @@ MODULE mo_ext_data
     INTEGER, POINTER  ::   &   !< soil texture, keys 0-9                  [ ]
       &  soiltyp(:,:)          ! index1=1,nproma, index2=1,nblks_c
 
-    INTEGER, POINTER  ::   &   !<  soil texture, keys 0-9       []
+    INTEGER, POINTER  ::   &   !< soil texture, keys 0-9                  [ ]
       &  soiltyp_frac(:,:,:)   ! index1=1,nproma, index2=1,nblks_c, index3=1,nsfc_subs
 
     REAL(wp), POINTER ::   &   !< Near surface temperature (climatological mean)  [ K ]
@@ -296,13 +296,13 @@ MODULE mo_ext_data
   !!
   TYPE :: t_external_ocean
 
-    REAL(wp), POINTER ::   &   !<  topographic height at cell centers  [m]
+    REAL(wp), POINTER ::   &   !< topographic height at cell centers  [m]
       &  bathymetry_c(:,:)     !  index1=1,nproma, index2=1,nblks_c
 
-    REAL(wp), POINTER ::   &   !<  topographic height at cell edges    [m]
+    REAL(wp), POINTER ::   &   !< topographic height at cell edges    [m]
       &  bathymetry_e(:,:)     ! index1=1,nproma, index2=1,nblks_e
 
-    REAL(wp), POINTER ::   &   !<  topographic height at cell vertices [m]
+    REAL(wp), POINTER ::   &   !< topographic height at cell vertices [m]
       &  bathymetry_v(:,:)     ! index1=1,nproma, index2=1,nblks_v
 
     INTEGER, POINTER ::    &   !< land-sea-mask for cell centers
@@ -313,42 +313,6 @@ MODULE mo_ext_data
 
     INTEGER, POINTER ::    &   !< land-sea-mask for cell vertices
       &  lsm_oce_v(:,:,:)      ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_v
-
-    !  Pointer to array that contains indices of boundary cells
-    !  and number of boundary cells. A cell is a boundary cell, if
-    !  not all of its surrounding cells in the primal grid are of
-    !  the same type (land/sea).
-    !  The indices are local, i.e. with respect to the patch.
-    !  Ocean cells have maximal 2 boundary edges
-    !
-    ! index1=1,n_land_sea_boundary_c
-    INTEGER, POINTER :: land_sea_boundary_idx_c(:)
-    INTEGER, POINTER :: land_sea_boundary_blk_c(:)
-    INTEGER :: n_land_sea_boundary_c
-
-    !
-    !  Pointer to array that contains indices of edges at lateral boundaries
-    !  and number of boundary edges. Edge is a boundary edge, if its two
-    !  adjacent cells are not of the same type (land/sea).
-    !  The indices are local, i.e. with respect to the patch.
-    !
-    ! index1=1,n_land_sea_boundary_e
-    INTEGER, POINTER :: land_sea_boundary_idx_e(:)
-    INTEGER, POINTER :: land_sea_boundary_blk_e(:)
-    INTEGER :: n_land_sea_boundary_e
-
-    !
-    !  Pointer to array that contains indices of ocean vertices and
-    !  number of boundary vertices. Vertex is boundary vertex if
-    !  not all of its surrounding cells in the dual grid are of
-    !  the same type.
-    !  The indices are local, i.e. with respect to the patch
-    !  Ocean vertices have cells of different type among its neighbor cells.
-    !
-    ! index1=1,n_land_sea_boundary_v
-    INTEGER, POINTER :: land_sea_boundary_idx_v(:)
-    INTEGER, POINTER :: land_sea_boundary_blk_v(:)
-    INTEGER :: n_land_sea_boundary_v
 
   END TYPE t_external_ocean
 
@@ -484,103 +448,6 @@ CONTAINS
 
   END SUBROUTINE init_ext_data
 
- !-------------------------------------------------------------------------
- !-------------------------------------------------------------------------
-
-  SUBROUTINE inquire_external_files(p_patch)
-
-    !-------------------------------------------------------
-    !
-    ! open netcdf files and investigate the data structure  
-    ! of the external parameters
-    !
-    !-------------------------------------------------------
-
-    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
-    INTEGER :: no_cells, no_verts
-    INTEGER :: ncid, dimid
-    INTEGER :: jg
-
-    LOGICAL :: l_exist
-
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data: inquire_external files'
-
-    CHARACTER(filename_max) :: ozone_file  !< file name for reading in
-
-    ! default values for nlev_pres and nmonths
-    nlev_pres = 1
-    nmonths   = 1
-
-
-    DO jg= 1,n_dom
-
-       IF(irad_o3 == 3) THEN
-
-       IF(p_pe == p_io) THEN
-
-        WRITE(ozone_file,'(a,i2.2,a)') 'o3_icon_DOM',jg,'.nc'
-
-        INQUIRE (FILE=ozone_file, EXIST=l_exist)
-        IF (.NOT.l_exist) THEN
-          CALL finish(TRIM(routine),'ozone file of domain is not found.')
-        ENDIF
-
-        !
-        ! open file: do I have to enhance the number of ncid?
-        !
-        CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid))
-
-        ! get number of cells in triangles and hexagons
-        !
-
-        !triangles
-        IF (i_cell_type == 3) THEN ! triangular grid
-           CALL nf(nf_inq_dimid (ncid, 'cell', dimid))
-           CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
-       ENDIF
-       
-       !hexagons
-        IF (i_cell_type == 6) THEN ! hexagonal grid
-           CALL nf(nf_inq_dimid (ncid, 'vertex', dimid))
-           CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
-        ENDIF
-
-        !
-        ! check the number of cells and verts
-        !
-        IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
-          CALL finish(TRIM(ROUTINE),&
-          & 'Number of patch cells and cells in ozone file do not match.')
-        ENDIF
-          
-      ! check the vertical structure
-        CALL nf(nf_inq_dimid (ncid, 'plev', dimid))
-        CALL nf(nf_inq_dimlen(ncid, dimid, nlev_pres))
-        
-        CALL message(TRIM(ROUTINE),message_text)
-        WRITE(message_text,'(A,I4)')  &
-           & 'Number of pressure levels in ozone file = ', &
-           & nlev_pres
-
-        ! check the time structure
-        CALL nf(nf_inq_dimid (ncid, 'time', dimid))
-        CALL nf(nf_inq_dimlen(ncid, dimid, nmonths))
-        
-        CALL message(TRIM(ROUTINE),message_text)
-        WRITE(message_text,'(A,I4)')  &
-           & 'Number of months in ozone file = ', &
-           & nmonths
-
-     ENDIF ! pe
-
-  ENDIF !o3
-
-  IF(p_pe == p_io) CALL nf(nf_close(ncid))
-
-  ENDDO ! ndom
-
-END SUBROUTINE inquire_external_files
 
 
   !-------------------------------------------------------------------------
@@ -620,7 +487,8 @@ END SUBROUTINE inquire_external_files
 
 
       IF (iforcing==inwp) THEN
-       
+
+        !       
         ! Build external data list for time-dependent atmospheric fields
         WRITE(listname,'(a,i2.2)') 'ext_data_atm_td_D',jg
         CALL construct_ext_data_atm_td_list(p_patch(jg), ext_data(jg)%atm_td,       &
@@ -630,7 +498,9 @@ END SUBROUTINE inquire_external_files
 
       !
       ! Build external data list for constant in time oceanic fields
-      ! ### to be done ###
+      WRITE(listname,'(a,i2.2)') 'ext_data_oce_D',jg
+      CALL construct_ext_data_oce_list(p_patch(jg), ext_data(jg)%oce,       &
+        &                              ext_data(jg)%oce_list, TRIM(listname))
 
       !
       ! Build external data list for time-dependent oceanic fields
@@ -659,7 +529,7 @@ END SUBROUTINE inquire_external_files
   !!
   !! @par Revision History
   !! Initial release by Daniel Reinert (2011-05-03)
-  !! Statements that assign initial value addd by Hui Wan (MPI-M, 2011-05-30)
+  !! Statements that assign initial value added by Hui Wan (MPI-M, 2011-05-30)
   !!
   SUBROUTINE construct_ext_data_atm_list ( p_patch, p_ext_atm, p_ext_atm_list, &
     &                                      listname)
@@ -1244,6 +1114,90 @@ END SUBROUTINE inquire_external_files
   END SUBROUTINE construct_ext_data_atm_td_list
 
 
+
+  !-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! Allocation of oceanic external data structure
+  !!
+  !! Allocation of oceanic external data structure (constant in time 
+  !! elements).
+  !!
+  !! Initialization of elements with zero.
+  !!
+  !! @par Revision History
+  !! Initial release by Daniel Reinert (2011-06-24)
+  !!
+  SUBROUTINE construct_ext_data_oce_list ( p_patch, p_ext_oce, p_ext_oce_list, &
+    &                                      listname)
+!
+    TYPE(t_patch), TARGET, INTENT(IN)   :: & !< current patch
+      &  p_patch
+
+    TYPE(t_external_ocean), INTENT(INOUT) :: & !< current external data structure
+      &  p_ext_oce 
+
+    TYPE(t_var_list) :: p_ext_oce_list !< current external data list
+
+    CHARACTER(len=*), INTENT(IN)  :: & !< list name
+      &  listname
+
+    TYPE(t_cf_var)    :: cf_desc
+    TYPE(t_grib2_var) :: grib2_desc
+
+    INTEGER :: nblks_c, &    !< number of cell blocks to allocate
+      &        nblks_e       !< number of edge blocks to allocate
+
+    INTEGER :: shape2d_c(2), shape2d_e(2)
+
+    INTEGER :: ientr         !< "entropy" of horizontal slice
+    !--------------------------------------------------------------
+
+    !determine size of arrays
+    nblks_c = p_patch%nblks_c
+    nblks_e = p_patch%nblks_e
+
+
+    ientr = 16   ! "entropy" of horizontal slice
+
+    ! predefined array shapes
+    shape2d_c = (/ nproma, nblks_c /)
+    shape2d_e = (/ nproma, nblks_e /)
+
+    !
+    ! Register a field list and apply default settings
+    !
+    CALL new_var_list( p_ext_oce_list, TRIM(listname) )
+    CALL default_var_list_settings( p_ext_oce_list,            &
+                                  & lrestart=.TRUE.,           &
+                                  & restart_type=FILETYPE_NC2  )
+
+
+
+    ! bathymetric height at cell center
+    !
+    ! bathymetry_c  p_ext_oce%bathymetry_c(nproma,nblks_c)
+    cf_desc    = t_cf_var('Model bathymetry at cell center', 'm', &
+      &                   'Model bathymetry')
+    grib2_desc = t_grib2_var( 192, 140, 219, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_oce_list, 'bathymetry_c', p_ext_oce%bathymetry_c,      &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+
+    ! bathymetric height at cell edge
+    !
+    ! bathymetry_e  p_ext_oce%bathymetry_e(nproma,nblks_e)
+    cf_desc    = t_cf_var('Model bathymetry at cell edge', 'm', &
+      &                   'Model bathymetry')
+    grib2_desc = t_grib2_var( 192, 140, 219, ientr, GRID_REFERENCE, GRID_EDGE)
+    CALL add_var( p_ext_oce_list, 'bathymetry_e', p_ext_oce%bathymetry_e,      &
+      &           GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
+
+  END SUBROUTINE construct_ext_data_oce_list
+
+
+
   !-------------------------------------------------------------------------
   !>
   !! Destruct external data data structure and lists
@@ -1274,7 +1228,7 @@ END SUBROUTINE inquire_external_files
       END IF
 
       ! Delete list of constant in time oceanic elements
-      ! ### to be added if necessary ###
+      CALL delete_var_list( ext_data(jg)%oce_list )
 
       ! Delete list of time-dependent oceanic elements
       ! ### to be added if necessary ###
@@ -1282,11 +1236,110 @@ END SUBROUTINE inquire_external_files
     ENDDO
 
     CALL message (TRIM(routine), 'Destruction of data structure for' // &
-      &                          'external data started')
+      &                          'external data finished')
 
   END SUBROUTINE destruct_ext_data
 
 
+
+
+ !-------------------------------------------------------------------------
+ !-------------------------------------------------------------------------
+
+  SUBROUTINE inquire_external_files(p_patch)
+
+    !-------------------------------------------------------
+    !
+    ! open netcdf files and investigate the data structure  
+    ! of the external parameters
+    !
+    !-------------------------------------------------------
+
+    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
+    INTEGER :: no_cells, no_verts
+    INTEGER :: ncid, dimid
+    INTEGER :: jg
+
+    LOGICAL :: l_exist
+
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = 'mo_ext_data: inquire_external files'
+
+    CHARACTER(filename_max) :: ozone_file  !< file name for reading in
+
+    ! default values for nlev_pres and nmonths
+    nlev_pres = 1
+    nmonths   = 1
+
+
+    DO jg= 1,n_dom
+
+       IF(irad_o3 == 3) THEN
+
+       IF(p_pe == p_io) THEN
+
+        WRITE(ozone_file,'(a,i2.2,a)') 'o3_icon_DOM',jg,'.nc'
+
+        INQUIRE (FILE=ozone_file, EXIST=l_exist)
+        IF (.NOT.l_exist) THEN
+          CALL finish(TRIM(routine),'ozone file of domain is not found.')
+        ENDIF
+
+        !
+        ! open file: do I have to enhance the number of ncid?
+        !
+        CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid))
+
+        ! get number of cells in triangles and hexagons
+        !
+
+        !triangles
+        IF (i_cell_type == 3) THEN ! triangular grid
+           CALL nf(nf_inq_dimid (ncid, 'cell', dimid))
+           CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+       ENDIF
+       
+       !hexagons
+        IF (i_cell_type == 6) THEN ! hexagonal grid
+           CALL nf(nf_inq_dimid (ncid, 'vertex', dimid))
+           CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+        ENDIF
+
+        !
+        ! check the number of cells and verts
+        !
+        IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
+          CALL finish(TRIM(ROUTINE),&
+          & 'Number of patch cells and cells in ozone file do not match.')
+        ENDIF
+          
+      ! check the vertical structure
+        CALL nf(nf_inq_dimid (ncid, 'plev', dimid))
+        CALL nf(nf_inq_dimlen(ncid, dimid, nlev_pres))
+        
+        CALL message(TRIM(ROUTINE),message_text)
+        WRITE(message_text,'(A,I4)')  &
+           & 'Number of pressure levels in ozone file = ', &
+           & nlev_pres
+
+        ! check the time structure
+        CALL nf(nf_inq_dimid (ncid, 'time', dimid))
+        CALL nf(nf_inq_dimlen(ncid, dimid, nmonths))
+        
+        CALL message(TRIM(ROUTINE),message_text)
+        WRITE(message_text,'(A,I4)')  &
+           & 'Number of months in ozone file = ', &
+           & nmonths
+
+     ENDIF ! pe
+
+  ENDIF !o3
+
+  IF(p_pe == p_io) CALL nf(nf_close(ncid))
+
+  ENDDO ! ndom
+
+END SUBROUTINE inquire_external_files
 
 
   !-------------------------------------------------------------------------
