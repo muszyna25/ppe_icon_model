@@ -8,7 +8,11 @@ MODULE mo_util_system
 
   INTERFACE
     SUBROUTINE util_exit(exit_no)  BIND(C,NAME='util_exit')
+#ifdef __SX__
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT
+#else
       IMPORT :: C_INT
+#endif
       INTEGER(C_INT), INTENT(in) :: exit_no
     END SUBROUTINE util_exit
   END INTERFACE
@@ -20,9 +24,17 @@ MODULE mo_util_system
 
   INTERFACE
     FUNCTION private_util_system(cmd) RESULT(iret) BIND(C,NAME='util_system') 
+#ifdef __SX__
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
+#else
       IMPORT :: C_INT, C_CHAR
+#endif
       INTEGER(C_INT) :: iret
+#ifdef __SX__
+      CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: cmd
+#else
       CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: cmd
+#endif
     END FUNCTION private_util_system
   END INTERFACE
 

@@ -1,3 +1,6 @@
+#if  (defined(__SX__) || defined(__SUNPRO_F95))
+#define HAVE_F95
+#endif
 MODULE mo_linked_list
   !
   ! This is a specific linked list implementation for handling ICON output.
@@ -17,7 +20,6 @@ MODULE mo_linked_list
   !
   PUBLIC :: t_var_list          ! anchor for a whole list
   PUBLIC :: t_list_element
-  PUBLIC :: t_var_list_intrinsic
   !
   PUBLIC :: new_list            ! construct an (empty) list
   PUBLIC :: delete_list         ! clean up the list
@@ -25,6 +27,10 @@ MODULE mo_linked_list
   PUBLIC :: append_list_element ! add an element to the list
   PUBLIC :: delete_list_element ! remove one element from the list
   PUBLIC :: find_list_element   ! find an element in the list
+  !
+#ifdef HAVE_F95
+  PUBLIC :: t_var_list_intrinsic
+#endif
   !
   ! t_list_element provides the entry to the actual information 
   ! and a reference to the next element in the list

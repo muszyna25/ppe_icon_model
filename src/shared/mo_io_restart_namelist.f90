@@ -1,5 +1,8 @@
-#if ! (defined (__GNUC__) || defined(__SX__) || defined(__PGI) || defined(__SUNPRO_F95) || defined(__INTEL_COMPILER))
+#if ! (defined (__GNUC__) || defined(__SX__) || defined(__SUNPRO_F95) || defined(__INTEL_COMPILER))
 #define HAVE_F2003
+#endif
+#if  (defined(__SX__) || defined(__SUNPRO_F95))
+#define HAVE_F95
 #endif
 MODULE mo_io_restart_namelist
   !
@@ -21,9 +24,9 @@ MODULE mo_io_restart_namelist
   PUBLIC :: delete_restart_namelists
   PUBLIC :: nmls
   PUBLIC :: restart_namelist
-#ifdef __SUNPRO_F95
-  PUBLIC :: t_att_namelist  ! The Sun compiler does not allow a public 
-                            ! variable declared as a private type
+  !
+#ifdef HAVE_F95
+  PUBLIC :: t_att_namelist
 #endif
   !
 #ifndef HAVE_F2003
@@ -129,7 +132,7 @@ CONTAINS
     DO i = 1, nmls
       IF ('nml_'//TRIM(namelist_name) == TRIM(restart_namelist(i)%name)) THEN
 #ifdef HAVE_F2003
-        text_len = LEN(restart_namelist(i)%text)
+        text_len = LEN_TRIM(restart_namelist(i)%text)
         IF (ALLOCATED(namelist_text)) DEALLOCATE(namelist_text)
         ALLOCATE(CHARACTER(len=text_len) :: namelist_text)
 #endif
@@ -201,9 +204,16 @@ CONTAINS
     nmlbuf = ''
 #endif
     !
+#ifdef __SX__
+    ! requires in runscript (ksh/bash): export F_NOCRW=65535
+    OPEN(UNIT=65535, FILE=TRIM(filename), ACTION='read', FORM='unformatted')
+    READ(65535) nmlbuf(1:nmllen)
+    CLOSE(65535)
+#else
     OPEN(UNIT=funit, FILE=TRIM(filename), ACTION='read', ACCESS='stream')
     READ(funit) nmlbuf(1:nmllen)
     CLOSE(funit)
+#endif
     !
     CALL set_restart_namelist(TRIM(name), nmlbuf)
     !
@@ -232,9 +242,16 @@ CONTAINS
     !
     funit = find_next_free_unit(10,100)
     flen = util_tmpnam(filename, filename_max)
+#ifdef __SX__
+    ! requires in runscript (ksh/bash): export F_NOCRW=65535
+    OPEN(UNIT=65535, FILE=filename(1:flen), ACTION='write', FORM='unformatted')
+    WRITE(65535) TRIM(nmlbuf)
+    CLOSE(65535)
+#else
     OPEN(UNIT=funit, FILE=filename(1:flen), ACTION='write', ACCESS='stream')
     WRITE(funit) TRIM(nmlbuf)
     CLOSE(funit)
+#endif
     !
 #ifdef HAVE_F2003
     DEALLOCATE(nmlbuf)

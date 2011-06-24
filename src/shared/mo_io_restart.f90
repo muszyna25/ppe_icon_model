@@ -194,7 +194,12 @@ CONTAINS
     ! just to be pedantic: status='old'
     OPEN(nrf,file=restart_info_file,STATUS='OLD')
     for_all_lines: DO
+#ifdef __SX__       
+      READ(nrf, '(a)', IOSTAT=ios) buffer
+      iomsg = ' unknown - sxf90 does not support IOMSG'
+#else
       READ(nrf, '(a)', IOSTAT=ios, IOMSG=iomsg) buffer
+#endif
       IF (ios < 0) THEN
         EXIT ! information missing 
       ELSE IF (ios > 0) THEN
@@ -1017,8 +1022,13 @@ CONTAINS
   !
   ! write variables of a list for restart
   !
-  SUBROUTINE write_restart_var_list(this_list)
+  SUBROUTINE write_restart_var_list(this_list, p_patch)
     TYPE (t_var_list) ,INTENT(in) :: this_list
+#ifndef NOMPI
+    TYPE(t_patch), OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,       OPTIONAL, INTENT(in) :: p_patch
+#endif
     !
     INTEGER           :: gridtype
     !
@@ -1089,31 +1099,31 @@ CONTAINS
         IF (info%ndims == 2) THEN
           gdims(:) = (/ private_nc, 1, 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_cells(rptr2d, r5d, info%name)
+          CALL gather_cells(rptr2d, r5d, p_patch)
         ELSE
           gdims(:) = (/ private_nc, info%used_dimensions(2), 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_cells(rptr3d, r5d, info%name)
+          CALL gather_cells(rptr3d, r5d, p_patch)
         ENDIF
       CASE (GRID_UNSTRUCTURED_VERT)
         IF (info%ndims == 2) THEN
           gdims(:) = (/ private_nv, 1, 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_vertices(rptr2d, r5d, info%name)
+          CALL gather_vertices(rptr2d, r5d, p_patch)
         ELSE
           gdims(:) = (/ private_nv, info%used_dimensions(2), 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_vertices(rptr3d, r5d, info%name)
+          CALL gather_vertices(rptr3d, r5d, p_patch)
         ENDIF
       CASE (GRID_UNSTRUCTURED_EDGE)
         IF (info%ndims == 2) THEN
           gdims(:) = (/ private_ne, 1, 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_edges(rptr2d, r5d, info%name)
+          CALL gather_edges(rptr2d, r5d, p_patch)
         ELSE
           gdims(:) = (/ private_ne, info%used_dimensions(2), 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_edges(rptr3d, r5d, info%name)
+          CALL gather_edges(rptr3d, r5d, p_patch)
         ENDIF
       CASE default
         CALL finish('out_stream','unknown grid type')
@@ -1307,26 +1317,50 @@ CONTAINS
               CASE (GRID_UNSTRUCTURED_CELL)
                 IF (info%ndims == 2) THEN
                   rptr2d => element%field%r_ptr(:,:,nindex,1,1) 
-                  CALL scatter_cells(r5d, rptr2d, info%name)
+#ifndef NOMPI
+                  CALL scatter_cells(r5d, rptr2d, p_patch)
+#else
+                  CALL scatter_cells(r5d, rptr2d)
+#endif
                 ELSE
                   rptr3d => element%field%r_ptr(:,:,:,nindex,1) 
+#ifndef NOMPI
                   CALL scatter_cells(r5d, rptr3d, info%name)
+#else
+                  CALL scatter_cells(r5d, rptr3d)
+#endif
                 ENDIF
               CASE (GRID_UNSTRUCTURED_VERT)
                 IF (info%ndims == 2) THEN
                   rptr2d => element%field%r_ptr(:,:,nindex,1,1) 
+#ifndef NOMPI
                   CALL scatter_vertices(r5d, rptr2d, info%name)
+#else
+                  CALL scatter_vertices(r5d, rptr2d)
+#endif
                 ELSE
                   rptr3d => element%field%r_ptr(:,:,:,nindex,1) 
+#ifndef NOMPI
                   CALL scatter_vertices(r5d, rptr3d, info%name)
+#else
+                  CALL scatter_vertices(r5d, rptr3d)
+#endif
                 ENDIF
               CASE (GRID_UNSTRUCTURED_EDGE)
                 IF (info%ndims == 2) THEN
                   rptr2d => element%field%r_ptr(:,:,nindex,1,1) 
+#ifndef NOMPI
                   CALL scatter_edges(r5d, rptr2d, info%name)
+#else
+                  CALL scatter_edges(r5d, rptr2d)
+#endif
                 ELSE
                   rptr3d => element%field%r_ptr(:,:,:,nindex,1) 
+#ifndef NOMPI
                   CALL scatter_edges(r5d, rptr3d, info%name)
+#else
+                  CALL scatter_edges(r5d, rptr3d)
+#endif
                 ENDIF
               CASE default
                 CALL finish('out_stream','unknown grid type')

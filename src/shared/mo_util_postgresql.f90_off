@@ -1,6 +1,6 @@
 MODULE mo_util_postgresql
   
-  USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR, C_DOUBLE, C_NULL_CHAR
+  USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR, C_NULL_CHAR
   
   IMPLICIT NONE
   
@@ -9,16 +9,28 @@ MODULE mo_util_postgresql
   INTERFACE
     FUNCTION open_db_connection(connection_info) RESULT(iret) &
          BIND(C,NAME='open_db_connection')
-      IMPORT :: C_CHAR,C_INT
+#ifdef __SX__
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
+#else
+      IMPORT :: C_INT, C_CHAR
+#endif
       INTEGER(C_INT) :: iret
+#ifdef __SX__
+      CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: connection_info
+#else
       CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: connection_info
+#endif
     END FUNCTION open_db_connection
   END INTERFACE
   
   INTERFACE
     FUNCTION begin_transaction_block() RESULT(iret) &
          BIND(C,NAME='begin_transaction_block')
+#ifdef __SX__
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT
+#else
       IMPORT :: C_INT
+#endif
       INTEGER(C_INT) :: iret
     END FUNCTION begin_transaction_block
   END INTERFACE
@@ -26,7 +38,11 @@ MODULE mo_util_postgresql
   INTERFACE
     FUNCTION commit_transaction_block() RESULT(iret) &
          BIND(C,NAME='commit_transaction_block')
+#ifdef __SX__
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT
+#else
       IMPORT :: C_INT
+#endif
       INTEGER(C_INT) :: iret
     END FUNCTION commit_transaction_block
   END INTERFACE
@@ -34,9 +50,17 @@ MODULE mo_util_postgresql
   INTERFACE
     FUNCTION insert_db_query(query) RESULT(iret) &
          BIND(C,NAME='insert_dq_query')
-      IMPORT :: C_CHAR,C_INT
+#ifdef __SX__
+      USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
+#else
+      IMPORT :: C_INT, C_CHAR
+#endif
       INTEGER(C_INT) :: iret
+#ifdef __SX__
+      CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: query
+#else
       CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: query
+#endif
     END FUNCTION insert_db_query
   END INTERFACE
   

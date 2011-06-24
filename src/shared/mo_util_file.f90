@@ -14,8 +14,13 @@ MODULE mo_util_file
       IMPORT :: C_INT, C_CHAR
 #endif
       INTEGER(C_INT) :: iret
+#ifdef __SX__
+      CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: file
+      CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: link
+#else
       CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: file
       CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: link
+#endif
     END FUNCTION private_symlink
   END INTERFACE
   
@@ -27,7 +32,11 @@ MODULE mo_util_file
       IMPORT :: C_INT, C_CHAR
 #endif
       INTEGER(C_INT) :: iret
+#ifdef __SX__
+     CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: filename
+#else
       CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: filename
+#endif
     END FUNCTION private_unlink
   END INTERFACE
     
@@ -39,7 +48,11 @@ MODULE mo_util_file
       IMPORT :: C_INT, C_CHAR
 #endif
       INTEGER(C_INT) :: iret
+#ifdef __SX__
+      CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: filename
+#else
       CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: filename
+#endif
     END FUNCTION private_islink
   END INTERFACE
 
@@ -51,8 +64,13 @@ MODULE mo_util_file
       IMPORT :: C_INT, C_CHAR
 #endif
       INTEGER(C_INT) :: iret
+#ifdef __SX__
+      CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: old_filename
+      CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: new_filename
+#else
       CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: old_filename
       CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: new_filename
+#endif
     END FUNCTION private_rename
   END INTERFACE
 
@@ -87,7 +105,11 @@ MODULE mo_util_file
       IMPORT :: C_INT, C_CHAR
 #endif
       INTEGER(C_INT) :: flen
+#ifdef __SX__
+      CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: filename
+#else
       CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: filename
+#endif
     END FUNCTION private_filesize
   END INTERFACE
 
@@ -131,8 +153,15 @@ CONTAINS
     
   FUNCTION util_tmpnam(filename, klen) RESULT(flen)
     INTEGER :: flen
+#ifdef __SX__
+    CHARACTER(len=*), INTENT(out) :: filename
+#else
     CHARACTER, DIMENSION(*), INTENT(out) :: filename
+#endif
     INTEGER,                 INTENT(in)  :: klen
+#ifdef __SX__
+    INTEGER :: i
+#endif
     !
     CHARACTER(C_CHAR), ALLOCATABLE :: tf(:)    
     INTEGER :: maxlen
@@ -143,7 +172,13 @@ CONTAINS
     IF (flen > klen) THEN
       flen = -1
     ELSE
+#ifdef __SX__
+      DO i = 1, flen
+        filename(i:i) = tf(i)
+      ENDDO
+#else
       filename(1:flen) = tf(1:flen)
+#endif
     ENDIF
     DEALLOCATE(tf)
   END FUNCTION util_tmpnam

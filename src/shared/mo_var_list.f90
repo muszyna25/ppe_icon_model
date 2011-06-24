@@ -506,7 +506,8 @@ CONTAINS
       ENDIF
       NULLIFY(new_list_element%field%i_ptr)
       NULLIFY(new_list_element%field%l_ptr)
-      this_list%p%memory_used = this_list%p%memory_used+8*SIZE(new_list_element%field%r_ptr)
+      this_list%p%memory_used = this_list%p%memory_used &
+           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%r_ptr),i8)
     ELSE
       new_list_element%field%r_ptr => p5
     ENDIF
@@ -518,6 +519,10 @@ CONTAINS
     ELSE
       new_list_element%field%r_ptr = 0.0_wp
     END IF
+    ! 
+    IF (PRESENT(initval_r)) THEN
+      new_list_element%field%r_ptr = new_list_element%field%info%initval%rval
+    ENDIF
     !
   END SUBROUTINE add_var_list_element_r5d
   !------------------------------------------------------------------------------------------------
@@ -600,7 +605,8 @@ CONTAINS
       ENDIF
       NULLIFY(new_list_element%field%i_ptr)
       NULLIFY(new_list_element%field%l_ptr)
-      this_list%p%memory_used = this_list%p%memory_used+8*SIZE(new_list_element%field%r_ptr)
+      this_list%p%memory_used = this_list%p%memory_used &
+           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%r_ptr),i8)
     ELSE
       new_list_element%field%r_ptr => p5
     ENDIF
@@ -612,6 +618,10 @@ CONTAINS
     ELSE
       new_list_element%field%r_ptr = 0.0_wp
     END IF
+    !
+    IF (PRESENT(initval_r)) THEN
+      new_list_element%field%r_ptr = new_list_element%field%info%initval%rval
+    ENDIF
     !
   END SUBROUTINE add_var_list_element_r4d
   !------------------------------------------------------------------------------------------------
@@ -695,7 +705,8 @@ CONTAINS
       ENDIF
       NULLIFY(new_list_element%field%i_ptr)
       NULLIFY(new_list_element%field%l_ptr)
-      this_list%p%memory_used = this_list%p%memory_used+8*SIZE(new_list_element%field%r_ptr)
+      this_list%p%memory_used = this_list%p%memory_used &
+           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%r_ptr),i8)
     ELSE
       new_list_element%field%r_ptr => p5
     ENDIF
@@ -707,6 +718,10 @@ CONTAINS
     ELSE
       new_list_element%field%r_ptr = 0.0_wp
     END IF
+    !
+    IF (PRESENT(initval_r)) THEN
+      new_list_element%field%r_ptr = new_list_element%field%info%initval%rval
+    ENDIF
     !
   END SUBROUTINE add_var_list_element_r3d
   !------------------------------------------------------------------------------------------------
@@ -749,7 +764,6 @@ CONTAINS
     !
     ! add list entry
     !
-
     CALL append_list_element (this_list, new_list_element)
     new_list_element%field%info = default_var_list_metadata(this_list)
     !
@@ -791,7 +805,8 @@ CONTAINS
       ENDIF
       NULLIFY(new_list_element%field%i_ptr)
       NULLIFY(new_list_element%field%l_ptr)
-      this_list%p%memory_used = this_list%p%memory_used+8*SIZE(new_list_element%field%r_ptr)
+      this_list%p%memory_used = this_list%p%memory_used &
+           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%r_ptr),i8)
     ELSE
       new_list_element%field%r_ptr => p5
     ENDIF
@@ -803,7 +818,10 @@ CONTAINS
     ELSE
       new_list_element%field%r_ptr = 0.0_wp
     END IF
-
+    !
+    IF (PRESENT(initval_r)) THEN
+      new_list_element%field%r_ptr = new_list_element%field%info%initval%rval
+    ENDIF
     !
   END SUBROUTINE add_var_list_element_r2d
   !------------------------------------------------------------------------------------------------
@@ -887,7 +905,8 @@ CONTAINS
       ENDIF
       NULLIFY(new_list_element%field%i_ptr)
       NULLIFY(new_list_element%field%l_ptr)
-      this_list%p%memory_used = this_list%p%memory_used+8*SIZE(new_list_element%field%r_ptr)
+      this_list%p%memory_used = this_list%p%memory_used &
+           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%r_ptr),i8)
     ELSE
       new_list_element%field%r_ptr => p5
     ENDIF
@@ -899,6 +918,10 @@ CONTAINS
     ELSE
       new_list_element%field%r_ptr = 0.0_wp
     END IF
+    !
+    IF (PRESENT(initval_r)) THEN
+      new_list_element%field%r_ptr = new_list_element%field%info%initval%rval
+    ENDIF
     !
   END SUBROUTINE add_var_list_element_r1d
   !
@@ -983,7 +1006,8 @@ CONTAINS
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%l_ptr)
-      this_list%p%memory_used = this_list%p%memory_used+4*SIZE(new_list_element%field%i_ptr)
+      this_list%p%memory_used = this_list%p%memory_used &
+           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%i_ptr),i8)
     ELSE
       new_list_element%field%i_ptr => p5
     ENDIF
@@ -995,6 +1019,10 @@ CONTAINS
     ELSE
       new_list_element%field%i_ptr = 0
     END IF
+    !
+    IF (PRESENT(initval_i)) THEN
+      new_list_element%field%i_ptr = new_list_element%field%info%initval%ival
+    ENDIF
     !
   END SUBROUTINE add_var_list_element_i5d
   !------------------------------------------------------------------------------------------------
@@ -1077,7 +1105,8 @@ CONTAINS
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%l_ptr)
-      this_list%p%memory_used = this_list%p%memory_used+4*SIZE(new_list_element%field%i_ptr)
+      this_list%p%memory_used = this_list%p%memory_used &
+           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%i_ptr),i8)
     ELSE
       new_list_element%field%i_ptr => p5
     ENDIF
@@ -1089,6 +1118,10 @@ CONTAINS
     ELSE
       new_list_element%field%i_ptr = 0
     END IF
+    !
+    IF (PRESENT(initval_i)) THEN
+      new_list_element%field%i_ptr = new_list_element%field%info%initval%ival
+    ENDIF
     !
   END SUBROUTINE add_var_list_element_i4d
   !------------------------------------------------------------------------------------------------
@@ -1171,7 +1204,8 @@ CONTAINS
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%l_ptr)
-      this_list%p%memory_used = this_list%p%memory_used+4*SIZE(new_list_element%field%i_ptr)
+      this_list%p%memory_used = this_list%p%memory_used &
+           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%i_ptr),i8)
     ELSE
       new_list_element%field%i_ptr => p5
     ENDIF
@@ -1183,6 +1217,10 @@ CONTAINS
     ELSE
       new_list_element%field%i_ptr = 0
     END IF
+    !
+    IF (PRESENT(initval_i)) THEN
+      new_list_element%field%i_ptr = new_list_element%field%info%initval%ival
+    ENDIF
     !
   END SUBROUTINE add_var_list_element_i3d
   !------------------------------------------------------------------------------------------------
@@ -1265,7 +1303,8 @@ CONTAINS
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%l_ptr)
-      this_list%p%memory_used = this_list%p%memory_used+4*SIZE(new_list_element%field%i_ptr)
+      this_list%p%memory_used = this_list%p%memory_used &
+           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%i_ptr),i8)
     ELSE
       new_list_element%field%i_ptr => p5
     ENDIF
@@ -1277,6 +1316,10 @@ CONTAINS
     ELSE
       new_list_element%field%i_ptr = 0
     END IF
+    !
+    IF (PRESENT(initval_i)) THEN
+      new_list_element%field%i_ptr = new_list_element%field%info%initval%ival
+    ENDIF
     !
   END SUBROUTINE add_var_list_element_i2d
   !------------------------------------------------------------------------------------------------
@@ -1359,7 +1402,8 @@ CONTAINS
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%l_ptr)
-      this_list%p%memory_used = this_list%p%memory_used+4*SIZE(new_list_element%field%i_ptr)
+      this_list%p%memory_used = this_list%p%memory_used &
+           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%i_ptr),i8)
     ELSE
       new_list_element%field%i_ptr => p5
     ENDIF
@@ -1371,6 +1415,10 @@ CONTAINS
     ELSE
       new_list_element%field%i_ptr = 0
     END IF
+    !
+    IF (PRESENT(initval_i)) THEN
+      new_list_element%field%i_ptr = new_list_element%field%info%initval%ival
+    ENDIF
     !
   END SUBROUTINE add_var_list_element_i1d
   !
@@ -1455,7 +1503,8 @@ CONTAINS
       ENDIF
       NULLIFY(new_list_element%field%r_ptr)
       NULLIFY(new_list_element%field%i_ptr)      
-      this_list%p%memory_used = this_list%p%memory_used+4*SIZE(new_list_element%field%l_ptr)
+      this_list%p%memory_used = this_list%p%memory_used &
+           +INT(new_list_element%field%var_base_size*SIZE(new_list_element%field%l_ptr),i8)
     ELSE
       new_list_element%field%l_ptr => p5
     ENDIF
@@ -1467,6 +1516,10 @@ CONTAINS
     ELSE
       new_list_element%field%l_ptr = .FALSE.
     END IF
+    !
+    IF (PRESENT(initval_l)) THEN
+      new_list_element%field%l_ptr = new_list_element%field%info%initval%lval
+    ENDIF
     !
   END SUBROUTINE add_var_list_element_l5d
   !------------------------------------------------------------------------------------------------
@@ -1563,6 +1616,10 @@ CONTAINS
       new_list_element%field%l_ptr = .FALSE.
     END IF
     !
+    IF (PRESENT(initval_l)) THEN
+      new_list_element%field%l_ptr = new_list_element%field%info%initval%lval
+    ENDIF
+    !
   END SUBROUTINE add_var_list_element_l4d
   !------------------------------------------------------------------------------------------------
   !
@@ -1657,6 +1714,10 @@ CONTAINS
     ELSE
       new_list_element%field%l_ptr = .FALSE.
     END IF
+    !
+    IF (PRESENT(initval_l)) THEN
+      new_list_element%field%l_ptr = new_list_element%field%info%initval%lval
+    ENDIF
     !
   END SUBROUTINE add_var_list_element_l3d
   !------------------------------------------------------------------------------------------------
@@ -1753,6 +1814,10 @@ CONTAINS
       new_list_element%field%l_ptr = .FALSE.
     END IF
     !
+    IF (PRESENT(initval_l)) THEN
+      new_list_element%field%l_ptr = new_list_element%field%info%initval%lval
+    ENDIF
+    !
   END SUBROUTINE add_var_list_element_l2d
   !------------------------------------------------------------------------------------------------
   !
@@ -1847,6 +1912,10 @@ CONTAINS
     ELSE
       new_list_element%field%l_ptr = .FALSE.
     END IF
+    !
+    IF (PRESENT(initval_l)) THEN
+      new_list_element%field%l_ptr = new_list_element%field%info%initval%lval
+    ENDIF
     !
   END SUBROUTINE add_var_list_element_l1d
   !================================================================================================

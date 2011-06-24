@@ -1,10 +1,15 @@
 #define NOMPI
+
 MODULE mo_io_restart_distribute
   !
-  USE mo_kind, ONLY: wp
+  USE mo_kind,          ONLY: wp
 #ifndef NOMPI
-  USE mo_mpi,  ONLY: p_parallel_io
+  USE mo_mpi,           ONLY: p_parallel_io, num_work_procs
 #endif
+  USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, &
+       &                      GRID_UNSTRUCTURED_VERT, &
+       &                      GRID_UNSTRUCTURED_EDGE
+  USE mo_exception,     ONLY: finish 
   !
   IMPLICIT NONE
   !
@@ -24,182 +29,1075 @@ MODULE mo_io_restart_distribute
   !------------------------------------------------------------------------------------------------
   !
   INTERFACE gather_cells
-    MODULE PROCEDURE gather_cells_2d
-    MODULE PROCEDURE gather_cells_3d
+    MODULE PROCEDURE gather_cells_r2d
+    MODULE PROCEDURE gather_cells_r3d
+    MODULE PROCEDURE gather_cells_i2d
+    MODULE PROCEDURE gather_cells_i3d
+    MODULE PROCEDURE gather_cells_l2d
+    MODULE PROCEDURE gather_cells_l3d
   END INTERFACE gather_cells
   !
   INTERFACE gather_edges
-    MODULE PROCEDURE gather_edges_2d
-    MODULE PROCEDURE gather_edges_3d
+    MODULE PROCEDURE gather_edges_r2d
+    MODULE PROCEDURE gather_edges_r3d
+    MODULE PROCEDURE gather_edges_i2d
+    MODULE PROCEDURE gather_edges_i3d
+    MODULE PROCEDURE gather_edges_l2d
+    MODULE PROCEDURE gather_edges_l3d
   END INTERFACE gather_edges
   !
   INTERFACE gather_vertices
-    MODULE PROCEDURE gather_vertices_2d
-    MODULE PROCEDURE gather_vertices_3d
+    MODULE PROCEDURE gather_vertices_r2d
+    MODULE PROCEDURE gather_vertices_r3d
+    MODULE PROCEDURE gather_vertices_i2d
+    MODULE PROCEDURE gather_vertices_i3d
+    MODULE PROCEDURE gather_vertices_l2d
+    MODULE PROCEDURE gather_vertices_l3d
   END INTERFACE gather_vertices
   !
   INTERFACE scatter_cells
-    MODULE PROCEDURE scatter_cells_2d
-    MODULE PROCEDURE scatter_cells_3d
+    MODULE PROCEDURE scatter_cells_r2d
+    MODULE PROCEDURE scatter_cells_r3d
+    MODULE PROCEDURE scatter_cells_i2d
+    MODULE PROCEDURE scatter_cells_i3d
+    MODULE PROCEDURE scatter_cells_l2d
+    MODULE PROCEDURE scatter_cells_l3d
   END INTERFACE scatter_cells
   !
   INTERFACE scatter_edges
-    MODULE PROCEDURE scatter_edges_2d
-    MODULE PROCEDURE scatter_edges_3d
+    MODULE PROCEDURE scatter_edges_r2d
+    MODULE PROCEDURE scatter_edges_r3d
+    MODULE PROCEDURE scatter_edges_i2d
+    MODULE PROCEDURE scatter_edges_i3d
+    MODULE PROCEDURE scatter_edges_l2d
+    MODULE PROCEDURE scatter_edges_l3d
   END INTERFACE scatter_edges
   !
   INTERFACE scatter_vertices
-    MODULE PROCEDURE scatter_vertices_2d
-    MODULE PROCEDURE scatter_vertices_3d
+    MODULE PROCEDURE scatter_vertices_r2d
+    MODULE PROCEDURE scatter_vertices_r3d
+    MODULE PROCEDURE scatter_vertices_i2d
+    MODULE PROCEDURE scatter_vertices_i3d
+    MODULE PROCEDURE scatter_vertices_l2d
+    MODULE PROCEDURE scatter_vertices_l3d
   END INTERFACE scatter_vertices
   !------------------------------------------------------------------------------------------------
   !
   INTERFACE reorder
-    MODULE PROCEDURE reorder_foreward_2d
-    MODULE PROCEDURE reorder_foreward_3d
-    MODULE PROCEDURE reorder_backward_2d
-    MODULE PROCEDURE reorder_backward_3d
+    MODULE PROCEDURE reorder_foreward_r2d
+    MODULE PROCEDURE reorder_foreward_r3d
+    MODULE PROCEDURE reorder_backward_r2d
+    MODULE PROCEDURE reorder_backward_r3d
+    MODULE PROCEDURE reorder_foreward_i2d
+    MODULE PROCEDURE reorder_foreward_i3d
+    MODULE PROCEDURE reorder_backward_i2d
+    MODULE PROCEDURE reorder_backward_i3d
+    MODULE PROCEDURE reorder_foreward_l2d
+    MODULE PROCEDURE reorder_foreward_l3d
+    MODULE PROCEDURE reorder_backward_l2d
+    MODULE PROCEDURE reorder_backward_l3d
   END INTERFACE reorder
   !
   !------------------------------------------------------------------------------------------------
 CONTAINS
   !------------------------------------------------------------------------------------------------
   !
-  SUBROUTINE gather_cells_2d(in_array, out_array, name)
-    REAL(wp),                   INTENT(in) :: in_array(:,:)
-    REAL(wp), POINTER                      :: out_array(:,:,:,:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z1d(:)
-    z1d => out_array(:,1,1,1,1)
-#ifdef NOMPI
-    CALL reorder(in_array, z1d)
-#endif
-  END SUBROUTINE gather_cells_2d
+  !================================================================================================
+  ! REAL SECTION ----------------------------------------------------------------------------------
   !
-  SUBROUTINE gather_cells_3d(in_array, out_array, name)
+  SUBROUTINE gather_cells_r2d(in_array, out_array, p_patch)
+    REAL(wp),                   INTENT(in) :: in_array(:,:)
+    REAL(wp), POINTER                      :: out_array(:,:,:,:,:) 
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    REAL(wp), POINTER :: r1d(:)
+    !
+#ifndef NOMPI
+    REAL(wp), ALLOCATABLE :: tmp_array(:,:) 
+    INTEGER :: n1, n2
+    !
+    n1 = SIZE(in_array, 1)
+    n2 = (p_patch%n_patch_cells_g-1)/n1+1
+    ALLOCATE(tmp_array(n1, n2))
+    !
+    CALL exchange_data(p_patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array) 
+    r1d => out_array(:,1,1,1,1)
+    CALL reorder(tmp_array, r1d)
+    !
+    DEALLOCATE(tmp_array)
+#else
+    r1d => out_array(:,1,1,1,1)
+    CALL reorder(in_array, r1d)
+#endif
+  END SUBROUTINE gather_cells_r2d
+  !
+  SUBROUTINE gather_cells_r3d(in_array, out_array, p_patch)
     REAL(wp),                   INTENT(in) :: in_array(:,:,:)
     REAL(wp), POINTER                      :: out_array(:,:,:,:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z2d(:,:)
-    z2d => out_array(:,:,1,1,1)
-#ifdef NOMPI
-    CALL reorder(in_array, z2d)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
 #endif
-  END SUBROUTINE gather_cells_3d
+    REAL(wp), POINTER :: r2d(:,:)
+    !
+#ifndef NOMPI
+    REAL(wp), ALLOCATABLE :: tmp_array(:,:,:) 
+    INTEGER :: n1, n2, n3
+    !
+    n1 = SIZE(in_array, 1)
+    n2 = SIZE(in_array, 2)
+    n3 = (p_patch%n_patch_cells_g-1)/n1+1
+    ALLOCATE(tmp_array(n1, n2, n3))
+    !
+    CALL exchange_data(p_patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array) 
+    r2d => out_array(:,:,1,1,1)
+    CALL reorder(tmp_array, r2d)
+    !
+    DEALLOCATE(tmp_array)
+#else
+    r2d => out_array(:,:,1,1,1)
+    CALL reorder(in_array, r2d)
+#endif
+  END SUBROUTINE gather_cells_r3d
   !
-  SUBROUTINE gather_vertices_2d(in_array, out_array, name)
+  SUBROUTINE gather_edges_r2d(in_array, out_array, p_patch)
     REAL(wp),                   INTENT(in) :: in_array(:,:)
-    REAL(wp), POINTER                      :: out_array(:,:,:,:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z1d(:)
-    z1d => out_array(:,1,1,1,1)
-#ifdef NOMPI
-    CALL reorder(in_array, z1d)
+    REAL(wp), POINTER                      :: out_array(:,:,:,:,:) 
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
 #endif
-  END SUBROUTINE gather_vertices_2d
+    REAL(wp), POINTER :: r1d(:)
+    !
+#ifndef NOMPI
+    REAL(wp), ALLOCATABLE :: tmp_array(:,:) 
+    INTEGER :: n1, n2
+    !
+    n1 = SIZE(in_array, 1)
+    n2 = (p_patch%n_patch_edges_g-1)/n1+1
+    ALLOCATE(tmp_array(n1, n2))
+    !
+    CALL exchange_data(p_patch%comm_pat_gather_e, RECV=tmp_array, SEND=in_array) 
+    r1d => out_array(:,1,1,1,1)
+    CALL reorder(tmp_array, r1d)
+    !
+    DEALLOCATE(tmp_array)
+#else
+    r1d => out_array(:,1,1,1,1)
+    CALL reorder(in_array, r1d)
+#endif
+  END SUBROUTINE gather_edges_r2d
   !
-  SUBROUTINE gather_vertices_3d(in_array, out_array, name)
+  SUBROUTINE gather_edges_r3d(in_array, out_array, p_patch)
     REAL(wp),                   INTENT(in) :: in_array(:,:,:)
     REAL(wp), POINTER                      :: out_array(:,:,:,:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z2d(:,:)
-    z2d => out_array(:,:,1,1,1)
-#ifdef NOMPI
-    CALL reorder(in_array, z2d)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
 #endif
-  END SUBROUTINE gather_vertices_3d
+    REAL(wp), POINTER :: r2d(:,:)
+    !
+#ifndef NOMPI
+    REAL(wp), ALLOCATABLE :: tmp_array(:,:,:) 
+    INTEGER :: n1, n2, n3
+    !
+    n1 = SIZE(in_array, 1)
+    n2 = SIZE(in_array, 2)
+    n3 = (p_patch%n_patch_edges_g-1)/n1+1
+    ALLOCATE(tmp_array(n1, n2, n3))
+    !
+    CALL exchange_data(p_patch%comm_pat_gather_e, RECV=tmp_array, SEND=in_array) 
+    r2d => out_array(:,:,1,1,1)
+    CALL reorder(tmp_array, r2d)
+    !
+    DEALLOCATE(tmp_array)
+#else
+    r2d => out_array(:,:,1,1,1)
+    CALL reorder(in_array, r2d)
+#endif
+  END SUBROUTINE gather_edges_r3d
   !
-  SUBROUTINE gather_edges_2d(in_array, out_array, name)
+  SUBROUTINE gather_vertices_r2d(in_array, out_array, p_patch)
     REAL(wp),                   INTENT(in) :: in_array(:,:)
-    REAL(wp), POINTER                      :: out_array(:,:,:,:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z1d(:)
-    z1d => out_array(:,1,1,1,1)
-#ifdef NOMPI
-    CALL reorder(in_array, z1d)
+    REAL(wp), POINTER                      :: out_array(:,:,:,:,:) 
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
 #endif
-  END SUBROUTINE gather_edges_2d
+    REAL(wp), POINTER :: r1d(:)
+    !
+#ifndef NOMPI
+    REAL(wp), ALLOCATABLE :: tmp_array(:,:) 
+    INTEGER :: n1, n2
+    !
+    n1 = SIZE(in_array, 1)
+    n2 = (p_patch%n_patch_vertices_g-1)/n1+1
+    ALLOCATE(tmp_array(n1, n2))
+    !
+    CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
+    r1d => out_array(:,1,1,1,1)
+    CALL reorder(tmp_array, r1d)
+    !
+    DEALLOCATE(tmp_array)
+#else
+    r1d => out_array(:,1,1,1,1)
+    CALL reorder(in_array, r1d)
+#endif
+  END SUBROUTINE gather_vertices_r2d
   !
-  SUBROUTINE gather_edges_3d(in_array, out_array, name)
+  SUBROUTINE gather_vertices_r3d(in_array, out_array, p_patch)
     REAL(wp),                   INTENT(in) :: in_array(:,:,:)
     REAL(wp), POINTER                      :: out_array(:,:,:,:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z2d(:,:)
-    z2d => out_array(:,:,1,1,1)
-#ifdef NOMPI
-    CALL reorder(in_array, z2d)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
 #endif
-  END SUBROUTINE gather_edges_3d
+    REAL(wp), POINTER :: r2d(:,:)
+    !
+#ifndef NOMPI
+    REAL(wp), ALLOCATABLE :: tmp_array(:,:,:) 
+    INTEGER :: n1, n2, n3
+    !
+    n1 = SIZE(in_array, 1)
+    n2 = SIZE(in_array, 2)
+    n3 = (p_patch%n_patch_vertices_g-1)/n1+1
+    ALLOCATE(tmp_array(n1, n2, n3))
+    !
+    CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
+    r2d => out_array(:,:,1,1,1)
+    CALL reorder(tmp_array, r2d)
+    !
+    DEALLOCATE(tmp_array)
+#else
+    r2d => out_array(:,:,1,1,1)
+    CALL reorder(in_array, r2d)
+#endif
+  END SUBROUTINE gather_vertices_r3d
+  !
+  !================================================================================================
+  ! INTEGER SECTION -------------------------------------------------------------------------------
+  !
+  SUBROUTINE gather_cells_i2d(in_array, out_array, p_patch)
+    INTEGER,                   INTENT(in) :: in_array(:,:)
+    INTEGER, POINTER                      :: out_array(:,:,:,:,:) 
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    INTEGER, POINTER :: i1d(:)
+    !
+#ifndef NOMPI
+    INTEGER, ALLOCATABLE :: tmp_array(:,:) 
+    INTEGER :: n1, n2
+    !
+    n1 = SIZE(in_array, 1)
+    n2 = (p_patch%n_patch_cells_g-1)/n1+1
+    ALLOCATE(tmp_array(n1, n2))
+    !
+    CALL exchange_data(p_patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array) 
+    i1d => out_array(:,1,1,1,1)
+    CALL reorder(tmp_array, i1d)
+    !
+    DEALLOCATE(tmp_array)
+#else
+    i1d => out_array(:,1,1,1,1)
+    CALL reorder(in_array, i1d)
+#endif
+  END SUBROUTINE gather_cells_i2d
+  !
+  SUBROUTINE gather_cells_i3d(in_array, out_array, p_patch)
+    INTEGER,                   INTENT(in) :: in_array(:,:,:)
+    INTEGER, POINTER                      :: out_array(:,:,:,:,:)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    INTEGER, POINTER :: i2d(:,:)
+    !
+#ifndef NOMPI
+    INTEGER, ALLOCATABLE :: tmp_array(:,:,:) 
+    INTEGER :: n1, n2, n3
+    !
+    n1 = SIZE(in_array, 1)
+    n2 = SIZE(in_array, 2)
+    n3 = (p_patch%n_patch_cells_g-1)/n1+1
+    ALLOCATE(tmp_array(n1, n2, n3))
+    !
+    CALL exchange_data(p_patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array) 
+    i2d => out_array(:,:,1,1,1)
+    CALL reorder(tmp_array, i2d)
+    !
+    DEALLOCATE(tmp_array)
+#else
+    i2d => out_array(:,:,1,1,1)
+    CALL reorder(in_array, i2d)
+#endif
+  END SUBROUTINE gather_cells_i3d
+  !
+  SUBROUTINE gather_edges_i2d(in_array, out_array, p_patch)
+    INTEGER,                   INTENT(in) :: in_array(:,:)
+    INTEGER, POINTER                      :: out_array(:,:,:,:,:) 
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    INTEGER, POINTER :: i1d(:)
+    !
+#ifndef NOMPI
+    INTEGER, ALLOCATABLE :: tmp_array(:,:) 
+    INTEGER :: n1, n2
+    !
+    n1 = SIZE(in_array, 1)
+    n2 = (p_patch%n_patch_edges_g-1)/n1+1
+    ALLOCATE(tmp_array(n1, n2))
+    !
+    CALL exchange_data(p_patch%comm_pat_gather_e, RECV=tmp_array, SEND=in_array) 
+    i1d => out_array(:,1,1,1,1)
+    CALL reorder(tmp_array, i1d)
+    !
+    DEALLOCATE(tmp_array)
+#else
+    i1d => out_array(:,1,1,1,1)
+    CALL reorder(in_array, i1d)
+#endif
+  END SUBROUTINE gather_edges_i2d
+  !
+  SUBROUTINE gather_edges_i3d(in_array, out_array, p_patch)
+    INTEGER,                   INTENT(in) :: in_array(:,:,:)
+    INTEGER, POINTER                      :: out_array(:,:,:,:,:)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    INTEGER, POINTER :: i2d(:,:)
+    !
+#ifndef NOMPI
+    INTEGER, ALLOCATABLE :: tmp_array(:,:,:) 
+    INTEGER :: n1, n2, n3
+    !
+    n1 = SIZE(in_array, 1)
+    n2 = SIZE(in_array, 2)
+    n3 = (p_patch%n_patch_edges_g-1)/n1+1
+    ALLOCATE(tmp_array(n1, n2, n3))
+    !
+    CALL exchange_data(p_patch%comm_pat_gather_e, RECV=tmp_array, SEND=in_array) 
+    i2d => out_array(:,:,1,1,1)
+    CALL reorder(tmp_array, i2d)
+    !
+    DEALLOCATE(tmp_array)
+#else
+    i2d => out_array(:,:,1,1,1)
+    CALL reorder(in_array, i2d)
+#endif
+  END SUBROUTINE gather_edges_i3d
+  !
+  SUBROUTINE gather_vertices_i2d(in_array, out_array, p_patch)
+    INTEGER,                   INTENT(in) :: in_array(:,:)
+    INTEGER, POINTER                      :: out_array(:,:,:,:,:) 
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    INTEGER, POINTER :: i1d(:)
+    !
+#ifndef NOMPI
+    INTEGER, ALLOCATABLE :: tmp_array(:,:) 
+    INTEGER :: n1, n2
+    !
+    n1 = SIZE(in_array, 1)
+    n2 = (p_patch%n_patch_vertices_g-1)/n1+1
+    ALLOCATE(tmp_array(n1, n2))
+    !
+    CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
+    i1d => out_array(:,1,1,1,1)
+    CALL reorder(tmp_array, i1d)
+    !
+    DEALLOCATE(tmp_array)
+#else
+    i1d => out_array(:,1,1,1,1)
+    CALL reorder(in_array, i1d)
+#endif
+  END SUBROUTINE gather_vertices_i2d
+  !
+  SUBROUTINE gather_vertices_i3d(in_array, out_array, p_patch)
+    INTEGER,                   INTENT(in) :: in_array(:,:,:)
+    INTEGER, POINTER                      :: out_array(:,:,:,:,:)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    INTEGER, POINTER :: i2d(:,:)
+    !
+#ifndef NOMPI
+    INTEGER, ALLOCATABLE :: tmp_array(:,:,:) 
+    INTEGER :: n1, n2, n3
+    !
+    n1 = SIZE(in_array, 1)
+    n2 = SIZE(in_array, 2)
+    n3 = (p_patch%n_patch_vertices_g-1)/n1+1
+    ALLOCATE(tmp_array(n1, n2, n3))
+    !
+    CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
+    i2d => out_array(:,:,1,1,1)
+    CALL reorder(tmp_array, i2d)
+    !
+    DEALLOCATE(tmp_array)
+#else
+    i2d => out_array(:,:,1,1,1)
+    CALL reorder(in_array, i2d)
+#endif
+  END SUBROUTINE gather_vertices_i3d
+  !
+  !================================================================================================
+  ! LOGICAL SECTION -------------------------------------------------------------------------------
+  !
+  SUBROUTINE gather_cells_l2d(in_array, out_array, p_patch)
+    LOGICAL,                   INTENT(in) :: in_array(:,:)
+    LOGICAL, POINTER                      :: out_array(:,:,:,:,:) 
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    LOGICAL, POINTER :: l1d(:)
+    !
+#ifndef NOMPI
+    LOGICAL, ALLOCATABLE :: tmp_array(:,:) 
+    INTEGER :: n1, n2
+    !
+    n1 = SIZE(in_array, 1)
+    n2 = (p_patch%n_patch_cells_g-1)/n1+1
+    ALLOCATE(tmp_array(n1, n2))
+    !
+    CALL exchange_data(p_patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array) 
+    l1d => out_array(:,1,1,1,1)
+    CALL reorder(tmp_array, l1d)
+    !
+    DEALLOCATE(tmp_array)
+#else
+    l1d => out_array(:,1,1,1,1)
+    CALL reorder(in_array, l1d)
+#endif
+  END SUBROUTINE gather_cells_l2d
+  !
+  SUBROUTINE gather_cells_l3d(in_array, out_array, p_patch)
+    LOGICAL,                   INTENT(in) :: in_array(:,:,:)
+    LOGICAL, POINTER                      :: out_array(:,:,:,:,:)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    LOGICAL, POINTER :: l2d(:,:)
+    !
+#ifndef NOMPI
+    LOGICAL, ALLOCATABLE :: tmp_array(:,:,:) 
+    INTEGER :: n1, n2, n3
+    !
+    n1 = SIZE(in_array, 1)
+    n2 = SIZE(in_array, 2)
+    n3 = (p_patch%n_patch_cells_g-1)/n1+1
+    ALLOCATE(tmp_array(n1, n2, n3))
+    !
+    CALL exchange_data(p_patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array) 
+    l2d => out_array(:,:,1,1,1)
+    CALL reorder(tmp_array, l2d)
+    !
+    DEALLOCATE(tmp_array)
+#else
+    l2d => out_array(:,:,1,1,1)
+    CALL reorder(in_array, l2d)
+#endif
+  END SUBROUTINE gather_cells_l3d
+  !
+  SUBROUTINE gather_edges_l2d(in_array, out_array, p_patch)
+    LOGICAL,                   INTENT(in) :: in_array(:,:)
+    LOGICAL, POINTER                      :: out_array(:,:,:,:,:) 
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    LOGICAL, POINTER :: l1d(:)
+    !
+#ifndef NOMPI
+    LOGICAL, ALLOCATABLE :: tmp_array(:,:) 
+    INTEGER :: n1, n2
+    !
+    n1 = SIZE(in_array, 1)
+    n2 = (p_patch%n_patch_edges_g-1)/n1+1
+    ALLOCATE(tmp_array(n1, n2))
+    !
+    CALL exchange_data(p_patch%comm_pat_gather_e, RECV=tmp_array, SEND=in_array) 
+    l1d => out_array(:,1,1,1,1)
+    CALL reorder(tmp_array, l1d)
+    !
+    DEALLOCATE(tmp_array)
+#else
+    l1d => out_array(:,1,1,1,1)
+    CALL reorder(in_array, l1d)
+#endif
+  END SUBROUTINE gather_edges_l2d
+  !
+  SUBROUTINE gather_edges_l3d(in_array, out_array, p_patch)
+    LOGICAL,                   INTENT(in) :: in_array(:,:,:)
+    LOGICAL, POINTER                      :: out_array(:,:,:,:,:)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    LOGICAL, POINTER :: l2d(:,:)
+    !
+#ifndef NOMPI
+    LOGICAL, ALLOCATABLE :: tmp_array(:,:,:) 
+    INTEGER :: n1, n2, n3
+    !
+    n1 = SIZE(in_array, 1)
+    n2 = SIZE(in_array, 2)
+    n3 = (p_patch%n_patch_edges_g-1)/n1+1
+    ALLOCATE(tmp_array(n1, n2, n3))
+    !
+    CALL exchange_data(p_patch%comm_pat_gather_e, RECV=tmp_array, SEND=in_array) 
+    l2d => out_array(:,:,1,1,1)
+    CALL reorder(tmp_array, l2d)
+    !
+    DEALLOCATE(tmp_array)
+#else
+    l2d => out_array(:,:,1,1,1)
+    CALL reorder(in_array, l2d)
+#endif
+  END SUBROUTINE gather_edges_l3d
+  !
+  SUBROUTINE gather_vertices_l2d(in_array, out_array, p_patch)
+    LOGICAL,                   INTENT(in) :: in_array(:,:)
+    LOGICAL, POINTER                      :: out_array(:,:,:,:,:) 
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    LOGICAL, POINTER :: l1d(:)
+    !
+#ifndef NOMPI
+    LOGICAL, ALLOCATABLE :: tmp_array(:,:) 
+    INTEGER :: n1, n2
+    !
+    n1 = SIZE(in_array, 1)
+    n2 = (p_patch%n_patch_vertices_g-1)/n1+1
+    ALLOCATE(tmp_array(n1, n2))
+    !
+    CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
+    l1d => out_array(:,1,1,1,1)
+    CALL reorder(tmp_array, l1d)
+    !
+    DEALLOCATE(tmp_array)
+#else
+    l1d => out_array(:,1,1,1,1)
+    CALL reorder(in_array, l1d)
+#endif
+  END SUBROUTINE gather_vertices_l2d
+  !
+  SUBROUTINE gather_vertices_l3d(in_array, out_array, p_patch)
+    LOGICAL,                   INTENT(in) :: in_array(:,:,:)
+    LOGICAL, POINTER                      :: out_array(:,:,:,:,:)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    LOGICAL, POINTER :: l2d(:,:)
+    !
+#ifndef NOMPI
+    LOGICAL, ALLOCATABLE :: tmp_array(:,:,:) 
+    INTEGER :: n1, n2, n3
+    !
+    n1 = SIZE(in_array, 1)
+    n2 = SIZE(in_array, 2)
+    n3 = (p_patch%n_patch_vertices_g-1)/n1+1
+    ALLOCATE(tmp_array(n1, n2, n3))
+    !
+    CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
+    l2d => out_array(:,:,1,1,1)
+    CALL reorder(tmp_array, l2d)
+    !
+    DEALLOCATE(tmp_array)
+#else
+    l2d => out_array(:,:,1,1,1)
+    CALL reorder(in_array, l2d)
+#endif
+  END SUBROUTINE gather_vertices_l3d
+  !
   !------------------------------------------------------------------------------------------------
   !
-  SUBROUTINE scatter_cells_2d(in_array, out_array, name)
+  !================================================================================================
+  ! REAL SECTION ----------------------------------------------------------------------------------
+  !
+  SUBROUTINE scatter_cells_r2d(in_array, out_array, p_patch)
     REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
     REAL(wp), POINTER                      :: out_array(:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z1d(:)
-    z1d => in_array(:,1,1,1,1)
-#ifdef NOMPI
-    CALL reorder(z1d, out_array)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
 #endif
-  END SUBROUTINE scatter_cells_2d
+    REAL(wp), POINTER :: r1d(:)
+    r1d => in_array(:,1,1,1,1)
+#ifdef NOMPI
+    CALL reorder(r1d, out_array)
+#else
+    CALL scatter_array_r2d(r1d, out_array, p_patch(jg)%cells%glb_index)
+#endif
+  END SUBROUTINE scatter_cells_r2d
   !
-  SUBROUTINE scatter_cells_3d(in_array, out_array, name)
+  SUBROUTINE scatter_cells_r3d(in_array, out_array, p_patch)
     REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
     REAL(wp), POINTER                      :: out_array(:,:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z2d(:,:)
-    z2d => in_array(:,:,1,1,1)
-#ifdef NOMPI
-    CALL reorder(z2d, out_array)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
 #endif
-  END SUBROUTINE scatter_cells_3d
+    REAL(wp), POINTER :: r2d(:,:)
+    r2d => in_array(:,:,1,1,1)
+#ifdef NOMPI
+    CALL reorder(r2d, out_array)
+#else
+    CALL scatter_array_r2d(r1d, out_array, p_patch(jg)%cells%glb_index)
+#endif
+  END SUBROUTINE scatter_cells_r3d
   !
-  SUBROUTINE scatter_vertices_2d(in_array, out_array, name)
+  SUBROUTINE scatter_edges_r2d(in_array, out_array, p_patch)
     REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
     REAL(wp), POINTER                      :: out_array(:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z1d(:)
-    z1d => in_array(:,1,1,1,1)
-#ifdef NOMPI
-    CALL reorder(z1d, out_array)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
 #endif
-  END SUBROUTINE scatter_vertices_2d
+    REAL(wp), POINTER :: r1d(:)
+    r1d => in_array(:,1,1,1,1)
+#ifdef NOMPI
+    CALL reorder(r1d, out_array)
+#else
+    CALL scatter_array_r2d(r1d, out_array, p_patch(jg)%edges%glb_index)
+#endif
+  END SUBROUTINE scatter_edges_r2d
   !
-  SUBROUTINE scatter_vertices_3d(in_array, out_array, name)
+  SUBROUTINE scatter_edges_r3d(in_array, out_array, p_patch)
     REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
     REAL(wp), POINTER                      :: out_array(:,:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z2d(:,:)
-    z2d => in_array(:,:,1,1,1)
-#ifdef NOMPI
-    CALL reorder(z2d, out_array)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
 #endif
-  END SUBROUTINE scatter_vertices_3d
+    REAL(wp), POINTER :: r2d(:,:)
+    r2d => in_array(:,:,1,1,1)
+#ifdef NOMPI
+    CALL reorder(r2d, out_array)
+#else
+    CALL scatter_array_r2d(r1d, out_array, p_patch(jg)%edges%glb_index)
+#endif
+  END SUBROUTINE scatter_edges_r3d
   !
-  SUBROUTINE scatter_edges_2d(in_array, out_array, name)
+  SUBROUTINE scatter_vertices_r2d(in_array, out_array, p_patch)
     REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
     REAL(wp), POINTER                      :: out_array(:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z1d(:)
-    z1d => in_array(:,1,1,1,1)
-#ifdef NOMPI
-    CALL reorder(z1d, out_array)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
 #endif
-  END SUBROUTINE scatter_edges_2d
+    REAL(wp), POINTER :: r1d(:)
+    r1d => in_array(:,1,1,1,1)
+#ifdef NOMPI
+    CALL reorder(r1d, out_array)
+#else
+    CALL scatter_array_r2d(r1d, out_array, p_patch(jg)%vertices%glb_index)
+#endif
+  END SUBROUTINE scatter_vertices_r2d
   !
-  SUBROUTINE scatter_edges_3d(in_array, out_array, name)
+  SUBROUTINE scatter_vertices_r3d(in_array, out_array, p_patch)
     REAL(wp), POINTER                      :: in_array(:,:,:,:,:)
     REAL(wp), POINTER                      :: out_array(:,:,:)
-    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-    REAL(wp), POINTER :: z2d(:,:)
-    z2d => in_array(:,:,1,1,1)
-#ifdef NOMPI
-    CALL reorder(z2d, out_array)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
 #endif
-  END SUBROUTINE scatter_edges_3d
+    REAL(wp), POINTER :: r2d(:,:)
+    r2d => in_array(:,:,1,1,1)
+#ifdef NOMPI
+    CALL reorder(r2d, out_array)
+#else
+    CALL scatter_array_r2d(r1d, out_array, p_patch(jg)%vertices%glb_index)
+#endif
+  END SUBROUTINE scatter_vertices_r3d
+  !
+  !================================================================================================
+  ! INTEGER SECTION -------------------------------------------------------------------------------
+  !
+  SUBROUTINE scatter_cells_i2d(in_array, out_array, p_patch)
+    INTEGER, POINTER                      :: in_array(:,:,:,:,:)
+    INTEGER, POINTER                      :: out_array(:,:)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    INTEGER, POINTER :: i1d(:)
+    i1d => in_array(:,1,1,1,1)
+#ifdef NOMPI
+    CALL reorder(i1d, out_array)
+#else
+    CALL scatter_array_i2d(i1d, out_array, p_patch(jg)%cells%glb_index)
+#endif
+  END SUBROUTINE scatter_cells_i2d
+  !
+  SUBROUTINE scatter_cells_i3d(in_array, out_array, p_patch)
+    INTEGER, POINTER                      :: in_array(:,:,:,:,:)
+    INTEGER, POINTER                      :: out_array(:,:,:)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    INTEGER, POINTER :: i2d(:,:)
+    i2d => in_array(:,:,1,1,1)
+#ifdef NOMPI
+    CALL reorder(i2d, out_array)
+#else
+    CALL scatter_array_i2d(i1d, out_array, p_patch(jg)%cells%glb_index)
+#endif
+  END SUBROUTINE scatter_cells_i3d
+  !
+  SUBROUTINE scatter_edges_i2d(in_array, out_array, p_patch)
+    INTEGER, POINTER                      :: in_array(:,:,:,:,:)
+    INTEGER, POINTER                      :: out_array(:,:)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    INTEGER, POINTER :: i1d(:)
+    i1d => in_array(:,1,1,1,1)
+#ifdef NOMPI
+    CALL reorder(i1d, out_array)
+#else
+    CALL scatter_array_i2d(i1d, out_array, p_patch(jg)%edges%glb_index)
+#endif
+  END SUBROUTINE scatter_edges_i2d
+  !
+  SUBROUTINE scatter_edges_i3d(in_array, out_array, p_patch)
+    INTEGER, POINTER                      :: in_array(:,:,:,:,:)
+    INTEGER, POINTER                      :: out_array(:,:,:)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    INTEGER, POINTER :: i2d(:,:)
+    i2d => in_array(:,:,1,1,1)
+#ifdef NOMPI
+    CALL reorder(i2d, out_array)
+#else
+    CALL scatter_array_i2d(i1d, out_array, p_patch(jg)%edges%glb_index)
+#endif
+  END SUBROUTINE scatter_edges_i3d
+  !
+  SUBROUTINE scatter_vertices_i2d(in_array, out_array, p_patch)
+    INTEGER, POINTER                      :: in_array(:,:,:,:,:)
+    INTEGER, POINTER                      :: out_array(:,:)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    INTEGER, POINTER :: i1d(:)
+    i1d => in_array(:,1,1,1,1)
+#ifdef NOMPI
+    CALL reorder(i1d, out_array)
+#else
+    CALL scatter_array_i2d(i1d, out_array, p_patch(jg)%vertices%glb_index)
+#endif
+  END SUBROUTINE scatter_vertices_i2d
+  !
+  SUBROUTINE scatter_vertices_i3d(in_array, out_array, p_patch)
+    INTEGER, POINTER                      :: in_array(:,:,:,:,:)
+    INTEGER, POINTER                      :: out_array(:,:,:)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    INTEGER, POINTER :: i2d(:,:)
+    i2d => in_array(:,:,1,1,1)
+#ifdef NOMPI
+    CALL reorder(i2d, out_array)
+#else
+    CALL scatter_array_i2d(i1d, out_array, p_patch(jg)%vertices%glb_index)
+#endif
+  END SUBROUTINE scatter_vertices_i3d
+  !
+  !================================================================================================
+  ! LOGICAL SECTION -------------------------------------------------------------------------------
+  !
+  SUBROUTINE scatter_cells_l2d(in_array, out_array, p_patch)
+    LOGICAL, POINTER                      :: in_array(:,:,:,:,:)
+    LOGICAL, POINTER                      :: out_array(:,:)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    LOGICAL, POINTER :: l1d(:)
+    l1d => in_array(:,1,1,1,1)
+#ifdef NOMPI
+    CALL reorder(l1d, out_array)
+#else
+    CALL scatter_array_l2d(l1d, out_array, p_patch(jg)%cells%glb_index)
+#endif
+  END SUBROUTINE scatter_cells_l2d
+  !
+  SUBROUTINE scatter_cells_l3d(in_array, out_array, p_patch)
+    LOGICAL, POINTER                      :: in_array(:,:,:,:,:)
+    LOGICAL, POINTER                      :: out_array(:,:,:)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    LOGICAL, POINTER :: l2d(:,:)
+    l2d => in_array(:,:,1,1,1)
+#ifdef NOMPI
+    CALL reorder(l2d, out_array)
+#else
+    CALL scatter_array_l2d(l1d, out_array, p_patch(jg)%cells%glb_index)
+#endif
+  END SUBROUTINE scatter_cells_l3d
+  !
+  SUBROUTINE scatter_edges_l2d(in_array, out_array, p_patch)
+    LOGICAL, POINTER                      :: in_array(:,:,:,:,:)
+    LOGICAL, POINTER                      :: out_array(:,:)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    LOGICAL, POINTER :: l1d(:)
+    l1d => in_array(:,1,1,1,1)
+#ifdef NOMPI
+    CALL reorder(l1d, out_array)
+#else
+    CALL scatter_array_l2d(l1d, out_array, p_patch(jg)%edges%glb_index)
+#endif
+  END SUBROUTINE scatter_edges_l2d
+  !
+  SUBROUTINE scatter_edges_l3d(in_array, out_array, p_patch)
+    LOGICAL, POINTER                      :: in_array(:,:,:,:,:)
+    LOGICAL, POINTER                      :: out_array(:,:,:)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    LOGICAL, POINTER :: l2d(:,:)
+    l2d => in_array(:,:,1,1,1)
+#ifdef NOMPI
+    CALL reorder(l2d, out_array)
+#else
+    CALL scatter_array_l2d(l1d, out_array, p_patch(jg)%edges%glb_index)
+#endif
+  END SUBROUTINE scatter_edges_l3d
+  !
+  SUBROUTINE scatter_vertices_l2d(in_array, out_array, p_patch)
+    LOGICAL, POINTER                      :: in_array(:,:,:,:,:)
+    LOGICAL, POINTER                      :: out_array(:,:)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    LOGICAL, POINTER :: l1d(:)
+    l1d => in_array(:,1,1,1,1)
+#ifdef NOMPI
+    CALL reorder(l1d, out_array)
+#else
+    CALL scatter_array_l2d(l1d, out_array, p_patch(jg)%vertices%glb_index)
+#endif
+  END SUBROUTINE scatter_vertices_l2d
+  !
+  SUBROUTINE scatter_vertices_l3d(in_array, out_array, p_patch)
+    LOGICAL, POINTER                      :: in_array(:,:,:,:,:)
+    LOGICAL, POINTER                      :: out_array(:,:,:)
+#ifndef NOMPI
+    TYPE(t_patch),    OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,          OPTIONAL, INTENT(in) :: p_patch
+#endif
+    LOGICAL, POINTER :: l2d(:,:)
+    l2d => in_array(:,:,1,1,1)
+#ifdef NOMPI
+    CALL reorder(l2d, out_array)
+#else
+    CALL scatter_array_l2d(l1d, out_array, p_patch(jg)%vertices%glb_index)
+#endif
+  END SUBROUTINE scatter_vertices_l3d
+  !
   !------------------------------------------------------------------------------------------------
   !
-  SUBROUTINE reorder_backward_2d(in, out)
+#ifndef NOMPI
+  !================================================================================================
+  ! REAL SECTION ----------------------------------------------------------------------------------
+  !
+  SUBROUTINE scatter_array_r2d (in_array, out_array, global_index)
+    REAL(wp), INTENT(in)  :: in_array(:)
+    REAL(wp), INTENT(out) :: out_array(:,:)
+    INTEGER,  INTENT(in)  :: global_index(:)
+    !
+    INTEGER :: j, jl, jb
+    !
+    CALL p_bcast(in_array, p_io, p_comm_work)
+    !
+    out_array(:,:) = 0.0_wp
+    !
+    DO j = 1, SIZE(out_array)
+      jb = blk_no(j)
+      jl = idx_no(j)
+      out_array(jl,jb) = in_array(global_index(j))
+    ENDDO
+    !
+  END SUBROUTINE scatter_array_r2d
+  !
+  SUBROUTINE scatter_array_r3d (in_array, out_array, global_index)
+    REAL(wp), INTENT(in)  :: in_array(:,:)
+    REAL(wp), INTENT(out) :: out_array(:,:,:)
+    INTEGER,  INTENT(in)  :: global_index(:)
+    !
+    INTEGER :: j, jl, jb, jk
+    !
+    CALL p_bcast(in_array, p_io, p_comm_work)
+    !
+    out_array(:,:,:) = 0.0_wp
+    !
+    DO jk = 1, SIZE(out_array,2)
+      DO j = 1, SIZE(out_array,1)*SIZE(out_array,3)
+        jb = blk_no(j)
+        jl = idx_no(j)
+        out_array(jl,jk,jb) = in_array(global_index(j),jk)
+      ENDDO
+    ENDDO
+    !
+  END SUBROUTINE scatter_array_r3d
+  !
+  !================================================================================================
+  ! INTEGER SECTION -------------------------------------------------------------------------------
+  !
+  SUBROUTINE scatter_array_i2d (in_array, out_array, global_index)
+    INTEGER, INTENT(in)  :: in_array(:)
+    INTEGER, INTENT(out) :: out_array(:,:)
+    INTEGER,  INTENT(in)  :: global_index(:)
+    !
+    INTEGER :: j, jl, jb
+    !
+    CALL p_bcast(in_array, p_io, p_comm_work)
+    !
+    out_array(:,:) = 0.0_wp
+    !
+    DO j = 1, SIZE(out_array)
+      jb = blk_no(j)
+      jl = idx_no(j)
+      out_array(jl,jb) = in_array(global_index(j))
+    ENDDO
+    !
+  END SUBROUTINE scatter_array_i2d
+  !
+  SUBROUTINE scatter_array_i3d (in_array, out_array, global_index)
+    INTEGER, INTENT(in)  :: in_array(:,:)
+    INTEGER, INTENT(out) :: out_array(:,:,:)
+    INTEGER,  INTENT(in)  :: global_index(:)
+    !
+    INTEGER :: j, jl, jb, jk
+    !
+    CALL p_bcast(in_array, p_io, p_comm_work)
+    !
+    out_array(:,:,:) = 0.0_wp
+    !
+    DO jk = 1, SIZE(out_array,2)
+      DO j = 1, SIZE(out_array,1)*SIZE(out_array,3)
+        jb = blk_no(j)
+        jl = idx_no(j)
+        out_array(jl,jk,jb) = in_array(global_index(j),jk)
+      ENDDO
+    ENDDO
+    !
+  END SUBROUTINE scatter_array_i3d
+  !
+  !================================================================================================
+  ! LOGICAL SECTION -------------------------------------------------------------------------------
+  !
+  SUBROUTINE scatter_array_l2d (in_array, out_array, global_index)
+    LOGICAL, INTENT(in)  :: in_array(:)
+    LOGICAL, INTENT(out) :: out_array(:,:)
+    INTEGER,  INTENT(in)  :: global_index(:)
+    !
+    INTEGER :: j, jl, jb
+    !
+    CALL p_bcast(in_array, p_io, p_comm_work)
+    !
+    out_array(:,:) = 0.0_wp
+    !
+    DO j = 1, SIZE(out_array)
+      jb = blk_no(j)
+      jl = idx_no(j)
+      out_array(jl,jb) = in_array(global_index(j))
+    ENDDO
+    !
+  END SUBROUTINE scatter_array_l2d
+  !
+  SUBROUTINE scatter_array_l3d (in_array, out_array, global_index)
+    LOGICAL, INTENT(in)  :: in_array(:,:)
+    LOGICAL, INTENT(out) :: out_array(:,:,:)
+    INTEGER,  INTENT(in)  :: global_index(:)
+    !
+    INTEGER :: j, jl, jb, jk
+    !
+    CALL p_bcast(in_array, p_io, p_comm_work)
+    !
+    out_array(:,:,:) = 0.0_wp
+    !
+    DO jk = 1, SIZE(out_array,2)
+      DO j = 1, SIZE(out_array,1)*SIZE(out_array,3)
+        jb = blk_no(j)
+        jl = idx_no(j)
+        out_array(jl,jk,jb) = in_array(global_index(j),jk)
+      ENDDO
+    ENDDO
+    !
+  END SUBROUTINE scatter_array_l3d
+  !
+#endif
+  !------------------------------------------------------------------------------------------------
+  !
+  !================================================================================================ 
+  ! REAL SECTION ----------------------------------------------------------------------------------
+  !
+  SUBROUTINE reorder_backward_r2d(in, out)
     REAL(wp), INTENT(in)    :: in(:,:)
     REAL(wp), INTENT(inout) :: out(:)
     !
@@ -221,9 +1119,9 @@ CONTAINS
       DEALLOCATE (lmask)
     ENDIF
     !
-  END SUBROUTINE reorder_backward_2d
+  END SUBROUTINE reorder_backward_r2d
   !
-  SUBROUTINE reorder_backward_3d(in, out)
+  SUBROUTINE reorder_backward_r3d(in, out)
     REAL(wp), INTENT(in)    :: in(:,:,:)
     REAL(wp), INTENT(inout) :: out(:,:)
     !
@@ -254,9 +1152,9 @@ CONTAINS
       DEALLOCATE (lmask)
     ENDIF
     !
-  END SUBROUTINE reorder_backward_3d
+  END SUBROUTINE reorder_backward_r3d
   !
-  SUBROUTINE reorder_foreward_2d(in, out)
+  SUBROUTINE reorder_foreward_r2d(in, out)
     REAL(wp), INTENT(in)    :: in(:)
     REAL(wp), INTENT(inout) :: out(:,:)
     !
@@ -281,9 +1179,9 @@ CONTAINS
       DEALLOCATE(rpad)
     ENDIF
     !
-  END SUBROUTINE reorder_foreward_2d
+  END SUBROUTINE reorder_foreward_r2d
   !
-  SUBROUTINE reorder_foreward_3d(in, out)
+  SUBROUTINE reorder_foreward_r3d(in, out)
     REAL(wp), INTENT(in)    :: in(:,:)
     REAL(wp), INTENT(inout) :: out(:,:,:)
     !
@@ -318,201 +1216,256 @@ CONTAINS
       DEALLOCATE(rpad)
     ENDIF
     !
-  END SUBROUTINE reorder_foreward_3d
-!!$  !------------------------------------------------------------------------------------------------
-!!$  !
-!!$  SUBROUTINE gather_array_2d(typ, in_field, out_field, name)
-!!$    !
-!!$    INTEGER,                    INTENT(in)  :: typ
-!!$    REAL(wp), POINTER                       :: in_field(:,:)
-!!$    REAL(wp), POINTER                       :: out_field(:,:,:,:,:)
-!!$    CHARACTER(len=*), OPTIONAL, INTENT(in)  :: name
-!!$    !
-!!$    REAL(wp), ALLOCATABLE :: out_field2(:,:)
-!!$    !
-!!$    IF (p_parallel_io) THEN
-!!$      ALLOCATE(out_field2(UBOUND(out_field,1),1))
-!!$    ELSE
-!!$      ALLOCATE(out_field2(0,0))
-!!$    ENDIF
-!!$
-!!$    CALL gather_array_3d(typ,p_patch,&
-!!$         &               RESHAPE(in_field,(/SIZE(in_field,1),1,SIZE(in_field,2)/)), &
-!!$         &               out_field2,name=name)
-!!$
-!!$    IF(p_parallel_io) THEN
-!!$      out_field(:) = out_field2(:,1)
-!!$    ENDIF
-!!$
-!!$    DEALLOCATE(out_field2)
-!!$
-!!$  END SUBROUTINE gather_array_2d
-!!$  !
-!!$  SUBROUTINE gather_array_3d(typ, in_field, out_field, name)
-!!$    !
-!!$    INTEGER,                    INTENT(in) :: typ
-!!$    REAL(wp),    INTENT(in)         :: in_field(:,:,:)
-!!$    REAL(wp),    INTENT(inout)      :: out_field(:,:)
-!!$    CHARACTER(len=*), OPTIONAL, INTENT(in) :: name
-!!$    !
-!!$    REAL(wp), ALLOCATABLE :: tmp_field(:,:,:)
-!!$    !
-!!$    INTEGER :: isize_out, isize_lev 
-!!$    !
-!!$    INTEGER :: nblks, nproma, jb, jl, jk, jend
-!!$    !
-!!$#ifndef NOMPI
-!!$    TYPE(t_comm_pattern), POINTER :: p_comm_pat
-!!$#endif
-!!$    !
-!!$    !-----------------------------------------------------------------------
-!!$
-!!$    IF (SIZE(in_field,1) /= nproma) THEN
-!!$      CALL finish('gather_array_3d','Illegal 1st array dimension')
-!!$    ENDIF
-!!$    !
-!!$#ifndef NOMPI
-!!$    IF (p_io /= p_test_pe .AND. p_io /= p_work_pe0) THEN ! Safety check only
-!!$      CALL finish('gather_array_3d','Illegal I/O PE number for this routine')
-!!$    ENDIF
-!!$#endif
-!!$
-!!$    SELECT CASE (type)
-!!$    CASE (GRID_UNSTRUCTURED_CELL)
-!!$
-!!$      IF (SIZE(in_field,3) /= p_patch%nblks_c) &
-!!$           CALL finish('gather_array_3d','Illegal 3rd array dimension')
-!!$      
-!!$      ALLOCATE(tmp_field(nproma,SIZE(in_field,2),(p_patch%n_patch_cells_g-1)/nproma+1))
-!!$
-!!$      p_comm_pat => p_patch%comm_pat_gather_c
-!!$      nblks      =  p_patch%nblks_c
-!!$      nproma     =  p_patch%nproma_c
-!!$
-!!$    CASE (GRID_UNSTRUCTURED_EDGE)
-!!$
-!!$      IF (SIZE(in_field,3) /= p_patch%nblks_e) &
-!!$           CALL finish('gather_array_3d','Illegal 3rd array dimension')
-!!$      
-!!$      ALLOCATE(tmp_field(nproma,SIZE(in_field,2),(p_patch%n_patch_edges_g-1)/nproma+1))
-!!$      
-!!$      p_comm_pat => p_patch%comm_pat_gather_e
-!!$      nblks      =  p_patch%nblks_e
-!!$      nproma     =  p_patch%nproma_e
-!!$      
-!!$    CASE (GRID_UNSTRUCTURED_VERT)
-!!$      
-!!$      IF (SIZE(in_field,3) /= p_patch%nblks_v) &
-!!$           CALL finish('gather_array_3d','Illegal 3rd array dimension')
-!!$
-!!$      ALLOCATE(tmp_field(nproma,SIZE(in_field,2),(p_patch%n_patch_verts_g-1)/nproma+1))
-!!$
-!!$      p_comm_pat => p_patch%comm_pat_gather_v
-!!$      nblks      =  p_patch%nblks_v
-!!$      nproma     =  p_patch%nproma_v
-!!$      
-!!$
-!!$    CASE DEFAULT
-!!$      
-!!$      CALL finish('gather_array_3d','Illegal typ parameter')
-!!$
-!!$    END SELECT
-!!$
-!!$    tmp_field(:,:,:) = 0.0_wp
-!!$
-!!$    IF (p_test_run) THEN
-!!$      IF (p_pe /= p_test_pe) THEN
-!!$        ! Gather all data on p_work_pe0 and send it to p_test_pe for verification
-!!$        CALL exchange_data(p_comm_pat, RECV=tmp_field, SEND=in_field)
-!!$        IF (p_pe_work == 0) CALL p_send(tmp_field, p_test_pe, 1)
-!!$      ELSE
-!!$        ! Receive result from parallel worker PEs and check for correctness
-!!$        CALL p_recv(tmp_field, p_work_pe0, 1)
-!!$        DO jb = 1, nblks
-!!$          jend = nproma
-!!$          IF (jb == nblks) jend = nproma
-!!$          DO jl = 1, jend
-!!$            IF (ANY(tmp_field(jl,:,jb) /= in_field(jl,:,jb))) THEN
-!!$              IF (PRESENT(name)) THEN
-!!$                WRITE(message_text,'(a,a,i5,i5)') 'Error ', name, jl, jb !,tmp_field(jl,:,jb), in_field(jl,:,jb)
-!!$              ELSE
-!!$                WRITE(message_text,'(a,i5,i5)') 'Error ', jl, jb !,tmp_field(jl,:,jb), in_field(jl,:,jb)
-!!$              ENDIF
-!!$              CALL message('gather_array_3d','Sync error test PE/worker PEs')
-!!$            ENDIF
-!!$          ENDDO
-!!$        ENDDO
-!!$      ENDIF
-!!$    ELSE
-!!$      IF (num_work_procs == 1) THEN
-!!$        ! We are running on 1 PE, just copy in_field
-!!$        DO jb = 1, nblks
-!!$          jend = nproma
-!!$          IF (jb == nblks) jend = nproma
-!!$          DO jl = 1, jend
-!!$            tmp_field(jl,:,jb) = in_field(jl,:,jb)
-!!$          ENDDO
-!!$        ENDDO
-!!$      ELSE
-!!$        ! Gather all data on p_work_pe0
-!!$        CALL exchange_data(p_comm_pat, RECV=tmp_field, SEND=in_field)
-!!$      ENDIF
-!!$    ENDIF
-!!$
-!!$    IF (p_pe == p_io) THEN
-!!$      isize_out = SIZE(out_field,1)
-!!$      isize_lev = SIZE(in_field,2)
-!!$
-!!$      DO jk = 1, isize_lev
-!!$        out_field(:,jk) = RESHAPE(tmp_field(:,jk,:),(/isize_out/))
-!!$      ENDDO
-!!$    ENDIF
-!!$    
-!!$    DEALLOCATE(tmp_field)
-!!$    
-!!$  END SUBROUTINE gather_array_3d
-!!$
-!!$!  SUBROUTINE scatter_array_2d (ncid, varname, glb_arr_len, loc_arr_len, glb_index, var_out)
-!!$
-!!$    CHARACTER(len=*), INTENT(IN)  ::   varname
-!!$
-!!$    INTEGER, INTENT(IN) :: ncid       
-!!$    INTEGER, INTENT(IN) :: glb_arr_len
-!!$    INTEGER, INTENT(IN) :: loc_arr_len
-!!$    INTEGER, INTENT(IN) :: glb_index(:)
-!!$
-!!$    REAL(wp), INTENT(INOUT) ::  var_out(:,:)
-!!$
-!!$    INTEGER :: varid, mpi_comm, j, jl, jb
-!!$    REAL(wp):: z_dummy_array(glb_arr_len)
-!!$
-!!$
-!!$    ! Get var ID
-!!$    IF(p_pe==p_io) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
-!!$
-!!$    IF(p_test_run) THEN
-!!$      mpi_comm = p_comm_work_test
-!!$    ELSE
-!!$      mpi_comm = p_comm_work
-!!$    ENDIF
-!!$
-!!$    ! I/O PE reads and broadcasts data
-!!$
-!!$    IF(p_pe==p_io) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:)))
-!!$    CALL p_bcast(z_dummy_array, p_io, mpi_comm)
-!!$
-!!$    var_out(:,:) = 0._wp
-!!$
-!!$    ! Set var_out from global data
-!!$    DO j = 1, loc_arr_len
-!!$
-!!$      jb = blk_no(j) ! Block index in distributed patch
-!!$      jl = idx_no(j) ! Line  index in distributed patch
-!!$
-!!$      var_out(jl,jb) = z_dummy_array(glb_index(j))
-!!$    ENDDO
-!!$
-!!$  END SUBROUTINE scatter_array_2d
-
+  END SUBROUTINE reorder_foreward_r3d
+  !
+  !================================================================================================ 
+  ! INTEGER SECTION -------------------------------------------------------------------------------
+  !
+  SUBROUTINE reorder_backward_i2d(in, out)
+    INTEGER, INTENT(in)    :: in(:,:)
+    INTEGER, INTENT(inout) :: out(:)
+    !
+    LOGICAL, ALLOCATABLE    :: lmask(:)
+    INTEGER ::  isize_in, isize_out
+    INTEGER :: idiscrep
+    !
+    isize_in  = SIZE(in)
+    isize_out = SIZE(out)
+    idiscrep = isize_in-isize_out
+    !
+    IF(idiscrep == 0 )THEN
+      out = RESHAPE(in,(/ isize_out /))
+    ELSE
+      ALLOCATE (lmask(isize_in))
+      lmask(1:isize_out) = .TRUE.
+      lmask(isize_out+1:isize_in) = .FALSE.
+      out = PACK(RESHAPE(in,(/isize_in/)),lmask)
+      DEALLOCATE (lmask)
+    ENDIF
+    !
+  END SUBROUTINE reorder_backward_i2d
+  !
+  SUBROUTINE reorder_backward_i3d(in, out)
+    INTEGER, INTENT(in)    :: in(:,:,:)
+    INTEGER, INTENT(inout) :: out(:,:)
+    !
+    LOGICAL, ALLOCATABLE    :: lmask(:)
+    INTEGER ::isize_in, isize_out, isize_lev
+    INTEGER :: idiscrep, k
+    !
+    isize_in  = SIZE(in,1)*SIZE(in,3)
+    isize_out = SIZE(out,1)
+    isize_lev = SIZE(in,2)
+    idiscrep = isize_in-isize_out
+    !
+    IF (idiscrep /= 0 )THEN
+      ALLOCATE (lmask(isize_in))
+      lmask(1:isize_out) = .TRUE.
+      lmask(isize_out+1:isize_in) = .FALSE.
+    ENDIF
+    !
+    DO k = 1, isize_lev
+      IF (idiscrep /= 0 )THEN
+        out(:,k) = PACK(RESHAPE(in(:,k,:),(/isize_in/)),lmask)
+      ELSE
+        out(:,k) =      RESHAPE(in(:,k,:),(/isize_out/))
+      ENDIF
+    ENDDO
+    !   
+    IF (idiscrep /= 0 )THEN
+      DEALLOCATE (lmask)
+    ENDIF
+    !
+  END SUBROUTINE reorder_backward_i3d
+  !
+  SUBROUTINE reorder_foreward_i2d(in, out)
+    INTEGER, INTENT(in)    :: in(:)
+    INTEGER, INTENT(inout) :: out(:,:)
+    !
+    INTEGER, ALLOCATABLE :: ipad(:)
+    INTEGER :: isize_nproma, isize_nblks
+    INTEGER :: isize_in, isize_out
+    INTEGER :: idiscrep
+    !
+    isize_in = SIZE(in)
+    isize_out = SIZE(out)
+    idiscrep = isize_out-isize_in
+    !
+    isize_nproma = SIZE(out,1)
+    isize_nblks = SIZE(out,2)
+    !
+    IF (idiscrep == 0) THEN
+      out = RESHAPE(in,(/isize_nproma,isize_nblks/))
+    ELSE
+      ALLOCATE(ipad(idiscrep))
+      ipad = 0
+      out = RESHAPE(in,(/isize_nproma,isize_nblks/), ipad)
+      DEALLOCATE(ipad)
+    ENDIF
+    !
+  END SUBROUTINE reorder_foreward_i2d
+  !
+  SUBROUTINE reorder_foreward_i3d(in, out)
+    INTEGER, INTENT(in)    :: in(:,:)
+    INTEGER, INTENT(inout) :: out(:,:,:)
+    !
+    !
+    INTEGER, ALLOCATABLE :: ipad(:)
+    INTEGER :: isize_nproma, isize_nblks
+    INTEGER :: isize_in, isize_out, isize_lev
+    INTEGER :: idiscrep, k
+    !
+    isize_in = SIZE(in,1)
+    isize_out = SIZE(out,1)*SIZE(out,3)
+    isize_lev = SIZE(in,2)
+    idiscrep = isize_out-isize_in
+    !
+    isize_nproma = SIZE(out,1)
+    isize_nblks = SIZE(out,3)
+    !
+    IF (idiscrep /= 0) THEN
+      ALLOCATE(ipad(idiscrep))
+      ipad = 0
+    ENDIF
+    !
+    DO k = 1, isize_lev
+      IF (idiscrep == 0) THEN
+        out(:,k,:) = RESHAPE(in(:,k),(/isize_nproma,isize_nblks/))
+      ELSE
+        out(:,k,:) = RESHAPE(in(:,k),(/isize_nproma,isize_nblks/), ipad)
+      ENDIF
+    ENDDO
+    !
+    IF (idiscrep /= 0) THEN
+      DEALLOCATE(ipad)
+    ENDIF
+    !
+  END SUBROUTINE reorder_foreward_i3d
+  !
+  !================================================================================================ 
+  ! LOGICAL SECTION -------------------------------------------------------------------------------
+  !
+  SUBROUTINE reorder_backward_l2d(in, out)
+    LOGICAL, INTENT(in)    :: in(:,:)
+    LOGICAL, INTENT(inout) :: out(:)
+    !
+    LOGICAL, ALLOCATABLE    :: lmask(:)
+    INTEGER ::  isize_in, isize_out
+    INTEGER :: idiscrep
+    !
+    isize_in  = SIZE(in)
+    isize_out = SIZE(out)
+    idiscrep = isize_in-isize_out
+    !
+    IF(idiscrep == 0 )THEN
+      out = RESHAPE(in,(/ isize_out /))
+    ELSE
+      ALLOCATE (lmask(isize_in))
+      lmask(1:isize_out) = .TRUE.
+      lmask(isize_out+1:isize_in) = .FALSE.
+      out = PACK(RESHAPE(in,(/isize_in/)),lmask)
+      DEALLOCATE (lmask)
+    ENDIF
+    !
+  END SUBROUTINE reorder_backward_l2d
+  !
+  SUBROUTINE reorder_backward_l3d(in, out)
+    LOGICAL, INTENT(in)    :: in(:,:,:)
+    LOGICAL, INTENT(inout) :: out(:,:)
+    !
+    LOGICAL, ALLOCATABLE    :: lmask(:)
+    INTEGER ::isize_in, isize_out, isize_lev
+    INTEGER :: idiscrep, k
+    !
+    isize_in  = SIZE(in,1)*SIZE(in,3)
+    isize_out = SIZE(out,1)
+    isize_lev = SIZE(in,2)
+    idiscrep = isize_in-isize_out
+    !
+    IF (idiscrep /= 0 )THEN
+      ALLOCATE (lmask(isize_in))
+      lmask(1:isize_out) = .TRUE.
+      lmask(isize_out+1:isize_in) = .FALSE.
+    ENDIF
+    !
+    DO k = 1, isize_lev
+      IF (idiscrep /= 0 )THEN
+        out(:,k) = PACK(RESHAPE(in(:,k,:),(/isize_in/)),lmask)
+      ELSE
+        out(:,k) =      RESHAPE(in(:,k,:),(/isize_out/))
+      ENDIF
+    ENDDO
+    !   
+    IF (idiscrep /= 0 )THEN
+      DEALLOCATE (lmask)
+    ENDIF
+    !
+  END SUBROUTINE reorder_backward_l3d
+  !
+  SUBROUTINE reorder_foreward_l2d(in, out)
+    LOGICAL, INTENT(in)    :: in(:)
+    LOGICAL, INTENT(inout) :: out(:,:)
+    !
+    LOGICAL, ALLOCATABLE :: lpad(:)
+    INTEGER :: isize_nproma, isize_nblks
+    INTEGER :: isize_in, isize_out
+    INTEGER :: idiscrep
+    !
+    isize_in = SIZE(in)
+    isize_out = SIZE(out)
+    idiscrep = isize_out-isize_in
+    !
+    isize_nproma = SIZE(out,1)
+    isize_nblks = SIZE(out,2)
+    !
+    IF (idiscrep == 0) THEN
+      out = RESHAPE(in,(/isize_nproma,isize_nblks/))
+    ELSE
+      ALLOCATE(lpad(idiscrep))
+      lpad = .FALSE.
+      out = RESHAPE(in,(/isize_nproma,isize_nblks/), lpad)
+      DEALLOCATE(lpad)
+    ENDIF
+    !
+  END SUBROUTINE reorder_foreward_l2d
+  !
+  SUBROUTINE reorder_foreward_l3d(in, out)
+    LOGICAL, INTENT(in)    :: in(:,:)
+    LOGICAL, INTENT(inout) :: out(:,:,:)
+    !
+    !
+    LOGICAL, ALLOCATABLE :: lpad(:)
+    INTEGER :: isize_nproma, isize_nblks
+    INTEGER :: isize_in, isize_out, isize_lev
+    INTEGER :: idiscrep, k
+    !
+    isize_in = SIZE(in,1)
+    isize_out = SIZE(out,1)*SIZE(out,3)
+    isize_lev = SIZE(in,2)
+    idiscrep = isize_out-isize_in
+    !
+    isize_nproma = SIZE(out,1)
+    isize_nblks = SIZE(out,3)
+    !
+    IF (idiscrep /= 0) THEN
+      ALLOCATE(lpad(idiscrep))
+      lpad = .FALSE.
+    ENDIF
+    !
+    DO k = 1, isize_lev
+      IF (idiscrep == 0) THEN
+        out(:,k,:) = RESHAPE(in(:,k),(/isize_nproma,isize_nblks/))
+      ELSE
+        out(:,k,:) = RESHAPE(in(:,k),(/isize_nproma,isize_nblks/), lpad)
+      ENDIF
+    ENDDO
+    !
+    IF (idiscrep /= 0) THEN
+      DEALLOCATE(lpad)
+    ENDIF
+    !
+  END SUBROUTINE reorder_foreward_l3d
+  !
+  !------------------------------------------------------------------------------------------------
+  !
 END MODULE mo_io_restart_distribute
-
