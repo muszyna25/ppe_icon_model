@@ -486,8 +486,8 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 !$OMP END PARALLEL WORKSHARE
 !$OMP END PARALLEL
 
-!        IF (iwtr<=nsfc_type) prm_diag%z0m_tile(:,:,iwtr) = 1.e-3_wp !see init_surf in echam (or z0m_oce?)
-!        IF (iice<=nsfc_type) prm_diag%z0m_tile(:,:,iice) = 1.e-3_wp !see init_surf in echam (or z0m_ice?)
+        IF (iwtr<=nsfc_type) prm_diag%z0m_tile(:,:,iwtr) = 1.e-3_wp !see init_surf in echam (or z0m_oce?)
+        IF (iice<=nsfc_type) prm_diag%z0m_tile(:,:,iice) = 1.e-3_wp !see init_surf in echam (or z0m_ice?)
         IF (ilnd<=nsfc_type) prm_diag%z0m_tile(:,:,ilnd) = z0m_min ! or maybe a larger value?
 
 !    ENDIF

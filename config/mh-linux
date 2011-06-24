@@ -221,7 +221,7 @@ case "$ac_sitename" in
                         IB_LIBS    = -lrdmacm -libverbs -lnuma -ldl -Wl,--export-dynamic -lnsl -lutil -lm -ldl
                         MPIROOT    = /sw/sles10-x64/ofed/openmpi-1.4.0-nag52
                         MPI_LIB    = -Wl,-pthread -lmpi_f90 -lmpi_f77 -lmpi -lopen-rte -lopen-pal "$IB_LIBS"
-                        load_modules="NAG/5.2.668" "gcc/4.5.2" "${load_modules}"
+                        load_modules="NAG/5.2.721" "gcc/4.5.2" "${load_modules}"
                         ;;
                     pgi)
                         IB_LIBS    = -lrdmacm -libverbs -lnuma -ldl -Wl,--export-dynamic -lnsl -lutil -lm -ldl

@@ -708,7 +708,6 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
     CALL add_var( diag_list, 'acdnc', diag%acdnc,                             &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc, ldims=shape3d, &
                 &  initval_r=220.0e6_wp )
-
     diag%acdnc(:,:,:)=220.0e6_wp
 
     !------------------
@@ -1109,6 +1108,7 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shapesfc ,&
                 &  initval_r=1.e-3_wp ,&
                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+!         diag%z0m_tile(:,:,:)=1.e-3_wp
 
      ALLOCATE(diag%z0m_ptr(nsfc_type))
       DO jsfc = 1,nsfc_type
