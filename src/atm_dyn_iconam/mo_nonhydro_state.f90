@@ -51,13 +51,16 @@ MODULE mo_nonhydro_state
   USE mo_model_domain_import, ONLY: n_dom, l_limited_area
   USE mo_nonhydrostatic_nml,  ONLY: l_nest_rcf
   USE mo_dynamics_nml,        ONLY: nsav1, nsav2, itime_scheme
+  USE mo_advection_nml,       ONLY: ctracer_list
   USE mo_run_nml,             ONLY: nproma, i_cell_type, iforcing,             &
     &                               inwp, ltransport, ntracer, ntracer_static, &
-    &                               inextra_2d, inextra_3d
+    &                               inextra_2d, inextra_3d,&
+    &                               iqv, iqc, iqi, iqr, iqs, io3
+  USE mo_radiation_nml,       ONLY: irad_o3
   USE mo_io_nml,              ONLY: lwrite_extra
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: default_var_list_settings, &
-    &                               add_var,                   &
+    &                               add_var,  add_ref,          &
     &                               new_var_list,              &
     &                               delete_var_list
   USE mo_cf_convention
@@ -80,6 +83,15 @@ MODULE mo_nonhydro_state
   PUBLIC :: destruct_nh_state     ! Destructor for the nonhydrostatic state
 
   PUBLIC :: t_buffer_memory, bufr
+  PUBLIC :: t_ptr_3d
+
+  !>
+  !! Derived data type for building pointer arrays
+  !!
+  TYPE t_ptr_3d
+    REAL(wp),POINTER :: p(:,:,:)  ! pointer to 3D (spatial) array
+  END TYPE t_ptr_3d
+
 
   ! prognostic variables state vector
   TYPE t_nh_prog
@@ -94,8 +106,10 @@ MODULE mo_nonhydro_state
       tracer(:,:,:,:),   & !! tracer concentration (nproma,nlev,nblks_c,ntracer) [kg/kg]
       tke   (:,:,:)        !! SQRT(2 * turbulent kinetik energy)                 [ m/s ]
                            !! (defined on half levels) with 2 time levels
+    TYPE(t_ptr_3d),ALLOCATABLE :: tracer_ptr(:)  !< pointer array: one pointer for each tracer
 
   END TYPE t_nh_prog
+
 
   ! diagnostic variables state vector
   TYPE t_nh_diag
@@ -202,6 +216,15 @@ MODULE mo_nonhydro_state
     REAL(wp), POINTER :: &
       vn_con(:,:,:),     &! contravariant normal wind (nproma,nlev,nblks_e)[m/s]
       omega_t(:,:,:)      ! tangent. horiz. vorticity (nproma,nlev,nblks_e)[1/s]
+
+    TYPE(t_ptr_3d),ALLOCATABLE :: ddt_grf_trc_ptr(:)  !< pointer array: one pointer for each tracer
+    TYPE(t_ptr_3d),ALLOCATABLE :: hfl_trc_ptr    (:)  !< pointer array: one pointer for each tracer
+    TYPE(t_ptr_3d),ALLOCATABLE :: vfl_trc_ptr    (:)  !< pointer array: one pointer for each tracer
+    TYPE(t_ptr_3d),ALLOCATABLE :: ddt_trc_adv_ptr(:)  !< pointer array: one pointer for each tracer
+    TYPE(t_ptr_3d),ALLOCATABLE :: ddt_trc_phy_ptr(:)  !< pointer array: one pointer for each tracer
+
+    TYPE(t_ptr_3d),ALLOCATABLE :: ddt_vn_adv_ptr(:)  !< pointer array: one pointer for each tracer
+    TYPE(t_ptr_3d),ALLOCATABLE :: ddt_w_adv_ptr (:)  !< pointer array: one pointer for each tracer
 
   END TYPE t_nh_diag
 
@@ -417,7 +440,7 @@ MODULE mo_nonhydro_state
 
     LOGICAL  :: l_alloc_tracer
 
-    CHARACTER(len=MAX_CHAR_LENGTH) :: listname
+    CHARACTER(len=MAX_CHAR_LENGTH) :: listname, varname_prefix
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nonhydro_state:construct_nh_state'
@@ -481,8 +504,10 @@ MODULE mo_nonhydro_state
 
         WRITE(listname,'(a,i2.2,a,i2.2)') 'nh_state_prog_of_domain_',jg, &
           &                               '_and_timelev_',jt
+        WRITE(varname_prefix,'(a,i2.2,a)') 'nh_prog_TL',jt,'_'
         CALL construct_nh_state_prog_list(p_patch(jg), p_nh_state(jg)%prog(jt), &
-          &  p_nh_state(jg)%prog_list(jt), listname, l_alloc_tracer)
+          &  p_nh_state(jg)%prog_list(jt), listname, TRIM(varname_prefix)     , &
+          &  l_alloc_tracer)
 
       ENDDO
 
@@ -584,7 +609,7 @@ MODULE mo_nonhydro_state
   !! Initial release by Almut Gassmann (2009-03-06)
   !!
   SUBROUTINE construct_nh_state_prog_list ( p_patch, p_prog, p_prog_list,  &
-    &                                       listname, l_alloc_tracer)
+    &                                       listname,vname_prefix, l_alloc_tracer)
 !
     TYPE(t_patch), TARGET, INTENT(IN) :: & !< current patch
       &  p_patch
@@ -595,7 +620,7 @@ MODULE mo_nonhydro_state
     TYPE(t_var_list), INTENT(INOUT)   :: p_prog_list !< current prognostic state list
 
     CHARACTER(len=*), INTENT(IN)      :: & !< list name
-      &  listname
+      &  listname, vname_prefix
 
     LOGICAL, INTENT(IN) :: l_alloc_tracer  !< allocate tracer fields if true
 
@@ -606,7 +631,7 @@ MODULE mo_nonhydro_state
     INTEGER :: nblks_c, &    !< number of cell blocks to allocate
                nblks_e       !< number of edge blocks to allocate
 
-    INTEGER :: nlev, nlevp1
+    INTEGER :: nlev, nlevp1, ktracer
 
     INTEGER :: shape3d_c(3), shape3d_e(3), shape3d_chalf(3), &
       &        shape4d_c(4)
@@ -646,24 +671,24 @@ MODULE mo_nonhydro_state
     ! vn           p_prog%vn(nproma,nlev,nblks_e)
     cf_desc    = t_cf_var('normal_velocity', 'm s-1', 'velocity normal to edge')
     grib2_desc = t_grib2_var(0, 2, 197, ientr, GRID_REFERENCE, GRID_EDGE)
-    CALL add_var( p_prog_list, 'vn', p_prog%vn,                                 &
-      &           GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+    CALL add_var( p_prog_list, vname_prefix//'vn', p_prog%vn,                      &
+      &           GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
       &           ldims=shape3d_e )
 
 
     ! rho          p_prog%rho(nproma,nlev,nblks_c)
     cf_desc    = t_cf_var('density', 'kg m-3', 'density')
     grib2_desc = t_grib2_var(0, 3, 10, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_prog_list, 'rho', p_prog%rho,                               &
-      &           GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+    CALL add_var( p_prog_list, vname_prefix//'rho', p_prog%rho,                   &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,      &
       &           ldims=shape3d_c )
 
 
     ! exner        p_prog%exner(nproma,nlev,nblks_c)
     cf_desc    = t_cf_var('exner_pressure', '-', 'exner pressure')
     grib2_desc = t_grib2_var(0, 3, 195, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_prog_list, 'exner', p_prog%exner,                           &
-      &           GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+    CALL add_var( p_prog_list, vname_prefix//'exner', p_prog%exner,              &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,     &
       &           ldims=shape3d_c )
 
 
@@ -671,28 +696,87 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('virtual_potential_temperature', 'K', 'virtual potential temperature')
     grib2_desc = t_grib2_var(0, 0, 1, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_prog_list, 'theta_v', p_prog%theta_v,                       &
-      &           GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
       &           ldims=shape3d_c )
 
 
     ! rhotheta_v   p_prog%rhotheta_v(nproma,nlev,nblks_c)
     cf_desc    = t_cf_var('rho_virt_pot_temp', 'K', 'rho virt pot temp')
     grib2_desc = t_grib2_var(0, 19, 192, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_prog_list, 'rhotheta_v', p_prog%rhotheta_v,                 &
-      &           GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+    CALL add_var( p_prog_list, vname_prefix//'rhotheta_v', p_prog%rhotheta_v,    &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,     &
       &           ldims=shape3d_c )
 
+    ! Tracer array for (model) internal use
 
     ! tracer         p_prog%tracer(nproma,nlev,nblks_c,ntracer+ntracer_static)
     IF ( (ltransport .OR. iforcing == inwp) .AND. l_alloc_tracer  ) THEN
       cf_desc    = t_cf_var('tracer', 'kg kg-1', 'tracer')
       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_prog_list, 'tracer', p_prog%tracer,                       &
-        &           GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
-        &           ldims=shape4d_c )
-    ENDIF
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
+        &           ldims=shape4d_c ,                                           &
+                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
 
 
+      ! Reference to individual tracer, for I/O
+
+    ktracer=ntracer+ntracer_static
+    ALLOCATE( p_prog%tracer_ptr(ktracer) )
+
+           !QV
+        CALL add_ref( p_prog_list, 'tracer',                                   &
+                    & vname_prefix//'qv', p_prog%tracer_ptr(iqv)%p,            &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                    &
+                    & t_cf_var(vname_prefix//'qv',                             &
+                    &  'kg kg-1','specific_humidity'),                         &
+                    & t_grib2_var(0, 1, 0, ientr, GRID_REFERENCE, GRID_CELL),  &
+                    & ldims=shape3d_c)
+           !QC
+        CALL add_ref( p_prog_list, 'tracer',&
+                    & vname_prefix//'qc', p_prog%tracer_ptr(iqc)%p,                &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                        &
+                    & t_cf_var(vname_prefix//'qc',                                 &
+                    &  'kg kg-1', 'specific_cloud_water_content'),                 &
+                    & t_grib2_var(192, 201, 31, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_c)
+           !QI
+        CALL add_ref( p_prog_list, 'tracer',                                       &
+                    & vname_prefix//'qi', p_prog%tracer_ptr(iqi)%p,                &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                        &
+                    & t_cf_var(vname_prefix//'qi',                                 & 
+                    &  'kg kg-1','specific_cloud_ice_content'),                    &
+                    & t_grib2_var(192, 201, 33, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_c)
+           !QR
+        CALL add_ref( p_prog_list, 'tracer',                                    &
+                    & vname_prefix//'qr', p_prog%tracer_ptr(iqr)%p,             &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                     &
+                    & t_cf_var(vname_prefix//'qr',                              &       
+                    &  'kg kg-1','rain_mixing_ratio'),                          &
+                    & t_grib2_var(0, 1, 24, ientr, GRID_REFERENCE, GRID_CELL),  &
+                    & ldims=shape3d_c)
+           !QS
+        CALL add_ref( p_prog_list, 'tracer',                                   &
+                    & vname_prefix//'qs', p_prog%tracer_ptr(iqs)%p,            &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                    &
+                    & t_cf_var(vname_prefix//'qs',                             &
+                    &  'kg kg-1','snow_mixing_ratio'),                         &
+                    & t_grib2_var(0, 1, 25, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_c)
+
+        IF(irad_o3 == 3) THEN
+           !O3
+          CALL add_ref( p_prog_list, 'tracer',                                   &
+            & vname_prefix//'O3', p_prog%tracer_ptr(io3)%p,            &
+            & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                    &
+            & t_cf_var(vname_prefix//'O3',                             &
+            &  'kg kg-1','ozone_mass_mixing_ratio'),                   &
+            & t_grib2_var(0, 14, 1, ientr, GRID_REFERENCE, GRID_CELL), &
+            & ldims=shape3d_c)
+        ENDIF
+
+    ENDIF ! ltransport or iforcing
     !
     ! variables defined at half levels 
     !
@@ -700,8 +784,8 @@ MODULE mo_nonhydro_state
     ! w            p_prog%w(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('upward air velocity', 'm s-1', 'upward air velocity')
     grib2_desc = t_grib2_var(0, 2, 9, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_prog_list, 'w', p_prog%w,                                   &
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,     &
+    CALL add_var( p_prog_list, vname_prefix//'w', p_prog%w,                          &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,     &
       &          ldims=shape3d_chalf )
 
 
@@ -709,10 +793,10 @@ MODULE mo_nonhydro_state
     IF ( iforcing == inwp ) THEN
       cf_desc    = t_cf_var('turbulent_kinetic_energy', 'm2 s-2', 'turbulent kinetic energy')
       grib2_desc = t_grib2_var(0, 19, 11, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_prog_list, 'tke', p_prog%tke, GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, &
+      CALL add_var( p_prog_list, vname_prefix//'tke', p_prog%tke, &
+           &        GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, &
         &           cf_desc, grib2_desc, ldims=shape3d_chalf )
     ENDIF
-
 
   END SUBROUTINE construct_nh_state_prog_list
 
@@ -764,6 +848,9 @@ MODULE mo_nonhydro_state
       &        shape3d_ctra(3), shape2d_extra(3), shape3d_extra(4)
  
     INTEGER :: ientr         !< "entropy" of horizontal slice
+    INTEGER :: jt
+
+    CHARACTER(LEN=2) :: ctrc
     !--------------------------------------------------------------
 
     !determine size of arrays
@@ -809,14 +896,12 @@ MODULE mo_nonhydro_state
                                   & lrestart=.TRUE.,           &
                                   & restart_type=FILETYPE_NC2  )
 
-
-
     ! u           p_diag%u(nproma,nlev,nblks_c)
     !
     cf_desc    = t_cf_var('eastward_wind', 'm s-1', 'u-component of wind')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'u', p_diag%u,                                   &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_c )
 
 
@@ -825,7 +910,7 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('northward_wind', 'm s-1', 'v-component of wind')
     grib2_desc = t_grib2_var(0, 2, 3, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'v', p_diag%v,                                   &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_c )
 
     ! vt           p_diag%vt(nproma,nlev,nblks_e)
@@ -833,7 +918,7 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('tangential_wind', 'm s-1', 'tangential-component of wind')
     grib2_desc = t_grib2_var(0, 2, 198, ientr, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_diag_list, 'vt', p_diag%vt,                                 &
-                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_e )
 
 
@@ -842,7 +927,7 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('specific_kinetic_energy', 'm2 s-2', 'specific kinetic energy')
     grib2_desc = t_grib2_var(0, 2, 196, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'e_kin', p_diag%e_kin,                           &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_c )
 
 
@@ -851,7 +936,7 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('vertical_vorticity', 'm s-1', 'vertical voritcity')
     grib2_desc = t_grib2_var(0, 2, 197, ientr, GRID_REFERENCE, GRID_VERTEX)
     CALL add_var( p_diag_list, 'omega_z', p_diag%omega_z,                       &
-                & GRID_UNSTRUCTURED_VERT, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_VERT, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_v )
 
 
@@ -860,7 +945,7 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('normal_wind_tendency', 'm s-2', 'normal wind tendency')
     grib2_desc = t_grib2_var(0, 2, 198, ientr, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_diag_list, 'ddt_vn', p_diag%ddt_vn,                         &
-                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_e )
 
 
@@ -870,7 +955,7 @@ MODULE mo_nonhydro_state
       &                   'normal wind physical tendency')
     grib2_desc = t_grib2_var(0, 2, 199, ientr, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_diag_list, 'ddt_vn_phy', p_diag%ddt_vn_phy,                 &
-                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_e )
 
 
@@ -879,7 +964,7 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('vertical_wind_tendency', 'm s-2', 'vertical wind tendency')
     grib2_desc = t_grib2_var(0, 2, 200, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'ddt_w', p_diag%ddt_w,                           &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,    &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_chalf )
 
 
@@ -888,7 +973,7 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('exner_pressure_tendency', 's-1', 'exner pressure tendency')
     grib2_desc = t_grib2_var(0, 3, 196, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'ddt_exner', p_diag%ddt_exner,                   &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_c )
 
 
@@ -898,7 +983,7 @@ MODULE mo_nonhydro_state
       &                   'exner pressure physical tendency')
     grib2_desc = t_grib2_var(0, 3, 197, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'ddt_exner_phy', p_diag%ddt_exner_phy,           &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_c )
 
 
@@ -907,7 +992,7 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('old_exner_pressure', '-', 'old exner pressure')
     grib2_desc = t_grib2_var(0, 3, 196, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'exner_old', p_diag%exner_old,                   &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_c )
 
 
@@ -917,7 +1002,7 @@ MODULE mo_nonhydro_state
       &                   'contravariant_vertical_wind')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'w_con', p_diag%w_con,                           &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,    &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_chalf )
 
 
@@ -940,7 +1025,7 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('temperature', 'K', 'temperature')
     grib2_desc = t_grib2_var(0, 0, 0, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'temp', p_diag%temp,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_c )
 
 
@@ -949,7 +1034,7 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('virtual_temperature', 'K', 'virtual temperature')
     grib2_desc = t_grib2_var(0, 0, 192, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'tempv', p_diag%tempv,                           &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_c )
 
 
@@ -958,7 +1043,7 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('temperature', 'K', 'temperature at half level')
     grib2_desc = t_grib2_var(0, 0, 0, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'temp_ifc', p_diag%temp_ifc,                     &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,    &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_chalf )
 
 
@@ -967,7 +1052,7 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('pressure', 'Pa', 'pressure')
     grib2_desc = t_grib2_var(0, 3, 0, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'pres', p_diag%pres,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_c )
 
 
@@ -976,7 +1061,7 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('pressure', 'Pa', 'pressure at half level')
     grib2_desc = t_grib2_var(0, 3, 0, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'pres_ifc', p_diag%pres_ifc,                     &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,    &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_chalf )
 
 
@@ -985,7 +1070,7 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('pressure_thickness', 'Pa', 'pressure thickness')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'dpres_mc', p_diag%dpres_mc,                     &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_c )
 
 
@@ -994,7 +1079,7 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('divergence', 's-1', 'divergence')
     grib2_desc = t_grib2_var( 0, 2, 13, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'div', p_diag%div,                               &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_c )
 
 
@@ -1004,7 +1089,7 @@ MODULE mo_nonhydro_state
        &         'horizontal mass flux at edges')
     grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_diag_list, 'mass_fl_e', p_diag%mass_fl_e,                   &
-                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_e )
 
 
@@ -1013,7 +1098,7 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('density', 'kg m-3', 'density at half level')
     grib2_desc = t_grib2_var( 0, 3, 10, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'rho_ic', p_diag%rho_ic,                         &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,    &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_chalf )
 
 
@@ -1023,7 +1108,7 @@ MODULE mo_nonhydro_state
       &                   'contravariant vertical correction')
     grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'w_concorr_c', p_diag%w_concorr_c,               &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,    &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_chalf )
 
 
@@ -1033,7 +1118,7 @@ MODULE mo_nonhydro_state
       &                   'horizontal specific kinetic energy')
     grib2_desc = t_grib2_var( 0, 2, 196, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'e_kinh', p_diag%e_kinh,                         &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_c )
 
 
@@ -1044,7 +1129,7 @@ MODULE mo_nonhydro_state
         &                   'normal wind at half level')
       grib2_desc = t_grib2_var( 0, 2, 197, ientr, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_diag_list, 'vn_ie', p_diag%vn_ie,                         &
-                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
                   & ldims=shape3d_ehalf )
 
 
@@ -1054,7 +1139,7 @@ MODULE mo_nonhydro_state
         &                   'virtual_potential temperature at half levels')
       grib2_desc = t_grib2_var( 0, 0, 1, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'theta_v_ic', p_diag%theta_v_ic,               &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
                   & ldims=shape3d_chalf )
 
 
@@ -1064,8 +1149,20 @@ MODULE mo_nonhydro_state
         &                   'advective normal wind tendency')
       grib2_desc = t_grib2_var( 0, 2, 201, ientr, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_diag_list, 'ddt_vn_adv', p_diag%ddt_vn_adv,               &
-                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
-                  & ldims=shape4d_entl )
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
+                  & ldims=shape4d_entl ,&
+                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+
+      ALLOCATE(p_diag%ddt_vn_adv_ptr(n_timlevs))
+      DO jt =1,n_timlevs
+        WRITE(ctrc,'(I2.2)')jt
+        CALL add_ref( p_diag_list, 'ddt_vn_adv',                      &
+                    & 'ddt_adv_vn'//ctrc, p_diag%ddt_vn_adv_ptr(jt)%p,             &
+                    & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT,                    &
+                    & t_cf_var('ddt_adv_vn'//ctrc, 'm s-2',''),         &
+                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_e)
+      ENDDO
 
 
       ! ddt_w_adv    p_diag%ddt_w_adv(nproma,nlevp1,nblks_c,n_timlevs)
@@ -1074,9 +1171,20 @@ MODULE mo_nonhydro_state
         &                   'advective vertical wind tendency')
       grib2_desc = t_grib2_var( 0, 2, 202, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'ddt_w_adv', p_diag%ddt_w_adv,                 &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
-                  & ldims=shape4d_chalfntl )
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
+                  & ldims=shape4d_chalfntl ,&
+                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
 
+      ALLOCATE(p_diag%ddt_w_adv_ptr(n_timlevs))
+      DO jt =1,n_timlevs
+        WRITE(ctrc,'(I2.2)')jt
+        CALL add_ref( p_diag_list, 'ddt_w_adv',                      &
+                    & 'ddt_w_adv'//ctrc, p_diag%ddt_w_adv_ptr(jt)%p,             &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                    &
+                    & t_cf_var('ddt_adv_w'//ctrc, 'm s-2',''),         &
+                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_chalf)
+      ENDDO
 
       ! grf_tend_vn  p_diag%grf_tend_vn(nproma,nlev,nblks_e)
       !
@@ -1084,7 +1192,7 @@ MODULE mo_nonhydro_state
         &                   'normal wind tendency (grid refinement)')
       grib2_desc = t_grib2_var( 0, 2, 203, ientr, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_diag_list, 'grf_tend_vn', p_diag%grf_tend_vn,             &
-                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_e )
 
 
@@ -1094,7 +1202,7 @@ MODULE mo_nonhydro_state
         &                   'vertical wind tendency (grid refinement)')
       grib2_desc = t_grib2_var( 0, 2, 204, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'grf_tend_w', p_diag%grf_tend_w,               &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
                   & ldims=shape3d_chalf )
 
       ! grf_tend_rho   p_diag%grf_tend_rho(nproma,nlev,nblks_c)
@@ -1103,7 +1211,7 @@ MODULE mo_nonhydro_state
         &                   'density tendency (grid refinement)')
       grib2_desc = t_grib2_var( 0, 3, 198, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'grf_tend_rho', p_diag%grf_tend_rho,           &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_c )
 
       ! grf_tend_thv   p_diag%grf_tend_thv(nproma,nlev,nblks_c)
@@ -1112,7 +1220,7 @@ MODULE mo_nonhydro_state
         &                   'virtual potential temperature tendency (grid refinement)')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'grf_tend_thv', p_diag%grf_tend_thv,           &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_c )
 
 
@@ -1237,7 +1345,7 @@ MODULE mo_nonhydro_state
         &                   'virtual potential temperature at half level')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'theta_v_ic', p_diag%theta_v_ic,               &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
                   & ldims=shape3d_chalf )
 
 
@@ -1247,7 +1355,7 @@ MODULE mo_nonhydro_state
         &                   '(nnow+nnew)/2 from impl. vert. adv. of theta_v')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'theta_v_impl', p_diag%theta_v_impl,           &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_c )
 
       ! theta_v_ave   p_diag%theta_v_ave(nproma,nlev,nblks_c)
@@ -1256,7 +1364,7 @@ MODULE mo_nonhydro_state
         &                   'time average from horiz. adv. of theta_v')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'theta_v_ave', p_diag%theta_v_ave,           &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_c )
 
 
@@ -1266,7 +1374,7 @@ MODULE mo_nonhydro_state
         &                   'covariant horizontal pressure gradient')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_diag_list, 'horpgrad', p_diag%horpgrad,                   &
-                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_e )
 
 
@@ -1276,7 +1384,7 @@ MODULE mo_nonhydro_state
         &                   'covariant normal wind')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_diag_list, 'vn_cov', p_diag%vn_cov,                       &
-                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_e )
 
 
@@ -1286,7 +1394,7 @@ MODULE mo_nonhydro_state
         &                   'covariant vertical wind at half level')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'w_cov', p_diag%w_cov,                         &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  & 
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  & 
                   & ldims=shape3d_chalf )
 
       ! rho_e        p_diag%rho_e(nproma,nlev,nblks_e)
@@ -1295,7 +1403,7 @@ MODULE mo_nonhydro_state
         &                   'density_at_edges_nnow')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_diag_list, 'rho_e', p_diag%rho_e,                              &
-                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_e )
 
       ! rho_star_e   p_diag%rho_star_e(nproma,nlev,nblks_e)
@@ -1304,7 +1412,7 @@ MODULE mo_nonhydro_state
         &                   'density_at_edges_estim_step')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_diag_list, 'rho_star_e', p_diag%rho_star_e,                    &
-                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_e )
 
       ! omega_t_con  p_diag%omega_t_con(nproma,nlevp1,nblks_e)
@@ -1313,7 +1421,7 @@ MODULE mo_nonhydro_state
         &                   'tangential horiz. contravariant vorticity')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_diag_list, 'omega_t_con', p_diag%omega_t_con,             &
-                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
                   & ldims=shape3d_ehalf )
 
 
@@ -1322,7 +1430,7 @@ MODULE mo_nonhydro_state
       cf_desc    = t_cf_var('zonal_vorticity', 's-1', 'zonal vorticity')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'omega_x', p_diag%omega_x,                     &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_c )
 
 
@@ -1331,7 +1439,7 @@ MODULE mo_nonhydro_state
       cf_desc    = t_cf_var('meridional_vorticity', 's-1', 'meridional vorticity')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'omega_y', p_diag%omega_y,                     &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_c )
 
 
@@ -1341,7 +1449,7 @@ MODULE mo_nonhydro_state
         &                   'contravariant vertical vorticity')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_VERTEX)
       CALL add_var( p_diag_list, 'omega_z_con', p_diag%omega_z_con,             &
-                  & GRID_UNSTRUCTURED_VERT, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_VERT, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_v )
 
 
@@ -1351,7 +1459,7 @@ MODULE mo_nonhydro_state
         &                   'normal wind tendency from vorticity flux term')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_diag_list, 'ddt_vn_vort', p_diag%ddt_vn_vort,             &
-                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_e )
 
 
@@ -1361,7 +1469,7 @@ MODULE mo_nonhydro_state
         &                   'vert. wind tendency from vorticity flux term')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'ddt_w_vort', p_diag%ddt_w_vort,               &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
                   & ldims=shape3d_chalf )
 
       ! ddt_w_phy   p_diag%ddt_w_phy(nproma,nlevp1,nblks_c)
@@ -1370,7 +1478,7 @@ MODULE mo_nonhydro_state
         &                   'vertical wind tendency from physics')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'ddt_w_phy', p_diag%ddt_w_phy,                      &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
                   & ldims=shape3d_chalf )
 
     ENDIF
@@ -1386,8 +1494,20 @@ MODULE mo_nonhydro_state
         &                   'tracer_tendency for grid refinement')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'grf_tend_tracer', p_diag%grf_tend_tracer,     &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
-                  & ldims=shape4d_c )
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
+                  & ldims=shape4d_c ,&
+                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+
+      ALLOCATE(p_diag%ddt_grf_trc_ptr(ntracer))
+      DO jt =1,ntracer
+        WRITE(ctrc,'(I2.2)')jt
+        CALL add_ref( p_diag_list, 'grf_tend_tracer',                      &
+                    & 'ddt_grf_q'//ctrc, p_diag%ddt_grf_trc_ptr(jt)%p,             &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                    &
+                    & t_cf_var('ddt_grf_q'//ctrc, 'kg kg-1 s**-1',''),         &
+                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_c)
+      ENDDO
 
 
       ! hfl_tracer   p_diag%hfl_tracer(nproma,nlev,nblks_e,ntracer)
@@ -1396,8 +1516,20 @@ MODULE mo_nonhydro_state
         &                   'horizontal tracer flux')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_diag_list, 'hfl_tracer', p_diag%hfl_tracer,               &
-                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
-                  & ldims=shape4d_e )
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
+                  & ldims=shape4d_e ,&
+                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+
+      ALLOCATE(p_diag%hfl_trc_ptr(ntracer))
+      DO jt =1,ntracer
+        WRITE(ctrc,'(I2.2)')jt
+        CALL add_ref( p_diag_list, 'hfl_tracer',                      &
+                    & 'hfl_q'//ctrc, p_diag%hfl_trc_ptr(jt)%p,             &
+                    & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT,                    &
+                    & t_cf_var('hfl_q'//ctrc, 'kg m-1 s-1',''),         &
+                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_e)
+      ENDDO
 
 
       ! vfl_tracer   p_diag%vfl_tracer(nproma,nlevp1,nblks_c,ntracer)
@@ -1406,8 +1538,20 @@ MODULE mo_nonhydro_state
         &                   'vertical tracer flux')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'vfl_tracer', p_diag%vfl_tracer,               &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
-                  & ldims=shape4d_chalf )
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
+                  & ldims=shape4d_chalf ,&
+                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+
+      ALLOCATE(p_diag%vfl_trc_ptr(ntracer))
+      DO jt =1,ntracer
+        WRITE(ctrc,'(I2.2)')jt
+        CALL add_ref( p_diag_list, 'vfl_tracer',                      &
+                    & 'vfl_q'//ctrc, p_diag%vfl_trc_ptr(jt)%p,             &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                    &
+                    & t_cf_var('vfl_q'//ctrc, 'kg m-1 s-1',''),         &
+                    & t_grib2_var(255,255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_chalf)
+      ENDDO
 
 
       ! ddt_tracer_adv   p_diag%ddt_tracer_adv(nproma,nlev,nblks_c,ntracer)
@@ -1416,21 +1560,34 @@ MODULE mo_nonhydro_state
         &                   'advective tracer tendency')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'ddt_tracer_adv', p_diag%ddt_tracer_adv,       &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
-                  & ldims=shape4d_c )
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
+                  & ldims=shape4d_c ,&
+                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+
+      ALLOCATE(p_diag%ddt_trc_adv_ptr(ntracer))
+      DO jt =1,ntracer
+        WRITE(ctrc,'(I2.2)')jt
+        CALL add_ref( p_diag_list, 'ddt_tracer_adv',                      &
+                    & 'ddt_adv_q'//ctrc, p_diag%ddt_trc_adv_ptr(jt)%p,             &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                    &
+                    & t_cf_var('ddt_adv_q'//ctrc, 'kg kg-1 s-1',''),         &
+                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_c)
+      ENDDO
+
 
       ! tracer_vi(nproma,nblks_c,3), only Q1, Q2, Q3
       cf_desc    = t_cf_var('tracer_vi', '', 'tracer_vi')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'tracer_vi', p_diag%tracer_vi,                 &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=(/nproma, nblks_c,3/) )
 
       ! tracer_vi_avg(nproma,nblks_c,3), only Q1, Q2, Q3
       cf_desc    = t_cf_var('tracer_vi_avg', '', 'tracer_vi_avg')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'tracer_vi_avg', p_diag%tracer_vi_avg,             &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,      &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,      &
                   & ldims=(/nproma, nblks_c,3/) )
     ENDIF
 
@@ -1443,8 +1600,21 @@ MODULE mo_nonhydro_state
         &                   'physical tracer tendency')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_diag_list, 'ddt_tracer_phy', p_diag%ddt_tracer_phy,       &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
-                  & ldims=shape4d_c )
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
+                  & ldims=shape4d_c ,&
+                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+
+      ALLOCATE(p_diag%ddt_trc_phy_ptr(ntracer))
+      DO jt =1,ntracer
+        WRITE(ctrc,'(I2.2)') jt
+        CALL add_ref( p_diag_list, 'ddt_tracer_phy',                      &
+                    & 'ddt_phy_q'//ctrc, p_diag%ddt_trc_phy_ptr(jt)%p,             &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT,                    &
+                    & t_cf_var('ddt_phy_q'//ctrc, 'kg kg-1 s-1',''),         &
+                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_c)
+      ENDDO
+
     ENDIF
 
 
@@ -1469,12 +1639,11 @@ MODULE mo_nonhydro_state
         cf_desc    = t_cf_var('extra_fields_3D', '-', 'extra fields 3D')
         grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( p_diag_list, 'extra_3d', p_diag%extra_3d,                 &
-                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,     &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,     &
                     & ldims=shape3d_extra )
 
       ENDIF
     ENDIF
-
 
   END SUBROUTINE construct_nh_state_diag_list
 
@@ -1550,7 +1719,6 @@ MODULE mo_nonhydro_state
                                   & lrestart=.TRUE.,           &
                                   & restart_type=FILETYPE_NC2  )
 
-
     ! geometric height at the vertical interface of cells
     ! z_ifc        p_metrics%z_ifc(nproma,nlevp1,nblks_c)
     !
@@ -1558,7 +1726,7 @@ MODULE mo_nonhydro_state
       &                   'geometric height at half level center')
     grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_metrics_list, 'z_ifc', p_metrics%z_ifc,                     &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,    &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_chalf )
 
 
@@ -1569,7 +1737,7 @@ MODULE mo_nonhydro_state
       &                   'geometric height at full level center')
     grib2_desc = t_grib2_var( 0, 3, 6, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_metrics_list, 'z_mc', p_metrics%z_mc,                       &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_c )
 
 
@@ -1580,7 +1748,7 @@ MODULE mo_nonhydro_state
       &                   'geometric height at full level edge')
     grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_metrics_list, 'z_mc_e', p_metrics%z_mc_e,                   &
-                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_e )
 
 
@@ -1591,7 +1759,7 @@ MODULE mo_nonhydro_state
       &                   'terrain slope in normal direction')
     grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_metrics_list, 'ddxn_z_half', p_metrics%ddxn_z_half,         &
-                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,    &
+                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_ehalf )
 
 
@@ -1602,7 +1770,7 @@ MODULE mo_nonhydro_state
       &                   'terrain slope in normal direction')
     grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_metrics_list, 'ddxn_z_full', p_metrics%ddxn_z_full,         &
-                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_e )
 
 
@@ -1613,7 +1781,7 @@ MODULE mo_nonhydro_state
       &                   'terrain slope in tangential direction')
     grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_metrics_list, 'ddxt_z_half', p_metrics%ddxt_z_half,         &
-                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,    &
+                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_ehalf )
 
 
@@ -1624,7 +1792,7 @@ MODULE mo_nonhydro_state
       &                   'metrics functional determinant')
     grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_metrics_list, 'ddqz_z_full', p_metrics%ddqz_z_full,         &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_c )
 
 
@@ -1635,7 +1803,7 @@ MODULE mo_nonhydro_state
       &                   'metrics functional determinant (edge)')
     grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_metrics_list, 'ddqz_z_full_e', p_metrics%ddqz_z_full_e,     &
-                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_e )
 
 
@@ -1646,7 +1814,7 @@ MODULE mo_nonhydro_state
       &                   'metrics functional determinant')
     grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_metrics_list, 'ddqz_z_half', p_metrics%ddqz_z_half,         &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,    &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_chalf )
 
 
@@ -1656,7 +1824,7 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('difference_1_over_dz', 'm-1', 'difference 1 over dz')
     grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_metrics_list, 'diff_1_o_dz', p_metrics%diff_1_o_dz,         &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,    &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_chalf )
 
 
@@ -1666,7 +1834,7 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('mult_1_over_dz', 'm-2', 'mult 1 over dz')
     grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_metrics_list, 'mult_1_o_dz', p_metrics%mult_1_o_dz,         &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,    &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_chalf )
 
 
@@ -1677,7 +1845,7 @@ MODULE mo_nonhydro_state
        &                  'geopotential at full level cell centre')
     grib2_desc = t_grib2_var( 0, 3, 4, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_metrics_list, 'geopot', p_metrics%geopot,                   &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_c )
 
 
@@ -1688,7 +1856,7 @@ MODULE mo_nonhydro_state
       &                   'geopotential at half level cell centre')
     grib2_desc = t_grib2_var( 0, 3, 4, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_metrics_list, 'geopot_ifc', p_metrics%geopot_ifc,           &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,    &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_chalf )
 
 
@@ -1699,7 +1867,7 @@ MODULE mo_nonhydro_state
       &                   'geopotential above groundlevel at cell center')
     grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_metrics_list, 'geopot_agl', p_metrics%geopot_agl,           &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_c )
 
 
@@ -1710,7 +1878,7 @@ MODULE mo_nonhydro_state
       &                   'geopotential above groundlevel at cell center')
     grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_metrics_list, 'geopot_agl_ifc', p_metrics%geopot_agl_ifc,   &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,    &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_chalf )
 
 
@@ -1721,7 +1889,7 @@ MODULE mo_nonhydro_state
       &                   'geopotential at cell center')
     grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_metrics_list, 'dgeopot_mc', p_metrics%dgeopot_mc,           &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,         &
                 & ldims=shape3d_c )
 
 
@@ -1731,7 +1899,7 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('Rayleigh_damping', '-', 'Rayleigh damping')
     grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_metrics_list, 'rayleigh_w', p_metrics%rayleigh_w,           &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,    &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,    &
                 & ldims=shape3d_chalf )
 
 
@@ -1768,7 +1936,7 @@ MODULE mo_nonhydro_state
       &                   'weighting factor for interpolation from full to half levels')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_metrics_list, 'wgtfac_c', p_metrics%wgtfac_c,             &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
                   & ldims=shape3d_chalf )
 
 
@@ -1779,7 +1947,7 @@ MODULE mo_nonhydro_state
       &                   'weighting factor for interpolation from full to half levels')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_metrics_list, 'wgtfac_e', p_metrics%wgtfac_e,             &
-                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
                   & ldims=shape3d_ehalf )
 
 
@@ -1834,7 +2002,7 @@ MODULE mo_nonhydro_state
       &                     'Inverse layer thickness of full levels')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_metrics_list, 'inv_ddqz_z_full', p_metrics%inv_ddqz_z_full, &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_c )
 
 
@@ -1845,7 +2013,7 @@ MODULE mo_nonhydro_state
       &                     'Inverse distance between full levels jk+1 and jk-1')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_metrics_list, 'inv_ddqz_z_half2', p_metrics%inv_ddqz_z_half2, &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_c )
 
 
@@ -1859,7 +2027,7 @@ MODULE mo_nonhydro_state
       &                     'Vertical index')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_metrics_list, 'vertidx_gradp', p_metrics%vertidx_gradp,   &
-                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_esquared )
 
 
@@ -1871,7 +2039,7 @@ MODULE mo_nonhydro_state
       &                     'Height differences')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_metrics_list, 'zdiff_gradp', p_metrics%zdiff_gradp,       &
-                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_esquared )
 
 
@@ -1882,7 +2050,7 @@ MODULE mo_nonhydro_state
       &                     'Extrapolation factor for Exner pressure')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_metrics_list, 'exner_exfac', p_metrics%exner_exfac,       &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_c )
 
 
@@ -1893,7 +2061,7 @@ MODULE mo_nonhydro_state
       &                     'Reference atmosphere field theta')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_metrics_list, 'theta_ref_mc', p_metrics%theta_ref_mc,     &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_c )
 
 
@@ -1904,7 +2072,7 @@ MODULE mo_nonhydro_state
       &                     'Reference atmosphere field theta')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_metrics_list, 'theta_ref_ic', p_metrics%theta_ref_ic,     &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
                   & ldims=shape3d_chalf )
 
 
@@ -1915,7 +2083,7 @@ MODULE mo_nonhydro_state
       &                     'Reference atmosphere field exner')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_metrics_list, 'exner_ref_mc', p_metrics%exner_ref_mc,     &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_c )
 
 
@@ -1926,7 +2094,7 @@ MODULE mo_nonhydro_state
       &                     'Reference atmosphere field exner')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_metrics_list, 'd_exner_dz_ref_ic', p_metrics%d_exner_dz_ref_ic, &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
                   & ldims=shape3d_chalf )
 
 
@@ -1937,7 +2105,7 @@ MODULE mo_nonhydro_state
       &                     'Reference atmosphere field exner')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_metrics_list, 'd_exner_dz_ref_mc', p_metrics%d_exner_dz_ref_mc, &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_c )
 
 
@@ -1948,7 +2116,7 @@ MODULE mo_nonhydro_state
       &                     'Reference atmosphere field exner')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_metrics_list, 'd2_exner_dz2_ref_mc', p_metrics%d2_exner_dz2_ref_mc, &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_c )
 
 
@@ -1959,7 +2127,7 @@ MODULE mo_nonhydro_state
       &                     'Reference atmosphere field rho')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_metrics_list, 'rho_refcorr_ic', p_metrics%rho_refcorr_ic, &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
                   & ldims=shape3d_chalf )
 
 
@@ -1984,7 +2152,7 @@ MODULE mo_nonhydro_state
       &                     'slope of coordinate lines in Northern direction')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_VERTEX)
       CALL add_var( p_metrics_list, 'ddnorth_z', p_metrics%ddnorth_z,               &
-                  & GRID_UNSTRUCTURED_VERT, ZAXIS_HYBRID, cf_desc, grib2_desc,           &
+                  & GRID_UNSTRUCTURED_VERT, ZAXIS_HEIGHT, cf_desc, grib2_desc,           &
                   & ldims=shape3d_v )
 
 
@@ -1995,7 +2163,7 @@ MODULE mo_nonhydro_state
       &                     'slope of coordinate lines in Eastern direction')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_VERTEX)
       CALL add_var( p_metrics_list, 'ddeast_z', p_metrics%ddeast_z,                &
-                  & GRID_UNSTRUCTURED_VERT, ZAXIS_HYBRID, cf_desc, grib2_desc,          &
+                  & GRID_UNSTRUCTURED_VERT, ZAXIS_HEIGHT, cf_desc, grib2_desc,          &
                   & ldims=shape3d_v )
 
 
@@ -2006,7 +2174,7 @@ MODULE mo_nonhydro_state
       &                     'metrics functional determinant')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_VERTEX)
       CALL add_var( p_metrics_list, 'ddqz_z_full_v', p_metrics%ddqz_z_full_v,   &
-                  & GRID_UNSTRUCTURED_VERT, ZAXIS_HYBRID, cf_desc, grib2_desc,       &
+                  & GRID_UNSTRUCTURED_VERT, ZAXIS_HEIGHT, cf_desc, grib2_desc,       &
                   & ldims=shape3d_v )
 
       ! functional determinant of the metrics [sqrt(gamma)]
@@ -2016,7 +2184,7 @@ MODULE mo_nonhydro_state
       &                     'metrics functional determinant')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_metrics_list, 'ddqz_z_full_r', p_metrics%ddqz_z_full_r,   &
-                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
                   & ldims=shape3d_e )
 
       ! functional determinant of the metrics [sqrt(gamma)]
@@ -2026,11 +2194,10 @@ MODULE mo_nonhydro_state
       &                     'metrics functional determinant')
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_EDGE)
       CALL add_var( p_metrics_list, 'ddqz_z_half_e', p_metrics%ddqz_z_half_e,   &
-                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,  &
+                  & GRID_UNSTRUCTURED_EDGE, ZAXIS_HEIGHT, cf_desc, grib2_desc,  &
                   & ldims=shape3d_ehalf )
 
     ENDIF
-
 
   END SUBROUTINE construct_nh_metrics_list
 

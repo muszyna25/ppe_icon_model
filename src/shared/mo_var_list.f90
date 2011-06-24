@@ -749,6 +749,7 @@ CONTAINS
     !
     ! add list entry
     !
+
     CALL append_list_element (this_list, new_list_element)
     new_list_element%field%info = default_var_list_metadata(this_list)
     !
@@ -802,6 +803,7 @@ CONTAINS
     ELSE
       new_list_element%field%r_ptr = 0.0_wp
     END IF
+
     !
   END SUBROUTINE add_var_list_element_r2d
   !------------------------------------------------------------------------------------------------

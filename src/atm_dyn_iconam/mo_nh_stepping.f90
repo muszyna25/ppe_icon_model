@@ -788,7 +788,6 @@ MODULE mo_nh_stepping
 !$OMP END PARALLEL
       ENDIF
 
-
       ! Set 'reduced calling frequency'-time step (for transport and some physics parts)
       dt_rcf = REAL(iadv_rcf,wp)*dt_loc
 
@@ -949,7 +948,6 @@ MODULE mo_nh_stepping
 
       ELSE  ! itime_scheme /= 1
 
-
         ! artificial forcing (Straka)
         IF (l_straka) THEN
           CALL forcing_straka(p_nh_state(jg)%prog(n_now), p_patch(jg), p_int_state(jg), &
@@ -1048,6 +1046,7 @@ MODULE mo_nh_stepping
           ENDIF
 
           IF (itype_comm <= 2) THEN
+
             CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),       &
                         n_now, n_new, linit_dyn(jg), linit_vertnest, l_bdy_nudge, dt_loc)
 
@@ -1343,7 +1342,6 @@ MODULE mo_nh_stepping
           &                      opt_calc_temp=.TRUE.,                                  &
           &                      opt_calc_pres=.TRUE.                                 )
       ENDIF
-
 
       ! Finally, switch between time levels now and new for next time step
       n_temp   = nnow(jg)
@@ -1878,7 +1876,8 @@ MODULE mo_nh_stepping
       ENDDO
     ENDDO
     DO jc = 1, nlen
-      z_mean_surfp = z_mean_surfp + p_diag%pres_sfc(jc,jb)/p_patch(jg)%n_patch_cells_g
+      z_mean_surfp = z_mean_surfp + p_diag%pres_sfc(jc,jb)/ &
+        &             REAL(p_patch(jg)%n_patch_cells_g,wp)
     ENDDO
   ENDDO
   z_total_energy = z_int_energy+z_kin_energy+z_pot_energy
@@ -1914,7 +1913,8 @@ MODULE mo_nh_stepping
     WHERE(.NOT.p_patch(jg)%cells%owner_mask(:,jb)) z4(:,jb) = 0._wp
     WHERE(.NOT.p_patch(jg)%cells%owner_mask(:,jb)) p_diag%pres_sfc(:,jb) = 0._wp
   ENDDO
-  z_mean_surfp = global_sum_array( p_diag%pres_sfc )/p_patch(jg)%n_patch_cells_g
+  z_mean_surfp = global_sum_array( p_diag%pres_sfc )/&
+        &             REAL(p_patch(jg)%n_patch_cells_g,wp)
   z_total_mass = global_sum_array( z1 )
   z_kin_energy = global_sum_array( z2 )
   z_int_energy = global_sum_array( z3 )

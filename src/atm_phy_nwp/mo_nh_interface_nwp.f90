@@ -1119,8 +1119,8 @@ CONTAINS
         pt_diag%ddt_tracer_phy(i_startidx: i_endidx,kstart_moist(jg):,jb,iqi) =       &
           & prm_nwp_tend%ddt_tracer_pconv(i_startidx:i_endidx,kstart_moist(jg):,jb,iqi)
 
-        pt_diag%ddt_tracer_phy(i_startidx: i_endidx,kstart_moist(jg):,jb,iqs) =       &
-          & prm_nwp_tend%ddt_tracer_pconv(i_startidx:i_endidx,kstart_moist(jg):,jb,iqs)
+!        pt_diag%ddt_tracer_phy(i_startidx: i_endidx,kstart_moist(jg):,jb,iqs) =       &
+!          & prm_nwp_tend%ddt_tracer_pconv(i_startidx:i_endidx,kstart_moist(jg):,jb,iqs)
 
 !------------------------
 !>

@@ -258,7 +258,7 @@ CONTAINS
   CALL sfc_exchange_coeff( kproma, kbdim, ksfc_type,              &! in
                          & idx_wtr, idx_ice, idx_lnd,             &! in
                          & lsfc_mom_flux, lsfc_heat_flux,         &! in
-                         & pz0m_tile(:,1:), ptsfc(:,:),                &! in
+                         & pz0m_tile(:,:), ptsfc(:,:),                &! in
                          & pfrc(:,:), pghpbl(:),                  &! in
                          & pocu(:),         pocv(:),   ppsfc(:),  &! in
                          & pum1(:,klev),    pvm1  (:,klev),       &! in
@@ -361,7 +361,7 @@ CONTAINS
                        & zqshear, ihpbl, pcfh_tile, pqsat_tile,       &! in
                        & pcfm_tile, pfrc, bb,                         &! in
                        & pkedisp(:),                                  &! inout ("pvdis" in echam)
-                       & pxvar(:,:), pz0m_tile(:,1:ksfc_type),             &! inout
+                       & pxvar(:,:), pz0m_tile(:,:),             &! inout
                        & pute, pvte, ptte, pqte, pxlte, pxite, pxtte, &! inout
                        & pute_vdf, pvte_vdf, ptte_vdf, pqte_vdf,      &! out
                        & pxlte_vdf, pxite_vdf, pxtte_vdf,             &! out

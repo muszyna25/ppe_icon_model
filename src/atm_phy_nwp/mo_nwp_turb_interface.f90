@@ -397,18 +397,18 @@ CONTAINS
           prm_nwp_tend%ddt_v_turb     (1:i_endidx,:,jb)         = 0._wp
 !          p_prog_rcf%tke              (1:i_endidx,:,jb)         = 0._wp
 
-          ! KF as long as if nsfc_type = 1 
+          ! KF as long as if nsfc_type = 1 !!!!!
           zdummy_tsfc (1:i_endidx,nsfc_type,jb) = &
                &                              lnd_prog_now%t_g (1:i_endidx,jb)
-          !zdummy_qvsfc(1:i_endidx,nsfc_type,jb) = &
-          !     &                                 lnd_diag%qv_s (1:i_endidx,jb)
+          zdummy_qvsfc(1:i_endidx,nsfc_type,jb) = &
+               &                                 lnd_diag%qv_s (1:i_endidx,jb)
 
           ! Workarounds needed because vdiff is not coded properly for use with nesting
           DO jk = 1, nlev
             p_diag%u(1:i_startidx-1,jk,jb) = 0._wp
             p_diag%v(1:i_startidx-1,jk,jb) = 0._wp
          ENDDO
-         
+
 
           CALL vdiff( kproma = i_endidx, kbdim   = nproma,                                   &
                 & klev   = nlev,   klevm1    = nlev-1,  klevp1=nlevp1                       ,&! in
@@ -434,7 +434,7 @@ CONTAINS
                 !
                 & pxt_emis= zdummy_ith     (:,:,jb),   pxvar   = zdummy_i     (:,:,jb)   ,&! inout
                 & pthvvar = prm_diag%thvvar(:,2:nlevp1,jb), pustar = prm_diag%ustar(:,jb),&! inout
-                & pz0m_tile = prm_diag%z0m_tile(:,nsfc_type,jb)                         ,&! inout
+                & pz0m_tile = prm_diag%z0m_tile(:,jb,:)                                  ,&! inout
                 & pkedisp  = prm_diag%kedisp(:,jb)                                        ,&! inout
                 !
                 & pute    = prm_nwp_tend%ddt_u_turb     (:,:,jb)                       ,&! inout
@@ -460,8 +460,8 @@ CONTAINS
                 & pcfm     = prm_diag%cfm    (:,2:nlevp1,jb)                           ,&! out
                 & pcfh     = prm_diag%cfh    (:,2:nlevp1,jb)                           ,&! out
                 & pcfv     = prm_diag%cfv    (:,2:nlevp1,jb)                           ,&! out
-                & pcfm_tile= prm_diag%cfm_sfc(:,:,jb)                                  ,&! out
-                & pcfh_tile= prm_diag%cfh_sfc(:,:,jb)                                  ,&! out
+                & pcfm_tile= prm_diag%cfm_tile(:,jb,:)                                  ,&! out
+                & pcfh_tile= prm_diag%cfh_tile(:,jb,:)                                  ,&! out
                 & pcftke   = prm_diag%cftke  (:,2:nlevp1,jb)                           ,&! out
                 & pcfthv   = prm_diag%cfthv  (:,2:nlevp1,jb))                            ! out
 

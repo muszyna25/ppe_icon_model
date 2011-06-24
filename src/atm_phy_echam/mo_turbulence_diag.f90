@@ -589,7 +589,6 @@ CONTAINS
     ! COMMON PART OF THE DRAG COEFFICIENTS.
     !-------------------------------------------------------------
 
- 
      DO jsfc = 1,ksfc_type
       IF ( jsfc == idx_lnd ) CYCLE ! computation below is valid only over water and ice
 
@@ -678,6 +677,7 @@ CONTAINS
     ! Compute the exchange coefficients for momentum, heat and water vapour,
     ! for each type of surface
     !-------------------------------------------------------------------------
+
     IF (lsfc_mom_flux.OR.lsfc_heat_flux) THEN  ! Surface flux is considered 
 
       ! stable case
@@ -740,10 +740,12 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! Get the aggregated exchange coefficient for momentum
     !-------------------------------------------------------------------------
+
     pcfm_gbm(1:kproma) = 0._wp
     DO jsfc = 1,ksfc_type
       pcfm_gbm(1:kproma) = pcfm_gbm(1:kproma) + pfrc(1:kproma,jsfc)*pcfm_sfc(1:kproma,jsfc)
     ENDDO
+
 
     !-------------------------------------------------------------------------
     ! For sensible heat and water vapour, it is not the exchange coefficient
@@ -759,6 +761,7 @@ CONTAINS
     ! and for solving the vertical diffusion equation of the variance of 
     ! virtual potential temperature (theta_v).
     !-------------------------------------------------------------------------
+
     pcfh_gbm(1:kproma) = 0._wp                                                         
     DO jsfc = 1,ksfc_type                                                                 
       pcfh_gbm(1:kproma) = pcfh_gbm(1:kproma) + pfrc(1:kproma,jsfc)*pcfh_sfc(1:kproma,jsfc)
@@ -860,6 +863,7 @@ CONTAINS
     ! to be used in subroutine "vdiff_tendencies" for diagnosing the
     ! turbulence-induced production of total water variance.
     !------------------------------------------------------------------------------
+
     prho_sfc(1:kproma) = 0._wp  ! Initialize the area weighted average
     DO jsfc = 1,ksfc_type
       IF ( jsfc == idx_lnd ) CALL finish('sfc_exchange_coeff','land surface not implemented')

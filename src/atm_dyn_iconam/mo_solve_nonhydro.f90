@@ -519,6 +519,7 @@ MODULE mo_solve_nonhydro
     !-------------------------------------------------------------------
     IF (ltimer) CALL timer_start(timer_solve_nh)
 
+    WRITE(0,*)'in solve nh'
     IF (lvert_nest .AND. (p_patch%nshift > 0)) THEN  
       l_vert_nested = .TRUE.
     ELSE
@@ -577,11 +578,13 @@ MODULE mo_solve_nonhydro
 
       IF (istep == 1) THEN ! predictor step
         IF (.NOT.(itime_scheme == 3 .AND. .NOT. l_init)) THEN
+          WRITE(0,*)'before vel tendencies',istep, itime_scheme
           CALL velocity_tendencies(p_nh%prog(nnow),p_patch,p_int,p_nh%metrics,&
                                    p_nh%diag,ntl1,istep,l_init)
         ENDIF
         nvar = nnow
       ELSE                 ! corrector step
+          WRITE(0,*)'before vel tendencies correct',istep, itime_scheme
         CALL velocity_tendencies(p_nh%prog(nnew),p_patch,p_int,p_nh%metrics,&
                                  p_nh%diag,ntl2,istep,l_init)
         nvar = nnew
@@ -592,7 +595,7 @@ MODULE mo_solve_nonhydro
     ! Compute rho and theta at edges
     IF (istep == 1) THEN
       IF (iadv_rhotheta == 2) THEN
-
+          WRITE(0,*)' adv rhothetat'
         lcompute =.TRUE.
         lcleanup =.FALSE.
         ! First call: compute backward trajectory with wind at time level nnow
@@ -638,6 +641,7 @@ MODULE mo_solve_nonhydro
       ENDIF
 
     ENDIF ! istep = 1
+          WRITE(0,*)'after advrhotheta'
 
     ! Preparations for igradp_method = 3
     IF (istep == 1 .AND. igradp_method == 3) THEN
@@ -668,6 +672,7 @@ MODULE mo_solve_nonhydro
     ! Computations at cell points; to be executed in predictor step only
     IF (istep == 1) THEN
 
+          WRITE(0,*)'com exner'
 !$OMP DO PRIVATE(jk,jc,z_exner_ic)
       DO jb = i_startblk, i_endblk
 
@@ -1692,7 +1697,7 @@ MODULE mo_solve_nonhydro
     ENDDO
 !$OMP END PARALLEL
 
-
+          WRITE(0,*)'end solve nh'
   END SUBROUTINE solve_nh
 
 END MODULE mo_solve_nonhydro

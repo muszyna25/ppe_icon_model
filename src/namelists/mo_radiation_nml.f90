@@ -93,7 +93,7 @@ MODULE mo_radiation_nml
   INTEGER  :: irad_co2   = 2  !< CO2
   INTEGER  :: irad_ch4   = 3  !< CH4
   INTEGER  :: irad_n2o   = 3  !< N2O
-  INTEGER  :: irad_o3    = 3  !< O3
+  INTEGER  :: irad_o3    = 0  !< O3
   INTEGER  :: irad_o2    = 2  !< O2
   INTEGER  :: irad_cfc11 = 2  !< CFC 11
   INTEGER  :: irad_cfc12 = 2  !< CFC 12

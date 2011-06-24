@@ -51,9 +51,10 @@ MODULE mo_ext_data
     &                              iforcing, inwp, iequations,         &
     &                              fac_smooth_topo, n_iter_smooth_topo
  !USE mo_lnd_nwp_nml,        ONLY: nsfc_subs
+  USE mo_radiation_nml,      ONLY: irad_o3
   USE mo_model_domain,       ONLY: t_patch
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
-  USE mo_exception,          ONLY: message, finish
+  USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_nml,           ONLY: n_dom
   USE mo_interpolation,      ONLY: t_int_state, cells2verts_scalar
   USE mo_math_operators,     ONLY: nabla4_scalar
@@ -73,6 +74,8 @@ MODULE mo_ext_data
 
 
   IMPLICIT NONE
+
+  INTEGER::  nlev_pres, nlev_height, nmonths ! 
 
   ! required for testing/reading topography
   INCLUDE 'netcdf.inc'
@@ -248,6 +251,10 @@ MODULE mo_ext_data
   !!
   TYPE :: t_external_atmos_td
 
+    ! *** radiation parameters ***
+    REAL(wp), POINTER ::   &   !< aerosol optical thickness of black carbon    [ ]
+      &  o3(:,:,:,:)           ! index1=1,nproma, index2=nlev_pres,
+                               ! index3=1,nblks_c, index4=1,ntimes
     !
     ! *** radiation parameters ***
     REAL(wp), POINTER ::   &   !< aerosol optical thickness of black carbon    [ ]
@@ -416,10 +423,25 @@ CONTAINS
 
 !-------------------------------------------------------------------------
 
+    !-------------------------------------------------------------------------
+    !  1.  inquire the externals file for their data structure
+    !-------------------------------------------------------------------------
+
+    IF(irad_o3 == 3) THEN 
+      CALL inquire_external_files(p_patch)
+    ENDIF
+
+    !------------------------------------------------------------------
+    !  2.  allocate the external fields for the model
+    !------------------------------------------------------------------
+
     ! top-level procedure for building data structures for 
     ! external data.
     CALL construct_ext_data(p_patch, ext_data)
 
+    !-------------------------------------------------------------------------
+    !  3.  read the data onto the fields
+    !-------------------------------------------------------------------------
 
     ! Check, whether external data should be read from file
     ! currently this is done via 'itopo' (provisional).
@@ -429,6 +451,10 @@ CONTAINS
             ! topography from analytical functions
 
       CALL message( TRIM(routine),'Running with analytical topography' )
+      IF(irad_o3 == 3) THEN
+         CALL message( TRIM(routine),'ozone external required' )
+      CALL read_ext_data_atm (p_patch, ext_data)
+       ENDIF
 
     CASE(1) ! read external data from netcdf dataset
 
@@ -458,6 +484,103 @@ CONTAINS
 
   END SUBROUTINE init_ext_data
 
+ !-------------------------------------------------------------------------
+ !-------------------------------------------------------------------------
+
+  SUBROUTINE inquire_external_files(p_patch)
+
+    !-------------------------------------------------------
+    !
+    ! open netcdf files and investigate the data structure  
+    ! of the external parameters
+    !
+    !-------------------------------------------------------
+
+    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
+    INTEGER :: no_cells, no_verts
+    INTEGER :: ncid, dimid
+    INTEGER :: jg
+
+    LOGICAL :: l_exist
+
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = 'mo_ext_data: inquire_external files'
+
+    CHARACTER(filename_max) :: ozone_file  !< file name for reading in
+
+    ! default values for nlev_pres and nmonths
+    nlev_pres = 1
+    nmonths   = 1
+
+
+    DO jg= 1,n_dom
+
+       IF(irad_o3 == 3) THEN
+
+       IF(p_pe == p_io) THEN
+
+        WRITE(ozone_file,'(a,i2.2,a)') 'o3_icon_DOM',jg,'.nc'
+
+        INQUIRE (FILE=ozone_file, EXIST=l_exist)
+        IF (.NOT.l_exist) THEN
+          CALL finish(TRIM(routine),'ozone file of domain is not found.')
+        ENDIF
+
+        !
+        ! open file: do I have to enhance the number of ncid?
+        !
+        CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid))
+
+        ! get number of cells in triangles and hexagons
+        !
+
+        !triangles
+        IF (i_cell_type == 3) THEN ! triangular grid
+           CALL nf(nf_inq_dimid (ncid, 'cell', dimid))
+           CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+       ENDIF
+       
+       !hexagons
+        IF (i_cell_type == 6) THEN ! hexagonal grid
+           CALL nf(nf_inq_dimid (ncid, 'vertex', dimid))
+           CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+        ENDIF
+
+        !
+        ! check the number of cells and verts
+        !
+        IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
+          CALL finish(TRIM(ROUTINE),&
+          & 'Number of patch cells and cells in ozone file do not match.')
+        ENDIF
+          
+      ! check the vertical structure
+        CALL nf(nf_inq_dimid (ncid, 'plev', dimid))
+        CALL nf(nf_inq_dimlen(ncid, dimid, nlev_pres))
+        
+        CALL message(TRIM(ROUTINE),message_text)
+        WRITE(message_text,'(A,I4)')  &
+           & 'Number of pressure levels in ozone file = ', &
+           & nlev_pres
+
+        ! check the time structure
+        CALL nf(nf_inq_dimid (ncid, 'time', dimid))
+        CALL nf(nf_inq_dimlen(ncid, dimid, nmonths))
+        
+        CALL message(TRIM(ROUTINE),message_text)
+        WRITE(message_text,'(A,I4)')  &
+           & 'Number of months in ozone file = ', &
+           & nmonths
+
+     ENDIF ! pe
+
+  ENDIF !o3
+
+  IF(p_pe == p_io) CALL nf(nf_close(ncid))
+
+  ENDDO ! ndom
+
+END SUBROUTINE inquire_external_files
 
 
   !-------------------------------------------------------------------------
@@ -536,7 +659,7 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial release by Daniel Reinert (2011-05-03)
-  !! Statements that assign initial value added by Hui Wan (MPI-M, 2011-05-30)
+  !! Statements that assign initial value addd by Hui Wan (MPI-M, 2011-05-30)
   !!
   SUBROUTINE construct_ext_data_atm_list ( p_patch, p_ext_atm, p_ext_atm_list, &
     &                                      listname)
@@ -997,6 +1120,7 @@ CONTAINS
     INTEGER :: nblks_c      !< number of cell blocks to allocate
 
     INTEGER :: shape3d_c(3)
+    INTEGER :: shape4d_c(4)
 
     INTEGER :: ientr         !< "entropy" of horizontal slice
     INTEGER :: ntimes        !< number of time slices
@@ -1010,7 +1134,7 @@ CONTAINS
 
     ! predefined array shapes
     shape3d_c = (/ nproma, nblks_c, ntimes /)
-
+    shape4d_c = (/ nproma, nlev_pres, nblks_c, nmonths /) 
 
     !
     ! Register a field list and apply default settings
@@ -1024,6 +1148,18 @@ CONTAINS
       !--------------------------------
       ! radiation parameters
       !--------------------------------
+
+
+      ! ozone on pressure levels
+      ! ATTENTION: a GRIB2 number will go to 
+      ! the ozone mass mixing ratio...
+      !
+      ! o3       p_ext_atm_td%o3(nproma,nlev_pres,nblks_c,nmonths)
+      cf_desc    = t_cf_var('O3', 'mole mole^-1',   &
+        &                   'mole_fraction_of_ozone_in_air')
+      grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_td_list, 'O3', p_ext_atm_td%O3, &
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc, ldims=shape4d_c )
 
       ! Black carbon aerosol
       !
@@ -1171,6 +1307,7 @@ CONTAINS
       routine = 'mo_ext_data:read_ext_data_atm'
 
     CHARACTER(filename_max) :: topo_file  !< file name for reading in
+    CHARACTER(filename_max) :: ozone_file  !< file name for reading in
 
     LOGICAL :: l_exist
     INTEGER :: jg
@@ -1180,6 +1317,7 @@ CONTAINS
 
 !-------------------------------------------------------------------------
 
+    IF(itopo == 1 ) THEN
     DO jg = 1,n_dom
 
       i_lev = p_patch(jg)%level
@@ -1355,13 +1493,6 @@ CONTAINS
 
       ENDIF
 
-      !-------------------------------------------------------
-      !
-      ! Read ...
-      !
-      !-------------------------------------------------------
-
-
       !
       ! close file
       !
@@ -1369,6 +1500,48 @@ CONTAINS
 
     ENDDO
 
+    ENDIF ! itopo
+      !-------------------------------------------------------
+      ! Read ozone
+      !-------------------------------------------------------
+
+    DO jg = 1,n_dom
+       IF(irad_o3 == 3) THEN
+          IF(p_pe == p_io) THEN
+        !
+             WRITE(ozone_file,'(a,I2.2,a)') 'o3_icon_DOM',jg,'.nc'
+
+        ! open file
+        !
+             CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid))
+
+             IF (i_cell_type == 3) THEN     ! triangular grid
+                CALL read_netcdf_data_4d (ncid, 'O3', & ! &
+                     &                     p_patch(jg)%n_patch_cells_g,  &
+                     &                     p_patch(jg)%n_patch_cells,    &
+                     &                     p_patch(jg)%cells%glb_index,  & 
+                     &                     nlev_pres,  nmonths,          &
+                     &                     ext_data(jg)%atm_td%O3)
+             ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+                CALL read_netcdf_data_4d (ncid, 'O3', & 
+                     &                     p_patch(jg)%n_patch_verts_g,  &
+                     &                     p_patch(jg)%n_patch_verts,    & 
+                     &                     p_patch(jg)%verts%glb_index,  &
+                     &                     nlev_pres, nmonths,           &
+                     &                     ext_data(jg)%atm_td%O3)
+             ENDIF
+          ENDIF ! pe
+       ENDIF ! irad_o3
+      !
+      ! close file
+      !
+       IF(p_pe == p_io) CALL nf(nf_close(ncid))
+    ENDDO ! ndom
+
+!    write(0,*)'try to give a number of ozone'
+!    write(0,*)'any value jan', ext_data(1)%atm_td%O3(1,1,1,1)
+!    write(0,*)'maxval dec',MAXVAL( ext_data(1)%atm_td%O3(:,nlev_pres,:,nmonths))
+ 
 
 !    CALL finish(TRIM(routine),'End of topo-test implementation.')
 
@@ -1485,6 +1658,68 @@ CONTAINS
 
 
   !-------------------------------------------------------------------------
+
+ !-------------------------------------------------------------------------
+  !>
+  !! Read 4D (inlcuding height and time) dataset from netcdf file
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2010-07-14)
+  !! Adapted for parallel runs by Rainer Johanni (2010-12-07)
+  !! Adapted for 4 D by Kristina Froehlich, MPI-M (2011-06-16)
+  !!
+  SUBROUTINE read_netcdf_data_4d (ncid, varname, glb_arr_len, &
+       &                          loc_arr_len, glb_index, &
+       &                          nlevs, ntime,      var_out)
+
+    CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
+      &  varname
+
+    INTEGER, INTENT(IN) :: ncid          !< id of netcdf file
+    INTEGER, INTENT(IN) :: nlevs         !< vertical levels of netcdf file
+    INTEGER, INTENT(IN) :: ntime         !< time levels of netcdf file
+    INTEGER, INTENT(IN) :: glb_arr_len   !< length of 1D field (global)
+    INTEGER, INTENT(IN) :: loc_arr_len   !< length of 1D field (local)
+    INTEGER, INTENT(IN) :: glb_index(:)  !< Index mapping local to global
+
+    REAL(wp), INTENT(INOUT) :: &         !< output field
+      &  var_out(:,:,:,:)
+
+    INTEGER :: varid, mpi_comm, j, jl, jb, jk, jt
+    REAL(wp):: z_dummy_array(ntime,nlevs,glb_arr_len)!< local dummy array
+  !-------------------------------------------------------------------------
+
+    ! Get var ID
+    IF(p_pe==p_io) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
+
+    IF(p_test_run) THEN
+      mpi_comm = p_comm_work_test
+    ELSE
+      mpi_comm = p_comm_work
+    ENDIF
+
+    ! I/O PE reads and broadcasts data
+
+    IF(p_pe==p_io) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:,:)))
+    CALL p_bcast(z_dummy_array, p_io, mpi_comm)
+
+    var_out(:,:,:,:) = 0._wp
+
+    ! Set var_out from global data
+    DO jt = 1, ntime
+        DO jk = 1, nlevs
+           DO j = 1, loc_arr_len
+
+             jb = blk_no(j) ! Block index in distributed patch
+             jl = idx_no(j) ! Line  index in distributed patch
+               
+             var_out(jl,jk,jb,jt) = z_dummy_array(jt,jk,glb_index(j))
+
+          ENDDO
+       ENDDO
+    ENDDO
+
+  END SUBROUTINE read_netcdf_data_4d
 
 
   SUBROUTINE nf(status)
