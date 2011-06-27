@@ -1,4 +1,4 @@
-#if  (defined(__SX__) || defined(__SUNPRO_F95))
+#if  (defined(__SX__) || defined(__SUNPRO_F95) || defined (__GNUC__))
 #define HAVE_F95
 #endif
 MODULE mo_linked_list

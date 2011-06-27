@@ -13,7 +13,14 @@ MODULE mo_io_restart
   USE mo_util_file,             ONLY: util_symlink, util_rename, util_islink, util_unlink
   USE mo_util_hash,             ONLY: util_hashword
   USE mo_io_restart_namelist,   ONLY: nmls, restart_namelist   
-  USE mo_io_restart_distribute, ONLY: gather_cells, gather_edges, gather_vertices, &
+  USE mo_io_restart_attributes, ONLY: set_restart_attribute, get_restart_attribute, &
+       &                              read_restart_attributes, delete_attributes,   &
+       &                              restart_attributes_count_text,                &
+       &                              restart_attributes_count_real,                &
+       &                              restart_attributes_count_int,                 &
+       &                              restart_attributes_count_bool,                &
+       &                              read_attributes
+  USE mo_io_restart_distribute, ONLY: gather_cells, gather_edges, gather_vertices,  &
        &                              scatter_cells, scatter_edges, scatter_vertices  
   USE mo_io_units,              ONLY: find_next_free_unit, filename_max
 #ifndef NOMPI
@@ -24,8 +31,6 @@ MODULE mo_io_restart
   !
   PRIVATE
   !
-  PUBLIC :: set_restart_attribute
-  PUBLIC :: get_restart_attribute
   PUBLIC :: set_restart_time
   PUBLIC :: set_restart_vct
   PUBLIC :: init_restart
@@ -33,7 +38,6 @@ MODULE mo_io_restart
   PUBLIC :: write_restart
   PUBLIC :: close_writing_restart_files
   PUBLIC :: read_restart_files
-  PUBLIC :: read_restart_attributes
   PUBLIC :: finish_restart
   PUBLIC :: write_restart_info_file
   PUBLIC :: read_restart_info_file
@@ -46,39 +50,6 @@ MODULE mo_io_restart
   INTEGER, PARAMETER :: max_restart_files = 257
   INTEGER, SAVE :: nrestart_files = 0 
   TYPE(t_restart_files), ALLOCATABLE :: restart_files(:)
-  !
-  !------------------------------------------------------------------------------------------------
-  !
-  TYPE t_att_text
-    CHARACTER(len=64) :: name
-    CHARACTER(len=64) :: val
-  END TYPE t_att_text
-  !
-  TYPE t_att_real
-    CHARACTER(len=64) :: name
-    REAL(wp)          :: val
-  END TYPE t_att_real
-  TYPE t_att_int
-    CHARACTER(len=64) :: name
-    INTEGER           :: val
-  END TYPE t_att_int
-  TYPE t_att_bool
-    CHARACTER(len=64) :: name
-    LOGICAL           :: val
-    INTEGER           :: store
-  END TYPE t_att_bool
-  !
-  INTEGER, PARAMETER :: nmax_atts = 256
-  INTEGER, SAVE :: natts_text = 0
-  INTEGER, SAVE :: natts_real = 0 
-  INTEGER, SAVE :: natts_int  = 0 
-  INTEGER, SAVE :: natts_bool = 0 
-  TYPE(t_att_text), ALLOCATABLE :: restart_attributes_text(:)
-  TYPE(t_att_real), ALLOCATABLE :: restart_attributes_real(:)
-  TYPE(t_att_int),  ALLOCATABLE :: restart_attributes_int(:)
-  TYPE(t_att_bool), ALLOCATABLE :: restart_attributes_bool(:)
-  !
-  !------------------------------------------------------------------------------------------------
   !
   TYPE t_h_grid
     INTEGER :: type
@@ -122,20 +93,6 @@ MODULE mo_io_restart
 #ifdef NOMPI
   LOGICAL :: p_parallel_io = .TRUE.
 #endif
-  !
-  INTERFACE set_restart_attribute
-    MODULE PROCEDURE set_restart_attribute_text
-    MODULE PROCEDURE set_restart_attribute_real
-    MODULE PROCEDURE set_restart_attribute_int
-    MODULE PROCEDURE set_restart_attribute_bool
-  END INTERFACE set_restart_attribute
-  !
-  INTERFACE get_restart_attribute
-    MODULE PROCEDURE get_restart_attribute_text
-    MODULE PROCEDURE get_restart_attribute_real
-    MODULE PROCEDURE get_restart_attribute_int
-    MODULE PROCEDURE get_restart_attribute_bool
-  END INTERFACE get_restart_attribute
   !
   !------------------------------------------------------------------------------------------------
 CONTAINS
@@ -239,126 +196,6 @@ CONTAINS
     private_vct(:) = vct(:)
     lvct_initialised = .TRUE.
   END SUBROUTINE set_restart_vct
-  !------------------------------------------------------------------------------------------------
-  !
-  SUBROUTINE get_restart_attribute_text(attribute_name, attribute_value)
-    CHARACTER(len=*), INTENT(in)  :: attribute_name
-    CHARACTER(len=*), INTENT(out) :: attribute_value
-    INTEGER :: i
-    DO i = 1, natts_text
-      IF (TRIM(attribute_name) == TRIM(restart_attributes_text(i)%name)) THEN
-        attribute_value = TRIM(restart_attributes_text(i)%val)
-        RETURN
-      ENDIF
-    ENDDO
-    CALL finish('','Attribute '//TRIM(attribute_name)//' not found.')
-  END SUBROUTINE get_restart_attribute_text
-  !
-  SUBROUTINE get_restart_attribute_real(attribute_name, attribute_value)
-    CHARACTER(len=*), INTENT(in)  :: attribute_name
-    REAL(wp),         INTENT(out) :: attribute_value
-    INTEGER :: i
-    DO i = 1, natts_real
-      IF (TRIM(attribute_name) == TRIM(restart_attributes_real(i)%name)) THEN
-        attribute_value = restart_attributes_real(i)%val
-        RETURN
-      ENDIF
-    ENDDO
-    CALL finish('','Attribute '//TRIM(attribute_name)//' not found.')
-  END SUBROUTINE get_restart_attribute_real
-  !
-  SUBROUTINE get_restart_attribute_int(attribute_name, attribute_value)
-    CHARACTER(len=*), INTENT(in)  :: attribute_name
-    INTEGER,          INTENT(out) :: attribute_value
-    INTEGER :: i
-    DO i = 1, natts_int
-      IF (TRIM(attribute_name) == TRIM(restart_attributes_int(i)%name)) THEN
-        attribute_value = restart_attributes_int(i)%val
-        RETURN
-      ENDIF
-    ENDDO
-    CALL finish('','Attribute '//TRIM(attribute_name)//' not found.')
-  END SUBROUTINE get_restart_attribute_int
-  !
-  SUBROUTINE get_restart_attribute_bool(attribute_name, attribute_value)
-    CHARACTER(len=*), INTENT(in)  :: attribute_name
-    LOGICAL,          INTENT(out) :: attribute_value
-    INTEGER :: i
-    DO i = 1, natts_bool
-      IF (TRIM(attribute_name) == TRIM(restart_attributes_bool(i)%name)) THEN
-        attribute_value = restart_attributes_bool(i)%val
-        RETURN
-      ENDIF
-    ENDDO
-    CALL finish('','Attribute '//TRIM(attribute_name)//' not found.')
-  END SUBROUTINE get_restart_attribute_bool
-  !------------------------------------------------------------------------------------------------
-  !
-  SUBROUTINE set_restart_attribute_text(attribute_name, attribute_value)
-    CHARACTER(len=*), INTENT(in) :: attribute_name
-    CHARACTER(len=*), INTENT(in) :: attribute_value
-    IF (.NOT. ALLOCATED(restart_attributes_text)) THEN
-      ALLOCATE(restart_attributes_text(nmax_atts))
-    ENDIF
-    natts_text = natts_text+1
-    IF (natts_text > nmax_atts) THEN
-      CALL finish('set_restart_attribute_text','too many restart attributes for restart file')
-    ELSE
-      restart_attributes_text(natts_text)%name = attribute_name
-      restart_attributes_text(natts_text)%val = attribute_value
-    ENDIF    
-  END SUBROUTINE set_restart_attribute_text
-  !
-  SUBROUTINE set_restart_attribute_real(attribute_name, attribute_value)
-    CHARACTER(len=*), INTENT(in) :: attribute_name
-    REAL(wp),         INTENT(in) :: attribute_value
-    IF (.NOT. ALLOCATED(restart_attributes_real)) THEN
-      ALLOCATE(restart_attributes_real(nmax_atts))
-    ENDIF
-    natts_real = natts_real+1
-    IF (natts_real > nmax_atts) THEN
-      CALL finish('set_restart_attribute_real','too many restart attributes for restart file')
-    ELSE
-      restart_attributes_real(natts_real)%name = attribute_name
-      restart_attributes_real(natts_real)%val  = attribute_value
-    ENDIF    
-  END SUBROUTINE set_restart_attribute_real
-  !
-  SUBROUTINE set_restart_attribute_int(attribute_name, attribute_value)
-    CHARACTER(len=*), INTENT(in) :: attribute_name
-    INTEGER,          INTENT(in) :: attribute_value
-    IF (.NOT. ALLOCATED(restart_attributes_int)) THEN
-      ALLOCATE(restart_attributes_int(nmax_atts))
-    ENDIF
-    natts_int = natts_int+1
-    IF (natts_int > nmax_atts) THEN
-      CALL finish('set_restart_attribute_int','too many restart attributes for restart file')
-    ELSE
-      restart_attributes_int(natts_int)%name = attribute_name
-      restart_attributes_int(natts_int)%val = attribute_value
-    ENDIF    
-  END SUBROUTINE set_restart_attribute_int
-  !
-  SUBROUTINE set_restart_attribute_bool(attribute_name, attribute_value)
-    CHARACTER(len=*), INTENT(in) :: attribute_name
-    LOGICAL,          INTENT(in) :: attribute_value
-    IF (.NOT. ALLOCATED(restart_attributes_bool)) THEN
-      ALLOCATE(restart_attributes_bool(nmax_atts))
-    ENDIF
-    natts_bool = natts_bool+1
-    IF (natts_bool > nmax_atts) THEN
-      CALL finish('set_restart_attribute_bools','too many restart attributes for restart file')
-    ELSE
-      restart_attributes_bool(natts_bool)%name = 'bool_'//TRIM(attribute_name)
-      restart_attributes_bool(natts_bool)%val = attribute_value
-      ! for storing follows the C convention: false = 0, true = 1
-      IF (attribute_value) THEN
-        restart_attributes_bool(natts_bool)%store = 1        
-      ELSE
-        restart_attributes_bool(natts_bool)%store = 0        
-      ENDIF
-    ENDIF    
-  END SUBROUTINE set_restart_attribute_bool
   !------------------------------------------------------------------------------------------------
   !
   SUBROUTINE set_horizontal_grid(grid_type, nelements, nvertices)
@@ -495,6 +332,11 @@ CONTAINS
     INTEGER :: status, i ,j, k, ia, ihg, ivg, nlevp1
     REAL(wp), ALLOCATABLE :: levels(:)
     !
+    CHARACTER(len=64) :: attribute_name, text_attribute
+    REAL(wp) :: real_attribute
+    INTEGER :: int_attribute
+    LOGICAL :: bool_attribute
+    !
     ! first set restart file name
     !
     IF (private_restart_time == '') THEN
@@ -585,41 +427,50 @@ CONTAINS
         !
         ! 2.2 text attributes
         !
-        DO ia = 1, natts_text
-          status = vlistDefAttTxt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL,     &
-               &                  TRIM(restart_attributes_text(ia)%name),    &
-               &                  LEN_TRIM(restart_attributes_text(ia)%val), &
-               &                  TRIM(restart_attributes_text(ia)%val))
+        DO ia = 1, restart_attributes_count_text()
+          CALL get_restart_attribute(ia, attribute_name, text_attribute)
+          status = vlistDefAttTxt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL, &
+               &                  TRIM(attribute_name),                  &
+               &                  LEN_TRIM(text_attribute),              &
+               &                  TRIM(text_attribute))
         END DO
         !
         ! 2.3 real attributes
         !
-        DO ia = 1, natts_real
-          status = vlistDefAttFlt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL,  &
-               &                  TRIM(restart_attributes_real(ia)%name), &
-               &                  DATATYPE_FLT64,                         &
-               &                  1,                                      &
-               &                  restart_attributes_real(ia)%val)
+        DO ia = 1, restart_attributes_count_real()
+          CALL get_restart_attribute(ia, attribute_name, real_attribute)
+          status = vlistDefAttFlt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL, &
+               &                  TRIM(attribute_name),                  &
+               &                  DATATYPE_FLT64,                        &
+               &                  1,                                     &
+               &                  real_attribute)
         ENDDO
         !
         ! 2.4 integer attributes
         !
-        DO ia = 1, natts_int
-          status = vlistDefAttInt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL,  &
-               &                  TRIM(restart_attributes_int(ia)%name),  &
-               &                  DATATYPE_INT32,                         &
-               &                  1,                                      &
-               &                  restart_attributes_int(ia)%val)
+        DO ia = 1, restart_attributes_count_int()
+          CALL get_restart_attribute(ia, attribute_name, int_attribute)
+          status = vlistDefAttInt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL, &
+               &                  TRIM(attribute_name),                  &
+               &                  DATATYPE_INT32,                        &
+               &                  1,                                     &
+               &                  int_attribute)
         ENDDO
         !
         ! 2.5 logical attributes
         !
-        DO ia = 1, natts_bool
-          status = vlistDefAttInt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL,  &
-               &                  TRIM(restart_attributes_bool(ia)%name), &
-               &                  DATATYPE_INT32,                         &
-               &                  1,                                      &
-               &                  restart_attributes_bool(ia)%store)
+        DO ia = 1, restart_attributes_count_bool()
+          CALL get_restart_attribute(ia, attribute_name, bool_attribute)
+          IF (bool_attribute) THEN
+            int_attribute = 1
+          ELSE
+            int_attribute = 0
+          ENDIF
+          status = vlistDefAttInt(var_lists(i)%p%cdiVlistID, CDI_GLOBAL, &
+               &                  TRIM(attribute_name),                  &
+               &                  DATATYPE_INT32,                        &
+               &                  1,                                     &
+               &                  int_attribute)
         ENDDO
         !
         ! 3. add horizontal grid descriptions
@@ -1193,8 +1044,7 @@ CONTAINS
     DEALLOCATE(private_vct)
     lvct_initialised = .FALSE.
     !
-    DEALLOCATE(restart_attributes_text)
-    natts_text = 0
+    CALL delete_attributes
     !
     nh_grids   = 0
     nv_grids   = 0
@@ -1387,88 +1237,5 @@ CONTAINS
     CALL message('','')
     !
   END SUBROUTINE read_restart_files
-  !
-  SUBROUTINE read_restart_attributes(filename)
-    CHARACTER(len=*), INTENT(in) :: filename
-    INTEGER :: fileID, vlistID
-    !
-    fileID = streamOpenRead(TRIM(filename))
-    vlistID = streamInqVlist(fileID)
-    !
-    CALL read_attributes(vlistID)
-    !
-    CALL streamClose(fileID)
-    !
-  END SUBROUTINE read_restart_attributes
-  !
-  SUBROUTINE read_attributes(vlistID)
-    INTEGER, INTENT(in) :: vlistID
-    !
-    CHARACTER(len=64) :: att_name
-    INTEGER :: natts, att_type, att_len
-    INTEGER :: status, text_len, mlen
-    !
-    INTEGER :: i
-    !
-    status = vlistInqNatts(vlistID, CDI_GLOBAL, natts)
-    !
-    IF (.NOT. ALLOCATED(restart_attributes_text)) THEN
-      ALLOCATE(restart_attributes_text(nmax_atts))
-    ENDIF
-    natts_text = 0
-    !
-    IF (.NOT. ALLOCATED(restart_attributes_real)) THEN
-      ALLOCATE(restart_attributes_real(nmax_atts))
-    ENDIF
-    natts_real = 0 
-    !
-    IF (.NOT. ALLOCATED(restart_attributes_int)) THEN
-      ALLOCATE(restart_attributes_int(nmax_atts))
-    ENDIF
-    natts_int  = 0 
-    !
-    IF (.NOT. ALLOCATED(restart_attributes_bool)) THEN
-      ALLOCATE(restart_attributes_bool(nmax_atts))
-    ENDIF
-    natts_bool = 0 
-    !
-    DO i = 0, natts-1
-      status = vlistInqAtt(vlistID, CDI_GLOBAL, i, att_name, att_type, att_len)
-      IF ( att_name(1:4) == 'nml_') CYCLE ! skip this, it is a namelist 
-      SELECT CASE(att_type)
-      CASE(DATATYPE_FLT64)
-        natts_real = natts_real+1
-        restart_attributes_real(natts_real)%name = TRIM(att_name)
-        mlen = 1
-        status =  vlistInqAttFlt(vlistID, CDI_GLOBAL, &              
-             &                   TRIM(att_name), mlen, restart_attributes_real(natts_real)%val)
-      CASE(DATATYPE_INT32)
-        IF (att_name(1:5) == 'bool_') THEN
-          natts_bool = natts_bool+1
-          restart_attributes_bool(natts_bool)%name = TRIM(att_name(6:))
-          mlen = 1
-          status =  vlistInqAttInt(vlistID, CDI_GLOBAL, &              
-               &                   TRIM(att_name), mlen, restart_attributes_bool(natts_bool)%store)
-          restart_attributes_bool(natts_bool)%val = &
-               (restart_attributes_bool(natts_bool)%store == 1)
-        ELSE
-          natts_int = natts_int+1
-          restart_attributes_int(natts_int)%name = TRIM(att_name)
-          mlen = 1
-          status =  vlistInqAttInt(vlistID, CDI_GLOBAL, &              
-               &                   TRIM(att_name), mlen, restart_attributes_int(natts_int)%val)
-        ENDIF
-      CASE(DATATYPE_TXT)
-        natts_text = natts_text+1
-        restart_attributes_text(natts_text)%name = TRIM(att_name)
-        text_len = att_len
-        restart_attributes_text(natts_text)%val = ''
-        status =  vlistInqAttTxt(vlistID, CDI_GLOBAL, &
-             &                   TRIM(att_name), text_len, restart_attributes_text(natts_text)%val)
-      END SELECT
-    ENDDO
-    !
-  END SUBROUTINE read_attributes
-  !
   !
 END MODULE mo_io_restart

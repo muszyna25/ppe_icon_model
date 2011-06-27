@@ -172,9 +172,9 @@ MODULE mo_atmo_model
   !  USE mo_nwp_phy_init,          ONLY: init_nwp_phy
   !!$  USE mo_gscp_cosmo,          ONLY: hydci_pp_init
   
-  USE mo_io_restart,          ONLY: read_restart_info_file, read_restart_files, &
-                                  & read_restart_attributes, get_restart_attribute
-  USE mo_io_restart_namelist, ONLY: read_restart_namelists
+  USE mo_io_restart,           ONLY: read_restart_info_file, read_restart_files
+  USE mo_io_restart_namelist,  ONLY: read_restart_namelists
+  USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
 
   !-------------------------------------------------------------------------
   IMPLICIT NONE

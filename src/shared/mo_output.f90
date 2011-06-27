@@ -59,10 +59,11 @@ MODULE mo_output
   USE mo_io_async,            ONLY: setup_io_procs, shutdown_io_procs, &
     &                               output_async, set_output_file
   USE mo_datetime,            ONLY: t_datetime,iso8601
-  USE mo_io_restart,          ONLY: set_restart_time, set_restart_vct,         &
+  USE mo_io_restart,          ONLY: set_restart_time, set_restart_vct,       &
                                   & init_restart, open_writing_restart_files,  &
                                   & write_restart, close_writing_restart_files,&
-                                  & finish_restart, set_restart_attribute
+                                  & finish_restart
+  USE mo_io_restart_attributes,ONLY: set_restart_attribute
   USE mo_dynamics_nml,        ONLY: nold, nnow, nnew, nnow_rcf, nnew_rcf
 
 

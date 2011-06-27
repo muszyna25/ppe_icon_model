@@ -1,7 +1,7 @@
 #if ! (defined (__GNUC__) || defined(__SX__) || defined(__SUNPRO_F95) || defined(__INTEL_COMPILER))
 #define HAVE_F2003
 #endif
-#if  (defined(__SX__) || defined(__SUNPRO_F95))
+#if  (defined (__GNUC__) || defined(__SX__) || defined(__SUNPRO_F95))
 #define HAVE_F95
 #endif
 MODULE mo_io_restart_namelist

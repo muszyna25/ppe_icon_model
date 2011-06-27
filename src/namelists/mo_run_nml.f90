@@ -50,7 +50,7 @@ MODULE mo_run_nml
   USE mo_namelist,           ONLY: position_nml, positioned
   USE mo_mpi,                ONLY: p_pe, p_io
   USE mo_master_nml,         ONLY: lrestart
-  USE mo_io_restart,         ONLY: get_restart_attribute
+  USE mo_io_restart_attributes, ONLY: get_restart_attribute
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
 
