@@ -54,7 +54,7 @@ MODULE mo_nh_stepping
   USE mo_diffusion_nml,       ONLY: lhdiff_vn
   USE mo_dynamics_nml,        ONLY: nnow, nnew, nnow_rcf, nnew_rcf,                 &
     &                               nsav1, nsav2, itime_scheme
-  USE mo_io_nml,              ONLY: l_outputtime, l_diagtime
+  USE mo_io_nml,              ONLY: l_outputtime, l_diagtime, l_checkpoint_time
   USE mo_run_nml,             ONLY: ltestcase, dtime, nsteps, nproma, i_cell_type,  &
     &                               ltransport, ntracer, lforcing, iforcing, inwp,  &
     &                               msg_level, ltimer
@@ -85,7 +85,9 @@ MODULE mo_nh_stepping
   USE mo_nh_feedback,         ONLY: feedback
   USE mo_datetime,            ONLY: t_datetime, print_datetime, add_time
   USE mo_timer,               ONLY: timer_total, timer_start, timer_stop
-  USE mo_output,              ONLY: init_output_files, write_output
+  USE mo_output,              ONLY: init_output_files, write_output,  &
+    &                               create_restart_file
+  USE mo_io_restart,          ONLY: write_restart_info_file
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_io_units,            ONLY: find_next_free_unit
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH,iphysproc,itconv,   &
@@ -118,6 +120,8 @@ MODULE mo_nh_stepping
   USE mo_vertical_grid,       ONLY: set_nh_metrics
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
+  USE mo_vertical_coord_table,ONLY: vct
+  USE mo_grid_nml,            ONLY: nroot
 
 #ifdef __OMP_RADIATION__  
   USE mo_nwp_rad_interface,   ONLY: nwp_start_omp_radiation_thread, model_end_thread, &
@@ -257,12 +261,12 @@ MODULE mo_nh_stepping
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
   SUBROUTINE perform_nh_stepping (p_patch, p_int_state, p_grf_state, p_nh_state, &
-                                  datetime, n_io, n_file, n_diag)
+                                  datetime, n_io, n_file, n_checkpoint, n_diag)
 !
   TYPE(t_patch), TARGET, INTENT(IN)            :: p_patch(n_dom_start:n_dom)
   TYPE(t_int_state), TARGET, INTENT(IN)        :: p_int_state(n_dom_start:n_dom)
   TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom_start:n_dom)
-  INTEGER, INTENT(IN)                          :: n_io, n_file, n_diag
+  INTEGER, INTENT(IN)                          :: n_io, n_file, n_checkpoint, n_diag
 
   TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
   TYPE(t_datetime), INTENT(INOUT)      :: datetime
@@ -309,7 +313,7 @@ MODULE mo_nh_stepping
 #endif
 
   CALL perform_nh_timeloop (p_patch, p_int_state, p_grf_state, p_nh_state, &
-                            datetime, n_io, n_file, n_diag)
+                            datetime, n_io, n_file, n_checkpoint, n_diag)
 
 #ifdef __OMP_RADIATION__  
   CALL model_end_thread()
@@ -338,7 +342,7 @@ MODULE mo_nh_stepping
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
   SUBROUTINE perform_nh_timeloop (p_patch, p_int_state, p_grf_state, p_nh_state, &
-                                  datetime, n_io, n_file, n_diag)
+                                  datetime, n_io, n_file, n_checkpoint, n_diag)
 !
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_stepping:perform_nh_timeloop'
@@ -346,7 +350,7 @@ MODULE mo_nh_stepping
   TYPE(t_patch), TARGET, INTENT(IN)            :: p_patch(n_dom_start:n_dom)
   TYPE(t_int_state), TARGET, INTENT(IN)        :: p_int_state(n_dom_start:n_dom)
   TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom_start:n_dom)
-  INTEGER, INTENT(IN)                          :: n_io, n_file, n_diag
+  INTEGER, INTENT(IN)                          :: n_io, n_file, n_checkpoint, n_diag
 
   TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
   TYPE(t_datetime), INTENT(INOUT)      :: datetime
@@ -428,6 +432,10 @@ MODULE mo_nh_stepping
 !$OMP END PARALLEL
     ENDIF
 
+
+    !--------------------------------------------------------------------------
+    ! Set output flags
+    !--------------------------------------------------------------------------
     IF (MOD(jstep,n_io) == 0 .OR. jstep==nsteps) THEN
       l_outputtime = .TRUE. ! Output is written at the end of the time step,
     ELSE                    ! thus diagnostic quantities need to be computed
@@ -439,13 +447,20 @@ MODULE mo_nh_stepping
                           ! thus diagnostic quantities need to be computed
     ENDIF
 
+    IF ( MOD(jstep,n_checkpoint)==0 ) THEN
+      l_checkpoint_time = .TRUE.
+    ELSE
+      l_checkpoint_time = .FALSE.
+    ENDIF
+
+    !
     ! dynamics stepping
+    !
     CALL integrate_nh(p_nh_state, p_patch, p_int_state, p_grf_state, &
                       1, jstep, dtime, sim_time, 1)
+
     ! output of results
     ! note: nnew has been replaced by nnow here because the update
-
-
     IF (l_outputtime) THEN
 
       CALL write_output( datetime, sim_time(1) )
@@ -481,6 +496,28 @@ MODULE mo_nh_stepping
       call init_output_files(jfile,lclose=.TRUE.)
 
     ENDIF
+
+
+    !--------------------------------------------------------------------------
+    ! Write restart file
+    !--------------------------------------------------------------------------
+    IF (l_checkpoint_time) THEN
+      DO jg = 1, n_dom
+        CALL create_restart_file( datetime,                     &
+                                & p_patch(jg)%nlev, vct,        &
+                                & jg, nroot, p_patch(jg)%level, &
+                                & p_patch(jg)%n_patch_cells_g,  &
+                                & p_patch(jg)%n_patch_verts_g,  &
+                                & p_patch(jg)%n_patch_edges_g,  &
+                                & i_cell_type, jfile            )
+      END DO
+
+      ! Create the master (meta) file in ASCII format which contains
+      ! info about which files should be read in for a restart run.
+
+      CALL write_restart_info_file
+    END IF
+
 
   ENDDO TIME_LOOP
 

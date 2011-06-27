@@ -708,7 +708,7 @@ CONTAINS
 
     CASE (inh_atmosphere)
       CALL perform_nh_stepping( p_patch, p_int_state, p_grf_state, p_nh_state, &
-                              & current_datetime, n_io, n_file, n_diag)
+                              & current_datetime, n_io, n_file, n_chkpt, n_diag)
 
     CASE DEFAULT
     END SELECT
