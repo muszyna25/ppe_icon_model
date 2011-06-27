@@ -8,12 +8,12 @@ MODULE mo_util_sysinfo
 
   INTERFACE
     SUBROUTINE private_util_user_name(name, name_len) BIND(C,NAME='util_user_name') 
-#ifdef __SX__
+#if defined(__SX__) || defined (__SUNPRO_F95) 
       USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
 #else
       IMPORT :: C_INT, C_CHAR
 #endif
-#ifdef __SX__
+#if defined(__SX__) || defined (__SUNPRO_F95)
       CHARACTER(kind=C_CHAR,len=*), INTENT(out) :: name
 #else
       CHARACTER(C_CHAR), DIMENSION(*), INTENT(out) :: name
@@ -24,12 +24,12 @@ MODULE mo_util_sysinfo
 
   INTERFACE
     SUBROUTINE private_util_os_system(name, name_len) BIND(C,NAME='util_os_system') 
-#ifdef __SX__
+#if defined(__SX__) || defined (__SUNPRO_F95)
       USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
 #else
       IMPORT :: C_INT, C_CHAR
 #endif
-#ifdef __SX__
+#if defined(__SX__) || defined (__SUNPRO_F95)
       CHARACTER(kind=C_CHAR,len=*), INTENT(out) :: name
 #else
       CHARACTER(C_CHAR), DIMENSION(*), INTENT(out) :: name
@@ -40,12 +40,12 @@ MODULE mo_util_sysinfo
 
   INTERFACE
     SUBROUTINE private_util_node_name(name, name_len) BIND(C,NAME='util_node_name') 
-#ifdef __SX__
+#if defined(__SX__) || defined (__SUNPRO_F95)
       USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
 #else
       IMPORT :: C_INT, C_CHAR
 #endif
-#ifdef __SX__
+#if defined(__SX__) || defined (__SUNPRO_F95)
       CHARACTER(kind=C_CHAR,len=*), INTENT(out) :: name
 #else
       CHARACTER(C_CHAR), DIMENSION(*), INTENT(out) :: name

@@ -8,13 +8,13 @@ MODULE mo_util_file
 
   INTERFACE 
     FUNCTION private_symlink(file, link) RESULT(iret) BIND(C,NAME='symlink')
-#ifdef __SX__
+#if defined(__SX__) || defined (__SUNPRO_F95)
       USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
 #else
       IMPORT :: C_INT, C_CHAR
 #endif
       INTEGER(C_INT) :: iret
-#ifdef __SX__
+#if defined(__SX__) || defined (__SUNPRO_F95)
       CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: file
       CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: link
 #else
@@ -26,13 +26,13 @@ MODULE mo_util_file
   
   INTERFACE
     FUNCTION private_unlink(filename) RESULT(iret) BIND(C,NAME='unlink')
-#ifdef __SX__
+#if defined(__SX__) || defined (__SUNPRO_F95)
       USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
 #else
       IMPORT :: C_INT, C_CHAR
 #endif
       INTEGER(C_INT) :: iret
-#ifdef __SX__
+#if defined(__SX__) || defined (__SUNPRO_F95)
      CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: filename
 #else
       CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: filename
@@ -42,13 +42,13 @@ MODULE mo_util_file
     
   INTERFACE
     FUNCTION private_islink(filename) RESULT(iret) BIND(C,NAME='util_islink')
-#ifdef __SX__
+#if defined(__SX__) || defined (__SUNPRO_F95)
       USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
 #else
       IMPORT :: C_INT, C_CHAR
 #endif
       INTEGER(C_INT) :: iret
-#ifdef __SX__
+#if defined(__SX__) || defined (__SUNPRO_F95)
       CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: filename
 #else
       CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: filename
@@ -58,13 +58,13 @@ MODULE mo_util_file
 
   INTERFACE 
     FUNCTION private_rename(old_filename, new_filename) RESULT(iret) BIND(C,NAME='rename')
-#ifdef __SX__
+#if defined(__SX__) || defined (__SUNPRO_F95)
       USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
 #else
       IMPORT :: C_INT, C_CHAR
 #endif
       INTEGER(C_INT) :: iret
-#ifdef __SX__
+#if defined(__SX__) || defined (__SUNPRO_F95)
       CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: old_filename
       CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: new_filename
 #else
@@ -76,7 +76,7 @@ MODULE mo_util_file
 
   INTERFACE
     FUNCTION private_tmpnam_len() RESULT(maxlen) BIND(C,NAME='util_tmpnam_len')
-#ifdef __SX__
+#if defined(__SX__) || defined (__SUNPRO_F95)
       USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT
 #else
       IMPORT :: C_INT
@@ -87,7 +87,7 @@ MODULE mo_util_file
 
   INTERFACE
     FUNCTION private_tmpnam(filename) RESULT(flen) BIND(C,NAME='util_tmpnam')
-#ifdef __SX__
+#if defined(__SX__) || defined (__SUNPRO_F95)
       USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_CHAR, C_INT
 #else
       IMPORT :: C_CHAR, C_INT
@@ -99,13 +99,13 @@ MODULE mo_util_file
 
   INTERFACE
     FUNCTION private_filesize(filename) RESULT(flen) BIND(C,NAME='util_filesize')
-#ifdef __SX__
+#if defined(__SX__) || defined (__SUNPRO_F95)
       USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
 #else
       IMPORT :: C_INT, C_CHAR
 #endif
       INTEGER(C_INT) :: flen
-#ifdef __SX__
+#if defined(__SX__) || defined (__SUNPRO_F95)
       CHARACTER(kind=C_CHAR,len=*), INTENT(in) :: filename
 #else
       CHARACTER(C_CHAR), DIMENSION(*), INTENT(in) :: filename

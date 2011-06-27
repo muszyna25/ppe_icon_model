@@ -8,7 +8,7 @@ MODULE mo_util_hash
 
   INTERFACE
     FUNCTION util_hashword(text, text_len, inithash) RESULT(hash) BIND(C,NAME='util_hashword')
-#ifdef __SX__
+#if defined (__SX__) || defined(__SUNPRO_F95)
       USE, INTRINSIC :: ISO_C_BINDING, ONLY: C_INT, C_CHAR
 #else
       IMPORT :: C_INT, C_CHAR
