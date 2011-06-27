@@ -420,6 +420,8 @@ CONTAINS
       CALL read_ext_data_atm (p_patch, ext_data)
        ENDIF
 
+
+      IF(iforcing == inwp) THEN
       !
       ! initalize external data with meaningful data, in the case that they 
       ! are not read in
@@ -432,6 +434,8 @@ CONTAINS
         ext_data(jg)%atm%rsmin(:,:)       = 150._wp ! minimal stomata resistence
         ext_data(jg)%atm%soiltyp(:,:)     = 3       ! soil type
       END DO
+
+    ENDIF
 
     CASE(1) ! read external data from netcdf dataset
 
@@ -653,7 +657,8 @@ CONTAINS
       &                   'land sea mask (cell)')
     grib2_desc = t_grib2_var( 2, 0, 0, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'lsm_atm_c', p_ext_atm%lsm_atm_c, &
-      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
+      &          grib2_desc, ldims=shape2d_c, lrestart=.FALSE.  )
 
 
     ! land sea mask for edges
@@ -663,7 +668,8 @@ CONTAINS
       &                   'land sea mask (edge)')
     grib2_desc = t_grib2_var( 2, 0, 0, ientr, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_ext_atm_list, 'lsm_atm_e', p_ext_atm%lsm_atm_e, &
-      &           GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
+      &           GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, cf_desc, &
+      &           grib2_desc, ldims=shape2d_e, lrestart=.FALSE.  )
 
 
     ! land fraction
@@ -672,7 +678,8 @@ CONTAINS
     cf_desc    = t_cf_var('land_area_fraction', '-', 'Fraction land')
     grib2_desc = t_grib2_var( 2, 0, 0, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_list, 'fr_land', p_ext_atm%fr_land, &
-      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,&
+      &            grib2_desc, ldims=shape2d_c )
 
 
     ! glacier fraction
@@ -738,14 +745,14 @@ CONTAINS
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
-
+    ! external parameter for NWP forcing
+    IF (iforcing == inwp) THEN
 
     ! Several IF-statements are necessary in order to allocate only
     ! those fields which are necessary for the chosen
     ! parameterizations.
 
-    ! external parameter for NWP forcing
-    IF (iforcing == inwp) THEN
+
 
       ! roughness length
       !
