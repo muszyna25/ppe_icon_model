@@ -48,7 +48,8 @@ MODULE mo_communication
 USE mo_kind,               ONLY: wp
 USE mo_exception,          ONLY: finish
 USE mo_run_nml,            ONLY: nproma
-USE mo_mpi,                ONLY: p_pe, p_nprocs, p_send, p_recv, p_irecv, p_wait, p_isend
+USE mo_mpi,                ONLY: p_pe, p_nprocs, p_send, p_recv, p_irecv, p_wait, p_isend, &
+     &                           p_real_dp, p_int, p_bool
 USE mo_parallel_nml,       ONLY: p_pe_work, p_test_pe, p_n_work, p_comm_work, iorder_sendrecv
 USE mo_timer,              ONLY: timer_start, timer_stop, timer_sync_data
 
@@ -70,6 +71,8 @@ PUBLIC :: time_sync
 !
 !variables
 
+!--------------------------------------------------------------------------------------------------
+!
 TYPE t_comm_pattern
 
    ! Number of points we receive in communication,
@@ -93,26 +96,36 @@ TYPE t_comm_pattern
    INTEGER, ALLOCATABLE :: send_src_blk(:)
    INTEGER, ALLOCATABLE :: send_src_idx(:)
 
-END TYPE
+END TYPE t_comm_pattern
 
-PUBLIC t_comm_pattern
+PUBLIC :: t_comm_pattern
 
-TYPE t_buffer
-
+!--------------------------------------------------------------------------------------------------
+!
+TYPE t_buffer_r
    INTEGER :: nelems
    REAL(wp), ALLOCATABLE :: buf(:)
+END TYPE t_buffer_r
 
-END TYPE
+TYPE(t_buffer_r), ALLOCATABLE :: send_bufs_r(:)
 
-TYPE(t_buffer), ALLOCATABLE :: send_bufs(:)
+TYPE t_buffer_i
+   INTEGER :: nelems
+   INTEGER, ALLOCATABLE :: buf(:)
+END TYPE t_buffer_i
 
+TYPE(t_buffer_i), ALLOCATABLE :: send_bufs_i(:)
 
-INTEGER, PARAMETER :: max_delayed_requests = 10000
+TYPE t_buffer_l
+   INTEGER :: nelems
+   LOGICAL, ALLOCATABLE :: buf(:)
+END TYPE t_buffer_l
 
-INTEGER :: n_delayed_requests = 0
+TYPE(t_buffer_l), ALLOCATABLE :: send_bufs_l(:)
 
-TYPE t_request
-
+!--------------------------------------------------------------------------------------------------
+!
+TYPE t_request_r
    TYPE(t_comm_pattern), POINTER :: p_pat
    INTEGER :: ndim2
    LOGICAL :: reverse
@@ -120,25 +133,62 @@ TYPE t_request
    REAL(wp), POINTER :: recv3(:,:,:)
    REAL(wp), POINTER :: add2(:,:)
    REAL(wp), POINTER :: add3(:,:,:)
+END TYPE t_request_r
 
-END TYPE
+TYPE t_request_i
+   TYPE(t_comm_pattern), POINTER :: p_pat
+   INTEGER :: ndim2
+   LOGICAL :: reverse
+   INTEGER, POINTER :: recv2(:,:)
+   INTEGER, POINTER :: recv3(:,:,:)
+   INTEGER, POINTER :: add2(:,:)
+   INTEGER, POINTER :: add3(:,:,:)
+END TYPE t_request_i
 
-TYPE(t_request) :: delayed_request(max_delayed_requests)
+TYPE t_request_l
+   TYPE(t_comm_pattern), POINTER :: p_pat
+   INTEGER :: ndim2
+   LOGICAL :: reverse
+   LOGICAL, POINTER :: recv2(:,:)
+   LOGICAL, POINTER :: recv3(:,:,:)
+END TYPE t_request_l
+
+INTEGER, PARAMETER :: max_delayed_requests = 10000
+
+TYPE(t_request_r) :: delayed_request_r(max_delayed_requests)
+TYPE(t_request_i) :: delayed_request_i(max_delayed_requests)
+TYPE(t_request_l) :: delayed_request_l(max_delayed_requests)
+
+INTEGER :: n_delayed_requests_r = 0
+INTEGER :: n_delayed_requests_i = 0
+INTEGER :: n_delayed_requests_l = 0
 
 LOGICAL :: use_exchange_delayed = .FALSE.
 
 LOGICAL :: time_sync = .false.
 
+!--------------------------------------------------------------------------------------------------
+!
 
 INTERFACE exchange_data
-   MODULE PROCEDURE exchange_data_3
-   MODULE PROCEDURE exchange_data_2
+   MODULE PROCEDURE exchange_data_r3d
+   MODULE PROCEDURE exchange_data_i3d
+   MODULE PROCEDURE exchange_data_l3d
+   MODULE PROCEDURE exchange_data_r2d
+   MODULE PROCEDURE exchange_data_i2d
+   MODULE PROCEDURE exchange_data_l2d
 END INTERFACE
 
 INTERFACE exchange_data_reverse
    MODULE PROCEDURE exchange_data_reverse_3
    MODULE PROCEDURE exchange_data_reverse_2
 END INTERFACE
+
+INTERFACE buffer_data
+  MODULE PROCEDURE buffer_data_r
+  MODULE PROCEDURE buffer_data_i
+  MODULE PROCEDURE buffer_data_l
+END INTERFACE buffer_data
 
 !-------------------------------------------------------------------------
 
@@ -406,14 +456,16 @@ END SUBROUTINE setup_comm_pattern
 !! Initial version by Rainer Johanni, Nov 2009
 !! Modified by Guenther Zaengl for vectorization
 !!
-SUBROUTINE exchange_data_3(p_pat, recv, send, add, send_lbound3)
+!================================================================================================
+! REAL SECTION ----------------------------------------------------------------------------------
+! 
+SUBROUTINE exchange_data_r3d(p_pat, recv, send, add, send_lbound3)
 
    TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
    REAL(wp), INTENT(INOUT), TARGET        :: recv(:,:,:)
    REAL(wp), INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
    REAL(wp), INTENT(IN), OPTIONAL, TARGET :: add (:,:,:)
    INTEGER, OPTIONAL :: send_lbound3
-
 
    REAL(wp) :: send_buf(SIZE(recv,2),p_pat%n_send), &
                recv_buf(SIZE(recv,2),p_pat%n_recv)
@@ -422,7 +474,7 @@ SUBROUTINE exchange_data_3(p_pat, recv, send, add, send_lbound3)
 
    INTEGER :: i, k, np, irs, ire, iss, ise, ndim2, lbound3
 
-!-----------------------------------------------------------------------
+   !-----------------------------------------------------------------------
 
    IF(p_nprocs == 1 .OR. p_pe == p_test_pe) &
      CALL finish('exchange_data','must not be called on single PE/test PE')
@@ -480,9 +532,9 @@ SUBROUTINE exchange_data_3(p_pat, recv, send, add, send_lbound3)
    ENDIF
 
    IF(use_exchange_delayed) THEN
-     CALL add_delayed_request(p_pat, ndim2, .FALSE.)
-     delayed_request(n_delayed_requests)%recv3 => recv
-     IF(PRESENT(add)) delayed_request(n_delayed_requests)%add3 => add
+     CALL add_delayed_request(p_pat, ndim2, .FALSE., p_real_dp)
+     delayed_request_r(n_delayed_requests_r)%recv3 => recv
+     IF(PRESENT(add)) delayed_request_r(n_delayed_requests_r)%add3 => add
 
      CALL buffer_data(p_pat%send_limits, send_buf)
      RETURN
@@ -590,13 +642,369 @@ SUBROUTINE exchange_data_3(p_pat, recv, send, add, send_lbound3)
 
 #ifdef __BOUNDCHECK
    DO i = 1, p_pat%n_pnts
-     IF (p_pat%recv_dst_idx(i)>nproma .OR.p_pat%recv_dst_blk(i)>SIZE(recv,3)) &
-       WRITE(0,*)'exch_3',i,p_pat%recv_dst_idx(i),p_pat%recv_dst_blk(i),SIZE(recv,3)
+     IF (p_pat%recv_dst_idx(i)>nproma .OR. p_pat%recv_dst_blk(i)>SIZE(recv,3)) &
+       WRITE(0,*)'exch_r3d',i,p_pat%recv_dst_idx(i),p_pat%recv_dst_blk(i),SIZE(recv,3)
    ENDDO
 #endif
 
-END SUBROUTINE exchange_data_3
+END SUBROUTINE exchange_data_r3d
+!================================================================================================
+! INTEGER SECTION -------------------------------------------------------------------------------
+! 
+SUBROUTINE exchange_data_i3d(p_pat, recv, send, add, send_lbound3)
 
+   TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
+   INTEGER, INTENT(INOUT), TARGET        :: recv(:,:,:)
+   INTEGER, INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
+   INTEGER, INTENT(IN), OPTIONAL, TARGET :: add (:,:,:)
+   INTEGER, OPTIONAL :: send_lbound3
+
+   INTEGER :: send_buf(SIZE(recv,2),p_pat%n_send), &
+               recv_buf(SIZE(recv,2),p_pat%n_recv)
+
+   INTEGER, POINTER :: send_ptr(:,:,:)
+
+   INTEGER :: i, k, np, irs, ire, iss, ise, ndim2, lbound3
+
+   !-----------------------------------------------------------------------
+
+   IF(p_nprocs == 1 .OR. p_pe == p_test_pe) &
+     CALL finish('exchange_data','must not be called on single PE/test PE')
+
+   IF(SIZE(recv,1) /= nproma) THEN
+     CALL finish('exchange_data','Illegal first dimension of data array')
+   ENDIF
+
+   ndim2 = SIZE(recv,2)
+
+   IF((iorder_sendrecv == 1 .OR. iorder_sendrecv == 3) .AND. .NOT. use_exchange_delayed) THEN
+     ! Set up irecv's for receive buffers
+     DO np = 0, p_n_work-1 ! loop over PEs from where to receive the data
+
+       irs = p_pat%recv_limits(np)+1
+       ire = p_pat%recv_limits(np+1)
+       IF(ire >= irs) &
+         CALL p_irecv(recv_buf(1,irs), np, 1, p_count=(ire-irs+1)*ndim2, comm=p_comm_work)
+
+     ENDDO
+   ENDIF
+
+   IF(PRESENT(send) .AND. PRESENT(send_lbound3)) THEN
+     lbound3 = send_lbound3
+   ELSE
+     lbound3 = 1
+   ENDIF
+
+   ! Set up send buffer
+
+   IF(PRESENT(send)) THEN
+     send_ptr => send
+   ELSE
+     send_ptr => recv
+   ENDIF
+
+   IF (ndim2 == 1) THEN
+     DO i = 1, p_pat%n_send
+       send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i)-lbound3+1)
+     ENDDO
+   ELSE
+#ifdef __SX__
+!CDIR UNROLL=6
+     DO k = 1, ndim2
+       DO i = 1, p_pat%n_send
+         send_buf(k,i) = send_ptr(p_pat%send_src_idx(i),k,p_pat%send_src_blk(i)-lbound3+1)
+       ENDDO
+     ENDDO
+#else
+     DO i = 1, p_pat%n_send
+       send_buf(1:ndim2,i) = send_ptr(p_pat%send_src_idx(i),1:ndim2,   &
+         &                            p_pat%send_src_blk(i)-lbound3+1)
+     ENDDO
+#endif
+   ENDIF
+
+   IF(use_exchange_delayed) THEN
+     CALL add_delayed_request(p_pat, ndim2, .FALSE., p_int)
+     delayed_request_i(n_delayed_requests_i)%recv3 => recv
+     IF(PRESENT(add)) delayed_request_i(n_delayed_requests_i)%add3 => add
+
+     CALL buffer_data(p_pat%send_limits, send_buf)
+     RETURN
+   ENDIF
+
+
+   ! Send our data
+   IF (iorder_sendrecv == 1) THEN
+     DO np = 0, p_n_work-1 ! loop over PEs where to send the data
+
+       iss = p_pat%send_limits(np)+1
+       ise = p_pat%send_limits(np+1)
+
+       IF(ise >= iss) &
+         CALL p_send(send_buf(1,iss), np, 1, p_count=(ise-iss+1)*ndim2, comm=p_comm_work)
+
+     ENDDO
+   ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
+     DO np = 0, p_n_work-1 ! loop over PEs where to send the data
+
+       iss = p_pat%send_limits(np)+1
+       ise = p_pat%send_limits(np+1)
+
+       IF(ise >= iss) &
+         CALL p_isend(send_buf(1,iss), np, 1, p_count=(ise-iss+1)*ndim2, comm=p_comm_work)
+
+     ENDDO
+
+     DO np = 0, p_n_work-1 ! loop over PEs from where to receive the data
+
+       irs = p_pat%recv_limits(np)+1
+       ire = p_pat%recv_limits(np+1)
+       IF(ire >= irs) &
+         CALL p_recv(recv_buf(1,irs), np, 1, p_count=(ire-irs+1)*ndim2, comm=p_comm_work)
+
+     ENDDO
+   ELSE IF (iorder_sendrecv == 3) THEN ! use irecv/isend
+     DO np = 0, p_n_work-1 ! loop over PEs where to send the data
+
+       iss = p_pat%send_limits(np)+1
+       ise = p_pat%send_limits(np+1)
+
+       IF(ise >= iss) &
+         CALL p_isend(send_buf(1,iss), np, 1, p_count=(ise-iss+1)*ndim2, comm=p_comm_work)
+
+     ENDDO
+   ENDIF
+
+   ! Wait for all outstanding requests to finish
+
+   CALL p_wait
+
+   ! Fill in receive buffer
+
+   IF(PRESENT(add)) THEN
+     IF (ndim2 == 1) THEN
+       k = 1
+       DO i = 1, p_pat%n_pnts
+         recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) =   &
+           recv_buf(k,p_pat%recv_src(i)) +                       &
+           add(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i))
+       ENDDO
+     ELSE
+#ifdef __SX__
+!CDIR UNROLL=6
+       DO k = 1, ndim2
+         DO i = 1, p_pat%n_pnts
+           recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) =   &
+             recv_buf(k,p_pat%recv_src(i)) +                       &
+             add(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i))
+         ENDDO
+       ENDDO
+#else
+       DO i = 1, p_pat%n_pnts
+         recv(p_pat%recv_dst_idx(i),:,p_pat%recv_dst_blk(i)) =   &
+           recv_buf(:,p_pat%recv_src(i)) +                       &
+           add(p_pat%recv_dst_idx(i),1:ndim2,p_pat%recv_dst_blk(i))
+       ENDDO
+#endif
+     ENDIF
+   ELSE
+     IF (ndim2 == 1) THEN
+       k = 1
+       DO i = 1, p_pat%n_pnts
+         recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
+           recv_buf(k,p_pat%recv_src(i))
+       ENDDO
+     ELSE
+#ifdef __SX__
+!CDIR UNROLL=6
+       DO k = 1, ndim2
+         DO i = 1, p_pat%n_pnts
+           recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
+             recv_buf(k,p_pat%recv_src(i))
+         ENDDO
+       ENDDO
+#else
+       DO i = 1, p_pat%n_pnts
+         recv(p_pat%recv_dst_idx(i),:,p_pat%recv_dst_blk(i)) = &
+           recv_buf(:,p_pat%recv_src(i))
+       ENDDO
+#endif
+     ENDIF
+   ENDIF
+
+#ifdef __BOUNDCHECK
+   DO i = 1, p_pat%n_pnts
+     IF (p_pat%recv_dst_idx(i)>nproma .OR. p_pat%recv_dst_blk(i)>SIZE(recv,3)) &
+       WRITE(0,*)'exch_i3d',i,p_pat%recv_dst_idx(i),p_pat%recv_dst_blk(i),SIZE(recv,3)
+   ENDDO
+#endif
+
+END SUBROUTINE exchange_data_i3d
+!================================================================================================
+! LOGICAL SECTION -------------------------------------------------------------------------------
+! 
+SUBROUTINE exchange_data_l3d(p_pat, recv, send, send_lbound3)
+
+   TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
+   LOGICAL, INTENT(INOUT), TARGET        :: recv(:,:,:)
+   LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:,:)
+   INTEGER, OPTIONAL :: send_lbound3
+
+   LOGICAL :: send_buf(SIZE(recv,2),p_pat%n_send), &
+               recv_buf(SIZE(recv,2),p_pat%n_recv)
+
+   LOGICAL, POINTER :: send_ptr(:,:,:)
+
+   INTEGER :: i, k, np, irs, ire, iss, ise, ndim2, lbound3
+
+   !-----------------------------------------------------------------------
+
+   IF(p_nprocs == 1 .OR. p_pe == p_test_pe) &
+     CALL finish('exchange_data','must not be called on single PE/test PE')
+
+   IF(SIZE(recv,1) /= nproma) THEN
+     CALL finish('exchange_data','Illegal first dimension of data array')
+   ENDIF
+
+   ndim2 = SIZE(recv,2)
+
+   IF((iorder_sendrecv == 1 .OR. iorder_sendrecv == 3) .AND. .NOT. use_exchange_delayed) THEN
+     ! Set up irecv's for receive buffers
+     DO np = 0, p_n_work-1 ! loop over PEs from where to receive the data
+
+       irs = p_pat%recv_limits(np)+1
+       ire = p_pat%recv_limits(np+1)
+       IF(ire >= irs) &
+         CALL p_irecv(recv_buf(1,irs), np, 1, p_count=(ire-irs+1)*ndim2, comm=p_comm_work)
+
+     ENDDO
+   ENDIF
+
+   IF(PRESENT(send) .AND. PRESENT(send_lbound3)) THEN
+     lbound3 = send_lbound3
+   ELSE
+     lbound3 = 1
+   ENDIF
+
+   ! Set up send buffer
+
+   IF(PRESENT(send)) THEN
+     send_ptr => send
+   ELSE
+     send_ptr => recv
+   ENDIF
+
+   IF (ndim2 == 1) THEN
+     DO i = 1, p_pat%n_send
+       send_buf(1,i) = send_ptr(p_pat%send_src_idx(i),1,p_pat%send_src_blk(i)-lbound3+1)
+     ENDDO
+   ELSE
+#ifdef __SX__
+!CDIR UNROLL=6
+     DO k = 1, ndim2
+       DO i = 1, p_pat%n_send
+         send_buf(k,i) = send_ptr(p_pat%send_src_idx(i),k,p_pat%send_src_blk(i)-lbound3+1)
+       ENDDO
+     ENDDO
+#else
+     DO i = 1, p_pat%n_send
+       send_buf(1:ndim2,i) = send_ptr(p_pat%send_src_idx(i),1:ndim2,   &
+         &                            p_pat%send_src_blk(i)-lbound3+1)
+     ENDDO
+#endif
+   ENDIF
+
+   IF(use_exchange_delayed) THEN
+     CALL add_delayed_request(p_pat, ndim2, .FALSE., p_bool)
+     delayed_request_l(n_delayed_requests_l)%recv3 => recv
+
+     CALL buffer_data(p_pat%send_limits, send_buf)
+     RETURN
+   ENDIF
+
+
+   ! Send our data
+   IF (iorder_sendrecv == 1) THEN
+     DO np = 0, p_n_work-1 ! loop over PEs where to send the data
+
+       iss = p_pat%send_limits(np)+1
+       ise = p_pat%send_limits(np+1)
+
+       IF(ise >= iss) &
+         CALL p_send(send_buf(1,iss), np, 1, p_count=(ise-iss+1)*ndim2, comm=p_comm_work)
+
+     ENDDO
+   ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
+     DO np = 0, p_n_work-1 ! loop over PEs where to send the data
+
+       iss = p_pat%send_limits(np)+1
+       ise = p_pat%send_limits(np+1)
+
+       IF(ise >= iss) &
+         CALL p_isend(send_buf(1,iss), np, 1, p_count=(ise-iss+1)*ndim2, comm=p_comm_work)
+
+     ENDDO
+
+     DO np = 0, p_n_work-1 ! loop over PEs from where to receive the data
+
+       irs = p_pat%recv_limits(np)+1
+       ire = p_pat%recv_limits(np+1)
+       IF(ire >= irs) &
+         CALL p_recv(recv_buf(1,irs), np, 1, p_count=(ire-irs+1)*ndim2, comm=p_comm_work)
+
+     ENDDO
+   ELSE IF (iorder_sendrecv == 3) THEN ! use irecv/isend
+     DO np = 0, p_n_work-1 ! loop over PEs where to send the data
+
+       iss = p_pat%send_limits(np)+1
+       ise = p_pat%send_limits(np+1)
+
+       IF(ise >= iss) &
+         CALL p_isend(send_buf(1,iss), np, 1, p_count=(ise-iss+1)*ndim2, comm=p_comm_work)
+
+     ENDDO
+   ENDIF
+
+   ! Wait for all outstanding requests to finish
+
+   CALL p_wait
+
+   ! Fill in receive buffer
+
+   IF (ndim2 == 1) THEN
+     k = 1
+     DO i = 1, p_pat%n_pnts
+       recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
+            recv_buf(k,p_pat%recv_src(i))
+     ENDDO
+   ELSE
+#ifdef __SX__
+!CDIR UNROLL=6
+     DO k = 1, ndim2
+       DO i = 1, p_pat%n_pnts
+         recv(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
+              recv_buf(k,p_pat%recv_src(i))
+       ENDDO
+     ENDDO
+#else
+     DO i = 1, p_pat%n_pnts
+       recv(p_pat%recv_dst_idx(i),:,p_pat%recv_dst_blk(i)) = &
+            recv_buf(:,p_pat%recv_src(i))
+     ENDDO
+#endif
+   ENDIF
+
+#ifdef __BOUNDCHECK
+   DO i = 1, p_pat%n_pnts
+     IF (p_pat%recv_dst_idx(i)>nproma .OR. p_pat%recv_dst_blk(i)>SIZE(recv,3)) &
+       WRITE(0,*)'exch_l3d',i,p_pat%recv_dst_idx(i),p_pat%recv_dst_blk(i),SIZE(recv,3)
+   ENDDO
+#endif
+
+END SUBROUTINE exchange_data_l3d
+!
+!================================================================================================
+!
 !--------------------------------------------------------------------------------------------------
 !>
 !! Does a reverse data exchange according to a communication pattern (in p_pat),
@@ -681,8 +1089,8 @@ SUBROUTINE exchange_data_reverse_3(p_pat, recv, send)
    ENDIF
 
    IF(use_exchange_delayed) THEN
-     CALL add_delayed_request(p_pat, ndim2, .TRUE.)
-     delayed_request(n_delayed_requests)%recv3 => recv
+     CALL add_delayed_request(p_pat, ndim2, .TRUE., p_real_dp)
+     delayed_request_r(n_delayed_requests_r)%recv3 => recv
 
      CALL buffer_data(p_pat%recv_limits, send_buf)
      RETURN
@@ -904,15 +1312,15 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
      DO n = 1, nfields
        IF(lsend) THEN
          IF(ladd) THEN
-           CALL exchange_data_3(p_pat, recv(n)%fld(:,:,:), send(n)%fld(:,:,:), add(n)%fld(:,:,:))
+           CALL exchange_data(p_pat, recv(n)%fld(:,:,:), send(n)%fld(:,:,:), add(n)%fld(:,:,:))
          ELSE
-           CALL exchange_data_3(p_pat, recv(n)%fld(:,:,:), send(n)%fld(:,:,:))
+           CALL exchange_data(p_pat, recv(n)%fld(:,:,:), send(n)%fld(:,:,:))
          ENDIF
        ELSE
          IF(ladd) THEN
-           CALL exchange_data_3(p_pat, recv(n)%fld(:,:,:), add=add(n)%fld(:,:,:))
+           CALL exchange_data(p_pat, recv(n)%fld(:,:,:), add=add(n)%fld(:,:,:))
          ELSE
-           CALL exchange_data_3(p_pat, recv(n)%fld(:,:,:))
+           CALL exchange_data(p_pat, recv(n)%fld(:,:,:))
          ENDIF
        ENDIF
      ENDDO
@@ -1698,24 +2106,24 @@ SUBROUTINE exchange_data_grf(p_pat, nfields, ndim2tot, nsendtot, nrecvtot, recv1
      IF (PRESENT(recv4d)) THEN
        DO n = 1, UBOUND(recv4d, 4)
          DO np = 1, npats
-           CALL exchange_data_3(p_pat(np), recv4d(:,:,:,n), send4d(:,:,:,np,n), &
+           CALL exchange_data(p_pat(np), recv4d(:,:,:,n), send4d(:,:,:,np,n), &
              &                  send_lbound3=send_lbound3)
          ENDDO
        ENDDO
      ENDIF
      IF (PRESENT(recv1)) THEN
        DO np = 1, npats
-         CALL exchange_data_3(p_pat(np), recv1(:,:,:), send1(:,:,:,np),send_lbound3=send_lbound3)
+         CALL exchange_data(p_pat(np), recv1(:,:,:), send1(:,:,:,np),send_lbound3=send_lbound3)
        ENDDO
      ENDIF
      IF (PRESENT(recv2)) THEN
        DO np = 1, npats
-         CALL exchange_data_3(p_pat(np), recv2(:,:,:), send2(:,:,:,np),send_lbound3=send_lbound3)
+         CALL exchange_data(p_pat(np), recv2(:,:,:), send2(:,:,:,np),send_lbound3=send_lbound3)
        ENDDO
      ENDIF
      IF (PRESENT(recv3)) THEN
        DO np = 1, npats
-         CALL exchange_data_3(p_pat(np), recv3(:,:,:), send3(:,:,:,np),send_lbound3=send_lbound3)
+         CALL exchange_data(p_pat(np), recv3(:,:,:), send3(:,:,:,np),send_lbound3=send_lbound3)
        ENDDO
      ENDIF
 
@@ -1956,15 +2364,16 @@ END SUBROUTINE exchange_data_grf
 !>
 !! Interface for 2D arrays for exchange_data.
 !!
-!! Just reshapes the arrays and calls exchange_data_3.
+!! Just reshapes the arrays and calls exchange_data.
 !!
 !! @par Revision History
 !! Initial version by Rainer Johanni, Nov 2009
 !!
-SUBROUTINE exchange_data_2(p_pat, recv, send, add, send_lbound2)
-
-!
-
+!================================================================================================
+! REAL SECTION ----------------------------------------------------------------------------------
+! 
+SUBROUTINE exchange_data_r2d(p_pat, recv, send, add, send_lbound2)
+   !
    TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
    REAL(wp), INTENT(INOUT), TARGET        :: recv(:,:)
    REAL(wp), INTENT(IN), OPTIONAL, TARGET :: send(:,:)
@@ -1975,16 +2384,16 @@ SUBROUTINE exchange_data_2(p_pat, recv, send, add, send_lbound2)
    REAL(wp) :: send_buf(1,p_pat%n_send)
    INTEGER :: i, lbound2
 
-!-----------------------------------------------------------------------
+   !-----------------------------------------------------------------------
 
-   IF(use_exchange_delayed) THEN
+   IF (use_exchange_delayed) THEN
 
-     CALL add_delayed_request(p_pat, 1, .FALSE.)
+     CALL add_delayed_request(p_pat, 1, .FALSE., p_real_dp)
 
-     delayed_request(n_delayed_requests)%recv2 => recv
-     IF(PRESENT(add)) delayed_request(n_delayed_requests)%add2 => add
+     delayed_request_r(n_delayed_requests_r)%recv2 => recv
+     IF (PRESENT(add)) delayed_request_r(n_delayed_requests_r)%add2 => add
 
-     IF(PRESENT(send) .AND. PRESENT(send_lbound2)) THEN
+     IF (PRESENT(send) .AND. PRESENT(send_lbound2)) THEN
        lbound2 = send_lbound2
      ELSE
        lbound2 = 1
@@ -2011,38 +2420,186 @@ SUBROUTINE exchange_data_2(p_pat, recv, send, add, send_lbound2)
      tmp_recv(:,1,:) = recv(:,:)
    ENDIF
 
-   IF(PRESENT(send) .AND. PRESENT(send_lbound2)) THEN
-      IF(PRESENT(add)) THEN
-         CALL exchange_data_3(p_pat, tmp_recv, &
+   IF (PRESENT(send) .AND. PRESENT(send_lbound2)) THEN
+      IF (PRESENT(add)) THEN
+         CALL exchange_data(p_pat, tmp_recv, &
                               send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)), &
                               add =RESHAPE(add, (/SIZE(add ,1),1,SIZE(add ,2)/)), &
                               send_lbound3=send_lbound2 )
       ELSE
-         CALL exchange_data_3(p_pat, tmp_recv, &
+         CALL exchange_data(p_pat, tmp_recv, &
                               send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)), &
                               send_lbound3=send_lbound2)
       ENDIF
-   ELSE IF(PRESENT(send)) THEN
-      IF(PRESENT(add)) THEN
-         CALL exchange_data_3(p_pat, tmp_recv, &
+   ELSEIF (PRESENT(send)) THEN
+      IF (PRESENT(add)) THEN
+         CALL exchange_data(p_pat, tmp_recv, &
                               send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)), &
                               add =RESHAPE(add, (/SIZE(add ,1),1,SIZE(add ,2)/)))
       ELSE
-         CALL exchange_data_3(p_pat, tmp_recv, &
+         CALL exchange_data(p_pat, tmp_recv, &
                               send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)))
       ENDIF
    ELSE
-      IF(PRESENT(add)) THEN
-         CALL exchange_data_3(p_pat, tmp_recv, &
+      IF (PRESENT(add)) THEN
+         CALL exchange_data(p_pat, tmp_recv, &
                               add =RESHAPE(add, (/SIZE(add ,1),1,SIZE(add ,2)/)))
       ELSE
-         CALL exchange_data_3(p_pat, tmp_recv)
+         CALL exchange_data(p_pat, tmp_recv)
       ENDIF
    ENDIF
 
    recv(:,:) = tmp_recv(:,1,:)
 
-END SUBROUTINE exchange_data_2
+END SUBROUTINE exchange_data_r2d
+!================================================================================================
+! INTEGER SECTION -------------------------------------------------------------------------------
+! 
+SUBROUTINE exchange_data_i2d(p_pat, recv, send, add, send_lbound2)
+   !
+   TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
+   INTEGER, INTENT(INOUT), TARGET        :: recv(:,:)
+   INTEGER, INTENT(IN), OPTIONAL, TARGET :: send(:,:)
+   INTEGER, INTENT(IN), OPTIONAL, TARGET :: add (:,:)
+   INTEGER, OPTIONAL :: send_lbound2
+
+   INTEGER :: tmp_recv(SIZE(recv,1),1,SIZE(recv,2))
+   INTEGER :: send_buf(1,p_pat%n_send)
+   INTEGER :: i, lbound2
+
+   !-----------------------------------------------------------------------
+
+   IF (use_exchange_delayed) THEN
+
+     CALL add_delayed_request(p_pat, 1, .FALSE., p_int)
+
+     delayed_request_i(n_delayed_requests_i)%recv2 => recv
+     IF (PRESENT(add)) delayed_request_i(n_delayed_requests_i)%add2 => add
+
+     IF (PRESENT(send) .AND. PRESENT(send_lbound2)) THEN
+       lbound2 = send_lbound2
+     ELSE
+       lbound2 = 1
+     ENDIF
+
+     IF ( PRESENT(send)) THEN
+       DO i = 1, p_pat%n_send
+         send_buf(1,i) = send(p_pat%send_src_idx(i),p_pat%send_src_blk(i)-lbound2+1)
+       ENDDO
+     ELSE
+       DO i = 1, p_pat%n_send
+         send_buf(1,i) = recv(p_pat%send_src_idx(i),p_pat%send_src_blk(i))
+       ENDDO
+     ENDIF
+
+     CALL buffer_data(p_pat%send_limits, send_buf)
+     RETURN
+
+   ENDIF
+
+   IF (PRESENT(send)) THEN
+     tmp_recv(:,1,:) = 0
+   ELSE
+     tmp_recv(:,1,:) = recv(:,:)
+   ENDIF
+
+   IF (PRESENT(send) .AND. PRESENT(send_lbound2)) THEN
+      IF (PRESENT(add)) THEN
+         CALL exchange_data(p_pat, tmp_recv, &
+                              send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)), &
+                              add =RESHAPE(add, (/SIZE(add ,1),1,SIZE(add ,2)/)), &
+                              send_lbound3=send_lbound2 )
+      ELSE
+         CALL exchange_data(p_pat, tmp_recv, &
+                              send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)), &
+                              send_lbound3=send_lbound2)
+      ENDIF
+   ELSEIF (PRESENT(send)) THEN
+      IF (PRESENT(add)) THEN
+         CALL exchange_data(p_pat, tmp_recv, &
+                              send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)), &
+                              add =RESHAPE(add, (/SIZE(add ,1),1,SIZE(add ,2)/)))
+      ELSE
+         CALL exchange_data(p_pat, tmp_recv, &
+                              send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)))
+      ENDIF
+   ELSE
+      IF (PRESENT(add)) THEN
+         CALL exchange_data(p_pat, tmp_recv, &
+                              add =RESHAPE(add, (/SIZE(add ,1),1,SIZE(add ,2)/)))
+      ELSE
+         CALL exchange_data(p_pat, tmp_recv)
+      ENDIF
+   ENDIF
+
+   recv(:,:) = tmp_recv(:,1,:)
+
+END SUBROUTINE exchange_data_i2d
+!================================================================================================
+! LOGICAL SECTION -------------------------------------------------------------------------------
+! 
+SUBROUTINE exchange_data_l2d(p_pat, recv, send, send_lbound2)
+   !
+   TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
+   LOGICAL, INTENT(INOUT), TARGET        :: recv(:,:)
+   LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:)
+   INTEGER, OPTIONAL :: send_lbound2
+
+   LOGICAL :: tmp_recv(SIZE(recv,1),1,SIZE(recv,2))
+   LOGICAL :: send_buf(1,p_pat%n_send)
+   INTEGER :: i, lbound2
+
+   !-----------------------------------------------------------------------
+
+   IF (use_exchange_delayed) THEN
+
+     CALL add_delayed_request(p_pat, 1, .FALSE., p_bool)
+
+     delayed_request_l(n_delayed_requests_l)%recv2 => recv
+
+     IF (PRESENT(send) .AND. PRESENT(send_lbound2)) THEN
+       lbound2 = send_lbound2
+     ELSE
+       lbound2 = 1
+     ENDIF
+
+     IF ( PRESENT(send)) THEN
+       DO i = 1, p_pat%n_send
+         send_buf(1,i) = send(p_pat%send_src_idx(i),p_pat%send_src_blk(i)-lbound2+1)
+       ENDDO
+     ELSE
+       DO i = 1, p_pat%n_send
+         send_buf(1,i) = recv(p_pat%send_src_idx(i),p_pat%send_src_blk(i))
+       ENDDO
+     ENDIF
+
+     CALL buffer_data(p_pat%send_limits, send_buf)
+     RETURN
+
+   ENDIF
+
+   IF (PRESENT(send)) THEN
+     tmp_recv(:,1,:) = .FALSE.
+   ELSE
+     tmp_recv(:,1,:) = recv(:,:)
+   ENDIF
+
+   IF (PRESENT(send) .AND. PRESENT(send_lbound2)) THEN
+     CALL exchange_data(p_pat, tmp_recv, &
+          &             send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)), &
+          &             send_lbound3=send_lbound2)
+   ELSEIF (PRESENT(send)) THEN
+     CALL exchange_data(p_pat, tmp_recv, &
+          &             send=RESHAPE(send,(/SIZE(send,1),1,SIZE(send,2)/)))
+   ELSE
+     CALL exchange_data(p_pat, tmp_recv)
+   ENDIF
+
+   recv(:,:) = tmp_recv(:,1,:)
+
+END SUBROUTINE exchange_data_l2d
+!
+!================================================================================================
 
 !-------------------------------------------------------------------------
 
@@ -2073,8 +2630,8 @@ SUBROUTINE exchange_data_reverse_2(p_pat, recv, send)
 
    IF(use_exchange_delayed) THEN
 
-     CALL add_delayed_request(p_pat, 1, .TRUE.)
-     delayed_request(n_delayed_requests)%recv2 => recv
+     CALL add_delayed_request(p_pat, 1, .TRUE., p_real_dp)
+     delayed_request_r(n_delayed_requests_r)%recv2 => recv
 
      IF(PRESENT(send)) THEN
        DO i = 1, p_pat%n_pnts
@@ -2128,15 +2685,15 @@ SUBROUTINE start_delayed_exchange
   ! Just ignore this call for 1 processor runs
   IF (p_nprocs == 1 .OR. p_pe == p_test_pe) RETURN
 
-  ! If the first time here: initialize send_bufs
+  ! If the first time here: initialize send_bufs_r
 
-  IF(.NOT.ALLOCATED(send_bufs)) THEN
+  IF(.NOT.ALLOCATED(send_bufs_r)) THEN
 
-    ALLOCATE(send_bufs(0:p_n_work-1))
+    ALLOCATE(send_bufs_r(0:p_n_work-1))
 
     DO np = 0, p_n_work-1
-      ALLOCATE(send_bufs(np)%buf(1)) ! will be enlarged later
-      send_bufs(np)%nelems = 0 ! nothing filled in yet
+      ALLOCATE(send_bufs_r(np)%buf(1)) ! will be enlarged later
+      send_bufs_r(np)%nelems = 0 ! nothing filled in yet
     ENDDO
 
   ENDIF
@@ -2147,39 +2704,79 @@ END SUBROUTINE start_delayed_exchange
 
 !--------------------------------------------------------------------------------------------------
 !
-!> Adds a delayed request, i.e. increments n_delayed_requests, checks if the limit is not exceeded
+!> Adds a delayed request, i.e. increments n_delayed_requests_r, checks if the limit is not exceeded
 !! sets the p_pat, ndim2, reverse members and nullifies the remaining pointers
-
-SUBROUTINE add_delayed_request(p_pat, ndim2, reverse)
+!!
+SUBROUTINE add_delayed_request(p_pat, ndim2, reverse, typ)
 
   TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
   INTEGER, INTENT(IN) :: ndim2
   LOGICAL, INTENT(IN) :: reverse
+  INTEGER, INTENT(in) :: typ
 
-  ! Check for limit
+  IF (typ == p_real_dp) THEN
 
-  IF(n_delayed_requests >= max_delayed_requests) &
-    CALL finish('mo_communication','max_delayed_requests exceeded')
+    ! Check for limit
+    IF (n_delayed_requests_r >= max_delayed_requests) &
+         CALL finish('mo_communication','max_delayed_requests exceeded')
 
-  n_delayed_requests = n_delayed_requests+1
+    n_delayed_requests_r = n_delayed_requests_r+1
 
-  delayed_request(n_delayed_requests)%p_pat => p_pat
-  delayed_request(n_delayed_requests)%ndim2 =  ndim2
-  delayed_request(n_delayed_requests)%reverse = reverse
-  delayed_request(n_delayed_requests)%recv2 => NULL()
-  delayed_request(n_delayed_requests)%recv3 => NULL()
-  delayed_request(n_delayed_requests)%add2  => NULL()
-  delayed_request(n_delayed_requests)%add3  => NULL()
+    delayed_request_r(n_delayed_requests_r)%p_pat => p_pat
+    delayed_request_r(n_delayed_requests_r)%ndim2 =  ndim2
+    delayed_request_r(n_delayed_requests_r)%reverse = reverse
+    delayed_request_r(n_delayed_requests_r)%recv2 => NULL()
+    delayed_request_r(n_delayed_requests_r)%recv3 => NULL()
+    delayed_request_r(n_delayed_requests_r)%add2  => NULL()
+    delayed_request_r(n_delayed_requests_r)%add3  => NULL()
+
+  ELSEIF (typ == p_int) THEN
+
+    ! Check for limit
+    IF (n_delayed_requests_i >= max_delayed_requests) &
+         CALL finish('mo_communication','max_delayed_requests exceeded')
+    
+    n_delayed_requests_i = n_delayed_requests_i+1
+
+    delayed_request_i(n_delayed_requests_i)%p_pat => p_pat
+    delayed_request_i(n_delayed_requests_i)%ndim2 =  ndim2
+    delayed_request_i(n_delayed_requests_i)%reverse = reverse
+    delayed_request_i(n_delayed_requests_i)%recv2 => NULL()
+    delayed_request_i(n_delayed_requests_i)%recv3 => NULL()
+    delayed_request_i(n_delayed_requests_i)%add2  => NULL()
+    delayed_request_i(n_delayed_requests_i)%add3  => NULL()
+
+  ELSEIF (typ == p_bool) THEN
+
+    ! Check for limit
+
+    IF (n_delayed_requests_l >= max_delayed_requests) &
+         CALL finish('mo_communication','max_delayed_requests exceeded')
+
+    n_delayed_requests_l = n_delayed_requests_l+1
+
+    delayed_request_l(n_delayed_requests_l)%p_pat => p_pat
+    delayed_request_l(n_delayed_requests_l)%ndim2 =  ndim2
+    delayed_request_l(n_delayed_requests_l)%reverse = reverse
+    delayed_request_l(n_delayed_requests_l)%recv2 => NULL()
+    delayed_request_l(n_delayed_requests_l)%recv3 => NULL()
+    
+  ENDIF
 
 END SUBROUTINE add_delayed_request
-
+!
+!================================================================================================
+!
 !--------------------------------------------------------------------------------------------------
-
+!
 !> Backend for buffering data for delayed exchanges
 !!
 !! Initial version by Rainer Johanni, Oct 2010
-
-SUBROUTINE buffer_data(limits, send)
+!!
+!================================================================================================
+! REAL SECTION ----------------------------------------------------------------------------------
+! 
+SUBROUTINE buffer_data_r(limits, send)
 
   INTEGER, INTENT(IN) :: limits(0:)
   REAL(wp), INTENT(IN) :: send(:,:)
@@ -2189,8 +2786,7 @@ SUBROUTINE buffer_data(limits, send)
 
   ndim2 = UBOUND(send,1)
 
-
-  ! Store data in send_bufs
+  ! Store data in send_bufs_r
 
   DO np = 0, p_n_work-1 ! loop over PEs where to send the data
 
@@ -2201,33 +2797,137 @@ SUBROUTINE buffer_data(limits, send)
 
     IF(ise<iss) CYCLE
 
-    n = send_bufs(np)%nelems ! Number of elements currently in buffer
+    n = send_bufs_r(np)%nelems ! Number of elements currently in buffer
 
-    ! Make sure that send_bufs(np)%buf has enough capacity.
+    ! Make sure that send_bufs_r(np)%buf has enough capacity.
     ! There is some deallocating/allocating of the buffers at the beginning
     ! but after the first timestep the final size should be reached.
 
-    IF(n + nitems > SIZE(send_bufs(np)%buf)) THEN
+    IF(n + nitems > SIZE(send_bufs_r(np)%buf)) THEN
       IF(n>0) THEN
         ALLOCATE(buf(n))
-        buf(1:n) = send_bufs(np)%buf(1:n)
+        buf(1:n) = send_bufs_r(np)%buf(1:n)
       ENDIF
-      DEALLOCATE(send_bufs(np)%buf)
-      ALLOCATE(send_bufs(np)%buf(n + nitems))
+      DEALLOCATE(send_bufs_r(np)%buf)
+      ALLOCATE(send_bufs_r(np)%buf(n + nitems))
       IF(n>0) THEN
-        send_bufs(np)%buf(1:n) = buf(1:n)
+        send_bufs_r(np)%buf(1:n) = buf(1:n)
         DEALLOCATE(buf)
       ENDIF
     ENDIF
 
-    send_bufs(np)%buf(n+1:n+nitems) = RESHAPE(send(:,iss:ise), (/ nitems /))
+    send_bufs_r(np)%buf(n+1:n+nitems) = RESHAPE(send(:,iss:ise), (/ nitems /))
 
-    send_bufs(np)%nelems = n+nitems ! new number of elements
+    send_bufs_r(np)%nelems = n+nitems ! new number of elements
 
   ENDDO
 
-END SUBROUTINE buffer_data
+END SUBROUTINE buffer_data_r
+!
+!================================================================================================
+! INTEGER SECTION -------------------------------------------------------------------------------
+!
+SUBROUTINE buffer_data_i(limits, send)
 
+  INTEGER, INTENT(IN) :: limits(0:)
+  INTEGER, INTENT(IN) :: send(:,:)
+
+  INTEGER, ALLOCATABLE :: buf(:)
+  INTEGER :: ndim2, nitems, n, np, iss, ise
+
+  ndim2 = UBOUND(send,1)
+
+  ! Store data in send_bufs_i
+
+  DO np = 0, p_n_work-1 ! loop over PEs where to send the data
+
+    iss = limits(np)+1
+    ise = limits(np+1)
+
+    nitems = ndim2*(ise-iss+1)
+
+    IF(ise<iss) CYCLE
+
+    n = send_bufs_i(np)%nelems ! Number of elements currently in buffer
+
+    ! Make sure that send_bufs_i(np)%buf has enough capacity.
+    ! There is some deallocating/allocating of the buffers at the beginning
+    ! but after the first timestep the final size should be reached.
+
+    IF(n + nitems > SIZE(send_bufs_i(np)%buf)) THEN
+      IF(n>0) THEN
+        ALLOCATE(buf(n))
+        buf(1:n) = send_bufs_i(np)%buf(1:n)
+      ENDIF
+      DEALLOCATE(send_bufs_i(np)%buf)
+      ALLOCATE(send_bufs_i(np)%buf(n + nitems))
+      IF(n>0) THEN
+        send_bufs_i(np)%buf(1:n) = buf(1:n)
+        DEALLOCATE(buf)
+      ENDIF
+    ENDIF
+
+    send_bufs_i(np)%buf(n+1:n+nitems) = RESHAPE(send(:,iss:ise), (/ nitems /))
+
+    send_bufs_i(np)%nelems = n+nitems ! new number of elements
+
+  ENDDO
+
+END SUBROUTINE buffer_data_i
+!
+!================================================================================================
+! LOGICAL SECTION -------------------------------------------------------------------------------
+!
+SUBROUTINE buffer_data_l(limits, send)
+
+  INTEGER, INTENT(IN) :: limits(0:)
+  LOGICAL, INTENT(IN) :: send(:,:)
+
+  LOGICAL, ALLOCATABLE :: buf(:)
+  INTEGER :: ndim2, nitems, n, np, iss, ise
+
+  ndim2 = UBOUND(send,1)
+
+  ! Store data in send_bufs_l
+
+  DO np = 0, p_n_work-1 ! loop over PEs where to send the data
+
+    iss = limits(np)+1
+    ise = limits(np+1)
+
+    nitems = ndim2*(ise-iss+1)
+
+    IF(ise<iss) CYCLE
+
+    n = send_bufs_l(np)%nelems ! Number of elements currently in buffer
+
+    ! Make sure that send_bufs_l(np)%buf has enough capacity.
+    ! There is some deallocating/allocating of the buffers at the beginning
+    ! but after the first timestep the final size should be reached.
+
+    IF(n + nitems > SIZE(send_bufs_l(np)%buf)) THEN
+      IF(n>0) THEN
+        ALLOCATE(buf(n))
+        buf(1:n) = send_bufs_l(np)%buf(1:n)
+      ENDIF
+      DEALLOCATE(send_bufs_l(np)%buf)
+      ALLOCATE(send_bufs_l(np)%buf(n + nitems))
+      IF(n>0) THEN
+        send_bufs_l(np)%buf(1:n) = buf(1:n)
+        DEALLOCATE(buf)
+      ENDIF
+    ENDIF
+
+    send_bufs_l(np)%buf(n+1:n+nitems) = RESHAPE(send(:,iss:ise), (/ nitems /))
+
+    send_bufs_l(np)%nelems = n+nitems ! new number of elements
+
+  ENDDO
+
+END SUBROUTINE buffer_data_l
+!
+!================================================================================================
+!
 !--------------------------------------------------------------------------------------------------
 
 SUBROUTINE do_delayed_exchange()
@@ -2246,7 +2946,10 @@ SUBROUTINE do_delayed_exchange()
 
 ! !LOCAL VARIABLES:
 
-  TYPE(t_buffer), ALLOCATABLE :: recv_bufs(:)
+  TYPE(t_buffer_r), ALLOCATABLE :: recv_bufs_r(:)
+  TYPE(t_buffer_i), ALLOCATABLE :: recv_bufs_i(:)
+  TYPE(t_buffer_l), ALLOCATABLE :: recv_bufs_l(:)
+!
   REAL(wp), ALLOCATABLE :: recv_buf(:,:)
   TYPE(t_comm_pattern), POINTER :: p_pat
 
@@ -2261,27 +2964,29 @@ SUBROUTINE do_delayed_exchange()
   ! Just ignore this call for 1 processor runs
   IF (p_nprocs == 1 .OR. p_pe == p_test_pe) RETURN
 
-  ALLOCATE(recv_bufs(0:p_n_work-1))
+  ALLOCATE(recv_bufs_r(0:p_n_work-1))
+  ALLOCATE(recv_bufs_i(0:p_n_work-1))
+  ALLOCATE(recv_bufs_l(0:p_n_work-1))
 
   ! Set up irecv's for receive buffers
 
   DO np = 0, p_n_work-1 ! loop over PEs from where to receive the data
 
     n = 0
-    DO nr = 1, n_delayed_requests
-      IF(delayed_request(nr)%reverse) THEN
-        irs = delayed_request(nr)%p_pat%send_limits(np)+1
-        ire = delayed_request(nr)%p_pat%send_limits(np+1)
+    DO nr = 1, n_delayed_requests_r
+      IF(delayed_request_r(nr)%reverse) THEN
+        irs = delayed_request_r(nr)%p_pat%send_limits(np)+1
+        ire = delayed_request_r(nr)%p_pat%send_limits(np+1)
       ELSE
-        irs = delayed_request(nr)%p_pat%recv_limits(np)+1
-        ire = delayed_request(nr)%p_pat%recv_limits(np+1)
+        irs = delayed_request_r(nr)%p_pat%recv_limits(np)+1
+        ire = delayed_request_r(nr)%p_pat%recv_limits(np+1)
       ENDIF
-      n = n + (ire-irs+1)*delayed_request(nr)%ndim2
+      n = n + (ire-irs+1)*delayed_request_r(nr)%ndim2
     ENDDO
 
     IF(n>0) THEN
-      ALLOCATE(recv_bufs(np)%buf(n))
-      CALL p_irecv(recv_bufs(np)%buf, np, 1, p_count=n, comm=p_comm_work)
+      ALLOCATE(recv_bufs_r(np)%buf(n))
+      CALL p_irecv(recv_bufs_r(np)%buf, np, 1, p_count=n, comm=p_comm_work)
     ENDIF
 
   ENDDO
@@ -2290,8 +2995,8 @@ SUBROUTINE do_delayed_exchange()
 
   DO np = 0, p_n_work-1 ! loop over PEs where to send the data
 
-     IF(send_bufs(np)%nelems > 0) &
-        CALL p_send(send_bufs(np)%buf, np, 1, p_count=send_bufs(np)%nelems, comm=p_comm_work)
+     IF(send_bufs_r(np)%nelems > 0) &
+        CALL p_send(send_bufs_r(np)%buf, np, 1, p_count=send_bufs_r(np)%nelems, comm=p_comm_work)
 
   ENDDO
 
@@ -2299,16 +3004,18 @@ SUBROUTINE do_delayed_exchange()
 
   CALL p_wait
 
-  recv_bufs(:)%nelems = 0 ! counts consumed elements below
+  recv_bufs_r(:)%nelems = 0 ! counts consumed elements below
+  recv_bufs_i(:)%nelems = 0 ! counts consumed elements below
+  recv_bufs_l(:)%nelems = 0 ! counts consumed elements below
 
   ! Fill in receive buffer
 
-  DO nr = 1, n_delayed_requests
+  DO nr = 1, n_delayed_requests_r
 
-    p_pat => delayed_request(nr)%p_pat
-    ndim2 =  delayed_request(nr)%ndim2
+    p_pat => delayed_request_r(nr)%p_pat
+    ndim2 =  delayed_request_r(nr)%ndim2
 
-    IF(delayed_request(nr)%reverse) THEN
+    IF(delayed_request_r(nr)%reverse) THEN
       ALLOCATE(recv_buf(ndim2,p_pat%n_send))
     ELSE
       ALLOCATE(recv_buf(ndim2,p_pat%n_recv))
@@ -2316,7 +3023,7 @@ SUBROUTINE do_delayed_exchange()
 
     DO np = 0, p_n_work-1 ! loop over PEs from where to receive the data
 
-      IF(delayed_request(nr)%reverse) THEN
+      IF(delayed_request_r(nr)%reverse) THEN
         irs = p_pat%send_limits(np)+1
         ire = p_pat%send_limits(np+1)
       ELSE
@@ -2325,51 +3032,51 @@ SUBROUTINE do_delayed_exchange()
       ENDIF
       IF(ire<irs) CYCLE
 
-      n = recv_bufs(np)%nelems
-      recv_buf(1:ndim2,irs:ire) = RESHAPE(recv_bufs(np)%buf(n+1:n+ndim2*(ire-irs+1)), &
+      n = recv_bufs_r(np)%nelems
+      recv_buf(1:ndim2,irs:ire) = RESHAPE(recv_bufs_r(np)%buf(n+1:n+ndim2*(ire-irs+1)), &
         &                                 (/ndim2,ire-irs+1/))
-      recv_bufs(np)%nelems = recv_bufs(np)%nelems + ndim2*(ire-irs+1)
+      recv_bufs_r(np)%nelems = recv_bufs_r(np)%nelems + ndim2*(ire-irs+1)
     ENDDO
 
-    IF(delayed_request(nr)%reverse) THEN
-      IF(ASSOCIATED(delayed_request(nr)%recv3)) THEN
+    IF(delayed_request_r(nr)%reverse) THEN
+      IF(ASSOCIATED(delayed_request_r(nr)%recv3)) THEN
 #ifdef __SX__
 !CDIR UNROLL=6
         DO k = 1, ndim2
           DO i = 1, p_pat%n_send
-            delayed_request(nr)%recv3(p_pat%send_src_idx(i),k,p_pat%send_src_blk(i)) = &
+            delayed_request_r(nr)%recv3(p_pat%send_src_idx(i),k,p_pat%send_src_blk(i)) = &
               recv_buf(k,i)
           ENDDO
         ENDDO
 #else
         DO i = 1, p_pat%n_send
-          delayed_request(nr)%recv3(p_pat%send_src_idx(i),1:ndim2,p_pat%send_src_blk(i)) = &
+          delayed_request_r(nr)%recv3(p_pat%send_src_idx(i),1:ndim2,p_pat%send_src_blk(i)) = &
             recv_buf(1:ndim2,i)
         ENDDO
 #endif
       ELSE
         DO i = 1, p_pat%n_send
-          delayed_request(nr)%recv2(p_pat%send_src_idx(i),p_pat%send_src_blk(i)) = &
+          delayed_request_r(nr)%recv2(p_pat%send_src_idx(i),p_pat%send_src_blk(i)) = &
             recv_buf(1,i)
         ENDDO
       ENDIF
     ELSE
-      IF(ASSOCIATED(delayed_request(nr)%recv3)) THEN
-        IF(ASSOCIATED(delayed_request(nr)%add3)) THEN
+      IF(ASSOCIATED(delayed_request_r(nr)%recv3)) THEN
+        IF(ASSOCIATED(delayed_request_r(nr)%add3)) THEN
 #ifdef __SX__
 !CDIR UNROLL=6
           DO k = 1, ndim2
             DO i = 1, p_pat%n_pnts
-              delayed_request(nr)%recv3(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
+              delayed_request_r(nr)%recv3(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
                 recv_buf(k,p_pat%recv_src(i)) +                                          &
-                delayed_request(nr)%add3(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i))
+                delayed_request_r(nr)%add3(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i))
             ENDDO
           ENDDO
 #else
           DO i = 1, p_pat%n_pnts
-            delayed_request(nr)%recv3(p_pat%recv_dst_idx(i),1:ndim2,p_pat%recv_dst_blk(i)) = &
+            delayed_request_r(nr)%recv3(p_pat%recv_dst_idx(i),1:ndim2,p_pat%recv_dst_blk(i)) = &
               recv_buf(1:ndim2,p_pat%recv_src(i)) +                                          &
-              delayed_request(nr)%add3(p_pat%recv_dst_idx(i),1:ndim2,p_pat%recv_dst_blk(i))
+              delayed_request_r(nr)%add3(p_pat%recv_dst_idx(i),1:ndim2,p_pat%recv_dst_blk(i))
           ENDDO
 #endif
         ELSE
@@ -2377,27 +3084,27 @@ SUBROUTINE do_delayed_exchange()
 !CDIR UNROLL=6
           DO k = 1, ndim2
             DO i = 1, p_pat%n_pnts
-              delayed_request(nr)%recv3(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
+              delayed_request_r(nr)%recv3(p_pat%recv_dst_idx(i),k,p_pat%recv_dst_blk(i)) = &
                 recv_buf(k,p_pat%recv_src(i))
             ENDDO
           ENDDO
 #else
           DO i = 1, p_pat%n_pnts
-            delayed_request(nr)%recv3(p_pat%recv_dst_idx(i),1:ndim2,p_pat%recv_dst_blk(i)) = &
+            delayed_request_r(nr)%recv3(p_pat%recv_dst_idx(i),1:ndim2,p_pat%recv_dst_blk(i)) = &
               recv_buf(1:ndim2,p_pat%recv_src(i))
           ENDDO
 #endif
         ENDIF
       ELSE
-        IF(ASSOCIATED(delayed_request(nr)%add2)) THEN
+        IF(ASSOCIATED(delayed_request_r(nr)%add2)) THEN
           DO i = 1, p_pat%n_pnts
-            delayed_request(nr)%recv2(p_pat%recv_dst_idx(i),p_pat%recv_dst_blk(i)) = &
+            delayed_request_r(nr)%recv2(p_pat%recv_dst_idx(i),p_pat%recv_dst_blk(i)) = &
               recv_buf(1,p_pat%recv_src(i)) +                                        &
-              delayed_request(nr)%add2(p_pat%recv_dst_idx(i),p_pat%recv_dst_blk(i))
+              delayed_request_r(nr)%add2(p_pat%recv_dst_idx(i),p_pat%recv_dst_blk(i))
           ENDDO
         ELSE
           DO i = 1, p_pat%n_pnts
-            delayed_request(nr)%recv2(p_pat%recv_dst_idx(i),p_pat%recv_dst_blk(i)) = &
+            delayed_request_r(nr)%recv2(p_pat%recv_dst_idx(i),p_pat%recv_dst_blk(i)) = &
               recv_buf(1,p_pat%recv_src(i))
           ENDDO
         ENDIF
@@ -2409,15 +3116,21 @@ SUBROUTINE do_delayed_exchange()
   ENDDO
 
   DO np = 0, p_n_work-1
-     IF(ALLOCATED(recv_bufs(np)%buf)) DEALLOCATE(recv_bufs(np)%buf)
+     IF(ALLOCATED(recv_bufs_r(np)%buf)) DEALLOCATE(recv_bufs_r(np)%buf)
+     IF(ALLOCATED(recv_bufs_i(np)%buf)) DEALLOCATE(recv_bufs_i(np)%buf)
+     IF(ALLOCATED(recv_bufs_l(np)%buf)) DEALLOCATE(recv_bufs_l(np)%buf)
   ENDDO
 
-  DEALLOCATE(recv_bufs)
+  DEALLOCATE(recv_bufs_r)
+  DEALLOCATE(recv_bufs_i)
+  DEALLOCATE(recv_bufs_l)
 
-  n_delayed_requests = 0
+  n_delayed_requests_r = 0
 
   DO np = 0, p_n_work-1
-     send_bufs(np)%nelems = 0
+     send_bufs_r(np)%nelems = 0
+     send_bufs_i(np)%nelems = 0
+     send_bufs_l(np)%nelems = 0
   ENDDO
 
   use_exchange_delayed = .FALSE.

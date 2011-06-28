@@ -39,6 +39,7 @@ MODULE mo_mpi
 
   PUBLIC :: p_real_dp
   PUBLIC :: p_int
+  PUBLIC :: p_bool
   PUBLIC :: p_address_kind
 
   ! logical switches
