@@ -699,6 +699,7 @@ class Ifs2Icon
     else
       #perform interpolation of 3D height field
       warn "Vertical interpolation onto a 3D vertical coordinate is not implemented, yet!"
+      warn "Abort #{__FILE__}!"
       exit
     end
   end
@@ -723,19 +724,6 @@ class Ifs2Icon
   end
   private :readVars, :readVar, :remapVar, :tfile
 end
-
-# MEMO ========================================================================
-# ATMOSPHERE:
-# Hydrostatic states: 
-# TYPE t_hydro_atm_prog
-#   REAL(wp), ALLOCATABLE ::  &
-#   & pres_sfc(:,  :),  &!< surface pressure [Pa]        (nproma,     nblks_c)
-#   &       vn(:,:,:),  &!< normal wind [m/s]            (nproma,nlev,nblks_e)
-#   &     temp(:,:,:),  &!< temperature [K]              (nproma,nlev,nblks_c)
-#   &    theta(:,:,:),  &!< potential temperature [K]    (nproma,nlev,nblks_c)
-#   &   tracer(:,:,:,:)  !< tracer concentration [kg/kg] (nproma,nlev,nblks_c,ntracer)
-# END TYPE t_hydro_atm_prog
-# =============================================================================
 
 if __FILE__ == $0
   test = ENV['test'].nil? ? 'proc' : ENV['test']

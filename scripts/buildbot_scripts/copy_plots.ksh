@@ -15,6 +15,7 @@ SLAVE=$2
 BUILDER=$3
 BUILDER_NR=$4
 DATE=`date '+%Y-%m-%d'`
+PUPDATE=`date '+%d.%m %H:%M'`
 
 
 #===============================================================
@@ -69,6 +70,8 @@ mkdir /tmp/${BUILDER}
 echo "_COMPUTER_ ${SLAVE}" > /tmp/${BUILDER}/job_info.txt
 echo "_BUILDER_ ${BUILDER}" >> /tmp/${BUILDER}/job_info.txt
 echo "_REVISION_ ${REV}" >> /tmp/${BUILDER}/job_info.txt
+echo "_UPDATE_ ${PUPDATE}" >> /tmp/${BUILDER}/job_info.txt
+echo "_BUILDID_ ${BUILDER_NR}" >> /tmp/${BUILDER}/job_info.txt
 
 find experiments -name '*.eps' -exec cp {} /tmp/${BUILDER}/. \;
 
@@ -78,7 +81,7 @@ find experiments -name '*.eps' -exec cp {} /tmp/${BUILDER}/. \;
 #---------------------------------------------------------------------
 #---------------------------------------------------------------------
 
-BASE_DIR=/tmp/BuildBot/${BUILDER}/archive/${DATE}/buildbot/${BUILDER}/${BUILDER_NR}
+BASE_DIR=/tmp/BuildBot/${BUILDER}/archive/${DATE}/buildbot/${REV}/${BUILDER}/${BUILDER_NR}
 
 if [ -d /tmp/BuildBot/${BUILDER}/archive ]
 then

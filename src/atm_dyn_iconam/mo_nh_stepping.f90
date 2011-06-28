@@ -49,7 +49,7 @@ MODULE mo_nh_stepping
 
   USE mo_kind,                ONLY: wp
   USE mo_nonhydro_state,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics, &
-                                    construct_nh_state, t_buffer_memory, bufr
+                                    construct_nh_state, bufr
   USE mo_nonhydrostatic_nml,  ONLY: iadv_rcf, l_nest_rcf, ltheta_up_vert
   USE mo_diffusion_nml,       ONLY: lhdiff_vn
   USE mo_dynamics_nml,        ONLY: nnow, nnew, nnow_rcf, nnew_rcf,                 &
@@ -1565,17 +1565,32 @@ MODULE mo_nh_stepping
     ENDIF
     IF (l_predictor) THEN
 !$OMP PARALLEL
-!$OMP WORKSHARE
-      p_nh%diag%theta_v_impl(:,:,:)=z_theta_v_impl(:,:,:)
-!$OMP END WORKSHARE
+!$OMP DO PRIVATE(jb,jk,nlen)
+      DO jb = 1,nblks_c
+        IF (jb /= nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = npromz_c
+        ENDIF
+        p_nh%diag%theta_v_impl(1:nlen,:,jb)=z_theta_v_impl(1:nlen,:,jb)
+      ENDDO
+!$OMP END DO
 !$OMP END PARALLEL
     ELSE
 !$OMP PARALLEL
-!$OMP WORKSHARE
-      p_nh%diag%theta_v_impl(:,:,:)=0.5_wp*(p_nh%diag%theta_v_impl(:,:,:)+z_theta_v_impl(:,:,:))
-      p_nh%diag%theta_v_ave(:,:,:) =0.5_wp*(p_nh%prog(know)%theta_v(:,:,:)&
-      &                                    +p_nh%prog(knew)%theta_v(:,:,:))
-!$OMP END WORKSHARE
+!$OMP DO PRIVATE(jb,jk,nlen)
+      DO jb = 1,nblks_c
+        IF (jb /= nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = npromz_c
+        ENDIF
+        p_nh%diag%theta_v_impl(1:nlen,:,jb) = &
+          & 0.5_wp*( p_nh%diag%theta_v_impl(1:nlen,:,jb)  + z_theta_v_impl(1:nlen,:,jb) )
+        p_nh%diag%theta_v_ave(1:nlen,:,jb)  = &
+          & 0.5_wp*( p_nh%prog(know)%theta_v(1:nlen,:,jb) +p_nh%prog(knew)%theta_v(1:nlen,:,jb) )
+      ENDDO
+!$OMP END DO
 !$OMP END PARALLEL
     ENDIF
 

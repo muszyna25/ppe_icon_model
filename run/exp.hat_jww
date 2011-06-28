@@ -25,6 +25,8 @@ R=2               # nroot
 B=4               # number of bisections applied for the global grid
 N=31              # nlev = number of full levels
 OPT="spr0.90"     # grid optimization
+cp_grid_filename=iconR${R}B0${B}-grid_${OPT}.nc
+exp_grid_filename=iconR${R}B0${B}-grid.nc
 #
 #-----------------------------------------------------------------------------
 #
@@ -37,8 +39,9 @@ cat > NAMELIST_${EXPNAME} << EOF
 &parallel_ctl
 /
 &grid_ctl
- nroot       = ${R}         ! root division of icosahedron edges
- start_lev   = ${B}         ! number of bisections applied for the base grid
+! nroot       = ${R}         ! root division of icosahedron edges
+! start_lev   = ${B}         ! number of bisections applied for the base grid
+ dynamics_grid_filename = "${exp_grid_filename}"
 /
 &gridref_ctl
 /
