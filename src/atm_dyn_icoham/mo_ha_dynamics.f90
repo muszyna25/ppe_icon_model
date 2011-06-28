@@ -119,27 +119,25 @@ CONTAINS
 
 ! Initialize velocity and temperature tendencies in the interior of each patch
 
+!$OMP PARALLEL PRIVATE(jbs)
    jbs = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie)
    DO jb = jbs,nblks_e
       CALL get_indices_e(pt_patch, jb,jbs,nblks_e, is,ie, grf_bdywidth_e+1)
       pt_tend_dyn%vn(is:ie,:,jb) = 0._wp
    ENDDO
 !$OMP END DO
-!$OMP END PARALLEL
 
    IF (.NOT.lshallow_water) THEN
       jbs = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie)
       DO jb = jbs,nblks_c
          CALL get_indices_c(pt_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1)
          pt_tend_dyn%temp(is:ie,:,jb) = 0._wp
       ENDDO
 !$OMP END DO
-!$OMP END PARALLEL
    ENDIF
+!$OMP END PARALLEL
 
 ! From now on, after calling each subroutine the individual contribution
 ! will be added to the tendency state.
@@ -241,7 +239,7 @@ CONTAINS
 
 ! Divergence of mass flux at full levels
 
-!$OMP PARALLEL
+!$OMP PARALLEL PRIVATE(jbs)
    jbs = pt_patch%edges%start_blk(2,1)
 !$OMP DO PRIVATE(jb,is,ie)
    DO jb = jbs,nblks_e
@@ -267,8 +265,8 @@ CONTAINS
 
 ! Vertically integrated mass divergence at layer interfaces
 
+!$OMP PARALLEL PRIVATE(jbs)
    jbs = pt_patch%cells%start_blk(2,1)
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie,jk,jkp)
    DO jb = jbs,nblks_c
       CALL get_indices_c(pt_patch, jb,jbs,nblks_c, is,ie, 2)
@@ -280,12 +278,10 @@ CONTAINS
       ENDDO
    ENDDO
 !$OMP END DO
-!$OMP END PARALLEL
 
 ! Vertical velocity at the interfaces (half-levels)
 
    IF ((.NOT.lshallow_water).AND.ldiag_weta) THEN
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie,jk)
       DO jb = jbs,nblks_c
         CALL get_indices_c(pt_patch, jb,jbs,nblks_c, is,ie, 2)
@@ -299,7 +295,6 @@ CONTAINS
         ENDDO
       ENDDO
 !$OMP END DO
-!$OMP END PARALLEL
    ENDIF
 
 ! Tendency of surface pressure
@@ -309,7 +304,6 @@ CONTAINS
 ! overwritten.)
 
    jbs = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie)
    DO jb = jbs,nblks_c
       CALL get_indices_c(pt_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1)
@@ -489,7 +483,7 @@ IF (.NOT.lshallow_water) THEN
 ! Accumulate velocity tendency
 !--------------------------------------------------------------------
 
-!$OMP PARALLEL
+!$OMP PARALLEL PRIVATE(jbs)
    jbs = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
 !$OMP DO PRIVATE(jb,is,ie,jk)
    DO jb = jbs,nblks_e
@@ -501,7 +495,6 @@ IF (.NOT.lshallow_water) THEN
       ENDDO
    ENDDO
 !$OMP END DO
-!$OMP END PARALLEL
 
 !--------------------------------------------------------------------
 ! Adiabatic heating terms in the thermodynamic equation
@@ -509,7 +502,6 @@ IF (.NOT.lshallow_water) THEN
 ! Part I: vn*[Rd*T/p*grad(p)]. Use the grad(lnp) calculated above.
 
    jbs = pt_patch%edges%start_blk(4,1)
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie,jk)
    DO jb = jbs,nblks_e
       CALL get_indices_e(pt_patch, jb,jbs,nblks_e, is,ie, 4)
@@ -551,21 +543,19 @@ IF (.NOT.lshallow_water) THEN
 
 ! Divide by the pseudo-density
 
+!$OMP PARALLEL  PRIVATE(jbs)
    jbs = pt_patch%cells%start_blk(3,1)
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie)
    DO jb = jbs,nblks_c
       CALL get_indices_c(pt_patch, jb,jbs,nblks_c, is,ie, 3)
       z_tmp_c(is:ie,:,jb) = z_tmp_c(is:ie,:,jb) * pt_diag%rdelp_c(is:ie,:,jb)
    ENDDO
 !$OMP END DO
-!$OMP END PARALLEL
 
 !-------------------------------------------------------------------
 ! Part II: Rd*T/p *[ p-tendency + vertical-adv ]
 
    jbs = pt_patch%cells%start_blk(3,1)
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie)
    DO jb = jbs,nblks_c
       CALL get_indices_c(pt_patch, jb,jbs,nblks_c, is,ie, 3)
@@ -575,21 +565,19 @@ IF (.NOT.lshallow_water) THEN
                    +pt_diag%rdalpha_c(is:ie,:,jb) * p_mdiv    (is:ie,:,jb)     )
    ENDDO
 !$OMP END DO
-!$OMP END PARALLEL
 
 !-------------------------------------------------------------------
 ! Accumulate temperature tendency
 
    jbs = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
-!$OMP PARALLEL
-  IF (lseparate) THEN !Provide the fast and slow components separately
+   IF (lseparate) THEN !Provide the fast and slow components separately
 
 !$OMP DO PRIVATE(jb,is,ie)
-   DO jb = jbs,nblks_c
-     CALL get_indices_c(pt_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1)
-     p_ddt_temp(is:ie,:,jb) = p_ddt_temp(is:ie,:,jb) + z_tmp_c(is:ie,:,jb)*rcpd
-     opt_ddt_temp_fast(is:ie,:,jb) = z_fast(is:ie,:,jb)*rcpd
-   ENDDO
+      DO jb = jbs,nblks_c
+        CALL get_indices_c(pt_patch, jb,jbs,nblks_c, is,ie, grf_bdywidth_c+1)
+        p_ddt_temp(is:ie,:,jb) = p_ddt_temp(is:ie,:,jb) + z_tmp_c(is:ie,:,jb)*rcpd
+        opt_ddt_temp_fast(is:ie,:,jb) = z_fast(is:ie,:,jb)*rcpd
+      ENDDO
 !$OMP END DO
 
   ELSE !Add both fast and slow components to the tendency state

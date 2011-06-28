@@ -119,7 +119,8 @@ class PreProcOptions
     options                    = {}
     options[:interpolation_type] = :simple
     options[:verbose]            = false
-    options[:openmp]             = 2
+    options[:openmp]             = 4
+    options[:model_type] = 'hydrostatic'
 
     opts = OptionParser.new do |opts|
       opts.banner = "Usage: ifs2icon.rb [options]"
@@ -234,7 +235,6 @@ class PreProcOptions
       end
 
       # create zlevel options for each given output variables
-      options[:zlevels] = {}
       opts.on("-z","--zlevels lev0,lev1,..,levN",
               Array,
               "'list' of target zlevels (not required for initial ICON data)") {|list|
@@ -693,9 +693,13 @@ class Ifs2Icon
     if @options[:model_type] == 'hydrostatic'
       # perform vertical interpolation wrt. original surface pressure and orography
       Cdo.remapeta(@options[:vctfile],@options[:orofile],:in => intermediateFile,:out => hybridlayerfile)
-      # perform hybrid2realLevel conversion
-      Cdo.ml2hl(@options[:zlevels].reverse.join(','),:in => hybridlayerfile, :out => reallayerfile)
-      @_preout = reallayerfile
+      unless @options[:zlevels].nil?
+        # perform hybrid2realLevel conversion
+        Cdo.ml2hl(@options[:zlevels].reverse.join(','),:in => hybridlayerfile, :out => reallayerfile)
+        @_preout = reallayerfile
+      else
+        @_preout = hybridlayerfile
+      end
     else
       #perform interpolation of 3D height field
       warn "Vertical interpolation onto a 3D vertical coordinate is not implemented, yet!"

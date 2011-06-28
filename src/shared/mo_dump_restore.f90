@@ -141,7 +141,8 @@ MODULE mo_dump_restore
                                    p_grf_state_local_parent
   USE mo_intp_state,         ONLY: allocate_int_state
   USE mo_grf_intp_state,     ONLY: allocate_grf_state
-
+  
+  USE mo_model_domain_import, ONLY: set_patches_grid_filename
 
   IMPLICIT NONE
 
@@ -245,24 +246,28 @@ CONTAINS
 
   !-----------------------------------------------------------------------
   !
-  !> set_filename:
+  !> set_dump_restore_filename:
   !! Sets the filename for NetCDF dump/restore files
+  !! from the patch_filename
+  SUBROUTINE set_dump_restore_filename(patch_filename)
 
-  SUBROUTINE set_filename(level, id)
+    CHARACTER(LEN=filename_max), INTENT(in) :: patch_filename
+!     INTEGER, INTENT(in) :: level, id
+!     CHARACTER(LEN=8) :: gridtype
 
-    INTEGER, INTENT(in) :: level, id
-    CHARACTER(LEN=8) :: gridtype
+!     IF (lplane) THEN
+!       gridtype='plandump'
+!     ELSE
+!       gridtype='icondump'
+!     END IF
+! 
+!     WRITE(filename,'(a,a,i0,2(a,i2.2),2(a,i0),a)') &
+!       & TRIM(gridtype),'R',nroot,'B',level,'_DOM',id,'_proc',p_pe_work,'of',p_n_work,'.nc'
 
-    IF (lplane) THEN
-      gridtype='plandump'
-    ELSE
-      gridtype='icondump'
-    END IF
+     WRITE(filename,'(2(a,i0),a,a)') &
+       & 'dump_proc',p_pe_work,'of',p_n_work,"_",TRIM(patch_filename)
 
-    WRITE(filename,'(a,a,i0,2(a,i2.2),2(a,i0),a)') &
-      & TRIM(gridtype),'R',nroot,'B',level,'_DOM',id,'_proc',p_pe_work,'of',p_n_work,'.nc'
-
-  END SUBROUTINE set_filename
+  END SUBROUTINE set_dump_restore_filename
 
   !-----------------------------------------------------------------------
   !
@@ -1912,7 +1917,7 @@ CONTAINS
 
     netcdf_read = .FALSE. ! Set I/O routines to write mode
 
-    CALL set_filename(p%level, p%id)
+    CALL set_dump_restore_filename(p%grid_filename)
 
     WRITE(message_text,'(a,a)') 'Write NetCDF file: ', TRIM(filename)
     CALL message ('', TRIM(message_text))
@@ -2129,6 +2134,8 @@ CONTAINS
 
     CALL message ('restore_patches_netcdf','start to restore patches')
 
+    CALL set_patches_grid_filename(p_patch)
+    
     netcdf_read = .TRUE. ! Set I/O routines to read mode
 
     ! Set some basic flow control variables on the patch
@@ -2252,9 +2259,12 @@ CONTAINS
 
       IF(p_pe_work==0) WRITE(nerr,'(a,i0)') 'Restoring patch ',jg
 
-      CALL set_filename(p_patch(jg)%level, jg)
-
+      CALL set_dump_restore_filename(p_patch(jg)%grid_filename)
+!       write(0,*) "patch grid_filename:", TRIM( p_patch(jg)%grid_filename)
+!       write(0,*) "dump_restore_filename:", TRIM(filename)
+      
       CALL nf(nf_open(TRIM(filename), NF_NOWRITE, ncid))
+!       write(0,*) TRIM(filename), " is open."
 
       ! First check if members in patch and variables from input
       ! conform with what is stored in NetCDF file
@@ -2325,7 +2335,7 @@ CONTAINS
 
       IF(p_pe_work==0) WRITE(nerr,'(a,i0)') 'Restoring interpolation state ',jg
 
-      CALL set_filename(p_patch(jg)%level, p_patch(jg)%id)
+      CALL set_dump_restore_filename(p_patch(jg)%grid_filename)
 
       CALL nf(nf_open(TRIM(filename), NF_NOWRITE, ncid))
 
@@ -2396,7 +2406,7 @@ CONTAINS
 
       IF(p_pe_work==0) WRITE(nerr,'(a,i0)') 'Restoring gridref state ',jg
 
-      CALL set_filename(p_patch(jg)%level, p_patch(jg)%id)
+      CALL set_dump_restore_filename(p_patch(jg)%grid_filename)
 
       CALL nf(nf_open(TRIM(filename), NF_NOWRITE, ncid))
 

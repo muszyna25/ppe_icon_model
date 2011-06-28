@@ -165,15 +165,35 @@ CHARACTER(len=*), PARAMETER :: version = '$Id$'
 PUBLIC :: import_patches
 PUBLIC :: destruct_patches
 PUBLIC :: allocate_patch
+PUBLIC :: set_patches_grid_filename
 !
 !-------------------------------------------------------------------------
 
 CONTAINS
 
 !-------------------------------------------------------------------------
-!
-!
+SUBROUTINE set_patches_grid_filename( p_patch )
 
+  TYPE(t_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
+
+  INTEGER :: jg
+
+  !-----------------------------------------------------------------------
+  DO jg = n_dom_start, n_dom
+
+    IF (jg==0) THEN
+      p_patch(jg)%grid_filename = radiation_grid_filename(1)
+    ELSE
+      p_patch(jg)%grid_filename = dynamics_grid_filename(jg)
+    ENDIF
+!     write(0,*) jg, "grid_filename:",TRIM(p_patch(jg)%grid_filename)
+  ENDDO
+
+END SUBROUTINE set_patches_grid_filename
+!-------------------------------------------------------------------------
+
+
+!-------------------------------------------------------------------------
 !>
 !!               This subroutine provides patch information to the model.
 !!
@@ -325,6 +345,9 @@ p_patch(n_dom_start:n_dom)%max_childdom =  max_childdom
 !   gridtype='icon'
 ! END IF
 
+
+CALL set_patches_grid_filename(p_patch)
+
 GRID_LEVEL_LOOP: DO jg = n_dom_start, n_dom
 
 !   jlev = p_patch(jg)%level
@@ -345,15 +368,10 @@ GRID_LEVEL_LOOP: DO jg = n_dom_start, n_dom
 !          & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
 !   ENDIF
 
-  IF (jg==0) THEN
-    patch_file = radiation_grid_filename(1)
-  ELSE
-    patch_file = dynamics_grid_filename(jg)
-  ENDIF
 
   p_single_patch => p_patch(jg)
 
-  CALL read_patch( jg, p_single_patch, patch_file )
+  CALL read_patch( jg, p_single_patch )
 
   ! calculate Cartesian components of primal normal
   ! (later these should be provided by the grid generator)
@@ -553,7 +571,7 @@ SUBROUTINE read_patch( ig, p_patch, patch_file )
 
 
 INTEGER,             INTENT(in)    ::  ig           ! domain ID
-CHARACTER(len=*),    INTENT(in)    ::  patch_file   ! name of grid file
+CHARACTER(len=*),    INTENT(in), OPTIONAL  ::  patch_file   ! name of grid file
 
 TYPE(t_patch), TARGET, INTENT(inout) ::  p_patch      ! patch data structure
 
@@ -603,14 +621,16 @@ ipar_id = p_patch%parent_id
 !
 ! start to fill patch type
 !
-p_patch%grid_filename=patch_file
+IF (PRESENT(patch_file)) THEN
+  p_patch%grid_filename=patch_file
+ENDIF
 
 CALL message ('mo_model_domimp_patches:read_patch', 'start to init patch')
 
-WRITE(message_text,'(a,a)') 'Read gridmap file ', TRIM(patch_file)
+WRITE(message_text,'(a,a)') 'Read gridmap file ', TRIM(p_patch%grid_filename)
 CALL message ('', TRIM(message_text))
 
-CALL nf(nf_open(TRIM(patch_file), NF_NOWRITE, ncid))
+CALL nf(nf_open(TRIM(p_patch%grid_filename), NF_NOWRITE, ncid))
 
 CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'grid_root', icheck))
 IF (icheck /= nroot) THEN

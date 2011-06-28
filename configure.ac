@@ -60,8 +60,14 @@ AC_ARG_WITH([setup],
 if test x$with_setup != x ; then
   mh_setup=$with_setup
 else
-  mh_setup=""		 
+  mh_setup=""            
 fi
+
+AC_ARG_WITH([flags],
+  [AS_HELP_STRING([--with-flags=<name>],
+    [use specified group od flags (std, hiopt, noopt, etc])],
+    [],
+    [])
 
 case $host in
   i*86-*-linux-*)  
@@ -603,6 +609,24 @@ if [[ "x$use_openmp" = xyes ]] ; then
    FFLAGS="${FFLAGS} ${OMPFLAG}"   
    LDFLAGS="${LDFLAGS} ${OMPFLAG}"
 fi
+
+#------------------------
+if test x$with_flags = x; then
+    use_flags_group="std"
+else
+    use_flags_group=$with_flags
+fi
+
+if [[ "$use_flags_group" = "std" ]] ; then
+   FFLAGS="${FFLAGS} ${STD_FLAGS}"
+elif [[ "$use_flags_group" = "hiopt" ]] ; then
+   FFLAGS="${FFLAGS} ${HIOPT_FLAGS}"
+else
+   echo "unkown with_flags patrameter: $with_flags" 
+   exit 1   
+fi
+ 
+
 
 #------------------------
 

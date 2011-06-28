@@ -42,9 +42,9 @@ fi
 ls -ld ${EXPDIR}
 if [ ! -d ${EXPDIR} ]; then
     mkdir ${EXPDIR}
-else
-   rm -rf ${EXPDIR}
-   mkdir  ${EXPDIR}
+#else
+#   rm -rf ${EXPDIR}
+#   mkdir  ${EXPDIR}
 fi
 ls -ld ${EXPDIR}
 check_error $? "${EXPDIR} does not exist?"
@@ -75,6 +75,7 @@ case ${IEQ} in
         AGRIDNAME=iconR${R}B0${B}-grid_${OPT}.nc
         HGRIDNAME=iconR${R}B0${B}-grid.nc
         #
+        rm ${EXPDIR}/${HGRIDNAME}
         ln -s ${HGRIDDIR}/${AGRIDNAME} ${EXPDIR}/${HGRIDNAME}
         check_error $? "ln -s ${HGRIDDIR}/${AGRIDNAME}"
         #
@@ -83,6 +84,7 @@ case ${IEQ} in
         VGRIDDIR=${ICONDIR}/vertical_coord_tables
         VGRIDNAME=atm_hyb_sp_${N}
         #
+        rm ${EXPDIR}/${VGRIDNAME}
         ln -s ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
         check_error $? "ln -s ${VGRIDDIR}/${VGRIDNAME}"
         #
@@ -104,6 +106,7 @@ case ${IEQ} in
         AGRIDNAME=iconR${R}B0${B}-grid_${OPT}.nc
         HGRIDNAME=iconR${R}B0${B}-grid.nc
 
+        rm  ${EXPDIR}/${HGRIDNAME}
         ln -s ${HGRIDDIR}/${AGRIDNAME} ${EXPDIR}/${HGRIDNAME}
         check_error $? "ln -s ${HGRIDDIR}/${AGRIDNAME}"
         
@@ -125,6 +128,7 @@ case ${IEQ} in
 
          AGRIDNAME=iconR${R}B0${B_C}_DOM0${DOM_C}.nc
          HGRIDNAME=iconR${R}B0${B_C}_DOM0${DOM_C}-grid.nc
+         rm  ${EXPDIR}/${HGRIDNAME}
          ln -s ${HGRIDDIR}/${AGRIDNAME} ${EXPDIR}/${HGRIDNAME}
          check_error $? "ln -s ${HGRIDDIR}/${AGRIDNAME}"
 
@@ -141,6 +145,7 @@ case ${IEQ} in
         VGRIDDIR=${ICONDIR}/vertical_coord_tables
         VGRIDNAME=atm_hyb_sz_${N}
         #
+        rm  ${EXPDIR}/${VGRIDNAME}
         ln -s ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
         warning $? "ln -s ${VGRIDDIR}/${VGRIDNAME} failed"
         #
@@ -173,6 +178,7 @@ case ${IEQ} in
           fi
         fi
         #
+        rm  ${EXPDIR}/${HGRIDNAME}
         ln -s ${HGRIDDIR}/${OGRIDNAME} ${EXPDIR}/${HGRIDNAME}
         check_error $? "ln -s $ {HGRIDDIR}/${OGRIDNAME}"
         #

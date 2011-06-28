@@ -21,11 +21,17 @@ case "$fortran_compiler" in
       INFOFLAGS= -qlistopt -qphsinfo -qreport=hotlist -bnoquiet -V
       INFOFLAGS= -qlistopt -qphsinfo -bnoquiet -V
       DEBUGFLAGS= -g -qcheck -qstackprotect=all
-      GENFLAGS = $OPTFLAGS $INFOFLAGS
+      GENFLAGS = $INFOFLAGS
       CFLAGS   = $GENFLAGS -Dextname -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -qlanglvl=stdc99
       FC       = mpxlf_r
       FC       = mpxlf2003_r
-      FFLAGS   = $GENFLAGS -g -qextname -qsuffix=cpp=f90 -qzerosize -qalias_size=1500000000  -qessl -WF,-D__LOOP_EXCHANGE
+     
+      DEBUG_FLAGS = -g -qcheck -qstackprotect=all
+      BASIC_OPT_FLAGS = -q64 -qmaxmem=-1 -qarch=auto -qtune=auto -qcache=auto -qfloat=fltint  -WF,-D__LOOP_EXCHANGE
+      STD_FLAGS = -O2 -qstrict "$BASIC_OPT_FLAGS"
+      HIOPT_FLAGS = -O3 -qhot -qstrict "$BASIC_OPT_FLAGS"
+
+      FFLAGS   = $GENFLAGS -qextname -qsuffix=cpp=f90 -qzerosize -qalias_size=1500000000  -qessl
       F77      = mpxlf_r
       F77FLAGS = $GENFLAGS -g -qextname  -qessl 
       OMPFLAG  = -qsmp=omp

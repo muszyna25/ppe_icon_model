@@ -253,6 +253,7 @@ CONTAINS
     INTEGER :: nlev              !< number of full levels
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: i_rlstart, i_rlend, i_nchdom
+    LOGICAL :: lvn_pos
 
   !-------------------------------------------------------------------------
 
@@ -278,7 +279,7 @@ CONTAINS
     i_endblk   = ptr_p%edges%end_blk(i_rlend,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,pos_barycenter,z_ntdistv_bary)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,pos_barycenter,z_ntdistv_bary,lvn_pos)
     DO jb = i_startblk, i_endblk
 
      CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
@@ -297,75 +298,45 @@ CONTAINS
           ! position of barycenter in tangential direction
           pos_barycenter(2) = - p_vt(je,jk,jb) * p_dthalf
 
+          ! logical auxiliary for MERGE operations: .TRUE. for vn >= 0
+          lvn_pos = p_vn(je,jk,jb) >= 0._wp
 
-          ! Determine the cell in which the barycenter is located (upwind cell)
-          ! Cell indices are chosen such that the direction from cell 1 to cell 2
-          ! is the positive direction of the normal vector N, therefore:
-          IF ( p_vn(je,jk,jb) >= 0._wp ) THEN
+          ! If vn > 0 (vn < 0), the upwind cell is cell 1 (cell 2)
 
-            !! we are in cell 1 !!
+          ! line and block indices of neighbor cell with barycenter
+          p_cell_indices(je,jk,jb,1) = &
+            & MERGE(ptr_p%edges%cell_idx(je,jb,1),ptr_p%edges%cell_idx(je,jb,2),lvn_pos)
 
-            ! line and block indices of neighbor cell with barycenter
-            p_cell_indices(je,jk,jb,1) = ptr_p%edges%cell_idx(je,jb,1)
-            p_cell_indices(je,jk,jb,2) = ptr_p%edges%cell_blk(je,jb,1)
-
-
-            ! Calculate the distance cell center --> barycenter for the cell,
-            ! in which the barycenter is located. The distance vector points
-            ! from the cell center to the barycenter.
-            z_ntdistv_bary(1:2) = pos_barycenter(1:2)                      &
-              &                 - ptr_int%pos_on_tplane_e(je,jb,1,1:2)
+          p_cell_indices(je,jk,jb,2) = &
+            & MERGE(ptr_p%edges%cell_blk(je,jb,1),ptr_p%edges%cell_blk(je,jb,2),lvn_pos)
 
 
-            ! In a last step, transform this distance vector into a rotated
-            ! geographical coordinate system with its origin at the circumcenter
-            ! of the upstream cell. Coordinate axes point to local East and local
-            ! North.
-
-            ! component in longitudinal direction
-            p_distv_bary(je,jk,jb,1) =                                             &
-              &    z_ntdistv_bary(1) * ptr_p%edges%primal_normal_cell(je,jb,1)%v1  &
-              &  + z_ntdistv_bary(2) * ptr_p%edges%dual_normal_cell(je,jb,1)%v1
-
-            ! component in latitudinal direction
-            p_distv_bary(je,jk,jb,2) =                                             &
-              &    z_ntdistv_bary(1) * ptr_p%edges%primal_normal_cell(je,jb,1)%v2  &
-              &  + z_ntdistv_bary(2) * ptr_p%edges%dual_normal_cell(je,jb,1)%v2
+          ! Calculate the distance cell center --> barycenter for the cell,
+          ! in which the barycenter is located. The distance vector points
+          ! from the cell center to the barycenter.
+          z_ntdistv_bary(1:2) = pos_barycenter(1:2)               &
+            & - MERGE(ptr_int%pos_on_tplane_e(je,jb,1,1:2),       &
+            &         ptr_int%pos_on_tplane_e(je,jb,2,1:2),lvn_pos)
 
 
-          ELSE
+          ! In a last step, transform this distance vector into a rotated
+          ! geographical coordinate system with its origin at the circumcenter
+          ! of the upstream cell. Coordinate axes point to local East and local
+          ! North.
 
-            !! we are in cell 2 !!
+          ! component in longitudinal direction
+          p_distv_bary(je,jk,jb,1) =                                                        &
+            &   z_ntdistv_bary(1)*MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v1,         &
+            &                           ptr_p%edges%primal_normal_cell(je,jb,2)%v1,lvn_pos) &
+            & + z_ntdistv_bary(2)*MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v1,           &
+            &                           ptr_p%edges%dual_normal_cell(je,jb,2)%v1,lvn_pos)
 
-            ! line and block indices of neighboring cell with barycenter
-            p_cell_indices(je,jk,jb,1) = ptr_p%edges%cell_idx(je,jb,2)
-            p_cell_indices(je,jk,jb,2) = ptr_p%edges%cell_blk(je,jb,2)
-
-
-            ! Calculate the distance cell center --> barycenter for the cell,
-            ! in which the barycenter is located. The distance vector points
-            ! from the cell center to the barycenter.
-            z_ntdistv_bary(1:2) = pos_barycenter(1:2)                      &
-              &                 - ptr_int%pos_on_tplane_e(je,jb,2,1:2)
-
-
-            ! In a last step, transform this distance vector into a rotated
-            ! geographical coordinate system with its origin at the circumcenter
-            ! of the upstream cell. Coordinate axes point to local East and local
-            ! North.
-
-            ! component in longitudinal direction
-            p_distv_bary(je,jk,jb,1) =                                             &
-              &    z_ntdistv_bary(1) * ptr_p%edges%primal_normal_cell(je,jb,2)%v1  &
-              &  + z_ntdistv_bary(2) * ptr_p%edges%dual_normal_cell(je,jb,2)%v1
-
-            ! component in latitudinal direction
-            p_distv_bary(je,jk,jb,2) =                                             &
-              &    z_ntdistv_bary(1) * ptr_p%edges%primal_normal_cell(je,jb,2)%v2  &
-              &  + z_ntdistv_bary(2) * ptr_p%edges%dual_normal_cell(je,jb,2)%v2
-
-          ENDIF
-
+          ! component in latitudinal direction
+          p_distv_bary(je,jk,jb,2) =                                                        &
+            &   z_ntdistv_bary(1)*MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v2,         &
+            &                           ptr_p%edges%primal_normal_cell(je,jb,2)%v2,lvn_pos) &
+            & + z_ntdistv_bary(2)*MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v2,           &
+            &                           ptr_p%edges%dual_normal_cell(je,jb,2)%v2,lvn_pos)
 
         ENDDO ! loop over edges
       ENDDO   ! loop over vertical levels
@@ -436,16 +407,23 @@ CONTAINS
       &  ptr_ve(:,:,:,:)           !< on tangent plane
 
     REAL(wp) ::            &       !< coordinates of departure region vertices
-      &  pos_dreg_vert_e(4,2)      !< in edge-based coordinate system
+      &  pos_dreg_vert_e(3:4,2)    !< in edge-based coordinate system
 
     REAL(wp) ::            &       !< coordinates of departure region vertices
       &  pos_dreg_vert_c(4,2)      !< as seen from translated coordinate system.
                                    !< origin at circumcenter of upwind cell
 
+    REAL(wp) ::            &       !< position on tangential plane depending
+      &  pos_on_tplane_e(2)        !< on the sign of vn
+
+    REAL(wp) ::            &       !< primal and dual normals of cell lying
+      &  pn_cell(2), dn_cell(2)    !< in the direction of vn
+
     INTEGER :: je, jk, jb          !< index of edge, vert level, block
     INTEGER :: nlev                !< number of full levels
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: i_rlstart, i_rlend, i_nchdom
+    LOGICAL :: lvn_pos
   !-------------------------------------------------------------------------
 
     ! number of vertical levels
@@ -474,8 +452,8 @@ CONTAINS
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,pos_dreg_vert_e, &
-!$OMP            pos_dreg_vert_c)
+!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,pos_dreg_vert_e,          &
+!$OMP            pos_dreg_vert_c,pos_on_tplane_e,pn_cell,dn_cell,lvn_pos)
     DO jb = i_startblk, i_endblk
 
      CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk, &
@@ -504,181 +482,99 @@ CONTAINS
           ! Calculate backward trajectories, starting at the two edge vertices
           ! It is assumed the velocity vector is constant along the edge.
           !
-          IF ( p_vn(je,jk,jb) >= 0._wp ) THEN
 
-            !! we are in cell 1 !!
+          ! logical switch for MERGE operations: .TRUE. for p_vn >= 0
+          lvn_pos = p_vn(je,jk,jb) >= 0._wp
 
-            ! Vertices of the departure cell
-            ! Take care of correct counterclockwise numbering
-            !
-            ! position of vertex 4 in normal direction
-            pos_dreg_vert_e(4,1) = ptr_ve(je,jb,1,1) - p_vn(je,jk,jb) * p_dt
-
-            ! position of vertex 4 in tangential direction
-            pos_dreg_vert_e(4,2) = ptr_ve(je,jb,1,2) - p_vt(je,jk,jb) * p_dt
-
-            ! position of vertex 3 in normal direction
-            pos_dreg_vert_e(3,1) = ptr_ve(je,jb,2,1) - p_vn(je,jk,jb) * p_dt
-
-            ! position of vertex 3 in tangential direction
-            pos_dreg_vert_e(3,2) = ptr_ve(je,jb,2,2) - p_vt(je,jk,jb) * p_dt
-
-            ! position of vertex 1
-            pos_dreg_vert_e(1,1:2) = ptr_ve(je,jb,1,1:2)
-
-            ! position of vertex 2
-            pos_dreg_vert_e(2,1:2) = ptr_ve(je,jb,2,1:2)
+          ! line and block indices of upwind cell
+          p_cell_indices(je,jk,jb,1) = MERGE(ptr_p%edges%cell_idx(je,jb,1),       &
+            &                                ptr_p%edges%cell_idx(je,jb,2),lvn_pos)
+          p_cell_indices(je,jk,jb,2) = MERGE(ptr_p%edges%cell_blk(je,jb,1),       &
+            &                                ptr_p%edges%cell_blk(je,jb,2),lvn_pos)
 
 
-            ! line and block indices of upwind cell
-            p_cell_indices(je,jk,jb,1) = ptr_p%edges%cell_idx(je,jb,1)
-            p_cell_indices(je,jk,jb,2) = ptr_p%edges%cell_blk(je,jb,1)
+          ! Vertices 3 and 4 of the departure cell
+          ! Take care of correct counterclockwise numbering below
+
+          ! position of vertex 3 in normal direction
+          pos_dreg_vert_e(3,1) = ptr_ve(je,jb,2,1) - p_vn(je,jk,jb) * p_dt
+
+          ! position of vertex 3 in tangential direction
+          pos_dreg_vert_e(3,2) = ptr_ve(je,jb,2,2) - p_vt(je,jk,jb) * p_dt
+
+          ! position of vertex 4 (vn > 0) / vertex 2(vn < 0) in normal direction
+          pos_dreg_vert_e(4,1) = ptr_ve(je,jb,1,1) - p_vn(je,jk,jb) * p_dt
+
+          ! position of vertex 4 (vn > 0) / vertex 2(vn < 0) in tangential direction
+          pos_dreg_vert_e(4,2) = ptr_ve(je,jb,1,2) - p_vt(je,jk,jb) * p_dt
 
 
-
-            ! Calculate position of departure region vertices in a translated
-            ! coordinate system. The origin is located at the circumcenter
-            ! of the upwind cell. The distance vectors point from the cell center
-            ! to the vertices.
-            pos_dreg_vert_c(1,1:2) = pos_dreg_vert_e(1,1:2)                &
-              &                     - ptr_int%pos_on_tplane_e(je,jb,1,1:2)
-            pos_dreg_vert_c(2,1:2) = pos_dreg_vert_e(2,1:2)                &
-              &                     - ptr_int%pos_on_tplane_e(je,jb,1,1:2)
-            pos_dreg_vert_c(3,1:2) = pos_dreg_vert_e(3,1:2)                &
-              &                     - ptr_int%pos_on_tplane_e(je,jb,1,1:2)
-            pos_dreg_vert_c(4,1:2) = pos_dreg_vert_e(4,1:2)                &
-              &                     - ptr_int%pos_on_tplane_e(je,jb,1,1:2)
+          ! determine correct position on tangential plane
+          pos_on_tplane_e(1:2) = MERGE(ptr_int%pos_on_tplane_e(je,jb,1,1:2), &
+            &                          ptr_int%pos_on_tplane_e(je,jb,2,1:2),lvn_pos)
 
 
-            ! In a last step, these distance vectors are transformed into a rotated
-            ! geographical coordinate system, which still has its origin at the circumcenter
-            ! of the upwind cell. Now the coordinate axes point to local East and local
-            ! North.
+          ! Calculate position of departure region vertices in a translated
+          ! coordinate system. The origin is located at the circumcenter
+          ! of the upwind cell. The distance vectors point from the cell center
+          ! to the vertices.
+          pos_dreg_vert_c(1,1:2) = ptr_ve(je,jb,1,1:2) - pos_on_tplane_e(1:2)
 
-            ! components in longitudinal direction
-            p_coords_dreg_v(je,jk,jb,1,1) =                                          &
-              &    pos_dreg_vert_c(1,1) * ptr_p%edges%primal_normal_cell(je,jb,1)%v1 &
-              &  + pos_dreg_vert_c(1,2) * ptr_p%edges%dual_normal_cell(je,jb,1)%v1
+          pos_dreg_vert_c(2,1:2) =                                       &
+            & MERGE(ptr_ve(je,jb,2,1:2),pos_dreg_vert_e(4,1:2),lvn_pos)  &
+            &     - pos_on_tplane_e(1:2)
 
-            p_coords_dreg_v(je,jk,jb,2,1) =                                          &
-              &    pos_dreg_vert_c(2,1) * ptr_p%edges%primal_normal_cell(je,jb,1)%v1 &
-              &  + pos_dreg_vert_c(2,2) * ptr_p%edges%dual_normal_cell(je,jb,1)%v1
+          pos_dreg_vert_c(3,1:2) = pos_dreg_vert_e(3,1:2) - pos_on_tplane_e(1:2)
 
-            p_coords_dreg_v(je,jk,jb,3,1) =                                          &
-              &    pos_dreg_vert_c(3,1) * ptr_p%edges%primal_normal_cell(je,jb,1)%v1 &
-              &  + pos_dreg_vert_c(3,2) * ptr_p%edges%dual_normal_cell(je,jb,1)%v1
-
-            p_coords_dreg_v(je,jk,jb,4,1) =                                          &
-              &    pos_dreg_vert_c(4,1) * ptr_p%edges%primal_normal_cell(je,jb,1)%v1 &
-              &  + pos_dreg_vert_c(4,2) * ptr_p%edges%dual_normal_cell(je,jb,1)%v1
+          pos_dreg_vert_c(4,1:2) =                                       &
+            & MERGE(pos_dreg_vert_e(4,1:2),ptr_ve(je,jb,2,1:2),lvn_pos)  &
+            &     - pos_on_tplane_e(1:2)
 
 
-            ! components in latitudinal direction
-            p_coords_dreg_v(je,jk,jb,1,2) =                                          &
-              &    pos_dreg_vert_c(1,1) * ptr_p%edges%primal_normal_cell(je,jb,1)%v2 &
-              &  + pos_dreg_vert_c(1,2) * ptr_p%edges%dual_normal_cell(je,jb,1)%v2
+          ! In a last step, these distance vectors are transformed into a rotated
+          ! geographical coordinate system, which still has its origin at the circumcenter
+          ! of the upwind cell. Now the coordinate axes point to local East and local
+          ! North.
 
-            p_coords_dreg_v(je,jk,jb,2,2) =                                          &
-              &    pos_dreg_vert_c(2,1) * ptr_p%edges%primal_normal_cell(je,jb,1)%v2 &
-              &  + pos_dreg_vert_c(2,2) * ptr_p%edges%dual_normal_cell(je,jb,1)%v2
+          ! Determine primal and dual normals of the cell lying in the direction of vn
+          pn_cell(1) = MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v1,       &
+            &                ptr_p%edges%primal_normal_cell(je,jb,2)%v1,lvn_pos)
 
-            p_coords_dreg_v(je,jk,jb,3,2) =                                          &
-              &    pos_dreg_vert_c(3,1) * ptr_p%edges%primal_normal_cell(je,jb,1)%v2 &
-              &  + pos_dreg_vert_c(3,2) * ptr_p%edges%dual_normal_cell(je,jb,1)%v2
+          pn_cell(2) = MERGE(ptr_p%edges%primal_normal_cell(je,jb,1)%v2,       &
+            &                ptr_p%edges%primal_normal_cell(je,jb,2)%v2,lvn_pos)
 
-            p_coords_dreg_v(je,jk,jb,4,2) =                                          &
-              &    pos_dreg_vert_c(4,1) * ptr_p%edges%primal_normal_cell(je,jb,1)%v2 &
-              &  + pos_dreg_vert_c(4,2) * ptr_p%edges%dual_normal_cell(je,jb,1)%v2
+          dn_cell(1) = MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v1,       &
+            &                ptr_p%edges%dual_normal_cell(je,jb,2)%v1,lvn_pos)
 
+          dn_cell(2) = MERGE(ptr_p%edges%dual_normal_cell(je,jb,1)%v2,       &
+            &                ptr_p%edges%dual_normal_cell(je,jb,2)%v2,lvn_pos)
 
-          ELSE
+          ! components in longitudinal direction
+          p_coords_dreg_v(je,jk,jb,1,1) =                                         &
+            & pos_dreg_vert_c(1,1) * pn_cell(1) + pos_dreg_vert_c(1,2) * dn_cell(1)
 
-            !! we are in cell 2 !!
+          p_coords_dreg_v(je,jk,jb,2,1) =                                         &
+            & pos_dreg_vert_c(2,1) * pn_cell(1) + pos_dreg_vert_c(2,2) * dn_cell(1)
 
-            ! Vertices of the departure cell
-            ! Take care of the correct counterclockwise numbering
-            !
-            ! position of vertex 4 in normal direction
-            pos_dreg_vert_e(2,1) = ptr_ve(je,jb,1,1) - p_vn(je,jk,jb) * p_dt
+           p_coords_dreg_v(je,jk,jb,3,1) =                                        &
+            & pos_dreg_vert_c(3,1) * pn_cell(1) + pos_dreg_vert_c(3,2) * dn_cell(1)
 
-            ! position of vertex 4 in tangential direction
-            pos_dreg_vert_e(2,2) = ptr_ve(je,jb,1,2) - p_vt(je,jk,jb) * p_dt
-
-            ! position of vertex 3 in normal direction
-            pos_dreg_vert_e(3,1) = ptr_ve(je,jb,2,1) - p_vn(je,jk,jb) * p_dt
-
-            ! position of vertex 3 in tangential direction
-            pos_dreg_vert_e(3,2) = ptr_ve(je,jb,2,2) - p_vt(je,jk,jb) * p_dt
-
-            ! position of vertex 1
-            pos_dreg_vert_e(1,1:2) = ptr_ve(je,jb,1,1:2)
-
-            ! position of vertex 2
-            pos_dreg_vert_e(4,1:2) = ptr_ve(je,jb,2,1:2)
+          p_coords_dreg_v(je,jk,jb,4,1) =                                         &
+            & pos_dreg_vert_c(4,1) * pn_cell(1) + pos_dreg_vert_c(4,2) * dn_cell(1)
 
 
+          ! components in latitudinal direction
+          p_coords_dreg_v(je,jk,jb,1,2) =                                         &
+            & pos_dreg_vert_c(1,1) * pn_cell(2) + pos_dreg_vert_c(1,2) * dn_cell(2)
 
-            ! line and block indices of upwind cell
-            p_cell_indices(je,jk,jb,1) = ptr_p%edges%cell_idx(je,jb,2)
-            p_cell_indices(je,jk,jb,2) = ptr_p%edges%cell_blk(je,jb,2)
+          p_coords_dreg_v(je,jk,jb,2,2) =                                         &
+            & pos_dreg_vert_c(2,1) * pn_cell(2) + pos_dreg_vert_c(2,2) * dn_cell(2)
 
+          p_coords_dreg_v(je,jk,jb,3,2) =                                         &
+            & pos_dreg_vert_c(3,1) * pn_cell(2) + pos_dreg_vert_c(3,2) * dn_cell(2)
 
-
-            ! Calculate position of departure region vertices in a translated
-            ! coordinate system. The origin is located at the circumcenter
-            ! of the upwind cell. The distance vectors point from the cell center
-            ! to the vertices.
-            pos_dreg_vert_c(1,1:2) = pos_dreg_vert_e(1,1:2)                &
-              &                     - ptr_int%pos_on_tplane_e(je,jb,2,1:2)
-            pos_dreg_vert_c(2,1:2) = pos_dreg_vert_e(2,1:2)                &
-              &                     - ptr_int%pos_on_tplane_e(je,jb,2,1:2)
-            pos_dreg_vert_c(3,1:2) = pos_dreg_vert_e(3,1:2)                &
-              &                     - ptr_int%pos_on_tplane_e(je,jb,2,1:2)
-            pos_dreg_vert_c(4,1:2) = pos_dreg_vert_e(4,1:2)                &
-              &                     - ptr_int%pos_on_tplane_e(je,jb,2,1:2)
-
-
-            ! In a last step, these distance vectors are transformed into a rotated
-            ! geographical coordinate system, which still has its origin at the circumcenter
-            ! of the upwind cell. But the coordinate axes now point to local East and local
-            ! North.
-
-            ! components in longitudinal direction
-            p_coords_dreg_v(je,jk,jb,1,1) =                                          &
-              &    pos_dreg_vert_c(1,1) * ptr_p%edges%primal_normal_cell(je,jb,2)%v1 &
-              &  + pos_dreg_vert_c(1,2) * ptr_p%edges%dual_normal_cell(je,jb,2)%v1
-
-            p_coords_dreg_v(je,jk,jb,2,1) =                                          &
-              &    pos_dreg_vert_c(2,1) * ptr_p%edges%primal_normal_cell(je,jb,2)%v1 &
-              &  + pos_dreg_vert_c(2,2) * ptr_p%edges%dual_normal_cell(je,jb,2)%v1
-
-            p_coords_dreg_v(je,jk,jb,3,1) =                                          &
-              &    pos_dreg_vert_c(3,1) * ptr_p%edges%primal_normal_cell(je,jb,2)%v1 &
-              &  + pos_dreg_vert_c(3,2) * ptr_p%edges%dual_normal_cell(je,jb,2)%v1
-
-            p_coords_dreg_v(je,jk,jb,4,1) =                                          &
-              &    pos_dreg_vert_c(4,1) * ptr_p%edges%primal_normal_cell(je,jb,2)%v1 &
-              &  + pos_dreg_vert_c(4,2) * ptr_p%edges%dual_normal_cell(je,jb,2)%v1
-
-
-            ! components in latitudinal direction
-            p_coords_dreg_v(je,jk,jb,1,2) =                                          &
-              &    pos_dreg_vert_c(1,1) * ptr_p%edges%primal_normal_cell(je,jb,2)%v2 &
-              &  + pos_dreg_vert_c(1,2) * ptr_p%edges%dual_normal_cell(je,jb,2)%v2
-
-            p_coords_dreg_v(je,jk,jb,2,2) =                                          &
-              &    pos_dreg_vert_c(2,1) * ptr_p%edges%primal_normal_cell(je,jb,2)%v2 &
-              &  + pos_dreg_vert_c(2,2) * ptr_p%edges%dual_normal_cell(je,jb,2)%v2
-
-            p_coords_dreg_v(je,jk,jb,3,2) =                                          &
-              &    pos_dreg_vert_c(3,1) * ptr_p%edges%primal_normal_cell(je,jb,2)%v2 &
-              &  + pos_dreg_vert_c(3,2) * ptr_p%edges%dual_normal_cell(je,jb,2)%v2
-
-            p_coords_dreg_v(je,jk,jb,4,2) =                                          &
-              &    pos_dreg_vert_c(4,1) * ptr_p%edges%primal_normal_cell(je,jb,2)%v2 &
-              &  + pos_dreg_vert_c(4,2) * ptr_p%edges%dual_normal_cell(je,jb,2)%v2
-
-          ENDIF
+          p_coords_dreg_v(je,jk,jb,4,2) =                                         &
+            & pos_dreg_vert_c(4,1) * pn_cell(2) + pos_dreg_vert_c(4,2) * dn_cell(2)
 
 
         ENDDO ! loop over edges

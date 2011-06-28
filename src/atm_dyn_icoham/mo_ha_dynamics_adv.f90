@@ -116,7 +116,7 @@ CONTAINS
 
 ! Tendency of velocity due to vertical advection.
 
-!$OMP PARALLEL
+!$OMP PARALLEL PRIVATE(jbs)
    jbs = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
 !$OMP DO PRIVATE(jb,is,ie,jk,jkp)
    DO jb = jbs,nblks_e
@@ -185,7 +185,7 @@ CONTAINS
 
 ! Vertical advection
 
-!$OMP PARALLEL
+!$OMP PARALLEL  PRIVATE(jbs)
   jbs = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
 !$OMP DO PRIVATE(jb,is,ie,jk,jkp)
   DO jb = jbs,nblks_c

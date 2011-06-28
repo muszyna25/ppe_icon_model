@@ -157,8 +157,8 @@ CONTAINS
     !-------------------------------------------------
     ! Horizontal mass flux on full levels
 
-!$OMP PARALLEL
     jbs = p_patch%edges%start_blk(2,1)
+!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie)
     DO jb = jbs,nblks_e
       CALL get_indices_e(p_patch, jb,jbs,nblks_e, is,ie, 2)
@@ -554,9 +554,9 @@ CONTAINS
     !-------------------------------------------------------
     ! Diagnose virtual temperature (hydrostatic model only)
     !-------------------------------------------------------
+!$OMP PARALLEL  PRIVATE(jbs)
     IF (.NOT. lshallow_water) THEN
 
-!$OMP PARALLEL
       IF (ldry_dycore) THEN
 !$OMP WORKSHARE
         p_diag% qx       (:,:,:) = 0._wp
@@ -590,7 +590,6 @@ CONTAINS
         ENDDO
 !$OMP END DO
        ENDIF !dry dycore vs moist atmos.
-!$OMP END PARALLEL
 
     ENDIF !shallow water vs hydrostatic
 
@@ -605,7 +604,6 @@ CONTAINS
     ! other way round.
 
       jbs = p_patch%cells%start_blk(2,1)
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie,z_gzs)
       DO jb = jbs,nblks_c
         CALL get_indices_c(p_patch, jb,jbs,nblks_c, is,ie, 2)
@@ -617,12 +615,10 @@ CONTAINS
         &                              + grav*p_prog%pres_sfc(is:ie,jb)
       ENDDO
 !$OMP END DO
-!$OMP END PARALLEL
 
     ELSE !Integrate the hydrostatic equation
 
       jbs = p_patch%cells%start_blk(2,1)
-!$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie,z_gzs)
       DO jb = jbs,nblks_c
         CALL get_indices_c(p_patch, jb,jbs,nblks_c, is,ie, 2)
@@ -639,9 +635,9 @@ CONTAINS
         &            p_diag%geo_mc(:,:,jb), p_diag%geo_ic(:,:,jb) )  ! out
       ENDDO
 !$OMP END DO
-!$OMP END PARALLEL
 
     ENDIF !shallow water vs hydrostatic
+!$OMP END PARALLEL
 
   END SUBROUTINE update_tempv_geopot
   !-------------------------
