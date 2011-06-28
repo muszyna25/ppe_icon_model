@@ -627,7 +627,7 @@ CONTAINS
       &                   'geometric height of the earths surface above sea level')
     grib2_desc = t_grib2_var( 2, 0, 7, ientr, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_ext_atm_list, 'topography_e', p_ext_atm%topography_e, &
-      &           GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
+      &           GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e)
 
 
     ! topography height at vertex
@@ -933,7 +933,8 @@ CONTAINS
       cf_desc    = t_cf_var('soil_type', '-','soil type')
       grib2_desc = t_grib2_var( 2, 3, 0, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'soiltyp', p_ext_atm%soiltyp, &
-        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
+        &           grib2_desc, ldims=shape2d_c, lrestart=.FALSE.   )
 
 
 !DR      ! soil texture, keys 0-9
@@ -961,7 +962,8 @@ CONTAINS
       cf_desc    = t_cf_var('emis_rad', '-', 'longwave surface emissivity')
       grib2_desc = t_grib2_var( 2, 3, 196, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'emis_rad', p_ext_atm%emis_rad, &
-        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
+        &           grib2_desc, ldims=shape2d_c)
 
 
     ENDIF ! iforcing = nwp
@@ -1044,14 +1046,12 @@ CONTAINS
       ! the ozone mass mixing ratio...
       !
       ! o3       p_ext_atm_td%o3(nproma,nlev_pres,nblks_c,nmonths)
-      IF(irad_o3 == 3) THEN
-        cf_desc    = t_cf_var('O3', 'mole mole^-1',   &
-          &                   'mole_fraction_of_ozone_in_air')
-        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( p_ext_atm_td_list, 'O3', p_ext_atm_td%O3, &
-          &           GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc, &
-          &           ldims=shape4d_c )
-      END IF
+      cf_desc    = t_cf_var('O3', 'mole mole^-1',   &
+        &                   'mole_fraction_of_ozone_in_air')
+      grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_td_list, 'O3', p_ext_atm_td%O3, &
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, &
+        &           grib2_desc, ldims=shape4d_c , lrestart=.FALSE. )
 
       ! Black carbon aerosol
       !
@@ -1061,7 +1061,8 @@ CONTAINS
         &                   'black_carbon_ambient_aerosol')
       grib2_desc = t_grib2_var( 0, 13, 195, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_td_list, 'aer_bc', p_ext_atm_td%aer_bc, &
-        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,  &
+        &            grib2_desc, ldims=shape3d_c, lrestart=.FALSE. )
 
 
       ! Dust aerosol
@@ -1072,7 +1073,8 @@ CONTAINS
         &                   'to dust ambient aerosol')
       grib2_desc = t_grib2_var( 0, 13, 193, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_td_list, 'aer_dust', p_ext_atm_td%aer_dust, &
-        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
+        &           ldims=shape3d_c, lrestart=.FALSE. )
 
 
       ! Organic aerosol
@@ -1083,7 +1085,8 @@ CONTAINS
         &                   'to particulate organic matter ambient aerosol')
       grib2_desc = t_grib2_var( 0, 13, 194, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_td_list, 'aer_org', p_ext_atm_td%aer_org, &
-        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
+        &           ldims=shape3d_c, lrestart=.FALSE. )
 
 
       ! Sulfate aerosol
@@ -1094,7 +1097,8 @@ CONTAINS
         &                   'to sulfate_ambient_aerosol')
       grib2_desc = t_grib2_var( 0, 13, 192, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_td_list, 'aer_so4', p_ext_atm_td%aer_so4, &
-        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
+        &           ldims=shape3d_c, lrestart=.FALSE. )
 
 
       ! Seasalt aerosol
@@ -1105,7 +1109,8 @@ CONTAINS
         &                   'to seasalt_ambient_aerosol')
       grib2_desc = t_grib2_var( 0, 13, 196, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_td_list, 'aer_ss', p_ext_atm_td%aer_ss, &
-        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
+        &           ldims=shape3d_c, lrestart=.FALSE. )
 
 
       !--------------------------------
@@ -1119,7 +1124,8 @@ CONTAINS
         &                   'monthly mean NDVI')
       grib2_desc = t_grib2_var( 2, 0, 217, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_td_list, 'ndvi', p_ext_atm_td%ndvi, &
-        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
+        &           ldims=shape3d_c, lrestart=.FALSE. )
 
 
       ! (monthly) proportion of actual value/maximum NDVI
@@ -1130,7 +1136,8 @@ CONTAINS
         &                   'normalized differential vegetation index')
       grib2_desc = t_grib2_var( 2, 0, 192, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_td_list, 'ndvi_mrat', p_ext_atm_td%ndvi_mrat, &
-        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape3d_c )
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
+        &           ldims=shape3d_c , lrestart=.FALSE.)
 
 
   END SUBROUTINE construct_ext_data_atm_td_list
