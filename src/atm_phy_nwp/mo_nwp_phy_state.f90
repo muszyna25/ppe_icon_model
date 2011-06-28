@@ -69,6 +69,7 @@ USE mo_model_domain,        ONLY: t_patch
 USE mo_model_domain_import, ONLY: n_dom
 USE mo_icoham_sfc_indices,  ONLY: nsfc_type
 USE mo_linked_list,         ONLY: t_var_list
+USE mo_atm_phy_nwp_nml,     ONLY: inwp_turb
 USE mo_var_list,            ONLY: default_var_list_settings, &
                                 & add_var, add_ref,          &
                                 & new_var_list,              &
@@ -424,7 +425,10 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
     shape3d    = (/nproma, klev,      kblks            /)
     shape3dkp1 = (/nproma, klevp1,    kblks            /)
     shape4d    = (/nproma, klev,      kblks, iqcond    /)
-    shapesfc   = (/nproma,            kblks, nsfc_type /)
+
+    IF(inwp_turb == 2) THEN
+      shapesfc   = (/nproma,          kblks, nsfc_type /)
+    ENDIF
 
     ! Register a field list and apply default settings
 
@@ -1053,8 +1057,12 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d) !,&
  !               &  lmiss=.true.,     missval=0._wp                      )
 
+
   ! +++vdiff
   !
+  !
+    IF(inwp_turb == 2) THEN
+
   ! &      diag%cfm_tile(nproma,nblks_c)
     cf_desc    = t_cf_var('cfm_tile','',&
                & 'turbulent exchange coefficient of momentum at surface')
@@ -1118,6 +1126,9 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
                     & ldims=shape2d )
       END DO
+
+    ENDIF  !inwp_turb == 2 (vdiff)
+
 
 
   ! &      diag%z0m(nproma,nblks_c)
