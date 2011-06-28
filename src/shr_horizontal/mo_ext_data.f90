@@ -1045,13 +1045,16 @@ CONTAINS
       ! ATTENTION: a GRIB2 number will go to 
       ! the ozone mass mixing ratio...
       !
-      ! o3       p_ext_atm_td%o3(nproma,nlev_pres,nblks_c,nmonths)
-      cf_desc    = t_cf_var('O3', 'mole mole^-1',   &
-        &                   'mole_fraction_of_ozone_in_air')
-      grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_td_list, 'O3', p_ext_atm_td%O3, &
-        &           GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, &
-        &           grib2_desc, ldims=shape4d_c , lrestart=.FALSE. )
+      IF(irad_o3 == 3) THEN 
+        ! o3       p_ext_atm_td%o3(nproma,nlev_pres,nblks_c,nmonths)
+        cf_desc    = t_cf_var('O3', 'mole mole^-1',   &
+          &                   'mole_fraction_of_ozone_in_air')
+        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_ext_atm_td_list, 'O3', p_ext_atm_td%O3, &
+          &           GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, &
+          &           grib2_desc, ldims=shape4d_c , lrestart=.FALSE. )
+      END IF
+
 
       ! Black carbon aerosol
       !
