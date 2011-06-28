@@ -205,7 +205,7 @@ CONTAINS
 #endif
     !
 #ifdef __SX__
-    ! requires in runscript (ksh/bash): export F_NOCRW=65535
+    ! requires in runscript (ksh/bash): export F_NORCW=65535
     OPEN(UNIT=65535, FILE=TRIM(filename), ACTION='read', FORM='unformatted')
     READ(65535) nmlbuf(1:nmllen)
     CLOSE(65535)
