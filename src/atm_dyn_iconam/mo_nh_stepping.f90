@@ -503,7 +503,7 @@ MODULE mo_nh_stepping
     !--------------------------------------------------------------------------
     IF (l_checkpoint_time) THEN
       DO jg = 1, n_dom
-        CALL create_restart_file( datetime,                     &
+        CALL create_restart_file( p_patch(jg), datetime,        &
                                 & p_patch(jg)%nlev, vct,        &
                                 & jg, nroot, p_patch(jg)%level, &
                                 & p_patch(jg)%n_patch_cells_g,  &

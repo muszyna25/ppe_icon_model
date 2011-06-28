@@ -1,3 +1,4 @@
+#define NOMPI
 !>
 !! Contains output routines for CDI output
 !! This module acts merely as a wrapper for either calling the direct
@@ -65,7 +66,7 @@ MODULE mo_output
                                   & finish_restart
   USE mo_io_restart_attributes,ONLY: set_restart_attribute
   USE mo_dynamics_nml,        ONLY: nold, nnow, nnew, nnow_rcf, nnew_rcf
-
+  USE mo_model_domain,        ONLY: t_patch
 
   IMPLICIT NONE
 
@@ -283,10 +284,11 @@ CONTAINS
   !! 
   !! Hui Wan (MPI-M, 2011-05)
   !!
-  SUBROUTINE create_restart_file( datetime, klev, pvct, jg,              &
+  SUBROUTINE create_restart_file( patch, datetime, klev, pvct, jg,       &
                                 & kr, kb, kcell, kvert, kedge, icelltype,&
                                 & jfile )
 
+    TYPE(t_patch),   INTENT(IN) :: patch
     TYPE(t_datetime),INTENT(IN) :: datetime
     INTEGER, INTENT(IN) :: klev
     REAL(wp),INTENT(IN) :: pvct(:) 
@@ -330,7 +332,13 @@ CONTAINS
     WRITE(string,'(a,i2.2,a,i1,a,i2.2)') 'restart.icon_D',jg,'R',kr,'B',kb
 
     CALL open_writing_restart_files( TRIM(string) )
+
+#ifdef NOMPI
     CALL write_restart
+#else
+    CALL write_restart( p_patch )
+#endif
+
     CALL close_writing_restart_files
     CALL finish_restart
     
