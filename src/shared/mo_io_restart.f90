@@ -901,10 +901,14 @@ CONTAINS
     element => start_with
     element%next_list_element => this_list%p%first_list_element    
     !
+    WRITE(0,*)'write_restart list name=',this_list%p%name
+
     for_all_list_elements: DO
       !
       element => element%next_list_element
+ 
       IF (.NOT.ASSOCIATED(element)) EXIT
+      WRITE(0,*)'write_restart element name=',element%field%info%name
       !
       rptr2d => NULL()
       rptr3d => NULL()
@@ -990,7 +994,10 @@ CONTAINS
       !
       IF (ASSOCIATED (r5d)) DEALLOCATE (r5d)
       !
+            WRITE(0,*)'write done for element name=',element%field%info%name
     END DO for_all_list_elements
+
+    WRITE(0,*)'done list name=',this_list%p%name
     !
   END SUBROUTINE write_restart_var_list
   !------------------------------------------------------------------------------------------------

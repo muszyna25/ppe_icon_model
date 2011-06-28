@@ -1112,6 +1112,7 @@ CONTAINS
     IF(idiscrep == 0 )THEN
       out = RESHAPE(in,(/ isize_out /))
     ELSE
+      WRITE(0,*)'reorder=',isize_in,isize_out
       ALLOCATE (lmask(isize_in))
       lmask(1:isize_out) = .TRUE.
       lmask(isize_out+1:isize_in) = .FALSE.
