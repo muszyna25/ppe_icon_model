@@ -414,7 +414,7 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
 
     INTEGER :: shape2d(2), shape3d(3), shape4d(4), shapesfc(3)
     INTEGER :: shape3dkp1(3)
-    INTEGER :: ientr, jcld, kcloud
+    INTEGER :: ientr,  kcloud
     INTEGER :: jsfc 
 
 
@@ -449,60 +449,58 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tracer_rate', diag%tracer_rate,          &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,cf_desc, grib2_desc, &
-          &                                    ldims=(/nproma,kblks,4/))!,&
-!                &  lmiss=.true.,     missval=0._wp                      )
+          &                                   ldims=(/nproma,kblks,4/),&
+          &                                           lrestart=.FALSE. )
 
     ! &      diag%rain_gsp(nproma,nblks_c)
     cf_desc    = t_cf_var('rain_gsp ', 'kg m-2 ', 'gridscale rain ')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'rain_gsp', diag%rain_gsp,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
-                &                                                ldims=shape2d)
-!                &  lmiss=.true.,     missval=0._wp                      )    
+                &                                              ldims=shape2d,&
+          &                                           lrestart=.FALSE. )
 
     ! &      diag%snow_gsp(nproma,nblks_c)
     cf_desc    = t_cf_var('snow_gsp', 'kg m-2 ', 'gridscale snow')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'snow_gsp', diag%snow_gsp,                      &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
-                &                                               ldims=shape2d)
- !               &  lmiss=.true.,     missval=0._wp                      )
+                & ldims=shape2d, lrestart=.FALSE. )
 
     ! &      diag%rain_con(nproma,nblks_c)
     cf_desc    = t_cf_var('rain_con', 'kg m-2 ', 'convective rain')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'rain_con', diag%rain_con,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
-                &                                               ldims=shape2d )
- !               &  lmiss=.true.,     missval=0._wp                      )    
+                &                              ldims=shape2d,lrestart=.FALSE. )
 
     ! &      diag%snow_con(nproma,nblks_c)
     cf_desc    = t_cf_var('snow_con', 'kg m-2', 'convective snow')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, 'snow_con', diag%snow_con,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
- !               &  lmiss=.true.,     missval=0._wp                      )
+    CALL add_var( diag_list, 'snow_con', diag%snow_con,                       &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
+                &   ldims=shape2d ,lrestart=.FALSE. )
 
     ! &      diag%tot_prec(nproma,nblks_c)
     cf_desc    = t_cf_var('tot_prec', '', 'total precip')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, 'tot_prec', diag%tot_prec,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d)
- !               &  lmiss=.true.,     missval=0._wp                      )
+    CALL add_var( diag_list, 'tot_prec', diag%tot_prec,                       &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
+                & ldims=shape2d,  lrestart=.FALSE. )
 
     ! &      diag%tot_prec_rate_avg(nproma,nblks_c)
     cf_desc    = t_cf_var('tot_prec_rate_avg', '', 'total precip, time average')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, 'tot_prec_rate_avg', diag%tot_prec_rate_avg,                   &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d,&
-                &  lrestart=.FALSE. )
+    CALL add_var( diag_list, 'tot_prec_rate_avg', diag%tot_prec_rate_avg,     &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
+                & ldims=shape2d, lrestart=.FALSE. )
 
     ! &      diag%con_prec_rate_avg(nproma,nblks_c)
     cf_desc    = t_cf_var('con_prec_rate_avg', '', 'convective precip, time average')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, 'con_prec_rate_avg', diag%con_prec_rate_avg,                   &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d,&
-                &  lrestart=.FALSE. )
+    CALL add_var( diag_list, 'con_prec_rate_avg', diag%con_prec_rate_avg,     &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
+                & ldims=shape2d,  lrestart=.FALSE. )
 
     ! &      diag%gsp_prec_rate_avg(nproma,nblks_c)
     cf_desc    = t_cf_var('gsp_prec_rate_avg', '', 'gridscale precip, time average')
@@ -538,8 +536,7 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'con_udd', diag%con_udd,                             &
        &                     GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,&
-       &                                    ldims=(/nproma,klev,kblks,n_updown/))!,&
- !               &  lmiss=.true.,     missval=0._wp                      )
+       &                     ldims=(/nproma,klev,kblks,n_updown/),  lrestart=.FALSE. )
 
     ! &      diag%mbas_con(nproma,nblks_c)
     cf_desc    = t_cf_var('mbas_con', '', 'cloud base level index')
