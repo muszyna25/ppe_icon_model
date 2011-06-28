@@ -52,8 +52,8 @@ MODULE mo_nh_interface_nwp
  ! USE mo_timer,              ONLY: timer_physics, timer_start, timer_stop, &
   USE mo_timer
   
-  USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_impl_constants,     ONLY: SUCCESS, itconv, itccov, itrad, itgscp,         &
+  USE mo_exception,          ONLY: message, message_text !, finish
+  USE mo_impl_constants,     ONLY: itconv, itccov, itrad, itgscp,         &
     &                              itsatad, itupdate, itturb, itsfc, itradheat,  &
     &                              itsso,itgwd,                               &
     &                              min_rlcell_int, min_rledge_int, min_rlcell
@@ -92,7 +92,7 @@ MODULE mo_nh_interface_nwp
   USE mo_mpi,                ONLY: p_nprocs
   USE mo_parallel_nml,       ONLY: p_test_run
   USE mo_nwp_diagnosis,      ONLY: nwp_diagnosis
-  USE mo_communication,      ONLY: time_sync
+!  USE mo_communication,      ONLY: time_sync
 
   IMPLICIT NONE
 
