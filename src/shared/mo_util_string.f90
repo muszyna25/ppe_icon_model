@@ -101,6 +101,43 @@ CONTAINS
   END FUNCTION toupper
   !------------------------------------------------------------------------------------------------
   !
+  ! Converts multiple spaces and tabs to single spaces and removes leading spaces.
+  !
+  SUBROUTINE tocompact(string)
+    CHARACTER(len=*), INTENT(inout) :: string
+    !
+    CHARACTER(len=LEN_TRIM(string)) :: tmp_string
+    CHARACTER(len=1):: char
+    !
+    INTEGER :: i, k, spaces
+    !
+    string = ADJUSTL(string)
+    tmp_string = ' '
+    spaces = 0
+    k = 0
+    !
+    DO i = 1, LEN_TRIM(string)
+      char = string(i:i)
+      SELECT CASE(IACHAR(char))
+      CASE (9,32)     ! SPACE and TAB
+        IF (spaces == 0) THEN
+          k = k+1
+          tmp_string(k:k) = ' '
+        ENDIF
+        spaces = 1
+      CASE (33:)      ! everything else
+        k = k+1
+        tmp_string(k:k) = char
+        spaces = 0
+      END SELECT
+    END DO
+    !
+    string = ADJUSTL(tmp_string)
+    !
+  END SUBROUTINE tocompact
+  !
+  !------------------------------------------------------------------------------------------------
+  !
   ! Conversion: INTEGER -> CHARACTER(LEN=2)
   !
   FUNCTION char2 (i, zero)

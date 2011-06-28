@@ -14,17 +14,17 @@ MODULE mo_io_restart
   USE mo_util_hash,             ONLY: util_hashword
   USE mo_io_restart_namelist,   ONLY: nmls, restart_namelist   
   USE mo_io_restart_attributes, ONLY: set_restart_attribute, get_restart_attribute, &
-       &                              read_restart_attributes, delete_attributes,   &
+       &                              read_attributes, delete_attributes,           &
        &                              restart_attributes_count_text,                &
        &                              restart_attributes_count_real,                &
        &                              restart_attributes_count_int,                 &
-       &                              restart_attributes_count_bool,                &
-       &                              read_attributes
+       &                              restart_attributes_count_bool
   USE mo_io_restart_distribute, ONLY: gather_cells, gather_edges, gather_vertices,  &
        &                              scatter_cells, scatter_edges, scatter_vertices  
   USE mo_io_units,              ONLY: find_next_free_unit, filename_max
 #ifndef NOMPI
   USE mo_mpi,                   ONLY: p_parallel_io
+  USE mo_model_domain,          ONLY: t_patch
 #endif
   !
   IMPLICIT NONE
@@ -787,7 +787,12 @@ CONTAINS
   !
   ! loop over all var_lists for restart
   !
-  SUBROUTINE write_restart
+  SUBROUTINE write_restart(p_patch)
+#ifndef NOMPI
+    TYPE(t_patch), OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,       OPTIONAL, INTENT(in) :: p_patch
+#endif
     INTEGER :: i,j
     LOGICAL :: write_info
     !
@@ -826,7 +831,7 @@ CONTAINS
             !
             ! write variables
             !
-            CALL write_restart_var_list(var_lists(j))
+            CALL write_restart_var_list(var_lists(j), p_patch=p_patch)
             !
           ENDIF
         ENDDO
@@ -901,14 +906,10 @@ CONTAINS
     element => start_with
     element%next_list_element => this_list%p%first_list_element    
     !
-    WRITE(0,*)'write_restart list name=',this_list%p%name
-
     for_all_list_elements: DO
       !
       element => element%next_list_element
- 
       IF (.NOT.ASSOCIATED(element)) EXIT
-      WRITE(0,*)'write_restart element name=',element%field%info%name
       !
       rptr2d => NULL()
       rptr3d => NULL()
@@ -947,38 +948,38 @@ CONTAINS
       ! allocate temporary global array on output processor
       ! and gather field from other processors
       !
-      NULLIFY(r5d)
+      r5d => NULL()
       !
       SELECT CASE (gridtype)
       CASE (GRID_UNSTRUCTURED_CELL)
         IF (info%ndims == 2) THEN
           gdims(:) = (/ private_nc, 1, 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_cells(rptr2d, r5d, p_patch)
+          CALL gather_cells(rptr2d, r5d, p_patch=p_patch)
         ELSE
           gdims(:) = (/ private_nc, info%used_dimensions(2), 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_cells(rptr3d, r5d, p_patch)
+          CALL gather_cells(rptr3d, r5d, p_patch=p_patch)
         ENDIF
       CASE (GRID_UNSTRUCTURED_VERT)
         IF (info%ndims == 2) THEN
           gdims(:) = (/ private_nv, 1, 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_vertices(rptr2d, r5d, p_patch)
+          CALL gather_vertices(rptr2d, r5d, p_patch=p_patch)
         ELSE
           gdims(:) = (/ private_nv, info%used_dimensions(2), 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_vertices(rptr3d, r5d, p_patch)
+          CALL gather_vertices(rptr3d, r5d, p_patch=p_patch)
         ENDIF
       CASE (GRID_UNSTRUCTURED_EDGE)
         IF (info%ndims == 2) THEN
           gdims(:) = (/ private_ne, 1, 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_edges(rptr2d, r5d, p_patch)
+          CALL gather_edges(rptr2d, r5d, p_patch=p_patch)
         ELSE
           gdims(:) = (/ private_ne, info%used_dimensions(2), 1, 1, 1 /)
           ALLOCATE(r5d(gdims(1),gdims(2),gdims(3),gdims(4),gdims(5)) )
-          CALL gather_edges(rptr3d, r5d, p_patch)
+          CALL gather_edges(rptr3d, r5d, p_patch=p_patch)
         ENDIF
       CASE default
         CALL finish('out_stream','unknown grid type')
@@ -994,10 +995,7 @@ CONTAINS
       !
       IF (ASSOCIATED (r5d)) DEALLOCATE (r5d)
       !
-            WRITE(0,*)'write done for element name=',element%field%info%name
     END DO for_all_list_elements
-
-    WRITE(0,*)'done list name=',this_list%p%name
     !
   END SUBROUTINE write_restart_var_list
   !------------------------------------------------------------------------------------------------
@@ -1061,7 +1059,13 @@ CONTAINS
   END SUBROUTINE finish_restart
   !------------------------------------------------------------------------------------------------
   !
-  SUBROUTINE read_restart_files
+  SUBROUTINE read_restart_files(p_patch)
+    !
+#ifndef NOMPI
+    TYPE(t_patch), OPTIONAL, INTENT(in) :: p_patch
+#else
+    INTEGER,       OPTIONAL, INTENT(in) :: p_patch
+#endif
     !
     CHARACTER(len=80) :: restart_filename, name
     !
@@ -1174,50 +1178,26 @@ CONTAINS
               CASE (GRID_UNSTRUCTURED_CELL)
                 IF (info%ndims == 2) THEN
                   rptr2d => element%field%r_ptr(:,:,nindex,1,1) 
-#ifndef NOMPI
-                  CALL scatter_cells(r5d, rptr2d, p_patch)
-#else
                   CALL scatter_cells(r5d, rptr2d)
-#endif
                 ELSE
                   rptr3d => element%field%r_ptr(:,:,:,nindex,1) 
-#ifndef NOMPI
-                  CALL scatter_cells(r5d, rptr3d, info%name)
-#else
                   CALL scatter_cells(r5d, rptr3d)
-#endif
                 ENDIF
               CASE (GRID_UNSTRUCTURED_VERT)
                 IF (info%ndims == 2) THEN
                   rptr2d => element%field%r_ptr(:,:,nindex,1,1) 
-#ifndef NOMPI
-                  CALL scatter_vertices(r5d, rptr2d, info%name)
-#else
                   CALL scatter_vertices(r5d, rptr2d)
-#endif
                 ELSE
                   rptr3d => element%field%r_ptr(:,:,:,nindex,1) 
-#ifndef NOMPI
-                  CALL scatter_vertices(r5d, rptr3d, info%name)
-#else
                   CALL scatter_vertices(r5d, rptr3d)
-#endif
                 ENDIF
               CASE (GRID_UNSTRUCTURED_EDGE)
                 IF (info%ndims == 2) THEN
                   rptr2d => element%field%r_ptr(:,:,nindex,1,1) 
-#ifndef NOMPI
-                  CALL scatter_edges(r5d, rptr2d, info%name)
-#else
                   CALL scatter_edges(r5d, rptr2d)
-#endif
                 ELSE
                   rptr3d => element%field%r_ptr(:,:,:,nindex,1) 
-#ifndef NOMPI
-                  CALL scatter_edges(r5d, rptr3d, info%name)
-#else
                   CALL scatter_edges(r5d, rptr3d)
-#endif
                 ENDIF
               CASE default
                 CALL finish('out_stream','unknown grid type')

@@ -4,12 +4,11 @@ MODULE mo_io_restart_distribute
   !
   USE mo_kind,          ONLY: wp
 #ifndef NOMPI
-  USE mo_mpi,           ONLY: p_parallel_io, num_work_procs
+  USE mo_mpi,           ONLY: p_io, p_bcast
+  USE mo_parallel_nml,  ONLY: p_comm_work
+  USE mo_model_domain,  ONLY: t_patch
+  USE mo_communication, ONLY: idx_no, blk_no, exchange_data
 #endif
-  USE mo_cdi_constants, ONLY: GRID_UNSTRUCTURED_CELL, &
-       &                      GRID_UNSTRUCTURED_VERT, &
-       &                      GRID_UNSTRUCTURED_EDGE
-  USE mo_exception,     ONLY: finish 
   !
   IMPLICIT NONE
   !
@@ -238,7 +237,7 @@ CONTAINS
     INTEGER :: n1, n2
     !
     n1 = SIZE(in_array, 1)
-    n2 = (p_patch%n_patch_vertices_g-1)/n1+1
+    n2 = (p_patch%n_patch_verts_g-1)/n1+1
     ALLOCATE(tmp_array(n1, n2))
     !
     CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
@@ -268,7 +267,7 @@ CONTAINS
     !
     n1 = SIZE(in_array, 1)
     n2 = SIZE(in_array, 2)
-    n3 = (p_patch%n_patch_vertices_g-1)/n1+1
+    n3 = (p_patch%n_patch_verts_g-1)/n1+1
     ALLOCATE(tmp_array(n1, n2, n3))
     !
     CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
@@ -418,7 +417,7 @@ CONTAINS
     INTEGER :: n1, n2
     !
     n1 = SIZE(in_array, 1)
-    n2 = (p_patch%n_patch_vertices_g-1)/n1+1
+    n2 = (p_patch%n_patch_verts_g-1)/n1+1
     ALLOCATE(tmp_array(n1, n2))
     !
     CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
@@ -448,7 +447,7 @@ CONTAINS
     !
     n1 = SIZE(in_array, 1)
     n2 = SIZE(in_array, 2)
-    n3 = (p_patch%n_patch_vertices_g-1)/n1+1
+    n3 = (p_patch%n_patch_verts_g-1)/n1+1
     ALLOCATE(tmp_array(n1, n2, n3))
     !
     CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
@@ -598,7 +597,7 @@ CONTAINS
     INTEGER :: n1, n2
     !
     n1 = SIZE(in_array, 1)
-    n2 = (p_patch%n_patch_vertices_g-1)/n1+1
+    n2 = (p_patch%n_patch_verts_g-1)/n1+1
     ALLOCATE(tmp_array(n1, n2))
     !
     CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
@@ -628,7 +627,7 @@ CONTAINS
     !
     n1 = SIZE(in_array, 1)
     n2 = SIZE(in_array, 2)
-    n3 = (p_patch%n_patch_vertices_g-1)/n1+1
+    n3 = (p_patch%n_patch_verts_g-1)/n1+1
     ALLOCATE(tmp_array(n1, n2, n3))
     !
     CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
@@ -660,7 +659,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(r1d, out_array)
 #else
-    CALL scatter_array_r2d(r1d, out_array, p_patch(jg)%cells%glb_index)
+    CALL scatter_array_r2d(r1d, out_array, p_patch%cells%glb_index)
 #endif
   END SUBROUTINE scatter_cells_r2d
   !
@@ -677,7 +676,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(r2d, out_array)
 #else
-    CALL scatter_array_r2d(r1d, out_array, p_patch(jg)%cells%glb_index)
+    CALL scatter_array_r3d(r2d, out_array, p_patch%cells%glb_index)
 #endif
   END SUBROUTINE scatter_cells_r3d
   !
@@ -694,7 +693,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(r1d, out_array)
 #else
-    CALL scatter_array_r2d(r1d, out_array, p_patch(jg)%edges%glb_index)
+    CALL scatter_array_r2d(r1d, out_array, p_patch%edges%glb_index)
 #endif
   END SUBROUTINE scatter_edges_r2d
   !
@@ -711,7 +710,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(r2d, out_array)
 #else
-    CALL scatter_array_r2d(r1d, out_array, p_patch(jg)%edges%glb_index)
+    CALL scatter_array_r3d(r2d, out_array, p_patch%edges%glb_index)
 #endif
   END SUBROUTINE scatter_edges_r3d
   !
@@ -728,7 +727,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(r1d, out_array)
 #else
-    CALL scatter_array_r2d(r1d, out_array, p_patch(jg)%vertices%glb_index)
+    CALL scatter_array_r2d(r1d, out_array, p_patch%verts%glb_index)
 #endif
   END SUBROUTINE scatter_vertices_r2d
   !
@@ -745,7 +744,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(r2d, out_array)
 #else
-    CALL scatter_array_r2d(r1d, out_array, p_patch(jg)%vertices%glb_index)
+    CALL scatter_array_r3d(r2d, out_array, p_patch%verts%glb_index)
 #endif
   END SUBROUTINE scatter_vertices_r3d
   !
@@ -765,7 +764,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(i1d, out_array)
 #else
-    CALL scatter_array_i2d(i1d, out_array, p_patch(jg)%cells%glb_index)
+    CALL scatter_array_i2d(i1d, out_array, p_patch%cells%glb_index)
 #endif
   END SUBROUTINE scatter_cells_i2d
   !
@@ -782,7 +781,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(i2d, out_array)
 #else
-    CALL scatter_array_i2d(i1d, out_array, p_patch(jg)%cells%glb_index)
+    CALL scatter_array_i3d(i2d, out_array, p_patch%cells%glb_index)
 #endif
   END SUBROUTINE scatter_cells_i3d
   !
@@ -799,7 +798,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(i1d, out_array)
 #else
-    CALL scatter_array_i2d(i1d, out_array, p_patch(jg)%edges%glb_index)
+    CALL scatter_array_i2d(i1d, out_array, p_patch%edges%glb_index)
 #endif
   END SUBROUTINE scatter_edges_i2d
   !
@@ -816,7 +815,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(i2d, out_array)
 #else
-    CALL scatter_array_i2d(i1d, out_array, p_patch(jg)%edges%glb_index)
+    CALL scatter_array_i3d(i2d, out_array, p_patch%edges%glb_index)
 #endif
   END SUBROUTINE scatter_edges_i3d
   !
@@ -833,7 +832,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(i1d, out_array)
 #else
-    CALL scatter_array_i2d(i1d, out_array, p_patch(jg)%vertices%glb_index)
+    CALL scatter_array_i2d(i1d, out_array, p_patch%verts%glb_index)
 #endif
   END SUBROUTINE scatter_vertices_i2d
   !
@@ -850,7 +849,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(i2d, out_array)
 #else
-    CALL scatter_array_i2d(i1d, out_array, p_patch(jg)%vertices%glb_index)
+    CALL scatter_array_i3d(i2d, out_array, p_patch%verts%glb_index)
 #endif
   END SUBROUTINE scatter_vertices_i3d
   !
@@ -870,7 +869,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(l1d, out_array)
 #else
-    CALL scatter_array_l2d(l1d, out_array, p_patch(jg)%cells%glb_index)
+    CALL scatter_array_l2d(l1d, out_array, p_patch%cells%glb_index)
 #endif
   END SUBROUTINE scatter_cells_l2d
   !
@@ -887,7 +886,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(l2d, out_array)
 #else
-    CALL scatter_array_l2d(l1d, out_array, p_patch(jg)%cells%glb_index)
+    CALL scatter_array_l3d(l2d, out_array, p_patch%cells%glb_index)
 #endif
   END SUBROUTINE scatter_cells_l3d
   !
@@ -904,7 +903,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(l1d, out_array)
 #else
-    CALL scatter_array_l2d(l1d, out_array, p_patch(jg)%edges%glb_index)
+    CALL scatter_array_l2d(l1d, out_array, p_patch%edges%glb_index)
 #endif
   END SUBROUTINE scatter_edges_l2d
   !
@@ -921,7 +920,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(l2d, out_array)
 #else
-    CALL scatter_array_l2d(l1d, out_array, p_patch(jg)%edges%glb_index)
+    CALL scatter_array_l3d(l2d, out_array, p_patch%edges%glb_index)
 #endif
   END SUBROUTINE scatter_edges_l3d
   !
@@ -938,7 +937,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(l1d, out_array)
 #else
-    CALL scatter_array_l2d(l1d, out_array, p_patch(jg)%vertices%glb_index)
+    CALL scatter_array_l2d(l1d, out_array, p_patch%verts%glb_index)
 #endif
   END SUBROUTINE scatter_vertices_l2d
   !
@@ -955,7 +954,7 @@ CONTAINS
 #ifdef NOMPI
     CALL reorder(l2d, out_array)
 #else
-    CALL scatter_array_l2d(l1d, out_array, p_patch(jg)%vertices%glb_index)
+    CALL scatter_array_l3d(l2d, out_array, p_patch%verts%glb_index)
 #endif
   END SUBROUTINE scatter_vertices_l3d
   !
@@ -966,9 +965,9 @@ CONTAINS
   ! REAL SECTION ----------------------------------------------------------------------------------
   !
   SUBROUTINE scatter_array_r2d (in_array, out_array, global_index)
-    REAL(wp), INTENT(in)  :: in_array(:)
-    REAL(wp), INTENT(out) :: out_array(:,:)
-    INTEGER,  INTENT(in)  :: global_index(:)
+    REAL(wp), INTENT(inout) :: in_array(:)
+    REAL(wp), INTENT(out)   :: out_array(:,:)
+    INTEGER,  INTENT(in)    :: global_index(:)
     !
     INTEGER :: j, jl, jb
     !
@@ -985,9 +984,9 @@ CONTAINS
   END SUBROUTINE scatter_array_r2d
   !
   SUBROUTINE scatter_array_r3d (in_array, out_array, global_index)
-    REAL(wp), INTENT(in)  :: in_array(:,:)
-    REAL(wp), INTENT(out) :: out_array(:,:,:)
-    INTEGER,  INTENT(in)  :: global_index(:)
+    REAL(wp), INTENT(inout) :: in_array(:,:)
+    REAL(wp), INTENT(out)   :: out_array(:,:,:)
+    INTEGER,  INTENT(in)    :: global_index(:)
     !
     INTEGER :: j, jl, jb, jk
     !
@@ -1009,15 +1008,15 @@ CONTAINS
   ! INTEGER SECTION -------------------------------------------------------------------------------
   !
   SUBROUTINE scatter_array_i2d (in_array, out_array, global_index)
-    INTEGER, INTENT(in)  :: in_array(:)
-    INTEGER, INTENT(out) :: out_array(:,:)
-    INTEGER,  INTENT(in)  :: global_index(:)
+    INTEGER, INTENT(inout) :: in_array(:)
+    INTEGER, INTENT(out)   :: out_array(:,:)
+    INTEGER, INTENT(in)    :: global_index(:)
     !
     INTEGER :: j, jl, jb
     !
     CALL p_bcast(in_array, p_io, p_comm_work)
     !
-    out_array(:,:) = 0.0_wp
+    out_array(:,:) = 0
     !
     DO j = 1, SIZE(out_array)
       jb = blk_no(j)
@@ -1028,15 +1027,15 @@ CONTAINS
   END SUBROUTINE scatter_array_i2d
   !
   SUBROUTINE scatter_array_i3d (in_array, out_array, global_index)
-    INTEGER, INTENT(in)  :: in_array(:,:)
-    INTEGER, INTENT(out) :: out_array(:,:,:)
-    INTEGER,  INTENT(in)  :: global_index(:)
+    INTEGER, INTENT(inout) :: in_array(:,:)
+    INTEGER, INTENT(out)   :: out_array(:,:,:)
+    INTEGER, INTENT(in)    :: global_index(:)
     !
     INTEGER :: j, jl, jb, jk
     !
     CALL p_bcast(in_array, p_io, p_comm_work)
     !
-    out_array(:,:,:) = 0.0_wp
+    out_array(:,:,:) = 0
     !
     DO jk = 1, SIZE(out_array,2)
       DO j = 1, SIZE(out_array,1)*SIZE(out_array,3)
@@ -1052,15 +1051,15 @@ CONTAINS
   ! LOGICAL SECTION -------------------------------------------------------------------------------
   !
   SUBROUTINE scatter_array_l2d (in_array, out_array, global_index)
-    LOGICAL, INTENT(in)  :: in_array(:)
-    LOGICAL, INTENT(out) :: out_array(:,:)
-    INTEGER,  INTENT(in)  :: global_index(:)
+    LOGICAL, INTENT(inout) :: in_array(:)
+    LOGICAL, INTENT(out)   :: out_array(:,:)
+    INTEGER, INTENT(in)    :: global_index(:)
     !
     INTEGER :: j, jl, jb
     !
     CALL p_bcast(in_array, p_io, p_comm_work)
     !
-    out_array(:,:) = 0.0_wp
+    out_array(:,:) = .FALSE.
     !
     DO j = 1, SIZE(out_array)
       jb = blk_no(j)
@@ -1071,15 +1070,15 @@ CONTAINS
   END SUBROUTINE scatter_array_l2d
   !
   SUBROUTINE scatter_array_l3d (in_array, out_array, global_index)
-    LOGICAL, INTENT(in)  :: in_array(:,:)
-    LOGICAL, INTENT(out) :: out_array(:,:,:)
-    INTEGER,  INTENT(in)  :: global_index(:)
+    LOGICAL, INTENT(inout) :: in_array(:,:)
+    LOGICAL, INTENT(out)   :: out_array(:,:,:)
+    INTEGER, INTENT(in)    :: global_index(:)
     !
     INTEGER :: j, jl, jb, jk
     !
     CALL p_bcast(in_array, p_io, p_comm_work)
     !
-    out_array(:,:,:) = 0.0_wp
+    out_array(:,:,:) = .FALSE.
     !
     DO jk = 1, SIZE(out_array,2)
       DO j = 1, SIZE(out_array,1)*SIZE(out_array,3)
@@ -1112,7 +1111,6 @@ CONTAINS
     IF(idiscrep == 0 )THEN
       out = RESHAPE(in,(/ isize_out /))
     ELSE
-      WRITE(0,*)'reorder=',isize_in,isize_out
       ALLOCATE (lmask(isize_in))
       lmask(1:isize_out) = .TRUE.
       lmask(isize_out+1:isize_in) = .FALSE.

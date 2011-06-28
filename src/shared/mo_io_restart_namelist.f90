@@ -1,7 +1,7 @@
 #if ! (defined (__GNUC__) || defined(__SX__) || defined(__SUNPRO_F95) || defined(__INTEL_COMPILER))
 #define HAVE_F2003
 #endif
-#if  (defined (__GNUC__) || defined(__SX__) || defined(__SUNPRO_F95))
+#if (defined (__GNUC__) || defined(__SX__) || defined(__SUNPRO_F95))
 #define HAVE_F95
 #endif
 MODULE mo_io_restart_namelist
@@ -166,8 +166,9 @@ CONTAINS
     !
     flen = util_tmpnam(filename, filename_max)
     funit = find_next_free_unit(10,100)
-    OPEN(UNIT=funit, FILE=filename(1:flen),   &
-         ACTION='write', ACCESS='sequential', &
+    OPEN(UNIT=funit, FILE=filename(1:flen), &
+         ACTION='write',                    &
+         ACCESS='sequential',               &
          DELIM='apostrophe')
     !
   END FUNCTION open_tmpfile
@@ -243,7 +244,7 @@ CONTAINS
     funit = find_next_free_unit(10,100)
     flen = util_tmpnam(filename, filename_max)
 #ifdef __SX__
-    ! requires in runscript (ksh/bash): export F_NOCRW=65535
+    ! requires in runscript (ksh/bash): export F_NORCW=65535
     OPEN(UNIT=65535, FILE=filename(1:flen), ACTION='write', FORM='unformatted')
     WRITE(65535) TRIM(nmlbuf)
     CLOSE(65535)
@@ -257,8 +258,10 @@ CONTAINS
     DEALLOCATE(nmlbuf)
 #endif
     !
-    OPEN( UNIT=funit, FILE=filename(1:flen), ACTION='read', &
-        & ACCESS='sequential', DELIM='apostrophe')
+    OPEN(UNIT=funit, FILE=filename(1:flen), &
+         ACTION='read',                     &
+         ACCESS='sequential',               &
+         DELIM='apostrophe')
     !    
   END FUNCTION open_and_restore_namelist
   !
@@ -308,10 +311,11 @@ CONTAINS
       ALLOCATE(CHARACTER(len=nmllen) :: nmlbuf)
 #else
       IF (nmllen > nmllen_max) THEN
-        CALL message('', 'The problem could be solved '//                     &
-                    &'by increasing nmllen_max in mo_io_restart_namelist.f90.')
-        CALL finish('','namelist '//TRIM(att_name)//                          &
-                   &' is too long, reload from restart file fails.')
+        CALL message('', &
+             &       'The problem could be solved by increasing nmllen_max '// &
+             &       'in mo_io_restart_namelist.f90.')
+        CALL finish('','namelist '//TRIM(att_name)// &
+             &      ' is too long, reload from restart file fails.')
       ENDIF
 #endif
       status = vlistInqAttTxt(vlistID, CDI_GLOBAL, TRIM(att_name), nmllen, nmlbuf)
