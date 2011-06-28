@@ -149,6 +149,7 @@ MODULE mo_mpi
   ! like NAG f95 for clean argument checking and shortening the call sequence.
 
   INTERFACE p_send
+     MODULE PROCEDURE p_send_char
      MODULE PROCEDURE p_send_real
      MODULE PROCEDURE p_send_int
      MODULE PROCEDURE p_send_bool
@@ -164,11 +165,11 @@ MODULE mo_mpi
      MODULE PROCEDURE p_send_real_4d
      MODULE PROCEDURE p_send_int_4d
      MODULE PROCEDURE p_send_bool_4d
-     MODULE PROCEDURE p_send_char
      MODULE PROCEDURE p_send_real_5d
   END INTERFACE
 
   INTERFACE p_isend
+     MODULE PROCEDURE p_isend_char
      MODULE PROCEDURE p_isend_real
      MODULE PROCEDURE p_isend_int
      MODULE PROCEDURE p_isend_bool
@@ -184,11 +185,11 @@ MODULE mo_mpi
      MODULE PROCEDURE p_isend_real_4d
      MODULE PROCEDURE p_isend_int_4d
      MODULE PROCEDURE p_isend_bool_4d
-     MODULE PROCEDURE p_isend_char
      MODULE PROCEDURE p_isend_real_5d
   END INTERFACE
 
   INTERFACE p_recv
+     MODULE PROCEDURE p_recv_char
      MODULE PROCEDURE p_recv_real
      MODULE PROCEDURE p_recv_int
      MODULE PROCEDURE p_recv_bool
@@ -204,16 +205,26 @@ MODULE mo_mpi
      MODULE PROCEDURE p_recv_real_4d
      MODULE PROCEDURE p_recv_int_4d
      MODULE PROCEDURE p_recv_bool_4d
-     MODULE PROCEDURE p_recv_char
      MODULE PROCEDURE p_recv_real_5d
   END INTERFACE
 
   INTERFACE p_irecv
+     MODULE PROCEDURE p_irecv_char
      MODULE PROCEDURE p_irecv_real
+     MODULE PROCEDURE p_irecv_int
+     MODULE PROCEDURE p_irecv_bool
      MODULE PROCEDURE p_irecv_real_1d
+     MODULE PROCEDURE p_irecv_int_1d
+     MODULE PROCEDURE p_irecv_bool_1d
      MODULE PROCEDURE p_irecv_real_2d
+     MODULE PROCEDURE p_irecv_int_2d
+     MODULE PROCEDURE p_irecv_bool_2d
      MODULE PROCEDURE p_irecv_real_3d
+     MODULE PROCEDURE p_irecv_int_3d
+     MODULE PROCEDURE p_irecv_bool_3d
      MODULE PROCEDURE p_irecv_real_4d
+     MODULE PROCEDURE p_irecv_int_4d
+     MODULE PROCEDURE p_irecv_bool_4d
   END INTERFACE
 
   INTERFACE p_sendrecv
@@ -401,8 +412,6 @@ CONTAINS
     REAL        :: rrg = 0.0
     REAL(sp)    :: rsp = 0.0_sp
     REAL(dp)    :: rdp = 0.0_dp
-!    LOGICAL     :: llg = .FALSE.
-!    CHARACTER   :: yyg = 'A'
 
     CHARACTER(len=132) :: yname
 
@@ -680,8 +689,6 @@ CONTAINS
     CALL MPI_SIZEOF(rrg, p_real_byte, p_error)
     CALL MPI_SIZEOF(rsp, p_real_sp_byte, p_error)
     CALL MPI_SIZEOF(rdp, p_real_dp_byte, p_error)
-!!$       CALL MPI_SIZEOF(llg, p_bool_byte, p_error)
-!!$       CALL MPI_SIZEOF(yyg, p_char_byte, p_error)
 
     p_int     = MPI_INTEGER
     p_real    = MPI_REAL
@@ -2740,11 +2747,52 @@ CONTAINS
 
   END SUBROUTINE p_recv_char
 
-! non-blocking receives
+  ! non-blocking receives
 
+  !================================================================================================
+  ! CHARACTER SECTION -----------------------------------------------------------------------------
+  ! 
+  SUBROUTINE p_irecv_char (t_buffer, p_source, p_tag, p_count, comm)
+
+    CHARACTER(len=*), INTENT(inout) :: t_buffer
+    INTEGER,   INTENT(in) :: p_source, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = p_all_comm
+    ENDIF
+
+    IF (PRESENT(p_count)) THEN
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, p_count, p_char, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    ELSE
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, 1, p_char, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    END IF
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', mype, &
+            ' from ', p_source, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL p_abort
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_irecv_char
+  !================================================================================================
+  ! REAL SECTION ----------------------------------------------------------------------------------
+  ! 
   SUBROUTINE p_irecv_real (t_buffer, p_source, p_tag, p_count, comm)
 
-    REAL (dp), INTENT(inout) :: t_buffer
+    REAL(dp),  INTENT(inout) :: t_buffer
     INTEGER,   INTENT(in) :: p_source, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
 #ifndef NOMPI
@@ -2780,7 +2828,7 @@ CONTAINS
 
   SUBROUTINE p_irecv_real_1d (t_buffer, p_source, p_tag, p_count, comm)
 
-    REAL (dp), INTENT(inout) :: t_buffer(:)
+    REAL(dp),  INTENT(inout) :: t_buffer(:)
     INTEGER,   INTENT(in) :: p_source, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
 #ifndef NOMPI
@@ -2816,7 +2864,7 @@ CONTAINS
 
   SUBROUTINE p_irecv_real_2d (t_buffer, p_source, p_tag, p_count, comm)
 
-    REAL (dp), INTENT(inout) :: t_buffer(:,:)
+    REAL(dp),  INTENT(inout) :: t_buffer(:,:)
     INTEGER,   INTENT(in) :: p_source, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
 
@@ -2853,7 +2901,7 @@ CONTAINS
 
   SUBROUTINE p_irecv_real_3d (t_buffer, p_source, p_tag, p_count, comm)
 
-    REAL (dp), INTENT(inout) :: t_buffer(:,:,:)
+    REAL(dp),  INTENT(inout) :: t_buffer(:,:,:)
     INTEGER,   INTENT(in) :: p_source, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
 
@@ -2890,7 +2938,7 @@ CONTAINS
 
   SUBROUTINE p_irecv_real_4d (t_buffer, p_source, p_tag, p_count, comm)
 
-    REAL (dp), INTENT(inout) :: t_buffer(:,:,:,:)
+    REAL(dp),  INTENT(inout) :: t_buffer(:,:,:,:)
     INTEGER,   INTENT(in) :: p_source, p_tag
     INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
 
@@ -2924,6 +2972,379 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_irecv_real_4d
+  !================================================================================================
+  ! INTEGER SECTION -------------------------------------------------------------------------------
+  ! 
+  SUBROUTINE p_irecv_int (t_buffer, p_source, p_tag, p_count, comm)
+
+    INTEGER, INTENT(inout) :: t_buffer
+    INTEGER,   INTENT(in) :: p_source, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = p_all_comm
+    ENDIF
+
+    IF (PRESENT(p_count)) THEN
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, p_count, p_int, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    ELSE
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, 1, p_int, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    END IF
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', mype, &
+            ' from ', p_source, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL p_abort
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_irecv_int
+
+  SUBROUTINE p_irecv_int_1d (t_buffer, p_source, p_tag, p_count, comm)
+
+    INTEGER, INTENT(inout) :: t_buffer(:)
+    INTEGER,   INTENT(in) :: p_source, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = p_all_comm
+    ENDIF
+
+    IF (PRESENT(p_count)) THEN
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, p_count, p_int, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    ELSE
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, SIZE(t_buffer), p_int, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    END IF
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', mype, &
+            ' from ', p_source, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL p_abort
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_irecv_int_1d
+
+  SUBROUTINE p_irecv_int_2d (t_buffer, p_source, p_tag, p_count, comm)
+
+    INTEGER, INTENT(inout) :: t_buffer(:,:)
+    INTEGER,   INTENT(in) :: p_source, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = p_all_comm
+    ENDIF
+
+    IF (PRESENT(p_count)) THEN
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, p_count, p_int, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    ELSE
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, SIZE(t_buffer), p_int, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    END IF
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', mype, &
+            ' from ', p_source, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL p_abort
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_irecv_int_2d
+
+  SUBROUTINE p_irecv_int_3d (t_buffer, p_source, p_tag, p_count, comm)
+
+    INTEGER, INTENT(inout) :: t_buffer(:,:,:)
+    INTEGER,   INTENT(in) :: p_source, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = p_all_comm
+    ENDIF
+
+    IF (PRESENT(p_count)) THEN
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, p_count, p_int, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    ELSE
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, SIZE(t_buffer), p_int, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    END IF
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', mype, &
+            ' from ', p_source, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL p_abort
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_irecv_int_3d
+
+  SUBROUTINE p_irecv_int_4d (t_buffer, p_source, p_tag, p_count, comm)
+
+    INTEGER, INTENT(inout) :: t_buffer(:,:,:,:)
+    INTEGER,   INTENT(in) :: p_source, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = p_all_comm
+    ENDIF
+
+    IF (PRESENT(p_count)) THEN
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, p_count, p_int, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    ELSE
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, SIZE(t_buffer), p_int, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    END IF
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', mype, &
+            ' from ', p_source, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL p_abort
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_irecv_int_4d
+
+  !================================================================================================
+  ! LOGICAL SECTION -------------------------------------------------------------------------------
+  ! 
+  SUBROUTINE p_irecv_bool (t_buffer, p_source, p_tag, p_count, comm)
+
+    LOGICAL, INTENT(inout) :: t_buffer
+    INTEGER,   INTENT(in) :: p_source, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = p_all_comm
+    ENDIF
+
+    IF (PRESENT(p_count)) THEN
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, p_count, p_bool, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    ELSE
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, 1, p_bool, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    END IF
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', mype, &
+            ' from ', p_source, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL p_abort
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_irecv_bool
+
+  SUBROUTINE p_irecv_bool_1d (t_buffer, p_source, p_tag, p_count, comm)
+
+    LOGICAL, INTENT(inout) :: t_buffer(:)
+    INTEGER,   INTENT(in) :: p_source, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = p_all_comm
+    ENDIF
+
+    IF (PRESENT(p_count)) THEN
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, p_count, p_bool, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    ELSE
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, SIZE(t_buffer), p_bool, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    END IF
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', mype, &
+            ' from ', p_source, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL p_abort
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_irecv_bool_1d
+
+  SUBROUTINE p_irecv_bool_2d (t_buffer, p_source, p_tag, p_count, comm)
+
+    LOGICAL, INTENT(inout) :: t_buffer(:,:)
+    INTEGER,   INTENT(in) :: p_source, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = p_all_comm
+    ENDIF
+
+    IF (PRESENT(p_count)) THEN
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, p_count, p_bool, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    ELSE
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, SIZE(t_buffer), p_bool, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    END IF
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', mype, &
+            ' from ', p_source, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL p_abort
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_irecv_bool_2d
+
+  SUBROUTINE p_irecv_bool_3d (t_buffer, p_source, p_tag, p_count, comm)
+
+    LOGICAL, INTENT(inout) :: t_buffer(:,:,:)
+    INTEGER,   INTENT(in) :: p_source, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = p_all_comm
+    ENDIF
+
+    IF (PRESENT(p_count)) THEN
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, p_count, p_bool, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    ELSE
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, SIZE(t_buffer), p_bool, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    END IF
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', mype, &
+            ' from ', p_source, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL p_abort
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_irecv_bool_3d
+
+  SUBROUTINE p_irecv_bool_4d (t_buffer, p_source, p_tag, p_count, comm)
+
+    LOGICAL, INTENT(inout) :: t_buffer(:,:,:,:)
+    INTEGER,   INTENT(in) :: p_source, p_tag
+    INTEGER, OPTIONAL, INTENT(in) :: p_count, comm
+
+#ifndef NOMPI
+    INTEGER :: p_comm
+
+    IF (PRESENT(comm)) THEN
+       p_comm = comm
+    ELSE
+       p_comm = p_all_comm
+    ENDIF
+
+    IF (PRESENT(p_count)) THEN
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, p_count, p_bool, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    ELSE
+       CALL p_inc_request
+       CALL MPI_IRECV (t_buffer, SIZE(t_buffer), p_bool, p_source, p_tag, &
+            p_comm, p_request(p_irequest), p_error)
+    END IF
+
+#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a,i4,a,i6,a)') ' MPI_IRECV on ', mype, &
+            ' from ', p_source, ' for tag ', p_tag, ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL p_abort
+    END IF
+#endif
+#endif
+
+  END SUBROUTINE p_irecv_bool_4d
+  !
+  !================================================================================================
 
   ! sendrecv implementation
 
