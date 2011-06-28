@@ -533,6 +533,7 @@ SUBROUTINE new_nwp_lnd_diag_list( kblks, listname, diag_list, p_diag_lnd)
     shape3d_subs = (/nproma, nsfc_subs,  kblks    /)
     shape4d_subs = (/nproma, nztlev, nsfc_subs,  kblks    /)
 
+
     ! Register a field list and apply default settings
 
     CALL new_var_list( diag_list, TRIM(listname) )
@@ -547,6 +548,15 @@ SUBROUTINE new_nwp_lnd_diag_list( kblks, listname, diag_list, p_diag_lnd)
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'qv_s', p_diag_lnd%qv_s,                             &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape2d )    
+
+    ! & p_diag_lnd%fr_seaice(nproma,nblks_c)
+    cf_desc    = t_cf_var('fr_seaice', '-', 'fraction of sea ice')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( diag_list, 'fr_seaice', p_diag_lnd%fr_seaice,                             &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape2d ) 
+
+
+    IF (inwp_surface > 0) THEN
 
     ! & p_diag_lnd%qv_st(nproma,nblks_c)
     cf_desc    = t_cf_var('qv_st', 'kg/kg', 'specific humidity at the surface')
@@ -609,31 +619,28 @@ SUBROUTINE new_nwp_lnd_diag_list( kblks, listname, diag_list, p_diag_lnd)
     CALL add_var( diag_list, 'lhfl_pl', p_diag_lnd%lhfl_pl,                             &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape3d_subs )
 
-    ! & p_diag_lnd%fr_seaice(nproma,nblks_c)
-    cf_desc    = t_cf_var('fr_seaice', '-', 'fraction of sea ice')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, 'fr_seaice', p_diag_lnd%fr_seaice,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape2d )    
-
     ! & p_prog_lnd%subsfrac(nproma,nsfc_subs,nblks_c)
     cf_desc    = t_cf_var('subsfrac', '-', 'subscale fraction')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'subsfrac', p_diag_lnd%subsfrac,                             &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape3d_subs)
 
-  p_diag_lnd%qv_s(:,:)          = 0.001_wp
-  p_diag_lnd%qv_st(:,:,:,:)     = 0.001_wp
-  p_diag_lnd%h_snow(:,:,:,:)    = 0._wp
-  p_diag_lnd%freshsnow(:,:,:)   = 0._wp
-  p_diag_lnd%wliq_snow(:,:,:,:) = 0._wp
-  p_diag_lnd%wtot_snow(:,:,:,:) = 0._wp
-  p_diag_lnd%runoff_s(:,:,:)    = 0._wp
-  p_diag_lnd%runoff_g(:,:,:)    = 0._wp
-  p_diag_lnd%rstom(:,:,:)       = 0._wp
-  p_diag_lnd%lhfl_bs(:,:,:)     = 0._wp
-  p_diag_lnd%lhfl_pl(:,:,:)     = 0._wp
-  p_diag_lnd%fr_seaice(:,:)     = 0._wp
-  p_diag_lnd%subsfrac(:,:,:)    = 1._wp
+    p_diag_lnd%qv_st(:,:,:,:)     = 0.001_wp
+    p_diag_lnd%h_snow(:,:,:,:)    = 0._wp
+    p_diag_lnd%freshsnow(:,:,:)   = 0._wp
+    p_diag_lnd%wliq_snow(:,:,:,:) = 0._wp
+    p_diag_lnd%wtot_snow(:,:,:,:) = 0._wp
+    p_diag_lnd%runoff_s(:,:,:)    = 0._wp
+    p_diag_lnd%runoff_g(:,:,:)    = 0._wp
+    p_diag_lnd%rstom(:,:,:)       = 0._wp
+    p_diag_lnd%lhfl_bs(:,:,:)     = 0._wp
+    p_diag_lnd%lhfl_pl(:,:,:)     = 0._wp
+    p_diag_lnd%subsfrac(:,:,:)    = 1._wp
+
+    ENDIF
+
+    p_diag_lnd%qv_s(:,:)          = 0.001_wp
+    p_diag_lnd%fr_seaice(:,:)     = 0._wp
 
 END SUBROUTINE  new_nwp_lnd_diag_list
 !>
