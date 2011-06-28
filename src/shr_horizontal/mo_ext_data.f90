@@ -499,25 +499,23 @@ CONTAINS
       !
       ! Build external data list for constant in time atmospheric fields
       WRITE(listname,'(a,i2.2)') 'ext_data_atm_D',jg
-      CALL construct_ext_data_atm_list(p_patch(jg), ext_data(jg)%atm,       &
-        &                              ext_data(jg)%atm_list, TRIM(listname))
+      CALL new_ext_data_atm_list(p_patch(jg), ext_data(jg)%atm,       &
+        &                        ext_data(jg)%atm_list, TRIM(listname))
 
 
       IF (iforcing==inwp) THEN
-
         !       
         ! Build external data list for time-dependent atmospheric fields
         WRITE(listname,'(a,i2.2)') 'ext_data_atm_td_D',jg
-        CALL construct_ext_data_atm_td_list(p_patch(jg), ext_data(jg)%atm_td,       &
-          &                                 ext_data(jg)%atm_td_list, TRIM(listname))
-
+        CALL new_ext_data_atm_td_list(p_patch(jg), ext_data(jg)%atm_td,       &
+          &                           ext_data(jg)%atm_td_list, TRIM(listname))
       END IF
 
       !
       ! Build external data list for constant in time oceanic fields
       WRITE(listname,'(a,i2.2)') 'ext_data_oce_D',jg
-      CALL construct_ext_data_oce_list(p_patch(jg), ext_data(jg)%oce,       &
-        &                              ext_data(jg)%oce_list, TRIM(listname))
+      CALL new_ext_data_oce_list(p_patch(jg), ext_data(jg)%oce,       &
+        &                        ext_data(jg)%oce_list, TRIM(listname))
 
       !
       ! Build external data list for time-dependent oceanic fields
@@ -548,8 +546,8 @@ CONTAINS
   !! Initial release by Daniel Reinert (2011-05-03)
   !! Statements that assign initial value added by Hui Wan (MPI-M, 2011-05-30)
   !!
-  SUBROUTINE construct_ext_data_atm_list ( p_patch, p_ext_atm, p_ext_atm_list, &
-    &                                      listname)
+  SUBROUTINE new_ext_data_atm_list ( p_patch, p_ext_atm, p_ext_atm_list, &
+    &                                listname)
 !
     TYPE(t_patch), TARGET, INTENT(IN)     :: & !< current patch
       &  p_patch
@@ -973,7 +971,7 @@ CONTAINS
 ! #Hermann#
 ! Echam physics external parameter have to be allocated and initialized as well
 
-  END SUBROUTINE construct_ext_data_atm_list
+  END SUBROUTINE new_ext_data_atm_list
 
 
 
@@ -991,8 +989,8 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Daniel Reinert (2011-05-03)
   !!
-  SUBROUTINE construct_ext_data_atm_td_list ( p_patch, p_ext_atm_td, &
-    &                              p_ext_atm_td_list, listname)
+  SUBROUTINE new_ext_data_atm_td_list ( p_patch, p_ext_atm_td, &
+    &                               p_ext_atm_td_list, listname)
 !
     TYPE(t_patch), TARGET, INTENT(IN)     :: & !< current patch
       &  p_patch
@@ -1143,7 +1141,7 @@ CONTAINS
         &           ldims=shape3d_c , lrestart=.FALSE.)
 
 
-  END SUBROUTINE construct_ext_data_atm_td_list
+  END SUBROUTINE new_ext_data_atm_td_list
 
 
 
@@ -1161,8 +1159,8 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Daniel Reinert (2011-06-24)
   !!
-  SUBROUTINE construct_ext_data_oce_list ( p_patch, p_ext_oce, p_ext_oce_list, &
-    &                                      listname)
+  SUBROUTINE new_ext_data_oce_list ( p_patch, p_ext_oce, p_ext_oce_list, &
+    &                                listname)
 !
     TYPE(t_patch), TARGET, INTENT(IN)   :: & !< current patch
       &  p_patch
@@ -1226,7 +1224,7 @@ CONTAINS
     CALL add_var( p_ext_oce_list, 'bathymetry_e', p_ext_oce%bathymetry_e,      &
       &           GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
 
-  END SUBROUTINE construct_ext_data_oce_list
+  END SUBROUTINE new_ext_data_oce_list
 
 
 
