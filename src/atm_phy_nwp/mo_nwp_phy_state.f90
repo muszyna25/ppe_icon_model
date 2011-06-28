@@ -553,8 +553,8 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
     cf_desc    = t_cf_var('locum', '', 'convective  activity indicator')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'locum', diag%locum,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,ldims=shape2d)! ,&
-!                &  lmiss=.true.,    missval=.false.                    )
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, grib2_desc,ldims=shape2d, &
+                & lrestart=.FALSE.)! ,lmiss=.true.,    missval=.false.                    )
 
     ! &      diag%ktype(nproma,nblks_c)
     cf_desc    = t_cf_var('ktype', '', 'convective up/downdraft fields')
