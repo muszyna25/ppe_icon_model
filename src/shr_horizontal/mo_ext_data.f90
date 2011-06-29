@@ -462,7 +462,7 @@ CONTAINS
         CALL finish(TRIM(routine),&
           &    'OCEAN tried to read in atmospheric topography data')
 
-!DR        CALL read_ext_data_oce (p_patch, ext_data)
+!DR       CALL read_ext_data_oce (p_patch, ext_data)
       ENDIF
 
     CASE DEFAULT
@@ -532,7 +532,7 @@ CONTAINS
 
     END DO
 
-    CALL message (TRIM(routine), 'Construction of data structure for' // &
+    CALL message (TRIM(routine), 'Construction of data structure for ' // &
       &                          'external data finished')
 
   END SUBROUTINE construct_ext_data
@@ -1557,33 +1557,33 @@ END SUBROUTINE inquire_external_files
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                     ext_data(jg)%atm%emis_rad)
 
-!!$          CALL read_netcdf_data (ncid, 't_cl', p_patch(jg)%n_patch_cells_g,               &
-!!$            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-!!$            &                     ext_data(jg)%atm%t_cl)
-!!$
-!!$          CALL read_netcdf_data (ncid, 'SSO_STDH', p_patch(jg)%n_patch_cells_g,           &
-!!$            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-!!$            &                     ext_data(jg)%atm%sso_stdh)
-!!$
-!!$          CALL read_netcdf_data (ncid, 'SSO_THETA', p_patch(jg)%n_patch_cells_g,          &
-!!$            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-!!$            &                     ext_data(jg)%atm%sso_theta)
-!!$
-!!$          CALL read_netcdf_data (ncid, 'SSO_GAMMA', p_patch(jg)%n_patch_cells_g,          &
-!!$            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-!!$            &                     ext_data(jg)%atm%sso_gamma)
-!!$
-!!$          CALL read_netcdf_data (ncid, 'SSO_SIGMA', p_patch(jg)%n_patch_cells_g,          &
-!!$            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-!!$            &                     ext_data(jg)%atm%sso_sigma)
-!!$
-!!$          CALL read_netcdf_data (ncid, 'FR_LAKE', p_patch(jg)%n_patch_cells_g,            &
-!!$            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-!!$            &                     ext_data(jg)%atm%fr_lake)
-!!$
-!!$          CALL read_netcdf_data (ncid, 'DEPTH_LK', p_patch(jg)%n_patch_cells_g,           &
-!!$            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-!!$            &                     ext_data(jg)%atm%depth_lk)
+          CALL read_netcdf_data (ncid, 'T_CL', p_patch(jg)%n_patch_cells_g,               &
+            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+            &                     ext_data(jg)%atm%t_cl)
+
+          CALL read_netcdf_data (ncid, 'SSO_STDH', p_patch(jg)%n_patch_cells_g,           &
+            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+            &                     ext_data(jg)%atm%sso_stdh)
+
+          CALL read_netcdf_data (ncid, 'SSO_THETA', p_patch(jg)%n_patch_cells_g,          &
+            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+            &                     ext_data(jg)%atm%sso_theta)
+
+          CALL read_netcdf_data (ncid, 'SSO_GAMMA', p_patch(jg)%n_patch_cells_g,          &
+            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+            &                     ext_data(jg)%atm%sso_gamma)
+
+          CALL read_netcdf_data (ncid, 'SSO_SIGMA', p_patch(jg)%n_patch_cells_g,          &
+            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+            &                     ext_data(jg)%atm%sso_sigma)
+
+          CALL read_netcdf_data (ncid, 'FR_LAKE', p_patch(jg)%n_patch_cells_g,            &
+            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+            &                     ext_data(jg)%atm%fr_lake)
+
+          CALL read_netcdf_data (ncid, 'DEPTH_LK', p_patch(jg)%n_patch_cells_g,           &
+            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+            &                     ext_data(jg)%atm%depth_lk)
         ENDIF ! (iforcing == inwp)
         
       ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
