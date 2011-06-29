@@ -722,10 +722,12 @@ MODULE mo_nonhydro_state
                   & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
 
 
+      IF (  iforcing == inwp ) THEN
+
       ! Reference to individual tracer, for I/O
 
-    ktracer=ntracer+ntracer_static
-    ALLOCATE( p_prog%tracer_ptr(ktracer) )
+        ktracer=ntracer+ntracer_static
+        ALLOCATE( p_prog%tracer_ptr(ktracer) )
 
            !QV
         CALL add_ref( p_prog_list, 'tracer',                                   &
@@ -779,6 +781,7 @@ MODULE mo_nonhydro_state
             & ldims=shape3d_c)
         ENDIF
 
+      ENDIF ! iforcing
     ENDIF ! ltransport or iforcing
     !
     ! variables defined at half levels 
