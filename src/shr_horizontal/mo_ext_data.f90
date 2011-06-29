@@ -521,11 +521,12 @@ CONTAINS
       END IF
 
       !
-      ! Build external data list for constant in time oceanic fields
-      WRITE(listname,'(a,i2.2)') 'ext_data_oce_D',jg
-      CALL new_ext_data_oce_list(p_patch(jg), ext_data(jg)%oce,       &
-        &                        ext_data(jg)%oce_list, TRIM(listname))
-
+      IF (iforcing== -1) THEN
+        ! Build external data list for constant in time oceanic fields
+        WRITE(listname,'(a,i2.2)') 'ext_data_oce_D',jg
+        CALL new_ext_data_oce_list(p_patch(jg), ext_data(jg)%oce,       &
+          &                        ext_data(jg)%oce_list, TRIM(listname))
+      ENDIF
       !
       ! Build external data list for time-dependent oceanic fields
       ! ### to be done ###
@@ -1264,8 +1265,10 @@ CONTAINS
       CALL delete_var_list( ext_data(jg)%atm_td_list )
       END IF
 
-      ! Delete list of constant in time oceanic elements
-      CALL delete_var_list( ext_data(jg)%oce_list )
+      IF (iforcing== -1) THEN
+        ! Delete list of constant in time oceanic elements
+        CALL delete_var_list( ext_data(jg)%oce_list )
+      ENDIF
 
       ! Delete list of time-dependent oceanic elements
       ! ### to be added if necessary ###
