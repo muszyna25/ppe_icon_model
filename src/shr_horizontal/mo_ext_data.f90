@@ -1037,7 +1037,7 @@ CONTAINS
     !
     CALL new_var_list( p_ext_atm_td_list, TRIM(listname) )
     CALL default_var_list_settings( p_ext_atm_td_list,         &
-                                  & lrestart=.TRUE.,           &
+                                  & lrestart=.FALSE.,           &
                                   & restart_type=FILETYPE_NC2  )
 
 
@@ -1057,7 +1057,7 @@ CONTAINS
       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_td_list, 'O3', p_ext_atm_td%O3, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, &
-        &           grib2_desc, ldims=shape4d_c , lrestart=.FALSE. )
+        &           grib2_desc, ldims=shape4d_c )
     END IF
 
 
@@ -1070,7 +1070,7 @@ CONTAINS
     grib2_desc = t_grib2_var( 0, 13, 195, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_td_list, 'aer_bc', p_ext_atm_td%aer_bc, &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,  &
-      &            grib2_desc, ldims=shape3d_c, lrestart=.FALSE. )
+      &            grib2_desc, ldims=shape3d_c )
 
 
     ! Dust aerosol
@@ -1082,7 +1082,7 @@ CONTAINS
     grib2_desc = t_grib2_var( 0, 13, 193, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_td_list, 'aer_dust', p_ext_atm_td%aer_dust, &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
-      &           ldims=shape3d_c, lrestart=.FALSE. )
+      &           ldims=shape3d_c )
 
 
     ! Organic aerosol
@@ -1094,7 +1094,7 @@ CONTAINS
     grib2_desc = t_grib2_var( 0, 13, 194, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_td_list, 'aer_org', p_ext_atm_td%aer_org, &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
-      &           ldims=shape3d_c, lrestart=.FALSE. )
+      &           ldims=shape3d_c )
 
 
     ! Sulfate aerosol
@@ -1106,7 +1106,7 @@ CONTAINS
     grib2_desc = t_grib2_var( 0, 13, 192, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_td_list, 'aer_so4', p_ext_atm_td%aer_so4, &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
-      &           ldims=shape3d_c, lrestart=.FALSE. )
+      &           ldims=shape3d_c )
 
 
     ! Seasalt aerosol
@@ -1118,7 +1118,7 @@ CONTAINS
     grib2_desc = t_grib2_var( 0, 13, 196, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_td_list, 'aer_ss', p_ext_atm_td%aer_ss, &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
-      &           ldims=shape3d_c, lrestart=.FALSE. )
+      &           ldims=shape3d_c )
 
 
     !--------------------------------
@@ -1133,7 +1133,7 @@ CONTAINS
     grib2_desc = t_grib2_var( 2, 0, 217, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_td_list, 'ndvi', p_ext_atm_td%ndvi, &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
-      &           ldims=shape3d_c, lrestart=.FALSE. )
+      &           ldims=shape3d_c )
 
 
     ! (monthly) proportion of actual value/maximum NDVI
@@ -1145,7 +1145,7 @@ CONTAINS
     grib2_desc = t_grib2_var( 2, 0, 192, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_ext_atm_td_list, 'ndvi_mrat', p_ext_atm_td%ndvi_mrat, &
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
-      &           ldims=shape3d_c , lrestart=.FALSE.)
+      &           ldims=shape3d_c)
 
 
   END SUBROUTINE new_ext_data_atm_td_list
@@ -1577,11 +1577,11 @@ END SUBROUTINE inquire_external_files
 !!$            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
 !!$            &                     ext_data(jg)%atm%sso_sigma)
 !!$
-!!$          CALL read_netcdf_data (ncid, 'fr_lake', p_patch(jg)%n_patch_cells_g,            &
+!!$          CALL read_netcdf_data (ncid, 'FR_LAKE', p_patch(jg)%n_patch_cells_g,            &
 !!$            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
 !!$            &                     ext_data(jg)%atm%fr_lake)
 !!$
-!!$          CALL read_netcdf_data (ncid, 'depth_lk', p_patch(jg)%n_patch_cells_g,           &
+!!$          CALL read_netcdf_data (ncid, 'DEPTH_LK', p_patch(jg)%n_patch_cells_g,           &
 !!$            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
 !!$            &                     ext_data(jg)%atm%depth_lk)
         ENDIF ! (iforcing == inwp)

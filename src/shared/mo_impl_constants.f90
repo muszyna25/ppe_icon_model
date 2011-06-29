@@ -205,7 +205,8 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: iphysproc = 11! for NWP:
                                       ! number of slow physical processes:
                                       ! convection, sscloud cover, radiation, radheat, sso,
-                                      ! microphysics, saturation adjustment, tracerupdate
+                                      ! microphysics, saturation adjustment, tracerupdate, 
+                                      ! gwd, turbulence, surface
 
 !--------------------------------------------------------------------
 END MODULE mo_impl_constants

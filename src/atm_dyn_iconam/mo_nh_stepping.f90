@@ -1016,7 +1016,7 @@ MODULE mo_nh_stepping
             &                      lcall_phy )                         ! out
 
           IF (msg_level >= 10) THEN
-            WRITE(message_text,'(a,i4,9l4)') 'initial call of slow physics',jg , lcall_phy(jg,:9)
+            WRITE(message_text,'(a,i2,11l3)') 'initial call of slow physics',jg , lcall_phy(jg,:11)
             CALL message(TRIM(routine), TRIM(message_text))
           ENDIF
 
@@ -1058,13 +1058,13 @@ MODULE mo_nh_stepping
             &                      lcall_phy )                         ! out
 
           IF (msg_level >= 10) THEN
-            WRITE(message_text,'(a,i4,9l4)') 'call physics packages',jg , lcall_phy(jg,:9)
+            WRITE(message_text,'(a,i2,11l3)') 'call phys. packages DOM:',jg , lcall_phy(jg,:11)
             CALL message(TRIM(routine), TRIM(message_text))
             IF(ltransport) THEN
-              WRITE(message_text,'(a,i4,l4)') 'call advection',jg , lstep_adv(jg)
+              WRITE(message_text,'(a,i2,l3)') 'call advection DOM:',jg , lstep_adv(jg)
               CALL message(TRIM(routine), TRIM(message_text))
             ELSE IF(.NOT. ltransport) THEN
-              WRITE(message_text,'(a,l4)') 'no advection, ltransport=', ltransport
+              WRITE(message_text,'(a,l3)') 'no advection, ltransport=', ltransport
               CALL message(TRIM(routine), TRIM(message_text))
             ENDIF
           ENDIF
