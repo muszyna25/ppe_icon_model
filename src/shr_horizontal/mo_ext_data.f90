@@ -55,7 +55,7 @@ MODULE mo_ext_data
   USE mo_model_domain,       ONLY: t_patch
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_grid_nml,           ONLY: n_dom
+  USE mo_grid_nml,           ONLY: n_dom, nroot, start_lev
   USE mo_interpolation,      ONLY: t_int_state, cells2verts_scalar
   USE mo_math_operators,     ONLY: nabla4_scalar
   USE mo_loopindices,        ONLY: get_indices_c
@@ -94,6 +94,13 @@ MODULE mo_ext_data
   PUBLIC :: init_ext_data
   PUBLIC :: construct_ext_data  ! PUBLIC attribute only necessary for postpro.f90
   PUBLIC :: destruct_ext_data
+
+
+  INTERFACE read_netcdf_data
+    MODULE PROCEDURE read_netcdf_2d
+    MODULE PROCEDURE read_netcdf_2d_int
+    MODULE PROCEDURE read_netcdf_4d
+  END INTERFACE read_netcdf_data
 
 
   !>
@@ -369,7 +376,7 @@ CONTAINS
   !! Init external data for atmosphere and ocean.
   !! 1. Build data structure, including field lists and 
   !!    memory allocation.
-  !! 2. External data are read in from netCDF file (optional)
+  !! 2. External data are read in from netCDF file or set analytically
   !!
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2010-07-16)
@@ -388,7 +395,7 @@ CONTAINS
 !-------------------------------------------------------------------------
 
     !-------------------------------------------------------------------------
-    !  1.  inquire the externals file for their data structure
+    !  1.  inquire external files for their data structure
     !-------------------------------------------------------------------------
 
     IF(irad_o3 == 3) THEN 
@@ -396,7 +403,7 @@ CONTAINS
     ENDIF
 
     !------------------------------------------------------------------
-    !  2.  allocate the external fields for the model
+    !  2.  construct external fields for the model
     !------------------------------------------------------------------
 
     ! top-level procedure for building data structures for 
@@ -404,11 +411,11 @@ CONTAINS
     CALL construct_ext_data(p_patch, ext_data)
 
     !-------------------------------------------------------------------------
-    !  3.  read the data onto the fields
+    !  3.  read the data into the fields
     !-------------------------------------------------------------------------
 
     ! Check, whether external data should be read from file
-    ! currently this is done via 'itopo' (provisional).
+    ! 
     SELECT CASE(itopo)
 
     CASE(0) ! do not read external data
@@ -416,15 +423,15 @@ CONTAINS
 
       CALL message( TRIM(routine),'Running with analytical topography' )
       IF(irad_o3 == 3) THEN
-         CALL message( TRIM(routine),'ozone external required' )
-      CALL read_ext_data_atm (p_patch, ext_data)
-       ENDIF
+        CALL message( TRIM(routine),'external ozone data required' )
+        CALL read_ext_data_atm (p_patch, ext_data)
+      ENDIF
 
 
       IF(iforcing == inwp) THEN
       !
       ! initalize external data with meaningful data, in the case that they 
-      ! are not read in
+      ! are not read in from file.
       DO jg = 1, n_dom
         ext_data(jg)%atm%fr_land(:,:)     = 1._wp   ! land fraction
         ext_data(jg)%atm%fr_land_smt(:,:) = 1._wp   ! land fraction (smoothed)
@@ -440,7 +447,7 @@ CONTAINS
     CASE(1) ! read external data from netcdf dataset
 
       IF ( .NOT.locean ) THEN
-        CALL message( TRIM(routine),'Running with atmosphere topography' )
+        CALL message( TRIM(routine),'Start reading external data from file' )
 
         CALL read_ext_data_atm (p_patch, ext_data)
         IF (n_iter_smooth_topo > 0) THEN
@@ -448,11 +455,13 @@ CONTAINS
             CALL smooth_topography (p_patch(jg), p_int_state(jg))
           ENDDO
         ENDIF
+
+       CALL message( TRIM(routine),'Finished reading external data' )
+
       ELSE
         CALL finish(TRIM(routine),&
           &    'OCEAN tried to read in atmospheric topography data')
 
-!DR        CALL read_ext_data_atm (p_patch, ext_data)
 !DR        CALL read_ext_data_oce (p_patch, ext_data)
       ENDIF
 
@@ -491,7 +500,7 @@ CONTAINS
 !-------------------------------------------------------------------------
 
 
-    CALL message (TRIM(routine), 'Construction of data structure for' // &
+    CALL message (TRIM(routine), 'Construction of data structure for ' // &
       &                          'external data started')
 
     DO jg = 1, n_dom
@@ -586,6 +595,7 @@ CONTAINS
     shape2d_v = (/ nproma, nblks_v /)
 !DR shape3d_c = (/ nproma, nblks_c, nsfc_subs /)
 
+
     !
     ! Register a field list and apply default settings
     !
@@ -593,7 +603,6 @@ CONTAINS
     CALL default_var_list_settings( p_ext_atm_list,            &
                                   & lrestart=.TRUE.,           &
                                   & restart_type=FILETYPE_NC2  )
-
 
 
     ! topography height at cell center
@@ -746,10 +755,9 @@ CONTAINS
     ! external parameter for NWP forcing
     IF (iforcing == inwp) THEN
 
-    ! Several IF-statements are necessary in order to allocate only
-    ! those fields which are necessary for the chosen
-    ! parameterizations.
-
+      ! Several IF-statements are necessary in order to allocate only
+      ! those fields which are necessary for the chosen
+      ! parameterizations.
 
 
       ! roughness length
@@ -768,7 +776,6 @@ CONTAINS
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'fr_lake', p_ext_atm%fr_lake, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
-
 
 
       ! lake depth
@@ -979,7 +986,7 @@ CONTAINS
   !
   !
   !>
-  !! Allocation of atmospheric external data structure
+  !! Allocation of atmospheric external data structure (time dependent)
   !!
   !! Allocation of atmospheric external data structure (time dependent  
   !! elements).
@@ -1034,111 +1041,111 @@ CONTAINS
                                   & restart_type=FILETYPE_NC2  )
 
 
-      !--------------------------------
-      ! radiation parameters
-      !--------------------------------
+    !--------------------------------
+    ! radiation parameters
+    !--------------------------------
 
 
-      ! ozone on pressure levels
-      ! ATTENTION: a GRIB2 number will go to 
-      ! the ozone mass mixing ratio...
-      !
-      IF(irad_o3 == 3) THEN 
-        ! o3       p_ext_atm_td%o3(nproma,nlev_pres,nblks_c,nmonths)
-        cf_desc    = t_cf_var('O3', 'mole mole^-1',   &
-          &                   'mole_fraction_of_ozone_in_air')
-        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-        CALL add_var( p_ext_atm_td_list, 'O3', p_ext_atm_td%O3, &
-          &           GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, &
-          &           grib2_desc, ldims=shape4d_c , lrestart=.FALSE. )
-      END IF
+    ! ozone on pressure levels
+    ! ATTENTION: a GRIB2 number will go to 
+    ! the ozone mass mixing ratio...
+    !
+    IF(irad_o3 == 3) THEN 
+      ! o3       p_ext_atm_td%o3(nproma,nlev_pres,nblks_c,nmonths)
+      cf_desc    = t_cf_var('O3', 'mole mole^-1',   &
+        &                   'mole_fraction_of_ozone_in_air')
+      grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_td_list, 'O3', p_ext_atm_td%O3, &
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, &
+        &           grib2_desc, ldims=shape4d_c , lrestart=.FALSE. )
+    END IF
 
 
-      ! Black carbon aerosol
-      !
-      ! aer_bc       p_ext_atm%aer_bc(nproma,nblks_c,ntimes)
-      cf_desc    = t_cf_var('aerosol optical thickness of black carbon', '-',   &
-        &                   'atmosphere_absorption_optical_thickness_due_to_' //&
-        &                   'black_carbon_ambient_aerosol')
-      grib2_desc = t_grib2_var( 0, 13, 195, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_td_list, 'aer_bc', p_ext_atm_td%aer_bc, &
-        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,  &
-        &            grib2_desc, ldims=shape3d_c, lrestart=.FALSE. )
+    ! Black carbon aerosol
+    !
+    ! aer_bc       p_ext_atm%aer_bc(nproma,nblks_c,ntimes)
+    cf_desc    = t_cf_var('aerosol optical thickness of black carbon', '-',   &
+      &                   'atmosphere_absorption_optical_thickness_due_to_' //&
+      &                   'black_carbon_ambient_aerosol')
+    grib2_desc = t_grib2_var( 0, 13, 195, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_atm_td_list, 'aer_bc', p_ext_atm_td%aer_bc, &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc,  &
+      &            grib2_desc, ldims=shape3d_c, lrestart=.FALSE. )
 
 
-      ! Dust aerosol
-      !
-      ! aer_dust     p_ext_atm%aer_dust(nproma,nblks_c,ntimes)
-      cf_desc    = t_cf_var('aot_dust', '-', &
-        &                   'atmosphere absorption optical thickness due '//  &
-        &                   'to dust ambient aerosol')
-      grib2_desc = t_grib2_var( 0, 13, 193, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_td_list, 'aer_dust', p_ext_atm_td%aer_dust, &
-        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
-        &           ldims=shape3d_c, lrestart=.FALSE. )
+    ! Dust aerosol
+    !
+    ! aer_dust     p_ext_atm%aer_dust(nproma,nblks_c,ntimes)
+    cf_desc    = t_cf_var('aot_dust', '-', &
+      &                   'atmosphere absorption optical thickness due '//  &
+      &                   'to dust ambient aerosol')
+    grib2_desc = t_grib2_var( 0, 13, 193, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_atm_td_list, 'aer_dust', p_ext_atm_td%aer_dust, &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
+      &           ldims=shape3d_c, lrestart=.FALSE. )
 
 
-      ! Organic aerosol
-      !
-      ! aer_org      p_ext_atm%aer_org(nproma,nblks_c,ntimes)
-      cf_desc    = t_cf_var('aot_org', '-', &
-        &                   'atmosphere absorption optical thickness due '//  &
-        &                   'to particulate organic matter ambient aerosol')
-      grib2_desc = t_grib2_var( 0, 13, 194, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_td_list, 'aer_org', p_ext_atm_td%aer_org, &
-        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
-        &           ldims=shape3d_c, lrestart=.FALSE. )
+    ! Organic aerosol
+    !
+    ! aer_org      p_ext_atm%aer_org(nproma,nblks_c,ntimes)
+    cf_desc    = t_cf_var('aot_org', '-', &
+      &                   'atmosphere absorption optical thickness due '//  &
+      &                   'to particulate organic matter ambient aerosol')
+    grib2_desc = t_grib2_var( 0, 13, 194, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_atm_td_list, 'aer_org', p_ext_atm_td%aer_org, &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
+      &           ldims=shape3d_c, lrestart=.FALSE. )
 
 
-      ! Sulfate aerosol
-      !
-      ! aer_so4      p_ext_atm%aer_so4(nproma,nblks_c,ntimes)
-      cf_desc    = t_cf_var('aot_so4', '-', &
-        &                   'atmosphere absorption optical thickness due '//  &
-        &                   'to sulfate_ambient_aerosol')
-      grib2_desc = t_grib2_var( 0, 13, 192, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_td_list, 'aer_so4', p_ext_atm_td%aer_so4, &
-        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
-        &           ldims=shape3d_c, lrestart=.FALSE. )
+    ! Sulfate aerosol
+    !
+    ! aer_so4      p_ext_atm%aer_so4(nproma,nblks_c,ntimes)
+    cf_desc    = t_cf_var('aot_so4', '-', &
+      &                   'atmosphere absorption optical thickness due '//  &
+      &                   'to sulfate_ambient_aerosol')
+    grib2_desc = t_grib2_var( 0, 13, 192, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_atm_td_list, 'aer_so4', p_ext_atm_td%aer_so4, &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
+      &           ldims=shape3d_c, lrestart=.FALSE. )
 
 
-      ! Seasalt aerosol
-      !
-      ! aer_ss       p_ext_atm%aer_ss(nproma,nblks_c,ntimes)
-      cf_desc    = t_cf_var('aot_ss', '-', &
-        &                   'atmosphere absorption optical thickness due '//  &
-        &                   'to seasalt_ambient_aerosol')
-      grib2_desc = t_grib2_var( 0, 13, 196, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_td_list, 'aer_ss', p_ext_atm_td%aer_ss, &
-        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
-        &           ldims=shape3d_c, lrestart=.FALSE. )
+    ! Seasalt aerosol
+    !
+    ! aer_ss       p_ext_atm%aer_ss(nproma,nblks_c,ntimes)
+    cf_desc    = t_cf_var('aot_ss', '-', &
+      &                   'atmosphere absorption optical thickness due '//  &
+      &                   'to seasalt_ambient_aerosol')
+    grib2_desc = t_grib2_var( 0, 13, 196, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_atm_td_list, 'aer_ss', p_ext_atm_td%aer_ss, &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
+      &           ldims=shape3d_c, lrestart=.FALSE. )
 
 
-      !--------------------------------
-      ! vegetation parameters
-      !--------------------------------
+    !--------------------------------
+    ! vegetation parameters
+    !--------------------------------
 
-      ! monthly mean normalized difference vegetation index
-      !
-      ! ndvi         p_ext_atm%ndvi(nproma,nblks_c,ntimes)
-      cf_desc    = t_cf_var('normalized_difference_vegetation_index', '-', &
-        &                   'monthly mean NDVI')
-      grib2_desc = t_grib2_var( 2, 0, 217, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_td_list, 'ndvi', p_ext_atm_td%ndvi, &
-        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
-        &           ldims=shape3d_c, lrestart=.FALSE. )
+    ! monthly mean normalized difference vegetation index
+    !
+    ! ndvi         p_ext_atm%ndvi(nproma,nblks_c,ntimes)
+    cf_desc    = t_cf_var('normalized_difference_vegetation_index', '-', &
+      &                   'monthly mean NDVI')
+    grib2_desc = t_grib2_var( 2, 0, 217, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_atm_td_list, 'ndvi', p_ext_atm_td%ndvi, &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
+      &           ldims=shape3d_c, lrestart=.FALSE. )
 
 
-      ! (monthly) proportion of actual value/maximum NDVI
-      !
-      ! ndvi_mrat     p_ext_atm%ndvi_mrat(nproma,nblks_c,ntimes)
-      cf_desc    = t_cf_var('normalized_difference_vegetation_index', '-', &
-        &                   '(monthly) proportion of actual value/maximum ' // &
-        &                   'normalized differential vegetation index')
-      grib2_desc = t_grib2_var( 2, 0, 192, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_td_list, 'ndvi_mrat', p_ext_atm_td%ndvi_mrat, &
-        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
-        &           ldims=shape3d_c , lrestart=.FALSE.)
+    ! (monthly) proportion of actual value/maximum NDVI
+    !
+    ! ndvi_mrat     p_ext_atm%ndvi_mrat(nproma,nblks_c,ntimes)
+    cf_desc    = t_cf_var('normalized_difference_vegetation_index', '-', &
+      &                   '(monthly) proportion of actual value/maximum ' // &
+      &                   'normalized differential vegetation index')
+    grib2_desc = t_grib2_var( 2, 0, 192, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_atm_td_list, 'ndvi_mrat', p_ext_atm_td%ndvi_mrat, &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
+      &           ldims=shape3d_c , lrestart=.FALSE.)
 
 
   END SUBROUTINE new_ext_data_atm_td_list
@@ -1293,7 +1300,7 @@ CONTAINS
     LOGICAL :: l_exist
 
     CHARACTER(len=max_char_length), PARAMETER :: &
-      routine = 'mo_ext_data: inquire_external files'
+      routine = 'mo_ext_data: inquire_external_files'
 
     CHARACTER(filename_max) :: ozone_file  !< file name for reading in
 
@@ -1389,7 +1396,7 @@ END SUBROUTINE inquire_external_files
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_ext_data:read_ext_data_atm'
 
-    CHARACTER(filename_max) :: topo_file  !< file name for reading in
+    CHARACTER(filename_max) :: extpar_file !< file name for reading in
     CHARACTER(filename_max) :: ozone_file  !< file name for reading in
 
     LOGICAL :: l_exist
@@ -1409,9 +1416,10 @@ END SUBROUTINE inquire_external_files
         !
         ! generate file name
         !
-        WRITE(topo_file,'(a)') 'external_parameter_icon.nc'
+        WRITE(extpar_file,'(a,i1,a,i1,a,i1,a)') &
+          & 'extpar_R',nroot,'B0',start_lev,'_DOM0',jg,'.nc'
 
-        INQUIRE (FILE=topo_file, EXIST=l_exist)
+        INQUIRE (FILE=extpar_file, EXIST=l_exist)
         IF (.NOT.l_exist) THEN
           CALL finish(TRIM(routine),'external data file is not found.')
         ENDIF
@@ -1419,7 +1427,7 @@ END SUBROUTINE inquire_external_files
         !
         ! open file
         !
-        CALL nf(nf_open(TRIM(topo_file), NF_NOWRITE, ncid))
+        CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid))
 
         !
         ! get number of cells and vertices
@@ -1459,120 +1467,129 @@ END SUBROUTINE inquire_external_files
       !-------------------------------------------------------
 
 
-      ! triangle center
-
+      !
+      ! topography
+      !
       IF (i_cell_type == 3) THEN     ! triangular grid
 
-        CALL read_netcdf_data (ncid, 'topography_v', p_patch(jg)%n_patch_cells_g,       &
+        ! triangle center
+        CALL read_netcdf_data (ncid, 'topography_c', p_patch(jg)%n_patch_cells_g,       &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     ext_data(jg)%atm%topography_c)
-      ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
 
-        CALL read_netcdf_data (ncid, 'topography_c', p_patch(jg)%n_patch_verts_g,       &
-          &                     p_patch(jg)%n_patch_verts, p_patch(jg)%verts%glb_index, &
-          &                     ext_data(jg)%atm%topography_v)
-      ENDIF
-
-      ! triangle vertex
-      IF (i_cell_type == 3) THEN     ! triangular grid
+        ! triangle vertex
         CALL read_netcdf_data (ncid, 'topography_v', p_patch(jg)%n_patch_verts_g,       &
           &                     p_patch(jg)%n_patch_verts, p_patch(jg)%verts%glb_index, &
           &                     ext_data(jg)%atm%topography_v)
+
       ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+
+        ! triangle center
+        CALL read_netcdf_data (ncid, 'topography_c', p_patch(jg)%n_patch_verts_g,       &
+          &                     p_patch(jg)%n_patch_verts, p_patch(jg)%verts%glb_index, &
+          &                     ext_data(jg)%atm%topography_c)
+
+        ! triangle vertex
         CALL read_netcdf_data (ncid, 'topography_v', p_patch(jg)%n_patch_cells_g,       &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     ext_data(jg)%atm%topography_c)
+          &                     ext_data(jg)%atm%topography_v)
+
       ENDIF
 
-      !other external parameters on triangular grid
+
+      !
+      ! other external parameters on triangular grid
+      !
       IF (i_cell_type == 3) THEN     ! triangular grid
 
-        CALL read_netcdf_data (ncid, 'fr_land', p_patch(jg)%n_patch_cells_g,              &
+        CALL read_netcdf_data (ncid, 'FR_LAND', p_patch(jg)%n_patch_cells_g,              &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,   &
           &                     ext_data(jg)%atm%fr_land)
 
-        CALL read_netcdf_data (ncid, 'ice', p_patch(jg)%n_patch_cells_g,                &
+        CALL read_netcdf_data (ncid, 'ICE', p_patch(jg)%n_patch_cells_g,                &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     ext_data(jg)%atm%fr_ice)
 
+
         IF (iforcing == inwp) THEN
 
-          CALL read_netcdf_data (ncid, 'fr_lake', p_patch(jg)%n_patch_cells_g,            &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%fr_lake)
-
-          CALL read_netcdf_data (ncid, 'depth_lk', p_patch(jg)%n_patch_cells_g,           &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%depth_lk)
-
-          CALL read_netcdf_data (ncid, 'plcov_mx', p_patch(jg)%n_patch_cells_g,           &
+          CALL read_netcdf_data (ncid, 'PLCOV_MX', p_patch(jg)%n_patch_cells_g,           &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                     ext_data(jg)%atm%plcov_mx)
 
-          CALL read_netcdf_data (ncid, 'lai_mx', p_patch(jg)%n_patch_cells_g,             &
+          CALL read_netcdf_data (ncid, 'LAI_MX', p_patch(jg)%n_patch_cells_g,             &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                     ext_data(jg)%atm%lai_mx)
 
-          CALL read_netcdf_data (ncid, 'rootdp', p_patch(jg)%n_patch_cells_g,             &
+          CALL read_netcdf_data (ncid, 'ROOTDP', p_patch(jg)%n_patch_cells_g,             &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                     ext_data(jg)%atm%rootdp)
 
-          CALL read_netcdf_data (ncid, 'rsmin', p_patch(jg)%n_patch_cells_g,             &
+          CALL read_netcdf_data (ncid, 'RSMIN', p_patch(jg)%n_patch_cells_g,             &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                     ext_data(jg)%atm%rsmin)
 
-          CALL read_netcdf_data (ncid, 'for_d', p_patch(jg)%n_patch_cells_g,              &
+          CALL read_netcdf_data (ncid, 'FOR_D', p_patch(jg)%n_patch_cells_g,              &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                     ext_data(jg)%atm%for_d)
 
-          CALL read_netcdf_data (ncid, 'for_e', p_patch(jg)%n_patch_cells_g,              &
+          CALL read_netcdf_data (ncid, 'FOR_E', p_patch(jg)%n_patch_cells_g,              &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                     ext_data(jg)%atm%for_e)
 
-          CALL read_netcdf_data (ncid, 'urban', p_patch(jg)%n_patch_cells_g,              &
+          CALL read_netcdf_data (ncid, 'URBAN', p_patch(jg)%n_patch_cells_g,              &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                     ext_data(jg)%atm%urban)
 
-
-          CALL read_netcdf_data (ncid, 'z0', p_patch(jg)%n_patch_cells_g,                 &
+          CALL read_netcdf_data (ncid, 'Z0', p_patch(jg)%n_patch_cells_g,                 &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                     ext_data(jg)%atm%z0)
 
-          CALL read_netcdf_data (ncid, 'ndvi_max', p_patch(jg)%n_patch_cells_g,           &
+          CALL read_netcdf_data (ncid, 'NDVI_MAX', p_patch(jg)%n_patch_cells_g,           &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                     ext_data(jg)%atm%ndvi_max)
 
-          CALL read_netcdf_data_int (ncid, 'soiltyp', p_patch(jg)%n_patch_cells_g,        &
+          CALL read_netcdf_data (ncid, 'SOILTYP', p_patch(jg)%n_patch_cells_g,        &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                     ext_data(jg)%atm%soiltyp)
 
-          CALL read_netcdf_data (ncid, 't_cl', p_patch(jg)%n_patch_cells_g,               &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%t_cl)
-
-          CALL read_netcdf_data (ncid, 'emis_rad', p_patch(jg)%n_patch_cells_g,           &
+          CALL read_netcdf_data (ncid, 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,           &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                     ext_data(jg)%atm%emis_rad)
 
-          CALL read_netcdf_data (ncid, 'sso_stdh', p_patch(jg)%n_patch_cells_g,           &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%sso_stdh)
-
-          CALL read_netcdf_data (ncid, 'sso_theta', p_patch(jg)%n_patch_cells_g,          &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%sso_theta)
-
-          CALL read_netcdf_data (ncid, 'sso_gamma', p_patch(jg)%n_patch_cells_g,          &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%sso_gamma)
-
-          CALL read_netcdf_data (ncid, 'sso_sigma', p_patch(jg)%n_patch_cells_g,          &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%sso_sigma)
-
+!!$          CALL read_netcdf_data (ncid, 't_cl', p_patch(jg)%n_patch_cells_g,               &
+!!$            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+!!$            &                     ext_data(jg)%atm%t_cl)
+!!$
+!!$          CALL read_netcdf_data (ncid, 'SSO_STDH', p_patch(jg)%n_patch_cells_g,           &
+!!$            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+!!$            &                     ext_data(jg)%atm%sso_stdh)
+!!$
+!!$          CALL read_netcdf_data (ncid, 'SSO_THETA', p_patch(jg)%n_patch_cells_g,          &
+!!$            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+!!$            &                     ext_data(jg)%atm%sso_theta)
+!!$
+!!$          CALL read_netcdf_data (ncid, 'SSO_GAMMA', p_patch(jg)%n_patch_cells_g,          &
+!!$            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+!!$            &                     ext_data(jg)%atm%sso_gamma)
+!!$
+!!$          CALL read_netcdf_data (ncid, 'SSO_SIGMA', p_patch(jg)%n_patch_cells_g,          &
+!!$            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+!!$            &                     ext_data(jg)%atm%sso_sigma)
+!!$
+!!$          CALL read_netcdf_data (ncid, 'fr_lake', p_patch(jg)%n_patch_cells_g,            &
+!!$            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+!!$            &                     ext_data(jg)%atm%fr_lake)
+!!$
+!!$          CALL read_netcdf_data (ncid, 'depth_lk', p_patch(jg)%n_patch_cells_g,           &
+!!$            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+!!$            &                     ext_data(jg)%atm%depth_lk)
         ENDIF ! (iforcing == inwp)
         
       ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+
+        CALL finish(TRIM(ROUTINE),&
+        & 'Hexagonal grid is not supported, yet.')
 
       ENDIF
 
@@ -1584,49 +1601,52 @@ END SUBROUTINE inquire_external_files
     ENDDO
 
     ENDIF ! itopo
+
+
       !-------------------------------------------------------
       ! Read ozone
       !-------------------------------------------------------
 
-    DO jg = 1,n_dom
-       IF(irad_o3 == 3) THEN
-          IF(p_pe == p_io) THEN
-        !
-             WRITE(ozone_file,'(a,I2.2,a)') 'o3_icon_DOM',jg,'.nc'
+    IF(irad_o3 == 3) THEN
+      DO jg = 1,n_dom
+        IF(p_pe == p_io) THEN
 
-        ! open file
-        !
-             CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid))
 
-             IF (i_cell_type == 3) THEN     ! triangular grid
-                CALL read_netcdf_data_4d (ncid, 'O3', & ! &
-                     &                     p_patch(jg)%n_patch_cells_g,  &
-                     &                     p_patch(jg)%n_patch_cells,    &
-                     &                     p_patch(jg)%cells%glb_index,  & 
-                     &                     nlev_pres,  nmonths,          &
-                     &                     ext_data(jg)%atm_td%O3)
-             ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
-                CALL read_netcdf_data_4d (ncid, 'O3', & 
-                     &                     p_patch(jg)%n_patch_verts_g,  &
-                     &                     p_patch(jg)%n_patch_verts,    & 
-                     &                     p_patch(jg)%verts%glb_index,  &
-                     &                     nlev_pres, nmonths,           &
-                     &                     ext_data(jg)%atm_td%O3)
-             ENDIF
-          ENDIF ! pe
-       ENDIF ! irad_o3
-      !
-      ! close file
-      !
-       IF(p_pe == p_io) CALL nf(nf_close(ncid))
-    ENDDO ! ndom
+          !
+          ! open file
+          !
+          WRITE(ozone_file,'(a,I2.2,a)') 'o3_icon_DOM',jg,'.nc'
+          CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid))
+
+          IF (i_cell_type == 3) THEN     ! triangular grid
+            CALL read_netcdf_data (ncid, 'O3', & ! &
+              &                    p_patch(jg)%n_patch_cells_g,  &
+              &                    p_patch(jg)%n_patch_cells,    &
+              &                    p_patch(jg)%cells%glb_index,  & 
+              &                    nlev_pres,  nmonths,          &
+              &                    ext_data(jg)%atm_td%O3)
+          ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+            CALL read_netcdf_data (ncid, 'O3', & 
+              &                    p_patch(jg)%n_patch_verts_g,  &
+              &                    p_patch(jg)%n_patch_verts,    & 
+              &                    p_patch(jg)%verts%glb_index,  &
+              &                    nlev_pres, nmonths,           &
+              &                    ext_data(jg)%atm_td%O3)
+          ENDIF
+        ENDIF ! pe
+
+        !
+        ! close file
+        !
+        IF(p_pe == p_io) CALL nf(nf_close(ncid))
+
+      ENDDO ! ndom
+    ENDIF ! irad_o3
 
 !    write(0,*)'try to give a number of ozone'
 !    write(0,*)'any value jan', ext_data(1)%atm_td%O3(1,1,1,1)
 !    write(0,*)'maxval dec',MAXVAL( ext_data(1)%atm_td%O3(:,nlev_pres,:,nmonths))
  
-
-!    CALL finish(TRIM(routine),'End of topo-test implementation.')
 
   END SUBROUTINE read_ext_data_atm
   !-------------------------------------------------------------------------
@@ -1641,7 +1661,7 @@ END SUBROUTINE inquire_external_files
   !! Initial revision by Daniel Reinert, DWD (2010-07-14)
   !! Adapted for parallel runs by Rainer Johanni (2010-12-07)
   !!
-  SUBROUTINE read_netcdf_data (ncid, varname, glb_arr_len, loc_arr_len, glb_index, var_out)
+  SUBROUTINE read_netcdf_2d (ncid, varname, glb_arr_len, loc_arr_len, glb_index, var_out)
 
     CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
       &  varname
@@ -1683,7 +1703,7 @@ END SUBROUTINE inquire_external_files
       var_out(jl,jb) = z_dummy_array(glb_index(j))
     ENDDO
 
-  END SUBROUTINE read_netcdf_data
+  END SUBROUTINE read_netcdf_2d
 
 
 
@@ -1695,7 +1715,7 @@ END SUBROUTINE inquire_external_files
   !! Initial revision by Daniel Reinert, DWD (2010-07-14)
   !! Adapted for parallel runs by Rainer Johanni (2010-12-07)
   !!
-  SUBROUTINE read_netcdf_data_int (ncid, varname, glb_arr_len, loc_arr_len, glb_index, var_out)
+  SUBROUTINE read_netcdf_2d_int (ncid, varname, glb_arr_len, loc_arr_len, glb_index, var_out)
 
     CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
       &  varname
@@ -1737,10 +1757,9 @@ END SUBROUTINE inquire_external_files
       var_out(jl,jb) = z_dummy_array(glb_index(j))
     ENDDO
 
-  END SUBROUTINE read_netcdf_data_int
+  END SUBROUTINE read_netcdf_2d_int
 
 
-  !-------------------------------------------------------------------------
 
  !-------------------------------------------------------------------------
   !>
@@ -1751,9 +1770,9 @@ END SUBROUTINE inquire_external_files
   !! Adapted for parallel runs by Rainer Johanni (2010-12-07)
   !! Adapted for 4 D by Kristina Froehlich, MPI-M (2011-06-16)
   !!
-  SUBROUTINE read_netcdf_data_4d (ncid, varname, glb_arr_len, &
-       &                          loc_arr_len, glb_index, &
-       &                          nlevs, ntime,      var_out)
+  SUBROUTINE read_netcdf_4d (ncid, varname, glb_arr_len, &
+       &                     loc_arr_len, glb_index, &
+       &                     nlevs, ntime,      var_out)
 
     CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
       &  varname
@@ -1802,8 +1821,10 @@ END SUBROUTINE inquire_external_files
        ENDDO
     ENDDO
 
-  END SUBROUTINE read_netcdf_data_4d
+  END SUBROUTINE read_netcdf_4d
 
+
+  !-------------------------------------------------------------------------
 
   SUBROUTINE nf(status)
 

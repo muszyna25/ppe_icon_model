@@ -507,8 +507,8 @@ MODULE mo_nonhydro_state
         WRITE(listname,'(a,i2.2,a,i2.2)') 'nh_state_prog_of_domain_',jg, &
           &                               '_and_timelev_',jt
         WRITE(varname_prefix,'(a,i2.2,a)') 'nh_prog_TL',jt,'_'
-        CALL construct_nh_state_prog_list(p_patch(jg), p_nh_state(jg)%prog(jt), &
-          &  p_nh_state(jg)%prog_list(jt), listname, TRIM(varname_prefix)     , &
+        CALL new_nh_state_prog_list(p_patch(jg), p_nh_state(jg)%prog(jt),  &
+          &  p_nh_state(jg)%prog_list(jt), listname, TRIM(varname_prefix), &
           &  l_alloc_tracer)
 
       ENDDO
@@ -518,15 +518,16 @@ MODULE mo_nonhydro_state
       ! includes memory allocation
       !
       WRITE(listname,'(a,i2.2)') 'nh_state_diag_of_domain_',jg
-      CALL construct_nh_state_diag_list(p_patch(jg), p_nh_state(jg)%diag, &
+      CALL new_nh_state_diag_list(p_patch(jg), p_nh_state(jg)%diag, &
         &  p_nh_state(jg)%diag_list, listname)
+
 
       !
       ! Build metrics state list
       ! includes memory allocation
       !
       WRITE(listname,'(a,i2.2)') 'nh_state_metrics_of_domain_',jg
-      CALL construct_nh_metrics_list(p_patch(jg), p_nh_state(jg)%metrics, &
+      CALL new_nh_metrics_list(p_patch(jg), p_nh_state(jg)%metrics, &
         &  p_nh_state(jg)%metrics_list, listname )
 
     ENDDO
@@ -610,8 +611,8 @@ MODULE mo_nonhydro_state
   !! @par Revision History
   !! Initial release by Almut Gassmann (2009-03-06)
   !!
-  SUBROUTINE construct_nh_state_prog_list ( p_patch, p_prog, p_prog_list,  &
-    &                                       listname,vname_prefix, l_alloc_tracer)
+  SUBROUTINE new_nh_state_prog_list ( p_patch, p_prog, p_prog_list,  &
+    &                                 listname,vname_prefix, l_alloc_tracer)
 !
     TYPE(t_patch), TARGET, INTENT(IN) :: & !< current patch
       &  p_patch
@@ -656,6 +657,7 @@ MODULE mo_nonhydro_state
     shape3d_c     = (/nproma, nlev,   nblks_c  /)
     shape3d_chalf = (/nproma, nlevp1, nblks_c  /)
     shape4d_c     = (/nproma, nlev,   nblks_c, ntracer+ntracer_static/)
+
 
     !
     ! Register a field list and apply default settings
@@ -804,7 +806,7 @@ MODULE mo_nonhydro_state
         &           cf_desc, grib2_desc, ldims=shape3d_chalf )
     ENDIF
 
-  END SUBROUTINE construct_nh_state_prog_list
+  END SUBROUTINE new_nh_state_prog_list
 
 
 
@@ -821,8 +823,8 @@ MODULE mo_nonhydro_state
   !! Modification by Kristina Fröhlich, DWD, (2010-10-22)
   !! - added pressure on interfaces
   !!
-  SUBROUTINE construct_nh_state_diag_list ( p_patch, p_diag, p_diag_list,  &
-    &                                       listname )
+  SUBROUTINE new_nh_state_diag_list ( p_patch, p_diag, p_diag_list,  &
+    &                                 listname )
 !
     TYPE(t_patch), TARGET, INTENT(IN) :: &  !< current patch
       &  p_patch
@@ -1677,7 +1679,7 @@ MODULE mo_nonhydro_state
       ENDIF
     ENDIF
 
-  END SUBROUTINE construct_nh_state_diag_list
+  END SUBROUTINE new_nh_state_diag_list
 
 
 
@@ -1690,8 +1692,8 @@ MODULE mo_nonhydro_state
   !! Initial release by Almut Gassmann (2009-04-14)
   !! Modification by Daniel Reinert, DWD, (2010-04-22)
   !! - added geometric height at full levels
-  SUBROUTINE construct_nh_metrics_list ( p_patch, p_metrics, p_metrics_list,  &
-    &                                    listname )
+  SUBROUTINE new_nh_metrics_list ( p_patch, p_metrics, p_metrics_list,  &
+    &                              listname )
 !
     TYPE(t_patch), TARGET, INTENT(IN) :: &  !< current patch
       &  p_patch
@@ -2231,7 +2233,7 @@ MODULE mo_nonhydro_state
 
     ENDIF
 
-  END SUBROUTINE construct_nh_metrics_list
+  END SUBROUTINE new_nh_metrics_list
 
 
 END MODULE mo_nonhydro_state

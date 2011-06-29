@@ -212,9 +212,8 @@ MODULE mo_run_nml
 
   INTEGER  :: itopo      ! flag for topography handling
                          ! 0: corresponds to analytical topography,
-                         ! 1: corresponds to ETOPO2_topography, to be extended
-                         ! 2: currently corresponds to netcdf files provided by
-                         !    Herrmann Ascensio, to be extended
+                         ! 1: corresponds to netcdf files provided by
+                         !    Herrmann Asensio
 
   ! messages
   INTEGER  :: msg_level  ! Determines how much printout is generated during runtime
@@ -707,7 +706,7 @@ CONTAINS
     ! Topography
     !-----------------------------------------------------------
     SELECT CASE (itopo)
-    CASE (0,2)
+    CASE (0)
       ! ok
     CASE (1)
 
@@ -739,7 +738,7 @@ CONTAINS
       IF(p_pe == p_io) WRITE(nnml_output,nml=ext_par_ctl)
 
     CASE default
-       CALL finish( TRIM(routine),'wrong topography specifier, itopo must be in {0,1,2}]')
+       CALL finish( TRIM(routine),'wrong topography specifier, itopo must be in {0,1}]')
     END SELECT
 
  END SUBROUTINE run_nml_setup

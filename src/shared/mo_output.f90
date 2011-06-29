@@ -341,7 +341,7 @@ CONTAINS
 
     CALL close_writing_restart_files
     CALL finish_restart
-    
+
   END SUBROUTINE create_restart_file
 
 END MODULE mo_output

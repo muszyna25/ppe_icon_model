@@ -826,6 +826,7 @@ CONTAINS
         ! loop over all streams associated with the file
         !
         DO j = i, nvar_lists
+
           IF (var_lists(j)%p%cdiFileID == var_lists(i)%p%cdiFileID) THEN 
             !
             !
