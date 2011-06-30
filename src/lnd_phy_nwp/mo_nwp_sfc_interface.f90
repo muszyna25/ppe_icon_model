@@ -177,19 +177,19 @@ CONTAINS
 
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
-  
+
+
+    ALLOCATE(t_t(nproma, nlevp1, 2, i_startblk:i_endblk))
+    ALLOCATE(p_t(nproma, nlevp1, 2, i_startblk:i_endblk))
+    ALLOCATE(u_t(nproma, nlevp1, 2, i_startblk:i_endblk))
+    ALLOCATE(v_t(nproma, nlevp1, 2, i_startblk:i_endblk))
+    ALLOCATE(ps_t(nproma, 2, i_startblk:i_endblk))
+
 !$OMP PARALLEL
 
 !$OMP DO PRIVATE(jb,jt,jc,jk,i_startidx,i_endidx), SCHEDULE(guided)
       DO jb = i_startblk, i_endblk
 
-!<em
-        ALLOCATE(t_t(nproma, nlevp1, 2, i_startblk:i_endblk))
-        ALLOCATE(p_t(nproma, nlevp1, 2, i_startblk:i_endblk))
-        ALLOCATE(u_t(nproma, nlevp1, 2, i_startblk:i_endblk))
-        ALLOCATE(v_t(nproma, nlevp1, 2, i_startblk:i_endblk))
-        ALLOCATE(ps_t(nproma, 2, i_startblk:i_endblk))
-!em>
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
 
@@ -241,12 +241,12 @@ CONTAINS
     ps_t(:,2,jb) = p_diag%pres_sfc(:,jb)
 !em>
 
-  print*, "SFC-DIAGNOSIS ",nlevp1,tcall_sfc_jg
-  print*, "zml_soil: ",zml_soil
-  print*, "t",p_diag%temp(1,nlevp1,jb)
-  print*, "p",p_diag%pres(1,nlevp1,jb)
-  print*, "t_g",lnd_prog%t_gt(1,:,nsfc_subs,jb)
-  print*, "qv_s",lnd_diag%qv_st(1,:,nsfc_subs,jb)
+  write(0,*) "SFC-DIAGNOSIS ",nlevp1,tcall_sfc_jg
+  write(0,*) "zml_soil: ",zml_soil
+  write(0,*) "t",p_diag%temp(1,nlevp1,jb)
+  write(0,*) "p",p_diag%pres(1,nlevp1,jb)
+  write(0,*) "t_g",lnd_prog%t_gt(1,:,nsfc_subs,jb)
+  write(0,*) "qv_s",lnd_diag%qv_st(1,:,nsfc_subs,jb)
 
            CALL terra_multlay(                &
                 ie=nproma,je=1              , & ! array dimensions
@@ -366,17 +366,15 @@ CONTAINS
      
     ENDIF !inwp_sfc
 
-!<em
-    DEALLOCATE(t_t)
-    DEALLOCATE(p_t)
-    DEALLOCATE(u_t)
-    DEALLOCATE(v_t)
-    DEALLOCATE(ps_t)
-!em>
   ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
 
+  DEALLOCATE(t_t)
+  DEALLOCATE(p_t)
+  DEALLOCATE(u_t)
+  DEALLOCATE(v_t)
+  DEALLOCATE(ps_t)
 
 !Example for Debugging, Diagnosis
 !!$    IF (msg_level >= 15) THEN

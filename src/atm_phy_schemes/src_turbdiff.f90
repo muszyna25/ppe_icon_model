@@ -4666,6 +4666,8 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
          IF (dpat(i,j).GT.z0) THEN
             l_pat(i,j)=l_hori*dpat(i,j)/(l_hori+dpat(i,j))
             lcircterm=.TRUE.
+         ELSE
+            l_pat(i,j) = z0
          END IF
       END DO
       END DO
