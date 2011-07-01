@@ -43,7 +43,6 @@ MODULE mo_nwp_conv_interface
   USE mo_exception,            ONLY: message, message_text, finish
   USE mo_mpi,                  ONLY: p_pe, p_nprocs
   USE mo_parallel_nml,         ONLY: p_test_pe, p_test_run
-  USE mo_sync,                 ONLY: SYNC_C, sync_patch_array_mult
 
   USE mo_model_domain,         ONLY: t_patch
   USE mo_grf_interpolation,    ONLY: t_gridref_state
@@ -191,18 +190,24 @@ CONTAINS
 
           !KF preliminary setup for fluxes
 
+
+
+!PR pass fluxes to cumastrn that are negative when upwards!!!!
+
+
         IF(inwp_turb == 0 ) THEN
 
-        z_qhfl( i_startidx:i_endidx,nlevp1,jb) =  4.79846_wp*1.e-5_wp !> moisture flux W/m**2
-        z_shfl( i_startidx:i_endidx,nlevp1,jb) =    17._wp              !! sens. heat fl W/m**2
+        z_qhfl( i_startidx:i_endidx,nlevp1,jb) = - 4.79846_wp*1.e-5_wp !> moisture flux W/m**2
+        z_shfl( i_startidx:i_endidx,nlevp1,jb) = -   17._wp              !! sens. heat fl W/m**2
 
         ELSEIF (inwp_turb == 1 ) THEN
 
         prm_diag%qhfl_s( i_startidx:i_endidx,jb) = prm_diag%lhfl_s( i_startidx:i_endidx,jb) & 
              &                                   / alv
+        ! PR. In turb1, the flux is positive upwards
 
-        z_qhfl( i_startidx:i_endidx,nlevp1,jb) =  prm_diag%qhfl_s( i_startidx:i_endidx,jb)
-        z_shfl( i_startidx:i_endidx,nlevp1,jb) =  prm_diag%shfl_s( i_startidx:i_endidx,jb)
+        z_qhfl( i_startidx:i_endidx,nlevp1,jb) = - prm_diag%qhfl_s( i_startidx:i_endidx,jb)
+        z_shfl( i_startidx:i_endidx,nlevp1,jb) = - prm_diag%shfl_s( i_startidx:i_endidx,jb)
 !
 !KF      Fluxes are not yet ready for use
 
@@ -210,15 +215,19 @@ CONTAINS
 !        z_shfl( i_startidx:i_endidx,nlevp1,jb) =    17._wp            !! sens. heat fl W/m**2
 
         ELSEIF (inwp_turb == 2 ) THEN
+
+        ! PR. In turb2, the flux is negative upwards
         z_qhfl( i_startidx:i_endidx,nlevp1,jb) = prm_diag%qhfl_s (i_startidx:i_endidx,jb)
-        z_shfl( i_startidx:i_endidx,nlevp1,jb) =    17._wp            !! sens. heat fl W/m**2
+        z_shfl( i_startidx:i_endidx,nlevp1,jb) = -   17._wp            !! sens. heat fl W/m**2
 
         ENDIF
 
-        z_dtdqv(i_startidx:i_endidx,:,jb) = p_diag%ddt_tracer_adv(i_startidx:i_endidx,:,jb,iqv)
+        z_dtdqv(i_startidx:i_endidx,:,jb) = 0.0_wp                                &
+                           &   +p_diag%ddt_tracer_adv(i_startidx:i_endidx,:,jb,iqv)
 
         ! input from other physical processes on the convection
-        z_dtdt(i_startidx:i_endidx,:,jb)=  prm_nwp_tend%ddt_temp_radsw(i_startidx:i_endidx,:,jb) &
+        z_dtdt(i_startidx:i_endidx,:,jb)= 0._wp                                                  &
+          &                              + prm_nwp_tend%ddt_temp_radsw(i_startidx:i_endidx,:,jb) &
           &                              + prm_nwp_tend%ddt_temp_radlw(i_startidx:i_endidx,:,jb)
 !&                                       + prm_nwp_tend%ddt_temp_turb(i_startidx:i_endidx,:,jb)
 

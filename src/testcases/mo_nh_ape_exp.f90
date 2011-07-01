@@ -59,7 +59,7 @@ USE mo_physical_constants,  ONLY: rd, rd_o_cpd, p0ref, grav, tmelt,  &
 USE mo_model_domain,        ONLY: t_patch
 USE mo_ext_data,            ONLY: t_external_data
 USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-USE mo_run_nml,             ONLY: nproma, iqv, ntracer
+USE mo_run_nml,             ONLY: nproma, iqv, iqcond,ntracer
 USE mo_satad,               ONLY:  sat_pres_water, &  !! saturation vapor pressure w.r.t. water
       &                            sat_pres_ice,   &  !! saturation vapor pressure w.r.t. ice
       &                            spec_humi          !! Specific humidity
@@ -73,6 +73,7 @@ CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
 REAL(wp), PARAMETER :: zp_ape      = 101325._wp            !< surface pressure
 REAL(wp), PARAMETER :: zt_ape      = 300._wp               !< atmospheric temperature
+REAL(wp), PARAMETER :: ztmc_ape    = 25.006_wp             !< total moisture content
 
 
 PUBLIC :: init_nh_state_prog_APE
@@ -117,6 +118,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: z_sfc(:,:,:)
     REAL(wp)              :: zrhf, zsqv, z_help
     REAL(wp)              :: rh_at_1000hpa, qv_max
+    REAL(wp)              :: tot_moist, iter
 
 
 !--------------------------------------------------------------------
@@ -142,8 +144,8 @@ CONTAINS
     ptr_nh_diag%temp(:,:,:)   = zt_ape
 
 
-!!! !$OMP PARALLEL
-!!! !$OMP DO PRIVATE(jb,jk,nlen)
+!!$OMP PARALLEL
+!!$OMP DO PRIVATE(jb,jk,jc,nlen,jjt,z_sfc,zrhf,z_help,zsqv)
     DO jb = 1, nblks_c
       IF (jb /= nblks_c) THEN
          nlen = nproma
@@ -157,9 +159,20 @@ CONTAINS
         z_sfc(1:nlen,1,jb) = ptr_ext_data%atm%topography_c(1:nlen,jb)
         ptr_nh_diag%pres(1:nlen,jk,jb) = zp_ape                                      &
           &                  * exp(-(p_metrics%z_mc(1:nlen,jk,jb)-z_sfc(1:nlen,1,jb))/zscale_h)
+      END DO
+     END DO
+
+    DO jb = 1, nblks_c
+      IF (jb /= nblks_c) THEN
+         nlen = nproma
+      ELSE
+         nlen = npromz_c
+      ENDIF
+
+      DO jk = 1, nlev
 
         ! Introduce a linear decreasing RH with pressure like in Hui´s test cases
-              DO jjt = 1, ntracer
+              DO jjt = 1, iqcond
 
                   IF(jjt == iqv ) THEN
 
@@ -181,8 +194,8 @@ CONTAINS
                          &  = MIN ( 5.e-6_wp, ptr_nh_prog%tracer(jc,jk,jb,jjt) )
 
                        ! Limit QV in the tropics
-                       ptr_nh_prog%tracer(jc,jk,jb,jjt) = &
-                            &   MIN(qv_max,ptr_nh_prog%tracer(jc,jk,jb,jjt))
+                       !ptr_nh_prog%tracer(jc,jk,jb,jjt) = &
+                       !     &   MIN(qv_max,ptr_nh_prog%tracer(jc,jk,jb,jjt))
 
                      END DO
 
@@ -201,6 +214,47 @@ CONTAINS
         ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) =                                   &
                      &  ptr_nh_prog%exner(jc,jk,jb)**cvd_o_rd*p0ref/rd
 
+
+
+      ENDDO !jk
+    ENDDO !jb
+!!$OMP END DO 
+
+! provisional value for rho
+   ptr_nh_prog%rho=ptr_nh_prog%rhotheta_v
+
+  DO iter=1,10
+! ! Set the total moisture content to 25.006 Kg/m2
+    tot_moist=0.0_wp
+!!$OMP DO PRIVATE(jb,jk,nlen,jc,tot_moist,z_help)
+    DO jb = 1, nblks_c
+      IF (jb /= nblks_c) THEN
+         nlen = nproma
+      ELSE
+         nlen = npromz_c
+      ENDIF
+      DO jk = 1, nlev
+         DO jc = 1, nlen
+           z_help = p_metrics%ddqz_z_full(jc,jk,jb) * ptr_nh_prog%rho(jc,jk,jb)
+           tot_moist= tot_moist + ptr_nh_prog%tracer(jc,jk,jb,iqv) * z_help
+         ENDDO 
+      ENDDO !jk
+    ENDDO !jb
+
+!!$OMP END DO
+     IF (tot_moist .GT. 1.e-25) THEN
+       ptr_nh_prog%tracer(:,:,:,iqv) = ptr_nh_prog%tracer(:,:,:,iqv) * ztmc_ape / tot_moist
+     END IF
+!!$OMP DO PRIVATE(jb,jk,nlen)    
+    DO jb = 1, nblks_c
+      IF (jb /= nblks_c) THEN
+         nlen = nproma
+      ELSE
+         nlen = npromz_c
+      ENDIF
+
+      DO jk = 1, nlev
+
         ! init virtual potential temperature
         ptr_nh_prog%theta_v(1:nlen,jk,jb) = zt_ape &
               &       *( 1._wp +  vtmpc1            &
@@ -211,25 +265,28 @@ CONTAINS
         ptr_nh_prog%rho(1:nlen,jk,jb) = &
               &         ptr_nh_prog%rhotheta_v(1:nlen,jk,jb) &
               &         /ptr_nh_prog%theta_v(1:nlen,jk,jb)
+        !
+        ! initialize horizontal velocity field
+        !
+
+        ptr_nh_prog%vn(1:nlen,jk,jb) =     0.0_wp
+
+        !
+        ! initialize vertical velocity field
+        !
+
+        ptr_nh_prog%w(1:nlen,jk,jb) =      0.0_wp
+
 
       ENDDO !jk
     ENDDO !jb
-!!! !$OMP END DO NOWAIT
-!!! !$OMP END PARALLEL
 
+!!$OMP END DO 
+
+ END DO
+!!$OMP END PARALLEL
     !
-    ! initialize horizontal velocity field
-    !
-
-    ptr_nh_prog%vn(:,:,:) =     0.0_wp
-
-    !
-    ! initialize vertical velocity field
-    !
-
-    ptr_nh_prog%w(:,:,:) =      0.0_wp
-
-
+    WRITE(0,*) "tot_moist ",tot_moist
 
 
   END SUBROUTINE init_nh_state_prog_APE

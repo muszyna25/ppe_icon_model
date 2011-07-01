@@ -323,28 +323,37 @@ CONTAINS
           & i_startidx, i_endidx, rl_start, rl_end)
           DO jc = i_startidx, i_endidx
 
-           prm_diag%lhfl_s_avg(jc,jb) = ( prm_diag%lhfl_s_avg(jc,jb) &
-                               &  * (p_sim_time - tcall_phy_jg(itupdate))        &
-                               &  + prm_diag%lhfl_s(jc,jb)               &
-                               &  * tcall_phy_jg(itupdate) )                 &
+           IF (inwp_turb == 1) THEN
+            prm_diag%lhfl_s_avg(jc,jb) = ( prm_diag%lhfl_s_avg(jc,jb)     &
+                               &  * (p_sim_time - tcall_phy_jg(itupdate)) &
+                               &  + prm_diag%lhfl_s(jc,jb)                &
+                               &  * tcall_phy_jg(itupdate) )              &
                                & / p_sim_time 
-           prm_diag%shfl_s_avg(jc,jb) = ( prm_diag%shfl_s_avg(jc,jb) &
-                               &  * (p_sim_time - tcall_phy_jg(itupdate))        &
-                               &  + prm_diag%shfl_s(jc,jb)               &
-                               &  * tcall_phy_jg(itupdate) )                 &
+           ELSEIF (inwp_turb == 2) THEN
+            prm_diag%lhfl_s_avg(jc,jb) = ( prm_diag%lhfl_s_avg(jc,jb)     &
+                               &  * (p_sim_time - tcall_phy_jg(itupdate)) &
+                               &  + prm_diag%qhfl_s(jc,jb)*lh_v           &
+                               &  * tcall_phy_jg(itupdate) )              &
+                               & / p_sim_time 
+
+           ENDIF
+           prm_diag%shfl_s_avg(jc,jb) = ( prm_diag%shfl_s_avg(jc,jb)      &
+                               &  * (p_sim_time - tcall_phy_jg(itupdate)) &
+                               &  + prm_diag%shfl_s(jc,jb)                &
+                               &  * tcall_phy_jg(itupdate) )              &
                                & / p_sim_time 
            IF (inwp_turb == 1) THEN
-             prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb) &
-                               &  * (p_sim_time - tcall_phy_jg(itupdate))       &
-                               &  + prm_diag%lhfl_s(jc,jb)/lh_v               &
-                               &  * tcall_phy_jg(itupdate) )                 &
+             prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb)    &
+                               &  * (p_sim_time - tcall_phy_jg(itupdate)) &
+                               &  + prm_diag%lhfl_s(jc,jb)/lh_v           &
+                               &  * tcall_phy_jg(itupdate) )              &
                                & / p_sim_time
 
            ELSEIF (inwp_turb == 2) THEN
-             prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb) &
-                               &  * (p_sim_time - tcall_phy_jg(itupdate))        &
-                               &  + prm_diag%qhfl_s(jc,jb)               &
-                               &  * tcall_phy_jg(itupdate) )                 &
+             prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb)    &
+                               &  * (p_sim_time - tcall_phy_jg(itupdate)) &
+                               &  + prm_diag%qhfl_s(jc,jb)                &
+                               &  * tcall_phy_jg(itupdate) )              &
                                & / p_sim_time
            ENDIF
 
@@ -374,32 +383,32 @@ CONTAINS
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
           DO jc = i_startidx, i_endidx
-            prm_diag%u_10m_s6avg(jc,jb) = ( prm_diag%u_10m_s6avg(jc,jb)    &
+            prm_diag%u_10m_s6avg(jc,jb) = ( prm_diag%u_10m_s6avg(jc,jb)   &
                                     & * (p_sim_time_s6 - dt_s6avg)        &
-                                    & + prm_diag%u_10m(jc,jb)              &
+                                    & + prm_diag%u_10m(jc,jb)             &
                                     & * dt_s6avg )                        &
                                     & / p_sim_time_s6
-            prm_diag%v_10m_s6avg(jc,jb) = ( prm_diag%v_10m_s6avg(jc,jb)    &
+            prm_diag%v_10m_s6avg(jc,jb) = ( prm_diag%v_10m_s6avg(jc,jb)   &
                                     & * (p_sim_time_s6 - dt_s6avg)        &
-                                    & + prm_diag%v_10m(jc,jb)              &
+                                    & + prm_diag%v_10m(jc,jb)             &
                                     & * dt_s6avg )                        &
                                     & / p_sim_time_s6
-            prm_diag%t_2m_s6avg(jc,jb) = ( prm_diag%t_2m_s6avg(jc,jb)    &
+            prm_diag%t_2m_s6avg(jc,jb) = ( prm_diag%t_2m_s6avg(jc,jb)     &
                                     & * (p_sim_time_s6 - dt_s6avg)        &
                                     & + prm_diag%t_2m(jc,jb)              &
                                     & * dt_s6avg )                        &
                                     & / p_sim_time_s6
-            prm_diag%qv_2m_s6avg(jc,jb) = ( prm_diag%qv_2m_s6avg(jc,jb)    &
+            prm_diag%qv_2m_s6avg(jc,jb) = ( prm_diag%qv_2m_s6avg(jc,jb)   &
                                     & * (p_sim_time_s6 - dt_s6avg)        &
-                                    & + prm_diag%qv_2m(jc,jb)              &
+                                    & + prm_diag%qv_2m(jc,jb)             &
                                     & * dt_s6avg )                        &
                                     & / p_sim_time_s6
 
 
-            pt_diag%pres_sfc_s6avg(jc,jb) = ( pt_diag%pres_sfc_s6avg(jc,jb)    &
-                                    & * (p_sim_time_s6 - dt_s6avg)        &
-                                    & + pt_diag%pres_sfc(jc,jb)              &
-                                    & * dt_s6avg )                        &
+            pt_diag%pres_sfc_s6avg(jc,jb) = ( pt_diag%pres_sfc_s6avg(jc,jb) &
+                                    & * (p_sim_time_s6 - dt_s6avg)          &
+                                    & + pt_diag%pres_sfc(jc,jb)             &
+                                    & * dt_s6avg )                          &
                                     & / p_sim_time_s6
           ENDDO
       ENDDO ! nblks     

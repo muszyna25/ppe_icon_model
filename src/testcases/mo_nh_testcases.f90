@@ -1633,10 +1633,20 @@ MODULE mo_nh_testcases
         &                            p_nh_state(jg)%metrics,rh_at_1000hpa, qv_max)
       
 
+
+        CALL diagnose_pres_temp ( p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnow(jg)),    &
+          &                       p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag,   &
+          &                       p_patch(jg),                                &
+          &                       opt_calc_temp=.TRUE.,                       &
+          &                       opt_calc_pres=.TRUE.                      )
+       
+        CALL diagnose_pres_temp ( p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnow(jg)),    &
+          &                       p_nh_state(jg)%prog(nnow(jg)), p_nh_state(jg)%diag,   &
+          &                       p_patch(jg),                                &
+          &                       opt_calc_temp=.TRUE.,                       &
+          &                       opt_calc_pres=.TRUE.                       )       
+
     ENDDO !jg
-
-
-
   END SELECT
 
  END SUBROUTINE init_nh_testcase

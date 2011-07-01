@@ -44,7 +44,6 @@ MODULE mo_nwp_turb_interface
   USE mo_exception,            ONLY: message, message_text, finish
   USE mo_mpi,                  ONLY: p_pe, p_nprocs
   USE mo_parallel_nml,         ONLY: p_test_pe, p_test_run
-  USE mo_sync,                 ONLY: SYNC_C, sync_patch_array_mult
 
   USE mo_model_domain,         ONLY: t_patch
   USE mo_grf_interpolation,    ONLY: t_gridref_state
@@ -402,15 +401,15 @@ CONTAINS
           ! KF as long as if nsfc_type = 1 !!!!!
           zdummy_tsfc (1:i_endidx,nsfc_type,jb) = &
                &                              lnd_prog_now%t_g (1:i_endidx,jb)
-          zdummy_qvsfc(1:i_endidx,nsfc_type,jb) = &
-               &                                 lnd_diag%qv_s (1:i_endidx,jb)
+          !zdummy_qvsfc(1:i_endidx,nsfc_type,jb) = &
+          !     &                                 lnd_diag%qv_s (1:i_endidx,jb)
 
           ! Workarounds needed because vdiff is not coded properly for use with nesting
           DO jk = 1, nlev
             p_diag%u(1:i_startidx-1,jk,jb) = 0._wp
             p_diag%v(1:i_startidx-1,jk,jb) = 0._wp
          ENDDO
-
+         
 
           CALL vdiff( kproma = i_endidx, kbdim   = nproma,                                   &
                 & klev   = nlev,   klevm1    = nlev-1,  klevp1=nlevp1                       ,&! in
@@ -487,7 +486,11 @@ CONTAINS
           &  + tcall_turb_jg*prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
         ENDDO
       ENDDO
-      
+      ! In case nsfc_type >1 , the grid-box mean should be considered instead (PR)
+      IF (nsfc_type == 1) THEN
+       lnd_diag%qv_s(1:i_endidx,jb)=zdummy_qvsfc(1:i_endidx,nsfc_type,jb)
+      END IF
+
     ENDIF !inwp_turb
 
   ENDDO

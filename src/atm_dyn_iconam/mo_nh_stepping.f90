@@ -521,7 +521,6 @@ MODULE mo_nh_stepping
 
       ! Create the master (meta) file in ASCII format which contains
       ! info about which files should be read in for a restart run.
-
       CALL write_restart_info_file
     END IF
 
@@ -1068,11 +1067,11 @@ MODULE mo_nh_stepping
             WRITE(message_text,'(a,i2,11l3)') 'call phys. packages DOM:',jg , lcall_phy(jg,:11)
             CALL message(TRIM(routine), TRIM(message_text))
             IF(ltransport) THEN
-              WRITE(message_text,'(a,i2,l3)') 'call advection DOM:',jg , lstep_adv(jg)
-              CALL message(TRIM(routine), TRIM(message_text))
+              WRITE(message_text,'(a,i4,l4)') 'call advection',jg , lstep_adv(jg)
+              CALL message('integrate_nh', TRIM(message_text))
             ELSE IF(.NOT. ltransport) THEN
-              WRITE(message_text,'(a,l3)') 'no advection, ltransport=', ltransport
-              CALL message(TRIM(routine), TRIM(message_text))
+              WRITE(message_text,'(a,l4)') 'no advection, ltransport=', ltransport
+              CALL message('integrate_nh', TRIM(message_text))
             ENDIF
           ENDIF
         ENDIF
@@ -1944,8 +1943,8 @@ MODULE mo_nh_stepping
       ENDDO
     ENDDO
     DO jc = 1, nlen
-      z_mean_surfp = z_mean_surfp + p_diag%pres_sfc(jc,jb)/ &
-        &             REAL(p_patch(jg)%n_patch_cells_g,wp)
+      z_mean_surfp = z_mean_surfp + p_diag%pres_sfc(jc,jb)/      &
+                     &  REAL(p_patch(jg)%n_patch_cells_g,wp)
     ENDDO
   ENDDO
   z_total_energy = z_int_energy+z_kin_energy+z_pot_energy
@@ -1981,8 +1980,8 @@ MODULE mo_nh_stepping
     WHERE(.NOT.p_patch(jg)%cells%owner_mask(:,jb)) z4(:,jb) = 0._wp
     WHERE(.NOT.p_patch(jg)%cells%owner_mask(:,jb)) p_diag%pres_sfc(:,jb) = 0._wp
   ENDDO
-  z_mean_surfp = global_sum_array( p_diag%pres_sfc )/&
-        &             REAL(p_patch(jg)%n_patch_cells_g,wp)
+  z_mean_surfp = global_sum_array( p_diag%pres_sfc )/      &
+                 &     REAL(p_patch(jg)%n_patch_cells_g,wp)
   z_total_mass = global_sum_array( z1 )
   z_kin_energy = global_sum_array( z2 )
   z_int_energy = global_sum_array( z3 )
