@@ -95,6 +95,10 @@ compiler="$use_compiler"
 loadmodule="$use_load_modules"
 job_name="$job_name"
 # ----------------------------
+# restart sepicifics
+# ----------------------------
+export F_NORCW=65535
+# ----------------------------
 NPROMA=$use_nproma
 #-----------------------------------------------------------------------------
 # MPI variables
@@ -601,7 +605,7 @@ export NMPITASKS=$use_mpi_procs
 export NC_BLOCKSIZE=128mb
 export MPIPROGINF=yes
 export MPIPROGINF=ALL_DETAIL
-export MPIEXPORT="MPIPROGINF F_PROGINF NC_BLOCKSIZE MPIMULTITASKMIX OMP_NUM_THREADS ICON_THREADS OMP_SCHEDULE OMP_DYNAMIC"
+export MPIEXPORT="MPIPROGINF F_PROGINF F_NORCW NC_BLOCKSIZE MPIMULTITASKMIX OMP_NUM_THREADS ICON_THREADS OMP_SCHEDULE OMP_DYNAMIC"
 
 #-----------------------------------------------------------------------------
 EOF
