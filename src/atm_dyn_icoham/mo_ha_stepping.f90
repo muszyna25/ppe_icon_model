@@ -202,8 +202,8 @@ CONTAINS
   SUBROUTINE perform_ha_stepping( p_patch, p_int_state, p_grf_state,  &
                                 & p_hydro_state, datetime,            &
                                 & n_io, n_file, n_checkpoint, n_diag, &
-                                & jfile                               )
-!
+                                & jfile, l_have_output                )
+
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_ha_stepping:perform_ha_stepping'
 
@@ -212,6 +212,7 @@ CONTAINS
   TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom)
   INTEGER, INTENT(IN) :: n_io, n_file, n_checkpoint, n_diag
   INTEGER, INTENT(INOUT) :: jfile
+  LOGICAL, INTENT(INOUT) :: l_have_output
 
   TYPE(t_datetime), INTENT(INOUT)         :: datetime
   TYPE(t_hydro_atm), TARGET, INTENT(INOUT):: p_hydro_state(n_dom)
@@ -220,7 +221,6 @@ CONTAINS
   REAL(wp) :: sim_time(n_dom)
   INTEGER  :: jg, jn, jgc, jstep
   LOGICAL  :: l_3tl_init(n_dom)
-  LOGICAL  :: l_init_step
 
 #ifdef _OPENMP
   INTEGER  :: jb
@@ -271,12 +271,7 @@ CONTAINS
     ! modified within this integration cycle. Therefore at the end of the
     ! cycle, we write out variables of time step n rather than n+1.
 
-    l_init_step = (.NOT.lrestart).AND.(jstep==1) ! This is the very first step 
-                                                 ! of an initial run. Initial
-                                                 ! conditions have already been
-                                                 ! written out.
-
-    IF ( MOD(jstep-1,n_io)==0 .AND. (.NOT.l_init_step) ) THEN
+    IF ( MOD(jstep-1,n_io)==0 .AND. jstep/=1 ) THEN
       l_outputtime       = .TRUE. ! Output at the end of the time step
       lprepare_output(:) = .TRUE. ! Prepare output values on all grid levels
     ELSE
@@ -284,7 +279,7 @@ CONTAINS
       lprepare_output(:) = .FALSE.
     ENDIF
 
-    IF ( MOD(jstep,n_checkpoint)==0 ) THEN
+    IF ( MOD(jstep,n_checkpoint)==0 .AND. jstep/=nsteps ) THEN
       l_checkpoint_time = .TRUE.
     ELSE
       l_checkpoint_time = .FALSE.
@@ -300,14 +295,16 @@ CONTAINS
     !--------------------------------------------------------------------------
     ! Time integration from time step n to n+1
     !--------------------------------------------------------------------------
-    ! This variable controls the initial special treatment for 3-time-level
-    ! schemes. In case of a restart run (not yet available), it must be
-    ! initialized as .TRUE.
-    IF (jstep == 1) l_3tl_init(1:n_dom) = .FALSE.
+    ! Whether to apply a special initial treatment for 
+    ! 3-time-level schemes. In case of a restart run, the treatment is 
+    ! not necessary, thus the variable is set to .TRUE. 
 
-    ! Call to recursive subroutine 'process_grid_level', which executes
+    l_3tl_init(1:n_dom) = (.NOT.ltwotime).AND.(.NOT.lrestart).AND.(jstep==1)
+
+    ! Call recursive subroutine 'process_grid_level', which executes
     ! one timestep for the global domain and calls itself in the presence
     ! of nested domains with recursively halved time steps
+
     CALL process_grid( p_patch, p_hydro_state, p_int_state, p_grf_state,    &
       &                1, jstep, l_3tl_init, dtime, sim_time, 1, datetime )
 
@@ -332,6 +329,7 @@ CONTAINS
       CALL write_output( datetime )
       CALL message(TRIM(routine),'Output at:')
       CALL print_datetime(datetime)
+      l_have_output = .TRUE.
 
     ENDIF !l_outputtime
 
@@ -339,8 +337,7 @@ CONTAINS
 
     IF (jstep/=1.AND.(MOD(jstep-1,n_file)==0).AND.jstep/=nsteps) THEN
       jfile = jfile +1
-
-      CALL init_output_files(jfile,lclose=.TRUE.)
+      CALL init_output_files(jfile,lclose=l_have_output)
     ENDIF
 
     !--------------------------------------------------------------------------
@@ -366,7 +363,8 @@ CONTAINS
                                 & p_patch(jg)%n_patch_cells_g,  &
                                 & p_patch(jg)%n_patch_verts_g,  &
                                 & p_patch(jg)%n_patch_edges_g,  &
-                                & i_cell_type, jfile            )
+                                & i_cell_type, jfile,           &
+                                & l_have_output                 )
       END DO
 
       ! Create the master (meta) file in ASCII format which contains

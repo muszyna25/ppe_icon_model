@@ -286,7 +286,7 @@ CONTAINS
   !!
   SUBROUTINE create_restart_file( patch, datetime, klev, pvct, jg,       &
                                 & kr, kb, kcell, kvert, kedge, icelltype,&
-                                & jfile )
+                                & jfile, l_have_output                   )
 
     TYPE(t_patch),   INTENT(IN) :: patch
     TYPE(t_datetime),INTENT(IN) :: datetime
@@ -295,8 +295,9 @@ CONTAINS
     INTEGER, INTENT(IN) :: jg, kr, kb  ! D?R?B?
     INTEGER, INTENT(IN) :: kcell, kvert, kedge, icelltype
     INTEGER, INTENT(IN) :: jfile  ! current output file index
+    LOGICAL, INTENT(IN) :: l_have_output
    
-    CHARACTER(LEN=21) :: string
+    CHARACTER(LEN=132) :: string
 
     !----------------
     ! Initialization
@@ -314,7 +315,11 @@ CONTAINS
     CALL set_restart_attribute( 'nnow_rcf', nnow_rcf(jg))
     CALL set_restart_attribute( 'nnew_rcf', nnew_rcf(jg))
 
-    CALL set_restart_attribute( 'next_output_file', jfile+1 )
+    IF (l_have_output) THEN
+      CALL set_restart_attribute( 'next_output_file', jfile+1 )
+    ELSE
+      CALL set_restart_attribute( 'next_output_file', jfile   )
+    END IF
 
     CALL set_restart_vct( pvct )  ! Vertical coordinate (A's and B's)
 

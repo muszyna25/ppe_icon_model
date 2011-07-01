@@ -626,7 +626,7 @@ CONTAINS
                     & vname_prefix//'vfl_q'//ctracer_list(jtrc:jtrc),               &
                     & field%vfl_tracer_ptr(jtrc)%p,                                 &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF,                    &
-                    & t_cf_var('hfl_q'//ctracer_list(jtrc:jtrc), 'kg m-1 s-1', ''), &
+                    & t_cf_var('vfl_q'//ctracer_list(jtrc:jtrc), 'kg m-1 s-1', ''), &
                     & t_grib2_var(255, 255, 255, ibit, GRID_REFERENCE, GRID_CELL),  &
                     & ldims = (/kproma,klevp1,kblks_c/)                             )
 

@@ -261,12 +261,14 @@ MODULE mo_nh_stepping
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
   SUBROUTINE perform_nh_stepping (p_patch, p_int_state, p_grf_state, p_nh_state, &
-                                  datetime, n_io, n_file, n_checkpoint, n_diag)
+                                  datetime, n_io, n_file, n_checkpoint, n_diag,  &
+                                  l_have_output )
 !
   TYPE(t_patch), TARGET, INTENT(IN)            :: p_patch(n_dom_start:n_dom)
   TYPE(t_int_state), TARGET, INTENT(IN)        :: p_int_state(n_dom_start:n_dom)
   TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom_start:n_dom)
   INTEGER, INTENT(IN)                          :: n_io, n_file, n_checkpoint, n_diag
+  LOGICAL, INTENT(INOUT) :: l_have_output
 
   TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
   TYPE(t_datetime), INTENT(INOUT)      :: datetime
@@ -313,7 +315,8 @@ MODULE mo_nh_stepping
 #endif
 
   CALL perform_nh_timeloop (p_patch, p_int_state, p_grf_state, p_nh_state, &
-                            datetime, n_io, n_file, n_checkpoint, n_diag)
+                            datetime, n_io, n_file, n_checkpoint, n_diag,  &
+                            l_have_output )
 
 #ifdef __OMP_RADIATION__  
   CALL model_end_thread()
@@ -342,7 +345,8 @@ MODULE mo_nh_stepping
   !! Initial release by Almut Gassmann, (2009-04-15)
   !!
   SUBROUTINE perform_nh_timeloop (p_patch, p_int_state, p_grf_state, p_nh_state, &
-                                  datetime, n_io, n_file, n_checkpoint, n_diag)
+                                  datetime, n_io, n_file, n_checkpoint, n_diag,  &
+                                  l_have_output )
 !
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nh_stepping:perform_nh_timeloop'
@@ -351,6 +355,7 @@ MODULE mo_nh_stepping
   TYPE(t_int_state), TARGET, INTENT(IN)        :: p_int_state(n_dom_start:n_dom)
   TYPE(t_gridref_state), TARGET, INTENT(INOUT) :: p_grf_state(n_dom_start:n_dom)
   INTEGER, INTENT(IN)                          :: n_io, n_file, n_checkpoint, n_diag
+  LOGICAL, INTENT(INOUT) :: l_have_output
 
   TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
   TYPE(t_datetime), INTENT(INOUT)      :: datetime
@@ -466,6 +471,7 @@ MODULE mo_nh_stepping
       CALL write_output( datetime, sim_time(1) )
       CALL message('','Output at:')
       CALL print_datetime(datetime)
+      l_have_output = .TRUE.
 
     ENDIF
 
@@ -493,7 +499,7 @@ MODULE mo_nh_stepping
     IF (MOD(jstep,n_file) == 0 .and. jstep/=nsteps) THEN
 
       jfile = jfile +1
-      call init_output_files(jfile,lclose=.TRUE.)
+      call init_output_files(jfile,lclose=l_have_output)
 
     ENDIF
 
@@ -509,7 +515,8 @@ MODULE mo_nh_stepping
                                 & p_patch(jg)%n_patch_cells_g,  &
                                 & p_patch(jg)%n_patch_verts_g,  &
                                 & p_patch(jg)%n_patch_edges_g,  &
-                                & i_cell_type, jfile            )
+                                & i_cell_type, jfile,           &
+                                & l_have_output                 )
       END DO
 
       ! Create the master (meta) file in ASCII format which contains

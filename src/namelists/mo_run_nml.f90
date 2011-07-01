@@ -653,21 +653,21 @@ CONTAINS
 
     nsteps = MIN(nsteps,INT(dt_restart/dtime))
 
-   !removed by Hui Wan, 2011-06-02
-   !! This should probably be changed..................................
-   !IF (lhydrostatic) THEN
-   ! ! If running the HYDROSTATIC version,
-   ! ! let the model integrate one more step after the desired end of
-   ! ! simulation in order to get the proper output. This additional step is
-   ! ! necessary because the HYDROSTATIC model writes out values of step N
-   ! ! after the integration from N to N+1 is finished.
+    IF (lhydrostatic) THEN
+     ! If running the HYDROSTATIC version,
+     ! let the model integrate one more step after the desired end of
+     ! simulation in order to get the proper output. This additional step is
+     ! necessary because the HYDROSTATIC model writes out values of step N
+     ! after the integration from N to N+1 is finished. Also note that
+     ! this additional step is done only for the regular output, and is 
+     ! ignored for restart.
 
-   ! nsteps = nsteps + 1
+     nsteps = nsteps + 1
 
-   ! ! The additional step is not needed in the NON-hydrostatic version because
-   ! ! in this case the model writes out values of step N
-   ! ! after the integration from N-1 to N is finished.
-   !ENDIF
+     ! The additional step is not needed in the NON-hydrostatic version because
+     ! in this case the model writes out values of step N
+     ! after the integration from N-1 to N is finished.
+    ENDIF
     !..................................................................
     !
     CALL message(' ',' ')

@@ -331,8 +331,7 @@ CONTAINS
         jstep = ns
       ENDIF
 
-      IF ( (.NOT.lrestart).AND. &
-         & (.NOT.ltwotime).AND.(nstep_global==1).AND.(.NOT.l_3tl_init(jg)) ) THEN
+      IF ( (nstep_global==1) .AND. l_3tl_init(jg) ) THEN
         !==========================================================================
         ! Special treatment for 3 time level schemes
         !==========================================================================
@@ -345,7 +344,7 @@ CONTAINS
         CALL leapfrog_startup( p_patch, p_int_state, jg, dt_loc,          &
           &                    p_hydro_state, n_old, n_now, n_new, n_sav1 )
 
-        l_3tl_init(jg) = .TRUE.
+        l_3tl_init(jg) = .FALSE.
 
         zdtime = dt_loc !needed in case "update_prog_state" is called in the "fast physics" part
 

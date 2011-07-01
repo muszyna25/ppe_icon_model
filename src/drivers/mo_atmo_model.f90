@@ -68,6 +68,7 @@ MODULE mo_atmo_model
   USE mo_run_nml,             ONLY: run_nml_setup,            & ! process run control parameters
     & current_datetime,     & !    module variable
     & dtime,                & !    namelist parameter
+    & nsteps,               & !    :
     & i_cell_type,          & !    :
     & ltransport,           & !    :
     & lforcing,             & !    :
@@ -194,7 +195,7 @@ CONTAINS
 
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
     INTEGER :: n_io, jg, jfile, n_file, ist, n_diag, n_chkpt
-    LOGICAL :: lsuccess
+    LOGICAL :: lsuccess, l_have_output
    
     !---------------------------------------------------------------------
     ! 0. If this is a resumed or warm-start run...
@@ -558,16 +559,6 @@ CONTAINS
     END SELECT
 
     !------------------------------------------------------------------
-    ! Prepare output file
-    !------------------------------------------------------------------
-    IF (lrestart) THEN
-      CALL get_restart_attribute('next_output_file',jfile)
-    ELSE
-      jfile = 1
-    END IF
-    CALL init_output_files(jfile, lclose=.FALSE.)
- 
-    !------------------------------------------------------------------
     ! Prepare for time integration
     !------------------------------------------------------------------
     SELECT CASE (iequations)
@@ -639,8 +630,44 @@ CONTAINS
       CALL close_nml_output
     END IF
     
+    !---------------------------------------------------------
+    ! The most primitive event handling algorithm: 
+    ! compute time step interval for taking a certain action
+    !--------------------------------------------------------- 
+ 
+    n_io    = NINT(dt_data/dtime)        ! write output
+    n_file  = NINT(dt_file/dtime)        ! trigger new output file
+    n_chkpt = NINT(dt_checkpoint/dtime)  ! write restart files
+    n_diag  = MAX(1,NINT(dt_diag/dtime)) ! diagnose of total integrals
+
     !------------------------------------------------------------------
-    !  get and plot some of the inital values
+    ! Prepare output file
+    !------------------------------------------------------------------
+    IF (.NOT.lrestart) THEN
+    ! Initialize the first output file which will contain also the 
+    ! initial conditions.
+
+      jfile = 1
+      CALL init_output_files(jfile, lclose=.FALSE.)
+
+    ELSE
+    ! No need to write out the initial condition, thus no output
+    ! during the first integration step. This run will produce
+    ! output if n_io <= integration_length. 
+
+      CALL get_restart_attribute('next_output_file',jfile)
+
+      IF (n_io.le.(nsteps-1)) THEN
+         CALL init_output_files(jfile, lclose=.FALSE.)
+         l_have_output = .TRUE.  
+      ELSE
+         l_have_output = .FALSE.
+      END IF
+
+    END IF
+ 
+    !------------------------------------------------------------------
+    !  get and write out some of the inital values
     !------------------------------------------------------------------
     IF (.NOT.lrestart) THEN
 
@@ -681,18 +708,9 @@ CONTAINS
     ! Note: here the derived output variables are not yet available
     ! (omega, divergence, vorticity)
     CALL write_output( current_datetime )
+    l_have_output = .TRUE.
 
     END IF ! not lrestart
-
-    !---------------------------------------------------------
-    ! The most primitive event handling algorithm: 
-    ! compute time step interval for taking a certain action
-    !--------------------------------------------------------- 
- 
-    n_io    = NINT(dt_data/dtime)        ! write output
-    n_file  = NINT(dt_file/dtime)        ! trigger new output file
-    n_chkpt = NINT(dt_checkpoint/dtime)  ! write restart files
-    n_diag  = MAX(1,NINT(dt_diag/dtime)) ! diagnose of total integrals
 
     !------------------------------------------------------------------
     ! Now start the time stepping:
@@ -704,12 +722,13 @@ CONTAINS
     CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
       CALL perform_ha_stepping( p_patch(1:), p_int_state(1:), p_grf_state(1:), &
                               & p_hydro_state, current_datetime,               &
-                              & n_io, n_file, n_chkpt, n_diag, jfile           )
+                              & n_io, n_file, n_chkpt, n_diag, jfile,          &
+                              & l_have_output                                  )
 
     CASE (inh_atmosphere)
-      CALL perform_nh_stepping( p_patch, p_int_state, p_grf_state, p_nh_state, &
-                              & current_datetime, n_io, n_file, n_chkpt, n_diag)
-
+      CALL perform_nh_stepping( p_patch, p_int_state, p_grf_state, p_nh_state,   &
+                              & current_datetime, n_io, n_file, n_chkpt, n_diag, &
+                              & l_have_output                                    )
     CASE DEFAULT
     END SELECT
  
@@ -744,7 +763,7 @@ CONTAINS
     END SELECT
 
     ! Delete output variable lists
-    CALL close_output_files
+    IF (l_have_output) CALL close_output_files
     
     ! Delete grids
     IF (n_dom > 1) THEN
