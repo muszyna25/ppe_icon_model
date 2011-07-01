@@ -1573,7 +1573,7 @@ Defined and used in: src/namelists/mo\_dynamics\_nml.f90
 
 \subsection{nonhydrostatic\_ctl (used if run\_nml/iequations=3)}
 
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
+\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
 \hline 
 Parameter&
 Type&
@@ -1594,9 +1594,24 @@ i\_cell\_type=3
 \hline 
 damp\_height&
 R(n\_dom)&
-17500.0&
+30000&
 m&
-Height in which Rayleigh damping starts&
+Height at which Rayleigh damping of vertical wind starts&
+\tabularnewline
+\hline 
+damp\_height\_u&
+R&
+100000&
+m&
+Height at which Rayleigh damping of zonal wind starts&
+active only for inwp\_gwd $>$ 0
+\tabularnewline
+\hline 
+damp\_timescale\_u&
+R&
+259200&
+s&
+Shortest damping time scale (reached at model top)&
 \tabularnewline
 \hline 
 htop\_moist\_proc&
@@ -1937,6 +1952,13 @@ R&
 &
 ratio of e-folding time to time step (or 2{*} time step when using
 a 3 time level time stepping scheme) (only for triangles currently) &
+\tabularnewline
+\hline 
+hdiff\_min\_efdt\_ratio&
+R&
+1.0 &
+&
+minimum value of hdiff\_efdt\_ratio near model top & iequations=3 .AND. i\_cell\_type=3
 \tabularnewline
 \hline 
 hdiff\_tv\_ratio&

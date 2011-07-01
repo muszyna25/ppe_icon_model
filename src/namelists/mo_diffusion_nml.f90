@@ -90,6 +90,7 @@ MODULE mo_diffusion_nml
 
   REAL(wp) ::           &
     & hdiff_efdt_ratio, &! ratio of e-folding time to (2*)time step
+    & hdiff_min_efdt_ratio, &! minimum value of hdiff_efdt_ratio (for upper sponge layer)
     & hdiff_tv_ratio,   &! the ratio of diffusion coefficient: temp:mom
     & hdiff_smag_fac,   &! scaling factor for Smagorinsky diffusion
     & hdiff_multfac      ! multiplication factor of normalized diffusion coefficient
@@ -116,7 +117,8 @@ MODULE mo_diffusion_nml
 
   NAMELIST/diffusion_ctl/ hdiff_order, hdiff_efdt_ratio, hdiff_smag_fac, &
                         & lhdiff_temp, lhdiff_vn, hdiff_tv_ratio,        &
-                        & hdiff_multfac, k2_klev_max, k2_pres_max
+                        & hdiff_multfac, k2_klev_max, k2_pres_max,       &
+                        & hdiff_min_efdt_ratio
 
   CONTAINS
   !>
@@ -142,6 +144,7 @@ MODULE mo_diffusion_nml
 
    hdiff_order       = 4
    hdiff_efdt_ratio  = 1.0_wp
+   hdiff_min_efdt_ratio = 1.0_wp
    hdiff_multfac     = 1.0_wp
    hdiff_smag_fac    = 0.15_wp
    hdiff_tv_ratio    = 1.0_wp

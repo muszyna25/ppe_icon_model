@@ -53,6 +53,7 @@ MODULE mo_nwp_gw_interface
   USE mo_ext_data,             ONLY: t_external_data
   USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag,&
     &                                t_nh_metrics
+  USE mo_vertical_grid,        ONLY: nrdmax_u
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag,prm_diag,&
     &                                t_nwp_phy_tend
   USE mo_run_nml,              ONLY: nproma, msg_level
@@ -185,12 +186,9 @@ CONTAINS
           & pdv_sso   =prm_nwp_tend%ddt_v_sso   (:,:,jb),  & !< out: v-tendency due to SSO
           & pdt_sso   =prm_nwp_tend%ddt_temp_sso(:,:,jb)   ) !< out: temperature tendency
                                                              ! due to SSO
+      ENDIF
 
-         ENDIF
-
-
-
-        IF (inwp_gwd == 1) THEN
+      IF (inwp_gwd == 1) THEN
 
         CALL gwdrag_wms(                                  &
            & kidia    = i_startidx                      , & 
@@ -211,8 +209,23 @@ CONTAINS
            & ptenv    = prm_nwp_tend%ddt_v_gwd   (:,:,jb),  & !< out: v-tendency
            & pfluxu   = z_fluxv (:,:,jb) ,&
            & pfluxv   = z_fluxv (:,:,jb)   ) !<
-       
-        ENDIF
+
+      ELSE IF (inwp_gwd > 0) THEN
+
+        ! Set ddt_u_gwd to prepare for artificial Rayleigh friction
+        prm_nwp_tend%ddt_u_gwd(:,:,jb) = 0._wp
+
+      ENDIF
+
+      IF (inwp_gwd > 0) THEN
+        ! Apply artificial Rayleigh friction
+        DO jk = 1, nrdmax_u(p_patch%id)
+          DO jc = i_startidx, i_endidx
+            prm_nwp_tend%ddt_u_gwd(jc,jk,jb) = prm_nwp_tend%ddt_u_gwd(jc,jk,jb) - &
+              p_metrics%rayleigh_u(jk) * p_diag%u(jc,jk,jb)
+          ENDDO
+        ENDDO
+      ENDIF
 
     ENDDO ! jb
 

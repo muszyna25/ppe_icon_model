@@ -49,8 +49,9 @@ MODULE mo_vertical_grid
   USE mo_nonhydrostatic_nml,  ONLY: rayleigh_coeff,damp_height, igradp_method, ivctype,  & 
     &                               vwind_offctr, exner_expol, l_zdiffu_t, thslp_zdiffu, &
     &                               thhgtd_zdiffu, htop_moist_proc, htop_qvadv,          &
-    &                               kstart_moist, kstart_qv
-  USE mo_sleve_nml,           ONLY: sleve_nml_setup, min_lay_thckn, top_height, decay_scale_1,   &
+    &                               kstart_moist, kstart_qv, damp_timescale_u, damp_height_u
+  USE mo_diffusion_nml,       ONLY: hdiff_efdt_ratio, hdiff_min_efdt_ratio
+  USE mo_sleve_nml,           ONLY: sleve_nml_setup, min_lay_thckn, top_height, decay_scale_1, &
     &                               decay_scale_2, decay_exp, flat_height, stretch_fac
   USE mo_run_nml,             ONLY: ltestcase, nproma, i_cell_type, msg_level
   USE mo_vertical_coord_table,ONLY: vct_a, vct_b, vct, read_vct
@@ -86,10 +87,10 @@ MODULE mo_vertical_grid
   !                                                          stratospheric temperature
   REAL(wp), PARAMETER :: grav_o_cpd      = grav/cpd
 
-  INTEGER:: nflat, nflatlev(max_dom), nrdmax(max_dom), nflat_gradp(max_dom)
+  INTEGER:: nflat, nflatlev(max_dom), nrdmax(max_dom), nrdmax_u(max_dom), nflat_gradp(max_dom)
 
   PUBLIC :: set_nh_metrics, init_hybrid_coord, init_sleve_coord, &
-            nflat, nflatlev, nrdmax, nflat_gradp
+            nflat, nflatlev, nrdmax, nrdmax_u, nflat_gradp
 
   CONTAINS
 
@@ -363,7 +364,7 @@ MODULE mo_vertical_grid
     TYPE(t_int_state),  INTENT(IN)       :: p_int(n_dom)
 
     INTEGER :: jg, jgp, jk, jk1, jk_start, jb, jc, je, jv, jn, jgc, nlen, &
-               nblks_c, npromz_c, nblks_e, npromz_e, nblks_v, npromz_v, ic
+               nblks_c, npromz_c, nblks_e, npromz_e, nblks_v, npromz_v, ic, jkmax
     INTEGER :: nlev, nlevp1              !< number of full levels
     INTEGER :: nshift_total(n_dom)       !< Total shift of model top w.r.t. global domain
     ! Note: the present way of setting up coordinate surfaces will not work for vertical refinement
@@ -819,52 +820,76 @@ MODULE mo_vertical_grid
         CALL message(TRIM(routine),message_text)
       ENDIF
 
-      ! Rayleigh damping properties
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk, jc, z_diff)
-      DO jb = 1,nblks_c
-        IF (jb /= nblks_c) THEN
-           nlen = nproma
-        ELSE
-           nlen = npromz_c
-        ENDIF
-        DO jk = 1, nlevp1
-          DO jc = 1, nlen
-            z_diff = MAX(0.0_wp,p_nh(jg)%metrics%z_ifc(jc,jk,jb)-damp_height(jg))
-            p_nh(jg)%metrics%rayleigh_w(jc,jk,jb)= &
-            &   rayleigh_coeff(jg) * (SIN ( pi_2 * z_diff &
-            &   /MAX(1.e-3_wp,p_nh(jg)%metrics%z_ifc(jc,1,jb)-damp_height(jg))))**2
-          ENDDO
-        ENDDO
-      ENDDO
-!$OMP END DO
-
       ! offcentering in vertical mass flux 
-!$OMP WORKSHARE
       p_nh(jg)%metrics%vwind_expl_wgt(:,:) = 0.5_wp - vwind_offctr
       p_nh(jg)%metrics%vwind_impl_wgt(:,:) = 0.5_wp + vwind_offctr
-!$OMP END WORKSHARE
 
-!$OMP END PARALLEL
+      ! Rayleigh damping properties (it is enforced that the damping layer
+      ! starts at a level where the coordinate surfaces no longer follow the topography)
 
-      ! Determine depth of damping layer
-      DO jk = 1, nlevp1
-        z_maxhgt(jk) =MAXVAL(p_nh(jg)%metrics%z_ifc(:,jk,:),MASK=p_patch(jg)%cells%owner_mask(:,:))
-      ENDDO
+      p_nh(jg)%metrics%rayleigh_w(:)   = 0.0_wp
+      p_nh(jg)%metrics%rayleigh_u(:)   = 0.0_wp
+      p_nh(jg)%metrics%enhfac_diffu(:) = 1.0_wp
 
-      ! Get maximum height of all PEs
-      z_maxhgt = global_max(z_maxhgt)
+      jkmax = MAX(2,nshift_total(jg)+nflatlev(jg))
+      damp_height(jg) = MAX(vct_a(jkmax),damp_height(jg))
+      damp_height_u   = MAX(0.5_wp*(vct_a(jkmax-1)+vct_a(jkmax)),damp_height_u)
 
-      nrdmax(jg) = 0
+      ! Determine end indices of damping layers
+      nrdmax(jg) = 1
+      nrdmax_u(jg) = 0
       DO jk = 2, nlevp1
-        IF (z_maxhgt(jk) >= damp_height(jg)) nrdmax(jg) = jk-1
+        jk1 = jk + nshift_total(jg)
+        IF (vct_a(jk1) >= damp_height(jg))                     nrdmax(jg)   = jk
+        IF (0.5_wp*(vct_a(jk1-1)+vct_a(jk1)) >= damp_height_u) nrdmax_u(jg) = jk-1
       ENDDO
 
-      IF (msg_level >= 10) THEN
-        WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
-          '; end index of Rayleigh damping layer: ', nrdmax(jg)
+      ! Rayleigh damping coefficient for w
+      DO jk = 1, nrdmax(jg)
+        jk1 = jk + nshift_total(jg)
+        z_diff = MAX(0.0_wp,vct_a(jk1)-damp_height(jg))
+        IF (jg == 1 .OR. damp_height(jg) /= damp_height(1)) THEN
+          p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*(SIN(pi_2*z_diff/ &
+            MAX(1.e-3_wp,vct_a(nshift_total(jg)+1)-damp_height(jg))))**2
+        ELSE
+          p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*(SIN(pi_2*z_diff/ &
+            MAX(1.e-3_wp,vct_a(1)-damp_height(jg))))**2
+        ENDIF
+      ENDDO
+
+
+      ! Enhancement coefficient for nabla4 background diffusion near model top
+      DO jk = 1, nrdmax(jg)
+        jk1 = jk + nshift_total(jg)
+        z_diff = MAX(0.0_wp,0.5_wp*(vct_a(jk1)+vct_a(jk1+1))-damp_height(jg))
+        p_nh(jg)%metrics%enhfac_diffu(jk) = &
+          hdiff_efdt_ratio/hdiff_min_efdt_ratio*(SIN(pi_2*z_diff/       &
+          MAX(1.e-3_wp,0.5_wp*(vct_a(1)+vct_a(2))-damp_height(jg))))**2
+      ENDDO
+
+      DO jk = 1, nrdmax_u(jg)
+        jk1 = jk + nshift_total(jg)
+        z_diff = 0.5_wp*(vct_a(1)+vct_a(2))-0.5_wp*(vct_a(jk1)+vct_a(jk1+1))
+        p_nh(jg)%metrics%rayleigh_u(jk) = 1._wp/damp_timescale_u*  &
+          (1._wp-TANH(3.8_wp*z_diff/MAX(1.e-6_wp,0.5_wp*(vct_a(1)+vct_a(2))-damp_height_u)))
+      ENDDO
+
+      IF (i_cell_type == 3 .AND. msg_level >= 10) THEN
+        WRITE(message_text,'(a,i4,a,2i4)') 'Domain', jg, &
+          '; end indices of Rayleigh damping layer for w and u: ', nrdmax(jg), nrdmax_u(jg)
         CALL message(TRIM(routine),message_text)
+        WRITE(message_text,'(a)') &
+          'Damping coefficients for u and w; diffusion enhancement coefficient:'
+        CALL message('mo_vertical_grid',message_text)
+        DO jk = 1, MAX(nrdmax(jg),nrdmax_u(jg))
+          jk1 = jk + nshift_total(jg)
+          WRITE(message_text,'(a,i5,a,f8.1,3e13.5)') 'level',jk,', half-level height',vct_a(jk1),&
+            p_nh(jg)%metrics%rayleigh_u(jk), p_nh(jg)%metrics%rayleigh_w(jk),                    &
+            p_nh(jg)%metrics%enhfac_diffu(jk)
+          CALL message('mo_vertical_grid',message_text)
+        ENDDO
       ENDIF
+
 
       ! Compute variable Exner extrapolation factors and offcentering coefficients for the
       ! vertical wind solver to optimize numerical stability over steep orography

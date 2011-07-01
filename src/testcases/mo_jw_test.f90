@@ -56,7 +56,7 @@ MODULE mo_jw_test
 !
 
   USE mo_kind,                ONLY: wp
-  USE mo_physical_constants,  ONLY: re, rgrav, omega, rd,tmelt
+  USE mo_physical_constants,  ONLY: re, rgrav, omega, rd,tmelt, vtmpc1
   USE mo_math_constants,      ONLY: pi_2, pi
   USE mo_advection_nml,       ONLY: ctracer_list
   USE mo_vertical_coord_table,ONLY: ceta
@@ -146,13 +146,16 @@ MODULE mo_jw_test
   REAL(wp) :: cos_12_etav(pt_patch%nlev) !
   REAL(wp) :: cos_32_etav(pt_patch%nlev) !
   REAL(wp) :: temp_avg(pt_patch%nlev)    ! horizontally averaged temperature
+  REAL(wp) :: ztemp_cor(nproma,pt_patch%nlev, pt_patch%nblks_c)
+  INTEGER  :: niter(nproma,pt_patch%nlev, pt_patch%nblks_c)
 
   REAL(wp):: zsqv, zrhf
+  REAL(wp):: zpres, ztempv, ztemp0, ztol
   INTEGER :: nblks_c, nblks_e, nblks_v, npromz_e, npromz_c, npromz_v, &
              nlen, jt, jb, je, jc, jk, jv
-  INTEGER :: nlev                        !< number of full levels
+  INTEGER :: nlev, icount
 
-  LOGICAL  :: lrh_linear_pres
+  LOGICAL  :: lrh_linear_pres, lgetbalance
   REAL(wp) :: rh_at_1000hpa
 
 !--------------------------------------------------------------------
@@ -380,7 +383,12 @@ MODULE mo_jw_test
      ! tracer
      IF ( ltransport ) THEN
 
-!$OMP DO PRIVATE(jb,jk,jt,jc,nlen,zeta,ctracer,lon,lat,zrhf,zsqv)
+        lgetbalance = .FALSE.  ! switched off
+        niter       = 0
+        ztemp_cor   = 0._wp
+
+!$OMP DO PRIVATE(jb,jk,jt,jc,nlen,zeta,ctracer,lon,lat,zrhf,zsqv, &
+!$OMP            zpres,ztempv,ztemp0,ztemp,ztol)
         DO jb = 1, nblks_c
            IF (jb /= nblks_c) THEN
               nlen = nproma
@@ -438,12 +446,14 @@ MODULE mo_jw_test
 
                  END SELECT
 
-!KF for physics test
                  IF ((iforcing==inwp).OR.(iforcing==iecham)) THEN
                    IF(jt == iqv ) THEN
 
                      DO jc =1, nlen
 
+                       !-------------------------------------
+                       ! Specify relative humidity
+                       !-------------------------------------
                        IF (lrh_linear_pres) THEN  ! rel. humidity is a linear func. of pressure
                          zrhf =  rh_at_1000hpa - 0.5_wp                      &
                               & +pt_hydro_diag%pres_mc(jc,jk,jb)/200000._wp
@@ -454,25 +464,61 @@ MODULE mo_jw_test
                          IF( pt_hydro_diag%pres_mc(jc,jk,jb) >  70000._wp) zrhf = 0.9_wp
                        ENDIF
 
-                       IF ( pt_hydro_prog%temp(jc,jk,jb) <= tmelt) THEN
-                          zsqv = spec_humi( sat_pres_ice( pt_hydro_prog%temp(jc,jk,jb) ), &
-                                        & pt_hydro_diag%pres_mc(jc,jk,jb)            )
+                       IF (.NOT.lgetbalance) THEN
+                         !-------------------------------------
+                         ! Compute specific humidity
+                         !-------------------------------------
+                         IF ( pt_hydro_prog%temp(jc,jk,jb) <= tmelt) THEN
+                            zsqv = spec_humi( sat_pres_ice( pt_hydro_prog%temp(jc,jk,jb) ), &
+                                          & pt_hydro_diag%pres_mc(jc,jk,jb)            )
+                         ELSE
+                            zsqv = spec_humi( sat_pres_water( pt_hydro_prog%temp(jc,jk,jb) ),  &
+                                          & pt_hydro_diag%pres_mc(jc,jk,jb)             )
+                         END IF
+
+                         pt_hydro_prog%tracer(jc,jk,jb,jt) = zrhf*zsqv
+
+                         IF( pt_hydro_diag%pres_mc(jc,jk,jb) <= 10000._wp) &
+                             pt_hydro_prog%tracer(jc,jk,jb,jt) &
+                             & = MIN ( 5.e-6_wp, pt_hydro_prog%tracer(jc,jk,jb,jt) )
+
                        ELSE
-                          zsqv = spec_humi( sat_pres_water( pt_hydro_prog%temp(jc,jk,jb) ),  &
-                                        & pt_hydro_diag%pres_mc(jc,jk,jb)             )
-                       END IF
+                         !--------------------------------------------
+                         ! Compute specific humidity AND temperature
+                         !--------------------------------------------
+                         zpres  = pt_hydro_diag%pres_mc(jc,jk,jb)
+                         ztempv = pt_hydro_prog%temp(jc,jk,jb)
+                         ztol   = ztempv*1.e-12_wp             ! tolerace
+                         ztemp  = ztempv                       ! initial guess
+                         icount = 0
 
-                       pt_hydro_prog%tracer(jc,jk,jb,jt) = zrhf*zsqv
+                         DO
+                           IF ( pt_hydro_prog%temp(jc,jk,jb) <= tmelt) THEN
+                              zsqv = spec_humi( sat_pres_ice(ztemp), zpres )
+                           ELSE
+                              zsqv = spec_humi( sat_pres_water(ztemp), zpres )
+                           END IF
+  
+                           ztemp0 = ztemp     ! save old value for comparison
+                           ztemp =  ztempv/(1._wp+vtmpc1*zrhf*zsqv) 
 
-                       IF( pt_hydro_diag%pres_mc(jc,jk,jb) <= 10000._wp) &
-                           pt_hydro_prog%tracer(jc,jk,jb,jt) &
-                           & = MIN ( 5.e-6_wp, pt_hydro_prog%tracer(jc,jk,jb,jt) )
-                     END DO
-!                    flev= FLOAT(nlev)
-!                    flev2 = flev*flev
-!                    fheight=(flev-(jk-1))**1.5
-!                    pt_hydro_prog%tracer(:,jk,jb,jt) = 3.e-3_wp*EXP(-fheight/flev)
-!
+                           icount = icount + 1  
+                           IF (ABS(ztemp-ztemp0)<ztol) EXIT
+                         END DO
+
+                         niter    (jc,jk,jb) = icount
+                         ztemp_cor(jc,jk,jb) = ztempv - ztemp
+ 
+                         pt_hydro_prog%tracer(jc,jk,jb,jt) = zrhf*zsqv
+                         pt_hydro_prog%temp  (jc,jk,jb)    = ztemp 
+
+                       END IF  !lgetbalance
+
+                     END DO ! grid cell loop
+
+                     !-------------------------------------
+                     ! Water vapour done. Inform the user.
+                     !-------------------------------------
                      IF(jb == 1) THEN
                        WRITE(message_text,'(a,i4,f15.4,f15.10,f10.5)') &
                          & 'jwtest: qv',jk,                            &
@@ -482,21 +528,37 @@ MODULE mo_jw_test
                        CALL message('', TRIM(message_text))
                      ENDIF
 
+                   !-------------------------------------
+                   ! Other tracers
+                   !-------------------------------------
                    ELSE IF (jt==iqt) THEN
                      pt_hydro_prog%tracer(:,jk,jb,jt) = 1._wp
                    ELSE ! other hydrometeors
                      pt_hydro_prog%tracer(:,jk,jb,jt) = 0._wp
                    ENDIF !tracer
                  ENDIF   !iforcing
-!KF
+
               ENDDO ! tracer loop
            ENDDO ! vertical level loop
         ENDDO ! block loop
 !$OMP END DO
      ENDIF
-
 !$OMP END PARALLEL
 
+     ! Let the master processor write out some statistics
+     IF (ltransport.AND.lgetbalance) THEN
+
+       CALL message('','')
+       DO jk = 1, nlev
+         WRITE(message_text,'(2(a,i3.3),a,f10.5)')              &
+              'Vertical layer ', jk,                            &
+              ': Max # of iteration = ', MAXVAL(niter(:,jk,:)), &
+              '; Max temp correction = ',MAXVAL(ztemp_cor(:,jk,:))
+         CALL message('', TRIM(message_text))
+       END DO
+       CALL message('','')
+
+     END IF
 
  END SUBROUTINE init_hydro_state_prog_jwtest
 

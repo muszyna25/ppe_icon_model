@@ -276,7 +276,11 @@ MODULE mo_nonhydro_state
 
 
    ! Rayleigh damping on the vertical velocity
-   REAL(wp), POINTER :: rayleigh_w(:,:,:)
+   REAL(wp), POINTER :: rayleigh_w(:)
+   ! Rayleigh damping on the zonal velocity
+   REAL(wp), POINTER :: rayleigh_u(:)
+   ! Enhancement factor for nabla4 background diffusion
+   REAL(wp), POINTER :: enhfac_diffu(:)
 
    ! b) Variables needed for the triangular grid only
    !
@@ -870,7 +874,7 @@ MODULE mo_nonhydro_state
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1
 
-    IF (itime_scheme == 6) THEN
+    IF (itime_scheme == 4 .OR. itime_scheme == 6) THEN
      n_timlevs = 2
     ELSE
      n_timlevs = 1
@@ -1132,6 +1136,16 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_c )
 
 
+    ! thermal_exp_fastphy     p_diag%thermal_exp_fastphy(nproma,nblks_c)
+    !
+    cf_desc    = t_cf_var('thermal_expansion_due_to_fast_physics', '',        &
+      &                   'thermal expansion due to fast physics')
+    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_diag_list, 'thermal_exp_fastphy', p_diag%thermal_exp_fastphy, &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,     &
+                & ldims=shape2d_c )
+
+
     IF (i_cell_type == 3) THEN
       ! vn_ie        p_diag%vn_ie(nproma,nlevp1,nblks_e)
       !
@@ -1360,15 +1374,6 @@ MODULE mo_nonhydro_state
                     & ldims=shape2d_c)
       ENDDO
 
-
-      ! thermal_exp_fastphy     p_diag%thermal_exp_fastphy(nproma,nblks_c)
-      !
-      cf_desc    = t_cf_var('thermal_expansion_due_to_fast_physics', '',        &
-        &                   'thermal expansion due to fast physics')
-      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_diag_list, 'thermal_exp_fastphy', p_diag%thermal_exp_fastphy, &
-                  & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,     &
-                  & ldims=shape2d_c )
 
 
     ELSE IF (i_cell_type == 6) THEN
@@ -1720,6 +1725,7 @@ MODULE mo_nonhydro_state
       &        shape2d_ccubed(3), shape2d_ecubed(3), shape3d_vhalf(3), & 
       &        shape3d_esquared(4) 
     INTEGER :: ientr         !< "entropy" of horizontal slice
+    INTEGER :: ist
     !--------------------------------------------------------------
 
     nblks_c = p_patch%nblks_c
@@ -1923,19 +1929,34 @@ MODULE mo_nonhydro_state
       &                   'geopotential at cell center')
     grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_metrics_list, 'dgeopot_mc', p_metrics%dgeopot_mc,           &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,    &
                 & ldims=shape3d_c )
 
+    !------------------------------------------------------------------------------
+    !HW: Vertical 1D arrays are not yet supported by add_var. Use allocate for now.
+    ! Since this is meant to be a temporary solution, deallocated is not implemented.
 
-    ! Rayleigh damping
-    ! rayleigh_w   p_metrics%rayleigh_w(nproma,nlevp1,nblks_c)
-    !
-    cf_desc    = t_cf_var('Rayleigh_damping', '-', 'Rayleigh damping')
-    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_metrics_list, 'rayleigh_w', p_metrics%rayleigh_w,           &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,    &
-                & ldims=shape3d_chalf )
+      ! Rayleigh damping coefficient for w
+      ALLOCATE(p_metrics%rayleigh_w(nlevp1),STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
+                    'allocation for rayleigh_w failed')
+      ENDIF
 
+      ! Rayleigh damping coefficient for u
+      ALLOCATE(p_metrics%rayleigh_u(nlev),STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
+                    'allocation for rayleigh_u failed')
+      ENDIF
+
+      ! Background nabla2 diffusion coefficient for upper sponge layer
+      ALLOCATE(p_metrics%enhfac_diffu(nlev),STAT=ist)
+      IF (ist/=SUCCESS)THEN
+        CALL finish('mo_nonhydro_state:construct_nh_metrics', &
+                    'allocation for enhfac_diffu failed')
+      ENDIF
+    !----------------------------------------------------------------------------
 
     ! Explicit weight in vertical wind solver
     ! vwind_expl_wgt   p_metrics%vwind_expl_wgt(nproma,nblks_c)

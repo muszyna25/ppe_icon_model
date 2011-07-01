@@ -80,8 +80,10 @@ MODULE mo_nonhydrostatic_nml
   INTEGER :: kstart_qv(max_dom) ! related flow control variable (NOT a namelist variable)
 
   ! Parameters active with i_cell_type=3 only
-  REAL(wp):: damp_height(max_dom)    ! height at which damping starts
+  REAL(wp):: damp_height(max_dom)    ! height at which w-damping and sponge layer start
+  REAL(wp):: damp_height_u           ! height at which Rayleigh damping of u starts
   REAL(wp):: rayleigh_coeff(max_dom) ! Rayleigh damping coefficient in w-equation
+  REAL(wp):: damp_timescale_u ! damping time scale for u in uppermost layer (in seconds)
   REAL(wp):: vwind_offctr   ! Off-centering in vertical wind solver
   INTEGER :: iadv_rhotheta  ! Advection scheme used for density and pot. temperature
   INTEGER :: igradp_method  ! Method for computing the horizontal presure gradient
@@ -111,7 +113,7 @@ MODULE mo_nonhydrostatic_nml
                                iadv_rcf, ivctype, upstr_beta, l_open_ubc,  &
                                l_nest_rcf, l_zdiffu_t, thslp_zdiffu, thhgtd_zdiffu, &
                                k2_updamp_coeff, l_masscorr_nest, htop_moist_proc, &
-                               htop_qvadv
+                               htop_qvadv, damp_timescale_u, damp_height_u
   !
   CONTAINS
 
@@ -158,8 +160,10 @@ MODULE mo_nonhydrostatic_nml
   kstart_qv(:)    = 1
 
   ! Settings for icell_type=3
-  damp_height(1)    = 17500.0_wp
+  damp_height(1)    = 30000.0_wp
   rayleigh_coeff(1) = 0.05_wp
+  damp_timescale_u  = 3._wp*86400._wp ! 3 days
+  damp_height_u     = 100000._wp
   vwind_offctr      = 0.05_wp
   iadv_rhotheta     = 2
   igradp_method     = 1

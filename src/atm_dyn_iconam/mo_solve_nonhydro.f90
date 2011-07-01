@@ -498,7 +498,7 @@ MODULE mo_solve_nonhydro
                 z_hydro_corr    (nproma,p_patch%nblks_e)
 
 
-    REAL(wp):: fac_ex2pres, z_aux(nproma), z_theta1, z_theta2
+    REAL(wp):: fac_ex2pres, z_aux(nproma), z_theta1, z_theta2, z_raylfac
     INTEGER :: nproma_gradp, nblks_gradp, npromz_gradp, nlen_gradp
     LOGICAL :: lcompute, lcleanup
 
@@ -563,7 +563,7 @@ MODULE mo_solve_nonhydro
     ENDIF
 
     ! Set time levels of ddt_adv fields for call to velocity_tendencies
-    IF (itime_scheme == 6) THEN ! Velocity advection 2nd order in time
+    IF (itime_scheme == 4 .OR. itime_scheme == 6) THEN ! Velocity advection 2nd order in time
       ntl1 = nnow
       ntl2 = nnew
     ELSE                        ! Velocity advection 1st order in time
@@ -576,7 +576,7 @@ MODULE mo_solve_nonhydro
     DO istep = 1, 2
 
       IF (istep == 1) THEN ! predictor step
-        IF (.NOT.(itime_scheme == 3 .AND. .NOT. l_init)) THEN
+        IF (.NOT.((itime_scheme == 3 .OR. itime_scheme == 4) .AND. .NOT. l_init)) THEN
           CALL velocity_tendencies(p_nh%prog(nnow),p_patch,p_int,p_nh%metrics,&
                                    p_nh%diag,ntl1,istep,l_init)
         ENDIF
@@ -997,7 +997,7 @@ MODULE mo_solve_nonhydro
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
-      IF (itime_scheme == 6 .AND. istep == 2) THEN
+      IF ((itime_scheme == 4 .OR. itime_scheme == 6) .AND. istep == 2) THEN
 !CDIR UNROLL=5
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
@@ -1268,13 +1268,13 @@ MODULE mo_solve_nonhydro
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP DO PRIVATE(jk,jc,z_w_expl,z_contr_w_fl_l,z_rho_expl,z_exner_expl,z_a,z_b,z_c,&
-!$OMP            z_g,z_q,z_alpha,z_beta,z_gamma,z_aux,ic)
+!$OMP            z_g,z_q,z_alpha,z_beta,z_gamma,z_aux,ic,z_raylfac)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
-      IF (istep == 2 .AND. itime_scheme == 6) THEN
+      IF (istep == 2 .AND. (itime_scheme == 4 .OR. itime_scheme == 6)) THEN
 !CDIR UNROLL=5
         DO jk = 2, nlev
           DO jc = i_startidx, i_endidx
@@ -1445,11 +1445,11 @@ MODULE mo_solve_nonhydro
 
       ! Rayleigh damping mechanism (Klemp,Dudhia,Hassiotis:MWR136,pp.3987-4004)
       DO jk = 2, nrdmax(p_patch%id)
+        z_raylfac = 1.0_wp/(1.0_wp+dtime*p_nh%metrics%rayleigh_w(jk))
 !CDIR ON_ADB(p_nh%prog(nnew)%w)
         DO jc = i_startidx, i_endidx
-          p_nh%prog(nnew)%w(jc,jk,jb) =                                &
-            (p_nh%prog(nnew)%w(jc,jk,jb)-p_nh%prog(nnew)%w(jc,1,jb)) / &
-            (1.0_wp+dtime*p_nh%metrics%rayleigh_w(jc,jk,jb))
+          p_nh%prog(nnew)%w(jc,jk,jb) = z_raylfac*p_nh%prog(nnew)%w(jc,jk,jb) +    &
+                                        (1._wp-z_raylfac)*p_nh%prog(nnew)%w(jc,1,jb)
         ENDDO
       ENDDO
 

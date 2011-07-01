@@ -95,7 +95,7 @@ MODULE mo_nh_diffusion
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e)   :: z_nabla2_e
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_e)   :: z_nabla4_e
 
-    REAL(wp):: diff_multfac_vn
+    REAL(wp):: diff_multfac_vn(p_patch%nlev)
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
     INTEGER :: jk, jb, jc, je, id, jlev, ic
@@ -160,7 +160,7 @@ MODULE mo_nh_diffusion
     i_nchdom   = MAX(1,p_patch%n_childdom)
     id         = p_patch%id
 
-    diff_multfac_vn = k4(id)/3._wp
+    diff_multfac_vn(:) = k4(id)/3._wp*p_nh_metrics%enhfac_diffu(:)
 
     IF (.NOT. lsmag_diffu) THEN
 
@@ -384,7 +384,7 @@ MODULE mo_nh_diffusion
               p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                    &
                 p_patch%edges%area_edge(je,jb) *                                    &
                 (MAX(nudgezone_diff*p_int%nudgecoeff_e(je,jb),kh_smag_e(je,jk,jb))* &
-                z_nabla2_e(je,jk,jb) - diff_multfac_vn * z_nabla4_e(je,jk,jb) *     &
+                z_nabla2_e(je,jk,jb) - diff_multfac_vn(jk) * z_nabla4_e(je,jk,jb) * &
                 p_patch%edges%area_edge(je,jb))
             ENDDO
           ENDDO
@@ -402,7 +402,7 @@ MODULE mo_nh_diffusion
               p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +               &
                 p_patch%edges%area_edge(je,jb) * (kh_smag_e(je,jk,jb)*         &
                 z_nabla2_e(je,jk,jb) - z_nabla4_e(je,jk,jb) *                  &
-                MAX(diff_multfac_vn,bdy_diff*p_int%nudgecoeff_e(je,jb)) *      &
+                MAX(diff_multfac_vn(jk),bdy_diff*p_int%nudgecoeff_e(je,jb)) *  &
                 p_patch%edges%area_edge(je,jb))
             ENDDO
           ENDDO
@@ -417,9 +417,9 @@ MODULE mo_nh_diffusion
 
           DO jk = 1, nlev
             DO je = i_startidx, i_endidx
-              p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +               &
-                p_patch%edges%area_edge(je,jb) * (kh_smag_e(je,jk,jb)*         &
-                z_nabla2_e(je,jk,jb) - diff_multfac_vn * z_nabla4_e(je,jk,jb) *&
+              p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  +                   &
+                p_patch%edges%area_edge(je,jb) * (kh_smag_e(je,jk,jb)*             &
+                z_nabla2_e(je,jk,jb) - diff_multfac_vn(jk) * z_nabla4_e(je,jk,jb) *&
                 p_patch%edges%area_edge(je,jb))
             ENDDO
           ENDDO
@@ -436,7 +436,7 @@ MODULE mo_nh_diffusion
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
             p_nh_prog%vn(je,jk,jb) = p_nh_prog%vn(je,jk,jb)  -    &
-              diff_multfac_vn * z_nabla4_e(je,jk,jb) * &
+              diff_multfac_vn(jk) * z_nabla4_e(je,jk,jb) *        &
               p_patch%edges%area_edge(je,jb)*p_patch%edges%area_edge(je,jb)
           ENDDO
         ENDDO
