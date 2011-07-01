@@ -862,8 +862,8 @@ MODULE mo_vertical_grid
       DO jk = 1, nrdmax(jg)
         jk1 = jk + nshift_total(jg)
         z_diff = MAX(0.0_wp,0.5_wp*(vct_a(jk1)+vct_a(jk1+1))-damp_height(jg))
-        p_nh(jg)%metrics%enhfac_diffu(jk) = &
-          hdiff_efdt_ratio/hdiff_min_efdt_ratio*(SIN(pi_2*z_diff/       &
+        p_nh(jg)%metrics%enhfac_diffu(jk) = 1._wp + &
+          (hdiff_efdt_ratio/hdiff_min_efdt_ratio-1._wp)*(SIN(pi_2*z_diff/ &
           MAX(1.e-3_wp,0.5_wp*(vct_a(1)+vct_a(2))-damp_height(jg))))**2
       ENDDO
 
