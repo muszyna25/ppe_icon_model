@@ -362,6 +362,8 @@ SUBROUTINE sync_patch_array_gm(typ, p_patch, nfields, send_buf, recv_buf, f3din1
 
    ! If this is a verification run, check consistency before doing boundary exchange
    IF (p_test_run) THEN
+!$OMP BARRIER
+!$OMP MASTER
      IF (PRESENT(f4din)) THEN
        ALLOCATE(arr3(UBOUND(f4din,1), UBOUND(f4din,2), UBOUND(f4din,3)))
        DO i = 1, nfields
@@ -375,6 +377,8 @@ SUBROUTINE sync_patch_array_gm(typ, p_patch, nfields, send_buf, recv_buf, f3din1
      IF (PRESENT(f3din3)) CALL check_patch_array_3(typ, p_patch, f3din3, 'sync')
      IF (PRESENT(f3din4)) CALL check_patch_array_3(typ, p_patch, f3din4, 'sync')
      IF (PRESENT(f3din5)) CALL check_patch_array_3(typ, p_patch, f3din5, 'sync')
+!$OMP END MASTER
+!$OMP BARRIER
    ENDIF
 
    ! Boundary exchange for work PEs
@@ -1852,3 +1856,4 @@ END SUBROUTINE exact_ieee64_sum
 !-------------------------------------------------------------------------
 
 END MODULE mo_sync
+

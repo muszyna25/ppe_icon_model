@@ -947,7 +947,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: base_name
     TYPE(t_comm_pattern), INTENT(IN) :: pat
 
-    INTEGER :: dim_n_pnts, dim_n_send
+    INTEGER :: dim_n_pnts, dim_n_send, dim_npe_send, dim_npe_recv
 
     ! Some communication patterns are not allocated at all
 
@@ -961,6 +961,20 @@ CONTAINS
       CALL def_dim_pref(base_name//'.n_pnts', pat%n_pnts, dim_n_pnts)
       CALL def_var(base_name//'.recv_src',       nf_int, dim_n_pnts)
       CALL def_var(base_name//'.recv_dst_index', nf_int, dim_n_pnts)
+    ENDIF
+
+    IF(pat%np_send>0) THEN
+      CALL def_dim_pref(base_name//'.np_send', pat%np_send, dim_npe_send)
+      CALL def_var(base_name//'.pelist_send', nf_int, dim_npe_send)
+      CALL def_var(base_name//'.send_startidx', nf_int, dim_npe_send)
+      CALL def_var(base_name//'.send_count', nf_int, dim_npe_send)
+    ENDIF
+
+    IF(pat%np_recv>0) THEN
+      CALL def_dim_pref(base_name//'.np_recv', pat%np_recv, dim_npe_recv)
+      CALL def_var(base_name//'.pelist_recv', nf_int, dim_npe_recv)
+      CALL def_var(base_name//'.recv_startidx', nf_int, dim_npe_recv)
+      CALL def_var(base_name//'.recv_count', nf_int, dim_npe_recv)
     ENDIF
 
     IF(pat%n_send>0) THEN
@@ -995,8 +1009,19 @@ CONTAINS
       IF(pat%n_recv > 0) THEN
         CALL nf(nf_inq_dimid (ncid, TRIM(prefix)//base_name//'.n_pnts', dimid))
         CALL nf(nf_inq_dimlen(ncid, dimid, pat%n_pnts))
+
+        CALL nf(nf_inq_dimid (ncid, TRIM(prefix)//base_name//'.np_recv', dimid))
+        CALL nf(nf_inq_dimlen(ncid, dimid, pat%np_recv))
       ELSE
         pat%n_pnts = 0
+        pat%np_recv = 0
+      ENDIF
+
+      IF(pat%n_send > 0) THEN
+        CALL nf(nf_inq_dimid (ncid, TRIM(prefix)//base_name//'.np_send', dimid))
+        CALL nf(nf_inq_dimlen(ncid, dimid, pat%np_send))
+      ELSE
+        pat%np_send = 0
       ENDIF
 
       ALLOCATE(pat%recv_src(pat%n_pnts))
@@ -1006,6 +1031,22 @@ CONTAINS
       ALLOCATE(pat%send_src_blk(pat%n_send))
       ALLOCATE(pat%send_src_idx(pat%n_send))
 
+      ALLOCATE (pat%pelist_send(pat%np_send),   pat%pelist_recv(pat%np_recv),   &
+                pat%send_startidx(pat%np_send), pat%recv_startidx(pat%np_recv), &
+                pat%send_count(pat%np_send),    pat%recv_count(pat%np_recv)     )
+
+      IF (pat%np_recv > 0) THEN
+        CALL uvar_io(base_name//'.pelist_recv',    pat%pelist_recv)
+        CALL uvar_io(base_name//'.recv_startidx',  pat%recv_startidx)
+        CALL uvar_io(base_name//'.recv_count',     pat%recv_count)
+      ENDIF
+
+      IF (pat%np_send > 0) THEN
+        CALL uvar_io(base_name//'.pelist_send',    pat%pelist_send)
+        CALL uvar_io(base_name//'.send_startidx',  pat%send_startidx)
+        CALL uvar_io(base_name//'.send_count',     pat%send_count)
+      ENDIF
+
     ELSE
 
       ! Do nothing if the pattern is not allocated
@@ -1013,6 +1054,18 @@ CONTAINS
 
       CALL uvar_io(base_name//'.recv_limits',    pat%recv_limits)
       CALL uvar_io(base_name//'.send_limits',    pat%send_limits)
+
+      IF (pat%np_recv > 0) THEN
+        CALL uvar_io(base_name//'.pelist_recv',    pat%pelist_recv)
+        CALL uvar_io(base_name//'.recv_startidx',  pat%recv_startidx)
+        CALL uvar_io(base_name//'.recv_count',     pat%recv_count)
+      ENDIF
+
+      IF (pat%np_send > 0) THEN
+        CALL uvar_io(base_name//'.pelist_send',    pat%pelist_send)
+        CALL uvar_io(base_name//'.send_startidx',  pat%send_startidx)
+        CALL uvar_io(base_name//'.send_count',     pat%send_count)
+      ENDIF
 
     ENDIF
 

@@ -2592,8 +2592,8 @@ CONTAINS
       CASE ('lwflxsfc_avg');    ptr2 => prm_diag(jg)%lwflxsfc_avg(:,:)       
       CASE ('swflxtoa_avg');    ptr2 => prm_diag(jg)%swflxtoa_avg(:,:)
       CASE ('lwflxtoa_avg');    ptr2 => prm_diag(jg)%lwflxtoa_avg(:,:)
-!      CASE ('T_G');             ptr2 => p_prog_lnd%t_g
-!      CASE ('QV_S');            ptr2 => p_diag_lnd%qv_s
+      CASE ('T_G');             ptr2 => p_prog_lnd%t_g
+      CASE ('QV_S');            ptr2 => p_diag_lnd%qv_s
       CASE ('SHFL_S_avg');      ptr2 => prm_diag(jg)%shfl_s_avg 
       CASE ('LHFL_S_avg');      ptr2 => prm_diag(jg)%lhfl_s_avg
       CASE ('EVAP_RATE_avg');   ptr2 => prm_diag(jg)%qhfl_s_avg     

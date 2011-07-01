@@ -48,7 +48,7 @@ MODULE mo_nh_diffusion
                                     edges2cells_scalar, verts2cells_scalar
   USE mo_nonhydrostatic_nml,  ONLY: l_zdiffu_t, damp_height, k2_updamp_coeff
   USE mo_diffusion_nml,       ONLY: k4, hdiff_order, hdiff_smag_fac, lhdiff_temp
-  USE mo_run_nml,             ONLY: nproma
+  USE mo_run_nml,             ONLY: nproma, ltimer
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
   USE mo_impl_constants    ,  ONLY: min_rledge, min_rlcell, min_rlvert, &
                                     min_rledge_int, min_rlcell_int, min_rlvert_int
@@ -60,6 +60,7 @@ MODULE mo_nh_diffusion
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
                                     sync_patch_array_mult, sync_patch_array_gm
   USE mo_physical_constants,  ONLY: cvd_o_rd, cpd, re
+  USE mo_timer,             ONLY: timer_solve_nh, timer_start, timer_stop
 
   IMPLICIT NONE
 
@@ -119,6 +120,9 @@ MODULE mo_nh_diffusion
     LOGICAL :: lsmag_diffu, ltemp_diffu
 
     !--------------------------------------------------------------------------
+
+    ! The diffusion is an intrinsic part of the NH solver, thus it is added to the timer
+    IF (ltimer) CALL timer_start(timer_solve_nh)
 
     ltemp_diffu = .FALSE.
 
@@ -180,12 +184,6 @@ MODULE mo_nh_diffusion
       CALL rbf_vec_interpol_vertex( p_nh_prog%vn, p_patch, p_int, &
                                     u_vert, v_vert, opt_rlend=min_rlvert_int )
 
-      IF (itype_comm == 1) THEN
-        CALL sync_patch_array_mult(SYNC_V,p_patch,2,u_vert,v_vert)
-      ELSE
-        CALL sync_patch_array_gm(SYNC_V,p_patch,2,bufr%send_v2,bufr%recv_v2,u_vert,v_vert)
-      ENDIF
-
       ! empirically determined scaling factor (default of 0.15 for hdiff_smag_fac is somewhat
       ! larger than suggested in the literature); increase with resolution might be
       ! removed when a turbulence scheme becomes available
@@ -195,7 +193,16 @@ MODULE mo_nh_diffusion
       rl_start = start_bdydiff_e
       rl_end   = min_rledge_int - 2
 
+      IF (itype_comm == 1) THEN
+        CALL sync_patch_array_mult(SYNC_V,p_patch,2,u_vert,v_vert)
+      ENDIF
+
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+
+      IF (itype_comm == 2) THEN
+        ! use OpenMP-parallelized communication using global memory for buffers
+        CALL sync_patch_array_gm(SYNC_V,p_patch,2,bufr%send_v2,bufr%recv_v2,u_vert,v_vert)
+      ENDIF
 
       i_startblk = p_patch%edges%start_blk(rl_start,1)
       i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
@@ -295,16 +302,19 @@ MODULE mo_nh_diffusion
       CALL rbf_vec_interpol_vertex( z_nabla2_e, p_patch, p_int, u_vert, v_vert, &
                                     opt_rlstart=4 ,opt_rlend=min_rlvert_int )
 
-      IF (itype_comm == 1) THEN
-        CALL sync_patch_array_mult(SYNC_V,p_patch,2,u_vert,v_vert)
-      ELSE
-        CALL sync_patch_array_gm(SYNC_V,p_patch,2,bufr%send_v2,bufr%recv_v2,u_vert,v_vert)
-      ENDIF
-
       rl_start = grf_bdywidth_e+1
       rl_end   = min_rledge_int
 
+      IF (itype_comm == 1) THEN
+        CALL sync_patch_array_mult(SYNC_V,p_patch,2,u_vert,v_vert)
+      ENDIF
+
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
+
+      IF (itype_comm == 2) THEN
+        ! use OpenMP-parallelized communication using global memory for buffers
+        CALL sync_patch_array_gm(SYNC_V,p_patch,2,bufr%send_v2,bufr%recv_v2,u_vert,v_vert)
+      ENDIF
 
       i_startblk = p_patch%edges%start_blk(rl_start,1)
       i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
@@ -468,12 +478,16 @@ MODULE mo_nh_diffusion
       ENDDO
 
     ENDIF ! vn boundary diffusion
+
+    IF (itype_comm == 2) THEN
+      ! use OpenMP-parallelized communication using global memory for buffers
+      CALL sync_patch_array_gm(SYNC_E,p_patch,1,bufr%send_e1,bufr%recv_e1,p_nh_prog%vn)
+    ENDIF
+
 !$OMP END PARALLEL
 
     IF (itype_comm == 1) THEN
       CALL sync_patch_array(SYNC_E, p_patch, p_nh_prog%vn)
-    ELSE
-      CALL sync_patch_array_gm(SYNC_E,p_patch,1,bufr%send_e1,bufr%recv_e1,p_nh_prog%vn)
     ENDIF
 
     IF (ltemp_diffu) THEN ! Smagorinsky temperature diffusion
@@ -576,6 +590,8 @@ MODULE mo_nh_diffusion
 !$OMP END DO
 !$OMP END PARALLEL
     ENDIF ! temperature diffusion
+
+    IF (ltimer) CALL timer_stop(timer_solve_nh)
 
   END SUBROUTINE diffusion_tria
 
