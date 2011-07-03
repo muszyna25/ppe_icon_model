@@ -73,7 +73,7 @@ MODULE mo_local_patch_hierarchy
   !-------------------------------------------------------------------------
 
   INTEGER :: no_of_patches, root_patch_id, root_grid_id
-  TYPE(t_patch_node_type), ALLOCATABLE, TARGET :: t_patch(:)
+  TYPE(t_patch_node_type), ALLOCATABLE, TARGET :: patch_node(:)
   !-------------------------------------------------------------------------
 
 CONTAINS
@@ -140,16 +140,16 @@ CONTAINS
     INTEGER :: i, i_status
 
     ! init patches
-    ALLOCATE(t_patch(no_of_patches),stat=i_status)
+    ALLOCATE(patch_node(no_of_patches),stat=i_status)
     IF (i_status > 0) &
       & CALL finish ('initTree', 'ALLOCATE(patch(noOfPatches))')
     root_patch_id = 0
 
     DO i = 1, no_of_patches
-      t_patch(i)%patch_id = 0
-      t_patch(i)%hierarchy_node_type = 0
-      t_patch(i)%no_of_children = 0
-      t_patch(i)%parent_patch_id = 0
+      patch_node(i)%patch_id = 0
+      patch_node(i)%hierarchy_node_type = 0
+      patch_node(i)%no_of_children = 0
+      patch_node(i)%parent_patch_id = 0
     ENDDO
 
     ! fill patch info
@@ -160,43 +160,43 @@ CONTAINS
       IF (parent_ids(i) < 0 .or. parent_ids(i) > no_of_patches) &
         & CALL finish ('initTree', 'parentIDs out of range')
 
-      t_patch(i)%patch_id = i
-      t_patch(i)%in_grid_file_name = in_grid_file_names(i)
-      t_patch(i)%out_grid_file_name = out_grid_file_names(i)
-      t_patch(i)%parent_patch_id = parent_ids(i)
+      patch_node(i)%patch_id = i
+      patch_node(i)%in_grid_file_name = in_grid_file_names(i)
+      patch_node(i)%out_grid_file_name = out_grid_file_names(i)
+      patch_node(i)%parent_patch_id = parent_ids(i)
       IF (parent_ids(i) /= 0) &
-        & t_patch(parent_ids(i))%no_of_children = t_patch(parent_ids(i))%no_of_children + 1
+        & patch_node(parent_ids(i))%no_of_children = patch_node(parent_ids(i))%no_of_children + 1
     ENDDO
 
     ! fill patch children links
     ! allocate child_ids
     DO i = 1, no_of_patches
-      no_of_children = t_patch(i)%no_of_children
+      no_of_children = patch_node(i)%no_of_children
       IF (no_of_children > 0) THEN
-        ALLOCATE(t_patch(i)%child_patch_ids(no_of_children),stat=i_status)
+        ALLOCATE(patch_node(i)%child_patch_ids(no_of_children),stat=i_status)
         IF (i_status > 0) &
           & CALL finish ('initTree', 'ALLOCATE(patch(noOfPatches))')
       ENDIF
-      t_patch(i)%no_of_children = 0
+      patch_node(i)%no_of_children = 0
     ENDDO
     ! fill child_ids
     DO i = 1, no_of_patches
-      parent_id = t_patch(i)%parent_patch_id
+      parent_id = patch_node(i)%parent_patch_id
       IF (parent_id > 0) THEN
-        no_of_children = t_patch(parent_id)%no_of_children + 1
-        t_patch(parent_id)%no_of_children = no_of_children
-        t_patch(parent_id)%child_patch_ids(no_of_children) = i
+        no_of_children = patch_node(parent_id)%no_of_children + 1
+        patch_node(parent_id)%no_of_children = no_of_children
+        patch_node(parent_id)%child_patch_ids(no_of_children) = i
       ENDIF
     ENDDO
     ! fill root/leaf properties
     DO i = 1, no_of_patches
-      IF (t_patch(i)%parent_patch_id == 0) THEN
+      IF (patch_node(i)%parent_patch_id == 0) THEN
         root_patch_id = i
-        t_patch(i)%hierarchy_node_type = root_node
-      ELSEIF (t_patch(i)%no_of_children == 0) THEN
-        t_patch(i)%hierarchy_node_type = leaf_node
+        patch_node(i)%hierarchy_node_type = root_node
+      ELSEIF (patch_node(i)%no_of_children == 0) THEN
+        patch_node(i)%hierarchy_node_type = leaf_node
       ELSE
-        t_patch(i)%hierarchy_node_type = inner_node
+        patch_node(i)%hierarchy_node_type = inner_node
       ENDIF
     ENDDO
     IF (root_patch_id == 0) &
@@ -208,20 +208,20 @@ CONTAINS
     DO i = 1, no_of_patches
       WRITE(message_text,'(a)') "===================================="
       CALL message ('', TRIM(message_text))
-      WRITE(message_text,'(a, i3)') "patch ID=", t_patch(i)%patch_id
+      WRITE(message_text,'(a, i3)') "patch ID=", patch_node(i)%patch_id
       CALL message ('', TRIM(message_text))
-      WRITE(message_text,'(a, a)') "   inGridFileName=",   TRIM(t_patch(i)%in_grid_file_name)
+      WRITE(message_text,'(a, a)') "   inGridFileName=",   TRIM(patch_node(i)%in_grid_file_name)
       CALL message ('', TRIM(message_text))
-      WRITE(message_text,'(a, a)') "   outGridFileName=",  TRIM(t_patch(i)%out_grid_file_name)
+      WRITE(message_text,'(a, a)') "   outGridFileName=",  TRIM(patch_node(i)%out_grid_file_name)
       CALL message ('', TRIM(message_text))
-      WRITE(message_text,'(a, i3)') "   nodeType=",        t_patch(i)%hierarchy_node_type
+      WRITE(message_text,'(a, i3)') "   nodeType=",        patch_node(i)%hierarchy_node_type
       CALL message ('', TRIM(message_text))
-      WRITE(message_text,'(a, i3)') "   parentPatchID=",   t_patch(i)%parent_patch_id
+      WRITE(message_text,'(a, i3)') "   parentPatchID=",   patch_node(i)%parent_patch_id
       CALL message ('', TRIM(message_text))
-      WRITE(message_text,'(a, i3)') "   numOfChildren=",   t_patch(i)%no_of_children
+      WRITE(message_text,'(a, i3)') "   numOfChildren=",   patch_node(i)%no_of_children
       CALL message ('', TRIM(message_text))
-      IF (t_patch(i)%no_of_children > 0) THEN
-        WRITE(message_text,'(a, i3)') "   childIDs=",      t_patch(i)%child_patch_ids
+      IF (patch_node(i)%no_of_children > 0) THEN
+        WRITE(message_text,'(a, i3)') "   childIDs=",      patch_node(i)%child_patch_ids
         CALL message ('', TRIM(message_text))
       ENDIF
       WRITE(message_text,'(a)') "===================================="
@@ -242,10 +242,10 @@ CONTAINS
 
     INTEGER :: i,next_level
 
-    t_patch(patch_id)%tree_level = level
+    patch_node(patch_id)%tree_level = level
     next_level = level + 1
-    DO i=1, t_patch(patch_id)%no_of_children
-      CALL fill_tree_levels(t_patch(patch_id)%child_patch_ids(i), next_level)
+    DO i=1, patch_node(patch_id)%no_of_children
+      CALL fill_tree_levels(patch_node(patch_id)%child_patch_ids(i), next_level)
     ENDDO
 
   END SUBROUTINE fill_tree_levels
@@ -265,12 +265,12 @@ CONTAINS
     INTEGER :: i, start_subgrid_no, no_of_subgrids
 
     DO patch_id = 1, no_of_patches
-      t_patch(patch_id)%grid_id = new_grid()
+      patch_node(patch_id)%grid_id = new_grid()
     ENDDO
 
     start_subgrid_no = 1
     DO patch_id = 1, no_of_patches
-      patch_obj => t_patch(patch_id)
+      patch_obj => patch_node(patch_id)
       grid_id = patch_obj%grid_id
       no_of_children =  patch_obj%no_of_children
 
@@ -288,7 +288,7 @@ CONTAINS
 
       ! grid_obj%level               = patch_obj%tree_level
       IF (patch_obj%parent_patch_id > 0) THEN
-        grid_obj%parent_grid_id      = t_patch(patch_obj%parent_patch_id)%grid_id
+        grid_obj%parent_grid_id      = patch_node(patch_obj%parent_patch_id)%grid_id
       ELSE
         grid_obj%parent_grid_id      = 0
       ENDIF
@@ -303,12 +303,12 @@ CONTAINS
       ENDIF
       ! fill the children grid id
       DO i=1,no_of_children
-        grid_obj%child_grid_ids(i) = t_patch( patch_obj%child_patch_ids(i) )%grid_id
+        grid_obj%child_grid_ids(i) = patch_node( patch_obj%child_patch_ids(i) )%grid_id
       ENDDO
 
     ENDDO ! patch_id = 1, no_of_patches
 
-    root_grid_id = t_patch(root_patch_id)%grid_id
+    root_grid_id = patch_node(root_patch_id)%grid_id
 
   END SUBROUTINE init_patch_grids
   !-------------------------------------------------------------------------

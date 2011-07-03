@@ -112,13 +112,13 @@ CONTAINS
     INTEGER               :: nblks_e, nblks_c, npromz_e, npromz_c,  &
                              nlen
     INTEGER               :: nlev             !< number of full levels
-    INTEGER               :: jk, jb, jjt, jc  ! loop variables
+    INTEGER               :: jk, jb, jjt, jc, iter  ! loop variables
 
     REAL(wp)              :: zscale_h             !< initialized variables
     REAL(wp), ALLOCATABLE :: z_sfc(:,:,:)
     REAL(wp)              :: zrhf, zsqv, z_help
     REAL(wp)              :: rh_at_1000hpa, qv_max
-    REAL(wp)              :: tot_moist, iter
+    REAL(wp)              :: tot_moist
 
 
 !--------------------------------------------------------------------
@@ -171,7 +171,7 @@ CONTAINS
 
       DO jk = 1, nlev
 
-        ! Introduce a linear decreasing RH with pressure like in Hui´s test cases
+        ! Introduce a linear decreasing RH with pressure like in Huiï¿½s test cases
               DO jjt = 1, iqcond
 
                   IF(jjt == iqv ) THEN

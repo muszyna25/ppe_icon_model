@@ -72,7 +72,8 @@ MODULE mo_grid_toolbox
   PUBLIC :: create_dual
   PUBLIC :: get_dual_grid, get_basic_dual_grid         !  returns the dual grid
   PUBLIC :: inverse_connectivity_verts
-
+  PUBLIC :: shift_grid_ids
+  
   INTEGER, PARAMETER :: until_convergence = 40
 
 
@@ -1115,5 +1116,51 @@ END FUNCTION concatenate_grids
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
+  !>
+  !! Shifts the grid ids for this gird, the parent and children
+  !! by the given value
+  SUBROUTINE shift_grid_ids(file_name, shift_grid_id_value)
+    CHARACTER(LEN=*), INTENT(in) :: file_name
+    INTEGER, INTENT(in) :: shift_grid_id_value
+
+    TYPE(t_grid), POINTER :: grid_obj
+    TYPE(t_grid_cells), POINTER :: cells
+    TYPE(t_grid_edges), POINTER :: edges
+    TYPE(t_grid_vertices), POINTER :: verts
+    INTEGER :: grid_id
+    INTEGER :: no_of_cells, no_of_edges, no_of_verts
+    INTEGER :: i
+
+    grid_id = new_grid()
+    CALL read_netcdf_grid(grid_id, file_name, read_grid_ids=.true.)
+
+    grid_obj => get_grid(grid_id)
+    cells => grid_obj%cells
+    edges => grid_obj%edges
+    verts => grid_obj%verts
+    no_of_cells = cells%no_of_existcells
+    no_of_edges = edges%no_of_existedges
+    no_of_verts = verts%no_of_existvertices
+
+    grid_obj%patch_id = grid_obj%patch_id + shift_grid_id_value
+    grid_obj%parent_grid_id = grid_obj%parent_grid_id + shift_grid_id_value
+    ! The grid_obj%child_grid_ids(:) are not actually stored,
+    ! skip it
+    ! The verts%child_id(:) is not actually used.
+    ! skip it
+    DO i=1,no_of_edges    
+      edges%child_id(i) = edges%child_id(i) + shift_grid_id_value
+    ENDDO
+    DO i=1,no_of_cells
+      cells%child_id(i) = cells%child_id(i) + shift_grid_id_value
+    ENDDO
+    
+    CALL write_netcdf_grid(grid_id, file_name)
+    CALL delete_grid(grid_id)
+    RETURN
+
+  END SUBROUTINE shift_grid_ids
+  !-------------------------------------------------------------------------
+  
 END MODULE mo_grid_toolbox
 

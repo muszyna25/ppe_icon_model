@@ -11,8 +11,9 @@
 !-----------------------------------------------------------------------
 
 !-----------------------------------------------------------------------
-! Basic geometry functions
+! Basic geometry functions definitions
 #define d_norma_3d(v) SQRT(DOT_PRODUCT(v%x,v%x))
 #define d_normalize(v) v%x=v%x/d_norma_3d(v)
+#define d_arc_of_hord_normalsphere(l) (2.0_wp*ASIN((l)*0.5_wp))
 
 !-----------------------------------------------------------------------

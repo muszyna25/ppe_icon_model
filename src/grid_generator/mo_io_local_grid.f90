@@ -91,6 +91,7 @@ MODULE mo_io_local_grid
   USE mo_local_grid_geometry,ONLY: geographical_to_cartesian, cartesian_to_geographical, &
     & get_cell_barycenters
   USE mo_base_geometry,  ONLY: t_cartesian_coordinates, t_geographical_coordinates
+  USE mo_impl_constants,     ONLY: min_rledge, max_rledge, min_rlvert, max_rlvert
 
   IMPLICIT NONE
 
@@ -269,7 +270,7 @@ CONTAINS
 
   !-------------------------------------------------------------------------
   INTEGER FUNCTION read_no_of_subgrids(file_name) result(no_of_subgrids)
-    CHARACTER(LEN=filename_max), OPTIONAL, INTENT(in) :: file_name
+    CHARACTER(LEN=filename_max), INTENT(in) :: file_name
 
     INTEGER :: ncid, varid
     INTEGER :: netcd_status
@@ -280,19 +281,23 @@ CONTAINS
 
     netcd_status = nf_inq_attid(ncid, nf_global, 'no_of_subgrids', varid)
     IF (netcd_status == nf_noerr) THEN
-       CALL nf(nf_get_att_int(ncid, nf_global, 'no_of_subgrids', no_of_subgrids))
+      CALL nf(nf_get_att_int(ncid, nf_global, 'no_of_subgrids', no_of_subgrids))
     ELSE
       CALL message('read_no_of_subgrids ', 'no_of_subgrids not defined!')
        no_of_subgrids = 1
     ENDIF
+    
+!     CALL nf(nf_close(ncid))
+    
   END FUNCTION read_no_of_subgrids
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
-  SUBROUTINE read_netcdf_grid(grid_id, file_name)
+  SUBROUTINE read_netcdf_grid(grid_id, file_name, read_grid_ids)
     INTEGER, INTENT(in) :: grid_id
     CHARACTER(LEN=filename_max), OPTIONAL, INTENT(in) :: file_name
-
+    LOGICAL, OPTIONAL, INTENT(in) :: read_grid_ids
+    
     TYPE(t_grid), POINTER :: grid_obj
     ! INTEGER:: no_of_cells, no_of_edges, no_of_verts
     INTEGER :: ncid, dimid, varid
@@ -341,6 +346,7 @@ CONTAINS
        start_subgrid_id = 0
     ENDIF
 
+
     print *, 'Read ', grid_obj%ncells, ' cells...'
     CALL allocate_grid_object(grid_id)
 
@@ -351,9 +357,11 @@ CONTAINS
     max_vert_connect  = grid_obj%verts%max_connectivity
     max_cell_vertices = grid_obj%cells%max_no_of_vertices
 
+
     ! read cell info
     CALL nf(nf_inq_varid(ncid, 'cell_index', varid))
     CALL nf(nf_get_var_int   (ncid, varid, grid_obj%cells%idx))
+
     ! read cell geometry
     CALL nf(nf_inq_varid(ncid, 'lon_cell_centre', varid))
     CALL nf(nf_get_var_double(ncid, varid, grid_obj%cells%center(:)%lon))
@@ -361,6 +369,8 @@ CONTAINS
     CALL nf(nf_get_var_double(ncid, varid, grid_obj%cells%center(:)%lat))
     CALL nf(nf_inq_varid(ncid, 'cell_area_p', varid))
     CALL nf(nf_get_var_double(ncid, varid, grid_obj%cells%area))
+
+
 
     netcd_status = nf_inq_varid(ncid, 'cell_elevation', varid)
     IF (netcd_status == nf_noerr) THEN
@@ -578,6 +588,17 @@ CONTAINS
        grid_obj%start_subgrid_id = start_subgrid_id
     ENDIF
 
+    IF (PRESENT(read_grid_ids)) THEN
+      IF (read_grid_ids) THEN
+        CALL nf(nf_get_att_int(ncid, nf_global,'grid_ID', grid_obj%patch_id))
+        CALL nf(nf_get_att_int(ncid, nf_global,'parent_grid_ID', &
+          & grid_obj%parent_grid_id))
+        CALL nf(nf_inq_varid(ncid, 'child_cell_id', varid))
+        CALL nf(nf_get_var_int   (ncid, varid, grid_obj%cells%child_id))
+        CALL nf(nf_inq_varid(ncid, 'child_edge_id', varid))
+        CALL nf(nf_get_var_int   (ncid, varid, grid_obj%edges%child_id))
+     ENDIF
+   ENDIF
 
     CALL nf(nf_close(ncid))
 
@@ -655,6 +676,8 @@ CONTAINS
     INTEGER :: ilevel, grid_root
     INTEGER :: itype_optimize=0
     LOGICAL :: l_c_grid = .false.
+
+!     INTEGER :: str_idx, end_idx
     !-------------------------------------------------------------------------
 
     grid_obj => get_grid(grid_id)
@@ -710,10 +733,10 @@ CONTAINS
     CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_root', nf_int, 1, grid_root))
     ! The following three attributes are nontrivial in the presence of grid refinement
     ! and are set here because they are checked in the ICON code
-    IF (grid_obj%patch_id > 0) THEN
-      CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_ID', nf_int, 1,grid_obj%patch_id))
-    ELSE
+    IF (grid_obj%patch_id < 0) THEN
       CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_ID', nf_int, 1,1))
+    ELSE
+      CALL nf(nf_put_att_int     (ncid, nf_global, 'grid_ID', nf_int, 1,grid_obj%patch_id))
     ENDIF
 
     CALL nf(nf_put_att_int     (ncid, nf_global, 'parent_grid_ID', nf_int, 1, &
@@ -1528,8 +1551,10 @@ CONTAINS
       DEALLOCATE(zv2dx, zv2dy)
       !------------------------------------------------------------------------
       ! Transpose of index array necessary for CF-1.1 Convention
-      !
-      IF (max_vert_connect == 6) THEN ! this works only for triangles
+      ! Disabled for patches
+      ! Has to be rewritten
+!       IF (max_vert_connect == 6) THEN ! this works only for triangles
+      IF (max_vert_connect == 0) THEN ! this works only for triangles
         ALLOCATE(zv2dx(max_vert_connect, no_of_verts), zv2dy(max_vert_connect, no_of_verts))
         DO i = 1, no_of_verts
           DO j = 1, max_vert_connect
@@ -1616,6 +1641,25 @@ CONTAINS
 
     CALL nf(nf_close(ncid))
     !------------------------------------------------------------------------
+!     write(*,*) '---',TRIM(grid_obj%file_name), '---'
+!     str_idx=LBOUND(verts%start_idx, 1)
+!     end_idx=str_idx+SIZE(verts%start_idx, 1)-1
+!     DO i=str_idx,end_idx
+!       write(*,*) 'verts%start_idx, end:', i, verts%start_idx(i,1), verts%end_idx(i,1)
+!     ENDDO
+!     
+!     str_idx=LBOUND(edges%start_idx, 1)
+!     end_idx=str_idx+SIZE(edges%start_idx, 1)-1
+!     DO i=str_idx,end_idx
+!       write(*,*) 'edges%start_idx, end:', i, edges%start_idx(i,1), edges%end_idx(i,1)
+!     ENDDO
+! 
+!     str_idx=LBOUND(cells%start_idx, 1)
+!     end_idx=str_idx+SIZE(cells%start_idx, 1)-1
+!     DO i=str_idx,end_idx
+!       write(*,*) 'cells%start_idx, end:', i, cells%start_idx(i,1), cells%end_idx(i,1)
+!     ENDDO
+!     write(*,*) '-------------------'
 
 
   END SUBROUTINE write_netcdf_grid

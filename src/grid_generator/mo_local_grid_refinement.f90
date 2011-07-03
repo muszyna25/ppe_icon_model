@@ -162,7 +162,7 @@ CONTAINS
     out_grid_id = refine_grid_edgebisection(cutoff_grid_id)
     CALL delete_grid(cutoff_grid_id)
     CALL set_sphere_geom_grid(out_grid_id)
-    CALL create_grid_hierarchy(out_grid_id)
+!     CALL create_grid_hierarchy(out_grid_id)
 
     IF (refine_depth < 2) THEN
       WRITE(file_name,'(a)')  TRIM(output_file)

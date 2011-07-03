@@ -8,7 +8,8 @@ PROGRAM grid_command
   USE mo_create_ocean_grid,     ONLY: create_ocean_grid
   USE mo_local_patch_hierarchy, ONLY: create_patches
   USE mo_local_grid_refinement, ONLY: grid_refine
-  USE mo_grid_toolbox,          ONLY: concatenate_grid_files,create_dual
+  USE mo_grid_toolbox,          ONLY: concatenate_grid_files,create_dual, &
+    &   shift_grid_ids
   USE mo_grid_checktools,       ONLY: check_grid_file, grid_statistics_file,&
     & check_inverse_connect_verts, check_compute_sphere_geometry, &
     & check_read_write_grid
@@ -41,12 +42,14 @@ PROGRAM grid_command
   CHARACTER(len=32), PARAMETER :: global_graph_generator_c ='global_graph_generator'
   CHARACTER(len=32), PARAMETER :: global_grid_generator_c ='global_grid_generator'
   CHARACTER(len=32), PARAMETER :: global_grid_refine_c ='global_grid_refine'
+  CHARACTER(len=32), PARAMETER :: shift_grid_ids_c ='shift_grid_ids'
 
   CHARACTER(len=32) :: command =''
   CHARACTER(len=filename_max) :: param_1 = ''
   CHARACTER(len=filename_max) :: param_2 = ''
   CHARACTER(len=filename_max) :: param_3 = ''
 
+  INTEGER :: int_1
 !   CALL get_command_argument(1, command)
 !   CALL get_command_argument(2, param_1)
 
@@ -95,6 +98,12 @@ PROGRAM grid_command
       READ (500, *) command, param_1, param_2
       CLOSE(500)
       CALL check_read_write_grid(param_1, param_2)
+
+    CASE (shift_grid_ids_c)
+      OPEN (500, FILE = command_file,STATUS = 'OLD')
+      READ (500, *) command, param_1, int_1
+      CLOSE(500)
+      CALL shift_grid_ids(param_1, int_1)
 
     CASE (inv_vertex_connect_c)
       OPEN (500, FILE = command_file,STATUS = 'OLD')

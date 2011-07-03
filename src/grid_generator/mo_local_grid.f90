@@ -382,7 +382,7 @@ MODULE mo_local_grid
     INTEGER,  POINTER :: block_end_idx(:)
 
     ! Grid nesting hierarchy part
-    INTEGER,  POINTER :: subgrid_id(:)
+    INTEGER, POINTER :: subgrid_id(:)
     INTEGER, POINTER :: parent_index(:)  !
     INTEGER, POINTER :: parent_child_type(:)  !
     INTEGER, POINTER :: child_index(:,:) !
@@ -443,7 +443,7 @@ MODULE mo_local_grid
     LOGICAL :: is_filled
 
     ! grid nesting hierarchy info
-    INTEGER :: patch_id  ! 0=no grid hierarchy
+    INTEGER :: patch_id  ! less than 0= no grid hierarchy
     INTEGER :: hierarchy_node_type  ! 0=no grid hierarchy, 1= root,  2=inter, 3=leaf
     INTEGER :: parent_grid_id
     !> The grid optimization procces
@@ -2278,7 +2278,8 @@ CONTAINS
     grid_obj%cells%min_sea_depth      = 0.0_wp
 
     ! zero the grid nesting info
-    grid_obj%patch_id            = undefined
+!     grid_obj%patch_id            = undefined
+    grid_obj%patch_id            = -1
     grid_obj%hierarchy_node_type = undefined
     grid_obj%parent_grid_id      = undefined
     grid_obj%parents_from        = undefined

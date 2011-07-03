@@ -488,8 +488,8 @@ then
 
   stop_check="warning_on_error"
   build_post_file="false"
-  EXP_FILES="grid.create_nested_grids.run"
-  run_scripts run 
+#   EXP_FILES="grid.create_nested_grids.run"
+#   run_scripts run 
   EXP_FILES="grid.create_bb_grids.run"
   run_scripts run
 

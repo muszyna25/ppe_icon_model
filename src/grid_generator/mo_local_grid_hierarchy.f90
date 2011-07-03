@@ -47,7 +47,8 @@ MODULE mo_local_grid_hierarchy
   USE mo_local_grid
   USE mo_io_local_grid,      ONLY: read_netcdf_grid, write_netcdf_grid
 !  USE mo_base_geometry,      ONLY: gvec2cvec
-  USE mo_impl_constants,     ONLY: min_rledge, max_rledge, min_rlvert, max_rlvert
+  USE mo_impl_constants,     ONLY: min_rledge, max_rledge, min_rlvert, &
+    & max_rlvert, min_rledge_int, min_rlvert_int
 
   IMPLICIT NONE
 
@@ -64,7 +65,8 @@ MODULE mo_local_grid_hierarchy
   INTEGER :: inner_boundary_depth  ! = -MAX_BOUNDARY_LEVEL  ?
   INTEGER :: outer_boundary_depth  ! = 2*MAX_BOUNDARY_LEVEL ?
   INTEGER :: inner_edge_boundary_depth, outer_edge_boundary_depth
-  INTEGER :: bdy_indexing_depth = 0 ! if > outer_boundary_depth, use this 
+  INTEGER :: bdy_indexing_depth = 0 ! if > outer_boundary_depth, use this
+  INTEGER :: min_edge_allocate, min_allocate ! min index maybe smaller than inner_boundary_depth
   !-------------------------------------------------------------------------
 
 !   INTEGER,  ALLOCATABLE:: inner_boundary_start(:,:),outer_boundary_start(:)
@@ -89,10 +91,17 @@ CONTAINS
   SUBROUTINE define_boundary_depths()
 
     max_boundary_depth        = max_rlvert
-    inner_boundary_depth      = min_rlvert
+    inner_boundary_depth      = min_rlvert_int
     outer_boundary_depth      = max_boundary_depth
-    inner_edge_boundary_depth = min_rledge
+    inner_edge_boundary_depth = min_rledge_int
     outer_edge_boundary_depth = max_rledge
+    min_edge_allocate         = min_rledge
+    min_allocate              = min_rlvert
+    
+!     write(0,*) 'boundary_depths:', inner_boundary_depth,&
+!       outer_boundary_depth
+!     write(0,*) 'edge_boundary_depths:', inner_edge_boundary_depth,&
+!       outer_edge_boundary_depth
     ! it should be:
     ! INNER_EDGE_BOUNDARY_DEPTH = 2*INNER_BOUNDARY_DEPTH
     ! OUTER_EDGE_BOUNDARY_DEPTH = 2*OUTER_BOUNDARY_DEPTH
@@ -254,12 +263,12 @@ CONTAINS
       DEALLOCATE (verts%start_idx,verts%end_idx)
       DEALLOCATE (edges%start_idx,edges%end_idx)
       DEALLOCATE (cells%start_idx,cells%end_idx)
-      ALLOCATE(verts%start_idx(inner_boundary_depth:outer_boundary_depth, no_of_children),&
-        & verts%end_idx(inner_boundary_depth:outer_boundary_depth, no_of_children),&
-        & cells%start_idx(inner_boundary_depth:outer_boundary_depth, no_of_children),&
-        & cells%end_idx(inner_boundary_depth:outer_boundary_depth, no_of_children),&
-        & edges%start_idx(inner_edge_boundary_depth:outer_edge_boundary_depth, no_of_children),&
-        & edges%end_idx(inner_edge_boundary_depth:outer_edge_boundary_depth, no_of_children), &
+      ALLOCATE(verts%start_idx(min_allocate:outer_boundary_depth, no_of_children),&
+        & verts%end_idx(min_allocate:outer_boundary_depth, no_of_children),&
+        & cells%start_idx(min_allocate:outer_boundary_depth, no_of_children),&
+        & cells%end_idx(min_allocate:outer_boundary_depth, no_of_children),&
+        & edges%start_idx(min_edge_allocate:outer_edge_boundary_depth, no_of_children),&
+        & edges%end_idx(min_edge_allocate:outer_edge_boundary_depth, no_of_children), &
         & stat=i_status)
       IF (i_status > 0) &
         & CALL finish ('re_index_grid', 'REALLOCATE(start_idx, end_idx)')
@@ -294,11 +303,24 @@ CONTAINS
         cells%start_idx(k,i) = cells_inner_boundary_start(k,child_grid_id)
         cells%end_idx(k,i)   = cells_inner_boundary_end(k,child_grid_id) - 1
       ENDDO
+      ! from min_rlvert to min_rlvert_int nullify indexes
+      DO k=min_allocate, inner_boundary_depth-1
+        verts%start_idx(k,i) = no_of_verts+1
+        verts%end_idx(k,i)   = no_of_verts
+
+        cells%start_idx(k,i) = no_of_cells+1
+        cells%end_idx(k,i)   = no_of_cells
+      ENDDO
 
       child_grid%verts%parent_index(:) = -child_grid%verts%parent_index(:)
       DO k=inner_edge_boundary_depth,-1
         edges%start_idx(k,i) = edges_inner_boundary_start(k,child_grid_id)
         edges%end_idx(k,i)   = edges_inner_boundary_end(k,child_grid_id) - 1
+      ENDDO
+      ! from min_rledge to min_rledge_int nullify indexes
+      DO k=min_edge_allocate,inner_edge_boundary_depth-1
+        edges%start_idx(k,i) = no_of_edges+1
+        edges%end_idx(k,i)   = no_of_edges
       ENDDO
 
     ENDDO
@@ -854,29 +876,29 @@ CONTAINS
     no_of_child_verts = child_verts%no_of_existvertices
 
     IF (child_grid%parent_grid_id /= parent_grid_id) &
-      & CALL finish ('getChildPointers', 'childGrid%parentGridID /= parentID')
+      & CALL finish ('get_child_pointers', 'childGrid%parentGridID /= parentID')
 
     !-------------------------------
     ! fill child cells
     ALLOCATE(no_of_children(no_of_parent_cells),stat=i_status)
     IF (i_status > 0) &
-      & CALL finish ('getChildPointers', 'ALLOCATE(noOfChilds(noOfParentCells))')
+      & CALL finish ('get_child_pointers', 'ALLOCATE(noOfChilds(noOfParentCells))')
     no_of_children(:) = 0
     DO child_index=1, no_of_child_cells
       parent_index = child_cells%parent_index(child_index)
       !     WRITE(*,*) "Cell, child,parent=",childIndex,parentIndex
       IF (parent_index < 1 .or. parent_index > no_of_parent_cells) THEN
         WRITE(0,*) 'parent_index:', parent_index, ' > ', no_of_parent_cells
-        CALL finish ('getChildPointers', 'cell parentIndex out of limits')
+        CALL finish ('get_child_pointers', 'cell parentIndex out of limits')
       ENDIF
       no_of_children(parent_index) = no_of_children(parent_index) + 1
       IF (no_of_children(parent_index) > 4) &
-        & CALL finish ('getChildPointers', 'cells: more than 4 children')
+        & CALL finish ('get_child_pointers', 'cells: more than 4 children')
 
       parent_cells%child_index(parent_index, no_of_children(parent_index)) = child_index
       IF (parent_cells%child_id(parent_index) /= 0 &
         & .and. parent_cells%child_id(parent_index) /= child_grid_id) &
-        & CALL finish ('getChildPointers', 'more than 1 child for the same cell')
+        & CALL finish ('get_child_pointers', 'more than 1 child for the same cell')
 
       parent_cells%child_id(parent_index) = child_grid_id
 
@@ -893,7 +915,7 @@ CONTAINS
       parent_index = child_edges%parent_index(child_index)
       parent_type  = child_edges%parent_child_type(child_index)
       IF (parent_index < 1 .or. parent_index > no_of_parent_edges) &
-        & CALL finish ('getChildPointers', 'edge parentIndex out of limits')
+        & CALL finish ('get_child_pointers', 'edge parentIndex out of limits')
       ! get the second index j for the parentEdges%child_index
       IF (parent_is_triangle(parent_type)) THEN
         IF (parent_edges%child_index(parent_index, 3) == 0) THEN
@@ -933,14 +955,14 @@ CONTAINS
 !       ENDIF
       IF (parent_edges%child_id(parent_index) /= 0 .and. &
         & parent_edges%child_id(parent_index) /= child_grid_id) &
-        & CALL finish ('getChildPointers', 'more than 1 child for the same edge')
+        & CALL finish ('get_child_pointers', 'more than 1 child for the same edge')
       parent_edges%child_id(parent_index) = child_grid_id
 
       ! WRITE(*,*) "Edges, child,parent,j,orientation=",parentEdges%child_index(parentIndex, j), &
       !      &     parentIndex,j,orientation
       !     noOfChildren(parentIndex) = noOfChildren(parentIndex) + 1
       !     IF (noOfChildren(parentIndex) > 4) &
-      !        CALL finish ('getChildPointers', 'edges: more than 4 children')
+      !        CALL finish ('get_child_pointers', 'edges: more than 4 children')
 
     ENDDO
     !  DEALLOCATE(noOfChildren)
@@ -953,7 +975,7 @@ CONTAINS
       ! WRITE(*,*) parentID, childID, " vertex childIndex,parentIndex=",childIndex,parentIndex
       IF (parent_index > no_of_parent_verts) THEN
         WRITE(*,*) "childIndex,parentIndex=",child_index,parent_index
-        CALL finish ('getChildPointers', 'vertex parentIndex out of limits')
+        CALL finish ('get_child_pointers', 'vertex parentIndex out of limits')
       ENDIF
       IF (parent_index > 0) THEN ! if parentIndex < 0 then the parent is an edge, not a vertex
         parent_verts%child_id(parent_index) = child_grid_id

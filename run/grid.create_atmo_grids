@@ -7,9 +7,19 @@
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
+# paths of directories
+GRIDDIR=grids
+WRKDIR=${basedir}/$GRIDDIR
+echo $WRKDIR
+if [ ! -d $WRKDIR ]; then
+    mkdir -p $WRKDIR
+fi
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
 if [[ "x$target" = "xsx9" ]] ; then
   echo "Disabled for ${target}. Copying grids from buildbot.grids."
-  cp  ../../../../buildbot.grids/* ${basedir}/grids
+  cp  ../../../../buildbot.grids/* ${WRKDIR}
   check_error 0 "create_nested_grids"
   exit 0
 fi
@@ -17,27 +27,18 @@ fi
 
 #-----------------------------------------------------------------------------
 make_symm_grids="true"
-#-----------------------------------------------------------------------------
-GRIDDIR=grids
-#-----------------------------------------------------------------------------
-parameterFile=create_icon_grid.namelist
+make_patches="true"
+run_commmand="${start} $bindir/grid_command"
 commandFile=command.grid
-command=create_icon_grid
-run_commmand="$bindir/grid_command"
+#-----------------------------------------------------------------------------
 # define the levels to create
 start_level=0
 no_of_levels=4            
 start_optimize=2
 end_optimize=4
 refinement_method=1     # 1=edge bisection, 2=dual centers
-#-----------------------------------------------------------------------------
-# paths of directories
-WRKDIR=${basedir}/$GRIDDIR
-echo $WRKDIR
-if [ ! -d $WRKDIR ]; then
-    mkdir -p $WRKDIR
-fi
 cd $WRKDIR
+#-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 # some clean-up
 # rm iconR2B0?-grid.nc
@@ -99,6 +100,8 @@ centers_local_condition=1.0
 #-----------------------------------------------------------------------------
 create_grids()
 {
+parameterFile=create_icon_grid.namelist
+command=create_icon_grid
 #-----------------------------------------------------------------------------
 # namelist
 cat > $parameterFile << EOF
@@ -155,7 +158,7 @@ EOF
 #-----------------------------------------------------------------------------
 # run grid generator
 echo $command $parameterFile > $commandFile
-${start} ${run_commmand}
+${run_commmand}
 check_error $? "create icon grid"
 }
 #-----------------------------------------------------------------------------
@@ -185,8 +188,143 @@ fi
 #=============================================================================
 
 
+#=============================================================================
+# create_patches section
+create_patches()
+{
+parameterFile=refine_icon_grid.namelist
+command=refine_grid
 #-----------------------------------------------------------------------------
-#
-# exit 0
-#
+# namelist
+#   rectangle_xradious = $rectangle_xradious  ! half diameter of meridional extension in degrees
+#   rectangle_yradious = $rectangle_yradious  ! half diameter of zonal extension in degrees
+cat > $parameterFile << EOF
+&grid_geometry_conditions
+  no_of_conditions   = $no_of_conditions       ! 1: create ocean basin with patch_center and radius; 0: no conditions
+  patch_shape        = $patch_shape            ! 1: rectangle; 2: circle_shape
+  circle_radious     = $circle_radious
+  patch_center_x     = $patch_center_x       ! longitude of center
+  patch_center_y     = $patch_center_y       ! latitude  of center
+/
+&local_grid_refine
+  input_file = "$input_file"
+  output_file = "$output_file"
+/
+&grid_optimization
+  use_optimization              = .false.
+/
+EOF
 #-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+echo $command $parameterFile > $commandFile
+${run_commmand}
+check_error $? "create icon grids"
+}
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+create_hierarchy()
+{
+parameterFile=hierarchy_icon_grid.namelist
+command=create_patch_hierarchy
+#-----------------------------------------------------------------------------
+# namelist
+cat > $parameterFile << EOF
+&local_patch_creation
+  total_no_of_patches = $no_of_patches
+  in_grid_file_names  = $hierInNameList
+  out_grid_file_names = $hierOutNameList
+  grid_ids = $hierIDList
+  parent_ids = $hierParentList
+  bdy_indexing_depth = 14
+/
+EOF
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+echo $command $parameterFile > $commandFile
+${run_commmand}
+check_error $? "create icon patch hierarchy"
+}
+#-----------------------------------------------------------------------------
+
+
+#=============================================================================
+if [ "x$make_patches" == "xtrue" ] ; then
+
+  cp iconR2B03-grid_spr0.90.nc iconR2B03_DOM00.nc
+  cp iconR2B04-grid_spr0.90.nc iconR2B04_DOM01.nc
+  startRefine=1
+
+  no_of_patches=4
+  patchNameList=(  iconR2B03_DOM00.nc iconR2B04_DOM01.nc iconR2B05_DOM02.nc iconR2B06_DOM03.nc)
+  circleRadiousList=(   "none"            "none"                 35.0               18.0)
+  patchIDList=(         1                   2                    3                   4  )
+  patchParentIDList=(   0                   1                    2                   3)
+
+  no_of_patches=3
+  patchNameList=(  iconR2B03_DOM00.nc iconR2B04_DOM01.nc iconR2B05_DOM02.nc)
+  circleRadiousList=(   none                none                 30.0 )
+  patchIDList=(         1                   2                    3  )
+  patchParentIDList=(   0                   1                    2  )
+
+
+  patch_shape=2
+  patch_center_x=-90.0
+  patch_center_y=40.0
+
+  # create patches
+  i=$startRefine; j=$((startRefine+1));
+  while [ $j -lt ${no_of_patches} ]
+  do
+    input_file="${patchNameList[$i]}"
+    output_file="${patchNameList[$j]}"
+    circle_radious=${circleRadiousList[$j]}
+    no_of_conditions=1
+    if [ $circle_radious =  "none" ] ; then
+      no_of_conditions=0
+      circle_radious=0
+    fi
+    echo $circle_radious $no_of_conditions $circle_radious
+    create_patches
+    i=$((i+1));
+    j=$((j+1));
+  done
+
+  # create hierarchy
+  hierInNameList=""
+  hierOutNameList=""
+  hierIDList=""
+  hierParentList=""
+  i=$((no_of_patches-1));
+  while [ $i -ge 0 ]
+  do
+    hierInNameList="'${patchNameList[$i]}', $hierInNameList"
+    hierOutNameList="'${patchNameList[$i]}', $hierOutNameList"
+    hierIDList="${patchIDList[$i]}, $hierIDList"
+    hierParentList="${patchParentIDList[$i]}, $hierParentList"
+    i=$((i-1));
+  done
+  echo $hierInNameList
+  echo $hierOutNameList
+  echo $hierIDList
+  echo $hierParentList
+  create_hierarchy
+
+  # recreate ids to start from 0 instead of 1
+  parameterFile=null
+  commandFile=command.grid
+  command=shift_grid_ids
+  i=0;
+  while [ $i -lt ${no_of_patches} ]
+  do
+    echo "$command ${patchNameList[$i]} -1" > $commandFile
+    cat $commandFile
+    ${run_commmand}
+    check_error $? "change_grid_ids"
+    i=$((i+1));
+  done
+
+fi
+#=============================================================================

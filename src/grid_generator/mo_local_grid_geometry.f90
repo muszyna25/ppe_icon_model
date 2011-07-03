@@ -317,7 +317,7 @@ CONTAINS
     !------------------------------------------
     
     
-    CALL order_cell_connectivity(in_grid_id)
+     CALL order_cell_connectivity(in_grid_id)
     
     !------------------------------------------
     ! compute verts%dual_area
@@ -327,7 +327,7 @@ CONTAINS
       DO i=1,verts%max_connectivity
         edge_index = verts%get_edge_index(vertex_index,i)
         IF (edge_index > 0) THEN
-          ! add the dual area corresponding to the dge
+          ! add the dual area corresponding to the edge
           cell_1 = edges%get_cell_index(edge_index,1)
           cell_2 = edges%get_cell_index(edge_index,2)
           !------------------------------------------
@@ -496,6 +496,7 @@ CONTAINS
 
       ! store the first edge, vert,neigbor
 !      write(0,*) 'store the first edge, vert,neigbor=', edge_1,vertex_1
+      
       cell_edges(1) = edge_1
       cell_orientation(1) = cells%get_edge_orient(cell_no,1)
       cell_verts(1) = vertex_1
@@ -592,7 +593,7 @@ CONTAINS
           vert_idx = vert_idx + 1
         ENDDO
         edge_1 = cells%get_edge_index(cell_no,vert_idx)
-        IF (MAXVAL(edges%get_cell_index(edge_1,:)) == 0) THEN
+        IF (MINVAL(edges%get_cell_index(edge_1,:)) == 0) THEN
           ! add this cell to the first_cell list
           no_of_first_cells = no_of_first_cells + 1
           first_cell(no_of_first_cells) = cell_no
