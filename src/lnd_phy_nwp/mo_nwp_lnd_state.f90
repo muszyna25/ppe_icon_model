@@ -1,3 +1,6 @@
+#if (defined (__GNUC__) || defined(__SUNPRO_F95) || defined(__SX__))
+#define HAVE_F95
+#endif
 !>
 !!  !MODULE:  mo_nwp_phy_state\\
 !!
@@ -98,6 +101,9 @@ MODULE mo_nwp_lnd_state
   PUBLIC :: t_lnd_diag   !!       for diagnostic variables
   PUBLIC :: t_tiles
 
+#ifdef HAVE_F95
+  PUBLIC :: t_ptr_lnd
+#endif
 
   TYPE t_ptr_lnd
     REAL(wp),POINTER :: p_3d(:,:,:) ! pointer to 3D (spatial) array

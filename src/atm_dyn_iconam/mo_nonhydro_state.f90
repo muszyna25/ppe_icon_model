@@ -1,3 +1,6 @@
+#if (defined (__GNUC__) || defined(__SUNPRO_F95) || defined(__SX__))
+#define HAVE_F95
+#endif
 !>
 !! Defines, constructs and destructs the state vector of the nonhydrostatic.
 !!
@@ -83,7 +86,10 @@ MODULE mo_nonhydro_state
   PUBLIC :: destruct_nh_state     ! Destructor for the nonhydrostatic state
 
   PUBLIC :: t_buffer_memory, bufr
+
+#ifdef HAVE_F95
   PUBLIC :: t_ptr_nh
+#endif
 
   !>
   !! Derived data type for building pointer arrays

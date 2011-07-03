@@ -1,3 +1,6 @@
+#if (defined (__GNUC__) || defined(__SUNPRO_F95) || defined(__SX__))
+#define HAVE_F95
+#endif
 !>
 !! Type definition for the dynamical core of ICOHAM.
 !!
@@ -39,7 +42,10 @@ MODULE mo_icoham_dyn_types
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: t_hydro_atm_prog, t_hydro_atm_diag, t_hydro_atm
+
+#ifdef HAVE_F95
   PUBLIC :: t_ptr3d
+#endif
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 

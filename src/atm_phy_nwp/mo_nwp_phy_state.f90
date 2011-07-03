@@ -1,3 +1,6 @@
+#if (defined (__GNUC__) || defined(__SUNPRO_F95) || defined(__SX__))
+#define HAVE_F95
+#endif
 MODULE mo_nwp_phy_state
 !>
 !!  !MODULE:  mo_nwp_phy_state\\
@@ -96,7 +99,9 @@ PUBLIC :: t_nwp_phy_diag, t_nwp_phy_tend
 PUBLIC :: prm_diag, prm_nwp_tend
 PUBLIC :: mean_charlen
 PUBLIC :: prm_nwp_diag_list, prm_nwp_tend_list  !< variable lists
+#ifdef HAVE_F95
 PUBLIC :: t_ptr_phy
+#endif
 !
 !!data structure defining model states
 !

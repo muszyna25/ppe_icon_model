@@ -1,3 +1,6 @@
+#if (defined (__GNUC__) || defined(__SUNPRO_F95) || defined(__SX__))
+#define HAVE_F95
+#endif
 !>
 !! Data types and variables used by the ECHAM6 physics package implemented
 !! in the ICOHAM model.
@@ -78,7 +81,10 @@ MODULE mo_echam_phy_memory
   PUBLIC :: construct_echam_phy_state                   !< subroutine
   PUBLIC :: destruct_echam_phy_state                    !< subroutines
   PUBLIC :: t_echam_phy_field, t_echam_phy_tend         !< derived types
+
+#ifdef HAVE_F95
   PUBLIC :: t_ptr2d, t_ptr3d
+#endif
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
   CHARACTER(len=*), PARAMETER :: thismodule = 'mo_echam_phy_memory'

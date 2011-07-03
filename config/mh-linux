@@ -301,7 +301,7 @@ case "$ac_sitename" in
 		    nag)
 			MPIROOT  = /sw/etch-ia32/mpich2-1.2.1-nag52
 			MPI_LIB  = -lmpichf90 -lmpich -lpthread -lrt
-			load_modules="GCC/4.3.3" "NAG/5.2.668" "${load_modules}"
+			load_modules="GCC/4.3.3" "NAG/5.2.721" "${load_modules}"
 			;;
 		    pgi)
 			MPIROOT  = /sw/etch-ia32/mpich2-1.2.1-pgi9
