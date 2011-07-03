@@ -690,7 +690,8 @@ class Ifs2Icon
     Dbg.msg("Compining files into output file '#{intermediateFile}'",@options[:verbose], @options[:debug])
     Dbg.msg(@outvars.keys.join(" "),@options[:verbose], @options[:debug])
     Cdo.merge(:in => @outvars.values.join(" "),:out => intermediateFile)
-    if @options[:model_type] == 'hydrostatic'
+    case @options[:model_type] 
+    when 'hydrostatic'
       # perform vertical interpolation wrt. original surface pressure and orography
       Cdo.remapeta(@options[:vctfile],@options[:orofile],:in => intermediateFile,:out => hybridlayerfile)
       unless @options[:zlevels].nil?
@@ -700,9 +701,15 @@ class Ifs2Icon
       else
         @_preout = hybridlayerfile
       end
-    else
+    when 'nonhydrostatic'
       #perform interpolation of 3D height field
       warn "Vertical interpolation onto a 3D vertical coordinate is not implemented, yet!"
+      warn "Create intermediate output file"
+      Cdo.copy(:in => intermediateFile,:out => 'intermediate_nonhydrostatic.nc')
+      warn "Abort #{__FILE__}!"
+      exit
+    else
+      warn "'#{@options[:model_type]}' is an invalid model type!"
       warn "Abort #{__FILE__}!"
       exit
     end

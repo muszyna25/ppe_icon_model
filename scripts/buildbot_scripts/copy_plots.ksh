@@ -14,7 +14,9 @@ REV=$1
 SLAVE=$2
 BUILDER=$3
 BUILDER_NR=$4
-DATE=`date '+%Y-%m-%d'`
+#DATE=`date '+%Y-%m-%d'`
+W_DIR=$5
+DATE=$6
 PUPDATE=`date '+%d.%m %H:%M'`
 
 

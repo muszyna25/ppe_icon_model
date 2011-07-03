@@ -985,8 +985,6 @@ src/coupler/psmile_init_datatypes.f90 -text
 src/coupler/psmile_redirstdout.c -text
 src/diagnostics/mo_err_norm.f90 -text
 src/diagnostics/mo_tropopause.f90 -text
-src/diagnostics/postpro.f90 -text
-src/diagnostics/postpro_gen.f90 -text
 src/drivers/control_model.f90 -text
 src/drivers/mo_atmo_model.f90 -text
 src/drivers/mo_master_control.f90 -text
@@ -1146,12 +1144,6 @@ src/shr_horizontal/mo_model_domimp_patches.f90 -text
 src/shr_horizontal/mo_model_domimp_setup.f90 -text
 src/shr_horizontal/mo_nonlinear_adv.f90 -text
 src/shr_horizontal/mo_ocean_topo.f90 -text
-src/stswm_interp/npr_bicubics.f90 -text
-src/stswm_interp/npr_bicubicsw.f90 -text
-src/stswm_interp/npr_getindex.f90 -text
-src/stswm_interp/npr_lcbas.f90 -text
-src/stswm_interp/sinterp.f90 -text
-src/stswm_interp/sinterpw.f90 -text
 src/templates/README -text
 src/templates/template_function.f90 -text
 src/templates/template_main.f90 -text
