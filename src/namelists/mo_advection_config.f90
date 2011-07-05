@@ -69,7 +69,7 @@ MODULE mo_advection_config
   END TYPE t_cleanup 
 
   !!--------------------------------------------------------------------------
-  !! Basic configuration setup for atm dynamics
+  !! Basic configuration setup for tracer advection
   !!--------------------------------------------------------------------------
   TYPE :: t_advection_config
 
