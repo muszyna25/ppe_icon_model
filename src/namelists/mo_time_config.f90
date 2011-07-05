@@ -48,7 +48,6 @@ MODULE mo_time_config
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: time_config       !< variable
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -64,8 +63,6 @@ MODULE mo_time_config
     TYPE(t_datetime) :: cur_datetime  !< Current  time model time 
 
     REAL(wp) :: dt_restart    !< Length of restart cycle in seconds
-    REAL(wp) :: dtime         !< Time step in seconds
-    INTEGER  :: nsteps        !< Total number of integration steps
 
   END TYPE t_time_config 
 

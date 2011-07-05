@@ -39,8 +39,11 @@
 !!
 MODULE mo_run_config
 
+  USE mo_kind, ONLY: wp
+
   IMPLICIT NONE
   PUBLIC
+  PRIVATE :: t_run_config, run_config
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -114,7 +117,7 @@ CONTAINS
   END FUNCTION get_iforcing
   !---------------------------------------
   !>
-  INTEGER FUNCTION get_dtime()
+  REAL(wp) FUNCTION get_dtime()
     get_dtime = run_config%dtime 
   END FUNCTION get_dtime
   !---------------------------------------
