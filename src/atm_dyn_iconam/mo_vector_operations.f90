@@ -55,7 +55,7 @@ MODULE mo_vector_operations
                                  sync_patch_array, sync_patch_array_mult
   USE mo_exception,        ONLY: finish
   USE mo_timer,            ONLY: timer_start, timer_stop, timer_corio
-  USE mo_parallel_nml,     ONLY: p_test_run
+  USE mo_parallel_configuration,     ONLY: p_test_run
 
 
   IMPLICIT NONE

@@ -79,7 +79,7 @@ USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, &
                                   grf_fbk_start_c, grf_fbk_start_e,        &
                                   grf_bdywidth_c, grf_bdywidth_e
 USE mo_mpi,                 ONLY: p_pe, p_nprocs
-USE mo_parallel_nml,        ONLY: p_test_pe, p_test_run
+USE mo_parallel_configuration,        ONLY: p_test_pe, p_test_run
 USE mo_subdivision,         ONLY: p_patch_local_parent,  &
                                   p_grf_state_local_parent
 

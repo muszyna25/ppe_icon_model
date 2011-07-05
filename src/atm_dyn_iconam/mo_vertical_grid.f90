@@ -70,7 +70,7 @@ MODULE mo_vertical_grid
   USE mo_nonhydro_state,      ONLY: t_nh_state
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
                                     sync_patch_array_mult, global_min, global_max
-  USE mo_parallel_nml,        ONLY: p_test_run
+  USE mo_parallel_configuration,  ONLY: p_test_run
 
   IMPLICIT NONE
 

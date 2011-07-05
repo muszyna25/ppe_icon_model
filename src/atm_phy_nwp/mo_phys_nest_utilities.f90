@@ -52,7 +52,7 @@ USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int
 USE mo_loopindices,         ONLY: get_indices_c
 USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_ovlparea_start_c, grf_fbk_start_c
 USE mo_mpi,                 ONLY: p_pe, p_nprocs
-USE mo_parallel_nml,        ONLY: p_test_pe, p_test_run
+USE mo_parallel_configuration,        ONLY: p_test_pe, p_test_run
 USE mo_communication,       ONLY: exchange_data, exchange_data_mult
 USE mo_sync,                ONLY: SYNC_C, sync_patch_array
 USE mo_subdivision,         ONLY: p_patch_local_parent, p_int_state_local_parent, &

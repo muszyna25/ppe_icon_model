@@ -53,7 +53,7 @@ MODULE mo_nh_dtp_interface
   USE mo_impl_constants,     ONLY: min_rledge_int, min_rlcell_int, min_rlcell, &
     &                              min_rledge
   USE mo_sync,               ONLY: SYNC_C, sync_patch_array
-  USE mo_parallel_nml,       ONLY: p_test_run
+  USE mo_parallel_configuration,       ONLY: p_test_run
   USE mo_advection_nml,      ONLY: itype_hlimit, iord_backtraj
 
   IMPLICIT NONE

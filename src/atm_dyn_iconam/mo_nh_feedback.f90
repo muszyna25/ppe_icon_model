@@ -55,7 +55,7 @@ USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
 USE mo_impl_constants_grf,  ONLY: grf_fbk_start_c, grf_fbk_start_e,          &
                                   grf_bdywidth_c
 USE mo_mpi,                 ONLY: p_pe, p_nprocs
-USE mo_parallel_nml,        ONLY: p_test_pe
+USE mo_parallel_configuration,        ONLY: p_test_pe
 USE mo_communication,       ONLY: exchange_data, exchange_data_mult
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, &
                                   global_sum_array3, sync_patch_array_mult

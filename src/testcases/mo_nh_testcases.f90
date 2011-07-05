@@ -81,7 +81,7 @@ MODULE mo_nh_testcases
   USE mo_nh_hs_test,           ONLY: init_nh_state_prog_held_suarez
   USE mo_nh_ape_exp,           ONLY: init_nh_state_prog_APE
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
-  USE mo_parallel_nml,         ONLY: p_test_run
+  USE mo_parallel_configuration, ONLY: p_test_run
   USE mo_sync,                 ONLY: SYNC_E, sync_patch_array
   USE mo_satad,                ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                                sat_pres_ice!,  &  !! saturation vapor pressure w.r.t. ice

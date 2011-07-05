@@ -59,7 +59,7 @@ MODULE mo_ha_diag_util
                                    auxhyb, geopot
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_sync,               ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array
-  USE mo_parallel_nml,       ONLY: p_test_run
+  USE mo_parallel_configuration,       ONLY: p_test_run
   USE mo_vertical_coord_table, ONLY: delpr, nplev, nplvp1
 
   IMPLICIT NONE

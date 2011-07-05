@@ -57,7 +57,7 @@ MODULE mo_nh_diffusion
   USE mo_math_operators,      ONLY: nabla4_vec
   USE mo_math_constants,      ONLY: dbl_eps, pi
   USE mo_grf_interpolation,   ONLY: denom_diffu_v
-  USE mo_parallel_nml,        ONLY: p_test_run, itype_comm
+  USE mo_parallel_configuration, ONLY: p_test_run, itype_comm
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
                                     sync_patch_array_mult, sync_patch_array_gm
   USE mo_physical_constants,  ONLY: cvd_o_rd, cpd, re

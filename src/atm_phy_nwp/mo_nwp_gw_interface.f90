@@ -42,7 +42,7 @@ MODULE mo_nwp_gw_interface
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: message, message_text, finish
   USE mo_mpi,                  ONLY: p_pe, p_nprocs
-  USE mo_parallel_nml,         ONLY: p_test_pe, p_test_run
+  USE mo_parallel_configuration,  ONLY: p_test_pe, p_test_run
 
   USE mo_model_domain,         ONLY: t_patch
 

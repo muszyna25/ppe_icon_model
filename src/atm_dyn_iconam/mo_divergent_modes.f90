@@ -69,7 +69,7 @@ MODULE mo_divergent_modes
   USE mo_vertical_grid,       ONLY: nflat
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
   &                                 sync_patch_array_mult
-  USE mo_parallel_nml,        ONLY: p_test_run
+  USE mo_parallel_configuration,  ONLY: p_test_run
 
   IMPLICIT NONE
 

@@ -56,7 +56,7 @@ MODULE mo_nwp_rad_interface
   USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag !,prm_diag
   USE mo_o3_util,              ONLY: calc_o3_clim
-  USE mo_parallel_nml,         ONLY: p_test_pe, p_test_run
+  USE mo_parallel_configuration,         ONLY: p_test_pe, p_test_run
   USE mo_physical_constants,   ONLY: amd, amo3
   USE mo_radiation,            ONLY: radiation, pre_radiation_nwp_steps
   USE mo_radiation_nml,        ONLY: irad_o3, irad_aero, vmr_co2
@@ -67,7 +67,7 @@ MODULE mo_nwp_rad_interface
 !   USE mo_sync,                 ONLY: SYNC_C, sync_patch_array_mult
 
 #ifdef __OMP_RADIATION__  
-  USE mo_parallel_nml,        ONLY: radiation_threads
+  USE mo_parallel_configuration,        ONLY: radiation_threads
   USE mo_timer,               ONLY: timer_omp_radiation, timer_omp_model, timer_start, timer_stop
 #endif
 

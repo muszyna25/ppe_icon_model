@@ -50,6 +50,7 @@ MODULE mo_parallel_nml
 #endif
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
+  USE mo_parallel_configuration, ONLY: div_from_file, div_geometric, div_metis
 
   IMPLICIT NONE
 
@@ -63,12 +64,6 @@ MODULE mo_parallel_nml
 
   ! Number of rows of ghost cells
   INTEGER :: n_ghost_rows = 1
-
-
-  ! Division method for area subdivision
-  INTEGER, PARAMETER :: div_from_file = 0  ! Read from file
-  INTEGER, PARAMETER :: div_geometric = 1  ! Geometric subdivision
-  INTEGER, PARAMETER :: div_metis     = 2  ! Use Metis
 
   INTEGER :: division_method = div_geometric
 

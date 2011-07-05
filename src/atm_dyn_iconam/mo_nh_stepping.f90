@@ -110,7 +110,7 @@ MODULE mo_nh_stepping
   USE mo_nh_dtp_interface,    ONLY: prepare_tracer
   USE mo_nh_diffusion,        ONLY: diffusion_tria, diffusion_hex
   USE mo_mpi,                 ONLY: p_pe, p_io, p_nprocs
-  USE mo_parallel_nml,        ONLY: p_test_pe, itype_comm
+  USE mo_parallel_configuration,        ONLY: p_test_pe, itype_comm
   USE mo_sync,                ONLY: global_sum_array, sync_patch_array_mult, &
                                     push_glob_comm, pop_glob_comm, global_max, &
                                     SYNC_C, SYNC_E, sync_patch_array
@@ -128,7 +128,7 @@ MODULE mo_nh_stepping
   USE mo_nwp_rad_interface,   ONLY: nwp_start_omp_radiation_thread, model_end_thread, &
     & radiation_thread_status, model_thread_status, thread_busy
  
-  USE mo_parallel_nml,        ONLY: nh_stepping_threads
+  USE mo_parallel_configuration,        ONLY: nh_stepping_threads
 #endif
   
   IMPLICIT NONE

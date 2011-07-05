@@ -59,7 +59,7 @@ MODULE mo_solve_nonhydro
   USE mo_advection_hflux,   ONLY: upwind_hflux_miura, upwind_hflux_miura3
   USE mo_sync,              ONLY: SYNC_E, SYNC_C, sync_patch_array, sync_patch_array_mult, &
                                   sync_patch_array_gm
-  USE mo_parallel_nml,      ONLY: p_test_run, itype_comm
+  USE mo_parallel_configuration,  ONLY: p_test_run, itype_comm
   USE mo_mpi,               ONLY: p_nprocs
   USE mo_timer,             ONLY: timer_solve_nh, timer_start, timer_stop
 
