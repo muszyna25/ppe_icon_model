@@ -171,4 +171,9 @@ MODULE mo_physical_constants
   REAL(wp), PARAMETER ::  uc1  = 0.8_wp
   REAL(wp), PARAMETER ::  ucl  = 1.00_wp
 
+
+  !> vertical profile parameters (vpp) of CH4 and N2O
+  REAL(wp), PARAMETER :: vpp_ch4(3) = (/1.25e-01_wp,  683.0_wp, -1.43_wp/)
+  REAL(wp), PARAMETER :: vpp_n2o(3) = (/1.20e-02_wp, 1395.0_wp, -1.43_wp/)
+
 END MODULE mo_physical_constants

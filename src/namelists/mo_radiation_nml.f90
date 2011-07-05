@@ -130,13 +130,8 @@ MODULE mo_radiation_nml
     &                      irad_aero,             &
     &                      dt_rad, izenith
 
-  ! 2.0 Non NAMELIST global variables and parameters
-  ! --------------------------------
-  !
-  ! vertical profile parameters (vpp) of CH4 and N2O
-  REAL(wp), PARAMETER :: vpp_ch4(3) = (/1.25e-01_wp,  683.0_wp, -1.43_wp/)
-  REAL(wp), PARAMETER :: vpp_n2o(3) = (/1.20e-02_wp, 1395.0_wp, -1.43_wp/)
-  !
+  ! 2.0 Non NAMELIST global variables
+  ! ---------------------------------
   !
   ! --- solar ativity
   !

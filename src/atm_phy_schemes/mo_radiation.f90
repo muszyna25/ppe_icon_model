@@ -65,20 +65,21 @@ MODULE mo_radiation
   USE mo_math_constants,       ONLY: pi
   USE mo_physical_constants,   ONLY: grav,  rd,    avo,   amd,  amw,  &
     &                                amco2, amch4, amn2o, amo3, amo2, &
-    &                                stbo,  rcpd,  vtmpc2
+    &                                stbo,  rcpd,  vtmpc2, vpp_ch4,   &
+    &                                vpp_n2o
 
   USE mo_datetime,             ONLY: rdaylen
 
-  USE mo_radiation_nml,        ONLY: tsi,        ssi,                 &
-    &                                irad_co2,   mmr_co2,             &
-    &                                irad_ch4,   mmr_ch4, vpp_ch4,    &
-    &                                irad_n2o,   mmr_n2o, vpp_n2o,    &
-    &                                irad_o3,                         &
-    &                                irad_o2,    mmr_o2,              &
-    &                                irad_cfc11, vmr_cfc11,           &
-    &                                irad_cfc12, vmr_cfc12,           &
-!!$    &                                irad_aero,                       &
-    &                                dt_rad,                          &
+  USE mo_radiation_nml,        ONLY: tsi,        ssi,         &
+    &                                irad_co2,   mmr_co2,     &
+    &                                irad_ch4,   mmr_ch4,     &
+    &                                irad_n2o,   mmr_n2o,     &
+    &                                irad_o3,                 &
+    &                                irad_o2,    mmr_o2,      &
+    &                                irad_cfc11, vmr_cfc11,   &
+    &                                irad_cfc12, vmr_cfc12,   &
+!!$    &                                irad_aero,               &
+    &                                dt_rad,                  &
     &                                izenith
 
 !!$  USE mo_greenhouse_gases,     ONLY: ghg_co2mmr, ghg_mmr_ch4, ghg_n2ommr, ghg_cfcvmr
