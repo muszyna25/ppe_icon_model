@@ -51,8 +51,13 @@ MODULE mo_run_config
 
     LOGICAL :: ltestcase       !> Run idealized test case
     LOGICAL :: ldynamics       !> Switch on model dynamics
+
     LOGICAL :: ltransport      !> Switch on tracer transport
+    INTEGER :: ntracer         !> Total number of advected tracers
+    INTEGER :: ntracer_static  !> Total number of non-advected tracers
+
     INTEGER :: iforcing        !> Choice of diabatic forcing
+
     LOGICAL :: ldump_states    !> Compute interpolation coefficients and stop.
     LOGICAL :: lrestore_states !> Read interpolation coefficients from external file.
     
@@ -80,6 +85,16 @@ CONTAINS
   LOGICAL FUNCTION get_ltransport()
     get_ltransport = run_config%ltransport 
   END FUNCTION get_ltransport
+  !---------------------------------------
+  !>
+  INTEGER FUNCTION get_ntracer()
+    get_ntracer = run_config%ntracer 
+  END FUNCTION get_ntracer
+  !---------------------------------------
+  !>
+  INTEGER FUNCTION get_ntracer_static()
+    get_ntracer_static = run_config%ntracer_static
+  END FUNCTION get_ntracer_static
   !---------------------------------------
   !>
   INTEGER FUNCTION get_iforcing()
