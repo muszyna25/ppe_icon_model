@@ -91,9 +91,9 @@ MODULE mo_io_config
     LOGICAL :: l_diagtime           ! if .true., diagnostic output is computed and written
                                     ! at the end of the time step.               
                                                                                  
-    LOGICAL, ALLOCATABLE :: lprepare_output ! if .true., save the prognostic  
-                                            ! variables to p_prog_out and     
-                                            ! update p_diag_out.
+    LOGICAL, ALLOCATABLE :: lprepare_output(:) ! if .true., save the prognostic  
+                                               ! variables to p_prog_out and     
+                                               ! update p_diag_out.
   END TYPE t_io_config
   !>
   !!
