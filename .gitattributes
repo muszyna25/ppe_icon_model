@@ -1052,6 +1052,7 @@ src/namelists/mo_run_config.f90 -text
 src/namelists/mo_run_nml.f90 -text
 src/namelists/mo_sleve_nml.f90 -text
 src/namelists/mo_time_config.f90 -text
+src/namelists/mo_time_nml.f90 -text
 src/oce_dyn_icohom/mo_hydro_ocean_run.f90 -text
 src/oce_dyn_icohom/mo_oce_ab_timestepping.f90 -text
 src/oce_dyn_icohom/mo_oce_ab_timestepping_mimetic.f90 -text
