@@ -48,7 +48,7 @@ MODULE mo_oce_ab_timestepping_mimetic
 ! 
 USE mo_kind,                      ONLY: wp
 !USE mo_mpi,                       ONLY: p_pe, p_io
-USE mo_run_nml,                   ONLY: nproma
+USE mo_parallel_configuration,  ONLY: nproma
 USE mo_math_utilities,            ONLY: t_cartesian_coordinates!, gc2cc
 USE mo_impl_constants,            ONLY: sea_boundary,                                     &
   &                                     min_rlcell, min_rledge, min_rlcell,               &

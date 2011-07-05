@@ -51,7 +51,7 @@ MODULE mo_oce_state
 !
 !
   USE mo_kind,                ONLY: wp
-  USE mo_run_nml,             ONLY: nproma
+  USE mo_parallel_configuration,  ONLY: nproma
   USE mo_impl_constants,      ONLY: success, max_char_length, min_rledge, min_rlcell, boundary, sea
   USE mo_ocean_nml,           ONLY: n_zlev, ntrac_oce, t_ref, s_ref
   USE mo_exception,           ONLY: message, finish

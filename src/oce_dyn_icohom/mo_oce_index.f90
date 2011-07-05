@@ -39,7 +39,8 @@ MODULE mo_oce_index
 USE mo_kind,                   ONLY: wp
 USE mo_mpi,                    ONLY: p_pe, p_io
 USE mo_io_units,               ONLY: nerr
-USE mo_run_nml,                ONLY: nproma, nsteps
+USE mo_parallel_configuration,  ONLY: nproma
+USE mo_run_nml,                ONLY: nsteps
 USE mo_ocean_nml,              ONLY: n_zlev, i_dbg_oce, i_dbg_inx, str_proc_tst, &
   &                                  i_oct_blk, i_oct_idx, i_oct_ilv, rlon_in, rlat_in
 ! &                                  i_ocv_blk, i_ocv_idx, i_ocv_ilv, t_val,  &

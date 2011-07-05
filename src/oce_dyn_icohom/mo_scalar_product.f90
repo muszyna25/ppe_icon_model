@@ -48,7 +48,7 @@ MODULE mo_scalar_product
 USE mo_kind,               ONLY: wp
 !USE mo_mpi,                ONLY: p_pe, p_io
 !USE mo_io_units,           ONLY: filename_max
-USE mo_run_nml,            ONLY: nproma
+USE mo_parallel_configuration,  ONLY: nproma
 USE mo_physical_constants, ONLY : re
 USE mo_impl_constants,     ONLY: sea_boundary, sea,&!max_char_length, &
 !  &                             land, land_boundary, boundary, sea,  &

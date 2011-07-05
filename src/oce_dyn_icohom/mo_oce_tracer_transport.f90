@@ -51,7 +51,7 @@ USE mo_impl_constants,            ONLY: sea_boundary, sea,&
 USE mo_ocean_nml,                 ONLY: n_zlev, toplev, no_tracer, idisc_scheme,    &
                                     &   ab_const, ab_gam, expl_vertical_tracer_diff,&
                                     &   iswm_oce
-USE mo_run_nml,                   ONLY: nproma
+USE mo_parallel_configuration,  ONLY: nproma
 USE mo_dynamics_nml,              ONLY: nold,nnew
 USE mo_run_nml,                   ONLY: dtime
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state!, t_hydro_ocean_diag
