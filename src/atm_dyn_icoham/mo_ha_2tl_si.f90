@@ -40,7 +40,8 @@ MODULE mo_ha_2tl_si
   USE mo_ext_data,            ONLY: t_external_data
   USE mo_physical_constants,  ONLY: rd, rcpd
   USE mo_dynamics_nml,        ONLY: si_rtol, si_2tls, si_expl_scheme
-  USE mo_run_nml,             ONLY: nlev, nlevp1, nproma, lshallow_water,ltheta_dyn
+  USE mo_parallel_configuration, ONLY: nproma
+  USE mo_run_nml,             ONLY: nlev, nlevp1, lshallow_water,ltheta_dyn
   USE mo_interpolation,       ONLY: t_int_state, cells2edges_scalar
   USE mo_math_operators,      ONLY: grad_fd_norm
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
