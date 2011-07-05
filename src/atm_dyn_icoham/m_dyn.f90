@@ -73,7 +73,8 @@ MODULE m_dyn
   USE mo_math_operators,     ONLY: grad_fd_norm, div, div_avg
   USE mo_dynamics_nml,       ONLY: idiv_method,lref_temp
   USE mo_io_nml,             ONLY: l_outputtime, lwrite_omega
-  USE mo_run_nml,            ONLY: nproma,nlev, nlevp1,iqv,                &
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,            ONLY: nlev, nlevp1,iqv,                &
                                    iforcing, iecham,ildf_echam, inwp,      &
                                    iqc, iqi, iqr, iqs
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag

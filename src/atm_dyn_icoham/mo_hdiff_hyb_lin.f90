@@ -50,7 +50,8 @@ MODULE mo_hdiff_hyb_lin
   USE mo_model_domain,      ONLY: t_patch
   USE mo_interpolation,     ONLY: t_int_state
   USE mo_icoham_dyn_types,  ONLY: t_hydro_atm_prog, t_hydro_atm_diag
-  USE mo_run_nml,           ONLY: nlev, nproma, i_cell_type, ltheta_dyn
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,           ONLY: nlev, i_cell_type, ltheta_dyn
   USE mo_impl_constants,    ONLY: min_rlcell, min_rledge
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e

@@ -71,8 +71,9 @@ MODULE mo_hierarchy_management
     &                               nold, nnow, nnew, nsav1, nsav2
   USE mo_diffusion_nml,       ONLY: hdiff_order
   USE mo_io_nml,              ONLY: lprepare_output
+  USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,             ONLY: lhydrostatic, ldynamics, ltransport, &
-    &                               nproma, nlev, nlevp1, ntracer,       &
+    &                               nlev, nlevp1, ntracer,       &
     &                               lshallow_water,ltheta_dyn, iforcing, &
     &                               iheldsuarez, iecham, ildf_echam,     & 
     &                               ildf_dry, lforcing 
