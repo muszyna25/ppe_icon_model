@@ -55,7 +55,6 @@ MODULE mo_atm_dyn_config
   PRIVATE :: t_ha_dyn_config
   PRIVATE :: t_nh_dyn_config
   PRIVATE :: t_sleve_config
-  PRIVATE :: t_hdiff_config
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -168,59 +167,6 @@ MODULE mo_atm_dyn_config
   END TYPE t_sleve_config
   !>
   !!--------------------------------------------------------------------------
-  !!                           Horizontal Diffusion
-  !!--------------------------------------------------------------------------
-  TYPE :: t_hdiff_config
-
-    LOGICAL :: lhdiff_temp  ! if .TRUE., apply horizontal diffusion to thermodynamic variable.
-    LOGICAL :: lhdiff_vn    ! if .TRUE., apply horizontal diffusion to momentum.
-
-    INTEGER :: hdiff_order  ! order of horizontal diffusion
-                            ! 2: 2nd order linear diffusion on all vertical levels 
-                            ! 3: Smagorinsky diffusion for hexagonal model
-                            ! 4: 4th order linear diffusion on all vertical levels 
-                            ! 5: Smagorinsky diffusion for triangular model
-                            ! 24 or 42: 2nd order linear diffusion for upper levels,
-                            !           4th order for lower levels
-  
-    REAL(wp) :: k2_pres_max  ! (relevant only when hdiff_order = 24 or 42)
-                             ! pressure (in Pa) specified by the user
-                             ! to determine the lowest vertical level 
-                             ! to which 2nd order linear diffusion is applied.
-                             ! For the levels with pressure > k2_pres_max, 
-                             ! 4th order linear diffusion is applied. 
-  
-    INTEGER :: k2_klev_max  ! (relevant only when hdiff_order = 24 or 42)
-                            ! vertical level index specified by the user
-                            ! to determine the lowest vertical level 
-                            ! to which 2nd order linear diffusion is applied.
-                            ! For the levels with k > k2_klev_max, 
-                            ! 4th order linear diffusion is applied. 
-
-    REAL(wp) ::               &
-      & hdiff_efdt_ratio,     &! ratio of e-folding time to (2*)time step
-      & hdiff_min_efdt_ratio, &! minimum value of hdiff_efdt_ratio (for upper sponge layer)
-      & hdiff_tv_ratio,       &! the ratio of diffusion coefficient: temp:mom
-      & hdiff_smag_fac,       &! scaling factor for Smagorinsky diffusion
-      & hdiff_multfac          ! multiplication factor of normalized diffusion coefficient
-                               ! for nested domains
-    REAL(wp), ALLOCATABLE :: &
-      & k6(:), k4(:), k2(:)  ! numerical diffusion coefficients
-                             ! Values for these parameters are not directly
-                             ! specified by the user, but derived from the ratio 
-                             ! between the e-folding time and the model time step
-                             ! (hdiff_efdt_ratio above), and the horizontal 
-                             ! resolution of the model
-  
-    INTEGER k2s, k2e, k4s, k4e  ! indices defining to which vertical levels
-                                ! 2nd and 4th linear diffusion are applied.
-                                ! The values are not specified by the user via namelist,
-                                ! but determined from k2_klev_max, k2_pres_max
-                                ! and the configuration of the vertical coordinate
-  
-  END TYPE t_hdiff_config
-  !>
-  !!--------------------------------------------------------------------------
   !!          Top-level configuration state for atm dynamics
   !!--------------------------------------------------------------------------
   TYPE :: t_atm_dyn_config
@@ -246,7 +192,6 @@ MODULE mo_atm_dyn_config
     TYPE(t_ha_dyn_config) :: ha
     TYPE(t_nh_dyn_config) :: nh
     TYPE(t_sleve_config)  :: sleve
-    TYPE(t_hdiff_config)  :: hdiff
 
   END TYPE t_atm_dyn_config
 
