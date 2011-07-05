@@ -67,12 +67,16 @@ MODULE mo_impl_constants
 
   PUBLIC
 
+  ! define model name and version
+  CHARACTER(len=*), PARAMETER :: modelname    = 'icon'
+  CHARACTER(len=*), PARAMETER :: modelversion = 'dev'
+
   INTEGER, PARAMETER :: MAX_CHAR_LENGTH     = 1024
 
   INTEGER, PARAMETER :: SUCCESS             = 0
-  INTEGER,PARAMETER  :: CELLS               = 123
-  INTEGER,PARAMETER  :: EDGES               = 345
-  INTEGER,PARAMETER  :: VERTS               = 678
+  INTEGER, PARAMETER :: CELLS               = 123
+  INTEGER, PARAMETER :: EDGES               = 345
+  INTEGER, PARAMETER :: VERTS               = 678
 
 !-------------------------------------------------------------------------------
 ! Comments by Hui:

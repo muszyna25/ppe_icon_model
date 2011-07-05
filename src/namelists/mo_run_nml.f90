@@ -64,8 +64,6 @@ MODULE mo_run_nml
     &        end_year, end_month, end_day, end_hour, end_minute, end_second, &
     &                             run_day, run_hour, run_minute, run_second
 
-  CHARACTER(len=*), PARAMETER :: modelname    = 'icon'
-  CHARACTER(len=*), PARAMETER :: modelversion = 'dev'
 
   ! ------------------------------------------------------------------------
   ! 1.0 Namelist variables and auxiliary parameters

@@ -59,8 +59,6 @@ MODULE mo_diffusion_nml
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
   PUBLIC
-  CHARACTER(len=*), PARAMETER :: modelname    = 'icon'
-  CHARACTER(len=*), PARAMETER :: modelversion = 'dev'
 
   !-------------------------------------------------------------------------
   ! 1.0 Namelist variables and auxiliary parameters setting up the

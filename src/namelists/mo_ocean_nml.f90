@@ -61,8 +61,6 @@ MODULE mo_ocean_nml
 
   PUBLIC
 
-  CHARACTER(len=*), PARAMETER :: modelname    = 'icon'
-  CHARACTER(len=*), PARAMETER :: modelversion = 'dev'
 
   ! ------------------------------------------------------------------------
   ! 1.0 Namelist variables and auxiliary parameters for mpiom_phy_ctl

@@ -68,9 +68,6 @@ MODULE mo_grid_nml
     & no_of_dynamics_grids, no_of_radiation_grids     
 
 
-  CHARACTER(len=*), PARAMETER :: modelname    = 'icon'
-  CHARACTER(len=*), PARAMETER :: modelversion = 'dev'
-
   ! ------------------------------------------------------------------------
   ! 1.0 Namelist variables and auxiliary variables
   ! ------------------------------------------------------------------------

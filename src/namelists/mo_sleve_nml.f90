@@ -60,8 +60,6 @@ MODULE mo_sleve_nml
 
   PUBLIC
 
-  CHARACTER(len=*), PARAMETER :: modelname    = 'icon'
-  CHARACTER(len=*), PARAMETER :: modelversion = 'dev'
 
   ! ----------------------------------------------------------------------------
   ! 1.0 Namelist variables for the SLEVE coordinate

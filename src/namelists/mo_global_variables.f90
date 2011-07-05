@@ -158,11 +158,6 @@ MODULE mo_global_variables
 
   PUBLIC
 
-  CHARACTER(len=*), PARAMETER :: modelname    = 'icon'
-  CHARACTER(len=*), PARAMETER :: modelversion = 'dev'
-
-
-
 
 !--------------------------------------------------------------------
 

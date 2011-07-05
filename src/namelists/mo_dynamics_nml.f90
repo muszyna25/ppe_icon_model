@@ -64,8 +64,6 @@ MODULE mo_dynamics_nml
   IMPLICIT NONE
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
-  CHARACTER(len=*),PARAMETER,PRIVATE :: modelname    = 'icon'
-  CHARACTER(len=*),PARAMETER,PRIVATE :: modelversion = 'dev'
 
   PUBLIC
 

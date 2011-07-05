@@ -98,8 +98,8 @@ MODULE mo_io_vlist
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish, message
   USE mo_datetime,            ONLY: t_datetime, print_datetime
-  USE mo_impl_constants,      ONLY: max_char_length, max_dom
-  USE mo_global_variables,    ONLY: modelname, modelversion
+  USE mo_impl_constants,      ONLY: max_char_length, max_dom, modelname, &
+    &                               modelversion
   USE mo_nonhydrostatic_nml,  ONLY: rayleigh_coeff, damp_height, iadv_rhotheta, &
     &                               vwind_offctr, igradp_method, exner_expol,   &
     &                               ltheta_up_hori, ltheta_up_vert,             &
