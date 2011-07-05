@@ -54,7 +54,7 @@ USE mo_kind,                ONLY: wp
 USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_v,&
                             &  k_pot_temp_h, k_pot_temp_v, k_sal_h, k_sal_v, no_tracer,&
                             &  expl_vertical_velocity_diff
-USE mo_run_nml,             ONLY: nproma
+USE mo_parallel_configuration,  ONLY: nproma
 USE mo_model_domain,        ONLY: t_patch
 USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, &!! min_rledge, min_rlvert,      &
  &                               land, sea_boundary    

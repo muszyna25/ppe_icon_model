@@ -80,8 +80,9 @@ MODULE mo_hydro_testcases
   USE mo_interpolation,   ONLY: t_int_state
   USE mo_dynamics_nml,    ONLY: ltwotime, itime_scheme,               &
        &                        nnow, nold, nnew 
+  USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,         ONLY: i_cell_type, lshallow_water,          &
-       &                        nproma, num_lev, ntracer, ltransport, &
+       &                        num_lev, ntracer, ltransport, &
        &                        iqv
   USE mo_icoham_dyn_types, ONLY: t_hydro_atm
   USE mo_ha_prog_util,     ONLY: copy_prog_state,                    &
