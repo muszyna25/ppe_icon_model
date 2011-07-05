@@ -57,7 +57,7 @@ MODULE mo_sw_test
   USE mo_physical_constants,  ONLY: re, omega, rgrav, rre
   USE mo_math_constants,      ONLY: pi, pi_2
   USE mo_dynamics_nml,        ONLY: sw_ref_height
-  USE mo_run_nml,             ONLY: nproma
+  USE mo_parallel_configuration,  ONLY: nproma
   USE mo_datetime,            ONLY: rdaylen
 
   IMPLICIT NONE
