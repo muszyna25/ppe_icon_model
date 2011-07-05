@@ -49,27 +49,39 @@ MODULE mo_run_config
   !!
   TYPE :: t_run_config
 
-    LOGICAL :: ltestcase       !> Run idealized test case
-    LOGICAL :: ldynamics       !> Switch on model dynamics
+    LOGICAL :: ldump_states    !< Compute interpolation coefficients and stop.
+    LOGICAL :: lrestore_states !< Read interpolation coefficients from external file.
 
-    LOGICAL :: ltransport      !> Switch on tracer transport
-    INTEGER :: ntracer         !> Total number of advected tracers
-    INTEGER :: ntracer_static  !> Total number of non-advected tracers
+    LOGICAL :: ltestcase       !< Run idealized test case
+    LOGICAL :: ldynamics       !< Switch on model dynamics
 
-    INTEGER :: iforcing        !> Choice of diabatic forcing
+    LOGICAL :: ltransport      !< Switch on tracer transport
+    INTEGER :: ntracer         !< Total number of advected tracers
+    INTEGER :: ntracer_static  !< Total number of non-advected tracers
 
-    LOGICAL :: ldump_states    !> Compute interpolation coefficients and stop.
-    LOGICAL :: lrestore_states !> Read interpolation coefficients from external file.
+    INTEGER :: iforcing        !< Choice of diabatic forcing
+
+    REAL(wp) :: dtime          !< Time step in seconds
+    INTEGER  :: nsteps         !< Total number of integration steps
     
   END TYPE t_run_config 
 
   !>
-  !! The pointer run_config is associated to the corresponding component
-  !! of the atm/oce configuration state.
+  !! The actual variable
   !!
-  TYPE(t_run_config),POINTER :: run_config
+  TYPE(t_run_config) :: run_config
 
 CONTAINS
+  !---------------------------------------
+  !>
+  LOGICAL FUNCTION get_ldump_states()
+    get_ldump_states = run_config%ldump_states 
+  END FUNCTION get_ldump_states
+  !---------------------------------------
+  !>
+  LOGICAL FUNCTION get_lrestore_states()
+    get_lrestore_states = run_config%lrestore_states 
+  END FUNCTION get_lrestore_states
   !---------------------------------------
   !>
   LOGICAL FUNCTION get_ltestcase()
@@ -102,14 +114,14 @@ CONTAINS
   END FUNCTION get_iforcing
   !---------------------------------------
   !>
-  LOGICAL FUNCTION get_ldump_states()
-    get_ldump_states = run_config%ldump_states 
-  END FUNCTION get_ldump_states
+  INTEGER FUNCTION get_dtime()
+    get_dtime = run_config%dtime 
+  END FUNCTION get_dtime
   !---------------------------------------
   !>
-  LOGICAL FUNCTION get_lrestore_states()
-    get_lrestore_states = run_config%lrestore_states 
-  END FUNCTION get_lrestore_states
+  INTEGER FUNCTION get_nsteps()
+    get_nsteps = run_config%nsteps 
+  END FUNCTION get_nsteps
   !---------------------------------------
 
 END MODULE mo_run_config
