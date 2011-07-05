@@ -39,7 +39,8 @@ MODULE mo_nwp_rad_interface
   USE mo_atm_phy_nwp_nml,      ONLY: inwp_radiation, dt_rad, dt_radheat
   USE mo_exception,            ONLY: message,  finish !message_tex
   USE mo_ext_data,             ONLY: t_external_data
-  USE mo_run_nml,              ONLY: nproma, msg_level, iqv, iqc, iqi, &
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,              ONLY: msg_level, iqv, iqc, iqi, &
     &                                io3, icc, ntracer, ntracer_static
   USE mo_grf_interpolation,    ONLY: t_gridref_state
   USE mo_impl_constants,       ONLY: min_rlcell_int !, min_rlcell 

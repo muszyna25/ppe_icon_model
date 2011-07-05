@@ -45,7 +45,8 @@ USE mo_interpolation,       ONLY: t_int_state
 USE mo_grf_interpolation,   ONLY: t_gridref_state, t_gridref_single_state
 USE mo_grf_bdyintp,         ONLY: interpol_scal_grf
 USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging
-USE mo_run_nml,             ONLY: nproma, msg_level
+USE mo_parallel_configuration,  ONLY: nproma
+USE mo_run_nml,             ONLY: msg_level
 USE mo_nwp_phy_state,       ONLY: prm_diag
 USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int
 USE mo_loopindices,         ONLY: get_indices_c
