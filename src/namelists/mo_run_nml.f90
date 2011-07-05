@@ -79,7 +79,6 @@ MODULE mo_run_nml
 
   ! computing setup
   ! ---------------
-  INTEGER            :: nproma              ! inner loop length/vector length
 
   ! number of levels
   ! ----------------
@@ -238,7 +237,7 @@ MODULE mo_run_nml
   LOGICAL :: ltheta_dyn ! if .true., use potential temperature times delta p as prognostic variable
 
   NAMELIST /run_ctl/ iinit,                                &
-    &                nproma, nlev, num_lev, nshift,        &
+    &                nlev, num_lev, nshift,                &
     &                lvert_nest, ntracer, calendar,        &
     &                ini_year, ini_month,  ini_day,        &
     &                ini_hour, ini_minute, ini_second,     &
@@ -317,9 +316,6 @@ CONTAINS
    !------------------------------------------------------------
    ! initialization
    iinit          = ianalytic
-
-   ! inner loop length to optimize vectorization
-   nproma         = 1
 
    ! dimensions for new, initialized experiments
    nlev           = 31  ! number of full levels
@@ -451,8 +447,6 @@ CONTAINS
     !---------------------------------------------------------------
     ! 4. Check whether the namelist varibles have reasonable values
     !---------------------------------------------------------------
-
-    IF (nproma<=0) CALL finish(TRIM(routine),'"nproma" must be positive')
 
     IF (nlev < 1)  CALL finish(TRIM(routine),'"nlev" must be positive')
     nlevp1 = nlev+1

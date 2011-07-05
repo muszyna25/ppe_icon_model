@@ -145,6 +145,9 @@ MODULE mo_parallel_nml
 
   INTEGER :: radiation_threads = 1
   INTEGER :: nh_stepping_threads = 1
+
+  INTEGER :: nproma              ! inner loop length/vector length
+
   
   NAMELIST/parallel_ctl/ n_ghost_rows, division_method, &
        &                 p_test_run,   l_test_openmp,   &
@@ -163,7 +166,7 @@ MODULE mo_parallel_nml
   PUBLIC :: radiation_threads, nh_stepping_threads
 #endif
 
-  PUBLIC :: n_ghost_rows,                                             &
+  PUBLIC :: nproma, n_ghost_rows,                                     &
        &    div_from_file, div_geometric, div_metis, division_method, &
        &    l_log_checks, l_fast_sum,                                 &
        &    p_test_run, l_test_openmp,                                &
@@ -184,7 +187,11 @@ MODULE mo_parallel_nml
 
     INTEGER :: istat, my_color, peer_comm, p_error
     INTEGER :: funit
+    CHARACTER(len=*), PARAMETER ::   &
+            &  method_name = 'parallel_nml_setup'
 
+    ! inner loop length to optimize vectorization
+    nproma         = 1
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
     ! by values in the previous integration.
@@ -208,9 +215,12 @@ MODULE mo_parallel_nml
   ! 3.0 check the consistency of the parameters
   !------------------------------------------------------------
 
+  IF (nproma<=0) CALL finish(TRIM(method_name),'"nproma" must be positive')
+
+
   ! check n_ghost_rows
   IF (n_ghost_rows<1) THEN
-    CALL finish('mo_parallel_ctl:parallel_nml_setup', &
+    CALL finish(method_name, &
          & 'n_ghost_rows<1 in parallel_ctl namelist is not allowed')
   END IF
 
@@ -222,11 +232,11 @@ MODULE mo_parallel_nml
 #ifdef HAVE_METIS
     ! ok
 #else
-    CALL finish('mo_parallel_ctl:parallel_nml_setup', &
+    CALL finish(method_name, &
        & 'division_method=div_metis=2 in parallel_ctl namelist is not allowed')
 #endif
   CASE DEFAULT
-    CALL finish('mo_parallel_ctl:parallel_nml_setup', &
+    CALL finish(method_name, &
        & 'value of division_method in parallel_ctl namelist is not allowed')
   END SELECT
 
@@ -235,16 +245,16 @@ MODULE mo_parallel_nml
   ! Unconditionally set p_test_run to .FALSE. and num_io_procs to 0,
   ! all other variables are already set correctly
   IF (p_test_run) THEN
-    CALL message('mo_parallel_ctl:parallel_nml_setup', &
+    CALL message(method_name, &
          & 'p_test_run has no effect if the model is compiled with the NOMPI compiler directive')
-    CALL message('mo_parallel_ctl:parallel_nml_setup', &
+    CALL message(method_name, &
          & '--> p_test_run set to .FALSE.')
     p_test_run = .FALSE.
   END IF
   IF (num_io_procs /= 0) THEN
-    CALL message('mo_parallel_ctl:parallel_nml_setup', &
+    CALL message(method_name, &
          & 'num_io_procs has no effect if the model is compiled with the NOMPI compiler directive')
-    CALL message('mo_parallel_ctl:parallel_nml_setup', &
+    CALL message(method_name, &
          & '--> num_io_procs set to 0')
     num_io_procs = 0
   END IF
@@ -252,9 +262,9 @@ MODULE mo_parallel_nml
   ! A run on 1 PE is never a verification run,
   ! correct this if the user should set it differently
   IF (p_test_run .AND. p_nprocs == 1) THEN
-    CALL message('mo_parallel_ctl:parallel_nml_setup', &
+    CALL message(method_name, &
          & 'p_test_run has no effect if p_nprocs=1')
-    CALL message('mo_parallel_ctl:parallel_nml_setup', &
+    CALL message(method_name, &
          & '--> p_test_run set to .FALSE.')
      p_test_run = .FALSE.
   ENDIF
@@ -265,9 +275,9 @@ MODULE mo_parallel_nml
   ! check l_test_openmp
 #ifndef _OPENMP
   IF (l_test_openmp) THEN
-    CALL message('mo_parallel_ctl:parallel_nml_setup', &
+    CALL message(method_name, &
          & 'l_test_openmp has no effect if the model is compiled without OpenMP support')
-    CALL message('mo_parallel_ctl:parallel_nml_setup', &
+    CALL message(method_name, &
          & '--> l_test_openmp set to .FALSE.')
     l_test_openmp = .FALSE.
   END IF
@@ -307,17 +317,17 @@ MODULE mo_parallel_nml
   ! Check if there are sufficient PEs at all
 
   IF(num_work_procs < 1) THEN
-    CALL finish('mo_parallel_ctl:parallel_nml_setup', &
+    CALL finish(method_name, &
        & 'not enough processors for given values of p_test_run/num_io_procs')
   ELSE IF (p_test_run .AND. num_work_procs == 1) THEN
-    CALL finish('mo_parallel_ctl:parallel_nml_setup', &
+    CALL finish(method_name, &
        & 'running p_test_run with only 1 work processor does not make sense')
   ENDIF
 
   WRITE(message_text,'(3(a,i0))') 'Number of procs for test: ',num_test_procs, &
     & ', work: ',num_work_procs,', I/O: ',num_io_procs
 
-  CALL message('mo_parallel_ctl:parallel_nml_setup', message_text)
+  CALL message(method_name, message_text)
 
   ! Set up p_test_pe, p_work_pe0, p_io_pe0 which are identical on all PEs
 
