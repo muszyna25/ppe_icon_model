@@ -50,6 +50,7 @@ MODULE mo_parallel_nml
 #endif
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
+  USE mo_impl_constants,     ONLY: div_geometric
 
   IMPLICIT NONE
 

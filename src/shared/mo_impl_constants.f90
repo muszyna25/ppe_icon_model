@@ -137,7 +137,6 @@ MODULE mo_impl_constants
   INTEGER,PARAMETER :: F_PLANE_CORIOLIS    = 3
 
 
-
   ! dimensions of index list fields and index ranges for which grid points are reordered
   ! according to the refin_ctrl values
   ! Specifically:
@@ -304,5 +303,15 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: ntrac_oce = 2
   ! ocean surface level
   INTEGER, PARAMETER :: toplev    = 1
+
+
+  !---------------------!
+  !  PARALLELIZATION    !
+  !---------------------!
+  ! Division method for area subdivision
+  INTEGER, PARAMETER :: div_from_file = 0  ! Read from file
+  INTEGER, PARAMETER :: div_geometric = 1  ! Geometric subdivision
+  INTEGER, PARAMETER :: div_metis     = 2  ! Use Metis
+
 !--------------------------------------------------------------------
 END MODULE mo_impl_constants
