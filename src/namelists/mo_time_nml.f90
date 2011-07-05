@@ -38,8 +38,11 @@ MODULE mo_time_nml
   USE mo_impl_constants,     ONLY: max_char_length
   USE mo_datetime,           ONLY: proleptic_gregorian
   USE mo_io_units,           ONLY: nnml, nnml_output
+  USE mo_master_nml,         ONLY: lrestart
   USE mo_namelist,           ONLY: position_nml, positioned
   USE mo_mpi,                ONLY: p_pe, p_io
+  USE mo_io_restart_namelist,ONLY: open_and_restore_namelist, close_tmpfile,&
+                                  & open_tmpfile, store_and_close_namelist
 
   IMPLICIT NONE
 
@@ -117,9 +120,14 @@ CONTAINS
    ! length of restart cycle
    nml_dt_restart     = 86400._wp*30._wp   ! = 30 days
    !
-  
-  
+  IF (lrestart) THEN      
+ 
+   ! 2.1 Overwrite the defaults above by values in the restart file
 
+      funit = open_and_restore_namelist('time_ctl')
+      READ(funit,NML=run_ctl)
+      CALL close_tmpfile(funit) 
+  END IF
    !------------------------------------------------------------------------
    !  Read user's (new) specifications. (Done so far by all MPI processes)
    !------------------------------------------------------------------------
@@ -130,8 +138,15 @@ CONTAINS
     END SELECT
 
 
-    ! write the contents of the namelist to an ASCII file
-    IF(p_pe == p_io) WRITE(nnml_output,nml=time_ctl)
+    !-----------------------------------------------------
+    ! Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=time_ctl)
+    CALL store_and_close_namelist(funit, 'time_ctl')
+
+!    ! write the contents of the namelist to an ASCII file
+!    IF(p_pe == p_io) WRITE(nnml_output,nml=time_ctl)
 
 
  END SUBROUTINE time_nml_read

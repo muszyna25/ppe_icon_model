@@ -51,10 +51,7 @@ MODULE mo_time_config
                                    & date_to_time, add_time, print_datetime_all
   USE mo_master_nml,            ONLY: lrestart
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
-  USE mo_io_restart_namelist,ONLY: open_and_restore_namelist, close_tmpfile,&
-                                  & open_tmpfile, store_and_close_namelist
-
-  USE mo_mpi,                    ONLY: p_pe, p_io
+ 
 
   IMPLICIT NONE
   PRIVATE
@@ -134,13 +131,6 @@ SUBROUTINE time_setup
     ! 2. If this is a resumed integration...
     !------------------------------------------------------------------------                  
     IF (lrestart) THEN                                                                 
-
-   ! 2.1 Overwrite the defaults above by values in the restart file
-
-      funit = open_and_restore_namelist('time_ctl')
-      READ(funit,NML=run_ctl)
-      CALL close_tmpfile(funit)
-
 
       ! 2.2 Save the calendar and initial date/time of the old run
 
@@ -244,14 +234,6 @@ SUBROUTINE time_setup
     WRITE(message_text,'(a,f10.2,a,f16.10,a)') &
          &'dt_restart :',dt_restart,' seconds =', dt_restart/86400._wp, ' days'
     CALL message(routine,message_text)
-
-
-    !-----------------------------------------------------
-    ! Store the namelist for restart
-    !-----------------------------------------------------
-    funit = open_tmpfile()
-    WRITE(funit,NML=time_ctl)
-    CALL store_and_close_namelist(funit, 'time_ctl')
 
 
 END SUBROUTINE time_setup
