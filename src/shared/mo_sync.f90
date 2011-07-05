@@ -49,7 +49,7 @@ MODULE mo_sync
 USE mo_kind,               ONLY: wp, dp, i8
 USE mo_exception,          ONLY: finish
 USE mo_model_domain,       ONLY: t_patch
-USE mo_run_nml,            ONLY: nproma
+USE mo_parallel_configuration, ONLY: nproma
 USE mo_io_units,           ONLY: find_next_free_unit, filename_max
 USE mo_mpi,                ONLY: p_pe, p_nprocs, p_bcast, p_sum, p_max, p_min, &
                                  p_send, p_recv

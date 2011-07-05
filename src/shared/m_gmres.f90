@@ -59,7 +59,7 @@ MODULE m_gmres
 !
 !
   USE mo_kind,                ONLY: wp
-  USE mo_run_nml,             ONLY: nproma
+  USE mo_parallel_configuration, ONLY: nproma
   USE mo_run_nml,             ONLY: ltimer
   USE mo_model_domain,        ONLY: t_patch
   USE mo_timer,               ONLY: timer_start, timer_stop, timer_gmres
