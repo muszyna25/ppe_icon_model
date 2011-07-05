@@ -69,7 +69,8 @@ MODULE mo_advection_stepping
   USE mo_model_domain,        ONLY: t_patch
   USE mo_math_operators,      ONLY: div
   USE mo_interpolation,       ONLY: t_int_state
-  USE mo_run_nml,             ONLY: nproma, ntracer, ltimer, i_cell_type,   &
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,             ONLY: ntracer, ltimer, i_cell_type,   &
     &                               iforcing, inwp, iqv
   USE mo_nonhydrostatic_nml,  ONLY: iadv_rcf
   USE mo_advection_hflux,     ONLY: hor_upwind_flux

@@ -122,8 +122,9 @@ MODULE mo_io_vlist
     &                               lwrite_tke,  lwrite_surface,lwrite_extra,   &
     &                               dt_diag, out_filetype, out_expname,         &
     &                               dt_data, dt_file, lkeep_in_sync
+  USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,             ONLY: num_lev, num_levp1, itopo,                  &
-    &                               ntracer, ltransport,  nproma,iqcond,        &
+    &                               ntracer, ltransport,iqcond,                 &
     &                               lshallow_water, i_cell_type,                &
     &                               dtime, iequations, msg_level,               &
     &                               ldynamics, ltestcase,                       &

@@ -57,7 +57,8 @@ MODULE mo_advection_limiter
     &                               gnomonic_proj
   USE mo_interpolation,       ONLY: t_int_state
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
-  USE mo_run_nml,             ONLY: nproma, i_cell_type
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,             ONLY: i_cell_type
   USE mo_impl_constants,      ONLY: min_rledge_int, min_rlcell_int, min_rlcell, &
     &                               min_rledge
   USE mo_math_operators,      ONLY: div

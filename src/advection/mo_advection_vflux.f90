@@ -70,7 +70,8 @@ MODULE mo_advection_vflux
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_run_nml,             ONLY: nproma, ntracer, iequations, msg_level,   &
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,             ONLY: ntracer, iequations, msg_level,   &
     &                               lvert_nest
   USE mo_advection_nml,       ONLY: coeff_grid, iup_v, imuscl_v, imuscl_vcfl, &
     &                               ippm_v, ippm_vcfl, islopel_vsm,           &
