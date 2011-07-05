@@ -48,7 +48,8 @@ MODULE mo_icoham_dyn_memory
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm, t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_model_domain,        ONLY: t_patch
   USE mo_run_nml,             ONLY: ltheta_dyn
-  USE mo_run_nml,             ONLY: ntracer, nproma
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,             ONLY: ntracer
   USE mo_advection_nml,       ONLY: ctracer_list
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: default_var_list_settings, &

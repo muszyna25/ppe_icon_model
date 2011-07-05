@@ -54,7 +54,8 @@ MODULE mo_ha_2tl_si_solver
   USE mo_timer,        ONLY: timer_start, timer_stop, timer_gmres
   USE mo_interpolation,ONLY: t_int_state
   USE mo_sync,         ONLY: omp_global_sum_array
-  USE mo_run_nml,      ONLY: nproma, ltimer
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,      ONLY: ltimer
 
   IMPLICIT NONE
 
