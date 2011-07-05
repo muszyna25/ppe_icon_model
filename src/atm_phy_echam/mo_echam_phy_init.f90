@@ -40,7 +40,8 @@ MODULE mo_echam_phy_init
 
   ! model configuration
   USE mo_dynamics_nml,       ONLY: nnow
-  USE mo_run_nml,            ONLY: nlev, nlevp1, nvclev, nproma, &
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,            ONLY: nlev, nlevp1, nvclev,  &
     &                              iqv, iqt, ntracer, ltestcase
   USE mo_vertical_coord_table,ONLY: vct
   USE mo_echam_phy_nml,      ONLY: lrad, lvdiff, lconv, lcond

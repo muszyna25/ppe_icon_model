@@ -57,7 +57,8 @@ MODULE mo_echam_phy_memory
   USE mo_kind,                ONLY: wp
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
   USE mo_exception,           ONLY: message, finish
-  USE mo_run_nml,             ONLY: nproma, ntracer
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,             ONLY: ntracer
   USE mo_advection_nml,       ONLY: ctracer_list
   USE mo_icoham_sfc_indices,  ONLY: nsfc_type
   USE mo_echam_phy_nml,       ONLY: lvdiff
