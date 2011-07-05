@@ -119,7 +119,8 @@ USE mo_impl_constants,     ONLY: SUCCESS, &
      &                           min_rlvert, max_rlvert
 USE mo_exception,          ONLY: message_text, message, finish
 USE mo_model_domain,       ONLY: t_patch
-USE mo_run_nml,            ONLY: locean, nproma, i_cell_type, nlev, nlevp1,       &
+USE mo_parallel_configuration,  ONLY: nproma
+USE mo_run_nml,            ONLY: locean, i_cell_type, nlev, nlevp1,       &
      &                           num_lev, num_levp1, nshift
 USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real, calculate_cart_normal,&
      &                           init_quad_twoadjcells, init_coriolis

@@ -47,7 +47,8 @@ MODULE mo_ext_data
 
   USE mo_kind
   USE mo_io_units,           ONLY: filename_max
-  USE mo_run_nml,            ONLY: nproma, i_cell_type, itopo, locean, &
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,            ONLY: i_cell_type, itopo, locean, &
     &                              iforcing, inwp, iequations,         &
     &                              fac_smooth_topo, n_iter_smooth_topo
  !USE mo_lnd_nwp_nml,        ONLY: nsfc_subs

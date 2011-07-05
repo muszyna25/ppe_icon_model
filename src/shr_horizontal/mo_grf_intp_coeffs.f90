@@ -69,7 +69,7 @@ USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, solve_chol_v, choldec_v, arc
 USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
                                   grf_fbk_start_c
 
-USE mo_run_nml,             ONLY: nproma
+USE mo_parallel_configuration,  ONLY: nproma
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
 
 USE mo_grf_intp_data_strc

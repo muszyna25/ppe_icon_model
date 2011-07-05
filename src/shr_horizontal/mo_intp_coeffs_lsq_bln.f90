@@ -169,7 +169,8 @@ USE mo_exception,           ONLY: message, finish
 USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell
 USE mo_model_domain,        ONLY: t_patch
 USE mo_math_utilities,      ONLY: gnomonic_proj, rotate_latlon, qrdec
-USE mo_run_nml,             ONLY: nproma, i_cell_type
+USE mo_parallel_configuration,  ONLY: nproma
+USE mo_run_nml,             ONLY: i_cell_type
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_advection_nml,       ONLY: llsq_svd
 
