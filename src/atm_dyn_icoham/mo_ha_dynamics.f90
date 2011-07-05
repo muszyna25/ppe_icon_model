@@ -43,7 +43,8 @@ MODULE mo_ha_dynamics
   USE mo_ext_data,           ONLY: t_external_data
   USE mo_math_operators,     ONLY: grad_fd_norm, div, div_avg
   USE mo_dynamics_nml,       ONLY: idiv_method, lref_temp
-  USE mo_run_nml,            ONLY: nproma, lshallow_water, nlev, nlevp1
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,            ONLY: lshallow_water, nlev, nlevp1
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_interpolation,      ONLY: t_int_state, cell_avg, cells2edges_scalar, &
                                    edges2cells_scalar

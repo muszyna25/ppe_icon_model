@@ -64,7 +64,8 @@ MODULE mo_hdiff
   USE mo_diffusion_nml,       ONLY: hdiff_order, k2, k4, &
                                     lhdiff_vn, lhdiff_temp, hdiff_tv_ratio, &
                                     hdiff_smag_fac  
-  USE mo_run_nml,             ONLY: nlev, nproma, i_cell_type,ltheta_dyn
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,             ONLY: nlev, i_cell_type,ltheta_dyn
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_math_operators,      ONLY: nabla2_vec, nabla2_scalar, &
                                     nabla4_vec, nabla4_scalar
