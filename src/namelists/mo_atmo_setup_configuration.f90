@@ -41,7 +41,7 @@ MODULE mo_atmo_setup_configuration
   USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output
   USE mo_output,              ONLY: init_output_files, close_output_files, write_output
 
-  USE mo_parallel_nml,        ONLY: parallel_nml_setup,   & ! process parallel run ctl. params.
+  USE mo_parallel_nml,        ONLY: parallel_nml_setup,  get_nml_nproma, & ! process parallel run ctl. params.
     & p_comm_work_test, p_comm_input_bcast, & ! communicators
     & p_test_pe,            & !    internal parameter
     & p_comm_work,          &
@@ -99,21 +99,6 @@ MODULE mo_atmo_setup_configuration
   USE mo_hydro_testcases,     ONLY: setup_testcase          ! process hyd. atm. tests ctl. params.
   USE mo_nh_testcases,        ONLY: setup_nh_testcase       ! process non-hyd. atm. test ctl. par.
 
-  ! Memory
-  !
-!   USE mo_subdivision,         ONLY: decompose_atmo_domain,         &
-!     & copy_processor_splitting,      &
-!     & set_patch_communicators
-!   USE mo_dump_restore,        ONLY: dump_patch_state_netcdf,       &
-!     & restore_patches_netcdf,        &
-!     & restore_interpol_state_netcdf, &
-!     & restore_gridref_state_netcdf
-
-!   USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
-!   USE mo_atmo_control,        ONLY: p_patch_global, p_patch_subdiv, p_patch,             &
-!     & p_nh_state, p_lnd_state,                             &
-!     & p_int_state_global, p_int_state_subdiv, p_int_state, &
-!     & p_grf_state_global, p_grf_state_subdiv, p_grf_state
 
   ! Horizontal grid
   !
@@ -139,22 +124,24 @@ MODULE mo_atmo_setup_configuration
   USE mo_lnd_nwp_nml,         ONLY: setup_nwp_lnd
  
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
-  
-  
-  !  USE mo_nwp_phy_init,          ONLY: init_nwp_phy
-  !!$  USE mo_gscp_cosmo,          ONLY: hydci_pp_init
-  
+    
   USE mo_io_restart_namelist,  ONLY: read_restart_namelists
   USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
 
   !-------------------------------------------------------------------------
+  ! use configure modules
+  USE mo_parallel_configuration, ONLY: set_nproma
+
+  
   IMPLICIT NONE
   
   PRIVATE
   
-  PUBLIC :: read_atmo_namelists
+  PUBLIC :: read_atmo_namelists, setup_atmo_configuration
   
 CONTAINS
+  
+  !-------------------------------------------------------------------------
   !>
   !!
   SUBROUTINE read_atmo_namelists(namelist_filename)
@@ -233,10 +220,10 @@ CONTAINS
     !------------------------------------------------------------------
     ! step 3a-a: ! read nwp physics namelist, ...
     !------------------------------------------------------------------
-    IF ( iforcing == inwp) THEN
-      CALL setup_nwp_phy( p_patch_global(1:) )  ! read Namelist, ...
-      IF (inwp_surface > 0) CALL setup_nwp_lnd
-    ENDIF
+!     IF ( iforcing == inwp) THEN
+!       CALL setup_nwp_phy( p_patch_global(1:) )  ! read Namelist, ...
+!       IF (inwp_surface > 0) CALL setup_nwp_lnd
+!     ENDIF
     
     !------------------------------------------------------------------
     ! step 3b: Read namelist 'transport_ctl',
@@ -255,12 +242,12 @@ CONTAINS
     ! interpolation state not used for ocean model
     ! #slo# - temporarily switched on for comparison with rbf-reconstruction
     
-    CALL interpol_nml_setup(p_patch_global)
+!     CALL interpol_nml_setup(p_patch_global)
     
     !-------------------------------------------------------------------------
     ! set up horizontal diffusion after the vertical coordinate is configured
     !-------------------------------------------------------------------------
-    CALL diffusion_nml_setup(n_dom,parent_id)
+!     CALL diffusion_nml_setup(n_dom,parent_id)
     
    
     !------------------------------------------------------------------
@@ -278,6 +265,16 @@ CONTAINS
     END IF
         
   END SUBROUTINE read_atmo_namelists
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  SUBROUTINE setup_atmo_configuration()
+  
+    CALL set_nproma(get_nml_nproma())
+
+  END SUBROUTINE setup_atmo_configuration
+  !-------------------------------------------------------------------------
+  
   
 END MODULE mo_atmo_setup_configuration
 

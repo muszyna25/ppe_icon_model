@@ -154,19 +154,20 @@ MODULE mo_parallel_nml
                          l_log_checks, l_fast_sum,      &
                          num_io_procs, pio_type,        &
                          itype_comm,   iorder_sendrecv, &
-                         radiation_threads, nh_stepping_threads
+                         radiation_threads, nh_stepping_threads, &
+                         nproma
 
 
   ! Exported routines:
 
-  PUBLIC :: parallel_nml_setup
+  PUBLIC :: parallel_nml_setup, get_nml_nproma
   
   ! Exported variables:
 #ifdef __OMP_RADIATION__
   PUBLIC :: radiation_threads, nh_stepping_threads
 #endif
 
-  PUBLIC :: nproma, n_ghost_rows,                                     &
+  PUBLIC :: n_ghost_rows,                                     &
        &    div_from_file, div_geometric, div_metis, division_method, &
        &    l_log_checks, l_fast_sum,                                 &
        &    p_test_run, l_test_openmp,                                &
@@ -175,7 +176,7 @@ MODULE mo_parallel_nml
        &    p_n_work, p_pe_work, p_comm_work, p_comm_work_test,       &
        &    p_comm_work_io, p_comm_work_2_io, p_comm_input_bcast,     &
        &    pio_type, itype_comm, iorder_sendrecv
-
+       
   CONTAINS
   !>
   !!
@@ -459,5 +460,11 @@ MODULE mo_parallel_nml
 #endif
 
 END SUBROUTINE parallel_nml_setup
+
+  !-------------------------------------------------------------------------
+  INTEGER FUNCTION get_nml_nproma()
+    get_nml_nproma = nproma
+  END  FUNCTION get_nml_nproma   
+  !-------------------------------------------------------------------------
 
 END MODULE mo_parallel_nml

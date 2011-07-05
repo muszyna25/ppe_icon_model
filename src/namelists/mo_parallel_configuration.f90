@@ -41,6 +41,7 @@ MODULE mo_parallel_configuration
 
   PRIVATE
   PUBLIC :: nproma
+  PUBLIC :: set_nproma, get_nproma
   
   ! computing setup
   ! ---------------
