@@ -66,7 +66,8 @@ MODULE mo_nwp_phy_state
 
 USE mo_kind,                ONLY: wp
 USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
-USE mo_run_nml,             ONLY: nproma, ntracer, iqcond
+USE mo_parallel_configuration,  ONLY: nproma
+USE mo_run_nml,             ONLY: ntracer, iqcond
 USE mo_exception,           ONLY: message, finish !,message_text
 USE mo_model_domain,        ONLY: t_patch
 USE mo_model_domain_import, ONLY: n_dom
