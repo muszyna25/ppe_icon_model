@@ -177,8 +177,11 @@ MODULE mo_impl_constants
   ! maximum allowed number of tracers (20 should be enough for the time being)
   INTEGER, PARAMETER :: max_ntracer = 20
 
-  ! identifiers for time stepping schemes
+  ! identifiers for model initialization
+  INTEGER, PARAMETER :: ianalytic      =  0 ! - from analytical functions
+  INTEGER, PARAMETER :: irestart       =  1 ! - from restart file
 
+  ! identifiers for time stepping schemes
   INTEGER,PARAMETER :: TRACER_ONLY   = 1 ! pure tracer advection
   INTEGER,PARAMETER :: TWO_TL_SI     = 2 ! semi-implicit two time level
   INTEGER,PARAMETER :: LEAPFROG_EXPL = 3 ! explicit leapfrog
@@ -188,7 +191,6 @@ MODULE mo_impl_constants
   INTEGER,PARAMETER :: UNKNOWN       = 7
 
   ! Scheme for the "slow" component in the TWO_TL_SI time stepping
-
   INTEGER,PARAMETER :: EULER_FORWARD = 1
   INTEGER,PARAMETER :: AB2           = 2
 
@@ -248,5 +250,33 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: ino_flx     = 0
   INTEGER, PARAMETER :: izero_grad  = 1
   INTEGER, PARAMETER :: iparent_flx = 2
+
+
+  ! equations to be solved
+  INTEGER, PARAMETER :: ihs_atm_temp   =  1 ! - hydrostatic atmosphere, T as progn. var.
+  INTEGER, PARAMETER :: ihs_atm_theta  =  2 ! - hydrostatic atmosphere, Theta as progn. var.
+  INTEGER, PARAMETER :: inh_atmosphere =  3 ! - non-hydrost.atm.
+  INTEGER, PARAMETER :: ishallow_water =  0 ! - shallow water model
+  INTEGER, PARAMETER :: ihs_ocean      = -1 ! - hydrostatic ocean
+
+  ! cell geometry
+  INTEGER, PARAMETER :: itri           =  3 ! - triangles
+  INTEGER, PARAMETER :: ihex           =  6 ! - hexagons/pentagons
+
+  ! parameterized forcing (right hand side) of dynamics
+  INTEGER, PARAMETER :: inoforcing     =  0 ! - no forcing
+                                            ! - atmosphere
+  INTEGER, PARAMETER :: iheldsuarez    =  1 !   - Held-Suarez test
+  INTEGER, PARAMETER :: iecham         =  2 !   - ECHAM physics
+  INTEGER, PARAMETER :: inwp           =  3 !   - NWP physics
+  INTEGER, PARAMETER :: ildf_dry       =  4 !   - local diabatic forcing test without physics
+  INTEGER, PARAMETER :: ildf_echam     =  5 !   - local diabatic forcing test with physics
+                                            ! - ocean
+  INTEGER, PARAMETER :: impiom         = -1 !   - MPIOM physics
+
+  
+  ! auxiliary parameter to access single field of the 4D array prm_diag%tot_cld
+  INTEGER, PARAMETER :: icc = 4    !! diagnostic cloud fraction in prm_diag%tot_cld
+
 !--------------------------------------------------------------------
 END MODULE mo_impl_constants

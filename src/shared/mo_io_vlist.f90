@@ -99,7 +99,7 @@ MODULE mo_io_vlist
   USE mo_exception,           ONLY: finish, message
   USE mo_datetime,            ONLY: t_datetime, print_datetime
   USE mo_impl_constants,      ONLY: max_char_length, max_dom, modelname, &
-    &                               modelversion
+    &                               modelversion, icc
   USE mo_nonhydrostatic_nml,  ONLY: rayleigh_coeff, damp_height, iadv_rhotheta, &
     &                               vwind_offctr, igradp_method, exner_expol,   &
     &                               ltheta_up_hori, ltheta_up_vert,             &
@@ -129,8 +129,7 @@ MODULE mo_io_vlist
     &                               dtime, iequations, msg_level,               &
     &                               ldynamics, ltestcase,                       &
     &                               iforcing, inwp, iecham,ildf_echam,          &
-    &                               iqv, iqc, iqi, icc,                         &
-    &                               lcorio, nsteps, lforcing,                   &
+    &                               iqv, iqc, iqi, lcorio, nsteps, lforcing,    &
     &                               iequations, ihs_atm_temp, ihs_atm_theta,    &
     &                               inh_atmosphere, ishallow_water,             &
     &                               lvert_nest, inextra_2d,inextra_3d

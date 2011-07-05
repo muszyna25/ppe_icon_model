@@ -54,8 +54,8 @@ MODULE mo_nh_interface_nwp
   
   USE mo_exception,          ONLY: message, message_text !, finish
   USE mo_impl_constants,     ONLY: itconv, itccov, itrad, itgscp,         &
-    &                              itsatad, itupdate, itturb, itsfc, itradheat,  &
-    &                              itsso,itgwd,                               &
+    &                              itsatad, itupdate, itturb, itsfc, itradheat, &
+    &                              itsso, itgwd, icc,                           &
     &                              min_rlcell_int, min_rledge_int, min_rlcell
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
@@ -71,7 +71,7 @@ MODULE mo_nh_interface_nwp
                                  & t_nwp_phy_tend!, prm_diag
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,            ONLY: ntracer, i_cell_type, iqv, iqc, iqi, &
-       &                              iqr, iqs, icc, msg_level, ltimer, timers_level
+       &                           iqr, iqs, msg_level, ltimer, timers_level
   USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd_o_rd 
 
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp

@@ -47,7 +47,7 @@ MODULE mo_nwp_turb_interface
 
   USE mo_model_domain,         ONLY: t_patch
   USE mo_grf_interpolation,    ONLY: t_gridref_state
-  USE mo_impl_constants,       ONLY: min_rlcell_int
+  USE mo_impl_constants,       ONLY: min_rlcell_int, icc
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_subdivision,          ONLY: p_patch_local_parent
@@ -61,7 +61,7 @@ MODULE mo_nwp_turb_interface
 
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,              ONLY: msg_level, ntracer, iqv, iqc, &
-    &                                iqi, iqr, iqs,icc, inextra_2d
+    &                                iqi, iqr, iqs, inextra_2d
   USE mo_atm_phy_nwp_nml,      ONLY: inwp_turb, inwp_surface, inwp_satad  
 !  USE mo_turbdiff_ras,       ONLY: organize_turbdiff
   USE mo_satad,              ONLY: sat_pres_water, spec_humi  

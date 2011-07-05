@@ -42,7 +42,12 @@ MODULE mo_run_nml
 
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_impl_constants,     ONLY: max_char_length, max_dom, max_ntracer
+  USE mo_impl_constants,     ONLY: max_char_length, max_dom, max_ntracer,     &
+    &                              ianalytic, ihs_atm_temp, itri, ihex,       &
+    &                              inoforcing, ildf_echam, ishallow_water,    &
+    &                              iecham, ihs_atm_theta, inh_atmosphere,     &
+    &                              ihs_ocean, iheldsuarez, inwp, impiom,      &
+    &                              ildf_dry
   USE mo_physical_constants, ONLY: grav
   USE mo_datetime,           ONLY: t_datetime, proleptic_gregorian,          &
                                  & date_to_time, add_time, print_datetime_all
@@ -71,80 +76,73 @@ MODULE mo_run_nml
 
   ! initialization
   ! --------------
-  INTEGER            :: iinit               ! model initialization:
-  INTEGER, PARAMETER :: ianalytic      =  0 ! - from analytical functions
-  INTEGER, PARAMETER :: irestart       =  1 ! - from restart file
+  INTEGER          :: iinit               ! model initialization:
+
 
   ! computing setup
   ! ---------------
 
   ! number of levels
   ! ----------------
-  INTEGER            :: nlev                ! number of full levels = number of layers
-  INTEGER            :: nlevp1              ! number of half levels = nlev+1
-  INTEGER            :: num_lev(max_dom)  ! number of full levels for each domain
-  INTEGER            :: num_levp1(max_dom)! number of half levels for each domain
-  INTEGER            :: nshift(max_dom)   ! half level of parent domain which coincides 
+  INTEGER          :: nlev                ! number of full levels = number of layers
+  INTEGER          :: nlevp1              ! number of half levels = nlev+1
+  INTEGER          :: num_lev(max_dom)  ! number of full levels for each domain
+  INTEGER          :: num_levp1(max_dom)! number of half levels for each domain
+  INTEGER          :: nshift(max_dom)   ! half level of parent domain which coincides 
                                 ! with the upper boundary of the current domain jg
-  LOGICAL            :: lvert_nest !< switches on vertical nesting (.TRUE.)
-  INTEGER            :: nvclev              ! no. of levels at which the coeffs A, B are given
-  INTEGER            :: ntracer             ! number of advected tracers
-  INTEGER            :: ntracer_static      ! number of non-advected tracers
+  LOGICAL          :: lvert_nest !< switches on vertical nesting (.TRUE.)
+  INTEGER          :: nvclev              ! no. of levels at which the coeffs A, B are given
+  INTEGER          :: ntracer             ! number of advected tracers
+  INTEGER          :: ntracer_static      ! number of non-advected tracers
 
   ! time information
   ! ----------------
   !
   ! calendar type
-  INTEGER            :: calendar
+  INTEGER          :: calendar
   !
   ! initial date and time
   ! - namelist variables
-  INTEGER            :: ini_year, ini_month, ini_day
-  INTEGER            :: ini_hour, ini_minute
-  REAL(wp)           :: ini_second
+  INTEGER          :: ini_year, ini_month, ini_day
+  INTEGER          :: ini_hour, ini_minute
+  REAL(wp)         :: ini_second
   ! - data and time structure
-  TYPE(t_datetime)   :: ini_datetime
+  TYPE(t_datetime) :: ini_datetime
   !
   ! current model time, not a namelist variable
-  TYPE(t_datetime)   :: current_datetime
+  TYPE(t_datetime) :: current_datetime
   !
   ! end date and time
   ! - namelist variables
-  INTEGER            :: end_year, end_month, end_day
-  INTEGER            :: end_hour, end_minute
-  REAL(wp)           :: end_second
+  INTEGER          :: end_year, end_month, end_day
+  INTEGER          :: end_hour, end_minute
+  REAL(wp)         :: end_second
   ! - data and time structure
-  TYPE(t_datetime)   :: end_datetime
+  TYPE(t_datetime) :: end_datetime
   !
   ! run length
   ! - in day,hr,min,sec
-  INTEGER            :: run_day
-  INTEGER            :: run_hour, run_minute
-  REAL(wp)           :: run_second
+  INTEGER          :: run_day
+  INTEGER          :: run_hour, run_minute
+  REAL(wp)         :: run_second
   ! - in time steps
-  INTEGER            :: nsteps              ! number of time steps
-  REAL(wp)           :: dtime               ! [s] length of a time step
-  REAL(wp)           :: dtrk(3)    ! [s] Runge Kutta 3 time steps [s]
+  INTEGER          :: nsteps              ! number of time steps
+  REAL(wp)         :: dtime               ! [s] length of a time step
+  REAL(wp)         :: dtrk(3)    ! [s] Runge Kutta 3 time steps [s]
 
   ! restart interval
   ! ----------------
-  REAL(wp)           :: dt_restart          ! [s] length of a restart cycle 
+  REAL(wp)         :: dt_restart          ! [s] length of a restart cycle 
 
   ! equations to be solved
   ! ----------------------
-  INTEGER            :: iequations          ! equation system:
+  INTEGER          :: iequations          ! equation system:
 
-  INTEGER, PARAMETER :: ihs_atm_temp   =  1 ! - hydrostatic atmosphere, T as progn. var.
-  INTEGER, PARAMETER :: ihs_atm_theta  =  2 ! - hydrostatic atmosphere, Theta as progn. var.
-  INTEGER, PARAMETER :: inh_atmosphere =  3 ! - non-hydrost.atm.
-  INTEGER, PARAMETER :: ishallow_water =  0 ! - shallow water model
-  INTEGER, PARAMETER :: ihs_ocean      = -1 ! - hydrostatic ocean
 
   ! cell geometry
   ! -------------
-  INTEGER            :: i_cell_type         ! cell type:
-  INTEGER, PARAMETER :: itri           =  3 ! - triangles
-  INTEGER, PARAMETER :: ihex           =  6 ! - hexagons/pentagons
+  INTEGER          :: i_cell_type         ! cell type:
+
 
   ! dynamics
   ! --------
@@ -154,35 +152,22 @@ MODULE mo_run_nml
                          ! else skip dynamics.
 
   ! parameterized forcing (right hand side) of dynamics
-  INTEGER            :: iforcing            ! forcing package
-  INTEGER, PARAMETER :: inoforcing     =  0 ! - no forcing
-                                            ! - atmosphere
-  INTEGER, PARAMETER :: iheldsuarez    =  1 !   - Held-Suarez test
-  INTEGER, PARAMETER :: iecham         =  2 !   - ECHAM physics
-  INTEGER, PARAMETER :: inwp           =  3 !   - NWP physics
-  INTEGER, PARAMETER :: ildf_dry       =  4 !   - local diabatic forcing test without physics
-  INTEGER, PARAMETER :: ildf_echam     =  5 !   - local diabatic forcing test with physics
-                                            ! - ocean
-  INTEGER, PARAMETER :: impiom         = -1 !   - MPIOM physics
+  INTEGER          :: iforcing            ! forcing package
 
   
-  ! auxiliary parameter to access single field of the 4D array prm_diag%tot_cld
-  INTEGER, PARAMETER :: icc = 4    !! diagnostic cloud fraction in prm_diag%tot_cld
-  
-  !!!!!!!!!!! in the long run, implement own mo_tracer_nml for the tracer arrays !!!!!!!!!!
   ! auxiliary variables to access single fields of the 4D tracer array
   ! - H2O
-  INTEGER            :: iqv        !> water vapor
-  INTEGER            :: iqc        !! cloud water
-  INTEGER            :: iqi        !! cloud ice
-  INTEGER            :: iqr        !! rain water
-  INTEGER            :: iqs        !! snow
-  INTEGER            :: iqcond     !! index of last hydrometeor to ease summation over all of them
+  INTEGER          :: iqv        !> water vapor
+  INTEGER          :: iqc        !! cloud water
+  INTEGER          :: iqi        !! cloud ice
+  INTEGER          :: iqr        !! rain water
+  INTEGER          :: iqs        !! snow
+  INTEGER          :: iqcond     !! index of last hydrometeor to ease summation over all of them
   ! - other species
-  INTEGER            :: io3        !< O3
-  INTEGER            :: ico2       !< CO2
+  INTEGER          :: io3        !< O3
+  INTEGER          :: ico2       !< CO2
 
-  INTEGER            :: iqt        !< start index of other tracers than hydrometeors
+  INTEGER          :: iqt        !< start index of other tracers than hydrometeors
 
   ! transport
   ! ---------
@@ -221,8 +206,8 @@ MODULE mo_run_nml
 
   ! timer
   ! -----
-  LOGICAL  :: ltimer     ! if .TRUE.,  the timer is switched on
-  INTEGER  :: timers_level = 1  ! what level of timers to run
+  LOGICAL :: ltimer     ! if .TRUE.,  the timer is switched on
+  INTEGER :: timers_level = 1  ! what level of timers to run
 
   ! dump/restore
   ! ------------

@@ -66,8 +66,6 @@ MODULE mo_time_nml
   ! initialization
   ! --------------
   INTEGER            :: iinit               ! model initialization:
-  INTEGER, PARAMETER :: ianalytic      =  0 ! - from analytical functions
-  INTEGER, PARAMETER :: irestart       =  1 ! - from restart file
 
   ! time information
   ! ----------------
@@ -307,7 +305,7 @@ CONTAINS
     !     will last, regardless of the restart status.
 
     !
-    ELSE IF (run_day/=0 .OR. run_hour/=0 .OR. run_minute/=0 .OR. run_second/=0.0_wp) THEN
+    IF (run_day/=0 .OR. run_hour/=0 .OR. run_minute/=0 .OR. run_second/=0.0_wp) THEN
       IF (run_day    < 0    ) CALL finish(routine,'"run_day" must not be negative')
       IF (run_hour   < 0    ) CALL finish(routine,'"run_hour" must not be negative')
       IF (run_minute < 0    ) CALL finish(routine,'"run_minute" must not be negative')
