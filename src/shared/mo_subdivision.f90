@@ -64,7 +64,8 @@ MODULE mo_subdivision
   USE mo_math_constants,     ONLY: pi
   USE mo_exception,          ONLY: finish, message
 
-  USE mo_run_nml,            ONLY: nproma, i_cell_type, ltransport, &
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,            ONLY: i_cell_type, ltransport, &
     & iequations
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
   USE mo_model_domain,       ONLY: t_patch, t_grid_cells

@@ -122,7 +122,8 @@ MODULE mo_dump_restore
                                    min_rlvert, max_rlvert, &
                                    min_rlcell_int, min_rledge_int
   USE mo_exception,          ONLY: message_text, message, finish
-  USE mo_run_nml,            ONLY: nproma, i_cell_type, ltransport, iequations,     &
+  USE mo_run_nml,             ONLY: nproma
+  USE mo_run_nml,            ONLY: i_cell_type, ltransport, iequations,     &
      &                             num_lev, num_levp1, nshift
   USE mo_io_units,           ONLY: filename_max, nerr
   USE mo_model_domain,       ONLY: t_patch

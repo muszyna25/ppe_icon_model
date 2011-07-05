@@ -49,7 +49,7 @@ MODULE mo_loopindices
 USE mo_kind,            ONLY: wp
 USE mo_model_domain,    ONLY: t_patch
 USE mo_impl_constants,  ONLY: min_rlcell, min_rledge, min_rlvert
-USE mo_run_nml,         ONLY: nproma
+USE mo_parallel_configuration,  ONLY: nproma
 
 IMPLICIT NONE
 

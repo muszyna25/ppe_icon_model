@@ -95,7 +95,7 @@ MODULE mo_math_utilities
   USE mo_math_constants
   USE mo_physical_constants
   USE mo_exception,           ONLY: message, finish
-  USE mo_run_nml,             ONLY: nproma
+  USE mo_parallel_configuration,  ONLY: nproma
 
   IMPLICIT NONE
 
