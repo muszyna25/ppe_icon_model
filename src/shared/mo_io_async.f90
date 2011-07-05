@@ -59,7 +59,7 @@ MODULE mo_io_async
   USE mo_impl_constants,      ONLY: max_dom
   USE mo_datetime,            ONLY: t_datetime
   USE mo_mpi,                 ONLY: p_pe, p_bcast, p_barrier, p_stop, p_real_dp, p_send, p_recv
-  USE mo_parallel_nml,        ONLY: p_pe_work, p_test_pe, p_work_pe0, p_io_pe0,                  &
+  USE mo_parallel_configuration,  ONLY: p_pe_work, p_test_pe, p_work_pe0, p_io_pe0,                  &
    &                                p_comm_work, p_comm_work_io, p_comm_work_2_io,               &
    &                                num_work_procs, num_io_procs, pio_type
   USE mo_global_variables,    ONLY: setup_physics

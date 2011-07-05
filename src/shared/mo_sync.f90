@@ -53,7 +53,7 @@ USE mo_parallel_configuration, ONLY: nproma
 USE mo_io_units,           ONLY: find_next_free_unit, filename_max
 USE mo_mpi,                ONLY: p_pe, p_nprocs, p_bcast, p_sum, p_max, p_min, &
                                  p_send, p_recv
-USE mo_parallel_nml,       ONLY: p_test_pe, p_test_run, p_comm_work,           &
+USE mo_parallel_configuration,       ONLY: p_test_pe, p_test_run, p_comm_work,           &
                                  n_ghost_rows, l_log_checks, l_fast_sum,       &
                                  p_pe_work, p_comm_work_test, p_work_pe0
 USE mo_communication,      ONLY: exchange_data,                                &
