@@ -77,7 +77,7 @@ MODULE mo_advection_stepping
   USE mo_advection_vflux,     ONLY: vert_upwind_flux
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, min_rlcell, &
-    &                               min_rledge, iubc_adv,
+    &                               min_rledge, iubc_adv
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_mpi,                 ONLY: p_pe, p_nprocs
   USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult

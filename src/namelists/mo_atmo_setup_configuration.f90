@@ -101,19 +101,19 @@ MODULE mo_atmo_setup_configuration
 
   ! Memory
   !
-  USE mo_subdivision,         ONLY: decompose_atmo_domain,         &
-    & copy_processor_splitting,      &
-    & set_patch_communicators
-  USE mo_dump_restore,        ONLY: dump_patch_state_netcdf,       &
-    & restore_patches_netcdf,        &
-    & restore_interpol_state_netcdf, &
-    & restore_gridref_state_netcdf
+!   USE mo_subdivision,         ONLY: decompose_atmo_domain,         &
+!     & copy_processor_splitting,      &
+!     & set_patch_communicators
+!   USE mo_dump_restore,        ONLY: dump_patch_state_netcdf,       &
+!     & restore_patches_netcdf,        &
+!     & restore_interpol_state_netcdf, &
+!     & restore_gridref_state_netcdf
 
-  USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
-  USE mo_atmo_control,        ONLY: p_patch_global, p_patch_subdiv, p_patch,             &
-    & p_nh_state, p_lnd_state,                             &
-    & p_int_state_global, p_int_state_subdiv, p_int_state, &
-    & p_grf_state_global, p_grf_state_subdiv, p_grf_state
+!   USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
+!   USE mo_atmo_control,        ONLY: p_patch_global, p_patch_subdiv, p_patch,             &
+!     & p_nh_state, p_lnd_state,                             &
+!     & p_int_state_global, p_int_state_subdiv, p_int_state, &
+!     & p_grf_state_global, p_grf_state_subdiv, p_grf_state
 
   ! Horizontal grid
   !
@@ -127,53 +127,23 @@ MODULE mo_atmo_setup_configuration
   ! Horizontal interpolation
   !
   USE mo_interpol_nml,        ONLY: interpol_nml_setup   ! process interpol. ctl. params.
-  USE mo_intp_state,          ONLY: construct_2d_interpol_state, &
-    & destruct_2d_interpol_state
-  USE mo_interpolation,       ONLY: rbf_vec_interpol_cell,       &
-    & edges2cells_scalar
   USE mo_gridref_nml,         ONLY: gridref_nml_setup
-  USE mo_grf_interpolation,   ONLY: construct_2d_gridref_state,  &
-    & destruct_2d_gridref_state
   
   ! Vertical grid
   !
   USE mo_vertical_coord_table,ONLY: init_vertical_coord_table
   USE mo_vertical_grid,       ONLY: init_hybrid_coord, init_sleve_coord
-  
-  ! State variables
-  !
-  USE mo_icoham_dyn_memory,   ONLY: destruct_icoham_dyn_state
-  USE mo_nonhydro_state,      ONLY: destruct_nh_state
-  
-  
-  ! Parameterized forcing
-  !
-  USE mo_echam_phy_memory,    ONLY: destruct_echam_phy_state
+    
   USE mo_echam_phy_setup,     ONLY: setup_echam_phy
-  USE mo_echam_phy_init,      ONLY: prepare_echam_phy, initcond_echam_phy, &
-                                  & additional_restart_init
-  USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
-  USE mo_gmt_output,          ONLY: setup_gmt_output
-  USE mo_nwp_phy_state,       ONLY: construct_nwp_phy_state,   &
-    & destruct_nwp_phy_state
   USE mo_atm_phy_nwp_nml,     ONLY: setup_nwp_phy, inwp_surface
   USE mo_lnd_nwp_nml,         ONLY: setup_nwp_lnd
-  USE mo_nwp_lnd_state,       ONLY: construct_nwp_lnd_state,   &
-    & destruct_nwp_lnd_state
  
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
   
-  ! Time integration
-  !
-  USE mo_ha_stepping,         ONLY: prepare_ha_dyn, initcond_ha_dyn, perform_ha_stepping
-  USE mo_nh_stepping,         ONLY: prepare_nh_integration, perform_nh_stepping
-  ! External data
-  USE mo_ext_data,            ONLY: ext_data, init_ext_data, destruct_ext_data
   
   !  USE mo_nwp_phy_init,          ONLY: init_nwp_phy
   !!$  USE mo_gscp_cosmo,          ONLY: hydci_pp_init
   
-  USE mo_io_restart,           ONLY: read_restart_info_file, read_restart_files
   USE mo_io_restart_namelist,  ONLY: read_restart_namelists
   USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
 
