@@ -247,7 +247,7 @@ CONTAINS
   !!
   SUBROUTINE run_nml_setup
                                                
-   INTEGER  :: istat, funit,
+   INTEGER  :: istat, funit
 
    CHARACTER(len=max_char_length), PARAMETER ::   &
             &  routine = 'mo_run_nml/run_nml_setup'
@@ -289,7 +289,7 @@ CONTAINS
    nsteps         = 0
    !
    ! length of restart cycle
-   dt_restart     = 86400._wp*30._wp   ! = 30 days
+!    dt_restart     = 86400._wp*30._wp   ! = 30 days
    !
    ! time step
    dtime          = 600._wp   ! [s] for R2B04 + semi-implicit time steppping
@@ -437,52 +437,52 @@ CONTAINS
     !     Here we define "nsteps" as the number of time steps THIS integration
     !     will last, regardless of the restart status.
 
-    IF (nsteps/=0) THEN
-
-      IF (nsteps < 0) CALL finish(routine,'"nsteps" must not be negative')
-      length_sec   = REAL(nsteps,wp)*dtime
-      end_datetime = current_datetime
-      CALL add_time(length_sec,0,0,0,end_datetime)
-      !
-    ELSE IF (run_day/=0 .OR. run_hour/=0 .OR. run_minute/=0 .OR. run_second/=0.0_wp) THEN
-      IF (run_day    < 0    ) CALL finish(routine,'"run_day" must not be negative')
-      IF (run_hour   < 0    ) CALL finish(routine,'"run_hour" must not be negative')
-      IF (run_minute < 0    ) CALL finish(routine,'"run_minute" must not be negative')
-      IF (run_second < 0._wp) CALL finish(routine,'"run_second" must not be negative')
-      !
-      end_datetime = current_datetime
-      CALL add_time(run_second,run_minute,run_hour,run_day,end_datetime)
-      !
-      cur_datetime_calsec = (REAL(current_datetime%calday,wp)+current_datetime%caltime) &
-        &                   *REAL(current_datetime%daylen,wp)
-      end_datetime_calsec = (REAL(end_datetime%calday,wp)+end_datetime%caltime) &
-        &                   *REAL(end_datetime%daylen,wp)
-      nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
-      !
-    ELSE
-      ! compute nsteps from current_datetime, end_datetime and dtime
-      end_datetime%calendar = calendar
-      end_datetime%year     = end_year
-      end_datetime%month    = end_month
-      end_datetime%day      = end_day
-      end_datetime%hour     = end_hour
-      end_datetime%minute   = end_minute
-      end_datetime%second   = end_second
-      CALL date_to_time      (end_datetime) ! fill date time structure
-      !
-      cur_datetime_calsec = (REAL(current_datetime%calday,wp)+current_datetime%caltime) &
-        &                   *REAL(current_datetime%daylen,wp)
-      end_datetime_calsec = (REAL(end_datetime%calday,wp)+end_datetime%caltime) &
-        &                   *REAL(end_datetime%daylen,wp)
-      IF (end_datetime_calsec < cur_datetime_calsec) &
-        & CALL finish(routine,'The end date and time must not be '// &
-        &            'before the current date and time')
-      !
-      nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
-      !
-    END IF
-
-    nsteps = MIN(nsteps,INT(dt_restart/dtime))
+!     IF (nsteps/=0) THEN
+! 
+!       IF (nsteps < 0) CALL finish(routine,'"nsteps" must not be negative')
+!       length_sec   = REAL(nsteps,wp)*dtime
+!       end_datetime = current_datetime
+!       CALL add_time(length_sec,0,0,0,end_datetime)
+!       !
+!     ELSE IF (run_day/=0 .OR. run_hour/=0 .OR. run_minute/=0 .OR. run_second/=0.0_wp) THEN
+!       IF (run_day    < 0    ) CALL finish(routine,'"run_day" must not be negative')
+!       IF (run_hour   < 0    ) CALL finish(routine,'"run_hour" must not be negative')
+!       IF (run_minute < 0    ) CALL finish(routine,'"run_minute" must not be negative')
+!       IF (run_second < 0._wp) CALL finish(routine,'"run_second" must not be negative')
+!       !
+!       end_datetime = current_datetime
+!       CALL add_time(run_second,run_minute,run_hour,run_day,end_datetime)
+!       !
+!       cur_datetime_calsec = (REAL(current_datetime%calday,wp)+current_datetime%caltime) &
+!         &                   *REAL(current_datetime%daylen,wp)
+!       end_datetime_calsec = (REAL(end_datetime%calday,wp)+end_datetime%caltime) &
+!         &                   *REAL(end_datetime%daylen,wp)
+!       nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
+!       !
+!     ELSE
+!       ! compute nsteps from current_datetime, end_datetime and dtime
+!       end_datetime%calendar = calendar
+!       end_datetime%year     = end_year
+!       end_datetime%month    = end_month
+!       end_datetime%day      = end_day
+!       end_datetime%hour     = end_hour
+!       end_datetime%minute   = end_minute
+!       end_datetime%second   = end_second
+!       CALL date_to_time      (end_datetime) ! fill date time structure
+!       !
+!       cur_datetime_calsec = (REAL(current_datetime%calday,wp)+current_datetime%caltime) &
+!         &                   *REAL(current_datetime%daylen,wp)
+!       end_datetime_calsec = (REAL(end_datetime%calday,wp)+end_datetime%caltime) &
+!         &                   *REAL(end_datetime%daylen,wp)
+!       IF (end_datetime_calsec < cur_datetime_calsec) &
+!         & CALL finish(routine,'The end date and time must not be '// &
+!         &            'before the current date and time')
+!       !
+!       nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
+!       !
+!     END IF
+! 
+!     nsteps = MIN(nsteps,INT(dt_restart/dtime))
 
     IF (lhydrostatic) THEN
      ! If running the HYDROSTATIC version,
@@ -504,14 +504,14 @@ CONTAINS
     CALL message(' ',' ')
     CALL message(routine,'End date and time')
     CALL message(routine,'-----------------')
-    CALL print_datetime_all(end_datetime)  ! print all date and time components
+!     CALL print_datetime_all(end_datetime)  ! print all date and time components
 
     CALL message(' ',' ')
     CALL message(routine,'Length of restart cycle')
     CALL message(routine,'-----------------------')
-    WRITE(message_text,'(a,f10.2,a,f16.10,a)') &
-         &'dt_restart :',dt_restart,' seconds =', dt_restart/86400._wp, ' days'
-    CALL message(routine,message_text)
+!     WRITE(message_text,'(a,f10.2,a,f16.10,a)') &
+!          &'dt_restart :',dt_restart,' seconds =', dt_restart/86400._wp, ' days'
+!     CALL message(routine,message_text)
 
     CALL message(' ',' ')
     CALL message(routine,'Length of this run')
