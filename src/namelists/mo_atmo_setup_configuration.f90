@@ -270,17 +270,17 @@ CONTAINS
   !-------------------------------------------------------------------------
   SUBROUTINE setup_atmo_configuration()
   
-    CALL setup_atmo_parallel_configuration()
+    CALL setup_parallel_configuration()
 
   END SUBROUTINE setup_atmo_configuration
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
-  SUBROUTINE setup_atmo_parallel_configuration()
+  SUBROUTINE setup_parallel_configuration()
   
     CALL set_nproma(get_nml_nproma())
 
-  END SUBROUTINE setup_atmo_configuration
+  END SUBROUTINE setup_parallel_configuration
   !-------------------------------------------------------------------------
   
   
