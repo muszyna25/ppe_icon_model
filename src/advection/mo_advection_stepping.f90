@@ -77,14 +77,14 @@ MODULE mo_advection_stepping
   USE mo_advection_vflux,     ONLY: vert_upwind_flux
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, min_rlcell, &
-    &                               min_rledge, iubc_adv
+    &                               min_rledge
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_mpi,                 ONLY: p_pe, p_nprocs
   USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult
   USE mo_parallel_nml,        ONLY: p_test_pe, p_test_run
   USE mo_advection_nml,       ONLY: ihadv_tracer, ivadv_tracer, lvadv_tracer,&
     &                               lclip_tracer, lstrang, itype_vlimit,     &
-    &                               itype_hlimit, iord_backtraj,             &
+    &                               itype_hlimit, iord_backtraj, iubc_adv,   &
     &                               igrad_c_miura, iadv_slev, cSTR,          &
     &                               coeff_grid
   USE mo_advection_utils,     ONLY: ptr_delp_mc_now, ptr_delp_mc_new
