@@ -55,7 +55,8 @@ MODULE mo_nh_testcases
   USE mo_math_utilities,     ONLY: gc2cc, t_cartesian_coordinates, &
                                    t_geographical_coordinates, &
                                    arc_length
-  USE mo_run_nml,            ONLY: nproma, ltransport, ntracer, iforcing, inwp, &
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,            ONLY: ltransport, ntracer, iforcing, inwp, &
     &                              iqv, i_cell_type,itopo
   USE mo_dynamics_nml,       ONLY: nnow,nnew,nnow_rcf, nnew_rcf
   USE mo_atm_phy_nwp_nml,    ONLY: inwp_gscp, inwp_convection
