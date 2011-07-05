@@ -1044,6 +1044,7 @@ src/namelists/mo_lnd_nwp_nml.f90 -text
 src/namelists/mo_master_nml.f90 -text
 src/namelists/mo_nonhydrostatic_nml.f90 -text
 src/namelists/mo_ocean_nml.f90 -text
+src/namelists/mo_parallel_configuration.f90 -text
 src/namelists/mo_parallel_nml.f90 -text
 src/namelists/mo_radiation_nml.f90 -text
 src/namelists/mo_run_nml.f90 -text
