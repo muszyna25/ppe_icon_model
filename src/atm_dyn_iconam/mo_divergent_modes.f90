@@ -54,7 +54,8 @@ MODULE mo_divergent_modes
 
   USE mo_kind,                ONLY: wp
   USE mo_nonhydrostatic_nml,  ONLY: gmres_rtol_nh, upstr_beta, ltheta_up_hori
-  USE mo_run_nml,             ONLY: nproma, dtime
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,             ONLY: dtime
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: lplane
   USE mo_interpolation,       ONLY: t_int_state,  &

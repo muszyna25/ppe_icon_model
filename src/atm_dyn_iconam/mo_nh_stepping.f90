@@ -55,7 +55,8 @@ MODULE mo_nh_stepping
   USE mo_dynamics_nml,        ONLY: nnow, nnew, nnow_rcf, nnew_rcf,                 &
     &                               nsav1, nsav2, itime_scheme
   USE mo_io_nml,              ONLY: l_outputtime, l_diagtime, l_checkpoint_time
-  USE mo_run_nml,             ONLY: ltestcase, dtime, nsteps, nproma, i_cell_type,  &
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,             ONLY: ltestcase, dtime, nsteps, i_cell_type,  &
     &                               ltransport, ntracer, lforcing, iforcing, inwp,  &
     &                               msg_level, ltimer
   USE mo_atm_phy_nwp_nml,     ONLY: tcall_phy
