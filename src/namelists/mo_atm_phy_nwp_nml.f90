@@ -67,14 +67,6 @@ MODULE mo_atm_phy_nwp_nml
 
   PRIVATE
 
-!> Action Variables for physical schemes
-! --------------------------------------
-  INTEGER, PARAMETER ::   &
-&      iupdate       = 1 ,& !! update moist tracers
-&      isatad        = 2 ,& !! saturation adjustment
-&      islow_physics = 3 ,& !! 'slow' physical processes
-       ifast_physics = 4    !> cloud microphysics
-
    !
    ! user defined calling intervals
    !
@@ -150,7 +142,6 @@ MODULE mo_atm_phy_nwp_nml
     &                  itype_wcld, icldm_turb,                  &
     &                  itype_tran, rlam_heat, rlam_mom, rat_sea
 
-   PUBLIC :: ifast_physics, isatad, islow_physics, iupdate
    PUBLIC :: setup_nwp_phy !, set_inwp_nml, read_inwp_nml
    PUBLIC :: inwp_gscp, inwp_satad, inwp_convection, inwp_radiation
    PUBLIC :: inwp_sso, inwp_cldcover, inwp_turb, inwp_surface
