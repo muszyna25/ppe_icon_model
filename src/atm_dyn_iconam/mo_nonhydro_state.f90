@@ -9,7 +9,7 @@
 !! and diagnostics.
 !!
 !! @author Almut Gassmann (MPI-M)
-!! @author Daniel Reiner©t (DWD-M)
+!! @author Daniel Reinerï¿½t (DWD-M)
 !!
 !! @par Revision History
 !! Initial release by Almut Gassmann, MPI-M (2009-03-06)
@@ -55,7 +55,8 @@ MODULE mo_nonhydro_state
   USE mo_nonhydrostatic_nml,  ONLY: l_nest_rcf
   USE mo_dynamics_nml,        ONLY: nsav1, nsav2, itime_scheme
 !  USE mo_advection_nml,       ONLY: ctracer_list
-  USE mo_run_nml,             ONLY: nproma, i_cell_type, iforcing,             &
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,             ONLY: i_cell_type, iforcing,             &
     &                               inwp, ltransport, ntracer, ntracer_static, &
     &                               inextra_2d, inextra_3d,&
     &                               iqv, iqc, iqi, iqr, iqs, io3
@@ -830,7 +831,7 @@ MODULE mo_nonhydro_state
   !! @par Revision History
   !! Initial release by Almut Gassmann, MPI-M (2009-03-06)
   !!
-  !! Modification by Kristina Fröhlich, DWD, (2010-10-22)
+  !! Modification by Kristina Frï¿½hlich, DWD, (2010-10-22)
   !! - added pressure on interfaces
   !!
   SUBROUTINE new_nh_state_diag_list ( p_patch, p_diag, p_diag_list,  &

@@ -48,7 +48,8 @@ USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging, interpol_vec_nudging
 USE mo_grf_ubcintp,         ONLY: interpol_scal_ubc,interpol_vec_ubc
 USE mo_dynamics_nml,        ONLY: nnow, nnew, nnew_rcf, nsav1, nsav2,       &
                                   nnow_rcf
-USE mo_run_nml,             ONLY: ltransport, nproma, msg_level, ntracer, lvert_nest
+  USE mo_parallel_configuration,  ONLY: nproma
+USE mo_run_nml,             ONLY: ltransport, msg_level, ntracer, lvert_nest
 USE mo_nonhydro_state,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
 USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlcell_int, min_rledge_int, &
       &                           MAX_CHAR_LENGTH

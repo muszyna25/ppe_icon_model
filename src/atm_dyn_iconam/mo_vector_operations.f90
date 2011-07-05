@@ -40,7 +40,8 @@ MODULE mo_vector_operations
 
   USE mo_kind,             ONLY: wp
   USE mo_io_nml,           ONLY: l_outputtime
-  USE mo_run_nml,          ONLY: nproma, ltimer, dtime
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,          ONLY: ltimer, dtime
   USE mo_vertical_grid,    ONLY: nflat
   USE mo_model_domain,     ONLY: t_patch
   USE mo_interpolation,    ONLY: t_int_state,          edges2edges_scalar, &

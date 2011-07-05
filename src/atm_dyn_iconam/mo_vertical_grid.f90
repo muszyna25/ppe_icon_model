@@ -53,7 +53,8 @@ MODULE mo_vertical_grid
   USE mo_diffusion_nml,       ONLY: hdiff_efdt_ratio, hdiff_min_efdt_ratio
   USE mo_sleve_nml,           ONLY: sleve_nml_setup, min_lay_thckn, top_height, decay_scale_1, &
     &                               decay_scale_2, decay_exp, flat_height, stretch_fac
-  USE mo_run_nml,             ONLY: ltestcase, nproma, i_cell_type, msg_level
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,             ONLY: ltestcase, i_cell_type, msg_level
   USE mo_vertical_coord_table,ONLY: vct_a, vct_b, vct, read_vct
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, &
     &                               min_rlcell_int, min_rlcell
