@@ -89,7 +89,8 @@ MODULE mo_advection_hflux
     &                               rbf_interpol_c2grad, lsq_high_ord,       &
     &                               lsq_high_set, cells2edges_scalar
   USE mo_dynamics_nml,        ONLY: itime_scheme
-  USE mo_run_nml,             ONLY: nproma, ntracer
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,             ONLY: ntracer
   USE mo_loopindices,         ONLY: get_indices_e
   USE mo_sync,                ONLY: SYNC_C, SYNC_C1, sync_patch_array_mult
   USE mo_parallel_nml,        ONLY: p_test_run, n_ghost_rows

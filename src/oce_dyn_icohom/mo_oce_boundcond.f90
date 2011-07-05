@@ -48,7 +48,7 @@ MODULE mo_oce_boundcond
 !   
 ! 
 USE mo_kind,               ONLY: wp
-USE mo_run_nml,            ONLY: nproma
+USE mo_parallel_configuration,  ONLY: nproma
 USE mo_impl_constants,     ONLY: max_char_length, sea_boundary, sea,&
   &                              min_rlcell, min_rledge !, min_rlvert
 USE mo_model_domain,       ONLY: t_patch

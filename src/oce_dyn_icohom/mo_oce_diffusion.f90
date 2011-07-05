@@ -50,7 +50,7 @@ USE mo_math_utilities,            ONLY: t_cartesian_coordinates, gvec2cvec!, gc2
 USE mo_impl_constants,            ONLY: boundary, sea_boundary ,max_char_length, &
   &                                     min_rlcell, min_rledge, min_rlcell,      &
   &                                     max_char_length
-USE mo_run_nml,                   ONLY: nproma
+USE mo_parallel_configuration,  ONLY: nproma
 USE mo_ocean_nml,                 ONLY: n_zlev, iswm_oce
 USE mo_run_nml,                   ONLY: dtime
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, t_hydro_ocean_aux
