@@ -83,21 +83,14 @@ MODULE mo_ocean_nml
   REAL(wp) :: dzlev_m(100)  ! namelist input of layer thickness
 
 
-  INTEGER, PARAMETER :: ntrac_oce = 2   ! number of tracers used in ocean state
-  INTEGER, PARAMETER :: toplev    = 1   ! surface ocean level
+
 
   ! parameterized forcing for ocean model:
   INTEGER            :: iforc_oce       =   0   ! index of parameterized forcing
-  INTEGER, PARAMETER :: analyt_stat     =  11   ! stationary harmonic wind forcing
-  INTEGER, PARAMETER :: core_forc       =  12   ! forcing from CORE database
-  INTEGER, PARAMETER :: core_annwind    =  13   ! annual mean CORE winds
-  INTEGER, PARAMETER :: full_forc       =  14   ! mpiom-type forcing
+
 
   ! parameterized test cases for ocean model:
   INTEGER            :: itestcase_oce   =   0   ! index of parameterized test cases
-  INTEGER, PARAMETER :: testcase_zero   =   0   ! no or zero forcing
-  INTEGER, PARAMETER :: testcase_init   =  21   ! simply defined test case
-  INTEGER, PARAMETER :: testcase_file   =  22   ! test case read from file
 
   ! parameterized velocity boundary conditions
                       ! Velocity boundary condition: Currently only no-slip is supported !!
@@ -131,9 +124,7 @@ MODULE mo_ocean_nml
   !   i_oce_stepping = 2 => call perform_ho_stepping
   !   i_oce_stepping = 2 => call perform_core201006
   INTEGER            :: i_oce_stepping  =   1  ! switch for time stepping scheme
-  INTEGER, PARAMETER :: semi_impl_ab    =   1  ! Adams-Bashforth time stepping scheme
-  INTEGER, PARAMETER :: expl_step_oce   =   2  ! simplified explicit ocean core
-  INTEGER, PARAMETER :: core201006      =   3  ! saved core of summer 2010
+
 
   ! parameterized shallow water mode in the ocean model
   INTEGER            :: iswm_oce        =   0  ! switch for shallow water mode (1 = on, 0 = 3dim)

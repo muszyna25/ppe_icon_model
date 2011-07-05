@@ -51,7 +51,6 @@ MODULE mo_cover_koe
 
   USE mo_physical_constants, ONLY: re
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,            ONLY: nlev
   USE mo_math_utilities,     ONLY: gamma_fct
   USE mo_math_constants,     ONLY: dbl_eps, pi
 

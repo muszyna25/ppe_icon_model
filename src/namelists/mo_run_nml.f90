@@ -219,8 +219,8 @@ MODULE mo_run_nml
   !
   LOGICAL :: ltheta_dyn ! if .true., use potential temperature times delta p as prognostic variable
 
-  NAMELIST /run_ctl/ iinit,                                &
-    &                nlev, num_lev, nshift,                &
+
+  NAMELIST /run_ctl/ iinit, num_lev, nshift,               &
     &                lvert_nest, ntracer, calendar,        &
     &                ini_year, ini_month,  ini_day,        &
     &                ini_hour, ini_minute, ini_second,     &
@@ -301,13 +301,12 @@ CONTAINS
    iinit          = ianalytic
 
    ! dimensions for new, initialized experiments
-   nlev           = 31  ! number of full levels
-   num_lev(:)     = nlev ! number of full levels for each domain
-   nshift(:)      = 0    ! please do not change the default.
-                         ! otherwise the initialization of 
-                         ! p_patch(jg)%nshift in "import patches" 
-                         ! will not work properly.
-   lvert_nest = .FALSE.  ! no vertical nesting
+   num_lev(:)     = 31  ! number of full levels for each domain
+   nshift(:)      = 0   ! please do not change the default.
+                        ! otherwise the initialization of 
+                        ! p_patch(jg)%nshift in "import patches" 
+                        ! will not work properly.
+   lvert_nest = .FALSE. ! no vertical nesting
    ntracer        = 0   ! number of advected tracers
    ntracer_static = 0   ! number of non-advected tracers
 
@@ -431,14 +430,10 @@ CONTAINS
     ! 4. Check whether the namelist varibles have reasonable values
     !---------------------------------------------------------------
 
-    IF (nlev < 1)  CALL finish(TRIM(routine),'"nlev" must be positive')
-    nlevp1 = nlev+1
-    nvclev = nlevp1
-
     ! vertical nesting
     IF (.NOT. lvert_nest) THEN
-      ! overwrite num_lev with nlev
-      num_lev(1:max_dom) = nlev
+      ! overwrite num_lev with num_lev(1)
+      num_lev(1:max_dom) = num_lev(1)
       ! set nshift to 0
       nshift(1:max_dom) = 0 
     ENDIF
@@ -446,6 +441,13 @@ CONTAINS
 
     IF (ANY(num_lev < 0)) CALL finish(TRIM(routine),'"num_lev" must be positive')
     IF (ANY(nshift < 0)) CALL finish(TRIM(routine),'"nshift" must be positive')
+
+    !!! DR !!!
+    ! auxiliary variables which are needed as long as 
+    ! mo_eta_coord_diag has not been adapted.
+    nlev = num_lev(1)
+    nlevp1 = nlev+1
+    nvclev = nlevp1
 
     SELECT CASE (i_cell_type)
     CASE (itri,ihex)
@@ -457,8 +459,8 @@ CONTAINS
     SELECT CASE (iequations)
     CASE (ishallow_water)
       lshallow_water = .TRUE.
-      IF ( nlev/=1 ) THEN
-        CALL finish(TRIM(routine),'Shallow water model needs nlev=1')
+      IF ( num_lev(1)/=1 ) THEN
+        CALL finish(TRIM(routine),'Shallow water model needs num_lev(1)=1')
       ENDIF
       ltheta_dyn     = .FALSE.
     CASE (ihs_atm_temp)

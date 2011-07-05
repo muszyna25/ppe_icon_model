@@ -181,7 +181,7 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: ianalytic      =  0 ! - from analytical functions
   INTEGER, PARAMETER :: irestart       =  1 ! - from restart file
 
-  ! identifiers for time stepping schemes
+  ! identifiers for atm time stepping schemes
   INTEGER,PARAMETER :: TRACER_ONLY   = 1 ! pure tracer advection
   INTEGER,PARAMETER :: TWO_TL_SI     = 2 ! semi-implicit two time level
   INTEGER,PARAMETER :: LEAPFROG_EXPL = 3 ! explicit leapfrog
@@ -278,5 +278,31 @@ MODULE mo_impl_constants
   ! auxiliary parameter to access single field of the 4D array prm_diag%tot_cld
   INTEGER, PARAMETER :: icc = 4    !! diagnostic cloud fraction in prm_diag%tot_cld
 
+
+  !---------------------!
+  !        OCEAN        !
+  !---------------------!
+
+  ! identifiers for oce time stepping schemes (i_oce_stepping)
+  INTEGER, PARAMETER :: semi_impl_ab  = 1 ! Adams-Bashforth time stepping scheme
+  INTEGER, PARAMETER :: expl_step_oce = 2 ! simplified explicit ocean core
+  INTEGER, PARAMETER :: core201006    = 3 ! saved core of summer 2010
+
+  ! identifier for parameterized forcing of the ocean model (iforc_oce)
+  INTEGER, PARAMETER :: analyt_stat    = 11   ! stationary harmonic wind forcing
+  INTEGER, PARAMETER :: core_forc      = 12   ! forcing from CORE database
+  INTEGER, PARAMETER :: core_annwind   = 13   ! annual mean CORE winds
+  INTEGER, PARAMETER :: full_forc      = 14   ! mpiom-type forcing
+
+  ! identifier for ocean model test cases (itestcase_oce)
+  ! (should probably be moved to some testcase-module)
+  INTEGER, PARAMETER :: testcase_zero  =  0   ! no or zero forcing
+  INTEGER, PARAMETER :: testcase_init  = 21   ! simply defined test case
+  INTEGER, PARAMETER :: testcase_file  = 22   ! test case read from file
+
+  ! number of tracers used in ocean state
+  INTEGER, PARAMETER :: ntrac_oce = 2
+  ! ocean surface level
+  INTEGER, PARAMETER :: toplev    = 1
 !--------------------------------------------------------------------
 END MODULE mo_impl_constants
