@@ -257,29 +257,20 @@ CONTAINS
     
     CALL interpol_nml_setup(p_patch_global)
     
-    !
-    ! allocate type for interpolation state
-    
     !-------------------------------------------------------------------------
     ! set up horizontal diffusion after the vertical coordinate is configured
     !-------------------------------------------------------------------------
     CALL diffusion_nml_setup(n_dom,parent_id)
     
-    
+   
     !------------------------------------------------------------------
     ! step 6: initialize output
-    !------------------------------------------------------------------
-    
+    !------------------------------------------------------------------    
     CALL io_nml_setup
- 
-    
+     
     !------------------------------------------------------------------
     ! Create and optionally read external data fields
     !------------------------------------------------------------------
-    ALLOCATE (ext_data(n_dom), STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish(TRIM(method_name),'allocation for ext_data failed')
-    ENDIF
         
     CALL close_nml
     IF (p_pe == p_io) THEN
