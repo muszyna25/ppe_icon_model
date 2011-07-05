@@ -92,9 +92,17 @@ MODULE mo_atm_hdiff_config
 
   !>
   !!
-  TYPE(t_hdiff_config) :: atm_hdiff_config(:) !< shape: (n_dom)
+  TYPE(t_hdiff_config),ALLOCATABLE :: atm_hdiff_config(:) !< shape: (n_dom)
 
 CONTAINS
+  !>
+  !!
+  SUBROUTINE setup_atm_hdiff_config(n_dom)
+    INTEGER,INTENT(IN) :: n_dom
+
+    ALLOCATE(atm_hdiff_config(n_dom))
+
+  END SUBROUTINE setup_atm_hdiff_config
   !>
   !!
   LOGICAL FUNCTION get_lhdiff_temp(jg)
@@ -121,14 +129,7 @@ CONTAINS
   REAL(wp) FUNCTION get_k4(jg)
     INTEGER,INTENT(IN) :: jg
     get_k4 = atm_hdiff_config(jg)%k4
-  END FUNCTION get_k2
-  !----------------------------------------------------------------
-  !>
-  !!
-  REAL(wp) FUNCTION get_k2(jg)
-    INTEGER,INTENT(IN) :: jg
-    get_k2 = atm_hdiff_config(jg)%k2
-  END FUNCTION get_k2
+  END FUNCTION get_k4
   !----------------------------------------------------------------
   !>
   !!

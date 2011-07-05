@@ -1026,6 +1026,7 @@ src/lnd_phy_nwp/mo_nwp_lnd_state.f90 -text
 src/lnd_phy_nwp/mo_nwp_sfc_interface.f90 -text
 src/lnd_phy_schemes/mo_phyparam_soil.f90 -text
 src/lnd_phy_schemes/mo_soil_ml.f90 -text
+src/namelists/mo_advection_config.f90 -text
 src/namelists/mo_advection_nml.f90 -text
 src/namelists/mo_atm_dyn_config.f90 -text
 src/namelists/mo_atm_hdiff_config.f90 -text
@@ -1042,6 +1043,7 @@ src/namelists/mo_grid_nml.f90 -text
 src/namelists/mo_gridref_nml.f90 -text
 src/namelists/mo_gw_hines_nml.f90 -text
 src/namelists/mo_ha_dyn_config.f90 -text
+src/namelists/mo_interpol_config.f90 -text
 src/namelists/mo_interpol_nml.f90 -text
 src/namelists/mo_io_nml.f90 -text
 src/namelists/mo_lnd_nwp_nml.f90 -text

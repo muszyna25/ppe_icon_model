@@ -85,7 +85,7 @@ MODULE mo_ha_dyn_config
 
   !>
   !!
-  TYPE(t_ha_dyn_config) :: ha_dyn_config(:)  !< shape: (n_dom)
+  TYPE(t_ha_dyn_config),ALLOCATABLE :: ha_dyn_config(:)  !< shape: (n_dom)
 
-END MODULE mo_hs_dyn_config
+END MODULE mo_ha_dyn_config
 

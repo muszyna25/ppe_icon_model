@@ -75,6 +75,6 @@ MODULE mo_sleve_config
   END TYPE t_sleve_config
   !>
   !!
-  TYPE(t_sleve_config) :: sleve_config
+  TYPE(t_sleve_config),ALLOCATABLE :: sleve_config
 
 END MODULE mo_sleve_config
