@@ -53,7 +53,13 @@ MODULE mo_advection_nml
     &                               ildf_dry, ildf_echam, io3, iqcond,      &
     &                               lvert_nest, iqv
   USE mo_grid_nml,            ONLY: n_dom
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom,  &
+    &                               ino_hadv, iup, imiura, imiura3, iup3,   &
+    &                               ino_vadv, iup_v, imuscl_vcfl, imuscl_v, &
+    &                               ippm_vcfl, ippm_v, inol, islopel_sm,    &
+    &                               islopel_m, ifluxl_m, ifluxl_sm, inol_v, &
+    &                               islopel_vsm, islopel_vm, ifluxl_vpd,    &
+    &                               ino_flx, izero_grad, iparent_flx
   USE mo_namelist,            ONLY: position_nml, POSITIONED
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_radiation_nml,       ONLY: irad_o3
@@ -134,45 +140,6 @@ MODULE mo_advection_nml
     &                     iord_backtraj, lclip_tracer, ctracer_list,  &
     &                     igrad_c_miura, lstrang, upstr_beta_adv,     &
     &                     llsq_svd
-
-
-  !---------------------!
-  ! auxiliary variables !
-  !---------------------!
-
-  ! auxiliary variables for selecting horizontal transport scheme
-  INTEGER, PARAMETER :: ino_hadv= 0
-  INTEGER, PARAMETER :: iup     = 1
-  INTEGER, PARAMETER :: imiura  = 2
-  INTEGER, PARAMETER :: imiura3 = 3
-  INTEGER, PARAMETER :: iup3    = 4
-
-  ! auxiliary variables for selecting vertical transport scheme
-  INTEGER, PARAMETER :: ino_vadv    = 0
-  INTEGER, PARAMETER :: iup_v       = 1
-  INTEGER, PARAMETER :: imuscl_vcfl = 2
-  INTEGER, PARAMETER :: imuscl_v    = 20
-  INTEGER, PARAMETER :: ippm_vcfl   = 3
-  INTEGER, PARAMETER :: ippm_v      = 30
-
-  ! auxiliary variables for selecting horizontal limiter
-  INTEGER, PARAMETER :: inol       = 0
-  INTEGER, PARAMETER :: islopel_sm = 1
-  INTEGER, PARAMETER :: islopel_m  = 2
-  INTEGER, PARAMETER :: ifluxl_m   = 3
-  INTEGER, PARAMETER :: ifluxl_sm  = 4
-
-  ! auxiliary variables for selecting vertical limiter
-  INTEGER, PARAMETER :: inol_v      = 0
-  INTEGER, PARAMETER :: islopel_vsm = 1
-  INTEGER, PARAMETER :: islopel_vm  = 2
-  INTEGER, PARAMETER :: ifluxl_vpd  = 4
-
-  ! auxiliary variables for selecting upper boundary condition (ubc)
-  INTEGER, PARAMETER :: ino_flx     = 0
-  INTEGER, PARAMETER :: izero_grad  = 1
-  INTEGER, PARAMETER :: iparent_flx = 2
-
 
 
   !-----------------------------!

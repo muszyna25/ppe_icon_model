@@ -66,18 +66,18 @@ MODULE mo_advection_vflux
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish, message, message_text
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS, min_rlcell_int
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS, min_rlcell_int, &
+    &                               iup_v, imuscl_v, imuscl_vcfl, ippm_v,     &
+    &                               ippm_vcfl, islopel_vsm, islopel_vm,       &
+    &                               ifluxl_vpd, ino_flx, izero_grad,          &
+    &                               iparent_flx,   
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_model_domain,        ONLY: t_patch
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,             ONLY: ntracer, iequations, msg_level,   &
     &                               lvert_nest
-  USE mo_advection_nml,       ONLY: coeff_grid, iup_v, imuscl_v, imuscl_vcfl, &
-    &                               ippm_v, ippm_vcfl, islopel_vsm,           &
-    &                               islopel_vm, ifluxl_vpd, ino_flx,          &
-    &                               izero_grad, iparent_flx, lcompute,        &
-    &                               lcleanup, ivcfl_max
+  USE mo_advection_nml,       ONLY: coeff_grid, lcompute, lcleanup, ivcfl_max
   USE mo_advection_utils,     ONLY: laxfr_upflux_v, laxfr_upflux
   USE mo_advection_limiter,   ONLY: v_muscl_slimiter_mo, v_muscl_slimiter_sm, &
    &                                v_ppm_slimiter_mo, v_ppm_slimiter_sm,     &

@@ -208,5 +208,41 @@ MODULE mo_impl_constants
                                       ! microphysics, saturation adjustment, tracerupdate, 
                                       ! gwd, turbulence, surface
 
+  !
+  ! transport identifiers
+  !
+
+  ! identifier for horizontal transport scheme
+  INTEGER, PARAMETER :: ino_hadv= 0
+  INTEGER, PARAMETER :: iup     = 1
+  INTEGER, PARAMETER :: imiura  = 2
+  INTEGER, PARAMETER :: imiura3 = 3
+  INTEGER, PARAMETER :: iup3    = 4
+
+  ! identifier for vertical transport scheme
+  INTEGER, PARAMETER :: ino_vadv    = 0
+  INTEGER, PARAMETER :: iup_v       = 1
+  INTEGER, PARAMETER :: imuscl_vcfl = 2
+  INTEGER, PARAMETER :: imuscl_v    = 20
+  INTEGER, PARAMETER :: ippm_vcfl   = 3
+  INTEGER, PARAMETER :: ippm_v      = 30
+
+  ! identifier for horizontal limiter
+  INTEGER, PARAMETER :: inol       = 0
+  INTEGER, PARAMETER :: islopel_sm = 1
+  INTEGER, PARAMETER :: islopel_m  = 2
+  INTEGER, PARAMETER :: ifluxl_m   = 3
+  INTEGER, PARAMETER :: ifluxl_sm  = 4
+
+  ! identifier for vertical limiter
+  INTEGER, PARAMETER :: inol_v      = 0
+  INTEGER, PARAMETER :: islopel_vsm = 1
+  INTEGER, PARAMETER :: islopel_vm  = 2
+  INTEGER, PARAMETER :: ifluxl_vpd  = 4
+
+  ! identifier for upper boundary condition (ubc)
+  INTEGER, PARAMETER :: ino_flx     = 0
+  INTEGER, PARAMETER :: izero_grad  = 1
+  INTEGER, PARAMETER :: iparent_flx = 2
 !--------------------------------------------------------------------
 END MODULE mo_impl_constants

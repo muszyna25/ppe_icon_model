@@ -76,8 +76,10 @@ MODULE mo_advection_hflux
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS, TRACER_ONLY, &
-    &                               min_rledge_int, min_rledge, min_rlcell_int
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS, TRACER_ONLY,      &
+    &                               min_rledge_int, min_rledge, min_rlcell_int, &
+    &                               iup, imiura, imiura3, islopel_sm, islopel_m,&
+    &                               ifluxl_m, ifluxl_sm, iup3
   USE mo_model_domain,        ONLY: t_patch
   USE mo_math_operators,      ONLY: grad_green_gauss_cell, recon_lsq_cell_l,    &
     &                               recon_lsq_cell_q, recon_lsq_cell_cpoor,     &
@@ -94,9 +96,7 @@ MODULE mo_advection_hflux
   USE mo_loopindices,         ONLY: get_indices_e
   USE mo_sync,                ONLY: SYNC_C, SYNC_C1, sync_patch_array_mult
   USE mo_parallel_nml,        ONLY: p_test_run, n_ghost_rows
-  USE mo_advection_nml,       ONLY: iup, imiura, imiura3, islopel_sm,         &
-    &                               islopel_m, ifluxl_m, ifluxl_sm, lcompute, &
-    &                               lcleanup, upstr_beta_adv, iup3, llsq_svd
+  USE mo_advection_nml,       ONLY: lcompute, lcleanup, upstr_beta_adv, llsq_svd
   USE mo_advection_utils,     ONLY: laxfr_upflux, back_traj_o1, back_traj_o2,     &
     &                               back_traj_dreg_o1, prep_gauss_quadrature_q,   &
     &                               prep_gauss_quadrature_cpoor,                  &
