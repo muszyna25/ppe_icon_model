@@ -41,7 +41,9 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-MODULE mo_atm_dyn_config
+MODULE mo_sleve_config
+
+  USE mo_kind, ONLY: wp
 
   IMPLICIT NONE
 
@@ -49,36 +51,30 @@ MODULE mo_atm_dyn_config
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
+  !>
   !!--------------------------------------------------------------------------
-  !! Basic configuration setup for atm dynamics
+  !! Type definition 
   !!--------------------------------------------------------------------------
-  TYPE :: t_atm_dyn_config
+  TYPE :: t_sleve_config
 
-    ! namelist variables
+    ! a) Parameters specifying the distrubution of the coordinate surfaces
+    !     (the initializations are a workaround for a NEC compiler bug)
 
-    INTEGER :: iequations      !< Choice of governing equation set
-    INTEGER :: itime_scheme    !< Choice of time stepping scheme
-    INTEGER :: i_cell_type     !< Shape of control volume. 3 = triangle, 6 = hexagon/pentagon
-    INTEGER :: idiv_method     !< Divergence operator
-    INTEGER :: divavg_cntrwgt  !< Weight of central cell for divergence averaging
+    REAL(wp):: min_lay_thckn = 1._wp  ! Layer thickness of lowermost level
+    REAL(wp):: stretch_fac   = 1._wp  ! Factor for stretching/squeezing the model layer distribution
+    REAL(wp):: top_height    = 1._wp  ! Height of model top
 
-    ! derived variables
+    ! b) Parameters for SLEVE definition
 
-    LOGICAL :: ltwotime
-    INTEGER,ALLOCATABLE :: nold(:)   !< variables denoting time levels
-    INTEGER,ALLOCATABLE :: nnow(:)   !< variables denoting time levels
-    INTEGER,ALLOCATABLE :: nnew(:)   !< variables denoting time levels
-
-    INTEGER,ALLOCATABLE :: nsav1(:)  !< Extra 'time levels' of prognostic variables
-    INTEGER,ALLOCATABLE :: nsav2(:)  !< needed to compute boundary tendencies and
-                                     !< feedback increments
-
-    INTEGER,ALLOCATABLE :: nnow_rcf(:)  !< Extra time levels for reduced
-    INTEGER,ALLOCATABLE :: nnew_rcf(:)  !< calling frequency (rcf)
-
-  END TYPE t_atm_dyn_config
+    REAL(wp):: decay_scale_1 = 1._wp  ! Decay scale for large-scale topography component
+    REAL(wp):: decay_scale_2 = 1._wp  ! Decay scale for small-scale topography component
+    REAL(wp):: decay_exp     = 1._wp  ! Exponent for decay function
+    REAL(wp):: flat_height   = 1._wp  ! Height above which the coordinate surfaces are exactly flat
+                                      ! additional feature not available in the standard
+                                      ! SLEVE definition
+  END TYPE t_sleve_config
   !>
   !!
-  TYPE(t_atm_dyn_config),ALLOCATABLE :: atm_dyn_config(:) !< shape: (n_dom)
+  TYPE(t_sleve_config) :: sleve_config
 
-END MODULE mo_atm_dyn_config
+END MODULE mo_sleve_config

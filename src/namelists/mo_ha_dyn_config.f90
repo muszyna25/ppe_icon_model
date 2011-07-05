@@ -41,7 +41,9 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-MODULE mo_atm_dyn_config
+MODULE mo_ha_dyn_config
+
+  USE mo_kind, ONLY: wp
 
   IMPLICIT NONE
 
@@ -49,36 +51,41 @@ MODULE mo_atm_dyn_config
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
+  !>
   !!--------------------------------------------------------------------------
-  !! Basic configuration setup for atm dynamics
+  !! Derived type containing control variables specific to the hydrostatic 
+  !! atm dynamical core
   !!--------------------------------------------------------------------------
-  TYPE :: t_atm_dyn_config
+  TYPE :: t_ha_dyn_config
 
-    ! namelist variables
+    INTEGER  :: ileapfrog_startup  !<
+    REAL(wp) :: asselin_coeff      !<
 
-    INTEGER :: iequations      !< Choice of governing equation set
-    INTEGER :: itime_scheme    !< Choice of time stepping scheme
-    INTEGER :: i_cell_type     !< Shape of control volume. 3 = triangle, 6 = hexagon/pentagon
-    INTEGER :: idiv_method     !< Divergence operator
-    INTEGER :: divavg_cntrwgt  !< Weight of central cell for divergence averaging
+    INTEGER  :: si_expl_scheme     !< Scheme for the explicit part of the
+                                   !< 2-time-level semi-implicit time integration.
+                                   !< See mo_atm_constants for the options.
+    REAL(wp) :: si_coeff           !< = 0 : explicit scheme
+                                   !< = 1 : semi implicit scheme.
+                                   !< in (0,1): a weighted scheme
+    REAL(wp) :: si_offctr          !< Weighting parameter used in calculating the
+                                   !< second temporal derivatives in the semi-implicit
+                                   !< correction scheme. The value read from namelist are
+                                   !< assumed to be the offcentering (i.e. between 0 and 1).
+    REAL(wp) :: si_cmin            !< Min. phase speed of the decomposed modes to be
+                                   !< solved by the semi-implicit correction scheme
+    REAL(wp) :: si_rtol            !< Relative tolerance
+    LOGICAL  :: lsi_3d             !< If .true., solve the 3D equation
 
-    ! derived variables
+    LOGICAL :: ldry_dycore !< If .TRUE., ignore the effact of water vapor,
+                           !< cloud liquid and cloud ice on virtual temperature.
+    LOGICAL :: lref_temp   !< If .TRUE., involve the reference temperature profile
+                           !< in the calculation of pressure gradient force.
 
-    LOGICAL :: ltwotime
-    INTEGER,ALLOCATABLE :: nold(:)   !< variables denoting time levels
-    INTEGER,ALLOCATABLE :: nnow(:)   !< variables denoting time levels
-    INTEGER,ALLOCATABLE :: nnew(:)   !< variables denoting time levels
+  END TYPE t_ha_dyn_config 
 
-    INTEGER,ALLOCATABLE :: nsav1(:)  !< Extra 'time levels' of prognostic variables
-    INTEGER,ALLOCATABLE :: nsav2(:)  !< needed to compute boundary tendencies and
-                                     !< feedback increments
-
-    INTEGER,ALLOCATABLE :: nnow_rcf(:)  !< Extra time levels for reduced
-    INTEGER,ALLOCATABLE :: nnew_rcf(:)  !< calling frequency (rcf)
-
-  END TYPE t_atm_dyn_config
   !>
   !!
-  TYPE(t_atm_dyn_config),ALLOCATABLE :: atm_dyn_config(:) !< shape: (n_dom)
+  TYPE(t_ha_dyn_config) :: ha_dyn_config(:)  !< shape: (n_dom)
 
-END MODULE mo_atm_dyn_config
+END MODULE mo_hs_dyn_config
+

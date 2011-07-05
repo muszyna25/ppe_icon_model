@@ -1028,6 +1028,7 @@ src/lnd_phy_schemes/mo_phyparam_soil.f90 -text
 src/lnd_phy_schemes/mo_soil_ml.f90 -text
 src/namelists/mo_advection_nml.f90 -text
 src/namelists/mo_atm_dyn_config.f90 -text
+src/namelists/mo_atm_hdiff_config.f90 -text
 src/namelists/mo_atm_phy_nwp_nml.f90 -text
 src/namelists/mo_atmo_setup_configuration.f90 -text
 src/namelists/mo_cpl_nml.f90 -text
@@ -1040,10 +1041,12 @@ src/namelists/mo_global_variables.f90 -text
 src/namelists/mo_grid_nml.f90 -text
 src/namelists/mo_gridref_nml.f90 -text
 src/namelists/mo_gw_hines_nml.f90 -text
+src/namelists/mo_ha_dyn_config.f90 -text
 src/namelists/mo_interpol_nml.f90 -text
 src/namelists/mo_io_nml.f90 -text
 src/namelists/mo_lnd_nwp_nml.f90 -text
 src/namelists/mo_master_nml.f90 -text
+src/namelists/mo_nh_dyn_config.f90 -text
 src/namelists/mo_nonhydrostatic_nml.f90 -text
 src/namelists/mo_ocean_nml.f90 -text
 src/namelists/mo_parallel_configuration.f90 -text
@@ -1051,6 +1054,7 @@ src/namelists/mo_parallel_nml.f90 -text
 src/namelists/mo_radiation_nml.f90 -text
 src/namelists/mo_run_config.f90 -text
 src/namelists/mo_run_nml.f90 -text
+src/namelists/mo_sleve_config.f90 -text
 src/namelists/mo_sleve_nml.f90 -text
 src/namelists/mo_time_config.f90 -text
 src/namelists/mo_time_nml.f90 -text

@@ -162,7 +162,6 @@ MODULE mo_parallel_nml
                          nml_l_log_checks, nml_l_fast_sum,      &
                          nml_num_io_procs, nml_pio_type,        &
                          nml_itype_comm,   nml_iorder_sendrecv, &
-                         nml_radiation_threads, nml_nh_stepping_threads, &
                          nml_nproma
        
   CONTAINS
