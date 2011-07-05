@@ -48,9 +48,6 @@ MODULE mo_run_nml
     &                              iecham, ihs_atm_theta, inh_atmosphere,     &
     &                              ihs_ocean, iheldsuarez, inwp, impiom,      &
     &                              ildf_dry
-  USE mo_physical_constants, ONLY: grav
-  USE mo_datetime,           ONLY: t_datetime, proleptic_gregorian,          &
-                                 & date_to_time, add_time, print_datetime_all
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned
   USE mo_mpi,                ONLY: p_pe, p_io
@@ -64,10 +61,7 @@ MODULE mo_run_nml
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
   PUBLIC
-  PRIVATE :: run_ctl, calendar,                                              &
-    &        ini_year, ini_month, ini_day, ini_hour, ini_minute, ini_second, &
-    &        end_year, end_month, end_day, end_hour, end_minute, end_second, &
-    &                             run_day, run_hour, run_minute, run_second
+  PRIVATE :: run_ctl
 
 
   ! ------------------------------------------------------------------------
@@ -95,31 +89,7 @@ MODULE mo_run_nml
   INTEGER          :: ntracer             ! number of advected tracers
   INTEGER          :: ntracer_static      ! number of non-advected tracers
 
-  ! time information
-  ! ----------------
-  !
-  ! calendar type
-  INTEGER          :: calendar
-  !
-  ! initial date and time
-  ! - namelist variables
-  INTEGER          :: ini_year, ini_month, ini_day
-  INTEGER          :: ini_hour, ini_minute
-  REAL(wp)         :: ini_second
-  ! - data and time structure
-  TYPE(t_datetime) :: ini_datetime
-  !
-  ! current model time, not a namelist variable
-  TYPE(t_datetime) :: current_datetime
-  !
-  ! end date and time
-  ! - namelist variables
-  INTEGER          :: end_year, end_month, end_day
-  INTEGER          :: end_hour, end_minute
-  REAL(wp)         :: end_second
-  ! - data and time structure
-  TYPE(t_datetime) :: end_datetime
-  !
+
   ! run length
   ! - in day,hr,min,sec
   INTEGER          :: run_day
@@ -130,9 +100,6 @@ MODULE mo_run_nml
   REAL(wp)         :: dtime               ! [s] length of a time step
   REAL(wp)         :: dtrk(3)    ! [s] Runge Kutta 3 time steps [s]
 
-  ! restart interval
-  ! ----------------
-  REAL(wp)         :: dt_restart          ! [s] length of a restart cycle 
 
   ! equations to be solved
   ! ----------------------
@@ -221,14 +188,10 @@ MODULE mo_run_nml
 
 
   NAMELIST /run_ctl/ iinit, num_lev, nshift,               &
-    &                lvert_nest, ntracer, calendar,        &
-    &                ini_year, ini_month,  ini_day,        &
-    &                ini_hour, ini_minute, ini_second,     &
-    &                end_year, end_month,  end_day,        &
-    &                end_hour, end_minute, end_second,     &
+    &                lvert_nest, ntracer,                  &
     &                run_day,                              &
     &                run_hour, run_minute, run_second,     &
-    &                nsteps, dt_restart, dtime,            &
+    &                nsteps, dtime,                        &
     &                iequations, i_cell_type,              &
     &                ldynamics, ltransport, iforcing,      &
     &                ltestcase, lcorio, itopo, msg_level,  &
@@ -284,12 +247,7 @@ CONTAINS
   !!
   SUBROUTINE run_nml_setup
                                                
-   INTEGER  :: istat, funit, calendar_old
-   INTEGER  :: ini_year_old, ini_month_old, ini_day_old, ini_hour_old, ini_minute_old
-   INTEGER  :: restart_year, restart_month, restart_day, restart_hour, restart_minute
-   REAL(wp) :: ini_second_old
-   REAL(wp) :: restart_second
-   REAL(wp) :: cur_datetime_calsec, end_datetime_calsec, length_sec
+   INTEGER  :: istat, funit,
 
    CHARACTER(len=max_char_length), PARAMETER ::   &
             &  routine = 'mo_run_nml/run_nml_setup'
@@ -310,22 +268,8 @@ CONTAINS
    ntracer        = 0   ! number of advected tracers
    ntracer_static = 0   ! number of non-advected tracers
 
-   ! initial date and time
-   calendar       = proleptic_gregorian
-   ini_year       = 2008
-   ini_month      = 9
-   ini_day        = 1
-   ini_hour       = 0
-   ini_minute     = 0
-   ini_second     = 0.0_wp
-   !
-   ! end date and time
-   end_year       = 2008
-   end_month      = 9
-   end_day        = 1
-   end_hour       = 1
-   end_minute     = 40
-   end_second     = 0.0_wp
+
+
    !
    ! length of integration = (number of timesteps)*(length of timestep)
    ! - If nsteps is set to a non-zero positive value, then the end date is computed
@@ -385,37 +329,6 @@ CONTAINS
    inextra_2d      = 0           !> no extra output 2D fields
    inextra_3d      = 0           !> no extra output 3D fields
 
-    !------------------------------------------------------------------------                  
-    ! 2. If this is a resumed integration...
-    !------------------------------------------------------------------------                  
-    IF (lrestart) THEN                                                                 
-
-      ! 2.1 Overwrite the defaults above by values in the restart file
-
-      funit = open_and_restore_namelist('run_ctl')
-      READ(funit,NML=run_ctl)
-      CALL close_tmpfile(funit)
-
-      ! 2.2 Save the calendar and initial date/time of the old run
-
-      calendar_old    = calendar
-      ini_year_old    = ini_year
-      ini_month_old   = ini_month
-      ini_day_old     = ini_day
-      ini_hour_old    = ini_hour
-      ini_minute_old  = ini_minute
-      ini_second_old  = ini_second
-
-      ! 2.2 Inquire the date/time at which the previous run stopped
-
-      CALL get_restart_attribute( 'current_year'  , restart_year   )
-      CALL get_restart_attribute( 'current_month' , restart_month  )
-      CALL get_restart_attribute( 'current_day'   , restart_day    )
-      CALL get_restart_attribute( 'current_hour'  , restart_hour   )
-      CALL get_restart_attribute( 'current_minute', restart_minute )
-      CALL get_restart_attribute( 'current_second', restart_second )
-
-    END IF
 
     !------------------------------------------------------------------------
     ! 3. Read user's (new) specifications. (Done so far by all MPI processes)
@@ -519,68 +432,7 @@ CONTAINS
     ! time step
     IF (dtime  <= 0._wp) CALL finish(routine,'"dtime" must be positive')
 
-    !---------------------------------------------------------------
-    ! 5. Set up model time
-    !---------------------------------------------------------------
-    ! 5.1 Initial date and time
-
-    ini_datetime%calendar = calendar
-    ini_datetime%year     = ini_year
-    ini_datetime%month    = ini_month
-    ini_datetime%day      = ini_day
-    ini_datetime%hour     = ini_hour
-    ini_datetime%minute   = ini_minute
-    ini_datetime%second   = ini_second
-
-    CALL date_to_time(ini_datetime) ! fill date time structure
-    CALL message(' ',' ')
-    CALL message(routine,'Initial date and time')
-    CALL message(routine,'---------------------')
-    CALL print_datetime_all(ini_datetime)  ! print all date and time components
-
-    ! 5.2 Current date and time:
-
-    IF (lrestart) THEN
-      ! In a resumed integration, if the calendar or initial date/time 
-      ! is different from those in the restart file,
-      ! we regard this integration as a new one with its own calendar. 
-      ! Model time at which the previous run stopped is thus not relevant. 
-      ! Simulation will start from the user-specified initial date/time,
-      ! which is also the current model date/time.
-
-      IF (calendar  /=calendar_old   .OR.                                 &
-          ini_year  /=ini_year_old   .OR. ini_month  /=ini_month_old .OR. &
-          ini_day   /=ini_day_old    .OR. ini_hour   /=ini_hour_old  .OR. &
-          ini_minute/=ini_minute_old .oR. ini_second /=ini_second_old     ) THEN
-
-        current_datetime = ini_datetime
-
-      ELSE
-      ! Otherwise we start from the point when the previous integration stopped.
-
-        current_datetime%calendar = calendar
-        current_datetime%year     = restart_year
-        current_datetime%month    = restart_month
-        current_datetime%day      = restart_day
-        current_datetime%hour     = restart_hour
-        current_datetime%minute   = restart_minute
-        current_datetime%second   = restart_second
-
-        CALL date_to_time(current_datetime) ! fill date time structure
-      END IF
-
-    ELSE
-      ! In an initial run, current date/time is, naturally, the initial date/time
-      current_datetime = ini_datetime
-
-    END IF !lrestart
-
-    CALL message(' ',' ')
-    CALL message(' ',' ')
-    CALL message(routine,'Current date and time')
-    CALL message(routine,'---------------------')
-    CALL print_datetime_all(current_datetime)  ! print all date and time components
-
+  
     ! 5.3 End date and time, and length of integration
     !     Here we define "nsteps" as the number of time steps THIS integration
     !     will last, regardless of the restart status.
