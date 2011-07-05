@@ -38,7 +38,7 @@ MODULE mo_real_timer
 #else
   USE mo_mpi,       ONLY: p_pe, p_io
 #endif
-  USE mo_parallel_nml, ONLY: num_test_procs, num_work_procs, &
+  USE mo_parallel_configuration, ONLY: num_test_procs, num_work_procs, &
                              p_test_run,                     &
                              p_comm_work, p_comm_work_test
 

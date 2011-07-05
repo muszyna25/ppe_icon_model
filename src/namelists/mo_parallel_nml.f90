@@ -157,8 +157,7 @@ MODULE mo_parallel_nml
   PUBLIC :: read_parallel_namelist, get_nml_nproma
   
   ! Exported variables:
-  PUBLIC ::      nml_radiation_threads, nml_nh_stepping_threads,&
-                         nml_n_ghost_rows, nml_division_method, &
+  PUBLIC ::              nml_n_ghost_rows, nml_division_method, &
                          nml_p_test_run,   nml_l_test_openmp,   &
                          nml_l_log_checks, nml_l_fast_sum,      &
                          nml_num_io_procs, nml_pio_type,        &

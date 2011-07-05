@@ -77,11 +77,11 @@ MODULE mo_subdivision
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_UNDEFINED, MPI_COMM_NULL
 #endif
-  USE mo_parallel_nml,       ONLY: p_test_pe, p_test_run, p_n_work, p_pe_work, &
+  USE mo_parallel_configuration,       ONLY: p_test_pe, p_test_run, p_n_work, p_pe_work, &
     & p_comm_work, p_work_pe0, division_method, n_ghost_rows, div_from_file,   &
     & div_geometric
 #ifdef HAVE_METIS
-  USE mo_parallel_nml        ONLY: div_metis
+  USE mo_parallel_configuration,    ONLY: div_metis
 #endif
   USE mo_communication,      ONLY: setup_comm_pattern, blk_no, idx_no, idx_1d
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &

@@ -50,7 +50,7 @@ USE mo_exception,          ONLY: finish
 USE mo_parallel_configuration,  ONLY: nproma
 USE mo_mpi,                ONLY: p_pe, p_nprocs, p_send, p_recv, p_irecv, p_wait, p_isend, &
      &                           p_real_dp, p_int, p_bool
-USE mo_parallel_nml,       ONLY: p_pe_work, p_test_pe, p_n_work, p_comm_work, iorder_sendrecv
+USE mo_parallel_configuration,       ONLY: p_pe_work, p_test_pe, p_n_work, p_comm_work, iorder_sendrecv
 USE mo_timer,              ONLY: timer_start, timer_stop, timer_sync_data
 
 IMPLICIT NONE

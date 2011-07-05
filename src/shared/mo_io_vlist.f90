@@ -156,7 +156,7 @@ MODULE mo_io_vlist
   USE mo_physical_constants,  ONLY: grav
   USE mo_communication,       ONLY: exchange_data, t_comm_pattern
   USE mo_mpi,                 ONLY: p_pe, p_io, p_recv, p_send
-  USE mo_parallel_nml,        ONLY: p_test_pe, p_pe_work, p_work_pe0, p_test_run, &
+  USE mo_parallel_configuration,        ONLY: p_test_pe, p_pe_work, p_work_pe0, p_test_run, &
     &                               num_work_procs
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag
