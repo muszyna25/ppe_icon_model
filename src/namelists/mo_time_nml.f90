@@ -39,6 +39,7 @@ MODULE mo_time_nml
   USE mo_datetime,           ONLY: proleptic_gregorian
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned
+  USE mo_mpi,                ONLY: p_pe, p_io
 
   IMPLICIT NONE
 

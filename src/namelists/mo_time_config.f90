@@ -47,14 +47,14 @@ MODULE mo_time_config
   USE mo_time_nml,              ONLY: nml_calendar, nml_ini_datetime,&
                                    &  nml_end_datetime, nml_dt_restart
   USE mo_exception,             ONLY: message, message_text, finish
-  USE mo_datetime,              ONLY: t_datetime
+  USE mo_datetime,              ONLY: t_datetime, &
                                    & date_to_time, add_time, print_datetime_all
   USE mo_master_nml,            ONLY: lrestart
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
   USE mo_io_restart_namelist,ONLY: open_and_restore_namelist, close_tmpfile,&
                                   & open_tmpfile, store_and_close_namelist
 
- USE mo_mpi,                    ONLY: p_pe, p_io
+  USE mo_mpi,                    ONLY: p_pe, p_io
 
   IMPLICIT NONE
   PRIVATE

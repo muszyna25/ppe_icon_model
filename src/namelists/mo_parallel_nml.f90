@@ -50,7 +50,6 @@ MODULE mo_parallel_nml
 #endif
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
-  USE mo_parallel_configuration, ONLY: div_from_file, div_geometric, div_metis
 
   IMPLICIT NONE
 
@@ -196,6 +195,15 @@ MODULE mo_parallel_nml
     CASE (POSITIONED)
       READ (nnml, parallel_ctl)
     END SELECT
+    !-----------------------------------------------------
+    ! Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=parallel_ctl)
+    CALL store_and_close_namelist(funit, 'parallel_ctl')
+
+    ! Write the final namelist to an ASCII file
+    IF (p_pe == p_io) WRITE(nnml_output,nml=parallel_ctl)
 
 END SUBROUTINE read_parallel_namelist
 
