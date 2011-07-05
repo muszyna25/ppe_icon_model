@@ -127,7 +127,8 @@ USE mo_impl_constants,     ONLY: land, land_boundary, boundary, sea_boundary, se
 USE mo_exception,          ONLY: message_text, message, finish
 USE mo_model_domain,       ONLY: t_patch
 USE mo_ocean_nml,          ONLY: n_zlev, dzlev_m, CORIOLIS_TYPE, basin_center_lat, basin_height_deg
-USE mo_run_nml,            ONLY: nproma, i_cell_type
+USE mo_parallel_configuration,  ONLY: nproma
+USE mo_run_nml,            ONLY: i_cell_type
 USE mo_math_utilities,     ONLY: gc2cc,cc2gc,       &
   &                              t_geographical_coordinates, t_cartesian_coordinates,   &
   &                              vector_product, arc_length
