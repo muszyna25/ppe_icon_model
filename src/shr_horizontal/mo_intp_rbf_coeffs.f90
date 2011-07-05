@@ -168,7 +168,8 @@ USE mo_model_domain,        ONLY: t_patch, t_tangent_vectors
 USE mo_model_domain_import, ONLY: l_limited_area
 USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, solve_chol_v, choldec_v, &
                                 & arc_length_v, t_cartesian_coordinates
-USE mo_run_nml,             ONLY: nproma, iequations
+USE mo_parallel_configuration,  ONLY: nproma
+USE mo_run_nml,             ONLY: iequations
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_intp_data_strc
 USE mo_interpol_nml

@@ -111,7 +111,8 @@ USE mo_kind,               ONLY: wp
 USE mo_exception,          ONLY: finish
 USE mo_model_domain,       ONLY: t_patch
 USE mo_physical_constants, ONLY: omega
-USE mo_run_nml,            ONLY: nproma, i_cell_type, lcorio
+USE mo_parallel_configuration,  ONLY: nproma
+USE mo_run_nml,            ONLY: i_cell_type, lcorio
 USE mo_math_utilities,     ONLY: gvec2cvec, t_cartesian_coordinates
 USE mo_math_constants,     ONLY: pi_2
 USE mo_loopindices,        ONLY: get_indices_e

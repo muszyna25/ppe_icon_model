@@ -170,7 +170,8 @@ USE mo_model_domain,        ONLY: t_patch
 USE mo_model_domain_import, ONLY: n_dom, n_dom_start, lplane, l_limited_area, lfeedback
 USE mo_namelist,            ONLY: position_nml, POSITIONED
 USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
-USE mo_run_nml,             ONLY: nproma, i_cell_type, ltransport, iequations
+USE mo_parallel_configuration,  ONLY: nproma
+USE mo_run_nml,             ONLY: i_cell_type, ltransport, iequations
 USE mo_mpi,                 ONLY: p_pe, p_io
 
 USE mo_interpol_nml

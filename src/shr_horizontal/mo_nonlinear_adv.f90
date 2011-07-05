@@ -68,7 +68,8 @@ USE mo_exception,          ONLY: finish
 USE mo_model_domain,       ONLY: t_patch
 USE mo_dynamics_nml,           ONLY: idiv_method
 USE mo_io_nml,             ONLY: l_outputtime, l_diagtime
-USE mo_run_nml,            ONLY: nproma, i_cell_type, lshallow_water
+USE mo_parallel_configuration,  ONLY: nproma
+USE mo_run_nml,            ONLY: i_cell_type, lshallow_water
 USE mo_interpolation,      ONLY: t_int_state,                    &
   &                              rbf_vec_interpol_edge,        &
   &                              cells2verts_scalar,           &

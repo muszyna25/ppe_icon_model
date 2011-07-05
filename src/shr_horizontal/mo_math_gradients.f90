@@ -115,7 +115,8 @@ USE mo_model_domain,       ONLY: t_patch
 !DRUSE mo_global_variables,   ONLY: nproma, i_cell_type, nlev, &
 !DR                                 upstr_beta, ltimer
 USE mo_nonhydrostatic_nml, ONLY: upstr_beta
-USE mo_run_nml,            ONLY: nproma, i_cell_type, ltimer
+USE mo_parallel_configuration,  ONLY: nproma
+USE mo_run_nml,            ONLY:  i_cell_type, ltimer
 USE mo_exception,          ONLY: finish
 USE mo_timer,              ONLY: timer_start, timer_stop, timer_grad
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e

@@ -60,7 +60,8 @@ MODULE mo_nwp_sfc_interface
                                      t_tiles
 !em>
 
-  USE mo_run_nml,              ONLY: nproma, msg_level, iqv, &
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,              ONLY: msg_level, iqv, &
     &                                 icc!, inextra_2d
 
   USE mo_atm_phy_nwp_nml,      ONLY: inwp_surface, inwp_satad  
