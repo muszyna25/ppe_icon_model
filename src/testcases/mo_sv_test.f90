@@ -56,7 +56,7 @@ MODULE mo_sv_test
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_interpolation,       ONLY: cells2edges_scalar,t_int_state
   USE mo_eta_coord_diag,      ONLY: half_level_pressure, full_level_pressure
-  USE mo_run_nml,             ONLY: nproma
+  USE mo_parallel_configuration,  ONLY: nproma
   USE mo_exception,           ONLY: finish
 
   IMPLICIT NONE

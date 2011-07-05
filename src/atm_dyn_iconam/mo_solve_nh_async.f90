@@ -45,7 +45,8 @@ MODULE mo_solve_nh_async
   USE mo_nonhydrostatic_nml,ONLY: iadv_rhotheta, igradp_method, l_open_ubc, l_zdiffu_t
   USE mo_dynamics_nml,      ONLY: itime_scheme, idiv_method
   USE mo_diffusion_nml,     ONLY: k4, hdiff_smag_fac, lhdiff_temp
-  USE mo_run_nml,           ONLY: nproma, ltimer, lvert_nest
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,           ONLY: ltimer, lvert_nest
   USE mo_model_domain,      ONLY: t_patch
   USE mo_model_domain_import,ONLY: nroot, l_limited_area, lfeedback
   USE mo_interpolation,     ONLY: t_int_state, cells2edges_scalar, edges2cells_scalar,      &
