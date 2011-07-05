@@ -51,7 +51,7 @@ MODULE mo_advection_limiter
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_sync,                ONLY: SYNC_C, SYNC_C1, sync_patch_array,     &
     &                               sync_patch_array_mult
-  USE mo_parallel_nml,        ONLY: p_test_run, n_ghost_rows
+  USE mo_parallel_configuration, ONLY: p_test_run, n_ghost_rows
   USE mo_math_utilities,      ONLY: cc2gc,t_cartesian_coordinates,          &
     &                               t_geographical_coordinates, gvec2cvec,  &
     &                               gnomonic_proj

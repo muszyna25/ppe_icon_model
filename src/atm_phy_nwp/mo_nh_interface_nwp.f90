@@ -91,7 +91,7 @@ MODULE mo_nh_interface_nwp
   USE mo_sync,               ONLY: sync_patch_array, sync_patch_array_mult, &
                                    SYNC_C, SYNC_C1
   USE mo_mpi,                ONLY: p_nprocs
-  USE mo_parallel_nml,       ONLY: p_test_run
+  USE mo_parallel_configuration,       ONLY: p_test_run
   USE mo_nwp_diagnosis,      ONLY: nwp_diagnosis
 !  USE mo_communication,      ONLY: time_sync
 

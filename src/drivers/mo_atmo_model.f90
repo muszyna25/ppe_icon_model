@@ -41,7 +41,7 @@ MODULE mo_atmo_model
   USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output
   USE mo_output,              ONLY: init_output_files, close_output_files, write_output
 
-  USE mo_parallel_nml,        ONLY: parallel_nml_setup,   & ! process parallel run ctl. params.
+  USE mo_parallel_configuration,        ONLY:   & 
     & p_comm_work_test, p_comm_input_bcast, & ! communicators
     & p_test_pe,            & !    internal parameter
     & p_comm_work,          &
@@ -260,7 +260,7 @@ CONTAINS
     ! parallel_nml_setup must be called after setup_run since it needs
     ! some variables read in setup_run
     
-    CALL parallel_nml_setup
+!     CALL parallel_nml_setup
     
     !-------------------------------------------------------------------
     ! Initialize test case setup 

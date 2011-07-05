@@ -40,7 +40,7 @@ MODULE mo_ocean_model
   USE mo_output,              ONLY: init_output_files
   USE mo_io_vlist,            ONLY: write_vlist_oce, destruct_vlist_oce
   
-  USE mo_parallel_nml,        ONLY: parallel_nml_setup,   & ! process parallel run ctl. params.
+  USE mo_parallel_configuration,        ONLY:   & ! process parallel run ctl. params.
     & p_comm_work_test, p_comm_input_bcast, & ! communicators
     & p_test_pe,            & !    internal parameter
     & p_comm_work,          &
@@ -179,7 +179,7 @@ CONTAINS
     ! parallel_nml_setup must be called after setup_run since it needs
     ! some variables read in setup_run
     
-    CALL parallel_nml_setup
+!     CALL parallel_nml_setup
     
     !-------------------------------------------------------------------
     ! Initialize date and time

@@ -54,14 +54,6 @@ PROGRAM control_model
 ! USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output
 ! USE mo_output,              ONLY: init_output_files, close_output_files, write_output
   
-! USE mo_parallel_nml,        ONLY: parallel_nml_setup,   & ! process parallel run ctl. params.
-!    &                              p_comm_work_test, p_comm_input_bcast, & ! communicators
-!    &                              p_test_pe,            & !    internal parameter
-!    &                              p_comm_work,          &
-!    &                              p_test_run,           &
-!    &                              p_io_pe0                ! Number of first I/O PE
-
-
   USE mo_atmo_model,          ONLY: atmo_model
   USE mo_ocean_model,         ONLY: ocean_model
   USE mo_radiation_model,     ONLY: radiation_model

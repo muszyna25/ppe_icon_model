@@ -95,7 +95,7 @@ MODULE mo_advection_hflux
   USE mo_run_nml,             ONLY: ntracer
   USE mo_loopindices,         ONLY: get_indices_e
   USE mo_sync,                ONLY: SYNC_C, SYNC_C1, sync_patch_array_mult
-  USE mo_parallel_nml,        ONLY: p_test_run, n_ghost_rows
+  USE mo_parallel_configuration,        ONLY: p_test_run, n_ghost_rows
   USE mo_advection_nml,       ONLY: lcompute, lcleanup, upstr_beta_adv, llsq_svd
   USE mo_advection_utils,     ONLY: laxfr_upflux, back_traj_o1, back_traj_o2,     &
     &                               back_traj_dreg_o1, prep_gauss_quadrature_q,   &
