@@ -63,7 +63,8 @@ MODULE mo_jw_test
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data,            ONLY: t_external_data
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
-  USE mo_run_nml,             ONLY: ltransport, ntracer, nproma, iforcing, &
+  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_run_nml,             ONLY: ltransport, ntracer, iforcing, &
     &                               inwp, iecham, iqv, iqt
   USE mo_ncar_testcases,      ONLY: tracer_q1_q2, tracer_q3, regrot, turnwi
   USE mo_exception,           ONLY: message, message_text
