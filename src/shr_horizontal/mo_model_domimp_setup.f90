@@ -67,7 +67,6 @@
 !! Modification by Almut Gassmann, MPI-M (2008-10-30)
 !!  - add subroutine init_coriolis to initialize Coriolis parameter
 !! Modification by Constantin Junk, MPI-M (2011-04-05)
-!!  - moved setup_files to mo_grid_nml
 !!
 !! @par Copyright
 !! 2002-2007 by DWD and MPI-M
@@ -116,7 +115,7 @@ USE mo_run_nml,            ONLY: lcorio
 USE mo_math_utilities,     ONLY: gvec2cvec, t_cartesian_coordinates
 USE mo_math_constants,     ONLY: pi_2
 USE mo_loopindices,        ONLY: get_indices_e
-USE mo_grid_nml,           ONLY: lplane, corio_lat
+USE mo_grid_configuration, ONLY: lplane, corio_lat
 
 IMPLICIT NONE
 

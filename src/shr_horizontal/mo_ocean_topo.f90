@@ -135,7 +135,6 @@ USE mo_math_constants,     ONLY: pi, deg2rad
 USE mo_physical_constants, ONLY: re, omega!, rgrav
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real
-! USE mo_grid_nml,           ONLY: nroot
 
 IMPLICIT NONE
 

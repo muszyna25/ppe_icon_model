@@ -124,8 +124,6 @@ USE mo_run_nml,            ONLY: locean, nlev, nlevp1,       &
      &                           num_lev, num_levp1, nshift
 USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real, calculate_cart_normal,&
      &                           init_quad_twoadjcells, init_coriolis
-! USE mo_grid_nml,           ONLY: start_lev, nroot, n_dom, n_dom_start, parent_id, &
-!      &                           lfeedback, lplane, l_limited_area, max_childdom
 USE mo_grid_configuration, ONLY: start_lev, nroot, n_dom, n_dom_start,    &
      &                           lfeedback, l_limited_area, max_childdom, &
      & dynamics_grid_filename,  dynamics_parent_grid_id,  &

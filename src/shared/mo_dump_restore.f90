@@ -127,7 +127,7 @@ MODULE mo_dump_restore
      &                             num_lev, num_levp1, nshift
   USE mo_io_units,           ONLY: filename_max, nerr
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_grid_nml,           ONLY: start_lev, nroot, n_dom, n_dom_start, lfeedback, &
+  USE mo_grid_configuration, ONLY: start_lev, nroot, n_dom, n_dom_start, lfeedback, &
                                    lplane, l_limited_area, max_childdom, parent_id
   USE mo_intp_data_strc      ! We need all from that module
   USE mo_grf_intp_data_strc  ! We need all from that module

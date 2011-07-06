@@ -71,7 +71,6 @@ MODULE mo_ha_stepping
   USE mo_timer,               ONLY: timer_total, timer_start, timer_stop
   USE mo_sync,                ONLY: global_max
   USE mo_vertical_coord_table,ONLY: vct
-!   USE mo_grid_nml,            ONLY: nroot
   USE mo_io_restart,          ONLY: write_restart_info_file
 
   IMPLICIT NONE

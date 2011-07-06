@@ -124,7 +124,6 @@ MODULE mo_nh_stepping
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
   USE mo_vertical_coord_table,ONLY: vct
-!   USE mo_grid_nml,            ONLY: nroot
 
 #ifdef __OMP_RADIATION__  
   USE mo_nwp_rad_interface,   ONLY: nwp_start_omp_radiation_thread, model_end_thread, &

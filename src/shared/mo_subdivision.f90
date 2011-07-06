@@ -87,7 +87,7 @@ MODULE mo_subdivision
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
     & grf_bdyintp_end_c, grf_bdyintp_end_e, grf_fbk_start_c, grf_fbk_start_e, &
     & grf_bdywidth_c, grf_bdywidth_e, grf_nudgintp_start_c, grf_nudgintp_start_e
-  USE mo_grid_nml,           ONLY: n_dom, n_dom_start, nroot, patch_weight
+  USE mo_grid_configuration,  ONLY: n_dom, n_dom_start, nroot, patch_weight
   USE mo_model_domimp_patches,ONLY: destruct_patches, allocate_patch
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_intp_state,          ONLY: allocate_int_state, destruct_2d_interpol_state
