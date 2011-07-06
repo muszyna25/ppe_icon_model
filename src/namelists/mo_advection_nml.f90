@@ -66,7 +66,9 @@ MODULE mo_advection_nml
   USE mo_nonhydrostatic_nml,  ONLY: l_open_ubc, kstart_moist, kstart_qv
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,  &
                                  & open_and_restore_namelist, close_tmpfile
+  USE mo_advection_config, ONLY: advection_config
 
+  
   IMPLICIT NONE
 
   PRIVATE
