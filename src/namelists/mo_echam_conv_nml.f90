@@ -65,6 +65,7 @@ MODULE mo_echam_conv_nml
   PUBLIC  :: ncvmicro, nauto                        !< parameters
   PUBLIC  :: nmctop, dlev                           !< parameters
   PUBLIC  :: echam_conv_ctl                         !< namelist
+  PUBLIC  :: read_echam_conv_nml
   PUBLIC  :: echam_conv_nml_setup                   !< subroutine
   PUBLIC  :: cleanup_cuparam                        !< subroutine 
 
@@ -122,18 +123,11 @@ MODULE mo_echam_conv_nml
 
 CONTAINS
   !>
-  !! Initialization of the convection namelist
+  !! Read the convection namelist
   !!
-  !! @par Revision History
-  !! Modification by Constantin Junk, MPI-M (2011-05-11)
-  !! - included subroutine cuparam in setup_convection
-  !! - renamed setup_convection echam_conv_nml_setup
-  !!
-  SUBROUTINE echam_conv_nml_setup
+  SUBROUTINE read_echam_conv_nml
 
-    REAL(wp) :: za, zb
-    REAL(wp) :: zp(nlev), zph(nlevp1)
-    INTEGER  :: jk, ist, funit
+    INTEGER  :: ist, funit
 
     !------------------------------------------------------------
     ! set up the default values for echam_conv_ctl
@@ -185,6 +179,23 @@ CONTAINS
     CASE (POSITIONED)
       READ (nnml, echam_conv_ctl)
     END SELECT
+
+    !-----------------------------------------------------
+    ! Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=echam_conv_ctl)
+    CALL store_and_close_namelist(funit, 'echam_conv_ctl')
+
+  END read_echam_conv_nml
+
+  !>
+  !!
+  SUBROUTINE echam_conv_nml_setup
+
+    REAL(wp) :: za, zb
+    REAL(wp) :: zp(nlev), zph(nlevp1)
+    INTEGER  :: jk, ist
 
     !------------------------------------------------------------
     ! check the consistency of the parameters
@@ -242,12 +253,6 @@ CONTAINS
     CALL message('','---------------------------')
     CALL message('','')
 
-    !-----------------------------------------------------
-    ! Store the namelist for restart
-    !-----------------------------------------------------
-    funit = open_tmpfile()
-    WRITE(funit,NML=echam_conv_ctl)
-    CALL store_and_close_namelist(funit, 'echam_conv_ctl')
 
     !------------------------------------------------------------
     ! CJ: calculations from the former cuparam subroutine

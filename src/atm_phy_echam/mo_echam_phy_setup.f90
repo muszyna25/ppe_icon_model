@@ -40,13 +40,13 @@
 MODULE mo_echam_phy_setup
 
   USE mo_exception,          ONLY: message, finish, print_value
-  USE mo_echam_phy_nml,      ONLY: read_echam_phy_nml
+! USE mo_echam_phy_nml,      ONLY: read_echam_phy_nml
   USE mo_echam_phy_config,   ONLY: lrad      => echam_phy_config%lrad,   &
                                    lconv     => echam_phy_config%lconv,  &
                                    lvdiff    => echam_phy_config%lvdiff, &
                                    lgw_hines => echam_phy_config%lgw_hines
   USE mo_radiation_nml,      ONLY: radiation_nml, read_radiation_nml, irad_o3
-  USE mo_echam_conv_nml,     ONLY: echam_conv_ctl, echam_conv_nml_setup
+  USE mo_echam_conv_nml,     ONLY: echam_conv_nml_setup
   USE mo_run_nml,            ONLY: ltestcase, ntracer, io3
   USE mo_echam_vdiff_nml,    ONLY: echam_vdiff_ctl, echam_vdiff_nml_setup
   USE mo_gw_hines_nml,       ONLY: gw_hines_nml, gw_hines_nml_setup
@@ -66,10 +66,6 @@ CONTAINS
   !! Read and check namelist variables related to ECHAM physics
   !!
   SUBROUTINE setup_echam_phy
-
-    ! Read main namelist of ECHAM physics
-
-    CALL read_echam_phy_nml
 
     ! Read and check process namelists dependent on echam_phy_nml
 
