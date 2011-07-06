@@ -87,8 +87,11 @@ MODULE mo_atm_dyn_nml
 
   REAL(wp) :: divavg_cntrwgt  ! weight of central cell for divergence averaging
 
+  LOGICAL :: ldry_dycore ! if .TRUE., ignore the effact of water vapor,
+                         ! cloud liquid and cloud ice on virtual temperature.
 
-  NAMELIST/atm_dyn_nml/ iequations, itime_scheme, idiv_method, divavg_cntrwgt! , ldry_core
+  NAMELIST/atm_dyn_nml/ iequations, itime_scheme, idiv_method, divavg_cntrwgt, &
+    &                   ldry_dycore
 
   !------------------------------------------------------------------------
   ! Dependent variables 
@@ -127,9 +130,7 @@ CONTAINS
     idiv_method       = 1
     divavg_cntrwgt    = 0.5_wp
 
-! commented out for the time being (since it has been commented out in 
-! aboves Namelist definition by somebody)
-!DR    ldry_dycore       = .FALSE.
+    ldry_dycore       = .FALSE.
  
     !------------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above by 
@@ -168,7 +169,7 @@ CONTAINS
     atm_dyn_config(:)% itime_scheme   = itime_scheme
     atm_dyn_config(:)% idiv_method    = idiv_method
     atm_dyn_config(:)% divavg_cntrwgt = divavg_cntrwgt
-!DR    atm_dyn_config(:)% ldry_dycore    = ldry_dycore
+    atm_dyn_config(:)% ldry_dycore    = ldry_dycore
 
   END SUBROUTINE read_atm_dyn_namelist
 
