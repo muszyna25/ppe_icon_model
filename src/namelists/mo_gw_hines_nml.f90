@@ -51,6 +51,8 @@ MODULE mo_gw_hines_nml
 
   PUBLIC :: gw_hines_nml_setup      !< setup subroutine for Hines gravity wave parameterization
   PUBLIC :: gw_hines_nml            !< namelist for Hines gravity wave parameterization
+  PUBLIC :: read_gw_hines_namelist
+
 
   PUBLIC :: lheatcal, emiss_lev, rmscon, kstar, m_min
 !!$  PUBLIC :: lfront, rms_front, front_thres
@@ -161,5 +163,85 @@ CONTAINS
     CALL store_and_close_namelist(funit, 'gw_hines_nml')                                      
 
   END SUBROUTINE gw_hines_nml_setup
+
+  !-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! Read Namelist for Hines gw parameterization. 
+  !!
+  !! This subroutine 
+  !! - reads the Namelist for Hines gw parameterization
+  !! - sets default values
+  !! - potentially overwrites the defaults by values used in a 
+  !!   previous integration (if this is a resumed run)
+  !! - reads the user's (new) specifications
+  !! - stores the Namelist for restart
+  !! - fills the configuration state (partly)    
+  !!
+  !! @par Revision History
+  !!  by Daniel Reinert, DWD (2011-06-07)
+  !!
+  SUBROUTINE read_gw_hines_namelist
+    !
+    INTEGER :: istat, funit
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_gw_hines_nml: read_gw_hines_namelist'
+
+    !-----------------------------------------------------------------------
+
+    !-----------------------!
+    ! 1. default settings   !
+    !-----------------------!
+    lheatcal = .TRUE.
+
+    emiss_lev = 10          ! is correct for L31 and L47
+    rmscon    = 1.0_wp      ! default value used in ECHAM5
+    kstar     = 5.0e-5_wp   ! = 2*pi/(126000 m)
+    m_min     = 0.0_wp
+
+
+    !------------------------------------------------------------------
+    ! 2. If this is a resumed integration, overwrite the defaults above 
+    !    by values used in the previous integration.
+    !------------------------------------------------------------------
+    IF (lrestart) THEN
+      funit = open_and_restore_namelist('gw_hines_nml')
+      READ(funit,NML=gw_hines_nml)
+      CALL close_tmpfile(funit)
+    END IF
+
+
+    !--------------------------------------------------------------------
+    ! 3. Read user's (new) specifications (Done so far by all MPI processes)
+    !--------------------------------------------------------------------
+    CALL position_nml ('gw_hines_nml', status=istat)
+    SELECT CASE (istat)
+    CASE (POSITIONED)
+      READ (nnml, gw_hines_nml)
+    END SELECT
+
+
+    !----------------------------------------------------
+    ! 4. Fill the configuration state
+    !----------------------------------------------------
+
+
+    !-----------------------------------------------------
+    ! 5. Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=gw_hines_nml)                    
+    CALL store_and_close_namelist(funit, 'gw_hines_nml') 
+
+
+    ! 6. write the contents of the namelist to an ASCII file
+    !
+    IF(p_pe == p_io) WRITE(nnml_output,nml=gw_hines_nml)
+
+
+  END SUBROUTINE read_gw_hines_namelist
+
 
 END MODULE mo_gw_hines_nml

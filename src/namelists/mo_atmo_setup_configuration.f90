@@ -121,6 +121,7 @@ MODULE mo_atmo_setup_configuration
   USE mo_echam_phy_setup,     ONLY: setup_echam_phy
   USE mo_atm_phy_nwp_nml,     ONLY: setup_nwp_phy, inwp_surface, &
     &                               read_nwp_phy_namelist
+  USE mo_gw_hines_nml,        ONLY: read_gw_hines_namelist
   USE mo_lnd_nwp_nml,         ONLY: setup_nwp_lnd
  
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
@@ -169,6 +170,7 @@ CONTAINS
     CALL read_nwp_phy_namelist()
     CALL read_diffusion_namelist()
     CALL read_gridref_namelist()
+    CALL read_gw_hines_namelist()
         
     ! close namelist file
     CALL close_nml
