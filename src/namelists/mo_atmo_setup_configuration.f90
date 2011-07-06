@@ -50,7 +50,8 @@ MODULE mo_atmo_setup_configuration
   USE mo_global_variables,    ONLY: setup_physics           ! process forcing control parameters
   USE mo_nonhydrostatic_nml,  ONLY: ivctype,              & ! type of vertical coordinate
     & nonhydrostatic_nml_setup
-  USE mo_dynamics_nml,        ONLY: dynamics_nml_setup,   &
+  USE mo_dynamics_nml,        ONLY: read_dynamics_nml,    &
+                                    dynamics_nml_setup,   &
     &                               cleanup_dyn_params 
   USE mo_diffusion_nml,       ONLY: diffusion_nml_setup, read_diffusion_namelist 
   USE mo_io_nml,              ONLY: io_nml_setup, read_io_namelist, & ! process I/O
@@ -158,6 +159,7 @@ CONTAINS
 
     ! read namelists
     CALL read_parallel_namelist()
+    CALL read_dynamics_namelist()
     CALL read_transport_namelist()
     CALL read_nwp_phy_namelist()
     CALL read_echam_phy_namelist()

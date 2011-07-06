@@ -169,42 +169,10 @@ MODULE mo_dynamics_nml
 
 CONTAINS
 
-  !>
-  !! @brief Initialization of variables that set up the dynamica core.
-  !!
-  !! Initialization of variables that set up the configuration
-  !! of the dynamical core using values read from
-  !! namelist 'dynamics_ctl'.
-  !!
-  !! @par Revision History
-  !!  by Hui Wan, MPI-M (2007-02-23)
-  !! Modification by A. Gassmann, MPI-M (2007-06-12)
-  !!   changed violating criteria for diffusion coefficients according to stability
-  !!   analysis (cf. Durran:"Numerical methods for wave equations in geophysical
-  !!   fluid dynamics", pages 136 ff.)
-  !! Modification by Jochen Foerstner, DWD (2008-05-06)
-  !!   new namelist variables: lsimpson_dyn, lsimpson_tradv to switch on the
-  !!   Simpson's rule for the quadrature in the formulation of the divergence
-  !!   operator.
-  !! Modification by Jochen Foerstner, DWD (2008-07-16)
-  !!   new namelist variable: lrbf_vec_int_edge to switch on the vector RBF
-  !!   reconstruction at edge midpoints (instead of averaging cell centered
-  !!   values to the edges).
-  !! Modification by Almut Gassmann, MPI-M (2008-09-23)
-  !!  -remove dxmin: estimate the dual edge length by nroot and start_lev
-  !!  -clean up dyn_ctl and remove unnecessary variables
-  !!
-  SUBROUTINE dynamics_nml_setup(i_ndom)
+  SUBROUTINE read_dynamics_namelist()
 
-    INTEGER, INTENT(IN) :: i_ndom
- 
-    INTEGER :: istat, funit, jdom
+    INTEGER :: istat
 
-    CHARACTER(len=MAX_CHAR_LENGTH),PARAMETER ::             &
-             & routine = 'mo_dynamics_nml/dynamics_nml_setup'
- 
-    CHARACTER(len=MAX_CHAR_LENGTH) :: string
- 
     !------------------------------------------------------------
     ! 1. Set up the default values for dynamics_ctl
     !------------------------------------------------------------
@@ -249,6 +217,55 @@ CONTAINS
     CASE (POSITIONED)
       READ (nnml, dynamics_ctl)
     END SELECT
+
+    !-----------------------------------------------------
+    ! 5. Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=dynamics_ctl)
+    CALL store_and_close_namelist(funit, 'dynamics_ctl')
+
+  ! ! write the contents of the namelist to an ASCII file
+  ! IF(p_pe == p_io) WRITE(nnml_output,nml=dynamics_ctl)
+
+  END read_dynamics_namelist
+
+  !>
+  !! @brief Initialization of variables that set up the dynamica core.
+  !!
+  !! Initialization of variables that set up the configuration
+  !! of the dynamical core using values read from
+  !! namelist 'dynamics_ctl'.
+  !!
+  !! @par Revision History
+  !!  by Hui Wan, MPI-M (2007-02-23)
+  !! Modification by A. Gassmann, MPI-M (2007-06-12)
+  !!   changed violating criteria for diffusion coefficients according to stability
+  !!   analysis (cf. Durran:"Numerical methods for wave equations in geophysical
+  !!   fluid dynamics", pages 136 ff.)
+  !! Modification by Jochen Foerstner, DWD (2008-05-06)
+  !!   new namelist variables: lsimpson_dyn, lsimpson_tradv to switch on the
+  !!   Simpson's rule for the quadrature in the formulation of the divergence
+  !!   operator.
+  !! Modification by Jochen Foerstner, DWD (2008-07-16)
+  !!   new namelist variable: lrbf_vec_int_edge to switch on the vector RBF
+  !!   reconstruction at edge midpoints (instead of averaging cell centered
+  !!   values to the edges).
+  !! Modification by Almut Gassmann, MPI-M (2008-09-23)
+  !!  -remove dxmin: estimate the dual edge length by nroot and start_lev
+  !!  -clean up dyn_ctl and remove unnecessary variables
+  !!
+  SUBROUTINE dynamics_nml_setup(i_ndom)
+
+    INTEGER, INTENT(IN) :: i_ndom
+ 
+    INTEGER :: istat, funit, jdom
+
+    CHARACTER(len=MAX_CHAR_LENGTH),PARAMETER ::             &
+             & routine = 'mo_dynamics_nml/dynamics_nml_setup'
+ 
+    CHARACTER(len=MAX_CHAR_LENGTH) :: string
+ 
 
     !------------------------------------------------------------
     ! 4. Check the consistency of the parameters
@@ -323,15 +340,6 @@ CONTAINS
   
     END SELECT
 
-    !-----------------------------------------------------
-    ! 5. Store the namelist for restart
-    !-----------------------------------------------------
-    funit = open_tmpfile()
-    WRITE(funit,NML=dynamics_ctl)
-    CALL store_and_close_namelist(funit, 'dynamics_ctl')
-
-    ! write the contents of the namelist to an ASCII file
-    IF(p_pe == p_io) WRITE(nnml_output,nml=dynamics_ctl)
 
     !-----------------------------------------------------------------------
     ! 6. Assign value to dependent variables 
