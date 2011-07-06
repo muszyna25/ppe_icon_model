@@ -39,7 +39,7 @@ MODULE mo_ha_dtp_interface
   USE mo_kind,               ONLY: wp
   USE mo_dynamics_nml,       ONLY: itime_scheme
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,            ONLY: nlev, nlevp1, i_cell_type,ltheta_dyn
+  USE mo_run_nml,            ONLY: nlev, nlevp1, ltheta_dyn
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data,           ONLY: t_external_data
   USE mo_interpolation,      ONLY: t_int_state, verts2edges_scalar,       &
@@ -480,7 +480,7 @@ CONTAINS
                      & p_diag%wpres_mc                          )  ! inout
 
     ! Relative vorticity at cell centers
-    SELECT CASE (i_cell_type)
+    SELECT CASE (p_patch%cell_type)
     CASE (3)
       CALL rot_vertex( p_prog%vn, p_patch, p_int_state, p_diag%rel_vort )
       CALL sync_patch_array( SYNC_V, p_patch, p_diag%rel_vort )

@@ -183,7 +183,7 @@ MODULE mo_hdiff
     IF ((pt_patch%cell_type == 3) .AND. (hdiff_order == 5)) THEN
        !
        ! Compute diffusion coefficient for Smagorinsky diffusion
-       ! ** NOT implemented for i_cell_type = 6 because      **
+       ! ** NOT implemented for cell_type = 6 because      **
        ! ** RBF interpolation is used to compute deformation **
 
        ! a) Calculation of diffusion coefficient

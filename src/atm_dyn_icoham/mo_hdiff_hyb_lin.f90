@@ -51,7 +51,7 @@ MODULE mo_hdiff_hyb_lin
   USE mo_interpolation,     ONLY: t_int_state
   USE mo_icoham_dyn_types,  ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,           ONLY: nlev, i_cell_type, ltheta_dyn
+  USE mo_run_nml,           ONLY: nlev, ltheta_dyn
   USE mo_impl_constants,    ONLY: min_rlcell, min_rledge
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
@@ -107,7 +107,7 @@ CONTAINS
     zc2vn = k2(jg)*1._wp/SQRT(3._wp)
     zc4vn = k4(jg)/3._wp
 
-    SELECT CASE (i_cell_type)
+    SELECT CASE (patch%cell_type)
     CASE (6)
       zc2temp = hdiff_tv_ratio*k2(jg)*2._wp/9._wp/SQRT(3._wp)
       zc4temp = hdiff_tv_ratio*k4(jg)*4._wp/81._wp/3.0_wp
