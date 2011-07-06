@@ -145,7 +145,7 @@ MODULE mo_grid_configuration
  !!  - renamed setup_files to grid_nml_setup
  !!  - restructured grid_nml_setup
 
-  SUBROUTINE grid_nml_setup
+  SUBROUTINE check_grid_configuration
                                                
     !local variable
     INTEGER  :: i_status, i, jg, jlev, funit
@@ -161,70 +161,16 @@ MODULE mo_grid_configuration
     ! clear grid filenames and hierarchy
     no_of_dynamics_grids  = 0
     no_of_radiation_grids = 0
-    DO i = 1, max_dom
-      dynamics_grid_filename(i)   = ""
-      radiation_grid_filename(i)  = ""
-      dynamics_parent_grid_id(i)  = 0
-      dynamics_radiation_grid_link(i) = 0
-    ENDDO
-    
-    !------------------------------------------------------------
-    ! 3.0 set up the default values for grid_ctl
-    !------------------------------------------------------------
-
-    nroot       = 2
-    start_lev   = 4
-    n_dom       = 1
     
     ! Note: the first element of parent_id refers to the first nested domain
     DO i = 1, max_dom-1
       parent_id(i) = i
     ENDDO
   
-    lfeedback   = .TRUE.
-    lplane      = .FALSE.
-    l_limited_area = .FALSE.
-    corio_lat   = 0.0_wp
-    patch_weight= 0.0_wp
-    lpatch0     = .FALSE.
-    lredgrid_phys = .FALSE.
-
-    ! copy default values to "default" variables
-    nroot_d     = nroot
-    start_lev_d = start_lev
-    n_dom_d     = n_dom
-    parent_id_d = parent_id
-    lfeedback_d = lfeedback
-    lplane_d    = lplane
-    l_limited_area_d = l_limited_area
-    lredgrid_phys_d  = lredgrid_phys
-    corio_lat_d = corio_lat
-    patch_weight_d = patch_weight
-
-    !----------------------------------------------------------------
-    ! If this is a resumed integration, overwrite the defaults above
-    ! by values in the previous integration.
-    !----------------------------------------------------------------
-    IF (lrestart) THEN
-    ! funit = open_and_restore_namelist('grid_ctl')
-    ! READ(funit,NML=grid_ctl)
-    ! CALL close_tmpfile(funit)
-    END IF
-
-    !------------------------------------------------------------
-    ! 4.0 Read the namelist
-    !------------------------------------------------------------
-    ! (done so far by all MPI processes)
-
-    CALL position_nml ('grid_ctl', status=i_status)
-    IF (i_status == POSITIONED) THEN
-      READ (nnml, grid_ctl)
-    ENDIF
 
     !------------------------------------------------------------
     ! 5.0 check the consistency of the parameters
     !------------------------------------------------------------
-
     ! Reset lfeedback to false for all model domains if lfeedback(1) = false
     IF (.NOT. lfeedback(1)) lfeedback(2:max_dom) = .FALSE.
 
@@ -232,11 +178,9 @@ MODULE mo_grid_configuration
     ! Set dependent variables
     !-----------------------------------------------------
     ! convert degrees in radiant for the Coriolis latitude
-
     corio_lat =  corio_lat/rad2deg
 
     ! set n_dom_start
-
     IF(lpatch0) THEN
       n_dom_start = 0
     ELSE
