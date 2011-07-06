@@ -170,6 +170,8 @@ CONTAINS
     CALL read_gridref_namelist()
 
     CALL read_dynamics_namelist()
+    CALL read_ha_dyn_namelist()
+
     CALL read_diffusion_namelist()
 
     CALL read_transport_namelist()

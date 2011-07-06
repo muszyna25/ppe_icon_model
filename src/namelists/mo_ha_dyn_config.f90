@@ -49,6 +49,8 @@ MODULE mo_ha_dyn_config
 
   PRIVATE
 
+  PUBLIC :: t_ha_dyn_config, ha_dyn_config
+
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
   !>
@@ -85,7 +87,7 @@ MODULE mo_ha_dyn_config
 
   !>
   !!
-  TYPE(t_ha_dyn_config),ALLOCATABLE :: ha_dyn_config(:)  !< shape: (n_dom)
+  TYPE(t_ha_dyn_config) :: ha_dyn_config(MAX_DOM)
 
 END MODULE mo_ha_dyn_config
 
