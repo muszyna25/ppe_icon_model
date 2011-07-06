@@ -68,6 +68,9 @@ MODULE mo_advection_config
     LOGICAL :: miura3_h(MAX_NTRACER)                                           
   END TYPE t_cleanup 
 
+
+  PUBLIC
+
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for tracer advection
   !!--------------------------------------------------------------------------

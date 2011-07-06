@@ -236,7 +236,7 @@ END SUBROUTINE sleve_nml_setup
     IF(p_pe == p_io) WRITE(nnml_output,nml=sleve_ctl)
 
 
-  END SUBROUTINE read_nwp_phy_namelist
+  END SUBROUTINE read_sleve_namelist
 
 
 END MODULE mo_sleve_nml

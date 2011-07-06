@@ -60,18 +60,18 @@ MODULE mo_sleve_config
     ! a) Parameters specifying the distrubution of the coordinate surfaces
     !     (the initializations are a workaround for a NEC compiler bug)
 
-    REAL(wp):: min_lay_thckn = 1._wp  ! Layer thickness of lowermost level
-    REAL(wp):: stretch_fac   = 1._wp  ! Factor for stretching/squeezing the model layer distribution
-    REAL(wp):: top_height    = 1._wp  ! Height of model top
+    REAL(wp):: min_lay_thckn  ! Layer thickness of lowermost level
+    REAL(wp):: stretch_fac    ! Factor for stretching/squeezing the model layer distribution
+    REAL(wp):: top_height     ! Height of model top
 
     ! b) Parameters for SLEVE definition
 
-    REAL(wp):: decay_scale_1 = 1._wp  ! Decay scale for large-scale topography component
-    REAL(wp):: decay_scale_2 = 1._wp  ! Decay scale for small-scale topography component
-    REAL(wp):: decay_exp     = 1._wp  ! Exponent for decay function
-    REAL(wp):: flat_height   = 1._wp  ! Height above which the coordinate surfaces are exactly flat
-                                      ! additional feature not available in the standard
-                                      ! SLEVE definition
+    REAL(wp):: decay_scale_1  ! Decay scale for large-scale topography component
+    REAL(wp):: decay_scale_2  ! Decay scale for small-scale topography component
+    REAL(wp):: decay_exp      ! Exponent for decay function
+    REAL(wp):: flat_height    ! Height above which the coordinate surfaces are exactly flat
+                              ! additional feature not available in the standard
+                              ! SLEVE definition
   END TYPE t_sleve_config
   !>
   !!
