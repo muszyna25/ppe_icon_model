@@ -627,7 +627,7 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   ptr_rutri => ptr_int_lsq%lsq_rmat_utri_c(:,:,:)
 
 
-  IF (i_cell_type == 3) THEN
+  IF (ptr_patch%cell_type == 3) THEN
 
 
 !$OMP PARALLEL
@@ -728,7 +728,7 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP END DO
 !$OMP END PARALLEL
 
-ELSEIF (i_cell_type == 6) THEN
+ELSEIF (ptr_patch%cell_type == 6) THEN
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_d,z_qt_times_d), SCHEDULE(runtime)
@@ -935,7 +935,7 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   iblk => ptr_int_lsq%lsq_blk_c
 
 
-  IF (i_cell_type == 3) THEN
+  IF (ptr_patch%cell_type == 3) THEN
 
 
 !$OMP PARALLEL
@@ -1019,7 +1019,7 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
 !$OMP END DO
 !$OMP END PARALLEL
 
-ELSEIF (i_cell_type == 6) THEN
+ELSEIF (ptr_patch%cell_type == 6) THEN
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,jk,js,i_startidx,i_endidx,z_b), SCHEDULE(runtime)
@@ -2172,9 +2172,9 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 !$OMP PARALLEL
 
 
-SELECT CASE (i_cell_type)
+SELECT CASE (ptr_patch%cell_type)
 
-CASE (3) ! (i_cell_type == 3)
+CASE (3) ! (cell_type == 3)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
   DO jb = i_startblk, i_endblk
@@ -2244,7 +2244,7 @@ CASE (3) ! (i_cell_type == 3)
   END DO
 !$OMP END DO
 
-CASE (6) ! (i_cell_type == 6)
+CASE (6) ! (cell_type == 6)
 
   ! no grid refinement in hexagonal model
   nblks_c   = ptr_patch%nblks_int_c
@@ -2382,9 +2382,9 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 !$OMP PARALLEL
 
 
-SELECT CASE (i_cell_type)
+SELECT CASE (ptr_patch%cell_type)
 
-CASE (3) ! (i_cell_type == 3)
+CASE (3) ! (cell_type == 3)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,ji)
   DO jb = i_startblk, i_endblk
@@ -2415,7 +2415,7 @@ CASE (3) ! (i_cell_type == 3)
   ENDDO
 !$OMP END DO
 
-CASE (6) ! (i_cell_type == 6)
+CASE (6) ! (cell_type == 6)
 
   ! no grid refinement in hexagonal model
   nblks_c   = ptr_patch%nblks_int_c
@@ -2941,7 +2941,7 @@ END IF
 !
 ! The special treatment of 2D fields is essential for efficiency on the NEC
 
-SELECT CASE (i_cell_type)
+SELECT CASE (ptr_patch%cell_type)
 
 CASE (3)
 
@@ -3005,7 +3005,7 @@ CASE (3)
 !$OMP END DO
 !$OMP END PARALLEL
 
-CASE (6) ! (i_cell_type == 6)
+CASE (6) ! (cell_type == 6)
 
   iidx => ptr_patch%verts%edge_idx
   iblk => ptr_patch%verts%edge_blk

@@ -465,7 +465,7 @@ INTEGER, POINTER  ::       &           ! pointer to stencil size (cell dependent
 
 INTEGER, DIMENSION(lsq_dim_c) ::  &    ! line and block indices of cells in the stencil
   & ilc_s, ibc_s
-INTEGER, DIMENSION(i_cell_type) :: jlv, jbv      ! line and block indices of vertex
+INTEGER, DIMENSION(ptr_patch%cell_type) :: jlv, jbv      ! line and block indices of vertex
 INTEGER :: cnt                         ! counter
 INTEGER :: jrow                        ! matrix row-identifier
 INTEGER :: nel                         ! number of matrix elements
