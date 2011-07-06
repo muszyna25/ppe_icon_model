@@ -37,7 +37,7 @@
 MODULE mo_get_utc_date_tr
 
   USE mo_kind,                 ONLY: wp, i8
-  USE mo_run_nml,              ONLY: ini_datetime
+  USE mo_time_nml,             ONLY: ini_datetime
   
   IMPLICIT NONE
 
