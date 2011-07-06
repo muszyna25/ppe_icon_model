@@ -246,94 +246,94 @@ CONTAINS
     ! 4. Check whether the namelist varibles have reasonable values
     !---------------------------------------------------------------
 
-    ! vertical nesting
-    IF (.NOT. lvert_nest) THEN
-      ! overwrite num_lev with num_lev(1)
-      num_lev(1:max_dom) = num_lev(1)
-      ! set nshift to 0
-      nshift(1:max_dom) = 0 
-    ENDIF
-    num_levp1(1:max_dom) = num_lev(1:max_dom) + 1
-
-    IF (ANY(num_lev < 0)) CALL finish(TRIM(routine),'"num_lev" must be positive')
-    IF (ANY(nshift < 0)) CALL finish(TRIM(routine),'"nshift" must be positive')
-
-    !!! DR !!!
-    ! auxiliary variables which are needed as long as 
-    ! mo_eta_coord_diag has not been adapted.
-    nlev = num_lev(1)
-    nlevp1 = nlev+1
-    nvclev = nlevp1
-
-    SELECT CASE (i_cell_type)
-    CASE (itri,ihex)
-      ! ok
-    CASE default
-      CALL finish( TRIM(routine),'wrong cell type specifier, "i_cell_type" must be 3 or 6')
-    END SELECT
-
-    SELECT CASE (iequations)
-    CASE (ishallow_water)
-      lshallow_water = .TRUE.
-      IF ( num_lev(1)/=1 ) THEN
-        CALL finish(TRIM(routine),'Shallow water model needs num_lev(1)=1')
-      ENDIF
-      ltheta_dyn     = .FALSE.
-    CASE (ihs_atm_temp)
-      latmosphere    = .TRUE.
-      lhydrostatic   = .TRUE.
-      ltheta_dyn     = .FALSE.
-    CASE (ihs_atm_theta)
-      latmosphere    = .TRUE.
-      lhydrostatic   = .TRUE.
-      ltheta_dyn     = .TRUE.
-    CASE (inh_atmosphere)
-      latmosphere    = .TRUE.
-      lhydrostatic   = .FALSE.
-    CASE (ihs_ocean)
-      locean         = .TRUE.
-      lhydrostatic   = .TRUE.
-    CASE default
-      CALL finish( TRIM(routine),'wrong equation specifier iequations')
-    END SELECT
-
-    SELECT CASE (iforcing)
-    CASE (iheldsuarez, inwp, iecham, ildf_echam, impiom)
-     lforcing = .TRUE.
-    CASE (inoforcing, ildf_dry)
-     lforcing = .FALSE.
-    CASE DEFAULT
-      CALL finish( TRIM(routine),'wrong forcing specifier iforcing')
-    END SELECT
-
-    IF(ntracer<0 .OR. ntracer>max_ntracer) THEN
-      CALL finish( TRIM(routine),'wrong number of tracers. Valid range: 0<= ntracer <=20')
-    ENDIF
-
-    SELECT CASE(iforcing)
-    CASE (iecham,ildf_echam)
-      IF (ntracer<3) CALL finish( TRIM(routine),'ECHAM forcing needs at least 3 tracers')
-      iqv    = 1     !> water vapour
-      iqc    = 2     !! cloud water
-      iqi    = 3     !! ice
-      iqcond = iqi   !! index of last hydrometeor to ease summation over all of them
-      iqt    = 4     !! starting index of non-water species 
-      io3    = 5     !! O3
-      ico2   = 6     !! CO2
-    CASE (inwp)
-      iqv    = 1     !> water vapour
-      iqc    = 2     !! cloud water
-      iqi    = 3     !! ice
-      iqr    = 4     !! rain water
-      iqs    = 5     !! snow
-      iqcond = iqs   !! index of last hydrometeor to ease summation over all of them
-      io3    = 6     !! O3
-      ico2   = 7     !! CO2
-      iqt    = 6     !! start index of other tracers than hydrometeors
-    END SELECT
-
-    ! time step
-    IF (dtime  <= 0._wp) CALL finish(routine,'"dtime" must be positive')
+!     ! vertical nesting
+!     IF (.NOT. lvert_nest) THEN
+!       ! overwrite num_lev with num_lev(1)
+!       num_lev(1:max_dom) = num_lev(1)
+!       ! set nshift to 0
+!       nshift(1:max_dom) = 0 
+!     ENDIF
+!     num_levp1(1:max_dom) = num_lev(1:max_dom) + 1
+! 
+!     IF (ANY(num_lev < 0)) CALL finish(TRIM(routine),'"num_lev" must be positive')
+!     IF (ANY(nshift < 0)) CALL finish(TRIM(routine),'"nshift" must be positive')
+! 
+!     !!! DR !!!
+!     ! auxiliary variables which are needed as long as 
+!     ! mo_eta_coord_diag has not been adapted.
+!     nlev = num_lev(1)
+!     nlevp1 = nlev+1
+!     nvclev = nlevp1
+! 
+!     SELECT CASE (i_cell_type)
+!     CASE (itri,ihex)
+!       ! ok
+!     CASE default
+!       CALL finish( TRIM(routine),'wrong cell type specifier, "i_cell_type" must be 3 or 6')
+!     END SELECT
+! 
+!     SELECT CASE (iequations)
+!     CASE (ishallow_water)
+!       lshallow_water = .TRUE.
+!       IF ( num_lev(1)/=1 ) THEN
+!         CALL finish(TRIM(routine),'Shallow water model needs num_lev(1)=1')
+!       ENDIF
+!       ltheta_dyn     = .FALSE.
+!     CASE (ihs_atm_temp)
+!       latmosphere    = .TRUE.
+!       lhydrostatic   = .TRUE.
+!       ltheta_dyn     = .FALSE.
+!     CASE (ihs_atm_theta)
+!       latmosphere    = .TRUE.
+!       lhydrostatic   = .TRUE.
+!       ltheta_dyn     = .TRUE.
+!     CASE (inh_atmosphere)
+!       latmosphere    = .TRUE.
+!       lhydrostatic   = .FALSE.
+!     CASE (ihs_ocean)
+!       locean         = .TRUE.
+!       lhydrostatic   = .TRUE.
+!     CASE default
+!       CALL finish( TRIM(routine),'wrong equation specifier iequations')
+!     END SELECT
+! 
+!     SELECT CASE (iforcing)
+!     CASE (iheldsuarez, inwp, iecham, ildf_echam, impiom)
+!      lforcing = .TRUE.
+!     CASE (inoforcing, ildf_dry)
+!      lforcing = .FALSE.
+!     CASE DEFAULT
+!       CALL finish( TRIM(routine),'wrong forcing specifier iforcing')
+!     END SELECT
+! 
+!     IF(ntracer<0 .OR. ntracer>max_ntracer) THEN
+!       CALL finish( TRIM(routine),'wrong number of tracers. Valid range: 0<= ntracer <=20')
+!     ENDIF
+! 
+!     SELECT CASE(iforcing)
+!     CASE (iecham,ildf_echam)
+!       IF (ntracer<3) CALL finish( TRIM(routine),'ECHAM forcing needs at least 3 tracers')
+!       iqv    = 1     !> water vapour
+!       iqc    = 2     !! cloud water
+!       iqi    = 3     !! ice
+!       iqcond = iqi   !! index of last hydrometeor to ease summation over all of them
+!       iqt    = 4     !! starting index of non-water species 
+!       io3    = 5     !! O3
+!       ico2   = 6     !! CO2
+!     CASE (inwp)
+!       iqv    = 1     !> water vapour
+!       iqc    = 2     !! cloud water
+!       iqi    = 3     !! ice
+!       iqr    = 4     !! rain water
+!       iqs    = 5     !! snow
+!       iqcond = iqs   !! index of last hydrometeor to ease summation over all of them
+!       io3    = 6     !! O3
+!       ico2   = 7     !! CO2
+!       iqt    = 6     !! start index of other tracers than hydrometeors
+!     END SELECT
+! 
+!     ! time step
+!     IF (dtime  <= 0._wp) CALL finish(routine,'"dtime" must be positive')
 
   
     ! 5.3 End date and time, and length of integration
@@ -404,36 +404,29 @@ CONTAINS
     ENDIF
     !..................................................................
     !
-    CALL message(' ',' ')
-    CALL message(routine,'End date and time')
-    CALL message(routine,'-----------------')
-!     CALL print_datetime_all(end_datetime)  ! print all date and time components
-
-    CALL message(' ',' ')
-    CALL message(routine,'Length of restart cycle')
-    CALL message(routine,'-----------------------')
-!     WRITE(message_text,'(a,f10.2,a,f16.10,a)') &
-!          &'dt_restart :',dt_restart,' seconds =', dt_restart/86400._wp, ' days'
+!     CALL message(' ',' ')
+!     CALL message(routine,'End date and time')
+!     CALL message(routine,'-----------------')
+! !     CALL print_datetime_all(end_datetime)  ! print all date and time components
+! 
+!     CALL message(' ',' ')
+!     CALL message(routine,'Length of restart cycle')
+!     CALL message(routine,'-----------------------')
+! !     WRITE(message_text,'(a,f10.2,a,f16.10,a)') &
+! !          &'dt_restart :',dt_restart,' seconds =', dt_restart/86400._wp, ' days'
+! !     CALL message(routine,message_text)
+! 
+!     CALL message(' ',' ')
+!     CALL message(routine,'Length of this run')
+!     CALL message(routine,'------------------')
+!     WRITE (message_text,'(a,f7.2)') 'dtime [s] :',dtime
 !     CALL message(routine,message_text)
-
-    CALL message(' ',' ')
-    CALL message(routine,'Length of this run')
-    CALL message(routine,'------------------')
-    WRITE (message_text,'(a,f7.2)') 'dtime [s] :',dtime
-    CALL message(routine,message_text)
-    WRITE (message_text,'(a,i7)')   'nsteps    :',nsteps
-    CALL message(routine,message_text)
-    CALL message(' ',' ')
+!     WRITE (message_text,'(a,i7)')   'nsteps    :',nsteps
+!     CALL message(routine,message_text)
+!     CALL message(' ',' ')
 
 
-    !-----------------------------------------------------------
-    ! Topography
-    !-----------------------------------------------------------
-    SELECT CASE (itopo)
-    CASE (0)
-      ! ok
-    CASE (1)
-
+    
  END SUBROUTINE run_nml_setup
 
 SUBROUTINE read_run_namelist
@@ -487,7 +480,6 @@ SUBROUTINE read_run_namelist
 
    ! select model and numerics
    iequations     = ihs_atm_temp
-   i_cell_type    = itri
 
    ! switches for tendency computation
    ldynamics      = .TRUE.
@@ -611,6 +603,13 @@ SUBROUTINE read_extpar_nml
       !write the contents of the namelist to an ASCII file
       IF(p_pe == p_io) WRITE(nnml_output,nml=ext_par_ctl)
 
+    !-----------------------------------------------------------
+    ! Topography
+    !-----------------------------------------------------------
+    SELECT CASE (itopo)
+    CASE (0)
+      ! ok
+    CASE (1)
     CASE default
        CALL finish( TRIM(routine),'wrong topography specifier, itopo must be in {0,1}]')
     END SELECT
