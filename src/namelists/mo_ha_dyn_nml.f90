@@ -167,8 +167,7 @@ CONTAINS
   !!
   SUBROUTINE check_ha_dyn
 
-    CHARACTER(len=MAX_CHAR_LENGTH),PARAMETER ::             &
-             & routine = 'check_ha_dyn'
+    CHARACTER(len=*),PARAMETER :: routine = 'check_ha_dyn'
 
     IF (si_offctr>1._wp.OR.si_offctr<0._wp) THEN                              
       CALL finish( TRIM(routine), 'Invalid offcentering parameter.'//&        
