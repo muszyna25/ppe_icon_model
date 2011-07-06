@@ -41,6 +41,7 @@ MODULE mo_ha_dyn_nml
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
   USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist, &       
                                       open_and_restore_namelist, close_tmpfile
+  USE mo_impl_constants,     ONLY:  AB2
   USE mo_run_nml,            ONLY:   lshallow_water
   IMPLICIT NONE
 
