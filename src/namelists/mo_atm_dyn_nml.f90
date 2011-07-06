@@ -41,15 +41,17 @@ MODULE mo_atm_dyn_nml
   USE mo_physical_constants, ONLY: grav
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned
-  USE mo_mpi,                ONLY: p_pe, p_io
+ !USE mo_mpi,                ONLY: p_pe, p_io
   USE mo_run_nml,            ONLY: ltransport,dtime,ntracer,                 &
     &                              iforcing,lshallow_water,INWP, IHS_ATM_TEMP,&
     &                              IHS_ATM_THETA
-  USE mo_grid_configuration,  ONLY: global_cell_type
-  USE mo_master_nml,         ONLY: lrestart
+ !USE mo_grid_configuration,  ONLY: global_cell_type
+
+  USE mo_atm_dyn_config,        ONLY: atm_dyn_config
+  USE mo_master_nml,            ONLY: lrestart
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
-  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &       
-                                 & open_and_restore_namelist, close_tmpfile
+  USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,   &       
+                                    & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
 
@@ -146,7 +148,7 @@ CONTAINS
     END SELECT
 
     !-----------------------------------------------------
-    ! 5. Store the namelist for restart
+    ! 4. Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
     WRITE(funit,NML=atm_dyn_nml)
@@ -154,6 +156,16 @@ CONTAINS
 
   ! ! write the contents of the namelist to an ASCII file
   ! IF(p_pe == p_io) WRITE(nnml_output,nml=atm_dyn_nml)
+
+    !-----------------------------------------------------
+    ! 5. Fill configuration state
+    !-----------------------------------------------------
+
+    atm_dyn_config(:)% iequations     = iequations
+    atm_dyn_config(:)% itime_scheme   = itime_scheme
+    atm_dyn_config(:)% idiv_method    = idiv_method
+    atm_dyn_config(:)% divavg_cntrwgt = divavg_cntrwgt
+    atm_dyn_config(:)% ldry_dycore    = ldry_dycore
 
   END SUBROUTINE read_atm_dyn_namelist
 
