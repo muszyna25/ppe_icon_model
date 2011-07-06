@@ -48,8 +48,6 @@ MODULE mo_advection_config
 
   IMPLICIT NONE
 
-  PRIVATE
-
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
   ! Derived types to allow for the onetime computation of tracer independent parts
