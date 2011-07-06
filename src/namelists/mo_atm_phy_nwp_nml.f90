@@ -47,6 +47,7 @@ MODULE mo_atm_phy_nwp_nml
   USE mo_namelist,            ONLY: position_nml, POSITIONED
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_io_units,            ONLY: nnml, nnml_output
+  USE mo_master_nml,          ONLY: lrestart
   USE mo_nonhydrostatic_nml,  ONLY: iadv_rcf
   USE mo_dynamics_nml,        ONLY: ldry_dycore
   USE mo_io_nml,              ONLY: lwrite_extra
@@ -62,6 +63,9 @@ MODULE mo_atm_phy_nwp_nml
     &                               itype_tran, rlam_heat, rlam_mom, rat_sea
   USE mo_echam_vdiff_nml,     ONLY: echam_vdiff_nml_setup
   USE mo_icoham_sfc_indices,  ONLY: init_sfc_indices, nsfc_type
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
+    &                               open_and_restore_namelist, close_tmpfile
+
 
   IMPLICIT NONE
 
@@ -142,7 +146,7 @@ MODULE mo_atm_phy_nwp_nml
     &                  itype_wcld, icldm_turb,                  &
     &                  itype_tran, rlam_heat, rlam_mom, rat_sea
 
-   PUBLIC :: setup_nwp_phy !, set_inwp_nml, read_inwp_nml
+   PUBLIC :: setup_nwp_phy, read_nwp_phy_namelist !, set_inwp_nml, read_inwp_nml
    PUBLIC :: inwp_gscp, inwp_satad, inwp_convection, inwp_radiation
    PUBLIC :: inwp_sso, inwp_cldcover, inwp_turb, inwp_surface
    PUBLIC :: inwp_gwd
@@ -448,6 +452,157 @@ MODULE mo_atm_phy_nwp_nml
 
  END SUBROUTINE read_inwp_nml
 !==============================================================================
+
+
+  !-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! Read Namelist for NWP physics. 
+  !!
+  !! This subroutine 
+  !! - reads the Namelist for NWP physics
+  !! - sets default values
+  !! - potentially overwrites the defaults by values used in a 
+  !!   previous integration (if this is a resumed run)
+  !! - reads the user's (new) specifications
+  !! - stores the Namelist for restart  
+  !!
+  !! @par Revision History
+  !!  by Daniel Reinert, DWD (2011-06-07)
+  !!
+  SUBROUTINE read_nwp_phy_namelist (p_patch)
+    !
+    TYPE(t_patch), OPTIONAL, INTENT(IN) :: p_patch(:)
+    INTEGER :: istat, funit
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_atm_phy_nwp_nml: read_nwp_phy_namelist'
+
+    !-----------------------------------------------------------------------
+
+    !-----------------------!
+    ! 1. default settings   !
+    !-----------------------!
+    inwp_gscp       = 0           !> 0 = no microphysics
+    inwp_satad      = 0           !> 1 = saturation adjustment on
+    inwp_convection = 0           !> 0 = no convection
+    inwp_radiation  = 0           !> 0 = no radiation
+    inwp_sso        = 0           !> 0 = no sso
+    inwp_gwd        = 0           !> 0 = no gwd, 1= IFS gwd scheme
+    inwp_cldcover   = 1           !> 1 = use grid-scale clouds for radiation
+    inwp_turb       = 0           !> 0 = no turbulence,1= cosmo/turbdiff,2=echam/vdiff
+    inwp_surface    = 0           !> 0 = no surface, 1 =  cosmo surface
+
+    nlevs           = 7           !> 7 = default value for number of soil layers
+    nztlev          = 2           !> 2 = default value for time integration scheme
+    nlev_snow       = 1           !> 1 = default value for number of snow layers
+    nsfc_subs       = 1           !> 1 = default value for number of TILES
+
+    ! initialize the following values with zero to allow for namelist output
+    dt_conv (:)  = 0.0_wp
+    dt_ccov (:)  = 0.0_wp
+    dt_rad  (:)  = 0.0_wp
+    dt_sso  (:)  = 0.0_wp
+    dt_gwd  (:)  = 0.0_wp
+    dt_gscp (:)  = 0.0_wp
+    dt_turb (:)  = 0.0_wp
+    dt_sfc  (:)  = 0.0_wp
+    dt_satad(:)  = 0.0_wp
+    dt_update(:) = 0.0_wp
+    dt_radheat(:)= 0.0_wp
+
+    ! default values of time interval for each physical paramterization
+    IF (PRESENT(p_patch)) THEN
+      DO jg=1,n_dom
+        dt_conv (jg) = 600._wp      !seconds
+        dt_ccov (jg) = dt_conv(jg)  !presently not used; cloud cover is synchronized with radiation
+        dt_rad  (jg) = 1800._wp     !seconds
+        dt_sso  (jg) = dt_conv(jg)  !seconds
+        dt_gwd  (jg) = 600._wp     !seconds
+
+        !> intervals coupled to advective timestep
+        !! all three processes have to take place at the same
+        !! time step and frequency
+
+        dt_gscp (jg) = ( REAL(iadv_rcf,wp)              &
+          &             * (dtime/2._wp**(p_patch(jg)%level &
+          &             - p_patch(1)%level)) )          !seconds
+        dt_turb (jg) = ( REAL(iadv_rcf,wp)              &
+          &             * (dtime/2._wp**(p_patch(jg)%level &
+          &             - p_patch(1)%level)) )          !seconds
+        dt_sfc  (jg) = ( REAL(iadv_rcf,wp)              &
+          &             * (dtime/2._wp**(p_patch(jg)%level &
+          &             - p_patch(1)%level)) )          !seconds
+        ! satad is coupled to advective timestep
+        dt_satad(jg) = ( REAL(iadv_rcf,wp)              &
+                        * dtime/2._wp**(p_patch(jg)%level &
+           &              - p_patch(1)%level))          !seconds
+        ! coupled to advective timestep
+        dt_update(jg) =  dt_satad (jg)
+        dt_radheat(jg)=  dt_update(jg)
+
+      ENDDO
+    ELSE ! patch information is not available for call from io_async
+      DO jg=1,n_dom
+        dt_conv (jg) = 600._wp      !seconds
+        dt_ccov (jg) = dt_conv(jg)  !presently not used; cloud cover is synchronized with radiation
+        dt_rad  (jg) = 1800._wp     !seconds
+        dt_sso  (jg) = 3600._wp     !seconds
+        dt_gwd  (jg) = 3600._wp     !seconds
+        dt_gscp (jg) = 100._wp      !seconds
+        dt_turb (jg) = 100._wp      !seconds
+        dt_sfc  (jg) = 100._wp      !seconds
+        dt_satad(jg) = 100._wp      !seconds
+        dt_update(jg) =  dt_satad (jg)
+        dt_radheat(jg)=  dt_update(jg)
+      ENDDO
+    ENDIF
+
+  !> KF  current settings to get NWP turbulence running
+    lseaice    = .FALSE.
+    llake      = .FALSE.
+    l3dturb    = .FALSE.
+    lprog_tke  = .FALSE.!> prognostic treatment of TKE (for itype_turb=5/7)
+    lmulti_snow= .FALSE.
+
+
+    !------------------------------------------------------------------
+    ! 2. If this is a resumed integration, overwrite the defaults above 
+    !    by values used in the previous integration.
+    !------------------------------------------------------------------
+    IF (lrestart) THEN
+      funit = open_and_restore_namelist('nwp_phy_ctl')
+      READ(funit,NML=nwp_phy_ctl)
+      CALL close_tmpfile(funit)
+    END IF
+
+
+    !--------------------------------------------------------------------
+    ! 3. Read user's (new) specifications (Done so far by all MPI processes)
+    !--------------------------------------------------------------------
+    CALL position_nml ('nwp_phy_ctl', status=istat)
+    SELECT CASE (istat)
+    CASE (POSITIONED)
+      READ (nnml, nwp_phy_ctl)
+    END SELECT
+
+
+    !-----------------------------------------------------
+    ! 4. Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=nwp_phy_ctl)                    
+    CALL store_and_close_namelist(funit, 'nwp_phy_ctl') 
+
+
+    ! 5. write the contents of the namelist to an ASCII file
+    !
+    IF(p_pe == p_io) WRITE(nnml_output,nml=nwp_phy_ctl)
+
+
+  END SUBROUTINE read_nwp_phy_namelist
+
 
 END MODULE mo_atm_phy_nwp_nml
 

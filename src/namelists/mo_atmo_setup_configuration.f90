@@ -119,7 +119,8 @@ MODULE mo_atmo_setup_configuration
   USE mo_vertical_grid,       ONLY: init_hybrid_coord, init_sleve_coord
     
   USE mo_echam_phy_setup,     ONLY: setup_echam_phy
-  USE mo_atm_phy_nwp_nml,     ONLY: setup_nwp_phy, inwp_surface
+  USE mo_atm_phy_nwp_nml,     ONLY: setup_nwp_phy, inwp_surface, &
+    &                               read_nwp_phy_namelist
   USE mo_lnd_nwp_nml,         ONLY: setup_nwp_lnd
  
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
@@ -165,6 +166,7 @@ CONTAINS
     ! read namelists
     CALL read_parallel_namelist()
     CALL read_transport_namelist()
+    CALL read_nwp_phy_namelist()
         
     ! close namelist file
     CALL close_nml

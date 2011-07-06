@@ -739,7 +739,7 @@ CONTAINS
   !! - stores the Namelist for restart  
   !!
   !! @par Revision History
-  !!  by Daniel Reinert, DWD (2011-05-07).
+  !!  by Daniel Reinert, DWD (2011-05-07)
   !!
   SUBROUTINE read_transport_namelist
     !
