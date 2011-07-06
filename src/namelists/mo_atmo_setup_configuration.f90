@@ -57,7 +57,7 @@ MODULE mo_atmo_setup_configuration
     & nonhydrostatic_nml_setup
   USE mo_dynamics_nml,        ONLY: dynamics_nml_setup,   &
     &                               cleanup_dyn_params 
-  USE mo_diffusion_nml,       ONLY: diffusion_nml_setup
+  USE mo_diffusion_nml,       ONLY: diffusion_nml_setup, read_diffusion_namelist 
   USE mo_io_nml,              ONLY: io_nml_setup,         & ! process I/O
     & dt_data,              & !    :
     & dt_file,              & !    :
