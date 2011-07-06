@@ -164,18 +164,24 @@ CONTAINS
     CALL read_time_namelist()
     CALL read_run_namlist()
     CALL read_parallel_namelist()
+
+    CALL read_interpol_namelist()
+    CALL read_gridref_namelist()
+
     CALL read_dynamics_namelist()
+    CALL read_diffusion_namelist()
+
     CALL read_transport_namelist()
+
     CALL read_nwp_phy_namelist()
     CALL read_echam_phy_namelist()
+
     CALL read_echam_vdiff_namelist()
     CALL read_echam_conv_namelist()
-    CALL read_diffusion_namelist()
-    CALL read_gridref_namelist()
     CALL read_gw_hines_namelist()
-    CALL read_interpol_namelist()
-    CALL read_io_namelist()
     CALL read_nwp_lnd_namelist()
+
+    CALL read_io_namelist()
       
     ! close namelist file
     CALL close_nml
