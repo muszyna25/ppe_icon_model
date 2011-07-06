@@ -52,7 +52,8 @@ MODULE mo_oce_state
 !
   USE mo_kind,                ONLY: wp
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_impl_constants,      ONLY: success, max_char_length, min_rledge, min_rlcell, boundary, sea, ntrac_oce 
+  USE mo_impl_constants,      ONLY: success, max_char_length, &
+    & min_rledge, min_rlcell, boundary, sea, ntrac_oce
   USE mo_ocean_nml,           ONLY: n_zlev, t_ref, s_ref
   USE mo_exception,           ONLY: message, finish
   USE mo_model_domain,        ONLY: t_patch
