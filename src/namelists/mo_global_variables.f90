@@ -58,9 +58,6 @@
 !!  - revision of &run_ctl
 !!    - rename ltracer to ltransport
 !!    - rename tracer_ctl to transport_ctl
-!!    - added ldynamics
-!!    - rename dyn_ctl to dynamics_ctl
-!!    - renamed setup_dyn to setup_dynamics
 !!    - added lhydrostatic
 !!    - renamed hydro_ctl to hydrostatic_ctl
 !!    - renamed setup_hydro to setup_hydrostatic
@@ -93,8 +90,6 @@
 !!    the subroutine setup_ocean into new module 'mo_ocean_nml'
 !!  Modification by Constantin Junk, MPI-M (2011-03-23)
 !!  - removed hydrostatic_ctl and setup_hydrostatic. Included
-!!    the former hydrostatic_ctl variables into mo_dynamics_nml and
-!!    the consistency checks of setup_hydrostatic into setup_dynamics_nml
 !!  Modification by Constantin Junk, MPI-M (2011-03-28)
 !!  - separated nonhydrostatic_ctl and the subroutine setup_nonhydrostatic
 !!    into new module 'mo_nonhydrostatic_nml'
@@ -150,7 +145,7 @@ MODULE mo_global_variables
     &                              inoforcing,iheldsuarez,impiom, ildf_dry,ildf_echam
   USE mo_ocean_nml,          ONLY: lmpiom_radiation, lmpiom_convection,           &
     &                              lmpiom_gentmcwill, mpiom_phy_ctl
-  USE mo_dynamics_nml,       ONLY: ldry_dycore
+  USE mo_atm_dyn_nml,        ONLY: ldry_dycore
 
   IMPLICIT NONE
 

@@ -1,22 +1,11 @@
 !>
-!! Contains the setup of configuration of the dynamical core
-!!
+!! Namelist variables shared by the hydrostatic and nonhydrostatic
+!! dynamical cores
 !!        
 !! @par Revision History
-!!   Revision History in mo_global_variables.f90 (r3611)
-!!   Modification by Constantin Junk (2011-02-24)
-!!     - added new module mo_dynamics_nml
-!!     - separated declaration of namelist dynamics_ctl from 
-!!       mo_global_variables and moved it mo_dynamics_nml
-!!     - moved subroutine deallocate_timelevs from 
-!!       mo_global_variables to mo_dynamics_nml
-!!   Modification by Constantin Junk (2011-03-23)
-!!     - moved hydrostatic_ctl variables to mo_dynamics_nml
-!!     - added the consistency checks for these variables
-!!       to setup_dynamics_nml
 !!
 !! @par Copyright
-!! 2002-2006 by DWD and MPI-M
+!! 2002-2011 by DWD and MPI-M
 !! This software is provided for non-commercial use only.
 !! See the LICENSE and the WARRANTY conditions.
 !!
@@ -43,7 +32,7 @@
 !! software.
 !!
 !!
-MODULE mo_dynamics_nml
+MODULE mo_atm_dyn_nml
 
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
@@ -55,7 +44,7 @@ MODULE mo_dynamics_nml
   USE mo_mpi,                ONLY: p_pe, p_io
   USE mo_run_nml,            ONLY: ltransport,dtime,ntracer,                 &
     &                              iforcing,lshallow_water,INWP, IHS_ATM_TEMP,&
-    &                              IHS_ATM_THETA,iequations
+    &                              IHS_ATM_THETA
   USE mo_grid_configuration,  ONLY: global_cell_type
   USE mo_master_nml,         ONLY: lrestart
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
@@ -74,6 +63,8 @@ MODULE mo_dynamics_nml
   !---------------------------------------------------------------
   ! time stepping scheme 
 
+  INTEGER  :: iequations
+
   INTEGER  :: itime_scheme       ! parameter used to select the time stepping scheme
                                  ! = 1, explicit 2 time level scheme
                                  ! = 2, semi implicit 2 time level scheme
@@ -81,46 +72,6 @@ MODULE mo_dynamics_nml
                                  ! = 4, leapfrog with semi implicit correction
                                  ! = 5, 4-stage Runge-Kutta method
                                  ! = 6, SSPRK(5,4) (Runge-Kutta) method
-
-  INTEGER  :: ileapfrog_startup  ! choice of the first time step in
-                                 ! a leapfrog time stepping scheme
-                                 ! 1 = Euler forward
-                                 ! 2 = several sub-steps
-
-  REAL(wp) :: asselin_coeff      ! parameter used in Asselin filter
-
-  REAL(wp) :: si_2tls            ! time averaging parameter
-                                 ! in two time level semi implicit
-                                 ! trapeziodal discretization
-                                 ! (aka theta-method!!)
-                                 ! WARNING: must be between 0.5 and 1.0
-                                 ! for unconditional (linear!!) stability
-                                 ! values around 0.6 are safe for all tests
-                                 ! but result in larger damping
-                                 ! smaller values can be used but
-
-  INTEGER  :: si_expl_scheme     ! scheme for the explicit part of the
-                                 ! 2-time-level semi-implicit time integration.
-                                 ! See mo_impl_constants for the options.
-
-  REAL(wp) :: si_coeff           !  = 0 : explicit scheme(for *d*,*t*,*alps*).
-                                 !  = 1 : semi implicit scheme.
-                                 !  in (0,1): a weighted scheme
-
-  REAL(wp) :: si_offctr          ! weighting parameter used in calculating the
-                                 ! second temporal derivatives in the semi-implicit
-                                 ! correction scheme. The value read from namelist are
-                                 ! assumed to be the offcentering (i.e. between 0 and 1).
-
-  LOGICAL  :: lsi_3d             ! if .true., solve the 3D equation
-
-  REAL(wp) :: si_rtol            ! relative tolerance
-
-  REAL(wp) :: si_cmin            ! min. phase speed of the decomposed modes to be
-                                 ! solved by the semi-implicit correction scheme
-
-  REAL(wp) :: sw_ref_height      ! reference height to linearize around if using
-                                 ! lshallow_water and semi-implicit correction
 
   ! way of computing the divergence operator in the triangular model -------------
 
@@ -135,18 +86,7 @@ MODULE mo_dynamics_nml
   REAL(wp) :: divavg_cntrwgt  ! weight of central cell for divergence averaging
 
 
-  
-  LOGICAL :: ldry_dycore ! if .TRUE., ignore the effact of water vapor,
-                         ! cloud liquid and cloud ice on virtual temperature.
-  LOGICAL :: lref_temp   ! if .TRUE., involve the reference temperature profile
-                         ! in the calculation of pressure gradient force.
-
-  NAMELIST/dynamics_ctl/ itime_scheme, ileapfrog_startup,              &
-                       & asselin_coeff, si_2tls,                       &
-                       & idiv_method, divavg_cntrwgt,                  &
-                       & si_coeff, si_offctr, si_rtol,                 &
-                       & si_cmin, lsi_3d, si_expl_scheme,              &
-                       & ldry_dycore, lref_temp
+  NAMELIST/atm_dyn_nml/ iequations, itime_scheme, idiv_method, divavg_cntrwgt, ldry_core
 
   !------------------------------------------------------------------------
   ! Dependent variables 
@@ -170,73 +110,59 @@ MODULE mo_dynamics_nml
 
 CONTAINS
 
-  SUBROUTINE read_dynamics_namelist()
+  SUBROUTINE read_atm_dyn_namelist()
 
     INTEGER :: istat, funit
 
     !------------------------------------------------------------
-    ! 1. Set up the default values for dynamics_ctl
+    ! 1. Set up the default values
     !------------------------------------------------------------
- 
+
+    iequations        = IHS_ATM_TEMP
     itime_scheme      = LEAPFROG_SI
-    ileapfrog_startup = 1
-    asselin_coeff     = 0.1_wp
- 
-    si_2tls           = 0.6_wp
-    si_expl_scheme    = AB2 
- 
-    si_coeff          = 1.0_wp
-    si_offctr         = 0.7_wp
-    lsi_3d            = .FALSE.
-    si_rtol           = 1.e-3_wp
-    si_cmin           = 30._wp
  
     idiv_method       = 1
     divavg_cntrwgt    = 0.5_wp
- 
-    SELECT CASE (iequations)
-    CASE (IHS_ATM_TEMP, IHS_ATM_THETA)
-      ldry_dycore       = .TRUE.
-      lref_temp         = .FALSE.
-    END SELECT
 
+    ldry_dycore       = .FALSE.
+ 
     !------------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above by 
     !    values in the restart file
     !------------------------------------------------------------------------
     IF (lrestart) THEN
-      funit = open_and_restore_namelist('dynamics_ctl')
-      READ(funit,NML=dynamics_ctl)
+      funit = open_and_restore_namelist('atm_dyn_nml')
+      READ(funit,NML=atm_dyn_nml)
       CALL close_tmpfile(funit)
     END IF
 
     !------------------------------------------------------------------------
     ! 3. Read user's (new) specifications. (Done so far by all MPI processes)
     !------------------------------------------------------------------------
-    CALL position_nml ('dynamics_ctl', STATUS=istat)
+    CALL position_nml ('atm_dyn_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, dynamics_ctl)
+      READ (nnml, atm_dyn_nml)
     END SELECT
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
-    WRITE(funit,NML=dynamics_ctl)
-    CALL store_and_close_namelist(funit, 'dynamics_ctl')
+    WRITE(funit,NML=atm_dyn_nml)
+    CALL store_and_close_namelist(funit, 'atm_dyn_nml')
 
   ! ! write the contents of the namelist to an ASCII file
-  ! IF(p_pe == p_io) WRITE(nnml_output,nml=dynamics_ctl)
+  ! IF(p_pe == p_io) WRITE(nnml_output,nml=atm_dyn_nml)
 
-  END SUBROUTINE read_dynamics_namelist
+  END SUBROUTINE read_atm_dyn_namelist
 
   !>
   !! @brief Initialization of variables that set up the dynamica core.
   !!
   !! Initialization of variables that set up the configuration
   !! of the dynamical core using values read from
-  !! namelist 'dynamics_ctl'.
+  !! namelist 'atm_dyn_nml'.
   !!
   !! @par Revision History
   !!  by Hui Wan, MPI-M (2007-02-23)
@@ -256,32 +182,21 @@ CONTAINS
   !!  -remove dxmin: estimate the dual edge length by nroot and start_lev
   !!  -clean up dyn_ctl and remove unnecessary variables
   !!
-  SUBROUTINE dynamics_nml_setup(i_ndom)
+  SUBROUTINE atm_dyn_setup(i_ndom)
 
     INTEGER, INTENT(IN) :: i_ndom
  
     INTEGER :: istat, funit, jdom
 
     CHARACTER(len=MAX_CHAR_LENGTH),PARAMETER ::             &
-             & routine = 'mo_dynamics_nml/dynamics_nml_setup'
+             & routine = 'mo_atm_dyn_nml:atm_dyn_setup'
  
     CHARACTER(len=MAX_CHAR_LENGTH) :: string
- 
 
     !------------------------------------------------------------
     ! 4. Check the consistency of the parameters
     !------------------------------------------------------------
     ! for the time stepping scheme
-  
-    IF (si_offctr>1._wp.OR.si_offctr<0._wp) THEN
-      CALL finish( TRIM(routine), 'Invalid offcentering parameter.'//&
-                 & 'Valid range for si_offctr is [0,1].')
-    ENDIF
-  
-    IF (lshallow_water .AND. lsi_3d) THEN
-      CALL message( TRIM(routine), 'In shallow water mode lsi_3d is set to .FALSE.')
-      lsi_3d=.FALSE.
-    ENDIF
   
     IF((itime_scheme<=0).OR.(itime_scheme>=unknown)) THEN
       WRITE(string,'(A,i2)') &
@@ -289,59 +204,24 @@ CONTAINS
       CALL finish( TRIM(routine),TRIM(string))
     ENDIF
   
-    IF((itime_scheme==tracer_only).AND.(.NOT.ltransport)) THEN
-      WRITE(string,'(A,i2,A)') &
-      'itime_scheme set to ', tracer_only, 'but ltransport to .FALSE.'
-      CALL finish( TRIM(routine),TRIM(string))
-    ENDIF
+  ! IF((itime_scheme==tracer_only).AND.(.NOT.ltransport)) THEN
+  !   WRITE(string,'(A,i2,A)') &
+  !   'itime_scheme set to ', tracer_only, 'but ltransport to .FALSE.'
+  !   CALL finish( TRIM(routine),TRIM(string))
+  ! ENDIF
   
-    IF(ltransport .AND. ntracer <= 0 .AND. iforcing/=INWP) THEN
-      CALL finish( TRIM(routine),'tracer advection not possible for ntracer=0')
-      ! [for nwp forcing ntracer setting is treated in setup_transport]
-    ENDIF
+  ! IF(ltransport .AND. ntracer <= 0 .AND. iforcing/=INWP) THEN
+  !   CALL finish( TRIM(routine),'tracer advection not possible for ntracer=0')
+  !   ! [for nwp forcing ntracer setting is treated in setup_transport]
+  ! ENDIF
   
-    IF(asselin_coeff<0._wp) THEN
-      CALL finish( TRIM(routine),'wrong (negative) coefficient of Asselin filter')
-    ENDIF
+  ! IF (global_cell_type/=3) THEN
+  !   idiv_method = 1
+  ! ENDIF
+  ! IF (idiv_method > 2 .OR. idiv_method < 1 )THEN
+  !    CALL finish(TRIM(routine),'Error: idiv_method must be 1 or 2 !')
+  ! ENDIF
   
-    IF(si_2tls<0.5_wp) THEN
-      CALL finish( TRIM(routine),&
-                   'off centering parameter si_2tls outside stability range')
-    ENDIF
-  
-    IF(si_2tls>1._wp) THEN
-      CALL finish( TRIM(routine),'off centering parameter si_2tls larger than 1')
-    ENDIF
-  
-    IF (global_cell_type/=3) THEN
-      idiv_method = 1
-    ENDIF
-    IF (idiv_method > 2 .OR. idiv_method < 1 )THEN
-       CALL finish(TRIM(routine),'Error: idiv_method must be 1 or 2 !')
-    ENDIF
-  
-    SELECT CASE (iequations)
-    CASE (IHS_ATM_TEMP, IHS_ATM_THETA)
-  
-      IF (ldry_dycore) THEN
-        CALL message(TRIM(routine),'running the DRY dynamical core')
-      ELSE
-        CALL message(TRIM(routine),'running the dynamical core with tracer')
-      ENDIF
-  
-      IF (lref_temp) THEN
-        CALL message(TRIM(routine), &
-             'use of reference temperature switched ON in ' // &
-             'calculation of pressure gradient force.')
-      ELSE
-        CALL message(TRIM(routine), &
-             'use of reference temperature switched OFF in ' // &
-             'calculation of pressure gradient force.')
-      ENDIF
-  
-    END SELECT
-
-
     !-----------------------------------------------------------------------
     ! 6. Assign value to dependent variables 
     !-----------------------------------------------------------------------
@@ -396,7 +276,7 @@ CONTAINS
     gsi_2tls2dt = gsi_2tlsdt*si_2tls*dtime
     g1msi_2tlsdt= (1._wp -si_2tls)*gdt
 
-  END SUBROUTINE dynamics_nml_setup
+  END SUBROUTINE atm_dyn_setup
   !-------------
   !>
   !!
@@ -407,4 +287,4 @@ CONTAINS
   END SUBROUTINE cleanup_dyn_params 
   !-------------
 
-END MODULE mo_dynamics_nml
+END MODULE mo_atm_dyn_nml

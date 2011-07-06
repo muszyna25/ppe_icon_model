@@ -46,6 +46,7 @@ MODULE mo_atm_dyn_config
   IMPLICIT NONE
 
   PRIVATE
+  PUBLIC :: t_atm_dyn_config, atm_dyn_config
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -60,6 +61,8 @@ MODULE mo_atm_dyn_config
     INTEGER :: itime_scheme    !< Choice of time stepping scheme
     INTEGER :: idiv_method     !< Divergence operator
     INTEGER :: divavg_cntrwgt  !< Weight of central cell for divergence averaging
+    LOGICAL :: ldry_dycore     !< if .TRUE., ignore the effact of water vapor,
+                               !< cloud liquid and cloud ice on virtual temperature.
 
     ! derived variables
 
@@ -78,6 +81,6 @@ MODULE mo_atm_dyn_config
   END TYPE t_atm_dyn_config
   !>
   !!
-  TYPE(t_atm_dyn_config),ALLOCATABLE :: atm_dyn_config(:) !< shape: (n_dom)
+  TYPE(t_atm_dyn_config) :: atm_dyn_config(MAX_DOM)
 
 END MODULE mo_atm_dyn_config
