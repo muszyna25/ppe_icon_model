@@ -42,9 +42,10 @@ MODULE mo_run_config
   USE mo_kind,           ONLY: wp
   USE mo_impl_constants, ONLY: max_dom
 
-
   IMPLICIT NONE
-  PUBLIC
+
+  PUBLIC  :: t_run_config, run_config
+  PRIVATE 
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 

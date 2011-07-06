@@ -66,6 +66,7 @@ MODULE mo_atm_phy_nwp_nml
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
     &                               open_and_restore_namelist, close_tmpfile
 
+  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 
   IMPLICIT NONE
 
@@ -99,9 +100,6 @@ MODULE mo_atm_phy_nwp_nml
   INTEGER ::  inwp_cldcover    !! cloud cover
   INTEGER ::  inwp_turb        !! turbulence
   INTEGER ::  inwp_surface     !! surface including soil, ocean, ice,lake
-  INTEGER ::  nlevs, nztlev    !! number of soil layers, time integration scheme
-  INTEGER ::  nlev_snow        !! number of snow layers
-  INTEGER ::  nsfc_subs        !! number of TILES
 
   INTEGER :: jg
                                !KF should be moved to run_ctl
@@ -133,8 +131,7 @@ MODULE mo_atm_phy_nwp_nml
   NAMELIST/nwp_phy_ctl/inwp_gscp, inwp_satad, inwp_convection, &
     &                  inwp_radiation, inwp_sso, inwp_cldcover, &
     &                  inwp_gwd,                                &
-    &                  inwp_turb, inwp_surface, nlevs, nztlev,  &
-    &                  nlev_snow, nsfc_subs,                    &
+    &                  inwp_turb, inwp_surface,                 &
     &                  dt_conv, dt_ccov, dt_rad,                &
     &                  dt_radheat,                              &
     &                  dt_sso, dt_gscp, dt_satad,               &
@@ -150,8 +147,6 @@ MODULE mo_atm_phy_nwp_nml
    PUBLIC :: inwp_gscp, inwp_satad, inwp_convection, inwp_radiation
    PUBLIC :: inwp_sso, inwp_cldcover, inwp_turb, inwp_surface
    PUBLIC :: inwp_gwd
-   PUBLIC :: nlevs, nztlev
-   PUBLIC :: nlev_snow,nsfc_subs
    PUBLIC :: dt_conv, dt_ccov, dt_rad, dt_radheat, dt_sso, dt_gscp
    PUBLIC :: dt_satad, dt_update,   dt_turb, dt_sfc,tcall_phy
    PUBLIC :: dt_gwd
@@ -191,13 +186,11 @@ MODULE mo_atm_phy_nwp_nml
     !
     !> final settings via namelist
 
-    CALL read_inwp_nml
+   CALL read_inwp_nml
 
 
     IF ( inwp_radiation > 0 )  THEN
-      
-      CALL read_radiation_nml
-      
+!      CALL read_radiation_nml
       SELECT CASE (irad_o3)
       CASE (0,6)
         ! ok
@@ -207,11 +200,11 @@ MODULE mo_atm_phy_nwp_nml
 
     ENDIF
 
-    IF(inwp_turb == 2) THEN
-       CALL echam_vdiff_nml_setup
-       CALL init_sfc_indices( ltestcase, 'APE' ) !call of a hydrostatic testcase
+!    IF(inwp_turb == 2) THEN
+!       CALL echam_vdiff_nml_setup
+!       CALL init_sfc_indices( ltestcase, 'APE' ) !call of a hydrostatic testcase
                                              ! to obtain the demanded parameters
-    ENDIF
+!    ENDIF
 
       CALL message(TRIM(routine), 'nwp_physics namelist read in')
   
@@ -243,11 +236,6 @@ MODULE mo_atm_phy_nwp_nml
     inwp_cldcover   = 1           !> 1 = use grid-scale clouds for radiation
     inwp_turb       = 0           !> 0 = no turbulence,1= cosmo/turbdiff,2=echam/vdiff
     inwp_surface    = 0           !> 0 = no surface, 1 =  cosmo surface
-
-    nlevs           = 7           !> 7 = default value for number of soil layers
-    nztlev          = 2           !> 2 = default value for time integration scheme
-    nlev_snow       = 1           !> 1 = default value for number of snow layers
-    nsfc_subs       = 1           !> 1 = default value for number of TILES
 
     ! initialize the following values with zero to allow for namelist output
     dt_conv (:)  = 0.0_wp
@@ -495,11 +483,6 @@ MODULE mo_atm_phy_nwp_nml
     inwp_turb       = 0           !> 0 = no turbulence,1= cosmo/turbdiff,2=echam/vdiff
     inwp_surface    = 0           !> 0 = no surface, 1 =  cosmo surface
 
-    nlevs           = 7           !> 7 = default value for number of soil layers
-    nztlev          = 2           !> 2 = default value for time integration scheme
-    nlev_snow       = 1           !> 1 = default value for number of snow layers
-    nsfc_subs       = 1           !> 1 = default value for number of TILES
-
     ! initialize the following values with zero to allow for namelist output
     dt_conv (:)  = 0.0_wp
     dt_ccov (:)  = 0.0_wp
@@ -592,7 +575,36 @@ MODULE mo_atm_phy_nwp_nml
     !----------------------------------------------------
     ! 4. Fill the configuration state
     !----------------------------------------------------
+    DO jg= 1,max_dom
+      atm_phy_nwp_config%inwp_gscp       =  inwp_gscp 
+      atm_phy_nwp_config%inwp_satad      = inwp_satad
+      atm_phy_nwp_config%inwp_convection = inwp_convection
+      atm_phy_nwp_config%inwp_radiation  =  inwp_radiation
+      atm_phy_nwp_config%inwp_sso        = inwp_sso
+      atm_phy_nwp_config%inwp_gwd        = inwp_gwd     
+      atm_phy_nwp_config%inwp_cldcover   = inwp_cldcover
+      atm_phy_nwp_config%inwp_turb       = inwp_turb
+      atm_phy_nwp_config%inwp_surface    = inwp_surface
+      atm_phy_nwp_config% dt_conv        = dt_conv 
+      atm_phy_nwp_config% dt_ccov        = dt_ccov
+      atm_phy_nwp_config% dt_rad         = dt_rad 
+      atm_phy_nwp_config% dt_radheat     = dt_radheat
+      atm_phy_nwp_config% dt_sso         = dt_sso
+      atm_phy_nwp_config% dt_gwd         = dt_gwd
+      atm_phy_nwp_config% dt_gscp        = dt_gscp
+      atm_phy_nwp_config% dt_turb        = dt_turb
+      atm_phy_nwp_config% dt_sfc         = dt_sfc
+      atm_phy_nwp_config% dt_satad       = dt_satad
+      atm_phy_nwp_config% dt_update      = dt_update
 
+      atm_phy_nwp_config%lseaice         = lseaice 
+      atm_phy_nwp_config%llake           = llake
+      atm_phy_nwp_config%l3dturb         = l3dturb
+      atm_phy_nwp_config%lprog_tke       = lprog_tke
+      atm_phy_nwp_config%lmelt           = lmelt
+      atm_phy_nwp_config%lmelt_var       = lmelt_var
+      atm_phy_nwp_config%lmulti_snow     = lmulti_snow
+    ENDDO
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
