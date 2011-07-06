@@ -559,9 +559,9 @@ SUBROUTINE read_run_namelist
       run_config(jg)%nsteps          = nsteps  
       run_config(jg)%ltimer          = ltimer
       run_config(jg)%timers_level    = timers_level
-      run_config(jg)%num_lev         = num_lev
-      run_config(jg)%num_levp1       = num_levp1 
-      run_config(jg)%nshift          = nshift
+      run_config(jg)%num_lev         = num_lev(jg)
+      run_config(jg)%num_levp1       = num_levp1(jg) 
+      run_config(jg)%nshift          = nshift(jg)
       run_config(jg)%lvert_nest      = lvert_nest
       run_config(jg)%nvclev          = nvclev 
       run_config(jg)%ntracer         = ntracer

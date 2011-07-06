@@ -45,7 +45,6 @@ MODULE mo_run_config
 
   IMPLICIT NONE
   PUBLIC
-  PRIVATE :: t_run_config, run_config
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
