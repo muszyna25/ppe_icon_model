@@ -112,7 +112,7 @@ USE mo_kind,               ONLY: wp
 USE mo_impl_constants,     ONLY: min_rlcell, min_rledge
 USE mo_interpolation,      ONLY: t_int_state, cells2edges_scalar
 USE mo_model_domain,       ONLY: t_patch
-!DRUSE mo_global_variables,   ONLY: nproma, i_cell_type, nlev, &
+!DRUSE mo_global_variables,   ONLY: nproma,  nlev, &
 !DR                                 upstr_beta, ltimer
 USE mo_nonhydrostatic_nml, ONLY: upstr_beta
 USE mo_parallel_configuration,  ONLY: nproma

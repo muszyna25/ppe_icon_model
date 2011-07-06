@@ -120,7 +120,6 @@ USE mo_interpolation,       ONLY: t_int_state, t_lsq, lsq_high_set
 USE mo_model_domain,        ONLY: t_patch
 USE mo_model_domain_import, ONLY: l_limited_area
 USE mo_parallel_configuration,  ONLY: nproma
-USE mo_run_nml,             ONLY: i_cell_type !, ltimer
 USE mo_exception,           ONLY: finish
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 ! USE mo_timer,              ONLY: timer_start, timer_stop, timer_div

@@ -287,9 +287,9 @@ CALL div( vec_e, ptr_patch, ptr_int, z_div_c, slev, elev, &
 
 ! The special treatment of 2D fields is essential for efficiency on the NEC
 
-SELECT CASE (i_cell_type)
+SELECT CASE (ptr_patch%cell_type)
 
-CASE (3) ! (i_cell_type == 3)
+CASE (3) ! (cell_type == 3)
 
   ! compute rotation of vector field
   CALL rot_vertex( vec_e, ptr_patch, ptr_int, z_rot_v, slev, elev, &
@@ -327,7 +327,7 @@ CASE (3) ! (i_cell_type == 3)
 !$OMP END DO
 !$OMP END PARALLEL
 
-CASE (6) ! (i_cell_type == 6)
+CASE (6) ! (cell_type == 6)
 
   ! compute rotation of vector field
   CALL rot_vertex( vec_e, ptr_patch, ptr_int, z_rot_v, slev, elev)
@@ -745,9 +745,9 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 
 ! The special treatment of 2D fields is essential for efficiency on the NEC
 
-SELECT CASE (i_cell_type)
+SELECT CASE (ptr_patch%cell_type)
 
-CASE (3) ! (i_cell_type == 3)
+CASE (3) ! (cell_type == 3)
 
 IF (slev == elev) THEN
   jk = slev
@@ -817,7 +817,7 @@ ELSE
 !$OMP END DO
 !$OMP END PARALLEL
 ENDIF
-CASE (6) ! (i_cell_type == 6) THEN ! Use unoptimized version for the time being
+CASE (6) ! (cell_type == 6) THEN ! Use unoptimized version for the time being
 
   ! compute finite difference gradient in normal direction
   CALL grad_fd_norm( psi_c, ptr_patch, z_grad_fd_norm_e, slev, elev)
@@ -913,9 +913,9 @@ i_nchdom   = MAX(1,ptr_patch%n_childdom)
 
 ! The special treatment of 2D fields is essential for efficiency on the NEC
 
-SELECT CASE (i_cell_type)
+SELECT CASE (ptr_patch%cell_type)
 
-CASE (3) ! (i_cell_type == 3)
+CASE (3) ! (cell_type == 3)
 
 IF (slev == elev) THEN
   jk = slev
@@ -1216,7 +1216,7 @@ ENDIF
 CALL nabla2_scalar( psi_c, ptr_patch, ptr_int, p_nabla2, &
                     slev, elev, opt_rlstart=rl_start_s1, opt_rlend=rl_end_s1 )
 
-IF (i_cell_type == 6) CALL sync_patch_array(SYNC_C, ptr_patch, p_nabla2)
+IF (cell_type == 6) CALL sync_patch_array(SYNC_C, ptr_patch, p_nabla2)
 
 CALL nabla2_scalar( p_nabla2, ptr_patch, ptr_int, nabla4_psi_c, &
                     slev, elev, opt_rlstart=rl_start, opt_rlend=rl_end )
