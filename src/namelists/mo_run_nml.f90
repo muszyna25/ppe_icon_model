@@ -105,12 +105,6 @@ MODULE mo_run_nml
   ! ----------------------
   INTEGER          :: iequations          ! equation system:
 
-
-  ! cell geometry
-  ! -------------
-  INTEGER          :: i_cell_type         ! cell type:
-
-
   ! dynamics
   ! --------
   LOGICAL  :: ldynamics  ! if .TRUE.=default then
@@ -192,7 +186,7 @@ MODULE mo_run_nml
     &                run_day,                              &
     &                run_hour, run_minute, run_second,     &
     &                nsteps, dtime,                        &
-    &                iequations, i_cell_type,              &
+    &                iequations,                           &
     &                ldynamics, ltransport, iforcing,      &
     &                ltestcase, lcorio, itopo, msg_level,  &
     &                ldump_states, lrestore_states, ltimer,&
@@ -239,7 +233,7 @@ CONTAINS
   !!  The character parameter <i>routine</i> was introduced and used
   !!  for error information by Hui Wan, MPI-M (2007-02-23).
   !!  Modified by Almut Gassmann, MPI-M (2008-09-23)
-  !!  - introduced i_cell_type, lidealized and lshallow_water
+  !!  lidealized and lshallow_water
   !!  Modified by Marco Giorgetta, MPI-M (2009-02-23)
   !!  - lidealized replaced by ltestcase
   !!  Modification by Constantin Junk, MPI-M (2010-02-22)
@@ -296,7 +290,6 @@ CONTAINS
 
    ! select model and numerics
    iequations     = ihs_atm_temp
-   i_cell_type    = itri
 
    ! switches for tendency computation
    ldynamics      = .TRUE.
@@ -361,13 +354,6 @@ CONTAINS
     nlev = num_lev(1)
     nlevp1 = nlev+1
     nvclev = nlevp1
-
-    SELECT CASE (i_cell_type)
-    CASE (itri,ihex)
-      ! ok
-    CASE default
-      CALL finish( TRIM(routine),'wrong cell type specifier, "i_cell_type" must be 3 or 6')
-    END SELECT
 
     SELECT CASE (iequations)
     CASE (ishallow_water)

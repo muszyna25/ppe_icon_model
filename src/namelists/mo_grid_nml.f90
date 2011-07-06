@@ -47,7 +47,7 @@ MODULE mo_grid_nml
 !
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_impl_constants,     ONLY: max_char_length
+  USE mo_impl_constants,     ONLY: max_char_length, itri, ihex
   USE mo_io_units,           ONLY: nnml, nnml_output,filename_max 
   USE mo_namelist,           ONLY: position_nml, POSITIONED
   USE mo_mpi,                ONLY: p_pe, p_io
@@ -78,6 +78,9 @@ MODULE mo_grid_nml
   INTEGER    :: n_dom_start=1 
   INTEGER    :: max_childdom
   INTEGER, DIMENSION (max_dom-1) :: parent_id  !ID of parent domain
+  ! cell geometry
+  ! -------------
+  INTEGER          :: i_cell_type         ! cell type:
 
   LOGICAL    :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
   LOGICAL    :: lredgrid_phys(max_dom)   ! If set to .true. is calculated on a reduced grid
@@ -106,7 +109,7 @@ MODULE mo_grid_nml
 
   NAMELIST /grid_ctl/ nroot, start_lev, n_dom, lfeedback, lplane, corio_lat,     &
                       parent_id, l_limited_area, patch_weight, lpatch0,          &
-                      lredgrid_phys,                                             &
+                      lredgrid_phys, i_cell_type,                                &
                       dynamics_grid_filename,  dynamics_parent_grid_id,         &
                       radiation_grid_filename, dynamics_radiation_grid_link
 
@@ -172,6 +175,7 @@ MODULE mo_grid_nml
     nroot       = 2
     start_lev   = 4
     n_dom       = 1
+    i_cell_type = itri
     
     ! Note: the first element of parent_id refers to the first nested domain
     DO i = 1, max_dom-1
@@ -221,6 +225,13 @@ MODULE mo_grid_nml
     !------------------------------------------------------------
     ! 5.0 check the consistency of the parameters
     !------------------------------------------------------------
+    SELECT CASE (i_cell_type)
+    CASE (itri,ihex)
+      ! ok
+    CASE default
+      CALL finish( TRIM(routine),'wrong cell type specifier, "i_cell_type" must be 3 or 6')
+    END SELECT
+
 
     ! Reset lfeedback to false for all model domains if lfeedback(1) = false
     IF (.NOT. lfeedback(1)) lfeedback(2:max_dom) = .FALSE.

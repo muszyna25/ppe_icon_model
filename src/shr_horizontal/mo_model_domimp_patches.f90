@@ -626,6 +626,8 @@ IF (PRESENT(patch_file)) THEN
   p_patch%grid_filename=patch_file
 ENDIF
 
+p_patch%cell_type = 
+  
 CALL message ('mo_model_domimp_patches:read_patch', 'start to init patch')
 
 WRITE(message_text,'(a,a)') 'Read gridmap file ', TRIM(p_patch%grid_filename)
