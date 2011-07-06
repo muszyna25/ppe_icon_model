@@ -65,7 +65,7 @@ MODULE mo_subdivision
   USE mo_exception,          ONLY: finish, message
 
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,            ONLY: i_cell_type, ltransport, &
+  USE mo_run_nml,            ONLY: ltransport, &
     & iequations
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
   USE mo_model_domain,       ONLY: t_patch, t_grid_cells
@@ -1225,7 +1225,7 @@ CONTAINS
         ilev1 = MAX(min_rlcell, min_rlcell_int -2*n_boundary_rows)
         ilev_st = 2*n_boundary_rows+1
       ENDIF
-      IF (i_cell_type==6) THEN ! for hexagons, there are no even-order halo cells
+      IF (wrk_p_patch%cell_type==6) THEN ! for hexagons, there are no even-order halo cells
         DO ilev = 2,2*max_hw,2
           irlev = MAX(min_rlcell, min_rlcell_int - ilev)  ! index section into which the halo points are put
           wrk_p_patch%cells%start_idx(irlev,:) = wrk_p_patch%cells%end_idx(irlev+1,1) + 1
@@ -1717,7 +1717,7 @@ CONTAINS
       wrk_p_patch%cells%idx(jl,jb) = jl
       wrk_p_patch%cells%blk(jl,jb) = jb
 
-      DO i=1,i_cell_type
+      DO i=1,wrk_p_patch%cell_type
 
         CALL get_local_index(wrk_p_patch%cells%loc_index, &
           & wrk_p_patch_g%cells%neighbor_idx(jl_g,jb_g,i),&
@@ -1888,7 +1888,7 @@ CONTAINS
       wrk_p_patch%edges%owner_mask(jl,jb)         = &
         & wrk_p_patch%edges%owner_g(idx_1d(jl_g,jb_g))==p_pe_work
 
-      IF (i_cell_type==3) THEN
+      IF (wrk_p_patch%cell_type==3) THEN
         wrk_p_patch%edges%inv_vert_vert_length(jl,jb)   =&
           & wrk_p_patch_g%edges%inv_vert_vert_length(jl_g,jb_g)
       ENDIF
@@ -1943,7 +1943,7 @@ CONTAINS
       wrk_p_patch%verts%idx(jl,jb) = jl
       wrk_p_patch%verts%blk(jl,jb) = jb
 
-      DO i=1,9-i_cell_type
+      DO i=1,9-wrk_p_patch%cell_type
 
         CALL get_local_index(wrk_p_patch%verts%loc_index, &
           & wrk_p_patch_g%verts%neighbor_idx(jl_g,jb_g,i),&
@@ -2709,14 +2709,14 @@ CONTAINS
       wrk_int_state_out%e_inn_c(jl,:,jb)          = wrk_int_state_in%e_inn_c(jl_g,:,jb_g)
       wrk_int_state_out%verts_aw_cells(jl,:,jb)   = wrk_int_state_in%verts_aw_cells(jl_g,:,jb_g)
 
-      IF (i_cell_type == 6) THEN
+      IF (wrk_p_patch%cell_type == 6) THEN
         wrk_int_state_out%e_aw_c(jl,:,jb)         = wrk_int_state_in%e_aw_c(jl_g,:,jb_g)
         wrk_int_state_out%r_aw_c(jl,:,jb)         = wrk_int_state_in%r_aw_c(jl_g,:,jb_g)
         wrk_int_state_out%hex_north(jl,:,jb)      = wrk_int_state_in%hex_north(jl_g,:,jb_g)
         wrk_int_state_out%hex_east(jl,:,jb)       = wrk_int_state_in%hex_east(jl_g,:,jb_g)
       ENDIF
 
-      IF (i_cell_type == 3) THEN
+      IF (wrk_p_patch%cell_type == 3) THEN
 
         wrk_int_state_out%e_bln_c_s(jl,:,jb)      = wrk_int_state_in%e_bln_c_s(jl_g,:,jb_g)
         wrk_int_state_out%e_bln_c_u(jl,:,jb)      = wrk_int_state_in%e_bln_c_u(jl_g,:,jb_g)
@@ -2848,7 +2848,7 @@ CONTAINS
       wrk_int_state_out%c_lin_e(jl,:,jb)         = wrk_int_state_in%c_lin_e(jl_g,:,jb_g)
       wrk_int_state_out%v_1o2_e(jl,:,jb)         = wrk_int_state_in%v_1o2_e(jl_g,:,jb_g)
 
-      IF( i_cell_type==6 ) THEN
+      IF( wrk_p_patch%cell_type==6 ) THEN
 
         wrk_int_state_out%tria_aw_rhom(jl,:,jb)  = wrk_int_state_in%tria_aw_rhom  (jl_g,:,jb_g)
         wrk_int_state_out%heli_coeff  (:,jl,jb)  = wrk_int_state_in%heli_coeff    (:,jl_g,jb_g)
@@ -2915,7 +2915,7 @@ CONTAINS
 
       ENDIF
 
-      IF (i_cell_type == 3) THEN
+      IF (wrk_p_patch%cell_type == 3) THEN
 
         wrk_int_state_out%e_flx_avg(jl,:,jb) = wrk_int_state_in%e_flx_avg(jl_g,:,jb_g)
 
@@ -2932,14 +2932,14 @@ CONTAINS
           & wrk_int_state_in%rbf_vec_coeff_e(:, jl_g, jb_g)
       ENDIF
 
-      IF( i_cell_type == 3 .AND. (ltransport .OR. iequations == 3) ) THEN
+      IF( wrk_p_patch%cell_type == 3 .AND. (ltransport .OR. iequations == 3) ) THEN
         wrk_int_state_out%pos_on_tplane_e(jl, jb, :, :)     = &
           & wrk_int_state_in%pos_on_tplane_e(jl_g, jb_g, :, :)
         wrk_int_state_out%tplane_e_dotprod(jl, jb, :, :)    = &
           & wrk_int_state_in%tplane_e_dotprod(jl_g, jb_g, :, :)
       ENDIF
 
-      IF (i_cell_type == 3 ) THEN
+      IF (wrk_p_patch%cell_type == 3 ) THEN
         wrk_int_state_out%geofac_qdiv(jl, :, jb)        = &
           & wrk_int_state_in%geofac_qdiv(jl_g, :, jb_g)
         wrk_int_state_out%nudgecoeff_e(jl, jb)        = &
@@ -2959,7 +2959,7 @@ CONTAINS
       jb_g = blk_no(wrk_p_patch%verts%glb_index(j)) ! Block index in global patch
       jl_g = idx_no(wrk_p_patch%verts%glb_index(j)) ! Line  index in global patch
 
-      IF (i_cell_type == 6) THEN
+      IF (wrk_p_patch%cell_type == 6) THEN
         wrk_int_state_out%tria_north(:,jl,jb) = wrk_int_state_in%tria_north(:,jl_g,jb_g)
         wrk_int_state_out%tria_east(:,jl,jb)  = wrk_int_state_in%tria_east(:,jl_g,jb_g)
         wrk_int_state_out%e_1o3_v(jl,:,jb)    = wrk_int_state_in%e_1o3_v(jl_g,:,jb_g)
@@ -2969,7 +2969,7 @@ CONTAINS
 
       wrk_int_state_out%cells_aw_verts(jl,:,jb) = wrk_int_state_in%cells_aw_verts(jl_g,:,jb_g)
 
-      IF (i_cell_type == 3) THEN
+      IF (wrk_p_patch%cell_type == 3) THEN
         DO i=1,rbf_vec_dim_v
           CALL get_local_index(wrk_p_patch%edges%loc_index, &
             & wrk_int_state_in%rbf_vec_idx_v(i,jl_g,jb_g), &
@@ -3537,7 +3537,7 @@ CONTAINS
     ! Please note that the Metis vertices are our grid cells!
 
     ALLOCATE(metis_xadj(0:wrk_divide_patch%n_patch_cells))
-    ALLOCATE(metis_adjncy(wrk_divide_patch%n_patch_cells*i_cell_type))
+    ALLOCATE(metis_adjncy(wrk_divide_patch%n_patch_cells*wrk_divide_patch%cell_type))
     metis_options(:) = 0
 
     metis_xadj(0) = 0

@@ -123,7 +123,7 @@ MODULE mo_dump_restore
                                    min_rlcell_int, min_rledge_int
   USE mo_exception,          ONLY: message_text, message, finish
   USE mo_parallel_configuration, ONLY: nproma
-  USE mo_run_nml,            ONLY: i_cell_type, ltransport, iequations,     &
+  USE mo_run_nml,            ONLY: p%cell_type, ltransport, iequations,     &
      &                             num_lev, num_levp1, nshift
   USE mo_io_units,           ONLY: filename_max, nerr
   USE mo_model_domain,       ONLY: t_patch
@@ -1456,7 +1456,7 @@ CONTAINS
     ! Variables for interpolation state
 
     CALL def_var('int.c_lin_e',           nf_double, dim_nedges, dim_2) ! nproma,2,nblks_e
-    IF (i_cell_type == 3) THEN
+    IF (p%cell_type == 3) THEN
     CALL def_var('int.e_bln_c_s',         nf_double, dim_ncells, dim_3) ! nproma,3,nblks_c
     CALL def_var('int.e_bln_c_u',         nf_double, dim_ncells, dim_6) ! nproma,6,nblks_c
     CALL def_var('int.e_bln_c_v',         nf_double, dim_ncells, dim_6) ! nproma,6,nblks_c
@@ -1464,8 +1464,8 @@ CONTAINS
     CALL def_var('int.e_flx_avg',         nf_double, dim_nedges, dim_5) ! nproma,5,nblks_e
     CALL def_var('int.v_1o2_e',           nf_double, dim_nedges, dim_2) ! nproma,2,nblks_e
     ENDIF
-    CALL def_var('int.e_inn_c',           nf_double, dim_ncells, dim_nverts_per_cell) ! nproma,i_cell_type,nblks_c
-    IF (i_cell_type == 6) THEN
+    CALL def_var('int.e_inn_c',           nf_double, dim_ncells, dim_nverts_per_cell) ! nproma,p%cell_type,nblks_c
+    IF (p%cell_type == 6) THEN
     CALL def_var('int.e_inn_v',           nf_double, dim_nverts, dim_3) ! nproma,3,nblks_v
     CALL def_var('int.e_aw_c',            nf_double, dim_ncells, dim_6) ! nproma,6,nblks_c
     CALL def_var('int.r_aw_c',            nf_double, dim_ncells, dim_6) ! nproma,6,nblks_c
@@ -1473,9 +1473,9 @@ CONTAINS
     CALL def_var('int.e_1o3_v',           nf_double, dim_nverts, dim_3) ! nproma,3,nblks_v
     CALL def_var('int.tria_aw_rhom',      nf_double, dim_nedges, dim_2) ! nproma,2,nblks_e
     ENDIF
-    CALL def_var('int.verts_aw_cells',    nf_double, dim_ncells, dim_nverts_per_cell) ! nproma,i_cell_type,nblks_c
-    CALL def_var('int.cells_aw_verts',    nf_double, dim_nverts, dim_nedges_per_vert) ! nproma,9-i_cell_type,nblks_v
-    IF( i_cell_type == 6 ) THEN
+    CALL def_var('int.verts_aw_cells',    nf_double, dim_ncells, dim_nverts_per_cell) ! nproma,p%cell_type,nblks_c
+    CALL def_var('int.cells_aw_verts',    nf_double, dim_nverts, dim_nedges_per_vert) ! nproma,9-p%cell_type,nblks_v
+    IF( p%cell_type == 6 ) THEN
     CALL def_var('int.tria_north',        nf_double, dim_nverts, dim_3) ! 3,nproma,nblks_v
     CALL def_var('int.tria_east',         nf_double, dim_nverts, dim_3) ! 3,nproma,nblks_v
     CALL def_var('int.hex_north',         nf_double, dim_ncells, dim_6) ! nproma,6,nblks_c
@@ -1491,7 +1491,7 @@ CONTAINS
     CALL def_var('int.heli_vn_index',     nf_int,    dim_nedges, dim_nincr) ! nincr,nproma,nblks_e
     ENDIF
     ENDIF
-    IF (i_cell_type == 3) THEN
+    IF (p%cell_type == 3) THEN
     CALL def_var('int.rbf_vec_index_c',   nf_int,    dim_ncells, dim_rbf_vec_dim_c) ! rbf_vec_dim_c,nproma,nblks_c
     CALL def_var('int.rbf_vec_stencil_c', nf_int,    dim_ncells) ! nproma,nblks_c
     CALL def_var('int.rbf_vec_coeff_c',   nf_double, dim_ncells, dim_rbf_vec_dim_c, dim_2) ! rbf_vec_dim_c,2,nproma,nblks_c
@@ -1533,7 +1533,7 @@ CONTAINS
     CALL def_var('int.high.lsq_moments_hat', & ! nproma,nblks_c,lsq_dim_c,lsq_dim_unk
       &          nf_double,dim_ncells, dim_lsq_dim_c_high, dim_lsq_dim_unk_high)
     END IF
-    IF (i_cell_type == 3) THEN
+    IF (p%cell_type == 3) THEN
     CALL def_var('int.geofac_qdiv',       nf_double, dim_nedges, dim_4) ! nproma,4,nblks_e
     CALL def_var('int.nudgecoeff_c',      nf_double, dim_ncells) ! nproma,nblks_c
     CALL def_var('int.nudgecoeff_e',      nf_double, dim_nedges) ! nproma,nblks_e
@@ -1547,15 +1547,15 @@ CONTAINS
     CALL def_var('int.gquad.weights_tri_q',nf_double, dim_3) ! 3
     CALL def_var('int.gquad.weights_tri_c',nf_double, dim_4) ! 4
     ENDIF
-    CALL def_var('int.geofac_div',        nf_double, dim_ncells, dim_nverts_per_cell) ! nproma,i_cell_type,nblks_c
-    CALL def_var('int.geofac_rot',        nf_double, dim_nverts, dim_nedges_per_vert) ! nproma,9-i_cell_type,nblks_v
-    CALL def_var('int.geofac_n2s',        nf_double, dim_ncells, dim_nverts_per_cell_p1) ! nproma,i_cell_type+1,nblks_c
-    CALL def_var('int.geofac_grg',        nf_double, dim_ncells, dim_nverts_per_cell_p1, dim_2) ! nproma,i_cell_type+1,nblks_c,2
+    CALL def_var('int.geofac_div',        nf_double, dim_ncells, dim_nverts_per_cell) ! nproma,p%cell_type,nblks_c
+    CALL def_var('int.geofac_rot',        nf_double, dim_nverts, dim_nedges_per_vert) ! nproma,9-p%cell_type,nblks_v
+    CALL def_var('int.geofac_n2s',        nf_double, dim_ncells, dim_nverts_per_cell_p1) ! nproma,p%cell_type+1,nblks_c
+    CALL def_var('int.geofac_grg',        nf_double, dim_ncells, dim_nverts_per_cell_p1, dim_2) ! nproma,p%cell_type+1,nblks_c,2
     CALL def_var('int.cart_edge_coord',   nf_double, dim_nedges, dim_3) ! nproma,nblks_e,3
     CALL def_var('int.cart_cell_coord',   nf_double, dim_ncells, dim_3) ! nproma,nblks_c,3
-    CALL def_var('int.primal_normal_ec',  nf_double, dim_ncells, dim_nverts_per_cell, dim_2) ! nproma,nblks_c,i_cell_type,2
-    CALL def_var('int.edge_cell_length',  nf_double, dim_ncells, dim_nverts_per_cell) ! nproma,nblks_c,i_cell_type
-    IF (i_cell_type == 6) THEN
+    CALL def_var('int.primal_normal_ec',  nf_double, dim_ncells, dim_nverts_per_cell, dim_2) ! nproma,nblks_c,p%cell_type,2
+    CALL def_var('int.edge_cell_length',  nf_double, dim_ncells, dim_nverts_per_cell) ! nproma,nblks_c,p%cell_type
+    IF (p%cell_type == 6) THEN
     CALL def_var('int.dir_gradh_index1',  nf_int,    dim_nedges, dim_6) ! 6,nproma,nblks_e
     CALL def_var('int.dir_gradh_index2',  nf_int,    dim_nedges, dim_6) ! 6,nproma,nblks_e
     CALL def_var('int.dir_gradhux_c1',    nf_double, dim_nedges, dim_6) ! 6,nproma,nblks_e
@@ -1586,7 +1586,7 @@ CONTAINS
     IF(p%n_patch_cells <= 0) RETURN
 
     CALL bvar_io(1,3,'int.c_lin_e',           pi%c_lin_e          ) ! nproma,2,nblks_e
-    IF (i_cell_type == 3) THEN
+    IF (p%cell_type == 3) THEN
     CALL bvar_io(1,3,'int.e_bln_c_s',         pi%e_bln_c_s        ) ! nproma,3,nblks_c
     CALL bvar_io(1,3,'int.e_bln_c_u',         pi%e_bln_c_u        ) ! nproma,6,nblks_c
     CALL bvar_io(1,3,'int.e_bln_c_v',         pi%e_bln_c_v        ) ! nproma,6,nblks_c
@@ -1594,8 +1594,8 @@ CONTAINS
     CALL bvar_io(1,3,'int.e_flx_avg',         pi%e_flx_avg        ) ! nproma,5,nblks_e
     CALL bvar_io(1,3,'int.v_1o2_e',           pi%v_1o2_e          ) ! nproma,2,nblks_e
     ENDIF
-    CALL bvar_io(1,3,'int.e_inn_c',           pi%e_inn_c          ) ! nproma,i_cell_type,nblks_c
-    IF (i_cell_type == 6) THEN
+    CALL bvar_io(1,3,'int.e_inn_c',           pi%e_inn_c          ) ! nproma,p%cell_type,nblks_c
+    IF (p%cell_type == 6) THEN
     CALL bvar_io(1,3,'int.e_inn_v',           pi%e_inn_v          ) ! nproma,3,nblks_v
     CALL bvar_io(1,3,'int.e_aw_c',            pi%e_aw_c           ) ! nproma,6,nblks_c
     CALL bvar_io(1,3,'int.r_aw_c',            pi%r_aw_c           ) ! nproma,6,nblks_c
@@ -1603,9 +1603,9 @@ CONTAINS
     CALL bvar_io(1,3,'int.e_1o3_v',           pi%e_1o3_v          ) ! nproma,3,nblks_v
     CALL bvar_io(1,3,'int.tria_aw_rhom',      pi%tria_aw_rhom     ) ! nproma,2,nblks_e
     ENDIF
-    CALL bvar_io(1,3,'int.verts_aw_cells',    pi%verts_aw_cells   ) ! nproma,i_cell_type,nblks_c
-    CALL bvar_io(1,3,'int.cells_aw_verts',    pi%cells_aw_verts   ) ! nproma,9-i_cell_type,nblks_v
-    IF( i_cell_type == 6 ) THEN
+    CALL bvar_io(1,3,'int.verts_aw_cells',    pi%verts_aw_cells   ) ! nproma,p%cell_type,nblks_c
+    CALL bvar_io(1,3,'int.cells_aw_verts',    pi%cells_aw_verts   ) ! nproma,9-p%cell_type,nblks_v
+    IF( p%cell_type == 6 ) THEN
     CALL bvar_io(2,3,'int.tria_north',        pi%tria_north       ) ! 3,nproma,nblks_v
     CALL bvar_io(2,3,'int.tria_east',         pi%tria_east        ) ! 3,nproma,nblks_v
     CALL bvar_io(1,3,'int.hex_north',         pi%hex_north        ) ! nproma,6,nblks_c
@@ -1621,7 +1621,7 @@ CONTAINS
     CALL bidx_io(2,3,'int.heli_vn_index',     pi%heli_vn_idx, pi%heli_vn_blk) ! nincr,nproma,nblks_e
     ENDIF
     ENDIF
-    IF (i_cell_type == 3) THEN
+    IF (p%cell_type == 3) THEN
     CALL bidx_io(2,3,'int.rbf_vec_index_c',   pi%rbf_vec_idx_c, pi%rbf_vec_blk_c) ! rbf_vec_dim_c,nproma,nblks_c
     CALL bvar_io(1,2,'int.rbf_vec_stencil_c', pi%rbf_vec_stencil_c) ! nproma,nblks_c
     CALL bvar_io(3,4,'int.rbf_vec_coeff_c',   pi%rbf_vec_coeff_c  ) ! rbf_vec_dim_c,2,nproma,nblks_c
@@ -1657,7 +1657,7 @@ CONTAINS
     CALL bvar_io(1,2,'int.high.lsq_moments',     pi%lsq_high%lsq_moments     ) ! nproma,nblks_c,lsq_dim_unk
     CALL bvar_io(1,2,'int.high.lsq_moments_hat', pi%lsq_high%lsq_moments_hat ) ! nproma,nblks_c,lsq_dim_c,lsq_dim_unk
     END IF
-    IF (i_cell_type == 3) THEN
+    IF (p%cell_type == 3) THEN
     CALL bvar_io(1,3,'int.geofac_qdiv',       pi%geofac_qdiv     ) ! nproma,4,nblks_e
     CALL bvar_io(1,2,'int.nudgecoeff_c',      pi%nudgecoeff_c    ) ! nproma,nblks_c
     CALL bvar_io(1,2,'int.nudgecoeff_e',      pi%nudgecoeff_e    ) ! nproma,nblks_e
@@ -1671,15 +1671,15 @@ CONTAINS
     CALL uvar_io(    'int.gquad.weights_tri_q', pi%gquad%weights_tri_q  ) ! 3
     CALL uvar_io(    'int.gquad.weights_tri_c', pi%gquad%weights_tri_c  ) ! 4
     ENDIF
-    CALL bvar_io(1,3,'int.geofac_div',        pi%geofac_div      ) ! nproma,i_cell_type,nblks_c
-    CALL bvar_io(1,3,'int.geofac_rot',        pi%geofac_rot      ) ! nproma,9-i_cell_type,nblks_v
-    CALL bvar_io(1,3,'int.geofac_n2s',        pi%geofac_n2s      ) ! nproma,i_cell_type+1,nblks_c
-    CALL bvar_io(1,3,'int.geofac_grg',        pi%geofac_grg      ) ! nproma,i_cell_type+1,nblks_c,2
+    CALL bvar_io(1,3,'int.geofac_div',        pi%geofac_div      ) ! nproma,p%cell_type,nblks_c
+    CALL bvar_io(1,3,'int.geofac_rot',        pi%geofac_rot      ) ! nproma,9-p%cell_type,nblks_v
+    CALL bvar_io(1,3,'int.geofac_n2s',        pi%geofac_n2s      ) ! nproma,p%cell_type+1,nblks_c
+    CALL bvar_io(1,3,'int.geofac_grg',        pi%geofac_grg      ) ! nproma,p%cell_type+1,nblks_c,2
     CALL bvar_io(1,2,'int.cart_edge_coord',   pi%cart_edge_coord ) ! nproma,nblks_e,3
     CALL bvar_io(1,2,'int.cart_cell_coord',   pi%cart_cell_coord ) ! nproma,nblks_c,3
-    CALL bvar_io(1,2,'int.primal_normal_ec',  pi%primal_normal_ec) ! nproma,nblks_c,i_cell_type,2
-    CALL bvar_io(1,2,'int.edge_cell_length',  pi%edge_cell_length) ! nproma,nblks_c,i_cell_type
-    IF (i_cell_type == 6) THEN
+    CALL bvar_io(1,2,'int.primal_normal_ec',  pi%primal_normal_ec) ! nproma,nblks_c,p%cell_type,2
+    CALL bvar_io(1,2,'int.edge_cell_length',  pi%edge_cell_length) ! nproma,nblks_c,p%cell_type
+    IF (p%cell_type == 6) THEN
     CALL bidx_io(2,3,'int.dir_gradh_index1',  pi%dir_gradh_i1, pi%dir_gradh_b1) ! 6,nproma,nblks_e
     CALL bidx_io(2,3,'int.dir_gradh_index2',  pi%dir_gradh_i2, pi%dir_gradh_b2) ! 6,nproma,nblks_e
     CALL bvar_io(2,3,'int.dir_gradhux_c1',    pi%dir_gradhux_c1  ) ! 6,nproma,nblks_e
@@ -2023,7 +2023,7 @@ CONTAINS
     CALL nf(nf_def_dim(ncid, 'n_rledge', max_rledge-min_rledge+1, dim_nrledge))
     CALL nf(nf_def_dim(ncid, 'n_rlvert', max_rlvert-min_rlvert+1, dim_nrlvert))
 
-    IF (i_cell_type == 3) THEN
+    IF (p%cell_type == 3) THEN
       CALL nf(nf_def_dim(ncid, 'nverts_per_cell',  3, dim_nverts_per_cell))
       CALL nf(nf_def_dim(ncid, 'nverts_per_cell_plus_1',  4, dim_nverts_per_cell_p1))
       CALL nf(nf_def_dim(ncid, 'nedges_per_vert',  6, dim_nedges_per_vert))
@@ -2339,8 +2339,8 @@ CONTAINS
 
       CALL check_dim('max_childdom', p_patch(jg)%max_childdom)
 
-      ! nverts_per_cell must conform to i_cell_type
-      CALL check_dim('nverts_per_cell', i_cell_type)
+      ! nverts_per_cell must conform to p%cell_type
+      CALL check_dim('nverts_per_cell', p_patch(jg)%cell_type)
 
       CALL check_dim('n_levels', p_patch(jg)%nlev)
 
