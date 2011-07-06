@@ -98,7 +98,7 @@ MODULE mo_grid_nml
   CHARACTER(LEN=filename_max) :: nml_dynamics_grid_filename(max_dom)
   INTEGER                     :: nml_dynamics_parent_grid_id(max_dom)
   CHARACTER(LEN=filename_max) :: nml_radiation_grid_filename(max_dom)
-  INTEGER                     :: nml_dynamics_radiation_grid_link(max_dom)
+  INTEGER                     :: nml_dynamics_radiation_gridlink(max_dom)
 
   INTEGER :: nml_no_of_dynamics_grids, nml_no_of_radiation_grids
 
@@ -106,7 +106,7 @@ MODULE mo_grid_nml
     & nml_corio_lat, nml_parent_id, nml_l_limited_area, nml_patch_weight, nml_lpatch0,&
     & nml_lredgrid_phys, nml_cell_type,                                  &
     & nml_dynamics_grid_filename,  nml_dynamics_parent_grid_id,         &
-    & nml_radiation_grid_filename, nml_dynamics_radiation_grid_link
+    & nml_radiation_grid_filename, nml_dynamics_radiation_gridlink
 
   ! -----------------------------------------------------------------------
   ! 2.0 Declaration of dependent variables
@@ -162,7 +162,7 @@ MODULE mo_grid_nml
       nml_dynamics_grid_filename(i)   = ""
       nml_radiation_grid_filename(i)  = ""
       nml_dynamics_parent_grid_id(i)  = 0
-      nml_dynamics_radiation_grid_link(i) = 0
+      nml_dynamics_radiation_gridlink(i) = 0
     ENDDO
     
     !------------------------------------------------------------
@@ -257,22 +257,22 @@ MODULE mo_grid_nml
 
       ! fill dynamics_grid_filename
       ! fill level and parent ids
-      patch_level(1) = start_lev
-      dynamics_parent_grid_id(1) = 0       
+      nml_patch_level(1) = start_lev
+      nml_dynamics_parent_grid_id(1) = 0       
       DO jg = 2, n_dom
-        dynamics_parent_grid_id(jg) = parent_id(jg-1)
-        patch_level(jg) = patch_level(dynamics_parent_grid_id(jg))+1
+        nml_dynamics_parent_grid_id(jg) = parent_id(jg-1)
+        nml_patch_level(jg) = patch_level(dynamics_parent_grid_id(jg))+1
       ENDDO 
     
       ! fill the grid prefix
       IF (lplane) THEN
-        gridtype='plan'
+        nml_gridtype='plan'
       ELSE
-        gridtype='icon'
+        nml_gridtype='icon'
       END IF
     
       DO jg = 1, n_dom
-        jlev = patch_level(jg)
+        jlev = nml_patch_level(jg)
         ! Allow file names without "DOM" specifier if n_dom=1.
         IF (n_dom == 1) THEN
           ! Check if file name without "DOM" specifier exists.
@@ -288,7 +288,7 @@ MODULE mo_grid_nml
           WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)') &
               & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
         ENDIF
-        dynamics_grid_filename(jg) = patch_file
+        nml_dynamics_grid_filename(jg) = patch_file
       ENDDO
 
       IF (n_dom_start == 0) THEN
@@ -297,26 +297,26 @@ MODULE mo_grid_nml
         jg=0        
         WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)') &
             & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
-        radiation_grid_filename(1) = patch_file
-        dynamics_radiation_grid_link(1) = 1
+        nml_radiation_grid_filename(1) = patch_file
+        nml_dynamics_radiation_grid_link(1) = 1
       ENDIF
     
     ENDIF
 
     ! find out how many grids we have
     jg=1
-    DO WHILE (dynamics_grid_filename(jg) /= "")
+    DO WHILE (nml_dynamics_grid_filename(jg) /= "")
       jg=jg+1
     END DO
-    no_of_dynamics_grids  = jg-1
+    nml_no_of_dynamics_grids  = jg-1
     jg=1
-    DO WHILE (radiation_grid_filename(jg) /= "")
+    DO WHILE (nml_radiation_grid_filename(jg) /= "")
       jg=jg+1
     END DO
-    no_of_radiation_grids = jg-1
-    n_dom = no_of_dynamics_grids
-    IF (no_of_radiation_grids > 0) THEN
-      n_dom_start = 0
+    nml_no_of_radiation_grids = jg-1
+    nml_n_dom = no_of_dynamics_grids
+    IF (nml_no_of_radiation_grids > 0) THEN
+      nml_n_dom_start = 0
     ENDIF
            
 !     write(0,*) no_of_dynamics_grids
