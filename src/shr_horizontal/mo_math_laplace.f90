@@ -1215,7 +1215,7 @@ ENDIF
 CALL nabla2_scalar( psi_c, ptr_patch, ptr_int, p_nabla2, &
                     slev, elev, opt_rlstart=rl_start_s1, opt_rlend=rl_end_s1 )
 
-IF (cell_type == 6) CALL sync_patch_array(SYNC_C, ptr_patch, p_nabla2)
+IF (ptr_patch%cell_type == 6) CALL sync_patch_array(SYNC_C, ptr_patch, p_nabla2)
 
 CALL nabla2_scalar( p_nabla2, ptr_patch, ptr_int, nabla4_psi_c, &
                     slev, elev, opt_rlstart=rl_start, opt_rlend=rl_end )
