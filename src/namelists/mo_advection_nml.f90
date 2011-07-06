@@ -211,7 +211,7 @@ MODULE mo_advection_nml
 
   PUBLIC :: shape_func, zeta, eta, wgt_zeta, wgt_eta
 
-  PUBLIC :: transport_nml_setup, setup_transport
+  PUBLIC :: transport_nml_setup, setup_transport, read_transport_namelist
 
 
 
@@ -722,6 +722,100 @@ CONTAINS
 
 
   END SUBROUTINE setup_transport
+
+
+  !-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! Read Namelist for tracer transport. 
+  !!
+  !! This subroutine 
+  !! - reads the Namelist for tracer transport
+  !! - sets default values
+  !! - potentially overwrites the defaults by values used in a 
+  !!   previous integration (if this is a resumed run)
+  !! - reads the user's (new) specifications
+  !! - stores the Namelist for restart  
+  !!
+  !! @par Revision History
+  !!  by Daniel Reinert, DWD (2011-05-07).
+  !!
+  SUBROUTINE read_transport_namelist
+    !
+    INTEGER :: istat, i_listlen, funit
+    INTEGER :: jt          !< tracer loop index
+    INTEGER :: z_nogo(2)   !< for consistency check
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_advection_nml: read_transport_nml'
+
+    !-----------------------------------------------------------------------
+
+    !-----------------------!
+    ! 1. default settings   !
+    !-----------------------!
+    ctracer_list = ''
+    SELECT CASE (i_cell_type)
+    CASE (3)
+      ihadv_tracer(:) = imiura    ! miura horizontal advection scheme
+      itype_hlimit(:) = ifluxl_m  ! monotonous flux limiter
+    CASE (6)
+      ihadv_tracer(:) = iup3      ! 3rd order upwind horizontal advection scheme
+      itype_hlimit(:) = ifluxl_sm ! semi monotonous flux limiter
+    END SELECT
+    ivadv_tracer(:) = ippm_vcfl   ! PPM vertical advection scheme
+    itype_vlimit(:) = islopel_vsm ! semi-monotonous slope limiter
+    ivcfl_max       = 5           ! CFL-stability range for vertical advection
+    iadv_slev(:,:)  = 1           ! vertical start level
+    iord_backtraj   = 1           ! 1st order backward trajectory
+    lvadv_tracer    = .TRUE.      ! vertical advection yes/no
+    lclip_tracer    = .FALSE.     ! clipping of negative values yes/no
+    lstrang         = .FALSE.     ! Strang splitting yes/no
+
+    igrad_c_miura = 1             ! MIURA linear least squares reconstruction
+
+    upstr_beta_adv = 1.0_wp       ! =1.0 selects 3rd order advection in up3
+                                  ! =0.0 selects 4th order advection in up3
+    llsq_svd        = .FALSE.     ! apply QR-decomposition
+
+    !------------------------------------------------------------------
+    ! 2. If this is a resumed integration, overwrite the defaults above 
+    !    by values used in the previous integration.
+    !------------------------------------------------------------------
+    IF (lrestart) THEN
+      funit = open_and_restore_namelist('transport_ctl')
+      READ(funit,NML=transport_ctl)
+      CALL close_tmpfile(funit)
+    END IF
+
+
+    !--------------------------------------------------------------------
+    ! 3. Read user's (new) specifications (Done so far by all MPI processes)
+    !--------------------------------------------------------------------
+    CALL position_nml ('transport_ctl', STATUS=istat)
+    SELECT CASE (istat)
+    CASE (POSITIONED)
+      READ (nnml, transport_ctl)
+    END SELECT
+
+
+    !-----------------------------------------------------
+    ! 4. Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=transport_ctl)                    
+    CALL store_and_close_namelist(funit, 'transport_ctl')             
+
+    ! 5. write the contents of the namelist to an ASCII file
+    !
+    IF(p_pe == p_io) WRITE(nnml_output,nml=transport_ctl)
+
+
+  END SUBROUTINE read_transport_namelist
+
+
+
 
 
 END MODULE mo_advection_nml

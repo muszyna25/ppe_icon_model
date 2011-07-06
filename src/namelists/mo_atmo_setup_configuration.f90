@@ -47,7 +47,6 @@ MODULE mo_atmo_setup_configuration
     & p_comm_work,          &
     & p_test_run,           &
     & p_io_pe0                ! Number of first I/O PE
-
   USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
 
 
@@ -92,7 +91,7 @@ MODULE mo_atmo_setup_configuration
 
 
   USE mo_advection_nml,       ONLY: transport_nml_setup,  & ! process transport
-    & setup_transport         ! control parameters
+    & setup_transport,  read_transport_namelist
 
   ! Test cases
   !
@@ -163,8 +162,9 @@ CONTAINS
     CALL open_nml(TRIM(namelist_filename))
     IF(p_pe == p_io) CALL open_nml_output('NAMELIST_ICON_output_atm')
 
-    ! read namelsist
+    ! read namelists
     CALL read_parallel_namelist()
+    CALL read_transport_namelist()
         
     ! close namelist file
     CALL close_nml
