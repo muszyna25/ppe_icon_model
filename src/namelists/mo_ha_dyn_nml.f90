@@ -63,6 +63,7 @@ MODULE mo_ha_dyn_nml
                                  ! 2-time-level semi-implicit time integration.
                                  ! See mo_impl_constants for the options.
 
+  REAL(wp) :: si_2tls
   REAL(wp) :: si_coeff           !  = 0 : explicit scheme(for *d*,*t*,*alps*).
                                  !  = 1 : semi implicit scheme.
                                  !  in (0,1): a weighted scheme
@@ -85,9 +86,9 @@ MODULE mo_ha_dyn_nml
   LOGICAL :: lref_temp   ! if .TRUE., involve the reference temperature profile
                          ! in the calculation of pressure gradient force.
 
-  NAMELIST/ha_dyn_nml/ ileapfrog_startup, asselin_coeff, &
-                       si_coeff, si_offctr, si_rtol,     &
-                       si_cmin, lsi_3d, si_expl_scheme,  &
+  NAMELIST/ha_dyn_nml/ ileapfrog_startup, asselin_coeff,     &
+                       si_2tls, si_coeff, si_offctr, si_rtol,&
+                       si_cmin, lsi_3d, si_expl_scheme,      &
                        lref_temp
 
 CONTAINS
@@ -105,7 +106,8 @@ CONTAINS
     asselin_coeff     = 0.1_wp
  
     si_expl_scheme    = AB2 
- 
+
+    si_2tls           = 0.6_wp 
     si_coeff          = 1.0_wp
     si_offctr         = 0.7_wp
     lsi_3d            = .FALSE.
@@ -150,6 +152,7 @@ CONTAINS
     ha_dyn_config(:)% ileapfrog_startup = ileapfrog_startup
     ha_dyn_config(:)% asselin_coeff     = asselin_coeff
     ha_dyn_config(:)% si_expl_scheme    = si_expl_scheme
+    ha_dyn_config(:)% si_2tls           = si_2tls
     ha_dyn_config(:)% si_coeff          = si_coeff
     ha_dyn_config(:)% si_offctr         = si_offctr
     ha_dyn_config(:)% si_cmin           = si_cmin

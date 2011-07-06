@@ -39,7 +39,7 @@ MODULE mo_ha_2tl_si
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data,            ONLY: t_external_data
   USE mo_physical_constants,  ONLY: rd, rcpd
-  USE mo_dynamics_nml,        ONLY: si_rtol, si_2tls, si_expl_scheme
+  USE mo_ha_dyn_nml,          ONLY: si_rtol, si_2tls, si_expl_scheme
   USE mo_parallel_configuration, ONLY: nproma
   USE mo_run_nml,             ONLY: nlev, nlevp1, lshallow_water,ltheta_dyn
   USE mo_interpolation,       ONLY: t_int_state, cells2edges_scalar

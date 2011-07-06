@@ -66,6 +66,7 @@ MODULE mo_ha_dyn_config
     INTEGER  :: si_expl_scheme     !< Scheme for the explicit part of the
                                    !< 2-time-level semi-implicit time integration.
                                    !< See mo_atm_constants for the options.
+    REAL(wp) :: si_2tls            !< = 0 : explicit scheme
     REAL(wp) :: si_coeff           !< = 0 : explicit scheme
                                    !< = 1 : semi implicit scheme.
                                    !< in (0,1): a weighted scheme

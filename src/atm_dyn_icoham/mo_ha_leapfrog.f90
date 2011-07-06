@@ -44,7 +44,7 @@ MODULE mo_ha_leapfrog
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data,            ONLY: t_external_data
-  USE mo_dynamics_nml,        ONLY: asselin_coeff
+  USE mo_ha_dyn_nml,          ONLY: asselin_coeff
   USE mo_run_nml,             ONLY: ltheta_dyn
   USE mo_interpolation,       ONLY: t_int_state
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
