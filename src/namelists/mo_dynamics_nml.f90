@@ -53,9 +53,10 @@ MODULE mo_dynamics_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned
   USE mo_mpi,                ONLY: p_pe, p_io
-  USE mo_run_nml,            ONLY: ltransport,dtime,ntracer,i_cell_type,      &
+  USE mo_run_nml,            ONLY: ltransport,dtime,ntracer,global_cell_type,      &
     &                              iforcing,lshallow_water,INWP, IHS_ATM_TEMP,&
     &                              IHS_ATM_THETA,iequations
+  USE mo_grid_configuration,  ONLY: global_cell_type
   USE mo_master_nml,         ONLY: lrestart
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &       
@@ -312,7 +313,7 @@ CONTAINS
       CALL finish( TRIM(routine),'off centering parameter si_2tls larger than 1')
     ENDIF
   
-    IF (i_cell_type/=3) THEN
+    IF (global_cell_type/=3) THEN
       idiv_method = 1
     ENDIF
     IF (idiv_method > 2 .OR. idiv_method < 1 )THEN
