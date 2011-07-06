@@ -51,7 +51,10 @@ MODULE mo_nonhydrostatic_nml
   USE mo_impl_constants,     ONLY: max_char_length, max_dom
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned
+  USE mo_master_nml,         ONLY: lrestart
   USE mo_mpi,                ONLY: p_pe, p_io
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
+    &                               open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
 
@@ -234,5 +237,124 @@ MODULE mo_nonhydrostatic_nml
 
 
 END SUBROUTINE nonhydrostatic_nml_setup
+
+
+  !-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! Read Namelist for nonhydrostatic core. 
+  !!
+  !! This subroutine 
+  !! - reads the Namelist for nonhydrostatic core
+  !! - sets default values
+  !! - potentially overwrites the defaults by values used in a 
+  !!   previous integration (if this is a resumed run)
+  !! - reads the user's (new) specifications
+  !! - stores the Namelist for restart
+  !! - fills the configuration state (partly)    
+  !!
+  !! @par Revision History
+  !!  by Daniel Reinert, DWD (2011-06-07)
+  !!
+  SUBROUTINE read_nonhydrostatic_namelist
+    !
+    INTEGER :: istat, funit
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_nonhydrostatic_nml: read_nonhydrostatic_namelist'
+
+    !-----------------------------------------------------------------------
+
+    !-----------------------!
+    ! 1. default settings   !
+    !-----------------------!
+
+    ! reduced calling frequency for transport
+    iadv_rcf = 1  ! no reduced calling frequency
+
+    ! Type of vertical coordinate (1: Gal-Chen, 2: SLEVE)
+    ivctype        = 1
+
+    ! Top height of partial domain where moist physics is computed
+    ! (set to 200 km, which in practice means that moist physics is
+    ! computed everywhere by default)
+    htop_moist_proc = 200000._wp
+    htop_qvadv      = 250000._wp
+    kstart_moist(:) = 1
+    kstart_qv(:)    = 1
+
+    ! Settings for icell_type=3
+    damp_height(1)    = 30000.0_wp
+    rayleigh_coeff(1) = 0.05_wp
+    damp_timescale_u  = 3._wp*86400._wp ! 3 days
+    damp_height_u     = 100000._wp
+    vwind_offctr      = 0.05_wp
+    iadv_rhotheta     = 2
+    igradp_method     = 1
+    l_open_ubc        = .FALSE.
+    l_nest_rcf        = .TRUE.
+    l_masscorr_nest   = .FALSE.
+    exner_expol       = 0.5_wp
+
+    ! dummy values for nested domains; will be reset to value of domain 1 
+    ! if not specified explicitly in the namelist
+    damp_height(2:max_dom)    = -1.0_wp
+    rayleigh_coeff(2:max_dom) = -1.0_wp
+
+    ! truly horizontal temperature diffusion
+    l_zdiffu_t     = .FALSE. ! not used by default
+    thslp_zdiffu   = 0.025_wp ! slope threshold 0.025
+    thhgtd_zdiffu  = 200._wp ! threshold for height difference between adjacent grid points 200 m
+
+    ! Settings for icell_type=6
+    ltheta_up_hori =.FALSE.
+    gmres_rtol_nh  = 1.0e-6_wp
+    upstr_beta     = 1.0_wp
+    ltheta_up_vert = .FALSE.
+    k2_updamp_coeff= 2.0e6_wp
+
+
+    !------------------------------------------------------------------
+    ! 2. If this is a resumed integration, overwrite the defaults above 
+    !    by values used in the previous integration.
+    !------------------------------------------------------------------
+    IF (lrestart) THEN
+      funit = open_and_restore_namelist('nonhydrostatic_ctl')
+      READ(funit,NML=nonhydrostatic_ctl)
+      CALL close_tmpfile(funit)
+    END IF
+
+
+    !--------------------------------------------------------------------
+    ! 3. Read user's (new) specifications (Done so far by all MPI processes)
+    !--------------------------------------------------------------------
+    CALL position_nml ('nonhydrostatic_ctl', status=istat)
+    SELECT CASE (istat)
+    CASE (POSITIONED)
+      READ (nnml, nonhydrostatic_ctl)
+    END SELECT
+
+
+    !----------------------------------------------------
+    ! 4. Fill the configuration state
+    !----------------------------------------------------
+
+
+    !-----------------------------------------------------
+    ! 5. Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=nonhydrostatic_ctl)                    
+    CALL store_and_close_namelist(funit, 'nonhydrostatic_ctl') 
+
+
+    ! 6. write the contents of the namelist to an ASCII file
+    !
+    IF(p_pe == p_io) WRITE(nnml_output,nml=nonhydrostatic_ctl)
+
+
+  END SUBROUTINE read_nonhydrostatic_namelist
+
 
 END MODULE mo_nonhydrostatic_nml

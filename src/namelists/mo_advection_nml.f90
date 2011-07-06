@@ -736,7 +736,8 @@ CONTAINS
   !! - potentially overwrites the defaults by values used in a 
   !!   previous integration (if this is a resumed run)
   !! - reads the user's (new) specifications
-  !! - stores the Namelist for restart  
+  !! - stores the Namelist for restart
+  !! - fills the configuration state (partly)   
   !!
   !! @par Revision History
   !!  by Daniel Reinert, DWD (2011-05-07)
