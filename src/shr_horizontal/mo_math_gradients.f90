@@ -116,7 +116,7 @@ USE mo_model_domain,       ONLY: t_patch
 !DR                                 upstr_beta, ltimer
 USE mo_nonhydrostatic_nml, ONLY: upstr_beta
 USE mo_parallel_configuration,  ONLY: nproma
-USE mo_run_nml,            ONLY:  i_cell_type, ltimer
+USE mo_run_nml,            ONLY: ltimer
 USE mo_exception,          ONLY: finish
 USE mo_timer,              ONLY: timer_start, timer_stop, timer_grad
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
@@ -244,9 +244,9 @@ IF (ltimer) CALL timer_start(timer_grad)
 !$OMP PARALLEL
 ! The special treatment of 2D fields is essential for efficiency on the NEC
 
-SELECT CASE (i_cell_type)
+SELECT CASE (ptr_patch%cell_type)
 
-CASE (3) ! (i_cell_type == 3)
+CASE (3) ! (cell_type == 3)
 
 
 #ifdef __SX__
@@ -321,7 +321,7 @@ ELSE
 #ifdef __SX__
 ENDIF
 #endif
-CASE (6) ! (i_cell_type == 6)
+CASE (6) ! (cell_type == 6)
 
   ! no grid refinement in hexagonal model
   nblks_e   = ptr_patch%nblks_int_e
@@ -603,9 +603,9 @@ IF ( PRESENT(opt_p_face) ) THEN
     &                      slev, elev)
 ENDIF
 
-SELECT CASE (i_cell_type)
+SELECT CASE (ptr_patch%cell_type)
 
-  CASE (3) ! (i_cell_type == 3)
+  CASE (3) ! (cell_type == 3)
 !
 ! 2. reconstruction of cell based geographical gradient
 !
@@ -656,7 +656,7 @@ SELECT CASE (i_cell_type)
 !$OMP END DO
 !$OMP END PARALLEL
 
-CASE(6) ! (i_cell_type == 6)
+CASE(6) ! (cell_type == 6)
 !
 ! 2. reconstruction of cell based geographical gradient
 !

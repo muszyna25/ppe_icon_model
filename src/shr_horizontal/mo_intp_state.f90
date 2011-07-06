@@ -171,7 +171,7 @@ USE mo_model_domain_import, ONLY: n_dom, n_dom_start, lplane, l_limited_area, lf
 USE mo_namelist,            ONLY: position_nml, POSITIONED
 USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
 USE mo_parallel_configuration,  ONLY: nproma
-USE mo_run_nml,             ONLY: i_cell_type, ltransport, iequations
+USE mo_run_nml,             ONLY: ptr_patch%cell_type, ltransport, iequations
 USE mo_mpi,                 ONLY: p_pe, p_io
 
 USE mo_interpol_nml
@@ -232,7 +232,7 @@ INTEGER :: idummy
     &            'allocation for c_lin_e failed')
   ENDIF
   !
-  IF (i_cell_type == 3) THEN
+  IF (ptr_patch%cell_type == 3) THEN
     !
     ! e_bln_c_s
     !
@@ -285,13 +285,13 @@ INTEGER :: idummy
   !
   ! e_inn_c
   !
-  ALLOCATE (ptr_int%e_inn_c(nproma,i_cell_type,nblks_c), STAT=ist )
+  ALLOCATE (ptr_int%e_inn_c(nproma,ptr_patch%cell_type,nblks_c), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:construct_int_state', &
     &            'allocation for e_inn_c failed')
   ENDIF
   !
-  IF (i_cell_type == 6) THEN
+  IF (ptr_patch%cell_type == 6) THEN
     !
     ! e_inn_v
     !
@@ -345,7 +345,7 @@ INTEGER :: idummy
   !
   ! verts_aw_cells
   !
-  ALLOCATE (ptr_int%verts_aw_cells(nproma,i_cell_type,nblks_c), STAT=ist )
+  ALLOCATE (ptr_int%verts_aw_cells(nproma,ptr_patch%cell_type,nblks_c), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:construct_int_state',                     &
       &             'allocation for verts_aw_cells failed')
@@ -353,13 +353,13 @@ INTEGER :: idummy
   !
   ! cells_aw_verts
   !
-  ALLOCATE (ptr_int%cells_aw_verts(nproma,9-i_cell_type,nblks_v), STAT=ist )
+  ALLOCATE (ptr_int%cells_aw_verts(nproma,9-ptr_patch%cell_type,nblks_v), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:construct_int_state',                     &
       &             'allocation for cells_aw_verts failed')
   ENDIF
   !
-  IF( i_cell_type == 6 ) THEN
+  IF( ptr_patch%cell_type == 6 ) THEN
      !
      ! tria_north
      !
@@ -464,7 +464,7 @@ INTEGER :: idummy
 
   ENDIF
 
-  IF (i_cell_type == 3) THEN
+  IF (ptr_patch%cell_type == 3) THEN
     !
     ! rbf_vec_idx_c, rbf_vec_blk_c
     !
@@ -954,7 +954,7 @@ INTEGER :: idummy
 
   END IF
 
-  IF (i_cell_type == 3) THEN
+  IF (ptr_patch%cell_type == 3) THEN
     ALLOCATE (ptr_int%geofac_qdiv(nproma, 4, nblks_e), STAT=ist )
     IF (ist /= SUCCESS) THEN
       CALL finish ('mo_interpolation:construct_int_state',                     &
@@ -1001,25 +1001,25 @@ INTEGER :: idummy
     ENDIF
   ENDIF
 
-  ALLOCATE (ptr_int%geofac_div(nproma, i_cell_type, nblks_c), STAT=ist )
+  ALLOCATE (ptr_int%geofac_div(nproma, ptr_patch%cell_type, nblks_c), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:construct_int_state',                       &
       &             'allocation for geofac_div failed')
   ENDIF
 
-  ALLOCATE (ptr_int%geofac_rot(nproma, 9-i_cell_type, nblks_v), STAT=ist )
+  ALLOCATE (ptr_int%geofac_rot(nproma, 9-ptr_patch%cell_type, nblks_v), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:construct_int_state', &
     &             'allocation for geofac_rot failed')
   ENDIF
 
-  ALLOCATE (ptr_int%geofac_n2s(nproma, i_cell_type+1, nblks_c), STAT=ist )
+  ALLOCATE (ptr_int%geofac_n2s(nproma, ptr_patch%cell_type+1, nblks_c), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:construct_int_state',                       &
       &             'allocation for geofac_n2s failed')
   ENDIF
 
-  ALLOCATE (ptr_int%geofac_grg(nproma, i_cell_type+1, nblks_c, 2), STAT=ist )
+  ALLOCATE (ptr_int%geofac_grg(nproma, ptr_patch%cell_type+1, nblks_c, 2), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:construct_int_state',                       &
       &             'allocation for geofac_grg failed')
@@ -1037,20 +1037,20 @@ INTEGER :: idummy
       &             'allocation for cart_cell_coord failed')
   ENDIF
 
-  ALLOCATE (ptr_int%primal_normal_ec(nproma, nblks_c, i_cell_type, 2), STAT=ist)
+  ALLOCATE (ptr_int%primal_normal_ec(nproma, nblks_c,ptr_patch%cell_type, 2), STAT=ist)
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:construct_int_state',                       &
       &             'allocation for primal_normal_ec failed')
   ENDIF
 
-  ALLOCATE (ptr_int%edge_cell_length(nproma, nblks_c, i_cell_type), STAT=ist )
+  ALLOCATE (ptr_int%edge_cell_length(nproma, nblks_c, ptr_patch%cell_type), STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ('mo_interpolation:construct_int_state',                       &
       &             'allocation for edge_cell_length failed')
   ENDIF
 
 
-  IF (i_cell_type == 6) THEN
+  IF (ptr_patch%cell_type == 6) THEN
 
     ALLOCATE (ptr_int%dir_gradh_i1(6, nproma, nblks_e), STAT=ist )
     IF (ist /= SUCCESS) THEN
@@ -1148,7 +1148,7 @@ INTEGER :: idummy
   !
   ! initialize all components
   !
-  IF (i_cell_type == 3 ) THEN
+  IF (ptr_patch%cell_type == 3 ) THEN
     ptr_int%e_bln_c_s     = 0._wp
     ptr_int%e_bln_c_u     = 0._wp
     ptr_int%e_bln_c_v     = 0._wp
@@ -1162,7 +1162,7 @@ INTEGER :: idummy
   ptr_int%verts_aw_cells= 0._wp
   ptr_int%cells_aw_verts= 0._wp
 
-  IF (i_cell_type == 6 ) THEN
+  IF (ptr_patch%cell_type == 6 ) THEN
     ptr_int%e_inn_v     = 0._wp
     ptr_int%tria_aw_rhom= 0._wp
     ptr_int%e_aw_c      = 0._wp
@@ -1181,7 +1181,7 @@ INTEGER :: idummy
     ptr_int%cea_en      = 0.0_wp
   ENDIF
 
-  IF( i_cell_type == 3) THEN
+  IF( ptr_patch%cell_type == 3) THEN
     ptr_int%rbf_vec_idx_c     = 0
     ptr_int%rbf_vec_blk_c     = 0
     ptr_int%rbf_vec_stencil_c = 0
@@ -1202,7 +1202,7 @@ INTEGER :: idummy
     ptr_int%rbf_vec_coeff_e   = 0._wp
   ENDIF
 
-  IF( i_cell_type == 6 ) THEN
+  IF( ptr_patch%cell_type == 6 ) THEN
     ptr_int%heli_coeff        = 0._wp
     IF (i_cori_method < 3) THEN
       ptr_int%heli_vn_idx       = 0
@@ -1237,7 +1237,7 @@ INTEGER :: idummy
     ptr_int%lsq_high%lsq_moments_hat  = 0._wp
   END IF
 
-  IF (i_cell_type ==3) THEN
+  IF (ptr_patch%cell_type ==3) THEN
     ptr_int%geofac_qdiv = 0._wp
     ptr_int%nudgecoeff_c = 0._wp
     ptr_int%nudgecoeff_e = 0._wp
@@ -1260,7 +1260,7 @@ INTEGER :: idummy
   ptr_int%primal_normal_ec = 0._wp
   ptr_int%edge_cell_length = 0._wp
 
-  IF(i_cell_type==6) THEN
+  IF(ptr_patch%cell_type==6) THEN
     ptr_int%dir_gradh_i1 = 0
     ptr_int%dir_gradh_i2 = 0
     ptr_int%dir_gradh_b1 = 0
@@ -1332,7 +1332,7 @@ DO jg = n_dom_start, n_dom
 
   CALL complete_patchinfo( ptr_patch(jg), ptr_int_state(jg))
   CALL init_geo_factors(ptr_patch(jg), ptr_int_state(jg))
-  IF (i_cell_type==3)THEN
+  IF (ptr_patch%cell_type==3)THEN
     CALL init_cellavg_wgt(ptr_patch(jg), ptr_int_state(jg))
     CALL bln_int_coeff_e2c( ptr_patch(jg), ptr_int_state(jg) )
     IF(jg>0) THEN
@@ -1345,7 +1345,7 @@ DO jg = n_dom_start, n_dom
   !
   ! initialization of indices and coefficients for vector rbf interpolation
   !
-  IF (i_cell_type == 3) THEN
+  IF (ptr_patch%cell_type == 3) THEN
 
     ! ... at cell centers
     CALL rbf_vec_index_cell (ptr_patch(jg), ptr_int_state(jg))
@@ -1374,7 +1374,7 @@ DO jg = n_dom_start, n_dom
   !
   ! initialization of coeffs for hexagon
   !
-  IF (i_cell_type==6) THEN
+  IF (ptr_patch%cell_type==6) THEN
     CALL compute_heli_bra_coeff_idx(ptr_patch(jg), ptr_int_state(jg))
   ENDIF
   !
@@ -1388,7 +1388,7 @@ DO jg = n_dom_start, n_dom
 
     CALL init_tplane_e(ptr_patch(jg), ptr_int_state(jg))
 
-    IF (i_cell_type==3) THEN
+    IF (ptr_patch%cell_type==3) THEN
       CALL lsq_stencil_create( ptr_patch(jg), ptr_int_state(jg)%lsq_lin,      &
         &                      lsq_lin_set%dim_c )
       CALL lsq_compute_coeff_cell( ptr_patch(jg), ptr_int_state(jg)%lsq_lin,  &
@@ -1438,7 +1438,7 @@ INTEGER :: ist
       &             'deallocation for c_lin_e failed')
   ENDIF
   !
-  IF (i_cell_type == 3 ) THEN
+  IF (ptr_patch%cell_type == 3 ) THEN
     !
     ! e_bln_c_s
     !
@@ -1497,7 +1497,7 @@ INTEGER :: ist
       &             'deallocation for e_inn_c failed')
   ENDIF
   !
-  IF (i_cell_type == 6 ) THEN
+  IF (ptr_patch%cell_type == 6 ) THEN
     !
     ! e_inn_v
     !
@@ -1631,7 +1631,7 @@ INTEGER :: ist
       &             'deallocation for cells_aw_verts failed')
   ENDIF
 
-  IF (i_cell_type == 3) THEN
+  IF (ptr_patch%cell_type == 3) THEN
     !
     ! rbf_vec_idx_c, rbf_vec_blk_c
     !
@@ -1934,7 +1934,7 @@ INTEGER :: ist
     ENDIF
   END IF
 
-  IF(i_cell_type == 6) THEN
+  IF(ptr_patch%cell_type == 6) THEN
     DEALLOCATE (ptr_int%heli_coeff, STAT=ist )
     IF (ist /= SUCCESS) THEN
       CALL finish ('mo_interpolation:destruct_int_state',                   &
@@ -1954,7 +1954,7 @@ INTEGER :: ist
     ENDIF
   ENDIF
 
-  IF (i_cell_type == 3) THEN
+  IF (ptr_patch%cell_type == 3) THEN
     DEALLOCATE (ptr_int%geofac_qdiv, STAT=ist )
     IF (ist /= SUCCESS) THEN
       CALL finish ('mo_interpolation:destruct_int_state',                      &
@@ -2036,7 +2036,7 @@ INTEGER :: ist
   ENDIF
 
 
-  IF (i_cell_type == 6) THEN
+  IF (ptr_patch%cell_type == 6) THEN
 
     DEALLOCATE (ptr_int%dir_gradh_i1, STAT=ist )
     IF (ist /= SUCCESS) THEN
