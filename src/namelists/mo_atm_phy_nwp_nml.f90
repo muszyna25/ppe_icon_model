@@ -466,7 +466,8 @@ MODULE mo_atm_phy_nwp_nml
   !! - potentially overwrites the defaults by values used in a 
   !!   previous integration (if this is a resumed run)
   !! - reads the user's (new) specifications
-  !! - stores the Namelist for restart  
+  !! - stores the Namelist for restart
+  !! - fills the configuration state (partly)    
   !!
   !! @par Revision History
   !!  by Daniel Reinert, DWD (2011-06-07)
@@ -588,15 +589,20 @@ MODULE mo_atm_phy_nwp_nml
     END SELECT
 
 
+    !----------------------------------------------------
+    ! 4. Fill the configuration state
+    !----------------------------------------------------
+
+
     !-----------------------------------------------------
-    ! 4. Store the namelist for restart
+    ! 5. Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
     WRITE(funit,NML=nwp_phy_ctl)                    
     CALL store_and_close_namelist(funit, 'nwp_phy_ctl') 
 
 
-    ! 5. write the contents of the namelist to an ASCII file
+    ! 6. write the contents of the namelist to an ASCII file
     !
     IF(p_pe == p_io) WRITE(nnml_output,nml=nwp_phy_ctl)
 

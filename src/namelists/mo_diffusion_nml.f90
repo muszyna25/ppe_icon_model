@@ -118,6 +118,9 @@ MODULE mo_diffusion_nml
                         & hdiff_multfac, k2_klev_max, k2_pres_max,       &
                         & hdiff_min_efdt_ratio
 
+  PUBLIC :: read_diffusion_namelist
+
+
   CONTAINS
   !>
   !! Initialization of variables for the horizontal diffusion.
@@ -313,4 +316,91 @@ MODULE mo_diffusion_nml
 
   END SUBROUTINE diffusion_nml_setup
   !-------------
+
+  !-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! Read Namelist for diffusion. 
+  !!
+  !! This subroutine 
+  !! - reads the Namelist for diffusion
+  !! - sets default values
+  !! - potentially overwrites the defaults by values used in a 
+  !!   previous integration (if this is a resumed run)
+  !! - reads the user's (new) specifications
+  !! - stores the Namelist for restart
+  !! - fills the configuration state (partly)  
+  !!
+  !! @par Revision History
+  !!  by Daniel Reinert, DWD (2011-06-07)
+  !!
+  SUBROUTINE read_diffusion_namelist
+    !
+    INTEGER :: istat, funit
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_diffusion_nml: read_diffusion_namelist'
+
+    !-----------------------------------------------------------------------
+
+    !-----------------------!
+    ! 1. default settings   !
+    !-----------------------!
+     lhdiff_temp       = .TRUE.
+     lhdiff_vn         = .TRUE.
+
+     hdiff_order       = 4
+     hdiff_efdt_ratio  = 1.0_wp
+     hdiff_min_efdt_ratio = 1.0_wp
+     hdiff_multfac     = 1.0_wp
+     hdiff_smag_fac    = 0.15_wp
+     hdiff_tv_ratio    = 1.0_wp
+
+     k2_pres_max = -99.0_wp                                                    
+     k2_klev_max = 0
+
+
+
+    !------------------------------------------------------------------
+    ! 2. If this is a resumed integration, overwrite the defaults above 
+    !    by values used in the previous integration.
+    !------------------------------------------------------------------
+    IF (lrestart) THEN
+      funit = open_and_restore_namelist('diffusion_ctl')
+      READ(funit,NML=diffusion_ctl)
+      CALL close_tmpfile(funit)
+    END IF
+
+
+    !--------------------------------------------------------------------
+    ! 3. Read user's (new) specifications (Done so far by all MPI processes)
+    !--------------------------------------------------------------------
+    CALL position_nml ('diffusion_ctl', status=istat)
+    SELECT CASE (istat)
+    CASE (POSITIONED)
+      READ (nnml, diffusion_ctl)
+    END SELECT
+
+
+    !----------------------------------------------------
+    ! 4. Fill the configuration state
+    !----------------------------------------------------
+
+
+    !-----------------------------------------------------
+    ! 5. Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=diffusion_ctl)                    
+    CALL store_and_close_namelist(funit,'diffusion_ctl') 
+
+
+    ! 6. write the contents of the namelist to an ASCII file
+    !
+    IF(p_pe == p_io) WRITE(nnml_output,nml=diffusion_ctl)
+
+
+  END SUBROUTINE read_diffusion_namelist
+
 END MODULE mo_diffusion_nml

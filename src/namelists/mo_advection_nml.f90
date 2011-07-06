@@ -799,15 +799,20 @@ CONTAINS
     END SELECT
 
 
+    !----------------------------------------------------
+    ! 4. Fill the configuration state
+    !----------------------------------------------------
+
+
     !-----------------------------------------------------
-    ! 4. Store the namelist for restart
+    ! 5. Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
     WRITE(funit,NML=transport_ctl)                    
     CALL store_and_close_namelist(funit, 'transport_ctl')             
 
 
-    ! 5. write the contents of the namelist to an ASCII file
+    ! 6. write the contents of the namelist to an ASCII file
     !
     IF(p_pe == p_io) WRITE(nnml_output,nml=transport_ctl)
 
