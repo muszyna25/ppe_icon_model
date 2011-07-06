@@ -190,134 +190,126 @@ CONTAINS
   !>
   !!
   SUBROUTINE old_read_atmo_namelists(namelist_filename)
-    
-    CHARACTER(LEN=*), INTENT(in) :: namelist_filename
-
-    CHARACTER(*), PARAMETER :: method_name = "old_read_atmo_namelists"
-
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
-    INTEGER :: n_io, jg, jfile, n_file, ist, n_diag, n_chkpt
-    LOGICAL :: lsuccess, l_have_output
-   
-
-    !-------------------------------------------------------------------
-    ! 1. Open the atmosphere-specific namelist file and create a 
-    !    new file in which all the namelist variables and their
-    !    actual values used in the model run will be stored.
-    !-------------------------------------------------------------------
-    CALL open_nml(TRIM(namelist_filename))
-    IF(p_pe == p_io) CALL open_nml_output('NAMELIST_ICON_output_atm')
-
-    ! The namelists ('run_nml' and 'testcase_ctl') are read in seperate
-    ! subroutines. The validity of the user-specified configurations is
-    ! checked right after each namelist is read.
-    ! The two 'setup' subroutines above must be called before grid and patch
-    ! import because during the import procedure the topography and land-sea
-    ! mask will be initialized. They are related to the atmos/ocean switch
-    ! as well as the selected test case.
-    
-    CALL run_nml_setup
-    
-    !-------------------------------------------------------------------
-    ! parallel_nml_setup must be called after setup_run since it needs
-    ! some variables read in setup_run
-    
-    CALL parallel_nml_setup
-    
-    !-------------------------------------------------------------------
-    ! Initialize test case setup 
-    !-------------------------------------------------------------------
-    IF (ltestcase) THEN
-      
-      SELECT CASE (iequations)
-      CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
-        CALL setup_testcase
-        
-      CASE (inh_atmosphere)
-        CALL setup_nh_testcase
-        
-      CASE DEFAULT
-        CALL finish( TRIM(method_name),' invalid value for iequations!' )
-      END SELECT
-      
-    ENDIF
-    
-    !-------------------------------------------------------------------
-    ! step 2: import computational domain of the model
-    !-------------------------------------------------------------------
-    ! 2a) read namelist 'grid_ctl' from the namelist file (already
-    !     opened above) and set up the grid/patch configuration.
-    !-------------------------------------------------------------------
-    
-    CALL grid_nml_setup
-        
-    !------------------------------------------------------------------
-    ! step 3a: Read namelist 'dynamics_ctl'. This has to be done
-    !          before the interpolation state is computed.
-    !------------------------------------------------------------------
-    CALL dynamics_nml_setup(n_dom)
-    
-    !------------------------------------------------------------------
-    ! Read specific dynamics namelists for the nonhydrost. dynamical core
-    !------------------------------------------------------------------
-    CALL nonhydrostatic_nml_setup
-    
-    !------------------------------------------------------------------
-    ! step 3a-a: ! read nwp physics namelist, ...
-    !------------------------------------------------------------------
-!     IF ( iforcing == inwp) THEN
-!       CALL setup_nwp_phy( p_patch_global(1:) )  ! read Namelist, ...
-!       IF (inwp_surface > 0) CALL setup_nwp_lnd
+!     
+!     CHARACTER(LEN=*), INTENT(in) :: namelist_filename
+! 
+!     CHARACTER(*), PARAMETER :: method_name = "old_read_atmo_namelists"
+! 
+!     CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
+!     INTEGER :: n_io, jg, jfile, n_file, ist, n_diag, n_chkpt
+!     LOGICAL :: lsuccess, l_have_output
+!    
+! 
+!     !-------------------------------------------------------------------
+!     ! 1. Open the atmosphere-specific namelist file and create a 
+!     !    new file in which all the namelist variables and their
+!     !    actual values used in the model run will be stored.
+!     !-------------------------------------------------------------------
+!     CALL open_nml(TRIM(namelist_filename))
+!     IF(p_pe == p_io) CALL open_nml_output('NAMELIST_ICON_output_atm')
+! 
+!     ! The namelists ('run_nml' and 'testcase_ctl') are read in seperate
+!     ! subroutines. The validity of the user-specified configurations is
+!     ! checked right after each namelist is read.
+!     ! The two 'setup' subroutines above must be called before grid and patch
+!     ! import because during the import procedure the topography and land-sea
+!     ! mask will be initialized. They are related to the atmos/ocean switch
+!     ! as well as the selected test case.
+!     
+!     CALL run_nml_setup
+!     
+!     !-------------------------------------------------------------------
+!     ! parallel_nml_setup must be called after setup_run since it needs
+!     ! some variables read in setup_run
+!     
+!     CALL parallel_nml_setup
+!     
+!     !-------------------------------------------------------------------
+!     ! Initialize test case setup 
+!     !-------------------------------------------------------------------
+!     IF (ltestcase) THEN
+!       
+!       SELECT CASE (iequations)
+!       CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
+!         CALL setup_testcase
+!         
+!       CASE (inh_atmosphere)
+!         CALL setup_nh_testcase
+!         
+!       CASE DEFAULT
+!         CALL finish( TRIM(method_name),' invalid value for iequations!' )
+!       END SELECT
+!       
 !     ENDIF
-    
-    !------------------------------------------------------------------
-    ! step 3b: Read namelist 'transport_ctl',
-    !------------------------------------------------------------------
-    CALL transport_nml_setup
-    
-    !------------------------------------------------------------------
-    ! step 4: construct interpolation and the grid refinement state
-    !------------------------------------------------------------------
-    ! - Allocate memory for the interpolation state;
-    ! - Calculate interpolation coefficients.
-    !------------------------------------------------------------------
-    
-    CALL gridref_nml_setup
-    
-    ! interpolation state not used for ocean model
-    ! #slo# - temporarily switched on for comparison with rbf-reconstruction
-    
-!     CALL interpol_nml_setup(p_patch_global)
-    
-    !-------------------------------------------------------------------------
-    ! set up horizontal diffusion after the vertical coordinate is configured
-    !-------------------------------------------------------------------------
-!     CALL diffusion_nml_setup(n_dom,parent_id)
-    
-   
-    !------------------------------------------------------------------
-    ! step 6: initialize output
-    !------------------------------------------------------------------    
-    CALL io_nml_setup
-     
-    !------------------------------------------------------------------
-    ! Create and optionally read external data fields
-    !------------------------------------------------------------------
-        
-    CALL close_nml
-    IF (p_pe == p_io) THEN
-      CALL close_nml_output
-    END IF
+!     
+!     !-------------------------------------------------------------------
+!     ! step 2: import computational domain of the model
+!     !-------------------------------------------------------------------
+!     ! 2a) read namelist 'grid_ctl' from the namelist file (already
+!     !     opened above) and set up the grid/patch configuration.
+!     !-------------------------------------------------------------------
+!     
+!     CALL grid_nml_setup
+!         
+!     !------------------------------------------------------------------
+!     ! step 3a: Read namelist 'dynamics_ctl'. This has to be done
+!     !          before the interpolation state is computed.
+!     !------------------------------------------------------------------
+!     CALL dynamics_nml_setup(n_dom)
+!     
+!     !------------------------------------------------------------------
+!     ! Read specific dynamics namelists for the nonhydrost. dynamical core
+!     !------------------------------------------------------------------
+!     CALL nonhydrostatic_nml_setup
+!     
+!     !------------------------------------------------------------------
+!     ! step 3a-a: ! read nwp physics namelist, ...
+!     !------------------------------------------------------------------
+! !     IF ( iforcing == inwp) THEN
+! !       CALL setup_nwp_phy( p_patch_global(1:) )  ! read Namelist, ...
+! !       IF (inwp_surface > 0) CALL setup_nwp_lnd
+! !     ENDIF
+!     
+!     !------------------------------------------------------------------
+!     ! step 3b: Read namelist 'transport_ctl',
+!     !------------------------------------------------------------------
+!     CALL transport_nml_setup
+!     
+!     !------------------------------------------------------------------
+!     ! step 4: construct interpolation and the grid refinement state
+!     !------------------------------------------------------------------
+!     ! - Allocate memory for the interpolation state;
+!     ! - Calculate interpolation coefficients.
+!     !------------------------------------------------------------------
+!     
+!     CALL gridref_nml_setup
+!     
+!     ! interpolation state not used for ocean model
+!     ! #slo# - temporarily switched on for comparison with rbf-reconstruction
+!     
+! !     CALL interpol_nml_setup(p_patch_global)
+!     
+!     !-------------------------------------------------------------------------
+!     ! set up horizontal diffusion after the vertical coordinate is configured
+!     !-------------------------------------------------------------------------
+! !     CALL diffusion_nml_setup(n_dom,parent_id)
+!     
+!    
+!     !------------------------------------------------------------------
+!     ! step 6: initialize output
+!     !------------------------------------------------------------------    
+!     CALL io_nml_setup
+!      
+!     !------------------------------------------------------------------
+!     ! Create and optionally read external data fields
+!     !------------------------------------------------------------------
+!         
+!     CALL close_nml
+!     IF (p_pe == p_io) THEN
+!       CALL close_nml_output
+!     END IF
         
   END SUBROUTINE old_read_atmo_namelists
-  !-------------------------------------------------------------------------
-
-  !-------------------------------------------------------------------------
-  SUBROUTINE setup_atmo_configuration()
-  
-    CALL setup_parallel_configuration()
-
-  END SUBROUTINE setup_atmo_configuration
   !-------------------------------------------------------------------------
   
   
