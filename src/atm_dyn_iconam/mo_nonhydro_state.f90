@@ -1153,7 +1153,7 @@ MODULE mo_nonhydro_state
                 & ldims=shape2d_c )
 
 
-    IF (i_cell_type == 3) THEN
+    IF (p_patch%cell_type == 3) THEN
       ! vn_ie        p_diag%vn_ie(nproma,nlevp1,nblks_e)
       !
       cf_desc    = t_cf_var('normal_wind_at_half_level', 'm s-1',               &
@@ -1383,7 +1383,7 @@ MODULE mo_nonhydro_state
 
 
 
-    ELSE IF (i_cell_type == 6) THEN
+    ELSE IF (p_patch%cell_type == 6) THEN
 
       ! theta_v_ic   p_diag%theta_v_ic(nproma,nlevp1,nblks_c)
       !
@@ -1990,7 +1990,7 @@ MODULE mo_nonhydro_state
 
 ! These fields are needed for triangles only once the initialization in
 ! mo_nh_testcases is properly rewritten for hexagons
-!    IF (i_cell_type== 3) THEN
+!    IF (p_patch%cell_type== 3) THEN
       ! weighting factor for interpolation from full to half levels
       ! wgtfac_c     p_metrics%wgtfac_c(nproma,nlevp1,nblks_c)
       !
@@ -2080,7 +2080,7 @@ MODULE mo_nonhydro_state
 
 
 
-    IF (i_cell_type== 3) THEN
+    IF (p_patch%cell_type== 3) THEN
 
       ! Vertical index of neighbor points needed for Taylor-expansion-based pressure gradient
       ! vertidx_gradp  p_metrics%vertidx_gradp(2,nproma,nlev,nblks_e)
@@ -2204,7 +2204,7 @@ MODULE mo_nonhydro_state
                   & ldims=shape2d_c, lrestart=.FALSE. )
 
 
-    ELSE IF (i_cell_type== 6) THEN
+    ELSE IF (p_patch%cell_type== 6) THEN
 
 
       ! slope of the coordinate lines in Northern direction

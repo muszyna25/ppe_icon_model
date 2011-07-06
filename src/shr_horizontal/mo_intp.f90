@@ -475,7 +475,7 @@ TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
 REAL(wp), INTENT(in) ::  p_edge_in(:,:,:)  ! dim: (nproma,nlev,nblks_e)
 
 ! coefficients for (area weighted) interpolation
-REAL(wp), INTENT(in) ::  v_int(:,:,:)      ! dim: (nproma,i_cell_type,nblks_v)
+REAL(wp), INTENT(in) ::  v_int(:,:,:)      ! dim: (nproma,cell_type,nblks_v)
 
 INTEGER, INTENT(in), OPTIONAL ::  opt_slev ! optional vertical start level
 
@@ -533,7 +533,7 @@ i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
 IF (ltimer) CALL timer_start(timer_intp)
 
 !loop over blocks and verts
-IF (i_cell_type == 6) THEN
+IF (ptr_patch%cell_type == 6) THEN
 
   ! no grid refinement in hexagonal model
   nblks_v   = ptr_patch%nblks_int_v
@@ -568,7 +568,7 @@ IF (i_cell_type == 6) THEN
 !$OMP END DO
 !$OMP END PARALLEL
 
-ELSE IF (i_cell_type == 3) THEN
+ELSE IF (ptr_patch%cell_type == 3) THEN
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk)
@@ -631,7 +631,7 @@ TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
 REAL(wp), INTENT(in) ::  p_edge_in(:,:,:)  ! dim: (nproma,nlev,nblks_e)
 
 ! coefficients for (area weighted) interpolation
-REAL(wp), INTENT(in) ::  c_int(:,:,:)      ! dim: (nproma,i_cell_type,nblks_c)
+REAL(wp), INTENT(in) ::  c_int(:,:,:)      ! dim: (nproma,cell_type,nblks_c)
 
 INTEGER, INTENT(in), OPTIONAL ::  opt_slev ! optional vertical start level
 
@@ -688,7 +688,7 @@ i_endblk   = ptr_patch%cells%end_blk(rl_end,i_nchdom)
 IF (ltimer) CALL timer_start(timer_intp)
 
 !loop over blocks and cells
-IF (i_cell_type == 3) THEN
+IF (ptr_patch%cell_type == 3) THEN
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
   DO jb = i_startblk, i_endblk
@@ -717,7 +717,7 @@ IF (i_cell_type == 3) THEN
 !$OMP END DO
 !$OMP END PARALLEL
 
-ELSE IF (i_cell_type == 6) THEN
+ELSE IF (ptr_patch%cell_type == 6) THEN
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
@@ -887,7 +887,7 @@ TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
 REAL(wp), INTENT(in) :: p_cell_in(:,:,:)   ! dim: (nproma,nlev,nblks_c)
 
 ! coefficients for interpolation
-REAL(wp), INTENT(in) :: c_int(:,:,:)       ! dim: (nproma,9-i_cell_type,nblks_v)
+REAL(wp), INTENT(in) :: c_int(:,:,:)       ! dim: (nproma,9-cell_type,nblks_v)
 
 INTEGER, INTENT(in), OPTIONAL :: opt_slev  ! optional vertical start level
 
@@ -942,7 +942,7 @@ i_endblk   = ptr_patch%verts%end_blk(rl_end,i_nchdom)
 
 IF (ltimer) CALL timer_start(timer_intp)
 
-IF (i_cell_type == 6) THEN
+IF (ptr_patch%cell_type == 6) THEN
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk)
   DO jb = i_startblk, i_endblk
@@ -971,7 +971,7 @@ IF (i_cell_type == 6) THEN
   ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
-ELSE IF (i_cell_type == 3) THEN
+ELSE IF (ptr_patch%cell_type == 3) THEN
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jv,jk)
   DO jb = i_startblk, i_endblk
@@ -1029,7 +1029,7 @@ TYPE(t_patch), TARGET, INTENT(in) :: ptr_patch
 REAL(wp), INTENT(in) :: p_vert_in(:,:,:)   ! dim: (nproma,nlev,nblks_v)
 
 ! coefficients for interpolation
-REAL(wp), INTENT(in) :: c_int(:,:,:)       ! dim: (nproma,i_cell_type,nblks_c)
+REAL(wp), INTENT(in) :: c_int(:,:,:)       ! dim: (nproma,cell_type,nblks_c)
 
 INTEGER, INTENT(in), OPTIONAL :: opt_slev  ! optional vertical start level
 
@@ -1067,7 +1067,7 @@ npromz_c = ptr_patch%npromz_int_c
 
 IF (ltimer) CALL timer_start(timer_intp)
 
-IF (i_cell_type == 3) THEN
+IF (ptr_patch%cell_type == 3) THEN
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jc,jk)
   DO jb = 1, nblks_c
@@ -1098,7 +1098,7 @@ IF (i_cell_type == 3) THEN
   END DO
 !$OMP END DO
 !$OMP END PARALLEL
-ELSE IF (i_cell_type == 6) THEN
+ELSE IF (ptr_patch%cell_type == 6) THEN
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jc,jk)
   DO jb = 1, nblks_c
