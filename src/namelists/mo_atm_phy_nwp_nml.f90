@@ -61,7 +61,7 @@ MODULE mo_atm_phy_nwp_nml
     &                               tkhmin, tkmmin, c_diff,                  &
     &                               itype_wcld, icldm_turb,                  &
     &                               itype_tran, rlam_heat, rlam_mom, rat_sea
-  USE mo_echam_vdiff_nml,     ONLY: echam_vdiff_nml_setup
+!   USE mo_echam_vdiff_nml,     ONLY: echam_vdiff_nml_setup
   USE mo_icoham_sfc_indices,  ONLY: init_sfc_indices, nsfc_type
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
     &                               open_and_restore_namelist, close_tmpfile
