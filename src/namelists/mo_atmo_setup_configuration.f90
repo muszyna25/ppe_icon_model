@@ -120,6 +120,7 @@ MODULE mo_atmo_setup_configuration
   USE mo_echam_conv_nml,      ONLY: read_echam_conv_namelist
   USE mo_atm_phy_nwp_nml,     ONLY: setup_nwp_phy, inwp_surface, &
     &                               read_nwp_phy_namelist
+  USE mo_radiation_nml,       ONLY: read_radiation_namelist
   USE mo_gw_hines_nml,        ONLY: read_gw_hines_namelist
   USE mo_lnd_nwp_nml,         ONLY: setup_nwp_lnd, read_nwp_lnd_namelist
  
@@ -174,6 +175,7 @@ CONTAINS
     CALL read_transport_namelist()
 
     CALL read_nwp_phy_namelist()
+    CALL read_radiation_namelist()
     CALL read_echam_phy_namelist()
 
     CALL read_echam_vdiff_namelist()
