@@ -1347,7 +1347,7 @@ MODULE mo_nh_testcases
           ENDDO
           ! Solve quadratic equation for exner(jk) to obtain exact (discretized)
           ! hydrostatic balance
-          IF( p_patch(jg)% == 3) THEN
+          IF( p_patch(jg)%cell_type == 3) THEN
             DO jc = 1, nlen
               z_fac1(jc) = p_nhdom%metrics%wgtfac_c(jc,jk+1,jb)*(z_temp_kp1(jc)              &
                 - p_nhdom%metrics%theta_ref_mc(jc,jk+1,jb)*p_nhdom%prog(1)%exner(jc,jk+1,jb))&
@@ -1365,7 +1365,7 @@ MODULE mo_nh_testcases
               zc(jc) = -(z_fac2(jc)*z_fac3(jc)/p_nhdom%metrics%ddqz_z_half(jc,jk+1,jb) &
                 + z_fac2(jc)*p_nhdom%metrics%d_exner_dz_ref_ic(jc,jk+1,jb))
             ENDDO !jc
-          ELSEIF ( p_patch(jg)% == 6) THEN
+          ELSEIF ( p_patch(jg)% cell_type== 6) THEN
             DO jc = 1, nlen
               z_fac3(jc) = grav/cpd*p_nhdom%metrics%ddqz_z_half(jc,jk+1,jb)
               z_fac1(jc) = p_nhdom%prog(1)%exner(jc,jk+1,jb)
