@@ -127,7 +127,9 @@ CONTAINS
     idiv_method       = 1
     divavg_cntrwgt    = 0.5_wp
 
-    ldry_dycore       = .FALSE.
+! commented out for the time being (since it has been commented out in 
+! aboves Namelist definition by somebody)
+!DR    ldry_dycore       = .FALSE.
  
     !------------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above by 
@@ -166,7 +168,7 @@ CONTAINS
     atm_dyn_config(:)% itime_scheme   = itime_scheme
     atm_dyn_config(:)% idiv_method    = idiv_method
     atm_dyn_config(:)% divavg_cntrwgt = divavg_cntrwgt
-    atm_dyn_config(:)% ldry_dycore    = ldry_dycore
+!DR    atm_dyn_config(:)% ldry_dycore    = ldry_dycore
 
   END SUBROUTINE read_atm_dyn_namelist
 
