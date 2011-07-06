@@ -52,7 +52,7 @@ MODULE mo_advection_nml
     &                               inoforcing, iheldsuarez, iecham, inwp,  &
     &                               ildf_dry, ildf_echam, io3, iqcond,      &
     &                               lvert_nest, iqv
-  USE mo_grid_nml,            ONLY: n_dom
+  USE mo_grid_configuration,  ONLY: n_dom
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom,  &
     &                               ino_hadv, iup, imiura, imiura3, iup3,   &
     &                               ino_vadv, iup_v, imuscl_vcfl, imuscl_v, &
