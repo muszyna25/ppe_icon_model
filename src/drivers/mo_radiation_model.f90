@@ -76,7 +76,6 @@ MODULE mo_radiation_model
 !   USE mo_run_nml,             ONLY: run_nml_setup,            & ! process run control parameters
 ! !     & ini_datetime,         & !    namelist parameter
 !     & dtime,                & !    :
-!     & i_cell_type,          & !    :
 !     & ltransport,           & !    :
 !     & lforcing,             & !    :
 !     & ltestcase,            & !    :

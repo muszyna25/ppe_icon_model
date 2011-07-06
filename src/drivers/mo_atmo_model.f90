@@ -69,7 +69,6 @@ MODULE mo_atmo_model
     & current_datetime,     & !    module variable
     & dtime,                & !    namelist parameter
     & nsteps,               & !    :
-    & i_cell_type,          & !    :
     & ltransport,           & !    :
     & lforcing,             & !    :
     & ltestcase,            & !    :
@@ -678,7 +677,7 @@ CONTAINS
       SELECT CASE (iequations)
 
       CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
-        SELECT CASE (i_cell_type)
+        SELECT CASE (p_patch(jg)%cell_type)
         CASE (3)
           CALL rbf_vec_interpol_cell(p_hydro_state(jg)%prog(1)%vn,p_patch(jg), &
             & p_int_state(jg),p_hydro_state(jg)%diag%u,p_hydro_state(jg)%diag%v)
@@ -690,7 +689,7 @@ CONTAINS
         END SELECT
 
       CASE (inh_atmosphere)
-        SELECT CASE (i_cell_type)
+        SELECT CASE (p_patch(jg)%cell_type)
         CASE (3)
           CALL rbf_vec_interpol_cell(p_nh_state(jg)%prog(1)%vn,p_patch(jg),&
             & p_int_state(jg),p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
