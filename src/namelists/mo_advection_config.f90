@@ -167,6 +167,6 @@ MODULE mo_advection_config
   !!
   TYPE(t_advection_config),ALLOCATABLE :: advection_config(:) !< shape: (n_dom)
 
-  PUBLIC
+!   PUBLIC
 
 END MODULE mo_advection_config
