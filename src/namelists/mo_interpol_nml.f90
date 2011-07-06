@@ -44,7 +44,7 @@ MODULE mo_interpol_nml
   USE mo_namelist,            ONLY: position_nml, POSITIONED
   USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH
   USE mo_master_nml,          ONLY: lrestart
-  USE mo_run_nml,             ONLY: i_cell_type
+  USE mo_grid_configuration,  ONLY: global_cell_type
   USE mo_intp_data_strc,      ONLY: t_lsq_set, sick_a, sick_o
   USE mo_kind,                ONLY: wp
   USE mo_mpi,                 ONLY: p_pe, p_io
@@ -341,7 +341,7 @@ SUBROUTINE interpol_nml_setup(p_patch)
      ENDIF
    ENDDO
 
-  IF (lplane .AND. i_cell_type==3) THEN
+  IF (lplane .AND. global_cell_type==3) THEN
     CALL finish( TRIM(routine),&
       'currently, only the hexagon version runs on a plane')
   ENDIF
@@ -356,7 +356,7 @@ SUBROUTINE interpol_nml_setup(p_patch)
   ! lsq_high_ord=2 : quadratic polynomial        : 5 unknowns with a 9-point stencil
   ! lsq_high_ord=30: poor man's cubic polynomial : 7 unknowns with a 9-point stencil
   ! lsq_high_ord=3 : full cubic polynomial       : 9 unknowns with a 9-point stencil
-  IF (i_cell_type == 3) THEN
+  IF (global_cell_type == 3) THEN
 
     !
     ! Settings for linear lsq reconstruction
@@ -395,7 +395,7 @@ SUBROUTINE interpol_nml_setup(p_patch)
 
   ! In case of a hexagonal model, we perform a quadratic reconstruction, and check
   ! for i_cori_method
-  IF (i_cell_type == 6) THEN
+  IF (global_cell_type == 6) THEN
     ! ... quadratic reconstruction
     lsq_high_set%dim_c   = 6
     lsq_high_set%dim_unk = 5

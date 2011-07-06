@@ -89,7 +89,7 @@ CONTAINS
   !!  The character parameter <i>routine</i> was introduced and used
   !!  for error information by Hui Wan, MPI-M (2007-02-23).
   !!  Modified by Almut Gassmann, MPI-M (2008-09-23)
-  !!  - introduced i_cell_type, lidealized and lshallow_water
+  !!  - introduced  lidealized and lshallow_water
   !!  Modified by Marco Giorgetta, MPI-M (2009-02-23)
   !!  - lidealized replaced by ltestcase
   !!  Modification by Constantin Junk, MPI-M (2010-02-22)

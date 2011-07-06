@@ -48,11 +48,11 @@ MODULE mo_advection_nml
   USE mo_io_units,            ONLY: nnml,nnml_output
   USE mo_master_nml,          ONLY: lrestart
   USE mo_run_nml,             ONLY: ntracer, ntracer_static, num_lev, nlev, &
-    &                               iequations, i_cell_type, iforcing,      &
+    &                               iequations, iforcing,      &
     &                               inoforcing, iheldsuarez, iecham, inwp,  &
     &                               ildf_dry, ildf_echam, io3, iqcond,      &
     &                               lvert_nest, iqv
-  USE mo_grid_configuration,  ONLY: n_dom
+  USE mo_grid_configuration,  ONLY: n_dom, global_cell_type
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom,  &
     &                               ino_hadv, iup, imiura, imiura3, iup3,   &
     &                               ino_vadv, iup_v, imuscl_vcfl, imuscl_v, &
@@ -262,7 +262,7 @@ CONTAINS
     ! 1. default settings
     !
     ctracer_list = ''
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
       ihadv_tracer(:) = imiura    ! miura horizontal advection scheme
       itype_hlimit(:) = ifluxl_m  ! monotonous flux limiter
@@ -423,7 +423,7 @@ CONTAINS
       CALL finish( TRIM(routine),                                       &
            'incorrect settings for ihadv_tracer. Must be 0,1,2,3, or 4 ')
     ENDIF
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
       IF ( ANY(ihadv_tracer(1:ntracer) > 3))            THEN
         CALL finish( TRIM(routine),                                       &
@@ -467,7 +467,7 @@ CONTAINS
       CALL finish( TRIM(routine),                                       &
        'incorrect settings for itype_hlimit. Must be 0,1,2,3 or 4 ')
     ENDIF
-    IF (i_cell_type == 6) THEN
+    IF (global_cell_type == 6) THEN
       IF ( ANY(itype_hlimit(1:ntracer) == islopel_sm ) .OR.             &
         &  ANY(itype_hlimit(1:ntracer) == islopel_m  ) .OR.             &
         &  ANY(itype_hlimit(1:ntracer) == ifluxl_m   )) THEN
@@ -755,7 +755,7 @@ CONTAINS
     ! 1. default settings   !
     !-----------------------!
     ctracer_list = ''
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
       ihadv_tracer(:) = imiura    ! miura horizontal advection scheme
       itype_hlimit(:) = ifluxl_m  ! monotonous flux limiter

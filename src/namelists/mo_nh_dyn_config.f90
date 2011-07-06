@@ -71,7 +71,7 @@ MODULE mo_nh_dyn_config
                                ! region for aquaplanet experiments
     INTEGER :: kstart_qv       ! related flow control variable (NOT a namelist variable)
   
-    ! Parameters active with i_cell_type=3 only
+    ! Parameters active with cell_type=3 only
 
     REAL(wp):: damp_height      ! height at which w-damping and sponge layer start
     REAL(wp):: damp_height_u    ! height at which Rayleigh damping of u starts
@@ -91,7 +91,7 @@ MODULE mo_nh_dyn_config
     REAL(wp):: thhgtd_zdiffu    ! threshold height difference between adjacent model grid points
                                 ! above which temperature diffusion is applied
   
-    ! Parameters active with i_cell_type=6 only
+    ! Parameters active with cell_type=6 only
 
     REAL(wp) :: gmres_rtol_nh   ! relative tolerance for gmres convergence
     LOGICAL  :: ltheta_up_hori  ! horizontal 3rd order advection of theta_v

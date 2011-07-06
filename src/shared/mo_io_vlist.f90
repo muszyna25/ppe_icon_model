@@ -125,7 +125,7 @@ MODULE mo_io_vlist
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,             ONLY: num_lev, num_levp1, itopo,                  &
     &                               ntracer, ltransport,iqcond,                 &
-    &                               lshallow_water, i_cell_type,                &
+    &                               lshallow_water,                             &
     &                               dtime, iequations, msg_level,               &
     &                               ldynamics, ltestcase,                       &
     &                               iforcing, inwp, iecham,ildf_echam,          &
@@ -133,6 +133,7 @@ MODULE mo_io_vlist
     &                               iequations, ihs_atm_temp, ihs_atm_theta,    &
     &                               inh_atmosphere, ishallow_water,             &
     &                               lvert_nest, inextra_2d,inextra_3d
+  USE mo_grid_configuration,  ONLY : global_cell_type
   USE mo_echam_phy_nml,       ONLY: lrad,lvdiff,lconv,lcond,lcover,lgw_hines
   USE mo_atm_phy_nwp_nml,     ONLY: inwp_gscp, inwp_gscp, inwp_convection,      &
     &                               inwp_radiation, inwp_sso, inwp_cldcover,    &
@@ -296,7 +297,7 @@ CONTAINS
     !
     CALL nf(nf_open(TRIM(grid_filename), NF_NOWRITE, ncid))
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
       CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
     CASE (6)
@@ -307,7 +308,7 @@ CONTAINS
     CALL nf(nf_inq_dimid(ncid, 'edge', dimid))
     CALL nf(nf_inq_dimlen(ncid, dimid, i_ne))
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
       CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
     CASE (6)
@@ -315,9 +316,9 @@ CONTAINS
     END SELECT
     CALL nf(nf_inq_dimlen(ncid, dimid, i_nv))
     !
-    i_ncb = i_cell_type*i_nc
+    i_ncb = global_cell_type*i_nc
     i_neb = 4*i_ne
-    i_nvb = (9-i_cell_type)*i_nv
+    i_nvb = (9-global_cell_type)*i_nv
     !
     ALLOCATE(clon(i_nc), clat(i_nc), clonv(i_ncb), clatv(i_ncb))
     ALLOCATE(elon(i_ne), elat(i_ne), elonv(i_neb), elatv(i_neb))
@@ -327,9 +328,9 @@ CONTAINS
     ! cell grid
     !
     gridCellID(k_jg) = gridCreate(GRID_UNSTRUCTURED, i_nc)
-    CALL gridDefNvertex(gridCellID(k_jg), i_cell_type)
+    CALL gridDefNvertex(gridCellID(k_jg), global_cell_type)
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
       name = 'clon'
     CASE (6)
@@ -347,7 +348,7 @@ CONTAINS
     CALL gridDefXlongname(gridCellID(k_jg), long_name(1:lnlen))
     CALL gridDefXunits(gridCellID(k_jg), units(1:ulen))
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
       name = 'clat'
     CASE (6)
@@ -365,7 +366,7 @@ CONTAINS
     CALL gridDefYlongname(gridCellID(k_jg), long_name(1:lnlen))
     CALL gridDefYunits(gridCellID(k_jg), units(1:ulen))
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
       CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
     CASE (6)
@@ -375,7 +376,7 @@ CONTAINS
     !
     CALL gridDefXbounds(gridCellID(k_jg), clonv)
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
       CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
     CASE (6)
@@ -431,9 +432,9 @@ CONTAINS
     ! vertex grid
     !
     gridVertexID(k_jg) = gridCreate(GRID_UNSTRUCTURED, i_nv)
-    CALL gridDefNvertex(gridVertexID(k_jg), 9-i_cell_type)
+    CALL gridDefNvertex(gridVertexID(k_jg), 9-global_cell_type)
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
       name = 'vlon'
     CASE (6)
@@ -451,7 +452,7 @@ CONTAINS
     CALL gridDefXlongname(gridVertexID(k_jg), long_name(1:lnlen))
     CALL gridDefXunits(gridVertexID(k_jg), units(1:ulen))
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
       name = 'vlat'
     CASE (6)
@@ -469,18 +470,18 @@ CONTAINS
     CALL gridDefYlongname(gridVertexID(k_jg), long_name(1:lnlen))
     CALL gridDefYunits(gridVertexID(k_jg), units(1:ulen))
     !
-    IF(i_cell_type==3) THEN
+    IF(global_cell_type==3) THEN
       CALL nf(nf_inq_varid(ncid, 'vlon_vertices', varid))
-    ELSEIF(i_cell_type==6) THEN
+    ELSEIF(global_cell_type==6) THEN
       CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
     ENDIF
     CALL nf(nf_get_var_double(ncid, varid, vlonv))
     !
     CALL gridDefXbounds(gridVertexID(k_jg), vlonv)
     !
-    IF(i_cell_type==3) THEN
+    IF(global_cell_type==3) THEN
       CALL nf(nf_inq_varid(ncid, 'vlat_vertices', varid))
-    ELSEIF(i_cell_type==6) THEN
+    ELSEIF(global_cell_type==6) THEN
       CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
     ENDIF
     CALL nf(nf_get_var_double(ncid, varid, vlatv))
@@ -558,7 +559,7 @@ CONTAINS
     !
     ! Parameters of /run_ctl/
     ! -----------------------
-    CALL addGlobAttInt('run_ctl:i_cell_type',i_cell_type,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('run_ctl:global_cell_type',global_cell_type,vlistID(k_jg),astatus)
     CALL addGlobAttInt('run_ctl:num_lev',num_lev(k_jg),vlistID(k_jg),astatus)
     CALL addGlobAttFlt('run_ctl:dtime',dtime,vlistID(k_jg),astatus)
     CALL addGlobAttInt('run_ctl:iequations',iequations,vlistID(k_jg),astatus)
@@ -602,7 +603,7 @@ CONTAINS
        CALL addGlobAttInt('nonhydrostatic_ctl:ivctype',ivctype,vlistID(k_jg),astatus)
        CALL addGlobAttInt('nonhydrostatic_ctl:iadv_rcf',iadv_rcf,vlistID(k_jg),astatus)
 
-       IF (i_cell_type == 3) THEN
+       IF (global_cell_type == 3) THEN
          CALL addGlobAttFlt('nonhydrostatic_ctl:rayleigh_coeff',   &
                  &         rayleigh_coeff(k_jg),vlistID(k_jg),astatus)
          CALL addGlobAttFlt('nonhydrostatic_ctl:damp_height',      &
@@ -619,7 +620,7 @@ CONTAINS
                  &         exner_expol,vlistID(k_jg),astatus)
          CALL addGlobAttTxtFromLog('nonhydrostatic_ctl:l_open_ubc',&
                  &         l_open_ubc,vlistID(k_jg),astatus)
-       ELSEIF (i_cell_type == 6) THEN
+       ELSEIF (global_cell_type == 6) THEN
          CALL addGlobAttTxtFromLog('nonhydrostatic_ctl:ltheta_up_hori', &
                  &         ltheta_up_hori,vlistID(k_jg),astatus)
          CALL addGlobAttTxtFromLog('nonhydrostatic_ctl:ltheta_up_vert',&
@@ -1798,7 +1799,7 @@ CONTAINS
     !=========================================================================
     ! horizontal grids
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
        CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
     CASE (6)
@@ -1809,7 +1810,7 @@ CONTAINS
     CALL nf(nf_inq_dimid(ncid, 'edge', dimid))
     CALL nf(nf_inq_dimlen(ncid, dimid, i_ne))
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
        CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
     CASE (6)
@@ -1817,9 +1818,9 @@ CONTAINS
     END SELECT
     CALL nf(nf_inq_dimlen(ncid, dimid, i_nv))
     !
-    i_ncb = i_cell_type*i_nc
+    i_ncb = global_cell_type*i_nc
     i_neb = 4*i_ne
-    i_nvb = (9-i_cell_type)*i_nv
+    i_nvb = (9-global_cell_type)*i_nv
     !
     ALLOCATE(clon(i_nc), clat(i_nc), clonv(i_ncb), clatv(i_ncb))
     ALLOCATE(elon(i_ne), elat(i_ne), elonv(i_neb), elatv(i_neb))
@@ -1830,9 +1831,9 @@ CONTAINS
     !
     gridCellID(k_jg) = gridCreate(GRID_UNSTRUCTURED, i_nc)
     ! #slo# - gridDefNvertex not in CDI-manual?
-    CALL gridDefNvertex(gridCellID(k_jg), i_cell_type)
+    CALL gridDefNvertex(gridCellID(k_jg), global_cell_type)
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
        name = 'clon'
     CASE (6)
@@ -1850,7 +1851,7 @@ CONTAINS
     CALL gridDefXlongname(gridCellID(k_jg), long_name(1:lnlen))
     CALL gridDefXunits(gridCellID(k_jg), units(1:ulen))
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
        name = 'clat'
     CASE (6)
@@ -1868,7 +1869,7 @@ CONTAINS
     CALL gridDefYlongname(gridCellID(k_jg), long_name(1:lnlen))
     CALL gridDefYunits(gridCellID(k_jg), units(1:ulen))
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
        CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
     CASE (6)
@@ -1878,7 +1879,7 @@ CONTAINS
     !
     CALL gridDefXbounds(gridCellID(k_jg), clonv)
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
        CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
     CASE (6)
@@ -1934,9 +1935,9 @@ CONTAINS
     ! vertex grid
     !
     gridVertexID(k_jg) = gridCreate(GRID_UNSTRUCTURED, i_nv)
-    CALL gridDefNvertex(gridVertexID(k_jg), 9-i_cell_type)
+    CALL gridDefNvertex(gridVertexID(k_jg), 9-global_cell_type)
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
        name = 'vlon'
     CASE (6)
@@ -1954,7 +1955,7 @@ CONTAINS
     CALL gridDefXlongname(gridVertexID(k_jg), long_name(1:lnlen))
     CALL gridDefXunits(gridVertexID(k_jg), units(1:ulen))
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
        name = 'vlat'
     CASE (6)
@@ -1972,18 +1973,18 @@ CONTAINS
     CALL gridDefYlongname(gridVertexID(k_jg), long_name(1:lnlen))
     CALL gridDefYunits(gridVertexID(k_jg), units(1:ulen))
     !
-    IF(i_cell_type==3) THEN
+    IF(global_cell_type==3) THEN
        CALL nf(nf_inq_varid(ncid, 'vlon_vertices', varid))
-    ELSEIF(i_cell_type==6) THEN
+    ELSEIF(global_cell_type==6) THEN
        CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
     ENDIF
     CALL nf(nf_get_var_double(ncid, varid, vlonv))
     !
     CALL gridDefXbounds(gridVertexID(k_jg), vlonv)
     !
-    IF(i_cell_type==3) THEN
+    IF(global_cell_type==3) THEN
        CALL nf(nf_inq_varid(ncid, 'vlat_vertices', varid))
-    ELSEIF(i_cell_type==6) THEN
+    ELSEIF(global_cell_type==6) THEN
        CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
     ENDIF
     CALL nf(nf_get_var_double(ncid, varid, vlatv))
@@ -2059,7 +2060,7 @@ CONTAINS
     !
     ! Parameters of /run_ctl/
     ! -----------------------
-    CALL addGlobAttInt('run_ctl:i_cell_type',i_cell_type,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('run_ctl:global_cell_type',global_cell_type,vlistID(k_jg),astatus)
     !
 !   CALL addGlobAttInt('run_ctl:nlev',nlev,vlistID(k_jg),astatus)
     CALL addGlobAttFlt('run_ctl:dtime',dtime,vlistID(k_jg),astatus)
