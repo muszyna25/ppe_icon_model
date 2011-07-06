@@ -49,8 +49,8 @@ MODULE mo_time_nml
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
   
-  PUBLIC :: time_ctl, nml_calendar, nml_ini_datetime,&
-    &                  nml_end_datetime, nml_dt_restart
+  PUBLIC :: time_ctl,  calendar,  ini_datetime,&
+    &                   end_datetime,  dt_restart
 
   PRIVATE
 
@@ -58,20 +58,20 @@ MODULE mo_time_nml
   ! ----------------
   !
   ! calendar type
-  INTEGER            :: nml_calendar
+  INTEGER            ::  calendar
   !
   ! - data and time of model start and end
-  CHARACTER(len=16) :: nml_ini_datetime
-  CHARACTER(len=16) :: nml_end_datetime
+  CHARACTER(len=16) ::  ini_datetime
+  CHARACTER(len=16) ::  end_datetime
 
   ! restart interval
   ! ----------------
-  REAL(wp)           :: nml_dt_restart          ! [s] length of a restart cycle 
+  REAL(wp)           ::  dt_restart          ! [s] length of a restart cycle 
 
 
-  NAMELIST /time_ctl/nml_calendar,                  &
-    &                nml_ini_datetime, nml_end_datetime,&
-    &                nml_dt_restart
+  NAMELIST /time_ctl/ calendar,                  &
+    &                 ini_datetime,  end_datetime,&
+    &                 dt_restart
 
 CONTAINS
   !-------------------------------------------------------------------------
@@ -95,19 +95,23 @@ CONTAINS
   !!  Modification by Constantin Junk, MPI-M (2010-02-22)
   !!  - changes to consistency checks
   !!
-  SUBROUTINE time_nml_read
+  SUBROUTINE read_time_namelist
                                                
    INTEGER  :: istat, funit
 
    CHARACTER(len=max_char_length), PARAMETER ::   &
             &  routine = 'mo_time_nml/time_nml_setup'
 
+   !------------------------------------------------------------------------
+   !DEFAULT VALUES!
+   !------------------------------------------------------------------------
+
    ! initial date and time
-   nml_calendar       = proleptic_gregorian
-   nml_ini_datetime   = "20080901T000000Z"
+    calendar       = proleptic_gregorian
+    ini_datetime   = "20080901T000000Z"
    !
    ! end date and time
-   nml_end_datetime   = "20080901T014000Z"
+    end_datetime   = "20080901T014000Z"
    !
    ! length of integration = (number of timesteps)*(length of timestep)
    ! - If nsteps is set to a non-zero positive value, then the end date is computed
@@ -118,7 +122,7 @@ CONTAINS
    !   Else nsteps is computed from the initial and end date and time and dtime.
    !
    ! length of restart cycle
-   nml_dt_restart     = 86400._wp*30._wp   ! = 30 days
+    dt_restart     = 86400._wp*30._wp   ! = 30 days
    !
   IF (lrestart) THEN      
  
@@ -149,6 +153,6 @@ CONTAINS
 !    IF(p_pe == p_io) WRITE(nnml_output,nml=time_ctl)
 
 
- END SUBROUTINE time_nml_read
+ END SUBROUTINE read_time_namelist
 
 END MODULE mo_time_nml

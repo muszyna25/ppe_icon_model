@@ -78,8 +78,8 @@ MODULE mo_run_nml
 
   ! number of levels
   ! ----------------
-  INTEGER          :: nlev                ! number of full levels = number of layers
-  INTEGER          :: nlevp1              ! number of half levels = nlev+1
+  INTEGER          ::  nlev                ! number of full levels = number of layers
+  INTEGER          ::  nlevp1              ! number of half levels = nlev+1
   INTEGER          :: num_lev(max_dom)  ! number of full levels for each domain
   INTEGER          :: num_levp1(max_dom)! number of half levels for each domain
   INTEGER          :: nshift(max_dom)   ! half level of parent domain which coincides 
@@ -241,96 +241,6 @@ CONTAINS
   !!
   SUBROUTINE run_nml_setup
                                                
-   INTEGER  :: istat, funit
-
-   CHARACTER(len=max_char_length), PARAMETER ::   &
-            &  routine = 'mo_run_nml/run_nml_setup'
-
-   !------------------------------------------------------------
-   ! 1. set up the default values for run_ctl
-   !------------------------------------------------------------
-   ! initialization
-   iinit          = ianalytic
-
-   ! dimensions for new, initialized experiments
-   num_lev(:)     = 31  ! number of full levels for each domain
-   nshift(:)      = 0   ! please do not change the default.
-                        ! otherwise the initialization of 
-                        ! p_patch(jg)%nshift in "import patches" 
-                        ! will not work properly.
-   lvert_nest = .FALSE. ! no vertical nesting
-   ntracer        = 0   ! number of advected tracers
-   ntracer_static = 0   ! number of non-advected tracers
-
-
-
-   !
-   ! length of integration = (number of timesteps)*(length of timestep)
-   ! - If nsteps is set to a non-zero positive value, then the end date is computed
-   !   from the initial date and time, the time step dtime, and nsteps.
-   ! - Else if run_day, run_hour, run_minute or run_second is set to a non-zero,
-   !   positive value, then the initial date and time and the run_... variables are
-   !   used to compute the end date and time and, using dtime, nsteps.
-   !   Else nsteps is computed from the initial and end date and time and dtime.
-   !
-   ! initialize run_... variables with zero
-   run_day        = 0
-   run_hour       = 0
-   run_minute     = 0
-   run_second     = 0.0_wp
-   !
-   ! initialize nsteps with zero
-   nsteps         = 0
-   !
-   ! length of restart cycle
-!    dt_restart     = 86400._wp*30._wp   ! = 30 days
-   !
-   ! time step
-   dtime          = 600._wp   ! [s] for R2B04 + semi-implicit time steppping
-
-   ! select model and numerics
-   iequations     = ihs_atm_temp
-
-   ! switches for tendency computation
-   ldynamics      = .TRUE.
-   ltransport     = .FALSE.
-   iforcing       = inoforcing
-
-   ! switch for running a predefined testcase
-   ! details of the testcase are controled by 'testcase_ctl'
-   ltestcase      = .TRUE.
-
-   lcorio         = .TRUE.
-   itopo          = 0
-   msg_level      = 10
-   ltimer         = .TRUE.
-
-   ! dump/restore
-   ldump_states    = .FALSE.
-   lrestore_states = .FALSE.
-
-   ! The following values are deduced from the namelist variables:
-   ! auxiliary switches set as function of iequations
-   ! (not included in run_ctl)
-   lshallow_water = .FALSE.
-   latmosphere    = .FALSE.
-   locean         = .FALSE.
-   lhydrostatic   = .FALSE.
-   lforcing       = .FALSE.
-
-   ! For debugging purposes define number of output variables
-   inextra_2d      = 0           !> no extra output 2D fields
-   inextra_3d      = 0           !> no extra output 3D fields
-
-
-    !------------------------------------------------------------------------
-    ! 3. Read user's (new) specifications. (Done so far by all MPI processes)
-    !------------------------------------------------------------------------
-    CALL position_nml('run_ctl', STATUS=istat)
-    SELECT CASE (istat)
-    CASE (POSITIONED)
-      READ (nnml, run_ctl)
-    END SELECT
 
     !---------------------------------------------------------------
     ! 4. Check whether the namelist varibles have reasonable values
@@ -354,6 +264,13 @@ CONTAINS
     nlev = num_lev(1)
     nlevp1 = nlev+1
     nvclev = nlevp1
+
+    SELECT CASE (i_cell_type)
+    CASE (itri,ihex)
+      ! ok
+    CASE default
+      CALL finish( TRIM(routine),'wrong cell type specifier, "i_cell_type" must be 3 or 6')
+    END SELECT
 
     SELECT CASE (iequations)
     CASE (ishallow_water)
@@ -509,6 +426,127 @@ CONTAINS
     CALL message(' ',' ')
 
 
+    !-----------------------------------------------------------
+    ! Topography
+    !-----------------------------------------------------------
+    SELECT CASE (itopo)
+    CASE (0)
+      ! ok
+    CASE (1)
+
+ END SUBROUTINE run_nml_setup
+
+SUBROUTINE read_run_namelist
+
+    INTEGER :: istat, funit
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_run_nml: read_run_nml'
+
+   !------------------------------------------------------------
+   ! 1. default settings
+   !------------------------------------------------------------
+   ! initialization
+   iinit          = ianalytic
+
+   ! dimensions for new, initialized experiments
+   num_lev(:)     = 31  ! number of full levels for each domain
+   nshift(:)      = 0   ! please do not change the default.
+                        ! otherwise the initialization of 
+                        ! p_patch(jg)%nshift in "import patches" 
+                        ! will not work properly.
+   lvert_nest = .FALSE. ! no vertical nesting
+   ntracer        = 0   ! number of advected tracers
+   ntracer_static = 0   ! number of non-advected tracers
+
+
+
+   !
+   ! length of integration = (number of timesteps)*(length of timestep)
+   ! - If nsteps is set to a non-zero positive value, then the end date is computed
+   !   from the initial date and time, the time step dtime, and nsteps.
+   ! - Else if run_day, run_hour, run_minute or run_second is set to a non-zero,
+   !   positive value, then the initial date and time and the run_... variables are
+   !   used to compute the end date and time and, using dtime, nsteps.
+   !   Else nsteps is computed from the initial and end date and time and dtime.
+   !
+   ! initialize run_... variables with zero
+   run_day        = 0
+   run_hour       = 0
+   run_minute     = 0
+   run_second     = 0.0_wp
+   !
+   ! initialize nsteps with zero
+   nsteps         = 0
+   !
+   ! length of restart cycle
+!    dt_restart     = 86400._wp*30._wp   ! = 30 days
+   !
+   ! time step
+   dtime          = 600._wp   ! [s] for R2B04 + semi-implicit time steppping
+
+   ! select model and numerics
+   iequations     = ihs_atm_temp
+   i_cell_type    = itri
+
+   ! switches for tendency computation
+   ldynamics      = .TRUE.
+   ltransport     = .FALSE.
+   iforcing       = inoforcing
+
+   ! switch for running a predefined testcase
+   ! details of the testcase are controled by 'testcase_ctl'
+   ltestcase      = .TRUE.
+
+   lcorio         = .TRUE.
+   itopo          = 0
+   msg_level      = 10
+   ltimer         = .TRUE.
+
+   ! dump/restore
+   ldump_states    = .FALSE.
+   lrestore_states = .FALSE.
+
+   ! The following values are deduced from the namelist variables:
+   ! auxiliary switches set as function of iequations
+   ! (not included in run_ctl)
+   lshallow_water = .FALSE.
+   latmosphere    = .FALSE.
+   locean         = .FALSE.
+   lhydrostatic   = .FALSE.
+   lforcing       = .FALSE.
+
+   ! For debugging purposes define number of output variables
+   inextra_2d      = 0           !> no extra output 2D fields
+   inextra_3d      = 0           !> no extra output 3D fields
+
+   !------------------------------------------------------------------
+   ! 2. If this is a resumed integration, overwrite the defaults above 
+   !    by values used in the previous integration.
+   !------------------------------------------------------------------
+
+    IF (lrestart) THEN
+      funit = open_and_restore_namelist('run_ctl')
+      READ(funit,NML=run_ctl)
+      CALL close_tmpfile(funit)
+    END IF
+
+
+    !------------------------------------------------------------------------
+    ! 3. Read user's (new) specifications. (Done so far by all MPI processes)
+    !------------------------------------------------------------------------
+    CALL position_nml('run_ctl', STATUS=istat)
+    SELECT CASE (istat)
+    CASE (POSITIONED)
+      READ (nnml, run_ctl)
+    END SELECT
+
+
+    !----------------------------------------------------
+    ! 4. Fill the configuration state
+    !----------------------------------------------------
+
+
     !-----------------------------------------------------
     ! Store the namelist for restart
     !-----------------------------------------------------
@@ -519,33 +557,52 @@ CONTAINS
     ! write the contents of the namelist to an ASCII file
     IF(p_pe == p_io) WRITE(nnml_output,nml=run_ctl)
 
-    !-----------------------------------------------------------
-    ! Topography
-    !-----------------------------------------------------------
-    SELECT CASE (itopo)
-    CASE (0)
-      ! ok
-    CASE (1)
+ END SUBROUTINE read_run_namelist
 
-      ! set up the default values
+SUBROUTINE read_extpar_nml
+
+    INTEGER :: istat, funit
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_run_nml: read_extpar_nml'
+
+
+    !------------------------------------------------------------
+    ! 1. default settings
+    !------------------------------------------------------------
+
       fac_smooth_topo    = 0.015625_wp
       n_iter_smooth_topo = 35
 
-      ! If this is a resumed integration, overwrite the defaults above 
-      ! by values in the previous integration.
+    !------------------------------------------------------------------
+    ! 2. If this is a resumed integration, overwrite the defaults above 
+    !    by values used in the previous integration.
+    !------------------------------------------------------------------
+
       IF (lrestart) THEN
         funit = open_and_restore_namelist('ext_par_ctl')
         READ(funit,NML=ext_par_ctl)
         CALL close_tmpfile(funit)
       END IF
-
-      ! read namelist for external parameters
+      
+    !------------------------------------------------------------------------
+    ! 3. Read user's (new) specifications. (Done so far by all MPI processes)
+    !------------------------------------------------------------------------
+    
       CALL position_nml ('ext_par_ctl', status=istat)
       SELECT CASE (istat)
       CASE (POSITIONED)
         READ (nnml, ext_par_ctl)
       END SELECT
 
+    !----------------------------------------------------
+    ! 4. Fill the configuration state
+    !----------------------------------------------------
+
+
+    !-----------------------------------------------------
+    ! Store the namelist for restart
+    !-----------------------------------------------------
       ! Store the namelist for restart
       funit = open_tmpfile()
       WRITE(funit,NML=ext_par_ctl)
@@ -558,6 +615,7 @@ CONTAINS
        CALL finish( TRIM(routine),'wrong topography specifier, itopo must be in {0,1}]')
     END SELECT
 
- END SUBROUTINE run_nml_setup
+END SUBROUTINE read_extpar_nml
+
 
 END MODULE mo_run_nml

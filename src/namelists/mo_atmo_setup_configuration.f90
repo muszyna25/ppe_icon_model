@@ -158,6 +158,9 @@ CONTAINS
     IF(p_pe == p_io) CALL open_nml_output('NAMELIST_ICON_output_atm')
 
     ! read namelists
+
+    CALL read_time_namelist()
+    CALL read_run_namlist()
     CALL read_parallel_namelist()
     CALL read_dynamics_namelist()
     CALL read_transport_namelist()
