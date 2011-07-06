@@ -190,9 +190,9 @@ IF (ltimer) CALL timer_start(timer_grad)
 !$OMP PARALLEL
 ! The special treatment of 2D fields is essential for efficiency on the NEC
 
-SELECT CASE (i_cell_type)
+SELECT CASE (ptr_patch%cell_type)
 
-CASE (3) ! (i_cell_type == 3)
+CASE (3) ! (cell_type == 3)
 
 
 #ifdef __SX__
@@ -304,7 +304,7 @@ ENDIF
 #endif
 
 
-CASE (6) ! (i_cell_type == 6)
+CASE (6) ! (cell_type == 6)
 
   ! no grid refinement in hexagonal model
   nblks_e   = ptr_patch%nblks_int_e
@@ -408,9 +408,9 @@ IF (ltimer) CALL timer_start(timer_grad)
 !$OMP PARALLEL
 ! The special treatment of 2D fields is essential for efficiency on the NEC
 
-SELECT CASE (i_cell_type)
+SELECT CASE (ptr_patch%cell_type)
 
-CASE (3) ! (i_cell_type == 3)
+CASE (3) ! (cell_type == 3)
 
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je)
@@ -441,7 +441,7 @@ CASE (3) ! (i_cell_type == 3)
   END DO
 !$OMP END DO
 
-CASE (6) ! (i_cell_type == 6)
+CASE (6) ! (cell_type == 6)
 
   ! no grid refinement in hexagonal model
   nblks_e   = ptr_patch%nblks_int_e
@@ -580,9 +580,9 @@ IF (ltimer) CALL timer_start(timer_div)
 
 ! The special treatment of 2D fields is essential for efficiency on the NEC
 
-SELECT CASE (i_cell_type)
+SELECT CASE (ptr_patch%cell_type)
 
-CASE (3) ! (i_cell_type == 3)
+CASE (3) ! (cell_type == 3)
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
   DO jb = i_startblk, i_endblk
@@ -648,7 +648,7 @@ CASE (3) ! (i_cell_type == 3)
 !    enddo
 !    enddo
 
-CASE (6) ! (i_cell_type == 6)
+CASE (6) ! (cell_type == 6)
 
   ! no grid refinement in hexagonal model
   nblks_c   = ptr_patch%nblks_int_c
@@ -665,7 +665,7 @@ CASE (6) ! (i_cell_type == 6)
 
     div_vec_c(1:nlen,slev:elev,jb) = 0.0_wp
 
-    DO je = 1, i_cell_type
+    DO je = 1, ptr_patch%cell_type
 
       DO jk = slev, elev
         DO jc = 1, nlen
