@@ -73,28 +73,28 @@ MODULE mo_radiation_model
     & dt_file,              & !    :
     & dt_diag,              & !    :
     & lprepare_output         ! internal parameter
-  USE mo_run_nml,             ONLY: run_nml_setup,            & ! process run control parameters
-    & ini_datetime,         & !    namelist parameter
-    & dtime,                & !    :
-    & i_cell_type,          & !    :
-    & ltransport,           & !    :
-    & lforcing,             & !    :
-    & ltestcase,            & !    :
-    & ltimer,               & !    :
-    & iequations,           & !    internal parameters
-    & ihs_atm_temp,         & !    :
-    & ihs_atm_theta,        & !    :
-    & inh_atmosphere,       & !    :
-    & ishallow_water,       & !    :
-    & ihs_ocean,            & !
-    & iforcing,             & !    namelist parameter
-    & ildf_dry,             & !    :
-    & inoforcing,           & !    internal parameter
-    & iheldsuarez,          & !    :
-    & inwp,                 & !    :
-  !!$     &                              impiom,               & !    :
-    & ldump_states,         & ! flag if states should be dumped
-    & lrestore_states         ! flag if states should be restored
+!   USE mo_run_nml,             ONLY: run_nml_setup,            & ! process run control parameters
+! !     & ini_datetime,         & !    namelist parameter
+!     & dtime,                & !    :
+!     & i_cell_type,          & !    :
+!     & ltransport,           & !    :
+!     & lforcing,             & !    :
+!     & ltestcase,            & !    :
+!     & ltimer,               & !    :
+!     & iequations,           & !    internal parameters
+!     & ihs_atm_temp,         & !    :
+!     & ihs_atm_theta,        & !    :
+!     & inh_atmosphere,       & !    :
+!     & ishallow_water,       & !    :
+!     & ihs_ocean,            & !
+!     & iforcing,             & !    namelist parameter
+!     & ildf_dry,             & !    :
+!     & inoforcing,           & !    internal parameter
+!     & iheldsuarez,          & !    :
+!     & inwp,                 & !    :
+!   !!$     &                              impiom,               & !    :
+!     & ldump_states,         & ! flag if states should be dumped
+!     & lrestore_states         ! flag if states should be restored
   
   
   

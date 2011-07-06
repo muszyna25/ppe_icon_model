@@ -50,7 +50,7 @@ MODULE mo_parallel_nml
 #endif
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
-  USE mo_impl_constants,     ONLY: div_geometric
+  USE mo_parallel_configuration
 
   IMPLICIT NONE
 
@@ -208,10 +208,6 @@ MODULE mo_parallel_nml
 
 END SUBROUTINE read_parallel_namelist
 
-  !-------------------------------------------------------------------------
-  INTEGER FUNCTION get_nml_nproma()
-    get_nml_nproma = nml_nproma
-  END  FUNCTION get_nml_nproma   
   !-------------------------------------------------------------------------
 
 END MODULE mo_parallel_nml
