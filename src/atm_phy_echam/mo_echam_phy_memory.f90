@@ -61,7 +61,8 @@ MODULE mo_echam_phy_memory
   USE mo_run_nml,             ONLY: ntracer
   USE mo_advection_nml,       ONLY: ctracer_list
   USE mo_icoham_sfc_indices,  ONLY: nsfc_type
-  USE mo_echam_phy_nml,       ONLY: lvdiff
+!   USE mo_echam_phy_nml,       ONLY: lvdiff
+  USE mo_echam_phy_config,    ONLY: echam_phy_config
   USE mo_model_domain,        ONLY: t_patch
 
   USE mo_linked_list,  ONLY: t_var_list
@@ -858,7 +859,7 @@ CONTAINS
     !--------------------
     ! Turbulence
     !--------------------
-    IF (lvdiff) THEN
+    IF (echam_phy_config%lvdiff) THEN
 
       shape2d  = (/kproma,            kblks/)
       shape3d  = (/kproma, klev,      kblks/)
