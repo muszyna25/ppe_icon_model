@@ -38,7 +38,7 @@
 !!
 MODULE mo_output
 
-  USE mo_exception,           ONLY: finish
+  USE mo_exception,           ONLY: finish, message_text, get_filename_noext
   USE mo_impl_constants,      ONLY: max_dom
   USE mo_kind,                ONLY: wp
   USE mo_mpi,                 ONLY: p_pe, p_io
@@ -284,9 +284,8 @@ CONTAINS
   !! 
   !! Hui Wan (MPI-M, 2011-05)
   !!
-  SUBROUTINE create_restart_file( patch, datetime, klev, pvct, jg,       &
-                                & kr, kb, kcell, kvert, kedge, icelltype,&
-                                & jfile, l_have_output                   )
+  SUBROUTINE create_restart_file( patch, datetime, pvct,      &
+                                & jfile, l_have_output     )
 
     TYPE(t_patch),   INTENT(IN) :: patch
     TYPE(t_datetime),INTENT(IN) :: datetime
@@ -301,7 +300,23 @@ CONTAINS
 
     !----------------
     ! Initialization
-
+        CALL create_restart_file( p_patch(jg), datetime,        &
+                                & p_patch(jg)%nlev, vct,        &
+                                & jg, nroot, p_patch(jg)%level, &
+                                & p_patch(jg)%n_patch_cells_g,  &
+                                & p_patch(jg)%n_patch_verts_g,  &
+                                & p_patch(jg)%n_patch_edges_g,  &
+                                & i_cell_type, jfile,           &
+                                & l_have_output                 )
+    klev = p_patch%nlev
+    jg   = p_patch%id
+    kr = not used root
+    kb = not used
+    kcell = p_patch%n_patch_cells_g
+    kvert = p_patch)%n_patch_verts_g
+    kedge = p_patch%n_patch_edges_g
+    icelltype = p_patch%cell_type
+    
     CALL set_restart_attribute( 'current_year'  , datetime%year   )   
     CALL set_restart_attribute( 'current_month' , datetime%month  )
     CALL set_restart_attribute( 'current_day'   , datetime%day    )   
@@ -333,8 +348,8 @@ CONTAINS
     CALL set_restart_time( iso8601(datetime) )  ! Time tag
 
     ! Open new file, write data, close and then clean-up.
-
-    WRITE(string,'(a,i2.2,a,i1,a,i2.2)') 'restart.icon_D',jg,'R',kr,'B',kb
+    message_text = get_filename_noext(p_patch%grid_filename)
+    WRITE(string,'(a,a)') 'restart.',TRIM(message_text)
 
     CALL open_writing_restart_files( TRIM(string) )
 

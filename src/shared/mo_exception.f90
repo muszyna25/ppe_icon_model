@@ -45,7 +45,7 @@
 !!
 MODULE mo_exception
 
-  USE mo_io_units, ONLY: nerr, nlog
+  USE mo_io_units, ONLY: nerr, nlog, filename_max
   USE mo_mpi,      ONLY: p_abort, p_parallel, p_parallel_io, p_pe
   USE mo_kind,     ONLY: wp
 
@@ -59,6 +59,7 @@ MODULE mo_exception
   PUBLIC :: open_log, close_log
   PUBLIC :: debug_messages_on, debug_messages_off
   PUBLIC :: number_of_warnings, number_of_errors
+  PUBLIC ::  get_filename_noext
 
   INTEGER, PARAMETER :: em_none  = 0   !< normal message
   INTEGER, PARAMETER :: em_info  = 1   !< informational message
@@ -93,6 +94,27 @@ CONTAINS
   SUBROUTINE debug_messages_off
     l_debug = .FALSE.
   END SUBROUTINE debug_messages_off
+  !-------------
+  
+  !-------------
+  !>
+  !!
+  FUNCTION get_filename_noext(name) result(filename)
+    CHARACTER (len=*), INTENT(in) :: name    
+    CHARACTER(LEN=filename_max) :: filename
+
+    INTEGER :: end_name
+
+    end_name = INDEX(name, '.', back=.true.)
+    IF (end_name > 0) THEN
+      filename = name(1:end_name)
+    ELSE
+      filename = TRIM(name)
+    ENDIF
+
+  END FUNCTION get_filename_noext
+  !-------------
+  
   !-------------
   !>
   !! @brief Finish model simulation and report the reason

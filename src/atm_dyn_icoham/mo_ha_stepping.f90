@@ -357,14 +357,8 @@ CONTAINS
     !--------------------------------------------------------------------------
     IF (l_checkpoint_time) THEN
       DO jg = 1, n_dom
-        CALL create_restart_file( p_patch(jg), datetime,        &
-                                & p_patch(jg)%nlev, vct,        &
-                                & jg, nroot, p_patch(jg)%level, &
-                                & p_patch(jg)%n_patch_cells_g,  &
-                                & p_patch(jg)%n_patch_verts_g,  &
-                                & p_patch(jg)%n_patch_edges_g,  &
-                                & i_cell_type, jfile,           &
-                                & l_have_output                 )
+        CALL create_restart_file( p_patch(jg), datetime, vct,        &
+                                & jfile, l_have_output              )
       END DO
 
       ! Create the master (meta) file in ASCII format which contains

@@ -698,6 +698,9 @@ TYPE t_patch
   !
   ! domain ID of current domain
   INTEGER :: id
+
+  ! cell type =3 or 6
+  INTEGER :: cell_type
   !
   ! domain ID of parent domain
   INTEGER :: parent_id
