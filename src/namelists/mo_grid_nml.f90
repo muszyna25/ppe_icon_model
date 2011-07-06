@@ -251,7 +251,7 @@ MODULE mo_grid_nml
 !     ENDIF
 
 
-    IF (dynamics_grid_filename(1) == "") THEN
+    IF (nml_dynamics_grid_filename(1) == "") THEN
       ! dynamics_grid_filename not filled
       ! we have an old style namelist
 
