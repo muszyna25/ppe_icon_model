@@ -69,7 +69,7 @@ MODULE mo_grid_configuration
     & radiation_grid_filename, dynamics_radiation_grid_link,   &
     & no_of_dynamics_grids, no_of_radiation_grids, max_childdom     
   PUBLIC :: l_limited_area, nroot, start_lev, lfeedback, &
-    & lplane, corio_lat
+    & lplane, corio_lat, parent_id
 
   ! ------------------------------------------------------------------------
   ! 1.0 Namelist variables and auxiliary variables
@@ -106,12 +106,6 @@ MODULE mo_grid_configuration
   INTEGER                     :: dynamics_radiation_grid_link(max_dom)
 
   INTEGER :: no_of_dynamics_grids, no_of_radiation_grids
-
-  NAMELIST /grid_ctl/ nroot, start_lev, n_dom, lfeedback, lplane, corio_lat,     &
-                      parent_id, l_limited_area, patch_weight, lpatch0,          &
-                      lredgrid_phys,                                             &
-                      dynamics_grid_filename,  dynamics_parent_grid_id,         &
-                      radiation_grid_filename, dynamics_radiation_grid_link
 
   ! -----------------------------------------------------------------------
   ! 2.0 Declaration of dependent variables
@@ -263,7 +257,7 @@ MODULE mo_grid_configuration
    !CALL store_and_close_namelist(funit, 'grid_ctl')
 
     ! write the contents of the namelist to an ASCII file
-    IF(p_pe == p_io) WRITE(nnml_output,nml=grid_ctl)
+!     IF(p_pe == p_io) WRITE(nnml_output,nml=grid_ctl)
 
     
   END SUBROUTINE check_grid_configuration
