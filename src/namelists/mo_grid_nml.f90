@@ -260,8 +260,8 @@ MODULE mo_grid_nml
       nml_patch_level(1) = start_lev
       nml_dynamics_parent_grid_id(1) = 0       
       DO jg = 2, n_dom
-        nml_dynamics_parent_grid_id(jg) = parent_id(jg-1)
-        nml_patch_level(jg) = patch_level(dynamics_parent_grid_id(jg))+1
+        nml_dynamics_parent_grid_id(jg) = nml_parent_id(jg-1)
+        nml_patch_level(jg) = patch_level(nml_dynamics_parent_grid_id(jg))+1
       ENDDO 
     
       ! fill the grid prefix
