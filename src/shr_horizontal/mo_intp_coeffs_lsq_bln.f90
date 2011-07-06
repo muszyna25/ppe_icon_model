@@ -243,7 +243,7 @@ INTEGER :: i_rlstart                ! refinement control start level
   i_startblk = ptr_patch%cells%start_blk(i_rlstart,1)
 
 !$OMP PARALLEL
-  IF ( lsq_dim_c == i_cell_type ) THEN
+  IF ( lsq_dim_c == ptr_patch%cell_type ) THEN
     ! The stencil consists of 3 cells surrounding the control volume
     ! i.e. the direct neighbors are taken.
 
@@ -426,17 +426,17 @@ INTEGER, INTENT(IN)  ::  &  ! least squares weighting exponent
 REAL(wp), DIMENSION(lsq_dim_c,2) ::  &      ! geographical coordinates of all cell centers
   & xytemp_c                                ! in the stencil
 
-REAL(wp), DIMENSION(i_cell_type,2)   ::  &  ! geogr. coordinates of vertices of the
+REAL(wp), DIMENSION(ptr_patch%cell_type,2)   ::  &  ! geogr. coordinates of vertices of the
   & xytemp_v                                ! control volume
 
 REAL(wp), ALLOCATABLE,DIMENSION(:,:,:,:) ::  &
   & z_dist_g                                ! distance vectors to neighbouring cell
                                             ! centers stored for each cell
 
-REAL(wp), DIMENSION(i_cell_type,2)   ::  &  ! lat/lon distance vector edge midpoint -> cvertex
+REAL(wp), DIMENSION(ptr_patch%cell_type,2)   ::  &  ! lat/lon distance vector edge midpoint -> cvertex
   & distxy_v
 
-REAL(wp), DIMENSION(i_cell_type) :: dely, delx ! difference in latitude and longitude between
+REAL(wp), DIMENSION(ptr_patch%cell_type) :: dely, delx ! difference in latitude and longitude between
                                                ! vertices
 
 REAL(wp), DIMENSION(nproma,lsq_dim_c,lsq_dim_unk) ::  & ! lsq matrix
@@ -457,7 +457,7 @@ REAL(wp) :: z_norm                     ! vector length (distance between control
                                        ! center and cell centers in the stencil on tangent
                                        ! plane) (also used for normalization)
 
-REAL(wp), DIMENSION(i_cell_type) ::  & ! integrand for each edge
+REAL(wp), DIMENSION(ptr_patch%cell_type) ::  & ! integrand for each edge
   & fx, fy, fxx, fyy, fxy,           & ! for analytical calculation of moments
   & fxxx, fyyy, fxxy, fxyy
 
@@ -546,7 +546,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
     !
     DO jc = i_startidx, i_endidx
 
-      IF (i_cell_type == 3 )THEN
+      IF (ptr_patch%cell_type == 3 )THEN
         nverts  = 3
       ELSE
         nverts = ptr_patch%cells%num_edges(jc,jb)
@@ -1200,7 +1200,7 @@ REAL(wp) :: z_sum
       ptr_int_state%c_lin_e(je,2,jb) = ptr_patch%edges%edge_cell_length(je,jb,1)/&
                                            ptr_patch%edges%dual_edge_length(je,jb)
 
-      IF (i_cell_type == 6) THEN
+      IF (ptr_patch%cell_type == 6) THEN
         ilv1 = ptr_patch%edges%vertex_idx(je,jb,1)
         ilv2 = ptr_patch%edges%vertex_idx(je,jb,2)
         ibv1 = ptr_patch%edges%vertex_blk(je,jb,1)
@@ -1220,7 +1220,7 @@ REAL(wp) :: z_sum
 
   ! b2) vert to edge averages
   !-------------------------
-  IF (i_cell_type == 6) THEN
+  IF (ptr_patch%cell_type == 6) THEN
     ! The calculation cannot be done for boundary edges
     i_startblk = ptr_patch%edges%start_blk(2,1)
 !$OMP DO PRIVATE(jb,je,i_startidx,i_endidx)
@@ -1258,7 +1258,7 @@ REAL(wp) :: z_sum
 
        ptr_int_state%verts_aw_cells(jc,:,jb) = 0.0_wp
 
-       IF (i_cell_type == 6) z_sum = 0.0_wp
+       IF (ptr_patch%cell_type == 6) z_sum = 0.0_wp
 
        DO je = 1, ptr_patch%cells%num_edges(jc,jb)
 
@@ -1276,7 +1276,7 @@ REAL(wp) :: z_sum
               ptr_patch%edges%primal_edge_length(ile,ibe)/&
               ptr_patch%cells%area(jc,jb)
 
-          IF (i_cell_type == 6) THEN
+          IF (ptr_patch%cell_type == 6) THEN
             ptr_int_state%e_aw_c(jc,je,jb) = 0.5_wp*&
               ptr_patch%edges%edge_cell_length(ile,ibe,idx_ce)*&
               ptr_patch%edges%primal_edge_length(ile,ibe)/&
@@ -1313,7 +1313,7 @@ REAL(wp) :: z_sum
           ENDDO
 
        ENDDO
-       IF (i_cell_type == 6) THEN
+       IF (ptr_patch%cell_type == 6) THEN
          ptr_int_state%r_aw_c(jc,:,jb)=ptr_int_state%r_aw_c(jc,:,jb)/z_sum
        ENDIF
 
@@ -1350,7 +1350,7 @@ REAL(wp) :: z_sum
                idx_ve = 2
           ENDIF
 
-          IF (i_cell_type == 6 ) THEN
+          IF (ptr_patch%cell_type == 6 ) THEN
             ptr_int_state%e_aw_v(jv,je,jb) = 0.5_wp*&
             & ptr_patch%edges%edge_vert_length(ile,ibe,idx_ve) &
             &*ptr_patch%edges%dual_edge_length(ile,ibe) &
