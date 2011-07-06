@@ -393,7 +393,7 @@ CONTAINS
     ! Interpolation module is no longer used in ocean model
     ! but some of the grid related information is stored in interpolation type.
 
-    ALLOCATE (ptr_patch%patch_oce%geofac_div(nproma, i_cell_type, nblks_c), STAT=ist )
+    ALLOCATE (ptr_patch%patch_oce%geofac_div(nproma, ptr_patch%cell_type, nblks_c), STAT=ist )
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocation for geofac_div failed')
     ENDIF
@@ -403,7 +403,7 @@ CONTAINS
       CALL finish (routine,'allocation for geofac_qdiv failed')
     ENDIF
 
-    SELECT CASE (i_cell_type)
+    SELECT CASE (ptr_patch%cell_type)
     CASE(3)
       ALLOCATE (ptr_patch%patch_oce%geofac_rot(nproma, 6, nblks_v), STAT=ist )
       IF (ist /= SUCCESS) THEN
@@ -415,12 +415,12 @@ CONTAINS
         CALL finish (routine,'allocation for geofac_rot failed')
       ENDIF
     END SELECT
-    ALLOCATE (ptr_patch%patch_oce%geofac_n2s(nproma, i_cell_type+1, nblks_c), STAT=ist )
+    ALLOCATE (ptr_patch%patch_oce%geofac_n2s(nproma, ptr_patch%cell_type+1, nblks_c), STAT=ist )
     IF (ist /= SUCCESS) THEN
       CALL finish (routine,'allocation for geofac_n2s failed')
     ENDIF
 
-!   ALLOCATE (ptr_patch%patch_oce%geofac_grg(nproma, i_cell_type+1, nblks_c, 2), STAT=ist )
+!   ALLOCATE (ptr_patch%patch_oce%geofac_grg(nproma, ptr_patch%cell_type+1, nblks_c, 2), STAT=ist )
 !   IF (ist /= SUCCESS) THEN
 !     CALL finish (routine,'allocation for geofac_grg failed')
 !   ENDIF
@@ -1939,7 +1939,7 @@ INTEGER :: ile1, ibe1,ile2,ibe2,ile3,ibe3
   &   +ptr_patch%edges%primal_edge_length(ile3,ibe3)*ptr_patch%edges%dual_edge_length(ile3,ibe3))
 
 
-       DO je = 1, i_cell_type
+       DO je = 1, ptr_patch%cell_type
 
           IF (je > ptr_patch%cells%num_edges(jc,jb)) CYCLE ! relevant for hexagons
 
@@ -1969,7 +1969,7 @@ INTEGER :: ile1, ibe1,ile2,ibe2,ile3,ibe3
 
     ! Vorticity should have the right sign
       ifac = 0
-      SELECT CASE (i_cell_type)
+      SELECT CASE (ptr_patch%cell_type)
       CASE (3)
         ifac = 1
       CASE (6)
@@ -1987,7 +1987,7 @@ INTEGER :: ile1, ibe1,ile2,ibe2,ile3,ibe3
         CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
           &                i_startidx, i_endidx, rl_start, rl_end)
 
-        DO je = 1, 9-i_cell_type
+        DO je = 1, 9-ptr_patch%cell_type
           DO jv = i_startidx, i_endidx
 
             IF (je > ptr_patch%verts%num_edges(jv,jb)) CYCLE   ! relevant for hexagons
@@ -2023,7 +2023,7 @@ INTEGER :: ile1, ibe1,ile2,ibe2,ile3,ibe3
         CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                            i_startidx, i_endidx, rl_start, rl_end)
 
-        DO je = 1, i_cell_type
+        DO je = 1, ptr_patch%cell_type
           DO jc = i_startidx, i_endidx
 
             ile = ptr_patch%cells%edge_idx(jc,jb,je)
@@ -2035,12 +2035,12 @@ INTEGER :: ile1, ibe1,ile2,ibe2,ile3,ibe3
             ibc2 = ptr_patch%edges%cell_blk(ile,ibe,2)
 
             IF (jc == ilc1 .AND. jb == ibc1) THEN
-              IF (i_cell_type == 3) THEN
+              IF (ptr_patch%cell_type == 3) THEN
                 ptr_patch%patch_oce%geofac_n2s(jc,1,jb)       =  &
                 &  ptr_patch%patch_oce%geofac_n2s(jc,1,jb)  -  &
                 &  ptr_patch%patch_oce%geofac_div(jc,je,jb) /  &
                 &  ptr_patch%edges%dual_edge_length(ile,ibe)
-            ELSE IF (i_cell_type == 6) THEN
+            ELSE IF (ptr_patch%cell_type == 6) THEN
               ptr_patch%patch_oce%geofac_n2s(jc,1,jb)       =  &
                 &  ptr_patch%patch_oce%geofac_n2s(jc,1,jb)  -  &
                 &  ptr_patch%patch_oce%geofac_div(jc,je,jb) /  &
@@ -2048,12 +2048,12 @@ INTEGER :: ile1, ibe1,ile2,ibe2,ile3,ibe3
                 &  ptr_patch%edges%system_orientation(ile,ibe)
             ENDIF
           ELSE IF (jc == ilc2 .AND. jb == ibc2) THEN
-            IF (i_cell_type == 3) THEN
+            IF (ptr_patch%cell_type == 3) THEN
               ptr_patch%patch_oce%geofac_n2s(jc,1,jb)       =  &
                 &  ptr_patch%patch_oce%geofac_n2s(jc,1,jb)  +  &
                 &  ptr_patch%patch_oce%geofac_div(jc,je,jb) /  &
                 &  ptr_patch%edges%dual_edge_length(ile,ibe)
-            ELSE IF (i_cell_type == 6) THEN
+            ELSE IF (ptr_patch%cell_type == 6) THEN
               ptr_patch%patch_oce%geofac_n2s(jc,1,jb)       =  &
                 &  ptr_patch%patch_oce%geofac_n2s(jc,1,jb)  +  &
                 &  ptr_patch%patch_oce%geofac_div(jc,je,jb) /  &
@@ -2061,16 +2061,16 @@ INTEGER :: ile1, ibe1,ile2,ibe2,ile3,ibe3
                 &  ptr_patch%edges%system_orientation(ile,ibe)
             ENDIF
           ENDIF
-          DO ic = 1, i_cell_type
+          DO ic = 1, ptr_patch%cell_type
             ilnc = ptr_patch%cells%neighbor_idx(jc,jb,ic)
             ibnc = ptr_patch%cells%neighbor_blk(jc,jb,ic)
             IF (ilnc == ilc1 .AND. ibnc == ibc1) THEN
-              IF (i_cell_type == 3) THEN
+              IF (ptr_patch%cell_type == 3) THEN
                 ptr_patch%patch_oce%geofac_n2s(jc,ic+1,jb)     = &
                   &  ptr_patch%patch_oce%geofac_n2s(jc,ic+1,jb)- &
                   &  ptr_patch%patch_oce%geofac_div(jc,je,jb)  / &
                   &  ptr_patch%edges%dual_edge_length(ile,ibe)
-              ELSE IF (i_cell_type == 6) THEN
+              ELSE IF (ptr_patch%cell_type == 6) THEN
                 ptr_patch%patch_oce%geofac_n2s(jc,ic+1,jb)     = &
                   &  ptr_patch%patch_oce%geofac_n2s(jc,ic+1,jb)- &
                   &  ptr_patch%patch_oce%geofac_div(jc,je,jb)  / &
@@ -2078,12 +2078,12 @@ INTEGER :: ile1, ibe1,ile2,ibe2,ile3,ibe3
                   &  ptr_patch%edges%system_orientation(ile,ibe)
               ENDIF
             ELSE IF (ilnc == ilc2 .AND. ibnc == ibc2) THEN
-              IF (i_cell_type == 3) THEN
+              IF (ptr_patch%cell_type == 3) THEN
                 ptr_patch%patch_oce%geofac_n2s(jc,ic+1,jb)     = &
                   &  ptr_patch%patch_oce%geofac_n2s(jc,ic+1,jb)+ &
                   &  ptr_patch%patch_oce%geofac_div(jc,je,jb)  / &
                   &  ptr_patch%edges%dual_edge_length(ile,ibe)
-              ELSE IF (i_cell_type == 6) THEN
+              ELSE IF (ptr_patch%cell_type == 6) THEN
                 ptr_patch%patch_oce%geofac_n2s(jc,ic+1,jb)     = &
                   &  ptr_patch%patch_oce%geofac_n2s(jc,ic+1,jb)+ &
                   &  ptr_patch%patch_oce%geofac_div(jc,je,jb)  / &
@@ -2105,7 +2105,7 @@ INTEGER :: ile1, ibe1,ile2,ibe2,ile3,ibe3
 !$OMP END DO
 
     ! d) Geometrical factor for quad-cell divergence (triangles only)
-    IF (i_cell_type == 3) THEN
+    IF (ptr_patch%cell_type == 3) THEN
 
       rl_start = 1  ! #slo# changed to 1 - 2010-12-07
       rl_end = min_rledge

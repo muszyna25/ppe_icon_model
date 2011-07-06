@@ -56,7 +56,7 @@ MODULE mo_nonhydro_state
   USE mo_dynamics_nml,        ONLY: nsav1, nsav2, itime_scheme
 !  USE mo_advection_nml,       ONLY: ctracer_list
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,             ONLY: i_cell_type, iforcing,             &
+  USE mo_run_nml,             ONLY: iforcing,             &
     &                               inwp, ltransport, ntracer, ntracer_static, &
     &                               inextra_2d, inextra_3d,&
     &                               iqv, iqc, iqi, iqr, iqs, io3
