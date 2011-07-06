@@ -77,7 +77,7 @@ MODULE mo_atm_hdiff_config
       & hdiff_smag_fac,       &! scaling factor for Smagorinsky diffusion
       & hdiff_multfac          ! multiplication factor of normalized diffusion coefficient
                                ! for nested domains
-    REAL(wp), ALLOCATABLE :: &
+    REAL(wp) ::              &
       & k6, k4, k2           ! numerical diffusion coefficients
                              ! Values for these parameters are not directly
                              ! specified by the user, but derived from the ratio 
