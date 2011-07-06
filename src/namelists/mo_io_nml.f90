@@ -122,9 +122,9 @@ MODULE mo_io_nml
                                              ! if .true., save the prognostic
                                              ! variables to p_prog_out and
                                              ! update p_diag_out.
-  !
-  !
-  !
+
+  PUBLIC :: read_io_namelist
+
   CONTAINS
 !
 !-------------------------------------------------------------------------
@@ -275,5 +275,125 @@ SUBROUTINE io_nml_setup
     IF(p_pe == p_io) WRITE(nnml_output,nml=io_ctl)
 
   END SUBROUTINE io_nml_setup
+
+
+  !-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! Read Namelist for I/O. 
+  !!
+  !! This subroutine 
+  !! - reads the Namelist for I/O
+  !! - sets default values
+  !! - potentially overwrites the defaults by values used in a 
+  !!   previous integration (if this is a resumed run)
+  !! - reads the user's (new) specifications
+  !! - stores the Namelist for restart
+  !! - fills the configuration state (partly)    
+  !!
+  !! @par Revision History
+  !!  by Daniel Reinert, DWD (2011-06-07)
+  !!
+  SUBROUTINE read_io_namelist
+    !
+    INTEGER :: istat, funit
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_io_nml: read_io_namelist'
+
+    !-----------------------------------------------------------------------
+
+    !-----------------------!
+    ! 1. default settings   !
+    !-----------------------!
+    out_expname   = 'IIIEEEETTTT'
+    out_filetype  = 2
+
+    dt_data       = 21600.0_wp   !  6 hours
+    dt_file       = 2592000._wp  ! 30 days
+    dt_checkpoint = 2592000._wp  ! 30 days
+    dt_diag       = dtime        !  1 time step
+    lkeep_in_sync = .FALSE.
+
+    lwrite_vorticity   = .TRUE.
+    lwrite_divergence  = .TRUE.
+    lwrite_pres        = .TRUE.
+    lwrite_z3          = .TRUE.
+    lwrite_omega       = .TRUE.
+    IF (ntracer > 0) THEN
+      lwrite_tracer(:)   = .TRUE.
+    ENDIF
+
+    SELECT CASE(iforcing)
+    CASE ( inwp )
+      lwrite_precip    = .TRUE.
+      lwrite_cloud     = .FALSE.
+      lwrite_radiation = .TRUE.
+      lwrite_tke       = .FALSE.
+      lwrite_surface   = .FALSE.
+      lwrite_tend_phy  = .FALSE.
+      lwrite_extra     = .FALSE.
+      lwrite_extra     = .FALSE. 
+    CASE ( iecham, ildf_echam )
+      lwrite_precip    = .TRUE.
+      lwrite_cloud     = .TRUE.
+      lwrite_radiation = .TRUE.
+      lwrite_tend_phy  = .TRUE.
+      lwrite_surface   = .FALSE.
+      lwrite_tke       = .FALSE.
+      lwrite_extra     = .FALSE. 
+    CASE DEFAULT
+      lwrite_precip    = .FALSE.
+      lwrite_cloud     = .FALSE.
+      lwrite_radiation = .FALSE.
+      lwrite_tend_phy  = .FALSE.
+      lwrite_surface   = .FALSE.
+      lwrite_tke       = .FALSE.
+      lwrite_extra     = .FALSE. 
+    END SELECT
+
+
+    !------------------------------------------------------------------
+    ! 2. If this is a resumed integration, overwrite the defaults above 
+    !    by values used in the previous integration.
+    !------------------------------------------------------------------
+    IF (lrestart) THEN
+      funit = open_and_restore_namelist('io_ctl')
+      READ(funit,NML=io_ctl)
+      CALL close_tmpfile(funit)
+    END IF
+
+
+    !--------------------------------------------------------------------
+    ! 3. Read user's (new) specifications (Done so far by all MPI processes)
+    !--------------------------------------------------------------------
+    CALL position_nml ('io_ctl', status=istat)
+    SELECT CASE (istat)
+    CASE (POSITIONED)
+      READ (nnml, io_ctl)
+    END SELECT
+
+
+    !----------------------------------------------------
+    ! 4. Fill the configuration state
+    !----------------------------------------------------
+
+
+    !-----------------------------------------------------
+    ! 5. Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=io_ctl)                    
+    CALL store_and_close_namelist(funit, 'io_ctl') 
+
+
+    ! 6. write the contents of the namelist to an ASCII file
+    !
+    IF(p_pe == p_io) WRITE(nnml_output,nml=io_ctl)
+
+
+  END SUBROUTINE read_io_namelist
+
 
 END MODULE mo_io_nml

@@ -58,7 +58,7 @@ MODULE mo_atmo_setup_configuration
   USE mo_dynamics_nml,        ONLY: dynamics_nml_setup,   &
     &                               cleanup_dyn_params 
   USE mo_diffusion_nml,       ONLY: diffusion_nml_setup, read_diffusion_namelist 
-  USE mo_io_nml,              ONLY: io_nml_setup,         & ! process I/O
+  USE mo_io_nml,              ONLY: io_nml_setup, read_io_namelist, & ! process I/O
     & dt_data,              & !    :
     & dt_file,              & !    :
     & dt_diag,              & !    :
@@ -173,7 +173,8 @@ CONTAINS
     CALL read_gridref_namelist()
     CALL read_gw_hines_namelist()
     CALL read_interpol_namelist()
-        
+    CALL read_io_namelist()
+      
     ! close namelist file
     CALL close_nml
     IF (p_pe == p_io) THEN
