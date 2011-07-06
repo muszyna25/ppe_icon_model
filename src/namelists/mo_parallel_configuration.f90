@@ -162,6 +162,8 @@ CONTAINS
   !-------------------------------------------------------------------------
   SUBROUTINE check_parallel_configuration()
   
+!   !local variables
+    INTEGER :: i_status, my_color, peer_comm, p_error
     CHARACTER(*), PARAMETER :: method_name = "check_parallel_configuration"
 
     !------------------------------------------------------------
@@ -330,6 +332,7 @@ CONTAINS
     p_n_work  = num_io_procs
     p_pe_work = p_pe - num_test_procs - num_work_procs
   ENDIF
+
 
   ! Set communicators
   ! =================
