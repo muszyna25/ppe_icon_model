@@ -50,7 +50,7 @@ MODULE mo_echam_conv_nml
   USE mo_physical_constants,  ONLY: grav
   USE mo_vertical_coord_table,ONLY: vct,ceta
   USE mo_master_nml,          ONLY: lrestart
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &                                             
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &
                                   & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
@@ -65,7 +65,7 @@ MODULE mo_echam_conv_nml
   PUBLIC  :: ncvmicro, nauto                        !< parameters
   PUBLIC  :: nmctop, dlev                           !< parameters
   PUBLIC  :: echam_conv_ctl                         !< namelist
-  PUBLIC  :: read_echam_conv_nml
+  PUBLIC  :: read_echam_conv_namelist
   PUBLIC  :: echam_conv_nml_setup                   !< subroutine
   PUBLIC  :: cleanup_cuparam                        !< subroutine 
 
@@ -125,7 +125,7 @@ CONTAINS
   !>
   !! Read the convection namelist
   !!
-  SUBROUTINE read_echam_conv_nml
+  SUBROUTINE read_echam_conv_namelist()
 
     INTEGER  :: ist, funit
 
@@ -187,7 +187,7 @@ CONTAINS
     WRITE(funit,NML=echam_conv_ctl)
     CALL store_and_close_namelist(funit, 'echam_conv_ctl')
 
-  END read_echam_conv_nml
+  END read_echam_conv_namelist
 
   !>
   !!
