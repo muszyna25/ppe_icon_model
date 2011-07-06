@@ -53,7 +53,7 @@ MODULE mo_ha_stepping
                                   & l_checkpoint_time
   USE mo_run_nml,             ONLY: lshallow_water, nsteps, dtime,ltheta_dyn,   &
                                   & ldynamics, ltransport, msg_level, ltimer,   &
-                                  & i_cell_type, ltestcase, lrestart
+                                  & ltestcase, lrestart
   USE mo_hydro_testcases,     ONLY: init_testcase
   USE mo_si_correction,       ONLY: init_si_params
   USE mo_ha_rungekutta,       ONLY: init_RungeKutta

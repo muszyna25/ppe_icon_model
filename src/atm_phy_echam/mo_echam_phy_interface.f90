@@ -50,7 +50,7 @@ MODULE mo_echam_phy_interface
   USE mo_interpolation,     ONLY: t_int_state, rbf_vec_interpol_cell, & 
                                 & edges2cells_scalar
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,           ONLY: nlev, ltimer, i_cell_type
+  USE mo_run_nml,           ONLY: nlev, ltimer
   USE mo_radiation_nml,     ONLY: dt_rad
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_e, grf_bdywidth_c
@@ -151,7 +151,7 @@ CONTAINS
 
     CALL sync_patch_array( SYNC_E, p_patch, dyn_prog_old%vn )
 
-    SELECT CASE (i_cell_type)
+    SELECT CASE (p_patch%cell_type)
     CASE (3)
       CALL rbf_vec_interpol_cell( dyn_prog_old%vn,      &! in
         &                         p_patch, p_int_state, &! in
@@ -209,7 +209,7 @@ CONTAINS
 
     CALL sync_patch_array( SYNC_E, p_patch, dyn_tend%vn )
 
-    SELECT CASE (i_cell_type)
+    SELECT CASE (p_patch%cell_type)
     CASE (3)
       CALL rbf_vec_interpol_cell( dyn_tend%vn,          &! in
         &                         p_patch, p_int_state, &! in
