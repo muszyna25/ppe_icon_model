@@ -110,7 +110,8 @@ MODULE mo_atmo_setup_configuration
 
   ! Horizontal interpolation
   !
-  USE mo_interpol_nml,        ONLY: interpol_nml_setup   ! process interpol. ctl. params.
+  USE mo_interpol_nml,        ONLY: interpol_nml_setup, read_interpol_namelist
+   
   USE mo_gridref_nml,         ONLY: gridref_nml_setup
   
   ! Vertical grid
@@ -171,6 +172,7 @@ CONTAINS
     CALL read_diffusion_namelist()
     CALL read_gridref_namelist()
     CALL read_gw_hines_namelist()
+    CALL read_interpol_namelist()
         
     ! close namelist file
     CALL close_nml

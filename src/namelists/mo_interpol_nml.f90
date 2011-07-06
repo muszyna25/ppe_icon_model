@@ -143,7 +143,7 @@ MODULE mo_interpol_nml
       &     rbf_c2grad_dim, lsq_high_set,        &
       &     lsq_lin_set
 
-  PUBLIC :: interpol_nml_setup
+  PUBLIC :: interpol_nml_setup, read_interpol_namelist
 
 CONTAINS
 
@@ -424,6 +424,112 @@ ENDIF
 
 
 END SUBROUTINE interpol_nml_setup !CJ setup_interpol
+
+
+  !-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! Read Namelist for interpolation. 
+  !!
+  !! This subroutine 
+  !! - reads the Namelist for interpolation
+  !! - sets default values
+  !! - potentially overwrites the defaults by values used in a 
+  !!   previous integration (if this is a resumed run)
+  !! - reads the user's (new) specifications
+  !! - stores the Namelist for restart
+  !! - fills the configuration state (partly)    
+  !!
+  !! @par Revision History
+  !!  by Daniel Reinert, DWD (2011-06-07)
+  !!
+  SUBROUTINE read_interpol_namelist
+    !
+    INTEGER :: istat, funit
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_interpol_nml: read_interpol_namelist'
+
+    !-----------------------------------------------------------------------
+
+    !-----------------------!
+    ! 1. default settings   !
+    !-----------------------!
+
+    ! LSQ reconstruction at cell center
+    llsq_high_consv  = .TRUE.   ! conservative reconstruction
+    lsq_high_ord     = 3        ! cubic polynomial
+    ! RBF vector reconstruction at cell centers
+    rbf_vec_dim_c   = 9         ! use 2nd order reconstruction
+    rbf_vec_kern_c  = 1         ! use Gaussian kernel
+    ! RBF vector reconstruction at vertices
+    rbf_vec_dim_v   = 6         ! use 6-point reconstruction
+    rbf_vec_kern_v  = 1         ! use Gaussian kernel
+    ! RBF vector reconstruction at edge midpoints
+    rbf_vec_dim_e   = 4         ! use 4-point reconstruction
+    rbf_vec_kern_e  = 3         ! use Inverse multiquadric kernel
+    ! Stencil size for reconstruction of gradient at cell midpoints
+    rbf_c2grad_dim  = 10
+
+    ! Initialize namelist fields for scaling factors (dimension 1:depth) with dummy values
+    ! A meaningful initialization follows after reading the namelist
+    rbf_vec_scale_c(:) = -1.0_wp
+    rbf_vec_scale_v(:) = -1.0_wp
+    rbf_vec_scale_e(:) = -1.0_wp
+
+    ! Initialize the namelist for the method for the vorticity flux term
+    i_cori_method = 3
+    l_corner_vort=.TRUE.
+
+    ! Coefficients for lateral boundary nudging
+    nudge_max_coeff   = 0.02_wp  ! Maximum nudging coefficient
+    nudge_efold_width = 2._wp    ! e-folding width in units of cell rows
+    nudge_zone_width  = 8        ! Width of nudging zone in units of cell rows
+
+
+
+
+    !------------------------------------------------------------------
+    ! 2. If this is a resumed integration, overwrite the defaults above 
+    !    by values used in the previous integration.
+    !------------------------------------------------------------------
+    IF (lrestart) THEN
+      funit = open_and_restore_namelist('interpol_ctl')
+      READ(funit,NML=interpol_ctl)
+      CALL close_tmpfile(funit)
+    END IF
+
+
+    !--------------------------------------------------------------------
+    ! 3. Read user's (new) specifications (Done so far by all MPI processes)
+    !--------------------------------------------------------------------
+    CALL position_nml ('interpol_ctl', status=istat)
+    SELECT CASE (istat)
+    CASE (POSITIONED)
+      READ (nnml, interpol_ctl)
+    END SELECT
+
+
+    !----------------------------------------------------
+    ! 4. Fill the configuration state
+    !----------------------------------------------------
+
+
+    !-----------------------------------------------------
+    ! 5. Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=interpol_ctl)                    
+    CALL store_and_close_namelist(funit, 'interpol_ctl') 
+
+
+    ! 6. write the contents of the namelist to an ASCII file
+    !
+    IF(p_pe == p_io) WRITE(nnml_output,nml=interpol_ctl)
+
+
+  END SUBROUTINE read_interpol_namelist
 
 
 END MODULE mo_interpol_nml
