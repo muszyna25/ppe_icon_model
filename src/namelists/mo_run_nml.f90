@@ -53,8 +53,9 @@ MODULE mo_run_nml
   USE mo_mpi,                ONLY: p_pe, p_io
   USE mo_master_nml,         ONLY: lrestart
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
-  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
+  USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
+  USE mo_run_config,         ONLY: run_config
 
   IMPLICIT NONE
 
@@ -167,8 +168,8 @@ MODULE mo_run_nml
 
   ! timer
   ! -----
-  LOGICAL :: ltimer     ! if .TRUE.,  the timer is switched on
-  INTEGER :: timers_level = 1  ! what level of timers to run
+  LOGICAL :: ltimer       !  if .TRUE.,  the timer is switched on
+  INTEGER :: timers_level ! what level of timers to run
 
   ! dump/restore
   ! ------------
@@ -432,6 +433,7 @@ CONTAINS
 SUBROUTINE read_run_namelist
 
     INTEGER :: istat, funit
+    INTEGER :: jg
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_run_nml: read_run_nml'
@@ -494,6 +496,7 @@ SUBROUTINE read_run_namelist
    itopo          = 0
    msg_level      = 10
    ltimer         = .TRUE.
+   timers_level = 1  ! what level of timers to run
 
    ! dump/restore
    ldump_states    = .FALSE.
@@ -538,6 +541,40 @@ SUBROUTINE read_run_namelist
     ! 4. Fill the configuration state
     !----------------------------------------------------
 
+    DO jg= 1,max_dom
+      run_config(jg)%ldump_states    = ldump_states
+      run_config(jg)%lrestore_states = lrestore_states
+      run_config(jg)%ltestcase       = ltestcase 
+      run_config(jg)%ldynamics       = ldynamics 
+      run_config(jg)%ltheta_dyn      = ltheta_dyn 
+      run_config(jg)%ltransport      = ltransport 
+      run_config(jg)%ntracer         = ntracer 
+      run_config(jg)%ntracer_static  = ntracer_static   
+      run_config(jg)%iforcing        = iforcing 
+      run_config(jg)%iequations      = iequations
+      run_config(jg)%lcorio          = lcorio   
+      run_config(jg)%itopo           = itopo 
+      run_config(jg)%dtime           = dtime 
+      run_config(jg)%dtrk(3)         = dtrk(3)
+      run_config(jg)%nsteps          = nsteps  
+      run_config(jg)%ltimer          = ltimer
+      run_config(jg)%timers_level    = timers_level
+      run_config(jg)%num_lev         = num_lev
+      run_config(jg)%num_levp1       = num_levp1 
+      run_config(jg)%nshift          = nshift
+      run_config(jg)%lvert_nest      = lvert_nest
+      run_config(jg)%nvclev          = nvclev 
+      run_config(jg)%ntracer         = ntracer
+      run_config(jg)%ntracer_static  = ntracer_static  
+      run_config(jg)%run_day         = run_day
+      run_config(jg)%run_hour        = run_hour 
+      run_config(jg)%run_minute      = run_minute
+      run_config(jg)%run_second      = run_second
+      run_config(jg)%msg_level       = msg_level
+      run_config(jg)%inextra_2d      = inextra_2d
+      run_config(jg)%inextra_3d      = inextra_3d
+
+    END DO
 
     !-----------------------------------------------------
     ! Store the namelist for restart
