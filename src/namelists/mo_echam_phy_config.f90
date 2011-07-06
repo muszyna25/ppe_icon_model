@@ -71,4 +71,11 @@ MODULE mo_echam_phy_config
   !!
   TYPE(t_echam_phy_config) :: echam_phy_config
 
+CONTAINS
+  !>
+  !!
+  LOGICAL FUNCTION get_lvdiff()
+    get_lvdiff = echam_phy_config%lvdiff
+  END FUNCTION get_lvdiff
+
 END MODULE mo_echam_phy_config
