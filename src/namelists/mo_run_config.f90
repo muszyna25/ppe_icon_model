@@ -80,8 +80,6 @@ MODULE mo_run_config
                                 ! with the upper boundary of the current domain jg
     LOGICAL   :: lvert_nest !< switches on vertical nesting (.TRUE.)
     INTEGER   :: nvclev              ! no. of levels at which the coeffs A, B are given
-    INTEGER   :: ntracer             ! number of advected tracers
-    INTEGER   :: ntracer_static      ! number of non-advected tracers
     
     INTEGER   :: run_day              ! run length
     INTEGER   :: run_hour, run_minute ! - in day,hr,min,sec
@@ -109,7 +107,7 @@ MODULE mo_run_config
   !!
   TYPE(t_run_config) :: run_config(max_dom)
 
-CONTAINS
+! CONTAINS
 
 
 !  !---------------------------------------
