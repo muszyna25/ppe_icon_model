@@ -104,7 +104,7 @@ MODULE mo_grid_nml
 
   NAMELIST /grid_ctl/ nml_nroot, nml_start_lev, nml_n_dom, nml_lfeedback, nml_lplane, &
     & nml_corio_lat, nml_parent_id, nml_l_limited_area, nml_patch_weight, nml_lpatch0,&
-    & nml_lredgrid_phys, nml_cell_type,
+    & nml_lredgrid_phys, nml_cell_type,                                  &
     & nml_dynamics_grid_filename,  nml_dynamics_parent_grid_id,         &
     & nml_radiation_grid_filename, nml_dynamics_radiation_grid_link
 
@@ -159,10 +159,10 @@ MODULE mo_grid_nml
     nml_no_of_dynamics_grids  = 0
     nml_no_of_radiation_grids = 0
     DO i = 1, max_dom
-      dynamics_grid_filename(i)   = ""
-      radiation_grid_filename(i)  = ""
-      dynamics_parent_grid_id(i)  = 0
-      dynamics_radiation_grid_link(i) = 0
+      nml_dynamics_grid_filename(i)   = ""
+      nml_radiation_grid_filename(i)  = ""
+      nml_dynamics_parent_grid_id(i)  = 0
+      nml_dynamics_radiation_grid_link(i) = 0
     ENDDO
     
     !------------------------------------------------------------
@@ -232,23 +232,23 @@ MODULE mo_grid_nml
 
 
     ! Reset lfeedback to false for all model domains if lfeedback(1) = false
-    IF (.NOT. lfeedback(1)) lfeedback(2:max_dom) = .FALSE.
+!     IF (.NOT. lfeedback(1)) lfeedback(2:max_dom) = .FALSE.
 
     !-----------------------------------------------------
     ! Set dependent variables
     !-----------------------------------------------------
     ! convert degrees in radiant for the Coriolis latitude
 
-    corio_lat =  corio_lat/rad2deg
+!     corio_lat =  corio_lat/rad2deg
 
     ! set n_dom_start
 
-    IF(lpatch0) THEN
-      n_dom_start = 0
-    ELSE
-      n_dom_start = 1
-      lredgrid_phys = .FALSE.    ! lredgrid_phys requires presence of patch0 => reset to false
-    ENDIF
+!     IF(lpatch0) THEN
+!       n_dom_start = 0
+!     ELSE
+!       n_dom_start = 1
+!       lredgrid_phys = .FALSE.    ! lredgrid_phys requires presence of patch0 => reset to false
+!     ENDIF
 
 
     IF (dynamics_grid_filename(1) == "") THEN
