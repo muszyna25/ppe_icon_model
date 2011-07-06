@@ -743,9 +743,7 @@ CONTAINS
   !!
   SUBROUTINE read_transport_namelist
     !
-    INTEGER :: istat, i_listlen, funit
-    INTEGER :: jt          !< tracer loop index
-    INTEGER :: z_nogo(2)   !< for consistency check
+    INTEGER :: istat, funit
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_nml: read_transport_nml'
@@ -779,6 +777,7 @@ CONTAINS
                                   ! =0.0 selects 4th order advection in up3
     llsq_svd        = .FALSE.     ! apply QR-decomposition
 
+
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
@@ -806,6 +805,7 @@ CONTAINS
     funit = open_tmpfile()
     WRITE(funit,NML=transport_ctl)                    
     CALL store_and_close_namelist(funit, 'transport_ctl')             
+
 
     ! 5. write the contents of the namelist to an ASCII file
     !
