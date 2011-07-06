@@ -87,10 +87,10 @@ MODULE mo_ha_dyn_nml
   LOGICAL :: lref_temp   ! if .TRUE., involve the reference temperature profile
                          ! in the calculation of pressure gradient force.
 
-  NAMELIST/ha_dyn_nml/ ileapfrog_startup, asselin_coeff,      &
-                       si_2tls, si_coeff, si_offctr, si_rtol, &
-                       & si_cmin, lsi_3d, si_expl_scheme,     &
-                       & ldry_dycore, lref_temp
+  NAMELIST/ha_dyn_nml/ ileapfrog_startup, asselin_coeff, &
+                       si_coeff, si_offctr, si_rtol,     &
+                       si_cmin, lsi_3d, si_expl_scheme,  &
+                       ldry_dycore, lref_temp
 
 CONTAINS
   !>
