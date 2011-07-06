@@ -187,7 +187,7 @@ CONTAINS
     WRITE(funit,NML=echam_conv_ctl)
     CALL store_and_close_namelist(funit, 'echam_conv_ctl')
 
-  END read_echam_conv_namelist
+  END SUBROUTINE read_echam_conv_namelist
 
   !>
   !!
