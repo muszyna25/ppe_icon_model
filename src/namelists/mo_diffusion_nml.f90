@@ -49,7 +49,7 @@ MODULE mo_diffusion_nml
   USE mo_namelist,            ONLY: position_nml, positioned
   USE mo_master_nml,          ONLY: lrestart
   USE mo_mpi,                 ONLY: p_pe, p_io
-  USE mo_run_nml,             ONLY: lshallow_water,global_cell_type,nlev, &
+  USE mo_run_nml,             ONLY: lshallow_water,nlev, &
                                   & latmosphere, lhydrostatic
   USE mo_grid_configuration,  ONLY: global_cell_type
   USE mo_vertical_coord_table,ONLY: vct_a, vct_b, apzero
