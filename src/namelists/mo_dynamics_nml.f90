@@ -53,7 +53,7 @@ MODULE mo_dynamics_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned
   USE mo_mpi,                ONLY: p_pe, p_io
-  USE mo_run_nml,            ONLY: ltransport,dtime,ntracer,global_cell_type,      &
+  USE mo_run_nml,            ONLY: ltransport,dtime,ntracer,                 &
     &                              iforcing,lshallow_water,INWP, IHS_ATM_TEMP,&
     &                              IHS_ATM_THETA,iequations
   USE mo_grid_configuration,  ONLY: global_cell_type
