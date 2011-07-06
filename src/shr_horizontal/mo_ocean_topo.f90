@@ -136,7 +136,7 @@ USE mo_math_constants,     ONLY: pi, deg2rad
 USE mo_physical_constants, ONLY: re, omega!, rgrav
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real
-USE mo_grid_nml,           ONLY: nroot
+! USE mo_grid_nml,           ONLY: nroot
 
 IMPLICIT NONE
 
@@ -641,7 +641,9 @@ CONTAINS
     i_lev = ptr_patch%level
 
     ! generate file name
-    WRITE (ogrid_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-grid.nc'
+    ogrid_file = TRIM(ptr_patch%grid_filename)
+!     WRITE (ogrid_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-grid.nc'
+    CALL message("read_netcdf_ocean_domain, ogrid_file=",ogrid_file)
 
     INQUIRE (FILE=ogrid_file, EXIST=l_exist)
     IF (.NOT.l_exist) THEN

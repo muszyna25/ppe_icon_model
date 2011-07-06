@@ -56,7 +56,7 @@ MODULE mo_ext_data
   USE mo_model_domain,       ONLY: t_patch
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_grid_nml,           ONLY: n_dom, nroot, start_lev
+  USE mo_grid_configuration, ONLY: n_dom
   USE mo_interpolation,      ONLY: t_int_state, cells2verts_scalar
   USE mo_math_operators,     ONLY: nabla4_scalar
   USE mo_loopindices,        ONLY: get_indices_c
@@ -1420,9 +1420,12 @@ END SUBROUTINE inquire_external_files
         !
         ! generate file name
         !
-        WRITE(extpar_file,'(a,i1,a,i1,a,i1,a)') &
-          & 'extpar_R',nroot,'B0',start_lev,'_DOM0',jg,'.nc'
-
+!         WRITE(extpar_file,'(a,i1,a,i1,a,i1,a)') &
+!           & 'extpar_R',nroot,'B0',start_lev,'_DOM0',jg,'.nc'
+        WRITE(extpar_file,'(a,a)') &
+          & 'extpar_',TRIM(p_patch(jg)%grid_filename)
+        CALL message("read_ext_data_atm, extpar_file=",extpar_file)
+        
         INQUIRE (FILE=extpar_file, EXIST=l_exist)
         IF (.NOT.l_exist) THEN
           CALL finish(TRIM(routine),'external data file is not found.')
