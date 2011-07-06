@@ -145,7 +145,7 @@ MODULE mo_grid_nml
     !local variable
     INTEGER  :: i_status, i, jg, jlev, funit
     CHARACTER(filename_max) :: patch_file, gridtype
-    INTEGER  ::  patch_level(max_dom)
+    INTEGER  ::  nml_patch_level(max_dom)
     LOGICAL :: l_exist
     
     CHARACTER(*), PARAMETER :: method_name = "check_parallel_configuration"
@@ -261,7 +261,7 @@ MODULE mo_grid_nml
       nml_dynamics_parent_grid_id(1) = 0       
       DO jg = 2, n_dom
         nml_dynamics_parent_grid_id(jg) = nml_parent_id(jg-1)
-        nml_patch_level(jg) = patch_level(nml_dynamics_parent_grid_id(jg))+1
+        nml_patch_level(jg) = nml_patch_level(nml_dynamics_parent_grid_id(jg))+1
       ENDDO 
     
       ! fill the grid prefix
