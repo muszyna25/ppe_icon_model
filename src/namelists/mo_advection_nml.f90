@@ -745,6 +745,7 @@ CONTAINS
   SUBROUTINE read_transport_namelist
     !
     INTEGER :: istat, funit
+    INTEGER :: jg           ! loop index
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_nml: read_transport_nml'
@@ -766,7 +767,6 @@ CONTAINS
     ivadv_tracer(:) = ippm_vcfl   ! PPM vertical advection scheme
     itype_vlimit(:) = islopel_vsm ! semi-monotonous slope limiter
     ivcfl_max       = 5           ! CFL-stability range for vertical advection
-    iadv_slev(:,:)  = 1           ! vertical start level
     iord_backtraj   = 1           ! 1st order backward trajectory
     lvadv_tracer    = .TRUE.      ! vertical advection yes/no
     lclip_tracer    = .FALSE.     ! clipping of negative values yes/no
@@ -778,6 +778,9 @@ CONTAINS
                                   ! =0.0 selects 4th order advection in up3
     llsq_svd        = .FALSE.     ! apply QR-decomposition
 
+    iadv_slev(:,:)  = 1           ! vertical start level !DR should go into 
+                                  ! the derived variables-section since it 
+                                  ! is not part of our namelist
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -804,6 +807,21 @@ CONTAINS
     ! 4. Fill the configuration state
     !----------------------------------------------------
 
+    DO jg= 1,max_dom
+      advection_config(jg)%ctracer_list   = ctracer_list
+      advection_config(jg)%ihadv_tracer(:)= ihadv_tracer(:)
+      advection_config(jg)%ivadv_tracer(:)= ivadv_tracer(:)
+      advection_config(jg)%lvadv_tracer   = lvadv_tracer
+      advection_config(jg)%lclip_tracer   = lclip_tracer
+      advection_config(jg)%lstrang        = lstrang
+      advection_config(jg)%llsq_svd       = llsq_svd
+      advection_config(jg)%itype_vlimit(:)= itype_vlimit(:)
+      advection_config(jg)%itype_hlimit(:)= itype_hlimit(:)
+      advection_config(jg)%iord_backtraj  = iord_backtraj
+      advection_config(jg)%igrad_c_miura  = igrad_c_miura
+      advection_config(jg)%ivcfl_max      = ivcfl_max
+      advection_config(jg)%upstr_beta_adv = upstr_beta_adv
+    ENDDO
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
