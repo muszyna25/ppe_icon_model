@@ -385,15 +385,6 @@ MODULE mo_vertical_grid
 
     !------------------------------------------------------------------------
 
-    SELECT CASE (i_cell_type)
-    CASE (6)
-      l_half_lev_centr = .TRUE.
-      ! The HALF LEVEL where the model layer are flat, moves one layer upward.
-      ! there could also be a zero there
-      nflat = nflat-1
-    CASE DEFAULT
-      l_half_lev_centr = .FALSE.
-    END SELECT
 
     ! model timer is not yet initialized here and grad_fd_norm asks for a
     ! running timer
@@ -402,6 +393,16 @@ MODULE mo_vertical_grid
     nshift_total(1) = 0
 
     DO jg = 1,n_dom
+
+      SELECT CASE (p_patch(jg)%cell_type)
+      CASE (6)
+        l_half_lev_centr = .TRUE.
+        ! The HALF LEVEL where the model layer are flat, moves one layer upward.
+        ! there could also be a zero there
+        nflat = nflat-1
+      CASE DEFAULT
+        l_half_lev_centr = .FALSE.
+      END SELECT
 
       nblks_c   = p_patch(jg)%nblks_int_c
       npromz_c  = p_patch(jg)%npromz_int_c
@@ -418,7 +419,7 @@ MODULE mo_vertical_grid
         nshift_total(jg) = nshift_total(jgp) + p_patch(jg)%nshift
         nflatlev(jg)     = nflatlev(1) - nshift_total(jg)
       ENDIF
-      IF (i_cell_type == 6) nflatlev(jg) = nflat
+      IF (p_patch(jg)%cell_type == 6) nflatlev(jg) = nflat
       IF (jg > 1 .AND. nshift_total(jg) > 0 .AND. nflatlev(jg) < 1) THEN
         CALL finish (TRIM(routine), &
                      'nflat must be more than the top of the innermost nested domain')
@@ -549,7 +550,7 @@ MODULE mo_vertical_grid
         p_nh(jg)%metrics%ddqz_z_half(1:nlen,nlevp1,jb) =    &
         & 2.0_wp*(p_nh(jg)%metrics%z_mc (1:nlen,nlev  ,jb)  &
         &       - p_nh(jg)%metrics%z_ifc(1:nlen,nlevp1,jb))
-        IF (i_cell_type==3) THEN
+        IF (p_patch(jg)%cell_type==3) THEN
           ! layer distance between jk+1 and jk-1
           p_nh(jg)%metrics%inv_ddqz_z_half2(:,1,jb) = 0._wp
           DO jk = 2, nlev
@@ -731,7 +732,7 @@ MODULE mo_vertical_grid
 
       CALL sync_patch_array(SYNC_E,p_patch(jg),p_nh(jg)%metrics%ddqz_z_full_e)
 
-      IF(i_cell_type==6)THEN
+      IF(p_patch(jg)%cell_type==6)THEN
 
         IF (p_test_run) THEN
           p_nh(jg)%metrics%ddqz_z_half_e = 0._wp
@@ -875,7 +876,7 @@ MODULE mo_vertical_grid
           (1._wp-TANH(3.8_wp*z_diff/MAX(1.e-6_wp,0.5_wp*(vct_a(1)+vct_a(2))-damp_height_u)))
       ENDDO
 
-      IF (i_cell_type == 3 .AND. msg_level >= 10) THEN
+      IF (p_patch(jg)%cell_type == 3 .AND. msg_level >= 10) THEN
         WRITE(message_text,'(a,i4,a,2i4)') 'Domain', jg, &
           '; end indices of Rayleigh damping layer for w and u: ', nrdmax(jg), nrdmax_u(jg)
         CALL message(TRIM(routine),message_text)
@@ -899,7 +900,7 @@ MODULE mo_vertical_grid
 
       i_startblk = p_patch(jg)%cells%start_blk(2,1)
 
-      IF (i_cell_type == 3) THEN
+      IF (p_patch(jg)%cell_type == 3) THEN
         ALLOCATE (z_maxslp(nproma,nlev,p_patch(jg)%nblks_c), &
                   z_maxhgtd(nproma,nlev,p_patch(jg)%nblks_c) )
 
@@ -974,7 +975,7 @@ MODULE mo_vertical_grid
 
       ! The remaining computations are needed for the triangular grid only
       ! once the initialization in mo_nh_testcases is properly rewritten for hexagons
-      IF (i_cell_type == 6) CYCLE
+      IF (p_patch(jg)%cell_type == 6) CYCLE
 
       ! Index lists for boundary nudging (including halo cells so that no 
       ! sync is needed afterwards; halo edges are excluded, however, because
@@ -1210,7 +1211,7 @@ MODULE mo_vertical_grid
 !$OMP END DO
 !$OMP END PARALLEL
 
-      IF (i_cell_type == 3 .AND. msg_level >= 10) THEN
+      IF (p_patch(jg)%cell_type == 3 .AND. msg_level >= 10) THEN
         z_offctr = MAXVAL(p_nh(jg)%metrics%vwind_impl_wgt,MASK=p_patch(jg)%cells%owner_mask(:,:))
         z_offctr = global_max(z_offctr) - 0.5_wp
         DO jk = 1, nlev
@@ -1253,7 +1254,7 @@ MODULE mo_vertical_grid
       CALL sync_patch_array_mult(SYNC_E,p_patch(jg),3,p_nh(jg)%metrics%wgtfac_e,       &
                                  p_nh(jg)%metrics%wgtfacq_e,p_nh(jg)%metrics%wgtfacq1_e)
 
-      IF (i_cell_type == 3) THEN
+      IF (p_patch(jg)%cell_type == 3) THEN
 
       ! Reference atmosphere fields for triangular code
 !$OMP PARALLEL

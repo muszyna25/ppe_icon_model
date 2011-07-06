@@ -81,7 +81,7 @@ MODULE mo_hydro_testcases
   USE mo_dynamics_nml,    ONLY: ltwotime, itime_scheme,               &
        &                        nnow, nold, nnew 
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,         ONLY: i_cell_type, lshallow_water,          &
+  USE mo_run_nml,         ONLY: lshallow_water,          &
        &                        num_lev, ntracer, ltransport, &
        &                        iqv
        
