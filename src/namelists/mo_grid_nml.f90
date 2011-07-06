@@ -61,56 +61,52 @@ MODULE mo_grid_nml
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
-  PUBLIC
   PUBLIC :: read_grid_namelist
-  PUBLIC :: dynamics_grid_filename,  dynamics_parent_grid_id,  &
-    & radiation_grid_filename, dynamics_radiation_grid_link,   &
-    & no_of_dynamics_grids, no_of_radiation_grids     
 
   ! ------------------------------------------------------------------------
   ! 1.0 Namelist variables and auxiliary variables
   ! ------------------------------------------------------------------------
 
-  INTEGER    :: nroot                    ! root division of initial edges
-  INTEGER    :: start_lev                ! coarsest bisection level
-  INTEGER    :: n_dom                    ! number of model domains, 1=global domain only 
-  INTEGER    :: n_dom_start=1 
-  INTEGER    :: max_childdom
-  INTEGER, DIMENSION (max_dom-1) :: parent_id  !ID of parent domain
+  INTEGER    :: nml_nroot                    ! root division of initial edges
+  INTEGER    :: nml_start_lev                ! coarsest bisection level
+  INTEGER    :: nml_n_dom                    ! number of model domains, 1=global domain only 
+  INTEGER    :: nml_n_dom_start=1 
+  INTEGER    :: nml_max_childdom
+  INTEGER, DIMENSION (max_dom-1) :: nml_parent_id  !ID of parent domain
   ! cell geometry
   ! -------------
-  INTEGER    :: i_cell_type         ! cell type:
+  INTEGER    :: nml_cell_type         ! cell type:
 
-  LOGICAL    :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
-  LOGICAL    :: lredgrid_phys(max_dom)   ! If set to .true. is calculated on a reduced grid
-  LOGICAL    :: lplane                   ! planar option
-  LOGICAL    :: l_limited_area            
+  LOGICAL    :: nml_lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
+  LOGICAL    :: nml_lredgrid_phys(max_dom)   ! If set to .true. is calculated on a reduced grid
+  LOGICAL    :: nml_lplane                   ! planar option
+  LOGICAL    :: nml_l_limited_area            
 
   ! if lplane: latitude at which tangential plane resides
-  REAL(wp)   :: corio_lat                ! Center of the f-plane is located 
+  REAL(wp)   :: nml_corio_lat                ! Center of the f-plane is located 
                                          ! at this geographical latitude
 
-  REAL(wp)   :: patch_weight(max_dom)    ! If patch_weight is set to a value > 0
+  REAL(wp)   :: nml_patch_weight(max_dom)    ! If patch_weight is set to a value > 0
                                          ! for any of the first level child patches,
                                          ! processor splitting will be performed
 
-  LOGICAL    :: lpatch0                  ! If set to .true. an additional patch one
+  LOGICAL    :: nml_lpatch0                  ! If set to .true. an additional patch one
                                          ! level below the root patch is allocated
                                          ! and read so that physics calculations
                                          ! on a coarser grid are possible
 
-  CHARACTER(LEN=filename_max) :: dynamics_grid_filename(max_dom)
-  INTEGER                     :: dynamics_parent_grid_id(max_dom)
-  CHARACTER(LEN=filename_max) :: radiation_grid_filename(max_dom)
-  INTEGER                     :: dynamics_radiation_grid_link(max_dom)
+  CHARACTER(LEN=filename_max) :: nml_dynamics_grid_filename(max_dom)
+  INTEGER                     :: nml_dynamics_parent_grid_id(max_dom)
+  CHARACTER(LEN=filename_max) :: nml_radiation_grid_filename(max_dom)
+  INTEGER                     :: nml_dynamics_radiation_grid_link(max_dom)
 
-  INTEGER :: no_of_dynamics_grids, no_of_radiation_grids
+  INTEGER :: nml_no_of_dynamics_grids, nml_no_of_radiation_grids
 
-  NAMELIST /grid_ctl/ nroot, start_lev, n_dom, lfeedback, lplane, corio_lat,     &
-                      parent_id, l_limited_area, patch_weight, lpatch0,          &
-                      lredgrid_phys, i_cell_type,                                &
-                      dynamics_grid_filename,  dynamics_parent_grid_id,         &
-                      radiation_grid_filename, dynamics_radiation_grid_link
+  NAMELIST /grid_ctl/ nml_nroot, nml_start_lev, nml_n_dom, nml_lfeedback, nml_lplane, &
+    & nml_corio_lat, nml_parent_id, nml_l_limited_area, nml_patch_weight, nml_lpatch0,&
+    & nml_lredgrid_phys, nml_cell_type,
+    & nml_dynamics_grid_filename,  nml_dynamics_parent_grid_id,         &
+    & nml_radiation_grid_filename, nml_dynamics_radiation_grid_link
 
   ! -----------------------------------------------------------------------
   ! 2.0 Declaration of dependent variables
@@ -160,8 +156,8 @@ MODULE mo_grid_nml
 
     !-----------------------------------------------------------------------
     ! clear grid filenames and hierarchy
-    no_of_dynamics_grids  = 0
-    no_of_radiation_grids = 0
+    nml_no_of_dynamics_grids  = 0
+    nml_no_of_radiation_grids = 0
     DO i = 1, max_dom
       dynamics_grid_filename(i)   = ""
       radiation_grid_filename(i)  = ""
@@ -173,35 +169,35 @@ MODULE mo_grid_nml
     ! 3.0 set up the default values for grid_ctl
     !------------------------------------------------------------
 
-    nroot       = 2
-    start_lev   = 4
-    n_dom       = 1
-    i_cell_type = itri
+    nml_nroot       = 2
+    nml_start_lev   = 4
+    nml_n_dom       = 1
+    nml_i_cell_type = itri
     
     ! Note: the first element of parent_id refers to the first nested domain
     DO i = 1, max_dom-1
-      parent_id(i) = i
+      nml_parent_id(i) = i
     ENDDO
   
-    lfeedback   = .TRUE.
-    lplane      = .FALSE.
-    l_limited_area = .FALSE.
-    corio_lat   = 0.0_wp
-    patch_weight= 0.0_wp
-    lpatch0     = .FALSE.
-    lredgrid_phys = .FALSE.
+    nml_lfeedback   = .TRUE.
+    nml_lplane      = .FALSE.
+    nml_l_limited_area = .FALSE.
+    nml_corio_lat   = 0.0_wp
+    nml_patch_weight= 0.0_wp
+    nml_lpatch0     = .FALSE.
+    nml_lredgrid_phys = .FALSE.
 
     ! copy default values to "default" variables
-    nroot_d     = nroot
-    start_lev_d = start_lev
-    n_dom_d     = n_dom
-    parent_id_d = parent_id
-    lfeedback_d = lfeedback
-    lplane_d    = lplane
-    l_limited_area_d = l_limited_area
-    lredgrid_phys_d  = lredgrid_phys
-    corio_lat_d = corio_lat
-    patch_weight_d = patch_weight
+    nroot_d     = nml_nroot
+    start_lev_d = nml_start_lev
+    n_dom_d     = nml_n_dom
+    parent_id_d = nml_parent_id
+    lfeedback_d = nml_lfeedback
+    lplane_d    = nml_lplane
+    l_limited_area_d = nml_l_limited_area
+    lredgrid_phys_d  = nml_lredgrid_phys
+    corio_lat_d = nml_corio_lat
+    patch_weight_d = nml_patch_weight
 
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
