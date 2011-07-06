@@ -63,7 +63,7 @@
 !!    rather than read from a grid/patch file.
 !! Modification by Almut Gassmann, MPI-M, (2008-09-21)
 !!  - remove reference to mask and height files, they are never used
-!!  - use i_cell_type to distinguish cells as triangles or hexagons
+!!  - use global_cell_type to distinguish cells as triangles or hexagons
 !! Modification by Almut Gassmann, MPI-M (2008-10-30)
 !!  - add subroutine init_coriolis to initialize Coriolis parameter
 !! Modification by Stephan Lorenz, MPI-M (2010-02-18)
@@ -120,7 +120,7 @@ USE mo_impl_constants,     ONLY: SUCCESS, &
 USE mo_exception,          ONLY: message_text, message, finish
 USE mo_model_domain,       ONLY: t_patch
 USE mo_parallel_configuration,  ONLY: nproma
-USE mo_run_nml,            ONLY: locean, i_cell_type, nlev, nlevp1,       &
+USE mo_run_nml,            ONLY: locean, global_cell_type, nlev, nlevp1,       &
      &                           num_lev, num_levp1, nshift
 USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real, calculate_cart_normal,&
      &                           init_quad_twoadjcells, init_coriolis
@@ -133,6 +133,8 @@ USE mo_grid_configuration, ONLY: start_lev, nroot, n_dom, n_dom_start,    &
      & no_of_dynamics_grids, no_of_radiation_grids   
 !DR USE mo_model_domimp_topo,  ONLY: init_topography
 USE mo_ocean_topo,         ONLY: init_ocean_patch
+
+USE mo_grid_configuration, ONLY: global_cell_type
 
 #ifndef NOMPI
 ! The USE statement below lets this module use the routines from
@@ -440,13 +442,13 @@ SUBROUTINE allocate_patch(p_patch)
   ALLOCATE( p_patch%cells%child_blk(nproma,p_patch%nblks_c,4) )
   ALLOCATE( p_patch%cells%child_id(nproma,p_patch%nblks_c) )
   ALLOCATE( p_patch%cells%phys_id(nproma,p_patch%nblks_c) )
-  ALLOCATE( p_patch%cells%neighbor_idx(nproma,p_patch%nblks_c,i_cell_type) )
-  ALLOCATE( p_patch%cells%neighbor_blk(nproma,p_patch%nblks_c,i_cell_type) )
-  ALLOCATE( p_patch%cells%edge_idx(nproma,p_patch%nblks_c,i_cell_type) )
-  ALLOCATE( p_patch%cells%edge_blk(nproma,p_patch%nblks_c,i_cell_type) )
-  ALLOCATE( p_patch%cells%vertex_idx(nproma,p_patch%nblks_c,i_cell_type) )
-  ALLOCATE( p_patch%cells%vertex_blk(nproma,p_patch%nblks_c,i_cell_type) )
-  ALLOCATE( p_patch%cells%edge_orientation(nproma,p_patch%nblks_c,i_cell_type) )
+  ALLOCATE( p_patch%cells%neighbor_idx(nproma,p_patch%nblks_c,global_cell_type) )
+  ALLOCATE( p_patch%cells%neighbor_blk(nproma,p_patch%nblks_c,global_cell_type) )
+  ALLOCATE( p_patch%cells%edge_idx(nproma,p_patch%nblks_c,global_cell_type) )
+  ALLOCATE( p_patch%cells%edge_blk(nproma,p_patch%nblks_c,global_cell_type) )
+  ALLOCATE( p_patch%cells%vertex_idx(nproma,p_patch%nblks_c,global_cell_type) )
+  ALLOCATE( p_patch%cells%vertex_blk(nproma,p_patch%nblks_c,global_cell_type) )
+  ALLOCATE( p_patch%cells%edge_orientation(nproma,p_patch%nblks_c,global_cell_type) )
   ALLOCATE( p_patch%cells%center(nproma,p_patch%nblks_c) )
   ALLOCATE( p_patch%cells%area(nproma,p_patch%nblks_c) )
   ALLOCATE( p_patch%cells%f_c(nproma,p_patch%nblks_c) )
@@ -517,13 +519,13 @@ SUBROUTINE allocate_patch(p_patch)
   !
   ALLOCATE( p_patch%verts%idx(nproma,p_patch%nblks_v) )
   ALLOCATE( p_patch%verts%blk(nproma,p_patch%nblks_v) )
-  ALLOCATE( p_patch%verts%neighbor_idx(nproma,p_patch%nblks_v,9-i_cell_type) )
-  ALLOCATE( p_patch%verts%neighbor_blk(nproma,p_patch%nblks_v,9-i_cell_type) )
-  ALLOCATE( p_patch%verts%cell_idx(nproma,p_patch%nblks_v,9-i_cell_type) )
-  ALLOCATE( p_patch%verts%cell_blk(nproma,p_patch%nblks_v,9-i_cell_type) )
-  ALLOCATE( p_patch%verts%edge_idx(nproma,p_patch%nblks_v,9-i_cell_type) )
-  ALLOCATE( p_patch%verts%edge_blk(nproma,p_patch%nblks_v,9-i_cell_type) )
-  ALLOCATE( p_patch%verts%edge_orientation(nproma,p_patch%nblks_v,9-i_cell_type) )
+  ALLOCATE( p_patch%verts%neighbor_idx(nproma,p_patch%nblks_v,9-global_cell_type) )
+  ALLOCATE( p_patch%verts%neighbor_blk(nproma,p_patch%nblks_v,9-global_cell_type) )
+  ALLOCATE( p_patch%verts%cell_idx(nproma,p_patch%nblks_v,9-global_cell_type) )
+  ALLOCATE( p_patch%verts%cell_blk(nproma,p_patch%nblks_v,9-global_cell_type) )
+  ALLOCATE( p_patch%verts%edge_idx(nproma,p_patch%nblks_v,9-global_cell_type) )
+  ALLOCATE( p_patch%verts%edge_blk(nproma,p_patch%nblks_v,9-global_cell_type) )
+  ALLOCATE( p_patch%verts%edge_orientation(nproma,p_patch%nblks_v,9-global_cell_type) )
   ALLOCATE( p_patch%verts%num_edges(nproma,p_patch%nblks_v) )
   ALLOCATE( p_patch%verts%vertex(nproma,p_patch%nblks_v) )
   ALLOCATE( p_patch%verts%dual_area(nproma,p_patch%nblks_v) )
@@ -564,7 +566,7 @@ END SUBROUTINE allocate_patch
 !! - changed name from init_patch to read_patch
 !! Modified by A. Gassmann, MPI-M (2008-09-21)
 !! - remove all not netcdf stuff
-!! - HERE we must think of how to use different 'i_cell_type's
+!! - HERE we must think of how to use different 'global_cell_type's
 !! Modified by A. Gassmann, MPI-M (2008-10-30)
 !! - read in grid for either triangles or hexagons
 !!
@@ -626,7 +628,7 @@ IF (PRESENT(patch_file)) THEN
   p_patch%grid_filename=patch_file
 ENDIF
 
-p_patch%cell_type = 
+p_patch%cell_type = global_cell_type
   
 CALL message ('mo_model_domimp_patches:read_patch', 'start to init patch')
 
@@ -675,9 +677,9 @@ END IF
 ! get number of cells, edges and vertices
 !
 CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL nf(nf_inq_dimlen(ncid, dimid, p_patch%n_patch_cells))
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL nf(nf_inq_dimlen(ncid, dimid, p_patch%n_patch_verts))
 ENDIF
 
@@ -685,9 +687,9 @@ CALL nf(nf_inq_dimid(ncid, 'edge', dimid))
 CALL nf(nf_inq_dimlen(ncid, dimid, p_patch%n_patch_edges))
 
 CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL nf(nf_inq_dimlen(ncid, dimid, p_patch%n_patch_verts))
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL nf(nf_inq_dimlen(ncid, dimid, p_patch%n_patch_cells))
 ENDIF
 
@@ -772,12 +774,12 @@ CALL allocate_patch( p_patch )
 ! p_patch%cells%idx(:,:)
 ! p_patch%cells%blk(:,:)
 CALL nf(nf_inq_varid(ncid, 'cell_index', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
    CALL reshape_idx( array_c_int(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
      &               p_patch%cells%idx(:,:),  &
      &               p_patch%cells%blk(:,:) )
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1)))
    CALL reshape_idx( array_v_int(:,1), p_patch%nblks_v, p_patch%npromz_v,  &
      &               p_patch%verts%idx(:,:),  &
@@ -787,12 +789,12 @@ ENDIF
 ! p_patch%cells%parent_idx(:,:)
 ! p_patch%cells%parent_blk(:,:)
 CALL nf(nf_inq_varid(ncid, 'parent_cell_index', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
    CALL reshape_idx( array_c_int(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
      &               p_patch%cells%parent_idx(:,:),  &
      &               p_patch%cells%parent_blk(:,:) )
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL message ('read_patch',&
                  'parent_cell_index incompatible with hexagonal grid')
 ENDIF
@@ -800,36 +802,36 @@ ENDIF
 ! p_patch%cells%child_idx(:,:,:)
 ! p_patch%cells%child_blk(:,:,:)
 CALL nf(nf_inq_varid(ncid, 'child_cell_index', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:4)))
    DO ji = 1, 4
       CALL reshape_idx( array_c_int(:,ji), p_patch%nblks_c, p_patch%npromz_c,  &
         &               p_patch%cells%child_idx(:,:,ji),  &
         &               p_patch%cells%child_blk(:,:,ji) )
    END DO
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL message ('read_patch',&
                  'child_cell_index incompatible with hexagonal grid')
 ENDIF
 
 ! p_patch%cells%child_id(:,:)
 CALL nf(nf_inq_varid(ncid, 'child_cell_id', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
   CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
   CALL reshape_int( array_c_int(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
      &               p_patch%cells%child_id(:,:) )
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
   CALL message ('read_patch',&
                 'child_cell_id incompatible with hexagonal grid')
 ENDIF
 
 ! p_patch%cells%phys_id(:,:)
 CALL nf(nf_inq_varid(ncid, 'phys_cell_id', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
   CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
   CALL reshape_int( array_c_int(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
      &               p_patch%cells%phys_id(:,:) )
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
   CALL message ('read_patch',&
                 'phys_cell_id not udes for hexagonal grid')
 ENDIF
@@ -837,14 +839,14 @@ ENDIF
 ! p_patch%cells%neighbor_idx(:,:,:)
 ! p_patch%cells%neighbor_blk(:,:,:)
 CALL nf(nf_inq_varid(ncid, 'neighbor_cell_index', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:3)))
    DO ji = 1, 3
       CALL reshape_idx( array_c_int(:,ji), p_patch%nblks_c, p_patch%npromz_c,  &
         &               p_patch%cells%neighbor_idx(:,:,ji),  &
         &               p_patch%cells%neighbor_blk(:,:,ji) )
    END DO
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:3)))
    DO ji = 1, 3
      CALL reshape_idx( array_v_int(:,ji), p_patch%nblks_v, p_patch%npromz_v,  &
@@ -856,14 +858,14 @@ ENDIF
 ! p_patch%cells%edge_idx(:,:,:)
 ! p_patch%cells%edge_blk(:,:,:)
 CALL nf(nf_inq_varid(ncid, 'edge_of_cell', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:3)))
    DO ji = 1, 3
      CALL reshape_idx( array_c_int(:,ji), p_patch%nblks_c, p_patch%npromz_c,  &
        &               p_patch%cells%edge_idx(:,:,ji),  &
        &               p_patch%cells%edge_blk(:,:,ji) )
    END DO
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:3)))
    DO ji = 1, 3
      CALL reshape_idx( array_v_int(:,ji), p_patch%nblks_v, p_patch%npromz_v,  &
@@ -875,14 +877,14 @@ ENDIF
 ! p_patch%cells%vertex_idx(:,:,:)
 ! p_patch%cells%vertex_blk(:,:,:)
 CALL nf(nf_inq_varid(ncid, 'vertex_of_cell', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:3)))
    DO ji = 1, 3
      CALL reshape_idx( array_c_int(:,ji), p_patch%nblks_c, p_patch%npromz_c,  &
        &               p_patch%cells%vertex_idx(:,:,ji),  &
        &               p_patch%cells%vertex_blk(:,:,ji) )
    END DO
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:3)))
    DO ji = 1, 3
      CALL reshape_idx( array_v_int(:,ji), p_patch%nblks_v, p_patch%npromz_v,  &
@@ -893,14 +895,14 @@ ENDIF
 
 ! p_patch%cells%edge_orientation(:,:,:)
 CALL nf(nf_inq_varid(ncid, 'orientation_of_normal', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:3)))
    DO ji = 1, 3
      CALL reshape_real( REAL(array_c_int(:,ji),wp),            &
                       & p_patch%nblks_c, p_patch%npromz_c,     &
                       & p_patch%cells%edge_orientation(:,:,ji) )
    END DO
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:3)))
    DO ji = 1, 3
      CALL reshape_real( REAL(array_v_int(:,ji),wp),            &
@@ -911,11 +913,11 @@ ENDIF
 
 ! p_patch%cells%center(:,:)%lon
 CALL nf(nf_inq_varid(ncid, 'lon_cell_centre', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
    CALL reshape_real( array_c_real(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
      &                p_patch%cells%center(:,:)%lon )
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
    CALL reshape_real( array_v_real(:,1), p_patch%nblks_v, p_patch%npromz_v,  &
      &                p_patch%verts%vertex(:,:)%lon )
@@ -923,11 +925,11 @@ ENDIF
 
 ! p_patch%cells%center(:,:)%lat
 CALL nf(nf_inq_varid(ncid, 'lat_cell_centre', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
    CALL reshape_real( array_c_real(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
      &                p_patch%cells%center(:,:)%lat )
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
    CALL reshape_real( array_v_real(:,1), p_patch%nblks_v, p_patch%npromz_v,  &
      &                p_patch%verts%vertex(:,:)%lat )
@@ -935,11 +937,11 @@ ENDIF
 
 ! p_patch%cells%area(:,:)
 CALL nf(nf_inq_varid(ncid, 'cell_area_p', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
    CALL reshape_real( array_c_real(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
      &                p_patch%cells%area(:,:) )
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
    CALL reshape_real( array_v_real(:,1), p_patch%nblks_v, p_patch%npromz_v,  &
      &                p_patch%verts%dual_area(:,:) )
@@ -947,11 +949,11 @@ ENDIF
 
 ! p_patch%cells%refin_ctrl(:,:)
 CALL nf(nf_inq_varid(ncid, 'refin_c_ctrl', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
    CALL reshape_int( array_c_int(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
      &               p_patch%cells%refin_ctrl(:,:) )
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1)))
    CALL reshape_int( array_v_int(:,1), p_patch%nblks_v, p_patch%npromz_v,  &
      &               p_patch%verts%refin_ctrl(:,:) )
@@ -963,21 +965,21 @@ ENDIF
 ! p_patch%cells%end_blk(:,:)
 
 CALL nf(nf_inq_varid(ncid, 'start_idx_c', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
   CALL nf(nf_get_var_int(ncid, varid, array_c_indlist(:,:)))
   CALL reshape_idx_list( array_c_indlist,                                &
    &                    p_patch%cells%start_idx, p_patch%cells%start_blk )
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
   CALL nf(nf_get_var_int(ncid, varid, array_v_indlist(:,:)))
   CALL reshape_idx_list( array_v_indlist,                                &
    &                    p_patch%verts%start_idx, p_patch%verts%start_blk )
 ENDIF
 CALL nf(nf_inq_varid(ncid, 'end_idx_c', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
   CALL nf(nf_get_var_int(ncid, varid, array_c_indlist(:,:)))
   CALL reshape_idx_list( array_c_indlist,                                &
    &                    p_patch%cells%end_idx, p_patch%cells%end_blk )
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
   CALL nf(nf_get_var_int(ncid, varid, array_v_indlist(:,:)))
   CALL reshape_idx_list( array_v_indlist,                                &
    &                    p_patch%verts%end_idx, p_patch%verts%end_blk )
@@ -1025,13 +1027,13 @@ CALL reshape_int( array_e_int(:,1), p_patch%nblks_e, p_patch%npromz_e,  &
 ! p_patch%edges%cell_blk(:,:,:)
 CALL nf(nf_inq_varid(ncid, 'adjacent_cell_of_edge', varid))
 CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1:2)))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
   DO ji = 1, 2
     CALL reshape_idx( array_e_int(:,ji), p_patch%nblks_e, p_patch%npromz_e,  &
       &               p_patch%edges%cell_idx(:,:,ji),  &
       &               p_patch%edges%cell_blk(:,:,ji) )
   END DO
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
   DO ji = 1, 2
     CALL reshape_idx( array_e_int(:,ji), p_patch%nblks_e, p_patch%npromz_e,  &
       &               p_patch%edges%vertex_idx(:,:,ji),  &
@@ -1043,13 +1045,13 @@ ENDIF
 ! p_patch%edges%vertex_blk(:,:,:)
 CALL nf(nf_inq_varid(ncid, 'edge_vertices', varid))
 CALL nf(nf_get_var_int(ncid, varid, array_e_int(:,1:2)))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
   DO ji = 1, 2
     CALL reshape_idx( array_e_int(:,ji), p_patch%nblks_e, p_patch%npromz_e,  &
       &               p_patch%edges%vertex_idx(:,:,ji),  &
       &               p_patch%edges%vertex_blk(:,:,ji) )
   END DO
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
   DO ji = 1, 2
     CALL reshape_idx( array_e_int(:,ji), p_patch%nblks_e, p_patch%npromz_e,  &
       &               p_patch%edges%cell_idx(:,:,ji),  &
@@ -1079,10 +1081,10 @@ CALL reshape_real( array_e_real(:,1), p_patch%nblks_e, p_patch%npromz_e,  &
 ! p_patch%edges%primal_normal(:,:)%v1
 CALL nf(nf_inq_varid(ncid, 'zonal_normal_primal_edge', varid))
 CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL reshape_real( array_e_real(:,1), p_patch%nblks_e, p_patch%npromz_e,  &
      &                p_patch%edges%primal_normal(:,:)%v1 )
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL reshape_real( array_e_real(:,1), p_patch%nblks_e, p_patch%npromz_e,  &
      &                p_patch%edges%dual_normal(:,:)%v1 )
 ENDIF
@@ -1090,10 +1092,10 @@ ENDIF
 ! p_patch%edges%primal_normal(:,:)%v2
 CALL nf(nf_inq_varid(ncid, 'meridional_normal_primal_edge', varid))
 CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL reshape_real( array_e_real(:,1), p_patch%nblks_e, p_patch%npromz_e,  &
      &                p_patch%edges%primal_normal(:,:)%v2 )
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL reshape_real( array_e_real(:,1), p_patch%nblks_e, p_patch%npromz_e,  &
      &                p_patch%edges%dual_normal(:,:)%v2 )
 ENDIF
@@ -1101,10 +1103,10 @@ ENDIF
 ! p_patch%edges%dual_normal(:,:)%v1
 CALL nf(nf_inq_varid(ncid, 'zonal_normal_dual_edge', varid))
 CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL reshape_real( array_e_real(:,1), p_patch%nblks_e, p_patch%npromz_e,  &
      &                p_patch%edges%dual_normal(:,:)%v1 )
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL reshape_real( array_e_real(:,1), p_patch%nblks_e, p_patch%npromz_e,  &
      &                p_patch%edges%primal_normal(:,:)%v1 )
 ENDIF
@@ -1112,10 +1114,10 @@ ENDIF
 ! p_patch%edges%dual_normal(:,:)%v2
 CALL nf(nf_inq_varid(ncid, 'meridional_normal_dual_edge', varid))
 CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL reshape_real( array_e_real(:,1), p_patch%nblks_e, p_patch%npromz_e,  &
      &                p_patch%edges%dual_normal(:,:)%v2 )
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL reshape_real( array_e_real(:,1), p_patch%nblks_e, p_patch%npromz_e,  &
      &                p_patch%edges%primal_normal(:,:)%v2 )
 ENDIF
@@ -1123,10 +1125,10 @@ ENDIF
 ! p_patch%edges%primal_edge_length(:,:)
 CALL nf(nf_inq_varid(ncid, 'edge_length', varid))
 CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL reshape_real( array_e_real(:,1), p_patch%nblks_e, p_patch%npromz_e,  &
      &                p_patch%edges%primal_edge_length(:,:) )
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL reshape_real( array_e_real(:,1), p_patch%nblks_e, p_patch%npromz_e,  &
      &                p_patch%edges%dual_edge_length(:,:) )
 ENDIF
@@ -1134,10 +1136,10 @@ ENDIF
 ! p_patch%edges%dual_edge_length(:,:)
 CALL nf(nf_inq_varid(ncid, 'dual_edge_length', varid))
 CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1)))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL reshape_real( array_e_real(:,1), p_patch%nblks_e, p_patch%npromz_e,  &
      &                p_patch%edges%dual_edge_length(:,:) )
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL reshape_real( array_e_real(:,1), p_patch%nblks_e, p_patch%npromz_e,  &
      &                p_patch%edges%primal_edge_length(:,:) )
 ENDIF
@@ -1145,12 +1147,12 @@ ENDIF
 ! p_patch%edges%edge_vert_length(:,:)
 CALL nf(nf_inq_varid(ncid, 'edge_vert_distance', varid))
 CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1:2)))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    DO ji = 1, 2
      CALL reshape_real( array_e_real(:,ji), p_patch%nblks_e, p_patch%npromz_e, &
        &                p_patch%edges%edge_vert_length(:,:,ji) )
    ENDDO
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    DO ji = 1, 2
      CALL reshape_real( array_e_real(:,ji), p_patch%nblks_e, p_patch%npromz_e, &
        &                p_patch%edges%edge_cell_length(:,:,ji) )
@@ -1160,12 +1162,12 @@ ENDIF
 ! p_patch%edges%edge_cell_length(:,:)
 CALL nf(nf_inq_varid(ncid, 'edge_cell_distance', varid))
 CALL nf(nf_get_var_double(ncid, varid, array_e_real(:,1:2)))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    DO ji = 1, 2
      CALL reshape_real( array_e_real(:,ji), p_patch%nblks_e, p_patch%npromz_e, &
        &                p_patch%edges%edge_cell_length(:,:,ji) )
    ENDDO
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    DO ji = 1, 2
      CALL reshape_real( array_e_real(:,ji), p_patch%nblks_e, p_patch%npromz_e, &
        &                p_patch%edges%edge_vert_length(:,:,ji) )
@@ -1194,12 +1196,12 @@ CALL reshape_idx_list( array_e_indlist,                                &
 ! p_patch%verts%idx(:,:)
 ! p_patch%verts%blk(:,:)
 CALL nf(nf_inq_varid(ncid, 'vertex_index', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1)))
    CALL reshape_idx( array_v_int(:,1), p_patch%nblks_v, p_patch%npromz_v,  &
      &               p_patch%verts%idx(:,:),  &
      &               p_patch%verts%blk(:,:) )
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
    CALL reshape_idx( array_c_int(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
      &               p_patch%cells%idx(:,:),  &
@@ -1209,14 +1211,14 @@ ENDIF
 ! p_patch%verts%neighbor_idx(:,:,:)
 ! p_patch%verts%neighbor_blk(:,:,:)
 CALL nf(nf_inq_varid(ncid, 'vertices_of_vertex', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:6)))
    DO ji = 1, 6
      CALL reshape_idx( array_v_int(:,ji), p_patch%nblks_v, p_patch%npromz_v,  &
        &               p_patch%verts%neighbor_idx(:,:,ji),  &
        &               p_patch%verts%neighbor_blk(:,:,ji) )
    END DO
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:6)))
    DO ji = 1, 6
      CALL reshape_idx( array_c_int(:,ji), p_patch%nblks_c, p_patch%npromz_c,  &
@@ -1249,14 +1251,14 @@ ENDIF
 ! p_patch%verts%cell_idx(:,:,:)
 ! p_patch%verts%cell_blk(:,:,:)
 CALL nf(nf_inq_varid(ncid, 'cells_of_vertex', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:6)))
    DO ji = 1, 6
      CALL reshape_idx( array_v_int(:,ji), p_patch%nblks_v, p_patch%npromz_v,  &
        &               p_patch%verts%cell_idx(:,:,ji),  &
        &               p_patch%verts%cell_blk(:,:,ji) )
    END DO
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:6)))
    DO ji = 1, 6
      CALL reshape_idx( array_c_int(:,ji), p_patch%nblks_c, p_patch%npromz_c,  &
@@ -1268,7 +1270,7 @@ ENDIF
 !
 ! account for dummy cells arising in case of a pentagon
 !
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
   DO jv = 1, p_patch%n_patch_verts
     DO jvc = 1, 6
       IF ( array_v_int(jv,jvc) == 0 ) THEN
@@ -1287,7 +1289,7 @@ IF (i_cell_type == 3) THEN ! triangular grid
       END IF
     END DO
   END DO
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
   DO jc = 1, p_patch%n_patch_cells
     DO jcv = 1, 6
       IF ( array_c_int(jc,jcv) == 0 ) THEN
@@ -1311,14 +1313,14 @@ ENDIF
 ! p_patch%verts%edge_idx(:,:,:)
 ! p_patch%verts%edge_blk(:,:,:)
 CALL nf(nf_inq_varid(ncid, 'edges_of_vertex', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:6)))
    DO ji = 1, 6
      CALL reshape_idx( array_v_int(:,ji), p_patch%nblks_v, p_patch%npromz_v,  &
        &               p_patch%verts%edge_idx(:,:,ji),  &
        &               p_patch%verts%edge_blk(:,:,ji) )
    END DO
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:6)))
    DO ji = 1, 6
      CALL reshape_idx( array_c_int(:,ji), p_patch%nblks_c, p_patch%npromz_c,  &
@@ -1331,7 +1333,7 @@ ENDIF
 !
 ! initialize verts%num_edges to 6
 !
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    p_patch%cells%num_edges(:,:) = 3
    p_patch%verts%num_edges(:,:) = 6
    !
@@ -1358,7 +1360,7 @@ IF (i_cell_type == 3) THEN ! triangular grid
        END IF
      END DO
    END DO
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    p_patch%verts%num_edges(:,:) = 3
    p_patch%cells%num_edges(:,:) = 6
    !
@@ -1388,14 +1390,14 @@ ENDIF
 
 ! p_patch%verts%edge_orientation(:,:,:)
 CALL nf(nf_inq_varid(ncid, 'edge_orientation', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1:6)))
    DO ji = 1, 6
      CALL reshape_real( REAL(array_v_int(:,ji),wp),            &
                       & p_patch%nblks_v, p_patch%npromz_v,     &
                       & p_patch%verts%edge_orientation(:,:,ji) )
    END DO
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1:6)))
    DO ji = 1, 6
      CALL reshape_real( REAL(array_c_int(:,ji),wp),            &
@@ -1407,7 +1409,7 @@ ENDIF
 !
 ! set edge orientation of dummy edges to zero
 !
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    !
    DO jv = 1, p_patch%n_patch_verts
      DO jve = 1, 6
@@ -1422,7 +1424,7 @@ IF (i_cell_type == 3) THEN ! triangular grid
        END IF
      END DO
    END DO
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    !
    DO jc = 1, p_patch%n_patch_cells
      DO jce = 1, 6
@@ -1441,11 +1443,11 @@ ENDIF
 
 ! p_patch%verts%vertex(:,:)%lon
 CALL nf(nf_inq_varid(ncid, 'longitude_vertices', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
    CALL reshape_real( array_v_real(:,1), p_patch%nblks_v, p_patch%npromz_v,  &
      &                p_patch%verts%vertex(:,:)%lon )
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
    CALL reshape_real( array_c_real(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
      &                p_patch%cells%center(:,:)%lon )
@@ -1453,11 +1455,11 @@ ENDIF
 
 ! p_patch%verts%vertex(:,:)%lat
 CALL nf(nf_inq_varid(ncid, 'latitude_vertices', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
    CALL reshape_real( array_v_real(:,1), p_patch%nblks_v, p_patch%npromz_v,  &
      &                p_patch%verts%vertex(:,:)%lat )
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
    CALL reshape_real( array_c_real(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
      &                p_patch%cells%center(:,:)%lat )
@@ -1465,11 +1467,11 @@ ENDIF
 
 ! p_patch%verts%dual_area(:,:)
 CALL nf(nf_inq_varid(ncid, 'dual_area_p', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL nf(nf_get_var_double(ncid, varid, array_v_real(:,1)))
    CALL reshape_real( array_v_real(:,1), p_patch%nblks_v, p_patch%npromz_v,  &
      &                p_patch%verts%dual_area(:,:) )
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL nf(nf_get_var_double(ncid, varid, array_c_real(:,1)))
    CALL reshape_real( array_c_real(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
      &                p_patch%cells%area(:,:) )
@@ -1477,11 +1479,11 @@ ENDIF
 
 ! p_patch%verts%refin_ctrl(:,:)
 CALL nf(nf_inq_varid(ncid, 'refin_v_ctrl', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
    CALL nf(nf_get_var_int(ncid, varid, array_v_int(:,1)))
    CALL reshape_int( array_v_int(:,1), p_patch%nblks_v, p_patch%npromz_v,  &
      &               p_patch%verts%refin_ctrl(:,:) )
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
    CALL nf(nf_get_var_int(ncid, varid, array_c_int(:,1)))
    CALL reshape_int( array_c_int(:,1), p_patch%nblks_c, p_patch%npromz_c,  &
      &               p_patch%cells%refin_ctrl(:,:) )
@@ -1491,21 +1493,21 @@ ENDIF
 ! p_patch%verts%end_idx(:,:)
 ! p_patch%verts%end_blk(:,:)
 CALL nf(nf_inq_varid(ncid, 'start_idx_v', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
   CALL nf(nf_get_var_int(ncid, varid, array_v_indlist(:,:)))
   CALL reshape_idx_list( array_v_indlist,                                &
    &                    p_patch%verts%start_idx, p_patch%verts%start_blk )
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
   CALL nf(nf_get_var_int(ncid, varid, array_c_indlist(:,:)))
   CALL reshape_idx_list( array_c_indlist,                                &
    &                    p_patch%cells%start_idx, p_patch%cells%start_blk )
 ENDIF
 CALL nf(nf_inq_varid(ncid, 'end_idx_v', varid))
-IF (i_cell_type == 3) THEN ! triangular grid
+IF (global_cell_type == 3) THEN ! triangular grid
   CALL nf(nf_get_var_int(ncid, varid, array_v_indlist(:,:)))
   CALL reshape_idx_list( array_v_indlist,                                &
    &                    p_patch%verts%end_idx, p_patch%verts%end_blk )
-ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
   CALL nf(nf_get_var_int(ncid, varid, array_c_indlist(:,:)))
   CALL reshape_idx_list( array_c_indlist,                                &
    &                    p_patch%cells%end_idx, p_patch%cells%end_blk )

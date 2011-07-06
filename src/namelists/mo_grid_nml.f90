@@ -79,7 +79,7 @@ MODULE mo_grid_nml
   INTEGER, DIMENSION (max_dom-1) :: parent_id  !ID of parent domain
   ! cell geometry
   ! -------------
-  INTEGER          :: i_cell_type         ! cell type:
+  INTEGER    :: i_cell_type         ! cell type:
 
   LOGICAL    :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
   LOGICAL    :: lredgrid_phys(max_dom)   ! If set to .true. is calculated on a reduced grid

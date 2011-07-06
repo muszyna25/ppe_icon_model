@@ -46,7 +46,7 @@ MODULE mo_ha_diag_util
   USE mo_io_nml,             ONLY: lwrite_omega, l_outputtime
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,            ONLY: lshallow_water,                 &
-                                   i_cell_type, nlev, nlevp1,              &
+                                   nlev, nlevp1,              &
                                    iqv, iqc, iqi, iqr, iqs,                &
                                    iforcing, inwp, iecham, ildf_echam
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
@@ -101,7 +101,7 @@ CONTAINS
 
     ! Relative vorticity at vertices
 
-    SELECT CASE (i_cell_type)
+    SELECT CASE (pt_patch%cell_type)
     CASE (3)
       CALL rot_vertex (pt_prog%vn, pt_patch, pt_int_state, pt_diag%rel_vort)
       CALL sync_patch_array(SYNC_V, pt_patch, pt_diag%rel_vort)
@@ -668,7 +668,7 @@ CONTAINS
 
     ! Reconstruct zonal and meridional wind at cell centers
 
-    SELECT CASE(i_cell_type)
+    SELECT CASE(p_patch%cell_type)
     CASE(3)
       CALL rbf_vec_interpol_cell( p_prog%vn,    &! IN: normal wind
       &                           p_patch,      &! patch

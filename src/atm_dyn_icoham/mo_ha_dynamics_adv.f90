@@ -43,8 +43,7 @@ MODULE mo_ha_dynamics_adv
   USE mo_dynamics_nml,       ONLY: idiv_method
   USE mo_io_nml,             ONLY: l_outputtime, lwrite_omega, l_diagtime
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,            ONLY: nlev, nlevp1, lshallow_water,   &
-                                   i_cell_type
+  USE mo_run_nml,            ONLY: nlev, nlevp1, lshallow_water
   USE mo_interpolation,      ONLY: t_int_state, rbf_vec_interpol_edge,     &
                                    cells2edges_scalar, edges2cells_scalar, &
                                    verts2edges_scalar, cells2verts_scalar, &
@@ -358,7 +357,7 @@ CONTAINS
                             pt_int%cells_aw_verts, p_delp_v)
   ENDIF
 
-SELECT CASE (i_cell_type)
+SELECT CASE (pt_patch%cell_type)
 CASE(3)
 !=====================================================================
 ! Triangular model
@@ -706,7 +705,7 @@ CASE(6)
 
   END SELECT ! i_cori_method
 
-END SELECT ! i_cell_type
+END SELECT 
 
 !=============================================================================
 ! Calculate the gradient of kinetic energy, and accumulate velocity tendency

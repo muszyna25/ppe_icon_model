@@ -65,7 +65,7 @@ MODULE mo_hdiff
                                     lhdiff_vn, lhdiff_temp, hdiff_tv_ratio, &
                                     hdiff_smag_fac  
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,             ONLY: nlev, i_cell_type,ltheta_dyn
+  USE mo_run_nml,             ONLY: nlev, ltheta_dyn
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_math_operators,      ONLY: nabla2_vec, nabla2_scalar, &
                                     nabla4_vec, nabla4_scalar
@@ -180,7 +180,7 @@ MODULE mo_hdiff
     ivb => pt_patch%edges%vertex_blk
 
 
-    IF ((i_cell_type == 3) .AND. (hdiff_order == 5)) THEN
+    IF ((pt_patch%cell_type == 3) .AND. (hdiff_order == 5)) THEN
        !
        ! Compute diffusion coefficient for Smagorinsky diffusion
        ! ** NOT implemented for i_cell_type = 6 because      **
@@ -458,7 +458,7 @@ MODULE mo_hdiff
         !---------------------------
         IF (lhdiff_temp) THEN
 
-          SELECT CASE (i_cell_type)
+          SELECT CASE (pt_patch%cell_type)
           CASE (6)
             ! old
             !diff_multfac = 2._wp/3._wp*SQRT(3._wp)*hdiff_tv_ratio*k2(k_jg)
@@ -882,7 +882,7 @@ MODULE mo_hdiff
           i_startblk = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
           i_endblk   = pt_patch%cells%end_blk(min_rlcell,i_nchdom)
 
-          SELECT CASE (i_cell_type)
+          SELECT CASE (pt_patch%cell_type)
           CASE (6)
             ! old
             !diff_multfac = hdiff_tv_ratio*k4(k_jg)*4._wp/3._wp
@@ -1060,7 +1060,7 @@ MODULE mo_hdiff
            i_startblk = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
            i_endblk   = pt_patch%cells%end_blk(min_rlcell,i_nchdom)
 
-           SELECT CASE (i_cell_type)
+           SELECT CASE (pt_patch%cell_type)
            CASE (6)
              ! old
              !diff_multfac = hdiff_tv_ratio*k4(k_jg)*4._wp/3._wp
@@ -1099,7 +1099,7 @@ MODULE mo_hdiff
            i_startblk = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
            i_endblk   = pt_patch%cells%end_blk(min_rlcell,i_nchdom)
 
-           SELECT CASE (i_cell_type)
+           SELECT CASE (pt_patch%cell_type)
            CASE (6)
              ! old
              !diff_multfac = hdiff_tv_ratio*k4(k_jg)*4._wp/3._wp
