@@ -386,10 +386,10 @@ TYPE t_int_state
 
   ! e) precomputed geometrical factors for mathematical operators (for efficiency)
   !------------------------------------------------------------------------------
-  REAL(wp), ALLOCATABLE :: geofac_div(:,:,:)    ! factor for divergence (nproma,i_cell_type,nblks_c)
+  REAL(wp), ALLOCATABLE :: geofac_div(:,:,:)    ! factor for divergence (nproma,cell_type,nblks_c)
   REAL(wp), ALLOCATABLE :: geofac_qdiv(:,:,:)   ! factor for quad-cell divergence (nproma,4,nblks_e)
-  REAL(wp), ALLOCATABLE :: geofac_rot(:,:,:)    ! factor for divergence (nproma,9-i_cell_type,nblks_v)
-  REAL(wp), ALLOCATABLE :: geofac_n2s(:,:,:)    ! factor for nabla2-scalar (nproma,i_cell_type+1,nblks_c)
+  REAL(wp), ALLOCATABLE :: geofac_rot(:,:,:)    ! factor for divergence (nproma,9-cell_type,nblks_v)
+  REAL(wp), ALLOCATABLE :: geofac_n2s(:,:,:)    ! factor for nabla2-scalar (nproma,cell_type+1,nblks_c)
   REAL(wp), ALLOCATABLE :: geofac_grg(:,:,:,:)  ! factor for Green-Gauss gradient (nproma,4,nblks_c,2)
 
   ! f) precomputed Cartesian orientation and location vectors of edge midpoints

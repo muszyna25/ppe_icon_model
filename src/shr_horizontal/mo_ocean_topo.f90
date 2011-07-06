@@ -63,7 +63,7 @@
 !!    rather than read from a grid/patch file.
 !! Modification by Almut Gassmann, MPI-M, (2008-09-21)
 !!  - remove reference to mask and height files, they are never used
-!!  - use i_cell_type to distinguish cells as triangles or hexagons
+!!  - use cell_type to distinguish cells as triangles or hexagons
 !! Modification by Almut Gassmann, MPI-M (2008-10-30)
 !!  - add subroutine init_coriolis to initialize Coriolis parameter
 !! Modification by Stephan Lorenz, MPI-M (2010-02-06)
@@ -128,7 +128,6 @@ USE mo_exception,          ONLY: message_text, message, finish
 USE mo_model_domain,       ONLY: t_patch
 USE mo_ocean_nml,          ONLY: n_zlev, dzlev_m, CORIOLIS_TYPE, basin_center_lat, basin_height_deg
 USE mo_parallel_configuration,  ONLY: nproma
-USE mo_run_nml,            ONLY: i_cell_type
 USE mo_math_utilities,     ONLY: gc2cc,cc2gc,       &
   &                              t_geographical_coordinates, t_cartesian_coordinates,   &
   &                              vector_product, arc_length

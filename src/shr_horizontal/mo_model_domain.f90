@@ -672,13 +672,13 @@ TYPE t_patch_ocean
 
   ! Data Structures from mo_interpolation:
 
-  ! factor for divergence (nproma,i_cell_type,nblks_c)
+  ! factor for divergence (nproma,cell_type,nblks_c)
   REAL(wp), ALLOCATABLE :: geofac_div(:,:,:)
   ! factor for quad-cell divergence (nproma,4,nblks_e)
   REAL(wp), ALLOCATABLE :: geofac_qdiv(:,:,:)
-  ! factor for divergence (nproma,9-i_cell_type,nblks_v)
+  ! factor for divergence (nproma,9-cell_type,nblks_v)
   REAL(wp), ALLOCATABLE :: geofac_rot(:,:,:)
-  ! factor for nabla2-scalar (nproma,i_cell_type+1,nblks_c)
+  ! factor for nabla2-scalar (nproma,cell_type+1,nblks_c)
   REAL(wp), ALLOCATABLE :: geofac_n2s(:,:,:)
   ! factor for Green-Gauss gradient (nproma,4,nblks_c,2)
   !REAL(wp), ALLOCATABLE :: geofac_grg(:,:,:,:) !  not used in patch_ocean

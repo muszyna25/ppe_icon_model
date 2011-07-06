@@ -1720,7 +1720,7 @@ DO jb = i_startblk, i_endblk
   CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end)
 
-  DO je = 1, i_cell_type
+  DO je = 1, ptr_patch%cell_type
     DO jc = i_startidx, i_endidx
 
       IF (je > ptr_patch%cells%num_edges(jc,jb)) CYCLE ! relevant for hexagons
@@ -1744,7 +1744,7 @@ rl_start = 2
 rl_end = min_rlvert
 
 ! Vorticity should have the right sign
-  SELECT CASE (i_cell_type)
+  SELECT CASE (ptr_patch%cell_type)
   CASE (3)
     ifac = 1
   CASE (6)
@@ -1762,7 +1762,7 @@ rl_end = min_rlvert
     CALL get_indices_v(ptr_patch, jb, i_startblk, i_endblk, &
                        i_startidx, i_endidx, rl_start, rl_end)
 
-    DO je = 1, 9-i_cell_type
+    DO je = 1, 9-ptr_patch%cell_type
       DO jv = i_startidx, i_endidx
 
         IF (je > ptr_patch%verts%num_edges(jv,jb)) CYCLE
@@ -1798,7 +1798,7 @@ DO jb = i_startblk, i_endblk
   CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end)
 
-  DO je = 1, i_cell_type
+  DO je = 1, ptr_patch%cell_type
     DO jc = i_startidx, i_endidx
 
       ile = ptr_patch%cells%edge_idx(jc,jb,je)
@@ -1810,48 +1810,48 @@ DO jb = i_startblk, i_endblk
       ibc2 = ptr_patch%edges%cell_blk(ile,ibe,2)
 
       IF (jc == ilc1 .AND. jb == ibc1) THEN
-        IF (i_cell_type == 3) THEN
+        IF (ptr_patch%cell_type == 3) THEN
           ptr_int%geofac_n2s(jc,1,jb) = ptr_int%geofac_n2s(jc,1,jb) - &
             ptr_int%geofac_div(jc,je,jb) /                            &
             ptr_patch%edges%dual_edge_length(ile,ibe)
-        ELSE IF (i_cell_type == 6) THEN
+        ELSE IF (ptr_patch%cell_type == 6) THEN
           ptr_int%geofac_n2s(jc,1,jb) = ptr_int%geofac_n2s(jc,1,jb) - &
             ptr_int%geofac_div(jc,je,jb) /                            &
             ptr_patch%edges%dual_edge_length(ile,ibe)*                &
             ptr_patch%edges%system_orientation(ile,ibe)
         ENDIF
       ELSE IF (jc == ilc2 .AND. jb == ibc2) THEN
-        IF (i_cell_type == 3) THEN
+        IF (ptr_patch%cell_type == 3) THEN
           ptr_int%geofac_n2s(jc,1,jb) = ptr_int%geofac_n2s(jc,1,jb) + &
             ptr_int%geofac_div(jc,je,jb) /                            &
             ptr_patch%edges%dual_edge_length(ile,ibe)
-        ELSE IF (i_cell_type == 6) THEN
+        ELSE IF (ptr_patch%cell_type == 6) THEN
           ptr_int%geofac_n2s(jc,1,jb) = ptr_int%geofac_n2s(jc,1,jb) + &
             ptr_int%geofac_div(jc,je,jb) /                            &
             ptr_patch%edges%dual_edge_length(ile,ibe)*                &
             ptr_patch%edges%system_orientation(ile,ibe)
         ENDIF
       ENDIF
-      DO ic = 1, i_cell_type
+      DO ic = 1, ptr_patch%cell_type
         ilnc = ptr_patch%cells%neighbor_idx(jc,jb,ic)
         ibnc = ptr_patch%cells%neighbor_blk(jc,jb,ic)
         IF (ilnc == ilc1 .AND. ibnc == ibc1) THEN
-          IF (i_cell_type == 3) THEN
+          IF (ptr_patch%cell_type == 3) THEN
             ptr_int%geofac_n2s(jc,ic+1,jb) = ptr_int%geofac_n2s(jc,ic+1,jb) - &
               ptr_int%geofac_div(jc,je,jb) /                                  &
               ptr_patch%edges%dual_edge_length(ile,ibe)
-          ELSE IF (i_cell_type == 6) THEN
+          ELSE IF (ptr_patch%cell_type == 6) THEN
             ptr_int%geofac_n2s(jc,ic+1,jb) = ptr_int%geofac_n2s(jc,ic+1,jb) - &
               ptr_int%geofac_div(jc,je,jb) /                                  &
               ptr_patch%edges%dual_edge_length(ile,ibe)*                      &
               ptr_patch%edges%system_orientation(ile,ibe)
           ENDIF
         ELSE IF (ilnc == ilc2 .AND. ibnc == ibc2) THEN
-          IF (i_cell_type == 3) THEN
+          IF (ptr_patch%cell_type == 3) THEN
             ptr_int%geofac_n2s(jc,ic+1,jb) = ptr_int%geofac_n2s(jc,ic+1,jb) + &
               ptr_int%geofac_div(jc,je,jb) /                                  &
               ptr_patch%edges%dual_edge_length(ile,ibe)
-          ELSE IF (i_cell_type == 6) THEN
+          ELSE IF (ptr_patch%cell_type == 6) THEN
             ptr_int%geofac_n2s(jc,ic+1,jb) = ptr_int%geofac_n2s(jc,ic+1,jb) + &
               ptr_int%geofac_div(jc,je,jb) /                                  &
               ptr_patch%edges%dual_edge_length(ile,ibe)*                      &
@@ -1873,7 +1873,7 @@ END DO !block loop
 
 ! d) Geometrical factor for quad-cell divergence (triangles only)
 
-IF (i_cell_type == 3) THEN
+IF (ptr_patch%cell_type == 3) THEN
 
   rl_start = 2
   rl_end = min_rledge
@@ -1910,7 +1910,7 @@ ENDIF
     ! e) coefficients for directional gradient of a normal vector quantity
     ! at the same edge (gives directional laplacian if gradient psi is assumed as input)
 
-    IF (i_cell_type == 6) THEN
+    IF (ptr_patch%cell_type == 6) THEN
 
       ! Now compute coefficients
       !-------------------------
@@ -2208,7 +2208,7 @@ DO jb = i_startblk, i_endblk
   CALL get_indices_c(ptr_patch, jb, i_startblk, i_endblk, &
                      i_startidx, i_endidx, rl_start, rl_end)
 
-  DO je = 1, i_cell_type
+  DO je = 1, ptr_patch%cell_type
     DO jc = i_startidx, i_endidx
 
       ile = ptr_patch%cells%edge_idx(jc,jb,je)
@@ -2234,7 +2234,7 @@ DO jb = i_startblk, i_endblk
           ptr_int%primal_normal_ec(jc,jb,je,2)*ptr_int%geofac_div(jc,je,jb)* &
           ptr_int%c_lin_e(ile,2,ibe)
       ENDIF
-      DO ic = 1, i_cell_type
+      DO ic = 1, ptr_patch%cell_type
         ilnc = ptr_patch%cells%neighbor_idx(jc,jb,ic)
         ibnc = ptr_patch%cells%neighbor_blk(jc,jb,ic)
         IF (ilnc == ilc1 .AND. ibnc == ibc1) THEN
@@ -2524,7 +2524,7 @@ DO jb = i_startblk, i_endblk
     cc_ev4 = gc2cc(ptr_patch%verts%vertex(ilv4,ibv4))
 
     ! inverse length bewtween vertices 3 and 4
-    IF (i_cell_type == 3 ) THEN
+    IF (ptr_patch%cell_type == 3 ) THEN
       ptr_patch%edges%inv_vert_vert_length(je,jb) = 1._wp/(re*arc_length(cc_ev3,cc_ev4))
     ENDIF
 
