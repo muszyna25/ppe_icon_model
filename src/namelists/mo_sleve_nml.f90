@@ -47,12 +47,14 @@ MODULE mo_sleve_nml
 !
 !
 !
-  USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: finish
-  USE mo_impl_constants,     ONLY: max_char_length
-  USE mo_io_units,           ONLY: nnml, nnml_output
-  USE mo_namelist,           ONLY: position_nml, positioned
-  USE mo_mpi,                ONLY: p_pe, p_io
+  USE mo_kind,                ONLY: wp
+  USE mo_exception,           ONLY: finish
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
+  USE mo_io_units,            ONLY: nnml, nnml_output
+  USE mo_namelist,            ONLY: position_nml, positioned
+  USE mo_mpi,                 ONLY: p_pe, p_io
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
+    &                               open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
 
@@ -83,6 +85,8 @@ MODULE mo_sleve_nml
   !
   !
   !
+
+  PUBLIC:: read_sleve_namelist
 
 CONTAINS
 
@@ -145,5 +149,93 @@ CONTAINS
   IF(p_pe == p_io) WRITE(nnml_output,nml=sleve_ctl)
 
 END SUBROUTINE sleve_nml_setup
+
+  !-------------------------------------------------------------------------
+  !
+  !
+  !>
+  !! Read Namelist for SLEVE coordinate. 
+  !!
+  !! This subroutine 
+  !! - reads the Namelist for SLEVE coordinate
+  !! - sets default values
+  !! - potentially overwrites the defaults by values used in a 
+  !!   previous integration (if this is a resumed run)
+  !! - reads the user's (new) specifications
+  !! - stores the Namelist for restart
+  !! - fills the configuration state (partly)    
+  !!
+  !! @par Revision History
+  !!  by Daniel Reinert, DWD (2011-06-07)
+  !!
+  SUBROUTINE read_sleve_namelist
+    !
+    INTEGER :: istat, funit
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_sleve_nml: read_sleve_namelist'
+
+    !-----------------------------------------------------------------------
+
+    !-----------------------!
+    ! 1. default settings   !
+    !-----------------------!
+
+    ! a) Parameters determining the distribution of model layers
+    !    (if not read in from a table)
+    min_lay_thckn   = 50._wp      ! Layer thickness of lowermost layer
+    top_height      = 23500._wp   ! Height of model top
+    stretch_fac     = 1._wp       ! Scaling factor for stretching/squeezing 
+                                  ! the model layer distribution
+
+    ! b) Parameters setting up the decay function of the topographic signal
+    decay_scale_1   = 4000._wp    ! Decay scale of large-scale topography component
+    decay_scale_2   = 2500._wp    ! Decay scale of small-scale topography component
+    decay_exp       = 1.2_wp      ! Exponent for decay function
+    flat_height     = 16000._wp   ! Height above which the coordinate surfaces are 
+                                  ! flat
+
+
+    !------------------------------------------------------------------
+    ! 2. If this is a resumed integration, overwrite the defaults above 
+    !    by values used in the previous integration.
+    !------------------------------------------------------------------
+    IF (lrestart) THEN
+      funit = open_and_restore_namelist('sleve_ctl')
+      READ(funit,NML=sleve_ctl)
+      CALL close_tmpfile(funit)
+    END IF
+
+
+    !--------------------------------------------------------------------
+    ! 3. Read user's (new) specifications (Done so far by all MPI processes)
+    !--------------------------------------------------------------------
+    CALL position_nml ('sleve_ctl', status=istat)
+    SELECT CASE (istat)
+    CASE (POSITIONED)
+      READ (nnml, sleve_ctl)
+    END SELECT
+
+
+    !----------------------------------------------------
+    ! 4. Fill the configuration state
+    !----------------------------------------------------
+
+
+    !-----------------------------------------------------
+    ! 5. Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=sleve_ctl)                    
+    CALL store_and_close_namelist(funit, 'sleve_ctl') 
+
+
+    ! 6. write the contents of the namelist to an ASCII file
+    !
+    IF(p_pe == p_io) WRITE(nnml_output,nml=sleve_ctl)
+
+
+  END SUBROUTINE read_nwp_phy_namelist
+
 
 END MODULE mo_sleve_nml

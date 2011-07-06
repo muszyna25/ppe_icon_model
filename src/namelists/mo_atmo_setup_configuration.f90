@@ -123,7 +123,7 @@ MODULE mo_atmo_setup_configuration
   USE mo_radiation_nml,       ONLY: read_radiation_namelist
   USE mo_gw_hines_nml,        ONLY: read_gw_hines_namelist
   USE mo_lnd_nwp_nml,         ONLY: setup_nwp_lnd, read_nwp_lnd_namelist
- 
+  USE mo_sleve_nml,           ONLY: read_sleve_namelist
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
     
   USE mo_io_restart_namelist,  ONLY: read_restart_namelists
@@ -185,6 +185,7 @@ CONTAINS
 
     CALL read_io_namelist()
     CALL read_nonhydrostatic_namelist()
+    CALL read_sleve_namelist()
       
     ! close namelist file
     CALL close_nml
