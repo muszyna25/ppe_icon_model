@@ -41,7 +41,10 @@ MODULE mo_echam_phy_interface
   USE mo_datetime,          ONLY: t_datetime, print_datetime, add_time
   USE mo_math_constants,    ONLY: pi
   USE mo_model_domain,      ONLY: t_patch
-  USE mo_echam_phy_nml,     ONLY: lconv, lvdiff, lrad, lgw_hines
+  USE mo_echam_phy_config,  ONLY: lconv     => echam_phy_config%lconv,   &
+                                & lvdiff    => echam_phy_config%lvdiff,  &
+                                & lrad      => echam_phy_config%lrad,    &
+                                & lgw_hines => echam_phy_config%lgw_hines
   USE mo_echam_phy_memory,  ONLY: prm_field, prm_tend
   USE mo_icoham_dyn_types,  ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_interpolation,     ONLY: t_int_state, rbf_vec_interpol_cell, & 

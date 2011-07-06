@@ -17,7 +17,7 @@
 !!  by Hui Wan, MPI (2010-07)
 !!
 !! @par Copyright
-!! 2002-2010 by DWD and MPI-M
+!! 2002-2011 by DWD and MPI-M
 !! This software is provided for non-commercial use only.
 !! See the LICENSE and the WARRANTY conditions.
 !!
@@ -48,31 +48,36 @@ MODULE mo_echam_phy_nml
   USE mo_namelist,           ONLY: position_nml, POSITIONED
   USE mo_io_units,           ONLY: nnml
   USE mo_master_nml,         ONLY: lrestart
-  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist, &                                             
+  USE mo_echam_phy_config,   ONLY: echam_phy_config
+  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist, &
                                  & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
-  PUBLIC
 
+  PUBLIC :: read_echam_phy_nml
+
+  PRIVATE
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
-  LOGICAL :: lrad      = .TRUE.   !<  .true. for radiation.
-  LOGICAL :: lvdiff    = .TRUE.   !<  .true. for vertical diffusion.
-  LOGICAL :: lconv     = .TRUE.   !<  .true. for moist convection
-  LOGICAL :: lcond     = .TRUE.   !<  .true. for large scale condensation
-  LOGICAL :: lcover    = .FALSE.  !<  .true. for prognostic cloud cover scheme
-  LOGICAL :: llandsurf = .FALSE.  !<  .true. for surface exchanges. (lsurf in ECHAM6)
-  LOGICAL :: lssodrag  = .FALSE.  !<  .true. for subgrid scale orographic drag,
-  !                                    by blocking and gravity waves (lgwdrag in ECHAM6)
-  LOGICAL :: lgw_hines  = .FALSE. !<  .true. for atmospheric gravity wave drag
-  LOGICAL :: lice      = .FALSE.  !<  .true. for sea-ice temperature calculation
-  LOGICAL :: lmeltpond = .FALSE.  !<  .true. for calculation of meltponds
-  LOGICAL :: lmlo      = .FALSE.  !<  .true. for mixed layer ocean
-  LOGICAL :: lhd       = .FALSE.  !<  .true. for hydrologic discharge model
-  LOGICAL :: lmidatm   = .FALSE.  !<  .true. for middle atmosphere model version
+  LOGICAL :: nml_lrad      = .TRUE.   !< .true. for radiation.
+  LOGICAL :: nml_lvdiff    = .TRUE.   !< .true. for vertical diffusion.
+  LOGICAL :: nml_lconv     = .TRUE.   !< .true. for moist convection
+  LOGICAL :: nml_lcond     = .TRUE.   !< .true. for large scale condensation
+  LOGICAL :: nml_lcover    = .FALSE.  !< .true. for prognostic cloud cover scheme
+  LOGICAL :: nml_llandsurf = .FALSE.  !< .true. for surface exchanges. (lsurf in ECHAM6)
+  LOGICAL :: nml_lssodrag  = .FALSE.  !< .true. for subgrid scale orographic drag,
+                                      !< by blocking and gravity waves (lgwdrag in ECHAM6)
+  LOGICAL :: nml_lgw_hines = .FALSE.  !< .true. for atmospheric gravity wave drag
+  LOGICAL :: nml_lice      = .FALSE.  !< .true. for sea-ice temperature calculation
+  LOGICAL :: nml_lmeltpond = .FALSE.  !< .true. for calculation of meltponds
+  LOGICAL :: nml_lmlo      = .FALSE.  !< .true. for mixed layer ocean
+  LOGICAL :: nml_lhd       = .FALSE.  !< .true. for hydrologic discharge model
+  LOGICAL :: nml_lmidatm   = .FALSE.  !< .true. for middle atmosphere model version
 
-  NAMELIST /echam_phy_nml/ lrad, lvdiff, lconv, lcond, lcover, lssodrag, lgw_hines, &
-    &                      llandsurf, lice, lmeltpond, lmlo, lhd, lmidatm
+  NAMELIST /echam_phy_nml/ nml_lrad, nml_lvdiff, nml_lconv, nml_lcond, &
+                         & nml_lcover, nml_lssodrag, nml_lgw_hines,    &
+                         & nml_llandsurf, nml_lice, nml_lmeltpond,     &
+                         & nml_lmlo, nml_lhd, nml_lmidatm
 
 CONTAINS
   !>
@@ -92,7 +97,7 @@ CONTAINS
     END IF
                                                                                           
     !---------------------------------------------------------------------
-    ! Read user's (new) specifications (Done so far by all MPI processes)
+    ! Read user's (new) specifications (Done so far by all MPI processors)
     !---------------------------------------------------------------------
     CALL position_nml ('echam_phy_nml', STATUS=istat)
     SELECT CASE (istat)
@@ -100,12 +105,30 @@ CONTAINS
       READ (nnml, echam_phy_nml)
     END SELECT
 
-    !-----------------------------------------------------                                
-    ! Store the namelist for restart                                                      
-    !-----------------------------------------------------                                
-    funit = open_tmpfile()                                                                
-    WRITE(funit,NML=echam_phy_nml)                                                             
-    CALL store_and_close_namelist(funit, 'echam_phy_nml')                                      
+    !-----------------------------------------------------
+    ! Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=echam_phy_nml)
+    CALL store_and_close_namelist(funit, 'echam_phy_nml')
+
+    !-----------------------------------------------------
+    ! Fill the configuration state
+    !-----------------------------------------------------
+
+    echam_phy_config% lrad      = nml_lrad                                                
+    echam_phy_config% lvdiff    = nml_lvdiff                                              
+    echam_phy_config% lconv     = nml_lconv                                               
+    echam_phy_config% lcond     = nml_lcond                                               
+    echam_phy_config% lcover    = nml_lcover                                              
+    echam_phy_config% llandsurf = nml_llandsurf                                           
+    echam_phy_config% lssodrag  = nml_lssodrag                                            
+    echam_phy_config% lgw_hines = nml_lgw_hines                                           
+    echam_phy_config% lice      = nml_lice                                                
+    echam_phy_config% lmeltpond = nml_lmeltpond                                           
+    echam_phy_config% lmlo      = nml_lmlo                                                
+    echam_phy_config% lhd       = nml_lhd                                                 
+    echam_phy_config% lmidatm   = nml_lmidatm  
 
   END SUBROUTINE read_echam_phy_nml
 

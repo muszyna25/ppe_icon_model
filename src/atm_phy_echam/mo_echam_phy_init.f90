@@ -44,8 +44,11 @@ MODULE mo_echam_phy_init
   USE mo_run_nml,            ONLY: nlev, nlevp1, nvclev,  &
     &                              iqv, iqt, ntracer, ltestcase
   USE mo_vertical_coord_table,ONLY: vct
-  USE mo_echam_phy_nml,      ONLY: lrad, lvdiff, lconv, lcond
-  USE mo_vertical_coord_table, ONLY: vct
+  USE mo_echam_phy_config,      ONLY: lrad   => echam_phy_config%lrad,   &
+                                    & lvdiff => echam_phy_config%lvdiff, &
+                                    & lconv  => echam_phy_config%lconv,  &
+                                    & lcond  => echam_phy_config%lcond
+
   ! test cases
   USE mo_hydro_testcases,    ONLY: ctest_name, ape_sst_case
   USE mo_ape_params,         ONLY: ape_sst

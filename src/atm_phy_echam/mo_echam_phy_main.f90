@@ -52,7 +52,12 @@ MODULE mo_echam_phy_main
     &                               iqv, iqc, iqi, io3, iqt, ltimer
   USE mo_hydro_testcases,     ONLY: ctest_name
   USE mo_vertical_coord_table,ONLY: nlevm1
-  USE mo_echam_phy_nml,       ONLY: lcond, lcover, lconv, lrad, lvdiff, lgw_hines
+  USE mo_echam_phy_config,    ONLY: lcond     => echam_phy_config%lcond,  &
+                                    lcover    => echam_phy_config%lcover, &
+                                    lconv     => echam_phy_config%lconv,  &
+                                    lrad      => echam_phy_config%lrad,   &
+                                    lvdiff    => echam_phy_config%lvdiff, &
+                                    lgw_hines => echam_phy_config%lgw_hines
   USE mo_echam_conv_nml,      ONLY: iconv
   USE mo_cucall,              ONLY: cucall
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
