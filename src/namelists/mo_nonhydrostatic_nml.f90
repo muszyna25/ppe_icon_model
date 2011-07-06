@@ -80,7 +80,7 @@ MODULE mo_nonhydrostatic_nml
                             ! region for aquaplanet experiments
   INTEGER :: kstart_qv(max_dom) ! related flow control variable (NOT a namelist variable)
 
-  ! Parameters active with i_cell_type=3 only
+  ! Parameters active with cell_type=3 only
   REAL(wp):: damp_height(max_dom)    ! height at which w-damping and sponge layer start
   REAL(wp):: damp_height_u           ! height at which Rayleigh damping of u starts
   REAL(wp):: rayleigh_coeff(max_dom) ! Rayleigh damping coefficient in w-equation
@@ -98,7 +98,7 @@ MODULE mo_nonhydrostatic_nml
   REAL(wp):: thhgtd_zdiffu  ! threshold height difference between adjacent model grid points
                             ! above which temperature diffusion is applied
 
-  ! Parameters active with i_cell_type=6 only
+  ! Parameters active with cell_type=6 only
   REAL(wp) :: gmres_rtol_nh ! relative tolerance for gmres convergence
   LOGICAL  :: ltheta_up_hori! horizontal 3rd order advection of theta_v
   REAL(wp) :: upstr_beta    ! =1 for 3rd order upstream, =0 for 4th order centered
