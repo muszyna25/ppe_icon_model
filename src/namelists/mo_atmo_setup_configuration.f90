@@ -36,17 +36,12 @@ MODULE mo_atmo_setup_configuration
 
   USE mo_exception,           ONLY: message, finish
   USE mo_mpi,                 ONLY: p_stop, p_pe, p_io, p_nprocs
-  USE mo_timer,               ONLY: init_timer, print_timer
   USE mo_master_nml,          ONLY: lrestart
   USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output
   USE mo_output,              ONLY: init_output_files, close_output_files, write_output
 
-  USE mo_parallel_nml,        ONLY: parallel_nml_setup,  get_nml_nproma, & ! process parallel run ctl. params.
-    & p_comm_work_test, p_comm_input_bcast, & ! communicators
-    & p_test_pe,            & !    internal parameter
-    & p_comm_work,          &
-    & p_test_run,           &
-    & p_io_pe0                ! Number of first I/O PE
+  USE mo_parallel_nml,        ONLY: read_parallel_namelist
+  
   USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
 
 

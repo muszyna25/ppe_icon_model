@@ -157,12 +157,12 @@ MODULE mo_parallel_nml
   PUBLIC :: read_parallel_namelist, get_nml_nproma
   
   ! Exported variables:
-  PUBLIC ::              nml_n_ghost_rows, nml_division_method, &
-                         nml_p_test_run,   nml_l_test_openmp,   &
-                         nml_l_log_checks, nml_l_fast_sum,      &
-                         nml_num_io_procs, nml_pio_type,        &
-                         nml_itype_comm,   nml_iorder_sendrecv, &
-                         nml_nproma
+!   PUBLIC ::              nml_n_ghost_rows, nml_division_method, &
+!                          nml_p_test_run,   nml_l_test_openmp,   &
+!                          nml_l_log_checks, nml_l_fast_sum,      &
+!                          nml_num_io_procs, nml_pio_type,        &
+!                          nml_itype_comm,   nml_iorder_sendrecv, &
+!                          nml_nproma
        
   CONTAINS
   !>
