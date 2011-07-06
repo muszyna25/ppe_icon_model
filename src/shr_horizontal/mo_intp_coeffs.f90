@@ -177,7 +177,6 @@ USE mo_math_utilities,      ONLY: gc2cc, cc2gc, gnomonic_proj,               &
                                 & t_geographical_coordinates
 USE mo_dynamics_nml,        ONLY: divavg_cntrwgt
 USE mo_parallel_configuration,  ONLY: nproma
-USE mo_run_nml,             ONLY: i_cell_type
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 
 USE mo_intp_data_strc

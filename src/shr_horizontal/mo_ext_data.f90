@@ -48,7 +48,7 @@ MODULE mo_ext_data
   USE mo_kind
   USE mo_io_units,           ONLY: filename_max
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,            ONLY: i_cell_type, itopo, locean, &
+  USE mo_run_nml,            ONLY: itopo, locean, &
     &                              iforcing, inwp, iequations,         &
     &                              fac_smooth_topo, n_iter_smooth_topo
  !USE mo_lnd_nwp_nml,        ONLY: nsfc_subs
@@ -1335,13 +1335,13 @@ CONTAINS
         !
 
         !triangles
-        IF (i_cell_type == 3) THEN ! triangular grid
+        IF (p_patch(jg)%cell_type == 3) THEN ! triangular grid
            CALL nf(nf_inq_dimid (ncid, 'cell', dimid))
            CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
        ENDIF
        
        !hexagons
-        IF (i_cell_type == 6) THEN ! hexagonal grid
+        IF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
            CALL nf(nf_inq_dimid (ncid, 'vertex', dimid))
            CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
         ENDIF
@@ -1440,16 +1440,16 @@ END SUBROUTINE inquire_external_files
         ! get number of cells and vertices
         !
         CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
-        IF (i_cell_type == 3) THEN ! triangular grid
+        IF (p_patch(jg)%cell_type == 3) THEN ! triangular grid
           CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
-        ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+        ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
           CALL nf(nf_inq_dimlen(ncid, dimid, no_verts))
         ENDIF
 
         CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
-        IF (i_cell_type == 3) THEN ! triangular grid
+        IF (p_patch(jg)%cell_type == 3) THEN ! triangular grid
           CALL nf(nf_inq_dimlen(ncid, dimid, no_verts))
-        ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+        ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
           CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
         ENDIF
 
@@ -1477,7 +1477,7 @@ END SUBROUTINE inquire_external_files
       !
       ! topography
       !
-      IF (i_cell_type == 3) THEN     ! triangular grid
+      IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
 
         ! triangle center
         CALL read_netcdf_data (ncid, 'topography_c', p_patch(jg)%n_patch_cells_g,       &
@@ -1489,7 +1489,7 @@ END SUBROUTINE inquire_external_files
           &                     p_patch(jg)%n_patch_verts, p_patch(jg)%verts%glb_index, &
           &                     ext_data(jg)%atm%topography_v)
 
-      ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+      ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
 
         ! triangle center
         CALL read_netcdf_data (ncid, 'topography_c', p_patch(jg)%n_patch_verts_g,       &
@@ -1507,7 +1507,7 @@ END SUBROUTINE inquire_external_files
       !
       ! other external parameters on triangular grid
       !
-      IF (i_cell_type == 3) THEN     ! triangular grid
+      IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
 
         CALL read_netcdf_data (ncid, 'FR_LAND', p_patch(jg)%n_patch_cells_g,              &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index,   &
@@ -1593,7 +1593,7 @@ END SUBROUTINE inquire_external_files
             &                     ext_data(jg)%atm%depth_lk)
         ENDIF ! (iforcing == inwp)
         
-      ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+      ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
 
         CALL finish(TRIM(ROUTINE),&
         & 'Hexagonal grid is not supported, yet.')
@@ -1625,14 +1625,14 @@ END SUBROUTINE inquire_external_files
           WRITE(ozone_file,'(a,I2.2,a)') 'o3_icon_DOM',jg,'.nc'
           CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid))
 
-          IF (i_cell_type == 3) THEN     ! triangular grid
+          IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
             CALL read_netcdf_data (ncid, 'O3', & ! &
               &                    p_patch(jg)%n_patch_cells_g,  &
               &                    p_patch(jg)%n_patch_cells,    &
               &                    p_patch(jg)%cells%glb_index,  & 
               &                    nlev_pres,  nmonths,          &
               &                    ext_data(jg)%atm_td%O3)
-          ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+          ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
             CALL read_netcdf_data (ncid, 'O3', & 
               &                    p_patch(jg)%n_patch_verts_g,  &
               &                    p_patch(jg)%n_patch_verts,    & 
@@ -1891,7 +1891,7 @@ END SUBROUTINE inquire_external_files
           zmaxtop = z_topo(p_patch%cells%neighbor_idx(jc,jb,1),1, &
               &          p_patch%cells%neighbor_blk(jc,jb,1))
           zmintop = zmaxtop
-          DO il=2,i_cell_type
+          DO il=2,p_patch%cell_type
 
             IF ( z_topo(p_patch%cells%neighbor_idx(jc,jb,il),1, &
               &          p_patch%cells%neighbor_blk(jc,jb,il)) > &
@@ -1956,7 +1956,7 @@ END SUBROUTINE inquire_external_files
           zmaxtop = z_topo(p_patch%cells%neighbor_idx(jc,jb,1),1, &
               &          p_patch%cells%neighbor_blk(jc,jb,1))
           zmintop = zmaxtop
-          DO il=2,i_cell_type
+          DO il=2,p_patch%cell_type
 
             IF ( z_topo(p_patch%cells%neighbor_idx(jc,jb,il),1, &
               &          p_patch%cells%neighbor_blk(jc,jb,il)) > &
