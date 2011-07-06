@@ -171,7 +171,7 @@ CONTAINS
 
   SUBROUTINE read_dynamics_namelist()
 
-    INTEGER :: istat
+    INTEGER :: istat, funit
 
     !------------------------------------------------------------
     ! 1. Set up the default values for dynamics_ctl
@@ -228,7 +228,7 @@ CONTAINS
   ! ! write the contents of the namelist to an ASCII file
   ! IF(p_pe == p_io) WRITE(nnml_output,nml=dynamics_ctl)
 
-  END read_dynamics_namelist
+  END SUBROUTINE read_dynamics_namelist
 
   !>
   !! @brief Initialization of variables that set up the dynamica core.
