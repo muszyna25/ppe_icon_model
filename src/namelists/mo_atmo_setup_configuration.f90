@@ -168,6 +168,7 @@ CONTAINS
     CALL read_transport_namelist()
     CALL read_nwp_phy_namelist()
     CALL read_diffusion_namelist()
+    CALL read_gridref_namelist()
         
     ! close namelist file
     CALL close_nml
