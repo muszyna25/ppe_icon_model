@@ -45,6 +45,7 @@ MODULE mo_gw_hines_nml
   USE mo_master_nml,          ONLY: lrestart
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &                                             
     &                               open_and_restore_namelist, close_tmpfile
+  USE mo_mpi,                ONLY: p_pe, p_io
 
   IMPLICIT NONE
 
