@@ -49,8 +49,9 @@ MODULE mo_diffusion_nml
   USE mo_namelist,            ONLY: position_nml, positioned
   USE mo_master_nml,          ONLY: lrestart
   USE mo_mpi,                 ONLY: p_pe, p_io
-  USE mo_run_nml,             ONLY: lshallow_water,i_cell_type,nlev, &
+  USE mo_run_nml,             ONLY: lshallow_water,global_cell_type,nlev, &
                                   & latmosphere, lhydrostatic
+  USE mo_grid_configuration,  ONLY: global_cell_type
   USE mo_vertical_coord_table,ONLY: vct_a, vct_b, apzero
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
                                   & open_and_restore_namelist, close_tmpfile
@@ -183,11 +184,11 @@ MODULE mo_diffusion_nml
       CONTINUE
 
     CASE(3)
-      IF (i_cell_type==3) CALL finish(TRIM(routine), &
+      IF (global_cell_type==3) CALL finish(TRIM(routine), &
       'hdiff_order = 3 invalid for triangular model.')
 
     CASE(5)
-      IF (i_cell_type==6) CALL finish(TRIM(routine), &
+      IF (global_cell_type==6) CALL finish(TRIM(routine), &
       'hdiff_order = 5 invalid for hexagonal model.')
 
     CASE(24,42)
