@@ -115,7 +115,8 @@ MODULE mo_atmo_setup_configuration
   USE mo_vertical_coord_table,ONLY: init_vertical_coord_table
   USE mo_vertical_grid,       ONLY: init_hybrid_coord, init_sleve_coord
     
-  USE mo_echam_phy_nml,       ONLY: read_echam_phy_nml
+  USE mo_echam_phy_nml,       ONLY: read_echam_phy_namelist
+  USE mo_echam_vdiff_nml,     ONLY: read_echam_vdiff_namelist
   USE mo_atm_phy_nwp_nml,     ONLY: setup_nwp_phy, inwp_surface, &
     &                               read_nwp_phy_namelist
   USE mo_gw_hines_nml,        ONLY: read_gw_hines_namelist
@@ -166,6 +167,7 @@ CONTAINS
     CALL read_transport_namelist()
     CALL read_nwp_phy_namelist()
     CALL read_echam_phy_namelist()
+    CALL read_echam_vdiff_namelist()
     CALL read_diffusion_namelist()
     CALL read_gridref_namelist()
     CALL read_gw_hines_namelist()

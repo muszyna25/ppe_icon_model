@@ -54,7 +54,7 @@ MODULE mo_echam_phy_nml
 
   IMPLICIT NONE
 
-  PUBLIC :: read_echam_phy_nml
+  PUBLIC :: read_echam_phy_namelist
 
   PRIVATE
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
@@ -82,7 +82,7 @@ MODULE mo_echam_phy_nml
 CONTAINS
   !>
   !!
-  SUBROUTINE read_echam_phy_nml
+  SUBROUTINE read_echam_phy_namelist
 
     INTEGER :: istat, funit
 
@@ -130,6 +130,6 @@ CONTAINS
     echam_phy_config% lhd       = nml_lhd                                                 
     echam_phy_config% lmidatm   = nml_lmidatm  
 
-  END SUBROUTINE read_echam_phy_nml
+  END SUBROUTINE read_echam_phy_namelist
 
 END MODULE mo_echam_phy_nml

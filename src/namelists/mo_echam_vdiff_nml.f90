@@ -38,17 +38,16 @@
 MODULE mo_echam_vdiff_nml
 
   USE mo_io_units,            ONLY: nnml
-  USE mo_exception,           ONLY: message, print_value
   USE mo_namelist,            ONLY: position_nml, POSITIONED
   USE mo_master_nml,          ONLY: lrestart
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &                                             
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
                                   & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
 
   PRIVATE
 
-  PUBLIC :: echam_vdiff_nml_setup
+  PUBLIC :: read_echam_vdiff_namelist
   PUBLIC :: echam_vdiff_ctl                             !< namelist
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
@@ -65,14 +64,8 @@ MODULE mo_echam_vdiff_nml
 
 CONTAINS
   !>
-  !! Set up vertical diffusion
   !!
-  !! @par Revision History
-  !!   Revision History in mo_echam_vdiff_params (r4300)
-  !!   Modification by Constantin Junk, MPI-M (2011-05-05)
-  !!   - renamed setup_vdiff to echam_vdiff_nml_setup
-  !!
-  SUBROUTINE echam_vdiff_nml_setup
+  SUBROUTINE read_echam_vdiff_namelist
 
     INTEGER :: ist, funit
 
@@ -98,17 +91,6 @@ CONTAINS
       READ (nnml, echam_vdiff_ctl)
     END SELECT
 
-    ! Check validity; send values to stdout
-
-    CALL message('','')
-    CALL message('','------- namelist echam_vdiff_ctl --------')
-
-    CALL print_value(' lsfc_mom_flux  ',lsfc_mom_flux)
-    CALL print_value(' lsfc_heat_flux ',lsfc_heat_flux)
-
-    CALL message('','---------------------------')
-    CALL message('','')
-
     !-----------------------------------------------------
     ! Store the namelist for restart
     !-----------------------------------------------------
@@ -116,6 +98,6 @@ CONTAINS
     WRITE(funit,NML=echam_vdiff_ctl)
     CALL store_and_close_namelist(funit, 'echam_vdiff_ctl')
 
-  END SUBROUTINE echam_vdiff_nml_setup
+  END SUBROUTINE read_echam_vdiff_namelist
 
 END MODULE mo_echam_vdiff_nml
