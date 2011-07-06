@@ -43,7 +43,7 @@
 !!
 MODULE mo_atm_dyn_config
 
-  USE mo_impl_constants,     ONLY: max_dom
+  USE mo_impl_constants,     ONLY: MAX_DOM => max_dom
 
   IMPLICIT NONE
 

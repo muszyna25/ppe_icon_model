@@ -44,6 +44,7 @@
 MODULE mo_ha_dyn_config
 
   USE mo_kind, ONLY: wp
+  USE mo_impl_constants,     ONLY: MAX_DOM => max_dom
 
   IMPLICIT NONE
 
