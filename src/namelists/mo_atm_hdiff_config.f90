@@ -47,7 +47,9 @@ MODULE mo_atm_hdiff_config
 
   IMPLICIT NONE
 
-  PRIVATE
+  PUBLIC ! all "get" functions; "fill/kill" subroutines
+
+  PRIVATE :: t_hdiff_config, atm_hdiff_config
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -92,17 +94,31 @@ MODULE mo_atm_hdiff_config
 
   !>
   !!
-  TYPE(t_hdiff_config),ALLOCATABLE :: atm_hdiff_config(:) !< shape: (n_dom)
+  TYPE(t_hdiff_config),ALLOCATABLE :: atm_hdiff_config(:) !< shape: (ndom)
 
 CONTAINS
+  !----------------------------------------------------------------
+  ! Subroutines for filling and killing the configuration state
+  !----------------------------------------------------------------
   !>
   !!
-  SUBROUTINE setup_atm_hdiff_config(n_dom)
-    INTEGER,INTENT(IN) :: n_dom
+  SUBROUTINE fill_atm_hdiff_config(ndom)
 
-    ALLOCATE(atm_hdiff_config(n_dom))
+    INTEGER,INTENT(IN) :: ndom
 
-  END SUBROUTINE setup_atm_hdiff_config
+    ALLOCATE(atm_hdiff_config(ndom))
+
+  END SUBROUTINE fill_atm_hdiff_config
+  !----------------------------------------------------------------
+  !>
+  !!
+  SUBROUTINE kill_atm_hdiff_config
+    DEALLOCATE(atm_hdiff_config)
+  END SUBROUTINE kill_atm_hdiff_config
+
+  !----------------------------------------------------------------
+  ! "Get" functions
+  !----------------------------------------------------------------
   !>
   !!
   LOGICAL FUNCTION get_lhdiff_temp(jg)
