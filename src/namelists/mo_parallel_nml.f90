@@ -196,15 +196,36 @@ MODULE mo_parallel_nml
     CASE (POSITIONED)
       READ (nnml, parallel_ctl)
     END SELECT
+    
     !-----------------------------------------------------
     ! Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
     WRITE(funit,NML=parallel_ctl)
     CALL store_and_close_namelist(funit, 'parallel_ctl')
-
+    
+    !-----------------------------------------------------
     ! Write the final namelist to an ASCII file
     IF (p_pe == p_io) WRITE(nnml_output,nml=parallel_ctl)
+    
+    !-----------------------------------------------------
+    ! fill the parallel_configuration
+    n_ghost_rows        = nml_n_ghost_rows
+    division_method     = nml_division_method
+    p_test_run          = nml_p_test_run
+    l_test_openmp       = nml_l_test_openmp
+    l_log_checks        = nml_l_log_checks
+    l_fast_sum          = nml_l_fast_sum
+    num_io_procs        = nml_num_io_procs
+    pio_type            = nml_pio_type
+    itype_comm          = nml_itype_comm
+    iorder_sendrecv     = nml_iorder_sendrecv
+    radiation_threads   = nml_radiation_threads
+    nh_stepping_threads = nml_nh_stepping_threads
+    nproma              = nml_nproma
+
+    ! check the configuration
+    CALL check_parallel_configuration()
 
 END SUBROUTINE read_parallel_namelist
 
