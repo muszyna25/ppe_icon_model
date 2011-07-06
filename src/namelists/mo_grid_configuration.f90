@@ -68,7 +68,8 @@ MODULE mo_grid_configuration
   PUBLIC :: dynamics_grid_filename,  dynamics_parent_grid_id,  &
     & radiation_grid_filename, dynamics_radiation_grid_link,   &
     & no_of_dynamics_grids, no_of_radiation_grids, max_childdom     
-  PUBLIC :: l_limited_area, nroot, start_lev, lfeedback
+  PUBLIC :: l_limited_area, nroot, start_lev, lfeedback, &
+    & lplane, corio_lat
 
   ! ------------------------------------------------------------------------
   ! 1.0 Namelist variables and auxiliary variables
