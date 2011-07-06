@@ -34,13 +34,14 @@ MODULE mo_ha_dyn_nml
 
   USE mo_kind,                  ONLY: wp
   USE mo_io_units,              ONLY: nnml, nnml_output
+  USE mo_exception,             ONLY: message, message_text, finish
   USE mo_namelist,              ONLY: position_nml, positioned
   USE mo_master_nml,            ONLY: lrestart
   USE mo_ha_dyn_config,         ONLY: ha_dyn_config
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
   USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist, &       
                                       open_and_restore_namelist, close_tmpfile
-
+  USE mo_run_nml,            ONLY:   lshallow_water
   IMPLICIT NONE
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
@@ -164,6 +165,9 @@ CONTAINS
   !>
   !!
   SUBROUTINE check_ha_dyn
+
+    CHARACTER(len=MAX_CHAR_LENGTH),PARAMETER ::             &
+             & routine = 'check_ha_dyn'
 
     IF (si_offctr>1._wp.OR.si_offctr<0._wp) THEN                              
       CALL finish( TRIM(routine), 'Invalid offcentering parameter.'//&        

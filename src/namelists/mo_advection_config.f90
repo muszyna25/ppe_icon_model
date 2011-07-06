@@ -69,7 +69,7 @@ MODULE mo_advection_config
   END TYPE t_cleanup 
 
 
-  PUBLIC
+
 
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for tracer advection
@@ -166,5 +166,7 @@ MODULE mo_advection_config
   !>
   !!
   TYPE(t_advection_config),ALLOCATABLE :: advection_config(:) !< shape: (n_dom)
+
+  PUBLIC
 
 END MODULE mo_advection_config
