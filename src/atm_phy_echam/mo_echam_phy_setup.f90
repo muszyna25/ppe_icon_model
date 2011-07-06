@@ -39,20 +39,13 @@
 !!
 MODULE mo_echam_phy_setup
 
-  USE mo_exception,          ONLY: message, finish, print_value
-! USE mo_echam_phy_nml,      ONLY: read_echam_phy_nml
+! USE mo_exception,          ONLY: message, finish, print_value
   USE mo_echam_phy_config,   ONLY: lrad      => echam_phy_config%lrad,   &
-                                   lconv     => echam_phy_config%lconv,  &
-                                   lvdiff    => echam_phy_config%lvdiff, &
-                                   lgw_hines => echam_phy_config%lgw_hines
+                                   lconv     => echam_phy_config%lconv
   USE mo_radiation_nml,      ONLY: radiation_nml, read_radiation_nml, irad_o3
   USE mo_echam_conv_nml,     ONLY: echam_conv_nml_setup
-  USE mo_run_nml,            ONLY: ltestcase, ntracer, io3
-  USE mo_echam_vdiff_nml,    ONLY: echam_vdiff_ctl, echam_vdiff_nml_setup
-  USE mo_gw_hines_nml,       ONLY: gw_hines_nml, gw_hines_nml_setup
-  USE mo_hydro_testcases,    ONLY: ctest_name
-  USE mo_io_units,           ONLY: nnml_output
-  USE mo_mpi,                ONLY: p_pe, p_io
+! USE mo_run_nml,            ONLY: ltestcase, ntracer, io3
+! USE mo_hydro_testcases,    ONLY: ctest_name
 
   IMPLICIT NONE
   PRIVATE
@@ -71,26 +64,12 @@ CONTAINS
 
     IF (lrad)      CALL read_radiation_nml
     IF (lconv)     CALL echam_conv_nml_setup
-    IF (lvdiff)    CALL echam_vdiff_nml_setup
-    IF (lgw_hines) CALL gw_hines_nml_setup
-!!$ IF (lcond)     CALL setup_cloud
-!!$ IF (lmlo)      CALL setup_mixlayer_ocean
 
     ! Check whether echam_phy_nml is properly set for test cases;
     ! Check whether the process namelists are consistent with
     ! the configuration of dynamics and transport; 
 
   ! CALL cross_check
-
-  ! ! Write namelists variables to ASCII file
-
-  ! IF (p_pe == p_io) THEN
-  !   WRITE(nnml_output,nml=echam_phy_nml)
-  !   IF (lrad)      WRITE(nnml_output,nml=radiation_nml)
-  !   IF (lconv)     WRITE(nnml_output,nml=echam_conv_ctl)
-  !   IF (lvdiff)    WRITE(nnml_output,nml=echam_vdiff_ctl)
-  !   IF (lgw_hines) WRITE(nnml_output,nml=gw_hines_nml)
-  ! END IF
 
   END SUBROUTINE setup_echam_phy
   !-------------
