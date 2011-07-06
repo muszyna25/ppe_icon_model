@@ -279,6 +279,6 @@ MODULE mo_grid_configuration
     IF(p_pe == p_io) WRITE(nnml_output,nml=grid_ctl)
 
     
-  END SUBROUTINE grid_nml_setup
+  END SUBROUTINE check_grid_configuration
 
 END MODULE mo_grid_configuration
