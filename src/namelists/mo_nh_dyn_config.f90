@@ -49,6 +49,8 @@ MODULE mo_nh_dyn_config
 
   PRIVATE
 
+
+
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
   !>
@@ -105,6 +107,7 @@ MODULE mo_nh_dyn_config
   !>
   !!
   TYPE(t_nh_dyn_config),ALLOCATABLE :: nh_dyn_config(:)  !< the configuration state 
+
 
 END MODULE mo_nh_dyn_config
 

@@ -97,6 +97,7 @@ MODULE mo_atm_dyn_nml
   LOGICAL  :: ltwotime       ! if .TRUE., two time level discretizations are used,
                              ! if .FALSE., three time level discretizations are used
   REAL(wp) :: gdt            ! coefficients in
+  REAL(wp) :: si_2tls       ! KF !!!!WARNING this has to be made consitent with ha_dyn_nml
   REAL(wp) :: gsi_2tlsdt     ! semi-implicit schemes. They are not explicitly
   REAL(wp) :: gsi_2tls2dt    ! specified by the user, but derived from some
   REAL(wp) :: g1msi_2tlsdt   ! of the parameters above.
