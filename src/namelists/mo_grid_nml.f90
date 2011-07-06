@@ -62,11 +62,10 @@ MODULE mo_grid_nml
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
   PUBLIC
-  PUBLIC :: grid_nml_setup
+  PUBLIC :: read_grid_namelist
   PUBLIC :: dynamics_grid_filename,  dynamics_parent_grid_id,  &
     & radiation_grid_filename, dynamics_radiation_grid_link,   &
     & no_of_dynamics_grids, no_of_radiation_grids     
-
 
   ! ------------------------------------------------------------------------
   ! 1.0 Namelist variables and auxiliary variables
@@ -145,13 +144,15 @@ MODULE mo_grid_nml
  !!  - renamed setup_files to grid_nml_setup
  !!  - restructured grid_nml_setup
 
-  SUBROUTINE grid_nml_setup
+  SUBROUTINE read_grid_namelist
                                                
     !local variable
     INTEGER  :: i_status, i, jg, jlev, funit
     CHARACTER(filename_max) :: patch_file, gridtype
     INTEGER  ::  patch_level(max_dom)
     LOGICAL :: l_exist
+    
+    CHARACTER(*), PARAMETER :: method_name = "check_parallel_configuration"
 
 
 !    CHARACTER(len=max_char_length), PARAMETER :: &
@@ -229,7 +230,8 @@ MODULE mo_grid_nml
     CASE (itri,ihex)
       ! ok
     CASE default
-      CALL finish( TRIM(routine),'wrong cell type specifier, "i_cell_type" must be 3 or 6')
+      CALL finish( TRIM(method_name),&
+        & 'wrong cell type specifier, "i_cell_type" must be 3 or 6')
     END SELECT
 
 
@@ -343,6 +345,6 @@ MODULE mo_grid_nml
     IF(p_pe == p_io) WRITE(nnml_output,nml=grid_ctl)
 
     
-  END SUBROUTINE grid_nml_setup
+  END SUBROUTINE read_grid_namelist
 
 END MODULE mo_grid_nml

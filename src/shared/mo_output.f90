@@ -289,29 +289,18 @@ CONTAINS
 
     TYPE(t_patch),   INTENT(IN) :: patch
     TYPE(t_datetime),INTENT(IN) :: datetime
-    INTEGER, INTENT(IN) :: klev
     REAL(wp),INTENT(IN) :: pvct(:) 
-    INTEGER, INTENT(IN) :: jg, kr, kb  ! D?R?B?
-    INTEGER, INTENT(IN) :: kcell, kvert, kedge, icelltype
     INTEGER, INTENT(IN) :: jfile  ! current output file index
     LOGICAL, INTENT(IN) :: l_have_output
+    
+    INTEGER :: klev, jg, kcell, kvert, kedge, icelltype
    
     CHARACTER(LEN=132) :: string
 
     !----------------
     ! Initialization
-        CALL create_restart_file( p_patch(jg), datetime,        &
-                                & p_patch(jg)%nlev, vct,        &
-                                & jg, nroot, p_patch(jg)%level, &
-                                & p_patch(jg)%n_patch_cells_g,  &
-                                & p_patch(jg)%n_patch_verts_g,  &
-                                & p_patch(jg)%n_patch_edges_g,  &
-                                & i_cell_type, jfile,           &
-                                & l_have_output                 )
     klev = p_patch%nlev
     jg   = p_patch%id
-    kr = not used root
-    kb = not used
     kcell = p_patch%n_patch_cells_g
     kvert = p_patch)%n_patch_verts_g
     kedge = p_patch%n_patch_edges_g
