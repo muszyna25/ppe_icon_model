@@ -88,7 +88,7 @@ MODULE mo_atm_dyn_nml
   REAL(wp) :: divavg_cntrwgt  ! weight of central cell for divergence averaging
 
 
-  NAMELIST/atm_dyn_nml/ iequations, itime_scheme, idiv_method, divavg_cntrwgt, ldry_core
+  NAMELIST/atm_dyn_nml/ iequations, itime_scheme, idiv_method, divavg_cntrwgt! , ldry_core
 
   !------------------------------------------------------------------------
   ! Dependent variables 
