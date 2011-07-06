@@ -125,10 +125,6 @@ MODULE mo_atmo_setup_configuration
   USE mo_io_restart_namelist,  ONLY: read_restart_namelists
   USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
 
-  !-------------------------------------------------------------------------
-  ! use configure modules
-  USE mo_parallel_configuration, ONLY: set_nproma
-
   
   IMPLICIT NONE
   
