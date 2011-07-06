@@ -37,13 +37,14 @@
 !!
 MODULE mo_gw_hines_nml
 
-  USE mo_kind,       ONLY: wp
-  USE mo_io_units,   ONLY: nnml
-  USE mo_exception,  ONLY: message, print_value
-  USE mo_namelist,   ONLY: position_nml, POSITIONED
-  USE mo_master_nml, ONLY: lrestart
-  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist, &                                             
-                                 & open_and_restore_namelist, close_tmpfile
+  USE mo_kind,                ONLY: wp
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
+  USE mo_io_units,            ONLY: nnml
+  USE mo_exception,           ONLY: message, print_value
+  USE mo_namelist,            ONLY: position_nml, POSITIONED
+  USE mo_master_nml,          ONLY: lrestart
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &                                             
+    &                               open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
 
