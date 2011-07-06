@@ -69,7 +69,7 @@ USE mo_model_domain,       ONLY: t_patch
 USE mo_dynamics_nml,           ONLY: idiv_method
 USE mo_io_nml,             ONLY: l_outputtime, l_diagtime
 USE mo_parallel_configuration,  ONLY: nproma
-USE mo_run_nml,            ONLY: i_cell_type, lshallow_water
+USE mo_run_nml,            ONLY: lshallow_water
 USE mo_interpolation,      ONLY: t_int_state,                    &
   &                              rbf_vec_interpol_edge,        &
   &                              cells2verts_scalar,           &
@@ -135,7 +135,7 @@ INTEGER  :: nlev              !< number of full levels
 ! number of vertical levels
 nlev = pt_patch%nlev
 
-IF(i_cell_type == 3) THEN
+IF(pt_patch%cell_type == 3) THEN
   ! get relative vorticity at vertex
   CALL rot_vertex (p_vn, pt_patch, pt_int, pt_diag%rel_vort)
   ! This needs to be synced for lamb_rot
@@ -156,7 +156,7 @@ IF (l_outputtime) THEN
   ! get divergence
   CALL div (p_vn, pt_patch, pt_int, pt_diag%div)
   ! divergence is averaged according to the method used in the model
-  IF(i_cell_type == 3) THEN
+  IF(pt_patch%cell_type == 3) THEN
     SELECT CASE (idiv_method)
     CASE(2)
       z_aux(:,:,:) = pt_diag%div(:,:,:)
@@ -172,9 +172,9 @@ nblks_e   = pt_patch%nblks_int_e
 npromz_e  = pt_patch%npromz_int_e
 
 
-SELECT CASE (i_cell_type)
+SELECT CASE (pt_patch%cell_type)
          !
-CASE (3) ! for triangular grid (i_cell_type == 3)
+CASE (3) ! for triangular grid (cell_type == 3)
          !
   !
   ! compute tangential velocity and kinetic energy
@@ -210,7 +210,7 @@ CASE (3) ! for triangular grid (i_cell_type == 3)
     &                      pt_diag%e_kin, opt_rlstart=2 )
 
          !
-CASE (6) ! for hexagonal/pentagonal grids (i_cell_type == 6)
+CASE (6) ! for hexagonal/pentagonal grids (cell_type == 6)
          !
   !
   ! tangential velocity is not needed here
@@ -283,7 +283,7 @@ CASE (6) ! for hexagonal/pentagonal grids (i_cell_type == 6)
       &                     pt_diag%v           )! reconstr. v wind
   ENDIF
            !
-END SELECT ! i_cell_type
+END SELECT ! cell_type
            !
 
 END SUBROUTINE kin_vel_rot
@@ -338,9 +338,9 @@ nlev = pt_patch%nlev
 
 i_nchdom   = MAX(1,pt_patch%n_childdom)
                           !
-SELECT CASE (i_cell_type)
+SELECT CASE (pt_patch%cell_type)
          !
-CASE (3) ! triangles (i_cell_type == 3)
+CASE (3) ! triangles (cell_type == 3)
          !
 
   ! Note: the rl_start and rl_end values here are only for edges
@@ -395,7 +395,7 @@ CASE (3) ! triangles (i_cell_type == 3)
 !$OMP END DO
 !$OMP END PARALLEL
           !
-CASE (6)  ! hexagons/pentagons (i_cell_type == 6)
+CASE (6)  ! hexagons/pentagons (cell_type == 6)
           !
   !
   ! Absolute Potential Vorticity at rhombi
@@ -626,7 +626,7 @@ CASE (6)  ! hexagons/pentagons (i_cell_type == 6)
 
   END SELECT
 
-END SELECT ! i_cell_type
+END SELECT ! cell_type
 
 END SUBROUTINE lamb_rot
 

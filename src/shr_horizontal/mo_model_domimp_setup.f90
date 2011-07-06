@@ -63,7 +63,7 @@
 !!    rather than read from a grid/patch file.
 !! Modification by Almut Gassmann, MPI-M, (2008-09-21)
 !!  - remove reference to mask and height files, they are never used
-!!  - use i_cell_type to distinguish cells as triangles or hexagons
+!!  - use cell_type to distinguish cells as triangles or hexagons
 !! Modification by Almut Gassmann, MPI-M (2008-10-30)
 !!  - add subroutine init_coriolis to initialize Coriolis parameter
 !! Modification by Constantin Junk, MPI-M (2011-04-05)
@@ -112,7 +112,7 @@ USE mo_exception,          ONLY: finish
 USE mo_model_domain,       ONLY: t_patch
 USE mo_physical_constants, ONLY: omega
 USE mo_parallel_configuration,  ONLY: nproma
-USE mo_run_nml,            ONLY: i_cell_type, lcorio
+USE mo_run_nml,            ONLY: lcorio
 USE mo_math_utilities,     ONLY: gvec2cvec, t_cartesian_coordinates
 USE mo_math_constants,     ONLY: pi_2
 USE mo_loopindices,        ONLY: get_indices_e
@@ -287,7 +287,7 @@ DO jb = i_startblk, nblks_e
   CALL get_indices_e(p_patch, jb, i_startblk, nblks_e, &
                      i_startidx, i_endidx, 2)
 
-  IF (i_cell_type == 3) THEN ! vectorized code for triangular grid
+  IF (p_patch%cell_type == 3) THEN ! vectorized code for triangular grid
 
     ierror = 0
 
@@ -374,7 +374,7 @@ DO jb = i_startblk, nblks_e
         &          'edge-cell index relationships are apparently incorrect')
     ENDIF
 
-  ELSE ! i_cell_type == 6
+  ELSE ! cell_type == 6
 
     DO je = i_startidx, i_endidx
 
@@ -433,7 +433,7 @@ DO jb = i_startblk, nblks_e
 
     END DO ! end edge loop
 
-  ENDIF ! i_cell_type
+  ENDIF ! cell_type
 
 END DO
 !$OMP END DO
