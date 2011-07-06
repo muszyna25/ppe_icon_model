@@ -70,7 +70,7 @@ MODULE mo_advection_stepping
   USE mo_math_operators,      ONLY: div
   USE mo_interpolation,       ONLY: t_int_state
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,             ONLY: ntracer, ltimer, i_cell_type,   &
+  USE mo_run_nml,             ONLY: ntracer, ltimer,  &
     &                               iforcing, inwp, iqv
   USE mo_nonhydrostatic_nml,  ONLY: iadv_rcf
   USE mo_advection_hflux,     ONLY: hor_upwind_flux
@@ -583,7 +583,7 @@ CONTAINS
     !
     ! For the hexagonal model, we have to perform (at least) an RK2 time integration
     ! without the limiter in the estimation step
-    IF (i_cell_type == 6) THEN
+    IF (p_patch%cell_type == 6) THEN
       itype_hlimit_0 = 0
       i_itype_hlimit => itype_hlimit_0
       i_rlend        = min_rledge
@@ -599,7 +599,7 @@ CONTAINS
       &                 p_mflx_tracer_h, opt_rlend=i_rlend              )! inout
 
 
-    IF (i_cell_type == 6) THEN
+    IF (p_patch%cell_type == 6) THEN
       i_rlend        = min_rlcell
     ELSE
       i_rlend        = min_rlcell_int
@@ -613,7 +613,7 @@ CONTAINS
       &       ntracer, opt_slev=iadv_slev(jg,:), opt_rlend=i_rlend )! in
 
 
-    IF (i_cell_type == 6) THEN
+    IF (p_patch%cell_type == 6) THEN
 !$OMP PARALLEL PRIVATE(i_rlstart,i_rlend,i_startblk,i_endblk,jb)
       !
       ! update tracer array
@@ -657,7 +657,7 @@ CONTAINS
           &       opt_slev=iadv_slev(jg,jt)          )! in
       ENDDO
 
-    ENDIF ! i_cell_type == 6
+    ENDIF ! cell_type == 6
 
 !$OMP PARALLEL PRIVATE(i_rlstart,i_rlend,i_startblk,i_endblk,jb,i_startidx,i_endidx)
     !

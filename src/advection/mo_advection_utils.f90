@@ -64,7 +64,7 @@ MODULE mo_advection_utils
   USE mo_io_units,            ONLY: nnml,nnml_output
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,             ONLY: ntracer, num_lev, nlev, iequations, &
-    &                               i_cell_type, iforcing, inwp, io3, iqt,      &
+    &                               iforcing, inwp, io3, iqt,      &
     &                               iqcond, ntracer_static, lvert_nest
   USE mo_grid_configuration,  ONLY: n_dom
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e

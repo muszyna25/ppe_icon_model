@@ -58,7 +58,6 @@ USE mo_impl_constants,     ONLY: land_boundary, boundary, sea, sea_boundary, &!l
   &                              min_rlcell, min_rledge, min_rlvert,max_char_length
 USE mo_model_domain,       ONLY: t_patch
 USE mo_ocean_nml,          ONLY: lviscous, n_zlev, iswm_oce
-USE mo_run_nml,            ONLY: i_cell_type
 USE mo_dynamics_nml,       ONLY: nold
 USE mo_exception,          ONLY: finish
 #ifndef __SX__

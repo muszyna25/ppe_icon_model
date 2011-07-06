@@ -58,7 +58,6 @@ MODULE mo_advection_limiter
   USE mo_interpolation,       ONLY: t_int_state
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,             ONLY: i_cell_type
   USE mo_impl_constants,      ONLY: min_rledge_int, min_rlcell_int, min_rlcell, &
     &                               min_rledge
   USE mo_math_operators,      ONLY: div
@@ -522,7 +521,7 @@ CONTAINS
       &  opt_elev
 
     REAL(wp) ::                 &    !< tracer mass flux ( total mass crossing the edge )
-      &  z_mflx(nproma,ptr_patch%nlev,ptr_patch%nblks_c,i_cell_type) !< [kg m^-3]
+      &  z_mflx(nproma,ptr_patch%nlev,ptr_patch%nblks_c,ptr_patch%cell_type) !< [kg m^-3]
 
     REAL(wp) ::                 &    !< fraction which must multiply all outgoing fluxes
       &  r_m(nproma,ptr_patch%nlev,ptr_patch%nblks_c) !< of cell jc to guarantee
@@ -592,7 +591,7 @@ CONTAINS
 
 !$OMP PARALLEL PRIVATE(i_rlstart_c,i_rlend_c,i_startblk,i_endblk)
 
-    SELECT CASE (i_cell_type)
+    SELECT CASE (ptr_patch%cell_type)
 
     CASE(3)
 
@@ -750,7 +749,7 @@ CONTAINS
     ! 3. Limit outward fluxes
     !    The inward ones remain untouched.
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (ptr_patch%cell_type)
     CASE(3)
 
       i_startblk = ptr_patch%edges%start_blk(i_rlstart,1)

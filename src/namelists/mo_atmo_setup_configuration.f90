@@ -64,7 +64,6 @@ MODULE mo_atmo_setup_configuration
     & current_datetime,     & !    module variable
     & dtime,                & !    namelist parameter
     & nsteps,               & !    :
-    & i_cell_type,          & !    :
     & ltransport,           & !    :
     & lforcing,             & !    :
     & ltestcase,            & !    :
