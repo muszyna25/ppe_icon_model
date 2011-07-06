@@ -58,7 +58,6 @@ MODULE mo_atm_dyn_config
 
     INTEGER :: iequations      !< Choice of governing equation set
     INTEGER :: itime_scheme    !< Choice of time stepping scheme
-!     INTEGER :: i_cell_type     !< Shape of control volume. 3 = triangle, 6 = hexagon/pentagon
     INTEGER :: idiv_method     !< Divergence operator
     INTEGER :: divavg_cntrwgt  !< Weight of central cell for divergence averaging
 

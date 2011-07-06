@@ -114,7 +114,6 @@ USE mo_interpolation,       ONLY: t_int_state, edges2verts_scalar, verts2edges_s
 USE mo_model_domain,        ONLY: t_patch
 USE mo_model_domain_import, ONLY: l_limited_area
 USE mo_parallel_configuration,  ONLY: nproma
-USE mo_run_nml,             ONLY: i_cell_type
 USE mo_exception,           ONLY: finish
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array
