@@ -84,6 +84,9 @@ MODULE mo_hydro_testcases
   USE mo_run_nml,         ONLY: i_cell_type, lshallow_water,          &
        &                        num_lev, ntracer, ltransport, &
        &                        iqv
+       
+  USE mo_grid_configuration, ONLY :  global_cell_type
+  
   USE mo_icoham_dyn_types, ONLY: t_hydro_atm
   USE mo_ha_prog_util,     ONLY: copy_prog_state,                    &
                                & init_hydro_state_prog_isoRest,      &
@@ -215,7 +218,7 @@ MODULE mo_hydro_testcases
 
    ape_sst_case           = 'sst1'
 
-   IF (i_cell_type == 3) THEN
+   IF (global_cell_type == 3) THEN
      linit_tracer_fv   = .TRUE. ! finite volume initialization for tracer
    ELSE
      linit_tracer_fv   = .FALSE.

@@ -56,9 +56,11 @@ MODULE mo_nh_stepping
     &                               nsav1, nsav2, itime_scheme
   USE mo_io_nml,              ONLY: l_outputtime, l_diagtime, l_checkpoint_time
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,             ONLY: ltestcase, dtime, nsteps, i_cell_type,  &
+  USE mo_run_nml,             ONLY: ltestcase, dtime, nsteps,  &
     &                               ltransport, ntracer, lforcing, iforcing, inwp,  &
     &                               msg_level, ltimer
+  USE mo_grid_configuration, ONLY :  global_cell_type
+    
   USE mo_atm_phy_nwp_nml,     ONLY: tcall_phy
   USE mo_nwp_phy_init,        ONLY: init_nwp_phy
   USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, mean_charlen
@@ -480,7 +482,7 @@ MODULE mo_nh_stepping
 
     ! Diagnostics computation is not yet properly MPI-parallelized
 #ifdef NOMPI
-    IF(i_cell_type == 3) THEN
+    IF(global_cell_type == 3) THEN
       IF (l_diagtime .AND. p_nprocs == 1 .AND. (lstep_adv(1) .OR. jstep==nsteps))  THEN
         IF (jstep == iadv_rcf) THEN
           CALL supervise_total_integrals_nh(1, p_patch(1:), p_nh_state, nnow, nnow_rcf)
@@ -491,7 +493,7 @@ MODULE mo_nh_stepping
       ENDIF
     ENDIF
 #endif
-    IF(i_cell_type == 6 .AND. l_diagtime) THEN
+    IF(global_cell_type == 6 .AND. l_diagtime) THEN
       CALL supervise_total_integrals_nh(jstep, p_patch(1:), p_nh_state, nnow, nnow_rcf)
     ENDIF
 
@@ -1072,7 +1074,7 @@ MODULE mo_nh_stepping
         ENDIF
 
 
-        IF (i_cell_type == 3) THEN
+        IF (p_patch(jg)%cell_type == 3) THEN
 
           IF (jg > 1 .AND. .NOT. lfeedback(jg)) THEN
             l_bdy_nudge = .TRUE. ! apply boundary nudging if feedback is turned off
@@ -1218,7 +1220,7 @@ MODULE mo_nh_stepping
 
 
         ! This calls 4th order diffusion for the hexagonal case
-        IF (lhdiff_vn .AND. i_cell_type == 6) THEN
+        IF (lhdiff_vn .AND. p_patch(jg)%cell_type == 6) THEN
           CALL diffusion_hex(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%metrics,&
           &                  p_patch(jg), p_int_state(jg), dt_loc)
         ENDIF
@@ -1324,7 +1326,7 @@ MODULE mo_nh_stepping
 
       IF (l_outputtime) THEN ! compute diagnostic quantities
         p_vn  => p_nh_state(jg)%prog(n_new)%vn
-        SELECT CASE (i_cell_type)
+        SELECT CASE (p_patch(jg)%cell_type)
         CASE (3)
           CALL rbf_vec_interpol_cell(p_vn,p_patch(jg),p_int_state(jg),&
                                      p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
@@ -1382,7 +1384,8 @@ MODULE mo_nh_stepping
 
         END SELECT
       ENDIF
-      IF ((l_outputtime.AND.(i_cell_type==3)).OR.(i_cell_type==6)) THEN
+      IF ((l_outputtime.AND.(p_patch(jg)%cell_type==3)).OR.&
+        & (p_patch(jg)%cell_type==6)) THEN
         CALL diagnose_pres_temp (p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnew(jg)), &
           &                      p_nh_state(jg)%prog(nnew_rcf(jg)),                     &
           &                      p_nh_state(jg)%diag,p_patch(jg),                       &
@@ -1893,7 +1896,7 @@ MODULE mo_nh_stepping
     ELSE
       nlen = npromz_c
     ENDIF
-    IF (i_cell_type == 3) THEN
+    IF (p_patch(jg)%cell_type == 3) THEN
       DO jk = 1, nlev
         DO jc = 1, nlen
           p_diag%e_kin(jc,jk,jb) = p_diag%e_kinh(jc,jk,jb) + 0.25_wp* &

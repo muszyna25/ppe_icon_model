@@ -58,6 +58,8 @@ MODULE mo_nh_testcases
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,            ONLY: ltransport, ntracer, iforcing, inwp, &
     &                              iqv, i_cell_type,itopo
+  USE mo_grid_configuration, ONLY :  global_cell_type
+    
   USE mo_dynamics_nml,       ONLY: nnow,nnew,nnow_rcf, nnew_rcf
   USE mo_atm_phy_nwp_nml,    ONLY: inwp_gscp, inwp_convection
   USE mo_physical_constants, ONLY: grav, cpd, rd, cvd_o_rd, &
@@ -213,7 +215,7 @@ MODULE mo_nh_testcases
     rh_at_1000hpa          = 0.7_wp
     qv_max                 = 20.e-3_wp ! 20 g/kg
     ape_sst_case           = 'sst1'
-    IF(i_cell_type==3) THEN
+    IF(global_cell_type==3) THEN
       linit_tracer_fv        = .TRUE. ! finite volume initialization for tracer
     ELSE
       linit_tracer_fv        = .FALSE.
@@ -917,7 +919,7 @@ MODULE mo_nh_testcases
         ELSE
           ! Solve quadratic equation for exner(jk) to obtain exact (discretized)
           ! hydrostatic balance
-          IF (i_cell_type == 3) THEN
+          IF ( p_patch(jg)%cell_type == 3) THEN
             DO jc = 1, nlen
               z_fac1(jc) = p_nhdom%metrics%wgtfac_c(jc,jk+1,jb)*(z_temp_kp1(jc)              &
                 - p_nhdom%metrics%theta_ref_mc(jc,jk+1,jb)*p_nhdom%prog(1)%exner(jc,jk+1,jb))&
@@ -935,7 +937,7 @@ MODULE mo_nh_testcases
               zc(jc) = -(z_fac2(jc)*z_fac3(jc)/p_nhdom%metrics%ddqz_z_half(jc,jk+1,jb) &
                 + z_fac2(jc)*p_nhdom%metrics%d_exner_dz_ref_ic(jc,jk+1,jb))
             ENDDO !jc
-          ELSEIF (i_cell_type == 6) THEN
+          ELSEIF ( p_patch(jg)%cell_type == 6) THEN
             DO jc = 1, nlen
               z_fac3(jc) = grav/cpd*p_nhdom%metrics%ddqz_z_half(jc,jk+1,jb)
               z_fac1(jc) = p_nhdom%prog(1)%exner(jc,jk+1,jb)
@@ -1157,7 +1159,7 @@ MODULE mo_nh_testcases
           
           ! Solve quadratic equation for exner(jk) to obtain exact (discretized)
           ! hydrostatic balance
-          IF (i_cell_type == 3) THEN
+          IF ( p_patch(jg)%cell_type == 3) THEN
             DO jc = 1, nlen
               z_fac1(jc) = p_nhdom%metrics%wgtfac_c(jc,jk+1,jb)*(z_temp_kp1(jc)              &
                 - p_nhdom%metrics%theta_ref_mc(jc,jk+1,jb)*p_nhdom%prog(1)%exner(jc,jk+1,jb))&
@@ -1175,7 +1177,7 @@ MODULE mo_nh_testcases
               zc(jc) = -(z_fac2(jc)*z_fac3(jc)/p_nhdom%metrics%ddqz_z_half(jc,jk+1,jb) &
                 + z_fac2(jc)*p_nhdom%metrics%d_exner_dz_ref_ic(jc,jk+1,jb))
             ENDDO !jc
-          ELSEIF (i_cell_type == 6) THEN
+          ELSEIF ( p_patch(jg)%cell_type == 6) THEN
             DO jc = 1, nlen
               z_fac3(jc) = grav/cpd*p_nhdom%metrics%ddqz_z_half(jc,jk+1,jb)
               z_fac1(jc) = p_nhdom%prog(1)%exner(jc,jk+1,jb)
@@ -1345,7 +1347,7 @@ MODULE mo_nh_testcases
           ENDDO
           ! Solve quadratic equation for exner(jk) to obtain exact (discretized)
           ! hydrostatic balance
-          IF(i_cell_type == 3) THEN
+          IF( p_patch(jg)% == 3) THEN
             DO jc = 1, nlen
               z_fac1(jc) = p_nhdom%metrics%wgtfac_c(jc,jk+1,jb)*(z_temp_kp1(jc)              &
                 - p_nhdom%metrics%theta_ref_mc(jc,jk+1,jb)*p_nhdom%prog(1)%exner(jc,jk+1,jb))&
@@ -1363,7 +1365,7 @@ MODULE mo_nh_testcases
               zc(jc) = -(z_fac2(jc)*z_fac3(jc)/p_nhdom%metrics%ddqz_z_half(jc,jk+1,jb) &
                 + z_fac2(jc)*p_nhdom%metrics%d_exner_dz_ref_ic(jc,jk+1,jb))
             ENDDO !jc
-          ELSEIF (i_cell_type == 6) THEN
+          ELSEIF ( p_patch(jg)% == 6) THEN
             DO jc = 1, nlen
               z_fac3(jc) = grav/cpd*p_nhdom%metrics%ddqz_z_half(jc,jk+1,jb)
               z_fac1(jc) = p_nhdom%prog(1)%exner(jc,jk+1,jb)

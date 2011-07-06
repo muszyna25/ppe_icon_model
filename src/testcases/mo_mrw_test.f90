@@ -56,7 +56,6 @@ MODULE mo_mrw_test
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog
   USE mo_math_constants,      ONLY: pi
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,             ONLY: i_cell_type
 
   IMPLICIT NONE
 
@@ -244,12 +243,12 @@ MODULE mo_mrw_test
         ENDDO
 
 
-        DO iv = 1, i_cell_type
+        DO iv = 1, pt_patch%cell_type
 
            DO jc = 1, nlen
 
              IF (iv > pt_patch%cells%num_edges(jc,jb)) THEN
-               topo_aux(jc,i_cell_type+1) = topo_aux(jc,1)
+               topo_aux(jc,pt_patch%cell_type+1) = topo_aux(jc,1)
                CYCLE
              ENDIF
 
@@ -270,7 +269,7 @@ MODULE mo_mrw_test
         DO jc = 1, nlen
 
            pt_ext_data%atm%topography_c(jc,jb) = 0.5_wp*topo_aux(jc,1) + &
-             0.5_wp/REAL(i_cell_type,wp)*(SUM(topo_aux(jc,2:i_cell_type+1)))
+             0.5_wp/REAL(pt_patch%cell_type,wp)*(SUM(topo_aux(jc,2:pt_patch%cell_type+1)))
            ! surface pressure
 
            zlat = pt_patch%cells%center(jc,jb)%lat
