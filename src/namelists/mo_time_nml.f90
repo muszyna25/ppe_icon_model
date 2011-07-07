@@ -37,7 +37,7 @@ MODULE mo_time_nml
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: max_char_length
   USE mo_datetime,           ONLY: proleptic_gregorian, t_datetime
-  USE mo_time_config,        ONLY: t_time_config
+  USE mo_time_config,        ONLY: time_config
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_master_nml,         ONLY: lrestart
   USE mo_namelist,           ONLY: position_nml, positioned
@@ -207,7 +207,7 @@ CONTAINS
 
     CALL string_to_datetime ( nml_end_datetime, end_datetime ) 
 
-    t_time_config%dt_restart = nml_restart
+    time_config%dt_restart = nml_restart
 
     !-----------------------------------------------------
     ! Store the namelist for restart
