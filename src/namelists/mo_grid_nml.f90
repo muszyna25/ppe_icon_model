@@ -172,7 +172,7 @@ MODULE mo_grid_nml
     nml_nroot       = 2
     nml_start_lev   = 4
     nml_n_dom       = 1
-    nml_i_cell_type = itri
+    nml_cell_type   = itri
     
     ! Note: the first element of parent_id refers to the first nested domain
     DO i = 1, max_dom-1
@@ -222,12 +222,12 @@ MODULE mo_grid_nml
     !------------------------------------------------------------
     ! 5.0 check the consistency of the parameters
     !------------------------------------------------------------
-    SELECT CASE (i_cell_type)
+    SELECT CASE (nml_cell_type)
     CASE (itri,ihex)
       ! ok
     CASE default
       CALL finish( TRIM(method_name),&
-        & 'wrong cell type specifier, "i_cell_type" must be 3 or 6')
+        & 'wrong cell type specifier, "nml_cell_type" must be 3 or 6')
     END SELECT
 
 
