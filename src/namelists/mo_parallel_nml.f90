@@ -55,6 +55,8 @@ MODULE mo_parallel_nml
   IMPLICIT NONE
 
   PRIVATE
+  ! Exported routines:
+  PUBLIC :: read_parallel_namelist, fill_parallel_nml_configure
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -63,29 +65,29 @@ MODULE mo_parallel_nml
   ! ------------------------------------------------------------------------
 
   ! Number of rows of ghost cells
-  INTEGER :: nml_n_ghost_rows = 1
+  INTEGER :: nml_n_ghost_rows
 
-  INTEGER :: nml_division_method = div_geometric
+  INTEGER :: nml_division_method
 
   ! Flag if checks in a verification run should be logged
 
-  LOGICAL :: nml_l_log_checks = .FALSE.
+  LOGICAL :: nml_l_log_checks
 
   ! Flag if fast but nonreproducible sum should be used
 
-  LOGICAL :: nml_l_fast_sum = .FALSE.
+  LOGICAL :: nml_l_fast_sum
 
   ! Please note for the following variables: The default settings are for NO_MPI runs!
 
   ! p_test_run indicates a verification run, i.e. a run where 1 PE runs the complete
   ! model whereas the other PEs do a real parallelized run
 
-  LOGICAL :: nml_p_test_run = .FALSE.
+  LOGICAL :: nml_p_test_run
 
   ! if l_test_openmp is set together with p_test_run, then the verification PE uses
   ! only 1 thread. This allows for verifying the OpenMP implementation
 
-  LOGICAL :: nml_l_test_openmp = .FALSE.
+  LOGICAL :: nml_l_test_openmp
 
   ! Processor distribution:
   ! num_test_procs: 0 or 1
@@ -93,18 +95,18 @@ MODULE mo_parallel_nml
   ! num_io_procs:   number of procs for I/O
   ! num_test_procs + num_work_procs + num_io_procs = p_nprocs
 
-  INTEGER :: nml_num_test_procs = 0
-  INTEGER :: nml_num_work_procs = 1
-  INTEGER :: nml_num_io_procs = 0
+  INTEGER :: nml_num_test_procs
+  INTEGER :: nml_num_work_procs
+  INTEGER :: nml_num_io_procs
 
   ! Note: p_test_pe, p_work_pe0, p_io_pe0 are identical on all PEs
 
   ! In a verification run, p_test_pe is the number of the PE running the complete model,
   ! otherwise it contains -1
 
-  INTEGER :: nml_p_test_pe  = -1      ! Number of test PE
-  INTEGER :: nml_p_work_pe0 =  0      ! Number of workgroup PE 0 within all PEs
-  INTEGER :: nml_p_io_pe0   =  1      ! Number of I/O PE 0 within all PEs (p_nprocs if no I/O PEs)
+  INTEGER :: nml_p_test_pe      ! Number of test PE
+  INTEGER :: nml_p_work_pe0     ! Number of workgroup PE 0 within all PEs
+  INTEGER :: nml_p_io_pe0       ! Number of I/O PE 0 within all PEs (p_nprocs if no I/O PEs)
 
   ! Note: p_n_work, p_pe_work are NOT identical on all PEs
 
@@ -114,34 +116,28 @@ MODULE mo_parallel_nml
   ! - 1              for verification runs on p_test_pe
   ! - num_io_procs   always on I/O pes
 
-  INTEGER :: nml_p_n_work=1
-  INTEGER :: nml_p_pe_work=0        ! PE number within work group
-
-  ! MPI communicators
-  INTEGER :: nml_p_comm_work_io     ! Communicator spanning work group and I/O PEs
-  INTEGER :: nml_p_comm_work_2_io   ! Inter(!)communicator work PEs - I/O PEs
-  INTEGER :: nml_p_comm_input_bcast ! Communicator for broadcasts in NetCDF input
+  INTEGER :: nml_p_n_work
+  INTEGER :: nml_p_pe_work        ! PE number within work group
 
   ! Type of parallel I/O
-
-  INTEGER :: nml_pio_type = 1
+  INTEGER :: nml_pio_type
 
   ! Type of (halo) communication: 
   ! 1 = synchronous communication with local memory for exchange buffers
   ! 2 = synchronous communication with global memory for exchange buffers
   ! 3 = asynchronous communication within dynamical core with global memory 
   !     for exchange buffers (not yet implemented)
-  INTEGER :: nml_itype_comm = 1
+  INTEGER :: nml_itype_comm
 
   ! Order of send/receive sequence in exchange routines
   ! 1 = irecv, send
   ! 2 = isend, recv
-  INTEGER :: nml_iorder_sendrecv = 1
+  INTEGER :: nml_iorder_sendrecv
 
-  INTEGER :: nml_radiation_threads = 1
-  INTEGER :: nml_nh_stepping_threads = 1
+  INTEGER :: nml_radiation_threads
+  INTEGER :: nml_nh_stepping_threads
 
-  INTEGER :: nml_nproma = 1    ! inner loop length/vector length
+  INTEGER :: nml_nproma    ! inner loop length/vector length
 
   
   NAMELIST/parallel_ctl/ nml_n_ghost_rows, nml_division_method, &
@@ -153,8 +149,6 @@ MODULE mo_parallel_nml
                          nml_nproma
 
 
-  ! Exported routines:
-  PUBLIC :: read_parallel_namelist
   
   ! Exported variables:
 !   PUBLIC ::              nml_n_ghost_rows, nml_division_method, &
@@ -178,6 +172,72 @@ MODULE mo_parallel_nml
     CHARACTER(len=*), PARAMETER ::   &
             &  method_name = 'read_parallel_namelist'
 
+    !--------------------------------------------
+    ! set default values
+    !--------------------------------------------
+    ! Number of rows of ghost cells
+    nml_n_ghost_rows = 1
+    nml_division_method = div_geometric
+
+    ! Flag if checks in a verification run should be logged
+    nml_l_log_checks = .FALSE.
+
+    ! Flag if fast but nonreproducible sum should be used
+    nml_l_fast_sum = .FALSE.
+
+    ! Please note for the following variables: The default settings are for NO_MPI runs!
+    ! p_test_run indicates a verification run, i.e. a run where 1 PE runs the complete
+    ! model whereas the other PEs do a real parallelized run
+    nml_p_test_run = .FALSE.
+
+    ! if l_test_openmp is set together with p_test_run, then the verification PE uses
+    ! only 1 thread. This allows for verifying the OpenMP implementation
+    nml_l_test_openmp = .FALSE.
+
+    ! Processor distribution:
+    ! num_test_procs: 0 or 1
+    ! num_work_procs: number of procs running in parallel on the model
+    ! num_io_procs:   number of procs for I/O
+    ! num_test_procs + num_work_procs + num_io_procs = p_nprocs
+    nml_num_test_procs = 0
+    nml_num_work_procs = 1
+    nml_num_io_procs = 0
+
+    ! Note: p_test_pe, p_work_pe0, p_io_pe0 are identical on all PEs
+    ! In a verification run, p_test_pe is the number of the PE running the complete model,
+    ! otherwise it contains -1
+    nml_p_test_pe  = -1      ! Number of test PE
+    nml_p_work_pe0 =  0      ! Number of workgroup PE 0 within all PEs
+    nml_p_io_pe0   =  1      ! Number of I/O PE 0 within all PEs (p_nprocs if no I/O PEs)
+
+    ! Note: p_n_work, p_pe_work are NOT identical on all PEs
+    ! p_n_work: Number of PEs working together:
+    ! - num_work_procs for non-verification runs
+    ! - num_work_procs for verification runs on pes != p_test_pe
+    ! - 1              for verification runs on p_test_pe
+    ! - num_io_procs   always on I/O pes
+    nml_p_n_work=1
+    nml_p_pe_work=0        ! PE number within work group
+
+    ! Type of parallel I/O
+    nml_pio_type = 1
+
+    ! Type of (halo) communication: 
+    ! 1 = synchronous communication with local memory for exchange buffers
+    ! 2 = synchronous communication with global memory for exchange buffers
+    ! 3 = asynchronous communication within dynamical core with global memory 
+    !     for exchange buffers (not yet implemented)
+    nml_itype_comm = 1
+
+    ! Order of send/receive sequence in exchange routines
+    ! 1 = irecv, send
+    ! 2 = isend, recv
+    nml_iorder_sendrecv = 1
+
+    nml_radiation_threads = 1
+    nml_nh_stepping_threads = 1
+
+    nml_nproma = 1    ! inner loop length/vector length
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
     ! by values in the previous integration.
@@ -207,7 +267,13 @@ MODULE mo_parallel_nml
     !-----------------------------------------------------
     ! Write the final namelist to an ASCII file
     IF (p_pe == p_io) WRITE(nnml_output,nml=parallel_ctl)
+
+    CALL fill_parallel_nml_configure()
     
+ END SUBROUTINE read_parallel_namelist
+   
+   
+ SUBROUTINE fill_parallel_nml_configure
     !-----------------------------------------------------
     ! fill the parallel_configuration
     n_ghost_rows        = nml_n_ghost_rows
@@ -227,7 +293,7 @@ MODULE mo_parallel_nml
     ! check the configuration
     CALL check_parallel_configuration()
 
-END SUBROUTINE read_parallel_namelist
+END SUBROUTINE fill_parallel_nml_configure
 
   !-------------------------------------------------------------------------
 

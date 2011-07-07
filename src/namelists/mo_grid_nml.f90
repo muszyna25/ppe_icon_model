@@ -55,11 +55,12 @@ MODULE mo_grid_nml
   USE mo_master_nml,         ONLY: lrestart
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
+  USE mo_grid_configuration
 
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC :: read_grid_namelist, fill_grid_namelist_configure
+  PUBLIC :: read_grid_namelist, fill_grid_nml_configure
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
   ! ------------------------------------------------------------------------
@@ -338,11 +339,11 @@ MODULE mo_grid_nml
     ! write the contents of the namelist to an ASCII file
     IF(p_pe == p_io) WRITE(nnml_output,nml=grid_ctl)
 
-    CALL fill_grid_namelist_configure()
+    CALL fill_grid_nml_configure()
        
   END SUBROUTINE read_grid_namelist
 
-  SUBROUTINE fill_grid_namelist_configure()
+  SUBROUTINE fill_grid_nml_configure()
   
     nroot             = nml_nroot
     start_lev         = nml_start_lev
@@ -357,9 +358,9 @@ MODULE mo_grid_nml
     dynamics_grid_filename      = nml_dynamics_grid_filename
     dynamics_parent_grid_id     = nml_dynamics_parent_grid_id
     radiation_grid_filename     = nml_radiation_grid_filename
-    dynamics_radiation_gridlink = nml_dynamics_radiation_gridlink
+    dynamics_radiation_grid_link= nml_dynamics_radiation_gridlink
     
-  END SUBROUTINE fill_grid_namelist_configure
+  END SUBROUTINE fill_grid_nml_configure
   
 
 END MODULE mo_grid_nml
