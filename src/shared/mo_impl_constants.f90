@@ -60,6 +60,7 @@ MODULE mo_impl_constants
 !
 !
 !
+  USE mo_kind,            ONLY: wp
 
   IMPLICIT NONE
 
@@ -277,6 +278,13 @@ MODULE mo_impl_constants
   ! auxiliary parameter to access single field of the 4D array prm_diag%tot_cld
   INTEGER, PARAMETER :: icc = 4    !! diagnostic cloud fraction in prm_diag%tot_cld
 
+
+  !---------------------!
+  !        LAND         !
+  !---------------------!
+  REAL(wp), PARAMETER, DIMENSION(8)::                               &
+    & zml_soil=(/ 0.005_wp,0.02_wp,0.06_wp,0.18_wp,0.54_wp,1.62_wp, &
+    & 4.86_wp,14.58_wp /)
 
   !---------------------!
   !        OCEAN        !

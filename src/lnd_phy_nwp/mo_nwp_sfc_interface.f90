@@ -42,7 +42,7 @@ MODULE mo_nwp_sfc_interface
 
   USE mo_model_domain,         ONLY: t_patch
 !  USE mo_grf_interpolation,    ONLY: t_gridref_state
-  USE mo_impl_constants,       ONLY: min_rlcell_int, icc
+  USE mo_impl_constants,       ONLY: min_rlcell_int, icc, zml_soil
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
  ! USE mo_subdivision,          ONLY: p_patch_local_parent
@@ -62,7 +62,7 @@ MODULE mo_nwp_sfc_interface
 
   USE mo_atm_phy_nwp_nml,      ONLY: inwp_surface, inwp_satad  
   USE mo_lnd_nwp_nml,          ONLY: nlev_soil, nztlev, nlev_snow, nsfc_subs, &
-    &                                lseaice, llake, lmulti_snow, zml_soil
+    &                                lseaice, llake, lmulti_snow
 !  USE mo_turbdiff_ras,       ONLY: organize_turbdiff
   USE mo_satad,              ONLY: sat_pres_water, spec_humi  
   USE src_turbdiff,          ONLY: organize_turbdiff
@@ -223,7 +223,6 @@ CONTAINS
 !!$    lseaice    = .FALSE.
 !!$    llake      = .FALSE.
 !!$    lmulti_snow= .FALSE.
-!!$    zml_soil=(/ 0.005,0.02,0.06,0.18,0.54,1.62,4.86,14.58 /)
 
 !<em
         t_t(:,:,1,jb) = p_diag%temp(:,:,jb)
