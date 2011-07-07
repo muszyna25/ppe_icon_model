@@ -177,8 +177,8 @@ CONTAINS
 
     INTEGER :: ist, funit   !< status variable for namelist positioning
 
-    ! For nwp, we want to have seasonal orbit and diurnal cycle as default:
-    IF (iforcing==inwp) izenith=4
+    ! Have seasonal orbit and diurnal cycle as default
+    izenith=4
    
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above

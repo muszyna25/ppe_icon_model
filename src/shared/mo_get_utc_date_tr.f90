@@ -36,8 +36,8 @@
 !!
 MODULE mo_get_utc_date_tr
 
-  USE mo_kind,                 ONLY: wp, i8
-  USE mo_time_nml,             ONLY: ini_datetime
+  USE mo_kind,        ONLY: wp, i8
+  USE mo_time_config, ONLY: time_config 
   
   IMPLICIT NONE
 
@@ -112,10 +112,10 @@ CONTAINS
     ileap (iy) = IABS( MOD(iy,4) - 4) / 4
 
     ! year, month, day, hours of initial date
-    iyy = ini_datetime%year
-    imm = ini_datetime%month
-    idd = ini_datetime%day 
-    ihh = ini_datetime%hour
+    iyy = time_config%ini_datetime%year
+    imm = time_config%ini_datetime%month
+    idd = time_config%ini_datetime%day 
+    ihh = time_config%ini_datetime%hour
 
     IF     (itype_calendar == 0) THEN
       month (2)    = 28 + ileap (iyy)

@@ -127,6 +127,8 @@ SUBROUTINE time_setup
   ! ----------------
   REAL(wp)         :: dt_restart          ! [s] length of a restart cycle 
 
+    CHARACTER(LEN=132) :: routine = 'time_setup'
+
 
    ! initial date and time
 
@@ -137,8 +139,8 @@ SUBROUTINE time_setup
 
       ! 2.2 Save the calendar and initial date/time of the old run
 
-      calendar_old    = nml_calendar
-      ini_datetime    = nml_ini_datetime
+      calendar_old    = calendar
+   !  ini_datetime    = nml_ini_datetime   !HW: type mismatch!!
       ini_year_old    = ini_year
       ini_month_old   = ini_month
       ini_day_old     = ini_day
@@ -230,7 +232,7 @@ SUBROUTINE time_setup
 
 
 
-    t_time_config%dt_restart =  nml_dt_restart
+    time_config%dt_restart =  dt_restart
     CALL message(' ',' ')
     CALL message(routine,'Length of restart cycle')
     CALL message(routine,'-----------------------')
