@@ -299,12 +299,12 @@ CONTAINS
 
     !----------------
     ! Initialization
-    klev = p_patch%nlev
-    jg   = p_patch%id
-    kcell = p_patch%n_patch_cells_g
-    kvert = p_patch)%n_patch_verts_g
-    kedge = p_patch%n_patch_edges_g
-    icelltype = p_patch%cell_type
+    klev = patch%nlev
+    jg   = patch%id
+    kcell =patch%n_patch_cells_g
+    kvert = patch%n_patch_verts_g
+    kedge = patch%n_patch_edges_g
+    icelltype = patch%cell_type
     
     CALL set_restart_attribute( 'current_year'  , datetime%year   )   
     CALL set_restart_attribute( 'current_month' , datetime%month  )
@@ -337,7 +337,7 @@ CONTAINS
     CALL set_restart_time( iso8601(datetime) )  ! Time tag
 
     ! Open new file, write data, close and then clean-up.
-    message_text = get_filename_noext(p_patch%grid_filename)
+    message_text = get_filename_noext(patch%grid_filename)
     WRITE(string,'(a,a)') 'restart.',TRIM(message_text)
 
     CALL open_writing_restart_files( TRIM(string) )
