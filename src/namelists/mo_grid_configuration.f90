@@ -1,12 +1,9 @@
 !>
 !!        Contains the variables to set up the grid configuration
 !!
-!!        
 !! @par Revision History
-!!   Revision History in mo_model_domimp_setup.f90 (r3965)
-!!   Modification by Constantin Junk, MPI-M (2011-04-05)
-!!   - moved setup_files to grid_nml_setup and restructured
-!!     reading the namelist and setting the default variables
+!!  Leonidas Linardakis, MPI-M, 2011/7/7
+!!  - Restructuring the namelists
 !!
 !! @par Copyright
 !! 2002-2006 by DWD and MPI-M
@@ -35,16 +32,8 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-!!
 MODULE mo_grid_configuration
 !-------------------------------------------------------------------------
-!
-!    ProTeX FORTRAN source: Style 2
-!    modified for ICON project, DWD/MPI-M 2006
-!
-!-------------------------------------------------------------------------
-!
-!
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_impl_constants,     ONLY: max_dom, max_char_length, itri, ihex, max_char_length
@@ -71,7 +60,7 @@ MODULE mo_grid_configuration
     & lplane, corio_lat, parent_id, lredgrid_phys, patch_weight
 
   ! ------------------------------------------------------------------------
-  ! 1.0 Namelist variables and auxiliary variables
+  !Configuration variables
   ! ------------------------------------------------------------------------
   INTEGER    :: global_cell_type
   INTEGER    :: nroot                    ! root division of initial edges
@@ -110,24 +99,16 @@ MODULE mo_grid_configuration
   ! 2.0 Declaration of dependent variables
   ! -----------------------------------------------------------------------
 
-  CONTAINS
-!
-!
+CONTAINS
 
  !>
  !!  Initialization of variables that contain grid configuration
- !!
- !!
  !! @par Revision History
- !!  Revision History in mo_model_domimp_setup.f90/setup_files (r3965)
- !!  Modification by Constantin Junk, MPI-M (2011-04-05)
- !!  - moved setup_files to mo_grid_configuration
- !!  - renamed setup_files to grid_nml_setup
- !!  - restructured grid_nml_setup
-
+ !!  Leonidas Linardakis, MPI-M, 2011/7/7
+ !!  - Restructuring the namelists
   SUBROUTINE check_grid_configuration
                                                
-    !local variable
+    !local variables
     INTEGER  :: i_status, i, jg, jlev, funit
     CHARACTER(filename_max) :: patch_file, gridtype
     INTEGER  ::  patch_level(max_dom)

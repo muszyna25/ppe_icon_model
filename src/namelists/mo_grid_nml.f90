@@ -116,14 +116,14 @@ MODULE mo_grid_nml
 
  !>
  !!  Initialization of variables that contain grid configuration
- !!
- !!
  !! @par Revision History
  !!  Revision History in mo_model_domimp_setup.f90/setup_files (r3965)
  !!  Modification by Constantin Junk, MPI-M (2011-04-05)
  !!  - moved setup_files to mo_grid_nml
  !!  - renamed setup_files to grid_nml_setup
  !!  - restructured grid_nml_setup
+ !!  Leonidas Linardakis, MPI-M, 2011/7/7
+ !!  - Restructuring the namelists
 
   SUBROUTINE read_grid_namelist
                                                
