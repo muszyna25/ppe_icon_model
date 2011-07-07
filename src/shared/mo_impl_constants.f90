@@ -295,9 +295,9 @@ MODULE mo_impl_constants
 
   ! identifier for ocean model test cases (itestcase_oce)
   ! (should probably be moved to some testcase-module)
-  INTEGER, PARAMETER :: testcase_zero  =  0   ! no or zero forcing
-  INTEGER, PARAMETER :: testcase_init  = 21   ! simply defined test case
-  INTEGER, PARAMETER :: testcase_file  = 22   ! test case read from file
+  INTEGER, PARAMETER :: oce_testcase_zero  =  0   ! no or zero forcing
+  INTEGER, PARAMETER :: oce_testcase_init  = 21   ! simply defined test case
+  INTEGER, PARAMETER :: oce_testcase_file  = 22   ! test case read from file
 
   ! number of tracers used in ocean state
   INTEGER, PARAMETER :: ntrac_oce = 2

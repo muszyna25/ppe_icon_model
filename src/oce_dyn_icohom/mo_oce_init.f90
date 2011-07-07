@@ -54,13 +54,14 @@ USE mo_kind,               ONLY: wp
 USE mo_physical_constants, ONLY: re, rre, omega, rgrav
 USE mo_math_constants
 USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer , &
-   &                             itestcase_oce, testcase_zero, testcase_init, testcase_file, &
+   &                             itestcase_oce,  &
    &                             basin_center_lat, basin_center_lon,idisc_scheme,&
    &                             basin_height_deg,  basin_width_deg
 !  &                             iforc_oce, inoforcing, analyt_forc, core_forc, full_forc, &
 !  &                             core_annwind, wstress_coeff
 USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, & !success,               &
-  &                              min_rlcell, min_rledge!, min_rlvert,   &
+  & min_rlcell, min_rledge  &
+  & oce_testcase_zero, oce_testcase_init, oce_testcase_file                             
 !  &                              land , boundary
 USE mo_dynamics_nml,       ONLY: nold,nnew
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e!, get_indices_v
@@ -154,11 +155,11 @@ CONTAINS
 
     SELECT CASE (itestcase_oce)
 
-    CASE (testcase_zero)
+    CASE (oce_testcase_zero)
       CALL message(TRIM(routine), 'you have selected the "no-testcase" option')
-    CASE (testcase_init)
+    CASE (oce_testcase_init)
 
-    CASE (testcase_file)
+    CASE (oce_testcase_file)
       CALL finish(TRIM(routine), 'Initialization from file NOT SUPPORTED YET - TERMINATE')
       !CALL init_from_file(ppatch)
 
