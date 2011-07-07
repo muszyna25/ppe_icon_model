@@ -47,11 +47,10 @@ MODULE mo_grid_configuration
 !
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_impl_constants,     ONLY: max_char_length
+  USE mo_impl_constants,     ONLY: max_dom, max_char_length, itri, ihex, max_char_length
   USE mo_io_units,           ONLY: nnml, nnml_output,filename_max 
   USE mo_namelist,           ONLY: position_nml, POSITIONED
   USE mo_mpi,                ONLY: p_pe, p_io
-  USE mo_impl_constants,     ONLY: max_dom
   USE mo_math_constants,     ONLY: rad2deg
   USE mo_master_nml,         ONLY: lrestart
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
@@ -95,10 +94,10 @@ MODULE mo_grid_configuration
                                          ! for any of the first level child patches,
                                          ! processor splitting will be performed
 
-  LOGICAL    :: lpatch0                  ! If set to .true. an additional patch one
-                                         ! level below the root patch is allocated
-                                         ! and read so that physics calculations
-                                         ! on a coarser grid are possible
+!   LOGICAL    :: lpatch0                  ! If set to .true. an additional patch one
+!                                          ! level below the root patch is allocated
+!                                          ! and read so that physics calculations
+!                                          ! on a coarser grid are possible
 
   CHARACTER(LEN=filename_max) :: dynamics_grid_filename(max_dom)
   INTEGER                     :: dynamics_parent_grid_id(max_dom)
@@ -133,96 +132,12 @@ MODULE mo_grid_configuration
     CHARACTER(filename_max) :: patch_file, gridtype
     INTEGER  ::  patch_level(max_dom)
     LOGICAL :: l_exist
-
-
-!    CHARACTER(len=max_char_length), PARAMETER :: &
-!      &  routine = 'mo_grid_configuration/run_grid_setup'
+    CHARACTER(*), PARAMETER :: method_name = "check_grid_configuration"
 
     !-----------------------------------------------------------------------
-    ! clear grid filenames and hierarchy
+    ! find out how many grids we have
     no_of_dynamics_grids  = 0
     no_of_radiation_grids = 0
-    
-    ! Note: the first element of parent_id refers to the first nested domain
-    DO i = 1, max_dom-1
-      parent_id(i) = i
-    ENDDO
-  
-
-    !------------------------------------------------------------
-    ! 5.0 check the consistency of the parameters
-    !------------------------------------------------------------
-    ! Reset lfeedback to false for all model domains if lfeedback(1) = false
-    IF (.NOT. lfeedback(1)) lfeedback(2:max_dom) = .FALSE.
-
-    !-----------------------------------------------------
-    ! Set dependent variables
-    !-----------------------------------------------------
-    ! convert degrees in radiant for the Coriolis latitude
-    corio_lat =  corio_lat/rad2deg
-
-    ! set n_dom_start
-    IF(lpatch0) THEN
-      n_dom_start = 0
-    ELSE
-      n_dom_start = 1
-      lredgrid_phys = .FALSE.    ! lredgrid_phys requires presence of patch0 => reset to false
-    ENDIF
-
-
-    IF (dynamics_grid_filename(1) == "") THEN
-      ! dynamics_grid_filename not filled
-      ! we have an old style namelist
-
-      ! fill dynamics_grid_filename
-      ! fill level and parent ids
-      patch_level(1) = start_lev
-      dynamics_parent_grid_id(1) = 0       
-      DO jg = 2, n_dom
-        dynamics_parent_grid_id(jg) = parent_id(jg-1)
-        patch_level(jg) = patch_level(dynamics_parent_grid_id(jg))+1
-      ENDDO 
-    
-      ! fill the grid prefix
-      IF (lplane) THEN
-        gridtype='plan'
-      ELSE
-        gridtype='icon'
-      END IF
-    
-      DO jg = 1, n_dom
-        jlev = patch_level(jg)
-        ! Allow file names without "DOM" specifier if n_dom=1.
-        IF (n_dom == 1) THEN
-          ! Check if file name without "DOM" specifier exists.
-          WRITE (patch_file,'(a,a,i0,a,i2.2,a)') &
-              & TRIM(gridtype),'R',nroot,'B',jlev,'-grid.nc'
-          INQUIRE (FILE=patch_file, EXIST=l_exist)
-          ! Otherwise use file name with "DOM" specifier
-          IF (.NOT. l_exist)                                           &
-              & WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)')              &
-              & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
-        ELSE
-          ! n_dom >1 --> "'_DOM',jg" required in file name
-          WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)') &
-              & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
-        ENDIF
-        dynamics_grid_filename(jg) = patch_file
-      ENDDO
-
-      IF (n_dom_start == 0) THEN
-        ! fill radiation_grid_filename
-        jlev = start_lev-1
-        jg=0        
-        WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)') &
-            & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
-        radiation_grid_filename(1) = patch_file
-        dynamics_radiation_grid_link(1) = 1
-      ENDIF
-    
-    ENDIF
-
-    ! find out how many grids we have
     jg=1
     DO WHILE (dynamics_grid_filename(jg) /= "")
       jg=jg+1
@@ -234,9 +149,38 @@ MODULE mo_grid_configuration
     END DO
     no_of_radiation_grids = jg-1
     n_dom = no_of_dynamics_grids
+
+    IF (no_of_dynamics_grids < 1) &
+      CALL finish( TRIM(method_name), 'no dynamics grid is defined')
+    
+    
     IF (no_of_radiation_grids > 0) THEN
       n_dom_start = 0
+    ELSE
+      n_dom_start = 1
+      lredgrid_phys = .FALSE.    ! lredgrid_phys requires presence of patch0 => reset to false
     ENDIF
+    
+    !------------------------------------------------------------
+    ! 5.0 check the consistency of the parameters
+    !------------------------------------------------------------
+    SELECT CASE (global_cell_type)
+    CASE (itri,ihex)
+      ! ok
+    CASE default
+      CALL finish( TRIM(method_name),&
+        & 'wrong cell type specifier, "nml_cell_type" must be 3 or 6')
+    END SELECT
+    
+    ! Reset lfeedback to false for all model domains if lfeedback(1) = false
+    IF (.NOT. lfeedback(1)) lfeedback(2:max_dom) = .FALSE.
+
+    !-----------------------------------------------------
+    ! Set dependent variables
+    !-----------------------------------------------------
+    ! convert degrees in radiant for the Coriolis latitude
+    corio_lat =  corio_lat/rad2deg
+
            
 !     write(0,*) no_of_dynamics_grids
 !     write(0,*) dynamics_grid_filename(1:no_of_dynamics_grids)

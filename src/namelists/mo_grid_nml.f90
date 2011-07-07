@@ -47,21 +47,20 @@ MODULE mo_grid_nml
 !
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_impl_constants,     ONLY: max_char_length, itri, ihex
-  USE mo_io_units,           ONLY: nnml, nnml_output,filename_max 
+  USE mo_io_units,           ONLY: nnml, nnml_output,filename_max
   USE mo_namelist,           ONLY: position_nml, POSITIONED
   USE mo_mpi,                ONLY: p_pe, p_io
-  USE mo_impl_constants,     ONLY: max_dom
-  USE mo_math_constants,     ONLY: rad2deg
+  USE mo_impl_constants,     ONLY: max_dom, max_char_length, itri, ihex
+!   USE mo_math_constants,     ONLY: rad2deg
   USE mo_master_nml,         ONLY: lrestart
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
 
+  PRIVATE
+  PUBLIC :: read_grid_namelist, fill_grid_namelist_configure
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
-  PUBLIC :: read_grid_namelist
 
   ! ------------------------------------------------------------------------
   ! 1.0 Namelist variables and auxiliary variables
@@ -111,19 +110,19 @@ MODULE mo_grid_nml
   ! -----------------------------------------------------------------------
   ! 2.0 Declaration of dependent variables
   ! -----------------------------------------------------------------------
-
-  INTEGER  :: nroot_d
-  INTEGER  :: start_lev_d 
-  INTEGER  :: n_dom_d
-  INTEGER  :: parent_id_d(max_dom-1)
-
-  LOGICAL  :: lfeedback_d(max_dom)
-  LOGICAL  :: lplane_d 
-  LOGICAL  :: l_limited_area_d 
-  LOGICAL  :: lredgrid_phys_d(max_dom)
-
-  REAL(wp) :: corio_lat_d 
-  REAL(wp) :: patch_weight_d(max_dom)
+! 
+!   INTEGER  :: nroot_d
+!   INTEGER  :: start_lev_d 
+!   INTEGER  :: n_dom_d
+!   INTEGER  :: parent_id_d(max_dom-1)
+! 
+!   LOGICAL  :: lfeedback_d(max_dom)
+!   LOGICAL  :: lplane_d 
+!   LOGICAL  :: l_limited_area_d 
+!   LOGICAL  :: lredgrid_phys_d(max_dom)
+! 
+!   REAL(wp) :: corio_lat_d 
+!   REAL(wp) :: patch_weight_d(max_dom)
 
   CONTAINS
 !
@@ -188,16 +187,16 @@ MODULE mo_grid_nml
     nml_lredgrid_phys = .FALSE.
 
     ! copy default values to "default" variables
-    nroot_d     = nml_nroot
-    start_lev_d = nml_start_lev
-    n_dom_d     = nml_n_dom
-    parent_id_d = nml_parent_id
-    lfeedback_d = nml_lfeedback
-    lplane_d    = nml_lplane
-    l_limited_area_d = nml_l_limited_area
-    lredgrid_phys_d  = nml_lredgrid_phys
-    corio_lat_d = nml_corio_lat
-    patch_weight_d = nml_patch_weight
+!     nroot_d     = nml_nroot
+!     start_lev_d = nml_start_lev
+!     n_dom_d     = nml_n_dom
+!     parent_id_d = nml_parent_id
+!     lfeedback_d = nml_lfeedback
+!     lplane_d    = nml_lplane
+!     l_limited_area_d = nml_l_limited_area
+!     lredgrid_phys_d  = nml_lredgrid_phys
+!     corio_lat_d = nml_corio_lat
+!     patch_weight_d = nml_patch_weight
 
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
@@ -222,13 +221,13 @@ MODULE mo_grid_nml
     !------------------------------------------------------------
     ! 5.0 check the consistency of the parameters
     !------------------------------------------------------------
-    SELECT CASE (nml_cell_type)
-    CASE (itri,ihex)
-      ! ok
-    CASE default
-      CALL finish( TRIM(method_name),&
-        & 'wrong cell type specifier, "nml_cell_type" must be 3 or 6')
-    END SELECT
+!     SELECT CASE (nml_cell_type)
+!     CASE (itri,ihex)
+!       ! ok
+!     CASE default
+!       CALL finish( TRIM(method_name),&
+!         & 'wrong cell type specifier, "nml_cell_type" must be 3 or 6')
+!     END SELECT
 
 
     ! Reset lfeedback to false for all model domains if lfeedback(1) = false
@@ -242,7 +241,6 @@ MODULE mo_grid_nml
 !     corio_lat =  corio_lat/rad2deg
 
     ! set n_dom_start
-
 !     IF(lpatch0) THEN
 !       n_dom_start = 0
 !     ELSE
@@ -291,7 +289,7 @@ MODULE mo_grid_nml
         nml_dynamics_grid_filename(jg) = patch_file
       ENDDO
 
-      IF (nml_n_dom_start == 0) THEN
+      IF (nml_lpatch0) THEN
         ! fill radiation_grid_filename
         jlev = nml_start_lev-1
         jg=0        
@@ -304,21 +302,21 @@ MODULE mo_grid_nml
     ENDIF
 
     ! find out how many grids we have
-    jg=1
-    DO WHILE (nml_dynamics_grid_filename(jg) /= "")
-      jg=jg+1
-    END DO
-    nml_no_of_dynamics_grids  = jg-1
-    jg=1
-    DO WHILE (nml_radiation_grid_filename(jg) /= "")
-      jg=jg+1
-    END DO
-    nml_no_of_radiation_grids = jg-1
-    nml_n_dom = nml_no_of_dynamics_grids
-    IF (nml_no_of_radiation_grids > 0) THEN
-      nml_n_dom_start = 0
-    ENDIF
-           
+!     jg=1
+!     DO WHILE (nml_dynamics_grid_filename(jg) /= "")
+!       jg=jg+1
+!     END DO
+!     nml_no_of_dynamics_grids  = jg-1
+!     jg=1
+!     DO WHILE (nml_radiation_grid_filename(jg) /= "")
+!       jg=jg+1
+!     END DO
+!     nml_no_of_radiation_grids = jg-1
+!     nml_n_dom = nml_no_of_dynamics_grids
+!     IF (nml_no_of_radiation_grids > 0) THEN
+!       nml_n_dom_start = 0
+!     ENDIF
+!            
 !     write(0,*) no_of_dynamics_grids
 !     write(0,*) dynamics_grid_filename(1:no_of_dynamics_grids)
 !     write(0,*) dynamics_parent_grid_id(1:no_of_dynamics_grids)
@@ -340,7 +338,28 @@ MODULE mo_grid_nml
     ! write the contents of the namelist to an ASCII file
     IF(p_pe == p_io) WRITE(nnml_output,nml=grid_ctl)
 
-    
+    CALL fill_grid_namelist_configure()
+       
   END SUBROUTINE read_grid_namelist
+
+  SUBROUTINE fill_grid_namelist_configure()
+  
+    nroot             = nml_nroot
+    start_lev         = nml_start_lev
+    n_dom             = nml_n_dom
+    lfeedback         = nml_lfeedback
+    lplane            = nml_lplane
+    corio_lat         = nml_corio_lat
+    l_limited_area    = nml_l_limited_area
+    patch_weight      = nml_patch_weight
+    lredgrid_phys     = nml_lredgrid_phys
+    global_cell_type  = nml_cell_type
+    dynamics_grid_filename      = nml_dynamics_grid_filename
+    dynamics_parent_grid_id     = nml_dynamics_parent_grid_id
+    radiation_grid_filename     = nml_radiation_grid_filename
+    dynamics_radiation_gridlink = nml_dynamics_radiation_gridlink
+    
+  END SUBROUTINE fill_grid_namelist_configure
+  
 
 END MODULE mo_grid_nml

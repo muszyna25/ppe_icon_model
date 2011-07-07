@@ -154,7 +154,7 @@ MODULE mo_parallel_nml
 
 
   ! Exported routines:
-  PUBLIC :: read_parallel_namelist, get_nml_nproma
+  PUBLIC :: read_parallel_namelist
   
   ! Exported variables:
 !   PUBLIC ::              nml_n_ghost_rows, nml_division_method, &

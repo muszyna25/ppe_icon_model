@@ -49,9 +49,9 @@ MODULE mo_parallel_configuration
   PRIVATE
   ! Exported variables:
   PUBLIC :: nproma
-#ifdef __OMP_RADIATION__
+! #ifdef __OMP_RADIATION__
   PUBLIC :: radiation_threads, nh_stepping_threads
-#endif
+! #endif
   PUBLIC :: n_ghost_rows,                                     &
        &    div_from_file, div_geometric, div_metis, division_method, &
        &    l_log_checks, l_fast_sum,                                 &
@@ -61,6 +61,7 @@ MODULE mo_parallel_configuration
        &    p_n_work, p_pe_work, p_comm_work, p_comm_work_test,       &
        &    p_comm_work_io, p_comm_work_2_io, p_comm_input_bcast,     &
        &    pio_type, itype_comm, iorder_sendrecv
+       
   PUBLIC :: set_nproma, get_nproma, check_parallel_configuration
   
   ! computing setup
