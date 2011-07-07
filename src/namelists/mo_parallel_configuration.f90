@@ -35,7 +35,6 @@ MODULE mo_parallel_configuration
 
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_run_nml,            ONLY: lrestore_states
   USE mo_mpi,                ONLY: p_pe, p_io, p_nprocs, p_all_comm
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_COMM_NULL, MPI_COMM_SELF, MPI_UNDEFINED, &
@@ -227,38 +226,6 @@ CONTAINS
     IF(num_io_procs < 0) num_io_procs = 0
 #endif
   
-  ! check p_test_run and num_io_procs
-#ifdef NOMPI
-  ! Unconditionally set p_test_run to .FALSE. and num_io_procs to 0,
-  ! all other variables are already set correctly
-  IF (p_test_run) THEN
-    CALL message(method_name, &
-       & 'p_test_run has no effect if the model is compiled with the NOMPI compiler directive')
-    CALL message(method_name, &
-       & '--> p_test_run set to .FALSE.')
-    p_test_run = .FALSE.
-  END IF
-  IF (num_io_procs /= 0) THEN
-    CALL message(method_name, &
-       & 'num_io_procs has no effect if the model is compiled with the NOMPI compiler directive')
-    CALL message(method_name, &
-       & '--> num_io_procs set to 0')
-    num_io_procs = 0
-  END IF
-#else
-  ! A run on 1 PE is never a verification run,
-  ! correct this if the user should set it differently
-  IF (p_test_run .AND. p_nprocs == 1) THEN
-    CALL message(method_name, &
-         & 'p_test_run has no effect if p_nprocs=1')
-    CALL message(method_name, &
-         & '--> p_test_run set to .FALSE.')
-     p_test_run = .FALSE.
-  ENDIF
-  ! for safety only
-  IF(num_io_procs < 0) num_io_procs = 0
-#endif
-
   ! check l_test_openmp
 #ifndef _OPENMP
   IF (l_test_openmp) THEN
@@ -434,16 +401,6 @@ CONTAINS
   END SUBROUTINE check_parallel_configuration
   !-------------------------------------------------------------------------
   
-
-  
-  !-------------------------------------------------------------------------
-  SUBROUTINE setup_parallel_configuration()
-  
-    CHARACTER(*), PARAMETER :: method_name = "setup_parallel_configuration"
-
-
-  END SUBROUTINE setup_parallel_configuration
-  !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
   !>

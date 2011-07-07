@@ -367,7 +367,8 @@ CONTAINS
 ! Check if it is 00, 06, 12 or 18 UTC. In this case update the value of 
 !    dt_s6avg average variables 
 
-    IF (MOD(p_sim_time + time_config%ini_datetime%daysec, dt_s6avg) == 0 .AND. p_sim_time > 0.1) THEN
+    IF (MOD(p_sim_time + time_config%ini_datetime%daysec, dt_s6avg) == 0 &
+      & .AND. p_sim_time > 0.1) THEN
        l_s6avg = .TRUE.
        p_sim_time_s6 = INT( (p_sim_time+time_config%ini_datetime%daysec)/dt_s6avg) * dt_s6avg
     ELSE
