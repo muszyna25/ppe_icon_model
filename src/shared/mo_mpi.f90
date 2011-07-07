@@ -51,8 +51,6 @@ MODULE mo_mpi
   PUBLIC :: p_pe, p_io, p_nprocs
 
   ! communicator
-
-  PUBLIC :: p_all_comm
   PUBLIC :: p_communicator_a, p_communicator_b, p_communicator_d
 
   ! old fashioned method (MPI-1)
@@ -79,12 +77,19 @@ MODULE mo_mpi
   LOGICAL :: p_parallel    = .FALSE.
   LOGICAL :: p_parallel_io = .TRUE.
 
+  INTEGER :: mype
   INTEGER :: p_pe     = 0     ! this is the PE number of this task
   INTEGER :: p_io     = 0     ! PE number of PE handling IO
   INTEGER :: p_nprocs = 1     ! number of available PEs (processors)
 
   ! communicator sets
-
+  INTEGER :: global_mpi_communicator  ! replaces MPI_COMM_WORLD in one application
+  INTEGER :: global_mpi_size          ! total number of processes in global world
+  INTEGER :: my_global_mpi_id         ! process id in global world
+  
+  INTEGER :: model_mpi_communicator  ! communicator inside a model
+  INTEGER :: my_model_mpi_id  
+  
   INTEGER :: p_all_comm       ! replaces MPI_COMM_WORLD in one application
   INTEGER :: p_communicator_a ! for Set A
   INTEGER :: p_communicator_b ! for Set B
@@ -104,7 +109,6 @@ MODULE mo_mpi
 
   ! module intrinsic names
 
-  INTEGER :: mype                  ! this is the PE number of this task
 !!#ifndef NOMPI
 !!LK  INTEGER :: iope                  ! PE able to do IO
 !!#endif
@@ -292,6 +296,7 @@ MODULE mo_mpi
 
 CONTAINS
 
+  !------------------------------------------------------------------------------
   SUBROUTINE p_start_reset ( communicator )
 
     INTEGER, INTENT(in) :: communicator
@@ -389,8 +394,347 @@ CONTAINS
     END IF
 
   END SUBROUTINE p_start_reset
+  !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
+  SUBROUTINE p_start_global(model_name)
+
+#ifdef _OPENMP
+    USE mo_util_string, ONLY: toupper
+#endif
+
+#ifndef NOMPI
+#if defined (__prism) && defined (use_comm_MPI1)
+    USE mod_prism_proto, ONLY: prism_ok
+#endif
+#endif
+    INTEGER :: mype                  ! this is the PE number of this task
+    CHARACTER(len=*), INTENT(in), OPTIONAL :: model_name
+
+    ! variables are required for determing I/O size in bytes of the defined
+    ! KIND types for assigning the right MPI data types with the used kinds
+    INTEGER     :: iig = 0
+    INTEGER(i4) :: ii4 = 0_i4
+    INTEGER(i8) :: ii8 = 0_i8
+    REAL        :: rrg = 0.0
+    REAL(sp)    :: rsp = 0.0_sp
+    REAL(dp)    :: rdp = 0.0_dp
+
+    CHARACTER(len=132) :: yname
+
+    ! variables used for determing the OpenMP threads
+    ! suitable as well for coupled models
+
+#if (defined _OPENMP)
+    CHARACTER(len=32) :: env_name
+    CHARACTER(len=32) :: thread_num
+    INTEGER :: env_threads, threads
+#endif
+
+#ifndef NOMPI
+#if defined (__prism) && defined (use_comm_MPI1)
+    INTEGER :: prism_model_number
+    CHARACTER(len=132) :: prism_model_name
+
+    EXTERNAL :: prism_abort_proto
+    EXTERNAL :: prism_init_comp_proto
+    EXTERNAL :: prism_get_localcomm_proto
+#endif
+#endif
+
+#ifdef _OPENMP
+#ifndef NOMPI
+    INTEGER :: provided
+    ! loop index
+!   INTEGER :: jp
+#endif
+#ifndef __SX__
+    ! status
+    INTEGER :: istat
+#endif
+#endif
+
+#if defined (_OPENMP) && defined (__SX__)
+    EXTERNAL :: getenv
+#endif
+
+    ! Executable statements:
+
+    IF (PRESENT(model_name)) THEN
+      yname = TRIM(model_name)
+    ELSE
+      yname = '(unnamed)'
+    END IF
+
+    nbcast = 0
+
+    ! start MPI
+#ifndef NOMPI
+#ifdef _OPENMP
+    CALL MPI_INIT_THREAD(MPI_THREAD_FUNNELED,provided,p_error)
+#else
+    CALL MPI_INIT (p_error)
+#endif
+
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a)') ' MPI_INIT failed.'
+       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
+       STOP
+    END IF
+    
+#ifdef _OPENMP
+    ! Check if MPI_INIT_THREAD returned at least MPI_THREAD_FUNNELED in "provided"
+    IF (provided < MPI_THREAD_FUNNELED) THEN
+       WRITE (nerr,'(a)') ' MPI_INIT_THREAD did not return desired level of thread support'
+       WRITE (nerr,'(a,i0)') " provided: ", provided
+       WRITE (nerr,'(a,i0)') " required: ", MPI_THREAD_FUNNELED
+       CALL MPI_Finalize(p_error)
+       STOP
+    END IF
+#endif
+#endif
+
+    ! create communicator for this process alone before
+    ! potentially joining MPI2
+#ifndef NOMPI
+#if defined (__prism) && defined (use_comm_MPI1)
+
+    prism_model_name = TRIM(yname)
+
+    CALL prism_init_comp_proto (prism_model_number, TRIM(prism_model_name), &
+         p_error)
+
+    IF (p_error /= prism_ok) THEN
+      WRITE (nerr,*) ' prism_init_comp_proto failed'
+      CALL prism_abort_proto(prism_model_number, TRIM(yname),'abort1')
+    ENDIF
+
+    CALL prism_get_localcomm_proto(p_global_comm, p_error)
+
+    IF (p_error /= prism_ok) THEN
+      WRITE (nerr,*) ' prism_get_localcomm_proto failed'
+      CALL prism_abort_proto(prism_model_number, TRIM(yname),'abort2')
+    ENDIF
+
+#else
+
+    CALL MPI_COMM_DUP (MPI_COMM_WORLD, global_mpi_communicator, p_error)
+
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a)') ' MPI_COMM_DUP failed.'
+       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
+       CALL p_abort
+    END IF
+
+#endif
+#endif
+
+    ! get local PE identification
+#ifndef NOMPI
+    CALL MPI_COMM_RANK (global_mpi_communicator, my_global_mpi_id, p_error)
+
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a)') ' MPI_COMM_RANK failed.'
+       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
+       CALL p_abort
+    ELSE
+#ifdef DEBUG
+       WRITE (nerr,'(a,i4,a)') ' PE ', mype, ' started.'
+#endif
+    END IF
+#else
+    my_global_mpi_id = 0
+#endif
+
+    ! get number of available PEs
+
+#ifndef NOMPI
+    CALL MPI_COMM_SIZE (global_mpi_communicator, global_mpi_size, p_error)
+
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a)') ' PE: ', mype, ' MPI_COMM_SIZE failed.'
+       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
+       CALL p_abort
+    END IF
+#else
+    global_mpi_size = 1
+#endif
 
 
+! set the I/O pe statically to 0
+    p_io = 0
+
+    ! Information ...
+    IF (my_global_mpi_id == 0) THEN
+       WRITE (nerr,'(/,a,a,a)') ' ', &
+            TRIM(yname), ' MPI interface runtime information:'
+    END IF
+
+#ifndef NOMPI
+    ! lets check the available MPI version
+
+    CALL MPI_GET_VERSION (version, subversion, p_error)
+
+    IF (p_error /= MPI_SUCCESS) THEN
+      WRITE (nerr,'(a)') ' MPI_GET_VERSION failed.'
+      WRITE (nerr,'(a,i4)') ' Error =  ', p_error
+      CALL p_abort
+    END IF
+
+    IF (my_global_mpi_id == 0) THEN
+      WRITE (nerr,'(a,i0,a1,i0)') &
+           '  Used MPI version: ', version, '.', subversion
+    END IF
+#endif
+
+    IF (npes < 2) THEN
+      p_parallel = .FALSE.
+      p_parallel_io = .TRUE.   ! can always do I/O
+      IF (mype == 0) THEN
+        WRITE (nerr,'(a)') '  Single processor run.'
+      END IF
+      p_pe = 0
+      p_nprocs = 1
+    ELSE
+      p_parallel = .TRUE.
+      IF (mype == p_io) THEN
+        p_parallel_io = .TRUE.
+      ELSE
+        p_parallel_io = .FALSE.
+      END IF
+      IF (mype == 0) THEN
+        WRITE (nerr,'(a,i0,a)') '  Run on ', npes, ' processors.'
+      END IF
+      p_pe = mype
+      p_nprocs = npes
+    END IF
+
+#ifdef _OPENMP
+    ! Expect that PE 0 did got the information of OMP_NUM_THREADS.
+    ! That might be wrong in the coupled case when the model is
+    ! started via MPI dynamic process creation. So we have to check
+    ! the environment variable too.
+
+    IF (mype == 0) THEN
+
+      IF (p_parallel) THEN
+        WRITE (nerr,'(/,a)') ' Running hybrid OpenMP-MPI mode.'
+      ELSE
+        WRITE (nerr,'(/,a)') ' Running OpenMP mode.'
+      ENDIF
+
+      env_name = toupper(TRIM(yname)) // '_THREADS'
+
+#ifdef __SX__
+      CALL getenv(TRIM(env_name), thread_num)
+
+      IF (thread_num /= ' ') THEN
+#else
+      CALL get_environment_variable(name=TRIM(env_name), value=thread_num, &
+           status=istat)
+
+      IF (istat == 0) THEN
+#endif
+        READ(thread_num,*) env_threads
+      ELSE
+        WRITE (nerr,'(1x,a,/)') ' Number of OpenMP threads not given!'
+        WRITE (nerr,'(1x,a,a,a,/,1x,a,a,a)') &
+             ' Environment variable ', TRIM(env_name), ' either not set,', &
+             ' or not available to ', TRIM(yname), ' root PE.'
+        ! env_threads = 1  Default is the OMP_NUM_THREADS
+        env_threads = omp_get_max_threads()
+        WRITE (nerr,'(1x,a,i3,a)') &
+             ' I will use ', env_threads, ' OpenMP threads'
+      ENDIF
+      threads = env_threads
+   ENDIF
+
+#ifndef NOMPI
+    ! Make number of threads from environment available to all model PEs
+
+    CALL MPI_BCAST (threads, 1, MPI_INTEGER, 0, p_all_comm, p_error)
+#endif
+
+    ! Inform on OpenMP thread usage
+
+    CALL OMP_SET_NUM_THREADS(threads)
+
+    threads = OMP_GET_MAX_THREADS()
+
+    IF (mype == 0) THEN
+
+       WRITE (nerr,*)
+
+       ! write out thread usage of master PE
+
+       WRITE (nerr,'(1x,a,i2,a)') ' Use ', threads, ' OpenMP threads.'
+
+    ENDIF
+#endif
+
+#ifndef NOMPI
+
+    ! due to a possible circular dependency with mo_machine and other
+    ! modules, we determine here locally the I/O size of the different
+    ! kind types (assume 8 bit/byte. This is than used for determing
+    ! the right MPI send/receive type parameters.
+
+    CALL MPI_SIZEOF(iig, p_int_byte, p_error)
+    CALL MPI_SIZEOF(ii4, p_int_i4_byte, p_error)
+    CALL MPI_SIZEOF(ii8, p_int_i8_byte, p_error)
+    CALL MPI_SIZEOF(rrg, p_real_byte, p_error)
+    CALL MPI_SIZEOF(rsp, p_real_sp_byte, p_error)
+    CALL MPI_SIZEOF(rdp, p_real_dp_byte, p_error)
+
+    p_int     = MPI_INTEGER
+    p_real    = MPI_REAL
+    p_bool    = MPI_LOGICAL
+    p_char    = MPI_CHARACTER
+
+    CALL MPI_TYPE_MATCH_SIZE(MPI_TYPECLASS_REAL, p_real_sp_byte, p_real_sp, p_error)
+    CALL MPI_TYPE_MATCH_SIZE(MPI_TYPECLASS_REAL, p_real_dp_byte, p_real_dp, p_error)
+    CALL MPI_TYPE_MATCH_SIZE(MPI_TYPECLASS_INTEGER, p_int_i4_byte, p_int_i4, p_error)
+    CALL MPI_TYPE_MATCH_SIZE(MPI_TYPECLASS_INTEGER, p_int_i8_byte, p_int_i8, p_error)
+
+#endif
+
+#ifdef DEBUG
+    WRITE (nerr,'(/,a)')    ' MPI transfer sizes [bytes]:'
+    WRITE (nerr,'(a,i4)') '  INTEGER generic:', p_int_byte
+    WRITE (nerr,'(a,i4)') '  INTEGER 4 byte :', p_int_i4_byte
+    WRITE (nerr,'(a,i4)') '  INTEGER 8 byte :', p_int_i8_byte
+    WRITE (nerr,'(a,i4)') '  REAL generic   :', p_real_byte
+    WRITE (nerr,'(a,i4)') '  REAL single    :', p_real_sp_byte
+    WRITE (nerr,'(a,i4)') '  REAL double    :', p_real_dp_byte
+#endif
+
+    IF (mype == 0) THEN
+      WRITE (nerr,*)
+    ENDIF
+
+#ifndef NOMPI
+    CALL MPI_COMM_DUP(p_all_comm,p_comm_work,p_error)
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a)') ' MPI_COMM_DUP failed for p_comm_work.'
+       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
+       CALL p_abort
+    END IF
+
+    CALL MPI_COMM_DUP(p_all_comm,p_comm_work_test,p_error)
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a)') ' MPI_COMM_DUP failed for p_comm_work_test.'
+       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
+       CALL p_abort
+    END IF
+#else
+    p_comm_work=p_all_comm
+    p_comm_work_test=p_all_comm
+#endif
+  END SUBROUTINE p_start_global
+  !------------------------------------------------------------------------------
+
+
+  !------------------------------------------------------------------------------
   SUBROUTINE p_start(model_name)
 
 #ifdef _OPENMP
@@ -402,6 +746,7 @@ CONTAINS
     USE mod_prism_proto, ONLY: prism_ok
 #endif
 #endif
+    INTEGER :: mype                  ! this is the PE number of this task
     CHARACTER(len=*), INTENT(in), OPTIONAL :: model_name
 
     ! variables are required for determing I/O size in bytes of the defined
@@ -736,6 +1081,7 @@ CONTAINS
     p_comm_work_test=p_all_comm
 #endif
   END SUBROUTINE p_start
+  !------------------------------------------------------------------------------
 
   SUBROUTINE p_stop
 
@@ -786,7 +1132,6 @@ CONTAINS
   END SUBROUTINE p_abort
 
   ! communicator set up
-
   SUBROUTINE p_set_communicator (nproca, nprocb, mapmesh, debug_parallel)
 
     INTEGER, INTENT(in) :: nproca, nprocb

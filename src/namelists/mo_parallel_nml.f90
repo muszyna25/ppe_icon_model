@@ -39,7 +39,6 @@ MODULE mo_parallel_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, POSITIONED
   USE mo_master_nml,         ONLY: lrestart
-  USE mo_run_nml,            ONLY: lrestore_states
   USE mo_mpi,                ONLY: p_pe, p_io, p_nprocs, p_all_comm
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_COMM_NULL, MPI_COMM_SELF, MPI_UNDEFINED, &

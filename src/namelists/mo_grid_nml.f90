@@ -129,12 +129,6 @@ MODULE mo_grid_nml
     CHARACTER(filename_max) :: patch_file, gridtype
     INTEGER  ::  nml_patch_level(max_dom)
     LOGICAL :: l_exist
-    
-    CHARACTER(*), PARAMETER :: method_name = "check_parallel_configuration"
-
-
-!    CHARACTER(len=max_char_length), PARAMETER :: &
-!      &  routine = 'mo_grid_nml/run_grid_setup'
 
     !-----------------------------------------------------------------------
     ! clear grid filenames and hierarchy
