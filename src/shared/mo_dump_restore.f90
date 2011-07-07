@@ -123,8 +123,9 @@ MODULE mo_dump_restore
                                    min_rlcell_int, min_rledge_int
   USE mo_exception,          ONLY: message_text, message, finish
   USE mo_parallel_configuration, ONLY: nproma
-  USE mo_run_nml,            ONLY: p%cell_type, ltransport, iequations,     &
+  USE mo_run_nml,            ONLY: ltransport, &
      &                             num_lev, num_levp1, nshift
+  USE mo_dynamics_nml,       ONLY: iequations
   USE mo_io_units,           ONLY: filename_max, nerr
   USE mo_model_domain,       ONLY: t_patch
   USE mo_grid_configuration, ONLY: start_lev, nroot, n_dom, n_dom_start, lfeedback, &
