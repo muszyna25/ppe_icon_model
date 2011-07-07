@@ -171,19 +171,19 @@ CONTAINS
       ! which is also the current model date/time.
 
 
-      IF (calendar  /=calendar_old   .OR.      &
+      IF (time_config%calendar  /=calendar_old   .OR.      &
            ini_datetime_old /= nml_ini_datetime) THEN
             
         time_config%current_datetime = time_config%ini_datetime
 
       ELSE
-        current_datetime%calendar = calendar
-        current_datetime%year     = restart_year
-        current_datetime%month    = restart_month
-        current_datetime%day      = restart_day
-        current_datetime%hour     = restart_hour
-        current_datetime%minute   = restart_minute
-        current_datetime%second   = restart_second
+         time_config%current_datetime%calendar = time_config%calendar
+         time_config%current_datetime%year     = restart_year
+         time_config%current_datetime%month    = restart_month
+         time_config%current_datetime%day      = restart_day
+         time_config%current_datetime%hour     = restart_hour
+         time_config%current_datetime%minute   = restart_minute
+         time_config%current_datetime%second   = restart_second
 
         CALL date_to_time(time_config%current_datetime) ! fill date time structure
       END IF
