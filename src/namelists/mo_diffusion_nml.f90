@@ -51,6 +51,7 @@ MODULE mo_diffusion_nml
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_run_nml,             ONLY: lshallow_water,nlev, &
                                   & latmosphere, lhydrostatic
+  USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_grid_configuration,  ONLY: global_cell_type
   USE mo_vertical_coord_table,ONLY: vct_a, vct_b, apzero
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
@@ -339,6 +340,7 @@ MODULE mo_diffusion_nml
   SUBROUTINE read_diffusion_namelist
     !
     INTEGER :: istat, funit
+    INTEGER :: jg           ! loop index
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_diffusion_nml: read_diffusion_namelist'
@@ -387,6 +389,20 @@ MODULE mo_diffusion_nml
     !----------------------------------------------------
     ! 4. Fill the configuration state
     !----------------------------------------------------
+
+    DO jg= 1,max_dom
+      diffusion_config(jg)%hdiff_order          = hdiff_order
+      diffusion_config(jg)%hdiff_efdt_ratio     = hdiff_efdt_ratio
+      diffusion_config(jg)%hdiff_smag_fac       = hdiff_smag_fac
+      diffusion_config(jg)%lhdiff_temp          = lhdiff_temp
+      diffusion_config(jg)%lhdiff_vn            = lhdiff_vn
+      diffusion_config(jg)%hdiff_tv_ratio       = hdiff_tv_ratio
+      diffusion_config(jg)%hdiff_multfac        = hdiff_multfac
+      diffusion_config(jg)%k2_klev_max          = k2_klev_max
+      diffusion_config(jg)%k2_pres_max          = k2_pres_max
+      diffusion_config(jg)%hdiff_min_efdt_ratio = hdiff_min_efdt_ratio
+    ENDDO
+
 
 
     !-----------------------------------------------------

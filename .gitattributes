@@ -1033,6 +1033,7 @@ src/namelists/mo_atm_phy_nwp_config.f90 -text
 src/namelists/mo_atm_phy_nwp_nml.f90 -text
 src/namelists/mo_atmo_setup_configuration.f90 -text
 src/namelists/mo_cpl_nml.f90 -text
+src/namelists/mo_diffusion_config.f90 -text
 src/namelists/mo_diffusion_nml.f90 -text
 src/namelists/mo_dynamics_config.f90 -text
 src/namelists/mo_dynamics_nml.f90 -text
