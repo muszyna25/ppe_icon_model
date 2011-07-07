@@ -142,11 +142,11 @@ MODULE mo_io_vlist
     &                               inwp_radiation, inwp_sso, inwp_cldcover,    &
     &                               inwp_turb, dt_conv, dt_rad_nml => dt_rad,   &
     &                               dt_ccov, dt_sso, inwp_satad
-  USE mo_advection_nml,       ONLY: ctracer_list, ihadv_tracer, ivadv_tracer,   &
-    &                               lvadv_tracer, itype_vlimit, itype_hlimit,   &
-    &                               iord_backtraj, lclip_tracer, ctracer_list,  &
-    &                               igrad_c_miura, iadv_slev, lstrang,          &
-    &                               upstr_beta_adv
+  USE mo_advection_nml,       ONLY: ihadv_tracer, ivadv_tracer, lvadv_tracer,   &
+    &                               itype_vlimit, itype_hlimit, iord_backtraj,  &
+    &                               lclip_tracer, igrad_c_miura, iadv_slev,     &
+    &                               lstrang, upstr_beta_adv
+  USE mo_advection_config,    ONLY: advection_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_echam_conv_nml,      ONLY: cmftau, cmfctop, cprcon,             &
     &                               cminbuoy, entrpen, dlev, entrmid, entrscv,  &
@@ -285,6 +285,8 @@ CONTAINS
     CHARACTER(len=10) :: dbgname
     CHARACTER(len=3)  :: cjt
     CHARACTER(LEN=1)  :: ctracer
+    CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
+      &  ctracer_list
     CHARACTER(LEN=1)  :: anextra ! number of debug fields
     CHARACTER(len=NF_MAX_NAME) :: long_name, units
     INTEGER :: i, jt
@@ -903,6 +905,9 @@ CONTAINS
     varids(:,k_jg)   = 0
     ! initialize total number of varids for domain jg
     num_varids(k_jg) = 0
+
+    ! get ctracer_list
+    ctracer_list = advection_config(k_jg)%ctracer_list
 
     SELECT CASE (iforcing)
     CASE (iecham,ildf_echam)
@@ -2387,6 +2392,8 @@ CONTAINS
     INTEGER :: nlevp1
     LOGICAL :: not_found
     CHARACTER(LEN=1) :: ctracer
+    CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
+      &  ctracer_list
 
     TYPE(t_hydro_atm_prog), POINTER :: p_prog
     TYPE(t_hydro_atm_diag), POINTER :: p_diag
@@ -2399,6 +2406,9 @@ CONTAINS
     reset  = .FALSE.
     delete = .FALSE.
     not_found = .FALSE.
+
+    ! get ctracer_list
+    ctracer_list = advection_config(jg)%ctracer_list
 
     nlevp1 = num_levp1(jg)
 
@@ -2516,6 +2526,9 @@ CONTAINS
     INTEGER :: jt
     LOGICAL :: not_found
     CHARACTER(LEN=1) :: ctracer
+    CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
+      &  ctracer_list
+
     CHARACTER(LEN=1) :: anextra
 
     REAL(wp), POINTER :: ptr2(:,:)
@@ -2545,6 +2558,9 @@ CONTAINS
     reset  = .FALSE.
     delete = .FALSE.
     not_found = .FALSE.
+
+    ! get ctracer_list
+    ctracer_list = advection_config(jg)%ctracer_list
 
     SELECT CASE(varname)
       CASE ('PS');              ptr2 => p_diag%pres_sfc

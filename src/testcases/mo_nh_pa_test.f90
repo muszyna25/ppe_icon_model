@@ -58,7 +58,7 @@ USE mo_kind,                ONLY: wp
 USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
 USE mo_physical_constants,  ONLY: omega, rd, cpd, p0ref
 USE mo_math_constants,      ONLY: pi_2, pi
-USE mo_advection_nml,       ONLY: ctracer_list
+USE mo_advection_config,    ONLY: advection_config
 USE mo_model_domain,        ONLY: t_patch
 USE mo_ext_data,            ONLY: t_external_data
 USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
@@ -134,11 +134,21 @@ CONTAINS
 
 
     CHARACTER(LEN=1) :: ctracer         !< char to control tracer init
+    CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
+    &  ctracer_list
 
     INTEGER :: ilc1, ibc1  !< line and block indices of cell1 adjacent 
                            !< to the current edge
+    INTEGER :: pid         !< patch ID
 !--------------------------------------------------------------------
 !
+    ! get patch ID
+    pid = ptr_patch%id
+
+    ! get ctracer_list
+    ctracer_list = advection_config(pid)%ctracer_list
+
+
     rovcp   = rd/cpd                            !< kappa
     z_aleph = p_rotate_axis_deg * pi/180.0_wp   !< deg2rad rotation angle
 

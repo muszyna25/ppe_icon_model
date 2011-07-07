@@ -59,7 +59,7 @@ MODULE mo_echam_phy_memory
   USE mo_exception,           ONLY: message, finish
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,             ONLY: ntracer
-  USE mo_advection_nml,       ONLY: ctracer_list
+  USE mo_advection_config,    ONLY: advection_config
   USE mo_icoham_sfc_indices,  ONLY: nsfc_type
 !   USE mo_echam_phy_nml,       ONLY: lvdiff
    USE mo_echam_phy_config,    ONLY: get_lvdiff
@@ -392,6 +392,8 @@ CONTAINS
 
     TYPE(t_patch),INTENT(IN) :: patch_array(:)
     CHARACTER(len=MAX_CHAR_LENGTH) :: listname
+    CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
+    &  ctracer_list
     INTEGER :: ndomain, jg, ist, nblks, nlev
 
     !---
@@ -418,15 +420,18 @@ CONTAINS
       nblks = patch_array(jg)%nblks_c
       nlev  = patch_array(jg)%nlev
 
+      ! get ctracer_list
+      ctracer_list = advection_config(jg)%ctracer_list
+
       WRITE(listname,'(a,i2.2)') 'prm_field_D',jg
-      CALL new_echam_phy_field_list( nproma, nlev, nblks, ntracer, nsfc_type, &
-                                   & TRIM(listname), 'prm_',                  &
-                                   & prm_field_list(jg), prm_field(jg) )
+      CALL new_echam_phy_field_list(nproma, nlev, nblks, ntracer, ctracer_list, &
+                                   & nsfc_type, TRIM(listname), 'prm_',         &
+                                   & prm_field_list(jg), prm_field(jg)          )
 
       WRITE(listname,'(a,i2.2)') 'prm_tend_D',jg
-      CALL new_echam_phy_tend_list ( nproma, nlev, nblks, ntracer,   &
-                                   & TRIM(listname), 'prm_tend_',    &
-                                   & prm_tend_list(jg), prm_tend(jg) )
+      CALL new_echam_phy_tend_list( nproma, nlev, nblks, ntracer, ctracer_list, &
+                                  & TRIM(listname), 'prm_tend_',                &
+                                  & prm_tend_list(jg), prm_tend(jg)             )
     ENDDO
     CALL message(TRIM(thismodule),'Construction of ECHAM physics state finished.')
 
@@ -466,12 +471,15 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE new_echam_phy_field_list( kproma, klev, kblks, ktracer, ksfc_type, &
-                                     & listname, prefix, field_list, field      )
+  SUBROUTINE new_echam_phy_field_list( kproma, klev, kblks, ktracer,      &
+                                     & ctracer_list, ksfc_type, listname, &
+                                     & prefix, field_list, field          )
 
     INTEGER,INTENT(IN) :: kproma, klev, kblks, ktracer, ksfc_type  !< dimension sizes
 
-    CHARACTER(len=*),INTENT(IN) :: listname, prefix
+    CHARACTER(len=*),INTENT(IN)    :: listname, prefix
+    CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
+    &  ctracer_list
 
     TYPE(t_var_list),       INTENT(INOUT) :: field_list
     TYPE(t_echam_phy_field),INTENT(INOUT) :: field
@@ -1151,12 +1159,15 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE new_echam_phy_tend_list( kproma, klev, kblks, ktracer,     &
-                                    & listname, prefix, tend_list, tend )
+  SUBROUTINE new_echam_phy_tend_list( kproma, klev, kblks, ktracer,   &
+                                    & ctracer_list, listname, prefix, &
+                                    & tend_list, tend )
 
     INTEGER,INTENT(IN) :: kproma, klev, kblks, ktracer  !< dimension sizes
 
-    CHARACTER(len=*),INTENT(IN) :: listname, prefix
+    CHARACTER(len=*),INTENT(IN)    :: listname, prefix
+    CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
+    &  ctracer_list
 
     TYPE(t_var_list)      ,INTENT(INOUT) :: tend_list
     TYPE(t_echam_phy_tend),INTENT(INOUT) :: tend

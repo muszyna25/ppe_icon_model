@@ -51,7 +51,7 @@ USE mo_kind,                ONLY: wp
 USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
 USE mo_physical_constants,  ONLY: rgrav, omega, rd
 USE mo_math_constants,      ONLY: pi_2, pi
-USE mo_advection_nml,       ONLY: ctracer_list
+USE mo_advection_config,    ONLY: advection_config
 USE mo_vertical_coord_table,ONLY: vct_a, vct_b, ceta, cetah
 USE mo_eta_coord_diag,      ONLY: half_level_pressure, full_level_pressure
 USE mo_model_domain,        ONLY: t_patch
@@ -109,17 +109,26 @@ CONTAINS
     INTEGER  :: ikp1, nblks_e, nblks_c, nblks_v, npromz_e, npromz_c, npromz_v, &
                 nlen, je, jk, jc, jt, jb, jv, ist, it4, it5, it6, it7, it8
     INTEGER  :: nlev, nlevp1              !< number of full and half levels
+    INTEGER  :: pid         !< patch ID
 
     REAL(wp) :: zlon, zlat, zpk, zpkp1, zpres, zheight ! location
     REAL(wp) :: zu, zv, zq4, zq5, zq6, zq7, zq8    ! initialized variables
     REAL(wp) :: z_aleph
 
     CHARACTER(LEN=1) :: ctracer    ! char to control tracer init
+    CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
+    &  ctracer_list
 
     REAL(wp), ALLOCATABLE :: zhelp_c (:,:,:)
 
 !--------------------------------------------------------------------
 !
+
+    ! get patch ID
+    pid = ptr_patch%id
+
+    ! get ctracer_list
+    ctracer_list = advection_config(pid)%ctracer_list
 
     z_aleph = p_rotate_axis_deg * pi/180.0_wp
 

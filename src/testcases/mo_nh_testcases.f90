@@ -76,7 +76,7 @@ MODULE mo_nh_testcases
   USE mo_mpi,                  ONLY: p_pe, p_io
   USE mo_vertical_coord_table, ONLY: vct_b
   USE mo_loopindices,          ONLY: get_indices_e, get_indices_c
-  USE mo_advection_nml,        ONLY: ctracer_list
+  USE mo_advection_config,     ONLY: advection_config
   USE mo_ncar_testcases,       ONLY: tracer_q1_q2, tracer_q3
   USE mo_nh_pa_test,           ONLY: init_nh_state_prog_patest
   USE mo_nh_df_test,           ONLY: init_nh_state_prog_dftest
@@ -582,6 +582,8 @@ MODULE mo_nh_testcases
                                    '(mo_nh_testcases) init_nh_testcase:' 
 ! Tracer related variables
   CHARACTER(LEN=1) :: ctracer
+  CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
+    &  ctracer_list
 
 !-----------------------------------------------------------------------
 
@@ -603,7 +605,10 @@ MODULE mo_nh_testcases
 
     ALLOCATE (zeta_v(nproma,nlev,p_patch(jg)%nblks_c), &
               zeta_v_e(nproma,nlev,p_patch(jg)%nblks_e) )
-    
+
+    ! get ctracer_list
+    ctracer_list = advection_config(jg)%ctracer_list
+
     zeta_v    = 0._wp
     zeta_v_e  = 0._wp
     nblks_c   = p_patch(jg)%nblks_int_c

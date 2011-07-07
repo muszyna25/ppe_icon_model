@@ -56,9 +56,10 @@ MODULE mo_jw_test
 !
 
   USE mo_kind,                ONLY: wp
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
   USE mo_physical_constants,  ONLY: re, rgrav, omega, rd,tmelt, vtmpc1
   USE mo_math_constants,      ONLY: pi_2, pi
-  USE mo_advection_nml,       ONLY: ctracer_list
+  USE mo_advection_config,    ONLY: advection_config
   USE mo_vertical_coord_table,ONLY: ceta
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data,            ONLY: t_external_data
@@ -137,6 +138,8 @@ MODULE mo_jw_test
   !local variables
 
   CHARACTER(LEN=1) :: ctracer
+  CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
+    &  ctracer_list
 
   REAL(wp) :: lon,lat,tmp0,tmp1,tmp2,tmp3, rot_lon, rot_lat
   REAL(wp) :: zeta,zcos12z,zcos32z,zsinz,zsin2ysq,zsiny,zcosy,ztemp
@@ -155,6 +158,7 @@ MODULE mo_jw_test
   INTEGER :: nblks_c, nblks_e, nblks_v, npromz_e, npromz_c, npromz_v, &
              nlen, jt, jb, je, jc, jk, jv
   INTEGER :: nlev, icount
+  INTEGER :: pid         !< patch ID
 
   LOGICAL  :: lrh_linear_pres, lgetbalance
   REAL(wp) :: rh_at_1000hpa
@@ -177,6 +181,12 @@ MODULE mo_jw_test
   ENDIF
 
 !-----------------------
+
+  ! get patch ID
+  pid = pt_patch%id
+
+  ! get ctracer_list
+  ctracer_list = advection_config(pid)%ctracer_list
 
   ! number of vertical levels
   nlev = pt_patch%nlev

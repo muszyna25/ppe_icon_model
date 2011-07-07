@@ -42,9 +42,10 @@
 MODULE mo_ldf_init
 
   USE mo_kind,                ONLY: wp
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
   USE mo_math_constants,      ONLY: pi, pi_2
   USE mo_physical_constants,  ONLY: re, rgrav, omega, rd, tmelt
-  USE mo_advection_nml,       ONLY: ctracer_list
+  USE mo_advection_config,    ONLY: advection_config
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data,            ONLY: t_external_data
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
@@ -121,6 +122,8 @@ CONTAINS
   !local variables
 
   CHARACTER(LEN=1) :: ctracer
+  CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
+    &  ctracer_list
 
   REAL(wp) :: lon,lat,tmp0,tmp1,tmp2,tmp3,tmp4,tmp5,tmp6, rot_lon, rot_lat
   REAL(wp) :: zeta,zcos12z,zcos32z,zsinz,zcosysq,zsin2ysq,zsiny,zcosy,ztemp
@@ -137,6 +140,7 @@ CONTAINS
   INTEGER :: nblks_c, nblks_e, nblks_v, npromz_e, npromz_c, npromz_v, &
              nlen, jt, jb, je, jc, jk, jv
   INTEGER :: nlev                        !< number of full levels
+  INTEGER :: pid         !< patch ID
 
   LOGICAL  :: lrh_linear_pres
   REAL(wp) :: rh_at_1000hpa
@@ -160,6 +164,12 @@ CONTAINS
   ENDIF
 
 !-----------------------
+
+  ! get patch ID
+  pid = pt_patch%id
+
+  ! get ctracer_list
+  ctracer_list = advection_config(pid)%ctracer_list
 
   ! number of vertical levels
   nlev = pt_patch%nlev

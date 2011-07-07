@@ -58,7 +58,7 @@ MODULE mo_df_test
   USE mo_eta_coord_diag,      ONLY: half_level_pressure, full_level_pressure
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,             ONLY: ntracer
-  USE mo_advection_nml,       ONLY: ctracer_list
+  USE mo_advection_config,    ONLY: advection_config
 
   IMPLICIT NONE
 
@@ -142,14 +142,22 @@ CONTAINS
                                                !< angle in deg
     LOGICAL, INTENT(IN)  :: linit_tracer_fv    !< fv init. for tracer fields
     CHARACTER(LEN=1) :: ctracer                !< char to control tracer init
+    CHARACTER(len=MAX_CHAR_LENGTH) :: &        !< list of tracers to initialize
+    &  ctracer_list
 
     INTEGER  :: jk,jb,jt   !< loop indices
     INTEGER  :: nblks_c,npromz_c
     INTEGER  :: nlev, nlevp1                   !< number of full and half levels
     INTEGER  :: ikp1
     INTEGER  :: nlen
-
+    INTEGER  :: pid         !< patch ID
   !-------------------------------------------------------------------------
+
+    ! get patch ID
+    pid = ptr_patch%id
+
+    ! get ctracer_list
+    ctracer_list = advection_config(pid)%ctracer_list
 
     ! values for the blocking
     nblks_c  = ptr_patch%nblks_int_c

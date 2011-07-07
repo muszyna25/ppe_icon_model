@@ -82,7 +82,7 @@ MODULE mo_advection_nml
   !----------------------------------!
 
   CHARACTER(len=MAX_CHAR_LENGTH) :: &  !< list of tracers to initialize
-    &  ctracer_list
+    &  nml_ctracer_list
 
 
   INTEGER :: &                    !< selects horizontal transport scheme
@@ -139,7 +139,7 @@ MODULE mo_advection_nml
 
   NAMELIST/transport_ctl/ ihadv_tracer, ivadv_tracer, lvadv_tracer,   &
     &                     itype_vlimit, ivcfl_max, itype_hlimit,      &
-    &                     iord_backtraj, lclip_tracer, ctracer_list,  &
+    &                     iord_backtraj, lclip_tracer, nml_ctracer_list,  &
     &                     igrad_c_miura, lstrang, upstr_beta_adv,     &
     &                     llsq_svd
 
@@ -202,7 +202,7 @@ MODULE mo_advection_nml
 
   PUBLIC :: transport_ctl, ihadv_tracer, ivadv_tracer, lvadv_tracer,           &
     &       itype_vlimit, ivcfl_max, itype_hlimit, iord_backtraj,              &
-    &       lclip_tracer, ctracer_list, igrad_c_miura, lstrang, upstr_beta_adv,&
+    &       lclip_tracer, nml_ctracer_list, igrad_c_miura, lstrang, upstr_beta_adv,&
     &       llsq_svd
 
   PUBLIC :: iadv_slev, iubc_adv, cSTR, coeff_grid, iup, imiura, imiura3,   &
@@ -263,7 +263,7 @@ CONTAINS
     !
     ! 1. default settings
     !
-    ctracer_list = ''
+    nml_ctracer_list = ''
     SELECT CASE (global_cell_type)
     CASE (3)
       ihadv_tracer(:) = imiura    ! miura horizontal advection scheme
@@ -309,7 +309,7 @@ CONTAINS
     !
     ! 3. check consistency of NAMELIST-parameters
     !
-    i_listlen = LEN_TRIM(ctracer_list)
+    i_listlen = LEN_TRIM(nml_ctracer_list)
 
     SELECT CASE ( iforcing )
     CASE ( inwp )
@@ -323,10 +323,10 @@ CONTAINS
         ENDIF
         IF ( i_listlen /= iqcond ) THEN
           DO jt=1,ntracer
-            WRITE(ctracer_list(jt:jt),'(i1.1)')jt
+            WRITE(nml_ctracer_list(jt:jt),'(i1.1)')jt
           ENDDO
           WRITE(message_text,'(a)') &
-            & 'Attention: according to physics, ctracer_list is set to '//ctracer_list(1:ntracer)
+            & 'Attention: according to physics, nml_ctracer_list is set to '//nml_ctracer_list(1:ntracer)
           CALL message(TRIM(routine),message_text)
         ENDIF
       CASE (1)
@@ -342,11 +342,11 @@ CONTAINS
         ENDIF
         IF ( i_listlen /= ntracer ) THEN
           DO jt=1,ntracer
-            WRITE(ctracer_list(jt:jt),'(i1.1)')jt
+            WRITE(nml_ctracer_list(jt:jt),'(i1.1)')jt
           ENDDO
           WRITE(message_text,'(a)') &
-            & 'Attention: according to physics, ctracer_list is set to '// &
-            &   ctracer_list(1:ntracer)
+            & 'Attention: according to physics, nml_ctracer_list is set to '// &
+            &   nml_ctracer_list(1:ntracer)
           CALL message(TRIM(routine),message_text)
         ENDIF
       CASE (2)
@@ -360,11 +360,11 @@ CONTAINS
           ENDIF
           IF ( i_listlen /= ntracer ) THEN
             DO jt=1,ntracer
-              WRITE(ctracer_list(jt:jt),'(i1.1)')jt
+              WRITE(nml_ctracer_list(jt:jt),'(i1.1)')jt
             ENDDO
             WRITE(message_text,'(a)') &
-              & 'Attention: according to physics, ctracer_list is set to '// &
-              &  ctracer_list(1:ntracer)
+              & 'Attention: according to physics, nml_ctracer_list is set to '// &
+              &  nml_ctracer_list(1:ntracer)
             CALL message(TRIM(routine),message_text)
           ENDIF
         CASE (6)
@@ -380,11 +380,11 @@ CONTAINS
           ENDIF
           IF ( i_listlen /= ntracer ) THEN
             DO jt=1,ntracer
-              WRITE(ctracer_list(jt:jt),'(i1.1)')jt
+              WRITE(nml_ctracer_list(jt:jt),'(i1.1)')jt
             ENDDO
             WRITE(message_text,'(a)') &
-              & 'Attention: according to physics with radiation and O3, ctracer_list is set to ' &
-              &  //ctracer_list(1:ntracer)
+              & 'Attention: according to physics with radiation and O3, nml_ctracer_list is set to ' &
+              &  //nml_ctracer_list(1:ntracer)
             CALL message(TRIM(routine),message_text)
           ENDIF
         END SELECT
@@ -759,7 +759,7 @@ CONTAINS
     !-----------------------!
     ! 1. default settings   !
     !-----------------------!
-    ctracer_list = ''
+    nml_ctracer_list = ''
     ihadv_tracer(:) = imiura    ! miura horizontal advection scheme
     itype_hlimit(:) = ifluxl_m  ! monotonous flux limiter
 
@@ -867,7 +867,7 @@ CONTAINS
     !----------------------------------------------------
 
     DO jg= 1,max_dom
-      advection_config(jg)%ctracer_list   = ctracer_list
+      advection_config(jg)%ctracer_list   = nml_ctracer_list
       advection_config(jg)%ihadv_tracer(:)= ihadv_tracer(:)
       advection_config(jg)%ivadv_tracer(:)= ivadv_tracer(:)
       advection_config(jg)%lvadv_tracer   = lvadv_tracer

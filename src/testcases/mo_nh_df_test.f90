@@ -61,8 +61,9 @@ MODULE mo_nh_df_test
   USE mo_interpolation,       ONLY: t_int_state
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,             ONLY: ntracer
-  USE mo_advection_nml,       ONLY: ctracer_list, ihadv_tracer, itype_hlimit, &
-    &                               iord_backtraj, igrad_c_miura 
+  USE mo_advection_nml,       ONLY: ihadv_tracer, itype_hlimit, &
+    &                               iord_backtraj, igrad_c_miura
+  USE mo_advection_config,    ONLY: advection_config 
   USE mo_advection_hflux,     ONLY: upwind_hflux_miura, upwind_hflux_miura3 
 
   IMPLICIT NONE
@@ -153,6 +154,8 @@ CONTAINS
                                                !< angle in deg
     LOGICAL, INTENT(IN)  :: linit_tracer_fv    !< fv init. for tracer fields
     CHARACTER(LEN=1) :: ctracer                !< char to control tracer init
+    CHARACTER(len=MAX_CHAR_LENGTH) :: &        !< list of tracers to initialize
+    &  ctracer_list
 
     REAL(wp) :: rovcp
 
@@ -160,8 +163,14 @@ CONTAINS
     INTEGER  :: nblks_c,npromz_c
     INTEGER  :: nlev, nlevp1                   !< number of full and half levels
     INTEGER  :: nlen
-
+    INTEGER  :: pid         !< patch ID
   !-------------------------------------------------------------------------
+
+    ! get patch ID
+    pid = ptr_patch%id
+
+    ! get ctracer_list
+    ctracer_list = advection_config(pid)%ctracer_list
 
     ! values for the blocking
     nblks_c  = ptr_patch%nblks_int_c
