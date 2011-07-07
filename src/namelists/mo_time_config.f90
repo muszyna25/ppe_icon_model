@@ -44,29 +44,21 @@
 MODULE mo_time_config
 
   USE mo_kind,                  ONLY: wp
-!DR  USE mo_time_nml,              ONLY: nml_calendar, nml_ini_datetime,&
-!DR                                   &  nml_end_datetime, nml_dt_restart
-  USE mo_time_nml,              ONLY: calendar, ini_datetime,&
-                                   &  end_datetime, dt_restart
   USE mo_exception,             ONLY: message, message_text, finish
-  USE mo_datetime,              ONLY: t_datetime, &
-                                   & date_to_time, add_time, print_datetime_all
+  USE mo_datetime,              ONLY: t_datetime, date_to_time, add_time, &
+    &                                 print_datetime_all
   USE mo_master_nml,            ONLY: lrestart
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
-  USE mo_date_time,             ONLY: t_datetime
  
 
   IMPLICIT NONE
-  PRIVATE
+  PUBLIC
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
-  !>
-  !! Derived type containing variables for time control. 
-  !!
-  !
 
- TYPE t_time_config
+
+ TYPE t_time_config
 
   ! calendar type
   INTEGER          :: calendar
@@ -84,14 +76,15 @@ MODULE mo_time_config
 
   REAL(wp) :: dt_restart    !< Length of restart cycle in seconds
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+ END TYPE t_time_config
+
+ TYPE(t_time_config) :: time_config
+
 
   !>
   !! Derived type containing variables for time control. 
   !!
   !
-
- TYPE t_time_config
 
   !! HW Comment: the character-type variables containing ini_ and end_time
   !! in the format "YYYYMMDDTHHMMSSZ" should be namelist variables
@@ -120,115 +113,8 @@ SUBROUTINE time_setup
   ! ----------------
     CHARACTER(LEN=132) :: routine = 'time_setup'
 
-   ! initial date and time
-
-    !------------------------------------------------------------------------                  
-    ! 2. If this is a resumed integration...
-    !------------------------------------------------------------------------                  
-    IF (lrestart) THEN                                                                 
-
-      ! 2.2 Save the calendar and initial date/time of the old run
-
-      calendar_old    = calendar
-   !  ini_datetime    = nml_ini_datetime   !HW: type mismatch!!
-      ini_year_old    = ini_year
-      ini_month_old   = ini_month
-      ini_day_old     = ini_day
-      ini_hour_old    = ini_hour
-      ini_minute_old  = ini_minute
-      ini_second_old  = ini_second
-
-      ! 2.2 Inquire the date/time at which the previous run stopped
-
-      CALL get_restart_attribute( 'current_year'  , restart_year   )
-      CALL get_restart_attribute( 'current_month' , restart_month  )
-      CALL get_restart_attribute( 'current_day'   , restart_day    )
-      CALL get_restart_attribute( 'current_hour'  , restart_hour   )
-      CALL get_restart_attribute( 'current_minute', restart_minute )
-      CALL get_restart_attribute( 'current_second', restart_second )
-
-    END IF
 
 
-  !---------------------------------------------------------------
-    ! 5. Set up model time
-    !---------------------------------------------------------------
-    ! 5.1 Initial date and time
-
-    ini_datetime%calendar = calendar
-    ini_datetime%year     = ini_year
-    ini_datetime%month    = ini_month
-    ini_datetime%day      = ini_day
-    ini_datetime%hour     = ini_hour
-    ini_datetime%minute   = ini_minute
-    ini_datetime%second   = ini_second
-
-    CALL date_to_time(ini_datetime) ! fill date time structure
-    CALL message(' ',' ')
-    CALL message(routine,'Initial date and time')
-    CALL message(routine,'---------------------')
-    CALL print_datetime_all(ini_datetime)  ! print all date and time components
-
-    ! 5.2 Current date and time:
-
-    IF (lrestart) THEN
-      ! In a resumed integration, if the calendar or initial date/time 
-      ! is different from those in the restart file,
-      ! we regard this integration as a new one with its own calendar. 
-      ! Model time at which the previous run stopped is thus not relevant. 
-      ! Simulation will start from the user-specified initial date/time,
-      ! which is also the current model date/time.
-
-      IF (calendar  /=calendar_old   .OR.                                 &
-          ini_year  /=ini_year_old   .OR. ini_month  /=ini_month_old .OR. &
-          ini_day   /=ini_day_old    .OR. ini_hour   /=ini_hour_old  .OR. &
-          ini_minute/=ini_minute_old .oR. ini_second /=ini_second_old     ) THEN
-
-        current_datetime = ini_datetime
-
-      ELSE
-      ! Otherwise we start from the point when the previous integration stopped.
-
-        current_datetime%calendar = calendar
-        current_datetime%year     = restart_year
-        current_datetime%month    = restart_month
-        current_datetime%day      = restart_day
-        current_datetime%hour     = restart_hour
-        current_datetime%minute   = restart_minute
-        current_datetime%second   = restart_second
-
-        CALL date_to_time(current_datetime) ! fill date time structure
-      END IF
-
-    ELSE
-      ! In an initial run, current date/time is, naturally, the initial date/time
-      current_datetime = ini_datetime
-
-    END IF !lrestart
-
-    CALL message(' ',' ')
-    CALL message(' ',' ')
-    CALL message(routine,'Current date and time')
-    CALL message(routine,'---------------------')
-    CALL print_datetime_all(current_datetime)  ! print all date and time components
-
-
-
-    CALL date_to_time(end_datetime) ! fill date time structure
-    CALL message(' ',' ')
-    CALL message(routine,'End date and time')
-    CALL message(routine,'-----------------')
-    CALL print_datetime_all(end_datetime)  ! print all date and time components
-
-
-
-    time_config%dt_restart =  dt_restart
-    CALL message(' ',' ')
-    CALL message(routine,'Length of restart cycle')
-    CALL message(routine,'-----------------------')
-    WRITE(message_text,'(a,f10.2,a,f16.10,a)') &
-         &'dt_restart :',dt_restart,' seconds =', dt_restart/86400._wp, ' days'
-    CALL message(routine,message_text)
 
 
 END SUBROUTINE time_setup

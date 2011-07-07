@@ -43,11 +43,12 @@
 !!
 MODULE mo_sleve_config
 
-  USE mo_kind, ONLY: wp
+  USE mo_kind,                ONLY: wp
+  USE mo_impl_constants,      ONLY: max_dom
 
   IMPLICIT NONE
 
-  PRIVATE
+  PUBLIC
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -75,6 +76,6 @@ MODULE mo_sleve_config
   END TYPE t_sleve_config
   !>
   !!
-  TYPE(t_sleve_config),ALLOCATABLE :: sleve_config(:)
+  TYPE(t_sleve_config) :: sleve_config(max_dom)
 
 END MODULE mo_sleve_config

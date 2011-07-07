@@ -53,14 +53,14 @@ MODULE mo_time_nml
   
   PUBLIC :: read_time_namelist, &
     &        time_ctl,  calendar,  ini_datetime,&
-    &        end_datetime, current_datetime, dt_restart
+    &        end_datetime, current_datetime, nml_dt_restart
 
-  PRIVATE
 
   ! time information
   ! ----------------
   !
   ! calendar type
+  INTEGER            ::  nml_calendar
   INTEGER            ::  calendar
   !
   ! - data and time of model start and end
@@ -77,7 +77,7 @@ MODULE mo_time_nml
   NAMELIST /time_ctl/ nml_calendar,                  &
     &                 nml_ini_datetime, nml_end_datetime,&
     &                 nml_dt_restart
-,
+
 CONTAINS
   !-------------------------------------------------------------------------
   !>
@@ -105,7 +105,8 @@ CONTAINS
    INTEGER  :: istat, funit,calendar_old
    CHARACTER(len=32) :: ini_datetime_old
    INTEGER  :: restart_year, restart_month, &
-              & restart_day, restart_hour, restart_minute
+              & restart_day, restart_hour, restart_minute, &
+              & restart_second
 
    CHARACTER(len=max_char_length), PARAMETER ::   &
             &  routine = 'mo_time_nml/time_nml_setup'
@@ -141,7 +142,7 @@ CONTAINS
       CALL close_tmpfile(funit) 
 
       calendar_old      = calendar
-      ini_date_time_old = nml_ini_date_time 
+      ini_datetime_old = nml_ini_datetime 
 
       ! 2.2 Inquire the date/time at which the previous run stopped
 
@@ -178,26 +179,26 @@ CONTAINS
       ! Simulation will start from the user-specified initial date/time,
       ! which is also the current model date/time.
 
-      IF (calendar  /=calendar_old   .OR.                                 &
-          ini_year  /=ini_year_old   .OR. ini_month  /=ini_month_old .OR. &
-          ini_day   /=ini_day_old    .OR. ini_hour   /=ini_hour_old  .OR. &
-          ini_minute/=ini_minute_old .oR. ini_second /=ini_second_old     ) THEN
-
-        current_datetime = ini_datetime
-
-      ELSE
-      ! Otherwise we start from the point when the previous integration stopped.
-
-        current_datetime%calendar = calendar
-        current_datetime%year     = restart_year
-        current_datetime%month    = restart_month
-        current_datetime%day      = restart_day
-        current_datetime%hour     = restart_hour
-        current_datetime%minute   = restart_minute
-        current_datetime%second   = restart_second
-
-        CALL date_to_time(current_datetime) ! fill date time structure
-      END IF
+!!$      IF (calendar  /=calendar_old   .OR.                                 &
+!!$          ini_year  /=ini_year_old   .OR. ini_month  /=ini_month_old .OR. &
+!!$          ini_day   /=ini_day_old    .OR. ini_hour   /=ini_hour_old  .OR. &
+!!$          ini_minute/=ini_minute_old .oR. ini_second /=ini_second_old     ) THEN
+!!$
+!!$        current_datetime = ini_datetime
+!!$
+!!$      ELSE
+!!$      ! Otherwise we start from the point when the previous integration stopped.
+!!$
+!!$        current_datetime%calendar = calendar
+!!$        current_datetime%year     = restart_year
+!!$        current_datetime%month    = restart_month
+!!$        current_datetime%day      = restart_day
+!!$        current_datetime%hour     = restart_hour
+!!$        current_datetime%minute   = restart_minute
+!!$        current_datetime%second   = restart_second
+!!$
+!!$        CALL date_to_time(current_datetime) ! fill date time structure
+!!$      END IF
 
     ELSE
       ! In an initial run, current date/time is, naturally, the initial date/time
@@ -207,7 +208,7 @@ CONTAINS
 
     CALL string_to_datetime ( nml_end_datetime, end_datetime ) 
 
-    time_config%dt_restart = nml_restart
+    time_config%dt_restart = nml_dt_restart
 
     !-----------------------------------------------------
     ! Store the namelist for restart

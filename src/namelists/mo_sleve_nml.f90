@@ -49,9 +49,10 @@ MODULE mo_sleve_nml
 !
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, positioned
+  USE mo_sleve_config,        ONLY: sleve_config
   USE mo_master_nml,          ONLY: lrestart
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
@@ -172,6 +173,7 @@ END SUBROUTINE sleve_nml_setup
   SUBROUTINE read_sleve_namelist
     !
     INTEGER :: istat, funit
+    INTEGER :: jg           ! loop index
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_sleve_nml: read_sleve_namelist'
@@ -221,6 +223,15 @@ END SUBROUTINE sleve_nml_setup
     !----------------------------------------------------
     ! 4. Fill the configuration state
     !----------------------------------------------------
+    DO jg = 1,max_dom
+      sleve_config(jg)%min_lay_thckn = min_lay_thckn
+      sleve_config(jg)%top_height    = top_height
+      sleve_config(jg)%decay_scale_1 = decay_scale_1
+      sleve_config(jg)%decay_scale_2 = decay_scale_2
+      sleve_config(jg)%decay_exp     = decay_exp
+      sleve_config(jg)%flat_height   = flat_height
+      sleve_config(jg)%stretch_fac   = stretch_fac
+    ENDDO
 
 
     !-----------------------------------------------------
