@@ -149,7 +149,7 @@ MODULE mo_io_vlist
   USE mo_advection_config,    ONLY: advection_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_echam_conv_nml,      ONLY: cmftau, cmfctop, cprcon,             &
-    &                               cminbuoy, entrpen, dlev, entrmid, entrscv,  &
+    &                               cminbuoy, entrpen, entrmid, entrscv,  &
     &                               entrdd, cmfdeps
 !!$  USE mo_gw_hines_nml,        ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
   USE mo_icoham_sfc_indices,  ONLY: igbm
@@ -729,7 +729,7 @@ CONTAINS
            CALL addGlobAttFlt('echam_conv_ctl:entrmid',entrmid,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:entrscv',entrscv,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:entrdd',entrdd,vlistID(k_jg),astatus)
-           CALL addGlobAttFlt('echam_conv_ctl:dlev',dlev,vlistID(k_jg),astatus)
+           CALL addGlobAttFlt('echam_conv_ctl:dlev',echam_conv_config%dlev,vlistID(k_jg),astatus)
         END IF
         !
 !!$        !!! Parameters of /gw_hines_nml/

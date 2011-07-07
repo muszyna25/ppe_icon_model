@@ -62,7 +62,7 @@ MODULE mo_echam_conv_nml
   PUBLIC  :: centrmax,cbfac,cminbuoy,cmaxbuoy       !< parameters
   PUBLIC  :: entrpen,entrmid,entrscv,entrdd         !< parameters
   PUBLIC  :: cprcon,cevapcu                         !< parameters
-  PUBLIC  :: nmctop, dlev                           !< parameters
+  PUBLIC  :: nmctop                         !< parameters
  !PUBLIC  :: echam_conv_ctl                         !< namelist
   PUBLIC  :: read_echam_conv_namelist
   PUBLIC  :: echam_conv_nml_setup                   !< subroutine
@@ -83,8 +83,8 @@ MODULE mo_echam_conv_nml
   LOGICAL :: nml_lmfdd     !< true when cumulus downdraft      is switched on
   LOGICAL :: nml_lmfdudv   !< true when cumulus friction       is switched on
 
-  REAL(wp) :: dlev     !< "zdlev" in subroutine "cuasc". Critical thickness (unit: Pa)
-                       !< necessary for the onset of convective precipitation
+  REAL(wp) :: nml_dlev     !< "zdlev" in subroutine "cuasc". Critical thickness (unit: Pa)
+                           !< necessary for the onset of convective precipitation
 
   REAL(wp) :: cmftau   !< characteristic adjustment time scale
                        !< (replaces "ztau" in "cumastr"
@@ -119,8 +119,9 @@ MODULE mo_echam_conv_nml
   NAMELIST/echam_conv_ctl/ nml_ncvmicro, nml_iconv,          &
                            nml_lmfpen,nml_lmfmid,nml_lmfscv, &
                            nml_lmfdd, nml_lmfdudv,           &
+                           nml_dlev,                         &
                            cmftau,cmfctop,cprcon,cmfdeps,cminbuoy,  &
-                           entrpen, entrmid,entrscv,entrdd,dlev
+                           entrpen, entrmid,entrscv,entrdd
                          ! nml_nauto, nml_lconvmassfix
 
 CONTAINS
@@ -142,6 +143,8 @@ CONTAINS
     nml_lmfscv       = .TRUE.
     nml_lmfdd        = .TRUE.
     nml_lmfdudv      = .TRUE.
+
+    nml_dlev         = 3.0E4_wp   ! 300 hPa
     cmftau       = 10800._wp  ! 3 hours
     cmfctop      = 0.3_wp
     cmfdeps      = 0.3_wp     ! Fractional massflux for downdrafts at lfs
@@ -151,7 +154,6 @@ CONTAINS
     entrmid      = 1.0E-4_wp  ! average entrainment rate for midlevel convection
     entrscv      = 3.0E-4_wp  ! average entrainment rate for shallow convection
     entrdd       = 2.0E-4_wp  ! average entrainment rate for downdrafts
-    dlev         = 3.0E4_wp   ! 300 hPa
 
    !nml_nauto        = 1
    !nml_lconvmassfix = .FALSE.
@@ -200,6 +202,8 @@ CONTAINS
     echam_conv_config% lmfscv   = nml_lmfscv
     echam_conv_config% lmfdd    = nml_lmfdd
     echam_conv_config% lmfdudv  = nml_lmfdudv
+
+    echam_conv_config% dlev     = nml_dlev
 
    !echam_conv_config% lconvmassfix = nml_lconvmassfix
    !echam_conv_config% nauto        = nml_nauto

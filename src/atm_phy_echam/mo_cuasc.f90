@@ -50,8 +50,7 @@ MODULE mo_cuasc
 #ifdef __ICON__
   USE mo_physical_constants, ONLY : g=>grav, tmelt, vtmpc1, rv, rd, alv, als
   USE mo_echam_conv_nml,     ONLY : nmctop, cmfcmin, cprcon,      &
-                                    cmfctop, centrmax, cbfac, cminbuoy, cmaxbuoy,  &
-                                    dlev
+                                    cmfctop, centrmax, cbfac, cminbuoy, cmaxbuoy
   USE mo_echam_cloud_params, ONLY : csecfrl
 !                                   cqtmin, crhosno, cn0s                 &
 !                                 , cthomi, ccsacl, clmax, clmin          &
@@ -92,8 +91,8 @@ MODULE mo_cuasc
 CONTAINS
   !>
   !!
-SUBROUTINE cuasc(  ncvmicro, lmfdudv, lmfmid,       &
-           pdtime, ptime_step_len,                  &
+SUBROUTINE cuasc(  ncvmicro, lmfdudv, lmfmid, dlev,      &
+           pdtime, ptime_step_len,                       &
            kproma, kbdim, klev, klevp1, klevm1,                        &
            ptenh,    pqenh,    puen,     pven,                         &
            ktrac,                                                      &
@@ -158,6 +157,7 @@ SUBROUTINE cuasc(  ncvmicro, lmfdudv, lmfmid,       &
 
 INTEGER, INTENT (IN) :: ncvmicro
 LOGICAL, INTENT (IN) :: lmfdudv, lmfmid
+REAL(dp),INTENT (IN) :: dlev
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, klevm1, ktrac
 REAL(dp),INTENT(IN) :: pdtime, ptime_step_len
 INTEGER :: jl, jk, jt, ik, icall, ikb, ikt, n, locnt
