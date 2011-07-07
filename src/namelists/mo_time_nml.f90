@@ -49,7 +49,8 @@ MODULE mo_time_nml
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
   
-  PUBLIC :: time_ctl,  calendar,  ini_datetime,&
+  PUBLIC :: read_time_namelist, &
+    &  time_ctl,  calendar,  ini_datetime,&
     &                   end_datetime,  dt_restart
 
   PRIVATE

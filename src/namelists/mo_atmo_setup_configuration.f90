@@ -128,8 +128,8 @@ MODULE mo_atmo_setup_configuration
 
   USE mo_parallel_nml,      ONLY: read_parallel_namelist ! reads AND fills parallel configure
   USE mo_grid_nml,          ONLY: read_grid_namelist     ! reads AND fills grid configure
-  USE mo_run_nml,           ONLY: read_run_namlist
-  USE mo_time_nml           ONLY :read_time_namelist
+  USE mo_run_nml,           ONLY: read_run_namelist
+  USE mo_time_nml,          ONLY: read_time_namelist
   
   USE mo_interpol_nml,      ONLY: read_interpol_namelist
   
@@ -169,7 +169,7 @@ CONTAINS
     CALL read_parallel_namelist()  ! reads AND fills parallel configure
     CALL read_grid_namelist()      ! reads AND fills grid configure
     
-    CALL read_run_namlist()
+    CALL read_run_namelist()
 
     CALL read_interpol_namelist()
     CALL read_gridref_namelist()
