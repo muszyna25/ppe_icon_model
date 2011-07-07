@@ -58,31 +58,32 @@ MODULE mo_radiation_config
   !!--------------------------------------------------------------------------
 
 
+  TYPE t_radiation_config
   ! 1.0 NAMELIST global variables and parameters
   ! --------------------------------
   !
   ! -- Switches for solar irradiation
   !
-  LOGICAL :: ldiur       = .TRUE.  !< .TRUE. : with diurnal cycle
-  !                                !< .FALSE.: zonally averaged irradiation
+  LOGICAL :: ldiur        !< .TRUE. : with diurnal cycle
+  !                       !< .FALSE.: zonally averaged irradiation
   !
   ! -- Switches for Earth orbit
   !
-  INTEGER :: nmonth      =  0      !< i=0    : Earth circles on orbit, i.e. with annual cycle
+  INTEGER :: nmonth       !< i=0    : Earth circles on orbit, i.e. with annual cycle
   !                                !< i=1-12 : Earth orbit position fixed for month i
   !
-  LOGICAL :: lyr_perp    = .FALSE. !< .FALSE.: transient Earth orbit following vsop87
-  !                                !  .TRUE. : Earth orbit of year yr_perp of the vsop87 orbit
-  !                                !           is perpetuated
-  INTEGER :: yr_perp     = -99999  !< year used for lyr_perp = .TRUE.
+  LOGICAL :: lyr_perp     !< .FALSE.: transient Earth orbit following vsop87
+  !                       !  .TRUE. : Earth orbit of year yr_perp of the vsop87 orbit
+  !                       !           is perpetuated
+  INTEGER :: yr_perp      !< year used for lyr_perp = .TRUE.
   !
   !
 
-  LOGICAL :: lradforcing(2) = (/.FALSE.,.FALSE./) !< diagnostic of instantaneous
-  !                                               !< aerosol solar (lradforcing(1)) and
-  !                                               !< thermal (lradforcing(2)) radiation forcing
+  LOGICAL :: lradforcing(2) !< diagnostic of instantaneous
+  !                         !< aerosol solar (lradforcing(1)) and
+  !                         !< thermal (lradforcing(2)) radiation forcing
   ! nmonth currently works for zonal mean ozone and the orbit (year 1987) only
-  INTEGER :: isolrad     =  0      !< mode of solar constant calculation
+  INTEGER :: isolrad        !< mode of solar constant calculation
   !< default is rrtm solar constant
   !
   ! --- Switches for radiative agents
@@ -92,32 +93,32 @@ MODULE mo_radiation_config
   !                - globally constant  or spatially varying
   !                - constant in time, constant annual cycle, or transient
   !
-  INTEGER  :: irad_h2o   = 1  !< water vapor, clouds and ice for radiation
-  INTEGER  :: irad_co2   = 2  !< CO2
-  INTEGER  :: irad_ch4   = 3  !< CH4
-  INTEGER  :: irad_n2o   = 3  !< N2O
-  INTEGER  :: irad_o3    = 0  !< O3
-  INTEGER  :: irad_o2    = 2  !< O2
-  INTEGER  :: irad_cfc11 = 2  !< CFC 11
-  INTEGER  :: irad_cfc12 = 2  !< CFC 12
-  INTEGER  :: irad_aero  = 2  !< aerosols
+  INTEGER  :: irad_h2o    !< water vapor, clouds and ice for radiation
+  INTEGER  :: irad_co2    !< CO2
+  INTEGER  :: irad_ch4    !< CH4
+  INTEGER  :: irad_n2o    !< N2O
+  INTEGER  :: irad_o3     !< O3
+  INTEGER  :: irad_o2     !< O2
+  INTEGER  :: irad_cfc11  !< CFC 11
+  INTEGER  :: irad_cfc12  !< CFC 12
+  INTEGER  :: irad_aero   !< aerosols
   !
   ! --- Default gas volume mixing ratios - 1990 values (CMIP5)
   !
-  REAL(wp) :: vmr_co2    =  353.9e-06_wp     !< CO2
-  REAL(wp) :: vmr_ch4    = 1693.6e-09_wp     !< CH4
-  REAL(wp) :: vmr_n2o    =  309.5e-09_wp     !< N20
-  REAL(wp) :: vmr_o2     =    0.20946_wp     !< O2
-  REAL(wp) :: vmr_cfc11  =  252.8e-12_wp     !< CFC 11
-  REAL(wp) :: vmr_cfc12  =  466.2e-12_wp     !< CFC 12
+  REAL(wp) :: vmr_co2     !< CO2
+  REAL(wp) :: vmr_ch4     !< CH4
+  REAL(wp) :: vmr_n2o     !< N20
+  REAL(wp) :: vmr_o2      !< O2
+  REAL(wp) :: vmr_cfc11   !< CFC 11
+  REAL(wp) :: vmr_cfc12   !< CFC 12
   !
   ! --- Time control
   !
-  REAL(wp) :: dt_rad = 7200._wp        !< time interval of full radiation computation 
-                                       !< given in seconds 
+  REAL(wp) :: dt_rad      !< time interval of full radiation computation 
+                          !< given in seconds 
   !
   ! --- Different specifications of the zenith angle
-  INTEGER  :: izenith = 3  ! circular orbit, no seasonal cycle but with diurnal cycle 
+  INTEGER  :: izenith     ! circular orbit, no seasonal cycle but with diurnal cycle 
 
 
   END TYPE t_radiation_config

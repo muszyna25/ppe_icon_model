@@ -44,9 +44,10 @@ MODULE mo_radiation_nml
 
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: finish
-  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
+  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, max_dom
   USE mo_mpi,                ONLY: p_pe, p_io
   USE mo_run_nml,            ONLY: iforcing, inwp
+  USE mo_radiation_config,   ONLY: radiation_config
   USE mo_namelist,           ONLY: position_nml, positioned
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o, amo2
@@ -279,6 +280,7 @@ CONTAINS
   SUBROUTINE read_radiation_namelist
     !
     INTEGER :: istat, funit
+    INTEGER :: jg          ! loop index
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_radiation_nml: read_radiation_namelist'
@@ -289,8 +291,8 @@ CONTAINS
     ! 1. default settings   !
     !-----------------------!
 
-    ! For nwp, we want to have seasonal orbit and diurnal cycle as default:
-    IF (iforcing==inwp) izenith=4
+    ! Default: seasonal orbit and diurnal cycle
+    izenith=4
 
 
     !------------------------------------------------------------------
@@ -317,6 +319,30 @@ CONTAINS
     !----------------------------------------------------
     ! 4. Fill the configuration state
     !----------------------------------------------------
+    DO jg = 1,max_dom
+      radiation_config(jg)%ldiur      = ldiur
+      radiation_config(jg)%nmonth     = nmonth
+      radiation_config(jg)%lyr_perp   = lyr_perp
+      radiation_config(jg)%yr_perp    = yr_perp
+      radiation_config(jg)%isolrad    = isolrad
+      radiation_config(jg)%irad_h2o   = irad_h2o
+      radiation_config(jg)%irad_co2   = irad_co2
+      radiation_config(jg)%irad_ch4   = irad_ch4
+      radiation_config(jg)%irad_n2o   = irad_n2o
+      radiation_config(jg)%irad_o3    = irad_o3
+      radiation_config(jg)%irad_o2    = irad_o2
+      radiation_config(jg)%irad_cfc11 = irad_cfc11
+      radiation_config(jg)%irad_cfc12 = irad_cfc12
+      radiation_config(jg)%irad_aero  = irad_aero
+      radiation_config(jg)%vmr_co2    = vmr_co2
+      radiation_config(jg)%vmr_ch4    = vmr_ch4
+      radiation_config(jg)%vmr_n2o    = vmr_n2o
+      radiation_config(jg)%vmr_o2     = vmr_o2
+      radiation_config(jg)%vmr_cfc11  = vmr_cfc11
+      radiation_config(jg)%vmr_cfc12  = vmr_cfc12
+      radiation_config(jg)%dt_rad     = dt_rad
+      radiation_config(jg)%izenith    = izenith
+    ENDDO
 
 
     !-----------------------------------------------------
