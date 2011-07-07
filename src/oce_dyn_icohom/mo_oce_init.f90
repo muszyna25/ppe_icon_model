@@ -467,7 +467,7 @@ ELSEIF( iswm_oce == 1 )THEN
 
   SELECT CASE (itestcase_oce)
 
-    CASE (testcase_zero)
+    CASE (oce_testcase_zero)
 
       CALL message(TRIM(routine), 'you have selected the "no-testcase" option')
 
