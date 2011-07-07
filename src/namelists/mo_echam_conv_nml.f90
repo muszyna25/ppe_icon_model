@@ -57,7 +57,6 @@ MODULE mo_echam_conv_nml
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC  :: lconvmassfix                     !< parameters
   PUBLIC  :: lmfpen,lmfmid,lmfscv,lmfdd,lmfdudv     !< parameters
   PUBLIC  :: cmftau,cmfdeps,cmfcmin,cmfcmax,cmfctop !< parameters
   PUBLIC  :: centrmax,cbfac,cminbuoy,cmaxbuoy       !< parameters
@@ -77,7 +76,6 @@ MODULE mo_echam_conv_nml
 
   INTEGER :: nml_ncvmicro     !< 0 or 1. Scheme for convective microphysics
   INTEGER :: nml_iconv        !< 1,2,3 for different convection schemes
-  LOGICAL :: lconvmassfix !< aerosol mass fixer in convection
 
   LOGICAL :: lmfpen    !< true when penetrative convection is switched on
   LOGICAL :: lmfmid    !< true when midlevel    convection is switched on
@@ -116,12 +114,13 @@ MODULE mo_echam_conv_nml
                                       !< and initialized in subroutine iniphy.
 
  !INTEGER :: nml_nauto        !< 1 or 2. autoconversion scheme
+ !LOGICAL :: nml_lconvmassfix !< aerosol mass fixer in convection
 
-  NAMELIST/echam_conv_ctl/ nml_ncvmicro, nml_iconv,lconvmassfix,       &
+  NAMELIST/echam_conv_ctl/ nml_ncvmicro, nml_iconv,        &
     &                      lmfpen,lmfmid,lmfscv,lmfdd,lmfdudv,      &
     &                      cmftau,cmfctop,cprcon,cmfdeps,cminbuoy,  &
     &                      entrpen, entrmid,entrscv,entrdd,dlev
-   !&                      nml_nauto
+   !&                      nml_nauto, nml_lconvmassfix
 
 CONTAINS
   !>
@@ -142,7 +141,6 @@ CONTAINS
     lmfscv       = .TRUE.
     lmfdd        = .TRUE.
     lmfdudv      = .TRUE.
-    lconvmassfix = .FALSE.
     cmftau       = 10800._wp  ! 3 hours
     cmfctop      = 0.3_wp
     cmfdeps      = 0.3_wp     ! Fractional massflux for downdrafts at lfs
@@ -155,6 +153,7 @@ CONTAINS
     dlev         = 3.0E4_wp   ! 300 hPa
 
    !nml_nauto        = 1
+   !nml_lconvmassfix = .FALSE.
 
     ! Set default values of auxiliary parameters
 
@@ -195,7 +194,8 @@ CONTAINS
     !-----------------------------------------------------
     echam_conv_config% iconv    = nml_iconv
     echam_conv_config% ncvmicro = nml_ncvmicro
-   !echam_conv_config% nauto    = nml_nauto
+   !echam_conv_config% lconvmassfix = nml_lconvmassfix
+   !echam_conv_config% nauto        = nml_nauto
 
   END SUBROUTINE read_echam_conv_namelist
 

@@ -48,7 +48,6 @@ MODULE mo_cumastrt
   USE mo_constants,           ONLY: g, alv, als, tmelt, vtmpc1
   USE mo_cumulus_flux,        ONLY: entrpen, entrscv, lmfdd, cmfdeps, lmfdudv
   USE mo_tracer_processes,    ONLY: xt_conv_massfix
-  USE mo_param_switches,      ONLY: lconvmassfix
 #endif
 
   USE mo_cuini,               ONLY: cuini
