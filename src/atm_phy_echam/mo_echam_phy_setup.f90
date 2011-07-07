@@ -40,8 +40,7 @@
 MODULE mo_echam_phy_setup
 
 ! USE mo_exception,          ONLY: message, finish, print_value
-  USE mo_echam_phy_config,   ONLY: lrad      => echam_phy_config%lrad,   &
-                                   lconv     => echam_phy_config%lconv
+  USE mo_echam_phy_config,   ONLY: phy_config => echam_phy_config
   USE mo_radiation_nml,      ONLY: radiation_nml, read_radiation_nml, irad_o3
   USE mo_echam_conv_nml,     ONLY: echam_conv_nml_setup
 ! USE mo_run_nml,            ONLY: ltestcase, ntracer, io3
@@ -62,8 +61,8 @@ CONTAINS
 
     ! Read and check process namelists dependent on echam_phy_nml
 
-    IF (lrad)      CALL read_radiation_nml
-    IF (lconv)     CALL echam_conv_nml_setup
+    IF (phy_config%lrad)      CALL read_radiation_nml
+    IF (phy_config%lconv)     CALL echam_conv_nml_setup
 
     ! Check whether echam_phy_nml is properly set for test cases;
     ! Check whether the process namelists are consistent with
