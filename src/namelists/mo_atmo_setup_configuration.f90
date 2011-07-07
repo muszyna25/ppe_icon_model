@@ -40,7 +40,6 @@ MODULE mo_atmo_setup_configuration
   USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output
   USE mo_output,              ONLY: init_output_files, close_output_files, write_output
 
-  USE mo_parallel_nml,        ONLY: read_parallel_namelist
   
   USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
 
@@ -127,7 +126,8 @@ MODULE mo_atmo_setup_configuration
   USE mo_io_restart_namelist,  ONLY: read_restart_namelists
   USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
 
-  USE mo_grid_nml,          ONLY : read_grid_namelist  ! reads AND fills grid configure
+  USE mo_parallel_nml,      ONLY: read_parallel_namelist ! reads AND fills parallel configure
+  USE mo_grid_nml,          ONLY: read_grid_namelist     ! reads AND fills grid configure
   
   IMPLICIT NONE
   
@@ -163,9 +163,9 @@ CONTAINS
 
     CALL read_time_namelist()
     CALL read_grid_namelist()
+    CALL read_parallel_namelist()
     
     CALL read_run_namlist()
-    CALL read_parallel_namelist()
 
     CALL read_interpol_namelist()
     CALL read_gridref_namelist()
