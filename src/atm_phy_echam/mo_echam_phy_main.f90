@@ -616,7 +616,8 @@ CONTAINS
     IF (echam_phy_config%lvdiff) THEN
       IF (ltimer) CALL timer_start(timer_vdiff)
 
-      CALL vdiff_up( jce, nbdim, nlev, nlevm1, nlevp1,&! in
+      CALL vdiff_up( vdiff_config%lsfc_heat_flux,     &! in
+                   & jce, nbdim, nlev, nlevm1, nlevp1,&! in
                    & ntrac, nsfc_type,                &! in
                    & iwtr, iice, ilnd,                &! in, indices of different sfc types
                    & pdtime, psteplen,                &! in, time steps

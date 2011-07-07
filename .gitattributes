@@ -1037,6 +1037,7 @@ src/namelists/mo_diffusion_config.f90 -text
 src/namelists/mo_diffusion_nml.f90 -text
 src/namelists/mo_dynamics_config.f90 -text
 src/namelists/mo_dynamics_nml.f90 -text
+src/namelists/mo_echam_conv_config.f90 -text
 src/namelists/mo_echam_conv_nml.f90 -text
 src/namelists/mo_echam_phy_config.f90 -text
 src/namelists/mo_echam_phy_nml.f90 -text

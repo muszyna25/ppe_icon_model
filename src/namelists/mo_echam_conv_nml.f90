@@ -63,7 +63,6 @@ MODULE mo_echam_conv_nml
   PUBLIC  :: centrmax,cbfac,cminbuoy,cmaxbuoy       !< parameters
   PUBLIC  :: entrpen,entrmid,entrscv,entrdd         !< parameters
   PUBLIC  :: cprcon,cevapcu                         !< parameters
-  PUBLIC  :: nauto                        !< parameters
   PUBLIC  :: nmctop, dlev                           !< parameters
  !PUBLIC  :: echam_conv_ctl                         !< namelist
   PUBLIC  :: read_echam_conv_namelist
@@ -77,7 +76,6 @@ MODULE mo_echam_conv_nml
   !--------------------------------------------------------------!
 
   INTEGER :: nml_ncvmicro     !< 0 or 1. Scheme for convective microphysics
-  INTEGER :: nauto        !< 1 or 2. autoconversion scheme
   INTEGER :: iconv        !< 1,2,3 for different convection schemes
   LOGICAL :: lconvmassfix !< aerosol mass fixer in convection
 
@@ -117,10 +115,13 @@ MODULE mo_echam_conv_nml
                                       !< allocated in subroutine alloc_mods,
                                       !< and initialized in subroutine iniphy.
 
-  NAMELIST/echam_conv_ctl/ nauto,nml_ncvmicro,iconv,lconvmassfix,       &
+ !INTEGER :: nml_nauto        !< 1 or 2. autoconversion scheme
+
+  NAMELIST/echam_conv_ctl/ nml_ncvmicro,iconv,lconvmassfix,       &
     &                      lmfpen,lmfmid,lmfscv,lmfdd,lmfdudv,      &
     &                      cmftau,cmfctop,cprcon,cmfdeps,cminbuoy,  &
     &                      entrpen, entrmid,entrscv,entrdd,dlev
+   !&                      nml_nauto
 
 CONTAINS
   !>
@@ -135,7 +136,6 @@ CONTAINS
     !------------------------------------------------------------
 
     nml_ncvmicro     = 0
-    nauto        = 1
     iconv        = 1
     lmfpen       = .TRUE.
     lmfmid       = .TRUE.
@@ -153,6 +153,8 @@ CONTAINS
     entrscv      = 3.0E-4_wp  ! average entrainment rate for shallow convection
     entrdd       = 2.0E-4_wp  ! average entrainment rate for downdrafts
     dlev         = 3.0E4_wp   ! 300 hPa
+
+   !nml_nauto        = 1
 
     ! Set default values of auxiliary parameters
 
@@ -192,6 +194,7 @@ CONTAINS
     ! Fill configuration state
     !-----------------------------------------------------
     echam_conv_config% ncvmicro = nml_ncvmicro
+   !echam_conv_config% nauto    = nml_nauto
 
   END SUBROUTINE read_echam_conv_namelist
 

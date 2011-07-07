@@ -69,7 +69,6 @@ MODULE mo_cuasc
   USE mo_cloud,              ONLY : cqtmin, crhosno, cn0s                          &
                                   , cthomi, csecfrl, ccsacl, clmax, clmin          &
                                   , ceffmin, ceffmax, crhoi, cauloc
-  USE mo_param_switches,     ONLY : nauto
   USE mo_aero_dummy,         ONLY : ncdnc,              &
                                   & rwet,               &!UL: included for contact freezing
                                   & iaiti,iacci,icoai    !UL: included for contact freezing

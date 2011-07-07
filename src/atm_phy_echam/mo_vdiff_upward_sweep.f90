@@ -44,7 +44,6 @@ MODULE mo_vdiff_upward_sweep
                                  & sfc_solve, rhs_bksub, vdiff_tendencies
 #ifdef __ICON__
   USE mo_echam_vdiff_params, ONLY: tpfac2, itop
-  USE mo_echam_vdiff_nml,    ONLY: lsfc_heat_flux
 #else
   USE mo_physc2,             ONLY: tpfac2, itop
 #endif
@@ -59,7 +58,8 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE vdiff_up( kproma, kbdim, klev, klevm1, klevp1, ktrac,       &! in
+  SUBROUTINE vdiff_up( lsfc_heat_flux,                                   &! in
+                       kproma, kbdim, klev, klevm1, klevp1, ktrac,       &! in
                        ksfc_type, idx_wtr, idx_ice, idx_lnd,             &! in
                        pdtime, pstep_len, pfrc, pocu, pocv,              &! in
                        pcfm_tile,  pcfh_tile,   pqsat_tile,              &! in 
@@ -82,6 +82,7 @@ CONTAINS
                        pxvarprod,  pvmixtau,    pqv_mflux_sfc,    pz0m,  &! out
                        pthvvar,    pthvsig,     ptke                     )! out
 
+    LOGICAL, INTENT(IN) :: lsfc_heat_flux
     INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevm1, klevp1, ktrac
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr, idx_ice, idx_lnd
     REAL(wp),INTENT(IN) :: pdtime, pstep_len
