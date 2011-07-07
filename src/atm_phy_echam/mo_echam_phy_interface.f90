@@ -41,10 +41,7 @@ MODULE mo_echam_phy_interface
   USE mo_datetime,          ONLY: t_datetime, print_datetime, add_time
   USE mo_math_constants,    ONLY: pi
   USE mo_model_domain,      ONLY: t_patch
-  USE mo_echam_phy_config,  ONLY: lconv     => echam_phy_config%lconv,   &
-                                & lvdiff    => echam_phy_config%lvdiff,  &
-                                & lrad      => echam_phy_config%lrad,    &
-                                & lgw_hines => echam_phy_config%lgw_hines
+  USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config
   USE mo_echam_phy_memory,  ONLY: prm_field, prm_tend
   USE mo_icoham_dyn_types,  ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_interpolation,     ONLY: t_int_state, rbf_vec_interpol_cell, & 
@@ -248,7 +245,7 @@ CONTAINS
     ! heating will be computed. The current implementation can not handle
     ! seasonal cycle!
 
-    IF (lrad) THEN
+    IF (phy_config%lrad) THEN
 
       datetime_radtran = datetime                ! copy current date and time
       dsec = 0.5_wp*(dt_rad-pdtime)              ! [s] time increment for zenith angle computation
@@ -331,7 +328,9 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-    lany_uv_tend = lconv.OR.lvdiff.OR.lgw_hines !.OR.lssodrag
+    lany_uv_tend = phy_config%lconv.OR.phy_config%lvdiff.OR. &
+                 & phy_config%lgw_hines !.OR.phy_config%lssodrag
+
     IF (lany_uv_tend) THEN
 
       ! Accumulate wind tendencies contributed by various parameterized processes.
