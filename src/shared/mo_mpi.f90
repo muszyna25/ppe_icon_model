@@ -87,6 +87,7 @@ MODULE mo_mpi
   INTEGER :: global_mpi_communicator  ! replaces MPI_COMM_WORLD in one application
   INTEGER :: global_mpi_size          ! total number of processes in global world
   INTEGER :: my_global_mpi_id         ! process id in global world
+  LOGICAL :: is_global_parallel
   
   INTEGER :: model_mpi_communicator  ! communicator inside a model
   INTEGER :: my_model_mpi_id  
@@ -398,7 +399,7 @@ CONTAINS
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
-  SUBROUTINE p_start_global(model_name)
+  SUBROUTINE p_start_global(global_name)
 
 #ifdef _OPENMP
     USE mo_util_string, ONLY: toupper
@@ -410,7 +411,7 @@ CONTAINS
 #endif
 #endif
     INTEGER :: mype                  ! this is the PE number of this task
-    CHARACTER(len=*), INTENT(in), OPTIONAL :: model_name
+    CHARACTER(len=*), INTENT(in), OPTIONAL :: global_name
 
     ! variables are required for determing I/O size in bytes of the defined
     ! KIND types for assigning the right MPI data types with the used kinds
@@ -430,6 +431,7 @@ CONTAINS
     CHARACTER(len=32) :: env_name
     CHARACTER(len=32) :: thread_num
     INTEGER :: env_threads, threads
+    INTEGER :: global_no_of_threads
 #endif
 
 #ifndef NOMPI
@@ -460,14 +462,11 @@ CONTAINS
 #endif
 
     ! Executable statements:
-
-    IF (PRESENT(model_name)) THEN
-      yname = TRIM(model_name)
+    IF (PRESENT(global_name)) THEN
+      yname = TRIM(global_name)
     ELSE
       yname = '(unnamed)'
     END IF
-
-    nbcast = 0
 
     ! start MPI
 #ifndef NOMPI
@@ -495,6 +494,13 @@ CONTAINS
 #endif
 #endif
 
+    ! set defaults    
+    p_io = 0 ! set the I/O pe statically to 0
+    global_mpi_size  = 0        ! total number of processes in global world
+    my_global_mpi_id = 0        ! process id in global world
+    is_global_parallel = .false.
+    global_no_of_threads = 1
+    
     ! create communicator for this process alone before
     ! potentially joining MPI2
 #ifndef NOMPI
@@ -510,7 +516,7 @@ CONTAINS
       CALL prism_abort_proto(prism_model_number, TRIM(yname),'abort1')
     ENDIF
 
-    CALL prism_get_localcomm_proto(p_global_comm, p_error)
+    CALL prism_get_localcomm_proto(global_mpi_communicator, p_error)
 
     IF (p_error /= prism_ok) THEN
       WRITE (nerr,*) ' prism_get_localcomm_proto failed'
@@ -561,10 +567,6 @@ CONTAINS
     global_mpi_size = 1
 #endif
 
-
-! set the I/O pe statically to 0
-    p_io = 0
-
     ! Information ...
     IF (my_global_mpi_id == 0) THEN
        WRITE (nerr,'(/,a,a,a)') ' ', &
@@ -586,28 +588,18 @@ CONTAINS
       WRITE (nerr,'(a,i0,a1,i0)') &
            '  Used MPI version: ', version, '.', subversion
     END IF
+
 #endif
 
-    IF (npes < 2) THEN
-      p_parallel = .FALSE.
-      p_parallel_io = .TRUE.   ! can always do I/O
-      IF (mype == 0) THEN
-        WRITE (nerr,'(a)') '  Single processor run.'
-      END IF
-      p_pe = 0
-      p_nprocs = 1
+    IF (global_mpi_size < 2) THEN
+      is_global_parallel = .FALSE.
+      WRITE (nerr,'(a)') '  Single processor run.'
     ELSE
-      p_parallel = .TRUE.
-      IF (mype == p_io) THEN
-        p_parallel_io = .TRUE.
-      ELSE
-        p_parallel_io = .FALSE.
+      is_global_parallel = .TRUE.
+      IF (my_global_mpi_id == 0) THEN
+        WRITE (nerr,'(a,a,i0,a)') TRIM(yname), ': Globally run on ',&
+          & global_mpi_size, ' processors.'
       END IF
-      IF (mype == 0) THEN
-        WRITE (nerr,'(a,i0,a)') '  Run on ', npes, ' processors.'
-      END IF
-      p_pe = mype
-      p_nprocs = npes
     END IF
 
 #ifdef _OPENMP
@@ -615,71 +607,53 @@ CONTAINS
     ! That might be wrong in the coupled case when the model is
     ! started via MPI dynamic process creation. So we have to check
     ! the environment variable too.
+    IF (my_global_mpi_id == 0) THEN
 
-    IF (mype == 0) THEN
-
-      IF (p_parallel) THEN
-        WRITE (nerr,'(/,a)') ' Running hybrid OpenMP-MPI mode.'
+      IF (is_global_parallell) THEN
+        WRITE (nerr,'(/,a)') ' Running globally hybrid OpenMP-MPI mode.'
       ELSE
-        WRITE (nerr,'(/,a)') ' Running OpenMP mode.'
+        WRITE (nerr,'(/,a)') ' Running globally OpenMP mode.'
       ENDIF
 
       env_name = toupper(TRIM(yname)) // '_THREADS'
-
 #ifdef __SX__
       CALL getenv(TRIM(env_name), thread_num)
 
       IF (thread_num /= ' ') THEN
 #else
       CALL get_environment_variable(name=TRIM(env_name), value=thread_num, &
-           status=istat)
-
+          status=istat)
       IF (istat == 0) THEN
 #endif
-        READ(thread_num,*) env_threads
-      ELSE
-        WRITE (nerr,'(1x,a,/)') ' Number of OpenMP threads not given!'
-        WRITE (nerr,'(1x,a,a,a,/,1x,a,a,a)') &
+         READ(thread_num,*) global_no_of_threads
+       ELSE
+         WRITE (nerr,'(1x,a,/)') ' Global number of OpenMP threads not given!'
+         WRITE (nerr,'(1x,a,a,a,/,1x,a,a,a)') &
              ' Environment variable ', TRIM(env_name), ' either not set,', &
              ' or not available to ', TRIM(yname), ' root PE.'
-        ! env_threads = 1  Default is the OMP_NUM_THREADS
-        env_threads = omp_get_max_threads()
-        WRITE (nerr,'(1x,a,i3,a)') &
-             ' I will use ', env_threads, ' OpenMP threads'
-      ENDIF
-      threads = env_threads
-   ENDIF
+         global_no_of_threads = omp_get_max_threads()
+       ENDIF
+    ENDIF ! (my_global_mpi_id == 0) 
 
 #ifndef NOMPI
     ! Make number of threads from environment available to all model PEs
-
-    CALL MPI_BCAST (threads, 1, MPI_INTEGER, 0, p_all_comm, p_error)
+    CALL MPI_BCAST (global_no_of_threads, 1, MPI_INTEGER, 0, global_mpi_communicator, p_error)
 #endif
-
     ! Inform on OpenMP thread usage
+!     CALL OMP_SET_NUM_THREADS(threads)
+!     threads = OMP_GET_MAX_THREADS()
 
-    CALL OMP_SET_NUM_THREADS(threads)
-
-    threads = OMP_GET_MAX_THREADS()
-
-    IF (mype == 0) THEN
-
+    IF (my_global_mpi_id == 0) THEN
        WRITE (nerr,*)
-
-       ! write out thread usage of master PE
-
-       WRITE (nerr,'(1x,a,i2,a)') ' Use ', threads, ' OpenMP threads.'
-
+       WRITE (nerr,'(1x,a,i3)') ' global_no_of_threads is ', global_no_of_threadsthreads
     ENDIF
 #endif
 
 #ifndef NOMPI
-
     ! due to a possible circular dependency with mo_machine and other
     ! modules, we determine here locally the I/O size of the different
     ! kind types (assume 8 bit/byte. This is than used for determing
     ! the right MPI send/receive type parameters.
-
     CALL MPI_SIZEOF(iig, p_int_byte, p_error)
     CALL MPI_SIZEOF(ii4, p_int_i4_byte, p_error)
     CALL MPI_SIZEOF(ii8, p_int_i8_byte, p_error)
@@ -696,10 +670,9 @@ CONTAINS
     CALL MPI_TYPE_MATCH_SIZE(MPI_TYPECLASS_REAL, p_real_dp_byte, p_real_dp, p_error)
     CALL MPI_TYPE_MATCH_SIZE(MPI_TYPECLASS_INTEGER, p_int_i4_byte, p_int_i4, p_error)
     CALL MPI_TYPE_MATCH_SIZE(MPI_TYPECLASS_INTEGER, p_int_i8_byte, p_int_i8, p_error)
-
 #endif
 
-#ifdef DEBUG
+#ifdef __DEBUG__
     WRITE (nerr,'(/,a)')    ' MPI transfer sizes [bytes]:'
     WRITE (nerr,'(a,i4)') '  INTEGER generic:', p_int_byte
     WRITE (nerr,'(a,i4)') '  INTEGER 4 byte :', p_int_i4_byte
@@ -709,7 +682,7 @@ CONTAINS
     WRITE (nerr,'(a,i4)') '  REAL double    :', p_real_dp_byte
 #endif
 
-    IF (mype == 0) THEN
+    IF (my_global_mpi_id == 0) THEN
       WRITE (nerr,*)
     ENDIF
 
