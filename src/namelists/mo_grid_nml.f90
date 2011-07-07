@@ -298,7 +298,7 @@ MODULE mo_grid_nml
         WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)') &
             & TRIM(gridtype),'R',nml_nroot,'B',jlev,'_DOM',jg,'-grid.nc'
         nml_radiation_grid_filename(1) = patch_file
-        nml_dynamics_radiation_grid_link(1) = 1
+        nml_dynamics_radiation_gridlink(1) = 1
       ENDIF
     
     ENDIF
