@@ -313,6 +313,15 @@ END SUBROUTINE gridref_nml_setup
       gridref_config(jg)%denom_diffu_t = denom_diffu_t
     ENDDO
 
+
+!KF
+!  NAMELIST/gridref_ctl/  rbf_vec_kern_grf_e, rbf_scale_grf_e,             &
+!    &                    grf_velfbk, grf_scalfbk, grf_tracfbk,            &
+!    &                    grf_idw_exp_e12, grf_idw_exp_e34,                &
+!    &                    grf_intmethod_c, grf_intmethod_e,                &
+!    &                    grf_intmethod_ct, denom_diffu_v, denom_diffu_t
+
+
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
     !-----------------------------------------------------
