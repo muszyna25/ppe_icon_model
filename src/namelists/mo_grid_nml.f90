@@ -257,7 +257,7 @@ MODULE mo_grid_nml
 
       ! fill dynamics_grid_filename
       ! fill level and parent ids
-      nml_patch_level(1) = start_lev
+      nml_patch_level(1) = nml_start_lev
       nml_dynamics_parent_grid_id(1) = 0       
       DO jg = 2, nml_n_dom
         nml_dynamics_parent_grid_id(jg) = nml_parent_id(jg-1)
@@ -277,26 +277,26 @@ MODULE mo_grid_nml
         IF (nml_n_dom == 1) THEN
           ! Check if file name without "DOM" specifier exists.
           WRITE (patch_file,'(a,a,i0,a,i2.2,a)') &
-              & TRIM(gridtype),'R',nroot,'B',jlev,'-grid.nc'
+              & TRIM(gridtype),'R',nml_nroot,'B',jlev,'-grid.nc'
           INQUIRE (FILE=patch_file, EXIST=l_exist)
           ! Otherwise use file name with "DOM" specifier
           IF (.NOT. l_exist)                                           &
               & WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)')              &
-              & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
+              & TRIM(gridtype),'R',nml_nroot,'B',jlev,'_DOM',jg,'-grid.nc'
         ELSE
           ! n_dom >1 --> "'_DOM',jg" required in file name
           WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)') &
-              & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
+              & TRIM(gridtype),'R',nml_nroot,'B',jlev,'_DOM',jg,'-grid.nc'
         ENDIF
         nml_dynamics_grid_filename(jg) = patch_file
       ENDDO
 
       IF (nml_n_dom_start == 0) THEN
         ! fill radiation_grid_filename
-        jlev = start_lev-1
+        jlev = nml_start_lev-1
         jg=0        
         WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)') &
-            & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
+            & TRIM(gridtype),'R',nml_nroot,'B',jlev,'_DOM',jg,'-grid.nc'
         nml_radiation_grid_filename(1) = patch_file
         nml_dynamics_radiation_grid_link(1) = 1
       ENDIF
@@ -314,7 +314,7 @@ MODULE mo_grid_nml
       jg=jg+1
     END DO
     nml_no_of_radiation_grids = jg-1
-    nml_n_dom = no_of_dynamics_grids
+    nml_n_dom = nml_no_of_dynamics_grids
     IF (nml_no_of_radiation_grids > 0) THEN
       nml_n_dom_start = 0
     ENDIF
