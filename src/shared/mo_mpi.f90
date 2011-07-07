@@ -611,7 +611,7 @@ CONTAINS
     ! the environment variable too.
     IF (my_global_mpi_id == 0) THEN
 
-      IF (is_global_parallell) THEN
+      IF (is_global_parallel) THEN
         WRITE (nerr,'(/,a)') ' Running globally hybrid OpenMP-MPI mode.'
       ELSE
         WRITE (nerr,'(/,a)') ' Running globally OpenMP mode.'

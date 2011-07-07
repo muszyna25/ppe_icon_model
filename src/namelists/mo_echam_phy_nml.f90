@@ -56,7 +56,8 @@ MODULE mo_echam_phy_nml
 
   PUBLIC :: read_echam_phy_namelist
 
-  PRIVATE
+  PUBLIC
+!   PRIVATE
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
   LOGICAL :: nml_lrad       !< .true. for radiation.
