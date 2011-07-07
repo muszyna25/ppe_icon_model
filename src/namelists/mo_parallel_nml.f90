@@ -270,10 +270,10 @@ MODULE mo_parallel_nml
 
     CALL fill_parallel_nml_configure()
     
- END SUBROUTINE read_parallel_namelist
+  END SUBROUTINE read_parallel_namelist
    
    
- SUBROUTINE fill_parallel_nml_configure
+  SUBROUTINE fill_parallel_nml_configure
     !-----------------------------------------------------
     ! fill the parallel_configuration
     n_ghost_rows        = nml_n_ghost_rows
@@ -293,7 +293,7 @@ MODULE mo_parallel_nml
     ! check the configuration
     CALL check_parallel_configuration()
 
-END SUBROUTINE fill_parallel_nml_configure
+  END SUBROUTINE fill_parallel_nml_configure
 
   !-------------------------------------------------------------------------
 
