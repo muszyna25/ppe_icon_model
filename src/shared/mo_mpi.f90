@@ -28,6 +28,7 @@ MODULE mo_mpi
   PUBLIC :: p_set_communicator
   PUBLIC :: p_comm_work, p_comm_work_test
   PUBLIC :: p_probe
+  PUBLIC :: p_all_comm
 
 #ifndef NOMPI
   PUBLIC :: MPI_INTEGER, MPI_STATUS_SIZE, MPI_SUCCESS, MPI_ANY_SOURCE,     &
