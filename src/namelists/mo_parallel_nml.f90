@@ -1,5 +1,5 @@
 !>
-!!               Contains parameters for parallel run control.
+!!     Contains namelists for parallel run control.
 !!
 !!
 !! @par Revision History

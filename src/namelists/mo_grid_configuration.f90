@@ -37,13 +37,9 @@ MODULE mo_grid_configuration
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_impl_constants,     ONLY: max_dom, max_char_length, itri, ihex, max_char_length
-  USE mo_io_units,           ONLY: nnml, nnml_output,filename_max 
-  USE mo_namelist,           ONLY: position_nml, POSITIONED
+  USE mo_io_units,           ONLY: filename_max 
   USE mo_mpi,                ONLY: p_pe, p_io
   USE mo_math_constants,     ONLY: rad2deg
-  USE mo_master_nml,         ONLY: lrestart
-  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
-                                 & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
 
