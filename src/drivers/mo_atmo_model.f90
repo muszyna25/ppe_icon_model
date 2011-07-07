@@ -66,7 +66,6 @@ MODULE mo_atmo_model
     & dt_checkpoint,        & !    :
     & lprepare_output         ! internal parameter
   USE mo_run_nml,             ONLY: run_nml_setup,            & ! process run control parameters
-    & current_datetime,     & !    module variable
     & dtime,                & !    namelist parameter
     & nsteps,               & !    :
     & ltransport,           & !    :
@@ -116,7 +115,7 @@ MODULE mo_atmo_model
 
   ! Horizontal grid
   !
-  USE mo_model_domain_import, ONLY: grid_nml_setup,          & ! process grid control parameters
+  USE mo_model_domain_import, ONLY: &  !grid_nml_setup,          & ! process grid control parameters
     & n_dom,                & !    :
     & n_dom_start,          & !    :
     & parent_id,            & !    :
@@ -175,6 +174,10 @@ MODULE mo_atmo_model
   USE mo_io_restart,           ONLY: read_restart_info_file, read_restart_files
   USE mo_io_restart_namelist,  ONLY: read_restart_namelists
   USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
+
+  !-------------------------------------------------------------------------
+  USE mo_time_config, ONLY: time_config
+
 
   !-------------------------------------------------------------------------
   IMPLICIT NONE
@@ -706,7 +709,7 @@ CONTAINS
     
     ! Note: here the derived output variables are not yet available
     ! (omega, divergence, vorticity)
-    CALL write_output( current_datetime )
+    CALL write_output( time_config%current_datetime )
     l_have_output = .TRUE.
 
     END IF ! not lrestart
@@ -720,14 +723,14 @@ CONTAINS
 
     CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
       CALL perform_ha_stepping( p_patch(1:), p_int_state(1:), p_grf_state(1:), &
-                              & p_hydro_state, current_datetime,               &
+                              & p_hydro_state, time_config%current_datetime,   &
                               & n_io, n_file, n_chkpt, n_diag, jfile,          &
                               & l_have_output                                  )
 
     CASE (inh_atmosphere)
       CALL perform_nh_stepping( p_patch, p_int_state, p_grf_state, p_nh_state,   &
-                              & current_datetime, n_io, n_file, n_chkpt, n_diag, &
-                              & l_have_output                                    )
+                              & time_config%current_datetime,                    &
+                              & n_io, n_file, n_chkpt, n_diag, l_have_output     )
     CASE DEFAULT
     END SELECT
  

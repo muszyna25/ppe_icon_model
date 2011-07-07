@@ -123,7 +123,7 @@ MODULE mo_radiation_model
   
   ! Horizontal grid
   !
-  USE mo_model_domain_import, ONLY: grid_nml_setup,          & ! process grid control parameters
+  USE mo_model_domain_import, ONLY: & !grid_nml_setup,          & ! process grid control parameters
     & n_dom,                & !    :
     & n_dom_start,          & !    :
     & parent_id,            & !    :

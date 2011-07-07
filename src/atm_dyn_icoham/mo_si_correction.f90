@@ -93,7 +93,8 @@ MODULE mo_si_correction
   USE mo_model_domain_import, ONLY: l_limited_area
   USE mo_dynamics_nml,        ONLY: idiv_method
   USE mo_ha_dyn_nml,          ONLY: si_coeff, si_offctr, si_rtol,  &
-                                    lsi_3d, si_cmin, sw_ref_height
+                                    lsi_3d, si_cmin
+  USE mo_dynamics_nml,       ONLY: sw_ref_height
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,            ONLY: msg_level, nlev, nlevp1, &
                                    lshallow_water
