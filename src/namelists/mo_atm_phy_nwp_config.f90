@@ -49,7 +49,7 @@ MODULE mo_atm_phy_nwp_config
 
   PRIVATE
 
-  PUBLIC :: atm_phy_nwp_config
+  PUBLIC :: atm_phy_nwp_config, t_atm_phy_nwp_config
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 

@@ -1058,6 +1058,7 @@ src/namelists/mo_nonhydrostatic_nml.f90 -text
 src/namelists/mo_ocean_nml.f90 -text
 src/namelists/mo_parallel_configuration.f90 -text
 src/namelists/mo_parallel_nml.f90 -text
+src/namelists/mo_radiation_config.f90 -text
 src/namelists/mo_radiation_nml.f90 -text
 src/namelists/mo_run_config.f90 -text
 src/namelists/mo_run_nml.f90 -text
