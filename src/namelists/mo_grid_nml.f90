@@ -266,9 +266,9 @@ MODULE mo_grid_nml
     
       ! fill the grid prefix
       IF (nml_lplane) THEN
-        nml_gridtype='plan'
+           gridtype='plan'
       ELSE
-        nml_gridtype='icon'
+           gridtype='icon'
       END IF
     
       DO jg = 1, nml_n_dom
