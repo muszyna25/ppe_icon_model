@@ -59,20 +59,20 @@ MODULE mo_echam_phy_nml
   PRIVATE
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
-  LOGICAL :: nml_lrad      = .TRUE.   !< .true. for radiation.
-  LOGICAL :: nml_lvdiff    = .TRUE.   !< .true. for vertical diffusion.
-  LOGICAL :: nml_lconv     = .TRUE.   !< .true. for moist convection
-  LOGICAL :: nml_lcond     = .TRUE.   !< .true. for large scale condensation
-  LOGICAL :: nml_lcover    = .FALSE.  !< .true. for prognostic cloud cover scheme
-  LOGICAL :: nml_llandsurf = .FALSE.  !< .true. for surface exchanges. (lsurf in ECHAM6)
-  LOGICAL :: nml_lssodrag  = .FALSE.  !< .true. for subgrid scale orographic drag,
-                                      !< by blocking and gravity waves (lgwdrag in ECHAM6)
-  LOGICAL :: nml_lgw_hines = .FALSE.  !< .true. for atmospheric gravity wave drag
-  LOGICAL :: nml_lice      = .FALSE.  !< .true. for sea-ice temperature calculation
-  LOGICAL :: nml_lmeltpond = .FALSE.  !< .true. for calculation of meltponds
-  LOGICAL :: nml_lmlo      = .FALSE.  !< .true. for mixed layer ocean
-  LOGICAL :: nml_lhd       = .FALSE.  !< .true. for hydrologic discharge model
-  LOGICAL :: nml_lmidatm   = .FALSE.  !< .true. for middle atmosphere model version
+  LOGICAL :: nml_lrad       !< .true. for radiation.
+  LOGICAL :: nml_lvdiff     !< .true. for vertical diffusion.
+  LOGICAL :: nml_lconv      !< .true. for moist convection
+  LOGICAL :: nml_lcond      !< .true. for large scale condensation
+  LOGICAL :: nml_lcover     !< .true. for prognostic cloud cover scheme
+  LOGICAL :: nml_llandsurf  !< .true. for surface exchanges. (lsurf in ECHAM6)
+  LOGICAL :: nml_lssodrag   !< .true. for subgrid scale orographic drag,
+                            !< by blocking and gravity waves (lgwdrag in ECHAM6)
+  LOGICAL :: nml_lgw_hines  !< .true. for atmospheric gravity wave drag
+  LOGICAL :: nml_lice       !< .true. for sea-ice temperature calculation
+  LOGICAL :: nml_lmeltpond  !< .true. for calculation of meltponds
+  LOGICAL :: nml_lmlo       !< .true. for mixed layer ocean
+  LOGICAL :: nml_lhd        !< .true. for hydrologic discharge model
+  LOGICAL :: nml_lmidatm    !< .true. for middle atmosphere model version
 
   NAMELIST /echam_phy_nml/ nml_lrad, nml_lvdiff, nml_lconv, nml_lcond, &
                          & nml_lcover, nml_lssodrag, nml_lgw_hines,    &
@@ -85,6 +85,24 @@ CONTAINS
   SUBROUTINE read_echam_phy_namelist
 
     INTEGER :: istat, funit
+
+    !----------------------------------------------------------------
+    ! Set default values
+    !----------------------------------------------------------------
+
+    nml_lrad      = .TRUE.
+    nml_lvdiff    = .TRUE.
+    nml_lconv     = .TRUE.
+    nml_lcond     = .TRUE.
+    nml_lcover    = .FALSE.
+    nml_llandsurf = .FALSE.
+    nml_lssodrag  = .FALSE.
+    nml_lgw_hines = .FALSE.
+    nml_lice      = .FALSE.
+    nml_lmeltpond = .FALSE.
+    nml_lmlo      = .FALSE.
+    nml_lhd       = .FALSE.
+    nml_lmidatm   = .FALSE.
 
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 

@@ -67,7 +67,7 @@ MODULE mo_echam_phy_config
   !! So far we have not tried to use different configurations for different
   !! domains (grid levels) in experiments with nesting. Thus the variable
   !! is declared as a scalar. Later it might be changed into an array of
-  !! shape (n_dom).
+  !! shape (/n_dom/).
   !!
   TYPE(t_echam_phy_config) :: echam_phy_config
 
