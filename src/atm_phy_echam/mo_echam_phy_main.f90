@@ -53,7 +53,6 @@ MODULE mo_echam_phy_main
   USE mo_hydro_testcases,     ONLY: ctest_name
   USE mo_vertical_coord_table,ONLY: nlevm1
   USE mo_echam_phy_config,    ONLY: echam_phy_config
-  USE mo_echam_conv_nml,      ONLY: iconv
   USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_cucall,              ONLY: cucall
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
@@ -771,10 +770,11 @@ CONTAINS
       IF (ltimer) call timer_start(timer_cucall)
 
       CALL cucall( echam_conv_config%ncvmicro,&! in
+        &          echam_conv_config%iconv,   &! in
         &          jce, nbdim, nlev, nlevp1, nlevm1,   &! in
         &          ntrac,                     &! in     tracers
 !0      &          jb,                        &! in     row index
-        &          pdtime, psteplen, iconv,   &! in
+        &          pdtime, psteplen,          &! in
         &          field% lfland(:,jb),       &! in     loland
         &          field% temp(:,:,jb),       &! in     tm1
         &          field% u(:,:,jb),          &! in     um1

@@ -57,7 +57,7 @@ MODULE mo_echam_conv_nml
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC  :: iconv,lconvmassfix                     !< parameters
+  PUBLIC  :: lconvmassfix                     !< parameters
   PUBLIC  :: lmfpen,lmfmid,lmfscv,lmfdd,lmfdudv     !< parameters
   PUBLIC  :: cmftau,cmfdeps,cmfcmin,cmfcmax,cmfctop !< parameters
   PUBLIC  :: centrmax,cbfac,cminbuoy,cmaxbuoy       !< parameters
@@ -76,7 +76,7 @@ MODULE mo_echam_conv_nml
   !--------------------------------------------------------------!
 
   INTEGER :: nml_ncvmicro     !< 0 or 1. Scheme for convective microphysics
-  INTEGER :: iconv        !< 1,2,3 for different convection schemes
+  INTEGER :: nml_iconv        !< 1,2,3 for different convection schemes
   LOGICAL :: lconvmassfix !< aerosol mass fixer in convection
 
   LOGICAL :: lmfpen    !< true when penetrative convection is switched on
@@ -117,7 +117,7 @@ MODULE mo_echam_conv_nml
 
  !INTEGER :: nml_nauto        !< 1 or 2. autoconversion scheme
 
-  NAMELIST/echam_conv_ctl/ nml_ncvmicro,iconv,lconvmassfix,       &
+  NAMELIST/echam_conv_ctl/ nml_ncvmicro, nml_iconv,lconvmassfix,       &
     &                      lmfpen,lmfmid,lmfscv,lmfdd,lmfdudv,      &
     &                      cmftau,cmfctop,cprcon,cmfdeps,cminbuoy,  &
     &                      entrpen, entrmid,entrscv,entrdd,dlev
@@ -136,7 +136,7 @@ CONTAINS
     !------------------------------------------------------------
 
     nml_ncvmicro     = 0
-    iconv        = 1
+    nml_iconv        = 1
     lmfpen       = .TRUE.
     lmfmid       = .TRUE.
     lmfscv       = .TRUE.
@@ -193,6 +193,7 @@ CONTAINS
     !-----------------------------------------------------
     ! Fill configuration state
     !-----------------------------------------------------
+    echam_conv_config% iconv    = nml_iconv
     echam_conv_config% ncvmicro = nml_ncvmicro
    !echam_conv_config% nauto    = nml_nauto
 
