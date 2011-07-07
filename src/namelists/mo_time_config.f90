@@ -44,8 +44,10 @@
 MODULE mo_time_config
 
   USE mo_kind,                  ONLY: wp
-  USE mo_time_nml,              ONLY: nml_calendar, nml_ini_datetime,&
-                                   &  nml_end_datetime, nml_dt_restart
+!DR  USE mo_time_nml,              ONLY: nml_calendar, nml_ini_datetime,&
+!DR                                   &  nml_end_datetime, nml_dt_restart
+  USE mo_time_nml,              ONLY: calendar, ini_datetime,&
+                                   &  end_datetime, dt_restart
   USE mo_exception,             ONLY: message, message_text, finish
   USE mo_datetime,              ONLY: t_datetime, &
                                    & date_to_time, add_time, print_datetime_all
