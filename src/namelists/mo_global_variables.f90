@@ -145,7 +145,7 @@ MODULE mo_global_variables
     &                              inoforcing,iheldsuarez,impiom, ildf_dry,ildf_echam
   USE mo_ocean_nml,          ONLY: lmpiom_radiation, lmpiom_convection,           &
     &                              lmpiom_gentmcwill, mpiom_phy_ctl
-  USE mo_atm_dyn_nml,        ONLY: ldry_dycore
+  USE mo_dynamics_nml,       ONLY: ldry_dycore
 
   IMPLICIT NONE
 

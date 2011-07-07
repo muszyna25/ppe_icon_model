@@ -41,30 +41,33 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-MODULE mo_atm_dyn_config
+MODULE mo_dynamics_config
 
-  USE mo_impl_constants,     ONLY: MAX_DOM => max_dom
+  USE mo_kind,           ONLY: wp
+  USE mo_impl_constants, ONLY: MAX_DOM => max_dom
 
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC :: t_atm_dyn_config, atm_dyn_config
+  PUBLIC :: t_dynamics_config, dynamics_config
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for atm dynamics
   !!--------------------------------------------------------------------------
-  TYPE :: t_atm_dyn_config
+  TYPE :: t_dynamics_config
 
     ! namelist variables
 
-    INTEGER :: iequations      !< Choice of governing equation set
-    INTEGER :: itime_scheme    !< Choice of time stepping scheme
-    INTEGER :: idiv_method     !< Divergence operator
-    INTEGER :: divavg_cntrwgt  !< Weight of central cell for divergence averaging
-    LOGICAL :: ldry_dycore     !< if .TRUE., ignore the effact of water vapor,
-                               !< cloud liquid and cloud ice on virtual temperature.
+    INTEGER  :: iequations      !< Choice of governing equation set
+    INTEGER  :: itime_scheme    !< Choice of time stepping scheme
+    INTEGER  :: idiv_method     !< Divergence operator
+    INTEGER  :: divavg_cntrwgt  !< Weight of central cell for divergence averaging
+    REAL(wp) :: sw_ref_height   !< reference height to linearize around if using
+                                !< lshallow_water and semi-implicit correction
+    LOGICAL  :: ldry_dycore     !< if .TRUE., ignore the effact of water vapor,
+                                !< cloud liquid and cloud ice on virtual temperature.
 
     ! derived variables
 
@@ -80,9 +83,9 @@ MODULE mo_atm_dyn_config
     INTEGER,ALLOCATABLE :: nnow_rcf(:)  !< Extra time levels for reduced
     INTEGER,ALLOCATABLE :: nnew_rcf(:)  !< calling frequency (rcf)
 
-  END TYPE t_atm_dyn_config
+  END TYPE t_dynamics_config
   !>
   !!
-  TYPE(t_atm_dyn_config) :: atm_dyn_config(MAX_DOM)
+  TYPE(t_dynamics_config) :: dynamics_config(MAX_DOM)
 
-END MODULE mo_atm_dyn_config
+END MODULE mo_dynamics_config

@@ -48,7 +48,7 @@ MODULE mo_ha_stepping
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data,            ONLY: ext_data
   USE mo_model_domain_import, ONLY: n_dom
-  USE mo_atm_dyn_nml,         ONLY: ltwotime, itime_scheme, nold, nnow
+  USE mo_dynamics_nml,        ONLY: ltwotime, itime_scheme, nold, nnow
   USE mo_io_nml,              ONLY: l_outputtime, lprepare_output, l_diagtime,  &
                                   & l_checkpoint_time
   USE mo_run_nml,             ONLY: lshallow_water, nsteps, dtime,ltheta_dyn,   &

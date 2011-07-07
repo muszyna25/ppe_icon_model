@@ -1028,14 +1028,14 @@ src/lnd_phy_schemes/mo_phyparam_soil.f90 -text
 src/lnd_phy_schemes/mo_soil_ml.f90 -text
 src/namelists/mo_advection_config.f90 -text
 src/namelists/mo_advection_nml.f90 -text
-src/namelists/mo_atm_dyn_config.f90 -text
-src/namelists/mo_atm_dyn_nml.f90 -text
 src/namelists/mo_atm_hdiff_config.f90 -text
 src/namelists/mo_atm_phy_nwp_config.f90 -text
 src/namelists/mo_atm_phy_nwp_nml.f90 -text
 src/namelists/mo_atmo_setup_configuration.f90 -text
 src/namelists/mo_cpl_nml.f90 -text
 src/namelists/mo_diffusion_nml.f90 -text
+src/namelists/mo_dynamics_config.f90 -text
+src/namelists/mo_dynamics_nml.f90 -text
 src/namelists/mo_echam_conv_nml.f90 -text
 src/namelists/mo_echam_phy_config.f90 -text
 src/namelists/mo_echam_phy_nml.f90 -text

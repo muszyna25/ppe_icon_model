@@ -32,7 +32,7 @@
 !! software.
 !!
 !!
-MODULE mo_atm_dyn_nml
+MODULE mo_dynamics_nml
 
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
@@ -47,7 +47,7 @@ MODULE mo_atm_dyn_nml
     &                              IHS_ATM_THETA
  !USE mo_grid_configuration,  ONLY: global_cell_type
 
-  USE mo_atm_dyn_config,        ONLY: atm_dyn_config
+  USE mo_dynamics_config,        ONLY: dynamics_config
   USE mo_master_nml,            ONLY: lrestart
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
   USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,   &       
@@ -90,8 +90,11 @@ MODULE mo_atm_dyn_nml
   LOGICAL :: ldry_dycore ! if .TRUE., ignore the effact of water vapor,
                          ! cloud liquid and cloud ice on virtual temperature.
 
-  NAMELIST/atm_dyn_nml/ iequations, itime_scheme, idiv_method, divavg_cntrwgt, &
-    &                   ldry_dycore
+  REAL(wp) :: sw_ref_height      ! reference height to linearize around if using
+                                 ! lshallow_water and semi-implicit correction
+
+  NAMELIST/dynamics_nml/ iequations, itime_scheme, idiv_method, divavg_cntrwgt, &
+    &                   ldry_dycore, sw_ref_height
 
   !------------------------------------------------------------------------
   ! Dependent variables 
@@ -116,7 +119,7 @@ MODULE mo_atm_dyn_nml
 
 CONTAINS
 
-  SUBROUTINE read_atm_dyn_namelist()
+  SUBROUTINE read_dynamics_namelist()
 
     INTEGER :: istat, funit
 
@@ -131,54 +134,57 @@ CONTAINS
     divavg_cntrwgt    = 0.5_wp
 
     ldry_dycore       = .FALSE.
+
+    sw_ref_height     = 0.9_wp*2.94e4_wp/grav
  
     !------------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above by 
     !    values in the restart file
     !------------------------------------------------------------------------
     IF (lrestart) THEN
-      funit = open_and_restore_namelist('atm_dyn_nml')
-      READ(funit,NML=atm_dyn_nml)
+      funit = open_and_restore_namelist('dynamics_nml')
+      READ(funit,NML=dynamics_nml)
       CALL close_tmpfile(funit)
     END IF
 
     !------------------------------------------------------------------------
     ! 3. Read user's (new) specifications. (Done so far by all MPI processes)
     !------------------------------------------------------------------------
-    CALL position_nml ('atm_dyn_nml', STATUS=istat)
+    CALL position_nml ('dynamics_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, atm_dyn_nml)
+      READ (nnml, dynamics_nml)
     END SELECT
 
     !-----------------------------------------------------
     ! 4. Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
-    WRITE(funit,NML=atm_dyn_nml)
-    CALL store_and_close_namelist(funit, 'atm_dyn_nml')
+    WRITE(funit,NML=dynamics_nml)
+    CALL store_and_close_namelist(funit, 'dynamics_nml')
 
   ! ! write the contents of the namelist to an ASCII file
-  ! IF(p_pe == p_io) WRITE(nnml_output,nml=atm_dyn_nml)
+  ! IF(p_pe == p_io) WRITE(nnml_output,nml=dynamics_nml)
 
     !-----------------------------------------------------
     ! 5. Fill configuration state
     !-----------------------------------------------------
 
-    atm_dyn_config(:)% iequations     = iequations
-    atm_dyn_config(:)% itime_scheme   = itime_scheme
-    atm_dyn_config(:)% idiv_method    = idiv_method
-    atm_dyn_config(:)% divavg_cntrwgt = divavg_cntrwgt
-    atm_dyn_config(:)% ldry_dycore    = ldry_dycore
+    dynamics_config(:)% iequations     = iequations
+    dynamics_config(:)% itime_scheme   = itime_scheme
+    dynamics_config(:)% idiv_method    = idiv_method
+    dynamics_config(:)% divavg_cntrwgt = divavg_cntrwgt
+    dynamics_config(:)% ldry_dycore    = ldry_dycore
+    dynamics_config(:)% sw_ref_height  = sw_ref_height
 
-  END SUBROUTINE read_atm_dyn_namelist
+  END SUBROUTINE read_dynamics_namelist
 
   !>
   !! @brief Initialization of variables that set up the dynamica core.
   !!
   !! Initialization of variables that set up the configuration
   !! of the dynamical core using values read from
-  !! namelist 'atm_dyn_nml'.
+  !! namelist 'dynamics_nml'.
   !!
   !! @par Revision History
   !!  by Hui Wan, MPI-M (2007-02-23)
@@ -198,14 +204,14 @@ CONTAINS
   !!  -remove dxmin: estimate the dual edge length by nroot and start_lev
   !!  -clean up dyn_ctl and remove unnecessary variables
   !!
-  SUBROUTINE atm_dyn_setup(i_ndom)
+  SUBROUTINE dynamics_setup(i_ndom)
 
     INTEGER, INTENT(IN) :: i_ndom
  
     INTEGER :: jdom
 
     CHARACTER(len=MAX_CHAR_LENGTH),PARAMETER ::             &
-             & routine = 'mo_atm_dyn_nml:atm_dyn_setup'
+             & routine = 'mo_dynamics_nml:dynamics_setup'
  
     CHARACTER(len=MAX_CHAR_LENGTH) :: string
 
@@ -292,7 +298,7 @@ CONTAINS
     gsi_2tls2dt = gsi_2tlsdt*si_2tls*dtime
     g1msi_2tlsdt= (1._wp -si_2tls)*gdt
 
-  END SUBROUTINE atm_dyn_setup
+  END SUBROUTINE dynamics_setup
   !-------------
   !>
   !!
@@ -303,4 +309,4 @@ CONTAINS
   END SUBROUTINE cleanup_dyn_params 
   !-------------
 
-END MODULE mo_atm_dyn_nml
+END MODULE mo_dynamics_nml

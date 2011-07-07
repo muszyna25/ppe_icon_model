@@ -66,7 +66,7 @@ MODULE mo_hierarchy_management
   USE mo_grf_interpolation,   ONLY: t_gridref_state, grf_intmethod_c,    &
     &                               grf_intmethod_ct
   USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_scal2d_grf
-  USE mo_atm_dyn_nml,         ONLY: ltwotime, itime_scheme,              &
+  USE mo_dynamics_nml,        ONLY: ltwotime, itime_scheme,              &
     &                               nold, nnow, nnew, nsav1, nsav2
   USE mo_ha_dyn_nml,          ONLY: ileapfrog_startup, si_2tls
   USE mo_diffusion_nml,       ONLY: hdiff_order

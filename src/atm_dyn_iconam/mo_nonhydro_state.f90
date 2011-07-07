@@ -53,7 +53,7 @@ MODULE mo_nonhydro_state
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: n_dom, l_limited_area
   USE mo_nonhydrostatic_nml,  ONLY: l_nest_rcf
-  USE mo_atm_dyn_nml,         ONLY: nsav1, nsav2, itime_scheme
+  USE mo_dynamics_nml,        ONLY: nsav1, nsav2, itime_scheme
 !  USE mo_advection_nml,       ONLY: ctracer_list
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,             ONLY: iforcing,             &

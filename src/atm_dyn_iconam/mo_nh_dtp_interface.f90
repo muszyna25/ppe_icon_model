@@ -43,7 +43,7 @@
 MODULE mo_nh_dtp_interface
 
   USE mo_kind,               ONLY: wp
-  USE mo_atm_dyn_nml,        ONLY: idiv_method
+  USE mo_dynamics_nml,       ONLY: idiv_method
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,            ONLY: lvert_nest, ntracer
   USE mo_model_domain,       ONLY: t_patch

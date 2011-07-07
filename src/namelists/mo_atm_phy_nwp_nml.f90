@@ -49,7 +49,7 @@ MODULE mo_atm_phy_nwp_nml
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_master_nml,          ONLY: lrestart
   USE mo_nonhydrostatic_nml,  ONLY: iadv_rcf
-  USE mo_atm_dyn_nml,         ONLY: ldry_dycore
+  USE mo_dynamics_nml,        ONLY: ldry_dycore
   USE mo_io_nml,              ONLY: lwrite_extra
   USE mo_run_nml,             ONLY: dtime, ltestcase
   USE mo_model_domain,        ONLY: t_patch

@@ -42,7 +42,7 @@ MODULE mo_ha_dynamics
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data,           ONLY: t_external_data
   USE mo_math_operators,     ONLY: grad_fd_norm, div, div_avg
-  USE mo_atm_dyn_nml,        ONLY: idiv_method
+  USE mo_dynamics_nml,       ONLY: idiv_method
   USE mo_ha_dyn_nml,         ONLY: lref_temp
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,            ONLY: lshallow_water, nlev, nlevp1

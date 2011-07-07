@@ -82,9 +82,6 @@ MODULE mo_ha_dyn_nml
   REAL(wp) :: si_cmin            ! min. phase speed of the decomposed modes to be
                                  ! solved by the semi-implicit correction scheme
 
-  REAL(wp) :: sw_ref_height      ! reference height to linearize around if using
-                                 ! lshallow_water and semi-implicit correction
-  
   LOGICAL :: lref_temp   ! if .TRUE., involve the reference temperature profile
                          ! in the calculation of pressure gradient force.
 

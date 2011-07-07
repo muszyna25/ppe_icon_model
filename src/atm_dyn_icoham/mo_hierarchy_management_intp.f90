@@ -65,7 +65,7 @@ USE mo_grf_interpolation,   ONLY: t_gridref_state, grf_velfbk,            &
                                   grf_intmethod_ct
 USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_scal2d_grf, &
                                   interpol_vec_grf, interpol2_vec_grf
-USE mo_atm_dyn_nml,         ONLY: nnew, nnow, nsav1, nsav2
+USE mo_dynamics_nml,        ONLY: nnew, nnow, nsav1, nsav2
 USE mo_parallel_configuration,  ONLY: nproma
 USE mo_run_nml,             ONLY: msg_level, ltransport, nlev,    &
                                   ntracer, lshallow_water, ltheta_dyn

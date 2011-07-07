@@ -43,7 +43,7 @@ MODULE mo_solve_nh_async
 
   USE mo_kind,              ONLY: wp
   USE mo_nonhydrostatic_nml,ONLY: iadv_rhotheta, igradp_method, l_open_ubc, l_zdiffu_t
-  USE mo_atm_dyn_nml,       ONLY: itime_scheme, idiv_method
+  USE mo_dynamics_nml,      ONLY: itime_scheme, idiv_method
   USE mo_diffusion_nml,     ONLY: k4, hdiff_smag_fac, lhdiff_temp
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,           ONLY: ltimer, lvert_nest

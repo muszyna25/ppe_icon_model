@@ -50,7 +50,7 @@ MODULE mo_atmo_setup_configuration
   USE mo_global_variables,    ONLY: setup_physics           ! process forcing control parameters
   USE mo_nonhydrostatic_nml,  ONLY: ivctype, read_nonhydrostatic_namelist, &  
     &                               nonhydrostatic_nml_setup
-  USE mo_atm_dyn_nml,         ONLY: read_atm_dyn_namelist, atm_dyn_setup,   &
+  USE mo_dynamics_nml,         ONLY: read_dynamics_namelist, dynamics_setup,   &
     &                               cleanup_dyn_params 
   USE mo_diffusion_nml,       ONLY: diffusion_nml_setup, read_diffusion_namelist 
   USE mo_io_nml,              ONLY: io_nml_setup, read_io_namelist, & ! process I/O
@@ -167,7 +167,7 @@ CONTAINS
     CALL read_interpol_namelist()
     CALL read_gridref_namelist()
 
-    CALL read_atm_dyn_namelist()
+    CALL read_dynamics_namelist()
     CALL read_ha_dyn_namelist()
 
     CALL read_diffusion_namelist()
