@@ -56,8 +56,6 @@ MODULE mo_time_config
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
-
-
  TYPE t_time_config
 
   ! calendar type
