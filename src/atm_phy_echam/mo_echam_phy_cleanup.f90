@@ -33,8 +33,7 @@
 !!
 MODULE mo_echam_phy_cleanup
 
-  USE mo_echam_phy_config,   ONLY: lconv  => echam_phy_config%lconv, &
-                                 & lvdiff => echam_phy_config%lvdiff
+  USE mo_echam_phy_config,   ONLY: phy_config => echam_phy_config
   USE mo_echam_conv_nml,     ONLY: cleanup_cuparam
   USE mo_vdiff_solver,       ONLY: cleanup_vdiff_solver
 
@@ -55,9 +54,9 @@ CONTAINS
   !!
   SUBROUTINE cleanup_echam_phy
 
-    IF (lvdiff) CALL cleanup_vdiff_solver  ! Deallocate array "matrix_idx"
+    IF (phy_config%lvdiff) CALL cleanup_vdiff_solver  ! Deallocate array "matrix_idx"
 
-    IF (lconv) THEN
+    IF (phy_config%lconv) THEN
       CALL cleanup_cuparam  ! deallocate array "cevapcu"
     END IF
 
