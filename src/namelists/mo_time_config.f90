@@ -53,82 +53,72 @@ MODULE mo_time_config
                                    & date_to_time, add_time, print_datetime_all
   USE mo_master_nml,            ONLY: lrestart
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
+  USE mo_date_time,             ONLY: t_datetime
  
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: t_time_config, time_config
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
   !>
   !! Derived type containing variables for time control. 
   !!
-  TYPE :: t_time_config
+  !
 
-    INTEGER  :: calendar      !< calendar type 
+ TYPE t_time_config
 
-    TYPE(t_datetime) :: ini_datetime  !< Starting time of model integration
-    TYPE(t_datetime) :: end_datetime  !< Ending   time of model integration
-    TYPE(t_datetime) :: current_datetime  !< Current  time model time 
+  ! calendar type
+  INTEGER          :: calendar
 
-    REAL(wp) :: dt_restart    !< Length of restart cycle in seconds
+  TYPE(t_datetime) :: ini_datetime  !< Starting time of model integration
+!
+  TYPE(t_datetime) :: end_datetime  !< Ending   time of model integration
 
-  END TYPE t_time_config 
+  TYPE(t_datetime) :: current_datetime  !< Current  time model time 
+
+  ! - data and time structure
+  !
+  ! current model time, not a namelist variable
+  !
+
+  REAL(wp) :: dt_restart    !< Length of restart cycle in seconds
+
+  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
+  !>
+  !! Derived type containing variables for time control. 
+  !!
+  !
+
+ TYPE t_time_config
 
   !! HW Comment: the character-type variables containing ini_ and end_time
   !! in the format "YYYYMMDDTHHMMSSZ" should be namelist variables
   !! and used for computing ini/end_datetime in this type.
 
-  !>
-  !! The state variable that contains the information
-  !!
-  TYPE(t_time_config) :: time_config
 
 
 CONTAINS
 
 SUBROUTINE time_setup
 
-
+    INTEGER  :: calendar      !< calendar type 
   ! time information
   ! ----------------
-  !
-  ! calendar type
-  INTEGER          :: calendar
-  !
-  ! initial date and time
-  ! - namelist variables
-  INTEGER          :: ini_year, ini_month, ini_day
-  INTEGER          :: ini_hour, ini_minute
-  REAL(wp)         :: ini_second
+
   ! - data and time structure
-  TYPE(t_datetime) :: ini_datetime
-  !
-  ! current model time, not a namelist variable
-  TYPE(t_datetime) :: current_datetime
-  !
-  ! end date and time
-  ! - namelist variables
-  INTEGER          :: end_year, end_month, end_day
-  INTEGER          :: end_hour, end_minute
-  REAL(wp)         :: end_second
-  ! - data and time structure
-  TYPE(t_datetime) :: end_datetime
-  !
 
   INTEGER:: calendar_old
-   INTEGER  :: ini_year_old, ini_month_old, ini_day_old, ini_hour_old, ini_minute_old
-   INTEGER  :: restart_year, restart_month, restart_day, restart_hour, restart_minute
-   REAL(wp) :: ini_second_old
-   REAL(wp) :: restart_second
-   REAL(wp) :: cur_datetime_calsec, end_datetime_calsec, length_sec
-  ! restart interval
+  INTEGER  :: ini_year_old, ini_month_old, ini_day_old, ini_hour_old, ini_minute_old
+  INTEGER  :: restart_year, restart_month, restart_day, restart_hour, restart_minute
+  REAL(wp) :: ini_second_old
+  REAL(wp) :: restart_second
+  REAL(wp) :: cur_datetime_calsec, end_datetime_calsec, length_sec
+  
+! restart interval
   ! ----------------
-  REAL(wp)         :: dt_restart          ! [s] length of a restart cycle 
-
     CHARACTER(LEN=132) :: routine = 'time_setup'
-
 
    ! initial date and time
 

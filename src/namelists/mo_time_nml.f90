@@ -36,11 +36,13 @@ MODULE mo_time_nml
 
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: max_char_length
-  USE mo_datetime,           ONLY: proleptic_gregorian
+  USE mo_datetime,           ONLY: proleptic_gregorian, t_datetime
+  USE mo_time_config,        ONLY: t_time_config
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_master_nml,         ONLY: lrestart
   USE mo_namelist,           ONLY: position_nml, positioned
   USE mo_mpi,                ONLY: p_pe, p_io
+  USE mo_io_restart_attributes, ONLY: get_restart_attribute
   USE mo_io_restart_namelist,ONLY: open_and_restore_namelist, close_tmpfile,&
                                   & open_tmpfile, store_and_close_namelist
 
@@ -50,8 +52,8 @@ MODULE mo_time_nml
 
   
   PUBLIC :: read_time_namelist, &
-    &  time_ctl,  calendar,  ini_datetime,&
-    &                   end_datetime,  dt_restart
+    &        time_ctl,  calendar,  ini_datetime,&
+    &        end_datetime, current_datetime, dt_restart
 
   PRIVATE
 
@@ -62,18 +64,20 @@ MODULE mo_time_nml
   INTEGER            ::  calendar
   !
   ! - data and time of model start and end
-  CHARACTER(len=16) ::  ini_datetime
-  CHARACTER(len=16) ::  end_datetime
+  TYPE(t_datetime)   ::  ini_datetime
+  TYPE(t_datetime)   ::  end_datetime 
+  TYPE(t_datetime)   ::  current_datetime 
 
   ! restart interval
   ! ----------------
-  REAL(wp)           ::  dt_restart          ! [s] length of a restart cycle 
+  REAL(wp)           ::  nml_dt_restart          ! [s] length of a restart cycle 
 
+  CHARACTER(len=32) :: nml_ini_datetime, nml_end_datetime
 
-  NAMELIST /time_ctl/ calendar,                  &
-    &                 ini_datetime,  end_datetime,&
-    &                 dt_restart
-
+  NAMELIST /time_ctl/ nml_calendar,                  &
+    &                 nml_ini_datetime, nml_end_datetime,&
+    &                 nml_dt_restart
+,
 CONTAINS
   !-------------------------------------------------------------------------
   !>
@@ -98,7 +102,10 @@ CONTAINS
   !!
   SUBROUTINE read_time_namelist
                                                
-   INTEGER  :: istat, funit
+   INTEGER  :: istat, funit,calendar_old
+   CHARACTER(len=32) :: ini_datetime_old
+   INTEGER  :: restart_year, restart_month, &
+              & restart_day, restart_hour, restart_minute
 
    CHARACTER(len=max_char_length), PARAMETER ::   &
             &  routine = 'mo_time_nml/time_nml_setup'
@@ -108,11 +115,11 @@ CONTAINS
    !------------------------------------------------------------------------
 
    ! initial date and time
-    calendar       = proleptic_gregorian
-    ini_datetime   = "20080901T000000Z"
+    nml_calendar       = proleptic_gregorian
+    nml_ini_datetime   = "2008-09-01T00:00:00Z"
    !
    ! end date and time
-    end_datetime   = "20080901T014000Z"
+    nml_end_datetime   = "2008-09-01T01:40:00Z"
    !
    ! length of integration = (number of timesteps)*(length of timestep)
    ! - If nsteps is set to a non-zero positive value, then the end date is computed
@@ -123,7 +130,7 @@ CONTAINS
    !   Else nsteps is computed from the initial and end date and time and dtime.
    !
    ! length of restart cycle
-    dt_restart     = 86400._wp*30._wp   ! = 30 days
+    nml_dt_restart     = 86400._wp*30._wp   ! = 30 days
    !
   IF (lrestart) THEN      
  
@@ -132,7 +139,22 @@ CONTAINS
       funit = open_and_restore_namelist('time_ctl')
       READ(funit,NML=time_ctl)
       CALL close_tmpfile(funit) 
+
+      calendar_old      = calendar
+      ini_date_time_old = nml_ini_date_time 
+
+      ! 2.2 Inquire the date/time at which the previous run stopped
+
+      CALL get_restart_attribute( 'current_year'  , restart_year   )
+      CALL get_restart_attribute( 'current_month' , restart_month  )
+      CALL get_restart_attribute( 'current_day'   , restart_day    )
+      CALL get_restart_attribute( 'current_hour'  , restart_hour   )
+      CALL get_restart_attribute( 'current_minute', restart_minute )
+      CALL get_restart_attribute( 'current_second', restart_second )
+
+
   END IF
+
    !------------------------------------------------------------------------
    !  Read user's (new) specifications. (Done so far by all MPI processes)
    !------------------------------------------------------------------------
@@ -142,6 +164,50 @@ CONTAINS
       READ (nnml, time_ctl)
     END SELECT
 
+    !----------------------------------------------------
+    ! 4. Fill the configuration state
+    !----------------------------------------------------
+
+    CALL string_to_datetime ( nml_ini_datetime, ini_datetime ) 
+
+    IF (lrestart) THEN
+      ! In a resumed integration, if the calendar or initial date/time 
+      ! is different from those in the restart file,
+      ! we regard this integration as a new one with its own calendar. 
+      ! Model time at which the previous run stopped is thus not relevant. 
+      ! Simulation will start from the user-specified initial date/time,
+      ! which is also the current model date/time.
+
+      IF (calendar  /=calendar_old   .OR.                                 &
+          ini_year  /=ini_year_old   .OR. ini_month  /=ini_month_old .OR. &
+          ini_day   /=ini_day_old    .OR. ini_hour   /=ini_hour_old  .OR. &
+          ini_minute/=ini_minute_old .oR. ini_second /=ini_second_old     ) THEN
+
+        current_datetime = ini_datetime
+
+      ELSE
+      ! Otherwise we start from the point when the previous integration stopped.
+
+        current_datetime%calendar = calendar
+        current_datetime%year     = restart_year
+        current_datetime%month    = restart_month
+        current_datetime%day      = restart_day
+        current_datetime%hour     = restart_hour
+        current_datetime%minute   = restart_minute
+        current_datetime%second   = restart_second
+
+        CALL date_to_time(current_datetime) ! fill date time structure
+      END IF
+
+    ELSE
+      ! In an initial run, current date/time is, naturally, the initial date/time
+      current_datetime = ini_datetime
+
+    END IF !lrestart
+
+    CALL string_to_datetime ( nml_end_datetime, end_datetime ) 
+
+    t_time_config%dt_restart = nml_restart
 
     !-----------------------------------------------------
     ! Store the namelist for restart
@@ -152,7 +218,6 @@ CONTAINS
 
 !    ! write the contents of the namelist to an ASCII file
 !    IF(p_pe == p_io) WRITE(nnml_output,nml=time_ctl)
-
 
  END SUBROUTINE read_time_namelist
 
