@@ -50,7 +50,7 @@ MODULE mo_atmo_setup_configuration
   USE mo_global_variables,    ONLY: setup_physics           ! process forcing control parameters
   USE mo_nonhydrostatic_nml,  ONLY: ivctype, read_nonhydrostatic_namelist, &  
     &                               nonhydrostatic_nml_setup
-  USE mo_dynamics_nml,         ONLY: read_dynamics_namelist, dynamics_setup,   &
+  USE mo_dynamics_nml,         ONLY: read_dynamics_namelist, dynamics_nml_setup,   &
     &                               cleanup_dyn_params 
   USE mo_diffusion_nml,       ONLY: diffusion_nml_setup, read_diffusion_namelist 
   USE mo_io_nml,              ONLY: io_nml_setup, read_io_namelist, & ! process I/O
@@ -60,7 +60,7 @@ MODULE mo_atmo_setup_configuration
     & dt_checkpoint,        & !    :
     & lprepare_output         ! internal parameter
   USE mo_run_nml,             ONLY: run_nml_setup,            & ! process run control parameters
-    & current_datetime,     & !    module variable
+   !& current_datetime,     & !    module variable
     & dtime,                & !    namelist parameter
     & nsteps,               & !    :
     & ltransport,           & !    :
@@ -95,7 +95,7 @@ MODULE mo_atmo_setup_configuration
 
   ! Horizontal grid
   !
-  USE mo_model_domain_import, ONLY: grid_nml_setup,          & ! process grid control parameters
+  USE mo_model_domain_import, ONLY: & !grid_nml_setup,          & ! process grid control parameters
     & n_dom,                & !    :
     & n_dom_start,          & !    :
     & parent_id,            & !    :
@@ -114,7 +114,7 @@ MODULE mo_atmo_setup_configuration
   USE mo_vertical_grid,       ONLY: init_hybrid_coord, init_sleve_coord
     
   USE mo_echam_phy_nml,       ONLY: read_echam_phy_namelist
-  USE mo_echam_vdiff_nml,     ONLY: read_echam_vdiff_namelist
+  USE mo_vdiff_nml,           ONLY: read_vdiff_namelist
   USE mo_echam_conv_nml,      ONLY: read_echam_conv_namelist
   USE mo_atm_phy_nwp_nml,     ONLY: setup_nwp_phy, inwp_surface, &
     &                               read_nwp_phy_namelist
@@ -132,7 +132,7 @@ MODULE mo_atmo_setup_configuration
   
   PRIVATE
   
-  PUBLIC :: read_atmo_namelists, setup_atmo_configuration
+  PUBLIC :: read_atmo_namelists !, setup_atmo_configuration
   
 CONTAINS
   
@@ -178,7 +178,7 @@ CONTAINS
     CALL read_radiation_namelist()
     CALL read_echam_phy_namelist()
 
-    CALL read_echam_vdiff_namelist()
+    CALL read_vdiff_namelist()
     CALL read_echam_conv_namelist()
     CALL read_gw_hines_namelist()
     CALL read_nwp_lnd_namelist()
@@ -199,7 +199,7 @@ CONTAINS
   !-------------------------------------------------------------------------
   !>
   !!
-  SUBROUTINE old_read_atmo_namelists(namelist_filename)
+  SUBROUTINE old_read_atmo_namelists !(namelist_filename)
 !     
 !     CHARACTER(LEN=*), INTENT(in) :: namelist_filename
 ! 

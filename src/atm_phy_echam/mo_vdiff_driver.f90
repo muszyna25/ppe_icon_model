@@ -47,7 +47,6 @@ MODULE mo_vdiff_driver
 #ifdef __ICON__
   USE mo_physical_constants, ONLY: grav, rd
   USE mo_echam_vdiff_params, ONLY: tpfac1, tpfac2, itop
-  USE mo_echam_vdiff_nml,    ONLY: lsfc_mom_flux, lsfc_heat_flux
 #else
   USE mo_constants, ONLY: grav=>g, rd
   USE mo_physc2,    ONLY: tpfac1, tpfac2, itop
@@ -63,7 +62,8 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE vdiff ( kproma, kbdim, klev, klevm1, klevp1, ktrac,       &! in
+  SUBROUTINE vdiff ( lsfc_mom_flux, lsfc_heat_flux,                    &! in
+                     kproma, kbdim, klev, klevm1, klevp1, ktrac,       &! in
                      ksfc_type, idx_wtr, idx_ice, idx_lnd, idx_gbm,    &! in
                      pdtime, pstep_len,                                &! in
                      pcoriol,    pfrc,        ptsfc,                   &! in
@@ -91,6 +91,7 @@ CONTAINS
                      pcfh,       pcfh_tile,                            &! out
                      pcfv,       pcftke,      pcfthv                   )! out
 
+  LOGICAL, INTENT(IN)  :: lsfc_mom_flux, lsfc_heat_flux
   INTEGER, INTENT(IN)  :: kproma, kbdim, klev, klevm1, klevp1, ktrac
   INTEGER, INTENT(IN)  :: ksfc_type, idx_wtr, idx_ice, idx_lnd, idx_gbm
   REAL(wp),INTENT(IN)  :: pdtime, pstep_len
@@ -258,7 +259,7 @@ CONTAINS
   CALL sfc_exchange_coeff( kproma, kbdim, ksfc_type,              &! in
                          & idx_wtr, idx_ice, idx_lnd,             &! in
                          & lsfc_mom_flux, lsfc_heat_flux,         &! in
-                         & pz0m_tile(:,:), ptsfc(:,:),                &! in
+                         & pz0m_tile(:,:), ptsfc(:,:),            &! in
                          & pfrc(:,:), pghpbl(:),                  &! in
                          & pocu(:),         pocv(:),   ppsfc(:),  &! in
                          & pum1(:,klev),    pvm1  (:,klev),       &! in

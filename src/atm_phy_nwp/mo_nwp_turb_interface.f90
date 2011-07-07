@@ -67,6 +67,7 @@ MODULE mo_nwp_turb_interface
   USE mo_satad,              ONLY: sat_pres_water, spec_humi  
   USE src_turbdiff,          ONLY: organize_turbdiff
   USE mo_icoham_sfc_indices, ONLY: nsfc_type, iwtr, iice, ilnd ! igbm,
+  USE mo_vdiff_config,       ONLY: vdiff_config
   USE mo_vdiff_driver,       ONLY: vdiff
   USE mo_echam_vdiff_params, ONLY: z0m_oce
   
@@ -412,9 +413,11 @@ CONTAINS
          ENDDO
          
 
-          CALL vdiff( kproma = i_endidx, kbdim   = nproma,                                   &
-                & klev   = nlev,   klevm1    = nlev-1,  klevp1=nlevp1                       ,&! in
-                & ktrac  = itrac,  ksfc_type = nsfc_type                                    ,&! in
+          CALL vdiff( lsfc_mom_flux  = vdiff_config%lsfc_mom_flux,                       &! in
+                      lsfc_heat_flux = vdiff_config%lsfc_heat_flux,                      &! in
+                & kproma = i_endidx, kbdim   = nproma,                                   &! in
+                & klev   = nlev,   klevm1    = nlev-1,  klevp1=nlevp1,                   &! in
+                & ktrac  = itrac,  ksfc_type = nsfc_type,                                &! in
                 & idx_wtr= iwtr,   idx_ice   = iice,   idx_lnd =ilnd,  idx_gbm=1 ,&! in 
                 & pdtime = tcall_turb_jg,       pstep_len = tcall_turb_jg     ,&! in
                 !

@@ -46,7 +46,6 @@ MODULE mo_vdiff_downward_sweep
 #ifdef __ICON__
   USE mo_physical_constants, ONLY: grav, rd
   USE mo_echam_vdiff_params, ONLY: tpfac1, tpfac2, itop
-  USE mo_echam_vdiff_nml,    ONLY: lsfc_mom_flux, lsfc_heat_flux
 #else
   USE mo_constants, ONLY: grav=>g, rd
   USE mo_physc2,    ONLY: tpfac1, tpfac2, itop
@@ -62,7 +61,8 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE vdiff_down( kproma, kbdim, klev, klevm1, klevp1, ktrac,    &! in
+  SUBROUTINE vdiff_down( lsfc_mom_flux, lsfc_heat_flux,                 &! in
+                       & kproma, kbdim, klev, klevm1, klevp1, ktrac,    &! in
                        & ksfc_type, idx_wtr, idx_ice, idx_lnd,          &! in
                        & pstep_len,  pcoriol,   pfrc,                   &! in
                        & ptsfc_tile, pocu,      pocv,       ppsfc,      &! in
@@ -86,6 +86,7 @@ CONTAINS
                        & pcptgz,     prhoh,     pqshear,                &! out
                        & pzthvvar,   pztkevn                            )! out
 
+    LOGICAL, INTENT(IN) :: lsfc_mom_flux, lsfc_heat_flux
     INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevm1, klevp1, ktrac
     INTEGER, INTENT(IN) :: ksfc_type, idx_wtr, idx_ice, idx_lnd
     REAL(wp),INTENT(IN) :: pstep_len

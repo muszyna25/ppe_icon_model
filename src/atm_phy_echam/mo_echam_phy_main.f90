@@ -69,6 +69,7 @@ MODULE mo_echam_phy_main
   USE mo_echam_cloud_params,  ONLY: ctaus, ctaul, ctauk !, ncctop, nccbot
   USE mo_radiation,           ONLY: radiation, radheat
   USE mo_radiation_nml,       ONLY: tsi, izenith
+  USE mo_vdiff_config,        ONLY: vdiff_config
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
   USE mo_vdiff_upward_sweep,  ONLY: vdiff_up
   USE mo_vdiff_solver,        ONLY: nvar_vdiff, nmatrix,        &
@@ -527,7 +528,9 @@ CONTAINS
     IF (echam_phy_config%lvdiff) THEN
       IF (ltimer) CALL timer_start(timer_vdiff)
 
-      CALL vdiff_down( jce, nbdim, nlev, nlevm1, nlevp1,&! in
+      CALL vdiff_down( vdiff_config%lsfc_mom_flux,      &! in
+                     & vdiff_config%lsfc_heat_flux,     &! in
+                     & jce, nbdim, nlev, nlevm1, nlevp1,&! in
                      & ntrac, nsfc_type,                &! in
                      & iwtr, iice, ilnd,                &! in, indices of different surface types
                      & psteplen,                        &! in, time step (2*dt if leapfrog)
