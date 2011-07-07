@@ -104,7 +104,7 @@ CONTAINS
     INTEGER :: jg, jlev
     INTEGER :: nlev              !< number of full levels
     CHARACTER(LEN=filename_max) :: gridtype, outputfile
-    CHARACTER(LEN=filename_max) :: gridfile(max_dom)
+    CHARACTER(LEN=filename_max) :: grid_filename
 
     IF(.NOT.lclose) THEN
 
@@ -128,24 +128,24 @@ CONTAINS
         ! Grid file name(s) for input
         !
         ! Allow file names without "DOM" specifier if n_dom=1.
-        IF (n_dom == 1) THEN
-          ! Check if file name without "DOM" specifier exists.
-          WRITE (gridfile(jg),'(a,a,i0,a,i2.2,a)') &
-            &    TRIM(gridtype),'R',nroot,'B',jlev,'-grid.nc'
-          INQUIRE (FILE=gridfile(jg), EXIST=l_omit_dom)
-          ! Otherwise use file name with "DOM" specifier
-          IF (.NOT. l_omit_dom)                                            &
-            &    WRITE (gridfile(jg),'(a,a,i0,2(a,i2.2),a)')                &
-            &    TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
-        ELSE
-          ! n_dom >1 --> "'_DOM',jg" required in file name
-          WRITE (gridfile(jg),'(a,a,i0,2(a,i2.2),a)') &
-            &    TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
-        ENDIF
+!         IF (n_dom == 1) THEN
+!           ! Check if file name without "DOM" specifier exists.
+!           WRITE (gridfile(jg),'(a,a,i0,a,i2.2,a)') &
+!             &    TRIM(gridtype),'R',nroot,'B',jlev,'-grid.nc'
+!           INQUIRE (FILE=gridfile(jg), EXIST=l_omit_dom)
+!           ! Otherwise use file name with "DOM" specifier
+!           IF (.NOT. l_omit_dom)                                            &
+!             &    WRITE (gridfile(jg),'(a,a,i0,2(a,i2.2),a)')                &
+!             &    TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
+!         ELSE
+!           ! n_dom >1 --> "'_DOM',jg" required in file name
+!           WRITE (gridfile(jg),'(a,a,i0,2(a,i2.2),a)') &
+!             &    TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
+!         ENDIF
 
         ! Set up vlist for this grid level
         ! Please note: setup_vlist only sets up the vlist, it does not open any output file!
-
+       
         IF(iequations /= ihs_ocean) CALL setup_vlist( TRIM(p_patch(jg)%grid_filename), jg )
 
       ENDDO
@@ -166,39 +166,44 @@ CONTAINS
 
       jlev = p_patch(jg)%level
       nlev = p_patch(jg)%nlev
-
+      grid_filename = get_filename_noext(p_patch(jg)%grid_filename)
       ! Raw data file name(s) for output
       !
-      SELECT CASE (iequations)
-        !
-      CASE (ishallow_water)
-        IF (l_omit_dom) THEN
-          WRITE (outputfile,'(a,a,i0,a,i2.2,a,i4.4,a)')  &
-            &  TRIM(out_expname), '_R', nroot, 'B', jlev, '_', jfile, '.nc'
-        ELSE
-          WRITE (outputfile,'(a,a,i2.2,a,i0,a,i2.2,a,i4.4,a)')  &
-            &  TRIM(out_expname), '_DOM', jg, '_R', nroot, 'B', jlev, '_', jfile, '.nc'
-        END IF
-        !
-      CASE (ihs_atm_temp, ihs_atm_theta, inh_atmosphere)
-        IF (l_omit_dom) THEN
-          WRITE (outputfile,'(a,a,i0,a,i2.2,a,i0,a,i4.4,a)')  &
-            &  TRIM(out_expname), '_R', nroot, 'B', jlev, 'L', nlev, '_', jfile, '.nc'
-        ELSE
-          WRITE (outputfile,'(a,a,i2.2,a,i0,a,i2.2,a,i0,a,i4.4,a)')  &
-            &  TRIM(out_expname), '_DOM', jg, '_R', nroot, 'B', jlev, 'L', nlev, '_', jfile, '.nc'
-        END IF
-      CASE (ihs_ocean)
-        WRITE (outputfile,'(a,a,i0,a,i2.2,a,i0,a,i4.4,a)')  &
-          &  TRIM(out_expname), '_O.R', nroot, 'B', jlev, 'L', n_zlev, '_', jfile, '.nc'
-        WRITE(*,'(a,a)') ' control_model: Initial output file for setup_vlist_oce is ', &
-          &              TRIM(outputfile)
-        !
-      CASE DEFAULT
-        CALL finish(modname,'Unsupported value of iequations in init_output_files')
-        !
-      END SELECT
+      WRITE (outputfile,'(a,a,i4.4,a)')  &
+        &  TRIM(out_expname), TRIM(grid_filename),'_', jfile, '.nc'
+      
+!       SELECT CASE (iequations)
+!         !
+!       CASE (ishallow_water)
+!         IF (l_omit_dom) THEN
+!           WRITE (outputfile,'(a,a,i0,a,i2.2,a,i4.4,a)')  &
+!             &  TRIM(out_expname), '_R', nroot, 'B', jlev, '_', jfile, '.nc'
+!         ELSE
+!           WRITE (outputfile,'(a,a,i2.2,a,i0,a,i2.2,a,i4.4,a)')  &
+!             &  TRIM(out_expname), '_DOM', jg, '_R', nroot, 'B', jlev, '_', jfile, '.nc'
+!         END IF
+!         !
+!       CASE (ihs_atm_temp, ihs_atm_theta, inh_atmosphere)
+!         IF (l_omit_dom) THEN
+!           WRITE (outputfile,'(a,a,i0,a,i2.2,a,i0,a,i4.4,a)')  &
+!             &  TRIM(out_expname), '_R', nroot, 'B', jlev, 'L', nlev, '_', jfile, '.nc'
+!         ELSE
+!           WRITE (outputfile,'(a,a,i2.2,a,i0,a,i2.2,a,i0,a,i4.4,a)')  &
+!             &  TRIM(out_expname), '_DOM', jg, '_R', nroot, 'B', jlev, 'L', nlev, '_', jfile, '.nc'
+!         END IF
+!       CASE (ihs_ocean)
+!         WRITE (outputfile,'(a,a,i0,a,i2.2,a,i0,a,i4.4,a)')  &
+!           &  TRIM(out_expname), '_O.R', nroot, 'B', jlev, 'L', n_zlev, '_', jfile, '.nc'
+!         WRITE(*,'(a,a)') ' control_model: Initial output file for setup_vlist_oce is ', &
+!           &              TRIM(outputfile)
+!         !
+!       CASE DEFAULT
+!         CALL finish(modname,'Unsupported value of iequations in init_output_files')
+!         !
+!       END SELECT
 
+      WRITE(0,'(a,a)') ' Initial output file for setup_vlist is ', &
+          &              TRIM(outputfile)
       IF (iequations == ihs_ocean) THEN
         ! #slo# must be aligned with general output
         CALL setup_vlist_oce( p_patch(1:), TRIM(p_patch(jg)%grid_filename), TRIM(outputfile), jg )
