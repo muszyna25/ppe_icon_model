@@ -427,6 +427,7 @@ SUBROUTINE allocate_patch(p_patch)
   ! - n_patch_verts_g
   ! - max_childdom
 
+  p_patch%cell_type = global_cell_type
   max_childdom = p_patch%max_childdom
 
   !
@@ -441,13 +442,13 @@ SUBROUTINE allocate_patch(p_patch)
   ALLOCATE( p_patch%cells%child_blk(nproma,p_patch%nblks_c,4) )
   ALLOCATE( p_patch%cells%child_id(nproma,p_patch%nblks_c) )
   ALLOCATE( p_patch%cells%phys_id(nproma,p_patch%nblks_c) )
-  ALLOCATE( p_patch%cells%neighbor_idx(nproma,p_patch%nblks_c,global_cell_type) )
-  ALLOCATE( p_patch%cells%neighbor_blk(nproma,p_patch%nblks_c,global_cell_type) )
-  ALLOCATE( p_patch%cells%edge_idx(nproma,p_patch%nblks_c,global_cell_type) )
-  ALLOCATE( p_patch%cells%edge_blk(nproma,p_patch%nblks_c,global_cell_type) )
-  ALLOCATE( p_patch%cells%vertex_idx(nproma,p_patch%nblks_c,global_cell_type) )
-  ALLOCATE( p_patch%cells%vertex_blk(nproma,p_patch%nblks_c,global_cell_type) )
-  ALLOCATE( p_patch%cells%edge_orientation(nproma,p_patch%nblks_c,global_cell_type) )
+  ALLOCATE( p_patch%cells%neighbor_idx(nproma,p_patch%nblks_c,p_patch%cell_type) )
+  ALLOCATE( p_patch%cells%neighbor_blk(nproma,p_patch%nblks_c,p_patch%cell_type) )
+  ALLOCATE( p_patch%cells%edge_idx(nproma,p_patch%nblks_c,p_patch%cell_type) )
+  ALLOCATE( p_patch%cells%edge_blk(nproma,p_patch%nblks_c,p_patch%cell_type) )
+  ALLOCATE( p_patch%cells%vertex_idx(nproma,p_patch%nblks_c,p_patch%cell_type) )
+  ALLOCATE( p_patch%cells%vertex_blk(nproma,p_patch%nblks_c,p_patch%cell_type) )
+  ALLOCATE( p_patch%cells%edge_orientation(nproma,p_patch%nblks_c,p_patch%cell_type) )
   ALLOCATE( p_patch%cells%center(nproma,p_patch%nblks_c) )
   ALLOCATE( p_patch%cells%area(nproma,p_patch%nblks_c) )
   ALLOCATE( p_patch%cells%f_c(nproma,p_patch%nblks_c) )
@@ -518,13 +519,13 @@ SUBROUTINE allocate_patch(p_patch)
   !
   ALLOCATE( p_patch%verts%idx(nproma,p_patch%nblks_v) )
   ALLOCATE( p_patch%verts%blk(nproma,p_patch%nblks_v) )
-  ALLOCATE( p_patch%verts%neighbor_idx(nproma,p_patch%nblks_v,9-global_cell_type) )
-  ALLOCATE( p_patch%verts%neighbor_blk(nproma,p_patch%nblks_v,9-global_cell_type) )
-  ALLOCATE( p_patch%verts%cell_idx(nproma,p_patch%nblks_v,9-global_cell_type) )
-  ALLOCATE( p_patch%verts%cell_blk(nproma,p_patch%nblks_v,9-global_cell_type) )
-  ALLOCATE( p_patch%verts%edge_idx(nproma,p_patch%nblks_v,9-global_cell_type) )
-  ALLOCATE( p_patch%verts%edge_blk(nproma,p_patch%nblks_v,9-global_cell_type) )
-  ALLOCATE( p_patch%verts%edge_orientation(nproma,p_patch%nblks_v,9-global_cell_type) )
+  ALLOCATE( p_patch%verts%neighbor_idx(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
+  ALLOCATE( p_patch%verts%neighbor_blk(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
+  ALLOCATE( p_patch%verts%cell_idx(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
+  ALLOCATE( p_patch%verts%cell_blk(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
+  ALLOCATE( p_patch%verts%edge_idx(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
+  ALLOCATE( p_patch%verts%edge_blk(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
+  ALLOCATE( p_patch%verts%edge_orientation(nproma,p_patch%nblks_v,9-p_patch%cell_type) )
   ALLOCATE( p_patch%verts%num_edges(nproma,p_patch%nblks_v) )
   ALLOCATE( p_patch%verts%vertex(nproma,p_patch%nblks_v) )
   ALLOCATE( p_patch%verts%dual_area(nproma,p_patch%nblks_v) )
@@ -627,7 +628,9 @@ IF (PRESENT(patch_file)) THEN
   p_patch%grid_filename=patch_file
 ENDIF
 
-p_patch%cell_type = global_cell_type
+! this should be read into
+!  at the moment is filled in the patch allocation
+! p_patch%cell_type = global_cell_type
   
 CALL message ('mo_model_domimp_patches:read_patch', 'start to init patch')
 
