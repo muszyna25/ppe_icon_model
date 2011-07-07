@@ -499,7 +499,9 @@ CONTAINS
     global_mpi_size  = 0        ! total number of processes in global world
     my_global_mpi_id = 0        ! process id in global world
     is_global_parallel = .false.
+#ifdef _OPENMP
     global_no_of_threads = 1
+#endif
     
     ! create communicator for this process alone before
     ! potentially joining MPI2
