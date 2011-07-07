@@ -148,8 +148,7 @@ MODULE mo_io_vlist
     &                               igrad_c_miura, iadv_slev, lstrang,          &
     &                               upstr_beta_adv
   USE mo_echam_conv_config,   ONLY: echam_conv_config
-  USE mo_echam_conv_nml,      ONLY: lmfpen, lmfmid, lmfscv, lmfdd,  lmfdudv,    &
-    &                               cmftau, cmfctop, cprcon,             &
+  USE mo_echam_conv_nml,      ONLY: cmftau, cmfctop, cprcon,             &
     &                               cminbuoy, entrpen, dlev, entrmid, entrscv,  &
     &                               entrdd, cmfdeps
 !!$  USE mo_gw_hines_nml,        ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
@@ -713,11 +712,11 @@ CONTAINS
         !!! Parameters of /echam_conv_ctl/
         !---------------------------------
         IF ( get_lconv() ) THEN
-           CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfpen',lmfpen,vlistID(k_jg),astatus)
-           CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfmid',lmfmid,vlistID(k_jg),astatus)
-           CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfscv',lmfscv,vlistID(k_jg),astatus)
-           CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfdd',lmfdd,vlistID(k_jg),astatus)
-           CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfdudv',lmfdudv,vlistID(k_jg),astatus)
+           CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfpen',echam_conv_config%lmfpen,vlistID(k_jg),astatus)
+           CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfmid',echam_conv_config%lmfmid,vlistID(k_jg),astatus)
+           CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfscv',echam_conv_config%lmfscv,vlistID(k_jg),astatus)
+           CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfdd',echam_conv_config%lmfdd,vlistID(k_jg),astatus)
+           CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfdudv',echam_conv_config%lmfdudv,vlistID(k_jg),astatus)
            CALL addGlobAttInt('echam_conv_ctl:iconv',echam_conv_config%iconv,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:cmftau',cmftau,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:cmfdeps',cmfdeps,vlistID(k_jg),astatus)
@@ -810,7 +809,8 @@ CONTAINS
          !
          ELSEIF ( TRIM(ctest_name) == 'HS' ) THEN
             CALL addGlobAttInt('testcase_ctl:ihs_init_type',ihs_init_type,vlistID(k_jg),astatus)
-            CALL addGlobAttTxtFromLog('testcase_ctl:lhs_vn_ptb',lmfdd,vlistID(k_jg),astatus)
+            CALL addGlobAttTxtFromLog('testcase_ctl:lhs_vn_ptb', &
+                 echam_conv_config%lmfdd,vlistID(k_jg),astatus)
             CALL addGlobAttFlt('testcase_ctl:hs_vn_ptb_scale',   &
                       &        hs_vn_ptb_scale,vlistID(k_jg),astatus)
          !

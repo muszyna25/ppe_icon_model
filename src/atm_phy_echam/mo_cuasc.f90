@@ -49,7 +49,7 @@ MODULE mo_cuasc
 
 #ifdef __ICON__
   USE mo_physical_constants, ONLY : g=>grav, tmelt, vtmpc1, rv, rd, alv, als
-  USE mo_echam_conv_nml,     ONLY : lmfdudv, lmfmid, nmctop, cmfcmin, cprcon,      &
+  USE mo_echam_conv_nml,     ONLY : nmctop, cmfcmin, cprcon,      &
                                     cmfctop, centrmax, cbfac, cminbuoy, cmaxbuoy,  &
                                     dlev
   USE mo_echam_cloud_params, ONLY : csecfrl
@@ -64,7 +64,7 @@ MODULE mo_cuasc
   USE mo_control,            ONLY : nn, ltimer
   USE mo_constants,          ONLY : g, tmelt, vtmpc1, rv, rd, alv, als, cpd        &
                                   , vtmpc2, api, ak, rhoh2o
-  USE mo_cumulus_flux,       ONLY : lmfdudv, lmfmid, nmctop, cmfcmin, cprcon       &
+  USE mo_cumulus_flux,       ONLY : nmctop, cmfcmin, cprcon       &
                                   , cmfctop, centrmax, cbfac, cminbuoy, cmaxbuoy
   USE mo_cloud,              ONLY : cqtmin, crhosno, cn0s                          &
                                   , cthomi, csecfrl, ccsacl, clmax, clmin          &
@@ -92,7 +92,8 @@ MODULE mo_cuasc
 CONTAINS
   !>
   !!
-SUBROUTINE cuasc(  ncvmicro,  pdtime, ptime_step_len,                  &
+SUBROUTINE cuasc(  ncvmicro, lmfdudv, lmfmid,       &
+           pdtime, ptime_step_len,                  &
            kproma, kbdim, klev, klevp1, klevm1,                        &
            ptenh,    pqenh,    puen,     pven,                         &
            ktrac,                                                      &
@@ -156,6 +157,7 @@ SUBROUTINE cuasc(  ncvmicro,  pdtime, ptime_step_len,                  &
 !
 
 INTEGER, INTENT (IN) :: ncvmicro
+LOGICAL, INTENT (IN) :: lmfdudv, lmfmid
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, klevm1, ktrac
 REAL(dp),INTENT(IN) :: pdtime, ptime_step_len
 INTEGER :: jl, jk, jt, ik, icall, ikb, ikt, n, locnt
@@ -460,7 +462,7 @@ pmratesnow(1:kproma,:)=0._dp
 !
      ik=jk
      IF(lmfmid.AND.ik.LT.klevm1.AND.ik.GT.nmctop) THEN
-        CALL cubasmc(kproma, kbdim, klev, ik, klab,                    &
+        CALL cubasmc(lmfdudv,  kproma, kbdim, klev, ik, klab,                    &
                      pten,     pqen,     pqsen,    puen,     pven,     &
                      ktrac,                                            &
                      pxten,    pxtu,     pmfuxt,                       &

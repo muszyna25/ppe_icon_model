@@ -40,10 +40,10 @@ MODULE mo_cuddraf
   USE mo_cuadjtqi,           ONLY : cuadjtqi
 #ifdef __ICON__
   USE mo_physical_constants, ONLY : g=>grav, rd, vtmpc1
-  USE mo_echam_conv_nml,     ONLY : lmfdudv, cmfcmin, entrdd
+  USE mo_echam_conv_nml,     ONLY : cmfcmin, entrdd
 #else
   USE mo_constants,          ONLY : g, rd, vtmpc1
-  USE mo_cumulus_flux,       ONLY : lmfdudv, cmfcmin, entrdd
+  USE mo_cumulus_flux,       ONLY : cmfcmin, entrdd
 #endif
 
   IMPLICIT NONE
@@ -55,15 +55,16 @@ MODULE mo_cuddraf
 CONTAINS
   !>
   !!
-SUBROUTINE cuddraf(  ncvmicro, kproma, kbdim, klev, klevp1,            &
-           ptenh,    pqenh,    puen,     pven,                         &
-           ktrac,                                                      &
-           pxtenh,   pxtd,     pmfdxt,                                 &
-           pgeoh,    paphp1,   prfl,                                   &
-           ptd,      pqd,      pud,      pvd,                          &
-           pmfd,     pmfds,    pmfdq,    pdmfdp,                       &
-           pcpcu,                                                      &
-           lddraf,                                                     &
+SUBROUTINE cuddraf(  ncvmicro, lmfdudv,         &
+           kproma, kbdim, klev, klevp1,         &
+           ptenh,    pqenh,    puen,     pven,  &
+           ktrac,                               &
+           pxtenh,   pxtd,     pmfdxt,          &
+           pgeoh,    paphp1,   prfl,            &
+           ptd,      pqd,      pud,      pvd,   &
+           pmfd,     pmfds,    pmfdq,    pdmfdp,&
+           pcpcu,                               &
+           lddraf,                              &
 !-----------------------added by Junhua Zhang for Micro---------------
            plui)
 !-------------------------------------end-----------------------------
@@ -101,6 +102,7 @@ SUBROUTINE cuddraf(  ncvmicro, kproma, kbdim, klev, klevp1,            &
 !          (TIEDTKE,1989)
 !
 INTEGER, INTENT (IN) :: ncvmicro 
+LOGICAL, INTENT (IN) :: lmfdudv
 INTEGER, INTENT (IN) :: kbdim, klev, ktrac, kproma, klevp1
 !
 REAL(dp) :: ptenh(kbdim,klev),       pqenh(kbdim,klev),                &

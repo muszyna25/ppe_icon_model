@@ -40,10 +40,10 @@ MODULE mo_cudlfs
   USE mo_cuadjtqi,           ONLY : cuadjtqi
 #ifdef __ICON__
   USE mo_physical_constants, ONLY : vtmpc1
-  USE mo_echam_conv_nml,     ONLY : lmfdudv, lmfdd, cmfdeps
+  USE mo_echam_conv_nml,     ONLY : cmfdeps
 #else
   USE mo_constants,          ONLY : vtmpc1
-  USE mo_cumulus_flux,       ONLY : lmfdudv, lmfdd, cmfdeps
+  USE mo_cumulus_flux,       ONLY : cmfdeps
 #endif
 
   IMPLICIT NONE
@@ -55,17 +55,18 @@ MODULE mo_cudlfs
 CONTAINS
   !>
   !!
-SUBROUTINE cudlfs(   ncvmicro, kproma, kbdim, klev, klevp1,            &
-           ptenh,    pqenh,    puen,     pven,                         &
-           ktrac,                                                      &
-           pxtenh,   pxtu,     pxtd,     pmfdxt,                       &
-           pgeoh,    paphp1,                                           &
-           ptu,      pqu,      puu,      pvu,                          &
-           ldcum,    kcbot,    kctop,    pmfub,    prfl,               &
-           ptd,      pqd,      pud,      pvd,                          &
-           pmfd,     pmfds,    pmfdq,    pdmfdp,                       &
-           pcpcu,                                                      &
-           kdtop,    lddraf,                                           &
+SUBROUTINE cudlfs(   ncvmicro, lmfdudv,  lmfdd,          &
+           kproma, kbdim, klev, klevp1,                  &
+           ptenh,    pqenh,    puen,     pven,           &
+           ktrac,                                        &
+           pxtenh,   pxtu,     pxtd,     pmfdxt,         &
+           pgeoh,    paphp1,                             &
+           ptu,      pqu,      puu,      pvu,            &
+           ldcum,    kcbot,    kctop,    pmfub,    prfl, &
+           ptd,      pqd,      pud,      pvd,            &
+           pmfd,     pmfds,    pmfdq,    pdmfdp,         &
+           pcpcu,                                        &
+           kdtop,    lddraf,                             &
 !-----------------------added by Junhua Zhang for Micro---------------
            plui)
 !-------------------------------------end-----------------------------
@@ -98,6 +99,7 @@ SUBROUTINE cudlfs(   ncvmicro, kproma, kbdim, klev, klevp1,            &
 !          *CUADJTQ* FOR CALCULATING WET BULB T AND Q AT LFS
 !
 INTEGER, INTENT (IN) :: ncvmicro
+LOGICAL, INTENT (IN) :: lmfdudv, lmfdd 
 INTEGER, INTENT (IN) :: kbdim, klev, ktrac, kproma, klevp1
 REAL(dp) :: ptenh(kbdim,klev),       pqenh(kbdim,klev),                &
             puen(kbdim,klev),        pven(kbdim,klev),                 &

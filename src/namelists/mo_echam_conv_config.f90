@@ -50,7 +50,6 @@ MODULE mo_echam_conv_config
     ! Namelist variables
 
     INTEGER :: iconv        !< 1,2,3 for different convection schemes
-    LOGICAL :: lconvmassfix !< aerosol mass fixer in convection
     INTEGER :: ncvmicro     !< 0 or 1. Scheme for convective microphysics
   
     LOGICAL :: lmfpen    !< true when penetrative convection is switched on
@@ -70,7 +69,8 @@ MODULE mo_echam_conv_config
     REAL(wp) :: dlev     !< "zdlev" in subroutine "cuasc". Critical thickness (unit: Pa)
                          !< necessary for the onset of convective precipitation
   
-   !INTEGER :: nauto        !< 1 or 2. autoconversion scheme
+    !INTEGER :: nauto        !< 1 or 2. autoconversion scheme
+    !LOGICAL :: lconvmassfix !< aerosol mass fixer in convection
 
     ! Dependent variables
   

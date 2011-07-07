@@ -46,12 +46,11 @@ MODULE mo_cumastr
 
 #ifdef __ICON__
   USE mo_physical_constants,  ONLY: g=>grav, alv, als, tmelt, vtmpc1, rd
-  USE mo_echam_conv_nml,      ONLY: lmfdd, lmfdudv,                  &
-                                  & entrpen, entrscv, cmfdeps, cmftau
+  USE mo_echam_conv_nml,      ONLY: entrpen, entrscv, cmfdeps, cmftau
 #else
   USE mo_control,             ONLY: nn
   USE mo_constants,           ONLY: g, alv, als, tmelt, vtmpc1, rd
-  USE mo_cumulus_flux,        ONLY: entrpen, entrscv, lmfdd, cmfdeps, lmfdudv
+  USE mo_cumulus_flux,        ONLY: entrpen, entrscv, cmfdeps
   USE mo_tracer_processes,    ONLY: xt_conv_massfix
 #endif
 
@@ -80,7 +79,7 @@ MODULE mo_cumastr
 CONTAINS
   !>
   !!
-  SUBROUTINE cumastr(  ncvmicro, &
+  SUBROUTINE cumastr(  ncvmicro, lmfdudv, lmfdd, lmfmid, &
                        pdtime, ptime_step_len,                            &
                        kproma, kbdim, klev, klevp1, klevm1, ilab,         &
 !!$                       krow,                                              &
@@ -187,6 +186,7 @@ CONTAINS
 !
 !
 INTEGER, INTENT (IN) :: ncvmicro
+LOGICAL, INTENT (IN) :: lmfdudv, lmfdd, lmfmid 
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, ktrac, klevm1
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
 !!$INTEGER, INTENT (IN) :: krow
@@ -337,7 +337,7 @@ INTRINSIC MIN, MAX
 !*             (A) DETERMINE CLOUD BASE VALUES IN 'CUBASE'
 !                  ---------------------------------------
 !
-  CALL cubase(kproma, kbdim, klev, klevp1, klevm1,                     &
+  CALL cubase(lmfdudv,  kproma, kbdim, klev, klevp1, klevm1,           &
               ztenh,    zqenh,    zgeoh,    paphp1,    pthvsig,        &
               ptu,      pqu,      plu,                                 &
               puen,     pven,     zuu,      zvu,                       &
@@ -579,7 +579,8 @@ INTRINSIC MIN, MAX
 !
   icuasc=1
 !
-  CALL cuasc(ncvmicro, pdtime, ptime_step_len,                         &
+  CALL cuasc(ncvmicro, lmfdudv,  lmfmid,                               &
+             pdtime, ptime_step_len,                                   &
              kproma, kbdim, klev, klevp1, klevm1,                      &
              ztenh,    zqenh,    puen,     pven,                       &
              ktrac,                                                    &
@@ -645,7 +646,7 @@ INTRINSIC MIN, MAX
 !*             (A) DETERMINE LFS IN 'CUDLFS'
 !                  -------------------------
 !
-     CALL cudlfs(ncvmicro, kproma,   kbdim,    klev,     klevp1,       &
+     CALL cudlfs(ncvmicro, lmfdudv, lmfdd, kproma,kbdim, klev, klevp1, &
                  ztenh,    zqenh,    puen,     pven,                   &
                  ktrac,                                                &
                  zxtenh,   pxtu,     zxtd,     zmfdxt,                 &
@@ -660,7 +661,7 @@ INTRINSIC MIN, MAX
 !*            (B)  DETERMINE DOWNDRAFT T,Q AND FLUXES IN 'CUDDRAF'
 !                  -----------------------------------------------
 !
-     CALL cuddraf(ncvmicro, kproma,   kbdim,    klev,     klevp1,      &
+     CALL cuddraf(ncvmicro, lmfdudv,  kproma,   kbdim,  klev, klevp1,  &
                   ztenh,    zqenh,    puen,     pven,                  &
                   ktrac,                                               &
                   zxtenh,   zxtd,     zmfdxt,                          &
@@ -875,7 +876,7 @@ INTRINSIC MIN, MAX
   icuasc=2
 !
 !600 CONTINUE
-  CALL cuasc(ncvmicro, pdtime, ptime_step_len,                         &
+  CALL cuasc(ncvmicro, lmfdudv, lmfmid, pdtime, ptime_step_len,        &
              kproma, kbdim, klev, klevp1, klevm1,                      &
              ztenh,    zqenh,    puen,     pven,                       &
              ktrac,                                                    &

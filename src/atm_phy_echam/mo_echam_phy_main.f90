@@ -771,6 +771,9 @@ CONTAINS
 
       CALL cucall( echam_conv_config%ncvmicro,&! in
         &          echam_conv_config%iconv,   &! in
+        &          echam_conv_config%lmfdudv, &! in
+        &          echam_conv_config%lmfdd,   &! in
+        &          echam_conv_config%lmfmid,  &! in
         &          jce, nbdim, nlev, nlevp1, nlevm1,   &! in
         &          ntrac,                     &! in     tracers
 !0      &          jb,                        &! in     row index

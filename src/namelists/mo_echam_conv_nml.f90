@@ -57,7 +57,6 @@ MODULE mo_echam_conv_nml
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC  :: lmfpen,lmfmid,lmfscv,lmfdd,lmfdudv     !< parameters
   PUBLIC  :: cmftau,cmfdeps,cmfcmin,cmfcmax,cmfctop !< parameters
   PUBLIC  :: centrmax,cbfac,cminbuoy,cmaxbuoy       !< parameters
   PUBLIC  :: entrpen,entrmid,entrscv,entrdd         !< parameters
@@ -77,11 +76,11 @@ MODULE mo_echam_conv_nml
   INTEGER :: nml_ncvmicro     !< 0 or 1. Scheme for convective microphysics
   INTEGER :: nml_iconv        !< 1,2,3 for different convection schemes
 
-  LOGICAL :: lmfpen    !< true when penetrative convection is switched on
-  LOGICAL :: lmfmid    !< true when midlevel    convection is switched on
-  LOGICAL :: lmfscv    !< true when shallow     convection is switched on
-  LOGICAL :: lmfdd     !< true when cumulus downdraft      is switched on
-  LOGICAL :: lmfdudv   !< true when cumulus friction       is switched on
+  LOGICAL :: nml_lmfpen    !< true when penetrative convection is switched on
+  LOGICAL :: nml_lmfmid    !< true when midlevel    convection is switched on
+  LOGICAL :: nml_lmfscv    !< true when shallow     convection is switched on
+  LOGICAL :: nml_lmfdd     !< true when cumulus downdraft      is switched on
+  LOGICAL :: nml_lmfdudv   !< true when cumulus friction       is switched on
 
   REAL(wp) :: dlev     !< "zdlev" in subroutine "cuasc". Critical thickness (unit: Pa)
                        !< necessary for the onset of convective precipitation
@@ -116,11 +115,12 @@ MODULE mo_echam_conv_nml
  !INTEGER :: nml_nauto        !< 1 or 2. autoconversion scheme
  !LOGICAL :: nml_lconvmassfix !< aerosol mass fixer in convection
 
-  NAMELIST/echam_conv_ctl/ nml_ncvmicro, nml_iconv,        &
-    &                      lmfpen,lmfmid,lmfscv,lmfdd,lmfdudv,      &
-    &                      cmftau,cmfctop,cprcon,cmfdeps,cminbuoy,  &
-    &                      entrpen, entrmid,entrscv,entrdd,dlev
-   !&                      nml_nauto, nml_lconvmassfix
+  NAMELIST/echam_conv_ctl/ nml_ncvmicro, nml_iconv,          &
+                           nml_lmfpen,nml_lmfmid,nml_lmfscv, &
+                           nml_lmfdd, nml_lmfdudv,           &
+                           cmftau,cmfctop,cprcon,cmfdeps,cminbuoy,  &
+                           entrpen, entrmid,entrscv,entrdd,dlev
+                         ! nml_nauto, nml_lconvmassfix
 
 CONTAINS
   !>
@@ -136,11 +136,11 @@ CONTAINS
 
     nml_ncvmicro     = 0
     nml_iconv        = 1
-    lmfpen       = .TRUE.
-    lmfmid       = .TRUE.
-    lmfscv       = .TRUE.
-    lmfdd        = .TRUE.
-    lmfdudv      = .TRUE.
+    nml_lmfpen       = .TRUE.
+    nml_lmfmid       = .TRUE.
+    nml_lmfscv       = .TRUE.
+    nml_lmfdd        = .TRUE.
+    nml_lmfdudv      = .TRUE.
     cmftau       = 10800._wp  ! 3 hours
     cmfctop      = 0.3_wp
     cmfdeps      = 0.3_wp     ! Fractional massflux for downdrafts at lfs
@@ -194,6 +194,12 @@ CONTAINS
     !-----------------------------------------------------
     echam_conv_config% iconv    = nml_iconv
     echam_conv_config% ncvmicro = nml_ncvmicro
+    echam_conv_config% lmfpen   = nml_lmfpen
+    echam_conv_config% lmfmid   = nml_lmfmid
+    echam_conv_config% lmfscv   = nml_lmfscv
+    echam_conv_config% lmfdd    = nml_lmfdd
+    echam_conv_config% lmfdudv  = nml_lmfdudv
+
    !echam_conv_config% lconvmassfix = nml_lconvmassfix
    !echam_conv_config% nauto        = nml_nauto
 

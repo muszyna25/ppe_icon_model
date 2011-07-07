@@ -38,10 +38,10 @@ MODULE mo_cubasmc
   USE mo_kind,               ONLY : dp
 #ifdef __ICON__
   USE mo_physical_constants, ONLY : g=>grav
-  USE mo_echam_conv_nml,     ONLY : lmfdudv, entrmid, cmfcmin, cmfcmax
+  USE mo_echam_conv_nml,     ONLY : entrmid, cmfcmin, cmfcmax
 #else
   USE mo_constants,     ONLY : g
-  USE mo_cumulus_flux,  ONLY : lmfdudv, entrmid, cmfcmin, cmfcmax
+  USE mo_cumulus_flux,  ONLY : entrmid, cmfcmin, cmfcmax
 #endif
 
   IMPLICIT NONE
@@ -53,7 +53,8 @@ MODULE mo_cubasmc
 CONTAINS
   !>
   !!
-SUBROUTINE cubasmc(  kproma, kbdim, klev, kk, klab,                    &
+SUBROUTINE cubasmc(  lmfdudv, &
+           kproma, kbdim, klev, kk, klab,                              &
            pten,     pqen,     pqsen,    puen,     pven,               &
            ktrac,                                                      &
            pxten,    pxtu,     pmfuxt,                                 &
@@ -90,6 +91,7 @@ SUBROUTINE cubasmc(  kproma, kbdim, klev, kk, klab,                    &
 !          NONE
 !
 !
+LOGICAL, INTENT (IN) :: lmfdudv
 INTEGER, INTENT (IN) :: kbdim, klev, ktrac, kproma, kk
 REAL(dp) :: pten(kbdim,klev),        pqen(kbdim,klev),                 &
             puen(kbdim,klev),        pven(kbdim,klev),                 &
