@@ -48,7 +48,7 @@ USE mo_math_utilities,            ONLY: t_cartesian_coordinates!, gc2cc
 USE mo_impl_constants,            ONLY: sea_boundary, sea,&
   &                                     min_rlcell, min_rledge, min_rlcell, &
   &                                     max_char_length
-USE mo_ocean_nml,                 ONLY: n_zlev, toplev, no_tracer, idisc_scheme,    &
+USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, idisc_scheme,    &
                                     &   ab_const, ab_gam, expl_vertical_tracer_diff,&
                                     &   iswm_oce
 USE mo_parallel_configuration,  ONLY: nproma
