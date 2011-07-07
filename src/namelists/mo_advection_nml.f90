@@ -747,7 +747,9 @@ CONTAINS
   SUBROUTINE read_transport_namelist
     !
     INTEGER :: istat, funit
-    INTEGER :: jg           ! loop index
+    INTEGER :: jg          !< patch loop index
+    INTEGER :: jt          !< tracer loop index
+    INTEGER :: z_nogo(2)   !< for consistency check
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_advection_nml: read_transport_nml'
@@ -758,14 +760,20 @@ CONTAINS
     ! 1. default settings   !
     !-----------------------!
     ctracer_list = ''
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      ihadv_tracer(:) = imiura    ! miura horizontal advection scheme
-      itype_hlimit(:) = ifluxl_m  ! monotonous flux limiter
-    CASE (6)
-      ihadv_tracer(:) = iup3      ! 3rd order upwind horizontal advection scheme
-      itype_hlimit(:) = ifluxl_sm ! semi monotonous flux limiter
-    END SELECT
+    ihadv_tracer(:) = imiura    ! miura horizontal advection scheme
+    itype_hlimit(:) = ifluxl_m  ! monotonous flux limiter
+
+!DR special settings for global_cell_type=6 will be done during the 
+!DR crosscheck. At this point it is important to get rid of any 
+!DR dependencies. 
+!DR    SELECT CASE (global_cell_type)
+!DR    CASE (3)
+!DR      ihadv_tracer(:) = imiura    ! miura horizontal advection scheme
+!DR      itype_hlimit(:) = ifluxl_m  ! monotonous flux limiter
+!DR    CASE (6)
+!DR      ihadv_tracer(:) = iup3      ! 3rd order upwind horizontal advection scheme
+!DR      itype_hlimit(:) = ifluxl_sm ! semi monotonous flux limiter
+!DR    END SELECT
     ivadv_tracer(:) = ippm_vcfl   ! PPM vertical advection scheme
     itype_vlimit(:) = islopel_vsm ! semi-monotonous slope limiter
     ivcfl_max       = 5           ! CFL-stability range for vertical advection
@@ -784,6 +792,7 @@ CONTAINS
                                   ! the derived variables-section since it 
                                   ! is not part of our namelist
 
+
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
@@ -793,6 +802,7 @@ CONTAINS
       READ(funit,NML=transport_ctl)
       CALL close_tmpfile(funit)
     END IF
+
 
 
     !--------------------------------------------------------------------
@@ -805,8 +815,55 @@ CONTAINS
     END SELECT
 
 
+
     !----------------------------------------------------
-    ! 4. Fill the configuration state
+    ! 4. Sanity check
+    !----------------------------------------------------
+
+
+    ! flux compuation methods - sanity check
+    !
+    IF ( ANY(ihadv_tracer(1:ntracer) > 4) .OR.                    &
+      &  ANY(ihadv_tracer(1:ntracer) < 0))            THEN
+      CALL finish( TRIM(routine),                                       &
+           'incorrect settings for ihadv_tracer. Must be 0,1,2,3, or 4 ')
+    ENDIF
+    IF ( ANY(ivadv_tracer(1:ntracer) > ippm_v) .OR.                     &
+      &  ANY(ivadv_tracer(1:ntracer) < 0)) THEN
+      CALL finish( TRIM(routine),                                       &
+           'incorrect settings for ivadv_tracer. Must be 0,1,2,3,20, or 30 ')
+    ENDIF
+    z_nogo(1) = islopel_sm
+    z_nogo(2) = islopel_m
+    DO jt=1,max_ntracer
+      IF ( ihadv_tracer(jt) == imiura3 .AND. ANY( z_nogo == itype_hlimit(jt)) ) THEN
+        CALL finish( TRIM(routine),                                     &
+         'incorrect settings for MIURA3. No slope limiter available ')
+      ENDIF
+    END DO
+    IF (upstr_beta_adv > 1.0_wp .OR. upstr_beta_adv < 0.0_wp) THEN
+      CALL finish( TRIM(routine),                                       &
+           'incorrect settings for upstr_beta_adv. Must be in [0,1] ')
+    ENDIF
+
+
+    ! limiter - sanity check
+    !
+    IF ( ANY(itype_vlimit(1:ntracer) < inol_v ) .OR.                    &
+      &  ANY(itype_vlimit(1:ntracer) > ifluxl_vpd)) THEN
+      CALL finish( TRIM(routine),                                       &
+       'incorrect settings for itype_vlimit. Must be 0,1,2 or 4 ')
+    ENDIF
+    IF ( ANY(itype_hlimit(1:ntracer) < inol ) .OR.                      &
+      &  ANY(itype_hlimit(1:ntracer) > ifluxl_sm)) THEN
+      CALL finish( TRIM(routine),                                       &
+       'incorrect settings for itype_hlimit. Must be 0,1,2,3 or 4 ')
+    ENDIF
+
+
+
+    !----------------------------------------------------
+    ! 5. Fill the configuration state
     !----------------------------------------------------
 
     DO jg= 1,max_dom
@@ -825,15 +882,17 @@ CONTAINS
       advection_config(jg)%upstr_beta_adv = upstr_beta_adv
     ENDDO
 
+
+
     !-----------------------------------------------------
-    ! 5. Store the namelist for restart
+    ! 6. Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
     WRITE(funit,NML=transport_ctl)                    
     CALL store_and_close_namelist(funit, 'transport_ctl')             
 
 
-    ! 6. write the contents of the namelist to an ASCII file
+    ! 7. write the contents of the namelist to an ASCII file
     !
     IF(p_pe == p_io) WRITE(nnml_output,nml=transport_ctl)
 

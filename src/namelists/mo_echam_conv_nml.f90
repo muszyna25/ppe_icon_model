@@ -49,6 +49,7 @@ MODULE mo_echam_conv_nml
   USE mo_master_nml,          ONLY: lrestart
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &
                                   & open_and_restore_namelist, close_tmpfile
+  USE mo_exception,           ONLY: finish
  !USE mo_exception,           ONLY: print_value,message,message_text,finish
  !USE mo_run_nml,             ONLY: nlev,nlevp1,nvclev
  !USE mo_physical_constants,  ONLY: grav

@@ -36,7 +36,8 @@ MODULE mo_time_nml
 
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: max_char_length
-  USE mo_datetime,           ONLY: proleptic_gregorian, t_datetime
+  USE mo_datetime,           ONLY: proleptic_gregorian, t_datetime, &
+    &                              date_to_time, string_to_datetime
   USE mo_time_config,        ONLY: time_config
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_master_nml,         ONLY: lrestart
