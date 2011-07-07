@@ -162,8 +162,8 @@ CONTAINS
     ! read namelists
 
     CALL read_time_namelist()
-    CALL read_grid_namelist()
-    CALL read_parallel_namelist()
+    CALL read_parallel_namelist()  ! reads AND fills parallel configure
+    CALL read_grid_namelist()      ! reads AND fills grid configure
     
     CALL read_run_namlist()
 
