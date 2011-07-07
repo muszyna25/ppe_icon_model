@@ -44,6 +44,7 @@ MODULE mo_interpol_nml
   USE mo_namelist,            ONLY: position_nml, POSITIONED
   USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH
   USE mo_master_nml,          ONLY: lrestart
+  USE mo_interpol_config,     ONLY: interpol_config
   USE mo_grid_configuration,  ONLY: global_cell_type
   USE mo_intp_data_strc,      ONLY: t_lsq_set, sick_a, sick_o
   USE mo_kind,                ONLY: wp
@@ -447,6 +448,7 @@ END SUBROUTINE interpol_nml_setup !CJ setup_interpol
   SUBROUTINE read_interpol_namelist
     !
     INTEGER :: istat, funit
+    INTEGER :: jg           ! loop index
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_interpol_nml: read_interpol_namelist'
@@ -514,6 +516,22 @@ END SUBROUTINE interpol_nml_setup !CJ setup_interpol
     !----------------------------------------------------
     ! 4. Fill the configuration state
     !----------------------------------------------------
+    DO jg = 1,max_dom
+      interpol_config(jg)%llsq_high_consv   = llsq_high_consv
+      interpol_config(jg)%lsq_high_ord      = lsq_high_ord 
+      interpol_config(jg)%rbf_vec_kern_c    = rbf_vec_kern_c 
+      interpol_config(jg)%rbf_vec_scale_c   = rbf_vec_scale_c(jg)
+      interpol_config(jg)%rbf_vec_kern_v    = rbf_vec_kern_v
+      interpol_config(jg)%rbf_vec_scale_v   = rbf_vec_scale_v(jg)
+      interpol_config(jg)%rbf_vec_kern_e    = rbf_vec_kern_e
+      interpol_config(jg)%rbf_vec_scale_e   = rbf_vec_scale_e(jg)
+      interpol_config(jg)%i_cori_method     = i_cori_method
+      interpol_config(jg)%nudge_max_coeff   = nudge_max_coeff
+      interpol_config(jg)%nudge_efold_width = nudge_efold_width
+      interpol_config(jg)%nudge_zone_width  = nudge_zone_width
+      interpol_config(jg)%l_corner_vort     = l_corner_vort
+    ENDDO
+
 
 
     !-----------------------------------------------------

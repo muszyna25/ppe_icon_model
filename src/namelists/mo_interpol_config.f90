@@ -43,12 +43,13 @@
 !!
 MODULE mo_interpol_config
 
-  USE mo_kind,           ONLY: wp
-  USE mo_intp_data_strc, ONLY: t_lsq_set
+  USE mo_kind,                ONLY: wp
+  USE mo_intp_data_strc,      ONLY: t_lsq_set
+  USE mo_impl_constants,      ONLY: max_dom
 
   IMPLICIT NONE
 
-  PRIVATE
+  PUBLIC
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -119,6 +120,6 @@ MODULE mo_interpol_config
   END TYPE t_interpol_config
   !>
   !!
-  TYPE(t_interpol_config),ALLOCATABLE :: interpol_config(:) !< shape: (n_dom)
+  TYPE(t_interpol_config) :: interpol_config(max_dom)
 
 END MODULE mo_interpol_config
