@@ -64,7 +64,6 @@ MODULE mo_ocean_model
     & dt_diag,              & !    :
     & lprepare_output         ! internal parameter
   USE mo_run_nml,             ONLY: run_nml_setup,            & ! process run control parameters
-    & ini_datetime,         & !    namelist parameter
     & dtime,                & !    :
     & ltransport,           & !    :
     & lforcing,             & !    :
@@ -93,7 +92,7 @@ MODULE mo_ocean_model
   
   ! Horizontal grid
   !
-  USE mo_model_domain_import, ONLY: grid_nml_setup,          & ! process grid control parameters
+  USE mo_model_domain_import, ONLY: &!  grid_nml_setup,          & ! process grid control parameters
     & n_dom,                & !    :
     & n_dom_start,          & !    :
     & parent_id,            & !    :
@@ -125,6 +124,10 @@ MODULE mo_ocean_model
   
   USE mo_oce_forcing,         ONLY: t_ho_sfc_flx
   USE mo_oce_physics,         ONLY: t_ho_params, t_ho_physics
+
+  !-------------------------------------------------------------
+
+  USE mo_time_config, ONLY: time_config
 
   IMPLICIT NONE
   
@@ -184,7 +187,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! Initialize date and time
     !-------------------------------------------------------------------
-    datetime = ini_datetime
+    datetime = time_config%ini_datetime
     
     !-------------------------------------------------------------------
     ! step 2: import computational domain of the model
@@ -192,7 +195,7 @@ CONTAINS
     ! 2a) read namelist 'grid_ctl' from the namelist file (already
     !     opened above) and set up the grid/patch configuration.
     !-------------------------------------------------------------------
-    CALL grid_nml_setup
+  ! CALL grid_nml_setup
     
     !-------------------------------------------------------------------
     ! 2b) patch import
