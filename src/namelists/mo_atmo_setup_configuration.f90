@@ -127,6 +127,7 @@ MODULE mo_atmo_setup_configuration
   USE mo_io_restart_namelist,  ONLY: read_restart_namelists
   USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
 
+  USE mo_grid_nml,          ONLY : read_grid_namelist  ! reads AND fills grid configure
   
   IMPLICIT NONE
   
@@ -161,6 +162,8 @@ CONTAINS
     ! read namelists
 
     CALL read_time_namelist()
+    CALL read_grid_namelist()
+    
     CALL read_run_namlist()
     CALL read_parallel_namelist()
 
