@@ -61,6 +61,7 @@ MODULE mo_grid_nml
 
   PRIVATE
   PUBLIC :: read_grid_namelist, fill_grid_nml_configure
+  
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
   ! ------------------------------------------------------------------------
@@ -187,18 +188,6 @@ MODULE mo_grid_nml
     nml_lpatch0     = .FALSE.
     nml_lredgrid_phys = .FALSE.
 
-    ! copy default values to "default" variables
-!     nroot_d     = nml_nroot
-!     start_lev_d = nml_start_lev
-!     n_dom_d     = nml_n_dom
-!     parent_id_d = nml_parent_id
-!     lfeedback_d = nml_lfeedback
-!     lplane_d    = nml_lplane
-!     l_limited_area_d = nml_l_limited_area
-!     lredgrid_phys_d  = nml_lredgrid_phys
-!     corio_lat_d = nml_corio_lat
-!     patch_weight_d = nml_patch_weight
-
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
     ! by values in the previous integration.
@@ -218,36 +207,6 @@ MODULE mo_grid_nml
     IF (i_status == POSITIONED) THEN
       READ (nnml, grid_ctl)
     ENDIF
-
-    !------------------------------------------------------------
-    ! 5.0 check the consistency of the parameters
-    !------------------------------------------------------------
-!     SELECT CASE (nml_cell_type)
-!     CASE (itri,ihex)
-!       ! ok
-!     CASE default
-!       CALL finish( TRIM(method_name),&
-!         & 'wrong cell type specifier, "nml_cell_type" must be 3 or 6')
-!     END SELECT
-
-
-    ! Reset lfeedback to false for all model domains if lfeedback(1) = false
-!     IF (.NOT. lfeedback(1)) lfeedback(2:max_dom) = .FALSE.
-
-    !-----------------------------------------------------
-    ! Set dependent variables
-    !-----------------------------------------------------
-    ! convert degrees in radiant for the Coriolis latitude
-
-!     corio_lat =  corio_lat/rad2deg
-
-    ! set n_dom_start
-!     IF(lpatch0) THEN
-!       n_dom_start = 0
-!     ELSE
-!       n_dom_start = 1
-!       lredgrid_phys = .FALSE.    ! lredgrid_phys requires presence of patch0 => reset to false
-!     ENDIF
 
 
     IF (nml_dynamics_grid_filename(1) == "") THEN

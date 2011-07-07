@@ -131,20 +131,33 @@ MODULE mo_grid_configuration
     INTEGER  :: i_status, i, jg, jlev, funit
     CHARACTER(filename_max) :: patch_file, gridtype
     INTEGER  ::  patch_level(max_dom)
-    LOGICAL :: l_exist
+    LOGICAL :: file_exists
     CHARACTER(*), PARAMETER :: method_name = "check_grid_configuration"
 
     !-----------------------------------------------------------------------
     ! find out how many grids we have
+    ! and check if they exist
     no_of_dynamics_grids  = 0
     no_of_radiation_grids = 0
     jg=1
     DO WHILE (dynamics_grid_filename(jg) /= "")
+      INQUIRE (FILE=dynamics_grid_filename(jg), EXIST=file_exists)
+      IF (.NOT. file_exists)   THEN
+        WRITE (message_text,'(a,a)')  TRIM(dynamics_grid_filename(jg)), &
+          " file does not exist"
+        CALL finish( TRIM(method_name), TRIM(message_text))
+      ENDIF
       jg=jg+1
     END DO
     no_of_dynamics_grids  = jg-1
     jg=1
     DO WHILE (radiation_grid_filename(jg) /= "")
+      INQUIRE (FILE=radiation_grid_filename(jg), EXIST=file_exists)
+      IF (.NOT. file_exists)   THEN
+        WRITE (message_text,'(a,a)')  TRIM(radiation_grid_filename(jg)), &
+          " file does not exist"
+        CALL finish( TRIM(method_name), TRIM(message_text))
+      ENDIF
       jg=jg+1
     END DO
     no_of_radiation_grids = jg-1
@@ -152,8 +165,7 @@ MODULE mo_grid_configuration
 
     IF (no_of_dynamics_grids < 1) &
       CALL finish( TRIM(method_name), 'no dynamics grid is defined')
-    
-    
+        
     IF (no_of_radiation_grids > 0) THEN
       n_dom_start = 0
     ELSE
