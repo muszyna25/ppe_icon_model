@@ -259,22 +259,22 @@ MODULE mo_grid_nml
       ! fill level and parent ids
       nml_patch_level(1) = start_lev
       nml_dynamics_parent_grid_id(1) = 0       
-      DO jg = 2, n_dom
+      DO jg = 2, nml_n_dom
         nml_dynamics_parent_grid_id(jg) = nml_parent_id(jg-1)
         nml_patch_level(jg) = nml_patch_level(nml_dynamics_parent_grid_id(jg))+1
       ENDDO 
     
       ! fill the grid prefix
-      IF (lplane) THEN
+      IF (nml_lplane) THEN
         nml_gridtype='plan'
       ELSE
         nml_gridtype='icon'
       END IF
     
-      DO jg = 1, n_dom
+      DO jg = 1, nml_n_dom
         jlev = nml_patch_level(jg)
         ! Allow file names without "DOM" specifier if n_dom=1.
-        IF (n_dom == 1) THEN
+        IF (nml_n_dom == 1) THEN
           ! Check if file name without "DOM" specifier exists.
           WRITE (patch_file,'(a,a,i0,a,i2.2,a)') &
               & TRIM(gridtype),'R',nroot,'B',jlev,'-grid.nc'
@@ -291,7 +291,7 @@ MODULE mo_grid_nml
         nml_dynamics_grid_filename(jg) = patch_file
       ENDDO
 
-      IF (n_dom_start == 0) THEN
+      IF (nml_n_dom_start == 0) THEN
         ! fill radiation_grid_filename
         jlev = start_lev-1
         jg=0        
