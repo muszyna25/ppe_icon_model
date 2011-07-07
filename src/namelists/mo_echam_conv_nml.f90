@@ -58,7 +58,7 @@ MODULE mo_echam_conv_nml
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC  :: cmftau,cmfdeps,cmfcmin,cmfcmax,cmfctop !< parameters
+  PUBLIC  :: cmfdeps,cmfcmin,cmfcmax,cmfctop !< parameters
   PUBLIC  :: centrmax,cbfac,cminbuoy,cmaxbuoy       !< parameters
   PUBLIC  :: entrpen,entrmid,entrscv,entrdd         !< parameters
   PUBLIC  :: cprcon,cevapcu                         !< parameters
@@ -79,15 +79,15 @@ MODULE mo_echam_conv_nml
 
   LOGICAL :: nml_lmfpen    !< true when penetrative convection is switched on
   LOGICAL :: nml_lmfmid    !< true when midlevel    convection is switched on
-  LOGICAL :: nml_lmfscv    !< true when shallow     convection is switched on
   LOGICAL :: nml_lmfdd     !< true when cumulus downdraft      is switched on
   LOGICAL :: nml_lmfdudv   !< true when cumulus friction       is switched on
 
   REAL(wp) :: nml_dlev     !< "zdlev" in subroutine "cuasc". Critical thickness (unit: Pa)
                            !< necessary for the onset of convective precipitation
 
-  REAL(wp) :: cmftau   !< characteristic adjustment time scale
-                       !< (replaces "ztau" in "cumastr"
+  REAL(wp) :: nml_cmftau   !< characteristic adjustment time scale
+                           !< (replaces "ztau" in "cumastr")
+
   REAL(wp) :: cmfdeps  !< fractional convective mass flux for downdrafts at lfs
   REAL(wp) :: cmfctop  !< fractional convective mass flux across the top of cloud 
   REAL(wp) :: cmfcmin  !< minimum massflux value (for safety)
@@ -115,14 +115,16 @@ MODULE mo_echam_conv_nml
 
  !INTEGER :: nml_nauto        !< 1 or 2. autoconversion scheme
  !LOGICAL :: nml_lconvmassfix !< aerosol mass fixer in convection
+ !LOGICAL :: nml_lmfscv    !< true when shallow     convection is switched on
 
   NAMELIST/echam_conv_ctl/ nml_ncvmicro, nml_iconv,          &
-                           nml_lmfpen,nml_lmfmid,nml_lmfscv, &
+                           nml_lmfpen,nml_lmfmid,            &
                            nml_lmfdd, nml_lmfdudv,           &
-                           nml_dlev,                         &
-                           cmftau,cmfctop,cprcon,cmfdeps,cminbuoy,  &
+                           nml_dlev,  nml_cmftau,            &
+                           cmfctop,cprcon,cmfdeps,cminbuoy,  &
                            entrpen, entrmid,entrscv,entrdd
-                         ! nml_nauto, nml_lconvmassfix
+                         ! nml_nauto, nml_lconvmassfix 
+                         ! nml_lmfscv, 
 
 CONTAINS
   !>
@@ -140,12 +142,11 @@ CONTAINS
     nml_iconv        = 1
     nml_lmfpen       = .TRUE.
     nml_lmfmid       = .TRUE.
-    nml_lmfscv       = .TRUE.
     nml_lmfdd        = .TRUE.
     nml_lmfdudv      = .TRUE.
 
     nml_dlev         = 3.0E4_wp   ! 300 hPa
-    cmftau       = 10800._wp  ! 3 hours
+    nml_cmftau       = 10800._wp  ! 3 hours
     cmfctop      = 0.3_wp
     cmfdeps      = 0.3_wp     ! Fractional massflux for downdrafts at lfs
     cprcon       = 1.E-4_wp
@@ -157,6 +158,7 @@ CONTAINS
 
    !nml_nauto        = 1
    !nml_lconvmassfix = .FALSE.
+   !nml_lmfscv       = .TRUE.
 
     ! Set default values of auxiliary parameters
 
@@ -199,14 +201,15 @@ CONTAINS
     echam_conv_config% ncvmicro = nml_ncvmicro
     echam_conv_config% lmfpen   = nml_lmfpen
     echam_conv_config% lmfmid   = nml_lmfmid
-    echam_conv_config% lmfscv   = nml_lmfscv
     echam_conv_config% lmfdd    = nml_lmfdd
     echam_conv_config% lmfdudv  = nml_lmfdudv
 
     echam_conv_config% dlev     = nml_dlev
+    echam_conv_config% cmftau   = nml_cmftau
 
    !echam_conv_config% lconvmassfix = nml_lconvmassfix
    !echam_conv_config% nauto        = nml_nauto
+   !echam_conv_config% lmfscv   = nml_lmfscv
 
   END SUBROUTINE read_echam_conv_namelist
 

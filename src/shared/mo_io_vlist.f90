@@ -148,7 +148,7 @@ MODULE mo_io_vlist
     &                               lstrang, upstr_beta_adv
   USE mo_advection_config,    ONLY: advection_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config
-  USE mo_echam_conv_nml,      ONLY: cmftau, cmfctop, cprcon,             &
+  USE mo_echam_conv_nml,      ONLY: cmfctop, cprcon,             &
     &                               cminbuoy, entrpen, entrmid, entrscv,  &
     &                               entrdd, cmfdeps
 !!$  USE mo_gw_hines_nml,        ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
@@ -716,11 +716,11 @@ CONTAINS
         IF ( get_lconv() ) THEN
            CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfpen',echam_conv_config%lmfpen,vlistID(k_jg),astatus)
            CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfmid',echam_conv_config%lmfmid,vlistID(k_jg),astatus)
-           CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfscv',echam_conv_config%lmfscv,vlistID(k_jg),astatus)
+          !CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfscv',echam_conv_config%lmfscv,vlistID(k_jg),astatus)
            CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfdd',echam_conv_config%lmfdd,vlistID(k_jg),astatus)
            CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfdudv',echam_conv_config%lmfdudv,vlistID(k_jg),astatus)
            CALL addGlobAttInt('echam_conv_ctl:iconv',echam_conv_config%iconv,vlistID(k_jg),astatus)
-           CALL addGlobAttFlt('echam_conv_ctl:cmftau',cmftau,vlistID(k_jg),astatus)
+           CALL addGlobAttFlt('echam_conv_ctl:cmftau',echam_conv_config%cmftau,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:cmfdeps',cmfdeps,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:cmfctop',cmfctop,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:cprcon',cprcon,vlistID(k_jg),astatus)

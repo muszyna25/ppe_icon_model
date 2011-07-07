@@ -54,7 +54,6 @@ MODULE mo_echam_conv_config
   
     LOGICAL :: lmfpen    !< true when penetrative convection is switched on
     LOGICAL :: lmfmid    !< true when midlevel    convection is switched on
-    LOGICAL :: lmfscv    !< true when shallow     convection is switched on
     LOGICAL :: lmfdd     !< true when cumulus downdraft      is switched on
     LOGICAL :: lmfdudv   !< true when cumulus friction       is switched on
   
@@ -71,6 +70,7 @@ MODULE mo_echam_conv_config
   
     !INTEGER :: nauto        !< 1 or 2. autoconversion scheme
     !LOGICAL :: lconvmassfix !< aerosol mass fixer in convection
+    !LOGICAL :: lmfscv    !< true when shallow     convection is switched on
 
     ! Dependent variables
   

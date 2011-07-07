@@ -43,7 +43,7 @@ MODULE mo_cumastrh
 #ifdef __ICON__
   USE mo_physical_constants,  ONLY: g=>grav, alv, als, tmelt, vtmpc1, rd
   USE mo_echam_conv_nml,      ONLY: entrpen, entrscv,               &
-                                  & cmfdeps, cmftau
+                                  & cmfdeps
 #else
   USE mo_control,             ONLY: nn
   USE mo_constants,           ONLY: g, alv, als, tmelt, vtmpc1, rd
@@ -74,7 +74,7 @@ MODULE mo_cumastrh
 CONTAINS
   !>
   !!
-  SUBROUTINE cumastrh( ncvmicro, lmfdudv, lmfdd, lmfmid, dlev,           &
+  SUBROUTINE cumastrh( ncvmicro, lmfdudv, lmfdd, lmfmid, dlev, cmftau,   &
                        pdtime, ptime_step_len,                           &
                        kproma, kbdim, klev, klevp1, klevm1, ilab,        &
 !0                     krow,                                             &
@@ -183,7 +183,7 @@ CONTAINS
 !
 INTEGER, INTENT (IN) :: ncvmicro 
 LOGICAL, INTENT (IN) :: lmfdudv, lmfdd, lmfmid 
-REAL(dp),INTENT (IN) :: dlev
+REAL(dp),INTENT (IN) :: dlev, cmftau
 REAL(dp),INTENT (IN) :: pdtime
 REAL(dp),INTENT (IN) :: ptime_step_len
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, ktrac, klevm1

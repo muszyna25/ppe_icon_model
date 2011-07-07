@@ -46,7 +46,7 @@ MODULE mo_cumastr
 
 #ifdef __ICON__
   USE mo_physical_constants,  ONLY: g=>grav, alv, als, tmelt, vtmpc1, rd
-  USE mo_echam_conv_nml,      ONLY: entrpen, entrscv, cmfdeps, cmftau
+  USE mo_echam_conv_nml,      ONLY: entrpen, entrscv, cmfdeps
 #else
   USE mo_control,             ONLY: nn
   USE mo_constants,           ONLY: g, alv, als, tmelt, vtmpc1, rd
@@ -79,7 +79,7 @@ MODULE mo_cumastr
 CONTAINS
   !>
   !!
-  SUBROUTINE cumastr(  ncvmicro, lmfdudv, lmfdd, lmfmid, dlev, &
+  SUBROUTINE cumastr(  ncvmicro, lmfdudv, lmfdd, lmfmid, dlev, cmftau,    &
                        pdtime, ptime_step_len,                            &
                        kproma, kbdim, klev, klevp1, klevm1, ilab,         &
 !!$                       krow,                                              &
@@ -187,7 +187,7 @@ CONTAINS
 !
 INTEGER, INTENT (IN) :: ncvmicro
 LOGICAL, INTENT (IN) :: lmfdudv, lmfdd, lmfmid 
-REAL(dp),INTENT (IN) :: dlev
+REAL(dp),INTENT (IN) :: dlev, cmftau
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, ktrac, klevm1
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
 !!$INTEGER, INTENT (IN) :: krow
