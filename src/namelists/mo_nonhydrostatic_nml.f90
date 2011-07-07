@@ -46,21 +46,23 @@ MODULE mo_nonhydrostatic_nml
 !
 !
 !
-  USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: finish
-  USE mo_impl_constants,     ONLY: max_char_length, max_dom
-  USE mo_io_units,           ONLY: nnml, nnml_output
-  USE mo_namelist,           ONLY: position_nml, positioned
-  USE mo_master_nml,         ONLY: lrestart
-  USE mo_mpi,                ONLY: p_pe, p_io
+  USE mo_kind,                ONLY: wp
+  USE mo_exception,           ONLY: finish
+  USE mo_impl_constants,      ONLY: max_char_length, max_dom
+  USE mo_io_units,            ONLY: nnml, nnml_output
+  USE mo_namelist,            ONLY: position_nml, positioned
+  USE mo_nh_dyn_config,       ONLY: nh_dyn_config
+  USE mo_master_nml,          ONLY: lrestart
+  USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
     &                               open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
+  PUBLIC
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
-  PUBLIC
+
 
 
   ! ----------------------------------------------------------------------------
@@ -260,6 +262,7 @@ END SUBROUTINE nonhydrostatic_nml_setup
   SUBROUTINE read_nonhydrostatic_namelist
     !
     INTEGER :: istat, funit
+    INTEGER :: jg           ! loop index
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_nonhydrostatic_nml: read_nonhydrostatic_namelist'
@@ -339,6 +342,32 @@ END SUBROUTINE nonhydrostatic_nml_setup
     !----------------------------------------------------
     ! 4. Fill the configuration state
     !----------------------------------------------------
+    DO jg = 1,max_dom
+      nh_dyn_config(jg)%rayleigh_coeff  = rayleigh_coeff(jg)
+      nh_dyn_config(jg)%damp_height     = damp_height(jg)
+      nh_dyn_config(jg)%iadv_rhotheta   = iadv_rhotheta
+      nh_dyn_config(jg)%vwind_offctr    = vwind_offctr
+      nh_dyn_config(jg)%igradp_method   = igradp_method
+      nh_dyn_config(jg)%exner_expol     = exner_expol
+      nh_dyn_config(jg)%ltheta_up_hori  = ltheta_up_hori
+      nh_dyn_config(jg)%ltheta_up_vert  = ltheta_up_vert
+      nh_dyn_config(jg)%gmres_rtol_nh   = gmres_rtol_nh
+      nh_dyn_config(jg)%iadv_rcf        = iadv_rcf
+      nh_dyn_config(jg)%ivctype         = ivctype
+      nh_dyn_config(jg)%upstr_beta      = upstr_beta
+      nh_dyn_config(jg)%l_open_ubc      = l_open_ubc
+      nh_dyn_config(jg)%l_nest_rcf      = l_nest_rcf
+      nh_dyn_config(jg)%l_zdiffu_t      = l_zdiffu_t
+      nh_dyn_config(jg)%thslp_zdiffu    = thslp_zdiffu
+      nh_dyn_config(jg)%thhgtd_zdiffu   = thhgtd_zdiffu
+      nh_dyn_config(jg)%k2_updamp_coeff = k2_updamp_coeff
+      nh_dyn_config(jg)%l_masscorr_nest = l_masscorr_nest
+      nh_dyn_config(jg)%htop_moist_proc = htop_moist_proc
+      nh_dyn_config(jg)%htop_qvadv      = htop_qvadv
+      nh_dyn_config(jg)%damp_timescale_u= damp_timescale_u
+      nh_dyn_config(jg)%damp_height_u   = damp_height_u
+    ENDDO
+
 
 
     !-----------------------------------------------------

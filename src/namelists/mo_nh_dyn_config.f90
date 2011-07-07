@@ -43,12 +43,12 @@
 !!
 MODULE mo_nh_dyn_config
 
-  USE mo_kind, ONLY: wp
+  USE mo_kind,               ONLY: wp
+  USE mo_impl_constants,     ONLY: max_dom
 
   IMPLICIT NONE
 
-  PRIVATE
-
+  PUBLIC
 
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
@@ -106,7 +106,7 @@ MODULE mo_nh_dyn_config
   END TYPE t_nh_dyn_config 
   !>
   !!
-  TYPE(t_nh_dyn_config),ALLOCATABLE :: nh_dyn_config(:)  !< the configuration state 
+  TYPE(t_nh_dyn_config) :: nh_dyn_config(max_dom) ! config state 
 
 
 END MODULE mo_nh_dyn_config
