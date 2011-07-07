@@ -1052,6 +1052,7 @@ src/namelists/mo_interpol_config.f90 -text
 src/namelists/mo_interpol_nml.f90 -text
 src/namelists/mo_io_config.f90 -text
 src/namelists/mo_io_nml.f90 -text
+src/namelists/mo_lnd_nwp_config.f90 -text
 src/namelists/mo_lnd_nwp_nml.f90 -text
 src/namelists/mo_master_nml.f90 -text
 src/namelists/mo_nh_dyn_config.f90 -text

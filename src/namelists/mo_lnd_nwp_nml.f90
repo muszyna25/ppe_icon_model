@@ -41,12 +41,13 @@ MODULE mo_lnd_nwp_nml
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom
   USE mo_run_nml,             ONLY: iforcing, inwp
   USE mo_namelist,            ONLY: position_nml, positioned
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_master_nml,          ONLY: lrestart
+  USE mo_lnd_nwp_config,      ONLY: nwp_lnd_config
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
     &                               open_and_restore_namelist, close_tmpfile
 
@@ -144,6 +145,7 @@ MODULE mo_lnd_nwp_nml
   SUBROUTINE read_nwp_lnd_namelist
     !
     INTEGER :: istat, funit
+    INTEGER :: jg           ! loop index
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_lnd_nwp_nml: read_nwp_lnd_namelist'
@@ -191,6 +193,15 @@ MODULE mo_lnd_nwp_nml
     ! 4. Fill the configuration state
     !----------------------------------------------------
 
+    DO jg = 1,max_dom
+      nwp_lnd_config(jg)%nlev_soil   = nlev_soil
+      nwp_lnd_config(jg)%nztlev      = nztlev
+      nwp_lnd_config(jg)%nlev_snow   = nlev_snow
+      nwp_lnd_config(jg)%nsfc_subs   = nsfc_subs
+      nwp_lnd_config(jg)%lseaice     = lseaice
+      nwp_lnd_config(jg)%llake       = llake
+      nwp_lnd_config(jg)%lmulti_snow = lmulti_snow
+    ENDDO
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
