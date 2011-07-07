@@ -204,7 +204,7 @@ CONTAINS
   !!  -remove dxmin: estimate the dual edge length by nroot and start_lev
   !!  -clean up dyn_ctl and remove unnecessary variables
   !!
-  SUBROUTINE dynamics_setup(i_ndom)
+  SUBROUTINE dynamics_nml_setup(i_ndom)
 
     INTEGER, INTENT(IN) :: i_ndom
  
@@ -298,7 +298,7 @@ CONTAINS
     gsi_2tls2dt = gsi_2tlsdt*si_2tls*dtime
     g1msi_2tlsdt= (1._wp -si_2tls)*gdt
 
-  END SUBROUTINE dynamics_setup
+  END SUBROUTINE dynamics_nml_setup
   !-------------
   !>
   !!

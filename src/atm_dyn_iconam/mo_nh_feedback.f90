@@ -43,7 +43,7 @@ USE mo_model_domain_import, ONLY: n_dom, n_dom_start
 USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_vertex
 USE mo_grf_interpolation,   ONLY: t_gridref_state, grf_velfbk
 USE mo_nonhydrostatic_nml,  ONLY: l_nest_rcf, l_masscorr_nest
-USE mo_dynamics,            ONLY: nnow, nnew, nnew_rcf, nsav1, nsav2,       &
+USE mo_dynamics_nml,        ONLY: nnow, nnew, nnew_rcf, nsav1, nsav2,       &
                                   nnow_rcf
 USE mo_parallel_configuration,  ONLY: nproma
 USE mo_run_nml,             ONLY: ltransport, iforcing, msg_level,  &

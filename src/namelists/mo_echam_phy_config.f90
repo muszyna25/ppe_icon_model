@@ -74,8 +74,33 @@ MODULE mo_echam_phy_config
 CONTAINS
   !>
   !!
+  LOGICAL FUNCTION get_lrad()
+    get_lrad = echam_phy_config%lrad
+  END FUNCTION get_lrad
+  !>
+  !!
   LOGICAL FUNCTION get_lvdiff()
     get_lvdiff = echam_phy_config%lvdiff
   END FUNCTION get_lvdiff
+  !>
+  !!
+  LOGICAL FUNCTION get_lconv()
+    get_lconv = echam_phy_config%lconv
+  END FUNCTION get_lconv
+  !>
+  !!
+  LOGICAL FUNCTION get_lcond()
+    get_lcond = echam_phy_config%lcond
+  END FUNCTION get_lcond
+  !>
+  !!
+  LOGICAL FUNCTION get_lcover()
+    get_lcover = echam_phy_config%lcover
+  END FUNCTION get_lcover
+  !>
+  !!
+  LOGICAL FUNCTION get_lgw_hines()
+    get_lgw_hines = echam_phy_config%lgw_hines
+  END FUNCTION get_lgw_hines
 
 END MODULE mo_echam_phy_config

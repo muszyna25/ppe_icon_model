@@ -106,12 +106,15 @@ MODULE mo_io_vlist
     &                               gmres_rtol_nh, iadv_rcf, ivctype,           &
     &                               upstr_beta, l_open_ubc, l_nest_rcf,         &
     &                               l_zdiffu_t, thslp_zdiffu, thhgtd_zdiffu
-  USE mo_ocean_nml,           ONLY: n_zlev, iforc_oce,ntrac_oce,no_tracer
-  USE mo_dynamics_nml,        ONLY: itime_scheme, lsi_3d, asselin_coeff,        &
+  USE mo_impl_constants,      ONLY: ntrac_oce
+  USE mo_ocean_nml,           ONLY: n_zlev, iforc_oce,no_tracer
+  USE mo_dynamics_nml,        ONLY: itime_scheme,                               &
     &                               idiv_method, divavg_cntrwgt,                &
+    &                               nnow,nold, ldry_dycore
+  USE mo_ha_dyn_nml,          ONLY: lsi_3d, asselin_coeff,        &
     &                               ileapfrog_startup, si_2tls, si_cmin,        &
     &                               si_coeff, si_expl_scheme, si_offctr,        &
-    &                               si_rtol, nnow,nold, lref_temp, ldry_dycore
+    &                               si_rtol, lref_temp
   USE mo_diffusion_nml,       ONLY: hdiff_efdt_ratio, hdiff_multfac,            &
     &                               hdiff_tv_ratio,hdiff_order, hdiff_smag_fac, &
     &                               lhdiff_temp, lhdiff_vn
@@ -134,7 +137,7 @@ MODULE mo_io_vlist
     &                               inh_atmosphere, ishallow_water,             &
     &                               lvert_nest, inextra_2d,inextra_3d
   USE mo_grid_configuration,  ONLY : global_cell_type
-  USE mo_echam_phy_nml,       ONLY: lrad,lvdiff,lconv,lcond,lcover,lgw_hines
+  USE mo_echam_phy_config
   USE mo_atm_phy_nwp_nml,     ONLY: inwp_gscp, inwp_gscp, inwp_convection,      &
     &                               inwp_radiation, inwp_sso, inwp_cldcover,    &
     &                               inwp_turb, dt_conv, dt_rad_nml => dt_rad,   &
@@ -699,16 +702,16 @@ CONTAINS
         !
         !!! Parameters of /echam_phy_nml/
         !--------------------------------
-        CALL addGlobAttTxtFromLog('echam_phy_nml:lrad',lrad,vlistID(k_jg),astatus)
-        CALL addGlobAttTxtFromLog('echam_phy_nml:lvdiff',lvdiff,vlistID(k_jg),astatus)
-        CALL addGlobAttTxtFromLog('echam_phy_nml:lconv',lconv,vlistID(k_jg),astatus)
-        CALL addGlobAttTxtFromLog('echam_phy_nml:lcond',lcond,vlistID(k_jg),astatus)
-        CALL addGlobAttTxtFromLog('echam_phy_nml:lcover',lcover,vlistID(k_jg),astatus)
-        CALL addGlobAttTxtFromLog('echam_phy_nml:lgw_hines',lgw_hines,vlistID(k_jg),astatus)
+        CALL addGlobAttTxtFromLog('echam_phy_nml:lrad',get_lrad(),vlistID(k_jg),astatus)
+        CALL addGlobAttTxtFromLog('echam_phy_nml:lvdiff',get_lvdiff(),vlistID(k_jg),astatus)
+        CALL addGlobAttTxtFromLog('echam_phy_nml:lconv',get_lconv(),vlistID(k_jg),astatus)
+        CALL addGlobAttTxtFromLog('echam_phy_nml:lcond',get_lcond(),vlistID(k_jg),astatus)
+        CALL addGlobAttTxtFromLog('echam_phy_nml:lcover',get_lcover(),vlistID(k_jg),astatus)
+        CALL addGlobAttTxtFromLog('echam_phy_nml:lgw_hines',get_lgw_hines(),vlistID(k_jg),astatus)
         !
         !!! Parameters of /echam_conv_ctl/
         !---------------------------------
-        IF ( lconv ) THEN
+        IF ( get_lconv() ) THEN
            CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfpen',lmfpen,vlistID(k_jg),astatus)
            CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfmid',lmfmid,vlistID(k_jg),astatus)
            CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfscv',lmfscv,vlistID(k_jg),astatus)

@@ -55,6 +55,7 @@ MODULE mo_time_config
 
   IMPLICIT NONE
   PRIVATE
+  PUBLIC :: t_time_config, time_config
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
