@@ -54,10 +54,10 @@ USE mo_parallel_configuration,  ONLY: nproma
 USE mo_io_units,               ONLY: filename_max
 !USE mo_impl_constants,         ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
 USE mo_impl_constants,         ONLY: sea_boundary, max_char_length,           &
-  &                                  min_rlcell, min_rledge  !, min_rlvert
+  &                                  min_rlcell, min_rledge, toplev  !, min_rlvert
 USE mo_model_domain,           ONLY: t_patch
 USE mo_model_domain_import,    ONLY: n_dom, nroot
-USE mo_ocean_nml,              ONLY: n_zlev, iswm_oce, toplev
+USE mo_ocean_nml,              ONLY: n_zlev, iswm_oce
 USE mo_dynamics_nml,           ONLY: nold
 USE mo_io_nml,                 ONLY: out_expname
 USE mo_run_nml,                ONLY: nsteps, dtime
