@@ -51,7 +51,7 @@ MODULE mo_cuasc
   USE mo_physical_constants, ONLY : g=>grav, tmelt, vtmpc1, rv, rd, alv, als
   USE mo_echam_conv_nml,     ONLY : lmfdudv, lmfmid, nmctop, cmfcmin, cprcon,      &
                                     cmfctop, centrmax, cbfac, cminbuoy, cmaxbuoy,  &
-                                    ncvmicro, dlev
+                                    dlev
   USE mo_echam_cloud_params, ONLY : csecfrl
 !                                   cqtmin, crhosno, cn0s                 &
 !                                 , cthomi, ccsacl, clmax, clmin          &
@@ -69,7 +69,7 @@ MODULE mo_cuasc
   USE mo_cloud,              ONLY : cqtmin, crhosno, cn0s                          &
                                   , cthomi, csecfrl, ccsacl, clmax, clmin          &
                                   , ceffmin, ceffmax, crhoi, cauloc
-  USE mo_param_switches,     ONLY : nauto, ncvmicro
+  USE mo_param_switches,     ONLY : nauto
   USE mo_aero_dummy,         ONLY : ncdnc,              &
                                   & rwet,               &!UL: included for contact freezing
                                   & iaiti,iacci,icoai    !UL: included for contact freezing
@@ -93,7 +93,7 @@ MODULE mo_cuasc
 CONTAINS
   !>
   !!
-SUBROUTINE cuasc(    pdtime, ptime_step_len,                           &
+SUBROUTINE cuasc(  ncvmicro,  pdtime, ptime_step_len,                  &
            kproma, kbdim, klev, klevp1, klevm1,                        &
            ptenh,    pqenh,    puen,     pven,                         &
            ktrac,                                                      &
@@ -156,6 +156,7 @@ SUBROUTINE cuasc(    pdtime, ptime_step_len,                           &
 !          (TIEDTKE,1989)
 !
 
+INTEGER, INTENT (IN) :: ncvmicro
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, klevm1, ktrac
 REAL(dp),INTENT(IN) :: pdtime, ptime_step_len
 INTEGER :: jl, jk, jt, ik, icall, ikb, ikt, n, locnt

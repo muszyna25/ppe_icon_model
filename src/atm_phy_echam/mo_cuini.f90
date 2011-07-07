@@ -45,10 +45,8 @@ MODULE mo_cuini
 
 #ifdef __ICON__
   USE mo_physical_constants, ONLY: rd, cpd
-  USE mo_echam_conv_nml,     ONLY: ncvmicro
 #else
   USE mo_constants,          ONLY: rd, cpd
-  USE mo_param_switches,     ONLY: ncvmicro
 #endif
 
   IMPLICIT NONE
@@ -60,7 +58,7 @@ MODULE mo_cuini
 CONTAINS
   !>
   !!
-SUBROUTINE cuini(kproma, kbdim, klev, klevp1, klevm1,                  &
+SUBROUTINE cuini(ncvmicro, kproma, kbdim, klev, klevp1, klevm1,        &
            pten,     pqen,     pqsen,    pxen,     puen,     pven,     &
            ptven,    ktrac,                                            &
            pxten,    pxtenh,   pxtu,     pxtd,     pmfuxt,   pmfdxt,   &
@@ -98,6 +96,7 @@ SUBROUTINE cuini(kproma, kbdim, klev, klevp1, klevm1,                  &
 !          ---------
 !          *CUADJTQ* TO SPECIFY QS AT HALF LEVELS
 !
+INTEGER, INTENT (IN) :: ncvmicro
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, klevm1, ktrac
 
 REAL(dp):: pten(kbdim,klev),          pqen(kbdim,klev),                &

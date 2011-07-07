@@ -43,15 +43,16 @@ MODULE mo_echam_conv_nml
 
   USE mo_kind,                ONLY: wp
   USE mo_impl_constants,      ONLY: SUCCESS
-  USE mo_exception,           ONLY: print_value,message,message_text,finish
   USE mo_namelist,            ONLY: position_nml, POSITIONED
+  USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_io_units,            ONLY: nnml
-  USE mo_run_nml,             ONLY: nlev,nlevp1,nvclev
-  USE mo_physical_constants,  ONLY: grav
-  USE mo_vertical_coord_table,ONLY: vct,ceta
   USE mo_master_nml,          ONLY: lrestart
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &
                                   & open_and_restore_namelist, close_tmpfile
+ !USE mo_exception,           ONLY: print_value,message,message_text,finish
+ !USE mo_run_nml,             ONLY: nlev,nlevp1,nvclev
+ !USE mo_physical_constants,  ONLY: grav
+ !USE mo_vertical_coord_table,ONLY: vct,ceta
 
   IMPLICIT NONE
   PRIVATE
@@ -62,9 +63,9 @@ MODULE mo_echam_conv_nml
   PUBLIC  :: centrmax,cbfac,cminbuoy,cmaxbuoy       !< parameters
   PUBLIC  :: entrpen,entrmid,entrscv,entrdd         !< parameters
   PUBLIC  :: cprcon,cevapcu                         !< parameters
-  PUBLIC  :: ncvmicro, nauto                        !< parameters
+  PUBLIC  :: nauto                        !< parameters
   PUBLIC  :: nmctop, dlev                           !< parameters
-  PUBLIC  :: echam_conv_ctl                         !< namelist
+ !PUBLIC  :: echam_conv_ctl                         !< namelist
   PUBLIC  :: read_echam_conv_namelist
   PUBLIC  :: echam_conv_nml_setup                   !< subroutine
   PUBLIC  :: cleanup_cuparam                        !< subroutine 
@@ -75,7 +76,7 @@ MODULE mo_echam_conv_nml
   ! echam_conv_nml namelist variables and auxiliary parameters
   !--------------------------------------------------------------!
 
-  INTEGER :: ncvmicro     !< 0 or 1. Scheme for convective microphysics
+  INTEGER :: nml_ncvmicro     !< 0 or 1. Scheme for convective microphysics
   INTEGER :: nauto        !< 1 or 2. autoconversion scheme
   INTEGER :: iconv        !< 1,2,3 for different convection schemes
   LOGICAL :: lconvmassfix !< aerosol mass fixer in convection
@@ -116,7 +117,7 @@ MODULE mo_echam_conv_nml
                                       !< allocated in subroutine alloc_mods,
                                       !< and initialized in subroutine iniphy.
 
-  NAMELIST/echam_conv_ctl/ nauto,ncvmicro,iconv,lconvmassfix,       &
+  NAMELIST/echam_conv_ctl/ nauto,nml_ncvmicro,iconv,lconvmassfix,       &
     &                      lmfpen,lmfmid,lmfscv,lmfdd,lmfdudv,      &
     &                      cmftau,cmfctop,cprcon,cmfdeps,cminbuoy,  &
     &                      entrpen, entrmid,entrscv,entrdd,dlev
@@ -133,7 +134,7 @@ CONTAINS
     ! set up the default values for echam_conv_ctl
     !------------------------------------------------------------
 
-    ncvmicro     = 0
+    nml_ncvmicro     = 0
     nauto        = 1
     iconv        = 1
     lmfpen       = .TRUE.
@@ -187,113 +188,118 @@ CONTAINS
     WRITE(funit,NML=echam_conv_ctl)
     CALL store_and_close_namelist(funit, 'echam_conv_ctl')
 
+    !-----------------------------------------------------
+    ! Fill configuration state
+    !-----------------------------------------------------
+    echam_conv_config% ncvmicro = nml_ncvmicro
+
   END SUBROUTINE read_echam_conv_namelist
 
   !>
   !!
   SUBROUTINE echam_conv_nml_setup
 
-    REAL(wp) :: za, zb
-    REAL(wp) :: zp(nlev), zph(nlevp1)
-    INTEGER  :: jk, ist
+  ! REAL(wp) :: za, zb
+  ! REAL(wp) :: zp(nlev), zph(nlevp1)
+  ! INTEGER  :: jk, ist
 
-    !------------------------------------------------------------
-    ! check the consistency of the parameters
-    !------------------------------------------------------------
-    CALL message('','')
-    CALL message('','------- namelist echam_conv_ctl --------')
+  !  !------------------------------------------------------------
+  !  ! check the consistency of the parameters
+  !  !------------------------------------------------------------
+  !  CALL message('','')
+  !  CALL message('','------- namelist echam_conv_ctl --------')
 
-    SELECT CASE(ncvmicro)
-    CASE (0)
-      CALL message('','--- ncvmicro = 0')
-    CASE DEFAULT
-      CALL finish('echam_conv_nml_setup','ncvmicro > 0 not yet supported in ICON')
-    END SELECT
+  !  SELECT CASE(ncvmicro)
+  !  CASE (0)
+  !    CALL message('','--- ncvmicro = 0')
+  !  CASE DEFAULT
+  !    CALL finish('echam_conv_nml_setup','ncvmicro > 0 not yet supported in ICON')
+  !  END SELECT
 
-    SELECT CASE(nauto)
-    CASE (0)
-    CASE (1)
-      CALL message('','--- nauto = 1 --> Beheng (1994) - ECHAM5 Standard')
-    CASE (2)
-      CALL message('','--- nauto = 2 --> Khairoutdinov and Kogan (2000)')
-    CASE DEFAULT
-      WRITE(message_text,'(a,i0,a)') 'nauto = ',nauto,' is not supported'
-      CALL message('NAMELIST echam_conv_ctl',message_text)
-      CALL finish('echam_conv_nml_setup','Run terminated')
-    END SELECT
+  !  SELECT CASE(nauto)
+  !  CASE (0)
+  !  CASE (1)
+  !    CALL message('','--- nauto = 1 --> Beheng (1994) - ECHAM5 Standard')
+  !  CASE (2)
+  !    CALL message('','--- nauto = 2 --> Khairoutdinov and Kogan (2000)')
+  !  CASE DEFAULT
+  !    WRITE(message_text,'(a,i0,a)') 'nauto = ',nauto,' is not supported'
+  !    CALL message('NAMELIST echam_conv_ctl',message_text)
+  !    CALL finish('echam_conv_nml_setup','Run terminated')
+  !  END SELECT
 
-    SELECT CASE (iconv)
-    CASE(1)
-      CALL message('','--- iconv = 1 --> Convection: Nordeng (default)')
-    CASE(2)
-      CALL message('','--- iconv = 2 --> Convection: Tiedtke')
-    CASE(3)
-      CALL message('','--- iconv = 3 --> Convection: Hybrid')
-    CASE default
-      WRITE(message_text,'(a,i0,a)') 'iconv = ',iconv,' is not supported'
-      CALL message('NAMELIST echam_conv_ctl',message_text)
-      CALL finish('echam_conv_nml_setup','Run terminated')
-    END SELECT
+  !  SELECT CASE (iconv)
+  !  CASE(1)
+  !    CALL message('','--- iconv = 1 --> Convection: Nordeng (default)')
+  !  CASE(2)
+  !    CALL message('','--- iconv = 2 --> Convection: Tiedtke')
+  !  CASE(3)
+  !    CALL message('','--- iconv = 3 --> Convection: Hybrid')
+  !  CASE default
+  !    WRITE(message_text,'(a,i0,a)') 'iconv = ',iconv,' is not supported'
+  !    CALL message('NAMELIST echam_conv_ctl',message_text)
+  !    CALL finish('echam_conv_nml_setup','Run terminated')
+  !  END SELECT
 
-    CALL print_value(' lmfpen  ',lmfpen)
-    CALL print_value(' lmfmid  ',lmfmid)
-    CALL print_value(' lmfscv  ',lmfscv)
-    CALL print_value(' lmfdd   ',lmfdd)
-    CALL print_value(' lmfdudv ',lmfdudv)
-    CALL print_value(' lconvmassfix = ',lconvmassfix)
+  !  CALL print_value(' lmfpen  ',lmfpen)
+  !  CALL print_value(' lmfmid  ',lmfmid)
+  !  CALL print_value(' lmfscv  ',lmfscv)
+  !  CALL print_value(' lmfdd   ',lmfdd)
+  !  CALL print_value(' lmfdudv ',lmfdudv)
+  !  CALL print_value(' lconvmassfix = ',lconvmassfix)
 
-    !cmftau = MIN(10800._wp,cmftau)
-    CALL print_value(' cmftau   ',cmftau)
-    CALL print_value(' cmfctop  ',cmfctop)
-    CALL print_value(' cprcon   ',cprcon)
-    CALL print_value(' cminbuoy ',cminbuoy)
-    CALL print_value(' entrpen  ',entrpen)
-    CALL print_value(' dlev     ',dlev)
+  !  !cmftau = MIN(10800._wp,cmftau)
+  !  CALL print_value(' cmftau   ',cmftau)
+  !  CALL print_value(' cmfctop  ',cmfctop)
+  !  CALL print_value(' cprcon   ',cprcon)
+  !  CALL print_value(' cminbuoy ',cminbuoy)
+  !  CALL print_value(' entrpen  ',entrpen)
+  !  CALL print_value(' dlev     ',dlev)
 
-    CALL message('','---------------------------')
-    CALL message('','')
+  !  CALL message('','---------------------------')
+  !  CALL message('','')
 
 
-    !------------------------------------------------------------
-    ! CJ: calculations from the former cuparam subroutine
-    !------------------------------------------------------------
+  !  !------------------------------------------------------------
+  !  ! CJ: calculations from the former cuparam subroutine
+  !  !------------------------------------------------------------
 
-    ! Determine highest level *nmctop* for cloud base of midlevel convection
-    ! assuming nmctop=9 (300 hPa) for the standard 19 level model
+  !  ! Determine highest level *nmctop* for cloud base of midlevel convection
+  !  ! assuming nmctop=9 (300 hPa) for the standard 19 level model
 
-    ! half level pressure values, assuming 101320. Pa surface pressure
+  !  ! half level pressure values, assuming 101320. Pa surface pressure
 
-    DO jk=1,nlevp1
-      za = vct(jk)
-      zb = vct(jk+nvclev)
-      zph(jk) = za + zb*101320.0_wp
-    END DO
+  !  DO jk=1,nlevp1
+  !    za = vct(jk)
+  !    zb = vct(jk+nvclev)
+  !    zph(jk) = za + zb*101320.0_wp
+  !  END DO
 
-    ! full level pressure
+  !  ! full level pressure
 
-    DO jk = 1, nlev
-      zp(jk) = (zph(jk)+zph(jk+1))*0.5_wp
-    END DO
+  !  DO jk = 1, nlev
+  !    zp(jk) = (zph(jk)+zph(jk+1))*0.5_wp
+  !  END DO
 
-    ! search for 300 hPa level
+  !  ! search for 300 hPa level
 
-    DO jk = 1, nlev
-      nmctop=jk
-      IF(zp(jk).GE.30000.0_wp) EXIT
-    END DO
+  !  DO jk = 1, nlev
+  !    nmctop=jk
+  !    IF(zp(jk).GE.30000.0_wp) EXIT
+  !  END DO
 
-    CALL print_value(&
-      &'lowest model level for cloud base of mid level convection: nmctop = ',nmctop)
+  !  CALL print_value(&
+  !    &'lowest model level for cloud base of mid level convection: nmctop = ',nmctop)
 
-    ! evaporation coefficient for kuo0
+  !  ! evaporation coefficient for kuo0
 
-    ALLOCATE( cevapcu(nlev),STAT=ist )
-    IF (ist/=SUCCESS) CALL finish('cuparam','allocation of cevapcu failed')
+  !  ALLOCATE( cevapcu(nlev),STAT=ist )
+  !  IF (ist/=SUCCESS) CALL finish('cuparam','allocation of cevapcu failed')
 
-    DO jk = 1,nlev
-       cevapcu(jk) = 1.E3_wp/(38.3_wp*0.293_wp)*SQRT(ceta(jk))
-       cevapcu(jk) = 1.93E-6_wp*261._wp*SQRT(cevapcu(jk))*0.5_wp/grav
-    END DO
+  !  DO jk = 1,nlev
+  !     cevapcu(jk) = 1.E3_wp/(38.3_wp*0.293_wp)*SQRT(ceta(jk))
+  !     cevapcu(jk) = 1.93E-6_wp*261._wp*SQRT(cevapcu(jk))*0.5_wp/grav
+  !  END DO
 
   END SUBROUTINE echam_conv_nml_setup
   !------------

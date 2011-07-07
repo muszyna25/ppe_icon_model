@@ -54,6 +54,7 @@ MODULE mo_echam_phy_main
   USE mo_vertical_coord_table,ONLY: nlevm1
   USE mo_echam_phy_config,    ONLY: echam_phy_config
   USE mo_echam_conv_nml,      ONLY: iconv
+  USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_cucall,              ONLY: cucall
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
     &                               t_echam_phy_tend,  prm_tend
@@ -768,9 +769,10 @@ CONTAINS
 
       IF (ltimer) call timer_start(timer_cucall)
 
-      CALL cucall( jce, nbdim, nlev, nlevp1, nlevm1,   &! in
+      CALL cucall( echam_conv_config%ncvmicro,&! in
+        &          jce, nbdim, nlev, nlevp1, nlevm1,   &! in
         &          ntrac,                     &! in     tracers
-!!$        &          jb,                        &! in     row index
+!0      &          jb,                        &! in     row index
         &          pdtime, psteplen, iconv,   &! in
         &          field% lfland(:,jb),       &! in     loland
         &          field% temp(:,:,jb),       &! in     tm1
@@ -787,7 +789,7 @@ CONTAINS
         &          field% presm_new(:,:,jb),  &! in     app1
         &          field% presi_new(:,:,jb),  &! in     aphp1
         &          zqhflx,                    &! in     qhfla (from "vdiff")
-!!$        &          field% tke,                &! in     tkem1 (from "vdiff")
+!0      &          field% tke,                &! in     tkem1 (from "vdiff")
         &          field% thvsig(:,jb),       &! in           (from "vdiff")
         &          tend% temp(:,:,jb),        &! inout  tte
         &          tend% u(:,:,jb),           &! inout  vom

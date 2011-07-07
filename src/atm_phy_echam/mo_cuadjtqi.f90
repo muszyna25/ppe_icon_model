@@ -42,11 +42,9 @@ MODULE mo_cuadjtqi
 #ifdef __ICON__
   USE mo_physical_constants, ONLY: vtmpc1, tmelt
   USE mo_echam_cloud_params, ONLY: cthomi, csecfrl
-  USE mo_echam_conv_nml,     ONLY: ncvmicro
 #else
   USE mo_constants,          ONLY: vtmpc1, tmelt
   USE mo_cloud,              ONLY: cthomi, csecfrl
-  USE mo_param_switches,     ONLY: ncvmicro
 #endif
 
   USE mo_convect_tables,     ONLY: tlucua,   & ! table a
@@ -65,7 +63,7 @@ MODULE mo_cuadjtqi
 CONTAINS
   !>
   !!
-SUBROUTINE cuadjtqi(  kproma, kbdim, klev, kk,            &
+SUBROUTINE cuadjtqi( ncvmicro, kproma, kbdim, klev, kk,   &
            pp,       pt,       pq,       ldflag,   kcall, &
 !--- Included for prognostic CDNC/IC scheme (Ulrike Lohmann, 11/02/2007)
            plui)
@@ -98,6 +96,7 @@ SUBROUTINE cuadjtqi(  kproma, kbdim, klev, kk,            &
 !          THE TABLES ARE INITIALISED IN *SETPHYS*.
 !
   !  Scalar arguments with intent(In):
+  INTEGER, INTENT (IN) :: ncvmicro     !< 0 or 1. Scheme for convective microphysics
   INTEGER, INTENT (IN) :: kcall, kk, klev, kproma, kbdim
 
   !  Array arguments with intent(In):

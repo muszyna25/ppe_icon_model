@@ -81,7 +81,8 @@ MODULE mo_cumastr
 CONTAINS
   !>
   !!
-  SUBROUTINE cumastr(  pdtime, ptime_step_len,                            &
+  SUBROUTINE cumastr(  ncvmicro, &
+                       pdtime, ptime_step_len,                            &
                        kproma, kbdim, klev, klevp1, klevm1, ilab,         &
 !!$                       krow,                                              &
                        papp1,                                             &
@@ -186,6 +187,7 @@ CONTAINS
 !          PAPER ON MASSFLUX SCHEME (TIEDTKE,1989)
 !
 !
+INTEGER, INTENT (IN) :: ncvmicro
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, ktrac, klevm1
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
 !!$INTEGER, INTENT (IN) :: krow
@@ -310,7 +312,7 @@ INTRINSIC MIN, MAX
 !                  ---------------------------------------------------
 !
 !200 CONTINUE
-  CALL cuini(kproma, kbdim, klev, klevp1, klevm1,                      &
+  CALL cuini(ncvmicro, kproma, kbdim, klev, klevp1, klevm1,            &
              pten,     pqen,     pqsen,    pxen,     puen,     pven,   &
              ptven,    ktrac,                                          &
              pxten,    zxtenh,   pxtu,     zxtd,     zmfuxt,   zmfdxt, &
@@ -578,7 +580,7 @@ INTRINSIC MIN, MAX
 !
   icuasc=1
 !
-  CALL cuasc(pdtime, ptime_step_len,                                   &
+  CALL cuasc(ncvmicro, pdtime, ptime_step_len,                         &
              kproma, kbdim, klev, klevp1, klevm1,                      &
              ztenh,    zqenh,    puen,     pven,                       &
              ktrac,                                                    &
@@ -644,7 +646,7 @@ INTRINSIC MIN, MAX
 !*             (A) DETERMINE LFS IN 'CUDLFS'
 !                  -------------------------
 !
-     CALL cudlfs(kproma,   kbdim,    klev,     klevp1,                 &
+     CALL cudlfs(ncvmicro, kproma,   kbdim,    klev,     klevp1,       &
                  ztenh,    zqenh,    puen,     pven,                   &
                  ktrac,                                                &
                  zxtenh,   pxtu,     zxtd,     zmfdxt,                 &
@@ -659,7 +661,7 @@ INTRINSIC MIN, MAX
 !*            (B)  DETERMINE DOWNDRAFT T,Q AND FLUXES IN 'CUDDRAF'
 !                  -----------------------------------------------
 !
-     CALL cuddraf(kproma,   kbdim,    klev,     klevp1,                &
+     CALL cuddraf(ncvmicro, kproma,   kbdim,    klev,     klevp1,      &
                   ztenh,    zqenh,    puen,     pven,                  &
                   ktrac,                                               &
                   zxtenh,   zxtd,     zmfdxt,                          &
@@ -874,7 +876,7 @@ INTRINSIC MIN, MAX
   icuasc=2
 !
 !600 CONTINUE
-  CALL cuasc(pdtime, ptime_step_len,                                   &
+  CALL cuasc(ncvmicro, pdtime, ptime_step_len,                         &
              kproma, kbdim, klev, klevp1, klevm1,                      &
              ztenh,    zqenh,    puen,     pven,                       &
              ktrac,                                                    &
@@ -906,7 +908,8 @@ INTRINSIC MIN, MAX
 !
 !700 CONTINUE
 
-  CALL cuflx(ptime_step_len, kproma,   kbdim,    klev,     klevp1,     &
+  CALL cuflx(ncvmicro,  &
+             ptime_step_len, kproma,   kbdim,    klev,     klevp1,     &
              pqen,     pqsen,    ztenh,    zqenh,                      &
              ktrac,                                                    &
 !---Included for scavenging in xtwetdep (Philip Stier, 28/03/01, UL, 28.3.07):-------
@@ -933,7 +936,8 @@ INTRINSIC MIN, MAX
 !                  --------------------------------------------------
 !
 !800 CONTINUE
-  CALL cudtdq(pdtime, kproma, kbdim, klev, klevp1, itopm2, ldcum, ktrac, &
+  CALL cudtdq(ncvmicro, &
+              pdtime, kproma, kbdim, klev, klevp1, itopm2, ldcum, ktrac, &
 !--- Included for dust emissions (Philip Stier 23/01/06)-----------------
 !!$              krow,                                                    &
 !--- End Included for dust emissions in ---------------------------------

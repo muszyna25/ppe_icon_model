@@ -40,11 +40,10 @@ MODULE mo_cuddraf
   USE mo_cuadjtqi,           ONLY : cuadjtqi
 #ifdef __ICON__
   USE mo_physical_constants, ONLY : g=>grav, rd, vtmpc1
-  USE mo_echam_conv_nml,     ONLY : lmfdudv, cmfcmin, entrdd, ncvmicro
+  USE mo_echam_conv_nml,     ONLY : lmfdudv, cmfcmin, entrdd
 #else
   USE mo_constants,          ONLY : g, rd, vtmpc1
   USE mo_cumulus_flux,       ONLY : lmfdudv, cmfcmin, entrdd
-  USE mo_param_switches,     ONLY : ncvmicro
 #endif
 
   IMPLICIT NONE
@@ -56,7 +55,7 @@ MODULE mo_cuddraf
 CONTAINS
   !>
   !!
-SUBROUTINE cuddraf(  kproma, kbdim, klev, klevp1,                      &
+SUBROUTINE cuddraf(  ncvmicro, kproma, kbdim, klev, klevp1,            &
            ptenh,    pqenh,    puen,     pven,                         &
            ktrac,                                                      &
            pxtenh,   pxtd,     pmfdxt,                                 &
@@ -101,6 +100,7 @@ SUBROUTINE cuddraf(  kproma, kbdim, klev, klevp1,                      &
 !          ---------
 !          (TIEDTKE,1989)
 !
+INTEGER, INTENT (IN) :: ncvmicro 
 INTEGER, INTENT (IN) :: kbdim, klev, ktrac, kproma, klevp1
 !
 REAL(dp) :: ptenh(kbdim,klev),       pqenh(kbdim,klev),                &
@@ -205,7 +205,7 @@ REAL(dp) :: plui(kbdim,klev)
      ik=jk
      icall=2
      IF (ncvmicro .GT. 0) THEN
-        CALL cuadjtqi(kproma,   kbdim,    klev,     ik,               &
+        CALL cuadjtqi( ncvmicro, kproma,   kbdim,    klev,     ik,    &
                   zph,      ptd,      pqd,      llo2,     icall,      &
 !-----------------------added by Junhua Zhang for Micro---------------
                   plui)

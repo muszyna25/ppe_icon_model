@@ -74,9 +74,9 @@ MODULE mo_cucall
 CONTAINS
   !>
   !!
-  SUBROUTINE cucall( kproma, kbdim, klev, klevp1, klevm1,            &! in
+  SUBROUTINE cucall( ncvmicro, kproma, kbdim, klev, klevp1, klevm1,  &! in
                      ktrac,                                          &! in
-!!$                     krow,                                           &! in
+!0                   krow,                                           &! in
                      pdtime, ptime_step_len,                         &! in
                      iconv,  ldland,                                 &! in
                      ptm1,     pum1,     pvm1,                       &! in
@@ -86,7 +86,7 @@ CONTAINS
                      pxlte,    pxite,                                &! in
                      papp1,    paphp1,                               &! in
                      pqhfla,                                         &! in
-!!$                     ptkem1,                                         &! in
+!0                   ptkem1,                                         &! in
                      pthvsig,                                        &! in
                      ptte,     pvom,     pvol,                       &! inout
                      pqte,     pxtte,                                &! inout
@@ -101,8 +101,9 @@ CONTAINS
                      ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv,         &! out
                      pxtte_cnv                               )        ! out
 
+    INTEGER, INTENT(IN) :: ncvmicro 
     INTEGER, INTENT(IN) :: klev, klevm1, klevp1, kproma, kbdim, ktrac
-!!$    INTEGER, INTENT(IN) :: krow
+!0  INTEGER, INTENT(IN) :: krow
     REAL(dp),INTENT(IN) :: pdtime
     REAL(dp),INTENT(IN) :: ptime_step_len
     INTEGER, INTENT(IN) :: iconv
@@ -116,7 +117,7 @@ CONTAINS
     REAL(dp),INTENT(IN) :: pxlte(kbdim,klev),     pxite(kbdim,klev)
     REAL(dp),INTENT(IN) :: papp1(kbdim,klev),    paphp1(kbdim,klevp1)
     REAL(dp),INTENT(IN) :: pqhfla(kbdim)
-!!$    REAL(dp),INTENT(IN) :: ptkem1(kbdim,klev)
+!0  REAL(dp),INTENT(IN) :: ptkem1(kbdim,klev)
     REAL(dp),INTENT(IN) :: pthvsig(kbdim)
 
     REAL(dp),INTENT(INOUT) :: ptte(kbdim,klev)
@@ -219,7 +220,7 @@ CONTAINS
 !200 CONTINUE
   SELECT CASE (iconv)
   CASE(1)
-     CALL cumastr(pdtime, ptime_step_len,                              &
+     CALL cumastr(ncvmicro, pdtime, ptime_step_len,                    &
                   kproma, kbdim, klev, klevp1, klevm1, ilab,           &
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
 !!$                  krow,                                                &
@@ -244,7 +245,7 @@ CONTAINS
 !--- End Included for CDNC/IC ------------------------------------------
                   ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv, pxtte_cnv    )
   CASE(2)
-     CALL cumastrt(pdtime,  ptime_step_len,                            &
+     CALL cumastrt(ncvmicro, pdtime,  ptime_step_len,                  &
                   kproma, kbdim, klev, klevp1, klevm1, ilab,           &
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
 !!$                  krow,                                                &
@@ -267,7 +268,7 @@ CONTAINS
 !--- End Included for CDNC/IC ------------------------------------------
                   ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv, pxtte_cnv    )
   CASE(3)
-     CALL cumastrh(pdtime, ptime_step_len,                             &
+     CALL cumastrh(ncvmicro, pdtime, ptime_step_len,                   &
                   kproma, kbdim, klev, klevp1, klevm1, ilab,           &
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
 !!$                  krow,                                                &

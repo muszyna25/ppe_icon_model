@@ -39,11 +39,9 @@ MODULE mo_cudtdq
 
 #ifdef __ICON__
   USE mo_physical_constants, ONLY: alv, als, alf, tmelt, g=>grav
-  USE mo_echam_conv_nml,  ONLY: ncvmicro
 #else
   USE mo_constants,          ONLY: alv, als, alf, tmelt, g
   USE mo_tracdef,            ONLY: trlist
-  USE mo_param_switches,     ONLY: ncvmicro
   USE mo_submodel,           ONLY: lanysubmodel
   USE mo_vphysc,             ONLY: set_vphysc_var
 #endif
@@ -57,20 +55,20 @@ MODULE mo_cudtdq
 CONTAINS
   !>
   !!
-SUBROUTINE cudtdq(pdelta_time,                                         &
+SUBROUTINE cudtdq(ncvmicro, pdelta_time,                               &
                   kproma, kbdim, klev, klevp1, ktopm2, ldcum, ktrac,   &
-!!$                  krow,                                                &
+!0                krow,                                                &
                   paphp1,   pten,     ptte,     pqte,                  &
-!!$                  pxtte,                                               &
+!0                pxtte,                                               &
                   pxtec,                                               &
-!!$                  pmfuxt,   pmfdxt,                                    &
+!0                pmfuxt,   pmfdxt,                                    &
                   pmfus,    pmfds,    pmfuq,    pmfdq,                 &
                   pmful,    pdmfup,   pdmfdp,   plude,                 &
                   pdpmel,   prfl,     psfl,                            &
                   pcpen,    pqtec,    pqude,                           &
                   prsfc,    pssfc,    paprc,    paprs,                 &
                   pludel,pludei,pxtecl,pxteci,pmfull,pmfuli,           &!for CDNC/IC
-!!$                  plui,                                                &!for CDNC/IC
+!0                plui,                                                &!for CDNC/IC
                   ptte_cnv, pqte_cnv, pxtte_cnv                    )
 !
 !
@@ -84,6 +82,7 @@ SUBROUTINE cudtdq(pdelta_time,                                         &
 !
 !          *CUDTDQ* IS CALLED FROM *CUMASTR*
 !
+INTEGER, INTENT(IN) :: ncvmicro
 REAL(dp),INTENT(IN) :: pdelta_time
 INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevp1, ktopm2, ktrac
 !!$INTEGER, INTENT(IN) :: krow
