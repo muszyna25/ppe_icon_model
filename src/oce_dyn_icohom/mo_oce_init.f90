@@ -60,7 +60,7 @@ USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer , &
 !  &                             iforc_oce, inoforcing, analyt_forc, core_forc, full_forc, &
 !  &                             core_annwind, wstress_coeff
 USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, & !success,               &
-  & min_rlcell, min_rledge  &
+  & min_rlcell, min_rledge,  &
   & oce_testcase_zero, oce_testcase_init, oce_testcase_file                             
 !  &                              land , boundary
 USE mo_dynamics_nml,       ONLY: nold,nnew
