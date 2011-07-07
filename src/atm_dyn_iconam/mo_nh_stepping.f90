@@ -52,7 +52,7 @@ MODULE mo_nh_stepping
                                     construct_nh_state, bufr
   USE mo_nonhydrostatic_nml,  ONLY: iadv_rcf, l_nest_rcf, ltheta_up_vert
   USE mo_diffusion_nml,       ONLY: lhdiff_vn
-  USE mo_dynamics_nml,        ONLY: nnow, nnew, nnow_rcf, nnew_rcf,                 &
+  USE mo_atm_dyn_nml,         ONLY: nnow, nnew, nnow_rcf, nnew_rcf,                 &
     &                               nsav1, nsav2, itime_scheme
   USE mo_io_nml,              ONLY: l_outputtime, l_diagtime, l_checkpoint_time
   USE mo_parallel_configuration,  ONLY: nproma

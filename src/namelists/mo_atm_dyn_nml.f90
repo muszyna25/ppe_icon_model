@@ -202,7 +202,7 @@ CONTAINS
 
     INTEGER, INTENT(IN) :: i_ndom
  
-    INTEGER :: istat, funit, jdom
+    INTEGER :: jdom
 
     CHARACTER(len=MAX_CHAR_LENGTH),PARAMETER ::             &
              & routine = 'mo_atm_dyn_nml:atm_dyn_setup'

@@ -46,7 +46,7 @@ USE mo_grf_interpolation,   ONLY: t_gridref_state, grf_intmethod_c, &
 USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_vec_grf, interpol2_vec_grf
 USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging, interpol_vec_nudging
 USE mo_grf_ubcintp,         ONLY: interpol_scal_ubc,interpol_vec_ubc
-USE mo_dynamics_nml,        ONLY: nnow, nnew, nnew_rcf, nsav1, nsav2,       &
+USE mo_atm_dyn_nml,         ONLY: nnow, nnew, nnew_rcf, nsav1, nsav2,       &
                                   nnow_rcf
   USE mo_parallel_configuration,  ONLY: nproma
 USE mo_run_nml,             ONLY: ltransport, msg_level, ntracer, lvert_nest

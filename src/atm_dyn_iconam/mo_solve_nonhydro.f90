@@ -42,7 +42,7 @@ MODULE mo_solve_nonhydro
 
   USE mo_kind,              ONLY: wp
   USE mo_nonhydrostatic_nml,ONLY: iadv_rhotheta, igradp_method, l_open_ubc
-  USE mo_dynamics_nml,      ONLY: itime_scheme, idiv_method
+  USE mo_atm_dyn_nml,       ONLY: itime_scheme, idiv_method
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,           ONLY: ltimer, lvert_nest
   USE mo_model_domain,      ONLY: t_patch
