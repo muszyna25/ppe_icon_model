@@ -44,11 +44,11 @@
 MODULE mo_io_config
 
   USE mo_kind,           ONLY: wp
-  USE mo_impl_constants, ONLY: MAX_NTRACER, MAX_CHAR_LENGTH
+  USE mo_impl_constants, ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom
 
   IMPLICIT NONE
 
-  PRIVATE
+  PUBLIC
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -97,6 +97,6 @@ MODULE mo_io_config
   END TYPE t_io_config
   !>
   !!
-  TYPE(t_io_config),ALLOCATABLE :: io_config(:) !< shape: (n_dom)
+  TYPE(t_io_config):: io_config(max_dom)
 
 END MODULE mo_io_config

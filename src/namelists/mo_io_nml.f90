@@ -51,13 +51,14 @@ MODULE mo_io_nml
 !
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_impl_constants,     ONLY: max_char_length, max_ntracer
+  USE mo_impl_constants,     ONLY: max_char_length, max_ntracer, max_dom
   USE mo_datetime,           ONLY: t_datetime, proleptic_gregorian,          &
     &                              date_to_time, add_time, print_datetime_all
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned
   USE mo_mpi,                ONLY: p_pe, p_io
   USE mo_master_nml,         ONLY: lrestart
+  USE mo_io_config,          ONLY: io_config
   USE mo_run_nml,            ONLY: inwp,iecham,ltransport,dtime,ntracer,     &
                                  & iforcing,lshallow_water,iequations,       &
                                  & inextra_2d, inextra_3d,ildf_echam
@@ -298,6 +299,7 @@ SUBROUTINE io_nml_setup
   SUBROUTINE read_io_namelist
     !
     INTEGER :: istat, funit
+    INTEGER :: jg           ! loop index
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_io_nml: read_io_namelist'
@@ -378,6 +380,29 @@ SUBROUTINE io_nml_setup
     !----------------------------------------------------
     ! 4. Fill the configuration state
     !----------------------------------------------------
+    DO jg= 1,max_dom
+      io_config(jg)%out_expname      = out_expname
+      io_config(jg)%out_filetype     = out_filetype
+      io_config(jg)%dt_data          = dt_data
+      io_config(jg)%dt_file          = dt_file
+      io_config(jg)%dt_diag          = dt_diag
+      io_config(jg)%dt_checkpoint    = dt_checkpoint
+      io_config(jg)%lwrite_vorticity = lwrite_vorticity
+      io_config(jg)%lwrite_divergence= lwrite_divergence 
+      io_config(jg)%lwrite_omega     = lwrite_omega
+      io_config(jg)%lwrite_pres      = lwrite_pres 
+      io_config(jg)%lwrite_z3        = lwrite_z3
+      io_config(jg)%lwrite_tracer    = lwrite_tracer
+      io_config(jg)%lwrite_tend_phy  = lwrite_tend_phy
+      io_config(jg)%lwrite_radiation = lwrite_radiation
+      io_config(jg)%lwrite_precip    = lwrite_precip
+      io_config(jg)%lwrite_cloud     = lwrite_cloud
+      io_config(jg)%lkeep_in_sync    = lkeep_in_sync
+      io_config(jg)%lwrite_tke       = lwrite_tke
+      io_config(jg)%lwrite_surface   = lwrite_surface
+      io_config(jg)%lwrite_extra     = lwrite_extra
+    ENDDO
+
 
 
     !-----------------------------------------------------
