@@ -47,6 +47,8 @@ MODULE mo_grid_configuration
 
   PRIVATE
 
+  PUBLIC :: check_grid_configuration
+  
   PUBLIC :: n_dom,n_dom_start, global_cell_type
   
   PUBLIC :: dynamics_grid_filename,  dynamics_parent_grid_id,  &

@@ -111,11 +111,9 @@ MODULE mo_grid_nml
 
 
   CONTAINS
-!
-!
 
  !>
- !!  Initialization of variables that contain grid configuration
+ !!  Initialization of grid namelist variables
  !! @par Revision History
  !!  Revision History in mo_model_domimp_setup.f90/setup_files (r3965)
  !!  Modification by Constantin Junk, MPI-M (2011-04-05)
@@ -124,7 +122,6 @@ MODULE mo_grid_nml
  !!  - restructured grid_nml_setup
  !!  Leonidas Linardakis, MPI-M, 2011/7/7
  !!  - Restructuring the namelists
-
   SUBROUTINE read_grid_namelist
                                                
     !local variable
@@ -277,9 +274,9 @@ MODULE mo_grid_nml
     !-----------------------------------------------------                                        
     ! Store the namelist for restart                                                              
     !-----------------------------------------------------                                        
-   !funit = open_tmpfile()                                                                        
-   !WRITE(funit,NML=grid_ctl)                                                                     
-   !CALL store_and_close_namelist(funit, 'grid_ctl')
+    funit = open_tmpfile()
+    WRITE(funit,NML=grid_ctl)
+    CALL store_and_close_namelist(funit, 'grid_ctl')
 
     ! write the contents of the namelist to an ASCII file
     IF(p_pe == p_io) WRITE(nnml_output,nml=grid_ctl)
@@ -287,7 +284,10 @@ MODULE mo_grid_nml
     CALL fill_grid_nml_configure()
        
   END SUBROUTINE read_grid_namelist
-
+  !-----------------------------------------------------------------------
+  
+  
+  !-----------------------------------------------------------------------
   SUBROUTINE fill_grid_nml_configure()
   
     nroot             = nml_nroot
@@ -304,8 +304,12 @@ MODULE mo_grid_nml
     dynamics_parent_grid_id     = nml_dynamics_parent_grid_id
     radiation_grid_filename     = nml_radiation_grid_filename
     dynamics_radiation_grid_link= nml_dynamics_radiation_gridlink
-    
+
+    ! check the configuration
+    CALL check_grid_configuration()
+        
   END SUBROUTINE fill_grid_nml_configure
+  !-----------------------------------------------------------------------
   
 
 END MODULE mo_grid_nml
