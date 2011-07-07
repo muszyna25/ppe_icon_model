@@ -52,12 +52,7 @@ MODULE mo_echam_phy_main
     &                               iqv, iqc, iqi, io3, iqt, ltimer
   USE mo_hydro_testcases,     ONLY: ctest_name
   USE mo_vertical_coord_table,ONLY: nlevm1
-  USE mo_echam_phy_config,    ONLY: lcond     => echam_phy_config%lcond,  &
-                                    lcover    => echam_phy_config%lcover, &
-                                    lconv     => echam_phy_config%lconv,  &
-                                    lrad      => echam_phy_config%lrad,   &
-                                    lvdiff    => echam_phy_config%lvdiff, &
-                                    lgw_hines => echam_phy_config%lgw_hines
+  USE mo_echam_phy_config,    ONLY: echam_phy_config
   USE mo_echam_conv_nml,      ONLY: iconv
   USE mo_cucall,              ONLY: cucall
   USE mo_echam_phy_memory,    ONLY: t_echam_phy_field, prm_field,     &
@@ -224,7 +219,7 @@ CONTAINS
     END DO
 
     ! 3.4 Merge three pieces of information into one array for vdiff
-    IF (lvdiff) THEN
+    IF (echam_phy_config%lvdiff) THEN
       IF (ilnd.LE.nsfc_type) zfrc(jcs:jce,ilnd) = zfrl(jcs:jce)
       IF (iwtr.LE.nsfc_type) zfrc(jcs:jce,iwtr) = zfrw(jcs:jce)
       IF (iice.LE.nsfc_type) zfrc(jcs:jce,iice) = zfri(jcs:jce)
@@ -247,11 +242,12 @@ CONTAINS
     !-------------------------------------------------------------------
     itype(jcs:jce) = NINT(field%rtype(jcs:jce,jb))
 
-    IF (lcond) THEN
+    IF (echam_phy_config%lcond) THEN
       IF (ltimer) CALL timer_start(timer_cover)
 
       CALL cover( jce, nbdim, jks,          &! in
-        &         nlev, nlevp1, lcover,     &! in
+        &         nlev, nlevp1,             &! in
+        &         echam_phy_config%lcover,  &! in
         &         itype,  zfrw,             &! in
         &         field% presi_old(:,:,jb), &! in
         &         field% presm_old(:,:,jb), &! in
@@ -273,7 +269,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 4. RADIATION PARAMETERISATION
     !-------------------------------------------------------------------
-    IF (lrad) THEN
+    IF (echam_phy_config%lrad) THEN
 
        SELECT CASE(izenith)  
        CASE(0)
@@ -528,7 +524,7 @@ CONTAINS
     !     build up the tridiagonal linear algebraic system;
     !     downward sweep (Gaussian elimination from top till level nlev-1)
 
-    IF (lvdiff) THEN
+    IF (echam_phy_config%lvdiff) THEN
       IF (ltimer) CALL timer_start(timer_vdiff)
 
       CALL vdiff_down( jce, nbdim, nlev, nlevm1, nlevp1,&! in
@@ -613,7 +609,7 @@ CONTAINS
     !     - Back substitution to get solution of the tridiagonal system;
     !     - Compute tendencies and additional diagnostics.
 
-    IF (lvdiff) THEN
+    IF (echam_phy_config%lvdiff) THEN
       IF (ltimer) CALL timer_start(timer_vdiff)
 
       CALL vdiff_up( jce, nbdim, nlev, nlevm1, nlevp1,&! in
@@ -714,7 +710,7 @@ CONTAINS
 
     ! 6.1   CALL SUBROUTINE GW_HINES
 
-    IF (lgw_hines) THEN
+    IF (echam_phy_config%lgw_hines) THEN
 
       IF (ltimer) call timer_start(timer_gw_hines)
 
@@ -765,7 +761,7 @@ CONTAINS
 
     ! 7.2   CALL SUBROUTINE CUCALL FOR CUMULUS PARAMETERIZATION
 
-    IF (lconv) THEN
+    IF (echam_phy_config%lconv) THEN
 
       IF (ltimer) call timer_start(timer_cucall)
 
@@ -830,18 +826,18 @@ CONTAINS
     !-------------------------------------------------------------
     ! 7. LARGE SCALE CONDENSATION.
     !-------------------------------------------------------------
-    IF(lcond) THEN
+    IF(echam_phy_config%lcond) THEN
 
       !IF (lcotra) CALL get_col_pol( tend%temp(:,:,jb),tend%q(:,:,jb,iqv),jb )
       IF (ltimer) CALL timer_start(timer_cloud)
 
       IF (ncdnc==0 .AND. nicnc==0) THEN
 
-        CALL cloud(jce, nbdim, jks, nlev, nlevp1, ntrac, &! in
-!!$          &        jb,                                   &! in
-          &        pdtime, psteplen, lcover,             &! in
+        CALL cloud(jce, nbdim, jks, nlev, nlevp1, ntrac,  &! in
+!0        &        jb,                                    &! in
+          &        pdtime, psteplen, echam_phy_config%lcover, &! in
           &        field% presi_old(:,:,jb), &! in
-!!$          &        field% presi_new(:,:,jb), &! in
+!0        &        field% presi_new(:,:,jb), &! in
           &        field% presm_old(:,:,jb), &! in
           &        field% presm_new(:,:,jb), &! in
           &        field% temp (:,:,jb),     &! in. tm1
@@ -852,7 +848,7 @@ CONTAINS
           &        field% q(:,:,jb,iqv),     &! in.  qm1
           &        field% q(:,:,jb,iqc),     &! in. xlm1
           &        field% q(:,:,jb,iqi),     &! in. xim1
-!!$          &        field% q(:,:,jb,iqt:),    &! in. xtm1
+!0        &        field% q(:,:,jb,iqt:),    &! in. xtm1
           &        zqtvar_prod, zhmixtau, zvmixtau, &! in
           &        zbetaa, zbetab, zbetass, invb,   &! in (from "cover")
           &        zqtec,                     &! inout (there is a clip inside)
@@ -882,7 +878,7 @@ CONTAINS
           &        tend%   q_cld(:,:,jb,iqt:) )! out
 
       ELSE IF (ncdnc>0 .AND. nicnc>0) THEN
-!!$        CALL cloud_cdnc_icnc(...) !!skipped in ICON
+!0      CALL cloud_cdnc_icnc(...) !!skipped in ICON
       ELSE
         IF (p_parallel_io) CALL finish('physc', ' check setting of ncdnc and nicnc.')
       END IF
