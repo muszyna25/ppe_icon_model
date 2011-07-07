@@ -69,7 +69,7 @@ MODULE mo_nwp_diagnosis
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,            ONLY: ntracer, iqv, iqc, iqi, &
        &                              iqr, iqs, msg_level, ltimer
-  USE mo_time_config,        ONLY: ini_datetime => time_config%ini_datatime
+  USE mo_time_config,        ONLY: time_config
   USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd_o_rd, &
                                    lh_v     => alv      !! latent heat of vapourization
 
@@ -367,14 +367,14 @@ CONTAINS
 ! Check if it is 00, 06, 12 or 18 UTC. In this case update the value of 
 !    dt_s6avg average variables 
 
-    IF (MOD(p_sim_time + ini_datetime%daysec, dt_s6avg) == 0 .AND. p_sim_time > 0.1) THEN
+    IF (MOD(p_sim_time + time_config%ini_datetime%daysec, dt_s6avg) == 0 .AND. p_sim_time > 0.1) THEN
        l_s6avg = .TRUE.
-       p_sim_time_s6 = INT( (p_sim_time+ini_datetime%daysec)/dt_s6avg) * dt_s6avg
+       p_sim_time_s6 = INT( (p_sim_time+time_config%ini_datetime%daysec)/dt_s6avg) * dt_s6avg
     ELSE
        l_s6avg = .FALSE.
     END IF
-   ! WRITE(0,*) "diag", p_sim_time, ini_datetime%daysec, dt_s6avg, & 
-   !               & MOD(p_sim_time + ini_datetime%daysec, dt_s6avg), l_s6avg
+   ! WRITE(0,*) "diag", p_sim_time, time_config%ini_datetime%daysec, dt_s6avg, & 
+   !               & MOD(p_sim_time + time_config%ini_datetime%daysec, dt_s6avg), l_s6avg
 
    
     IF (l_s6avg ) THEN
