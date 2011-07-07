@@ -51,7 +51,7 @@ MODULE mo_grid_nml
   USE mo_namelist,           ONLY: position_nml, POSITIONED
   USE mo_mpi,                ONLY: p_pe, p_io
   USE mo_impl_constants,     ONLY: max_dom, max_char_length, itri, ihex
-!   USE mo_math_constants,     ONLY: rad2deg
+  USE mo_math_constants,     ONLY: rad2deg
   USE mo_master_nml,         ONLY: lrestart
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
@@ -193,9 +193,9 @@ MODULE mo_grid_nml
     ! by values in the previous integration.
     !----------------------------------------------------------------
     IF (lrestart) THEN
-    ! funit = open_and_restore_namelist('grid_ctl')
-    ! READ(funit,NML=grid_ctl)
-    ! CALL close_tmpfile(funit)
+      funit = open_and_restore_namelist('grid_ctl')
+      READ(funit,NML=grid_ctl)
+      CALL close_tmpfile(funit)
     END IF
 
     !------------------------------------------------------------
@@ -208,6 +208,8 @@ MODULE mo_grid_nml
       READ (nnml, grid_ctl)
     ENDIF
 
+    ! convert degrees in radiant for the Coriolis latitude
+    nml_corio_lat =  nml_corio_lat/rad2deg
 
     IF (nml_dynamics_grid_filename(1) == "") THEN
       ! dynamics_grid_filename not filled

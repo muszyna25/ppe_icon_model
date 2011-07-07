@@ -190,8 +190,6 @@ MODULE mo_grid_configuration
     !-----------------------------------------------------
     ! Set dependent variables
     !-----------------------------------------------------
-    ! convert degrees in radiant for the Coriolis latitude
-    corio_lat =  corio_lat/rad2deg
 
            
 !     write(0,*) no_of_dynamics_grids
