@@ -139,6 +139,7 @@ MODULE mo_grid_configuration
     ! and check if they exist
     no_of_dynamics_grids  = 0
     no_of_radiation_grids = 0
+    
     jg=1
     DO WHILE (dynamics_grid_filename(jg) /= "")
       INQUIRE (FILE=dynamics_grid_filename(jg), EXIST=file_exists)
@@ -148,8 +149,10 @@ MODULE mo_grid_configuration
         CALL finish( TRIM(method_name), TRIM(message_text))
       ENDIF
       jg=jg+1
+      IF (jg > max_dom) EXIT
     END DO
     no_of_dynamics_grids  = jg-1
+    
     jg=1
     DO WHILE (radiation_grid_filename(jg) /= "")
       INQUIRE (FILE=radiation_grid_filename(jg), EXIST=file_exists)
@@ -159,10 +162,12 @@ MODULE mo_grid_configuration
         CALL finish( TRIM(method_name), TRIM(message_text))
       ENDIF
       jg=jg+1
+      IF (jg > max_dom) EXIT
     END DO
     no_of_radiation_grids = jg-1
     n_dom = no_of_dynamics_grids
 
+    ! some checks
     IF (no_of_dynamics_grids < 1) &
       CALL finish( TRIM(method_name), 'no dynamics grid is defined')
         
@@ -174,7 +179,9 @@ MODULE mo_grid_configuration
     ENDIF
     
     !------------------------------------------------------------
-    ! 5.0 check the consistency of the parameters
+    ! Reset lfeedback to false for all model domains if lfeedback(1) = false
+    IF (.NOT. lfeedback(1)) lfeedback(2:max_dom) = .FALSE.
+    
     !------------------------------------------------------------
     SELECT CASE (global_cell_type)
     CASE (itri,ihex)
@@ -184,8 +191,6 @@ MODULE mo_grid_configuration
         & 'wrong cell type specifier, "nml_cell_type" must be 3 or 6')
     END SELECT
     
-    ! Reset lfeedback to false for all model domains if lfeedback(1) = false
-    IF (.NOT. lfeedback(1)) lfeedback(2:max_dom) = .FALSE.
 
     !-----------------------------------------------------
     ! Set dependent variables

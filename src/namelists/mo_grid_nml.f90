@@ -109,22 +109,6 @@ MODULE mo_grid_nml
     & nml_dynamics_grid_filename,  nml_dynamics_parent_grid_id,         &
     & nml_radiation_grid_filename, nml_dynamics_radiation_gridlink
 
-  ! -----------------------------------------------------------------------
-  ! 2.0 Declaration of dependent variables
-  ! -----------------------------------------------------------------------
-! 
-!   INTEGER  :: nroot_d
-!   INTEGER  :: start_lev_d 
-!   INTEGER  :: n_dom_d
-!   INTEGER  :: parent_id_d(max_dom-1)
-! 
-!   LOGICAL  :: lfeedback_d(max_dom)
-!   LOGICAL  :: lplane_d 
-!   LOGICAL  :: l_limited_area_d 
-!   LOGICAL  :: lredgrid_phys_d(max_dom)
-! 
-!   REAL(wp) :: corio_lat_d 
-!   REAL(wp) :: patch_weight_d(max_dom)
 
   CONTAINS
 !
