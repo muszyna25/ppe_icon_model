@@ -44,10 +44,7 @@ MODULE mo_echam_phy_init
   USE mo_run_nml,            ONLY: nlev, nlevp1, nvclev,  &
     &                              iqv, iqt, ntracer, ltestcase
   USE mo_vertical_coord_table,ONLY: vct
-  USE mo_echam_phy_config,      ONLY: lrad   => echam_phy_config%lrad,   &
-                                    & lvdiff => echam_phy_config%lvdiff, &
-                                    & lconv  => echam_phy_config%lconv,  &
-                                    & lcond  => echam_phy_config%lcond
+  USE mo_echam_phy_config,      ONLY: phy_config => echam_phy_config
 
   ! test cases
   USE mo_hydro_testcases,    ONLY: ctest_name, ape_sst_case
@@ -111,7 +108,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! For radiation
 
-    IF (lrad) THEN
+    IF (phy_config%lrad) THEN
       ssi(:) = ssi_amip(:)
       tsi    = SUM(ssi(:))
       CALL setup_srtm
@@ -129,7 +126,7 @@ CONTAINS
     ! Allocate memory for the tri-diagonal solver needed by the implicit
     ! time stepping scheme; Compute time-independent parameters.
 
-    IF (lvdiff) THEN
+    IF (phy_config%lvdiff) THEN
       ! Currently the tracer indices are sorted such that we count
       ! the water substances first, and then other species like 
       ! aerosols and their precursors. "ntracer" is the total number 
@@ -148,7 +145,8 @@ CONTAINS
 
     ! Lookup tables for saturation vapour pressure
 
-    IF (lconv.OR.lcond.OR.lvdiff)  CALL init_convect_tables
+    IF (phy_config%lconv.OR.phy_config%lcond.OR.phy_config%lvdiff) &
+    CALL init_convect_tables
 
     ! For cumulus convection
     !CJ: former cuparam now inlcuded in echam_conv_nml_setup
@@ -156,7 +154,7 @@ CONTAINS
 
     ! For large scale condensation
 
-    IF (lcond) THEN
+    IF (phy_config%lcond) THEN
       CALL init_cloud_tables
       CALL sucloud( nlev, vct        &
 !!$     &         , lmidatm=.FALSE.  &
@@ -350,7 +348,7 @@ CONTAINS
        tend% x_dtr(:,:,:) = 0._wp  !"xtec" in ECHAM
 !$OMP END PARALLEL WORKSHARE
 
-      IF (lvdiff) THEN
+      IF (phy_config%lvdiff) THEN
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jcs,jce)
       DO jb = jbs,nblks_c
