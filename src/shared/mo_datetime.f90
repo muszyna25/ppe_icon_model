@@ -185,136 +185,6 @@ MODULE mo_datetime
 CONTAINS
 
   !>
-  !! Subroutine to string into a date/time struct
-  !!
-  !! Input: string in the format of "YEAR-mm-ddThh:mm:ssZ"
-  !! Output: datetime struct year, month, day, hour, minute, second
-  !!
-  SUBROUTINE string_to_datetime ( datetime_str, datetime )
-
-    IMPLICIT NONE
-
-    CHARACTER(len=date_len), INTENT(in) :: datetime_str
-    TYPE (t_datetime), INTENT(out)      :: datetime
-
-    CHARACTER(len=32) :: datetime_format
-    CHARACTER(len=16) :: year_fmt_str
-    INTEGER           :: position_of_first_dash
-    INTEGER           :: position_of_second_dash
-    INTEGER           :: length
-    INTEGER           :: year_format
-
-    INTEGER           :: second
-
-    length = LEN_TRIM(datetime_str)
-
-    position_of_first_dash = INDEX ( datetime_str, '-', .FALSE. )
-
-    IF ( position_of_first_dash == 1 ) THEN
-
-       ! we have negative years 
-
-       position_of_second_dash = INDEX ( datetime_str(2:length),  '-', .FALSE. )
-
-       year_format = position_of_second_dash - 1
-
-       !TODO: IF ( year_format + 1 > 9 ) Abort!
-
-       WRITE (year_fmt_str, '(A1,I1)' )  'I', year_format + 1
-
-    ELSE
-
-       year_format = position_of_first_dash - 1
-
-       !TODO: IF ( year_format > 9 ) Abort!
-
-       WRITE (year_fmt_str, '(A1,I1)' )  'I', year_format
-
-    ENDIF
-
-    WRITE (datetime_format,'(A1,A2,A11)') '(',year_fmt_str,',5(X,I2),X)'
-
-    READ(datetime_str, datetime_format) datetime%year,   &
-         &                              datetime%month,  &
-         &                              datetime%day,    &
-         &                              datetime%hour,   &
-         &                              datetime%minute, &
-         &                              second
-
-    datetime%second = REAL(second,wp)
-
-  END SUBROUTINE string_to_datetime
-
-  !>
-  !! Subroutine to convert date/time struct into a string
-  !!
-  !! Input: year, month, day, hour, minute, second
-  !! Output: string in the format of "YEAR-mm-ddThh:mm:ssZ"
-  !!  where YEAR can have between 1 and 6 digits and can be negative.
-  !!
-  SUBROUTINE datetime_to_string ( datetime_str, datetime )
-
-    IMPLICIT NONE
-
-    CHARACTER(len=date_len), INTENT(OUT) :: datetime_str
-    TYPE (t_datetime), INTENT(IN)        :: datetime
-
-    CHARACTER(len=7) :: year_fmt_str
-
-    INTEGER          :: year_format
-    INTEGER          :: second
-
-    ! Is there a more intelligent way to do all this?
-
-    IF ( ABS(datetime%year) < 10 ) THEN
-
-       year_format = 1
-
-    ELSE IF ( ABS(datetime%year) < 100 ) THEN
-
-       year_format = 2
-
-    ELSE IF ( ABS(datetime%year) < 1000 ) THEN
-
-       year_format = 3
-
-    ELSE IF ( ABS(datetime%year) < 10000 ) THEN
-
-       year_format = 4
-
-    ELSE IF ( ABS(datetime%year) < 100000 ) THEN
-
-       year_format = 5
-
-    ELSE IF ( ABS(datetime%year) < 1000000 ) THEN
-
-       year_format = 6
-
-    ENDIF
-
-    IF ( datetime%year < 0 ) year_format = year_format + 1
-
-    !TODO: IF ( year_format > 9 ) Abort!
-
-    WRITE (year_fmt_str, '(A2,I1,A1,I1,A1)' )  '(I', year_format,'.', year_format,')'
-
-    !TODO: IF ( year_format > 9 ) Abort!
-
-    second = INT(datetime%second,i8)
-
-    WRITE(datetime_str(1:year_format), year_fmt_str ) datetime%year
-
-    WRITE(datetime_str(year_format+ 1:year_format+17), '(5(A1,I2.2),A1)' ) &
-         '-' , datetime%month,  &
-         '-' , datetime%day,    &
-         'T' , datetime%hour,   &
-         ':' , datetime%minute, &
-         ':' , second, 'Z'
-
-  END SUBROUTINE datetime_to_string
-
-
-  !>
   !! Subroutine to check if date and time information is valid.
   !!
   !! Check if:
@@ -1114,9 +984,13 @@ CONTAINS
     CALL message('mo_datetime/print_auxinfos ', message_text)
 
   END SUBROUTINE print_auxinfos
+
   !---
   !>
-  !! 
+  !! Conversion routines between ISO810 data/time string and t_datetime
+  !!
+  !! iso8601 used to create file names
+  !!
   !! Input: year, month, day, hour, minute, second
   !! Output: string in the format of "yyyymmddThhmmssZ"
   !!
@@ -1130,5 +1004,132 @@ CONTAINS
          & datetime%hour, datetime%minute, NINT(datetime%second), 'Z'
 
   END FUNCTION iso8601
+
+
+  !>
+  !! Used to convert back and forth namelist input
+  !!
+  !! Subroutine to convert a string into a date/time struct
+  !!
+  !! Input: string in the format of "YEAR-mm-ddThh:mm:ssZ"
+  !! Output: datetime struct year, month, day, hour, minute, second
+  !!
+  SUBROUTINE string_to_datetime ( datetime_str, datetime )
+
+    IMPLICIT NONE
+
+    CHARACTER(len=date_len), INTENT(in) :: datetime_str
+    TYPE (t_datetime), INTENT(out)      :: datetime
+
+    CHARACTER(len=32) :: datetime_format
+    CHARACTER(len=16) :: year_fmt_str
+    INTEGER           :: position_of_first_dash
+    INTEGER           :: position_of_second_dash
+    INTEGER           :: length
+    INTEGER           :: year_format
+
+    INTEGER           :: second
+
+    ! Build the format
+    ! -------------------------------------
+
+    length = LEN_TRIM(datetime_str)
+
+    position_of_first_dash = INDEX ( datetime_str, '-', .FALSE. )
+
+    IF ( position_of_first_dash == 1 ) THEN
+
+       ! we have negative years 
+
+       position_of_second_dash = INDEX ( datetime_str(2:length),  '-', .FALSE. )
+
+       year_format = position_of_second_dash - 1
+
+       !TODO: IF ( year_format + 1 > 9 ) Abort!
+
+       WRITE (year_fmt_str, '(A1,I1)' )  'I', year_format + 1
+
+    ELSE
+
+       year_format = position_of_first_dash - 1
+
+       !TODO: IF ( year_format > 9 ) Abort!
+
+       WRITE (year_fmt_str, '(A1,I1)' )  'I', year_format
+
+    ENDIF
+
+    WRITE (datetime_format,'(A1,A2,A11)') '(',year_fmt_str,',5(X,I2),X)'
+
+    ! Read from string
+    ! --------------------------------------
+
+    READ(datetime_str, datetime_format) datetime%year,   &
+         &                              datetime%month,  &
+         &                              datetime%day,    &
+         &                              datetime%hour,   &
+         &                              datetime%minute, &
+         &                              second
+
+    datetime%second = REAL(second,wp)
+
+  END SUBROUTINE string_to_datetime
+
+  !>
+  !! Subroutine to convert date/time struct into a string
+  !!
+  !! Input: year, month, day, hour, minute, second
+  !! Output: string in the format of "YEAR-mm-ddThh:mm:ssZ"
+  !!  where YEAR can have between 1 and 6 digits and can be negative.
+  !!
+  SUBROUTINE datetime_to_string ( datetime_str, datetime )
+
+    IMPLICIT NONE
+
+    CHARACTER(len=date_len), INTENT(OUT) :: datetime_str
+    TYPE (t_datetime), INTENT(IN)        :: datetime
+
+    CHARACTER(len=32) :: datetime_format
+    CHARACTER(len=7)  :: year_fmt_str
+
+    INTEGER           :: year_format
+    INTEGER           :: second
+    INTEGER           :: abs_year
+
+    ! Build the format
+    ! -------------------------------------
+
+    ! ... first get the number of digits for the year
+
+    abs_year = ABS(datetime%year)
+    year_format = 0
+
+    DO WHILE ( abs_year > 0 )
+      abs_year = abs_year / 10
+      year_format = year_format + 1
+    ENDDO
+ 
+    IF ( datetime%year < 0 ) year_format = year_format + 1
+
+    !TODO: IF ( year_format > 9 ) Abort!
+
+    WRITE (year_fmt_str, '(A1,I1)' )  'I', year_format
+
+    WRITE (datetime_format,'(A1,A2,A15)') '(',year_fmt_str,',5(A1,I2.2),A1)'
+
+    second = INT(datetime%second,i8)
+
+    ! Write string
+    ! --------------------------------------
+
+    WRITE(datetime_str, datetime_format ) &
+         &           datetime%year,  '-', &
+         &           datetime%month, '-', &
+         &           datetime%day,   'T', &
+         &           datetime%hour,  ':', &
+         &           datetime%minute,':', &
+         &           second,         'Z'
+
+  END SUBROUTINE datetime_to_string
 
 END MODULE mo_datetime
