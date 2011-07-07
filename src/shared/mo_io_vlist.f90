@@ -148,7 +148,7 @@ MODULE mo_io_vlist
     &                               lstrang, upstr_beta_adv
   USE mo_advection_config,    ONLY: advection_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config
-  USE mo_echam_conv_nml,      ONLY: cmfctop, cprcon,             &
+  USE mo_echam_conv_nml,      ONLY: cprcon,             &
     &                               cminbuoy, entrpen, entrmid, entrscv,  &
     &                               entrdd, cmfdeps
 !!$  USE mo_gw_hines_nml,        ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
@@ -722,7 +722,7 @@ CONTAINS
            CALL addGlobAttInt('echam_conv_ctl:iconv',echam_conv_config%iconv,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:cmftau',echam_conv_config%cmftau,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:cmfdeps',cmfdeps,vlistID(k_jg),astatus)
-           CALL addGlobAttFlt('echam_conv_ctl:cmfctop',cmfctop,vlistID(k_jg),astatus)
+           CALL addGlobAttFlt('echam_conv_ctl:cmfctop',echam_conv_config%cmfctop,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:cprcon',cprcon,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:cminbuoy',cminbuoy,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:entrpen',entrpen,vlistID(k_jg),astatus)

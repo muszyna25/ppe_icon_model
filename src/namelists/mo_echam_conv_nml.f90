@@ -58,7 +58,7 @@ MODULE mo_echam_conv_nml
   IMPLICIT NONE
   PRIVATE
 
-  PUBLIC  :: cmfdeps,cmfcmin,cmfcmax,cmfctop !< parameters
+  PUBLIC  :: cmfdeps,cmfcmin,cmfcmax!< parameters
   PUBLIC  :: centrmax,cbfac,cminbuoy,cmaxbuoy       !< parameters
   PUBLIC  :: entrpen,entrmid,entrscv,entrdd         !< parameters
   PUBLIC  :: cprcon,cevapcu                         !< parameters
@@ -88,9 +88,8 @@ MODULE mo_echam_conv_nml
   REAL(wp) :: nml_cmftau   !< characteristic adjustment time scale
                            !< (replaces "ztau" in "cumastr")
 
-  REAL(wp) :: cmfdeps  !< fractional convective mass flux for downdrafts at lfs
-  REAL(wp) :: cmfctop  !< fractional convective mass flux across the top of cloud 
-  REAL(wp) :: cmfcmin  !< minimum massflux value (for safety)
+  REAL(wp) :: nml_cmfctop  !< fractional convective mass flux across the top of cloud 
+
   REAL(wp) :: cmfcmax  !< maximum massflux value allowed for
   REAL(wp) :: centrmax !<
 
@@ -112,6 +111,8 @@ MODULE mo_echam_conv_nml
                                       !< In ECHAM6 it is defined in mo_physc2,
                                       !< allocated in subroutine alloc_mods,
                                       !< and initialized in subroutine iniphy.
+  REAL(wp) :: cmfcmin  !< minimum massflux value (for safety)
+  REAL(wp) :: cmfdeps  !< fractional convective mass flux for downdrafts at lfs
 
  !INTEGER :: nml_nauto        !< 1 or 2. autoconversion scheme
  !LOGICAL :: nml_lconvmassfix !< aerosol mass fixer in convection
@@ -121,7 +122,8 @@ MODULE mo_echam_conv_nml
                            nml_lmfpen,nml_lmfmid,            &
                            nml_lmfdd, nml_lmfdudv,           &
                            nml_dlev,  nml_cmftau,            &
-                           cmfctop,cprcon,cmfdeps,cminbuoy,  &
+                           nml_cmfctop,                      &
+                           cprcon,cmfdeps,cminbuoy,  &
                            entrpen, entrmid,entrscv,entrdd
                          ! nml_nauto, nml_lconvmassfix 
                          ! nml_lmfscv, 
@@ -138,16 +140,17 @@ CONTAINS
     ! set up the default values for echam_conv_ctl
     !------------------------------------------------------------
 
-    nml_ncvmicro     = 0
-    nml_iconv        = 1
-    nml_lmfpen       = .TRUE.
-    nml_lmfmid       = .TRUE.
-    nml_lmfdd        = .TRUE.
-    nml_lmfdudv      = .TRUE.
+    nml_ncvmicro = 0
+    nml_iconv    = 1
+    nml_lmfpen   = .TRUE.
+    nml_lmfmid   = .TRUE.
+    nml_lmfdd    = .TRUE.
+    nml_lmfdudv  = .TRUE.
 
-    nml_dlev         = 3.0E4_wp   ! 300 hPa
-    nml_cmftau       = 10800._wp  ! 3 hours
-    cmfctop      = 0.3_wp
+    nml_dlev     = 3.0E4_wp   ! 300 hPa
+    nml_cmftau   = 10800._wp  ! 3 hours
+    nml_cmfctop  = 0.3_wp
+
     cmfdeps      = 0.3_wp     ! Fractional massflux for downdrafts at lfs
     cprcon       = 1.E-4_wp
     cminbuoy     = 0.025_wp
@@ -206,6 +209,7 @@ CONTAINS
 
     echam_conv_config% dlev     = nml_dlev
     echam_conv_config% cmftau   = nml_cmftau
+    echam_conv_config% cmfctop  = nml_cmfctop
 
    !echam_conv_config% lconvmassfix = nml_lconvmassfix
    !echam_conv_config% nauto        = nml_nauto

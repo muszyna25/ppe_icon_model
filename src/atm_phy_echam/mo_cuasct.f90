@@ -40,12 +40,12 @@ MODULE mo_cuasct
 #ifdef __ICON__
   USE mo_physical_constants, ONLY : g=>grav, vtmpc1
   USE mo_echam_conv_nml,     ONLY : nmctop, cmfcmin, cprcon   &
-                                  , cmfctop, cbfac, cminbuoy, cmaxbuoy
+                                  , cbfac, cminbuoy, cmaxbuoy
 #else
   USE mo_control,      ONLY : nn
   USE mo_constants,    ONLY : g, vtmpc1
   USE mo_cumulus_flux, ONLY : nmctop, cmfcmin, cprcon   &
-                            , cmfctop, cbfac, cminbuoy, cmaxbuoy
+                            , cbfac, cminbuoy, cmaxbuoy
 #endif
 
   USE mo_cubasmc,            ONLY : cubasmc
@@ -65,7 +65,7 @@ MODULE mo_cuasct
 CONTAINS
   !>
   !!
-SUBROUTINE cuasct(   lmfdudv, lmfmid, dlev, &
+SUBROUTINE cuasct(   lmfdudv, lmfmid, dlev, cmfctop,  &
            ptime_step_len, kproma, kbdim, klev, klevp1, klevm1,        &
            ptenh,    pqenh,    puen,     pven,                         &
            ktrac,                                                      &
@@ -126,7 +126,7 @@ SUBROUTINE cuasct(   lmfdudv, lmfmid, dlev, &
 !          (TIEDTKE,1989)
 !
 LOGICAL, INTENT (IN) :: lmfdudv, lmfmid
-REAL(dp),INTENT (IN) :: dlev 
+REAL(dp),INTENT (IN) :: dlev, cmfctop 
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, klevm1, ktrac
 REAL(dp),INTENT(IN) :: ptime_step_len
 INTEGER :: jl, jk, jt, ik, icall

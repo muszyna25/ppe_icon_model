@@ -80,6 +80,7 @@ CONTAINS
   !>
   !!
   SUBROUTINE cumastr(  ncvmicro, lmfdudv, lmfdd, lmfmid, dlev, cmftau,    &
+                       cmfctop, &
                        pdtime, ptime_step_len,                            &
                        kproma, kbdim, klev, klevp1, klevm1, ilab,         &
 !!$                       krow,                                              &
@@ -187,7 +188,7 @@ CONTAINS
 !
 INTEGER, INTENT (IN) :: ncvmicro
 LOGICAL, INTENT (IN) :: lmfdudv, lmfdd, lmfmid 
-REAL(dp),INTENT (IN) :: dlev, cmftau
+REAL(dp),INTENT (IN) :: dlev, cmftau, cmfctop
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, ktrac, klevm1
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
 !!$INTEGER, INTENT (IN) :: krow
@@ -580,7 +581,7 @@ INTRINSIC MIN, MAX
 !
   icuasc=1
 !
-  CALL cuasc(ncvmicro, lmfdudv,  lmfmid, dlev,                         &
+  CALL cuasc(ncvmicro, lmfdudv,  lmfmid, dlev, cmfctop,                &
              pdtime, ptime_step_len,                                   &
              kproma, kbdim, klev, klevp1, klevm1,                      &
              ztenh,    zqenh,    puen,     pven,                       &
@@ -877,7 +878,8 @@ INTRINSIC MIN, MAX
   icuasc=2
 !
 !600 CONTINUE
-  CALL cuasc(ncvmicro, lmfdudv, lmfmid, dlev, pdtime, ptime_step_len,        &
+  CALL cuasc(ncvmicro, lmfdudv, lmfmid, dlev, cmfctop, &
+             pdtime, ptime_step_len,        &
              kproma, kbdim, klev, klevp1, klevm1,                      &
              ztenh,    zqenh,    puen,     pven,                       &
              ktrac,                                                    &
