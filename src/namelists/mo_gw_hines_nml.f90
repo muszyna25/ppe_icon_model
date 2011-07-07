@@ -38,12 +38,13 @@
 MODULE mo_gw_hines_nml
 
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_exception,           ONLY: message, print_value
   USE mo_namelist,            ONLY: position_nml, POSITIONED
   USE mo_master_nml,          ONLY: lrestart
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &                                             
+  USE mo_gw_hines_config,     ONLY: gw_hines_config
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &     
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_mpi,                ONLY: p_pe, p_io
 
@@ -187,6 +188,7 @@ CONTAINS
   SUBROUTINE read_gw_hines_namelist
     !
     INTEGER :: istat, funit
+    INTEGER :: jg           ! loop index
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_gw_hines_nml: read_gw_hines_namelist'
@@ -229,6 +231,13 @@ CONTAINS
     ! 4. Fill the configuration state
     !----------------------------------------------------
 
+    DO jg = 1,max_dom
+      gw_hines_config(jg)%lheatcal  = lheatcal
+      gw_hines_config(jg)%emiss_lev = emiss_lev
+      gw_hines_config(jg)%rmscon    = rmscon
+      gw_hines_config(jg)%kstar     = kstar
+      gw_hines_config(jg)%m_min     = m_min
+    ENDDO
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart

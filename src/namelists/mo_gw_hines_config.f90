@@ -41,7 +41,7 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-MODULE mo_radiation_config
+MODULE mo_gw_hines_config
 
   USE mo_kind,           ONLY: wp
   USE mo_impl_constants, ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom
@@ -56,7 +56,7 @@ MODULE mo_radiation_config
   !!--------------------------------------------------------------------------
 
 
-  TYPE t_radiation_config
+  TYPE t_gw_hines_config
   !
   ! -- Switches for solar irradiation
   !
@@ -117,9 +117,9 @@ MODULE mo_radiation_config
   INTEGER  :: izenith     ! circular orbit, no seasonal cycle but with diurnal cycle 
 
 
-  END TYPE t_radiation_config
+  END TYPE t_gw_hines_config
   !>
   !!
-  TYPE(t_radiation_config) :: radiation_config(max_dom)
+  TYPE(t_gw_hines_config) :: gw_hines_config(max_dom)
 
-END MODULE mo_radiation_config
+END MODULE mo_gw_hines_config
