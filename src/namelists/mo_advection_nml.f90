@@ -85,12 +85,12 @@ MODULE mo_advection_nml
     &  nml_ctracer_list
 
 
-  INTEGER :: &                    !< selects horizontal transport scheme
-    &  ihadv_tracer(max_ntracer)  !< 0: no horizontal advection
-                                  !< 1: 1st order upwind
-                                  !< 2: 2nd order muscl
-                                  !< 3: 2nd order miura
-                                  !< 4: 3rd order miura with quadr. reconstr.
+  INTEGER :: &                       !< selects horizontal transport scheme
+    &  nml_ihadv_tracer(max_ntracer) !< 0: no horizontal advection
+                                     !< 1: 1st order upwind
+                                     !< 2: 2nd order muscl
+                                     !< 3: 2nd order miura
+                                     !< 4: 3rd order miura with quadr. reconstr.
 
 
   INTEGER :: &                    !< selects vertical transport scheme
@@ -137,7 +137,7 @@ MODULE mo_advection_nml
                                   !< upstr_beta in non-hydrostatic namelist
 
 
-  NAMELIST/transport_ctl/ ihadv_tracer, ivadv_tracer, lvadv_tracer,   &
+  NAMELIST/transport_ctl/ nml_ihadv_tracer, ivadv_tracer, lvadv_tracer,   &
     &                     itype_vlimit, ivcfl_max, itype_hlimit,      &
     &                     iord_backtraj, lclip_tracer, nml_ctracer_list,  &
     &                     igrad_c_miura, lstrang, upstr_beta_adv,     &
@@ -200,7 +200,7 @@ MODULE mo_advection_nml
                                         !< at cell center
 
 
-  PUBLIC :: transport_ctl, ihadv_tracer, ivadv_tracer, lvadv_tracer,           &
+  PUBLIC :: transport_ctl, nml_ihadv_tracer, ivadv_tracer, lvadv_tracer,       &
     &       itype_vlimit, ivcfl_max, itype_hlimit, iord_backtraj,              &
     &       lclip_tracer, nml_ctracer_list, igrad_c_miura, lstrang, upstr_beta_adv,&
     &       llsq_svd
@@ -266,10 +266,10 @@ CONTAINS
     nml_ctracer_list = ''
     SELECT CASE (global_cell_type)
     CASE (3)
-      ihadv_tracer(:) = imiura    ! miura horizontal advection scheme
+      nml_ihadv_tracer(:) = imiura    ! miura horizontal advection scheme
       itype_hlimit(:) = ifluxl_m  ! monotonous flux limiter
     CASE (6)
-      ihadv_tracer(:) = iup3      ! 3rd order upwind horizontal advection scheme
+      nml_ihadv_tracer(:) = iup3      ! 3rd order upwind horizontal advection scheme
       itype_hlimit(:) = ifluxl_sm ! semi monotonous flux limiter
     END SELECT
     ivadv_tracer(:) = ippm_vcfl   ! PPM vertical advection scheme
@@ -394,10 +394,10 @@ CONTAINS
 
 
       IF ( ( inwp_radiation > 0 ) .AND. (irad_o3==0 .OR. irad_o3==6) ) THEN
-        IF ( ihadv_tracer(io3) /= 0 ) THEN
-          ihadv_tracer(io3) = 0
+        IF ( nml_ihadv_tracer(io3) /= 0 ) THEN
+          nml_ihadv_tracer(io3) = 0
           WRITE(message_text,'(a,i1,a)') &
-            & 'Attention: Since irad_o3 is set to ',irad_o3,', ihadv_tracer(io3) is set to 0.'
+            & 'Attention: Since irad_o3 is set to ',irad_o3,', nml_ihadv_tracer(io3) is set to 0.'
           CALL message(TRIM(routine),message_text)
         ENDIF
         IF ( ivadv_tracer(io3) /= 0 ) THEN
@@ -422,22 +422,22 @@ CONTAINS
 
     ! flux compuation methods - consistency check
     !
-    IF ( ANY(ihadv_tracer(1:ntracer) > 4) .OR.                    &
-      &  ANY(ihadv_tracer(1:ntracer) < 0))            THEN
+    IF ( ANY(nml_ihadv_tracer(1:ntracer) > 4) .OR.                    &
+      &  ANY(nml_ihadv_tracer(1:ntracer) < 0))            THEN
       CALL finish( TRIM(routine),                                       &
-           'incorrect settings for ihadv_tracer. Must be 0,1,2,3, or 4 ')
+           'incorrect settings for nml_ihadv_tracer. Must be 0,1,2,3, or 4 ')
     ENDIF
     SELECT CASE (global_cell_type)
     CASE (3)
-      IF ( ANY(ihadv_tracer(1:ntracer) > 3))            THEN
+      IF ( ANY(nml_ihadv_tracer(1:ntracer) > 3))            THEN
         CALL finish( TRIM(routine),                                       &
-             'incorrect settings for TRI-C grid ihadv_tracer. Must be 0,1,2, or 3 ')
+             'incorrect settings for TRI-C grid nml_ihadv_tracer. Must be 0,1,2, or 3 ')
       ENDIF
     CASE (6)
-      IF (ANY(ihadv_tracer(1:ntracer) == 2) .OR.                    &
-       &  ANY(ihadv_tracer(1:ntracer) == 3))            THEN 
+      IF (ANY(nml_ihadv_tracer(1:ntracer) == 2) .OR.                    &
+       &  ANY(nml_ihadv_tracer(1:ntracer) == 3))            THEN 
         CALL finish( TRIM(routine),                                       &
-             'incorrect settings for HEX-C grid ihadv_tracer. Must be 0,1, or 4 ')
+             'incorrect settings for HEX-C grid nml_ihadv_tracer. Must be 0,1, or 4 ')
       ENDIF
     END SELECT
     IF ( ANY(ivadv_tracer(1:ntracer) > ippm_v) .OR.                     &
@@ -448,7 +448,7 @@ CONTAINS
     z_nogo(1) = islopel_sm
     z_nogo(2) = islopel_m
     DO jt=1,ntracer
-      IF ( ihadv_tracer(jt) == imiura3 .AND. ANY( z_nogo == itype_hlimit(jt)) ) THEN
+      IF ( nml_ihadv_tracer(jt) == imiura3 .AND. ANY( z_nogo == itype_hlimit(jt)) ) THEN
         CALL finish( TRIM(routine),                                     &
          'incorrect settings for MIURA3. No slope limiter available ')
       ENDIF
@@ -641,11 +641,11 @@ CONTAINS
     lcompute%miura_h(:) = .FALSE.
     lcleanup%miura_h(:) = .FALSE.
 
-    IF ( ANY(ihadv_tracer(1:ntracer) == imiura) ) THEN
+    IF ( ANY(nml_ihadv_tracer(1:ntracer) == imiura) ) THEN
       ! Search for the first tracer jt for which horizontal advection of
       ! type MIURA has been selected.
       DO jt=1,ntracer
-        IF ( ihadv_tracer(jt) == imiura ) THEN
+        IF ( nml_ihadv_tracer(jt) == imiura ) THEN
           lcompute%miura_h(jt) = .TRUE.
           exit
         ENDIF
@@ -654,7 +654,7 @@ CONTAINS
       ! Search for the last tracer jt for which horizontal advection of
       ! type MIURA has been selected.
       DO jt=ntracer,1,-1
-        IF ( ihadv_tracer(jt) == imiura ) THEN
+        IF ( nml_ihadv_tracer(jt) == imiura ) THEN
           lcleanup%miura_h(jt) = .TRUE.
           exit
         ENDIF
@@ -671,7 +671,7 @@ CONTAINS
     ! Search for the first tracer jt for which horizontal advection of
     ! type MIURA3 has been selected.
     DO jt=1,ntracer
-      IF ( ihadv_tracer(jt) == imiura3 ) THEN
+      IF ( nml_ihadv_tracer(jt) == imiura3 ) THEN
         lcompute%miura3_h(jt) = .TRUE.
         exit
       ENDIF
@@ -680,7 +680,7 @@ CONTAINS
     ! Search for the last tracer jt for which horizontal advection of
     ! type MIURA3 has been selected.
     DO jt=ntracer,1,-1
-      IF ( ihadv_tracer(jt) == imiura3 ) THEN
+      IF ( nml_ihadv_tracer(jt) == imiura3 ) THEN
         lcleanup%miura3_h(jt) = .TRUE.
         exit
       ENDIF
@@ -762,7 +762,7 @@ CONTAINS
     ! 1. default settings   !
     !-----------------------!
     nml_ctracer_list = ''
-    ihadv_tracer(:) = imiura    ! miura horizontal advection scheme
+    nml_ihadv_tracer(:) = imiura    ! miura horizontal advection scheme
     itype_hlimit(:) = ifluxl_m  ! monotonous flux limiter
 
 !DR special settings for global_cell_type=6 will be done during the 
@@ -770,10 +770,10 @@ CONTAINS
 !DR dependencies. 
 !DR    SELECT CASE (global_cell_type)
 !DR    CASE (3)
-!DR      ihadv_tracer(:) = imiura    ! miura horizontal advection scheme
+!DR      nml_ihadv_tracer(:) = imiura    ! miura horizontal advection scheme
 !DR      itype_hlimit(:) = ifluxl_m  ! monotonous flux limiter
 !DR    CASE (6)
-!DR      ihadv_tracer(:) = iup3      ! 3rd order upwind horizontal advection scheme
+!DR      nml_ihadv_tracer(:) = iup3      ! 3rd order upwind horizontal advection scheme
 !DR      itype_hlimit(:) = ifluxl_sm ! semi monotonous flux limiter
 !DR    END SELECT
     ivadv_tracer(:) = ippm_vcfl   ! PPM vertical advection scheme
@@ -825,40 +825,41 @@ CONTAINS
 
     ! flux compuation methods - sanity check
     !
-    IF ( ANY(ihadv_tracer(1:ntracer) > 4) .OR.                    &
-      &  ANY(ihadv_tracer(1:ntracer) < 0))            THEN
-      CALL finish( TRIM(routine),                                       &
-           'incorrect settings for ihadv_tracer. Must be 0,1,2,3, or 4 ')
+    IF ( ANY(nml_ihadv_tracer(1:ntracer) > 4) .OR.                    &
+      &  ANY(nml_ihadv_tracer(1:ntracer) < 0) )    THEN
+      CALL finish( TRIM(routine),                                     &
+           'incorrect settings for nml_ihadv_tracer. Must be 0,1,2,3, or 4 ')
     ENDIF
-    IF ( ANY(ivadv_tracer(1:ntracer) > ippm_v) .OR.                     &
+    IF ( ANY(ivadv_tracer(1:ntracer) > ippm_v) .OR.                   &
       &  ANY(ivadv_tracer(1:ntracer) < 0)) THEN
-      CALL finish( TRIM(routine),                                       &
+      CALL finish( TRIM(routine),                                     &
            'incorrect settings for ivadv_tracer. Must be 0,1,2,3,20, or 30 ')
     ENDIF
     z_nogo(1) = islopel_sm
     z_nogo(2) = islopel_m
     DO jt=1,max_ntracer
-      IF ( ihadv_tracer(jt) == imiura3 .AND. ANY( z_nogo == itype_hlimit(jt)) ) THEN
-        CALL finish( TRIM(routine),                                     &
+      IF ( nml_ihadv_tracer(jt) == imiura3 .AND.                      &
+        &  ANY( z_nogo == itype_hlimit(jt)) ) THEN
+        CALL finish( TRIM(routine),                                   &
          'incorrect settings for MIURA3. No slope limiter available ')
       ENDIF
     END DO
     IF (upstr_beta_adv > 1.0_wp .OR. upstr_beta_adv < 0.0_wp) THEN
-      CALL finish( TRIM(routine),                                       &
+      CALL finish( TRIM(routine),                                     &
            'incorrect settings for upstr_beta_adv. Must be in [0,1] ')
     ENDIF
 
 
     ! limiter - sanity check
     !
-    IF ( ANY(itype_vlimit(1:ntracer) < inol_v ) .OR.                    &
+    IF ( ANY(itype_vlimit(1:ntracer) < inol_v ) .OR.                  &
       &  ANY(itype_vlimit(1:ntracer) > ifluxl_vpd)) THEN
-      CALL finish( TRIM(routine),                                       &
+      CALL finish( TRIM(routine),                                     &
        'incorrect settings for itype_vlimit. Must be 0,1,2 or 4 ')
     ENDIF
-    IF ( ANY(itype_hlimit(1:ntracer) < inol ) .OR.                      &
+    IF ( ANY(itype_hlimit(1:ntracer) < inol ) .OR.                    &
       &  ANY(itype_hlimit(1:ntracer) > ifluxl_sm)) THEN
-      CALL finish( TRIM(routine),                                       &
+      CALL finish( TRIM(routine),                                     &
        'incorrect settings for itype_hlimit. Must be 0,1,2,3 or 4 ')
     ENDIF
 
@@ -870,7 +871,7 @@ CONTAINS
 
     DO jg= 1,max_dom
       advection_config(jg)%ctracer_list   = nml_ctracer_list
-      advection_config(jg)%ihadv_tracer(:)= ihadv_tracer(:)
+      advection_config(jg)%ihadv_tracer(:)= nml_ihadv_tracer(:)
       advection_config(jg)%ivadv_tracer(:)= ivadv_tracer(:)
       advection_config(jg)%lvadv_tracer   = lvadv_tracer
       advection_config(jg)%lclip_tracer   = lclip_tracer

@@ -82,11 +82,12 @@ MODULE mo_advection_stepping
   USE mo_mpi,                 ONLY: p_pe, p_nprocs
   USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult
   USE mo_parallel_configuration, ONLY: p_test_pe, p_test_run
-  USE mo_advection_nml,       ONLY: ihadv_tracer, ivadv_tracer, lvadv_tracer,&
-    &                               lclip_tracer, lstrang, itype_vlimit,     &
-    &                               itype_hlimit, iord_backtraj, iubc_adv,   &
-    &                               igrad_c_miura, iadv_slev, cSTR,          &
+  USE mo_advection_nml,       ONLY: ivadv_tracer, lvadv_tracer,            &
+    &                               lclip_tracer, lstrang, itype_vlimit,   &
+    &                               itype_hlimit, iord_backtraj, iubc_adv, &
+    &                               igrad_c_miura, iadv_slev, cSTR,        &
     &                               coeff_grid
+  USE mo_advection_config,    ONLY: advection_config
   USE mo_advection_utils,     ONLY: ptr_delp_mc_now, ptr_delp_mc_new
   USE mo_model_domain_import, ONLY: l_limited_area, lfeedback
 
@@ -594,9 +595,10 @@ CONTAINS
     !
     CALL hor_upwind_flux( ptr_current_tracer, ptr_current_tracer, p_mflx_contra_h, &! in
       &                 p_vn_contra_traj, p_dtime, p_patch,             &! in
-      &                 p_int_state, ihadv_tracer, igrad_c_miura,       &! in
-      &                 i_itype_hlimit, iadv_slev(jg,:), iord_backtraj, &! in
-      &                 p_mflx_tracer_h, opt_rlend=i_rlend              )! inout
+      &                 p_int_state, advection_config(jg)%ihadv_tracer, &! in
+      &                 igrad_c_miura, i_itype_hlimit, iadv_slev(jg,:), &! in
+      &                 iord_backtraj, p_mflx_tracer_h,                 &! in,inout
+      &                 opt_rlend=i_rlend                               )! in
 
 
     IF (p_patch%cell_type == 6) THEN
@@ -641,11 +643,12 @@ CONTAINS
 !$OMP END PARALLEL
       CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=z_estim_c)
 
-      CALL hor_upwind_flux(z_estim_c, ptr_current_tracer, p_mflx_contra_h, &! in
-        &                 p_vn_contra_traj, p_dtime, p_patch,          &! in
-        &                 p_int_state, ihadv_tracer, igrad_c_miura,    &! in
-        &                 itype_hlimit, iadv_slev(jg,:), iord_backtraj,&! in
-        &                 p_mflx_tracer_h, opt_rlend=min_rledge        )! inout
+      CALL hor_upwind_flux(z_estim_c, ptr_current_tracer, p_mflx_contra_h,&! in
+        &                 p_vn_contra_traj, p_dtime, p_patch,             &! in
+        &                 p_int_state, advection_config(jg)%ihadv_tracer, &! in
+        &                 igrad_c_miura, itype_hlimit, iadv_slev(jg,:),   &! in
+        &                 iord_backtraj, p_mflx_tracer_h,                 &! in,inout
+        &                 opt_rlend=min_rledge                            )! in
 
       !
       !  compute divergence of the upwind fluxes for tracers

@@ -61,8 +61,7 @@ MODULE mo_nh_df_test
   USE mo_interpolation,       ONLY: t_int_state
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,             ONLY: ntracer
-  USE mo_advection_nml,       ONLY: ihadv_tracer, itype_hlimit, &
-    &                               iord_backtraj, igrad_c_miura
+  USE mo_advection_nml,       ONLY: itype_hlimit, iord_backtraj, igrad_c_miura
   USE mo_advection_config,    ONLY: advection_config 
   USE mo_advection_hflux,     ONLY: upwind_hflux_miura, upwind_hflux_miura3 
 
@@ -1039,9 +1038,13 @@ CONTAINS
     LOGICAL  :: lcompute, lcleanup
     LOGICAL  :: lcoupled_rho        !< re-integrate mass continuity 
                                     !< equation (.TRUE.)
+    INTEGER  :: pid                 !< patch ID
     !---------------------------------------------------------------------------
 
     lcoupled_rho=.TRUE. ! re-integrate mass continuity equation (.TRUE.)
+
+    ! get patch ID
+    pid = p_patch%id
 
     ! number of vertical levels
     nlev = p_patch%nlev
@@ -1092,7 +1095,7 @@ CONTAINS
       ! Note: It is implicitly assumed, that only one tracer is advected.
       !       The namelist settings of the first tracer are applied to 
       !       the density as well.
-      SELECT CASE( ihadv_tracer(1) )
+      SELECT CASE( advection_config(pid)%ihadv_tracer(1) )
       CASE( imiura )
 
         CALL upwind_hflux_miura(p_patch, p_prog_now%rho, p_prog_new%vn,        &
