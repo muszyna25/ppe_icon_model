@@ -197,6 +197,7 @@ CONTAINS
     IF ( l_debug ) &
          WRITE ( cplout , '(I3,A1,A)' ) ICON_global_rank, ':', ' returned from split '
 
+    
     ! -------------------------------------------------------------------
     ! Size of component and rank in component
     ! -------------------------------------------------------------------

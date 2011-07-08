@@ -58,6 +58,7 @@ PROGRAM control_model
   USE mo_ocean_model,         ONLY: ocean_model
   USE mo_radiation_model,     ONLY: radiation_model
 
+!  USE mo_icon_cpl,            ONLY: get_cpl_local_comm()
 ! USE mo_icon_cpl,            ONLY: ICON_atmos_index, ICON_ocean_index, &
 !  &                                comp_id, comp_comm, ierr, &
 !  &                                complist
@@ -150,7 +151,8 @@ PROGRAM control_model
 !
 !       ENDDO
 !
-!       CALL p_start_reset ( comp_comm )
+!       new_comm = get_cpl_local_comm()
+!       CALL set_process_mpi_communicator ( new_comm )
 !
 !     ELSE
 !

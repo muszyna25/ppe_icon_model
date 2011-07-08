@@ -432,7 +432,7 @@ CONTAINS
     ENDIF
 
 
-    IF ( process_mpi_all_comm /= MPI_UNDEFINED) THEN   
+    IF ( process_mpi_all_comm /= MPI_COMM_NULL) THEN   
       ! free original communicator
       CALL MPI_COMM_FREE(process_mpi_all_comm, p_error)
       IF (p_error /= MPI_SUCCESS) THEN
