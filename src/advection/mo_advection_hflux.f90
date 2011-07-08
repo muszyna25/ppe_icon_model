@@ -96,7 +96,7 @@ MODULE mo_advection_hflux
   USE mo_loopindices,         ONLY: get_indices_e
   USE mo_sync,                ONLY: SYNC_C, SYNC_C1, sync_patch_array_mult
   USE mo_parallel_configuration,        ONLY: p_test_run, n_ghost_rows
-  USE mo_advection_nml,       ONLY: lcompute, lcleanup, upstr_beta_adv
+  USE mo_advection_nml,       ONLY: lcompute, lcleanup
   USE mo_advection_config,    ONLY: advection_config
   USE mo_advection_utils,     ONLY: laxfr_upflux, back_traj_o1, back_traj_o2,     &
     &                               back_traj_dreg_o1, prep_gauss_quadrature_q,   &
@@ -1743,6 +1743,7 @@ CONTAINS
     INTEGER  :: slev, elev         !< vertical start and end level
     INTEGER  :: nblks_e, npromz_e
     INTEGER  :: jk, jb, nlen       !< index vert level, block; length of block
+    INTEGER  :: jg                 !< patch ID
 
     !-----------------------------------------------------------------------
 
@@ -1759,13 +1760,16 @@ CONTAINS
       elev = p_patch%nlev
     END IF
 
+    ! get patch ID
+    jg = p_patch%id
+
     ! compute ordinary average at the edge
     CALL cells2edges_scalar(p_cc,p_patch,p_int%c_lin_e,z_ave_e, &
       &                     opt_slev=slev, opt_elev=elev )
 
     ! compute directional laplace in edge direction
     CALL directional_laplace(p_mass_flx_e,p_cc,p_patch,p_int,&
-      &                      upstr_beta_adv,z_dir_lapl_e,    &
+      &                      advection_config(jg)%upstr_beta_adv,z_dir_lapl_e,&
       &                      opt_slev=slev, opt_elev=elev )
 
     ! values for the blocking

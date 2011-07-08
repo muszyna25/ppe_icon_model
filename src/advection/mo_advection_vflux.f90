@@ -77,7 +77,8 @@ MODULE mo_advection_vflux
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,             ONLY: ntracer, iequations, msg_level,   &
     &                               lvert_nest
-  USE mo_advection_nml,       ONLY: coeff_grid, lcompute, lcleanup, ivcfl_max
+  USE mo_advection_nml,       ONLY: coeff_grid, lcompute, lcleanup
+  USE mo_advection_config,    ONLY: advection_config
   USE mo_advection_utils,     ONLY: laxfr_upflux_v, laxfr_upflux
   USE mo_advection_limiter,   ONLY: v_muscl_slimiter_mo, v_muscl_slimiter_sm, &
    &                                v_ppm_slimiter_mo, v_ppm_slimiter_sm,     &
@@ -2086,6 +2087,8 @@ CONTAINS
     INTEGER  :: counter_p, counter_m, &  !< check whether any of the points has 
       &  counter_jip, counter_jim        !< CFL>nlist_p/m
 
+    INTEGER  :: jg                       !< patch ID
+
     REAL(wp) ::   &                      !< high order flux
       &  z_flx_frac_high(nproma,p_patch%nlevp1,p_patch%nblks_c)
 
@@ -2154,8 +2157,11 @@ CONTAINS
       i_rlend = min_rlcell_int
     ENDIF
 
+    ! get patch ID
+    jg = p_patch%id
+
     ! maximum number of lists
-    nlist_max = ivcfl_max - 1
+    nlist_max = advection_config(jg)%ivcfl_max - 1
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)

@@ -53,7 +53,6 @@ MODULE mo_nh_dtp_interface
   USE mo_impl_constants,     ONLY: min_rledge_int, min_rlcell_int, min_rlcell, &
     &                              min_rledge
   USE mo_sync,               ONLY: SYNC_C, sync_patch_array
-  USE mo_advection_nml,      ONLY: iord_backtraj
   USE mo_advection_config,   ONLY: advection_config
 
   IMPLICIT NONE
@@ -148,7 +147,7 @@ CONTAINS
 !DR MAX_TRACER and not MAX_DOM !!
     IF ( advection_config(jg)%itype_hlimit(jg) == 1 .OR. &
       &  advection_config(jg)%itype_hlimit(jg) == 2 .OR. &
-      &  iord_backtraj == 2 ) THEN
+      &  advection_config(jg)%iord_backtraj == 2 ) THEN
       i_rlend_e   = min_rledge_int - 3
     ELSE
       i_rlend_e   = min_rledge_int - 2
@@ -313,7 +312,7 @@ CONTAINS
 !DR MAX_TRACER and not MAX_DOM !!
       IF ( advection_config(jg)%itype_hlimit(jg) == 1 .OR. &
         &  advection_config(jg)%itype_hlimit(jg) == 2 .OR. &
-        &  iord_backtraj == 2) THEN
+        &  advection_config(jg)%iord_backtraj == 2) THEN
         i_rlend_e   = min_rledge_int - 3
       ELSE
         i_rlend_e   = min_rledge_int - 2

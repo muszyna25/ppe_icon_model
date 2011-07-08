@@ -122,26 +122,26 @@ MODULE mo_advection_nml
                                   !< 2: monotonous slope limiter
                                   !< 3: monotonous flux limiter
 
-  INTEGER :: iord_backtraj        !< parameter to select the spacial order
+  INTEGER :: nml_iord_backtraj    !< parameter to select the spacial order
                                   !< of accuracy for the backward trajectory
 
-  INTEGER :: igrad_c_miura        !< parameter used to select the gradient
+  INTEGER :: nml_igrad_c_miura    !< parameter used to select the gradient
                                   !< reconstruction method at cell center
                                   !< for second order miura scheme
 
-  INTEGER :: ivcfl_max            !< determines stability range of vertical 
+  INTEGER :: nml_ivcfl_max        !< determines stability range of vertical 
                                   !< ppm-scheme (approximate allowable maximum 
                                   !< CFL-number)
 
-  REAL(wp) :: upstr_beta_adv      !< later, it should be combined with 
+  REAL(wp) :: nml_upstr_beta_adv  !< later, it should be combined with 
                                   !< upstr_beta in non-hydrostatic namelist
 
 
-  NAMELIST/transport_ctl/ nml_ihadv_tracer, nml_ivadv_tracer, nml_lvadv_tracer,&
-    &                     nml_itype_vlimit, ivcfl_max, nml_itype_hlimit,      &
-    &                     iord_backtraj, nml_lclip_tracer, nml_ctracer_list,  &
-    &                     igrad_c_miura, nml_lstrang, upstr_beta_adv,     &
-    &                     nml_llsq_svd
+  NAMELIST/transport_ctl/ nml_ihadv_tracer, nml_ivadv_tracer,                   &
+    &                     nml_lvadv_tracer, nml_itype_vlimit, nml_ivcfl_max,    &
+    &                     nml_itype_hlimit, nml_iord_backtraj, nml_lclip_tracer,&
+    &                     nml_ctracer_list, nml_igrad_c_miura, nml_lstrang,     &
+    &                     nml_upstr_beta_adv, nml_llsq_svd
 
 
   !-----------------------------!
@@ -200,10 +200,10 @@ MODULE mo_advection_nml
                                         !< at cell center
 
 
-  PUBLIC :: transport_ctl, nml_ihadv_tracer, nml_ivadv_tracer,            &
-    &       nml_lvadv_tracer, nml_itype_vlimit, ivcfl_max, nml_itype_hlimit,      &
-    &       iord_backtraj, nml_lclip_tracer, nml_ctracer_list, igrad_c_miura, &
-    &       nml_lstrang, upstr_beta_adv, nml_llsq_svd
+!  PUBLIC :: transport_ctl, nml_ihadv_tracer, nml_ivadv_tracer,            &
+!    &       nml_lvadv_tracer, nml_itype_vlimit, nml_ivcfl_max, nml_itype_hlimit,      &
+!    &       nml_iord_backtraj, nml_lclip_tracer, nml_ctracer_list, nml_igrad_c_miura, &
+!    &       nml_lstrang, nml_upstr_beta_adv, nml_llsq_svd
 
   PUBLIC :: iadv_slev, iubc_adv, cSTR, coeff_grid, iup, imiura, imiura3,   &
     &       inol, islopel_sm, islopel_m, ifluxl_m, ifluxl_sm, iup_v,       &
@@ -274,16 +274,16 @@ CONTAINS
     END SELECT
     nml_ivadv_tracer(:) = ippm_vcfl ! PPM vertical advection scheme
     nml_itype_vlimit(:) = islopel_vsm ! semi-monotonous slope limiter
-    ivcfl_max       = 5           ! CFL-stability range for vertical advection
+    nml_ivcfl_max   = 5           ! CFL-stability range for vertical advection
     iadv_slev(:,:)  = 1           ! vertical start level
-    iord_backtraj   = 1           ! 1st order backward trajectory
+    nml_iord_backtraj = 1         ! 1st order backward trajectory
     nml_lvadv_tracer= .TRUE.      ! vertical advection yes/no
     nml_lclip_tracer= .FALSE.     ! clipping of negative values yes/no
     nml_lstrang     = .FALSE.     ! Strang splitting yes/no
 
-    igrad_c_miura = 1             ! MIURA linear least squares reconstruction
+    nml_igrad_c_miura = 1         ! MIURA linear least squares reconstruction
 
-    upstr_beta_adv = 1.0_wp       ! =1.0 selects 3rd order advection in up3
+    nml_upstr_beta_adv = 1.0_wp   ! =1.0 selects 3rd order advection in up3
                                   ! =0.0 selects 4th order advection in up3
     nml_llsq_svd    = .FALSE.     ! apply QR-decomposition
 
@@ -453,9 +453,9 @@ CONTAINS
          'incorrect settings for MIURA3. No slope limiter available ')
       ENDIF
     END DO
-    IF (upstr_beta_adv > 1.0_wp .OR. upstr_beta_adv < 0.0_wp) THEN
+    IF (nml_upstr_beta_adv > 1.0_wp .OR. nml_upstr_beta_adv < 0.0_wp) THEN
       CALL finish( TRIM(routine),                                       &
-           'incorrect settings for upstr_beta_adv. Must be in [0,1] ')
+           'incorrect settings for nml_upstr_beta_adv. Must be in [0,1] ')
     ENDIF
 
 
@@ -761,9 +761,26 @@ CONTAINS
     !-----------------------!
     ! 1. default settings   !
     !-----------------------!
-    nml_ctracer_list = ''
+    nml_ctracer_list    = ''
     nml_ihadv_tracer(:) = imiura    ! miura horizontal advection scheme
     nml_itype_hlimit(:) = ifluxl_m  ! monotonous flux limiter
+    nml_ivadv_tracer(:) = ippm_vcfl ! PPM vertical advection scheme
+    nml_itype_vlimit(:) = islopel_vsm ! semi-monotonous slope limiter
+    nml_ivcfl_max       = 5         ! CFL-stability range for vertical advection
+    nml_iord_backtraj   = 1         ! 1st order backward trajectory
+    nml_lvadv_tracer    = .TRUE.    ! vertical advection yes/no
+    nml_lclip_tracer    = .FALSE.   ! clipping of negative values yes/no
+    nml_lstrang         = .FALSE.   ! Strang splitting yes/no
+
+    nml_igrad_c_miura   = 1         ! MIURA linear least squares reconstruction
+
+    nml_upstr_beta_adv  = 1.0_wp    ! =1.0 selects 3rd order advection in up3
+                                    ! =0.0 selects 4th order advection in up3
+    nml_llsq_svd        = .FALSE.   ! apply QR-decomposition
+
+    iadv_slev(:,:)      = 1         ! vertical start level !DR should go into 
+                                    ! the derived variables-section since it 
+                                    ! is not part of our namelist
 
 !DR special settings for global_cell_type=6 will be done during the 
 !DR crosscheck. At this point it is important to get rid of any 
@@ -776,23 +793,6 @@ CONTAINS
 !DR      nml_ihadv_tracer(:) = iup3      ! 3rd order upwind horizontal advection scheme
 !DR      nml_itype_hlimit(:) = ifluxl_sm ! semi monotonous flux limiter
 !DR    END SELECT
-    nml_ivadv_tracer(:) = ippm_vcfl ! PPM vertical advection scheme
-    nml_itype_vlimit(:) = islopel_vsm ! semi-monotonous slope limiter
-    ivcfl_max       = 5           ! CFL-stability range for vertical advection
-    iord_backtraj   = 1           ! 1st order backward trajectory
-    nml_lvadv_tracer= .TRUE.      ! vertical advection yes/no
-    nml_lclip_tracer= .FALSE.     ! clipping of negative values yes/no
-    nml_lstrang     = .FALSE.     ! Strang splitting yes/no
-
-    igrad_c_miura = 1             ! MIURA linear least squares reconstruction
-
-    upstr_beta_adv = 1.0_wp       ! =1.0 selects 3rd order advection in up3
-                                  ! =0.0 selects 4th order advection in up3
-    nml_llsq_svd    = .FALSE.     ! apply QR-decomposition
-
-    iadv_slev(:,:)  = 1           ! vertical start level !DR should go into 
-                                  ! the derived variables-section since it 
-                                  ! is not part of our namelist
 
 
     !------------------------------------------------------------------
@@ -828,12 +828,12 @@ CONTAINS
     IF ( ANY(nml_ihadv_tracer(1:ntracer) > 4) .OR.                    &
       &  ANY(nml_ihadv_tracer(1:ntracer) < 0) )    THEN
       CALL finish( TRIM(routine),                                     &
-           'incorrect settings for nml_ihadv_tracer. Must be 0,1,2,3, or 4 ')
+        &  'incorrect settings for nml_ihadv_tracer. Must be 0,1,2,3, or 4 ')
     ENDIF
     IF ( ANY(nml_ivadv_tracer(1:ntracer) > ippm_v) .OR.               &
       &  ANY(nml_ivadv_tracer(1:ntracer) < 0)) THEN
       CALL finish( TRIM(routine),                                     &
-           'incorrect settings for nml_ivadv_tracer. Must be 0,1,2,3,20, or 30 ')
+        &  'incorrect settings for nml_ivadv_tracer. Must be 0,1,2,3,20, or 30 ')
     ENDIF
     z_nogo(1) = islopel_sm
     z_nogo(2) = islopel_m
@@ -841,12 +841,12 @@ CONTAINS
       IF ( nml_ihadv_tracer(jt) == imiura3 .AND.                      &
         &  ANY( z_nogo == nml_itype_hlimit(jt)) ) THEN
         CALL finish( TRIM(routine),                                   &
-         'incorrect settings for MIURA3. No slope limiter available ')
+          &  'incorrect settings for MIURA3. No slope limiter available ')
       ENDIF
     END DO
-    IF (upstr_beta_adv > 1.0_wp .OR. upstr_beta_adv < 0.0_wp) THEN
+    IF (nml_upstr_beta_adv > 1.0_wp .OR. nml_upstr_beta_adv < 0.0_wp) THEN
       CALL finish( TRIM(routine),                                     &
-           'incorrect settings for upstr_beta_adv. Must be in [0,1] ')
+        &  'incorrect settings for nml_upstr_beta_adv. Must be in [0,1] ')
     ENDIF
 
 
@@ -855,12 +855,12 @@ CONTAINS
     IF ( ANY(nml_itype_vlimit(1:ntracer) < inol_v ) .OR.              &
       &  ANY(nml_itype_vlimit(1:ntracer) > ifluxl_vpd)) THEN
       CALL finish( TRIM(routine),                                     &
-       'incorrect settings for nml_itype_vlimit. Must be 0,1,2 or 4 ')
+        &  'incorrect settings for nml_itype_vlimit. Must be 0,1,2 or 4 ')
     ENDIF
-    IF ( ANY(nml_itype_hlimit(1:ntracer) < inol ) .OR.                    &
+    IF ( ANY(nml_itype_hlimit(1:ntracer) < inol ) .OR.                &
       &  ANY(nml_itype_hlimit(1:ntracer) > ifluxl_sm)) THEN
       CALL finish( TRIM(routine),                                     &
-       'incorrect settings for nml_itype_hlimit. Must be 0,1,2,3 or 4 ')
+        &  'incorrect settings for nml_itype_hlimit. Must be 0,1,2,3 or 4 ')
     ENDIF
 
 
@@ -879,10 +879,10 @@ CONTAINS
       advection_config(jg)%llsq_svd       = nml_llsq_svd
       advection_config(jg)%itype_vlimit(:)= nml_itype_vlimit(:)
       advection_config(jg)%itype_hlimit(:)= nml_itype_hlimit(:)
-      advection_config(jg)%iord_backtraj  = iord_backtraj
-      advection_config(jg)%igrad_c_miura  = igrad_c_miura
-      advection_config(jg)%ivcfl_max      = ivcfl_max
-      advection_config(jg)%upstr_beta_adv = upstr_beta_adv
+      advection_config(jg)%iord_backtraj  = nml_iord_backtraj
+      advection_config(jg)%igrad_c_miura  = nml_igrad_c_miura
+      advection_config(jg)%ivcfl_max      = nml_ivcfl_max
+      advection_config(jg)%upstr_beta_adv = nml_upstr_beta_adv
     ENDDO
 
 
