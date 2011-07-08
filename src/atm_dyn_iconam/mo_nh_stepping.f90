@@ -111,7 +111,7 @@ MODULE mo_nh_stepping
   USE mo_advection_stepping,  ONLY: step_advection
   USE mo_nh_dtp_interface,    ONLY: prepare_tracer
   USE mo_nh_diffusion,        ONLY: diffusion_tria, diffusion_hex
-  USE mo_mpi,                 ONLY: p_pe, p_io, p_nprocs
+  USE mo_mpi,                 ONLY: p_pe, get_mpi_root_id, p_nprocs
   USE mo_parallel_configuration,        ONLY: p_test_pe, itype_comm
   USE mo_sync,                ONLY: global_sum_array, sync_patch_array_mult, &
                                     push_glob_comm, pop_glob_comm, global_max, &
@@ -1850,7 +1850,7 @@ MODULE mo_nh_stepping
   END IF
 
   ! Open the datafile
-  IF (k_step == 1 .AND. p_pe == p_io) THEN
+  IF (k_step == 1 .AND. p_pe == get_mpi_root_id()) THEN
     file_ti   = 'total_integrals.dat'
     n_file_ti = find_next_free_unit(10,20)
     OPEN(UNIT=n_file_ti,FILE=TRIM(file_ti),FORM='FORMATTED',IOSTAT=istat)
@@ -2022,7 +2022,7 @@ MODULE mo_nh_stepping
   z_total_mass_re   = z_total_mass  /z_total_mass_0  -1.0_wp
   z_total_energy_re = z_total_energy/z_total_energy_0-1.0_wp
 
-  IF (p_pe == p_io) THEN
+  IF (p_pe == get_mpi_root_id()) THEN
     if (n_file_ti >= 0) &
     WRITE(n_file_ti,'(i8,6e20.12)') &
     &   k_step, z_total_mass_re, z_total_energy_re, z_kin_energy_re, z_int_energy_re, &

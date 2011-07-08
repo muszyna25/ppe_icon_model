@@ -21,8 +21,9 @@ MODULE mo_mpi
 
   ! subroutines defined, overloaded depending on argument type
   PUBLIC :: start_mpi
+  PUBLIC :: get_mpi_root_id
 
-  PUBLIC :: p_start_reset, p_stop, p_abort
+  PUBLIC :: p_stop, p_abort
   PUBLIC :: p_send, p_recv, p_sendrecv, p_bcast, p_barrier
   PUBLIC :: p_isend, p_irecv, p_wait, p_wait_any
   PUBLIC :: p_gather, p_max, p_min, p_sum, p_global_sum, p_field_sum
@@ -95,6 +96,7 @@ MODULE mo_mpi
 
   CHARACTER(len=64) :: process_mpi_name
   INTEGER, PARAMETER :: stdio_process = 0
+  INTEGER :: process_root_id = 0
   
   ! communicator sets
   INTEGER :: global_mpi_communicator  ! replaces MPI_COMM_WORLD in one application
@@ -313,104 +315,11 @@ CONTAINS
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
-  SUBROUTINE p_start_reset ( communicator )
-
-    INTEGER, INTENT(in) :: communicator
-
-    LOGICAL             :: l_mpi_is_initialised
-
-    ! reset some values derived from original MPI communicator
-    ! p_all_comm with values derived from a new "communicator"
-    ! It is intended that the new communicator contain all processes
-    ! of a certain component (atmosphere, ocean, sea-ice, land, ... ) 
-
-#ifndef NOMPI
-    CALL MPI_INITIALIZED(l_mpi_is_initialised, p_error)
-
-    IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a)') ' MPI_INITITIALIZED failed.'
-       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-       STOP
-    END IF
-
-    IF ( .NOT. l_mpi_is_initialised ) THEN
-       WRITE (nerr,'(a)') ' MPI_Init or p_start needs to be called first.'
-       STOP
-    ENDIF
-
-    ! free original communicator
-
-    CALL MPI_COMM_FREE(p_all_comm, p_error)
-    IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a)') ' MPI_COMM_FREE failed. p_start needs to be called before.'
-       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-       CALL p_abort
-    END IF
-
-    ! assign MPI communicator generated elsewhere to p_all_comm
-
-    CALL MPI_COMM_DUP(communicator, p_all_comm, p_error)
-    IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a)') ' MPI_COMM_DUP failed for p_all_comm.'
-       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-       CALL p_abort
-    END IF
-
-    ! get local PE identification
-
-    CALL MPI_COMM_RANK (p_all_comm, mype, p_error)
-
-    IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a)') ' MPI_COMM_RANK failed.'
-       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-       CALL p_abort
-    ELSE
-#ifdef DEBUG
-       WRITE (nerr,'(a,i4,a)') ' Component PE ', mype, ' started.'
-#endif
-    END IF
-#else
-    mype = 0
-#endif
-
-    ! get number of available PEs
-
-#ifndef NOMPI
-    CALL MPI_COMM_SIZE (p_all_comm, npes, p_error)
-
-    IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a,i4,a)') ' PE: ', mype, ' MPI_COMM_SIZE failed.'
-       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-       CALL p_abort
-    END IF
-#else
-    npes = 1
-#endif
-
-    IF (npes < 2) THEN
-       p_parallel    = .FALSE.
-       p_parallel_io = .TRUE.   ! can always do I/O
-       IF (mype == 0) THEN
-          WRITE (nerr,'(a)') '  Single processor run.'
-       END IF
-       p_pe = 0
-       p_nprocs = 1
-    ELSE
-       p_parallel = .TRUE.
-       IF (mype == p_io) THEN
-          p_parallel_io = .TRUE.
-       ELSE
-          p_parallel_io = .FALSE.
-       END IF
-       IF (mype == 0) THEN
-          WRITE (nerr,'(a,i0,a)') '  Run on ', npes, ' processors.'
-       END IF
-       p_pe = mype
-       p_nprocs = npes
-    END IF
-
-  END SUBROUTINE p_start_reset
+  INTEGER FUNCTION get_mpi_root_id()
+    get_mpi_root_id = process_root_id
+  END FUNCTION get_mpi_root_id
   !------------------------------------------------------------------------------
+    
 
   !------------------------------------------------------------------------------
   SUBROUTINE set_process_mpi_communicator(new_communicator)
@@ -4565,7 +4474,7 @@ CONTAINS
 
     IF (p_parallel) THEN
        CALL MPI_REDUCE (zfield, pe_sums, SIZE(zfield), p_real_dp, &
-            MPI_SUM, p_io, p_comm, p_error)
+            MPI_SUM, process_root_id, p_comm, p_error)
        p_sum = SUM(pe_sums)
     ELSE
        p_sum = SUM(zfield)
@@ -4593,7 +4502,7 @@ CONTAINS
 
     IF (p_parallel) THEN
        CALL MPI_REDUCE (zfield, p_sum, SIZE(zfield), p_real_dp, &
-            MPI_SUM, p_io, p_comm, p_error)
+            MPI_SUM, process_root_id, p_comm, p_error)
        IF (.NOT. p_parallel_io) p_sum = 0.0_dp
     ELSE
        p_sum = zfield
