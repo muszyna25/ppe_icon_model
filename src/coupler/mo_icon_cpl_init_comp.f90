@@ -80,6 +80,10 @@ MODULE mo_icon_cpl_init_comp
    &                      ICON_ocean_index, ICON_atmos_index, &
    &                      ICON_land_index
 
+  USE mo_master_control,      ONLY: get_my_process_component, &
+    & atmo_process, ocean_process,  radiation_process
+   
+
   IMPLICIT NONE
 
   PRIVATE
@@ -180,49 +184,11 @@ CONTAINS
     ! -------------------------------------------------------------------
     ! Derive component communicators
     ! -------------------------------------------------------------------
-
-    IF ( TRIM(comp_name) == 'ocean' ) THEN
-
-       ICON_key   = 0
-       ICON_color = ICON_ocean_index
-
-       IF ( l_debug ) &
-       WRITE ( cplout , '(I3,A1,A)' ) ICON_global_rank, ':', ' assigned to ocean '
-
-       ! Get coupling information
-
-       CALL cpl_nml_setup(ICON_color)
-
-    ENDIF
-
-    IF  ( TRIM(comp_name) == 'atmosphere' ) THEN
-
-       ICON_key   = 0
-       ICON_color = ICON_atmos_index
-
-       IF ( l_debug ) &
-       WRITE ( cplout , '(I3,A1,A)' ) ICON_global_rank, ':', ' assigned to atmosphere '
-
-       ! Get coupling information
-
-       CALL cpl_nml_setup(ICON_color)
-
-    ENDIF
-
-    IF  ( TRIM(comp_name) == 'land' ) THEN
-
-       ICON_key   = 0
-       ICON_color = ICON_land_index
-
-       IF ( l_debug ) &
-       WRITE ( cplout , '(I3,A1,A)' ) ICON_global_rank, ':', ' assigned to land '
-
-       ! Get coupling information
-
-       CALL cpl_nml_setup(ICON_color)
-
-    ENDIF
-
+    my_process_component = get_my_process_component()
+    ICON_color = my_process_component
+    ICON_key   = 0
+    CALL cpl_nml_setup(ICON_color)
+    
     CALL MPI_Comm_split ( ICON_comm, ICON_color, ICON_key, comp_comm, ierr )
     IF ( ierr /= MPI_SUCCESS ) THEN
        CALL MPI_Error_string ( ierr, err_string, len, ierror )
