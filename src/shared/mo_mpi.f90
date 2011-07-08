@@ -68,14 +68,20 @@ MODULE mo_mpi
 
 #ifndef NOMPI
   INTEGER :: version, subversion   ! MPI version
-#endif
-
-  ! MPI call inherent variables
-
-#ifndef NOMPI
+ ! MPI call inherent variables
   INTEGER :: p_error                     ! MPI error number
   INTEGER :: p_status(MPI_STATUS_SIZE)   ! standard information of MPI_RECV
+  
+  INTEGER, ALLOCATABLE, SAVE :: p_request(:) ! request values for non blocking calls
+  INTEGER :: p_irequest ! the first p_irequest values of p_request are in use
+  INTEGER :: p_mrequest ! actual size of p_request
+  INTEGER, PARAMETER :: p_request_alloc_size = 4096
+  INTEGER, PARAMETER :: p_address_kind = MPI_ADDRESS_KIND
+#else
+  INTEGER, PARAMETER :: p_address_kind = i8    ! should not get touched at all
+  INTEGER, PARAMETER :: MPI_COMM_NULL = 0    
 #endif
+
 
   ! public parallel run information
 
@@ -112,12 +118,6 @@ MODULE mo_mpi
   INTEGER :: p_comm_work_test   ! Communicator spanning work group and test PE
   ! non blocking calls
 
-#ifndef NOMPI
-  INTEGER, ALLOCATABLE, SAVE :: p_request(:) ! request values for non blocking calls
-  INTEGER :: p_irequest ! the first p_irequest values of p_request are in use
-  INTEGER :: p_mrequest ! actual size of p_request
-  INTEGER, PARAMETER :: p_request_alloc_size = 4096
-#endif
 
   ! module intrinsic names
 
@@ -156,11 +156,6 @@ MODULE mo_mpi
   INTEGER :: p_int_i4_byte  = 0
   INTEGER :: p_int_i8_byte  = 0
 
-#ifndef NOMPI
-  INTEGER, PARAMETER :: p_address_kind = MPI_ADDRESS_KIND
-#else
-  INTEGER, PARAMETER :: p_address_kind = i8    ! should not get touched at all
-#endif
 
   ! define generic interfaces to allow proper compiling with picky compilers
   ! like NAG f95 for clean argument checking and shortening the call sequence.
@@ -419,7 +414,6 @@ CONTAINS
 
   !------------------------------------------------------------------------------
   SUBROUTINE set_process_mpi_communicator(new_communicator)
-
     INTEGER, INTENT(in) :: new_communicator
 
     LOGICAL             :: l_mpi_is_initialised
@@ -511,6 +505,25 @@ CONTAINS
        END IF
     END IF
 
+#ifndef NOMPI
+    CALL MPI_COMM_DUP(p_all_comm,p_comm_work,p_error)
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a)') ' MPI_COMM_DUP failed for p_comm_work.'
+       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
+       CALL p_abort
+    END IF
+
+    CALL MPI_COMM_DUP(p_all_comm,p_comm_work_test,p_error)
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a)') ' MPI_COMM_DUP failed for p_comm_work_test.'
+       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
+       CALL p_abort
+    END IF
+#else
+    p_comm_work=p_all_comm
+    p_comm_work_test=p_all_comm
+#endif
+
   END SUBROUTINE set_process_mpi_communicator
   !------------------------------------------------------------------------------
 
@@ -526,6 +539,7 @@ CONTAINS
     USE mod_prism_proto, ONLY: prism_ok
 #endif
 #endif
+
     INTEGER :: mype                  ! this is the PE number of this task
     CHARACTER(len=*), INTENT(in), OPTIONAL :: global_name
 
@@ -542,12 +556,20 @@ CONTAINS
 
     ! variables used for determing the OpenMP threads
     ! suitable as well for coupled models
-
 #if (defined _OPENMP)
     CHARACTER(len=32) :: env_name
     CHARACTER(len=32) :: thread_num
     INTEGER :: env_threads, threads
     INTEGER :: global_no_of_threads
+#ifndef NOMPI
+    INTEGER :: provided
+#endif
+#ifndef __SX__
+    ! status
+    INTEGER :: istat
+#else
+    EXTERNAL :: getenv
+#endif
 #endif
 
 #ifndef NOMPI
@@ -560,24 +582,21 @@ CONTAINS
     EXTERNAL :: prism_get_localcomm_proto
 #endif
 #endif
+    CHARACTER(len=*), PARAMETER :: method_name = 'start_mpi'
 
+    ! set defaults assuming sequential run
+    stdio_process = 0      ! set the I/O pe statically to 0
+    global_mpi_communicator= MPI_COMM_NULL
+    global_mpi_size  = 1        ! total number of processes in global world
+    my_global_mpi_id = 0        ! process id in global world
+    is_global_mpi_parallel = .false.
+    process_mpi_name = 'uknown'    
+    process_mpi_all_comm = MPI_COMM_NULL
+    
 #ifdef _OPENMP
-#ifndef NOMPI
-    INTEGER :: provided
-    ! loop index
-!   INTEGER :: jp
-#endif
-#ifndef __SX__
-    ! status
-    INTEGER :: istat
-#endif
+    global_no_of_threads = 1
 #endif
 
-#if defined (_OPENMP) && defined (__SX__)
-    EXTERNAL :: getenv
-#endif
-
-    ! Executable statements:
     IF (PRESENT(global_name)) THEN
       yname = TRIM(global_name)
     ELSE
@@ -593,7 +612,7 @@ CONTAINS
 #endif
 
     IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a)') ' MPI_INIT failed.'
+       WRITE (nerr,'(a,a)') method_name, ' MPI_INIT failed.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
        STOP
     END IF
@@ -601,25 +620,14 @@ CONTAINS
 #ifdef _OPENMP
     ! Check if MPI_INIT_THREAD returned at least MPI_THREAD_FUNNELED in "provided"
     IF (provided < MPI_THREAD_FUNNELED) THEN
-       WRITE (nerr,'(a)') ' MPI_INIT_THREAD did not return desired level of thread support'
+       WRITE (nerr,'(a,a)') method_name, &
+         & ' MPI_INIT_THREAD did not return desired level of thread support'
        WRITE (nerr,'(a,i0)') " provided: ", provided
        WRITE (nerr,'(a,i0)') " required: ", MPI_THREAD_FUNNELED
        CALL MPI_Finalize(p_error)
        STOP
     END IF
 #endif
-#endif
-
-    ! set defaults    
-    stdio_process = 0 ! set the I/O pe statically to 0
-    global_mpi_size  = 1        ! total number of processes in global world
-    my_global_mpi_id = 0        ! process id in global world
-    is_global_mpi_parallel = .false.
-    process_mpi_name = 'uknown'
-    process_mpi_all_comm = MPI_COMM_NULL
-    
-#ifdef _OPENMP
-    global_no_of_threads = 1
 #endif
     
     ! create communicator for this process alone before
@@ -633,14 +641,14 @@ CONTAINS
          p_error)
 
     IF (p_error /= prism_ok) THEN
-      WRITE (nerr,*) ' prism_init_comp_proto failed'
+      WRITE (nerr,*) method_name, ' prism_init_comp_proto failed'
       CALL prism_abort_proto(prism_model_number, TRIM(yname),'abort1')
     ENDIF
 
     CALL prism_get_localcomm_proto(global_mpi_communicator, p_error)
 
     IF (p_error /= prism_ok) THEN
-      WRITE (nerr,*) ' prism_get_localcomm_proto failed'
+      WRITE (nerr,*) method_name, ' prism_get_localcomm_proto failed'
       CALL prism_abort_proto(prism_model_number, TRIM(yname),'abort2')
     ENDIF
 
@@ -649,7 +657,7 @@ CONTAINS
     CALL MPI_COMM_DUP (MPI_COMM_WORLD, global_mpi_communicator, p_error)
 
     IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a)') ' MPI_COMM_DUP failed.'
+       WRITE (nerr,'(a,a)') method_name, ' MPI_COMM_DUP failed.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
        CALL p_abort
     END IF
@@ -662,66 +670,62 @@ CONTAINS
     CALL MPI_COMM_RANK (global_mpi_communicator, my_global_mpi_id, p_error)
 
     IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a)') ' MPI_COMM_RANK failed.'
-       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-       CALL p_abort
-    ELSE
-#ifdef DEBUG
-       WRITE (nerr,'(a,i4,a)') ' PE ', mype, ' started.'
-#endif
-    END IF
-#else
-    my_global_mpi_id = 0
-#endif
-
-    ! get number of available PEs
-
-#ifndef NOMPI
-    CALL MPI_COMM_SIZE (global_mpi_communicator, global_mpi_size, p_error)
-
-    IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a,i4,a)') ' PE: ', mype, ' MPI_COMM_SIZE failed.'
+       WRITE (nerr,'(a,a)') method_name, ' MPI_COMM_RANK failed.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
        CALL p_abort
     END IF
-#else
-    global_mpi_size = 1
-#endif
 
     ! Information ...
     IF (my_global_mpi_id == 0) THEN
        WRITE (nerr,'(/,a,a,a)') ' ', &
             TRIM(yname), ' MPI interface runtime information:'
     END IF
+    
+#ifdef DEBUG
+    WRITE (nerr,'(a,a,i4,a)') method_name, ' PE ', my_global_mpi_id, ' started.'
+#endif
 
-#ifndef NOMPI
+    ! get number of available PEs
+    CALL MPI_COMM_SIZE (global_mpi_communicator, global_mpi_size, p_error)
+
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,a,i4,a)') method_name ,' PE: ', my_global_mpi_id, &
+       &  ' MPI_COMM_SIZE failed.'                                         
+       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
+       CALL p_abort
+    END IF
+
+    IF (global_mpi_size > 1) THEN
+      is_global_mpi_parallel = .TRUE.
+    ELSE
+      global_mpi_size = 1 ! just in case we got wrong size
+    ENDIF
+    
     ! lets check the available MPI version
-
     CALL MPI_GET_VERSION (version, subversion, p_error)
 
     IF (p_error /= MPI_SUCCESS) THEN
-      WRITE (nerr,'(a)') ' MPI_GET_VERSION failed.'
+      WRITE (nerr,'(a,a)') method_name , ' MPI_GET_VERSION failed.'
       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
       CALL p_abort
     END IF
 
     IF (my_global_mpi_id == 0) THEN
-      WRITE (nerr,'(a,i0,a1,i0)') &
+      WRITE (nerr,'(a,a,i0,a1,i0)') method_name, &
            '  Used MPI version: ', version, '.', subversion
     END IF
 
-#endif
-
-    IF (global_mpi_size < 2) THEN
-      is_global_mpi_parallel = .FALSE.
-      WRITE (nerr,'(a)') '  Single processor run.'
-    ELSE
-      is_global_mpi_parallel = .TRUE.
-      IF (my_global_mpi_id == 0) THEN
-        WRITE (nerr,'(a,a,i0,a)') TRIM(yname), ': Globally run on ',&
-          & global_mpi_size, ' processors.'
-      END IF
+    IF (my_global_mpi_id == 0) THEN
+      WRITE (nerr,'(a,a,a,i0,a)') method_name, &
+        & TRIM(yname), ': Globally run on ',&
+        & global_mpi_size, ' processors.' 
     END IF
+
+#else
+
+  WRITE (nerr,'(a,a)')  method_name, ' No MPI: Single processor run.'
+
+#endif
 
 #ifdef _OPENMP
     ! Expect that PE 0 did got the information of OMP_NUM_THREADS.
@@ -807,24 +811,9 @@ CONTAINS
       WRITE (nerr,*)
     ENDIF
 
-#ifndef NOMPI
-    CALL MPI_COMM_DUP(p_all_comm,p_comm_work,p_error)
-    IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a)') ' MPI_COMM_DUP failed for p_comm_work.'
-       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-       CALL p_abort
-    END IF
-
-    CALL MPI_COMM_DUP(p_all_comm,p_comm_work_test,p_error)
-    IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a)') ' MPI_COMM_DUP failed for p_comm_work_test.'
-       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-       CALL p_abort
-    END IF
-#else
-    p_comm_work=p_all_comm
-    p_comm_work_test=p_all_comm
-#endif
+    ! by default, the global communicator is the process communicator
+    CALL set_process_mpi_communicator(global_mpi_communicator)
+    
   END SUBROUTINE start_mpi
   !------------------------------------------------------------------------------
 
