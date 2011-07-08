@@ -116,6 +116,7 @@ PROGRAM control_model
   ! Initialize the master control
   master_control_status = init_master_control("icon_master.namelist")
 
+
 !   IF ( is_coupled_run() ) THEN
 ! 
 !      CALL icon_cpl_init

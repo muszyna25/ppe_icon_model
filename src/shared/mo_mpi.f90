@@ -54,6 +54,7 @@ MODULE mo_mpi
   ! communicator
   PUBLIC :: p_communicator_a, p_communicator_b, p_communicator_d
 
+
   ! old fashioned method (MPI-1)
 
 !!$#ifndef NOMPI
