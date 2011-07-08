@@ -20,7 +20,7 @@ PROGRAM grid_command
     & prepare_gridref
 #endif
  
-  USE mo_mpi,                   ONLY: p_start, p_stop
+  USE mo_mpi,                   ONLY: start_mpi, p_stop
 
   IMPLICIT NONE
 
@@ -53,7 +53,7 @@ PROGRAM grid_command
 !   CALL get_command_argument(1, command)
 !   CALL get_command_argument(2, param_1)
 
-  CALL p_start()
+  CALL start_mpi()
 
   OPEN (500, FILE = command_file,STATUS = 'OLD')
   READ (500, *) command, param_1

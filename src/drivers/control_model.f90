@@ -50,7 +50,7 @@ PROGRAM control_model
   USE mo_io_units,            ONLY: filename_max
 !$ USE mo_exception,          ONLY: message_text, message     ! use only if compiled with OpenMP
 
-  USE mo_mpi,                 ONLY: p_start, p_stop !, p_start_reset
+  USE mo_mpi,                 ONLY: start_mpi, p_stop 
 ! USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output
 ! USE mo_output,              ONLY: init_output_files, close_output_files, write_output
   
@@ -109,7 +109,7 @@ PROGRAM control_model
 
   !-------------------------------------------------------------------
   ! Initialize MPI, this should aleays be the first call
-  CALL p_start('ICON')
+  CALL start_mpi('ICON')
 
   
   !-------------------------------------------------------------------

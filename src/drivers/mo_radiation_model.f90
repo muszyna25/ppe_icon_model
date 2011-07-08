@@ -42,7 +42,7 @@ MODULE mo_radiation_model
   USE mo_exception,           ONLY: message, finish  ! use always
   !$  USE mo_exception,         ONLY: message_text     ! use only if compiled with OpenMP
   
-  USE mo_mpi,                 ONLY: p_start, p_stop, p_pe, p_io, p_nprocs
+  USE mo_mpi,                 ONLY: start_mpi, p_stop, p_pe, p_io, p_nprocs
   USE mo_timer,               ONLY: init_timer, print_timer
   USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output
   USE mo_datetime,            ONLY: t_datetime
