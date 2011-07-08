@@ -80,6 +80,8 @@ MODULE mo_icon_cpl_init_comp
    &                      ICON_ocean_index, ICON_atmos_index, &
    &                      ICON_land_index
 
+  USE mo_icon_cpl, ONLY : set_cpl_local_comm
+
   USE mo_master_control,      ONLY: get_my_process_component, &
     & atmo_process, ocean_process,  radiation_process
    
