@@ -3,9 +3,9 @@
 !!
 !! <Description>
 !! 
-!! This routine returns a grid_id and an MPI communicator
-!! The MPI communicator can be used fo local communication
-!! inside the model component.
+!! This routine returns a grid_id and sets up a MPI communicator
+!! which can be used fo local communication inside the model component.
+!! This communicator can be accessed via 
 !!
 !! @author Rene Redler, MPI-M
 !!
@@ -108,12 +108,13 @@ MODULE mo_icon_cpl_init_comp
 
 CONTAINS
 
-  SUBROUTINE ICON_cpl_init_comp ( comp_name, comp_id, comp_comm, ierror )
+  SUBROUTINE ICON_cpl_init_comp ( comp_name, comp_id, ierror )
 
     CHARACTER(len=*), INTENT(in) :: comp_name
-    INTEGER, INTENT(out)         :: comp_comm
     INTEGER, INTENT(out)         :: comp_id
     INTEGER, INTENT(out)         :: ierror
+
+    INTEGER                      :: comp_comm
 
     ! -------------------------------------------------------------------
     ! for redirecting stdout
@@ -188,6 +189,8 @@ CONTAINS
     ICON_key   = 0
     CALL cpl_nml_setup(ICON_color)
     
+    comp_comm = MPI_COMM_NULL
+
     CALL MPI_Comm_split ( ICON_comm, ICON_color, ICON_key, comp_comm, ierr )
     IF ( ierr /= MPI_SUCCESS ) THEN
        CALL MPI_Error_string ( ierr, err_string, len, ierror )
@@ -355,6 +358,8 @@ CONTAINS
     comp_comm = 0
 
 #endif
+
+    ierror = set_cpl_local_comm ( comp_comm )
 
   END SUBROUTINE ICON_cpl_init_comp
 

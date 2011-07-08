@@ -397,4 +397,37 @@ MODULE mo_icon_cpl
 
   INTEGER, Allocatable          :: all_extents(:,:)
 
+  PRIVATE :: comp_comm
+
+  CONTAINS
+
+    INTEGER FUNCTION set_cpl_local_comm ( comm )
+
+      INTEGER, INTENT (IN) :: comm
+
+      comp_comm = comm
+
+      set_cpl_local_comm = 0
+
+    END FUNCTION set_cpl_local_comm
+
+    INTEGER FUNCTION get_cpl_local_comm ()
+
+#ifndef NOMPI
+      IF ( comp_comm /= MPI_COMM_NULL ) THEN
+         get_cpl_local_comm = comp_comm
+      ELSE
+         get_cpl_local_comm = 0
+
+         ! Rene:
+         ! TODO: Should we stop here and return an error message
+         !       or ignore this case and just provide MPI_COMM_NULL?
+
+      ENDIF
+#else
+      get_cpl_local_comm = 0
+#endif
+
+    END FUNCTION get_cpl_local_comm
+
 END MODULE mo_icon_cpl
