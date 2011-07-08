@@ -39,10 +39,9 @@ MODULE mo_parallel_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, POSITIONED
   USE mo_master_nml,         ONLY: lrestart
-  USE mo_mpi,                ONLY: p_pe, p_io, p_nprocs, p_all_comm
+!   USE mo_mpi,                ONLY: p_pe, p_io, p_nprocs, p_all_comm
 #ifndef NOMPI
-  USE mo_mpi,                ONLY: MPI_COMM_NULL, MPI_COMM_SELF, MPI_UNDEFINED, &
-    &   p_comm_work, p_comm_work_test   ! Communicator spanning work group and test PE
+  USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_exception,          ONLY: message_text
 #else
   USE mo_mpi,                ONLY:  p_comm_work, p_comm_work_test
@@ -265,7 +264,7 @@ MODULE mo_parallel_nml
     
     !-----------------------------------------------------
     ! Write the final namelist to an ASCII file
-    IF (p_pe == p_io) WRITE(nnml_output,nml=parallel_ctl)
+    IF (my_process_is_stdio()) WRITE(nnml_output,nml=parallel_ctl)
 
     CALL fill_parallel_nml_configure()
     

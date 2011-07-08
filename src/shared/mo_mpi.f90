@@ -22,15 +22,16 @@ MODULE mo_mpi
   ! subroutines defined, overloaded depending on argument type
   PUBLIC :: start_mpi
   PUBLIC :: get_mpi_root_id
+  PUBLIC :: process_mpi_all_comm
+  PUBLIC :: p_comm_work, p_comm_work_test
+  PUBLIC :: my_process_is_stdio
 
   PUBLIC :: p_stop, p_abort
   PUBLIC :: p_send, p_recv, p_sendrecv, p_bcast, p_barrier
   PUBLIC :: p_isend, p_irecv, p_wait, p_wait_any
   PUBLIC :: p_gather, p_max, p_min, p_sum, p_global_sum, p_field_sum
-  PUBLIC :: p_set_communicator
-  PUBLIC :: p_comm_work, p_comm_work_test
+!   PUBLIC :: p_set_communicator
   PUBLIC :: p_probe
-  PUBLIC :: p_all_comm
 
   PUBLIC :: set_process_mpi_name
 
@@ -104,13 +105,12 @@ MODULE mo_mpi
   INTEGER :: my_global_mpi_id         ! process id in global world
   LOGICAL :: is_global_mpi_parallel
   
-  INTEGER :: process_mpi_all_comm     ! communicator inside a model
+  INTEGER :: process_mpi_all_comm     ! communicator in a model
   INTEGER :: process_mpi_all_size          ! total number of processes in global world
   INTEGER :: my_process_mpi_all_id
   LOGICAL :: process_is_mpi_parallel
   LOGICAL :: process_is_stdio
   
-  INTEGER :: p_all_comm       ! replaces MPI_COMM_WORLD in one application
   INTEGER :: p_communicator_a ! for Set A
   INTEGER :: p_communicator_b ! for Set B
   INTEGER :: p_communicator_d ! for debug node
@@ -319,7 +319,12 @@ CONTAINS
     get_mpi_root_id = process_root_id
   END FUNCTION get_mpi_root_id
   !------------------------------------------------------------------------------
-    
+
+  !------------------------------------------------------------------------------
+  LOGICAL FUNCTION my_process_is_stdio()
+    my_process_is_stdio = process_is_stdio
+  END FUNCTION my_process_is_stdio
+  !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
   SUBROUTINE set_process_mpi_communicator(new_communicator)
@@ -329,7 +334,7 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: method_name = 'set_process_mpi_communicator'
 
     ! reset some values derived from original MPI communicator
-    ! p_all_comm with values derived from a new "communicator"
+    ! process_mpi_all_comm with values derived from a new "communicator"
     ! It is intended that the new communicator contain all processes
     ! of a certain component (atmosphere, ocean, sea-ice, land, ... )
 
@@ -367,7 +372,7 @@ CONTAINS
         CALL p_abort
       END IF
     ENDIF
-    ! assign MPI communicator generated elsewhere to p_all_comm
+    ! assign MPI communicator generated elsewhere to process_mpi_all_comm
 
     CALL MPI_COMM_DUP(new_communicator, process_mpi_all_comm, p_error)
     IF (p_error /= MPI_SUCCESS) THEN
@@ -745,7 +750,7 @@ CONTAINS
 
 #ifndef NOMPI
     ! to prevent abort due to unfinished communication
-    CALL p_barrier(p_all_comm)
+    CALL p_barrier(process_mpi_all_comm)
 
     CALL MPI_FINALIZE (p_error)
 
@@ -809,7 +814,7 @@ CONTAINS
 
     ! first set global group
 
-    CALL MPI_COMM_GROUP (p_all_comm, group_world, p_error)
+    CALL MPI_COMM_GROUP (process_mpi_all_comm, group_world, p_error)
 
     IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' PE: ', mype, ' MPI_COMM_GROUP failed.'
@@ -817,7 +822,7 @@ CONTAINS
        CALL p_abort
     END IF
 
-    ! communicator is p_all_comm
+    ! communicator is process_mpi_all_comm
 
     IF (debug_parallel >= 0 ) THEN
 
@@ -829,7 +834,7 @@ CONTAINS
           CALL p_abort
        END IF
 
-       CALL MPI_COMM_CREATE (p_all_comm, group_d, p_communicator_tmp, &
+       CALL MPI_COMM_CREATE (process_mpi_all_comm, group_d, p_communicator_tmp, &
             p_error)
 
        IF (p_error /= MPI_SUCCESS) THEN
@@ -853,7 +858,7 @@ CONTAINS
           CALL p_abort
        END IF
 
-       CALL MPI_COMM_CREATE (p_all_comm, group_d, p_communicator_tmp, &
+       CALL MPI_COMM_CREATE (process_mpi_all_comm, group_d, p_communicator_tmp, &
             p_error)
 
        IF (p_error /= MPI_SUCCESS) THEN
@@ -865,7 +870,7 @@ CONTAINS
        IF (mype /= 0) p_communicator_d = p_communicator_tmp
 
     ELSE
-       p_communicator_d = p_all_comm
+       p_communicator_d = process_mpi_all_comm
     END IF
 
     DO n = 0, nproca-1
@@ -879,7 +884,7 @@ CONTAINS
           CALL p_abort
        END IF
 
-       CALL MPI_COMM_CREATE (p_all_comm, group_a, p_communicator_tmp, &
+       CALL MPI_COMM_CREATE (process_mpi_all_comm, group_a, p_communicator_tmp, &
             p_error)
 
        IF (p_error /= MPI_SUCCESS) THEN
@@ -905,7 +910,7 @@ CONTAINS
           CALL p_abort
        END IF
 
-       CALL MPI_COMM_CREATE (p_all_comm, group_b, p_communicator_tmp, &
+       CALL MPI_COMM_CREATE (process_mpi_all_comm, group_b, p_communicator_tmp, &
             p_error)
 
        IF (p_error /= MPI_SUCCESS) THEN
@@ -918,7 +923,7 @@ CONTAINS
 
     END DO
 
-    CALL MPI_BARRIER (p_all_comm, p_error)
+    CALL MPI_BARRIER (process_mpi_all_comm, p_error)
 
     IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a,i4,a)') ' PE: ', mype, ' MPI_BARRIER failed.'
@@ -956,7 +961,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -990,7 +995,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1024,7 +1029,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1058,7 +1063,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1092,7 +1097,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1126,7 +1131,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1160,7 +1165,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1194,7 +1199,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1228,7 +1233,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1262,7 +1267,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1296,7 +1301,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1331,7 +1336,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1365,7 +1370,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1399,7 +1404,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1433,7 +1438,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1467,7 +1472,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1501,7 +1506,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1555,7 +1560,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1591,7 +1596,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1628,7 +1633,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1665,7 +1670,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1702,7 +1707,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1739,7 +1744,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1776,7 +1781,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1813,7 +1818,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1850,7 +1855,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1886,7 +1891,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1923,7 +1928,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1961,7 +1966,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -1998,7 +2003,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2035,7 +2040,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2072,7 +2077,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2109,7 +2114,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2146,7 +2151,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2184,7 +2189,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2218,7 +2223,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2252,7 +2257,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2286,7 +2291,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2320,7 +2325,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2354,7 +2359,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2388,7 +2393,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2422,7 +2427,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2456,7 +2461,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2490,7 +2495,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2524,7 +2529,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2559,7 +2564,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2593,7 +2598,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2627,7 +2632,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2661,7 +2666,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2695,7 +2700,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2729,7 +2734,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2768,7 +2773,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2806,7 +2811,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2842,7 +2847,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2879,7 +2884,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2916,7 +2921,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2953,7 +2958,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -2991,7 +2996,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -3027,7 +3032,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -3064,7 +3069,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -3101,7 +3106,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -3138,7 +3143,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -3177,7 +3182,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -3213,7 +3218,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -3250,7 +3255,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -3287,7 +3292,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -3324,7 +3329,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (PRESENT(p_count)) THEN
@@ -3369,7 +3374,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     CALL MPI_SENDRECV (sendbuf, SIZE(sendbuf), p_real_dp, p_dest,   p_tag, &
@@ -3404,7 +3409,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     CALL MPI_SENDRECV (sendbuf, SIZE(sendbuf), p_real_dp, p_dest,   p_tag, &
@@ -3439,7 +3444,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     CALL MPI_SENDRECV (sendbuf, SIZE(sendbuf), p_real_dp, p_dest,   p_tag, &
@@ -3474,7 +3479,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     CALL MPI_SENDRECV (sendbuf, SIZE(sendbuf), p_real_dp, p_dest,   p_tag, &
@@ -3506,7 +3511,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
 #ifdef DEBUG
@@ -3546,7 +3551,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
 #ifdef DEBUG
@@ -3587,7 +3592,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
 #ifdef DEBUG
@@ -3628,7 +3633,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
 #ifdef DEBUG
@@ -3669,7 +3674,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
 #ifdef DEBUG
@@ -3710,7 +3715,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
 #ifdef DEBUG
@@ -3751,7 +3756,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
 #ifdef DEBUG
@@ -3792,7 +3797,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
 #ifdef DEBUG
@@ -3833,7 +3838,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
 #ifdef DEBUG
@@ -3874,7 +3879,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
 #ifdef DEBUG
@@ -3915,7 +3920,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
 #ifdef DEBUG
@@ -3956,7 +3961,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
 #ifdef DEBUG
@@ -3998,7 +4003,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
 #ifdef DEBUG
@@ -4039,7 +4044,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
 #ifdef DEBUG
@@ -4080,7 +4085,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
 #ifdef DEBUG
@@ -4121,7 +4126,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
 #ifdef DEBUG
@@ -4162,7 +4167,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
 #ifdef DEBUG
@@ -4203,7 +4208,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
 #ifdef DEBUG
@@ -4245,7 +4250,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
 #ifdef DEBUG
@@ -4291,7 +4296,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     p_tag = -1
@@ -4387,7 +4392,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (p_parallel) THEN
@@ -4414,7 +4419,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (p_parallel) THEN
@@ -4441,7 +4446,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (p_parallel) THEN
@@ -4469,7 +4474,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (p_parallel) THEN
@@ -4497,7 +4502,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (p_parallel) THEN
@@ -4524,7 +4529,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (p_parallel) THEN
@@ -4551,7 +4556,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (p_parallel) THEN
@@ -4578,7 +4583,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (p_parallel) THEN
@@ -4606,7 +4611,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (p_parallel) THEN
@@ -4632,7 +4637,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (p_parallel) THEN
@@ -4659,7 +4664,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (p_parallel) THEN
@@ -4686,7 +4691,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (p_parallel) THEN
@@ -4713,7 +4718,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
     IF (p_parallel) THEN
@@ -4739,7 +4744,7 @@ CONTAINS
     IF (PRESENT(comm)) THEN
        p_comm = comm
     ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
     ENDIF
 
      CALL MPI_GATHER(sendbuf, SIZE(sendbuf), p_real_dp, &
@@ -4762,7 +4767,7 @@ CONTAINS
      IF (PRESENT(comm)) THEN
        p_comm = comm
      ELSE
-       p_comm = p_all_comm
+       p_comm = process_mpi_all_comm
      ENDIF
 
      CALL MPI_GATHER(sendbuf, SIZE(sendbuf), p_real_dp, &

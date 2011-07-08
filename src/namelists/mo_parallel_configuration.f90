@@ -35,7 +35,7 @@ MODULE mo_parallel_configuration
 
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_mpi,                ONLY: p_pe, p_io, p_nprocs, p_all_comm
+  USE mo_mpi,                ONLY: p_pe, p_io, p_nprocs, process_mpi_all_comm
   USE mo_run_nml,            ONLY: lrestore_states
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_COMM_NULL, MPI_COMM_SELF, MPI_UNDEFINED, &
@@ -307,7 +307,7 @@ CONTAINS
   ! Set communicators
   ! =================
 
-  ! Split communicator p_all_comm between test/work/io
+  ! Split communicator process_mpi_all_comm between test/work/io
   ! to get p_comm_work which is the communicator for
   ! usage WITHIN every group of the 3 different type
 
@@ -319,7 +319,7 @@ CONTAINS
     my_color = 3 ! I/O PE
   ENDIF
 
-  CALL MPI_Comm_split(p_all_comm, my_color, p_pe, p_comm_work, p_error)
+  CALL MPI_Comm_split(process_mpi_all_comm, my_color, p_pe, p_comm_work, p_error)
 
   ! Set p_comm_work_test, the communicator spanning work group and test PE
 
@@ -330,7 +330,7 @@ CONTAINS
       my_color = MPI_UNDEFINED ! p_comm_work_test must never be used on I/O PEs
     ENDIF
 
-    CALL MPI_Comm_split(p_all_comm, my_color, p_pe, p_comm_work_test, p_error)
+    CALL MPI_Comm_split(process_mpi_all_comm, my_color, p_pe, p_comm_work_test, p_error)
   ELSE
     ! If not a test run, p_comm_work_test must not be used at all
     p_comm_work_test = MPI_COMM_NULL
@@ -345,7 +345,7 @@ CONTAINS
       my_color = 1
     ENDIF
 
-    CALL MPI_Comm_split(p_all_comm, my_color, p_pe, p_comm_work_io, p_error)
+    CALL MPI_Comm_split(process_mpi_all_comm, my_color, p_pe, p_comm_work_io, p_error)
   ELSE
     ! If no I/O PEs are present, p_comm_work_io must not be used at all
     p_comm_work_io = MPI_COMM_NULL
@@ -383,7 +383,7 @@ CONTAINS
 
   ! No idea what these troubles may be in reality, but let us follow the advice
 
-  CALL MPI_Comm_dup(p_all_comm, peer_comm, p_error)
+  CALL MPI_Comm_dup(process_mpi_all_comm, peer_comm, p_error)
 
   IF(p_pe /= p_test_pe .AND. num_io_procs>0) THEN
 
