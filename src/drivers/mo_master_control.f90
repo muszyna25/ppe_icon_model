@@ -44,7 +44,7 @@ MODULE mo_master_control
 !-------------------------------------------------------------------------
 
   USE mo_exception,  ONLY: warning, message, finish
-  USE mo_mpi,        ONLY: p_nprocs
+  USE mo_mpi,        ONLY: set_process_mpi_name
 
   USE mo_icon_cpl,    ONLY  : complist,                           &
    &                       nbr_ICON_comps,                     &
@@ -210,6 +210,7 @@ MODULE mo_master_control
     my_process_model     = comp_id
     my_namelist_filename = TRIM(comp_namelist)
     my_model_name = TRIM(comp_name)
+    CALL set_process_mpi_name(TRIM(my_model_name))
     
     SELECT CASE (my_process_model)
       CASE (atmo_process)

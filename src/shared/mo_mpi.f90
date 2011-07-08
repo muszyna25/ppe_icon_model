@@ -14,7 +14,7 @@ MODULE mo_mpi
 
   USE mo_kind
   USE mo_io_units, ONLY: nerr
-
+  
   IMPLICIT NONE
 
   PRIVATE                          ! all declarations are private
@@ -29,6 +29,8 @@ MODULE mo_mpi
   PUBLIC :: p_comm_work, p_comm_work_test
   PUBLIC :: p_probe
   PUBLIC :: p_all_comm
+
+  PUBLIC :: set_process_mpi_name
 
 #ifndef NOMPI
   PUBLIC :: MPI_INTEGER, MPI_STATUS_SIZE, MPI_SUCCESS, MPI_ANY_SOURCE,     &
@@ -84,6 +86,7 @@ MODULE mo_mpi
   INTEGER :: p_io     = 0     ! PE number of PE handling IO
   INTEGER :: p_nprocs = 1     ! number of available PEs (processors)
 
+  CHARACTER(len=64) :: process_mpi_name
   ! communicator sets
   INTEGER :: global_mpi_communicator  ! replaces MPI_COMM_WORLD in one application
   INTEGER :: global_mpi_size          ! total number of processes in global world
@@ -307,6 +310,15 @@ MODULE mo_mpi
 CONTAINS
 
   !------------------------------------------------------------------------------
+  SUBROUTINE set_process_mpi_name(name)
+    CHARACTER(len=*), INTENT(in) ::name
+    
+    process_mpi_name = TRIM(name)
+
+  END SUBROUTINE set_process_mpi_name
+  !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
   SUBROUTINE p_start_reset ( communicator )
 
     INTEGER, INTENT(in) :: communicator
@@ -478,27 +490,25 @@ CONTAINS
        CALL p_abort
     END IF
 #else
-    process_mpi_all = 1
+    process_mpi_all_size = 1
 #endif
 
     IF (process_mpi_all_size < 2) THEN
-       process_is_mpi_parallel = .false.
-       process_is_stdio = .true.
-       WRITE (nerr,'(a)') '  Single processor run.'
-       p_pe = 0
-       p_nprocs = 1
+      process_is_mpi_parallel = .false.
+      process_is_stdio = .true.
+      WRITE (nerr,'(a,a)') TRIM(process_mpi_name), '  Single processor run.'
+      my_process_mpi_all_id = 0
+      process_mpi_all_size = 1
     ELSE
-       p_parallel = .TRUE.
-       IF (mype == p_io) THEN
-          p_parallel_io = .TRUE.
-       ELSE
-          p_parallel_io = .FALSE.
+      process_is_mpi_parallel = .true.
+      IF (my_process_mpi_all_id == p_io) THEN
+        process_is_stdio = .TRUE.
+      ELSE
+        process_is_stdio = .FALSE.
        END IF
-       IF (mype == 0) THEN
-          WRITE (nerr,'(a,i0,a)') '  Run on ', npes, ' processors.'
+       IF (process_is_stdio) THEN
+         WRITE (nerr,'(a,i0,a)') '  Run on ', npes, ' processors.'
        END IF
-       p_pe = mype
-       p_nprocs = npes
     END IF
 
   END SUBROUTINE set_process_mpi_communicator
@@ -605,6 +615,7 @@ CONTAINS
     global_mpi_size  = 0        ! total number of processes in global world
     my_global_mpi_id = 0        ! process id in global world
     is_global_mpi_parallel = .false.
+    process_mpi_name = 'uknown'
 #ifdef _OPENMP
     global_no_of_threads = 1
 #endif
