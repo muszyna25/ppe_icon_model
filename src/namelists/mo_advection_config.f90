@@ -44,7 +44,7 @@
 MODULE mo_advection_config
 
   USE mo_kind,           ONLY: wp
-  USE mo_impl_constants, ONLY: MAX_NTRACER, MAX_CHAR_LENGTH
+  USE mo_impl_constants, ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom
 
   IMPLICIT NONE
 
@@ -106,7 +106,7 @@ MODULE mo_advection_config
     INTEGER :: &                    !< parameter used to select the limiter      
       &  itype_vlimit(MAX_NTRACER)  !< for vertical transport                    
 
-    INTEGER :: &            !< parameter used to select the limiter      
+    INTEGER :: &                    !< parameter used to select the limiter
       &  itype_hlimit(MAX_NTRACER)  !< for horizontal transport                  
                                     !< 0: no limiter                             
                                     !< 1: semi-monotonous slope limiter          
@@ -164,6 +164,6 @@ MODULE mo_advection_config
   END TYPE t_advection_config
   !>
   !!
-  TYPE(t_advection_config), ALLOCATABLE :: advection_config(:) !< shape: (n_dom)
+  TYPE(t_advection_config), TARGET :: advection_config(max_dom)
 
 END MODULE mo_advection_config

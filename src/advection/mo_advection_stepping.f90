@@ -82,10 +82,8 @@ MODULE mo_advection_stepping
   USE mo_mpi,                 ONLY: p_pe, p_nprocs
   USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult
   USE mo_parallel_configuration, ONLY: p_test_pe, p_test_run
-  USE mo_advection_nml,       ONLY: itype_vlimit,                 &
-    &                               itype_hlimit, iord_backtraj, iubc_adv, &
-    &                               igrad_c_miura, iadv_slev, cSTR,        &
-    &                               coeff_grid
+  USE mo_advection_nml,       ONLY: iord_backtraj, iubc_adv, igrad_c_miura, &
+    &                               iadv_slev, cSTR, coeff_grid
   USE mo_advection_config,    ONLY: advection_config
   USE mo_advection_utils,     ONLY: ptr_delp_mc_now, ptr_delp_mc_new
   USE mo_model_domain_import, ONLY: l_limited_area, lfeedback
@@ -397,7 +395,8 @@ CONTAINS
           &              p_cellhgt_mc_now, z_rcellhgt_mc_now,        &! in
           &              ptr_delp_mc_now,                            &! in
           &              advection_config(jg)%ivadv_tracer,          &! in
-          &              itype_vlimit, iubc_adv(jg), iadv_slev(jg,:),&! in
+          &              advection_config(jg)%itype_vlimit,          &! in
+          &              iubc_adv(jg), iadv_slev(jg,:),              &! in
           &              p_mflx_tracer_v,                            &! out
           &              opt_topflx_tra=opt_topflx_tra,              &! in
           &              opt_q_int=opt_q_int,                        &! out
@@ -589,7 +588,7 @@ CONTAINS
       i_itype_hlimit => itype_hlimit_0
       i_rlend        = min_rledge
     ELSE
-      i_itype_hlimit => itype_hlimit
+      i_itype_hlimit => advection_config(jg)%itype_hlimit
       i_rlend        = min_rledge_int-1
     ENDIF    
     !
@@ -643,12 +642,12 @@ CONTAINS
 !$OMP END PARALLEL
       CALL sync_patch_array_mult(SYNC_C, p_patch, ntracer, f4din=z_estim_c)
 
-      CALL hor_upwind_flux(z_estim_c, ptr_current_tracer, p_mflx_contra_h,&! in
-        &                 p_vn_contra_traj, p_dtime, p_patch,             &! in
-        &                 p_int_state, advection_config(jg)%ihadv_tracer, &! in
-        &                 igrad_c_miura, itype_hlimit, iadv_slev(jg,:),   &! in
-        &                 iord_backtraj, p_mflx_tracer_h,                 &! in,inout
-        &                 opt_rlend=min_rledge                            )! in
+      CALL hor_upwind_flux(z_estim_c, ptr_current_tracer, p_mflx_contra_h, &! in
+        &                p_vn_contra_traj, p_dtime, p_patch,               &! in
+        &                p_int_state, advection_config(jg)%ihadv_tracer,   &! in
+        &                igrad_c_miura, advection_config(jg)%itype_hlimit, &! in
+        &                iadv_slev(jg,:), iord_backtraj, p_mflx_tracer_h,  &! in,inout
+        &                opt_rlend=min_rledge                              )! in
 
       !
       !  compute divergence of the upwind fluxes for tracers
@@ -761,7 +760,8 @@ CONTAINS
         &              p_cellhgt_mc_now, z_rcellhgt_mc_now,        &! in
         &              ptr_delp_mc_now,                            &! in
         &              advection_config(jg)%ivadv_tracer,          &! in
-        &              itype_vlimit, iubc_adv(jg), iadv_slev(jg,:),&! in
+        &              advection_config(jg)%itype_vlimit,          &! in
+        &              iubc_adv(jg), iadv_slev(jg,:),              &! in
         &              p_mflx_tracer_v,                            &! out
         &              opt_topflx_tra=opt_topflx_tra,              &! in
         &              opt_q_int=opt_q_int,                        &! out

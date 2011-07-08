@@ -111,12 +111,12 @@ MODULE mo_advection_nml
                                   !< singular value decomposition (TRUE) or 
                                   !< QR decomposition (FALSE) of design matrix A
 
-  INTEGER :: &                    !< parameter used to select the limiter
-    &  itype_vlimit(max_ntracer)  !< for vertical transport
+  INTEGER :: &                       !< parameter used to select the limiter
+    &  nml_itype_vlimit(max_ntracer) !< for vertical transport
                                
 
   INTEGER, TARGET :: &            !< parameter used to select the limiter
-    &  itype_hlimit(max_ntracer)  !< for horizontal transport
+    &  nml_itype_hlimit(max_ntracer)  !< for horizontal transport
                                   !< 0: no limiter
                                   !< 1: semi-monotonous slope limiter
                                   !< 2: monotonous slope limiter
@@ -138,7 +138,7 @@ MODULE mo_advection_nml
 
 
   NAMELIST/transport_ctl/ nml_ihadv_tracer, nml_ivadv_tracer, nml_lvadv_tracer,&
-    &                     itype_vlimit, ivcfl_max, itype_hlimit,      &
+    &                     nml_itype_vlimit, ivcfl_max, nml_itype_hlimit,      &
     &                     iord_backtraj, nml_lclip_tracer, nml_ctracer_list,  &
     &                     igrad_c_miura, nml_lstrang, upstr_beta_adv,     &
     &                     nml_llsq_svd
@@ -201,7 +201,7 @@ MODULE mo_advection_nml
 
 
   PUBLIC :: transport_ctl, nml_ihadv_tracer, nml_ivadv_tracer,            &
-    &       nml_lvadv_tracer, itype_vlimit, ivcfl_max, itype_hlimit,      &
+    &       nml_lvadv_tracer, nml_itype_vlimit, ivcfl_max, nml_itype_hlimit,      &
     &       iord_backtraj, nml_lclip_tracer, nml_ctracer_list, igrad_c_miura, &
     &       nml_lstrang, upstr_beta_adv, nml_llsq_svd
 
@@ -267,13 +267,13 @@ CONTAINS
     SELECT CASE (global_cell_type)
     CASE (3)
       nml_ihadv_tracer(:) = imiura    ! miura horizontal advection scheme
-      itype_hlimit(:) = ifluxl_m  ! monotonous flux limiter
+      nml_itype_hlimit(:) = ifluxl_m  ! monotonous flux limiter
     CASE (6)
       nml_ihadv_tracer(:) = iup3    ! 3rd order upwind horizontal advection scheme
-      itype_hlimit(:) = ifluxl_sm ! semi monotonous flux limiter
+      nml_itype_hlimit(:) = ifluxl_sm ! semi monotonous flux limiter
     END SELECT
     nml_ivadv_tracer(:) = ippm_vcfl ! PPM vertical advection scheme
-    itype_vlimit(:) = islopel_vsm ! semi-monotonous slope limiter
+    nml_itype_vlimit(:) = islopel_vsm ! semi-monotonous slope limiter
     ivcfl_max       = 5           ! CFL-stability range for vertical advection
     iadv_slev(:,:)  = 1           ! vertical start level
     iord_backtraj   = 1           ! 1st order backward trajectory
@@ -448,7 +448,7 @@ CONTAINS
     z_nogo(1) = islopel_sm
     z_nogo(2) = islopel_m
     DO jt=1,ntracer
-      IF ( nml_ihadv_tracer(jt) == imiura3 .AND. ANY( z_nogo == itype_hlimit(jt)) ) THEN
+      IF ( nml_ihadv_tracer(jt) == imiura3 .AND. ANY( z_nogo == nml_itype_hlimit(jt)) ) THEN
         CALL finish( TRIM(routine),                                     &
          'incorrect settings for MIURA3. No slope limiter available ')
       ENDIF
@@ -461,22 +461,22 @@ CONTAINS
 
     ! limiter - consistency check
     !
-    IF ( ANY(itype_vlimit(1:ntracer) < inol_v ) .OR.                    &
-      &  ANY(itype_vlimit(1:ntracer) > ifluxl_vpd)) THEN
+    IF ( ANY(nml_itype_vlimit(1:ntracer) < inol_v ) .OR.                &
+      &  ANY(nml_itype_vlimit(1:ntracer) > ifluxl_vpd)) THEN
       CALL finish( TRIM(routine),                                       &
-       'incorrect settings for itype_vlimit. Must be 0,1,2 or 4 ')
+       'incorrect settings for nml_itype_vlimit. Must be 0,1,2 or 4 ')
     ENDIF
-    IF ( ANY(itype_hlimit(1:ntracer) < inol ) .OR.                      &
-      &  ANY(itype_hlimit(1:ntracer) > ifluxl_sm)) THEN
+    IF ( ANY(nml_itype_hlimit(1:ntracer) < inol ) .OR.                      &
+      &  ANY(nml_itype_hlimit(1:ntracer) > ifluxl_sm)) THEN
       CALL finish( TRIM(routine),                                       &
-       'incorrect settings for itype_hlimit. Must be 0,1,2,3 or 4 ')
+       'incorrect settings for nml_itype_hlimit. Must be 0,1,2,3 or 4 ')
     ENDIF
     IF (global_cell_type == 6) THEN
-      IF ( ANY(itype_hlimit(1:ntracer) == islopel_sm ) .OR.             &
-        &  ANY(itype_hlimit(1:ntracer) == islopel_m  ) .OR.             &
-        &  ANY(itype_hlimit(1:ntracer) == ifluxl_m   )) THEN
+      IF ( ANY(nml_itype_hlimit(1:ntracer) == islopel_sm ) .OR.             &
+        &  ANY(nml_itype_hlimit(1:ntracer) == islopel_m  ) .OR.             &
+        &  ANY(nml_itype_hlimit(1:ntracer) == ifluxl_m   )) THEN
         CALL finish( TRIM(routine),                                     &
-         'incorrect settings for itype_hlimit and hexagonal grid. Must be 0 or 4 ')
+         'incorrect settings for nml_itype_hlimit and hexagonal grid. Must be 0 or 4 ')
       ENDIF
     ENDIF
 
@@ -763,7 +763,7 @@ CONTAINS
     !-----------------------!
     nml_ctracer_list = ''
     nml_ihadv_tracer(:) = imiura    ! miura horizontal advection scheme
-    itype_hlimit(:) = ifluxl_m  ! monotonous flux limiter
+    nml_itype_hlimit(:) = ifluxl_m  ! monotonous flux limiter
 
 !DR special settings for global_cell_type=6 will be done during the 
 !DR crosscheck. At this point it is important to get rid of any 
@@ -771,13 +771,13 @@ CONTAINS
 !DR    SELECT CASE (global_cell_type)
 !DR    CASE (3)
 !DR      nml_ihadv_tracer(:) = imiura    ! miura horizontal advection scheme
-!DR      itype_hlimit(:) = ifluxl_m  ! monotonous flux limiter
+!DR      nml_itype_hlimit(:) = ifluxl_m  ! monotonous flux limiter
 !DR    CASE (6)
 !DR      nml_ihadv_tracer(:) = iup3      ! 3rd order upwind horizontal advection scheme
-!DR      itype_hlimit(:) = ifluxl_sm ! semi monotonous flux limiter
+!DR      nml_itype_hlimit(:) = ifluxl_sm ! semi monotonous flux limiter
 !DR    END SELECT
     nml_ivadv_tracer(:) = ippm_vcfl ! PPM vertical advection scheme
-    itype_vlimit(:) = islopel_vsm ! semi-monotonous slope limiter
+    nml_itype_vlimit(:) = islopel_vsm ! semi-monotonous slope limiter
     ivcfl_max       = 5           ! CFL-stability range for vertical advection
     iord_backtraj   = 1           ! 1st order backward trajectory
     nml_lvadv_tracer= .TRUE.      ! vertical advection yes/no
@@ -839,7 +839,7 @@ CONTAINS
     z_nogo(2) = islopel_m
     DO jt=1,max_ntracer
       IF ( nml_ihadv_tracer(jt) == imiura3 .AND.                      &
-        &  ANY( z_nogo == itype_hlimit(jt)) ) THEN
+        &  ANY( z_nogo == nml_itype_hlimit(jt)) ) THEN
         CALL finish( TRIM(routine),                                   &
          'incorrect settings for MIURA3. No slope limiter available ')
       ENDIF
@@ -852,15 +852,15 @@ CONTAINS
 
     ! limiter - sanity check
     !
-    IF ( ANY(itype_vlimit(1:ntracer) < inol_v ) .OR.                  &
-      &  ANY(itype_vlimit(1:ntracer) > ifluxl_vpd)) THEN
+    IF ( ANY(nml_itype_vlimit(1:ntracer) < inol_v ) .OR.              &
+      &  ANY(nml_itype_vlimit(1:ntracer) > ifluxl_vpd)) THEN
       CALL finish( TRIM(routine),                                     &
-       'incorrect settings for itype_vlimit. Must be 0,1,2 or 4 ')
+       'incorrect settings for nml_itype_vlimit. Must be 0,1,2 or 4 ')
     ENDIF
-    IF ( ANY(itype_hlimit(1:ntracer) < inol ) .OR.                    &
-      &  ANY(itype_hlimit(1:ntracer) > ifluxl_sm)) THEN
+    IF ( ANY(nml_itype_hlimit(1:ntracer) < inol ) .OR.                    &
+      &  ANY(nml_itype_hlimit(1:ntracer) > ifluxl_sm)) THEN
       CALL finish( TRIM(routine),                                     &
-       'incorrect settings for itype_hlimit. Must be 0,1,2,3 or 4 ')
+       'incorrect settings for nml_itype_hlimit. Must be 0,1,2,3 or 4 ')
     ENDIF
 
 
@@ -877,8 +877,8 @@ CONTAINS
       advection_config(jg)%lclip_tracer   = nml_lclip_tracer
       advection_config(jg)%lstrang        = nml_lstrang
       advection_config(jg)%llsq_svd       = nml_llsq_svd
-      advection_config(jg)%itype_vlimit(:)= itype_vlimit(:)
-      advection_config(jg)%itype_hlimit(:)= itype_hlimit(:)
+      advection_config(jg)%itype_vlimit(:)= nml_itype_vlimit(:)
+      advection_config(jg)%itype_hlimit(:)= nml_itype_hlimit(:)
       advection_config(jg)%iord_backtraj  = iord_backtraj
       advection_config(jg)%igrad_c_miura  = igrad_c_miura
       advection_config(jg)%ivcfl_max      = ivcfl_max

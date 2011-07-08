@@ -61,7 +61,7 @@ MODULE mo_nh_df_test
   USE mo_interpolation,       ONLY: t_int_state
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,             ONLY: ntracer
-  USE mo_advection_nml,       ONLY: itype_hlimit, iord_backtraj, igrad_c_miura
+  USE mo_advection_nml,       ONLY: iord_backtraj, igrad_c_miura
   USE mo_advection_config,    ONLY: advection_config 
   USE mo_advection_hflux,     ONLY: upwind_hflux_miura, upwind_hflux_miura3 
 
@@ -1099,15 +1099,17 @@ CONTAINS
       CASE( imiura )
 
         CALL upwind_hflux_miura(p_patch, p_prog_now%rho, p_prog_new%vn,        &
-          &                     z_vn_traj, p_dtime, p_int, lcompute, lcleanup, &
-          &                     igrad_c_miura, itype_hlimit(1), iord_backtraj, &
-          &                     z_rho_e, opt_lout_edge=.TRUE.                  )
+          &                     z_vn_traj, p_dtime, p_int, lcompute,           &
+          &                     lcleanup, igrad_c_miura,                       &
+          &                     advection_config(pid)%itype_hlimit(1),         &
+          &                     iord_backtraj, z_rho_e, opt_lout_edge=.TRUE.   )
 
       CASE( imiura3 )
 
-        CALL upwind_hflux_miura3(p_patch, p_prog_now%rho, p_prog_new%vn,        &
-          &                      z_vn_traj, p_dtime, p_int, lcompute, lcleanup, &
-          &                      itype_hlimit(1), z_rho_e, opt_lout_edge=.TRUE. )
+        CALL upwind_hflux_miura3(p_patch, p_prog_now%rho, p_prog_new%vn,       &
+          &                      z_vn_traj, p_dtime, p_int, lcompute, lcleanup,&
+          &                      advection_config(pid)%itype_hlimit(1),        &
+          &                      z_rho_e, opt_lout_edge=.TRUE.                 )
       END SELECT
 
 
