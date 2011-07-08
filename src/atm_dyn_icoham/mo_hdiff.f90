@@ -62,8 +62,7 @@ MODULE mo_hdiff
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: nroot
   USE mo_diffusion_nml,       ONLY: k2, k4, &
-                                    lhdiff_vn, lhdiff_temp, hdiff_tv_ratio, &
-                                    hdiff_smag_fac
+                                    lhdiff_vn, lhdiff_temp
   USE mo_diffusion_config,    ONLY: diffusion_config  
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,             ONLY: nlev, ltheta_dyn
@@ -161,6 +160,7 @@ MODULE mo_hdiff
      &                   z_turb_flx_v2 (nproma,nlev,pt_patch%nblks_e)
      REAL(wp), PARAMETER :: z_smag_min = 1.0e-20_wp ! security value
      REAL(wp) :: zhelp, z_mean_area_edge
+     REAL(wp) :: hdiff_tv_ratio
 
 !--------------------------------------------------------------------
 !
@@ -173,6 +173,9 @@ MODULE mo_hdiff
     ! Normalized diffusion coefficients for boundary diffusion
     fac_bdydiff_c = 1._wp/denom_diffu_t  ! for temperature diffusion
     fac_bdydiff_e = 1._wp/denom_diffu_v  ! for momentum diffusion
+
+    ! get hdiff_tv_ratio
+    hdiff_tv_ratio = diffusion_config(k_jg)%hdiff_tv_ratio
 
     ! Pointers to cell and vertex neighbors
     ici => pt_patch%edges%cell_idx
@@ -649,9 +652,9 @@ MODULE mo_hdiff
                &+pt_int%strain_def_c2(5,je,jb)*pt_new%vn(ih2i(5,je,jb),jk,ih2b(5,je,jb)) &
                &+pt_int%strain_def_c2(6,je,jb)*pt_new%vn(ih2i(6,je,jb),jk,ih2b(6,je,jb)) )
                ! f) Diffusion coefficient at edge
-               kh_smag_e(je,jk,jb) = hdiff_smag_fac*pt_patch%edges%area_edge(je,jb) &
-               & * SQRT(z_smag_min       &
-               & + 0.5_wp*(z_strain_def_1(je,jk,jb)**2+z_strain_def_2(je,jk,jb)**2) &
+               kh_smag_e(je,jk,jb) = diffusion_config(k_jg)%hdiff_smag_fac               &
+               & * pt_patch%edges%area_edge(je,jb) * SQRT(z_smag_min                     &
+               & + 0.5_wp*(z_strain_def_1(je,jk,jb)**2+z_strain_def_2(je,jk,jb)**2)      &
                & +(pt_patch%edges%edge_vert_length(je,jb,1)*(z_shear_def_1(je,jk,jb)**2) &
                &  +pt_patch%edges%edge_vert_length(je,jb,2)*(z_shear_def_2(je,jk,jb)**2))&
                &  /pt_patch%edges%primal_edge_length(je,jb) )

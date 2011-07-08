@@ -47,7 +47,7 @@ MODULE mo_nh_diffusion
                                     cells2verts_scalar, cells2edges_scalar, &
                                     edges2cells_scalar, verts2cells_scalar
   USE mo_nonhydrostatic_nml,  ONLY: l_zdiffu_t, damp_height, k2_updamp_coeff
-  USE mo_diffusion_nml,       ONLY: k4, hdiff_smag_fac, lhdiff_temp
+  USE mo_diffusion_nml,       ONLY: k4, lhdiff_temp
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,             ONLY: ltimer
@@ -194,7 +194,8 @@ MODULE mo_nh_diffusion
       ! larger than suggested in the literature); increase with resolution might be
       ! removed when a turbulence scheme becomes available
       jlev = p_patch%level
-      diff_multfac_smag =  hdiff_smag_fac*(REAL(nroot*(2**jlev),wp)/64._wp)**0.3333_wp*dtime
+      diff_multfac_smag =  diffusion_config(jg)%hdiff_smag_fac &
+        &               * (REAL(nroot*(2**jlev),wp)/64._wp)**0.3333_wp*dtime
 
       rl_start = start_bdydiff_e
       rl_end   = min_rledge_int - 2
@@ -789,10 +790,12 @@ MODULE mo_nh_diffusion
             &+p_int%strain_def_c2(5,je,jb)*p_nh_prog%vn(ih2i(5,je,jb),jk,ih2b(5,je,jb)) &
             &+p_int%strain_def_c2(6,je,jb)*p_nh_prog%vn(ih2i(6,je,jb),jk,ih2b(6,je,jb)) )
             ! f) Diffusion coefficient at edge
-            !kh_smag_e(je,jk,jb) = hdiff_smag_fac*z_mean_area_edge
+            !kh_smag_e(je,jk,jb) = diffusion_config(jg)%hdiff_smag_fac &
+            !  &                 * z_mean_area_edge
             !                      (Gibt grosse Koeffizienten am Pentagon)
             ! Erst quadrieren und dann mitteln ist besser.
-            kh_smag_e(je,jk,jb) = hdiff_smag_fac*p_patch%edges%area_edge(je,jb) &
+            kh_smag_e(je,jk,jb) = diffusion_config(jg)%hdiff_smag_fac               &
+            & *p_patch%edges%area_edge(je,jb)                                       &
             & *SQRT(0.5_wp*(z_strain_def_1(je,jk,jb)**2+z_strain_def_2(je,jk,jb)**2)&
             & +(p_patch%edges%edge_vert_length(je,jb,1)*(z_shear_def_1(je,jk,jb)**2) &
             &  +p_patch%edges%edge_vert_length(je,jb,2)*(z_shear_def_2(je,jk,jb)**2))&

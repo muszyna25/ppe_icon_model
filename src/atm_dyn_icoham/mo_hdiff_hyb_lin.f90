@@ -43,8 +43,9 @@ MODULE mo_hdiff_hyb_lin
 
   USE mo_kind,              ONLY: wp
   USE mo_diffusion_nml,     ONLY: lhdiff_vn, lhdiff_temp,    &
-                                & hdiff_tv_ratio, k2, k4,    &
+                                & k2, k4,    &
                                 & k2s, k2e, k4s, k4e
+  USE mo_diffusion_config,  ONLY: diffusion_config
   USE mo_math_operators,    ONLY: nabla2_vec, nabla2_scalar, &
                                 & nabla4_vec, nabla4_scalar   
   USE mo_model_domain,      ONLY: t_patch
@@ -109,11 +110,15 @@ CONTAINS
 
     SELECT CASE (patch%cell_type)
     CASE (6)
-      zc2temp = hdiff_tv_ratio*k2(jg)*2._wp/9._wp/SQRT(3._wp)
-      zc4temp = hdiff_tv_ratio*k4(jg)*4._wp/81._wp/3.0_wp
+      zc2temp = diffusion_config(jg)%hdiff_tv_ratio      &
+        &      * k2(jg)*2._wp/9._wp/SQRT(3._wp)
+      zc4temp = diffusion_config(jg)%hdiff_tv_ratio      &
+        &      * k4(jg)*4._wp/81._wp/3.0_wp
     CASE (3)
-      zc2temp = hdiff_tv_ratio*k2(jg)*4._wp/3._wp/SQRT(3._wp)
-      zc4temp = hdiff_tv_ratio*k4(jg)*16._wp/27._wp
+      zc2temp = diffusion_config(jg)%hdiff_tv_ratio      &
+        &      * k2(jg)*4._wp/3._wp/SQRT(3._wp)
+      zc4temp = diffusion_config(jg)%hdiff_tv_ratio      &
+        &      * k4(jg)*16._wp/27._wp
     END SELECT
 
     ! For nested domain

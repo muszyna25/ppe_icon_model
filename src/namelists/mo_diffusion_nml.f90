@@ -90,11 +90,11 @@ MODULE mo_diffusion_nml
                            ! 4th order linear diffusion is applied. 
 
   REAL(wp) ::           &
-    & hdiff_efdt_ratio, &! ratio of e-folding time to (2*)time step
-    & hdiff_min_efdt_ratio, &! minimum value of hdiff_efdt_ratio (for upper sponge layer)
-    & hdiff_tv_ratio,   &! the ratio of diffusion coefficient: temp:mom
-    & hdiff_smag_fac,   &! scaling factor for Smagorinsky diffusion
-    & hdiff_multfac      ! multiplication factor of normalized diffusion coefficient
+    & nml_hdiff_efdt_ratio, &! ratio of e-folding time to (2*)time step
+    & nml_hdiff_min_efdt_ratio, &! minimum value of hdiff_efdt_ratio (for upper sponge layer)
+    & nml_hdiff_tv_ratio,   &! the ratio of diffusion coefficient: temp:mom
+    & nml_hdiff_smag_fac,   &! scaling factor for Smagorinsky diffusion
+    & nml_hdiff_multfac      ! multiplication factor of normalized diffusion coefficient
                          ! for nested domains
 
   REAL(wp), ALLOCATABLE, DIMENSION(:) :: &
@@ -116,10 +116,10 @@ MODULE mo_diffusion_nml
     & lhdiff_vn        ! if .TRUE., apply horizontal diffusion to momentum.
 
 
-  NAMELIST/diffusion_ctl/ nml_hdiff_order, hdiff_efdt_ratio, hdiff_smag_fac, &
-                        & lhdiff_temp, lhdiff_vn, hdiff_tv_ratio,        &
-                        & hdiff_multfac, nml_k2_klev_max, nml_k2_pres_max,       &
-                        & hdiff_min_efdt_ratio
+  NAMELIST/diffusion_ctl/ nml_hdiff_order, nml_hdiff_efdt_ratio, nml_hdiff_smag_fac, &
+                        & lhdiff_temp, lhdiff_vn, nml_hdiff_tv_ratio,        &
+                        & nml_hdiff_multfac, nml_k2_klev_max, nml_k2_pres_max,       &
+                        & nml_hdiff_min_efdt_ratio
 
   PUBLIC :: read_diffusion_namelist
 
@@ -147,11 +147,11 @@ MODULE mo_diffusion_nml
    lhdiff_vn         = .TRUE.
 
    nml_hdiff_order   = 4
-   hdiff_efdt_ratio  = 1.0_wp
-   hdiff_min_efdt_ratio = 1.0_wp
-   hdiff_multfac     = 1.0_wp
-   hdiff_smag_fac    = 0.15_wp
-   hdiff_tv_ratio    = 1.0_wp
+   nml_hdiff_efdt_ratio  = 1.0_wp
+   nml_hdiff_min_efdt_ratio = 1.0_wp
+   nml_hdiff_multfac     = 1.0_wp
+   nml_hdiff_smag_fac    = 0.15_wp
+   nml_hdiff_tv_ratio    = 1.0_wp
 
    nml_k2_pres_max = -99.0_wp                                                    
    nml_k2_klev_max = 0
@@ -203,7 +203,7 @@ MODULE mo_diffusion_nml
         & 'Choose from -1, 2, 3, 4, 5, 24, and 42.')
     END SELECT
 
-    IF (hdiff_efdt_ratio<=0._wp) THEN
+    IF (nml_hdiff_efdt_ratio<=0._wp) THEN
       CALL message(TRIM(routine),'No horizontal background diffusion is used')
     ENDIF
 
@@ -301,19 +301,19 @@ MODULE mo_diffusion_nml
     IF (ist/=SUCCESS) CALL finish(TRIM(routine),&                             
       & 'Allocation of k2, k4, k6 failed')                            
 
-    IF (hdiff_efdt_ratio <= 0._wp) THEN
+    IF (nml_hdiff_efdt_ratio <= 0._wp) THEN
       k2(:) = 0._wp
       k4(:) = 0._wp
       k6(:) = 0._wp
     ELSE
-      k2(1)=1._wp/(hdiff_efdt_ratio*8._wp)
-      k4(1)=1._wp/(hdiff_efdt_ratio*64._wp)
-      k6(1)=1._wp/(hdiff_efdt_ratio*512._wp)
+      k2(1)=1._wp/(nml_hdiff_efdt_ratio*8._wp)
+      k4(1)=1._wp/(nml_hdiff_efdt_ratio*64._wp)
+      k6(1)=1._wp/(nml_hdiff_efdt_ratio*512._wp)
 
       DO jg = 2, i_ndom
-        k2(jg) = k2(parent_id(jg-1))*hdiff_multfac
-        k4(jg) = k4(parent_id(jg-1))*hdiff_multfac
-        k6(jg) = k6(parent_id(jg-1))*hdiff_multfac
+        k2(jg) = k2(parent_id(jg-1))*nml_hdiff_multfac
+        k4(jg) = k4(parent_id(jg-1))*nml_hdiff_multfac
+        k6(jg) = k6(parent_id(jg-1))*nml_hdiff_multfac
       ENDDO
     ENDIF
 
@@ -355,11 +355,11 @@ MODULE mo_diffusion_nml
      lhdiff_vn         = .TRUE.
 
      nml_hdiff_order   = 4
-     hdiff_efdt_ratio  = 1.0_wp
-     hdiff_min_efdt_ratio = 1.0_wp
-     hdiff_multfac     = 1.0_wp
-     hdiff_smag_fac    = 0.15_wp
-     hdiff_tv_ratio    = 1.0_wp
+     nml_hdiff_efdt_ratio  = 1.0_wp
+     nml_hdiff_min_efdt_ratio = 1.0_wp
+     nml_hdiff_multfac     = 1.0_wp
+     nml_hdiff_smag_fac    = 0.15_wp
+     nml_hdiff_tv_ratio    = 1.0_wp
 
      nml_k2_pres_max = -99.0_wp                                                    
      nml_k2_klev_max = 0
@@ -403,7 +403,7 @@ MODULE mo_diffusion_nml
     END SELECT
 
 
-    IF (hdiff_efdt_ratio<=0._wp) THEN
+    IF (nml_hdiff_efdt_ratio<=0._wp) THEN
       CALL message(TRIM(routine),'No horizontal background diffusion is used')
     ENDIF
 
@@ -414,15 +414,15 @@ MODULE mo_diffusion_nml
 
     DO jg= 1,max_dom
       diffusion_config(jg)%hdiff_order          = nml_hdiff_order
-      diffusion_config(jg)%hdiff_efdt_ratio     = hdiff_efdt_ratio
-      diffusion_config(jg)%hdiff_smag_fac       = hdiff_smag_fac
+      diffusion_config(jg)%hdiff_efdt_ratio     = nml_hdiff_efdt_ratio
+      diffusion_config(jg)%hdiff_smag_fac       = nml_hdiff_smag_fac
       diffusion_config(jg)%lhdiff_temp          = lhdiff_temp
       diffusion_config(jg)%lhdiff_vn            = lhdiff_vn
-      diffusion_config(jg)%hdiff_tv_ratio       = hdiff_tv_ratio
-      diffusion_config(jg)%hdiff_multfac        = hdiff_multfac
+      diffusion_config(jg)%hdiff_tv_ratio       = nml_hdiff_tv_ratio
+      diffusion_config(jg)%hdiff_multfac        = nml_hdiff_multfac
       diffusion_config(jg)%k2_klev_max          = nml_k2_klev_max
       diffusion_config(jg)%k2_pres_max          = nml_k2_pres_max
-      diffusion_config(jg)%hdiff_min_efdt_ratio = hdiff_min_efdt_ratio
+      diffusion_config(jg)%hdiff_min_efdt_ratio = nml_hdiff_min_efdt_ratio
     ENDDO
 
 

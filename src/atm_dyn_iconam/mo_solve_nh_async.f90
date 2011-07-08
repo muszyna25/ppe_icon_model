@@ -44,7 +44,8 @@ MODULE mo_solve_nh_async
   USE mo_kind,              ONLY: wp
   USE mo_nonhydrostatic_nml,ONLY: iadv_rhotheta, igradp_method, l_open_ubc, l_zdiffu_t
   USE mo_dynamics_nml,      ONLY: itime_scheme, idiv_method
-  USE mo_diffusion_nml,     ONLY: k4, hdiff_smag_fac, lhdiff_temp
+  USE mo_diffusion_nml,     ONLY: k4, lhdiff_temp
+  USE mo_diffusion_config,  ONLY: diffusion_config
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,           ONLY: ltimer, lvert_nest
   USE mo_model_domain,      ONLY: t_patch
@@ -546,6 +547,7 @@ MODULE mo_solve_nh_async
     ! Pointers used for z-level temperature diffusion
     INTEGER,  DIMENSION(:,:),   POINTER :: icell, ilev, iblk, iedge, iedblk
     REAL(wp), DIMENSION(:,:),   POINTER :: vcoef, blcoef, geofac_n2s
+    INTEGER :: jg                        ! patch ID
 
     !-------------------------------------------------------------------
     IF (ltimer) CALL timer_start(timer_solve_nh)
@@ -562,6 +564,9 @@ MODULE mo_solve_nh_async
       l_child_vertnest = .FALSE.
       nshift = 0
     ENDIF
+
+    ! get patch ID
+    jg = p_patch%id
 
     ! number of vertical levels
     nlev   = p_patch%nlev
@@ -635,7 +640,8 @@ MODULE mo_solve_nh_async
     ! empirically determined scaling factor (default of 0.15 for hdiff_smag_fac is somewhat
     ! larger than suggested in the literature); increase with resolution might be
     ! removed when a turbulence scheme becomes available
-    diff_multfac_smag =  hdiff_smag_fac*(REAL(nroot*(2**jlev),wp)/64._wp)**0.3333_wp*dtime
+    diff_multfac_smag = diffusion_config(jg)%hdiff_smag_fac               &
+      &               * (REAL(nroot*(2**jlev),wp)/64._wp)**0.3333_wp*dtime
 
     DO istep = 1, 2
 

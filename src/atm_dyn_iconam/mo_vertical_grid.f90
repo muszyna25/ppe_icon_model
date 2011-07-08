@@ -50,7 +50,7 @@ MODULE mo_vertical_grid
     &                               vwind_offctr, exner_expol, l_zdiffu_t, thslp_zdiffu, &
     &                               thhgtd_zdiffu, htop_moist_proc, htop_qvadv,          &
     &                               kstart_moist, kstart_qv, damp_timescale_u, damp_height_u
-  USE mo_diffusion_nml,       ONLY: hdiff_efdt_ratio, hdiff_min_efdt_ratio
+  USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_sleve_nml,           ONLY: sleve_nml_setup, min_lay_thckn, top_height, decay_scale_1, &
     &                               decay_scale_2, decay_exp, flat_height, stretch_fac
   USE mo_parallel_configuration,  ONLY: nproma
@@ -864,9 +864,11 @@ MODULE mo_vertical_grid
       DO jk = 1, nrdmax(jg)
         jk1 = jk + nshift_total(jg)
         z_diff = MAX(0.0_wp,0.5_wp*(vct_a(jk1)+vct_a(jk1+1))-damp_height(jg))
-        p_nh(jg)%metrics%enhfac_diffu(jk) = 1._wp + &
-          (hdiff_efdt_ratio/hdiff_min_efdt_ratio-1._wp)*(SIN(pi_2*z_diff/ &
-          MAX(1.e-3_wp,0.5_wp*(vct_a(1)+vct_a(2))-damp_height(jg))))**2
+        p_nh(jg)%metrics%enhfac_diffu(jk) = 1._wp              &
+          &  +(diffusion_config(jg)%hdiff_efdt_ratio           &
+          &  /diffusion_config(jg)%hdiff_min_efdt_ratio-1._wp) &
+          &  *(SIN(pi_2*z_diff                                 &
+          &  /MAX(1.e-3_wp,0.5_wp*(vct_a(1)+vct_a(2))-damp_height(jg))))**2
       ENDDO
 
       DO jk = 1, nrdmax_u(jg)
