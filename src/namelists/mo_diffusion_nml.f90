@@ -50,17 +50,17 @@ MODULE mo_diffusion_nml
   USE mo_master_nml,          ONLY: lrestart
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_run_nml,             ONLY: lshallow_water,nlev, &
-                                  & latmosphere, lhydrostatic
+    &                               latmosphere, lhydrostatic
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_grid_configuration,  ONLY: global_cell_type
   USE mo_vertical_coord_table,ONLY: vct_a, vct_b, apzero
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
-                                  & open_and_restore_namelist, close_tmpfile
+    &                               open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
+  PRIVATE
 
-  PUBLIC
+  CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
   !-------------------------------------------------------------------------
   ! 1.0 Namelist variables and auxiliary parameters setting up the
@@ -75,19 +75,19 @@ MODULE mo_diffusion_nml
                           !           4th order for lower levels
                           
 
-  REAL(wp) :: nml_k2_pres_max  ! (relevant only when hdiff_order = 24 or 42)
-                           ! pressure (in Pa) specified by the user
-                           ! to determine the lowest vertical level 
-                           ! to which 2nd order linear diffusion is applied.
-                           ! For the levels with pressure > k2_pres_max, 
-                           ! 4th order linear diffusion is applied. 
+  REAL(wp) :: &           ! (relevant only when hdiff_order = 24 or 42)
+    &  nml_k2_pres_max    ! pressure (in Pa) specified by the user
+                          ! to determine the lowest vertical level 
+                          ! to which 2nd order linear diffusion is applied.
+                          ! For the levels with pressure > k2_pres_max, 
+                          ! 4th order linear diffusion is applied. 
 
-  INTEGER  :: nml_k2_klev_max  ! (relevant only when hdiff_order = 24 or 42)
-                           ! vertical level index specified by the user
-                           ! to determine the lowest vertical level 
-                           ! to which 2nd order linear diffusion is applied.
-                           ! For the levels with k > k2_klev_max, 
-                           ! 4th order linear diffusion is applied. 
+  INTEGER  :: &           ! (relevant only when hdiff_order = 24 or 42)
+    &  nml_k2_klev_max    ! vertical level index specified by the user
+                          ! to determine the lowest vertical level 
+                          ! to which 2nd order linear diffusion is applied.
+                          ! For the levels with k > k2_klev_max, 
+                          ! 4th order linear diffusion is applied. 
 
   REAL(wp) ::           &
     & nml_hdiff_efdt_ratio, &! ratio of e-folding time to (2*)time step
@@ -95,7 +95,7 @@ MODULE mo_diffusion_nml
     & nml_hdiff_tv_ratio,   &! the ratio of diffusion coefficient: temp:mom
     & nml_hdiff_smag_fac,   &! scaling factor for Smagorinsky diffusion
     & nml_hdiff_multfac      ! multiplication factor of normalized diffusion coefficient
-                         ! for nested domains
+                             ! for nested domains
 
   REAL(wp), ALLOCATABLE, DIMENSION(:) :: &
     & k6, k4, k2       ! numerical diffusion coefficients
@@ -105,23 +105,24 @@ MODULE mo_diffusion_nml
                        ! (hdiff_efdt_ratio above), and the horizontal 
                        ! resolution of the model
 
-  INTEGER k2s, k2e, k4s, k4e  ! indices defining to which vertical levels
-                              ! 2nd and 4th linear diffusion are applied.
-                              ! The values are not specified by the user via namelist,
-                              ! but determined from k2_klev_max, k2_pres_max
-                              ! and the configuration of the vertical coordinate
+  INTEGER :: k2s,  &   ! indices defining to which vertical levels
+    &  k2e, k4s, k4e   ! 2nd and 4th linear diffusion are applied.
+                       ! The values are not specified by the user via namelist,
+                       ! but determined from k2_klev_max, k2_pres_max
+                       ! and the configuration of the vertical coordinate
 
-  LOGICAL ::          &
-    & lhdiff_temp,    &! if .TRUE., apply horizontal diffusion to temp.
-    & lhdiff_vn        ! if .TRUE., apply horizontal diffusion to momentum.
+  LOGICAL ::           &
+    & nml_lhdiff_temp, & ! if .TRUE., apply horizontal diffusion to temp.
+    & nml_lhdiff_vn      ! if .TRUE., apply horizontal diffusion to momentum.
 
 
-  NAMELIST/diffusion_ctl/ nml_hdiff_order, nml_hdiff_efdt_ratio, nml_hdiff_smag_fac, &
-                        & lhdiff_temp, lhdiff_vn, nml_hdiff_tv_ratio,        &
-                        & nml_hdiff_multfac, nml_k2_klev_max, nml_k2_pres_max,       &
-                        & nml_hdiff_min_efdt_ratio
+  NAMELIST/diffusion_ctl/ nml_hdiff_order, nml_hdiff_efdt_ratio,             &
+    &                nml_hdiff_smag_fac, nml_lhdiff_temp, nml_lhdiff_vn,     &
+    &                nml_hdiff_tv_ratio, nml_hdiff_multfac, nml_k2_klev_max, &
+    &                nml_k2_pres_max, nml_hdiff_min_efdt_ratio
 
-  PUBLIC :: read_diffusion_namelist
+  PUBLIC :: k6, k4, k2, k2s, k2e, k4s, k4e 
+  PUBLIC :: read_diffusion_namelist, diffusion_nml_setup
 
 
   CONTAINS
@@ -143,18 +144,18 @@ MODULE mo_diffusion_nml
    ! 1.0 set up the default values for diffusion_ctl
    !------------------------------------------------------------
 
-   lhdiff_temp       = .TRUE.
-   lhdiff_vn         = .TRUE.
+   nml_lhdiff_temp       = .TRUE.
+   nml_lhdiff_vn         = .TRUE.
 
-   nml_hdiff_order   = 4
+   nml_hdiff_order       = 4
    nml_hdiff_efdt_ratio  = 1.0_wp
    nml_hdiff_min_efdt_ratio = 1.0_wp
    nml_hdiff_multfac     = 1.0_wp
    nml_hdiff_smag_fac    = 0.15_wp
    nml_hdiff_tv_ratio    = 1.0_wp
 
-   nml_k2_pres_max = -99.0_wp                                                    
-   nml_k2_klev_max = 0
+   nml_k2_pres_max       = -99.0_wp                                                    
+   nml_k2_klev_max       = 0
 
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -207,7 +208,7 @@ MODULE mo_diffusion_nml
       CALL message(TRIM(routine),'No horizontal background diffusion is used')
     ENDIF
 
-    IF ( lshallow_water ) lhdiff_temp=.FALSE.
+    IF ( lshallow_water ) nml_lhdiff_temp=.FALSE.
 
     !-----------------------------------------------------------
     ! If using hybrid linear diffusion, set the starting and 
@@ -351,18 +352,18 @@ MODULE mo_diffusion_nml
     !-----------------------!
     ! 1. default settings   !
     !-----------------------!
-     lhdiff_temp       = .TRUE.
-     lhdiff_vn         = .TRUE.
+     nml_lhdiff_temp       = .TRUE.
+     nml_lhdiff_vn         = .TRUE.
 
-     nml_hdiff_order   = 4
+     nml_hdiff_order       = 4
      nml_hdiff_efdt_ratio  = 1.0_wp
      nml_hdiff_min_efdt_ratio = 1.0_wp
      nml_hdiff_multfac     = 1.0_wp
      nml_hdiff_smag_fac    = 0.15_wp
      nml_hdiff_tv_ratio    = 1.0_wp
 
-     nml_k2_pres_max = -99.0_wp                                                    
-     nml_k2_klev_max = 0
+     nml_k2_pres_max       = -99.0_wp                                                    
+     nml_k2_klev_max       = 0
 
 
 
@@ -397,7 +398,7 @@ MODULE mo_diffusion_nml
     CASE(2,3,4,5,24,42)
       CONTINUE
     CASE DEFAULT
-      CALL finish(TRIM(routine),                     &
+      CALL finish(TRIM(routine),                         &
         & 'Error: Invalid choice of nml_hdiff_order. '// &                
         & 'Choose from -1, 2, 3, 4, 5, 24, and 42.')
     END SELECT
@@ -416,8 +417,8 @@ MODULE mo_diffusion_nml
       diffusion_config(jg)%hdiff_order          = nml_hdiff_order
       diffusion_config(jg)%hdiff_efdt_ratio     = nml_hdiff_efdt_ratio
       diffusion_config(jg)%hdiff_smag_fac       = nml_hdiff_smag_fac
-      diffusion_config(jg)%lhdiff_temp          = lhdiff_temp
-      diffusion_config(jg)%lhdiff_vn            = lhdiff_vn
+      diffusion_config(jg)%lhdiff_temp          = nml_lhdiff_temp
+      diffusion_config(jg)%lhdiff_vn            = nml_lhdiff_vn
       diffusion_config(jg)%hdiff_tv_ratio       = nml_hdiff_tv_ratio
       diffusion_config(jg)%hdiff_multfac        = nml_hdiff_multfac
       diffusion_config(jg)%k2_klev_max          = nml_k2_klev_max

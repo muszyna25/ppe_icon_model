@@ -42,8 +42,7 @@
 MODULE mo_hdiff_hyb_lin
 
   USE mo_kind,              ONLY: wp
-  USE mo_diffusion_nml,     ONLY: lhdiff_vn, lhdiff_temp,    &
-                                & k2, k4,    &
+  USE mo_diffusion_nml,     ONLY: k2, k4,    &
                                 & k2s, k2e, k4s, k4e
   USE mo_diffusion_config,  ONLY: diffusion_config
   USE mo_math_operators,    ONLY: nabla2_vec, nabla2_scalar, &
@@ -134,7 +133,7 @@ CONTAINS
     !===================================================================
     ! Velocity
     !-----------
-    IF (lhdiff_vn) THEN
+    IF (diffusion_config(jg)%lhdiff_vn) THEN
       CALL nabla2_vec( prog%vn, patch, pint, znabla_e,     &
                        opt_slev=k2s,  opt_elev=k2e,        &
                        opt_rlstart=5, opt_rlend=min_rledge )
@@ -147,7 +146,7 @@ CONTAINS
     !-------------
     ! Temperature 
     !-------------
-    IF (lhdiff_temp.AND.(.NOT.ltheta_dyn)) THEN
+    IF (diffusion_config(jg)%lhdiff_temp.AND.(.NOT.ltheta_dyn)) THEN
 
       CALL nabla2_scalar( prog%temp, patch, pint, znabla_c,   &
                           opt_slev=k2s,  opt_elev=k2e,        &
@@ -164,7 +163,7 @@ CONTAINS
     ! %theta of the prognostic state is in fact theta*delta_p,
     ! defined at cell centers on full levels.
     !---------------------------------------------------------------
-    ELSE IF (lhdiff_temp .AND. ltheta_dyn) THEN
+    ELSE IF (diffusion_config(jg)%lhdiff_temp .AND. ltheta_dyn) THEN
 
       ! Divide by delta p so as to diffuse the uncoupled theta
       jbs = patch%cells%start_blk(1,1)
@@ -197,7 +196,7 @@ CONTAINS
     !===================================================================
     ! Velocity
     !-----------
-    IF (lhdiff_vn) THEN
+    IF (diffusion_config(jg)%lhdiff_vn) THEN
 
       jbs = patch%edges%start_blk(grf_bdywidth_e+1,1)
       jbe = patch%edges%end_blk(min_rledge,nchilddom)
@@ -224,7 +223,7 @@ CONTAINS
     !-------------------------
     ! Thermodynamic variable 
     !-------------------------
-    IF (lhdiff_temp) THEN
+    IF (diffusion_config(jg)%lhdiff_temp) THEN
 
       jbs = patch%cells%start_blk(grf_bdywidth_c+1,1)
       jbe = patch%cells%end_blk(min_rlcell,nchilddom)
@@ -288,7 +287,7 @@ CONTAINS
     !-----------
     ! Velocity
     !-----------
-    IF ((patch%id > 1).AND.lhdiff_vn) THEN
+    IF ((patch%id > 1).AND.diffusion_config(jg)%lhdiff_vn) THEN
 
       jbs = patch%edges%start_blk(start_bdydiff_e,1)
       jbe = patch%edges%end_blk(grf_bdywidth_e,1)
@@ -320,7 +319,8 @@ CONTAINS
     ! Necessary only when grf_intmethod_c == 1 (i.e., when the interpolation
     ! method used for the the boundary cells is simple copying).
 
-    IF ((patch%id>1).AND.lhdiff_temp.AND.(grf_intmethod_c==1)) THEN
+    IF ((patch%id>1).AND.diffusion_config(jg)%lhdiff_temp  &
+      &  .AND.(grf_intmethod_c==1)) THEN
 
       jbs = patch%cells%start_blk(start_bdydiff_c,1)
       jbe = patch%cells%end_blk(grf_bdywidth_c,1)

@@ -44,7 +44,7 @@ MODULE mo_solve_nh_async
   USE mo_kind,              ONLY: wp
   USE mo_nonhydrostatic_nml,ONLY: iadv_rhotheta, igradp_method, l_open_ubc, l_zdiffu_t
   USE mo_dynamics_nml,      ONLY: itime_scheme, idiv_method
-  USE mo_diffusion_nml,     ONLY: k4, lhdiff_temp
+  USE mo_diffusion_nml,     ONLY: k4
   USE mo_diffusion_config,  ONLY: diffusion_config
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,           ONLY: ltimer, lvert_nest
@@ -2052,7 +2052,7 @@ MODULE mo_solve_nh_async
 !$OMP END PARALLEL
    ENDIF
 
-   IF (lhdiff_temp) THEN ! Smagorinsky temperature diffusion
+   IF (diffusion_config(jg)%lhdiff_temp) THEN ! Smagorinsky temperature diffusion
 
      icidx => p_patch%cells%neighbor_idx
      icblk => p_patch%cells%neighbor_blk

@@ -51,7 +51,7 @@ MODULE mo_nh_stepping
   USE mo_nonhydro_state,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics, &
                                     construct_nh_state, bufr
   USE mo_nonhydrostatic_nml,  ONLY: iadv_rcf, l_nest_rcf, ltheta_up_vert
-  USE mo_diffusion_nml,       ONLY: lhdiff_vn
+  USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_dynamics_nml,        ONLY: nnow, nnew, nnow_rcf, nnew_rcf,                 &
     &                               nsav1, nsav2, itime_scheme
   USE mo_io_nml,              ONLY: l_outputtime, l_diagtime, l_checkpoint_time
@@ -1098,7 +1098,7 @@ MODULE mo_nh_stepping
             CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),       &
                         n_now, n_new, linit_dyn(jg), linit_vertnest, l_bdy_nudge, dt_loc)
 
-          IF (lhdiff_vn) &
+          IF (diffusion_config(jg)%lhdiff_vn) &
             CALL diffusion_tria(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,         &
                    p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), bufr(jg), dt_loc)
           ELSE
@@ -1219,7 +1219,8 @@ MODULE mo_nh_stepping
 
 
         ! This calls 4th order diffusion for the hexagonal case
-        IF (lhdiff_vn .AND. p_patch(jg)%cell_type == 6) THEN
+        IF (diffusion_config(jg)%lhdiff_vn .AND. &
+          &  p_patch(jg)%cell_type == 6) THEN
           CALL diffusion_hex(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%metrics,&
           &                  p_patch(jg), p_int_state(jg), dt_loc)
         ENDIF

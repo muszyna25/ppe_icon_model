@@ -47,7 +47,7 @@ MODULE mo_nh_diffusion
                                     cells2verts_scalar, cells2edges_scalar, &
                                     edges2cells_scalar, verts2cells_scalar
   USE mo_nonhydrostatic_nml,  ONLY: l_zdiffu_t, damp_height, k2_updamp_coeff
-  USE mo_diffusion_nml,       ONLY: k4, lhdiff_temp
+  USE mo_diffusion_nml,       ONLY: k4
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,             ONLY: ltimer
@@ -135,7 +135,7 @@ MODULE mo_nh_diffusion
     IF( diffusion_config(jg)%hdiff_order == 5) THEN
       lsmag_diffu = .TRUE.
       ! temperature diffusion is used only in combination with Smagorinsky diffusion
-      ltemp_diffu = lhdiff_temp
+      ltemp_diffu = diffusion_config(jg)%lhdiff_temp
     ELSE
       lsmag_diffu = .FALSE.
     ENDIF
@@ -856,7 +856,7 @@ MODULE mo_nh_diffusion
 !$OMP END DO
 !$OMP END PARALLEL
 
-      IF (lhdiff_temp) THEN
+      IF (diffusion_config(jg)%lhdiff_temp) THEN
         CALL sync_patch_array(SYNC_E, p_patch, z_turb_flx_v1)
         CALL sync_patch_array(SYNC_E, p_patch, z_turb_flx_v2)
 
@@ -952,7 +952,7 @@ MODULE mo_nh_diffusion
 
       CALL sync_patch_array(SYNC_E, p_patch, p_nh_prog%vn )
 
-      IF(lhdiff_temp) THEN
+      IF(diffusion_config(jg)%lhdiff_temp) THEN
         ! l) frictional heating at cells averaged from vertices
         CALL verts2cells_scalar(z_fric_heat_v, p_patch, p_int%verts_aw_cells, z_fric_heat_c1)
         i_startblk = p_patch%cells%start_blk(2,1)

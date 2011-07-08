@@ -61,8 +61,7 @@ MODULE mo_hdiff
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: nroot
-  USE mo_diffusion_nml,       ONLY: k2, k4, &
-                                    lhdiff_vn, lhdiff_temp
+  USE mo_diffusion_nml,       ONLY: k2, k4
   USE mo_diffusion_config,    ONLY: diffusion_config  
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,             ONLY: nlev, ltheta_dyn
@@ -295,7 +294,7 @@ MODULE mo_hdiff
        !---------------------------
        ! velocity
        !
-        IF (lhdiff_vn) THEN
+        IF (diffusion_config(k_jg)%lhdiff_vn) THEN
 
            CALL nabla2_vec( pt_new%vn, pt_patch, pt_int, z_edge_val, &
                            opt_rlstart=5, opt_rlend=min_rledge)
@@ -306,12 +305,12 @@ MODULE mo_hdiff
        ! temperature
        !---------------------------
 
-        IF (lhdiff_temp .AND. (.NOT.ltheta_dyn)) THEN
+        IF (diffusion_config(k_jg)%lhdiff_temp .AND. (.NOT.ltheta_dyn)) THEN
 
            CALL nabla2_scalar( pt_new%temp, pt_patch, pt_int, z_cell_val, &
                                opt_rlstart=3, opt_rlend=min_rlcell )
 
-        ELSE IF (lhdiff_temp .AND. ltheta_dyn) THEN
+        ELSE IF (diffusion_config(k_jg)%lhdiff_temp .AND. ltheta_dyn) THEN
 
            ! Divide by delta p so as to diffuse the uncoupled theta
            i_startblk = pt_patch%cells%start_blk(1,1)
@@ -345,7 +344,7 @@ MODULE mo_hdiff
         ! velocity
         !---------------------------
 
-        IF (lhdiff_vn) THEN
+        IF (diffusion_config(k_jg)%lhdiff_vn) THEN
 
            CALL nabla4_vec( pt_new%vn, pt_patch, pt_int, z_edge_val,  &
                             opt_nabla2=z_nabla2_e, opt_rlstart=7, &
@@ -357,13 +356,13 @@ MODULE mo_hdiff
         ! temperature
         !---------------------------
 
-        IF (lhdiff_temp .AND. (.NOT.ltheta_dyn)) THEN
+        IF (diffusion_config(k_jg)%lhdiff_temp .AND. (.NOT.ltheta_dyn)) THEN
 
            CALL nabla4_scalar( pt_new%temp, pt_patch, pt_int, z_cell_val, &
                                opt_nabla2=z_nabla2_c, opt_rlstart=4,     &
                                opt_rlend=min_rlcell )
 
-        ELSE IF (lhdiff_temp .AND. ltheta_dyn) THEN
+        ELSE IF (diffusion_config(k_jg)%lhdiff_temp .AND. ltheta_dyn) THEN
 
            ! Divide by delta p so as to diffuse the uncoupled theta
            i_startblk = pt_patch%cells%start_blk(1,1)
@@ -408,7 +407,7 @@ MODULE mo_hdiff
        !---------------------------
        ! velocity
        !
-        IF (lhdiff_vn) THEN
+        IF (diffusion_config(k_jg)%lhdiff_vn) THEN
 
            ! Diffusion in the domain interior (boundary diffusion follows below)
            i_startblk = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
@@ -433,7 +432,7 @@ MODULE mo_hdiff
 
         ENDIF
 
-        IF (lhdiff_vn .AND. pt_patch%id > 1) THEN
+        IF (diffusion_config(k_jg)%lhdiff_vn .AND. pt_patch%id > 1) THEN
 
            ! Lateral boundary diffusion
            i_startblk = pt_patch%edges%start_blk(start_bdydiff_e,1)
@@ -461,7 +460,7 @@ MODULE mo_hdiff
         !---------------------------
         ! temperature
         !---------------------------
-        IF (lhdiff_temp) THEN
+        IF (diffusion_config(k_jg)%lhdiff_temp) THEN
 
           SELECT CASE (pt_patch%cell_type)
           CASE (6)
@@ -523,8 +522,8 @@ MODULE mo_hdiff
           ENDIF ! if ltheta_dyn
         ENDIF ! lhdiff_temp
 
-        IF (grf_intmethod_c == 1 .AND. lhdiff_temp .AND. &
-            .NOT.ltheta_dyn .AND. pt_patch%id > 1) THEN
+        IF (grf_intmethod_c == 1 .AND. diffusion_config(k_jg)%lhdiff_temp &
+          & .AND. .NOT.ltheta_dyn .AND. pt_patch%id > 1) THEN
 
            ! Lateral boundary diffusion
            i_startblk = pt_patch%cells%start_blk(start_bdydiff_c,1)
@@ -547,8 +546,8 @@ MODULE mo_hdiff
 !$OMP END DO
            ENDDO
 
-        ELSE IF (grf_intmethod_c == 1 .AND. lhdiff_temp .AND. &
-                 ltheta_dyn .AND. pt_patch%id > 1) THEN
+        ELSE IF (grf_intmethod_c == 1 .AND. diffusion_config(k_jg)%lhdiff_temp &
+          &  .AND. ltheta_dyn .AND. pt_patch%id > 1) THEN
 
            ! Lateral boundary diffusion
            i_startblk = pt_patch%cells%start_blk(start_bdydiff_c,1)
@@ -578,7 +577,7 @@ MODULE mo_hdiff
 
      CASE(3) ! Smagorinski diffusion for hexagonal model
 
-       IF (lhdiff_vn) THEN
+       IF (diffusion_config(k_jg)%lhdiff_vn) THEN
 
          ! mean area edge
          z_mean_area_edge=8.0_wp*pi*re*re/pt_patch%n_patch_edges_g
@@ -701,7 +700,7 @@ MODULE mo_hdiff
 !$OMP END DO
 !$OMP END PARALLEL
 
-         IF (lhdiff_temp) THEN
+         IF (diffusion_config(k_jg)%lhdiff_temp) THEN
            CALL sync_patch_array(SYNC_E, pt_patch, z_turb_flx_v1)
            CALL sync_patch_array(SYNC_E, pt_patch, z_turb_flx_v2)
 
@@ -791,7 +790,7 @@ MODULE mo_hdiff
 !$OMP END DO
 !$OMP END PARALLEL
 
-         IF(lhdiff_temp) THEN
+         IF(diffusion_config(k_jg)%lhdiff_temp) THEN
            ! l) frictional heating at cells averaged from vertices
            CALL verts2cells_scalar(z_fric_heat_v, pt_patch, pt_int%verts_aw_cells, z_fric_heat_c1)
            IF (.NOT.ltheta_dyn) THEN
@@ -825,7 +824,7 @@ MODULE mo_hdiff
         ! velocity
         !---------------------------
 
-        IF (lhdiff_vn) THEN
+        IF (diffusion_config(k_jg)%lhdiff_vn) THEN
 
            ! Diffusion in the domain interior (boundary diffusion follows below)
            i_startblk = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
@@ -851,7 +850,7 @@ MODULE mo_hdiff
 
         ENDIF ! if lhdiff_vn
 
-        IF (lhdiff_vn .AND. pt_patch%id > 1) THEN
+        IF (diffusion_config(k_jg)%lhdiff_vn .AND. pt_patch%id > 1) THEN
 
            ! Lateral boundary diffusion
            i_startblk = pt_patch%edges%start_blk(start_bdydiff_e,1)
@@ -880,7 +879,7 @@ MODULE mo_hdiff
         ! temperature
         !---------------------------
 
-        IF (lhdiff_temp ) THEN
+        IF (diffusion_config(k_jg)%lhdiff_temp ) THEN
 
 
           ! Diffusion in the domain interior (boundary diffusion follows below)
@@ -940,7 +939,7 @@ MODULE mo_hdiff
           ENDIF ! if ltheta_dyn
         ENDIF ! if lhdiff_temp
 
-        IF (grf_intmethod_c == 1 .AND. lhdiff_temp .AND. &
+        IF (grf_intmethod_c == 1 .AND. diffusion_config(k_jg)%lhdiff_temp .AND. &
             .NOT.ltheta_dyn .AND. pt_patch%id > 1) THEN
 
            ! Lateral boundary diffusion
@@ -964,8 +963,8 @@ MODULE mo_hdiff
 !$OMP END DO
            ENDDO
 
-        ELSE IF (grf_intmethod_c == 1 .AND. lhdiff_temp .AND. &
-                 ltheta_dyn .AND. pt_patch%id > 1) THEN
+        ELSE IF (grf_intmethod_c == 1 .AND. diffusion_config(k_jg)%lhdiff_temp &
+          &  .AND. ltheta_dyn .AND. pt_patch%id > 1) THEN
 
            ! Lateral boundary diffusion
            i_startblk = pt_patch%cells%start_blk(start_bdydiff_c,1)
@@ -1001,7 +1000,7 @@ MODULE mo_hdiff
         ! velocity
         !---------------------------
 
-        IF (lhdiff_vn) THEN
+        IF (diffusion_config(k_jg)%lhdiff_vn) THEN
 
            ! Diffusion in the domain interior (boundary diffusion follows below)
            i_startblk = pt_patch%edges%start_blk(grf_bdywidth_e+1,1)
@@ -1030,7 +1029,7 @@ MODULE mo_hdiff
 
         ENDIF ! if lhdiff_vn
 
-        IF (lhdiff_vn .AND. pt_patch%id > 1) THEN
+        IF (diffusion_config(k_jg)%lhdiff_vn .AND. pt_patch%id > 1) THEN
 
            ! Lateral boundary diffusion
            i_startblk = pt_patch%edges%start_blk(start_bdydiff_e,1)
@@ -1059,7 +1058,7 @@ MODULE mo_hdiff
         ! temperature
         !---------------------------
 
-        IF (lhdiff_temp .AND. (.NOT.ltheta_dyn)) THEN
+        IF (diffusion_config(k_jg)%lhdiff_temp .AND. (.NOT.ltheta_dyn)) THEN
 
            ! Diffusion in the domain interior (boundary diffusion follows below)
            i_startblk = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
@@ -1098,7 +1097,7 @@ MODULE mo_hdiff
            ENDDO
 !$OMP END DO
 
-        ELSE IF (lhdiff_temp .AND. ltheta_dyn) THEN
+        ELSE IF (diffusion_config(k_jg)%lhdiff_temp .AND. ltheta_dyn) THEN
 
            ! Diffusion in the domain interior (boundary diffusion follows below)
            i_startblk = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
@@ -1137,8 +1136,8 @@ MODULE mo_hdiff
 !$OMP END DO
         ENDIF ! if lhdiff_temp
 
-        IF (grf_intmethod_c == 1 .AND. lhdiff_temp .AND. &
-            .NOT.ltheta_dyn .AND. pt_patch%id > 1) THEN
+        IF (grf_intmethod_c == 1 .AND. diffusion_config(k_jg)%lhdiff_temp &
+          &  .AND. .NOT.ltheta_dyn .AND. pt_patch%id > 1) THEN
 
            ! Lateral boundary diffusion
            i_startblk = pt_patch%cells%start_blk(start_bdydiff_c,1)
@@ -1161,8 +1160,8 @@ MODULE mo_hdiff
 !$OMP END DO
            ENDDO
 
-        ELSE IF (grf_intmethod_c == 1 .AND. lhdiff_temp .AND. &
-                 ltheta_dyn .AND. pt_patch%id > 1) THEN
+        ELSE IF (grf_intmethod_c == 1 .AND. diffusion_config(k_jg)%lhdiff_temp &
+          &  .AND. ltheta_dyn .AND. pt_patch%id > 1) THEN
 
            ! Lateral boundary diffusion
            i_startblk = pt_patch%cells%start_blk(start_bdydiff_c,1)
