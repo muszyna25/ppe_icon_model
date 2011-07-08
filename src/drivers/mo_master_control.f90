@@ -202,9 +202,10 @@ MODULE mo_master_control
 
   !------------------------------------------------------------------------
   SUBROUTINE set_my_component(comp_name, comp_id, comp_namelist)
-    CHAR(len=*), INTENT(in) :: comp_name
+    
+    CHARACTER(len=*), INTENT(in) :: comp_name
     INTEGER, INTENT(in) ::  comp_id
-    CHAR(len=*), INTENT(in) :: comp_namelist
+    CHARACTER(len=*), INTENT(in) :: comp_namelist
        
     my_process_model     = comp_id
     my_namelist_filename = TRIM(comp_namelist)
@@ -226,14 +227,13 @@ MODULE mo_master_control
   
     get_my_process_name = my_model_name
     
-  END FUNCTION get_my_namelist_filename
+  END FUNCTION get_my_process_name
   !------------------------------------------------------------------------
 
   !------------------------------------------------------------------------
   CHARACTER(len=filename_max) FUNCTION get_my_namelist_filename()
   
     get_my_namelist_filename = my_namelist_filename
-    RETURN
     
   END FUNCTION get_my_namelist_filename
   !------------------------------------------------------------------------
@@ -243,7 +243,6 @@ MODULE mo_master_control
   INTEGER FUNCTION get_my_process_component()
 
     get_my_process_component = my_process_model
-    RETURN
     
   END FUNCTION get_my_process_component
   !------------------------------------------------------------------------
@@ -252,7 +251,6 @@ MODULE mo_master_control
   LOGICAL FUNCTION is_coupled_run()
 
     is_coupled_run = in_coupled_mode
-    RETURN
     
   END FUNCTION is_coupled_run
   !------------------------------------------------------------------------
