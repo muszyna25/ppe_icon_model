@@ -1,5 +1,5 @@
 !>
-!! Namelist module for the hydro atm dynamical core.
+!! Namelist specific to the hydro atm dynamical core. 
 !! 
 !! @par Revision History
 !!
@@ -41,55 +41,54 @@ MODULE mo_ha_dyn_nml
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
   USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist, &       
                                       open_and_restore_namelist, close_tmpfile
-  USE mo_impl_constants,     ONLY:  AB2
-  USE mo_run_nml,            ONLY:   lshallow_water
+  USE mo_impl_constants,        ONLY:  AB2
 
   IMPLICIT NONE
+  PRIVATE
+  PUBLIC :: read_ha_dyn_namelist
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
-  PUBLIC
-
-  !---------------------------------------------------------------
-  ! Namelist variables and auxiliary parameters setting up the
-  ! configuration of the dynamical core
-  !---------------------------------------------------------------
+  !---------------------
+  ! namelist variables
+  !---------------------
 
   INTEGER  :: nml_ileapfrog_startup  ! choice of the first time step in
                                      ! a leapfrog time stepping scheme
                                      ! 1 = Euler forward
                                      ! 2 = several sub-steps
 
-  REAL(wp) :: asselin_coeff      ! parameter used in Asselin filter
+  REAL(wp) :: nml_asselin_coeff      ! parameter used in Asselin filter
 
-  INTEGER  :: si_expl_scheme     ! scheme for the explicit part of the
-                                 ! 2-time-level semi-implicit time integration.
-                                 ! See mo_impl_constants for the options.
+  INTEGER  :: nml_si_expl_scheme     ! scheme for the explicit part of the
+                                     ! 2-time-level semi-implicit time integration.
+                                     ! See mo_impl_constants for the options.
+  REAL(wp) :: nml_si_2tls
 
-  REAL(wp) :: si_2tls
-  REAL(wp) :: si_coeff           !  = 0 : explicit scheme(for *d*,*t*,*alps*).
-                                 !  = 1 : semi implicit scheme.
-                                 !  in (0,1): a weighted scheme
+  REAL(wp) :: nml_si_rtol     ! relative tolerance
 
-  REAL(wp) :: si_offctr          ! weighting parameter used in calculating the
-                                 ! second temporal derivatives in the semi-implicit
-                                 ! correction scheme. The value read from namelist are
-                                 ! assumed to be the offcentering (i.e. between 0 and 1).
+  REAL(wp) :: nml_si_coeff    !  = 0 : explicit scheme(for *d*,*t*,*alps*).
+                              !  = 1 : semi implicit scheme.
+                              !  in (0,1): a weighted scheme
 
-  LOGICAL  :: lsi_3d             ! if .true., solve the 3D equation
+  REAL(wp) :: nml_si_offctr   ! weighting parameter used in calculating the
+                              ! second temporal derivatives in the semi-implicit
+                              ! correction scheme. The value read from namelist are
+                              ! assumed to be the offcentering (i.e. between 0 and 1).
 
-  REAL(wp) :: si_rtol            ! relative tolerance
 
-  REAL(wp) :: si_cmin            ! min. phase speed of the decomposed modes to be
-                                 ! solved by the semi-implicit correction scheme
 
-  LOGICAL :: lref_temp   ! if .TRUE., involve the reference temperature profile
-                         ! in the calculation of pressure gradient force.
+  REAL(wp) :: nml_si_cmin     ! min. phase speed of the decomposed modes to be
+                              ! solved by the semi-implicit correction scheme
+  LOGICAL  :: nml_lsi_3d      ! if .true., solve the 3D equation
 
-  NAMELIST/ha_dyn_nml/ nml_ileapfrog_startup, asselin_coeff,     &
-                       si_2tls, si_coeff, si_offctr, si_rtol,&
-                       si_cmin, lsi_3d, si_expl_scheme,      &
-                       lref_temp
+  LOGICAL  :: nml_lref_temp   ! if .TRUE., involve the reference temperature profile
+                              ! in the calculation of pressure gradient force.
+
+  NAMELIST/ha_dyn_nml/ nml_ileapfrog_startup, nml_asselin_coeff,     &
+                       nml_si_expl_scheme, nml_si_2tls, nml_si_rtol, &
+                       nml_si_coeff, nml_si_offctr, nml_si_cmin,     &
+                       nml_lsi_3d, nml_lref_temp
 
 CONTAINS
   !>
@@ -100,26 +99,25 @@ CONTAINS
     CHARACTER(len=*),PARAMETER :: routine = 'mo_ha_dyn_nml:read_ha_dyn_namelist'
 
     !------------------------------------------------------------
-    ! 1. Set up the default values for ha_dyn_nml
+    ! Default values
     !------------------------------------------------------------
- 
     nml_ileapfrog_startup = 1
-    asselin_coeff     = 0.1_wp
+    nml_asselin_coeff     = 0.1_wp
  
-    si_expl_scheme    = AB2 
+    nml_si_expl_scheme    = AB2 
+    nml_si_2tls           = 0.6_wp 
+    nml_si_rtol           = 1.e-3_wp
 
-    si_2tls           = 0.6_wp 
-    si_coeff          = 1.0_wp
-    si_offctr         = 0.7_wp
-    lsi_3d            = .FALSE.
-    si_rtol           = 1.e-3_wp
-    si_cmin           = 30._wp
+    nml_si_coeff          = 1.0_wp
+    nml_si_offctr         = 0.7_wp
+    nml_si_cmin           = 30._wp
+    nml_lsi_3d            = .FALSE.
  
-    lref_temp         = .FALSE.
+    nml_lref_temp         = .FALSE.
 
     !------------------------------------------------------------------------
-    ! 2. If this is a resumed integration, overwrite the defaults above by 
-    !    values in the restart file
+    ! If this is a resumed integration, overwrite the defaults above by 
+    ! values in the restart file
     !------------------------------------------------------------------------
     IF (lrestart) THEN
       funit = open_and_restore_namelist('ha_dyn_nml')
@@ -128,7 +126,7 @@ CONTAINS
     END IF
 
     !------------------------------------------------------------------------
-    ! 3. Read user's (new) specifications. (Done so far by all MPI processes)
+    ! Read user's (new) specifications. (Done so far by all MPI processors)
     !------------------------------------------------------------------------
     CALL position_nml ('ha_dyn_nml', STATUS=istat)
     SELECT CASE (istat)
@@ -139,17 +137,16 @@ CONTAINS
     !-----------------------------------------------------
     ! Sanity Check
     !-----------------------------------------------------
-    IF (asselin_coeff<0._wp) CALL finish( TRIM(routine), &
+    IF (nml_asselin_coeff<0._wp) CALL finish( TRIM(routine), &
       'wrong (negative) coefficient of Asselin filter')
 
-    IF (si_offctr>1._wp.OR.si_offctr<0._wp) &
-    CALL finish( TRIM(routine), 'Invalid offcentering parameter.'//&
-                 'Valid range for si_offctr is [0,1].')
+    IF (nml_si_offctr>1._wp.OR.nml_si_offctr<0._wp) CALL finish( TRIM(routine), &
+      'Invalid value for parameter nml_si_offctr. Valid range is [0,1].')
 
-    IF (si_2tls<0.5_wp.OR.si_2tls>1._wp) CALL finish( TRIM(routine),&
-      'Improper value for the centering parameter si_2tls. Should be in [0.5,1]')
+    IF (nml_si_2tls<0.5_wp.OR.nml_si_2tls>1._wp) CALL finish( TRIM(routine), &
+      'Improper value for parameter nml_si_2tls. Should be in [0.5,1]')
 
-    IF (lref_temp) THEN
+    IF (nml_lref_temp) THEN
       CALL message(TRIM(routine),                            &
           'use of reference temperature switched ON in ' //  &
           'calculation of pressure gradient force.')
@@ -172,17 +169,16 @@ CONTAINS
     !-----------------------------------------------------
     ! Fill configuration state
     !-----------------------------------------------------
-
-    ha_dyn_config(:)% ileapfrog_startup = nml_ileapfrog_startup
-    ha_dyn_config(:)% asselin_coeff     = asselin_coeff
-    ha_dyn_config(:)% si_expl_scheme    = si_expl_scheme
-    ha_dyn_config(:)% si_2tls           = si_2tls
-    ha_dyn_config(:)% si_coeff          = si_coeff
-    ha_dyn_config(:)% si_offctr         = si_offctr
-    ha_dyn_config(:)% si_cmin           = si_cmin
-    ha_dyn_config(:)% si_rtol           = si_rtol
-    ha_dyn_config(:)% lsi_3d            = lsi_3d
-    ha_dyn_config(:)% lref_temp         = lref_temp
+    ha_dyn_config% ileapfrog_startup = nml_ileapfrog_startup
+    ha_dyn_config% asselin_coeff     = nml_asselin_coeff
+    ha_dyn_config% si_expl_scheme    = nml_si_expl_scheme
+    ha_dyn_config% si_2tls           = nml_si_2tls
+    ha_dyn_config% si_rtol           = nml_si_rtol
+    ha_dyn_config% si_coeff          = nml_si_coeff
+    ha_dyn_config% si_offctr         = nml_si_offctr
+    ha_dyn_config% si_cmin           = nml_si_cmin
+    ha_dyn_config% lsi_3d            = nml_lsi_3d
+    ha_dyn_config% lref_temp         = nml_lref_temp
 
   END SUBROUTINE read_ha_dyn_namelist
   !>
@@ -190,10 +186,10 @@ CONTAINS
   SUBROUTINE check_ha_dyn
 
     CHARACTER(len=*),PARAMETER :: routine = 'mo_ha_dyn_nml:read_ha_dyn_namelist'
-    IF (lshallow_water .AND. lsi_3d) THEN                                     
-      CALL message( TRIM(routine), 'In shallow water mode lsi_3d is set to .FALSE.')        
-      lsi_3d=.FALSE.                                                          
-    ENDIF  
+  ! IF (lshallow_water .AND. nml_lsi_3d) THEN                                     
+  !   CALL message( TRIM(routine), 'In shallow water mode nml_lsi_3d is set to .FALSE.')        
+  !   nml_lsi_3d=.FALSE.                                                          
+  ! ENDIF  
 
   END SUBROUTINE check_ha_dyn
 

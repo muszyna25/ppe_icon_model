@@ -43,7 +43,7 @@ MODULE mo_ha_dynamics
   USE mo_ext_data,           ONLY: t_external_data
   USE mo_math_operators,     ONLY: grad_fd_norm, div, div_avg
   USE mo_dynamics_nml,       ONLY: idiv_method
-  USE mo_ha_dyn_nml,         ONLY: lref_temp
+  USE mo_ha_dyn_config,      ONLY: ha_dyn_config 
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,            ONLY: lshallow_water, nlev, nlevp1
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
@@ -386,7 +386,7 @@ IF (.NOT.lshallow_water) THEN
 ! The reference state we use here is the ICAO(1964) standard atmosphere.
 ! See MPI-M Report 349, p20.
 
-  IF (lref_temp) THEN
+  IF (ha_dyn_config%lref_temp) THEN
 
     jbs = pt_patch%cells%start_blk(2,1)
 !$OMP PARALLEL

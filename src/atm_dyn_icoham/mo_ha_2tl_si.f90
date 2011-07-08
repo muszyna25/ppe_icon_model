@@ -39,7 +39,6 @@ MODULE mo_ha_2tl_si
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data,            ONLY: t_external_data
   USE mo_physical_constants,  ONLY: rd, rcpd
-  USE mo_ha_dyn_nml,          ONLY: si_rtol, si_2tls, si_expl_scheme
   USE mo_parallel_configuration, ONLY: nproma
   USE mo_run_nml,             ONLY: nlev, nlevp1, lshallow_water,ltheta_dyn
   USE mo_interpolation,       ONLY: t_int_state, cells2edges_scalar
@@ -79,7 +78,8 @@ MODULE mo_ha_2tl_si
   !! @par Revision History
   !! Initial version by Hui Wan, MPI-M (2009-11-06)
   !!
-  SUBROUTINE step_2tl_si( p_dtime, p_patch, p_int_state,    &
+  SUBROUTINE step_2tl_si( si_expl_scheme, si_2tls, si_rtol, &
+                          p_dtime, p_patch, p_int_state,    &
                           p_now, p_ext_data,                &
                           p_new, p_diag, p_tend_dyn )
 
@@ -87,11 +87,14 @@ MODULE mo_ha_2tl_si
 
   !! arguments
 
-  REAL(wp),              INTENT(IN)    :: p_dtime      ! time step in seconds
-  TYPE(t_patch), TARGET,   INTENT(IN)    :: p_patch
-  TYPE(t_int_state),       INTENT(IN)    :: p_int_state
+  INTEGER ,INTENT(IN) :: si_expl_scheme
+  REAL(wp),INTENT(IN) :: si_2tls, si_rtol
+  REAL(wp),INTENT(IN) :: p_dtime
+
+  TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch
+  TYPE(t_int_state),     INTENT(IN)    :: p_int_state
   TYPE(t_hydro_atm_prog),INTENT(IN)    :: p_now
-  TYPE(t_external_data),   INTENT(IN)    :: p_ext_data   !< external data
+  TYPE(t_external_data), INTENT(IN)    :: p_ext_data   !< external data
   TYPE(t_hydro_atm_prog),INTENT(INOUT) :: p_new
   TYPE(t_hydro_atm_diag),INTENT(INOUT) :: p_diag
   TYPE(t_hydro_atm_prog),INTENT(INOUT) :: p_tend_dyn
@@ -129,7 +132,8 @@ MODULE mo_ha_2tl_si
 !----------------------------------------------------------
  IF (ltheta_dyn) CALL finish(TRIM(routine),'theta dyn. not implimented')
 
-   CALL tend_expl( p_dtime, p_now, p_patch, p_int_state,   &! in
+   CALL tend_expl( si_expl_scheme, p_dtime,                &! in
+                   p_now, p_patch, p_int_state,            &! in
                    p_ext_data,                             &! in
                    p_diag, p_tend_dyn,                     &! inout
                    z_dvn_expl, z_dtemp_expl, z_dps_expl  )  ! out
@@ -273,7 +277,8 @@ MODULE mo_ha_2tl_si
   !! Calculate the explicit terms of the governing equations
   !! for the 2-time-level semi-implicit correction scheme
   !!
-  SUBROUTINE tend_expl( p_dtime, pt_now, pt_patch, pt_int_state, &! in
+  SUBROUTINE tend_expl( si_expl_scheme,                          &! in
+                        p_dtime, pt_now, pt_patch, pt_int_state, &! in
                         pt_ext_data,                             &! in
                         pt_diag, pt_tend_save,                   &! inout
                         p_dvn, p_dtemp, p_dps )                   ! out
@@ -282,7 +287,8 @@ MODULE mo_ha_2tl_si
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_ha_2tl_si:tend_expl'
 
-  REAL(wp),INTENT(IN) :: p_dtime               !< time step in seconds
+  INTEGER ,INTENT(IN) :: si_expl_scheme 
+  REAL(wp),INTENT(IN) :: p_dtime
 
   TYPE(t_patch),TARGET,     INTENT(IN) :: pt_patch
   TYPE(t_int_state),TARGET, INTENT(IN) :: pt_int_state

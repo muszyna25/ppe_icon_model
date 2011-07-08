@@ -72,7 +72,7 @@ MODULE m_dyn
   USE mo_ext_data,           ONLY: t_external_data
   USE mo_math_operators,     ONLY: grad_fd_norm, div, div_avg
   USE mo_dynamics_nml,       ONLY: idiv_method
-  USE mo_ha_dyn_nml,         ONLY: lref_temp
+  USE mo_ha_dyn_config,      ONLY: ha_dyn_config
   USE mo_io_nml,             ONLY: l_outputtime, lwrite_omega
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,            ONLY: nlev, nlevp1,iqv,                &
@@ -415,7 +415,7 @@ MODULE m_dyn
      CALL get_indices_c(pt_patch, jb, i_startblk, nblks_c, &
                         i_startidx, i_endidx, 2)
 
-      IF (lref_temp ) THEN
+      IF (ha_dyn_config%lref_temp ) THEN
 
          DO jk = 1,nlev
             z_help(i_startidx:i_endidx)           = EXP(alrrdic* &

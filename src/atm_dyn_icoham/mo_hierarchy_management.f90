@@ -342,7 +342,8 @@ CONTAINS
         WRITE(message_text,'(a,i10)') 'TIME STEP n: ', nstep_global
         CALL message(TRIM(routine),message_text)
 
-        CALL leapfrog_startup( p_patch, p_int_state, jg, dt_loc,          &
+        CALL leapfrog_startup( ha_dyn_config%ileapfrog_startup,           &
+          &                    p_patch, p_int_state, jg, dt_loc,          &
           &                    p_hydro_state, n_old, n_now, n_new, n_sav1 )
 
         l_3tl_init(jg) = .FALSE.
@@ -401,7 +402,7 @@ CONTAINS
           CALL prepare_tracer( p_patch(jg), p_int_state(jg),   &! in
             &                  p_hydro_state(jg)%prog(n_now),  &! in
             &                  p_hydro_state(jg)%prog(n_new),  &! in
-            &                  ha_dyn_config(jg)%si_2tls,      &! in
+            &                  ha_dyn_config%si_2tls,          &! in
             &                  p_hydro_state(jg)%diag,         &! inout
             &                  z_mflx_me, z_vn_traj,           &! out
             &                  z_mflx_ic, z_omega_traj,        &! out
@@ -449,7 +450,7 @@ CONTAINS
           !---------------------------------------
           ! Semi-implicit two time level scheme
           !---------------------------------------
-        CASE (two_tl_si)
+        CASE (TWO_TL_SI)
 
           !! Note that for 2 time level schemes, time step n and n+1 
           !! are referred to as "n_now" and "n_new", respectively.
@@ -474,13 +475,16 @@ CONTAINS
 
 
           ! Dynamical core
-          CALL step_2tl_si( zdtime,                              &! in
-            &               p_patch(jg), p_int_state(jg),        &! in
-            &               p_hydro_state(jg)%prog(n_now),       &! in
-            &               ext_data(jg),                        &! in
-            &               p_hydro_state(jg)%prog(n_new),       &! inout
-            &               p_hydro_state(jg)%diag,              &! out
-            &               p_hydro_state(jg)%tend_dyn         )  ! inout
+          CALL step_2tl_si( ha_dyn_config%si_expl_scheme,    &! in
+            &               ha_dyn_config%si_2tls,           &! in
+            &               ha_dyn_config%si_rtol,           &! in
+            &               zdtime,                          &! in
+            &               p_patch(jg), p_int_state(jg),    &! in
+            &               p_hydro_state(jg)%prog(n_now),   &! in
+            &               ext_data(jg),                    &! in
+            &               p_hydro_state(jg)%prog(n_new),   &! inout
+            &               p_hydro_state(jg)%diag,          &! out
+            &               p_hydro_state(jg)%tend_dyn     )  ! inout
 
           ! tracer advection
           IF ( ltransport ) THEN
@@ -490,7 +494,7 @@ CONTAINS
             CALL prepare_tracer( p_patch(jg), p_int_state(jg),    &! in
               &           p_hydro_state(jg)%prog(n_now),          &! in
               &           p_hydro_state(jg)%prog(n_new),          &! in
-              &           ha_dyn_config(jg)%si_2tls,              &! in
+              &           ha_dyn_config%si_2tls,                  &! in
               &           p_hydro_state(jg)%diag,                 &! inout
               &           z_mflx_me, z_vn_traj,                   &! out
               &           z_mflx_ic, z_omega_traj,                &! out
@@ -723,7 +727,10 @@ CONTAINS
 !$OMP END PARALLEL
             ENDIF !ltheta_dyn
 
-            CALL si_correction( zdtime, p_patch(jg), p_int_state(jg), &! in
+            CALL si_correction( ha_dyn_config%lsi_3d,                 &! in
+              &                 ha_dyn_config%si_coeff,               &! in 
+              &                 ha_dyn_config%si_rtol,                &! in
+              &                 zdtime, p_patch(jg), p_int_state(jg), &! in
               &                 p_hydro_state(jg)%prog(n_old),        &! in
               &                 p_hydro_state(jg)%prog(n_now),        &! in
               &                 p_hydro_state(jg)%prog(n_new)         )! inout
@@ -747,7 +754,7 @@ CONTAINS
             CALL prepare_tracer( p_patch(jg), p_int_state(jg),    &! in
               &                  p_hydro_state(jg)%prog(n_now),   &! in
               &                  p_hydro_state(jg)%prog(n_new),   &! in
-              &                  ha_dyn_config(jg)%si_2tls,       &! in
+              &                  ha_dyn_config%si_2tls,           &! in
               &                  p_hydro_state(jg)%diag,          &! inout
               &                  z_mflx_me, z_vn_traj,            &! out
               &                  z_mflx_ic, z_omega_traj,         &! out
@@ -1044,9 +1051,10 @@ CONTAINS
       !========================================
       IF ( (itime_scheme==leapfrog_expl).OR.(itime_scheme==leapfrog_si) ) THEN
 
-        CALL asselin( p_hydro_state(jg)%prog(n_old), &
-          &           p_hydro_state(jg)%prog(n_new), &
-          &           p_hydro_state(jg)%prog(n_now) )
+        CALL asselin( ha_dyn_config%asselin_coeff,     &
+                      p_hydro_state(jg)%prog(n_old),   &
+                      p_hydro_state(jg)%prog(n_new),   &
+                      p_hydro_state(jg)%prog(n_now) )
       ENDIF
 
       !====================
@@ -1229,7 +1237,8 @@ CONTAINS
   !! The time integration is performed using either a simple Euler forward
   !! scheme (ileapfrog_startup = 1) or a series of sub-steps ( = 2).
   !!
-  SUBROUTINE leapfrog_startup( p_patch, p_int_state,  &! in
+  SUBROUTINE leapfrog_startup( ileapfrog_startup,     &! in
+    &                          p_patch, p_int_state,  &! in
     &                          jg, dt_loc,            &! in
     &                          p_hydro_state,         &! inout
     &                          n_old, n_now, n_new,   &! inout
@@ -1237,6 +1246,7 @@ CONTAINS
 
     ! Arguments
 
+    INTEGER, INTENT(IN) :: ileapfrog_startup
     TYPE(t_patch),TARGET, INTENT(IN)    ::  p_patch(n_dom)
     TYPE(t_int_state),TARGET,INTENT(IN) ::  p_int_state(n_dom)
 
@@ -1259,7 +1269,7 @@ CONTAINS
     REAL(wp),POINTER :: p_temp(:,:,:) => NULL()
 
 
-    SELECT CASE(ha_dyn_config(jg)%ileapfrog_startup)
+    SELECT CASE(ileapfrog_startup)
       !==========================================================================
     CASE(1) ! Step 1 is a simple forward step
       !==========================================================================
@@ -1295,7 +1305,7 @@ CONTAINS
         CALL prepare_tracer( p_patch(jg), p_int_state(jg),    &! in
           &                  p_hydro_state(jg)%prog(n_now),   &! in
           &                  p_hydro_state(jg)%prog(n_new),   &! in
-          &                  ha_dyn_config(jg)%si_2tls,       &! in
+          &                  ha_dyn_config%si_2tls,           &! in
           &                  p_hydro_state(jg)%diag,          &! inout
           &                  z_mflx_me, z_vn_traj,            &! out
           &                  z_mflx_ic, z_omega_traj,         &! out
@@ -1367,7 +1377,7 @@ CONTAINS
         CALL prepare_tracer( p_patch(jg), p_int_state(jg),    &! in
           &                  p_hydro_state(jg)%prog(n_now),   &! in
           &                  p_hydro_state(jg)%prog(n_new),   &! in
-          &                  ha_dyn_config(jg)%si_2tls,       &! in
+          &                  ha_dyn_config%si_2tls,           &! in
           &                  p_hydro_state(jg)%diag,          &! inout
           &                  z_mflx_me, z_vn_traj,            &! out
           &                  z_mflx_ic, z_omega_traj,         &! out
@@ -1432,7 +1442,7 @@ CONTAINS
         CALL prepare_tracer( p_patch(jg), p_int_state(jg),    &! in
           &                  p_hydro_state(jg)%prog(n_now),   &! in
           &                  p_hydro_state(jg)%prog(n_new),   &! in
-          &                  ha_dyn_config(jg)%si_2tls,       &! in
+          &                  ha_dyn_config%si_2tls,           &! in
           &                  p_hydro_state(jg)%diag,          &! inout
           &                  z_mflx_me, z_vn_traj,            &! out
           &                  z_mflx_ic, z_omega_traj,         &! out
@@ -1515,10 +1525,13 @@ CONTAINS
 !$OMP END PARALLEL
         ENDIF
 
-        CALL si_correction  ( zdtime, p_patch(jg), p_int_state(jg), & ! in
-          &                   p_hydro_state(jg)%prog(n_old),        & ! in
-          &                   p_hydro_state(jg)%prog(n_now),        & ! in
-          &                   p_hydro_state(jg)%prog(n_new))          ! inout
+        CALL si_correction( ha_dyn_config%lsi_3d,                 &! in
+          &                 ha_dyn_config%si_coeff,               &! in 
+          &                 ha_dyn_config%si_rtol,                &! in
+          &                 zdtime, p_patch(jg), p_int_state(jg), &! in
+          &                 p_hydro_state(jg)%prog(n_old),        &! in
+          &                 p_hydro_state(jg)%prog(n_now),        &! in
+          &                 p_hydro_state(jg)%prog(n_new))         ! inout
 
         IF (ltheta_dyn) THEN
           CALL convert_t2theta_lin( p_patch(jg),p_hydro_state(jg)%prog(n_new),&
@@ -1535,7 +1548,7 @@ CONTAINS
         CALL prepare_tracer( p_patch(jg), p_int_state(jg),  &! in
           &           p_hydro_state(jg)%prog(n_now),        &! in
           &           p_hydro_state(jg)%prog(n_new),        &! in
-          &           ha_dyn_config(jg)%si_2tls,            &! in
+          &           ha_dyn_config%si_2tls,                &! in
           &           p_hydro_state(jg)%diag,               &! inout
           &           z_mflx_me, z_vn_traj,                 &! out
           &           z_mflx_ic, z_omega_traj,              &! out

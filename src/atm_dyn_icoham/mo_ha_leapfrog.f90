@@ -5,8 +5,6 @@
 !! @par Revision History
 !!  <i>SUBROUTINE asselin</i> by L.Bonaventura, Polimi (2006).
 !!  <i>SUBROUTINE step_leapfrog_expl</i> by Hui Wan, MPI-M (2006-09-10)
-!!  Modification by Hui Wan, MPI-M (2008-04-04)
-!!  - epsass renamed asselin_coeff
 !!  Modification by Almut Gassmann, MPI-M (2008-09-19)
 !!  - Code restructuring, remove loop over grid levels etc.
 !!  Modification by Marco Giorgetta, MPI-M (2009-03-27)
@@ -44,7 +42,6 @@ MODULE mo_ha_leapfrog
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data,            ONLY: t_external_data
-  USE mo_ha_dyn_nml,          ONLY: asselin_coeff
   USE mo_run_nml,             ONLY: ltheta_dyn
   USE mo_interpolation,       ONLY: t_int_state
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
@@ -233,39 +230,39 @@ CONTAINS
   !! @par Revision History
   !! Developed  by L.Bonaventura, Polimi (2006).
   !! Code restructuring by Almut Gassmann, MPI-M, (2008-09-19)
-  !! @par
-  !!  arguments
-  !! @par
-  !!  patch on which computation is performed
   !!
-  SUBROUTINE asselin( p_prog_old, p_prog_new, & ! input
-                      p_prog_now              ) ! in and out
+  SUBROUTINE asselin( asselin_coeff,          &! in
+                      p_prog_old, p_prog_new, &! in
+                      p_prog_now              )! inout
 
-   TYPE(t_hydro_atm_prog), INTENT(INOUT) :: p_prog_now
-   TYPE(t_hydro_atm_prog), INTENT(IN)    :: p_prog_new
-   TYPE(t_hydro_atm_prog), INTENT(IN)    :: p_prog_old
+    REAL(wp),INTENT(IN) :: asselin_coeff
+    TYPE(t_hydro_atm_prog), INTENT(INOUT) :: p_prog_now
+    TYPE(t_hydro_atm_prog), INTENT(IN)    :: p_prog_new
+    TYPE(t_hydro_atm_prog), INTENT(IN)    :: p_prog_old
 
-!-----------------------------------------------------------------------
 
 !$OMP PARALLEL
-   IF (ltheta_dyn) THEN
+    IF (ltheta_dyn) THEN
 !$OMP WORKSHARE
-     p_prog_now%theta     = p_prog_now%theta     + asselin_coeff* &
-             (p_prog_new%theta    -2._wp*p_prog_now%theta    +p_prog_old%theta)
+      p_prog_now%theta = p_prog_now%theta + asselin_coeff* &
+                        (p_prog_new%theta - 2._wp*p_prog_now%theta + p_prog_old%theta)
 !$OMP END WORKSHARE
-   ENDIF
+    ENDIF
 
 !$OMP WORKSHARE
-   p_prog_now%temp     = p_prog_now%temp     + asselin_coeff* &
-           (p_prog_new%temp    -2._wp*p_prog_now%temp    +p_prog_old%temp)
-   p_prog_now%vn       = p_prog_now%vn       + asselin_coeff* &
-             (p_prog_new%vn      -2._wp*p_prog_now%vn      +p_prog_old%vn)
-   p_prog_now%pres_sfc = p_prog_now%pres_sfc + asselin_coeff* &
-             (p_prog_new%pres_sfc-2._wp*p_prog_now%pres_sfc+p_prog_old%pres_sfc)
+    p_prog_now%temp = p_prog_now%temp + asselin_coeff* &
+                     (p_prog_new%temp -2._wp*p_prog_now%temp +p_prog_old%temp)
+
+    p_prog_now%vn = p_prog_now%vn + asselin_coeff* &
+                   (p_prog_new%vn -2._wp*p_prog_now%vn +p_prog_old%vn)
+
+    p_prog_now%pres_sfc = p_prog_now%pres_sfc + asselin_coeff*          &
+                         (p_prog_new%pres_sfc-2._wp*p_prog_now%pres_sfc &
+                         +p_prog_old%pres_sfc)
 !$OMP END WORKSHARE
 !$OMP END PARALLEL
-END SUBROUTINE asselin
 
+  END SUBROUTINE asselin
 
 END MODULE mo_ha_leapfrog
 

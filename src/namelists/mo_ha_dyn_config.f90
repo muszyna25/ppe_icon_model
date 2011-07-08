@@ -44,7 +44,6 @@
 MODULE mo_ha_dyn_config
 
   USE mo_kind, ONLY: wp
-  USE mo_impl_constants, ONLY: MAX_DOM
 
   IMPLICIT NONE
   PRIVATE
@@ -87,7 +86,7 @@ MODULE mo_ha_dyn_config
 
   !>
   !!
-  TYPE(t_ha_dyn_config) :: ha_dyn_config(MAX_DOM)
+  TYPE(t_ha_dyn_config) :: ha_dyn_config
 
 END MODULE mo_ha_dyn_config
 

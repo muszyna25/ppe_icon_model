@@ -92,8 +92,6 @@ MODULE mo_si_correction
   USE mo_model_domain,       ONLY: t_patch
   USE mo_model_domain_import, ONLY: l_limited_area
   USE mo_dynamics_nml,        ONLY: idiv_method
-  USE mo_ha_dyn_nml,          ONLY: si_coeff, si_offctr, si_rtol,  &
-                                    lsi_3d, si_cmin
   USE mo_dynamics_nml,       ONLY: sw_ref_height
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,            ONLY: msg_level, nlev, nlevp1, &
@@ -172,10 +170,10 @@ MODULE mo_si_correction
   !!   - added calculation of the eigenvectors of structure matrix.
   !!   - changed the name from inhysi to init_si_params.
   !!
-  SUBROUTINE init_si_params
+  SUBROUTINE init_si_params( lsi_3d, si_offctr, si_cmin )
 
-
-
+  LOGICAL, INTENT(IN) :: lsi_3d
+  REAL(wp),INTENT(IN) :: si_offctr, si_cmin
   INTEGER  :: jk, ist
 
 ! !for building up the structure matrix
@@ -489,15 +487,18 @@ ENDIF
   !!  Original version  by Hui Wan, MPI-M (2007-08-11).
   !!  Code restructuring by Almut Gassmann, MPI-M (2008-09-18)
   !!
-  SUBROUTINE si_correction( p_dtime,        & ! input
-                            pt_patch,       & ! input
-                            pt_int_state,   & ! input
-                            pt_prog_old,    & ! input
-                            pt_prog_now,    & ! input
-                            pt_prog_new     ) ! inout
+  SUBROUTINE si_correction( lsi_3d, si_coeff, &! in
+                            si_rtol, p_dtime, &! in
+                            pt_patch,         &! in
+                            pt_int_state,     &! in
+                            pt_prog_old,      &! in
+                            pt_prog_now,      &! in
+                            pt_prog_new       )! in
 
 
-   REAL(wp),       INTENT(IN) :: p_dtime      !< time step in seconds
+   LOGICAL, INTENT(IN) :: lsi_3d
+   REAL(wp),INTENT(IN) :: si_coeff, si_rtol
+   REAL(wp),INTENT(IN) :: p_dtime      !< time step in seconds
    TYPE(t_patch),TARGET,INTENT(IN) :: pt_patch
    TYPE(t_int_state),INTENT(IN) :: pt_int_state !< horizontal interpolation coeff.
 
@@ -506,18 +507,21 @@ ENDIF
    TYPE(t_hydro_atm_prog) :: pt_prog_new
 
    IF (lsi_3d) THEN
-      CALL add_si_correction_3d( p_dtime, pt_patch, pt_int_state,        &
-                                 pt_prog_old, pt_prog_now, pt_prog_new   )
+      CALL add_si_correction_3d( si_coeff, si_rtol, p_dtime,            &
+                                 pt_patch, pt_int_state,                &
+                                 pt_prog_old, pt_prog_now, pt_prog_new  )
    ELSE
-      CALL add_si_correction_2d( p_dtime, pt_patch, pt_int_state,        &
-                                 pt_prog_old, pt_prog_now, pt_prog_new   )
+      CALL add_si_correction_2d( si_coeff, si_rtol, p_dtime,            &
+                                 pt_patch, pt_int_state,                &
+                                 pt_prog_old, pt_prog_now, pt_prog_new  )
    ENDIF
 
   END SUBROUTINE si_correction
 
   !>
   !!
-  SUBROUTINE add_si_correction_2d( p_dtime, pt_patch, pt_int_state,  &
+  SUBROUTINE add_si_correction_2d( si_coeff, si_rtol,                &
+                                   p_dtime, pt_patch, pt_int_state,  &
                                    pt_old, pt_now, pt_new)
 
 ! !DESCRIPTION
@@ -532,11 +536,11 @@ ENDIF
 !  Code resturcturing by Almut Gassmann, MPI-M, (2008-09-18)
 !
 
-  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_si_correction:add_si_correction_2d'
+  CHARACTER(len=*), PARAMETER :: routine = 'mo_si_correction:add_si_correction_2d'
 
-  REAL(wp),       INTENT(IN) :: p_dtime      ! time step in seconds
-  TYPE(t_patch),TARGET,INTENT(IN) :: pt_patch     ! single patch
+  REAL(wp),INTENT(IN) :: si_coeff, si_rtol
+  REAL(wp),INTENT(IN) :: p_dtime      ! time step in seconds
+  TYPE(t_patch),TARGET,INTENT(IN) :: pt_patch   ! single patch
   TYPE(t_int_state),INTENT(IN) :: pt_int_state ! single interpolation state
 
   TYPE(t_hydro_atm_prog),INTENT(IN) :: pt_old  ! prognostic variables at step n-1
@@ -825,7 +829,7 @@ ENDIF
       ELSE IF (msg_level >= 10) THEN
          WRITE(string,'(a,i4,a,e20.10)') 'GMRES solver: iteration ', niter,  &
                                          ', residual = ', ABS(z_residual(niter))
-         CALL message(TRIM(routine),TRIM(string))
+         CALL message('',TRIM(string))
       ENDIF !check convergence
 
    ENDDO !mode loop
@@ -1133,8 +1137,9 @@ ENDIF
 
   !>
   !!
-  SUBROUTINE add_si_correction_3d( p_dtime, pt_patch, pt_int_state,  &
-                                   pt_old, pt_now, pt_new)
+  SUBROUTINE add_si_correction_3d( si_coeff, si_rtol, p_dtime,&
+                                   pt_patch, pt_int_state,    &
+                                   pt_old, pt_now, pt_new  )
 
 ! !DESCRIPTION
 !  This subroutine added the semi-implicit correction to the
@@ -1157,12 +1162,11 @@ ENDIF
 !  Code restructuring by Almut Gassmann, MPI-M (2008-09-19)
 !
 
-  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_si_correction:add_si_correction_3d'
+  CHARACTER(len=*), PARAMETER :: routine = 'mo_si_correction:add_si_correction_3d'
 
-  REAL(wp)                       :: p_dtime   ! time step in seconds
-  TYPE(t_patch),TARGET,INTENT(IN)  :: pt_patch  ! single patch
-  TYPE(t_int_state),  INTENT(IN)   :: pt_int_state ! single interpolation state
+  REAL(wp),INTENT(IN) :: si_coeff, si_rtol, p_dtime
+  TYPE(t_patch),TARGET,INTENT(IN) :: pt_patch     ! patch
+  TYPE(t_int_state),   INTENT(IN) :: pt_int_state ! interpolation state
 
   TYPE(t_hydro_atm_prog), INTENT(IN)   :: pt_old  ! prognostic variables at step n-1
   TYPE(t_hydro_atm_prog), INTENT(IN)   :: pt_now  ! prognostic variables at step n

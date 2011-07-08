@@ -112,10 +112,10 @@ MODULE mo_io_vlist
     &                               idiv_method, divavg_cntrwgt,                &
     &                               nnow,nold, ldry_dycore
  !USE mo_ha_dyn_config,       ONLY: ha_dyn_config
-  USE mo_ha_dyn_nml,          ONLY: lsi_3d, asselin_coeff,        &
-    &                               si_2tls, si_cmin,        &
-    &                               si_coeff, si_expl_scheme, si_offctr,        &
-    &                               si_rtol, lref_temp
+ !USE mo_ha_dyn_nml,          ONLY: lsi_3d, asselin_coeff,        &
+ !  &                               si_2tls, si_cmin,        &
+ !  &                               si_coeff, si_expl_scheme, si_offctr,        &
+ !  &                               si_rtol, lref_temp
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_io_nml,              ONLY: lwrite_omega, lwrite_pres, lwrite_z3,       &
     &                               lwrite_vorticity, lwrite_divergence,        &
@@ -575,27 +575,29 @@ CONTAINS
     ! Parameters of /dynamics_ctl/
     ! ----------------------------
     CALL addGlobAttInt('dynamics_ctl:itime_scheme',itime_scheme,vlistID(k_jg),astatus)
-
-
-
-
-    CALL addGlobAttTxtFromLog('dynamics_ctl:lsi_3d',lsi_3d,vlistID(k_jg),astatus)
-   !CALL addGlobAttInt('dynamics_ctl:ileapfrog_startup', &
-   !     ha_dyn_config%ileapfrog_startup,vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('dynamics_ctl:asselin_coeff',asselin_coeff,vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('dynamics_ctl:si_2tls',si_2tls,vlistID(k_jg),astatus)
     CALL addGlobAttInt('dynamics_ctl:idiv_method',idiv_method,vlistID(k_jg),astatus)
     CALL addGlobAttFlt('dynamics_ctl:divavg_cntrwgt',divavg_cntrwgt,vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('dynamics_ctl:si_coeff',si_coeff,vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('dynamics_ctl:si_offctr',si_offctr,vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('dynamics_ctl:si_rtol',si_rtol,vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('dynamics_ctl:si_cmin',si_cmin,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('dynamics_ctl:si_expl_scheme',si_expl_scheme,vlistID(k_jg),astatus)
 
-    IF (iequations == 1 .OR. iequations == 2) THEN
-      CALL addGlobAttTxtFromLog('dynamics_ctl:ldry_dycore',ldry_dycore,vlistID(k_jg),astatus)
-      CALL addGlobAttTxtFromLog('dynmaics_ctl:lref_temp',lref_temp,vlistID(k_jg),astatus)
-    ENDIF
+
+
+   !----------------------------
+   ! namelist/ha_dyn_nml/
+   !----------------------------
+   !CALL addGlobAttTxtFromLog('dynamics_ctl:lsi_3d',lsi_3d,vlistID(k_jg),astatus)
+   !CALL addGlobAttInt('dynamics_ctl:ileapfrog_startup', &
+   !     ha_dyn_config%ileapfrog_startup,vlistID(k_jg),astatus)
+   !CALL addGlobAttFlt('dynamics_ctl:asselin_coeff',asselin_coeff,vlistID(k_jg),astatus)
+   !CALL addGlobAttFlt('dynamics_ctl:si_2tls',si_2tls,vlistID(k_jg),astatus)
+   !CALL addGlobAttFlt('dynamics_ctl:si_coeff',si_coeff,vlistID(k_jg),astatus)
+   !CALL addGlobAttFlt('dynamics_ctl:si_offctr',si_offctr,vlistID(k_jg),astatus)
+   !CALL addGlobAttFlt('dynamics_ctl:si_rtol',si_rtol,vlistID(k_jg),astatus)
+   !CALL addGlobAttFlt('dynamics_ctl:si_cmin',si_cmin,vlistID(k_jg),astatus)
+   !CALL addGlobAttInt('dynamics_ctl:si_expl_scheme',si_expl_scheme,vlistID(k_jg),astatus)
+
+   !IF (iequations == 1 .OR. iequations == 2) THEN
+   !  CALL addGlobAttTxtFromLog('dynamics_ctl:ldry_dycore',ldry_dycore,vlistID(k_jg),astatus)
+   !  CALL addGlobAttTxtFromLog('dynmaics_ctl:lref_temp',lref_temp,vlistID(k_jg),astatus)
+   !ENDIF
 
 
     !

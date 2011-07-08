@@ -49,6 +49,7 @@ MODULE mo_ha_stepping
   USE mo_ext_data,            ONLY: ext_data
   USE mo_model_domain_import, ONLY: n_dom
   USE mo_dynamics_nml,        ONLY: ltwotime, itime_scheme, nold, nnow
+  USE mo_ha_dyn_config,       ONLY: ha_dyn_config
   USE mo_io_nml,              ONLY: l_outputtime, lprepare_output, l_diagtime,  &
                                   & l_checkpoint_time
   USE mo_run_nml,             ONLY: lshallow_water, nsteps, dtime,ltheta_dyn,   &
@@ -97,8 +98,12 @@ CONTAINS
     ! Set up scheme-specific constants
     !-----------------------------------
     SELECT CASE (itime_scheme)
-    CASE (LEAPFROG_SI) ; CALL init_si_params
-    CASE (RK4,SSPRK54) ; CALL init_RungeKutta(itime_scheme)
+    CASE (LEAPFROG_SI) 
+      CALL init_si_params( ha_dyn_config%lsi_3d,    &
+                           ha_dyn_config%si_offctr, &
+                           ha_dyn_config%si_cmin)
+    CASE (RK4,SSPRK54) 
+      CALL init_RungeKutta(itime_scheme)
     END SELECT
 
     !---------------------------------------------------------------

@@ -35,7 +35,6 @@
 !!  - default value of nproma set to 1
 !!  - dt renamed dtime
 !!  - modtype renamed itime_scheme
-!!  - epsass renamed asselin_coeff
 !!  - difftype renamed hdiff_order
 !!  - modtype_hdiff renamed hdiff_time_scheme
 !!  - efold renamed hdiff_efold
