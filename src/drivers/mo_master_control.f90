@@ -66,7 +66,7 @@ MODULE mo_master_control
   PRIVATE
 
   PUBLIC ::  init_master_control, get_my_namelist_filename,   &
-    & get_my_process_component, is_coupled_run,                 &
+    & get_my_process_component, get_my_process_name, is_coupled_run,  &
     & atmo_process, ocean_process, radiation_process
 
 
@@ -77,6 +77,7 @@ MODULE mo_master_control
   ! ------------------------------------------------------------------------
   INTEGER :: my_process_model
   CHARACTER(len=filename_max) :: my_namelist_filename
+  CHARACTER(len=64) :: my_model_name
   
   LOGICAL :: in_coupled_mode
 
@@ -131,8 +132,7 @@ MODULE mo_master_control
     ELSE
       IF (l_atmo_active.AND.(.NOT.l_ocean_active)) THEN
 
-        my_process_model     = atmo_process
-        my_namelist_filename = atmo_namelist_filename
+        CALL set_my_component("ATMO", atmo_process,atmo_namelist_filename)
 
       ELSE IF ((.NOT.l_atmo_active).AND.l_ocean_active) THEN
 
@@ -153,6 +153,12 @@ MODULE mo_master_control
        WRITE ( * , * ) ' Component specific namelists have to be different!'
     ENDIF
 
+    IF (in_coupled_mode) THEN
+
+    ELSE
+
+    ENDIF
+    
     DO i = 1, nbr_ICON_comps
 
        WRITE (complist(i)%nml_name,'(A13)') 'NAMELIST_ICON'
@@ -192,7 +198,36 @@ MODULE mo_master_control
     ENDDO
 
   END FUNCTION init_master_control
+  !------------------------------------------------------------------------
 
+  !------------------------------------------------------------------------
+  SUBROUTINE set_my_component(comp_name, comp_id, comp_namelist)
+    CHAR(len=*), INTENT(in) :: comp_name
+    INTEGER, INTENT(in) ::  comp_id
+    CHAR(len=*), INTENT(in) :: comp_namelist
+       
+    my_process_model     = comp_id
+    my_namelist_filename = TRIM(comp_namelist)
+    my_model_name = TRIM(comp_name)
+    
+    SELECT CASE (my_process_model)
+      CASE (atmo_process)
+      CASE (ocean_process)
+      CASE (radiation_process)
+      CASE default
+        CALL finish("set_my_component","my_process_model is unkown")      
+    END SELECT
+    
+  END SUBROUTINE set_my_component
+  !------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------
+  CHARACTER(len=64) FUNCTION get_my_process_name()
+  
+    get_my_process_name = my_model_name
+    
+  END FUNCTION get_my_namelist_filename
+  !------------------------------------------------------------------------
 
   !------------------------------------------------------------------------
   CHARACTER(len=filename_max) FUNCTION get_my_namelist_filename()
@@ -202,6 +237,7 @@ MODULE mo_master_control
     
   END FUNCTION get_my_namelist_filename
   !------------------------------------------------------------------------
+
 
   !------------------------------------------------------------------------
   INTEGER FUNCTION get_my_process_component()

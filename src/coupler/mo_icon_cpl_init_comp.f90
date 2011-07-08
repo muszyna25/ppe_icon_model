@@ -184,8 +184,7 @@ CONTAINS
     ! -------------------------------------------------------------------
     ! Derive component communicators
     ! -------------------------------------------------------------------
-    my_process_component = get_my_process_component()
-    ICON_color = my_process_component
+    ICON_color = get_my_process_component()
     ICON_key   = 0
     CALL cpl_nml_setup(ICON_color)
     
