@@ -39,10 +39,10 @@ MODULE mo_cubase
   USE mo_cuadjtq,            ONLY: cuadjtq_idx
 #ifdef __ICON__
   USE mo_physical_constants, ONLY: vtmpc1
-  USE mo_echam_conv_nml,     ONLY: cbfac, cminbuoy, cmaxbuoy
+  USE mo_echam_conv_nml,     ONLY: cbfac, cmaxbuoy
 #else
   USE mo_constants,          ONLY: vtmpc1
-  USE mo_cumulus_flux,       ONLY: cbfac, cminbuoy, cmaxbuoy
+  USE mo_cumulus_flux,       ONLY: cbfac, cmaxbuoy
 #endif
 
   IMPLICIT NONE
@@ -54,7 +54,7 @@ MODULE mo_cubase
 CONTAINS
   !>
   !!
-SUBROUTINE cubase(   lmfdudv,  &
+SUBROUTINE cubase(   lmfdudv,  cminbuoy, &
            kproma, kbdim, klev, klevp1, klevm1,                        &
            ptenh,    pqenh,    pgeoh,    paph,   pthvsig,              &
            ptu,      pqu,      plu,                                    &
@@ -89,6 +89,7 @@ SUBROUTINE cubase(   lmfdudv,  &
 !          *CUADJTQ* FOR ADJUSTING T AND Q DUE TO CONDENSATION IN ASCENT
 !
 LOGICAL, INTENT (IN) :: lmfdudv
+REAL(dp),INTENT (IN) :: cminbuoy
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, klevm1
 
 REAL(dp):: ptenh(kbdim,klev),       pqenh(kbdim,klev),                 &

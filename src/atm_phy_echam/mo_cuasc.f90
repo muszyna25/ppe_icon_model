@@ -50,7 +50,7 @@ MODULE mo_cuasc
 #ifdef __ICON__
   USE mo_physical_constants, ONLY : g=>grav, tmelt, vtmpc1, rv, rd, alv, als
   USE mo_echam_conv_nml,     ONLY : nmctop, cmfcmin,     &
-                                    centrmax, cbfac, cminbuoy, cmaxbuoy
+                                    centrmax, cbfac, cmaxbuoy
   USE mo_echam_cloud_params, ONLY : csecfrl
 !                                   cqtmin, crhosno, cn0s                 &
 !                                 , cthomi, ccsacl, clmax, clmin          &
@@ -64,7 +64,7 @@ MODULE mo_cuasc
   USE mo_constants,          ONLY : g, tmelt, vtmpc1, rv, rd, alv, als, cpd        &
                                   , vtmpc2, api, ak, rhoh2o
   USE mo_cumulus_flux,       ONLY : nmctop, cmfcmin,    &
-                                  , centrmax, cbfac, cminbuoy, cmaxbuoy
+                                  , centrmax, cbfac, cmaxbuoy
   USE mo_cloud,              ONLY : cqtmin, crhosno, cn0s                          &
                                   , cthomi, csecfrl, ccsacl, clmax, clmin          &
                                   , ceffmin, ceffmax, crhoi, cauloc
@@ -92,7 +92,7 @@ CONTAINS
   !>
   !!
 SUBROUTINE cuasc(  ncvmicro, lmfdudv, lmfmid, dlev, cmfctop, cprcon,   &
-           pdtime, ptime_step_len,                       &
+           cminbuoy,     pdtime, ptime_step_len,                       &
            kproma, kbdim, klev, klevp1, klevm1,                        &
            ptenh,    pqenh,    puen,     pven,                         &
            ktrac,                                                      &
@@ -157,7 +157,7 @@ SUBROUTINE cuasc(  ncvmicro, lmfdudv, lmfmid, dlev, cmfctop, cprcon,   &
 
 INTEGER, INTENT (IN) :: ncvmicro
 LOGICAL, INTENT (IN) :: lmfdudv, lmfmid
-REAL(dp),INTENT (IN) :: dlev, cmfctop, cprcon
+REAL(dp),INTENT (IN) :: dlev, cmfctop, cprcon, cminbuoy
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, klevm1, ktrac
 REAL(dp),INTENT(IN) :: pdtime, ptime_step_len
 INTEGER :: jl, jk, jt, ik, icall, ikb, ikt, n, locnt

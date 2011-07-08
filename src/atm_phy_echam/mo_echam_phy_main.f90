@@ -778,6 +778,7 @@ CONTAINS
         &          echam_conv_config%cmftau,  &! in
         &          echam_conv_config%cmfctop, &! in
         &          echam_conv_config%cprcon,  &! in
+        &          echam_conv_config%cminbuoy,&! in
         &          jce, nbdim, nlev, nlevp1, nlevm1,   &! in
         &          ntrac,                     &! in     tracers
 !0      &          jb,                        &! in     row index

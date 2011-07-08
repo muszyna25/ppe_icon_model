@@ -43,9 +43,9 @@ MODULE mo_echam_conv_nml
 
   USE mo_kind,                ONLY: wp
   USE mo_impl_constants,      ONLY: SUCCESS
-  USE mo_namelist,            ONLY: position_nml, POSITIONED
   USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_io_units,            ONLY: nnml
+  USE mo_namelist,            ONLY: position_nml, POSITIONED
   USE mo_master_nml,          ONLY: lrestart
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &
                                   & open_and_restore_namelist, close_tmpfile
@@ -59,7 +59,7 @@ MODULE mo_echam_conv_nml
   PRIVATE
 
   PUBLIC  :: cmfdeps,cmfcmin,cmfcmax!< parameters
-  PUBLIC  :: centrmax,cbfac,cminbuoy,cmaxbuoy       !< parameters
+  PUBLIC  :: centrmax,cbfac,cmaxbuoy       !< parameters
   PUBLIC  :: entrpen,entrmid,entrscv,entrdd         !< parameters
   PUBLIC  :: cevapcu                         !< parameters
   PUBLIC  :: nmctop                         !< parameters
@@ -89,12 +89,11 @@ MODULE mo_echam_conv_nml
   REAL(wp) :: nml_cmfctop  !< fractional convective mass flux across the top of cloud 
   REAL(wp) :: nml_cprcon   !< coefficient for determining conversion
                            !< from cloud water to rain
+  REAL(wp) :: nml_cminbuoy !< minimum excess buoyancy
 
-  REAL(wp) :: cmfcmax  !< maximum massflux value allowed for
   REAL(wp) :: centrmax !<
 
   REAL(wp) :: cmaxbuoy !< maximum excess buoyancy
-  REAL(wp) :: cminbuoy !< minimum excess buoyancy
 
   REAL(wp) :: cbfac    !< factor for std dev of virtual pot temp
 
@@ -111,6 +110,7 @@ MODULE mo_echam_conv_nml
                                       !< and initialized in subroutine iniphy.
   REAL(wp) :: cmfcmin  !< minimum massflux value (for safety)
   REAL(wp) :: cmfdeps  !< fractional convective mass flux for downdrafts at lfs
+  REAL(wp) :: cmfcmax  !< maximum massflux value allowed for
 
  !INTEGER :: nml_nauto        !< 1 or 2. autoconversion scheme
  !LOGICAL :: nml_lconvmassfix !< aerosol mass fixer in convection
@@ -120,8 +120,8 @@ MODULE mo_echam_conv_nml
                            nml_lmfpen,nml_lmfmid,            &
                            nml_lmfdd, nml_lmfdudv,           &
                            nml_dlev,  nml_cmftau,            &
-                           nml_cmfctop,                      &
-                           nml_cprcon,cminbuoy,  &
+                           nml_cmfctop, nml_cprcon,          &
+                           nml_cminbuoy,  &
                            entrpen, entrmid,entrscv,entrdd
                          ! nml_nauto, nml_lconvmassfix 
                          ! nml_lmfscv, 
@@ -150,7 +150,7 @@ CONTAINS
     nml_cmfctop  = 0.3_wp
 
     nml_cprcon   = 1.E-4_wp
-    cminbuoy     = 0.025_wp
+    nml_cminbuoy = 0.025_wp
     entrpen      = 1.0E-4_wp  ! average entrainment rate for penetrative convection
     entrmid      = 1.0E-4_wp  ! average entrainment rate for midlevel convection
     entrscv      = 3.0E-4_wp  ! average entrainment rate for shallow convection
@@ -209,6 +209,7 @@ CONTAINS
     echam_conv_config% cmftau   = nml_cmftau
     echam_conv_config% cmfctop  = nml_cmfctop
     echam_conv_config% cprcon   = nml_cprcon
+    echam_conv_config% cminbuoy = nml_cminbuoy
 
    !echam_conv_config% lconvmassfix = nml_lconvmassfix
    !echam_conv_config% nauto        = nml_nauto

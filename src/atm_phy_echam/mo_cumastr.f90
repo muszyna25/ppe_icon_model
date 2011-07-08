@@ -80,7 +80,7 @@ CONTAINS
   !>
   !!
   SUBROUTINE cumastr(  ncvmicro, lmfdudv, lmfdd, lmfmid, dlev, cmftau,    &
-                       cmfctop, cprcon, &
+                       cmfctop, cprcon, cminbuoy, &
                        pdtime, ptime_step_len,                            &
                        kproma, kbdim, klev, klevp1, klevm1, ilab,         &
 !!$                       krow,                                              &
@@ -188,7 +188,7 @@ CONTAINS
 !
 INTEGER, INTENT (IN) :: ncvmicro
 LOGICAL, INTENT (IN) :: lmfdudv, lmfdd, lmfmid 
-REAL(dp),INTENT (IN) :: dlev, cmftau, cmfctop, cprcon
+REAL(dp),INTENT (IN) :: dlev, cmftau, cmfctop, cprcon, cminbuoy
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, ktrac, klevm1
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
 !!$INTEGER, INTENT (IN) :: krow
@@ -339,7 +339,7 @@ INTRINSIC MIN, MAX
 !*             (A) DETERMINE CLOUD BASE VALUES IN 'CUBASE'
 !                  ---------------------------------------
 !
-  CALL cubase(lmfdudv,  kproma, kbdim, klev, klevp1, klevm1,           &
+  CALL cubase(lmfdudv,  cminbuoy, kproma, kbdim, klev, klevp1, klevm1, &
               ztenh,    zqenh,    zgeoh,    paphp1,    pthvsig,        &
               ptu,      pqu,      plu,                                 &
               puen,     pven,     zuu,      zvu,                       &
@@ -581,7 +581,7 @@ INTRINSIC MIN, MAX
 !
   icuasc=1
 !
-  CALL cuasc(ncvmicro, lmfdudv,  lmfmid, dlev, cmfctop, cprcon,        &
+  CALL cuasc(ncvmicro, lmfdudv,  lmfmid, dlev, cmfctop, cprcon, cminbuoy, &
              pdtime, ptime_step_len,                                   &
              kproma, kbdim, klev, klevp1, klevm1,                      &
              ztenh,    zqenh,    puen,     pven,                       &
@@ -878,7 +878,7 @@ INTRINSIC MIN, MAX
   icuasc=2
 !
 !600 CONTINUE
-  CALL cuasc(ncvmicro, lmfdudv, lmfmid, dlev, cmfctop, cprcon, &
+  CALL cuasc(ncvmicro, lmfdudv, lmfmid, dlev, cmfctop, cprcon, cminbuoy,&
              pdtime, ptime_step_len,        &
              kproma, kbdim, klev, klevp1, klevm1,                      &
              ztenh,    zqenh,    puen,     pven,                       &

@@ -75,7 +75,7 @@ CONTAINS
   !>
   !!
   SUBROUTINE cucall( ncvmicro, iconv, lmfdudv, lmfdd, lmfmid, dlev,  &! in
-                     cmftau, cmfctop, cprcon, &! in
+                     cmftau, cmfctop, cprcon, cminbuoy,  &! in
                      kproma, kbdim, klev, klevp1, klevm1,            &! in
                      ktrac,                                          &! in
 !0                   krow,                                           &! in
@@ -106,7 +106,7 @@ CONTAINS
     INTEGER, INTENT(IN) :: ncvmicro 
     INTEGER, INTENT(IN) :: iconv
     LOGICAL, INTENT(IN) :: lmfdudv, lmfdd, lmfmid 
-    REAL(dp),INTENT(IN) :: dlev, cmftau, cmfctop, cprcon
+    REAL(dp),INTENT(IN) :: dlev, cmftau, cmfctop, cprcon, cminbuoy
     INTEGER, INTENT(IN) :: klev, klevm1, klevp1, kproma, kbdim, ktrac
 !0  INTEGER, INTENT(IN) :: krow
     REAL(dp),INTENT(IN) :: pdtime
@@ -225,7 +225,7 @@ CONTAINS
   SELECT CASE (iconv)
   CASE(1)
      CALL cumastr(ncvmicro, lmfdudv, lmfdd, lmfmid, dlev, cmftau,      &
-                  cmfctop, cprcon, &
+                  cmfctop, cprcon, cminbuoy, &
                   pdtime, ptime_step_len,                              &
                   kproma, kbdim, klev, klevp1, klevm1, ilab,           &
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
@@ -252,7 +252,7 @@ CONTAINS
                   ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv, pxtte_cnv    )
   CASE(2)
      CALL cumastrt(ncvmicro, lmfdudv, lmfdd, lmfmid, dlev, cmfctop,    &
-                   cprcon, & 
+                   cprcon, cminbuoy, & 
                   pdtime,  ptime_step_len,                             &
                   kproma, kbdim, klev, klevp1, klevm1, ilab,           &
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
@@ -277,7 +277,7 @@ CONTAINS
                   ptte_cnv, pvom_cnv, pvol_cnv, pqte_cnv, pxtte_cnv    )
   CASE(3)
      CALL cumastrh(ncvmicro, lmfdudv, lmfdd, lmfmid, dlev, cmftau,     &
-                   cmfctop, cprcon, &
+                   cmfctop, cprcon, cminbuoy, &
                   pdtime, ptime_step_len,                              &
                   kproma, kbdim, klev, klevp1, klevm1, ilab,           &
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------

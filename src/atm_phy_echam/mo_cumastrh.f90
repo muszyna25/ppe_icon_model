@@ -75,7 +75,7 @@ CONTAINS
   !>
   !!
   SUBROUTINE cumastrh( ncvmicro, lmfdudv, lmfdd, lmfmid, dlev, cmftau,   &
-                       cmfctop, cprcon, &
+                       cmfctop, cprcon, cminbuoy, &
                        pdtime, ptime_step_len,                           &
                        kproma, kbdim, klev, klevp1, klevm1, ilab,        &
 !0                     krow,                                             &
@@ -184,7 +184,7 @@ CONTAINS
 !
 INTEGER, INTENT (IN) :: ncvmicro 
 LOGICAL, INTENT (IN) :: lmfdudv, lmfdd, lmfmid 
-REAL(dp),INTENT (IN) :: dlev, cmftau, cmfctop, cprcon
+REAL(dp),INTENT (IN) :: dlev, cmftau, cmfctop, cprcon, cminbuoy
 REAL(dp),INTENT (IN) :: pdtime
 REAL(dp),INTENT (IN) :: ptime_step_len
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, ktrac, klevm1
@@ -325,11 +325,12 @@ INTRINSIC MIN, MAX
 !*             (A) DETERMINE CLOUD BASE VALUES IN 'CUBASE'
 !                  ---------------------------------------
 !
-  CALL cubase(lmfdudv, kproma,   kbdim,    klev,     klevp1,   klevm1, &
-              ztenh,    zqenh,    zgeoh,    paphp1,   pthvsig,         &
-              ptu,      pqu,      plu,                                 &
-              puen,     pven,     zuu,      zvu,                       &
-              zcpcu,                                                   &
+  CALL cubase(lmfdudv, cminbuoy, &
+              kproma,   kbdim,    klev,     klevp1,   klevm1, &
+              ztenh,    zqenh,    zgeoh,    paphp1,   pthvsig,&
+              ptu,      pqu,      plu,                        &
+              puen,     pven,     zuu,      zvu,              &
+              zcpcu,                                          &
               ldcum,    kcbot,    ilab)
 !
 !*             (B) DETERMINE TOTAL MOISTURE CONVERGENCE AND
@@ -431,7 +432,7 @@ INTRINSIC MIN, MAX
 !*             (B) DO ASCENT IN 'CUASCT' IN ABSENCE OF DOWNDRAFTS
 !                  ----------------------------------------------
 !
-  CALL cuasct(lmfdudv, lmfmid, dlev, cmfctop, cprcon, &
+  CALL cuasct(lmfdudv, lmfmid, dlev, cmfctop, cprcon, cminbuoy,        &
              ptime_step_len, kproma,  kbdim, klev,klevp1,klevm1,       &
              ztenh,    zqenh,    puen,     pven,                       &
              ktrac,                                                    &
@@ -648,7 +649,7 @@ INTRINSIC MIN, MAX
 !                  --------------------------------------------------
 !
 !600 CONTINUE
-  CALL cuasct(lmfdudv, lmfmid, dlev, cmfctop, cprcon,  &
+  CALL cuasct(lmfdudv, lmfmid, dlev, cmfctop, cprcon, cminbuoy,        &
              ptime_step_len, kproma,  kbdim, klev, klevp1, klevm1,     &
              ztenh,    zqenh,    puen,     pven,                       &
              ktrac,                                                    &

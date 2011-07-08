@@ -72,7 +72,7 @@ CONTAINS
   !>
   !!
   SUBROUTINE cumastrt( ncvmicro, lmfdudv, lmfdd, lmfmid, dlev, cmfctop,     &
-                       cprcon, &
+                       cprcon, cminbuoy, &
                        pdtime, ptime_step_len,                              &
                        kproma, kbdim, klev, klevp1, klevm1,                 &
                        ilab,                                                &
@@ -179,7 +179,7 @@ CONTAINS
 !
 INTEGER, INTENT (IN) :: ncvmicro 
 LOGICAL, INTENT (IN) :: lmfdudv, lmfdd, lmfmid
-REAL(dp),INTENT (IN) :: dlev, cmfctop, cprcon
+REAL(dp),INTENT (IN) :: dlev, cmfctop, cprcon, cminbuoy
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, ktrac, klevm1
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
 !!$INTEGER, INTENT (IN) :: krow
@@ -309,7 +309,8 @@ INTRINSIC MIN, MAX
 !*             (A) DETERMINE CLOUD BASE VALUES IN 'CUBASE'
 !                  ---------------------------------------
 !
-  CALL cubase(lmfdudv,  kproma, kbdim, klev, klevp1, klevm1,           &
+  CALL cubase(lmfdudv,  cminbuoy, &
+              kproma, kbdim, klev, klevp1, klevm1,                     &
               ztenh,    zqenh,    zgeoh,    paphp1,    pthvsig,        &
               ptu,      pqu,      plu,                                 &
               puen,     pven,     zuu,      zvu,                       &
@@ -414,7 +415,7 @@ INTRINSIC MIN, MAX
 !*             (B) DO ASCENT IN 'CUASCT' IN ABSENCE OF DOWNDRAFTS
 !                  ----------------------------------------------
 !
-  CALL cuasct(lmfdudv, lmfmid, dlev, cmfctop, cprcon, &
+  CALL cuasct(lmfdudv, lmfmid, dlev, cmfctop, cprcon, cminbuoy,        &
              ptime_step_len, kproma, kbdim, klev, klevp1, klevm1,      &
              ztenh,    zqenh,    puen,     pven,                       &
              ktrac,                                                    &
@@ -551,7 +552,7 @@ INTRINSIC MIN, MAX
 !                  ----------------------------------------------------
 !600 CONTINUE
 !
-  CALL cuasct(lmfdudv, lmfmid, dlev, cmfctop, cprcon,  &
+  CALL cuasct(lmfdudv, lmfmid, dlev, cmfctop, cprcon, cminbuoy,        &
              ptime_step_len, kproma,  kbdim, klev, klevp1, klevm1,     &
              ztenh,    zqenh,    puen,     pven,                       &
              ktrac,                                                    &

@@ -67,14 +67,15 @@ MODULE mo_echam_conv_config
     REAL(wp) :: entrpen  !< entrainment rate for penetrative convection
     REAL(wp) :: dlev     !< "zdlev" in subroutine "cuasc". Critical thickness (unit: Pa)
                          !< necessary for the onset of convective precipitation
-  
+ 
+    ! Currently unused namelist variables 
     !INTEGER :: nauto        !< 1 or 2. autoconversion scheme
     !LOGICAL :: lconvmassfix !< aerosol mass fixer in convection
     !LOGICAL :: lmfscv    !< true when shallow     convection is switched on
 
-    ! Dependent variables
+    ! Dependent variables - Currently none.
   
-    ! (Currently) constants
+    ! Constants
   
     REAL(wp) :: entrmid  !< entrainment rate for midlevel convection
     REAL(wp) :: entrscv  !< entrainment rate for shallow convection
@@ -95,7 +96,7 @@ MODULE mo_echam_conv_config
   !! So far we have not tried to use different configurations for different
   !! domains (grid levels) in experiments with nesting. Thus the variable
   !! is declared as a scalar. Later it might be changed into an array of
-  !! shape (n_dom).
+  !! shape (/n_dom/) or (/MAX_DOM/).
   !!
   TYPE(t_echam_conv_config) :: echam_conv_config
 
