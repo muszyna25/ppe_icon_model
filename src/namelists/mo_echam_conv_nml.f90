@@ -60,7 +60,7 @@ MODULE mo_echam_conv_nml
 
   PUBLIC  :: cmfdeps,cmfcmin,cmfcmax!< parameters
   PUBLIC  :: centrmax,cbfac,cmaxbuoy       !< parameters
-  PUBLIC  :: entrpen,entrmid,entrscv,entrdd         !< parameters
+  PUBLIC  :: entrmid,entrscv,entrdd         !< parameters
   PUBLIC  :: cevapcu                         !< parameters
   PUBLIC  :: nmctop                         !< parameters
  !PUBLIC  :: echam_conv_ctl                         !< namelist
@@ -74,8 +74,8 @@ MODULE mo_echam_conv_nml
   ! echam_conv_nml namelist variables and auxiliary parameters
   !--------------------------------------------------------------!
 
-  INTEGER :: nml_ncvmicro     !< 0 or 1. Scheme for convective microphysics
   INTEGER :: nml_iconv        !< 1,2,3 for different convection schemes
+  INTEGER :: nml_ncvmicro     !< 0 or 1. Scheme for convective microphysics
 
   LOGICAL :: nml_lmfpen    !< true when penetrative convection is switched on
   LOGICAL :: nml_lmfmid    !< true when midlevel    convection is switched on
@@ -90,6 +90,7 @@ MODULE mo_echam_conv_nml
   REAL(wp) :: nml_cprcon   !< coefficient for determining conversion
                            !< from cloud water to rain
   REAL(wp) :: nml_cminbuoy !< minimum excess buoyancy
+  REAL(wp) :: nml_entrpen  !< entrainment rate for penetrative convection
 
   REAL(wp) :: centrmax !<
 
@@ -97,7 +98,6 @@ MODULE mo_echam_conv_nml
 
   REAL(wp) :: cbfac    !< factor for std dev of virtual pot temp
 
-  REAL(wp) :: entrpen  !< entrainment rate for penetrative convection
   REAL(wp) :: entrmid  !< entrainment rate for midlevel convection
   REAL(wp) :: entrscv  !< entrainment rate for shallow convection
   REAL(wp) :: entrdd   !< entrainment rate for cumulus downdrafts
@@ -116,13 +116,13 @@ MODULE mo_echam_conv_nml
  !LOGICAL :: nml_lconvmassfix !< aerosol mass fixer in convection
  !LOGICAL :: nml_lmfscv    !< true when shallow     convection is switched on
 
-  NAMELIST/echam_conv_ctl/ nml_ncvmicro, nml_iconv,          &
-                           nml_lmfpen,nml_lmfmid,            &
-                           nml_lmfdd, nml_lmfdudv,           &
-                           nml_dlev,  nml_cmftau,            &
-                           nml_cmfctop, nml_cprcon,          &
-                           nml_cminbuoy,  &
-                           entrpen, entrmid,entrscv,entrdd
+  NAMELIST/echam_conv_ctl/ nml_ncvmicro, nml_iconv,   &
+                           nml_lmfpen,   nml_lmfmid,  &
+                           nml_lmfdd,    nml_lmfdudv, &
+                           nml_dlev,     nml_cmftau,  &
+                           nml_cmfctop,  nml_cprcon,  &
+                           nml_cminbuoy, nml_entrpen, &
+                           entrmid,entrscv,entrdd
                          ! nml_nauto, nml_lconvmassfix 
                          ! nml_lmfscv, 
 
@@ -140,6 +140,7 @@ CONTAINS
 
     nml_ncvmicro = 0
     nml_iconv    = 1
+
     nml_lmfpen   = .TRUE.
     nml_lmfmid   = .TRUE.
     nml_lmfdd    = .TRUE.
@@ -151,7 +152,8 @@ CONTAINS
 
     nml_cprcon   = 1.E-4_wp
     nml_cminbuoy = 0.025_wp
-    entrpen      = 1.0E-4_wp  ! average entrainment rate for penetrative convection
+    nml_entrpen  = 1.0E-4_wp  ! average entrainment rate for penetrative convection
+
     entrmid      = 1.0E-4_wp  ! average entrainment rate for midlevel convection
     entrscv      = 3.0E-4_wp  ! average entrainment rate for shallow convection
     entrdd       = 2.0E-4_wp  ! average entrainment rate for downdrafts
@@ -210,6 +212,7 @@ CONTAINS
     echam_conv_config% cmfctop  = nml_cmfctop
     echam_conv_config% cprcon   = nml_cprcon
     echam_conv_config% cminbuoy = nml_cminbuoy
+    echam_conv_config% entrpen  = nml_entrpen
 
    !echam_conv_config% lconvmassfix = nml_lconvmassfix
    !echam_conv_config% nauto        = nml_nauto

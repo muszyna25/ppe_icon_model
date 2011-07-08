@@ -42,10 +42,10 @@ MODULE mo_cumastrt
 
 #ifdef __ICON__
   USE mo_physical_constants,  ONLY: g=>grav, alv, als, tmelt, vtmpc1
-  USE mo_echam_conv_nml,      ONLY: entrpen, entrscv, cmfdeps
+  USE mo_echam_conv_nml,      ONLY: entrscv, cmfdeps
 #else
   USE mo_constants,           ONLY: g, alv, als, tmelt, vtmpc1
-  USE mo_cumulus_flux,        ONLY: entrpen, entrscv, cmfdeps
+  USE mo_cumulus_flux,        ONLY: entrscv, cmfdeps
   USE mo_tracer_processes,    ONLY: xt_conv_massfix
 #endif
 
@@ -72,7 +72,7 @@ CONTAINS
   !>
   !!
   SUBROUTINE cumastrt( ncvmicro, lmfdudv, lmfdd, lmfmid, dlev, cmfctop,     &
-                       cprcon, cminbuoy, &
+                       cprcon, cminbuoy, entrpen, &
                        pdtime, ptime_step_len,                              &
                        kproma, kbdim, klev, klevp1, klevm1,                 &
                        ilab,                                                &
@@ -179,7 +179,7 @@ CONTAINS
 !
 INTEGER, INTENT (IN) :: ncvmicro 
 LOGICAL, INTENT (IN) :: lmfdudv, lmfdd, lmfmid
-REAL(dp),INTENT (IN) :: dlev, cmfctop, cprcon, cminbuoy
+REAL(dp),INTENT (IN) :: dlev, cmfctop, cprcon, cminbuoy, entrpen
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, ktrac, klevm1
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
 !!$INTEGER, INTENT (IN) :: krow

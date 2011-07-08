@@ -56,6 +56,9 @@ MODULE mo_echam_conv_config
     LOGICAL :: lmfmid    !< true when midlevel    convection is switched on
     LOGICAL :: lmfdd     !< true when cumulus downdraft      is switched on
     LOGICAL :: lmfdudv   !< true when cumulus friction       is switched on
+
+    REAL(wp) :: dlev     !< "zdlev" in subroutine "cuasc". Critical thickness (unit: Pa)
+                         !< necessary for the onset of convective precipitation
   
     REAL(wp) :: cmftau   !< characteristic adjustment time scale
                          !< (replaces "ztau" in "cumastr"
@@ -65,8 +68,6 @@ MODULE mo_echam_conv_config
   
     REAL(wp) :: cminbuoy !< minimum excess buoyancy
     REAL(wp) :: entrpen  !< entrainment rate for penetrative convection
-    REAL(wp) :: dlev     !< "zdlev" in subroutine "cuasc". Critical thickness (unit: Pa)
-                         !< necessary for the onset of convective precipitation
  
     ! Currently unused namelist variables 
     !INTEGER :: nauto        !< 1 or 2. autoconversion scheme
