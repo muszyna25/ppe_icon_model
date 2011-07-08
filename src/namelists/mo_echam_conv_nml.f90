@@ -91,7 +91,7 @@ CONTAINS
     routine = 'mo_echam_conv_nml:read_echam_conv_namelist'
 
     !------------------------------------------------------------
-    ! 1. Set default values
+    ! Set default values
     !------------------------------------------------------------
     nml_ncvmicro = 0
     nml_iconv    = 1
@@ -110,8 +110,8 @@ CONTAINS
     nml_entrpen  = 1.0E-4_wp
 
     !-------------------------------------------------------------------
-    ! 2. If this is a resumed integration, overwrite the defaults above
-    !    by values used in the previous integration.
+    ! If this is a resumed integration, overwrite the defaults above
+    ! by values used in the previous integration.
     !-------------------------------------------------------------------
     IF (lrestart) THEN
       funit = open_and_restore_namelist('echam_conv_nml')
@@ -120,20 +120,13 @@ CONTAINS
     END IF
 
     !-------------------------------------------------------------------------
-    ! 3. Read user's (new) specifications. (Done so far by all MPI processors)
+    ! Read user's (new) specifications. (Done so far by all MPI processors)
     !-------------------------------------------------------------------------
     CALL position_nml('echam_conv_nml',STATUS=ist)
     SELECT CASE (ist)
     CASE (POSITIONED)
       READ (nnml, echam_conv_nml)
     END SELECT
-
-    !-----------------------------------------------------
-    ! Store the namelist for restart
-    !-----------------------------------------------------
-    funit = open_tmpfile()
-    WRITE(funit,NML=echam_conv_nml)
-    CALL store_and_close_namelist(funit, 'echam_conv_nml')
 
     !------------------------------------------------------------
     ! Sanity check
@@ -170,6 +163,13 @@ CONTAINS
 
     CALL message('','---------------------------')
     CALL message('','')
+
+    !-----------------------------------------------------
+    ! Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=echam_conv_nml)
+    CALL store_and_close_namelist(funit, 'echam_conv_nml')
 
     !-----------------------------------------------------
     ! Fill configuration state

@@ -68,7 +68,7 @@ MODULE mo_hierarchy_management
   USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_scal2d_grf
   USE mo_dynamics_nml,        ONLY: ltwotime, itime_scheme,              &
     &                               nold, nnow, nnew, nsav1, nsav2
-  USE mo_ha_dyn_nml,          ONLY: ileapfrog_startup, si_2tls
+  USE mo_ha_dyn_config,       ONLY: ha_dyn_config 
   USE mo_diffusion_nml,       ONLY: hdiff_order
   USE mo_io_nml,              ONLY: lprepare_output
   USE mo_parallel_configuration,  ONLY: nproma
@@ -401,7 +401,7 @@ CONTAINS
           CALL prepare_tracer( p_patch(jg), p_int_state(jg),   &! in
             &                  p_hydro_state(jg)%prog(n_now),  &! in
             &                  p_hydro_state(jg)%prog(n_new),  &! in
-            &                  si_2tls,                        &! in
+            &                  ha_dyn_config(jg)%si_2tls,      &! in
             &                  p_hydro_state(jg)%diag,         &! inout
             &                  z_mflx_me, z_vn_traj,           &! out
             &                  z_mflx_ic, z_omega_traj,        &! out
@@ -490,7 +490,7 @@ CONTAINS
             CALL prepare_tracer( p_patch(jg), p_int_state(jg),    &! in
               &           p_hydro_state(jg)%prog(n_now),          &! in
               &           p_hydro_state(jg)%prog(n_new),          &! in
-              &           si_2tls,                                &! in
+              &           ha_dyn_config(jg)%si_2tls,              &! in
               &           p_hydro_state(jg)%diag,                 &! inout
               &           z_mflx_me, z_vn_traj,                   &! out
               &           z_mflx_ic, z_omega_traj,                &! out
@@ -747,7 +747,7 @@ CONTAINS
             CALL prepare_tracer( p_patch(jg), p_int_state(jg),    &! in
               &                  p_hydro_state(jg)%prog(n_now),   &! in
               &                  p_hydro_state(jg)%prog(n_new),   &! in
-              &                  si_2tls,                         &! in
+              &                  ha_dyn_config(jg)%si_2tls,       &! in
               &                  p_hydro_state(jg)%diag,          &! inout
               &                  z_mflx_me, z_vn_traj,            &! out
               &                  z_mflx_ic, z_omega_traj,         &! out
@@ -1259,7 +1259,7 @@ CONTAINS
     REAL(wp),POINTER :: p_temp(:,:,:) => NULL()
 
 
-    SELECT CASE(ileapfrog_startup)
+    SELECT CASE(ha_dyn_config(jg)%ileapfrog_startup)
       !==========================================================================
     CASE(1) ! Step 1 is a simple forward step
       !==========================================================================
@@ -1295,7 +1295,7 @@ CONTAINS
         CALL prepare_tracer( p_patch(jg), p_int_state(jg),    &! in
           &                  p_hydro_state(jg)%prog(n_now),   &! in
           &                  p_hydro_state(jg)%prog(n_new),   &! in
-          &                  si_2tls,                         &! in
+          &                  ha_dyn_config(jg)%si_2tls,       &! in
           &                  p_hydro_state(jg)%diag,          &! inout
           &                  z_mflx_me, z_vn_traj,            &! out
           &                  z_mflx_ic, z_omega_traj,         &! out
@@ -1367,7 +1367,7 @@ CONTAINS
         CALL prepare_tracer( p_patch(jg), p_int_state(jg),    &! in
           &                  p_hydro_state(jg)%prog(n_now),   &! in
           &                  p_hydro_state(jg)%prog(n_new),   &! in
-          &                  si_2tls,                         &! in
+          &                  ha_dyn_config(jg)%si_2tls,       &! in
           &                  p_hydro_state(jg)%diag,          &! inout
           &                  z_mflx_me, z_vn_traj,            &! out
           &                  z_mflx_ic, z_omega_traj,         &! out
@@ -1432,7 +1432,7 @@ CONTAINS
         CALL prepare_tracer( p_patch(jg), p_int_state(jg),    &! in
           &                  p_hydro_state(jg)%prog(n_now),   &! in
           &                  p_hydro_state(jg)%prog(n_new),   &! in
-          &                  si_2tls,                         &! in
+          &                  ha_dyn_config(jg)%si_2tls,       &! in
           &                  p_hydro_state(jg)%diag,          &! inout
           &                  z_mflx_me, z_vn_traj,            &! out
           &                  z_mflx_ic, z_omega_traj,         &! out
@@ -1535,7 +1535,7 @@ CONTAINS
         CALL prepare_tracer( p_patch(jg), p_int_state(jg),  &! in
           &           p_hydro_state(jg)%prog(n_now),        &! in
           &           p_hydro_state(jg)%prog(n_new),        &! in
-          &           si_2tls,                              &! in
+          &           ha_dyn_config(jg)%si_2tls,            &! in
           &           p_hydro_state(jg)%diag,               &! inout
           &           z_mflx_me, z_vn_traj,                 &! out
           &           z_mflx_ic, z_omega_traj,              &! out
@@ -1573,7 +1573,8 @@ CONTAINS
       ! Asselin filter is now called after feedback
 
     CASE DEFAULT
-      CALL finish('mo_hierarchy_management','unknown choice of ileapfrog_startup')
+      CALL finish('mo_hierarchy_management', &
+                  'unknown choice of ha_dyn_config%ileapfrog_startup')
     END SELECT
 
   END SUBROUTINE leapfrog_startup

@@ -44,12 +44,10 @@
 MODULE mo_ha_dyn_config
 
   USE mo_kind, ONLY: wp
-  USE mo_impl_constants,     ONLY: MAX_DOM => max_dom
+  USE mo_impl_constants, ONLY: MAX_DOM
 
   IMPLICIT NONE
-
   PRIVATE
-
   PUBLIC :: t_ha_dyn_config, ha_dyn_config
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'

@@ -111,8 +111,9 @@ MODULE mo_io_vlist
   USE mo_dynamics_nml,        ONLY: itime_scheme,                               &
     &                               idiv_method, divavg_cntrwgt,                &
     &                               nnow,nold, ldry_dycore
+ !USE mo_ha_dyn_config,       ONLY: ha_dyn_config
   USE mo_ha_dyn_nml,          ONLY: lsi_3d, asselin_coeff,        &
-    &                               ileapfrog_startup, si_2tls, si_cmin,        &
+    &                               si_2tls, si_cmin,        &
     &                               si_coeff, si_expl_scheme, si_offctr,        &
     &                               si_rtol, lref_temp
   USE mo_diffusion_nml,       ONLY: hdiff_efdt_ratio, hdiff_multfac,            &
@@ -576,8 +577,13 @@ CONTAINS
     ! Parameters of /dynamics_ctl/
     ! ----------------------------
     CALL addGlobAttInt('dynamics_ctl:itime_scheme',itime_scheme,vlistID(k_jg),astatus)
+
+
+
+
     CALL addGlobAttTxtFromLog('dynamics_ctl:lsi_3d',lsi_3d,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('dynamics_ctl:ileapfrog_startup',ileapfrog_startup,vlistID(k_jg),astatus)
+   !CALL addGlobAttInt('dynamics_ctl:ileapfrog_startup', &
+   !     ha_dyn_config%ileapfrog_startup,vlistID(k_jg),astatus)
     CALL addGlobAttFlt('dynamics_ctl:asselin_coeff',asselin_coeff,vlistID(k_jg),astatus)
     CALL addGlobAttFlt('dynamics_ctl:si_2tls',si_2tls,vlistID(k_jg),astatus)
     CALL addGlobAttInt('dynamics_ctl:idiv_method',idiv_method,vlistID(k_jg),astatus)

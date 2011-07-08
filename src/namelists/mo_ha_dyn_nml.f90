@@ -32,17 +32,18 @@
 !!
 MODULE mo_ha_dyn_nml
 
+  USE mo_ha_dyn_config,         ONLY: ha_dyn_config
   USE mo_kind,                  ONLY: wp
   USE mo_io_units,              ONLY: nnml, nnml_output
   USE mo_exception,             ONLY: message, message_text, finish
   USE mo_namelist,              ONLY: position_nml, positioned
   USE mo_master_nml,            ONLY: lrestart
-  USE mo_ha_dyn_config,         ONLY: ha_dyn_config
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
   USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist, &       
                                       open_and_restore_namelist, close_tmpfile
   USE mo_impl_constants,     ONLY:  AB2
   USE mo_run_nml,            ONLY:   lshallow_water
+
   IMPLICIT NONE
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
@@ -54,10 +55,10 @@ MODULE mo_ha_dyn_nml
   ! configuration of the dynamical core
   !---------------------------------------------------------------
 
-  INTEGER  :: ileapfrog_startup  ! choice of the first time step in
-                                 ! a leapfrog time stepping scheme
-                                 ! 1 = Euler forward
-                                 ! 2 = several sub-steps
+  INTEGER  :: nml_ileapfrog_startup  ! choice of the first time step in
+                                     ! a leapfrog time stepping scheme
+                                     ! 1 = Euler forward
+                                     ! 2 = several sub-steps
 
   REAL(wp) :: asselin_coeff      ! parameter used in Asselin filter
 
@@ -85,7 +86,7 @@ MODULE mo_ha_dyn_nml
   LOGICAL :: lref_temp   ! if .TRUE., involve the reference temperature profile
                          ! in the calculation of pressure gradient force.
 
-  NAMELIST/ha_dyn_nml/ ileapfrog_startup, asselin_coeff,     &
+  NAMELIST/ha_dyn_nml/ nml_ileapfrog_startup, asselin_coeff,     &
                        si_2tls, si_coeff, si_offctr, si_rtol,&
                        si_cmin, lsi_3d, si_expl_scheme,      &
                        lref_temp
@@ -96,12 +97,13 @@ CONTAINS
   SUBROUTINE read_ha_dyn_namelist()
 
     INTEGER :: istat, funit
+    CHARACTER(len=*),PARAMETER :: routine = 'mo_ha_dyn_nml:read_ha_dyn_namelist'
 
     !------------------------------------------------------------
     ! 1. Set up the default values for ha_dyn_nml
     !------------------------------------------------------------
  
-    ileapfrog_startup = 1
+    nml_ileapfrog_startup = 1
     asselin_coeff     = 0.1_wp
  
     si_expl_scheme    = AB2 
@@ -135,7 +137,30 @@ CONTAINS
     END SELECT
 
     !-----------------------------------------------------
-    ! 4. Store the namelist for restart
+    ! Sanity Check
+    !-----------------------------------------------------
+    IF (asselin_coeff<0._wp) CALL finish( TRIM(routine), &
+      'wrong (negative) coefficient of Asselin filter')
+
+    IF (si_offctr>1._wp.OR.si_offctr<0._wp) &
+    CALL finish( TRIM(routine), 'Invalid offcentering parameter.'//&
+                 'Valid range for si_offctr is [0,1].')
+
+    IF (si_2tls<0.5_wp.OR.si_2tls>1._wp) CALL finish( TRIM(routine),&
+      'Improper value for the centering parameter si_2tls. Should be in [0.5,1]')
+
+    IF (lref_temp) THEN
+      CALL message(TRIM(routine),                            &
+          'use of reference temperature switched ON in ' //  &
+          'calculation of pressure gradient force.')
+    ELSE                                                                    
+      CALL message(TRIM(routine),                            &
+           'use of reference temperature switched OFF in '// &
+           'calculation of pressure gradient force.')
+    ENDIF 
+
+    !-----------------------------------------------------
+    ! Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
     WRITE(funit,NML=ha_dyn_nml)
@@ -145,10 +170,10 @@ CONTAINS
   ! IF(p_pe == p_io) WRITE(nnml_output,nml=ha_dyn_nml)
 
     !-----------------------------------------------------
-    ! 5. Fill configuration state
+    ! Fill configuration state
     !-----------------------------------------------------
 
-    ha_dyn_config(:)% ileapfrog_startup = ileapfrog_startup
+    ha_dyn_config(:)% ileapfrog_startup = nml_ileapfrog_startup
     ha_dyn_config(:)% asselin_coeff     = asselin_coeff
     ha_dyn_config(:)% si_expl_scheme    = si_expl_scheme
     ha_dyn_config(:)% si_2tls           = si_2tls
@@ -164,40 +189,11 @@ CONTAINS
   !!
   SUBROUTINE check_ha_dyn
 
-    CHARACTER(len=*),PARAMETER :: routine = 'check_ha_dyn'
-
-    IF (si_offctr>1._wp.OR.si_offctr<0._wp) THEN                              
-      CALL finish( TRIM(routine), 'Invalid offcentering parameter.'//&        
-                 & 'Valid range for si_offctr is [0,1].')                     
-    ENDIF                                                                     
-                                                                              
+    CHARACTER(len=*),PARAMETER :: routine = 'mo_ha_dyn_nml:read_ha_dyn_namelist'
     IF (lshallow_water .AND. lsi_3d) THEN                                     
       CALL message( TRIM(routine), 'In shallow water mode lsi_3d is set to .FALSE.')        
       lsi_3d=.FALSE.                                                          
     ENDIF  
-
-   IF(asselin_coeff<0._wp) THEN                                              
-      CALL finish( TRIM(routine),'wrong (negative) coefficient of Asselin filter')
-    ENDIF                                                                     
-                                                                              
-    IF(si_2tls<0.5_wp) THEN                                                   
-      CALL finish( TRIM(routine),&                                            
-                   'off centering parameter si_2tls outside stability range') 
-    ENDIF                                                                     
-                                                                              
-    IF(si_2tls>1._wp) THEN                                                    
-      CALL finish( TRIM(routine),'off centering parameter si_2tls larger than 1')
-    ENDIF
-
-    IF (lref_temp) THEN                                                     
-      CALL message(TRIM(routine), &                                         
-          'use of reference temperature switched ON in ' // &              
-          'calculation of pressure gradient force.')                       
-    ELSE                                                                    
-      CALL message(TRIM(routine), &                                         
-           'use of reference temperature switched OFF in ' // &             
-           'calculation of pressure gradient force.')                       
-    ENDIF 
 
   END SUBROUTINE check_ha_dyn
 
