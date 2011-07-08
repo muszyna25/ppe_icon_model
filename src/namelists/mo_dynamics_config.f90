@@ -44,6 +44,7 @@
 MODULE mo_dynamics_config
 
   USE mo_kind,           ONLY: wp
+  USE mo_exception,      ONLY: finish
   USE mo_impl_constants, ONLY: MAX_DOM, LEAPFROG_EXPL, LEAPFROG_SI
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
 
