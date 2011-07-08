@@ -45,17 +45,17 @@
 !!
 MODULE mo_echam_phy_nml
 
+  USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_namelist,           ONLY: position_nml, POSITIONED
   USE mo_io_units,           ONLY: nnml
   USE mo_master_nml,         ONLY: lrestart
-  USE mo_echam_phy_config,   ONLY: echam_phy_config
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist, &
                                  & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
-
-  PUBLIC :: read_echam_phy_namelist
   PRIVATE
+  PUBLIC :: read_echam_phy_namelist
+
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
   LOGICAL :: nml_lrad       !< .true. for radiation.
@@ -88,7 +88,6 @@ CONTAINS
     !----------------------------------------------------------------
     ! Set default values
     !----------------------------------------------------------------
-
     nml_lrad      = .TRUE.
     nml_lvdiff    = .TRUE.
     nml_lconv     = .TRUE.
@@ -132,7 +131,6 @@ CONTAINS
     !-----------------------------------------------------
     ! Fill the configuration state
     !-----------------------------------------------------
-
     echam_phy_config% lrad      = nml_lrad                                                
     echam_phy_config% lvdiff    = nml_lvdiff                                              
     echam_phy_config% lconv     = nml_lconv                                               

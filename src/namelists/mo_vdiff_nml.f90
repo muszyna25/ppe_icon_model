@@ -40,11 +40,8 @@ MODULE mo_vdiff_nml
                                   & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
-
   PRIVATE
-
   PUBLIC :: read_vdiff_namelist
-! PUBLIC :: vdiff_nml                             !< namelist
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 

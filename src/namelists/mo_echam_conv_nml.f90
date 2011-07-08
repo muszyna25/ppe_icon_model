@@ -45,10 +45,9 @@ MODULE mo_echam_conv_nml
 
   IMPLICIT NONE
   PRIVATE
-
   PUBLIC  :: read_echam_conv_namelist
-  PUBLIC  :: echam_conv_nml_setup                   !< subroutine
-  PUBLIC  :: cleanup_cuparam                        !< subroutine 
+  PUBLIC  :: echam_conv_nml_setup 
+  PUBLIC  :: cleanup_cuparam
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
