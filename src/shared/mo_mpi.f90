@@ -88,8 +88,14 @@ MODULE mo_mpi
   INTEGER :: global_mpi_communicator  ! replaces MPI_COMM_WORLD in one application
   INTEGER :: global_mpi_size          ! total number of processes in global world
   INTEGER :: my_global_mpi_id         ! process id in global world
-  LOGICAL :: is_global_parallel
+  LOGICAL :: is_global_mpi_parallel
   
+  INTEGER :: process_mpi_all_comm
+  INTEGER :: process_mpi_all_size          ! total number of processes in global world
+  INTEGER :: my_process_mpi_all_id
+  LOGICAL :: process_is_mpi_parallel
+  LOGICAL :: process_is_stdio
+     
   INTEGER :: model_mpi_communicator  ! communicator inside a model
   INTEGER :: my_model_mpi_id  
   
@@ -445,7 +451,7 @@ CONTAINS
     END IF
 
     ! get local PE identification
-    CALL MPI_COMM_RANK (process_mpi_all_comm, process_mpi_id, p_error)
+    CALL MPI_COMM_RANK (process_mpi_all_comm, my_process_mpi_all_id, p_error)
 
     IF (p_error /= MPI_SUCCESS) THEN
        WRITE (nerr,'(a)') ' MPI_COMM_RANK failed.'
@@ -453,32 +459,31 @@ CONTAINS
        CALL p_abort
     ELSE
 #ifdef __DEBUG__
-       WRITE (nerr,'(a,i4,a)') ' process_mpi_id ', process_mpi_id, ' started.'
+       WRITE (nerr,'(a,i4,a)') ' my_process_mpi_all_id ', my_process_mpi_all_id, ' started.'
 #endif
     END IF
 #else
-    process_mpi_id = 0
+    my_process_mpi_all_id = 0
 #endif
 
     ! get number of available PEs
 
 #ifndef NOMPI
-    CALL MPI_COMM_SIZE (process_mpi_all_comm, process_mpi_size, p_error)
+    CALL MPI_COMM_SIZE (process_mpi_all_comm, process_mpi_all_size, p_error)
 
     IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a,i4,a)') ' PE: ',process_mpi_id, ' MPI_COMM_SIZE failed.'
+       WRITE (nerr,'(a,i4,a)') ' PE: ',my_process_mpi_all_id, ' MPI_COMM_SIZE failed.'
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
        CALL p_abort
     END IF
 #else
-    process_mpi_size = 1
+    process_mpi_all = 1
 #endif
 
-    IF (process_mpi_size < 2) THEN
+    IF (process_mpi_all_size < 2) THEN
        process_is_mpi_parallel = .false.
        process_is_stdio = .true.
        WRITE (nerr,'(a)') '  Single processor run.'
-       END IF
        p_pe = 0
        p_nprocs = 1
     ELSE
@@ -495,7 +500,7 @@ CONTAINS
        p_nprocs = npes
     END IF
 
-  END SUBROUTINE p_start_reset
+  END SUBROUTINE set_process_mpi_communicator
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
@@ -598,7 +603,7 @@ CONTAINS
     p_io = 0 ! set the I/O pe statically to 0
     global_mpi_size  = 0        ! total number of processes in global world
     my_global_mpi_id = 0        ! process id in global world
-    is_global_parallel = .false.
+    is_global_mpi_parallel = .false.
 #ifdef _OPENMP
     global_no_of_threads = 1
 #endif
@@ -694,10 +699,10 @@ CONTAINS
 #endif
 
     IF (global_mpi_size < 2) THEN
-      is_global_parallel = .FALSE.
+      is_global_mpi_parallel = .FALSE.
       WRITE (nerr,'(a)') '  Single processor run.'
     ELSE
-      is_global_parallel = .TRUE.
+      is_global_mpi_parallel = .TRUE.
       IF (my_global_mpi_id == 0) THEN
         WRITE (nerr,'(a,a,i0,a)') TRIM(yname), ': Globally run on ',&
           & global_mpi_size, ' processors.'
@@ -711,7 +716,7 @@ CONTAINS
     ! the environment variable too.
     IF (my_global_mpi_id == 0) THEN
 
-      IF (is_global_parallel) THEN
+      IF (is_global_mpi_parallel) THEN
         WRITE (nerr,'(/,a)') ' Running globally hybrid OpenMP-MPI mode.'
       ELSE
         WRITE (nerr,'(/,a)') ' Running globally OpenMP mode.'
