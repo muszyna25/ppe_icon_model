@@ -91,6 +91,7 @@ MODULE mo_mpi
   LOGICAL :: is_global_mpi_parallel
   
   INTEGER :: process_mpi_all_comm
+  INTEGER :: process_mpi_all
   INTEGER :: process_mpi_all_size          ! total number of processes in global world
   INTEGER :: my_process_mpi_all_id
   LOGICAL :: process_is_mpi_parallel
