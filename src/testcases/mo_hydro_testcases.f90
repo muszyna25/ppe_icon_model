@@ -78,8 +78,7 @@ MODULE mo_hydro_testcases
   USE mo_ext_data,        ONLY: ext_data
   USE mo_model_domain_import,ONLY: n_dom
   USE mo_interpolation,   ONLY: t_int_state
-  USE mo_dynamics_nml,    ONLY: ltwotime, itime_scheme,               &
-       &                        nnow, nold, nnew 
+  USE mo_dynamics_config, ONLY: dynamics_config 
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,         ONLY: lshallow_water,          &
        &                        num_lev, ntracer, ltransport, &
@@ -401,20 +400,32 @@ END SUBROUTINE setup_testcase
   INTEGER :: jg
   INTEGER :: nlev              !< number of full levels
   INTEGER :: ist     !< status variable
+
+  LOGICAL :: ltwotime
+  INTEGER :: itime_scheme
+  INTEGER :: nold(n_dom), nnow(n_dom), nnew(n_dom)
 !-------------------------------------------------
+
+nold(:) = dynamics_config(1:n_dom)%nold
+nnow(:) = dynamics_config(1:n_dom)%nnow
+nnew(:) = dynamics_config(1:n_dom)%nnew
 
 DO jg = 1,n_dom
 
   nlev = pt_patch(jg)%nlev
 
+  ltwotime     = dynamics_config(jg)%ltwotime
+  itime_scheme = dynamics_config(jg)%itime_scheme
+
   IF (lshallow_water) THEN
 
     IF (TRIM(ctest_name)=='PA') THEN
       !
-      IF ( .NOT.ltwotime .OR. (itime_scheme /= TRACER_ONLY) )           &
-           & CALL finish(TRIM(routine),'running the model in  &
-           & Pure Advection mode requires ltwotime=.TRUE. and &
-           & itime_scheme=1.')
+      IF ( .NOT.ltwotime .OR. (itime_scheme /= TRACER_ONLY) ) THEN 
+        CALL finish(TRIM(routine),'running the model in  &
+          & Pure Advection mode requires ltwotime=.TRUE. and &
+          & itime_scheme=1.')
+      END IF
       !
       CALL init_hydro_state_prog_patest(pt_patch(jg),       &
            &           pt_hydro_state(jg)%prog(nnow(jg)),   &

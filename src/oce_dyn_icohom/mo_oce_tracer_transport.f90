@@ -52,7 +52,7 @@ USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, idisc_scheme,    &
                                     &   ab_const, ab_gam, expl_vertical_tracer_diff,&
                                     &   iswm_oce
 USE mo_parallel_configuration,  ONLY: nproma
-USE mo_dynamics_nml,              ONLY: nold,nnew
+USE mo_dynamics_config,           ONLY: dynamics_config 
 USE mo_run_nml,                   ONLY: dtime
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state!, t_hydro_ocean_diag
 USE mo_model_domain,              ONLY: t_patch
@@ -120,8 +120,13 @@ INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_e
 !INTEGER :: ntracers
 !CHARACTER(len=max_char_length), PARAMETER :: &
 !       & routine = ('mo_tracer_advection:advect_tracer_ab')
+
+INTEGER :: nold(1),nnew(1)
 !-------------------------------------------------------------------------------
 !
+
+nold(1) = dynamics_config(1)%nold
+nnew(1) = dynamics_config(1)%nnew
 
 IF(idisc_scheme==1)THEN!Mimetic discretization
   FLUX_CALCULATION = MIMETIC
@@ -248,7 +253,9 @@ REAL(wp) :: delta_t
 REAL(wp) :: h_tmp(nproma,n_zlev, p_patch%nblks_c)
 ! CHARACTER(len=max_char_length), PARAMETER :: &
 !        & routine = ('mo_tracer_advection:advect_individual_tracer')
+
 !-------------------------------------------------------------------------------
+
 delta_t= dtime
 h_tmp = 0.0_wp
 CALL advect_horizontal(p_patch, trac_old,           &
@@ -321,7 +328,13 @@ TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
 TYPE(t_cartesian_coordinates):: z_vn_c2(nproma,n_zlev,p_patch%nblks_c)
 ! CHARACTER(len=max_char_length), PARAMETER :: &
 !        & routine = ('mo_tracer_advection:advect_individual_tracer')
+
+INTEGER :: nold(1),nnew(1)
 !-------------------------------------------------------------------------------
+
+nold(1) = dynamics_config(1)%nold
+nnew(1) = dynamics_config(1)%nnew
+
 z_tol= 0.0_wp!1.0E-13
 
 rl_start_c   = 1
@@ -653,7 +666,12 @@ REAL(wp) :: z_tol
 !TYPE(t_cartesian_coordinates):: z_vn_c2(nproma,n_zlev,p_patch%nblks_c)
 ! CHARACTER(len=max_char_length), PARAMETER :: &
 !        & routine = ('mo_tracer_advection:advect_individual_tracer')
+
+INTEGER :: nold(1)
 !-------------------------------------------------------------------------------
+
+nold(1) = dynamics_config(1)%nold
+
 z_tol= 0.0_wp!1.0E-13
 
 rl_start_c   = 1
@@ -1386,7 +1404,13 @@ TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
 TYPE(t_cartesian_coordinates):: z_vn_c2(nproma,n_zlev,p_patch%nblks_c)
 ! CHARACTER(len=max_char_length), PARAMETER :: &
 !        & routine = ('mo_tracer_advection:advect_individual_tracer')
+
+INTEGER :: nold(1),nnew(1)
 !-------------------------------------------------------------------------------
+
+nold(1) = dynamics_config(1)%nold
+nnew(1) = dynamics_config(1)%nnew
+
 z_tol= 0.0_wp!1.0E-13
 
 dtime2= 1.0_wp*dtime

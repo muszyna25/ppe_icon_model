@@ -54,7 +54,7 @@ USE mo_ocean_nml,                 ONLY: n_zlev, solver_tolerance, iforc_oce,&! t
                                     &   ab_const, ab_beta, ab_gam, iswm_oce,&
                                     &   expl_vertical_velocity_diff, itestcase_oce
 USE mo_run_nml,                   ONLY: dtime
-USE mo_dynamics_nml,              ONLY: nold,nnew
+USE mo_dynamics_config,           ONLY: dynamics_config 
 USE mo_physical_constants,        ONLY: grav!, re
 USE mo_math_constants,      ONLY: pi, deg2rad
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state,set_lateral_boundary_values! t_hydro_ocean_diag
@@ -141,7 +141,13 @@ CHARACTER(len=max_char_length) :: string
 INTEGER :: rl_start_c, rl_end_c, i_startblk_c, i_endblk_c, jc,jb, jk,i_startidx_c, i_endidx_c
 !CHARACTER(len=max_char_length), PARAMETER :: &
 !       & routine = ('mo_oce_ab_timestepping_rbf:solve_free_sfc_ab_RBF')
+
+INTEGER :: nold(1), nnew(1)
 !-------------------------------------------------------------------------------
+
+nold(1) = dynamics_config(1)%nold
+nnew(1) = dynamics_config(1)%nnew
+
 tolerance = solver_tolerance
 write(876,*)'-----------------------------',timestep
 z_h_c = 0.0_wp
@@ -376,7 +382,11 @@ REAL(wp) :: gdt
 REAL(wp) :: z_gradh_e(nproma,p_patch%nblks_e)
 ! CHARACTER(len=max_char_length), PARAMETER :: &
 !        & routine = ('mo_oce_ab_timestepping_rbf:calculate_explicit_term_ab_RBF')
+
+INTEGER :: nold(1)
 !-----------------------------------------------------------------------  
+nold(1) = dynamics_config(1)%nold
+
 gdt=grav*dtime
 
 rl_start = 1
@@ -690,7 +700,12 @@ REAL(wp) :: div_z_c(nproma,1,p_patch%nblks_c)
 REAL(wp) :: z_vn_ab(nproma,n_zlev,p_patch%nblks_e)
 !CHARACTER(len=max_char_length), PARAMETER :: &
 !       & routine = ('mo_oce_ab_timestepping_rbf:fill_rhs4surface_eq_ab')
+
+INTEGER :: nold(1)
 !-------------------------------------------------------------------------------
+
+nold(1) = dynamics_config(1)%nold
+
 gdt2 = grav*(dtime)**2
 
 rl_start_e = 1
@@ -910,8 +925,14 @@ REAL(wp) :: z_grad_h(nproma,p_patch%nblks_e)
 REAL(wp) :: gdt
 !CHARACTER(len=max_char_length), PARAMETER ::     &
 !  &      routine = ('mo_oce_ab_timestepping_rbf: calc_normal_velocity_ab_RBF')
+
+INTEGER :: nold(1), nnew(1)
 !-----------------------------------------------------------------------  
 !CALL message (TRIM(routine), 'start')        
+
+nold(1) = dynamics_config(1)%nold
+nnew(1) = dynamics_config(1)%nnew
+
 gdt=grav*dtime
 ! Step 1) Compute normal derivative of new surface height
  CALL grad_fd_norm_oce_2D(p_os%p_prog(nnew(1))%h, &

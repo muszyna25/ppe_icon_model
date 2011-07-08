@@ -50,7 +50,7 @@ USE mo_impl_constants,            ONLY: sea_boundary,sea, &
   &                                     max_char_length
 USE mo_ocean_nml,                ONLY: n_zlev, no_tracer,&! toplev, &
                                     &   ab_const, ab_beta, ab_gam, iswm_oce, idisc_scheme
-USE mo_dynamics_nml,              ONLY: nold,nnew
+USE mo_dynamics_config,          ONLY: dynamics_config 
 USE mo_parallel_configuration,  ONLY: nproma
 USE mo_run_nml,                   ONLY: dtime, nsteps
 USE mo_physical_constants,        ONLY: grav!, re
@@ -147,7 +147,13 @@ TYPE(t_oce_monitor), POINTER :: ptr_monitor
 !LOGICAL :: l_first_timestep
 ! CHARACTER(len=max_char_length), PARAMETER :: &
 !        & routine = ('mo_oce_diagnostics:calculate_oce_diagnotics')
+
+INTEGER :: nold(1), nnew(1)
 !-----------------------------------------------------------------------
+
+nold(1) = dynamics_config(1)%nold
+nnew(1) = dynamics_config(1)%nnew
+
 rl_start_c = 1
 rl_end_c   = min_rlcell
 i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
@@ -294,7 +300,12 @@ REAL(wp) :: z_w
 TYPE(t_oce_monitor), POINTER :: ptr_monitor
 ! CHARACTER(len=max_char_length), PARAMETER :: &
 !        & routine = ('mo_oce_diagnostics:construct_oce_diagnostics')
+
+INTEGER :: nold(1)
 !-----------------------------------------------------------------------
+
+  nold(1) = dynamics_config(1)%nold
+
   ALLOCATE(oce_ts)
 
   ALLOCATE(oce_ts%oce_diagnostics(0:nsteps))

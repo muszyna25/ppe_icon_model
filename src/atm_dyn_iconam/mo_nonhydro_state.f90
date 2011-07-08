@@ -53,7 +53,7 @@ MODULE mo_nonhydro_state
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: n_dom, l_limited_area
   USE mo_nonhydrostatic_nml,  ONLY: l_nest_rcf
-  USE mo_dynamics_nml,        ONLY: nsav1, nsav2, itime_scheme
+  USE mo_dynamics_config,     ONLY: dynamics_config 
 !  USE mo_advection_nml,       ONLY: ctracer_list
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,             ONLY: iforcing,             &
@@ -473,7 +473,7 @@ MODULE mo_nonhydro_state
       ! level is needed for full-field interpolation and boundary-tendency calculation
       IF (l_nest_rcf .AND. n_dom > 1) THEN
         ntl = ntl + 1
-        nsav1(jg) = ntl
+        dynamics_config(jg)%nsav1 = ntl
       ENDIF
 
       ! In the presence of grid nesting, another extra time level is needed to save
@@ -481,7 +481,7 @@ MODULE mo_nonhydro_state
       ! This extra time level is also used to store the driving-model data in the
       ! limited-area mode
       IF (l_limited_area .OR. jg > 1) ntl = ntl + 1
-      nsav2(jg) = ntl
+      dynamics_config(jg)%nsav2 = ntl
 
       !
       ! Allocate pointer array p_nh_state(jg)%prog, as well as the 
@@ -881,7 +881,8 @@ MODULE mo_nonhydro_state
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1
 
-    IF (itime_scheme == 4 .OR. itime_scheme == 6) THEN
+    IF (dynamics_config(1)%itime_scheme == 4 .OR.  &
+        dynamics_config(1)%itime_scheme == 6) THEN
      n_timlevs = 2
     ELSE
      n_timlevs = 1

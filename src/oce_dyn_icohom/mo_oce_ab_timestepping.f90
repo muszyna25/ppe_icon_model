@@ -51,7 +51,7 @@ MODULE mo_oce_ab_timestepping
 USE mo_impl_constants,                 ONLY: max_char_length!sea_boundary, &
 !  &                                          min_rlcell, min_rledge, min_rlcell, &
 USE mo_ocean_nml,                      ONLY: idisc_scheme
-USE mo_dynamics_nml,                   ONLY: nnew, nold
+USE mo_dynamics_config,                ONLY: dynamics_config 
 USE mo_oce_state,                      ONLY: t_hydro_ocean_state!, t_hydro_ocean_diag
 USE mo_oce_forcing,                     ONLY: t_ho_sfc_flx
 USE mo_interpolation,                  ONLY: t_int_state
@@ -172,7 +172,12 @@ TYPE(t_hydro_ocean_state)         :: p_os
 ! Local variables
 ! CHARACTER(len=max_char_length), PARAMETER :: &
 !        & routine = ('mo_oce_ab_timestepping:calc_vert_velocity')
+
+INTEGER :: nold(1), nnew(1)
 !-----------------------------------------------------------------------  
+
+nold(1) = dynamics_config(1)%nold
+nnew(1) = dynamics_config(1)%nnew
 
 !Store current vertical velocity before the new one is calculated
 p_os%p_diag%w_old = p_os%p_diag%w

@@ -39,7 +39,7 @@ MODULE mo_echam_phy_init
   USE mo_exception,            ONLY: finish
 
   ! model configuration
-  USE mo_dynamics_nml,       ONLY: nnow
+  USE mo_dynamics_config,      ONLY: dynamics_config 
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,            ONLY: nlev, nlevp1, nvclev,  &
     &                              iqv, iqt, ntracer, ltestcase
@@ -189,7 +189,7 @@ CONTAINS
     INTEGER  :: ndomain, nblks_c, jg, jb, jbs, jc, jcs, jce, jk
     REAL(wp) :: zprat, zn1, zn2, zcdnc, zlat
     LOGICAL  :: lland, lglac
-    INTEGER  :: nexp
+    INTEGER  :: nexp, nnow
 
     TYPE(t_echam_phy_field),POINTER :: field => NULL()
     TYPE(t_echam_phy_tend) ,POINTER :: tend  => NULL()
@@ -208,6 +208,7 @@ CONTAINS
 
       field => prm_field(jg)
       tend  => prm_tend (jg)
+      nnow  =  dynamics_config(jg)%nnow
 
       !----------------------------------------
       ! Loop over all blocks in domain jg
@@ -241,10 +242,10 @@ CONTAINS
             ! level above surface. For this test case, currently we assume
             ! there is no land or sea ice.
 
-           !field% tsfc_tile(jcs:jce,iwtr,jb) = p_hydro_state(jg)%prog(nnow(jg))% &
+           !field% tsfc_tile(jcs:jce,iwtr,jb) = p_hydro_state(jg)%prog(nnow)% &
            !                                  & temp(jcs:jce,nlev,jb)
            !field% tsfc     (jcs:jce,     jb) = field% tsfc_tile(jcs:jce,iwtr,jb)
-            field% tsfc_tile(jcs:jce,jb,iwtr) = p_hydro_state(jg)%prog(nnow(jg))% &
+            field% tsfc_tile(jcs:jce,jb,iwtr) = p_hydro_state(jg)%prog(nnow)% &
                                               & temp(jcs:jce,nlev,jb)
             field% tsfc     (jcs:jce,     jb) = field% tsfc_tile(jcs:jce,jb,iwtr)
 
@@ -256,7 +257,7 @@ CONTAINS
 
         ! Compute pressure at half and full levels
 
-        CALL half_level_pressure( p_hydro_state(jg)%prog(nnow(jg))%pres_sfc(:,jb), &! in
+        CALL half_level_pressure( p_hydro_state(jg)%prog(nnow)%pres_sfc(:,jb), &! in
                                 & nproma, jce,                          &! in
                                 & field%presi_old(:,:,jb)               )! out
 
@@ -310,10 +311,10 @@ CONTAINS
       ! "tend" state vectors.
 
 !$OMP PARALLEL WORKSHARE
-      field% q(:,:,:,iqv)  = p_hydro_state(jg)%prog(nnow(jg))% tracer(:,:,:,iqv)
-     !field% q(:,:,:,iqc)  = p_hydro_state(jg)%prog(nnow(jg))% tracer(:,:,:,iqc)
-     !field% q(:,:,:,iqi)  = p_hydro_state(jg)%prog(nnow(jg))% tracer(:,:,:,iqi)
-     !field% q(:,:,:,iqt:) = p_hydro_state(jg)%prog(nnow(jg))% tracer(:,:,:,iqt:)
+      field% q(:,:,:,iqv)  = p_hydro_state(jg)%prog(nnow)% tracer(:,:,:,iqv)
+     !field% q(:,:,:,iqc)  = p_hydro_state(jg)%prog(nnow)% tracer(:,:,:,iqc)
+     !field% q(:,:,:,iqi)  = p_hydro_state(jg)%prog(nnow)% tracer(:,:,:,iqi)
+     !field% q(:,:,:,iqt:) = p_hydro_state(jg)%prog(nnow)% tracer(:,:,:,iqt:)
 
       field% xvar  (:,:,:) = cvarmin*field% q(:,:,:,iqv)
       field% xskew (:,:,:) = 2._wp

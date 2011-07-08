@@ -55,8 +55,7 @@ MODULE mo_ocean_model
   USE mo_global_variables,    ONLY: setup_physics        ! process forcing control parameters
 !0  &                               impiom,            & !    :
   USE mo_ocean_nml,           ONLY: setup_ocean_nml
-  USE mo_dynamics_nml,        ONLY: dynamics_nml_setup,   &
-    & cleanup_dyn_params 
+  USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
   USE mo_diffusion_nml,       ONLY: diffusion_nml_setup
   USE mo_io_nml,              ONLY: io_nml_setup,         & ! process I/O
     & dt_data,              & !    :
@@ -484,10 +483,6 @@ CONTAINS
     IF (ist /= success) THEN
       CALL finish(TRIM(routine),'deallocation of lprepare_output failed')
     ENDIF
-    
-    ! deallocate time level variables
-
-    CALL cleanup_dyn_params  ! Time level variables 
     
     CALL message(TRIM(routine),'clean-up finished')
     

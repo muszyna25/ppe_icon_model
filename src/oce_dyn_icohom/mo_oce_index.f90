@@ -44,7 +44,7 @@ USE mo_run_nml,                ONLY: nsteps
 USE mo_ocean_nml,              ONLY: n_zlev, i_dbg_oce, i_dbg_inx, str_proc_tst, &
   &                                  i_oct_blk, i_oct_idx, i_oct_ilv, rlon_in, rlat_in
 ! &                                  i_ocv_blk, i_ocv_idx, i_ocv_ilv, t_val,  &
-USE mo_dynamics_nml,           ONLY: nold,nnew
+USE mo_dynamics_config,        ONLY: dynamics_config 
 USE mo_run_nml,                ONLY: dtime
 USE mo_loopindices,            ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_impl_constants,         ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
@@ -117,7 +117,7 @@ CONTAINS
   jg = n_dom
 
   ! set time level to old level (nold(1)=3)
-  jt = nold(jg)
+  jt = dynamics_config(jg)%nold
 
   ! search for block/index of debug output cell at given lat/lon
   CALL search_latlonindex (ppatch, rlat_in, rlon_in, c_i, c_b)
@@ -151,9 +151,9 @@ CONTAINS
       &   ', nblks_e =', ppatch(jg)%nblks_e, &
       &   ', nblks_v =', ppatch(jg)%nblks_v
     CALL message ('', message_text)
-    WRITE(message_text,'(3(a,i8))')          &
-      &   '  nold(jg)=', nold(jg),           &
-      &   ', nnew(jg)=', nnew(jg),           &
+    WRITE(message_text,'(3(a,i8))')                &
+      &   '  nold(jg)=', dynamics_config(jg)%nold, &
+      &   ', nnew(jg)=', dynamics_config(jg)%nnew, &
       &   ', Nsteps  =', nsteps
     CALL message ('', message_text)
     WRITE(message_text,'(5(a,i8))')          &

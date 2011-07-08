@@ -65,7 +65,7 @@ USE mo_grf_interpolation,   ONLY: t_gridref_state, grf_velfbk,            &
                                   grf_intmethod_ct
 USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_scal2d_grf, &
                                   interpol_vec_grf, interpol2_vec_grf
-USE mo_dynamics_nml,        ONLY: nnew, nnow, nsav1, nsav2
+USE mo_dynamics_config,     ONLY: dynamics_config 
 USE mo_parallel_configuration,  ONLY: nproma
 USE mo_run_nml,             ONLY: msg_level, ltransport, nlev,    &
                                   ntracer, lshallow_water, ltheta_dyn
@@ -538,11 +538,11 @@ ELSE
   l_parallel = .TRUE.
 ENDIF
 
-p_parent_prog => p_hydro_state(jgp)%prog(nnew(jgp))
-p_parent_save => p_hydro_state(jgp)%prog(nsav1(jgp))
+p_parent_prog => p_hydro_state(jgp)%prog(dynamics_config(jgp)%nnew)
+p_parent_save => p_hydro_state(jgp)%prog(dynamics_config(jgp)%nsav1)
 p_parent_tend => p_hydro_state(jgp)%tend_dyn
-p_child_prog  => p_hydro_state(jg)%prog(nnow(jg))
-p_child_save  => p_hydro_state(jg)%prog(nsav2(jg))
+p_child_prog  => p_hydro_state(jg)%prog(dynamics_config(jg)%nnow)
+p_child_save  => p_hydro_state(jg)%prog(dynamics_config(jg)%nsav2)
 p_child_tend  => p_hydro_state(jg)%tend_dyn
 p_intc        => p_int_state(jg)
 p_gcc         => p_patch(jg)%cells

@@ -110,7 +110,8 @@ MODULE mo_io_vlist
   USE mo_ocean_nml,           ONLY: n_zlev, iforc_oce,no_tracer
   USE mo_dynamics_nml,        ONLY: itime_scheme,                               &
     &                               idiv_method, divavg_cntrwgt,                &
-    &                               nnow,nold, ldry_dycore
+    &                               ldry_dycore
+  USE mo_dynamics_config,     ONLY: dynamics_config
  !USE mo_ha_dyn_config,       ONLY: ha_dyn_config
  !USE mo_ha_dyn_nml,          ONLY: lsi_3d, asselin_coeff,        &
  !  &                               si_2tls, si_cmin,        &
@@ -2562,13 +2563,13 @@ CONTAINS
     TYPE(t_lnd_prog), POINTER :: p_prog_lnd
     TYPE(t_lnd_diag), POINTER :: p_diag_lnd
 
-    p_prog => p_nh_state(jg)%prog(nnow(jg))
+    p_prog => p_nh_state(jg)%prog(dynamics_config(jg)%nnow)
     p_diag => p_nh_state(jg)%diag
 
     IF (iforcing==inwp) THEN
      !p_prm_diag     => prm_diag(jg)
      !p_prm_nwp_tend => prm_nwp_tend(jg)
-      p_prog_lnd     => p_lnd_state(jg)%prog_lnd(nnow(jg))
+      p_prog_lnd     => p_lnd_state(jg)%prog_lnd(dynamics_config(jg)%nnow)
       p_diag_lnd     => p_lnd_state(jg)%diag_lnd
     ENDIF
 
@@ -2754,7 +2755,7 @@ CONTAINS
     TYPE(t_ho_sfc_flx),       POINTER :: forcing
 
     ! pointer to components of state variable
-    p_prog  => state_oce%p_prog(nold(jg))
+    p_prog  => state_oce%p_prog(dynamics_config(jg)%nold)
     p_diag  => state_oce%p_diag
     p_patch => patch_oce
     forcing => forcing_oce

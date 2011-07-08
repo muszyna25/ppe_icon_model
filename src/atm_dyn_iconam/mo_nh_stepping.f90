@@ -52,8 +52,8 @@ MODULE mo_nh_stepping
                                     construct_nh_state, bufr
   USE mo_nonhydrostatic_nml,  ONLY: iadv_rcf, l_nest_rcf, ltheta_up_vert
   USE mo_diffusion_config,    ONLY: diffusion_config
-  USE mo_dynamics_nml,        ONLY: nnow, nnew, nnow_rcf, nnew_rcf,                 &
-    &                               nsav1, nsav2, itime_scheme
+  USE mo_dynamics_nml,        ONLY: itime_scheme
+  USE mo_dynamics_config,     ONLY: dynamics_config
   USE mo_io_nml,              ONLY: l_outputtime, l_diagtime, l_checkpoint_time
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,             ONLY: ltestcase, dtime, nsteps,  &
@@ -277,10 +277,16 @@ MODULE mo_nh_stepping
 
   INTEGER                              :: jg
 
+  INTEGER :: nnow(n_dom)
+  INTEGER :: nnew(n_dom)
+
 !$  INTEGER omp_get_num_threads
 !$  INTEGER omp_get_max_threads
 !$  INTEGER omp_get_max_active_levels
 !-----------------------------------------------------------------------
+
+  nnow(:) = dynamics_config(1:n_dom)%nnow
+  nnew(:) = dynamics_config(1:n_dom)%nnew
 
   CALL allocate_nh_stepping (p_patch)
 
@@ -387,8 +393,8 @@ MODULE mo_nh_stepping
 
     IF (msg_level >= 5) THEN ! print maximum velocities in global domain
 
-      p_vn => p_nh_state(1)%prog(nnow(1))%vn
-      p_w  => p_nh_state(1)%prog(nnow(1))%w
+      p_vn => p_nh_state(1)%prog(dynamics_config(1)%nnow)%vn
+      p_w  => p_nh_state(1)%prog(dynamics_config(1)%nnow)%w
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, nlen)
@@ -433,7 +439,7 @@ MODULE mo_nh_stepping
       DO jg = 1, n_dom
 !$OMP WORKSHARE
         p_nh_state(jg)%diag%exner_old(:,:,:)=&
-        & p_nh_state(jg)%prog(nnow(1))%exner(:,:,:)
+        & p_nh_state(jg)%prog(dynamics_config(1)%nnow)%exner(:,:,:)
 !$OMP END WORKSHARE
       ENDDO
 !$OMP END PARALLEL
@@ -484,16 +490,22 @@ MODULE mo_nh_stepping
     IF(global_cell_type == 3) THEN
       IF (l_diagtime .AND. p_nprocs == 1 .AND. (lstep_adv(1) .OR. jstep==nsteps))  THEN
         IF (jstep == iadv_rcf) THEN
-          CALL supervise_total_integrals_nh(1, p_patch(1:), p_nh_state, nnow, nnow_rcf)
+          CALL supervise_total_integrals_nh( 1, p_patch(1:), p_nh_state,      &
+                                           & dynamics_config(1:n_dom)%nnow,   &
+                                           & dynamics_config(1:n_dom)%nnow_rcf)
         ELSE
-          CALL supervise_total_integrals_nh(jstep, p_patch(1:), p_nh_state, nnow, nnow_rcf)
+          CALL supervise_total_integrals_nh(jstep, p_patch(1:), p_nh_state,   &
+                                           & dynamics_config(1:n_dom)%nnow,   &
+                                           & dynamics_config(1:n_dom)%nnow_rcf)
         ENDIF
         l_diagtime = .FALSE.
       ENDIF
     ENDIF
 #endif
     IF(global_cell_type == 6 .AND. l_diagtime) THEN
-      CALL supervise_total_integrals_nh(jstep, p_patch(1:), p_nh_state, nnow, nnow_rcf)
+      CALL supervise_total_integrals_nh(jstep, p_patch(1:), p_nh_state,   &
+                                       & dynamics_config(1:n_dom)%nnow,   &
+                                       & dynamics_config(1:n_dom)%nnow_rcf)
     ENDIF
 
 
@@ -776,7 +788,8 @@ MODULE mo_nh_stepping
 
     IF (jg == 1 .AND. linit_dyn(jg)) THEN
 
-      IF (.NOT. l_nest_rcf) nsav1(1:n_dom) = nnow(1:n_dom)
+      IF (.NOT. l_nest_rcf) &
+        dynamics_config(1:n_dom)%nsav1 = dynamics_config(1:n_dom)%nnow
     ENDIF
 
     !--------------------------------------------------------------------------
@@ -800,8 +813,8 @@ MODULE mo_nh_stepping
     ! automatically does the right thing
 
     IF (jg == 1 .AND. l_limited_area .AND. linit_dyn(jg)) THEN
-      n_now = nnow(jg)
-      n_save = nsav2(jg)
+      n_now  = dynamics_config(jg)%nnow
+      n_save = dynamics_config(jg)%nsav2
 
       WRITE(message_text,'(a)') 'save initial fields for outer boundary nudging'
        CALL message(TRIM(routine), TRIM(message_text))
@@ -824,8 +837,8 @@ MODULE mo_nh_stepping
       IF ( jstep == 1 .AND. jg > 1 ) THEN
         ! Save prognostic variables at current timestep to compute
         ! feedback increments (not needed in global domain)
-        n_now = nnow(jg)
-        n_save = nsav2(jg)
+        n_now  = dynamics_config(jg)%nnow
+        n_save = dynamics_config(jg)%nsav2
 !$OMP PARALLEL
 !$OMP WORKSHARE
         p_nh_state(jg)%prog(n_save)%vn      = p_nh_state(jg)%prog(n_now)%vn
@@ -868,8 +881,8 @@ MODULE mo_nh_stepping
 
           ! Save prognostic variables at current timestep to compute
           ! interpolation tendencies
-          n_now  = nnow(jg)
-          n_save = nsav1(jg)
+          n_now  = dynamics_config(jg)%nnow
+          n_save = dynamics_config(jg)%nsav1
 !$OMP PARALLEL
 !$OMP WORKSHARE
           p_nh_state(jg)%prog(n_save)%vn      = p_nh_state(jg)%prog(n_now)%vn
@@ -882,20 +895,20 @@ MODULE mo_nh_stepping
       ENDIF
 
       ! Set local variables for time levels
-      n_now  = nnow(jg)
-      n_new  = nnew(jg)
+      n_now  = dynamics_config(jg)%nnow
+      n_new  = dynamics_config(jg)%nnew
 
       ! Set local variable for rcf-time levels
-      n_now_rcf = nnow_rcf(jg)
-      n_new_rcf = nnew_rcf(jg)
+      n_now_rcf = dynamics_config(jg)%nnow_rcf
+      n_new_rcf = dynamics_config(jg)%nnew_rcf
       ! the next time level is essential for physics packages, which are not
       ! synchronized with transport (i.e. which are not called for each advection
       ! step or for each ith advection step). Those unsynchronized physics-routines
       ! need to read from and update to timelevel n_upt_rcf and NOT n_new_rcf !!
       IF (lstep_adv(jg) ) THEN
-        n_upt_rcf = nnew_rcf(jg)
+        n_upt_rcf = dynamics_config(jg)%nnew_rcf
       ELSE
-        n_upt_rcf = nnow_rcf(jg)
+        n_upt_rcf = dynamics_config(jg)%nnow_rcf
       ENDIF
 
 
@@ -911,7 +924,9 @@ MODULE mo_nh_stepping
         ! Apply nudging at the lateral boundaries if the limited-area-mode is used
 
         CALL outer_boundary_nudging (p_patch(jg), p_nh_state(jg), p_int_state(jg), &
-          &                          nnow(jg),nnow_rcf(jg),nsav2(jg),lstep_adv(jg))
+          &                          dynamics_config(jg)%nnow,                     &
+          &                          dynamics_config(jg)%nnow_rcf,                 &
+          &                          dynamics_config(jg)%nsav2,lstep_adv(jg))
       ENDIF
       ! Note: boundary nudging in nested domains (if feedback is turned off) is
       ! applied in solve_nh for velocity components and in SR nest_boundary_nudging
@@ -1045,7 +1060,7 @@ MODULE mo_nh_stepping
             &                   prm_diag  (jg),                  & !inout
             &                   prm_nwp_tend(jg)                ,&
             &                   p_lnd_state(jg)%diag_lnd,        &
-            &                   p_lnd_state(jg)%prog_lnd(nnow(jg)) ) !out
+            &                   p_lnd_state(jg)%prog_lnd(dynamics_config(jg)%nnow) ) !out
 
           linit_slowphy(jg) = .FALSE. ! no further initialization calls needed
         ENDIF
@@ -1186,7 +1201,8 @@ MODULE mo_nh_stepping
         ! Apply boundary nudging in case of one-way nesting
         IF (lstep_adv(jg) .AND. .NOT. lfeedback(jg)) THEN
           CALL nest_boundary_nudging(p_patch(jg), p_nh_state(jg), p_int_state(jg), &
-            &                        nnew(jg),nnew_rcf(jg),REAL(iadv_rcf,wp))
+            &                        dynamics_config(jg)%nnew,                     &
+            &                        dynamics_config(jg)%nnew_rcf,REAL(iadv_rcf,wp))
         ENDIF
 
         IF (  iforcing==inwp .AND. lstep_adv(jg) ) THEN
@@ -1213,7 +1229,7 @@ MODULE mo_nh_stepping
             &                   prm_diag  (jg),                  & !inout
             &                   prm_nwp_tend(jg),                &
             &                   p_lnd_state(jg)%diag_lnd,        &
-            &                   p_lnd_state(jg)%prog_lnd(nnow(jg))  )  !out
+            &                   p_lnd_state(jg)%prog_lnd(dynamics_config(jg)%nnow)  )  !out
 
         ENDIF !iforcing
 
@@ -1231,7 +1247,7 @@ MODULE mo_nh_stepping
       IF (l_nest_rcf .AND. lstep_adv(jg))  THEN
         l_call_nests = .TRUE.
         rdt_loc = 1._wp/(dt_loc*REAL(iadv_rcf,wp))
-        n_now_grf    = nsav1(jg)
+        n_now_grf    = dynamics_config(jg)%nsav1
         nsteps_nest  = 2*iadv_rcf
       ELSE IF (.NOT. l_nest_rcf) THEN
         l_call_nests = .TRUE.
@@ -1272,7 +1288,9 @@ MODULE mo_nh_stepping
 
           ! Interpolate tendencies to lateral boundaries of refined mesh (jgc)
           CALL boundary_interpolation(p_patch,p_nh_state,p_int_state,p_grf_state, &
-            &     jg,jgc,n_now_grf,nnow(jgc),n_now_rcf,nnow_rcf(jgc),lstep_adv(jg))
+            &                        jg,jgc,n_now_grf, dynamics_config(jgc)%nnow, &
+            &                        n_now_rcf,dynamics_config(jgc)%nnow_rcf,     &
+            &                        lstep_adv(jg))
 
         ENDDO
 
@@ -1358,11 +1376,13 @@ MODULE mo_nh_stepping
 
               ! Fill lateral boundaries of TKE field; note: time-level-switching has
               ! already been done at child level, but not yet at parent level
-              CALL sync_patch_array(SYNC_C, p_patch(jg), p_nh_state(jg)%prog(nnew_rcf(jg))%tke)
+              CALL sync_patch_array(SYNC_C, p_patch(jg), &
+                                   & p_nh_state(jg)%prog(dynamics_config(jg)%nnew_rcf)%tke)
 
-              CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg),        &
-                 p_grf_state(jg)%p_dom(jn), jn, 1, p_nh_state(jg)%prog(nnew_rcf(jg))%tke,&
-                 p_nh_state(jgc)%prog(nnow_rcf(jgc))%tke)
+              CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg), &
+                 p_grf_state(jg)%p_dom(jn), jn, 1,                                &
+                 p_nh_state(jg)%prog(dynamics_config(jg)%nnew_rcf)%tke,           &
+                 p_nh_state(jgc)%prog(dynamics_config(jgc)%nnow_rcf)%tke          )
 
             ENDIF
 
@@ -1386,26 +1406,27 @@ MODULE mo_nh_stepping
       ENDIF
       IF ((l_outputtime.AND.(p_patch(jg)%cell_type==3)).OR.&
         & (p_patch(jg)%cell_type==6)) THEN
-        CALL diagnose_pres_temp (p_nh_state(jg)%metrics, p_nh_state(jg)%prog(nnew(jg)), &
-          &                      p_nh_state(jg)%prog(nnew_rcf(jg)),                     &
+        CALL diagnose_pres_temp (p_nh_state(jg)%metrics,                                &
+          &                      p_nh_state(jg)%prog(dynamics_config(jg)%nnew),         &
+          &                      p_nh_state(jg)%prog(dynamics_config(jg)%nnew_rcf),     &
           &                      p_nh_state(jg)%diag,p_patch(jg),                       &
           &                      opt_calc_temp=.TRUE.,                                  &
           &                      opt_calc_pres=.TRUE.                                 )
       ENDIF
 
       ! Finally, switch between time levels now and new for next time step
-      n_temp   = nnow(jg)
-      nnow(jg) = nnew(jg)
-      IF (.NOT. l_nest_rcf) nsav1(jg) = nnow(jg)
-      nnew(jg) = n_temp
+      n_temp   = dynamics_config(jg)%nnow
+      dynamics_config(jg)%nnow = dynamics_config(jg)%nnew
+      IF (.NOT. l_nest_rcf) dynamics_config(jg)%nsav1 = dynamics_config(jg)%nnow
+      dynamics_config(jg)%nnew = n_temp
 
       ! Special treatment for processes (i.e. advection) which can be treated with
       ! reduced calling frequency. Switch between time levels now and new immediately
       ! AFTER the last transport timestep.
       IF (lstep_adv(jg)) THEN
-        n_temp       = nnow_rcf(jg)
-        nnow_rcf(jg) = nnew_rcf(jg)
-        nnew_rcf(jg) = n_temp
+        n_temp = dynamics_config(jg)%nnow_rcf
+        dynamics_config(jg)%nnow_rcf = dynamics_config(jg)%nnew_rcf
+        dynamics_config(jg)%nnew_rcf = n_temp
       ENDIF
 
     ENDDO

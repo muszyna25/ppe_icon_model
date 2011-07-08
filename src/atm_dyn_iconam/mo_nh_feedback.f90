@@ -43,8 +43,7 @@ USE mo_model_domain_import, ONLY: n_dom, n_dom_start
 USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_vertex
 USE mo_grf_interpolation,   ONLY: t_gridref_state, grf_velfbk
 USE mo_nonhydrostatic_nml,  ONLY: l_nest_rcf, l_masscorr_nest
-USE mo_dynamics_nml,        ONLY: nnow, nnew, nnew_rcf, nsav1, nsav2,       &
-                                  nnow_rcf
+USE mo_dynamics_config,     ONLY: dynamics_config
 USE mo_parallel_configuration,  ONLY: nproma
 USE mo_run_nml,             ONLY: ltransport, iforcing, msg_level,  &
                                   ntracer
@@ -157,6 +156,10 @@ LOGICAL :: l_parallel
 REAL(wp), DIMENSION(:,:,:), POINTER :: p_fbkwgt, p_fbkwgt_tr, p_fb_layer_thickness
 REAL(wp), DIMENSION(:,:),   POINTER :: p_fbarea
 
+INTEGER :: nnow(n_dom), nnow_rcf(n_dom)
+INTEGER :: nnew(n_dom), nnew_rcf(n_dom)
+INTEGER :: nsav1(n_dom), nsav2(n_dom)
+
 !-----------------------------------------------------------------------
 
 IF (msg_level >= 10) THEN
@@ -170,6 +173,12 @@ ELSE
   l_parallel = .TRUE.
 ENDIF
 
+nnow    (:) = dynamics_config(1:n_dom)%nnow
+nnow_rcf(:) = dynamics_config(1:n_dom)%nnow_rcf
+nnew    (:) = dynamics_config(1:n_dom)%nnew
+nnew_rcf(:) = dynamics_config(1:n_dom)%nnew_rcf
+nsav1   (:) = dynamics_config(1:n_dom)%nsav1
+nsav2   (:) = dynamics_config(1:n_dom)%nsav2
 
 p_parent_prog    => p_nh_state(jgp)%prog(nnew(jgp))
 p_parent_prog_rcf=> p_nh_state(jgp)%prog(nnew_rcf(jgp))

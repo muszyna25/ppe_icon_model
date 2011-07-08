@@ -44,10 +44,10 @@ MODULE mo_nh_testcases
 !  
 !  
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: message, finish, message_text
+  USE mo_exception,          ONLY: message, finish
   USE mo_namelist,           ONLY: position_nml, POSITIONED
   USE mo_io_units,           ONLY: nnml, nnml_output
-  USE mo_impl_constants,     ONLY: SUCCESS, MAX_CHAR_LENGTH
+  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_model_domain_import,ONLY: lplane, n_dom
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data,           ONLY: ext_data
@@ -60,7 +60,7 @@ MODULE mo_nh_testcases
     &                              iqv, itopo
   USE mo_grid_configuration, ONLY :  global_cell_type
     
-  USE mo_dynamics_nml,       ONLY: nnow,nnew,nnow_rcf, nnew_rcf
+  USE mo_dynamics_config,    ONLY: dynamics_config 
   USE mo_atm_phy_nwp_nml,    ONLY: inwp_gscp, inwp_convection
   USE mo_physical_constants, ONLY: grav, cpd, rd, cvd_o_rd, &
    &                               p0ref, re, omega, tmelt, vtmpc1, rv
@@ -585,7 +585,14 @@ MODULE mo_nh_testcases
   CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
     &  ctracer_list
 
+  INTEGER :: nnow(n_dom), nnow_rcf(n_dom)
+  INTEGER :: nnew(n_dom), nnew_rcf(n_dom)
 !-----------------------------------------------------------------------
+
+  nnow    (:) = dynamics_config(1:n_dom)%nnow
+  nnow_rcf(:) = dynamics_config(1:n_dom)%nnow_rcf
+  nnew    (:) = dynamics_config(1:n_dom)%nnew
+  nnew_rcf(:) = dynamics_config(1:n_dom)%nnew_rcf
 
   SELECT CASE (nh_test_name)
 

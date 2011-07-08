@@ -44,18 +44,16 @@
 MODULE mo_dynamics_config
 
   USE mo_kind,           ONLY: wp
-  USE mo_impl_constants, ONLY: MAX_DOM => max_dom
+  USE mo_impl_constants, ONLY: MAX_DOM, LEAPFROG_EXPL, LEAPFROG_SI
+  USE mo_io_restart_attributes, ONLY: get_restart_attribute
 
   IMPLICIT NONE
-
-  PRIVATE
-  PUBLIC :: t_dynamics_config, dynamics_config
-
+  PUBLIC
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
-  !!--------------------------------------------------------------------------
-  !! Basic configuration setup for atm dynamics
-  !!--------------------------------------------------------------------------
+  !--------------------------------------------------------------------------
+  ! Basic settings for the dynamical core 
+  !--------------------------------------------------------------------------
   TYPE :: t_dynamics_config
 
     ! namelist variables
@@ -72,20 +70,75 @@ MODULE mo_dynamics_config
     ! derived variables
 
     LOGICAL :: ltwotime
-    INTEGER,ALLOCATABLE :: nold(:)   !< variables denoting time levels
-    INTEGER,ALLOCATABLE :: nnow(:)   !< variables denoting time levels
-    INTEGER,ALLOCATABLE :: nnew(:)   !< variables denoting time levels
 
-    INTEGER,ALLOCATABLE :: nsav1(:)  !< Extra 'time levels' of prognostic variables
-    INTEGER,ALLOCATABLE :: nsav2(:)  !< needed to compute boundary tendencies and
-                                     !< feedback increments
+    INTEGER :: nold      !< variables denoting time levels
+    INTEGER :: nnow      !< variables denoting time levels
+    INTEGER :: nnew      !< variables denoting time levels
 
-    INTEGER,ALLOCATABLE :: nnow_rcf(:)  !< Extra time levels for reduced
-    INTEGER,ALLOCATABLE :: nnew_rcf(:)  !< calling frequency (rcf)
+    INTEGER :: nsav1     !< Extra 'time levels' of prognostic variables
+    INTEGER :: nsav2     !< needed to compute boundary tendencies and
+                         !< feedback increments
+
+    INTEGER :: nnow_rcf  !< Extra time levels for reduced
+    INTEGER :: nnew_rcf  !< calling frequency (rcf)
 
   END TYPE t_dynamics_config
   !>
   !!
   TYPE(t_dynamics_config) :: dynamics_config(MAX_DOM)
+
+CONTAINS
+  !>
+  !!
+  SUBROUTINE config_dynamics( lrestart,ndom )
+
+    LOGICAL,INTENT(IN) :: lrestart
+    INTEGER,INTENT(IN) :: ndom
+
+    INTEGER :: jdom
+    CHARACTER(LEN=*),PARAMETER :: routine='mo_dynamics_config:setup_dynamics_config'
+
+    !------------------------
+
+    DO jdom = 1,ndom
+        dynamics_config(jdom)%ltwotime =                            &
+          (dynamics_config(jdom)%itime_scheme/=LEAPFROG_EXPL) .AND. &
+          (dynamics_config(jdom)%itime_scheme/=LEAPFROG_SI  )
+    END DO
+
+    !------------------------
+    ! Set time level indices
+    !------------------------
+    IF (lrestart) THEN
+      ! Read time level indices from restart file.
+      ! NOTE: this part will be modified later for a proper handling
+      ! of multiple domains!!!
+                                                                                                
+      IF (ndom>1) &
+      CALL finish(TRIM(routine),'Restart functionality can not handle multiple domains (yet)')
+                                                                                                
+      jdom = 1  ! only consider one domain at the moment
+      !DO jdom = 1,ndom
+        CALL get_restart_attribute( 'nold'    ,dynamics_config(jdom)%nold )
+        CALL get_restart_attribute( 'nnow'    ,dynamics_config(jdom)%nnow )
+        CALL get_restart_attribute( 'nnew'    ,dynamics_config(jdom)%nnew )
+        CALL get_restart_attribute( 'nnow_rcf',dynamics_config(jdom)%nnow_rcf )
+        CALL get_restart_attribute( 'nnew_rcf',dynamics_config(jdom)%nnew_rcf )
+      !END DO
+
+    ELSE                                                                                        
+      dynamics_config(:)%nnow = 1
+      dynamics_config(:)%nnew = 2
+      dynamics_config(:)%nold = 3
+      dynamics_config(:)%nnow_rcf = 1
+      dynamics_config(:)%nnew_rcf = 2
+    END IF
+                                                                                                
+    !------------------------
+
+    dynamics_config(:)%nsav1 = 0
+    dynamics_config(:)%nsav2 = 4
+
+  END SUBROUTINE config_dynamics
 
 END MODULE mo_dynamics_config

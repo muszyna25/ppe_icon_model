@@ -65,7 +65,7 @@ MODULE mo_output
                                   & write_restart, close_writing_restart_files,&
                                   & finish_restart
   USE mo_io_restart_attributes,ONLY: set_restart_attribute
-  USE mo_dynamics_nml,        ONLY: nold, nnow, nnew, nnow_rcf, nnew_rcf
+  USE mo_dynamics_config,     ONLY: dynamics_config 
   USE mo_model_domain,        ONLY: t_patch
 
   IMPLICIT NONE
@@ -318,11 +318,11 @@ CONTAINS
     CALL set_restart_attribute( 'current_minute', datetime%minute )
     CALL set_restart_attribute( 'current_second', datetime%second )
 
-    CALL set_restart_attribute( 'nold'    , nold    (jg))
-    CALL set_restart_attribute( 'nnow'    , nnow    (jg))
-    CALL set_restart_attribute( 'nnew'    , nnew    (jg))
-    CALL set_restart_attribute( 'nnow_rcf', nnow_rcf(jg))
-    CALL set_restart_attribute( 'nnew_rcf', nnew_rcf(jg))
+    CALL set_restart_attribute( 'nold'    , dynamics_config(jg)%nold    )
+    CALL set_restart_attribute( 'nnow'    , dynamics_config(jg)%nnow    )
+    CALL set_restart_attribute( 'nnew'    , dynamics_config(jg)%nnew    )
+    CALL set_restart_attribute( 'nnow_rcf', dynamics_config(jg)%nnow_rcf)
+    CALL set_restart_attribute( 'nnew_rcf', dynamics_config(jg)%nnew_rcf)
 
     IF (l_have_output) THEN
       CALL set_restart_attribute( 'next_output_file', jfile+1 )

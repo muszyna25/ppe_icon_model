@@ -56,8 +56,7 @@ MODULE mo_atmo_model
   USE mo_global_variables,    ONLY: setup_physics           ! process forcing control parameters
   USE mo_nonhydrostatic_nml,  ONLY: ivctype,              & ! type of vertical coordinate
     & nonhydrostatic_nml_setup
-  USE mo_dynamics_nml,        ONLY: dynamics_nml_setup,   &
-    &                               cleanup_dyn_params 
+  USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
   USE mo_diffusion_nml,       ONLY: diffusion_nml_setup
   USE mo_io_nml,              ONLY: io_nml_setup,         & ! process I/O
     & dt_data,              & !    :
@@ -174,17 +173,21 @@ MODULE mo_atmo_model
   !  USE mo_nwp_phy_init,          ONLY: init_nwp_phy
   !!$  USE mo_gscp_cosmo,          ONLY: hydci_pp_init
   
+
+  !-------------------------------------------------------------------------
+  !-------------------------------------------------------------------------
   USE mo_io_restart,           ONLY: read_restart_info_file, read_restart_files
   USE mo_io_restart_namelist,  ONLY: read_restart_namelists
   USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
 
-  !-------------------------------------------------------------------------
-  USE mo_time_config, ONLY: time_config
+  USE mo_atmo_setup_configuration, ONLY: read_atmo_namelists
+
+  USE mo_time_config,     ONLY: time_config      ! variable
+  USE mo_dynamics_config, ONLY: config_dynamics  ! subroutine
 
 
   !-------------------------------------------------------------------------
   IMPLICIT NONE
-  
   PRIVATE
   
   PUBLIC :: atmo_model
@@ -193,15 +196,13 @@ CONTAINS
   !>
   !!
   SUBROUTINE atmo_model(namelist_filename)
-    
+
     CHARACTER(LEN=*), INTENT(in) :: namelist_filename
 
-    CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
-
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
-    INTEGER :: n_io, jg, jfile, n_file, ist, n_diag, n_chkpt
-    LOGICAL :: lsuccess, l_have_output
-   
+    CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
+    LOGICAL :: lsuccess
+
     !---------------------------------------------------------------------
     ! 0. If this is a resumed or warm-start run...
     !---------------------------------------------------------------------
@@ -213,15 +214,15 @@ CONTAINS
       ! The namelist variable atmo_restart_info_filename should be 
       ! an input argument of the subroutine read_restart_info_file.
 
-      CALL read_restart_info_file(grid_file_name, lsuccess) ! out, out                           
+      CALL read_restart_info_file(grid_file_name, lsuccess) ! out, out
                                                                                                
-      IF (lsuccess) THEN                                                                         
+      IF (lsuccess) THEN
         CALL message( TRIM(routine),                          &
-                    & 'Running model in restart mode. '       &                                  
-                    & //'Horizontal grid should be read from '&                                  
-                    & //TRIM(grid_file_name) )                                                   
+                    & 'Running model in restart mode. '       &
+                    & //'Horizontal grid should be read from '&
+                    & //TRIM(grid_file_name) )
       ELSE                                                                                       
-        CALL finish(TRIM(routine),'Failed to read restart info file')                                            
+        CALL finish(TRIM(routine),'Failed to read restart info file')
       END IF                                                                                     
                                                                                                
       ! Read all namelists used in the previous run
@@ -239,6 +240,53 @@ CONTAINS
 
     END IF ! lrestart
 
+    !---------------------------------------------------------------------
+    ! 1. Read namelists (newly) specified by the user; fill the 
+    !    corresponding sections of the configuration states.
+    !---------------------------------------------------------------------
+    CALL read_atmo_namelists(namelist_filename)
+
+    !---------------------------------------------------------------------
+    ! 2. Cross-check namelists
+    !---------------------------------------------------------------------
+
+    !---------------------------------------------------------------------
+    ! 3. Assign values to derived variables in the configuration states
+    !---------------------------------------------------------------------
+    CALL config_dynamics( lrestart, n_dom )
+
+    !---------------------------------------------------------------------
+    ! 4. Construct model states (variable lists); set initial conditions.
+    !---------------------------------------------------------------------
+
+    !---------------------------------------------------------------------
+    ! 5. Perform time stepping
+    !---------------------------------------------------------------------
+
+    !---------------------------------------------------------------------
+    ! 6. Integration finished. Clean up.
+    !---------------------------------------------------------------------
+
+  END SUBROUTINE atmo_model
+
+
+
+
+  !---------------------------------------------------------------------
+  !---------------------------------------------------------------------
+  !---------------------------------------------------------------------
+  !---------------------------------------------------------------------
+  !---------------------------------------------------------------------
+  SUBROUTINE atmo_model_old(namelist_filename)
+    
+    CHARACTER(LEN=*), INTENT(in) :: namelist_filename
+
+    CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
+
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
+    INTEGER :: n_io, jg, jfile, n_file, ist, n_diag, n_chkpt
+    LOGICAL :: l_have_output
+   
     !-------------------------------------------------------------------
     ! 1. Open the atmosphere-specific namelist file and create a 
     !    new file in which all the namelist variables and their
@@ -845,11 +893,9 @@ CONTAINS
       CALL finish(TRIM(routine),'deallocation of lprepare_output failed')
     ENDIF
     
-    CALL cleanup_dyn_params   ! Time level variables
-    
     CALL message(TRIM(routine),'clean-up finished')
     
-  END SUBROUTINE atmo_model
+  END SUBROUTINE atmo_model_old
   
 END MODULE mo_atmo_model
 

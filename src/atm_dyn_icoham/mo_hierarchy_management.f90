@@ -66,8 +66,8 @@ MODULE mo_hierarchy_management
   USE mo_grf_interpolation,   ONLY: t_gridref_state, grf_intmethod_c,    &
     &                               grf_intmethod_ct
   USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_scal2d_grf
-  USE mo_dynamics_nml,        ONLY: ltwotime, itime_scheme,              &
-    &                               nold, nnow, nnew, nsav1, nsav2
+  USE mo_dynamics_nml,        ONLY: itime_scheme
+  USE mo_dynamics_config,     ONLY: dynamics_config 
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config 
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_io_nml,              ONLY: lprepare_output
@@ -239,7 +239,7 @@ CONTAINS
       IF ( jg < n_dom ) THEN
         ! Save prognostic variables at current timestep to compute
         ! nest boundary tendencies (not needed at highest nest level)
-        nsav1(jg) = nnow(jg)
+        dynamics_config(jg)%nsav1 = dynamics_config(jg)%nnow
       ENDIF
 
 
@@ -248,8 +248,8 @@ CONTAINS
 
         ! Save prognostic variables at current timestep to compute
         ! feedback increments (not needed in global domain)
-        n_now = nnow(jg)
-        n_sav2 = nsav2(jg)
+        n_now  = dynamics_config(jg)%nnow
+        n_sav2 = dynamics_config(jg)%nsav2
         ! The pointers are needed because the subsequent parallelization
         ! causes trouble otherwise
         p_psfc    => p_hydro_state(jg)%prog(n_now)%pres_sfc
@@ -355,10 +355,10 @@ CONTAINS
         ! Now start the normal integration steps
         !==========================================================================
 
-        n_old  = nold(jg)
-        n_now  = nnow(jg)
-        n_new  = nnew(jg)
-        n_sav1 = nsav1(jg)
+        n_old  = dynamics_config(jg)%nold
+        n_now  = dynamics_config(jg)%nnow
+        n_new  = dynamics_config(jg)%nnew
+        n_sav1 = dynamics_config(jg)%nsav1
 
         zdtime = dt_loc
 
@@ -980,17 +980,17 @@ CONTAINS
             IF (ltheta_dyn) THEN
               CALL interpol_scal_grf ( p_patch(jg), p_patch(jgc), p_int_state(jg),           &
                 &    p_grf_state(jg)%p_dom(jn), jn, 1, p_hydro_state(jg)%prog(n_sav1)%theta, &
-                &    p_hydro_state(jgc)%prog(nnow(jgc))%theta)
+                &    p_hydro_state(jgc)%prog(dynamics_config(jgc)%nnow)%theta)
             ELSE IF (.NOT. lshallow_water) THEN
               CALL interpol_scal_grf ( p_patch(jg), p_patch(jgc), p_int_state(jg),          &
                 &    p_grf_state(jg)%p_dom(jn), jn, 1, p_hydro_state(jg)%prog(n_sav1)%temp, &
-                &    p_hydro_state(jgc)%prog(nnow(jgc))%temp)
+                &    p_hydro_state(jgc)%prog(dynamics_config(jgc)%nnow)%temp)
             ENDIF
 
             CALL interpol_scal2d_grf (p_patch(jg), p_patch(jgc), &
               &  p_int_state(jg), p_grf_state(jg)%p_dom(jn), jn, &
               &  p_hydro_state(jg)%prog(n_sav1)%pres_sfc,        &
-              &  p_hydro_state(jgc)%prog(nnow(jgc))%pres_sfc)
+              &  p_hydro_state(jgc)%prog(dynamics_config(jgc)%nnow)%pres_sfc)
 
           ENDIF
 
@@ -998,7 +998,7 @@ CONTAINS
             CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int_state(jg), &
               &  p_grf_state(jg)%p_dom(jn), jn, ntracer,                        &
               &  f4din=p_hydro_state(jg)%prog(n_sav1)%tracer,                   &
-              &  f4dout=p_hydro_state(jgc)%prog(nnow(jgc))%tracer)
+              &  f4dout=p_hydro_state(jgc)%prog(dynamics_config(jgc)%nnow)%tracer)
           ENDIF
 
         ENDDO
@@ -1085,17 +1085,17 @@ CONTAINS
       !===================
       ! Swap time indices
       !===================
-      IF (ltwotime) THEN
+      IF (dynamics_config(jg)%ltwotime) THEN
 
-        n_temp    = nnow(jg)
-        nnow(jg)  = nnew(jg)
-        nnew(jg)  = n_temp
+        n_temp = dynamics_config(jg)%nnow
+        dynamics_config(jg)%nnow = dynamics_config(jg)%nnew
+        dynamics_config(jg)%nnew = n_temp
 
       ELSE
-        n_temp    = nold(jg)
-        nold(jg)  = nnow(jg)
-        nnow(jg)  = nnew(jg)
-        nnew(jg)  = n_temp
+        n_temp = dynamics_config(jg)%nold
+        dynamics_config(jg)%nold = dynamics_config(jg)%nnow
+        dynamics_config(jg)%nnow = dynamics_config(jg)%nnew
+        dynamics_config(jg)%nnew = n_temp
 
       ENDIF
 
@@ -1278,12 +1278,12 @@ CONTAINS
       !    0           1           2
       !    * ========> *
 
-      nsav1(jg) = nold(jg)
+      dynamics_config(jg)%nsav1 = dynamics_config(jg)%nold
 
-      n_old  = nold(jg)
-      n_now  = nnow(jg)
-      n_new  = nnew(jg)
-      n_sav1 = nsav1(jg)
+      n_old  = dynamics_config(jg)%nold
+      n_now  = dynamics_config(jg)%nnow
+      n_new  = dynamics_config(jg)%nnew
+      n_sav1 = dynamics_config(jg)%nsav1
       jstep  = 0
 
       zdtime = 0.5_wp*dt_loc  ! it will be doubled in step_leapfrog_expl
@@ -1350,12 +1350,12 @@ CONTAINS
       !       0    0.5*   1           2
       !       * ==> *
 
-      nsav1(jg) = nold(jg)
+      dynamics_config(jg)%nsav1 = dynamics_config(jg)%nold
 
-      n_old  = nold(jg)
-      n_now  = nnow(jg)
-      n_new  = nnew(jg)
-      n_sav1 = nsav1(jg)
+      n_old  = dynamics_config(jg)%nold
+      n_now  = dynamics_config(jg)%nnow
+      n_new  = dynamics_config(jg)%nnew
+      n_sav1 = dynamics_config(jg)%nsav1
       jstep  = 0
 
       zdtime = 0.25_wp*dt_loc  ! it will be doubled in step_leapfrog_expl
@@ -1416,12 +1416,12 @@ CONTAINS
       ! Step 0.5 is a backward step
       !
       !nold  = nold           ! step 0        old  now,new
-      n_temp     = nnow(jg)  !                 |-----^-----|-----------|
-      nnow(jg)  = nnew(jg)   ! step 0.5*       0    0.5    1           2
-      nnew(jg)  = n_temp     ! step 0.5        * ==> *
+      n_temp = dynamics_config(jg)%nnow   !                 |-----^-----|-----------|
+      dynamics_config(jg)%nnow = dynamics_config(jg)%nnew   ! step 0.5*       0    0.5    1           2
+      dynamics_config(jg)%nnew = n_temp                     ! step 0.5        * ==> *
 
-      n_now = nnow(jg)
-      n_new = nnew(jg)
+      n_now = dynamics_config(jg)%nnow
+      n_new = dynamics_config(jg)%nnew
 
       zdtime = 0.25_wp*dt_loc  ! it will be doubled in step_leapfrog_expl
 
@@ -1479,13 +1479,13 @@ CONTAINS
 
       ! Step 1 is a leapfrog step with half time-interval
       !
-      !nold  = nold          !            old   now   new
-      n_temp     = nnow(jg)  !             |-----^-----|-----------|
-      nnow(jg)  = nnew(jg)   ! step 0.5    0    0.5    1           2
-      nnew(jg)  = n_temp     ! step 1      * ========> *
+      !nold  = nold                                             !            old   now   new
+      n_temp = dynamics_config(jg)%nnow                         !             |-----^-----|-----------|
+      dynamics_config(jg)%nnow = dynamics_config(jg)%nnew   ! step 0.5    0    0.5    1           2
+      dynamics_config(jg)%nnew = n_temp                     ! step 1      * ========> *
 
-      n_now = nnow(jg)
-      n_new = nnew(jg)
+      n_now = dynamics_config(jg)%nnow
+      n_new = dynamics_config(jg)%nnew
       jstep = 1
 
       zdtime = 0.5_wp*dt_loc
