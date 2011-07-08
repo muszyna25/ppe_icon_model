@@ -647,7 +647,7 @@ CONTAINS
 
     IF (my_global_mpi_id == 0) THEN
        WRITE (nerr,*)
-       WRITE (nerr,'(1x,a,i3)') ' global_no_of_threads is ', global_no_of_threadsthreads
+       WRITE (nerr,'(1x,a,i3)') ' global_no_of_threads is ', global_no_of_threads
     ENDIF
 #endif
 
