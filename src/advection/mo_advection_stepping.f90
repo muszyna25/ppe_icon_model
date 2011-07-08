@@ -82,8 +82,7 @@ MODULE mo_advection_stepping
   USE mo_mpi,                 ONLY: p_pe, p_nprocs
   USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult
   USE mo_parallel_configuration, ONLY: p_test_pe, p_test_run
-  USE mo_advection_nml,       ONLY: ivadv_tracer, lvadv_tracer,            &
-    &                               lclip_tracer, lstrang, itype_vlimit,   &
+  USE mo_advection_nml,       ONLY: itype_vlimit,                 &
     &                               itype_hlimit, iord_backtraj, iubc_adv, &
     &                               igrad_c_miura, iadv_slev, cSTR,        &
     &                               coeff_grid
@@ -382,9 +381,9 @@ CONTAINS
     ! subroutine vertical_upwind_flux will be called if either the
     ! current time step is even or complete Strang-splitting is chosen.
     !
-    IF ( lvadv_tracer ) THEN
+    IF ( advection_config(jg)%lvadv_tracer ) THEN
 
-      IF ( MOD( k_step, 2 ) == 0 .OR. lstrang ) THEN
+      IF ( MOD( k_step, 2 ) == 0 .OR. advection_config(jg)%lstrang ) THEN
 
 
         i_rlstart  = grf_bdywidth_c-1
@@ -396,7 +395,8 @@ CONTAINS
           &              p_mflx_contra_v, p_w_contra_traj,           &! inout,in
           &              cSTR*p_dtime, p_pres_ic_now, p_pres_mc_now, &! in
           &              p_cellhgt_mc_now, z_rcellhgt_mc_now,        &! in
-          &              ptr_delp_mc_now, ivadv_tracer,              &! in
+          &              ptr_delp_mc_now,                            &! in
+          &              advection_config(jg)%ivadv_tracer,          &! in
           &              itype_vlimit, iubc_adv(jg), iadv_slev(jg,:),&! in
           &              p_mflx_tracer_v,                            &! out
           &              opt_topflx_tra=opt_topflx_tra,              &! in
@@ -478,7 +478,7 @@ CONTAINS
         ptr_current_tracer => p_tracer_new
         ptr_delp_mc_now    => z_delp_mc1
 
-        IF ( lstrang ) THEN
+        IF ( advection_config(jg)%lstrang ) THEN
 
           ! prepare new intermediate densities for horizontal advection,
           ! by integrating the continuity equation in horizontal direction.
@@ -736,7 +736,8 @@ CONTAINS
     ! subroutine vertical_upwind_flux will be called if either the
     ! current time step is odd or complete Strang-splitting is chosen.
     !
-    IF ( lvadv_tracer .AND. ( MOD( k_step, 2 ) == 1 .OR. lstrang) ) THEN
+    IF ( advection_config(jg)%lvadv_tracer .AND.        &
+      &  ( MOD( k_step, 2 ) == 1 .OR. advection_config(jg)%lstrang) ) THEN
 
       ptr_current_tracer => p_tracer_new
       ptr_delp_mc_now    => z_delp_mc2
@@ -758,7 +759,8 @@ CONTAINS
         &              p_mflx_contra_v, p_w_contra_traj,           &! inout,in
         &              cSTR*p_dtime, p_pres_ic_now, p_pres_mc_now, &! in
         &              p_cellhgt_mc_now, z_rcellhgt_mc_now,        &! in
-        &              ptr_delp_mc_now, ivadv_tracer,              &! in
+        &              ptr_delp_mc_now,                            &! in
+        &              advection_config(jg)%ivadv_tracer,          &! in
         &              itype_vlimit, iubc_adv(jg), iadv_slev(jg,:),&! in
         &              p_mflx_tracer_v,                            &! out
         &              opt_topflx_tra=opt_topflx_tra,              &! in
@@ -848,7 +850,7 @@ CONTAINS
     !
     ! eventually do a clipping of negative values to zero
     !
-    IF ( lclip_tracer ) THEN
+    IF ( advection_config(jg)%lclip_tracer ) THEN
 !$OMP WORKSHARE
       WHERE ( p_tracer_new(:,:,:,:) < 0._wp )
         p_tracer_new(:,:,:,:) = 0._wp

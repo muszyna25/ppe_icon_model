@@ -142,10 +142,8 @@ MODULE mo_io_vlist
     &                               inwp_radiation, inwp_sso, inwp_cldcover,    &
     &                               inwp_turb, dt_conv, dt_rad_nml => dt_rad,   &
     &                               dt_ccov, dt_sso, inwp_satad
-  USE mo_advection_nml,       ONLY: ivadv_tracer, lvadv_tracer,                 &
-    &                               itype_vlimit, itype_hlimit, iord_backtraj,  &
-    &                               lclip_tracer, igrad_c_miura, iadv_slev,     &
-    &                               lstrang, upstr_beta_adv
+  USE mo_advection_nml,       ONLY: itype_vlimit, itype_hlimit, iord_backtraj,&
+    &                               igrad_c_miura, iadv_slev, upstr_beta_adv
   USE mo_advection_config,    ONLY: advection_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_echam_conv_nml,      ONLY: entrmid, entrscv,  &
@@ -653,18 +651,19 @@ CONTAINS
        CALL addGlobAttInt('transport_ctl:ihadv_tracer',       &
          &  advection_config(k_jg)%ihadv_tracer(max_ntracer),vlistID(k_jg),astatus)
        CALL addGlobAttInt('transport_ctl:ivadv_tracer',       &
-         &                ivadv_tracer(max_ntracer),vlistID(k_jg),astatus)
+         &  advection_config(k_jg)%ivadv_tracer(max_ntracer),vlistID(k_jg),astatus)
        CALL addGlobAttTxtFromLog('transport_ctl:lvadv_tracer',&
-         &                lvadv_tracer,vlistID(k_jg),astatus)
+         &  advection_config(k_jg)%lvadv_tracer,vlistID(k_jg),astatus)
        CALL addGlobAttTxtFromLog('transport_ctl:lstrang',     &
-         &                lstrang,vlistID(k_jg),astatus)
+         &  advection_config(k_jg)%lstrang,vlistID(k_jg),astatus)
        CALL addGlobAttInt('transport_ctl:itype_vlimit',       &
          &                itype_vlimit(max_ntracer),vlistID(k_jg),astatus)
        CALL addGlobAttInt('transport_ctl:itype_hlimit',       &
          &                itype_hlimit(max_ntracer),vlistID(k_jg),astatus)
        CALL addGlobAttInt('transport_ctl:iord_backtraj',iord_backtraj,vlistID(k_jg),astatus)
        CALL addGlobAttInt('transport_ctl:igrad_c_miura',igrad_c_miura,vlistID(k_jg),astatus)
-       CALL addGlobAttTxtFromLog('transport_ctl:lclip_tracer',lclip_tracer,vlistID(k_jg),astatus)
+       CALL addGlobAttTxtFromLog('transport_ctl:lclip_tracer',&
+         &  advection_config(k_jg)%lclip_tracer,vlistID(k_jg),astatus)
        CALL addGlobAttInt('transport_ctl:iadv_slev',iadv_slev(k_jg,max_ntracer), &
          &                vlistID(k_jg),astatus)
        CALL addGlobAttFlt('transport_ctl:upstr_beta_adv',upstr_beta_adv,vlistID(k_jg),astatus)

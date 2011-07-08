@@ -96,7 +96,8 @@ MODULE mo_advection_hflux
   USE mo_loopindices,         ONLY: get_indices_e
   USE mo_sync,                ONLY: SYNC_C, SYNC_C1, sync_patch_array_mult
   USE mo_parallel_configuration,        ONLY: p_test_run, n_ghost_rows
-  USE mo_advection_nml,       ONLY: lcompute, lcleanup, upstr_beta_adv, llsq_svd
+  USE mo_advection_nml,       ONLY: lcompute, lcleanup, upstr_beta_adv
+  USE mo_advection_config,    ONLY: advection_config
   USE mo_advection_utils,     ONLY: laxfr_upflux, back_traj_o1, back_traj_o2,     &
     &                               back_traj_dreg_o1, prep_gauss_quadrature_q,   &
     &                               prep_gauss_quadrature_cpoor,                  &
@@ -517,11 +518,15 @@ CONTAINS
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_nchdom, i_rlend_c, i_rlend_tr, i_rlend_vt
     INTEGER  :: ilc0, ibc0         !< line and block index for local cell center
+    INTEGER  :: pid                !< patch ID
 
    !-------------------------------------------------------------------------
 
     ! number of vertical levels
     nlev = p_patch%nlev
+
+    ! get patch ID
+    pid = p_patch%id
 
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
@@ -616,7 +621,7 @@ CONTAINS
     !
     IF (p_igrad_c_miura == 1) THEN
       ! least squares method
-      IF (llsq_svd) THEN
+      IF (advection_config(pid)%llsq_svd) THEN
       CALL recon_lsq_cell_l_svd( p_cc, p_patch, p_int%lsq_lin, z_lsq_coeff,   &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c)
       ELSE
@@ -1105,11 +1110,15 @@ CONTAINS
     INTEGER  :: je, jk, jb         !< index of edge, vert level, block
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_rlend_c, i_nchdom
+    INTEGER  :: pid                !< patch ID
 
    !-------------------------------------------------------------------------
 
     ! number of vertical levels
     nlev = p_patch%nlev
+
+    ! get patch ID
+    pid = p_patch%id
 
     ! Check for optional arguments
     IF ( PRESENT(opt_slev) ) THEN
@@ -1191,7 +1200,7 @@ CONTAINS
     IF (lsq_high_ord == 2) THEN
       ! quadratic reconstruction
       ! (computation of 6 coefficients -> z_lsq_coeff )
-      IF (llsq_svd) THEN
+      IF (advection_config(pid)%llsq_svd) THEN
       CALL recon_lsq_cell_q_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=4 )
@@ -1203,7 +1212,7 @@ CONTAINS
     ELSE IF (lsq_high_ord == 30) THEN
       ! cubic reconstruction without cross derivatives
       ! (computation of 8 coefficients -> z_lsq_coeff )
-      IF (llsq_svd) THEN
+      IF (advection_config(pid)%llsq_svd) THEN
       CALL recon_lsq_cell_cpoor_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,&
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=4 )
@@ -1215,7 +1224,7 @@ CONTAINS
     ELSE IF (lsq_high_ord == 3) THEN
       ! cubic reconstruction with cross derivatives
       ! (computation of 10 coefficients -> z_lsq_coeff )
-      IF (llsq_svd) THEN
+      IF (advection_config(pid)%llsq_svd) THEN
       CALL recon_lsq_cell_c_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
         &                    opt_rlstart=4 )

@@ -171,7 +171,7 @@ USE mo_model_domain,        ONLY: t_patch
 USE mo_math_utilities,      ONLY: gnomonic_proj, rotate_latlon, qrdec
 USE mo_parallel_configuration,  ONLY: nproma
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-USE mo_advection_nml,       ONLY: llsq_svd
+USE mo_advection_config,    ONLY: advection_config
 
 USE mo_intp_data_strc
 
@@ -470,6 +470,7 @@ INTEGER :: cnt                         ! counter
 INTEGER :: jrow                        ! matrix row-identifier
 INTEGER :: nel                         ! number of matrix elements
 INTEGER :: nblks_c
+INTEGER :: pid                         ! patch ID
 INTEGER :: jb                          ! index of current block
 INTEGER :: jc                          ! index of current cell
 INTEGER :: js                          ! index of current control volume in the stencil
@@ -510,6 +511,9 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
   CALL message('mo_interpolation:lsq_compute_coeff_cell', '')
 
   i_rcstartlev = 2
+
+  ! get patch id
+  pid = ptr_patch%id
 
   ! stencil size
   ptr_ncells => ptr_int_lsq%lsq_dim_stencil(:,:)
@@ -964,7 +968,7 @@ REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
     !
     ! 5a. QR-factorization of design matrix A
     !
-    IF (.NOT. llsq_svd) THEN
+    IF (.NOT. advection_config(pid)%llsq_svd) THEN
     CALL qrdec(lsq_dim_c, lsq_dim_unk, i_startidx, & ! in
      &         i_endidx, z_lsq_mat_c,              & ! in
      &         z_qmat, z_rmat)                       ! out
