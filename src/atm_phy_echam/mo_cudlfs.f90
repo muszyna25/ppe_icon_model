@@ -39,8 +39,8 @@ MODULE mo_cudlfs
   USE mo_cuadjtq,            ONLY : cuadjtq
   USE mo_cuadjtqi,           ONLY : cuadjtqi
 #ifdef __ICON__
-  USE mo_physical_constants, ONLY : vtmpc1
-  USE mo_echam_conv_nml,     ONLY : cmfdeps
+  USE mo_physical_constants,  ONLY : vtmpc1
+  USE mo_echam_conv_constants,ONLY : cmfdeps
 #else
   USE mo_constants,          ONLY : vtmpc1
   USE mo_cumulus_flux,       ONLY : cmfdeps

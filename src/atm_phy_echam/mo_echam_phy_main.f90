@@ -780,7 +780,10 @@ CONTAINS
         &          echam_conv_config%cprcon,  &! in
         &          echam_conv_config%cminbuoy,&! in
         &          echam_conv_config%entrpen, &! in
-        &          jce, nbdim, nlev, nlevp1, nlevm1,   &! in
+        &          echam_conv_config%nmctop,  &! in
+        &          echam_conv_config%cevapcu, &! in
+        &          jce, nbdim, nlev,          &! in
+        &          nlevp1, nlevm1,            &! in
         &          ntrac,                     &! in     tracers
 !0      &          jb,                        &! in     row index
         &          pdtime, psteplen,          &! in

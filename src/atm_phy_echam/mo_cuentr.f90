@@ -41,16 +41,16 @@
 
 MODULE mo_cuentr
 
-  USE mo_kind,               ONLY: dp
+  USE mo_kind, ONLY: dp
 #ifdef __ICON__
-  USE mo_physical_constants, ONLY: g=>grav, rd, vtmpc1
-  USE mo_echam_conv_nml,     ONLY: centrmax, cmfcmin
+  USE mo_physical_constants,  ONLY: g=>grav, rd, vtmpc1
+  USE mo_echam_conv_constants,ONLY: centrmax, cmfcmin
 #else
-  USE mo_constants,          ONLY: g, rd, vtmpc1
-  USE mo_cumulus_flux,       ONLY: centrmax, cmfcmin
+  USE mo_constants,   ONLY: g, rd, vtmpc1
+  USE mo_cumulus_flux,ONLY: centrmax, cmfcmin
 #endif
 #ifdef _PROFILE
-  USE mo_profile,        ONLY: trace_start, trace_stop
+  USE mo_profile, ONLY: trace_start, trace_stop
 #endif
 
   IMPLICIT NONE

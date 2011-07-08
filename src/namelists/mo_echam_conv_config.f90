@@ -49,8 +49,8 @@ MODULE mo_echam_conv_config
 
     ! Namelist variables
 
-    INTEGER :: iconv        !< 1,2,3 for different convection schemes
-    INTEGER :: ncvmicro     !< 0 or 1. Scheme for convective microphysics
+    INTEGER :: iconv     !< 1,2,3 for different convection schemes
+    INTEGER :: ncvmicro  !< 0 or 1. Scheme for convective microphysics
   
     LOGICAL :: lmfpen    !< true when penetrative convection is switched on
     LOGICAL :: lmfmid    !< true when midlevel    convection is switched on
@@ -72,24 +72,17 @@ MODULE mo_echam_conv_config
     ! Currently unused namelist variables 
     !INTEGER :: nauto        !< 1 or 2. autoconversion scheme
     !LOGICAL :: lconvmassfix !< aerosol mass fixer in convection
-    !LOGICAL :: lmfscv    !< true when shallow     convection is switched on
+    !LOGICAL :: lmfscv       !< true when shallow     convection is switched on
 
-    ! Dependent variables - Currently none.
-  
-    ! Constants
-  
-    REAL(wp) :: entrmid  !< entrainment rate for midlevel convection
-    REAL(wp) :: entrscv  !< entrainment rate for shallow convection
-    REAL(wp) :: entrdd   !< entrainment rate for cumulus downdrafts
-    REAL(wp) :: cmfdeps  !< fractional convective mass flux for downdrafts at lfs
-  
-    REAL(wp) :: cmfcmin  !< minimum massflux value (for safety)
-    REAL(wp) :: cmfcmax  !< maximum massflux value allowed
-  
-    REAL(wp) :: centrmax !<
-    REAL(wp) :: cmaxbuoy !< maximum excess buoyancy
-    REAL(wp) :: cbfac    !< factor for std dev of virtual pot temp
+    ! Derived variables
 
+    INTEGER :: nmctop    !< max. level for cloud base of mid level conv.
+
+    REAL(wp),ALLOCATABLE :: cevapcu(:)  !< evaporation coefficient for kuo0
+                                        !< In ECHAM6 it is defined in mo_physc2,            
+                                        !< allocated in subroutine alloc_mods,              
+                                        !< and initialized in subroutine iniphy.
+  
   END TYPE t_echam_conv_config
 
   !>

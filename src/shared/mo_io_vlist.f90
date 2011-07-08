@@ -146,8 +146,6 @@ MODULE mo_io_vlist
     &                               upstr_beta_adv
   USE mo_advection_config,    ONLY: advection_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config
-  USE mo_echam_conv_nml,      ONLY: entrmid, entrscv,  &
-    &                               entrdd, cmfdeps
 !!$  USE mo_gw_hines_nml,        ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
   USE mo_icoham_sfc_indices,  ONLY: igbm
   USE mo_vertical_coord_table,ONLY: vct
@@ -726,7 +724,6 @@ CONTAINS
                 echam_conv_config%iconv,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:cmftau', &
                 echam_conv_config%cmftau,vlistID(k_jg),astatus)
-           CALL addGlobAttFlt('echam_conv_ctl:cmfdeps',cmfdeps,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:cmfctop', &
                 echam_conv_config%cmfctop,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:cprcon', &
@@ -735,10 +732,8 @@ CONTAINS
                 echam_conv_config%cminbuoy,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:entrpen', &
                 echam_conv_config%entrpen,vlistID(k_jg),astatus)
-           CALL addGlobAttFlt('echam_conv_ctl:entrmid',entrmid,vlistID(k_jg),astatus)
-           CALL addGlobAttFlt('echam_conv_ctl:entrscv',entrscv,vlistID(k_jg),astatus)
-           CALL addGlobAttFlt('echam_conv_ctl:entrdd',entrdd,vlistID(k_jg),astatus)
-           CALL addGlobAttFlt('echam_conv_ctl:dlev',echam_conv_config%dlev,vlistID(k_jg),astatus)
+           CALL addGlobAttFlt('echam_conv_ctl:dlev',    &
+                echam_conv_config%dlev,vlistID(k_jg),astatus)
         END IF
         !
 !!$        !!! Parameters of /gw_hines_nml/

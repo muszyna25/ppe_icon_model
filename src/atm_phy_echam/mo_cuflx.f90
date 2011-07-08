@@ -39,10 +39,8 @@ MODULE mo_cuflx
 
 #ifdef __ICON__
   USE mo_physical_constants,  ONLY: g=>grav, alf, cpd, tmelt, vtmpc2
-  USE mo_echam_conv_nml,      ONLY: cevapcu
 #else
   USE mo_constants,           ONLY: g, alf, cpd, tmelt, vtmpc2, rd
-  USE mo_physc2,              ONLY: cevapcu
   USE mo_submodel,            ONLY: lanysubmodel, lham
   USE mo_submodel_interface,  ONLY: cuflx_subm
 #endif
@@ -57,7 +55,8 @@ CONTAINS
   !>
   !!
 !++mgs: zcucov and zdpevap now 1d vectors
-SUBROUTINE cuflx( ncvmicro, ptime_step_len,  kproma, kbdim, klev, klevp1, &
+SUBROUTINE cuflx( ncvmicro, cevapcu,                                   &
+           ptime_step_len,  kproma, kbdim, klev, klevp1,               &
            pqen,     pqsen,    ptenh,    pqenh,                        &
            ktrac,                                                      &
 !---Included for scavenging in xtwetdep (Philip Stier, 28/03/01, UL, 2803.07):-------
@@ -95,10 +94,11 @@ SUBROUTINE cuflx( ncvmicro, ptime_step_len,  kproma, kbdim, klev, klevp1, &
 !          ---------
 !          NONE
 !
+INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevp1, ktrac
 INTEGER, INTENT(IN) :: ncvmicro
+REAL(dp),INTENT(IN) :: cevapcu(klev)
 REAL(dp),INTENT(IN) :: ptime_step_len
 
-INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, ktrac
 INTEGER, INTENT (OUT):: ktopm2
 !
 REAL(dp):: pqen(kbdim,klev),        pqsen(kbdim,klev),                 &

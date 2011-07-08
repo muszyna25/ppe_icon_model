@@ -42,8 +42,7 @@ MODULE mo_cumastrh
 
 #ifdef __ICON__
   USE mo_physical_constants,  ONLY: g=>grav, alv, als, tmelt, vtmpc1, rd
-  USE mo_echam_conv_nml,      ONLY: entrscv,               &
-                                  & cmfdeps
+  USE mo_echam_conv_constants,ONLY: entrscv, cmfdeps
 #else
   USE mo_control,             ONLY: nn
   USE mo_constants,           ONLY: g, alv, als, tmelt, vtmpc1, rd
@@ -75,7 +74,8 @@ CONTAINS
   !>
   !!
   SUBROUTINE cumastrh( ncvmicro, lmfdudv, lmfdd, lmfmid, dlev, cmftau,   &
-                       cmfctop, cprcon, cminbuoy, entrpen, &
+                       cmfctop, cprcon, cminbuoy, entrpen,               &
+                       nmctop, cevapcu,                                  &
                        pdtime, ptime_step_len,                           &
                        kproma, kbdim, klev, klevp1, klevm1, ilab,        &
 !0                     krow,                                             &
@@ -185,9 +185,11 @@ CONTAINS
 INTEGER, INTENT (IN) :: ncvmicro 
 LOGICAL, INTENT (IN) :: lmfdudv, lmfdd, lmfmid 
 REAL(dp),INTENT (IN) :: dlev, cmftau, cmfctop, cprcon, cminbuoy, entrpen
+INTEGER, INTENT (IN) :: nmctop 
 REAL(dp),INTENT (IN) :: pdtime
 REAL(dp),INTENT (IN) :: ptime_step_len
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, ktrac, klevm1
+REAL(dp),INTENT (IN) :: cevapcu(klev)
 !---Included for in-cloud scavenging (Philip Stier, 19/01/06):----------
 !!$INTEGER, INTENT (IN) :: krow
 !---End Included for scavenging-----------------------------------------
@@ -432,7 +434,7 @@ INTRINSIC MIN, MAX
 !*             (B) DO ASCENT IN 'CUASCT' IN ABSENCE OF DOWNDRAFTS
 !                  ----------------------------------------------
 !
-  CALL cuasct(lmfdudv, lmfmid, dlev, cmfctop, cprcon, cminbuoy,        &
+  CALL cuasct(lmfdudv, lmfmid, dlev, cmfctop, cprcon, cminbuoy,nmctop, &
              ptime_step_len, kproma,  kbdim, klev,klevp1,klevm1,       &
              ztenh,    zqenh,    puen,     pven,                       &
              ktrac,                                                    &
@@ -649,7 +651,7 @@ INTRINSIC MIN, MAX
 !                  --------------------------------------------------
 !
 !600 CONTINUE
-  CALL cuasct(lmfdudv, lmfmid, dlev, cmfctop, cprcon, cminbuoy,        &
+  CALL cuasct(lmfdudv, lmfmid, dlev, cmfctop, cprcon, cminbuoy, nmctop,&
              ptime_step_len, kproma,  kbdim, klev, klevp1, klevm1,     &
              ztenh,    zqenh,    puen,     pven,                       &
              ktrac,                                                    &
@@ -676,7 +678,8 @@ INTRINSIC MIN, MAX
 !                  ------------------------------------------
 !
 !700 CONTINUE
-  CALL cuflx(ncvmicro, ptime_step_len, kproma,   kbdim, klev, klevp1,  &
+  CALL cuflx(ncvmicro, cevapcu,                                        &
+             ptime_step_len, kproma,   kbdim, klev, klevp1,            &
              pqen,     pqsen,    ztenh,    zqenh,                      &
              ktrac,                                                    &
 !---Included for scavenging in xtwetdep (Philip Stier, 28/03/01):-------

@@ -38,14 +38,12 @@ MODULE mo_cuasct
   USE mo_kind,               ONLY : dp
 
 #ifdef __ICON__
-  USE mo_physical_constants, ONLY : g=>grav, vtmpc1
-  USE mo_echam_conv_nml,     ONLY : nmctop, cmfcmin, &
-                                    cbfac, cmaxbuoy
+  USE mo_physical_constants,  ONLY : g=>grav, vtmpc1
+  USE mo_echam_conv_constants,ONLY : cmfcmin, cbfac, cmaxbuoy
 #else
   USE mo_control,      ONLY : nn
   USE mo_constants,    ONLY : g, vtmpc1
-  USE mo_cumulus_flux, ONLY : nmctop, cmfcmin, &
-                              cbfac, cmaxbuoy
+  USE mo_cumulus_flux, ONLY : cmfcmin, cbfac, cmaxbuoy
 #endif
 
   USE mo_cubasmc,            ONLY : cubasmc
@@ -65,7 +63,7 @@ MODULE mo_cuasct
 CONTAINS
   !>
   !!
-SUBROUTINE cuasct(   lmfdudv, lmfmid, dlev, cmfctop, cprcon, cminbuoy, &
+SUBROUTINE cuasct( lmfdudv, lmfmid, dlev, cmfctop, cprcon, cminbuoy, nmctop, &
            ptime_step_len, kproma, kbdim, klev, klevp1, klevm1,        &
            ptenh,    pqenh,    puen,     pven,                         &
            ktrac,                                                      &
@@ -127,6 +125,7 @@ SUBROUTINE cuasct(   lmfdudv, lmfmid, dlev, cmfctop, cprcon, cminbuoy, &
 !
 LOGICAL, INTENT (IN) :: lmfdudv, lmfmid
 REAL(dp),INTENT (IN) :: dlev, cmfctop, cprcon, cminbuoy
+INTEGER, INTENT (IN) :: nmctop 
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, klevm1, ktrac
 REAL(dp),INTENT(IN) :: ptime_step_len
 INTEGER :: jl, jk, jt, ik, icall

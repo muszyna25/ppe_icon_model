@@ -35,14 +35,14 @@
 !!
 MODULE mo_cubase
 
-  USE mo_kind,               ONLY: dp
-  USE mo_cuadjtq,            ONLY: cuadjtq_idx
+  USE mo_kind,                ONLY: dp
+  USE mo_cuadjtq,             ONLY: cuadjtq_idx
 #ifdef __ICON__
-  USE mo_physical_constants, ONLY: vtmpc1
-  USE mo_echam_conv_nml,     ONLY: cbfac, cmaxbuoy
+  USE mo_physical_constants,  ONLY: vtmpc1
+  USE mo_echam_conv_constants,ONLY: cbfac, cmaxbuoy
 #else
-  USE mo_constants,          ONLY: vtmpc1
-  USE mo_cumulus_flux,       ONLY: cbfac, cmaxbuoy
+  USE mo_constants,           ONLY: vtmpc1
+  USE mo_cumulus_flux,        ONLY: cbfac, cmaxbuoy
 #endif
 
   IMPLICIT NONE

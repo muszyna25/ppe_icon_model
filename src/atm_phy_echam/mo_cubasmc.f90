@@ -35,13 +35,13 @@
 !!
 MODULE mo_cubasmc
 
-  USE mo_kind,               ONLY : dp
+  USE mo_kind, ONLY: dp
 #ifdef __ICON__
-  USE mo_physical_constants, ONLY : g=>grav
-  USE mo_echam_conv_nml,     ONLY : entrmid, cmfcmin, cmfcmax
+  USE mo_physical_constants,  ONLY : g=>grav
+  USE mo_echam_conv_constants,ONLY : entrmid, cmfcmin, cmfcmax
 #else
-  USE mo_constants,     ONLY : g
-  USE mo_cumulus_flux,  ONLY : entrmid, cmfcmin, cmfcmax
+  USE mo_constants,    ONLY : g
+  USE mo_cumulus_flux, ONLY : entrmid, cmfcmin, cmfcmax
 #endif
 
   IMPLICIT NONE

@@ -48,9 +48,8 @@ MODULE mo_cuasc
 ! USE mo_cuadjtqi,           ONLY : cuadjtqi
 
 #ifdef __ICON__
-  USE mo_physical_constants, ONLY : g=>grav, tmelt, vtmpc1, rv, rd, alv, als
-  USE mo_echam_conv_nml,     ONLY : nmctop, cmfcmin,     &
-                                    centrmax, cbfac, cmaxbuoy
+  USE mo_physical_constants,  ONLY : g=>grav, tmelt, vtmpc1, rv, rd, alv, als
+  USE mo_echam_conv_constants,ONLY : cmfcmin, centrmax, cbfac, cmaxbuoy
   USE mo_echam_cloud_params, ONLY : csecfrl
 !                                   cqtmin, crhosno, cn0s                 &
 !                                 , cthomi, ccsacl, clmax, clmin          &
@@ -63,8 +62,7 @@ MODULE mo_cuasc
   USE mo_control,            ONLY : nn, ltimer
   USE mo_constants,          ONLY : g, tmelt, vtmpc1, rv, rd, alv, als, cpd        &
                                   , vtmpc2, api, ak, rhoh2o
-  USE mo_cumulus_flux,       ONLY : nmctop, cmfcmin,    &
-                                  , centrmax, cbfac, cmaxbuoy
+  USE mo_cumulus_flux,       ONLY : cmfcmin, centrmax, cbfac, cmaxbuoy
   USE mo_cloud,              ONLY : cqtmin, crhosno, cn0s                          &
                                   , cthomi, csecfrl, ccsacl, clmax, clmin          &
                                   , ceffmin, ceffmax, crhoi, cauloc
@@ -91,9 +89,9 @@ MODULE mo_cuasc
 CONTAINS
   !>
   !!
-SUBROUTINE cuasc(  ncvmicro, lmfdudv, lmfmid, dlev, cmfctop, cprcon,   &
-           cminbuoy,     pdtime, ptime_step_len,                       &
-           kproma, kbdim, klev, klevp1, klevm1,                        &
+SUBROUTINE cuasc(  ncvmicro, lmfdudv, lmfmid, dlev, cmfctop,           &
+           cprcon,   cminbuoy, nmctop, pdtime,   ptime_step_len,       &
+           kproma,   kbdim,    klev,     klevp1, klevm1,               &
            ptenh,    pqenh,    puen,     pven,                         &
            ktrac,                                                      &
            pxtenh,   pxten,    pxtu,     pmfuxt,                       &
@@ -155,7 +153,7 @@ SUBROUTINE cuasc(  ncvmicro, lmfdudv, lmfmid, dlev, cmfctop, cprcon,   &
 !          (TIEDTKE,1989)
 !
 
-INTEGER, INTENT (IN) :: ncvmicro
+INTEGER, INTENT (IN) :: ncvmicro, nmctop
 LOGICAL, INTENT (IN) :: lmfdudv, lmfmid
 REAL(dp),INTENT (IN) :: dlev, cmfctop, cprcon, cminbuoy
 INTEGER, INTENT (IN) :: kproma, kbdim, klev, klevp1, klevm1, ktrac
