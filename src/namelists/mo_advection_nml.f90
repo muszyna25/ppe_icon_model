@@ -326,7 +326,8 @@ CONTAINS
             WRITE(nml_ctracer_list(jt:jt),'(i1.1)')jt
           ENDDO
           WRITE(message_text,'(a)') &
-            & 'Attention: according to physics, nml_ctracer_list is set to '//nml_ctracer_list(1:ntracer)
+            & 'Attention: according to physics, nml_ctracer_list is set to ',&
+            & nml_ctracer_list(1:ntracer)
           CALL message(TRIM(routine),message_text)
         ENDIF
       CASE (1)
@@ -345,7 +346,7 @@ CONTAINS
             WRITE(nml_ctracer_list(jt:jt),'(i1.1)')jt
           ENDDO
           WRITE(message_text,'(a)') &
-            & 'Attention: according to physics, nml_ctracer_list is set to '// &
+            & 'Attention: according to physics, nml_ctracer_list is set to ',&
             &   nml_ctracer_list(1:ntracer)
           CALL message(TRIM(routine),message_text)
         ENDIF
@@ -363,7 +364,7 @@ CONTAINS
               WRITE(nml_ctracer_list(jt:jt),'(i1.1)')jt
             ENDDO
             WRITE(message_text,'(a)') &
-              & 'Attention: according to physics, nml_ctracer_list is set to '// &
+              & 'Attention: according to physics, nml_ctracer_list is set to ', &
               &  nml_ctracer_list(1:ntracer)
             CALL message(TRIM(routine),message_text)
           ENDIF
@@ -383,8 +384,9 @@ CONTAINS
               WRITE(nml_ctracer_list(jt:jt),'(i1.1)')jt
             ENDDO
             WRITE(message_text,'(a)') &
-              & 'Attention: according to physics with radiation and O3, nml_ctracer_list is set to ' &
-              &  //nml_ctracer_list(1:ntracer)
+              & 'Attention: according to physics with radiation and O3 ', &
+              &  'nml_ctracer_list is set to ', &
+              &  nml_ctracer_list(1:ntracer)
             CALL message(TRIM(routine),message_text)
           ENDIF
         END SELECT

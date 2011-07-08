@@ -714,15 +714,23 @@ CONTAINS
         !!! Parameters of /echam_conv_ctl/
         !---------------------------------
         IF ( get_lconv() ) THEN
-           CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfpen',echam_conv_config%lmfpen,vlistID(k_jg),astatus)
-           CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfmid',echam_conv_config%lmfmid,vlistID(k_jg),astatus)
-          !CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfscv',echam_conv_config%lmfscv,vlistID(k_jg),astatus)
-           CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfdd',echam_conv_config%lmfdd,vlistID(k_jg),astatus)
-           CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfdudv',echam_conv_config%lmfdudv,vlistID(k_jg),astatus)
-           CALL addGlobAttInt('echam_conv_ctl:iconv',echam_conv_config%iconv,vlistID(k_jg),astatus)
-           CALL addGlobAttFlt('echam_conv_ctl:cmftau',echam_conv_config%cmftau,vlistID(k_jg),astatus)
+           CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfpen',&
+                                            &echam_conv_config%lmfpen,vlistID(k_jg),astatus)
+           CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfmid',&
+                                            &echam_conv_config%lmfmid,vlistID(k_jg),astatus)
+          !CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfscv'&
+          !                                  &,echam_conv_config%lmfscv,vlistID(k_jg),astatus)
+           CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfdd',&
+                                            &echam_conv_config%lmfdd,vlistID(k_jg),astatus)
+           CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfdudv',&
+                                            &echam_conv_config%lmfdudv,vlistID(k_jg),astatus)
+           CALL addGlobAttInt('echam_conv_ctl:iconv',&
+                                            &echam_conv_config%iconv,vlistID(k_jg),astatus)
+           CALL addGlobAttFlt('echam_conv_ctl:cmftau',&
+                                            &echam_conv_config%cmftau,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:cmfdeps',cmfdeps,vlistID(k_jg),astatus)
-           CALL addGlobAttFlt('echam_conv_ctl:cmfctop',echam_conv_config%cmfctop,vlistID(k_jg),astatus)
+           CALL addGlobAttFlt('echam_conv_ctl:cmfctop',&
+                                            &echam_conv_config%cmfctop,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:cprcon',cprcon,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:cminbuoy',cminbuoy,vlistID(k_jg),astatus)
            CALL addGlobAttFlt('echam_conv_ctl:entrpen',entrpen,vlistID(k_jg),astatus)
