@@ -58,10 +58,9 @@ PROGRAM control_model
   USE mo_ocean_model,         ONLY: ocean_model
   USE mo_radiation_model,     ONLY: radiation_model
 
-!  USE mo_icon_cpl,            ONLY: get_cpl_local_comm()
+! USE mo_icon_cpl,            ONLY: get_cpl_local_comm()
 ! USE mo_icon_cpl,            ONLY: ICON_atmos_index, ICON_ocean_index, &
-!  &                                comp_id, comp_comm, ierr, &
-!  &                                complist
+!  &                                comp_id, ierr, complist
 ! USE mo_icon_cpl_init,       ONLY: icon_cpl_init
 ! USE mo_icon_cpl_init_comp,  ONLY: icon_cpl_init_comp
 ! USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
@@ -131,7 +130,7 @@ PROGRAM control_model
 !
 !             CALL open_nml(complist(ICON_ocean_index)%nml_name)
 !
-!             CALL icon_cpl_init_comp ( 'ocean', comp_id, comp_comm, ierr )
+!             CALL icon_cpl_init_comp ( 'ocean', comp_id, ierr )
 !
 !           ENDIF
 !
@@ -145,7 +144,7 @@ PROGRAM control_model
 !
 !             CALL open_nml(complist(ICON_atmos_index)%nml_name)
 !
-!             CALL icon_cpl_init_comp ( 'atmosphere', comp_id, comp_comm, ierr )
+!             CALL icon_cpl_init_comp ( 'atmosphere', comp_id, ierr )
 !
 !           ENDIF
 !
