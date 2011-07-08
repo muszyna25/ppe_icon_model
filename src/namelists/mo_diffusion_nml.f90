@@ -66,22 +66,23 @@ MODULE mo_diffusion_nml
   ! 1.0 Namelist variables and auxiliary parameters setting up the
   !     configuration of the dynamical core
   !-------------------------------------------------------------------------
-  INTEGER :: hdiff_order  ! order of horizontal diffusion
-                          ! 2: 2nd order linear diffusion on all vertical levels 
+  INTEGER :: &            ! order of horizontal diffusion
+    &  nml_hdiff_order    ! 2: 2nd order linear diffusion on all vertical levels 
                           ! 3: Smagorinsky diffusion for hexagonal model
                           ! 4: 4th order linear diffusion on all vertical levels 
                           ! 5: Smagorinsky diffusion for triangular model
                           ! 24 or 42: 2nd order linear diffusion for upper levels,
                           !           4th order for lower levels
+                          
 
-  REAL(wp) :: k2_pres_max  ! (relevant only when hdiff_order = 24 or 42)
+  REAL(wp) :: nml_k2_pres_max  ! (relevant only when hdiff_order = 24 or 42)
                            ! pressure (in Pa) specified by the user
                            ! to determine the lowest vertical level 
                            ! to which 2nd order linear diffusion is applied.
                            ! For the levels with pressure > k2_pres_max, 
                            ! 4th order linear diffusion is applied. 
 
-  INTEGER  :: k2_klev_max  ! (relevant only when hdiff_order = 24 or 42)
+  INTEGER  :: nml_k2_klev_max  ! (relevant only when hdiff_order = 24 or 42)
                            ! vertical level index specified by the user
                            ! to determine the lowest vertical level 
                            ! to which 2nd order linear diffusion is applied.
@@ -115,9 +116,9 @@ MODULE mo_diffusion_nml
     & lhdiff_vn        ! if .TRUE., apply horizontal diffusion to momentum.
 
 
-  NAMELIST/diffusion_ctl/ hdiff_order, hdiff_efdt_ratio, hdiff_smag_fac, &
+  NAMELIST/diffusion_ctl/ nml_hdiff_order, hdiff_efdt_ratio, hdiff_smag_fac, &
                         & lhdiff_temp, lhdiff_vn, hdiff_tv_ratio,        &
-                        & hdiff_multfac, k2_klev_max, k2_pres_max,       &
+                        & hdiff_multfac, nml_k2_klev_max, nml_k2_pres_max,       &
                         & hdiff_min_efdt_ratio
 
   PUBLIC :: read_diffusion_namelist
@@ -145,15 +146,15 @@ MODULE mo_diffusion_nml
    lhdiff_temp       = .TRUE.
    lhdiff_vn         = .TRUE.
 
-   hdiff_order       = 4
+   nml_hdiff_order   = 4
    hdiff_efdt_ratio  = 1.0_wp
    hdiff_min_efdt_ratio = 1.0_wp
    hdiff_multfac     = 1.0_wp
    hdiff_smag_fac    = 0.15_wp
    hdiff_tv_ratio    = 1.0_wp
 
-   k2_pres_max = -99.0_wp                                                    
-   k2_klev_max = 0
+   nml_k2_pres_max = -99.0_wp                                                    
+   nml_k2_klev_max = 0
 
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -178,7 +179,7 @@ MODULE mo_diffusion_nml
    ! 4.0 check the consistency of the parameters
    !------------------------------------------------------------
 
-    SELECT CASE(hdiff_order)
+    SELECT CASE(nml_hdiff_order)
     CASE(-1)
       CALL message(TRIM(routine),'Horizontal diffusion switched off.')
     CASE(2,4)
@@ -186,19 +187,19 @@ MODULE mo_diffusion_nml
 
     CASE(3)
       IF (global_cell_type==3) CALL finish(TRIM(routine), &
-      'hdiff_order = 3 invalid for triangular model.')
+      'nml_hdiff_order = 3 invalid for triangular model.')
 
     CASE(5)
       IF (global_cell_type==6) CALL finish(TRIM(routine), &
-      'hdiff_order = 5 invalid for hexagonal model.')
+      'nml_hdiff_order = 5 invalid for hexagonal model.')
 
     CASE(24,42)
       IF (.NOT.(latmosphere.AND.lhydrostatic)) CALL finish(TRIM(routine), &
-      'hdiff_order = 24 or 42 only implemented for the hydrostatic atm model')
+      'nml_hdiff_order = 24 or 42 only implemented for the hydrostatic atm model')
 
     CASE DEFAULT
       CALL finish(TRIM(routine),                     &
-        & 'Error: Invalid choice of hdiff_order. '// &                
+        & 'Error: Invalid choice of nml_hdiff_order. '// &                
         & 'Choose from -1, 2, 3, 4, 5, 24, and 42.')
     END SELECT
 
@@ -212,47 +213,47 @@ MODULE mo_diffusion_nml
     ! If using hybrid linear diffusion, set the starting and 
     ! ending vertical level indices for each diffusion order. 
     !-----------------------------------------------------------
-    IF (hdiff_order==24.OR.hdiff_order==42) THEN                                 
+    IF (nml_hdiff_order==24.OR.nml_hdiff_order==42) THEN                                 
                                                                                 
       CALL message('','')
       CALL message('----- horizontal diffusion','')
 
-      IF (k2_pres_max >0._wp) THEN  ! User has specified a pressure value
+      IF (nml_k2_pres_max >0._wp) THEN  ! User has specified a pressure value
 
-        CALL print_value('hdiff: k2_pres_max (Pa) = ',k2_pres_max)
+        CALL print_value('hdiff: nml_k2_pres_max (Pa) = ',nml_k2_pres_max)
 
         ! Calculate the pressure values at layer interfaces
         ! assuming surface pressure is apzero.
 
         zpres(:) = vct_a(:) + vct_b(:)*apzero
 
-        IF (k2_pres_max <= zpres(1)) THEN
+        IF (nml_k2_pres_max <= zpres(1)) THEN
         ! Model does not include mass of the whole atmosphere; User
         ! specified a pressure value located above the model top.
         ! 2nd order diffusion will not be applied. Only 4th order.
         
-          k2_klev_max = 0
+          nml_k2_klev_max = 0
           CALL print_value('hdiff: ptop (Pa)        = ',vct_a(1))
-          CALL message('--- hdiff','k2_pres_max <= ptop')
+          CALL message('--- hdiff','nml_k2_pres_max <= ptop')
 
-        ELSE IF (k2_pres_max >= zpres(nlev+1)) THEN
+        ELSE IF (nml_k2_pres_max >= zpres(nlev+1)) THEN
         ! User specified a very high pressure. 2nd order diffusion 
         ! will be applied to all vertical levels.
 
-          k2_klev_max = nlev
+          nml_k2_klev_max = nlev
           CALL print_value('hdiff: pres_sfc (Pa)    = ',zpres(nlev+1))
-          CALL message('--- hdiff','k2_pres_max >= pres_sfc')
+          CALL message('--- hdiff','nml_k2_pres_max >= pres_sfc')
 
         ELSE ! Search for the layer in which k2_pres_max is located.
 
           DO jk = 1,nlev
-            IF ((k2_pres_max > zpres(jk)).AND.(k2_pres_max <= zpres(jk+1))) THEN
-              k2_klev_max = jk 
+            IF ((nml_k2_pres_max > zpres(jk)).AND.(nml_k2_pres_max <= zpres(jk+1))) THEN
+              nml_k2_klev_max = jk 
               EXIT
             END IF
           END DO
-          CALL print_value('hdiff: half level pressure (-) = ',zpres(k2_klev_max  ))
-          CALL print_value('hdiff: half level pressure (+) = ',zpres(k2_klev_max+1))
+          CALL print_value('hdiff: half level pressure (-) = ',zpres(nml_k2_klev_max  ))
+          CALL print_value('hdiff: half level pressure (+) = ',zpres(nml_k2_klev_max+1))
 
         END IF ! k2_pres_max
       END IF   ! k2_pres_max >0
@@ -260,8 +261,8 @@ MODULE mo_diffusion_nml
       ! default or user-specified level index k2_klev_max.
 
       k2s = 1
-      k2e = k2_klev_max
-      k4s = k2_klev_max +1
+      k2e = nml_k2_klev_max
+      k4s = nml_k2_klev_max +1
       k4e = nlev
 
       ! Inform the user about the configuration
@@ -281,7 +282,7 @@ MODULE mo_diffusion_nml
       CALL message('--- hdiff','------')
       CALL message('','')
 
-    END IF ! hdiff_order==24.OR.hdiff_order==42
+    END IF ! nml_hdiff_order==24.OR.nml_hdiff_order==42
 
     !-----------------------------------------------------
     ! Store the namelist for restart
@@ -353,15 +354,15 @@ MODULE mo_diffusion_nml
      lhdiff_temp       = .TRUE.
      lhdiff_vn         = .TRUE.
 
-     hdiff_order       = 4
+     nml_hdiff_order   = 4
      hdiff_efdt_ratio  = 1.0_wp
      hdiff_min_efdt_ratio = 1.0_wp
      hdiff_multfac     = 1.0_wp
      hdiff_smag_fac    = 0.15_wp
      hdiff_tv_ratio    = 1.0_wp
 
-     k2_pres_max = -99.0_wp                                                    
-     k2_klev_max = 0
+     nml_k2_pres_max = -99.0_wp                                                    
+     nml_k2_klev_max = 0
 
 
 
@@ -387,33 +388,54 @@ MODULE mo_diffusion_nml
 
 
     !----------------------------------------------------
-    ! 4. Fill the configuration state
+    ! 4. Sanity check
+    !----------------------------------------------------
+
+    SELECT CASE(nml_hdiff_order)
+    CASE(-1)
+      CALL message(TRIM(routine),'Horizontal diffusion switched off.')
+    CASE(2,3,4,5,24,42)
+      CONTINUE
+    CASE DEFAULT
+      CALL finish(TRIM(routine),                     &
+        & 'Error: Invalid choice of nml_hdiff_order. '// &                
+        & 'Choose from -1, 2, 3, 4, 5, 24, and 42.')
+    END SELECT
+
+
+    IF (hdiff_efdt_ratio<=0._wp) THEN
+      CALL message(TRIM(routine),'No horizontal background diffusion is used')
+    ENDIF
+
+
+    !----------------------------------------------------
+    ! 5. Fill the configuration state
     !----------------------------------------------------
 
     DO jg= 1,max_dom
-      diffusion_config(jg)%hdiff_order          = hdiff_order
+      diffusion_config(jg)%hdiff_order          = nml_hdiff_order
       diffusion_config(jg)%hdiff_efdt_ratio     = hdiff_efdt_ratio
       diffusion_config(jg)%hdiff_smag_fac       = hdiff_smag_fac
       diffusion_config(jg)%lhdiff_temp          = lhdiff_temp
       diffusion_config(jg)%lhdiff_vn            = lhdiff_vn
       diffusion_config(jg)%hdiff_tv_ratio       = hdiff_tv_ratio
       diffusion_config(jg)%hdiff_multfac        = hdiff_multfac
-      diffusion_config(jg)%k2_klev_max          = k2_klev_max
-      diffusion_config(jg)%k2_pres_max          = k2_pres_max
+      diffusion_config(jg)%k2_klev_max          = nml_k2_klev_max
+      diffusion_config(jg)%k2_pres_max          = nml_k2_pres_max
       diffusion_config(jg)%hdiff_min_efdt_ratio = hdiff_min_efdt_ratio
     ENDDO
 
 
 
     !-----------------------------------------------------
-    ! 5. Store the namelist for restart
+    ! 6. Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
     WRITE(funit,NML=diffusion_ctl)                    
     CALL store_and_close_namelist(funit,'diffusion_ctl') 
 
 
-    ! 6. write the contents of the namelist to an ASCII file
+    ! 7. write the contents of the namelist to an ASCII file
     !
     IF(p_pe == p_io) WRITE(nnml_output,nml=diffusion_ctl)
 

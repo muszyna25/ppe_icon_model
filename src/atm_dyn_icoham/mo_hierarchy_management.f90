@@ -69,7 +69,7 @@ MODULE mo_hierarchy_management
   USE mo_dynamics_nml,        ONLY: ltwotime, itime_scheme,              &
     &                               nold, nnow, nnew, nsav1, nsav2
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config 
-  USE mo_diffusion_nml,       ONLY: hdiff_order
+  USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_io_nml,              ONLY: lprepare_output
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,             ONLY: lhydrostatic, ldynamics, ltransport, &
@@ -884,7 +884,7 @@ CONTAINS
         ! Horizontal diffusion
         !======================
         IF (ldynamics) THEN
-          SELECT CASE(hdiff_order)
+          SELECT CASE(diffusion_config(jg)%hdiff_order)
           CASE(-1)
             ! No diffusion
 
@@ -1318,7 +1318,7 @@ CONTAINS
 
       END IF
 
-      SELECT CASE(hdiff_order)
+      SELECT CASE(diffusion_config(jg)%hdiff_order)
       CASE(-1)    ! No diffusion
       CASE(24,42) ! Hybrid linear
         CALL hdiff_hyb_lin( jg, p_patch(jg), p_int_state(jg), &! in
@@ -1390,7 +1390,7 @@ CONTAINS
 
       END IF
 
-      SELECT CASE(hdiff_order)
+      SELECT CASE(diffusion_config(jg)%hdiff_order)
       CASE(-1)    ! No diffusion
       CASE(24,42) ! Hybrid linear
         CALL hdiff_hyb_lin( jg, p_patch(jg), p_int_state(jg), &! in
@@ -1455,7 +1455,7 @@ CONTAINS
 
       END IF
 
-      SELECT CASE(hdiff_order)
+      SELECT CASE(diffusion_config(jg)%hdiff_order)
       CASE(-1)    ! No diffusion
       CASE(24,42) ! Hybrid linear
         CALL hdiff_hyb_lin( jg, p_patch(jg), p_int_state(jg), &! in
@@ -1558,7 +1558,7 @@ CONTAINS
 
       END IF
 
-      SELECT CASE(hdiff_order)
+      SELECT CASE(diffusion_config(jg)%hdiff_order)
       CASE(-1)    ! No diffusion
       CASE(24,42) ! Hybrid linear
         CALL hdiff_hyb_lin( jg, p_patch(jg), p_int_state(jg), &! in

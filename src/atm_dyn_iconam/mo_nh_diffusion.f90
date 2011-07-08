@@ -47,7 +47,8 @@ MODULE mo_nh_diffusion
                                     cells2verts_scalar, cells2edges_scalar, &
                                     edges2cells_scalar, verts2cells_scalar
   USE mo_nonhydrostatic_nml,  ONLY: l_zdiffu_t, damp_height, k2_updamp_coeff
-  USE mo_diffusion_nml,       ONLY: k4, hdiff_order, hdiff_smag_fac, lhdiff_temp
+  USE mo_diffusion_nml,       ONLY: k4, hdiff_smag_fac, lhdiff_temp
+  USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,             ONLY: ltimer
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
@@ -119,15 +120,19 @@ MODULE mo_nh_diffusion
     INTEGER,  DIMENSION(:,:),   POINTER :: icell, ilev, iblk, iedge, iedblk
     REAL(wp), DIMENSION(:,:),   POINTER :: vcoef, blcoef, geofac_n2s
     LOGICAL :: lsmag_diffu, ltemp_diffu
+    INTEGER :: jg                 !< patch ID
 
     !--------------------------------------------------------------------------
 
     ! The diffusion is an intrinsic part of the NH solver, thus it is added to the timer
     IF (ltimer) CALL timer_start(timer_solve_nh)
 
+    ! get patch ID
+    jg = p_patch%id
+
     ltemp_diffu = .FALSE.
 
-    IF( hdiff_order == 5) THEN
+    IF( diffusion_config(jg)%hdiff_order == 5) THEN
       lsmag_diffu = .TRUE.
       ! temperature diffusion is used only in combination with Smagorinsky diffusion
       ltemp_diffu = lhdiff_temp
@@ -649,10 +654,13 @@ MODULE mo_nh_diffusion
     INTEGER, POINTER :: it1i(:,:,:), it2i(:,:,:), it1b(:,:,:), it2b(:,:,:)
     INTEGER, POINTER :: ici (:,:,:), ivi (:,:,:), icb (:,:,:), ivb (:,:,:)
     INTEGER, POINTER :: icei(:,:,:), ivei(:,:,:), iceb(:,:,:), iveb(:,:,:)
-
+    INTEGER :: jg      !< patch ID
     !--------------------------------------------------------------------------
 
-    IF( hdiff_order == 3) THEN
+    ! get patch ID
+    jg = p_patch%id
+
+    IF( diffusion_config(jg)%hdiff_order == 3) THEN
       lsmag_diffu = .TRUE.
     ELSE
       lsmag_diffu = .FALSE.

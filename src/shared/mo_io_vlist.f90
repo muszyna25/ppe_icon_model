@@ -116,9 +116,7 @@ MODULE mo_io_vlist
     &                               si_2tls, si_cmin,        &
     &                               si_coeff, si_expl_scheme, si_offctr,        &
     &                               si_rtol, lref_temp
-  USE mo_diffusion_nml,       ONLY: hdiff_efdt_ratio, hdiff_multfac,            &
-    &                               hdiff_tv_ratio,hdiff_order, hdiff_smag_fac, &
-    &                               lhdiff_temp, lhdiff_vn
+  USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_io_nml,              ONLY: lwrite_omega, lwrite_pres, lwrite_z3,       &
     &                               lwrite_vorticity, lwrite_divergence,        &
     &                               lwrite_tend_phy, lwrite_radiation,          &
@@ -640,13 +638,20 @@ CONTAINS
     !
     ! Parameters of /diffusion_ctl/
     ! -----------------------------
-    CALL addGlobAttInt('diffusion_ctl:hdiff_order',hdiff_order,vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('diffusion_ctl:hdiff_efdt_ratio',hdiff_efdt_ratio,vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('diffusion_ctl:hdiff_multfac',hdiff_multfac,vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('diffusion_ctl:hdiff_tv_ratio',hdiff_tv_ratio,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('diffusion_ctl:lhdiff_temp',lhdiff_temp,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('diffusion_ctl:lhdiff_vn',lhdiff_vn,vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('diffusion_ctl:hdiff_smag_fac',hdiff_smag_fac,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('diffusion_ctl:hdiff_order',            &
+      &  diffusion_config(k_jg)%hdiff_order,vlistID(k_jg),astatus)
+    CALL addGlobAttFlt('diffusion_ctl:hdiff_efdt_ratio',       &
+      &  diffusion_config(k_jg)%hdiff_efdt_ratio,vlistID(k_jg),astatus)
+    CALL addGlobAttFlt('diffusion_ctl:hdiff_multfac',          &
+      &  diffusion_config(k_jg)%hdiff_multfac,vlistID(k_jg),astatus)
+    CALL addGlobAttFlt('diffusion_ctl:hdiff_tv_ratio',         &
+      &  diffusion_config(k_jg)%hdiff_tv_ratio,vlistID(k_jg),astatus)
+    CALL addGlobAttTxtFromLog('diffusion_ctl:lhdiff_temp',     &
+      &  diffusion_config(k_jg)%lhdiff_temp,vlistID(k_jg),astatus)
+    CALL addGlobAttTxtFromLog('diffusion_ctl:lhdiff_vn',       &
+      &  diffusion_config(k_jg)%lhdiff_vn,vlistID(k_jg),astatus)
+    CALL addGlobAttFlt('diffusion_ctl:hdiff_smag_fac',         &
+      &  diffusion_config(k_jg)%hdiff_smag_fac,vlistID(k_jg),astatus)
     !
     ! Parameters of /transport_ctl/
     ! -----------------------------

@@ -48,7 +48,7 @@ MODULE mo_advection_nml
   USE mo_io_units,            ONLY: nnml,nnml_output
   USE mo_master_nml,          ONLY: lrestart
   USE mo_run_nml,             ONLY: ntracer, ntracer_static, num_lev, nlev, &
-    &                               iequations, iforcing,      &
+    &                               iequations, iforcing,                   &
     &                               inoforcing, iheldsuarez, iecham, inwp,  &
     &                               ildf_dry, ildf_echam, io3, iqcond,      &
     &                               lvert_nest, iqv
@@ -64,8 +64,8 @@ MODULE mo_advection_nml
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_radiation_nml,       ONLY: irad_o3
   USE mo_nonhydrostatic_nml,  ONLY: l_open_ubc, kstart_moist, kstart_qv
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
-                                  & open_and_restore_namelist, close_tmpfile
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &
+    &                               open_and_restore_namelist, close_tmpfile
   USE mo_advection_config,    ONLY: advection_config
 
   
@@ -81,7 +81,7 @@ MODULE mo_advection_nml
   ! transport_ctl namelist variables !
   !----------------------------------!
 
-  CHARACTER(len=MAX_CHAR_LENGTH) :: &  !< list of tracers to initialize
+  CHARACTER(len=MAX_CHAR_LENGTH) :: &!< list of tracers to initialize
     &  nml_ctracer_list
 
 
@@ -199,11 +199,6 @@ MODULE mo_advection_nml
     &  ptr_delp_mc_new(:,:,:) => NULL() !< pointer to new layer thickness
                                         !< at cell center
 
-
-!  PUBLIC :: transport_ctl, nml_ihadv_tracer, nml_ivadv_tracer,            &
-!    &       nml_lvadv_tracer, nml_itype_vlimit, nml_ivcfl_max, nml_itype_hlimit,      &
-!    &       nml_iord_backtraj, nml_lclip_tracer, nml_ctracer_list, nml_igrad_c_miura, &
-!    &       nml_lstrang, nml_upstr_beta_adv, nml_llsq_svd
 
   PUBLIC :: iadv_slev, iubc_adv, cSTR, coeff_grid, iup, imiura, imiura3,   &
     &       inol, islopel_sm, islopel_m, ifluxl_m, ifluxl_sm, iup_v,       &
@@ -901,9 +896,6 @@ CONTAINS
 
 
   END SUBROUTINE read_transport_namelist
-
-
-
 
 
 END MODULE mo_advection_nml

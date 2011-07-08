@@ -55,7 +55,7 @@
 
 MODULE mo_icon_cpl_init_comp
 
-  USE mo_cpl_nml, ONLY  : cpl_nml_setup, l_redirect_stdout
+  USE mo_cpl_nml,  ONLY  : cpl_nml_setup, l_redirect_stdout
 
   USE mo_icon_cpl, ONLY : set_cpl_local_comm
 

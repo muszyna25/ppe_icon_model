@@ -61,9 +61,10 @@ MODULE mo_hdiff
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: nroot
-  USE mo_diffusion_nml,       ONLY: hdiff_order, k2, k4, &
+  USE mo_diffusion_nml,       ONLY: k2, k4, &
                                     lhdiff_vn, lhdiff_temp, hdiff_tv_ratio, &
-                                    hdiff_smag_fac  
+                                    hdiff_smag_fac
+  USE mo_diffusion_config,    ONLY: diffusion_config  
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,             ONLY: nlev, ltheta_dyn
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
@@ -180,7 +181,8 @@ MODULE mo_hdiff
     ivb => pt_patch%edges%vertex_blk
 
 
-    IF ((pt_patch%cell_type == 3) .AND. (hdiff_order == 5)) THEN
+    IF ((pt_patch%cell_type == 3) .AND.               &
+      &  (diffusion_config(k_jg)%hdiff_order == 5)) THEN
        !
        ! Compute diffusion coefficient for Smagorinsky diffusion
        ! ** NOT implemented for cell_type = 6 because      **
@@ -280,7 +282,7 @@ MODULE mo_hdiff
     ! compute derivatives (nabla2/nabla4) needed for diffusion
     !--------------------------------------------------------------------
 
-     SELECT CASE (hdiff_order)
+     SELECT CASE (diffusion_config(k_jg)%hdiff_order)
      CASE(-1)
          CONTINUE
      CASE(2) ! 2nd order diffusion ------
@@ -391,7 +393,7 @@ MODULE mo_hdiff
     ! apply diffusion
     !--------------------------------------------------------------------
 
-     SELECT CASE (hdiff_order)
+     SELECT CASE (diffusion_config(k_jg)%hdiff_order)
      CASE(-1)
          CONTINUE
      CASE(2) ! 2nd order diffusion ------
