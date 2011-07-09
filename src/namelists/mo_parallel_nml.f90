@@ -40,8 +40,8 @@ MODULE mo_parallel_nml
   USE mo_namelist,           ONLY: position_nml, POSITIONED
   USE mo_master_nml,         ONLY: lrestart
 !   USE mo_mpi,                ONLY: p_pe, p_io, p_nprocs, p_all_comm
-#ifndef NOMPI
   USE mo_mpi,                ONLY: my_process_is_stdio
+#ifndef NOMPI
   USE mo_exception,          ONLY: message_text
 #else
   USE mo_mpi,                ONLY:  p_comm_work, p_comm_work_test

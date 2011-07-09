@@ -45,7 +45,7 @@ MODULE mo_echam_phy_main
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
-  USE mo_mpi,                 ONLY: p_parallel_io
+  USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: grav
   USE mo_run_nml,             ONLY: ntracer, nlev, nlevp1, ltestcase, &
@@ -898,7 +898,7 @@ CONTAINS
       ELSE IF (ncdnc>0 .AND. nicnc>0) THEN
 !0      CALL cloud_cdnc_icnc(...) !!skipped in ICON
       ELSE
-        IF (p_parallel_io) CALL finish('physc', ' check setting of ncdnc and nicnc.')
+        IF (my_process_is_stdio()) CALL finish('physc', ' check setting of ncdnc and nicnc.')
       END IF
 
       IF (ltimer) CALL timer_stop(timer_cloud)

@@ -23,9 +23,9 @@ MODULE mo_io_restart
        &                              scatter_cells, scatter_edges, scatter_vertices  
   USE mo_io_units,              ONLY: find_next_free_unit, filename_max
 #ifndef NOMPI
-  USE mo_mpi,                   ONLY: p_parallel_io
   USE mo_model_domain,          ONLY: t_patch
 #endif
+  USE mo_mpi,                   ONLY: my_process_is_stdio
   !
   IMPLICIT NONE
   !
@@ -90,9 +90,6 @@ MODULE mo_io_restart
   !
   CHARACTER(len=12), PARAMETER :: restart_info_file = 'restart.info'
   !
-#ifdef NOMPI
-  LOGICAL :: p_parallel_io = .TRUE.
-#endif
   !
   !------------------------------------------------------------------------------------------------
 CONTAINS
@@ -386,7 +383,7 @@ CONTAINS
       restart_filename = basename//'_'//TRIM(private_restart_time) &
            &                     //'_'//TRIM(var_lists(i)%p%model_type)//'.nc'
       !
-      IF (p_parallel_io) THEN
+      IF (my_process_is_stdio()) THEN
         SELECT CASE (var_lists(i)%p%restart_type)
         CASE (FILETYPE_NC2)
           var_lists(i)%p%cdiFileID = streamOpenWrite(restart_filename, FILETYPE_NC2)
@@ -557,7 +554,7 @@ CONTAINS
       !
       ! add variables
       !
-      IF (p_parallel_io) THEN
+      IF (my_process_is_stdio()) THEN
         !
         CALL addVarListToVlist(var_lists(i), var_lists(i)%p%cdiVlistID)
         !
@@ -596,7 +593,7 @@ CONTAINS
           !
           ! add variables to already existing cdi vlists
           !
-          IF (p_parallel_io) THEN
+          IF (my_process_is_stdio()) THEN
             !
             CALL addVarListToVlist(var_lists(j), var_lists(j)%p%cdiVlistID)
             !
@@ -608,7 +605,7 @@ CONTAINS
         ENDIF
       ENDDO
       !      
-      IF (p_parallel_io .AND. var_lists(i)%p%first) THEN
+      IF (my_process_is_stdio() .AND. var_lists(i)%p%first) THEN
         CALL streamDefVlist(var_lists(i)%p%cdiFileID, var_lists(i)%p%cdiVlistID)
       ENDIF
       !
@@ -732,7 +729,7 @@ CONTAINS
     close_all_lists: DO i = 1, nvar_lists
       !
       IF (var_lists(i)%p%opened) THEN
-        IF (p_parallel_io .AND. var_lists(i)%p%first) THEN
+        IF (my_process_is_stdio() .AND. var_lists(i)%p%first) THEN
           !
           fileID = var_lists(i)%p%cdiFileID
           !
@@ -819,7 +816,7 @@ CONTAINS
         !
         ! write time information to netCDF file
         !
-        IF (p_parallel_io) THEN
+        IF (my_process_is_stdio()) THEN
           CALL write_time_to_restart(var_lists(i))
         ENDIF
         !
@@ -988,7 +985,7 @@ CONTAINS
       !
       ! write data
       !
-      IF (p_parallel_io) THEN
+      IF (my_process_is_stdio()) THEN
         CALL write_var (this_list, info, r5d)
       END IF
       !

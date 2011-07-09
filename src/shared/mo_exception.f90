@@ -46,7 +46,7 @@
 MODULE mo_exception
 
   USE mo_io_units, ONLY: nerr, nlog, filename_max
-  USE mo_mpi,      ONLY: p_abort, p_parallel, p_parallel_io, p_pe
+  USE mo_mpi,      ONLY: p_abort, p_parallel, p_parallel_io, get_my_global_mpi_id
   USE mo_kind,     ONLY: wp
 
   IMPLICIT NONE
@@ -164,8 +164,8 @@ CONTAINS
     ENDIF
 
     IF (p_parallel) THEN
-      WRITE (nerr,'(1x,a,i0)') 'FINISH called from PE: ', p_pe
-      IF (l_log) WRITE (nlog,'(1x,a,i0)') 'FINISH called from PE: ', p_pe
+      WRITE (nerr,'(1x,a,i0)') 'FINISH called from PE: ', get_my_global_mpi_id()
+      IF (l_log) WRITE (nlog,'(1x,a,i0)') 'FINISH called from PE: ', get_my_global_mpi_id()
     ENDIF
 
     WRITE (nerr,'(/,80("-"),/,/)')
@@ -283,7 +283,8 @@ CONTAINS
     ENDIF
 
     IF (p_parallel .AND. (l_debug .OR. ilevel == em_warn .OR. ilevel == em_error)) THEN
-     WRITE(write_text,'(1x,a,i6,a,a)') 'PE ', p_pe, ' ', TRIM(message_text)
+     WRITE(write_text,'(1x,a,i6,a,a)') 'PE ', get_my_global_mpi_id(), ' ', &
+       & TRIM(message_text)
      lprint = .TRUE.
    ELSE
      write_text = message_text

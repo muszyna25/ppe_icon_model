@@ -21,19 +21,23 @@ MODULE mo_mpi
 
   ! subroutines defined, overloaded depending on argument type
   PUBLIC :: start_mpi
-  PUBLIC :: get_mpi_root_id
   PUBLIC :: process_mpi_all_comm
   PUBLIC :: p_comm_work, p_comm_work_test
   PUBLIC :: my_process_is_stdio
 
+  PUBLIC :: get_mpi_root_id, get_my_global_mpi_id
+  PUBLIC :: set_process_mpi_name
+
+  PUBLIC :: p_pe, p_io, p_nprocs
   PUBLIC :: p_stop, p_abort
   PUBLIC :: p_send, p_recv, p_sendrecv, p_bcast, p_barrier
   PUBLIC :: p_isend, p_irecv, p_wait, p_wait_any
   PUBLIC :: p_gather, p_max, p_min, p_sum, p_global_sum, p_field_sum
-!   PUBLIC :: p_set_communicator
   PUBLIC :: p_probe
 
-  PUBLIC :: set_process_mpi_name
+  
+!   PUBLIC :: p_set_communicator
+
 
 #ifndef NOMPI
   PUBLIC :: MPI_INTEGER, MPI_STATUS_SIZE, MPI_SUCCESS, MPI_ANY_SOURCE,     &
@@ -42,19 +46,16 @@ MODULE mo_mpi
 #endif
 
   ! real data type matching real type of MPI implementation
-
   PUBLIC :: p_real_dp
   PUBLIC :: p_int
   PUBLIC :: p_bool
   PUBLIC :: p_address_kind
 
   ! logical switches
-
   PUBLIC :: p_parallel, p_parallel_io
 
   ! PE identifier
 
-  PUBLIC :: p_pe, p_io, p_nprocs
 
   ! communicator
   PUBLIC :: p_communicator_a, p_communicator_b, p_communicator_d
@@ -315,6 +316,12 @@ CONTAINS
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
+  INTEGER FUNCTION get_my_global_mpi_id()
+    get_my_global_mpi_id = my_global_mpi_id
+  END FUNCTION get_my_global_mpi_id
+  !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
   INTEGER FUNCTION get_mpi_root_id()
     get_mpi_root_id = process_root_id
   END FUNCTION get_mpi_root_id
@@ -434,6 +441,11 @@ CONTAINS
       END IF
     END IF
 
+    ! set some of the old variables
+    ! should be rempved once the old variables are cleaned
+    p_pe = my_process_mpi_all_id
+    p_nprocs = process_mpi_all_size
+    
   END SUBROUTINE set_process_mpi_communicator
   !------------------------------------------------------------------------------
 
@@ -450,7 +462,6 @@ CONTAINS
 #endif
 #endif
 
-    INTEGER :: mype                  ! this is the PE number of this task
     CHARACTER(len=*), INTENT(in), OPTIONAL :: global_name
 
     ! variables are required for determing I/O size in bytes of the defined
