@@ -46,7 +46,8 @@
 MODULE mo_exception
 
   USE mo_io_units, ONLY: nerr, nlog, filename_max
-  USE mo_mpi,      ONLY: p_abort, p_parallel, p_parallel_io, get_my_global_mpi_id
+  USE mo_mpi,      ONLY: p_abort, my_process_is_mpi_parallel, my_process_is_stdio, &
+    & get_my_global_mpi_id
   USE mo_kind,     ONLY: wp
 
   IMPLICIT NONE
@@ -163,7 +164,7 @@ CONTAINS
       IF (l_log) WRITE (nlog,'(a,a)') TRIM(name)
     ENDIF
 
-    IF (p_parallel) THEN
+    IF (my_process_is_mpi_parallel()) THEN
       WRITE (nerr,'(1x,a,i0)') 'FINISH called from PE: ', get_my_global_mpi_id()
       IF (l_log) WRITE (nlog,'(1x,a,i0)') 'FINISH called from PE: ', get_my_global_mpi_id()
     ENDIF
@@ -190,7 +191,7 @@ CONTAINS
     WRITE (nerr,'(/,80("="),/)')
     IF (l_log) WRITE (nlog,'(/,80("="),/)')
 
-    IF (p_parallel) THEN
+    IF (my_process_is_mpi_parallel()) THEN
       CALL p_abort
     ELSE
 #ifndef __STANDALONE
@@ -282,7 +283,8 @@ CONTAINS
       message_text = TRIM(prefix) // ' ' // TRIM(message_text)
     ENDIF
 
-    IF (p_parallel .AND. (l_debug .OR. ilevel == em_warn .OR. ilevel == em_error)) THEN
+    IF (my_process_is_mpi_parallel() .AND. &
+      & (l_debug .OR. ilevel == em_warn .OR. ilevel == em_error)) THEN
      WRITE(write_text,'(1x,a,i6,a,a)') 'PE ', get_my_global_mpi_id(), ' ', &
        & TRIM(message_text)
      lprint = .TRUE.
@@ -290,7 +292,7 @@ CONTAINS
      write_text = message_text
    END IF
 
-   IF (p_parallel_io .OR. lprint) THEN
+   IF (my_process_is_stdio() .OR. lprint) THEN
      WRITE(iout,'(1x,a)') TRIM(write_text)
      IF (l_log) WRITE(nlog,'(1x,a)') TRIM(write_text)
    END IF

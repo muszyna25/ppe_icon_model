@@ -22,9 +22,6 @@ MODULE mo_io_restart_distribute
   PUBLIC :: scatter_edges
   PUBLIC :: scatter_vertices
   !
-#ifdef NOMPI
-  LOGICAL :: p_parallel_io = .TRUE.
-#endif
   !------------------------------------------------------------------------------------------------
   !
   INTERFACE gather_cells

@@ -23,8 +23,8 @@ MODULE mo_mpi
   PUBLIC :: start_mpi
   PUBLIC :: process_mpi_all_comm
   PUBLIC :: p_comm_work, p_comm_work_test
-  PUBLIC :: my_process_is_stdio
 
+  PUBLIC :: my_process_is_stdio, my_process_is_mpi_parallel
   PUBLIC :: get_mpi_root_id, get_my_global_mpi_id
   PUBLIC :: set_process_mpi_name
 
@@ -50,11 +50,6 @@ MODULE mo_mpi
   PUBLIC :: p_int
   PUBLIC :: p_bool
   PUBLIC :: p_address_kind
-
-  ! logical switches
-  PUBLIC :: p_parallel, p_parallel_io
-
-  ! PE identifier
 
 
   ! communicator
@@ -87,9 +82,6 @@ MODULE mo_mpi
 
 
   ! public parallel run information
-
-  LOGICAL :: p_parallel    = .FALSE.
-  LOGICAL :: p_parallel_io = .TRUE.
 
   INTEGER :: mype
   INTEGER :: p_pe     = 0     ! this is the PE number of this task
@@ -331,6 +323,12 @@ CONTAINS
   LOGICAL FUNCTION my_process_is_stdio()
     my_process_is_stdio = process_is_stdio
   END FUNCTION my_process_is_stdio
+  !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
+  LOGICAL FUNCTION my_process_is_mpi_parallel()
+    my_process_is_mpi_parallel = process_is_mpi_parallel
+  END FUNCTION my_process_is_mpi_parallel
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
@@ -770,7 +768,7 @@ CONTAINS
        WRITE (nerr,'(a,i4)') ' Error = ', p_error
        CALL p_abort
     END IF
-    p_parallel = .FALSE.
+    process_is_mpi_parallel = .FALSE.
     DEALLOCATE(p_request)
 #endif
 
@@ -4406,7 +4404,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (p_parallel) THEN
+    IF (my_process_is_mpi_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_sum, 1, p_real_dp, &
             MPI_SUM, p_comm, p_error)
     ELSE
@@ -4433,7 +4431,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (p_parallel) THEN
+    IF (my_process_is_mpi_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_sum, SIZE(zfield), p_real_dp, &
             MPI_SUM, p_comm, p_error)
     ELSE
@@ -4460,7 +4458,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (p_parallel) THEN
+    IF (my_process_is_mpi_parallel()) THEN
        CALL MPI_ALLREDUCE (kfield, p_sum, SIZE(kfield), p_int_i8, &
             MPI_SUM, p_comm, p_error)
     ELSE
@@ -4488,7 +4486,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (p_parallel) THEN
+    IF (my_process_is_mpi_parallel()) THEN
        CALL MPI_REDUCE (zfield, pe_sums, SIZE(zfield), p_real_dp, &
             MPI_SUM, process_root_id, p_comm, p_error)
        p_sum = SUM(pe_sums)
@@ -4516,10 +4514,10 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (p_parallel) THEN
+    IF (my_process_is_mpi_parallel()) THEN
        CALL MPI_REDUCE (zfield, p_sum, SIZE(zfield), p_real_dp, &
             MPI_SUM, process_root_id, p_comm, p_error)
-       IF (.NOT. p_parallel_io) p_sum = 0.0_dp
+       IF (.NOT. my_process_is_stdio()) p_sum = 0.0_dp
     ELSE
        p_sum = zfield
     END IF
@@ -4543,7 +4541,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (p_parallel) THEN
+    IF (my_process_is_mpi_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_max, 1, p_real_dp, &
             MPI_MAX, p_comm, p_error)
     ELSE
@@ -4570,7 +4568,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (p_parallel) THEN
+    IF (my_process_is_mpi_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_max, SIZE(zfield), p_real_dp, &
             MPI_MAX, p_comm, p_error)
     ELSE
@@ -4597,7 +4595,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (p_parallel) THEN
+    IF (my_process_is_mpi_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_max, SIZE(zfield), p_real_dp, &
             MPI_MAX, p_comm, p_error)
     ELSE
@@ -4625,7 +4623,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (p_parallel) THEN
+    IF (my_process_is_mpi_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_max, SIZE(zfield), p_real_dp, &
             MPI_MAX, p_comm, p_error)
     ELSE
@@ -4651,7 +4649,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (p_parallel) THEN
+    IF (my_process_is_mpi_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_min, 1, p_real_dp, &
             MPI_MIN, p_comm, p_error)
     ELSE
@@ -4678,7 +4676,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (p_parallel) THEN
+    IF (my_process_is_mpi_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_min, SIZE(zfield), p_real_dp, &
             MPI_MIN, p_comm, p_error)
     ELSE
@@ -4705,7 +4703,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (p_parallel) THEN
+    IF (my_process_is_mpi_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_min, SIZE(zfield), p_real_dp, &
             MPI_MIN, p_comm, p_error)
     ELSE
@@ -4732,7 +4730,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (p_parallel) THEN
+    IF (my_process_is_mpi_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_min, SIZE(zfield), p_real_dp, &
             MPI_MIN, p_comm, p_error)
     ELSE
