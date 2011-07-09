@@ -43,8 +43,6 @@ MODULE mo_parallel_nml
   USE mo_mpi,                ONLY: my_process_is_stdio
 #ifndef NOMPI
   USE mo_exception,          ONLY: message_text
-#else
-  USE mo_mpi,                ONLY:  p_comm_work, p_comm_work_test
 #endif
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile

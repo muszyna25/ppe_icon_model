@@ -49,13 +49,6 @@ MODULE mo_radiation_model
   USE mo_output,              ONLY: init_output_files, close_output_files, write_output
   USE mo_io_vlist,            ONLY: write_vlist_oce, destruct_vlist_oce
   
-  USE mo_parallel_configuration,        ONLY: & ! process parallel run ctl. params.
-    & p_comm_work_test, p_comm_input_bcast, & ! communicators
-    & p_test_pe,            & !    internal parameter
-    & p_comm_work,          &
-    & p_test_run,           &
-    & p_io_pe0                ! Number of first I/O PE
-  
   USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
   
   

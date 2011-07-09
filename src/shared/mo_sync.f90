@@ -52,10 +52,10 @@ USE mo_model_domain,       ONLY: t_patch
 USE mo_parallel_configuration, ONLY: nproma
 USE mo_io_units,           ONLY: find_next_free_unit, filename_max
 USE mo_mpi,                ONLY: p_pe, p_nprocs, p_bcast, p_sum, p_max, p_min, &
-                                 p_send, p_recv
-USE mo_parallel_configuration,       ONLY: p_test_pe, p_test_run, p_comm_work,           &
+  & p_send, p_recv, p_comm_work_test,  p_comm_work
+USE mo_parallel_configuration, ONLY: p_test_pe, p_test_run,   &
                                  n_ghost_rows, l_log_checks, l_fast_sum,       &
-                                 p_pe_work, p_comm_work_test, p_work_pe0
+                                 p_work_pe0, p_pe_work
 USE mo_communication,      ONLY: exchange_data,                                &
                                  exchange_data_mult, t_comm_pattern,           &
                                  blk_no, idx_no, exchange_data_gm

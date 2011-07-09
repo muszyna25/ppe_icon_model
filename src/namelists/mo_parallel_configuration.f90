@@ -39,7 +39,8 @@ MODULE mo_parallel_configuration
   USE mo_run_nml,            ONLY: lrestore_states
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_COMM_NULL, MPI_COMM_SELF, MPI_UNDEFINED, &
-     &   p_comm_work, p_comm_work_test   ! Communicator spanningwork group and test PE
+     &   p_comm_work, p_comm_work_test, p_comm_work_2_io, p_comm_input_bcast, &
+     & p_comm_work_io
 #else
   USE mo_mpi,                ONLY:  p_comm_work, p_comm_work_test
 #endif
@@ -58,8 +59,7 @@ MODULE mo_parallel_configuration
        &    p_test_run, l_test_openmp,                                &
        &    num_test_procs, num_work_procs, num_io_procs,             &
        &    p_test_pe, p_work_pe0, p_io_pe0,                          &
-       &    p_n_work, p_pe_work, p_comm_work, p_comm_work_test,       &
-       &    p_comm_work_io, p_comm_work_2_io, p_comm_input_bcast,     &
+       &    p_n_work, p_pe_work,                                      &
        &    pio_type, itype_comm, iorder_sendrecv
        
   PUBLIC :: set_nproma, get_nproma, check_parallel_configuration
@@ -129,10 +129,6 @@ MODULE mo_parallel_configuration
   INTEGER :: p_n_work
   INTEGER :: p_pe_work        ! PE number within work group
 
-  ! MPI communicators
-  INTEGER :: p_comm_work_io     ! Communicator spanning work group and I/O PEs
-  INTEGER :: p_comm_work_2_io   ! Inter(!)communicator work PEs - I/O PEs
-  INTEGER :: p_comm_input_bcast ! Communicator for broadcasts in NetCDF input
 
   ! Type of parallel I/O
 
@@ -173,6 +169,38 @@ CONTAINS
     !------------------------------------------------------------
     IF (nproma<=0) CALL finish(TRIM(method_name),'"nml_nproma" must be positive')
 
+! check l_test_openmp
+#ifndef _OPENMP
+  IF (l_test_openmp) THEN
+    CALL message(method_name, &
+       & 'l_test_openmp has no effect if the model is compiled without OpenMP support')
+    CALL message(method_name, &
+       & '--> l_test_openmp set to .FALSE.')
+    l_test_openmp = .FALSE.
+  END IF
+#endif
+
+    ! check p_test_run and num_io_procs
+#ifdef NOMPI
+    ! Unconditionally set p_test_run to .FALSE. and num_io_procs to 0,
+    ! all other variables are already set correctly
+    IF (p_test_run) THEN
+      CALL message(method_name, &
+       & 'p_test_run has no effect if the model is compiled with the NOMPI compiler directive')
+      CALL message(method_name, &
+       & '--> p_test_run set to .FALSE.')
+      p_test_run = .FALSE.
+    END IF
+    IF (num_io_procs /= 0) THEN
+      CALL message(method_name, &
+       & 'num_io_procs has no effect if the model is compiled with the NOMPI compiler directive')
+      CALL message(method_name, &
+       & '--> num_io_procs set to 0')
+      num_io_procs = 0
+    END IF
+
+#else
+
     ! check n_ghost_rows
     IF (n_ghost_rows<1) THEN
       CALL finish(method_name, &
@@ -194,26 +222,6 @@ CONTAINS
       CALL finish(method_name, &
         & 'value of division_method in parallel_ctl namelist is not allowed')
     END SELECT
-
-    ! check p_test_run and num_io_procs
-#ifdef NOMPI
-    ! Unconditionally set p_test_run to .FALSE. and num_io_procs to 0,
-    ! all other variables are already set correctly
-    IF (p_test_run) THEN
-      CALL message(method_name, &
-       & 'p_test_run has no effect if the model is compiled with the NOMPI compiler directive')
-      CALL message(method_name, &
-       & '--> p_test_run set to .FALSE.')
-      p_test_run = .FALSE.
-    END IF
-    IF (num_io_procs /= 0) THEN
-      CALL message(method_name, &
-       & 'num_io_procs has no effect if the model is compiled with the NOMPI compiler directive')
-      CALL message(method_name, &
-       & '--> num_io_procs set to 0')
-      num_io_procs = 0
-    END IF
-#else
     ! A run on 1 PE is never a verification run,
     ! correct this if the user should set it differently
     IF (p_test_run .AND. p_nprocs == 1) THEN
@@ -225,24 +233,11 @@ CONTAINS
     ENDIF
     ! for safety only
     IF(num_io_procs < 0) num_io_procs = 0
-#endif
   
-  ! check l_test_openmp
-#ifndef _OPENMP
-  IF (l_test_openmp) THEN
-    CALL message(method_name, &
-       & 'l_test_openmp has no effect if the model is compiled without OpenMP support')
-    CALL message(method_name, &
-       & '--> l_test_openmp set to .FALSE.')
-    l_test_openmp = .FALSE.
-  END IF
-#endif
 
   ! Set dependent control variables according
   ! to the (modified) NAMELIST varaibles
   ! -----------------------------------------
-
-#ifndef NOMPI
   ! Set up processor numbers
 
   IF(p_test_run) THEN

@@ -61,8 +61,8 @@ MODULE mo_ext_data
   USE mo_math_operators,     ONLY: nabla4_scalar
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_sync,               ONLY: SYNC_C, SYNC_V, sync_patch_array
-  USE mo_mpi,                ONLY: p_pe, p_io, p_bcast
-  USE mo_parallel_configuration,  ONLY: p_test_run, p_comm_work_test, p_comm_work
+  USE mo_mpi,                ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
+  USE mo_parallel_configuration,  ONLY: p_test_run
   USE mo_communication,      ONLY: idx_no, blk_no
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_var_list,           ONLY: default_var_list_settings, &

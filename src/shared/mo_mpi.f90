@@ -23,6 +23,7 @@ MODULE mo_mpi
   PUBLIC :: start_mpi
   PUBLIC :: process_mpi_all_comm
   PUBLIC :: p_comm_work, p_comm_work_test
+  PUBLIC :: p_comm_work_2_io, p_comm_input_bcast, p_comm_work_io
 
   PUBLIC :: my_process_is_stdio, my_process_is_mpi_parallel
   PUBLIC :: get_mpi_root_id, get_my_global_mpi_id
@@ -103,16 +104,19 @@ MODULE mo_mpi
   INTEGER :: my_process_mpi_all_id
   LOGICAL :: process_is_mpi_parallel
   LOGICAL :: process_is_stdio
-  
-  INTEGER :: p_communicator_a ! for Set A
-  INTEGER :: p_communicator_b ! for Set B
-  INTEGER :: p_communicator_d ! for debug node
 
   ! MPI communicators
   INTEGER :: p_comm_work        ! Communicator for work group
   INTEGER :: p_comm_work_test   ! Communicator spanning work group and test PE
-  ! non blocking calls
+  INTEGER :: p_comm_work_io     ! Communicator spanning work group and I/O PEs
+  INTEGER :: p_comm_work_2_io   ! Inter(!)communicator work PEs - I/O PEs
+  INTEGER :: p_comm_input_bcast ! Communicator for broadcasts in NetCDF input
 
+  INTEGER :: p_communicator_a ! for Set A
+  INTEGER :: p_communicator_b ! for Set B
+  INTEGER :: p_communicator_d ! for debug node
+
+  ! non blocking calls
 
   ! module intrinsic names
 
@@ -332,16 +336,15 @@ CONTAINS
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
+  !>
+  !! Set this component's communicator
+  !! The new communicator id is duplicated from the input communicator
+  !! Should be called before the component configuration
   SUBROUTINE set_process_mpi_communicator(new_communicator)
     INTEGER, INTENT(in) :: new_communicator
 
     LOGICAL             :: l_mpi_is_initialised
     CHARACTER(len=*), PARAMETER :: method_name = 'set_process_mpi_communicator'
-
-    ! reset some values derived from original MPI communicator
-    ! process_mpi_all_comm with values derived from a new "communicator"
-    ! It is intended that the new communicator contain all processes
-    ! of a certain component (atmosphere, ocean, sea-ice, land, ... )
 
 #ifdef NOMPI
     process_mpi_all_comm    = new_communicator
@@ -349,9 +352,19 @@ CONTAINS
     my_process_mpi_all_id   = 0
     process_is_mpi_parallel = .false.
     process_is_stdio        = .true.
+    
     p_comm_work             = process_mpi_all_comm
-    p_comm_work_test        = process_mpi_all_comm
+    p_comm_input_bcast      = process_mpi_all_comm
+    p_comm_work_io          = MPI_COMM_NULL
+    p_comm_work_test        = MPI_COMM_NULL
 #else
+    ! since here we define the process all communicator
+    ! the work communicator is identical to the all communicator
+    ! and the no test or i/o processes are present
+    p_comm_work             = process_mpi_all_comm
+    p_comm_input_bcast      = process_mpi_all_comm
+    p_comm_work_io          = MPI_COMM_NULL
+    p_comm_work_test        = MPI_COMM_NULL
 
     CALL MPI_INITIALIZED(l_mpi_is_initialised, p_error)
 
@@ -413,19 +426,19 @@ CONTAINS
        CALL p_abort
     END IF
 
-    CALL MPI_COMM_DUP(process_mpi_all_comm,p_comm_work,p_error)
-    IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a,a)') method_name, ' MPI_COMM_DUP failed for p_comm_work.'
-       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-       CALL p_abort
-    END IF
-
-    CALL MPI_COMM_DUP(process_mpi_all_comm,p_comm_work_test,p_error)
-    IF (p_error /= MPI_SUCCESS) THEN
-       WRITE (nerr,'(a,a)') method_name, ' MPI_COMM_DUP failed for p_comm_work_test.'
-       WRITE (nerr,'(a,i4)') ' Error =  ', p_error
-       CALL p_abort
-    END IF
+!     CALL MPI_COMM_DUP(process_mpi_all_comm,p_comm_work,p_error)
+!     IF (p_error /= MPI_SUCCESS) THEN
+!        WRITE (nerr,'(a,a)') method_name, ' MPI_COMM_DUP failed for p_comm_work.'
+!        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
+!        CALL p_abort
+!     END IF
+! 
+!     CALL MPI_COMM_DUP(process_mpi_all_comm,p_comm_work_test,p_error)
+!     IF (p_error /= MPI_SUCCESS) THEN
+!        WRITE (nerr,'(a,a)') method_name, ' MPI_COMM_DUP failed for p_comm_work_test.'
+!        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
+!        CALL p_abort
+!     END IF
    
 #endif
 

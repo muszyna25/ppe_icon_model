@@ -52,7 +52,7 @@ MODULE mo_read_netcdf_parallel
 
 USE mo_kind
 USE mo_mpi
-USE mo_parallel_configuration, ONLY: p_comm_input_bcast
+USE mo_mpi, ONLY: p_comm_input_bcast
 
 IMPLICIT NONE
 

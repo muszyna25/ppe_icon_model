@@ -4,8 +4,7 @@ MODULE mo_io_restart_distribute
   !
   USE mo_kind,          ONLY: wp
 #ifndef NOMPI
-  USE mo_mpi,           ONLY: p_io, p_bcast
-  USE mo_parallel_configuration,  ONLY: p_comm_work
+  USE mo_mpi,           ONLY: p_io, p_bcast, p_comm_work
   USE mo_model_domain,  ONLY: t_patch
   USE mo_communication, ONLY: idx_no, blk_no, exchange_data
 #endif
