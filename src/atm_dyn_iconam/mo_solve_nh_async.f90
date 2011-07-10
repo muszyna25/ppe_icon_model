@@ -46,7 +46,7 @@ MODULE mo_solve_nh_async
   USE mo_dynamics_nml,      ONLY: itime_scheme, idiv_method
   USE mo_diffusion_nml,     ONLY: k4
   USE mo_diffusion_config,  ONLY: diffusion_config
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_configuration,  ONLY: nproma, p_test_run, itype_comm
   USE mo_run_nml,           ONLY: ltimer, lvert_nest
   USE mo_model_domain,      ONLY: t_patch
   USE mo_model_domain_import,ONLY: nroot, l_limited_area, lfeedback
@@ -62,7 +62,6 @@ MODULE mo_solve_nh_async
   USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int, min_rlcell
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_advection_hflux,   ONLY: upwind_hflux_miura, upwind_hflux_miura3
-  USE mo_parallel_configuration,      ONLY: p_test_run, itype_comm
   USE mo_communication,     ONLY: start_async_comm, complete_async_comm
   USE mo_mpi,               ONLY: p_nprocs
   USE mo_math_constants,    ONLY: dbl_eps, pi

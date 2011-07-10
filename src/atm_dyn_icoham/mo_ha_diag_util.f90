@@ -44,7 +44,7 @@ MODULE mo_ha_diag_util
   USE mo_math_operators,     ONLY: grad_fd_norm, div, div_avg, rot_vertex
   USE mo_dynamics_nml,       ONLY: idiv_method, ldry_dycore
   USE mo_io_nml,             ONLY: lwrite_omega, l_outputtime
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_configuration,  ONLY: nproma, p_test_run
   USE mo_run_nml,            ONLY: lshallow_water,                 &
                                    nlev, nlevp1,              &
                                    iqv, iqc, iqi, iqr, iqs,                &
@@ -59,7 +59,6 @@ MODULE mo_ha_diag_util
                                    auxhyb, geopot
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_sync,               ONLY: SYNC_C, SYNC_E, SYNC_V, sync_patch_array
-  USE mo_parallel_configuration,       ONLY: p_test_run
   USE mo_vertical_coord_table, ONLY: delpr, nplev, nplvp1
 
   IMPLICIT NONE

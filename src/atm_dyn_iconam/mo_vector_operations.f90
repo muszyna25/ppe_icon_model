@@ -40,7 +40,7 @@ MODULE mo_vector_operations
 
   USE mo_kind,             ONLY: wp
   USE mo_io_nml,           ONLY: l_outputtime
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_configuration,  ONLY: nproma, p_test_run
   USE mo_run_nml,          ONLY: ltimer, dtime
   USE mo_vertical_grid,    ONLY: nflat
   USE mo_model_domain,     ONLY: t_patch
@@ -55,7 +55,6 @@ MODULE mo_vector_operations
                                  sync_patch_array, sync_patch_array_mult
   USE mo_exception,        ONLY: finish
   USE mo_timer,            ONLY: timer_start, timer_stop, timer_corio
-  USE mo_parallel_configuration,     ONLY: p_test_run
 
 
   IMPLICIT NONE

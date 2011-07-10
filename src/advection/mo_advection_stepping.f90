@@ -79,9 +79,9 @@ MODULE mo_advection_stepping
   USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, min_rlcell, &
     &                               min_rledge
   USE mo_loopindices,         ONLY: get_indices_c
-  USE mo_mpi,                 ONLY: p_pe, p_nprocs
+  USE mo_mpi,                 ONLY: my_process_is_mpi_seq, my_process_is_mpi_test
   USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult
-  USE mo_parallel_configuration, ONLY: p_test_pe, p_test_run
+  USE mo_parallel_configuration, ONLY: p_test_run
   USE mo_advection_nml,       ONLY: iubc_adv, iadv_slev, cSTR, coeff_grid
   USE mo_advection_config,    ONLY: advection_config
   USE mo_advection_utils,     ONLY: ptr_delp_mc_now, ptr_delp_mc_new
@@ -309,8 +309,7 @@ CONTAINS
     ! vertical z- or p-system)
     pdtime_mod = cSTR * coeff_grid * p_dtime
 
-
-    IF (p_nprocs == 1 .OR. p_pe == p_test_pe) THEN
+    IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test()) THEN
       l_parallel = .FALSE.
     ELSE
       l_parallel = .TRUE.

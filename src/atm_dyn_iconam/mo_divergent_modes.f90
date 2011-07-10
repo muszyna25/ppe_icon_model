@@ -54,7 +54,7 @@ MODULE mo_divergent_modes
 
   USE mo_kind,                ONLY: wp
   USE mo_nonhydrostatic_nml,  ONLY: gmres_rtol_nh, upstr_beta, ltheta_up_hori
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_configuration,  ONLY: nproma, p_test_run
   USE mo_run_nml,             ONLY: dtime
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: lplane
@@ -69,7 +69,6 @@ MODULE mo_divergent_modes
   USE mo_vertical_grid,       ONLY: nflat
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
   &                                 sync_patch_array_mult
-  USE mo_parallel_configuration,  ONLY: p_test_run
 
   IMPLICIT NONE
 

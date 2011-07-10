@@ -22,6 +22,8 @@ MODULE mo_mpi
 ! subroutines defined, overloaded depending on argument type
   PUBLIC :: start_mpi
   PUBLIC :: my_process_is_stdio, my_process_is_mpi_parallel
+  PUBLIC :: my_process_is_mpi_seq, my_process_is_mpi_test
+ PUBLIC ::  my_process_is_io
   PUBLIC :: get_mpi_root_id, get_my_global_mpi_id
   PUBLIC :: set_process_mpi_name
 
@@ -98,7 +100,8 @@ MODULE mo_mpi
   INTEGER :: my_process_mpi_all_id
   LOGICAL :: process_is_mpi_parallel
   LOGICAL :: process_is_stdio
-
+  LOGICAL :: process_is_mpi_test
+  
   ! MPI communicators
   INTEGER :: p_comm_work        ! Communicator for work group
   INTEGER :: p_comm_work_test   ! Communicator spanning work group and test PE
@@ -328,9 +331,27 @@ CONTAINS
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
+  LOGICAL FUNCTION my_process_is_io()
+!     my_process_is_io = process_is_io
+  END FUNCTION my_process_is_io
+  !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
+  LOGICAL FUNCTION my_process_is_mpi_test()
+    my_process_is_mpi_test = process_is_mpi_test
+  END FUNCTION my_process_is_mpi_test
+  !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
   LOGICAL FUNCTION my_process_is_mpi_parallel()
     my_process_is_mpi_parallel = process_is_mpi_parallel
   END FUNCTION my_process_is_mpi_parallel
+  !------------------------------------------------------------------------------
+
+  !------------------------------------------------------------------------------
+  LOGICAL FUNCTION my_process_is_mpi_seq()
+    my_process_is_mpi_seq = .NOT. process_is_mpi_parallel
+  END FUNCTION my_process_is_mpi_seq
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
@@ -350,7 +371,8 @@ CONTAINS
     my_process_mpi_all_id   = 0
     process_is_mpi_parallel = .false.
     process_is_stdio        = .true.
-    
+    process_is_mpi_test     = .false.
+
     p_comm_work             = process_mpi_all_comm
     p_comm_input_bcast      = process_mpi_all_comm
     p_comm_work_io          = MPI_COMM_NULL
@@ -363,6 +385,7 @@ CONTAINS
     p_comm_input_bcast      = process_mpi_all_comm
     p_comm_work_io          = MPI_COMM_NULL
     p_comm_work_test        = MPI_COMM_NULL
+    process_is_mpi_test     = .false.
 
     CALL MPI_INITIALIZED(l_mpi_is_initialised, p_error)
 
@@ -412,8 +435,6 @@ CONTAINS
 #endif
     END IF
 
-    IF (my_process_mpi_all_id == stdio_process) &
-      process_is_stdio = .TRUE.
 
     CALL MPI_COMM_SIZE (process_mpi_all_comm, process_mpi_all_size, p_error)
 
@@ -423,6 +444,11 @@ CONTAINS
        WRITE (nerr,'(a,i4)') ' Error =  ', p_error
        CALL p_abort
     END IF
+
+    ! fill some derived variabkes
+    IF (my_process_mpi_all_id == stdio_process) &
+      process_is_stdio = .TRUE.
+    process_is_mpi_parallel = (process_mpi_all_size > 1)
 
 !     CALL MPI_COMM_DUP(process_mpi_all_comm,p_comm_work,p_error)
 !     IF (p_error /= MPI_SUCCESS) THEN
@@ -441,7 +467,7 @@ CONTAINS
 #endif
 
     IF (process_mpi_all_comm /= global_mpi_communicator) THEN
-      IF (process_mpi_all_size < 2) THEN
+      IF ( .NOT. process_is_mpi_parallel) THEN
         WRITE (nerr,'(a,a,a)') method_name, TRIM(process_mpi_name), &
           ': Single processor run.'
       ELSEIF (process_is_stdio) THEN

@@ -51,13 +51,12 @@ MODULE mo_advection_limiter
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_sync,                ONLY: SYNC_C, SYNC_C1, sync_patch_array,     &
     &                               sync_patch_array_mult
-  USE mo_parallel_configuration, ONLY: p_test_run, n_ghost_rows
+  USE mo_parallel_configuration, ONLY: nproma, p_test_run, n_ghost_rows
   USE mo_math_utilities,      ONLY: cc2gc,t_cartesian_coordinates,          &
     &                               t_geographical_coordinates, gvec2cvec,  &
     &                               gnomonic_proj
   USE mo_interpolation,       ONLY: t_int_state
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
-  USE mo_parallel_configuration,  ONLY: nproma
   USE mo_impl_constants,      ONLY: min_rledge_int, min_rlcell_int, min_rlcell, &
     &                               min_rledge
   USE mo_math_operators,      ONLY: div

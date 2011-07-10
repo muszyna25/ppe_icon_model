@@ -47,7 +47,7 @@ USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_vec_grf, interpol2
 USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging, interpol_vec_nudging
 USE mo_grf_ubcintp,         ONLY: interpol_scal_ubc,interpol_vec_ubc
 USE mo_dynamics_config,     ONLY: dynamics_config 
-USE mo_parallel_configuration,  ONLY: nproma
+USE mo_parallel_configuration,  ONLY: nproma, p_test_run
 USE mo_run_nml,             ONLY: ltransport, msg_level, ntracer, lvert_nest
 USE mo_nonhydro_state,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
 USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlcell_int, min_rledge_int, &
@@ -59,8 +59,7 @@ USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c,                       &
                                   grf_bdywidth_c, grf_bdywidth_e,            &
                                   grf_nudgintp_start_c, grf_nudgintp_start_e,&
                                   grf_nudge_start_c, grf_nudge_start_e
-USE mo_mpi,                 ONLY: p_pe, p_nprocs
-USE mo_parallel_configuration,  ONLY: p_test_pe, p_test_run
+USE mo_mpi,                 ONLY: my_process_is_mpi_parallel, my_process_is_mpi_test
 USE mo_communication,       ONLY: exchange_data, exchange_data_mult
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, &
                                   global_sum_array3, sync_patch_array_mult
@@ -109,7 +108,7 @@ LOGICAL :: l_parallel
 
 ! The operations that need to be executed in this routine differ between
 ! MPI and non-MPI runs
-IF (p_nprocs == 1 .OR. p_pe == p_test_pe) THEN
+IF (.NOT. my_process_is_mpi_parallel() .OR. my_process_is_mpi_test()) THEN
   l_parallel = .FALSE.
 ELSE
   l_parallel = .TRUE.
@@ -467,7 +466,7 @@ ENDIF
 
 IF (grf_intmethod_c == 1) THEN ! tendency copying for all cell-based variables
 
-  IF(p_nprocs == 1 .OR. p_pe == p_test_pe) THEN
+  IF (.NOT. my_process_is_mpi_parallel() .OR. my_process_is_mpi_test()) THEN
 
     ! Start and end blocks for which interpolation is needed
     i_startblk = p_gcp%start_blk(grf_bdyintp_start_c,i_chidx)
@@ -572,7 +571,7 @@ IF (ltransport .AND. lstep_adv .AND. grf_intmethod_ct == 1) THEN
   i_startblk = p_gcp%start_blk(grf_bdyintp_start_c,i_chidx)
   i_endblk   = p_gcp%end_blk(grf_bdyintp_end_c,i_chidx)
 
-  IF(p_nprocs == 1 .OR. p_pe == p_test_pe) THEN
+  IF (.NOT. my_process_is_mpi_parallel() .OR. my_process_is_mpi_test()) THEN
 
     DO jb =  i_startblk, i_endblk
 
@@ -810,7 +809,7 @@ IF (msg_level >= 10) THEN
   CALL message(TRIM(routine),message_text)
 ENDIF
 
-IF (p_nprocs == 1 .OR. p_pe == p_test_pe) THEN
+IF (.NOT. my_process_is_mpi_parallel() .OR. my_process_is_mpi_test()) THEN
   l_parallel = .FALSE.
 ELSE
   l_parallel = .TRUE.

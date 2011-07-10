@@ -55,7 +55,7 @@ MODULE mo_nh_stepping
   USE mo_dynamics_nml,        ONLY: itime_scheme
   USE mo_dynamics_config,     ONLY: dynamics_config
   USE mo_io_nml,              ONLY: l_outputtime, l_diagtime, l_checkpoint_time
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_configuration,  ONLY: nproma, itype_comm
   USE mo_run_nml,             ONLY: ltestcase, dtime, nsteps,  &
     &                               ltransport, ntracer, lforcing, iforcing, inwp,  &
     &                               msg_level, ltimer
@@ -111,8 +111,8 @@ MODULE mo_nh_stepping
   USE mo_advection_stepping,  ONLY: step_advection
   USE mo_nh_dtp_interface,    ONLY: prepare_tracer
   USE mo_nh_diffusion,        ONLY: diffusion_tria, diffusion_hex
-  USE mo_mpi,                 ONLY: p_pe, get_mpi_root_id, p_nprocs
-  USE mo_parallel_configuration,        ONLY: p_test_pe, itype_comm
+  USE mo_mpi,                 ONLY: p_pe, get_mpi_root_id, my_process_is_mpi_parallel, &
+    &  my_process_is_mpi_test
   USE mo_sync,                ONLY: global_sum_array, sync_patch_array_mult, &
                                     push_glob_comm, pop_glob_comm, global_max, &
                                     SYNC_C, SYNC_E, sync_patch_array
@@ -127,8 +127,7 @@ MODULE mo_nh_stepping
 
 #ifdef __OMP_RADIATION__  
   USE mo_nwp_rad_interface,   ONLY: nwp_start_omp_radiation_thread, model_end_thread, &
-    & radiation_thread_status, model_thread_status, thread_busy
- 
+    & radiation_thread_status, model_thread_status, thread_busy 
   USE mo_parallel_configuration,        ONLY: nh_stepping_threads
 #endif
   
@@ -488,7 +487,7 @@ MODULE mo_nh_stepping
     ! Diagnostics computation is not yet properly MPI-parallelized
 #ifdef NOMPI
     IF(global_cell_type == 3) THEN
-      IF (l_diagtime .AND. p_nprocs == 1 .AND. (lstep_adv(1) .OR. jstep==nsteps))  THEN
+      IF (l_diagtime .AND. (lstep_adv(1) .OR. jstep==nsteps))  THEN
         IF (jstep == iadv_rcf) THEN
           CALL supervise_total_integrals_nh( 1, p_patch(1:), p_nh_state,      &
                                            & dynamics_config(1:n_dom)%nnow,   &
@@ -675,7 +674,8 @@ MODULE mo_nh_stepping
     ENDIF
 
     ! Allocate global buffers for MPI communication
-    IF (itype_comm >= 2 .AND. p_nprocs /= 1 .AND. p_pe /= p_test_pe) THEN
+    IF (itype_comm >= 2 .AND. my_process_is_mpi_parallel() .AND. &
+      & .NOT. my_process_is_mpi_test()) THEN
       ALLOCATE(bufr(jg)%send_c1 (p_patch(jg)%nlevp1,   p_patch(jg)%comm_pat_c%n_send), &
         &      bufr(jg)%recv_c1 (p_patch(jg)%nlevp1,   p_patch(jg)%comm_pat_c%n_recv), &
         &      bufr(jg)%send_c3 (3*p_patch(jg)%nlev+1, p_patch(jg)%comm_pat_c%n_send), &

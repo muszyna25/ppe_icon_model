@@ -78,8 +78,8 @@ USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, &
                                   grf_bdyintp_end_c, &
                                   grf_fbk_start_c, grf_fbk_start_e,        &
                                   grf_bdywidth_c, grf_bdywidth_e
-USE mo_mpi,                 ONLY: p_pe, p_nprocs
-USE mo_parallel_configuration,        ONLY: p_test_pe, p_test_run
+USE mo_mpi,                 ONLY: my_process_is_mpi_seq, my_process_is_mpi_test
+USE mo_parallel_configuration, ONLY: p_test_pe, p_test_run
 USE mo_subdivision,         ONLY: p_patch_local_parent,  &
                                   p_grf_state_local_parent
 
@@ -178,7 +178,7 @@ i_chidx = p_patch(jgc)%parent_child_index
 
 IF (grf_intmethod_c == 1) THEN ! tendency copying for pressure and temperature
 
-  IF(p_nprocs == 1 .OR. p_pe == p_test_pe) THEN
+  IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test()) THEN
 
     ! Start and end blocks for which interpolation is needed
     i_startblk = p_gcp%start_blk(grf_bdyintp_start_c,i_chidx)
@@ -245,7 +245,7 @@ ENDIF
 
 IF (ltransport .AND. grf_intmethod_ct == 1) THEN
 
-IF(p_nprocs == 1 .OR. p_pe == p_test_pe) THEN
+IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test()) THEN
 
   DO jb =  i_startblk, i_endblk
 
@@ -532,7 +532,7 @@ IF (msg_level >= 10) THEN
   CALL message(TRIM(routine),message_text)
 ENDIF
 
-IF (p_nprocs == 1 .OR. p_pe == p_test_pe) THEN
+IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test()) THEN
   l_parallel = .FALSE.
 ELSE
   l_parallel = .TRUE.

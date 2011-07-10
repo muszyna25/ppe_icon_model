@@ -53,8 +53,7 @@ USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlcell_int, min_rl
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
 USE mo_impl_constants_grf,  ONLY: grf_fbk_start_c, grf_fbk_start_e,          &
                                   grf_bdywidth_c
-USE mo_mpi,                 ONLY: p_pe, p_nprocs
-USE mo_parallel_configuration,        ONLY: p_test_pe
+USE mo_mpi,                 ONLY: my_process_is_mpi_parallel, my_process_is_mpi_test
 USE mo_communication,       ONLY: exchange_data, exchange_data_mult
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, &
                                   global_sum_array3, sync_patch_array_mult
@@ -167,7 +166,7 @@ IF (msg_level >= 10) THEN
   CALL message(TRIM(routine),message_text)
 ENDIF
 
-IF (p_nprocs == 1 .OR. p_pe == p_test_pe) THEN
+IF (.NOT. my_process_is_mpi_parallel() .OR. my_process_is_mpi_test()) THEN
   l_parallel = .FALSE.
 ELSE
   l_parallel = .TRUE.

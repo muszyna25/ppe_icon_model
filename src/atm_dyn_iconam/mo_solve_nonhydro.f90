@@ -43,7 +43,7 @@ MODULE mo_solve_nonhydro
   USE mo_kind,              ONLY: wp
   USE mo_nonhydrostatic_nml,ONLY: iadv_rhotheta, igradp_method, l_open_ubc
   USE mo_dynamics_nml,      ONLY: itime_scheme, idiv_method
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_configuration,  ONLY: nproma, p_test_run, itype_comm
   USE mo_run_nml,           ONLY: ltimer, lvert_nest
   USE mo_model_domain,      ONLY: t_patch
   USE mo_model_domain_import,ONLY: l_limited_area
@@ -59,7 +59,6 @@ MODULE mo_solve_nonhydro
   USE mo_advection_hflux,   ONLY: upwind_hflux_miura, upwind_hflux_miura3
   USE mo_sync,              ONLY: SYNC_E, SYNC_C, sync_patch_array, sync_patch_array_mult, &
                                   sync_patch_array_gm
-  USE mo_parallel_configuration,  ONLY: p_test_run, itype_comm
   USE mo_mpi,               ONLY: p_nprocs
   USE mo_timer,             ONLY: timer_solve_nh, timer_start, timer_stop
 

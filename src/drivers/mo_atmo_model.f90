@@ -36,16 +36,15 @@ MODULE mo_atmo_model
 
   USE mo_exception,           ONLY: message, finish
   USE mo_mpi,                 ONLY: p_stop, p_pe, p_io, p_nprocs, &
-    & p_comm_work_test, p_comm_input_bcast, p_comm_work
+    & p_comm_work_test, p_comm_input_bcast, p_comm_work, &
+    & my_process_is_io, my_process_is_mpi_test, my_process_is_mpi_seq, &
+    & my_process_is_stdio
   USE mo_timer,               ONLY: init_timer, print_timer
   USE mo_master_nml,          ONLY: lrestart
   USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output
   USE mo_output,              ONLY: init_output_files, close_output_files, write_output
 
-  USE mo_parallel_configuration,        ONLY:   & 
-    & p_test_pe,            & !    internal parameter
-    & p_test_run,           &
-    & p_io_pe0                ! Number of first I/O PE
+  USE mo_parallel_configuration, ONLY: p_test_run
 
   USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
 
@@ -292,7 +291,7 @@ CONTAINS
     !    actual values used in the model run will be stored.
     !-------------------------------------------------------------------
     CALL open_nml(TRIM(namelist_filename))
-    IF(p_pe == p_io) CALL open_nml_output('NAMELIST_ICON_output_atm')
+    IF(my_process_is_stdio()) CALL open_nml_output('NAMELIST_ICON_output_atm')
 
     ! The namelists ('run_nml' and 'testcase_ctl') are read in seperate
     ! subroutines. The validity of the user-specified configurations is
@@ -350,7 +349,7 @@ CONTAINS
     ! If we belong to the I/O PEs just call io_main_proc before reading patches.
     ! This routine will never return
     
-    IF(p_pe >= p_io_pe0) CALL io_main_proc
+    IF (my_process_is_io()) CALL io_main_proc
     !-------------------------------------------------------------------
     
     !check patch allocation status
@@ -364,7 +363,7 @@ CONTAINS
       CALL finish(TRIM(routine), 'allocation of patch failed')
     ENDIF
     
-    IF(lrestore_states .AND. p_pe /= p_test_pe) THEN
+    IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
       CALL restore_patches_netcdf( p_patch_global )
     ELSE
       CALL import_patches( p_patch_global )
@@ -439,7 +438,7 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for ptr_int_state failed')
     ENDIF
     
-    IF(lrestore_states .AND. p_pe /= p_test_pe) THEN
+    IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
       ! Read interpolation state from NetCDF
       CALL restore_interpol_state_netcdf(p_patch_global, p_int_state_global)
     ELSE
@@ -471,7 +470,7 @@ CONTAINS
     ! For the NH model, the initialization routines called from
     ! construct_2d_gridref_state require the metric terms to be present
     IF (n_dom_start==0 .OR. n_dom > 1) THEN
-      IF(lrestore_states .AND. p_pe /= p_test_pe) THEN
+      IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
         ! Read gridref state from NetCDF
         CALL restore_gridref_state_netcdf(p_patch_global, p_grf_state_global)
       ELSE
@@ -513,7 +512,8 @@ CONTAINS
     !  This is only done if the model runs really in parallel.
     !------------------------------------------------------------------
     
-    IF(p_nprocs == 1 .OR. p_pe == p_test_pe .OR. lrestore_states) THEN
+    IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test() &
+      &  .OR. lrestore_states) THEN
       
       ! This is a verification run or a run on a single processor
       ! or the divided states have been read, just set pointers
@@ -522,7 +522,7 @@ CONTAINS
       p_int_state => p_int_state_global
       p_grf_state => p_grf_state_global
       
-      IF(p_nprocs == 1 .OR. p_pe == p_test_pe) THEN
+      IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test()) THEN
         p_patch(:)%comm = p_comm_work
       ELSE
         CALL set_patch_communicators(p_patch)
@@ -543,7 +543,7 @@ CONTAINS
       
       CALL message(TRIM(routine),'ldump_states is set: dumping patches+states and finishing')
       
-      IF(p_pe /= p_test_pe) THEN
+      IF(.NOT. my_process_is_mpi_test()) THEN
         DO jg = n_dom_start, n_dom
           CALL dump_patch_state_netcdf(p_patch(jg),p_int_state(jg),p_grf_state(jg))
         ENDDO
@@ -679,7 +679,7 @@ CONTAINS
     !------------------------------------------------------------------
     
     CALL close_nml
-    IF (p_pe == p_io) THEN
+    IF (my_process_is_stdio()) THEN
       CALL close_nml_output
     END IF
     
@@ -823,7 +823,8 @@ CONTAINS
       CALL destruct_2d_gridref_state( p_patch, p_grf_state )
     ENDIF
 
-    IF(p_nprocs == 1 .OR. p_pe == p_test_pe .OR. lrestore_states) THEN
+    IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test() &
+      & .OR. lrestore_states) THEN
       DEALLOCATE (p_grf_state_global, STAT=ist)
     ELSE
       DEALLOCATE (p_grf_state_subdiv, STAT=ist)
@@ -854,7 +855,8 @@ CONTAINS
     ! Deallocate interpolation fields
 
     CALL destruct_2d_interpol_state( p_int_state )
-    IF(p_nprocs == 1 .OR. p_pe == p_test_pe .OR. lrestore_states) THEN
+    IF  (my_process_is_mpi_seq() .OR. my_process_is_mpi_test() &
+      & .OR. lrestore_states) THEN
       DEALLOCATE (p_int_state_global, STAT=ist)
     ELSE
       DEALLOCATE (p_int_state_subdiv, STAT=ist)
@@ -876,7 +878,8 @@ CONTAINS
     !
     CALL destruct_patches( p_patch )
 
-    IF(p_nprocs == 1 .OR. p_pe == p_test_pe .OR. lrestore_states) THEN
+    IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test() &
+      & .OR. lrestore_states) THEN
       DEALLOCATE( p_patch_global, STAT=ist )
     ELSE
       DEALLOCATE( p_patch_subdiv, STAT=ist )
