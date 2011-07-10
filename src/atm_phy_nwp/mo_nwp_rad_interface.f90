@@ -50,13 +50,13 @@ MODULE mo_nwp_rad_interface
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_nwp_lnd_state,        ONLY: t_lnd_prog
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_mpi,                  ONLY: p_pe, p_nprocs
+  USE mo_mpi,                  ONLY: my_process_is_mpi_seq, my_process_is_mpi_test
   USE mo_phys_nest_utilities,  ONLY: upscale_rad_input, downscale_rad_output, &
     &                                upscale_rad_input_rg, downscale_rad_output_rg
   USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag !,prm_diag
   USE mo_o3_util,              ONLY: calc_o3_clim
-  USE mo_parallel_configuration,         ONLY: p_test_pe, p_test_run
+  USE mo_parallel_configuration,  ONLY: p_test_run
   USE mo_physical_constants,   ONLY: amd, amo3
   USE mo_radiation,            ONLY: radiation, pre_radiation_nwp_steps
   USE mo_radiation_nml,        ONLY: irad_o3, irad_aero, vmr_co2
@@ -1401,7 +1401,7 @@ CONTAINS
       IF (msg_level >= 12) &
         &       CALL message('mo_nwp_rad_interface', 'RRTM radiation on reduced grid')
 
-      IF (p_nprocs == 1 .OR. p_pe == p_test_pe) THEN
+      IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test()) THEN
         l_parallel = .FALSE.
       ELSE
         l_parallel = .TRUE.
@@ -2580,7 +2580,7 @@ CONTAINS
       IF (msg_level >= 12) &
         &  CALL message('mo_nwp_rad_interface', 'Ritter-Geleyn radiation on reduced grid')
 
-      IF (p_nprocs == 1 .OR. p_pe == p_test_pe) THEN
+      IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test()) THEN
         l_parallel = .FALSE.
       ELSE
         l_parallel = .TRUE.

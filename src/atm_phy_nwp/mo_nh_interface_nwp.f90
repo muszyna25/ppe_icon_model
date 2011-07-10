@@ -69,7 +69,7 @@ MODULE mo_nh_interface_nwp
   USE mo_ext_data,           ONLY: t_external_data
   USE mo_nwp_phy_state,      ONLY: t_nwp_phy_diag,&
                                  & t_nwp_phy_tend!, prm_diag
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_configuration,  ONLY: nproma, p_test_run
   USE mo_run_nml,            ONLY: ntracer, iqv, iqc, iqi, &
        &                           iqr, iqs, msg_level, ltimer, timers_level
   USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd_o_rd 
@@ -91,7 +91,6 @@ MODULE mo_nh_interface_nwp
   USE mo_sync,               ONLY: sync_patch_array, sync_patch_array_mult, &
                                    SYNC_C, SYNC_C1
   USE mo_mpi,                ONLY: p_nprocs
-  USE mo_parallel_configuration,       ONLY: p_test_run
   USE mo_nwp_diagnosis,      ONLY: nwp_diagnosis
 !  USE mo_communication,      ONLY: time_sync
 

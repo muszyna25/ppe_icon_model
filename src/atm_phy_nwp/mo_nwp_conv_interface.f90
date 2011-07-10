@@ -42,7 +42,7 @@ MODULE mo_nwp_conv_interface
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: message, message_text, finish
   USE mo_mpi,                  ONLY: p_pe, p_nprocs
-  USE mo_parallel_configuration, ONLY:  p_test_run
+  USE mo_parallel_configuration, ONLY:  p_test_run, nproma
 
   USE mo_model_domain,         ONLY: t_patch
   USE mo_grf_interpolation,    ONLY: t_gridref_state
@@ -56,7 +56,6 @@ MODULE mo_nwp_conv_interface
   USE mo_nonhydrostatic_nml,   ONLY: kstart_moist
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag,prm_diag,&
     &                                t_nwp_phy_tend
-  USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,              ONLY: msg_level, ntracer, iqv, &
     &                                iqc, iqi, iqs
   USE mo_physical_constants,   ONLY:  vtmpc1, grav, alv
