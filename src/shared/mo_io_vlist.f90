@@ -152,9 +152,10 @@ MODULE mo_io_vlist
   USE mo_model_domain,        ONLY: t_patch,t_patch_ocean
   USE mo_physical_constants,  ONLY: grav
   USE mo_communication,       ONLY: exchange_data, t_comm_pattern
-  USE mo_mpi,                 ONLY: p_pe, p_io, p_recv, p_send
-  USE mo_parallel_configuration,        ONLY: p_test_pe, p_pe_work, p_work_pe0, p_test_run, &
-    &                               num_work_procs
+  USE mo_mpi,                 ONLY: my_process_is_mpi_root, my_process_is_stdio, &
+    &  my_process_is_mpi_test, my_process_is_mpi_seq, process_mpi_test_id,       &
+    &  process_mpi_root_id, p_recv, p_send
+  USE mo_parallel_configuration, ONLY: p_test_run
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag
   USE mo_oce_state,           ONLY: t_hydro_ocean_state, t_hydro_ocean_prog,      &
@@ -1818,7 +1819,7 @@ CONTAINS
     !=========================================================================
     ! In parallel mode only 1 PE is writing the output
 
-    IF(p_pe /= p_io) RETURN
+    IF(.NOT. my_process_is_stdio()) RETURN
     !
     !=========================================================================
     ! Open gridfile for reading information
@@ -2291,7 +2292,7 @@ CONTAINS
     !=========================================================================
     ! In parallel mode only 1 PE is writing the output
 
-    IF(p_pe /= p_io) RETURN
+    IF(.NOT. my_process_is_stdio()) RETURN
 
     !=========================================================================
     ! close file
@@ -2854,7 +2855,7 @@ CONTAINS
 
     ! Make streamvar1/streamvar2 defined everywhere
 
-    IF(p_pe /= p_io) ALLOCATE(streamvar1(1), streamvar2(1,1))
+        IF(.NOT. my_process_is_stdio()) ALLOCATE(streamvar1(1), streamvar2(1,1))
 
     DO jg = 1, n_dom
 
@@ -2864,7 +2865,7 @@ CONTAINS
         p_sim_time = 1.0_wp
       ENDIF
       
-      IF(p_pe == p_io) THEN
+      IF(my_process_is_stdio()) THEN
         CALL taxisDefVdate(taxisID(jg), idate)   ! YYYYMMDD
         CALL taxisDefVtime(taxisID(jg), itime)   ! HHMM
 
@@ -2902,12 +2903,12 @@ CONTAINS
 
         IF(ASSOCIATED(ptr2)) THEN
 
-          IF(p_pe == p_io) ALLOCATE(streamvar1(n_tot))
+          IF(my_process_is_stdio()) ALLOCATE(streamvar1(n_tot))
 
           CALL gather_array1( outvar_desc(ivar, jg)%type, p_patch(jg), ptr2, &
                &                        streamvar1,outvar_desc(ivar,jg)%name )
 
-          IF(p_pe == p_io) THEN
+          IF(my_process_is_stdio()) THEN
             CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar1, 0)
             DEALLOCATE(streamvar1)
           ENDIF
@@ -2916,10 +2917,10 @@ CONTAINS
 
         ELSE
 
-          IF(p_pe == p_io) ALLOCATE(streamvar2(n_tot, klev))
+          IF(my_process_is_stdio()) ALLOCATE(streamvar2(n_tot, klev))
           CALL gather_array2( outvar_desc(ivar, jg)%type, p_patch(jg), ptr3,&
                &                       streamvar2,outvar_desc(ivar,jg)%name )
-          IF(p_pe == p_io) THEN
+          IF(my_process_is_stdio()) THEN
             CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar2, 0)
             DEALLOCATE(streamvar2)
           ENDIF
@@ -2930,7 +2931,7 @@ CONTAINS
 
       ENDDO
 
-      IF(p_pe == p_io) THEN
+      IF(my_process_is_stdio()) THEN
         IF (lkeep_in_sync) THEN
           CALL streamSync(streamID(jg))
         END IF
@@ -2938,7 +2939,7 @@ CONTAINS
 
     END DO
 
-    IF(p_pe /= p_io) DEALLOCATE(streamvar1, streamvar2)
+    IF(.NOT. my_process_is_stdio()) DEALLOCATE(streamvar1, streamvar2)
 
     iostep = iostep+1
 
@@ -2970,11 +2971,11 @@ CONTAINS
     CALL message (TRIM(routine), 'Write output at : ')
     CALL print_datetime(datetime)
 
-    IF (p_pe /= p_io) ALLOCATE(streamvar2d(0),streamvar3d(0,0))
+    IF (.NOT. my_process_is_stdio()) ALLOCATE(streamvar2d(0),streamvar3d(0,0))
 
     DO jg = 1, n_dom
 
-      IF(p_pe == p_io) THEN
+      IF(my_process_is_stdio()) THEN
         CALL taxisDefVdate(taxisID(jg), idate)   ! YYYYMMDD
         CALL taxisDefVtime(taxisID(jg), itime)   ! HHMM
 
@@ -3002,10 +3003,10 @@ CONTAINS
 
         IF(ASSOCIATED(ptr2d)) THEN
 
-          IF(p_pe == p_io) ALLOCATE(streamvar2d(n_tot))
+          IF(my_process_is_stdio()) ALLOCATE(streamvar2d(n_tot))
           CALL gather_array1( outvar_desc(ivar, jg)%type, p_patch(jg), ptr2d, &
                &              streamvar2d, outvar_desc(ivar,jg)%name )
-          IF(p_pe == p_io) THEN
+          IF(my_process_is_stdio()) THEN
             CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar2d, 0)
             DEALLOCATE(streamvar2d)
           ENDIF
@@ -3014,10 +3015,10 @@ CONTAINS
 
         ELSE
 
-          IF(p_pe == p_io) ALLOCATE(streamvar3d(n_tot, klev))
+          IF(my_process_is_stdio()) ALLOCATE(streamvar3d(n_tot, klev))
           CALL gather_array2( outvar_desc(ivar, jg)%type, p_patch(jg), ptr3d,&
                &              streamvar3d, outvar_desc(ivar,jg)%name )
-          IF(p_pe == p_io) THEN
+          IF(my_process_is_stdio()) THEN
             CALL streamWriteVar(streamID(jg), varids(ivar,jg), streamvar3d, 0)
             DEALLOCATE(streamvar3d)
           ENDIF
@@ -3028,7 +3029,7 @@ CONTAINS
 
         END DO
 
-      IF(p_pe == p_io) THEN
+      IF(my_process_is_stdio()) THEN
         IF (lkeep_in_sync) THEN
           CALL streamSync(streamID(jg))
         END IF
@@ -3036,7 +3037,7 @@ CONTAINS
 
     END DO
 
-    IF (p_pe /= p_io) THEN
+    IF (.NOT. my_process_is_stdio()) THEN
       DEALLOCATE(streamvar2d)
       DEALLOCATE(streamvar3d)
     ENDIF
@@ -3083,7 +3084,7 @@ CONTAINS
 
     !-----------------------------------------------------------------------
 
-    IF (p_pe == p_io) THEN
+    IF (my_process_is_stdio()) THEN
       ALLOCATE(out_field2(UBOUND(out_field,1),1))
     ELSE
       ALLOCATE(out_field2(0,0))
@@ -3098,7 +3099,7 @@ CONTAINS
                          out_field2)
     ENDIF
 
-    IF(p_pe==p_io) THEN
+    IF(my_process_is_stdio()) THEN
       out_field(:) = out_field2(:,1)
     ENDIF
 
@@ -3138,9 +3139,9 @@ CONTAINS
     IF(UBOUND(in_field,1) /= nproma) THEN
       CALL finish('mo_io_vlist/gather_array2','Illegal 1st array dimension')
     ENDIF
-    IF(p_io/=p_test_pe .AND. p_io/=p_work_pe0) THEN ! Safety check only
-      CALL finish('mo_io_vlist/gather_array2','Illegal I/O PE number for this routine')
-    ENDIF
+!     IF(p_io/=p_test_pe .AND. p_io/=p_work_pe0) THEN ! Safety check only
+!       CALL finish('mo_io_vlist/gather_array2','Illegal I/O PE number for this routine')
+!     ENDIF
 
     IF(typ == GATHER_C) THEN
 
@@ -3185,13 +3186,13 @@ CONTAINS
     tmp_field(:,:,:)=0.0_wp
 
     IF(p_test_run) THEN
-      IF(p_pe /= p_test_pe) THEN
+      IF(.NOT. my_process_is_mpi_test()) THEN
         ! Gather all data on p_work_pe0 and send it to p_test_pe for verification
         CALL exchange_data(p_comm_pat, RECV=tmp_field, SEND=in_field)
-        IF(p_pe_work == 0) CALL p_send(tmp_field, p_test_pe, 1)
+        IF(my_process_is_mpi_root()) CALL p_send(tmp_field, process_mpi_test_id, 1)
       ELSE
         ! Receive result from parallel worker PEs and check for correctness
-        CALL p_recv(tmp_field, p_work_pe0, 1)
+        CALL p_recv(tmp_field, process_mpi_root_id, 1)
         DO jb = 1, nblks
           jend = nproma
           IF(jb==nblks) jend = npromz
@@ -3208,7 +3209,7 @@ CONTAINS
         ENDDO
       ENDIF
     ELSE
-      IF(num_work_procs == 1) THEN
+      IF(my_process_is_mpi_seq()) THEN
         ! We are running on 1 PE, just copy in_field
         DO jb= 1, nblks
           jend = nproma
@@ -3223,7 +3224,7 @@ CONTAINS
       ENDIF
     ENDIF
 
-    IF(p_pe == p_io) THEN
+    IF(my_process_is_stdio()) THEN
       isize_out = SIZE(out_field,1)
       isize_lev = SIZE(in_field,2)
 

@@ -22,7 +22,7 @@ MODULE mo_mpi
 ! subroutines defined, overloaded depending on argument type
   PUBLIC :: start_mpi
   PUBLIC :: my_process_is_stdio, my_process_is_mpi_parallel
-  PUBLIC :: my_process_is_mpi_seq, my_process_is_mpi_test
+  PUBLIC :: my_process_is_mpi_seq, my_process_is_mpi_test, my_process_is_mpi_root
   PUBLIC :: my_process_is_io
   PUBLIC :: run_is_global_mpi_parallel
   PUBLIC :: get_mpi_root_id, get_my_global_mpi_id
@@ -34,7 +34,7 @@ MODULE mo_mpi
   PUBLIC :: p_comm_work_2_io, p_comm_input_bcast, p_comm_work_io
   PUBLIC :: p_communicator_a, p_communicator_b, p_communicator_d
 
-  PUBLIC :: p_pe, p_io, p_nprocs
+  PUBLIC :: p_pe, p_io, p_nprocs, process_mpi_test_id, process_mpi_root_id
   PUBLIC :: num_test_procs, num_work_procs, num_io_procs
   
   PUBLIC :: p_stop, p_abort
@@ -90,7 +90,8 @@ MODULE mo_mpi
 
   CHARACTER(len=64) :: process_mpi_name
   INTEGER, PARAMETER :: stdio_process = 0
-  INTEGER :: process_root_id = 0
+  INTEGER :: process_mpi_root_id = 0
+  INTEGER :: process_mpi_test_id = 0
   
   ! communicator sets
   INTEGER :: global_mpi_communicator  ! replaces MPI_COMM_WORLD 
@@ -336,7 +337,7 @@ CONTAINS
 
   !------------------------------------------------------------------------------
   INTEGER FUNCTION get_mpi_root_id()
-    get_mpi_root_id = process_root_id
+    get_mpi_root_id = process_mpi_root_id
   END FUNCTION get_mpi_root_id
   !------------------------------------------------------------------------------
 
@@ -361,18 +362,31 @@ CONTAINS
   !------------------------------------------------------------------------------
   !>
   ! If is mpi paralellel and not a test process
+  !! Note: mpi i/o processes do not count is mpi paralell work
+  !!        Only computational processes are checked for running in parallel
   LOGICAL FUNCTION my_process_is_mpi_parallel()
     my_process_is_mpi_parallel = process_is_mpi_parallel
   END FUNCTION my_process_is_mpi_parallel
   !------------------------------------------------------------------------------
-
+  
   !>
-  ! If is not mpi paralellel or is a test process
+  !! If is not mpi work paralellel or this is a test process
+  !! returns true
+  !! Note: mpi i/o processes do not count is mpi paralell work
+  !!        Only computational processes are checked for running in parallel
   LOGICAL FUNCTION my_process_is_mpi_seq()
     my_process_is_mpi_seq = .NOT. process_is_mpi_parallel
   END FUNCTION my_process_is_mpi_seq
   !------------------------------------------------------------------------------
+ 
+  !------------------------------------------------------------------------------
+  !>
+  LOGICAL FUNCTION my_process_is_mpi_root()
+    my_process_is_mpi_root = (my_process_mpi_all_id == process_mpi_root_id)
+  END FUNCTION my_process_is_mpi_root
+  !------------------------------------------------------------------------------
   
+ 
   !------------------------------------------------------------------------------
   !>
   ! If is not mpi paralellel or is a test process
@@ -4563,7 +4577,7 @@ CONTAINS
 
     IF (my_process_is_mpi_parallel()) THEN
        CALL MPI_REDUCE (zfield, pe_sums, SIZE(zfield), p_real_dp, &
-            MPI_SUM, process_root_id, p_comm, p_error)
+            MPI_SUM, process_mpi_root_id, p_comm, p_error)
        p_sum = SUM(pe_sums)
     ELSE
        p_sum = SUM(zfield)
@@ -4591,7 +4605,7 @@ CONTAINS
 
     IF (my_process_is_mpi_parallel()) THEN
        CALL MPI_REDUCE (zfield, p_sum, SIZE(zfield), p_real_dp, &
-            MPI_SUM, process_root_id, p_comm, p_error)
+            MPI_SUM, process_mpi_root_id, p_comm, p_error)
        IF (.NOT. my_process_is_stdio()) p_sum = 0.0_dp
     ELSE
        p_sum = zfield
