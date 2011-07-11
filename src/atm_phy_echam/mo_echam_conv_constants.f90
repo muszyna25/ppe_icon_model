@@ -42,17 +42,17 @@ MODULE mo_echam_conv_constants
   PUBLIC
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
-  REAL(wp) :: entrmid  = 1.0E-4_wp !< average entrainment rate for midlevel convection
-  REAL(wp) :: entrscv  = 3.0E-4_wp !< average entrainment rate for shallow convection
-  REAL(wp) :: entrdd   = 2.0E-4_wp !< average entrainment rate for cumulus downdrafts
+  REAL(wp),PARAMETER :: entrmid  = 1.0E-4_wp !< average entrainment rate for midlevel convection
+  REAL(wp),PARAMETER :: entrscv  = 3.0E-4_wp !< average entrainment rate for shallow convection
+  REAL(wp),PARAMETER :: entrdd   = 2.0E-4_wp !< average entrainment rate for cumulus downdrafts
 
-  REAL(wp) :: cmfdeps  = 0.3_wp    !< fractional convective mass flux for downdrafts at lfs
+  REAL(wp),PARAMETER :: cmfdeps  = 0.3_wp    !< fractional convective mass flux for downdrafts at lfs
   
-  REAL(wp) :: cmfcmin  = 1.E-10_wp !< minimum massflux value (for safety)
-  REAL(wp) :: cmfcmax  = 1.0_wp    !< maximum massflux value allowed for updrafts etc
+  REAL(wp),PARAMETER :: cmfcmin  = 1.E-10_wp !< minimum massflux value (for safety)
+  REAL(wp),PARAMETER :: cmfcmax  = 1.0_wp    !< maximum massflux value allowed for updrafts etc
   
-  REAL(wp) :: cmaxbuoy = 1.0_wp    !< maximum excess buoyancy
-  REAL(wp) :: cbfac    = 1.0_wp    !< factor for std dev of virtual pot temp
-  REAL(wp) :: centrmax = 3.E-4_wp  !<
+  REAL(wp),PARAMETER :: cmaxbuoy = 1.0_wp    !< maximum excess buoyancy
+  REAL(wp),PARAMETER :: cbfac    = 1.0_wp    !< factor for std dev of virtual pot temp
+  REAL(wp),PARAMETER :: centrmax = 3.E-4_wp  !<
 
 END MODULE mo_echam_conv_constants
