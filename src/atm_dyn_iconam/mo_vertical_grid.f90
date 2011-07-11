@@ -104,11 +104,12 @@ MODULE mo_vertical_grid
   !! @par Revision History
   !! Initial release by Almut Gassmann, MPI-M, (2009-04-14)
   !!
-  SUBROUTINE init_hybrid_coord(nlev)
+  SUBROUTINE init_hybrid_coord( iequations, nlev )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_vertical_grid:init_hybrid_coord'
 
+    INTEGER, INTENT(IN) :: iequations
     INTEGER, INTENT(IN) :: nlev  !< number of full levels
     REAL(wp) :: z_height, z_flat
     INTEGER  :: jk, ist
@@ -129,7 +130,7 @@ MODULE mo_vertical_grid
     ! read hybrid parameters as in the hydrostatic model
     IF ( layer_thickness < 0.0_wp) THEN
 
-      CALL read_vct (nlev)
+      CALL read_vct (iequations,nlev)
 
       DO jk = 1, nlevp1
         IF (vct_b(jk) /= 0.0_wp) THEN

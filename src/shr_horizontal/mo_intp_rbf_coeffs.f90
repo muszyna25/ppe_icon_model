@@ -166,10 +166,10 @@ USE mo_exception,           ONLY: message, message_text, finish
 USE mo_impl_constants,      ONLY: SUCCESS
 USE mo_model_domain,        ONLY: t_patch, t_tangent_vectors
 USE mo_model_domain_import, ONLY: l_limited_area
+USE mo_dynamics_config,     ONLY: dynamics_config
 USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, solve_chol_v, choldec_v, &
                                 & arc_length_v, t_cartesian_coordinates
 USE mo_parallel_configuration,  ONLY: nproma
-USE mo_run_nml,             ONLY: iequations
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_intp_data_strc
 USE mo_interpol_nml
@@ -537,10 +537,10 @@ INTEGER :: jg
   jg = ptr_patch%id
   IF ((.NOT. l_limited_area) .AND. (jg == 1) .AND. (ipent /= 12)) THEN
 !   PRINT *, "ERROR ==>  ipent = ", ipent,  " /= 12 -- no finish (ocean)"
-    IF ( iequations == -1 )  THEN    !  hydrostatic ocean: less than  12 pentagons allowed
+    IF ( dynamics_config(jg)%iequations == -1 )  THEN    !  hydrostatic ocean: less than  12 pentagons allowed
       WRITE(message_text,'(a,i3,a,i3,a)')  &
         &  'mo_interpolation:rbf_vec_index_vertex: no of pentagons =',ipent, &
-        &  ' iequations =',iequations,' ==> ok.'
+        &  ' iequations =',dynamics_config(jg)%iequations,' ==> ok.'
       CALL message('', TRIM(message_text))
     ELSE                      !  other cases: may stop the run
       CALL message('mo_interpolation:rbf_vec_index_vertex',  &

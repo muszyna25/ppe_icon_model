@@ -37,8 +37,8 @@ MODULE mo_dynamics_nml
   USE mo_dynamics_config,    ONLY: dynamics_config
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, UNKNOWN, TRACER_ONLY, &
-                                   LEAPFROG_EXPL, LEAPFROG_SI, AB2
+  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, UNKNOWN, &
+                                   LEAPFROG_SI
   USE mo_physical_constants, ONLY: grav
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned
@@ -65,7 +65,7 @@ MODULE mo_dynamics_nml
   !---------------------------------------------------------------
   ! time stepping scheme 
 
-  INTEGER  :: iequations
+  INTEGER  :: nml_iequations
 
   INTEGER  :: itime_scheme       ! parameter used to select the time stepping scheme
                                  ! = 1, explicit 2 time level scheme
@@ -93,7 +93,7 @@ MODULE mo_dynamics_nml
   REAL(wp) :: sw_ref_height      ! reference height to linearize around if using
                                  ! lshallow_water and semi-implicit correction
 
-  NAMELIST/dynamics_nml/ iequations, itime_scheme, idiv_method, divavg_cntrwgt, &
+  NAMELIST/dynamics_nml/ nml_iequations, itime_scheme, idiv_method, divavg_cntrwgt, &
     &                   ldry_dycore, sw_ref_height
 
 CONTAINS
@@ -106,7 +106,7 @@ CONTAINS
     !------------------------------------------------------------
     ! Set up the default values
     !------------------------------------------------------------
-    iequations     = IHS_ATM_TEMP
+    nml_iequations     = IHS_ATM_TEMP
     itime_scheme   = LEAPFROG_SI
     idiv_method    = 1
     divavg_cntrwgt = 0.5_wp
@@ -159,7 +159,7 @@ CONTAINS
     ! 5. Fill configuration state
     !-----------------------------------------------------
 
-    dynamics_config(:)% iequations     = iequations
+    dynamics_config(:)% iequations     = nml_iequations
     dynamics_config(:)% itime_scheme   = itime_scheme
     dynamics_config(:)% idiv_method    = idiv_method
     dynamics_config(:)% divavg_cntrwgt = divavg_cntrwgt

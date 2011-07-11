@@ -60,7 +60,7 @@ MODULE mo_io_nml
   USE mo_master_nml,         ONLY: lrestart
   USE mo_io_config,          ONLY: io_config
   USE mo_run_nml,            ONLY: inwp,iecham,ltransport,dtime,ntracer,     &
-                                 & iforcing,lshallow_water,iequations,       &
+                                 & iforcing,lshallow_water,                  &
                                  & inextra_2d, inextra_3d,ildf_echam
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
@@ -222,9 +222,9 @@ SUBROUTINE io_nml_setup
      lwrite_omega  = .FALSE.
      lwrite_pres   = .FALSE.
   ENDIF
-  IF (iequations == 3) THEN
+ !IF (iequations == 3) THEN
      lwrite_omega  = .FALSE.
-  ENDIF
+ !ENDIF
 
   IF(.NOT. ltransport .AND. ntracer >0 ) THEN
     lwrite_tracer(:) =.FALSE.

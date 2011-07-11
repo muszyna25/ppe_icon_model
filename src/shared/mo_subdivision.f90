@@ -65,8 +65,8 @@ MODULE mo_subdivision
   USE mo_exception,          ONLY: finish, message
 
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,            ONLY: ltransport, &
-    & iequations
+  USE mo_run_nml,            ONLY: ltransport
+  USE mo_dynamics_config,    ONLY: dynamics_config
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
   USE mo_model_domain,       ONLY: t_patch, t_grid_cells
   USE mo_interpolation,      ONLY: t_int_state, rbf_vec_dim_c, rbf_vec_dim_e, &
@@ -474,7 +474,7 @@ CONTAINS
       wrk_p_patch       => p_patch_subdiv(jg)
       wrk_int_state_in  => p_int_state_global(jg)
       wrk_int_state_out => p_int_state_subdiv(jg)
-      CALL divide_int_state()
+      CALL divide_int_state(dynamics_config(jg)%iequations)
 
       IF(n_dom_start==0 .OR. n_dom > 1) THEN
         CALL allocate_grf_state(p_patch_subdiv(jg), p_grf_state_subdiv(jg))
@@ -493,7 +493,7 @@ CONTAINS
       wrk_p_patch       => p_patch_local_parent(jg)
       wrk_int_state_in  => p_int_state_global(jgp)
       wrk_int_state_out => p_int_state_local_parent(jg)
-      CALL divide_int_state()
+      CALL divide_int_state(dynamics_config(jg)%iequations)
 
       wrk_gridref_state_in  => p_grf_state_global(jgp)
       wrk_gridref_state_out => p_grf_state_local_parent(jg)
@@ -2687,8 +2687,9 @@ CONTAINS
   !!
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
-  SUBROUTINE divide_int_state()
+  SUBROUTINE divide_int_state(iequations)
 
+    INTEGER,INTENT(IN) :: iequations
     ! Local scalars:
 
     INTEGER :: j, jb, jl, jb_g, jl_g, i, nincr

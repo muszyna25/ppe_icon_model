@@ -49,8 +49,10 @@ MODULE mo_ext_data
   USE mo_io_units,           ONLY: filename_max
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,            ONLY: itopo, locean, &
-    &                              iforcing, inwp, iequations,         &
+    &                              iforcing, inwp,       &
     &                              fac_smooth_topo, n_iter_smooth_topo
+
+  USE mo_dynamics_config,    ONLY: dynamics_config
  !USE mo_lnd_nwp_nml,        ONLY: nsfc_subs
   USE mo_radiation_nml,      ONLY: irad_o3
   USE mo_model_domain,       ONLY: t_patch
@@ -617,7 +619,7 @@ CONTAINS
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
-  IF (iequations==3) THEN
+  IF (dynamics_config(p_patch%id)%iequations==3) THEN
 
     ! smoothed topography height at cell center
     !

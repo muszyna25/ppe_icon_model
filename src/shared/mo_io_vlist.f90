@@ -129,11 +129,11 @@ MODULE mo_io_vlist
   USE mo_run_nml,             ONLY: num_lev, num_levp1, itopo,                  &
     &                               ntracer, ltransport,iqcond,                 &
     &                               lshallow_water,                             &
-    &                               dtime, iequations, msg_level,               &
+    &                               dtime, msg_level,               &
     &                               ldynamics, ltestcase,                       &
     &                               iforcing, inwp, iecham,ildf_echam,          &
     &                               iqv, iqc, iqi, lcorio, nsteps, lforcing,    &
-    &                               iequations, ihs_atm_temp, ihs_atm_theta,    &
+    &                               ihs_atm_temp, ihs_atm_theta,    &
     &                               inh_atmosphere, ishallow_water,             &
     &                               lvert_nest, inextra_2d,inextra_3d
   USE mo_grid_configuration,  ONLY : global_cell_type
@@ -562,7 +562,7 @@ CONTAINS
     CALL addGlobAttInt('run_ctl:global_cell_type',global_cell_type,vlistID(k_jg),astatus)
     CALL addGlobAttInt('run_ctl:num_lev',num_lev(k_jg),vlistID(k_jg),astatus)
     CALL addGlobAttFlt('run_ctl:dtime',dtime,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_ctl:iequations',iequations,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('run_ctl:iequations',dynamics_config(k_jg)%iequations,vlistID(k_jg),astatus)
     CALL addGlobAttInt('run_ctl:ntracer',ntracer,vlistID(k_jg),astatus)
     CALL addGlobAttTxtFromLog('run_ctl:ldynamics',ldynamics,vlistID(k_jg),astatus)
     CALL addGlobAttTxtFromLog('run_ctl:ltransport',ltransport,vlistID(k_jg),astatus)
@@ -606,7 +606,7 @@ CONTAINS
     ! Parameters of /nonhydrostatic_ctl/
     ! ----------------------------
 
-    IF (iequations == 3) THEN
+    IF (dynamics_config(k_jg)%iequations == 3) THEN
        CALL addGlobAttInt('nonhydrostatic_ctl:ivctype',ivctype,vlistID(k_jg),astatus)
        CALL addGlobAttInt('nonhydrostatic_ctl:iadv_rcf',iadv_rcf,vlistID(k_jg),astatus)
 
@@ -800,7 +800,9 @@ CONTAINS
       !
       ! Parameters of /testcase_ctl/
       ! -----------------------------
-      IF(iequations == 0 .OR. iequations == 1 .OR. iequations == 2 ) THEN
+      IF(dynamics_config(k_jg)%iequations == 0 .OR. &
+         dynamics_config(k_jg)%iequations == 1 .OR. &
+         dynamics_config(k_jg)%iequations == 2 ) THEN
       !
          CALL addGlobAttTxt('testcase_ctl:ctest_name',TRIM(ctest_name),vlistID(k_jg),astatus)
          !
@@ -853,7 +855,7 @@ CONTAINS
       !
       ! Parameters of /nh_testcase_ctl/
       ! -----------------------------
-      ELSEIF (iequations == 3) THEN
+      ELSEIF (dynamics_config(k_jg)%iequations == 3) THEN
       !
          CALL addGlobAttTxt('nh_testcase_ctl:nh_test_name', &
                   &         TRIM(nh_test_name),vlistID(k_jg),astatus)
@@ -979,7 +981,7 @@ CONTAINS
     &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
     &           k_jg)
     ! vertical velocity ( dp/dt )
-    IF (iequations /= 3 .AND. lwrite_omega) THEN
+    IF (dynamics_config(k_jg)%iequations /= 3 .AND. lwrite_omega) THEN
       CALL addVar(TimeVar('OMEGA',&
       &                   'vertical velocity',&
       &                   'Pa/s', 135, 128,&
@@ -987,7 +989,7 @@ CONTAINS
       &          k_jg)
     END IF
     ! vertical velocity ( w ) in nonhydrostatic model (code number definition?)
-    IF (iequations == 3) THEN
+    IF (dynamics_config(k_jg)%iequations == 3) THEN
       CALL addVar(TimeVar('W',&
       &                   'upward air velocity',&
       &                   'm/s', 40, 2,&
@@ -1009,7 +1011,7 @@ CONTAINS
       &                   'm', 156, 128,&
       &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
       &          k_jg)
-      IF (iequations == 3) THEN
+      IF (dynamics_config(k_jg)%iequations == 3) THEN
         CALL addVar(TimeVar('ZH3',&
         &                   'half level height',&
         &                   'm', 253, 128,&
@@ -1018,7 +1020,8 @@ CONTAINS
       ENDIF
     END IF
     ! surface geopotential
-    IF(iequations == 1 .OR. iequations == 2 ) THEN
+    IF(dynamics_config(k_jg)%iequations == 1 .OR. &
+       dynamics_config(k_jg)%iequations == 2 ) THEN
       CALL addVar(TimeVar('PHIS',&
       &                   'surface geopotential (orography)',&
       &                   'm**2/s**2',&
@@ -1700,7 +1703,7 @@ CONTAINS
       &           k_jg)
     END IF
 
-    IF (iequations == 3) THEN
+    IF (dynamics_config(k_jg)%iequations == 3) THEN
       ! virtual potential temperature
       CALL addVar(TimeVar('THETA_V', &
       &                   'virtual potential temperature',&
@@ -2094,7 +2097,7 @@ CONTAINS
     !
 !   CALL addGlobAttInt('run_ctl:nlev',nlev,vlistID(k_jg),astatus)
     CALL addGlobAttFlt('run_ctl:dtime',dtime,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_ctl:iequations',iequations,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('run_ctl:iequations',dynamics_config(k_jg)%iequations,vlistID(k_jg),astatus)
     !
 !   CALL addGlobAttTxtFromLog('run_ctl:ltestcase',ltestcase,vlistID(k_jg),astatus)
     !
@@ -2875,7 +2878,7 @@ CONTAINS
       DO ivar = 1, num_output_vars(jg)
 
         ! Get a pointer to the variable
-        SELECT CASE (iequations)
+        SELECT CASE (dynamics_config(jg)%iequations)
           CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
             CALL get_outvar_ptr_ha(outvar_desc(ivar,jg)%name, jg, ptr2, ptr3, reset, delete)
           CASE (inh_atmosphere)

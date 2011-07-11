@@ -48,7 +48,7 @@ MODULE mo_advection_nml
   USE mo_io_units,            ONLY: nnml,nnml_output
   USE mo_master_nml,          ONLY: lrestart
   USE mo_run_nml,             ONLY: ntracer, ntracer_static, num_lev, nlev, &
-    &                               iequations, iforcing,                   &
+    &                               iforcing,                   &
     &                               inoforcing, iheldsuarez, iecham, inwp,  &
     &                               ildf_dry, ildf_echam, io3, iqcond,      &
     &                               lvert_nest, iqv
@@ -502,8 +502,9 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2011-04-20)
   !!
-  SUBROUTINE setup_transport
+  SUBROUTINE setup_transport( iequations )
   !
+    INTEGER,INTENT(IN) :: iequations
     INTEGER :: jg          !< loop index for gauss quadrature points
     INTEGER :: jt          !< tracer loop index
     !-----------------------------------------------------------------------

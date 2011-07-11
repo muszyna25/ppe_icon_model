@@ -47,11 +47,11 @@ MODULE mo_output
   USE mo_model_domain_import, ONLY: n_dom, nroot, lplane
   USE mo_ocean_nml,           ONLY: n_zlev
   USE mo_io_nml,              ONLY: out_expname
-  USE mo_run_nml,             ONLY: iequations,           &
-     &                              ihs_atm_temp,         &
+  USE mo_run_nml,             ONLY: ihs_atm_temp,         &
      &                              ihs_atm_theta,        &
      &                              inh_atmosphere,       &
      &                              ishallow_water,ihs_ocean
+  USE mo_dynamics_config,     ONLY: dynamics_config
   USE mo_atmo_control,        ONLY: p_patch
   USE mo_io_vlist,            ONLY: setup_vlist, destruct_vlist,           &
      &                              open_output_vlist, close_output_vlist, &
@@ -146,7 +146,8 @@ CONTAINS
         ! Set up vlist for this grid level
         ! Please note: setup_vlist only sets up the vlist, it does not open any output file!
        
-        IF(iequations /= ihs_ocean) CALL setup_vlist( TRIM(p_patch(jg)%grid_filename), jg )
+        IF(dynamics_config(jg)%iequations /= ihs_ocean) &
+        CALL setup_vlist( TRIM(p_patch(jg)%grid_filename), jg )
 
       ENDDO
 
@@ -204,7 +205,7 @@ CONTAINS
 
       WRITE(0,'(a,a)') ' Initial output file for setup_vlist is ', &
           &              TRIM(outputfile)
-      IF (iequations == ihs_ocean) THEN
+      IF (dynamics_config(jg)%iequations == ihs_ocean) THEN
         ! #slo# must be aligned with general output
         CALL setup_vlist_oce( p_patch(1:), TRIM(p_patch(jg)%grid_filename), TRIM(outputfile), jg )
       ELSE

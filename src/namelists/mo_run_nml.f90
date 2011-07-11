@@ -102,10 +102,6 @@ MODULE mo_run_nml
   REAL(wp)         :: dtrk(3)    ! [s] Runge Kutta 3 time steps [s]
 
 
-  ! equations to be solved
-  ! ----------------------
-  INTEGER          :: iequations          ! equation system:
-
   ! dynamics
   ! --------
   LOGICAL  :: ldynamics  ! if .TRUE.=default then
@@ -187,7 +183,6 @@ MODULE mo_run_nml
     &                run_day,                              &
     &                run_hour, run_minute, run_second,     &
     &                nsteps, dtime,                        &
-    &                iequations,                           &
     &                ldynamics, ltransport, iforcing,      &
     &                ltestcase, lcorio, itopo, msg_level,  &
     &                ldump_states, lrestore_states, ltimer,&
@@ -480,9 +475,6 @@ SUBROUTINE read_run_namelist
    ! time step
    dtime          = 600._wp   ! [s] for R2B04 + semi-implicit time steppping
 
-   ! select model and numerics
-   iequations     = ihs_atm_temp
-
    ! switches for tendency computation
    ldynamics      = .TRUE.
    ltransport     = .FALSE.
@@ -551,7 +543,6 @@ SUBROUTINE read_run_namelist
       run_config(jg)%ntracer         = ntracer 
       run_config(jg)%ntracer_static  = ntracer_static   
       run_config(jg)%iforcing        = iforcing 
-      run_config(jg)%iequations      = iequations
       run_config(jg)%lcorio          = lcorio   
       run_config(jg)%itopo           = itopo 
       run_config(jg)%dtime           = dtime 

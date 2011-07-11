@@ -68,7 +68,6 @@ MODULE mo_ocean_model
     & ltimer,               & !    :
 !0  & locean,               & !    :
 !0  & iequations,           & !    internal parameters
-!0  & ihs_ocean,            & !
 !0  & impiom,               & !    :
     & ldump_states,         & ! flag if states should be dumped
     & lrestore_states         ! flag if states should be restored
@@ -109,7 +108,7 @@ MODULE mo_ocean_model
 !0  USE mo_mpiom_phy_state,     ONLY: construct_mpiom_phy_state, &
 !0    &                               destruct_mpiom_phy_state
   
-  USE mo_impl_constants,      ONLY: success
+  USE mo_impl_constants,      ONLY: success, IHS_OCEAN
   
   ! External data
   USE mo_ext_data,            ONLY: ext_data
@@ -398,7 +397,7 @@ CONTAINS
     ! set dependent variables/model components, depending on this (transport)
     ! namelist and potentially others
     IF (ltransport) THEN
-      CALL setup_transport
+      CALL setup_transport( IHS_OCEAN )
     ENDIF
     
     !------------------------------------------------------------------

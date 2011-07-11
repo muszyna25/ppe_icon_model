@@ -140,7 +140,7 @@ MODULE mo_global_variables
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned
   USE mo_mpi,                ONLY: p_pe, p_io
-  USE mo_run_nml,            ONLY: inwp,iecham, iforcing,lshallow_water,iequations,    &
+  USE mo_run_nml,            ONLY: inwp,iecham, iforcing,lshallow_water,  &
     &                              inoforcing,iheldsuarez,impiom, ildf_dry,ildf_echam
   USE mo_ocean_nml,          ONLY: lmpiom_radiation, lmpiom_convection,           &
     &                              lmpiom_gentmcwill, mpiom_phy_ctl

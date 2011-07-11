@@ -66,7 +66,6 @@ MODULE mo_run_config
     INTEGER :: ntracer_static  !< Total number of non-advected tracers
 
     INTEGER :: iforcing        !< Choice of diabatic forcing
-    INTEGER :: iequations      ! equation system:
     LOGICAL :: lcorio          ! if .TRUE.,  the Coriolis force is switched on,
                                ! if .FALSE., the Coriolis force is switched off
                                ! timer

@@ -65,7 +65,7 @@ MODULE mo_vertical_coord_table
   USE mo_io_units,           ONLY: filename_max, find_next_free_unit
   USE mo_exception,          ONLY: message_text, message, finish
   USE mo_impl_constants,     ONLY: success, max_char_length
-  USE mo_run_nml,            ONLY: nvclev, iequations, &
+  USE mo_run_nml,            ONLY: nvclev,  &
     &                              ishallow_water, ihs_atm_temp, ihs_atm_theta, inh_atmosphere
   USE mo_physical_constants, ONLY: grav, rcpd, rd
 
@@ -134,7 +134,7 @@ CONTAINS
   !
   ! !SUBROUTINE INTERFACE:
 
-  SUBROUTINE init_vertical_coord_table(nlev)
+  SUBROUTINE init_vertical_coord_table(iequations,nlev)
 
     ! !DESCRIPTION:
     !  Initialization of the hybrid vertical coordinate
@@ -142,7 +142,8 @@ CONTAINS
     ! !REVISION HISTORY:
     !  Original version by Hui Wan, MPI-M, 2006-02-09
     !
-    INTEGER, INTENT(IN) :: nlev   !< number of ful levels
+    INTEGER, INTENT(IN) :: nlev        !< number of ful levels
+    INTEGER, INTENT(IN) :: iequations
     INTEGER :: jk
     !EOP
     !-----------------------------------------------------------------------
@@ -150,7 +151,7 @@ CONTAINS
 
     ! read the A and B parameters of the vertical coordinate
 
-    CALL read_vct(nlev)
+    CALL read_vct(iequations,nlev)
 
     CALL message('vertical_coord_table:init_vertical_coord', '')
     CALL message('', 'Vertical coordinate table')
@@ -181,9 +182,10 @@ CONTAINS
   !! Read the A and B parameters of the hybrid vertical grid,
   !! which define the half level pressure: ph=A+B*ps [Pa]
   !!
-  SUBROUTINE  read_vct (nlev)
+  SUBROUTINE  read_vct (iequations,nlev)
 
     INTEGER, INTENT(IN) :: nlev
+    INTEGER, INTENT(IN) :: iequations
 
     ! Local variables
     CHARACTER(len=max_char_length),PARAMETER :: routine  = &
