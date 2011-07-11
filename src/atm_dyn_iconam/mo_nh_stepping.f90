@@ -61,7 +61,8 @@ MODULE mo_nh_stepping
     &                               msg_level, ltimer
   USE mo_grid_configuration, ONLY :  global_cell_type
     
-  USE mo_atm_phy_nwp_nml,     ONLY: tcall_phy
+!  USE mo_atm_phy_nwp_nml,     ONLY: tcall_phy
+  USE mo_atm_phy_nwp_config,  ONLY: tcall_phy
   USE mo_nwp_phy_init,        ONLY: init_nwp_phy
   USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, mean_charlen
   USE mo_atmo_control,        ONLY: p_lnd_state

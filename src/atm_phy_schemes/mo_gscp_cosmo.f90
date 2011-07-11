@@ -203,7 +203,8 @@ USE mo_satad,              ONLY: satad_v_3d,     &  !! new saturation adjustment
                                  sat_pres_ice!,   &  !! saturation vapor pressure w.r.t. ice
 !                                 spec_humi          !! Specific humidity 
 USE mo_exception,          ONLY: message, message_text
-USE mo_atm_phy_nwp_nml,    ONLY: qi0,qc0 !!,satad
+!USE mo_atm_phy_nwp_config, ONLY: qi0 => atm_phy_nwp_config(1)%qi0,&
+!                               & qc0=> atm_phy_nwp_config(1)%qc0 
 #endif
 
 !==============================================================================
@@ -425,6 +426,9 @@ SUBROUTINE hydci_pp(                 &
   l_cv,                              &
   dz,zdt,                            & !! numerics parameters
   t,p,rho,qv,qc,qi,qr,qs,            & !! prognostic variables
+#ifdef __ICON__
+  qi0,qc0,                           & !! cloud ice/water threshold for autoconversion
+#endif
   prr_gsp,prs_gsp,                   & !! surface precipitation rates
   ddt_tend_t     , ddt_tend_qv     , &
   ddt_tend_qc    , ddt_tend_qi     , & !> ddt_tend_xx are tendencies
@@ -478,6 +482,10 @@ SUBROUTINE hydci_pp(                 &
 
   REAL(KIND=ireals), INTENT(IN) :: &
     zdt                    !> time step for integration of microphysics     (  s  )
+#ifdef __ICON__
+  REAL(KIND=ireals), INTENT(IN) :: &
+    qi0,qc0          !> cloud ice/water threshold for autoconversion
+#endif
 
   REAL(KIND=ireals), DIMENSION(ie,je,ke), INTENT(IN) ::      &
     dz              ,    & !> layer thickness of full levels                (  m  )

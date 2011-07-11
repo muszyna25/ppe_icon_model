@@ -59,7 +59,8 @@ MODULE mo_nwp_conv_interface
   USE mo_run_nml,              ONLY: msg_level, ntracer, iqv, &
     &                                iqc, iqi, iqs
   USE mo_physical_constants,   ONLY:  vtmpc1, grav, alv
-  USE mo_atm_phy_nwp_nml,      ONLY: inwp_convection, inwp_turb
+!  USE mo_atm_phy_nwp_nml,      ONLY: inwp_convection, inwp_turb
+  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_cumaster,             ONLY: cumastrn
 
   IMPLICIT NONE
@@ -137,13 +138,11 @@ CONTAINS
     nblks_e   = p_patch%nblks_int_e
     npromz_e  = p_patch%npromz_int_e
     i_nchdom  = MAX(1,p_patch%n_childdom)
+    jg        = p_patch%id
 
     ! number of vertical levels
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1
-
-    ! domain ID
-    jg     = p_patch%id
 
     !in order to account for mesh refinement
     rl_start = grf_bdywidth_c+1
@@ -179,7 +178,7 @@ CONTAINS
           ENDDO
         ENDDO
 
-        IF( inwp_convection == 1 ) THEN
+        IF( atm_phy_nwp_config(jg)%inwp_convection == 1 ) THEN
 
         !>
         !! define convective-related fields
@@ -195,12 +194,12 @@ CONTAINS
 !PR pass fluxes to cumastrn that are negative when upwards!!!!
 
 
-        IF(inwp_turb == 0 ) THEN
+        IF(atm_phy_nwp_config(jg)%inwp_turb == 0 ) THEN
 
         z_qhfl( i_startidx:i_endidx,nlevp1,jb) = - 4.79846_wp*1.e-5_wp !> moisture flux W/m**2
         z_shfl( i_startidx:i_endidx,nlevp1,jb) = -   17._wp              !! sens. heat fl W/m**2
 
-        ELSEIF (inwp_turb == 1 ) THEN
+        ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 1 ) THEN
 
         prm_diag%qhfl_s( i_startidx:i_endidx,jb) = prm_diag%lhfl_s( i_startidx:i_endidx,jb) & 
              &                                   / alv
@@ -214,7 +213,7 @@ CONTAINS
 !        z_qhfl( i_startidx:i_endidx,nlevp1,jb) =  4.79846_wp*1.e-5_wp !> moisture flux W/m**2
 !        z_shfl( i_startidx:i_endidx,nlevp1,jb) =    17._wp            !! sens. heat fl W/m**2
 
-        ELSEIF (inwp_turb == 2 ) THEN
+        ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2 ) THEN
 
         ! PR. In turb2, the flux is negative upwards
         z_qhfl( i_startidx:i_endidx,nlevp1,jb) = prm_diag%qhfl_s (i_startidx:i_endidx,jb)

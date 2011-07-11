@@ -94,25 +94,29 @@ CONTAINS
 
 SUBROUTINE time_setup
 
-    INTEGER  :: calendar      !< calendar type 
-  ! time information
-  ! ----------------
-
-  ! - data and time structure
-
-  INTEGER:: calendar_old
-  INTEGER  :: ini_year_old, ini_month_old, ini_day_old, ini_hour_old, ini_minute_old
-  INTEGER  :: restart_year, restart_month, restart_day, restart_hour, restart_minute
-  REAL(wp) :: ini_second_old
-  REAL(wp) :: restart_second
-  REAL(wp) :: cur_datetime_calsec, end_datetime_calsec, length_sec
+!  REAL(wp) :: cur_datetime_calsec, end_datetime_calsec, length_sec
   
 ! restart interval
   ! ----------------
     CHARACTER(LEN=132) :: routine = 'time_setup'
 
+    CALL message(' ',' ')
+    CALL message(routine,'Initial date and time')
+    CALL message(routine,'---------------------')
+    CALL print_datetime_all(time_config%ini_datetime)  ! print all date and time components
 
+    CALL message(' ',' ')
+    CALL message(routine,'End date and time')
+    CALL message(routine,'-----------------')
+    CALL print_datetime_all(time_config%end_datetime)  ! print all date and time components
 
+    CALL message(' ',' ')
+    CALL message(routine,'Length of restart cycle')
+    CALL message(routine,'-----------------------')
+    WRITE(message_text,'(a,f10.2,a,f16.10,a)') &
+         &'dt_restart :',time_config%dt_restart,' seconds =', &
+         & time_config%dt_restart/86400._wp, ' days'
+    CALL message(routine,message_text)
 
 
 END SUBROUTINE time_setup

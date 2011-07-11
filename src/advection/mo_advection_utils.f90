@@ -55,7 +55,6 @@
 !!
 MODULE mo_advection_utils
 
-  USE mo_atm_phy_nwp_nml,     ONLY: inwp_radiation
   USE mo_advection_nml,       ONLY: shape_func, zeta, eta, wgt_zeta, wgt_eta
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, finish, message_text

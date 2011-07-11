@@ -138,10 +138,11 @@ MODULE mo_io_vlist
     &                               lvert_nest, inextra_2d,inextra_3d
   USE mo_grid_configuration,  ONLY : global_cell_type
   USE mo_echam_phy_config
-  USE mo_atm_phy_nwp_nml,     ONLY: inwp_gscp, inwp_gscp, inwp_convection,      &
-    &                               inwp_radiation, inwp_sso, inwp_cldcover,    &
-    &                               inwp_turb, dt_conv, dt_rad_nml => dt_rad,   &
-    &                               dt_ccov, dt_sso, inwp_satad
+  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
+!  USE mo_atm_phy_nwp_nml,     ONLY: inwp_gscp, inwp_gscp, inwp_convection,      &
+!    &                               inwp_radiation, inwp_sso, inwp_cldcover,    &
+!    &                               inwp_turb, dt_conv, dt_rad_nml => dt_rad,   &
+!    &                               dt_ccov, dt_sso, inwp_satad
   USE mo_advection_nml,       ONLY: iadv_slev
   USE mo_advection_config,    ONLY: advection_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config
@@ -766,23 +767,34 @@ CONTAINS
       CASE (inwp)
         !!! Parameters of /nwp_phy_ctl/
         !-------------------------------
-       CALL addGlobAttInt('nwp_phy_ctl:inwp_gscp',inwp_gscp,vlistID(k_jg),astatus)
-       CALL addGlobAttInt('nwp_phy_ctl:inwp_convection',inwp_convection,vlistID(k_jg),astatus)
-       CALL addGlobAttInt('nwp_phy_ctl:inwp_cldcover',inwp_cldcover,vlistID(k_jg),astatus)
-       CALL addGlobAttInt('nwp_phy_ctl:inwp_radiation',inwp_radiation,vlistID(k_jg),astatus)
-       CALL addGlobAttInt('nwp_phy_ctl:inwp_satad',inwp_satad,vlistID(k_jg),astatus)
-       CALL addGlobAttInt('nwp_phy_ctl:inwp_turb',inwp_turb,vlistID(k_jg),astatus)
-       CALL addGlobAttInt('nwp_phy_ctl:inwp_sso',inwp_sso,vlistID(k_jg),astatus)
-       CALL addGlobAttFlt('nwp_phy_ctl:dt_conv',dt_conv(10),vlistID(k_jg),astatus)
-       CALL addGlobAttFlt('nwp_phy_ctl:dt_rad',dt_rad_nml(10),vlistID(k_jg),astatus)
-       CALL addGlobAttFlt('nwp_phy_ctl:dt_sso',dt_sso(10),vlistID(k_jg),astatus)
+       CALL addGlobAttInt('nwp_phy_ctl:inwp_gscp',atm_phy_nwp_config(k_jg)%inwp_gscp,&
+         &vlistID(k_jg),astatus)
+       CALL addGlobAttInt('nwp_phy_ctl:inwp_convection',atm_phy_nwp_config(k_jg)%inwp_convection,&
+         &vlistID(k_jg),astatus)
+       CALL addGlobAttInt('nwp_phy_ctl:inwp_cldcover',atm_phy_nwp_config(k_jg)%inwp_cldcover,&
+         &vlistID(k_jg),astatus)
+       CALL addGlobAttInt('nwp_phy_ctl:inwp_radiation',atm_phy_nwp_config(k_jg)%inwp_radiation,&
+         &vlistID(k_jg),astatus)
+       CALL addGlobAttInt('nwp_phy_ctl:inwp_satad',atm_phy_nwp_config(k_jg)%inwp_satad,&
+         &vlistID(k_jg),astatus)
+       CALL addGlobAttInt('nwp_phy_ctl:inwp_turb',atm_phy_nwp_config(k_jg)%inwp_turb,&
+         &vlistID(k_jg),astatus)
+       CALL addGlobAttInt('nwp_phy_ctl:inwp_sso',atm_phy_nwp_config(k_jg)%inwp_sso,&
+         &vlistID(k_jg),astatus)
+       CALL addGlobAttFlt('nwp_phy_ctl:dt_conv',atm_phy_nwp_config(k_jg)%dt_conv ,&
+         &vlistID(k_jg),astatus)
+       CALL addGlobAttFlt('nwp_phy_ctl:dt_rad',atm_phy_nwp_config(k_jg)%dt_rad  ,&
+         &vlistID(k_jg),astatus)
+       CALL addGlobAttFlt('nwp_phy_ctl:dt_sso',atm_phy_nwp_config(k_jg)%dt_sso ,&
+         &vlistID(k_jg),astatus)
       END SELECT
     END IF
 
     !
     ! Parameters of /radiation_nml/
     ! -----------------------------
-    CALL addGlobAttFlt('radiation_nml:dt_rad',dt_rad,vlistID(k_jg),astatus)
+    CALL addGlobAttFlt('radiation_nml:dt_rad',atm_phy_nwp_config(k_jg)%dt_rad,&
+      &               vlistID(k_jg),astatus)
     CALL addGlobAttInt('radiation_nml:izenith',izenith,vlistID(k_jg),astatus)
     CALL addGlobAttInt('radiation_nml:irad_h2o',irad_h2o,vlistID(k_jg),astatus)
     CALL addGlobAttInt('radiation_nml:irad_co2',irad_co2,vlistID(k_jg),astatus)
@@ -2648,13 +2660,13 @@ CONTAINS
       CASE ('EXNER');           ptr3 => p_prog%exner
       CASE ('RHO');             ptr3 => p_prog%rho
       CASE ('TKE')
-        IF (inwp_turb.EQ.1) THEN
+        IF (atm_phy_nwp_config(jg)%inwp_turb.EQ.1) THEN
                                 ptr3 => dup3(0.5_wp*SQRT(p_prog%tke(:,:,:))); delete = .TRUE.
            ELSE
                                 ptr3 => p_prog%tke
            ENDIF
       CASE ('Z0')
-        IF (inwp_turb.EQ.1) THEN
+        IF (atm_phy_nwp_config(jg)%inwp_turb.EQ.1) THEN
                                 ptr2 => dup2(prm_diag(jg)%gz0(:,:)/grav); delete = .TRUE.
                               ELSE
                                 ptr2 => prm_diag(jg)%z0m(:,:)

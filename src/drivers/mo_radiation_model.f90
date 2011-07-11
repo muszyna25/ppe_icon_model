@@ -149,8 +149,8 @@ MODULE mo_radiation_model
   USE mo_gmt_output,          ONLY: setup_gmt_output
   USE mo_nwp_phy_state,       ONLY: construct_nwp_phy_state,   &
     & destruct_nwp_phy_state
-  USE mo_atm_phy_nwp_nml,     ONLY: setup_nwp_phy, inwp_surface
-  USE mo_lnd_nwp_nml,         ONLY: setup_nwp_lnd
+!  USE mo_atm_phy_nwp_nml,     ONLY: setup_nwp_phy
+!  USE mo_lnd_nwp_nml,         ONLY: setup_nwp_lnd
   USE mo_nwp_lnd_state,       ONLY: construct_nwp_lnd_state,   &
     & destruct_nwp_lnd_state
   
@@ -163,8 +163,6 @@ MODULE mo_radiation_model
   USE mo_ext_data,            ONLY: ext_data, init_ext_data, &
     & destruct_ext_data
   
-  !  USE mo_nwp_phy_init,          ONLY: init_nwp_phy
-  !!$  USE mo_gscp_cosmo,          ONLY: hydci_pp_init
   
   !-------------------------------------------------------------------------
   IMPLICIT NONE

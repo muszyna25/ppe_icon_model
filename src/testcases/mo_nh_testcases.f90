@@ -61,7 +61,8 @@ MODULE mo_nh_testcases
   USE mo_grid_configuration, ONLY :  global_cell_type
     
   USE mo_dynamics_config,    ONLY: dynamics_config 
-  USE mo_atm_phy_nwp_nml,    ONLY: inwp_gscp, inwp_convection
+!  USE mo_atm_phy_nwp_nml,    ONLY: inwp_gscp, inwp_convection
+  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_physical_constants, ONLY: grav, cpd, rd, cvd_o_rd, &
    &                               p0ref, re, omega, tmelt, vtmpc1, rv
 ! USE mo_convect_tables,     ONLY: B1   => c1es,  &
@@ -603,7 +604,7 @@ MODULE mo_nh_testcases
   ELSE
     CALL message(TRIM(routine),'Attention: iforcing /= inwp')
   ENDIF
-  
+
   DO jg = 1, n_dom
 
     ! number of vertical levels
@@ -733,7 +734,9 @@ MODULE mo_nh_testcases
 !$OMP END PARALLEL
 
 
-    IF (iforcing == inwp .AND. (inwp_gscp /= 0 .OR. inwp_convection /= 0)) THEN
+    IF (iforcing == inwp .AND. &
+&      ( atm_phy_nwp_config(jg)%inwp_gscp /= 0 .OR. &
+&        atm_phy_nwp_config(jg)%inwp_convection /= 0)) THEN
       niter = 10 ! experimentation suggest at least 6 iterations
     ELSE
       niter = 1
@@ -756,7 +759,8 @@ MODULE mo_nh_testcases
             DO jk = 1, nlev
               DO jjt = 1, ntracer
                 IF ( iforcing == inwp  ) THEN
-                  IF(jjt == iqv .AND. (inwp_gscp /= 0 .OR. inwp_convection /= 0)) THEN
+                  IF(jjt == iqv .AND. (atm_phy_nwp_config(jg)%inwp_gscp /= 0 .OR.&
+                    &                 atm_phy_nwp_config(jg)%inwp_convection /= 0)) THEN
                     DO jc =1, nlen
 
 !                      !KF linear decreasing RH with height like in Hui's testcase
@@ -1067,7 +1071,8 @@ MODULE mo_nh_testcases
 
               DO jjt = 1, ntracer
 
-                  IF(jjt == iqv .AND. (inwp_gscp /= 0 .OR. inwp_convection /= 0) ) THEN
+                  IF(jjt == iqv .AND. (atm_phy_nwp_config(jg)%inwp_gscp /= 0 .OR.&
+                    &                atm_phy_nwp_config(jg)%inwp_convection /= 0) ) THEN
                      
                      DO jc =1, nlen
 

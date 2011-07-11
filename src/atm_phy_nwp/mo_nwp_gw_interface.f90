@@ -57,7 +57,8 @@ MODULE mo_nwp_gw_interface
     &                                t_nwp_phy_tend
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,              ONLY: msg_level
-   USE mo_atm_phy_nwp_nml,     ONLY: inwp_sso , inwp_gwd
+!   USE mo_atm_phy_nwp_nml,     ONLY: inwp_sso , inwp_gwd
+  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_sso_cosmo,            ONLY: sso
   USE mo_gwd_wms,              ONLY: gwdrag_wms
 
@@ -150,7 +151,7 @@ CONTAINS
         & i_startidx, i_endidx, rl_start, rl_end)
 
 
-      IF (inwp_sso == 1) THEN
+      IF (atm_phy_nwp_config(jg)%inwp_sso == 1) THEN
 
         !tendencies  have to be set to zero
         prm_nwp_tend%ddt_u_sso   (:,:,jb) = 0._wp
@@ -188,7 +189,7 @@ CONTAINS
                                                              ! due to SSO
       ENDIF
 
-      IF (inwp_gwd == 1) THEN
+      IF (atm_phy_nwp_config(jg)%inwp_gwd == 1) THEN
 
         CALL gwdrag_wms(                                  &
            & kidia    = i_startidx                      , & 
@@ -210,14 +211,14 @@ CONTAINS
            & pfluxu   = z_fluxv (:,:,jb) ,&
            & pfluxv   = z_fluxv (:,:,jb)   ) !<
 
-      ELSE IF (inwp_gwd > 0) THEN
+      ELSE IF (atm_phy_nwp_config(jg)%inwp_gwd > 0) THEN
 
         ! Set ddt_u_gwd to prepare for artificial Rayleigh friction
         prm_nwp_tend%ddt_u_gwd(:,:,jb) = 0._wp
 
       ENDIF
 
-      IF (inwp_gwd > 0) THEN
+      IF (atm_phy_nwp_config(jg)%inwp_gwd > 0) THEN
         ! Apply artificial Rayleigh friction
         DO jk = 1, nrdmax_u(p_patch%id)
           DO jc = i_startidx, i_endidx

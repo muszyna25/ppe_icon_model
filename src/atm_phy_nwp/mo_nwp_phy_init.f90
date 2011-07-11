@@ -52,9 +52,10 @@ MODULE mo_nwp_phy_init
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,            ONLY: ltestcase, iqv, iqc,       &
        &                           msg_level
-  USE mo_atm_phy_nwp_nml,    ONLY: inwp_gscp, inwp_convection,&
-       &                           inwp_radiation, inwp_turb,inwp_surface,&
-       &                           inwp_gwd
+!  USE mo_atm_phy_nwp_nml,    ONLY: inwp_gscp, inwp_convection,&
+!       &                           inwp_radiation, inwp_turb,inwp_surface,&
+!       &                           inwp_gwd
+  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   !radiation
   USE mo_newcld_optics,        ONLY: setup_newcld_optics
   USE mo_lrtm_setup,           ONLY: lrtm_setup
@@ -130,7 +131,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
   
   LOGICAL  :: lland, lglac
   
-  INTEGER :: jb,jc
+  INTEGER :: jb,jc,jg
   INTEGER :: nlev, nlevp1            !< number of full and half levels
 !  INTEGER :: jg
   INTEGER :: rl_start, rl_end
@@ -152,7 +153,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     ! number of vertical levels
     nlev   = p_patch%nlev
     nlevp1 = p_patch%nlevp1
-
+    jg     = p_patch%id
 
     IF ( ltestcase )THEN 
 
@@ -218,7 +219,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     !------------------------------------------
     !< call for cloud microphysics
     !------------------------------------------
-  IF ( inwp_gscp == 1 )  THEN
+  IF (  atm_phy_nwp_config(jg)%inwp_gscp == 1 )  THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init microphysics')
     CALL hydci_pp_init
@@ -227,7 +228,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     !------------------------------------------
     !< radiation
     !------------------------------------------
-  IF ( inwp_radiation == 1 ) THEN
+  IF (  atm_phy_nwp_config(jg)%inwp_radiation == 1 ) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init RRTM')
 
@@ -294,7 +295,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 !$OMP END DO
 !$OMP END PARALLEL    
     
-  ELSEIF ( inwp_radiation == 2 ) THEN
+  ELSEIF (  atm_phy_nwp_config(jg)%inwp_radiation == 2 ) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init Ritter Geleyn')
 
@@ -338,7 +339,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
   !< call for convection
   !------------------------------------------
 
-  IF ( inwp_convection == 1 ) THEN
+  IF (  atm_phy_nwp_config(jg)%inwp_convection == 1 ) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init convection')
 ! Please take care for scale-dependent initializations!
@@ -367,7 +368,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
   ! thus, it must be set even if no turbulence scheme called
   nsfc_type = 1
 
-  IF ( inwp_turb == 1 ) THEN
+  IF (  atm_phy_nwp_config(jg)%inwp_turb == 1 ) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init COSMO turbulence')
     
@@ -408,6 +409,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
          &  jstart   =1,          jend   =1       , jstartu=1         , jendu=1       , &
          &  jstartpar=1         , jendpar=1       , jstartv=1         , jendv=1       , &
 !
+         &  isso=atm_phy_nwp_config(jg)%inwp_sso, iconv=atm_phy_nwp_config(jg)%inwp_convection,&
          &  l_hori=mean_charlen, hhl=p_metrics%z_ifc(:,:,jb), dp0=p_diag%dpres_mc(:,:,jb), &   
 !
          &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
@@ -446,7 +448,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 
         CALL message('mo_nwp_phy_init:', 'cosmo turbulence initialized')
 
-    ELSE IF ( inwp_turb == 2) THEN  !ECHAM vdiff
+    ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 2) THEN  !ECHAM vdiff
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init ECHAM turbulence')
       ! Currently the tracer indices are sorted such that we count
@@ -497,14 +499,14 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 
         CALL message('mo_nwp_phy_init:', 'echam turbulence initialized')
 
-! ELSE IF ( inwp_turb == 3) THEN  !DUALM
+! ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 3) THEN  !DUALM
   ENDIF
 
-  IF ( inwp_surface == 1 ) THEN  ! TERRA
+  IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN  ! TERRA
 
   END IF
 
-  IF ( inwp_gwd == 1 ) THEN  ! IFS gwd scheme
+  IF (  atm_phy_nwp_config(jg)%inwp_gwd == 1 ) THEN  ! IFS gwd scheme
 
      CALL sugwwms(nflevg= nlevp1, ppref=pref)
      CALL message('mo_nwp_phy_init:', 'non-orog GWs initialized')

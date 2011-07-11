@@ -219,7 +219,7 @@ USE data_turbdiff, ONLY : &
     a_hshr,       & ! factor for horizontal shear production of TKE
 #endif
 #ifdef __ICON__
-USE mo_data_turbdiff, ONLY : &
+USE mo_data_turbdiff ,ONLY: &
 #endif
 !
 ! Parameters for turbulent diffusion and surface-to-atmosphere transfer:
@@ -317,7 +317,7 @@ USE mo_data_turbdiff, ONLY : &
     llake           ! forecast with lake model FLake
 
 
-USE mo_atm_phy_nwp_nml, ONLY :  inwp_sso, inwp_convection
+!USE mo_atm_phy_nwp_nml, ONLY :  inwp_sso, inwp_convection
 !-------------------------------------------------------------------------------
 #ifdef SCLM
 USE data_1d_global, ONLY : &
@@ -358,24 +358,13 @@ REAL (KIND=ireals) :: &
 INTEGER (KIND=iintegers) :: &
     istat=0, ilocstat=0
 
-#ifdef __ICON__
-LOGICAL :: lsso, lconv
-#endif
+
 
 LOGICAL :: lerror=.FALSE.
 
 !-------------------------------------------------------------------------------
 CONTAINS
 !-------------------------------------------------------------------------------
-
-#ifdef __ICON__
-SUBROUTINE get_param
-
-    lsso         =(inwp_sso.GT.0)
-    lconv        =(inwp_convection.GT.0)
-
-END SUBROUTINE get_param
-#endif
   
 !********************************************************************************
 !********************************************************************************
@@ -455,6 +444,8 @@ INTEGER (KIND=iintegers), INTENT(IN) :: &
 INTEGER (KIND=iintegers), TARGET, INTENT(INOUT) :: &
 !
     kcm             ! index of the lowest model layer higher than the canopy
+
+
 
 REAL (KIND=ireals), DIMENSION(ie,je,ke1), OPTIONAL, INTENT(IN) :: &
 !
@@ -607,6 +598,9 @@ SUBROUTINE organize_turbdiff (action,iini,lstfnct, dt_var,dt_tke, nprv,ntur,ntim
           istart, iend, istartu, iendu, istartpar, iendpar, istartv, iendv, &
           jstart, jend, jstartu, jendu, jstartpar, jendpar, jstartv, jendv, &
 !    
+#ifdef __ICON__
+          isso, iconv, &
+#endif
           l_hori, &
 #ifdef __COSMO__
           ntstep, &
@@ -671,6 +665,10 @@ CHARACTER (LEN=*), INTENT(IN) :: &
 LOGICAL, INTENT(IN) :: &
 !
    lstfnct         !calculation of stability function required
+
+#ifdef __ICON__
+INTEGER, INTENT(IN) :: isso, iconv
+#endif
 
 REAL (KIND=ireals), INTENT(IN) :: & 
 !
@@ -924,6 +922,9 @@ INTEGER (KIND=iintegers) :: &
 
 LOGICAL :: lini  !initialization of required
 
+LOGICAL :: lsso, lconv
+
+
 REAL (KIND=ireals), TARGET :: &
      c_tke,tet_g,c_g,rim, &
      d_0,d_1,d_2,d_3,d_4,d_5,d_6, &
@@ -988,7 +989,13 @@ REAL (KIND=ireals) :: &
  !Note:
  !It is also possible to use only one time level for TKE ("ntim=1" and thus "nprv=1=ntur").
 
- CALL get_param
+
+!KF Translate INTEGER values into LOGIcAL ones
+#ifdef __ICON__
+    lsso         =(isso  .GT.0)
+    lconv        =(iconv .GT.0)
+#endif
+
 
 !print *,"in organize_turbdiff"
  IF (action.EQ.'only_tran') THEN
@@ -1722,7 +1729,7 @@ INTEGER (KIND=iintegers) ::  &
             tkvm(i,j,ke1)=MAX( con_m, tkvm(i,j,ke1) )
             tkvh(i,j,ke1)=MAX( con_h, tkvh(i,j,ke1) )
 
-            fakt=z1+(z1-nint(fr_land(i,j)))*(rat_sea-z1)
+            fakt=z1+(z1-REAL(NINT(fr_land(i,j)),ireals))*(rat_sea-z1)
 
             rat_m=tkvm(i,j,ke1)/con_m
             rat_h=tkvh(i,j,ke1)/con_h
@@ -2619,7 +2626,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
               nvel=2,      & !Geschwindigkeitskomponenten
               ndiff=nscal+nvel, &
               nred=ninv+nvel,   &
-              ntmax=3,     & !max. Anzahl der Zeitebenen fuer die TKE
+!              ntmax=3,     & !max. Anzahl der Zeitebenen fuer die TKE
 !
 !             Zeiger fuer die Variablen :
 !
@@ -5905,7 +5912,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
          !          explicit : beta = 0.0
          !   Crank-Nicholson : beta = 0.5
          !          implicit : beta = 1.0
-         beta=0.85
+         beta=0.85_ireals
 
          ! compute level thickness at full level height
          DO k=1,ke

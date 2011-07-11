@@ -61,7 +61,8 @@ MODULE mo_nwp_turb_interface
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,              ONLY: msg_level, ntracer, iqv, iqc, &
     &                                iqi, iqr, iqs, inextra_2d
-  USE mo_atm_phy_nwp_nml,      ONLY: inwp_turb, inwp_surface, inwp_satad  
+!  USE mo_atm_phy_nwp_nml,      ONLY: inwp_turb, inwp_surface, inwp_satad  
+  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
 !  USE mo_turbdiff_ras,       ONLY: organize_turbdiff
   USE mo_satad,              ONLY: sat_pres_water, spec_humi  
   USE src_turbdiff,          ONLY: organize_turbdiff
@@ -206,7 +207,7 @@ CONTAINS
   
 !$OMP PARALLEL
 
-      IF ( inwp_turb == 2 ) THEN
+      IF (  atm_phy_nwp_config(jg)%inwp_turb == 2 ) THEN
 !$OMP WORKSHARE
     zdummy_i  (:,:,:)   = 0.0_wp
     zdummy_it (:,:,:,:) = 0.0_wp
@@ -232,11 +233,11 @@ CONTAINS
 
 
 
-        IF(inwp_surface == 0) THEN
+        IF( atm_phy_nwp_config(jg)%inwp_surface == 0) THEN
           ! check dry case
-          IF(inwp_satad == 0) THEN
+          IF( atm_phy_nwp_config(jg)%inwp_satad == 0) THEN
             lnd_diag%qv_s (:,:) = 0._wp
-          ELSE IF (inwp_turb == 1) THEN
+          ELSE IF ( atm_phy_nwp_config(jg)%inwp_turb == 1) THEN
           !
           !> adjust  humidity at water surface because of changed surface pressure
           !
@@ -249,7 +250,7 @@ CONTAINS
         ENDIF
 
 
-        IF ( inwp_turb == 1 ) THEN
+        IF (  atm_phy_nwp_config(jg)%inwp_turb == 1 ) THEN
 
           !KF tendencies  have to be set to zero
           prm_nwp_tend%ddt_u_turb(i_startidx:i_endidx,:,jb) = 0._wp
@@ -276,6 +277,7 @@ CONTAINS
          &  jstart   =1,          jend   =1       , jstartu=1         , jendu=1       , &
          &  jstartpar=1         , jendpar=1       , jstartv=1         , jendv=1       , &
 !
+         &  isso=atm_phy_nwp_config(jg)%inwp_sso, iconv=atm_phy_nwp_config(jg)%inwp_convection,&
          &  l_hori=mean_charlen, hhl=p_metrics%z_ifc(:,:,jb), dp0=p_diag%dpres_mc(:,:,jb), &
 !
          &  fr_land=ext_data%atm%fr_land(:,jb), depth_lk=ext_data%atm%depth_lk(:,jb), &
@@ -356,7 +358,7 @@ CONTAINS
         !KF write back to new status
         p_prog_rcf%tke(i_startidx:i_endidx,:,jb)=z_tke(i_startidx:i_endidx,:,jb,1)
 
-      ELSE IF ( inwp_turb == 2 ) THEN
+      ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 2 ) THEN
 
           !-------------------------------------------------------------------------
           !> ECHAM version 

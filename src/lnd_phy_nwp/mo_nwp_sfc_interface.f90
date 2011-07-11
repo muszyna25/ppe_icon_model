@@ -60,7 +60,9 @@ MODULE mo_nwp_sfc_interface
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,              ONLY: msg_level, iqv!, inextra_2d
 
-  USE mo_atm_phy_nwp_nml,      ONLY: inwp_surface, inwp_satad  
+!  USE mo_atm_phy_nwp_nml,      ONLY: inwp_surface, inwp_satad  
+  USE mo_atm_phy_nwp_config,   ONLY:  atm_phy_nwp_config
+!  USE mo_data_turbdiff,        ONLY: lseaice, llake
   USE mo_lnd_nwp_nml,          ONLY: nlev_soil, nztlev, nlev_snow, nsfc_subs, &
     &                                lseaice, llake, lmulti_snow
 !  USE mo_turbdiff_ras,       ONLY: organize_turbdiff
@@ -189,9 +191,9 @@ CONTAINS
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
         & i_startidx, i_endidx, rl_start, rl_end)
 
-      IF(inwp_surface == 0) THEN
+      IF( atm_phy_nwp_config(jg)%inwp_surface == 0) THEN
         ! check dry case
-        IF(inwp_satad == 0) THEN
+        IF( atm_phy_nwp_config(jg)%inwp_satad == 0) THEN
           lnd_diag%qv_s (:,:) = 0._wp
         ELSE
           ! 
@@ -205,7 +207,7 @@ CONTAINS
         ENDIF
       ENDIF
 
-      IF ( inwp_surface == 1 ) THEN
+      IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
           
 ! #ifdef __BOUNDCHECK
 
@@ -351,7 +353,7 @@ CONTAINS
 
 ! #endif
   
-      ELSE IF ( inwp_surface == 2 ) THEN
+      ELSE IF (  atm_phy_nwp_config(jg)%inwp_surface == 2 ) THEN
 
           !-------------------------------------------------------------------------
           !> ECHAM version 

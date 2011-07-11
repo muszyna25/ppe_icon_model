@@ -42,7 +42,7 @@
 !!
 MODULE mo_advection_nml
 
-  USE mo_atm_phy_nwp_nml,     ONLY: inwp_radiation
+!  USE mo_atm_phy_nwp_nml,     ONLY: inwp_radiation
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_io_units,            ONLY: nnml,nnml_output
@@ -309,99 +309,99 @@ CONTAINS
     SELECT CASE ( iforcing )
     CASE ( inwp )
       
-      SELECT CASE (inwp_radiation)
-      CASE (0)
-        IF ( ntracer /= iqcond ) THEN
-          ntracer = iqcond
-          WRITE(message_text,'(a,i3)') 'Attention: according to physics, ntracer is set to',iqcond
-          CALL message(TRIM(routine),message_text)
-        ENDIF
-        IF ( i_listlen /= iqcond ) THEN
-          DO jt=1,ntracer
-            WRITE(nml_ctracer_list(jt:jt),'(i1.1)')jt
-          ENDDO
-          WRITE(message_text,'(a)') &
-            & 'Attention: according to physics, nml_ctracer_list is set to ',&
-            & nml_ctracer_list(1:ntracer)
-          CALL message(TRIM(routine),message_text)
-        ENDIF
-      CASE (1)
-        ntracer_static = 1
-        IF ( ntracer /= iqcond ) THEN
-          ntracer = iqcond
-          WRITE(message_text,'(a,i3)') &
-            &  'Attention: according to physics, ntracer is set to', iqcond   
-          CALL message(TRIM(routine),message_text)
-          WRITE(message_text,'(a)') &
-            &  'In addition, there is one static tracer for O3'
-          CALL message(TRIM(routine),message_text)
-        ENDIF
-        IF ( i_listlen /= ntracer ) THEN
-          DO jt=1,ntracer
-            WRITE(nml_ctracer_list(jt:jt),'(i1.1)')jt
-          ENDDO
-          WRITE(message_text,'(a)') &
-            & 'Attention: according to physics, nml_ctracer_list is set to ',&
-            &   nml_ctracer_list(1:ntracer)
-          CALL message(TRIM(routine),message_text)
-        ENDIF
-      CASE (2)
-        SELECT CASE (irad_o3)
-        CASE (0)
-          IF ( ntracer /= iqcond  ) THEN
-            ntracer = iqcond
-            WRITE(message_text,'(a,i3)') &
-              &  'Attention: according to physics, ntracer is set to', iqcond      
-            CALL message(TRIM(routine),message_text)
-          ENDIF
-          IF ( i_listlen /= ntracer ) THEN
-            DO jt=1,ntracer
-              WRITE(nml_ctracer_list(jt:jt),'(i1.1)')jt
-            ENDDO
-            WRITE(message_text,'(a)') &
-              & 'Attention: according to physics, nml_ctracer_list is set to ', &
-              &  nml_ctracer_list(1:ntracer)
-            CALL message(TRIM(routine),message_text)
-          ENDIF
-        CASE (6)
-          ntracer_static = 1
-          IF ( ntracer /= iqcond  ) THEN
-            ntracer = iqcond
-            WRITE(message_text,'(a,i3)') &
-              &  'Attention: according to physics, ntracer is set to', iqcond
-            CALL message(TRIM(routine),message_text)           
-            WRITE(message_text,'(a)') &
-              &  'In addition, there is one static tracer for O3'
-            CALL message(TRIM(routine),message_text)           
-          ENDIF
-          IF ( i_listlen /= ntracer ) THEN
-            DO jt=1,ntracer
-              WRITE(nml_ctracer_list(jt:jt),'(i1.1)')jt
-            ENDDO
-            WRITE(message_text,'(a)') &
-              & 'Attention: according to physics with radiation and O3 ', &
-              &  'nml_ctracer_list is set to ', &
-              &  nml_ctracer_list(1:ntracer)
-            CALL message(TRIM(routine),message_text)
-          ENDIF
-        END SELECT
-      END SELECT
-
-
-      IF ( ( inwp_radiation > 0 ) .AND. (irad_o3==0 .OR. irad_o3==6) ) THEN
-        IF ( nml_ihadv_tracer(io3) /= 0 ) THEN
-          nml_ihadv_tracer(io3) = 0
-          WRITE(message_text,'(a,i1,a)') &
-            & 'Attention: Since irad_o3 is set to ',irad_o3,', nml_ihadv_tracer(io3) is set to 0.'
-          CALL message(TRIM(routine),message_text)
-        ENDIF
-        IF ( nml_ivadv_tracer(io3) /= 0 ) THEN
-          nml_ivadv_tracer(io3) = 0
-          WRITE(message_text,'(a,i1,a)') &
-            & 'Attention: Since irad_o3 is set to ',irad_o3,', nml_ivadv_tracer(io3) is set to 0.'
-          CALL message(TRIM(routine),message_text)
-        ENDIF
-      ENDIF
+!!$      SELECT CASE (inwp_radiation)
+!!$      CASE (0)
+!!$        IF ( ntracer /= iqcond ) THEN
+!!$          ntracer = iqcond
+!!$          WRITE(message_text,'(a,i3)') 'Attention: according to physics, ntracer is set to',iqcond
+!!$          CALL message(TRIM(routine),message_text)
+!!$        ENDIF
+!!$        IF ( i_listlen /= iqcond ) THEN
+!!$          DO jt=1,ntracer
+!!$            WRITE(nml_ctracer_list(jt:jt),'(i1.1)')jt
+!!$          ENDDO
+!!$          WRITE(message_text,'(a)') &
+!!$            & 'Attention: according to physics, nml_ctracer_list is set to ',&
+!!$            & nml_ctracer_list(1:ntracer)
+!!$          CALL message(TRIM(routine),message_text)
+!!$        ENDIF
+!!$      CASE (1)
+!!$        ntracer_static = 1
+!!$        IF ( ntracer /= iqcond ) THEN
+!!$          ntracer = iqcond
+!!$          WRITE(message_text,'(a,i3)') &
+!!$            &  'Attention: according to physics, ntracer is set to', iqcond   
+!!$          CALL message(TRIM(routine),message_text)
+!!$          WRITE(message_text,'(a)') &
+!!$            &  'In addition, there is one static tracer for O3'
+!!$          CALL message(TRIM(routine),message_text)
+!!$        ENDIF
+!!$        IF ( i_listlen /= ntracer ) THEN
+!!$          DO jt=1,ntracer
+!!$            WRITE(nml_ctracer_list(jt:jt),'(i1.1)')jt
+!!$          ENDDO
+!!$          WRITE(message_text,'(a)') &
+!!$            & 'Attention: according to physics, nml_ctracer_list is set to ',&
+!!$            &   nml_ctracer_list(1:ntracer)
+!!$          CALL message(TRIM(routine),message_text)
+!!$        ENDIF
+!!$      CASE (2)
+!!$        SELECT CASE (irad_o3)
+!!$        CASE (0)
+!!$          IF ( ntracer /= iqcond  ) THEN
+!!$            ntracer = iqcond
+!!$            WRITE(message_text,'(a,i3)') &
+!!$              &  'Attention: according to physics, ntracer is set to', iqcond      
+!!$            CALL message(TRIM(routine),message_text)
+!!$          ENDIF
+!!$          IF ( i_listlen /= ntracer ) THEN
+!!$            DO jt=1,ntracer
+!!$              WRITE(nml_ctracer_list(jt:jt),'(i1.1)')jt
+!!$            ENDDO
+!!$            WRITE(message_text,'(a)') &
+!!$              & 'Attention: according to physics, nml_ctracer_list is set to ', &
+!!$              &  nml_ctracer_list(1:ntracer)
+!!$            CALL message(TRIM(routine),message_text)
+!!$          ENDIF
+!!$        CASE (6)
+!!$          ntracer_static = 1
+!!$          IF ( ntracer /= iqcond  ) THEN
+!!$            ntracer = iqcond
+!!$            WRITE(message_text,'(a,i3)') &
+!!$              &  'Attention: according to physics, ntracer is set to', iqcond
+!!$            CALL message(TRIM(routine),message_text)           
+!!$            WRITE(message_text,'(a)') &
+!!$              &  'In addition, there is one static tracer for O3'
+!!$            CALL message(TRIM(routine),message_text)           
+!!$          ENDIF
+!!$          IF ( i_listlen /= ntracer ) THEN
+!!$            DO jt=1,ntracer
+!!$              WRITE(nml_ctracer_list(jt:jt),'(i1.1)')jt
+!!$            ENDDO
+!!$            WRITE(message_text,'(a)') &
+!!$              & 'Attention: according to physics with radiation and O3 ', &
+!!$              &  'nml_ctracer_list is set to ', &
+!!$              &  nml_ctracer_list(1:ntracer)
+!!$            CALL message(TRIM(routine),message_text)
+!!$          ENDIF
+!!$        END SELECT
+!!$      END SELECT
+!!$
+!!$
+!!$      IF ( ( inwp_radiation > 0 ) .AND. (irad_o3==0 .OR. irad_o3==6) ) THEN
+!!$        IF ( nml_ihadv_tracer(io3) /= 0 ) THEN
+!!$          nml_ihadv_tracer(io3) = 0
+!!$          WRITE(message_text,'(a,i1,a)') &
+!!$            & 'Attention: Since irad_o3 is set to ',irad_o3,', nml_ihadv_tracer(io3) is set to 0.'
+!!$          CALL message(TRIM(routine),message_text)
+!!$        ENDIF
+!!$        IF ( nml_ivadv_tracer(io3) /= 0 ) THEN
+!!$          nml_ivadv_tracer(io3) = 0
+!!$          WRITE(message_text,'(a,i1,a)') &
+!!$            & 'Attention: Since irad_o3 is set to ',irad_o3,', nml_ivadv_tracer(io3) is set to 0.'
+!!$          CALL message(TRIM(routine),message_text)
+!!$        ENDIF
+!!$      ENDIF
 
 
     CASE (inoforcing, iheldsuarez, iecham, ildf_dry, ildf_echam)

@@ -76,8 +76,9 @@ MODULE mo_nh_interface_nwp
 
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 
-  USE mo_atm_phy_nwp_nml,    ONLY: inwp_cldcover, inwp_radiation !,&
+!  USE mo_atm_phy_nwp_nml,    ONLY: inwp_cldcover, inwp_radiation !,&
 !                                   inwp_sso
+  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_cover_koe,          ONLY: cover_koe
   USE mo_satad,              ONLY: satad_v_3D
   USE mo_radiation,          ONLY: radheat, pre_radiation_nwp
@@ -318,28 +319,6 @@ CONTAINS
               !& count, errstat,                              !> OUT
                )
           IF (timers_level > 2) CALL timer_stop(timer_satad_v_3D)
-!#else
-!          IF (timers_level > 2) CALL timer_start(timer_satad_v_3D)
-!          CALL satad_v_3D( &
-!               & maxiter  = 10                             ,& !> IN
-!               & tol      = 1.e-3_wp                       ,& !> IN
-!               & te       = pt_diag%temp       (1,1,jb)    ,& !> INOUT
-!               & qve      = pt_prog_rcf%tracer (1,1,jb,iqv),& !> INOUT
-!               & qce      = pt_prog_rcf%tracer (1,1,jb,iqc),& !> INOUT
-!               & rhotot   = pt_prog%rho        (1,1,jb)    ,& !> IN
-!               & idim     = nproma                         ,& !> IN
-!               & jdim     = 1                              ,& !> IN
-!               & kdim     = nlev                           ,& !> IN
-!               & ilo      = i_startidx                     ,& !> IN
-!               & iup      = i_endidx                       ,& !> IN
-!               & jlo      = 1                              ,& !> IN
-!               & jup      = 1                              ,& !> IN
-!               & klo      = kstart_moist(jg)               ,& !> IN
-!               & kup      = nlev                            & !> IN
-!              !& count, errstat,                              !> OUT
-!               )
-!          IF (timers_level > 2) CALL timer_stop(timer_satad_v_3D)
-!#endif 
 
         IF (timers_level > 2) CALL timer_start(timer_phys_exner)
         ! Store exner function for open upper boundary condition
@@ -478,7 +457,7 @@ CONTAINS
     IF (  lcall_phy_jg(itturb)) THEN
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
-      CALL nwp_turbulence (  tcall_phy_jg(itturb),              & !>input
+      CALL nwp_turbulence (   tcall_phy_jg(itturb),              & !>input
                             & pt_patch, p_metrics,              & !>input
                             & ext_data, mean_charlen,           & !>input
                             & pt_prog,                          & !>inout
@@ -798,7 +777,8 @@ CONTAINS
           CALL cover_koe &
 &             (kidia  = i_startidx ,   kfdia  = i_endidx  ,       & !! in:  horizonal begin, end indices
 &              klon = nproma,  kstart = kstart_moist(jg)  ,       & !! in:  horiz. and vert. vector length
-&              klev   = nlev, icldscheme = inwp_cldcover  ,       & !! in:  cloud cover option
+&              klev   = nlev,                                     &
+&              icldscheme = atm_phy_nwp_config(jg)%inwp_cldcover ,& !! in:  cloud cover option
 &              tt     = pt_diag%temp         (:,:,jb)     ,       & !! in:  temperature at full levels
 &              pp     = pt_diag%pres         (:,:,jb)     ,       & !! in:  pressure at full levels
 &              ps     = pt_diag%pres_sfc     (:,jb)       ,       & !! in:  surface pressure at full levels
@@ -865,7 +845,7 @@ CONTAINS
       ! do the diagnosis of t and p also here.
       ! May be removed when final state is reached.
       IF (timers_level > 2) CALL timer_start(timer_diagnose_pres_temp)
-      IF ( inwp_radiation == 1 ) THEN
+      IF ( atm_phy_nwp_config(jg)%inwp_radiation == 1 ) THEN
         CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf, &
           &                               pt_diag, pt_patch,      &
           &                               opt_calc_temp =.TRUE.,  &
@@ -873,7 +853,7 @@ CONTAINS
           &                               opt_calc_pres =.TRUE.,  &
           &                               opt_rlend=min_rlcell_int)
 
-      ELSEIF ( inwp_radiation == 2 ) THEN
+      ELSEIF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 ) THEN
         CALL diagnose_pres_temp (p_metrics, pt_prog, pt_prog_rcf,   &
           &                               pt_diag, pt_patch,        &
           &                               opt_calc_temp =.TRUE.,    &
@@ -887,14 +867,14 @@ CONTAINS
       IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)
     
       IF (ltimer) CALL timer_start(timer_nwp_radiation)
-      CALL nwp_radiation (lredgrid,p_sim_time,   & ! in
-           &              pt_patch,pt_par_patch, & ! in
-           &              pt_par_int_state,      & ! in
-           &              pt_par_grf_state,      & ! in
-           &              ext_data,              & ! in
-           &              pt_prog,pt_prog_rcf,   & ! inout
-           &              pt_diag,prm_diag,      & ! inout
-           &              lnd_prog_now           ) ! in
+      CALL nwp_radiation (lredgrid,p_sim_time,                   & ! in
+           &              pt_patch,pt_par_patch,                 & ! in
+           &              pt_par_int_state,                      & ! in
+           &              pt_par_grf_state,                      & ! in
+           &              ext_data,                              & ! in
+           &              pt_prog,pt_prog_rcf,                   & ! inout
+           &              pt_diag,prm_diag,                      & ! inout
+           &              lnd_prog_now                           ) ! in
       IF (ltimer) CALL timer_stop(timer_nwp_radiation)
      
     ENDIF

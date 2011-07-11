@@ -60,7 +60,8 @@ MODULE mo_nwp_gscp_interface
     &                                t_nwp_phy_tend
   USE mo_run_nml,              ONLY: msg_level, ntracer, iqv, iqc, &
     &                                iqi, iqr, iqs
-  USE mo_atm_phy_nwp_nml,      ONLY: inwp_gscp
+!  USE mo_atm_phy_nwp_nml,      ONLY: inwp_gscp
+  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_gscp_cosmo,           ONLY: hydci_pp
   USE mo_satad,                ONLY: satad_v_3D
 
@@ -141,7 +142,7 @@ CONTAINS
           !!  NOTE: since microphysics is a fast process it is
           !!        allowed to do a sequential updating!
 
-        IF( inwp_gscp == 1 ) THEN
+        IF( atm_phy_nwp_config(jg)%inwp_gscp == 1 ) THEN
 
 
 !#ifdef __BOUNDCHECK
@@ -153,6 +154,8 @@ CONTAINS
             & iend   =i_endidx                          ,    & !< in:  end index of calculation
             & kstart =kstart_moist(jg)                  ,    & !< in:  vertical start index
             & zdt    =tcall_gscp_jg                     ,    & !< in:  timestep
+            & qi0    = atm_phy_nwp_config(jg)%qi0       ,    & 
+            & qc0    = atm_phy_nwp_config(jg)%qc0       ,    & 
             & dz     =p_metrics%ddqz_z_full(:,:,jb)     ,    & !< in:  vertical layer thickness
             & t      =p_diag%temp   (:,:,jb)           ,    & !< in:  temp,tracer,...
             & p      =p_diag%pres   (:,:,jb)           ,    & !< in:  full level pres

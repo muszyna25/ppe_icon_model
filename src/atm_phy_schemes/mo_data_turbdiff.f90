@@ -51,7 +51,6 @@ USE mo_physical_constants, ONLY : &
     grav, p0ref, &
     uc1, ucl
 
-!USE mo_atm_phy_nwp_nml, ONLY :  inwp_sso, inwp_convection
 
 USE mo_convect_tables, ONLY : &
 !
@@ -180,19 +179,10 @@ LOGICAL :: &
 ! parameters. Some of these initial parameter values may be changed afterwards
 ! by model input NAMELISTs!
 !
-!    lsso  ,                & ! SSO-Scheme is active
-!    lconv                    ! convection scheme active
 
 !-----------------------------------------------------------------------------
 !CONTAINS
 !-----------------------------------------------------------------------------
-
-!SUBROUTINE get_param
-!
-!    lsso         =(inwp_sso.GT.0)
-!    lconv        =(inwp_convection.GT.0)
-!
-!END SUBROUTINE get_param
 
 !==============================================================================
 !==============================================================================

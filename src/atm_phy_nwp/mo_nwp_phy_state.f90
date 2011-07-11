@@ -73,7 +73,8 @@ USE mo_model_domain,        ONLY: t_patch
 USE mo_model_domain_import, ONLY: n_dom
 USE mo_icoham_sfc_indices,  ONLY: nsfc_type
 USE mo_linked_list,         ONLY: t_var_list
-USE mo_atm_phy_nwp_nml,     ONLY: inwp_turb
+!USE mo_atm_phy_nwp_nml,     ONLY: inwp_turb
+USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 USE mo_var_list,            ONLY: default_var_list_settings, &
                                 & add_var, add_ref,          &
                                 & new_var_list,              &
@@ -351,7 +352,7 @@ CALL message('mo_nwp_phy_state:construct_nwp_state', &
      
      WRITE(listname,'(a,i2.2)') 'prm_diag_of_domain_',jg
      
-     CALL new_nwp_phy_diag_list( nlev, nlevp1, nblks_c,&
+     CALL new_nwp_phy_diag_list( jg, nlev, nlevp1, nblks_c,&
                                & TRIM(listname), prm_nwp_diag_list(jg), prm_diag(jg))
      !
      WRITE(listname,'(a,i2.2)') 'prm_tend_of_domain_',jg
@@ -402,10 +403,10 @@ SUBROUTINE destruct_nwp_phy_state
 END SUBROUTINE destruct_nwp_phy_state
 
      !
-SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
+SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                      & listname, diag_list, diag)
 
-    INTEGER,INTENT(IN) :: klev, klevp1, kblks !< dimension sizes
+    INTEGER,INTENT(IN) :: klev, klevp1, kblks,k_jg !< dimension sizes
 
     CHARACTER(len=*),INTENT(IN)     :: listname
     CHARACTER(len= MAX_CHAR_LENGTH) :: vname_prefix
@@ -424,7 +425,6 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
     INTEGER :: ientr,  kcloud
     INTEGER :: jsfc 
 
-
     ientr = 16 ! bits "entropy" of horizontal slice
 
     shape2d    = (/nproma,            kblks            /)
@@ -432,7 +432,7 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
     shape3dkp1 = (/nproma, klevp1,    kblks            /)
     shape4d    = (/nproma, klev,      kblks, iqcond    /)
 
-    IF(inwp_turb == 2) THEN
+    IF( atm_phy_nwp_config(k_jg)%inwp_turb == 2) THEN
       shapesfc   = (/nproma,          kblks, nsfc_type /)
     ENDIF
 
@@ -1067,7 +1067,7 @@ SUBROUTINE new_nwp_phy_diag_list( klev, klevp1, kblks,   &
   ! +++vdiff
   !
   !
-    IF(inwp_turb == 2) THEN
+    IF( atm_phy_nwp_config(k_jg)%inwp_turb == 2) THEN
 
   ! &      diag%cfm_tile(nproma,nblks_c)
     cf_desc    = t_cf_var('cfm_tile','',&
@@ -1286,7 +1286,7 @@ SUBROUTINE new_nwp_phy_tend_list( klev,  kblks,   &
     TYPE(t_grib2_var) :: grib2_desc
 
     INTEGER :: shape3d(3), shape4d(4)
-    INTEGER :: ientr, ktracer, jtrc
+    INTEGER :: ientr, ktracer
 
     ientr = 16 ! "entropy" of horizontal slice
 

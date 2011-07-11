@@ -71,7 +71,8 @@ MODULE mo_io_async
   USE mo_run_nml,             ONLY: ldump_states, ltransport, lforcing, num_lev,      &
    &                                ihs_atm_temp, ihs_atm_theta, inh_atmosphere, ishallow_water, &
                                     iforcing, inwp
-  USE mo_atm_phy_nwp_nml,     ONLY: setup_nwp_phy, inwp_surface
+ ! USE mo_atm_phy_nwp_nml,     ONLY: setup_nwp_phy, inwp_surface
+  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config,setup_atm_nwp_phy
   USE mo_lnd_nwp_nml,         ONLY: setup_nwp_lnd
   USE mo_io_units,            ONLY: filename_max
   USE mo_communication,       ONLY: idx_no, blk_no
@@ -300,8 +301,10 @@ CONTAINS
     IF ( lforcing ) CALL setup_physics
 
     IF ( iforcing == inwp) THEN 
-      CALL setup_nwp_phy
-      IF (inwp_surface > 0) CALL setup_nwp_lnd
+!      CALL setup_nwp_phy
+      CALL setup_atm_nwp_phy
+!KF temp
+!      IF (inwp_surface > 0) CALL setup_nwp_lnd
     ENDIF
 
     CALL io_nml_setup

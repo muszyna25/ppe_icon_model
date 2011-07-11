@@ -73,8 +73,9 @@ MODULE mo_nwp_diagnosis
   USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd_o_rd, &
                                    lh_v     => alv      !! latent heat of vapourization
 
-  USE mo_atm_phy_nwp_nml,    ONLY: inwp_cldcover, inwp_radiation,  dt_rad,&
-                                   inwp_sso, inwp_turb 
+!  USE mo_atm_phy_nwp_nml,    ONLY: inwp_cldcover, inwp_radiation,  dt_rad,&
+!                                   inwp_sso, inwp_turb 
+  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_sync,               ONLY: sync_patch_array, sync_patch_array_mult, &
                                    SYNC_C, SYNC_C1
   USE mo_mpi,                ONLY: p_nprocs
@@ -151,7 +152,7 @@ CONTAINS
 
     REAL(wp):: z_help, p_sim_time_s6
 
-    INTEGER :: jc,jk,jb,jt      !block index
+    INTEGER :: jc,jk,jb,jt,jg      !block index
     INTEGER :: kstart_moist
 
     INTEGER :: ioverlap(nproma)
@@ -161,6 +162,7 @@ CONTAINS
     ! local variables related to the blocking
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
+    jg        = pt_patch%id
     ! number of vertical levels
     nlev   = pt_patch%nlev
     nlevp1 = pt_patch%nlevp1    
@@ -323,13 +325,13 @@ CONTAINS
           & i_startidx, i_endidx, rl_start, rl_end)
           DO jc = i_startidx, i_endidx
 
-           IF (inwp_turb == 1) THEN
+           IF (atm_phy_nwp_config(jg)%inwp_turb == 1) THEN
             prm_diag%lhfl_s_avg(jc,jb) = ( prm_diag%lhfl_s_avg(jc,jb)     &
                                &  * (p_sim_time - tcall_phy_jg(itupdate)) &
                                &  + prm_diag%lhfl_s(jc,jb)                &
                                &  * tcall_phy_jg(itupdate) )              &
                                & / p_sim_time 
-           ELSEIF (inwp_turb == 2) THEN
+           ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
             prm_diag%lhfl_s_avg(jc,jb) = ( prm_diag%lhfl_s_avg(jc,jb)     &
                                &  * (p_sim_time - tcall_phy_jg(itupdate)) &
                                &  + prm_diag%qhfl_s(jc,jb)*lh_v           &
@@ -342,14 +344,14 @@ CONTAINS
                                &  + prm_diag%shfl_s(jc,jb)                &
                                &  * tcall_phy_jg(itupdate) )              &
                                & / p_sim_time 
-           IF (inwp_turb == 1) THEN
+           IF (atm_phy_nwp_config(jg)%inwp_turb == 1) THEN
              prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb)    &
                                &  * (p_sim_time - tcall_phy_jg(itupdate)) &
                                &  + prm_diag%lhfl_s(jc,jb)/lh_v           &
                                &  * tcall_phy_jg(itupdate) )              &
                                & / p_sim_time
 
-           ELSEIF (inwp_turb == 2) THEN
+           ELSEIF (atm_phy_nwp_config(jg)%inwp_turb == 2) THEN
              prm_diag%qhfl_s_avg(jc,jb) = ( prm_diag%qhfl_s_avg(jc,jb)    &
                                &  * (p_sim_time - tcall_phy_jg(itupdate)) &
                                &  + prm_diag%qhfl_s(jc,jb)                &

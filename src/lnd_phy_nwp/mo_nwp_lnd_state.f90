@@ -69,7 +69,8 @@ MODULE mo_nwp_lnd_state
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: n_dom, l_limited_area
   USE mo_nonhydrostatic_nml,  ONLY: l_nest_rcf
-  USE mo_atm_phy_nwp_nml,     ONLY: inwp_surface
+!  USE mo_atm_phy_nwp_nml,     ONLY: inwp_surface
+  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 
   USE mo_lnd_nwp_nml,         ONLY: nlev_soil,nztlev,nlev_snow, &
                                     nsfc_subs
@@ -289,7 +290,7 @@ MODULE mo_nwp_lnd_state
 
         WRITE(0,*)'lnd_state timelevel=',jt,'and domain= ',jg
         WRITE(varname_prefix,'(a,i2.2,a)') 'lnd_prog_TL',jt,'_'
-        CALL  new_nwp_lnd_prog_list(nblks_c, TRIM(listname),                 &
+        CALL  new_nwp_lnd_prog_list(jg, nblks_c, TRIM(listname),                 &
           &     TRIM(varname_prefix), p_lnd_state(jg)%lnd_prog_nwp_list(jt), &
           &     p_lnd_state(jg)%prog_lnd(jt))
       ENDDO
@@ -299,7 +300,7 @@ MODULE mo_nwp_lnd_state
       !
       WRITE(listname,'(a,i2.2)') 'lnd_diag_of_domain_',jg
       WRITE(varname_prefix,'(a)') 'lnd_diag_'
-      CALL new_nwp_lnd_diag_list( nblks_c, TRIM(listname),           &
+      CALL new_nwp_lnd_diag_list( jg,nblks_c, TRIM(listname),           &
         &   TRIM(varname_prefix), p_lnd_state(jg)%lnd_diag_nwp_list, &
         &   p_lnd_state(jg)%diag_lnd)
 
@@ -387,10 +388,11 @@ MODULE mo_nwp_lnd_state
   !! Initial release by , MPI-M (2011-07-01)
   !!
   !!
-  SUBROUTINE new_nwp_lnd_prog_list( kblks, listname, vname_prefix, &
+  SUBROUTINE new_nwp_lnd_prog_list( p_jg,kblks, listname, vname_prefix, &
     &                               prog_list, p_prog_lnd )
 
     INTEGER,INTENT(IN) ::  kblks !< dimension sizes
+    INTEGER,INTENT(IN) ::  p_jg !< patch id
 
     CHARACTER(len=*),INTENT(IN) :: listname, vname_prefix
     CHARACTER(LEN=1)            :: csfc
@@ -448,7 +450,7 @@ MODULE mo_nwp_lnd_state
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape2d )
 
 
-    IF (inwp_surface > 0) THEN
+    IF ( atm_phy_nwp_config(p_jg)%inwp_surface > 0) THEN
 
     ! & p_prog_lnd%t_gt(nproma,nblks_c,nztlev,nsfc_subs), STAT = ist)
     cf_desc    = t_cf_var('t_gt', 'K', 'weighted surface temperature')
@@ -800,10 +802,11 @@ MODULE mo_nwp_lnd_state
   !! Initial release by , MPI-M (2011-07-01)
   !!
   !!
-  SUBROUTINE new_nwp_lnd_diag_list( kblks, listname, vname_prefix, &
+  SUBROUTINE new_nwp_lnd_diag_list( p_jg, kblks, listname, vname_prefix, &
   &                                 diag_list, p_diag_lnd)
 
     INTEGER,INTENT(IN) ::  kblks !< dimension sizes
+    INTEGER,INTENT(IN) ::  p_jg !< patch id
 
     CHARACTER(len=*),INTENT(IN) :: listname, vname_prefix
     CHARACTER(LEN=1)            :: csfc_zt, csfc
@@ -859,7 +862,7 @@ MODULE mo_nwp_lnd_state
 
 
 
-    IF (inwp_surface > 0) THEN
+    IF ( atm_phy_nwp_config(p_jg)%inwp_surface > 0) THEN
 
     ! & p_diag_lnd%qv_st(nproma,nblks_c,nztlev,nsfc_subs)
     cf_desc    = t_cf_var('qv_st', 'kg/kg', 'specific humidity at the surface')

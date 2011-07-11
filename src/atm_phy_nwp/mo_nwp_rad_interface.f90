@@ -36,7 +36,8 @@
 !!
 MODULE mo_nwp_rad_interface
 
-  USE mo_atm_phy_nwp_nml,      ONLY: inwp_radiation, dt_rad, dt_radheat
+!  USE mo_atm_phy_nwp_nml,      ONLY: inwp_radiation, dt_rad, dt_radheat
+  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_exception,            ONLY: message,  finish !message_tex
   USE mo_ext_data,             ONLY: t_external_data
   USE mo_parallel_configuration,  ONLY: nproma, p_test_run
@@ -686,8 +687,8 @@ CONTAINS
     CALL pre_radiation_nwp_steps (                        &
       & kbdim        = nproma,                            &
       & cosmu0_dark  = cosmu0_dark,                       &
-      & p_inc_rad    = dt_rad(jg),                        &
-      & p_inc_radheat= dt_radheat(jg),                    &
+      & p_inc_rad    = atm_phy_nwp_config(jg)%dt_rad,     &
+      & p_inc_radheat= atm_phy_nwp_config(jg)%dt_radheat, &
       & p_sim_time   = omp_radiation_data%p_sim_time,     &
       & pt_patch     = omp_radiation_data%pt_patch,       &
       & zsmu0        = omp_radiation_data%cosmu0(:,:),    &
@@ -810,8 +811,12 @@ CONTAINS
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog_now
 
+    INTEGER :: jg
 
-    IF ( inwp_radiation == 1 ) THEN
+    jg = pt_patch%id
+
+
+    IF (atm_phy_nwp_config(jg)%inwp_radiation == 1 ) THEN
        
       CALL nwp_rrtm_ozon ( p_sim_time,pt_patch, &
         & pt_prog_rcf,pt_diag,prm_diag )
@@ -838,14 +843,14 @@ CONTAINS
     ENDIF !inwp_radiation = 1
    
 
-    IF ( inwp_radiation == 2 .AND. .NOT. lredgrid) THEN
+    IF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 .AND. .NOT. lredgrid) THEN
     
       CALL nwp_rg_radiation ( lredgrid, p_sim_time,pt_patch,pt_par_patch, &
         & pt_par_int_state, pt_par_grf_state,ext_data,&
         & pt_prog,pt_prog_rcf,pt_diag,prm_diag, lnd_prog_now )
 
 
-    ELSEIF ( inwp_radiation == 2 .AND. lredgrid) THEN
+    ELSEIF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 .AND. lredgrid) THEN
 
       CALL nwp_rg_radiation_reduced ( lredgrid, p_sim_time,pt_patch,pt_par_patch, &
         & pt_par_int_state, pt_par_grf_state,ext_data,&
@@ -933,7 +938,7 @@ CONTAINS
     CASE (6)
       CALL calc_o3_clim(                             &
         & kbdim      = nproma,                       & ! in
-        & p_inc_rad  = dt_rad(jg),                   & ! in
+        & p_inc_rad  = atm_phy_nwp_config(jg)%dt_rad,& ! in
         & z_sim_time = p_sim_time,                   & ! in
         & pt_patch   = pt_patch,                     & ! in
         & zvio3      = prm_diag%vio3,                & !inout
@@ -1125,8 +1130,8 @@ CONTAINS
     CALL pre_radiation_nwp_steps (                        &
       & kbdim        = nproma,                            &
       & cosmu0_dark  = cosmu0_dark,                       &
-      & p_inc_rad    = dt_rad(jg),                        &
-      & p_inc_radheat= dt_radheat(jg),                    &
+      & p_inc_rad    = atm_phy_nwp_config(jg)%dt_rad,     &
+      & p_inc_radheat= atm_phy_nwp_config(jg)%dt_radheat ,&
       & p_sim_time   = p_sim_time,                        &
       & pt_patch     = pt_patch,                          &
       & zsmu0        = prm_diag%cosmu0(:,:),              &
@@ -1360,7 +1365,7 @@ CONTAINS
 
     ! determine minimum cosmu0 value
     ! for cosmu0 values smaller than that don't do shortwave calculations
-    SELECT CASE (inwp_radiation)
+    SELECT CASE (atm_phy_nwp_config(jg)%inwp_radiation)
     CASE (1)
       cosmu0_dark = -1.e-9_wp
     CASE (2)
@@ -1373,8 +1378,8 @@ CONTAINS
     CALL pre_radiation_nwp_steps (                        &
       & kbdim        = nproma,                            &
       & cosmu0_dark  = cosmu0_dark,                       &
-      & p_inc_rad    = dt_rad(jg),                        &
-      & p_inc_radheat= dt_radheat(jg),                    &
+      & p_inc_rad    = atm_phy_nwp_config(jg)%dt_rad,     &
+      & p_inc_radheat= atm_phy_nwp_config(jg)%dt_radheat, &
       & p_sim_time   = p_sim_time,                        &
       & pt_patch     = pt_patch,                          &
       & zsmu0        = prm_diag%cosmu0(:,:),              &
@@ -1769,7 +1774,7 @@ CONTAINS
 
     ! determine minimum cosmu0 value
     ! for cosmu0 values smaller than that don't do shortwave calculations
-    SELECT CASE (inwp_radiation)
+    SELECT CASE (atm_phy_nwp_config(jg)%inwp_radiation)
     CASE (1)
       cosmu0_dark = -1.e-9_wp
     CASE (2)
@@ -1782,7 +1787,7 @@ CONTAINS
     CASE (6)
       CALL calc_o3_clim(                             &
         & kbdim      = nproma,                       &
-        & p_inc_rad  = dt_rad(jg),                   &
+        & p_inc_rad  = atm_phy_nwp_config(jg)%dt_rad,&
         & z_sim_time = p_sim_time,                   &
         & pt_patch   = pt_patch,                     &
         & zvio3      = prm_diag%vio3,                &
@@ -1794,8 +1799,8 @@ CONTAINS
     CALL pre_radiation_nwp_steps (                        &
       & kbdim        = nproma,                            &
       & cosmu0_dark  = cosmu0_dark,                       &
-      & p_inc_rad    = dt_rad(jg),                        &
-      & p_inc_radheat= dt_radheat(jg),                    &
+      & p_inc_rad    = atm_phy_nwp_config(jg)%dt_rad     ,&
+      & p_inc_radheat= atm_phy_nwp_config(jg)%dt_radheat, &
       & p_sim_time   = p_sim_time,                        &
       & pt_patch     = pt_patch,                          &
      !& zsmu0        = prm_diag%cosmu0(1,1),              &
@@ -2011,7 +2016,7 @@ CONTAINS
     i_startblk = pt_patch%cells%start_blk(rl_start,1)
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
-    IF ( inwp_radiation == 2 .AND. .NOT. lredgrid) THEN
+    IF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 .AND. .NOT. lredgrid) THEN
 
       IF (msg_level >= 12) &
         &           CALL message('mo_nwp_rad_interface', 'RG radiation on full grid')
@@ -2326,7 +2331,7 @@ CONTAINS
 
     ! determine minimum cosmu0 value
     ! for cosmu0 values smaller than that don't do shortwave calculations
-    SELECT CASE (inwp_radiation)
+    SELECT CASE (atm_phy_nwp_config(jg)%inwp_radiation)
     CASE (1)
       cosmu0_dark = -1.e-9_wp
     CASE (2)
@@ -2339,7 +2344,7 @@ CONTAINS
     CASE (6)
       CALL calc_o3_clim(                             &
         & kbdim      = nproma,                       &
-        & p_inc_rad  = dt_rad(jg),                   &
+        & p_inc_rad  = atm_phy_nwp_config(jg)%dt_rad,&
         & z_sim_time = p_sim_time,                   &
         & pt_patch   = pt_patch,                     &
         & zvio3      = prm_diag%vio3,                &
@@ -2351,8 +2356,8 @@ CONTAINS
     CALL pre_radiation_nwp_steps (                        &
       & kbdim        = nproma,                            &
       & cosmu0_dark  = cosmu0_dark,                       &
-      & p_inc_rad    = dt_rad(jg),                        &
-      & p_inc_radheat= dt_radheat(jg),                    &
+      & p_inc_rad    = atm_phy_nwp_config(jg)%dt_rad,     &
+      & p_inc_radheat= atm_phy_nwp_config(jg)%dt_radheat, &
       & p_sim_time   = p_sim_time,                        &
       & pt_patch     = pt_patch,                          &
       & zsmu0        = prm_diag%cosmu0(:,:),              &
@@ -2567,7 +2572,7 @@ CONTAINS
     i_startblk = pt_patch%cells%start_blk(rl_start,1)
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
-    IF ( inwp_radiation == 2 .AND. lredgrid) THEN
+    IF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 .AND. lredgrid) THEN
 
       ! section for computing radiation on reduced grid
 
