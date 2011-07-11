@@ -72,7 +72,7 @@ MODULE mo_hierarchy_management
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_io_nml,              ONLY: lprepare_output
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,             ONLY: lhydrostatic, ldynamics, ltransport, &
+  USE mo_run_nml,             ONLY: ldynamics, ltransport, &
     &                               nlev, nlevp1, ntracer,       &
     &                               lshallow_water,ltheta_dyn, iforcing, &
     &                               iheldsuarez, iecham, ildf_echam,     & 
@@ -455,7 +455,7 @@ CONTAINS
           !! Note that for 2 time level schemes, time step n and n+1 
           !! are referred to as "n_now" and "n_new", respectively.
           !!
-          IF ( lhydrostatic.AND.(iforcing==iheldsuarez) ) THEN
+          IF ( iforcing==iheldsuarez ) THEN
 
              CALL update_pres( p_hydro_state(jg)%prog(n_now),  &! in
                &               p_patch(jg), p_int_state(jg),   &! in
@@ -471,7 +471,7 @@ CONTAINS
                &                     .FALSE., ltheta_dyn, .FALSE.,    &! in
                &                     p_hydro_state(jg)%prog(n_now)   ) ! inout
 
-           ENDIF !( lhydrostatic.AND.(iforcing==iheldsuarez) )  	
+           ENDIF !( iforcing==iheldsuarez )  	
 
 
           ! Dynamical core
@@ -523,7 +523,7 @@ CONTAINS
           ! the variable %tend_phy), use them in the parameterization schemes, 
           ! and add new contributions to them.
 
-          IF ( lhydrostatic.AND.(iforcing==iecham)) THEN
+          IF (iforcing==iecham) THEN
 
             CALL diag_tend( p_patch(jg),                           &! in
               &             ltheta_dyn, ltransport, zdtime,        &! in
@@ -555,7 +555,7 @@ CONTAINS
               &                     p_hydro_state(jg)%prog(n_now),   &! in
               &                     p_hydro_state(jg)%prog(n_new)    )! inout
 
-          ENDIF ! lhydrostatic.AND. iforcing==iecham
+          ENDIF ! iforcing==iecham
 
           ! Horizontal diffusion is called later in this subroutine.
 
@@ -571,7 +571,7 @@ CONTAINS
           ! "time-split" manner (sequential splitting), the prognostic state
           ! n_old is updated before calling the dynamics.
 
-          IF ( lhydrostatic.AND.(iforcing==iheldsuarez) ) THEN
+          IF ( iforcing==iheldsuarez ) THEN
 
             CALL update_pres( p_hydro_state(jg)%prog(n_old),  &! in
               &               p_patch(jg), p_int_state(jg),   &! in
@@ -587,7 +587,7 @@ CONTAINS
               &                     .FALSE., ltheta_dyn, .FALSE.,    &! in
               &                     p_hydro_state(jg)%prog(n_old)   ) ! inout
 
-          ENDIF !( lhydrostatic.AND.(iforcing==iheldsuarez) )
+          ENDIF !( iforcing==iheldsuarez )
 
           ! First part of the dynamical core: the explicit leapfrog scheme.
           ! Compute tendencies of time step n, and the preliminary n+1 values.
@@ -602,7 +602,7 @@ CONTAINS
             &                      p_hydro_state(jg)%tend_dyn     )   ! inout
 
           !Local Diabatic Forcing Testcase
-          IF( (lhydrostatic).AND.(iforcing==ildf_dry.OR.iforcing==ildf_echam) ) THEN
+          IF( iforcing==ildf_dry .OR. iforcing==ildf_echam ) THEN
 
             CALL update_pres( p_hydro_state(jg)%prog(n_old),    &! in
               &               p_patch(jg), p_int_state(jg),   &! in
@@ -620,7 +620,7 @@ CONTAINS
               &                        2._wp*zdtime, zdtime, ltransport, &! in
               &                        p_patch(jg)                       )! in
 
-          END IF !lhydrostatic.AND. (iforcing==ildf_dry) .OR. (iforcing==ildf_echam) )
+          END IF ! (iforcing==ildf_dry) .OR. (iforcing==ildf_echam) )
 
           ! If running the model with ECHAM6 physics, perform tracer transport
           ! and call the physics package. The tracer tendencies and the 
@@ -628,7 +628,7 @@ CONTAINS
           ! and used therein. The purpose of this implementation is to get 
           ! a ICOHAM version similar to ECHAM.
 
-          IF ( (lhydrostatic) .AND.(iforcing==iecham.OR.iforcing==ildf_echam) ) THEN
+          IF ( iforcing==iecham .OR. iforcing==ildf_echam ) THEN
 
             ! Tracer transport.
             ! Like in ECHAM, the transport scheme computes the tracer specific
@@ -698,7 +698,7 @@ CONTAINS
               &                        2._wp*zdtime, zdtime, ltransport, &! in
               &                        p_patch(jg)                       )! in
 
-          ENDIF ! lhydrostatic.AND.(iforcing==iecham)
+          ENDIF ! (iforcing==iecham)
 
           ! Second part of the dynamical core: semi-implicit correction
 
@@ -787,7 +787,7 @@ CONTAINS
           !! Note that for 2 time level schemes, time step n and n+1 
           !! are referred to as "n_now" and "n_new", respectively.
 
-          IF ( lhydrostatic.AND.(iforcing==iheldsuarez) ) THEN
+          IF ( iforcing==iheldsuarez ) THEN
 
             CALL update_pres( p_hydro_state(jg)%prog(n_now),  &! in
               &               p_patch(jg), p_int_state(jg),   &! in
@@ -808,7 +808,7 @@ CONTAINS
               &                     .FALSE., ltheta_dyn, .FALSE.,    &! in
               &                     p_hydro_state(jg)%prog(n_now)   ) ! inout
 
-          ENDIF ! lhydrostatic.AND.(iforcing==iheldsuarez)
+          ENDIF ! iforcing==iheldsuarez
 
           ! Dynamical core
           CALL step_rungekutta( zdtime, p_patch(jg), p_int_state(jg), & ! in
@@ -850,7 +850,7 @@ CONTAINS
           ! induced tendencies (diagnosed in subroutine "diag_tend" and stored 
           ! in the variable %tend_phy), use them in the parameterization schemes,
           ! and add new contributions to them.
-          IF ( lhydrostatic.AND.(iforcing==iecham) ) THEN
+          IF ( iforcing==iecham ) THEN
 
             CALL diag_tend( p_patch(jg),                           &! in
               &             ltheta_dyn, ltransport, zdtime,        &! in
@@ -878,7 +878,7 @@ CONTAINS
               &                     p_hydro_state(jg)%prog(n_now),   &! in
               &                     p_hydro_state(jg)%prog(n_new)   ) ! inout
 
-          ENDIF ! lhydrostatic.AND.(iforcing==iecham)
+          ENDIF ! iforcing==iecham
 
           ! Horizontal diffusion is called later in this subroutine 
           ! before entering finer grid.
@@ -917,7 +917,7 @@ CONTAINS
       ! tracer fields at time step n+1. The same is done for all time stepping
       ! schemes.
 
-      IF ( lhydrostatic.AND.lforcing ) THEN
+      IF ( lforcing ) THEN
 
         SELECT CASE (iforcing)
 !!$        CASE(iecham,ildf_echam)
@@ -937,7 +937,7 @@ CONTAINS
 
 
         END SELECT !(iforcing)
-      ENDIF !( lhydrostatic.AND.lforcing )
+      ENDIF ! lforcing
 
 
       ! deallocate local arrays used by tracer transport

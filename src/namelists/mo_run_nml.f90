@@ -207,7 +207,6 @@ MODULE mo_run_nml
   !
   LOGICAL  :: lshallow_water! if .TRUE., the model runs in shallow water mode
   LOGICAL  :: locean        ! if .TRUE., the model runs in ocean mode
-  LOGICAL  :: lhydrostatic  ! if .TRUE., the model runs in hydrostatic mode
   LOGICAL  :: lforcing      ! if .TRUE., the model runs with parameterized forcing
   !
 
@@ -275,16 +274,12 @@ CONTAINS
 !       ENDIF
 !       ltheta_dyn     = .FALSE.
 !     CASE (ihs_atm_temp)
-!       lhydrostatic   = .TRUE.
 !       ltheta_dyn     = .FALSE.
 !     CASE (ihs_atm_theta)
-!       lhydrostatic   = .TRUE.
 !       ltheta_dyn     = .TRUE.
 !     CASE (inh_atmosphere)
-!       lhydrostatic   = .FALSE.
 !     CASE (ihs_ocean)
 !       locean         = .TRUE.
-!       lhydrostatic   = .TRUE.
 !     CASE default
 !       CALL finish( TRIM(routine),'wrong equation specifier iequations')
 !     END SELECT
@@ -379,21 +374,23 @@ CONTAINS
 ! 
 !     nsteps = MIN(nsteps,INT(dt_restart/dtime))
 
-    IF (lhydrostatic) THEN
-     ! If running the HYDROSTATIC version,
-     ! let the model integrate one more step after the desired end of
-     ! simulation in order to get the proper output. This additional step is
-     ! necessary because the HYDROSTATIC model writes out values of step N
-     ! after the integration from N to N+1 is finished. Also note that
-     ! this additional step is done only for the regular output, and is 
-     ! ignored for restart.
+!   IF ( (dynamics_config(1)%iequations == IHS_ATM_TEMP) .OR. &
+!        (dynamics_config(1)%iequations == IHS_ATM_THETA)     ) THEN
 
-     nsteps = nsteps + 1
+!    ! If running the HYDROSTATIC version,
+!    ! let the model integrate one more step after the desired end of
+!    ! simulation in order to get the proper output. This additional step is
+!    ! necessary because the HYDROSTATIC model writes out values of step N
+!    ! after the integration from N to N+1 is finished. Also note that
+!    ! this additional step is done only for the regular output, and is 
+!    ! ignored for restart.
 
-     ! The additional step is not needed in the NON-hydrostatic version because
-     ! in this case the model writes out values of step N
-     ! after the integration from N-1 to N is finished.
-    ENDIF
+!    nsteps = nsteps + 1
+
+!    ! The additional step is not needed in the NON-hydrostatic version because
+!    ! in this case the model writes out values of step N
+!    ! after the integration from N-1 to N is finished.
+!   ENDIF
     !..................................................................
     !
 !     CALL message(' ',' ')
@@ -445,8 +442,6 @@ SUBROUTINE read_run_namelist
    ntracer        = 0   ! number of advected tracers
    ntracer_static = 0   ! number of non-advected tracers
 
-
-
    !
    ! length of integration = (number of timesteps)*(length of timestep)
    ! - If nsteps is set to a non-zero positive value, then the end date is computed
@@ -465,64 +460,57 @@ SUBROUTINE read_run_namelist
    ! initialize nsteps with zero
    nsteps         = 0
    !
-   ! length of restart cycle
-!    dt_restart     = 86400._wp*30._wp   ! = 30 days
-   !
    ! time step
    dtime          = 600._wp   ! [s] for R2B04 + semi-implicit time steppping
 
-   ! switches for tendency computation
-   ldynamics      = .TRUE.
-   ltransport     = .FALSE.
-   iforcing       = inoforcing
+    ! switches for tendency computation
+    ldynamics      = .TRUE.
+    ltransport     = .FALSE.
+    iforcing       = inoforcing
 
-   ! switch for running a predefined testcase
-   ! details of the testcase are controled by 'testcase_ctl'
-   ltestcase      = .TRUE.
+    ! switch for running a predefined testcase
+    ! details of the testcase are controled by 'testcase_ctl'
+    ltestcase      = .TRUE.
 
-   lcorio         = .TRUE.
-   itopo          = 0
-   msg_level      = 10
-   ltimer         = .TRUE.
-   timers_level = 1  ! what level of timers to run
+    lcorio         = .TRUE.
+    itopo          = 0
+    msg_level      = 10
+    ltimer         = .TRUE.
+    timers_level = 1  ! what level of timers to run
 
-   ! dump/restore
-   ldump_states    = .FALSE.
-   lrestore_states = .FALSE.
+    ! dump/restore
+    ldump_states    = .FALSE.
+    lrestore_states = .FALSE.
 
-   ! The following values are deduced from the namelist variables:
-   ! auxiliary switches set as function of iequations
-   ! (not included in run_ctl)
-   lshallow_water = .FALSE.
-   locean         = .FALSE.
-   lhydrostatic   = .FALSE.
-   lforcing       = .FALSE.
+    ! The following values are deduced from the namelist variables:
+    ! auxiliary switches set as function of iequations
+    ! (not included in run_ctl)
+    lshallow_water = .FALSE.
+    locean         = .FALSE.
+    lforcing       = .FALSE.
 
-   ! For debugging purposes define number of output variables
-   inextra_2d      = 0           !> no extra output 2D fields
-   inextra_3d      = 0           !> no extra output 3D fields
+    ! For debugging purposes define number of output variables
+    inextra_2d      = 0           !> no extra output 2D fields
+    inextra_3d      = 0           !> no extra output 3D fields
 
-   !------------------------------------------------------------------
-   ! 2. If this is a resumed integration, overwrite the defaults above 
-   !    by values used in the previous integration.
-   !------------------------------------------------------------------
-
+    !------------------------------------------------------------------
+    ! 2. If this is a resumed integration, overwrite the defaults above 
+    !    by values used in the previous integration.
+    !------------------------------------------------------------------
     IF (lrestart) THEN
       funit = open_and_restore_namelist('run_ctl')
       READ(funit,NML=run_ctl)
       CALL close_tmpfile(funit)
     END IF
 
-
-    !------------------------------------------------------------------------
-    ! 3. Read user's (new) specifications. (Done so far by all MPI processes)
-    !------------------------------------------------------------------------
+    !-------------------------------------------------------------------------
+    ! 3. Read user's (new) specifications. (Done so far by all MPI processors)
+    !-------------------------------------------------------------------------
     CALL position_nml('run_ctl', STATUS=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, run_ctl)
     END SELECT
-
 
     !----------------------------------------------------
     ! 4. Fill the configuration state
@@ -572,43 +560,42 @@ SUBROUTINE read_run_namelist
     ! write the contents of the namelist to an ASCII file
     IF(p_pe == p_io) WRITE(nnml_output,nml=run_ctl)
 
- END SUBROUTINE read_run_namelist
+  END SUBROUTINE read_run_namelist
 
-SUBROUTINE read_extpar_nml
+  !>
+  !!
+  SUBROUTINE read_extpar_nml
 
     INTEGER :: istat, funit
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_run_nml: read_extpar_nml'
-
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_run_nml: read_extpar_nml'
 
     !------------------------------------------------------------
     ! 1. default settings
     !------------------------------------------------------------
-
-      fac_smooth_topo    = 0.015625_wp
-      n_iter_smooth_topo = 35
+    fac_smooth_topo    = 0.015625_wp
+    n_iter_smooth_topo = 35
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
     !------------------------------------------------------------------
 
-      IF (lrestart) THEN
-        funit = open_and_restore_namelist('ext_par_ctl')
-        READ(funit,NML=ext_par_ctl)
-        CALL close_tmpfile(funit)
-      END IF
-      
+    IF (lrestart) THEN
+      funit = open_and_restore_namelist('ext_par_ctl')
+      READ(funit,NML=ext_par_ctl)
+      CALL close_tmpfile(funit)
+    END IF
+
     !------------------------------------------------------------------------
     ! 3. Read user's (new) specifications. (Done so far by all MPI processes)
     !------------------------------------------------------------------------
-    
-      CALL position_nml ('ext_par_ctl', status=istat)
-      SELECT CASE (istat)
-      CASE (POSITIONED)
-        READ (nnml, ext_par_ctl)
-      END SELECT
+
+    CALL position_nml ('ext_par_ctl', status=istat)
+    SELECT CASE (istat)
+    CASE (POSITIONED)
+      READ (nnml, ext_par_ctl)
+    END SELECT
 
     !----------------------------------------------------
     ! 4. Fill the configuration state
@@ -618,20 +605,18 @@ SUBROUTINE read_extpar_nml
     !-----------------------------------------------------
     ! Store the namelist for restart
     !-----------------------------------------------------
-      ! Store the namelist for restart
-      funit = open_tmpfile()
-      WRITE(funit,NML=ext_par_ctl)
-      CALL store_and_close_namelist(funit, 'ext_par_ctl')
+    funit = open_tmpfile()
+    WRITE(funit,NML=ext_par_ctl)
+    CALL store_and_close_namelist(funit, 'ext_par_ctl')
 
-      !write the contents of the namelist to an ASCII file
-      IF(p_pe == p_io) WRITE(nnml_output,nml=ext_par_ctl)
+    !write the contents of the namelist to an ASCII file
+    IF(p_pe == p_io) WRITE(nnml_output,nml=ext_par_ctl)
 
     !-----------------------------------------------------------
     ! Topography
     !-----------------------------------------------------------
     SELECT CASE (itopo)
     CASE (0)
-      ! ok
     CASE (1)
     CASE default
        CALL finish( TRIM(routine),'wrong topography specifier, itopo must be in {0,1}]')

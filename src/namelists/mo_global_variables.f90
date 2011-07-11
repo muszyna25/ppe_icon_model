@@ -57,7 +57,6 @@
 !!  - revision of &run_ctl
 !!    - rename ltracer to ltransport
 !!    - rename tracer_ctl to transport_ctl
-!!    - added lhydrostatic
 !!    - renamed hydro_ctl to hydrostatic_ctl
 !!    - renamed setup_hydro to setup_hydrostatic
 !!    - moved nlev from namelist hydrostatic_ctl to namelist run_ctl
