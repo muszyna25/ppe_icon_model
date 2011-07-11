@@ -125,7 +125,7 @@ MODULE mo_io_vlist
     &                               lwrite_tke,  lwrite_surface,lwrite_extra,   &
     &                               dt_diag, out_filetype, out_expname,         &
     &                               dt_data, dt_file, lkeep_in_sync
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_configuration,  ONLY: nproma, p_test_run
   USE mo_run_nml,             ONLY: num_lev, num_levp1, itopo,                  &
     &                               ntracer, ltransport,iqcond,                 &
     &                               lshallow_water,                             &
@@ -156,7 +156,6 @@ MODULE mo_io_vlist
   USE mo_mpi,                 ONLY: my_process_is_mpi_root, my_process_is_stdio, &
     &  my_process_is_mpi_test, my_process_is_mpi_seq, process_mpi_test_id,       &
     &  process_mpi_root_id, p_recv, p_send
-  USE mo_parallel_configuration, ONLY: p_test_run
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag
   USE mo_oce_state,           ONLY: t_hydro_ocean_state, t_hydro_ocean_prog,      &
@@ -3202,7 +3201,7 @@ CONTAINS
 
     IF(p_test_run) THEN
       IF(.NOT. my_process_is_mpi_test()) THEN
-        ! Gather all data on p_work_pe0 and send it to p_test_pe for verification
+        ! Gather all data on p_work_pe0 and send it to process_mpi_test_id for verification
         CALL exchange_data(p_comm_pat, RECV=tmp_field, SEND=in_field)
         IF(my_process_is_mpi_root()) CALL p_send(tmp_field, process_mpi_test_id, 1)
       ELSE

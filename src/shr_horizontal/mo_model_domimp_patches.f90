@@ -168,10 +168,36 @@ PUBLIC :: import_patches
 PUBLIC :: destruct_patches
 PUBLIC :: allocate_patch
 PUBLIC :: set_patches_grid_filename
-!
+PUBLIC :: get_patch_global_indexes
 !-------------------------------------------------------------------------
 
 CONTAINS
+
+!-------------------------------------------------------------------------
+SUBROUTINE get_patch_global_indexes(patch_no, entity_type, no_of_entities, global_indexes)
+  USE mo_atmo_control, ONLY: p_patch
+  USE mo_impl_constants, ONLY: CELLS, EDGES, VERTS
+
+  INTEGER, INTENT(in) :: patch_no, entity_type
+  INTEGER, INTENT(out) :: no_of_entities
+  INTEGER, POINTER :: global_indexes(:)  ! this is intent out, but nec does not allows it
+
+  CHARACTER(len=*), PARAMETER :: method_name='get_patch_global_indexes'
+  
+  SELECT CASE(entity_type)
+
+  CASE(CELLS)
+
+  CASE(EDGES)
+
+  CASE(VERTS)
+
+  CASE DEFAULT
+    CALL finish(method_name, 'entity_type not recognized')
+  END SELECT
+  
+END SUBROUTINE get_patch_global_indexes
+!-------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------
 SUBROUTINE set_patches_grid_filename( p_patch )

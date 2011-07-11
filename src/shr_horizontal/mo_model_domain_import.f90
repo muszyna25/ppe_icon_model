@@ -114,7 +114,8 @@ MODULE mo_model_domain_import
        & radiation_grid_filename, dynamics_radiation_grid_link,        &
        & no_of_dynamics_grids, no_of_radiation_grids   
  
-  USE mo_model_domimp_patches, ONLY: import_patches, destruct_patches, set_patches_grid_filename
+  USE mo_model_domimp_patches, ONLY: import_patches, destruct_patches, &
+    & set_patches_grid_filename, get_patch_global_indexes
 
   PUBLIC  ! all that is USEd above
 
