@@ -45,14 +45,13 @@ USE mo_interpolation,       ONLY: t_int_state
 USE mo_grf_interpolation,   ONLY: t_gridref_state, t_gridref_single_state
 USE mo_grf_bdyintp,         ONLY: interpol_scal_grf
 USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging
-USE mo_parallel_configuration,  ONLY: nproma
+USE mo_parallel_configuration,  ONLY: nproma, p_test_run
 USE mo_run_nml,             ONLY: msg_level
 USE mo_nwp_phy_state,       ONLY: prm_diag
 USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int
 USE mo_loopindices,         ONLY: get_indices_c
 USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_ovlparea_start_c, grf_fbk_start_c
 USE mo_mpi,                 ONLY: my_process_is_mpi_seq, my_process_is_mpi_test
-USE mo_parallel_configuration, ONLY: p_test_run
 USE mo_communication,       ONLY: exchange_data, exchange_data_mult
 USE mo_sync,                ONLY: SYNC_C, sync_patch_array
 USE mo_subdivision,         ONLY: p_patch_local_parent, p_int_state_local_parent, &

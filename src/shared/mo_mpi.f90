@@ -23,7 +23,7 @@ MODULE mo_mpi
   PUBLIC :: start_mpi
   PUBLIC :: my_process_is_stdio, my_process_is_mpi_parallel
   PUBLIC :: my_process_is_mpi_seq, my_process_is_mpi_test
- PUBLIC ::  my_process_is_io
+  PUBLIC :: my_process_is_io
   PUBLIC :: get_mpi_root_id, get_my_global_mpi_id
   PUBLIC :: set_process_mpi_name
 

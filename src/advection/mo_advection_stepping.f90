@@ -81,7 +81,6 @@ MODULE mo_advection_stepping
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_mpi,                 ONLY: my_process_is_mpi_seq, my_process_is_mpi_test
   USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult
-  USE mo_parallel_configuration, ONLY: p_test_run
   USE mo_advection_nml,       ONLY: iubc_adv, iadv_slev, cSTR, coeff_grid
   USE mo_advection_config,    ONLY: advection_config
   USE mo_advection_utils,     ONLY: ptr_delp_mc_now, ptr_delp_mc_new

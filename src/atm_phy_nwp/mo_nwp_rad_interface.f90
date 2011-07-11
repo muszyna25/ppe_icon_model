@@ -39,7 +39,7 @@ MODULE mo_nwp_rad_interface
   USE mo_atm_phy_nwp_nml,      ONLY: inwp_radiation, dt_rad, dt_radheat
   USE mo_exception,            ONLY: message,  finish !message_tex
   USE mo_ext_data,             ONLY: t_external_data
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_configuration,  ONLY: nproma, p_test_run
   USE mo_run_nml,              ONLY: msg_level, iqv, iqc, iqi, &
     &                                io3, ntracer, ntracer_static
   USE mo_grf_interpolation,    ONLY: t_gridref_state
@@ -56,7 +56,6 @@ MODULE mo_nwp_rad_interface
   USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag !,prm_diag
   USE mo_o3_util,              ONLY: calc_o3_clim
-  USE mo_parallel_configuration,  ONLY: p_test_run
   USE mo_physical_constants,   ONLY: amd, amo3
   USE mo_radiation,            ONLY: radiation, pre_radiation_nwp_steps
   USE mo_radiation_nml,        ONLY: irad_o3, irad_aero, vmr_co2
