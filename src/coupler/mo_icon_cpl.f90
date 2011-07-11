@@ -13,10 +13,9 @@
 !!       Initialisation of the components
 !!       --------------------------------
 !!
-!!       SUBROUTINE ICON_cpl_init ( comp_name, comp_id, comp_comm, ierror )
+!!       SUBROUTINE ICON_cpl_init ( comp_name, comp_id, ierror )
 !!
 !!         CHARACTER(len=*), INTENT(in) :: comp_name
-!!         INTEGER, INTENT(out)         :: comp_comm
 !!         INTEGER, INTENT(out)         :: comp_id
 !!         INTEGER, INTENT(out)         :: ierror
 !!
@@ -185,6 +184,7 @@ MODULE mo_icon_cpl
   TYPE t_comp
      CHARACTER(len=maxchar) :: comp_name
      CHARACTER(len=maxchar) :: nml_name
+     INTEGER                :: comp_process
      LOGICAL                :: l_comp_status
      INTEGER                :: min_rank
      INTEGER                :: max_rank
@@ -283,21 +283,11 @@ MODULE mo_icon_cpl
   INTEGER                   :: nbr_ICON_fields
   INTEGER                   :: nbr_ICON_couplings
 
-  ! Marker for physical component, the global component IDs
+  ! Marker for the physical component on a process
 
   INTEGER, PARAMETER        :: nbr_ICON_comps    = 4
 
-  INTEGER, PARAMETER        :: ICON_atmos_index  = 1
-  INTEGER, PARAMETER        :: ICON_ocean_index  = 2
-  INTEGER, PARAMETER        :: ICON_land_index   = 3
-  INTEGER, PARAMETER        :: ICON_seaice_index = 4
-
   TYPE (t_comp)             :: complist (nbr_ICON_comps)
-
-  ! Communicator splitting
-
-  INTEGER                   :: ICON_color
-  INTEGER                   :: ICON_key
 
   ! General MPI function arguments
 

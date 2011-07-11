@@ -44,18 +44,16 @@ MODULE mo_master_control
 !-------------------------------------------------------------------------
 
   USE mo_exception,  ONLY: warning, message, finish
-  USE mo_mpi,        ONLY: set_process_mpi_name
+  USE mo_mpi,        ONLY: set_process_mpi_name, get_my_global_mpi_id
 
-  USE mo_icon_cpl,    ONLY  : complist,                           &
-   &                       nbr_ICON_comps,                     &
-   &                       ICON_ocean_index, ICON_atmos_index
-
+  USE mo_icon_cpl_init_comp,  ONLY: icon_cpl_init_comp
+  USE mo_icon_cpl,    ONLY  : complist
   USE mo_io_units,    ONLY: filename_max, nnml
   
-  USE mo_master_nml,  ONLY: read_master_namelist,  l_atmo_active, atmo_name, &
-    &                   atmo_namelist_filename,  &
+  USE mo_master_nml,  ONLY: read_master_namelist,                             &
+    &                   l_atmo_active, atmo_name, atmo_namelist_filename,     &
     &                   atmo_min_rank, atmo_max_rank, atmo_inc_rank,          &
-    &                   l_ocean_active, ocean_name, ocean_namelist_filename,     &
+    &                   l_ocean_active, ocean_name, ocean_namelist_filename,  &
     &                   ocean_min_rank, ocean_max_rank, ocean_inc_rank
   
   USE mo_run_nml,      ONLY: run_nml_setup,  locean
@@ -65,7 +63,7 @@ MODULE mo_master_control
 
   PRIVATE
 
-  PUBLIC ::  init_master_control, get_my_namelist_filename,   &
+  PUBLIC ::  init_master_control, get_my_namelist_filename,           &
     & get_my_process_component, get_my_process_name, is_coupled_run,  &
     & atmo_process, ocean_process, radiation_process
 
@@ -95,8 +93,9 @@ MODULE mo_master_control
     ! !Local variables
     !
     INTEGER :: master_namelist_status
-    INTEGER :: i, str_len
-    
+    INTEGER :: jg, comp_id, str_len, ierr
+    INTEGER :: nbr_components
+
     CHARACTER(LEN=*), PARAMETER :: method_name = "master_cotrol"
     !-----------------------------------------------------------------------
     
@@ -106,6 +105,7 @@ MODULE mo_master_control
     master_namelist_status = read_master_namelist(TRIM(namelist_filename))
     
     !------------------------------------------------------------
+
     IF (master_namelist_status == -1) THEN
       ! we are running an old experiment with no master description, no coupling
       in_coupled_mode = .false.
@@ -116,7 +116,7 @@ MODULE mo_master_control
       CALL open_nml('NAMELIST_ICON')
       CALL run_nml_setup
       CALL close_nml
-      
+
       IF (locean) THEN
         CALL message(method_name,'ocean_process')
         l_ocean_active = .true.
@@ -129,73 +129,100 @@ MODULE mo_master_control
       init_master_control = -1  ! did not find namelist
       RETURN
 
-    ELSE
-      IF (l_atmo_active.AND.(.NOT.l_ocean_active)) THEN
+   ELSE
 
-        CALL set_my_component("ATMO", atmo_process,atmo_namelist_filename)
+      nbr_components = 0
 
-      ELSE IF ((.NOT.l_atmo_active).AND.l_ocean_active) THEN
+      IF ( l_atmo_active  ) nbr_components = nbr_components + 1
+      IF ( l_ocean_active ) nbr_components = nbr_components + 1
 
-        my_process_model     = ocean_process
-        my_namelist_filename = ocean_namelist_filename
+      in_coupled_mode = nbr_components > 1
+
+      IF ( in_coupled_mode ) THEN
+
+         in_coupled_mode = nbr_components > 1
+
+         DO jg = ocean_min_rank, ocean_max_rank, ocean_inc_rank
+
+            IF ( get_my_global_mpi_id() == jg ) THEN
+
+               CALL icon_cpl_init_comp ( 'oce', comp_id, ierr )
+               CALL set_my_component("OCEAN", ocean_process , ocean_namelist_filename)
+
+            ENDIF
+
+         ENDDO
+
+         DO jg = atmo_min_rank, atmo_max_rank, atmo_inc_rank
+
+            IF ( get_my_global_mpi_id() == jg ) THEN
+
+               CALL icon_cpl_init_comp ( 'atm', comp_id, ierr )
+               CALL set_my_component("ATMO", atmo_process ,atmo_namelist_filename)
+
+            ENDIF
+
+         ENDDO
 
       ELSE
-        CALL finish(method_name,'check master namelist setup!')
-      END IF
+
+         IF (l_atmo_active.AND.(.NOT.l_ocean_active)) THEN
+
+            CALL set_my_component("ATMO", atmo_process ,atmo_namelist_filename)
+
+         ELSE IF ((.NOT.l_atmo_active).AND.l_ocean_active) THEN
+
+            CALL set_my_component("OCEAN", ocean_process , ocean_namelist_filename)
+
+         ELSE
+            CALL finish(method_name,'check master namelist setup!')
+
+         END IF
+      ENDIF
+
     ENDIF
     !------------------------------------------------------------
 
     
     !------------------------------------------------------------
-    in_coupled_mode = ( l_atmo_active .AND. l_ocean_active )
 
     IF ( in_coupled_mode .AND. atmo_namelist_filename == ocean_namelist_filename ) THEN
        WRITE ( * , * ) ' Component specific namelists have to be different!'
     ENDIF
 
-    IF (in_coupled_mode) THEN
+    WRITE (complist(comp_id)%nml_name,'(A13)') 'NAMELIST_ICON'
 
-    ELSE
+    SELECT CASE ( my_process_model )
 
-    ENDIF
-    
-    DO i = 1, nbr_ICON_comps
+    CASE ( atmo_process )
 
-       WRITE (complist(i)%nml_name,'(A13)') 'NAMELIST_ICON'
+       complist(comp_id)%comp_name      = TRIM(atmo_name)
+       complist(comp_id)%comp_process   = atmo_process
+       complist(comp_id)%min_rank       = atmo_min_rank
+       complist(comp_id)%max_rank       = atmo_max_rank
+       complist(comp_id)%inc_rank       = atmo_inc_rank
 
-       SELECT CASE ( i )
+       IF (TRIM(atmo_namelist_filename) /= "") THEN
+          str_len = LEN_TRIM(atmo_namelist_filename)
+          WRITE (complist(comp_id)%nml_name(14:14),'(A1)') '_'
+          WRITE (complist(comp_id)%nml_name(15:15+str_len),'(A)') TRIM(atmo_namelist_filename)
+       ENDIF
 
-       CASE ( ICON_atmos_index )
+    CASE ( ocean_process )
 
-          complist(i)%comp_name      = TRIM(atmo_name)
-          complist(i)%l_comp_status  = l_atmo_active
-          complist(i)%min_rank       = atmo_min_rank
-          complist(i)%max_rank       = atmo_max_rank
-          complist(i)%inc_rank       = atmo_inc_rank
+       complist(comp_id)%comp_name      = TRIM(ocean_name)
+       complist(comp_id)%l_comp_status  = l_ocean_active
+       complist(comp_id)%min_rank       = ocean_min_rank
+       complist(comp_id)%max_rank       = ocean_max_rank
+       complist(comp_id)%inc_rank       = ocean_inc_rank
 
-          IF (TRIM(atmo_namelist_filename) /= "") THEN
-             str_len = LEN_TRIM(atmo_namelist_filename)
-             WRITE (complist(i)%nml_name(14:14),'(A1)') '_'
-             WRITE (complist(i)%nml_name(15:15+str_len),'(A)') TRIM(atmo_namelist_filename)
-          ENDIF
+       IF (TRIM(ocean_namelist_filename) /= "") THEN
+          str_len = LEN_TRIM(ocean_namelist_filename)
+          WRITE (complist(comp_id)%nml_name(14:14),'(A1)') '_'
+          WRITE (complist(comp_id)%nml_name(15:15+str_len),'(A)') TRIM(ocean_namelist_filename)
+       ENDIF
 
-       CASE ( ICON_ocean_index )
-
-          complist(i)%comp_name      = TRIM(ocean_name)
-          complist(i)%l_comp_status  = l_ocean_active
-          complist(i)%min_rank       = ocean_min_rank
-          complist(i)%max_rank       = ocean_max_rank
-          complist(i)%inc_rank       = ocean_inc_rank
-
-          IF (TRIM(ocean_namelist_filename) /= "") THEN
-             str_len = LEN_TRIM(ocean_namelist_filename)
-             WRITE (complist(i)%nml_name(14:14),'(A1)') '_'
-             WRITE (complist(i)%nml_name(15:15+str_len),'(A)') TRIM(ocean_namelist_filename)
-          ENDIF
-
-       END SELECT
-
-    ENDDO
+    END SELECT
 
   END FUNCTION init_master_control
   !------------------------------------------------------------------------
@@ -204,7 +231,7 @@ MODULE mo_master_control
   SUBROUTINE set_my_component(comp_name, comp_id, comp_namelist)
     
     CHARACTER(len=*), INTENT(in) :: comp_name
-    INTEGER, INTENT(in) ::  comp_id
+    INTEGER, INTENT(in)          :: comp_id
     CHARACTER(len=*), INTENT(in) :: comp_namelist
        
     my_process_model     = comp_id
@@ -255,7 +282,5 @@ MODULE mo_master_control
     
   END FUNCTION is_coupled_run
   !------------------------------------------------------------------------
-
-
 
 END MODULE mo_master_control

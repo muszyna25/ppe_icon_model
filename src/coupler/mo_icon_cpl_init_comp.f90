@@ -77,14 +77,9 @@ MODULE mo_icon_cpl_init_comp
    &                      cpl_field_acc,                      &
    &                      ICON_comm,                          &
    &                      ICON_global_rank, ICON_global_size, &
-   &                      ICON_local_rank, ICON_local_size,   &
-   &                      ICON_color, ICON_key,               &
-   &                      ICON_ocean_index, ICON_atmos_index, &
-   &                      ICON_land_index
+   &                      ICON_local_rank, ICON_local_size
 
-  USE mo_master_control,      ONLY: get_my_process_component, &
-    & atmo_process, ocean_process,  radiation_process
-   
+  USE mo_master_control,      ONLY: get_my_process_component
 
   IMPLICIT NONE
 
@@ -139,6 +134,7 @@ CONTAINS
                                                     !<  - 0 all in one
 
     INTEGER                      :: i               !< loop count
+    INTEGER                      :: key, color
 
 
     ! -------------------------------------------------------------------
@@ -187,13 +183,15 @@ CONTAINS
     ! -------------------------------------------------------------------
     ! Derive component communicators
     ! -------------------------------------------------------------------
-    ICON_color = get_my_process_component()
-    ICON_key   = 0
-    CALL cpl_nml_setup(ICON_color)
+
+    color = get_my_process_component() ! Rene: this should not be in here.
+    key   = 0
+
+    CALL cpl_nml_setup(comp_id)
     
     comp_comm = MPI_COMM_NULL
 
-    CALL MPI_Comm_split ( ICON_comm, ICON_color, ICON_key, comp_comm, ierr )
+    CALL MPI_Comm_split ( ICON_comm, color, key, comp_comm, ierr )
     IF ( ierr /= MPI_SUCCESS ) THEN
        CALL MPI_Error_string ( ierr, err_string, len, ierror )
        WRITE  ( * , '(A14,I3,A)' ) 'Error on rank ', ICON_global_rank, err_string
@@ -337,16 +335,16 @@ CONTAINS
     ! -------------------------------------------------------------------
 
     DO i = 1, nbr_ICON_fields
-       IF ( complist(ICON_color)%l_time_accumulation ) THEN
+       IF ( complist(comp_id)%l_time_accumulation ) THEN
           fields(i)%coupling%time_operation = cpl_field_acc
-       ELSE IF ( complist(ICON_color)%l_time_average ) THEN
+       ELSE IF ( complist(comp_id)%l_time_average ) THEN
           fields(i)%coupling%time_operation = cpl_field_avg
        ELSE
           fields(i)%coupling%time_operation = cpl_field_none
        ENDIF
 
-       fields(i)%coupling%coupling_freq = complist(ICON_color)%coupling_freq
-       fields(i)%coupling%time_step     = complist(ICON_color)%time_step
+       fields(i)%coupling%coupling_freq = complist(comp_id)%coupling_freq
+       fields(i)%coupling%time_step     = complist(comp_id)%time_step
     ENDDO
 #else
 

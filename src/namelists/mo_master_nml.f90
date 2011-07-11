@@ -38,9 +38,6 @@ MODULE mo_master_nml
   USE mo_mpi,            ONLY: p_nprocs
   USE mo_io_units,       ONLY: filename_max, nnml
   USE mo_namelist,       ONLY: open_nml, position_nml, POSITIONED
-  USE mo_icon_cpl,       ONLY: complist,                           &
-                             & nbr_ICON_comps,                     &
-                             & ICON_ocean_index, ICON_atmos_index
 
   IMPLICIT NONE
 

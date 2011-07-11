@@ -50,7 +50,8 @@ PROGRAM control_model
   USE mo_io_units,            ONLY: filename_max
 !$ USE mo_exception,          ONLY: message_text, message     ! use only if compiled with OpenMP
 
-  USE mo_mpi,                 ONLY: start_mpi, p_stop 
+  USE mo_mpi,                 ONLY: start_mpi , p_stop, p_pe, set_process_mpi_communicator
+
 ! USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output
 ! USE mo_output,              ONLY: init_output_files, close_output_files, write_output
   
@@ -58,20 +59,19 @@ PROGRAM control_model
   USE mo_ocean_model,         ONLY: ocean_model
   USE mo_radiation_model,     ONLY: radiation_model
 
-! USE mo_icon_cpl,            ONLY: get_cpl_local_comm()
-! USE mo_icon_cpl,            ONLY: ICON_atmos_index, ICON_ocean_index, &
-!  &                                comp_id, ierr, complist
-! USE mo_icon_cpl_init,       ONLY: icon_cpl_init
-! USE mo_icon_cpl_init_comp,  ONLY: icon_cpl_init_comp
-! USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
+  USE mo_icon_cpl,            ONLY: get_cpl_local_comm
+  USE mo_icon_cpl,            ONLY: comp_id, ierr, complist
+  USE mo_icon_cpl_init,       ONLY: icon_cpl_init
+  USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
 
-  USE mo_master_control,      ONLY: init_master_control,                 &
-    & get_my_namelist_filename, get_my_process_component, &!is_coupled_run,  &
-    & atmo_process, ocean_process,  radiation_process
+  USE mo_master_control,      ONLY: init_master_control,  &
+    & get_my_namelist_filename, get_my_process_component, &
+    & is_coupled_run,                                     &
+    & atmo_process, ocean_process, radiation_process
 
   IMPLICIT NONE
 
-! INTEGER    :: jg
+  INTEGER    :: jg, new_comm
   INTEGER    :: master_control_status
   
   INTEGER    :: my_process_component
@@ -110,58 +110,22 @@ PROGRAM control_model
   !-------------------------------------------------------------------
   ! Initialize MPI, this should aleays be the first call
   CALL start_mpi('ICON')
-
   
   !-------------------------------------------------------------------
   ! Initialize the master control
+
   master_control_status = init_master_control("icon_master.namelist")
   
+  IF ( is_coupled_run() ) THEN
 
+     CALL icon_cpl_init
 
-!   IF ( is_coupled_run() ) THEN
-! 
-!      CALL icon_cpl_init
-!
-!       DO jg = complist(ICON_ocean_index)%min_rank, &
-!               complist(ICON_ocean_index)%max_rank, &
-!               complist(ICON_ocean_index)%inc_rank
-!
-!           IF ( p_pe == jg ) THEN
-!
-!             CALL open_nml(complist(ICON_ocean_index)%nml_name)
-!
-!             CALL icon_cpl_init_comp ( 'ocean', comp_id, ierr )
-!
-!           ENDIF
-!
-!       ENDDO
-!
-!       DO jg = complist(ICON_atmos_index)%min_rank, &
-!               complist(ICON_atmos_index)%max_rank, &
-!               complist(ICON_atmos_index)%inc_rank
-!
-!           IF ( p_pe == jg ) THEN
-!
-!             CALL open_nml(complist(ICON_atmos_index)%nml_name)
-!
-!             CALL icon_cpl_init_comp ( 'atmosphere', comp_id, ierr )
-!
-!           ENDIF
-!
-!       ENDDO
-!
-!       new_comm = get_cpl_local_comm()
-!       CALL set_process_mpi_communicator ( new_comm )
-!
-!     ELSE
-!
-!       if ( complist(icon_atmos_index)%l_comp_status ) &
-!             call open_nml(complist(icon_atmos_index)%nml_name)
-!
-!       if ( complist(icon_ocean_index)%l_comp_status ) &
-!             call open_nml(complist(icon_ocean_index)%nml_name)
-!
-!     ENDIF
+     new_comm = get_cpl_local_comm()
+
+!rr  to be provided by Leonidas (or Rene)
+     CALL set_process_mpi_communicator ( new_comm )
+
+  ENDIF
 
   my_namelist_filename = get_my_namelist_filename()
   my_process_component = get_my_process_component()
@@ -182,8 +146,7 @@ PROGRAM control_model
     
   END SELECT
       
-!   IF ( is_coupled_run() ) &
-!     CALL ICON_cpl_finalize
+  IF ( is_coupled_run() ) CALL ICON_cpl_finalize
 
   ! Shut down MPI
   !

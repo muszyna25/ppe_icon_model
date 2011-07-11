@@ -52,9 +52,7 @@ MODULE mo_cpl_nml
   USE mo_icon_cpl, ONLY : complist,                           &
    &                      l_debug,                            &
    &                      initial_date, final_date,           &
-   &                      nbr_ICON_comps,                     &
-   &                      ICON_ocean_index, ICON_atmos_index, &
-   &                      ICON_land_index,  ICON_seaice_index
+   &                      nbr_ICON_comps
 
   USE mo_io_units, ONLY: nnml
 

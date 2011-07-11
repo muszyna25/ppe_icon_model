@@ -27,6 +27,7 @@ MODULE mo_mpi
   PUBLIC :: run_is_global_mpi_parallel
   PUBLIC :: get_mpi_root_id, get_my_global_mpi_id
   PUBLIC :: set_process_mpi_name
+  PUBLIC :: set_process_mpi_communicator
 
   PUBLIC :: process_mpi_all_comm
   PUBLIC :: p_comm_work, p_comm_work_test
@@ -37,14 +38,13 @@ MODULE mo_mpi
   PUBLIC :: num_test_procs, num_work_procs, num_io_procs
   
   PUBLIC :: p_stop, p_abort
+
   PUBLIC :: p_send, p_recv, p_sendrecv, p_bcast, p_barrier
   PUBLIC :: p_isend, p_irecv, p_wait, p_wait_any
   PUBLIC :: p_gather, p_max, p_min, p_sum, p_global_sum, p_field_sum
   PUBLIC :: p_probe
-
   
 !   PUBLIC :: p_set_communicator
-
 
 #ifndef NOMPI
   PUBLIC :: MPI_INTEGER, MPI_STATUS_SIZE, MPI_SUCCESS, MPI_ANY_SOURCE,     &
@@ -317,15 +317,18 @@ MODULE mo_mpi
 CONTAINS
 
   !------------------------------------------------------------------------------
+
   SUBROUTINE set_process_mpi_name(name)
     CHARACTER(len=*), INTENT(in) ::name
     
     process_mpi_name = TRIM(name)
 
   END SUBROUTINE set_process_mpi_name
-  !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
+
+  ! Rene: this has become obsolete and should be erased.
+
   INTEGER FUNCTION get_my_global_mpi_id()
     get_my_global_mpi_id = my_global_mpi_id
   END FUNCTION get_my_global_mpi_id
@@ -363,7 +366,6 @@ CONTAINS
   END FUNCTION my_process_is_mpi_parallel
   !------------------------------------------------------------------------------
 
-  !------------------------------------------------------------------------------
   !>
   ! If is not mpi paralellel or is a test process
   LOGICAL FUNCTION my_process_is_mpi_seq()
