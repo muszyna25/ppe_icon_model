@@ -51,7 +51,7 @@ USE mo_nwp_phy_state,       ONLY: prm_diag
 USE mo_impl_constants,      ONLY: min_rlcell, min_rlcell_int
 USE mo_loopindices,         ONLY: get_indices_c
 USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_ovlparea_start_c, grf_fbk_start_c
-USE mo_mpi,                 ONLY: my_process_is_mpi_seq, my_process_is_mpi_test
+USE mo_mpi,                 ONLY: my_process_is_mpi_seq
 USE mo_communication,       ONLY: exchange_data, exchange_data_mult
 USE mo_sync,                ONLY: SYNC_C, sync_patch_array
 USE mo_subdivision,         ONLY: p_patch_local_parent, p_int_state_local_parent, &
@@ -141,7 +141,7 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,        &
     CALL message('upscale_rad_input',message_text)
   ENDIF
 
-  IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test()) THEN
+  IF (my_process_is_mpi_seq()) THEN
     l_parallel = .FALSE.
   ELSE
     l_parallel = .TRUE.
@@ -488,7 +488,7 @@ SUBROUTINE downscale_rad_output(p_patch, p_par_patch, p_par_int, p_par_grf,  &
     CALL message('downscale_rad_output',message_text)
   ENDIF
 
-  IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test()) THEN
+  IF (my_process_is_mpi_seq()) THEN
     l_parallel = .FALSE.
   ELSE
     l_parallel = .TRUE.
@@ -693,7 +693,7 @@ SUBROUTINE upscale_rad_input_rg(p_patch, p_par_patch, p_par_grf,        &
     CALL message('upscale_rad_input',message_text)
   ENDIF
 
-  IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test()) THEN
+  IF (my_process_is_mpi_seq()) THEN
     l_parallel = .FALSE.
   ELSE
     l_parallel = .TRUE.
@@ -1035,7 +1035,7 @@ SUBROUTINE downscale_rad_output_rg(p_patch, p_par_patch, p_par_int, p_par_grf,  
     CALL message('downscale_rad_output',message_text)
   ENDIF
 
-  IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test()) THEN
+  IF (my_process_is_mpi_seq()) THEN
     l_parallel = .FALSE.
   ELSE
     l_parallel = .TRUE.
@@ -1274,7 +1274,7 @@ SUBROUTINE feedback_phys_diag(p_patch, p_grf_state, jg, jgp)
     CALL message('feedback_phys_diag',message_text)
   ENDIF
 
-  IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test()) THEN
+  IF (my_process_is_mpi_seq()) THEN
     l_parallel = .FALSE.
   ELSE
     l_parallel = .TRUE.

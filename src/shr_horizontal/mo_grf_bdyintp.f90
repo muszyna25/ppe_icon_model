@@ -56,8 +56,7 @@ USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,   &
                                   grf_bdyintp_end_c, grf_bdyintp_end_e
 USE mo_parallel_configuration,  ONLY: nproma, p_test_run
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-USE mo_mpi,                 ONLY: my_process_is_mpi_parallel, p_pe, my_process_is_mpi_test, &
-  & my_process_is_mpi_seq
+USE mo_mpi,                 ONLY: my_process_is_mpi_parallel, my_process_is_mpi_seq
 USE mo_communication,       ONLY: exchange_data, exchange_data_grf
 
 USE mo_grf_intp_data_strc
@@ -311,7 +310,7 @@ ENDDO ! blocks
 
 ! Store results in p_vn_out
 
-IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test()) THEN
+IF (my_process_is_mpi_seq()) THEN
 
   DO jb =  i_startblk, i_endblk
 
@@ -339,7 +338,7 @@ IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test()) THEN
 ENDIF
 !$OMP END PARALLEL
 
-IF (my_process_is_mpi_parallel() .AND. .NOT. my_process_is_mpi_test()) THEN
+IF (my_process_is_mpi_parallel()) THEN
 
   nsendtot = SUM(ptr_pc%comm_pat_interpol_vec_grf(1:4)%n_send)
   nrecvtot = SUM(ptr_pc%comm_pat_interpol_vec_grf(1:4)%n_recv)
@@ -638,7 +637,7 @@ ENDDO ! blocks
 
 ! Store results in p_vn_out
 
-IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test()) THEN
+IF (my_process_is_mpi_seq()) THEN
 
 #ifdef __LOOP_EXCHANGE
 !$OMP DO PRIVATE (jk,je)
@@ -681,7 +680,7 @@ ENDIF ! not MPI-parallel
 
 !$OMP END PARALLEL
 
-IF (my_process_is_mpi_parallel() .AND. .NOT. my_process_is_mpi_test()) THEN
+IF (my_process_is_mpi_parallel()) THEN
 
   nsendtot = SUM(ptr_pc%comm_pat_interpol_vec_grf(1:4)%n_send)
   nrecvtot = SUM(ptr_pc%comm_pat_interpol_vec_grf(1:4)%n_recv)
@@ -1217,7 +1216,7 @@ ENDIF
 
 ! Store results in p_out
 
-IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test()) THEN
+IF (my_process_is_mpi_seq()) THEN
 
   DO jn = 1, nfields
 
@@ -1260,7 +1259,7 @@ IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test()) THEN
 ENDIF
 !$OMP END PARALLEL
 
-IF (my_process_is_mpi_parallel() .AND. .NOT. my_process_is_mpi_test()) THEN
+IF (my_process_is_mpi_parallel()) THEN
 
   nsendtot = SUM(ptr_pc%comm_pat_interpol_scal_grf(1:4)%n_send)
   nrecvtot = SUM(ptr_pc%comm_pat_interpol_scal_grf(1:4)%n_recv)
@@ -1464,7 +1463,7 @@ ENDDO ! blocks
 
 ! Store results in p_h_out
 
-IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test()) THEN
+IF (my_process_is_mpi_seq()) THEN
 
   DO jb =  i_startblk, i_endblk
 
@@ -1484,7 +1483,7 @@ IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test()) THEN
 
 ENDIF
 
-IF (my_process_is_mpi_parallel() .AND. .NOT. my_process_is_mpi_test()) THEN
+IF (my_process_is_mpi_parallel()) THEN
 
   DO n = 1, 4
     CALL exchange_data(ptr_pc%comm_pat_interpol_scal_grf(n),RECV=p_h_out,SEND=h_aux(:,:,n), &

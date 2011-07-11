@@ -40,9 +40,11 @@ MODULE mo_parallel_configuration
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_COMM_NULL, MPI_COMM_SELF, MPI_UNDEFINED, &
      &   p_comm_work, p_comm_work_test, p_comm_work_2_io, p_comm_input_bcast, &
-     & p_comm_work_io
+     & p_comm_work_io, num_test_procs, num_work_procs, num_io_procs
+
 #else
-  USE mo_mpi,                ONLY:  p_comm_work, p_comm_work_test
+  USE mo_mpi,                ONLY:  p_comm_work, p_comm_work_test, &
+    & num_test_procs, num_work_procs, num_io_procs
 #endif
 
   IMPLICIT NONE
@@ -99,15 +101,6 @@ MODULE mo_parallel_configuration
 
   LOGICAL :: l_test_openmp
 
-  ! Processor distribution:
-  ! num_test_procs: 0 or 1
-  ! num_work_procs: number of procs running in parallel on the model
-  ! num_io_procs:   number of procs for I/O
-  ! num_test_procs + num_work_procs + num_io_procs = p_nprocs
-
-  INTEGER :: num_test_procs
-  INTEGER :: num_work_procs
-  INTEGER :: num_io_procs
 
   ! Note: p_test_pe, p_work_pe0, p_io_pe0 are identical on all PEs
 

@@ -674,8 +674,7 @@ MODULE mo_nh_stepping
     ENDIF
 
     ! Allocate global buffers for MPI communication
-    IF (itype_comm >= 2 .AND. my_process_is_mpi_parallel() .AND. &
-      & .NOT. my_process_is_mpi_test()) THEN
+    IF (itype_comm >= 2 .AND. my_process_is_mpi_parallel()) THEN
       ALLOCATE(bufr(jg)%send_c1 (p_patch(jg)%nlevp1,   p_patch(jg)%comm_pat_c%n_send), &
         &      bufr(jg)%recv_c1 (p_patch(jg)%nlevp1,   p_patch(jg)%comm_pat_c%n_recv), &
         &      bufr(jg)%send_c3 (3*p_patch(jg)%nlev+1, p_patch(jg)%comm_pat_c%n_send), &

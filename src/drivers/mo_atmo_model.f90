@@ -37,7 +37,7 @@ MODULE mo_atmo_model
   USE mo_exception,           ONLY: message, finish
   USE mo_mpi,                 ONLY: p_stop, p_pe, p_io, p_nprocs, &
     & p_comm_work_test, p_comm_input_bcast, p_comm_work, &
-    & my_process_is_io, my_process_is_mpi_test, my_process_is_mpi_seq, &
+    & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
     & my_process_is_stdio
   USE mo_timer,               ONLY: init_timer, print_timer
   USE mo_master_nml,          ONLY: lrestart
@@ -512,7 +512,7 @@ CONTAINS
     !  This is only done if the model runs really in parallel.
     !------------------------------------------------------------------
     
-    IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test() &
+    IF (my_process_is_mpi_seq()  &
       &  .OR. lrestore_states) THEN
       
       ! This is a verification run or a run on a single processor
@@ -522,7 +522,7 @@ CONTAINS
       p_int_state => p_int_state_global
       p_grf_state => p_grf_state_global
       
-      IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test()) THEN
+      IF (my_process_is_mpi_seq()) THEN
         p_patch(:)%comm = p_comm_work
       ELSE
         CALL set_patch_communicators(p_patch)
@@ -823,7 +823,7 @@ CONTAINS
       CALL destruct_2d_gridref_state( p_patch, p_grf_state )
     ENDIF
 
-    IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test() &
+    IF (my_process_is_mpi_seq()  &
       & .OR. lrestore_states) THEN
       DEALLOCATE (p_grf_state_global, STAT=ist)
     ELSE
@@ -855,7 +855,7 @@ CONTAINS
     ! Deallocate interpolation fields
 
     CALL destruct_2d_interpol_state( p_int_state )
-    IF  (my_process_is_mpi_seq() .OR. my_process_is_mpi_test() &
+    IF  (my_process_is_mpi_seq()  &
       & .OR. lrestore_states) THEN
       DEALLOCATE (p_int_state_global, STAT=ist)
     ELSE
@@ -878,7 +878,7 @@ CONTAINS
     !
     CALL destruct_patches( p_patch )
 
-    IF (my_process_is_mpi_seq() .OR. my_process_is_mpi_test() &
+    IF (my_process_is_mpi_seq()  &
       & .OR. lrestore_states) THEN
       DEALLOCATE( p_patch_global, STAT=ist )
     ELSE

@@ -24,6 +24,7 @@ MODULE mo_mpi
   PUBLIC :: my_process_is_stdio, my_process_is_mpi_parallel
   PUBLIC :: my_process_is_mpi_seq, my_process_is_mpi_test
   PUBLIC :: my_process_is_io
+  PUBLIC :: run_is_global_mpi_parallel
   PUBLIC :: get_mpi_root_id, get_my_global_mpi_id
   PUBLIC :: set_process_mpi_name
 
@@ -33,6 +34,8 @@ MODULE mo_mpi
   PUBLIC :: p_communicator_a, p_communicator_b, p_communicator_d
 
   PUBLIC :: p_pe, p_io, p_nprocs
+  PUBLIC :: num_test_procs, num_work_procs, num_io_procs
+  
   PUBLIC :: p_stop, p_abort
   PUBLIC :: p_send, p_recv, p_sendrecv, p_bcast, p_barrier
   PUBLIC :: p_isend, p_irecv, p_wait, p_wait_any
@@ -116,6 +119,16 @@ MODULE mo_mpi
   INTEGER :: p_pe     = 0     ! this is the PE number of this task
   INTEGER :: p_io     = 0     ! PE number of PE handling IO
   INTEGER :: p_nprocs = 1     ! number of available PEs (processors)
+  
+  ! Processor distribution:
+  ! num_test_procs: 0 or 1
+  ! num_work_procs: number of procs running in parallel on the model
+  ! num_io_procs:   number of procs for I/O
+  ! num_test_procs + num_work_procs + num_io_procs = p_nprocs
+
+  INTEGER :: num_test_procs
+  INTEGER :: num_work_procs
+  INTEGER :: num_io_procs
 
 ! non blocking calls
 
@@ -343,15 +356,27 @@ CONTAINS
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
+  !>
+  ! If is mpi paralellel and not a test process
   LOGICAL FUNCTION my_process_is_mpi_parallel()
     my_process_is_mpi_parallel = process_is_mpi_parallel
   END FUNCTION my_process_is_mpi_parallel
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
+  !>
+  ! If is not mpi paralellel or is a test process
   LOGICAL FUNCTION my_process_is_mpi_seq()
     my_process_is_mpi_seq = .NOT. process_is_mpi_parallel
   END FUNCTION my_process_is_mpi_seq
+  !------------------------------------------------------------------------------
+  
+  !------------------------------------------------------------------------------
+  !>
+  ! If is not mpi paralellel or is a test process
+  LOGICAL FUNCTION run_is_global_mpi_parallel()
+    run_is_global_mpi_parallel = is_global_mpi_parallel
+  END FUNCTION run_is_global_mpi_parallel
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
