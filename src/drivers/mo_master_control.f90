@@ -44,10 +44,13 @@ MODULE mo_master_control
 !-------------------------------------------------------------------------
 
   USE mo_exception,  ONLY: warning, message, finish
-  USE mo_mpi,        ONLY: set_process_mpi_name, get_my_global_mpi_id
+  USE mo_mpi,        ONLY: set_process_mpi_name, get_my_global_mpi_id, &
+    &                      set_process_mpi_communicator
 
-  USE mo_icon_cpl_init_comp,  ONLY: icon_cpl_init_comp
-  USE mo_icon_cpl,    ONLY  : complist
+  USE mo_icon_cpl,   ONLY: get_cpl_local_comm, complist
+  USE mo_icon_cpl_init, ONLY: icon_cpl_init
+  USE mo_icon_cpl_init_comp, ONLY: icon_cpl_init_comp
+
   USE mo_io_units,    ONLY: filename_max, nnml
   
   USE mo_master_nml,  ONLY: read_master_namelist,                             &
@@ -94,6 +97,7 @@ MODULE mo_master_control
     !
     INTEGER :: master_namelist_status
     INTEGER :: jg, comp_id, str_len, ierr
+    INTEGER :: new_comm
     INTEGER :: nbr_components
 
     CHARACTER(LEN=*), PARAMETER :: method_name = "master_cotrol"
@@ -140,7 +144,7 @@ MODULE mo_master_control
 
       IF ( in_coupled_mode ) THEN
 
-         in_coupled_mode = nbr_components > 1
+         CALL icon_cpl_init
 
          DO jg = ocean_min_rank, ocean_max_rank, ocean_inc_rank
 
@@ -163,6 +167,12 @@ MODULE mo_master_control
             ENDIF
 
          ENDDO
+
+         ! make the component communicator available for use within the ICON components
+
+         new_comm = get_cpl_local_comm()
+
+         CALL set_process_mpi_communicator ( new_comm )
 
       ELSE
 

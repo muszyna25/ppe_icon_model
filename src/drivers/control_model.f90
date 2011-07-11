@@ -59,9 +59,6 @@ PROGRAM control_model
   USE mo_ocean_model,         ONLY: ocean_model
   USE mo_radiation_model,     ONLY: radiation_model
 
-  USE mo_icon_cpl,            ONLY: get_cpl_local_comm
-  USE mo_icon_cpl,            ONLY: comp_id, ierr, complist
-  USE mo_icon_cpl_init,       ONLY: icon_cpl_init
   USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
 
   USE mo_master_control,      ONLY: init_master_control,  &
@@ -71,7 +68,6 @@ PROGRAM control_model
 
   IMPLICIT NONE
 
-  INTEGER    :: jg, new_comm
   INTEGER    :: master_control_status
   
   INTEGER    :: my_process_component
@@ -116,17 +112,6 @@ PROGRAM control_model
 
   master_control_status = init_master_control("icon_master.namelist")
   
-  IF ( is_coupled_run() ) THEN
-
-     CALL icon_cpl_init
-
-     new_comm = get_cpl_local_comm()
-
-!rr  to be provided by Leonidas (or Rene)
-     CALL set_process_mpi_communicator ( new_comm )
-
-  ENDIF
-
   my_namelist_filename = get_my_namelist_filename()
   my_process_component = get_my_process_component()
   
