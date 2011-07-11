@@ -174,9 +174,6 @@ MODULE mo_run_nml
                              ! end exit program
   LOGICAL :: lrestore_states ! Restore patch/interpolation/grid refinement states
                              ! from dump files instead of calculating them
-  !
-  LOGICAL :: ltheta_dyn ! if .true., use potential temperature times delta p as prognostic variable
-
 
   NAMELIST /run_ctl/ iinit, num_lev, nshift,               &
     &                lvert_nest, ntracer,                  &
@@ -272,11 +269,8 @@ CONTAINS
 !       IF ( num_lev(1)/=1 ) THEN
 !         CALL finish(TRIM(routine),'Shallow water model needs num_lev(1)=1')
 !       ENDIF
-!       ltheta_dyn     = .FALSE.
 !     CASE (ihs_atm_temp)
-!       ltheta_dyn     = .FALSE.
 !     CASE (ihs_atm_theta)
-!       ltheta_dyn     = .TRUE.
 !     CASE (inh_atmosphere)
 !     CASE (ihs_ocean)
 !       locean         = .TRUE.
@@ -521,7 +515,6 @@ SUBROUTINE read_run_namelist
       run_config(jg)%lrestore_states = lrestore_states
       run_config(jg)%ltestcase       = ltestcase 
       run_config(jg)%ldynamics       = ldynamics 
-      run_config(jg)%ltheta_dyn      = ltheta_dyn 
       run_config(jg)%ltransport      = ltransport 
       run_config(jg)%ntracer         = ntracer 
       run_config(jg)%ntracer_static  = ntracer_static   

@@ -47,10 +47,10 @@ MODULE mo_icoham_dyn_memory
   USE mo_exception,           ONLY: message,finish
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm, t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_run_nml,             ONLY: ltheta_dyn
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,             ONLY: ntracer
   USE mo_advection_config,    ONLY: advection_config
+  USE mo_ha_dyn_config,       ONLY: ha_dyn_config
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: default_var_list_settings, &
                                   & add_var, add_ref,          &
@@ -101,7 +101,7 @@ CONTAINS
       &  routine = 'mo_icoham_dyn_memory:construct_icoham_dyn_state'
 
     INTEGER,INTENT(IN)       :: ntimelevel
-    TYPE(t_patch),INTENT(IN) :: p_patch (:)
+    TYPE(t_patch),INTENT(IN) :: p_patch(:)
 
     !local variables
     CHARACTER(len=MAX_CHAR_LENGTH) :: listname, varname_prefix
@@ -155,6 +155,7 @@ CONTAINS
         WRITE(varname_prefix,'(a,i2.2,a)') 'ha_prog_TL',jt,'_'
 
         CALL new_hydro_prog_list( nproma, nlev, ntracer, ctracer_list,     &
+                                & ha_dyn_config%ltheta_dyn,                &
                                 & nblks_c, nblks_e, TRIM(listname),        &
                                 & TRIM(varname_prefix),                    &
                                 & hydro_prog_list(jg,jt),                  &
@@ -167,6 +168,7 @@ CONTAINS
       WRITE(listname,'(a,i2.2)')  'hydro_diag_D',jg
       WRITE(varname_prefix,'(a)') 'ha_diag_'
       CALL new_hydro_diag_list( nproma, nlev, ntracer, ctracer_list,  &
+                              & ha_dyn_config%ltheta_dyn,             &
                               & nblks_c, nblks_e, nblks_v,            &
                               & TRIM(listname), TRIM(varname_prefix), &
                               & hydro_diag_list(jg),                  &
@@ -178,6 +180,7 @@ CONTAINS
       WRITE(listname,'(a,i2.2)')  'hydro_tend_dyn_D',jg
       WRITE(varname_prefix,'(a)') 'ha_tend_dyn_'
       CALL new_hydro_prog_list( nproma, nlev, ntracer, ctracer_list,     &
+                              & ha_dyn_config%ltheta_dyn,                &
                               & nblks_c, nblks_e, TRIM(listname),        &
                               & TRIM(varname_prefix),                    &
                               & hydro_tend_dyn_list(jg),                 &
@@ -187,6 +190,7 @@ CONTAINS
       WRITE(listname,'(a,i2.2)')  'hydro_tend_phy_D',jg
       WRITE(varname_prefix,'(a)') 'ha_tend_phy_'
       CALL new_hydro_prog_list( nproma, nlev, ntracer, ctracer_list,     &
+                              & ha_dyn_config%ltheta_dyn,                &
                               & nblks_c, nblks_e, TRIM(listname),        &
                               & TRIM(varname_prefix),                    &
                               & hydro_tend_phy_list(jg),                 &
@@ -199,6 +203,7 @@ CONTAINS
       WRITE(listname,'(a,i2.2)')  'hydro_prog_out_D',jg
       WRITE(varname_prefix,'(a)') 'ha_prog_out_'
       CALL new_hydro_prog_list( nproma, nlev, ntracer, ctracer_list,     &
+                              & ha_dyn_config%ltheta_dyn,                &
                               & nblks_c, nblks_e, TRIM(listname),        &
                               & TRIM(varname_prefix),                    &
                               & hydro_prog_out_list(jg),                 &
@@ -208,6 +213,7 @@ CONTAINS
       WRITE(listname,'(a,i2.2)')  'hydro_diag_out_D',jg
       WRITE(varname_prefix,'(a)') 'ha_diag_out_'
       CALL new_hydro_diag_list( nproma, nlev, ntracer, ctracer_list,  &
+                              & ha_dyn_config%ltheta_dyn,             &
                               & nblks_c, nblks_e, nblks_v,            &
                               & TRIM(listname), TRIM(varname_prefix), &
                               & hydro_diag_out_list(jg),              &
@@ -272,11 +278,13 @@ CONTAINS
   !!
   !!
   SUBROUTINE new_hydro_prog_list( kproma, klev, ktracer,          &
-                                & ctracer_list, kblks_c, kblks_e, &
+                                & ctracer_list, ltheta_dyn,       &
+                                & kblks_c, kblks_e,               &
                                 & listname, vname_prefix,         &
                                 & field_list, field, lrestart )
 
     INTEGER,INTENT(IN) :: kproma, klev, ktracer  !< dimension sizes
+    LOGICAL,INTENT(IN) :: ltheta_dyn
     INTEGER,INTENT(IN) :: kblks_c, kblks_e       !< dimension sizes
     LOGICAL,INTENT(IN) :: lrestart               !< store in restart file?
 
@@ -369,11 +377,13 @@ CONTAINS
   !!
   !!
   SUBROUTINE new_hydro_diag_list( kproma, klev, ktracer, ctracer_list, &
+                                & ltheta_dyn,                          &
                                 & kblks_c, kblks_e, kblks_v,           & 
                                 & listname, vname_prefix,              &
                                 & field_list, field, lrestart )
 
     INTEGER,INTENT(IN) :: kproma, klev, ktracer      !< dimension sizes
+    LOGICAL,INTENT(IN) :: ltheta_dyn
     INTEGER,INTENT(IN) :: kblks_c, kblks_e, kblks_v  !< dimension sizes
     LOGICAL,INTENT(IN) :: lrestart
 

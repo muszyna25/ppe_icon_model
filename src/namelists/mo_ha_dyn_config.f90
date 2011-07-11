@@ -82,11 +82,23 @@ MODULE mo_ha_dyn_config
     LOGICAL :: lref_temp   !< If .TRUE., involve the reference temperature profile
                            !< in the calculation of pressure gradient force.
 
+    LOGICAL :: ltheta_dyn  !< If .TRUE., use delta-p*potential-temperature as thermodynamic
+                           !< prognostic variable
+
   END TYPE t_ha_dyn_config 
 
   !>
   !!
   TYPE(t_ha_dyn_config) :: ha_dyn_config
 
+CONTAINS
+  !>
+  !!
+  SUBROUTINE config_ha_dyn( iequations, hs_atm_theta )
+
+    INTEGER,INTENT(IN) :: iequations, hs_atm_theta
+
+    IF (iequations==hs_atm_theta) ha_dyn_config%ltheta_dyn = .TRUE.
+  END SUBROUTINE config_ha_dyn
 END MODULE mo_ha_dyn_config
 

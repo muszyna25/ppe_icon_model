@@ -42,16 +42,16 @@
 MODULE mo_hdiff_hyb_lin
 
   USE mo_kind,              ONLY: wp
-  USE mo_diffusion_nml,     ONLY: k2, k4,    &
-                                & k2s, k2e, k4s, k4e
+  USE mo_diffusion_nml,     ONLY: k2, k4, k2s, k2e, k4s, k4e
   USE mo_diffusion_config,  ONLY: diffusion_config
+  USE mo_ha_dyn_config,     ONLY: ha_dyn_config
   USE mo_math_operators,    ONLY: nabla2_vec, nabla2_scalar, &
                                 & nabla4_vec, nabla4_scalar   
   USE mo_model_domain,      ONLY: t_patch
   USE mo_interpolation,     ONLY: t_int_state
   USE mo_icoham_dyn_types,  ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,           ONLY: nlev, ltheta_dyn
+  USE mo_run_nml,           ONLY: nlev
   USE mo_impl_constants,    ONLY: min_rlcell, min_rledge
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
@@ -96,9 +96,13 @@ CONTAINS
     REAL(wp) :: zc2vn,   zc4vn                !< for domain interia, vn
     REAL(wp) :: fac_bdydiff_c, fac_bdydiff_e  !< for boundary of refined region
 
+    LOGICAL :: ltheta_dyn
+
     !===================================================================
     ! 0. Some constants
     !===================================================================
+    ltheta_dyn = ha_dyn_config%ltheta_dyn
+
     ! Number of child domains
     nchilddom = MAX(1,patch%n_childdom)
 

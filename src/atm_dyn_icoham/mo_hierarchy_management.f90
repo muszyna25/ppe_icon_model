@@ -74,7 +74,7 @@ MODULE mo_hierarchy_management
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_nml,             ONLY: ldynamics, ltransport, &
     &                               nlev, nlevp1, ntracer,       &
-    &                               lshallow_water,ltheta_dyn, iforcing, &
+    &                               lshallow_water,iforcing, &
     &                               iheldsuarez, iecham, ildf_echam,     & 
     &                               ildf_dry, lforcing 
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm
@@ -258,7 +258,7 @@ CONTAINS
         p_vn_sv   => p_hydro_state(jg)%prog(n_sav2)%vn
         p_temp    => p_hydro_state(jg)%prog(n_now)%temp
         p_temp_sv => p_hydro_state(jg)%prog(n_sav2)%temp
-        IF (ltheta_dyn) THEN
+        IF (ha_dyn_config%ltheta_dyn) THEN
           p_theta   => p_hydro_state(jg)%prog(n_now)%theta
           p_theta_sv=> p_hydro_state(jg)%prog(n_sav2)%theta
         ENDIF
@@ -274,7 +274,7 @@ CONTAINS
         p_temp_sv = p_temp
 !$OMP END WORKSHARE
 
-        IF (ltheta_dyn) THEN
+        IF (ha_dyn_config%ltheta_dyn) THEN
 !$OMP WORKSHARE
           p_theta_sv = p_theta
 !$OMP END WORKSHARE
@@ -468,7 +468,8 @@ CONTAINS
 
              CALL update_prog_state( zdtime, p_patch(jg),             &! in
                &                     p_hydro_state(jg)%tend_phy,      &! in
-               &                     .FALSE., ltheta_dyn, .FALSE.,    &! in
+               &                     .FALSE.,ha_dyn_config%ltheta_dyn,&! in
+               &                     .FALSE.,                         &! in
                &                     p_hydro_state(jg)%prog(n_now)   ) ! inout
 
            ENDIF !( iforcing==iheldsuarez )  	
@@ -478,6 +479,7 @@ CONTAINS
           CALL step_2tl_si( ha_dyn_config%si_expl_scheme,    &! in
             &               ha_dyn_config%si_2tls,           &! in
             &               ha_dyn_config%si_rtol,           &! in
+            &               ha_dyn_config%ltheta_dyn,        &! in
             &               zdtime,                          &! in
             &               p_patch(jg), p_int_state(jg),    &! in
             &               p_hydro_state(jg)%prog(n_now),   &! in
@@ -526,12 +528,14 @@ CONTAINS
           IF (iforcing==iecham) THEN
 
             CALL diag_tend( p_patch(jg),                           &! in
-              &             ltheta_dyn, ltransport, zdtime,        &! in
+              &             ha_dyn_config%ltheta_dyn,              &! in
+              &             ltransport, zdtime,                    &! in
               &             p_hydro_state(jg)%prog(n_now),         &! in
               &             p_hydro_state(jg)%prog(n_new),         &! in
               &             p_hydro_state(jg)%tend_phy           )  ! inout
 
-            CALL prepare_echam_phy( p_patch(jg), p_int_state(jg),  &! in
+            CALL prepare_echam_phy( ha_dyn_config%ltheta_dyn,      &! in
+              &                     p_patch(jg), p_int_state(jg),  &! in
               &                     ext_data(jg),                  &! in
               &                     p_hydro_state(jg)%prog(n_now), &! in
               &                     p_hydro_state(jg)%diag       )  ! inout
@@ -551,7 +555,8 @@ CONTAINS
 
             CALL update_prog_state( zdtime, p_patch(jg),             &! in
               &                     p_hydro_state(jg)%tend_phy,      &! in
-              &                     .FALSE., ltheta_dyn, ltransport, &! in
+              &                     .FALSE.,ha_dyn_config%ltheta_dyn,&! in
+              &                     ltransport,                      &! in
               &                     p_hydro_state(jg)%prog(n_now),   &! in
               &                     p_hydro_state(jg)%prog(n_new)    )! inout
 
@@ -584,7 +589,8 @@ CONTAINS
 
             CALL update_prog_state( zdtime, p_patch(jg),             &! in
               &                     p_hydro_state(jg)%tend_phy,      &! in
-              &                     .FALSE., ltheta_dyn, .FALSE.,    &! in
+              &                     .FALSE.,ha_dyn_config%ltheta_dyn,&! in
+              &                     .FALSE.,                         &! in
               &                     p_hydro_state(jg)%prog(n_old)   ) ! inout
 
           ENDIF !( iforcing==iheldsuarez )
@@ -593,6 +599,7 @@ CONTAINS
           ! Compute tendencies of time step n, and the preliminary n+1 values.
 
           CALL step_leapfrog_expl( zdtime, zdtime,                   &! in
+            &                      ha_dyn_config%ltheta_dyn,         &! in
             &                      p_patch(jg), p_int_state(jg),     &! in
             &                      p_hydro_state(jg)%prog(n_old),    &! in
             &                      ext_data(jg),                     &! in
@@ -618,6 +625,7 @@ CONTAINS
               &                        p_hydro_state(jg)%prog(n_old),    &! in
               &                        p_hydro_state(jg)%tend_dyn,       &! in
               &                        2._wp*zdtime, zdtime, ltransport, &! in
+              &                        ha_dyn_config%ltheta_dyn,         &! in
               &                        p_patch(jg)                       )! in
 
           END IF ! (iforcing==ildf_dry) .OR. (iforcing==ildf_echam) )
@@ -672,7 +680,8 @@ CONTAINS
             ! The physics package takes over the dynamics/transport-induced tendencies,
             ! use them in the parameterization schemes, and add new contributions to them.
 
-            CALL prepare_echam_phy( p_patch(jg), p_int_state(jg),  &! in
+            CALL prepare_echam_phy( ha_dyn_config%ltheta_dyn,      &! in
+              &                     p_patch(jg), p_int_state(jg),  &! in
               &                     ext_data(jg),                  &! in
               &                     p_hydro_state(jg)%prog(n_old), &! in
               &                     p_hydro_state(jg)%diag         )! inout
@@ -696,6 +705,7 @@ CONTAINS
               &                        p_hydro_state(jg)%prog(n_old),    &! in
               &                        p_hydro_state(jg)%tend_dyn,       &! in
               &                        2._wp*zdtime, zdtime, ltransport, &! in
+              &                        ha_dyn_config%ltheta_dyn,         &! in
               &                        p_patch(jg)                       )! in
 
           ENDIF ! (iforcing==iecham)
@@ -704,7 +714,7 @@ CONTAINS
 
           IF (itime_scheme == leapfrog_si) THEN ! Add semi-implicit correction
 
-            IF (ltheta_dyn) THEN
+            IF (ha_dyn_config%ltheta_dyn) THEN
               CALL convert_theta2t_lin( p_patch(jg),                   &
                 &                       p_hydro_state(jg)%prog(n_now), &
                 &                       p_hydro_state(jg)%prog(n_new), &
@@ -735,7 +745,7 @@ CONTAINS
               &                 p_hydro_state(jg)%prog(n_now),        &! in
               &                 p_hydro_state(jg)%prog(n_new)         )! inout
 
-            IF (ltheta_dyn) THEN
+            IF (ha_dyn_config%ltheta_dyn) THEN
               CALL convert_t2theta_lin( p_patch(jg),                         &
                 &                       p_hydro_state(jg)%prog(n_new),       &
                 &                       p_hydro_state(jg)%diag, temp_save )
@@ -805,13 +815,15 @@ CONTAINS
 
             CALL update_prog_state( zdtime, p_patch(jg),             &! in
               &                     p_hydro_state(jg)%tend_phy,      &! in
-              &                     .FALSE., ltheta_dyn, .FALSE.,    &! in
+              &                     .FALSE.,ha_dyn_config%ltheta_dyn,&! in
+              &                     .FALSE.,                         &! in
               &                     p_hydro_state(jg)%prog(n_now)   ) ! inout
 
           ENDIF ! iforcing==iheldsuarez
 
           ! Dynamical core
-          CALL step_rungekutta( zdtime, p_patch(jg), p_int_state(jg), & ! in
+          CALL step_rungekutta( zdtime, ha_dyn_config%ltheta_dyn,     & ! in
+            &                   p_patch(jg), p_int_state(jg),         & ! in
             &                   p_hydro_state(jg)%prog(n_now),        & ! in
             &                   ext_data(jg),                         & ! in
             &                   p_hydro_state(jg)%prog(n_old),        & ! tmp
@@ -853,12 +865,14 @@ CONTAINS
           IF ( iforcing==iecham ) THEN
 
             CALL diag_tend( p_patch(jg),                           &! in
-              &             ltheta_dyn, ltransport, zdtime,        &! in
+              &             ha_dyn_config%ltheta_dyn,              &! in
+              &             ltransport, zdtime,                    &! in
               &             p_hydro_state(jg)%prog(n_now),         &! in
               &             p_hydro_state(jg)%prog(n_new),         &! in
               &             p_hydro_state(jg)%tend_phy           )  ! inout
  
-            CALL prepare_echam_phy( p_patch(jg), p_int_state(jg),  &! in
+            CALL prepare_echam_phy( ha_dyn_config%ltheta_dyn,      &! in
+              &                     p_patch(jg), p_int_state(jg),  &! in
               &                     ext_data(jg),                  &! in
               &                     p_hydro_state(jg)%prog(n_now), &! in
               &                     p_hydro_state(jg)%diag       )  ! inout
@@ -874,7 +888,8 @@ CONTAINS
 
             CALL update_prog_state( zdtime, p_patch(jg),             &! in
               &                     p_hydro_state(jg)%tend_phy,      &! in
-              &                     .FALSE., ltheta_dyn, ltransport, &! in
+              &                     .FALSE.,ha_dyn_config%ltheta_dyn,&! in
+              &                     ltransport,                      &! in
               &                     p_hydro_state(jg)%prog(n_now),   &! in
               &                     p_hydro_state(jg)%prog(n_new)   ) ! inout
 
@@ -932,7 +947,8 @@ CONTAINS
 !!$
 !!$           CALL update_prog_state( zdtime, p_patch(jg),              &! in
 !!$             &                     p_hydro_state(jg)%tend_phy,       &! in
-!!$             &                     .FALSE., ltheta_dyn, ltransport,  &! in
+!!$             &                     .FALSE., ha_dyn_config%ltheta_dyn,&! in
+!!$             &                     ltransport,                       &! in
 !!$             &                     p_hydro_state(jg)%prog(n_new)    ) ! inout
 
 
@@ -959,7 +975,8 @@ CONTAINS
         rdt_loc = 1._wp/dt_loc
 
         ! Compute time tendencies for interpolation to refined mesh boundaries
-        CALL compute_tendencies (p_patch(jg),p_hydro_state(jg),n_new,n_sav1,rdt_loc)
+        CALL compute_tendencies( ha_dyn_config%ltheta_dyn, p_patch(jg), &
+                                 p_hydro_state(jg),n_new,n_sav1,rdt_loc )
 
         ! See mo_nh_stepping.f90 for remarks about start_delayed_exchange
         IF(proc_split) CALL start_delayed_exchange ! Data exchanges will be buffered
@@ -977,7 +994,7 @@ CONTAINS
           ! (i.e. n_sav1 -> n_sav1) to ensure numerical stability
           IF (grf_intmethod_c == 2) THEN
 
-            IF (ltheta_dyn) THEN
+            IF (ha_dyn_config%ltheta_dyn) THEN
               CALL interpol_scal_grf ( p_patch(jg), p_patch(jgc), p_int_state(jg),           &
                 &    p_grf_state(jg)%p_dom(jn), jn, 1, p_hydro_state(jg)%prog(n_sav1)%theta, &
                 &    p_hydro_state(jgc)%prog(dynamics_config(jgc)%nnow)%theta)
@@ -1036,7 +1053,8 @@ CONTAINS
           ! Call feedback to copy averaged prognostic variables from refined mesh
           ! back to the coarse mesh (i.e. from jgc to jg)
           IF (lfeedback(jgc)) THEN
-            CALL feedback(p_patch, p_hydro_state, p_int_state, p_grf_state, jgc, jg)
+            CALL feedback(ha_dyn_config%ltheta_dyn, p_patch, p_hydro_state, &
+                          p_int_state, p_grf_state, jgc, jg)
           ENDIF
 
         ENDDO
@@ -1052,6 +1070,7 @@ CONTAINS
       IF ( (itime_scheme==leapfrog_expl).OR.(itime_scheme==leapfrog_si) ) THEN
 
         CALL asselin( ha_dyn_config%asselin_coeff,     &
+                      ha_dyn_config%ltheta_dyn,        &
                       p_hydro_state(jg)%prog(n_old),   &
                       p_hydro_state(jg)%prog(n_new),   &
                       p_hydro_state(jg)%prog(n_now) )
@@ -1064,7 +1083,8 @@ CONTAINS
 
         CALL copy_prog_state( p_hydro_state(jg)%prog(n_now),  &! in
           &                   p_hydro_state(jg)%prog_out,     &! out
-          &                   ltheta_dyn, ltransport         ) ! in
+          &                   ha_dyn_config%ltheta_dyn,       &! in
+          &                   ltransport                     ) ! in
 
         CALL update_diag_state( p_hydro_state(jg)%prog_out,   &! in
           &                     p_patch(jg), p_int_state(jg), &! in
@@ -1125,11 +1145,11 @@ CONTAINS
   !! @par Revision History
   !! Developed  by Guenther Zaengl, DWD, 2009-06-22
   !!
-  SUBROUTINE compute_tendencies (p_patch,p_hydro_state,n_new,n_sav1,rdt)
+  SUBROUTINE compute_tendencies (ltheta_dyn, p_patch,p_hydro_state,n_new,n_sav1,rdt)
 
+    LOGICAL,INTENT(IN) :: ltheta_dyn
 
-
-    TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_patch
+    TYPE(t_patch),     TARGET, INTENT(IN)    ::  p_patch
     TYPE(t_hydro_atm), TARGET, INTENT(INOUT) ::  p_hydro_state
 
     ! Time levels from which tendencies are computed
@@ -1289,6 +1309,7 @@ CONTAINS
       zdtime = 0.5_wp*dt_loc  ! it will be doubled in step_leapfrog_expl
 
       CALL step_leapfrog_expl( zdtime, 2._wp*zdtime,          &! in
+        &                      ha_dyn_config%ltheta_dyn,      &! in
         &                      p_patch(jg), p_int_state(jg),  &! in
         &                      p_hydro_state(jg)%prog(n_old), &! in
         &                      ext_data(jg),                  &! in
@@ -1361,6 +1382,7 @@ CONTAINS
       zdtime = 0.25_wp*dt_loc  ! it will be doubled in step_leapfrog_expl
 
       CALL step_leapfrog_expl( zdtime, 2._wp*zdtime,          &! in
+        &                      ha_dyn_config%ltheta_dyn,      &! in
         &                      p_patch(jg), p_int_state(jg),  &! in
         &                      p_hydro_state(jg)%prog(n_old), &! in
         &                      ext_data(jg),                  &! in
@@ -1426,6 +1448,7 @@ CONTAINS
       zdtime = 0.25_wp*dt_loc  ! it will be doubled in step_leapfrog_expl
 
       CALL step_leapfrog_expl( zdtime, 0._wp,                     & !in
+        &                      ha_dyn_config%ltheta_dyn,          &! in
         &                      p_patch(jg), p_int_state(jg),      & !in
         &                      p_hydro_state(jg)%prog(n_old),     & !in
         &                      ext_data(jg),                      & !in
@@ -1491,6 +1514,7 @@ CONTAINS
       zdtime = 0.5_wp*dt_loc
 
       CALL step_leapfrog_expl( zdtime, zdtime,                 & !in
+        &                      ha_dyn_config%ltheta_dyn,       &! in
         &                      p_patch(jg), p_int_state(jg),   & !in
         &                      p_hydro_state(jg)%prog(n_old),  & !in
         &                      ext_data(jg),                   & !in
@@ -1501,7 +1525,7 @@ CONTAINS
 
       IF (itime_scheme==leapfrog_si) THEN
 
-        IF (ltheta_dyn) THEN
+        IF (ha_dyn_config%ltheta_dyn) THEN
           CALL convert_theta2t_lin( p_patch(jg), p_hydro_state(jg)%prog(n_now),&
             &                       p_hydro_state(jg)%prog(n_new),             &
             &                       p_hydro_state(jg)%diag )
@@ -1533,7 +1557,7 @@ CONTAINS
           &                 p_hydro_state(jg)%prog(n_now),        &! in
           &                 p_hydro_state(jg)%prog(n_new))         ! inout
 
-        IF (ltheta_dyn) THEN
+        IF (ha_dyn_config%ltheta_dyn) THEN
           CALL convert_t2theta_lin( p_patch(jg),p_hydro_state(jg)%prog(n_new),&
             &                       p_hydro_state(jg)%diag, temp_save )
         ENDIF

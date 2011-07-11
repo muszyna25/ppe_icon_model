@@ -40,7 +40,7 @@ MODULE mo_ha_2tl_si
   USE mo_ext_data,            ONLY: t_external_data
   USE mo_physical_constants,  ONLY: rd, rcpd
   USE mo_parallel_configuration, ONLY: nproma
-  USE mo_run_nml,             ONLY: nlev, nlevp1, lshallow_water,ltheta_dyn
+  USE mo_run_nml,             ONLY: nlev, nlevp1, lshallow_water
   USE mo_interpolation,       ONLY: t_int_state, cells2edges_scalar
   USE mo_math_operators,      ONLY: grad_fd_norm
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
@@ -79,6 +79,7 @@ MODULE mo_ha_2tl_si
   !! Initial version by Hui Wan, MPI-M (2009-11-06)
   !!
   SUBROUTINE step_2tl_si( si_expl_scheme, si_2tls, si_rtol, &
+                          ltheta_dyn,                       &
                           p_dtime, p_patch, p_int_state,    &
                           p_now, p_ext_data,                &
                           p_new, p_diag, p_tend_dyn )
@@ -89,6 +90,7 @@ MODULE mo_ha_2tl_si
 
   INTEGER ,INTENT(IN) :: si_expl_scheme
   REAL(wp),INTENT(IN) :: si_2tls, si_rtol
+  LOGICAL, INTENT(IN) :: ltheta_dyn
   REAL(wp),INTENT(IN) :: p_dtime
 
   TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch

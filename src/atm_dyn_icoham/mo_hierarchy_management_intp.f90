@@ -68,7 +68,7 @@ USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_scal2d_grf, &
 USE mo_dynamics_config,     ONLY: dynamics_config 
 USE mo_parallel_configuration,  ONLY: nproma, p_test_run
 USE mo_run_nml,             ONLY: msg_level, ltransport, nlev,    &
-                                  ntracer, lshallow_water, ltheta_dyn
+                                  ntracer, lshallow_water
 USE mo_icoham_dyn_types,    ONLY: t_hydro_atm, t_hydro_atm_prog,  &
                                   t_hydro_atm_diag
 USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge, min_rledge_int, &
@@ -470,15 +470,17 @@ END SUBROUTINE boundary_tendencies
 !! Change feedback for cell-based variables from area-weighted averaging
 !! to using fbk_wgt (see above routine)
 !!
-SUBROUTINE feedback(p_patch, p_hydro_state, p_int_state, p_grf_state, jg, jgp)
+SUBROUTINE feedback(ltheta_dyn, p_patch, p_hydro_state, p_int_state, p_grf_state, jg, jgp)
 
 CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_hierarchy_management_intp:feedback'
 
-TYPE(t_patch),       TARGET, INTENT(IN)    ::  p_patch(n_dom)
-TYPE(t_hydro_atm), TARGET, INTENT(INOUT) ::  p_hydro_state(n_dom)
-TYPE(t_int_state),   TARGET, INTENT(IN)    ::  p_int_state(n_dom)
-TYPE(t_gridref_state), TARGET, INTENT(IN)  ::  p_grf_state(n_dom)
+LOGICAL, INTENT(IN) :: ltheta_dyn
+
+TYPE(t_patch),        TARGET, INTENT(IN)    ::  p_patch(n_dom)
+TYPE(t_hydro_atm),    TARGET, INTENT(INOUT) ::  p_hydro_state(n_dom)
+TYPE(t_int_state),    TARGET, INTENT(IN)    ::  p_int_state(n_dom)
+TYPE(t_gridref_state),TARGET, INTENT(IN)    ::  p_grf_state(n_dom)
 
 INTEGER, INTENT(IN) :: jg   ! child grid level
 INTEGER, INTENT(IN) :: jgp  ! parent grid level

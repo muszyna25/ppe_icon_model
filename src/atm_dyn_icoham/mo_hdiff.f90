@@ -63,8 +63,9 @@ MODULE mo_hdiff
   USE mo_model_domain_import, ONLY: nroot
   USE mo_diffusion_nml,       ONLY: k2, k4
   USE mo_diffusion_config,    ONLY: diffusion_config  
+  USE mo_ha_dyn_config,       ONLY: ha_dyn_config
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,             ONLY: nlev, ltheta_dyn
+  USE mo_run_nml,             ONLY: nlev
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_math_operators,      ONLY: nabla2_vec, nabla2_scalar, &
                                     nabla4_vec, nabla4_scalar
@@ -161,9 +162,12 @@ MODULE mo_hdiff
      REAL(wp) :: zhelp, z_mean_area_edge
      REAL(wp) :: hdiff_tv_ratio
 
+     LOGICAL :: ltheta_dyn
+
 !--------------------------------------------------------------------
 !
     i_nchdom   = MAX(1,pt_patch%n_childdom)
+    ltheta_dyn = ha_dyn_config%ltheta_dyn
 
     ! Parameters for boundary diffusion (relevant for nested domains only)
     start_bdydiff_c = 3 ! refin_ctrl level at which diffusion starts

@@ -39,7 +39,7 @@ MODULE mo_ha_dtp_interface
   USE mo_kind,               ONLY: wp
   USE mo_dynamics_nml,       ONLY: itime_scheme
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,            ONLY: nlev, nlevp1, ltheta_dyn
+  USE mo_run_nml,            ONLY: nlev, nlevp1
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data,           ONLY: t_external_data
   USE mo_interpolation,      ONLY: t_int_state, verts2edges_scalar,       &
@@ -364,9 +364,11 @@ CONTAINS
   !! slight modification regarding the theta2T conversion
   !! by Kristina Froehlich, DWD (2010-03-05)
   !!
-  SUBROUTINE prepare_physics( p_patch, p_int_state, p_ext_data, &! in
-  &                           p_prog,                           &! in
+  SUBROUTINE prepare_physics( ltheta_dyn, p_patch, p_int_state, &
+  &                           p_ext_data, p_prog,               &! in
   &                           p_diag                          )  ! inout
+
+    LOGICAL,INTENT(IN) :: ltheta_dyn
 
     TYPE(t_patch),TARGET,  INTENT(in) :: p_patch
     TYPE(t_int_state),     INTENT(in) :: p_int_state
@@ -429,9 +431,11 @@ CONTAINS
   !! slight modification regarding the theta2T conversion
   !! by Kristina Froehlich, DWD (2010-03-05)
   !!
-  SUBROUTINE prepare_echam_phy( p_patch, p_int_state, p_ext_data, &! in
-  &                             p_prog,                           &! in
+  SUBROUTINE prepare_echam_phy( ltheta_dyn, p_patch, p_int_state, &! in
+  &                             p_ext_data, p_prog,               &! in
   &                             p_diag                          )  ! inout
+
+    LOGICAL,INTENT(IN) :: ltheta_dyn
 
     TYPE(t_patch),TARGET,  INTENT(in) :: p_patch
     TYPE(t_int_state),     INTENT(in) :: p_int_state

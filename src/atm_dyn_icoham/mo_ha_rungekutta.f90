@@ -96,7 +96,6 @@ MODULE mo_ha_rungekutta
   USE mo_ext_data,         ONLY: t_external_data
   USE mo_interpolation,    ONLY: t_int_state
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,          ONLY: ltheta_dyn
   USE mo_run_nml,          ONLY: nlev, ltransport
   USE mo_icoham_dyn_types, ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_ha_prog_util,     ONLY: copy_prog_state
@@ -291,7 +290,7 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Hui Wan (2009-08-04)
   !!
-  SUBROUTINE step_RungeKutta( pdtime                  &!< in
+  SUBROUTINE step_RungeKutta( pdtime, ltheta_dyn      &!< in
                             , curr_patch, p_int_state &!< in
                             , p_now, p_ext_data       &!< in
                             , p_stg, p_new            &!< in,tmp,inout
@@ -300,12 +299,14 @@ CONTAINS
 
   !! input and output variables
 
-   REAL(wp), INTENT(IN)         :: pdtime     !< time step in seconds
-   TYPE(t_patch), TARGET, INTENT(IN)      :: curr_patch
+   REAL(wp),INTENT(IN) :: pdtime     !< time step in seconds
+   LOGICAL, INTENT(IN) :: ltheta_dyn
+
+   TYPE(t_patch),     TARGET, INTENT(IN)  :: curr_patch
    TYPE(t_int_state), TARGET, INTENT(IN)  :: p_int_state
 
    TYPE(t_hydro_atm_prog),INTENT(IN)    :: p_now
-   TYPE(t_external_data), INTENT(IN)      :: p_ext_data !< external data
+   TYPE(t_external_data), INTENT(IN)    :: p_ext_data !< external data
    TYPE(t_hydro_atm_prog),INTENT(INOUT) :: p_stg
    TYPE(t_hydro_atm_prog),INTENT(INOUT) :: p_new
 
@@ -361,7 +362,7 @@ CONTAINS
                           , accm(kk),        p_new       & ! in, in
                           , a_sk(kk),        p_stg       & ! in, in
                           , b_sk(kk)*pdtime, p_tend_dyn  & ! in, in
-                          , curr_patch                 )   ! in
+                          , curr_patch,      ltheta_dyn  ) ! in
 
       ! U^(i) = a_i0*U^(0) + a_i,i-1*U^(i-1) + b_i,i-1*dt*S(U^(i-1))
 
@@ -369,7 +370,7 @@ CONTAINS
                           , a_i0(ii),        p_now      & ! in, in
                           , a_dg(ii),        p_stg      & ! in, in
                           , b_dg(ii)*pdtime, p_tend_dyn & ! in, in
-                          , curr_patch                )   ! in
+                          , curr_patch,      ltheta_dyn ) ! in
 
       ! If tracer transport is on, accumulate mass flux
 
@@ -404,7 +405,7 @@ CONTAINS
                           , accm(kk),        p_new       & ! in, in
                           , a_sk(kk),        p_stg       & ! in, in
                           , b_sk(kk)*pdtime, p_tend_dyn  & ! in, in
-                          , curr_patch                 )   ! in
+                          , curr_patch,      ltheta_dyn  ) ! in
 
       ! If tracer transport is on, accumulate mass flux
 
@@ -434,6 +435,7 @@ CONTAINS
            , pdtime      &!< in: time step
            , p_tend      &!< in: tendency of the prog. variables
            , curr_patch  &!< in: patch info.
+           , ltheta_dyn  &!< in
            )
 
   !! input and output variables
@@ -447,7 +449,8 @@ CONTAINS
    REAL(wp),              INTENT(IN)    :: pc1
    REAL(wp),              INTENT(IN)    :: pc2
    REAL(wp),              INTENT(IN)    :: pdtime
-   TYPE(t_patch),           INTENT(IN)    :: curr_patch
+   TYPE(t_patch),         INTENT(IN)    :: curr_patch
+   LOGICAL,               INTENT(IN)    :: ltheta_dyn
 
   !! local variables
 

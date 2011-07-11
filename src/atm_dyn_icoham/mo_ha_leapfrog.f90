@@ -42,7 +42,6 @@ MODULE mo_ha_leapfrog
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data,            ONLY: t_external_data
-  USE mo_run_nml,             ONLY: ltheta_dyn
   USE mo_interpolation,       ONLY: t_int_state
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE m_dyn,                  ONLY: dyn_theta
@@ -75,6 +74,7 @@ CONTAINS
   !!    leapfrog_update_prog.
   !!
   SUBROUTINE step_leapfrog_expl( pdtime, dtime_bdy,      & ! input
+                                 ltheta_dyn,             & ! input
                                  curr_patch, p_int_state,& ! input
                                  p_old,                  & ! input
                                  p_ext_data,             & ! input
@@ -83,12 +83,14 @@ CONTAINS
                                  p_new,                  & ! in and out
                                  p_tend_dyn             )  ! in and out
 
-    REAL(wp),              INTENT(IN)    :: pdtime      ! time step in seconds
-    REAL(wp),              INTENT(IN)    :: dtime_bdy   ! time step for boundary tendencies
-    TYPE(t_patch),TARGET,    INTENT(IN)    :: curr_patch
-    TYPE(t_int_state),TARGET,INTENT(IN)    :: p_int_state
-    TYPE(t_hydro_atm_prog),INTENT(IN)    :: p_old
-    TYPE(t_external_data),   INTENT(IN)    :: p_ext_data !< external data
+    REAL(wp),INTENT(IN) :: pdtime      ! time step in seconds
+    REAL(wp),INTENT(IN) :: dtime_bdy   ! time step for boundary tendencies
+    LOGICAL, INTENT(IN) :: ltheta_dyn
+
+    TYPE(t_patch),TARGET,    INTENT(IN) :: curr_patch
+    TYPE(t_int_state),TARGET,INTENT(IN) :: p_int_state
+    TYPE(t_hydro_atm_prog),  INTENT(IN) :: p_old
+    TYPE(t_external_data),   INTENT(IN) :: p_ext_data !< external data
 
     TYPE(t_hydro_atm_diag),INTENT(INOUT) :: p_diag
     TYPE(t_hydro_atm_prog),INTENT(INOUT) :: p_now
@@ -116,7 +118,7 @@ CONTAINS
     CALL leapfrog_update_prog( p_new, p_now, p_old,      &! inout,in,in
                                p_tend_dyn,               &! in
                                zdt2, dtime_bdy, .FALSE., &! in. Do not touch tracers
-                               curr_patch                )! in
+                               ltheta_dyn, curr_patch    )! in
 
   END SUBROUTINE step_leapfrog_expl
 
@@ -135,13 +137,15 @@ CONTAINS
                                    p_tend,               & ! in
                                    pdt2, dtime_bdy,      & ! in
                                    ltracer,              & ! in
+                                   ltheta_dyn,           & ! in
                                    curr_patch            ) ! in
 
    REAL(wp), INTENT(IN) :: pdt2       !< time step in seconds for the interior
    REAL(wp), INTENT(IN) :: dtime_bdy  !< time step for boundary tendencies
    LOGICAL,  INTENT(IN) :: ltracer    !< if .TRUE., update tracer fields
+   LOGICAL,  INTENT(IN) :: ltheta_dyn !< if .TRUE., update tracer fields
 
-   TYPE(t_patch),           INTENT(IN) :: curr_patch  !< domain info.
+   TYPE(t_patch),        INTENT(IN) :: curr_patch  !< domain info.
    TYPE(t_hydro_atm_prog),INTENT(IN) :: p_old
    TYPE(t_hydro_atm_prog),INTENT(IN) :: p_now
    TYPE(t_hydro_atm_prog),INTENT(IN) :: p_tend
@@ -231,11 +235,13 @@ CONTAINS
   !! Developed  by L.Bonaventura, Polimi (2006).
   !! Code restructuring by Almut Gassmann, MPI-M, (2008-09-19)
   !!
-  SUBROUTINE asselin( asselin_coeff,          &! in
-                      p_prog_old, p_prog_new, &! in
-                      p_prog_now              )! inout
+  SUBROUTINE asselin( asselin_coeff, ltheta_dyn, &! in
+                      p_prog_old, p_prog_new,    &! in
+                      p_prog_now                 )! inout
 
     REAL(wp),INTENT(IN) :: asselin_coeff
+    LOGICAL, INTENT(IN) :: ltheta_dyn
+
     TYPE(t_hydro_atm_prog), INTENT(INOUT) :: p_prog_now
     TYPE(t_hydro_atm_prog), INTENT(IN)    :: p_prog_new
     TYPE(t_hydro_atm_prog), INTENT(IN)    :: p_prog_old

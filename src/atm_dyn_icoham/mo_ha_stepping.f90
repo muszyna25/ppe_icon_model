@@ -53,7 +53,7 @@ MODULE mo_ha_stepping
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
   USE mo_io_nml,              ONLY: l_outputtime, lprepare_output, l_diagtime,  &
                                   & l_checkpoint_time
-  USE mo_run_nml,             ONLY: lshallow_water, nsteps, dtime,ltheta_dyn,   &
+  USE mo_run_nml,             ONLY: lshallow_water, nsteps, dtime,   &
                                   & ldynamics, ltransport, msg_level, ltimer,   &
                                   & ltestcase, lrestart
   USE mo_hydro_testcases,     ONLY: init_testcase
@@ -156,7 +156,7 @@ CONTAINS
     ! Convert temperature to potential temperature if the latter is
     ! chosen as a prognostic variable.
 
-    IF (ltheta_dyn) THEN
+    IF (ha_dyn_config%ltheta_dyn) THEN
       DO jg = 1, n_dom
 
         CALL convert_t2theta(p_patch(jg),                      &
@@ -177,7 +177,8 @@ CONTAINS
    DO jg=1,n_dom
      CALL copy_prog_state( p_hydro_state(jg)%prog(nnow(jg)), &! in
                            p_hydro_state(jg)%prog_out,       &! out
-                           ltheta_dyn, ltransport        )    ! in
+                           ha_dyn_config%ltheta_dyn,         &! in
+                           ltransport                        )! in
 
      CALL update_diag_state( p_hydro_state(jg)%prog_out,    &! in
                              p_patch(jg), p_int_state(jg),  &! in
