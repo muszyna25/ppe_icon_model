@@ -59,8 +59,9 @@ MODULE mo_io_async
   USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: max_dom
   USE mo_datetime,            ONLY: t_datetime
-  USE mo_mpi,                 ONLY: p_pe, p_bcast, p_barrier, p_stop, p_real_dp, p_send, p_recv
-  USE mo_parallel_configuration,  ONLY: p_pe_work, p_test_pe, p_work_pe0, p_io_pe0,     &
+  USE mo_mpi,                 ONLY: p_pe, p_bcast, p_barrier, p_stop, p_real_dp, p_send, &
+    & p_recv, my_process_is_mpi_test
+  USE mo_parallel_configuration,  ONLY: p_pe_work, p_work_pe0, p_io_pe0,     &
    &                                num_work_procs, num_io_procs, pio_type
   USE mo_global_variables,    ONLY: setup_physics
   USE mo_nonhydrostatic_nml,  ONLY: ivctype, nonhydrostatic_nml_setup
@@ -920,7 +921,7 @@ CONTAINS
     TYPE(c_ptr) :: c_mem_ptr
 #endif
 
-    IF(p_pe == p_test_pe) THEN
+    IF(my_process_is_mpi_test()) THEN
       DO jg = 1, n_dom
         CALL setup_vlist( p_patch(jg)%grid_filename, jg )
       ENDDO
@@ -1116,7 +1117,7 @@ CONTAINS
 
     INTEGER jg
 
-    IF(p_pe == p_test_pe) THEN
+    IF(my_process_is_mpi_test()) THEN
       DO jg = 1, n_dom
         CALL close_output_vlist(jg)
       ENDDO
@@ -1171,7 +1172,7 @@ CONTAINS
     CHARACTER*10 ctime
 
 
-    IF(p_pe == p_test_pe) THEN
+    IF(my_process_is_mpi_test()) THEN
       CALL test_pe_output(datetime, z_sim_time)
       RETURN
     ENDIF

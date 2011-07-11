@@ -77,11 +77,13 @@ MODULE mo_subdivision
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_UNDEFINED, MPI_COMM_NULL
 #endif
-  USE mo_mpi,                ONLY: p_comm_work
+  USE mo_mpi,                ONLY: p_comm_work, my_process_is_mpi_test, &
+    & my_process_is_mpi_seq, process_mpi_test_id
 
-  USE mo_parallel_configuration,       ONLY: p_test_pe, p_test_run, p_n_work, p_pe_work, &
+  USE mo_parallel_configuration,       ONLY:  p_test_run, p_n_work, p_pe_work, &
     &  p_work_pe0, division_method, n_ghost_rows, div_from_file,   &
     & div_geometric
+    
 #ifdef HAVE_METIS
   USE mo_parallel_configuration,    ONLY: div_metis
 #endif
@@ -155,13 +157,13 @@ CONTAINS
     IF(.NOT. p_test_run) RETURN ! Nothing to do
 
     IF(p_pe == p_work_pe0) THEN
-      CALL p_send(proc_split, p_test_pe, 1)
+      CALL p_send(proc_split, process_mpi_test_id, 1)
       ibuf(:,1) = p_patch(:)%n_proc
       ibuf(:,2) = p_patch(:)%proc0
-      CALL p_send(ibuf, p_test_pe, 2)
+      CALL p_send(ibuf, process_mpi_test_id, 2)
     ENDIF
 
-    IF(p_pe == p_test_pe) THEN
+    IF(my_process_is_mpi_test()) THEN
       CALL p_recv(proc_split, p_work_pe0, 1)
       CALL p_recv(ibuf, p_work_pe0, 2)
       p_patch(:)%n_proc = ibuf(:,1)
@@ -567,7 +569,7 @@ CONTAINS
 
     !-----------------------------------------------------------------------
     ! This routine must not be called in a single CPU run
-    IF(p_nprocs == 1 .or. p_pe == p_test_pe) &
+    IF(my_process_is_mpi_seq()) &
       & CALL finish('divide_patch','must not be called in a single CPU run')
 
 
@@ -2261,7 +2263,7 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     ! This routine must not be called in a single CPU run
-    IF(p_nprocs == 1 .or. p_pe == p_test_pe) &
+    IF(my_process_is_mpi_seq()) &
       & CALL finish('setup_comm_cpy_interpolation','must not be called in a single CPU run')
 
     i_chidx = wrk_p_patch%parent_child_index
@@ -2352,7 +2354,7 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     ! This routine must not be called in a single CPU run
-    IF(p_nprocs == 1 .or. p_pe == p_test_pe) &
+    IF(my_process_is_mpi_seq()) &
       & CALL finish('setup_comm_grf_interpolation','must not be called in a single CPU run')
 
     i_chidx = wrk_p_patch%parent_child_index
@@ -2526,7 +2528,7 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     ! This routine must not be called in a single CPU run
-    IF(p_nprocs == 1 .or. p_pe == p_test_pe) &
+    IF(my_process_is_mpi_seq()) &
       & CALL finish('setup_comm_ubc_interpolation','must not be called in a single CPU run')
 
     i_chidx = wrk_p_patch%parent_child_index
@@ -2697,7 +2699,7 @@ CONTAINS
     !-----------------------------------------------------------------------
 
     ! This routine must not be called in a single CPU run
-    IF(p_nprocs == 1 .or. p_pe == p_test_pe) &
+    IF(my_process_is_mpi_seq()) &
       & CALL finish('divide_int_state','must not be called in a single CPU run')
 
 
@@ -3014,7 +3016,7 @@ CONTAINS
     grf_vec_dim_2 = 5
 
     ! This routine must not be called in a single CPU run
-    IF(p_nprocs == 1 .or. p_pe == p_test_pe) &
+    IF(my_process_is_mpi_seq()) &
       & CALL finish('divide_grf_state','must not be called in a single CPU run')
 
     ! Loop over all child domains of the present domain

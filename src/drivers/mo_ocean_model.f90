@@ -34,7 +34,8 @@ MODULE mo_ocean_model
   
   USE mo_exception,           ONLY: message, finish  ! use always
   USE mo_mpi,                 ONLY: p_stop, p_pe, p_io, p_nprocs, &
-    & p_comm_work_test, p_comm_input_bcast, p_comm_work
+    & p_comm_work_test, p_comm_input_bcast, p_comm_work, &
+    & my_process_is_mpi_test, my_process_is_mpi_seq
   USE mo_timer,               ONLY: init_timer, print_timer
   USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output
   USE mo_datetime,            ONLY: t_datetime
@@ -42,7 +43,6 @@ MODULE mo_ocean_model
   USE mo_io_vlist,            ONLY: write_vlist_oce, destruct_vlist_oce
   
   USE mo_parallel_configuration,        ONLY:   &
-    & p_test_pe,            & !    internal parameter
     & p_test_run,           &
     & p_io_pe0                ! Number of first I/O PE
   
@@ -214,7 +214,7 @@ CONTAINS
       CALL finish(TRIM(routine), 'allocation of patch failed')
     ENDIF
     
-    IF(lrestore_states .AND. p_pe /= p_test_pe) THEN
+    IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
       CALL restore_patches_netcdf( p_patch_global )
     ELSE
       CALL import_patches( p_patch_global )
@@ -266,7 +266,7 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for ptr_int_state failed')
     ENDIF
     
-    IF(lrestore_states .AND. p_pe /= p_test_pe) THEN
+    IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
       ! Read interpolation state from NetCDF
       CALL restore_interpol_state_netcdf(p_patch_global, p_int_state_global)
     ELSE
@@ -300,7 +300,7 @@ CONTAINS
     !  Divide patches and interpolation states for parallel runs.
     !  This is only done if the model runs really in parallel.
     !------------------------------------------------------------------
-    IF(p_nprocs == 1 .OR. p_pe == p_test_pe .OR. lrestore_states) THEN
+    IF(my_process_is_mpi_seq() .OR. lrestore_states) THEN
       
       ! This is a verification run or a run on a single processor
       ! or the divided states have been read, just set pointers
@@ -312,7 +312,7 @@ CONTAINS
       p_grf_state => p_grf_state_global
       !ENDIF
       
-      IF(p_nprocs == 1 .OR. p_pe == p_test_pe) THEN
+      IF(my_process_is_mpi_seq()) THEN
         p_patch(:)%comm = p_comm_work
       ELSE
         CALL set_patch_communicators(p_patch)
@@ -333,7 +333,7 @@ CONTAINS
       
       CALL message(TRIM(routine),'ldump_states is set: dumping patches+states and finishing')
       
-      IF(p_pe /= p_test_pe) THEN
+      IF(.NOT. my_process_is_mpi_test()) THEN
         DO jg = n_dom_start, n_dom
           CALL dump_patch_state_netcdf(p_patch(jg),p_int_state(jg),p_grf_state(jg))
         ENDDO
@@ -451,7 +451,7 @@ CONTAINS
     !IF (iequations /= ihs_ocean) THEN
 
     CALL destruct_2d_interpol_state( p_int_state )
-    IF(p_nprocs == 1 .OR. p_pe == p_test_pe .OR. lrestore_states) THEN
+    IF(my_process_is_mpi_seq() .OR. lrestore_states) THEN
       DEALLOCATE (p_int_state_global, stat=ist)
     ELSE
       DEALLOCATE (p_int_state_subdiv, stat=ist)
@@ -466,7 +466,7 @@ CONTAINS
 
     CALL destruct_patches( p_patch )
 
-    IF(p_nprocs == 1 .OR. p_pe == p_test_pe .OR. lrestore_states) THEN
+    IF(my_process_is_mpi_seq() .OR. lrestore_states) THEN
       DEALLOCATE( p_patch_global, stat=ist )
     ELSE
       DEALLOCATE( p_patch_subdiv, stat=ist )
