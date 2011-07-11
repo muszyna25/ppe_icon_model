@@ -48,8 +48,9 @@ MODULE mo_communication
 USE mo_kind,               ONLY: wp
 USE mo_exception,          ONLY: finish
 USE mo_mpi,                ONLY: p_pe, p_nprocs, p_send, p_recv, p_irecv, p_wait, p_isend, &
-     &                           p_real_dp, p_int, p_bool, p_comm_work
-USE mo_parallel_configuration, ONLY: p_pe_work, p_test_pe, p_n_work,&
+     & p_real_dp, p_int, p_bool, p_comm_work, &
+     & my_process_is_mpi_seq
+USE mo_parallel_configuration, ONLY: p_pe_work, p_n_work,&
   & iorder_sendrecv, nproma
 USE mo_timer,              ONLY: timer_start, timer_stop, timer_sync_data
 
@@ -305,7 +306,7 @@ SUBROUTINE setup_comm_pattern(n_points, owner, global_index, local_index, p_pat)
 
 !-----------------------------------------------------------------------
 
-   if(p_nprocs == 1 .OR. p_pe == p_test_pe) &
+   if(my_process_is_mpi_seq()) &
       CALL finish('setup_comm_pattern','must not be called on single PE/test PE')
 
    ALLOCATE(icnt(0:p_n_work-1))
@@ -536,7 +537,7 @@ SUBROUTINE exchange_data_r3d(p_pat, recv, send, add, send_lbound3)
 
    !-----------------------------------------------------------------------
 
-   IF(p_nprocs == 1 .OR. p_pe == p_test_pe) &
+   IF(my_process_is_mpi_seq()) &
      CALL finish('exchange_data','must not be called on single PE/test PE')
 
    IF(SIZE(recv,1) /= nproma) THEN
@@ -725,7 +726,7 @@ SUBROUTINE exchange_data_i3d(p_pat, recv, send, add, send_lbound3)
 
    !-----------------------------------------------------------------------
 
-   IF(p_nprocs == 1 .OR. p_pe == p_test_pe) &
+   IF(my_process_is_mpi_seq()) &
      CALL finish('exchange_data','must not be called on single PE/test PE')
 
    IF(SIZE(recv,1) /= nproma) THEN
@@ -913,7 +914,7 @@ SUBROUTINE exchange_data_l3d(p_pat, recv, send, send_lbound3)
 
    !-----------------------------------------------------------------------
 
-   IF(p_nprocs == 1 .OR. p_pe == p_test_pe) &
+   IF(my_process_is_mpi_seq()) &
      CALL finish('exchange_data','must not be called on single PE/test PE')
 
    IF(SIZE(recv,1) /= nproma) THEN
@@ -1093,7 +1094,7 @@ SUBROUTINE exchange_data_reverse_3(p_pat, recv, send)
 !-----------------------------------------------------------------------
 !BOC
 
-   IF(p_nprocs == 1 .OR. p_pe == p_test_pe) &
+   IF(my_process_is_mpi_seq()) &
       CALL finish('exchange_data_reverse','must not be called on single PE/test PE')
 
    IF(SIZE(recv,1) /= nproma) THEN
@@ -1896,7 +1897,7 @@ SUBROUTINE start_async_comm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1,
 
 !-----------------------------------------------------------------------
 
-   IF(p_nprocs == 1 .OR. p_pe == p_test_pe) RETURN
+   IF(my_process_is_mpi_seq()) RETURN
 
    ! Start with non-blocking receive calls
    DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
@@ -2005,7 +2006,7 @@ SUBROUTINE complete_async_comm(p_pat, nfields, ndim2tot, recv_buf, recv1, recv2,
 
 !-----------------------------------------------------------------------
 
-   IF(p_nprocs == 1 .OR. p_pe == p_test_pe) RETURN
+   IF(my_process_is_mpi_seq()) RETURN
 
    ! Set pointers to output fields
    IF (PRESENT(recv4d)) THEN
@@ -2718,7 +2719,7 @@ SUBROUTINE start_delayed_exchange
   INTEGER :: np
 
   ! Just ignore this call for 1 processor runs
-  IF (p_nprocs == 1 .OR. p_pe == p_test_pe) RETURN
+  IF (my_process_is_mpi_seq()) RETURN
 
   ! If the first time here: initialize send_bufs_r
 
@@ -2997,7 +2998,7 @@ SUBROUTINE do_delayed_exchange()
 !-----------------------------------------------------------------------
 
   ! Just ignore this call for 1 processor runs
-  IF (p_nprocs == 1 .OR. p_pe == p_test_pe) RETURN
+  IF (my_process_is_mpi_seq()) RETURN
 
   ALLOCATE(recv_bufs_r(0:p_n_work-1))
   ALLOCATE(recv_bufs_i(0:p_n_work-1))
