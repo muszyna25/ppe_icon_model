@@ -25,7 +25,7 @@ MODULE mo_mpi
   PUBLIC :: my_process_is_mpi_seq, my_process_is_mpi_test, my_process_is_mpi_root
   PUBLIC :: my_process_is_io
   PUBLIC :: run_is_global_mpi_parallel
-  PUBLIC :: get_mpi_root_id, get_my_global_mpi_id
+  PUBLIC :: get_mpi_root_id, get_my_global_mpi_id, get_my_mpi_all_id
   PUBLIC :: set_process_mpi_name
   PUBLIC :: set_process_mpi_communicator
 
@@ -327,14 +327,19 @@ CONTAINS
   END SUBROUTINE set_process_mpi_name
 
   !------------------------------------------------------------------------------
-
   ! Rene: this has become obsolete and should be erased.
-
+  ! Leonidas: It is used to idendify globally the proccess that caused an error
   INTEGER FUNCTION get_my_global_mpi_id()
     get_my_global_mpi_id = my_global_mpi_id
   END FUNCTION get_my_global_mpi_id
   !------------------------------------------------------------------------------
 
+  !------------------------------------------------------------------------------
+  INTEGER FUNCTION get_my_mpi_all_id()
+    get_my_mpi_all_id = my_process_mpi_all_id
+  END FUNCTION get_my_mpi_all_id
+  !------------------------------------------------------------------------------
+  
   !------------------------------------------------------------------------------
   INTEGER FUNCTION get_mpi_root_id()
     get_mpi_root_id = process_mpi_root_id
