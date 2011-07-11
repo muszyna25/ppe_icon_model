@@ -206,7 +206,6 @@ MODULE mo_run_nml
   ! -----------------------------------------------------------------------
   !
   LOGICAL  :: lshallow_water! if .TRUE., the model runs in shallow water mode
-  LOGICAL  :: latmosphere   ! if .TRUE., the model runs in atmosphere mode
   LOGICAL  :: locean        ! if .TRUE., the model runs in ocean mode
   LOGICAL  :: lhydrostatic  ! if .TRUE., the model runs in hydrostatic mode
   LOGICAL  :: lforcing      ! if .TRUE., the model runs with parameterized forcing
@@ -276,15 +275,12 @@ CONTAINS
 !       ENDIF
 !       ltheta_dyn     = .FALSE.
 !     CASE (ihs_atm_temp)
-!       latmosphere    = .TRUE.
 !       lhydrostatic   = .TRUE.
 !       ltheta_dyn     = .FALSE.
 !     CASE (ihs_atm_theta)
-!       latmosphere    = .TRUE.
 !       lhydrostatic   = .TRUE.
 !       ltheta_dyn     = .TRUE.
 !     CASE (inh_atmosphere)
-!       latmosphere    = .TRUE.
 !       lhydrostatic   = .FALSE.
 !     CASE (ihs_ocean)
 !       locean         = .TRUE.
@@ -498,7 +494,6 @@ SUBROUTINE read_run_namelist
    ! auxiliary switches set as function of iequations
    ! (not included in run_ctl)
    lshallow_water = .FALSE.
-   latmosphere    = .FALSE.
    locean         = .FALSE.
    lhydrostatic   = .FALSE.
    lforcing       = .FALSE.

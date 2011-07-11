@@ -63,7 +63,6 @@
 !!    - moved nlev from namelist hydrostatic_ctl to namelist run_ctl
 !!    - removed nlev_ocean from ocean_ctl
 !!    - added iequations
-!!    - added latmosphere
 !!  Modification by Almut Gassmann, MPI-M (2009-03-05)
 !!  - start preparation for NH Model
 !!  Modification by M. Giorgetta, MPI-M (2009-03-22)

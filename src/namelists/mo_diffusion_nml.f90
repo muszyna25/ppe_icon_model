@@ -49,8 +49,7 @@ MODULE mo_diffusion_nml
   USE mo_namelist,            ONLY: position_nml, positioned
   USE mo_master_nml,          ONLY: lrestart
   USE mo_mpi,                 ONLY: p_pe, p_io
-  USE mo_run_nml,             ONLY: lshallow_water,nlev, &
-    &                               latmosphere, lhydrostatic
+  USE mo_run_nml,             ONLY: lshallow_water,nlev
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_grid_configuration,  ONLY: global_cell_type
   USE mo_vertical_coord_table,ONLY: vct_a, vct_b, apzero
@@ -140,75 +139,40 @@ MODULE mo_diffusion_nml
    CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_diffusion_nml/diffusion_nml_setup:'
 
-   !------------------------------------------------------------
-   ! 1.0 set up the default values for diffusion_ctl
-   !------------------------------------------------------------
-
-   nml_lhdiff_temp       = .TRUE.
-   nml_lhdiff_vn         = .TRUE.
-
-   nml_hdiff_order       = 4
-   nml_hdiff_efdt_ratio  = 1.0_wp
-   nml_hdiff_min_efdt_ratio = 1.0_wp
-   nml_hdiff_multfac     = 1.0_wp
-   nml_hdiff_smag_fac    = 0.15_wp
-   nml_hdiff_tv_ratio    = 1.0_wp
-
-   nml_k2_pres_max       = -99.0_wp                                                    
-   nml_k2_klev_max       = 0
-
-    !----------------------------------------------------------------
-    ! If this is a resumed integration, overwrite the defaults above 
-    ! by values in the previous integration.
-    !----------------------------------------------------------------
-    IF (lrestart) THEN
-      funit = open_and_restore_namelist('diffusion_ctl')
-      READ(funit,NML=diffusion_ctl)
-      CALL close_tmpfile(funit)
-    END IF
-
-    !--------------------------------------------------------------------
-    ! Read user's (new) specifications (Done so far by all MPI processes)
-    !--------------------------------------------------------------------
-    CALL position_nml ('diffusion_ctl', status=istat)
-    SELECT CASE (istat)
-    CASE (POSITIONED)
-      READ (nnml, diffusion_ctl)
-    END SELECT
 
    !------------------------------------------------------------
    ! 4.0 check the consistency of the parameters
    !------------------------------------------------------------
 
-    SELECT CASE(nml_hdiff_order)
-    CASE(-1)
-      CALL message(TRIM(routine),'Horizontal diffusion switched off.')
-    CASE(2,4)
-      CONTINUE
+ !  SELECT CASE(nml_hdiff_order)
+ !  CASE(-1)
+ !    CALL message(TRIM(routine),'Horizontal diffusion switched off.')
+ !  CASE(2,4)
+ !    CONTINUE
 
-    CASE(3)
-      IF (global_cell_type==3) CALL finish(TRIM(routine), &
-      'nml_hdiff_order = 3 invalid for triangular model.')
+ !  CASE(3)
+ !    IF (global_cell_type==3) CALL finish(TRIM(routine), &
+ !    'nml_hdiff_order = 3 invalid for triangular model.')
 
-    CASE(5)
-      IF (global_cell_type==6) CALL finish(TRIM(routine), &
-      'nml_hdiff_order = 5 invalid for hexagonal model.')
+ !  CASE(5)
+ !    IF (global_cell_type==6) CALL finish(TRIM(routine), &
+ !    'nml_hdiff_order = 5 invalid for hexagonal model.')
 
-    CASE(24,42)
-      IF (.NOT.(latmosphere.AND.lhydrostatic)) CALL finish(TRIM(routine), &
-      'nml_hdiff_order = 24 or 42 only implemented for the hydrostatic atm model')
+ !  CASE(24,42)
+ !    IF (.NOT.(dynamics_config(1)%iequations==IHS_ATM_TEMP)) CALL finish(TRIM(routine), &
+ !    'nml_hdiff_order = 24 or 42 only implemented for the hydrostatic atm model')
 
-    CASE DEFAULT
-      CALL finish(TRIM(routine),                     &
-        & 'Error: Invalid choice of nml_hdiff_order. '// &                
-        & 'Choose from -1, 2, 3, 4, 5, 24, and 42.')
-    END SELECT
+ !  CASE DEFAULT
+ !    CALL finish(TRIM(routine),                     &
+ !      & 'Error: Invalid choice of nml_hdiff_order. '// &                
+ !      & 'Choose from -1, 2, 3, 4, 5, 24, and 42.')
+ !  END SELECT
 
-    IF (nml_hdiff_efdt_ratio<=0._wp) THEN
-      CALL message(TRIM(routine),'No horizontal background diffusion is used')
-    ENDIF
+ !  IF (nml_hdiff_efdt_ratio<=0._wp) THEN
+ !    CALL message(TRIM(routine),'No horizontal background diffusion is used')
+ !  ENDIF
 
-    IF ( lshallow_water ) nml_lhdiff_temp=.FALSE.
+ !  IF ( lshallow_water ) nml_lhdiff_temp=.FALSE.
 
     !-----------------------------------------------------------
     ! If using hybrid linear diffusion, set the starting and 
@@ -347,11 +311,9 @@ MODULE mo_diffusion_nml
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_diffusion_nml: read_diffusion_namelist'
 
-    !-----------------------------------------------------------------------
-
-    !-----------------------!
-    ! 1. default settings   !
-    !-----------------------!
+    !-----------------------
+    ! 1. default settings
+    !-----------------------
      nml_lhdiff_temp       = .TRUE.
      nml_lhdiff_vn         = .TRUE.
 

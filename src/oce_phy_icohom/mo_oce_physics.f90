@@ -537,7 +537,8 @@ CONTAINS
 !               ELSE
 !                 z_shear =&
 !                 & DOT_PRODUCT(p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x,&
-!                              &p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x)       !sum((Uelem(:,nz-1,nelem) - Uelem(:, nz, nelem))**2)
+!                              &p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x)       
+!sum((Uelem(:,nz-1,nelem) - Uelem(:, nz, nelem))**2)
 ! !write(*,*)'shear',z_shear
 !                 z_shear = z_shear*dz_inv*dz_inv
 ! 
