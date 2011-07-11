@@ -79,11 +79,9 @@ MODULE mo_icon_cpl_init_comp
    &                      ICON_global_rank, ICON_global_size, &
    &                      ICON_local_rank, ICON_local_size
 
-  USE mo_master_control,      ONLY: get_my_process_component
+!  USE mo_master_control,      ONLY: get_my_process_component
 
   IMPLICIT NONE
-
-  PRIVATE
 
   CHARACTER(len=*), PARAMETER    :: version = '$Id$'
 
@@ -101,11 +99,12 @@ MODULE mo_icon_cpl_init_comp
 
 #endif
 
-  PUBLIC :: ICON_cpl_init_comp
+  PUBLIC :: icon_cpl_init_comp
+!  PRIVATE
 
 CONTAINS
 
-  SUBROUTINE ICON_cpl_init_comp ( comp_name, comp_id, ierror )
+  SUBROUTINE icon_cpl_init_comp ( comp_name, comp_id, ierror )
 
     CHARACTER(len=*), INTENT(in) :: comp_name
     INTEGER, INTENT(out)         :: comp_id
@@ -184,7 +183,7 @@ CONTAINS
     ! Derive component communicators
     ! -------------------------------------------------------------------
 
-    color = get_my_process_component() ! Rene: this should not be in here.
+    color = 1!get_my_process_component() ! Rene: this should not be in here.
     key   = 0
 
     CALL cpl_nml_setup(comp_id)
@@ -361,6 +360,6 @@ CONTAINS
 
     ierror = set_cpl_local_comm ( comp_comm )
 
-  END SUBROUTINE ICON_cpl_init_comp
+  END SUBROUTINE icon_cpl_init_comp
 
 END MODULE mo_icon_cpl_init_comp
