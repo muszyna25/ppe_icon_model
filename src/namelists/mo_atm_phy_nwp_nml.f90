@@ -40,24 +40,15 @@
 MODULE mo_atm_phy_nwp_nml
 
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: max_dom,MAX_CHAR_LENGTH,itconv,itccov,&
-    &                               itrad,itradheat, itsso,itgscp,itsatad,itupdate,&
-    &                               itturb, itsfc,  itgwd, iphysproc
+  USE mo_impl_constants,      ONLY: max_dom,MAX_CHAR_LENGTH
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_namelist,            ONLY: position_nml, POSITIONED
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_master_nml,          ONLY: lrestart
-  USE mo_nonhydrostatic_nml,  ONLY: iadv_rcf
-  USE mo_dynamics_nml,        ONLY: ldry_dycore
-  USE mo_io_nml,              ONLY: lwrite_extra
-  USE mo_run_nml,             ONLY: dtime, ltestcase
+ 
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_model_domain_import, ONLY: n_dom
-  USE mo_radiation_nml,       ONLY: read_radiation_nml, irad_o3
 
-!   USE mo_echam_vdiff_nml,     ONLY: echam_vdiff_nml_setup
-  USE mo_icoham_sfc_indices,  ONLY: init_sfc_indices, nsfc_type
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
     &                               open_and_restore_namelist, close_tmpfile
 
@@ -69,7 +60,6 @@ MODULE mo_atm_phy_nwp_nml
     &                               itype_wcld, icldm_turb,                  &
     &                               itype_tran, rlam_heat, rlam_mom, rat_sea,&
     &                               llake, lseaice
-
 
   IMPLICIT NONE
 
@@ -141,156 +131,9 @@ MODULE mo_atm_phy_nwp_nml
 
 
    PUBLIC :: read_nwp_phy_namelist 
-   PUBLIC ::  setup_nwp_phy
 
  CONTAINS
 
-  !-------------------------------------------------------------------------
-  !
-  !>
-  !! Setup NWP physics
-  !!
-  !! Read namelist for physics. Choose the physical package and subsequent
-  !! parameters.
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2010-10-06)
-  !!
-  SUBROUTINE setup_nwp_phy( p_patch )
-
-    TYPE(t_patch), OPTIONAL, INTENT(IN) :: p_patch(:)
-
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = 'mo_atm_phy_nwp_nml'
-    !-------------------------------------------------------------------------
-
-    ldry_dycore     = .FALSE.
-
-    !> set default physics switches and values
-    IF (PRESENT(p_patch)) THEN
-!      CALL set_inwp_nml( p_patch )
-    ELSE
-!      CALL set_inwp_nml
-    ENDIF
-
-    !
-    !> final settings via namelist
-
-   CALL read_inwp_nml
-
-
-    IF ( nml_inwp_radiation > 0 )  THEN
-!      CALL read_radiation_nml
-      SELECT CASE (irad_o3)
-      CASE (0,6)
-        ! ok
-      CASE default
-        CALL finish('setup_nwp_phy: radiation_nml','irad_o3 currently has to be 0 or 6.')
-      END SELECT
-
-    ENDIF
-
-!    IF(inwp_turb == 2) THEN
-!       CALL echam_vdiff_nml_setup
-!       CALL init_sfc_indices( ltestcase, 'APE' ) !call of a hydrostatic testcase
-                                             ! to obtain the demanded parameters
-!    ENDIF
-
-      CALL message(TRIM(routine), 'nwp_physics namelist read in')
-  
-  END SUBROUTINE setup_nwp_phy
-
-
-
-  !-------------------------------------------------------------------------
-  !
-  !>
-  !! Set default values for physics Namelist
-  !!
-  !!
-  !! @par Revision History
-  !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
-  !!
-!!$  SUBROUTINE set_inwp_nml( p_patch )
-!!$
-!!$    TYPE(t_patch), OPTIONAL, INTENT(IN) :: p_patch(:)
-!!$
-!!$  !-----------------------------------------------------------------------
-!!$
-!!$    inwp_gscp       = 0           !> 0 = no microphysics
-!!$    inwp_satad      = 0           !> 1 = saturation adjustment on
-!!$    inwp_convection = 0           !> 0 = no convection
-!!$    inwp_radiation  = 0           !> 0 = no radiation
-!!$    inwp_sso        = 0           !> 0 = no sso
-!!$    inwp_gwd        = 0           !> 0 = no gwd, 1= IFS gwd scheme
-!!$    inwp_cldcover   = 1           !> 1 = use grid-scale clouds for radiation
-!!$    inwp_turb       = 0           !> 0 = no turbulence,1= cosmo/turbdiff,2=echam/vdiff
-!!$    inwp_surface    = 0           !> 0 = no surface, 1 =  cosmo surface
-!!$
-!!$    ! initialize the following values with zero to allow for namelist output
-!!$    dt_conv (:)  = 0.0_wp
-!!$    dt_ccov (:)  = 0.0_wp
-!!$    dt_rad  (:)  = 0.0_wp
-!!$    dt_sso  (:)  = 0.0_wp
-!!$    dt_gwd  (:)  = 0.0_wp
-!!$    dt_gscp (:)  = 0.0_wp
-!!$    dt_turb (:)  = 0.0_wp
-!!$    dt_sfc  (:)  = 0.0_wp
-!!$    dt_satad(:)  = 0.0_wp
-!!$    dt_update(:) = 0.0_wp
-!!$    dt_radheat(:)= 0.0_wp
-!!$
-!!$    ! default values of time interval for each physical paramterization
-!!$    IF (PRESENT(p_patch)) THEN
-!!$      DO jg=1,n_dom
-!!$        dt_conv (jg) = 600._wp      !seconds
-!!$        dt_ccov (jg) = dt_conv(jg)  !presently not used; cloud cover is synchronized with radiation
-!!$        dt_rad  (jg) = 1800._wp     !seconds
-!!$        dt_sso  (jg) = dt_conv(jg)  !seconds
-!!$        dt_gwd  (jg) = 600._wp     !seconds
-!!$
-!!$        !> intervals coupled to advective timestep
-!!$        !! all three processes have to take place at the same
-!!$        !! time step and frequency
-!!$
-!!$        dt_gscp (jg) = ( REAL(iadv_rcf,wp)              &
-!!$          &             * (dtime/2._wp**(p_patch(jg)%level &
-!!$          &             - p_patch(1)%level)) )          !seconds
-!!$        dt_turb (jg) = ( REAL(iadv_rcf,wp)              &
-!!$          &             * (dtime/2._wp**(p_patch(jg)%level &
-!!$          &             - p_patch(1)%level)) )          !seconds
-!!$        dt_sfc  (jg) = ( REAL(iadv_rcf,wp)              &
-!!$          &             * (dtime/2._wp**(p_patch(jg)%level &
-!!$          &             - p_patch(1)%level)) )          !seconds
-!!$        ! satad is coupled to advective timestep
-!!$        dt_satad(jg) = ( REAL(iadv_rcf,wp)              &
-!!$                        * dtime/2._wp**(p_patch(jg)%level &
-!!$           &              - p_patch(1)%level))          !seconds
-!!$        ! coupled to advective timestep
-!!$        dt_update(jg) =  dt_satad (jg)
-!!$        dt_radheat(jg)=  dt_update(jg)
-!!$
-!!$      ENDDO
-!!$    ELSE ! patch information is not available for call from io_async
-!!$      DO jg=1,n_dom
-!!$        dt_conv (jg) = 600._wp      !seconds
-!!$        dt_ccov (jg) = dt_conv(jg)  !presently not used; cloud cover is synchronized with radiation
-!!$        dt_rad  (jg) = 1800._wp     !seconds
-!!$        dt_sso  (jg) = 3600._wp     !seconds
-!!$        dt_gwd  (jg) = 3600._wp     !seconds
-!!$        dt_gscp (jg) = 100._wp      !seconds
-!!$        dt_turb (jg) = 100._wp      !seconds
-!!$        dt_sfc  (jg) = 100._wp      !seconds
-!!$        dt_satad(jg) = 100._wp      !seconds
-!!$        dt_update(jg) =  dt_satad (jg)
-!!$        dt_radheat(jg)=  dt_update(jg)
-!!$      ENDDO
-!!$    ENDIF
-!!$
-!!$  !> KF  current settings to get NWP turbulence running
-!!$        lseaice    = .FALSE.
-!!$        llake      = .FALSE.
-!!$
-!!$  END SUBROUTINE set_inwp_nml
 
   !-------------------------------------------------------------------------
   !

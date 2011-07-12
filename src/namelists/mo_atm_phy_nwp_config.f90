@@ -49,6 +49,9 @@ MODULE mo_atm_phy_nwp_config
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_grid_configuration,  ONLY: n_dom
 
+  USE mo_run_nml,             ONLY: dtime, ltestcase
+!  USE mo_dynamics_nml,        ONLY: ldry_dycore
+!  USE mo_nonhydrostatic_nml,  ONLY: iadv_rcf
   USE mo_data_turbdiff,       ONLY: imode_turb,                              &
     &                               limpltkediff, ltkesso, lexpcor,          &
     &                               tur_len, pat_len, a_stab,                &
@@ -56,6 +59,10 @@ MODULE mo_atm_phy_nwp_config
     &                               itype_wcld, icldm_turb,                  &
     &                               itype_tran, rlam_heat, rlam_mom, rat_sea,&
     &                               llake, lseaice 
+
+  USE mo_icoham_sfc_indices,  ONLY: init_sfc_indices, nsfc_type
+
+  USE mo_radiation_nml,       ONLY: read_radiation_nml, irad_o3
 
   IMPLICIT NONE
 
@@ -121,12 +128,24 @@ MODULE mo_atm_phy_nwp_config
 CONTAINS
 
 SUBROUTINE setup_atm_nwp_phy
+ !-------------------------------------------------------------------------
+  !
+  !>
+  !! Setup NWP physics
+  !!
+  !! Read namelist for physics. Choose the physical package and subsequent
+  !! parameters.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2010-10-06)
+  !! revision for restructurring by Kristina Froehlich MPI-M (2011-07-12)
 
   INTEGER :: jg
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine =  &
                               'setup_atm_phy_nwp'
 
+!    ldry_dycore     = .FALSE.
     tcall_phy(:,:) = 0._wp
 
 ! TO BE MOVED TO    consistency check
@@ -143,6 +162,16 @@ SUBROUTINE setup_atm_nwp_phy
 !     & .AND. (inwp_sso==0)  .AND. (inwp_surface == 0) .AND. (inwp_turb> 0) )   &
 !     CALL message(TRIM(routine),' WARNING! NWP forcing set but only turbulence selected!')
 
+!CROSSCHECKING!!
+!    IF (  atm_phy_nwp_config(1)%nml_inwp_radiation > 0 )  THEN
+!      CALL read_radiation_nml
+!      SELECT CASE (irad_o3)
+!      CASE (0,6)
+!        ! ok
+!      CASE default
+!        CALL finish('setup_nwp_phy: radiation_nml','irad_o3 currently has to be 0 or 6.')
+!      END SELECT
+!    ENDIF
 
 
     DO jg = 1,n_dom
@@ -227,6 +256,9 @@ SUBROUTINE setup_atm_nwp_phy
 
     ENDDO
 
+    !KF some parameters are not yet domain dependend, therefore I put 
+    ! the domain= 1
+
       lseaice    = atm_phy_nwp_config(1)%lseaice       
       llake      = atm_phy_nwp_config(1)%llake         
       imode_turb = atm_phy_nwp_config(1)%imode_turb    
@@ -246,6 +278,12 @@ SUBROUTINE setup_atm_nwp_phy
       rlam_mom    = atm_phy_nwp_config(1)%rlam_mom
       rat_sea     = atm_phy_nwp_config(1)%rat_sea     
 
+
+
+    IF( atm_phy_nwp_config(1)%inwp_turb == 2) THEN
+       CALL init_sfc_indices( ltestcase, 'APE' ) !call of a hydrostatic testcase
+                                             ! to obtain the demanded parameters
+    ENDIF
  
 END SUBROUTINE setup_atm_nwp_phy
 
