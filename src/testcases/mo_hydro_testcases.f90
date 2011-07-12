@@ -449,9 +449,12 @@ DO jg = 1,n_dom
      CASE ('GW')
         !
         IF (.NOT.ltwotime) &
-             & CALL init_hydro_state_prog_gwtest(pt_patch(jg),  &
+        CALL init_hydro_state_prog_gwtest(                    &
+             & dynamics_config(jg)%lcoriolis, pt_patch(jg),   &
              & ext_data(jg), pt_hydro_state(jg)%prog(nold(jg)))
-        CALL init_hydro_state_prog_gwtest(pt_patch(jg),         &
+
+        CALL init_hydro_state_prog_gwtest(                    &
+             & dynamics_config(jg)%lcoriolis, pt_patch(jg),   &
              & ext_data(jg), pt_hydro_state(jg)%prog(nnow(jg)))
 
      CASE ('MRW')

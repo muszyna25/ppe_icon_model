@@ -6,8 +6,6 @@
 !!     - separated namelist run_ctl from mo_global_variables
 !!     - therefore, added mo_run_nml
 !!     - restructured variable declaration section
-!!     - introduced initialization variables 
-!!       (iinit,ianalytic,irestart)
 !!     - added cell geomtry variables itri and ihex
 !!
 !! @par Copyright
@@ -54,8 +52,8 @@ MODULE mo_run_nml
   USE mo_master_nml,         ONLY: lrestart
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
   USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,   &
-                                 & open_and_restore_namelist, close_tmpfile
-  USE mo_run_config,         ONLY: run_config
+                                    & open_and_restore_namelist, close_tmpfile
+  USE mo_run_config,            ONLY: run_config
 
   IMPLICIT NONE
 
@@ -68,12 +66,6 @@ MODULE mo_run_nml
   ! ------------------------------------------------------------------------
   ! 1.0 Namelist variables and auxiliary parameters
   ! ------------------------------------------------------------------------
-
-  ! initialization
-  ! --------------
-  INTEGER          :: iinit               ! model initialization:
-
-
   ! computing setup
   ! ---------------
 
@@ -147,9 +139,6 @@ MODULE mo_run_nml
                          ! - compute boundary conditions from external data
                          ! - compute processes as specified elsewhere
 
-  LOGICAL  :: lcorio     ! if .TRUE.,  the Coriolis force is switched on,
-                         ! if .FALSE., the Coriolis force is switched off
-
   INTEGER  :: itopo      ! flag for topography handling
                          ! 0: corresponds to analytical topography,
                          ! 1: corresponds to netcdf files provided by
@@ -175,13 +164,13 @@ MODULE mo_run_nml
   LOGICAL :: lrestore_states ! Restore patch/interpolation/grid refinement states
                              ! from dump files instead of calculating them
 
-  NAMELIST /run_ctl/ iinit, num_lev, nshift,               &
+  NAMELIST /run_ctl/ num_lev, nshift,               &
     &                lvert_nest, ntracer,                  &
     &                run_day,                              &
     &                run_hour, run_minute, run_second,     &
     &                nsteps, dtime,                        &
     &                ldynamics, ltransport, iforcing,      &
-    &                ltestcase, lcorio, itopo, msg_level,  &
+    &                ltestcase, itopo, msg_level,  &
     &                ldump_states, lrestore_states, ltimer,&
     &                timers_level, inextra_2d, inextra_3d
 
@@ -423,8 +412,6 @@ SUBROUTINE read_run_namelist
    !------------------------------------------------------------
    ! 1. default settings
    !------------------------------------------------------------
-   ! initialization
-   iinit          = ianalytic
 
    ! dimensions for new, initialized experiments
    num_lev(:)     = 31  ! number of full levels for each domain
@@ -466,7 +453,6 @@ SUBROUTINE read_run_namelist
     ! details of the testcase are controled by 'testcase_ctl'
     ltestcase      = .TRUE.
 
-    lcorio         = .TRUE.
     itopo          = 0
     msg_level      = 10
     ltimer         = .TRUE.
@@ -519,7 +505,6 @@ SUBROUTINE read_run_namelist
       run_config(jg)%ntracer         = ntracer 
       run_config(jg)%ntracer_static  = ntracer_static   
       run_config(jg)%iforcing        = iforcing 
-      run_config(jg)%lcorio          = lcorio   
       run_config(jg)%itopo           = itopo 
       run_config(jg)%dtime           = dtime 
       run_config(jg)%dtrk(3)         = dtrk(3)

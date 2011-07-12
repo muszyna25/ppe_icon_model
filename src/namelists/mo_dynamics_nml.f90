@@ -93,8 +93,10 @@ MODULE mo_dynamics_nml
   REAL(wp) :: sw_ref_height      ! reference height to linearize around if using
                                  ! lshallow_water and semi-implicit correction
 
+  LOGICAL  :: nml_lcoriolis      ! if .TRUE.,  the Coriolis force is switched on
+
   NAMELIST/dynamics_nml/ nml_iequations, itime_scheme, idiv_method, divavg_cntrwgt, &
-    &                   ldry_dycore, sw_ref_height
+    &                   ldry_dycore, sw_ref_height, nml_lcoriolis
 
 CONTAINS
 
@@ -112,6 +114,7 @@ CONTAINS
     divavg_cntrwgt = 0.5_wp
     ldry_dycore    = .FALSE.
     sw_ref_height  = 0.9_wp*2.94e4_wp/grav
+    nml_lcoriolis  = .TRUE.
  
     !------------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above by 
@@ -165,6 +168,7 @@ CONTAINS
     dynamics_config(:)% divavg_cntrwgt = divavg_cntrwgt
     dynamics_config(:)% ldry_dycore    = ldry_dycore
     dynamics_config(:)% sw_ref_height  = sw_ref_height
+    dynamics_config(:)% lcoriolis      = nml_lcoriolis
 
   END SUBROUTINE read_dynamics_namelist
 

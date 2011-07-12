@@ -9,7 +9,7 @@
 !! and diagnostics.
 !!
 !! @author Almut Gassmann (MPI-M)
-!! @author Daniel Reiner�t (DWD-M)
+!! @author Daniel Reinert (DWD-M)
 !!
 !! @par Revision History
 !! Initial release by Almut Gassmann, MPI-M (2009-03-06)
@@ -78,10 +78,11 @@ MODULE mo_nonhydro_state
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: t_nh_prog             ! state vector of prognostic variables
-  PUBLIC :: t_nh_diag             ! state vector of diagnostic variables
-  PUBLIC :: t_nh_metrics          ! state vector of metrics variables
-  PUBLIC :: t_nh_state            ! state vector of nonhydrostatic variables
+  PUBLIC :: t_nh_prog             ! state vector of prognostic variables (type)
+  PUBLIC :: t_nh_diag             ! state vector of diagnostic variables (type)
+  PUBLIC :: t_nh_metrics          ! state vector of metrics variables (type)
+  PUBLIC :: t_nh_state            ! state vector of nonhydrostatic variables (type)
+  PUBLIC :: p_nh_state            ! state vector of nonhydrostatic variables (variable)
 
   PUBLIC :: construct_nh_state    ! Constructor for the nonhydrostatic state
   PUBLIC :: destruct_nh_state     ! Destructor for the nonhydrostatic state
@@ -415,7 +416,7 @@ MODULE mo_nonhydro_state
 
   END TYPE t_nh_state
 
-
+  TYPE(t_nh_state), TARGET, ALLOCATABLE :: p_nh_state(:)
 
   CONTAINS
 
@@ -440,8 +441,7 @@ MODULE mo_nonhydro_state
     TYPE(t_patch),     INTENT(IN)   ::  & ! patch
       &  p_patch(n_dom)
 
-    TYPE(t_nh_state),  INTENT(INOUT)::  & ! nh state at different grid levels
-      &  p_nh_state(n_dom)
+    TYPE(t_nh_state),ALLOCATABLE,INTENT(INOUT) :: p_nh_state(:)
 
     INTEGER, OPTIONAL, INTENT(IN)   ::  & ! number of timelevels
       &  n_timelevels    
@@ -460,6 +460,13 @@ MODULE mo_nonhydro_state
 !-----------------------------------------------------------------------
 
     CALL message (TRIM(routine), 'Construction of NH state started')
+
+ !  n_dom = SIZE(p_patch)
+
+    ALLOCATE (p_nh_state(n_dom), stat=ist)
+    IF (ist /= success) THEN
+      CALL finish(TRIM(routine),'allocation for p_nh_state failed')
+    ENDIF
 
     DO jg = 1, n_dom
 

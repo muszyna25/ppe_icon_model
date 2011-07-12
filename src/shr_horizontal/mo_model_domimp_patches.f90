@@ -129,11 +129,11 @@ USE mo_grid_configuration, ONLY: start_lev, nroot, n_dom, n_dom_start,    &
      & dynamics_grid_filename,  dynamics_parent_grid_id,  &
      & radiation_grid_filename, dynamics_radiation_grid_link,   &
      & no_of_dynamics_grids, no_of_radiation_grids,          &
-     & global_cell_type
+     & global_cell_type, lplane
 !DR USE mo_model_domimp_topo,  ONLY: init_topography
 USE mo_ocean_topo,         ONLY: init_ocean_patch
 
-USE mo_grid_configuration, ONLY: global_cell_type
+USE mo_dynamics_config,    ONLY: dynamics_config
 
 #ifndef NOMPI
 ! The USE statement below lets this module use the routines from
@@ -247,8 +247,6 @@ END SUBROUTINE set_patches_grid_filename
 !!  - new subroutine for initialization of ocean patch
 !!
 SUBROUTINE import_patches( p_patch )
-
-!
 
 TYPE(t_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
 
@@ -403,14 +401,15 @@ GRID_LEVEL_LOOP: DO jg = n_dom_start, n_dom
 
   ! calculate Cartesian components of primal normal
   ! (later these should be provided by the grid generator)
-  CALL calculate_cart_normal( p_single_patch )
+  CALL calculate_cart_normal( dynamics_config(jg)%lcoriolis, p_single_patch )
 
   ! Initialize the data for the quadrilateral cells
   ! formed by the two adjacent cells of an edge.
   ! (later this should be provided by the grid generator)
   CALL init_quad_twoadjcells( p_single_patch )
 
-  CALL init_coriolis( p_single_patch )
+  CALL init_coriolis( dynamics_config(jg)%lcoriolis, &
+                      lplane, p_single_patch )
 
 
   IF (locean) THEN

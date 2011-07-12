@@ -471,5 +471,7 @@ TYPE t_int_state
 
 END TYPE t_int_state
 
+TYPE(t_int_state),TARGET,ALLOCATABLE :: p_int_state_global(:), p_int_state_subdiv(:)
+TYPE(t_int_state),POINTER            :: p_int_state(:)
 
 END MODULE mo_intp_data_strc

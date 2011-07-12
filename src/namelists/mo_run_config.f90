@@ -59,16 +59,13 @@ MODULE mo_run_config
 
     LOGICAL :: ltestcase       !< Run idealized test case
     LOGICAL :: ldynamics       !< Switch on model dynamics
-    LOGICAL :: ltheta_dyn      !< if .true., use potential temperature
-                               !< times delta p as prognostic variable
+
     LOGICAL :: ltransport      !< Switch on tracer transport
     INTEGER :: ntracer         !< Total number of advected tracers
     INTEGER :: ntracer_static  !< Total number of non-advected tracers
 
     INTEGER :: iforcing        !< Choice of diabatic forcing
-    LOGICAL :: lcorio          ! if .TRUE.,  the Coriolis force is switched on,
-                               ! if .FALSE., the Coriolis force is switched off
-                               ! timer
+
     LOGICAL :: ltimer          ! if .TRUE.,  the timer is switched on
     INTEGER :: timers_level    ! what level of timers to run
 

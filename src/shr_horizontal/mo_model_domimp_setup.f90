@@ -111,11 +111,10 @@ USE mo_exception,          ONLY: finish
 USE mo_model_domain,       ONLY: t_patch
 USE mo_physical_constants, ONLY: omega
 USE mo_parallel_configuration,  ONLY: nproma
-USE mo_run_nml,            ONLY: lcorio
 USE mo_math_utilities,     ONLY: gvec2cvec, t_cartesian_coordinates
 USE mo_math_constants,     ONLY: pi_2
 USE mo_loopindices,        ONLY: get_indices_e
-USE mo_grid_configuration, ONLY: lplane, corio_lat
+USE mo_grid_configuration, ONLY: corio_lat
 
 IMPLICIT NONE
 
@@ -146,8 +145,10 @@ CONTAINS
 !! Modifiaction by A. Gassmann(2010-09-05)
 !! - added also tangential normal, and generalize to lplane
 !!
-SUBROUTINE calculate_cart_normal( p_patch )
+SUBROUTINE calculate_cart_normal( lplane, p_patch )
 !
+
+LOGICAL,INTENT(IN) :: lplane
 TYPE(t_patch), TARGET, INTENT(inout) :: p_patch  ! patch on a specific level
 
 TYPE(t_cartesian_coordinates) :: z_vec
@@ -452,9 +453,10 @@ END SUBROUTINE init_quad_twoadjcells
 !! Modification by Daniel Reinert, DWD (2010-07-13),
 !! - Allocation of f_c, f_e, f_v has been moved to read_patch
 !!
-SUBROUTINE init_coriolis( p_patch )
+SUBROUTINE init_coriolis( lcorio, lplane, p_patch )
 !
 
+LOGICAL,INTENT(IN) :: lcorio, lplane
 TYPE(t_patch), TARGET, INTENT(inout) :: p_patch ! patch on specific level
 
 INTEGER :: nlen,                         &

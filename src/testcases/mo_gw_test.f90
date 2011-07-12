@@ -59,7 +59,6 @@ MODULE mo_gw_test
   USE mo_math_constants,      ONLY: pi
   USE mo_vertical_coord_table,ONLY: vct_a,vct_b
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,             ONLY: lcorio
 
   IMPLICIT NONE
 
@@ -92,11 +91,12 @@ MODULE mo_gw_test
  !! @par
  !!  arguments
  !!
- SUBROUTINE init_hydro_state_prog_gwtest(pt_patch, pt_ext_data, pt_prog)
+ SUBROUTINE init_hydro_state_prog_gwtest(lcorio,pt_patch, pt_ext_data, pt_prog)
 
 
      IMPLICIT NONE
 
+     LOGICAL, INTENT(IN) :: lcorio
      TYPE(t_patch),            INTENT(INOUT) :: pt_patch
      TYPE(t_external_data),    INTENT(INOUT) :: pt_ext_data
      TYPE(t_hydro_atm_prog), INTENT(INOUT) :: pt_prog

@@ -132,7 +132,7 @@ MODULE mo_io_vlist
     &                               dtime, msg_level,               &
     &                               ldynamics, ltestcase,                       &
     &                               iforcing, inwp, iecham,ildf_echam,          &
-    &                               iqv, iqc, iqi, lcorio, nsteps, lforcing,    &
+    &                               iqv, iqc, iqi, nsteps, lforcing,    &
     &                               ihs_atm_temp, ihs_atm_theta,    &
     &                               inh_atmosphere, ishallow_water,             &
     &                               lvert_nest, inextra_2d,inextra_3d
@@ -162,7 +162,9 @@ MODULE mo_io_vlist
        &                            t_hydro_ocean_diag
   USE mo_oce_forcing,         ONLY: t_ho_sfc_flx
   USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
-  USE mo_atmo_control,        ONLY: p_patch, p_nh_state,p_lnd_state
+  USE mo_atmo_control,        ONLY: p_patch
+  USE mo_nonhydro_state,      ONLY: p_nh_state
+  USE mo_nwp_lnd_state,       ONLY: p_lnd_state
   USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend ,&
        &                            prm_diag, prm_nwp_tend
   USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag
@@ -570,7 +572,6 @@ CONTAINS
     CALL addGlobAttTxtFromLog('run_ctl:ltestcase',ltestcase,vlistID(k_jg),astatus)
     CALL addGlobAttInt('run_ctl:nproma',nproma,vlistID(k_jg),astatus)
     CALL addGlobAttInt('run_ctl:nsteps',nsteps,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('run_ctl:lcorio',lcorio,vlistID(k_jg),astatus)
     CALL addGlobAttInt('run_ctl:itopo',itopo,vlistID(k_jg),astatus)
     CALL addGlobAttInt('run_ctl:msg_level',msg_level,vlistID(k_jg),astatus)
     !
@@ -579,8 +580,8 @@ CONTAINS
     CALL addGlobAttInt('dynamics_ctl:itime_scheme',itime_scheme,vlistID(k_jg),astatus)
     CALL addGlobAttInt('dynamics_ctl:idiv_method',idiv_method,vlistID(k_jg),astatus)
     CALL addGlobAttFlt('dynamics_ctl:divavg_cntrwgt',divavg_cntrwgt,vlistID(k_jg),astatus)
-
-
+    CALL addGlobAttTxtFromLog('dynamics_ctl:lcoriolis',dynamics_config(k_jg)%lcoriolis, &
+                              vlistID(k_jg),astatus)
 
    !----------------------------
    ! namelist/ha_dyn_nml/

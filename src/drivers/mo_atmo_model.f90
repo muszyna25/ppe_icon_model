@@ -105,10 +105,8 @@ MODULE mo_atmo_model
     & restore_gridref_state_netcdf
 
   USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
-  USE mo_atmo_control,        ONLY: p_patch_global, p_patch_subdiv, p_patch,             &
-    & p_nh_state, p_lnd_state,                             &
-    & p_int_state_global, p_int_state_subdiv, p_int_state, &
-    & p_grf_state_global, p_grf_state_subdiv, p_grf_state
+  USE mo_nonhydro_state,      ONLY: p_nh_state
+  USE mo_atmo_control,        ONLY: p_patch_global, p_patch_subdiv, p_patch
 
   ! Horizontal grid
   !
@@ -158,7 +156,7 @@ MODULE mo_atmo_model
   USE mo_atm_phy_nwp_nml,     ONLY: setup_nwp_phy !, inwp_surface
   USE mo_lnd_nwp_nml,         ONLY: setup_nwp_lnd
   USE mo_nwp_lnd_state,       ONLY: construct_nwp_lnd_state,   &
-    & destruct_nwp_lnd_state
+    & destruct_nwp_lnd_state, p_lnd_state
  
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
   
@@ -174,6 +172,11 @@ MODULE mo_atmo_model
   
 
   !-------------------------------------------------------------------------
+  ! to break circular dependency
+
+  USE mo_intp_data_strc,      ONLY: p_int_state_global, p_int_state_subdiv, p_int_state
+  USE mo_grf_intp_data_strc,  ONLY: p_grf_state_global, p_grf_state_subdiv, p_grf_state
+
   !-------------------------------------------------------------------------
   USE mo_io_restart,           ONLY: read_restart_info_file, read_restart_files
   USE mo_io_restart_namelist,  ONLY: read_restart_namelists
@@ -501,14 +504,14 @@ CONTAINS
       ENDIF
       !
     CASE (inh_atmosphere)
-      ALLOCATE (p_nh_state(n_dom), stat=ist)
-      IF (ist /= success) THEN
-        CALL finish(TRIM(routine),'allocation for p_nh_state failed')
-      ENDIF
-      ALLOCATE (p_lnd_state(n_dom), stat=ist)
-      IF (ist /= success) THEN
-        CALL finish(TRIM(routine),'allocation for p_lnd_state failed')
-      ENDIF
+!     ALLOCATE (p_nh_state(n_dom), stat=ist)
+!     IF (ist /= success) THEN
+!       CALL finish(TRIM(routine),'allocation for p_nh_state failed')
+!     ENDIF
+!     ALLOCATE (p_lnd_state(n_dom), stat=ist)
+!     IF (ist /= success) THEN
+!       CALL finish(TRIM(routine),'allocation for p_lnd_state failed')
+!     ENDIF
       !
     END SELECT
     

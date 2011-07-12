@@ -65,7 +65,7 @@ MODULE mo_nh_stepping
   USE mo_atm_phy_nwp_config,  ONLY: tcall_phy
   USE mo_nwp_phy_init,        ONLY: init_nwp_phy
   USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, mean_charlen
-  USE mo_atmo_control,        ONLY: p_lnd_state
+  USE mo_nwp_lnd_state,       ONLY: p_lnd_state
   USE mo_ext_data,            ONLY: ext_data
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: n_dom, lfeedback, l_limited_area, &
@@ -227,7 +227,7 @@ MODULE mo_nh_stepping
   TYPE(t_int_state), INTENT(IN)        :: p_int(n_dom)
   TYPE(t_gridref_state), INTENT(INOUT) :: p_grf(n_dom)
 
-  TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
+  TYPE(t_nh_state),ALLOCATABLE, INTENT(INOUT):: p_nh_state(:)
 
   INTEGER :: ntl
 

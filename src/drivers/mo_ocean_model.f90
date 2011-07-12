@@ -83,9 +83,9 @@ MODULE mo_ocean_model
     & restore_interpol_state_netcdf
   
   USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
-  USE mo_atmo_control,        ONLY: p_patch_global, p_patch_subdiv, p_patch,             &
-    & p_int_state_global, p_int_state_subdiv, p_int_state, &
-    & p_grf_state_global, p_grf_state
+  USE mo_atmo_control,        ONLY: p_patch_global, p_patch_subdiv, p_patch
+  USE mo_intp_data_strc,      ONLY: p_int_state_global, p_int_state_subdiv, p_int_state
+  USE mo_grf_intp_data_strc,  ONLY: p_grf_state_global, p_grf_state
   
   ! Horizontal grid
   !

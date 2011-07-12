@@ -41,19 +41,15 @@
 !! $Id: n/a$
 !!
 MODULE mo_grf_intp_data_strc
-!-------------------------------------------------------------------------
-!
-!    ProTeX FORTRAN source: Style 2
-!    modified for ICON project, DWD/MPI-M 2006
-!
-!-------------------------------------------------------------------------
-!
-!
-!
-USE mo_kind,                ONLY: wp
+
+USE mo_kind, ONLY: wp
 
 PUBLIC
 
+!>
+!----------------------------------------------------------------------------
+!                                    Types
+!----------------------------------------------------------------------------
 TYPE t_gridref_single_state
 
   INTEGER, ALLOCATABLE  :: grf_vec_ind_1a (:,:,:), & ! index arrays defining the stencil
@@ -105,6 +101,11 @@ TYPE t_gridref_state
 
 END TYPE t_gridref_state
 
+  !----------------------------------------------------------------------------
+  !                                Variables
+  !----------------------------------------------------------------------------
+  TYPE(t_gridref_state), TARGET, ALLOCATABLE :: p_grf_state_global(:), p_grf_state_subdiv(:)
+  TYPE(t_gridref_state), POINTER             :: p_grf_state(:)
 
-!-------------------------------------------------------------------------
+
 END MODULE mo_grf_intp_data_strc

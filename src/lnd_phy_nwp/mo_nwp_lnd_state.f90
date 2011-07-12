@@ -96,7 +96,9 @@ MODULE mo_nwp_lnd_state
   PUBLIC :: destruct_nwp_lnd_state
   PUBLIC :: construct_tiles_arrays  !! HW: no corresponding "destruct" subroutine?
   !
-  !variables
+  PUBLIC :: p_lnd_state  !> state vector (variable) for land scheme
+
+  !types
   PUBLIC :: t_lnd_state  !> state vector  for land scheme
   PUBLIC :: t_lnd_prog   !!       for prognostic variables
   PUBLIC :: t_lnd_diag   !!       for diagnostic variables
@@ -202,7 +204,9 @@ MODULE mo_nwp_lnd_state
     TYPE(t_lnd_diag)               :: diag_lnd
     TYPE(t_var_list)               :: lnd_diag_nwp_list
   END TYPE t_lnd_state
- 
+
+  TYPE(t_lnd_state),TARGET,ALLOCATABLE :: p_lnd_state(:) 
+
   CONTAINS
 
 
@@ -225,7 +229,7 @@ MODULE mo_nwp_lnd_state
     TYPE(t_patch), TARGET, INTENT(IN)   :: p_patch(n_dom) ! patch
     INTEGER, OPTIONAL, INTENT(IN)       :: n_timelevels   ! number of timelevels
 
-    TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(n_dom)
+    TYPE(t_lnd_state),TARGET,ALLOCATABLE,INTENT(INOUT) :: p_lnd_state(:)
                                            ! nh state at different grid levels
     INTEGER :: ntl, &! local number of timelevels
                ist, &! status
@@ -240,6 +244,11 @@ MODULE mo_nwp_lnd_state
 !-----------------------------------------------------------------------
 
     CALL message (TRIM(routine), 'land state construction started')
+
+    ALLOCATE (p_lnd_state(n_dom), stat=ist)
+    IF (ist /= success) THEN
+      CALL finish(TRIM(routine),'allocation for p_lnd_state failed')
+    ENDIF
 
     DO jg = 1, n_dom
 

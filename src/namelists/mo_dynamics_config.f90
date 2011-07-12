@@ -67,6 +67,7 @@ MODULE mo_dynamics_config
                                 !< lshallow_water and semi-implicit correction
     LOGICAL  :: ldry_dycore     !< if .TRUE., ignore the effact of water vapor,
                                 !< cloud liquid and cloud ice on virtual temperature.
+    LOGICAL  :: lcoriolis       !< if .TRUE., Coriolis force is switched on     
 
     ! derived variables
 
@@ -114,10 +115,10 @@ CONTAINS
       ! Read time level indices from restart file.
       ! NOTE: this part will be modified later for a proper handling
       ! of multiple domains!!!
-                                                                                                
-      IF (ndom>1) &
-      CALL finish(TRIM(routine),'Restart functionality can not handle multiple domains (yet)')
-                                                                                                
+
+      IF (ndom>1) CALL finish(TRIM(routine), &
+      'Restart functionality can not handle multiple domains (yet)')
+
       jdom = 1  ! only consider one domain at the moment
       !DO jdom = 1,ndom
         CALL get_restart_attribute( 'nold'    ,dynamics_config(jdom)%nold )
@@ -127,14 +128,16 @@ CONTAINS
         CALL get_restart_attribute( 'nnew_rcf',dynamics_config(jdom)%nnew_rcf )
       !END DO
 
-    ELSE                                                                                        
+    ELSE ! not lrestart
+
       dynamics_config(:)%nnow = 1
       dynamics_config(:)%nnew = 2
       dynamics_config(:)%nold = 3
       dynamics_config(:)%nnow_rcf = 1
       dynamics_config(:)%nnew_rcf = 2
+
     END IF
-                                                                                                
+
     !------------------------
 
     dynamics_config(:)%nsav1 = 0

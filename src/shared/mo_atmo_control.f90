@@ -35,10 +35,6 @@
 MODULE mo_atmo_control
 
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_interpolation,       ONLY: t_int_state
-  USE mo_grf_interpolation,   ONLY: t_gridref_state
-  USE mo_nonhydro_state,      ONLY: t_nh_state
-  USE mo_nwp_lnd_state,       ONLY: t_lnd_state
 
   IMPLICIT NONE
 
@@ -49,19 +45,7 @@ MODULE mo_atmo_control
   TYPE(t_patch),         TARGET, ALLOCATABLE :: p_patch_global(:), p_patch_subdiv(:)
   TYPE(t_patch),         POINTER             :: p_patch(:)
 
-  TYPE(t_nh_state),      TARGET, ALLOCATABLE :: p_nh_state(:)
-  TYPE(t_lnd_state),     TARGET, ALLOCATABLE :: p_lnd_state(:)
-
-  TYPE(t_int_state),     TARGET, ALLOCATABLE :: p_int_state_global(:), p_int_state_subdiv(:)
-  TYPE(t_int_state),     POINTER             :: p_int_state(:)
-
-  TYPE(t_gridref_state), TARGET, ALLOCATABLE :: p_grf_state_global(:), p_grf_state_subdiv(:)
-  TYPE(t_gridref_state), POINTER             :: p_grf_state(:)
-
   PUBLIC :: p_patch_global, p_patch_subdiv, p_patch
-  PUBLIC :: p_nh_state,p_lnd_state
-  PUBLIC :: p_int_state_global, p_int_state_subdiv, p_int_state
-  PUBLIC :: p_grf_state_global, p_grf_state_subdiv, p_grf_state
 
   !-------------------------------------------------------------------------
 
