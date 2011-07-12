@@ -302,8 +302,7 @@ CONTAINS
 !       iqt    = 6     !! start index of other tracers than hydrometeors
 !     END SELECT
 ! 
-!     ! time step
-!     IF (dtime  <= 0._wp) CALL finish(routine,'"dtime" must be positive')
+
 
   
     ! 5.3 End date and time, and length of integration
@@ -312,7 +311,7 @@ CONTAINS
 
 !     IF (nsteps/=0) THEN
 ! 
-!       IF (nsteps < 0) CALL finish(routine,'"nsteps" must not be negative')
+!     
 !       length_sec   = REAL(nsteps,wp)*dtime
 !       end_datetime = current_datetime
 !       CALL add_time(length_sec,0,0,0,end_datetime)
@@ -491,6 +490,12 @@ SUBROUTINE read_run_namelist
     CASE (POSITIONED)
       READ (nnml, run_ctl)
     END SELECT
+
+    ! do some sanity checks
+
+    IF (nsteps < 0) CALL finish(routine,'"nsteps" must not be negative')
+!     ! time step
+     IF (dtime  <= 0._wp) CALL finish(routine,'"dtime" must be positive')
 
     !----------------------------------------------------
     ! 4. Fill the configuration state

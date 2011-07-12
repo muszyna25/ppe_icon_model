@@ -145,34 +145,7 @@ SUBROUTINE setup_atm_nwp_phy
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine =  &
                               'setup_atm_phy_nwp'
 
-!    ldry_dycore     = .FALSE.
     tcall_phy(:,:) = 0._wp
-
-! TO BE MOVED TO    consistency check
-!    IF( (inwp_convection >0 ) .OR. (inwp_gscp > 0)) inwp_satad = 1
-! consistency checks
-!     IF( MOD( REAL(iadv_rcf,wp)*dtime, dt_conv(1)) /= 0._wp )  THEN
-!       WRITE(message_text,'(a,I4,2F10.2)') &
-!          &'advective and convective timesteps are not- but will be synchronized ',&
-!      &     1, REAL(iadv_rcf,wp)*dtime,tcall_phy(1,itconv)
-!      CALL message(TRIM(routine), TRIM(message_text))
-!     ENDIF
-
-!   IF( (inwp_gscp==0) .AND. (inwp_convection==0) .AND. (inwp_radiation==0) &
-!     & .AND. (inwp_sso==0)  .AND. (inwp_surface == 0) .AND. (inwp_turb> 0) )   &
-!     CALL message(TRIM(routine),' WARNING! NWP forcing set but only turbulence selected!')
-
-!CROSSCHECKING!!
-!    IF (  atm_phy_nwp_config(1)%nml_inwp_radiation > 0 )  THEN
-!      CALL read_radiation_nml
-!      SELECT CASE (irad_o3)
-!      CASE (0,6)
-!        ! ok
-!      CASE default
-!        CALL finish('setup_nwp_phy: radiation_nml','irad_o3 currently has to be 0 or 6.')
-!      END SELECT
-!    ENDIF
-
 
     DO jg = 1,n_dom
       ! Slow physics:

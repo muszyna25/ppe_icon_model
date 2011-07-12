@@ -4,8 +4,8 @@
 !! Note that in a coupled simulation, each model component (e.g.,
 !! atmosphere, ocean) will have its own run-configuration.
 !! 
-!! @author <name, affiliation>
-!! @author <name, affiliation>
+!! @author Kristina Froehlich, MPI-M (2011-07-12)
+!! @author Hui Wan, MPI-M (2011-07-12)
 !!
 !! @par Revision History
 !! Initial version by Hui Wan (MPI-M, 2011-07-05)
@@ -103,7 +103,13 @@ MODULE mo_run_config
   !!
   TYPE(t_run_config) :: run_config(max_dom)
 
-! CONTAINS
+ CONTAINS
+
+SUBROUTINE setup_run
+
+
+
+END SUBROUTINE setup_run
 
 
 !  !---------------------------------------
