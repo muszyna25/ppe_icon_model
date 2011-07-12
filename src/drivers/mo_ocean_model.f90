@@ -35,16 +35,14 @@ MODULE mo_ocean_model
   USE mo_exception,           ONLY: message, finish  ! use always
   USE mo_mpi,                 ONLY: p_stop, p_pe, p_io, p_nprocs, &
     & p_comm_work_test, p_comm_input_bcast, p_comm_work, &
-    & my_process_is_mpi_test, my_process_is_mpi_seq
+    & my_process_is_mpi_test, my_process_is_mpi_seq, my_process_is_io
   USE mo_timer,               ONLY: init_timer, print_timer
   USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output
   USE mo_datetime,            ONLY: t_datetime
   USE mo_output,              ONLY: init_output_files
   USE mo_io_vlist,            ONLY: write_vlist_oce, destruct_vlist_oce
   
-  USE mo_parallel_configuration,        ONLY:   &
-    & p_test_run,           &
-    & p_io_pe0                ! Number of first I/O PE
+  USE mo_parallel_configuration, ONLY: p_test_run
   
   USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
   
@@ -200,7 +198,7 @@ CONTAINS
     ! If we belong to the I/O PEs just call io_main_proc before reading patches.
     ! This routine will never return
     
-    IF(p_pe >= p_io_pe0) CALL io_main_proc
+    IF (my_process_is_io()) CALL io_main_proc
     !-------------------------------------------------------------------
     
     !check patch allocation status
