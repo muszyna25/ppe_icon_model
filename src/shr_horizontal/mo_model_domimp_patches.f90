@@ -182,15 +182,56 @@ SUBROUTINE get_patch_global_indexes(patch_no, entity_type, no_of_entities, globa
   INTEGER, INTENT(out) :: no_of_entities
   INTEGER, POINTER :: global_indexes(:)  ! this is intent out, but nec does not allows it
 
+  INTEGER :: idx, return_status
+  
   CHARACTER(len=*), PARAMETER :: method_name='get_patch_global_indexes'
   
   SELECT CASE(entity_type)
 
   CASE(CELLS)
-
+    no_of_entities = p_patch(patch_no)%n_patch_cells
+    ALLOCATE( global_indexes(no_of_entities), STAT=return_status )
+    IF (return_status /= SUCCESS) THEN
+      CALL finish (method_name,'allocation for global_indexes failed')
+    ENDIF
+    DO idx = 1, no_of_entities
+      global_indexes(idx) = p_patch(patch_no)%cells%glb_index(idx)
+      ! do some checking
+      IF (global_indexes(idx) <= 0) &
+        CALL finish (method_name,'glb_index(idx) <= 0')
+      IF (global_indexes(idx) > p_patch(patch_no)%n_patch_cells_g) &
+        CALL finish (method_name,'glb_index(idx) > n_patch_cells_g')
+   ENDDO
+      
   CASE(EDGES)
+    no_of_entities = p_patch(patch_no)%n_patch_edges
+    ALLOCATE( global_indexes(no_of_entities), STAT=return_status )
+    IF (return_status /= SUCCESS) THEN
+      CALL finish (method_name,'allocation for global_indexes failed')
+    ENDIF
+    DO idx = 1, no_of_entities
+      global_indexes(idx) = p_patch(patch_no)%edges%glb_index(idx)
+      ! do some checking
+      IF (global_indexes(idx) <= 0) &
+        CALL finish (method_name,'glb_index(idx) <= 0')
+      IF (global_indexes(idx) > p_patch(patch_no)%n_patch_edges_g) &
+        CALL finish (method_name,'glb_index(idx) > n_patch_edges_g')
+    ENDDO
 
   CASE(VERTS)
+    no_of_entities = p_patch(patch_no)%n_patch_verts
+    ALLOCATE( global_indexes(no_of_entities), STAT=return_status )
+    IF (return_status /= SUCCESS) THEN
+      CALL finish (method_name,'allocation for global_indexes failed')
+    ENDIF
+    DO idx = 1, no_of_entities
+      global_indexes(idx) = p_patch(patch_no)%verts%glb_index(idx)
+      ! do some checking
+      IF (global_indexes(idx) <= 0) &
+        CALL finish (method_name,'glb_index(idx) <= 0')
+      IF (global_indexes(idx) > p_patch(patch_no)%n_patch_verts_g) &
+        CALL finish (method_name,'glb_index(idx) > n_patch_verts_g')
+    ENDDO
 
   CASE DEFAULT
     CALL finish(method_name, 'entity_type not recognized')
