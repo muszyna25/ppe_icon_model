@@ -150,7 +150,7 @@ MODULE mo_master_control
 
             IF ( get_my_global_mpi_id() == jg ) THEN
 
-               CALL icon_cpl_init_comp ( 'oce', comp_id, ierr )
+               CALL icon_cpl_init_comp ( 'oce', my_process_model, comp_id, ierr )
                CALL set_my_component("OCEAN", ocean_process , ocean_namelist_filename)
 
             ENDIF
@@ -161,7 +161,7 @@ MODULE mo_master_control
 
             IF ( get_my_global_mpi_id() == jg ) THEN
 
-               CALL icon_cpl_init_comp ( 'atm', comp_id, ierr )
+               CALL icon_cpl_init_comp ( 'atm', my_process_model, comp_id, ierr )
                CALL set_my_component("ATMO", atmo_process ,atmo_namelist_filename)
 
             ENDIF

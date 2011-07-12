@@ -79,8 +79,6 @@ MODULE mo_icon_cpl_init_comp
    &                      ICON_global_rank, ICON_global_size, &
    &                      ICON_local_rank, ICON_local_size
 
-!  USE mo_master_control,      ONLY: get_my_process_component
-
   IMPLICIT NONE
 
   CHARACTER(len=*), PARAMETER    :: version = '$Id$'
@@ -104,9 +102,10 @@ MODULE mo_icon_cpl_init_comp
 
 CONTAINS
 
-  SUBROUTINE icon_cpl_init_comp ( comp_name, comp_id, ierror )
+  SUBROUTINE ICON_cpl_init_comp ( comp_name, global_comp_id, comp_id, ierror )
 
     CHARACTER(len=*), INTENT(in) :: comp_name
+    INTEGER, INTENT(in)          :: global_comp_id
     INTEGER, INTENT(out)         :: comp_id
     INTEGER, INTENT(out)         :: ierror
 
@@ -180,14 +179,27 @@ CONTAINS
     fieldname(8) = 'TEST8'
 
     ! -------------------------------------------------------------------
-    ! Derive component communicators
+    ! Get a local component ID
     ! -------------------------------------------------------------------
 
-    color = 1!get_my_process_component() ! Rene: this should not be in here.
-    key   = 0
+    DO comp_id = 1, nbr_ICON_comps
+       IF ( .NOT. comps(comp_id)%l_comp_status ) EXIT
+    ENDDO
+
+    IF ( comp_id > nbr_ICON_comps ) THEN
+       PRINT *, 'number of requested components exceeds maximum of nbr_ICON_comps'
+       CALL MPI_Abort ( ICON_comm, 1, ierr )
+    ENDIF
 
     CALL cpl_nml_setup(comp_id)
     
+    ! -------------------------------------------------------------------
+    ! Derive component communicators
+    ! -------------------------------------------------------------------
+
+    color = global_comp_id
+    key   = 0
+
     comp_comm = MPI_COMM_NULL
 
     CALL MPI_Comm_split ( ICON_comm, color, key, comp_comm, ierr )
@@ -199,7 +211,6 @@ CONTAINS
     IF ( l_debug ) &
          WRITE ( cplout , '(I3,A1,A)' ) ICON_global_rank, ':', ' returned from split '
 
-    
     ! -------------------------------------------------------------------
     ! Size of component and rank in component
     ! -------------------------------------------------------------------
@@ -264,15 +275,6 @@ CONTAINS
 
        comps(:)%l_comp_status = .FALSE.
 
-    ENDIF
-
-    DO comp_id = 1, nbr_ICON_comps
-       IF ( .NOT. comps(comp_id)%l_comp_status ) EXIT
-    ENDDO
-
-    IF ( comp_id > nbr_ICON_comps ) THEN
-       PRINT *, 'number of requested components exceeds maximum of nbr_ICON_comps'
-       CALL MPI_Abort ( ICON_comm, 1, ierr )
     ENDIF
 
     comps(comp_id)%comp_name     = TRIM(comp_name)
