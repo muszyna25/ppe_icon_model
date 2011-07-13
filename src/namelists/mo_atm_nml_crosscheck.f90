@@ -58,7 +58,7 @@ MODULE mo_atm_nml_crosscheck
   USE mo_dynamics_config,     ONLY: dynamics_config
   USE mo_advection_config,    ONLY: advection_config
 
-  USE mo_nh_dyn_config,     ONLY: nh_dyn_config
+  USE mo_nh_dyn_config       !For now: all, later  ONLY: nh_dyn_config
   USE mo_ha_dyn_config,     ONLY: ha_dyn_config
   USE mo_diffusion_config,  ONLY: diffusion_config
 
@@ -92,21 +92,41 @@ SUBROUTINE atm_crosscheck
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine =  &
                               'atm_crosscheck'
 
+  !--------------------------------------------------------------------
+  ! checking of nh-dynamics parameters
+  !--------------------------------------------------------------------
+
+  ! reset l_nest_rcf to false if iadv_rcf = 1
+  IF (iadv_rcf == 1) l_nest_rcf = .FALSE.
+
+  IF (upstr_beta > 1.0_wp .OR. upstr_beta < 0.0_wp) THEN
+    CALL finish(TRIM(routine), 'upstr_beta out of range 0..1')
+  ENDIF
+
+  ! for reduced calling frequency of tracer advection / fast physics:
+  ! odd values of iadv_rcf are allowed only if nest calls are synchronized with advection
+  IF ( .NOT. l_nest_rcf .AND. MOD(iadv_rcf,2) /= 0 .AND. iadv_rcf /= 1 .OR. iadv_rcf == 0) THEN
+      CALL finish( TRIM(routine), 'Invalid reduced-calling-frequency parameter& '//&
+        &'Value must be even or 1 if l_nest_rcf=.FALSE.')
+  ENDIF
+
+
+    !--------------------------------------------------------------------
+    ! checking the meanings of the nwp physics namelist
+    !--------------------------------------------------------------------
+
   DO jg =1,max_dom
-
-
-! checking the meanings of the nwp physics namelist
 
     IF( (atm_phy_nwp_config(jg)%inwp_convection >0 ) .OR. (atm_phy_nwp_config(jg)%inwp_gscp > 0) &
       .AND. atm_phy_nwp_config(jg)%inwp_satad == 0)& 
      & CALL finish( TRIM(routine),'satad has to be switched on')
 
 
-     IF( MOD( REAL( nh_dyn_config(jg)%iadv_rcf,wp)*run_config(jg)%dtime, &
+     IF( MOD( REAL(  iadv_rcf,wp)*run_config(jg)%dtime, &
        &         atm_phy_nwp_config(jg)%dt_conv) /= 0._wp )  THEN
        WRITE(message_text,'(a,I4,2F10.2)') &
       &'advective and convective timesteps are not- but will be synchronized ', &
-      &     1, REAL( nh_dyn_config(jg)%iadv_rcf,wp)*run_config(jg)%dtime,tcall_phy(1,itconv)
+      &     1, REAL(  iadv_rcf,wp)*run_config(jg)%dtime,tcall_phy(1,itconv)
       CALL message(TRIM(routine), TRIM(message_text))
      ENDIF
 

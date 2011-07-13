@@ -58,26 +58,26 @@ MODULE mo_nh_dyn_config
   !! Derived type containing control variables specific to the nonhydrostatic 
   !! atm model
   !!----------------------------------------------------------------------------
-  TYPE :: t_nh_dyn_config
+!  TYPE :: t_nh_dyn_config
 
-    INTEGER :: iadv_rcf        !if 1: no reduced calling frequency for adv. and phy.
-                               !if 2: adv. and phys. are called only every 2nd
-                               !      time step.
-                               !if 4: called every 4th time step ...
-    INTEGER :: ivctype         ! Type of vertical coordinate (Gal-Chen / SLEVE)
-    REAL(wp):: htop_moist_proc ! Top height (in m) of the part of the model domain
-                               ! where processes related to moist physics are computed
-    INTEGER :: kstart_moist    ! related flow control variable (NOT a namelist variable)
-    REAL(wp):: htop_qvadv      ! Top height (in m) up to which water vapor is advected
-                               ! workaround to circumvent CFL instability in the stratopause
-                               ! region for aquaplanet experiments
-    INTEGER :: kstart_qv       ! related flow control variable (NOT a namelist variable)
+    INTEGER :: iadv_rcf                 !if 1: no reduced calling frequency for adv. and phy.
+                                        !if 2: adv. and phys. are called only every 2nd
+                                        !      time step.
+                                        !if 4: called every 4th time step ...
+    INTEGER :: ivctype                  ! Type of vertical coordinate (Gal-Chen / SLEVE)
+    REAL(wp):: htop_moist_proc          ! Top height (in m) of the part of the model domain
+                                        ! where processes related to moist physics are computed
+    INTEGER :: kstart_moist(max_dom)    ! related flow control variable (NOT a namelist variable)
+    INTEGER :: kstart_qv(max_dom)       ! related flow control variable (NOT a namelist variable)
+    REAL(wp):: htop_qvadv               ! Top height (in m) up to which water vapor is advected
+                                        ! workaround to circumvent CFL instability in the 
+                                        ! stratopause region for aquaplanet experiments
   
     ! Parameters active with cell_type=3 only
 
-    REAL(wp):: damp_height      ! height at which w-damping and sponge layer start
-    REAL(wp):: damp_height_u    ! height at which Rayleigh damping of u starts
-    REAL(wp):: rayleigh_coeff   ! Rayleigh damping coefficient in w-equation
+    REAL(wp):: damp_height(max_dom)    ! height at which w-damping and sponge layer start
+    REAL(wp):: damp_height_u           ! height at which Rayleigh damping of u starts
+    REAL(wp):: rayleigh_coeff(max_dom) ! Rayleigh damping coefficient in w-equation
     REAL(wp):: damp_timescale_u ! damping time scale for u in uppermost layer (in seconds)
     REAL(wp):: vwind_offctr     ! Off-centering in vertical wind solver
     INTEGER :: iadv_rhotheta    ! Advection scheme used for density and pot. temperature
@@ -101,12 +101,12 @@ MODULE mo_nh_dyn_config
                                 ! theta advection
     LOGICAL :: ltheta_up_vert   ! upwind vertical advection of theta
     REAL(wp) :: k2_updamp_coeff ! 2nd order additional horizontal diffusion
-                                ! coefficient in the upper damping zone
+                                ! coefficient in the upp‚per damping zone
 
-  END TYPE t_nh_dyn_config 
+!  END TYPE t_nh_dyn_config 
   !>
   !!
-  TYPE(t_nh_dyn_config) :: nh_dyn_config(max_dom) ! config state 
+!  TYPE(t_nh_dyn_config) :: nh_dyn_config(max_dom) ! config state 
 
 
 END MODULE mo_nh_dyn_config
