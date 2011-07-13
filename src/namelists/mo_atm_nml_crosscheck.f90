@@ -52,9 +52,9 @@ MODULE mo_atm_nml_crosscheck
   USE mo_time_config,         ONLY: time_config
   USE mo_run_config
   USE mo_gridref_config,      ONLY: gridref_config
-  USE mo_interpol_config       ! all,     ONLY: interpol_config
-  USE mo_grid_configuration   !,  ONLY: global_cell_type
-  USE mo_sleve_config,        ONLY: sleve_config
+  USE mo_interpol_config       ! all, ONLY: interpol_config
+  USE mo_grid_configuration    !,     ONLY: global_cell_type
+  USE mo_sleve_config          ! all, ONLY: sleve_config
 
   USE mo_dynamics_config,     ONLY: dynamics_config
   USE mo_advection_config,    ONLY: advection_config

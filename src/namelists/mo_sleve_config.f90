@@ -56,7 +56,7 @@ MODULE mo_sleve_config
   !!--------------------------------------------------------------------------
   !! Type definition 
   !!--------------------------------------------------------------------------
-  TYPE :: t_sleve_config
+!  TYPE :: t_sleve_config
 
     ! a) Parameters specifying the distrubution of the coordinate surfaces
     !     (the initializations are a workaround for a NEC compiler bug)
@@ -73,9 +73,9 @@ MODULE mo_sleve_config
     REAL(wp):: flat_height    ! Height above which the coordinate surfaces are exactly flat
                               ! additional feature not available in the standard
                               ! SLEVE definition
-  END TYPE t_sleve_config
+ ! END TYPE t_sleve_config
   !>
   !!
-  TYPE(t_sleve_config) :: sleve_config(max_dom)
+ ! TYPE(t_sleve_config) :: sleve_config(max_dom)
 
 END MODULE mo_sleve_config

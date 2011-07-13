@@ -51,7 +51,7 @@ MODULE mo_vertical_grid
     &                               thhgtd_zdiffu, htop_moist_proc, htop_qvadv,          &
     &                               kstart_moist, kstart_qv, damp_timescale_u, damp_height_u
   USE mo_diffusion_config,    ONLY: diffusion_config
-  USE mo_sleve_nml,           ONLY: sleve_nml_setup, min_lay_thckn, top_height, decay_scale_1, &
+  USE mo_sleve_config,        ONLY: min_lay_thckn, top_height, decay_scale_1, &
     &                               decay_scale_2, decay_exp, flat_height, stretch_fac
   USE mo_parallel_configuration,  ONLY: nproma, p_test_run
   USE mo_run_config,          ONLY: ltestcase, msg_level
@@ -220,7 +220,8 @@ MODULE mo_vertical_grid
     ENDIF
 
     ! Read namelist for SLEVE coordinate
-    CALL sleve_nml_setup
+! will be moved to atmo_config
+!    CALL sleve_nml_setup
 
     ! However, vct_b also needs to be defined because it is used elsewhere
     ALLOCATE(vct_b(nlevp1), STAT=ist)

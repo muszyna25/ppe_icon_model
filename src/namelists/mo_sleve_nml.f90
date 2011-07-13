@@ -52,7 +52,7 @@ MODULE mo_sleve_nml
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, positioned
-  USE mo_sleve_config,        ONLY: sleve_config
+  USE mo_sleve_config         ! all,        ONLY: sleve_config
   USE mo_master_nml,          ONLY: lrestart
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
@@ -71,19 +71,19 @@ MODULE mo_sleve_nml
   !
   ! a) Parameters specifying the distrubution of the coordinate surfaces
   !     (the initializations are a workaround for a NEC compiler bug)
-  REAL(wp):: min_lay_thckn = 1._wp  ! Layer thickness of lowermost level
-  REAL(wp):: stretch_fac   = 1._wp  ! Factor for stretching/squeezing the model layer distribution
-  REAL(wp):: top_height    = 1._wp  ! Height of model top
+  REAL(wp):: nml_min_lay_thckn = 1._wp  ! Layer thickness of lowermost level
+  REAL(wp):: nml_stretch_fac   = 1._wp  ! Factor for stretching/squeezing the model layer distribution
+  REAL(wp):: nml_top_height    = 1._wp  ! Height of model top
 
   ! b) Parameters for SLEVE definition
-  REAL(wp):: decay_scale_1 = 1._wp  ! Decay scale for large-scale topography component
-  REAL(wp):: decay_scale_2 = 1._wp  ! Decay scale for small-scale topography component
-  REAL(wp):: decay_exp     = 1._wp  ! Exponent for decay function
-  REAL(wp):: flat_height   = 1._wp  ! Height above which the coordinate surfaces are exactly flat
+  REAL(wp):: nml_decay_scale_1 = 1._wp  ! Decay scale for large-scale topography component
+  REAL(wp):: nml_decay_scale_2 = 1._wp  ! Decay scale for small-scale topography component
+  REAL(wp):: nml_decay_exp     = 1._wp  ! Exponent for decay function
+  REAL(wp):: nml_flat_height   = 1._wp  ! Height above which the coordinate surfaces are exactly flat
                             ! additional feature not available in the standard SLEVE definition
 
-  NAMELIST /sleve_ctl/ min_lay_thckn, top_height, decay_scale_1,     &
-                       decay_scale_2, decay_exp, flat_height, stretch_fac
+  NAMELIST /sleve_ctl/ nml_min_lay_thckn, nml_top_height, nml_decay_scale_1,     &
+                       nml_decay_scale_2, nml_decay_exp, nml_flat_height, nml_stretch_fac
   !
   !
   !
@@ -186,16 +186,16 @@ END SUBROUTINE sleve_nml_setup
 
     ! a) Parameters determining the distribution of model layers
     !    (if not read in from a table)
-    min_lay_thckn   = 50._wp      ! Layer thickness of lowermost layer
-    top_height      = 23500._wp   ! Height of model top
-    stretch_fac     = 1._wp       ! Scaling factor for stretching/squeezing 
+    nml_min_lay_thckn   = 50._wp      ! Layer thickness of lowermost layer
+    nml_top_height      = 23500._wp   ! Height of model top
+    nml_stretch_fac     = 1._wp       ! Scaling factor for stretching/squeezing 
                                   ! the model layer distribution
 
     ! b) Parameters setting up the decay function of the topographic signal
-    decay_scale_1   = 4000._wp    ! Decay scale of large-scale topography component
-    decay_scale_2   = 2500._wp    ! Decay scale of small-scale topography component
-    decay_exp       = 1.2_wp      ! Exponent for decay function
-    flat_height     = 16000._wp   ! Height above which the coordinate surfaces are 
+    nml_decay_scale_1   = 4000._wp    ! Decay scale of large-scale topography component
+    nml_decay_scale_2   = 2500._wp    ! Decay scale of small-scale topography component
+    nml_decay_exp       = 1.2_wp      ! Exponent for decay function
+    nml_flat_height     = 16000._wp   ! Height above which the coordinate surfaces are 
                                   ! flat
 
 
@@ -223,15 +223,24 @@ END SUBROUTINE sleve_nml_setup
     !----------------------------------------------------
     ! 4. Fill the configuration state
     !----------------------------------------------------
-    DO jg = 1,max_dom
-      sleve_config(jg)%min_lay_thckn = min_lay_thckn
-      sleve_config(jg)%top_height    = top_height
-      sleve_config(jg)%decay_scale_1 = decay_scale_1
-      sleve_config(jg)%decay_scale_2 = decay_scale_2
-      sleve_config(jg)%decay_exp     = decay_exp
-      sleve_config(jg)%flat_height   = flat_height
-      sleve_config(jg)%stretch_fac   = stretch_fac
-    ENDDO
+!    DO jg = 1,max_dom
+!      sleve_config(jg)%min_lay_thckn = nml_min_lay_thckn
+!      sleve_config(jg)%top_height    = nml_top_height
+!      sleve_config(jg)%decay_scale_1 = nml_decay_scale_1
+!      sleve_config(jg)%decay_scale_2 = nml_decay_scale_2
+!      sleve_config(jg)%decay_exp     = nml_decay_exp
+!      sleve_config(jg)%flat_height   = nml_flat_height
+!      sleve_config(jg)%stretch_fac   = nml_stretch_fac
+!    ENDDO
+!
+
+    min_lay_thckn = nml_min_lay_thckn
+    top_height    = nml_top_height
+    decay_scale_1 = nml_decay_scale_1
+    decay_scale_2 = nml_decay_scale_2
+    decay_exp     = nml_decay_exp
+    flat_height   = nml_flat_height
+    stretch_fac   = nml_stretch_fac
 
 
     !-----------------------------------------------------
