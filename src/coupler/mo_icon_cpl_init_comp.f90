@@ -364,4 +364,25 @@ CONTAINS
 
   END SUBROUTINE icon_cpl_init_comp
 
+  ! -------------------------------------------------------------------
+
+  INTEGER FUNCTION get_my_local_comp_id ( comp_process )
+
+     INTEGER, INTENT (IN) :: comp_process
+
+     INTEGER :: i
+
+     DO i = 1, nbr_active_comps
+       IF ( comps(i)%comp_process == comp_process ) EXIT
+     ENDDO
+
+     IF ( i > nbr_active_comps ) THEN
+        ! TODO:
+        ! We have an error and need to stop
+     ENDIF
+
+     get_my_local_comp_id = i
+     
+  END FUNCTION get_my_local_comp_id
+
 END MODULE mo_icon_cpl_init_comp

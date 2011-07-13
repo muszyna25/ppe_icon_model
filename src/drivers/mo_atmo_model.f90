@@ -89,6 +89,15 @@ MODULE mo_atmo_model
   USE mo_advection_nml,       ONLY: transport_nml_setup,  & ! process transport
     & setup_transport         ! control parameters
 
+  ! For the coupling
+  USE mo_impl_constants, ONLY: CELLS
+  USE mo_master_control, ONLY : atmo_process, is_coupled_run
+  USE mo_icon_cpl_init_comp, ONLY : get_my_local_comp_id
+  USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid
+  USE mo_icon_cpl_def_field, ONLY : ICON_cpl_def_field
+  USE mo_icon_cpl_search, ONLY : ICON_cpl_search
+  USE mo_model_domain_import, ONLY : get_patch_global_indexes
+
   ! Test cases
   !
   USE mo_hydro_testcases,     ONLY: setup_testcase          ! process hyd. atm. tests ctl. params.
@@ -204,6 +213,22 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
     LOGICAL :: lsuccess
 
+    ! For the coupling
+
+    INTEGER, PARAMETER :: no_of_fields = 12
+
+    CHARACTER(LEN=MAX_CHAR_LENGTH) ::  field_name(no_of_fields)
+    INTEGER :: field_id(no_of_fields)
+    INTEGER :: my_process_component
+    INTEGER :: comp_id
+    INTEGER :: grid_id
+    INTEGER :: grid_shape(2) 
+    INTEGER :: field_shape(3) 
+    INTEGER :: i, ierror
+    INTEGER :: no_of_entities
+    INTEGER :: patch_no
+    INTEGER, POINTER :: grid_glob_index(:)
+
     !---------------------------------------------------------------------
     ! 0. If this is a resumed or warm-start run...
     !---------------------------------------------------------------------
@@ -260,6 +285,26 @@ CONTAINS
     ! 4. Construct model states (variable lists); set initial conditions.
     !---------------------------------------------------------------------
 
+    !---------------------------------------------------------------------
+    ! 4.a Do the setup for the coupled run
+    !---------------------------------------------------------------------
+    ! 
+    IF ( is_coupled_run() ) THEN
+ 
+      comp_id = get_my_local_comp_id (atmo_process)
+      patch_no = 0
+
+      CALL get_patch_global_indexes ( patch_no, CELLS, no_of_entities, grid_glob_index )
+      CALL ICON_cpl_def_grid ( comp_id, grid_shape, grid_glob_index, grid_id, ierror )
+ 
+      DO i = 1, no_of_fields
+      CALL ICON_cpl_def_field ( field_name(i), comp_id, grid_id, field_id(i), field_shape, ierror )
+      ENDDO
+
+      CALL ICON_cpl_search
+
+    ENDIF
+    !
     !---------------------------------------------------------------------
     ! 5. Perform time stepping
     !---------------------------------------------------------------------
