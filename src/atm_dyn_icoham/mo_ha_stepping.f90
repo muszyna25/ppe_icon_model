@@ -48,8 +48,7 @@ MODULE mo_ha_stepping
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data,            ONLY: ext_data
   USE mo_model_domain_import, ONLY: n_dom
-  USE mo_dynamics_nml,        ONLY: itime_scheme
-  USE mo_dynamics_config,     ONLY: dynamics_config
+  USE mo_dynamics_config,     ONLY: itime_scheme, lshallow_water, ltwotime, nnow, nold
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
   USE mo_io_config,           ONLY: l_outputtime, lprepare_output, l_diagtime,  &
                                   & l_checkpoint_time
@@ -104,7 +103,7 @@ CONTAINS
       CALL init_si_params( ha_dyn_config%lsi_3d,            &
                            ha_dyn_config%si_offctr,         &
                            ha_dyn_config%si_cmin,           &
-                           dynamics_config(1)%lshallow_water)
+                           lshallow_water                   )
     CASE (RK4,SSPRK54) 
       CALL init_RungeKutta(itime_scheme)
     END SELECT
@@ -145,10 +144,7 @@ CONTAINS
     TYPE(t_gridref_state),TARGET,INTENT(IN)    :: p_grf_state(n_dom)
     TYPE(t_hydro_atm),    TARGET,INTENT(INOUT) :: p_hydro_state(n_dom)
 
-    INTEGER :: jg, jn, jgc, nold(n_dom), nnow(n_dom)
-
-    nold(:) = dynamics_config(1:n_dom)%nold
-    nnow(:) = dynamics_config(1:n_dom)%nnow
+    INTEGER :: jg, jn, jgc
 
     !--------------------------------------------------
     ! Assign initial condition to prognostic variables
@@ -165,7 +161,7 @@ CONTAINS
                              p_hydro_state(jg)%prog(nnow(jg)), &
                              p_hydro_state(jg)%diag           )
 
-        IF (.NOT.dynamics_config(jg)%ltwotime)                 &
+        IF (.NOT.ltwotime)                 &
         CALL convert_t2theta(p_patch(jg),                      &
                              p_hydro_state(jg)%prog(nold(jg)), &
                              p_hydro_state(jg)%diag           )
@@ -254,7 +250,7 @@ CONTAINS
     !--------------------------------------------------------------------------
 
     IF (msg_level >= 5) THEN ! compute maximum velocity in global model domain
-      p_vn => p_hydro_state(1)%prog(dynamics_config(1)%nnow)%vn
+      p_vn => p_hydro_state(1)%prog(nnow(1))%vn
       vnmax = -HUGE(vnmax)
 #if (!defined __xlC__) && (defined _OPENMP)
 !$OMP PARALLEL DO PRIVATE(jb)
@@ -301,7 +297,7 @@ CONTAINS
     ELSE                  ! time step
       l_diagtime = .FALSE.
     ENDIF
-    IF(.NOT.ldynamics.AND.dynamics_config(1)%lshallow_water)l_diagtime=.FALSE.
+    IF(.NOT.ldynamics.AND.lshallow_water)l_diagtime=.FALSE.
 
     !--------------------------------------------------------------------------
     ! Time integration from time step n to n+1
@@ -310,8 +306,7 @@ CONTAINS
     ! 3-time-level schemes. In case of a restart run, the treatment is 
     ! not necessary, thus the variable is set to .TRUE. 
 
-    l_3tl_init(1:n_dom) = (.NOT.dynamics_config(1:n_dom)%ltwotime).AND. &
-                          (.NOT.lrestart).AND.(jstep==1)
+    l_3tl_init(1:n_dom) = (.NOT.ltwotime).AND.(.NOT.lrestart).AND.(jstep==1)
 
     ! Call recursive subroutine 'process_grid_level', which executes
     ! one timestep for the global domain and calls itself in the presence
@@ -357,7 +352,7 @@ CONTAINS
     !--------------------------------------------------------------------------
     IF (l_diagtime) &
     CALL supervise_total_integrals( jstep, p_patch, p_hydro_state, &
-                                    dynamics_config(1:n_dom)%nnow  )
+                                    nnow(1:n_dom) )
 
     !--------------------------------------------------------------------------
     ! One integration cycle finished on the lowest grid level (coarsest

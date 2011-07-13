@@ -140,7 +140,6 @@ MODULE mo_global_variables
   USE mo_mpi,                ONLY: p_pe, p_io
   USE mo_ocean_nml,          ONLY: lmpiom_radiation, lmpiom_convection,           &
     &                              lmpiom_gentmcwill, mpiom_phy_ctl
-  USE mo_dynamics_nml,       ONLY: ldry_dycore
 
   IMPLICIT NONE
 
@@ -163,33 +162,6 @@ MODULE mo_global_variables
 !  INTEGER :: i_status
 !
 !  SELECT CASE (iforcing)
-!    !
-!  CASE (inoforcing)
-!    !
-!    ! nothing to be done
-!    !
-!  CASE (iheldsuarez, ildf_dry)
-!    !
-!    ldry_dycore       = .TRUE.
-!    !
-!  CASE (iecham,ildf_echam)
-!    !
-!! Temporarily removed by Hui
-!!   ldry_dycore       = .FALSE.
-!    !
-!  CASE (inwp)
-!    !
-!! Temporarily removed by Daniel
-!!    ldry_dycore     = .FALSE.
-!
-!!    !> set default physics switches and values
-!!    CALL set_inwp_nml
-!
-!!    !
-!!    !> final settings via namelist
-!!    CALL read_inwp_nml
-!
-!    !
 !  CASE (impiom)
 !    !
 !    lmpiom_radiation  = .FALSE.

@@ -75,7 +75,7 @@ MODULE mo_advection_vflux
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_model_domain,        ONLY: t_patch
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_dynamics_config,     ONLY: dynamics_config
+  USE mo_dynamics_config,     ONLY: iequations 
   USE mo_run_config,          ONLY: ntracer, msg_level, lvert_nest
   USE mo_advection_nml,       ONLY: coeff_grid, lcompute, lcleanup
   USE mo_advection_config,    ONLY: advection_config
@@ -677,13 +677,9 @@ CONTAINS
       &   jkm_int, jk_int                !< cells to skip for CFL>1 have been
                                          !< substracted/added
 
-    INTEGER :: iequations
-
 !DR    REAL(wp) :: cfl_m_max, cfl_p_max !< maximum Courant number from both sides
 
     !-------------------------------------------------------------------------
-
-    iequations = dynamics_config(p_patch%id)%iequations
 
     !
     ! advection is done with an upwind scheme and a piecwise linear
@@ -1510,12 +1506,8 @@ CONTAINS
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: jc, jk, jb              !< index of cell, vertical level and block
 
-    INTEGER :: iequations
-
 !DR    REAL(wp) :: cfl_m_max, cfl_p_max !< maximum Courant number from both sides
     !-----------------------------------------------------------------------
-
-    iequations = dynamics_config(p_patch%id)%iequations
 
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN
@@ -2125,11 +2117,8 @@ CONTAINS
     REAL(wp) ::   &                      !< auxiliaries for fractional CFL number computation
       &  z_aux_p(nproma), z_aux_m(nproma)
 
-    INTEGER :: iequations
-
     !-----------------------------------------------------------------------
 
-    iequations = dynamics_config(p_patch%id)%iequations
 
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN

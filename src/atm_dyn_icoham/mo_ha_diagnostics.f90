@@ -45,7 +45,7 @@ MODULE mo_ha_diagnostics
   USE mo_ext_data,           ONLY: ext_data
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_config,         ONLY: dtime, nsteps, nlev, ntracer,iforcing
-  USE mo_dynamics_config,    ONLY: dynamics_config
+  USE mo_dynamics_config,    ONLY: lshallow_water
   USE mo_physical_constants, ONLY: rgrav, cpd, grav
   USE mo_vertical_coord_table, ONLY: dela, delb
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm, t_hydro_atm_prog, t_hydro_atm_diag
@@ -95,7 +95,7 @@ MODULE mo_ha_diagnostics
     INTEGER :: ist
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: thisroutine = "init_total_integrals"
 
-    IF (.NOT.dynamics_config(1)%lshallow_water) THEN
+    IF (.NOT.lshallow_water) THEN
       !---------------------------------------------------------
       ! Open file and allocate memory for total mass and energy
       
@@ -237,7 +237,7 @@ MODULE mo_ha_diagnostics
   !================================================
   ! Hydrostatic model
   !================================================
-  IF (.NOT. dynamics_config(1)%lshallow_water) THEN
+  IF (.NOT. lshallow_water) THEN
 
       z_elapsed_time = dtime*REAL(k_step,wp)/3600.0_wp
       

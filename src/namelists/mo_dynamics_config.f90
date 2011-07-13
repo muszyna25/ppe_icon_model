@@ -55,14 +55,14 @@ MODULE mo_dynamics_config
   !--------------------------------------------------------------------------
   ! Basic settings for the dynamical core 
   !--------------------------------------------------------------------------
-  TYPE :: t_dynamics_config
+  !TYPE :: t_dynamics_config
 
     ! namelist variables
 
     INTEGER  :: iequations      !< Choice of governing equation set
     INTEGER  :: itime_scheme    !< Choice of time stepping scheme
     INTEGER  :: idiv_method     !< Divergence operator
-    INTEGER  :: divavg_cntrwgt  !< Weight of central cell for divergence averaging
+    REAL(wp) :: divavg_cntrwgt  !< Weight of central cell for divergence averaging
     REAL(wp) :: sw_ref_height   !< reference height to linearize around if using
                                 !< lshallow_water and semi-implicit correction
     LOGICAL  :: ldry_dycore     !< if .TRUE., ignore the effact of water vapor,
@@ -74,21 +74,21 @@ MODULE mo_dynamics_config
     LOGICAL :: lshallow_water
     LOGICAL :: ltwotime
 
-    INTEGER :: nold      !< variables denoting time levels
-    INTEGER :: nnow      !< variables denoting time levels
-    INTEGER :: nnew      !< variables denoting time levels
+    INTEGER :: nold(MAX_DOM)      !< variables denoting time levels
+    INTEGER :: nnow(MAX_DOM)      !< variables denoting time levels
+    INTEGER :: nnew(MAX_DOM)      !< variables denoting time levels
 
-    INTEGER :: nsav1     !< Extra 'time levels' of prognostic variables
-    INTEGER :: nsav2     !< needed to compute boundary tendencies and
-                         !< feedback increments
+    INTEGER :: nsav1(MAX_DOM)     !< Extra 'time levels' of prognostic variables
+    INTEGER :: nsav2(MAX_DOM)     !< needed to compute boundary tendencies and
+                                  !< feedback increments
 
-    INTEGER :: nnow_rcf  !< Extra time levels for reduced
-    INTEGER :: nnew_rcf  !< calling frequency (rcf)
+    INTEGER :: nnow_rcf(MAX_DOM)  !< Extra time levels for reduced
+    INTEGER :: nnew_rcf(MAX_DOM)  !< calling frequency (rcf)
 
-  END TYPE t_dynamics_config
+  !END TYPE t_dynamics_config
   !>
   !!
-  TYPE(t_dynamics_config) :: dynamics_config(MAX_DOM)
+  !TYPE(t_dynamics_config) :: dynamics_config(MAX_DOM)
 
 CONTAINS
   !>
@@ -103,20 +103,11 @@ CONTAINS
 
     !------------------------
 
-    DO jdom = 1,ndom
+    lshallow_water = (iequations==ISHALLOW_WATER)
+    ltwotime = (itime_scheme/=LEAPFROG_EXPL).AND.(itime_scheme/=LEAPFROG_SI)
 
-        dynamics_config(jdom)%lshallow_water =                      &
-          (dynamics_config(jdom)%iequations==ISHALLOW_WATER)
-
-        dynamics_config(jdom)%ltwotime =                            &
-          (dynamics_config(jdom)%itime_scheme/=LEAPFROG_EXPL) .AND. &
-          (dynamics_config(jdom)%itime_scheme/=LEAPFROG_SI  )
-
-    END DO
-
-    !------------------------
     ! Set time level indices
-    !------------------------
+
     IF (lrestart) THEN
       ! Read time level indices from restart file.
       ! NOTE: this part will be modified later for a proper handling
@@ -127,27 +118,25 @@ CONTAINS
 
       jdom = 1  ! only consider one domain at the moment
       !DO jdom = 1,ndom
-        CALL get_restart_attribute( 'nold'    ,dynamics_config(jdom)%nold )
-        CALL get_restart_attribute( 'nnow'    ,dynamics_config(jdom)%nnow )
-        CALL get_restart_attribute( 'nnew'    ,dynamics_config(jdom)%nnew )
-        CALL get_restart_attribute( 'nnow_rcf',dynamics_config(jdom)%nnow_rcf )
-        CALL get_restart_attribute( 'nnew_rcf',dynamics_config(jdom)%nnew_rcf )
+        CALL get_restart_attribute( 'nold'    ,nold    (jdom) )
+        CALL get_restart_attribute( 'nnow'    ,nnow    (jdom) )
+        CALL get_restart_attribute( 'nnew'    ,nnew    (jdom) )
+        CALL get_restart_attribute( 'nnow_rcf',nnow_rcf(jdom) )
+        CALL get_restart_attribute( 'nnew_rcf',nnew_rcf(jdom) )
       !END DO
 
     ELSE ! not lrestart
 
-      dynamics_config(:)%nnow = 1
-      dynamics_config(:)%nnew = 2
-      dynamics_config(:)%nold = 3
-      dynamics_config(:)%nnow_rcf = 1
-      dynamics_config(:)%nnew_rcf = 2
+      nnow(:) = 1
+      nnew(:) = 2
+      nold(:) = 3
+      nnow_rcf(:) = 1
+      nnew_rcf(:) = 2
 
     END IF
 
-    !------------------------
-
-    dynamics_config(:)%nsav1 = 0
-    dynamics_config(:)%nsav2 = 4
+    nsav1(:) = 0
+    nsav2(:) = 4
 
   END SUBROUTINE config_dynamics
 

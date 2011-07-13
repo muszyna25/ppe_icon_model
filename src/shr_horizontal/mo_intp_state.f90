@@ -173,7 +173,7 @@ USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
 USE mo_parallel_configuration,  ONLY: nproma
 USE mo_grid_configuration,  ONLY: global_cell_type
 USE mo_run_config,          ONLY: ltransport
-USE mo_dynamics_config,     ONLY: dynamics_config
+USE mo_dynamics_config,     ONLY: iequations
 USE mo_mpi,                 ONLY: p_pe, p_io
 
 !USE mo_interpol_nml
@@ -579,8 +579,7 @@ INTEGER :: idummy
     ENDIF
   ENDIF
 
-  IF( ltransport .OR. &
-      dynamics_config(ptr_patch%id)%iequations == 3) THEN
+  IF( ltransport .OR. iequations == 3) THEN
     !
     ! pos_on_tplane_e
     !
@@ -1215,8 +1214,7 @@ INTEGER :: idummy
     ENDIF
   ENDIF
 
-  IF( ltransport .OR. &
-      dynamics_config(ptr_patch%id)%iequations == 3) THEN
+  IF( ltransport .OR. iequations == 3) THEN
 
     ptr_int%pos_on_tplane_e   = 0._wp
     ptr_int%tplane_e_dotprod  = 0._wp
@@ -1391,8 +1389,7 @@ DO jg = n_dom_start, n_dom
   ! - initialization of coefficients for least squares gradient
   ! reconstruction at cell centers
   !
-  IF ( (ltransport .OR. dynamics_config(jg)%iequations == 3) .AND. &
-        (.NOT. lplane)) THEN
+  IF ( (ltransport .OR. iequations == 3) .AND. (.NOT. lplane)) THEN
 
     CALL init_tplane_e(ptr_patch(jg), ptr_int_state(jg))
 
@@ -1428,9 +1425,8 @@ END SUBROUTINE construct_2d_interpol_state
 !! @par Revision History
 !! Split off from destruct_2d_interpol_state, Rainer Johanni (2010-10-26)
 !!
-SUBROUTINE deallocate_int_state( iequations, ptr_int )
+SUBROUTINE deallocate_int_state( ptr_int )
 !
-INTEGER,INTENT(IN) :: iequations
 TYPE(t_int_state), INTENT(inout) :: ptr_int
 
 INTEGER :: ist
@@ -2167,7 +2163,7 @@ CALL message('mo_interpolation:destruct_int_state',                          &
   & 'start to destruct int state')
 
 DO jg = n_dom_start, n_dom
-  CALL deallocate_int_state(dynamics_config(jg)%iequations, ptr_int_state(jg))
+  CALL deallocate_int_state(ptr_int_state(jg))
 ENDDO
 
 CALL message ('mo_interpolation:destruct_int_state',                         &

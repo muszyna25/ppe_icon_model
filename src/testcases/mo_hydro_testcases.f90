@@ -80,7 +80,8 @@ MODULE mo_hydro_testcases
   USE mo_interpolation,   ONLY: t_int_state
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_config,      ONLY: num_lev, ntracer, ltransport, iqv
-  USE mo_dynamics_config, ONLY: dynamics_config 
+  USE mo_dynamics_config, ONLY: ltwotime,itime_scheme,lshallow_water,&
+                                lcoriolis,nnow,nold,nnew
        
   USE mo_grid_configuration, ONLY :  global_cell_type
   
@@ -258,87 +259,87 @@ MODULE mo_hydro_testcases
 
    !---------------------------------------------------------------------------
    !---------------------------------------------------------------------------
-  ! IF (.NOT. lshallow_water) THEN
+   IF (.NOT. lshallow_water) THEN
 
-  !    SELECT CASE (TRIM(ctest_name))
+      SELECT CASE (TRIM(ctest_name))
 
-  !    CASE ('GW')
-  !      CALL message(TRIM(routine),'running the gravity wave test.')
-  !    CASE ('MRW')
-  !      CALL message(TRIM(routine),'running the mountain induced Rossby &
-  !                                 &wave train.')
-  !    CASE ('MRW2')
-  !      CALL message(TRIM(routine),'running the modified mountain induced Rossby &
-  !                                 &wave train (smaller-scale mountain).')
-  !    CASE ('RH')
-  !      CALL message(TRIM(routine),'running the 3D Rossby-Haurwitz wave test.')
-  !    CASE ('JWs')
-  !      CALL message(TRIM(routine),'running the Jablonowski-Williamson &
-  !                                 &steady solution test.')
-  !    CASE ('JWw')
-  !      CALL message(TRIM(routine),'running the Jablonowski-Williamson &
-  !                                 &baroclinic wave test.')
-  !    CASE ('PA')
-  !      CALL message(TRIM(routine),'running the Pure 3D-Advection test.')
+     CASE ('GW')
+        CALL message(TRIM(routine),'running the gravity wave test.')
+      CASE ('MRW')
+        CALL message(TRIM(routine),'running the mountain induced Rossby &
+                                   &wave train.')
+      CASE ('MRW2')
+        CALL message(TRIM(routine),'running the modified mountain induced Rossby &
+                                   &wave train (smaller-scale mountain).')
+      CASE ('RH')
+        CALL message(TRIM(routine),'running the 3D Rossby-Haurwitz wave test.')
+      CASE ('JWs')
+        CALL message(TRIM(routine),'running the Jablonowski-Williamson &
+                                   &steady solution test.')
+      CASE ('JWw')
+        CALL message(TRIM(routine),'running the Jablonowski-Williamson &
+                                   &baroclinic wave test.')
+      CASE ('PA')
+        CALL message(TRIM(routine),'running the Pure 3D-Advection test.')
 
-  !    CASE ('SV')
-  !      CALL message(TRIM(routine),'running the stationary vortex 2D-Advection test.')
+      CASE ('SV')
+        CALL message(TRIM(routine),'running the stationary vortex 2D-Advection test.')
 
-  !    CASE ('DF1')
-  !      CALL message(TRIM(routine),'running the deformational flow 2D-Advection test 1.')
+      CASE ('DF1')
+        CALL message(TRIM(routine),'running the deformational flow 2D-Advection test 1.')
 
-  !    CASE ('DF2')
-  !      CALL message(TRIM(routine),'running the deformational flow 2D-Advection test 2.')
+      CASE ('DF2')
+        CALL message(TRIM(routine),'running the deformational flow 2D-Advection test 2.')
 
-  !    CASE ('DF3')
-  !      CALL message(TRIM(routine),'running the deformational flow 2D-Advection test 3.')
+      CASE ('DF3')
+        CALL message(TRIM(routine),'running the deformational flow 2D-Advection test 3.')
 
-  !    CASE ('DF4')
-  !      CALL message(TRIM(routine),'running the deformational flow 2D-Advection test 4.')
+      CASE ('DF4')
+        CALL message(TRIM(routine),'running the deformational flow 2D-Advection test 4.')
 
-  !    CASE ('HS')
-  !      CALL message(TRIM(routine),'running the Held-Suarez test.')
+      CASE ('HS')
+        CALL message(TRIM(routine),'running the Held-Suarez test.')
 
-  !    CASE ('LDF')
-  !      CALL message(TRIM(routine),'running the local diabatic forcing test.')
+      CASE ('LDF')
+        CALL message(TRIM(routine),'running the local diabatic forcing test.')
 
-  !    CASE ('LDF-Moist')
-  !      CALL message(TRIM(routine),'running the local diabatic forcing test &
-  !                                 & with moist processes.')
-  !    CASE ('APE')
-  !      CALL message(TRIM(routine),'running the aqua-planet simulation.')
+      CASE ('LDF-Moist')
+        CALL message(TRIM(routine),'running the local diabatic forcing test &
+                                   & with moist processes.')
+      CASE ('APE')
+        CALL message(TRIM(routine),'running the aqua-planet simulation.')
 
-  !    CASE ('JWw-Moist')
-  !      CALL message(TRIM(routine),'running the Jablonowski-Williamson baroclinic &
-  !                                 &wave test with moist processes.')
-  !    CASE default
-  !      CALL finish(TRIM(routine),'unknown choice of CTEST_NAME')
+      CASE ('JWw-Moist')
+        CALL message(TRIM(routine),'running the Jablonowski-Williamson baroclinic &
+                                   &wave test with moist processes.')
+      CASE default
+        CALL finish(TRIM(routine),'unknown choice of CTEST_NAME')
 
-  !    END SELECT
+      END SELECT
 
-  ! ELSE ! shallow water case
+   ELSE ! shallow water case
 
-  !    SELECT CASE (TRIM(ctest_name))
+      SELECT CASE (TRIM(ctest_name))
 
-  !    CASE ('Will_2')
-  !      CALL message(TRIM(routine),'running Williamson test no. 2')
-  !    CASE ('Will_3')
-  !      CALL message(TRIM(routine),'running Williamson test no. 3')
-  !    CASE ('Will_5')
-  !      CALL message(TRIM(routine),'running Williamson test no. 5')
-  !    CASE ('Will_6')
-  !      CALL message(TRIM(routine),'running Williamson test no. 6')
-  !    CASE ('USBR')
-  !      CALL message(TRIM(routine),'running unsteady solid body rotation')
-  !    CASE ('SW_GW')
-  !      CALL message(TRIM(routine),'running shallow water gravity wave test')
-  !    CASE ('PA')
-  !      CALL message(TRIM(routine),'running the Pure 2D-Advection test.')
-  !    CASE default
-  !      CALL finish(TRIM(routine),'unknown choice of CTEST_NAME')
-  !    END SELECT
+      CASE ('Will_2')
+        CALL message(TRIM(routine),'running Williamson test no. 2')
+      CASE ('Will_3')
+        CALL message(TRIM(routine),'running Williamson test no. 3')
+      CASE ('Will_5')
+        CALL message(TRIM(routine),'running Williamson test no. 5')
+      CASE ('Will_6')
+        CALL message(TRIM(routine),'running Williamson test no. 6')
+      CASE ('USBR')
+        CALL message(TRIM(routine),'running unsteady solid body rotation')
+      CASE ('SW_GW')
+        CALL message(TRIM(routine),'running shallow water gravity wave test')
+      CASE ('PA')
+        CALL message(TRIM(routine),'running the Pure 2D-Advection test.')
+      CASE default
+        CALL finish(TRIM(routine),'unknown choice of CTEST_NAME')
+      END SELECT
 
-  ! ENDIF
+   ENDIF
 
    !---------------------------------------------------------------------------
    ! Cross-check (should be moved somewhere else)
@@ -398,24 +399,13 @@ END SUBROUTINE setup_testcase
   INTEGER :: jg
   INTEGER :: nlev              !< number of full levels
   INTEGER :: ist     !< status variable
-
-  LOGICAL :: ltwotime
-  INTEGER :: itime_scheme
-  INTEGER :: nold(n_dom), nnow(n_dom), nnew(n_dom)
 !-------------------------------------------------
-
-nold(:) = dynamics_config(1:n_dom)%nold
-nnow(:) = dynamics_config(1:n_dom)%nnow
-nnew(:) = dynamics_config(1:n_dom)%nnew
 
 DO jg = 1,n_dom
 
   nlev = pt_patch(jg)%nlev
 
-  ltwotime     = dynamics_config(jg)%ltwotime
-  itime_scheme = dynamics_config(jg)%itime_scheme
-
-  IF (dynamics_config(jg)%lshallow_water) THEN
+  IF (lshallow_water) THEN
 
     IF (TRIM(ctest_name)=='PA') THEN
       !
@@ -440,19 +430,17 @@ DO jg = 1,n_dom
 
   ENDIF
 
-  IF (.NOT. dynamics_config(jg)%lshallow_water) THEN
+  IF (.NOT. lshallow_water) THEN
  
      SELECT CASE (TRIM(ctest_name))
 
      CASE ('GW')
         !
         IF (.NOT.ltwotime) &
-        CALL init_hydro_state_prog_gwtest(                    &
-             & dynamics_config(jg)%lcoriolis, pt_patch(jg),   &
+        CALL init_hydro_state_prog_gwtest( lcoriolis, pt_patch(jg),   &
              & ext_data(jg), pt_hydro_state(jg)%prog(nold(jg)))
 
-        CALL init_hydro_state_prog_gwtest(                    &
-             & dynamics_config(jg)%lcoriolis, pt_patch(jg),   &
+        CALL init_hydro_state_prog_gwtest( lcoriolis, pt_patch(jg),   &
              & ext_data(jg), pt_hydro_state(jg)%prog(nnow(jg)))
 
      CASE ('MRW')

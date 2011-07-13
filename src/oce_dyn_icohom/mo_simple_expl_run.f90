@@ -58,7 +58,7 @@ USE mo_impl_constants,         ONLY: sea_boundary, max_char_length,           &
 USE mo_model_domain,           ONLY: t_patch
 USE mo_model_domain_import,    ONLY: n_dom, nroot
 USE mo_ocean_nml,              ONLY: n_zlev, iswm_oce
-USE mo_dynamics_config,        ONLY: dynamics_config
+USE mo_dynamics_config,        ONLY: nold
 USE mo_io_config,              ONLY: out_expname
 USE mo_run_config,             ONLY: nsteps, dtime
 USE mo_exception,              ONLY: message, message_text, finish
@@ -170,7 +170,7 @@ CONTAINS
     z_divver_c (:,:,:) = 0.0_wp
 
     ! set time level to old level (nold(1)=3)
-    jt = dynamics_config(jg)%nold
+    jt = nold(jg)
 
     !------------------------------------------------------------------
     ! call the simplified explicit core: start the time loop

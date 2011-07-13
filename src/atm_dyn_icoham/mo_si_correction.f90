@@ -91,8 +91,7 @@ MODULE mo_si_correction
   USE mo_interpolation,      ONLY: t_int_state
   USE mo_model_domain,       ONLY: t_patch
   USE mo_model_domain_import, ONLY: l_limited_area
-  USE mo_dynamics_nml,        ONLY: idiv_method
-  USE mo_dynamics_nml,       ONLY: sw_ref_height
+  USE mo_dynamics_config,    ONLY: idiv_method, sw_ref_height
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_config,         ONLY: msg_level, nlev, nlevp1
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog

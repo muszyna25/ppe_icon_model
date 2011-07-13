@@ -46,7 +46,7 @@ USE mo_grf_interpolation,   ONLY: t_gridref_state, grf_intmethod_c, &
 USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_vec_grf, interpol2_vec_grf
 USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging, interpol_vec_nudging
 USE mo_grf_ubcintp,         ONLY: interpol_scal_ubc,interpol_vec_ubc
-USE mo_dynamics_config,     ONLY: dynamics_config 
+USE mo_dynamics_config,     ONLY: nnow, nsav1, nnow_rcf
 USE mo_parallel_configuration,  ONLY: nproma, p_test_run
 USE mo_run_config,          ONLY: ltransport, msg_level, ntracer, lvert_nest
 USE mo_nonhydro_state,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
@@ -54,7 +54,7 @@ USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlcell_int, min_rl
       &                           MAX_CHAR_LENGTH
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
 USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c,                       &
-                                  grf_bdyintp_end_c, grf_bdyintp_end_e,      &
+                                  grf_bdyintp_end_c,                         &
                                   grf_fbk_start_c,                           &
                                   grf_bdywidth_c, grf_bdywidth_e,            &
                                   grf_nudgintp_start_c, grf_nudgintp_start_e,&
@@ -798,9 +798,6 @@ INTEGER, DIMENSION(:,:,:), POINTER :: iidx, iblk, ieidx, ieblk
 LOGICAL :: l_parallel
 REAL(wp), DIMENSION(:,:,:), POINTER :: p_fbkwgt, p_fbkwgt_tr, p_fbkwgt_v
 
-INTEGER :: nnow(n_dom), nnow_rcf(n_dom)
-INTEGER :: nnew(n_dom), nnew_rcf(n_dom)
-INTEGER :: nsav1(n_dom), nsav2(n_dom)
 
 !-----------------------------------------------------------------------
 
@@ -814,13 +811,6 @@ IF (my_process_is_mpi_seq()) THEN
 ELSE
   l_parallel = .TRUE.
 ENDIF
-
-nnow    (:) = dynamics_config(1:n_dom)%nnow
-nnow_rcf(:) = dynamics_config(1:n_dom)%nnow_rcf
-nnew    (:) = dynamics_config(1:n_dom)%nnew
-nnew_rcf(:) = dynamics_config(1:n_dom)%nnew_rcf
-nsav1   (:) = dynamics_config(1:n_dom)%nsav1
-nsav2   (:) = dynamics_config(1:n_dom)%nsav2
 
 p_parent_prog     => p_nh_state(jgp)%prog(nsav1(jgp))
 p_child_prog      => p_nh_state(jg)%prog(nnow(jg))
@@ -1180,7 +1170,7 @@ LOGICAL, INTENT(IN) :: lstep_adv  ! Switch if nudging is done for tracers
                                   ! (only if tracer transport is called)
 
 ! Indices
-INTEGER :: jb, jc, jk, jt, je, i_nchdom, i_startblk, i_endblk, &
+INTEGER :: jb, jc, jk, je, i_nchdom, i_startblk, i_endblk, &
            i_startidx, i_endidx
 
 INTEGER :: nlev                   ! number of vertical full levels

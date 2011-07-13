@@ -43,10 +43,10 @@ MODULE mo_solve_nh_async
 
   USE mo_kind,              ONLY: wp
   USE mo_nonhydrostatic_nml,ONLY: iadv_rhotheta, igradp_method, l_open_ubc, l_zdiffu_t
-  USE mo_dynamics_nml,      ONLY: itime_scheme, idiv_method
+  USE mo_dynamics_config,   ONLY: itime_scheme, idiv_method
   USE mo_diffusion_nml,     ONLY: k4
   USE mo_diffusion_config,  ONLY: diffusion_config
-  USE mo_parallel_configuration,  ONLY: nproma, p_test_run, itype_comm
+  USE mo_parallel_configuration,  ONLY: nproma, p_test_run
   USE mo_run_config,        ONLY: ltimer, lvert_nest
   USE mo_model_domain,      ONLY: t_patch
   USE mo_model_domain_import,ONLY: nroot, l_limited_area, lfeedback
@@ -58,13 +58,13 @@ MODULE mo_solve_nh_async
   USE mo_physical_constants,ONLY: cpd, rd, cvd, cvd_o_rd, grav, rd_o_cpd, p0ref
   USE mo_math_operators,    ONLY: div, rot_vertex, div_avg
   USE mo_vertical_grid,     ONLY: nflatlev, nrdmax, nflat_gradp
-  USE mo_loopindices,       ONLY: get_indices_c, get_indices_e, get_indices_v
+  USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int, min_rlcell
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_advection_hflux,   ONLY: upwind_hflux_miura, upwind_hflux_miura3
   USE mo_communication,     ONLY: start_async_comm, complete_async_comm
   USE mo_mpi,               ONLY: p_nprocs
-  USE mo_math_constants,    ONLY: dbl_eps, pi
+  USE mo_math_constants,    ONLY: dbl_eps
   USE mo_grf_interpolation, ONLY: denom_diffu_v
   USE mo_timer,             ONLY: timer_solve_nh, timer_start, timer_stop
 

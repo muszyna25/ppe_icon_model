@@ -56,7 +56,7 @@ MODULE mo_sw_test
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog
   USE mo_physical_constants,  ONLY: re, omega, rgrav, rre
   USE mo_math_constants,      ONLY: pi, pi_2
-  USE mo_dynamics_nml,        ONLY: sw_ref_height
+  USE mo_dynamics_config,     ONLY: sw_ref_height
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_datetime,            ONLY: rdaylen
 

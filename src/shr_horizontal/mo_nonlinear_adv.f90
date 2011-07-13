@@ -66,10 +66,9 @@ MODULE mo_nonlinear_adv
 USE mo_kind,               ONLY: wp
 USE mo_exception,          ONLY: finish
 USE mo_model_domain,       ONLY: t_patch
-USE mo_dynamics_nml,            ONLY: idiv_method
+USE mo_dynamics_config,    ONLY: idiv_method,lshallow_water
 USE mo_io_config,               ONLY: l_outputtime, l_diagtime
 USE mo_parallel_configuration,  ONLY: nproma
-USE mo_dynamics_config,     ONLY: dynamics_config 
 USE mo_interpolation,      ONLY: t_int_state,                    &
   &                              rbf_vec_interpol_edge,        &
   &                              cells2verts_scalar,           &
@@ -359,7 +358,7 @@ CASE (3) ! triangles (cell_type == 3)
     rl_end = min_rledge
   END IF
 
-  IF (l_diagtime .AND. dynamics_config(pt_patch%id)%lshallow_water) THEN
+  IF (l_diagtime .AND. lshallow_water) THEN
 
     ! delp at vertices (hexagons)
     CALL cells2verts_scalar(pt_diag%delp_c, pt_patch, &

@@ -58,7 +58,7 @@ USE mo_parallel_configuration,  ONLY: nproma
 USE mo_ocean_nml,           ONLY: iforc_oce, no_tracer,itestcase_oce, &
   &                              basin_center_lat, basin_center_lon,  &
   &                              basin_width_deg, basin_height_deg  
-USE mo_dynamics_config,     ONLY: dynamics_config 
+USE mo_dynamics_config,     ONLY: nold 
 USE mo_model_domain,        ONLY: t_patch
 USE mo_oce_state,           ONLY: t_hydro_ocean_state
 USE mo_exception,           ONLY: finish, message !, message_text
@@ -335,12 +335,7 @@ CONTAINS
   REAL(wp) :: z_perlat, z_perlon, z_permax, z_perwid, z_relax, z_dst
   INTEGER :: z_dolic
   CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_forcing:update_ho_sfcflx'
-
-  INTEGER(wp) :: nold(1)
   !-------------------------------------------------------------------------
-
-  nold(1) = dynamics_config(1)%nold
-
   rl_start_c   = 1
   rl_end_c     = min_rlcell
   i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)

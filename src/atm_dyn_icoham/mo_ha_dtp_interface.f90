@@ -37,7 +37,7 @@
 MODULE mo_ha_dtp_interface
 
   USE mo_kind,               ONLY: wp
-  USE mo_dynamics_nml,       ONLY: itime_scheme
+  USE mo_dynamics_config,    ONLY: itime_scheme
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_config,         ONLY: nlev, nlevp1
   USE mo_model_domain,       ONLY: t_patch

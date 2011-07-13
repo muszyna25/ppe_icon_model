@@ -51,7 +51,7 @@ MODULE mo_output
      &                              ihs_atm_theta,        &
      &                              inh_atmosphere,       &
      &                              ishallow_water,ihs_ocean
-  USE mo_dynamics_config,     ONLY: dynamics_config
+  USE mo_dynamics_config,     ONLY: iequations, nold, nnow, nnew, nnew_rcf, nnow_rcf 
   USE mo_atmo_control,        ONLY: p_patch
   USE mo_io_vlist,            ONLY: setup_vlist, destruct_vlist,           &
      &                              open_output_vlist, close_output_vlist, &
@@ -65,7 +65,6 @@ MODULE mo_output
                                   & write_restart, close_writing_restart_files,&
                                   & finish_restart
   USE mo_io_restart_attributes,ONLY: set_restart_attribute
-  USE mo_dynamics_config,     ONLY: dynamics_config 
   USE mo_model_domain,        ONLY: t_patch
 
   IMPLICIT NONE
@@ -146,7 +145,7 @@ CONTAINS
         ! Set up vlist for this grid level
         ! Please note: setup_vlist only sets up the vlist, it does not open any output file!
        
-        IF(dynamics_config(jg)%iequations /= ihs_ocean) &
+        IF(iequations /= ihs_ocean) &
         CALL setup_vlist( TRIM(p_patch(jg)%grid_filename), jg )
 
       ENDDO
@@ -205,7 +204,7 @@ CONTAINS
 
       WRITE(0,'(a,a)') ' Initial output file for setup_vlist is ', &
           &              TRIM(outputfile)
-      IF (dynamics_config(jg)%iequations == ihs_ocean) THEN
+      IF (iequations == ihs_ocean) THEN
         ! #slo# must be aligned with general output
         CALL setup_vlist_oce( p_patch(1:), TRIM(p_patch(jg)%grid_filename), TRIM(outputfile), jg )
       ELSE
@@ -319,11 +318,11 @@ CONTAINS
     CALL set_restart_attribute( 'current_minute', datetime%minute )
     CALL set_restart_attribute( 'current_second', datetime%second )
 
-    CALL set_restart_attribute( 'nold'    , dynamics_config(jg)%nold    )
-    CALL set_restart_attribute( 'nnow'    , dynamics_config(jg)%nnow    )
-    CALL set_restart_attribute( 'nnew'    , dynamics_config(jg)%nnew    )
-    CALL set_restart_attribute( 'nnow_rcf', dynamics_config(jg)%nnow_rcf)
-    CALL set_restart_attribute( 'nnew_rcf', dynamics_config(jg)%nnew_rcf)
+    CALL set_restart_attribute( 'nold'    , nold    (jg))
+    CALL set_restart_attribute( 'nnow'    , nnow    (jg))
+    CALL set_restart_attribute( 'nnew'    , nnew    (jg))
+    CALL set_restart_attribute( 'nnow_rcf', nnow_rcf(jg))
+    CALL set_restart_attribute( 'nnew_rcf', nnew_rcf(jg))
 
     IF (l_have_output) THEN
       CALL set_restart_attribute( 'next_output_file', jfile+1 )

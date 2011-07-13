@@ -90,7 +90,7 @@ MODULE mo_advection_hflux
   USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_edge,      &
     &                               rbf_interpol_c2grad, lsq_high_ord,       &
     &                               lsq_high_set, cells2edges_scalar
-  USE mo_dynamics_nml,        ONLY: itime_scheme
+  USE mo_dynamics_config,     ONLY: itime_scheme
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_config,          ONLY: ntracer
   USE mo_loopindices,         ONLY: get_indices_e

@@ -48,7 +48,7 @@ MODULE mo_atm_nml_crosscheck
   USE mo_impl_constants,      ONLY: max_char_length, max_dom,itconv,itccov,&
     &                               itrad,itradheat, itsso,itgscp,itsatad,itupdate,&
     &                               itturb, itsfc,  itgwd, iphysproc,iecham, ildf_echam,&
-    &                               inwp
+    &                               inwp, tracer_only, inh_atmosphere
   USE mo_time_config,         ONLY: time_config
   USE mo_run_config
   USE mo_gridref_config,      ONLY: gridref_config
@@ -56,7 +56,7 @@ MODULE mo_atm_nml_crosscheck
   USE mo_grid_configuration    !,     ONLY: global_cell_type
   USE mo_sleve_config          ! all, ONLY: sleve_config
 
-  USE mo_dynamics_config,     ONLY: dynamics_config
+  USE mo_dynamics_config
   USE mo_advection_config,    ONLY: advection_config
 
   USE mo_nh_dyn_config       !For now: all, later  ONLY: nh_dyn_config
@@ -94,22 +94,51 @@ SUBROUTINE atm_crosscheck
                               'atm_crosscheck'
 
 
-  IF (lplane .AND. global_cell_type==3) THEN
-    CALL finish( TRIM(routine),&
-      'currently, only the hexagon version runs on a plane')
-  ENDIF
 
 
-  !--------------------------------------------------------------------
-  ! checking of interpolation  parameters
-  !--------------------------------------------------------------------
-
-  IF (global_cell_type == 6) THEN
+    !--------------------------------------------------------------------
+    ! checking of interpolation  parameters
+    !--------------------------------------------------------------------
+    IF (global_cell_type == 6) THEN
     ! ... check i_cori_method
-    IF (i_cori_method <1 .OR. i_cori_method>4) THEN
-      CALL finish( TRIM(routine),'value of i_cori_method out of range [1,2,3,4]')
+      IF (i_cori_method <1 .OR. i_cori_method>4) THEN
+        CALL finish( TRIM(routine),'value of i_cori_method out of range [1,2,3,4]')
+      ENDIF
     ENDIF
-  ENDIF
+
+    !--------------------------------------------------------------------
+    ! Tracer transport
+    !--------------------------------------------------------------------
+    IF((itime_scheme==tracer_only).AND.(.NOT.ltransport)) THEN
+      WRITE(message_text,'(A,i2,A)') &
+      'itime_scheme set to ', tracer_only, 'but ltransport to .FALSE.'
+      CALL finish( TRIM(routine),TRIM(message_text))
+    END IF
+
+    IF(ltransport .AND. ntracer <= 0) THEN
+      CALL finish( TRIM(routine),'Tracer transport switched on but ntracer <= 0')
+      ! [for nwp forcing ntracer setting is treated in setup_transport]
+    ENDIF
+
+
+    !--------------------------------------------------------------------
+    ! Grid and dynamics 
+    !--------------------------------------------------------------------
+    IF (lplane .AND. global_cell_type==3) CALL finish( TRIM(routine),&
+      'Currently only the hexagon model can run on a plane')
+
+    IF (global_cell_type==6.AND.idiv_method==2) THEN
+      CALL finish( TRIM(ROUTINE),'idiv_method =2 not valid for the hexagonal model') 
+    ENDIF
+
+    IF (iequations==ISHALLOW_WATER.AND.ha_dyn_config%lsi_3d) THEN
+      CALL message( TRIM(routine), 'lsi_3d = .TRUE. not appicable to shallow water model')
+    ENDIF
+
+    IF ((iforcing==IHELDSUAREZ.OR.iforcing==ILDF_DRY).AND.(.NOT.ldry_dycore)) &
+    CALL finish( TRIM(ROUTINE),'ldry_dycore should be .TRUE. for the '//&
+               'Held-Suarez test and the dry local diabatic forcing test.')
+
   !--------------------------------------------------------------------
   ! checking of nh-dynamics parameters
   !--------------------------------------------------------------------
@@ -128,6 +157,17 @@ SUBROUTINE atm_crosscheck
         &'Value must be even or 1 if l_nest_rcf=.FALSE.')
   ENDIF
 
+
+    !--------------------------------------------------------------------
+    ! Atmospheric physics
+    !--------------------------------------------------------------------
+    IF ((iforcing==INWP).AND.(iequations/=INH_ATMOSPHERE)) &
+    CALL finish( TRIM(routine), 'NWP physics only implemented in the '//&
+               'nonhydrostatic atm model')
+
+    IF ((iforcing==IECHAM).AND.(iequations==INH_ATMOSPHERE)) &
+    CALL finish( TRIM(routine), 'ECHAM physics not implemented in the '//&
+               'nonhydrostatic atm model')
 
     !--------------------------------------------------------------------
     ! checking the meanings of the nwp physics namelist
@@ -157,10 +197,9 @@ SUBROUTINE atm_crosscheck
      CALL message(TRIM(routine),' WARNING! NWP forcing set but only turbulence selected!')
 
 
-  IF (iforcing == iecham     .OR. &
-&     iforcing == ildf_echam .OR. &
-&     iforcing == inwp          ) &
-&     dynamics_config(jg)%ldry_dycore     = .FALSE.
+    IF ((iequations==INH_ATMOSPHERE).AND.(iforcing==inwp).AND.ldry_dycore) &
+    CALL finish(TRIM(routine),'ldry_dycore = .TRUE. not allowed for '//&
+               'the nonhydrostaic atm model with NWP physics.')
 
 ! check radiation scheme in relation to chosen ozone
 
@@ -212,7 +251,7 @@ SUBROUTINE atm_crosscheck
 
 
 
-END  SUBROUTINE atm_crosscheck
+  END  SUBROUTINE atm_crosscheck
 
 
 

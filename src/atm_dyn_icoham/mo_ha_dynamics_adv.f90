@@ -40,8 +40,7 @@ MODULE mo_ha_dynamics_adv
   USE mo_exception,          ONLY: message,finish
   USE mo_model_domain,       ONLY: t_patch
   USE mo_math_operators,     ONLY: grad_fd_norm, div, div_avg
-  USE mo_dynamics_nml,       ONLY: idiv_method
-  USE mo_dynamics_config,    ONLY: dynamics_config 
+  USE mo_dynamics_config,    ONLY: idiv_method, lshallow_water
   USE mo_io_config,          ONLY: l_outputtime, lwrite_omega, l_diagtime
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_config,         ONLY: nlev, nlevp1
@@ -353,7 +352,7 @@ CONTAINS
 ! For diagnosing potential enstrophy in the
 ! shallow water model, interpolate the pseudo-dencity from triangle centers
 ! to vertices.
-  IF (l_diagtime .AND. dynamics_config(pt_patch%id)%lshallow_water) THEN
+  IF (l_diagtime .AND. lshallow_water) THEN
     CALL cells2verts_scalar(p_delp_c, pt_patch, &
                             pt_int%cells_aw_verts, p_delp_v)
   ENDIF

@@ -50,7 +50,7 @@ USE mo_impl_constants,         ONLY: max_char_length
 USE mo_model_domain,           ONLY: t_patch
 USE mo_model_domain_import,    ONLY: n_dom, nroot
 USE mo_ocean_nml,              ONLY: n_zlev, iswm_oce, no_tracer,itestcase_oce
-USE mo_dynamics_config,        ONLY: dynamics_config 
+USE mo_dynamics_config,        ONLY: nold, nnew
 USE mo_io_config,              ONLY: out_expname
 USE mo_run_config,             ONLY: nsteps, dtime, ltimer
 USE mo_exception,              ONLY: message, message_text, finish
@@ -138,7 +138,7 @@ CONTAINS
   jg = n_dom
 
   ! set time level to old level (nold(1)=3)
-  jt = dynamics_config(jg)%nold
+  jt = nold(jg)
 
   ! file 1 is opened in control_model setup:
   jfile = 1
@@ -186,9 +186,9 @@ CONTAINS
     ! Step 7: Swap time indices before output
     !         half time levels of semi-implicit Adams-Bashforth timestepping are
     !         stored in auxiliary arrays g_n and g_nimd of p_diag%aux
-    n_temp    = dynamics_config(jg)%nold
-    dynamics_config(jg)%nold  = dynamics_config(jg)%nnew
-    dynamics_config(jg)%nnew  = n_temp
+    n_temp    = nold(jg)
+    nold(jg)  = nnew(jg)
+    nnew(jg)  = n_temp
 
    !Actually diagnostics for 3D not implemented, PK March 2011 
    IF ( iswm_oce == 1 ) THEN
@@ -201,7 +201,7 @@ CONTAINS
    ENDIF 
     ! Step 8: test output
 !     IF (ldbg) WRITE(*,'(a,i5,2(a,g20.12))') '*** After jstep = ',jstep, &
-!       &  '  Elevation h =', pstate_oce(jg)%p_prog(dynamics_config(jg)%nold)%h(c_i,c_b), &
+!       &  '  Elevation h =', pstate_oce(jg)%p_prog(nold(jg))%h(c_i,c_b), &
 !       &  '  Velocity  u =', pstate_oce(jg)%p_diag%u_pred(c_i,c_k,c_b)
      IF ( (jstep/=1 .AND. MOD(jstep-1,n_io)==0) .OR. jstep==nsteps ) THEN
       CALL message (TRIM(routine),'Write output at:')

@@ -71,7 +71,7 @@ MODULE m_dyn
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data,           ONLY: t_external_data
   USE mo_math_operators,     ONLY: grad_fd_norm, div, div_avg
-  USE mo_dynamics_nml,       ONLY: idiv_method
+  USE mo_dynamics_config,    ONLY: idiv_method
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config
   USE mo_io_config,          ONLY: l_outputtime, lwrite_omega
   USE mo_parallel_configuration,  ONLY: nproma

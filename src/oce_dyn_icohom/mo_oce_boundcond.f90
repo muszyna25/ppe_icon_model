@@ -54,7 +54,7 @@ USE mo_impl_constants,     ONLY: max_char_length, sea_boundary, sea,&
 USE mo_model_domain,       ONLY: t_patch
 USE mo_ocean_nml,          ONLY: idisc_scheme,  wstress_coeff, &
   &                              i_bc_veloc_top, i_bc_veloc_bot, iswm_oce
-USE mo_dynamics_config,    ONLY: dynamics_config 
+USE mo_dynamics_config,    ONLY: nold, nnew
 USE mo_run_config,         ONLY: dtime
 USE mo_exception,          ONLY: message
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
@@ -423,13 +423,7 @@ write(*,*)'MAX/MIN: bot boundary cond:vn',maxval(p_os%p_aux%bc_bot_vn), &
     REAL(wp) :: grad_h_v(1:nproma,1,1:p_patch%nblks_c)
     ! CHARACTER(len=max_char_length), PARAMETER :: &
     !          & routine = ('mo_oce_boundcond:bot_bound_cond_veloc')
-
-    INTEGER :: nold(1), nnew(1)
     !-----------------------------------------------------------------------
-
-    nold(1) = dynamics_config(1)%nold
-    nnew(1) = dynamics_config(1)%nnew
-
     rl_start = 1
     rl_end = min_rlcell
     i_startblk = p_patch%cells%start_blk(rl_start,1)

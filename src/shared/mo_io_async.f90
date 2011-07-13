@@ -70,11 +70,10 @@ MODULE mo_io_async
   USE mo_diffusion_nml,       ONLY: diffusion_nml_setup
 !  USE mo_io_nml,              ONLY: io_nml_setup
   USE mo_io_config            
-  USE mo_dynamics_config,     ONLY: dynamics_config
+  USE mo_dynamics_config,     ONLY: iequations 
   USE mo_run_config,          ONLY: ldump_states, ltransport, lforcing, num_lev, iforcing, nlev
  ! USE mo_atm_phy_nwp_nml,     ONLY: setup_nwp_phy, inwp_surface
-  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config,setup_atm_nwp_phy
-  USE mo_lnd_nwp_nml,         ONLY: setup_nwp_lnd
+  USE mo_atm_phy_nwp_config, ONLY: setup_atm_nwp_phy
   USE mo_io_units,            ONLY: filename_max
   USE mo_communication,       ONLY: idx_no, blk_no
   USE mo_io_vlist,            ONLY: GATHER_C, GATHER_E, GATHER_V,                                &
@@ -282,17 +281,17 @@ CONTAINS
 
     IF (ltransport) CALL transport_nml_setup
 
-    SELECT CASE (dynamics_config(1)%iequations)
+    SELECT CASE (iequations)
       CASE (ishallow_water)
-        CALL init_vertical_coord_table(dynamics_config(1)%iequations, num_lev(1))
+        CALL init_vertical_coord_table(iequations, num_lev(1))
         !
       CASE (ihs_atm_temp, ihs_atm_theta)
-        CALL init_vertical_coord_table(dynamics_config(1)%iequations, num_lev(1))
+        CALL init_vertical_coord_table(iequations, num_lev(1))
         !
       CASE (inh_atmosphere)
         CALL nonhydrostatic_nml_setup
         IF (ivctype == 1) THEN
-          CALL init_hybrid_coord (dynamics_config(1)%iequations, num_lev(1))
+          CALL init_hybrid_coord (iequations, num_lev(1))
         ELSE IF (ivctype == 2) THEN
           CALL init_sleve_coord (num_lev(1))
         ENDIF
@@ -1207,7 +1206,7 @@ CONTAINS
 
         ! Set ptr2/ptr3 to the variable to be output
 
-        SELECT CASE (dynamics_config(jg)%iequations)
+        SELECT CASE (iequations)
           CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
             CALL get_outvar_ptr_ha(outvar_desc(n,jg)%name, jg, ptr2, ptr3, reset, delete)
           CASE (inh_atmosphere)
@@ -1412,7 +1411,7 @@ CONTAINS
 
         ! Set ptr2/ptr3 to the variable to be output
 
-        SELECT CASE (dynamics_config(jg)%iequations)
+        SELECT CASE (iequations)
           CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
             CALL get_outvar_ptr_ha(outvar_desc(n,jg)%name, jg, ptr2, ptr3, reset, delete)
           CASE (inh_atmosphere)

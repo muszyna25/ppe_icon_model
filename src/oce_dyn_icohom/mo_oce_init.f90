@@ -63,7 +63,7 @@ USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, & !success,
   & min_rlcell, min_rledge,  &
   & oce_testcase_zero, oce_testcase_init, oce_testcase_file                             
 !  &                              land , boundary
-USE mo_dynamics_config,    ONLY: dynamics_config
+USE mo_dynamics_config,    ONLY: nold,nnew
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e!, get_indices_v
 USE mo_exception,          ONLY: finish, message!, message_text
 USE mo_model_domain,       ONLY: t_patch
@@ -139,13 +139,8 @@ CONTAINS
     REAL(wp) , PARAMETER :: sprof_4layerStommel(4) = &
     &(/34.699219_wp, 34.798244_wp, 34.904964_wp, 34.976841_wp/)
     CHARACTER(LEN=max_char_length), PARAMETER :: routine = 'mo_oce_init:init_ho_testcases'
-
-  INTEGER :: nold(1), nnew(1)
   !-------------------------------------------------------------------------
   CALL message (TRIM(routine), 'start')
-
-  nold(1) = dynamics_config(1)%nold
-  nnew(1) = dynamics_config(1)%nnew
 
   rl_start = 1
   rl_end_c = min_rlcell

@@ -65,7 +65,7 @@ USE mo_grf_interpolation,   ONLY: t_gridref_state, grf_velfbk,            &
                                   grf_intmethod_ct
 USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_scal2d_grf, &
                                   interpol_vec_grf, interpol2_vec_grf
-USE mo_dynamics_config,     ONLY: dynamics_config 
+USE mo_dynamics_config,     ONLY: nnew, nnow, nsav1, nsav2, lshallow_water
 USE mo_parallel_configuration,  ONLY: nproma, p_test_run
 USE mo_run_config,          ONLY: msg_level, ltransport, nlev,    &
                                   ntracer
@@ -236,7 +236,7 @@ ELSE IF (grf_intmethod_c == 2) THEN
   CALL interpol_scal2d_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx,&
                             p_parent_tend%pres_sfc, p_child_tend%pres_sfc)
 
-  IF (.NOT. dynamics_config(1)%lshallow_water) &
+  IF (.NOT. lshallow_water) &
     CALL interpol_scal_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, 1, &
                             p_parent_tend%temp,  p_child_tend%temp)
 
@@ -539,11 +539,11 @@ ELSE
   l_parallel = .TRUE.
 ENDIF
 
-p_parent_prog => p_hydro_state(jgp)%prog(dynamics_config(jgp)%nnew)
-p_parent_save => p_hydro_state(jgp)%prog(dynamics_config(jgp)%nsav1)
+p_parent_prog => p_hydro_state(jgp)%prog(nnew(jgp))
+p_parent_save => p_hydro_state(jgp)%prog(nsav1(jgp))
 p_parent_tend => p_hydro_state(jgp)%tend_dyn
-p_child_prog  => p_hydro_state(jg)%prog(dynamics_config(jg)%nnow)
-p_child_save  => p_hydro_state(jg)%prog(dynamics_config(jg)%nsav2)
+p_child_prog  => p_hydro_state(jg)%prog(nnow(jg))
+p_child_save  => p_hydro_state(jg)%prog(nsav2(jg))
 p_child_tend  => p_hydro_state(jg)%tend_dyn
 p_intc        => p_int_state(jg)
 p_gcc         => p_patch(jg)%cells

@@ -34,6 +34,7 @@ MODULE mo_ha_dyn_nml
 
   USE mo_ha_dyn_config,         ONLY: ha_dyn_config
   USE mo_kind,                  ONLY: wp
+  USE mo_mpi,                   ONLY: p_pe, p_io
   USE mo_io_units,              ONLY: nnml, nnml_output
   USE mo_exception,             ONLY: message, message_text, finish
   USE mo_namelist,              ONLY: position_nml, positioned
@@ -163,8 +164,8 @@ CONTAINS
     WRITE(funit,NML=ha_dyn_nml)
     CALL store_and_close_namelist(funit, 'ha_dyn_nml')
 
-  ! ! write the contents of the namelist to an ASCII file
-  ! IF(p_pe == p_io) WRITE(nnml_output,nml=ha_dyn_nml)
+    ! write the contents of the namelist to an ASCII file
+    IF(p_pe == p_io) WRITE(nnml_output,nml=ha_dyn_nml)
 
     !-----------------------------------------------------
     ! Fill configuration state
@@ -181,16 +182,5 @@ CONTAINS
     ha_dyn_config% lref_temp         = nml_lref_temp
 
   END SUBROUTINE read_ha_dyn_namelist
-  !>
-  !!
-  SUBROUTINE check_ha_dyn
-
-    CHARACTER(len=*),PARAMETER :: routine = 'mo_ha_dyn_nml:read_ha_dyn_namelist'
-  ! IF (lshallow_water .AND. nml_lsi_3d) THEN                                     
-  !   CALL message( TRIM(routine), 'In shallow water mode nml_lsi_3d is set to .FALSE.')        
-  !   nml_lsi_3d=.FALSE.                                                          
-  ! ENDIF  
-
-  END SUBROUTINE check_ha_dyn
 
 END MODULE mo_ha_dyn_nml

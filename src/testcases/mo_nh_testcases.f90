@@ -60,7 +60,7 @@ MODULE mo_nh_testcases
   USE mo_extpar_nml,         ONLY: itopo => nml_itopo
   USE mo_grid_configuration, ONLY :  global_cell_type
     
-  USE mo_dynamics_config,    ONLY: dynamics_config 
+  USE mo_dynamics_config,    ONLY: nnow, nnow_rcf, nnew, nnew_rcf
 !  USE mo_atm_phy_nwp_nml,    ONLY: inwp_gscp, inwp_convection
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_physical_constants, ONLY: grav, cpd, rd, cvd_o_rd, &
@@ -584,15 +584,7 @@ MODULE mo_nh_testcases
   CHARACTER(LEN=1) :: ctracer
   CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
     &  ctracer_list
-
-  INTEGER :: nnow(n_dom), nnow_rcf(n_dom)
-  INTEGER :: nnew(n_dom), nnew_rcf(n_dom)
 !-----------------------------------------------------------------------
-
-  nnow    (:) = dynamics_config(1:n_dom)%nnow
-  nnow_rcf(:) = dynamics_config(1:n_dom)%nnow_rcf
-  nnew    (:) = dynamics_config(1:n_dom)%nnew
-  nnew_rcf(:) = dynamics_config(1:n_dom)%nnew_rcf
 
   SELECT CASE (nh_test_name)
 

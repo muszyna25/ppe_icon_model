@@ -62,7 +62,7 @@ USE mo_io_nml,              ONLY: io_nml_setup !,         & ! process I/O
 !& dt_diag,              & !    :
 !& dt_checkpoint 
 USE mo_io_config,         ONLY:  dt_data,dt_file,dt_diag,dt_checkpoint
-USE mo_dynamics_config,   ONLY: dynamics_config
+USE mo_dynamics_config,   ONLY: iequations
 USE mo_run_nml,           ONLY: run_nml_setup
 USE mo_run_config,        ONLY: &
 & dtime,                & !    namelist parameter
@@ -383,7 +383,7 @@ INTEGER, POINTER :: grid_glob_index(:)
     !-------------------------------------------------------------------
     IF (ltestcase) THEN
       
-      SELECT CASE (dynamics_config(1)%iequations)
+      SELECT CASE (iequations)
       CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
         CALL setup_testcase
         
@@ -456,7 +456,7 @@ INTEGER, POINTER :: grid_glob_index(:)
     !------------------------------------------------------------------
     ! Read specific dynamics namelists for the nonhydrost. dynamical core
     !------------------------------------------------------------------
-    SELECT CASE (dynamics_config(1)%iequations)
+    SELECT CASE (iequations)
     
     CASE (inh_atmosphere)
       CALL nonhydrostatic_nml_setup
@@ -516,20 +516,17 @@ INTEGER, POINTER :: grid_glob_index(:)
     !------------------------------------------------------------------
     ! step 5a: init the structure of the model equations
     !------------------------------------------------------------------
-    SELECT CASE (dynamics_config(1)%iequations)
+    SELECT CASE (iequations)
     
     CASE (ishallow_water)
-      CALL init_vertical_coord_table(dynamics_config(1)%iequations, &
-                                     p_patch_global(1)%nlev)
+      CALL init_vertical_coord_table(iequations, p_patch_global(1)%nlev)
       
     CASE (ihs_atm_temp, ihs_atm_theta)
-      CALL init_vertical_coord_table(dynamics_config(1)%iequations, &
-                                     p_patch_global(1)%nlev)
+      CALL init_vertical_coord_table(iequations, p_patch_global(1)%nlev)
       
     CASE (inh_atmosphere)
       IF (ivctype == 1) THEN
-        CALL init_hybrid_coord(dynamics_config(1)%iequations, &
-                               p_patch_global(1)%nlev)
+        CALL init_hybrid_coord(iequations, p_patch_global(1)%nlev)
       ELSE IF (ivctype == 2) THEN
         CALL init_sleve_coord(p_patch_global(1)%nlev)
       ENDIF
@@ -556,7 +553,7 @@ INTEGER, POINTER :: grid_glob_index(:)
     ! step 5b: allocate state variables
     !------------------------------------------------------------------
     
-    SELECT CASE (dynamics_config(1)%iequations)
+    SELECT CASE (iequations)
     !
     CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
       ALLOCATE (p_hydro_state(n_dom), stat=ist)
@@ -678,7 +675,7 @@ INTEGER, POINTER :: grid_glob_index(:)
     !------------------------------------------------------------------
     ! Prepare for time integration
     !------------------------------------------------------------------
-    SELECT CASE (dynamics_config(1)%iequations)
+    SELECT CASE (iequations)
     CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
 
     !------------------------------------------------------------------
@@ -735,7 +732,7 @@ INTEGER, POINTER :: grid_glob_index(:)
     ! set dependent variables/model components, depending on this (transport)
     ! namelist and potentially others
     IF (ltransport) THEN
-      CALL setup_transport( dynamics_config(1)%iequations )
+      CALL setup_transport( iequations )
     ENDIF
     
     !------------------------------------------------------------------
@@ -792,7 +789,7 @@ INTEGER, POINTER :: grid_glob_index(:)
     
     DO jg = 1, n_dom
 
-      SELECT CASE (dynamics_config(jg)%iequations)
+      SELECT CASE (iequations)
 
       CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
         SELECT CASE (p_patch(jg)%cell_type)
@@ -834,7 +831,7 @@ INTEGER, POINTER :: grid_glob_index(:)
     ! The special initial time step for the three time level schemes
     ! is executed within process_grid_level
     !------------------------------------------------------------------
-    SELECT CASE (dynamics_config(1)%iequations)
+    SELECT CASE (iequations)
 
     CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
       CALL perform_ha_stepping( p_patch(1:), p_int_state(1:), p_grf_state(1:), &
@@ -859,7 +856,7 @@ INTEGER, POINTER :: grid_glob_index(:)
     
     ! Delete state variables
 
-    SELECT CASE (dynamics_config(1)%iequations)
+    SELECT CASE (iequations)
 
     CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
       CALL destruct_icoham_dyn_state

@@ -58,7 +58,7 @@ USE mo_impl_constants,     ONLY: land_boundary, boundary, sea, sea_boundary, &!l
   &                              min_rlcell, min_rledge, min_rlvert,max_char_length
 USE mo_model_domain,       ONLY: t_patch
 USE mo_ocean_nml,          ONLY: lviscous, n_zlev, iswm_oce
-USE mo_dynamics_config,    ONLY: dynamics_config
+USE mo_dynamics_config,    ONLY: nold
 USE mo_exception,          ONLY: finish
 #ifndef __SX__
 USE mo_timer,              ONLY: timer_start, timer_stop, timer_div, timer_grad
@@ -1733,11 +1733,8 @@ INTEGER, PARAMETER :: UPWIND          =2
 CHARACTER(len=max_char_length), PARAMETER :: &
        & routine = ('mo_oce_AB_timestepping_mimetic:height_related_quantities')
 
-INTEGER :: nold(1)
 !-------------------------------------------------------------------------------
 !CALL message (TRIM(routine), 'start')
-
-nold(1) = dynamics_config(1)%nold
 
 rl_start_c = 1
 rl_end_c = min_rlcell

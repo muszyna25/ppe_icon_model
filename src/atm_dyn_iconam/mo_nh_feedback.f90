@@ -42,8 +42,8 @@ USE mo_model_domain,        ONLY: t_patch, t_grid_cells, t_grid_edges
 USE mo_model_domain_import, ONLY: n_dom, n_dom_start
 USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_vertex
 USE mo_grf_interpolation,   ONLY: t_gridref_state, grf_velfbk
-USE mo_nonhydrostatic_nml,  ONLY: l_nest_rcf, l_masscorr_nest
-USE mo_dynamics_config,     ONLY: dynamics_config
+USE mo_nonhydrostatic_nml,  ONLY: l_masscorr_nest
+USE mo_dynamics_config,     ONLY: nnow, nnew, nnow_rcf, nnew_rcf, nsav1, nsav2 
 USE mo_parallel_configuration,  ONLY: nproma
 USE mo_run_config,          ONLY: ltransport, iforcing, msg_level, ntracer
 USE mo_nonhydro_state,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
@@ -53,12 +53,12 @@ USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
 USE mo_impl_constants_grf,  ONLY: grf_fbk_start_c, grf_fbk_start_e,          &
                                   grf_bdywidth_c
 USE mo_mpi,                 ONLY:  my_process_is_mpi_seq
-USE mo_communication,       ONLY: exchange_data, exchange_data_mult
+USE mo_communication,       ONLY: exchange_data_mult
 USE mo_sync,                ONLY: SYNC_C, SYNC_E, sync_patch_array, &
                                   global_sum_array3, sync_patch_array_mult
 USE mo_physical_constants,  ONLY: rd, cvd_o_rd, p0ref
 
-USE mo_subdivision,         ONLY: p_patch_local_parent, p_int_state_local_parent, &
+USE mo_subdivision,         ONLY: p_patch_local_parent, &
                                   p_grf_state_local_parent
 
 IMPLICIT NONE
@@ -154,10 +154,6 @@ LOGICAL :: l_parallel
 REAL(wp), DIMENSION(:,:,:), POINTER :: p_fbkwgt, p_fbkwgt_tr, p_fb_layer_thickness
 REAL(wp), DIMENSION(:,:),   POINTER :: p_fbarea
 
-INTEGER :: nnow(n_dom), nnow_rcf(n_dom)
-INTEGER :: nnew(n_dom), nnew_rcf(n_dom)
-INTEGER :: nsav1(n_dom), nsav2(n_dom)
-
 !-----------------------------------------------------------------------
 
 IF (msg_level >= 10) THEN
@@ -171,12 +167,6 @@ ELSE
   l_parallel = .TRUE.
 ENDIF
 
-nnow    (:) = dynamics_config(1:n_dom)%nnow
-nnow_rcf(:) = dynamics_config(1:n_dom)%nnow_rcf
-nnew    (:) = dynamics_config(1:n_dom)%nnew
-nnew_rcf(:) = dynamics_config(1:n_dom)%nnew_rcf
-nsav1   (:) = dynamics_config(1:n_dom)%nsav1
-nsav2   (:) = dynamics_config(1:n_dom)%nsav2
 
 p_parent_prog    => p_nh_state(jgp)%prog(nnew(jgp))
 p_parent_prog_rcf=> p_nh_state(jgp)%prog(nnew_rcf(jgp))

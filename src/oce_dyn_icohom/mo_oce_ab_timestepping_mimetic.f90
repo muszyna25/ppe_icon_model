@@ -58,7 +58,7 @@ USE mo_ocean_nml,                 ONLY: n_zlev, i_dbg_oce, i_dbg_inx, str_proc_t
   &                                     ab_const, ab_beta, ab_gam, iswm_oce, idisc_scheme,&
   &                                     expl_vertical_velocity_diff,iforc_oce
 USE mo_run_config,                ONLY: dtime
-USE mo_dynamics_config,           ONLY: dynamics_config 
+USE mo_dynamics_config,           ONLY: nold, nnew
 USE mo_physical_constants,        ONLY: grav!, re
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,          &
   &                                     set_lateral_boundary_values
@@ -151,14 +151,8 @@ CHARACTER(len=max_char_length) :: string
 !INTEGER  :: rl_start_e, rl_end_e, i_startblk_e, i_endblk_e, je,jb, i_startidx_e, i_endidx_e
 !CHARACTER(len=max_char_length), PARAMETER :: &
 !       & routine = ('mo_oce_ab_timestepping_mimetic:solve_free_sfc_ab_mimetic')
-
-INTEGER :: nold(1), nnew(1)
 !-------------------------------------------------------------------------------
 !CALL message (TRIM(routine), 'start')
-
-nold(1) = dynamics_config(1)%nold
-nnew(1) = dynamics_config(1)%nnew
-
 tolerance = solver_tolerance
 z_h_c = 0.0_wp
 z_h_e = 0.0_wp
@@ -336,14 +330,8 @@ REAL(wp) :: z_e(nproma,n_zlev,p_patch%nblks_e)
 !INTEGER  :: rl_start_c, rl_end_c, i_startblk_c, i_endblk_c,i_startidx_c, i_endidx_c
 ! CHARACTER(len=max_char_length), PARAMETER :: &
 !        & routine = ('mo_oce_ab_timestepping_mimetic:calculate_explicit_term_ab')
-
-INTEGER :: nold(1), nnew(1)
 !-----------------------------------------------------------------------  
 !CALL message (TRIM(routine), 'start')        
-
-nold(1) = dynamics_config(1)%nold
-nnew(1) = dynamics_config(1)%nnew
-
 ! #slo# 2011-02-17: move invert of gdt=grav*dt into module for constants (tbd)
 gdt=grav*dtime
 
@@ -706,12 +694,8 @@ TYPE(t_cartesian_coordinates) :: z_u_pred_depth_int_cc(nproma,1,p_patch%nblks_c)
 !REAL(wp) :: thick
 !CHARACTER(len=max_char_length), PARAMETER :: &
 !       & routine = ('mo_oce_ab_timestepping_mimetic:fill_rhs4surface_eq_ab')
-
-INTEGER :: nold(1)
 !-------------------------------------------------------------------------------
 !CALL message (TRIM(routine), 'start')        
-
-nold(1) = dynamics_config(1)%nold
 
 ! #slo# 2011-02-17: move invert of gdt=grav*dt into module for constants (tbd)
 gdt2 = grav*(dtime)**2
@@ -1054,16 +1038,9 @@ REAL(wp) :: gdt
 !REAL(wp) :: z_tmp_1_h_c(nproma,1,p_patch%nblks_c)
 !REAL(wp) :: z_tmp_h_e(nproma,1,p_patch%nblks_e)
 !CHARACTER(len=max_char_length), PARAMETER ::     &
-
-INTEGER :: nold(1), nnew(1)
-
 !  &      routine = ('mo_oce_ab_timestepping_mimetic: calc_normal_velocity_ab_mimetic')
 !-----------------------------------------------------------------------  
 !CALL message (TRIM(routine), 'start')        
-
-nold(1) = dynamics_config(1)%nold
-nnew(1) = dynamics_config(1)%nnew
-
 gdt=grav*dtime
 
 rl_start_e = 1

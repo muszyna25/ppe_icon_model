@@ -125,7 +125,7 @@ MODULE mo_dump_restore
   USE mo_parallel_configuration, ONLY: nproma
   USE mo_run_config,         ONLY: ltransport, &
      &                             num_lev, num_levp1, nshift
-  USE mo_dynamics_config,    ONLY: dynamics_config 
+  USE mo_dynamics_config,    ONLY: iequations
   USE mo_io_units,           ONLY: filename_max, nerr
   USE mo_model_domain,       ONLY: t_patch
   USE mo_grid_configuration, ONLY: start_lev, n_dom, n_dom_start, lfeedback, &
@@ -1506,7 +1506,7 @@ CONTAINS
     CALL def_var('int.rbf_vec_stencil_e', nf_int,    dim_nedges) ! nproma,nblks_e
     CALL def_var('int.rbf_vec_coeff_e',   nf_double, dim_nedges, dim_rbf_vec_dim_e) ! rbf_vec_dim_e,nproma,nblks_e
     ENDIF
-    IF( ltransport .OR. dynamics_config(p%id)%iequations == 3) THEN
+    IF( ltransport .OR. iequations == 3) THEN
     CALL def_var('int.pos_on_tplane_e',   nf_double, dim_nedges, dim_8, dim_2) ! nproma,nblks_e,8,2
     CALL def_var('int.tplane_e_dotprod',  nf_double, dim_nedges, dim_4, dim_4) ! nproma,nblks_e,4,4
     CALL def_var('int.lin.lsq_dim_stencil', nf_int,   dim_ncells) ! nproma,nblks_c
@@ -1636,7 +1636,7 @@ CONTAINS
     CALL bvar_io(1,2,'int.rbf_vec_stencil_e', pi%rbf_vec_stencil_e) ! nproma,nblks_e
     CALL bvar_io(2,3,'int.rbf_vec_coeff_e',   pi%rbf_vec_coeff_e  ) ! rbf_vec_dim_e,nproma,nblks_e
     ENDIF
-    IF( ltransport .OR. dynamics_config(p%id)%iequations == 3) THEN
+    IF( ltransport .OR. iequations == 3) THEN
     CALL bvar_io(1,2,'int.pos_on_tplane_e',   pi%pos_on_tplane_e  ) ! nproma,nblks_e,8,2
     CALL bvar_io(1,2,'int.tplane_e_dotprod',  pi%tplane_e_dotprod ) ! nproma,nblks_e,4,4
     CALL bvar_io(1,2,'int.lin.lsq_dim_stencil', pi%lsq_lin%lsq_dim_stencil ) ! nproma,nblks_c

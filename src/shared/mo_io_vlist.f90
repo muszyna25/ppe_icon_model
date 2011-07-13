@@ -105,26 +105,21 @@ MODULE mo_io_vlist
     &                               ltheta_up_hori, ltheta_up_vert,             &
     &                               gmres_rtol_nh, iadv_rcf, ivctype,           &
     &                               upstr_beta, l_open_ubc, l_nest_rcf,         &
-    &                               l_zdiffu_t, thslp_zdiffu, thhgtd_zdiffu
+    &                               thslp_zdiffu
   USE mo_impl_constants,      ONLY: ntrac_oce, ihs_atm_temp, ihs_atm_theta,     &
     &                               inh_atmosphere, ishallow_water
   USE mo_ocean_nml,           ONLY: n_zlev, iforc_oce,no_tracer
-  USE mo_dynamics_nml,        ONLY: itime_scheme,                               &
+  USE mo_dynamics_config,     ONLY: itime_scheme,iequations,lshallow_water,     &
     &                               idiv_method, divavg_cntrwgt,                &
-    &                               ldry_dycore
-  USE mo_dynamics_config,     ONLY: dynamics_config
- !USE mo_ha_dyn_config,       ONLY: ha_dyn_config
- !USE mo_ha_dyn_nml,          ONLY: lsi_3d, asselin_coeff,        &
- !  &                               si_2tls, si_cmin,        &
- !  &                               si_coeff, si_expl_scheme, si_offctr,        &
- !  &                               si_rtol, lref_temp
+    &                               ldry_dycore, nold, nnow, lcoriolis
+  USE mo_ha_dyn_config,       ONLY: ha_dyn_config
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_io_config,           ONLY: lwrite_omega, lwrite_pres, lwrite_z3,       &
     &                               lwrite_vorticity, lwrite_divergence,        &
     &                               lwrite_tend_phy, lwrite_radiation,          &
     &                               lwrite_precip, lwrite_cloud, lwrite_tracer, &
     &                               lwrite_tke,  lwrite_surface,lwrite_extra,   &
-    &                               dt_diag, out_filetype, out_expname,         &
+    &                               out_filetype, out_expname,         &
     &                               dt_data, dt_file, lkeep_in_sync
   USE mo_parallel_configuration,  ONLY: nproma, p_test_run
   USE mo_run_config,          ONLY: num_lev, num_levp1, itopo,                  &
@@ -145,7 +140,6 @@ MODULE mo_io_vlist
   USE mo_advection_config,    ONLY: advection_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config
 !!$  USE mo_gw_hines_nml,        ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
-  USE mo_icoham_sfc_indices,  ONLY: igbm
   USE mo_vertical_coord_table,ONLY: vct
   USE mo_model_domain_import, ONLY: start_lev, nroot, n_dom, lfeedback, lplane
   USE mo_model_domain,        ONLY: t_patch,t_patch_ocean
@@ -163,11 +157,11 @@ MODULE mo_io_vlist
   USE mo_atmo_control,        ONLY: p_patch
   USE mo_nonhydro_state,      ONLY: p_nh_state
   USE mo_nwp_lnd_state,       ONLY: p_lnd_state
-  USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag, t_nwp_phy_tend ,&
+  USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag, &
        &                            prm_diag, prm_nwp_tend
   USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag
   USE mo_echam_phy_memory,    ONLY: prm_field, prm_tend
-  USE mo_radiation_nml,       ONLY: dt_rad, izenith, irad_h2o,                  &
+  USE mo_radiation_nml,       ONLY: izenith, irad_h2o,                  &
     &                               irad_co2, irad_ch4, irad_n2o, irad_o3,      &
     &                               irad_o2, irad_cfc11, irad_cfc12,  irad_aero
   USE mo_impl_constants,      ONLY: max_ntracer
@@ -182,7 +176,7 @@ MODULE mo_io_vlist
     &                               mount_u0
   USE mo_nh_testcases,        ONLY: nh_test_name, mount_height,                 &
     &                               torus_domain_length, nh_brunt_vais, nh_u0,  &
-    &                               nh_t0, layer_thickness, n_flat_level, jw_up,&
+    &                               nh_t0, layer_thickness, jw_up,&
     &                               u0_mrw, mount_height_mrw,                   &
     &                               mount_lonctr_mrw_deg, mount_latctr_mrw_deg, &
     &                               p_int_mwbr_const, temp_i_mwbr_const,        &
@@ -562,7 +556,7 @@ CONTAINS
     CALL addGlobAttInt('run_ctl:global_cell_type',global_cell_type,vlistID(k_jg),astatus)
     CALL addGlobAttInt('run_ctl:num_lev',num_lev(k_jg),vlistID(k_jg),astatus)
     CALL addGlobAttFlt('run_ctl:dtime',dtime,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_ctl:iequations',dynamics_config(k_jg)%iequations,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('run_ctl:iequations',iequations,vlistID(k_jg),astatus)
     CALL addGlobAttInt('run_ctl:ntracer',ntracer,vlistID(k_jg),astatus)
     CALL addGlobAttTxtFromLog('run_ctl:ldynamics',ldynamics,vlistID(k_jg),astatus)
     CALL addGlobAttTxtFromLog('run_ctl:ltransport',ltransport,vlistID(k_jg),astatus)
@@ -578,34 +572,44 @@ CONTAINS
     CALL addGlobAttInt('dynamics_ctl:itime_scheme',itime_scheme,vlistID(k_jg),astatus)
     CALL addGlobAttInt('dynamics_ctl:idiv_method',idiv_method,vlistID(k_jg),astatus)
     CALL addGlobAttFlt('dynamics_ctl:divavg_cntrwgt',divavg_cntrwgt,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('dynamics_ctl:lcoriolis',dynamics_config(k_jg)%lcoriolis, &
+    CALL addGlobAttTxtFromLog('dynamics_ctl:lcoriolis',lcoriolis, &
                               vlistID(k_jg),astatus)
 
    !----------------------------
    ! namelist/ha_dyn_nml/
    !----------------------------
-   !CALL addGlobAttTxtFromLog('dynamics_ctl:lsi_3d',lsi_3d,vlistID(k_jg),astatus)
-   !CALL addGlobAttInt('dynamics_ctl:ileapfrog_startup', &
-   !     ha_dyn_config%ileapfrog_startup,vlistID(k_jg),astatus)
-   !CALL addGlobAttFlt('dynamics_ctl:asselin_coeff',asselin_coeff,vlistID(k_jg),astatus)
-   !CALL addGlobAttFlt('dynamics_ctl:si_2tls',si_2tls,vlistID(k_jg),astatus)
-   !CALL addGlobAttFlt('dynamics_ctl:si_coeff',si_coeff,vlistID(k_jg),astatus)
-   !CALL addGlobAttFlt('dynamics_ctl:si_offctr',si_offctr,vlistID(k_jg),astatus)
-   !CALL addGlobAttFlt('dynamics_ctl:si_rtol',si_rtol,vlistID(k_jg),astatus)
-   !CALL addGlobAttFlt('dynamics_ctl:si_cmin',si_cmin,vlistID(k_jg),astatus)
-   !CALL addGlobAttInt('dynamics_ctl:si_expl_scheme',si_expl_scheme,vlistID(k_jg),astatus)
+    IF (iequations == 1 .OR. iequations == 2) THEN
 
-   !IF (iequations == 1 .OR. iequations == 2) THEN
-   !  CALL addGlobAttTxtFromLog('dynamics_ctl:ldry_dycore',ldry_dycore,vlistID(k_jg),astatus)
-   !  CALL addGlobAttTxtFromLog('dynmaics_ctl:lref_temp',lref_temp,vlistID(k_jg),astatus)
-   !ENDIF
+      CALL addGlobAttTxtFromLog('dynamics_ctl:lsi_3d',&
+           ha_dyn_config%lsi_3d,vlistID(k_jg),astatus)
+      CALL addGlobAttInt('dynamics_ctl:ileapfrog_startup', &
+           ha_dyn_config%ileapfrog_startup,vlistID(k_jg),astatus)
+      CALL addGlobAttFlt('dynamics_ctl:asselin_coeff',&
+           ha_dyn_config%asselin_coeff,vlistID(k_jg),astatus)
+      CALL addGlobAttFlt('dynamics_ctl:si_2tls',&
+           ha_dyn_config%si_2tls,vlistID(k_jg),astatus)
+      CALL addGlobAttFlt('dynamics_ctl:si_coeff',&
+           ha_dyn_config%si_coeff,vlistID(k_jg),astatus)
+      CALL addGlobAttFlt('dynamics_ctl:si_offctr',&
+           ha_dyn_config%si_offctr,vlistID(k_jg),astatus)
+      CALL addGlobAttFlt('dynamics_ctl:si_rtol',&
+           ha_dyn_config%si_rtol,vlistID(k_jg),astatus)
+      CALL addGlobAttFlt('dynamics_ctl:si_cmin',&
+           ha_dyn_config%si_cmin,vlistID(k_jg),astatus)
+      CALL addGlobAttInt('dynamics_ctl:si_expl_scheme',&
+           ha_dyn_config%si_expl_scheme,vlistID(k_jg),astatus)
+      CALL addGlobAttTxtFromLog('dynamics_ctl:ldry_dycore',&
+           ha_dyn_config%ldry_dycore,vlistID(k_jg),astatus)
+      CALL addGlobAttTxtFromLog('dynmaics_ctl:lref_temp',&
+           ha_dyn_config%lref_temp,vlistID(k_jg),astatus)
+    ENDIF
 
 
     !
     ! Parameters of /nonhydrostatic_ctl/
     ! ----------------------------
 
-    IF (dynamics_config(k_jg)%iequations == 3) THEN
+    IF (iequations == 3) THEN
        CALL addGlobAttInt('nonhydrostatic_ctl:ivctype',ivctype,vlistID(k_jg),astatus)
        CALL addGlobAttInt('nonhydrostatic_ctl:iadv_rcf',iadv_rcf,vlistID(k_jg),astatus)
 
@@ -810,9 +814,9 @@ CONTAINS
       !
       ! Parameters of /testcase_ctl/
       ! -----------------------------
-      IF(dynamics_config(k_jg)%iequations == 0 .OR. &
-         dynamics_config(k_jg)%iequations == 1 .OR. &
-         dynamics_config(k_jg)%iequations == 2 ) THEN
+      IF(iequations == 0 .OR. &
+         iequations == 1 .OR. &
+         iequations == 2 ) THEN
       !
          CALL addGlobAttTxt('testcase_ctl:ctest_name',TRIM(ctest_name),vlistID(k_jg),astatus)
          !
@@ -844,8 +848,7 @@ CONTAINS
          !
          ELSEIF ( TRIM(ctest_name) == 'HS' ) THEN
             CALL addGlobAttInt('testcase_ctl:ihs_init_type',ihs_init_type,vlistID(k_jg),astatus)
-            CALL addGlobAttTxtFromLog('testcase_ctl:lhs_vn_ptb', &
-                 echam_conv_config%lmfdd,vlistID(k_jg),astatus)
+            CALL addGlobAttTxtFromLog('testcase_ctl:lhs_vn_ptb',lhs_vn_ptb,vlistID(k_jg),astatus)
             CALL addGlobAttFlt('testcase_ctl:hs_vn_ptb_scale',   &
                       &        hs_vn_ptb_scale,vlistID(k_jg),astatus)
          !
@@ -865,7 +868,7 @@ CONTAINS
       !
       ! Parameters of /nh_testcase_ctl/
       ! -----------------------------
-      ELSEIF (dynamics_config(k_jg)%iequations == 3) THEN
+      ELSEIF (iequations == 3) THEN
       !
          CALL addGlobAttTxt('nh_testcase_ctl:nh_test_name', &
                   &         TRIM(nh_test_name),vlistID(k_jg),astatus)
@@ -965,7 +968,7 @@ CONTAINS
     &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
     &           k_jg)
     ! temperature
-    IF (.NOT.dynamics_config(k_jg)%lshallow_water) THEN
+    IF (.NOT.lshallow_water) THEN
       CALL addVar(TimeVar('T', &
       &                   'temperature',&
       &                   'K', 130, 128,&
@@ -991,7 +994,7 @@ CONTAINS
     &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
     &           k_jg)
     ! vertical velocity ( dp/dt )
-    IF (dynamics_config(k_jg)%iequations /= 3 .AND. lwrite_omega) THEN
+    IF (iequations /= 3 .AND. lwrite_omega) THEN
       CALL addVar(TimeVar('OMEGA',&
       &                   'vertical velocity',&
       &                   'Pa/s', 135, 128,&
@@ -999,7 +1002,7 @@ CONTAINS
       &          k_jg)
     END IF
     ! vertical velocity ( w ) in nonhydrostatic model (code number definition?)
-    IF (dynamics_config(k_jg)%iequations == 3) THEN
+    IF (iequations == 3) THEN
       CALL addVar(TimeVar('W',&
       &                   'upward air velocity',&
       &                   'm/s', 40, 2,&
@@ -1021,7 +1024,7 @@ CONTAINS
       &                   'm', 156, 128,&
       &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
       &          k_jg)
-      IF (dynamics_config(k_jg)%iequations == 3) THEN
+      IF (iequations == 3) THEN
         CALL addVar(TimeVar('ZH3',&
         &                   'half level height',&
         &                   'm', 253, 128,&
@@ -1030,8 +1033,8 @@ CONTAINS
       ENDIF
     END IF
     ! surface geopotential
-    IF(dynamics_config(k_jg)%iequations == 1 .OR. &
-       dynamics_config(k_jg)%iequations == 2 ) THEN
+    IF(iequations == 1 .OR. &
+       iequations == 2 ) THEN
       CALL addVar(TimeVar('PHIS',&
       &                   'surface geopotential (orography)',&
       &                   'm**2/s**2',&
@@ -1713,7 +1716,7 @@ CONTAINS
       &           k_jg)
     END IF
 
-    IF (dynamics_config(k_jg)%iequations == 3) THEN
+    IF (iequations == 3) THEN
       ! virtual potential temperature
       CALL addVar(TimeVar('THETA_V', &
       &                   'virtual potential temperature',&
@@ -2107,7 +2110,7 @@ CONTAINS
     !
 !   CALL addGlobAttInt('run_ctl:nlev',nlev,vlistID(k_jg),astatus)
     CALL addGlobAttFlt('run_ctl:dtime',dtime,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_ctl:iequations',dynamics_config(k_jg)%iequations,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('run_ctl:iequations',iequations,vlistID(k_jg),astatus)
     !
 !   CALL addGlobAttTxtFromLog('run_ctl:ltestcase',ltestcase,vlistID(k_jg),astatus)
     !
@@ -2577,13 +2580,13 @@ CONTAINS
     TYPE(t_lnd_prog), POINTER :: p_prog_lnd
     TYPE(t_lnd_diag), POINTER :: p_diag_lnd
 
-    p_prog => p_nh_state(jg)%prog(dynamics_config(jg)%nnow)
+    p_prog => p_nh_state(jg)%prog(nnow(jg))
     p_diag => p_nh_state(jg)%diag
 
     IF (iforcing==inwp) THEN
      !p_prm_diag     => prm_diag(jg)
      !p_prm_nwp_tend => prm_nwp_tend(jg)
-      p_prog_lnd     => p_lnd_state(jg)%prog_lnd(dynamics_config(jg)%nnow)
+      p_prog_lnd     => p_lnd_state(jg)%prog_lnd(nnow(jg))
       p_diag_lnd     => p_lnd_state(jg)%diag_lnd
     ENDIF
 
@@ -2769,7 +2772,7 @@ CONTAINS
     TYPE(t_ho_sfc_flx),       POINTER :: forcing
 
     ! pointer to components of state variable
-    p_prog  => state_oce%p_prog(dynamics_config(jg)%nold)
+    p_prog  => state_oce%p_prog(nold(jg))
     p_diag  => state_oce%p_diag
     p_patch => patch_oce
     forcing => forcing_oce
@@ -2888,7 +2891,7 @@ CONTAINS
       DO ivar = 1, num_output_vars(jg)
 
         ! Get a pointer to the variable
-        SELECT CASE (dynamics_config(jg)%iequations)
+        SELECT CASE (iequations)
           CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
             CALL get_outvar_ptr_ha(outvar_desc(ivar,jg)%name, jg, ptr2, ptr3, reset, delete)
           CASE (inh_atmosphere)
