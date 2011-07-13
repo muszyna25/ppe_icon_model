@@ -34,200 +34,199 @@
 !!
 MODULE mo_atmo_model
 
-  USE mo_exception,           ONLY: message, finish
-  USE mo_mpi,                 ONLY: p_stop, p_pe, p_io, p_nprocs, &
-    & p_comm_work_test, p_comm_input_bcast, p_comm_work, &
-    & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
-    & my_process_is_stdio
-  USE mo_timer,               ONLY: init_timer, print_timer
-  USE mo_master_nml,          ONLY: lrestart
-  USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output
-  USE mo_output,              ONLY: init_output_files, close_output_files, write_output
+USE mo_exception,           ONLY: message, finish
+USE mo_mpi,                 ONLY: p_stop, p_pe, p_io, p_nprocs, &
+& p_comm_work_test, p_comm_input_bcast, p_comm_work, &
+& my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
+& my_process_is_stdio
+USE mo_timer,               ONLY: init_timer, print_timer
+USE mo_master_nml,          ONLY: lrestart
+USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output
+USE mo_output,              ONLY: init_output_files, close_output_files, write_output
 
-  USE mo_parallel_configuration, ONLY: p_test_run
+USE mo_parallel_configuration, ONLY: p_test_run
 
-  USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
-
-
-  ! Control parameters: run control, dynamics, i/o
-  !
-  USE mo_global_variables,    ONLY: setup_physics           ! process forcing control parameters
-  USE mo_nonhydrostatic_nml,  ONLY: ivctype,              & ! type of vertical coordinate
-    & nonhydrostatic_nml_setup
-  USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
-  USE mo_diffusion_nml,       ONLY: diffusion_nml_setup
-  USE mo_io_nml,              ONLY: io_nml_setup,         & ! process I/O
-    & dt_data,              & !    :
-    & dt_file,              & !    :
-    & dt_diag,              & !    :
-    & dt_checkpoint,        & !    :
-    & lprepare_output         ! internal parameter
-  USE mo_dynamics_config,   ONLY: dynamics_config
-  USE mo_run_nml,             ONLY: run_nml_setup,            & ! process run control parameters
-    & dtime,                & !    namelist parameter
-    & nsteps,               & !    :
-    & ltransport,           & !    :
-    & lforcing,             & !    :
-    & ltestcase,            & !    :
-    & ltimer,               & !    :
-    & ihs_atm_temp,         & !    :
-    & ihs_atm_theta,        & !    :
-    & inh_atmosphere,       & !    :
-    & ishallow_water,       & !    :
-    & iforcing,             & !    namelist parameter
-    & ildf_dry,             & !    :
-    & ildf_echam,           & !    :
-    & inoforcing,           & !    internal parameter
-    & iheldsuarez,          & !    :
-    & iecham,               & !    :
-    & inwp,                 & !    :
-    & ldump_states,         & ! flag if states should be dumped
-    & lrestore_states         ! flag if states should be restored
+USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
 
 
+! Control parameters: run control, dynamics, i/o
+!
+USE mo_global_variables,    ONLY: setup_physics           ! process forcing control parameters
+USE mo_nonhydrostatic_nml,  ONLY: ivctype,              & ! type of vertical coordinate
+& nonhydrostatic_nml_setup
+USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
+USE mo_diffusion_nml,       ONLY: diffusion_nml_setup
+USE mo_io_nml,              ONLY: io_nml_setup,         & ! process I/O
+& dt_data,              & !    :
+& dt_file,              & !    :
+& dt_diag,              & !    :
+& dt_checkpoint,        & !    :
+& lprepare_output         ! internal parameter
+USE mo_dynamics_config,   ONLY: dynamics_config
+USE mo_run_nml,             ONLY: run_nml_setup,            & ! process run control parameters
+& dtime,                & !    namelist parameter
+& nsteps,               & !    :
+& ltransport,           & !    :
+& lforcing,             & !    :
+& ltestcase,            & !    :
+& ltimer,               & !    :
+& ihs_atm_temp,         & !    :
+& ihs_atm_theta,        & !    :
+& inh_atmosphere,       & !    :
+& ishallow_water,       & !    :
+& iforcing,             & !    namelist parameter
+& ildf_dry,             & !    :
+& ildf_echam,           & !    :
+& inoforcing,           & !    internal parameter
+& iheldsuarez,          & !    :
+& iecham,               & !    :
+& inwp,                 & !    :
+& ldump_states,         & ! flag if states should be dumped
+& lrestore_states         ! flag if states should be restored
 
-  USE mo_advection_nml,       ONLY: transport_nml_setup,  & ! process transport
-    & setup_transport         ! control parameters
 
-  ! For the coupling
-  USE mo_impl_constants, ONLY: CELLS
-  USE mo_master_control, ONLY : atmo_process, is_coupled_run
-  USE mo_icon_cpl_init_comp, ONLY : get_my_local_comp_id
-  USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid
-  USE mo_icon_cpl_def_field, ONLY : ICON_cpl_def_field
-  USE mo_icon_cpl_search, ONLY : ICON_cpl_search
-  USE mo_model_domain_import, ONLY : get_patch_global_indexes
 
-  ! Test cases
-  !
-  USE mo_hydro_testcases,     ONLY: setup_testcase          ! process hyd. atm. tests ctl. params.
-  USE mo_nh_testcases,        ONLY: setup_nh_testcase       ! process non-hyd. atm. test ctl. par.
+USE mo_advection_nml,       ONLY: transport_nml_setup,  & ! process transport
+& setup_transport         ! control parameters
 
-  ! Memory
-  !
-  USE mo_subdivision,         ONLY: decompose_atmo_domain,         &
-    & copy_processor_splitting,      &
-    & set_patch_communicators
-  USE mo_dump_restore,        ONLY: dump_patch_state_netcdf,       &
-    & restore_patches_netcdf,        &
-    & restore_interpol_state_netcdf, &
-    & restore_gridref_state_netcdf
+! For the coupling
+USE mo_impl_constants, ONLY: CELLS
+USE mo_master_control, ONLY : atmo_process, is_coupled_run
+USE mo_icon_cpl_init_comp, ONLY : get_my_local_comp_id
+USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid
+USE mo_icon_cpl_def_field, ONLY : ICON_cpl_def_field
+USE mo_icon_cpl_search, ONLY : ICON_cpl_search
+USE mo_model_domain_import, ONLY : get_patch_global_indexes
 
-  USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
-  USE mo_nonhydro_state,      ONLY: p_nh_state
-  USE mo_atmo_control,        ONLY: p_patch_global, p_patch_subdiv, p_patch
+! Test cases
+!
+USE mo_hydro_testcases,     ONLY: setup_testcase          ! process hyd. atm. tests ctl. params.
+USE mo_nh_testcases,        ONLY: setup_nh_testcase       ! process non-hyd. atm. test ctl. par.
 
-  ! Horizontal grid
-  !
-  USE mo_grid_nml,            ONLY: read_grid_namelist
-  USE mo_model_domain_import, ONLY: &  !grid_nml_setup,          & ! process grid control parameters
-    & n_dom,                & !    :
-    & n_dom_start,          & !    :
+! Memory
+!
+USE mo_subdivision,         ONLY: decompose_atmo_domain,         &
+& copy_processor_splitting,      &
+& set_patch_communicators
+USE mo_dump_restore,        ONLY: dump_patch_state_netcdf,       &
+& restore_patches_netcdf,        &
+& restore_interpol_state_netcdf, &
+& restore_gridref_state_netcdf
+
+USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
+USE mo_nonhydro_state,      ONLY: p_nh_state
+USE mo_atmo_control,        ONLY: p_patch_global, p_patch_subdiv, p_patch
+
+! Horizontal grid
+!
+USE mo_grid_nml,            ONLY: read_grid_namelist
+USE mo_model_domain_import, ONLY: &  !grid_nml_setup,          & ! process grid control parameters
+& n_dom,                & !    :
+& n_dom_start,          & !    :
 !    & parent_id,            & !    :
-    & import_patches,       & !
-    & destruct_patches        !
+& import_patches,       & !
+& destruct_patches        !
 
-  USE mo_grid_configuration,   ONLY: parent_id
+USE mo_grid_configuration,   ONLY: parent_id
 
-  ! Horizontal interpolation
-  !
-  USE mo_interpol_nml,        ONLY: interpol_nml_setup   ! process interpol. ctl. params.
-  USE mo_intp_state,          ONLY: construct_2d_interpol_state, &
-    & destruct_2d_interpol_state
-  USE mo_interpolation,       ONLY: rbf_vec_interpol_cell,       &
-    & edges2cells_scalar
-  USE mo_gridref_nml,         ONLY: gridref_nml_setup
-  USE mo_grf_interpolation,   ONLY: construct_2d_gridref_state,  &
-    & destruct_2d_gridref_state
-  
-  ! Vertical grid
-  !
-  USE mo_vertical_coord_table,ONLY: init_vertical_coord_table
-  USE mo_vertical_grid,       ONLY: init_hybrid_coord, init_sleve_coord
-  
-  ! State variables
-  !
-  USE mo_icoham_dyn_memory,   ONLY: destruct_icoham_dyn_state
-  USE mo_nonhydro_state,      ONLY: destruct_nh_state
-  
-  
-  ! Parameterized forcing
-  !
-  USE mo_echam_phy_memory,    ONLY: destruct_echam_phy_state
-  USE mo_echam_phy_setup,     ONLY: setup_echam_phy
-  USE mo_echam_phy_init,      ONLY: prepare_echam_phy, initcond_echam_phy, &
-                                  & additional_restart_init
-  USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
-  USE mo_gmt_output,          ONLY: setup_gmt_output
-  USE mo_nwp_phy_state,       ONLY: construct_nwp_phy_state,   &
-    & destruct_nwp_phy_state
-  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config,setup_atm_nwp_phy
-  USE mo_lnd_nwp_nml,         ONLY: setup_nwp_lnd
-  USE mo_nwp_lnd_state,       ONLY: construct_nwp_lnd_state,   &
-    & destruct_nwp_lnd_state, p_lnd_state
- 
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
-  
-  ! Time integration
-  !
-  USE mo_ha_stepping,         ONLY: prepare_ha_dyn, initcond_ha_dyn, perform_ha_stepping
-  USE mo_nh_stepping,         ONLY: prepare_nh_integration, perform_nh_stepping
-  ! External data
-  USE mo_ext_data,            ONLY: ext_data, init_ext_data, destruct_ext_data
-  
-  !  USE mo_nwp_phy_init,          ONLY: init_nwp_phy
-  !!$  USE mo_gscp_cosmo,          ONLY: hydci_pp_init
-  
+! Horizontal interpolation
+!
+USE mo_interpol_nml,        ONLY: interpol_nml_setup   ! process interpol. ctl. params.
+USE mo_intp_state,          ONLY: construct_2d_interpol_state, &
+& destruct_2d_interpol_state
+USE mo_interpolation,       ONLY: rbf_vec_interpol_cell,       &
+& edges2cells_scalar
+USE mo_gridref_nml,         ONLY: gridref_nml_setup
+USE mo_grf_interpolation,   ONLY: construct_2d_gridref_state,  &
+& destruct_2d_gridref_state
 
-  !-------------------------------------------------------------------------
-  ! to break circular dependency
+! Vertical grid
+!
+USE mo_vertical_coord_table,ONLY: init_vertical_coord_table
+USE mo_vertical_grid,       ONLY: init_hybrid_coord, init_sleve_coord
 
-  USE mo_intp_data_strc,      ONLY: p_int_state_global, p_int_state_subdiv, p_int_state
-  USE mo_grf_intp_data_strc,  ONLY: p_grf_state_global, p_grf_state_subdiv, p_grf_state
-
-  !-------------------------------------------------------------------------
-  USE mo_io_restart,           ONLY: read_restart_info_file, read_restart_files
-  USE mo_io_restart_namelist,  ONLY: read_restart_namelists
-  USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
-
-  USE mo_atmo_setup_configuration, ONLY: read_atmo_namelists
-
-  USE mo_time_config,     ONLY: time_config      ! variable
-  USE mo_dynamics_config, ONLY: config_dynamics  ! subroutine
+! State variables
+!
+USE mo_icoham_dyn_memory,   ONLY: destruct_icoham_dyn_state
+USE mo_nonhydro_state,      ONLY: destruct_nh_state
 
 
-  !-------------------------------------------------------------------------
-  IMPLICIT NONE
-  PRIVATE
-  
-  PUBLIC :: atmo_model
-  
+! Parameterized forcing
+!
+USE mo_echam_phy_memory,    ONLY: destruct_echam_phy_state
+USE mo_echam_phy_setup,     ONLY: setup_echam_phy
+USE mo_echam_phy_init,      ONLY: prepare_echam_phy, initcond_echam_phy, &
+			  & additional_restart_init
+USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
+USE mo_gmt_output,          ONLY: setup_gmt_output
+USE mo_nwp_phy_state,       ONLY: construct_nwp_phy_state,   &
+& destruct_nwp_phy_state
+USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config,setup_atm_nwp_phy
+USE mo_lnd_nwp_nml,         ONLY: setup_nwp_lnd
+USE mo_nwp_lnd_state,       ONLY: construct_nwp_lnd_state,   &
+& destruct_nwp_lnd_state, p_lnd_state
+
+USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
+
+! Time integration
+!
+USE mo_ha_stepping,         ONLY: prepare_ha_dyn, initcond_ha_dyn, perform_ha_stepping
+USE mo_nh_stepping,         ONLY: prepare_nh_integration, perform_nh_stepping
+! External data
+USE mo_ext_data,            ONLY: ext_data, init_ext_data, destruct_ext_data
+
+!  USE mo_nwp_phy_init,          ONLY: init_nwp_phy
+!!$  USE mo_gscp_cosmo,          ONLY: hydci_pp_init
+
+
+!-------------------------------------------------------------------------
+! to break circular dependency
+
+USE mo_intp_data_strc,      ONLY: p_int_state_global, p_int_state_subdiv, p_int_state
+USE mo_grf_intp_data_strc,  ONLY: p_grf_state_global, p_grf_state_subdiv, p_grf_state
+
+!-------------------------------------------------------------------------
+USE mo_io_restart,           ONLY: read_restart_info_file, read_restart_files
+USE mo_io_restart_namelist,  ONLY: read_restart_namelists
+USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
+
+USE mo_atmo_setup_configuration, ONLY: read_atmo_namelists
+
+USE mo_time_config,     ONLY: time_config      ! variable
+USE mo_dynamics_config, ONLY: config_dynamics  ! subroutine
+
+
+!-------------------------------------------------------------------------
+IMPLICIT NONE
+PRIVATE
+
+PUBLIC :: atmo_model
+
 CONTAINS
-  !>
-  !!
-  SUBROUTINE atmo_model(namelist_filename)
+!>
+!!
+SUBROUTINE atmo_model(namelist_filename)
 
-    CHARACTER(LEN=*), INTENT(in) :: namelist_filename
+CHARACTER(LEN=*), INTENT(in) :: namelist_filename
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
-    CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
-    LOGICAL :: lsuccess
+CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
+CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
+LOGICAL :: lsuccess
 
-    ! For the coupling
+! For the coupling
 
-    INTEGER, PARAMETER :: no_of_fields = 12
+INTEGER, PARAMETER :: no_of_fields = 12
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH) ::  field_name(no_of_fields)
-    INTEGER :: field_id(no_of_fields)
-    INTEGER :: my_process_component
-    INTEGER :: comp_id
-    INTEGER :: grid_id
-    INTEGER :: grid_shape(2) 
-    INTEGER :: field_shape(3) 
-    INTEGER :: i, ierror
-    INTEGER :: no_of_entities
-    INTEGER :: patch_no
-    INTEGER, POINTER :: grid_glob_index(:)
+CHARACTER(LEN=MAX_CHAR_LENGTH) ::  field_name(no_of_fields)
+INTEGER :: field_id(no_of_fields)
+INTEGER :: comp_id
+INTEGER :: grid_id
+INTEGER :: grid_shape(2) 
+INTEGER :: field_shape(3) 
+INTEGER :: i, ierror
+INTEGER :: no_of_entities
+INTEGER :: patch_no
+INTEGER, POINTER :: grid_glob_index(:)
 
     !---------------------------------------------------------------------
     ! 0. If this is a resumed or warm-start run...
@@ -292,13 +291,24 @@ CONTAINS
     IF ( is_coupled_run() ) THEN
  
       comp_id = get_my_local_comp_id (atmo_process)
-      patch_no = 0
+      patch_no = 1
 
       CALL get_patch_global_indexes ( patch_no, CELLS, no_of_entities, grid_glob_index )
+      ! should grid_glob_index become a pointer in ICON_cpl_def_grid as well?
       CALL ICON_cpl_def_grid ( comp_id, grid_shape, grid_glob_index, grid_id, ierror )
- 
+  
+      field_name(1) = "SST"
+      field_name(2) = "TAUX"
+      field_name(3) = "TAUY"
+      field_name(4) = ""
+      field_name(5) = ""
+      field_name(6) = ""
+      field_name(7) = ""
+      field_name(8) = ""
+
       DO i = 1, no_of_fields
-      CALL ICON_cpl_def_field ( field_name(i), comp_id, grid_id, field_id(i), field_shape, ierror )
+         CALL ICON_cpl_def_field ( field_name(i), comp_id, grid_id, field_id(i), &
+   &                               field_shape, ierror )
       ENDDO
 
       CALL ICON_cpl_search
