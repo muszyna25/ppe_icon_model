@@ -44,15 +44,15 @@ MODULE mo_interpol_nml
   USE mo_namelist,            ONLY: position_nml, POSITIONED
   USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH
   USE mo_master_nml,          ONLY: lrestart
-  USE mo_interpol_config,     ONLY: interpol_config
-  USE mo_grid_configuration,  ONLY: global_cell_type
-  USE mo_intp_data_strc,      ONLY: t_lsq_set, sick_a, sick_o
+  USE mo_intp_data_strc,      ONLY: t_lsq_set
+  USE mo_interpol_config        !,     ONLY: interpol_config
   USE mo_kind,                ONLY: wp
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_exception,           ONLY: message, finish
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
                                   & open_and_restore_namelist, close_tmpfile
+
 
   IMPLICIT NONE
 
@@ -64,25 +64,25 @@ MODULE mo_interpol_nml
   ! interpol_ctl namelist variables  !
   !----------------------------------!
 
-  LOGICAL  :: llsq_high_consv     ! flag to determine whether the high order least 
+  LOGICAL  :: nml_llsq_high_consv     ! flag to determine whether the high order least 
                                   ! squares reconstruction should be conservative
 
-  INTEGER  :: lsq_high_ord        ! specific order for higher order lsq
+  INTEGER  :: nml_lsq_high_ord        ! specific order for higher order lsq
 
-  INTEGER  :: rbf_vec_kern_c,   & ! parameter determining the type
-     &        rbf_vec_kern_v,   & ! of vector rbf kernel
-     &        rbf_vec_kern_e
+  INTEGER  :: nml_rbf_vec_kern_c,   & ! parameter determining the type
+     &        nml_rbf_vec_kern_v,   & ! of vector rbf kernel
+     &        nml_rbf_vec_kern_e
 
   ! Parameter fields determining the scale factor used by the vector rbf
   ! interpolator.
   ! Note: these fields are defined on each grid level; to allow the namelist input
   ! going from 1 to depth (rather than from start_lev to end_lev), the namelist input
   ! fields defined here differ from those used in the model
-  REAL(wp) :: rbf_vec_scale_c(max_dom),  &
-      &       rbf_vec_scale_v(max_dom),  &
-      &       rbf_vec_scale_e(max_dom)
+  REAL(wp) :: nml_rbf_vec_scale_c(max_dom),  &
+      &       nml_rbf_vec_scale_v(max_dom),  &
+      &       nml_rbf_vec_scale_e(max_dom)
 
-  INTEGER  :: i_cori_method       ! Identifier for the method with wich the tangential
+  INTEGER  :: nml_i_cori_method       ! Identifier for the method with wich the tangential
                                   ! wind reconstruction in Coriolis force is computed,
                                   ! if the Thuburn method is used. (To be
                                   ! implemented for triangles, currently only for
@@ -99,10 +99,10 @@ MODULE mo_interpol_nml
   ! runs and one-way nesting). The nudging coefficients start with nudge_max_coeff in
   ! the cell row bordering to the boundary interpolation zone, and decay exponentially
   ! with nudge_efold_width (in units of cell rows)
-  REAL(wp) :: nudge_max_coeff, nudge_efold_width
-  INTEGER  :: nudge_zone_width    ! total width of nudging zone in units of cell rows
+  REAL(wp) :: nml_nudge_max_coeff, nml_nudge_efold_width
+  INTEGER  :: nml_nudge_zone_width    ! total width of nudging zone in units of cell rows
 
-  LOGICAL :: l_corner_vort        ! yields for i_cori_method>=3
+  LOGICAL :: nml_l_corner_vort        ! yields for i_cori_method>=3
                                   ! Decision wheter the hexagon vector reconstruction is
                                   ! combined with either of the two vorticities :
                                   ! .TRUE. : Three rhombi are combined to the corner
@@ -112,37 +112,38 @@ MODULE mo_interpol_nml
                                   ! After the writing of the paper to be published in JCP 
                                   ! it seems that l_corner_vort=.TRUE. should be the right way.
 
-  NAMELIST/interpol_ctl/ llsq_high_consv, lsq_high_ord,       &
-    &                    rbf_vec_kern_c, rbf_vec_scale_c,     &
-    &                    rbf_vec_kern_v, rbf_vec_scale_v,     &
-    &                    rbf_vec_kern_e, rbf_vec_scale_e,     &
-    &                    i_cori_method,  nudge_max_coeff,     &
-    &                    nudge_efold_width, nudge_zone_width, &
-    &                    l_corner_vort
+  NAMELIST/interpol_ctl/ nml_llsq_high_consv,   nml_lsq_high_ord,        &
+    &                    nml_rbf_vec_kern_c,    nml_rbf_vec_scale_c,     &
+    &                    nml_rbf_vec_kern_v,    nml_rbf_vec_scale_v,     &
+    &                    nml_rbf_vec_kern_e,    nml_rbf_vec_scale_e,     &
+    &                    nml_i_cori_method,     nml_nudge_max_coeff,     &
+    &                    nml_nudge_efold_width, nml_nudge_zone_width,    &
+    &                    nml_l_corner_vort
 
   ! ------------------------------------------------------------------------
   ! Auxiliary parameters and dependendt control variables
   ! ------------------------------------------------------------------------
 
-  INTEGER  ::  rbf_vec_dim_c,    & ! parameter determining the size
-     &         rbf_vec_dim_v,    & ! of vector rbf stencil
-     &         rbf_vec_dim_e,    & !
-     &         rbf_c2grad_dim      ! ... and for cell-to-gradient reconstruction
-
-
-  TYPE(t_lsq_set) :: lsq_lin_set, &! Parameter settings for linear and higher order  
-    &                lsq_high_set  ! least squares
-
-  PUBLIC :: llsq_high_consv, lsq_high_ord,       &
-      &     rbf_vec_kern_c, rbf_vec_scale_c,     &
-      &     rbf_vec_kern_v, rbf_vec_scale_v,     &
-      &     rbf_vec_kern_e, rbf_vec_scale_e,     &
-      &     i_cori_method,  nudge_max_coeff,     &
-      &     nudge_efold_width, nudge_zone_width, &
-      &     l_corner_vort,rbf_vec_dim_c,         &
-      &     rbf_vec_dim_v,rbf_vec_dim_e,         &
-      &     rbf_c2grad_dim, lsq_high_set,        &
-      &     lsq_lin_set
+  INTEGER  ::  nml_rbf_vec_dim_c,    & ! parameter determining the size
+     &         nml_rbf_vec_dim_v,    & ! of vector rbf stencil
+     &         nml_rbf_vec_dim_e,    & !
+     &         nml_rbf_c2grad_dim      ! ... and for cell-to-gradient reconstruction
+!
+!
+!  TYPE(t_lsq_set) :: lsq_lin_set, &! Parameter settings for linear and higher order  
+!    &                lsq_high_set  ! least squares
+!
+!
+!  PUBLIC :: llsq_high_consv, lsq_high_ord,       &
+!      &     rbf_vec_kern_c, rbf_vec_scale_c,     &
+!      &     rbf_vec_kern_v, rbf_vec_scale_v,     &
+!      &     rbf_vec_kern_e, rbf_vec_scale_e,     &
+!      &     i_cori_method,  nudge_max_coeff,     &
+!      &     nudge_efold_width, nudge_zone_width, &
+!      &     l_corner_vort !,rbf_vec_dim_c,         &
+!      &     rbf_vec_dim_v,rbf_vec_dim_e,         &
+!      &     rbf_c2grad_dim, lsq_high_set,        &
+!      &     lsq_lin_set
 
   PUBLIC :: interpol_nml_setup, read_interpol_namelist
 
@@ -239,114 +240,121 @@ SUBROUTINE interpol_nml_setup(p_patch)
    ! Please note: RBF scaling factors for p_patch(0) (if it exists)
    ! are not set here - they are taken from p_patch(1) in the setup routines
 
+
+!!KF this is found now in interpol_config!
+
    ! rbf_vec_scale_c - values are specified for Gaussian kernel
    ! (need to be smaller for inv. multiquadric)
-   DO jg = 1, n_dom
-     ! Check if scale factor is set in the namelist
-     IF (rbf_vec_scale_c(jg) > 0.0_wp) CYCLE
-     jlev = p_patch(jg)%level
-     IF (jlev <= 9) THEN
-       rbf_vec_scale_c(jg) = 0.5_wp
-     ELSE IF (jlev == 10) THEN
-       rbf_vec_scale_c(jg) = 0.45_wp
-     ELSE IF (jlev == 11) THEN
-       rbf_vec_scale_c(jg) = 0.3_wp
-     ELSE IF (jlev == 12) THEN
-       rbf_vec_scale_c(jg) = 0.1_wp
-     ELSE IF (jlev == 13) THEN
-       rbf_vec_scale_c(jg) = 0.03_wp
-     ELSE
-       rbf_vec_scale_c(jg) = 0.01_wp
-     ENDIF
-   ENDDO
+!   DO jg = 1, n_dom
+!     ! Check if scale factor is set in the namelist
+!     IF (rbf_vec_scale_c(jg) > 0.0_wp) CYCLE
+!     jlev = p_patch(jg)%level
+!     IF (jlev <= 9) THEN
+!       rbf_vec_scale_c(jg) = 0.5_wp
+!     ELSE IF (jlev == 10) THEN
+!       rbf_vec_scale_c(jg) = 0.45_wp
+!     ELSE IF (jlev == 11) THEN
+!       rbf_vec_scale_c(jg) = 0.3_wp
+!     ELSE IF (jlev == 12) THEN
+!       rbf_vec_scale_c(jg) = 0.1_wp
+!     ELSE IF (jlev == 13) THEN
+!       rbf_vec_scale_c(jg) = 0.03_wp
+!     ELSE
+!       rbf_vec_scale_c(jg) = 0.01_wp
+!     ENDIF
+!   ENDDO
+!
+!   ! rbf_vec_scale_v
+!   DO jg = 1, n_dom
+!     ! Check if scale factor is set in the namelist
+!     IF (rbf_vec_scale_v(jg) > 0.0_wp) CYCLE
+!     jlev = p_patch(jg)%level
+!     IF (jlev <= 10) THEN
+!       rbf_vec_scale_v(jg) = 0.5_wp
+!     ELSE IF (jlev == 11) THEN
+!       rbf_vec_scale_v(jg) = 0.4_wp
+!     ELSE IF (jlev == 12) THEN
+!       rbf_vec_scale_v(jg) = 0.25_wp
+!     ELSE IF (jlev == 13) THEN
+!       rbf_vec_scale_v(jg) = 0.07_wp
+!     ELSE
+!       rbf_vec_scale_v(jg) = 0.02_wp
+!     ENDIF
+!   ENDDO
+!
+!   ! rbf_vec_scale_e - values are specified for inverse multiquadric kernel
+!   DO jg = 1, n_dom
+!     ! Check if scale factor is set in the namelist
+!     IF (rbf_vec_scale_e(jg) > 0.0_wp) CYCLE
+!     jlev = p_patch(jg)%level
+!     IF (jlev <= 10) THEN
+!       rbf_vec_scale_e(jg) = 0.5_wp
+!     ELSE IF (jlev == 11) THEN
+!       rbf_vec_scale_e(jg) = 0.45_wp
+!     ELSE IF (jlev == 12) THEN
+!       rbf_vec_scale_e(jg) = 0.37_wp
+!     ELSE IF (jlev == 13) THEN
+!       rbf_vec_scale_e(jg) = 0.25_wp
+!     ELSE
+!       rbf_vec_scale_e(jg) = 0.1_wp
+!     ENDIF
+!   ENDDO
+!
 
-   ! rbf_vec_scale_v
-   DO jg = 1, n_dom
-     ! Check if scale factor is set in the namelist
-     IF (rbf_vec_scale_v(jg) > 0.0_wp) CYCLE
-     jlev = p_patch(jg)%level
-     IF (jlev <= 10) THEN
-       rbf_vec_scale_v(jg) = 0.5_wp
-     ELSE IF (jlev == 11) THEN
-       rbf_vec_scale_v(jg) = 0.4_wp
-     ELSE IF (jlev == 12) THEN
-       rbf_vec_scale_v(jg) = 0.25_wp
-     ELSE IF (jlev == 13) THEN
-       rbf_vec_scale_v(jg) = 0.07_wp
-     ELSE
-       rbf_vec_scale_v(jg) = 0.02_wp
-     ENDIF
-   ENDDO
-
-   ! rbf_vec_scale_e - values are specified for inverse multiquadric kernel
-   DO jg = 1, n_dom
-     ! Check if scale factor is set in the namelist
-     IF (rbf_vec_scale_e(jg) > 0.0_wp) CYCLE
-     jlev = p_patch(jg)%level
-     IF (jlev <= 10) THEN
-       rbf_vec_scale_e(jg) = 0.5_wp
-     ELSE IF (jlev == 11) THEN
-       rbf_vec_scale_e(jg) = 0.45_wp
-     ELSE IF (jlev == 12) THEN
-       rbf_vec_scale_e(jg) = 0.37_wp
-     ELSE IF (jlev == 13) THEN
-       rbf_vec_scale_e(jg) = 0.25_wp
-     ELSE
-       rbf_vec_scale_e(jg) = 0.1_wp
-     ENDIF
-   ENDDO
-
+!KF is now found in the read_nml
    !-----------------------------------------------------------------------
    ! check the validity of the configuration
    !-----------------------------------------------------------------------
 
-   IF ((rbf_vec_kern_c/=1 ).AND.(rbf_vec_kern_c/=3)) THEN
-     CALL finish( TRIM(routine),'wrong value of rbf_vec_kern_c, must be 1 or 3')
-   ENDIF
+!   IF ((rbf_vec_kern_c/=1 ).AND.(rbf_vec_kern_c/=3)) THEN
+!     CALL finish( TRIM(routine),'wrong value of rbf_vec_kern_c, must be 1 or 3')
+!   ENDIF
+!
+!   DO jg = 1, n_dom
+!     IF (rbf_vec_scale_c(jg) < 1e-10_wp) THEN
+!       CALL finish( TRIM(routine),'wrong value of rbf_vec_scale_c')
+!     ELSE IF ((rbf_vec_scale_c(jg) < 0.01_wp).OR.(rbf_vec_scale_c(jg) > 0.6_wp)) THEN
+!       CALL message( TRIM(routine),'WARNING: ')
+!       CALL message('','! recommended range for rbf_vec_scale_c')
+!       CALL message('','! is 0.01 <= rbf_vec_scale_c <= 0.6')
+!     ENDIF
+!   ENDDO
+!
+!   IF (.NOT.((rbf_vec_kern_v==1 ).OR.(rbf_vec_kern_v==3))) THEN
+!     CALL finish( TRIM(routine),'wrong value of rbf_vec_kern_v, must be 1 or 3')
+!   ENDIF
+!
+!   DO jg = 1, n_dom
+!     IF (rbf_vec_scale_v(jg) < 1e-10_wp) THEN
+!       CALL finish( TRIM(routine),'wrong value of rbf_vec_scale_v')
+!     ELSE IF ((rbf_vec_scale_v(jg) < 0.02_wp).OR.(rbf_vec_scale_v(jg) > 1.0_wp)) THEN
+!       CALL message( TRIM(routine),'WARNING: ')
+!       CALL message('','! recommended range for rbf_vec_scale_v')
+!       CALL message('','! is 0.02 <= rbf_vec_scale_v <= 1.0')
+!     ENDIF
+!   ENDDO
+!
+!   IF (.NOT.((rbf_vec_kern_e==1 ).OR.(rbf_vec_kern_e==3))) THEN
+!     CALL finish( TRIM(routine),'wrong value of rbf_vec_kern_e, must be 1 or 3')
+!   ENDIF
+!  
+!   DO jg = 1, n_dom
+!     IF (rbf_vec_scale_e(jg) < 1e-10_wp) THEN
+!       CALL finish( TRIM(routine),'wrong value of rbf_vec_scale_e')
+!     ELSE IF ((rbf_vec_scale_e(jg) < 0.05_wp).OR.(rbf_vec_scale_e(jg) > 0.6_wp)) THEN
+!       CALL message( TRIM(routine),'WARNING: ')
+!       CALL message('','! recommended range for rbf_vec_scale_e')
+!       CALL message('','! is 0.05 <= rbf_vec_scale_e <= 0.6')
+!     ENDIF
+!   ENDDO
+!
 
-   DO jg = 1, n_dom
-     IF (rbf_vec_scale_c(jg) < 1e-10_wp) THEN
-       CALL finish( TRIM(routine),'wrong value of rbf_vec_scale_c')
-     ELSE IF ((rbf_vec_scale_c(jg) < 0.01_wp).OR.(rbf_vec_scale_c(jg) > 0.6_wp)) THEN
-       CALL message( TRIM(routine),'WARNING: ')
-       CALL message('','! recommended range for rbf_vec_scale_c')
-       CALL message('','! is 0.01 <= rbf_vec_scale_c <= 0.6')
-     ENDIF
-   ENDDO
-
-   IF (.NOT.((rbf_vec_kern_v==1 ).OR.(rbf_vec_kern_v==3))) THEN
-     CALL finish( TRIM(routine),'wrong value of rbf_vec_kern_v, must be 1 or 3')
-   ENDIF
-
-   DO jg = 1, n_dom
-     IF (rbf_vec_scale_v(jg) < 1e-10_wp) THEN
-       CALL finish( TRIM(routine),'wrong value of rbf_vec_scale_v')
-     ELSE IF ((rbf_vec_scale_v(jg) < 0.02_wp).OR.(rbf_vec_scale_v(jg) > 1.0_wp)) THEN
-       CALL message( TRIM(routine),'WARNING: ')
-       CALL message('','! recommended range for rbf_vec_scale_v')
-       CALL message('','! is 0.02 <= rbf_vec_scale_v <= 1.0')
-     ENDIF
-   ENDDO
-
-   IF (.NOT.((rbf_vec_kern_e==1 ).OR.(rbf_vec_kern_e==3))) THEN
-     CALL finish( TRIM(routine),'wrong value of rbf_vec_kern_e, must be 1 or 3')
-   ENDIF
-  
-   DO jg = 1, n_dom
-     IF (rbf_vec_scale_e(jg) < 1e-10_wp) THEN
-       CALL finish( TRIM(routine),'wrong value of rbf_vec_scale_e')
-     ELSE IF ((rbf_vec_scale_e(jg) < 0.05_wp).OR.(rbf_vec_scale_e(jg) > 0.6_wp)) THEN
-       CALL message( TRIM(routine),'WARNING: ')
-       CALL message('','! recommended range for rbf_vec_scale_e')
-       CALL message('','! is 0.05 <= rbf_vec_scale_e <= 0.6')
-     ENDIF
-   ENDDO
-
-  IF (lplane .AND. global_cell_type==3) THEN
-    CALL finish( TRIM(routine),&
-      'currently, only the hexagon version runs on a plane')
-  ENDIF
-
+! NOW found in crosscheck!
+!  IF (lplane .AND. global_cell_type==3) THEN
+!    CALL finish( TRIM(routine),&
+!      'currently, only the hexagon version runs on a plane')
+!  ENDIF
+!
    ! write the contents of the namelist to an ASCII file
 
    IF(p_pe == p_io) WRITE(nnml_output,nml=interpol_ctl)
@@ -357,72 +365,78 @@ SUBROUTINE interpol_nml_setup(p_patch)
   ! lsq_high_ord=2 : quadratic polynomial        : 5 unknowns with a 9-point stencil
   ! lsq_high_ord=30: poor man's cubic polynomial : 7 unknowns with a 9-point stencil
   ! lsq_high_ord=3 : full cubic polynomial       : 9 unknowns with a 9-point stencil
-  IF (global_cell_type == 3) THEN
 
-    !
-    ! Settings for linear lsq reconstruction
-    !
-    lsq_lin_set%l_consv = .FALSE.
-    lsq_lin_set%dim_c   = 3
-    lsq_lin_set%dim_unk = 2
-    lsq_lin_set%wgt_exp = 2
 
-    !
-    ! Settings for high order lsq reconstruction
-    !
-    lsq_high_set%l_consv = llsq_high_consv
+!KF CONFIG!!
+!  IF (global_cell_type == 3) THEN
+!
+!    !
+!    ! Settings for linear lsq reconstruction
+!    !
+!    lsq_lin_set%l_consv = .FALSE.
+!    lsq_lin_set%dim_c   = 3
+!    lsq_lin_set%dim_unk = 2
+!    lsq_lin_set%wgt_exp = 2
+!
+!    !
+!    ! Settings for high order lsq reconstruction
+!    !
+!    lsq_high_set%l_consv = llsq_high_consv
+!
+!    IF (lsq_high_ord == 2) THEN
+!      lsq_high_set%dim_c   = 9
+!      lsq_high_set%dim_unk = 5
+!      lsq_high_set%wgt_exp = 3
+!    ELSE IF (lsq_high_ord == 30) THEN
+!      lsq_high_set%dim_c   = 9
+!      lsq_high_set%dim_unk = 7
+!      lsq_high_set%wgt_exp = 2
+!    ELSE IF (lsq_high_ord == 3) THEN
+!      lsq_high_set%dim_c   = 9
+!      lsq_high_set%dim_unk = 9
+!      lsq_high_set%wgt_exp = 0
+!    ELSE
+!      CALL finish( TRIM(routine),'wrong value of lsq_high_ord, must be 2,30 or 3')
+!    ENDIF
+!
+!    ! triangular grid: just avoid that thickness is averaged at edges as it is
+!    ! needed in the hexagonal grid
+!    i_cori_method=1
+!
+!  ENDIF
+!
+!  ! In case of a hexagonal model, we perform a quadratic reconstruction, and check
+!  ! for i_cori_method
+!  IF (global_cell_type == 6) THEN
+!    ! ... quadratic reconstruction
+!    lsq_high_set%dim_c   = 6
+!    lsq_high_set%dim_unk = 5
+!    lsq_high_set%wgt_exp = 2
+!    ! ... linear reconstruction is not used in the hexagonal model.
+!    ! However, if we do not initialize these variables, they will get 
+!    ! value zero, and cause problem in the dump/restore functionality.
+!    lsq_lin_set%dim_c   = 3
+!    lsq_lin_set%dim_unk = 2
+!
 
-    IF (lsq_high_ord == 2) THEN
-      lsq_high_set%dim_c   = 9
-      lsq_high_set%dim_unk = 5
-      lsq_high_set%wgt_exp = 3
-    ELSE IF (lsq_high_ord == 30) THEN
-      lsq_high_set%dim_c   = 9
-      lsq_high_set%dim_unk = 7
-      lsq_high_set%wgt_exp = 2
-    ELSE IF (lsq_high_ord == 3) THEN
-      lsq_high_set%dim_c   = 9
-      lsq_high_set%dim_unk = 9
-      lsq_high_set%wgt_exp = 0
-    ELSE
-      CALL finish( TRIM(routine),'wrong value of lsq_high_ord, must be 2,30 or 3')
-    ENDIF
+!CROSSCHECK
+!    ! ... check i_cori_method
+!    IF (i_cori_method <1 .OR. i_cori_method>4) THEN
+!      CALL finish( TRIM(routine),'value of i_cori_method out of range [1,2,3,4]')
+!  ENDIF
 
-    ! triangular grid: just avoid that thickness is averaged at edges as it is
-    ! needed in the hexagonal grid
-    i_cori_method=1
-
-  ENDIF
-
-  ! In case of a hexagonal model, we perform a quadratic reconstruction, and check
-  ! for i_cori_method
-  IF (global_cell_type == 6) THEN
-    ! ... quadratic reconstruction
-    lsq_high_set%dim_c   = 6
-    lsq_high_set%dim_unk = 5
-    lsq_high_set%wgt_exp = 2
-    ! ... linear reconstruction is not used in the hexagonal model.
-    ! However, if we do not initialize these variables, they will get 
-    ! value zero, and cause problem in the dump/restore functionality.
-    lsq_lin_set%dim_c   = 3
-    lsq_lin_set%dim_unk = 2
-
-    ! ... check i_cori_method
-    IF (i_cori_method <1 .OR. i_cori_method>4) THEN
-      CALL finish( TRIM(routine),'value of i_cori_method out of range [1,2,3,4]')
-  ENDIF
-
-    sick_a=0.0_wp
-    SELECT CASE (i_cori_method)
-    CASE (2) 
-      sick_a=0.375_wp
-    CASE (3)
-      sick_a=0.75_wp
-    END SELECT
-    sick_o = 1.0_wp-sick_a
-
-ENDIF
-
+!CONFIG
+!    sick_a=0.0_wp
+!    SELECT CASE (i_cori_method)
+!    CASE (2) 
+!      sick_a=0.375_wp
+!    CASE (3)
+!      sick_a=0.75_wp
+!    END SELECT
+!    sick_o = 1.0_wp-sick_a
+!
+!ENDIF
+!
 
 END SUBROUTINE interpol_nml_setup !CJ setup_interpol
 
@@ -460,34 +474,34 @@ END SUBROUTINE interpol_nml_setup !CJ setup_interpol
     !-----------------------!
 
     ! LSQ reconstruction at cell center
-    llsq_high_consv  = .TRUE.   ! conservative reconstruction
-    lsq_high_ord     = 3        ! cubic polynomial
+    nml_llsq_high_consv  = .TRUE.   ! conservative reconstruction
+    nml_lsq_high_ord     = 3        ! cubic polynomial
     ! RBF vector reconstruction at cell centers
-    rbf_vec_dim_c   = 9         ! use 2nd order reconstruction
-    rbf_vec_kern_c  = 1         ! use Gaussian kernel
+    nml_rbf_vec_dim_c   = 9         ! use 2nd order reconstruction
+    nml_rbf_vec_kern_c  = 1         ! use Gaussian kernel
     ! RBF vector reconstruction at vertices
-    rbf_vec_dim_v   = 6         ! use 6-point reconstruction
-    rbf_vec_kern_v  = 1         ! use Gaussian kernel
+    nml_rbf_vec_dim_v   = 6         ! use 6-point reconstruction
+    nml_rbf_vec_kern_v  = 1         ! use Gaussian kernel
     ! RBF vector reconstruction at edge midpoints
-    rbf_vec_dim_e   = 4         ! use 4-point reconstruction
-    rbf_vec_kern_e  = 3         ! use Inverse multiquadric kernel
+    nml_rbf_vec_dim_e   = 4         ! use 4-point reconstruction
+    nml_rbf_vec_kern_e  = 3         ! use Inverse multiquadric kernel
     ! Stencil size for reconstruction of gradient at cell midpoints
-    rbf_c2grad_dim  = 10
+    nml_rbf_c2grad_dim  = 10
 
     ! Initialize namelist fields for scaling factors (dimension 1:depth) with dummy values
     ! A meaningful initialization follows after reading the namelist
-    rbf_vec_scale_c(:) = -1.0_wp
-    rbf_vec_scale_v(:) = -1.0_wp
-    rbf_vec_scale_e(:) = -1.0_wp
+    nml_rbf_vec_scale_c(:) = -1.0_wp
+    nml_rbf_vec_scale_v(:) = -1.0_wp
+    nml_rbf_vec_scale_e(:) = -1.0_wp
 
     ! Initialize the namelist for the method for the vorticity flux term
-    i_cori_method = 3
-    l_corner_vort=.TRUE.
+    nml_i_cori_method = 3
+    nml_l_corner_vort=.TRUE.
 
     ! Coefficients for lateral boundary nudging
-    nudge_max_coeff   = 0.02_wp  ! Maximum nudging coefficient
-    nudge_efold_width = 2._wp    ! e-folding width in units of cell rows
-    nudge_zone_width  = 8        ! Width of nudging zone in units of cell rows
+    nml_nudge_max_coeff   = 0.02_wp  ! Maximum nudging coefficient
+    nml_nudge_efold_width = 2._wp    ! e-folding width in units of cell rows
+    nml_nudge_zone_width  = 8        ! Width of nudging zone in units of cell rows
 
 
 
@@ -512,26 +526,89 @@ END SUBROUTINE interpol_nml_setup !CJ setup_interpol
       READ (nnml, interpol_ctl)
     END SELECT
 
+   !-----------------------------------------------------------------------
+   ! check the validity of the configuration
+   !-----------------------------------------------------------------------
+
+   IF ((nml_rbf_vec_kern_c/=1 ).AND.(nml_rbf_vec_kern_c/=3)) THEN
+     CALL finish( TRIM(routine),'wrong value of rbf_vec_kern_c, must be 1 or 3')
+   ENDIF
+
+   DO jg = 1, n_dom
+     IF (nml_rbf_vec_scale_c(jg) < 1e-10_wp) THEN
+       CALL finish( TRIM(routine),'wrong value of rbf_vec_scale_c')
+     ELSE IF ((nml_rbf_vec_scale_c(jg) < 0.01_wp).OR.(nml_rbf_vec_scale_c(jg) > 0.6_wp)) THEN
+       CALL message( TRIM(routine),'WARNING: ')
+       CALL message('','! recommended range for rbf_vec_scale_c')
+       CALL message('','! is 0.01 <= rbf_vec_scale_c <= 0.6')
+     ENDIF
+   ENDDO
+
+   IF (.NOT.((nml_rbf_vec_kern_v==1 ).OR.(nml_rbf_vec_kern_v==3))) THEN
+     CALL finish( TRIM(routine),'wrong value of rbf_vec_kern_v, must be 1 or 3')
+   ENDIF
+
+   DO jg = 1, n_dom
+     IF (nml_rbf_vec_scale_v(jg) < 1e-10_wp) THEN
+       CALL finish( TRIM(routine),'wrong value of rbf_vec_scale_v')
+     ELSE IF ((nml_rbf_vec_scale_v(jg) < 0.02_wp).OR.(nml_rbf_vec_scale_v(jg) > 1.0_wp)) THEN
+       CALL message( TRIM(routine),'WARNING: ')
+       CALL message('','! recommended range for rbf_vec_scale_v')
+       CALL message('','! is 0.02 <= rbf_vec_scale_v <= 1.0')
+     ENDIF
+   ENDDO
+
+   IF (.NOT.((nml_rbf_vec_kern_e==1 ).OR.(nml_rbf_vec_kern_e==3))) THEN
+     CALL finish( TRIM(routine),'wrong value of rbf_vec_kern_e, must be 1 or 3')
+   ENDIF
+  
+   DO jg = 1, n_dom
+     IF (nml_rbf_vec_scale_e(jg) < 1e-10_wp) THEN
+       CALL finish( TRIM(routine),'wrong value of rbf_vec_scale_e')
+     ELSE IF ((nml_rbf_vec_scale_e(jg) < 0.05_wp).OR.(nml_rbf_vec_scale_e(jg) > 0.6_wp)) THEN
+       CALL message( TRIM(routine),'WARNING: ')
+       CALL message('','! recommended range for rbf_vec_scale_e')
+       CALL message('','! is 0.05 <= rbf_vec_scale_e <= 0.6')
+     ENDIF
+   ENDDO
 
     !----------------------------------------------------
     ! 4. Fill the configuration state
     !----------------------------------------------------
-    DO jg = 1,max_dom
-      interpol_config(jg)%llsq_high_consv   = llsq_high_consv
-      interpol_config(jg)%lsq_high_ord      = lsq_high_ord 
-      interpol_config(jg)%rbf_vec_kern_c    = rbf_vec_kern_c 
-      interpol_config(jg)%rbf_vec_scale_c   = rbf_vec_scale_c(jg)
-      interpol_config(jg)%rbf_vec_kern_v    = rbf_vec_kern_v
-      interpol_config(jg)%rbf_vec_scale_v   = rbf_vec_scale_v(jg)
-      interpol_config(jg)%rbf_vec_kern_e    = rbf_vec_kern_e
-      interpol_config(jg)%rbf_vec_scale_e   = rbf_vec_scale_e(jg)
-      interpol_config(jg)%i_cori_method     = i_cori_method
-      interpol_config(jg)%nudge_max_coeff   = nudge_max_coeff
-      interpol_config(jg)%nudge_efold_width = nudge_efold_width
-      interpol_config(jg)%nudge_zone_width  = nudge_zone_width
-      interpol_config(jg)%l_corner_vort     = l_corner_vort
-    ENDDO
+!    DO jg = 1,max_dom
+!      interpol_config(jg)%llsq_high_consv   = llsq_high_consv
+!      interpol_config(jg)%lsq_high_ord      = lsq_high_ord 
+!      interpol_config(jg)%rbf_vec_kern_c    = rbf_vec_kern_c 
+!      interpol_config(jg)%rbf_vec_scale_c   = rbf_vec_scale_c(jg)
+!      interpol_config(jg)%rbf_vec_kern_v    = rbf_vec_kern_v
+!      interpol_config(jg)%rbf_vec_scale_v   = rbf_vec_scale_v(jg)
+!      interpol_config(jg)%rbf_vec_kern_e    = rbf_vec_kern_e
+!      interpol_config(jg)%rbf_vec_scale_e   = rbf_vec_scale_e(jg)
+!      interpol_config(jg)%i_cori_method     = i_cori_method
+!      interpol_config(jg)%nudge_max_coeff   = nudge_max_coeff
+!      interpol_config(jg)%nudge_efold_width = nudge_efold_width
+!      interpol_config(jg)%nudge_zone_width  = nudge_zone_width
+!      interpol_config(jg)%l_corner_vort     = l_corner_vort
+!    ENDDO
+!
 
+       llsq_high_consv   = nml_llsq_high_consv
+       lsq_high_ord      = nml_lsq_high_ord 
+       rbf_vec_kern_c    = nml_rbf_vec_kern_c 
+       rbf_vec_scale_c(:)= nml_rbf_vec_scale_c(:)
+       rbf_vec_kern_v    = nml_rbf_vec_kern_v
+       rbf_vec_scale_v(:)= nml_rbf_vec_scale_v(:)
+       rbf_vec_kern_e    = nml_rbf_vec_kern_e
+       rbf_vec_scale_e(:)= nml_rbf_vec_scale_e(:)
+       rbf_vec_dim_c     = nml_rbf_vec_dim_c   
+       rbf_vec_dim_v     = nml_rbf_vec_dim_v   
+       rbf_vec_dim_e     = nml_rbf_vec_dim_e   
+       rbf_c2grad_dim    = nml_rbf_c2grad_dim 
+       i_cori_method     = nml_i_cori_method
+       nudge_max_coeff   = nml_nudge_max_coeff
+       nudge_efold_width = nml_nudge_efold_width
+       nudge_zone_width  = nml_nudge_zone_width
+       l_corner_vort     = nml_l_corner_vort
 
 
     !-----------------------------------------------------

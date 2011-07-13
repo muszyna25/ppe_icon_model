@@ -164,6 +164,11 @@ MODULE mo_advection_config
   END TYPE t_advection_config
   !>
   !!
-  TYPE(t_advection_config), TARGET :: advection_config(max_dom)
+ TYPE(t_advection_config), TARGET :: advection_config(max_dom)
+
+
+!SUBROUTINE config_advection !(iequations)
+!END SUBROUTINE config_advection
+
 
 END MODULE mo_advection_config

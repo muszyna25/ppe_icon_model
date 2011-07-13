@@ -181,7 +181,8 @@ USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 
 USE mo_intp_data_strc
 USE mo_intp_coeffs_lsq_bln
-USE mo_interpol_nml
+!USE mo_interpol_nml
+USE mo_interpol_config
 
 IMPLICIT NONE
 

@@ -176,7 +176,8 @@ USE mo_run_config,          ONLY: ltransport
 USE mo_dynamics_config,     ONLY: dynamics_config
 USE mo_mpi,                 ONLY: p_pe, p_io
 
-USE mo_interpol_nml
+!USE mo_interpol_nml
+USE mo_interpol_config
 USE mo_intp_data_strc
 USE mo_intp_rbf_coeffs
 USE mo_intp_coeffs

@@ -52,7 +52,8 @@ MODULE mo_atm_nml_crosscheck
   USE mo_time_config,         ONLY: time_config
   USE mo_run_config
   USE mo_gridref_config,      ONLY: gridref_config
-  USE mo_interpol_config,     ONLY: interpol_config
+  USE mo_interpol_config       ! all,     ONLY: interpol_config
+  USE mo_grid_configuration   !,  ONLY: global_cell_type
   USE mo_sleve_config,        ONLY: sleve_config
 
   USE mo_dynamics_config,     ONLY: dynamics_config
@@ -92,6 +93,23 @@ SUBROUTINE atm_crosscheck
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine =  &
                               'atm_crosscheck'
 
+
+  IF (lplane .AND. global_cell_type==3) THEN
+    CALL finish( TRIM(routine),&
+      'currently, only the hexagon version runs on a plane')
+  ENDIF
+
+
+  !--------------------------------------------------------------------
+  ! checking of interpolation  parameters
+  !--------------------------------------------------------------------
+
+  IF (global_cell_type == 6) THEN
+    ! ... check i_cori_method
+    IF (i_cori_method <1 .OR. i_cori_method>4) THEN
+      CALL finish( TRIM(routine),'value of i_cori_method out of range [1,2,3,4]')
+    ENDIF
+  ENDIF
   !--------------------------------------------------------------------
   ! checking of nh-dynamics parameters
   !--------------------------------------------------------------------

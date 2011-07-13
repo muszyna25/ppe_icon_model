@@ -97,7 +97,8 @@ MODULE mo_subdivision
   USE mo_intp_state,          ONLY: allocate_int_state, destruct_2d_interpol_state
   USE mo_grf_intp_data_strc,  ONLY: t_gridref_state
   USE mo_grf_intp_state,      ONLY: allocate_grf_state, destruct_2d_gridref_state
-  USE mo_interpol_nml,        ONLY: i_cori_method, lsq_lin_set, lsq_high_set
+!  USE mo_interpol_nml,        ONLY: i_cori_method, lsq_lin_set, lsq_high_set
+  USE mo_interpol_config,     ONLY: i_cori_method, lsq_lin_set, lsq_high_set
   USE mo_atmo_control,        ONLY: p_patch_global, p_patch_subdiv, p_patch
   USE mo_intp_data_strc,      ONLY: p_int_state_global, p_int_state_subdiv, p_int_state
   USE mo_grf_intp_data_strc,  ONLY: p_grf_state_global, p_grf_state_subdiv, p_grf_state

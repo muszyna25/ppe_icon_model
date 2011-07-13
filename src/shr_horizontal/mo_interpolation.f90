@@ -154,7 +154,8 @@ MODULE mo_interpolation
   !
   USE mo_intp_data_strc, ONLY: sick_a, sick_o, t_lsq, t_lsq_set, t_int_state, t_gauss_quad
 
-  USE mo_interpol_nml,   ONLY: i_cori_method, l_corner_vort, rbf_vec_kern_c, rbf_vec_kern_v, &
+!  USE mo_interpol_nml
+  USE mo_interpol_config,ONLY: i_cori_method, l_corner_vort, rbf_vec_kern_c, rbf_vec_kern_v, &
        &                       rbf_vec_kern_e, llsq_high_consv, lsq_high_ord, lsq_high_set,  &
        &                       rbf_vec_dim_c, rbf_vec_dim_v, rbf_vec_dim_e, rbf_c2grad_dim,  &
        &                       rbf_vec_scale_c, rbf_vec_scale_v, rbf_vec_scale_e,            &

@@ -172,7 +172,8 @@ USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, solve_chol_v, choldec_v, &
 USE mo_parallel_configuration,  ONLY: nproma
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_intp_data_strc
-USE mo_interpol_nml
+!USE mo_interpol_nml
+USE mo_interpol_config
 
 IMPLICIT NONE
 

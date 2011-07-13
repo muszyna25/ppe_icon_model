@@ -132,7 +132,8 @@ MODULE mo_dump_restore
                                    l_limited_area, max_childdom, parent_id
   USE mo_intp_data_strc      ! We need all from that module
   USE mo_grf_intp_data_strc  ! We need all from that module
-  USE mo_interpol_nml        ! We need all from that module
+!  USE mo_interpol_nml        ! We need all from that module
+ USE mo_interpol_config      ! We need all from that module
   USE mo_gridref_nml         ! We need all from that module         
   USE mo_mpi,                ONLY: p_nprocs
   USE mo_parallel_configuration,       ONLY: p_n_work, p_pe_work
