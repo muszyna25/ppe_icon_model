@@ -286,8 +286,12 @@ INTEGER, POINTER :: grid_glob_index(:)
 
     !---------------------------------------------------------------------
     ! 4.a Do the setup for the coupled run
+    !
+    ! For the time being this could all go into a subroutine which is
+    ! common to atmo and ocean. Does this make sense if the setup deviates
+    ! too much in future.
     !---------------------------------------------------------------------
-    ! 
+
     IF ( is_coupled_run() ) THEN
  
       comp_id = get_my_local_comp_id (atmo_process)

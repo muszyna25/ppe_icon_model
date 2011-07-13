@@ -120,6 +120,15 @@ MODULE mo_ocean_model
   USE mo_oce_forcing,         ONLY: t_ho_sfc_flx
   USE mo_oce_physics,         ONLY: t_ho_params, t_ho_physics
 
+  ! For the coupling
+  USE mo_impl_constants, ONLY: CELLS, MAX_CHAR_LENGTH
+  USE mo_master_control, ONLY : ocean_process, is_coupled_run
+  USE mo_icon_cpl_init_comp, ONLY : get_my_local_comp_id
+  USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid
+  USE mo_icon_cpl_def_field, ONLY : ICON_cpl_def_field
+  USE mo_icon_cpl_search, ONLY : ICON_cpl_search
+  USE mo_model_domain_import, ONLY : get_patch_global_indexes
+
   !-------------------------------------------------------------
 
   USE mo_time_config, ONLY: time_config
@@ -149,6 +158,22 @@ CONTAINS
     TYPE(t_datetime)                                :: datetime
     
     INTEGER :: n_io, jg, jfile, n_file, ist, n_diag
+
+    ! For the coupling
+    
+    INTEGER, PARAMETER :: no_of_fields = 12
+
+    CHARACTER(LEN=MAX_CHAR_LENGTH) ::  field_name(no_of_fields)
+    INTEGER :: field_id(no_of_fields)
+    INTEGER :: comp_id
+    INTEGER :: grid_id
+    INTEGER :: grid_shape(2) 
+    INTEGER :: field_shape(3) 
+    INTEGER :: i, ierror
+    INTEGER :: no_of_entities
+    INTEGER :: patch_no
+    INTEGER, POINTER :: grid_glob_index(:)
+
     !-------------------------------------------------------------------
     
     CALL message(TRIM(routine),'start model initialization.')
@@ -410,7 +435,43 @@ CONTAINS
     ! Write out the inital values
     !------------------------------------------------------------------
     CALL write_vlist_oce( p_patch(1:), p_hyoce_state, p_sfc_flx, datetime )
-    
+
+
+    !------------------------------------------------------------------
+    ! Prepare the coupling
+    !
+    ! For the time being this could all go into a subroutine which is
+    ! common to atmo and ocean. Does this make sense if the setup deviates
+    ! too much in future.
+    !------------------------------------------------------------------
+
+    IF ( is_coupled_run() ) THEN
+ 
+      comp_id = get_my_local_comp_id (ocean_process)
+      patch_no = 1
+
+      CALL get_patch_global_indexes ( patch_no, CELLS, no_of_entities, grid_glob_index )
+      ! should grid_glob_index become a pointer in ICON_cpl_def_grid as well?
+      CALL ICON_cpl_def_grid ( comp_id, grid_shape, grid_glob_index, grid_id, ierror )
+  
+      field_name(1) = "SST"
+      field_name(2) = "TAUX"
+      field_name(3) = "TAUY"
+      field_name(4) = ""
+      field_name(5) = ""
+      field_name(6) = ""
+      field_name(7) = ""
+      field_name(8) = ""
+
+      DO i = 1, no_of_fields
+         CALL ICON_cpl_def_field ( field_name(i), comp_id, grid_id, field_id(i), &
+   &                               field_shape, ierror )
+      ENDDO
+
+      CALL ICON_cpl_search
+
+    ENDIF
+
     !------------------------------------------------------------------
     ! Now start the time stepping:
     ! The special initial time step for the three time level schemes
