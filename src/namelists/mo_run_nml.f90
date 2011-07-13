@@ -133,11 +133,11 @@ CONTAINS
 
     nml_lvert_nest = .FALSE. ! no vertical nesting
     nml_nlev       = 31
-    nml_num_lev(:) = 31  ! number of full levels for each domain
-    nml_nshift(:)  = 0   ! please do not change the default.
-                         ! otherwise the initialization of 
-                         ! p_patch(jg)%nshift in "import patches" 
-                         ! will not work properly.
+    nml_num_lev(:) = nml_nlev  ! number of full levels for each domain
+    nml_nshift(:)  = 0         ! please do not change the default.
+                               ! otherwise the initialization of 
+                               ! p_patch(jg)%nshift in "import patches" 
+                               ! will not work properly.
 
     nml_nsteps = 0
     nml_dtime  = 600._wp   ! [s] for R2B04 + semi-implicit time steppping
@@ -172,7 +172,7 @@ CONTAINS
     ! Sanity check
     !----------------------------------------------------
     SELECT CASE (nml_iforcing)                                                     
-    CASE(IHELDSUAREZ,INWP,IECHAM,ILDF_ECHAM,IMPIOM,INOFORCING,ILDF_DRY)
+    CASE(INOFORCING,IHELDSUAREZ,INWP,IECHAM,ILDF_DRY,ILDF_ECHAM,IMPIOM)
     CASE DEFAULT
       CALL finish( TRIM(routine),'wrong value for nml_iforcing')
     END SELECT

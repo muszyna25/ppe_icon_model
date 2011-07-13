@@ -110,6 +110,7 @@ CONTAINS
 
     CHARACTER(LEN=*),PARAMETER :: routine = 'mo_:config_run'
 
+    !----------------------------
     ! Number of vertical levels
 
     IF (.NOT.lvert_nest) THEN
@@ -121,6 +122,7 @@ CONTAINS
     nvclev       = nlev + 1
     num_levp1(:) = num_lev(:) + 1
 
+    !-------------------------------------
     ! Logical switch for diabatic forcing
 
     SELECT CASE (iforcing)
@@ -129,9 +131,9 @@ CONTAINS
 
     CASE(INOFORCING,ILDF_DRY)
       lforcing = .FALSE.
-
     END SELECT
 
+    !----------------
     ! Tracer indices
 
     SELECT CASE(iforcing)
@@ -140,7 +142,7 @@ CONTAINS
       iqv    = 1     !> water vapour
       iqc    = 2     !! cloud water
       iqi    = 3     !! ice
-      iqcond = 3     !! index of last hydrometeor to ease summation over all of them
+      iqcond = iqi   !! index of last hydrometeor to ease summation over all of them
       iqt    = 4     !! starting index of non-water species 
       io3    = 5     !! O3
       ico2   = 6     !! CO2
@@ -152,12 +154,17 @@ CONTAINS
       iqi    = 3     !! ice
       iqr    = 4     !! rain water
       iqs    = 5     !! snow
-      iqcond = 5     !! index of last hydrometeor to ease summation over all of them
+      iqcond = iqs   !! index of last hydrometeor to ease summation over all of them
       io3    = 6     !! O3
       ico2   = 7     !! CO2
       iqt    = 6     !! start index of other tracers than hydrometeors
 
     END SELECT
+
+    !--------------------------
+    ! Number of static tracers
+
+    ntracer_static = 0
 
   END SUBROUTINE config_run
 
