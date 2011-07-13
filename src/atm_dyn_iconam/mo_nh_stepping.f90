@@ -54,7 +54,7 @@ MODULE mo_nh_stepping
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_dynamics_nml,        ONLY: itime_scheme
   USE mo_dynamics_config,     ONLY: dynamics_config
-  USE mo_io_nml,              ONLY: l_outputtime, l_diagtime, l_checkpoint_time
+  USE mo_io_config,               ONLY: l_outputtime, l_diagtime, l_checkpoint_time
   USE mo_parallel_configuration,  ONLY: nproma, itype_comm
   USE mo_run_config,          ONLY: ltestcase, dtime, nsteps,  &
     &                               ltransport, ntracer, lforcing, iforcing, &

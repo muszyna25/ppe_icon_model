@@ -70,7 +70,7 @@ MODULE mo_hierarchy_management
   USE mo_dynamics_config,     ONLY: dynamics_config 
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config 
   USE mo_diffusion_config,    ONLY: diffusion_config
-  USE mo_io_nml,              ONLY: lprepare_output
+  USE mo_io_config,           ONLY: lprepare_output
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_config,          ONLY: ldynamics, ltransport, &
     &                               nlev, nlevp1, ntracer, iforcing, lforcing

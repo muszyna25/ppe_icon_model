@@ -119,7 +119,7 @@ MODULE mo_io_vlist
  !  &                               si_coeff, si_expl_scheme, si_offctr,        &
  !  &                               si_rtol, lref_temp
   USE mo_diffusion_config,    ONLY: diffusion_config
-  USE mo_io_nml,              ONLY: lwrite_omega, lwrite_pres, lwrite_z3,       &
+  USE mo_io_config,           ONLY: lwrite_omega, lwrite_pres, lwrite_z3,       &
     &                               lwrite_vorticity, lwrite_divergence,        &
     &                               lwrite_tend_phy, lwrite_radiation,          &
     &                               lwrite_precip, lwrite_cloud, lwrite_tracer, &

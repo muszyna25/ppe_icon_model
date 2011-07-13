@@ -66,8 +66,8 @@ MODULE mo_nonlinear_adv
 USE mo_kind,               ONLY: wp
 USE mo_exception,          ONLY: finish
 USE mo_model_domain,       ONLY: t_patch
-USE mo_dynamics_nml,           ONLY: idiv_method
-USE mo_io_nml,             ONLY: l_outputtime, l_diagtime
+USE mo_dynamics_nml,            ONLY: idiv_method
+USE mo_io_config,               ONLY: l_outputtime, l_diagtime
 USE mo_parallel_configuration,  ONLY: nproma
 USE mo_dynamics_config,     ONLY: dynamics_config 
 USE mo_interpolation,      ONLY: t_int_state,                    &

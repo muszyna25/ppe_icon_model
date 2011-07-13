@@ -44,7 +44,7 @@ MODULE mo_ha_diag_util
   USE mo_math_operators,     ONLY: grad_fd_norm, div, div_avg, rot_vertex
   USE mo_dynamics_nml,       ONLY: idiv_method, ldry_dycore
   USE mo_dynamics_config,    ONLY: dynamics_config
-  USE mo_io_nml,             ONLY: lwrite_omega, l_outputtime
+  USE mo_io_config,          ONLY: lwrite_omega, l_outputtime
   USE mo_parallel_configuration,  ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: nlev, nlevp1, iqv, iqc, iqi, iqr, iqs, iforcing
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam

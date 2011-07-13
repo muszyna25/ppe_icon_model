@@ -38,8 +38,8 @@
 !!
 MODULE mo_vector_operations
 
-  USE mo_kind,             ONLY: wp
-  USE mo_io_nml,           ONLY: l_outputtime
+  USE mo_kind,                    ONLY: wp
+  USE mo_io_config,               ONLY: l_outputtime
   USE mo_parallel_configuration,  ONLY: nproma, p_test_run
   USE mo_run_config,       ONLY: ltimer, dtime
   USE mo_vertical_grid,    ONLY: nflat

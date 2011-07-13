@@ -68,7 +68,8 @@ MODULE mo_io_async
   USE mo_nonhydrostatic_nml,  ONLY: ivctype, nonhydrostatic_nml_setup
   USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
   USE mo_diffusion_nml,       ONLY: diffusion_nml_setup
-  USE mo_io_nml,              ONLY: io_nml_setup
+!  USE mo_io_nml,              ONLY: io_nml_setup
+  USE mo_io_config            
   USE mo_dynamics_config,     ONLY: dynamics_config
   USE mo_run_config,          ONLY: ldump_states, ltransport, lforcing, num_lev, iforcing, nlev
  ! USE mo_atm_phy_nwp_nml,     ONLY: setup_nwp_phy, inwp_surface
@@ -307,7 +308,7 @@ CONTAINS
 !      IF (inwp_surface > 0) CALL setup_nwp_lnd
     ENDIF
 
-    CALL io_nml_setup
+!    CALL io_nml_setup
 
     CALL close_nml
 

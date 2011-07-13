@@ -60,11 +60,11 @@ MODULE mo_radiation_model
     & nonhydrostatic_nml_setup
   USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
   USE mo_diffusion_nml,       ONLY: diffusion_nml_setup
-  USE mo_io_nml,              ONLY: io_nml_setup,         & ! process I/O
-    & dt_data,              & !    :
-    & dt_file,              & !    :
-    & dt_diag,              & !    :
-    & lprepare_output         ! internal parameter
+!  USE mo_io_nml,              ONLY: io_nml_setup,         & ! process I/O
+!    & dt_data,              & !    :
+!    & dt_file,              & !    :
+!    & dt_diag
+
 !   USE mo_run_nml,             ONLY: run_nml_setup,            & ! process run control parameters
 ! !     & ini_datetime,         & !    namelist parameter
 !     & dtime,                & !    :

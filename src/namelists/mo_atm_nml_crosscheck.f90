@@ -63,7 +63,7 @@ MODULE mo_atm_nml_crosscheck
   USE mo_ha_dyn_config,     ONLY: ha_dyn_config
   USE mo_diffusion_config,  ONLY: diffusion_config
 
-  USE mo_io_config,         ONLY: io_config
+  USE mo_io_config           !all,         ONLY: io_config
 
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, tcall_phy
   USE mo_lnd_nwp_config,     ONLY: nwp_lnd_config
@@ -176,6 +176,41 @@ SUBROUTINE atm_crosscheck
     ENDIF
 
   ENDDO
+
+    !--------------------------------------------------------------------
+    ! checking the meanings of the io settings
+    !--------------------------------------------------------------------
+
+  SELECT CASE(iforcing)
+  CASE ( inwp )
+    ! Do nothing. Keep the initial values, if not specified in namelist.
+    ! consider special idealized testcase with turbulence only
+    IF( .NOT. ltransport  )   THEN
+      lwrite_precip    = .FALSE.
+      lwrite_cloud     = .FALSE.
+      lwrite_radiation = .FALSE.
+      lwrite_tke       = .TRUE.
+      lwrite_surface   = .FALSE.
+      CALL message('io_nml_setup',' ATTENTION! Only TKE output for TURBULENCE ONLY test')
+    ENDIF
+  CASE ( iecham,ildf_echam )
+    ! Do nothing. Keep the initial values, if not specified in namelist.
+  CASE DEFAULT
+    ! Do nothing. Keep the initial values, if not specified in namelist.
+  END SELECT
+  
+  IF (( inextra_2D > 0) .OR. (inextra_3D > 0) ) THEN 
+    lwrite_extra = .TRUE.
+    WRITE(message_text,'(a,2I4,a,L4)') &
+      &'inextra is',inextra_2d,inextra_3d ,' lwrite_extra has been set', lwrite_extra
+    CALL message('io_namelist', TRIM(message_text))
+  ENDIF
+  
+  IF (inextra_2D == 0 .AND. inextra_3D == 0 .AND. lwrite_extra) &
+    CALL finish('io_namelist','need to specify extra fields for extra output')
+
+
+
 
 END  SUBROUTINE atm_crosscheck
 

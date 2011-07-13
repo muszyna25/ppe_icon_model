@@ -44,18 +44,20 @@
 MODULE mo_io_config
 
   USE mo_kind,           ONLY: wp
-  USE mo_impl_constants, ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom
+  USE mo_impl_constants, ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom,&
+    &                          SUCCESS
+  USE mo_exception,      ONLY: message, finish
 
   IMPLICIT NONE
 
-  PUBLIC
+
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
   !!--------------------------------------------------------------------------
   !! Derived type 
   !!--------------------------------------------------------------------------
-  TYPE :: t_io_config
+!  TYPE :: t_io_config
 
     ! namelist variables
 
@@ -91,12 +93,21 @@ MODULE mo_io_config
     LOGICAL :: l_diagtime           ! if .true., diagnostic output is computed and written
                                     ! at the end of the time step.               
                                                                                  
-    LOGICAL, ALLOCATABLE :: lprepare_output(:) ! if .true., save the prognostic  
+    LOGICAL :: lprepare_output(max_dom) ! if .true., save the prognostic  
                                                ! variables to p_prog_out and     
                                                ! update p_diag_out.
-  END TYPE t_io_config
+!  END TYPE t_io_config
   !>
   !!
-  TYPE(t_io_config):: io_config(max_dom)
+ ! TYPE(t_io_config):: io_config(max_dom)
+
+  PUBLIC
+
+CONTAINS
+
+  SUBROUTINE setup_io_config !(n_dom)
+
+
+  END SUBROUTINE setup_io_config
 
 END MODULE mo_io_config

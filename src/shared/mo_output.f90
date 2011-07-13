@@ -46,7 +46,7 @@ MODULE mo_output
   USE mo_io_units,            ONLY: filename_max
   USE mo_model_domain_import, ONLY: n_dom, nroot, lplane
   USE mo_ocean_nml,           ONLY: n_zlev
-  USE mo_io_nml,              ONLY: out_expname
+  USE mo_io_config,           ONLY: out_expname
   USE mo_impl_constants,      ONLY: ihs_atm_temp,         &
      &                              ihs_atm_theta,        &
      &                              inh_atmosphere,       &

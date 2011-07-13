@@ -52,12 +52,8 @@ MODULE mo_atmo_setup_configuration
   USE mo_dynamics_nml,        ONLY: read_dynamics_namelist, dynamics_nml_setup
   USE mo_ha_dyn_nml,          ONLY: read_ha_dyn_namelist 
   USE mo_diffusion_nml,       ONLY: diffusion_nml_setup, read_diffusion_namelist 
-  USE mo_io_nml,              ONLY: io_nml_setup, read_io_namelist, & ! process I/O
-    & dt_data,              & !    :
-    & dt_file,              & !    :
-    & dt_diag,              & !    :
-    & dt_checkpoint,        & !    :
-    & lprepare_output         ! internal parameter
+  USE mo_io_nml,              ONLY: read_io_namelist !, & ! process I/O
+!    &io_nml_setup, &
     
 !   USE mo_run_nml,             ONLY: run_nml_setup,            & ! process run control parameters
 !    !& current_datetime,     & !    module variable

@@ -56,12 +56,12 @@ USE mo_nonhydrostatic_nml,  ONLY: ivctype,              & ! type of vertical coo
 & nonhydrostatic_nml_setup
 USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
 USE mo_diffusion_nml,       ONLY: diffusion_nml_setup
-USE mo_io_nml,              ONLY: io_nml_setup,         & ! process I/O
-& dt_data,              & !    :
-& dt_file,              & !    :
-& dt_diag,              & !    :
-& dt_checkpoint,        & !    :
-& lprepare_output         ! internal parameter
+USE mo_io_nml,              ONLY: io_nml_setup !,         & ! process I/O
+!& dt_data,              & !    :
+!& dt_file,              & !    :
+!& dt_diag,              & !    :
+!& dt_checkpoint 
+USE mo_io_config,         ONLY:  dt_data,dt_file,dt_diag,dt_checkpoint
 USE mo_dynamics_config,   ONLY: dynamics_config
 USE mo_run_nml,           ONLY: run_nml_setup
 USE mo_run_config,        ONLY: &
@@ -636,15 +636,10 @@ INTEGER, POINTER :: grid_glob_index(:)
     ! step 6: initialize output
     !------------------------------------------------------------------
     
-    CALL io_nml_setup
+    CALL io_nml_setup ! is empty and now only a place holder
     CALL setup_gmt_output(p_patch(n_dom)%nlev)
     
     ! The model produces output files for all grid levels
- 
-    ALLOCATE(lprepare_output(n_dom),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for lprepare_output failed')
-    ENDIF
  
     
     !------------------------------------------------------------------
@@ -959,10 +954,6 @@ INTEGER, POINTER :: grid_glob_index(:)
     
     ! deallocate output switches
     !
-    DEALLOCATE(lprepare_output,STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation of lprepare_output failed')
-    ENDIF
     
     CALL message(TRIM(routine),'clean-up finished')
     

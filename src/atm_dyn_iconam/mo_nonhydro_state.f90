@@ -61,7 +61,7 @@ MODULE mo_nonhydro_state
     &                               inextra_2d, inextra_3d,&
     &                               iqv, iqc, iqi, iqr, iqs, io3
   USE mo_radiation_nml,       ONLY: irad_o3
-  USE mo_io_nml,              ONLY: lwrite_extra
+  USE mo_io_config,           ONLY: lwrite_extra
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: default_var_list_settings, &
     &                               add_var,  add_ref,          &

@@ -54,11 +54,11 @@ MODULE mo_ocean_model
   USE mo_ocean_nml,           ONLY: setup_ocean_nml
   USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
   USE mo_diffusion_nml,       ONLY: diffusion_nml_setup
-  USE mo_io_nml,              ONLY: io_nml_setup,         & ! process I/O
-    & dt_data,              & !    :
-    & dt_file,              & !    :
-    & dt_diag,              & !    :
-    & lprepare_output         ! internal parameter
+  USE mo_io_nml,              ONLY: io_nml_setup !,         & ! process I/O
+!    & dt_data,              & !    :
+!    & dt_file,              & !    :
+!    & dt_diag
+  USE mo_io_config,         ONLY:  dt_data,dt_file,dt_diag!,dt_checkpoint
   USE mo_run_nml,           ONLY: run_nml_setup
   USE mo_run_config,        ONLY: &
     & dtime,                & !    :
@@ -382,16 +382,11 @@ CONTAINS
     ! step 6: initialize output
     !------------------------------------------------------------------
     
-    CALL io_nml_setup
+    CALL io_nml_setup !is empty by now KF
     CALL setup_gmt_output(p_patch(n_dom)%nlev)
     
     ! The model produces output files for all grid levels
-    
-    ALLOCATE(lprepare_output(n_dom),stat=ist)
-    IF (ist /= success) THEN
-      CALL finish(TRIM(routine),'allocation for lprepare_output failed')
-    ENDIF
-    
+ 
     !------------------------------------------------------------------
     ! Create and optionally read external data fields
     !------------------------------------------------------------------
@@ -536,13 +531,6 @@ CONTAINS
     ENDIF
     IF (ist/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocate for patch array failed')
-    ENDIF
-    
-    ! deallocate output switches
-
-    DEALLOCATE(lprepare_output,stat=ist)
-    IF (ist /= success) THEN
-      CALL finish(TRIM(routine),'deallocation of lprepare_output failed')
     ENDIF
     
     CALL message(TRIM(routine),'clean-up finished')

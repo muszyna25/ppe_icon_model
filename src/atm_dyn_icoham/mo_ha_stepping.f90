@@ -51,7 +51,7 @@ MODULE mo_ha_stepping
   USE mo_dynamics_nml,        ONLY: itime_scheme
   USE mo_dynamics_config,     ONLY: dynamics_config
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
-  USE mo_io_nml,              ONLY: l_outputtime, lprepare_output, l_diagtime,  &
+  USE mo_io_config,           ONLY: l_outputtime, lprepare_output, l_diagtime,  &
                                   & l_checkpoint_time
   USE mo_run_config,          ONLY: nsteps, dtime, ntracer,  &
                                   & ldynamics, ltransport, msg_level, ltimer,   &
