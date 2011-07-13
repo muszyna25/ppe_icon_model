@@ -47,7 +47,7 @@ MODULE mo_solve_nh_async
   USE mo_diffusion_nml,     ONLY: k4
   USE mo_diffusion_config,  ONLY: diffusion_config
   USE mo_parallel_configuration,  ONLY: nproma, p_test_run, itype_comm
-  USE mo_run_nml,           ONLY: ltimer, lvert_nest
+  USE mo_run_config,        ONLY: ltimer, lvert_nest
   USE mo_model_domain,      ONLY: t_patch
   USE mo_model_domain_import,ONLY: nroot, l_limited_area, lfeedback
   USE mo_interpolation,     ONLY: t_int_state, cells2edges_scalar, edges2cells_scalar,      &

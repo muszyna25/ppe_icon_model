@@ -138,8 +138,6 @@ MODULE mo_global_variables
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned
   USE mo_mpi,                ONLY: p_pe, p_io
-  USE mo_run_nml,            ONLY: inwp,iecham, iforcing,lshallow_water,  &
-    &                              inoforcing,iheldsuarez,impiom, ildf_dry,ildf_echam
   USE mo_ocean_nml,          ONLY: lmpiom_radiation, lmpiom_convection,           &
     &                              lmpiom_gentmcwill, mpiom_phy_ctl
   USE mo_dynamics_nml,       ONLY: ldry_dycore
@@ -162,55 +160,55 @@ MODULE mo_global_variables
 !! (chose the physical package and subsequent parameters)
 !!-----------------------------------------------------------------------
 !!
-  INTEGER :: i_status
-
-  SELECT CASE (iforcing)
-    !
-  CASE (inoforcing)
-    !
-    ! nothing to be done
-    !
-  CASE (iheldsuarez, ildf_dry)
-    !
-    ldry_dycore       = .TRUE.
-    !
-  CASE (iecham,ildf_echam)
-    !
-! Temporarily removed by Hui
-!   ldry_dycore       = .FALSE.
-    !
-  CASE (inwp)
-    !
-! Temporarily removed by Daniel
-!    ldry_dycore     = .FALSE.
-
-!    !> set default physics switches and values
-!    CALL set_inwp_nml
-
-!    !
-!    !> final settings via namelist
-!    CALL read_inwp_nml
-
-    !
-  CASE (impiom)
-    !
-    lmpiom_radiation  = .FALSE.
-    lmpiom_convection = .FALSE.
-    lmpiom_gentmcwill = .FALSE.
-    !
-    CALL position_nml ('mpiom_phy_ctl', status=i_status)
-    !
-    SELECT CASE (i_status)
-    CASE (positioned)
-      READ (nnml, mpiom_phy_ctl)
-    END SELECT
-    !  write the contents of the namelist to an ASCII file
-    IF(p_pe == p_io) WRITE(nnml_output,nml=mpiom_phy_ctl)
-    !
-   CASE DEFAULT
-    !
-  END SELECT
+!  INTEGER :: i_status
 !
+!  SELECT CASE (iforcing)
+!    !
+!  CASE (inoforcing)
+!    !
+!    ! nothing to be done
+!    !
+!  CASE (iheldsuarez, ildf_dry)
+!    !
+!    ldry_dycore       = .TRUE.
+!    !
+!  CASE (iecham,ildf_echam)
+!    !
+!! Temporarily removed by Hui
+!!   ldry_dycore       = .FALSE.
+!    !
+!  CASE (inwp)
+!    !
+!! Temporarily removed by Daniel
+!!    ldry_dycore     = .FALSE.
+!
+!!    !> set default physics switches and values
+!!    CALL set_inwp_nml
+!
+!!    !
+!!    !> final settings via namelist
+!!    CALL read_inwp_nml
+!
+!    !
+!  CASE (impiom)
+!    !
+!    lmpiom_radiation  = .FALSE.
+!    lmpiom_convection = .FALSE.
+!    lmpiom_gentmcwill = .FALSE.
+!    !
+!    CALL position_nml ('mpiom_phy_ctl', status=i_status)
+!    !
+!    SELECT CASE (i_status)
+!    CASE (positioned)
+!      READ (nnml, mpiom_phy_ctl)
+!    END SELECT
+!    !  write the contents of the namelist to an ASCII file
+!    IF(p_pe == p_io) WRITE(nnml_output,nml=mpiom_phy_ctl)
+!    !
+!   CASE DEFAULT
+!    !
+!  END SELECT
+!!
 END SUBROUTINE setup_physics
 
 !-------------------------------------------------------------------------

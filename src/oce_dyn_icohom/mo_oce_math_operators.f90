@@ -51,7 +51,7 @@ MODULE mo_oce_math_operators
 !
 USE mo_kind,               ONLY: wp
 USE mo_parallel_configuration,  ONLY: nproma
-USE mo_run_nml,            ONLY: ltimer
+USE mo_run_config,         ONLY: ltimer
 USE mo_math_constants
 USE mo_physical_constants
 USE mo_impl_constants,     ONLY: land_boundary, boundary, sea, sea_boundary, &!land, sea,

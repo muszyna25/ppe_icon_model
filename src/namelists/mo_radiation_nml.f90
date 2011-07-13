@@ -46,7 +46,6 @@ MODULE mo_radiation_nml
   USE mo_exception,          ONLY: finish
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, max_dom
   USE mo_mpi,                ONLY: p_pe, p_io
-  USE mo_run_nml,            ONLY: iforcing, inwp
   USE mo_radiation_config,   ONLY: radiation_config
   USE mo_namelist,           ONLY: position_nml, positioned
   USE mo_io_units,           ONLY: nnml, nnml_output

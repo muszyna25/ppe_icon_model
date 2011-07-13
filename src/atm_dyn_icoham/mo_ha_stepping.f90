@@ -53,9 +53,10 @@ MODULE mo_ha_stepping
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
   USE mo_io_nml,              ONLY: l_outputtime, lprepare_output, l_diagtime,  &
                                   & l_checkpoint_time
-  USE mo_run_nml,             ONLY: lshallow_water, nsteps, dtime,   &
+  USE mo_run_config,          ONLY: nsteps, dtime, ntracer,  &
                                   & ldynamics, ltransport, msg_level, ltimer,   &
-                                  & ltestcase, lrestart
+                                  & ltestcase
+  USE mo_master_nml,          ONLY: lrestart
   USE mo_hydro_testcases,     ONLY: init_testcase
   USE mo_si_correction,       ONLY: init_si_params
   USE mo_ha_rungekutta,       ONLY: init_RungeKutta
@@ -100,9 +101,10 @@ CONTAINS
     !-----------------------------------
     SELECT CASE (itime_scheme)
     CASE (LEAPFROG_SI) 
-      CALL init_si_params( ha_dyn_config%lsi_3d,    &
-                           ha_dyn_config%si_offctr, &
-                           ha_dyn_config%si_cmin)
+      CALL init_si_params( ha_dyn_config%lsi_3d,            &
+                           ha_dyn_config%si_offctr,         &
+                           ha_dyn_config%si_cmin,           &
+                           dynamics_config(1)%lshallow_water)
     CASE (RK4,SSPRK54) 
       CALL init_RungeKutta(itime_scheme)
     END SELECT
@@ -130,7 +132,7 @@ CONTAINS
       ntl = 2 + nadd
     END SELECT
 
-    CALL construct_icoham_dyn_state( ntl, p_patch )
+    CALL construct_icoham_dyn_state( ntl, ntracer, p_patch )
 
   END SUBROUTINE prepare_ha_dyn
   !-------------
@@ -299,7 +301,7 @@ CONTAINS
     ELSE                  ! time step
       l_diagtime = .FALSE.
     ENDIF
-    IF(.NOT.ldynamics.AND.lshallow_water)l_diagtime=.FALSE.
+    IF(.NOT.ldynamics.AND.dynamics_config(1)%lshallow_water)l_diagtime=.FALSE.
 
     !--------------------------------------------------------------------------
     ! Time integration from time step n to n+1

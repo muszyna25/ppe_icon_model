@@ -41,7 +41,7 @@ MODULE mo_echam_phy_init
   ! model configuration
   USE mo_dynamics_config,      ONLY: dynamics_config 
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,            ONLY: nlev, nlevp1, nvclev,  &
+  USE mo_run_config,           ONLY: nlev, nlevp1, nvclev,  &
     &                              iqv, iqt, ntracer, ltestcase
   USE mo_vertical_coord_table,ONLY: vct
   USE mo_echam_phy_config,      ONLY: phy_config => echam_phy_config
@@ -167,7 +167,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! Allocate memory for the state vectors "prm_field" and "prm_tend"
     !-------------------------------------------------------------------
-    CALL construct_echam_phy_state( p_patch )
+    CALL construct_echam_phy_state( ntracer, p_patch )
 
   END SUBROUTINE prepare_echam_phy
   !-------------

@@ -58,7 +58,7 @@ MODULE mo_radiation
 
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: finish
-  USE mo_run_nml,              ONLY: ltimer
+  USE mo_run_config,           ONLY: ltimer
 
   USE mo_model_domain,         ONLY: t_patch
 

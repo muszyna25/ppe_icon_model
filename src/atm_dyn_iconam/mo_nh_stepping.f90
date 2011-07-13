@@ -56,8 +56,8 @@ MODULE mo_nh_stepping
   USE mo_dynamics_config,     ONLY: dynamics_config
   USE mo_io_nml,              ONLY: l_outputtime, l_diagtime, l_checkpoint_time
   USE mo_parallel_configuration,  ONLY: nproma, itype_comm
-  USE mo_run_nml,             ONLY: ltestcase, dtime, nsteps,  &
-    &                               ltransport, ntracer, lforcing, iforcing, inwp,  &
+  USE mo_run_config,          ONLY: ltestcase, dtime, nsteps,  &
+    &                               ltransport, ntracer, lforcing, iforcing, &
     &                               msg_level, ltimer
   USE mo_grid_configuration, ONLY :  global_cell_type
     
@@ -95,7 +95,7 @@ MODULE mo_nh_stepping
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_io_units,            ONLY: find_next_free_unit
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH,iphysproc,itconv,   &
-    &                               itccov, itrad, itradheat, itsso, itsatad
+    &                               itccov, itrad, itradheat, itsso, itsatad, inwp
   USE mo_physical_constants,  ONLY: cvd, cvd_o_rd
   USE mo_divergent_modes,     ONLY: divergent_modes_5band, impl_vert_adv_theta, &
                                     impl_vert_adv_theta_5diag

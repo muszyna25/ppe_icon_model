@@ -57,7 +57,7 @@ USE mo_ocean_nml,                 ONLY: n_zlev, i_dbg_oce, i_dbg_inx, str_proc_t
   &                                     solver_tolerance, l_inverse_flip_flop,            &
   &                                     ab_const, ab_beta, ab_gam, iswm_oce, idisc_scheme,&
   &                                     expl_vertical_velocity_diff,iforc_oce
-USE mo_run_nml,                   ONLY: dtime
+USE mo_run_config,                ONLY: dtime
 USE mo_dynamics_config,           ONLY: dynamics_config 
 USE mo_physical_constants,        ONLY: grav!, re
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,          &

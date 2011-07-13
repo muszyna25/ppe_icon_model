@@ -40,7 +40,7 @@ MODULE mo_timer
        &                   cleanup_timer => timer_reset_all, &
        &                   delete_timer => del_timer
 
-  USE mo_run_nml,    ONLY: ltimer
+  USE mo_run_config, ONLY: ltimer
 
   IMPLICIT NONE
   PRIVATE

@@ -67,8 +67,8 @@ USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_scal2d_grf, &
                                   interpol_vec_grf, interpol2_vec_grf
 USE mo_dynamics_config,     ONLY: dynamics_config 
 USE mo_parallel_configuration,  ONLY: nproma, p_test_run
-USE mo_run_nml,             ONLY: msg_level, ltransport, nlev,    &
-                                  ntracer, lshallow_water
+USE mo_run_config,          ONLY: msg_level, ltransport, nlev,    &
+                                  ntracer
 USE mo_icoham_dyn_types,    ONLY: t_hydro_atm, t_hydro_atm_prog,  &
                                   t_hydro_atm_diag
 USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge, min_rledge_int, &
@@ -236,7 +236,7 @@ ELSE IF (grf_intmethod_c == 2) THEN
   CALL interpol_scal2d_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx,&
                             p_parent_tend%pres_sfc, p_child_tend%pres_sfc)
 
-  IF (.NOT. lshallow_water) &
+  IF (.NOT. dynamics_config(1)%lshallow_water) &
     CALL interpol_scal_grf (p_pp, p_pc, p_int, p_grf%p_dom(i_chidx), i_chidx, 1, &
                             p_parent_tend%temp,  p_child_tend%temp)
 

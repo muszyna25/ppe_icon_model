@@ -51,7 +51,6 @@ MODULE mo_hdiff_hyb_lin
   USE mo_interpolation,     ONLY: t_int_state
   USE mo_icoham_dyn_types,  ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,           ONLY: nlev
   USE mo_impl_constants,    ONLY: min_rlcell, min_rledge
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
@@ -78,13 +77,13 @@ CONTAINS
     TYPE(t_hydro_atm_prog),  INTENT(INOUT) :: prog   !< prognostic variables
 
     ! Temporary arrays
-    REAL(wp) :: znabla_c (nproma,nlev,patch%nblks_c)
-    REAL(wp) :: znabla_e (nproma,nlev,patch%nblks_e)
-    REAL(wp) :: ztmp_c   (nproma,nlev,patch%nblks_c)
+    REAL(wp) :: znabla_c (nproma,patch%nlev,patch%nblks_c)
+    REAL(wp) :: znabla_e (nproma,patch%nlev,patch%nblks_e)
+    REAL(wp) :: ztmp_c   (nproma,patch%nlev,patch%nblks_c)
 
     ! Temporary arrays for refinement
-    REAL(wp) :: znabla2_c(nproma,nlev,patch%nblks_c)
-    REAL(wp) :: znabla2_e(nproma,nlev,patch%nblks_e)
+    REAL(wp) :: znabla2_c(nproma,patch%nlev,patch%nblks_c)
+    REAL(wp) :: znabla2_e(nproma,patch%nlev,patch%nblks_e)
 
     ! Dimension sizes, indices
     INTEGER :: nchilddom
@@ -97,11 +96,13 @@ CONTAINS
     REAL(wp) :: fac_bdydiff_c, fac_bdydiff_e  !< for boundary of refined region
 
     LOGICAL :: ltheta_dyn
+    INTEGER :: nlev
 
     !===================================================================
     ! 0. Some constants
     !===================================================================
     ltheta_dyn = ha_dyn_config%ltheta_dyn
+    nlev       = patch%nlev
 
     ! Number of child domains
     nchilddom = MAX(1,patch%n_childdom)

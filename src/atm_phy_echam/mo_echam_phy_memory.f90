@@ -58,7 +58,6 @@ MODULE mo_echam_phy_memory
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
   USE mo_exception,           ONLY: message, finish
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,             ONLY: ntracer
   USE mo_advection_config,    ONLY: advection_config
   USE mo_icoham_sfc_indices,  ONLY: nsfc_type
 !   USE mo_echam_phy_nml,       ONLY: lvdiff
@@ -388,8 +387,9 @@ CONTAINS
   !>
   !! Top-level procedure for building the physics state
   !!
-  SUBROUTINE construct_echam_phy_state( patch_array )
+  SUBROUTINE construct_echam_phy_state( ntracer, patch_array )
 
+    INTEGER,INTENT(IN) :: ntracer
     TYPE(t_patch),INTENT(IN) :: patch_array(:)
     CHARACTER(len=MAX_CHAR_LENGTH) :: listname
     CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize

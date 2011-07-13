@@ -52,7 +52,7 @@ USE mo_model_domain_import,    ONLY: n_dom, nroot
 USE mo_ocean_nml,              ONLY: n_zlev, iswm_oce, no_tracer,itestcase_oce
 USE mo_dynamics_config,        ONLY: dynamics_config 
 USE mo_io_nml,                 ONLY: out_expname
-USE mo_run_nml,                ONLY: nsteps, dtime, ltimer
+USE mo_run_config,             ONLY: nsteps, dtime, ltimer
 USE mo_exception,              ONLY: message, message_text, finish
 USE mo_io_units,               ONLY: filename_max
 USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time

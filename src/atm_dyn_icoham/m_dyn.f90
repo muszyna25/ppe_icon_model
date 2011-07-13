@@ -75,8 +75,7 @@ MODULE m_dyn
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config
   USE mo_io_nml,             ONLY: l_outputtime, lwrite_omega
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,            ONLY: nlev, nlevp1,iqv,                &
-                                   iforcing, iecham,ildf_echam, inwp,      &
+  USE mo_run_config,         ONLY: nlev, nlevp1,iqv, iforcing, &
                                    iqc, iqi, iqr, iqs
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_interpolation,      ONLY: t_int_state, cell_avg,                    &
@@ -86,6 +85,7 @@ MODULE m_dyn
   USE mo_nonlinear_adv,      ONLY: kin_vel_rot, lamb_rot
   USE mo_eta_coord_diag,     ONLY: half_level_pressure, full_level_pressure, &
                                    auxhyb, geopot
+  USE mo_impl_constants,     ONLY: iecham,ildf_echam, inwp
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_vertical_coord_table, ONLY: delpr, nlevm1, nplev, nplvp1,             &

@@ -56,7 +56,7 @@ MODULE mo_nwp_conv_interface
   USE mo_nonhydrostatic_nml,   ONLY: kstart_moist
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag,prm_diag,&
     &                                t_nwp_phy_tend
-  USE mo_run_nml,              ONLY: msg_level, ntracer, iqv, &
+  USE mo_run_config,           ONLY: msg_level, ntracer, iqv, &
     &                                iqc, iqi, iqs
   USE mo_physical_constants,   ONLY:  vtmpc1, grav, alv
 !  USE mo_atm_phy_nwp_nml,      ONLY: inwp_convection, inwp_turb

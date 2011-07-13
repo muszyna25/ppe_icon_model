@@ -54,7 +54,7 @@ MODULE mo_vertical_grid
   USE mo_sleve_nml,           ONLY: sleve_nml_setup, min_lay_thckn, top_height, decay_scale_1, &
     &                               decay_scale_2, decay_exp, flat_height, stretch_fac
   USE mo_parallel_configuration,  ONLY: nproma, p_test_run
-  USE mo_run_nml,             ONLY: ltestcase, msg_level
+  USE mo_run_config,          ONLY: ltestcase, msg_level
   USE mo_vertical_coord_table,ONLY: vct_a, vct_b, vct, read_vct
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, &
     &                               min_rlcell_int, min_rlcell

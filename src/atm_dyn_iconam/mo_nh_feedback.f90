@@ -45,8 +45,7 @@ USE mo_grf_interpolation,   ONLY: t_gridref_state, grf_velfbk
 USE mo_nonhydrostatic_nml,  ONLY: l_nest_rcf, l_masscorr_nest
 USE mo_dynamics_config,     ONLY: dynamics_config
 USE mo_parallel_configuration,  ONLY: nproma
-USE mo_run_nml,             ONLY: ltransport, iforcing, msg_level,  &
-                                  ntracer
+USE mo_run_config,          ONLY: ltransport, iforcing, msg_level, ntracer
 USE mo_nonhydro_state,      ONLY: t_nh_state, t_nh_prog, t_nh_diag
 USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlcell_int, min_rledge_int, &
             &                     MAX_CHAR_LENGTH

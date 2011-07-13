@@ -94,8 +94,7 @@ MODULE mo_si_correction
   USE mo_dynamics_nml,        ONLY: idiv_method
   USE mo_dynamics_nml,       ONLY: sw_ref_height
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,            ONLY: msg_level, nlev, nlevp1, &
-                                   lshallow_water
+  USE mo_run_config,         ONLY: msg_level, nlev, nlevp1
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog
   USE mo_vertical_coord_table,ONLY: delpr, rdelpr, nlevm1
   USE mo_eta_coord_diag,     ONLY: half_level_pressure, auxhyb
@@ -170,10 +169,11 @@ MODULE mo_si_correction
   !!   - added calculation of the eigenvectors of structure matrix.
   !!   - changed the name from inhysi to init_si_params.
   !!
-  SUBROUTINE init_si_params( lsi_3d, si_offctr, si_cmin )
+  SUBROUTINE init_si_params( lsi_3d, si_offctr, si_cmin, lshallow_water )
 
   LOGICAL, INTENT(IN) :: lsi_3d
   REAL(wp),INTENT(IN) :: si_offctr, si_cmin
+  LOGICAL, INTENT(IN) :: lshallow_water
   INTEGER  :: jk, ist
 
 ! !for building up the structure matrix
@@ -487,17 +487,18 @@ ENDIF
   !!  Original version  by Hui Wan, MPI-M (2007-08-11).
   !!  Code restructuring by Almut Gassmann, MPI-M (2008-09-18)
   !!
-  SUBROUTINE si_correction( lsi_3d, si_coeff, &! in
-                            si_rtol, p_dtime, &! in
-                            pt_patch,         &! in
-                            pt_int_state,     &! in
-                            pt_prog_old,      &! in
-                            pt_prog_now,      &! in
-                            pt_prog_new       )! in
+  SUBROUTINE si_correction( lsi_3d, si_coeff, si_rtol, &! in
+                            lshallow_water, p_dtime,   &! in
+                            pt_patch,                  &! in
+                            pt_int_state,              &! in
+                            pt_prog_old,               &! in
+                            pt_prog_now,               &! in
+                            pt_prog_new                )! in
 
 
    LOGICAL, INTENT(IN) :: lsi_3d
    REAL(wp),INTENT(IN) :: si_coeff, si_rtol
+   LOGICAL, INTENT(IN) :: lshallow_water
    REAL(wp),INTENT(IN) :: p_dtime      !< time step in seconds
    TYPE(t_patch),TARGET,INTENT(IN) :: pt_patch
    TYPE(t_int_state),INTENT(IN) :: pt_int_state !< horizontal interpolation coeff.
@@ -511,7 +512,7 @@ ENDIF
                                  pt_patch, pt_int_state,                &
                                  pt_prog_old, pt_prog_now, pt_prog_new  )
    ELSE
-      CALL add_si_correction_2d( si_coeff, si_rtol, p_dtime,            &
+      CALL add_si_correction_2d( si_coeff, si_rtol, lshallow_water, p_dtime,&
                                  pt_patch, pt_int_state,                &
                                  pt_prog_old, pt_prog_now, pt_prog_new  )
    ENDIF
@@ -520,7 +521,7 @@ ENDIF
 
   !>
   !!
-  SUBROUTINE add_si_correction_2d( si_coeff, si_rtol,                &
+  SUBROUTINE add_si_correction_2d( si_coeff, si_rtol, lshallow_water,&
                                    p_dtime, pt_patch, pt_int_state,  &
                                    pt_old, pt_now, pt_new)
 
@@ -539,6 +540,7 @@ ENDIF
   CHARACTER(len=*), PARAMETER :: routine = 'mo_si_correction:add_si_correction_2d'
 
   REAL(wp),INTENT(IN) :: si_coeff, si_rtol
+  LOGICAL, INTENT(IN) :: lshallow_water
   REAL(wp),INTENT(IN) :: p_dtime      ! time step in seconds
   TYPE(t_patch),TARGET,INTENT(IN) :: pt_patch   ! single patch
   TYPE(t_int_state),INTENT(IN) :: pt_int_state ! single interpolation state

@@ -65,7 +65,7 @@ MODULE mo_subdivision
   USE mo_exception,          ONLY: finish, message
 
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,            ONLY: ltransport
+  USE mo_run_config,          ONLY: ltransport
   USE mo_dynamics_config,    ONLY: dynamics_config
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
   USE mo_model_domain,       ONLY: t_patch, t_grid_cells

@@ -59,9 +59,6 @@ MODULE mo_io_nml
   USE mo_mpi,                ONLY: p_pe, p_io
   USE mo_master_nml,         ONLY: lrestart
   USE mo_io_config,          ONLY: io_config
-  USE mo_run_nml,            ONLY: inwp,iecham,ltransport,dtime,ntracer,     &
-                                 & iforcing,lshallow_water,                  &
-                                 & inextra_2d, inextra_3d,ildf_echam
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
 
@@ -103,7 +100,7 @@ MODULE mo_io_nml
   LOGICAL :: lwrite_extra               ! if .true., write out extra fields
 
 
-  NAMELIST/io_ctl/ out_expname, out_filetype, dt_data, dt_file, dt_diag, dt_checkpoint, &
+  NAMELIST/io_nml/ out_expname, out_filetype, dt_data, dt_file, dt_diag, dt_checkpoint, &
     &              lwrite_vorticity, lwrite_divergence, lwrite_omega, lwrite_pres, lwrite_z3, &
     &              lwrite_tracer, lwrite_tend_phy, lwrite_radiation, lwrite_precip,           &
     &              lwrite_cloud, lkeep_in_sync,lwrite_tke,lwrite_surface,lwrite_extra
@@ -136,7 +133,7 @@ MODULE mo_io_nml
 !!
 !!               Initialization of variables that determine
 !!               some settings of the io.
-!!               The configuration is read from namelist 'io_ctl'.
+!!               The configuration is read from namelist 'io_nml'.
 !!
 !! @par Revision History
 !!  Initial version by Almut Gassmann, MPI-M (2008-09-30)
@@ -149,138 +146,40 @@ SUBROUTINE io_nml_setup
   INTEGER :: istat, funit
 
   !------------------------------------------------------------
-  ! 3.0 set up the default values for run_ctl
-  !------------------------------------------------------------
-  
-  out_expname   = 'IIIEEEETTTT'
-  out_filetype  = 2
-
-  dt_data       = 21600.0_wp   !  6 hours
-  dt_file       = 2592000._wp  ! 30 days
-  dt_checkpoint = 2592000._wp  ! 30 days
-  dt_diag       = dtime        !  1 time step
-  lkeep_in_sync = .FALSE.
-
-  lwrite_vorticity   = .TRUE.
-  lwrite_divergence  = .TRUE.
-  lwrite_pres        = .TRUE.
-  lwrite_z3          = .TRUE.
-  lwrite_omega       = .TRUE.
-  IF (ntracer > 0) THEN
-    lwrite_tracer(:)   = .TRUE.
-  ENDIF
-
-  SELECT CASE(iforcing)
-  CASE ( inwp )
-    lwrite_precip    = .TRUE.
-    lwrite_cloud     = .FALSE.
-    lwrite_radiation = .TRUE.
-    lwrite_tke       = .FALSE.
-    lwrite_surface   = .FALSE.
-    lwrite_tend_phy  = .FALSE.
-    lwrite_extra     = .FALSE.
-    lwrite_extra     = .FALSE. 
-  CASE ( iecham, ildf_echam )
-    lwrite_precip    = .TRUE.
-    lwrite_cloud     = .TRUE.
-    lwrite_radiation = .TRUE.
-    lwrite_tend_phy  = .TRUE.
-    lwrite_surface   = .FALSE.
-    lwrite_tke       = .FALSE.
-    lwrite_extra     = .FALSE. 
-  CASE DEFAULT
-    lwrite_precip    = .FALSE.
-    lwrite_cloud     = .FALSE.
-    lwrite_radiation = .FALSE.
-    lwrite_tend_phy  = .FALSE.
-    lwrite_surface   = .FALSE.
-    lwrite_tke       = .FALSE.
-    lwrite_extra     = .FALSE. 
-  END SELECT
-
-    !----------------------------------------------------------------
-    ! If this is a resumed integration, overwrite the defaults above 
-    ! by values in the previous integration.
-    !----------------------------------------------------------------
-    IF (lrestart) THEN
-      funit = open_and_restore_namelist('io_ctl')
-      READ(funit,NML=io_ctl)
-      CALL close_tmpfile(funit)
-    END IF
-                                                                                          
-    !---------------------------------------------------------------------                 
-    ! Read user's (new) specifications (Done so far by all MPI processes)                 
-    !---------------------------------------------------------------------
-    CALL position_nml ('io_ctl', STATUS=istat)
-    SELECT CASE (istat)
-    CASE (positioned)
-       READ (nnml, io_ctl)
-    END SELECT
-
-  IF (lshallow_water) THEN
-     lwrite_z3     = .FALSE.
-     lwrite_omega  = .FALSE.
-     lwrite_pres   = .FALSE.
-  ENDIF
- !IF (iequations == 3) THEN
-     lwrite_omega  = .FALSE.
- !ENDIF
-
-  IF(.NOT. ltransport .AND. ntracer >0 ) THEN
-    lwrite_tracer(:) =.FALSE.
-      CALL message( 'io_nml_setup', 'lwrite_tracer changed: NO TRACER OUTPUT IF ltransport FALSE ')
-  ENDIF
-
-
-  !------------------------------------------------------------
   ! 5.0 check the consistency of the parameters
   !------------------------------------------------------------
   !
-  SELECT CASE(iforcing)
-  CASE ( inwp )
-    ! Do nothing. Keep the initial values, if not specified in namelist.
-    ! consider special idealized testcase with turbulence only
-    IF( .NOT. ltransport  )   THEN
-      lwrite_precip    = .FALSE.
-      lwrite_cloud     = .FALSE.
-      lwrite_radiation = .FALSE.
-      lwrite_tke       = .TRUE.
-      lwrite_surface   = .FALSE.
-      CALL message('io_nml_setup',' ATTENTION! Only TKE output for TURBULENCE ONLY test')
-    ENDIF
-  CASE ( iecham,ildf_echam )
-    ! Do nothing. Keep the initial values, if not specified in namelist.
-  CASE DEFAULT
-    ! Do nothing. Keep the initial values, if not specified in namelist.
-  END SELECT
+ !SELECT CASE(iforcing)
+ !CASE ( inwp )
+ !  ! Do nothing. Keep the initial values, if not specified in namelist.
+ !  ! consider special idealized testcase with turbulence only
+ !  IF( .NOT. ltransport  )   THEN
+ !    lwrite_precip    = .FALSE.
+ !    lwrite_cloud     = .FALSE.
+ !    lwrite_radiation = .FALSE.
+ !    lwrite_tke       = .TRUE.
+ !    lwrite_surface   = .FALSE.
+ !    CALL message('io_nml_setup',' ATTENTION! Only TKE output for TURBULENCE ONLY test')
+ !  ENDIF
+ !CASE ( iecham,ildf_echam )
+ !  ! Do nothing. Keep the initial values, if not specified in namelist.
+ !CASE DEFAULT
+ !  ! Do nothing. Keep the initial values, if not specified in namelist.
+ !END SELECT
 
-  IF (( inextra_2D > 0) .OR. (inextra_3D > 0) ) THEN 
-     lwrite_extra = .TRUE.
-       WRITE(message_text,'(a,2I4,a,L4)') &
-            &'inextra is',inextra_2d,inextra_3d ,' lwrite_extra has been set', lwrite_extra
-      CALL message('io_namelist', TRIM(message_text))
-    ENDIF
+ !IF (( inextra_2D > 0) .OR. (inextra_3D > 0) ) THEN 
+ !   lwrite_extra = .TRUE.
+ !     WRITE(message_text,'(a,2I4,a,L4)') &
+ !          &'inextra is',inextra_2d,inextra_3d ,' lwrite_extra has been set', lwrite_extra
+ !    CALL message('io_namelist', TRIM(message_text))
+ !  ENDIF
 
-   IF (inextra_2D == 0 .AND. inextra_3D == 0 .AND. lwrite_extra) &
-        CALL finish('io_namelist','need to specify extra fields for extra output')
-
-    !-----------------------------------------------------                                
-    ! Store the namelist for restart                                                      
-    !-----------------------------------------------------                                
-    funit = open_tmpfile()                                                                
-    WRITE(funit,NML=io_ctl)                                                             
-    CALL store_and_close_namelist(funit, 'io_ctl')                                      
-
-    ! write the contents of the namelist to an ASCII file
-
-    IF(p_pe == p_io) WRITE(nnml_output,nml=io_ctl)
+ ! IF (inextra_2D == 0 .AND. inextra_3D == 0 .AND. lwrite_extra) &
+ !      CALL finish('io_namelist','need to specify extra fields for extra output')
 
   END SUBROUTINE io_nml_setup
 
 
-  !-------------------------------------------------------------------------
-  !
-  !
   !>
   !! Read Namelist for I/O. 
   !!
@@ -301,21 +200,18 @@ SUBROUTINE io_nml_setup
     INTEGER :: istat, funit
     INTEGER :: jg           ! loop index
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_io_nml: read_io_namelist'
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_io_nml: read_io_namelist'
 
-    !-----------------------------------------------------------------------
-
-    !-----------------------!
-    ! 1. default settings   !
-    !-----------------------!
+    !-----------------------
+    ! 1. default settings
+    !-----------------------
     out_expname   = 'IIIEEEETTTT'
     out_filetype  = 2
 
     dt_data       = 21600.0_wp   !  6 hours
     dt_file       = 2592000._wp  ! 30 days
     dt_checkpoint = 2592000._wp  ! 30 days
-    dt_diag       = dtime        !  1 time step
+    dt_diag       = 86400._wp    !  1 time step
     lkeep_in_sync = .FALSE.
 
     lwrite_vorticity   = .TRUE.
@@ -323,59 +219,34 @@ SUBROUTINE io_nml_setup
     lwrite_pres        = .TRUE.
     lwrite_z3          = .TRUE.
     lwrite_omega       = .TRUE.
-    IF (ntracer > 0) THEN
-      lwrite_tracer(:)   = .TRUE.
-    ENDIF
+    lwrite_tracer(:)   = .TRUE.
 
-    SELECT CASE(iforcing)
-    CASE ( inwp )
-      lwrite_precip    = .TRUE.
-      lwrite_cloud     = .FALSE.
-      lwrite_radiation = .TRUE.
-      lwrite_tke       = .FALSE.
-      lwrite_surface   = .FALSE.
-      lwrite_tend_phy  = .FALSE.
-      lwrite_extra     = .FALSE.
-      lwrite_extra     = .FALSE. 
-    CASE ( iecham, ildf_echam )
-      lwrite_precip    = .TRUE.
-      lwrite_cloud     = .TRUE.
-      lwrite_radiation = .TRUE.
-      lwrite_tend_phy  = .TRUE.
-      lwrite_surface   = .FALSE.
-      lwrite_tke       = .FALSE.
-      lwrite_extra     = .FALSE. 
-    CASE DEFAULT
-      lwrite_precip    = .FALSE.
-      lwrite_cloud     = .FALSE.
-      lwrite_radiation = .FALSE.
-      lwrite_tend_phy  = .FALSE.
-      lwrite_surface   = .FALSE.
-      lwrite_tke       = .FALSE.
-      lwrite_extra     = .FALSE. 
-    END SELECT
-
+    lwrite_precip    = .FALSE.
+    lwrite_cloud     = .FALSE.
+    lwrite_radiation = .FALSE.
+    lwrite_tend_phy  = .FALSE.
+    lwrite_surface   = .FALSE.
+    lwrite_tke       = .FALSE.
+    lwrite_extra     = .FALSE. 
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
     !------------------------------------------------------------------
     IF (lrestart) THEN
-      funit = open_and_restore_namelist('io_ctl')
-      READ(funit,NML=io_ctl)
+      funit = open_and_restore_namelist('io_nml')
+      READ(funit,NML=io_nml)
       CALL close_tmpfile(funit)
     END IF
 
-
-    !--------------------------------------------------------------------
-    ! 3. Read user's (new) specifications (Done so far by all MPI processes)
-    !--------------------------------------------------------------------
-    CALL position_nml ('io_ctl', status=istat)
+    !-------------------------------------------------------------------------
+    ! 3. Read user's (new) specifications (Done so far by all MPI processors)
+    !-------------------------------------------------------------------------
+    CALL position_nml ('io_nml', status=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, io_ctl)
+      READ (nnml, io_nml)
     END SELECT
-
 
     !----------------------------------------------------
     ! 4. Fill the configuration state
@@ -403,20 +274,15 @@ SUBROUTINE io_nml_setup
       io_config(jg)%lwrite_extra     = lwrite_extra
     ENDDO
 
-
-
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
-    WRITE(funit,NML=io_ctl)                    
-    CALL store_and_close_namelist(funit, 'io_ctl') 
-
+    WRITE(funit,NML=io_nml)                    
+    CALL store_and_close_namelist(funit, 'io_nml') 
 
     ! 6. write the contents of the namelist to an ASCII file
-    !
-    IF(p_pe == p_io) WRITE(nnml_output,nml=io_ctl)
-
+    IF(p_pe == p_io) WRITE(nnml_output,nml=io_nml)
 
   END SUBROUTINE read_io_namelist
 

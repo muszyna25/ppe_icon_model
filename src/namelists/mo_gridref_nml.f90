@@ -48,7 +48,6 @@ MODULE mo_gridref_nml
   USE mo_model_domain_import, ONLY: n_dom
   USE mo_namelist,            ONLY: position_nml, POSITIONED
   USE mo_gridref_config,      ONLY: gridref_config
-  USE mo_run_nml,             ONLY: lshallow_water
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
                                   & open_and_restore_namelist, close_tmpfile
@@ -121,81 +120,6 @@ SUBROUTINE gridref_nml_setup
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = 'mo_gridref_nml:setup_gridref'
 
-  !------------------------------------------------------------
-  ! set up the default values for gridref_ctl
-  !------------------------------------------------------------
-
-  CALL message(TRIM(routine),'default settings')
-
-  ! Switch for interpolation method used for cell-based dynamical
-  grf_intmethod_c   = 2         ! 1: copying, 2: gradient-based interpolation
-  ! Switch for interpolation method used for tracer variables
-  grf_intmethod_ct  = 2         ! 1: copying, 2: gradient-based interpolation
-  ! Currently, grf_intmethod_c is used for temperature only; other variables are copied
-  grf_intmethod_e   = 4         ! 1: IDW, 2: RBF, 3: IDW/gradient-based, 4: RBF/gradient-based
-  ! Switch for velocity feedback method.
-  grf_velfbk      = 1         ! 1: average over child edges 1 and 2
-                              ! 2: 2nd-order method using RBF reconstruction to child vertices
-  ! Switch for feedback method for scalar dynamical variables
-  grf_scalfbk     = 2         ! 1: area-weighted averaging
-                              ! 2: bilinear interpolation
-  ! Switch for feedback method for passive tracer variables
-  grf_tracfbk     = 2         ! 1: area-weighted averaging
-                              ! 2: bilinear interpolation
-  
-  ! Exponents for IDW interpolation function
-  grf_idw_exp_e12  = 1.2_wp   ! child edges 1 and 2
-  grf_idw_exp_e34  = 1.7_wp   ! child edges 3 and 4
-
-  ! RBF kernels for grid refinement interpolation
-  rbf_vec_kern_grf_e = 1        ! 1: Gaussian, 2: 1/(1+r**2), 3: inverse multiquadric
-
-  ! zero whole arrays
-  rbf_scale_grf_e(:) = 0.0_wp
-
-  ! Initialize namelist fields for scaling factors (dimension 1:n_dom); used part only
-  rbf_scale_grf_e(1:n_dom) = 0.5_wp  ! default setting for vector grf interpolation
-
-  ! Denominator for temperature boundary diffusion
-  denom_diffu_t = 135._wp
-
-  ! Denominator for velocity boundary diffusion
-  IF (lshallow_water) THEN
-    denom_diffu_v = 250._wp
-  ELSE
-    denom_diffu_v = 200._wp
-  ENDIF
-
-    !----------------------------------------------------------------
-    ! If this is a resumed integration, overwrite the defaults above 
-    ! by values in the previous integration.
-    !----------------------------------------------------------------
-    IF (lrestart) THEN
-      funit = open_and_restore_namelist('gridref_ctl')
-      READ(funit,NML=gridref_ctl)
-      CALL close_tmpfile(funit)
-    END IF
-
-    !--------------------------------------------------------------------
-    ! Read user's (new) specifications (Done so far by all MPI processes)
-    !--------------------------------------------------------------------
-    CALL position_nml ('gridref_ctl', STATUS=istat)
-    SELECT CASE (istat)
-    CASE (POSITIONED)
-      READ (nnml, gridref_ctl)
-    END SELECT
-
-    !-----------------------------------------------------
-    ! Store the namelist for restart
-    !-----------------------------------------------------
-    funit = open_tmpfile()
-    WRITE(funit,NML=gridref_ctl)                                                             
-    CALL store_and_close_namelist(funit, 'gridref_ctl')                                      
-
-  ! write the contents of the namelist to an ASCII file
-  
-  IF(p_pe == p_io) WRITE(nnml_output,nml=gridref_ctl)
-
 
 END SUBROUTINE gridref_nml_setup
 
@@ -267,12 +191,7 @@ END SUBROUTINE gridref_nml_setup
     denom_diffu_t = 135._wp
 
     ! Denominator for velocity boundary diffusion
-    IF (lshallow_water) THEN
-      denom_diffu_v = 250._wp
-    ELSE
-      denom_diffu_v = 200._wp
-    ENDIF
-
+    denom_diffu_v = 200._wp
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 

@@ -38,7 +38,7 @@ MODULE mo_ha_prog_util
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog
-  USE mo_run_nml,             ONLY: iqc, iqi, iqr, iqs, msg_level
+  USE mo_run_config,          ONLY: iqc, iqi, iqr, iqs, msg_level
   USE mo_exception,           ONLY: message, finish, message_text
 
   IMPLICIT NONE

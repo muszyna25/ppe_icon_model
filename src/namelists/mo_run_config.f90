@@ -40,127 +40,177 @@
 MODULE mo_run_config
 
   USE mo_kind,           ONLY: wp
-  USE mo_impl_constants, ONLY: max_dom
+  USE mo_impl_constants, ONLY: MAX_DOM, IHELDSUAREZ, INWP, IECHAM, ILDF_ECHAM, &
+                               IMPIOM, INOFORCING, ILDF_DRY
 
   IMPLICIT NONE
-
-  PUBLIC  :: t_run_config, run_config
-  PRIVATE 
+  PUBLIC
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
-
-  !>
-  !! Derived type containing variables for time control. 
-  !!
-  TYPE :: t_run_config
 
     LOGICAL :: ldump_states    !< Compute interpolation coefficients and stop.
     LOGICAL :: lrestore_states !< Read interpolation coefficients from external file.
 
     LOGICAL :: ltestcase       !< Run idealized test case
     LOGICAL :: ldynamics       !< Switch on model dynamics
+    INTEGER :: iforcing        !< Choice of diabatic forcing
+    LOGICAL :: lforcing        !<
 
     LOGICAL :: ltransport      !< Switch on tracer transport
     INTEGER :: ntracer         !< Total number of advected tracers
     INTEGER :: ntracer_static  !< Total number of non-advected tracers
 
-    INTEGER :: iforcing        !< Choice of diabatic forcing
+    INTEGER :: nlev               ! number of full levels for each domain
+    INTEGER :: nlevp1             ! number of half levels for each domain
+    INTEGER :: nvclev             ! number of levels at which the coeffs A, B are given
+
+    LOGICAL :: lvert_nest         ! switch for vertical nesting
+    INTEGER :: num_lev  (MAX_DOM) ! number of full levels for each domain
+    INTEGER :: num_levp1(MAX_DOM) ! number of half levels for each domain
+    INTEGER :: nshift   (MAX_DOM) ! half level of parent domain which coincides 
+                                  ! with the upper boundary of the current domain jg
+
+    INTEGER  :: nsteps            ! number of time steps to integrate
+    REAL(wp) :: dtime             ! [s] length of a time step
+
+    INTEGER  :: itopo  ! 0: topography specified by analytical functions,
+                       ! 1: topography read from netcdf files provided by Herrmann Asensio
 
     LOGICAL :: ltimer          ! if .TRUE.,  the timer is switched on
     INTEGER :: timers_level    ! what level of timers to run
 
+    INTEGER :: msg_level       ! how much printout is generated during runtime
 
-    INTEGER   :: num_lev  ! number of full levels for each domain
-    INTEGER   :: num_levp1! number of half levels for each domain
-    INTEGER   :: nshift   ! half level of parent domain which coincides 
-                                ! with the upper boundary of the current domain jg
-    LOGICAL   :: lvert_nest !< switches on vertical nesting (.TRUE.)
-    INTEGER   :: nvclev              ! no. of levels at which the coeffs A, B are given
-    
-    INTEGER   :: run_day              ! run length
-    INTEGER   :: run_hour, run_minute ! - in day,hr,min,sec
-    REAL(wp)  :: run_second
+    INTEGER :: inextra_2d      !> number of extra output fields for debugging
+    INTEGER :: inextra_3d      !> number of extra output fields for debugging
 
-    INTEGER   :: nsteps              ! number of time steps
-    REAL(wp)  :: dtime               ! [s] length of a time step
-    REAL(wp)  :: dtrk(3)             ! [s] Runge Kutta 3 time steps [s]
+    ! Tracer indices of water species
 
-    INTEGER   :: itopo     ! flag for topography handling
-                         ! 0: corresponds to analytical topography,
-                         ! 1: corresponds to netcdf files provided by
-                         !    Herrmann Asensio
+    INTEGER :: iqv        ! water vapor
+    INTEGER :: iqc        ! cloud water
+    INTEGER :: iqi        ! cloud ice
+    INTEGER :: iqr        ! rain water
+    INTEGER :: iqs        ! snow
+    INTEGER :: iqcond     ! index of last hydrometeor to ease summation over all of them
+  
+    ! Tracer indices of other species
 
-                           ! messages
-    INTEGER  :: msg_level  ! Determines how much printout is generated during runtime
+    INTEGER :: io3        ! O3
+    INTEGER :: ico2       ! CO2
+  
+    INTEGER :: iqt        ! start index of other tracers than hydrometeors
 
-    INTEGER :: inextra_2d        !> number of extra output fields for debugging
-    INTEGER :: inextra_3d        !> number of extra output fields for debugging
- 
-  END TYPE t_run_config 
-
+CONTAINS
   !>
-  !! The actual variable
   !!
-  TYPE(t_run_config) :: run_config(max_dom)
+  !! Assign value to components of the run configuration state that have no
+  !! corresponding namelist variable. 
+  !!
+  SUBROUTINE config_run
 
- CONTAINS
+    CHARACTER(LEN=*),PARAMETER :: routine = 'mo_:config_run'
 
-SUBROUTINE setup_run
+    ! Number of vertical levels
 
+    IF (.NOT.lvert_nest) THEN
+      num_lev(:) = nlev
+      nshift (:) = 0
+    END IF
 
+    nlevp1       = nlev + 1
+    nvclev       = nlev + 1
+    num_levp1(:) = num_lev(:) + 1
 
-END SUBROUTINE setup_run
+    ! Logical switch for diabatic forcing
+
+    SELECT CASE (iforcing)
+    CASE(IHELDSUAREZ,INWP,IECHAM,ILDF_ECHAM,IMPIOM)
+      lforcing = .TRUE.
+
+    CASE(INOFORCING,ILDF_DRY)
+      lforcing = .FALSE.
+
+    END SELECT
+
+    ! Tracer indices
+
+    SELECT CASE(iforcing)
+    CASE (IECHAM,ILDF_ECHAM)
+
+      iqv    = 1     !> water vapour
+      iqc    = 2     !! cloud water
+      iqi    = 3     !! ice
+      iqcond = 3     !! index of last hydrometeor to ease summation over all of them
+      iqt    = 4     !! starting index of non-water species 
+      io3    = 5     !! O3
+      ico2   = 6     !! CO2
+
+    CASE (INWP)
+
+      iqv    = 1     !> water vapour
+      iqc    = 2     !! cloud water
+      iqi    = 3     !! ice
+      iqr    = 4     !! rain water
+      iqs    = 5     !! snow
+      iqcond = 5     !! index of last hydrometeor to ease summation over all of them
+      io3    = 6     !! O3
+      ico2   = 7     !! CO2
+      iqt    = 6     !! start index of other tracers than hydrometeors
+
+    END SELECT
+
+  END SUBROUTINE config_run
 
 
 !  !---------------------------------------
 !  !>
 !  LOGICAL FUNCTION get_ldump_states()
-!    get_ldump_states = run_config%ldump_states 
+!    get_ldump_states = ldump_states 
 !  END FUNCTION get_ldump_states
 !  !---------------------------------------
 !  !>
 !  LOGICAL FUNCTION get_lrestore_states()
-!    get_lrestore_states = run_config%lrestore_states 
+!    get_lrestore_states = lrestore_states 
 !  END FUNCTION get_lrestore_states
 !  !---------------------------------------
 !  !>
 !  LOGICAL FUNCTION get_ltestcase()
-!    get_ltestcase = run_config%ltestcase 
+!    get_ltestcase = ltestcase 
 !  END FUNCTION get_ltestcase
 !  !---------------------------------------
 !  !>
 !  LOGICAL FUNCTION get_ldynamics()
-!    get_ldynamics = run_config%ldynamics 
+!    get_ldynamics = ldynamics 
 !  END FUNCTION get_ldynamics
 !  !---------------------------------------
 !  !>
 !  LOGICAL FUNCTION get_ltransport()
-!    get_ltransport = run_config%ltransport 
+!    get_ltransport = ltransport 
 !  END FUNCTION get_ltransport
 !  !---------------------------------------
 !  !>
 !  INTEGER FUNCTION get_ntracer()
-!    get_ntracer = run_config%ntracer 
+!    get_ntracer = ntracer 
 !  END FUNCTION get_ntracer
 !  !---------------------------------------
 !  !>
 !  INTEGER FUNCTION get_ntracer_static()
-!    get_ntracer_static = run_config%ntracer_static
+!    get_ntracer_static = ntracer_static
 !  END FUNCTION get_ntracer_static
 !  !---------------------------------------
 !  !>
 !  INTEGER FUNCTION get_iforcing()
-!    get_iforcing = run_config%iforcing 
+!    get_iforcing = iforcing 
 !  END FUNCTION get_iforcing
 !  !---------------------------------------
 !  !>
 !  REAL(wp) FUNCTION get_dtime()
-!    get_dtime = run_config%dtime 
+!    get_dtime = dtime 
 !  END FUNCTION get_dtime
 !  !---------------------------------------
 !  !>
 !  INTEGER FUNCTION get_nsteps()
-!    get_nsteps = run_config%nsteps 
+!    get_nsteps = nsteps 
 !  END FUNCTION get_nsteps
 !  !---------------------------------------
 !

@@ -48,7 +48,6 @@ MODULE mo_icoham_dyn_memory
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm, t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_model_domain,        ONLY: t_patch
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,             ONLY: ntracer
   USE mo_advection_config,    ONLY: advection_config
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
   USE mo_linked_list,         ONLY: t_var_list
@@ -95,12 +94,12 @@ CONTAINS
   !>
   !! Subroutine that allocates memory for the state vector on ALL grid levels
   !!
-  SUBROUTINE construct_icoham_dyn_state( ntimelevel, p_patch )
+  SUBROUTINE construct_icoham_dyn_state( ntimelevel, ntracer, p_patch )
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_icoham_dyn_memory:construct_icoham_dyn_state'
 
-    INTEGER,INTENT(IN)       :: ntimelevel
+    INTEGER,INTENT(IN)       :: ntimelevel, ntracer
     TYPE(t_patch),INTENT(IN) :: p_patch(:)
 
     !local variables

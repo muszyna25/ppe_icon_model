@@ -45,7 +45,7 @@ MODULE mo_nh_dtp_interface
   USE mo_kind,               ONLY: wp
   USE mo_dynamics_nml,       ONLY: idiv_method
   USE mo_parallel_configuration,  ONLY: nproma, p_test_run
-  USE mo_run_nml,            ONLY: lvert_nest, ntracer
+  USE mo_run_config,         ONLY: lvert_nest, ntracer
   USE mo_model_domain,       ONLY: t_patch
   USE mo_nonhydro_state,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_interpolation,      ONLY: t_int_state

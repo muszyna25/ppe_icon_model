@@ -40,7 +40,7 @@ MODULE mo_nh_diagnose_pres_temp
   USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_lnd_state,       ONLY: t_lnd_prog
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,             ONLY: iqv, iqc, iqi, iqs, iqr, &
+  USE mo_run_config,          ONLY: iqv, iqc, iqi, iqs, iqr, &
     &                               lforcing, iforcing
   USE mo_impl_constants,      ONLY: min_rlcell, MAX_CHAR_LENGTH 
   USE mo_loopindices,         ONLY: get_indices_c

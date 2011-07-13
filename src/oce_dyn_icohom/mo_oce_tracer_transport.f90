@@ -53,7 +53,7 @@ USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, idisc_scheme,    &
                                     &   iswm_oce
 USE mo_parallel_configuration,  ONLY: nproma
 USE mo_dynamics_config,           ONLY: dynamics_config 
-USE mo_run_nml,                   ONLY: dtime
+USE mo_run_config,                ONLY: dtime
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state!, t_hydro_ocean_diag
 USE mo_model_domain,              ONLY: t_patch
 USE mo_exception,                 ONLY:  finish!, message_text,message

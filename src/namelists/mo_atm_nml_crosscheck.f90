@@ -50,7 +50,7 @@ MODULE mo_atm_nml_crosscheck
     &                               itturb, itsfc,  itgwd, iphysproc,iecham, ildf_echam,&
     &                               inwp
   USE mo_time_config,         ONLY: time_config
-  USE mo_run_config,          ONLY: run_config
+  USE mo_run_config
   USE mo_gridref_config,      ONLY: gridref_config
   USE mo_interpol_config,     ONLY: interpol_config
   USE mo_sleve_config,        ONLY: sleve_config
@@ -122,11 +122,11 @@ SUBROUTINE atm_crosscheck
      & CALL finish( TRIM(routine),'satad has to be switched on')
 
 
-     IF( MOD( REAL(  iadv_rcf,wp)*run_config(jg)%dtime, &
+     IF( MOD( REAL(  iadv_rcf,wp)*dtime, &
        &         atm_phy_nwp_config(jg)%dt_conv) /= 0._wp )  THEN
        WRITE(message_text,'(a,I4,2F10.2)') &
       &'advective and convective timesteps are not- but will be synchronized ', &
-      &     1, REAL(  iadv_rcf,wp)*run_config(jg)%dtime,tcall_phy(1,itconv)
+      &     1, REAL(  iadv_rcf,wp)*dtime,tcall_phy(1,itconv)
       CALL message(TRIM(routine), TRIM(message_text))
      ENDIF
 
@@ -139,9 +139,9 @@ SUBROUTINE atm_crosscheck
      CALL message(TRIM(routine),' WARNING! NWP forcing set but only turbulence selected!')
 
 
-  IF (run_config(jg)%iforcing == iecham     .OR. &
-&     run_config(jg)%iforcing == ildf_echam .OR. &
-&     run_config(jg)%iforcing == inwp          ) &
+  IF (iforcing == iecham     .OR. &
+&     iforcing == ildf_echam .OR. &
+&     iforcing == inwp          ) &
 &     dynamics_config(jg)%ldry_dycore     = .FALSE.
 
 ! check radiation scheme in relation to chosen ozone

@@ -62,13 +62,13 @@ MODULE mo_advection_utils
   USE mo_interpolation,       ONLY: t_int_state
   USE mo_io_units,            ONLY: nnml,nnml_output
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,             ONLY: ntracer, num_lev, nlev,        &
-    &                               iforcing, inwp, io3, iqt,      &
+  USE mo_run_config,          ONLY: ntracer, num_lev, nlev,        &
+    &                               iforcing, io3, iqt,            &
     &                               iqcond, ntracer_static, lvert_nest
   USE mo_grid_configuration,  ONLY: n_dom
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom,      &
-    &                               min_rlcell_int, min_rledge_int
+    &                               min_rlcell_int, min_rledge_int, inwp
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_namelist,            ONLY: position_nml, POSITIONED

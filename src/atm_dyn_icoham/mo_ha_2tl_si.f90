@@ -40,7 +40,8 @@ MODULE mo_ha_2tl_si
   USE mo_ext_data,            ONLY: t_external_data
   USE mo_physical_constants,  ONLY: rd, rcpd
   USE mo_parallel_configuration, ONLY: nproma
-  USE mo_run_nml,             ONLY: nlev, nlevp1, lshallow_water
+  USE mo_run_config,          ONLY: nlev, nlevp1
+  USE mo_dynamics_config,     ONLY: dynamics_config 
   USE mo_interpolation,       ONLY: t_int_state, cells2edges_scalar
   USE mo_math_operators,      ONLY: grad_fd_norm
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
@@ -370,7 +371,7 @@ MODULE mo_ha_2tl_si
 !-------------
 ! Temperature
 
-  IF (.NOT.lshallow_water) THEN
+  IF (.NOT.dynamics_config(pt_patch%id)%lshallow_water) THEN
      jbs = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie)
@@ -439,7 +440,7 @@ MODULE mo_ha_2tl_si
 !$OMP END DO
 !$OMP END PARALLEL
 
-   IF (.NOT.lshallow_water) THEN
+   IF (.NOT.dynamics_config(pt_patch%id)%lshallow_water) THEN
       jbs = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie)
@@ -454,7 +455,7 @@ MODULE mo_ha_2tl_si
 
 ! 4. Calculate tendency induced by slow processes
 
-   IF (.NOT.lshallow_water) THEN
+   IF (.NOT.dynamics_config(pt_patch%id)%lshallow_water) THEN
 
 ! 4.1 Vertical advection of momentum
 
@@ -495,7 +496,7 @@ MODULE mo_ha_2tl_si
 
 ! 6. Merge the tendency terms, and save the "slow" tendencies of step n
 
-   IF (.NOT.lshallow_water) THEN
+   IF (.NOT.dynamics_config(pt_patch%id)%lshallow_water) THEN
       jbs = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,is,ie)

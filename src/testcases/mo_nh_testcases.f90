@@ -47,7 +47,7 @@ MODULE mo_nh_testcases
   USE mo_exception,          ONLY: message, finish
   USE mo_namelist,           ONLY: position_nml, POSITIONED
   USE mo_io_units,           ONLY: nnml, nnml_output
-  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
+  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, inwp
   USE mo_model_domain_import,ONLY: lplane, n_dom
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data,           ONLY: ext_data
@@ -56,8 +56,8 @@ MODULE mo_nh_testcases
                                    t_geographical_coordinates, &
                                    arc_length
   USE mo_parallel_configuration,  ONLY: nproma, p_test_run
-  USE mo_run_nml,            ONLY: ltransport, ntracer, iforcing, inwp, &
-    &                              iqv, itopo
+  USE mo_run_config,         ONLY: ltransport, ntracer, iforcing, iqv
+  USE mo_extpar_nml,         ONLY: itopo => nml_itopo
   USE mo_grid_configuration, ONLY :  global_cell_type
     
   USE mo_dynamics_config,    ONLY: dynamics_config 

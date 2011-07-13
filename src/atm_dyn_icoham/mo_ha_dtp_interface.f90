@@ -39,7 +39,7 @@ MODULE mo_ha_dtp_interface
   USE mo_kind,               ONLY: wp
   USE mo_dynamics_nml,       ONLY: itime_scheme
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,            ONLY: nlev, nlevp1
+  USE mo_run_config,         ONLY: nlev, nlevp1
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data,           ONLY: t_external_data
   USE mo_interpolation,      ONLY: t_int_state, verts2edges_scalar,       &

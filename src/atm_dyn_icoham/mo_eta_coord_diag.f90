@@ -48,7 +48,7 @@ MODULE mo_eta_coord_diag
 
   USE mo_kind,               ONLY: wp
   USE mo_physical_constants, ONLY: rd
-  USE mo_run_nml,            ONLY: nlevp1, nvclev, nlev
+  USE mo_run_config,         ONLY: nlevp1, nvclev, nlev
   USE mo_vertical_coord_table, ONLY: nlmsgl, nlmslp, nplvp1, nplvp2, vct, &
     &                                delpr,  nlmsla, nplev,  ralpha,      &
     &                                rdelpr, rlnpr,  nlevm1

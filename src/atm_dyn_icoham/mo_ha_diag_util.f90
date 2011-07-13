@@ -43,12 +43,11 @@ MODULE mo_ha_diag_util
   USE mo_ext_data,           ONLY: t_external_data
   USE mo_math_operators,     ONLY: grad_fd_norm, div, div_avg, rot_vertex
   USE mo_dynamics_nml,       ONLY: idiv_method, ldry_dycore
+  USE mo_dynamics_config,    ONLY: dynamics_config
   USE mo_io_nml,             ONLY: lwrite_omega, l_outputtime
   USE mo_parallel_configuration,  ONLY: nproma, p_test_run
-  USE mo_run_nml,            ONLY: lshallow_water,                 &
-                                   nlev, nlevp1,              &
-                                   iqv, iqc, iqi, iqr, iqs,                &
-                                   iforcing, inwp, iecham, ildf_echam
+  USE mo_run_config,         ONLY: nlev, nlevp1, iqv, iqc, iqi, iqr, iqs, iforcing
+  USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_interpolation,      ONLY: t_int_state, cells2verts_scalar,        &
                                    cells2edges_scalar, edges2cells_scalar, &
@@ -285,7 +284,7 @@ CONTAINS
     ! layer thickness, and some auxiliary variables
 
 !$OMP PARALLEL
-    IF (.NOT. lshallow_water) THEN
+    IF (.NOT. dynamics_config(p_patch%id)%lshallow_water) THEN
 !$OMP DO PRIVATE(jb, nlen)
       DO jb = 1,nblks_c
 
@@ -424,7 +423,7 @@ CONTAINS
     ! layer thickness, and some auxiliary variables
 
 !$OMP PARALLEL
-    IF (.NOT. lshallow_water) THEN
+    IF (.NOT. dynamics_config(p_patch%id)%lshallow_water) THEN
 !$OMP DO PRIVATE(jb, nlen)
       DO jb = 1,nblks_c
 
@@ -555,7 +554,7 @@ CONTAINS
     ! Diagnose virtual temperature (hydrostatic model only)
     !-------------------------------------------------------
 !$OMP PARALLEL  PRIVATE(jbs)
-    IF (.NOT. lshallow_water) THEN
+    IF (.NOT. dynamics_config(p_patch%id)%lshallow_water) THEN
 
       IF (ldry_dycore) THEN
 !$OMP WORKSHARE
@@ -597,7 +596,7 @@ CONTAINS
     ! Diagnose geopotential
     !-----------------------
 
-    IF (lshallow_water) THEN
+    IF (dynamics_config(p_patch%id)%lshallow_water) THEN
     ! geopotential = height * gravity
     ! Note: In this version of the shallow water model the thickness
     ! is prognostic and the height is diagnosed. Formerly it was the
@@ -687,7 +686,7 @@ CONTAINS
 
     ! Vertical velocity omega=dp/dt
 
-    IF (lwrite_omega.AND.(.NOT.lshallow_water)) THEN
+    IF (lwrite_omega.AND.(.NOT.dynamics_config(p_patch%id)%lshallow_water)) THEN
 
       CALL update_omega( p_prog%vn, p_diag%delp_e, p_diag%pres_mc,  &! in
       &                  p_patch, p_int_state,                      &! in

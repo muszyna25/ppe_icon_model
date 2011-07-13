@@ -72,11 +72,8 @@ MODULE mo_hierarchy_management
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_io_nml,              ONLY: lprepare_output
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,             ONLY: ldynamics, ltransport, &
-    &                               nlev, nlevp1, ntracer,       &
-    &                               lshallow_water,iforcing, &
-    &                               iheldsuarez, iecham, ildf_echam,     & 
-    &                               ildf_dry, lforcing 
+  USE mo_run_config,          ONLY: ldynamics, ltransport, &
+    &                               nlev, nlevp1, ntracer, iforcing, lforcing
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm
   USE mo_ha_prog_util,        ONLY: copy_prog_state, update_prog_state,  &
     &                               diag_tend
@@ -102,7 +99,10 @@ MODULE mo_hierarchy_management
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_impl_constants,      ONLY: tracer_only, two_tl_si,         &
     &                               leapfrog_expl, leapfrog_si,     &
-    &                               rk4, ssprk54, min_rlcell_int, min_rledge_int
+    &                               rk4, ssprk54,                   &
+    &                               min_rlcell_int, min_rledge_int, &
+    &                               iheldsuarez, iecham, ildf_echam,& 
+    &                               ildf_dry
   USE mo_ha_dtp_interface,    ONLY: prepare_tracer, prepare_tracer_rk, &
     &                               prepare_tracer_leapfrog, prepare_echam_phy
   USE mo_held_suarez_interface, ONLY: held_suarez_interface
@@ -371,7 +371,7 @@ CONTAINS
           SELECT CASE ( TRIM(ctest_name) )
 
           CASE ('PA') ! solid body rotation
-            IF (.NOT.lshallow_water) THEN
+            IF (.NOT.dynamics_config(jg)%lshallow_water) THEN
               ! set time-variant vertical velocity
               CALL set_vertical_velocity( p_patch(jg), p_hydro_state(jg)%diag,  &
                 &                         jstep, sim_time(jg) )
@@ -740,6 +740,7 @@ CONTAINS
             CALL si_correction( ha_dyn_config%lsi_3d,                 &! in
               &                 ha_dyn_config%si_coeff,               &! in 
               &                 ha_dyn_config%si_rtol,                &! in
+              &                 dynamics_config(jg)%lshallow_water,   &! in
               &                 zdtime, p_patch(jg), p_int_state(jg), &! in
               &                 p_hydro_state(jg)%prog(n_old),        &! in
               &                 p_hydro_state(jg)%prog(n_now),        &! in
@@ -998,7 +999,7 @@ CONTAINS
               CALL interpol_scal_grf ( p_patch(jg), p_patch(jgc), p_int_state(jg),           &
                 &    p_grf_state(jg)%p_dom(jn), jn, 1, p_hydro_state(jg)%prog(n_sav1)%theta, &
                 &    p_hydro_state(jgc)%prog(dynamics_config(jgc)%nnow)%theta)
-            ELSE IF (.NOT. lshallow_water) THEN
+            ELSE IF (.NOT. dynamics_config(jg)%lshallow_water) THEN
               CALL interpol_scal_grf ( p_patch(jg), p_patch(jgc), p_int_state(jg),          &
                 &    p_grf_state(jg)%p_dom(jn), jn, 1, p_hydro_state(jg)%prog(n_sav1)%temp, &
                 &    p_hydro_state(jgc)%prog(dynamics_config(jgc)%nnow)%temp)
@@ -1552,6 +1553,7 @@ CONTAINS
         CALL si_correction( ha_dyn_config%lsi_3d,                 &! in
           &                 ha_dyn_config%si_coeff,               &! in 
           &                 ha_dyn_config%si_rtol,                &! in
+          &                 dynamics_config(jg)%lshallow_water,   &! in
           &                 zdtime, p_patch(jg), p_int_state(jg), &! in
           &                 p_hydro_state(jg)%prog(n_old),        &! in
           &                 p_hydro_state(jg)%prog(n_now),        &! in

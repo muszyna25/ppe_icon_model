@@ -157,7 +157,7 @@ USE mo_exception,           ONLY: finish
 USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert
 USE mo_model_domain,        ONLY: t_patch
 USE mo_parallel_configuration,  ONLY: nproma
-USE mo_run_nml,             ONLY: ltimer
+USE mo_run_config,          ONLY: ltimer
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 
 USE mo_intp_data_strc

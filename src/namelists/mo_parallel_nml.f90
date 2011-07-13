@@ -286,8 +286,8 @@ MODULE mo_parallel_nml
     nh_stepping_threads = nml_nh_stepping_threads
     nproma              = nml_nproma
 
-    ! check the configuration
-    CALL check_parallel_configuration()
+  ! ! check the configuration
+  ! CALL check_parallel_configuration(lrestore_states)
 
   END SUBROUTINE fill_parallel_nml_configure
 

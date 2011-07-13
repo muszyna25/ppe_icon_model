@@ -45,7 +45,7 @@ MODULE mo_dynamics_config
 
   USE mo_kind,           ONLY: wp
   USE mo_exception,      ONLY: finish
-  USE mo_impl_constants, ONLY: MAX_DOM, LEAPFROG_EXPL, LEAPFROG_SI
+  USE mo_impl_constants, ONLY: MAX_DOM, LEAPFROG_EXPL, LEAPFROG_SI, ISHALLOW_WATER
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
 
   IMPLICIT NONE
@@ -71,6 +71,7 @@ MODULE mo_dynamics_config
 
     ! derived variables
 
+    LOGICAL :: lshallow_water
     LOGICAL :: ltwotime
 
     INTEGER :: nold      !< variables denoting time levels
@@ -103,9 +104,14 @@ CONTAINS
     !------------------------
 
     DO jdom = 1,ndom
+
+        dynamics_config(jdom)%lshallow_water =                      &
+          (dynamics_config(jdom)%iequations==ISHALLOW_WATER)
+
         dynamics_config(jdom)%ltwotime =                            &
           (dynamics_config(jdom)%itime_scheme/=LEAPFROG_EXPL) .AND. &
           (dynamics_config(jdom)%itime_scheme/=LEAPFROG_SI  )
+
     END DO
 
     !------------------------

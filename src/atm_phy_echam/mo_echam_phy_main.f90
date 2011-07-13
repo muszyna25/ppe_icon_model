@@ -48,7 +48,7 @@ MODULE mo_echam_phy_main
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: grav
-  USE mo_run_nml,             ONLY: ntracer, nlev, nlevp1, ltestcase, &
+  USE mo_run_config,          ONLY: ntracer, nlev, nlevp1, ltestcase, &
     &                               iqv, iqc, iqi, io3, iqt, ltimer
   USE mo_hydro_testcases,     ONLY: ctest_name
   USE mo_vertical_coord_table,ONLY: nlevm1

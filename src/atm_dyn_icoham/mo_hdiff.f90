@@ -65,7 +65,6 @@ MODULE mo_hdiff
   USE mo_diffusion_config,    ONLY: diffusion_config  
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,             ONLY: nlev
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_math_operators,      ONLY: nabla2_vec, nabla2_scalar, &
                                     nabla4_vec, nabla4_scalar
@@ -116,9 +115,9 @@ MODULE mo_hdiff
      REAL(wp) :: dtime
      INTEGER  :: k_jg         ! grid ID
 
-     REAL(wp), DIMENSION(nproma,nlev,pt_patch%nblks_e) :: z_edge_val, z_nabla2_e
-     REAL(wp), DIMENSION(nproma,nlev,pt_patch%nblks_c) :: z_cell_val, z_nabla2_c
-     REAL(wp), DIMENSION(nproma,nlev,pt_patch%nblks_c) :: aux_cell
+     REAL(wp), DIMENSION(nproma,pt_patch%nlev,pt_patch%nblks_e) :: z_edge_val, z_nabla2_e
+     REAL(wp), DIMENSION(nproma,pt_patch%nlev,pt_patch%nblks_c) :: z_cell_val, z_nabla2_c
+     REAL(wp), DIMENSION(nproma,pt_patch%nlev,pt_patch%nblks_c) :: aux_cell
 
      INTEGER :: jb, jk, je, jlev, jc, jv
 
@@ -135,32 +134,33 @@ MODULE mo_hdiff
      REAL(wp) :: fac_bdydiff_c, fac_bdydiff_e
 
      ! For Smagorinsky diffusion
-     REAL(wp), DIMENSION(nproma,nlev,pt_patch%nblks_c) :: kh_smag_c
-     REAL(wp), DIMENSION(nproma,nlev,pt_patch%nblks_e) :: kh_smag_e
-     REAL(wp), DIMENSION(nproma,nlev,pt_patch%nblks_v) :: kh_smag_v
-     REAL(wp), DIMENSION(nproma,nlev,pt_patch%nblks_v) :: u_vert
-     REAL(wp), DIMENSION(nproma,nlev,pt_patch%nblks_v) :: v_vert
+     REAL(wp), DIMENSION(nproma,pt_patch%nlev,pt_patch%nblks_c) :: kh_smag_c
+     REAL(wp), DIMENSION(nproma,pt_patch%nlev,pt_patch%nblks_e) :: kh_smag_e
+     REAL(wp), DIMENSION(nproma,pt_patch%nlev,pt_patch%nblks_v) :: kh_smag_v
+     REAL(wp), DIMENSION(nproma,pt_patch%nlev,pt_patch%nblks_v) :: u_vert
+     REAL(wp), DIMENSION(nproma,pt_patch%nlev,pt_patch%nblks_v) :: v_vert
      REAL(wp) :: dvn_cell, dvt_cell, dvn_vert, dvt_vert
 
      INTEGER, POINTER :: ih1i(:,:,:), ih2i(:,:,:), ih1b(:,:,:), ih2b(:,:,:)
      INTEGER, POINTER :: it1i(:,:,:), it2i(:,:,:), it1b(:,:,:), it2b(:,:,:)
      INTEGER, POINTER :: ici (:,:,:), ivi (:,:,:), icb (:,:,:), ivb (:,:,:)
      INTEGER, POINTER :: icei(:,:,:), ivei(:,:,:), iceb(:,:,:), iveb(:,:,:)
-     REAL(wp)         :: z_delp_v      (nproma,nlev,pt_patch%nblks_v), &
-     &                   z_shear_def_1 (nproma,nlev,pt_patch%nblks_e), &
-     &                   z_shear_def_2 (nproma,nlev,pt_patch%nblks_e), &
-     &                   z_strain_def_1(nproma,nlev,pt_patch%nblks_e), &
-     &                   z_strain_def_2(nproma,nlev,pt_patch%nblks_e), &
-     &                   z_fric_heat_c1(nproma,nlev,pt_patch%nblks_c), &
-     &                   z_fric_heat_v (nproma,nlev,pt_patch%nblks_v), &
-     &                   z_fric_heat_c (nproma,nlev,pt_patch%nblks_c), &
-     &                   z_turb_flx_c1 (nproma,nlev,pt_patch%nblks_e), &
-     &                   z_turb_flx_c2 (nproma,nlev,pt_patch%nblks_e), &
-     &                   z_turb_flx_v1 (nproma,nlev,pt_patch%nblks_e), &
-     &                   z_turb_flx_v2 (nproma,nlev,pt_patch%nblks_e)
+     REAL(wp)         :: z_delp_v      (nproma,pt_patch%nlev,pt_patch%nblks_v), &
+     &                   z_shear_def_1 (nproma,pt_patch%nlev,pt_patch%nblks_e), &
+     &                   z_shear_def_2 (nproma,pt_patch%nlev,pt_patch%nblks_e), &
+     &                   z_strain_def_1(nproma,pt_patch%nlev,pt_patch%nblks_e), &
+     &                   z_strain_def_2(nproma,pt_patch%nlev,pt_patch%nblks_e), &
+     &                   z_fric_heat_c1(nproma,pt_patch%nlev,pt_patch%nblks_c), &
+     &                   z_fric_heat_v (nproma,pt_patch%nlev,pt_patch%nblks_v), &
+     &                   z_fric_heat_c (nproma,pt_patch%nlev,pt_patch%nblks_c), &
+     &                   z_turb_flx_c1 (nproma,pt_patch%nlev,pt_patch%nblks_e), &
+     &                   z_turb_flx_c2 (nproma,pt_patch%nlev,pt_patch%nblks_e), &
+     &                   z_turb_flx_v1 (nproma,pt_patch%nlev,pt_patch%nblks_e), &
+     &                   z_turb_flx_v2 (nproma,pt_patch%nlev,pt_patch%nblks_e)
      REAL(wp), PARAMETER :: z_smag_min = 1.0e-20_wp ! security value
      REAL(wp) :: zhelp, z_mean_area_edge
      REAL(wp) :: hdiff_tv_ratio
+     INTEGER :: nlev
 
      LOGICAL :: ltheta_dyn
 
@@ -168,6 +168,7 @@ MODULE mo_hdiff
 !
     i_nchdom   = MAX(1,pt_patch%n_childdom)
     ltheta_dyn = ha_dyn_config%ltheta_dyn
+    nlev       = pt_patch%nlev
 
     ! Parameters for boundary diffusion (relevant for nested domains only)
     start_bdydiff_c = 3 ! refin_ctrl level at which diffusion starts

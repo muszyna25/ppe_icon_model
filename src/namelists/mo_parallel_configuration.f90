@@ -36,7 +36,6 @@ MODULE mo_parallel_configuration
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_mpi,                ONLY: p_pe, p_io, p_nprocs, process_mpi_all_comm
-  USE mo_run_nml,            ONLY: lrestore_states
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_COMM_NULL, MPI_COMM_SELF, MPI_UNDEFINED, &
      &   p_comm_work, p_comm_work_test, p_comm_work_2_io, p_comm_input_bcast, &
@@ -151,8 +150,9 @@ MODULE mo_parallel_configuration
 CONTAINS
   
   !-------------------------------------------------------------------------
-  SUBROUTINE check_parallel_configuration()
-  
+  SUBROUTINE check_parallel_configuration(lrestore_states)
+ 
+    LOGICAL,INTENT(IN) :: lrestore_states
 !   !local variables
     INTEGER :: i_status, my_color, peer_comm, p_error
     CHARACTER(*), PARAMETER :: method_name = "check_parallel_configuration"

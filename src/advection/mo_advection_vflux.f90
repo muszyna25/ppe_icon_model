@@ -76,8 +76,7 @@ MODULE mo_advection_vflux
   USE mo_model_domain,        ONLY: t_patch
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_dynamics_config,     ONLY: dynamics_config
-  USE mo_run_nml,             ONLY: ntracer, msg_level,   &
-    &                               lvert_nest
+  USE mo_run_config,          ONLY: ntracer, msg_level, lvert_nest
   USE mo_advection_nml,       ONLY: coeff_grid, lcompute, lcleanup
   USE mo_advection_config,    ONLY: advection_config
   USE mo_advection_utils,     ONLY: laxfr_upflux_v, laxfr_upflux

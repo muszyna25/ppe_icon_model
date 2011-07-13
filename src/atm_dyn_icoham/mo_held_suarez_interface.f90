@@ -39,7 +39,6 @@ MODULE mo_held_suarez_interface
   USE mo_model_domain,       ONLY: t_patch
   USE mo_interpolation,      ONLY: t_int_state, cells2edges_scalar
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,            ONLY: nlev
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_hs_test,            ONLY: held_suarez_forcing_temp,  &
@@ -86,22 +85,23 @@ CONTAINS
     ! Local scalar
 
     INTEGER :: jk, jb, jbs, is, ie
-    INTEGER :: nblks_c, nblks_e
+    INTEGER :: nblks_c, nblks_e, nlev
 
     ! Local arrays
 
-    REAL(wp) :: zsigma (nproma,nlev) ! sigma = pres/pres_sfc
+    REAL(wp) :: zsigma (nproma,p_patch%nlev) ! sigma = pres/pres_sfc
     REAL(wp) :: zlat   (nproma)      ! latitude
 
-    REAL(wp) :: zpres_me    (nproma,nlev,p_patch%nblks_e) !< pressure @ edges
-    REAL(wp) :: zpres_sfc_c (nproma,   1,p_patch%nblks_c) !< sfc. pressure @ cells
-    REAL(wp) :: zpres_sfc_e (nproma,   1,p_patch%nblks_e) !< sfc. pressure @ edges
+    REAL(wp) :: zpres_me    (nproma,p_patch%nlev,p_patch%nblks_e) !< pressure @ edges
+    REAL(wp) :: zpres_sfc_c (nproma,           1,p_patch%nblks_c) !< sfc. pressure @ cells
+    REAL(wp) :: zpres_sfc_e (nproma,           1,p_patch%nblks_e) !< sfc. pressure @ edges
 
     !-------------------------------------------------------------------------
     ! Dimension parameters related to refinement and MPI parallelisation
 
     nblks_e = p_patch%nblks_int_e
     nblks_c = p_patch%nblks_int_c
+    nlev    = p_patch%nlev
 
     !-------------------------------------------------------------------------
     ! Newtonian coolding

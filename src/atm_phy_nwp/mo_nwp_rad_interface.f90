@@ -41,7 +41,7 @@ MODULE mo_nwp_rad_interface
   USE mo_exception,            ONLY: message,  finish !message_tex
   USE mo_ext_data,             ONLY: t_external_data
   USE mo_parallel_configuration,  ONLY: nproma, p_test_run
-  USE mo_run_nml,              ONLY: msg_level, iqv, iqc, iqi, &
+  USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, &
     &                                io3, ntracer, ntracer_static
   USE mo_grf_interpolation,    ONLY: t_gridref_state
   USE mo_impl_constants,       ONLY: min_rlcell_int, icc !, min_rlcell 

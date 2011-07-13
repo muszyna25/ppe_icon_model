@@ -49,7 +49,7 @@ MODULE mo_atm_phy_nwp_config
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_grid_configuration,  ONLY: n_dom
 
-  USE mo_run_nml,             ONLY: dtime, ltestcase
+  USE mo_run_config,          ONLY: dtime, ltestcase
 !  USE mo_dynamics_nml,        ONLY: ldry_dycore
 !  USE mo_nonhydrostatic_nml,  ONLY: iadv_rcf
   USE mo_data_turbdiff,       ONLY: imode_turb,                              &

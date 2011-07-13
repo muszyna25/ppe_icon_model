@@ -43,7 +43,8 @@ MODULE mo_ldf_test
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_model_domain,       ONLY: t_patch
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,            ONLY: iforcing,ildf_echam
+  USE mo_run_config,         ONLY: iforcing
+  USE mo_impl_constants,     ONLY: ildf_echam
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_hydro_testcases,    ONLY: ldf_symm, ildf_init_type

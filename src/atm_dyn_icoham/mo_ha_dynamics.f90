@@ -43,9 +43,10 @@ MODULE mo_ha_dynamics
   USE mo_ext_data,           ONLY: t_external_data
   USE mo_math_operators,     ONLY: grad_fd_norm, div, div_avg
   USE mo_dynamics_nml,       ONLY: idiv_method
+  USE mo_dynamics_config,    ONLY: dynamics_config 
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config 
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,            ONLY: lshallow_water, nlev, nlevp1
+  USE mo_run_config,         ONLY: nlev, nlevp1
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_interpolation,      ONLY: t_int_state, cell_avg, cells2edges_scalar, &
                                    edges2cells_scalar
@@ -130,7 +131,7 @@ CONTAINS
    ENDDO
 !$OMP END DO
 
-   IF (.NOT.lshallow_water) THEN
+   IF (.NOT.dynamics_config(pt_patch%id)%lshallow_water) THEN
       jbs = pt_patch%cells%start_blk(grf_bdywidth_c+1,1)
 !$OMP DO PRIVATE(jb,is,ie)
       DO jb = jbs,nblks_c
@@ -144,7 +145,7 @@ CONTAINS
 ! From now on, after calling each subroutine the individual contribution
 ! will be added to the tendency state.
 
-   IF (.NOT.lshallow_water) THEN
+   IF (.NOT.dynamics_config(pt_patch%id)%lshallow_water) THEN
 
 ! Vertical advection of momentum
 
@@ -283,7 +284,7 @@ CONTAINS
 
 ! Vertical velocity at the interfaces (half-levels)
 
-   IF ((.NOT.lshallow_water).AND.ldiag_weta) THEN
+   IF ((.NOT.dynamics_config(pt_patch%id)%lshallow_water).AND.ldiag_weta) THEN
 !$OMP DO PRIVATE(jb,is,ie,jk)
       DO jb = jbs,nblks_c
         CALL get_indices_c(pt_patch, jb,jbs,nblks_c, is,ie, 2)
@@ -378,7 +379,7 @@ CONTAINS
 !=====================================================================
 ! Horizontal gradient of geopotential
 !=====================================================================
-IF (.NOT.lshallow_water) THEN
+IF (.NOT.dynamics_config(pt_patch%id)%lshallow_water) THEN
 ! For the hydrostatic model,
 ! if the use of a reference state is desired (to reduce the numerical
 ! error near steep topography), we need to first construct the reference
@@ -447,7 +448,7 @@ ENDIF
 ! The other part of the pressure gradient force and the thermodynamic
 ! equation only exist in the hydrostatic model
 !=====================================================================
-IF (.NOT.lshallow_water) THEN
+IF (.NOT.dynamics_config(pt_patch%id)%lshallow_water) THEN
 
 ! Average virtual temperature perturbation from cells to edges
 ! Note: by giving the vertical start index optionally, the computation

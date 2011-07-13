@@ -49,7 +49,6 @@ MODULE mo_diffusion_nml
   USE mo_namelist,            ONLY: position_nml, positioned
   USE mo_master_nml,          ONLY: lrestart
   USE mo_mpi,                 ONLY: p_pe, p_io
-  USE mo_run_nml,             ONLY: lshallow_water,nlev
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_grid_configuration,  ONLY: global_cell_type
   USE mo_vertical_coord_table,ONLY: vct_a, vct_b, apzero
@@ -128,10 +127,11 @@ MODULE mo_diffusion_nml
   !>
   !! Initialization of variables for the horizontal diffusion.
   !!
-  SUBROUTINE diffusion_nml_setup(i_ndom,parent_id)
+  SUBROUTINE diffusion_nml_setup(i_ndom,parent_id,nlev)
 
    INTEGER, INTENT(IN) :: parent_id(max_dom-1) !< list of parent ID's
    INTEGER, INTENT(IN) :: i_ndom !< dimension for time level variables
+   INTEGER, INTENT(IN) :: nlev
 
    INTEGER  :: istat, jg, ist, jk, funit
    REAL(wp) :: zpres(nlev+1)

@@ -64,7 +64,7 @@ USE mo_ext_data,            ONLY: t_external_data
 USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
 USE mo_interpolation,       ONLY: t_int_state
 USE mo_parallel_configuration,  ONLY: nproma
-USE mo_run_nml,             ONLY: nsteps, ntracer
+USE mo_run_config,           ONLY: nsteps, ntracer
 USE mo_ncar_testcases,      ONLY: init_pure_adv_wind, init_pure_adv_tracers
 USE mo_io_units,            ONLY: find_next_free_unit
 USE mo_exception,           ONLY: finish

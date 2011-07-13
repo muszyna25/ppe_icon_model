@@ -47,11 +47,8 @@ MODULE mo_advection_nml
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_io_units,            ONLY: nnml,nnml_output
   USE mo_master_nml,          ONLY: lrestart
-  USE mo_run_nml,             ONLY: ntracer, ntracer_static, num_lev, nlev, &
-    &                               iforcing,                   &
-    &                               inoforcing, iheldsuarez, iecham, inwp,  &
-    &                               ildf_dry, ildf_echam, io3, iqcond,      &
-    &                               lvert_nest, iqv
+  USE mo_run_config,          ONLY: ntracer, ntracer_static, num_lev, nlev, &
+    &                               iforcing, io3, iqcond, lvert_nest, iqv
   USE mo_grid_configuration,  ONLY: n_dom, global_cell_type
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom,  &
     &                               ino_hadv, iup, imiura, imiura3, iup3,   &
@@ -59,7 +56,9 @@ MODULE mo_advection_nml
     &                               ippm_vcfl, ippm_v, inol, islopel_sm,    &
     &                               islopel_m, ifluxl_m, ifluxl_sm, inol_v, &
     &                               islopel_vsm, islopel_vm, ifluxl_vpd,    &
-    &                               ino_flx, izero_grad, iparent_flx
+    &                               ino_flx, izero_grad, iparent_flx,       &
+    &                               inoforcing, iheldsuarez, iecham, inwp,  &
+    &                               ildf_dry, ildf_echam
   USE mo_namelist,            ONLY: position_nml, POSITIONED
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_radiation_nml,       ONLY: irad_o3

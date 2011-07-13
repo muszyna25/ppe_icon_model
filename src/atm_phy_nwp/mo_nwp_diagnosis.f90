@@ -67,8 +67,8 @@ MODULE mo_nwp_diagnosis
   USE mo_nwp_phy_state,      ONLY: t_nwp_phy_diag,&
                                  & t_nwp_phy_tend,  prm_diag
   USE mo_parallel_configuration,  ONLY: nproma, p_test_run
-  USE mo_run_nml,            ONLY: ntracer, iqv, iqc, iqi, &
-       &                              iqr, iqs, msg_level, ltimer
+  USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, &
+       &                          iqr, iqs, msg_level, ltimer
   USE mo_time_config,        ONLY: time_config
   USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd_o_rd, &
                                    lh_v     => alv      !! latent heat of vapourization

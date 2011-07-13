@@ -57,7 +57,8 @@ MODULE mo_io_async
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
-  USE mo_impl_constants,      ONLY: max_dom
+  USE mo_impl_constants,      ONLY: max_dom, ihs_atm_temp, ihs_atm_theta, &
+                                    inh_atmosphere, ishallow_water, inwp
   USE mo_datetime,            ONLY: t_datetime
   USE mo_mpi,                 ONLY: p_pe, p_bcast, p_barrier, p_stop, p_real_dp, p_send, &
     & p_recv, my_process_is_mpi_test
@@ -69,9 +70,7 @@ MODULE mo_io_async
   USE mo_diffusion_nml,       ONLY: diffusion_nml_setup
   USE mo_io_nml,              ONLY: io_nml_setup
   USE mo_dynamics_config,     ONLY: dynamics_config
-  USE mo_run_nml,             ONLY: ldump_states, ltransport, lforcing, num_lev,      &
-   &                                ihs_atm_temp, ihs_atm_theta, inh_atmosphere, ishallow_water, &
-                                    iforcing, inwp
+  USE mo_run_config,          ONLY: ldump_states, ltransport, lforcing, num_lev, iforcing, nlev
  ! USE mo_atm_phy_nwp_nml,     ONLY: setup_nwp_phy, inwp_surface
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config,setup_atm_nwp_phy
   USE mo_lnd_nwp_nml,         ONLY: setup_nwp_lnd
@@ -277,7 +276,7 @@ CONTAINS
     ! Please note that the setup sequence of control_model is duplicated here.
     ! !!! This implies that changes in control_model have to be repeated here !!!
 
-    CALL diffusion_nml_setup(n_dom,parent_id)
+    CALL diffusion_nml_setup(n_dom,parent_id,nlev)
     CALL dynamics_nml_setup(n_dom)  
 
     IF (ltransport) CALL transport_nml_setup

@@ -56,7 +56,7 @@ MODULE mo_jw_test
 !
 
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, inwp, iecham
   USE mo_physical_constants,  ONLY: re, rgrav, omega, rd,tmelt, vtmpc1
   USE mo_math_constants,      ONLY: pi_2, pi
   USE mo_advection_config,    ONLY: advection_config
@@ -65,8 +65,7 @@ MODULE mo_jw_test
   USE mo_ext_data,            ONLY: t_external_data
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,             ONLY: ltransport, ntracer, iforcing, &
-    &                               inwp, iecham, iqv, iqt
+  USE mo_run_config,          ONLY: ltransport, ntracer, iforcing, iqv, iqt
   USE mo_ncar_testcases,      ONLY: tracer_q1_q2, tracer_q3, regrot, turnwi
   USE mo_exception,           ONLY: message, message_text
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water

@@ -50,7 +50,7 @@ MODULE mo_nh_diffusion
   USE mo_diffusion_nml,       ONLY: k4
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,             ONLY: ltimer
+  USE mo_run_config,          ONLY: ltimer
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
   USE mo_impl_constants    ,  ONLY: min_rledge, min_rlcell, min_rlvert, &
                                     min_rledge_int, min_rlcell_int, min_rlvert_int

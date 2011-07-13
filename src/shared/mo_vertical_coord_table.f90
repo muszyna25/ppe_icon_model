@@ -64,9 +64,9 @@ MODULE mo_vertical_coord_table
   USE mo_kind,               ONLY: wp
   USE mo_io_units,           ONLY: filename_max, find_next_free_unit
   USE mo_exception,          ONLY: message_text, message, finish
-  USE mo_impl_constants,     ONLY: success, max_char_length
-  USE mo_run_nml,            ONLY: nvclev,  &
-    &                              ishallow_water, ihs_atm_temp, ihs_atm_theta, inh_atmosphere
+  USE mo_impl_constants,     ONLY: success, max_char_length, ishallow_water, &
+                                   ihs_atm_temp, ihs_atm_theta, inh_atmosphere
+  USE mo_run_config,         ONLY: nvclev
   USE mo_physical_constants, ONLY: grav, rcpd, rd
 
   IMPLICIT NONE

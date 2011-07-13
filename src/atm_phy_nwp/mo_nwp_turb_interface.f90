@@ -59,7 +59,7 @@ MODULE mo_nwp_turb_interface
   USE mo_nwp_lnd_state,        ONLY: t_lnd_prog, t_lnd_diag
 
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,              ONLY: msg_level, ntracer, iqv, iqc, &
+  USE mo_run_config,           ONLY: msg_level, ntracer, iqv, iqc, &
     &                                iqi, iqr, iqs, inextra_2d
 !  USE mo_atm_phy_nwp_nml,      ONLY: inwp_turb, inwp_surface, inwp_satad  
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config

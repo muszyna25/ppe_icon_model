@@ -172,7 +172,7 @@ USE mo_namelist,            ONLY: position_nml, POSITIONED
 USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
 USE mo_parallel_configuration,  ONLY: nproma
 USE mo_grid_configuration,  ONLY: global_cell_type
-USE mo_run_nml,             ONLY: ltransport
+USE mo_run_config,          ONLY: ltransport
 USE mo_dynamics_config,     ONLY: dynamics_config
 USE mo_mpi,                 ONLY: p_pe, p_io
 

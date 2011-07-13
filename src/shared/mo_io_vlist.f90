@@ -106,7 +106,8 @@ MODULE mo_io_vlist
     &                               gmres_rtol_nh, iadv_rcf, ivctype,           &
     &                               upstr_beta, l_open_ubc, l_nest_rcf,         &
     &                               l_zdiffu_t, thslp_zdiffu, thhgtd_zdiffu
-  USE mo_impl_constants,      ONLY: ntrac_oce
+  USE mo_impl_constants,      ONLY: ntrac_oce, ihs_atm_temp, ihs_atm_theta,     &
+    &                               inh_atmosphere, ishallow_water
   USE mo_ocean_nml,           ONLY: n_zlev, iforc_oce,no_tracer
   USE mo_dynamics_nml,        ONLY: itime_scheme,                               &
     &                               idiv_method, divavg_cntrwgt,                &
@@ -126,15 +127,12 @@ MODULE mo_io_vlist
     &                               dt_diag, out_filetype, out_expname,         &
     &                               dt_data, dt_file, lkeep_in_sync
   USE mo_parallel_configuration,  ONLY: nproma, p_test_run
-  USE mo_run_nml,             ONLY: num_lev, num_levp1, itopo,                  &
+  USE mo_run_config,          ONLY: num_lev, num_levp1, itopo,                  &
     &                               ntracer, ltransport,iqcond,                 &
-    &                               lshallow_water,                             &
     &                               dtime, msg_level,               &
     &                               ldynamics, ltestcase,                       &
     &                               iforcing, inwp, iecham,ildf_echam,          &
     &                               iqv, iqc, iqi, nsteps, lforcing,    &
-    &                               ihs_atm_temp, ihs_atm_theta,    &
-    &                               inh_atmosphere, ishallow_water,             &
     &                               lvert_nest, inextra_2d,inextra_3d
   USE mo_grid_configuration,  ONLY : global_cell_type
   USE mo_echam_phy_config
@@ -967,7 +965,7 @@ CONTAINS
     &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
     &           k_jg)
     ! temperature
-    IF (.NOT.lshallow_water) THEN
+    IF (.NOT.dynamics_config(k_jg)%lshallow_water) THEN
       CALL addVar(TimeVar('T', &
       &                   'temperature',&
       &                   'K', 130, 128,&

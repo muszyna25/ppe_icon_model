@@ -52,7 +52,7 @@ USE mo_impl_constants,            ONLY: boundary, sea_boundary ,max_char_length,
   &                                     max_char_length
 USE mo_parallel_configuration,  ONLY: nproma
 USE mo_ocean_nml,                 ONLY: n_zlev, iswm_oce
-USE mo_run_nml,                   ONLY: dtime
+USE mo_run_config,                ONLY: dtime
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, t_hydro_ocean_aux
 USE mo_model_domain,              ONLY: t_patch
 !USE mo_exception,                 ONLY: message, finish!, message_text

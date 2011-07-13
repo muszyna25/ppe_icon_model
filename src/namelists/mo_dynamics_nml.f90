@@ -38,14 +38,11 @@ MODULE mo_dynamics_nml
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, UNKNOWN, &
-                                   LEAPFROG_SI
+                                   LEAPFROG_SI, IHS_ATM_TEMP
   USE mo_physical_constants, ONLY: grav
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned
  !USE mo_mpi,                ONLY: p_pe, p_io
-  USE mo_run_nml,            ONLY: ltransport,dtime,ntracer,                 &
-    &                              iforcing,lshallow_water,INWP, IHS_ATM_TEMP,&
-    &                              IHS_ATM_THETA
  !USE mo_grid_configuration,  ONLY: global_cell_type
 
   USE mo_master_nml,            ONLY: lrestart

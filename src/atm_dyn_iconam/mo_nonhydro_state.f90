@@ -56,7 +56,7 @@ MODULE mo_nonhydro_state
   USE mo_dynamics_config,     ONLY: dynamics_config 
 !  USE mo_advection_nml,       ONLY: ctracer_list
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,             ONLY: iforcing,             &
+  USE mo_run_config,          ONLY: iforcing,             &
     &                               inwp, ltransport, ntracer, ntracer_static, &
     &                               inextra_2d, inextra_3d,&
     &                               iqv, iqc, iqi, iqr, iqs, io3

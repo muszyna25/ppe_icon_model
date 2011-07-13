@@ -42,7 +42,6 @@ MODULE mo_lnd_nwp_nml
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom
-  USE mo_run_nml,             ONLY: iforcing, inwp
   USE mo_namelist,            ONLY: position_nml, positioned
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_io_units,            ONLY: nnml, nnml_output

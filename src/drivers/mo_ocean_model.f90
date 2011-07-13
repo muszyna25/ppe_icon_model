@@ -59,7 +59,8 @@ MODULE mo_ocean_model
     & dt_file,              & !    :
     & dt_diag,              & !    :
     & lprepare_output         ! internal parameter
-  USE mo_run_nml,             ONLY: run_nml_setup,            & ! process run control parameters
+  USE mo_run_nml,           ONLY: run_nml_setup
+  USE mo_run_config,        ONLY: &
     & dtime,                & !    :
     & ltransport,           & !    :
     & lforcing,             & !    :
@@ -68,7 +69,10 @@ MODULE mo_ocean_model
 !0  & iequations,           & !    internal parameters
 !0  & impiom,               & !    :
     & ldump_states,         & ! flag if states should be dumped
-    & lrestore_states         ! flag if states should be restored
+    & lrestore_states,      &  ! flag if states should be restored
+    & nlev, nlevp1,         & !
+    & num_lev, num_levp1,   &
+    & nshift
   
   USE mo_advection_nml,       ONLY: transport_nml_setup,  & ! process transport
     & setup_transport         ! control parameters
@@ -240,7 +244,7 @@ CONTAINS
     IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
       CALL restore_patches_netcdf( p_patch_global )
     ELSE
-      CALL import_patches( p_patch_global )
+      CALL import_patches( p_patch_global, nlev,nlevp1,num_lev,num_levp1,nshift )
     ENDIF
     
     IF(lrestore_states) THEN
@@ -303,7 +307,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! set up horizontal diffusion after the vertical coordinate is configured
     !-------------------------------------------------------------------------
-    CALL diffusion_nml_setup(n_dom,parent_id)
+    CALL diffusion_nml_setup(n_dom,parent_id,nlev)
     
     !------------------------------------------------------------------
     ! step 5b: allocate state variables

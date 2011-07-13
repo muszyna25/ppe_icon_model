@@ -56,7 +56,7 @@ MODULE mo_nwp_gw_interface
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag,prm_diag,&
     &                                t_nwp_phy_tend
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,              ONLY: msg_level
+  USE mo_run_config,           ONLY: msg_level
 !   USE mo_atm_phy_nwp_nml,     ONLY: inwp_sso , inwp_gwd
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_sso_cosmo,            ONLY: sso

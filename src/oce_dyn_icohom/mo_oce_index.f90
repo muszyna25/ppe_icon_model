@@ -40,12 +40,12 @@ USE mo_kind,                   ONLY: wp
 USE mo_mpi,                    ONLY: p_pe, p_io
 USE mo_io_units,               ONLY: nerr
 USE mo_parallel_configuration,  ONLY: nproma
-USE mo_run_nml,                ONLY: nsteps
+USE mo_run_config,             ONLY: nsteps
 USE mo_ocean_nml,              ONLY: n_zlev, i_dbg_oce, i_dbg_inx, str_proc_tst, &
   &                                  i_oct_blk, i_oct_idx, i_oct_ilv, rlon_in, rlat_in
 ! &                                  i_ocv_blk, i_ocv_idx, i_ocv_ilv, t_val,  &
 USE mo_dynamics_config,        ONLY: dynamics_config 
-USE mo_run_nml,                ONLY: dtime
+USE mo_run_config,             ONLY: dtime
 USE mo_loopindices,            ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_impl_constants,         ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
   &                                  min_rlcell, min_rledge, min_rlvert,                &

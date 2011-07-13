@@ -59,7 +59,7 @@ USE mo_ext_data,            ONLY: t_external_data
 USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
 USE mo_interpolation,       ONLY: cells2edges_scalar, t_int_state
 USE mo_parallel_configuration,  ONLY: nproma
-USE mo_run_nml,             ONLY: nsteps, ntracer
+USE mo_run_config,          ONLY: nsteps, ntracer
 USE mo_ncar_testcases,      ONLY: init_pure_adv_wind, init_pure_adv_tracers
 USE mo_io_units,            ONLY: find_next_free_unit
 USE mo_exception,           ONLY: finish

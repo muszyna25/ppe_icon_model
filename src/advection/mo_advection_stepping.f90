@@ -70,14 +70,13 @@ MODULE mo_advection_stepping
   USE mo_math_operators,      ONLY: div
   USE mo_interpolation,       ONLY: t_int_state
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,             ONLY: ntracer, ltimer,  &
-    &                               iforcing, inwp, iqv
+  USE mo_run_config,          ONLY: ntracer, ltimer, iforcing, iqv
   USE mo_nonhydrostatic_nml,  ONLY: iadv_rcf
   USE mo_advection_hflux,     ONLY: hor_upwind_flux
   USE mo_advection_vflux,     ONLY: vert_upwind_flux
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int, min_rlcell, &
-    &                               min_rledge
+    &                               min_rledge, inwp
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_mpi,                 ONLY: my_process_is_mpi_seq
   USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult

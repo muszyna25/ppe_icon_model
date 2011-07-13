@@ -53,7 +53,7 @@ USE mo_impl_constants,            ONLY: sea_boundary, sea,&
 USE mo_ocean_nml,                 ONLY: n_zlev, solver_tolerance, iforc_oce,&! toplev, &
                                     &   ab_const, ab_beta, ab_gam, iswm_oce,&
                                     &   expl_vertical_velocity_diff, itestcase_oce
-USE mo_run_nml,                   ONLY: dtime
+USE mo_run_config,                ONLY: dtime
 USE mo_dynamics_config,           ONLY: dynamics_config 
 USE mo_physical_constants,        ONLY: grav!, re
 USE mo_math_constants,      ONLY: pi, deg2rad

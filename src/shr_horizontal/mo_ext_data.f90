@@ -48,9 +48,11 @@ MODULE mo_ext_data
   USE mo_kind
   USE mo_io_units,           ONLY: filename_max
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_nml,            ONLY: itopo, locean, &
-    &                              iforcing, inwp,       &
-    &                              fac_smooth_topo, n_iter_smooth_topo
+  USE mo_impl_constants,     ONLY: inwp, ihs_ocean
+  USE mo_run_config,         ONLY: iforcing
+  USE mo_extpar_nml,         ONLY: itopo => nml_itopo,                     &
+                                   fac_smooth_topo => nml_fac_smooth_topo, &
+                                   n_iter_smooth_topo => nml_n_iter_smooth_topo
 
   USE mo_dynamics_config,    ONLY: dynamics_config
  !USE mo_lnd_nwp_nml,        ONLY: nsfc_subs
@@ -449,7 +451,7 @@ CONTAINS
 
     CASE(1) ! read external data from netcdf dataset
 
-      IF ( .NOT.locean ) THEN
+      IF ( iforcing/=ihs_ocean) THEN
         CALL message( TRIM(routine),'Start reading external data from file' )
 
         CALL read_ext_data_atm (p_patch, ext_data)
@@ -524,7 +526,7 @@ CONTAINS
       END IF
 
       !
-      IF (iforcing== -1) THEN
+      IF (iforcing==ihs_ocean) THEN
         ! Build external data list for constant in time oceanic fields
         WRITE(listname,'(a,i2.2)') 'ext_data_oce_D',jg
         CALL new_ext_data_oce_list(p_patch(jg), ext_data(jg)%oce,       &
@@ -1268,7 +1270,7 @@ CONTAINS
       CALL delete_var_list( ext_data(jg)%atm_td_list )
       END IF
 
-      IF (iforcing== -1) THEN
+      IF (iforcing==ihs_ocean) THEN
         ! Delete list of constant in time oceanic elements
         CALL delete_var_list( ext_data(jg)%oce_list )
       ENDIF
