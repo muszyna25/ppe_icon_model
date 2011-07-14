@@ -1798,7 +1798,7 @@ END SUBROUTINE inquire_external_files
       &  var_out(:,:,:,:)
 
     INTEGER :: varid, mpi_comm, j, jl, jb, jk, jt
-    REAL(wp):: z_dummy_array(ntime,nlevs,glb_arr_len)!< local dummy array
+    REAL(wp):: z_dummy_array(glb_arr_len,nlevs,ntime)!< local dummy array
   !-------------------------------------------------------------------------
 
     ! Get var ID

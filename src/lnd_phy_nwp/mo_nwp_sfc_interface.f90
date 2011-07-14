@@ -63,7 +63,7 @@ MODULE mo_nwp_sfc_interface
 !  USE mo_atm_phy_nwp_nml,      ONLY: inwp_surface, inwp_satad  
   USE mo_atm_phy_nwp_config,   ONLY:  atm_phy_nwp_config
 !  USE mo_data_turbdiff,        ONLY: lseaice, llake
-  USE mo_lnd_nwp_nml,          ONLY: nlev_soil, nztlev, nlev_snow, nsfc_subs, &
+  USE mo_lnd_nwp_config,       ONLY: nlev_soil, nztlev, nlev_snow, nsfc_subs, &
     &                                lseaice, llake, lmulti_snow
 !  USE mo_turbdiff_ras,       ONLY: organize_turbdiff
   USE mo_satad,              ONLY: sat_pres_water, spec_humi  

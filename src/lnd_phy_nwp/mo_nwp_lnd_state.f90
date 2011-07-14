@@ -72,7 +72,7 @@ MODULE mo_nwp_lnd_state
 !  USE mo_atm_phy_nwp_nml,     ONLY: inwp_surface
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 
-  USE mo_lnd_nwp_nml,         ONLY: nlev_soil,nztlev,nlev_snow, &
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil,nztlev,nlev_snow, &
                                     nsfc_subs
   USE mo_linked_list,         ONLY: t_var_list
   USE mo_var_list,            ONLY: default_var_list_settings, &

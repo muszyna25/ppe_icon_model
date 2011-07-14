@@ -7,7 +7,7 @@
 !! <external_procedure(), or by using @see.>
 !! <Don't forget references to literature.>
 !!
-!! @author Kristina Froehlich, MPI-M (2011-07-14)
+!! @author <name, affiliation>
 !! @author <name, affiliation>
 !!
 !!
@@ -41,41 +41,32 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-MODULE mo_lnd_nwp_config
+MODULE mo_extpar_config
 
-  USE mo_kind,           ONLY: wp
-  USE mo_impl_constants, ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom
+  USE mo_kind,               ONLY: wp
+  USE mo_impl_constants,     ONLY: max_dom
 
   IMPLICIT NONE
 
-  PUBLIC :: nlev_soil, nztlev ,nlev_snow ,nsfc_subs
-  PUBLIC ::   lseaice,  llake, lmelt , lmelt_var ,   lmulti_snow 
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
-  !--------------------------------------------------------------------------
-  ! Basic configuration setup for NWP land
-  !--------------------------------------------------------------------------
-
-!  TYPE t_nwp_lnd_config
-
-    INTEGER ::  nlev_soil, nztlev  !! number of soil layers, time integration scheme
-    INTEGER ::  nlev_snow        !! number of snow layers
-    INTEGER ::  nsfc_subs        !! number of TILES
-
-    LOGICAL ::       &
-         lseaice,    & !> forecast with sea ice model
-         llake,      & !! forecst with lake model FLake
-         lmelt     , & !! soil model with melting process
-         lmelt_var , & !! freezing temperature dependent on water content
-         lmulti_snow   !! run the multi-layer snow model
-
-!  END TYPE t_nwp_lnd_config
-
   !>
-  !!
-!  TYPE(t_nwp_lnd_config) :: nwp_lnd_config(max_dom)
+  !!----------------------------------------------------------------------------
+  !! Derived type containing control variables specific to the nonhydrostatic 
+  !! atm model
+
+  !------------------------------------------------------------------------
+  INTEGER  :: itopo   ! 0: topography specified by analytical functions,
+                          ! 1: topography read from netcdf files provided by Herrmann Asensio
+
+  REAL(wp):: fac_smooth_topo
+  INTEGER :: n_iter_smooth_topo
 
 
+  PUBLIC:: itopo, fac_smooth_topo, n_iter_smooth_topo
 
-END MODULE mo_lnd_nwp_config
+  !!----------------------------------------------------------------------------
+
+END MODULE mo_extpar_config
+

@@ -43,6 +43,8 @@ MODULE mo_extpar_nml
   USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,   &
                                     & open_and_restore_namelist, close_tmpfile
 
+  USE mo_extpar_config, ONLY: itopo, fac_smooth_topo, n_iter_smooth_topo
+
   IMPLICIT NONE
  !PRIVATE
   PUBLIC
@@ -73,7 +75,7 @@ CONTAINS
     !------------------------------------------------------------
     ! Default settings
     !------------------------------------------------------------
-    nml_itopo  = 0
+     nml_itopo  = 0
     nml_fac_smooth_topo    = 0.015625_wp
     nml_n_iter_smooth_topo = 35
 
@@ -110,7 +112,9 @@ CONTAINS
     !----------------------------------------------------
     ! Fill the configuration state
     !----------------------------------------------------
-
+    itopo              = nml_itopo 
+    fac_smooth_topo    = nml_fac_smooth_topo 
+    n_iter_smooth_topo = nml_n_iter_smooth_topo
 
     !-----------------------------------------------------
     ! Store the namelist for restart
