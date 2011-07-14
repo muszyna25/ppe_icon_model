@@ -50,8 +50,10 @@ MODULE mo_atm_nml_crosscheck
     &                               itturb, itsfc,  itgwd, iphysproc,iecham, ildf_echam,&
     &                               inwp, iheldsuarez, ildf_dry, &
     &                               tracer_only, inh_atmosphere, ishallow_water
+  USE mo_parallel_configuration, ONLY: check_parallel_configuration
+  USE mo_run_config,          ONLY: lrestore_states, dtime, iforcing, ltransport, &
+                                    ntracer, nlev, inextra_2D, inextra_3D
   USE mo_time_config,         ONLY: time_config
-  USE mo_run_config
   USE mo_gridref_config,      ONLY: gridref_config
   USE mo_interpol_config       ! all, ONLY: interpol_config
   USE mo_grid_configuration    !,     ONLY: global_cell_type
@@ -91,6 +93,11 @@ CONTAINS
 
     INTEGER :: jg
     CHARACTER(len=*), PARAMETER :: routine =  'atm_crosscheck'
+
+    !--------------------------------------------------------------------
+    ! Parallelization
+    !--------------------------------------------------------------------
+    CALL check_parallel_configuration(lrestore_states)
 
     !--------------------------------------------------------------------
     ! Horizontal interpolation
