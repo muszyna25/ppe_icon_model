@@ -179,9 +179,9 @@ CONTAINS
 
     CALL read_diffusion_namelist()
 
-    CALL read_radiation_namelist()
+    CALL read_radiation_namelist(TRIM(namelist_filename))
     CALL read_echam_phy_namelist()
-    CALL read_vdiff_namelist()
+    CALL read_vdiff_namelist(TRIM(namelist_filename))
     CALL read_echam_conv_namelist()
     CALL read_gw_hines_namelist()
     CALL read_nwp_lnd_namelist(TRIM(namelist_filename))

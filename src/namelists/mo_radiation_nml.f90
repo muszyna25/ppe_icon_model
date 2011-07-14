@@ -47,7 +47,7 @@ MODULE mo_radiation_nml
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, max_dom
   USE mo_mpi,                ONLY: p_pe, p_io
   USE mo_radiation_config,   ONLY: radiation_config
-  USE mo_namelist,           ONLY: position_nml, positioned
+  USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml 
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o, amo2
   USE mo_master_nml,         ONLY: lrestart
@@ -176,37 +176,6 @@ CONTAINS
 
     INTEGER :: ist, funit   !< status variable for namelist positioning
 
-    ! Have seasonal orbit and diurnal cycle as default
-    izenith=4
-   
-    !----------------------------------------------------------------
-    ! If this is a resumed integration, overwrite the defaults above
-    ! by values in the previous integration.
-    !----------------------------------------------------------------
-    IF (lrestart) THEN
-      funit = open_and_restore_namelist('radiation_nml')
-      READ(funit,NML=radiation_nml)
-      CALL close_tmpfile(funit)
-    END IF
-
-    !---------------------------------------------------------------------
-    ! Read user's (new) specifications (Done so far by all MPI processes)
-    !---------------------------------------------------------------------
-    CALL position_nml ('radiation_nml', STATUS=ist)
-    SELECT CASE (ist)
-    CASE (positioned)
-      READ (nnml, radiation_nml)
-    END SELECT
-
-    ! Checks (none so far)
-
-    !-----------------------------------------------------
-    ! Store the namelist for restart
-    !-----------------------------------------------------
-    funit = open_tmpfile()
-    WRITE(funit,NML=radiation_nml)
-    CALL store_and_close_namelist(funit, 'radiation_nml')
-
     ! Set dependent variables
     ! -----------------------
     mmr_co2 = vmr_co2 * amco2/amd
@@ -216,49 +185,6 @@ CONTAINS
 
   END SUBROUTINE read_radiation_nml
 
-!!$  !>
-!!$  !! "read_restart_radiation_nml" reads the parameters of the radiation
-!!$  !! namelist from the global attributes of a restart file in netcdf format.
-!!$  !!
-!!$  !! @par Revision History
-!!$  !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
-!!$  !!
-!!$  SUBROUTINE read_restart_radiation_nml
-!!$
-!!$    CALL finish('mo_radiation_nml/read_restart_radiation_nml', &
-!!$      &         'This subroutine is not yet available')
-!!$
-!!$  END SUBROUTINE read_restart_radiation_nml
-!!$
-!!$  !>
-!!$  !! "write_restart_radiation_nml" writes the parameters of the radiation
-!!$  !! namelist as global attributes to a restart file in netcdf format.
-!!$  !!
-!!$  !! @par Revision History
-!!$  !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
-!!$  !!
-!!$  SUBROUTINE write_restart_radiation_nml
-!!$
-!!$    CALL finish('mo_radiation_nml/write_restart_radiation_nml', &
-!!$      &         'This subroutine is not yet available')
-!!$
-!!$  END SUBROUTINE write_restart_radiation_nml
-!!$
-!!$  !>
-!!$  !! "write_rawdata_radiation_nml" writes the parameters of the radiation
-!!$  !! namelist as global attributes to a raw data file in netcdf format.
-!!$  !!
-!!$  !! @par Revision History
-!!$  !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
-!!$  !!
-!!$  SUBROUTINE write_rawdata_radiation_nml
-!!$
-!!$    CALL finish('mo_radiation_nml/write_rawdata_radiation_nml', &
-!!$      &         'This subroutine is not yet available')
-!!$
-!!$  END SUBROUTINE write_rawdata_radiation_nml
-
-  !-------------------------------------------------------------------------
   !
   !
   !>
@@ -276,23 +202,21 @@ CONTAINS
   !! @par Revision History
   !!  by Daniel Reinert, DWD (2011-06-07)
   !!
-  SUBROUTINE read_radiation_namelist
-    !
+  SUBROUTINE read_radiation_namelist( filename )
+
+    CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
     INTEGER :: jg          ! loop index
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_radiation_nml: read_radiation_namelist'
 
-    !-----------------------------------------------------------------------
-
-    !-----------------------!
-    ! 1. default settings   !
-    !-----------------------!
+    !-----------------------
+    ! 1. default settings   
+    !-----------------------
 
     ! Default: seasonal orbit and diurnal cycle
     izenith=4
-
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -308,12 +232,13 @@ CONTAINS
     !--------------------------------------------------------------------
     ! 3. Read user's (new) specifications (Done so far by all MPI processes)
     !--------------------------------------------------------------------
+    CALL open_nml(TRIM(filename))
     CALL position_nml ('radiation_nml', status=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, radiation_nml)
     END SELECT
-
+    CALL close_nml
 
     !----------------------------------------------------
     ! 4. Fill the configuration state
@@ -343,7 +268,6 @@ CONTAINS
       radiation_config(jg)%izenith    = izenith
     ENDDO
 
-
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
     !-----------------------------------------------------
@@ -351,11 +275,9 @@ CONTAINS
     WRITE(funit,NML=radiation_nml)                    
     CALL store_and_close_namelist(funit, 'radiation_nml') 
 
-
     ! 6. write the contents of the namelist to an ASCII file
     !
     IF(p_pe == p_io) WRITE(nnml_output,nml=radiation_nml)
-
 
   END SUBROUTINE read_radiation_namelist
 
