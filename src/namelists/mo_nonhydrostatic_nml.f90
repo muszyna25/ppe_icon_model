@@ -36,21 +36,12 @@
 !!
 !!
 MODULE mo_nonhydrostatic_nml
-!-------------------------------------------------------------------------
-!
-!    ProTeX FORTRAN source: Style 2
-!    modified for ICON project, DWD/MPI-M 2006
-!
-!-------------------------------------------------------------------------
-!
-!
-!
-!
+
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: max_char_length, max_dom
   USE mo_io_units,            ONLY: nnml, nnml_output
-  USE mo_namelist,            ONLY: position_nml, positioned
+  USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_nh_dyn_config       !ONLY: nh_dyn_config
   USE mo_master_nml,          ONLY: lrestart
   USE mo_mpi,                 ONLY: p_pe, p_io
@@ -62,13 +53,10 @@ MODULE mo_nonhydrostatic_nml
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
+  !-----------------------------------------------------------------------------
+  ! Namelist variables
+  !-----------------------------------------------------------------------------
 
-
-
-  ! ----------------------------------------------------------------------------
-  ! 1.0 Namelist variables for the nonhydrostatic core
-  ! ----------------------------------------------------------------------------
-  !
   INTEGER :: nml_iadv_rcf              !if 1: no reduced calling frequency for adv. and phy.
                                        !if 2: adv. and phys. are called only every 2nd
                                        !      time step.
@@ -111,7 +99,7 @@ MODULE mo_nonhydrostatic_nml
                             ! coefficient in the upper damping zone
 
 
-  NAMELIST/nonhydrostatic_ctl/ nml_rayleigh_coeff, nml_damp_height, nml_iadv_rhotheta, &
+  NAMELIST/nonhydrostatic_nml/ nml_rayleigh_coeff, nml_damp_height, nml_iadv_rhotheta, &
                                nml_vwind_offctr, nml_igradp_method, nml_exner_expol,   &
                                nml_ltheta_up_hori, nml_ltheta_up_vert, nml_gmres_rtol_nh, &
                                nml_iadv_rcf, nml_ivctype, nml_upstr_beta, nml_l_open_ubc,  &
@@ -119,15 +107,8 @@ MODULE mo_nonhydrostatic_nml
                                & nml_thhgtd_zdiffu, &
                                nml_k2_updamp_coeff, nml_l_masscorr_nest, nml_htop_moist_proc, &
                                nml_htop_qvadv, nml_damp_timescale_u, nml_damp_height_u
-  !
-  CONTAINS
 
-
-
-!-------------------------------------------------------------------------
-!
-!
- !!
+CONTAINS
  !>
  !!               Initialization of variables that determine 
  !!
@@ -147,7 +128,7 @@ MODULE mo_nonhydrostatic_nml
   INTEGER :: i_status, jg
 
   !------------------------------------------------------------
-  ! 2.0 set up the default values for dynamics_ctl
+  ! 2.0 set up the default values for dynamics_nml
   !------------------------------------------------------------
   !
   ! reduced calling frequency for transport
@@ -200,10 +181,10 @@ MODULE mo_nonhydrostatic_nml
   !------------------------------------------------------------
   ! (done so far by all MPI processes)
 
-  CALL position_nml ('nonhydrostatic_ctl', status=i_status)
+  CALL position_nml ('nonhydrostatic_nml', status=i_status)
   SELECT CASE (i_status)
   CASE (positioned)
-     READ (nnml, nonhydrostatic_ctl)
+     READ (nnml, nonhydrostatic_nml)
   END SELECT
 
   ! Reset values of rayleigh_coeff and damp_height to that of the global domain if not specified
@@ -237,7 +218,7 @@ MODULE mo_nonhydrostatic_nml
 
   ! write the contents of the namelist to an ASCII file
 
-  IF(p_pe == p_io) WRITE(nnml_output,nml=nonhydrostatic_ctl)
+  IF(p_pe == p_io) WRITE(nnml_output,nml=nonhydrostatic_nml)
 
 
 END SUBROUTINE nonhydrostatic_nml_setup
@@ -261,19 +242,18 @@ END SUBROUTINE nonhydrostatic_nml_setup
   !! @par Revision History
   !!  by Daniel Reinert, DWD (2011-06-07)
   !!
-  SUBROUTINE read_nonhydrostatic_namelist
-    !
+  SUBROUTINE read_nonhydrostatic_namelist( filename )
+
+    CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
     INTEGER :: jg           ! loop index
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_nonhydrostatic_nml: read_nonhydrostatic_namelist'
 
-    !-----------------------------------------------------------------------
-
-    !-----------------------!
-    ! 1. default settings   !
-    !-----------------------!
+    !-----------------------
+    ! 1. default settings
+    !-----------------------
 
     ! reduced calling frequency for transport
     nml_iadv_rcf = 1  ! no reduced calling frequency
@@ -319,33 +299,33 @@ END SUBROUTINE nonhydrostatic_nml_setup
     nml_ltheta_up_vert = .FALSE.
     nml_k2_updamp_coeff= 2.0e6_wp
 
-
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
     !------------------------------------------------------------------
     IF (lrestart) THEN
-      funit = open_and_restore_namelist('nonhydrostatic_ctl')
-      READ(funit,NML=nonhydrostatic_ctl)
+      funit = open_and_restore_namelist('nonhydrostatic_nml')
+      READ(funit,NML=nonhydrostatic_nml)
       CALL close_tmpfile(funit)
     END IF
-
 
     !--------------------------------------------------------------------
     ! 3. Read user's (new) specifications (Done so far by all MPI processes)
     !--------------------------------------------------------------------
-    CALL position_nml ('nonhydrostatic_ctl', status=istat)
+    CALL open_nml(TRIM(filename))
+    CALL position_nml ('nonhydrostatic_nml', status=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, nonhydrostatic_ctl)
+      READ (nnml, nonhydrostatic_nml)
     END SELECT
-
+    CALL close_nml
 
     !--------------------------------------------------------------------
     ! Sanity and internal checks
     !--------------------------------------------------------------------
+    ! Reset values of rayleigh_coeff and damp_height to that of the 
+    ! global domain if not specified
 
-    ! Reset values of rayleigh_coeff and damp_height to that of the global domain if not specified
     DO jg = 2, max_dom
       IF (nml_damp_height(jg) < 0.0_wp) THEN
         nml_damp_height(jg) = nml_damp_height(1)
@@ -354,8 +334,6 @@ END SUBROUTINE nonhydrostatic_nml_setup
         nml_rayleigh_coeff(jg) = nml_rayleigh_coeff(1)
       ENDIF
     ENDDO
-
-
 
     !----------------------------------------------------
     ! 4. Fill the configuration state
@@ -414,20 +392,15 @@ END SUBROUTINE nonhydrostatic_nml_setup
        damp_timescale_u= nml_damp_timescale_u
        damp_height_u   = nml_damp_height_u
   
-
-
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
-    WRITE(funit,NML=nonhydrostatic_ctl)                    
-    CALL store_and_close_namelist(funit, 'nonhydrostatic_ctl') 
-
+    WRITE(funit,NML=nonhydrostatic_nml)                    
+    CALL store_and_close_namelist(funit, 'nonhydrostatic_nml') 
 
     ! 6. write the contents of the namelist to an ASCII file
-    !
-    IF(p_pe == p_io) WRITE(nnml_output,nml=nonhydrostatic_ctl)
-
+    IF(p_pe == p_io) WRITE(nnml_output,nml=nonhydrostatic_nml)
 
   END SUBROUTINE read_nonhydrostatic_namelist
 

@@ -42,7 +42,7 @@ MODULE mo_lnd_nwp_nml
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom
-  USE mo_namelist,            ONLY: position_nml, positioned
+  USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_master_nml,          ONLY: lrestart
@@ -68,7 +68,7 @@ MODULE mo_lnd_nwp_nml
        lmulti_snow   !! run the multi-layer snow model
 
 
-  NAMELIST/lnd_ctl/ nlev_soil, nztlev, nlev_snow, nsfc_subs, &
+  NAMELIST/lnd_nml/ nlev_soil, nztlev, nlev_snow, nsfc_subs, &
     &               lseaice, llake, lmulti_snow  
    
   PUBLIC :: setup_nwp_lnd
@@ -112,9 +112,9 @@ MODULE mo_lnd_nwp_nml
         lmulti_snow= .FALSE.
 
 
-        CALL position_nml ('lnd_ctl', status=i_status)
+        CALL position_nml ('lnd_nml', status=i_status)
            IF (i_status == POSITIONED) THEN
-              READ (nnml, lnd_ctl)
+              READ (nnml, lnd_nml)
            ENDIF
 
 
@@ -139,52 +139,47 @@ MODULE mo_lnd_nwp_nml
   !! @par Revision History
   !!  by Daniel Reinert, DWD (2011-06-07)
   !!
-  SUBROUTINE read_nwp_lnd_namelist
-    !
+  SUBROUTINE read_nwp_lnd_namelist( filename )
+
+    CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
-    INTEGER :: jg           ! loop index
+    INTEGER :: jg            ! loop index
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_lnd_nwp_nml: read_nwp_lnd_namelist'
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_lnd_nwp_nml: read_nwp_lnd_namelist'
 
-    !-----------------------------------------------------------------------
-
-    !-----------------------!
-    ! 1. default settings   !
-    !-----------------------!
+    !-----------------------
+    ! 1. default settings   
+    !-----------------------
     nlev_soil   = 7     !> 7 = default value for number of soil layers
     nztlev      = 2     !> 2 = default value for time integration scheme
     nlev_snow   = 1     !> 0 = default value for number of snow layers
     nsfc_subs   = 2     !> 1 = default value for number of TILES
-
 
     !> KF  current settings to get NWP turbulence running
     lseaice     = .FALSE.
     llake       = .FALSE.
     lmulti_snow = .FALSE.
 
-
-
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
     !------------------------------------------------------------------
     IF (lrestart) THEN
-      funit = open_and_restore_namelist('lnd_ctl')
-      READ(funit,NML=lnd_ctl)
+      funit = open_and_restore_namelist('lnd_nml')
+      READ(funit,NML=lnd_nml)
       CALL close_tmpfile(funit)
     END IF
 
-
-    !--------------------------------------------------------------------
-    ! 3. Read user's (new) specifications (Done so far by all MPI processes)
-    !--------------------------------------------------------------------
-    CALL position_nml ('lnd_ctl', status=istat)
+    !-------------------------------------------------------------------------
+    ! 3. Read user's (new) specifications (Done so far by all MPI processors)
+    !-------------------------------------------------------------------------
+    CALL open_nml(TRIM(filename))
+    CALL position_nml ('lnd_nml', status=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, lnd_ctl)
+      READ (nnml, lnd_nml)
     END SELECT
-
+    CALL close_nml
 
     !----------------------------------------------------
     ! 4. Fill the configuration state
@@ -204,14 +199,11 @@ MODULE mo_lnd_nwp_nml
     ! 5. Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
-    WRITE(funit,NML=lnd_ctl)                    
-    CALL store_and_close_namelist(funit, 'lnd_ctl') 
-
+    WRITE(funit,NML=lnd_nml)                    
+    CALL store_and_close_namelist(funit, 'lnd_nml') 
 
     ! 6. write the contents of the namelist to an ASCII file
-    !
-    IF(p_pe == p_io) WRITE(nnml_output,nml=lnd_ctl)
-
+    IF(p_pe == p_io) WRITE(nnml_output,nml=lnd_nml)
 
   END SUBROUTINE read_nwp_lnd_namelist
 

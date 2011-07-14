@@ -42,12 +42,10 @@ MODULE mo_atm_phy_nwp_nml
   USE mo_kind,                ONLY: wp
   USE mo_impl_constants,      ONLY: max_dom,MAX_CHAR_LENGTH
   USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_namelist,            ONLY: position_nml, POSITIONED
+  USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_master_nml,          ONLY: lrestart
- 
-  USE mo_model_domain,        ONLY: t_patch
 
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
     &                               open_and_restore_namelist, close_tmpfile
@@ -62,8 +60,8 @@ MODULE mo_atm_phy_nwp_nml
     &                               llake, lseaice
 
   IMPLICIT NONE
-
-!  PRIVATE
+  PRIVATE
+  PUBLIC :: read_nwp_phy_namelist 
 
    !
    ! user defined calling intervals
@@ -91,9 +89,6 @@ MODULE mo_atm_phy_nwp_nml
   INTEGER ::  nml_inwp_turb        !! turbulence
   INTEGER ::  nml_inwp_surface     !! surface including soil, ocean, ice,lake
 
-  INTEGER :: jg
-
-
   INTEGER :: nml_imode_turb, nml_itype_wcld, nml_icldm_turb,nml_itype_tran
    
   LOGICAL :: nml_limpltkediff, nml_ltkesso, nml_lexpcor
@@ -113,7 +108,7 @@ MODULE mo_atm_phy_nwp_nml
 
   REAL(wp)::  nml_qi0, nml_qc0
 
-  NAMELIST /nwp_phy_ctl/ nml_inwp_gscp, nml_inwp_satad, nml_inwp_convection,  &
+  NAMELIST /nwp_phy_nml/ nml_inwp_gscp, nml_inwp_satad, nml_inwp_convection,  &
     &                  nml_inwp_radiation, nml_inwp_sso, nml_inwp_cldcover, &
     &                  nml_inwp_gwd,                                        &
     &                  nml_inwp_turb, nml_inwp_surface,                     &
@@ -130,16 +125,11 @@ MODULE mo_atm_phy_nwp_nml
     &                  nml_qi0, nml_qc0
 
 
-   PUBLIC :: read_nwp_phy_namelist 
 
- CONTAINS
-
-
+CONTAINS
   !-------------------------------------------------------------------------
-  !
   !>
   !! Read physics Namelist
-  !!
   !!
   !! @par Revision History
   !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
@@ -151,16 +141,15 @@ MODULE mo_atm_phy_nwp_nml
 
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine =  &
                               'mo_atm_phy_nwp_nml'
-  !-----------------------------------------------------------------------
 
-    CALL position_nml ('nwp_phy_ctl', status=i_status)
+    CALL position_nml ('nwp_phy_nml', status=i_status)
     !
     SELECT CASE (i_status)
     CASE (POSITIONED)
-      READ (nnml, nwp_phy_ctl)
+      READ (nnml, nwp_phy_nml)
     END SELECT
   !  write the contents of the namelist to an ASCII file
-    IF(p_pe == p_io) WRITE(nnml_output,nml=nwp_phy_ctl)
+    IF(p_pe == p_io) WRITE(nnml_output,nml=nwp_phy_nml)
 
  END SUBROUTINE read_inwp_nml
 
@@ -184,19 +173,16 @@ MODULE mo_atm_phy_nwp_nml
   !! @par Revision History
   !!  by Daniel Reinert, DWD (2011-06-07)
   !!
-  SUBROUTINE read_nwp_phy_namelist (p_patch)
-    !
-    TYPE(t_patch), OPTIONAL, INTENT(IN) :: p_patch(:)
-    INTEGER :: istat, funit
+  SUBROUTINE read_nwp_phy_namelist( filename )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(LEN=*), INTENT(IN) :: filename
+    INTEGER :: istat, funit, jg
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_atm_phy_nwp_nml: read_nwp_phy_namelist'
 
-    !-----------------------------------------------------------------------
-
-    !-----------------------!
-    ! 1. default settings   !
-    !-----------------------!
+    !-----------------------
+    ! 1. default settings   
+    !-----------------------
     nml_inwp_gscp       = 0           !> 0 = no microphysics
     nml_inwp_satad      = 0           !> 1 = saturation adjustment on
     nml_inwp_convection = 0           !> 0 = no convection
@@ -250,21 +236,21 @@ MODULE mo_atm_phy_nwp_nml
     !    by values used in the previous integration.
     !------------------------------------------------------------------
     IF (lrestart) THEN
-      funit = open_and_restore_namelist('nwp_phy_ctl')
-      READ(funit,NML=nwp_phy_ctl)
+      funit = open_and_restore_namelist('nwp_phy_nml')
+      READ(funit,NML=nwp_phy_nml)
       CALL close_tmpfile(funit)
     END IF
-
 
     !--------------------------------------------------------------------
     ! 3. Read user's (new) specifications (Done so far by all MPI processes)
     !--------------------------------------------------------------------
-    CALL position_nml ('nwp_phy_ctl', status=istat)
+    CALL open_nml(TRIM(filename))
+    CALL position_nml ('nwp_phy_nml', status=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, nwp_phy_ctl)
+      READ (nnml, nwp_phy_nml)
     END SELECT
-
+    CALL close_nml
 
     !----------------------------------------------------
     ! 4. Fill the configuration state
@@ -314,14 +300,12 @@ MODULE mo_atm_phy_nwp_nml
     ! 5. Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
-    WRITE(funit,NML=nwp_phy_ctl)                    
-    CALL store_and_close_namelist(funit, 'nwp_phy_ctl') 
-
+    WRITE(funit,NML=nwp_phy_nml)                    
+    CALL store_and_close_namelist(funit, 'nwp_phy_nml') 
 
     ! 6. write the contents of the namelist to an ASCII file
     !
-    IF(p_pe == p_io) WRITE(nnml_output,nml=nwp_phy_ctl)
-
+    IF(p_pe == p_io) WRITE(nnml_output,nml=nwp_phy_nml)
 
   END SUBROUTINE read_nwp_phy_namelist
 

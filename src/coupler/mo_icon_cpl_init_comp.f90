@@ -97,8 +97,8 @@ MODULE mo_icon_cpl_init_comp
 
 #endif
 
-  PUBLIC :: icon_cpl_init_comp
-!  PRIVATE
+  PRIVATE
+  PUBLIC :: icon_cpl_init_comp, get_my_local_comp_id
 
 CONTAINS
 

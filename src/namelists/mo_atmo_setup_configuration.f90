@@ -169,25 +169,26 @@ CONTAINS
     CALL read_interpol_namelist()
     CALL read_gridref_namelist()
 
+    CALL read_transport_namelist()
+
     CALL read_dynamics_namelist()
     CALL read_ha_dyn_namelist()
+    CALL read_nonhydrostatic_namelist(TRIM(namelist_filename))
+    CALL read_sleve_namelist(TRIM(namelist_filename))
 
     CALL read_diffusion_namelist()
 
-    CALL read_transport_namelist()
-
-    CALL read_nwp_phy_namelist()
     CALL read_radiation_namelist()
     CALL read_echam_phy_namelist()
-
     CALL read_vdiff_namelist()
     CALL read_echam_conv_namelist()
     CALL read_gw_hines_namelist()
-    CALL read_nwp_lnd_namelist()
+    CALL read_nwp_lnd_namelist(TRIM(namelist_filename))
+    CALL read_nwp_phy_namelist(TRIM(namelist_filename))
+
+    CALL read_extpar_namelist(TRIM(namelist_filename))
 
     CALL read_io_namelist()
-    CALL read_nonhydrostatic_namelist()
-    CALL read_sleve_namelist()
       
     ! close namelist file
     CALL close_nml

@@ -63,7 +63,7 @@ MODULE mo_io_nml
                                  & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
-
+  PUBLIC :: read_io_namelist, io_nml_setup 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
 
@@ -120,7 +120,6 @@ MODULE mo_io_nml
                                              ! variables to p_prog_out and
                                              ! update p_diag_out.
 
-  PUBLIC :: read_io_namelist
 
   CONTAINS
 !

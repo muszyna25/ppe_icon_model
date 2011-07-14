@@ -37,21 +37,12 @@
 !!
 !!
 MODULE mo_sleve_nml
-!-------------------------------------------------------------------------
-!
-!    ProTeX FORTRAN source: Style 2
-!    modified for ICON project, DWD/MPI-M 2006
-!
-!-------------------------------------------------------------------------
-!
-!
-!
-!
+
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom
   USE mo_io_units,            ONLY: nnml, nnml_output
-  USE mo_namelist,            ONLY: position_nml, positioned
+  USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_sleve_config         ! all,        ONLY: sleve_config
   USE mo_master_nml,          ONLY: lrestart
   USE mo_mpi,                 ONLY: p_pe, p_io
@@ -59,15 +50,14 @@ MODULE mo_sleve_nml
     &                               open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
+  PRIVATE
+  PUBLIC:: read_sleve_namelist
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
-  PUBLIC
-
-
-  ! ----------------------------------------------------------------------------
-  ! 1.0 Namelist variables for the SLEVE coordinate
-  ! ----------------------------------------------------------------------------
+  !----------------------------------------------------------------------------
+  ! Namelist variables for the SLEVE coordinate
+  !---------------------------------------------------------------------------
   !
   ! a) Parameters specifying the distrubution of the coordinate surfaces
   !     (the initializations are a workaround for a NEC compiler bug)
@@ -82,19 +72,12 @@ MODULE mo_sleve_nml
   REAL(wp):: nml_flat_height   = 1._wp  ! Height above which the coordinate surfaces are exactly flat
                             ! additional feature not available in the standard SLEVE definition
 
-  NAMELIST /sleve_ctl/ nml_min_lay_thckn, nml_top_height, nml_decay_scale_1,     &
+  NAMELIST /sleve_nml/ nml_min_lay_thckn, nml_top_height, nml_decay_scale_1,     &
                        nml_decay_scale_2, nml_decay_exp, nml_flat_height, nml_stretch_fac
-  !
-  !
-  !
-
-  PUBLIC:: read_sleve_namelist
 
 CONTAINS
 
-!-------------------------------------------------------------------------
-!
-!
+  !-------------------------------------------------------------------------
  !>
  !!  Initialization of the SLEVE coordinate namelist
  !!
@@ -112,7 +95,7 @@ CONTAINS
   INTEGER :: i_status
 
   !------------------------------------------------------------
-  ! 2.0 set up the default values for dynamics_ctl
+  ! 2.0 set up the default values for dynamics_nml
   !------------------------------------------------------------
   !
   !
@@ -134,10 +117,10 @@ CONTAINS
   !------------------------------------------------------------
   ! (done so far by all MPI processes)
   !
-  CALL position_nml ('sleve_ctl', status=i_status)
+  CALL position_nml ('sleve_nml', status=i_status)
   SELECT CASE (i_status)
   CASE (positioned)
-     READ (nnml, sleve_ctl)
+     READ (nnml, sleve_nml)
   END SELECT
   !
   !------------------------------------------------------------
@@ -148,13 +131,11 @@ CONTAINS
 
   ! write the contents of the namelist to an ASCII file
 
-  IF(p_pe == p_io) WRITE(nnml_output,nml=sleve_ctl)
+  IF(p_pe == p_io) WRITE(nnml_output,nml=sleve_nml)
 
 END SUBROUTINE sleve_nml_setup
 
   !-------------------------------------------------------------------------
-  !
-  !
   !>
   !! Read Namelist for SLEVE coordinate. 
   !!
@@ -170,19 +151,18 @@ END SUBROUTINE sleve_nml_setup
   !! @par Revision History
   !!  by Daniel Reinert, DWD (2011-06-07)
   !!
-  SUBROUTINE read_sleve_namelist
-    !
+  SUBROUTINE read_sleve_namelist( filename )
+
+    CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
     INTEGER :: jg           ! loop index
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_sleve_nml: read_sleve_namelist'
 
-    !-----------------------------------------------------------------------
-
-    !-----------------------!
-    ! 1. default settings   !
-    !-----------------------!
+    !-----------------------
+    ! 1. default settings   
+    !-----------------------
 
     ! a) Parameters determining the distribution of model layers
     !    (if not read in from a table)
@@ -196,29 +176,28 @@ END SUBROUTINE sleve_nml_setup
     nml_decay_scale_2   = 2500._wp    ! Decay scale of small-scale topography component
     nml_decay_exp       = 1.2_wp      ! Exponent for decay function
     nml_flat_height     = 16000._wp   ! Height above which the coordinate surfaces are 
-                                  ! flat
-
+                                      ! flat
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
     !------------------------------------------------------------------
     IF (lrestart) THEN
-      funit = open_and_restore_namelist('sleve_ctl')
-      READ(funit,NML=sleve_ctl)
+      funit = open_and_restore_namelist('sleve_nml')
+      READ(funit,NML=sleve_nml)
       CALL close_tmpfile(funit)
     END IF
-
 
     !--------------------------------------------------------------------
     ! 3. Read user's (new) specifications (Done so far by all MPI processes)
     !--------------------------------------------------------------------
-    CALL position_nml ('sleve_ctl', status=istat)
+    CALL open_nml(TRIM(filename))
+    CALL position_nml ('sleve_nml', status=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, sleve_ctl)
+      READ (nnml, sleve_nml)
     END SELECT
-
+    CALL close_nml
 
     !----------------------------------------------------
     ! 4. Fill the configuration state
@@ -242,21 +221,17 @@ END SUBROUTINE sleve_nml_setup
     flat_height   = nml_flat_height
     stretch_fac   = nml_stretch_fac
 
-
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
-    WRITE(funit,NML=sleve_ctl)                    
-    CALL store_and_close_namelist(funit, 'sleve_ctl') 
-
+    WRITE(funit,NML=sleve_nml)                    
+    CALL store_and_close_namelist(funit, 'sleve_nml') 
 
     ! 6. write the contents of the namelist to an ASCII file
     !
-    IF(p_pe == p_io) WRITE(nnml_output,nml=sleve_ctl)
-
+    IF(p_pe == p_io) WRITE(nnml_output,nml=sleve_nml)
 
   END SUBROUTINE read_sleve_namelist
-
 
 END MODULE mo_sleve_nml
