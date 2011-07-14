@@ -37,7 +37,7 @@ MODULE mo_ha_dyn_nml
   USE mo_mpi,                   ONLY: p_pe, p_io
   USE mo_io_units,              ONLY: nnml, nnml_output
   USE mo_exception,             ONLY: message, message_text, finish
-  USE mo_namelist,              ONLY: position_nml, positioned
+  USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_master_nml,            ONLY: lrestart
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
   USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist, &       
@@ -94,8 +94,9 @@ MODULE mo_ha_dyn_nml
 CONTAINS
   !>
   !!
-  SUBROUTINE read_ha_dyn_namelist()
+  SUBROUTINE read_ha_dyn_namelist( filename )
 
+    CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
     CHARACTER(len=*),PARAMETER :: routine = 'mo_ha_dyn_nml:read_ha_dyn_namelist'
 
@@ -129,11 +130,13 @@ CONTAINS
     !------------------------------------------------------------------------
     ! Read user's (new) specifications. (Done so far by all MPI processors)
     !------------------------------------------------------------------------
+    CALL open_nml(TRIM(filename))
     CALL position_nml ('ha_dyn_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, ha_dyn_nml)
     END SELECT
+    CALL close_nml
 
     !-----------------------------------------------------
     ! Sanity Check

@@ -46,7 +46,7 @@ MODULE mo_gridref_nml
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
   USE mo_master_nml,          ONLY: lrestart
   USE mo_model_domain_import, ONLY: n_dom
-  USE mo_namelist,            ONLY: position_nml, POSITIONED
+  USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_gridref_config,      ONLY: gridref_config
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
@@ -55,11 +55,10 @@ MODULE mo_gridref_nml
   IMPLICIT NONE
 
   PRIVATE
-
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
   !----------------------------------!
-  ! gridref_ctl namelist variables   !
+  ! gridref_nml namelist variables   !
   !----------------------------------!
 
   INTEGER  :: rbf_vec_kern_grf_e ! rbf kernel for vector interpolation
@@ -89,7 +88,7 @@ MODULE mo_gridref_nml
   ! Denominators of normalized diffusion coefficients for boundary diffusion
   REAL(wp) :: denom_diffu_v, denom_diffu_t
 
-  NAMELIST/gridref_ctl/  rbf_vec_kern_grf_e, rbf_scale_grf_e,             &
+  NAMELIST/gridref_nml/  rbf_vec_kern_grf_e, rbf_scale_grf_e,             &
     &                    grf_velfbk, grf_scalfbk, grf_tracfbk,            &
     &                    grf_idw_exp_e12, grf_idw_exp_e34,                &
     &                    grf_intmethod_c, grf_intmethod_e,                &
@@ -142,19 +141,17 @@ END SUBROUTINE gridref_nml_setup
   !! @par Revision History
   !!  by Daniel Reinert, DWD (2011-06-07)
   !!
-  SUBROUTINE read_gridref_namelist
-    !
+  SUBROUTINE read_gridref_namelist( filename )
+
+    CHARACTER(LEN=*),INTENT(IN) :: filename
     INTEGER :: istat, funit
-    INTEGER :: jg           ! loop index
+    INTEGER :: jg
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_gridref_nml: read_gridref_namelist'
+    CHARACTER(len=*),PARAMETER :: routine = 'mo_gridref_nml: read_gridref_namelist'
 
-    !-----------------------------------------------------------------------
-
-    !-----------------------!
-    ! 1. default settings   !
-    !-----------------------!
+    !-----------------------
+    ! 1. default settings   
+    !-----------------------
 
     ! Switch for interpolation method used for cell-based dynamical
     grf_intmethod_c   = 2     ! 1: copying, 2: gradient-based interpolation
@@ -198,21 +195,21 @@ END SUBROUTINE gridref_nml_setup
     !    by values used in the previous integration.
     !------------------------------------------------------------------
     IF (lrestart) THEN
-      funit = open_and_restore_namelist('gridref_ctl')
-      READ(funit,NML=gridref_ctl)
+      funit = open_and_restore_namelist('gridref_nml')
+      READ(funit,NML=gridref_nml)
       CALL close_tmpfile(funit)
     END IF
-
 
     !--------------------------------------------------------------------
     ! 3. Read user's (new) specifications (Done so far by all MPI processes)
     !--------------------------------------------------------------------
-    CALL position_nml ('gridref_ctl', status=istat)
+    CALL open_nml(TRIM(filename))
+    CALL position_nml ('gridref_nml', status=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, gridref_ctl)
+      READ (nnml, gridref_nml)
     END SELECT
-
+    CALL close_nml
 
     !----------------------------------------------------
     ! 4. Fill the configuration state
@@ -232,20 +229,16 @@ END SUBROUTINE gridref_nml_setup
       gridref_config(jg)%denom_diffu_t = denom_diffu_t
     ENDDO
 
-
-
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
-    WRITE(funit,NML=gridref_ctl)                    
-    CALL store_and_close_namelist(funit, 'gridref_ctl') 
-
+    WRITE(funit,NML=gridref_nml)                    
+    CALL store_and_close_namelist(funit, 'gridref_nml') 
 
     ! 6. write the contents of the namelist to an ASCII file
     !
-    IF(p_pe == p_io) WRITE(nnml_output,nml=gridref_ctl)
-
+    IF(p_pe == p_io) WRITE(nnml_output,nml=gridref_nml)
 
   END SUBROUTINE read_gridref_namelist
 

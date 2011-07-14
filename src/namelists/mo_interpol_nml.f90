@@ -41,7 +41,7 @@ MODULE mo_interpol_nml
 
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: n_dom, lplane, n_dom_start
-  USE mo_namelist,            ONLY: position_nml, POSITIONED
+  USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH
   USE mo_master_nml,          ONLY: lrestart
   USE mo_intp_data_strc,      ONLY: t_lsq_set
@@ -55,13 +55,13 @@ MODULE mo_interpol_nml
 
 
   IMPLICIT NONE
-
   PRIVATE
+  PUBLIC :: interpol_nml_setup, read_interpol_namelist
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
   !----------------------------------!
-  ! interpol_ctl namelist variables  !
+  ! interpol_nml namelist variables  !
   !----------------------------------!
 
   LOGICAL  :: nml_llsq_high_consv     ! flag to determine whether the high order least 
@@ -112,7 +112,7 @@ MODULE mo_interpol_nml
                                   ! After the writing of the paper to be published in JCP 
                                   ! it seems that l_corner_vort=.TRUE. should be the right way.
 
-  NAMELIST/interpol_ctl/ nml_llsq_high_consv,   nml_lsq_high_ord,        &
+  NAMELIST/interpol_nml/ nml_llsq_high_consv,   nml_lsq_high_ord,        &
     &                    nml_rbf_vec_kern_c,    nml_rbf_vec_scale_c,     &
     &                    nml_rbf_vec_kern_v,    nml_rbf_vec_scale_v,     &
     &                    nml_rbf_vec_kern_e,    nml_rbf_vec_scale_e,     &
@@ -145,7 +145,6 @@ MODULE mo_interpol_nml
 !      &     rbf_c2grad_dim, lsq_high_set,        &
 !      &     lsq_lin_set
 
-  PUBLIC :: interpol_nml_setup, read_interpol_namelist
 
 CONTAINS
 
@@ -172,7 +171,7 @@ SUBROUTINE interpol_nml_setup(p_patch)
    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = 'mo_intp_state/interpol_nml_setup'
 
    !------------------------------------------------------------
-   ! set up the default values for interpol_ctl
+   ! set up the default values for interpol_nml
    !------------------------------------------------------------
 
    CALL message(TRIM(routine),'default settings')
@@ -212,26 +211,26 @@ SUBROUTINE interpol_nml_setup(p_patch)
     ! by values used in the previous integration.
     !----------------------------------------------------------------
     IF (lrestart) THEN
-      funit = open_and_restore_namelist('interpol_ctl')
-      READ(funit,NML=interpol_ctl)
+      funit = open_and_restore_namelist('interpol_nml')
+      READ(funit,NML=interpol_nml)
       CALL close_tmpfile(funit)
     END IF
 
     !--------------------------------------------------------------------
     ! Read user's (new) specifications (Done so far by all MPI processes)
     !--------------------------------------------------------------------
-    CALL position_nml ('interpol_ctl', STATUS=istat)
+    CALL position_nml ('interpol_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, interpol_ctl)
+      READ (nnml, interpol_nml)
     END SELECT
 
     !-----------------------------------------------------
     ! Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
-    WRITE(funit,NML=interpol_ctl)
-    CALL store_and_close_namelist(funit, 'interpol_ctl')
+    WRITE(funit,NML=interpol_nml)
+    CALL store_and_close_namelist(funit, 'interpol_nml')
 
    ! If RBF scaling factors are not supplied by the namelist, they are now
    ! initialized with meaningful values depending on the grid level and the
@@ -357,7 +356,7 @@ SUBROUTINE interpol_nml_setup(p_patch)
 !
    ! write the contents of the namelist to an ASCII file
 
-   IF(p_pe == p_io) WRITE(nnml_output,nml=interpol_ctl)
+   IF(p_pe == p_io) WRITE(nnml_output,nml=interpol_nml)
 
   ! set the number of unknowns in the least squares reconstruction, and the
   ! stencil size, depending on the chosen polynomial order (lsq_high_ord).
@@ -459,19 +458,18 @@ END SUBROUTINE interpol_nml_setup !CJ setup_interpol
   !! @par Revision History
   !!  by Daniel Reinert, DWD (2011-06-07)
   !!
-  SUBROUTINE read_interpol_namelist
-    !
+  SUBROUTINE read_interpol_namelist( filename )
+
+    CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
     INTEGER :: jg           ! loop index
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
       &  routine = 'mo_interpol_nml: read_interpol_namelist'
 
-    !-----------------------------------------------------------------------
-
-    !-----------------------!
-    ! 1. default settings   !
-    !-----------------------!
+    !-----------------------
+    ! 1. default settings   
+    !-----------------------
 
     ! LSQ reconstruction at cell center
     nml_llsq_high_consv  = .TRUE.   ! conservative reconstruction
@@ -503,28 +501,26 @@ END SUBROUTINE interpol_nml_setup !CJ setup_interpol
     nml_nudge_efold_width = 2._wp    ! e-folding width in units of cell rows
     nml_nudge_zone_width  = 8        ! Width of nudging zone in units of cell rows
 
-
-
-
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
     !------------------------------------------------------------------
     IF (lrestart) THEN
-      funit = open_and_restore_namelist('interpol_ctl')
-      READ(funit,NML=interpol_ctl)
+      funit = open_and_restore_namelist('interpol_nml')
+      READ(funit,NML=interpol_nml)
       CALL close_tmpfile(funit)
     END IF
 
-
-    !--------------------------------------------------------------------
-    ! 3. Read user's (new) specifications (Done so far by all MPI processes)
-    !--------------------------------------------------------------------
-    CALL position_nml ('interpol_ctl', status=istat)
+    !-------------------------------------------------------------------------
+    ! 3. Read user's (new) specifications (Done so far by all MPI processors)
+    !-------------------------------------------------------------------------
+    CALL open_nml(TRIM(filename))
+    CALL position_nml ('interpol_nml', status=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, interpol_ctl)
+      READ (nnml, interpol_nml)
     END SELECT
+    CALL close_nml
 
    !-----------------------------------------------------------------------
    ! check the validity of the configuration
@@ -615,13 +611,12 @@ END SUBROUTINE interpol_nml_setup !CJ setup_interpol
     ! 5. Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
-    WRITE(funit,NML=interpol_ctl)                    
-    CALL store_and_close_namelist(funit, 'interpol_ctl') 
-
+    WRITE(funit,NML=interpol_nml)                    
+    CALL store_and_close_namelist(funit, 'interpol_nml') 
 
     ! 6. write the contents of the namelist to an ASCII file
     !
-    IF(p_pe == p_io) WRITE(nnml_output,nml=interpol_ctl)
+    IF(p_pe == p_io) WRITE(nnml_output,nml=interpol_nml)
 
 
   END SUBROUTINE read_interpol_namelist

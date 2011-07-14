@@ -48,7 +48,7 @@ MODULE mo_grid_nml
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_io_units,           ONLY: nnml, nnml_output,filename_max
-  USE mo_namelist,           ONLY: position_nml, POSITIONED
+  USE mo_namelist,           ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                ONLY: p_pe, p_io
   USE mo_impl_constants,     ONLY: max_dom, max_char_length, itri, ihex
   USE mo_math_constants,     ONLY: rad2deg
@@ -60,7 +60,8 @@ MODULE mo_grid_nml
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC :: read_grid_namelist, fill_grid_nml_configure
+  PUBLIC :: read_grid_namelist
+ !PUBLIC :: fill_grid_nml_configure
   
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
@@ -103,7 +104,7 @@ MODULE mo_grid_nml
 
   INTEGER :: nml_no_of_dynamics_grids, nml_no_of_radiation_grids
 
-  NAMELIST /grid_ctl/ nml_nroot, nml_start_lev, nml_n_dom, nml_lfeedback, nml_lplane, &
+  NAMELIST /grid_nml/ nml_nroot, nml_start_lev, nml_n_dom, nml_lfeedback, nml_lplane, &
     & nml_corio_lat, nml_parent_id, nml_l_limited_area, nml_patch_weight, nml_lpatch0,&
     & nml_lredgrid_phys, nml_cell_type,                                  &
     & nml_dynamics_grid_filename,  nml_dynamics_parent_grid_id,         &
@@ -122,9 +123,10 @@ MODULE mo_grid_nml
  !!  - restructured grid_nml_setup
  !!  Leonidas Linardakis, MPI-M, 2011/7/7
  !!  - Restructuring the namelists
-  SUBROUTINE read_grid_namelist
-                                               
-    !local variable
+ !!
+  SUBROUTINE read_grid_namelist( filename )
+    
+    CHARACTER(LEN=*), INTENT(IN) :: filename                                           
     INTEGER  :: i_status, i, jg, jlev, funit
     CHARACTER(filename_max) :: patch_file, gridtype
     INTEGER  ::  nml_patch_level(max_dom)
@@ -132,6 +134,7 @@ MODULE mo_grid_nml
 
     !-----------------------------------------------------------------------
     ! clear grid filenames and hierarchy
+
     nml_no_of_dynamics_grids  = 0
     nml_no_of_radiation_grids = 0
     DO i = 1, max_dom
@@ -142,7 +145,7 @@ MODULE mo_grid_nml
     ENDDO
     
     !------------------------------------------------------------
-    ! 3.0 set up the default values for grid_ctl
+    ! 3.0 set up the default values for grid_nml
     !------------------------------------------------------------
 
     nml_nroot       = 2
@@ -168,20 +171,20 @@ MODULE mo_grid_nml
     ! by values in the previous integration.
     !----------------------------------------------------------------
     IF (lrestart) THEN
-      funit = open_and_restore_namelist('grid_ctl')
-      READ(funit,NML=grid_ctl)
+      funit = open_and_restore_namelist('grid_nml')
+      READ(funit,NML=grid_nml)
       CALL close_tmpfile(funit)
     END IF
 
     !------------------------------------------------------------
-    ! 4.0 Read the namelist
+    ! Read the namelist (done so far by all MPI processors)
     !------------------------------------------------------------
-    ! (done so far by all MPI processes)
-
-    CALL position_nml ('grid_ctl', status=i_status)
+    CALL open_nml(TRIM(filename))
+    CALL position_nml ('grid_nml', status=i_status)
     IF (i_status == POSITIONED) THEN
-      READ (nnml, grid_ctl)
+      READ (nnml, grid_nml)
     ENDIF
+    CALL close_nml
 
     ! convert degrees in radiant for the Coriolis latitude
     nml_corio_lat =  nml_corio_lat/rad2deg
@@ -269,11 +272,11 @@ MODULE mo_grid_nml
     ! Store the namelist for restart                                                              
     !-----------------------------------------------------                                        
     funit = open_tmpfile()
-    WRITE(funit,NML=grid_ctl)
-    CALL store_and_close_namelist(funit, 'grid_ctl')
+    WRITE(funit,NML=grid_nml)
+    CALL store_and_close_namelist(funit, 'grid_nml')
 
     ! write the contents of the namelist to an ASCII file
-    IF(p_pe == p_io) WRITE(nnml_output,nml=grid_ctl)
+    IF(p_pe == p_io) WRITE(nnml_output,nml=grid_nml)
 
     CALL fill_grid_nml_configure()
        

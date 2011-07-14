@@ -37,7 +37,7 @@ MODULE mo_parallel_nml
 
   USE mo_exception,          ONLY: message, finish
   USE mo_io_units,           ONLY: nnml, nnml_output
-  USE mo_namelist,           ONLY: position_nml, POSITIONED
+  USE mo_namelist,           ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_master_nml,         ONLY: lrestart
 !   USE mo_mpi,                ONLY: p_pe, p_io, p_nprocs, p_all_comm
   USE mo_mpi,                ONLY: my_process_is_stdio
@@ -49,10 +49,9 @@ MODULE mo_parallel_nml
   USE mo_parallel_configuration
 
   IMPLICIT NONE
-
   PRIVATE
-  ! Exported routines:
-  PUBLIC :: read_parallel_namelist, fill_parallel_nml_configure
+  PUBLIC :: read_parallel_namelist
+ !PUBLIC :: fill_parallel_nml_configure
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -136,23 +135,13 @@ MODULE mo_parallel_nml
   INTEGER :: nml_nproma    ! inner loop length/vector length
 
   
-  NAMELIST/parallel_ctl/ nml_n_ghost_rows, nml_division_method, &
-       &                 nml_p_test_run,   nml_l_test_openmp,   &
+  NAMELIST/parallel_nml/ nml_n_ghost_rows, nml_division_method, &
+                         nml_p_test_run,   nml_l_test_openmp,   &
                          nml_l_log_checks, nml_l_fast_sum,      &
                          nml_num_io_procs, nml_pio_type,        &
                          nml_itype_comm,   nml_iorder_sendrecv, &
                          nml_radiation_threads, nml_nh_stepping_threads, &
                          nml_nproma
-
-
-  
-  ! Exported variables:
-!   PUBLIC ::              nml_n_ghost_rows, nml_division_method, &
-!                          nml_p_test_run,   nml_l_test_openmp,   &
-!                          nml_l_log_checks, nml_l_fast_sum,      &
-!                          nml_num_io_procs, nml_pio_type,        &
-!                          nml_itype_comm,   nml_iorder_sendrecv, &
-!                          nml_nproma
        
   CONTAINS
   !>
@@ -161,8 +150,9 @@ MODULE mo_parallel_nml
   !! Initial version by Rainer Johanni, Nov 2009
   !! Adapted for I/O PEs, Rainer Johanni, Nov 2010
   !!
-  SUBROUTINE read_parallel_namelist
+  SUBROUTINE read_parallel_namelist( filename )
 
+    CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, my_color, peer_comm, p_error
     INTEGER :: funit
     CHARACTER(len=*), PARAMETER ::   &
@@ -239,36 +229,39 @@ MODULE mo_parallel_nml
     ! by values in the previous integration.
     !----------------------------------------------------------------
     IF (lrestart) THEN
-      funit = open_and_restore_namelist('parallel_ctl')
-      READ(funit,NML=parallel_ctl)
+      funit = open_and_restore_namelist('parallel_nml')
+      READ(funit,NML=parallel_nml)
       CALL close_tmpfile(funit)
     END IF
 
     !--------------------------------------------------------------------
     ! Read user's (new) specifications (Done so far by all MPI processes) 
     !--------------------------------------------------------------------
-    CALL position_nml ('parallel_ctl', STATUS=istat)
+    CALL open_nml(TRIM(filename))
+    CALL position_nml ('parallel_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, parallel_ctl)
+      READ (nnml, parallel_nml)
     END SELECT
+    CALL close_nml
     
     !-----------------------------------------------------
     ! Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
-    WRITE(funit,NML=parallel_ctl)
-    CALL store_and_close_namelist(funit, 'parallel_ctl')
+    WRITE(funit,NML=parallel_nml)
+    CALL store_and_close_namelist(funit, 'parallel_nml')
     
     !-----------------------------------------------------
     ! Write the final namelist to an ASCII file
-    IF (my_process_is_stdio()) WRITE(nnml_output,nml=parallel_ctl)
+    IF (my_process_is_stdio()) WRITE(nnml_output,nml=parallel_nml)
 
     CALL fill_parallel_nml_configure()
     
   END SUBROUTINE read_parallel_namelist
    
-   
+  !>
+  !! 
   SUBROUTINE fill_parallel_nml_configure
     !-----------------------------------------------------
     ! fill the parallel_configuration

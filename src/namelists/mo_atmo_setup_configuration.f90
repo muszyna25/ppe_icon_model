@@ -161,19 +161,21 @@ CONTAINS
 
     ! read namelists
 
+    CALL read_parallel_namelist(TRIM(namelist_filename))
+
+
     CALL read_time_namelist()
-    CALL read_parallel_namelist()  ! reads AND fills parallel configure
-    CALL read_grid_namelist()      ! reads AND fills grid configure
+    CALL read_grid_namelist(TRIM(namelist_filename))
     
     CALL read_run_namelist()
 
-    CALL read_interpol_namelist()
-    CALL read_gridref_namelist()
+    CALL read_interpol_namelist(TRIM(namelist_filename))
+    CALL read_gridref_namelist(TRIM(namelist_filename))
 
     CALL read_transport_namelist()
 
     CALL read_dynamics_namelist()
-    CALL read_ha_dyn_namelist()
+    CALL read_ha_dyn_namelist(TRIM(namelist_filename))
     CALL read_nonhydrostatic_namelist(TRIM(namelist_filename))
     CALL read_sleve_namelist(TRIM(namelist_filename))
 

@@ -404,7 +404,7 @@ INTEGER, POINTER :: grid_glob_index(:)
     !-------------------------------------------------------------------
     
 !    CALL grid_nml_setup
-    CALL read_grid_namelist
+!   CALL read_grid_namelist( )
     
     !-------------------------------------------------------------------
     ! 2b) patch import
