@@ -40,7 +40,7 @@ MODULE mo_dynamics_nml
   USE mo_impl_constants,     ONLY: UNKNOWN, LEAPFROG_SI, IHS_ATM_TEMP
   USE mo_physical_constants, ONLY: grav
   USE mo_io_units,           ONLY: nnml, nnml_output
-  USE mo_namelist,           ONLY: position_nml, positioned
+  USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: p_pe, p_io
 
   USE mo_master_nml,            ONLY: lrestart
@@ -101,8 +101,9 @@ MODULE mo_dynamics_nml
 CONTAINS
   !>
   !!
-  SUBROUTINE read_dynamics_namelist()
+  SUBROUTINE read_dynamics_namelist( filename )
 
+    CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
     CHARACTER(LEN=*),PARAMETER :: routine='mo_dynamics_nml:read_dynamics_namelist'
 
@@ -128,13 +129,15 @@ CONTAINS
     END IF
 
     !------------------------------------------------------------------------
-    ! Read user's (new) specifications. (Done so far by all MPI processes)
+    ! Read user's (new) specifications. (Done so far by all MPI processors)
     !------------------------------------------------------------------------
+    CALL open_nml(TRIM(filename))
     CALL position_nml ('dynamics_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, dynamics_nml)
     END SELECT
+    CALL close_nml
 
     !-----------------------------------------------------
     ! Sanity check
@@ -179,33 +182,7 @@ CONTAINS
 
     INTEGER, INTENT(IN) :: i_ndom
  
- !  INTEGER :: jdom
-
- !  CHARACTER(len=*),PARAMETER ::             &
- !           & routine = 'mo_dynamics_nml:dynamics_setup'
- 
-   !CHARACTER(len=MAX_CHAR_LENGTH) :: string
-
-    !------------------------------------------------------------
-    ! 4. Check the consistency of the parameters
-    !------------------------------------------------------------
-    ! for the time stepping scheme
-  
-  ! IF((itime_scheme==tracer_only).AND.(.NOT.ltransport)) THEN
-  !   WRITE(string,'(A,i2,A)') &
-  !   'itime_scheme set to ', tracer_only, 'but ltransport to .FALSE.'
-  !   CALL finish( TRIM(routine),TRIM(string))
-  ! ENDIF
-  
-  ! IF(ltransport .AND. ntracer <= 0 .AND. iforcing/=INWP) THEN
-  !   CALL finish( TRIM(routine),'tracer advection not possible for ntracer=0')
-  !   ! [for nwp forcing ntracer setting is treated in setup_transport]
-  ! ENDIF
-  
-  ! IF (global_cell_type/=3) THEN
-  !   idiv_method = 1
-  ! ENDIF
-  
   END SUBROUTINE dynamics_nml_setup
   !-------------
+
 END MODULE mo_dynamics_nml

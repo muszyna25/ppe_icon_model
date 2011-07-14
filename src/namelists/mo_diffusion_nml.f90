@@ -5,9 +5,9 @@
 !!   Revision History in mo_global_variables.f90 (r3611)
 !!   Modification by Constantin Junk (2011-02-24)
 !!     - added new module mo_diffusion_nml
-!!     - separated declaration of namelist dynamics_ctl from 
+!!     - separated declaration of namelist dynamics_nml from 
 !!       mo_global_variables and moved it mo_io_nml
-!!     - separated reading of diffusion_ctl from subroutine
+!!     - separated reading of diffusion_nml from subroutine
 !!       setup_dynamics and moved it to the new subroutine
 !!       setup_diffusion
 !!
@@ -46,7 +46,7 @@ MODULE mo_diffusion_nml
   USE mo_impl_constants,      ONLY: max_char_length, max_dom, SUCCESS
   USE mo_physical_constants,  ONLY: grav
   USE mo_io_units,            ONLY: nnml, nnml_output
-  USE mo_namelist,            ONLY: position_nml, positioned
+  USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_master_nml,          ONLY: lrestart
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_diffusion_config,    ONLY: diffusion_config
@@ -114,7 +114,7 @@ MODULE mo_diffusion_nml
     & nml_lhdiff_vn      ! if .TRUE., apply horizontal diffusion to momentum.
 
 
-  NAMELIST/diffusion_ctl/ nml_hdiff_order, nml_hdiff_efdt_ratio,             &
+  NAMELIST/diffusion_nml/ nml_hdiff_order, nml_hdiff_efdt_ratio,             &
     &                nml_hdiff_smag_fac, nml_lhdiff_temp, nml_lhdiff_vn,     &
     &                nml_hdiff_tv_ratio, nml_hdiff_multfac, nml_k2_klev_max, &
     &                nml_k2_pres_max, nml_hdiff_min_efdt_ratio
@@ -253,11 +253,11 @@ MODULE mo_diffusion_nml
     ! Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
-    WRITE(funit,NML=diffusion_ctl)
-    CALL store_and_close_namelist(funit, 'diffusion_ctl')
+    WRITE(funit,NML=diffusion_nml)
+    CALL store_and_close_namelist(funit, 'diffusion_nml')
 
     ! Write the contents of the namelist to an ASCII file
-    IF(p_pe == p_io) WRITE(nnml_output,nml=diffusion_ctl)
+    IF(p_pe == p_io) WRITE(nnml_output,nml=diffusion_nml)
 
     !-----------------------------------------------------------------------
     ! calculate diffusion coefficient
@@ -303,13 +303,13 @@ MODULE mo_diffusion_nml
   !! @par Revision History
   !!  by Daniel Reinert, DWD (2011-06-07)
   !!
-  SUBROUTINE read_diffusion_namelist
-    !
+  SUBROUTINE read_diffusion_namelist( filename )
+
+    CHARACTER(LEN=*), INTENT(IN) :: filename 
     INTEGER :: istat, funit
     INTEGER :: jg           ! loop index
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_diffusion_nml: read_diffusion_namelist'
+    CHARACTER(len=*), PARAMETER ::  routine = 'mo_diffusion_nml: read_diffusion_namelist'
 
     !-----------------------
     ! 1. default settings
@@ -327,28 +327,26 @@ MODULE mo_diffusion_nml
      nml_k2_pres_max       = -99.0_wp                                                    
      nml_k2_klev_max       = 0
 
-
-
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
     !------------------------------------------------------------------
     IF (lrestart) THEN
-      funit = open_and_restore_namelist('diffusion_ctl')
-      READ(funit,NML=diffusion_ctl)
+      funit = open_and_restore_namelist('diffusion_nml')
+      READ(funit,NML=diffusion_nml)
       CALL close_tmpfile(funit)
     END IF
 
-
-    !--------------------------------------------------------------------
-    ! 3. Read user's (new) specifications (Done so far by all MPI processes)
-    !--------------------------------------------------------------------
-    CALL position_nml ('diffusion_ctl', status=istat)
+    !------------------------------------------------------------------------
+    ! 3. Read user's (new) specifications (Done so far by all MPI processors)
+    !------------------------------------------------------------------------
+    CALL open_nml(TRIM(filename))
+    CALL position_nml ('diffusion_nml', status=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, diffusion_ctl)
+      READ (nnml, diffusion_nml)
     END SELECT
-
+    CALL close_nml
 
     !----------------------------------------------------
     ! 4. Sanity check
@@ -365,11 +363,9 @@ MODULE mo_diffusion_nml
         & 'Choose from -1, 2, 3, 4, 5, 24, and 42.')
     END SELECT
 
-
     IF (nml_hdiff_efdt_ratio<=0._wp) THEN
       CALL message(TRIM(routine),'No horizontal background diffusion is used')
     ENDIF
-
 
     !----------------------------------------------------
     ! 5. Fill the configuration state
@@ -388,19 +384,16 @@ MODULE mo_diffusion_nml
       diffusion_config(jg)%hdiff_min_efdt_ratio = nml_hdiff_min_efdt_ratio
     ENDDO
 
-
-
     !-----------------------------------------------------
     ! 6. Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
-    WRITE(funit,NML=diffusion_ctl)                    
-    CALL store_and_close_namelist(funit,'diffusion_ctl') 
-
+    WRITE(funit,NML=diffusion_nml)                    
+    CALL store_and_close_namelist(funit,'diffusion_nml') 
 
     ! 7. write the contents of the namelist to an ASCII file
     !
-    IF(p_pe == p_io) WRITE(nnml_output,nml=diffusion_ctl)
+    IF(p_pe == p_io) WRITE(nnml_output,nml=diffusion_nml)
 
 
   END SUBROUTINE read_diffusion_namelist

@@ -191,11 +191,11 @@ CONTAINS
     ! Store the namelist for restart                                                              
     !-----------------------------------------------------                                        
    !funit = open_tmpfile()                                                                        
-   !WRITE(funit,NML=grid_ctl)                                                                     
-   !CALL store_and_close_namelist(funit, 'grid_ctl')
+   !WRITE(funit,NML=grid_nml)                                                                     
+   !CALL store_and_close_namelist(funit, 'grid_nml')
 
     ! write the contents of the namelist to an ASCII file
-!     IF(p_pe == p_io) WRITE(nnml_output,nml=grid_ctl)
+!     IF(p_pe == p_io) WRITE(nnml_output,nml=grid_nml)
 
     
   END SUBROUTINE check_grid_configuration

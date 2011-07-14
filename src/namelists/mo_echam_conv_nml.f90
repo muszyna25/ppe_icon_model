@@ -35,10 +35,10 @@ MODULE mo_echam_conv_nml
 
   USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
+  USE mo_impl_constants,      ONLY: SUCCESS
   USE mo_exception,           ONLY: print_value,message,message_text,finish
   USE mo_io_units,            ONLY: nnml
-  USE mo_namelist,            ONLY: position_nml, POSITIONED
+  USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_master_nml,          ONLY: lrestart
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &
                                   & open_and_restore_namelist, close_tmpfile
@@ -84,10 +84,11 @@ CONTAINS
   !>
   !! Read the convection namelist
   !!
-  SUBROUTINE read_echam_conv_namelist()
+  SUBROUTINE read_echam_conv_namelist( filename )
 
+    CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER  :: ist, funit
-    CHARACTER(LEN=MAX_CHAR_LENGTH),PARAMETER :: &
+    CHARACTER(LEN=*),PARAMETER :: &
     routine = 'mo_echam_conv_nml:read_echam_conv_namelist'
 
     !------------------------------------------------------------
@@ -122,11 +123,13 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! Read user's (new) specifications. (Done so far by all MPI processors)
     !-------------------------------------------------------------------------
+    CALL open_nml(TRIM(filename))
     CALL position_nml('echam_conv_nml',STATUS=ist)
     SELECT CASE (ist)
     CASE (POSITIONED)
       READ (nnml, echam_conv_nml)
     END SELECT
+    CALL close_nml
 
     !------------------------------------------------------------
     ! Sanity check

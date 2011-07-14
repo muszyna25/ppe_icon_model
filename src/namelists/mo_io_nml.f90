@@ -1,14 +1,7 @@
 !>
 !! Contains the setup of the variables for io.
-!!
 !!        
 !! @par Revision History
-!!   Revision History in mo_global_variables.f90 (r3592)
-!!   Modification by Constantin Junk (2011-02-24)
-!!     - added new module mo_io_nml
-!!     - separated declaration of namelist io_ctl from 
-!!       mo_global_variables and moved it mo_io_nml
-!!     - minor changes to variable declaration section
 !!
 !! @par Copyright
 !! 2002-2006 by DWD and MPI-M
@@ -55,7 +48,7 @@ MODULE mo_io_nml
   USE mo_datetime,           ONLY: t_datetime, proleptic_gregorian,          &
     &                              date_to_time, add_time, print_datetime_all
   USE mo_io_units,           ONLY: nnml, nnml_output
-  USE mo_namelist,           ONLY: position_nml, positioned
+  USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: p_pe, p_io
   USE mo_master_nml,         ONLY: lrestart
   USE mo_io_config           !,          ONLY: io_config
@@ -65,7 +58,6 @@ MODULE mo_io_nml
   IMPLICIT NONE
   PUBLIC :: read_io_namelist, io_nml_setup 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
 
   ! ------------------------------------------------------------------------
   ! 1.0 Namelist variables and auxiliary parameters
@@ -139,14 +131,8 @@ MODULE mo_io_nml
 !!     - renamed subroutine setup_io to io_nml_setup
 !!     - moved subroutine to new module mo_io_nml
 !!
-SUBROUTINE io_nml_setup
+  SUBROUTINE io_nml_setup
 
-  INTEGER :: istat, funit
-
-  !------------------------------------------------------------
-  ! 5.0 check the consistency of the parameters
-  !------------------------------------------------------------
-  !
  
   END SUBROUTINE io_nml_setup
 
@@ -166,8 +152,9 @@ SUBROUTINE io_nml_setup
   !! @par Revision History
   !!  by Daniel Reinert, DWD (2011-06-07)
   !!
-  SUBROUTINE read_io_namelist
-    !
+  SUBROUTINE read_io_namelist( filename )
+
+    CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
     INTEGER :: jg           ! loop index
 
@@ -213,11 +200,13 @@ SUBROUTINE io_nml_setup
     !-------------------------------------------------------------------------
     ! 3. Read user's (new) specifications (Done so far by all MPI processors)
     !-------------------------------------------------------------------------
+    CALL open_nml(TRIM(filename))
     CALL position_nml ('io_nml', status=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, io_nml)
     END SELECT
+    CALL close_nml
 
     !----------------------------------------------------
     ! 4. Fill the configuration state
@@ -278,6 +267,5 @@ SUBROUTINE io_nml_setup
     IF(p_pe == p_io) WRITE(nnml_output,nml=io_nml)
 
   END SUBROUTINE read_io_namelist
-
 
 END MODULE mo_io_nml

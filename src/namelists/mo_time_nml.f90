@@ -35,23 +35,23 @@
 MODULE mo_time_nml
 
   USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: max_char_length
   USE mo_datetime,           ONLY: proleptic_gregorian, t_datetime, &
-    &                              date_to_time, string_to_datetime
+                                   date_to_time, string_to_datetime
   USE mo_time_config,        ONLY: time_config
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_master_nml,         ONLY: lrestart
-  USE mo_namelist,           ONLY: position_nml, positioned
+  USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: p_pe, p_io
+
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
-  USE mo_io_restart_namelist,ONLY: open_and_restore_namelist, close_tmpfile,&
-                                  & open_tmpfile, store_and_close_namelist
+  USE mo_io_restart_namelist,   ONLY: open_and_restore_namelist, close_tmpfile,&
+                                    & open_tmpfile, store_and_close_namelist
 
   IMPLICIT NONE
+  PRIVATE
+  PUBLIC :: read_time_namelist
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
-
-  PUBLIC :: read_time_namelist
 
   ! time information
   ! ----------------
@@ -64,7 +64,7 @@ MODULE mo_time_nml
 
   CHARACTER(len=32) :: nml_ini_datetime, nml_end_datetime
 
-  NAMELIST /time_ctl/ nml_calendar,                  &
+  NAMELIST /time_nml/ nml_calendar,                  &
     &                 nml_ini_datetime, nml_end_datetime,&
     &                 nml_dt_restart
 
@@ -75,7 +75,7 @@ CONTAINS
   !!
   !!  Initialization of variables that contain general information
   !!  about the model run. The configuration is read from
-  !!  namelist 'time_ctl'.
+  !!  namelist 'time_nml'.
   !!
   !! @par Revision History
   !!  Reading of the namelist and checking of the validity were
@@ -90,19 +90,19 @@ CONTAINS
   !!  Modification by Constantin Junk, MPI-M (2010-02-22)
   !!  - changes to consistency checks
   !!
-  SUBROUTINE read_time_namelist
-                                               
+  SUBROUTINE read_time_namelist( filename )
+
+   CHARACTER(LEN=*), INTENT(IN) :: filename
    INTEGER  :: istat, funit,calendar_old
    CHARACTER(len=32) :: ini_datetime_old
    INTEGER  :: restart_year, restart_month, &
               & restart_day, restart_hour, restart_minute, &
               & restart_second
 
-   CHARACTER(len=max_char_length), PARAMETER ::   &
-            &  routine = 'mo_time_nml/time_nml_setup'
+   CHARACTER(len=*), PARAMETER ::  routine = 'mo_time_nml:read_time_namelist'
 
    !------------------------------------------------------------------------
-   !DEFAULT VALUES!
+   ! Default values
    !------------------------------------------------------------------------
 
    ! initial date and time
@@ -127,8 +127,8 @@ CONTAINS
  
    ! 2.1 Overwrite the defaults above by values in the restart file
 
-      funit = open_and_restore_namelist('time_ctl')
-      READ(funit,NML=time_ctl)
+      funit = open_and_restore_namelist('time_nml')
+      READ(funit,NML=time_nml)
       CALL close_tmpfile(funit) 
 
       calendar_old      = nml_calendar
@@ -143,17 +143,18 @@ CONTAINS
       CALL get_restart_attribute( 'current_minute', restart_minute )
       CALL get_restart_attribute( 'current_second', restart_second )
 
-
   END IF
 
    !------------------------------------------------------------------------
    !  Read user's (new) specifications. (Done so far by all MPI processes)
    !------------------------------------------------------------------------
-    CALL position_nml('time_ctl', STATUS=istat)
+    CALL open_nml(TRIM(filename))
+    CALL position_nml('time_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, time_ctl)
+      READ (nnml, time_nml)
     END SELECT
+    CALL close_nml
 
     !----------------------------------------------------
     ! 4. Fill the configuration state
@@ -170,7 +171,6 @@ CONTAINS
       ! Model time at which the previous run stopped is thus not relevant. 
       ! Simulation will start from the user-specified initial date/time,
       ! which is also the current model date/time.
-
 
       IF (time_config%calendar  /=calendar_old   .OR.      &
            ini_datetime_old /= nml_ini_datetime) THEN
@@ -203,11 +203,11 @@ CONTAINS
     ! Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
-    WRITE(funit,NML=time_ctl)
-    CALL store_and_close_namelist(funit, 'time_ctl')
+    WRITE(funit,NML=time_nml)
+    CALL store_and_close_namelist(funit, 'time_nml')
 
     ! write the contents of the namelist to an ASCII file
-    IF(p_pe == p_io) WRITE(nnml_output,nml=time_ctl)
+    IF(p_pe == p_io) WRITE(nnml_output,nml=time_nml)
 
  END SUBROUTINE read_time_namelist
 

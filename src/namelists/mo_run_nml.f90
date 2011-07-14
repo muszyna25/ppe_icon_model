@@ -38,7 +38,7 @@ MODULE mo_run_nml
   USE mo_impl_constants, ONLY: max_dom, max_ntracer, inoforcing, IHELDSUAREZ, &
                                INWP,IECHAM,ILDF_ECHAM,IMPIOM,INOFORCING,ILDF_DRY
   USE mo_io_units,       ONLY: nnml, nnml_output
-  USE mo_namelist,       ONLY: position_nml, positioned
+  USE mo_namelist,       ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,            ONLY: p_pe, p_io
   USE mo_master_nml,     ONLY: lrestart
 
@@ -112,10 +112,10 @@ MODULE mo_run_nml
 CONTAINS
   !>
   !!
-  SUBROUTINE read_run_namelist
+  SUBROUTINE read_run_namelist( filename )
 
+    CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
-    INTEGER :: jg
     CHARACTER(len=*), PARAMETER :: routine = 'mo_run_nml:read_run_namelist'
 
     !------------------------------------------------------------
@@ -162,11 +162,13 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! Read user's (new) specifications. (Done so far by all MPI processors)
     !-------------------------------------------------------------------------
+    CALL open_nml(TRIM(filename))
     CALL position_nml('run_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, run_nml)
     END SELECT
+    CALL close_nml
 
     !----------------------------------------------------
     ! Sanity check

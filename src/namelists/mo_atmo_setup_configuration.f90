@@ -161,37 +161,35 @@ CONTAINS
 
     ! read namelists
 
+    CALL read_time_namelist(TRIM(namelist_filename))
     CALL read_parallel_namelist(TRIM(namelist_filename))
 
+    CALL read_run_namelist(TRIM(namelist_filename))
 
-    CALL read_time_namelist()
     CALL read_grid_namelist(TRIM(namelist_filename))
-    
-    CALL read_run_namelist()
-
     CALL read_interpol_namelist(TRIM(namelist_filename))
     CALL read_gridref_namelist(TRIM(namelist_filename))
 
-    CALL read_transport_namelist()
+    CALL read_transport_namelist(TRIM(namelist_filename))
 
-    CALL read_dynamics_namelist()
+    CALL read_dynamics_namelist(TRIM(namelist_filename))
     CALL read_ha_dyn_namelist(TRIM(namelist_filename))
     CALL read_nonhydrostatic_namelist(TRIM(namelist_filename))
     CALL read_sleve_namelist(TRIM(namelist_filename))
 
-    CALL read_diffusion_namelist()
+    CALL read_diffusion_namelist(TRIM(namelist_filename))
 
     CALL read_radiation_namelist(TRIM(namelist_filename))
-    CALL read_echam_phy_namelist()
     CALL read_vdiff_namelist(TRIM(namelist_filename))
-    CALL read_echam_conv_namelist()
-    CALL read_gw_hines_namelist()
+    CALL read_echam_conv_namelist(TRIM(namelist_filename))
+    CALL read_gw_hines_namelist(TRIM(namelist_filename))
     CALL read_nwp_lnd_namelist(TRIM(namelist_filename))
     CALL read_nwp_phy_namelist(TRIM(namelist_filename))
+    CALL read_echam_phy_namelist(TRIM(namelist_filename))
 
     CALL read_extpar_namelist(TRIM(namelist_filename))
 
-    CALL read_io_namelist()
+    CALL read_io_namelist(TRIM(namelist_filename))
       
     ! close namelist file
     CALL close_nml

@@ -59,7 +59,7 @@ MODULE mo_advection_nml
     &                               ino_flx, izero_grad, iparent_flx,       &
     &                               inoforcing, iheldsuarez, iecham, inwp,  &
     &                               ildf_dry, ildf_echam
-  USE mo_namelist,            ONLY: position_nml, POSITIONED
+  USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_radiation_nml,       ONLY: irad_o3
   USE mo_nonhydrostatic_nml,  ONLY: l_open_ubc, kstart_moist, kstart_qv
@@ -69,15 +69,22 @@ MODULE mo_advection_nml
 
   
   IMPLICIT NONE
-
   PRIVATE
+  PUBLIC :: transport_nml_setup, setup_transport, read_transport_namelist
+
+  PUBLIC :: iadv_slev, iubc_adv, cSTR, coeff_grid, iup, imiura, imiura3,   &
+    &       inol, islopel_sm, islopel_m, ifluxl_m, ifluxl_sm, iup_v,       &
+    &       imuscl_v, imuscl_vcfl, ippm_v, ippm_vcfl, inol_v, islopel_vsm, & 
+    &       islopel_vm, ifluxl_vpd, t_compute, t_cleanup, lcompute,        &
+    &       lcleanup, iup3, ino_flx, izero_grad, iparent_flx
+
+  PUBLIC :: shape_func, zeta, eta, wgt_zeta, wgt_eta
+
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-
-
   !----------------------------------!
-  ! transport_ctl namelist variables !
+  ! transport_nml namelist variables !
   !----------------------------------!
 
   CHARACTER(len=MAX_CHAR_LENGTH) :: &!< list of tracers to initialize
@@ -136,7 +143,7 @@ MODULE mo_advection_nml
                                   !< upstr_beta in non-hydrostatic namelist
 
 
-  NAMELIST/transport_ctl/ nml_ihadv_tracer, nml_ivadv_tracer,                   &
+  NAMELIST/transport_nml/ nml_ihadv_tracer, nml_ivadv_tracer,                   &
     &                     nml_lvadv_tracer, nml_itype_vlimit, nml_ivcfl_max,    &
     &                     nml_itype_hlimit, nml_iord_backtraj, nml_lclip_tracer,&
     &                     nml_ctracer_list, nml_igrad_c_miura, nml_lstrang,     &
@@ -197,18 +204,6 @@ MODULE mo_advection_nml
   REAL(wp), POINTER ::  &
     &  ptr_delp_mc_new(:,:,:) => NULL() !< pointer to new layer thickness
                                         !< at cell center
-
-
-  PUBLIC :: iadv_slev, iubc_adv, cSTR, coeff_grid, iup, imiura, imiura3,   &
-    &       inol, islopel_sm, islopel_m, ifluxl_m, ifluxl_sm, iup_v,       &
-    &       imuscl_v, imuscl_vcfl, ippm_v, ippm_vcfl, inol_v, islopel_vsm, & 
-    &       islopel_vm, ifluxl_vpd, t_compute, t_cleanup, lcompute,        &
-    &       lcleanup, iup3, ino_flx, izero_grad, iparent_flx
-
-  PUBLIC :: shape_func, zeta, eta, wgt_zeta, wgt_eta
-
-  PUBLIC :: transport_nml_setup, setup_transport, read_transport_namelist
-
 
 
 CONTAINS
@@ -286,18 +281,18 @@ CONTAINS
     ! by values used in the previous integration.
     !----------------------------------------------------------------
     IF (lrestart) THEN
-      funit = open_and_restore_namelist('transport_ctl')
-      READ(funit,NML=transport_ctl)
+      funit = open_and_restore_namelist('transport_nml')
+      READ(funit,NML=transport_nml)
       CALL close_tmpfile(funit)
     END IF
 
     !--------------------------------------------------------------------
     ! Read user's (new) specifications (Done so far by all MPI processes)
     !--------------------------------------------------------------------
-    CALL position_nml ('transport_ctl', STATUS=istat)
+    CALL position_nml ('transport_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, transport_ctl)
+      READ (nnml, transport_nml)
     END SELECT
 
     !
@@ -478,12 +473,12 @@ CONTAINS
     ! Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
-    WRITE(funit,NML=transport_ctl)                                                             
-    CALL store_and_close_namelist(funit, 'transport_ctl')                                      
+    WRITE(funit,NML=transport_nml)                                                             
+    CALL store_and_close_namelist(funit, 'transport_nml')                                      
 
     ! 4. write the contents of the namelist to an ASCII file
     !
-    IF(p_pe == p_io) WRITE(nnml_output,nml=transport_ctl)
+    IF(p_pe == p_io) WRITE(nnml_output,nml=transport_nml)
 
 
   END SUBROUTINE transport_nml_setup
@@ -741,21 +736,20 @@ CONTAINS
   !! @par Revision History
   !!  by Daniel Reinert, DWD (2011-05-07)
   !!
-  SUBROUTINE read_transport_namelist
-    !
+  SUBROUTINE read_transport_namelist( filename )
+
+    CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
     INTEGER :: jg          !< patch loop index
     INTEGER :: jt          !< tracer loop index
     INTEGER :: z_nogo(2)   !< for consistency check
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_advection_nml: read_transport_nml'
 
-    !-----------------------------------------------------------------------
-
-    !-----------------------!
-    ! 1. default settings   !
-    !-----------------------!
+    !-----------------------
+    ! 1. default settings   
+    !-----------------------
     nml_ctracer_list    = ''
     nml_ihadv_tracer(:) = imiura    ! miura horizontal advection scheme
     nml_itype_hlimit(:) = ifluxl_m  ! monotonous flux limiter
@@ -795,23 +789,21 @@ CONTAINS
     !    by values used in the previous integration.
     !------------------------------------------------------------------
     IF (lrestart) THEN
-      funit = open_and_restore_namelist('transport_ctl')
-      READ(funit,NML=transport_ctl)
+      funit = open_and_restore_namelist('transport_nml')
+      READ(funit,NML=transport_nml)
       CALL close_tmpfile(funit)
     END IF
-
-
 
     !--------------------------------------------------------------------
     ! 3. Read user's (new) specifications (Done so far by all MPI processes)
     !--------------------------------------------------------------------
-    CALL position_nml ('transport_ctl', STATUS=istat)
+    CALL open_nml(TRIM(filename))
+    CALL position_nml ('transport_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, transport_ctl)
+      READ (nnml, transport_nml)
     END SELECT
-
-
+    CALL close_nml
 
     !----------------------------------------------------
     ! 4. Sanity check
@@ -886,13 +878,13 @@ CONTAINS
     ! 6. Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
-    WRITE(funit,NML=transport_ctl)                    
-    CALL store_and_close_namelist(funit, 'transport_ctl')             
+    WRITE(funit,NML=transport_nml)                    
+    CALL store_and_close_namelist(funit, 'transport_nml')             
 
 
     ! 7. write the contents of the namelist to an ASCII file
     !
-    IF(p_pe == p_io) WRITE(nnml_output,nml=transport_ctl)
+    IF(p_pe == p_io) WRITE(nnml_output,nml=transport_nml)
 
 
   END SUBROUTINE read_transport_namelist

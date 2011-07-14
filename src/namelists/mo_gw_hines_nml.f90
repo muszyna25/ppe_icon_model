@@ -41,7 +41,7 @@ MODULE mo_gw_hines_nml
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_exception,           ONLY: message, print_value
-  USE mo_namelist,            ONLY: position_nml, POSITIONED
+  USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_master_nml,          ONLY: lrestart
   USE mo_gw_hines_config,     ONLY: gw_hines_config
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &     
@@ -51,11 +51,9 @@ MODULE mo_gw_hines_nml
   IMPLICIT NONE
 
   PRIVATE
-
+  PUBLIC :: read_gw_hines_namelist
   PUBLIC :: gw_hines_nml_setup      !< setup subroutine for Hines gravity wave parameterization
   PUBLIC :: gw_hines_nml            !< namelist for Hines gravity wave parameterization
-  PUBLIC :: read_gw_hines_namelist
-
 
   PUBLIC :: lheatcal, emiss_lev, rmscon, kstar, m_min
 !!$  PUBLIC :: lfront, rms_front, front_thres
@@ -115,56 +113,6 @@ CONTAINS
   !!   - renamed setup_vdiff to echam_vdiff_nml_setup
   !!
   SUBROUTINE gw_hines_nml_setup
-
-    INTEGER :: ist, funit
-
-    lheatcal = .TRUE.
-
-    emiss_lev = 10          ! is correct for L31 and L47
-    rmscon    = 1.0_wp      ! default value used in ECHAM5
-    kstar     = 5.0e-5_wp   ! = 2*pi/(126000 m)
-    m_min     = 0.0_wp
-
-    !----------------------------------------------------------------
-    ! If this is a resumed integration, overwrite the defaults above
-    ! by values used in the previous integration.
-    !----------------------------------------------------------------
-    IF (lrestart) THEN
-      funit = open_and_restore_namelist('gw_hines_nml')
-      READ(funit,NML=gw_hines_nml)
-      CALL close_tmpfile(funit)
-    END IF
-                                                                                          
-    !--------------------------------------------------------------------                 
-    ! Read user's (new) specifications (Done so far by all MPI processes)                 
-    !--------------------------------------------------------------------
-    CALL position_nml('gw_hines_nml',STATUS=ist)
-    SELECT CASE (ist)
-    CASE (POSITIONED)
-      READ (nnml, gw_hines_nml)
-    END SELECT
-
-    ! Check validity; send values to stdout
-
-    CALL message('','')
-    CALL message('','------- namelist gw_hines_nml --------')
-
-    CALL print_value(' lheatcal  ',lheatcal )
-    CALL print_value(' emiss_lev ',emiss_lev)
-    CALL print_value(' rmscon    ',rmscon   )
-    CALL print_value(' kstar     ',kstar    )
-    CALL print_value(' m_min     ',m_min    )
-
-    CALL message('','--------------------------------------')
-    CALL message('','')
-
-    !-----------------------------------------------------                                
-    ! Store the namelist for restart                                                      
-    !-----------------------------------------------------                                
-    funit = open_tmpfile()                                                                
-    WRITE(funit,NML=gw_hines_nml)                                                             
-    CALL store_and_close_namelist(funit, 'gw_hines_nml')                                      
-
   END SUBROUTINE gw_hines_nml_setup
 
   !-------------------------------------------------------------------------
@@ -185,26 +133,23 @@ CONTAINS
   !! @par Revision History
   !!  by Daniel Reinert, DWD (2011-06-07)
   !!
-  SUBROUTINE read_gw_hines_namelist
-    !
+  SUBROUTINE read_gw_hines_namelist( filename )
+
+    CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
-    INTEGER :: jg           ! loop index
+    INTEGER :: jg 
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_gw_hines_nml: read_gw_hines_namelist'
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines_nml: read_gw_hines_namelist'
 
-    !-----------------------------------------------------------------------
-
-    !-----------------------!
-    ! 1. default settings   !
-    !-----------------------!
+    !-----------------------
+    ! 1. default settings   
+    !-----------------------
     lheatcal = .TRUE.
 
     emiss_lev = 10          ! is correct for L31 and L47
     rmscon    = 1.0_wp      ! default value used in ECHAM5
     kstar     = 5.0e-5_wp   ! = 2*pi/(126000 m)
     m_min     = 0.0_wp
-
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -216,16 +161,16 @@ CONTAINS
       CALL close_tmpfile(funit)
     END IF
 
-
     !--------------------------------------------------------------------
     ! 3. Read user's (new) specifications (Done so far by all MPI processes)
     !--------------------------------------------------------------------
+    CALL open_nml(TRIM(filename))
     CALL position_nml ('gw_hines_nml', status=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, gw_hines_nml)
     END SELECT
-
+    CALL close_nml
 
     !----------------------------------------------------
     ! 4. Fill the configuration state
@@ -245,7 +190,6 @@ CONTAINS
     funit = open_tmpfile()
     WRITE(funit,NML=gw_hines_nml)                    
     CALL store_and_close_namelist(funit, 'gw_hines_nml') 
-
 
     ! 6. write the contents of the namelist to an ASCII file
     !

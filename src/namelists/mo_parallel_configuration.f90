@@ -197,7 +197,7 @@ CONTAINS
     ! check n_ghost_rows
     IF (n_ghost_rows<1) THEN
       CALL finish(method_name, &
-          & 'n_ghost_rows<1 in parallel_ctl namelist is not allowed')
+          & 'n_ghost_rows<1 in parallel_nml namelist is not allowed')
     END IF
 
     ! check division_method
@@ -209,11 +209,11 @@ CONTAINS
     ! ok
 #else
       CALL finish(method_name, &
-        & 'division_method=div_metis=2 in parallel_ctl namelist is not allowed')
+        & 'division_method=div_metis=2 in parallel_nml namelist is not allowed')
 #endif
     CASE DEFAULT
       CALL finish(method_name, &
-        & 'value of division_method in parallel_ctl namelist is not allowed')
+        & 'value of division_method in parallel_nml namelist is not allowed')
     END SELECT
     ! A run on 1 PE is never a verification run,
     ! correct this if the user should set it differently

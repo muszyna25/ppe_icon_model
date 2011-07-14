@@ -5,7 +5,7 @@
 !! @par Revision History
 !!   Revision History in mo_global_variables.f90 (r3814)
 !!   Modification by Constantin Junk (2010-03-18)
-!!     - separated namelist mpiom_phy_ctl, ocean_ctl und octst_ctl
+!!     - separated namelist mpiom_phy_nml, ocean_nml und octst_nml
 !!       from mo_global_variables
 !!     - therefore, added mo_ocean_nml module
 !!
@@ -63,7 +63,7 @@ MODULE mo_ocean_nml
 
 
   ! ------------------------------------------------------------------------
-  ! 1.0 Namelist variables and auxiliary parameters for mpiom_phy_ctl
+  ! 1.0 Namelist variables and auxiliary parameters for mpiom_phy_nml
   !     mpiom forcing (right hand side)
   ! ------------------------------------------------------------------------
 
@@ -72,11 +72,11 @@ MODULE mo_ocean_nml
   LOGICAL  :: lmpiom_convection
   LOGICAL  :: lmpiom_gentmcwill
 
-  NAMELIST/mpiom_phy_ctl/ lmpiom_radiation, lmpiom_convection, lmpiom_gentmcwill
+  NAMELIST/mpiom_phy_nml/ lmpiom_radiation, lmpiom_convection, lmpiom_gentmcwill
 
 
   ! ------------------------------------------------------------------------
-  ! 2.0 Namelist variables and auxiliary parameters for ocean_ctl
+  ! 2.0 Namelist variables and auxiliary parameters for ocean_nml
   ! ------------------------------------------------------------------------
 
   INTEGER  :: n_zlev        ! number of ocean levels
@@ -172,7 +172,7 @@ MODULE mo_ocean_nml
   LOGICAL  :: lviscous              =  .TRUE.  ! include friction or not
   LOGICAL  :: l_inverse_flip_flop   = .FALSE.  ! true=complete discrete scalarproduct (slow)
                                                ! false=use a shortcut (faster)
-  NAMELIST/ocean_ctl/ n_zlev, dzlev_m, idisc_scheme,                       &
+  NAMELIST/ocean_nml/ n_zlev, dzlev_m, idisc_scheme,                       &
     &                 iswm_oce, i_oce_stepping, iforc_oce, itestcase_oce,  &
     &                 i_bc_veloc_lateral,i_bc_veloc_top,i_bc_veloc_bot,    &
     &                 ab_const, ab_beta, ab_gam, solver_tolerance,         &
@@ -187,7 +187,7 @@ MODULE mo_ocean_nml
 
 
   ! ------------------------------------------------------------------------
-  ! 3.0 Namelist variables and auxiliary parameters for octst_ctl
+  ! 3.0 Namelist variables and auxiliary parameters for octst_nml
   !     This namelists mainly exists during the development of the ocean model
   ! ------------------------------------------------------------------------
 
@@ -214,7 +214,7 @@ MODULE mo_ocean_nml
 
   CHARACTER(len=3) :: str_proc_tst(10)   ! namelist string of source processes to print
 
-  NAMELIST/octst_ctl/   i_oct_blk, i_oct_idx, i_oct_ilv,     &
+  NAMELIST/octst_nml/   i_oct_blk, i_oct_idx, i_oct_ilv,     &
     &                   i_ocv_blk, i_ocv_idx, i_ocv_ilv,     &
     &                   i_dbg_oce, i_dbg_inx, str_proc_tst,  &
     &                   h_val, t_val, rlat_in, rlon_in
@@ -229,7 +229,7 @@ MODULE mo_ocean_nml
  !!
  !!               Initialization of variables that set up the configuration
  !!               of the ocean using values read from
- !!               namelist 'ocean_ctl' and 'octst_ctl'.
+ !!               namelist 'ocean_nml' and 'octst_nml'.
  !!
  !! @par Revision History
  !!   Modification by Constantin Junk, MPI-M (2010-02-22)
@@ -246,7 +246,7 @@ MODULE mo_ocean_nml
      CALL message(TRIM(routine),'running the hydrostatic ocean model')
      
      !------------------------------------------------------------
-     ! 4.0 set up the default values for ocean_ctl
+     ! 4.0 set up the default values for ocean_nml
      !------------------------------------------------------------
 
      ! default values when namelist is not present and no default on definition
@@ -260,14 +260,14 @@ MODULE mo_ocean_nml
 
 
      !------------------------------------------------------------
-     ! 5.0 Read ocean_ctl namelist
+     ! 5.0 Read ocean_nml namelist
      !------------------------------------------------------------
      ! (done so far by all MPI processes)
 
-     CALL position_nml ('ocean_ctl', status=i_status)
+     CALL position_nml ('ocean_nml', status=i_status)
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_ctl)
+       READ (nnml, ocean_nml)
      END SELECT
 
      !------------------------------------------------------------
@@ -302,10 +302,10 @@ MODULE mo_ocean_nml
      ENDIF
  
      ! write the contents of the namelist to an ASCII file
-     IF(p_pe == p_io) WRITE(nnml_output,nml=ocean_ctl)
+     IF(p_pe == p_io) WRITE(nnml_output,nml=ocean_nml)
 
      !------------------------------------------------------------
-     ! 6.0 Read octst_ctl namelist
+     ! 6.0 Read octst_nml namelist
      !------------------------------------------------------------
      ! (done so far by all MPI processes)
 
@@ -322,14 +322,14 @@ MODULE mo_ocean_nml
        &  '   ', &
        &  '   '  /)
 
-     CALL position_nml ('octst_ctl', status=i_status)
+     CALL position_nml ('octst_nml', status=i_status)
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, octst_ctl)
+       READ (nnml, octst_nml)
      END SELECT
 
      ! write the contents of the namelist to an ASCII file
-     IF(p_pe == p_io) WRITE(nnml_output,nml=octst_ctl)
+     IF(p_pe == p_io) WRITE(nnml_output,nml=octst_nml)
 
 
 END SUBROUTINE setup_ocean_nml

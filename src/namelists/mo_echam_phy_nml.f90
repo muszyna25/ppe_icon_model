@@ -46,7 +46,7 @@
 MODULE mo_echam_phy_nml
 
   USE mo_echam_phy_config,   ONLY: echam_phy_config
-  USE mo_namelist,           ONLY: position_nml, POSITIONED
+  USE mo_namelist,           ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_io_units,           ONLY: nnml
   USE mo_master_nml,         ONLY: lrestart
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist, &
@@ -81,8 +81,9 @@ MODULE mo_echam_phy_nml
 CONTAINS
   !>
   !!
-  SUBROUTINE read_echam_phy_namelist
+  SUBROUTINE read_echam_phy_namelist( filename )
 
+    CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
 
     !----------------------------------------------------------------
@@ -115,11 +116,13 @@ CONTAINS
     !---------------------------------------------------------------------
     ! Read user's (new) specifications (Done so far by all MPI processors)
     !---------------------------------------------------------------------
+    CALL open_nml(TRIM(filename))
     CALL position_nml ('echam_phy_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
       READ (nnml, echam_phy_nml)
     END SELECT
+    CALL close_nml
 
     !-----------------------------------------------------
     ! Store the namelist for restart
