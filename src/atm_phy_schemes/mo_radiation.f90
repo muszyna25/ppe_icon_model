@@ -70,7 +70,7 @@ MODULE mo_radiation
 
   USE mo_datetime,             ONLY: rdaylen
 
-  USE mo_radiation_nml,        ONLY: tsi,        ssi,         &
+  USE mo_radiation_config,     ONLY: tsi,        ssi,         &
     &                                irad_co2,   mmr_co2,     &
     &                                irad_ch4,   mmr_ch4,     &
     &                                irad_n2o,   mmr_n2o,     &

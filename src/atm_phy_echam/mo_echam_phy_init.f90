@@ -51,7 +51,7 @@ MODULE mo_echam_phy_init
   USE mo_ape_params,         ONLY: ape_sst
 
   ! radiation
-  USE mo_radiation_nml,        ONLY: ssi, tsi
+  USE mo_radiation_config,     ONLY: ssi, tsi
   USE mo_srtm_config,          ONLY: setup_srtm, ssi_amip
   USE mo_lrtm_setup,           ONLY: lrtm_setup
   USE mo_newcld_optics,        ONLY: setup_newcld_optics
@@ -91,7 +91,7 @@ MODULE mo_echam_phy_init
 
 CONTAINS
   !>
-  !! The top-level routine for the initialization of ECHAM6 physics.
+  !! Top-level routine for initialization of ECHAM6 physics.
   !! It calls a series of subroutines to initialize tunable parameters,
   !! lookup tables, and the physics state vectors "prm_field" and "prm_tend".
   !!

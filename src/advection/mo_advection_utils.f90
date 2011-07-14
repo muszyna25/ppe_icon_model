@@ -73,7 +73,7 @@ MODULE mo_advection_utils
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_namelist,            ONLY: position_nml, POSITIONED
   USE mo_mpi,                 ONLY: p_pe, p_io
-  USE mo_radiation_nml,       ONLY: irad_o3
+  USE mo_radiation_config,    ONLY: irad_o3
   USE mo_nonhydrostatic_nml,  ONLY: l_open_ubc
 
   IMPLICIT NONE

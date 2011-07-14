@@ -50,8 +50,6 @@ MODULE mo_atm_phy_nwp_config
   USE mo_grid_configuration,  ONLY: n_dom
 
   USE mo_run_config,          ONLY: dtime, ltestcase
-! USE mo_dynamics_nml,        ONLY: ldry_dycore
-! USE mo_nonhydrostatic_nml,  ONLY: iadv_rcf
   USE mo_data_turbdiff,       ONLY: imode_turb,                              &
     &                               limpltkediff, ltkesso, lexpcor,          &
     &                               tur_len, pat_len, a_stab,                &
@@ -61,8 +59,6 @@ MODULE mo_atm_phy_nwp_config
     &                               llake, lseaice 
 
   USE mo_icoham_sfc_indices,  ONLY: init_sfc_indices, nsfc_type
-
-  USE mo_radiation_nml,       ONLY: read_radiation_nml, irad_o3
 
   IMPLICIT NONE
   PUBLIC :: atm_phy_nwp_config, t_atm_phy_nwp_config, tcall_phy

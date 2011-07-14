@@ -54,8 +54,7 @@ MODULE mo_ext_data
                                    fac_smooth_topo => nml_fac_smooth_topo, &
                                    n_iter_smooth_topo => nml_n_iter_smooth_topo
   USE mo_dynamics_config,    ONLY: iequations
- !USE mo_lnd_nwp_nml,        ONLY: nsfc_subs
-  USE mo_radiation_nml,      ONLY: irad_o3
+  USE mo_radiation_config,   ONLY: irad_o3
   USE mo_model_domain,       ONLY: t_patch
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_exception,          ONLY: message, message_text, finish

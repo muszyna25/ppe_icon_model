@@ -48,7 +48,7 @@ MODULE mo_echam_phy_interface
                                 & edges2cells_scalar
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_config,        ONLY: nlev, ltimer
-  USE mo_radiation_nml,     ONLY: dt_rad
+  USE mo_radiation_config,  ONLY: dt_rad
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_e, grf_bdywidth_c
   USE mo_eta_coord_diag,    ONLY: half_level_pressure, full_level_pressure

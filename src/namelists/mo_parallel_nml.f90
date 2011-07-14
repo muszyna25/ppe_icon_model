@@ -66,7 +66,8 @@ MODULE mo_parallel_nml
                                      & config_iorder_sendrecv     => iorder_sendrecv,     &
                                      & config_radiation_threads   => radiation_threads,   &
                                      & config_nh_stepping_threads => nh_stepping_threads, &
-                                     & config_nproma              => nproma
+                                     & config_nproma              => nproma,              &
+                                     & div_geometric
 
   IMPLICIT NONE
   PRIVATE

@@ -42,11 +42,37 @@
 !!
 MODULE mo_radiation_nml
 
+    USE mo_radiation_config, ONLY: config_ldiur      => ldiur,      & 
+                                 & config_nmonth     => nmonth,     &
+                                 & config_lyr_perp   => lyr_perp,   &
+                                 & config_yr_perp    => yr_perp,    &
+                                 & config_isolrad    => isolrad,    &
+                                 & config_irad_h2o   => irad_h2o,   &
+                                 & config_irad_co2   => irad_co2,   &
+                                 & config_irad_ch4   => irad_ch4,   &
+                                 & config_irad_n2o   => irad_n2o,   &
+                                 & config_irad_o3    => irad_o3,    &
+                                 & config_irad_o2    => irad_o2,    &
+                                 & config_irad_cfc11 => irad_cfc11, &
+                                 & config_irad_cfc12 => irad_cfc12, &
+                                 & config_irad_aero  => irad_aero,  &
+                                 & config_vmr_co2    => vmr_co2,    &
+                                 & config_vmr_ch4    => vmr_ch4,    &
+                                 & config_vmr_n2o    => vmr_n2o,    &
+                                 & config_vmr_o2     => vmr_o2,     &
+                                 & config_vmr_cfc11  => vmr_cfc11,  &
+                                 & config_vmr_cfc12  => vmr_cfc12,  &
+                                 & config_dt_rad     => dt_rad,     &
+                                 & config_izenith    => izenith,    &
+                                 & config_mmr_co2    => mmr_co2,    &
+                                 & config_mmr_ch4    => mmr_ch4,    &
+                                 & config_mmr_n2o    => mmr_n2o,    &
+                                 & config_mmr_o2     => mmr_o2
+
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: finish
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, max_dom
   USE mo_mpi,                ONLY: p_pe, p_io
-  USE mo_radiation_config,   ONLY: radiation_config
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml 
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o, amo2
@@ -55,33 +81,30 @@ MODULE mo_radiation_nml
                                  & open_and_restore_namelist, close_tmpfile
 
   IMPLICIT NONE
-  PUBLIC
+  PRIVATE
+  PUBLIC:: read_radiation_namelist
 
-  ! 1.0 NAMELIST global variables and parameters
-  ! --------------------------------
+  !-----------------------------------
+  ! namelist variables and parameters
+  !-----------------------------------
   !
   ! -- Switches for solar irradiation
   !
-  LOGICAL :: ldiur       = .TRUE.  !< .TRUE. : with diurnal cycle
-  !                                !< .FALSE.: zonally averaged irradiation
+  LOGICAL :: ldiur     !< .TRUE. : with diurnal cycle
+  !                    !< .FALSE.: zonally averaged irradiation
   !
   ! -- Switches for Earth orbit
   !
-  INTEGER :: nmonth      =  0      !< i=0    : Earth circles on orbit, i.e. with annual cycle
-  !                                !< i=1-12 : Earth orbit position fixed for month i
+  INTEGER :: nmonth    !< i=0    : Earth circles on orbit, i.e. with annual cycle
+  !                    !< i=1-12 : Earth orbit position fixed for month i
   !
-  LOGICAL :: lyr_perp    = .FALSE. !< .FALSE.: transient Earth orbit following vsop87
-  !                                !  .TRUE. : Earth orbit of year yr_perp of the vsop87 orbit
-  !                                !           is perpetuated
-  INTEGER :: yr_perp     = -99999  !< year used for lyr_perp = .TRUE.
-  !
-  !
+  LOGICAL :: lyr_perp  !< .FALSE.: transient Earth orbit following vsop87
+  !                    !  .TRUE. : Earth orbit of year yr_perp of the vsop87 orbit
+  !                    !           is perpetuated
+  INTEGER :: yr_perp   !< year used for lyr_perp = .TRUE.
 
-  LOGICAL :: lradforcing(2) = (/.FALSE.,.FALSE./) !< diagnostic of instantaneous
-  !                                               !< aerosol solar (lradforcing(1)) and
-  !                                               !< thermal (lradforcing(2)) radiation forcing
   ! nmonth currently works for zonal mean ozone and the orbit (year 1987) only
-  INTEGER :: isolrad     =  0      !< mode of solar constant calculation
+  INTEGER :: isolrad   !< mode of solar constant calculation
   !< default is rrtm solar constant
   !
   ! --- Switches for radiative agents
@@ -91,32 +114,31 @@ MODULE mo_radiation_nml
   !                - globally constant  or spatially varying
   !                - constant in time, constant annual cycle, or transient
   !
-  INTEGER  :: irad_h2o   = 1  !< water vapor, clouds and ice for radiation
-  INTEGER  :: irad_co2   = 2  !< CO2
-  INTEGER  :: irad_ch4   = 3  !< CH4
-  INTEGER  :: irad_n2o   = 3  !< N2O
-  INTEGER  :: irad_o3    = 0  !< O3
-  INTEGER  :: irad_o2    = 2  !< O2
-  INTEGER  :: irad_cfc11 = 2  !< CFC 11
-  INTEGER  :: irad_cfc12 = 2  !< CFC 12
-  INTEGER  :: irad_aero  = 2  !< aerosols
+  INTEGER  :: irad_h2o
+  INTEGER  :: irad_co2
+  INTEGER  :: irad_ch4
+  INTEGER  :: irad_n2o
+  INTEGER  :: irad_o3
+  INTEGER  :: irad_o2
+  INTEGER  :: irad_cfc11
+  INTEGER  :: irad_cfc12
+  INTEGER  :: irad_aero
   !
   ! --- Default gas volume mixing ratios - 1990 values (CMIP5)
   !
-  REAL(wp) :: vmr_co2    =  353.9e-06_wp     !< CO2
-  REAL(wp) :: vmr_ch4    = 1693.6e-09_wp     !< CH4
-  REAL(wp) :: vmr_n2o    =  309.5e-09_wp     !< N20
-  REAL(wp) :: vmr_o2     =    0.20946_wp     !< O2
-  REAL(wp) :: vmr_cfc11  =  252.8e-12_wp     !< CFC 11
-  REAL(wp) :: vmr_cfc12  =  466.2e-12_wp     !< CFC 12
+  REAL(wp) :: vmr_co2
+  REAL(wp) :: vmr_ch4
+  REAL(wp) :: vmr_n2o
+  REAL(wp) :: vmr_o2
+  REAL(wp) :: vmr_cfc11
+  REAL(wp) :: vmr_cfc12
   !
   ! --- Time control
   !
-  REAL(wp) :: dt_rad = 7200._wp        !< time interval of full radiation computation 
-                                       !< given in seconds 
+  REAL(wp) :: dt_rad  !< time interval of full radiation computation given in seconds 
   !
   ! --- Different specifications of the zenith angle
-  INTEGER  :: izenith = 3  ! circular orbit, no seasonal cycle but with diurnal cycle 
+  INTEGER  :: izenith
   !
   NAMELIST /radiation_nml/ ldiur, nmonth,         &
     &                      lyr_perp, yr_perp,     &
@@ -132,61 +154,8 @@ MODULE mo_radiation_nml
     &                      irad_aero,             &
     &                      dt_rad, izenith
 
-  ! 2.0 Non NAMELIST global variables
-  ! ---------------------------------
-  !
-  ! --- solar ativity
-  !
-  REAL(wp) :: ssi(14)  !< spectrally resolved solar irradiance (SSI) [W/m2]
-  !                    !< at 1 AU distance from the sun
-
-  REAL(wp) :: tsi      !< total solar irradiance (TSI) [W/m2]
-  !                    !< at 1 AU distance from the sun
-  !                    !< = SUM(ssi(:))
-  !
-!!$  ! --- other parameters
-!!$  !
-!!$  REAL(wp) :: flx_ratio_cur
-!!$  REAL(wp) :: flx_ratio_rad
-!!$  REAL(wp) :: decl_sun_cur                  !< solar declination at current time step
-  !
-  !
-  ! 3.0 Variables computed by routines in mo_radiation (export to submodels)
-  ! --------------------------------
-  !
-  REAL(wp) :: mmr_co2, mmr_ch4, mmr_n2o, mmr_o2                ! setup_radiation
-
-
-  PUBLIC:: read_radiation_namelist
-
 CONTAINS
-  !>
-  !! "read_radiation_nml" reads the radiation_nml namelist from the namelist file.
-  !!
-  !! "read_radiation_nml" should be called if "lrad", the main switch for using radiative
-  !! forcing, is set to true.
-  !!
-  !! In case of a restart, the namelist is first read from the global attributes of the
-  !! restart file
-  !!
-  !! @par Revision History
-  !! <Description of activity> by <name, affiliation> (<YYYY-MM-DD>)
-  !!
-  SUBROUTINE read_radiation_nml
 
-    INTEGER :: ist, funit   !< status variable for namelist positioning
-
-    ! Set dependent variables
-    ! -----------------------
-    mmr_co2 = vmr_co2 * amco2/amd
-    mmr_ch4 = vmr_ch4 * amch4/amd
-    mmr_n2o = vmr_n2o * amn2o/amd
-    mmr_o2  = vmr_o2  * amo2 /amd
-
-  END SUBROUTINE read_radiation_nml
-
-  !
-  !
   !>
   !! Read Namelist for radiation. 
   !!
@@ -214,9 +183,33 @@ CONTAINS
     !-----------------------
     ! 1. default settings   
     !-----------------------
+    ldiur          = .TRUE.
+    nmonth         =  0   
+    lyr_perp       = .FALSE.
+    yr_perp        = -99999
 
-    ! Default: seasonal orbit and diurnal cycle
-    izenith=4
+    isolrad    = 0
+
+    irad_h2o   = 1
+    irad_co2   = 2
+    irad_ch4   = 3
+    irad_n2o   = 3
+    irad_o3    = 0
+    irad_o2    = 2
+    irad_cfc11 = 2
+    irad_cfc12 = 2
+    irad_aero  = 2
+
+    vmr_co2    =  353.9e-06_wp
+    vmr_ch4    = 1693.6e-09_wp
+    vmr_n2o    =  309.5e-09_wp
+    vmr_o2     =    0.20946_wp
+    vmr_cfc11  =  252.8e-12_wp
+    vmr_cfc12  =  466.2e-12_wp
+
+    dt_rad = 7200._wp
+
+    izenith = 4  ! Default: seasonal orbit and diurnal cycle
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -227,7 +220,6 @@ CONTAINS
       READ(funit,NML=radiation_nml)
       CALL close_tmpfile(funit)
     END IF
-
 
     !--------------------------------------------------------------------
     ! 3. Read user's (new) specifications (Done so far by all MPI processes)
@@ -243,30 +235,33 @@ CONTAINS
     !----------------------------------------------------
     ! 4. Fill the configuration state
     !----------------------------------------------------
-    DO jg = 1,max_dom
-      radiation_config(jg)%ldiur      = ldiur
-      radiation_config(jg)%nmonth     = nmonth
-      radiation_config(jg)%lyr_perp   = lyr_perp
-      radiation_config(jg)%yr_perp    = yr_perp
-      radiation_config(jg)%isolrad    = isolrad
-      radiation_config(jg)%irad_h2o   = irad_h2o
-      radiation_config(jg)%irad_co2   = irad_co2
-      radiation_config(jg)%irad_ch4   = irad_ch4
-      radiation_config(jg)%irad_n2o   = irad_n2o
-      radiation_config(jg)%irad_o3    = irad_o3
-      radiation_config(jg)%irad_o2    = irad_o2
-      radiation_config(jg)%irad_cfc11 = irad_cfc11
-      radiation_config(jg)%irad_cfc12 = irad_cfc12
-      radiation_config(jg)%irad_aero  = irad_aero
-      radiation_config(jg)%vmr_co2    = vmr_co2
-      radiation_config(jg)%vmr_ch4    = vmr_ch4
-      radiation_config(jg)%vmr_n2o    = vmr_n2o
-      radiation_config(jg)%vmr_o2     = vmr_o2
-      radiation_config(jg)%vmr_cfc11  = vmr_cfc11
-      radiation_config(jg)%vmr_cfc12  = vmr_cfc12
-      radiation_config(jg)%dt_rad     = dt_rad
-      radiation_config(jg)%izenith    = izenith
-    ENDDO
+
+    config_ldiur      = ldiur
+    config_nmonth     = nmonth
+    config_lyr_perp   = lyr_perp
+    config_yr_perp    = yr_perp
+    config_isolrad    = isolrad
+    config_irad_h2o   = irad_h2o
+    config_irad_co2   = irad_co2
+    config_irad_ch4   = irad_ch4
+    config_irad_n2o   = irad_n2o
+    config_irad_o3    = irad_o3
+    config_irad_o2    = irad_o2
+    config_irad_cfc11 = irad_cfc11
+    config_irad_cfc12 = irad_cfc12
+    config_irad_aero  = irad_aero
+    config_vmr_co2    = vmr_co2
+    config_vmr_ch4    = vmr_ch4
+    config_vmr_n2o    = vmr_n2o
+    config_vmr_o2     = vmr_o2
+    config_vmr_cfc11  = vmr_cfc11
+    config_vmr_cfc12  = vmr_cfc12
+    config_mmr_co2    = vmr_co2 * amco2/amd
+    config_mmr_ch4    = vmr_ch4 * amch4/amd
+    config_mmr_n2o    = vmr_n2o * amn2o/amd
+    config_mmr_o2     = vmr_o2  * amo2 /amd
+    config_dt_rad     = dt_rad
+    config_izenith    = izenith
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart

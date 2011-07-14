@@ -44,15 +44,16 @@
 MODULE mo_atm_nml_crosscheck
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message, message_text, finish
+  USE mo_exception,           ONLY: message, message_text, finish, print_value
   USE mo_impl_constants,      ONLY: max_char_length, max_dom,itconv,itccov,&
     &                               itrad,itradheat, itsso,itgscp,itsatad,itupdate,&
     &                               itturb, itsfc,  itgwd, iphysproc,iecham, ildf_echam,&
-    &                               inwp, iheldsuarez, ildf_dry,IHS_ATM_TEMP, &
+    &                               inwp, iheldsuarez, ildf_dry,  &
+    &                               IHS_ATM_TEMP,IHS_ATM_THETA, &
     &                               tracer_only, inh_atmosphere, ishallow_water
   USE mo_parallel_configuration, ONLY: check_parallel_configuration
   USE mo_run_config,          ONLY: lrestore_states, dtime, iforcing, ltransport, &
-                                    ntracer, nlev, inextra_2D, inextra_3D
+                                    ntracer, nlev, io3, inextra_2D, inextra_3D
   USE mo_time_config,         ONLY: time_config
   USE mo_gridref_config,      ONLY: gridref_config
   USE mo_interpol_config       ! all, ONLY: interpol_config
@@ -72,7 +73,7 @@ MODULE mo_atm_nml_crosscheck
   USE mo_lnd_nwp_config,     ONLY: nlev_soil, nztlev ,nlev_snow ,nsfc_subs,&
     &                              lseaice,  llake, lmelt , lmelt_var, lmulti_snow
   USE mo_echam_phy_config,   ONLY: echam_phy_config
-  USE mo_radiation_config,   ONLY: radiation_config  
+  USE mo_radiation_config
   USE mo_echam_conv_config,  ONLY: echam_conv_config
   USE mo_gw_hines_config,    ONLY: gw_hines_config
   USE mo_vdiff_config,       ONLY: vdiff_config
@@ -139,42 +140,50 @@ CONTAINS
     IF (lplane .AND. global_cell_type==3) CALL finish( TRIM(routine),&
       'Currently only the hexagon model can run on a plane')
 
-    IF ((iequations==ISHALLOW_WATER).AND.(nlev/=1)) &
-    CALL finish(TRIM(routine),'Multiple vertical level specified for shallow water model')
-
     IF (global_cell_type==6.AND.idiv_method==2) THEN
       CALL finish( TRIM(ROUTINE),'idiv_method =2 not valid for the hexagonal model') 
-    ENDIF
-
-    IF (iequations==ISHALLOW_WATER.AND.ha_dyn_config%lsi_3d) THEN
-      CALL message( TRIM(routine), 'lsi_3d = .TRUE. not appicable to shallow water model')
     ENDIF
 
     IF ((iforcing==IHELDSUAREZ.OR.iforcing==ILDF_DRY).AND.(.NOT.ldry_dycore)) &
     CALL finish( TRIM(ROUTINE),'ldry_dycore should be .TRUE. for the '//&
                'Held-Suarez test and the dry local diabatic forcing test.')
 
-  !--------------------------------------------------------------------
-  ! checking of nh-dynamics parameters
-  !--------------------------------------------------------------------
+    !--------------------------------------------------------------------
+    ! Shallow water 
+    !--------------------------------------------------------------------
+    IF (iequations==ISHALLOW_WATER.AND.ha_dyn_config%lsi_3d) THEN
+      CALL message( TRIM(routine), 'lsi_3d = .TRUE. not appicable to shallow water model')
+    ENDIF
 
-  ! reset l_nest_rcf to false if iadv_rcf = 1
-  IF (iadv_rcf == 1) l_nest_rcf = .FALSE.
-
-  IF (upstr_beta > 1.0_wp .OR. upstr_beta < 0.0_wp) THEN
-    CALL finish(TRIM(routine), 'upstr_beta out of range 0..1')
-  ENDIF
-
-  ! for reduced calling frequency of tracer advection / fast physics:
-  ! odd values of iadv_rcf are allowed only if nest calls are synchronized with advection
-  IF ( .NOT. l_nest_rcf .AND. MOD(iadv_rcf,2) /= 0 .AND. iadv_rcf /= 1 .OR. iadv_rcf == 0) THEN
-      CALL finish( TRIM(routine), 'Invalid reduced-calling-frequency parameter& '//&
-        &'Value must be even or 1 if l_nest_rcf=.FALSE.')
-  ENDIF
-
+    IF ((iequations==ISHALLOW_WATER).AND.(nlev/=1)) &
+    CALL finish(TRIM(routine),'Multiple vertical level specified for shallow water model')
 
     !--------------------------------------------------------------------
-    ! Atmospheric physics
+    ! Hydrostatic atm
+    !--------------------------------------------------------------------
+    IF (iequations==IHS_ATM_THETA) ha_dyn_config%ltheta_dyn = .TRUE.
+
+    !--------------------------------------------------------------------
+    ! Nonhydrostatic atm
+    !--------------------------------------------------------------------
+    ! reset l_nest_rcf to false if iadv_rcf = 1
+    IF (iadv_rcf == 1) l_nest_rcf = .FALSE.
+
+    IF (upstr_beta > 1.0_wp .OR. upstr_beta < 0.0_wp) THEN
+      CALL finish(TRIM(routine), 'upstr_beta out of range 0..1')
+    ENDIF
+
+    ! for reduced calling frequency of tracer advection / fast physics:
+    ! odd values of iadv_rcf are allowed only if nest calls are synchronized 
+    ! with advection
+    IF ( .NOT. l_nest_rcf .AND. MOD(iadv_rcf,2) /= 0 &
+         .AND. iadv_rcf /= 1 .OR. iadv_rcf == 0) THEN
+      CALL finish( TRIM(routine), 'Invalid reduced-calling-frequency parameter. '//&
+        &'Value must be even or 1 if l_nest_rcf=.FALSE.')
+    ENDIF
+
+    !--------------------------------------------------------------------
+    ! Atmospheric physics, general
     !--------------------------------------------------------------------
     IF ((iforcing==INWP).AND.(iequations/=INH_ATMOSPHERE)) &
     CALL finish( TRIM(routine), 'NWP physics only implemented in the '//&
@@ -185,57 +194,69 @@ CONTAINS
                'nonhydrostatic atm model')
 
     !--------------------------------------------------------------------
-    ! checking the meanings of the nwp physics namelist
+    ! NWP physics
     !--------------------------------------------------------------------
+    IF (iforcing==inwp) THEN
+      DO jg =1,n_dom
 
-  DO jg =1,max_dom
-
-    IF( (atm_phy_nwp_config(jg)%inwp_convection >0 ) .OR. (atm_phy_nwp_config(jg)%inwp_gscp > 0) &
-      .AND. atm_phy_nwp_config(jg)%inwp_satad == 0)& 
-     & CALL finish( TRIM(routine),'satad has to be switched on')
-
-
-     IF( MOD( REAL(  iadv_rcf,wp)*dtime, &
-       &         atm_phy_nwp_config(jg)%dt_conv) /= 0._wp )  THEN
-       WRITE(message_text,'(a,I4,2F10.2)') &
-      &'advective and convective timesteps are not- but will be synchronized ', &
-      &     1, REAL(  iadv_rcf,wp)*dtime,tcall_phy(1,itconv)
-      CALL message(TRIM(routine), TRIM(message_text))
-     ENDIF
-
-   IF( (atm_phy_nwp_config(jg)%inwp_gscp==0) .AND. &
-     & (atm_phy_nwp_config(jg)%inwp_convection==0) .AND.&
-     & (atm_phy_nwp_config(jg)%inwp_radiation==0) .AND.&
-     & (atm_phy_nwp_config(jg)%inwp_sso==0)  .AND. &
-     & (atm_phy_nwp_config(jg)%inwp_surface == 0) .AND.&
-     & (atm_phy_nwp_config(jg)%inwp_turb> 0) )   &
-     CALL message(TRIM(routine),' WARNING! NWP forcing set but only turbulence selected!')
+        IF( (atm_phy_nwp_config(jg)%inwp_convection >0 ) .OR. &
+            (atm_phy_nwp_config(jg)%inwp_gscp > 0)       .AND.&
+             atm_phy_nwp_config(jg)%inwp_satad == 0)& 
+         & CALL finish( TRIM(routine),'satad has to be switched on')
 
 
-    IF ((iequations==INH_ATMOSPHERE).AND.(iforcing==inwp).AND.ldry_dycore) &
-    CALL finish(TRIM(routine),'ldry_dycore = .TRUE. not allowed for '//&
-               'the nonhydrostaic atm model with NWP physics.')
+         IF( MOD( REAL(  iadv_rcf,wp)*dtime, &
+           &         atm_phy_nwp_config(jg)%dt_conv) /= 0._wp )  THEN
+           WRITE(message_text,'(a,I4,2F10.2)') &
+           &'advective and convective timesteps are not- but will be synchronized ', &
+           &     1, REAL(  iadv_rcf,wp)*dtime,tcall_phy(1,itconv)
+           CALL message(TRIM(routine), TRIM(message_text))
+         ENDIF
 
-! check radiation scheme in relation to chosen ozone
+        IF( (atm_phy_nwp_config(jg)%inwp_gscp==0) .AND. &
+          & (atm_phy_nwp_config(jg)%inwp_convection==0) .AND.&
+          & (atm_phy_nwp_config(jg)%inwp_radiation==0) .AND.&
+          & (atm_phy_nwp_config(jg)%inwp_sso==0)  .AND. &
+          & (atm_phy_nwp_config(jg)%inwp_surface == 0) .AND.&
+          & (atm_phy_nwp_config(jg)%inwp_turb> 0) )   &
+        CALL message(TRIM(routine),' WARNING! NWP forcing set but '//&
+                    'only turbulence selected!')
 
+        IF ((iequations==INH_ATMOSPHERE).AND.(iforcing==inwp).AND.ldry_dycore) &
+        CALL finish(TRIM(routine),'ldry_dycore = .TRUE. not allowed for '//&
+                   'the nonhydrostaic atm model with NWP physics.')
 
-    IF (  atm_phy_nwp_config(jg)%inwp_radiation > 0 )  THEN
+        ! check radiation scheme in relation to chosen ozone
 
-      SELECT CASE (radiation_config(jg)%irad_o3)
-      CASE (0,6)
-        ! ok
-      CASE default
-        CALL finish(TRIM(routine),'irad_o3 currently has to be 0 or 6.')
-      END SELECT
-    ENDIF
+        IF (  atm_phy_nwp_config(jg)%inwp_radiation > 0 )  THEN
 
-  ENDDO
+          SELECT CASE (irad_o3)
+          CASE (0,6) ! ok
+          CASE default
+            CALL finish(TRIM(routine),'irad_o3 currently has to be 0 or 6.')
+          END SELECT
+        ENDIF
+
+      ENDDO
+    END IF
+
+    !--------------------------------------------------------------------
+    ! ECHAM physics
+    !--------------------------------------------------------------------
+    IF ((iforcing==IECHAM).AND.(echam_phy_config%lrad).AND. &
+        (irad_o3 > 0) .AND. (io3 > ntracer) ) THEN
+
+      CALL print_value('irad_o3' ,irad_o3)
+      CALL print_value('io3    ' ,io3)
+      CALL print_value('ntracer' ,ntracer)
+      CALL finish(TRIM(routine), 'Not enough tracers for ECHAM physics with RRTM.')
+    END IF
 
     !--------------------------------------------------------------------
     ! checking the meanings of the diffusion settings
     !--------------------------------------------------------------------
 
- DO jg =1,max_dom
+ DO jg =1,n_dom
 
    SELECT CASE( diffusion_config(jg)%hdiff_order)
    CASE(-1)
@@ -299,8 +320,6 @@ ENDDO
   
   IF (inextra_2D == 0 .AND. inextra_3D == 0 .AND. lwrite_extra) &
     CALL finish('io_namelist','need to specify extra fields for extra output')
-
-
 
 
   END  SUBROUTINE atm_crosscheck

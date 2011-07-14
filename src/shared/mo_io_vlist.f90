@@ -163,7 +163,7 @@ MODULE mo_io_vlist
        &                            prm_diag, prm_nwp_tend
   USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag
   USE mo_echam_phy_memory,    ONLY: prm_field, prm_tend
-  USE mo_radiation_nml,       ONLY: izenith, irad_h2o,                  &
+  USE mo_radiation_config,    ONLY: izenith, irad_h2o,                  &
     &                               irad_co2, irad_ch4, irad_n2o, irad_o3,      &
     &                               irad_o2, irad_cfc11, irad_cfc12,  irad_aero
   USE mo_impl_constants,      ONLY: max_ntracer

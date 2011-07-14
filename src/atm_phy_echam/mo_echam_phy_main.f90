@@ -68,7 +68,7 @@ MODULE mo_echam_phy_main
   USE mo_cover,               ONLY: cover
   USE mo_echam_cloud_params,  ONLY: ctaus, ctaul, ctauk !, ncctop, nccbot
   USE mo_radiation,           ONLY: radiation, radheat
-  USE mo_radiation_nml,       ONLY: tsi, izenith
+  USE mo_radiation_config,    ONLY: tsi, izenith
   USE mo_vdiff_config,        ONLY: vdiff_config
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
   USE mo_vdiff_upward_sweep,  ONLY: vdiff_up

@@ -58,7 +58,7 @@ MODULE mo_nwp_phy_init
   !radiation
   USE mo_newcld_optics,        ONLY: setup_newcld_optics
   USE mo_lrtm_setup,           ONLY: lrtm_setup
-  USE mo_radiation_nml,        ONLY: ssi, tsi, irad_aero
+  USE mo_radiation_config,     ONLY: ssi, tsi, irad_aero
   USE mo_srtm_config,          ONLY: setup_srtm, ssi_amip
   USE mo_radiation_rg_par,     ONLY: rad_aibi, init_aerosol, zaef
   ! microphysics

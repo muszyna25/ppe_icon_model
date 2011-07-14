@@ -42,7 +42,6 @@
 !!
 MODULE mo_advection_nml
 
-!  USE mo_atm_phy_nwp_nml,     ONLY: inwp_radiation
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_io_units,            ONLY: nnml,nnml_output
@@ -61,7 +60,7 @@ MODULE mo_advection_nml
     &                               ildf_dry, ildf_echam
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: p_pe, p_io
-  USE mo_radiation_nml,       ONLY: irad_o3
+  USE mo_radiation_config,    ONLY: irad_o3
   USE mo_nonhydrostatic_nml,  ONLY: l_open_ubc, kstart_moist, kstart_qv
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &
     &                               open_and_restore_namelist, close_tmpfile

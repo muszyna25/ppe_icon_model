@@ -92,16 +92,5 @@ MODULE mo_ha_dyn_config
   !!
   TYPE(t_ha_dyn_config) :: ha_dyn_config
 
-CONTAINS
-  !>
-  !!
-  SUBROUTINE config_ha_dyn( iequations )
-
-    INTEGER,INTENT(IN) :: iequations
-
-    IF (iequations==IHS_ATM_THETA) ha_dyn_config%ltheta_dyn = .TRUE.
-
-  END SUBROUTINE config_ha_dyn
-
 END MODULE mo_ha_dyn_config
 

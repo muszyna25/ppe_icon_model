@@ -39,10 +39,11 @@ MODULE mo_atmo_setup_configuration
   USE mo_namelist,            ONLY: open_nml, close_nml, open_nml_output, close_nml_output
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
 
-  USE mo_dynamics_nml,        ONLY: read_dynamics_namelist, dynamics_nml_setup
+  USE mo_dynamics_nml,        ONLY: read_dynamics_namelist
+  USE mo_nonhydrostatic_nml,  ONLY: read_nonhydrostatic_namelist
   USE mo_ha_dyn_nml,          ONLY: read_ha_dyn_namelist 
   USE mo_diffusion_nml,       ONLY: read_diffusion_namelist 
-  USE mo_io_nml,              ONLY: read_io_namelist !, & ! process I/O
+  USE mo_io_nml,              ONLY: read_io_namelist
   USE mo_extpar_nml,          ONLY: read_extpar_namelist
   USE mo_advection_nml,       ONLY: read_transport_namelist
   USE mo_gridref_nml,         ONLY: read_gridref_namelist
@@ -54,11 +55,11 @@ MODULE mo_atmo_setup_configuration
   USE mo_gw_hines_nml,        ONLY: read_gw_hines_namelist
   USE mo_lnd_nwp_nml,         ONLY: read_nwp_lnd_namelist
   USE mo_sleve_nml,           ONLY: read_sleve_namelist
-  USE mo_parallel_nml,      ONLY: read_parallel_namelist ! reads AND fills parallel configure
-  USE mo_grid_nml,          ONLY: read_grid_namelist     ! reads AND fills grid configure
-  USE mo_run_nml,           ONLY: read_run_namelist
-  USE mo_time_nml,          ONLY: read_time_namelist
-  USE mo_interpol_nml,      ONLY: read_interpol_namelist
+  USE mo_parallel_nml,        ONLY: read_parallel_namelist
+  USE mo_grid_nml,            ONLY: read_grid_namelist
+  USE mo_run_nml,             ONLY: read_run_namelist
+  USE mo_time_nml,            ONLY: read_time_namelist
+  USE mo_interpol_nml,        ONLY: read_interpol_namelist
 
 ! ! Test cases
 ! !
@@ -74,7 +75,6 @@ MODULE mo_atmo_setup_configuration
   PUBLIC :: read_atmo_namelists !, setup_atmo_configuration
   
 CONTAINS
-  !-------------------------------------------------------------------------
   !>
   !! Read namelists;
   !! Create a new file in which all the namelist variables and their
@@ -193,19 +193,19 @@ CONTAINS
 !DONE     !          before the interpolation state is computed.
 !DONE     !------------------------------------------------------------------
 !DONE     CALL dynamics_nml_setup(n_dom)
-!     
-!     !------------------------------------------------------------------
-!     ! Read specific dynamics namelists for the nonhydrost. dynamical core
-!     !------------------------------------------------------------------
-!     CALL nonhydrostatic_nml_setup
+!DONE     
+!DONE     !------------------------------------------------------------------
+!DONE     ! Read specific dynamics namelists for the nonhydrost. dynamical core
+!DONE     !------------------------------------------------------------------
+!DONE     CALL nonhydrostatic_nml_setup
 !     
 !     !------------------------------------------------------------------
 !     ! step 3a-a: ! read nwp physics namelist, ...
 !     !------------------------------------------------------------------
-! !     IF ( iforcing == inwp) THEN
-! !       CALL setup_nwp_phy( p_patch_global(1:) )  ! read Namelist, ...
-! !       IF (inwp_surface > 0) CALL setup_nwp_lnd
-! !     ENDIF
+!       IF ( iforcing == inwp) THEN
+!         CALL setup_nwp_phy( p_patch_global(1:) )  ! read Namelist, ...
+!         IF (inwp_surface > 0) CALL setup_nwp_lnd
+!       ENDIF
 !     
 !     !------------------------------------------------------------------
 !     ! step 3b: Read namelist 'transport_ctl',

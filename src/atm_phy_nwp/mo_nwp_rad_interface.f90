@@ -59,7 +59,7 @@ MODULE mo_nwp_rad_interface
   USE mo_o3_util,              ONLY: calc_o3_clim
   USE mo_physical_constants,   ONLY: amd, amo3
   USE mo_radiation,            ONLY: radiation, pre_radiation_nwp_steps
-  USE mo_radiation_nml,        ONLY: irad_o3, irad_aero, vmr_co2
+  USE mo_radiation_config,     ONLY: irad_o3, irad_aero, vmr_co2
   USE mo_radiation_rg,         ONLY: fesft
   USE mo_radiation_rg_par,     ONLY: aerdis
   USE mo_satad,                ONLY: qsat_rho
