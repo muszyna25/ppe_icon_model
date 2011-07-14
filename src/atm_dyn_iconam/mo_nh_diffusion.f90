@@ -47,7 +47,7 @@ MODULE mo_nh_diffusion
                                     cells2verts_scalar, cells2edges_scalar, &
                                     edges2cells_scalar, verts2cells_scalar
   USE mo_nonhydrostatic_nml,  ONLY: l_zdiffu_t, damp_height, k2_updamp_coeff
-  USE mo_diffusion_nml,       ONLY: k4
+!  USE mo_diffusion_nml,       ONLY: k4
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_config,          ONLY: ltimer
@@ -170,7 +170,7 @@ MODULE mo_nh_diffusion
     i_nchdom   = MAX(1,p_patch%n_childdom)
     id         = p_patch%id
 
-    diff_multfac_vn(:) = k4(id)/3._wp*p_nh_metrics%enhfac_diffu(:)
+    diff_multfac_vn(:) = diffusion_config(id)%k4/3._wp*p_nh_metrics%enhfac_diffu(:)
 
     IF (.NOT. lsmag_diffu) THEN
 
@@ -291,7 +291,7 @@ MODULE mo_nh_diffusion
 
         ! Subtract part of the fourth-order background diffusion coefficient
         kh_smag_e(i_startidx:i_endidx,:,jb) = &
-            MAX(0._wp,kh_smag_e(i_startidx:i_endidx,:,jb) - 0.2_wp*k4(id))
+            MAX(0._wp,kh_smag_e(i_startidx:i_endidx,:,jb) - 0.2_wp*diffusion_config(id)%k4)
 
       ENDDO
 !$OMP END DO
@@ -673,7 +673,7 @@ MODULE mo_nh_diffusion
     ! number of vertical levels
     nlev = p_patch%nlev
 
-    diff_multfac_vn = k4(id)*3._wp
+    diff_multfac_vn = diffusion_config(id)%k4*3._wp
 
     IF (.NOT. lsmag_diffu) THEN
       CALL nabla4_vec( p_nh_prog%vn, p_patch, p_int, z_nabla4_e, opt_rlstart=7 )

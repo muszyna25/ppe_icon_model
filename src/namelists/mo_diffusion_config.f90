@@ -44,7 +44,9 @@
 MODULE mo_diffusion_config
 
   USE mo_kind,           ONLY: wp
+  USE mo_exception,           ONLY: message, message_text, finish, print_value
   USE mo_impl_constants, ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom
+  USE mo_vertical_coord_table,ONLY: vct_a, vct_b, apzero
 
   IMPLICIT NONE
   PRIVATE
@@ -87,7 +89,7 @@ MODULE mo_diffusion_config
     & hdiff_multfac      ! multiplication factor of normalized diffusion coefficient
                          ! for nested domains
 
-  REAL(wp), ALLOCATABLE, DIMENSION(:) :: &
+  REAL(wp) :: &
     & k6, k4, k2       ! numerical diffusion coefficients
                        ! Values for these parameters are not directly
                        ! specified by the user, but derived from the ratio 
@@ -110,5 +112,126 @@ MODULE mo_diffusion_config
   !>
   !!
   TYPE(t_diffusion_config) :: diffusion_config(max_dom)
+
+CONTAINS
+
+  SUBROUTINE setup_diffusion_config(i_ndom,parent_id,nlev)
+
+    INTEGER, INTENT(IN) :: parent_id(max_dom-1) !< list of parent ID's
+    INTEGER, INTENT(IN) :: i_ndom !< dimension for time level variables
+    INTEGER, INTENT(IN) :: nlev
+
+    INTEGER  :: istat, jg, ist, jk, funit
+    REAL(wp) :: zpres(nlev+1)
+
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = 'setup_diffusion_config:'
+
+
+    DO jg= 1,i_ndom
+      !-----------------------------------------------------------
+      ! If using hybrid linear diffusion, set the starting and 
+      ! ending vertical level indices for each diffusion order. 
+      !-----------------------------------------------------------
+      IF (  diffusion_config(jg)%hdiff_order==24 .OR. &
+        &   diffusion_config(jg)%hdiff_order==42) THEN                                 
+        
+        CALL message('','')
+        CALL message('----- horizontal diffusion','')
+        
+        IF ( diffusion_config(jg)%k2_pres_max >0._wp) THEN  ! User has specified a pressure value
+
+          CALL print_value('hdiff:  k2_pres_max (Pa) = ',  diffusion_config(jg)%k2_pres_max)
+
+        ! Calculate the pressure values at layer interfaces
+        ! assuming surface pressure is apzero.
+
+        zpres(:) = vct_a(:) + vct_b(:)*apzero
+
+        IF (  diffusion_config(jg)%k2_pres_max <= zpres(1)) THEN
+        ! Model does not include mass of the whole atmosphere; User
+        ! specified a pressure value located above the model top.
+        ! 2nd order diffusion will not be applied. Only 4th order.
+        
+            diffusion_config(jg)%k2_klev_max = 0
+          CALL print_value('hdiff: ptop (Pa)        = ',vct_a(1))
+          CALL message('--- hdiff',' k2_pres_max <= ptop')
+
+        ELSE IF (  diffusion_config(jg)%k2_pres_max >= zpres(nlev+1)) THEN
+        ! User specified a very high pressure. 2nd order diffusion 
+        ! will be applied to all vertical levels.
+
+            diffusion_config(jg)%k2_klev_max = nlev
+          CALL print_value('hdiff: pres_sfc (Pa)    = ',zpres(nlev+1))
+          CALL message('--- hdiff',' k2_pres_max >= pres_sfc')
+
+        ELSE ! Search for the layer in which k2_pres_max is located.
+
+          DO jk = 1,nlev
+            IF ((  diffusion_config(jg)%k2_pres_max > zpres(jk)).AND.&
+              & (  diffusion_config(jg)%k2_pres_max <= zpres(jk+1))) THEN
+                   diffusion_config(jg)%k2_klev_max = jk 
+              EXIT
+            END IF
+          END DO
+          CALL print_value('hdiff: half level pressure (-) = ',&
+            &                                      zpres( diffusion_config(jg)%k2_klev_max))
+          CALL print_value('hdiff: half level pressure (+) = ',&
+            &                                     zpres(diffusion_config(jg)%k2_klev_max+1))
+
+        END IF ! k2_pres_max
+      END IF   ! k2_pres_max >0
+      ! If the user didn't specifiy a pressure value, then use the 
+      ! default or user-specified level index k2_klev_max.
+
+      diffusion_config(jg)%k2s = 1
+      diffusion_config(jg)%k2e = diffusion_config(jg)%k2_klev_max
+      diffusion_config(jg)%k4s = diffusion_config(jg)%k2_klev_max +1
+      diffusion_config(jg)%k4e = nlev
+
+      ! Inform the user about the configuration
+
+      CALL print_value('hdiff: k2s =',diffusion_config(jg)%k2s)
+      CALL print_value('hdiff: k2e =',diffusion_config(jg)%k2e)
+      CALL print_value('hdiff: k4s =',diffusion_config(jg)%k4s)
+      CALL print_value('hdiff: k4e =',diffusion_config(jg)%k4e)
+      IF (diffusion_config(jg)%k2e >= diffusion_config(jg)%k2s) THEN
+        WRITE(message_text,'(2(a,i4.4))') '2nd order from level ',&
+          &                               diffusion_config(jg)%k2s,' to ',diffusion_config(jg)%k2e
+        CALL message('--- hdiff',TRIM(message_text))
+      END IF
+      IF (diffusion_config(jg)%k4e >= diffusion_config(jg)%k4s) THEN
+        WRITE(message_text,'(2(a,i4.4))') '4nd order from level ',&
+          &                               diffusion_config(jg)%k4s,' to ',diffusion_config(jg)%k4e
+        CALL message('--- hdiff',TRIM(message_text))
+      END IF
+      CALL message('--- hdiff','------')
+      CALL message('','')
+
+    END IF !  hdiff_order==24.OR. hdiff_order==42
+
+  ENDDO ! n_dom
+
+   IF ( diffusion_config(jg)%hdiff_efdt_ratio <= 0._wp) THEN
+      diffusion_config(:)%k2 = 0._wp
+      diffusion_config(:)%k4 = 0._wp
+      diffusion_config(:)%k6 = 0._wp
+    ELSE
+      diffusion_config(1)%k2= 1._wp/( diffusion_config(jg)%hdiff_efdt_ratio*8._wp)
+      diffusion_config(1)%k4= 1._wp/( diffusion_config(jg)%hdiff_efdt_ratio*64._wp)
+      diffusion_config(1)%k6= 1._wp/( diffusion_config(jg)%hdiff_efdt_ratio*512._wp)
+
+      DO jg = 2, i_ndom
+         diffusion_config(jg)%k2 = diffusion_config(parent_id(jg-1))%k2 &
+           &                     * diffusion_config(jg)%hdiff_multfac
+         diffusion_config(jg)%k4 = diffusion_config(parent_id(jg-1))%k4 &
+           &                      * diffusion_config(jg)%hdiff_multfac
+         diffusion_config(jg)%k6 = diffusion_config(parent_id(jg-1))%k6 &
+           &                     * diffusion_config(jg)%hdiff_multfac
+      ENDDO
+    ENDIF
+
+END SUBROUTINE setup_diffusion_config
+
 
 END MODULE mo_diffusion_config

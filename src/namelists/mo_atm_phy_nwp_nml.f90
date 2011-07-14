@@ -207,27 +207,6 @@ CONTAINS
       nml_dt_radheat(jg)=  nml_dt_update(jg)
     ENDDO
 
-  !> KF  current settings to get NWP turbulence running
-    nml_lseaice    = lseaice
-    nml_llake      = llake
-
-    nml_imode_turb   = imode_turb 
-    nml_limpltkediff = limpltkediff
-    nml_ltkesso      = ltkesso
-    nml_lexpcor      = lexpcor
-    nml_tur_len      = tur_len
-    nml_pat_len      = pat_len
-    nml_a_stab       = a_stab
-    nml_tkhmin       = tkhmin
-    nml_tkmmin       = tkmmin
-    nml_c_diff       = c_diff
-    nml_itype_wcld   = itype_wcld 
-    nml_icldm_turb   = icldm_turb
-    nml_itype_tran   = itype_tran
-    nml_rlam_heat    = rlam_heat 
-    nml_rlam_mom     = rlam_mom
-    nml_rat_sea      = rat_sea
-
     nml_qi0 = 0.0_wp 
     nml_qc0 = 0.0_wp 
 
@@ -277,23 +256,23 @@ CONTAINS
       atm_phy_nwp_config(jg)% dt_satad       = nml_dt_satad (jg)
       atm_phy_nwp_config(jg)% dt_update      = nml_dt_update(jg)
 
-      atm_phy_nwp_config(jg)%lseaice         = nml_lseaice 
-      atm_phy_nwp_config(jg)%llake           = nml_llake
-      atm_phy_nwp_config(jg)%imode_turb      = nml_imode_turb  
-      atm_phy_nwp_config(jg)%limpltkediff    = nml_limpltkediff
-      atm_phy_nwp_config(jg)%ltkesso         = nml_ltkesso
-      atm_phy_nwp_config(jg)%lexpcor         = nml_lexpcor
-      atm_phy_nwp_config(jg)%tur_len         = nml_tur_len
-      atm_phy_nwp_config(jg)%pat_len         = nml_pat_len
-      atm_phy_nwp_config(jg)%a_stab          = nml_a_stab
-      atm_phy_nwp_config(jg)%tkhmin          = nml_tkhmin
-      atm_phy_nwp_config(jg)%tkmmin          = nml_tkmmin
-      atm_phy_nwp_config(jg)%c_diff          = nml_c_diff
-      atm_phy_nwp_config(jg)%itype_wcld      = nml_itype_wcld
-      atm_phy_nwp_config(jg)%icldm_turb      = nml_icldm_turb
-      atm_phy_nwp_config(jg)%qi0             = nml_qi0 
-      atm_phy_nwp_config(jg)%qc0             = nml_qc0 
-
+!      atm_phy_nwp_config(jg)%lseaice         = nml_lseaice 
+!      atm_phy_nwp_config(jg)%llake           = nml_llake
+!      atm_phy_nwp_config(jg)%imode_turb      = nml_imode_turb  
+!      atm_phy_nwp_config(jg)%limpltkediff    = nml_limpltkediff
+!      atm_phy_nwp_config(jg)%ltkesso         = nml_ltkesso
+!      atm_phy_nwp_config(jg)%lexpcor         = nml_lexpcor
+!      atm_phy_nwp_config(jg)%tur_len         = nml_tur_len
+!      atm_phy_nwp_config(jg)%pat_len         = nml_pat_len
+!      atm_phy_nwp_config(jg)%a_stab          = nml_a_stab
+!      atm_phy_nwp_config(jg)%tkhmin          = nml_tkhmin
+!      atm_phy_nwp_config(jg)%tkmmin          = nml_tkmmin
+!      atm_phy_nwp_config(jg)%c_diff          = nml_c_diff
+!      atm_phy_nwp_config(jg)%itype_wcld      = nml_itype_wcld
+!      atm_phy_nwp_config(jg)%icldm_turb      = nml_icldm_turb
+!      atm_phy_nwp_config(jg)%qi0             = nml_qi0 
+!      atm_phy_nwp_config(jg)%qc0             = nml_qc0 
+!
     ENDDO
 
     !-----------------------------------------------------

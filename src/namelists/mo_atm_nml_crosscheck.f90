@@ -48,7 +48,7 @@ MODULE mo_atm_nml_crosscheck
   USE mo_impl_constants,      ONLY: max_char_length, max_dom,itconv,itccov,&
     &                               itrad,itradheat, itsso,itgscp,itsatad,itupdate,&
     &                               itturb, itsfc,  itgwd, iphysproc,iecham, ildf_echam,&
-    &                               inwp, iheldsuarez, ildf_dry, &
+    &                               inwp, iheldsuarez, ildf_dry,IHS_ATM_TEMP, &
     &                               tracer_only, inh_atmosphere, ishallow_water
   USE mo_parallel_configuration, ONLY: check_parallel_configuration
   USE mo_run_config,          ONLY: lrestore_states, dtime, iforcing, ltransport, &
@@ -231,6 +231,43 @@ CONTAINS
 
   ENDDO
 
+    !--------------------------------------------------------------------
+    ! checking the meanings of the diffusion settings
+    !--------------------------------------------------------------------
+
+ DO jg =1,max_dom
+
+   SELECT CASE( diffusion_config(jg)%hdiff_order)
+   CASE(-1)
+     CALL message(TRIM(routine),'Horizontal diffusion switched off.')
+   CASE(2,4)
+     CONTINUE
+
+   CASE(3)
+     IF (global_cell_type==3) CALL finish(TRIM(routine), &
+     ' hdiff_order = 3 invalid for triangular model.')
+
+   CASE(5)
+     IF (global_cell_type==6) CALL finish(TRIM(routine), &
+     ' hdiff_order = 5 invalid for hexagonal model.')
+
+   CASE(24,42)
+     IF (.NOT.( iequations==IHS_ATM_TEMP)) CALL finish(TRIM(routine), &
+     ' hdiff_order = 24 or 42 only implemented for the hydrostatic atm model')
+
+   CASE DEFAULT
+     CALL finish(TRIM(routine),                     &
+       & 'Error: Invalid choice of  hdiff_order. '// &                
+       & 'Choose from -1, 2, 3, 4, 5, 24, and 42.')
+   END SELECT
+
+   IF (  diffusion_config(jg)%hdiff_efdt_ratio<=0._wp) THEN
+     CALL message(TRIM(routine),'No horizontal background diffusion is used')
+  ENDIF
+
+  IF ( lshallow_water )  diffusion_config(jg)%lhdiff_temp=.FALSE.
+
+ENDDO
     !--------------------------------------------------------------------
     ! checking the meanings of the io settings
     !--------------------------------------------------------------------

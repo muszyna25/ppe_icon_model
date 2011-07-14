@@ -109,20 +109,20 @@ CONTAINS
 
     ! Diffusion coefficients for velocity and (potential) temperature
 
-    zc2vn = k2(jg)*1._wp/SQRT(3._wp)
-    zc4vn = k4(jg)/3._wp
+    zc2vn = diffusion_config(jg)%k2*1._wp/SQRT(3._wp)
+    zc4vn = diffusion_config(jg)%k4/3._wp
 
     SELECT CASE (patch%cell_type)
     CASE (6)
       zc2temp = diffusion_config(jg)%hdiff_tv_ratio      &
-        &      * k2(jg)*2._wp/9._wp/SQRT(3._wp)
+        &      * diffusion_config(jg)%k2*2._wp/9._wp/SQRT(3._wp)
       zc4temp = diffusion_config(jg)%hdiff_tv_ratio      &
-        &      * k4(jg)*4._wp/81._wp/3.0_wp
+        &      * diffusion_config(jg)%k4*4._wp/81._wp/3.0_wp
     CASE (3)
       zc2temp = diffusion_config(jg)%hdiff_tv_ratio      &
-        &      * k2(jg)*4._wp/3._wp/SQRT(3._wp)
+        &      * diffusion_config(jg)%k2*4._wp/3._wp/SQRT(3._wp)
       zc4temp = diffusion_config(jg)%hdiff_tv_ratio      &
-        &      * k4(jg)*16._wp/27._wp
+        &      * diffusion_config(jg)%k4*16._wp/27._wp
     END SELECT
 
     ! For nested domain
@@ -140,12 +140,12 @@ CONTAINS
     !-----------
     IF (diffusion_config(jg)%lhdiff_vn) THEN
       CALL nabla2_vec( prog%vn, patch, pint, znabla_e,     &
-                       opt_slev=k2s,  opt_elev=k2e,        &
+                       opt_slev=diffusion_config(jg)%k2s,  opt_elev=diffusion_config(jg)%k2e,        &
                        opt_rlstart=5, opt_rlend=min_rledge )
 
       CALL nabla4_vec( prog%vn, patch, pint, znabla_e,     &
                        opt_nabla2=znabla2_e,               &
-                       opt_slev=k4s,  opt_elev=k4e,        &
+                       opt_slev=diffusion_config(jg)%k4s,  opt_elev=diffusion_config(jg)%k4e,        &
                        opt_rlstart=7, opt_rlend=min_rledge )
     END IF
     !-------------
@@ -154,12 +154,12 @@ CONTAINS
     IF (diffusion_config(jg)%lhdiff_temp.AND.(.NOT.ltheta_dyn)) THEN
 
       CALL nabla2_scalar( prog%temp, patch, pint, znabla_c,   &
-                          opt_slev=k2s,  opt_elev=k2e,        &
+                          opt_slev=diffusion_config(jg)%k2s,  opt_elev=diffusion_config(jg)%k2e,        &
                           opt_rlstart=3, opt_rlend=min_rlcell )
 
       CALL nabla4_scalar( prog%temp, patch, pint, znabla_c,   &
                           opt_nabla2=znabla2_c,               &
-                          opt_slev=k4s,  opt_elev=k4e,        &
+                          opt_slev=diffusion_config(jg)%k4s,  opt_elev=diffusion_config(jg)%k4e,        &
                           opt_rlstart=4, opt_rlend=min_rlcell )
 
     !---------------------------------------------------------------
@@ -185,12 +185,12 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
       CALL nabla2_scalar( ztmp_c, patch, pint, znabla_c,      &
-                          opt_slev=k2s,  opt_elev=k2e,        &
+                          opt_slev=diffusion_config(jg)%k2s,  opt_elev=diffusion_config(jg)%k2e,        &
                           opt_rlstart=3, opt_rlend=min_rlcell )
 
       CALL nabla4_scalar( ztmp_c, patch, pint, znabla_c,      &
                           opt_nabla2=znabla2_c,               &
-                          opt_slev=k4s,  opt_elev=k4e,        &
+                          opt_slev=diffusion_config(jg)%k4s,  opt_elev=diffusion_config(jg)%k4e,        &
                           opt_rlstart=4, opt_rlend=min_rlcell )
     ENDIF
 
@@ -210,13 +210,13 @@ CONTAINS
       DO jb = jbs,jbe
         CALL get_indices_e(patch,jb,jbs,jbe,is,ie,grf_bdywidth_e+1,min_rledge)
 
-        DO jk = k2s,k2e
+        DO jk = diffusion_config(jg)%k2s,diffusion_config(jg)%k2e
           prog%vn(is:ie,jk,jb) =   prog%vn(is:ie,jk,jb)           &
                                & +znabla_e(is:ie,jk,jb)*zc2vn     &
                                & *patch%edges%area_edge(is:ie,jb)
         ENDDO !jk
 
-        DO jk = k4s,k4e
+        DO jk = diffusion_config(jg)%k4s,diffusion_config(jg)%k4e
           prog%vn(is:ie,jk,jb) =   prog%vn(is:ie,jk,jb)             &
                                & -znabla_e(is:ie,jk,jb)*zc4vn       &
                                & *patch%edges%area_edge(is:ie,jb)**2
@@ -239,13 +239,13 @@ CONTAINS
         DO jb = jbs,jbe
           CALL get_indices_c(patch,jb,jbs,jbe,is,ie,grf_bdywidth_c+1, min_rlcell)
 
-          DO jk = k2s,k2e
+          DO jk = diffusion_config(jg)%k2s,diffusion_config(jg)%k2e
             prog%temp(is:ie,jk,jb) =  prog%temp(is:ie,jk,jb)        &
                                    & +znabla_c(is:ie,jk,jb)*zc2temp &
                                    & *patch%cells%area(is:ie,jb)
           ENDDO !jk
 
-          DO jk = k4s,k4e
+          DO jk = diffusion_config(jg)%k4s,diffusion_config(jg)%k4e
             prog%temp(is:ie,jk,jb) =  prog%temp(is:ie,jk,jb)        &
                                    & -znabla_c(is:ie,jk,jb)*zc4temp & 
                                    & *patch%cells%area(is:ie,jb)**2
@@ -259,14 +259,14 @@ CONTAINS
         DO jb = jbs,jbe
           CALL get_indices_c(patch,jb,jbs,jbe,is,ie,grf_bdywidth_c+1, min_rlcell)
 
-          DO jk = k2s,k2e
+          DO jk = diffusion_config(jg)%k2s,diffusion_config(jg)%k2e
             prog%theta(is:ie,jk,jb) =  prog%theta(is:ie,jk,jb)       &
                                     & +znabla_c(is:ie,jk,jb)*zc2temp &
                                     & *patch%cells%area(is:ie,jb)    &
                                     & *diag%delp_c(is:ie,jk,jb)
           ENDDO !jk
 
-          DO jk = k4s,k4e
+          DO jk = diffusion_config(jg)%k4s,diffusion_config(jg)%k4e
             prog%theta(is:ie,jk,jb) =  prog%theta(is:ie,jk,jb)       &
                                     & -znabla_c(is:ie,jk,jb)*zc4temp &
                                     & *patch%cells%area(is:ie,jb)**2 &
@@ -283,7 +283,7 @@ CONTAINS
     !===================================================================
     ! NOTE that after the computations in step 2, we have the Laplacian 
     ! (nabla2) of the prognostic variables 
-    ! - stored in variable znabla_e/c  for vertical levels [k2s,k2e], and  
+    ! - stored in variable znabla_e/c  for vertical levels [k2s,diffusion_config(jg)%k2e], and  
     ! - stored in variable znabla2_e/c for vertical levels [k4s,k4e].
     ! Here for the boundary of refined region, we apply 2nd order 
     ! diffusion for all vertical levels.
@@ -301,14 +301,14 @@ CONTAINS
         CALL get_indices_e(patch,jb,jbs,jbe,is,ie,start_bdydiff_e, grf_bdywidth_e)
 
 !$OMP DO PRIVATE(jk)
-        DO jk = k2s,k2e
+        DO jk = diffusion_config(jg)%k2s,diffusion_config(jg)%k2e
           prog%vn(is:ie,jk,jb) =  prog%vn(is:ie,jk,jb)                &
                                & +znabla_e(is:ie,jk,jb)*fac_bdydiff_e &
                                & *patch%edges%area_edge(is:ie,jb)
         ENDDO !jk
 !$OMP END DO
 !$OMP DO PRIVATE(jk)
-        DO jk = k4s,k4e
+        DO jk = diffusion_config(jg)%k4s,diffusion_config(jg)%k4e
           prog%vn(is:ie,jk,jb) =  prog%vn(is:ie,jk,jb)                 &
                                & +znabla2_e(is:ie,jk,jb)*fac_bdydiff_e &
                                & *patch%edges%area_edge(is:ie,jb)
@@ -336,14 +336,14 @@ CONTAINS
           CALL get_indices_c(patch,jb,jbs,jbe,is,ie,start_bdydiff_c,grf_bdywidth_c)
 
 !$OMP DO PRIVATE(jk)
-          DO jk = k2s,k2e
+          DO jk = diffusion_config(jg)%k2s,diffusion_config(jg)%k2e
             prog%temp(is:ie,jk,jb) =  prog%temp(is:ie,jk,jb)              &
                                    & +znabla_c(is:ie,jk,jb)*fac_bdydiff_c &
                                    & *patch%cells%area(is:ie,jb)
           ENDDO
 !$OMP END DO
 !$OMP DO PRIVATE(jk)
-          DO jk = k4s,k4e
+          DO jk = diffusion_config(jg)%k4s,diffusion_config(jg)%k4e
             prog%temp(is:ie,jk,jb) =  prog%temp(is:ie,jk,jb)               &
                                    & +znabla2_c(is:ie,jk,jb)*fac_bdydiff_c &
                                    & *patch%cells%area(is:ie,jb)
@@ -358,7 +358,7 @@ CONTAINS
           CALL get_indices_c(patch,jb,jbs,jbe,is,ie,start_bdydiff_c,grf_bdywidth_c)
 
 !$OMP DO PRIVATE(jk)
-          DO jk = k2s,k2e
+          DO jk = diffusion_config(jg)%k2s,diffusion_config(jg)%k2e
             prog%theta(is:ie,jk,jb) =  prog%theta(is:ie,jk,jb)             &
                                     & +znabla_c(is:ie,jk,jb)*fac_bdydiff_c &
                                     & *patch%cells%area(is:ie,jb)          &
@@ -366,7 +366,7 @@ CONTAINS
           ENDDO
 !$OMP END DO
 !$OMP DO PRIVATE(jk)
-          DO jk = k4s,k4e
+          DO jk = diffusion_config(jg)%k4s,diffusion_config(jg)%k4e
             prog%theta(is:ie,jk,jb) =  prog%theta(is:ie,jk,jb)              &
                                     & +znabla2_c(is:ie,jk,jb)*fac_bdydiff_c &
                                     & *patch%cells%area(is:ie,jb)           &

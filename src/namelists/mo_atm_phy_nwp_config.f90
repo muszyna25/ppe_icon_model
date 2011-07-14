@@ -226,29 +226,26 @@ SUBROUTINE setup_atm_nwp_phy
 
     ENDDO
 
-    !KF some parameters are not yet domain dependend, therefore I put 
-    ! the domain= 1
-
-      lseaice    = atm_phy_nwp_config(1)%lseaice       
-      llake      = atm_phy_nwp_config(1)%llake         
-      imode_turb = atm_phy_nwp_config(1)%imode_turb    
-      limpltkediff = atm_phy_nwp_config(1)%limpltkediff  
-      ltkesso     = atm_phy_nwp_config(1)%ltkesso       
-      lexpcor     = atm_phy_nwp_config(1)%lexpcor       
-      tur_len     = atm_phy_nwp_config(1)%tur_len        
-      pat_len     = atm_phy_nwp_config(1)%pat_len        
-      a_stab      = atm_phy_nwp_config(1)%a_stab    
-      tkhmin      = atm_phy_nwp_config(1)%tkhmin         
-      tkmmin      = atm_phy_nwp_config(1)%tkmmin         
-      c_diff      = atm_phy_nwp_config(1)%c_diff         
-      itype_wcld  = atm_phy_nwp_config(1)%itype_wcld     
-      icldm_turb  = atm_phy_nwp_config(1)%icldm_turb  
-      itype_tran  = atm_phy_nwp_config(1)%itype_tran  
-      rlam_heat   = atm_phy_nwp_config(1)%rlam_heat
-      rlam_mom    = atm_phy_nwp_config(1)%rlam_mom
-      rat_sea     = atm_phy_nwp_config(1)%rat_sea     
-
-
+!       lseaice    = atm_phy_nwp_config(1)%lseaice       
+!      llake      = atm_phy_nwp_config(1)%llake         
+!      imode_turb = atm_phy_nwp_config(1)%imode_turb    
+!      limpltkediff = atm_phy_nwp_config(1)%limpltkediff  
+!      ltkesso     = atm_phy_nwp_config(1)%ltkesso       
+!      lexpcor     = atm_phy_nwp_config(1)%lexpcor       
+!      tur_len     = atm_phy_nwp_config(1)%tur_len        
+!      pat_len     = atm_phy_nwp_config(1)%pat_len        
+!      a_stab      = atm_phy_nwp_config(1)%a_stab    
+!      tkhmin      = atm_phy_nwp_config(1)%tkhmin         
+!      tkmmin      = atm_phy_nwp_config(1)%tkmmin         
+!      c_diff      = atm_phy_nwp_config(1)%c_diff         
+!      itype_wcld  = atm_phy_nwp_config(1)%itype_wcld     
+!      icldm_turb  = atm_phy_nwp_config(1)%icldm_turb  
+!      itype_tran  = atm_phy_nwp_config(1)%itype_tran  
+!      rlam_heat   = atm_phy_nwp_config(1)%rlam_heat
+!      rlam_mom    = atm_phy_nwp_config(1)%rlam_mom
+!      rat_sea     = atm_phy_nwp_config(1)%rat_sea     
+!
+!
 
     IF( atm_phy_nwp_config(1)%inwp_turb == 2) THEN
        CALL init_sfc_indices( ltestcase, 'APE' ) !call of a hydrostatic testcase
