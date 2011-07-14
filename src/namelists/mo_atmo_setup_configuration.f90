@@ -156,7 +156,6 @@ CONTAINS
     !    new file in which all the namelist variables and their
     !    actual values used in the model run will be stored.
     !-------------------------------------------------------------------
-    CALL open_nml(TRIM(namelist_filename))
     IF(p_pe == p_io) CALL open_nml_output('NAMELIST_ICON_output_atm')
 
     ! read namelists
@@ -192,7 +191,6 @@ CONTAINS
     CALL read_io_namelist(TRIM(namelist_filename))
       
     ! close namelist file
-    CALL close_nml
     IF (p_pe == p_io) THEN
       CALL close_nml_output
     END IF
