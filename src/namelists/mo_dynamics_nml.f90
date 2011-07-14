@@ -34,12 +34,12 @@
 !!
 MODULE mo_dynamics_nml
 
-  USE mo_dynamics_config,     ONLY: config_iequations     => iequations     &
-                                  & config_itime_scheme   => itime_scheme   &
-                                  & config_idiv_method    => idiv_method    &
-                                  & config_divavg_cntrwgt => divavg_cntrwgt &
-                                  & config_ldry_dycore    => ldry_dycore    &
-                                  & config_sw_ref_height  => sw_ref_height  &
+  USE mo_dynamics_config,     ONLY: config_iequations     => iequations,     &
+                                  & config_itime_scheme   => itime_scheme,   &
+                                  & config_idiv_method    => idiv_method,    &
+                                  & config_divavg_cntrwgt => divavg_cntrwgt, &
+                                  & config_ldry_dycore    => ldry_dycore,    &
+                                  & config_sw_ref_height  => sw_ref_height,  &
                                   & config_lcoriolis      => lcoriolis
 
   USE mo_kind,                ONLY: wp
