@@ -49,12 +49,17 @@ MODULE mo_interpol_config
   USE mo_exception,           ONLY: message, finish
 
   IMPLICIT NONE
+  PRIVATE
+  PUBLIC :: llsq_high_consv, lsq_high_ord, rbf_vec_kern_c, rbf_vec_kern_v, rbf_vec_kern_e
+  PUBLIC :: rbf_vec_scale_c, rbf_vec_scale_e, rbf_vec_scale_v, i_cori_method
+  PUBLIC :: nudge_max_coeff, nudge_efold_width, nudge_zone_width, l_corner_vort
+  PUBLIC :: rbf_vec_dim_c, rbf_vec_dim_v, rbf_vec_dim_e, rbf_c2grad_dim
+  PUBLIC :: lsq_lin_set, lsq_high_set
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
-
   !>
   !!
-!  TYPE :: t_interpol_config
+  !TYPE :: t_interpol_config
 
     ! namelist variables
     LOGICAL  :: llsq_high_consv     ! flag to determine whether the high order least 
@@ -65,7 +70,7 @@ MODULE mo_interpol_config
     INTEGER  :: rbf_vec_kern_c,   & ! parameter determining the type             
        &        rbf_vec_kern_v,   & ! of vector rbf kernel                       
        &        rbf_vec_kern_e                                                  
-                                                                                 
+
     ! Parameter fields determining the scale factor used by the vector rbf       
     ! interpolator.                                                              
     ! Note: these fields are defined on each grid level; to allow the namelist input
@@ -116,19 +121,16 @@ MODULE mo_interpol_config
     TYPE(t_lsq_set) :: lsq_lin_set, &! Parameter settings for linear and higher order  
       &                lsq_high_set  ! least squares
   
-!  END TYPE t_interpol_config
+  !END TYPE t_interpol_config
   !>
   !!
-!  TYPE(t_interpol_config) :: interpol_config(max_dom)
+  !TYPE(t_interpol_config) :: interpol_config(max_dom)
 
-  PUBLIC  !: setup_interpol_config
-
-  CONTAINS
+CONTAINS
 
     SUBROUTINE setup_interpol_config (jlev,n_dom,global_cell_type)
 
-   ! 
-!   TYPE(t_patch), TARGET, INTENT(in) :: p_patch(:)
+    !TYPE(t_patch), TARGET, INTENT(in) :: p_patch(:)
 
       INTEGER, INTENT(IN):: global_cell_type
       INTEGER, INTENT(IN):: jlev, n_dom

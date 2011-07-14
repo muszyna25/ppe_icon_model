@@ -49,14 +49,12 @@ MODULE mo_io_config
   USE mo_exception,      ONLY: message, finish
 
   IMPLICIT NONE
-
-
-
+  PUBLIC
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
-  !!--------------------------------------------------------------------------
-  !! Derived type 
-  !!--------------------------------------------------------------------------
+  !--------------------------------------------------------------------------
+  ! Derived type 
+  !--------------------------------------------------------------------------
 !  TYPE :: t_io_config
 
     ! namelist variables
@@ -101,7 +99,6 @@ MODULE mo_io_config
   !!
  ! TYPE(t_io_config):: io_config(max_dom)
 
-  PUBLIC
 
 CONTAINS
 
