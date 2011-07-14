@@ -1060,7 +1060,7 @@ src/namelists/mo_io_nml.f90 -text
 src/namelists/mo_lnd_nwp_config.f90 -text
 src/namelists/mo_lnd_nwp_nml.f90 -text
 src/namelists/mo_master_nml.f90 -text
-src/namelists/mo_nh_dyn_config.f90 -text
+src/namelists/mo_nonhydrostatic_config.f90 -text
 src/namelists/mo_nonhydrostatic_nml.f90 -text
 src/namelists/mo_ocean_nml.f90 -text
 src/namelists/mo_parallel_configuration.f90 -text
