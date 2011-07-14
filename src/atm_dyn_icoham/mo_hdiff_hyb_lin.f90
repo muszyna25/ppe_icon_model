@@ -140,12 +140,12 @@ CONTAINS
     !-----------
     IF (diffusion_config(jg)%lhdiff_vn) THEN
       CALL nabla2_vec( prog%vn, patch, pint, znabla_e,     &
-                       opt_slev=diffusion_config(jg)%k2s,  opt_elev=diffusion_config(jg)%k2e,        &
+                       opt_slev=diffusion_config(jg)%k2s,  opt_elev=diffusion_config(jg)%k2e, &
                        opt_rlstart=5, opt_rlend=min_rledge )
 
       CALL nabla4_vec( prog%vn, patch, pint, znabla_e,     &
                        opt_nabla2=znabla2_e,               &
-                       opt_slev=diffusion_config(jg)%k4s,  opt_elev=diffusion_config(jg)%k4e,        &
+                       opt_slev=diffusion_config(jg)%k4s,  opt_elev=diffusion_config(jg)%k4e, &
                        opt_rlstart=7, opt_rlend=min_rledge )
     END IF
     !-------------
@@ -154,12 +154,12 @@ CONTAINS
     IF (diffusion_config(jg)%lhdiff_temp.AND.(.NOT.ltheta_dyn)) THEN
 
       CALL nabla2_scalar( prog%temp, patch, pint, znabla_c,   &
-                          opt_slev=diffusion_config(jg)%k2s,  opt_elev=diffusion_config(jg)%k2e,        &
+                          opt_slev=diffusion_config(jg)%k2s,  opt_elev=diffusion_config(jg)%k2e, &
                           opt_rlstart=3, opt_rlend=min_rlcell )
 
       CALL nabla4_scalar( prog%temp, patch, pint, znabla_c,   &
                           opt_nabla2=znabla2_c,               &
-                          opt_slev=diffusion_config(jg)%k4s,  opt_elev=diffusion_config(jg)%k4e,        &
+                          opt_slev=diffusion_config(jg)%k4s,  opt_elev=diffusion_config(jg)%k4e, &
                           opt_rlstart=4, opt_rlend=min_rlcell )
 
     !---------------------------------------------------------------
@@ -185,12 +185,12 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
       CALL nabla2_scalar( ztmp_c, patch, pint, znabla_c,      &
-                          opt_slev=diffusion_config(jg)%k2s,  opt_elev=diffusion_config(jg)%k2e,        &
+                          opt_slev=diffusion_config(jg)%k2s,  opt_elev=diffusion_config(jg)%k2e, &
                           opt_rlstart=3, opt_rlend=min_rlcell )
 
       CALL nabla4_scalar( ztmp_c, patch, pint, znabla_c,      &
                           opt_nabla2=znabla2_c,               &
-                          opt_slev=diffusion_config(jg)%k4s,  opt_elev=diffusion_config(jg)%k4e,        &
+                          opt_slev=diffusion_config(jg)%k4s,  opt_elev=diffusion_config(jg)%k4e, &
                           opt_rlstart=4, opt_rlend=min_rlcell )
     ENDIF
 
