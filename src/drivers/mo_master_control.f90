@@ -59,6 +59,8 @@ MODULE mo_master_control
     &                   l_ocean_active, ocean_name, ocean_namelist_filename,  &
     &                   ocean_min_rank, ocean_max_rank, ocean_inc_rank
   
+  USE mo_coupling_nml, ONLY: read_coupling_namelist
+
   USE mo_run_nml,      ONLY: run_nml_setup,  locean
   USE mo_namelist,     ONLY: open_nml,  close_nml
 
@@ -96,6 +98,7 @@ MODULE mo_master_control
     ! !Local variables
     !
     INTEGER :: master_namelist_status
+    INTEGER :: coupling_namelist_status
     INTEGER :: jg, comp_id, str_len, ierr
     INTEGER :: new_comm
     INTEGER :: nbr_components
@@ -153,6 +156,10 @@ MODULE mo_master_control
                CALL icon_cpl_init_comp ( 'oce', my_process_model, comp_id, ierr )
                CALL set_my_component("OCEAN", ocean_process , ocean_namelist_filename)
 
+!rr  will be moved into mo_ocean_model.f90
+!rr               coupling_namelist_status = &
+!rr                   read_coupling_namelist(TRIM(ocean_namelist_filename),comp_id)
+
             ENDIF
 
          ENDDO
@@ -163,6 +170,10 @@ MODULE mo_master_control
 
                CALL icon_cpl_init_comp ( 'atm', my_process_model, comp_id, ierr )
                CALL set_my_component("ATMO", atmo_process ,atmo_namelist_filename)
+
+!rr will be moved into mo_atmo_model.f90
+!rr               coupling_namelist_status = &
+!rr                   read_coupling_namelist(TRIM(atmo_namelist_filename),comp_id)
 
             ENDIF
 

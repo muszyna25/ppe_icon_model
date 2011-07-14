@@ -55,9 +55,7 @@
 
 MODULE mo_icon_cpl_init_comp
 
-  USE mo_cpl_nml,  ONLY  : cpl_nml_setup, l_redirect_stdout
-
-  USE mo_icon_cpl, ONLY : set_cpl_local_comm
+  USE mo_icon_cpl, ONLY : set_cpl_local_comm, maxchar
 
 #ifndef NOMPI
 
@@ -98,7 +96,8 @@ MODULE mo_icon_cpl_init_comp
 #endif
 
   PRIVATE
-  PUBLIC :: icon_cpl_init_comp, get_my_local_comp_id
+
+  PUBLIC :: icon_cpl_init_comp, get_my_local_comp_id, icon_cpl_redirect_stdout
 
 CONTAINS
 
@@ -110,26 +109,6 @@ CONTAINS
     INTEGER, INTENT(out)         :: ierror
 
     INTEGER                      :: comp_comm
-
-    ! -------------------------------------------------------------------
-    ! for redirecting stdout
-    ! -------------------------------------------------------------------
-
-    INTEGER                      :: lenstr
-#if ! defined (__NAG)
-    INTEGER                      :: istat
-    INTEGER                      :: length_of_integer
-    INTEGER                      :: ndibuf
-    INTEGER                      :: ipos
-    INTEGER, ALLOCATABLE         :: ibuf(:)
-#endif
-
-    ! TODO: replace with mo_namelist
-
-    INTEGER, PARAMETER           :: nnml = 2
-    INTEGER, PARAMETER           :: parallel_io = 1 !< switch for writing cplout
-                                                    !<  - 1 write in parallel
-                                                    !<  - 0 all in one
 
     INTEGER                      :: i               !< loop count
     INTEGER                      :: key, color
@@ -191,8 +170,6 @@ CONTAINS
        CALL MPI_Abort ( ICON_comm, 1, ierr )
     ENDIF
 
-    CALL cpl_nml_setup(comp_id)
-    
     ! -------------------------------------------------------------------
     ! Derive component communicators
     ! -------------------------------------------------------------------
@@ -225,36 +202,6 @@ CONTAINS
     IF ( ierr /= MPI_SUCCESS ) THEN
        CALL MPI_Error_string ( ierr, err_string, len, ierror )
        WRITE  ( * , '(A,A)' ) 'Error in getting local size ', err_string
-    ENDIF
-
-    ! -------------------------------------------------------------------
-    ! Redirect standard output and standard error output if requested
-    ! -------------------------------------------------------------------
-
-    IF ( l_redirect_stdout ) THEN
-
-       lenstr = LEN_TRIM (comp_name)
-
-#if defined (__NAG)
-       CALL psmile_redirstdout ( comp_name(1:lenstr), lenstr, &
-            parallel_io, ICON_global_rank, ICON_global_size, ierr )
-#else
-       length_of_integer = BIT_SIZE (istat) / 8
-       ndibuf = lenstr / length_of_integer + 1
-
-       ALLOCATE (ibuf(1:ndibuf), STAT = ierr)
-       IF ( ierr > 0 ) THEN
-          PRINT *, ' Error allocating ibuf '
-          CALL MPI_Abort ( ICON_COMM, 1, ierr )
-       ENDIF
-
-       ipos = 0
-
-       CALL psmile_char2buf (ibuf, ndibuf, ipos, comp_name(1:lenstr))
-
-       CALL psmile_redirstdout ( ibuf, lenstr, &
-            parallel_io, ICON_global_rank, ICON_global_size, ierr )
-#endif
     ENDIF
 
     ! -------------------------------------------------------------------
@@ -365,6 +312,8 @@ CONTAINS
   END SUBROUTINE icon_cpl_init_comp
 
   ! -------------------------------------------------------------------
+  ! Provide the local component id
+  ! -------------------------------------------------------------------
 
   INTEGER FUNCTION get_my_local_comp_id ( comp_process )
 
@@ -384,5 +333,59 @@ CONTAINS
      get_my_local_comp_id = i
      
   END FUNCTION get_my_local_comp_id
+
+  ! -------------------------------------------------------------------
+  ! Redirect standard output and standard error output if requested
+  ! -------------------------------------------------------------------
+
+  SUBROUTINE icon_cpl_redirect_stdout ( comp_id )
+
+    INTEGER, INTENT (IN) :: comp_id
+
+    CHARACTER(len=maxchar)       :: comp_name
+    INTEGER                      :: lenstr
+#if ! defined (__NAG)
+    INTEGER                      :: istat
+    INTEGER                      :: length_of_integer
+    INTEGER                      :: ndibuf
+    INTEGER                      :: ipos
+    INTEGER, ALLOCATABLE         :: ibuf(:)
+#endif
+
+    ! TODO: replace with user namelist input
+
+    INTEGER, PARAMETER           :: parallel_io = 1 !< switch for writing cplout
+                                                    !<  - 1 write in parallel
+                                                    !<  - 0 all in one
+
+    IF (  complist(comp_id)%l_redirect_stdout ) THEN
+
+       comp_name = complist(comp_id)%comp_name
+
+       lenstr = LEN_TRIM (comp_name)
+
+#if defined (__NAG)
+       CALL psmile_redirstdout ( comp_name(1:lenstr), lenstr, &
+            parallel_io, ICON_global_rank, ICON_global_size, ierr )
+#else
+       length_of_integer = BIT_SIZE (istat) / 8
+       ndibuf = lenstr / length_of_integer + 1
+
+       ALLOCATE (ibuf(1:ndibuf), STAT = ierr)
+       IF ( ierr > 0 ) THEN
+          PRINT *, ' Error allocating ibuf '
+          CALL MPI_Abort ( ICON_COMM, 1, ierr )
+       ENDIF
+
+       ipos = 0
+
+       CALL psmile_char2buf (ibuf, ndibuf, ipos, comp_name(1:lenstr))
+
+       CALL psmile_redirstdout ( ibuf, lenstr, &
+            parallel_io, ICON_global_rank, ICON_global_size, ierr )
+#endif
+    ENDIF
+
+  END SUBROUTINE icon_cpl_redirect_stdout
 
 END MODULE mo_icon_cpl_init_comp

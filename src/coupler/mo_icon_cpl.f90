@@ -193,6 +193,7 @@ MODULE mo_icon_cpl
      LOGICAL                :: L_TIME_ACCUMULATION
      INTEGER                :: COUPLING_FREQ
      INTEGER                :: TIME_STEP
+     LOGICAL                :: L_REDIRECT_STDOUT
   END TYPE t_comp
 
 !>
