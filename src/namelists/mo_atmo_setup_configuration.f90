@@ -53,6 +53,7 @@ MODULE mo_atmo_setup_configuration
   USE mo_ha_dyn_nml,          ONLY: read_ha_dyn_namelist 
   USE mo_diffusion_nml,       ONLY: diffusion_nml_setup, read_diffusion_namelist 
   USE mo_io_nml,              ONLY: read_io_namelist !, & ! process I/O
+  USE mo_extpar_nml,          ONLY: read_extpar_namelist
 !    &io_nml_setup, &
     
 !   USE mo_run_nml,             ONLY: run_nml_setup,            & ! process run control parameters
