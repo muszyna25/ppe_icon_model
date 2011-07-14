@@ -79,7 +79,7 @@ MODULE mo_ext_data
 
   IMPLICIT NONE
 
-  INTEGER::  nlev_pres, nlev_height, nmonths ! 
+  INTEGER::  nlev_pres, nmonths ! 
 
   ! required for testing/reading topography
   INCLUDE 'netcdf.inc'
@@ -1300,7 +1300,7 @@ CONTAINS
     !-------------------------------------------------------
 
     TYPE(t_patch), INTENT(IN)            :: p_patch(:)
-    INTEGER :: no_cells, no_verts
+    INTEGER :: no_cells
     INTEGER :: ncid, dimid
     INTEGER :: jg
 

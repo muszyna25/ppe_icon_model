@@ -179,10 +179,10 @@ CONTAINS
 
     INTEGER, INTENT(IN) :: i_ndom
  
-    INTEGER :: jdom
+ !  INTEGER :: jdom
 
-    CHARACTER(len=*),PARAMETER ::             &
-             & routine = 'mo_dynamics_nml:dynamics_setup'
+ !  CHARACTER(len=*),PARAMETER ::             &
+ !           & routine = 'mo_dynamics_nml:dynamics_setup'
  
    !CHARACTER(len=MAX_CHAR_LENGTH) :: string
 

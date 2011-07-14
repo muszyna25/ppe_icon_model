@@ -49,7 +49,12 @@ MODULE mo_dynamics_config
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
 
   IMPLICIT NONE
-  PUBLIC
+  PRIVATE
+  PUBLIC :: iequations, itime_scheme, idiv_method, divavg_cntrwgt
+  PUBLIC :: sw_ref_height, ldry_dycore, lcoriolis, lshallow_water, ltwotime
+  PUBLIC :: nold, nnow, nnew, nsav1, nsav2, nnow_rcf, nnew_rcf
+  PUBLIC :: config_dynamics
+
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
   !--------------------------------------------------------------------------

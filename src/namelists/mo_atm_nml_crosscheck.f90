@@ -48,7 +48,7 @@ MODULE mo_atm_nml_crosscheck
   USE mo_impl_constants,      ONLY: max_char_length, max_dom,itconv,itccov,&
     &                               itrad,itradheat, itsso,itgscp,itsatad,itupdate,&
     &                               itturb, itsfc,  itgwd, iphysproc,iecham, ildf_echam,&
-    &                               inwp, tracer_only, inh_atmosphere
+    &                               inwp, tracer_only, inh_atmosphere, ishallow_water
   USE mo_time_config,         ONLY: time_config
   USE mo_run_config
   USE mo_gridref_config,      ONLY: gridref_config
@@ -86,18 +86,13 @@ MODULE mo_atm_nml_crosscheck
 
 CONTAINS
 
-SUBROUTINE atm_crosscheck
+  SUBROUTINE atm_crosscheck
 
-  INTEGER :: jg
-
-  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine =  &
-                              'atm_crosscheck'
-
-
-
+    INTEGER :: jg
+    CHARACTER(len=*), PARAMETER :: routine =  'atm_crosscheck'
 
     !--------------------------------------------------------------------
-    ! checking of interpolation  parameters
+    ! Horizontal interpolation
     !--------------------------------------------------------------------
     IF (global_cell_type == 6) THEN
     ! ... check i_cori_method
@@ -120,12 +115,24 @@ SUBROUTINE atm_crosscheck
       ! [for nwp forcing ntracer setting is treated in setup_transport]
     ENDIF
 
+    SELECT CASE (iforcing)
+    CASE(IECHAM,ILDF_ECHAM)
+      IF (ntracer < 3) &
+      CALL finish(TRIM(routine),'ECHAM physics needs at least 3 tracers')
+
+    CASE(INWP)
+      IF (ntracer < 5) &
+      CALL finish(TRIM(routine),'NWP physics needs at least 3 tracers')
+    END SELECT
 
     !--------------------------------------------------------------------
     ! Grid and dynamics 
     !--------------------------------------------------------------------
     IF (lplane .AND. global_cell_type==3) CALL finish( TRIM(routine),&
       'Currently only the hexagon model can run on a plane')
+
+    IF ((iequations==ISHALLOW_WATER).AND.(nlev/=1)) &
+    CALL finish(TRIM(routine),'Multiple vertical level specified for shallow water model')
 
     IF (global_cell_type==6.AND.idiv_method==2) THEN
       CALL finish( TRIM(ROUTINE),'idiv_method =2 not valid for the hexagonal model') 
