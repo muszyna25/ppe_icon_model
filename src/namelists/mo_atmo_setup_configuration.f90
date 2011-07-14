@@ -34,81 +34,18 @@
 !!
 MODULE mo_atmo_setup_configuration
 
-  USE mo_exception,           ONLY: message, finish
   USE mo_mpi,                 ONLY: p_stop, p_pe, p_io, p_nprocs
   USE mo_master_nml,          ONLY: lrestart
-  USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output
-  USE mo_output,              ONLY: init_output_files, close_output_files, write_output
+  USE mo_namelist,            ONLY: open_nml, close_nml, open_nml_output, close_nml_output
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
 
-  
-  USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
-
-
-  ! Control parameters: run control, dynamics, i/o
-  !
-  USE mo_global_variables,    ONLY: setup_physics           ! process forcing control parameters
-  USE mo_nonhydrostatic_nml,  ONLY: ivctype, read_nonhydrostatic_namelist, &  
-    &                               nonhydrostatic_nml_setup
   USE mo_dynamics_nml,        ONLY: read_dynamics_namelist, dynamics_nml_setup
   USE mo_ha_dyn_nml,          ONLY: read_ha_dyn_namelist 
-  USE mo_diffusion_nml,       ONLY: diffusion_nml_setup, read_diffusion_namelist 
+  USE mo_diffusion_nml,       ONLY: read_diffusion_namelist 
   USE mo_io_nml,              ONLY: read_io_namelist !, & ! process I/O
   USE mo_extpar_nml,          ONLY: read_extpar_namelist
-!    &io_nml_setup, &
-    
-!   USE mo_run_nml,             ONLY: run_nml_setup,            & ! process run control parameters
-!    !& current_datetime,     & !    module variable
-!     & dtime,                & !    namelist parameter
-!     & nsteps,               & !    :
-!     & ltransport,           & !    :
-!     & lforcing,             & !    :
-!     & ltestcase,            & !    :
-!     & ltimer,               & !    :
-!     & iequations,           & !    internal parameters
-!     & ihs_atm_temp,         & !    :
-!     & ihs_atm_theta,        & !    :
-!     & inh_atmosphere,       & !    :
-!     & ishallow_water,       & !    :
-!     & iforcing,             & !    namelist parameter
-!     & ildf_dry,             & !    :
-!     & ildf_echam,           & !    :
-!     & inoforcing,           & !    internal parameter
-!     & iheldsuarez,          & !    :
-!     & iecham,               & !    :
-!     & inwp,                 & !    :
-!     & ldump_states,         & ! flag if states should be dumped
-!     & lrestore_states         ! flag if states should be restored
-
-
-
-  USE mo_advection_nml,       ONLY: transport_nml_setup,  & ! process transport
-    & setup_transport,  read_transport_namelist
-
-  ! Test cases
-  !
-  USE mo_hydro_testcases,     ONLY: setup_testcase          ! process hyd. atm. tests ctl. params.
-  USE mo_nh_testcases,        ONLY: setup_nh_testcase       ! process non-hyd. atm. test ctl. par.
-
-
-  ! Horizontal grid
-  !
-  USE mo_model_domain_import, ONLY: & !grid_nml_setup,          & ! process grid control parameters
-    & n_dom,                & !    :
-    & n_dom_start,          & !    :
-    & parent_id,            & !    :
-    & import_patches,       & !
-    & destruct_patches        !
-
-  ! Horizontal interpolation
-  !
-   
-  USE mo_gridref_nml,         ONLY: gridref_nml_setup, read_gridref_namelist
-  
-  ! Vertical grid
-  !
-  USE mo_vertical_coord_table,ONLY: init_vertical_coord_table
-  USE mo_vertical_grid,       ONLY: init_hybrid_coord, init_sleve_coord
-    
+  USE mo_advection_nml,       ONLY: read_transport_namelist
+  USE mo_gridref_nml,         ONLY: read_gridref_namelist
   USE mo_echam_phy_nml,       ONLY: read_echam_phy_namelist
   USE mo_vdiff_nml,           ONLY: read_vdiff_namelist
   USE mo_echam_conv_nml,      ONLY: read_echam_conv_namelist
@@ -117,48 +54,37 @@ MODULE mo_atmo_setup_configuration
   USE mo_gw_hines_nml,        ONLY: read_gw_hines_namelist
   USE mo_lnd_nwp_nml,         ONLY: read_nwp_lnd_namelist
   USE mo_sleve_nml,           ONLY: read_sleve_namelist
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
-    
-  USE mo_io_restart_namelist,  ONLY: read_restart_namelists
-  USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
-
   USE mo_parallel_nml,      ONLY: read_parallel_namelist ! reads AND fills parallel configure
   USE mo_grid_nml,          ONLY: read_grid_namelist     ! reads AND fills grid configure
   USE mo_run_nml,           ONLY: read_run_namelist
   USE mo_time_nml,          ONLY: read_time_namelist
-  
   USE mo_interpol_nml,      ONLY: read_interpol_namelist
+
+! ! Test cases
+! !
+! USE mo_hydro_testcases,     ONLY: setup_testcase          ! process hyd. atm. tests ctl. params.
+! USE mo_nh_testcases,        ONLY: setup_nh_testcase       ! process non-hyd. atm. test ctl. par.
+
+  USE mo_io_restart_namelist,  ONLY: read_restart_namelists
+  USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
   
   IMPLICIT NONE
   
   PRIVATE
-  
   PUBLIC :: read_atmo_namelists !, setup_atmo_configuration
   
 CONTAINS
-  
   !-------------------------------------------------------------------------
   !>
+  !! Read namelists;
+  !! Create a new file in which all the namelist variables and their
+  !! actual values used in the model run will be stored.
   !!
   SUBROUTINE read_atmo_namelists(namelist_filename)
     
     CHARACTER(LEN=*), INTENT(in) :: namelist_filename
 
-    CHARACTER(*), PARAMETER :: method_name = "read_atmo_namelists"
-
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
-    INTEGER :: n_io, jg, jfile, n_file, ist, n_diag, n_chkpt
-    LOGICAL :: lsuccess, l_have_output
-   
-
-    !-------------------------------------------------------------------
-    ! 1. Open the atmosphere-specific namelist file and create a 
-    !    new file in which all the namelist variables and their
-    !    actual values used in the model run will be stored.
-    !-------------------------------------------------------------------
     IF(p_pe == p_io) CALL open_nml_output('NAMELIST_ICON_output_atm')
-
-    ! read namelists
 
     CALL read_time_namelist(TRIM(namelist_filename))
     CALL read_parallel_namelist(TRIM(namelist_filename))
@@ -190,7 +116,6 @@ CONTAINS
 
     CALL read_io_namelist(TRIM(namelist_filename))
       
-    ! close namelist file
     IF (p_pe == p_io) THEN
       CALL close_nml_output
     END IF
