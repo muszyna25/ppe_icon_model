@@ -47,14 +47,14 @@ MODULE mo_radiation_config
   USE mo_impl_constants, ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom
 
   IMPLICIT NONE
-  PUBLIC
+  PRIVATE
+  PUBLIC :: t_radiation_config, radiation_config
+
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
-
-  !!--------------------------------------------------------------------------
-  !! Basic configuration setup for radiation
-  !!--------------------------------------------------------------------------
-
+  !--------------------------------------------------------------------------
+  ! Basic configuration setup for radiation
+  !--------------------------------------------------------------------------
 
   TYPE t_radiation_config
   !

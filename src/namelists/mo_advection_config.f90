@@ -47,6 +47,8 @@ MODULE mo_advection_config
   USE mo_impl_constants, ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom
 
   IMPLICIT NONE
+  PRIVATE
+  PUBLIC :: t_advection_config, advection_config
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -65,10 +67,6 @@ MODULE mo_advection_config
 !!$    LOGICAL :: miura_h (MAX_NTRACER)                                           
 !!$    LOGICAL :: miura3_h(MAX_NTRACER)                                           
 !!$  END TYPE t_cleanup 
-
-
-
-  PUBLIC
 
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for tracer advection

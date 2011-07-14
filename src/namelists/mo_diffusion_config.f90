@@ -47,15 +47,14 @@ MODULE mo_diffusion_config
   USE mo_impl_constants, ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom
 
   IMPLICIT NONE
-  PUBLIC
+  PRIVATE
+  PUBLIC :: diffusion_config, t_diffusion_config
+
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
-
-  !!--------------------------------------------------------------------------
-  !! Basic configuration setup for diffusion
-  !!--------------------------------------------------------------------------
-
-
+  !--------------------------------------------------------------------------
+  ! Basic configuration setup for diffusion
+  !--------------------------------------------------------------------------
   TYPE t_diffusion_config
 
   INTEGER :: hdiff_order  ! order of horizontal diffusion

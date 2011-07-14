@@ -50,9 +50,9 @@ MODULE mo_time_config
   USE mo_master_nml,            ONLY: lrestart
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
  
-
   IMPLICIT NONE
-  PUBLIC
+  PRIVATE
+  PUBLIC :: t_time_config, time_config
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 

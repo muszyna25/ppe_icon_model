@@ -39,7 +39,9 @@ MODULE mo_echam_conv_config
   USE mo_kind, ONLY: wp
 
   IMPLICIT NONE
-  PUBLIC
+  PRIVATE
+  PUBLIC :: t_echam_conv_config, echam_conv_config
+
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
   !>

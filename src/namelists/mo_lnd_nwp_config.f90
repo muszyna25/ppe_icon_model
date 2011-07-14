@@ -47,14 +47,14 @@ MODULE mo_lnd_nwp_config
   USE mo_impl_constants, ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom
 
   IMPLICIT NONE
-  PUBLIC
+  PRIVATE
+  PUBLIC :: t_nwp_lnd_config, nwp_lnd_config
+
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
-
-  !!--------------------------------------------------------------------------
-  !! Basic configuration setup for NWP land
-  !!--------------------------------------------------------------------------
-
+  !--------------------------------------------------------------------------
+  ! Basic configuration setup for NWP land
+  !--------------------------------------------------------------------------
 
   TYPE t_nwp_lnd_config
 

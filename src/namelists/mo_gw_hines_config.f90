@@ -47,15 +47,14 @@ MODULE mo_gw_hines_config
   USE mo_impl_constants, ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom
 
   IMPLICIT NONE
-  PUBLIC
+  PRIVATE
+  PUBLIC :: t_gw_hines_config, gw_hines_config
+
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
-
-  !!--------------------------------------------------------------------------
-  !! Basic configuration setup for GW Hines
-  !!--------------------------------------------------------------------------
-
-
+  !--------------------------------------------------------------------------
+  ! Basic configuration setup for Hines gravity wave drag scheme
+  !--------------------------------------------------------------------------
   TYPE t_gw_hines_config
 
   LOGICAL  :: lheatcal      !< true : compute momentum flux dep., heating and diffusion coefficient

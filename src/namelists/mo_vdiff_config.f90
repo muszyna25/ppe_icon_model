@@ -36,7 +36,9 @@
 MODULE mo_vdiff_config
 
   IMPLICIT NONE
-  PUBLIC
+  PRIVATE
+  PUBLIC :: t_vdiff_config, vdiff_config
+
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
   !>

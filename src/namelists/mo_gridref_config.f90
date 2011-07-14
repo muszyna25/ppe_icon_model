@@ -47,15 +47,14 @@ MODULE mo_gridref_config
   USE mo_impl_constants, ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom
 
   IMPLICIT NONE
-  PUBLIC
+  PRIVATE
+  PUBLIC :: t_gridref_config, gridref_config
+
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
-
-  !!--------------------------------------------------------------------------
-  !! Basic configuration setup for grid refinement
-  !!--------------------------------------------------------------------------
-
-
+  !--------------------------------------------------------------------------
+  ! Basic configuration setup for grid refinement
+  !--------------------------------------------------------------------------
   TYPE t_gridref_config
 
     INTEGER  :: rbf_vec_kern_grf_e ! rbf kernel for vector interpolation

@@ -44,6 +44,7 @@
 MODULE mo_ha_dyn_config
 
   USE mo_kind, ONLY: wp
+  USE mo_impl_constants, ONLY: IHS_ATM_THETA
 
   IMPLICIT NONE
   PRIVATE
@@ -94,11 +95,13 @@ MODULE mo_ha_dyn_config
 CONTAINS
   !>
   !!
-  SUBROUTINE config_ha_dyn( iequations, hs_atm_theta )
+  SUBROUTINE config_ha_dyn( iequations )
 
-    INTEGER,INTENT(IN) :: iequations, hs_atm_theta
+    INTEGER,INTENT(IN) :: iequations
 
-    IF (iequations==hs_atm_theta) ha_dyn_config%ltheta_dyn = .TRUE.
+    IF (iequations==IHS_ATM_THETA) ha_dyn_config%ltheta_dyn = .TRUE.
+
   END SUBROUTINE config_ha_dyn
+
 END MODULE mo_ha_dyn_config
 
