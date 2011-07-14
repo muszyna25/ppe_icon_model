@@ -35,18 +35,38 @@
 !!
 MODULE mo_parallel_nml
 
-  USE mo_exception,          ONLY: message, finish
-  USE mo_io_units,           ONLY: nnml, nnml_output
-  USE mo_namelist,           ONLY: position_nml, POSITIONED, open_nml, close_nml
-  USE mo_master_nml,         ONLY: lrestart
-! USE mo_mpi,                ONLY: p_pe, p_io, p_nprocs, p_all_comm
-  USE mo_mpi,                ONLY: my_process_is_stdio
+  USE mo_exception,           ONLY: message, finish
+  USE mo_io_units,            ONLY: nnml, nnml_output
+  USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
+  USE mo_master_nml,          ONLY: lrestart
+! USE mo_mpi,                 ONLY: p_pe, p_io, p_nprocs, p_all_comm
+  USE mo_mpi,                 ONLY: my_process_is_stdio
 #ifndef NOMPI
-  USE mo_exception,          ONLY: message_text
+  USE mo_exception,           ONLY: message_text
 #endif
-  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
-                                 & open_and_restore_namelist, close_tmpfile
-  USE mo_parallel_configuration
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,   &
+                                  & open_and_restore_namelist, close_tmpfile
+
+  USE mo_parallel_configuration, ONLY: config_n_ghost_rows        => n_ghost_rows,        &
+                                     & config_division_method     => division_method,     &
+                                     & config_l_log_checks        => l_log_checks,        &
+                                     & config_l_fast_sum          => l_fast_sum,          &
+                                     & config_p_test_run          => p_test_run,          &
+                                     & config_l_test_openmp       => l_test_openmp,       &
+                                     & config_num_test_procs      => num_test_procs,      &
+                                     & config_num_work_procs      => num_work_procs,      &
+                                     & config_num_io_procs        => num_io_procs,        &
+                                     & config_p_test_pe           => p_test_pe,           &
+                                     & config_p_work_pe0          => p_work_pe0,          &
+                                     & config_p_io_pe0            => p_io_pe0,            &
+                                     & config_p_n_work            => p_n_work,            &
+                                     & config_p_pe_work           => p_pe_work,           &
+                                     & config_pio_type            => pio_type,            &
+                                     & config_itype_comm          => itype_comm,          &
+                                     & config_iorder_sendrecv     => iorder_sendrecv,     &
+                                     & config_radiation_threads   => radiation_threads,   &
+                                     & config_nh_stepping_threads => nh_stepping_threads, &
+                                     & config_nproma              => nproma
 
   IMPLICIT NONE
   PRIVATE
@@ -60,29 +80,29 @@ MODULE mo_parallel_nml
   ! ------------------------------------------------------------------------
 
   ! Number of rows of ghost cells
-  INTEGER :: nml_n_ghost_rows
+  INTEGER :: n_ghost_rows
 
-  INTEGER :: nml_division_method
+  INTEGER :: division_method
 
   ! Flag if checks in a verification run should be logged
 
-  LOGICAL :: nml_l_log_checks
+  LOGICAL :: l_log_checks
 
   ! Flag if fast but nonreproducible sum should be used
 
-  LOGICAL :: nml_l_fast_sum
+  LOGICAL :: l_fast_sum
 
   ! Please note for the following variables: The default settings are for NO_MPI runs!
 
   ! p_test_run indicates a verification run, i.e. a run where 1 PE runs the complete
   ! model whereas the other PEs do a real parallelized run
 
-  LOGICAL :: nml_p_test_run
+  LOGICAL :: p_test_run
 
   ! if l_test_openmp is set together with p_test_run, then the verification PE uses
   ! only 1 thread. This allows for verifying the OpenMP implementation
 
-  LOGICAL :: nml_l_test_openmp
+  LOGICAL :: l_test_openmp
 
   ! Processor distribution:
   ! num_test_procs: 0 or 1
@@ -90,18 +110,18 @@ MODULE mo_parallel_nml
   ! num_io_procs:   number of procs for I/O
   ! num_test_procs + num_work_procs + num_io_procs = p_nprocs
 
-  INTEGER :: nml_num_test_procs
-  INTEGER :: nml_num_work_procs
-  INTEGER :: nml_num_io_procs
+  INTEGER :: num_test_procs
+  INTEGER :: num_work_procs
+  INTEGER :: num_io_procs
 
   ! Note: p_test_pe, p_work_pe0, p_io_pe0 are identical on all PEs
 
   ! In a verification run, p_test_pe is the number of the PE running the complete model,
   ! otherwise it contains -1
 
-  INTEGER :: nml_p_test_pe      ! Number of test PE
-  INTEGER :: nml_p_work_pe0     ! Number of workgroup PE 0 within all PEs
-  INTEGER :: nml_p_io_pe0       ! Number of I/O PE 0 within all PEs (p_nprocs if no I/O PEs)
+  INTEGER :: p_test_pe      ! Number of test PE
+  INTEGER :: p_work_pe0     ! Number of workgroup PE 0 within all PEs
+  INTEGER :: p_io_pe0       ! Number of I/O PE 0 within all PEs (p_nprocs if no I/O PEs)
 
   ! Note: p_n_work, p_pe_work are NOT identical on all PEs
 
@@ -111,37 +131,37 @@ MODULE mo_parallel_nml
   ! - 1              for verification runs on p_test_pe
   ! - num_io_procs   always on I/O pes
 
-  INTEGER :: nml_p_n_work
-  INTEGER :: nml_p_pe_work        ! PE number within work group
+  INTEGER :: p_n_work
+  INTEGER :: p_pe_work        ! PE number within work group
 
   ! Type of parallel I/O
-  INTEGER :: nml_pio_type
+  INTEGER :: pio_type
 
   ! Type of (halo) communication: 
   ! 1 = synchronous communication with local memory for exchange buffers
   ! 2 = synchronous communication with global memory for exchange buffers
   ! 3 = asynchronous communication within dynamical core with global memory 
   !     for exchange buffers (not yet implemented)
-  INTEGER :: nml_itype_comm
+  INTEGER :: itype_comm
 
   ! Order of send/receive sequence in exchange routines
   ! 1 = irecv, send
   ! 2 = isend, recv
-  INTEGER :: nml_iorder_sendrecv
+  INTEGER :: iorder_sendrecv
 
-  INTEGER :: nml_radiation_threads
-  INTEGER :: nml_nh_stepping_threads
+  INTEGER :: radiation_threads
+  INTEGER :: nh_stepping_threads
 
-  INTEGER :: nml_nproma    ! inner loop length/vector length
+  INTEGER :: nproma    ! inner loop length/vector length
 
   
-  NAMELIST/parallel_nml/ nml_n_ghost_rows, nml_division_method, &
-                         nml_p_test_run,   nml_l_test_openmp,   &
-                         nml_l_log_checks, nml_l_fast_sum,      &
-                         nml_num_io_procs, nml_pio_type,        &
-                         nml_itype_comm,   nml_iorder_sendrecv, &
-                         nml_radiation_threads, nml_nh_stepping_threads, &
-                         nml_nproma
+  NAMELIST /parallel_nml/ n_ghost_rows,      division_method,     &
+                          l_log_checks,      l_fast_sum,          &
+                          p_test_run,        l_test_openmp,       &
+                          num_io_procs,      pio_type,            &
+                          itype_comm,        iorder_sendrecv,     &
+                          radiation_threads, nh_stepping_threads, &
+                          nproma
        
   CONTAINS
   !>
@@ -162,39 +182,39 @@ MODULE mo_parallel_nml
     ! set default values
     !--------------------------------------------
     ! Number of rows of ghost cells
-    nml_n_ghost_rows = 1
-    nml_division_method = div_geometric
+    n_ghost_rows = 1
+    division_method = div_geometric
 
     ! Flag if checks in a verification run should be logged
-    nml_l_log_checks = .FALSE.
+    l_log_checks = .FALSE.
 
     ! Flag if fast but nonreproducible sum should be used
-    nml_l_fast_sum = .FALSE.
+    l_fast_sum = .FALSE.
 
     ! Please note for the following variables: The default settings are for NO_MPI runs!
     ! p_test_run indicates a verification run, i.e. a run where 1 PE runs the complete
     ! model whereas the other PEs do a real parallelized run
-    nml_p_test_run = .FALSE.
+    p_test_run = .FALSE.
 
     ! if l_test_openmp is set together with p_test_run, then the verification PE uses
     ! only 1 thread. This allows for verifying the OpenMP implementation
-    nml_l_test_openmp = .FALSE.
+    l_test_openmp = .FALSE.
 
     ! Processor distribution:
     ! num_test_procs: 0 or 1
     ! num_work_procs: number of procs running in parallel on the model
     ! num_io_procs:   number of procs for I/O
     ! num_test_procs + num_work_procs + num_io_procs = p_nprocs
-    nml_num_test_procs = 0
-    nml_num_work_procs = 1
-    nml_num_io_procs = 0
+    num_test_procs = 0
+    num_work_procs = 1
+    num_io_procs = 0
 
     ! Note: p_test_pe, p_work_pe0, p_io_pe0 are identical on all PEs
     ! In a verification run, p_test_pe is the number of the PE running the complete model,
     ! otherwise it contains -1
-    nml_p_test_pe  = -1      ! Number of test PE
-    nml_p_work_pe0 =  0      ! Number of workgroup PE 0 within all PEs
-    nml_p_io_pe0   =  1      ! Number of I/O PE 0 within all PEs (p_nprocs if no I/O PEs)
+    p_test_pe  = -1      ! Number of test PE
+    p_work_pe0 =  0      ! Number of workgroup PE 0 within all PEs
+    p_io_pe0   =  1      ! Number of I/O PE 0 within all PEs (p_nprocs if no I/O PEs)
 
     ! Note: p_n_work, p_pe_work are NOT identical on all PEs
     ! p_n_work: Number of PEs working together:
@@ -202,28 +222,30 @@ MODULE mo_parallel_nml
     ! - num_work_procs for verification runs on pes != p_test_pe
     ! - 1              for verification runs on p_test_pe
     ! - num_io_procs   always on I/O pes
-    nml_p_n_work=1
-    nml_p_pe_work=0        ! PE number within work group
+    p_n_work=1
+    p_pe_work=0        ! PE number within work group
 
     ! Type of parallel I/O
-    nml_pio_type = 1
+    pio_type = 1
 
     ! Type of (halo) communication: 
     ! 1 = synchronous communication with local memory for exchange buffers
     ! 2 = synchronous communication with global memory for exchange buffers
     ! 3 = asynchronous communication within dynamical core with global memory 
     !     for exchange buffers (not yet implemented)
-    nml_itype_comm = 1
+    itype_comm = 1
 
     ! Order of send/receive sequence in exchange routines
     ! 1 = irecv, send
     ! 2 = isend, recv
-    nml_iorder_sendrecv = 1
+    iorder_sendrecv = 1
 
-    nml_radiation_threads = 1
-    nml_nh_stepping_threads = 1
+    radiation_threads = 1
+    nh_stepping_threads = 1
 
-    nml_nproma = 1    ! inner loop length/vector length
+    ! inner loop length/vector length
+    nproma = 1
+
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
     ! by values in the previous integration.
@@ -267,19 +289,26 @@ MODULE mo_parallel_nml
     !-----------------------------------------------------
     ! fill the parallel_configuration
 
-    n_ghost_rows        = nml_n_ghost_rows
-    division_method     = nml_division_method
-    p_test_run          = nml_p_test_run
-    l_test_openmp       = nml_l_test_openmp
-    l_log_checks        = nml_l_log_checks
-    l_fast_sum          = nml_l_fast_sum
-    num_io_procs        = nml_num_io_procs
-    pio_type            = nml_pio_type
-    itype_comm          = nml_itype_comm
-    iorder_sendrecv     = nml_iorder_sendrecv
-    radiation_threads   = nml_radiation_threads
-    nh_stepping_threads = nml_nh_stepping_threads
-    nproma              = nml_nproma
+    config_n_ghost_rows        = n_ghost_rows
+    config_division_method     = division_method
+    config_l_log_checks        = l_log_checks
+    config_l_fast_sum          = l_fast_sum
+    config_p_test_run          = p_test_run
+    config_l_test_openmp       = l_test_openmp
+    config_num_test_procs      = num_test_procs
+    config_num_work_procs      = num_work_procs
+    config_num_io_procs        = num_io_procs
+    config_p_test_pe           = p_test_pe
+    config_p_work_pe0          = p_work_pe0
+    config_p_io_pe0            = p_io_pe0
+    config_p_n_work            = p_n_work
+    config_p_pe_work           = p_pe_work
+    config_pio_type            = pio_type
+    config_itype_comm          = itype_comm
+    config_iorder_sendrecv     = iorder_sendrecv
+    config_radiation_threads   = radiation_threads
+    config_nh_stepping_threads = nh_stepping_threads
+    config_nproma              = nproma
 
   END SUBROUTINE fill_parallel_nml_configure
 
