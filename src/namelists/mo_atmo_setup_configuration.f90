@@ -230,11 +230,11 @@ CONTAINS
 !     
 !     CALL run_nml_setup
 !     
-!     !-------------------------------------------------------------------
-!     ! parallel_nml_setup must be called after setup_run since it needs
-!     ! some variables read in setup_run
-!     
-!     CALL parallel_nml_setup
+!DONE     !-------------------------------------------------------------------
+!DONE     ! parallel_nml_setup must be called after setup_run since it needs
+!DONE     ! some variables read in setup_run
+!DONE     
+!DONE     CALL parallel_nml_setup
 !     
 !     !-------------------------------------------------------------------
 !     ! Initialize test case setup 
@@ -254,20 +254,20 @@ CONTAINS
 !       
 !     ENDIF
 !     
-!     !-------------------------------------------------------------------
-!     ! step 2: import computational domain of the model
-!     !-------------------------------------------------------------------
-!     ! 2a) read namelist 'grid_ctl' from the namelist file (already
-!     !     opened above) and set up the grid/patch configuration.
-!     !-------------------------------------------------------------------
-!     
-!     CALL grid_nml_setup
-!         
-!     !------------------------------------------------------------------
-!     ! step 3a: Read namelist 'dynamics_ctl'. This has to be done
-!     !          before the interpolation state is computed.
-!     !------------------------------------------------------------------
-!     CALL dynamics_nml_setup(n_dom)
+!DONE     !-------------------------------------------------------------------
+!DONE     ! step 2: import computational domain of the model
+!DONE     !-------------------------------------------------------------------
+!DONE     ! 2a) read namelist 'grid_ctl' from the namelist file (already
+!DONE     !     opened above) and set up the grid/patch configuration.
+!DONE     !-------------------------------------------------------------------
+!DONE     
+!DONE     CALL grid_nml_setup
+!DONE         
+!DONE     !------------------------------------------------------------------
+!DONE     ! step 3a: Read namelist 'dynamics_ctl'. This has to be done
+!DONE     !          before the interpolation state is computed.
+!DONE     !------------------------------------------------------------------
+!DONE     CALL dynamics_nml_setup(n_dom)
 !     
 !     !------------------------------------------------------------------
 !     ! Read specific dynamics namelists for the nonhydrost. dynamical core
