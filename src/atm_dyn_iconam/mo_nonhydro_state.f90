@@ -48,7 +48,7 @@
 MODULE mo_nonhydro_state
 !
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
+  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, INWP
   USE mo_exception,           ONLY: message, finish
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: n_dom, l_limited_area
@@ -57,7 +57,7 @@ MODULE mo_nonhydro_state
 !  USE mo_advection_nml,       ONLY: ctracer_list
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_config,          ONLY: iforcing,             &
-    &                               inwp, ltransport, ntracer, ntracer_static, &
+    &                               ltransport, ntracer, ntracer_static, &
     &                               inextra_2d, inextra_3d,&
     &                               iqv, iqc, iqi, iqr, iqs, io3
   USE mo_radiation_nml,       ONLY: irad_o3

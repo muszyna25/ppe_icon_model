@@ -48,7 +48,8 @@ MODULE mo_atm_nml_crosscheck
   USE mo_impl_constants,      ONLY: max_char_length, max_dom,itconv,itccov,&
     &                               itrad,itradheat, itsso,itgscp,itsatad,itupdate,&
     &                               itturb, itsfc,  itgwd, iphysproc,iecham, ildf_echam,&
-    &                               inwp, tracer_only, inh_atmosphere, ishallow_water
+    &                               inwp, iheldsuarez, ildf_dry, &
+    &                               tracer_only, inh_atmosphere, ishallow_water
   USE mo_time_config,         ONLY: time_config
   USE mo_run_config
   USE mo_gridref_config,      ONLY: gridref_config

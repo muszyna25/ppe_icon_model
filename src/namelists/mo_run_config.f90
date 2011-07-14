@@ -44,7 +44,13 @@ MODULE mo_run_config
                                IMPIOM, INOFORCING, ILDF_DRY
 
   IMPLICIT NONE
-  PUBLIC
+  PRIVATE
+  PUBLIC :: ldump_states, lrestore_states, ltestcase, ldynamics, iforcing, lforcing
+  PUBLIC :: ltransport, ntracer, ntracer_static, nlev, nlevp1, nvclev
+  PUBLIC :: lvert_nest, num_lev, num_levp1, nshift, nsteps, dtime
+  PUBLIC :: ltimer, timers_level, msg_level, inextra_2d, inextra_3d
+  PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqcond, iqt, io3, ico2
+  PUBLIC :: config_run
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -72,9 +78,6 @@ MODULE mo_run_config
 
     INTEGER  :: nsteps            ! number of time steps to integrate
     REAL(wp) :: dtime             ! [s] length of a time step
-
-    INTEGER  :: itopo  ! 0: topography specified by analytical functions,
-                       ! 1: topography read from netcdf files provided by Herrmann Asensio
 
     LOGICAL :: ltimer          ! if .TRUE.,  the timer is switched on
     INTEGER :: timers_level    ! what level of timers to run

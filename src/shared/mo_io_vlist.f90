@@ -107,7 +107,8 @@ MODULE mo_io_vlist
     &                               upstr_beta, l_open_ubc, l_nest_rcf,         &
     &                               thslp_zdiffu
   USE mo_impl_constants,      ONLY: ntrac_oce, ihs_atm_temp, ihs_atm_theta,     &
-    &                               inh_atmosphere, ishallow_water
+    &                               inh_atmosphere, ishallow_water,             &
+    &                               inwp, iecham,ildf_echam
   USE mo_ocean_nml,           ONLY: n_zlev, iforc_oce,no_tracer
   USE mo_dynamics_config,     ONLY: itime_scheme,iequations,lshallow_water,     &
     &                               idiv_method, divavg_cntrwgt,                &
@@ -122,11 +123,12 @@ MODULE mo_io_vlist
     &                               out_filetype, out_expname,         &
     &                               dt_data, dt_file, lkeep_in_sync
   USE mo_parallel_configuration,  ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: num_lev, num_levp1, itopo,                  &
+  USE mo_extpar_nml,          ONLY: itopo => nml_itopo
+  USE mo_run_config,          ONLY: num_lev, num_levp1,                         &
     &                               ntracer, ltransport,iqcond,                 &
     &                               dtime, msg_level,               &
     &                               ldynamics, ltestcase,                       &
-    &                               iforcing, inwp, iecham,ildf_echam,          &
+    &                               iforcing, &
     &                               iqv, iqc, iqi, nsteps, lforcing,    &
     &                               lvert_nest, inextra_2d,inextra_3d
   USE mo_grid_configuration,  ONLY : global_cell_type
