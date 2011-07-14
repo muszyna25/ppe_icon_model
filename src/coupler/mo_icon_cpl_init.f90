@@ -76,8 +76,10 @@ MODULE mo_icon_cpl_init
    &                      ICON_comm,                          &
    &                      ICON_global_rank, ICON_global_size
 
-  USE mo_coupling_nml     !,  ONLY : cpl_nml_setup
   USE mo_event_manager, ONLY : event_init
+
+  USE mo_coupling_nml
+
 
   IMPLICIT NONE
 
