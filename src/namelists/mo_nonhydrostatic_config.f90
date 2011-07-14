@@ -41,7 +41,7 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-MODULE mo_nh_dyn_config
+MODULE mo_nonhydrostatic_config
 
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: max_dom
@@ -58,7 +58,7 @@ MODULE mo_nh_dyn_config
   !! Derived type containing control variables specific to the nonhydrostatic 
   !! atm model
   !!----------------------------------------------------------------------------
-!  TYPE :: t_nh_dyn_config
+!  TYPE :: t_nonhydrostatic_config
 
     INTEGER :: iadv_rcf                 !if 1: no reduced calling frequency for adv. and phy.
                                         !if 2: adv. and phys. are called only every 2nd
@@ -103,11 +103,10 @@ MODULE mo_nh_dyn_config
     REAL(wp) :: k2_updamp_coeff ! 2nd order additional horizontal diffusion
                                 ! coefficient in the upp‚per damping zone
 
-!  END TYPE t_nh_dyn_config 
+!  END TYPE t_nonhydrostatic_config 
   !>
   !!
-!  TYPE(t_nh_dyn_config) :: nh_dyn_config(max_dom) ! config state 
+!  TYPE(t_nonhydrostatic_config) :: nonhydrostatic_config(max_dom) ! config state 
 
 
-END MODULE mo_nh_dyn_config
-
+END MODULE mo_nonhydrostatic_config

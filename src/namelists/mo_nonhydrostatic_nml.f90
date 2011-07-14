@@ -37,16 +37,17 @@
 !!
 MODULE mo_nonhydrostatic_nml
 
-  USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish
-  USE mo_impl_constants,      ONLY: max_char_length, max_dom
-  USE mo_io_units,            ONLY: nnml, nnml_output
-  USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_nh_dyn_config       !ONLY: nh_dyn_config
-  USE mo_master_nml,          ONLY: lrestart
-  USE mo_mpi,                 ONLY: p_pe, p_io
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
+  USE mo_kind,                  ONLY: wp
+  USE mo_exception,             ONLY: finish
+  USE mo_impl_constants,        ONLY: max_char_length, max_dom
+  USE mo_io_units,              ONLY: nnml, nnml_output
+  USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
+  USE mo_master_nml,            ONLY: lrestart
+  USE mo_mpi,                   ONLY: p_pe, p_io
+  USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,  &
     &                               open_and_restore_namelist, close_tmpfile
+
+  USE mo_nonhydrostatic_config
 
   IMPLICIT NONE
   PUBLIC
@@ -341,29 +342,29 @@ END SUBROUTINE nonhydrostatic_nml_setup
 ! KF postponed work
 
 !    DO jg = 1,max_dom
-!      nh_dyn_config(jg)%rayleigh_coeff  = rayleigh_coeff(jg)
-!      nh_dyn_config(jg)%damp_height     = damp_height(jg)
-!      nh_dyn_config(jg)%iadv_rhotheta   = iadv_rhotheta
-!      nh_dyn_config(jg)%vwind_offctr    = vwind_offctr
-!      nh_dyn_config(jg)%igradp_method   = igradp_method
-!      nh_dyn_config(jg)%exner_expol     = exner_expol
-!      nh_dyn_config(jg)%ltheta_up_hori  = ltheta_up_hori
-!      nh_dyn_config(jg)%ltheta_up_vert  = ltheta_up_vert
-!      nh_dyn_config(jg)%gmres_rtol_nh   = gmres_rtol_nh
-!      nh_dyn_config(jg)%iadv_rcf        = iadv_rcf
-!      nh_dyn_config(jg)%ivctype         = ivctype
-!      nh_dyn_config(jg)%upstr_beta      = upstr_beta
-!      nh_dyn_config(jg)%l_open_ubc      = l_open_ubc
-!      nh_dyn_config(jg)%l_nest_rcf      = l_nest_rcf
-!      nh_dyn_config(jg)%l_zdiffu_t      = l_zdiffu_t
-!      nh_dyn_config(jg)%thslp_zdiffu    = thslp_zdiffu
-!      nh_dyn_config(jg)%thhgtd_zdiffu   = thhgtd_zdiffu
-!      nh_dyn_config(jg)%k2_updamp_coeff = k2_updamp_coeff
-!      nh_dyn_config(jg)%l_masscorr_nest = l_masscorr_nest
-!      nh_dyn_config(jg)%htop_moist_proc = htop_moist_proc
-!      nh_dyn_config(jg)%htop_qvadv      = htop_qvadv
-!      nh_dyn_config(jg)%damp_timescale_u= damp_timescale_u
-!      nh_dyn_config(jg)%damp_height_u   = damp_height_u
+!      nonhydrostatic_config(jg)%rayleigh_coeff  = rayleigh_coeff(jg)
+!      nonhydrostatic_config(jg)%damp_height     = damp_height(jg)
+!      nonhydrostatic_config(jg)%iadv_rhotheta   = iadv_rhotheta
+!      nonhydrostatic_config(jg)%vwind_offctr    = vwind_offctr
+!      nonhydrostatic_config(jg)%igradp_method   = igradp_method
+!      nonhydrostatic_config(jg)%exner_expol     = exner_expol
+!      nonhydrostatic_config(jg)%ltheta_up_hori  = ltheta_up_hori
+!      nonhydrostatic_config(jg)%ltheta_up_vert  = ltheta_up_vert
+!      nonhydrostatic_config(jg)%gmres_rtol_nh   = gmres_rtol_nh
+!      nonhydrostatic_config(jg)%iadv_rcf        = iadv_rcf
+!      nonhydrostatic_config(jg)%ivctype         = ivctype
+!      nonhydrostatic_config(jg)%upstr_beta      = upstr_beta
+!      nonhydrostatic_config(jg)%l_open_ubc      = l_open_ubc
+!      nonhydrostatic_config(jg)%l_nest_rcf      = l_nest_rcf
+!      nonhydrostatic_config(jg)%l_zdiffu_t      = l_zdiffu_t
+!      nonhydrostatic_config(jg)%thslp_zdiffu    = thslp_zdiffu
+!      nonhydrostatic_config(jg)%thhgtd_zdiffu   = thhgtd_zdiffu
+!      nonhydrostatic_config(jg)%k2_updamp_coeff = k2_updamp_coeff
+!      nonhydrostatic_config(jg)%l_masscorr_nest = l_masscorr_nest
+!      nonhydrostatic_config(jg)%htop_moist_proc = htop_moist_proc
+!      nonhydrostatic_config(jg)%htop_qvadv      = htop_qvadv
+!      nonhydrostatic_config(jg)%damp_timescale_u= damp_timescale_u
+!      nonhydrostatic_config(jg)%damp_height_u   = damp_height_u
 !    ENDDO
 !
        rayleigh_coeff(:)  = nml_rayleigh_coeff(:)
