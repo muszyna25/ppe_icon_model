@@ -36,8 +36,15 @@
 !!
 MODULE mo_echam_phy_config
 
+  USE mo_exception, ONLY: finish, message, print_value
+
   IMPLICIT NONE
-  PUBLIC
+  PRIVATE
+  PUBLIC :: t_echam_phy_config, echam_phy_config   !< derived type and variable
+  PUBLIC :: config_echam_phy                       !< subroutine
+  PUBLIC :: get_lrad, get_lcond, get_lcover        !< functions
+  PUBLIC :: get_lconv, get_lvdiff, get_lgw_hines   !< functions
+
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
   !>
@@ -50,10 +57,11 @@ MODULE mo_echam_phy_config
     LOGICAL :: lconv       !<  .true. for moist convection
     LOGICAL :: lcond       !<  .true. for large scale condensation
     LOGICAL :: lcover      !<  .true. for prognostic cloud cover scheme
+    LOGICAL :: lgw_hines   !<  .true. for atmospheric gravity wave drag
+
     LOGICAL :: llandsurf   !<  .true. for surface exchanges. (lsurf in ECHAM6)
     LOGICAL :: lssodrag    !<  .true. for subgrid scale orographic drag,
                            !<   by blocking and gravity waves (lgwdrag in ECHAM6)
-    LOGICAL :: lgw_hines   !<  .true. for atmospheric gravity wave drag
     LOGICAL :: lice        !<  .true. for sea-ice temperature calculation
     LOGICAL :: lmeltpond   !<  .true. for calculation of meltponds
     LOGICAL :: lmlo        !<  .true. for mixed layer ocean
@@ -72,6 +80,48 @@ MODULE mo_echam_phy_config
   TYPE(t_echam_phy_config) :: echam_phy_config
 
 CONTAINS
+  !>
+  !!
+  SUBROUTINE config_echam_phy( ltestcase, ctest_name )
+
+    LOGICAL,         INTENT(IN) :: ltestcase
+    CHARACTER(LEN=*),INTENT(IN) :: ctest_name
+    CHARACTER(LEN=*),PARAMETER  :: &
+             & routine ='mo_echam_phy_config:config_echam_phy'
+
+    !------------------
+    IF (ltestcase) THEN
+
+      SELECT CASE (TRIM(ctest_name))
+      CASE('APE','JWw-Moist','LDF-Moist')
+
+        echam_phy_config% llandsurf = .FALSE.
+        echam_phy_config% lssodrag  = .FALSE.
+        echam_phy_config% lice      = .FALSE.
+        echam_phy_config% lmeltpond = .FALSE.
+        echam_phy_config% lmlo      = .FALSE.
+        echam_phy_config% lhd       = .FALSE.
+
+        CALL message('','')
+        CALL message('','Running hydrostatic atm model with ECHAM6 physics.')
+        CALL message('','Testcase = '//TRIM(ctest_name))
+
+        CALL print_value('echam_phy_config% llandsurf = ',echam_phy_config% llandsurf)
+        CALL print_value('echam_phy_config% lssodrag  = ',echam_phy_config% lssodrag )
+        CALL print_value('echam_phy_config% lice      = ',echam_phy_config% lice     )
+        CALL print_value('echam_phy_config% lmeltpond = ',echam_phy_config% lmeltpond)
+        CALL print_value('echam_phy_config% lmlo      = ',echam_phy_config% lmlo     )
+        CALL print_value('echam_phy_config% lhd       = ',echam_phy_config% lhd      )
+
+        CALL message('','')
+
+      CASE DEFAULT
+        CALL finish(TRIM(routine),'Invalid test case with ECHAM6 physics')
+      END SELECT
+    ENDIF
+
+  END SUBROUTINE config_echam_phy
+  !------------------------------
   !>
   !!
   LOGICAL FUNCTION get_lrad()

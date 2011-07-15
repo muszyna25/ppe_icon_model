@@ -39,10 +39,9 @@
 !!
 MODULE mo_echam_phy_setup
 
-! USE mo_exception,          ONLY: message, finish, print_value
-! USE mo_echam_phy_config,   ONLY: phy_config => echam_phy_config
+! USE mo_echam_phy_config,   ONLY: echam_phy_config, config_echam_phy
 ! USE mo_echam_conv_config,  ONLY: config_echam_convection
-! USE mo_run_nml,            ONLY: ltestcase, ntracer, io3
+! USE mo_run_nml,            ONLY: ltestcase
 ! USE mo_hydro_testcases,    ONLY: ctest_name
 
   IMPLICIT NONE
@@ -58,65 +57,10 @@ CONTAINS
   !!
   SUBROUTINE setup_echam_phy
 
-   !IF (phy_config%lconv) CALL config_echam_convection( nlev, vct_a, vct_b, ceta )
-
-    ! Check whether echam_phy_nml is properly set for test cases;
-    ! Check whether the process namelists are consistent with
-    ! the configuration of dynamics and transport; 
-
-  ! CALL cross_check
+   !IF (echam_phy_config%lconv) CALL config_echam_convection( nlev, vct_a, vct_b, ceta )
+   !CALL config_echam_phy( ltestcase, ctest_name )
 
   END SUBROUTINE setup_echam_phy
-  !-------------
-  !>
-  !!
- !SUBROUTINE cross_check
-
- !  IF (ltestcase) THEN
-
- !    SELECT CASE (TRIM(ctest_name))
- !    CASE('APE')
- !      CALL message('','Running hydrostatic atm model with ECHAM6 physics'// &
- !                  &' in aqua-planet mode.')
-
- !      llandsurf = .FALSE.
- !      lssodrag  = .FALSE.
- !      lice      = .FALSE.
- !      lmeltpond = .FALSE.
- !      lmlo      = .FALSE.
- !      lhd       = .FALSE.
-
- !    CASE('JWw-Moist')
- !      CALL message('','Running the Jablonowski-Williamson baroclinic test'// &
- !                  &' with the hydrostatic atm dynamical core'//              &
- !                  &' and ECHAM6 physics.'  )
-
- !      llandsurf = .FALSE.
- !      lssodrag  = .FALSE.
- !      lice      = .FALSE.
- !      lmeltpond = .FALSE.
- !      lmlo      = .FALSE.
- !      lhd       = .FALSE.
-
- !    CASE('LDF-Moist')
- !      CALL message('','Running the local diabatic forcing test'// &
- !                  &' with the hydrostatic atm dynamical core'//              &
- !                  &' and ECHAM6 physics.'  )
-
- !      llandsurf = .FALSE.
- !      lssodrag  = .FALSE.
- !      lice      = .FALSE.
- !      lmeltpond = .FALSE.
- !      lmlo      = .FALSE.
- !      lhd       = .FALSE.
-
- !    CASE DEFAULT
- !      CALL finish(TRIM(thismodule),'Invalid test case with ECHAM6 physics')
- !    END SELECT
-
- !  ENDIF
-
- !END SUBROUTINE cross_check
   !-------------
 
 END MODULE mo_echam_phy_setup
