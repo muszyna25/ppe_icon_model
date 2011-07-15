@@ -41,7 +41,7 @@ MODULE mo_echam_phy_config
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: t_echam_phy_config, echam_phy_config   !< derived type and variable
-  PUBLIC :: config_echam_phy                       !< subroutine
+  PUBLIC :: configure_echam_phy                       !< subroutine
   PUBLIC :: get_lrad, get_lcond, get_lcover        !< functions
   PUBLIC :: get_lconv, get_lvdiff, get_lgw_hines   !< functions
 
@@ -82,7 +82,7 @@ MODULE mo_echam_phy_config
 CONTAINS
   !>
   !!
-  SUBROUTINE config_echam_phy( ltestcase, ctest_name )
+  SUBROUTINE configure_echam_phy( ltestcase, ctest_name )
 
     LOGICAL,         INTENT(IN) :: ltestcase
     CHARACTER(LEN=*),INTENT(IN) :: ctest_name
@@ -120,7 +120,7 @@ CONTAINS
       END SELECT
     ENDIF
 
-  END SUBROUTINE config_echam_phy
+  END SUBROUTINE configure_echam_phy
   !------------------------------
   !>
   !!

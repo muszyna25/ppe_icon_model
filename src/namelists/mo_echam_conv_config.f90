@@ -45,7 +45,7 @@ MODULE mo_echam_conv_config
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: t_echam_conv_config, echam_conv_config
-  PUBLIC :: config_echam_convection, cleanup_echam_convection
+  PUBLIC :: configure_echam_convection, cleanup_echam_convection
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
@@ -114,7 +114,7 @@ CONTAINS
   !! @Revision history
   !! Adapted from ECHAM6 by Hui Wan (MPI-M, 2010-2011)
   !!
-  SUBROUTINE config_echam_convection( nlev, vct_a, vct_b, ceta )
+  SUBROUTINE configure_echam_convection( nlev, vct_a, vct_b, ceta )
 
     INTEGER, INTENT(IN) :: nlev
     REAL(WP),INTENT(IN) :: vct_a(nlev+1)
@@ -168,7 +168,7 @@ CONTAINS
        echam_conv_config%cevapcu(jk) = 1.93E-6_wp*261._wp*SQRT(ztmp)*0.5_wp/grav
     END DO
 
-  END SUBROUTINE config_echam_convection
+  END SUBROUTINE configure_echam_convection
   !------------
   !>
   !!

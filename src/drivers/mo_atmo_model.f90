@@ -102,7 +102,7 @@ USE mo_model_domain_import, ONLY : get_patch_global_indexes
 
 ! Test cases
 !
-USE mo_hydro_testcases,     ONLY: setup_testcase          ! process hyd. atm. tests ctl. params.
+USE mo_hydro_testcases,     ONLY: setup_testcase, ctest_name ! process hyd. atm. tests ctl. params.
 USE mo_nh_testcases,        ONLY: read_nh_testcase_namelist ! process non-hyd. atm. test ctl. par.
 
 ! Memory
@@ -143,7 +143,8 @@ USE mo_grf_interpolation,   ONLY: construct_2d_gridref_state,  &
 
 ! Vertical grid
 !
-USE mo_vertical_coord_table,ONLY: init_vertical_coord_table
+USE mo_vertical_coord_table,ONLY: init_vertical_coord_table, &
+  &                               vct_a, vct_b, ceta
 USE mo_vertical_grid,       ONLY: init_hybrid_coord, init_sleve_coord
 
 ! State variables
@@ -162,7 +163,7 @@ USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
 USE mo_gmt_output,          ONLY: setup_gmt_output
 USE mo_nwp_phy_state,       ONLY: construct_nwp_phy_state,   &
 & destruct_nwp_phy_state
-USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config,setup_atm_nwp_phy
+USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config,configure_atm_phy_nwp
 USE mo_lnd_nwp_nml,         ONLY: setup_nwp_lnd
 USE mo_nwp_lnd_state,       ONLY: construct_nwp_lnd_state,   &
 & destruct_nwp_lnd_state, p_lnd_state
@@ -194,9 +195,13 @@ USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribut
 USE mo_atmo_setup_configuration, ONLY: read_atmo_namelists
 USE mo_atm_nml_crosscheck,       ONLY: atm_crosscheck
 
-USE mo_time_config,     ONLY: time_config      ! variable
-USE mo_dynamics_config, ONLY: config_dynamics  ! subroutine
-
+USE mo_time_config,        ONLY: time_config      ! variable
+USE mo_dynamics_config,    ONLY: configure_dynamics  ! subroutine
+USE mo_interpol_config,    ONLY: configure_interpolation 
+! USE mo_advection_config, ONLY configure_advection
+USE mo_diffusion_config,   ONLY: configure_diffusion
+USE mo_echam_phy_config,   ONLY: configure_echam_phy 
+USE mo_echam_conv_config, ONLY: configure_echam_convection
 
 !-------------------------------------------------------------------------
 IMPLICIT NONE
@@ -282,7 +287,41 @@ INTEGER, POINTER :: grid_glob_index(:)
     !---------------------------------------------------------------------
     ! 3. Assign values to derived variables in the configuration states
     !---------------------------------------------------------------------
-    CALL config_dynamics( lrestart, n_dom )
+
+    !  CALL configure_interpolation (jlev,n_dom,global_cell_type)
+
+    CALL configure_dynamics(lrestart, n_dom)
+
+    ! CALL configure_advection(iequations)
+
+    CALL configure_diffusion(n_dom, parent_id, nlev)
+
+    CALL configure_atm_phy_nwp
+
+   !---------------------------------------------------------------------
+    SELECT CASE (iequations)
+    
+    CASE (ishallow_water)
+      CALL init_vertical_coord_table(iequations, p_patch_global(1)%nlev)
+      
+    CASE (ihs_atm_temp, ihs_atm_theta)
+      CALL init_vertical_coord_table(iequations, p_patch_global(1)%nlev)
+      
+    CASE (inh_atmosphere)
+      IF (ivctype == 1) THEN
+        CALL init_hybrid_coord(iequations, p_patch_global(1)%nlev)
+      ELSE IF (ivctype == 2) THEN
+        CALL init_sleve_coord(p_patch_global(1)%nlev)
+      ENDIF
+    CASE DEFAULT
+    END SELECT
+ 
+   !---------------------------------------------------------------------
+
+  CALL configure_echam_phy (ltestcase, ctest_name)
+
+  CALL configure_echam_convection(nlev, vct_a, vct_b, ceta)
+
 
     !---------------------------------------------------------------------
     ! 4. Construct model states (variable lists); set initial conditions.
@@ -469,7 +508,8 @@ INTEGER, POINTER :: grid_glob_index(:)
     ! step 3a-a: ! read nwp physics namelist, ...
     !------------------------------------------------------------------
     IF ( iforcing == inwp) THEN
-      CALL setup_atm_nwp_phy !( p_patch_global(1:) )  ! read Namelist, ...
+!  !( p_patch_global(1:) )  ! read Namelist, ...
+      CALL configure_atm_phy_nwp
 !      IF (inwp_surface > 0)
       CALL setup_nwp_lnd
     ENDIF
@@ -517,23 +557,7 @@ INTEGER, POINTER :: grid_glob_index(:)
     !------------------------------------------------------------------
     ! step 5a: init the structure of the model equations
     !------------------------------------------------------------------
-    SELECT CASE (iequations)
-    
-    CASE (ishallow_water)
-      CALL init_vertical_coord_table(iequations, p_patch_global(1)%nlev)
-      
-    CASE (ihs_atm_temp, ihs_atm_theta)
-      CALL init_vertical_coord_table(iequations, p_patch_global(1)%nlev)
-      
-    CASE (inh_atmosphere)
-      IF (ivctype == 1) THEN
-        CALL init_hybrid_coord(iequations, p_patch_global(1)%nlev)
-      ELSE IF (ivctype == 2) THEN
-        CALL init_sleve_coord(p_patch_global(1)%nlev)
-      ENDIF
-    CASE DEFAULT
-    END SELECT
- 
+
     ! For the NH model, the initialization routines called from
     ! construct_2d_gridref_state require the metric terms to be present
     IF (n_dom_start==0 .OR. n_dom > 1) THEN

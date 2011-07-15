@@ -50,7 +50,7 @@ MODULE mo_diffusion_config
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: diffusion_config, t_diffusion_config
+  PUBLIC :: configure_diffusion, t_diffusion_config, diffusion_config
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -115,7 +115,7 @@ MODULE mo_diffusion_config
 
 CONTAINS
 
-  SUBROUTINE setup_diffusion_config(i_ndom,parent_id,nlev)
+  SUBROUTINE configure_diffusion(i_ndom,parent_id,nlev)
 
     INTEGER, INTENT(IN) :: parent_id(max_dom-1) !< list of parent ID's
     INTEGER, INTENT(IN) :: i_ndom !< dimension for time level variables
@@ -231,7 +231,7 @@ CONTAINS
       ENDDO
     ENDIF
 
-END SUBROUTINE setup_diffusion_config
+END SUBROUTINE configure_diffusion
 
 
 END MODULE mo_diffusion_config

@@ -48,6 +48,7 @@ MODULE mo_advection_config
 
   IMPLICIT NONE
   PRIVATE
+!  PUBLIC :: configure_advection
   PUBLIC :: t_advection_config, advection_config
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
@@ -165,8 +166,8 @@ MODULE mo_advection_config
  TYPE(t_advection_config), TARGET :: advection_config(max_dom)
 
 
-!SUBROUTINE config_advection !(iequations)
-!END SUBROUTINE config_advection
+!SUBROUTINE configure_advection !(iequations)
+!END SUBROUTINE configure_advection
 
 
 END MODULE mo_advection_config

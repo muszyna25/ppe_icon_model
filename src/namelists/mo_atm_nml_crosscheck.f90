@@ -45,6 +45,7 @@ MODULE mo_atm_nml_crosscheck
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, message_text, finish, print_value
+  USE mo_master_nml,          ONLY: lrestart
   USE mo_impl_constants,      ONLY: max_char_length, max_dom,itconv,itccov,&
     &                               itrad,itradheat, itsso,itgscp,itsatad,itupdate,&
     &                               itturb, itsfc,  itgwd, iphysproc,iecham, ildf_echam,&
@@ -53,37 +54,41 @@ MODULE mo_atm_nml_crosscheck
     &                               tracer_only, inh_atmosphere, ishallow_water
   USE mo_parallel_configuration, ONLY: check_parallel_configuration
   USE mo_run_config,          ONLY: lrestore_states, dtime, iforcing, ltransport, &
-                                    ntracer, nlev, io3, inextra_2D, inextra_3D
-  USE mo_time_config,         ONLY: time_config
+                                    &ntracer, nlev, io3, inextra_2D, inextra_3D,&
+                                    & configure_run, ltestcase
+  USE mo_time_config,         ONLY: time_config, configure_time
   USE mo_gridref_config
   USE mo_interpol_config      
   USE mo_grid_configuration   
   USE mo_sleve_config         
 
-  USE mo_dynamics_config
-  USE mo_advection_config,    ONLY: advection_config
+  USE mo_dynamics_config,     ONLY: configure_dynamics,&
+    &                            iequations, itime_scheme, idiv_method, divavg_cntrwgt,&
+    &                            sw_ref_height, ldry_dycore, lcoriolis, lshallow_water, ltwotime
+  USE mo_advection_config,    ONLY: advection_config !, configure_advection
 
   USE mo_nonhydrostatic_config      
   USE mo_ha_dyn_config,     ONLY: ha_dyn_config
-  USE mo_diffusion_config,  ONLY: diffusion_config
+  USE mo_diffusion_config,  ONLY: diffusion_config, configure_diffusion
 
   USE mo_io_config          
 
-  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, tcall_phy
+  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, tcall_phy, configure_atm_phy_nwp
   USE mo_lnd_nwp_config,     ONLY: nlev_soil, nztlev ,nlev_snow ,nsfc_subs,&
     &                              lseaice,  llake, lmelt , lmelt_var, lmulti_snow
-  USE mo_echam_phy_config,   ONLY: echam_phy_config
+  USE mo_echam_phy_config,   ONLY: echam_phy_config, configure_echam_phy
   USE mo_radiation_config
-  USE mo_echam_conv_config,  ONLY: echam_conv_config
+  USE mo_echam_conv_config,  ONLY: echam_conv_config, configure_echam_convection
   USE mo_gw_hines_config,    ONLY: gw_hines_config
   USE mo_vdiff_config,       ONLY: vdiff_config
-  USE mo_nh_testcases,       ONLY: linit_tracer_fv
+  USE mo_nh_testcases,       ONLY: linit_tracer_fv,nh_test_name
+  USE mo_hydro_testcases,    ONLY: ctest_name
 
   IMPLICIT NONE
 
 !  PRIVATE
 
-  PUBLIC :: atm_crosscheck
+  PUBLIC :: atm_crosscheck !, atmospheric_configuration
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -336,10 +341,10 @@ ENDDO
 
   END  SUBROUTINE atm_crosscheck
 
-SUBROUTINE atm_setup
-
-
-END SUBROUTINE atm_setup
+!  SUBROUTINE atmospheric_configuration
+!  INTEGER :: jg
+!  CHARACTER(len=*), PARAMETER :: routine =  'atm_setup'
+!  END SUBROUTINE atmospheric_configuration
 
 END MODULE mo_atm_nml_crosscheck
 

@@ -7,8 +7,8 @@
 !! <external_procedure(), or by using @see.>
 !! <Don't forget references to literature.>
 !!
-!! @author <name, affiliation>
-!! @author <name, affiliation>
+!! @author Hui Wan, MPI-M (2011-07-15)
+!! @author Kristina Froehlich, MPI-M (2011-07-15)
 !!
 !!
 !! @par Revision History
@@ -52,7 +52,12 @@ MODULE mo_time_config
  
   IMPLICIT NONE
   PRIVATE
+
+  !Subroutine
+  PUBLIC :: configure_time
+  ! Types and fields
   PUBLIC :: t_time_config, time_config
+
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
@@ -92,7 +97,7 @@ MODULE mo_time_config
 
 CONTAINS
 
-SUBROUTINE time_setup
+SUBROUTINE configure_time
 
 !  REAL(wp) :: cur_datetime_calsec, end_datetime_calsec, length_sec
   
@@ -119,7 +124,7 @@ SUBROUTINE time_setup
     CALL message(routine,message_text)
 
 
-END SUBROUTINE time_setup
+END SUBROUTINE configure_time
 
 END MODULE mo_time_config
 

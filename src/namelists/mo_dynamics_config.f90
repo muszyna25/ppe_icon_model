@@ -53,7 +53,7 @@ MODULE mo_dynamics_config
   PUBLIC :: iequations, itime_scheme, idiv_method, divavg_cntrwgt
   PUBLIC :: sw_ref_height, ldry_dycore, lcoriolis, lshallow_water, ltwotime
   PUBLIC :: nold, nnow, nnew, nsav1, nsav2, nnow_rcf, nnew_rcf
-  PUBLIC :: config_dynamics
+  PUBLIC :: configure_dynamics
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -98,7 +98,7 @@ MODULE mo_dynamics_config
 CONTAINS
   !>
   !!
-  SUBROUTINE config_dynamics( lrestart,ndom )
+  SUBROUTINE configure_dynamics( lrestart,ndom )
 
     LOGICAL,INTENT(IN) :: lrestart
     INTEGER,INTENT(IN) :: ndom
@@ -143,6 +143,6 @@ CONTAINS
     nsav1(:) = 0
     nsav2(:) = 4
 
-  END SUBROUTINE config_dynamics
+  END SUBROUTINE configure_dynamics
 
 END MODULE mo_dynamics_config

@@ -50,7 +50,7 @@ MODULE mo_run_config
   PUBLIC :: lvert_nest, num_lev, num_levp1, nshift, nsteps, dtime
   PUBLIC :: ltimer, timers_level, msg_level, inextra_2d, inextra_3d
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqcond, iqt, io3, ico2
-  PUBLIC :: config_run
+  PUBLIC :: configure_run
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -109,7 +109,7 @@ CONTAINS
   !! Assign value to components of the run configuration state that have no
   !! corresponding namelist variable. 
   !!
-  SUBROUTINE config_run
+  SUBROUTINE configure_run
 
     CHARACTER(LEN=*),PARAMETER :: routine = 'mo_:config_run'
 
@@ -169,7 +169,7 @@ CONTAINS
 
     ntracer_static = 0
 
-  END SUBROUTINE config_run
+  END SUBROUTINE configure_run
 
 
 !  !---------------------------------------

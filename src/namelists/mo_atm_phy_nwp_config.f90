@@ -61,8 +61,11 @@ MODULE mo_atm_phy_nwp_config
   USE mo_icoham_sfc_indices,  ONLY: init_sfc_indices, nsfc_type
 
   IMPLICIT NONE
+
+  PRIVATE
+
   PUBLIC :: atm_phy_nwp_config, t_atm_phy_nwp_config, tcall_phy
-  PUBLIC :: setup_atm_nwp_phy
+  PUBLIC :: configure_atm_phy_nwp
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -116,11 +119,11 @@ MODULE mo_atm_phy_nwp_config
     &  tcall_phy(max_dom,iphysproc) !! each domain and phys. process
 
 
-  PRIVATE
+
 
 CONTAINS
 
-SUBROUTINE setup_atm_nwp_phy
+SUBROUTINE configure_atm_phy_nwp
  !-------------------------------------------------------------------------
   !
   !>
@@ -248,7 +251,7 @@ SUBROUTINE setup_atm_nwp_phy
                                              ! to obtain the demanded parameters
     ENDIF
  
-END SUBROUTINE setup_atm_nwp_phy
+END SUBROUTINE configure_atm_phy_nwp
 
 
 END MODULE mo_atm_phy_nwp_config

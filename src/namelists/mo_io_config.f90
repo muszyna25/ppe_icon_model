@@ -99,11 +99,9 @@ MODULE mo_io_config
  ! TYPE(t_io_config):: io_config(max_dom)
 
 
-CONTAINS
+!CONTAINS
 
-  SUBROUTINE setup_io_config !(n_dom)
-
-
-  END SUBROUTINE setup_io_config
+! SUBROUTINE setup_io_config !(n_dom)
+!  END SUBROUTINE setup_io_config
 
 END MODULE mo_io_config

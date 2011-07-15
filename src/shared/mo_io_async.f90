@@ -73,7 +73,7 @@ MODULE mo_io_async
   USE mo_dynamics_config,     ONLY: iequations 
   USE mo_run_config,          ONLY: ldump_states, ltransport, lforcing, num_lev, iforcing, nlev
  ! USE mo_atm_phy_nwp_nml,     ONLY: setup_nwp_phy, inwp_surface
-  USE mo_atm_phy_nwp_config, ONLY: setup_atm_nwp_phy
+  USE mo_atm_phy_nwp_config, ONLY: configure_atm_phy_nwp
   USE mo_io_units,            ONLY: filename_max
   USE mo_communication,       ONLY: idx_no, blk_no
   USE mo_io_vlist,            ONLY: GATHER_C, GATHER_E, GATHER_V,                                &
@@ -302,7 +302,7 @@ CONTAINS
 
     IF ( iforcing == inwp) THEN 
 !      CALL setup_nwp_phy
-      CALL setup_atm_nwp_phy
+      CALL configure_atm_phy_nwp
 !KF temp
 !      IF (inwp_surface > 0) CALL setup_nwp_lnd
     ENDIF
