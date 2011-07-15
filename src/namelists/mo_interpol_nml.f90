@@ -45,7 +45,6 @@ MODULE mo_interpol_nml
   USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH
   USE mo_master_nml,          ONLY: lrestart
   USE mo_intp_data_strc,      ONLY: t_lsq_set
-  USE mo_interpol_config        !,     ONLY: interpol_config
   USE mo_kind,                ONLY: wp
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_io_units,            ONLY: nnml, nnml_output
@@ -53,6 +52,23 @@ MODULE mo_interpol_nml
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
                                   & open_and_restore_namelist, close_tmpfile
 
+  USE mo_interpol_config,     ONLY: config_llsq_high_consv   => llsq_high_consv   , &
+                                  & config_lsq_high_ord      => lsq_high_ord      , &
+                                  & config_rbf_vec_kern_c    => rbf_vec_kern_c    , &
+                                  & config_rbf_vec_scale_c   => rbf_vec_scale_c   , &
+                                  & config_rbf_vec_kern_v    => rbf_vec_kern_v    , &
+                                  & config_rbf_vec_scale_v   => rbf_vec_scale_v   , &
+                                  & config_rbf_vec_kern_e    => rbf_vec_kern_e    , &
+                                  & config_rbf_vec_scale_e   => rbf_vec_scale_e   , &
+                                  & config_rbf_vec_dim_c     => rbf_vec_dim_c     , &
+                                  & config_rbf_vec_dim_v     => rbf_vec_dim_v     , &
+                                  & config_rbf_vec_dim_e     => rbf_vec_dim_e     , &
+                                  & config_rbf_c2grad_dim    => rbf_c2grad_dim    , &
+                                  & config_i_cori_method     => i_cori_method     , &
+                                  & config_nudge_max_coeff   => nudge_max_coeff   , &
+                                  & config_nudge_efold_width => nudge_efold_width , &
+                                  & config_nudge_zone_width  => nudge_zone_width  , &
+                                  & config_l_corner_vort     => l_corner_vort
 
   IMPLICIT NONE
   PRIVATE
@@ -64,25 +80,25 @@ MODULE mo_interpol_nml
   ! interpol_nml namelist variables  !
   !----------------------------------!
 
-  LOGICAL  :: nml_llsq_high_consv     ! flag to determine whether the high order least 
+  LOGICAL  :: llsq_high_consv     ! flag to determine whether the high order least 
                                   ! squares reconstruction should be conservative
 
-  INTEGER  :: nml_lsq_high_ord        ! specific order for higher order lsq
+  INTEGER  :: lsq_high_ord        ! specific order for higher order lsq
 
-  INTEGER  :: nml_rbf_vec_kern_c,   & ! parameter determining the type
-     &        nml_rbf_vec_kern_v,   & ! of vector rbf kernel
-     &        nml_rbf_vec_kern_e
+  INTEGER  :: rbf_vec_kern_c,   & ! parameter determining the type
+     &        rbf_vec_kern_v,   & ! of vector rbf kernel
+     &        rbf_vec_kern_e
 
   ! Parameter fields determining the scale factor used by the vector rbf
   ! interpolator.
   ! Note: these fields are defined on each grid level; to allow the namelist input
   ! going from 1 to depth (rather than from start_lev to end_lev), the namelist input
   ! fields defined here differ from those used in the model
-  REAL(wp) :: nml_rbf_vec_scale_c(max_dom),  &
-      &       nml_rbf_vec_scale_v(max_dom),  &
-      &       nml_rbf_vec_scale_e(max_dom)
+  REAL(wp) :: rbf_vec_scale_c(max_dom),  &
+      &       rbf_vec_scale_v(max_dom),  &
+      &       rbf_vec_scale_e(max_dom)
 
-  INTEGER  :: nml_i_cori_method       ! Identifier for the method with wich the tangential
+  INTEGER  :: i_cori_method       ! Identifier for the method with wich the tangential
                                   ! wind reconstruction in Coriolis force is computed,
                                   ! if the Thuburn method is used. (To be
                                   ! implemented for triangles, currently only for
@@ -99,10 +115,10 @@ MODULE mo_interpol_nml
   ! runs and one-way nesting). The nudging coefficients start with nudge_max_coeff in
   ! the cell row bordering to the boundary interpolation zone, and decay exponentially
   ! with nudge_efold_width (in units of cell rows)
-  REAL(wp) :: nml_nudge_max_coeff, nml_nudge_efold_width
-  INTEGER  :: nml_nudge_zone_width    ! total width of nudging zone in units of cell rows
+  REAL(wp) :: nudge_max_coeff, nudge_efold_width
+  INTEGER  :: nudge_zone_width    ! total width of nudging zone in units of cell rows
 
-  LOGICAL :: nml_l_corner_vort        ! yields for i_cori_method>=3
+  LOGICAL :: l_corner_vort        ! yields for i_cori_method>=3
                                   ! Decision wheter the hexagon vector reconstruction is
                                   ! combined with either of the two vorticities :
                                   ! .TRUE. : Three rhombi are combined to the corner
@@ -112,22 +128,22 @@ MODULE mo_interpol_nml
                                   ! After the writing of the paper to be published in JCP 
                                   ! it seems that l_corner_vort=.TRUE. should be the right way.
 
-  NAMELIST/interpol_nml/ nml_llsq_high_consv,   nml_lsq_high_ord,        &
-    &                    nml_rbf_vec_kern_c,    nml_rbf_vec_scale_c,     &
-    &                    nml_rbf_vec_kern_v,    nml_rbf_vec_scale_v,     &
-    &                    nml_rbf_vec_kern_e,    nml_rbf_vec_scale_e,     &
-    &                    nml_i_cori_method,     nml_nudge_max_coeff,     &
-    &                    nml_nudge_efold_width, nml_nudge_zone_width,    &
-    &                    nml_l_corner_vort
+  NAMELIST/interpol_nml/ llsq_high_consv,   lsq_high_ord,        &
+    &                    rbf_vec_kern_c,    rbf_vec_scale_c,     &
+    &                    rbf_vec_kern_v,    rbf_vec_scale_v,     &
+    &                    rbf_vec_kern_e,    rbf_vec_scale_e,     &
+    &                    i_cori_method,     nudge_max_coeff,     &
+    &                    nudge_efold_width, nudge_zone_width,    &
+    &                    l_corner_vort
 
   ! ------------------------------------------------------------------------
   ! Auxiliary parameters and dependendt control variables
   ! ------------------------------------------------------------------------
 
-  INTEGER  ::  nml_rbf_vec_dim_c,    & ! parameter determining the size
-     &         nml_rbf_vec_dim_v,    & ! of vector rbf stencil
-     &         nml_rbf_vec_dim_e,    & !
-     &         nml_rbf_c2grad_dim      ! ... and for cell-to-gradient reconstruction
+  INTEGER  ::  rbf_vec_dim_c,    & ! parameter determining the size
+     &         rbf_vec_dim_v,    & ! of vector rbf stencil
+     &         rbf_vec_dim_e,    & !
+     &         rbf_c2grad_dim      ! ... and for cell-to-gradient reconstruction
 !
 !
 !  TYPE(t_lsq_set) :: lsq_lin_set, &! Parameter settings for linear and higher order  
@@ -166,7 +182,8 @@ SUBROUTINE interpol_nml_setup(p_patch)
    ! 
    TYPE(t_patch), TARGET, INTENT(in) :: p_patch(n_dom_start:)
 
-   INTEGER :: istat, jg, jlev, funit
+   INTEGER :: istat, funit
+!   INTEGER :: jg, jlev
 
    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = 'mo_intp_state/interpol_nml_setup'
 
@@ -310,7 +327,7 @@ SUBROUTINE interpol_nml_setup(p_patch)
 !   ENDIF
 !
 !   DO jg = 1, n_dom
-!     IF (rbf_vec_scale_c(jg) < 1e-10_wp) THEN
+!     IF (rbf_vec_scale_c(jg) < 1.e-10_wp) THEN
 !       CALL finish( TRIM(routine),'wrong value of rbf_vec_scale_c')
 !     ELSE IF ((rbf_vec_scale_c(jg) < 0.01_wp).OR.(rbf_vec_scale_c(jg) > 0.6_wp)) THEN
 !       CALL message( TRIM(routine),'WARNING: ')
@@ -324,7 +341,7 @@ SUBROUTINE interpol_nml_setup(p_patch)
 !   ENDIF
 !
 !   DO jg = 1, n_dom
-!     IF (rbf_vec_scale_v(jg) < 1e-10_wp) THEN
+!     IF (rbf_vec_scale_v(jg) < 1.e-10_wp) THEN
 !       CALL finish( TRIM(routine),'wrong value of rbf_vec_scale_v')
 !     ELSE IF ((rbf_vec_scale_v(jg) < 0.02_wp).OR.(rbf_vec_scale_v(jg) > 1.0_wp)) THEN
 !       CALL message( TRIM(routine),'WARNING: ')
@@ -338,7 +355,7 @@ SUBROUTINE interpol_nml_setup(p_patch)
 !   ENDIF
 !  
 !   DO jg = 1, n_dom
-!     IF (rbf_vec_scale_e(jg) < 1e-10_wp) THEN
+!     IF (rbf_vec_scale_e(jg) < 1.e-10_wp) THEN
 !       CALL finish( TRIM(routine),'wrong value of rbf_vec_scale_e')
 !     ELSE IF ((rbf_vec_scale_e(jg) < 0.05_wp).OR.(rbf_vec_scale_e(jg) > 0.6_wp)) THEN
 !       CALL message( TRIM(routine),'WARNING: ')
@@ -472,34 +489,34 @@ END SUBROUTINE interpol_nml_setup !CJ setup_interpol
     !-----------------------
 
     ! LSQ reconstruction at cell center
-    nml_llsq_high_consv  = .TRUE.   ! conservative reconstruction
-    nml_lsq_high_ord     = 3        ! cubic polynomial
+    llsq_high_consv  = .TRUE.   ! conservative reconstruction
+    lsq_high_ord     = 3        ! cubic polynomial
     ! RBF vector reconstruction at cell centers
-    nml_rbf_vec_dim_c   = 9         ! use 2nd order reconstruction
-    nml_rbf_vec_kern_c  = 1         ! use Gaussian kernel
+    rbf_vec_dim_c   = 9         ! use 2nd order reconstruction
+    rbf_vec_kern_c  = 1         ! use Gaussian kernel
     ! RBF vector reconstruction at vertices
-    nml_rbf_vec_dim_v   = 6         ! use 6-point reconstruction
-    nml_rbf_vec_kern_v  = 1         ! use Gaussian kernel
+    rbf_vec_dim_v   = 6         ! use 6-point reconstruction
+    rbf_vec_kern_v  = 1         ! use Gaussian kernel
     ! RBF vector reconstruction at edge midpoints
-    nml_rbf_vec_dim_e   = 4         ! use 4-point reconstruction
-    nml_rbf_vec_kern_e  = 3         ! use Inverse multiquadric kernel
+    rbf_vec_dim_e   = 4         ! use 4-point reconstruction
+    rbf_vec_kern_e  = 3         ! use Inverse multiquadric kernel
     ! Stencil size for reconstruction of gradient at cell midpoints
-    nml_rbf_c2grad_dim  = 10
+    rbf_c2grad_dim  = 10
 
     ! Initialize namelist fields for scaling factors (dimension 1:depth) with dummy values
     ! A meaningful initialization follows after reading the namelist
-    nml_rbf_vec_scale_c(:) = -1.0_wp
-    nml_rbf_vec_scale_v(:) = -1.0_wp
-    nml_rbf_vec_scale_e(:) = -1.0_wp
+    rbf_vec_scale_c(:) = -1.0_wp
+    rbf_vec_scale_v(:) = -1.0_wp
+    rbf_vec_scale_e(:) = -1.0_wp
 
     ! Initialize the namelist for the method for the vorticity flux term
-    nml_i_cori_method = 3
-    nml_l_corner_vort=.TRUE.
+    i_cori_method = 3
+    l_corner_vort=.TRUE.
 
     ! Coefficients for lateral boundary nudging
-    nml_nudge_max_coeff   = 0.02_wp  ! Maximum nudging coefficient
-    nml_nudge_efold_width = 2._wp    ! e-folding width in units of cell rows
-    nml_nudge_zone_width  = 8        ! Width of nudging zone in units of cell rows
+    nudge_max_coeff   = 0.02_wp  ! Maximum nudging coefficient
+    nudge_efold_width = 2._wp    ! e-folding width in units of cell rows
+    nudge_zone_width  = 8        ! Width of nudging zone in units of cell rows
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -526,42 +543,42 @@ END SUBROUTINE interpol_nml_setup !CJ setup_interpol
    ! check the validity of the configuration
    !-----------------------------------------------------------------------
 
-   IF ((nml_rbf_vec_kern_c/=1 ).AND.(nml_rbf_vec_kern_c/=3)) THEN
+   IF ((rbf_vec_kern_c/=1 ).AND.(rbf_vec_kern_c/=3)) THEN
      CALL finish( TRIM(routine),'wrong value of rbf_vec_kern_c, must be 1 or 3')
    ENDIF
 
    DO jg = 1, n_dom
-     IF (nml_rbf_vec_scale_c(jg) < 1e-10_wp) THEN
+     IF (rbf_vec_scale_c(jg) < 1.e-10_wp) THEN
        CALL finish( TRIM(routine),'wrong value of rbf_vec_scale_c')
-     ELSE IF ((nml_rbf_vec_scale_c(jg) < 0.01_wp).OR.(nml_rbf_vec_scale_c(jg) > 0.6_wp)) THEN
+     ELSE IF ((rbf_vec_scale_c(jg) < 0.01_wp).OR.(rbf_vec_scale_c(jg) > 0.6_wp)) THEN
        CALL message( TRIM(routine),'WARNING: ')
        CALL message('','! recommended range for rbf_vec_scale_c')
        CALL message('','! is 0.01 <= rbf_vec_scale_c <= 0.6')
      ENDIF
    ENDDO
 
-   IF (.NOT.((nml_rbf_vec_kern_v==1 ).OR.(nml_rbf_vec_kern_v==3))) THEN
+   IF (.NOT.((rbf_vec_kern_v==1 ).OR.(rbf_vec_kern_v==3))) THEN
      CALL finish( TRIM(routine),'wrong value of rbf_vec_kern_v, must be 1 or 3')
    ENDIF
 
    DO jg = 1, n_dom
-     IF (nml_rbf_vec_scale_v(jg) < 1e-10_wp) THEN
+     IF (rbf_vec_scale_v(jg) < 1.e-10_wp) THEN
        CALL finish( TRIM(routine),'wrong value of rbf_vec_scale_v')
-     ELSE IF ((nml_rbf_vec_scale_v(jg) < 0.02_wp).OR.(nml_rbf_vec_scale_v(jg) > 1.0_wp)) THEN
+     ELSE IF ((rbf_vec_scale_v(jg) < 0.02_wp).OR.(rbf_vec_scale_v(jg) > 1.0_wp)) THEN
        CALL message( TRIM(routine),'WARNING: ')
        CALL message('','! recommended range for rbf_vec_scale_v')
        CALL message('','! is 0.02 <= rbf_vec_scale_v <= 1.0')
      ENDIF
    ENDDO
 
-   IF (.NOT.((nml_rbf_vec_kern_e==1 ).OR.(nml_rbf_vec_kern_e==3))) THEN
+   IF (.NOT.((rbf_vec_kern_e==1 ).OR.(rbf_vec_kern_e==3))) THEN
      CALL finish( TRIM(routine),'wrong value of rbf_vec_kern_e, must be 1 or 3')
    ENDIF
   
    DO jg = 1, n_dom
-     IF (nml_rbf_vec_scale_e(jg) < 1e-10_wp) THEN
+     IF (rbf_vec_scale_e(jg) < 1.e-10_wp) THEN
        CALL finish( TRIM(routine),'wrong value of rbf_vec_scale_e')
-     ELSE IF ((nml_rbf_vec_scale_e(jg) < 0.05_wp).OR.(nml_rbf_vec_scale_e(jg) > 0.6_wp)) THEN
+     ELSE IF ((rbf_vec_scale_e(jg) < 0.05_wp).OR.(rbf_vec_scale_e(jg) > 0.6_wp)) THEN
        CALL message( TRIM(routine),'WARNING: ')
        CALL message('','! recommended range for rbf_vec_scale_e')
        CALL message('','! is 0.05 <= rbf_vec_scale_e <= 0.6')
@@ -588,23 +605,23 @@ END SUBROUTINE interpol_nml_setup !CJ setup_interpol
 !    ENDDO
 !
 
-       llsq_high_consv   = nml_llsq_high_consv
-       lsq_high_ord      = nml_lsq_high_ord 
-       rbf_vec_kern_c    = nml_rbf_vec_kern_c 
-       rbf_vec_scale_c(:)= nml_rbf_vec_scale_c(:)
-       rbf_vec_kern_v    = nml_rbf_vec_kern_v
-       rbf_vec_scale_v(:)= nml_rbf_vec_scale_v(:)
-       rbf_vec_kern_e    = nml_rbf_vec_kern_e
-       rbf_vec_scale_e(:)= nml_rbf_vec_scale_e(:)
-       rbf_vec_dim_c     = nml_rbf_vec_dim_c   
-       rbf_vec_dim_v     = nml_rbf_vec_dim_v   
-       rbf_vec_dim_e     = nml_rbf_vec_dim_e   
-       rbf_c2grad_dim    = nml_rbf_c2grad_dim 
-       i_cori_method     = nml_i_cori_method
-       nudge_max_coeff   = nml_nudge_max_coeff
-       nudge_efold_width = nml_nudge_efold_width
-       nudge_zone_width  = nml_nudge_zone_width
-       l_corner_vort     = nml_l_corner_vort
+       config_llsq_high_consv    = llsq_high_consv
+       config_lsq_high_ord       = lsq_high_ord 
+       config_rbf_vec_kern_c     = rbf_vec_kern_c 
+       config_rbf_vec_scale_c(:) = rbf_vec_scale_c(:)
+       config_rbf_vec_kern_v     = rbf_vec_kern_v
+       config_rbf_vec_scale_v(:) = rbf_vec_scale_v(:)
+       config_rbf_vec_kern_e     = rbf_vec_kern_e
+       config_rbf_vec_scale_e(:) = rbf_vec_scale_e(:)
+       config_rbf_vec_dim_c      = rbf_vec_dim_c   
+       config_rbf_vec_dim_v      = rbf_vec_dim_v   
+       config_rbf_vec_dim_e      = rbf_vec_dim_e   
+       config_rbf_c2grad_dim     = rbf_c2grad_dim 
+       config_i_cori_method      = i_cori_method
+       config_nudge_max_coeff    = nudge_max_coeff
+       config_nudge_efold_width  = nudge_efold_width
+       config_nudge_zone_width   = nudge_zone_width
+       config_l_corner_vort      = l_corner_vort
 
 
     !-----------------------------------------------------
