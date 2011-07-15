@@ -59,16 +59,15 @@ MODULE mo_lnd_nwp_config
 
 !  TYPE t_nwp_lnd_config
 
-    INTEGER ::  nlev_soil, nztlev  !! number of soil layers, time integration scheme
-    INTEGER ::  nlev_snow        !! number of snow layers
-    INTEGER ::  nsfc_subs        !! number of TILES
+  INTEGER ::  nlev_soil, nztlev  !! number of soil layers, time integration scheme
+  INTEGER ::  nlev_snow          !! number of snow layers
+  INTEGER ::  nsfc_subs          !! number of TILES
 
-    LOGICAL ::       &
-         lseaice,    & !> forecast with sea ice model
-         llake,      & !! forecst with lake model FLake
-         lmelt     , & !! soil model with melting process
-         lmelt_var , & !! freezing temperature dependent on water content
-         lmulti_snow   !! run the multi-layer snow model
+  LOGICAL ::  lseaice     !> forecast with sea ice model
+  LOGICAL ::  llake       !! forecst with lake model FLake
+  LOGICAL ::  lmelt       !! soil model with melting process
+  LOGICAL ::  lmelt_var   !! freezing temperature dependent on water content
+  LOGICAL ::  lmulti_snow !! run the multi-layer snow model
 
 !  END TYPE t_nwp_lnd_config
 

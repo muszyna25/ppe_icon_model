@@ -47,33 +47,40 @@ MODULE mo_lnd_nwp_nml
   USE mo_master_nml,          ONLY: lrestart
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_master_nml,          ONLY: lrestart
-  USE mo_lnd_nwp_config,      ONLY:nlev_soil, nztlev ,nlev_snow ,nsfc_subs,&
-    &                              lseaice,  llake, lmelt , lmelt_var, lmulti_snow
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
     &                               open_and_restore_namelist, close_tmpfile
+
+  USE mo_lnd_nwp_config,      ONLY: config_nlev_soil   => nlev_soil  , &
+    &                               config_nztlev      => nztlev     , &
+    &                               config_nlev_snow   => nlev_snow  , &
+    &                               config_nsfc_subs   => nsfc_subs  , &
+    &                               config_lseaice     => lseaice    , &
+    &                               config_llake       => llake      , &
+    &                               config_lmelt       => lmelt      , &
+    &                               config_lmelt_var   => lmelt_var  , &
+    &                               config_lmulti_snow => lmulti_snow
 
   IMPLICIT NONE
 
   PRIVATE
 
-  INTEGER ::  nml_nlev_soil,  nml_nztlev    !! number of soil layers, time integration scheme
-  INTEGER ::  nml_nlev_snow        !! number of snow layers
-  INTEGER ::  nml_nsfc_subs        !! number of TILES
+  INTEGER ::  nlev_soil,  nztlev  !! number of soil layers, time integration scheme
+  INTEGER ::  nlev_snow           !! number of snow layers
+  INTEGER ::  nsfc_subs           !! number of TILES
 
 
 
-  LOGICAL ::       &
-        nml_lseaice,    & !> forecast with sea ice model
-        nml_llake,      & !! forecst with lake model FLake
-        nml_lmelt     , & !! soil model with melting process
-        nml_lmelt_var , & !! freezing temperature dependent on water content
-        nml_lmulti_snow   !! run the multi-layer snow model
+  LOGICAL ::  lseaice     !> forecast with sea ice model
+  LOGICAL ::  llake       !! forecst with lake model FLake
+  LOGICAL ::  lmelt       !! soil model with melting process
+  LOGICAL ::  lmelt_var   !! freezing temperature dependent on water content
+  LOGICAL ::  lmulti_snow !! run the multi-layer snow model
 
 
-  NAMELIST/lnd_nml/  nml_nlev_soil,  nml_nztlev,  nml_nlev_snow,  nml_nsfc_subs, &
-    &                nml_lseaice,  nml_llake,  nml_lmulti_snow  
+  NAMELIST /lnd_nml/ nlev_soil, nztlev, nlev_snow, nsfc_subs, &
+    &                lseaice, llake, lmulti_snow  
    
-  PUBLIC :: read_nwp_lnd_namelist,setup_nwp_lnd !(latter to be removed)
+  PUBLIC :: read_nwp_lnd_namelist, setup_nwp_lnd !(latter to be removed)
 
  CONTAINS
 
@@ -155,20 +162,20 @@ MODULE mo_lnd_nwp_nml
     INTEGER :: istat, funit
     INTEGER :: jg            ! loop index
 
-    CHARACTER(len=*), PARAMETER :: routine = 'mo_lnd_nwp_nml: read_nwp_lnd_namelist'
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_lnd_nwp_nml:read_nwp_lnd_namelist'
 
     !-----------------------
     ! 1. default settings   
     !-----------------------
-    nml_nlev_soil   = 7     !> 7 = default value for number of soil layers
-    nml_nztlev      = 2     !> 2 = default value for time integration scheme
-    nml_nlev_snow   = 1     !> 0 = default value for number of snow layers
-    nml_nsfc_subs   = 2     !> 1 = default value for number of TILES
+    nlev_soil   = 7     !> 7 = default value for number of soil layers
+    nztlev      = 2     !> 2 = default value for time integration scheme
+    nlev_snow   = 1     !> 0 = default value for number of snow layers
+    nsfc_subs   = 2     !> 1 = default value for number of TILES
 
     !> KF  current settings to get NWP turbulence running
-    nml_lseaice     = .FALSE.
-    nml_llake       = .FALSE.
-    nml_lmulti_snow = .FALSE.
+    lseaice     = .FALSE.
+    llake       = .FALSE.
+    lmulti_snow = .FALSE.
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -196,13 +203,13 @@ MODULE mo_lnd_nwp_nml
     !----------------------------------------------------
 
     DO jg = 1,max_dom
-      nlev_soil   = nml_nlev_soil
-      nztlev      = nml_nztlev
-      nlev_snow   = nml_nlev_snow
-      nsfc_subs   = nml_nsfc_subs
-      lseaice     = nml_lseaice
-      llake       = nml_llake
-      lmulti_snow = nml_lmulti_snow
+      config_nlev_soil   = nlev_soil
+      config_nztlev      = nztlev
+      config_nlev_snow   = nlev_snow
+      config_nsfc_subs   = nsfc_subs
+      config_lseaice     = lseaice
+      config_llake       = llake
+      config_lmulti_snow = lmulti_snow
     ENDDO
 
     !-----------------------------------------------------
