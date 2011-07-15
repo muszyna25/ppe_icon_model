@@ -133,7 +133,6 @@ USE mo_grid_configuration,   ONLY: parent_id
 
 ! Horizontal interpolation
 !
-USE mo_interpol_nml,        ONLY: interpol_nml_setup   ! process interpol. ctl. params.
 USE mo_intp_state,          ONLY: construct_2d_interpol_state, &
 & destruct_2d_interpol_state
 USE mo_interpolation,       ONLY: rbf_vec_interpol_cell,       &
@@ -494,7 +493,7 @@ INTEGER, POINTER :: grid_glob_index(:)
     ! interpolation state not used for ocean model
     ! #slo# - temporarily switched on for comparison with rbf-reconstruction
     
-    CALL interpol_nml_setup(p_patch_global)
+   !CALL interpol_nml_setup(p_patch_global)
     
     !
     ! allocate type for interpolation state

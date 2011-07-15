@@ -125,7 +125,7 @@ MODULE mo_radiation_model
   
   ! Horizontal interpolation
   !
-  USE mo_interpol_nml,        ONLY: interpol_nml_setup   ! process interpol. ctl. params.
+! USE mo_interpol_nml,        ONLY: interpol_nml_setup   ! process interpol. ctl. params.
   USE mo_intp_state,          ONLY: construct_2d_interpol_state, &
     & destruct_2d_interpol_state
   USE mo_interpolation,       ONLY: rbf_vec_interpol_cell,       &

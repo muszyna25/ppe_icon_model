@@ -100,7 +100,7 @@ MODULE mo_ocean_model
   
   ! Horizontal interpolation
   !
-  USE mo_interpol_nml,        ONLY: interpol_nml_setup   ! process interpol. ctl. params.
+! USE mo_interpol_nml,        ONLY: interpol_nml_setup   ! process interpol. ctl. params.
   USE mo_intp_state,          ONLY: construct_2d_interpol_state, &
     & destruct_2d_interpol_state
   
@@ -283,7 +283,7 @@ CONTAINS
     ! #slo# - temporarily switched on for comparison with rbf-reconstruction
     !IF (iequations /= ihs_ocean) THEN
     
-    CALL interpol_nml_setup(p_patch_global)
+ !  CALL interpol_nml_setup(p_patch_global)
     
     ! allocate type for interpolation state
     
