@@ -45,7 +45,7 @@ MODULE mo_diffusion_nml
   USE mo_kind,                ONLY: wp
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_impl_constants,      ONLY: max_char_length, max_dom, SUCCESS
+  USE mo_impl_constants,      ONLY: max_dom
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_master_nml,          ONLY: lrestart
@@ -70,7 +70,6 @@ MODULE mo_diffusion_nml
                           ! 5: Smagorinsky diffusion for triangular model
                           ! 24 or 42: 2nd order linear diffusion for upper levels,
                           !           4th order for lower levels
-                          
 
   REAL(wp) :: k2_pres_max ! (relevant only when hdiff_order = 24 or 42)
                           ! pressure (in Pa) specified by the user
@@ -124,7 +123,7 @@ CONTAINS
     INTEGER :: istat, funit
     INTEGER :: jg
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_diffusion_nml: read_diffusion_namelist'
 
     !-----------------------

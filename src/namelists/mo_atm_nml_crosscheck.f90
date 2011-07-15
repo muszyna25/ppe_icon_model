@@ -275,7 +275,7 @@ CONTAINS
 
     DO jg =1,n_dom
    
-      SELECT CASE( diffusion_config(jg)%hdiff_order)
+      SELECT CASE( diffusion_config(jg)%hdiff_order )
       CASE(-1)
         WRITE(message_text,'(a,i2.2)') 'Horizontal diffusion '//&
                                        'switched off for domain ', jg

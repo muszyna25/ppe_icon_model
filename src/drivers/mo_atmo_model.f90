@@ -143,7 +143,7 @@ USE mo_grf_interpolation,   ONLY: construct_2d_gridref_state,  &
 ! Vertical grid
 !
 USE mo_vertical_coord_table,ONLY: init_vertical_coord_table, &
-  &                               vct_a, vct_b, ceta
+  &                               vct_a, vct_b, ceta, apzero
 USE mo_vertical_grid,       ONLY: init_hybrid_coord, init_sleve_coord
 
 ! State variables
@@ -293,7 +293,7 @@ INTEGER, POINTER :: grid_glob_index(:)
 
     ! CALL configure_advection(iequations)
 
-    CALL configure_diffusion(n_dom, parent_id, nlev)
+    CALL configure_diffusion(n_dom, parent_id, nlev, vct_a, vct_b, apzero)
 
     CALL configure_atm_phy_nwp
 
