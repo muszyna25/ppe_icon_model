@@ -69,31 +69,30 @@ MODULE mo_io_config
   
     LOGICAL :: lwrite_vorticity           ! if .true., write out vorticity
     LOGICAL :: lwrite_divergence          ! if .true., write out divergence
+    LOGICAL :: lwrite_omega               ! if .true., write out the vertical velocity
     LOGICAL :: lwrite_pres                ! if .true., write out full level pressure
+    LOGICAL :: lwrite_z3                  ! if .true., write out geopotential on full levels
+    LOGICAL :: lwrite_tracer(max_ntracer) ! for each tracer, if .true. write out
+                                          ! tracer on full levels
     LOGICAL :: lwrite_tend_phy            ! if .true., write out physics-induced tendencies
     LOGICAL :: lwrite_radiation           ! if .true., write out fields related to radiation
     LOGICAL :: lwrite_precip              ! if .true., write out precip
     LOGICAL :: lwrite_cloud               ! if .true., write out cloud variables
-    LOGICAL :: lwrite_z3                  ! if .true., write out geopotential on full levels
-    LOGICAL :: lwrite_omega               ! if .true., write out the vertical velocity
                                           ! in pressure coordinate
     LOGICAL :: lwrite_tke                 ! if .true., write out TKE
     LOGICAL :: lwrite_surface             ! if .true., write out surface related fields
-    LOGICAL :: lwrite_tracer(max_ntracer) ! for each tracer, if .true. write out
-                                          ! tracer on full levels
     LOGICAL :: lwrite_extra               ! if .true., write out extra fields
 
     ! derived variables
 
-    LOGICAL :: l_outputtime         ! if .true., output is written at the end of the time step.
-    LOGICAL :: l_checkpoint_time    ! if .true., restart file is written at the end of 
-                                    ! the time step.
-    LOGICAL :: l_diagtime           ! if .true., diagnostic output is computed and written
-                                    ! at the end of the time step.               
+    LOGICAL :: l_outputtime      ! if .true., output is written at the end of the time step.
+    LOGICAL :: l_checkpoint_time ! if .true., restart file is written at the end of 
+                                 ! the time step.
+    LOGICAL :: l_diagtime        ! if .true., diagnostic output is computed and written
+                                 ! at the end of the time step.               
                                                                                  
-    LOGICAL :: lprepare_output(max_dom) ! if .true., save the prognostic  
-                                               ! variables to p_prog_out and     
-                                               ! update p_diag_out.
+    LOGICAL :: lprepare_output(max_dom) ! if .true., save the prognostic variables
+                                        ! to p_prog_out and update p_diag_out.
 !  END TYPE t_io_config
   !>
   !!

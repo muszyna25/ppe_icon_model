@@ -51,9 +51,30 @@ MODULE mo_io_nml
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: p_pe, p_io
   USE mo_master_nml,         ONLY: lrestart
-  USE mo_io_config           !,          ONLY: io_config
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
+
+  USE mo_io_config,          ONLY: config_out_expname       => out_expname      , &
+                                 & config_out_filetype      => out_filetype     , &
+                                 & config_lkeep_in_sync     => lkeep_in_sync    , &
+                                 & config_dt_data           => dt_data          , &
+                                 & config_dt_diag           => dt_diag          , &
+                                 & config_dt_file           => dt_file          , &
+                                 & config_dt_checkpoint     => dt_checkpoint    , &
+                                 & config_lwrite_vorticity  => lwrite_vorticity , &
+                                 & config_lwrite_divergence => lwrite_divergence, &
+                                 & config_lwrite_omega      => lwrite_omega     , &
+                                 & config_lwrite_pres       => lwrite_pres      , &
+                                 & config_lwrite_z3         => lwrite_z3        , &
+                                 & config_lwrite_tracer     => lwrite_tracer    , &
+                                 & config_lwrite_tend_phy   => lwrite_tend_phy  , &
+                                 & config_lwrite_radiation  => lwrite_radiation , &
+                                 & config_lwrite_precip     => lwrite_precip    , &
+                                 & config_lwrite_cloud      => lwrite_cloud     , &
+                                 & config_lwrite_tke        => lwrite_tke       , &
+                                 & config_lwrite_surface    => lwrite_surface   , &
+                                 & config_lwrite_extra      => lwrite_extra
+
 
   IMPLICIT NONE
   PUBLIC :: read_io_namelist, io_nml_setup 
@@ -63,54 +84,52 @@ MODULE mo_io_nml
   ! 1.0 Namelist variables and auxiliary parameters
   ! ------------------------------------------------------------------------
   !
-  CHARACTER(len=max_char_length) :: nml_out_expname
-  INTEGER :: nml_out_filetype               ! 1 - GRIB1, 2 - netCDF
-  LOGICAL :: nml_lkeep_in_sync              ! if .true., sync stream after each timestep
-  REAL(wp):: nml_dt_data                    ! output timestep [seconds]
-  REAL(wp):: nml_dt_diag                    ! diagnostic output timestep [seconds]
-  REAL(wp):: nml_dt_file                    ! timestep [seconds] for triggering new output file
-  REAL(wp):: nml_dt_checkpoint              ! timestep [seconds] for triggering new restart file
+  CHARACTER(len=max_char_length) :: out_expname
+  INTEGER :: out_filetype               ! 1 - GRIB1, 2 - netCDF
+  LOGICAL :: lkeep_in_sync              ! if .true., sync stream after each timestep
+  REAL(wp):: dt_data                    ! output timestep [seconds]
+  REAL(wp):: dt_diag                    ! diagnostic output timestep [seconds]
+  REAL(wp):: dt_file                    ! timestep [seconds] for triggering new output file
+  REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
   !
-  !
-  !
-  LOGICAL :: nml_lwrite_vorticity           ! if .true., write out vorticity
-  LOGICAL :: nml_lwrite_divergence          ! if .true., write out divergence
-  LOGICAL :: nml_lwrite_pres                ! if .true., write out full level pressure
-  LOGICAL :: nml_lwrite_tend_phy            ! if .true., write out physics-induced tendencies
-  LOGICAL :: nml_lwrite_radiation           ! if .true., write out fields related to radiation
-  LOGICAL :: nml_lwrite_precip              ! if .true., write out precip
-  LOGICAL :: nml_lwrite_cloud               ! if .true., write out cloud variables
-  LOGICAL :: nml_lwrite_z3                  ! if .true., write out geopotential on full levels
-  LOGICAL :: nml_lwrite_omega               ! if .true., write out the vertical velocity
+  LOGICAL :: lwrite_vorticity           ! if .true., write out vorticity
+  LOGICAL :: lwrite_divergence          ! if .true., write out divergence
+  LOGICAL :: lwrite_pres                ! if .true., write out full level pressure
+  LOGICAL :: lwrite_tend_phy            ! if .true., write out physics-induced tendencies
+  LOGICAL :: lwrite_radiation           ! if .true., write out fields related to radiation
+  LOGICAL :: lwrite_precip              ! if .true., write out precip
+  LOGICAL :: lwrite_cloud               ! if .true., write out cloud variables
+  LOGICAL :: lwrite_z3                  ! if .true., write out geopotential on full levels
+  LOGICAL :: lwrite_omega               ! if .true., write out the vertical velocity
                                         ! in pressure coordinate
-  LOGICAL :: nml_lwrite_tke                 ! if .true., write out TKE
-  LOGICAL :: nml_lwrite_surface             ! if .true., write out surface related fields
-  LOGICAL :: nml_lwrite_tracer(max_ntracer) ! for each tracer, if .true. write out
+  LOGICAL :: lwrite_tke                 ! if .true., write out TKE
+  LOGICAL :: lwrite_surface             ! if .true., write out surface related fields
+  LOGICAL :: lwrite_tracer(max_ntracer) ! for each tracer, if .true. write out
                                         ! tracer on full levels
-  LOGICAL :: nml_lwrite_extra               ! if .true., write out extra fields
+  LOGICAL :: lwrite_extra               ! if .true., write out extra fields
 
-
-  NAMELIST/io_nml/ nml_out_expname, nml_out_filetype, nml_dt_data, nml_dt_file, nml_dt_diag, &
-    &              nml_dt_checkpoint, &
-    &              nml_lwrite_vorticity, nml_lwrite_divergence, nml_lwrite_omega, &
-    &              nml_lwrite_pres, nml_lwrite_z3, nml_lwrite_tracer, nml_lwrite_tend_phy,&
-    &              nml_lwrite_radiation, nml_lwrite_precip, nml_lwrite_cloud, lkeep_in_sync,&
-    &              nml_lwrite_tke, nml_lwrite_surface, nml_lwrite_extra
+  NAMELIST/io_nml/ out_expname, out_filetype, lkeep_in_sync,          &
+    &              dt_data, dt_diag, dt_file, dt_checkpoint,          &
+    &              lwrite_vorticity, lwrite_divergence, lwrite_omega, &
+    &              lwrite_pres, lwrite_z3, lwrite_tracer,             &
+    &              lwrite_tend_phy, lwrite_radiation, lwrite_precip,  &
+    &              lwrite_cloud, lwrite_tke, lwrite_surface,          &
+    &              lwrite_extra
 
   !
   ! -----------------------------------------------------------------------
   ! 2.0 Declaration of dependent control variables 
   ! -----------------------------------------------------------------------
   !
-!  LOGICAL :: l_outputtime         ! if .true., output is written at the end of the time step.
-!  LOGICAL :: l_checkpoint_time    ! if .true., restart file is written at the end of the time step.
-!  LOGICAL :: l_diagtime           ! if .true., diagnostic output is computed and written
-                                  ! at the end of the time step.
+!  LOGICAL :: l_outputtime        ! if .true., output is written at the end of the time step.
+!  LOGICAL :: l_checkpoint_time   ! if .true., restart file is written at the end of the time step.
+!  LOGICAL :: l_diagtime          ! if .true., diagnostic output is computed and written
+!                                 ! at the end of the time step.
 
 !  LOGICAL, ALLOCATABLE :: lprepare_output(:) ! For each grid level:
-                                             ! if .true., save the prognostic
-                                             ! variables to p_prog_out and
-                                             ! update p_diag_out.
+!                                             ! if .true., save the prognostic
+!                                             ! variables to p_prog_out and
+!                                             ! update p_diag_out.
 
 
   CONTAINS
@@ -156,36 +175,36 @@ MODULE mo_io_nml
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
-    INTEGER :: jg           ! loop index
+!    INTEGER :: jg           ! loop index
 
-    CHARACTER(len=*), PARAMETER :: routine = 'mo_io_nml: read_io_namelist'
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_io_nml:read_io_namelist'
 
     !-----------------------
     ! 1. default settings
     !-----------------------
     out_expname   = 'IIIEEEETTTT'
     out_filetype  = 2
-
-    dt_data       = 21600.0_wp   !  6 hours
-    dt_file       = 2592000._wp  ! 30 days
-    dt_checkpoint = 2592000._wp  ! 30 days
-    dt_diag       = 86400._wp    !  1 time step
     lkeep_in_sync = .FALSE.
 
-    nml_lwrite_vorticity   = .TRUE.
-    nml_lwrite_divergence  = .TRUE.
-    nml_lwrite_pres        = .TRUE.
-    nml_lwrite_z3          = .TRUE.
-    nml_lwrite_omega       = .TRUE.
-    nml_lwrite_tracer(:)   = .TRUE.
+    dt_data       = 21600.0_wp   !  6 hours
+    dt_diag       = 86400._wp    !  1 day
+    dt_file       = 2592000._wp  ! 30 days
+    dt_checkpoint = 2592000._wp  ! 30 days
 
-    nml_lwrite_precip    = .FALSE.
-    nml_lwrite_cloud     = .FALSE.
-    nml_lwrite_radiation = .FALSE.
-    nml_lwrite_tend_phy  = .FALSE.
-    nml_lwrite_surface   = .FALSE.
-    nml_lwrite_tke       = .FALSE.
-    nml_lwrite_extra     = .FALSE. 
+    lwrite_vorticity   = .TRUE.
+    lwrite_divergence  = .TRUE.
+    lwrite_omega       = .TRUE.
+    lwrite_pres        = .TRUE.
+    lwrite_z3          = .TRUE.
+    lwrite_tracer(:)   = .TRUE.
+
+    lwrite_tend_phy    = .FALSE.
+    lwrite_radiation   = .FALSE.
+    lwrite_precip      = .FALSE.
+    lwrite_cloud       = .FALSE.
+    lwrite_tke         = .FALSE.
+    lwrite_surface     = .FALSE.
+    lwrite_extra       = .FALSE. 
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -215,9 +234,10 @@ MODULE mo_io_nml
 !    DO jg= 1,max_dom
 !      io_config(jg)%out_expname      = out_expname
 !      io_config(jg)%out_filetype     = out_filetype
+!      io_config(jg)%lkeep_in_sync    = lkeep_in_sync
 !      io_config(jg)%dt_data          = dt_data
-!      io_config(jg)%dt_file          = dt_file
 !      io_config(jg)%dt_diag          = dt_diag
+!      io_config(jg)%dt_file          = dt_file
 !      io_config(jg)%dt_checkpoint    = dt_checkpoint
 !      io_config(jg)%lwrite_vorticity = lwrite_vorticity
 !      io_config(jg)%lwrite_divergence= lwrite_divergence 
@@ -229,32 +249,31 @@ MODULE mo_io_nml
 !      io_config(jg)%lwrite_radiation = lwrite_radiation
 !      io_config(jg)%lwrite_precip    = lwrite_precip
 !      io_config(jg)%lwrite_cloud     = lwrite_cloud
-!      io_config(jg)%lkeep_in_sync    = lkeep_in_sync
 !      io_config(jg)%lwrite_tke       = lwrite_tke
 !      io_config(jg)%lwrite_surface   = lwrite_surface
 !      io_config(jg)%lwrite_extra     = lwrite_extra
 !    ENDDO
 !
-       out_expname      = out_expname
-       out_filetype     = out_filetype
-       dt_data          = dt_data
-       dt_file          = dt_file
-       dt_diag          = dt_diag
-       dt_checkpoint    = dt_checkpoint
-       lwrite_vorticity = nml_lwrite_vorticity
-       lwrite_divergence= nml_lwrite_divergence 
-       lwrite_omega     = nml_lwrite_omega
-       lwrite_pres      = nml_lwrite_pres 
-       lwrite_z3        = nml_lwrite_z3
-       lwrite_tracer    = nml_lwrite_tracer
-       lwrite_tend_phy  = nml_lwrite_tend_phy
-       lwrite_radiation = nml_lwrite_radiation
-       lwrite_precip    = nml_lwrite_precip
-       lwrite_cloud     = nml_lwrite_cloud
-       lkeep_in_sync    = lkeep_in_sync
-       lwrite_tke       = nml_lwrite_tke
-       lwrite_surface   = nml_lwrite_surface
-       lwrite_extra     = nml_lwrite_extra
+       config_out_expname       = out_expname
+       config_out_filetype      = out_filetype
+       config_lkeep_in_sync     = lkeep_in_sync
+       config_dt_data           = dt_data
+       config_dt_diag           = dt_diag
+       config_dt_file           = dt_file
+       config_dt_checkpoint     = dt_checkpoint
+       config_lwrite_vorticity  = lwrite_vorticity
+       config_lwrite_divergence = lwrite_divergence 
+       config_lwrite_omega      = lwrite_omega
+       config_lwrite_pres       = lwrite_pres 
+       config_lwrite_z3         = lwrite_z3
+       config_lwrite_tracer     = lwrite_tracer
+       config_lwrite_tend_phy   = lwrite_tend_phy
+       config_lwrite_radiation  = lwrite_radiation
+       config_lwrite_precip     = lwrite_precip
+       config_lwrite_cloud      = lwrite_cloud
+       config_lwrite_tke        = lwrite_tke
+       config_lwrite_surface    = lwrite_surface
+       config_lwrite_extra      = lwrite_extra
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
