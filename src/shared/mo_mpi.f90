@@ -355,6 +355,9 @@ CONTAINS
   !------------------------------------------------------------------------------
   LOGICAL FUNCTION my_process_is_io()
 !     my_process_is_io = process_is_io
+!DR workaround for SX9, as long as process_is_io is not defined.
+!DR Otherwise SX9 compiler complains about result not being defined
+     my_process_is_io = .TRUE.
   END FUNCTION my_process_is_io
   !------------------------------------------------------------------------------
 
