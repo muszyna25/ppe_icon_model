@@ -66,63 +66,58 @@ MODULE mo_atm_phy_nwp_nml
    !
    ! user defined calling intervals
    !
-  REAL(wp) :: nml_dt_conv(max_dom)   !> field element for convection
-  REAL(wp) :: nml_dt_ccov(max_dom)   !! field element for subscale cloud cover
-  REAL(wp) :: nml_dt_rad(max_dom)    !! "-"                     radiation
-  REAL(wp) :: nml_dt_radheat(max_dom)!! "-" rad. heating from radiative fluxes with updated cosmu0 
-  REAL(wp) :: nml_dt_sso(max_dom)    !! "-"  for subscale orographic gravity waves
-  REAL(wp) :: nml_dt_gwd(max_dom)    !! "-"  for subscale gravity waves
-  REAL(wp) :: nml_dt_gscp(max_dom)   !! field element for microphysics
-  REAL(wp) :: nml_dt_turb(max_dom)   !! field element for turbulence
-  REAL(wp) :: nml_dt_sfc(max_dom)    !! field element for surface
-  REAL(wp) :: nml_dt_satad(max_dom)  !! field element for sat. adjustment
-  REAL(wp) :: nml_dt_update(max_dom) !! field element for tracer phys update
+  REAL(wp) :: dt_conv(max_dom)   !> field element for convection
+  REAL(wp) :: dt_ccov(max_dom)   !! field element for subscale cloud cover
+  REAL(wp) :: dt_rad(max_dom)    !! "-"                     radiation
+  REAL(wp) :: dt_radheat(max_dom)!! "-" rad. heating from radiative fluxes with updated cosmu0 
+  REAL(wp) :: dt_sso(max_dom)    !! "-"  for subscale orographic gravity waves
+  REAL(wp) :: dt_gwd(max_dom)    !! "-"  for subscale gravity waves
+  REAL(wp) :: dt_gscp(max_dom)   !! field element for microphysics
+  REAL(wp) :: dt_satad(max_dom)  !! field element for sat. adjustment
+  REAL(wp) :: dt_turb(max_dom)   !! field element for turbulence
+  REAL(wp) :: dt_sfc(max_dom)    !! field element for surface
+  REAL(wp) :: dt_update(max_dom) !! field element for tracer phys update
 
 
-  INTEGER ::  nml_inwp_gscp        !> microphysics
-  INTEGER ::  nml_inwp_satad       !! saturation adjustment
-  INTEGER ::  nml_inwp_convection  !! convection
-  INTEGER ::  nml_inwp_radiation   !! radiation
-  INTEGER ::  nml_inwp_sso         !! sso
-  INTEGER ::  nml_inwp_gwd         !! non-orographic gravity wave drag
-  INTEGER ::  nml_inwp_cldcover    !! cloud cover
-  INTEGER ::  nml_inwp_turb        !! turbulence
-  INTEGER ::  nml_inwp_surface     !! surface including soil, ocean, ice,lake
+  INTEGER  :: inwp_convection    !! convection
+  INTEGER  :: inwp_cldcover      !! cloud cover
+  INTEGER  :: inwp_radiation     !! radiation
+  INTEGER  :: inwp_sso           !! sso
+  INTEGER  :: inwp_gwd           !! non-orographic gravity wave drag
+  INTEGER  :: inwp_gscp          !! microphysics
+  INTEGER  :: inwp_satad         !! saturation adjustment
+  INTEGER  :: inwp_turb          !! turbulence
+  INTEGER  :: inwp_surface       !! surface including soil, ocean, ice,lake
 
-  INTEGER :: nml_imode_turb, nml_itype_wcld, nml_icldm_turb,nml_itype_tran
-   
-  LOGICAL :: nml_limpltkediff, nml_ltkesso, nml_lexpcor
+!  INTEGER  :: imode_turb, itype_wcld, icldm_turb, itype_tran
+!   
+!  LOGICAL  :: limpltkediff, ltkesso, lexpcor
+!
+!  REAL(wp) :: tur_len, pat_len, a_stab,                &
+!    &         tkhmin, tkmmin, c_diff,                  &
+!    &         rlam_heat, rlam_mom, rat_sea
+!
+!  LOGICAL  :: lseaice  !> forecast with sea ice model
+!  LOGICAL  :: llake    !! forecst with lake model FLake
+!
+!  REAL(wp)::  qi0, qc0 !! variables for hydci_pp
 
-  REAL(wp):: nml_tur_len, nml_pat_len, nml_a_stab,                &
-    &        nml_tkhmin, nml_tkmmin, nml_c_diff,                  &
-    &        nml_rlam_heat, nml_rlam_mom, nml_rat_sea
-
-  LOGICAL ::       &
-   &    nml_lseaice,    & !> forecast with sea ice model
-   &    nml_llake,      & !! forecst with lake model FLake
-   &    nml_lmelt     , & !! soil model with melting process
-   &    nml_lmelt_var     !! freezing temperature dependent on water content
-
-!> Variables for hydci_pp
-! --------------------------------------
-
-  REAL(wp)::  nml_qi0, nml_qc0
-
-  NAMELIST /nwp_phy_nml/ nml_inwp_gscp, nml_inwp_satad, nml_inwp_convection,  &
-    &                  nml_inwp_radiation, nml_inwp_sso, nml_inwp_cldcover, &
-    &                  nml_inwp_gwd,                                        &
-    &                  nml_inwp_turb, nml_inwp_surface,                     &
-    &                  nml_dt_conv, nml_dt_ccov, nml_dt_rad,                &
-    &                  nml_dt_radheat,                                      &
-    &                  nml_dt_sso, nml_dt_gscp, nml_dt_satad,               &
-    &                  nml_dt_turb, nml_dt_sfc, nml_dt_gwd,                 & 
-    &                  nml_imode_turb,                                      &
-    &                  nml_limpltkediff, nml_ltkesso, nml_lexpcor,          &
-    &                  nml_tur_len, nml_pat_len, nml_a_stab,                &
-    &                  nml_tkhmin, nml_tkmmin, nml_c_diff,                  &
-    &                  nml_itype_wcld, nml_icldm_turb,                      &
-    &                  nml_itype_tran, nml_rlam_heat, nml_rlam_mom, nml_rat_sea,&
-    &                  nml_qi0, nml_qc0
+  NAMELIST /nwp_phy_nml/ inwp_convection, inwp_cldcover,           &
+    &                    inwp_radiation, inwp_sso, inwp_gwd,       &
+    &                    inwp_gscp, inwp_satad,                    &
+    &                    inwp_turb, inwp_surface,                  &
+    &                    dt_conv, dt_ccov,                         &
+    &                    dt_rad, dt_radheat,                       &
+    &                    dt_sso, dt_gwd,                           &
+    &                    dt_gscp, dt_satad,                        &
+    &                    dt_turb, dt_sfc ! ,                          & 
+!    &                    imode_turb,                               &
+!    &                    limpltkediff, ltkesso, lexpcor,           &
+!    &                    tur_len, pat_len, a_stab,                 &
+!    &                    tkhmin, tkmmin, c_diff,                   &
+!    &                    itype_wcld, icldm_turb,                   &
+!    &                    itype_tran, rlam_heat, rlam_mom, rat_sea, &
+!    &                    qi0, qc0
 
 
 
@@ -136,11 +131,10 @@ CONTAINS
   !!
  SUBROUTINE read_inwp_nml
 
-  INTEGER :: jg
   INTEGER :: i_status
 
-  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine =  &
-                              'mo_atm_phy_nwp_nml'
+  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    &  routine = 'mo_atm_phy_nwp_nml:read_inwp_nml'
 
     CALL position_nml ('nwp_phy_nml', status=i_status)
     !
@@ -178,37 +172,37 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit, jg
     CHARACTER(len=*), PARAMETER ::  &
-      &  routine = 'mo_atm_phy_nwp_nml: read_nwp_phy_namelist'
+      &  routine = 'mo_atm_phy_nwp_nml:read_nwp_phy_namelist'
 
     !-----------------------
     ! 1. default settings   
     !-----------------------
-    nml_inwp_gscp       = 0           !> 0 = no microphysics
-    nml_inwp_satad      = 0           !> 1 = saturation adjustment on
-    nml_inwp_convection = 0           !> 0 = no convection
-    nml_inwp_radiation  = 0           !> 0 = no radiation
-    nml_inwp_sso        = 0           !> 0 = no sso
-    nml_inwp_gwd        = 0           !> 0 = no gwd, 1= IFS gwd scheme
-    nml_inwp_cldcover   = 1           !> 1 = use grid-scale clouds for radiation
-    nml_inwp_turb       = 0           !> 0 = no turbulence,1= cosmo/turbdiff,2=echam/vdiff
-    nml_inwp_surface    = 0           !> 0 = no surface, 1 =  cosmo surface
+    inwp_gscp       = 0           !> 0 = no microphysics
+    inwp_satad      = 0           !> 1 = saturation adjustment on
+    inwp_convection = 0           !> 0 = no convection
+    inwp_radiation  = 0           !> 0 = no radiation
+    inwp_sso        = 0           !> 0 = no sso
+    inwp_gwd        = 0           !> 0 = no gwd, 1= IFS gwd scheme
+    inwp_cldcover   = 1           !> 1 = use grid-scale clouds for radiation
+    inwp_turb       = 0           !> 0 = no turbulence,1= cosmo/turbdiff,2=echam/vdiff
+    inwp_surface    = 0           !> 0 = no surface, 1 =  cosmo surface
 
     DO jg=1, max_dom
-      nml_dt_conv (jg) = 600._wp      !seconds
-      nml_dt_ccov (jg) = nml_dt_conv(jg)  !presently not used; cloud cover is synchronized with radiation
-      nml_dt_rad  (jg) = 1800._wp     !seconds
-      nml_dt_sso  (jg) = 3600._wp     !seconds
-      nml_dt_gwd  (jg) = 3600._wp     !seconds
-      nml_dt_gscp (jg) = 100._wp      !seconds
-      nml_dt_turb (jg) = 100._wp      !seconds
-      nml_dt_sfc  (jg) = 100._wp      !seconds
-      nml_dt_satad(jg) = 100._wp      !seconds
-      nml_dt_update(jg) =  nml_dt_satad (jg)
-      nml_dt_radheat(jg)=  nml_dt_update(jg)
+      dt_conv (jg) = 600._wp      !seconds
+      dt_ccov (jg) = dt_conv(jg)  !presently not used; cloud cover is synchronized with radiation
+      dt_rad  (jg) = 1800._wp     !seconds
+      dt_sso  (jg) = 3600._wp     !seconds
+      dt_gwd  (jg) = 3600._wp     !seconds
+      dt_gscp (jg) = 100._wp      !seconds
+      dt_turb (jg) = 100._wp      !seconds
+      dt_sfc  (jg) = 100._wp      !seconds
+      dt_satad(jg) = 100._wp      !seconds
+      dt_update(jg) =  dt_satad (jg)
+      dt_radheat(jg)=  dt_update(jg)
     ENDDO
 
-    nml_qi0 = 0.0_wp 
-    nml_qc0 = 0.0_wp 
+!    qi0 = 0.0_wp 
+!    qc0 = 0.0_wp 
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -235,44 +229,44 @@ CONTAINS
     ! 4. Fill the configuration state
     !----------------------------------------------------
     DO jg= 1,max_dom
-      atm_phy_nwp_config(jg)%inwp_gscp       = nml_inwp_gscp 
-      atm_phy_nwp_config(jg)%inwp_satad      = nml_inwp_satad
-      atm_phy_nwp_config(jg)%inwp_convection = nml_inwp_convection
-      atm_phy_nwp_config(jg)%inwp_radiation  = nml_inwp_radiation
-      atm_phy_nwp_config(jg)%inwp_sso        = nml_inwp_sso
-      atm_phy_nwp_config(jg)%inwp_gwd        = nml_inwp_gwd     
-      atm_phy_nwp_config(jg)%inwp_cldcover   = nml_inwp_cldcover
-      atm_phy_nwp_config(jg)%inwp_turb       = nml_inwp_turb
-      atm_phy_nwp_config(jg)%inwp_surface    = nml_inwp_surface
-      atm_phy_nwp_config(jg)% dt_conv        = nml_dt_conv (jg) 
-      atm_phy_nwp_config(jg)% dt_ccov        = nml_dt_ccov (jg)
-      atm_phy_nwp_config(jg)% dt_rad         = nml_dt_rad  (jg)
-      atm_phy_nwp_config(jg)% dt_radheat     = nml_dt_radheat(jg)
-      atm_phy_nwp_config(jg)% dt_sso         = nml_dt_sso   (jg)
-      atm_phy_nwp_config(jg)% dt_gwd         = nml_dt_gwd   (jg)
-      atm_phy_nwp_config(jg)% dt_gscp        = nml_dt_gscp  (jg)
-      atm_phy_nwp_config(jg)% dt_turb        = nml_dt_turb  (jg)
-      atm_phy_nwp_config(jg)% dt_sfc         = nml_dt_sfc   (jg)
-      atm_phy_nwp_config(jg)% dt_satad       = nml_dt_satad (jg)
-      atm_phy_nwp_config(jg)% dt_update      = nml_dt_update(jg)
+      atm_phy_nwp_config(jg)%inwp_convection = inwp_convection
+      atm_phy_nwp_config(jg)%inwp_cldcover   = inwp_cldcover
+      atm_phy_nwp_config(jg)%inwp_radiation  = inwp_radiation
+      atm_phy_nwp_config(jg)%inwp_sso        = inwp_sso
+      atm_phy_nwp_config(jg)%inwp_gwd        = inwp_gwd     
+      atm_phy_nwp_config(jg)%inwp_gscp       = inwp_gscp 
+      atm_phy_nwp_config(jg)%inwp_satad      = inwp_satad
+      atm_phy_nwp_config(jg)%inwp_turb       = inwp_turb
+      atm_phy_nwp_config(jg)%inwp_surface    = inwp_surface
+      atm_phy_nwp_config(jg)% dt_conv        = dt_conv (jg) 
+      atm_phy_nwp_config(jg)% dt_ccov        = dt_ccov (jg)
+      atm_phy_nwp_config(jg)% dt_rad         = dt_rad  (jg)
+      atm_phy_nwp_config(jg)% dt_radheat     = dt_radheat(jg)
+      atm_phy_nwp_config(jg)% dt_sso         = dt_sso   (jg)
+      atm_phy_nwp_config(jg)% dt_gwd         = dt_gwd   (jg)
+      atm_phy_nwp_config(jg)% dt_gscp        = dt_gscp  (jg)
+      atm_phy_nwp_config(jg)% dt_satad       = dt_satad (jg)
+      atm_phy_nwp_config(jg)% dt_turb        = dt_turb  (jg)
+      atm_phy_nwp_config(jg)% dt_sfc         = dt_sfc   (jg)
+      atm_phy_nwp_config(jg)% dt_update      = dt_update(jg)
 
-!      atm_phy_nwp_config(jg)%lseaice         = nml_lseaice 
-!      atm_phy_nwp_config(jg)%llake           = nml_llake
-!      atm_phy_nwp_config(jg)%imode_turb      = nml_imode_turb  
-!      atm_phy_nwp_config(jg)%limpltkediff    = nml_limpltkediff
-!      atm_phy_nwp_config(jg)%ltkesso         = nml_ltkesso
-!      atm_phy_nwp_config(jg)%lexpcor         = nml_lexpcor
-!      atm_phy_nwp_config(jg)%tur_len         = nml_tur_len
-!      atm_phy_nwp_config(jg)%pat_len         = nml_pat_len
-!      atm_phy_nwp_config(jg)%a_stab          = nml_a_stab
-!      atm_phy_nwp_config(jg)%tkhmin          = nml_tkhmin
-!      atm_phy_nwp_config(jg)%tkmmin          = nml_tkmmin
-!      atm_phy_nwp_config(jg)%c_diff          = nml_c_diff
-!      atm_phy_nwp_config(jg)%itype_wcld      = nml_itype_wcld
-!      atm_phy_nwp_config(jg)%icldm_turb      = nml_icldm_turb
-!      atm_phy_nwp_config(jg)%qi0             = nml_qi0 
-!      atm_phy_nwp_config(jg)%qc0             = nml_qc0 
-!
+!      atm_phy_nwp_config(jg)%lseaice         = lseaice 
+!      atm_phy_nwp_config(jg)%llake           = llake
+!      atm_phy_nwp_config(jg)%imode_turb      = imode_turb  
+!      atm_phy_nwp_config(jg)%limpltkediff    = limpltkediff
+!      atm_phy_nwp_config(jg)%ltkesso         = ltkesso
+!      atm_phy_nwp_config(jg)%lexpcor         = lexpcor
+!      atm_phy_nwp_config(jg)%tur_len         = tur_len
+!      atm_phy_nwp_config(jg)%pat_len         = pat_len
+!      atm_phy_nwp_config(jg)%a_stab          = a_stab
+!      atm_phy_nwp_config(jg)%tkhmin          = tkhmin
+!      atm_phy_nwp_config(jg)%tkmmin          = tkmmin
+!      atm_phy_nwp_config(jg)%c_diff          = c_diff
+!      atm_phy_nwp_config(jg)%itype_wcld      = itype_wcld
+!      atm_phy_nwp_config(jg)%icldm_turb      = icldm_turb
+!      atm_phy_nwp_config(jg)%qi0             = qi0 
+!      atm_phy_nwp_config(jg)%qc0             = qc0 
+
     ENDDO
 
     !-----------------------------------------------------
