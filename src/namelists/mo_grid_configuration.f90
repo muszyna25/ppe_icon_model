@@ -49,42 +49,43 @@ MODULE mo_grid_configuration
 
   PUBLIC :: check_grid_configuration
   
-  PUBLIC :: n_dom,n_dom_start, global_cell_type
-  
-  PUBLIC :: dynamics_grid_filename,  dynamics_parent_grid_id,  &
-    & radiation_grid_filename, dynamics_radiation_grid_link,   &
-    & no_of_dynamics_grids, no_of_radiation_grids, max_childdom     
-  PUBLIC :: l_limited_area, nroot, start_lev, lfeedback, &
-    & lplane, corio_lat, parent_id, lredgrid_phys, patch_weight
+  PUBLIC :: global_cell_type, nroot, start_lev, n_dom, lfeedback,       &
+    &       lplane, corio_lat, parent_id, l_limited_area, patch_weight, &
+    &       lredgrid_phys
+
+  PUBLIC :: dynamics_grid_filename,  dynamics_parent_grid_id,     &
+    &       radiation_grid_filename, dynamics_radiation_grid_link
+
+  PUBLIC :: n_dom_start, max_childdom     
+
+  PUBLIC :: no_of_dynamics_grids, no_of_radiation_grids
 
   ! ------------------------------------------------------------------------
   !Configuration variables
   ! ------------------------------------------------------------------------
-  INTEGER    :: global_cell_type
-  INTEGER    :: nroot                    ! root division of initial edges
-  INTEGER    :: start_lev                ! coarsest bisection level
-  INTEGER    :: n_dom                    ! number of model domains, 1=global domain only 
-  INTEGER    :: n_dom_start=1 
-  INTEGER    :: max_childdom
-  INTEGER, DIMENSION (max_dom-1) :: parent_id  !ID of parent domain
+  INTEGER  :: global_cell_type
+  INTEGER  :: nroot                    ! root division of initial edges
+  INTEGER  :: start_lev                ! coarsest bisection level
+  INTEGER  :: n_dom                    ! number of model domains, 1=global domain only 
+  INTEGER  :: n_dom_start=1 
+  INTEGER  :: max_childdom
+  INTEGER  :: parent_id(max_dom-1)     !ID of parent domain
 
-  LOGICAL    :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
-  LOGICAL    :: lredgrid_phys(max_dom)   ! If set to .true. is calculated on a reduced grid
-  LOGICAL    :: lplane                   ! planar option
-  LOGICAL    :: l_limited_area            
+  LOGICAL  :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
+  LOGICAL  :: lredgrid_phys(max_dom)   ! If set to .true. is calculated on a reduced grid
+  LOGICAL  :: l_limited_area            
 
-  ! if lplane: latitude at which tangential plane resides
-  REAL(wp)   :: corio_lat                ! Center of the f-plane is located 
-                                         ! at this geographical latitude
+  LOGICAL  :: lplane                   ! f-plane option
+  REAL(wp) :: corio_lat                ! Latitude at which the f-plane is located 
 
-  REAL(wp)   :: patch_weight(max_dom)    ! If patch_weight is set to a value > 0
-                                         ! for any of the first level child patches,
-                                         ! processor splitting will be performed
+  REAL(wp) :: patch_weight(max_dom)    ! If patch_weight is set to a value > 0
+                                       ! for any of the first level child patches,
+                                       ! processor splitting will be performed
 
-!   LOGICAL    :: lpatch0                  ! If set to .true. an additional patch one
-!                                          ! level below the root patch is allocated
-!                                          ! and read so that physics calculations
-!                                          ! on a coarser grid are possible
+!   LOGICAL :: lpatch0                  ! If set to .true. an additional patch one
+!                                       ! level below the root patch is allocated
+!                                       ! and read so that physics calculations
+!                                       ! on a coarser grid are possible
 
   CHARACTER(LEN=filename_max) :: dynamics_grid_filename(max_dom)
   INTEGER                     :: dynamics_parent_grid_id(max_dom)
