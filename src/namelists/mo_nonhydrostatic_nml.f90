@@ -45,9 +45,36 @@ MODULE mo_nonhydrostatic_nml
   USE mo_master_nml,            ONLY: lrestart
   USE mo_mpi,                   ONLY: p_pe, p_io
   USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,  &
-    &                               open_and_restore_namelist, close_tmpfile
+                                    & open_and_restore_namelist, close_tmpfile
 
-  USE mo_nonhydrostatic_config
+  USE mo_nonhydrostatic_config, ONLY: &
+                                    ! from namelist
+                                    & config_iadv_rcf         => iadv_rcf         , &
+                                    & config_ivctype          => ivctype          , &
+                                    & config_htop_moist_proc  => htop_moist_proc  , &
+                                    & config_htop_qvadv       => htop_qvadv       , &
+                                    & config_damp_height      => damp_height      , &
+                                    & config_damp_height_u    => damp_height_u    , &
+                                    & config_rayleigh_coeff   => rayleigh_coeff   , &
+                                    & config_damp_timescale_u => damp_timescale_u , &
+                                    & config_vwind_offctr     => vwind_offctr     , &
+                                    & config_iadv_rhotheta    => iadv_rhotheta    , &
+                                    & config_igradp_method    => igradp_method    , &
+                                    & config_exner_expol      => exner_expol      , &
+                                    & config_l_open_ubc       => l_open_ubc       , &
+                                    & config_l_nest_rcf       => l_nest_rcf       , &
+                                    & config_l_masscorr_nest  => l_masscorr_nest  , &
+                                    & config_l_zdiffu_t       => l_zdiffu_t       , &
+                                    & config_thslp_zdiffu     => thslp_zdiffu     , &
+                                    & config_thhgtd_zdiffu    => thhgtd_zdiffu    , &
+                                    & config_gmres_rtol_nh    => gmres_rtol_nh    , &
+                                    & config_ltheta_up_hori   => ltheta_up_hori   , &
+                                    & config_upstr_beta       => upstr_beta       , &
+                                    & config_ltheta_up_vert   => ltheta_up_vert   , &
+                                    & config_k2_updamp_coeff  => k2_updamp_coeff  , &
+                                    ! not from namelist
+                                    & config_kstart_moist     => kstart_moist     , &
+                                    & config_kstart_qv        => kstart_qv
 
   IMPLICIT NONE
   PUBLIC
@@ -58,56 +85,56 @@ MODULE mo_nonhydrostatic_nml
   ! Namelist variables
   !-----------------------------------------------------------------------------
 
-  INTEGER :: nml_iadv_rcf              !if 1: no reduced calling frequency for adv. and phy.
-                                       !if 2: adv. and phys. are called only every 2nd
-                                       !      time step.
-                                       !if 4: called every 4th time step ...
-  INTEGER :: nml_ivctype               ! Type of vertical coordinate (Gal-Chen / SLEVE)
-  REAL(wp):: nml_htop_moist_proc       ! Top height (in m) of the part of the model domain
-                                       ! where processes related to moist physics are computed
-  INTEGER :: nml_kstart_moist(max_dom) ! related flow control variable (NOT a namelist variable)
-  INTEGER :: nml_kstart_qv(max_dom)    ! related flow control variable (NOT a namelist variable)
-  REAL(wp):: nml_htop_qvadv            ! Top height (in m) up to which water vapor is advected
-                                       ! workaround to circumvent CFL instability in the 
-                                       ! stratopause region for aquaplanet experiments
- 
+  INTEGER :: iadv_rcf                ! if 1: no reduced calling frequency for adv. and phy.
+                                     ! if 2: adv. and phys. are called every 2nd time step.
+                                     ! if 4: ... every 4th time step.
+  INTEGER :: ivctype                 ! Type of vertical coordinate (Gal-Chen / SLEVE)
+  REAL(wp):: htop_moist_proc         ! Top height (in m) of the part of the model domain
+                                     ! where processes related to moist physics are computed
+  REAL(wp):: htop_qvadv              ! Top height (in m) up to which water vapor is advected
+                                     ! workaround to circumvent CFL instability in the 
+                                     ! stratopause region for aquaplanet experiments
 
   ! Parameters active with cell_type=3 only
-  REAL(wp):: nml_damp_height(max_dom)    ! height at which w-damping and sponge layer start
-  REAL(wp):: nml_damp_height_u           ! height at which Rayleigh damping of u starts
-  REAL(wp):: nml_rayleigh_coeff(max_dom) ! Rayleigh damping coefficient in w-equation
-  REAL(wp):: nml_damp_timescale_u ! damping time scale for u in uppermost layer (in seconds)
-  REAL(wp):: nml_vwind_offctr   ! Off-centering in vertical wind solver
-  INTEGER :: nml_iadv_rhotheta  ! Advection scheme used for density and pot. temperature
-  INTEGER :: nml_igradp_method  ! Method for computing the horizontal presure gradient
-  REAL(wp):: nml_exner_expol    ! Temporal extrapolation of Exner for computation of
-                            ! horizontal pressure gradient
-  LOGICAL :: nml_l_open_ubc     ! .true.: open upper boundary condition (w=0 otherwise)
-  LOGICAL :: nml_l_nest_rcf     ! .true.: call nests only with rcf frequency
-  LOGICAL :: nml_l_masscorr_nest! Apply mass conservation correction also to nested domain
-  LOGICAL :: nml_l_zdiffu_t     ! .true.: apply truly horizontal temperature diffusion over steep slopes
-  REAL(wp):: nml_thslp_zdiffu   ! threshold slope above which temperature diffusion is applied
-  REAL(wp):: nml_thhgtd_zdiffu  ! threshold height difference between adjacent model grid points
-                            ! above which temperature diffusion is applied
+  REAL(wp):: damp_height(max_dom)    ! height at which w-damping and sponge layer start
+  REAL(wp):: damp_height_u           ! height at which Rayleigh damping of u starts
+  REAL(wp):: rayleigh_coeff(max_dom) ! Rayleigh damping coefficient in w-equation
+  REAL(wp):: damp_timescale_u        ! damping time scale for u in uppermost layer (in seconds)
+  REAL(wp):: vwind_offctr            ! Off-centering in vertical wind solver
+  INTEGER :: iadv_rhotheta           ! Advection scheme used for density and pot. temperature
+  INTEGER :: igradp_method           ! Method for computing the horizontal presure gradient
+  REAL(wp):: exner_expol             ! Temporal extrapolation of Exner for computation of
+                                     ! horizontal pressure gradient
+  LOGICAL :: l_open_ubc              ! .true.: open upper boundary condition (w=0 otherwise)
+  LOGICAL :: l_nest_rcf              ! .true.: call nests only with rcf frequency
+  LOGICAL :: l_masscorr_nest         ! Apply mass conservation correction also to nested domain
+  LOGICAL :: l_zdiffu_t              ! .true.: apply truly horizontal temperature diffusion
+                                     !         over steep slopes
+  REAL(wp):: thslp_zdiffu            ! threshold slope above which temperature diffusion is applied
+  REAL(wp):: thhgtd_zdiffu           ! threshold height diff. between adjacent model grid points
+                                     ! above which temperature diffusion is applied
 
   ! Parameters active with cell_type=6 only
-  REAL(wp) :: nml_gmres_rtol_nh ! relative tolerance for gmres convergence
-  LOGICAL  :: nml_ltheta_up_hori! horizontal 3rd order advection of theta_v
-  REAL(wp) :: nml_upstr_beta    ! =1 for 3rd order upstream, =0 for 4th order centered
-                            ! theta advection
-  LOGICAL  :: nml_ltheta_up_vert ! upwind vertical advection of theta
-  REAL(wp) :: nml_k2_updamp_coeff ! 2nd order additional horizontal diffusion
-                            ! coefficient in the upper damping zone
+  REAL(wp) :: gmres_rtol_nh          ! relative tolerance for gmres convergence
+  LOGICAL  :: ltheta_up_hori         ! horizontal 3rd order advection of theta_v
+  REAL(wp) :: upstr_beta             ! =1 for 3rd order upstream, =0 for 4th order centered
+                                     ! theta advection
+  LOGICAL  :: ltheta_up_vert         ! upwind vertical advection of theta
+  REAL(wp) :: k2_updamp_coeff        ! 2nd order additional horizontal diffusion
+                                     ! coefficient in the upper damping zone
+
+  ! Reated parameters not part of the namelist
+  INTEGER :: kstart_moist(max_dom)   ! related flow control variable (NOT a namelist variable)
+  INTEGER :: kstart_qv(max_dom)      ! related flow control variable (NOT a namelist variable)
 
 
-  NAMELIST/nonhydrostatic_nml/ nml_rayleigh_coeff, nml_damp_height, nml_iadv_rhotheta, &
-                               nml_vwind_offctr, nml_igradp_method, nml_exner_expol,   &
-                               nml_ltheta_up_hori, nml_ltheta_up_vert, nml_gmres_rtol_nh, &
-                               nml_iadv_rcf, nml_ivctype, nml_upstr_beta, nml_l_open_ubc,  &
-                               nml_l_nest_rcf, nml_l_zdiffu_t, nml_thslp_zdiffu, &
-                               & nml_thhgtd_zdiffu, &
-                               nml_k2_updamp_coeff, nml_l_masscorr_nest, nml_htop_moist_proc, &
-                               nml_htop_qvadv, nml_damp_timescale_u, nml_damp_height_u
+  NAMELIST /nonhydrostatic_nml/ iadv_rcf, ivctype, htop_moist_proc, htop_qvadv,            &
+                              & damp_height, damp_height_u, rayleigh_coeff,                &
+                              & damp_timescale_u, vwind_offctr, iadv_rhotheta,             &
+                              & igradp_method, exner_expol, l_open_ubc, l_nest_rcf,        &
+                              & l_masscorr_nest, l_zdiffu_t, thslp_zdiffu, thhgtd_zdiffu,  &
+                              & gmres_rtol_nh, ltheta_up_hori, upstr_beta, ltheta_up_vert, &
+                              & k2_updamp_coeff
 
 CONTAINS
  !>
@@ -122,7 +149,7 @@ CONTAINS
  SUBROUTINE nonhydrostatic_nml_setup
 
   CHARACTER(len=max_char_length), PARAMETER :: &
-            routine = '(mo_nonhydrostatic_nml/nonhydrostatic_nml_setup:'
+            routine = 'mo_nonhydrostatic_nml:nonhydrostatic_nml_setup'
 
 
   !local variable
@@ -136,7 +163,7 @@ CONTAINS
   iadv_rcf = 1  ! no reduced calling frequency
 
   ! Type of vertical coordinate (1: Gal-Chen, 2: SLEVE)
-  ivctype        = 1
+  ivctype  = 1
 
   ! Top height of partial domain where moist physics is computed
   ! (set to 200 km, which in practice means that moist physics is
@@ -250,55 +277,55 @@ END SUBROUTINE nonhydrostatic_nml_setup
     INTEGER :: jg           ! loop index
 
     CHARACTER(len=*), PARAMETER ::  &
-      &  routine = 'mo_nonhydrostatic_nml: read_nonhydrostatic_namelist'
+      &  routine = 'mo_nonhydrostatic_nml:read_nonhydrostatic_namelist'
 
     !-----------------------
     ! 1. default settings
     !-----------------------
 
     ! reduced calling frequency for transport
-    nml_iadv_rcf = 1  ! no reduced calling frequency
+    iadv_rcf = 1  ! no reduced calling frequency
 
     ! Type of vertical coordinate (1: Gal-Chen, 2: SLEVE)
-    nml_ivctype        = 1
+    ivctype  = 1
 
     ! Top height of partial domain where moist physics is computed
     ! (set to 200 km, which in practice means that moist physics is
     ! computed everywhere by default)
-    nml_htop_moist_proc = 200000._wp
-    nml_htop_qvadv      = 250000._wp
-    nml_kstart_moist(:) = 1
-    nml_kstart_qv(:)    = 1
+    htop_moist_proc = 200000._wp
+    htop_qvadv      = 250000._wp
+    kstart_moist(:) = 1
+    kstart_qv(:)    = 1
 
     ! Settings for icell_type=3
-    nml_damp_height(1)    = 30000.0_wp
-    nml_rayleigh_coeff(1) = 0.05_wp
-    nml_damp_timescale_u  = 3._wp*86400._wp ! 3 days
-    nml_damp_height_u     = 100000._wp
-    nml_vwind_offctr      = 0.05_wp
-    nml_iadv_rhotheta     = 2
-    nml_igradp_method     = 1
-    nml_l_open_ubc        = .FALSE.
-    nml_l_nest_rcf        = .TRUE.
-    nml_l_masscorr_nest   = .FALSE.
-    nml_exner_expol       = 0.5_wp
+    damp_height(1)    = 30000.0_wp
+    damp_height_u     = 100000._wp
+    rayleigh_coeff(1) = 0.05_wp
+    damp_timescale_u  = 3._wp*86400._wp ! 3 days
+    vwind_offctr      = 0.05_wp
+    iadv_rhotheta     = 2
+    igradp_method     = 1
+    exner_expol       = 0.5_wp
+    l_open_ubc        = .FALSE.
+    l_nest_rcf        = .TRUE.
+    l_masscorr_nest   = .FALSE.
 
     ! dummy values for nested domains; will be reset to value of domain 1 
     ! if not specified explicitly in the namelist
-    nml_damp_height(2:max_dom)    = -1.0_wp
-    nml_rayleigh_coeff(2:max_dom) = -1.0_wp
+    damp_height(2:max_dom)    = -1.0_wp
+    rayleigh_coeff(2:max_dom) = -1.0_wp
 
     ! truly horizontal temperature diffusion
-    nml_l_zdiffu_t     = .FALSE. ! not used by default
-    nml_thslp_zdiffu   = 0.025_wp ! slope threshold 0.025
-    nml_thhgtd_zdiffu  = 200._wp ! threshold for height difference between adjacent grid points 200 m
+    l_zdiffu_t     = .FALSE.  ! not used by default
+    thslp_zdiffu   = 0.025_wp ! slope threshold 0.025
+    thhgtd_zdiffu  = 200._wp  ! threshold for height difference between adjacent grid points 200 m
 
     ! Settings for icell_type=6
-    nml_ltheta_up_hori =.FALSE.
-    nml_gmres_rtol_nh  = 1.0e-6_wp
-    nml_upstr_beta     = 1.0_wp
-    nml_ltheta_up_vert = .FALSE.
-    nml_k2_updamp_coeff= 2.0e6_wp
+    gmres_rtol_nh  = 1.0e-6_wp
+    ltheta_up_hori =.FALSE.
+    upstr_beta     = 1.0_wp
+    ltheta_up_vert = .FALSE.
+    k2_updamp_coeff= 2.0e6_wp
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -328,11 +355,11 @@ END SUBROUTINE nonhydrostatic_nml_setup
     ! global domain if not specified
 
     DO jg = 2, max_dom
-      IF (nml_damp_height(jg) < 0.0_wp) THEN
-        nml_damp_height(jg) = nml_damp_height(1)
+      IF (damp_height(jg) < 0.0_wp) THEN
+        damp_height(jg) = damp_height(1)
       ENDIF
-      IF (nml_rayleigh_coeff(jg) < 0.0_wp) THEN
-        nml_rayleigh_coeff(jg) = nml_rayleigh_coeff(1)
+      IF (rayleigh_coeff(jg) < 0.0_wp) THEN
+        rayleigh_coeff(jg) = rayleigh_coeff(1)
       ENDIF
     ENDDO
 
@@ -367,31 +394,31 @@ END SUBROUTINE nonhydrostatic_nml_setup
 !      nonhydrostatic_config(jg)%damp_height_u   = damp_height_u
 !    ENDDO
 !
-       rayleigh_coeff(:)  = nml_rayleigh_coeff(:)
-       damp_height   (:)  = nml_damp_height   (:)
-       kstart_moist  (:)  = nml_kstart_moist  (:)
-       kstart_qv     (:)  = nml_kstart_qv     (:)
-       iadv_rhotheta   = nml_iadv_rhotheta
-       vwind_offctr    = nml_vwind_offctr
-       igradp_method   = nml_igradp_method
-       exner_expol     = nml_exner_expol
-       ltheta_up_hori  = nml_ltheta_up_hori
-       ltheta_up_vert  = nml_ltheta_up_vert
-       gmres_rtol_nh   = nml_gmres_rtol_nh
-       iadv_rcf        = nml_iadv_rcf
-       ivctype         = nml_ivctype
-       upstr_beta      = nml_upstr_beta
-       l_open_ubc      = nml_l_open_ubc
-       l_nest_rcf      = nml_l_nest_rcf
-       l_zdiffu_t      = nml_l_zdiffu_t
-       thslp_zdiffu    = nml_thslp_zdiffu
-       thhgtd_zdiffu   = nml_thhgtd_zdiffu
-       k2_updamp_coeff = nml_k2_updamp_coeff
-       l_masscorr_nest = nml_l_masscorr_nest
-       htop_moist_proc = nml_htop_moist_proc
-       htop_qvadv      = nml_htop_qvadv
-       damp_timescale_u= nml_damp_timescale_u
-       damp_height_u   = nml_damp_height_u
+       config_rayleigh_coeff(:) = rayleigh_coeff(:)
+       config_damp_height   (:) = damp_height   (:)
+       config_kstart_moist  (:) = kstart_moist  (:)
+       config_kstart_qv     (:) = kstart_qv     (:)
+       config_iadv_rhotheta     = iadv_rhotheta
+       config_vwind_offctr      = vwind_offctr
+       config_igradp_method     = igradp_method
+       config_exner_expol       = exner_expol
+       config_ltheta_up_hori    = ltheta_up_hori
+       config_ltheta_up_vert    = ltheta_up_vert
+       config_gmres_rtol_nh     = gmres_rtol_nh
+       config_iadv_rcf          = iadv_rcf
+       config_ivctype           = ivctype
+       config_upstr_beta        = upstr_beta
+       config_l_open_ubc        = l_open_ubc
+       config_l_nest_rcf        = l_nest_rcf
+       config_l_zdiffu_t        = l_zdiffu_t
+       config_thslp_zdiffu      = thslp_zdiffu
+       config_thhgtd_zdiffu     = thhgtd_zdiffu
+       config_k2_updamp_coeff   = k2_updamp_coeff
+       config_l_masscorr_nest   = l_masscorr_nest
+       config_htop_moist_proc   = htop_moist_proc
+       config_htop_qvadv        = htop_qvadv
+       config_damp_timescale_u  = damp_timescale_u
+       config_damp_height_u     = damp_height_u
   
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
