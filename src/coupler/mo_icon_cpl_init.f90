@@ -78,9 +78,6 @@ MODULE mo_icon_cpl_init
 
   USE mo_event_manager, ONLY : event_init
 
-  USE mo_coupling_nml
-
-
   IMPLICIT NONE
 
   PRIVATE
