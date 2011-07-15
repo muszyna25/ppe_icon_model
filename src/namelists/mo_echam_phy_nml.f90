@@ -58,25 +58,25 @@ MODULE mo_echam_phy_nml
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
-  LOGICAL :: nml_lrad       !< .true. for radiation.
-  LOGICAL :: nml_lvdiff     !< .true. for vertical diffusion.
-  LOGICAL :: nml_lconv      !< .true. for moist convection
-  LOGICAL :: nml_lcond      !< .true. for large scale condensation
-  LOGICAL :: nml_lcover     !< .true. for prognostic cloud cover scheme
-  LOGICAL :: nml_llandsurf  !< .true. for surface exchanges. (lsurf in ECHAM6)
-  LOGICAL :: nml_lssodrag   !< .true. for subgrid scale orographic drag,
-                            !< by blocking and gravity waves (lgwdrag in ECHAM6)
-  LOGICAL :: nml_lgw_hines  !< .true. for atmospheric gravity wave drag
-  LOGICAL :: nml_lice       !< .true. for sea-ice temperature calculation
-  LOGICAL :: nml_lmeltpond  !< .true. for calculation of meltponds
-  LOGICAL :: nml_lmlo       !< .true. for mixed layer ocean
-  LOGICAL :: nml_lhd        !< .true. for hydrologic discharge model
-  LOGICAL :: nml_lmidatm    !< .true. for middle atmosphere model version
+  LOGICAL :: lrad       !< .true. for radiation.
+  LOGICAL :: lvdiff     !< .true. for vertical diffusion.
+  LOGICAL :: lconv      !< .true. for moist convection
+  LOGICAL :: lcond      !< .true. for large scale condensation
+  LOGICAL :: lcover     !< .true. for prognostic cloud cover scheme
+  LOGICAL :: llandsurf  !< .true. for surface exchanges. (lsurf in ECHAM6)
+  LOGICAL :: lssodrag   !< .true. for subgrid scale orographic drag,
+                        !< by blocking and gravity waves (lgwdrag in ECHAM6)
+  LOGICAL :: lgw_hines  !< .true. for atmospheric gravity wave drag
+  LOGICAL :: lice       !< .true. for sea-ice temperature calculation
+  LOGICAL :: lmeltpond  !< .true. for calculation of meltponds
+  LOGICAL :: lmlo       !< .true. for mixed layer ocean
+  LOGICAL :: lhd        !< .true. for hydrologic discharge model
+  LOGICAL :: lmidatm    !< .true. for middle atmosphere model version
 
-  NAMELIST /echam_phy_nml/ nml_lrad, nml_lvdiff, nml_lconv, nml_lcond, &
-                         & nml_lcover, nml_lssodrag, nml_lgw_hines,    &
-                         & nml_llandsurf, nml_lice, nml_lmeltpond,     &
-                         & nml_lmlo, nml_lhd, nml_lmidatm
+  NAMELIST /echam_phy_nml/ lrad, lvdiff, lconv, lcond,  &
+                         & lcover, lssodrag, lgw_hines, &
+                         & llandsurf, lice, lmeltpond,  &
+                         & lmlo, lhd, lmidatm
 
 CONTAINS
   !>
@@ -89,19 +89,19 @@ CONTAINS
     !----------------------------------------------------------------
     ! Set default values
     !----------------------------------------------------------------
-    nml_lrad      = .TRUE.
-    nml_lvdiff    = .TRUE.
-    nml_lconv     = .TRUE.
-    nml_lcond     = .TRUE.
-    nml_lcover    = .FALSE.
-    nml_llandsurf = .FALSE.
-    nml_lssodrag  = .FALSE.
-    nml_lgw_hines = .FALSE.
-    nml_lice      = .FALSE.
-    nml_lmeltpond = .FALSE.
-    nml_lmlo      = .FALSE.
-    nml_lhd       = .FALSE.
-    nml_lmidatm   = .FALSE.
+    lrad      = .TRUE.
+    lvdiff    = .TRUE.
+    lconv     = .TRUE.
+    lcond     = .TRUE.
+    lcover    = .FALSE.
+    llandsurf = .FALSE.
+    lssodrag  = .FALSE.
+    lgw_hines = .FALSE.
+    lice      = .FALSE.
+    lmeltpond = .FALSE.
+    lmlo      = .FALSE.
+    lhd       = .FALSE.
+    lmidatm   = .FALSE.
 
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -134,19 +134,19 @@ CONTAINS
     !-----------------------------------------------------
     ! Fill the configuration state
     !-----------------------------------------------------
-    echam_phy_config% lrad      = nml_lrad                                                
-    echam_phy_config% lvdiff    = nml_lvdiff                                              
-    echam_phy_config% lconv     = nml_lconv                                               
-    echam_phy_config% lcond     = nml_lcond                                               
-    echam_phy_config% lcover    = nml_lcover                                              
-    echam_phy_config% llandsurf = nml_llandsurf                                           
-    echam_phy_config% lssodrag  = nml_lssodrag                                            
-    echam_phy_config% lgw_hines = nml_lgw_hines                                           
-    echam_phy_config% lice      = nml_lice                                                
-    echam_phy_config% lmeltpond = nml_lmeltpond                                           
-    echam_phy_config% lmlo      = nml_lmlo                                                
-    echam_phy_config% lhd       = nml_lhd                                                 
-    echam_phy_config% lmidatm   = nml_lmidatm  
+    echam_phy_config% lrad      = lrad                                                
+    echam_phy_config% lvdiff    = lvdiff                                              
+    echam_phy_config% lconv     = lconv                                               
+    echam_phy_config% lcond     = lcond                                               
+    echam_phy_config% lcover    = lcover                                              
+    echam_phy_config% llandsurf = llandsurf                                           
+    echam_phy_config% lssodrag  = lssodrag                                            
+    echam_phy_config% lgw_hines = lgw_hines                                           
+    echam_phy_config% lice      = lice                                                
+    echam_phy_config% lmeltpond = lmeltpond                                           
+    echam_phy_config% lmlo      = lmlo                                                
+    echam_phy_config% lhd       = lhd                                                 
+    echam_phy_config% lmidatm   = lmidatm  
 
   END SUBROUTINE read_echam_phy_namelist
 
