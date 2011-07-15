@@ -108,11 +108,10 @@ CONTAINS
   SUBROUTINE check_grid_configuration
                                                
     !local variables
-    INTEGER  :: i_status, i, jg, jlev, funit
-    CHARACTER(filename_max) :: patch_file, gridtype
-    INTEGER  ::  patch_level(max_dom)
-    LOGICAL :: file_exists
-    CHARACTER(*), PARAMETER :: method_name = "check_grid_configuration"
+    INTEGER  :: jg
+!    INTEGER  :: funit
+    LOGICAL  :: file_exists
+    CHARACTER(*), PARAMETER :: method_name = "mo_grid_configuration:check_grid_configuration"
 
     !-----------------------------------------------------------------------
     ! find out how many grids we have
