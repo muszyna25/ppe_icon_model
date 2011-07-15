@@ -58,7 +58,7 @@ MODULE mo_nh_testcases
   USE mo_parallel_configuration,  ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: ltransport, ntracer, iforcing, iqv
   USE mo_extpar_nml,         ONLY: itopo => nml_itopo
-  USE mo_grid_configuration, ONLY :  global_cell_type
+!  USE mo_grid_configuration, ONLY :  global_cell_type
     
   USE mo_dynamics_config,    ONLY: nnow, nnow_rcf, nnew, nnew_rcf
 !  USE mo_atm_phy_nwp_nml,    ONLY: inwp_gscp, inwp_convection
@@ -215,12 +215,9 @@ MODULE mo_nh_testcases
     rh_at_1000hpa          = 0.7_wp
     qv_max                 = 20.e-3_wp ! 20 g/kg
     ape_sst_case           = 'sst1'
-    IF(global_cell_type==3) THEN
-      linit_tracer_fv        = .TRUE. ! finite volume initialization for tracer
-    ELSE
-      linit_tracer_fv        = .FALSE.
-    ENDIF
-
+    ! assuming that default is on triangles the next switch is set
+    ! crosscheck follows in the respective module
+    linit_tracer_fv        = .TRUE. ! finite volume initialization for tracer
 
     CALL position_nml ('nh_testcase_ctl', status=i_status)
     SELECT CASE (i_status)
