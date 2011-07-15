@@ -53,31 +53,31 @@ MODULE mo_echam_conv_nml
   ! Namelist variables 
   !--------------------------------------------------------------
 
-  INTEGER :: nml_iconv     !< 1,2,3 for different convection schemes
-  INTEGER :: nml_ncvmicro  !< 0 or 1. Scheme for convective microphysics
+  INTEGER :: iconv     !< 1,2,3 for different convection schemes
+  INTEGER :: ncvmicro  !< 0 or 1. Scheme for convective microphysics
 
-  LOGICAL :: nml_lmfpen    !< true when penetrative convection is switched on
-  LOGICAL :: nml_lmfmid    !< true when midlevel    convection is switched on
-  LOGICAL :: nml_lmfdd     !< true when cumulus downdraft      is switched on
-  LOGICAL :: nml_lmfdudv   !< true when cumulus friction       is switched on
+  LOGICAL :: lmfpen    !< true when penetrative convection is switched on
+  LOGICAL :: lmfmid    !< true when midlevel    convection is switched on
+  LOGICAL :: lmfdd     !< true when cumulus downdraft      is switched on
+  LOGICAL :: lmfdudv   !< true when cumulus friction       is switched on
 
-  REAL(wp) :: nml_dlev     !< "zdlev" in subroutine "cuasc". 
-                           !< Critical thickness (unit: Pa) necessary for the 
-                           !< onset of convective precipitation
-  REAL(wp) :: nml_cmftau   !< characteristic adjustment time scale
-                           !< (replaces "ztau" in "cumastr")
-  REAL(wp) :: nml_cmfctop  !< fractional convective mass flux across the top of cloud 
-  REAL(wp) :: nml_cprcon   !< coefficient for determining conversion
-                           !< from cloud water to rain
-  REAL(wp) :: nml_cminbuoy !< minimum excess buoyancy
-  REAL(wp) :: nml_entrpen  !< entrainment rate for penetrative convection
+  REAL(wp) :: dlev     !< "zdlev" in subroutine "cuasc". 
+                       !< Critical thickness (unit: Pa) necessary for the 
+                       !< onset of convective precipitation
+  REAL(wp) :: cmftau   !< characteristic adjustment time scale
+                       !< (replaces "ztau" in "cumastr")
+  REAL(wp) :: cmfctop  !< fractional convective mass flux across the top of cloud 
+  REAL(wp) :: cprcon   !< coefficient for determining conversion
+                       !< from cloud water to rain
+  REAL(wp) :: cminbuoy !< minimum excess buoyancy
+  REAL(wp) :: entrpen  !< entrainment rate for penetrative convection
 
-  NAMELIST/echam_conv_nml/ nml_ncvmicro, nml_iconv,   &
-                           nml_lmfpen,   nml_lmfmid,  &
-                           nml_lmfdd,    nml_lmfdudv, &
-                           nml_dlev,     nml_cmftau,  &
-                           nml_cmfctop,  nml_cprcon,  &
-                           nml_cminbuoy, nml_entrpen
+  NAMELIST/echam_conv_nml/ ncvmicro, iconv,   &
+                           lmfpen,   lmfmid,  &
+                           lmfdd,    lmfdudv, &
+                           dlev,     cmftau,  &
+                           cmfctop,  cprcon,  &
+                           cminbuoy, entrpen
 
 CONTAINS
   !>
@@ -94,21 +94,21 @@ CONTAINS
     !------------------------------------------------------------
     ! Set default values
     !------------------------------------------------------------
-    nml_ncvmicro = 0
-    nml_iconv    = 1
+    ncvmicro = 0
+    iconv    = 1
 
-    nml_lmfpen   = .TRUE.
-    nml_lmfmid   = .TRUE.
-    nml_lmfdd    = .TRUE.
-    nml_lmfdudv  = .TRUE.
+    lmfpen   = .TRUE.
+    lmfmid   = .TRUE.
+    lmfdd    = .TRUE.
+    lmfdudv  = .TRUE.
 
-    nml_dlev     = 3.0E4_wp   ! 300 hPa
-    nml_cmftau   = 10800._wp  ! 3 hours
-    nml_cmfctop  = 0.3_wp
+    dlev     = 3.0E4_wp   ! 300 hPa
+    cmftau   = 10800._wp  ! 3 hours
+    cmfctop  = 0.3_wp
 
-    nml_cprcon   = 1.E-4_wp
-    nml_cminbuoy = 0.025_wp
-    nml_entrpen  = 1.0E-4_wp
+    cprcon   = 1.E-4_wp
+    cminbuoy = 0.025_wp
+    entrpen  = 1.0E-4_wp
 
     !-------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
@@ -137,32 +137,32 @@ CONTAINS
     CALL message('','')
     CALL message('','------- namelist echam_conv_nml --------')
 
-    SELECT CASE (nml_iconv)
-    CASE(1); CALL message('','--- nml_iconv = 1 -> Convection: Nordeng (default)')
-    CASE(2); CALL message('','--- nml_iconv = 2 -> Convection: Tiedtke')
-    CASE(3); CALL message('','--- nml_iconv = 3 -> Convection: Hybrid')
+    SELECT CASE (iconv)
+    CASE(1); CALL message('','--- iconv = 1 -> Convection: Nordeng (default)')
+    CASE(2); CALL message('','--- iconv = 2 -> Convection: Tiedtke')
+    CASE(3); CALL message('','--- iconv = 3 -> Convection: Hybrid')
     CASE default
-      WRITE(message_text,'(a,i0,a)') 'nml_iconv = ',nml_iconv,' is not supported'
+      WRITE(message_text,'(a,i0,a)') 'iconv = ',iconv,' is not supported'
       CALL finish(TRIM(routine),message_text)
     END SELECT
 
-    SELECT CASE(nml_ncvmicro)
-    CASE (0); CALL message('','--- nml_ncvmicro = 0')
+    SELECT CASE(ncvmicro)
+    CASE (0); CALL message('','--- ncvmicro = 0')
     CASE DEFAULT
-      CALL finish(TRIM(routine),'nml_ncvmicro > 0 not yet supported in ICON')
+      CALL finish(TRIM(routine),'ncvmicro > 0 not yet supported in ICON')
     END SELECT
 
-    CALL print_value(' nml_lmfpen  ',nml_lmfpen)
-    CALL print_value(' nml_lmfmid  ',nml_lmfmid)
-    CALL print_value(' nml_lmfdd   ',nml_lmfdd)
-    CALL print_value(' nml_lmfdudv ',nml_lmfdudv)
+    CALL print_value(' lmfpen  ',lmfpen)
+    CALL print_value(' lmfmid  ',lmfmid)
+    CALL print_value(' lmfdd   ',lmfdd)
+    CALL print_value(' lmfdudv ',lmfdudv)
 
-    CALL print_value(' nml_cmftau   ',nml_cmftau)
-    CALL print_value(' nml_cmfctop  ',nml_cmfctop)
-    CALL print_value(' nml_cprcon   ',nml_cprcon)
-    CALL print_value(' nml_cminbuoy ',nml_cminbuoy)
-    CALL print_value(' nml_entrpen  ',nml_entrpen)
-    CALL print_value(' nml_dlev     ',nml_dlev)
+    CALL print_value(' cmftau   ',cmftau)
+    CALL print_value(' cmfctop  ',cmfctop)
+    CALL print_value(' cprcon   ',cprcon)
+    CALL print_value(' cminbuoy ',cminbuoy)
+    CALL print_value(' entrpen  ',entrpen)
+    CALL print_value(' dlev     ',dlev)
 
     CALL message('','---------------------------')
     CALL message('','')
@@ -177,19 +177,19 @@ CONTAINS
     !-----------------------------------------------------
     ! Fill configuration state
     !-----------------------------------------------------
-    echam_conv_config% iconv    = nml_iconv
-    echam_conv_config% ncvmicro = nml_ncvmicro
-    echam_conv_config% lmfpen   = nml_lmfpen
-    echam_conv_config% lmfmid   = nml_lmfmid
-    echam_conv_config% lmfdd    = nml_lmfdd
-    echam_conv_config% lmfdudv  = nml_lmfdudv
+    echam_conv_config% iconv    = iconv
+    echam_conv_config% ncvmicro = ncvmicro
+    echam_conv_config% lmfpen   = lmfpen
+    echam_conv_config% lmfmid   = lmfmid
+    echam_conv_config% lmfdd    = lmfdd
+    echam_conv_config% lmfdudv  = lmfdudv
 
-    echam_conv_config% dlev     = nml_dlev
-    echam_conv_config% cmftau   = nml_cmftau
-    echam_conv_config% cmfctop  = nml_cmfctop
-    echam_conv_config% cprcon   = nml_cprcon
-    echam_conv_config% cminbuoy = nml_cminbuoy
-    echam_conv_config% entrpen  = nml_entrpen
+    echam_conv_config% dlev     = dlev
+    echam_conv_config% cmftau   = cmftau
+    echam_conv_config% cmfctop  = cmfctop
+    echam_conv_config% cprcon   = cprcon
+    echam_conv_config% cminbuoy = cminbuoy
+    echam_conv_config% entrpen  = entrpen
 
   END SUBROUTINE read_echam_conv_namelist
   !-------------
