@@ -49,7 +49,12 @@ MODULE mo_gridref_config
   IMPLICIT NONE
 !  PRIVATE
 !  PUBLIC :: t_gridref_config, gridref_config
-PUBLIC
+
+  PUBLIC :: rbf_vec_kern_grf_e, rbf_scale_grf_e,                          &
+    &                    grf_velfbk, grf_scalfbk, grf_tracfbk,            &
+    &                    grf_idw_exp_e12, grf_idw_exp_e34,                &
+    &                    grf_intmethod_c, grf_intmethod_e,                &
+    &                    grf_intmethod_ct, denom_diffu_v, denom_diffu_t
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 

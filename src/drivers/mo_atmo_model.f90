@@ -486,7 +486,7 @@ INTEGER, POINTER :: grid_glob_index(:)
     ! - Allocate memory for the interpolation state;
     ! - Calculate interpolation coefficients.
     !------------------------------------------------------------------
-    
+    ! KF empty SR, call needs to be shifted
     CALL gridref_nml_setup
     
     ! interpolation state not used for ocean model

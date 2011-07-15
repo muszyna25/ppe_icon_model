@@ -48,7 +48,7 @@ MODULE mo_grf_interpolation
 
   USE mo_grf_intp_data_strc, ONLY: t_gridref_single_state, t_gridref_state
 
-  USE mo_gridref_nml,        ONLY: gridref_nml_setup, rbf_vec_kern_grf_e, &
+  USE mo_gridref_config,     ONLY: rbf_vec_kern_grf_e, &
     &                              rbf_scale_grf_e,                       &
     &                              grf_velfbk, grf_scalfbk, grf_tracfbk,  &
     &                              grf_idw_exp_e12, grf_idw_exp_e34,      &

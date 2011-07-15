@@ -130,7 +130,6 @@ MODULE mo_radiation_model
     & destruct_2d_interpol_state
   USE mo_interpolation,       ONLY: rbf_vec_interpol_cell,       &
     & edges2cells_scalar
-  USE mo_gridref_nml,         ONLY: gridref_nml_setup
   USE mo_grf_interpolation,   ONLY: construct_2d_gridref_state,  &
     & destruct_2d_gridref_state
   

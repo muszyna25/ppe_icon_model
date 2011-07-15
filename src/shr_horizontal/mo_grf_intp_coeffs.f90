@@ -73,7 +73,7 @@ USE mo_parallel_configuration,  ONLY: nproma
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
 
 USE mo_grf_intp_data_strc
-USE mo_gridref_nml
+USE mo_gridref_config
 
 IMPLICIT NONE
 

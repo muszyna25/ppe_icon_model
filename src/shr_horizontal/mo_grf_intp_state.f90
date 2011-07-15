@@ -67,7 +67,9 @@ USE mo_parallel_configuration,  ONLY: nproma
 
 USE mo_grf_intp_data_strc
 USE mo_grf_intp_coeffs
-USE mo_gridref_nml
+USE mo_gridref_config
+
+
 
 IMPLICIT NONE
 

@@ -107,11 +107,7 @@ MODULE mo_gridref_nml
     &                    grf_intmethod_c, grf_intmethod_e,                &
     &                    grf_intmethod_ct, denom_diffu_v, denom_diffu_t
 
-  PUBLIC :: rbf_vec_kern_grf_e, rbf_scale_grf_e,                          &
-    &                    grf_velfbk, grf_scalfbk, grf_tracfbk,            &
-    &                    grf_idw_exp_e12, grf_idw_exp_e34,                &
-    &                    grf_intmethod_c, grf_intmethod_e,                &
-    &                    grf_intmethod_ct, denom_diffu_v, denom_diffu_t
+
 
   PUBLIC :: gridref_nml_setup, read_gridref_namelist
 

@@ -324,8 +324,10 @@ ENDDO
 
   END  SUBROUTINE atm_crosscheck
 
+SUBROUTINE atm_setup
 
 
+END SUBROUTINE atm_setup
 
 END MODULE mo_atm_nml_crosscheck
 
