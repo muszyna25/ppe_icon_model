@@ -586,14 +586,14 @@ INTEGER, POINTER :: grid_glob_index(:)
       ENDIF
       !
     CASE (inh_atmosphere)
-!     ALLOCATE (p_nh_state(n_dom), stat=ist)
-!     IF (ist /= success) THEN
-!       CALL finish(TRIM(routine),'allocation for p_nh_state failed')
-!     ENDIF
-!     ALLOCATE (p_lnd_state(n_dom), stat=ist)
-!     IF (ist /= success) THEN
-!       CALL finish(TRIM(routine),'allocation for p_lnd_state failed')
-!     ENDIF
+     ALLOCATE (p_nh_state(n_dom), stat=ist)
+     IF (ist /= success) THEN
+       CALL finish(TRIM(routine),'allocation for p_nh_state failed')
+     ENDIF
+     ALLOCATE (p_lnd_state(n_dom), stat=ist)
+     IF (ist /= success) THEN
+       CALL finish(TRIM(routine),'allocation for p_lnd_state failed')
+     ENDIF
       !
     END SELECT
     

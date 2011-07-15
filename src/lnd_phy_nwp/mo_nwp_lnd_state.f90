@@ -229,7 +229,7 @@ MODULE mo_nwp_lnd_state
     TYPE(t_patch), TARGET, INTENT(IN)   :: p_patch(n_dom) ! patch
     INTEGER, OPTIONAL, INTENT(IN)       :: n_timelevels   ! number of timelevels
 
-    TYPE(t_lnd_state),TARGET,ALLOCATABLE,INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_lnd_state),TARGET,INTENT(INOUT) :: p_lnd_state(:)
                                            ! nh state at different grid levels
     INTEGER :: ntl, &! local number of timelevels
                ist, &! status
@@ -244,11 +244,6 @@ MODULE mo_nwp_lnd_state
 !-----------------------------------------------------------------------
 
     CALL message (TRIM(routine), 'land state construction started')
-
-    ALLOCATE (p_lnd_state(n_dom), stat=ist)
-    IF (ist /= success) THEN
-      CALL finish(TRIM(routine),'allocation for p_lnd_state failed')
-    ENDIF
 
     DO jg = 1, n_dom
 

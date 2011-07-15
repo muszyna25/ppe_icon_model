@@ -441,7 +441,7 @@ MODULE mo_nonhydro_state
     TYPE(t_patch),     INTENT(IN)   ::  & ! patch
       &  p_patch(n_dom)
 
-    TYPE(t_nh_state),ALLOCATABLE,INTENT(INOUT) :: p_nh_state(:)
+    TYPE(t_nh_state),INTENT(INOUT) :: p_nh_state(:)
 
     INTEGER, OPTIONAL, INTENT(IN)   ::  & ! number of timelevels
       &  n_timelevels    
@@ -462,11 +462,6 @@ MODULE mo_nonhydro_state
     CALL message (TRIM(routine), 'Construction of NH state started')
 
  !  n_dom = SIZE(p_patch)
-
-    ALLOCATE (p_nh_state(n_dom), stat=ist)
-    IF (ist /= success) THEN
-      CALL finish(TRIM(routine),'allocation for p_nh_state failed')
-    ENDIF
 
     DO jg = 1, n_dom
 

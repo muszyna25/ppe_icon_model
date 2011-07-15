@@ -227,7 +227,7 @@ MODULE mo_nh_stepping
   TYPE(t_int_state), INTENT(IN)        :: p_int(n_dom)
   TYPE(t_gridref_state), INTENT(INOUT) :: p_grf(n_dom)
 
-  TYPE(t_nh_state),ALLOCATABLE, INTENT(INOUT):: p_nh_state(:)
+  TYPE(t_nh_state),INTENT(INOUT):: p_nh_state(:)
 
   INTEGER :: ntl
 
