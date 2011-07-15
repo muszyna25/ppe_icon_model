@@ -47,15 +47,16 @@ MODULE mo_gridref_config
   USE mo_impl_constants, ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom
 
   IMPLICIT NONE
-  PRIVATE
-  PUBLIC :: t_gridref_config, gridref_config
+!  PRIVATE
+!  PUBLIC :: t_gridref_config, gridref_config
+PUBLIC
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
   !--------------------------------------------------------------------------
   ! Basic configuration setup for grid refinement
   !--------------------------------------------------------------------------
-  TYPE t_gridref_config
+!  TYPE t_gridref_config
 
     INTEGER  :: rbf_vec_kern_grf_e ! rbf kernel for vector interpolation
 
@@ -84,9 +85,10 @@ MODULE mo_gridref_config
     ! Denominators of normalized diffusion coefficients for boundary diffusion
     REAL(wp) :: denom_diffu_v, denom_diffu_t
 
-  END TYPE t_gridref_config
+!  END TYPE t_gridref_config
   !>
   !!
-  TYPE(t_gridref_config) :: gridref_config(max_dom)
+!  TYPE(t_gridref_config) :: gridref_config(max_dom)
+
 
 END MODULE mo_gridref_config

@@ -47,7 +47,20 @@ MODULE mo_gridref_nml
   USE mo_master_nml,          ONLY: lrestart
   USE mo_model_domain_import, ONLY: n_dom
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
-  USE mo_gridref_config,      ONLY: gridref_config
+  USE mo_gridref_config,      ONLY:   &
+    &                            config_rbf_vec_kern_grf_e => rbf_vec_kern_grf_e,& 
+    &                            config_rbf_scale_grf_e    => rbf_scale_grf_e,&
+    &                            config_grf_velfbk         => grf_velfbk,&
+    &                            config_grf_scalfbk        => grf_scalfbk,&
+    &                            config_grf_tracfbk        => grf_tracfbk,&
+    &                            config_grf_idw_exp_e12    => grf_idw_exp_e12,&
+    &                            config_grf_idw_exp_e34    => grf_idw_exp_e34,&
+    &                            config_grf_intmethod_c    => grf_intmethod_c,&
+    &                            config_grf_intmethod_e    => grf_intmethod_e,&
+    &                            config_grf_intmethod_ct   => grf_intmethod_ct,&
+    &                            config_denom_diffu_v      => denom_diffu_v,&
+    &                            config_denom_diffu_t      => denom_diffu_t
+
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
                                   & open_and_restore_namelist, close_tmpfile
@@ -214,20 +227,20 @@ END SUBROUTINE gridref_nml_setup
     !----------------------------------------------------
     ! 4. Fill the configuration state
     !----------------------------------------------------
-    DO jg = 1,max_dom
-      gridref_config(jg)%rbf_vec_kern_grf_e = rbf_vec_kern_grf_e
-      gridref_config(jg)%rbf_scale_grf_e = rbf_scale_grf_e
-      gridref_config(jg)%grf_velfbk = grf_velfbk
-      gridref_config(jg)%grf_scalfbk = grf_scalfbk
-      gridref_config(jg)%grf_tracfbk = grf_tracfbk
-      gridref_config(jg)%grf_idw_exp_e12 = grf_idw_exp_e12
-      gridref_config(jg)%grf_idw_exp_e34 = grf_idw_exp_e34
-      gridref_config(jg)%grf_intmethod_c = grf_intmethod_c
-      gridref_config(jg)%grf_intmethod_e = grf_intmethod_e
-      gridref_config(jg)%grf_intmethod_ct = grf_intmethod_ct
-      gridref_config(jg)%denom_diffu_v = denom_diffu_v
-      gridref_config(jg)%denom_diffu_t = denom_diffu_t
-    ENDDO
+
+      config_rbf_vec_kern_grf_e = rbf_vec_kern_grf_e
+      config_rbf_scale_grf_e = rbf_scale_grf_e
+      config_grf_velfbk = grf_velfbk
+      config_grf_scalfbk = grf_scalfbk
+      config_grf_tracfbk = grf_tracfbk
+      config_grf_idw_exp_e12 = grf_idw_exp_e12
+      config_grf_idw_exp_e34 = grf_idw_exp_e34
+      config_grf_intmethod_c = grf_intmethod_c
+      config_grf_intmethod_e = grf_intmethod_e
+      config_grf_intmethod_ct = grf_intmethod_ct
+      config_denom_diffu_v = denom_diffu_v
+      config_denom_diffu_t = denom_diffu_t
+
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart

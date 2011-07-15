@@ -55,19 +55,19 @@ MODULE mo_atm_nml_crosscheck
   USE mo_run_config,          ONLY: lrestore_states, dtime, iforcing, ltransport, &
                                     ntracer, nlev, io3, inextra_2D, inextra_3D
   USE mo_time_config,         ONLY: time_config
-  USE mo_gridref_config,      ONLY: gridref_config
-  USE mo_interpol_config       ! all, ONLY: interpol_config
-  USE mo_grid_configuration    !,     ONLY: global_cell_type
-  USE mo_sleve_config          ! all, ONLY: sleve_config
+  USE mo_gridref_config
+  USE mo_interpol_config      
+  USE mo_grid_configuration   
+  USE mo_sleve_config         
 
   USE mo_dynamics_config
   USE mo_advection_config,    ONLY: advection_config
 
-  USE mo_nh_dyn_config       !For now: all, later  ONLY: nh_dyn_config
+  USE mo_nonhydrostatic_config      
   USE mo_ha_dyn_config,     ONLY: ha_dyn_config
   USE mo_diffusion_config,  ONLY: diffusion_config
 
-  USE mo_io_config           !all,         ONLY: io_config
+  USE mo_io_config          
 
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, tcall_phy
   USE mo_lnd_nwp_config,     ONLY: nlev_soil, nztlev ,nlev_snow ,nsfc_subs,&
