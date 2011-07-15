@@ -63,8 +63,9 @@ MODULE mo_echam_conv_nml
   LOGICAL :: nml_lmfdd     !< true when cumulus downdraft      is switched on
   LOGICAL :: nml_lmfdudv   !< true when cumulus friction       is switched on
 
-  REAL(wp) :: nml_dlev     !< "zdlev" in subroutine "cuasc". Critical thickness (unit: Pa)
-                           !< necessary for the onset of convective precipitation
+  REAL(wp) :: nml_dlev     !< "zdlev" in subroutine "cuasc". 
+                           !< Critical thickness (unit: Pa) necessary for the 
+                           !< onset of convective precipitation
   REAL(wp) :: nml_cmftau   !< characteristic adjustment time scale
                            !< (replaces "ztau" in "cumastr")
   REAL(wp) :: nml_cmfctop  !< fractional convective mass flux across the top of cloud 

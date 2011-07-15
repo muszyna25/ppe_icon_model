@@ -1,11 +1,12 @@
 !>
-!! Configuration of the ECHAM physics package. Includes main switches
-!! for turning on/off parameterized processes.
+!! Configuration of the ECHAM cumulus convection scheme. 
+!! Includes switches and tuning parameters, as well as 
+!! other control variables.
 !!
 !! @author Hui Wan, MPI-M
 !!
 !! @par Revision History
-!! First version by Hui Wan, MPI (2010-07)
+!! First version by Hui Wan, MPI (2011-07)
 !!
 !! @par Copyright
 !! 2002-2011 by DWD and MPI-M
@@ -45,7 +46,8 @@ MODULE mo_echam_conv_config
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
   !>
-  !! Derived type containing main swithes for configuring the echam physics package
+  !! Derived type containing main swithes for configuring 
+  !! the cumulus convection scheme of ECHAM
   !!
   TYPE t_echam_conv_config
 
@@ -59,12 +61,14 @@ MODULE mo_echam_conv_config
     LOGICAL :: lmfdd     !< true when cumulus downdraft      is switched on
     LOGICAL :: lmfdudv   !< true when cumulus friction       is switched on
 
-    REAL(wp) :: dlev     !< "zdlev" in subroutine "cuasc". Critical thickness (unit: Pa)
-                         !< necessary for the onset of convective precipitation
+    REAL(wp) :: dlev     !< "zdlev" in subroutine "cuasc". 
+                         !< Critical thickness (unit: Pa) necessary for 
+                         !< the onset of convective precipitation
   
     REAL(wp) :: cmftau   !< characteristic adjustment time scale
                          !< (replaces "ztau" in "cumastr"
-    REAL(wp) :: cmfctop  !< fractional convective mass flux across the top of cloud
+    REAL(wp) :: cmfctop  !< fractional convective mass flux across the 
+                         !< top of cloud
     REAL(wp) :: cprcon   !< coefficient for determining conversion
                          !< from cloud water to rain
   
@@ -72,27 +76,28 @@ MODULE mo_echam_conv_config
     REAL(wp) :: entrpen  !< entrainment rate for penetrative convection
  
     ! Currently unused namelist variables 
-    !INTEGER :: nauto        !< 1 or 2. autoconversion scheme
+    !INTEGER :: nauto        !< autoconversion scheme. 1 or 2.
     !LOGICAL :: lconvmassfix !< aerosol mass fixer in convection
-    !LOGICAL :: lmfscv       !< true when shallow     convection is switched on
+    !LOGICAL :: lmfscv       !< true when shallow convection is switched on
 
     ! Derived variables
 
     INTEGER :: nmctop    !< max. level for cloud base of mid level conv.
 
     REAL(wp),ALLOCATABLE :: cevapcu(:)  !< evaporation coefficient for kuo0
-                                        !< In ECHAM6 it is defined in mo_physc2,            
-                                        !< allocated in subroutine alloc_mods,              
-                                        !< and initialized in subroutine iniphy.
+                                        !< In ECHAM6 it is declared in 
+                                        !< mo_physc2, allocated in subroutine 
+                                        !< alloc_mods, and initialized in 
+                                        !< subroutine iniphy.
   
   END TYPE t_echam_conv_config
 
   !>
   !! The configuration state (variable).
-  !! So far we have not tried to use different configurations for different
-  !! domains (grid levels) in experiments with nesting. Thus the variable
-  !! is declared as a scalar. Later it might be changed into an array of
-  !! shape (/n_dom/) or (/MAX_DOM/).
+  !! So far we have not yet tried to use different configurations for different
+  !! domains (grid levels) in experiments with local grid refinement (nesting),
+  !! thus the variable is declared as a scalar. Later it might be changed into
+  !! an array of shape (/n_dom/) or (/MAX_DOM/).
   !!
   TYPE(t_echam_conv_config) :: echam_conv_config
 
