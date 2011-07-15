@@ -270,42 +270,46 @@ CONTAINS
     END IF
 
     !--------------------------------------------------------------------
-    ! checking the meanings of the diffusion settings
+    ! Horizontal diffusion
     !--------------------------------------------------------------------
 
- DO jg =1,n_dom
+    DO jg =1,n_dom
+   
+      SELECT CASE( diffusion_config(jg)%hdiff_order)
+      CASE(-1)
+        WRITE(message_text,'(a,i2.2)') 'Horizontal diffusion '//&
+                                       'switched off for domain ', jg
+        CALL message(TRIM(routine),TRIM(message_text))
+   
+      CASE(2,4)
+        CONTINUE
+   
+      CASE(3)
+        IF (global_cell_type==3) CALL finish(TRIM(routine), &
+        ' hdiff_order = 3 invalid for triangular model.')
+   
+      CASE(5)
+        IF (global_cell_type==6) CALL finish(TRIM(routine), &
+        ' hdiff_order = 5 invalid for hexagonal model.')
+   
+      CASE(24,42)
+        IF (.NOT.( iequations==IHS_ATM_TEMP)) CALL finish(TRIM(routine), &
+        ' hdiff_order = 24 or 42 only implemented for the hydrostatic atm model')
+   
+      CASE DEFAULT
+        CALL finish(TRIM(routine),                       &
+          & 'Error: Invalid choice for  hdiff_order. '// &                
+          & 'Choose from -1, 2, 3, 4, 5, 24, and 42.')
+      END SELECT
+   
+      IF ( diffusion_config(jg)%hdiff_efdt_ratio<=0._wp) THEN
+        CALL message(TRIM(routine),'No horizontal background diffusion is used')
+      ENDIF
+   
+      IF (lshallow_water)  diffusion_config(jg)%lhdiff_temp=.FALSE.
+   
+    ENDDO
 
-   SELECT CASE( diffusion_config(jg)%hdiff_order)
-   CASE(-1)
-     CALL message(TRIM(routine),'Horizontal diffusion switched off.')
-   CASE(2,4)
-     CONTINUE
-
-   CASE(3)
-     IF (global_cell_type==3) CALL finish(TRIM(routine), &
-     ' hdiff_order = 3 invalid for triangular model.')
-
-   CASE(5)
-     IF (global_cell_type==6) CALL finish(TRIM(routine), &
-     ' hdiff_order = 5 invalid for hexagonal model.')
-
-   CASE(24,42)
-     IF (.NOT.( iequations==IHS_ATM_TEMP)) CALL finish(TRIM(routine), &
-     ' hdiff_order = 24 or 42 only implemented for the hydrostatic atm model')
-
-   CASE DEFAULT
-     CALL finish(TRIM(routine),                     &
-       & 'Error: Invalid choice of  hdiff_order. '// &                
-       & 'Choose from -1, 2, 3, 4, 5, 24, and 42.')
-   END SELECT
-
-   IF (  diffusion_config(jg)%hdiff_efdt_ratio<=0._wp) THEN
-     CALL message(TRIM(routine),'No horizontal background diffusion is used')
-  ENDIF
-
-  IF ( lshallow_water )  diffusion_config(jg)%lhdiff_temp=.FALSE.
-
-ENDDO
     !--------------------------------------------------------------------
     ! checking the meanings of the io settings
     !--------------------------------------------------------------------

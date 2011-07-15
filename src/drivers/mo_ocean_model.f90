@@ -53,7 +53,7 @@ MODULE mo_ocean_model
 !0  &                               impiom,            & !    :
   USE mo_ocean_nml,           ONLY: setup_ocean_nml
   USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
-  USE mo_diffusion_nml,       ONLY: diffusion_nml_setup
+! USE mo_diffusion_nml,       ONLY: diffusion_nml_setup
   USE mo_io_nml,              ONLY: io_nml_setup !,         & ! process I/O
 !    & dt_data,              & !    :
 !    & dt_file,              & !    :
@@ -307,7 +307,7 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! set up horizontal diffusion after the vertical coordinate is configured
     !-------------------------------------------------------------------------
-    CALL diffusion_nml_setup(n_dom,parent_id,nlev)
+  ! CALL diffusion_nml_setup(n_dom,parent_id,nlev)
     
     !------------------------------------------------------------------
     ! step 5b: allocate state variables

@@ -43,9 +43,9 @@
 !!
 MODULE mo_diffusion_config
 
-  USE mo_kind,           ONLY: wp
-  USE mo_exception,           ONLY: message, message_text, finish, print_value
-  USE mo_impl_constants, ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom
+  USE mo_kind,                ONLY: wp
+  USE mo_exception,           ONLY: message, message_text, print_value
+  USE mo_impl_constants,      ONLY: max_dom
   USE mo_vertical_coord_table,ONLY: vct_a, vct_b, apzero
 
   IMPLICIT NONE
@@ -59,54 +59,56 @@ MODULE mo_diffusion_config
   !--------------------------------------------------------------------------
   TYPE t_diffusion_config
 
-  INTEGER :: hdiff_order  ! order of horizontal diffusion
-                          ! 2: 2nd order linear diffusion on all vertical levels 
-                          ! 3: Smagorinsky diffusion for hexagonal model
-                          ! 4: 4th order linear diffusion on all vertical levels 
-                          ! 5: Smagorinsky diffusion for triangular model
-                          ! 24 or 42: 2nd order linear diffusion for upper levels,
-                          !           4th order for lower levels
+    ! variables from namelist
 
-  REAL(wp) :: k2_pres_max  ! (relevant only when hdiff_order = 24 or 42)
-                           ! pressure (in Pa) specified by the user
-                           ! to determine the lowest vertical level 
-                           ! to which 2nd order linear diffusion is applied.
-                           ! For the levels with pressure > k2_pres_max, 
-                           ! 4th order linear diffusion is applied. 
+    INTEGER :: hdiff_order  ! order of horizontal diffusion
+                            ! -1: no diffusion
+                            ! 2: 2nd order linear diffusion on all vertical levels 
+                            ! 3: Smagorinsky diffusion for hexagonal model
+                            ! 4: 4th order linear diffusion on all vertical levels 
+                            ! 5: Smagorinsky diffusion for triangular model
+                            ! 24 or 42: 2nd order linear diffusion for upper levels,
+                            !           4th order for lower levels
+                            
 
-  INTEGER  :: k2_klev_max  ! (relevant only when hdiff_order = 24 or 42)
-                           ! vertical level index specified by the user
-                           ! to determine the lowest vertical level 
-                           ! to which 2nd order linear diffusion is applied.
-                           ! For the levels with k > k2_klev_max, 
-                           ! 4th order linear diffusion is applied. 
+    REAL(wp) :: k2_pres_max ! (relevant only when hdiff_order = 24 or 42)
+                            ! pressure (in Pa) specified by the user
+                            ! to determine the lowest vertical level 
+                            ! to which 2nd order linear diffusion is applied.
+                            ! For the levels with pressure > k2_pres_max, 
+                            ! 4th order linear diffusion is applied. 
 
-  REAL(wp) ::           &
-    & hdiff_efdt_ratio, &! ratio of e-folding time to (2*)time step
-    & hdiff_min_efdt_ratio, &! minimum value of hdiff_efdt_ratio (for upper sponge layer)
-    & hdiff_tv_ratio,   &! the ratio of diffusion coefficient: temp:mom
-    & hdiff_smag_fac,   &! scaling factor for Smagorinsky diffusion
-    & hdiff_multfac      ! multiplication factor of normalized diffusion coefficient
-                         ! for nested domains
+    INTEGER  :: k2_klev_max ! (relevant only when hdiff_order = 24 or 42)
+                            ! vertical level index specified by the user
+                            ! to determine the lowest vertical level 
+                            ! to which 2nd order linear diffusion is applied.
+                            ! For the levels with k > k2_klev_max, 
+                            ! 4th order linear diffusion is applied. 
 
-  REAL(wp) :: &
-    & k6, k4, k2       ! numerical diffusion coefficients
-                       ! Values for these parameters are not directly
-                       ! specified by the user, but derived from the ratio 
-                       ! between the e-folding time and the model time step
-                       ! (hdiff_efdt_ratio above), and the horizontal 
-                       ! resolution of the model
+    REAL(wp) :: hdiff_efdt_ratio      ! ratio of e-folding time to (2*)time step
+    REAL(wp) :: hdiff_min_efdt_ratio  ! minimum value of hdiff_efdt_ratio 
+                                      ! (for upper sponge layer)
+    REAL(wp) :: hdiff_tv_ratio        ! the ratio of diffusion coefficient: temp:mom
+    REAL(wp) :: hdiff_smag_fac        ! scaling factor for Smagorinsky diffusion
+    REAL(wp) :: hdiff_multfac         ! multiplication factor of normalized diffusion
+                                      ! coefficient for nested domains
+    LOGICAL :: lhdiff_temp   ! if .TRUE., apply horizontal diffusion to temp.
+    LOGICAL :: lhdiff_vn     ! if .TRUE., apply horizontal diffusion to momentum.
 
-  INTEGER k2s, k2e, k4s, k4e  ! indices defining to which vertical levels
-                              ! 2nd and 4th linear diffusion are applied.
-                              ! The values are not specified by the user via namelist,
-                              ! but determined from k2_klev_max, k2_pres_max
-                              ! and the configuration of the vertical coordinate
+    ! variables not from namelist
 
-  LOGICAL ::          &
-    & lhdiff_temp,    &! if .TRUE., apply horizontal diffusion to temp.
-    & lhdiff_vn        ! if .TRUE., apply horizontal diffusion to momentum.
+    REAL(wp) :: k6, k4, k2  ! numerical diffusion coefficients
+                            ! Values for these parameters are not directly
+                            ! specified by the user, but derived from the ratio 
+                            ! between the e-folding time and the model time step
+                            ! (hdiff_efdt_ratio above), and the horizontal 
+                            ! resolution of the model
 
+    INTEGER k2s, k2e, k4s, k4e  ! indices defining to which vertical levels
+                                ! 2nd and 4th linear diffusion are applied.
+                                ! The values are not specified by the user via namelist,
+                                ! but determined from k2_klev_max, k2_pres_max
+                                ! and the configuration of the vertical coordinate
 
   END TYPE t_diffusion_config
   !>
@@ -124,7 +126,7 @@ CONTAINS
     INTEGER  :: istat, jg, ist, jk, funit
     REAL(wp) :: zpres(nlev+1)
 
-    CHARACTER(len=max_char_length), PARAMETER :: &
+    CHARACTER(len=*), PARAMETER :: &
       routine = 'setup_diffusion_config:'
 
 

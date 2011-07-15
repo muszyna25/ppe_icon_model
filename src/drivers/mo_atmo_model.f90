@@ -54,7 +54,6 @@ USE mo_global_variables,    ONLY: setup_physics           ! process forcing cont
 USE mo_nonhydrostatic_nml,  ONLY: ivctype,              & ! type of vertical coordinate
 & nonhydrostatic_nml_setup
 USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
-USE mo_diffusion_nml,       ONLY: diffusion_nml_setup
 USE mo_io_nml,              ONLY: io_nml_setup !,         & ! process I/O
 !& dt_data,              & !    :
 !& dt_file,              & !    :
@@ -572,7 +571,7 @@ INTEGER, POINTER :: grid_glob_index(:)
     !-------------------------------------------------------------------------
     ! set up horizontal diffusion after the vertical coordinate is configured
     !-------------------------------------------------------------------------
-    CALL diffusion_nml_setup(n_dom,parent_id,nlev)
+  ! CALL diffusion_nml_setup(n_dom,parent_id,nlev)
     
     !------------------------------------------------------------------
     ! step 5b: allocate state variables

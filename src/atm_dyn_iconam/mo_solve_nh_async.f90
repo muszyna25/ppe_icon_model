@@ -44,7 +44,6 @@ MODULE mo_solve_nh_async
   USE mo_kind,              ONLY: wp
   USE mo_nonhydrostatic_nml,ONLY: iadv_rhotheta, igradp_method, l_open_ubc, l_zdiffu_t
   USE mo_dynamics_config,   ONLY: itime_scheme, idiv_method
-  USE mo_diffusion_nml,     ONLY: k4
   USE mo_diffusion_config,  ONLY: diffusion_config
   USE mo_parallel_configuration,  ONLY: nproma, p_test_run
   USE mo_run_config,        ONLY: ltimer, lvert_nest
@@ -546,7 +545,6 @@ MODULE mo_solve_nh_async
     ! Pointers used for z-level temperature diffusion
     INTEGER,  DIMENSION(:,:),   POINTER :: icell, ilev, iblk, iedge, iedblk
     REAL(wp), DIMENSION(:,:),   POINTER :: vcoef, blcoef, geofac_n2s
-    INTEGER :: jg                        ! patch ID
 
     !-------------------------------------------------------------------
     IF (ltimer) CALL timer_start(timer_solve_nh)
@@ -563,9 +561,6 @@ MODULE mo_solve_nh_async
       l_child_vertnest = .FALSE.
       nshift = 0
     ENDIF
-
-    ! get patch ID
-    jg = p_patch%id
 
     ! number of vertical levels
     nlev   = p_patch%nlev
@@ -634,12 +629,12 @@ MODULE mo_solve_nh_async
     id         = p_patch%id
     jlev       = p_patch%level
 
-    diff_multfac_vn = k4(id)/3._wp
+    diff_multfac_vn = diffusion_config(id)%k4/3._wp
 
     ! empirically determined scaling factor (default of 0.15 for hdiff_smag_fac is somewhat
     ! larger than suggested in the literature); increase with resolution might be
     ! removed when a turbulence scheme becomes available
-    diff_multfac_smag = diffusion_config(jg)%hdiff_smag_fac               &
+    diff_multfac_smag = diffusion_config(id)%hdiff_smag_fac               &
       &               * (REAL(nroot*(2**jlev),wp)/64._wp)**0.3333_wp*dtime
 
     DO istep = 1, 2
@@ -1485,7 +1480,8 @@ MODULE mo_solve_nh_async
 
         ! Subtract part of the fourth-order background diffusion coefficient
         kh_smag_e(i_startidx:i_endidx,:,jb) = &
-            MAX(0._wp,kh_smag_e(i_startidx:i_endidx,:,jb) - 0.2_wp*k4(id))
+            MAX(0._wp,kh_smag_e(i_startidx:i_endidx,:,jb) &
+                      - 0.2_wp*diffusion_config(id)%k4)
 
       ENDDO
 !$OMP END DO
@@ -2051,7 +2047,7 @@ MODULE mo_solve_nh_async
 !$OMP END PARALLEL
    ENDIF
 
-   IF (diffusion_config(jg)%lhdiff_temp) THEN ! Smagorinsky temperature diffusion
+   IF (diffusion_config(id)%lhdiff_temp) THEN ! Smagorinsky temperature diffusion
 
      icidx => p_patch%cells%neighbor_idx
      icblk => p_patch%cells%neighbor_blk

@@ -42,7 +42,6 @@
 MODULE mo_hdiff_hyb_lin
 
   USE mo_kind,              ONLY: wp
-  USE mo_diffusion_nml,     ONLY: k2, k4, k2s, k2e, k4s, k4e
   USE mo_diffusion_config,  ONLY: diffusion_config
   USE mo_ha_dyn_config,     ONLY: ha_dyn_config
   USE mo_math_operators,    ONLY: nabla2_vec, nabla2_scalar, &

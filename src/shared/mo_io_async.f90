@@ -67,7 +67,7 @@ MODULE mo_io_async
   USE mo_global_variables,    ONLY: setup_physics
   USE mo_nonhydrostatic_nml,  ONLY: ivctype, nonhydrostatic_nml_setup
   USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
-  USE mo_diffusion_nml,       ONLY: diffusion_nml_setup
+! USE mo_diffusion_nml,       ONLY: diffusion_nml_setup
 !  USE mo_io_nml,              ONLY: io_nml_setup
   USE mo_io_config            
   USE mo_dynamics_config,     ONLY: iequations 
@@ -276,7 +276,7 @@ CONTAINS
     ! Please note that the setup sequence of control_model is duplicated here.
     ! !!! This implies that changes in control_model have to be repeated here !!!
 
-    CALL diffusion_nml_setup(n_dom,parent_id,nlev)
+ !  CALL diffusion_nml_setup(n_dom,parent_id,nlev)
     CALL dynamics_nml_setup(n_dom)  
 
     IF (ltransport) CALL transport_nml_setup
