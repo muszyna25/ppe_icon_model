@@ -57,7 +57,7 @@ MODULE mo_nh_testcases
                                    arc_length
   USE mo_parallel_configuration,  ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: ltransport, ntracer, iforcing, iqv
-  USE mo_extpar_nml,         ONLY: itopo => nml_itopo
+  USE mo_extpar_config,         ONLY: itopo
 !  USE mo_grid_configuration, ONLY :  global_cell_type
     
   USE mo_dynamics_config,    ONLY: nnow, nnow_rcf, nnew, nnew_rcf

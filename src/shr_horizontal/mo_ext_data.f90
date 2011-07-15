@@ -50,9 +50,7 @@ MODULE mo_ext_data
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_impl_constants,     ONLY: inwp, ihs_ocean
   USE mo_run_config,         ONLY: iforcing
-  USE mo_extpar_nml,         ONLY: itopo => nml_itopo,                     &
-                                   fac_smooth_topo => nml_fac_smooth_topo, &
-                                   n_iter_smooth_topo => nml_n_iter_smooth_topo
+  USE mo_extpar_config,      ONLY: itopo, fac_smooth_topo, n_iter_smooth_topo
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_radiation_config,   ONLY: irad_o3
   USE mo_model_domain,       ONLY: t_patch

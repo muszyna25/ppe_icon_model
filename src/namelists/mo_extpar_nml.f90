@@ -43,11 +43,12 @@ MODULE mo_extpar_nml
   USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,   &
                                     & open_and_restore_namelist, close_tmpfile
 
-  USE mo_extpar_config, ONLY: itopo, fac_smooth_topo, n_iter_smooth_topo
+  USE mo_extpar_config,  ONLY: config_itopo              => itopo             , &
+                             & config_fac_smooth_topo    => fac_smooth_topo   , &
+                             & config_n_iter_smooth_topo => n_iter_smooth_topo
 
   IMPLICIT NONE
- !PRIVATE
-  PUBLIC
+  PRIVATE
   PUBLIC read_extpar_namelist
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
@@ -55,13 +56,13 @@ MODULE mo_extpar_nml
   !------------------------------------------------------------------------
   ! Namelist variables
   !------------------------------------------------------------------------
-  INTEGER  :: nml_itopo   ! 0: topography specified by analytical functions,
-                          ! 1: topography read from netcdf files provided by Herrmann Asensio
+  INTEGER  :: itopo   ! 0: topography specified by analytical functions,
+                      ! 1: topography read from netcdf files
 
-  REAL(wp):: nml_fac_smooth_topo
-  INTEGER :: nml_n_iter_smooth_topo
+  REAL(wp) :: fac_smooth_topo
+  INTEGER  :: n_iter_smooth_topo
 
-  NAMELIST/extpar_nml/ nml_itopo, nml_fac_smooth_topo,nml_n_iter_smooth_topo
+  NAMELIST /extpar_nml/ itopo, fac_smooth_topo,n_iter_smooth_topo
 
 CONTAINS
   !>
@@ -75,9 +76,9 @@ CONTAINS
     !------------------------------------------------------------
     ! Default settings
     !------------------------------------------------------------
-     nml_itopo  = 0
-    nml_fac_smooth_topo    = 0.015625_wp
-    nml_n_iter_smooth_topo = 35
+    itopo              = 0
+    fac_smooth_topo    = 0.015625_wp
+    n_iter_smooth_topo = 35
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -103,18 +104,18 @@ CONTAINS
     !----------------------------------------------------
     ! Sanity check
     !----------------------------------------------------
-    SELECT CASE (nml_itopo)
+    SELECT CASE (itopo)
     CASE (0,1) !OK
     CASE default
-      CALL finish(TRIM(routine),'Wrong value for nml_itopo. Must be 0 or 1.')
+      CALL finish(TRIM(routine),'Wrong value for itopo. Must be 0 or 1.')
     END SELECT
 
     !----------------------------------------------------
     ! Fill the configuration state
     !----------------------------------------------------
-    itopo              = nml_itopo 
-    fac_smooth_topo    = nml_fac_smooth_topo 
-    n_iter_smooth_topo = nml_n_iter_smooth_topo
+    config_itopo              = itopo 
+    config_fac_smooth_topo    = fac_smooth_topo 
+    config_n_iter_smooth_topo = n_iter_smooth_topo
 
     !-----------------------------------------------------
     ! Store the namelist for restart

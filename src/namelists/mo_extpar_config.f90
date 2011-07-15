@@ -47,9 +47,10 @@ MODULE mo_extpar_config
   USE mo_impl_constants,     ONLY: max_dom
 
   IMPLICIT NONE
+  PRIVATE
+  PUBLIC :: itopo, fac_smooth_topo, n_iter_smooth_topo
 
-
-  CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
+  CHARACTER(len=*),PARAMETER :: version = '$Id$'
 
   !>
   !!----------------------------------------------------------------------------
@@ -57,14 +58,11 @@ MODULE mo_extpar_config
   !! atm model
 
   !------------------------------------------------------------------------
-  INTEGER  :: itopo   ! 0: topography specified by analytical functions,
-                          ! 1: topography read from netcdf files provided by Herrmann Asensio
+  INTEGER  :: itopo       ! 0: topography specified by analytical functions,
+                          ! 1: topography read from netcdf files
 
-  REAL(wp):: fac_smooth_topo
-  INTEGER :: n_iter_smooth_topo
-
-
-  PUBLIC:: itopo, fac_smooth_topo, n_iter_smooth_topo
+  REAL(wp) :: fac_smooth_topo
+  INTEGER  :: n_iter_smooth_topo
 
   !!----------------------------------------------------------------------------
 
