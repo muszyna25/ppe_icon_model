@@ -45,7 +45,6 @@ MODULE mo_gridref_nml
   USE mo_exception,           ONLY: message, finish
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
   USE mo_master_nml,          ONLY: lrestart
-  USE mo_model_domain_import, ONLY: n_dom
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_gridref_config,      ONLY:   &
     &                            config_rbf_vec_kern_grf_e => rbf_vec_kern_grf_e,& 
@@ -190,8 +189,8 @@ END SUBROUTINE gridref_nml_setup
     ! zero whole arrays
     rbf_scale_grf_e(:) = 0.0_wp
 
-    ! Initialize namelist fields for scaling factors (dimension 1:n_dom); used part only
-    rbf_scale_grf_e(1:n_dom) = 0.5_wp  ! default setting for vector grf interpolation
+    ! Initialize namelist fields for scaling factors (dimension 1:max_dom); used part only
+    rbf_scale_grf_e(1:max_dom) = 0.5_wp  ! default setting for vector grf interpolation
 
     ! Denominator for temperature boundary diffusion
     denom_diffu_t = 135._wp

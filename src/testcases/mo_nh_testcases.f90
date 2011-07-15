@@ -137,7 +137,7 @@ MODULE mo_nh_testcases
                             rh_at_1000hpa, qv_max, ape_sst_case,             &
                             linit_tracer_fv, lhs_fric_heat
 
-  PUBLIC :: setup_nh_testcase, layer_thickness, init_nh_testtopo,            &
+  PUBLIC :: read_nh_testcase_namelist, layer_thickness, init_nh_testtopo,    &
     &       init_nh_testcase, n_flat_level, nh_test_name, ape_sst_case,      &
     &       mount_height, torus_domain_length, nh_brunt_vais, nh_u0, nh_t0,  &
     &       jw_up, u0_mrw, mount_height_mrw, mount_half_width,               &
@@ -183,7 +183,7 @@ MODULE mo_nh_testcases
   !!   init_nh_testtopo, which is called after the domain-decomposition.
   !!   (because of possible conflicts with the external-data type)
   !! 
-  SUBROUTINE setup_nh_testcase
+  SUBROUTINE read_nh_testcase_namelist
 !
     INTEGER        :: i_status
 
@@ -232,7 +232,7 @@ MODULE mo_nh_testcases
 
     IF(p_pe == p_io) WRITE(nnml_output,nml=nh_testcase_ctl)
 
-  END SUBROUTINE setup_nh_testcase
+  END SUBROUTINE read_nh_testcase_namelist
 
 
 !-------------------------------------------------------------------------

@@ -77,13 +77,13 @@ MODULE mo_atm_nml_crosscheck
   USE mo_echam_conv_config,  ONLY: echam_conv_config
   USE mo_gw_hines_config,    ONLY: gw_hines_config
   USE mo_vdiff_config,       ONLY: vdiff_config
-
+  USE mo_nh_testcases,       ONLY: linit_tracer_fv
 
   IMPLICIT NONE
 
 !  PRIVATE
 
-!  PUBLIC  
+  PUBLIC :: atm_crosscheck
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -147,6 +147,18 @@ CONTAINS
     IF ((iforcing==IHELDSUAREZ.OR.iforcing==ILDF_DRY).AND.(.NOT.ldry_dycore)) &
     CALL finish( TRIM(ROUTINE),'ldry_dycore should be .TRUE. for the '//&
                'Held-Suarez test and the dry local diabatic forcing test.')
+
+    !--------------------------------------------------------------------
+    ! testcases 
+    !--------------------------------------------------------------------
+
+    IF(global_cell_type==3) THEN
+      linit_tracer_fv  = .TRUE. ! like default
+    ELSE
+      linit_tracer_fv  = .FALSE.
+    ENDIF
+
+
 
     !--------------------------------------------------------------------
     ! Shallow water 

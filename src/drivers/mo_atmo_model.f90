@@ -48,7 +48,6 @@ USE mo_parallel_configuration, ONLY: p_test_run
 
 USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
 
-
 ! Control parameters: run control, dynamics, i/o
 !
 USE mo_global_variables,    ONLY: setup_physics           ! process forcing control parameters
@@ -104,7 +103,7 @@ USE mo_model_domain_import, ONLY : get_patch_global_indexes
 ! Test cases
 !
 USE mo_hydro_testcases,     ONLY: setup_testcase          ! process hyd. atm. tests ctl. params.
-USE mo_nh_testcases,        ONLY: setup_nh_testcase       ! process non-hyd. atm. test ctl. par.
+USE mo_nh_testcases,        ONLY: read_nh_testcase_namelist ! process non-hyd. atm. test ctl. par.
 
 ! Memory
 !
@@ -194,6 +193,7 @@ USE mo_io_restart_namelist,  ONLY: read_restart_namelists
 USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
 
 USE mo_atmo_setup_configuration, ONLY: read_atmo_namelists
+USE mo_atm_nml_crosscheck,       ONLY: atm_crosscheck
 
 USE mo_time_config,     ONLY: time_config      ! variable
 USE mo_dynamics_config, ONLY: config_dynamics  ! subroutine
@@ -277,6 +277,8 @@ INTEGER, POINTER :: grid_glob_index(:)
     !---------------------------------------------------------------------
     ! 2. Cross-check namelists
     !---------------------------------------------------------------------
+
+    CALL atm_crosscheck
 
     !---------------------------------------------------------------------
     ! 3. Assign values to derived variables in the configuration states
@@ -388,7 +390,7 @@ INTEGER, POINTER :: grid_glob_index(:)
         CALL setup_testcase
         
       CASE (inh_atmosphere)
-        CALL setup_nh_testcase
+        CALL read_nh_testcase_namelist
         
       CASE DEFAULT
         CALL finish( TRIM(routine),' invalid value for iequations!' )

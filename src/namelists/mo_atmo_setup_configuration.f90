@@ -64,7 +64,7 @@ MODULE mo_atmo_setup_configuration
 ! ! Test cases
 ! !
 ! USE mo_hydro_testcases,     ONLY: setup_testcase          ! process hyd. atm. tests ctl. params.
-! USE mo_nh_testcases,        ONLY: setup_nh_testcase       ! process non-hyd. atm. test ctl. par.
+ USE mo_nh_testcases,        ONLY: read_nh_testcase_namelist! process non-hyd. atm. test ctl. par.
 
   USE mo_io_restart_namelist,  ONLY: read_restart_namelists
   USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
@@ -90,7 +90,7 @@ CONTAINS
     CALL read_parallel_namelist(TRIM(namelist_filename))
 
     CALL read_run_namelist(TRIM(namelist_filename))
-
+    CALL read_nh_testcase_namelist
     CALL read_grid_namelist(TRIM(namelist_filename))
     CALL read_interpol_namelist(TRIM(namelist_filename))
     CALL read_gridref_namelist(TRIM(namelist_filename))
