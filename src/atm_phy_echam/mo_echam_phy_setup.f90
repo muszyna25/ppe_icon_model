@@ -40,8 +40,8 @@
 MODULE mo_echam_phy_setup
 
 ! USE mo_exception,          ONLY: message, finish, print_value
-  USE mo_echam_phy_config,   ONLY: phy_config => echam_phy_config
-  USE mo_echam_conv_nml,     ONLY: echam_conv_nml_setup
+! USE mo_echam_phy_config,   ONLY: phy_config => echam_phy_config
+! USE mo_echam_conv_config,  ONLY: config_echam_convection
 ! USE mo_run_nml,            ONLY: ltestcase, ntracer, io3
 ! USE mo_hydro_testcases,    ONLY: ctest_name
 
@@ -58,9 +58,7 @@ CONTAINS
   !!
   SUBROUTINE setup_echam_phy
 
-    ! Read and check process namelists dependent on echam_phy_nml
-
-    IF (phy_config%lconv)     CALL echam_conv_nml_setup
+   !IF (phy_config%lconv) CALL config_echam_convection( nlev, vct_a, vct_b, ceta )
 
     ! Check whether echam_phy_nml is properly set for test cases;
     ! Check whether the process namelists are consistent with

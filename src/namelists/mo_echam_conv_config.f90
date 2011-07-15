@@ -37,11 +37,15 @@
 !!
 MODULE mo_echam_conv_config
 
-  USE mo_kind, ONLY: wp
+  USE mo_kind,               ONLY: wp
+  USE mo_exception,          ONLY: finish, print_value, message
+  USE mo_impl_constants,     ONLY: SUCCESS
+  USE mo_physical_constants, ONLY: grav
 
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: t_echam_conv_config, echam_conv_config
+  PUBLIC :: config_echam_convection, cleanup_echam_convection
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
@@ -100,5 +104,86 @@ MODULE mo_echam_conv_config
   !! an array of shape (/n_dom/) or (/MAX_DOM/).
   !!
   TYPE(t_echam_conv_config) :: echam_conv_config
+
+CONTAINS
+  !---------------------------------------------------------------------------
+  !>
+  !!
+  !! Assign value to derived variables in echam_conv_config.
+  !!
+  !! @Revision history
+  !! Adapted from ECHAM6 by Hui Wan (MPI-M, 2010-2011)
+  !!
+  SUBROUTINE config_echam_convection( nlev, vct_a, vct_b, ceta )
+
+    INTEGER, INTENT(IN) :: nlev
+    REAL(WP),INTENT(IN) :: vct_a(nlev+1)
+    REAL(WP),INTENT(IN) :: vct_b(nlev+1)
+    REAL(WP),INTENT(IN) :: ceta (nlev)
+
+    REAL(wp) :: zp(nlev), zph(nlev+1), ztmp
+    INTEGER  :: jk, istat
+
+    CHARACTER(LEN=*),PARAMETER :: &
+             routine = 'mo_echam_conv_config:config_echam_convection'
+
+    !------------------------------------------------------------------------
+    ! Determine highest level *nmctop* for cloud base of midlevel convection
+    ! assuming nmctop=9 (300 hPa) for the standard 19 level model
+    !------------------------------------------------------------------------
+    ! Compute half level pressure values, assuming 101320 Pa surface pressure
+
+    DO jk=1,nlev+1
+      zph(jk) = vct_a(jk) + vct_b(jk)*101320.0_wp
+    END DO
+
+    ! Compute full level pressure
+
+    DO jk = 1, nlev
+      zp(jk) = (zph(jk)+zph(jk+1))*0.5_wp
+    END DO
+
+    ! Search for 300 hPa level
+
+    DO jk = 1, nlev
+      echam_conv_config%nmctop = jk
+      IF(zp(jk).GE.30000.0_wp) EXIT
+    END DO
+
+    CALL message('','')
+    CALL print_value('lowest model level for cloud base '//&
+                     'of mid level convection: nmctop = ', &
+                     echam_conv_config%nmctop)
+    CALL message('','')
+
+    !--------------------------------------
+    ! Set evaporation coefficient for kuo0
+    !--------------------------------------
+
+    ALLOCATE( echam_conv_config%cevapcu(nlev),STAT=istat )
+    IF (istat/=SUCCESS) CALL finish(TRIM(routine),'allocation of cevapcu failed')
+
+    DO jk = 1,nlev
+       ztmp = 1.E3_wp/(38.3_wp*0.293_wp)*SQRT(ceta(jk))
+       echam_conv_config%cevapcu(jk) = 1.93E-6_wp*261._wp*SQRT(ztmp)*0.5_wp/grav
+    END DO
+
+  END SUBROUTINE config_echam_convection
+  !------------
+  !>
+  !!
+  !! Deallocate memory
+  !!
+  SUBROUTINE cleanup_echam_convection
+
+    INTEGER :: istat
+    CHARACTER(LEN=*),PARAMETER :: &
+             routine = 'mo_echam_conv_config:cleanup_echam_convection'
+
+    DEALLOCATE( echam_conv_config%cevapcu,STAT=istat )
+    IF (istat/=SUCCESS) CALL finish(TRIM(routine),'deallocation of cevapcu failed')
+
+  END SUBROUTINE cleanup_echam_convection
+  !-------------
 
 END MODULE mo_echam_conv_config

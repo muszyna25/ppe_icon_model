@@ -34,7 +34,7 @@
 MODULE mo_echam_phy_cleanup
 
   USE mo_echam_phy_config,   ONLY: phy_config => echam_phy_config
-  USE mo_echam_conv_nml,     ONLY: cleanup_cuparam
+  USE mo_echam_conv_config,  ONLY: cleanup_echam_convection
   USE mo_vdiff_solver,       ONLY: cleanup_vdiff_solver
 
   IMPLICIT NONE
@@ -57,7 +57,7 @@ CONTAINS
     IF (phy_config%lvdiff) CALL cleanup_vdiff_solver  ! Deallocate array "matrix_idx"
 
     IF (phy_config%lconv) THEN
-      CALL cleanup_cuparam  ! deallocate array "cevapcu"
+      CALL cleanup_echam_convection  ! deallocate array "cevapcu"
     END IF
 
    !"CALL destruct_echam_phy_state" can be called here instead of in "control_model"

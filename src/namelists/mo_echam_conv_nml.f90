@@ -45,9 +45,7 @@ MODULE mo_echam_conv_nml
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC  :: read_echam_conv_namelist
-  PUBLIC  :: echam_conv_nml_setup 
-  PUBLIC  :: cleanup_cuparam
+  PUBLIC :: read_echam_conv_namelist
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -87,10 +85,11 @@ CONTAINS
   !!
   SUBROUTINE read_echam_conv_namelist( filename )
 
-    CHARACTER(LEN=*), INTENT(IN) :: filename
-    INTEGER  :: ist, funit
+    CHARACTER(LEN=*),INTENT(IN) :: filename
     CHARACTER(LEN=*),PARAMETER :: &
     routine = 'mo_echam_conv_nml:read_echam_conv_namelist'
+
+    INTEGER  :: ist, funit
 
     !------------------------------------------------------------
     ! Set default values
@@ -193,67 +192,6 @@ CONTAINS
     echam_conv_config% entrpen  = nml_entrpen
 
   END SUBROUTINE read_echam_conv_namelist
-  !>
-  !!
-  SUBROUTINE echam_conv_nml_setup
-
-  ! REAL(wp) :: za, zb
-  ! REAL(wp) :: zp(nlev), zph(nlevp1)
-  ! INTEGER  :: jk, ist
-
-
-  !  !------------------------------------------------------------
-  !  ! CJ: calculations from the former cuparam subroutine
-  !  !------------------------------------------------------------
-
-  !  ! Determine highest level *nmctop* for cloud base of midlevel convection
-  !  ! assuming nmctop=9 (300 hPa) for the standard 19 level model
-
-  !  ! half level pressure values, assuming 101320. Pa surface pressure
-
-  !  DO jk=1,nlevp1
-  !    za = vct(jk)
-  !    zb = vct(jk+nvclev)
-  !    zph(jk) = za + zb*101320.0_wp
-  !  END DO
-
-  !  ! full level pressure
-
-  !  DO jk = 1, nlev
-  !    zp(jk) = (zph(jk)+zph(jk+1))*0.5_wp
-  !  END DO
-
-  !  ! search for 300 hPa level
-
-  !  DO jk = 1, nlev
-  !    nmctop=jk
-  !    IF(zp(jk).GE.30000.0_wp) EXIT
-  !  END DO
-
-  !  CALL print_value(&
-  !    &'lowest model level for cloud base of mid level convection: nmctop = ',nmctop)
-
-  !  ! evaporation coefficient for kuo0
-
-  !  ALLOCATE( cevapcu(nlev),STAT=ist )
-  !  IF (ist/=SUCCESS) CALL finish('cuparam','allocation of cevapcu failed')
-
-  !  DO jk = 1,nlev
-  !     cevapcu(jk) = 1.E3_wp/(38.3_wp*0.293_wp)*SQRT(ceta(jk))
-  !     cevapcu(jk) = 1.93E-6_wp*261._wp*SQRT(cevapcu(jk))*0.5_wp/grav
-  !  END DO
-
-  END SUBROUTINE echam_conv_nml_setup
-  !------------
-  !>
-  !!
-  SUBROUTINE cleanup_cuparam
-
-  ! INTEGER :: ist
-
-  ! DEALLOCATE( cevapcu,STAT=ist )
-  ! IF (ist/=SUCCESS) CALL finish('cuparam_cleanup','deallocation of cevapcu failed')
-
-  END SUBROUTINE cleanup_cuparam
   !-------------
+
 END MODULE mo_echam_conv_nml
