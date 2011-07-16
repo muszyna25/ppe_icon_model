@@ -167,7 +167,7 @@ CONTAINS
       ! ok
     CASE default
       CALL finish( TRIM(method_name),&
-        & 'wrong cell type specifier, "nml_cell_type" must be 3 or 6')
+        & 'wrong cell type specifier, "global_cell_type" must be 3 or 6')
     END SELECT
     
 

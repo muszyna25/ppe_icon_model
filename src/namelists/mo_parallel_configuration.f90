@@ -160,7 +160,7 @@ CONTAINS
     !------------------------------------------------------------
     !  check the consistency of the parameters
     !------------------------------------------------------------
-    IF (nproma<=0) CALL finish(TRIM(method_name),'"nml_nproma" must be positive')
+    IF (nproma<=0) CALL finish(TRIM(method_name),'"nproma" must be positive')
 
 ! check l_test_openmp
 #ifndef _OPENMP
