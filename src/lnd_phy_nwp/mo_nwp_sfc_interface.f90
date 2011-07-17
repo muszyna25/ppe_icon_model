@@ -58,7 +58,7 @@ MODULE mo_nwp_sfc_interface
 !em>
 
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_config,              ONLY: msg_level, iqv!, inextra_2d
+  USE mo_run_config,              ONLY: msg_level, iqv
 
 !  USE mo_atm_phy_nwp_nml,      ONLY: inwp_surface, inwp_satad  
   USE mo_atm_phy_nwp_config,   ONLY:  atm_phy_nwp_config

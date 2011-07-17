@@ -53,11 +53,7 @@ MODULE mo_ocean_model
 !0  &                               impiom,            & !    :
   USE mo_ocean_nml,           ONLY: setup_ocean_nml
   USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
-! USE mo_diffusion_nml,       ONLY: diffusion_nml_setup
-  USE mo_io_nml,              ONLY: io_nml_setup !,         & ! process I/O
-!    & dt_data,              & !    :
-!    & dt_file,              & !    :
-!    & dt_diag
+! USE mo_io_config,           ONLY: dt_data, dt_file, dt_diag
   USE mo_io_config,         ONLY:  dt_data,dt_file,dt_diag!,dt_checkpoint
   USE mo_run_config,        ONLY: &
     & dtime,                & !    :
@@ -381,7 +377,8 @@ CONTAINS
     ! step 6: initialize output
     !------------------------------------------------------------------
     
-    CALL io_nml_setup !is empty by now KF
+   !CALL io_nml_setup !is empty by now KF
+    CALL finish(TRIM(routine),'subroutine io_nml_sestup no longer exists!!')
     CALL setup_gmt_output(p_patch(n_dom)%nlev)
     
     ! The model produces output files for all grid levels

@@ -46,9 +46,7 @@ MODULE mo_run_nml
                          & config_dtime           => dtime,           &
                          & config_ltimer          => ltimer,          &
                          & config_timers_level    => timers_level,    &
-                         & config_msg_level       => msg_level,       &
-                         & config_inextra_2d      => inextra_2d,      &
-                         & config_inextra_3d      => inextra_3d
+                         & config_msg_level       => msg_level
 
   USE mo_kind,           ONLY: wp
   USE mo_exception,      ONLY: finish
@@ -105,9 +103,6 @@ MODULE mo_run_nml
 
   INTEGER :: msg_level     ! how much printout is generated during runtime
 
-  INTEGER :: inextra_2d    ! number of extra output fields for debugging
-  INTEGER :: inextra_3d    ! number of extra output fields for debugging
-
 
   NAMELIST /run_nml/ ldump_states, lrestore_states, &
                      ltestcase,    ldynamics,       &
@@ -117,8 +112,7 @@ MODULE mo_run_nml
                      num_lev,      nshift,          &
                      nsteps,       dtime,           &
                      ltimer,       timers_level,    &
-                     msg_level,                     &
-                     inextra_2d,   inextra_3d
+                     msg_level
 
 CONTAINS
   !>
@@ -156,9 +150,6 @@ CONTAINS
     ltimer       = .TRUE.
     timers_level = 1
     msg_level    = 10
-
-    inextra_2d   = 0     ! no extra output 2D fields
-    inextra_3d   = 0     ! no extra output 3D fields
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -226,9 +217,6 @@ CONTAINS
     config_ltimer          = ltimer
     config_timers_level    = timers_level
     config_msg_level       = msg_level
-
-    config_inextra_2d      = inextra_2d
-    config_inextra_3d      = inextra_3d
 
     !-----------------------------------------------------
     ! Store the namelist for restart

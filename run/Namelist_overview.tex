@@ -27,7 +27,7 @@
 \makeatother
 
 \newenvironment{longtab}{
-\begin{longtable}{|>{\raggedright}p{5.5cm}|>{\raggedright}p{2cm}|>{\raggedright}p{3.2cm}|>{\raggedright}p{1cm}|>{\raggedright}p{5cm}|>{\raggedright}p{3.5cm}|}
+\begin{longtable}{|>{\raggedright}p{5.5cm}|>{\raggedright}p{2cm}|>{\raggedright}p{3.2cm}|>{\raggedright}p{1cm}|>{\raggedright}p{5cm}|>{\raggedright}p{4.5cm}|}
 \hline
 Parameter&
 Type& Default& Unit&
@@ -1013,21 +1013,6 @@ For values less than 5, only the time step is written.&
 \tabularnewline
 
 
-\hline 
-inextra\_2d&
-I &
-0&&
-Number of 2D Fields for diagnostic/debugging output. &
-iequations = 3 {\color{red}(to be done for 1, 2)}
-\tabularnewline
-\hline 
-inextra\_3d&
-I &
-0&&
-Number of 3D Fields for diagnostic/debugging output. &
-iequations = 3 {\color{red}(to be done for 1, 2)}
-\tabularnewline
-
 \end{longtab}
 
 Defined and used in: src/namelists/mo\_run\_nml.f90
@@ -1500,6 +1485,162 @@ ctest\_name='PA'
 Defined and used in: src/testcases/mo\_nh\_testcases.f90
 
 
+%------------------------------------------------------------------------------
+% io_nml:
+%------------------------------------------------------------------------------
+\subsection{io\_nml}
+\begin{longtab}
+
+\hline 
+out\_expname &
+C& 'IIIEEEETTTT'& &
+Outfile basename&
+\tabularnewline
+
+\hline 
+out\_filetype&
+I& 2 & &
+Type of output format:\\
+1: GRIB1 (not yet implemented)\\
+2: netCDF&
+\tabularnewline
+
+\hline 
+lkeep\_in\_sync&
+L& .FALSE. & &
+Sync output stream with file on disk after each timestep&
+\tabularnewline
+
+\hline 
+dt\_data&
+R& 21600.0 & s&
+Output time interval&
+\tabularnewline
+
+\hline 
+dt\_diag&
+R& 86400. & &
+diagnostic integral output interval &
+\tabularnewline
+
+\hline 
+dt\_file&
+R& 2592000 & s&
+Time interval of triggering new output file&
+\tabularnewline
+
+\hline
+dt\_checkpoint&
+R& 2592000 & s&
+Time interval for writing restart files&
+\tabularnewline
+
+\hline 
+lwrite\_vorticity &
+L& .TRUE.& &
+write out averaged vorticity at vertices &
+\tabularnewline
+
+\hline 
+lwrite\_divergence &
+L& .TRUE.& &
+write out divergence at cells &
+\tabularnewline
+
+\hline 
+lwrite\_omega &
+L& .TRUE.& &
+write out vertical velocity in pressure coords.&
+Always .FALSE. for nonhydrostatic and shallow water models
+\tabularnewline
+
+\hline 
+lwrite\_pres &
+L& .TRUE.& &
+write out full level pressure&
+lshallow\_water=.FALSE.\tabularnewline
+
+\hline 
+lwrite\_z3 &
+L& .TRUE.& &
+write out geopotential on full levels&
+lshallow\_water=.FALSE.\tabularnewline
+
+\hline 
+lwrite\_tracer &
+L(ntracer)& .TRUE.& &
+write out tracer at cells &
+\tabularnewline
+
+\hline
+lwrite\_tend\_phy &
+L& .TRUE. \\ .FALSE. \\ (Scope) & &
+Physics induced tendencies.&
+.TRUE. if iforcing=iecham\\
+.FALSE. else
+\tabularnewline
+
+\hline
+lwrite\_radiation &
+L&  .FALSE. & &
+Radiation related fields.&
+Always .FALSE. if iforcing=inoforcing,iheldsuarez,ildf\_dry 
+\tabularnewline
+
+\hline
+lwrite\_precip &
+L&  .FALSE. & &
+Precipitation &
+Always .FALSE. if iforcing=inoforcing,iheldsuarez,ildf\_dry 
+\tabularnewline
+
+\hline
+lwrite\_cloud&
+L& .FALSE.  & &
+Cloud variables &
+Always .FALSE. if iforcing=inoforcing,iheldsuarez,ildf\_dry 
+\tabularnewline
+
+\hline
+lwrite\_tke& L& .TRUE. &
+& TKE & .FALSE.  \\
+Always .FALSE. if iforcing=inoforcing,iheldsuarez,ildf\_dry 
+\tabularnewline
+
+\hline
+lwrite\_surface&
+L& .FALSE. & &
+surface variables &
+Always .FALSE. if iforcing=inoforcing,iheldsuarez,ildf\_dry 
+\tabularnewline
+
+\hline
+lwrite\_extra&
+L& .FALSE. & &
+debug fields &
+.TRUE. if inextra\_2d /\_3d $> 0$ \\
+.FALSE. else
+\tabularnewline
+
+\hline 
+inextra\_2d&
+I &
+0&&
+Number of 2D Fields for diagnostic/debugging output. &
+iequations = 3 {\color{red}(to be done for 1, 2)}
+\tabularnewline
+\hline 
+inextra\_3d&
+I &
+0&&
+Number of 3D Fields for diagnostic/debugging output. &
+iequations = 3 {\color{red}(to be done for 1, 2)}
+\tabularnewline
+
+\hline
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_io\_nml.f90
 
 
 %CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
@@ -3439,179 +3580,6 @@ Defined and used in: src/namelists/mo\_echam\_vdiff\_nml.f90
 %----------------------- end of switches for ECHAM turbulent mixing scheme --------------------
 
 
-
-\subsection{io\_ctl}
-
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1.4cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
-\hline
-\endhead
-\hline 
-out\_expname &
-C&
-'IIIEEEETTTT'&
-&
-Outfile basename&
-\tabularnewline
-\hline 
-lwrite\_omega &
-L&
-.TRUE.&
-&
-write out vertical velocity in pressure coords.&
-lshallow\_water=.FALSE.\tabularnewline
-\hline 
-lwrite\_pres &
-L&
-.TRUE.&
-&
-write out full level pressure&
-lshallow\_water=.FALSE.\tabularnewline
-\hline 
-lwrite\_vorticity &
-L&
-.TRUE.&
-&
-write out averaged vorticity at cells &
-\tabularnewline
-\hline 
-lwrite\_divergence &
-L&
-.TRUE.&
-&
-write out divergence at cells &
-\tabularnewline
-\hline 
-lwrite\_z3 &
-L&
-.TRUE.&
-&
-write out geopotential on full levels&
-lshallow\_water=.FALSE.\tabularnewline
-\hline 
-lwrite\_tracer &
-L(ntracer)&
-.TRUE.&
-&
-write out tracer at cells &
-\tabularnewline
-\hline 
-out\_filetype&
-I&
-2 &
-&
-Type of output format:\\
-1: GRIB1 (not yet implemented)\\
-2: netCDF&
-\tabularnewline
-\hline 
-dt\_data&
-R&
-21600.0 &
-s&
-Output time increment&
-\tabularnewline
-\hline 
-dt\_diag&
-R&
-dtime &
-&
-diagnostic integral output timestep &
-\tabularnewline
-\hline 
-dt\_file&
-R&
-2592000 &
-s&
-Time increment of triggering new output file&
-\tabularnewline
-
-\hline
-dt\_checkpoint&
-R& 2592000 & s&
-Time interval for writing restart files&
-\tabularnewline
-
-\hline 
-lkeep\_in\_sync&
-L&
-.FALSE. &
-&
-Sync output stream with file on disk after each timestep&
-\tabularnewline
-\hline
-lwrite\_tend\_phy &
-L&
-.TRUE. \\ .FALSE. \\ (Scope) &
-&
-Physics induced tendencies.&
-.TRUE. if iforcing=iecham\\
-.FALSE. else
-\tabularnewline
-\hline
-lwrite\_radiation &
-L&
-.TRUE. \\ .FALSE.\\ (Scope) &
-&
-Radiation related fields.&
-.TRUE. if iforcing=iecham or inwp\\
-.FALSE. else
-\tabularnewline
-\hline
-lwrite\_precip &
-L&
-.TRUE. \\ .FALSE.\\ (Scope) &
-&
-Precipitation &
-.TRUE. if iforcing=iecham or inwp\\
-.FALSE. else
-\tabularnewline
-\hline
-lwrite\_cloud&
-L&
-.TRUE. \\ .FALSE. \\ (Scope) &
-&
-Cloud variables &
-.TRUE. if iforcing=iecham or inwp\\
-.FALSE. else
-\tabularnewline
-\hline
-lwrite\_tke&
-L&
-.TRUE. &
-&
-TKE &
-.FALSE. per Default \\
-.TRUE. if set (AND iforcing =nwp)
-\tabularnewline
-\hline
-lwrite\_surface&
-L&
-.FALSE. &
-&
-surface variables &
-.TRUE. if set (AND iforcing =nwp)\\
-.FALSE. else
-\tabularnewline
-\hline
-lwrite\_extra&
-L&
-.FALSE. &
-&
-debug fields &
-.TRUE. if inextra\_2d /\_3d $> 0$ \\
-.FALSE. else
-\tabularnewline
-\hline
-\end{longtable}
-
-Defined and used in: src/namelists/mo\_io\_nml.f90
 
 \subsection{interpol\_ctl}
 

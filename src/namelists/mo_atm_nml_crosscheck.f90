@@ -46,37 +46,39 @@ MODULE mo_atm_nml_crosscheck
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, message_text, finish, print_value
   USE mo_master_nml,          ONLY: lrestart
-  USE mo_impl_constants,      ONLY: max_char_length, max_dom,itconv,itccov,&
-    &                               itrad,itradheat, itsso,itgscp,itsatad,itupdate,&
-    &                               itturb, itsfc,  itgwd, iphysproc,iecham, ildf_echam,&
-    &                               inwp, iheldsuarez, ildf_dry,  &
-    &                               IHS_ATM_TEMP,IHS_ATM_THETA, &
-    &                               tracer_only, inh_atmosphere, ishallow_water
-  USE mo_parallel_configuration, ONLY: check_parallel_configuration
-  USE mo_run_config,          ONLY: lrestore_states, nsteps, dtime, iforcing,    &
-                                  & ltransport, ntracer, nlev, io3,              &
-                                  & ltestcase, inextra_2D, inextra_3D
-                                  
+  USE mo_impl_constants,      ONLY: max_char_length, max_dom,itconv,itccov,    &
+                                    itrad,itradheat, itsso, itgscp, itsatad,   &
+                                    itupdate, itturb, itsfc, itgwd, iphysproc, &
+                                    iecham, ildf_echam, inwp, iheldsuarez,     &
+                                    ildf_dry, inoforcing,                      &
+                                    ihs_atm_temp, ihs_atm_theta,               &
+                                    tracer_only, inh_atmosphere, ishallow_water
   USE mo_time_config,         ONLY: time_config
+  USE mo_parallel_configuration, ONLY: check_parallel_configuration
+  USE mo_run_config,          ONLY: lrestore_states, nsteps, dtime, iforcing,  &
+                                  & ltransport, ntracer, nlev, io3, ltestcase
+                                  
+  USE mo_io_config
   USE mo_gridref_config
   USE mo_interpol_config
   USE mo_grid_configuration
   USE mo_sleve_config
 
-  USE mo_dynamics_config,     ONLY: configure_dynamics,&
-    &                            iequations, itime_scheme, idiv_method, divavg_cntrwgt,&
-    &                            sw_ref_height, ldry_dycore, lcoriolis, lshallow_water, ltwotime
+  USE mo_dynamics_config,     ONLY: configure_dynamics,                        &
+                                    iequations, itime_scheme, idiv_method,     &
+                                    divavg_cntrwgt, sw_ref_height, ldry_dycore,&
+                                    lcoriolis, lshallow_water, ltwotime
   USE mo_advection_config,    ONLY: advection_config !, configure_advection
 
   USE mo_nonhydrostatic_config
   USE mo_ha_dyn_config,     ONLY: ha_dyn_config
   USE mo_diffusion_config,  ONLY: diffusion_config, configure_diffusion
 
-  USE mo_io_config
 
-  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, tcall_phy, configure_atm_phy_nwp
+  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, tcall_phy, &
+                                   configure_atm_phy_nwp
   USE mo_lnd_nwp_config,     ONLY: nlev_soil, nztlev ,nlev_snow ,nsfc_subs,&
-    &                              lseaice,  llake, lmelt , lmelt_var, lmulti_snow
+                                   lseaice,  llake, lmelt , lmelt_var, lmulti_snow
   USE mo_echam_phy_config,   ONLY: echam_phy_config, configure_echam_phy
   USE mo_radiation_config
   USE mo_echam_conv_config,  ONLY: echam_conv_config, configure_echam_convection
@@ -428,34 +430,53 @@ CONTAINS
     !--------------------------------------------------------------------
     ! checking the meanings of the io settings
     !--------------------------------------------------------------------
+    IF (iequations==ISHALLOW_WATER) THEN
+       lwrite_omega     = .FALSE.
+       lwrite_pres      = .FALSE.
+       lwrite_z3        = .FALSE.
+    END IF
 
-  SELECT CASE(iforcing)
-  CASE ( inwp )
-    ! Do nothing. Keep the initial values, if not specified in namelist.
-    ! consider special idealized testcase with turbulence only
-    IF( .NOT. ltransport  )   THEN
-      lwrite_precip    = .FALSE.
-      lwrite_cloud     = .FALSE.
-      lwrite_radiation = .FALSE.
-      lwrite_tke       = .TRUE.
-      lwrite_surface   = .FALSE.
-      CALL message('io_nml_setup',' ATTENTION! Only TKE output for TURBULENCE ONLY test')
+    IF (iequations==INH_ATMOSPHERE) THEN
+       lwrite_omega     = .FALSE.
+    END IF
+
+    SELECT CASE(iforcing)
+    CASE ( inwp )
+      ! Do nothing. Keep the initial values, if not specified in namelist.
+      ! consider special idealized testcase with turbulence only
+      IF( .NOT. ltransport  )   THEN
+        lwrite_precip    = .FALSE.
+        lwrite_cloud     = .FALSE.
+        lwrite_radiation = .FALSE.
+        lwrite_tke       = .TRUE.
+        lwrite_surface   = .FALSE.
+        CALL message('io_nml_setup',' ATTENTION! Only TKE output for TURBULENCE ONLY test')
+      ENDIF
+
+    CASE ( iecham, ildf_echam )
+      lwrite_extra = .FALSE.
+      inextra_2d   = 0
+      inextra_3d   = 0
+
+    CASE (inoforcing,iheldsuarez,ildf_dry)
+       lwrite_tend_phy  = .FALSE.
+       lwrite_radiation = .FALSE.                                                         
+       lwrite_precip    = .FALSE.                                                         
+       lwrite_cloud     = .FALSE.                                                        
+       lwrite_tke       = .FALSE.                                                        
+       lwrite_surface   = .FALSE.                                                        
+    CASE DEFAULT
+    END SELECT
+  
+    IF (( inextra_2D > 0) .OR. (inextra_3D > 0) ) THEN
+      lwrite_extra = .TRUE.
+      WRITE(message_text,'(a,2I4,a,L4)') &
+        &'inextra is',inextra_2d,inextra_3d ,' lwrite_extra has been set', lwrite_extra
+      CALL message('io_namelist', TRIM(message_text))
     ENDIF
-  CASE ( iecham,ildf_echam )
-    ! Do nothing. Keep the initial values, if not specified in namelist.
-  CASE DEFAULT
-    ! Do nothing. Keep the initial values, if not specified in namelist.
-  END SELECT
-
-  IF (( inextra_2D > 0) .OR. (inextra_3D > 0) ) THEN
-    lwrite_extra = .TRUE.
-    WRITE(message_text,'(a,2I4,a,L4)') &
-      &'inextra is',inextra_2d,inextra_3d ,' lwrite_extra has been set', lwrite_extra
-    CALL message('io_namelist', TRIM(message_text))
-  ENDIF
-
-  IF (inextra_2D == 0 .AND. inextra_3D == 0 .AND. lwrite_extra) &
-    CALL finish('io_namelist','need to specify extra fields for extra output')
+  
+    IF (inextra_2D == 0 .AND. inextra_3D == 0 .AND. lwrite_extra) &
+      CALL finish('io_namelist','need to specify number of fields for extra output')
 
 
   END  SUBROUTINE atm_crosscheck

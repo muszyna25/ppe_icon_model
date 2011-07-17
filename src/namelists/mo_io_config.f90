@@ -55,9 +55,9 @@ MODULE mo_io_config
   !--------------------------------------------------------------------------
   ! Derived type 
   !--------------------------------------------------------------------------
-!  TYPE :: t_io_config
+  !TYPE :: t_io_config
 
-    ! namelist variables
+    ! from namelist
 
     CHARACTER(len=max_char_length) :: out_expname
     INTEGER :: out_filetype               ! 1 - GRIB1, 2 - netCDF
@@ -81,7 +81,10 @@ MODULE mo_io_config
                                           ! in pressure coordinate
     LOGICAL :: lwrite_tke                 ! if .true., write out TKE
     LOGICAL :: lwrite_surface             ! if .true., write out surface related fields
+
     LOGICAL :: lwrite_extra               ! if .true., write out extra fields
+    INTEGER :: inextra_2d                 ! number of extra output fields for debugging
+    INTEGER :: inextra_3d                 ! number of extra output fields for debugging
 
     ! derived variables
 
@@ -93,15 +96,15 @@ MODULE mo_io_config
                                                                                  
     LOGICAL :: lprepare_output(max_dom) ! if .true., save the prognostic variables
                                         ! to p_prog_out and update p_diag_out.
-!  END TYPE t_io_config
+  !END TYPE t_io_config
   !>
   !!
- ! TYPE(t_io_config):: io_config(max_dom)
-
+  !TYPE(t_io_config):: io_config(max_dom)
 
 !CONTAINS
-
-! SUBROUTINE setup_io_config !(n_dom)
-!  END SUBROUTINE setup_io_config
+!  !>
+!  !!
+!  SUBROUTINE configure_io(n_dom)
+!  END SUBROUTINE configure_io
 
 END MODULE mo_io_config

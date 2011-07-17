@@ -40,7 +40,10 @@ MODULE mo_atmo_setup_configuration
 
   USE mo_time_nml,            ONLY: read_time_namelist
   USE mo_parallel_nml,        ONLY: read_parallel_namelist
+
   USE mo_run_nml,             ONLY: read_run_namelist
+  USE mo_ha_testcases,        ONLY: read_ha_testcase_namelist 
+  USE mo_nh_testcases,        ONLY: read_nh_testcase_namelist
 
   USE mo_dynamics_nml,        ONLY: read_dynamics_namelist
   USE mo_nonhydrostatic_nml,  ONLY: read_nonhydrostatic_namelist
@@ -60,9 +63,6 @@ MODULE mo_atmo_setup_configuration
   USE mo_sleve_nml,           ONLY: read_sleve_namelist
   USE mo_grid_nml,            ONLY: read_grid_namelist
   USE mo_interpol_nml,        ONLY: read_interpol_namelist
-
-  USE mo_ha_testcases,        ONLY: read_ha_testcase_namelist 
-  USE mo_nh_testcases,        ONLY: read_nh_testcase_namelist
 
   USE mo_io_restart_namelist,  ONLY: read_restart_namelists
   USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute

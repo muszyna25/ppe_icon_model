@@ -54,11 +54,7 @@ USE mo_global_variables,    ONLY: setup_physics           ! process forcing cont
 USE mo_nonhydrostatic_nml,  ONLY: ivctype,              & ! type of vertical coordinate
 & nonhydrostatic_nml_setup
 USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
-USE mo_io_nml,              ONLY: io_nml_setup !,         & ! process I/O
-!& dt_data,              & !    :
-!& dt_file,              & !    :
-!& dt_diag,              & !    :
-!& dt_checkpoint 
+!USE mo_io_config,           ONLY: dt_data, dt_file, dt_diag, dt_checkpoint 
 USE mo_io_config,         ONLY:  dt_data,dt_file,dt_diag,dt_checkpoint
 USE mo_dynamics_config,   ONLY: iequations
 USE mo_run_config,        ONLY: &
@@ -660,7 +656,7 @@ INTEGER, POINTER :: grid_glob_index(:)
     ! step 6: initialize output
     !------------------------------------------------------------------
     
-    CALL io_nml_setup ! is empty and now only a place holder
+   !CALL io_nml_setup ! is empty and now only a place holder
     CALL setup_gmt_output(p_patch(n_dom)%nlev)
     
     ! The model produces output files for all grid levels

@@ -1,6 +1,6 @@
 !>
 !! Contains the setup of the variables for io.
-!!        
+!!
 !! @par Revision History
 !!
 !! @par Copyright
@@ -43,13 +43,10 @@ MODULE mo_io_nml
 !
 !
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_impl_constants,     ONLY: max_char_length, max_ntracer, max_dom
-  USE mo_datetime,           ONLY: t_datetime, proleptic_gregorian,          &
-    &                              date_to_time, add_time, print_datetime_all
+  USE mo_impl_constants,     ONLY: max_char_length, max_ntracer
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_mpi,                ONLY: p_pe, p_io
+  USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_master_nml,         ONLY: lrestart
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
@@ -73,17 +70,18 @@ MODULE mo_io_nml
                                  & config_lwrite_cloud      => lwrite_cloud     , &
                                  & config_lwrite_tke        => lwrite_tke       , &
                                  & config_lwrite_surface    => lwrite_surface   , &
-                                 & config_lwrite_extra      => lwrite_extra
-
+                                 & config_lwrite_extra      => lwrite_extra     , &
+                                 & config_inextra_2d        => inextra_2d       , &
+                                 & config_inextra_3d        => inextra_3d
 
   IMPLICIT NONE
-  PUBLIC :: read_io_namelist, io_nml_setup 
+  PUBLIC :: read_io_namelist
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
-  ! ------------------------------------------------------------------------
-  ! 1.0 Namelist variables and auxiliary parameters
-  ! ------------------------------------------------------------------------
-  !
+  !-------------------------------------------------------------------------
+  ! Namelist variables
+  !-------------------------------------------------------------------------
+
   CHARACTER(len=max_char_length) :: out_expname
   INTEGER :: out_filetype               ! 1 - GRIB1, 2 - netCDF
   LOGICAL :: lkeep_in_sync              ! if .true., sync stream after each timestep
@@ -91,7 +89,7 @@ MODULE mo_io_nml
   REAL(wp):: dt_diag                    ! diagnostic output timestep [seconds]
   REAL(wp):: dt_file                    ! timestep [seconds] for triggering new output file
   REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
-  !
+
   LOGICAL :: lwrite_vorticity           ! if .true., write out vorticity
   LOGICAL :: lwrite_divergence          ! if .true., write out divergence
   LOGICAL :: lwrite_pres                ! if .true., write out full level pressure
@@ -107,6 +105,8 @@ MODULE mo_io_nml
   LOGICAL :: lwrite_tracer(max_ntracer) ! for each tracer, if .true. write out
                                         ! tracer on full levels
   LOGICAL :: lwrite_extra               ! if .true., write out extra fields
+  INTEGER :: inextra_2d                 ! number of extra output fields for debugging
+  INTEGER :: inextra_3d                 ! number of extra output fields for debugging
 
   NAMELIST/io_nml/ out_expname, out_filetype, lkeep_in_sync,          &
     &              dt_data, dt_diag, dt_file, dt_checkpoint,          &
@@ -114,59 +114,20 @@ MODULE mo_io_nml
     &              lwrite_pres, lwrite_z3, lwrite_tracer,             &
     &              lwrite_tend_phy, lwrite_radiation, lwrite_precip,  &
     &              lwrite_cloud, lwrite_tke, lwrite_surface,          &
-    &              lwrite_extra
+    &              lwrite_extra, inextra_2d, inextra_3d
 
-  !
-  ! -----------------------------------------------------------------------
-  ! 2.0 Declaration of dependent control variables 
-  ! -----------------------------------------------------------------------
-  !
-!  LOGICAL :: l_outputtime        ! if .true., output is written at the end of the time step.
-!  LOGICAL :: l_checkpoint_time   ! if .true., restart file is written at the end of the time step.
-!  LOGICAL :: l_diagtime          ! if .true., diagnostic output is computed and written
-!                                 ! at the end of the time step.
-
-!  LOGICAL, ALLOCATABLE :: lprepare_output(:) ! For each grid level:
-!                                             ! if .true., save the prognostic
-!                                             ! variables to p_prog_out and
-!                                             ! update p_diag_out.
-
-
-  CONTAINS
-!
-!-------------------------------------------------------------------------
-!
-!
-!>
-!!  Initialization of variables that determine io.
-!!
-!!               Initialization of variables that determine
-!!               some settings of the io.
-!!               The configuration is read from namelist 'io_nml'.
-!!
-!! @par Revision History
-!!  Initial version by Almut Gassmann, MPI-M (2008-09-30)
-!!  Modofied by Constantin Junk, MPI-M (2010-22-02):
-!!     - renamed subroutine setup_io to io_nml_setup
-!!     - moved subroutine to new module mo_io_nml
-!!
-  SUBROUTINE io_nml_setup
-
- 
-  END SUBROUTINE io_nml_setup
-
-
+CONTAINS
   !>
-  !! Read Namelist for I/O. 
+  !! Read Namelist for I/O.
   !!
-  !! This subroutine 
+  !! This subroutine
   !! - reads the Namelist for I/O
   !! - sets default values
-  !! - potentially overwrites the defaults by values used in a 
+  !! - potentially overwrites the defaults by values used in a
   !!   previous integration (if this is a resumed run)
   !! - reads the user's (new) specifications
   !! - stores the Namelist for restart
-  !! - fills the configuration state (partly)    
+  !! - fills the configuration state (partly)
   !!
   !! @par Revision History
   !!  by Daniel Reinert, DWD (2011-06-07)
@@ -175,8 +136,6 @@ MODULE mo_io_nml
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
-!    INTEGER :: jg           ! loop index
-
     CHARACTER(len=*), PARAMETER :: routine = 'mo_io_nml:read_io_namelist'
 
     !-----------------------
@@ -204,10 +163,12 @@ MODULE mo_io_nml
     lwrite_cloud       = .FALSE.
     lwrite_tke         = .FALSE.
     lwrite_surface     = .FALSE.
-    lwrite_extra       = .FALSE. 
+    lwrite_extra       = .FALSE.
+    inextra_2d         = 0     ! no extra output 2D fields
+    inextra_3d         = 0     ! no extra output 3D fields
 
     !------------------------------------------------------------------
-    ! 2. If this is a resumed integration, overwrite the defaults above 
+    ! 2. If this is a resumed integration, overwrite the defaults above
     !    by values used in the previous integration.
     !------------------------------------------------------------------
     IF (lrestart) THEN
@@ -217,7 +178,7 @@ MODULE mo_io_nml
     END IF
 
     !-------------------------------------------------------------------------
-    ! 3. Read user's (new) specifications (Done so far by all MPI processors)
+    ! 3. Read user's (new) specifications (Done so far by all MPI processes)
     !-------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('io_nml', status=istat)
@@ -240,9 +201,9 @@ MODULE mo_io_nml
 !      io_config(jg)%dt_file          = dt_file
 !      io_config(jg)%dt_checkpoint    = dt_checkpoint
 !      io_config(jg)%lwrite_vorticity = lwrite_vorticity
-!      io_config(jg)%lwrite_divergence= lwrite_divergence 
+!      io_config(jg)%lwrite_divergence= lwrite_divergence
 !      io_config(jg)%lwrite_omega     = lwrite_omega
-!      io_config(jg)%lwrite_pres      = lwrite_pres 
+!      io_config(jg)%lwrite_pres      = lwrite_pres
 !      io_config(jg)%lwrite_z3        = lwrite_z3
 !      io_config(jg)%lwrite_tracer    = lwrite_tracer
 !      io_config(jg)%lwrite_tend_phy  = lwrite_tend_phy
@@ -254,36 +215,38 @@ MODULE mo_io_nml
 !      io_config(jg)%lwrite_extra     = lwrite_extra
 !    ENDDO
 !
-       config_out_expname       = out_expname
-       config_out_filetype      = out_filetype
-       config_lkeep_in_sync     = lkeep_in_sync
-       config_dt_data           = dt_data
-       config_dt_diag           = dt_diag
-       config_dt_file           = dt_file
-       config_dt_checkpoint     = dt_checkpoint
-       config_lwrite_vorticity  = lwrite_vorticity
-       config_lwrite_divergence = lwrite_divergence 
-       config_lwrite_omega      = lwrite_omega
-       config_lwrite_pres       = lwrite_pres 
-       config_lwrite_z3         = lwrite_z3
-       config_lwrite_tracer     = lwrite_tracer
-       config_lwrite_tend_phy   = lwrite_tend_phy
-       config_lwrite_radiation  = lwrite_radiation
-       config_lwrite_precip     = lwrite_precip
-       config_lwrite_cloud      = lwrite_cloud
-       config_lwrite_tke        = lwrite_tke
-       config_lwrite_surface    = lwrite_surface
-       config_lwrite_extra      = lwrite_extra
+    config_out_expname       = out_expname
+    config_out_filetype      = out_filetype
+    config_lkeep_in_sync     = lkeep_in_sync
+    config_dt_data           = dt_data
+    config_dt_diag           = dt_diag
+    config_dt_file           = dt_file
+    config_dt_checkpoint     = dt_checkpoint
+    config_lwrite_vorticity  = lwrite_vorticity
+    config_lwrite_divergence = lwrite_divergence
+    config_lwrite_omega      = lwrite_omega
+    config_lwrite_pres       = lwrite_pres
+    config_lwrite_z3         = lwrite_z3
+    config_lwrite_tracer     = lwrite_tracer
+    config_lwrite_tend_phy   = lwrite_tend_phy
+    config_lwrite_radiation  = lwrite_radiation
+    config_lwrite_precip     = lwrite_precip
+    config_lwrite_cloud      = lwrite_cloud
+    config_lwrite_tke        = lwrite_tke
+    config_lwrite_surface    = lwrite_surface
+    config_lwrite_extra      = lwrite_extra
+    config_inextra_2d        = inextra_2d
+    config_inextra_3d        = inextra_3d
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
-    WRITE(funit,NML=io_nml)                    
-    CALL store_and_close_namelist(funit, 'io_nml') 
+    WRITE(funit,NML=io_nml)
+    CALL store_and_close_namelist(funit, 'io_nml')
 
     ! 6. write the contents of the namelist to an ASCII file
-    IF(p_pe == p_io) WRITE(nnml_output,nml=io_nml)
+    IF(my_process_is_stdio()) WRITE(nnml_output,nml=io_nml)
 
   END SUBROUTINE read_io_namelist
 

@@ -48,7 +48,7 @@ MODULE mo_run_config
   PUBLIC :: ldump_states, lrestore_states, ltestcase, ldynamics, iforcing, lforcing
   PUBLIC :: ltransport, ntracer, ntracer_static, nlev, nlevp1, nvclev
   PUBLIC :: lvert_nest, num_lev, num_levp1, nshift, nsteps, dtime
-  PUBLIC :: ltimer, timers_level, msg_level, inextra_2d, inextra_3d
+  PUBLIC :: ltimer, timers_level, msg_level
   PUBLIC :: iqv, iqc, iqi, iqs, iqr, iqcond, iqt, io3, ico2
   PUBLIC :: configure_run
 
@@ -83,9 +83,6 @@ MODULE mo_run_config
     INTEGER :: timers_level    ! what level of timers to run
 
     INTEGER :: msg_level       ! how much printout is generated during runtime
-
-    INTEGER :: inextra_2d      !> number of extra output fields for debugging
-    INTEGER :: inextra_3d      !> number of extra output fields for debugging
 
     ! Tracer indices of water species
 

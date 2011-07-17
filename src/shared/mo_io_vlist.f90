@@ -119,29 +119,23 @@ MODULE mo_io_vlist
     &                               lwrite_vorticity, lwrite_divergence,        &
     &                               lwrite_tend_phy, lwrite_radiation,          &
     &                               lwrite_precip, lwrite_cloud, lwrite_tracer, &
-    &                               lwrite_tke,  lwrite_surface,lwrite_extra,   &
-    &                               out_filetype, out_expname,         &
+    &                               lwrite_tke,  lwrite_surface,                &
+    &                               lwrite_extra, inextra_2d,inextra_3d,        &
+    &                               out_filetype, out_expname,                  &
     &                               dt_data, dt_file, lkeep_in_sync
   USE mo_parallel_configuration,  ONLY: nproma, p_test_run
   USE mo_extpar_config,       ONLY: itopo
-  USE mo_run_config,          ONLY: num_lev, num_levp1,                         &
-    &                               ntracer, ltransport,iqcond,                 &
-    &                               dtime, msg_level,               &
-    &                               ldynamics, ltestcase,                       &
-    &                               iforcing, &
-    &                               iqv, iqc, iqi, nsteps, lforcing,    &
-    &                               lvert_nest, inextra_2d,inextra_3d
+  USE mo_run_config,          ONLY: num_lev, num_levp1, iforcing, lforcing,     &
+    &                               ntracer, ltransport, nsteps, dtime,         &
+    &                               ldynamics, ltestcase, lvert_nest, msg_level,&
+    &                               iqv, iqc, iqi, iqcond
   USE mo_grid_configuration,  ONLY : global_cell_type
   USE mo_echam_phy_config
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
-!  USE mo_atm_phy_nwp_nml,     ONLY: inwp_gscp, inwp_gscp, inwp_convection,      &
-!    &                               inwp_radiation, inwp_sso, inwp_cldcover,    &
-!    &                               inwp_turb, dt_conv, dt_rad_nml => dt_rad,   &
-!    &                               dt_ccov, dt_sso, inwp_satad
   USE mo_advection_nml,       ONLY: iadv_slev
   USE mo_advection_config,    ONLY: advection_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config
-!!$  USE mo_gw_hines_nml,        ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
+! USE mo_gw_hines_nml,        ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
   USE mo_vertical_coord_table,ONLY: vct
   USE mo_model_domain_import, ONLY: start_lev, nroot, n_dom, lfeedback, lplane
   USE mo_model_domain,        ONLY: t_patch,t_patch_ocean

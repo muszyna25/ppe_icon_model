@@ -60,7 +60,8 @@ MODULE mo_nwp_turb_interface
 
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_config,           ONLY: msg_level, ntracer, iqv, iqc, &
-    &                                iqi, iqr, iqs, inextra_2d
+    &                                iqi, iqr, iqs
+  USE mo_io_config,            ONLY: inextra_2d
 !  USE mo_atm_phy_nwp_nml,      ONLY: inwp_turb, inwp_surface, inwp_satad  
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
 !  USE mo_turbdiff_ras,       ONLY: organize_turbdiff
