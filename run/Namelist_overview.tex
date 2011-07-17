@@ -27,7 +27,7 @@
 \makeatother
 
 \newenvironment{longtab}{
-\begin{longtable}{|>{\raggedright}p{5.5cm}|>{\raggedright}p{0.8cm}|>{\raggedright}p{3.2cm}|>{\raggedright}p{1cm}|>{\raggedright}p{5cm}|>{\raggedright}p{3.5cm}|}
+\begin{longtable}{|>{\raggedright}p{5.5cm}|>{\raggedright}p{2cm}|>{\raggedright}p{3.2cm}|>{\raggedright}p{1cm}|>{\raggedright}p{5cm}|>{\raggedright}p{3.5cm}|}
 \hline
 Parameter&
 Type& Default& Unit&
@@ -709,8 +709,8 @@ Defined in \verb+mo_create_torus_grid.f90+. See the run script \verb+run/create_
 % master_ctl: the minimum one needs to specify about an integration
 %------------------------------------------------------------------------------
 \subsection{master\_ctl}
-
 \begin{longtab}
+
 \hline
 lrestart&
 L & .FALSE.& &
@@ -744,11 +744,57 @@ Name (including full path) of the ocean-specific namelist file &
 \end{longtab}
 
 %------------------------------------------------------------------------------
+% time_nml
+%------------------------------------------------------------------------------
+\subsection{time\_nml}
+\begin{longtab}
+
+\hline
+dt\_restart &
+R & 86400.*30.& s &
+Length of restart cycle in seconds.
+\tabularnewline
+
+\hline 
+calendar&
+I& 1& &
+Calendar type: \\ 
+0=Julian/Gregorian \\
+1=proleptic Gregorian\\
+2=30day/month,360day/year & 
+\tabularnewline
+
+\hline 
+ini\_datatime\_string &
+C & '2008-09-01T00:00:00Z' &&
+Initial date and time of the simulaiton. 
+\tabularnewline
+
+\hline 
+end\_datatime\_string &
+C & 2008-09-01T01:40:00Z' &&
+End date and time of the simulaiton. 
+\tabularnewline
+
+\hline 
+&&&& Length of the run&
+\tabularnewline
+&&&& If "nsteps" in run\_nml (see below) is positive, then nsteps*dtime 
+is used to compute the end date and time of the run.&
+\tabularnewline
+&&&& Else the initial date and time, the end date and time, dt\_restart,
+as well as the time step are used to compute "nsteps".&
+\tabularnewline
+
+\end{longtab}
+
+
+%------------------------------------------------------------------------------
 % parallel_nml:
 %------------------------------------------------------------------------------
-\subsection{parallel\_ctl}
-
+\subsection{parallel\_nml}
 \begin{longtab}
+
 \hline 
 nproma &
 I & 1& &
@@ -841,6 +887,151 @@ Experimental!&
 Defined and used in: src/namelists/mo\_parallel\_nml.f90
 
 
+
+%------------------------------------------------------------------------------
+% run_nml
+%------------------------------------------------------------------------------
+\subsection{run\_nml}
+
+\begin{longtab}
+
+\hline 
+ldump\_states&
+L & .FALSE.& &
+Dump patch/interpolation/grid refinement state of every
+patch (after subdivision in case of a parallel run)
+to a Netcdf file and exit program.&
+\tabularnewline
+
+\hline 
+lrestore\_states&
+L & .FALSE.& &
+Restore patch/interpolation/grid refinement states
+from NetCDF dump files instead of calculating them.&
+\tabularnewline
+
+\hline 
+nsteps &
+I & 0 & &
+number of time steps of this run.&
+\tabularnewline
+
+\hline 
+dtime &
+R & 600.0& s&
+time step&
+\tabularnewline
+
+
+\hline 
+ltestcase &
+L & .TRUE.& &
+Idealized testcase runs&
+\tabularnewline
+
+\hline 
+ldynamics&
+L& .TRUE.& &
+Compute adiabatic dynamic tendencies&
+\tabularnewline
+
+\hline 
+iforcing&
+I&
+0&
+&
+Forcing of dynamics and transport by parameterized processes. Use positive indices for the
+atmosphere and negative indices for the ocean.\\
+0: no forcing\\
+1: Held-Suarez forcing\\
+2: ECHAM forcing\\
+3: NWP forcing\\
+4: local diabatic forcing without physics\\
+5: local diabatic forcing with physics\\
+-1: MPIOM forcing (to be done)&
+\tabularnewline
+
+\hline 
+ltransport&
+L& .FALSE.& &
+Compute large-scale tracer transport&
+\tabularnewline
+
+\hline 
+ntracer&
+I& 0& &
+Number of advected tracers handled by the large-scale transport scheme&
+\tabularnewline
+
+
+
+\hline
+lvert\_nest &
+L & .FALSE.& &
+If set to .true. vertical nesting is switched on (i.e.\ variable number of vertical levels) &
+\tabularnewline
+
+\hline 
+nlev&
+I& 31& &
+Number of vertical layers &
+lvert\_nest=.FALSE.
+\tabularnewline
+
+\hline 
+num\_nlev&
+I(max\_dom)& 31& &
+Number of full levels (atm.) for each domain&
+lvert\_nest=.TRUE.
+\tabularnewline
+
+\hline 
+nshift&
+I(max\_dom)& 0& & 
+vertical half level of parent domain which coincides with 
+upper boundary of the current domain&
+lvert\_nest=.TRUE.
+\tabularnewline
+
+\hline 
+ltimer&
+L & .TRUE.& &
+TRUE: Timer for monitoring thr runtime of specific routines is on (FALSE = off)&
+\tabularnewline
+
+\hline 
+timers\_level&
+I & 1& &
+&
+\tabularnewline
+
+\hline 
+msg\_level&
+I & 10& &
+controls how much printout is written during runtime. \\
+For values less than 5, only the time step is written.&
+\tabularnewline
+
+
+\hline 
+inextra\_2d&
+I &
+0&&
+Number of 2D Fields for diagnostic/debugging output. &
+iequations = 3 {\color{red}(to be done for 1, 2)}
+\tabularnewline
+\hline 
+inextra\_3d&
+I &
+0&&
+Number of 3D Fields for diagnostic/debugging output. &
+iequations = 3 {\color{red}(to be done for 1, 2)}
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_run\_nml.f90
+
 %CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 %CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 %CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
@@ -861,6 +1052,16 @@ Description&
 Scope\tabularnewline
 \hline
 \endhead
+
+\hline 
+i\_cell\_type&
+I & 3& &
+Cell type\\
+3: triangular cells\\
+4: quadrilateral cells (to be done)\\
+6: pentagonal/hexagonal cells&
+\tabularnewline
+
 \hline 
 nroot &
 I &
@@ -992,367 +1193,6 @@ dynamics, transport, physics etc.
 
 
 
-\subsection{run\_ctl}
-
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope
-\tabularnewline
-\hline
-\endhead
-
-
-\hline 
-num\_nlev&
-I(n\_dom)&
-31&
-&
-Number of full levels (atm.) for each domain&
-lvert\_nest=.TRUE.
-\tabularnewline
-
-\hline 
-nshift&
-I(n\_dom)&
-0&
-&
-vertical half level of parent domain which coincides with upper boundary of the current domain&
-lvert\_nest=.TRUE.
-\tabularnewline
-\hline
-lvert\_nest &
-L &
-.FALSE.&
-&
-If set to .true. vertical nesting is switched on (i.e.\ variable number of vertical levels) &
-\tabularnewline
-
-\hline 
-ntracer&
-I&
-0&
-&
-number of tracers&
-\tabularnewline
-
-\hline 
-dtime &
-R &
-600.0&
-s&
-time step&
-\tabularnewline
-&
-&
-&
-&
-Std. time step for ICOHAM R2B04 = 600s&
-\tabularnewline
-
-\hline 
-calendar&
-I&
-1&
-&
-Calendar type: &
-\tabularnewline
-&
-&
-&
-&
-0=Julian/Gregorian&
-\tabularnewline
-&
-&
-&
-&
-1=proleptic Gregorian&
-\tabularnewline
-&
-&
-&
-&
-2=30day/month,360day/year&
-\tabularnewline
-
-\hline 
-&
-&
-&
-&
-The initial date and time of this run is preset to 2008-09-01 / 00:00:00 UT&
-\tabularnewline
-ini\_year&
-I&
-2008&
-&
-&
-\tabularnewline
-ini\_month&
-I&
-9&
-&
-&
-\tabularnewline
-ini\_day&
-I&
-1&
-&
-&
-\tabularnewline
-ini\_hour&
-I&
-0&
-hr&
-&
-\tabularnewline
-ini\_minute&
-I&
-0&
-min&
-&
-\tabularnewline
-ini\_second&
-R&
-0.0&
-s&
-&
-\tabularnewline
-
-\hline 
-&
-&
-&
-&
-The end date and time of this run is preset to 2008-09-01 / 01:40:00 UT, which is 10 steps of 600 s after the initial date and time&
-\tabularnewline
-end\_year&
-I&
-2008&
-&
-&
-\tabularnewline
-end\_month&
-I&
-9&
-&
-&
-\tabularnewline
-end\_day&
-I&
-1&
-&
-&
-\tabularnewline
-end\_hour&
-I&
-1&
-hr&
-&
-\tabularnewline
-end\_minute&
-I&
-40&
-min&
-&
-\tabularnewline
-end\_second&
-R&
-0.0&
-s&
-&
-\tabularnewline
-
-\hline 
-&
-&
-&
-&
-Length of the run&
-\tabularnewline
-&
-&
-&
-&
-If "nsteps" is positive, then nsteps*dtime is used to compute the end date and time of the run.&
-\tabularnewline
-&
-&
-&
-&
-Else if any of the "run\_..." variables is positive, then these are used to compute the end date and time and, using dtime, also "nsteps".&
-\tabularnewline
-&
-&
-&
-&
-Else the initial date and time and the end date and time and the time step are used to compute "nsteps".&
-\tabularnewline
-nsteps &
-I &
-0 &
-&
-number of time steps of this run.&
-\tabularnewline
-run\_day &
-I &
-0&
-&
-number of whole days of the run&
-\tabularnewline
-run\_hour &
-I &
-0&
-&
-number of additional hours of the run&
-\tabularnewline
-run\_minute &
-I &
-0&
-&
-number of additional minutes of the run&
-\tabularnewline
-run\_second &
-R &
-0.0&
-&
-number of additional seconds of the run&
-\tabularnewline
-
-\hline
-dt\_restart &
-R & 86400.*30.& s &
-Length of restart cycle in seconds.
-\tabularnewline
-
-\hline 
-iequations&
-I&
-1&
-&
-Equations and prognostic variables. Use positive indices for the atmosphere and negative indices for the ocean.\\
-0: shallow water model\\
-1: hydrostatic atmosphere, T\\
-2: hydrostatic atm., $\theta$$\cdot$dp\\
-3: non-hydrostatic atmosphere\\
--1: hydrostatic ocean&
-\tabularnewline
-\hline 
-i\_cell\_type&
-I &
-3&
-&
-Cell type\\
-3: triangular cells\\
-4: quadrilateral cells (to be done)\\
-6: pentagonal/hexagonal cells&
-\tabularnewline
-\hline 
-ldynamics&
-L&
-.TRUE.&
-&
-Read namelist 'dynamics\_ctl' and compute adiabatic dynamic tendencies&
-\tabularnewline
-\hline 
-ltransport&
-L&
-.FALSE.&
-&
-Read namelist 'transport\_ctl' and compute tracer tendencies by transport&
-\tabularnewline
-\hline 
-iforcing&
-I&
-0&
-&
-Forcing of dynamics and transport by parameterized processes. Use positive indices for the
-atmosphere and negative indices for the ocean.\\
-0: no forcing\\
-1: Held-Suarez forcing\\
-2: ECHAM forcing\\
-3: NWP forcing\\
-4: local diabatic forcing without physics\\
-5: local diabatic forcing with physics\\
--1: MPIOM forcing (to be done)&
-\tabularnewline
-\hline 
-ltestcase &
-L &
-.TRUE.&
-&
-Idealized testcase runs&
-\tabularnewline
-\hline 
-lcorio &
-L &
-.TRUE.&
-&
-Coriolis force&
-\tabularnewline
-\hline 
-itopo&
-I &
-0&
-&
-0: analytical topography/ext. data \\
-1: topography/ext. data read from file&
-\tabularnewline
-\hline 
-msg\_level&
-I &
-10&
-&
-controls how much printout is written during runtime. \\
-For values less than 5, only the time step is written.&
-\tabularnewline
-\hline 
-inextra\_2d&
-I &
-0&&
-Number of 2D Fields for diagnostic/debugging output. &
-iequations = 3 {\color{red}(to be done for 1, 2)}
-\tabularnewline
-\hline 
-inextra\_3d&
-I &
-0&&
-Number of 3D Fields for diagnostic/debugging output. &
-iequations = 3 {\color{red}(to be done for 1, 2)}
-\tabularnewline
-\hline 
-ltimer&
-L &
-.TRUE.&
-&
-TRUE: Timer for monitoring thr runtime of specific routines is on (FALSE = off)&
-\tabularnewline
-\hline 
-ldump\_states&
-L &
-.FALSE.&
-&
-Dump patch/interpolation/grid refinement state of every
-patch (after subdivision in case of a parallel run)
-to a Netcdf file and exit program.&
-\tabularnewline
-\hline 
-lrestore\_states&
-L &
-.FALSE.&
-&
-Restore patch/interpolation/grid refinement states
-from NetCDF dump files instead of calculating them.&
-\tabularnewline
-\hline
-\end{longtable}
-
-Defined and used in: src/namelists/mo\_run\_nml.f90
 
 \subsection{dynamics\_ctl (used if run\_nml/ldynamics=.TRUE.)}
 
@@ -1364,6 +1204,19 @@ Default&
 Unit&
 Description&
 Scope\tabularnewline
+
+\hline 
+iequations&
+I& 1& &
+Equations and prognostic variables. Use positive indices for the atmosphere 
+and negative indices for the ocean.\\
+0: shallow water model\\
+1: hydrostatic atmosphere, T\\
+2: hydrostatic atm., $\theta$$\cdot$dp\\
+3: non-hydrostatic atmosphere\\
+-1: hydrostatic ocean&
+\tabularnewline
+
 \hline
 \endhead
 \hline 
@@ -1541,6 +1394,13 @@ Set a background temperature profile as base state &
 iequations$\in$\{1,2\}
 \tabularnewline
 \hline
+
+\hline 
+lcoriolis &
+L & .TRUE.& &
+Coriolis force&
+\tabularnewline
+
 \end{longtable}
 
 Defined and used in: src/namelists/mo\_dynamics\_nml.f90
@@ -4402,6 +4262,12 @@ Description&
 Scope\tabularnewline
 \hline
 \endhead
+\hline 
+itopo&
+I & 0& &
+0: analytical topography/ext. data \\
+1: topography/ext. data read from file&
+\tabularnewline
 \hline 
 n\_iter\_smooth\_topo &
 I &
