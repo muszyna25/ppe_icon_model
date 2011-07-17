@@ -100,8 +100,8 @@ USE mo_model_domain_import, ONLY : get_patch_global_indexes
 
 ! Test cases
 !
-USE mo_hydro_testcases,     ONLY: setup_testcase, ctest_name ! process hyd. atm. tests ctl. params.
-USE mo_nh_testcases,        ONLY: read_nh_testcase_namelist ! process non-hyd. atm. test ctl. par.
+USE mo_ha_testcases,     ONLY: read_ha_testcase_namelist, ctest_name
+USE mo_nh_testcases,     ONLY: read_nh_testcase_namelist ! process non-hyd. atm. test ctl. par.
 
 ! Memory
 !
@@ -425,10 +425,10 @@ INTEGER, POINTER :: grid_glob_index(:)
       
       SELECT CASE (iequations)
       CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
-        CALL setup_testcase
+        CALL read_ha_testcase_namelist( atm_namelist_filename )
         
       CASE (inh_atmosphere)
-        CALL read_nh_testcase_namelist
+        CALL read_nh_testcase_namelist( atm_namelist_filename )
         
       CASE DEFAULT
         CALL finish( TRIM(routine),' invalid value for iequations!' )

@@ -106,7 +106,7 @@ MODULE mo_advection_hflux
     &                               h_miura_slimiter_mo, h_miura_slimiter_sm, &
     &                               shift_gauss_points
   USE mo_df_test,             ONLY: df_distv_barycenter !, df_cell_indices
-  USE mo_hydro_testcases,     ONLY: ctest_name
+  USE mo_ha_testcases,        ONLY: ctest_name
 
   IMPLICIT NONE
 

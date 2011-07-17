@@ -167,7 +167,7 @@ MODULE mo_io_vlist
     &                               irad_co2, irad_ch4, irad_n2o, irad_o3,      &
     &                               irad_o2, irad_cfc11, irad_cfc12,  irad_aero
   USE mo_impl_constants,      ONLY: max_ntracer
-  USE mo_hydro_testcases,     ONLY: ctest_name, ihs_init_type, lhs_vn_ptb,      &
+  USE mo_ha_testcases,        ONLY: ctest_name, ihs_init_type, lhs_vn_ptb,      &
     &                               hs_vn_ptb_scale, lrh_linear_pres,           &
     &                               rh_at_1000hpa,linit_tracer_fv
   USE mo_gw_test,             ONLY: gw_brunt_vais, gw_u0,gw_lon_deg, gw_lat_deg

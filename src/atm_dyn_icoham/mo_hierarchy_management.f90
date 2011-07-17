@@ -91,7 +91,7 @@ MODULE mo_hierarchy_management
   USE mo_sv_test,             ONLY: get_sv_tracer
   USE mo_df_test,             ONLY: get_df_velocity, get_departure_points,   &
     &                               prep_departure_points_err
-  USE mo_hydro_testcases,     ONLY: ctest_name,rotate_axis_deg
+  USE mo_ha_testcases,        ONLY: ctest_name,rotate_axis_deg
   USE mo_impl_constants,      ONLY: success, MAX_CHAR_LENGTH
   USE mo_expensive_functions, ONLY: convert_t2theta_lin, convert_theta2t_lin
   USE mo_echam_phy_interface, ONLY: echam_phy_interface

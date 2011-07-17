@@ -83,7 +83,7 @@ MODULE mo_atm_nml_crosscheck
   USE mo_gw_hines_config,    ONLY: gw_hines_config
   USE mo_vdiff_config,       ONLY: vdiff_config
   USE mo_nh_testcases,       ONLY: linit_tracer_fv,nh_test_name
-  USE mo_hydro_testcases,    ONLY: ctest_name
+  USE mo_ha_testcases,       ONLY: ctest_name
 
   USE mo_datetime,           ONLY: add_time, print_datetime_all
 
@@ -243,15 +243,42 @@ CONTAINS
                'Held-Suarez test and the dry local diabatic forcing test.')
 
     !--------------------------------------------------------------------
-    ! testcases
+    ! Testcases
     !--------------------------------------------------------------------
-
     IF(global_cell_type==3) THEN
       linit_tracer_fv  = .TRUE. ! like default
     ELSE
       linit_tracer_fv  = .FALSE.
     ENDIF
 
+    IF ((TRIM(ctest_name)=='GW') .AND. (nlev /= 20)) THEN
+      CALL finish(TRIM(routine),'nlev MUST be 20 for the gravity-wave test case')
+    ENDIF
+
+    IF ((TRIM(ctest_name)=='SV') .AND. ntracer /= 2 ) THEN
+      CALL finish(TRIM(routine), &
+        & 'ntracer MUST be 2 for the stationary vortex test case')
+    ENDIF 
+
+    IF ((TRIM(ctest_name)=='DF1') .AND. ntracer == 1 ) THEN
+      CALL finish(TRIM(routine), &
+        & 'ntracer MUST be >=2 for the deformational flow test case 1')
+    ENDIF 
+
+    IF ((TRIM(ctest_name)=='DF2') .AND. ntracer == 1 ) THEN
+      CALL finish(TRIM(routine), &
+        & 'ntracer MUST be >=2 for the deformational flow test case 2')
+    ENDIF 
+
+    IF ((TRIM(ctest_name)=='DF3') .AND. ntracer == 1 ) THEN
+      CALL finish(TRIM(routine), &
+        & 'ntracer MUST be >=2 for the deformational flow test case 3')
+    ENDIF 
+
+    IF ((TRIM(ctest_name)=='DF4') .AND. ntracer == 1 ) THEN
+      CALL finish(TRIM(routine), &
+        & 'ntracer MUST be >=2 for the deformational flow test case 4')
+    ENDIF     
 
     !--------------------------------------------------------------------
     ! Shallow water

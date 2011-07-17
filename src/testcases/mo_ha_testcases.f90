@@ -55,7 +55,7 @@
 !! software.
 !! 
 !! 
-MODULE mo_hydro_testcases
+MODULE mo_ha_testcases
 !-------------------------------------------------------------------------  
 !  
 !    ProTeX FORTRAN source: Style 2  
@@ -70,7 +70,7 @@ MODULE mo_hydro_testcases
   USE mo_exception,       ONLY: message, finish
   USE mo_impl_constants,  ONLY: SUCCESS, MAX_CHAR_LENGTH, TRACER_ONLY
   USE mo_io_units,        ONLY: nnml, nnml_output
-  USE mo_namelist,        ONLY: position_nml, POSITIONED
+  USE mo_namelist,        ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_master_nml,      ONLY: lrestart
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist, &
                                  & open_and_restore_namelist, close_tmpfile
@@ -79,12 +79,10 @@ MODULE mo_hydro_testcases
   USE mo_model_domain_import,ONLY: n_dom
   USE mo_interpolation,   ONLY: t_int_state
   USE mo_parallel_configuration,  ONLY: nproma
-  USE mo_run_config,      ONLY: num_lev, ntracer, ltransport, iqv
+  USE mo_run_config,      ONLY: ltransport, iqv
   USE mo_dynamics_config, ONLY: ltwotime,itime_scheme,lshallow_water,&
                                 lcoriolis,nnow,nold,nnew
        
-  USE mo_grid_configuration, ONLY :  global_cell_type
-  
   USE mo_icoham_dyn_types, ONLY: t_hydro_atm
   USE mo_ha_prog_util,     ONLY: copy_prog_state,                    &
                                & init_hydro_state_prog_isoRest,      &
@@ -109,41 +107,39 @@ MODULE mo_hydro_testcases
   USE mo_sw_test,         ONLY: init_will2_test, init_will3_test,    &
                                 init_will5_test, init_will6_test,    &
                                 init_usbr_test, init_swgw_test
-  USE mo_mpi,             ONLY: p_pe, p_io
+  USE mo_mpi,             ONLY: my_process_is_stdio
   USE mo_ldf_init,        ONLY: ldf_init_prog_state
   
   IMPLICIT NONE
+  PRIVATE 
+  PUBLIC :: read_ha_testcase_namelist, init_testcase, rotate_axis_deg  !subroutines
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$' 
- 
-  PUBLIC   ! mo_hydro_testcase variables referenced in mo_io_vlist
-           ! --> change from PRIVATE to PUBLIC
 
-  CHARACTER(len=MAX_CHAR_LENGTH),PUBLIC :: ctest_name  ! Test case specifier
-  CHARACTER(len=MAX_CHAR_LENGTH),PUBLIC :: ape_sst_case !SST for APE experiments
+  ! Namelist variables
+
+  CHARACTER(len=MAX_CHAR_LENGTH),PUBLIC :: ctest_name   ! Test case specifier
+  CHARACTER(len=MAX_CHAR_LENGTH),PUBLIC :: ape_sst_case ! SST for APE experiments
   
-
-                            
   REAL(wp) :: rotate_axis_deg
-  INTEGER  :: ihs_init_type
-  LOGICAL :: lhs_vn_ptb
-  REAL(wp) :: hs_vn_ptb_scale
+  INTEGER, PUBLIC :: ihs_init_type
+  LOGICAL, PUBLIC :: lhs_vn_ptb
+  REAL(wp),PUBLIC :: hs_vn_ptb_scale
 
-  LOGICAL :: lrh_linear_pres  !< if .TRUE., initialize the relative humidity using 
-                               !< a linear function of pressure
-  LOGICAL :: linit_tracer_fv  !< finite volume initialization for tracer fields
-                               !< if .TRUE.
-  REAL(wp) :: rh_at_1000hpa    !< relative humidity [0,1] at 1000 hPa.
+  LOGICAL, PUBLIC :: lrh_linear_pres  !< if .TRUE., initialize relative humidity
+                                      !< with a linear function of pressure
+  REAL(wp),PUBLIC :: rh_at_1000hpa    !< relative humidity [0,1] at 1000 hPa.
 
-  INTEGER  :: ildf_init_type   ! isothermal atmosphere at rest (=0, default),
-                               ! JWs zonal state (=1) 
-  LOGICAL  :: ldf_symm         ! if .TRUE. local diabatic forcing symmetric
-                               ! about the equator. if .FALSE. the forcing is placed
-                               ! at 30 N. 
+  LOGICAL, PUBLIC :: linit_tracer_fv  !< finite volume initialization for tracer 
+                                      !< fields if .TRUE.
 
-! Control variables setting up the configuration of the test run
+  INTEGER, PUBLIC :: ildf_init_type   ! isothermal atmosphere at rest (=0, default),
+                                      ! JWs zonal state (=1) 
+  LOGICAL, PUBLIC :: ldf_symm         ! if .TRUE. local diabatic forcing symmetric
+                                      ! about the equator. if .FALSE. the forcing 
+                                      ! is placed at 30 N. 
 
-  NAMELIST/testcase_ctl/ ctest_name, rotate_axis_deg, ape_sst_case,     &
+  NAMELIST/ha_testcase_nml/ ctest_name, rotate_axis_deg, ape_sst_case,  &
     &                    gw_brunt_vais, gw_u0, gw_lon_deg, gw_lat_deg,  &
     &                    rh_wavenum, rh_init_shift_deg,                 &
     &                    mountctr_lon_deg, mountctr_lat_deg,            &
@@ -153,7 +149,6 @@ MODULE mo_hydro_testcases
     &                    rh_at_1000hpa, linit_tracer_fv, ldf_symm,      &
     &                    ildf_init_type
 
-  PUBLIC  :: setup_testcase, init_testcase, rotate_axis_deg
 
 
 !-------------------------------------------------------------------------   
@@ -164,219 +159,93 @@ MODULE mo_hydro_testcases
 !
 !
 
- !>
- !!               Initialization of variables that determine.
- !! 
- !!               Initialization of variables that determine
- !!               which test case to run
- !! 
- !! @par Revision History
- !!  Initial version by Hui Wan (2007-07-20)
- !! 
- SUBROUTINE setup_testcase
-!
-! !local variable
-   INTEGER :: istat, funit
-   INTEGER :: nlev            !< number of full levels
+  !>
+  !!               Initialization of variables that determine.
+  !! 
+  !!               Initialization of variables that determine
+  !!               which test case to run
+  !! 
+  !! @par Revision History
+  !!  Initial version by Hui Wan (2007-07-20)
+  !! 
+  SUBROUTINE read_ha_testcase_namelist( filename )
 
-   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = &
-                                 & '(mo_hydro_testcases) setup_testcase'
+    CHARACTER(LEN=*),INTENT(IN) :: filename
+    INTEGER :: istat, funit
 
-!-----------------------------------------------------------------------
-   nlev = num_lev(1)
+    CHARACTER(len=*), PARAMETER :: &
+             routine = 'mo_ha_testcases:read_ha_testcase_namelist'
 
-!
-! set up the default values
-!
-   rotate_axis_deg   = 0.0_wp
+    !------------------------------
+    ! Default values
+    !------------------------------
+    rotate_axis_deg   = 0.0_wp
 
-   ctest_name        = 'JWw'
- 
-   rh_wavenum        = 4
-   rh_init_shift_deg = 0._wp
+    ctest_name        = 'JWw'
+  
+    rh_wavenum        = 4
+    rh_init_shift_deg = 0._wp
 
-   gw_brunt_vais     = 0.01_wp
-   gw_u0             = 0.0_wp
-   gw_lon_deg        = 180._wp
-   gw_lat_deg        = 0._wp
+    gw_brunt_vais     = 0.01_wp
+    gw_u0             = 0.0_wp
+    gw_lon_deg        = 180._wp
+    gw_lat_deg        = 0._wp
 
-   mountctr_lon_deg  = 90._wp
-   mountctr_lat_deg  = 30._wp
-   mountctr_height   = 2000._wp
-   mount_half_width  = 1500000.0_wp
-   mount_u0          = 20.0_wp
+    mountctr_lon_deg  = 90._wp
+    mountctr_lat_deg  = 30._wp
+    mountctr_height   = 2000._wp
+    mount_half_width  = 1500000.0_wp
+    mount_u0          = 20.0_wp
 
-   jw_uptb           = 1._wp
-   lrh_linear_pres   = .FALSE.
-   rh_at_1000hpa     = 0.75_wp
+    jw_uptb           = 1._wp
+    lrh_linear_pres   = .FALSE.
+    rh_at_1000hpa     = 0.75_wp
 
-   ihs_init_type     = 1      ! JWs zonal state
-   lhs_vn_ptb        = .TRUE. ! add random noise to normal wind
-   hs_vn_ptb_scale   = 1._wp  ! magnitude of the random noise
+    ihs_init_type     = 1      ! JWs zonal state
+    lhs_vn_ptb        = .TRUE. ! add random noise to normal wind
+    hs_vn_ptb_scale   = 1._wp  ! magnitude of the random noise
 
-   ape_sst_case           = 'sst1'
+    ape_sst_case      = 'sst1'
 
-   IF (global_cell_type == 3) THEN
-     linit_tracer_fv   = .TRUE. ! finite volume initialization for tracer
-   ELSE
-     linit_tracer_fv   = .FALSE.
-   ENDIF
+    linit_tracer_fv   = .TRUE. ! finite volume initialization for tracer
 
-   ildf_init_type     = 0      ! isothermal atmosphere at rest
-   ldf_symm           = .TRUE. ! forcing symmetric about the equator
+    ildf_init_type    = 0      ! isothermal atmosphere at rest
+    ldf_symm          = .TRUE. ! forcing symmetric about the equator
 
     !----------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above
     ! by values in the previous integration.
     !----------------------------------------------------------------
     IF (lrestart) THEN
-      funit = open_and_restore_namelist('testcase_ctl')
-      READ(funit,NML=testcase_ctl)
+      funit = open_and_restore_namelist('ha_testcase_nml')
+      READ(funit,NML=ha_testcase_nml)
       CALL close_tmpfile(funit)
     END IF
 
     !--------------------------------------------------------------------
     ! Read user's (new) specifications (Done so far by all MPI processes)
     !--------------------------------------------------------------------
-    CALL position_nml ('testcase_ctl', STATUS=istat)
+    CALL open_nml(TRIM(filename))
+    CALL position_nml ('ha_testcase_nml', STATUS=istat)
     SELECT CASE (istat)
     CASE (POSITIONED)
-      READ (nnml, testcase_ctl)
+      READ (nnml, ha_testcase_nml)
     END SELECT
+    CALL close_nml
 
     !-----------------------------------------------------
     ! Store the namelist for restart
     !-----------------------------------------------------
     funit = open_tmpfile()
-    WRITE(funit,NML=testcase_ctl)
-    CALL store_and_close_namelist(funit, 'testcase_ctl')
+    WRITE(funit,NML=ha_testcase_nml)
+    CALL store_and_close_namelist(funit, 'ha_testcase_nml')
 
     ! Write the contents of the namelist to an ASCII file.
     ! Probably will be removed later.
+    IF(my_process_is_stdio()) WRITE(nnml_output,nml=ha_testcase_nml)
 
-    IF(p_pe == p_io) WRITE(nnml_output,nml=testcase_ctl)
-
-
-   !---------------------------------------------------------------------------
-   !---------------------------------------------------------------------------
-   IF (.NOT. lshallow_water) THEN
-
-      SELECT CASE (TRIM(ctest_name))
-
-     CASE ('GW')
-        CALL message(TRIM(routine),'running the gravity wave test.')
-      CASE ('MRW')
-        CALL message(TRIM(routine),'running the mountain induced Rossby &
-                                   &wave train.')
-      CASE ('MRW2')
-        CALL message(TRIM(routine),'running the modified mountain induced Rossby &
-                                   &wave train (smaller-scale mountain).')
-      CASE ('RH')
-        CALL message(TRIM(routine),'running the 3D Rossby-Haurwitz wave test.')
-      CASE ('JWs')
-        CALL message(TRIM(routine),'running the Jablonowski-Williamson &
-                                   &steady solution test.')
-      CASE ('JWw')
-        CALL message(TRIM(routine),'running the Jablonowski-Williamson &
-                                   &baroclinic wave test.')
-      CASE ('PA')
-        CALL message(TRIM(routine),'running the Pure 3D-Advection test.')
-
-      CASE ('SV')
-        CALL message(TRIM(routine),'running the stationary vortex 2D-Advection test.')
-
-      CASE ('DF1')
-        CALL message(TRIM(routine),'running the deformational flow 2D-Advection test 1.')
-
-      CASE ('DF2')
-        CALL message(TRIM(routine),'running the deformational flow 2D-Advection test 2.')
-
-      CASE ('DF3')
-        CALL message(TRIM(routine),'running the deformational flow 2D-Advection test 3.')
-
-      CASE ('DF4')
-        CALL message(TRIM(routine),'running the deformational flow 2D-Advection test 4.')
-
-      CASE ('HS')
-        CALL message(TRIM(routine),'running the Held-Suarez test.')
-
-      CASE ('LDF')
-        CALL message(TRIM(routine),'running the local diabatic forcing test.')
-
-      CASE ('LDF-Moist')
-        CALL message(TRIM(routine),'running the local diabatic forcing test &
-                                   & with moist processes.')
-      CASE ('APE')
-        CALL message(TRIM(routine),'running the aqua-planet simulation.')
-
-      CASE ('JWw-Moist')
-        CALL message(TRIM(routine),'running the Jablonowski-Williamson baroclinic &
-                                   &wave test with moist processes.')
-      CASE default
-        CALL finish(TRIM(routine),'unknown choice of CTEST_NAME')
-
-      END SELECT
-
-   ELSE ! shallow water case
-
-      SELECT CASE (TRIM(ctest_name))
-
-      CASE ('Will_2')
-        CALL message(TRIM(routine),'running Williamson test no. 2')
-      CASE ('Will_3')
-        CALL message(TRIM(routine),'running Williamson test no. 3')
-      CASE ('Will_5')
-        CALL message(TRIM(routine),'running Williamson test no. 5')
-      CASE ('Will_6')
-        CALL message(TRIM(routine),'running Williamson test no. 6')
-      CASE ('USBR')
-        CALL message(TRIM(routine),'running unsteady solid body rotation')
-      CASE ('SW_GW')
-        CALL message(TRIM(routine),'running shallow water gravity wave test')
-      CASE ('PA')
-        CALL message(TRIM(routine),'running the Pure 2D-Advection test.')
-      CASE default
-        CALL finish(TRIM(routine),'unknown choice of CTEST_NAME')
-      END SELECT
-
-   ENDIF
-
-   !---------------------------------------------------------------------------
-   ! Cross-check (should be moved somewhere else)
-   !---------------------------------------------------------------------------
-
-   IF ((TRIM(ctest_name)=='GW') .AND. (nlev /= 20)) THEN
-     CALL finish(TRIM(routine),'nlev MUST be 20 for the gravity-wave test case')
-   ENDIF
-   IF ((TRIM(ctest_name)/='GW') .AND. (nlev == 20)) THEN
-     CALL finish(TRIM(routine),'nlev=20 is allowed ONLY for the gravity-wave test case')
-   ENDIF
-   IF ((TRIM(ctest_name)=='SV') .AND. ntracer /= 2 ) THEN
-     CALL finish(TRIM(routine), &
-       & 'ntracer MUST be 2 for the stationary vortex test case')
-   ENDIF 
-   IF ((TRIM(ctest_name)=='DF1') .AND. ntracer == 1 ) THEN
-     CALL finish(TRIM(routine), &
-       & 'ntracer MUST be >=2 for the deformational flow test case 1')
-   ENDIF 
-   IF ((TRIM(ctest_name)=='DF2') .AND. ntracer == 1 ) THEN
-     CALL finish(TRIM(routine), &
-       & 'ntracer MUST be >=2 for the deformational flow test case 2')
-   ENDIF 
-   IF ((TRIM(ctest_name)=='DF3') .AND. ntracer == 1 ) THEN
-     CALL finish(TRIM(routine), &
-       & 'ntracer MUST be >=2 for the deformational flow test case 3')
-   ENDIF 
-   IF ((TRIM(ctest_name)=='DF4') .AND. ntracer == 1 ) THEN
-     CALL finish(TRIM(routine), &
-       & 'ntracer MUST be >=2 for the deformational flow test case 4')
-   ENDIF     
-
-
-END SUBROUTINE setup_testcase
-!-------------------------------------------------------------------------
-!
-
+  END SUBROUTINE read_ha_testcase_namelist
+  !-------------------------------------------------------------------------
   !>
   !!               Initialization routine for the testcases.
   !! 
@@ -779,4 +648,4 @@ ENDDO
   END SUBROUTINE init_testcase
 
 !-------------------------------------------------------------------------
-END MODULE mo_hydro_testcases
+END MODULE mo_ha_testcases

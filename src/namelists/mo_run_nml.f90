@@ -144,21 +144,21 @@ CONTAINS
 
     lvert_nest = .FALSE. ! no vertical nesting
     nlev       = 31
-    num_lev(:) = nlev  ! number of full levels for each domain
-    nshift(:)  = 0         ! please do not change the default.
-                               ! otherwise the initialization of 
-                               ! p_patch(jg)%nshift in "import patches" 
-                               ! will not work properly.
+    num_lev(:) = nlev    ! number of full levels for each domain
+    nshift(:)  = 0       ! please do not change the default.
+                         ! otherwise the initialization of 
+                         ! p_patch(jg)%nshift in "import patches" 
+                         ! will not work properly.
 
     nsteps = 0
-    dtime  = 600._wp   ! [s] for R2B04 + semi-implicit time steppping
+    dtime  = 600._wp     ! [s] for R2B04 + semi-implicit time steppping
 
     ltimer       = .TRUE.
     timers_level = 1
     msg_level    = 10
 
-    inextra_2d   = 0           !> no extra output 2D fields
-    inextra_3d   = 0           !> no extra output 3D fields
+    inextra_2d   = 0     ! no extra output 2D fields
+    inextra_3d   = 0     ! no extra output 3D fields
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 

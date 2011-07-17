@@ -61,10 +61,8 @@ MODULE mo_atmo_setup_configuration
   USE mo_grid_nml,            ONLY: read_grid_namelist
   USE mo_interpol_nml,        ONLY: read_interpol_namelist
 
-! ! Test cases
-! !
-! USE mo_hydro_testcases,     ONLY: setup_testcase          ! process hyd. atm. tests ctl. params.
- USE mo_nh_testcases,        ONLY: read_nh_testcase_namelist! process non-hyd. atm. test ctl. par.
+  USE mo_ha_testcases,        ONLY: read_ha_testcase_namelist 
+  USE mo_nh_testcases,        ONLY: read_nh_testcase_namelist
 
   USE mo_io_restart_namelist,  ONLY: read_restart_namelists
   USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
@@ -95,7 +93,8 @@ CONTAINS
     ! General
 
     CALL read_run_namelist        (TRIM(atm_namelist_filename))
-    CALL read_nh_testcase_namelist
+    CALL read_ha_testcase_namelist(TRIM(atm_namelist_filename))
+    CALL read_nh_testcase_namelist(TRIM(atm_namelist_filename))
     CALL read_io_namelist         (TRIM(atm_namelist_filename))
 
     ! Grid, dynamics, and transport

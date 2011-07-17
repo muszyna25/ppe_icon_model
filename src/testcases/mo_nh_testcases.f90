@@ -45,7 +45,7 @@ MODULE mo_nh_testcases
 !  
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, finish
-  USE mo_namelist,           ONLY: position_nml, POSITIONED
+  USE mo_namelist,           ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, inwp
   USE mo_model_domain_import,ONLY: lplane, n_dom
@@ -74,7 +74,7 @@ MODULE mo_nh_testcases
   
   
   USE mo_interpolation,        ONLY: t_int_state, cells2edges_scalar, edges2cells_scalar
-  USE mo_mpi,                  ONLY: p_pe, p_io
+  USE mo_mpi,                  ONLY: my_process_is_stdio
   USE mo_vertical_coord_table, ONLY: vct_b
   USE mo_loopindices,          ONLY: get_indices_e, get_indices_c
   USE mo_advection_config,     ONLY: advection_config
@@ -126,7 +126,7 @@ MODULE mo_nh_testcases
 
   INTEGER  :: n_flat_level
 
-  NAMELIST/nh_testcase_ctl/ nh_test_name, mount_height, torus_domain_length, &
+  NAMELIST/nh_testcase_nml/ nh_test_name, mount_height, torus_domain_length, &
                             nh_brunt_vais, nh_u0, nh_t0, layer_thickness,    &
                             n_flat_level, jw_up, u0_mrw, mount_height_mrw,   &
                             mount_half_width, mount_lonctr_mrw_deg,          &
@@ -183,9 +183,10 @@ MODULE mo_nh_testcases
   !!   init_nh_testtopo, which is called after the domain-decomposition.
   !!   (because of possible conflicts with the external-data type)
   !! 
-  SUBROUTINE read_nh_testcase_namelist
-!
-    INTEGER        :: i_status
+  SUBROUTINE read_nh_testcase_namelist( filename )
+
+    CHARACTER(LEN=*), INTENT(IN) :: filename
+    INTEGER :: i_status
 
 !-----------------------------------------------------------------------
 
@@ -219,15 +220,17 @@ MODULE mo_nh_testcases
     ! crosscheck follows in the respective module
     linit_tracer_fv        = .TRUE. ! finite volume initialization for tracer
 
-    CALL position_nml ('nh_testcase_ctl', status=i_status)
+    CALL open_nml(TRIM(filename))
+    CALL position_nml ('nh_testcase_nml', status=i_status)
     SELECT CASE (i_status)
     CASE (POSITIONED)
-      READ (nnml, nh_testcase_ctl)
+      READ (nnml, nh_testcase_nml)
     END SELECT
+    CALL close_nml
 
     n_flat_level=MAX(2,n_flat_level)
 
-    IF(p_pe == p_io) WRITE(nnml_output,nml=nh_testcase_ctl)
+    IF(my_process_is_stdio()) WRITE(nnml_output,nml=nh_testcase_nml)
 
   END SUBROUTINE read_nh_testcase_namelist
 

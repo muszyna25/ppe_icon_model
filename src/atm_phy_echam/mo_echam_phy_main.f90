@@ -50,7 +50,7 @@ MODULE mo_echam_phy_main
   USE mo_physical_constants,  ONLY: grav
   USE mo_run_config,          ONLY: ntracer, nlev, nlevp1, ltestcase, &
     &                               iqv, iqc, iqi, io3, iqt, ltimer
-  USE mo_hydro_testcases,     ONLY: ctest_name
+  USE mo_ha_testcases,        ONLY: ctest_name
   USE mo_vertical_coord_table,ONLY: nlevm1
   USE mo_echam_phy_config,    ONLY: echam_phy_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config

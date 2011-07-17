@@ -47,7 +47,7 @@ MODULE mo_echam_phy_init
   USE mo_echam_phy_config,      ONLY: phy_config => echam_phy_config
 
   ! test cases
-  USE mo_hydro_testcases,    ONLY: ctest_name, ape_sst_case
+  USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
   USE mo_ape_params,         ONLY: ape_sst
 
   ! radiation

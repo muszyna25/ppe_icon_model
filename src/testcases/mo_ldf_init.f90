@@ -3,7 +3,7 @@
 !! hydrostatic prognostic state for the local diabatic
 !! forcing test case
 !!
-!! mo_ldf_init_prog_state is called from mo_hydro_testcases
+!! mo_ldf_init_prog_state is called from mo_ha_testcases
 !! when switching on local diabatic forcing
 !!
 !! @author Constantin Junk, MPI-M

@@ -56,7 +56,7 @@ MODULE mo_ha_stepping
                                   & ldynamics, ltransport, msg_level, ltimer,   &
                                   & ltestcase
   USE mo_master_nml,          ONLY: lrestart
-  USE mo_hydro_testcases,     ONLY: init_testcase
+  USE mo_ha_testcases,        ONLY: init_testcase
   USE mo_si_correction,       ONLY: init_si_params
   USE mo_ha_rungekutta,       ONLY: init_RungeKutta
   USE mo_ha_diagnostics,      ONLY: supervise_total_integrals, &

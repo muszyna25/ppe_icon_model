@@ -1032,6 +1032,476 @@ iequations = 3 {\color{red}(to be done for 1, 2)}
 
 Defined and used in: src/namelists/mo\_run\_nml.f90
 
+
+%-------------------------------------------------------------------
+% ha_testcase_nml:
+%-------------------------------------------------------------------
+\subsubsection{ha\_testcase\_nml (Scope: ltestcase=.TRUE. and iequations=[0,1,2] in run\_nml)}
+\begin{longtab}
+
+\hline 
+ctest\_name&
+C& 'JWw'& &
+Name of test case:\\
+\tabularnewline
+& & & &
+'SW\_GW': gravity wave&
+lshallow\_water=.TRUE.\tabularnewline
+& & & &
+'USBR': unsteady solid body rotation &
+lshallow\_water=.TRUE.\tabularnewline
+& & & &
+'Will\_2': Williamson test 2&
+lshallow\_water=.TRUE.\tabularnewline
+& & & &
+'Will\_3': Williamson test 3&
+lshallow\_water=.TRUE.\tabularnewline
+& & & &
+'Will\_5': Williamson test 5&
+lshallow\_water=.TRUE.\tabularnewline
+& & & &
+'Will\_6': Williamson test 6&
+lshallow\_water=.TRUE.\tabularnewline
+& & & &
+'GW': gravity wave (nlev=20 only!) &
+lshallow\_water=.FALSE.\tabularnewline
+& & & &
+'LDF': local diabatic forcing test without physics&
+lshallow\_water=.FALSE.\\and iforcing=4\tabularnewline
+& & & &
+'LDF-Moist': local diabatic forcing test with physics initalised with zonal wind field &
+lshallow\_water=.FALSE.,\\and iforcing=5\tabularnewline
+& & & &
+'HS': Held-Suarez test &
+lshallow\_water=.FALSE.\tabularnewline
+& & & &
+'JWs': Jablonowski-Will. steady state&
+lshallow\_water=.FALSE.\tabularnewline
+& & & &
+'JWw': Jablonowski-Will. wave test&
+lshallow\_water=.FALSE.\tabularnewline
+& & & &
+'JWw-Moist': Jablonowski-Will. wave test including moisture&
+lshallow\_water=.FALSE.\tabularnewline
+& & & &
+'APE': aqua planet experiment&
+lshallow\_water=.FALSE.\tabularnewline
+& & & &
+'MRW': mountain induced Rossby wave&
+lshallow\_water=.FALSE.\tabularnewline
+& & & &
+'MRW2': modified mountain induced Rossby wave&
+lshallow\_water=.FALSE.\tabularnewline
+& & & &
+'PA': pure advection&
+lshallow\_water=.FALSE.\tabularnewline
+& & & &
+'SV': stationary vortex&
+lshallow\_water=.FALSE., 
+ntracer = 2\tabularnewline
+& & & &
+'DF1': deformational flow test 1&
+\tabularnewline
+& & & &
+'DF2': deformational flow test 2&
+\tabularnewline
+& & & &
+'DF3': deformational flow test 3&
+\tabularnewline
+& & & &
+'DF4': deformational flow test 4&
+\tabularnewline
+& & & &
+'RH': Rossby-Haurwitz wave test&
+lshallow\_water=.FALSE.
+\tabularnewline
+
+\hline 
+rotate\_axis\_deg&
+R& 0.0& deg&
+Earth's rotation axis pitch angle&
+ctest\_name= 'Will\_2', 'Will\_3', 'JWs', 'JWw', 'PA', 'DF1234'
+\tabularnewline
+
+\hline 
+gw\_brunt\_vais&
+R& 0.01& 1/s&
+Brunt Vaisala frequency&
+ctest\_name= 'GW'
+\tabularnewline
+
+\hline 
+gw\_u0&
+R& 0.0& m/s&
+zonal wind parameter&
+ctest\_name= 'GW'\tabularnewline
+
+\hline 
+gw\_lon\_deg&
+R& 180.0& deg&
+longitude of initial perturbation&
+ctest\_name= 'GW'\tabularnewline
+
+\hline 
+gw\_lat\_deg&
+R& 0.0& deg&
+latitude of initial perturbation&
+ctest\_name= 'GW'\tabularnewline
+
+\hline 
+jw\_uptb&
+R& 1.0& m/s (?)&
+amplitude of the wave pertubation&
+ctest\_name= 'JWw'\tabularnewline
+
+\hline 
+mountctr\_lon\_deg&
+R& 90.0& deg&
+longitude of mountain peak&
+ctest\_name= 'MRW(2)'\tabularnewline
+
+\hline 
+mountctr\_lat\_deg&
+R& 30.0& deg&
+latitude of mountain peak&
+ctest\_name= 'MRW(2)'\tabularnewline
+
+\hline 
+mountctr\_height&
+R& 2000.0& m&
+mountain height&
+ctest\_name= 'MRW(2)'\tabularnewline
+
+\hline 
+mountctr\_half\_width&
+R& 1500000.0& m&
+mountain half width&
+ctest\_name= 'MRW(2)'\tabularnewline
+
+\hline 
+mount\_u0&
+R& 20.0& m/s&
+wind speed for MRW cases&
+ctest\_name= 'MRW(2)'\tabularnewline
+
+\hline 
+rh\_wavenum&
+I& 4& &
+wave number&
+ctest\_name= 'RH'\tabularnewline
+
+\hline 
+rh\_init\_shift\_deg&
+R& 0.0& deg&
+pattern shift&
+ctest\_name= 'RH'\tabularnewline
+
+\hline 
+ihs\_init\_type&
+I& 1& &
+Choice of initial condition for the Held-Suarez test. 1: the zonal
+state defined in the JWs test case; other integers: isothermal state
+(T=300 K, ps=1000 hPa, u=v=0.)&
+ctest\_name= 'HS'
+\tabularnewline
+
+\hline 
+lhs\_vn\_ptb&
+L& .TRUE.& &
+Add random noise to the initial wind field in the Held-Suarez test. &
+ctest\_name= 'HS'
+\tabularnewline
+
+\hline 
+hs\_vn\_ptb\_scale&
+R& 1.& m/s &
+Magnitude of the random noise added to the initial wind field in the
+Held-Suarez test. &
+ctest\_name= 'HS'
+\tabularnewline
+
+\hline 
+lrh\_linear\_pres&
+L& .FALSE.& &
+Initialize the relative humidity using a linear function of pressure. &
+ctest\_name= 'JWw-Moist','APE', 'LDF-Moist'
+\tabularnewline
+
+\hline 
+rh\_at\_1000hpa&
+R& 0.75& &
+relative humidity \[0,1\] at 1000 hPa &
+ctest\_name= 'JWw-Moist','APE', 'LDF-Moist'
+\tabularnewline
+
+\hline 
+linit\_tracer\_fv&
+L& .TRUE.& &
+Finite volume initialization for tracer fields &
+ctest\_name='PA'
+\tabularnewline
+
+\hline
+ape\_sst\_case&
+C& 'sst1'& &
+SST distribution selection\\
+'sst1': Control experiment\\
+'sst2': Peaked experiment\\
+'sst3': Flat experiment\\
+'sst4': Control-5N experiment\\
+'sst\_qobs': Qobs SST distribution exp.
+&ctest\_name='APE'
+\tabularnewline
+
+\hline 
+ildf\_init\_type&
+I& 0& &
+Choice of initial condition for the Local diabatic forcing test. 1: the zonal
+state defined in the JWs test case; other: isothermal state
+(T=300 K, ps=1000 hPa, u=v=0.)&
+ctest\_name= 'LDF'
+\tabularnewline
+
+\hline
+ldf\_symm&
+L& .TRUE.& &
+Shape of local diabatic forcing:\\
+.TRUE.: local diabatic forcing symmetric about the equator (at 0 N)\\
+.FALSE.: local diabatic forcing asym. about the equator (at 30 N)
+& ctest\_name= 'LDF','LDF-Moist'
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/testcases/mo\_ha\_testcases.f90
+
+
+
+%-------------------------------------------------------------------------------
+% nh_test_nml:
+%-------------------------------------------------------------------------------
+\subsubsection{nh\_testcase\_nml (Scope: ltestcase=.TRUE. and iequations=3 in run\_nml)}
+
+\begin{longtab}
+\hline 
+nh\_test\_name&
+C& 'jabw'& &
+testcase selection&
+\tabularnewline
+&&&& 'zero': no orography&
+\tabularnewline
+&&&& 'bell': bell shaped mountain at 0E,0N&
+\tabularnewline
+&&&& 'schaer': hilly mountain at 0E,0N&
+\tabularnewline
+&&&& 'jabw': Initializes the full Jablonowski Williamson test case.&
+\tabularnewline
+&&&&'jabw\_s': Initializes the Jablonowski Williamson steady state test case.&
+\tabularnewline
+&&&&'jabw\_m': Initializes the Jablonowski Williamson test case with a mountain instead of the wind perturbation (specify mount\_height).&
+\tabularnewline
+&&&&'mrw\_nh': Initializes the full Mountain-induced Rossby wave test case.&
+\tabularnewline
+&&&&'mrw2\_nh': Initializes the modified mountain-induced Rossby wave test case.&
+\tabularnewline
+&&&&'mwbr\_const': Initializes the mountain wave with two layers test case. 
+The lower layer is isothermal and the upper layer has constant brunt 
+vaisala frequency. The interface has constant pressure.&
+\tabularnewline
+&&&&'PA': Initializes the pure advection test case.&
+\tabularnewline
+&&&&'HS\_nh': Initializes the Held-Suarez test case. At the moment 
+ with an isothermal atmosphere at rest (T=300K, ps=1000hPa, 
+u=v=0, topography=0.0).&
+\tabularnewline
+&&&&'HS\_jw': Initializes the Held-Suarez test case
+with Jablonowski Williamson initial conditions and zero topography.&
+\tabularnewline
+&&&&'APE\_nh': Initializes the APE experiments. At the moment 
+ with T=300K, ps=1013.25hPa, u=v=w=0).&
+\tabularnewline
+
+\hline
+jw\_up&
+R& 1.0& m/s&
+amplitude of the u-perturbation in jabw test case&
+nh\_test\_name='jabw'
+\tabularnewline
+
+\hline
+u0\_mrw&
+R& 20.0& m/s&
+wind speed for mrw case&
+nh\_test\_name= 'mrw(2)\_nh'
+\tabularnewline
+
+\hline
+mount\_height\_mrw&
+R& 2000.0& m&
+maximum mount height in mrw(2) and mwbr\_const&
+nh\_test\_name= 'mrw(2)\_nh' and 'mwbr\_const'
+\tabularnewline
+
+\hline
+mount\_half\_width&
+R& 1500000.0& m&
+half width of mountain in mrw(2), mwbr\_const and bell &
+nh\_test\_name= 'mrw(2)\_nh', 'mwbr\_const' and 'bell'
+\tabularnewline
+
+\hline
+mount\_lonctr\_mrw\_deg&
+R& 90.& degrees&
+lon of mountain center in mrw(2) and mwbr\_const&
+nh\_test\_name= 'mrw(2)\_nh' and 'mwbr\_const'
+\tabularnewline
+
+\hline
+mount\_latctr\_mrw\_deg&
+R& 30.& degrees&
+lat of mountain center in mrw(2) and mwbr\_const&
+nh\_test\_name= 'mrw(2)\_nh' and 'mwbr\_const'
+\tabularnewline
+
+\hline
+u0\_mwbr\_const&
+R& 20.0& m/s& wind speed for mwbr\_const case&
+nh\_test\_name= 'mwbr\_const'
+\tabularnewline
+
+\hline
+temp\_i\_mwbr\_const&
+R& 288.0& K&
+temp at isothermal lower layer for mwbr\_const case&
+nh\_test\_name= 'mwbr\_const'
+\tabularnewline
+
+\hline
+p\_int\_mwbr\_const&
+R& 70000.& Pa&
+pres at the interface of the two layers for mwbr\_const case&
+nh\_test\_name= 'mwbr\_const'
+\tabularnewline
+
+\hline
+bruntvais\_u\_mwbr\_const&
+R& 0.025& 1/s&
+constant brunt vaissala frequency at upper layer for mwbr\_const case&
+nh\_test\_name= 'mwbr\_const'
+\tabularnewline
+
+\hline
+mount\_height&
+R& 100.0& m&
+peak height of mountain&
+nh\_test\_name=  'bell'
+\tabularnewline
+
+\hline
+layer\_thickness&
+R& -999.0& m&
+thickness of vertical layers&
+If layer\_thickness < 0, the vertical level distribution is read in from externally given HYB\_PARAMS\_XX.
+\tabularnewline
+
+\hline
+n\_flat\_level&
+I& 2& &
+level number for which the layer is still flat and not terrain-following&
+layer\_thickness > 0
+\tabularnewline
+
+\hline
+nh\_u0&
+R& 0.0& m/s&
+initial constant zonal wind speed &
+nh\_test\_name = 'bell'
+\tabularnewline
+
+\hline
+nh\_t0&
+R& 300.0& K&
+initial temperature at lowest level &
+nh\_test\_name = 'bell'
+\tabularnewline
+
+\hline
+nh\_brunt\_vais&
+R& 0.01& 1/s&
+initial Brunt-Vaisala frequency &
+nh\_test\_name = 'bell'
+\tabularnewline
+
+\hline
+torus\_domain\_length&
+R& 100000.0& m&
+length of slice domain &
+nh\_test\_name = 'bell', lplane=.TRUE.
+\tabularnewline
+
+\hline
+rotate\_axis\_deg&
+R& 0.0& deg&
+Earth's rotation axis pitch angle&
+nh\_test\_name= 'PA' \tabularnewline
+
+\hline
+lhs\_nh\_vn\_ptb&
+L& .TRUE.& &
+Add random noise to the initial wind field in the Held-Suarez test. &
+nh\_test\_name= 'HS\_nh'\tabularnewline
+
+\hline 
+lhs\_fric\_heat&
+L& .FALSE.& &
+add frictional heating from Rayleigh friction in the Held-Suarez test.&
+nh\_test\_name= 'HS\_nh'\tabularnewline
+
+\hline 
+hs\_nh\_vn\_ptb\_scale&
+R& 1.& m/s &
+Magnitude of the random noise added to the initial wind field in the
+Held-Suarez test. &
+nh\_test\_name= 'HS\_nh'\tabularnewline
+
+\hline
+rh\_at\_1000hpa&
+R& 0.7& 1 &
+relative humidity at 1000 hPa &
+nh\_test\_name= 'jabw', nh\_test\_name= 'mrw'\tabularnewline
+
+\hline
+qv\_max&
+R& 20.e-3& kg/kg &
+specific humidity in the tropics &
+nh\_test\_name= 'jabw', nh\_test\_name= 'mrw'\tabularnewline
+
+\hline
+ape\_sst\_case&
+C& 'sst1'& &
+SST distribution selection\\
+'sst1': Control experiment\\
+'sst2': Peaked experiment\\
+'sst3': Flat experiment\\
+'sst4': Control-5N experiment\\
+'sst\_qobs': Qobs SST distribution exp.&
+ nh\_test\_name='APE\_nh'
+\tabularnewline
+
+\hline 
+linit\_tracer\_fv&
+L& .TRUE.& &
+Finite volume initialization for tracer fields &
+ctest\_name='PA'
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/testcases/mo\_nh\_testcases.f90
+
+
+
+
 %CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 %CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 %CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
@@ -3540,713 +4010,6 @@ for the shallow water model as well as the 3-dimensional atmosphere.
 Depending on the specified experiment, initial conditions and boundary
 conditions are computed internally.
 
-
-\subsubsection{testcase\_ctl (Scope: ltestcase=.TRUE. and iequations=[0,1,2] in run\_nml)}
-
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
-\hline
-\endhead
-\hline 
-ctest\_name&
-C&
-'JWw'&
-&
-Name of test case:&
-\tabularnewline
-&
-&
-&
-&
-'SW\_GW': gravity wave&
-lshallow\_water=.TRUE.\tabularnewline
-&
-&
-&
-&
-'USBR': unsteady solid body rotation &
-lshallow\_water=.TRUE.\tabularnewline
-&
-&
-&
-&
-'Will\_2': Williamson test 2&
-lshallow\_water=.TRUE.\tabularnewline
-&
-&
-&
-&
-'Will\_3': Williamson test 3&
-lshallow\_water=.TRUE.\tabularnewline
-&
-&
-&
-&
-'Will\_5': Williamson test 5&
-lshallow\_water=.TRUE.\tabularnewline
-&
-&
-&
-&
-'Will\_6': Williamson test 6&
-lshallow\_water=.TRUE.\tabularnewline
-&
-&
-&
-&
-'GW': gravity wave (nlev=20 only!) &
-lshallow\_water=.FALSE.\tabularnewline
-&
-&
-&
-&
-'LDF': local diabatic forcing test without physics&
-lshallow\_water=.FALSE.\\and iforcing=4\tabularnewline
-&
-&
-&
-&
-'LDF-Moist': local diabatic forcing test with physics initalised with zonal wind field &
-lshallow\_water=.FALSE.,\\and iforcing=5\tabularnewline
-&
-&
-&
-&
-'HS': Held-Suarez test &
-lshallow\_water=.FALSE.\tabularnewline
-&
-&
-&
-&
-'JWs': Jablonowski-Will. steady state&
-lshallow\_water=.FALSE.\tabularnewline
-&
-&
-&
-&
-'JWw': Jablonowski-Will. wave test&
-lshallow\_water=.FALSE.\tabularnewline
-&
-&
-&
-&
-'JWw-Moist': Jablonowski-Will. wave test including moisture&
-lshallow\_water=.FALSE.\tabularnewline
-&
-&
-&
-&
-'APE': aqua planet experiment&
-lshallow\_water=.FALSE.\tabularnewline
-&
-&
-&
-&
-'MRW': mountain induced Rossby wave&
-lshallow\_water=.FALSE.\tabularnewline
-&
-&
-&
-&
-'MRW2': modified mountain induced Rossby wave&
-lshallow\_water=.FALSE.\tabularnewline
-&
-&
-&
-&
-'PA': pure advection&
-lshallow\_water=.FALSE.\tabularnewline
-&
-&
-&
-&
-'SV': stationary vortex&
-lshallow\_water=.FALSE., 
-ntracer = 2\tabularnewline
-&
-&
-&
-&
-'DF1': deformational flow test 1&
-\tabularnewline
-&
-&
-&
-&
-'DF2': deformational flow test 2&
-\tabularnewline
-&
-&
-&
-&
-'DF3': deformational flow test 3&
-\tabularnewline
-&
-&
-&
-&
-'DF4': deformational flow test 4&
-\tabularnewline
-&
-&
-&
-&
-'RH': Rossby-Haurwitz wave test&
-lshallow\_water=.FALSE.
-\tabularnewline
-\hline 
-rotate\_axis\_deg&
-R&
-0.0&
-deg&
-Earth's rotation axis pitch angle&
-ctest\_name= 'Will\_2', 'Will\_3', 'JWs', 'JWw', 'PA', 'DF1234', \tabularnewline
-\hline 
-gw\_brunt\_vais&
-R&
-0.01&
-1/s&
-Brunt Vaisala frequency&
-ctest\_name= 'GW'\tabularnewline
-\hline 
-gw\_u0&
-R&
-0.0&
-m/s&
-zonal wind parameter&
-ctest\_name= 'GW'\tabularnewline
-\hline 
-gw\_lon\_deg&
-R&
-180.0&
-deg&
-longitude of initial perturbation&
-ctest\_name= 'GW'\tabularnewline
-\hline 
-gw\_lat\_deg&
-R&
-0.0&
-deg&
-latitude of initial perturbation&
-ctest\_name= 'GW'\tabularnewline
-\hline 
-jw\_uptb&
-R&
-1.0&
-m/s (?)&
-amplitude of the wave pertubation&
-ctest\_name= 'JWw'\tabularnewline
-\hline 
-mountctr\_lon\_deg&
-R&
-90.0&
-deg&
-longitude of mountain peak&
-ctest\_name= 'MRW(2)'\tabularnewline
-\hline 
-mountctr\_lat\_deg&
-R&
-30.0&
-deg&
-latitude of mountain peak&
-ctest\_name= 'MRW(2)'\tabularnewline
-\hline 
-mountctr\_height&
-R&
-2000.0&
-m&
-mountain height&
-ctest\_name= 'MRW(2)'\tabularnewline
-\hline 
-mountctr\_half\_width&
-R&
-1500000.0&
-m&
-mountain half width&
-ctest\_name= 'MRW(2)'\tabularnewline
-\hline 
-mount\_u0&
-R&
-20.0&
-m/s&
-wind speed for MRW cases&
-ctest\_name= 'MRW(2)'\tabularnewline
-\hline 
-rh\_wavenum&
-I&
-4&
-&
-wave number&
-ctest\_name= 'RH'\tabularnewline
-\hline 
-rh\_init\_shift\_deg&
-R&
-0.0&
-deg&
-pattern shift&
-ctest\_name= 'RH'\tabularnewline
-\hline 
-ihs\_init\_type&
-I&
-1&
-&
-Choice of initial condition for the Held-Suarez test. 1: the zonal
-state defined in the JWs test case; other integers: isothermal state
-(T=300 K, ps=1000 hPa, u=v=0.)&
-ctest\_name= 'HS'
-\tabularnewline
-\hline 
-lhs\_vn\_ptb&
-L&
-.TRUE.&
-&
-Add random noise to the initial wind field in the Held-Suarez test. &
-ctest\_name= 'HS'
-\tabularnewline
-\hline 
-hs\_vn\_ptb\_scale&
-R&
-1.&
-m/s &
-Magnitude of the random noise added to the initial wind field in the
-Held-Suarez test. &
-ctest\_name= 'HS'
-\tabularnewline
-\hline 
-lrh\_linear\_pres&
-L&
-.FALSE.&
- &
-Initialize the relative humidity using a linear function of pressure. &
-ctest\_name= 'JWw-Moist','APE', 'LDF-Moist'
-\tabularnewline
-\hline 
-rh\_at\_1000hpa&
-R&
-0.75&
- &
-relative humidity \[0,1\] at 1000 hPa &
-ctest\_name= 'JWw-Moist','APE', 'LDF-Moist'
-\tabularnewline
-\hline 
-linit\_tracer\_fv&
-L&
-.TRUE.&
- &
-Finite volume initialization for tracer fields &
-ctest\_name='PA'
-\tabularnewline
-\hline
-ape\_sst\_case&
-C&
-'sst1'&
-&
-SST distribution selection&
- ctest\_name='APE'
-\tabularnewline
-&
-&
-&
-&
-'sst1': Control experiment&
-\tabularnewline
-&
-&
-&
-&
-'sst2': Peaked experiment&
-\tabularnewline
-&
-&
-&
-&
-'sst3': Flat experiment&
-\tabularnewline
-&
-&
-&
-&
-'sst4': Control-5N experiment&
-\tabularnewline
-&
-&
-&
-&
-'sst\_qobs': Qobs SST distribution exp.&
-\tabularnewline
-\hline 
-ildf\_init\_type&
-I&
-0&
-&
-Choice of initial condition for the Local diabatic forcing test. 1: the zonal
-state defined in the JWs test case; other: isothermal state
-(T=300 K, ps=1000 hPa, u=v=0.)&
-ctest\_name= 'LDF'
-\tabularnewline
-\hline
-ldf\_symm&
-L&
-.TRUE.&
-&
-Shape of local diabatic forcing:&
- ctest\_name= 'LDF','LDF-Moist'
-\tabularnewline
-&
-&
-&
-&
-.TRUE.: local diabatic forcing symmetric about the equator (at 0 N)&
-\tabularnewline
-&
-&
-&
-&
-.FALSE.: local diabatic forcing asym. about the equator (at 30 N)&
-\tabularnewline
-\hline
-\end{longtable}
-
-Defined and used in: src/testcases/mo\_hydro\_testcases.f90
-
-\subsubsection{nh\_testcase\_ctl (Scope: ltestcase=.TRUE. and iequations=3 in run\_nml)}
-
-\begin{longtable}{|>{\raggedright}p{4cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
-\hline
-\endhead
-\hline 
-nh\_test\_name&
-C&
-'jabw'&
-&
-testcase selection&
-\tabularnewline
-&
-&
-&
-&
-'zero': no orography&
-\tabularnewline
-&
-&
-&
-&
-'bell': bell shaped mountain at 0E,0N&
-\tabularnewline
-&
-&
-&
-&
-'schaer': hilly mountain at 0E,0N&
-\tabularnewline
-&
-&
-&
-&
-'jabw': Initializes the full Jablonowski Williamson test case.&
-\tabularnewline
-&
-&
-&
-&
-'jabw\_s': Initializes the Jablonowski Williamson steady state test case.&
-\tabularnewline
-&
-&
-&
-&
-'jabw\_m': Initializes the Jablonowski Williamson test case with a mountain instead of the wind perturbation (specify mount\_height).&
-\tabularnewline
-&
-&
-&
-&
-'mrw\_nh': Initializes the full Mountain-induced Rossby wave test case.&
-\tabularnewline
-&
-&
-&
-&
-'mrw2\_nh': Initializes the modified mountain-induced Rossby wave test case.&
-\tabularnewline
-&
-&
-&
-&
-'mwbr\_const': Initializes the mountain wave with two layers test case. 
-The lower layer is isothermal and the upper layer has constant brunt 
-vaisala frequency. The interface has constant pressure.&
-\tabularnewline
-&
-&
-&
-&
-'PA': Initializes the pure advection test case.&
-\tabularnewline
-&
-&
-&
-&
-'HS\_nh': Initializes the Held-Suarez test case. At the moment 
- with an isothermal atmosphere at rest (T=300K, ps=1000hPa, 
-u=v=0, topography=0.0).&
-\tabularnewline
-&
-&
-&
-&
-'HS\_jw': Initializes the Held-Suarez test case
-with Jablonowski Williamson initial conditions and zero topography.&
-\tabularnewline
-&
-&
-&
-&
-'APE\_nh': Initializes the APE experiments. At the moment 
- with T=300K, ps=1013.25hPa, u=v=w=0).&
-\tabularnewline
-\hline
-jw\_up&
-R&
-1.0&
-m/s&
-amplitude of the u-perturbation in jabw test case&
-nh\_test\_name='jabw'
-\tabularnewline
-\hline
-u0\_mrw&
-R&
-20.0&
-m/s&
-wind speed for mrw case&
-nh\_test\_name= 'mrw(2)\_nh'
-\tabularnewline
-\hline
-mount\_height\_mrw&
-R&
-2000.0&
-m&
-maximum mount height in mrw(2) and mwbr\_const&
-nh\_test\_name= 'mrw(2)\_nh' and 'mwbr\_const'
-\tabularnewline
-\hline
-mount\_half\_width&
-R&
-1500000.0&
-m&
-half width of mountain in mrw(2), mwbr\_const and bell &
-nh\_test\_name= 'mrw(2)\_nh', 'mwbr\_const' and 'bell'
-\tabularnewline
-\hline
-mount\_lonctr\_mrw\_deg&
-R&
-90.&
-degrees&
-lon of mountain center in mrw(2) and mwbr\_const&
-nh\_test\_name= 'mrw(2)\_nh' and 'mwbr\_const'
-\tabularnewline
-\hline
-mount\_latctr\_mrw\_deg&
-R&
-30.&
-degrees&
-lat of mountain center in mrw(2) and mwbr\_const&
-nh\_test\_name= 'mrw(2)\_nh' and 'mwbr\_const'
-\tabularnewline
-\hline
-u0\_mwbr\_const&
-R&
-20.0&
-m/s&
-wind speed for mwbr\_const case&
-nh\_test\_name= 'mwbr\_const'
-\tabularnewline
-\hline
-temp\_i\_mwbr\_const&
-R&
-288.0&
-K&
-temp at isothermal lower layer for mwbr\_const case&
-nh\_test\_name= 'mwbr\_const'
-\tabularnewline
-\hline
-p\_int\_mwbr\_const&
-R&
-70000.&
-Pa&
-pres at the interface of the two layers for mwbr\_const case&
-nh\_test\_name= 'mwbr\_const'
-\tabularnewline
-\hline
-bruntvais\_u\_mwbr\_const&
-R&
-0.025&
-1/s&
-constant brunt vaissala frequency at upper layer for mwbr\_const case&
-nh\_test\_name= 'mwbr\_const'
-\tabularnewline
-\hline
-mount\_height&
-R&
-100.0&
-m&
-peak height of mountain&
-nh\_test\_name=  'bell'
-\tabularnewline
-\hline
-layer\_thickness&
-R&
--999.0&
-m&
-thickness of vertical layers&
-If layer\_thickness < 0, the vertical level distribution is read in from externally given HYB\_PARAMS\_XX.
-\tabularnewline
-\hline
-n\_flat\_level&
-I&
-2&
-&
-level number for which the layer is still flat and not terrain-following&
-layer\_thickness > 0
-\tabularnewline
-\hline
-nh\_u0&
-R&
-0.0&
-m/s&
-initial constant zonal wind speed &
-nh\_test\_name = 'bell'
-\tabularnewline
-\hline
-nh\_t0&
-R&
-300.0&
-K&
-initial temperature at lowest level &
-nh\_test\_name = 'bell'
-\tabularnewline
-\hline
-nh\_brunt\_vais&
-R&
-0.01&
-1/s&
-initial Brunt-Vaisala frequency &
-nh\_test\_name = 'bell'
-\tabularnewline
-\hline
-torus\_domain\_length&
-R&
-100000.0&
-m&
-length of slice domain &
-nh\_test\_name = 'bell', lplane=.TRUE.
-\tabularnewline
-\hline
-rotate\_axis\_deg&
-R&
-0.0&
-deg&
-Earth's rotation axis pitch angle&
-nh\_test\_name= 'PA' \tabularnewline
-\hline
-lhs\_nh\_vn\_ptb&
-L&
-.TRUE.&
-&
-Add random noise to the initial wind field in the Held-Suarez test. &
-nh\_test\_name= 'HS\_nh'\tabularnewline
-\hline 
-lhs\_fric\_heat&
-L&
-.FALSE.&
-&
-add frictional heating from Rayleigh friction in the Held-Suarez test.&
-nh\_test\_name= 'HS\_nh'\tabularnewline
-\hline 
-hs\_nh\_vn\_ptb\_scale&
-R&
-1.&
-m/s &
-Magnitude of the random noise added to the initial wind field in the
-Held-Suarez test. &
-nh\_test\_name= 'HS\_nh'\tabularnewline
-\hline
-rh\_at\_1000hpa&
-R&
-0.7&
-1 &
-relative humidity at 1000 hPa &
-nh\_test\_name= 'jabw', nh\_test\_name= 'mrw'\tabularnewline
-\hline
-qv\_max&
-R&
-20.e-3&
-kg/kg &
-specific humidity in the tropics &
-nh\_test\_name= 'jabw', nh\_test\_name= 'mrw'\tabularnewline
-\hline
-ape\_sst\_case&
-C&
-'sst1'&
-&
-SST distribution selection&
- nh\_test\_name='APE\_nh'
-\tabularnewline
-&
-&
-&
-&
-'sst1': Control experiment&
-\tabularnewline
-&
-&
-&
-&
-'sst2': Peaked experiment&
-\tabularnewline
-&
-&
-&
-&
-'sst3': Flat experiment&
-\tabularnewline
-&
-&
-&
-&
-'sst4': Control-5N experiment&
-\tabularnewline
-&
-&
-&
-&
-'sst\_qobs': Qobs SST distribution exp.&
-\tabularnewline
-\hline 
-linit\_tracer\_fv&
-L&
-.TRUE.&
- &
-Finite volume initialization for tracer fields &
-ctest\_name='PA'
-\tabularnewline
-\hline
-\end{longtable}
-
-Defined and used in: src/testcases/mo\_nh\_testcases.f90
 
 \section{Externally provided data}
 

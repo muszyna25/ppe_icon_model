@@ -47,7 +47,7 @@ MODULE mo_ldf_test
   USE mo_impl_constants,     ONLY: ildf_echam
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
   USE mo_loopindices,        ONLY: get_indices_c
-  USE mo_hydro_testcases,    ONLY: ldf_symm, ildf_init_type
+  USE mo_ha_testcases,       ONLY: ldf_symm, ildf_init_type
 
 
   IMPLICIT NONE
