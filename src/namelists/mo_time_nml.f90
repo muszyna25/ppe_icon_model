@@ -174,23 +174,23 @@ CONTAINS
       IF (time_config%calendar /= calendar_old .OR.     &
           ini_datetime_string_old /= ini_datetime_string) THEN
             
-        time_config%current_datetime = time_config%ini_datetime
+        time_config%cur_datetime = time_config%ini_datetime
 
       ELSE
-         time_config%current_datetime%calendar = time_config%calendar
-         time_config%current_datetime%year     = restart_year
-         time_config%current_datetime%month    = restart_month
-         time_config%current_datetime%day      = restart_day
-         time_config%current_datetime%hour     = restart_hour
-         time_config%current_datetime%minute   = restart_minute
-         time_config%current_datetime%second   = restart_second
+         time_config%cur_datetime%calendar = time_config%calendar
+         time_config%cur_datetime%year     = restart_year
+         time_config%cur_datetime%month    = restart_month
+         time_config%cur_datetime%day      = restart_day
+         time_config%cur_datetime%hour     = restart_hour
+         time_config%cur_datetime%minute   = restart_minute
+         time_config%cur_datetime%second   = restart_second
 
-        CALL date_to_time(time_config%current_datetime) ! fill date time structure
+        CALL date_to_time(time_config%cur_datetime) ! fill date time structure
       END IF
 
     ELSE
       ! In an initial run, current date/time is, naturally, the initial date/time
-      time_config%current_datetime = time_config%ini_datetime
+      time_config%cur_datetime = time_config%ini_datetime
 
     END IF !lrestart
 

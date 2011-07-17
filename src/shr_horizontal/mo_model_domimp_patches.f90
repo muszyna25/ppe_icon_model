@@ -47,7 +47,6 @@
 !!   (grid information comes now inside a patch)
 !! - changed subroutine name form setup_grid to setup_files
 !! Modified by Hui Wan, MPI-M, (2008-04-04)
-!!  - control variable loce renamed locean
 !!  - topography_file_dir renamed topo_file_dir
 !!  - for the hydro_atmos, control variable testtype renamed ctest_name.
 !! Modified by Almut Gassmann, MPI-M, (2008-04-23)
@@ -120,7 +119,6 @@ USE mo_impl_constants,     ONLY: SUCCESS, &
 USE mo_exception,          ONLY: message_text, message, finish
 USE mo_model_domain,       ONLY: t_patch
 USE mo_parallel_configuration,  ONLY: nproma
-USE mo_run_nml,            ONLY: locean
 USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real, calculate_cart_normal,&
      &                           init_quad_twoadjcells, init_coriolis
 USE mo_grid_configuration, ONLY: start_lev, nroot, n_dom, n_dom_start,    &
@@ -285,10 +283,11 @@ END SUBROUTINE set_patches_grid_filename
 !! Modification by Stephan Lorenz, MPI-M (2010-02-06)
 !!  - new subroutine for initialization of ocean patch
 !!
-SUBROUTINE import_patches( p_patch, nlev,nlevp1,num_lev,num_levp1,nshift )
+SUBROUTINE import_patches( p_patch, nlev,nlevp1,num_lev,num_levp1,nshift,locean)
 
 INTEGER,INTENT(IN) :: nlev, nlevp1
 INTEGER,INTENT(IN) :: num_lev(:), num_levp1(:), nshift(:)
+LOGICAL,INTENT(IN) :: locean
 TYPE(t_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
 
 INTEGER :: jg, jg1, jlev, n_chd
@@ -1813,11 +1812,10 @@ END SUBROUTINE reshape_idx_list
 !! Modification by Almut Gassmann, MPI-M (2008-10-30)
 !! - add Coriolis destruction
 !!
-  SUBROUTINE destruct_patches( p_patch )
-!
-!
+  SUBROUTINE destruct_patches( p_patch, locean )
 
     TYPE(t_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
+    LOGICAL,INTENT(IN) :: locean
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &        routine = 'mo_model_domimp_patches:destruct_patches'

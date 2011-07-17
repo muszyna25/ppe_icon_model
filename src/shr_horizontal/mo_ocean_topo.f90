@@ -47,7 +47,6 @@
 !!   (grid information comes now inside a patch)
 !! - changed subroutine name form setup_grid to setup_files
 !! Modified by Hui Wan, MPI-M, (2008-04-04)
-!!  - control variable loce renamed locean
 !!  - topography_file_dir renamed topo_file_dir
 !!  - for the hydro_atmos, control variable testtype renamed ctest_name.
 !! Modified by Almut Gassmann, MPI-M, (2008-04-23)

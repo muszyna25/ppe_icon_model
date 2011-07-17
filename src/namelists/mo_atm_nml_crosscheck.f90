@@ -53,25 +53,26 @@ MODULE mo_atm_nml_crosscheck
     &                               IHS_ATM_TEMP,IHS_ATM_THETA, &
     &                               tracer_only, inh_atmosphere, ishallow_water
   USE mo_parallel_configuration, ONLY: check_parallel_configuration
-  USE mo_run_config,          ONLY: lrestore_states, dtime, iforcing, ltransport, &
-                                    &ntracer, nlev, io3, inextra_2D, inextra_3D,&
-                                    & configure_run, ltestcase
-  USE mo_time_config,         ONLY: time_config, configure_time
+  USE mo_run_config,          ONLY: lrestore_states, nsteps, dtime, iforcing,    &
+                                  & ltransport, ntracer, nlev, io3,              &
+                                  & ltestcase, inextra_2D, inextra_3D
+                                  
+  USE mo_time_config,         ONLY: time_config
   USE mo_gridref_config
-  USE mo_interpol_config      
-  USE mo_grid_configuration   
-  USE mo_sleve_config         
+  USE mo_interpol_config
+  USE mo_grid_configuration
+  USE mo_sleve_config
 
   USE mo_dynamics_config,     ONLY: configure_dynamics,&
     &                            iequations, itime_scheme, idiv_method, divavg_cntrwgt,&
     &                            sw_ref_height, ldry_dycore, lcoriolis, lshallow_water, ltwotime
   USE mo_advection_config,    ONLY: advection_config !, configure_advection
 
-  USE mo_nonhydrostatic_config      
+  USE mo_nonhydrostatic_config
   USE mo_ha_dyn_config,     ONLY: ha_dyn_config
   USE mo_diffusion_config,  ONLY: diffusion_config, configure_diffusion
 
-  USE mo_io_config          
+  USE mo_io_config
 
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, tcall_phy, configure_atm_phy_nwp
   USE mo_lnd_nwp_config,     ONLY: nlev_soil, nztlev ,nlev_snow ,nsfc_subs,&
@@ -83,6 +84,8 @@ MODULE mo_atm_nml_crosscheck
   USE mo_vdiff_config,       ONLY: vdiff_config
   USE mo_nh_testcases,       ONLY: linit_tracer_fv,nh_test_name
   USE mo_hydro_testcases,    ONLY: ctest_name
+
+  USE mo_datetime,           ONLY: add_time, print_datetime_all
 
   IMPLICIT NONE
 
@@ -98,12 +101,98 @@ CONTAINS
   SUBROUTINE atm_crosscheck
 
     INTEGER :: jg
+    REAL(wp):: cur_datetime_calsec, end_datetime_calsec, length_sec
     CHARACTER(len=*), PARAMETER :: routine =  'atm_crosscheck'
 
     !--------------------------------------------------------------------
     ! Parallelization
     !--------------------------------------------------------------------
     CALL check_parallel_configuration(lrestore_states)
+
+    !--------------------------------------------------------------------
+    ! Length if this integration
+    !--------------------------------------------------------------------
+    IF (nsteps/=0) THEN   ! User specified a value
+
+      length_sec = REAL(nsteps,wp)*dtime
+      time_config%end_datetime = time_config%cur_datetime
+      CALL add_time(length_sec,0,0,0,time_config%end_datetime)
+
+   !HW (2011-07-17): run_day/hour/... not implemented in the restructured version ------
+   !ELSE IF (run_day/=0 .OR. run_hour/=0 .OR. run_minute/=0 .OR. run_second/=0.0_wp) THEN
+   !  IF (run_day    < 0    ) CALL finish(routine,'"run_day" must not be negative')
+   !  IF (run_hour   < 0    ) CALL finish(routine,'"run_hour" must not be negative')
+   !  IF (run_minute < 0    ) CALL finish(routine,'"run_minute" must not be negative')
+   !  IF (run_second < 0._wp) CALL finish(routine,'"run_second" must not be negative')
+   !  !
+   !  end_datetime = cur_datetime
+   !  CALL add_time(run_second,run_minute,run_hour,run_day,end_datetime)
+   !  !
+   !  cur_datetime_calsec = (REAL(cur_datetime%calday,wp)+cur_datetime%caltime) &
+   !    &                   *REAL(cur_datetime%daylen,wp)
+   !  end_datetime_calsec = (REAL(end_datetime%calday,wp)+end_datetime%caltime) &
+   !    &                   *REAL(end_datetime%daylen,wp)
+   !  nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
+   !-------------------------
+
+    ELSE
+      ! Compute nsteps from cur_datetime, end_datetime and dtime
+
+      cur_datetime_calsec = (REAL(time_config%cur_datetime%calday,wp)  &
+                                 +time_config%cur_datetime%caltime   ) &
+                           * REAL(time_config%cur_datetime%daylen,wp)
+      end_datetime_calsec = (REAL(time_config%end_datetime%calday,wp)  &
+                                 +time_config%end_datetime%caltime   ) &
+                           * REAL(time_config%end_datetime%daylen,wp)
+
+      IF (end_datetime_calsec < cur_datetime_calsec) &
+        & CALL finish(TRIM(routine),'The end date and time must not be '// &
+        &            'before the current date and time')
+
+      nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
+
+    END IF
+
+    ! Length of this integration is limited by length of the restart cycle.
+    nsteps = MIN(nsteps,INT(time_config%dt_restart/dtime))
+
+    ! Special treatment for the hydro atm model
+
+    IF ( (iequations == IHS_ATM_TEMP) .OR. &
+         (iequations == IHS_ATM_THETA)     ) THEN
+
+      ! If running the HYDROSTATIC version,
+      ! let the model integrate one more step after the desired end of
+      ! simulation in order to get the proper output. This additional step is
+      ! necessary because the HYDROSTATIC model writes out values of step N
+      ! after the integration from N to N+1 is finished. Also note that
+      ! this additional step is done only for the regular output, and is
+      ! ignored for restart.
+
+      nsteps = nsteps + 1
+
+      ! The additional step is not needed in the NON-hydrostatic version because
+      ! in this case the model writes out values of step N
+      ! after the integration from N-1 to N is finished.
+    ENDIF
+
+    CALL message(' ',' ')
+    CALL message(routine,'Initial date and time')
+    CALL message(routine,'---------------------')
+    CALL print_datetime_all(time_config%ini_datetime)  ! print all date and time components
+
+    CALL message(' ',' ')
+    CALL message(routine,'End date and time')
+    CALL message(routine,'-----------------')
+    CALL print_datetime_all(time_config%end_datetime)  ! print all date and time components
+
+    CALL message(' ',' ')
+    CALL message(routine,'Length of restart cycle')
+    CALL message(routine,'-----------------------')
+    WRITE(message_text,'(a,f10.2,a,f16.10,a)') &
+         &'dt_restart :',time_config%dt_restart,' seconds =', &
+         & time_config%dt_restart/86400._wp, ' days'
+    CALL message(routine,message_text)
 
     !--------------------------------------------------------------------
     ! Horizontal interpolation
@@ -140,13 +229,13 @@ CONTAINS
     END SELECT
 
     !--------------------------------------------------------------------
-    ! Grid and dynamics 
+    ! Grid and dynamics
     !--------------------------------------------------------------------
     IF (lplane .AND. global_cell_type==3) CALL finish( TRIM(routine),&
       'Currently only the hexagon model can run on a plane')
 
     IF (global_cell_type==6.AND.idiv_method==2) THEN
-      CALL finish( TRIM(ROUTINE),'idiv_method =2 not valid for the hexagonal model') 
+      CALL finish( TRIM(ROUTINE),'idiv_method =2 not valid for the hexagonal model')
     ENDIF
 
     IF ((iforcing==IHELDSUAREZ.OR.iforcing==ILDF_DRY).AND.(.NOT.ldry_dycore)) &
@@ -154,7 +243,7 @@ CONTAINS
                'Held-Suarez test and the dry local diabatic forcing test.')
 
     !--------------------------------------------------------------------
-    ! testcases 
+    ! testcases
     !--------------------------------------------------------------------
 
     IF(global_cell_type==3) THEN
@@ -164,9 +253,8 @@ CONTAINS
     ENDIF
 
 
-
     !--------------------------------------------------------------------
-    ! Shallow water 
+    ! Shallow water
     !--------------------------------------------------------------------
     IF (iequations==ISHALLOW_WATER.AND.ha_dyn_config%lsi_3d) THEN
       CALL message( TRIM(routine), 'lsi_3d = .TRUE. not appicable to shallow water model')
@@ -191,7 +279,7 @@ CONTAINS
     ENDIF
 
     ! for reduced calling frequency of tracer advection / fast physics:
-    ! odd values of iadv_rcf are allowed only if nest calls are synchronized 
+    ! odd values of iadv_rcf are allowed only if nest calls are synchronized
     ! with advection
     IF ( .NOT. l_nest_rcf .AND. MOD(iadv_rcf,2) /= 0 &
          .AND. iadv_rcf /= 1 .OR. iadv_rcf == 0) THEN
@@ -218,7 +306,7 @@ CONTAINS
 
         IF( (atm_phy_nwp_config(jg)%inwp_convection >0 ) .OR. &
             (atm_phy_nwp_config(jg)%inwp_gscp > 0)       .AND.&
-             atm_phy_nwp_config(jg)%inwp_satad == 0)& 
+             atm_phy_nwp_config(jg)%inwp_satad == 0)&
          & CALL finish( TRIM(routine),'satad has to be switched on')
 
 
@@ -274,40 +362,40 @@ CONTAINS
     !--------------------------------------------------------------------
 
     DO jg =1,n_dom
-   
+
       SELECT CASE( diffusion_config(jg)%hdiff_order )
       CASE(-1)
         WRITE(message_text,'(a,i2.2)') 'Horizontal diffusion '//&
                                        'switched off for domain ', jg
         CALL message(TRIM(routine),TRIM(message_text))
-   
+
       CASE(2,4)
         CONTINUE
-   
+
       CASE(3)
         IF (global_cell_type==3) CALL finish(TRIM(routine), &
         ' hdiff_order = 3 invalid for triangular model.')
-   
+
       CASE(5)
         IF (global_cell_type==6) CALL finish(TRIM(routine), &
         ' hdiff_order = 5 invalid for hexagonal model.')
-   
+
       CASE(24,42)
         IF (.NOT.( iequations==IHS_ATM_TEMP)) CALL finish(TRIM(routine), &
         ' hdiff_order = 24 or 42 only implemented for the hydrostatic atm model')
-   
+
       CASE DEFAULT
         CALL finish(TRIM(routine),                       &
-          & 'Error: Invalid choice for  hdiff_order. '// &                
+          & 'Error: Invalid choice for  hdiff_order. '// &
           & 'Choose from -1, 2, 3, 4, 5, 24, and 42.')
       END SELECT
-   
+
       IF ( diffusion_config(jg)%hdiff_efdt_ratio<=0._wp) THEN
         CALL message(TRIM(routine),'No horizontal background diffusion is used')
       ENDIF
-   
+
       IF (lshallow_water)  diffusion_config(jg)%lhdiff_temp=.FALSE.
-   
+
     ENDDO
 
     !--------------------------------------------------------------------
@@ -331,14 +419,14 @@ CONTAINS
   CASE DEFAULT
     ! Do nothing. Keep the initial values, if not specified in namelist.
   END SELECT
-  
-  IF (( inextra_2D > 0) .OR. (inextra_3D > 0) ) THEN 
+
+  IF (( inextra_2D > 0) .OR. (inextra_3D > 0) ) THEN
     lwrite_extra = .TRUE.
     WRITE(message_text,'(a,2I4,a,L4)') &
       &'inextra is',inextra_2d,inextra_3d ,' lwrite_extra has been set', lwrite_extra
     CALL message('io_namelist', TRIM(message_text))
   ENDIF
-  
+
   IF (inextra_2D == 0 .AND. inextra_3D == 0 .AND. lwrite_extra) &
     CALL finish('io_namelist','need to specify extra fields for extra output')
 

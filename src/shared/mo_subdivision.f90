@@ -262,7 +262,9 @@ CONTAINS
   !------------------------------------------------------------------
   !>
   !!  Divide patches and interpolation states for mpi parallel runs.
-  SUBROUTINE decompose_atmo_domain()
+  SUBROUTINE decompose_atmo_domain( locean )
+
+    LOGICAL,INTENT(IN) :: locean
 
 #ifdef NOMPI
     CALL finish('mo_subdivision','decompose_atmo_domain must only be called in parallel runs')
@@ -527,7 +529,7 @@ CONTAINS
                    'deallocation of p_int_state_global failed')
     ENDIF
 
-    CALL destruct_patches( p_patch_global )
+    CALL destruct_patches( p_patch_global, locean )
     DEALLOCATE( p_patch_global, STAT = ist)
     IF (ist/=SUCCESS)THEN
       CALL message('mo_subdivision:decompose_atmo_domain',   &

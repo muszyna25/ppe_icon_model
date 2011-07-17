@@ -59,15 +59,11 @@ MODULE mo_ocean_model
 !    & dt_file,              & !    :
 !    & dt_diag
   USE mo_io_config,         ONLY:  dt_data,dt_file,dt_diag!,dt_checkpoint
-  USE mo_run_nml,           ONLY: run_nml_setup
   USE mo_run_config,        ONLY: &
     & dtime,                & !    :
     & ltransport,           & !    :
     & lforcing,             & !    :
     & ltimer,               & !    :
-!0  & locean,               & !    :
-!0  & iequations,           & !    internal parameters
-!0  & impiom,               & !    :
     & ldump_states,         & ! flag if states should be dumped
     & lrestore_states,      &  ! flag if states should be restored
     & nlev, nlevp1,         & !
@@ -195,7 +191,8 @@ CONTAINS
     
     ! Read namelists 'run_ctl' and 'ocean_ctl' 
     
-    CALL run_nml_setup
+  ! CALL run_nml_setup
+    CALL finish(TRIM(routine),'subroutine run_nml_setup no longer exists!')
     CALL setup_ocean_nml
     
     !-------------------------------------------------------------------
@@ -244,7 +241,9 @@ CONTAINS
     IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
       CALL restore_patches_netcdf( p_patch_global )
     ELSE
-      CALL import_patches( p_patch_global, nlev,nlevp1,num_lev,num_levp1,nshift )
+      CALL import_patches( p_patch_global,                       &
+                           nlev,nlevp1,num_lev,num_levp1,nshift, &
+                           locean=.TRUE. )
     ENDIF
     
     IF(lrestore_states) THEN
@@ -347,7 +346,7 @@ CONTAINS
       
     ELSE
       
-      CALL decompose_atmo_domain()
+      CALL decompose_atmo_domain(locean=.TRUE.)
       
     ENDIF
     
@@ -522,7 +521,7 @@ CONTAINS
     
     ! Deallocate grid patches
 
-    CALL destruct_patches( p_patch )
+    CALL destruct_patches( p_patch, locean=.TRUE. )
 
     IF(my_process_is_mpi_seq() .OR. lrestore_states) THEN
       DEALLOCATE( p_patch_global, stat=ist )

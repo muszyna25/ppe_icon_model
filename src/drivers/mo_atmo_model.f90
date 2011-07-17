@@ -61,7 +61,6 @@ USE mo_io_nml,              ONLY: io_nml_setup !,         & ! process I/O
 !& dt_checkpoint 
 USE mo_io_config,         ONLY:  dt_data,dt_file,dt_diag,dt_checkpoint
 USE mo_dynamics_config,   ONLY: iequations
-USE mo_run_nml,           ONLY: run_nml_setup
 USE mo_run_config,        ONLY: &
 & dtime,                & !    namelist parameter
 & nsteps,               & !    :
@@ -407,7 +406,7 @@ INTEGER, POINTER :: grid_glob_index(:)
     ! mask will be initialized. They are related to the atmos/ocean switch
     ! as well as the selected test case.
     
-    CALL run_nml_setup
+   !CALL run_nml_setup   ! subroutine no longer exists!!!
     
     !-------------------------------------------------------------------
     ! Initialize various timers; initialize data and time 
@@ -472,7 +471,9 @@ INTEGER, POINTER :: grid_glob_index(:)
     IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
       CALL restore_patches_netcdf( p_patch_global )
     ELSE
-      CALL import_patches( p_patch_global,nlev,nlevp1,num_lev,num_levp1,nshift )
+      CALL import_patches( p_patch_global,                       &
+                           nlev,nlevp1,num_lev,num_levp1,nshift, &
+                           locean=.FALSE. )
     ENDIF
     
     IF(lrestore_states) THEN
@@ -622,7 +623,7 @@ INTEGER, POINTER :: grid_glob_index(:)
       
     ELSE
       
-      CALL decompose_atmo_domain()
+      CALL decompose_atmo_domain( locean=.FALSE. )
       
     ENDIF
     
@@ -847,7 +848,7 @@ INTEGER, POINTER :: grid_glob_index(:)
     
     ! Note: here the derived output variables are not yet available
     ! (omega, divergence, vorticity)
-    CALL write_output( time_config%current_datetime )
+    CALL write_output( time_config%cur_datetime )
     l_have_output = .TRUE.
 
     END IF ! not lrestart
@@ -861,13 +862,13 @@ INTEGER, POINTER :: grid_glob_index(:)
 
     CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
       CALL perform_ha_stepping( p_patch(1:), p_int_state(1:), p_grf_state(1:), &
-                              & p_hydro_state, time_config%current_datetime,   &
+                              & p_hydro_state, time_config%cur_datetime,       &
                               & n_io, n_file, n_chkpt, n_diag, jfile,          &
                               & l_have_output                                  )
 
     CASE (inh_atmosphere)
       CALL perform_nh_stepping( p_patch, p_int_state, p_grf_state, p_nh_state,   &
-                              & time_config%current_datetime,                    &
+                              & time_config%cur_datetime,                        &
                               & n_io, n_file, n_chkpt, n_diag, l_have_output     )
     CASE DEFAULT
     END SELECT
@@ -963,7 +964,7 @@ INTEGER, POINTER :: grid_glob_index(:)
     
     ! Deallocate grid patches
     !
-    CALL destruct_patches( p_patch )
+    CALL destruct_patches( p_patch, locean=.FALSE. )
 
     IF (my_process_is_mpi_seq()  &
       & .OR. lrestore_states) THEN

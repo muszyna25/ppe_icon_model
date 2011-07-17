@@ -29,7 +29,6 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-!!
 MODULE mo_run_nml
 
   USE mo_run_config, ONLY: config_ldump_states    => ldump_states,    &
@@ -67,7 +66,6 @@ MODULE mo_run_nml
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: read_run_namelist
-  PUBLIC :: run_nml_setup, locean    !!!to be removed
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
@@ -121,11 +119,6 @@ MODULE mo_run_nml
                      ltimer,       timers_level,    &
                      msg_level,                     &
                      inextra_2d,   inextra_3d
-
-  !-----------------------------------------------------------------------
-  ! 2.0 Declaration of dependent control variables 
-  !-----------------------------------------------------------------------
-  LOGICAL  :: locean        ! if .TRUE., the model runs in ocean mode
 
 CONTAINS
   !>
@@ -249,112 +242,5 @@ CONTAINS
 
   END SUBROUTINE read_run_namelist
   !-------------
-  !>
-  !!
-  SUBROUTINE run_nml_setup
-    !---------------------------------------------------------------
-    ! 4. Check whether the namelist varibles have reasonable values
-    !---------------------------------------------------------------
-
-!     CASE (ihs_ocean)
-!       locean         = .TRUE.
-!     CASE default
-!       CALL finish( TRIM(routine),'wrong equation specifier iequations')
-!     END SELECT
-! 
-! 
-  
-    ! 5.3 End date and time, and length of integration
-    !     Here we define "nsteps" as the number of time steps THIS integration
-    !     will last, regardless of the restart status.
-
-!     IF (nsteps/=0) THEN
-! 
-!     
-!       length_sec   = REAL(nsteps,wp)*dtime
-!       end_datetime = current_datetime
-!       CALL add_time(length_sec,0,0,0,end_datetime)
-!       !
-!     ELSE IF (run_day/=0 .OR. run_hour/=0 .OR. run_minute/=0 .OR. run_second/=0.0_wp) THEN
-!       IF (run_day    < 0    ) CALL finish(routine,'"run_day" must not be negative')
-!       IF (run_hour   < 0    ) CALL finish(routine,'"run_hour" must not be negative')
-!       IF (run_minute < 0    ) CALL finish(routine,'"run_minute" must not be negative')
-!       IF (run_second < 0._wp) CALL finish(routine,'"run_second" must not be negative')
-!       !
-!       end_datetime = current_datetime
-!       CALL add_time(run_second,run_minute,run_hour,run_day,end_datetime)
-!       !
-!       cur_datetime_calsec = (REAL(current_datetime%calday,wp)+current_datetime%caltime) &
-!         &                   *REAL(current_datetime%daylen,wp)
-!       end_datetime_calsec = (REAL(end_datetime%calday,wp)+end_datetime%caltime) &
-!         &                   *REAL(end_datetime%daylen,wp)
-!       nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
-!       !
-!     ELSE
-!       ! compute nsteps from current_datetime, end_datetime and dtime
-!       end_datetime%calendar = calendar
-!       end_datetime%year     = end_year
-!       end_datetime%month    = end_month
-!       end_datetime%day      = end_day
-!       end_datetime%hour     = end_hour
-!       end_datetime%minute   = end_minute
-!       end_datetime%second   = end_second
-!       CALL date_to_time      (end_datetime) ! fill date time structure
-!       !
-!       cur_datetime_calsec = (REAL(current_datetime%calday,wp)+current_datetime%caltime) &
-!         &                   *REAL(current_datetime%daylen,wp)
-!       end_datetime_calsec = (REAL(end_datetime%calday,wp)+end_datetime%caltime) &
-!         &                   *REAL(end_datetime%daylen,wp)
-!       IF (end_datetime_calsec < cur_datetime_calsec) &
-!         & CALL finish(routine,'The end date and time must not be '// &
-!         &            'before the current date and time')
-!       !
-!       nsteps=INT((end_datetime_calsec-cur_datetime_calsec)/dtime)
-!       !
-!     END IF
-! 
-!     nsteps = MIN(nsteps,INT(dt_restart/dtime))
-
-!   IF ( (dynamics_config(1)%iequations == IHS_ATM_TEMP) .OR. &
-!        (dynamics_config(1)%iequations == IHS_ATM_THETA)     ) THEN
-
-!    ! If running the HYDROSTATIC version,
-!    ! let the model integrate one more step after the desired end of
-!    ! simulation in order to get the proper output. This additional step is
-!    ! necessary because the HYDROSTATIC model writes out values of step N
-!    ! after the integration from N to N+1 is finished. Also note that
-!    ! this additional step is done only for the regular output, and is 
-!    ! ignored for restart.
-
-!    nsteps = nsteps + 1
-
-!    ! The additional step is not needed in the NON-hydrostatic version because
-!    ! in this case the model writes out values of step N
-!    ! after the integration from N-1 to N is finished.
-!   ENDIF
-    !..................................................................
-    !
-!     CALL message(' ',' ')
-!     CALL message(routine,'End date and time')
-!     CALL message(routine,'-----------------')
-! !     CALL print_datetime_all(end_datetime)  ! print all date and time components
-! 
-!     CALL message(' ',' ')
-!     CALL message(routine,'Length of restart cycle')
-!     CALL message(routine,'-----------------------')
-! !     WRITE(message_text,'(a,f10.2,a,f16.10,a)') &
-! !          &'dt_restart :',dt_restart,' seconds =', dt_restart/86400._wp, ' days'
-! !     CALL message(routine,message_text)
-! 
-!     CALL message(' ',' ')
-!     CALL message(routine,'Length of this run')
-!     CALL message(routine,'------------------')
-!     WRITE (message_text,'(a,f7.2)') 'dtime [s] :',dtime
-!     CALL message(routine,message_text)
-!     WRITE (message_text,'(a,i7)')   'nsteps    :',nsteps
-!     CALL message(routine,message_text)
-!     CALL message(' ',' ')
-    
- END SUBROUTINE run_nml_setup
 
 END MODULE mo_run_nml

@@ -160,9 +160,9 @@ CONTAINS
 !     ! import because during the import procedure the topography and land-sea
 !     ! mask will be initialized. They are related to the atmos/ocean switch
 !     ! as well as the selected test case.
-!     
-!     CALL run_nml_setup
-!     
+!DONE     
+!DONE     CALL run_nml_setup
+!DONE     
 !DONE     !-------------------------------------------------------------------
 !DONE     ! parallel_nml_setup must be called after setup_run since it needs
 !DONE     ! some variables read in setup_run

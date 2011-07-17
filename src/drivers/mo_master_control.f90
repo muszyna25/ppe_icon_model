@@ -61,7 +61,6 @@ MODULE mo_master_control
   
   USE mo_coupling_nml, ONLY: read_coupling_namelist
 
-  USE mo_run_nml,      ONLY: run_nml_setup,  locean
   USE mo_namelist,     ONLY: open_nml,  close_nml
 
   IMPLICIT NONE
@@ -118,23 +117,26 @@ MODULE mo_master_control
       in_coupled_mode = .false.
       ! both ocean and atmo read the same namelist
       my_namelist_filename = "NAMELIST_ICON"
-      
-      ! read the run_nml in order to figure out which component we run
-      CALL open_nml('NAMELIST_ICON')
-      CALL run_nml_setup
-      CALL close_nml
+     
+      CALL finish(method_name,'model identity (atm/oce) can no longer '//&
+                 'be derived from namelist run_nml!')
+ 
+     ! read the run_nml in order to figure out which component we run
+     !CALL open_nml('NAMELIST_ICON')
+     !CALL run_nml_setup
+     !CALL close_nml
 
-      IF (locean) THEN
-        CALL message(method_name,'ocean_process')
-        l_ocean_active = .true.
-        my_process_model = ocean_process
-      ELSE
-        CALL message(method_name,'atmo_process')
-        l_atmo_active = .true.
-        my_process_model = atmo_process
-      ENDIF
-      init_master_control = -1  ! did not find namelist
-      RETURN
+     !IF (locean) THEN
+     !  CALL message(method_name,'ocean_process')
+     !  l_ocean_active = .true.
+     !  my_process_model = ocean_process
+     !ELSE
+     !  CALL message(method_name,'atmo_process')
+     !  l_atmo_active = .true.
+     !  my_process_model = atmo_process
+     !ENDIF
+     !init_master_control = -1  ! did not find namelist
+     !RETURN
 
    ELSE
 

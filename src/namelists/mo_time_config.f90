@@ -44,87 +44,41 @@
 MODULE mo_time_config
 
   USE mo_kind,                  ONLY: wp
-  USE mo_exception,             ONLY: message, message_text, finish
-  USE mo_datetime,              ONLY: t_datetime, date_to_time, add_time, &
-    &                                 print_datetime_all
-  USE mo_master_nml,            ONLY: lrestart
-  USE mo_io_restart_attributes, ONLY: get_restart_attribute
+  USE mo_datetime,              ONLY: t_datetime
  
   IMPLICIT NONE
   PRIVATE
-
-  !Subroutine
-  PUBLIC :: configure_time
-  ! Types and fields
   PUBLIC :: t_time_config, time_config
-
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
- TYPE t_time_config
-
-  ! calendar type
-  INTEGER          :: calendar
-
-  TYPE(t_datetime) :: ini_datetime  !< Starting time of model integration
-!
-  TYPE(t_datetime) :: end_datetime  !< Ending   time of model integration
-
-  TYPE(t_datetime) :: current_datetime  !< Current  time model time 
-
-  ! - data and time structure
-  !
-  ! current model time, not a namelist variable
-  !
-
-  REAL(wp) :: dt_restart    !< Length of restart cycle in seconds
-
- END TYPE t_time_config
-
- TYPE(t_time_config) :: time_config
-
-
   !>
-  !! Derived type containing variables for time control. 
+  !! Derived type containing information for time control. 
   !!
-  !
+  TYPE t_time_config
 
-  !! HW Comment: the character-type variables containing ini_ and end_time
-  !! in the format "YYYYMMDDTHHMMSSZ" should be namelist variables
-  !! and used for computing ini/end_datetime in this type.
+    ! from namelist 
 
+    REAL(wp) :: dt_restart    !< Length of restart cycle in seconds
+    INTEGER  :: calendar      !< calendar type
 
+    ! not directly from namelist  
 
-CONTAINS
+    TYPE(t_datetime) :: ini_datetime  !< Starting time of model integration
+    TYPE(t_datetime) :: end_datetime  !< Ending   time of model integration
+    TYPE(t_datetime) :: cur_datetime  !< Current  time model time 
+ 
+  END TYPE t_time_config
+  !>
+  !! 
+  !! The actual variable
+  !!
+  TYPE(t_time_config) :: time_config
 
-SUBROUTINE configure_time
-
-!  REAL(wp) :: cur_datetime_calsec, end_datetime_calsec, length_sec
-  
-! restart interval
-  ! ----------------
-    CHARACTER(LEN=132) :: routine = 'time_setup'
-
-    CALL message(' ',' ')
-    CALL message(routine,'Initial date and time')
-    CALL message(routine,'---------------------')
-    CALL print_datetime_all(time_config%ini_datetime)  ! print all date and time components
-
-    CALL message(' ',' ')
-    CALL message(routine,'End date and time')
-    CALL message(routine,'-----------------')
-    CALL print_datetime_all(time_config%end_datetime)  ! print all date and time components
-
-    CALL message(' ',' ')
-    CALL message(routine,'Length of restart cycle')
-    CALL message(routine,'-----------------------')
-    WRITE(message_text,'(a,f10.2,a,f16.10,a)') &
-         &'dt_restart :',time_config%dt_restart,' seconds =', &
-         & time_config%dt_restart/86400._wp, ' days'
-    CALL message(routine,message_text)
-
-
-END SUBROUTINE configure_time
+!CONTAINS
+!
+!  SUBROUTINE configure_time
+!  END SUBROUTINE configure_time
 
 END MODULE mo_time_config
 

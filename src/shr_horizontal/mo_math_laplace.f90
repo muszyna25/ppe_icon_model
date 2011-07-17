@@ -32,8 +32,6 @@
 !!  - summing over all halos corresponding to different parallel patches
 !!  Modified by Hui Wan, MPI-M, (2007-11)
 !!  - added subroutine cell_avg
-!!  Modified by Hui Wan, MPI-M, (2008-04-04)
-!!  - control variable loce renamed locean
 !!  Modification by Jochen Foerstner, DWD, (2008-05-05)
 !!  - div and div_times_area are now generic subroutines
 !!  - the divergence can now be computed either
