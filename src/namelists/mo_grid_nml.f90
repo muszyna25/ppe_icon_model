@@ -49,7 +49,7 @@ MODULE mo_grid_nml
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_io_units,           ONLY: nnml, nnml_output,filename_max
   USE mo_namelist,           ONLY: position_nml, POSITIONED, open_nml, close_nml
-  USE mo_mpi,                ONLY: p_pe, p_io
+  USE mo_mpi,                ONLY: my_process_is_stdio 
   USE mo_impl_constants,     ONLY: max_dom, max_char_length, itri, ihex
   USE mo_math_constants,     ONLY: rad2deg
   USE mo_master_nml,         ONLY: lrestart
@@ -190,7 +190,7 @@ MODULE mo_grid_nml
     END IF
 
     !------------------------------------------------------------
-    ! Read the namelist (done so far by all MPI processors)
+    ! Read the namelist (done so far by all MPI processes)
     !------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('grid_nml', status=i_status)
@@ -289,7 +289,7 @@ MODULE mo_grid_nml
     CALL store_and_close_namelist(funit, 'grid_nml')
 
     ! write the contents of the namelist to an ASCII file
-    IF(p_pe == p_io) WRITE(nnml_output,nml=grid_nml)
+    IF(my_process_is_stdio()) WRITE(nnml_output,nml=grid_nml)
 
     CALL fill_grid_nml_configure()
        

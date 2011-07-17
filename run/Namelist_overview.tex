@@ -122,6 +122,7 @@ I&
 &
 number of edge bisections following the root subdivision&
 \tabularnewline
+
 \hline 
 lplane&
 L&
@@ -704,6 +705,11 @@ Defined in \verb+mo_create_torus_grid.f90+. See the run script \verb+run/create_
 %MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 
 \section{Namelist parameters defining the ICON model}
+
+Namelist parameters for the ICON models are organized in several thematic
+Fortran namelists controling the experiment, and the properties of
+dynamics, transport, physics etc.
+
 
 %------------------------------------------------------------------------------
 % master_ctl: the minimum one needs to specify about an integration
@@ -1484,6 +1490,141 @@ ctest\_name='PA'
 
 Defined and used in: src/testcases/mo\_nh\_testcases.f90
 
+%-------------------------------------------------------------------
+% grid_nml: horizontal grid
+%-------------------------------------------------------------------
+\subsection{grid\_nml}
+\begin{longtab}
+
+\hline 
+cell\_type&
+I & 3& &
+Cell type\\
+3: triangular cells\\
+4: quadrilateral cells (to be done)\\
+6: pentagonal/hexagonal cells&
+\tabularnewline
+
+\hline
+lplane &
+L & .FALSE.& &
+planar option&
+\tabularnewline
+
+\hline 
+corio\_lat &
+R & 0.0& deg&
+Center of the f-plane is located at this geographical latitude &
+lplane=.TRUE.
+\tabularnewline
+
+\hline 
+nroot &
+I & 2& &
+root subdivision of initial edges&
+\tabularnewline
+
+\hline 
+start\_lev &
+I & 4& &
+coarsest bisection level&
+\tabularnewline
+
+\hline 
+n\_dom &
+I & 1& &
+number of model domains, 1 = global domain only&
+\tabularnewline
+
+\hline 
+l\_limited\_area &
+L & .FALSE.& &
+\tabularnewline
+
+\hline 
+parent\_id&
+I(n\_dom-1)& i& &
+ID of parent domain (first entry refers to first nested domain; needs to be
+specified only in case of more than one nested domain per grid level)\\ MUST
+be the same as in gridref\_ini & n\_dom>1
+\tabularnewline
+
+\hline 
+lfeedback &
+L(n\_dom) & .TRUE.& &
+Specifies if feedback to parent grid is performed. Setting lfeedback(1)=.false. turns off feedback 
+for all nested domains; to turn off feedback for selected nested domains, set lfeedback(1)=.true.
+and set ``.false." for the desired model domains&
+n\_dom>1
+\tabularnewline
+
+\hline 
+patch\_weight &
+R(n\_dom) & 0.& &
+If patch\_weight is set to a value > 0 for any of the first level child patches,
+processor splitting will be performed, i.e. every of the first level child patches
+gets a subset of the total number or processors corresponding to its patch\_weight.
+A value of 0. corresponds to exactly 1 processor for this patch, regardless of
+the total number of processors. For the root patch and higher level childs,
+patch\_weight is not used. However, patch\_weight must be set to 0 for these patches
+to avoid confusion.&
+n\_dom>1
+\tabularnewline
+
+\hline 
+lpatch0 &
+L & .FALSE.& &
+If set to .true. an additional patch one level below the root patch is allocated and read
+so that physics calculations on a coarser grid are possible &
+\tabularnewline
+
+\hline 
+lredgrid\_phys &
+L & .FALSE.& &
+If set to .true.  is calculated on a reduced grid (= one grid level higher);
+requires lpatch0=.TRUE. &
+\tabularnewline
+
+\hline 
+dynamics\_grid\_ filename &
+C & & &
+Array of the grid filenames to be used by the dycore. &
+\tabularnewline
+
+\hline 
+dynamics\_parent\_ grid\_id &
+I & & &
+Array of the indexes of the parent grid filenames, as described by the dynamics\_grid\_filename array.
+Indexes start at 1, an index of 0 indicates no parent. &
+\tabularnewline
+
+\hline 
+radiation\_grid\_ filename &
+C & & &
+Array of the grid filenames to be used for the radiation model.
+Filled only if the radiation grid is different from the dycore grid. &
+\tabularnewline
+
+\hline 
+dynamics\_radiation \_grid\_link &
+I & & &
+Array of the indexes linking the dycore grids, as described by the dynamics\_grid\_filename array,
+and the radiation\_grid\_filename array. It provides the link index of the radiation\_grid\_filename,
+for each entry of the dynamics\_grid\_filename array.
+Indexes start at 1, an index of 0 indicates that the radiation grid is the same as the dycore grid.
+Only needs to be filled when the radiation\_grid\_filename is defined. &
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_grid\_nml.f90
+
+
+
+%IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
+%IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
+%IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
+%IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
 
 %------------------------------------------------------------------------------
 % io_nml:
@@ -1647,161 +1788,6 @@ Defined and used in: src/namelists/mo\_io\_nml.f90
 %CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 %CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 %CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-
-%-------------------------------------------------------------------
-% grid_ctl: horizontal grid
-%-------------------------------------------------------------------
-\subsection{grid\_ctl}
-
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{2cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
-\hline
-\endhead
-
-\hline 
-i\_cell\_type&
-I & 3& &
-Cell type\\
-3: triangular cells\\
-4: quadrilateral cells (to be done)\\
-6: pentagonal/hexagonal cells&
-\tabularnewline
-
-\hline 
-nroot &
-I &
-2&
-&
-root subdivision of initial edges&
-\tabularnewline
-\hline 
-start\_lev &
-I &
-4&
-&
-coarsest bisection level&
-\tabularnewline
-\hline 
-n\_dom &
-I &
-1&
-&
-number of model domains, 1 = global domain only&
-\tabularnewline
-\hline 
-parent\_id&
-I(n\_dom-1)&
-i&
-&
-ID of parent domain (first entry refers to first nested domain; needs to be
-specified only in case of more than one nested domain per grid level)\\ MUST
-be the same as in gridref\_ini & n\_dom>1
-\tabularnewline
-\hline 
-lfeedback &
-L(n\_dom) &
-.TRUE.&
-&
-Specifies if feedback to parent grid is performed. Setting lfeedback(1)=.false. turns off feedback 
-for all nested domains; to turn off feedback for selected nested domains, set lfeedback(1)=.true.
-and set ``.false." for the desired model domains&
-n\_dom>1
-\tabularnewline
-\hline 
-patch\_weight &
-R(n\_dom) &
-0.&
-&
-If patch\_weight is set to a value > 0 for any of the first level child patches,
-processor splitting will be performed, i.e. every of the first level child patches
-gets a subset of the total number or processors corresponding to its patch\_weight.
-A value of 0. corresponds to exactly 1 processor for this patch, regardless of
-the total number of processors. For the root patch and higher level childs,
-patch\_weight is not used. However, patch\_weight must be set to 0 for these patches
-to avoid confusion.&
-n\_dom>1
-\tabularnewline
-\hline 
-lplane &
-L &
-.FALSE.&
-&
-planar option&
-\tabularnewline
-\hline 
-corio\_lat &
-R &
-0.0&
-deg&
-Center of the f-plane is located at this geographical latitude &
-lplane=.TRUE.
-\tabularnewline
-\hline 
-lpatch0 &
-L &
-.FALSE.&
-&
-If set to .true. an additional patch one level below the root patch is allocated and read
-so that physics calculations on a coarser grid are possible &
-\tabularnewline
-\hline 
-lredgrid\_phys &
-L &
-.FALSE.&
-&
-If set to .true.  is calculated on a reduced grid (= one grid level higher);
-requires lpatch0=.TRUE. &
-\tabularnewline
-\hline 
-dynamics\_grid\_ filename &
-C &
-&
-&
-Array of the grid filenames to be used by the dycore. &
-\tabularnewline
-\hline 
-dynamics\_parent\_ grid\_id &
-I &
-&
-&
-Array of the indexes of the parent grid filenames, as described by the dynamics\_grid\_filename array.
-Indexes start at 1, an index of 0 indicates no parent. &
-\tabularnewline
-\hline 
-radiation\_grid\_ filename &
-C &
-&
-&
-Array of the grid filenames to be used for the radiation model.
-Filled only if the radiation grid is different from the dycore grid. &
-\tabularnewline
-\hline 
-dynamics\_radiation \_grid\_link &
-I &
-&
-&
-Array of the indexes linking the dycore grids, as described by the dynamics\_grid\_filename array,
-and the radiation\_grid\_filename array. It provides the link index of the radiation\_grid\_filename,
-for each entry of the dynamics\_grid\_filename array.
-Indexes start at 1, an index of 0 indicates that the radiation grid is the same as the dycore grid.
-Only needs to be filled when the radiation\_grid\_filename is defined. &
-\tabularnewline
-\hline
-\end{longtable}
-
-Defined and used in: src/namelists/mo\_grid\_nml.f90
-
-
-Namelist parameters for the ICON models are organized in several thematic
-Fortran namelists controling the experiment, and the properties of
-dynamics, transport, physics etc.
-
 
 
 
