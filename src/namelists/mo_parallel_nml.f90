@@ -6,7 +6,7 @@
 !! Initial version by Rainer Johanni, Nov 2009
 !!
 !! @par Copyright
-!! 2002-2006 by DWD and MPI-M
+!! 2002-2011 by DWD and MPI-M
 !! This software is provided for non-commercial use only.
 !! See the LICENSE and the WARRANTY conditions.
 !!

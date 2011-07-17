@@ -118,7 +118,7 @@ PROGRAM control_model
   SELECT CASE (my_process_component)
 
   CASE (atmo_process)
-    CALL atmo_model(my_namelist_filename)
+    CALL atmo_model(my_namelist_filename,"icon_master.namelist")
 
   CASE (ocean_process)
     CALL ocean_model(my_namelist_filename)

@@ -157,7 +157,7 @@ USE mo_nonhydro_state,      ONLY: destruct_nh_state
 USE mo_echam_phy_memory,    ONLY: destruct_echam_phy_state
 USE mo_echam_phy_setup,     ONLY: setup_echam_phy
 USE mo_echam_phy_init,      ONLY: prepare_echam_phy, initcond_echam_phy, &
-			  & additional_restart_init
+                                & additional_restart_init
 USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
 USE mo_gmt_output,          ONLY: setup_gmt_output
 USE mo_nwp_phy_state,       ONLY: construct_nwp_phy_state,   &
@@ -211,9 +211,10 @@ PUBLIC :: atmo_model
 CONTAINS
 !>
 !!
-SUBROUTINE atmo_model(namelist_filename)
+SUBROUTINE atmo_model(atm_namelist_filename,shr_namelist_filename)
 
-CHARACTER(LEN=*), INTENT(in) :: namelist_filename
+CHARACTER(LEN=*), INTENT(in) :: atm_namelist_filename
+CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
 
 CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
 CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
@@ -275,7 +276,7 @@ INTEGER, POINTER :: grid_glob_index(:)
     ! 1. Read namelists (newly) specified by the user; fill the 
     !    corresponding sections of the configuration states.
     !---------------------------------------------------------------------
-    CALL read_atmo_namelists(namelist_filename)
+    CALL read_atmo_namelists(atm_namelist_filename,shr_namelist_filename)
 
     !---------------------------------------------------------------------
     ! 2. Cross-check namelists
@@ -379,9 +380,10 @@ INTEGER, POINTER :: grid_glob_index(:)
   !---------------------------------------------------------------------
   !---------------------------------------------------------------------
   !---------------------------------------------------------------------
-  SUBROUTINE atmo_model_old(namelist_filename)
+  SUBROUTINE atmo_model_old(atm_namelist_filename,shr_namelist_filename)
     
-    CHARACTER(LEN=*), INTENT(in) :: namelist_filename
+    CHARACTER(LEN=*), INTENT(in) :: atm_namelist_filename
+    CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
 
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
 
@@ -394,7 +396,7 @@ INTEGER, POINTER :: grid_glob_index(:)
     !    new file in which all the namelist variables and their
     !    actual values used in the model run will be stored.
     !-------------------------------------------------------------------
-    CALL open_nml(TRIM(namelist_filename))
+    CALL open_nml(TRIM(atm_namelist_filename))
     IF(my_process_is_stdio()) CALL open_nml_output('NAMELIST_ICON_output_atm')
 
     ! The namelists ('run_nml' and 'testcase_ctl') are read in seperate

@@ -30,15 +30,12 @@
 \begin{longtable}{|>{\raggedright}p{5.5cm}|>{\raggedright}p{0.8cm}|>{\raggedright}p{3.2cm}|>{\raggedright}p{1cm}|>{\raggedright}p{5cm}|>{\raggedright}p{3.5cm}|}
 \hline
 Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope
+Type& Default& Unit&
+Description & Scope
 \tabularnewline
 \hline
 \endhead
-}{\end{longtable}}
+}{\hline\end{longtable}}
 
 \begin{document}
 
@@ -698,56 +695,156 @@ the unfolded torus grid ascci file name (for plotting) &
 
 Defined in \verb+mo_create_torus_grid.f90+. See the run script \verb+run/create_torus_grid.run+.
 
+
+
+
+
+%MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+%MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+%MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+
 \section{Namelist parameters defining the ICON model}
 
-%-------------------------------------------------------------------
+%------------------------------------------------------------------------------
 % master_ctl: the minimum one needs to specify about an integration
-%-------------------------------------------------------------------
+%------------------------------------------------------------------------------
 \subsection{master\_ctl}
 
 \begin{longtab}
 \hline
 lrestart&
-L &
-.FALSE.&
-&
+L & .FALSE.& &
 If .TRUE., simulation starts from a model state read from restart file(s).&
 \tabularnewline
 
 \hline
 atmo\_restart\_info\_filename&
-C &
-'restart.info'&
-&
+C & 'restart.info'& &
 Name (including full path) of the restart info file for the atm model &
 \tabularnewline
 
 \hline
 ocean\_restart\_info\_filename&
-C &
-'restart.info'&
-&
+C & 'restart.info'& &
 Name (including full path) of the restart info file for the ocean model &
 \tabularnewline
 
 \hline
 atmo\_namelist\_filename&
-C &
-'NAMELIST\_ICON'&
-&
+C & 'NAMELIST\_ICON'& &
 Name (including full path) of the atmosphere-specific namelist file &
 \tabularnewline
 
 \hline
 ocean\_namelist\_filename&
-C &
-'NAMELIST\_ICON'&
-&
+C & 'NAMELIST\_ICON'& &
 Name (including full path) of the ocean-specific namelist file &
 \tabularnewline
 
-\hline
 \end{longtab}
+
+%------------------------------------------------------------------------------
+% parallel_nml:
+%------------------------------------------------------------------------------
+\subsection{parallel\_ctl}
+
+\begin{longtab}
+\hline 
+nproma &
+I & 1& &
+chunk length&
+\tabularnewline
+
+\hline 
+n\_ghost\_rows &
+I & 1& &
+number of halo cell rows&
+\tabularnewline
+
+\hline 
+l\_log\_checks &
+L &&
+&
+\tabularnewline
+
+\hline 
+l\_fast\_sum &
+L &&
+&
+\tabularnewline
+
+\hline 
+division\_method &
+I & 1& &
+method of domain decomposition\\
+0: read in from file \\
+1: use built-in geometric subdivision \\
+2: use METIS&
+\tabularnewline
+
+\hline 
+p\_test\_run &
+L & .FALSE.& &
+.TRUE. means verification run for MPI parallelization (PE 0
+processes full domain) &
+\tabularnewline
+
+\hline 
+l\_test\_openmp &
+L & .FALSE.& &
+if .TRUE. is combined with p\_test\_run=.TRUE. and OpenMP paralllelization,
+the test PE gets only 1 thread in order to verify the OpenMP paralllelization&
+\tabularnewline
+
+\hline 
+l\_log\_checks &
+L & .FALSE.& &
+if .TRUE. messages are generated during each synchonization step
+(use for debugging only)&
+\tabularnewline
+
+\hline 
+l\_fast\_sum &
+L & .FALSE.& &
+if .TRUE., use fast (not processor-configuration-invariant) global summation&
+\tabularnewline
+
+\hline 
+iorder\_sendrecv &
+I & 1& &
+Sequence of send/receive calls: 1 = irecv/send; 2 = isend/recv; 3 = isend/irecv &
+\tabularnewline
+
+\hline 
+itype\_comm &
+I & 1& &
+1: use local memory for exchange buffers \\
+2: use global memory for exchange buffers \\
+3: asynchronous halo communication for dynamical core (NH tria only)&
+\tabularnewline
+
+\hline 
+num\_io\_procs &
+I & 0& &
+Number of I/O processors (running exclusively for doing I/O)&
+\tabularnewline
+
+\hline 
+pio\_type &
+I & 1& &
+Type of parallel I/O. Only used if number of I/O processors greater number of domains.
+Experimental!&
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_parallel\_nml.f90
+
+
+%CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+%CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+%CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+%CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
 
 %-------------------------------------------------------------------
 % grid_ctl: horizontal grid
@@ -894,114 +991,6 @@ Fortran namelists controling the experiment, and the properties of
 dynamics, transport, physics etc.
 
 
-\subsection{parallel\_ctl}
-
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
-\hline
-\endhead
-
-\hline 
-n\_ghost\_rows &
-I &
-1&
-&
-number of halo cell rows&
-\tabularnewline
-
-\hline 
-division\_method &
-I &
-1&
-&
-method of domain decomposition\\
-0: read in from file \\
-1: use built-in geometric subdivision \\
-2: use METIS&
-\tabularnewline
-
-\hline 
-p\_test\_run &
-L &
-.FALSE.&
-&
-.TRUE. means verification run for MPI parallelization (PE 0
-processes full domain) &
-\tabularnewline
-
-\hline 
-l\_test\_openmp &
-L &
-.FALSE.&
-&
-if .TRUE. is combined with p\_test\_run=.TRUE. and OpenMP paralllelization,
-the test PE gets only 1 thread in order to verify the OpenMP paralllelization&
-\tabularnewline
-
-\hline 
-l\_log\_checks &
-L &
-.FALSE.&
-&
-if .TRUE. messages are generated during each synchonization step
-(use for debugging only)&
-\tabularnewline
-
-\hline 
-l\_fast\_sum &
-L &
-.FALSE.&
-&
-if .TRUE., use fast (not processor-configuration-invariant) global summation&
-\tabularnewline
-
-\hline 
-iorder\_sendrecv &
-I &
-1&
-&
-Sequence of send/receive calls: 1 = irecv/send; 2 = isend/recv; 3 = isend/irecv &
-\tabularnewline
-
-\hline 
-itype\_comm &
-I &
-1&
-&
-1: use local memory for exchange buffers \\
-2: use global memory for exchange buffers \\
-3: asynchronous halo communication for dynamical core (NH tria only)&
-\tabularnewline
-
-\hline 
-num\_io\_procs &
-I &
-0&
-&
-Number of I/O processors (running exclusively for doing I/O)&
-\tabularnewline
-
-\hline 
-pio\_type &
-I &
-1&
-&
-Type of parallel I/O. Only used if number of I/O processors greater number of domains.
-Experimental!&
-\tabularnewline
-
-\hline 
-
-\end{longtable}
-
-Defined and used in: src/shared/mo\_parallel\_ctl.f90
-
 
 \subsection{run\_ctl}
 
@@ -1017,13 +1006,6 @@ Scope
 \hline
 \endhead
 
-\hline 
-nproma &
-I &
-1&
-&
-chunk length&
-\tabularnewline
 
 \hline 
 num\_nlev&

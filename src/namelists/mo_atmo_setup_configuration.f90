@@ -80,49 +80,55 @@ CONTAINS
   !! Create a new file in which all the namelist variables and their
   !! actual values used in the model run will be stored.
   !!
-  SUBROUTINE read_atmo_namelists(namelist_filename)
+  SUBROUTINE read_atmo_namelists(atm_namelist_filename,shr_namelist_filename)
     
-    CHARACTER(LEN=*), INTENT(in) :: namelist_filename
+    CHARACTER(LEN=*), INTENT(in) :: atm_namelist_filename
+    CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
 
     IF(p_pe == p_io) CALL open_nml_output('NAMELIST_ICON_output_atm')
 
-    CALL read_time_namelist(TRIM(namelist_filename))
-    CALL read_parallel_namelist(TRIM(namelist_filename))
+    ! Shared with the ocean model when performing a coupled simulation
 
-    CALL read_run_namelist(TRIM(namelist_filename))
+    CALL read_time_namelist       (TRIM(shr_namelist_filename))
+    CALL read_parallel_namelist   (TRIM(shr_namelist_filename))
+
+    ! General
+
+    CALL read_run_namelist        (TRIM(atm_namelist_filename))
     CALL read_nh_testcase_namelist
-    CALL read_grid_namelist(TRIM(namelist_filename))
-    CALL read_interpol_namelist(TRIM(namelist_filename))
-    CALL read_gridref_namelist(TRIM(namelist_filename))
+    CALL read_io_namelist         (TRIM(atm_namelist_filename))
 
-    CALL read_transport_namelist(TRIM(namelist_filename))
+    ! Grid, dynamics, and transport
 
-    CALL read_dynamics_namelist(TRIM(namelist_filename))
-    CALL read_ha_dyn_namelist(TRIM(namelist_filename))
-    CALL read_nonhydrostatic_namelist(TRIM(namelist_filename))
-    CALL read_sleve_namelist(TRIM(namelist_filename))
+    CALL read_grid_namelist       (TRIM(atm_namelist_filename))
+    CALL read_gridref_namelist    (TRIM(atm_namelist_filename))
+    CALL read_interpol_namelist   (TRIM(atm_namelist_filename))
 
-    CALL read_diffusion_namelist(TRIM(namelist_filename))
+    CALL read_dynamics_namelist   (TRIM(atm_namelist_filename))
+    CALL read_ha_dyn_namelist     (TRIM(atm_namelist_filename))
+    CALL read_nonhydrostatic_namelist(TRIM(atm_namelist_filename))
+    CALL read_sleve_namelist      (TRIM(atm_namelist_filename))
 
-    CALL read_radiation_namelist(TRIM(namelist_filename))
-    CALL read_vdiff_namelist(TRIM(namelist_filename))
-    CALL read_echam_conv_namelist(TRIM(namelist_filename))
-    CALL read_gw_hines_namelist(TRIM(namelist_filename))
-    CALL read_nwp_lnd_namelist(TRIM(namelist_filename))
-    CALL read_nwp_phy_namelist(TRIM(namelist_filename))
-    CALL read_echam_phy_namelist(TRIM(namelist_filename))
+    CALL read_diffusion_namelist  (TRIM(atm_namelist_filename))
 
-    CALL read_extpar_namelist(TRIM(namelist_filename))
+    CALL read_transport_namelist  (TRIM(atm_namelist_filename))
 
-    CALL read_io_namelist(TRIM(namelist_filename))
+    ! Physics
+
+    CALL read_extpar_namelist     (TRIM(atm_namelist_filename))
+    CALL read_radiation_namelist  (TRIM(atm_namelist_filename))
+    CALL read_vdiff_namelist      (TRIM(atm_namelist_filename))
+    CALL read_echam_conv_namelist (TRIM(atm_namelist_filename))
+    CALL read_gw_hines_namelist   (TRIM(atm_namelist_filename))
+    CALL read_nwp_lnd_namelist    (TRIM(atm_namelist_filename))
+    CALL read_nwp_phy_namelist    (TRIM(atm_namelist_filename))
+    CALL read_echam_phy_namelist  (TRIM(atm_namelist_filename))
       
     IF (p_pe == p_io) THEN
       CALL close_nml_output
     END IF
         
   END SUBROUTINE read_atmo_namelists
-
-
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
