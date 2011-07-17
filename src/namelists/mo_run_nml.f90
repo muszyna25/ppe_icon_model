@@ -32,14 +32,32 @@
 !!
 MODULE mo_run_nml
 
-  USE mo_run_config
+  USE mo_run_config, ONLY: config_ldump_states    => ldump_states,    &
+                         & config_lrestore_states => lrestore_states, &
+                         & config_ltestcase       => ltestcase,       &
+                         & config_ldynamics       => ldynamics,       &
+                         & config_iforcing        => iforcing,        &
+                         & config_ltransport      => ltransport,      &
+                         & config_ntracer         => ntracer,         &
+                         & config_lvert_nest      => lvert_nest,      &
+                         & config_nlev            => nlev,            &
+                         & config_num_lev         => num_lev,         &
+                         & config_nshift          => nshift,          &
+                         & config_nsteps          => nsteps,          &
+                         & config_dtime           => dtime,           &
+                         & config_ltimer          => ltimer,          &
+                         & config_timers_level    => timers_level,    &
+                         & config_msg_level       => msg_level,       &
+                         & config_inextra_2d      => inextra_2d,      &
+                         & config_inextra_3d      => inextra_3d
+
   USE mo_kind,           ONLY: wp
   USE mo_exception,      ONLY: finish
   USE mo_impl_constants, ONLY: max_dom, max_ntracer, inoforcing, IHELDSUAREZ, &
                                INWP,IECHAM,ILDF_ECHAM,IMPIOM,INOFORCING,ILDF_DRY
   USE mo_io_units,       ONLY: nnml, nnml_output
   USE mo_namelist,       ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_mpi,            ONLY: p_pe, p_io
+  USE mo_mpi,            ONLY: my_process_is_stdio 
   USE mo_master_nml,     ONLY: lrestart
 
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
@@ -57,52 +75,52 @@ MODULE mo_run_nml
   ! Namelist variables
   !------------------------------------------------------------------------
 
-  LOGICAL :: nml_ldump_states    ! Dump patch/interpolation/grid refinement state of every
-                                 ! patch (after subdivision in case of a parallel run)
-                                 ! end exit program
-  LOGICAL :: nml_lrestore_states ! Restore patch/interpolation/grid refinement states
-                                 ! from dump files instead of calculating them
+  LOGICAL :: ldump_states    ! Dump patch/interpolation/grid refinement state of every
+                             ! patch (after subdivision in case of a parallel run)
+                             ! end exit program
+  LOGICAL :: lrestore_states ! Restore patch/interpolation/grid refinement states
+                             ! from dump files instead of calculating them
 
-  LOGICAL :: nml_ltestcase       ! if .TRUE. then
-                                 ! - compute analytical initial state,
-                                 !   depending on the specified test case,
-                                 ! - compute analytical boundary conditions,
-                                 ! - if applicable, compute analytical forcing
+  LOGICAL :: ltestcase       ! if .TRUE. then
+                             ! - compute analytical initial state,
+                             !   depending on the specified test case,
+                             ! - compute analytical boundary conditions,
+                             ! - if applicable, compute analytical forcing
 
-  LOGICAL :: nml_ldynamics       ! if .TRUE., switch on adiabatic dynamics
-  INTEGER :: nml_iforcing        ! adiabatic forcing
+  LOGICAL :: ldynamics       ! if .TRUE., switch on adiabatic dynamics
+  INTEGER :: iforcing        ! adiabatic forcing
 
-  LOGICAL :: nml_ltransport      ! if .TRUE., switch on large-scale tracer transport
-  INTEGER :: nml_ntracer         ! number of advected tracers
+  LOGICAL :: ltransport      ! if .TRUE., switch on large-scale tracer transport
+  INTEGER :: ntracer         ! number of advected tracers
 
-  INTEGER :: nml_nlev               ! number of full levels = number of layers
-  LOGICAL :: nml_lvert_nest         ! if .TRUE., switch on vertical nesting
-  INTEGER :: nml_num_lev(max_dom)   ! number of full levels for each domain
-  INTEGER :: nml_nshift (max_dom)   ! half level of parent domain which coincides 
+  INTEGER :: nlev               ! number of full levels = number of layers
+  LOGICAL :: lvert_nest         ! if .TRUE., switch on vertical nesting
+  INTEGER :: num_lev(max_dom)   ! number of full levels for each domain
+  INTEGER :: nshift (max_dom)   ! half level of parent domain which coincides 
                                     ! with the upper boundary of the current domain jg
 
-  INTEGER  :: nml_nsteps            ! number of time steps
-  REAL(wp) :: nml_dtime             ! [s] length of a time step
+  INTEGER  :: nsteps            ! number of time steps
+  REAL(wp) :: dtime             ! [s] length of a time step
 
-  LOGICAL :: nml_ltimer        ! if .TRUE., wallclock timers are switched on
-  INTEGER :: nml_timers_level  ! what level of timers to run
+  LOGICAL :: ltimer        ! if .TRUE., wallclock timers are switched on
+  INTEGER :: timers_level  ! what level of timers to run
 
-  INTEGER :: nml_msg_level     ! how much printout is generated during runtime
+  INTEGER :: msg_level     ! how much printout is generated during runtime
 
-  INTEGER :: nml_inextra_2d    !> number of extra output fields for debugging
-  INTEGER :: nml_inextra_3d    !> number of extra output fields for debugging
+  INTEGER :: inextra_2d    ! number of extra output fields for debugging
+  INTEGER :: inextra_3d    ! number of extra output fields for debugging
 
 
-  NAMELIST /run_nml/ nml_ldump_states, nml_lrestore_states, &
-                     nml_ltestcase,    nml_ldynamics,       &
-                     nml_iforcing,     nml_ltransport,      &
-                     nml_ntracer,                           &
-                     nml_lvert_nest,   nml_nlev,            &
-                     nml_num_lev,      nml_nshift,          &
-                     nml_nsteps,       nml_dtime,           &
-                     nml_ltimer,       nml_timers_level,    &
-                     nml_msg_level,                         &
-                     nml_inextra_2d,   nml_inextra_3d
+  NAMELIST /run_nml/ ldump_states, lrestore_states, &
+                     ltestcase,    ldynamics,       &
+                     iforcing,     ltransport,      &
+                     ntracer,                       &
+                     lvert_nest,   nlev,            &
+                     num_lev,      nshift,          &
+                     nsteps,       dtime,           &
+                     ltimer,       timers_level,    &
+                     msg_level,                     &
+                     inextra_2d,   inextra_3d
 
   !-----------------------------------------------------------------------
   ! 2.0 Declaration of dependent control variables 
@@ -121,33 +139,33 @@ CONTAINS
     !------------------------------------------------------------
     ! Default settings
     !------------------------------------------------------------
-    nml_ldump_states    = .FALSE.
-    nml_lrestore_states = .FALSE.
+    ldump_states    = .FALSE.
+    lrestore_states = .FALSE.
 
-    nml_ltestcase       = .TRUE.
-    nml_ldynamics       = .TRUE.
-    nml_iforcing        = inoforcing
+    ltestcase       = .TRUE.
+    ldynamics       = .TRUE.
+    iforcing        = inoforcing
 
-    nml_ltransport      = .FALSE.
-    nml_ntracer         = 0
+    ltransport      = .FALSE.
+    ntracer         = 0
 
-    nml_lvert_nest = .FALSE. ! no vertical nesting
-    nml_nlev       = 31
-    nml_num_lev(:) = nml_nlev  ! number of full levels for each domain
-    nml_nshift(:)  = 0         ! please do not change the default.
+    lvert_nest = .FALSE. ! no vertical nesting
+    nlev       = 31
+    num_lev(:) = nlev  ! number of full levels for each domain
+    nshift(:)  = 0         ! please do not change the default.
                                ! otherwise the initialization of 
                                ! p_patch(jg)%nshift in "import patches" 
                                ! will not work properly.
 
-    nml_nsteps = 0
-    nml_dtime  = 600._wp   ! [s] for R2B04 + semi-implicit time steppping
+    nsteps = 0
+    dtime  = 600._wp   ! [s] for R2B04 + semi-implicit time steppping
 
-    nml_ltimer       = .TRUE.
-    nml_timers_level = 1
-    nml_msg_level    = 10
+    ltimer       = .TRUE.
+    timers_level = 1
+    msg_level    = 10
 
-    nml_inextra_2d   = 0           !> no extra output 2D fields
-    nml_inextra_3d   = 0           !> no extra output 3D fields
+    inextra_2d   = 0           !> no extra output 2D fields
+    inextra_3d   = 0           !> no extra output 3D fields
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -159,9 +177,9 @@ CONTAINS
       CALL close_tmpfile(funit)
     END IF
 
-    !-------------------------------------------------------------------------
-    ! Read user's (new) specifications. (Done so far by all MPI processors)
-    !-------------------------------------------------------------------------
+    !----------------------------------------------------------------------
+    ! Read user's (new) specifications. (Done so far by all MPI processes)
+    !----------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml('run_nml', STATUS=istat)
     SELECT CASE (istat)
@@ -173,51 +191,51 @@ CONTAINS
     !----------------------------------------------------
     ! Sanity check
     !----------------------------------------------------
-    SELECT CASE (nml_iforcing)                                                     
+    SELECT CASE (iforcing)                                                     
     CASE(INOFORCING,IHELDSUAREZ,INWP,IECHAM,ILDF_DRY,ILDF_ECHAM,IMPIOM)
     CASE DEFAULT
-      CALL finish( TRIM(routine),'wrong value for nml_iforcing')
+      CALL finish( TRIM(routine),'wrong value for iforcing')
     END SELECT
 
-    IF (nml_ltransport.AND.nml_ntracer<1) CALL finish(TRIM(routine), &
+    IF (ltransport.AND.ntracer<1) CALL finish(TRIM(routine), &
     'Tracer transport is switched on, but number of advected tracers is smaller than 1')
 
-    IF (ANY(nml_num_lev < 0)) CALL finish(TRIM(routine),'"nml_num_lev" must be positive')
-    IF (ANY(nml_nshift  < 0)) CALL finish(TRIM(routine),'"nml_nshift" must be positive')
+    IF (ANY(num_lev < 0)) CALL finish(TRIM(routine),'"num_lev" must be positive')
+    IF (ANY(nshift  < 0)) CALL finish(TRIM(routine),'"nshift" must be positive')
 
-    IF (nml_nsteps < 0) CALL finish(TRIM(routine),'"nsteps" must not be negative')
-    IF (nml_dtime <= 0._wp) CALL finish(TRIM(routine),'"dtime" must be positive')
+    IF (nsteps < 0) CALL finish(TRIM(routine),'"nsteps" must not be negative')
+    IF (dtime <= 0._wp) CALL finish(TRIM(routine),'"dtime" must be positive')
 
-    IF ((nml_ntracer<0).OR.(nml_ntracer>max_ntracer)) CALL finish( TRIM(routine), &
+    IF ((ntracer<0).OR.(ntracer>max_ntracer)) CALL finish( TRIM(routine), &
     'wrong number of tracers. Valid range: 0<= ntracer <=20')
 
     !----------------------------------------------------
     ! Fill part of the configuration state
     !----------------------------------------------------
-    ldump_states    = nml_ldump_states
-    lrestore_states = nml_lrestore_states
+    config_ldump_states    = ldump_states
+    config_lrestore_states = lrestore_states
 
-    ltestcase       = nml_ltestcase 
-    ldynamics       = nml_ldynamics 
-    iforcing        = nml_iforcing 
+    config_ltestcase       = ltestcase 
+    config_ldynamics       = ldynamics 
+    config_iforcing        = iforcing 
 
-    ltransport      = nml_ltransport 
-    ntracer         = nml_ntracer 
+    config_ltransport      = ltransport 
+    config_ntracer         = ntracer 
 
-    lvert_nest      = nml_lvert_nest
-    nlev            = nml_nlev
-    num_lev(:)      = nml_num_lev(:)
-    nshift(:)       = nml_nshift(:)
+    config_lvert_nest      = lvert_nest
+    config_nlev            = nlev
+    config_num_lev(:)      = num_lev(:)
+    config_nshift(:)       = nshift(:)
 
-    nsteps          = nml_nsteps  
-    dtime           = nml_dtime 
+    config_nsteps          = nsteps  
+    config_dtime           = dtime 
 
-    ltimer          = nml_ltimer
-    timers_level    = nml_timers_level
-    msg_level       = nml_msg_level
+    config_ltimer          = ltimer
+    config_timers_level    = timers_level
+    config_msg_level       = msg_level
 
-    inextra_2d      = nml_inextra_2d
-    inextra_3d      = nml_inextra_3d
+    config_inextra_2d      = inextra_2d
+    config_inextra_3d      = inextra_3d
 
     !-----------------------------------------------------
     ! Store the namelist for restart
@@ -227,7 +245,7 @@ CONTAINS
     CALL store_and_close_namelist(funit, 'run_nml')
 
     ! write the contents of the namelist to an ASCII file
-    IF(p_pe == p_io) WRITE(nnml_output,nml=run_nml)
+    IF(my_process_is_stdio()) WRITE(nnml_output,nml=run_nml)
 
   END SUBROUTINE read_run_namelist
   !-------------

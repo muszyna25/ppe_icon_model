@@ -34,10 +34,13 @@
 !!
 MODULE mo_atmo_setup_configuration
 
-  USE mo_mpi,                 ONLY: p_stop, p_pe, p_io, p_nprocs
+  USE mo_mpi,                 ONLY: my_process_is_stdio 
   USE mo_master_nml,          ONLY: lrestart
-  USE mo_namelist,            ONLY: open_nml, close_nml, open_nml_output, close_nml_output
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
+  USE mo_namelist,            ONLY: open_nml_output, close_nml_output
+
+  USE mo_time_nml,            ONLY: read_time_namelist
+  USE mo_parallel_nml,        ONLY: read_parallel_namelist
+  USE mo_run_nml,             ONLY: read_run_namelist
 
   USE mo_dynamics_nml,        ONLY: read_dynamics_namelist
   USE mo_nonhydrostatic_nml,  ONLY: read_nonhydrostatic_namelist
@@ -55,10 +58,7 @@ MODULE mo_atmo_setup_configuration
   USE mo_gw_hines_nml,        ONLY: read_gw_hines_namelist
   USE mo_lnd_nwp_nml,         ONLY: read_nwp_lnd_namelist
   USE mo_sleve_nml,           ONLY: read_sleve_namelist
-  USE mo_parallel_nml,        ONLY: read_parallel_namelist
   USE mo_grid_nml,            ONLY: read_grid_namelist
-  USE mo_run_nml,             ONLY: read_run_namelist
-  USE mo_time_nml,            ONLY: read_time_namelist
   USE mo_interpol_nml,        ONLY: read_interpol_namelist
 
 ! ! Test cases
@@ -85,7 +85,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in) :: atm_namelist_filename
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
 
-    IF(p_pe == p_io) CALL open_nml_output('NAMELIST_ICON_output_atm')
+    IF(my_process_is_stdio()) CALL open_nml_output('NAMELIST_ICON_output_atm')
 
     ! Shared with the ocean model when performing a coupled simulation
 
@@ -124,7 +124,7 @@ CONTAINS
     CALL read_nwp_phy_namelist    (TRIM(atm_namelist_filename))
     CALL read_echam_phy_namelist  (TRIM(atm_namelist_filename))
       
-    IF (p_pe == p_io) THEN
+    IF (my_process_is_stdio()) THEN
       CALL close_nml_output
     END IF
         
