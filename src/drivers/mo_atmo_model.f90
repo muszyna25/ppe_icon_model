@@ -272,17 +272,19 @@ CONTAINS
     !---------------------------------------------------------------------
     CALL read_atmo_namelists(atm_namelist_filename,shr_namelist_filename)
 
-    !-------------------------------------------------------------------
-    ! Initialize various timers; initialize data and time 
-    !-------------------------------------------------------------------
-     !! IF (ltimer) CALL init_timer
-    
+  
 
     !---------------------------------------------------------------------
     ! 2. Cross-check namelists
     !---------------------------------------------------------------------
 
     CALL atm_crosscheck
+
+    !-------------------------------------------------------------------
+    ! Initialize various timers; initialize data and time 
+    !-------------------------------------------------------------------
+     !! IF (ltimer) CALL init_timer
+    
 
 
     !-------------------------------------------------------------------
@@ -362,29 +364,6 @@ CONTAINS
  !   ENDIF
  !
 
-
-
-
-
-   !---------------------------------------------------------------------
-    SELECT CASE (iequations)
-    
-    CASE (ishallow_water)
-      CALL init_vertical_coord_table(iequations, p_patch_global(1)%nlev)
-      
-    CASE (ihs_atm_temp, ihs_atm_theta)
-      CALL init_vertical_coord_table(iequations, p_patch_global(1)%nlev)
-      
-    CASE (inh_atmosphere)
-      IF (ivctype == 1) THEN
-        CALL init_hybrid_coord(iequations, p_patch_global(1)%nlev)
-      ELSE IF (ivctype == 2) THEN
-        CALL init_sleve_coord(p_patch_global(1)%nlev)
-      ENDIF
-    CASE DEFAULT
-    END SELECT
-   !---------------------------------------------------------------------
-
 ! KF gridref here? 
 !    ! For the NH model, the initialization routines called from
 !    ! construct_2d_gridref_state require the metric terms to be present
@@ -397,6 +376,7 @@ CONTAINS
 !      ENDIF
 !    ENDIF
 !    
+
 
     !KF here?
     !-------------------------------------------------------------------
@@ -451,23 +431,39 @@ CONTAINS
 !    ENDIF
 !
 !
+
+
+   !---------------------------------------------------------------------
+    SELECT CASE (iequations)
+    
+    CASE (ishallow_water)
+      CALL init_vertical_coord_table(iequations, p_patch_global(1)%nlev)
+      
+    CASE (ihs_atm_temp, ihs_atm_theta)
+      CALL init_vertical_coord_table(iequations, p_patch_global(1)%nlev)
+      
+    CASE (inh_atmosphere)
+      IF (ivctype == 1) THEN
+        CALL init_hybrid_coord(iequations, p_patch_global(1)%nlev)
+      ELSE IF (ivctype == 2) THEN
+        CALL init_sleve_coord(p_patch_global(1)%nlev)
+      ENDIF
+    CASE DEFAULT
+    END SELECT
+   !---------------------------------------------------------------------
+
+
     !---------------------------------------------------------------------
     ! horizontal and vertical grid(s) are now defined
     !---------------------------------------------------------------------
+
 
     !---------------------------------------------------------------------
     ! 3. Assign values to derived variables in the configuration states
     !---------------------------------------------------------------------
 
-    ! CALL configure_advection(iequations) ??????
-
    !CALL configure_dynamics(lrestart, n_dom)
    !CALL configure_diffusion(n_dom, parent_id, nlev, vct_a, vct_b, apzero)
-
-
-   !CALL configure_atm_phy_nwp
-   !CALL configure_echam_phy (ltestcase, ctest_name)
-   !CALL configure_echam_convection(nlev, vct_a, vct_b, ceta)
 
    !DO jg =1,n_dom
    !  CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,      &
@@ -475,11 +471,7 @@ CONTAINS
    !    &                      kstart_qv(jg), lvert_nest, l_open_ubc, ntracer ) 
    !ENDDO
 
-    !---------------------------------------------------------------------
-    ! 4. Construct model states (variable lists); set initial conditions.
-    !---------------------------------------------------------------------
-
-    !---------------------------------------------------------------------
+   !---------------------------------------------------------------------
     ! 4.a Do the setup for the coupled run
     !
     ! For the time being this could all go into a subroutine which is
@@ -513,6 +505,22 @@ CONTAINS
       CALL ICON_cpl_search
 
     ENDIF
+
+
+   SELECT CASE(iequations)
+
+   ! hydrostaticCASE()
+   
+   !CALL configure_echam_phy (ltestcase, ctest_name)
+   !CALL configure_echam_convection(nlev, vct_a, vct_b, ceta)
+
+     !nohydostatic
+     !CALL configure_atm_phy_nwp
+    !---------------------------------------------------------------------
+    ! 4. Construct model states (variable lists); set initial conditions.
+    !---------------------------------------------------------------------
+
+ 
 
     !---------------------------------------------------------------------
     ! 4.b General for all atmospheric versions
