@@ -49,11 +49,12 @@ MODULE mo_hydro_ocean_run
 USE mo_impl_constants,         ONLY: max_char_length
 USE mo_model_domain,           ONLY: t_patch
 ! USE mo_model_domain_import,    ONLY: n_dom, nroot
+USE mo_model_domain_import,    ONLY: n_dom
 USE mo_ocean_nml,              ONLY: n_zlev, iswm_oce, no_tracer,itestcase_oce
 USE mo_dynamics_config,        ONLY: nold, nnew
 USE mo_io_config,              ONLY: out_expname
 USE mo_run_config,             ONLY: nsteps, dtime, ltimer
-USE mo_exception,              ONLY: message, message_text, finish
+USE mo_exception,              ONLY: message, message_text, finish, get_filename_noext
 USE mo_io_units,               ONLY: filename_max
 USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time
 USE mo_timer,                  ONLY: timer_total, timer_start, timer_stop
