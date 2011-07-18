@@ -272,37 +272,30 @@ CONTAINS
     !---------------------------------------------------------------------
     CALL read_atmo_namelists(atm_namelist_filename,shr_namelist_filename)
 
-  
-
     !---------------------------------------------------------------------
     ! 2. Cross-check namelists
     !---------------------------------------------------------------------
-
     CALL atm_crosscheck
 
     !-------------------------------------------------------------------
-    ! Initialize various timers; initialize data and time 
+    ! 3. Initialize various timers; initialize data and time 
     !-------------------------------------------------------------------
-     !! IF (ltimer) CALL init_timer
-    
+    !! IF (ltimer) CALL init_timer
 
-
-    !-------------------------------------------------------------------
-    ! Define the horizontal and vertical conditions since they are aready
+    !------------------
+    ! Next, define the horizontal and vertical conditions since they are aready
     !  needed for some derived namelist parameters
     ! - patch import
     ! - domain decompistion (?)
     ! - vertical coordinates
     !-------------------------------------------------------------------
-    !
-    ! import_patches(...)
-    !     
+    ! 4. Import_patches
     !-------------------------------------------------------------------
     ! If we belong to the I/O PEs just call io_main_proc before reading patches.
     ! This routine will never return
     
 !    IF (my_process_is_io()) CALL io_main_proc
-!    !-------------------------------------------------------------------
+!    !------
 !    
 !    !check patch allocation status
 !    IF ( ALLOCATED(p_patch_global)) THEN
@@ -337,16 +330,12 @@ CONTAINS
 !    ENDIF
 !    
 
-    !-------------------------------------------------------------------
-    ! interpolation state
-    !-------------------------------------------------------------------
+    !-----------------------------------------------------------------------------
+    ! 5. Construct interpolation state (global), compute interpolation coefficients.
+    !-----------------------------------------------------------------------------
     !CALL configure_interpolation (jlev,n_dom,global_cell_type)
-    !CALL construct_interpolation
-    !compute interpolation coefficients...
 
-    !
     ! allocate type for interpolation state
-    !
     
  !   ALLOCATE( p_int_state_global(n_dom_start:n_dom), &
  !           & p_grf_state_global(n_dom_start:n_dom),STAT=ist)
@@ -364,7 +353,9 @@ CONTAINS
  !   ENDIF
  !
 
-! KF gridref here? 
+    !-----------------------------------------------------------------------------
+    ! 6. Construct grid refinment (coefficient) state
+    !-----------------------------------------------------------------------------
 !    ! For the NH model, the initialization routines called from
 !    ! construct_2d_gridref_state require the metric terms to be present
 !    IF (n_dom_start==0 .OR. n_dom > 1) THEN
@@ -378,15 +369,11 @@ CONTAINS
 !    
 
 
-    !KF here?
     !-------------------------------------------------------------------
-    ! domain decomposition
+    ! 7. Domain decomposition
     !-------------------------------------------------------------------
-
-    !------------------------------------------------------------------
     !  Divide patches and interpolation states for parallel runs.
     !  This is only done if the model runs really in parallel.
-    !------------------------------------------------------------------
     
 !    IF (my_process_is_mpi_seq()  &
 !      &  .OR. lrestore_states) THEN
@@ -432,7 +419,8 @@ CONTAINS
 !
 !
 
-
+   !---------------------------------------------------------------------
+   ! 8. Import vertical grid/ define vertical coordinate
    !---------------------------------------------------------------------
     SELECT CASE (iequations)
     
@@ -450,16 +438,11 @@ CONTAINS
       ENDIF
     CASE DEFAULT
     END SELECT
-   !---------------------------------------------------------------------
 
 
     !---------------------------------------------------------------------
-    ! horizontal and vertical grid(s) are now defined
-    !---------------------------------------------------------------------
-
-
-    !---------------------------------------------------------------------
-    ! 3. Assign values to derived variables in the configuration states
+    ! 9. Horizontal and vertical grid(s) are now defined.
+    !    Assign values to derived variables in the configuration states
     !---------------------------------------------------------------------
 
    !CALL configure_dynamics(lrestart, n_dom)
@@ -471,8 +454,8 @@ CONTAINS
    !    &                      kstart_qv(jg), lvert_nest, l_open_ubc, ntracer ) 
    !ENDDO
 
-   !---------------------------------------------------------------------
-    ! 4.a Do the setup for the coupled run
+    !---------------------------------------------------------------------
+    ! 10. Do the setup for the coupled run
     !
     ! For the time being this could all go into a subroutine which is
     ! common to atmo and ocean. Does this make sense if the setup deviates
@@ -499,7 +482,7 @@ CONTAINS
 
       DO i = 1, no_of_fields
          CALL ICON_cpl_def_field ( field_name(i), comp_id, grid_id, field_id(i), &
-   &                               field_shape, ierror )
+                                 & field_shape, ierror )
       ENDDO
 
       CALL ICON_cpl_search
@@ -507,10 +490,88 @@ CONTAINS
     ENDIF
 
 
-   SELECT CASE(iequations)
+    !----------------------------------------------------------------------
+    ! 11. The hydrostatic and nonhydrostatic models branch from this point
+    !----------------------------------------------------------------------
+    SELECT CASE(iequations)
+    CASE(ISHALLOW_WATER,IHS_ATM_TEMP,IHS_ATM_THETA)
 
-   ! hydrostaticCASE()
+      !CALL atmo_hydrostatic(....)
+
+    CASE(INH_ATMOSPHERE)
+
+      !CALL atmo_nonhydrostatic(....)
+    END SELECT
    
+    !---------------------------------------------------------------------
+    ! 12. Integration finished. Carry out the shared clean-up processes
+    !---------------------------------------------------------------------
+!   ! Delete grids
+
+!   IF (n_dom > 1) THEN
+!     CALL destruct_2d_gridref_state( p_patch, p_grf_state )
+!   ENDIF
+!
+!   IF (my_process_is_mpi_seq()  &
+!     & .OR. lrestore_states) THEN
+!     DEALLOCATE (p_grf_state_global, STAT=ist)
+!   ELSE
+!     DEALLOCATE (p_grf_state_subdiv, STAT=ist)
+!   ENDIF
+!   IF (ist /= SUCCESS) THEN
+!     CALL finish(TRIM(routine),'deallocation for ptr_grf_state failed')
+!   ENDIF
+!     
+!   ! Deallocate interpolation fields
+!
+!   CALL destruct_2d_interpol_state( p_int_state )
+!   IF  (my_process_is_mpi_seq()  &
+!     & .OR. lrestore_states) THEN
+!     DEALLOCATE (p_int_state_global, STAT=ist)
+!   ELSE
+!     DEALLOCATE (p_int_state_subdiv, STAT=ist)
+!   ENDIF
+!   IF (ist /= SUCCESS) THEN
+!     CALL finish(TRIM(routine),'deallocation for ptr_int_state failed')
+!   ENDIF
+!   
+!   ! Deallocate external data
+!   CALL destruct_ext_data
+!
+!   ! deallocate ext_data array
+!   DEALLOCATE(ext_data, stat=ist)
+!   IF (ist/=success) THEN
+!     CALL finish(TRIM(routine), 'deallocation of ext_data')
+!   ENDIF
+!   
+!   ! Deallocate grid patches
+!   !
+!   CALL destruct_patches( p_patch, locean=.FALSE. )
+!
+!   IF (my_process_is_mpi_seq()  &
+!     & .OR. lrestore_states) THEN
+!     DEALLOCATE( p_patch_global, STAT=ist )
+!   ELSE
+!     DEALLOCATE( p_patch_subdiv, STAT=ist )
+!   ENDIF
+!   IF (ist/=SUCCESS) THEN
+!     CALL finish(TRIM(routine),'deallocate for patch array failed')
+!   ENDIF
+!   
+!   ! deallocate output switches
+!   !
+!   
+!   CALL message(TRIM(routine),'clean-up finished')
+!   
+
+  END SUBROUTINE atmo_model
+
+
+   !=============================================================================
+   ! The lines below will be sorted into two subroutines:
+   ! - atmo_hydrostatic
+   ! - atmo_nonhydrostatic
+   !=============================================================================
    !CALL configure_echam_phy (ltestcase, ctest_name)
    !CALL configure_echam_convection(nlev, vct_a, vct_b, ceta)
 
@@ -780,21 +841,6 @@ CONTAINS
 !   ! Delete output variable lists
 !   IF (l_have_output) CALL close_output_files
 !   
-!   ! Delete grids
-!   IF (n_dom > 1) THEN
-!     CALL destruct_2d_gridref_state( p_patch, p_grf_state )
-!   ENDIF
-!
-!   IF (my_process_is_mpi_seq()  &
-!     & .OR. lrestore_states) THEN
-!     DEALLOCATE (p_grf_state_global, STAT=ist)
-!   ELSE
-!     DEALLOCATE (p_grf_state_subdiv, STAT=ist)
-!   ENDIF
-!   IF (ist /= SUCCESS) THEN
-!     CALL finish(TRIM(routine),'deallocation for ptr_grf_state failed')
-!   ENDIF
-!     
 !   ! Deallocate memory for the parameterized forcing
 !   SELECT CASE (iforcing)
 !
@@ -814,49 +860,6 @@ CONTAINS
 !
 !   END SELECT
 !   
-!   ! Deallocate interpolation fields
-!
-!   CALL destruct_2d_interpol_state( p_int_state )
-!   IF  (my_process_is_mpi_seq()  &
-!     & .OR. lrestore_states) THEN
-!     DEALLOCATE (p_int_state_global, STAT=ist)
-!   ELSE
-!     DEALLOCATE (p_int_state_subdiv, STAT=ist)
-!   ENDIF
-!   IF (ist /= SUCCESS) THEN
-!     CALL finish(TRIM(routine),'deallocation for ptr_int_state failed')
-!   ENDIF
-!   
-!   ! Deallocate external data
-!   CALL destruct_ext_data
-!
-!   ! deallocate ext_data array
-!   DEALLOCATE(ext_data, stat=ist)
-!   IF (ist/=success) THEN
-!     CALL finish(TRIM(routine), 'deallocation of ext_data')
-!   ENDIF
-!   
-!   ! Deallocate grid patches
-!   !
-!   CALL destruct_patches( p_patch, locean=.FALSE. )
-!
-!   IF (my_process_is_mpi_seq()  &
-!     & .OR. lrestore_states) THEN
-!     DEALLOCATE( p_patch_global, STAT=ist )
-!   ELSE
-!     DEALLOCATE( p_patch_subdiv, STAT=ist )
-!   ENDIF
-!   IF (ist/=SUCCESS) THEN
-!     CALL finish(TRIM(routine),'deallocate for patch array failed')
-!   ENDIF
-!   
-!   ! deallocate output switches
-!   !
-!   
-!   CALL message(TRIM(routine),'clean-up finished')
-!   
-
-  END SUBROUTINE atmo_model
 
 
 
