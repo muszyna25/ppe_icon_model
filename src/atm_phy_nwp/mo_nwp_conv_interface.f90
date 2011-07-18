@@ -53,7 +53,7 @@ MODULE mo_nwp_conv_interface
 !  USE mo_ext_data,             ONLY: t_external_data
   USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag,&
     &                                t_nh_metrics
-  USE mo_nonhydrostatic_nml,   ONLY: kstart_moist
+  USE mo_nonhydrostatic_config,ONLY: kstart_moist
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag,prm_diag,&
     &                                t_nwp_phy_tend
   USE mo_run_config,           ONLY: msg_level, ntracer, iqv, &

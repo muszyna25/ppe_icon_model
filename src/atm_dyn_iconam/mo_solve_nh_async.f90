@@ -42,7 +42,7 @@
 MODULE mo_solve_nh_async
 
   USE mo_kind,              ONLY: wp
-  USE mo_nonhydrostatic_nml,ONLY: iadv_rhotheta, igradp_method, l_open_ubc, l_zdiffu_t
+  USE mo_nonhydrostatic_config,ONLY: iadv_rhotheta, igradp_method, l_open_ubc, l_zdiffu_t
   USE mo_dynamics_config,   ONLY: itime_scheme, idiv_method
   USE mo_diffusion_config,  ONLY: diffusion_config
   USE mo_parallel_config,  ONLY: nproma, p_test_run

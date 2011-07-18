@@ -46,7 +46,7 @@ MODULE mo_nh_diffusion
                                     verts2edges_scalar, edges2verts_scalar, &
                                     cells2verts_scalar, cells2edges_scalar, &
                                     edges2cells_scalar, verts2cells_scalar
-  USE mo_nonhydrostatic_nml,  ONLY: l_zdiffu_t, damp_height, k2_updamp_coeff
+  USE mo_nonhydrostatic_config,  ONLY: l_zdiffu_t, damp_height, k2_updamp_coeff
 !  USE mo_diffusion_nml,       ONLY: k4
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_parallel_config,  ONLY: nproma

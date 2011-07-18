@@ -68,7 +68,7 @@ MODULE mo_nwp_lnd_state
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: n_dom, l_limited_area
-  USE mo_nonhydrostatic_nml,  ONLY: l_nest_rcf
+  USE mo_nonhydrostatic_config,  ONLY: l_nest_rcf
 !  USE mo_atm_phy_nwp_nml,     ONLY: inwp_surface
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 

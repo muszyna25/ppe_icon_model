@@ -46,7 +46,7 @@ MODULE mo_vertical_grid
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data,            ONLY: ext_data
   USE mo_model_domain_import, ONLY: n_dom
-  USE mo_nonhydrostatic_nml,  ONLY: rayleigh_coeff,damp_height, igradp_method, ivctype,  & 
+  USE mo_nonhydrostatic_config,ONLY: rayleigh_coeff,damp_height, igradp_method, ivctype,  & 
     &                               vwind_offctr, exner_expol, l_zdiffu_t, thslp_zdiffu, &
     &                               thhgtd_zdiffu, htop_moist_proc, htop_qvadv,          &
     &                               kstart_moist, kstart_qv, damp_timescale_u, damp_height_u

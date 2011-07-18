@@ -51,8 +51,7 @@ USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I
 ! Control parameters: run control, dynamics, i/o
 !
 USE mo_global_variables,    ONLY: setup_physics           ! process forcing control parameters
-USE mo_nonhydrostatic_nml,  ONLY: ivctype,              & ! type of vertical coordinate
-& nonhydrostatic_nml_setup
+USE mo_nonhydrostatic_config,ONLY: ivctype
 !USE mo_io_config,           ONLY: dt_data, dt_file, dt_diag, dt_checkpoint 
 USE mo_io_config,         ONLY:  dt_data,dt_file,dt_diag,dt_checkpoint
 USE mo_dynamics_config,   ONLY: iequations
@@ -499,7 +498,7 @@ INTEGER, POINTER :: grid_glob_index(:)
     SELECT CASE (iequations)
     
     CASE (inh_atmosphere)
-      CALL nonhydrostatic_nml_setup
+     !CALL nonhydrostatic_nml_setup
       
     CASE DEFAULT
     END SELECT

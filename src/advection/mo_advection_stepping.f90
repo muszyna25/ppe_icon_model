@@ -71,7 +71,7 @@ MODULE mo_advection_stepping
   USE mo_interpolation,       ONLY: t_int_state
   USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,          ONLY: ntracer, ltimer, iforcing, iqv
-  USE mo_nonhydrostatic_nml,  ONLY: iadv_rcf
+  USE mo_nonhydrostatic_config,ONLY: iadv_rcf
   USE mo_advection_hflux,     ONLY: hor_upwind_flux
   USE mo_advection_vflux,     ONLY: vert_upwind_flux
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c

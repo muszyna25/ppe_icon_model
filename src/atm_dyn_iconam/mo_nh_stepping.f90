@@ -50,7 +50,7 @@ MODULE mo_nh_stepping
   USE mo_kind,                ONLY: wp
   USE mo_nonhydro_state,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics, &
                                     construct_nh_state, bufr
-  USE mo_nonhydrostatic_nml,  ONLY: iadv_rcf, l_nest_rcf, ltheta_up_vert
+  USE mo_nonhydrostatic_config,  ONLY: iadv_rcf, l_nest_rcf, ltheta_up_vert
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_dynamics_config,     ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1,nsav2, &
                                     itime_scheme

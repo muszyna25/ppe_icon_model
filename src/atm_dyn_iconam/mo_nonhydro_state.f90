@@ -52,7 +52,7 @@ MODULE mo_nonhydro_state
   USE mo_exception,           ONLY: message, finish
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: n_dom, l_limited_area
-  USE mo_nonhydrostatic_nml,  ONLY: l_nest_rcf
+  USE mo_nonhydrostatic_config,  ONLY: l_nest_rcf
   USE mo_dynamics_config,     ONLY: itime_scheme, nsav1, nsav2
 !  USE mo_advection_nml,       ONLY: ctracer_list
   USE mo_parallel_config,  ONLY: nproma

@@ -64,7 +64,7 @@ MODULE mo_nh_interface_nwp
   USE mo_model_domain,       ONLY: t_patch
   USE mo_interpolation,      ONLY: t_int_state
   USE mo_nonhydro_state,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_nonhydrostatic_nml, ONLY: kstart_moist
+  USE mo_nonhydrostatic_config, ONLY: kstart_moist
   USE mo_nwp_lnd_state,      ONLY: t_lnd_prog, t_lnd_diag!, t_lnd_state
   USE mo_ext_data,           ONLY: t_external_data
   USE mo_nwp_phy_state,      ONLY: t_nwp_phy_diag,&

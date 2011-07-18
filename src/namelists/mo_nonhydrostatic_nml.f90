@@ -1,11 +1,8 @@
 !>
 !! Contains the setup of configuration of the
 !! nonhydrostatic dynamical core
-!!
 !!        
 !! @par Revision History
-!!   Revision History in mo_global_variables.f90 (r3914)
-!!   Modification by Constantin Junk (2011-03-28)
 !!
 !! @par Copyright
 !! 2002-2006 by DWD and MPI-M
@@ -39,11 +36,11 @@ MODULE mo_nonhydrostatic_nml
 
   USE mo_kind,                  ONLY: wp
   USE mo_exception,             ONLY: finish
-  USE mo_impl_constants,        ONLY: max_char_length, max_dom
+  USE mo_impl_constants,        ONLY: max_dom
   USE mo_io_units,              ONLY: nnml, nnml_output
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_master_nml,            ONLY: lrestart
-  USE mo_mpi,                   ONLY: p_pe, p_io
+  USE mo_mpi,                   ONLY: my_process_is_stdio 
   USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,  &
                                     & open_and_restore_namelist, close_tmpfile
 
@@ -77,7 +74,8 @@ MODULE mo_nonhydrostatic_nml
                                     & config_kstart_qv        => kstart_qv
 
   IMPLICIT NONE
-  PUBLIC
+  PRIVATE
+  PUBLIC  :: read_nonhydrostatic_namelist
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
 
@@ -137,124 +135,7 @@ MODULE mo_nonhydrostatic_nml
                               & k2_updamp_coeff
 
 CONTAINS
- !>
- !!               Initialization of variables that determine 
- !!
- !!               Initialization of variables that determine
- !!               some settings of the non-hydrostatic dynamical core.
- !!
- !! @par Revision History
- !!  Initial version by Almut Gassmann (2009-03-04)
- !!
- SUBROUTINE nonhydrostatic_nml_setup
-
-  CHARACTER(len=max_char_length), PARAMETER :: &
-            routine = 'mo_nonhydrostatic_nml:nonhydrostatic_nml_setup'
-
-
-  !local variable
-  INTEGER :: i_status, jg
-
-  !------------------------------------------------------------
-  ! 2.0 set up the default values for dynamics_nml
-  !------------------------------------------------------------
-  !
-  ! reduced calling frequency for transport
-  iadv_rcf = 1  ! no reduced calling frequency
-
-  ! Type of vertical coordinate (1: Gal-Chen, 2: SLEVE)
-  ivctype  = 1
-
-  ! Top height of partial domain where moist physics is computed
-  ! (set to 200 km, which in practice means that moist physics is
-  ! computed everywhere by default)
-  htop_moist_proc = 200000._wp
-  htop_qvadv      = 250000._wp
-  kstart_moist(:) = 1
-  kstart_qv(:)    = 1
-
-  ! Settings for icell_type=3
-  damp_height(1)    = 30000.0_wp
-  rayleigh_coeff(1) = 0.05_wp
-  damp_timescale_u  = 3._wp*86400._wp ! 3 days
-  damp_height_u     = 100000._wp
-  vwind_offctr      = 0.05_wp
-  iadv_rhotheta     = 2
-  igradp_method     = 1
-  l_open_ubc        = .FALSE.
-  l_nest_rcf        = .TRUE.
-  l_masscorr_nest   = .FALSE.
-  exner_expol       = 0.5_wp
-
-  ! dummy values for nested domains; will be reset to value of domain 1 
-  ! if not specified explicitly in the namelist
-  damp_height(2:max_dom)    = -1.0_wp
-  rayleigh_coeff(2:max_dom) = -1.0_wp
-
-  ! truly horizontal temperature diffusion
-  l_zdiffu_t     = .FALSE. ! not used by default
-  thslp_zdiffu   = 0.025_wp ! slope threshold 0.025
-  thhgtd_zdiffu  = 200._wp ! threshold for height difference between adjacent grid points 200 m
-
-  ! Settings for icell_type=6
-  ltheta_up_hori =.FALSE.
-  gmres_rtol_nh  = 1.0e-6_wp
-  upstr_beta     = 1.0_wp
-  ltheta_up_vert = .FALSE.
-  k2_updamp_coeff= 2.0e6_wp
-  !
-  !
-  !------------------------------------------------------------
-  ! 3.0 Read the nonhydrostatic namelist.
-  !------------------------------------------------------------
-  ! (done so far by all MPI processes)
-
-  CALL position_nml ('nonhydrostatic_nml', status=i_status)
-  SELECT CASE (i_status)
-  CASE (positioned)
-     READ (nnml, nonhydrostatic_nml)
-  END SELECT
-
-  ! Reset values of rayleigh_coeff and damp_height to that of the global domain if not specified
-  DO jg = 2, max_dom
-    IF (damp_height(jg) < 0.0_wp) THEN
-      damp_height(jg) = damp_height(1)
-    ENDIF
-    IF (rayleigh_coeff(jg) < 0.0_wp) THEN
-      rayleigh_coeff(jg) = rayleigh_coeff(1)
-    ENDIF
-  ENDDO
-
-  !------------------------------------------------------------
-  ! 4.0 check the consistency of the parameters
-  !------------------------------------------------------------
-  !
-
-  ! reset l_nest_rcf to false if iadv_rcf = 1
-  IF (iadv_rcf == 1) l_nest_rcf = .FALSE.
-
-  IF (upstr_beta > 1.0_wp .OR. upstr_beta < 0.0_wp) THEN
-    CALL finish(TRIM(routine), 'upstr_beta out of range 0..1')
-  ENDIF
-
-  ! for reduced calling frequency of tracer advection / fast physics:
-  ! odd values of iadv_rcf are allowed only if nest calls are synchronized with advection
-  IF ( .NOT. l_nest_rcf .AND. MOD(iadv_rcf,2) /= 0 .AND. iadv_rcf /= 1 .OR. iadv_rcf == 0) THEN
-      CALL finish( TRIM(routine), 'Invalid reduced-calling-frequency parameter& '//&
-        &'Value must be even or 1 if l_nest_rcf=.FALSE.')
-  ENDIF
-
-  ! write the contents of the namelist to an ASCII file
-
-  IF(p_pe == p_io) WRITE(nnml_output,nml=nonhydrostatic_nml)
-
-
-END SUBROUTINE nonhydrostatic_nml_setup
-
-
   !-------------------------------------------------------------------------
-  !
-  !
   !>
   !! Read Namelist for nonhydrostatic core. 
   !!
@@ -268,7 +149,7 @@ END SUBROUTINE nonhydrostatic_nml_setup
   !! - fills the configuration state (partly)    
   !!
   !! @par Revision History
-  !!  by Daniel Reinert, DWD (2011-06-07)
+  !!  by Daniel Reinert, DWD (2011-07-06)
   !!
   SUBROUTINE read_nonhydrostatic_namelist( filename )
 
@@ -363,6 +244,22 @@ END SUBROUTINE nonhydrostatic_nml_setup
       ENDIF
     ENDDO
 
+    ! reset l_nest_rcf to false if iadv_rcf = 1
+    IF (iadv_rcf == 1) l_nest_rcf = .FALSE.
+
+    IF (upstr_beta > 1.0_wp .OR. upstr_beta < 0.0_wp) THEN
+      CALL finish(TRIM(routine), 'upstr_beta out of range 0..1')
+    ENDIF
+
+    ! for reduced calling frequency of tracer advection / fast physics:
+    ! odd values of iadv_rcf are allowed only if nest calls are 
+    ! synchronized with advection
+    IF ( .NOT. l_nest_rcf .AND. MOD(iadv_rcf,2) /= 0 .AND. iadv_rcf /= 1 &
+         .OR. iadv_rcf == 0) THEN
+        CALL finish( TRIM(routine), 'Invalid reduced-calling-frequency parameter& '//&
+          &'Value must be even or 1 if l_nest_rcf=.FALSE.')
+    ENDIF
+
     !----------------------------------------------------
     ! 4. Fill the configuration state
     !----------------------------------------------------
@@ -428,7 +325,7 @@ END SUBROUTINE nonhydrostatic_nml_setup
     CALL store_and_close_namelist(funit, 'nonhydrostatic_nml') 
 
     ! 6. write the contents of the namelist to an ASCII file
-    IF(p_pe == p_io) WRITE(nnml_output,nml=nonhydrostatic_nml)
+    IF(my_process_is_stdio()) WRITE(nnml_output,nml=nonhydrostatic_nml)
 
   END SUBROUTINE read_nonhydrostatic_namelist
 

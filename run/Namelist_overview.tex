@@ -1989,6 +1989,229 @@ iequations$\in$\{1,2\}
 
 
 
+%-----------------------------------------------------------------------------
+% nonhydrostatic_nml:
+%-----------------------------------------------------------------------------
+\subsection{nonhydrostatic\_nml (relevant if run\_nml:iequations=3)}
+
+\begin{longtab}
+\hline 
+rayleigh\_coeff&
+R(n\_dom)& 0.05& &
+Rayleigh damping coefficient (Klemp, Dudhia, Hassiotis: MWR136, pp.3987-4004)&
+i\_cell\_type=3
+\tabularnewline
+
+\hline 
+damp\_height&
+R(n\_dom)& 30000& m&
+Height at which Rayleigh damping of vertical wind starts&
+\tabularnewline
+
+\hline 
+damp\_height\_u&
+R& 100000& m&
+Height at which Rayleigh damping of zonal wind starts&
+active only for inwp\_gwd $>$ 0
+\tabularnewline
+
+\hline 
+damp\_timescale\_u&
+R& 259200& s&
+Shortest damping time scale (reached at model top)&
+\tabularnewline
+
+\hline 
+htop\_moist\_proc&
+R& 200000.0& m&
+Height above which moist physics and advection of cloud and precipitation variables are turned off&
+\tabularnewline
+
+\hline 
+k2\_updamp\_coeff&
+R& 2.0e6& &
+enhanced 2nd order diffusion coefficient in upper damping layer&
+i\_cell\_type=6, hdiff\_order=3 (Smagorinski)
+\tabularnewline
+
+\hline 
+vwind\_offctr&
+R& 0.05& &
+Off-centering in vertical wind solver&
+i\_cell\_type=3
+\tabularnewline
+
+\hline 
+ivctype&
+I& 1& &
+Type of vertical coordinate:\\
+1: Gal-Chen hybrid \\
+2: SLEVE (uses sleve\_ctl)&
+\tabularnewline
+
+\hline 
+iadv\_rcf&
+I& 1& &
+reduced calling frequency (rcf) for transport\\
+1: no rcf (every dynamics-step)\\
+2: transport every 2. step \\
+4: $\dots$ &
+\tabularnewline
+
+\hline 
+l\_nest\_rcf&
+L& .TRUE.& &
+Synchronize interpolation/feedback calls with advection (transport) time steps.
+l\_nest\_rcf is automatically reset to .FALSE. if iadv\_rcf=1 &
+cell\_type=3
+\tabularnewline
+
+\hline 
+l\_masscorr\_nest&
+L& .FALSE.& &
+Apply mass conservation correction also in nested domain &
+cell\_type=3
+\tabularnewline
+
+\hline 
+iadv\_rhotheta&
+I& 2& &
+Advection method for rho and rhotheta:\\
+1: centred differences horiz. + vert.\\
+2: 2nd order Miura horizontal &
+cell\_type=3 \tabularnewline
+& & & & 3: 3rd order Miura horizontal (not recommended)&
+\tabularnewline
+
+\hline 
+igradp\_method&
+I& 1& &
+Discretization of horizontal pressure gradient:\\
+1: conventional discretization with metric correction term\\
+2: Taylor-expansion-based reconstruction of pressure (advantageous at very high resolution)\\
+3: Similar discretization as option 2, but uses hydrostatic approximation 
+for downward extrapolation over steep slopes&
+cell\_type=3
+\tabularnewline
+
+\hline 
+l\_zdiffu\_t&
+L& .FALSE.& &
+.TRUE.: Compute Smagorinsky temperature diffusion truly horizontally over steep slopes&
+cell\_type=3 .AND. hdiff\_order=5 .AND. lhdiff\_temp = .true.
+\tabularnewline
+
+\hline 
+thslp\_zdiffu&
+R& 0.025& &
+Slope threshold above which truly horizontal temperature diffusion is activated&
+cell\_type=3 .AND. hdiff\_order=5 .AND. lhdiff\_temp=.true. .AND. l\_zdiffu\_t=.true.
+\tabularnewline
+
+\hline
+thhgtd\_zdiffu&
+R& 200& m&
+Threshold of height difference between neighboring grid points above which 
+truly horizontal temperature diffusion is activated (alternative criterion to thslp\_zdiffu)&
+cell\_type=3 .AND. hdiff\_order=5 .AND. lhdiff\_temp=.true. .AND. l\_zdiffu\_t=.true.
+\tabularnewline
+
+\hline 
+exner\_expol&
+R& 0.5& &
+Temporal extrapolation (fraction of dt) of Exner function for computation of horizontal pressure gradient&
+cell\_type=3
+\tabularnewline
+
+\hline 
+l\_open\_ubc&
+L& .FALSE.& &
+.TRUE.: Use open upper boundary condition (rather than w=0) to better conserve sea-level pressure in the presence of diabatic heating&
+cell\_type=3
+\tabularnewline
+
+\hline 
+ltheta\_up\_hori &
+L& .FALSE.& &
+upstream biased horizontal advection for theta (see also upstr\_beta)&
+cell\_type=6
+\tabularnewline
+
+\hline 
+upstr\_beta &
+R& 1.0& &
+Selection of order for horiz.~theta advection: 3rd order=1.0, 4th order=0.0  &
+cell\_type=6
+\tabularnewline
+
+\hline
+gmres\_rtol\_nh &
+R& 1.0e-6& &
+relative tolerance for convergence in gmres solver &
+cell\_type=6
+\tabularnewline
+
+\hline
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_nonhydrostatic\_nml.f90
+
+%-----------------------------------------------------------------------------
+% sleve_nml:
+%-----------------------------------------------------------------------------
+\subsection{sleve\_nml (used if nonhydrostatic\_nml:ivctype=2)}
+\begin{longtab}
+
+\hline 
+min\_lay\_thckn&
+R& 50& m&
+Layer thickness of lowermost layer&
+\tabularnewline
+
+\hline 
+top\_height&
+R& 23500.0& m&
+Height of model top&
+\tabularnewline
+
+\hline 
+stretch\_fac&
+R& 1.0& &
+Stretching factor to vary distribution of model levels; 
+values $<$1 increase the layer thickness near the model top&
+\tabularnewline
+
+\hline 
+decay\_scale\_1&
+R& 4000& m&
+Decay scale of large-scale topography component&
+\tabularnewline
+
+\hline 
+decay\_scale\_2&
+R& 2500& m&
+Decay scale of small-scale topography component&
+\tabularnewline
+
+\hline 
+decay\_exp&
+R& 1.2& &
+Exponent of decay function&
+\tabularnewline
+
+\hline 
+flat\_height &
+R& 16000& m&
+Height above which the coordinate surfaces are flat&
+\tabularnewline
+
+\hline
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_sleve\_nml.f90
+
+
+
 %IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
 %IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
 %IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
@@ -2160,279 +2383,6 @@ Defined and used in: src/namelists/mo\_io\_nml.f90
 
 
 
-
-\subsection{nonhydrostatic\_ctl (used if run\_nml/iequations=3)}
-
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
-\hline
-\endhead
-\hline 
-rayleigh\_coeff&
-R(n\_dom)&
-0.05&
-&
-Rayleigh damping coefficient (Klemp, Dudhia, Hassiotis: MWR136, pp.3987-4004)&
-i\_cell\_type=3
-\tabularnewline
-\hline 
-damp\_height&
-R(n\_dom)&
-30000&
-m&
-Height at which Rayleigh damping of vertical wind starts&
-\tabularnewline
-\hline 
-damp\_height\_u&
-R&
-100000&
-m&
-Height at which Rayleigh damping of zonal wind starts&
-active only for inwp\_gwd $>$ 0
-\tabularnewline
-\hline 
-damp\_timescale\_u&
-R&
-259200&
-s&
-Shortest damping time scale (reached at model top)&
-\tabularnewline
-\hline 
-htop\_moist\_proc&
-R&
-200000.0&
-m&
-Height above which moist physics and advection of cloud and precipitation variables are turned off&
-\tabularnewline
-\hline 
-k2\_updamp\_coeff&
-R&
-2.0e6&
-&
-enhanced 2nd order diffusion coefficient in upper damping layer&
-i\_cell\_type=6, hdiff\_order=3 (Smagorinski)
-\tabularnewline
-\hline 
-vwind\_offctr&
-R&
-0.05&
-&
-Off-centering in vertical wind solver&
-i\_cell\_type=3
-\tabularnewline
-\hline 
-ivctype&
-I&
-1&
-&
-Type of vertical coordinate:\\
-1: Gal-Chen hybrid \\
-2: SLEVE (uses sleve\_ctl)&
-\tabularnewline
-\hline 
-iadv\_rcf&
-I&
-1&
-&
-reduced calling frequency (rcf) for transport\\
-1: no rcf (every dynamics-step)\\
-2: transport every 2. step \\
-4: $\dots$ &
-\tabularnewline
-\hline 
-l\_nest\_rcf&
-L&
-.TRUE.&
-&
-Synchronize interpolation/feedback calls with advection (transport) time steps.
-l\_nest\_rcf is automatically reset to .FALSE. if iadv\_rcf=1 &
-i\_cell\_type=3
-\tabularnewline
-\hline 
-l\_masscorr\_nest&
-L&
-.FALSE.&
-&
-Apply mass conservation correction also in nested domain &
-i\_cell\_type=3
-\tabularnewline
-\hline 
-iadv\_rhotheta&
-I&
-2&
-&
-Advection method for rho and rhotheta:\\
-1: centred differences horiz. + vert.\\
-2: 2nd order Miura horizontal &
-i\_cell\_type=3
-\tabularnewline
-&
-&
-&
-&
-3: 3rd order Miura horizontal (not recommended)&
-\tabularnewline
-\hline 
-igradp\_method&
-I&
-1&
-&
-Discretization of horizontal pressure gradient:\\
-1: conventional discretization with metric correction term\\
-2: Taylor-expansion-based reconstruction of pressure (advantageous at very high resolution)\\
-3: Similar discretization as option 2, but uses hydrostatic approximation for downward extrapolation over steep slopes&
-i\_cell\_type=3
-\tabularnewline
-\hline 
-l\_zdiffu\_t&
-L&
-.FALSE.&
-&
-.TRUE.: Compute Smagorinsky temperature diffusion truly horizontally over steep slopes&
-i\_cell\_type=3 .AND. hdiff\_order=5 .AND. lhdiff\_temp = .true.
-\tabularnewline
-\hline 
-thslp\_zdiffu&
-R&
-0.025&
-&
-Slope threshold above which truly horizontal temperature diffusion is activated&
-i\_cell\_type=3 .AND. hdiff\_order=5 .AND. lhdiff\_temp=.true. .AND. l\_zdiffu\_t=.true.
-\tabularnewline
-\hline
-thhgtd\_zdiffu&
-R&
-200&
-m&
-Threshold of height difference between neighboring grid points above which 
-truly horizontal temperature diffusion is activated (alternative criterion to thslp\_zdiffu)&
-i\_cell\_type=3 .AND. hdiff\_order=5 .AND. lhdiff\_temp=.true. .AND. l\_zdiffu\_t=.true.
-\tabularnewline
-\hline 
-exner\_expol&
-R&
-0.5&
-&
-Temporal extrapolation (fraction of dt) of Exner function for computation of horizontal pressure gradient&
-i\_cell\_type=3
-\tabularnewline
-\hline 
-l\_open\_ubc&
-L&
-.FALSE.&
-&
-.TRUE.: Use open upper boundary condition (rather than w=0) to better conserve sea-level pressure in the presence of diabatic heating&
-i\_cell\_type=3
-\tabularnewline
-\hline 
-ltheta\_up\_hori &
-L&
-.FALSE.&
-&
-upstream biased horizontal advection for theta (see also upstr\_beta)&
-i\_cell\_type=6
-\tabularnewline
-\hline 
-upstr\_beta &
-R&
-1.0&
-&
-Selection of order for horiz.~theta advection: 3rd order=1.0, 4th order=0.0  &
-i\_cell\_type=6
-\tabularnewline
-\hline
-gmres\_rtol\_nh &
-R&
-1.0e-6&
-&
-relative tolerance for convergence in gmres solver &
-i\_cell\_type=6
-\tabularnewline
-\hline
-l\_impl\_vert\_adv&
-L&
-.TRUE.&
-&
-implicit vertical advection for horizontal velocity and potential temperature (Implicit vertical advection for $\rho$ and $w$ is automatically included in the new 5band matrix solver for divergent modes. For theta, one of Daniels schemes is envisaged for the future.)  &
-i\_cell\_type=6
-\tabularnewline
-\hline
-\end{longtable}
-
-Defined and used in: src/namelists/mo\_nonhydrostatic\_nml.f90
-
-
-\subsection{sleve\_ctl (used if nonhydrostatic\_ctl/ivctype=2)}
-
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
-\hline
-\endhead
-\hline 
-min\_lay\_thckn&
-R&
-50&
-m&
-Layer thickness of lowermost layer&
-\tabularnewline
-\hline 
-top\_height&
-R&
-23500.0&
-m&
-Height of model top&
-\tabularnewline
-\hline 
-stretch\_fac&
-R&
-1.0&
-&
-Stretching factor to vary distribution of model levels; values $<$1 increase the layer thickness near the model top&
-\tabularnewline
-\hline 
-decay\_scale\_1&
-R&
-4000&
-m&
-Decay scale of large-scale topography component&
-\tabularnewline
-\hline 
-decay\_scale\_2&
-R&
-2500&
-m&
-Decay scale of small-scale topography component&
-\tabularnewline
-\hline 
-decay\_exp&
-R&
-1.2&
-&
-Exponent of decay function&
-\tabularnewline
-\hline 
-flat\_height &
-R&
-16000&
-m&
-Height above which the coordinate surfaces are flat&
-\tabularnewline
-\hline
-\end{longtable}
-
-Defined and used in: src/namelists/mo\_sleve\_nml.f90
 
 
 \subsection{diffusion\_ctl}

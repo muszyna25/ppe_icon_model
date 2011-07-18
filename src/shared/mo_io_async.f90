@@ -65,7 +65,7 @@ MODULE mo_io_async
   USE mo_parallel_config,  ONLY: p_pe_work, p_work_pe0, p_io_pe0,     &
    &                                num_work_procs, pio_type
   USE mo_global_variables,    ONLY: setup_physics
-  USE mo_nonhydrostatic_nml,  ONLY: ivctype, nonhydrostatic_nml_setup
+  USE mo_nonhydrostatic_config, ONLY: ivctype
 ! USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
 ! USE mo_diffusion_nml,       ONLY: diffusion_nml_setup
 !  USE mo_io_nml,              ONLY: io_nml_setup
@@ -291,7 +291,9 @@ CONTAINS
         CALL init_vertical_coord_table(iequations, num_lev(1))
         !
       CASE (inh_atmosphere)
-        CALL nonhydrostatic_nml_setup
+       !CALL nonhydrostatic_nml_setup
+        CALL finish(TRIM(modname),'subroutine nonhydrostatic_nml no longer exists')
+
         IF (ivctype == 1) THEN
           CALL init_hybrid_coord (iequations, num_lev(1))
         ELSE IF (ivctype == 2) THEN

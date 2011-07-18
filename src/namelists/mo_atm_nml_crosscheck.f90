@@ -303,25 +303,6 @@ CONTAINS
     IF (iequations==IHS_ATM_THETA) ha_dyn_config%ltheta_dyn = .TRUE.
 
     !--------------------------------------------------------------------
-    ! Nonhydrostatic atm
-    !--------------------------------------------------------------------
-    ! reset l_nest_rcf to false if iadv_rcf = 1
-    IF (iadv_rcf == 1) l_nest_rcf = .FALSE.
-
-    IF (upstr_beta > 1.0_wp .OR. upstr_beta < 0.0_wp) THEN
-      CALL finish(TRIM(routine), 'upstr_beta out of range 0..1')
-    ENDIF
-
-    ! for reduced calling frequency of tracer advection / fast physics:
-    ! odd values of iadv_rcf are allowed only if nest calls are synchronized
-    ! with advection
-    IF ( .NOT. l_nest_rcf .AND. MOD(iadv_rcf,2) /= 0 &
-         .AND. iadv_rcf /= 1 .OR. iadv_rcf == 0) THEN
-      CALL finish( TRIM(routine), 'Invalid reduced-calling-frequency parameter. '//&
-        &'Value must be even or 1 if l_nest_rcf=.FALSE.')
-    ENDIF
-
-    !--------------------------------------------------------------------
     ! Atmospheric physics, general
     !--------------------------------------------------------------------
     IF ((iforcing==INWP).AND.(iequations/=INH_ATMOSPHERE)) &

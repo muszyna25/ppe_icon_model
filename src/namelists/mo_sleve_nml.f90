@@ -3,10 +3,6 @@
 !!
 !!        
 !! @par Revision History
-!!   Revision History in mo_global_variables.f90 (r3919)
-!!   Modification by Constantin Junk (2011-03-29)
-!!   - added new module mo_sleve_nml.f90 which includes
-!!     setting up the SLEVE namelist.
 !!
 !! @par Copyright
 !! 2002-2006 by DWD and MPI-M

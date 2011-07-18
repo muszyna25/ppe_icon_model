@@ -53,7 +53,7 @@
 MODULE mo_divergent_modes
 
   USE mo_kind,                ONLY: wp
-  USE mo_nonhydrostatic_nml,  ONLY: gmres_rtol_nh, upstr_beta, ltheta_up_hori
+  USE mo_nonhydrostatic_config,ONLY: gmres_rtol_nh, upstr_beta, ltheta_up_hori
   USE mo_parallel_config,  ONLY: nproma, p_test_run
   USE mo_run_config,          ONLY: dtime
   USE mo_model_domain,        ONLY: t_patch
