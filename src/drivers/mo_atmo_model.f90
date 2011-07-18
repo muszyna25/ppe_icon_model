@@ -51,7 +51,7 @@ USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I
 ! Control parameters: run control, dynamics, i/o
 !
 USE mo_global_variables,    ONLY: setup_physics           ! process forcing control parameters
-USE mo_nonhydrostatic_config,ONLY: ivctype
+USE mo_nonhydrostatic_config,ONLY: ivctype, kstart_moist, kstart_qv, l_open_ubc
 !USE mo_io_config,           ONLY: dt_data, dt_file, dt_diag, dt_checkpoint 
 USE mo_io_config,         ONLY:  dt_data,dt_file,dt_diag,dt_checkpoint
 USE mo_dynamics_config,   ONLY: iequations
@@ -66,7 +66,9 @@ USE mo_run_config,        ONLY: &
 & ldump_states,         & ! flag if states should be dumped
 & lrestore_states,      & ! flag if states should be restored
 & nlev,nlevp1,          &
-& num_lev,num_levp1,nshift
+& num_lev,num_levp1,    &
+& iqv, nshift,          &
+& lvert_nest, ntracer
 
 USE mo_impl_constants, ONLY:&
     & ihs_atm_temp,         & !    :
@@ -187,10 +189,10 @@ USE mo_atm_nml_crosscheck,       ONLY: atm_crosscheck
 USE mo_time_config,        ONLY: time_config      ! variable
 USE mo_dynamics_config,    ONLY: configure_dynamics  ! subroutine
 USE mo_interpol_config,    ONLY: configure_interpolation 
-! USE mo_advection_config, ONLY configure_advection
+USE mo_advection_config,   ONLY: configure_advection
 USE mo_diffusion_config,   ONLY: configure_diffusion
 USE mo_echam_phy_config,   ONLY: configure_echam_phy 
-USE mo_echam_conv_config, ONLY: configure_echam_convection
+USE mo_echam_conv_config,  ONLY: configure_echam_convection
 
 !-------------------------------------------------------------------------
 IMPLICIT NONE
@@ -467,6 +469,11 @@ CONTAINS
    !CALL configure_echam_phy (ltestcase, ctest_name)
    !CALL configure_echam_convection(nlev, vct_a, vct_b, ceta)
 
+   !DO jg =1,n_dom
+   !  CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,      &
+   !    &                      iequations, iforcing, iqv, kstart_moist(jg), &
+   !    &                      kstart_qv(jg), lvert_nest, l_open_ubc, ntracer ) 
+   !ENDDO
 
     !---------------------------------------------------------------------
     ! 4. Construct model states (variable lists); set initial conditions.
@@ -1232,6 +1239,13 @@ CONTAINS
     ! namelist and potentially others
     IF (ltransport) THEN
       CALL setup_transport( iequations )
+
+      DO jg = 1, n_dom
+        CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,     &
+          &                      iequations, iforcing, iqv, kstart_moist(jg),&
+          &                      kstart_qv(jg), lvert_nest, l_open_ubc,      &
+          &                      ntracer  ) 
+      ENDDO
     ENDIF
     
     !------------------------------------------------------------------

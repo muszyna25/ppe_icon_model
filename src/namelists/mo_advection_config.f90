@@ -47,7 +47,6 @@ MODULE mo_advection_config
   USE mo_impl_constants,     ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom,  &
     &                              imiura, imiura3, ippm_vcfl, ippm_v,     &
     &                              ino_flx, izero_grad, iparent_flx, inwp
-  USE mo_grid_config,        ONLY: n_dom
 
   IMPLICIT NONE
   PUBLIC
@@ -56,8 +55,8 @@ MODULE mo_advection_config
 
 
 
-  ! Derived types to allow for the onetime computation of tracer independent parts
-  !
+!!$  ! Derived types to allow for the onetime computation of tracer independent parts
+!!$  !
 !!$  TYPE t_compute                                                               
 !!$    LOGICAL :: muscl_v (MAX_NTRACER)                                           
 !!$    LOGICAL :: ppm_v   (MAX_NTRACER)                                           
@@ -65,7 +64,7 @@ MODULE mo_advection_config
 !!$    LOGICAL :: miura3_h(MAX_NTRACER)                                           
 !!$  END TYPE t_compute                                                           
 !!$                                                                               
-!!$  TYPE t_cleanup                                                               
+!!$  TYPE t_cleanup                                                              
 !!$    LOGICAL :: muscl_v (MAX_NTRACER)                                           
 !!$    LOGICAL :: ppm_v   (MAX_NTRACER)                                           
 !!$    LOGICAL :: miura_h (MAX_NTRACER)                                           
@@ -193,8 +192,8 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2011-04-20)
   !!
-  SUBROUTINE configure_advection( jg, num_lev, num_lev_1, iequations, iforcing,      &
-    &                            iqv, kstart_moist, kstart_qv, lvert_nest, lstrang,  &
+  SUBROUTINE configure_advection( jg, num_lev, num_lev_1, iequations, iforcing,  &
+    &                            iqv, kstart_moist, kstart_qv, lvert_nest,       &
     &                            l_open_ubc, ntracer )
   !
     INTEGER, INTENT(IN) :: jg           !< patch index
@@ -206,7 +205,6 @@ CONTAINS
     INTEGER, INTENT(IN) :: kstart_moist
     INTEGER, INTENT(IN) :: kstart_qv
     INTEGER, INTENT(IN) :: ntracer
-    LOGICAL, INTENT(IN) :: lstrang
     LOGICAL, INTENT(IN) :: lvert_nest
     LOGICAL, INTENT(IN) :: l_open_ubc
 
@@ -222,7 +220,7 @@ CONTAINS
     !
 
     ! check, whether Strang-splitting has been chosen and adapt cSTR accordingly
-    IF ( lstrang ) THEN
+    IF ( advection_config(jg)%lstrang ) THEN
       advection_config(jg)%cSTR = 0.5_wp
     ELSE
       advection_config(jg)%cSTR = 1._wp
