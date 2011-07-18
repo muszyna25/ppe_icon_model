@@ -201,29 +201,31 @@ PUBLIC :: atmo_model
 CONTAINS
 !>
 !!
-SUBROUTINE atmo_model(atm_namelist_filename,shr_namelist_filename)
+  SUBROUTINE atmo_model(atm_namelist_filename,shr_namelist_filename)
 
-CHARACTER(LEN=*), INTENT(in) :: atm_namelist_filename
-CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
+    CHARACTER(LEN=*), INTENT(in) :: atm_namelist_filename
+    CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
 
-CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
-CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
-LOGICAL :: lsuccess
+    CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
+    CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
+    LOGICAL :: lsuccess
+    LOGICAL :: l_have_output
 
-! For the coupling
 
-INTEGER, PARAMETER :: no_of_fields = 12
+    ! For the coupling
 
-CHARACTER(LEN=MAX_CHAR_LENGTH) ::  field_name(no_of_fields)
-INTEGER :: field_id(no_of_fields)
-INTEGER :: comp_id
-INTEGER :: grid_id
-INTEGER :: grid_shape(2) 
-INTEGER :: field_shape(3) 
-INTEGER :: i, ierror
-INTEGER :: no_of_entities
-INTEGER :: patch_no
-INTEGER, POINTER :: grid_glob_index(:)
+    INTEGER, PARAMETER :: no_of_fields = 12
+
+    CHARACTER(LEN=MAX_CHAR_LENGTH) ::  field_name(no_of_fields)
+    INTEGER :: field_id(no_of_fields)
+    INTEGER :: comp_id
+    INTEGER :: grid_id
+    INTEGER :: grid_shape(2) 
+    INTEGER :: field_shape(3) 
+    INTEGER :: i, ierror
+    INTEGER :: no_of_entities
+    INTEGER :: patch_no
+    INTEGER, POINTER :: grid_glob_index(:)
 
     !---------------------------------------------------------------------
     ! 0. If this is a resumed or warm-start run...
@@ -268,26 +270,98 @@ INTEGER, POINTER :: grid_glob_index(:)
     !---------------------------------------------------------------------
     CALL read_atmo_namelists(atm_namelist_filename,shr_namelist_filename)
 
+    !-------------------------------------------------------------------
+    ! Initialize various timers; initialize data and time 
+    !-------------------------------------------------------------------
+     !! IF (ltimer) CALL init_timer
+    
+
     !---------------------------------------------------------------------
     ! 2. Cross-check namelists
     !---------------------------------------------------------------------
 
     CALL atm_crosscheck
 
-    !---------------------------------------------------------------------
-    ! 3. Assign values to derived variables in the configuration states
-    !---------------------------------------------------------------------
 
-    ! CALL configure_advection(iequations) ??????
+    !-------------------------------------------------------------------
+    ! Define the horizontal and vertical conditions since they are aready
+    !  needed for some derived namelist parameters
+    ! - patch import
+    ! - domain decompistion (?)
+    ! - vertical coordinates
+    !-------------------------------------------------------------------
+    !
+    ! import_patches(...)
+    !     
+    !-------------------------------------------------------------------
+    ! If we belong to the I/O PEs just call io_main_proc before reading patches.
+    ! This routine will never return
+    
+!    IF (my_process_is_io()) CALL io_main_proc
+!    !-------------------------------------------------------------------
+!    
+!    !check patch allocation status
+!    IF ( ALLOCATED(p_patch_global)) THEN
+!      CALL finish(TRIM(routine), 'patch already allocated')
+!    END IF
+!    !
+!    ! allocate patch array to start patch construction
+!    ALLOCATE(p_patch_global(n_dom_start:n_dom), stat=ist)
+!    IF (ist/=success) THEN
+!      CALL finish(TRIM(routine), 'allocation of patch failed')
+!    ENDIF
+!    
+!    IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
+!      CALL restore_patches_netcdf( p_patch_global )
+!    ELSE
+!      CALL import_patches( p_patch_global,                       &
+!                           nlev,nlevp1,num_lev,num_levp1,nshift, &
+!                           locean=.FALSE. )
+!    ENDIF
+!    
+!    IF(lrestore_states) THEN
+!      ! After the restore is done set p_comm_input_bcast in the
+!      ! same way as it would be set in parallel_nml_setup when
+!      ! no restore is wanted:
+!      IF(p_test_run) THEN
+!        ! Test PE reads and broadcasts to workers
+!        p_comm_input_bcast = p_comm_work_test
+!      ELSE
+!        ! PE 0 reads and broadcasts
+!        p_comm_input_bcast = p_comm_work
+!      ENDIF
+!    ENDIF
+!    
 
-
-    !CALL import_patches(...)
-
+    !-------------------------------------------------------------------
+    ! interpolation state
+    !-------------------------------------------------------------------
     !CALL configure_interpolation (jlev,n_dom,global_cell_type)
     !CALL construct_interpolation
     !compute interpolation coefficients...
 
-    !CALL domain_decomp( p_patch_global, ..., p_int_state_global, ....)
+    !
+    ! allocate type for interpolation state
+    !
+    
+ !   ALLOCATE( p_int_state_global(n_dom_start:n_dom), &
+ !           & p_grf_state_global(n_dom_start:n_dom),STAT=ist)
+ !   IF (ist /= SUCCESS) THEN
+ !     CALL finish(TRIM(routine),'allocation for ptr_int_state failed')
+ !   ENDIF
+ !   
+ !   IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
+ !     ! Read interpolation state from NetCDF
+ !     CALL restore_interpol_state_netcdf(p_patch_global, p_int_state_global)
+ !   ELSE
+ !     ! Interpolation state is constructed for
+ !     ! the full domain on every PE and divided later
+ !     CALL construct_2d_interpol_state(p_patch_global, p_int_state_global)
+ !   ENDIF
+ !
+
+
+
 
 
    !---------------------------------------------------------------------
@@ -309,8 +383,85 @@ INTEGER, POINTER :: grid_glob_index(:)
     END SELECT
    !---------------------------------------------------------------------
 
+! KF gridref here? 
+!    ! For the NH model, the initialization routines called from
+!    ! construct_2d_gridref_state require the metric terms to be present
+!    IF (n_dom_start==0 .OR. n_dom > 1) THEN
+!      IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
+!        ! Read gridref state from NetCDF
+!        CALL restore_gridref_state_netcdf(p_patch_global, p_grf_state_global)
+!      ELSE
+!        CALL construct_2d_gridref_state (p_patch_global, p_grf_state_global)
+!      ENDIF
+!    ENDIF
+!    
+
+    !KF here?
+    !-------------------------------------------------------------------
+    ! domain decomposition
+    !-------------------------------------------------------------------
+
+    !------------------------------------------------------------------
+    !  Divide patches and interpolation states for parallel runs.
+    !  This is only done if the model runs really in parallel.
+    !------------------------------------------------------------------
+    
+!    IF (my_process_is_mpi_seq()  &
+!      &  .OR. lrestore_states) THEN
+!      
+!      ! This is a verification run or a run on a single processor
+!      ! or the divided states have been read, just set pointers
+!      
+!      p_patch => p_patch_global
+!      p_int_state => p_int_state_global
+!      p_grf_state => p_grf_state_global
+!      
+!      IF (my_process_is_mpi_seq()) THEN
+!        p_patch(:)%comm = p_comm_work
+!      ELSE
+!        CALL set_patch_communicators(p_patch)
+!      ENDIF
+!      
+!    ELSE
+!      
+!      CALL decompose_atmo_domain( locean=.FALSE. )
+!      
+!    ENDIF
+!    
+!    ! In case of a test run: Copy processor splitting to test PE
+!    IF(p_test_run) CALL copy_processor_splitting(p_patch)
+!    
+!    IF(ldump_states)THEN
+!      
+!      ! Dump divided patches with interpolation and grf state to NetCDF file and exit
+!      
+!      CALL message(TRIM(routine),'ldump_states is set: dumping patches+states and finishing')
+!      
+!      IF(.NOT. my_process_is_mpi_test()) THEN
+!        DO jg = n_dom_start, n_dom
+!          CALL dump_patch_state_netcdf(p_patch(jg),p_int_state(jg),p_grf_state(jg))
+!        ENDDO
+!      ENDIF
+!      
+!      CALL p_stop
+!      STOP
+!      
+!    ENDIF
+!
+!
+    !---------------------------------------------------------------------
+    ! horizontal and vertical grid(s) are now defined
+    !---------------------------------------------------------------------
+
+    !---------------------------------------------------------------------
+    ! 3. Assign values to derived variables in the configuration states
+    !---------------------------------------------------------------------
+
+    ! CALL configure_advection(iequations) ??????
+
    !CALL configure_dynamics(lrestart, n_dom)
    !CALL configure_diffusion(n_dom, parent_id, nlev, vct_a, vct_b, apzero)
+
 
    !CALL configure_atm_phy_nwp
    !CALL configure_echam_phy (ltestcase, ctest_name)
@@ -355,16 +506,340 @@ INTEGER, POINTER :: grid_glob_index(:)
       CALL ICON_cpl_search
 
     ENDIF
+
+    !---------------------------------------------------------------------
+    ! 4.b General for all atmospheric versions
     !
+    !---------------------------------------------------------------------
+
+!    !------------------------------------------------------------------
+!    ! Create and optionally read external data fields
+!    !------------------------------------------------------------------
+!    ALLOCATE (ext_data(n_dom), STAT=ist)
+!    IF (ist /= SUCCESS) THEN
+!      CALL finish(TRIM(routine),'allocation for ext_data failed')
+!    ENDIF
+!    
+!    ! allocate memory for atmospheric/oceanic external data and
+!    ! optionally read those data from netCDF file.
+!    CALL init_ext_data (p_patch(1:), p_int_state, ext_data)
+!
+
+   
+ !   SELECT CASE (iequations)
+    !---------------------------------------------------------------------
+    ! 4.c Hydrostatic
+    !---------------------------------------------------------------------
+!     CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
+!      ALLOCATE (p_hydro_state(n_dom), stat=ist)
+!      IF (ist /= success) THEN
+!        CALL finish(TRIM(routine),'allocation for p_hydro_state failed')
+!      ENDIF
+
+!        IF(iforcing=iecham .OR. iforcing = ildf_echam)THEN
+!         CALL setup_echam_phy
+!        ENDIF
+
+    !---------------------------------------------------------------------
+    ! 4.c Non-Hydrostatic / NWP
+    !---------------------------------------------------------------------
+
+ !   CASE (inh_atmosphere)
+ !    ALLOCATE (p_nh_state(n_dom), stat=ist)
+ !    IF (ist /= success) THEN
+ !      CALL finish(TRIM(routine),'allocation for p_nh_state failed')
+ !    ENDIF
+ !    ALLOCATE (p_lnd_state(n_dom), stat=ist)
+ !    IF (ist /= success) THEN
+ !      CALL finish(TRIM(routine),'allocation for p_lnd_state failed')
+ !    ENDIF
+
+!    IF(iforcing= inwp) THEN
+!      CALL construct_nwp_phy_state( p_patch(1:) )
+!     IF (inwp_surface > 0 )&
+!       &       CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
+!    ENDIF
+    !
+
+
+    !------------------------------------------------------------------
+    ! initialize output
+    !------------------------------------------------------------------
+    
+    !CALL setup_gmt_output(p_patch(n_dom)%nlev)
+
+    
+    ! The model produces output files for all grid levels
+
     !---------------------------------------------------------------------
     ! 5. Perform time stepping
     !---------------------------------------------------------------------
     ! Initial conditions
+    !------------------------------------------------------------------
+    ! Prepare for time integration
+    !------------------------------------------------------------------
+!   SELECT CASE (iequations)
+!   CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
+!
+!   !------------------------------------------------------------------
+!   ! Initialize parameters and solvers;
+!   ! Allocate memory for model state vectors.
+!   !------------------------------------------------------------------
+!   CALL prepare_ha_dyn( p_patch(1:) )
+!   IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
+!     CALL prepare_echam_phy( p_patch(1:) )
+!   END IF
+!
+!   !------------------------------------------------------------------
+!   ! Set initial conditions for time integration.
+!   !------------------------------------------------------------------
+!   IF (lrestart) THEN
+!   ! This is an resumed integration. Read model state from restart file(s).
+!
+!     CALL read_restart_files
+!     CALL message(TRIM(routine),'normal exit from read_restart_files')
+!
+!     ! Initialize logical variables in echam physics state.
+!     ! This is necessary for now because logical arrays can not yet be
+!     ! written into restart files.
+!
+!     IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN                                       
+!       CALL additional_restart_init( p_patch(1:) )                                            
+!     END IF                                                                                   
+!
+!   ELSE
+!   ! This is an initial run (cold start). Compute initial condition for 
+!   ! test cases, or read externally given initial conditions.
+!
+!     CALL initcond_ha_dyn( p_patch(1:), p_int_state(1:),  &
+!                         & p_grf_state(1:), p_hydro_state )
+!
+!     IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM)      &
+!     CALL initcond_echam_phy( p_patch(1:),p_hydro_state )
+!
+!   END IF ! lrestart
+!                                                                                              
+!   !--------------------
+!   CASE (inh_atmosphere)
+!     CALL prepare_nh_integration(p_patch(1:), p_nh_state, p_int_state(1:), p_grf_state(1:))
+!
+!   CASE DEFAULT
+!   END SELECT
+!
 
+!    !---------------------------------------------------------
+!    ! The most primitive event handling algorithm: 
+!    ! compute time step interval for taking a certain action
+!    !--------------------------------------------------------- 
+! 
+!    n_io    = NINT(dt_data/dtime)        ! write output
+!    n_file  = NINT(dt_file/dtime)        ! trigger new output file
+!    n_chkpt = NINT(dt_checkpoint/dtime)  ! write restart files
+!    n_diag  = MAX(1,NINT(dt_diag/dtime)) ! diagnose of total integrals
+!
+!    !------------------------------------------------------------------
+!    ! Prepare output file
+!    !------------------------------------------------------------------
+!    IF (.NOT.lrestart) THEN
+!    ! Initialize the first output file which will contain also the 
+!    ! initial conditions.
+!
+!      jfile = 1
+!      CALL init_output_files(jfile, lclose=.FALSE.)
+!
+!    ELSE
+!    ! No need to write out the initial condition, thus no output
+!    ! during the first integration step. This run will produce
+!    ! output if n_io <= integration_length. 
+!
+!      CALL get_restart_attribute('next_output_file',jfile)
+!
+!      IF (n_io.le.(nsteps-1)) THEN
+!         CALL init_output_files(jfile, lclose=.FALSE.)
+!         l_have_output = .TRUE.  
+!      ELSE
+!         l_have_output = .FALSE.
+!      END IF
+!
+!    END IF
+! 
+
+!    !------------------------------------------------------------------
+!    !  get and write out some of the inital values
+!    !------------------------------------------------------------------
+!    IF (.NOT.lrestart) THEN
+!
+!    ! diagnose u and v to have meaningful initial output
+!    
+!    DO jg = 1, n_dom
+!
+!      SELECT CASE (iequations)
+!
+!      CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
+!        SELECT CASE (p_patch(jg)%cell_type)
+!        CASE (3)
+!          CALL rbf_vec_interpol_cell(p_hydro_state(jg)%prog(1)%vn,p_patch(jg), &
+!            & p_int_state(jg),p_hydro_state(jg)%diag%u,p_hydro_state(jg)%diag%v)
+!        CASE (6)
+!          CALL edges2cells_scalar(p_hydro_state(jg)%prog(1)%vn,p_patch(jg), &
+!            & p_int_state(jg)%hex_east,p_hydro_state(jg)%diag%u)
+!          CALL edges2cells_scalar(p_hydro_state(jg)%prog(1)%vn,p_patch(jg), &
+!            & p_int_state(jg)%hex_north,p_hydro_state(jg)%diag%v)
+!        END SELECT
+!
+!      CASE (inh_atmosphere)
+!        SELECT CASE (p_patch(jg)%cell_type)
+!        CASE (3)
+!          CALL rbf_vec_interpol_cell(p_nh_state(jg)%prog(1)%vn,p_patch(jg),&
+!            & p_int_state(jg),p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
+!        CASE (6)
+!          CALL edges2cells_scalar(p_nh_state(jg)%prog(1)%vn,p_patch(jg), &
+!            & p_int_state(jg)%hex_east,p_nh_state(jg)%diag%u)
+!          CALL edges2cells_scalar(p_nh_state(jg)%prog(1)%vn,p_patch(jg), &
+!            & p_int_state(jg)%hex_north,p_nh_state(jg)%diag%v)
+!        END SELECT
+!
+!      CASE DEFAULT
+!      END SELECT
+!    ENDDO
+!    
+!    ! Note: here the derived output variables are not yet available
+!    ! (omega, divergence, vorticity)
+!    CALL write_output( time_config%cur_datetime )
+!    l_have_output = .TRUE.
+!
+!    END IF ! not lrestart
+!
+
+!    !------------------------------------------------------------------
+!    ! Now start the time stepping:
+!    ! The special initial time step for the three time level schemes
+!    ! is executed within process_grid_level
+!    !------------------------------------------------------------------
+!    SELECT CASE (iequations)
+!
+!    CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
+!      CALL perform_ha_stepping( p_patch(1:), p_int_state(1:), p_grf_state(1:), &
+!                              & p_hydro_state, time_config%cur_datetime,       &
+!                              & n_io, n_file, n_chkpt, n_diag, jfile,          &
+!                              & l_have_output                                  )
+!
+!    CASE (inh_atmosphere)
+!      CALL perform_nh_stepping( p_patch, p_int_state, p_grf_state, p_nh_state,   &
+!                              & time_config%cur_datetime,                        &
+!                              & n_io, n_file, n_chkpt, n_diag, l_have_output     )
+!    CASE DEFAULT
+!    END SELECT
+! 
+!    IF (ltimer) CALL print_timer
+!
     ! 
     !---------------------------------------------------------------------
     ! 6. Integration finished. Clean up.
     !---------------------------------------------------------------------
+
+!   CALL message(TRIM(routine),'start to clean up')
+!   
+!   ! Delete state variables
+!
+!   SELECT CASE (iequations)
+!
+!   CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
+!     CALL destruct_icoham_dyn_state
+!     DEALLOCATE (p_hydro_state, STAT=ist)
+!     IF (ist /= SUCCESS) THEN
+!       CALL finish(TRIM(routine),'deallocation for p_hydro_state failed')
+!     ENDIF
+!
+!   CASE (inh_atmosphere)
+!
+!     CALL destruct_nh_state( p_nh_state )
+!     DEALLOCATE (p_nh_state, STAT=ist)
+!     IF (ist /= SUCCESS) THEN
+!       CALL finish(TRIM(routine),'deallocation for p_nh_state failed')
+!     ENDIF
+!
+!   CASE DEFAULT
+!   END SELECT
+!
+!   ! Delete output variable lists
+!   IF (l_have_output) CALL close_output_files
+!   
+!   ! Delete grids
+!   IF (n_dom > 1) THEN
+!     CALL destruct_2d_gridref_state( p_patch, p_grf_state )
+!   ENDIF
+!
+!   IF (my_process_is_mpi_seq()  &
+!     & .OR. lrestore_states) THEN
+!     DEALLOCATE (p_grf_state_global, STAT=ist)
+!   ELSE
+!     DEALLOCATE (p_grf_state_subdiv, STAT=ist)
+!   ENDIF
+!   IF (ist /= SUCCESS) THEN
+!     CALL finish(TRIM(routine),'deallocation for ptr_grf_state failed')
+!   ENDIF
+!     
+!   ! Deallocate memory for the parameterized forcing
+!   SELECT CASE (iforcing)
+!
+!   CASE (inoforcing,iheldsuarez,ildf_dry)
+!     ! nothing to be done
+!
+!   CASE (iecham,ildf_echam)
+!     CALL destruct_echam_phy_state  ! deallocate state vector
+!     CALL cleanup_echam_phy         ! deallocate parameter arrays
+!
+!   CASE (inwp)
+!     CALL destruct_nwp_phy_state
+!     CALL destruct_nwp_lnd_state(p_lnd_state)
+!
+!   CASE DEFAULT
+!     CALL finish(TRIM(routine),'iforcing has value that is not allowed')
+!
+!   END SELECT
+!   
+!   ! Deallocate interpolation fields
+!
+!   CALL destruct_2d_interpol_state( p_int_state )
+!   IF  (my_process_is_mpi_seq()  &
+!     & .OR. lrestore_states) THEN
+!     DEALLOCATE (p_int_state_global, STAT=ist)
+!   ELSE
+!     DEALLOCATE (p_int_state_subdiv, STAT=ist)
+!   ENDIF
+!   IF (ist /= SUCCESS) THEN
+!     CALL finish(TRIM(routine),'deallocation for ptr_int_state failed')
+!   ENDIF
+!   
+!   ! Deallocate external data
+!   CALL destruct_ext_data
+!
+!   ! deallocate ext_data array
+!   DEALLOCATE(ext_data, stat=ist)
+!   IF (ist/=success) THEN
+!     CALL finish(TRIM(routine), 'deallocation of ext_data')
+!   ENDIF
+!   
+!   ! Deallocate grid patches
+!   !
+!   CALL destruct_patches( p_patch, locean=.FALSE. )
+!
+!   IF (my_process_is_mpi_seq()  &
+!     & .OR. lrestore_states) THEN
+!     DEALLOCATE( p_patch_global, STAT=ist )
+!   ELSE
+!     DEALLOCATE( p_patch_subdiv, STAT=ist )
+!   ENDIF
+!   IF (ist/=SUCCESS) THEN
+!     CALL finish(TRIM(routine),'deallocate for patch array failed')
+!   ENDIF
+!   
+!   ! deallocate output switches
+!   !
+!   
+!   CALL message(TRIM(routine),'clean-up finished')
+!   
 
   END SUBROUTINE atmo_model
 
