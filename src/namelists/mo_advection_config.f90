@@ -55,19 +55,21 @@ MODULE mo_advection_config
 
   ! Derived types to allow for the onetime computation of tracer independent parts
 
-!!$  TYPE t_compute                                                               
-!!$    LOGICAL :: muscl_v (MAX_NTRACER)                                           
-!!$    LOGICAL :: ppm_v   (MAX_NTRACER)                                           
-!!$    LOGICAL :: miura_h (MAX_NTRACER)                                           
-!!$    LOGICAL :: miura3_h(MAX_NTRACER)                                           
-!!$  END TYPE t_compute                                                           
-!!$                                                                               
-!!$  TYPE t_cleanup                                                               
-!!$    LOGICAL :: muscl_v (MAX_NTRACER)                                           
-!!$    LOGICAL :: ppm_v   (MAX_NTRACER)                                           
-!!$    LOGICAL :: miura_h (MAX_NTRACER)                                           
-!!$    LOGICAL :: miura3_h(MAX_NTRACER)                                           
-!!$  END TYPE t_cleanup 
+  TYPE t_compute                                                               
+    LOGICAL :: muscl_v (MAX_NTRACER)                                           
+    LOGICAL :: ppm_v   (MAX_NTRACER)                                           
+    LOGICAL :: miura_h (MAX_NTRACER)                                           
+    LOGICAL :: miura3_h(MAX_NTRACER)                                           
+  END TYPE t_compute                                                           
+                                                                               
+  TYPE t_cleanup                                                               
+    LOGICAL :: muscl_v (MAX_NTRACER)                                           
+    LOGICAL :: ppm_v   (MAX_NTRACER)                                           
+    LOGICAL :: miura_h (MAX_NTRACER)                                           
+    LOGICAL :: miura3_h(MAX_NTRACER)                                           
+  END TYPE t_cleanup
+
+  PRIVATE::  t_compute, t_cleanup
 
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for tracer advection

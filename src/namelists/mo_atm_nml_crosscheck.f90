@@ -50,9 +50,9 @@ MODULE mo_atm_nml_crosscheck
                                     itrad,itradheat, itsso, itgscp, itsatad,   &
                                     itupdate, itturb, itsfc, itgwd, iphysproc, &
                                     iecham, ildf_echam, inwp, iheldsuarez,     &
-                                    ildf_dry, inoforcing,                      &
-                                    ihs_atm_temp, ihs_atm_theta,               &
-                                    tracer_only, inh_atmosphere, ishallow_water
+                                    ildf_dry, inoforcing, ihs_atm_temp,        &
+                                    ihs_atm_theta, tracer_only, inh_atmosphere,&
+                                    ishallow_water, LEAPFROG_EXPL, LEAPFROG_SI  
   USE mo_time_config,         ONLY: time_config
   USE mo_parallel_configuration, ONLY: check_parallel_configuration
   USE mo_run_config,          ONLY: lrestore_states, nsteps, dtime, iforcing,  &
