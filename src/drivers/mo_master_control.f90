@@ -247,6 +247,8 @@ MODULE mo_master_control
 
     END SELECT
 
+    init_master_control = 0
+    
   END FUNCTION init_master_control
   !------------------------------------------------------------------------
 
