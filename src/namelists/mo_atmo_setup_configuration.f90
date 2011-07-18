@@ -85,11 +85,17 @@ CONTAINS
 
     IF(my_process_is_stdio()) CALL open_nml_output('NAMELIST_ICON_output_atm')
 
-    ! Shared with the ocean model when performing a coupled simulation
+    !-----------------------------------------------------------------
+    ! Read namelist setups that are shared with the ocean model when 
+    ! performing a coupled simulation
+    !-----------------------------------------------------------------
 
     CALL read_time_namelist       (TRIM(shr_namelist_filename))
     CALL read_parallel_namelist   (TRIM(shr_namelist_filename))
 
+    !-----------------------------------------------------------------
+    ! Read namelist setups that are specific to the atm model 
+    !-----------------------------------------------------------------
     ! General
 
     CALL read_run_namelist        (TRIM(atm_namelist_filename))
@@ -122,7 +128,9 @@ CONTAINS
     CALL read_nwp_lnd_namelist    (TRIM(atm_namelist_filename))
     CALL read_nwp_phy_namelist    (TRIM(atm_namelist_filename))
     CALL read_echam_phy_namelist  (TRIM(atm_namelist_filename))
-      
+
+    !-----
+
     IF (my_process_is_stdio()) THEN
       CALL close_nml_output
     END IF

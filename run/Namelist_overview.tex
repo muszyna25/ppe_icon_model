@@ -1719,6 +1719,107 @@ n\_dom>1\tabularnewline
 Defined and used in: src/namelists/mo\_gridref\_nml.f90
 
 
+
+%------------------------------------------------------------------------------
+% interpol_nml: horizontal interpolation/reconstruction
+%------------------------------------------------------------------------------
+\subsection{interpol\_nml}
+\begin{longtab}
+
+\hline 
+llsq\_high\_consv&
+L& .TRUE.& &
+conservative (T) or non-conservative (F) least-squares reconstruction for high order transport&
+\tabularnewline
+
+\hline
+lsq\_high\_ord&
+I& 3& &
+polynomial order for high order reconstruction& \tabularnewline
+& & & & 2: quadratic & \tabularnewline
+& & & & 30: cubic (no $3^{rd}$ order cross deriv.) & \tabularnewline
+& & & & 3: cubic & \tabularnewline
+
+\hline 
+rbf\_vec\_kern\_c&
+I& 1& &
+Kernel type for reconstruction at cell centres:& \tabularnewline
+& & & & 1: Gaussian & \tabularnewline
+& & & & 3: inverse multiquadric & \tabularnewline
+
+\hline 
+rbf\_vec\_kern\_e&
+I& 3& &
+Kernel type for reconstruction at edges:& \tabularnewline
+& & & & 1: Gaussian & \tabularnewline
+& & & & 3: inverse multiquadric & \tabularnewline
+
+\hline 
+rbf\_vec\_kern\_v&
+I& 1& &
+Kernel type for reconstruction at vertices:& \tabularnewline
+& & & & 1: Gaussian & \tabularnewline
+& & & & 3: inverse multiquadric & \tabularnewline
+
+\hline 
+rbf\_vec\_scale\_c&
+R(n\_dom)& resolution-dependent& &
+Scale factor for RBF reconstruction at cell centres&
+\tabularnewline
+
+\hline 
+rbf\_vec\_scale\_e&
+R(n\_dom)& resolution-dependent& &
+Scale factor for RBF reconstruction at edges&
+\tabularnewline
+
+\hline 
+rbf\_vec\_scale\_v&
+R(n\_dom)& resolution-dependent& &
+Scale factor for RBF reconstruction at vertices&
+\tabularnewline
+
+\hline 
+nudge\_max\_coeff&
+R& 0.02& &
+Maximum relaxation coefficient for lateral boundary nudging&
+\tabularnewline
+
+\hline 
+nudge\_efold\_width&
+R& 2.5& &
+e-folding width (in units of cell rows) for lateral boundary nudging coefficient &
+\tabularnewline
+
+\hline 
+nudge\_zone\_width&
+I& 8& &
+Total width (in units of cell rows) for lateral boundary nudging zone&
+\tabularnewline
+
+\hline
+i\_cori\_method&
+I& 3& &
+Selector for tangential wind reconstruction method
+& currently only for cell\_type=6 \tabularnewline
+& & & & 1: Almut's method for tangential wind, but PV usage as in TRSK &\tabularnewline
+& & & & 2: method of Thuburn, Ringler, Skamarock and Klemp (TRSK) &\tabularnewline
+& & & & 3: Almut's method for tangential wind and PV usage &\tabularnewline
+
+\hline
+l\_corner\_vort&
+L& .TRUE.& &
+switch whether the rhombus averaged corner vorticity is averaged 
+to the hexagon (.TRUE.) or the rhombi are directly averaged to the hexagon (.FALSE.)&
+i\_cori\_method=3
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_interpol\_nml.f90
+
+
+
 %IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
 %IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
 %IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
@@ -3665,169 +3766,9 @@ Defined and used in: src/namelists/mo\_echam\_vdiff\_nml.f90
 
 
 
-\subsection{interpol\_ctl}
-\begin{longtab}
 
-\hline 
-rbf\_vec\_kern\_c&
-I& 1& &
-Kernel type for reconstruction at cell centres:& \tabularnewline
-& & & & 1: Gaussian & \tabularnewline
-& & & & 3: inverse multiquadric & \tabularnewline
-\hline 
-rbf\_vec\_kern\_e&
-I&
-3&
-&
-Kernel type for reconstruction at edges:&
-\tabularnewline
-&
-&
-&
-&
-1: Gaussian &
-\tabularnewline
-&
-&
-&
-&
-3: inverse multiquadric &
-\tabularnewline
-\hline 
-rbf\_vec\_kern\_v&
-I&
-1&
-&
-Kernel type for reconstruction at vertices:&
-\tabularnewline
-&
-&
-&
-&
-1: Gaussian &
-\tabularnewline
-&
-&
-&
-&
-3: inverse multiquadric &
-\tabularnewline
-\hline 
-rbf\_vec\_scale\_c&
-R(n\_dom)&
-resolution-dependent&
-&
-Scale factor for RBF reconstruction at cell centres&
-\tabularnewline
-\hline 
-rbf\_vec\_scale\_e&
-R(n\_dom)&
-resolution-dependent&
-&
-Scale factor for RBF reconstruction at edges&
-\tabularnewline
-\hline 
-rbf\_vec\_scale\_v&
-R(n\_dom)&
-resolution-dependent&
-&
-Scale factor for RBF reconstruction at vertices&
-\tabularnewline
-\hline 
-nudge\_max\_coeff&
-R&
-0.02&
-&
-Maximum relaxation coefficient for lateral boundary nudging&
-\tabularnewline
-\hline 
-nudge\_efold\_width&
-R&
-2.5&
-&
-e-folding width (in units of cell rows) for lateral boundary nudging coefficient &
-\tabularnewline
-\hline 
-nudge\_zone\_width&
-I&
-8&
-&
-Total width (in units of cell rows) for lateral boundary nudging zone&
-\tabularnewline
-\hline 
-llsq\_high\_consv&
-L&
-.TRUE.&
-&
-conservative (T) or non-conservative (F) least-squares reconstruction for high order transport&
-\tabularnewline
-\hline
-lsq\_high\_ord&
-I&
-3&
-&
-polynomial order for high order reconstruction&
-\tabularnewline
-&
-&
-&
-&
-2: quadratic &
-\tabularnewline
-&
-&
-&
-&
-30: cubic (no $3^{rd}$ order cross deriv.) &
-\tabularnewline
-&
-&
-&
-&
-3: cubic &
-\tabularnewline
-\hline
-i\_cori\_method&
-I&
-3&
-&
-Selector for tangential wind reconstruction method
-&
-currently only for i\_cell\_type=6
-\tabularnewline
-&
-&
-&
-&
-1: Almut's method for tangential wind, but PV usage as in TRSK
-&
-\tabularnewline
-&
-&
-&
-&
-2: method of Thuburn, Ringler, Skamarock and Klemp (TRSK) 
-&
-\tabularnewline
-&
-&
-&
-&
-3: Almut's method for tangential wind and PV usage
-&
-\tabularnewline
-\hline
-l\_corner\_vort&
-L&
-.TRUE.&
-&
-switch whether the rhombus averaged corner vorticity is averaged to the hexagon (.TRUE.) or the rhombi are directly averaged to the hexagon (.FALSE.)&
-i\_cori\_method=3
-\tabularnewline
-\hline
-\end{longtable}
 
-Defined and used in: src/namelists/mo\_interpol\_nml.f90
+
 
 \subsection{Namelist parameters for testcases (NAMELIST\_ICON)}
 

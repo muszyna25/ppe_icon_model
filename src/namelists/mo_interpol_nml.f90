@@ -32,10 +32,10 @@
 !!
 MODULE mo_interpol_nml
 
-  USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message, finish
-  USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH
+  USE mo_exception,           ONLY: finish
+  USE mo_impl_constants,      ONLY: max_dom
+  USE mo_mpi,                 ONLY: my_process_is_stdio 
   USE mo_master_nml,          ONLY: lrestart
   USE mo_intp_data_strc,      ONLY: t_lsq_set
   USE mo_io_units,            ONLY: nnml, nnml_output
@@ -148,7 +148,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_interpol_nml: read_interpol_namelist'
 
     !-----------------------
@@ -189,7 +189,7 @@ CONTAINS
     END IF
 
     !-------------------------------------------------------------------------
-    ! 3. Read user's (new) specifications (Done so far by all MPI processors)
+    ! 3. Read user's (new) specifications (Done so far by all MPI processes)
     !-------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('interpol_nml', status=istat)
@@ -245,7 +245,7 @@ CONTAINS
     CALL store_and_close_namelist(funit, 'interpol_nml') 
 
     ! 6. write the contents of the namelist to an ASCII file
-    IF(p_pe == p_io) WRITE(nnml_output,nml=interpol_nml)
+    IF(my_process_is_stdio()) WRITE(nnml_output,nml=interpol_nml)
 
   END SUBROUTINE read_interpol_namelist
 
