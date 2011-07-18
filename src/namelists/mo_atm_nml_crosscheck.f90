@@ -47,16 +47,19 @@ MODULE mo_atm_nml_crosscheck
   USE mo_exception,           ONLY: message, message_text, finish, print_value
   USE mo_master_nml,          ONLY: lrestart
   USE mo_impl_constants,      ONLY: max_char_length, max_dom,itconv,itccov,    &
-                                    itrad,itradheat, itsso, itgscp, itsatad,   &
-                                    itupdate, itturb, itsfc, itgwd, iphysproc, &
-                                    iecham, ildf_echam, inwp, iheldsuarez,     &
-                                    ildf_dry, inoforcing, ihs_atm_temp,        &
-                                    ihs_atm_theta, tracer_only, inh_atmosphere,&
-                                    ishallow_water, LEAPFROG_EXPL, LEAPFROG_SI  
+    &                               itrad,itradheat, itsso, itgscp, itsatad,   &
+    &                               itupdate, itturb, itsfc, itgwd, iphysproc, &
+    &                               iecham, ildf_echam, inwp, iheldsuarez,     &
+    &                               ildf_dry, inoforcing, ihs_atm_temp,        &
+    &                               ihs_atm_theta, tracer_only, inh_atmosphere,&
+    &                               ishallow_water, LEAPFROG_EXPL, LEAPFROG_SI,&
+    &                               iup3, ifluxl_sm, islopel_m, islopel_sm,    &
+    &                               ifluxl_m  
   USE mo_time_config,         ONLY: time_config
   USE mo_parallel_config, ONLY: check_parallel_configuration
   USE mo_run_config,          ONLY: lrestore_states, nsteps, dtime, iforcing,  &
-                                  & ltransport, ntracer, nlev, io3, ltestcase
+    &                               ltransport, ntracer, nlev, io3, ltestcase, &
+    &                               iqcond, ntracer_static
                                   
   USE mo_io_config
   USE mo_gridref_config
@@ -65,9 +68,9 @@ MODULE mo_atm_nml_crosscheck
   USE mo_sleve_config
 
   USE mo_dynamics_config,     ONLY: configure_dynamics,                        &
-                                    iequations, itime_scheme, idiv_method,     &
-                                    divavg_cntrwgt, sw_ref_height,             &
-                                    lcoriolis, lshallow_water, ltwotime
+    &                               iequations, itime_scheme, idiv_method,     &
+    &                               divavg_cntrwgt, sw_ref_height,             &
+    &                               lcoriolis, lshallow_water, ltwotime
   USE mo_advection_config,    ONLY: advection_config, configure_advection
 
   USE mo_nonhydrostatic_config
@@ -76,9 +79,9 @@ MODULE mo_atm_nml_crosscheck
 
 
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config, tcall_phy, &
-                                   configure_atm_phy_nwp
+    &                              configure_atm_phy_nwp
   USE mo_lnd_nwp_config,     ONLY: nlev_soil, nztlev ,nlev_snow ,nsfc_subs,&
-                                   lseaice,  llake, lmelt , lmelt_var, lmulti_snow
+    &                              lseaice,  llake, lmelt , lmelt_var, lmulti_snow
   USE mo_echam_phy_config,   ONLY: echam_phy_config, configure_echam_phy
   USE mo_radiation_config
   USE mo_echam_conv_config,  ONLY: echam_conv_config, configure_echam_convection
@@ -103,6 +106,8 @@ CONTAINS
   SUBROUTINE atm_crosscheck
 
     INTEGER :: jg
+    INTEGER :: jt   ! tracer loop index
+    INTEGER :: i_listlen
     REAL(wp):: cur_datetime_calsec, end_datetime_calsec, length_sec
     CHARACTER(len=*), PARAMETER :: routine =  'atm_crosscheck'
 
@@ -209,6 +214,22 @@ CONTAINS
     !--------------------------------------------------------------------
     ! Tracer transport
     !--------------------------------------------------------------------
+
+    ! Special check for hexagonal grid
+    ! 
+    SELECT CASE (global_cell_type)
+    CASE (6)
+      ! 3rd order upwind horizontal advection scheme
+      advection_config(jg)%ihadv_tracer(:) = iup3
+      ! semi monotonous flux limiter
+      advection_config(jg)%itype_hlimit(:) = ifluxl_sm
+      WRITE(message_text,'(a)') 'Attention: on the hexagonal grid, ',              &
+        &  'ihadv_tracer(:) = iup3 and itype_hlimit(:) = ifluxl_sm are the only ', &
+        &  'possible settings. Please adjust your namelist settings accordingly'
+      CALL message(TRIM(routine),message_text)
+    END SELECT
+
+
     IF((itime_scheme==tracer_only).AND.(.NOT.ltransport)) THEN
       WRITE(message_text,'(A,i2,A)') &
       'itime_scheme set to ', tracer_only, 'but ltransport to .FALSE.'
@@ -229,6 +250,149 @@ CONTAINS
       IF (ntracer < 5) &
       CALL finish(TRIM(routine),'NWP physics needs at least 3 tracers')
     END SELECT
+
+
+    i_listlen = LEN_TRIM(advection_config(jg)%ctracer_list)
+
+    SELECT CASE ( iforcing )
+    CASE ( INWP )
+      
+      SELECT CASE (atm_phy_nwp_config(jg)%inwp_radiation)
+      CASE (0)
+        IF ( ntracer /= iqcond ) THEN
+          ntracer = iqcond
+          WRITE(message_text,'(a,i3)') 'Attention: according to physics, ntracer is set to',iqcond
+          CALL message(TRIM(routine),message_text)
+        ENDIF
+        IF ( i_listlen /= iqcond ) THEN
+          DO jt=1,ntracer
+            WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
+          ENDDO
+          WRITE(message_text,'(a)') &
+            & 'Attention: according to physics, ctracer_list is set to ',&
+            & advection_config(jg)%ctracer_list(1:ntracer)
+          CALL message(TRIM(routine),message_text)
+        ENDIF
+      CASE (1)
+        ntracer_static = 1
+        IF ( ntracer /= iqcond ) THEN
+          ntracer = iqcond
+          WRITE(message_text,'(a,i3)') &
+            &  'Attention: according to physics, ntracer is set to', iqcond   
+          CALL message(TRIM(routine),message_text)
+          WRITE(message_text,'(a)') &
+            &  'In addition, there is one static tracer for O3'
+          CALL message(TRIM(routine),message_text)
+        ENDIF
+        IF ( i_listlen /= ntracer ) THEN
+          DO jt=1,ntracer
+            WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
+          ENDDO
+          WRITE(message_text,'(a)') &
+            & 'Attention: according to physics, ctracer_list is set to ',&
+            &   advection_config(jg)%ctracer_list(1:ntracer)
+          CALL message(TRIM(routine),message_text)
+        ENDIF
+      CASE (2)
+        SELECT CASE (irad_o3)
+        CASE (0)
+          IF ( ntracer /= iqcond  ) THEN
+            ntracer = iqcond
+            WRITE(message_text,'(a,i3)') &
+              &  'Attention: according to physics, ntracer is set to', iqcond      
+            CALL message(TRIM(routine),message_text)
+          ENDIF
+          IF ( i_listlen /= ntracer ) THEN
+            DO jt=1,ntracer
+              WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
+            ENDDO
+            WRITE(message_text,'(a)') &
+              & 'Attention: according to physics, ctracer_list is set to ', &
+              &  advection_config(jg)%ctracer_list(1:ntracer)
+            CALL message(TRIM(routine),message_text)
+          ENDIF
+        CASE (6)
+          ntracer_static = 1
+          IF ( ntracer /= iqcond  ) THEN
+            ntracer = iqcond
+            WRITE(message_text,'(a,i3)') &
+              &  'Attention: according to physics, ntracer is set to', iqcond
+            CALL message(TRIM(routine),message_text)           
+            WRITE(message_text,'(a)') &
+              &  'In addition, there is one static tracer for O3'
+            CALL message(TRIM(routine),message_text)           
+          ENDIF
+          IF ( i_listlen /= ntracer ) THEN
+            DO jt=1,ntracer
+              WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
+            ENDDO
+            WRITE(message_text,'(a)') &
+              & 'Attention: according to physics with radiation and O3 ', &
+              &  'ctracer_list is set to ', &
+              &  advection_config(jg)%ctracer_list(1:ntracer)
+            CALL message(TRIM(routine),message_text)
+          ENDIF
+        END SELECT
+      END SELECT
+
+
+      IF ( ( atm_phy_nwp_config(jg)%inwp_radiation > 0 )      &
+        &  .AND. (irad_o3==0 .OR. irad_o3==6) )         THEN
+        IF ( advection_config(jg)%ihadv_tracer(io3) /= 0 ) THEN
+          advection_config(jg)%ihadv_tracer(io3) = 0
+          WRITE(message_text,'(a,i1,a)') &
+            & 'Attention: Since irad_o3 is set to ',irad_o3,', ihadv_tracer(io3) is set to 0.'
+          CALL message(TRIM(routine),message_text)
+        ENDIF
+        IF ( advection_config(jg)%ivadv_tracer(io3) /= 0 ) THEN
+          advection_config(jg)%ivadv_tracer(io3) = 0
+          WRITE(message_text,'(a,i1,a)') &
+            & 'Attention: Since irad_o3 is set to ',irad_o3,', ivadv_tracer(io3) is set to 0.'
+          CALL message(TRIM(routine),message_text)
+        ENDIF
+      ENDIF
+
+
+    CASE (inoforcing, iheldsuarez, iecham, ildf_dry, ildf_echam)
+    
+      IF ( i_listlen < ntracer .AND. i_listlen /= 0 ) THEN
+        ntracer = i_listlen
+        CALL message(TRIM(routine),'number of tracers is adjusted according to given list')
+      END IF
+    
+    END SELECT
+
+
+
+    ! flux compuation methods - consistency check
+    !
+    SELECT CASE (global_cell_type)
+    CASE (3)
+      IF ( ANY(advection_config(jg)%ihadv_tracer(1:ntracer) > 3))   THEN
+        CALL finish( TRIM(routine),                                       &
+             'incorrect settings for TRI-C grid ihadv_tracer. Must be 0,1,2, or 3 ')
+      ENDIF
+    CASE (6)
+      IF (ANY(advection_config(jg)%ihadv_tracer(1:ntracer) == 2) .OR.     &
+       &  ANY(advection_config(jg)%ihadv_tracer(1:ntracer) == 3))   THEN 
+        CALL finish( TRIM(routine),                                       &
+             'incorrect settings for HEX-C grid ihadv_tracer. Must be 0,1, or 4 ')
+      ENDIF
+    END SELECT
+
+
+    ! limiter - consistency check
+    !
+    IF (global_cell_type == 6) THEN
+      IF ( ANY(advection_config(jg)%itype_hlimit(1:ntracer) == islopel_sm ) .OR.   &
+        &  ANY(advection_config(jg)%itype_hlimit(1:ntracer) == islopel_m  ) .OR.   &
+        &  ANY(advection_config(jg)%itype_hlimit(1:ntracer) == ifluxl_m   )) THEN
+        CALL finish( TRIM(routine),                                     &
+         'incorrect settings for itype_hlimit and hexagonal grid. Must be 0 or 4 ')
+      ENDIF
+    ENDIF
+
+
 
     !--------------------------------------------------------------------
     ! Grid and dynamics

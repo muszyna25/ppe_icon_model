@@ -69,8 +69,8 @@ MODULE mo_advection_nml
   
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: transport_nml_setup, setup_transport, read_transport_namelist
 
+  PUBLIC :: transport_nml_setup, setup_transport, read_transport_namelist
   PUBLIC :: lcleanup, lcompute, t_compute, t_cleanup
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
