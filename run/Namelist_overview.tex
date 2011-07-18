@@ -1621,6 +1621,104 @@ Defined and used in: src/namelists/mo\_grid\_nml.f90
 
 
 
+%-------------------------------------------------------------------
+% gridref_nml: grid refinement and nesting
+%-------------------------------------------------------------------
+\subsection{gridref\_nml}
+\begin{longtab}
+
+\hline 
+grf\_intmethod\_c&
+I& 2& &
+Interpolation method for grid refinement (cell-based dynamical variables):&
+n\_dom>1\tabularnewline
+& & & & 1: parent-to-child copying & \tabularnewline
+& & & & 2: gradient-based interpolation & \tabularnewline
+
+\hline 
+grf\_intmethod\_ct&
+I& 2& &
+Interpolation method for grid refinement (cell-based tracer variables):&
+n\_dom>1\tabularnewline
+& & & & 1: parent-to-child copying & \tabularnewline
+& & & & 2: gradient-based interpolation & \tabularnewline
+
+\hline 
+grf\_intmethod\_e&
+I& 4& &
+Interpolation method for grid refinement (edge-based variables):&
+n\_dom>1\tabularnewline
+& & & & 1: inverse-distance weighting (IDW) & \tabularnewline
+& & & & 2: RBF interpolation & \tabularnewline
+& & & & 3: combination gradient-based / IDW & \tabularnewline
+& & & & 4: combination gradient-based / RBF & \tabularnewline
+
+\hline 
+grf\_velfbk&
+I& 1& & Method of velocity feedback:&
+n\_dom>1\tabularnewline
+& & & & 1: average of child edges 1 and 2 & \tabularnewline
+& & & & 2: 2nd-order method using RBF interpolation & \tabularnewline
+
+\hline 
+grf\_scalfbk&
+I& 2& & Feedback method for dynamical scalar variables ($T, p_{sfc}$):&
+n\_dom>1\tabularnewline
+& & & & 1: area-weighted averaging & \tabularnewline
+& & & & 2: bilinear interpolation & \tabularnewline
+
+\hline 
+grf\_tracfbk&
+I& 2& & Feedback method for tracer variables:&
+n\_dom>1\tabularnewline
+& & & & 1: area-weighted averaging & \tabularnewline
+& & & & 2: bilinear interpolation & \tabularnewline
+
+\hline 
+grf\_idw\_exp\_e12&
+R& 1.2& &
+exponent of generalized IDW function for child edges 1/2 &
+n\_dom>1\tabularnewline
+
+\hline 
+grf\_idw\_exp\_e34&
+R& 1.7& &
+exponent of generalized IDW function for child edges 3/4 &
+n\_dom>1\tabularnewline
+
+\hline 
+rbf\_vec\_kern\_grf\_e&
+I& 1& &
+RBF kernel for grid refinement (edges):&
+n\_dom>1\tabularnewline
+& & & & 1: Gaussian & \tabularnewline
+& & & & 2: $1/(1+r^{2})$ & \tabularnewline
+& & & & 3: inverse multiquadric & \tabularnewline
+
+\hline 
+rbf\_scale\_grf\_e&
+R& 0.5& &
+RBF scale factor for grid refinement (edges)&
+n\_dom>1\tabularnewline
+
+\hline 
+denom\_diffu\_t&
+R& 135& &
+Deniminator for lateral boundary diffusion of temperature&
+n\_dom>1\tabularnewline
+
+\hline 
+denom\_diffu\_v&
+R& 200& &
+Deniminator for lateral boundary diffusion of velocity&
+n\_dom>1\tabularnewline
+\hline 
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_gridref\_nml.f90
+
+
 %IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
 %IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
 %IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
@@ -3752,210 +3850,6 @@ i\_cori\_method=3
 \end{longtable}
 
 Defined and used in: src/namelists/mo\_interpol\_nml.f90
-
-
-\subsection{gridref\_ctl}
-
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
-\hline
-\endhead
-\hline 
-grf\_intmethod\_c&
-I&
-2&
-&
-Interpolation method for grid refinement (cell-based dynamical variables):&
-n\_dom>1\tabularnewline
-&
-&
-&
-&
-1: parent-to-child copying &
-\tabularnewline
-&
-&
-&
-&
-2: gradient-based interpolation &
-\tabularnewline
-\hline 
-grf\_intmethod\_ct&
-I&
-2&
-&
-Interpolation method for grid refinement (cell-based tracer variables):&
-n\_dom>1\tabularnewline
-&
-&
-&
-&
-1: parent-to-child copying &
-\tabularnewline
-&
-&
-&
-&
-2: gradient-based interpolation &
-\tabularnewline
-\hline 
-grf\_intmethod\_e&
-I&
-4&
-&
-Interpolation method for grid refinement (edge-based variables):&
-n\_dom>1\tabularnewline
-&
-&
-&
-&
-1: inverse-distance weighting (IDW) &
-\tabularnewline
-&
-&
-&
-&
-2: RBF interpolation &
-\tabularnewline
-&
-&
-&
-&
-3: combination gradient-based / IDW &
-\tabularnewline
-&
-&
-&
-&
-4: combination gradient-based / RBF &
-\tabularnewline
-\hline 
-grf\_velfbk&
-I&
-1&
-&
-Method of velocity feedback:&
-n\_dom>1\tabularnewline
-&
-&
-&
-&
-1: average of child edges 1 and 2 &
-\tabularnewline
-&
-&
-&
-&
-2: 2nd-order method using RBF interpolation &
-\tabularnewline
-\hline 
-grf\_scalfbk&
-I&
-2&
-&
-Feedback method for dynamical scalar variables ($T, p_{sfc}$):&
-n\_dom>1\tabularnewline
-&
-&
-&
-&
-1: area-weighted averaging &
-\tabularnewline
-&
-&
-&
-&
-2: bilinear interpolation &
-\tabularnewline
-\hline 
-grf\_tracfbk&
-I&
-2&
-&
-Feedback method for tracer variables:&
-n\_dom>1\tabularnewline
-&
-&
-&
-&
-1: area-weighted averaging &
-\tabularnewline
-&
-&
-&
-&
-2: bilinear interpolation &
-\tabularnewline
-\hline 
-grf\_idw\_exp\_e12&
-R&
-1.2&
-&
-exponent of generalized IDW function for child edges 1/2 &
-n\_dom>1\tabularnewline
-\hline 
-grf\_idw\_exp\_e34&
-R&
-1.7&
-&
-exponent of generalized IDW function for child edges 3/4 &
-n\_dom>1\tabularnewline
-\hline 
-rbf\_vec\_kern\_grf\_e&
-I&
-1&
-&
-RBF kernel for grid refinement (edges):&
-n\_dom>1\tabularnewline
-&
-&
-&
-&
-1: Gaussian &
-\tabularnewline
-&
-&
-&
-&
-2: $1/(1+r^{2})$ &
-\tabularnewline
-&
-&
-&
-&
-3: inverse multiquadric &
-\tabularnewline
-\hline 
-rbf\_scale\_grf\_e&
-R&
-0.5&
-&
-RBF scale factor for grid refinement (edges)&
-n\_dom>1\tabularnewline
-\hline 
-denom\_diffu\_t&
-R&
-135&
-&
-Deniminator for lateral boundary diffusion of temperature&
-n\_dom>1\tabularnewline
-\hline 
-denom\_diffu\_v&
-R&
-200&
-&
-Deniminator for lateral boundary diffusion of velocity&
-n\_dom>1\tabularnewline
-\hline 
-\end{longtable}
-
-Defined and used in: src/namelists/mo\_gridref\_nml.f90
 
 \subsection{Namelist parameters for testcases (NAMELIST\_ICON)}
 

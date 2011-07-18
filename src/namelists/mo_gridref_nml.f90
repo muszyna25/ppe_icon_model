@@ -1,14 +1,7 @@
 !>
-!! Namelist for the configuration of the grid refinement.
-!!
-!! This subroutine is called by control_model
+!! Namelist for configuration of grid refinement algorithms.
 !!
 !! @par Revision History
-!! Revision history in mo_grf_intp_stat (r4300)
-!! Modification by Constantin Junk, MPI-M (2011-05-05)
-!! - some updates on the structure
-!! - moved gridref namelist variables from mo_grf_intp_data_strc to
-!!   mo_gridref_nml
 !!
 !! @par Copyright
 !! 2002-2010 by DWD and MPI-M
@@ -42,10 +35,12 @@ MODULE mo_gridref_nml
   USE mo_kind,                ONLY: wp
   USE mo_impl_constants,      ONLY: max_dom
   USE mo_io_units,            ONLY: nnml, nnml_output
-  USE mo_exception,           ONLY: message, finish
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
   USE mo_master_nml,          ONLY: lrestart
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
+  USE mo_mpi,                 ONLY: my_process_is_stdio 
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
+                                  & open_and_restore_namelist, close_tmpfile
+
   USE mo_gridref_config,      ONLY:   &
     &                            config_rbf_vec_kern_grf_e => rbf_vec_kern_grf_e,& 
     &                            config_rbf_scale_grf_e    => rbf_scale_grf_e,&
@@ -60,18 +55,15 @@ MODULE mo_gridref_nml
     &                            config_denom_diffu_v      => denom_diffu_v,&
     &                            config_denom_diffu_t      => denom_diffu_t
 
-  USE mo_mpi,                 ONLY: p_pe, p_io
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
-                                  & open_and_restore_namelist, close_tmpfile
-
   IMPLICIT NONE
-
   PRIVATE
+  PUBLIC :: read_gridref_namelist
+
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  !----------------------------------!
-  ! gridref_nml namelist variables   !
-  !----------------------------------!
+  !---------------------
+  ! namelist variables
+  !---------------------
 
   INTEGER  :: rbf_vec_kern_grf_e ! rbf kernel for vector interpolation
 
@@ -106,39 +98,11 @@ MODULE mo_gridref_nml
     &                    grf_intmethod_c, grf_intmethod_e,                &
     &                    grf_intmethod_ct, denom_diffu_v, denom_diffu_t
 
-
-
-  PUBLIC :: gridref_nml_setup, read_gridref_namelist
-
 CONTAINS
-
-!>
-!!   Set up the configuration for grid refinement.
-!!
-!!
-!! @par Revision History
-!!  Created by Guenther Zaengl, MPI-M (2009-02-09).
-!!  Modification by Constantin Junk, MPI-M (2011-05-05)
-!!  - renamed setup_gridref to gridref_nml_setup
-!!
-SUBROUTINE gridref_nml_setup
-
-  INTEGER :: istat, funit
-
-  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine = 'mo_gridref_nml:setup_gridref'
-
-
-END SUBROUTINE gridref_nml_setup
-
-
   !-------------------------------------------------------------------------
-  !
-  !
   !>
-  !! Read Namelist for NWP physics. 
-  !!
   !! This subroutine 
-  !! - reads the Namelist for NWP physics
+  !! - reads the Namelist for local grid refinement 
   !! - sets default values
   !! - potentially overwrites the defaults by values used in a 
   !!   previous integration (if this is a resumed run)
@@ -147,14 +111,12 @@ END SUBROUTINE gridref_nml_setup
   !! - fills the configuration state (partly)    
   !!
   !! @par Revision History
-  !!  by Daniel Reinert, DWD (2011-06-07)
+  !!  by Daniel Reinert, DWD (2011-07-06)
   !!
   SUBROUTINE read_gridref_namelist( filename )
 
     CHARACTER(LEN=*),INTENT(IN) :: filename
     INTEGER :: istat, funit
-    INTEGER :: jg
-
     CHARACTER(len=*),PARAMETER :: routine = 'mo_gridref_nml: read_gridref_namelist'
 
     !-----------------------
@@ -222,7 +184,6 @@ END SUBROUTINE gridref_nml_setup
     !----------------------------------------------------
     ! 4. Fill the configuration state
     !----------------------------------------------------
-
       config_rbf_vec_kern_grf_e = rbf_vec_kern_grf_e
       config_rbf_scale_grf_e = rbf_scale_grf_e
       config_grf_velfbk = grf_velfbk
@@ -236,7 +197,6 @@ END SUBROUTINE gridref_nml_setup
       config_denom_diffu_v = denom_diffu_v
       config_denom_diffu_t = denom_diffu_t
 
-
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
     !-----------------------------------------------------
@@ -246,7 +206,7 @@ END SUBROUTINE gridref_nml_setup
 
     ! 6. write the contents of the namelist to an ASCII file
     !
-    IF(p_pe == p_io) WRITE(nnml_output,nml=gridref_nml)
+    IF(my_process_is_stdio()) WRITE(nnml_output,nml=gridref_nml)
 
   END SUBROUTINE read_gridref_namelist
 

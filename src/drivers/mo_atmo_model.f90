@@ -131,7 +131,6 @@ USE mo_intp_state,          ONLY: construct_2d_interpol_state, &
 & destruct_2d_interpol_state
 USE mo_interpolation,       ONLY: rbf_vec_interpol_cell,       &
 & edges2cells_scalar
-USE mo_gridref_nml,         ONLY: gridref_nml_setup
 USE mo_grf_interpolation,   ONLY: construct_2d_gridref_state,  &
 & destruct_2d_gridref_state
 
@@ -526,7 +525,7 @@ INTEGER, POINTER :: grid_glob_index(:)
     ! - Calculate interpolation coefficients.
     !------------------------------------------------------------------
     ! KF empty SR, call needs to be shifted
-    CALL gridref_nml_setup
+   !CALL gridref_nml_setup
     
     ! interpolation state not used for ocean model
     ! #slo# - temporarily switched on for comparison with rbf-reconstruction
