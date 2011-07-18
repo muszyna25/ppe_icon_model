@@ -2211,6 +2211,104 @@ Height above which the coordinate surfaces are flat&
 Defined and used in: src/namelists/mo\_sleve\_nml.f90
 
 
+%-----------------------------------------------------------------------------
+% diffusion_nml: horizontal (numerical) diffusion
+%-----------------------------------------------------------------------------
+\subsection{diffusion\_nml}
+\begin{longtab}
+
+\hline 
+lhdiff\_temp&
+L& .TRUE. & &
+Diffusion on the temperature field&
+\tabularnewline
+
+\hline 
+lhdiff\_vn&
+L& .TRUE. & &
+Diffusion on the horizontal wind field&
+\tabularnewline
+
+\hline 
+hdiff\_order&
+I& 4& &
+Order of $\nabla$ operator for diffusion:& \tabularnewline
+& & & & -1: no diffusion& \tabularnewline
+& & & & 2: $\nabla^{2}$ diffusion& \tabularnewline
+& & & & 3: Smagorinsky $\nabla^{2}$ diffusion 
+for the hexagonal model (includes frictional heating if lhdiff\_temp=.TRUE.) &
+\tabularnewline
+& & & & 4: $\nabla^{4}$ diffusion&
+\tabularnewline
+& & & &
+5: Smagorinsky $\nabla^{2}$ diffusion combined with $\nabla^{4}$
+background diffusion as specified via hdiff\_efdt\_ratio&
+\tabularnewline
+& & & &
+defaults: 2 for hexagonal model, 4 for triangular model&
+\tabularnewline
+& & & & 24 or 42: $\nabla{2}$ diffusion from model top to a certain level
+(cf. k2\_pres\_max and k2\_klev\_max below); 
+$\nabla^{4}$ for the lower levels.  &
+24 and 42 currently allowed only in the hydrostatic atm model
+(run\_nml:iequation = 1 or 2).
+\tabularnewline
+
+\hline 
+k2\_pres\_max&
+R& -99.& Pa &
+Pressure level above which $\nabla^2$ diffusion is applied.&
+hdiff\_order = 24 or 42, and run\_nml:iequation = 1 or 2. 
+\tabularnewline
+
+\hline 
+k2\_klev\_max&
+I& 0&&
+Index of the vertical level till which (from the model top) 
+$\nabla^2$ diffusion is applied.
+If a positive value is specified for k2\_pres\_max, 
+k2\_klev\_max is reset accordingly during the initialization 
+of a model run.&
+hdiff\_order = 24 or 42, and run\_nml:iequation = 1 or 2. 
+\tabularnewline
+
+\hline 
+hdiff\_efdt\_ratio&
+R& 1.0 & &
+ratio of e-folding time to time step (or 2{*} time step when using
+a 3 time level time stepping scheme) (only for triangles currently) &
+\tabularnewline
+
+\hline 
+hdiff\_min\_efdt\_ratio&
+R& 1.0 & &
+minimum value of hdiff\_efdt\_ratio near model top & iequations=3 .AND. i\_cell\_type=3
+\tabularnewline
+
+\hline 
+hdiff\_tv\_ratio&
+R& 1.0& &
+Ratio of diffusion coefficients for temperature and normal wind: $T:v_{n}$&
+\tabularnewline
+
+\hline 
+hdiff\_multfac&
+R& 1.0& &
+Multiplication factor of normalized diffusion coefficient for nested
+domains&
+n\_dom>1\tabularnewline
+
+\hline 
+hdiff\_smag\_fac&
+R& 0.15& &
+Scaling factor for Smagorinsky diffusion&
+for triangles only with iequations=3, for hexagons with hdiff\_order=3
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_diffusion\_nml.f90
+
 
 %IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
 %IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
@@ -2383,149 +2481,6 @@ Defined and used in: src/namelists/mo\_io\_nml.f90
 
 
 
-
-
-\subsection{diffusion\_ctl}
-
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
-\hline
-\endhead
-\hline 
-lhdiff\_temp&
-L&
-.TRUE. &
-&
-Diffusion on the temperature field&
-\tabularnewline
-\hline 
-lhdiff\_vn&
-L&
-.TRUE. &
-&
-Diffusion on the horizontal wind field&
-\tabularnewline
-\hline 
-hdiff\_order&
-I&
-4&
-&
-Order of $\nabla$ operator for diffusion:&
-\tabularnewline
-&
-&
-2 &
-&
--1: no diffusion&
-\tabularnewline
-&
-&
-&
-&
-2: $\nabla^{2}$ diffusion&
-\tabularnewline
-&
-&
-&
-&
-3: Smagorinsky $\nabla^{2}$ diffusion 
-for the hexagonal model (includes frictional heating if lhdiff\_temp=.TRUE.) &
-\tabularnewline
-&
-&
-&
-&
-4: $\nabla^{4}$ diffusion&
-\tabularnewline
-&
-&
-&
-&
-5: Smagorinsky $\nabla^{2}$ diffusion combined with $\nabla^{4}$
-background diffusion as specified via hdiff\_efdt\_ratio&
-\tabularnewline
-&
-&
-&
-&
-defaults: 2 for hexagonal model, 4 for triangular model&
-\tabularnewline
-&
-&
-&
-&
-24 or 42: $\nabla{2}$ diffusion from model top to a certain level
-(cf. k2\_pres\_max and k2\_klev\_max below); 
-$\nabla^{4}$ for the lower levels.  &
-24 and 42 currently allowed only in the hydrostatic atm model
-(run\_nml/iequation = 1 or 2).
-\tabularnewline
-\hline 
-k2\_pres\_max&
-R&
--99.&
-Pa &
-Pressure level above which $\nabla^2$ diffusion is applied.&
-hdiff\_order = 24 or 42, and run\_nml/iequation = 1 or 2. 
-\tabularnewline
-\hline 
-k2\_klev\_max&
-I&
-0&&
-Index of the vertical level till which (from the model top) 
-$\nabla^2$ diffusion is applied.
-If a positive value is specified for k2\_pres\_max, 
-k2\_klev\_max is reset accordingly during the initialization 
-of a model run.&
-hdiff\_order = 24 or 42, and run\_nml/iequation = 1 or 2. 
-\tabularnewline
-\hline 
-hdiff\_efdt\_ratio&
-R&
-1.0 &
-&
-ratio of e-folding time to time step (or 2{*} time step when using
-a 3 time level time stepping scheme) (only for triangles currently) &
-\tabularnewline
-\hline 
-hdiff\_min\_efdt\_ratio&
-R&
-1.0 &
-&
-minimum value of hdiff\_efdt\_ratio near model top & iequations=3 .AND. i\_cell\_type=3
-\tabularnewline
-\hline 
-hdiff\_tv\_ratio&
-R&
-1.0&
-&
-Ratio of diffusion coefficients for temperature and normal wind: $T:v_{n}$&
-\tabularnewline
-\hline 
-hdiff\_multfac&
-R&
-1.0&
-&
-Multiplication factor of normalized diffusion coefficient for nested
-domains&
-n\_dom>1\tabularnewline
-\hline 
-hdiff\_smag\_fac&
-R&
-0.15&
-&
-Scaling factor for Smagorinsky diffusion&
-for triangles only with iequations=3, for hexagons with hdiff\_order=3 \tabularnewline
-\hline
-\end{longtable}
-
-Defined and used in: src/namelists/mo\_diffusion\_nml.f90
 
 
 \subsection{transport\_ctl (used if run\_nml/ltransport=.TRUE.)}

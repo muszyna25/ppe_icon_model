@@ -2,14 +2,6 @@
 !! Contains the setup of variables related to horizontal diffusion
 !!        
 !! @par Revision History
-!!   Revision History in mo_global_variables.f90 (r3611)
-!!   Modification by Constantin Junk (2011-02-24)
-!!     - added new module mo_diffusion_nml
-!!     - separated declaration of namelist dynamics_nml from 
-!!       mo_global_variables and moved it mo_io_nml
-!!     - separated reading of diffusion_nml from subroutine
-!!       setup_dynamics and moved it to the new subroutine
-!!       setup_diffusion
 !!
 !! @par Copyright
 !! 2002-2006 by DWD and MPI-M
@@ -43,7 +35,7 @@ MODULE mo_diffusion_nml
 
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_kind,                ONLY: wp
-  USE mo_mpi,                 ONLY: p_pe, p_io
+  USE mo_mpi,                 ONLY: my_process_is_stdio 
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_impl_constants,      ONLY: max_dom
   USE mo_io_units,            ONLY: nnml, nnml_output
@@ -103,7 +95,7 @@ MODULE mo_diffusion_nml
 CONTAINS
   !-------------------------------------------------------------------------
   !>
-  !! Read Namelist for diffusion. 
+  !! Read Namelist for horizontal diffusion. 
   !!
   !! This subroutine 
   !! - reads the Namelist for diffusion
@@ -115,7 +107,7 @@ CONTAINS
   !! - fills the configuration state (partly)  
   !!
   !! @par Revision History
-  !!  by Daniel Reinert, DWD (2011-06-07)
+  !!  by Daniel Reinert, DWD (2011-07-06)
   !!
   SUBROUTINE read_diffusion_namelist( filename )
 
@@ -153,7 +145,7 @@ CONTAINS
     END IF
 
     !------------------------------------------------------------------------
-    ! 3. Read user's (new) specifications (Done so far by all MPI processors)
+    ! 3. Read user's (new) specifications (Done so far by all MPI processes)
     !------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('diffusion_nml', status=istat)
@@ -192,15 +184,16 @@ CONTAINS
     !----------------------------------------------------
     ! 5. Fill the configuration state
     !----------------------------------------------------
+    diffusion_config(:)% lhdiff_temp          =  lhdiff_temp
+    diffusion_config(:)% lhdiff_vn            =  lhdiff_vn
     diffusion_config(:)% hdiff_order          =  hdiff_order
+    diffusion_config(:)% k2_klev_max          =  k2_klev_max
+    diffusion_config(:)% k2_pres_max          =  k2_pres_max
     diffusion_config(:)% hdiff_efdt_ratio     =  hdiff_efdt_ratio
     diffusion_config(:)% hdiff_min_efdt_ratio =  hdiff_min_efdt_ratio
     diffusion_config(:)% hdiff_smag_fac       =  hdiff_smag_fac
     diffusion_config(:)% hdiff_multfac        =  hdiff_multfac
-    diffusion_config(:)% lhdiff_temp          =  lhdiff_temp
-    diffusion_config(:)% lhdiff_vn            =  lhdiff_vn
-    diffusion_config(:)% k2_klev_max          =  k2_klev_max
-    diffusion_config(:)% k2_pres_max          =  k2_pres_max
+    diffusion_config(:)% hdiff_tv_ratio       =  hdiff_tv_ratio 
 
     !-----------------------------------------------------
     ! 6. Store the namelist for restart
@@ -210,8 +203,7 @@ CONTAINS
     CALL store_and_close_namelist(funit,'diffusion_nml') 
 
     ! 7. write the contents of the namelist to an ASCII file
-    !
-    IF(p_pe == p_io) WRITE(nnml_output,nml=diffusion_nml)
+    IF(my_process_is_stdio()) WRITE(nnml_output,nml=diffusion_nml)
 
   END SUBROUTINE read_diffusion_namelist
 
