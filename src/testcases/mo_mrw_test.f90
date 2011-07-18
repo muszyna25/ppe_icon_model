@@ -55,7 +55,7 @@ MODULE mo_mrw_test
   USE mo_physical_constants,  ONLY: cpd, grav, rd, re, omega
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog
   USE mo_math_constants,      ONLY: pi
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
 
   IMPLICIT NONE
 

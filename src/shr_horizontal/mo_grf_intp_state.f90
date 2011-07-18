@@ -63,7 +63,7 @@ USE mo_impl_constants,      ONLY: SUCCESS, min_rlcell_int, min_rledge_int
 USE mo_model_domain,        ONLY: t_patch
 USE mo_model_domain_import, ONLY: n_dom, n_dom_start
 USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
-USE mo_parallel_configuration,  ONLY: nproma
+USE mo_parallel_config,  ONLY: nproma
 
 USE mo_grf_intp_data_strc
 USE mo_grf_intp_coeffs

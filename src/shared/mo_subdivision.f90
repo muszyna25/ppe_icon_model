@@ -64,7 +64,7 @@ MODULE mo_subdivision
   USE mo_math_constants,     ONLY: pi
   USE mo_exception,          ONLY: finish, message, get_filename_noext
 
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,          ONLY: ltransport
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
@@ -80,12 +80,12 @@ MODULE mo_subdivision
   USE mo_mpi,                ONLY: p_comm_work, my_process_is_mpi_test, &
     & my_process_is_mpi_seq, process_mpi_test_id
 
-  USE mo_parallel_configuration,       ONLY:  p_test_run, p_n_work, p_pe_work, &
+  USE mo_parallel_config,       ONLY:  p_test_run, p_n_work, p_pe_work, &
     &  p_work_pe0, division_method, n_ghost_rows, div_from_file,   &
     & div_geometric
     
 #ifdef HAVE_METIS
-  USE mo_parallel_configuration,    ONLY: div_metis
+  USE mo_parallel_config,    ONLY: div_metis
 #endif
   USE mo_communication,      ONLY: setup_comm_pattern, blk_no, idx_no, idx_1d
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &

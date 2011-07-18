@@ -111,7 +111,7 @@ USE mo_impl_constants,     ONLY: min_rlcell, min_rledge
 USE mo_interpolation,      ONLY: t_int_state, cells2edges_scalar
 USE mo_model_domain,       ONLY: t_patch
 USE mo_nonhydrostatic_nml, ONLY: upstr_beta
-USE mo_parallel_configuration,  ONLY: nproma
+USE mo_parallel_config,  ONLY: nproma
 USE mo_run_config,         ONLY: ltimer
 USE mo_exception,          ONLY: finish
 USE mo_timer,              ONLY: timer_start, timer_stop, timer_grad

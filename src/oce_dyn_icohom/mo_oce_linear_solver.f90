@@ -59,7 +59,7 @@ MODULE mo_oce_linear_solver
 !
 !
 USE mo_kind,                ONLY: wp
-USE mo_parallel_configuration,  ONLY: nproma
+USE mo_parallel_config,  ONLY: nproma
 USE mo_run_config,             ONLY: ltimer
 USE mo_impl_constants,      ONLY: sea_boundary
 USE mo_model_domain,        ONLY: t_patch

@@ -45,7 +45,7 @@ MODULE mo_ha_diag_util
   USE mo_dynamics_config,    ONLY: idiv_method, lshallow_water
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config
   USE mo_io_config,          ONLY: lwrite_omega, l_outputtime
-  USE mo_parallel_configuration,  ONLY: nproma, p_test_run
+  USE mo_parallel_config,  ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: nlev, nlevp1, iqv, iqc, iqi, iqr, iqs, iforcing
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag

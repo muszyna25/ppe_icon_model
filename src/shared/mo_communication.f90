@@ -50,7 +50,7 @@ USE mo_exception,          ONLY: finish
 USE mo_mpi,                ONLY: p_pe, p_nprocs, p_send, p_recv, p_irecv, p_wait, p_isend, &
      & p_real_dp, p_int, p_bool, p_comm_work, &
      & my_process_is_mpi_seq
-USE mo_parallel_configuration, ONLY: p_pe_work, p_n_work,&
+USE mo_parallel_config, ONLY: p_pe_work, p_n_work,&
   & iorder_sendrecv, nproma
 USE mo_timer,              ONLY: timer_start, timer_stop, timer_sync_data
 

@@ -55,7 +55,7 @@ MODULE mo_nh_testcases
   USE mo_math_utilities,     ONLY: gc2cc, t_cartesian_coordinates, &
                                    t_geographical_coordinates, &
                                    arc_length
-  USE mo_parallel_configuration,  ONLY: nproma, p_test_run
+  USE mo_parallel_config,  ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: ltransport, ntracer, iforcing, iqv
   USE mo_extpar_config,         ONLY: itopo
 !  USE mo_grid_config, ONLY :  global_cell_type

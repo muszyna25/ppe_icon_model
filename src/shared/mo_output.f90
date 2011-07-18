@@ -42,7 +42,7 @@ MODULE mo_output
   USE mo_impl_constants,      ONLY: max_dom
   USE mo_kind,                ONLY: wp
   USE mo_mpi,                 ONLY: p_pe, p_io
-  USE mo_parallel_configuration, ONLY: num_io_procs
+  USE mo_parallel_config, ONLY: num_io_procs
   USE mo_io_units,            ONLY: filename_max
   USE mo_model_domain_import, ONLY: n_dom, nroot, lplane
   USE mo_ocean_nml,           ONLY: n_zlev

@@ -66,7 +66,7 @@ MODULE mo_nwp_diagnosis
   USE mo_nonhydro_state,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_phy_state,      ONLY: t_nwp_phy_diag,&
                                  & t_nwp_phy_tend,  prm_diag
-  USE mo_parallel_configuration,  ONLY: nproma, p_test_run
+  USE mo_parallel_config,  ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, &
        &                          iqr, iqs, msg_level, ltimer
   USE mo_time_config,        ONLY: time_config

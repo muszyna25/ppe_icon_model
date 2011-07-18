@@ -123,7 +123,7 @@ MODULE mo_io_vlist
     &                               lwrite_extra, inextra_2d,inextra_3d,        &
     &                               out_filetype, out_expname,                  &
     &                               dt_data, dt_file, lkeep_in_sync
-  USE mo_parallel_configuration,  ONLY: nproma, p_test_run
+  USE mo_parallel_config,  ONLY: nproma, p_test_run
   USE mo_extpar_config,       ONLY: itopo
   USE mo_run_config,          ONLY: num_lev, num_levp1, iforcing, lforcing,     &
     &                               ntracer, ltransport, nsteps, dtime,         &

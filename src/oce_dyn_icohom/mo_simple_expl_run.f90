@@ -50,7 +50,7 @@ MODULE mo_simple_expl_run
 !
 USE mo_kind,                   ONLY: wp
 USE mo_mpi,                    ONLY: p_pe, p_io
-USE mo_parallel_configuration,  ONLY: nproma
+USE mo_parallel_config,  ONLY: nproma
 USE mo_io_units,               ONLY: filename_max
 !USE mo_impl_constants,         ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
 USE mo_impl_constants,         ONLY: sea_boundary, max_char_length,           &

@@ -49,7 +49,7 @@ MODULE mo_nh_diffusion
   USE mo_nonhydrostatic_nml,  ONLY: l_zdiffu_t, damp_height, k2_updamp_coeff
 !  USE mo_diffusion_nml,       ONLY: k4
   USE mo_diffusion_config,    ONLY: diffusion_config
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,          ONLY: ltimer
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
   USE mo_impl_constants    ,  ONLY: min_rledge, min_rlcell, min_rlvert, &
@@ -58,7 +58,7 @@ MODULE mo_nh_diffusion
   USE mo_math_operators,      ONLY: nabla4_vec
   USE mo_math_constants,      ONLY: dbl_eps, pi
   USE mo_grf_interpolation,   ONLY: denom_diffu_v
-  USE mo_parallel_configuration, ONLY: p_test_run, itype_comm
+  USE mo_parallel_config, ONLY: p_test_run, itype_comm
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
                                     sync_patch_array_mult, sync_patch_array_gm
   USE mo_physical_constants,  ONLY: cvd_o_rd, cpd, re

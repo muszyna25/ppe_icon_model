@@ -44,7 +44,7 @@ MODULE mo_expensive_functions
 !
 !
   USE mo_kind,               ONLY: wp
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,         ONLY: nlevp1, nlev
   USE mo_physical_constants, ONLY: rd, cpd, p0ref
   USE mo_vertical_coord_table,ONLY: nplvp1, delpr, nplev

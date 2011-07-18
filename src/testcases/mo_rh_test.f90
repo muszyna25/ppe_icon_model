@@ -58,7 +58,7 @@ MODULE mo_rh_test
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data,            ONLY: t_external_data
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
 
   IMPLICIT NONE
 

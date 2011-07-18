@@ -31,7 +31,7 @@
 !! software.
 !!
 !!
-MODULE mo_parallel_configuration
+MODULE mo_parallel_config
 
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
@@ -411,4 +411,4 @@ CONTAINS
   !-------------------------------------------------------------------------
 
 
-END MODULE mo_parallel_configuration
+END MODULE mo_parallel_config

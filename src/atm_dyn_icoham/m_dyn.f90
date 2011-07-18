@@ -74,7 +74,7 @@ MODULE m_dyn
   USE mo_dynamics_config,    ONLY: idiv_method
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config
   USE mo_io_config,          ONLY: l_outputtime, lwrite_omega
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,         ONLY: nlev, nlevp1,iqv, iforcing, &
                                    iqc, iqi, iqr, iqs
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag

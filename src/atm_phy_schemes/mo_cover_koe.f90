@@ -50,7 +50,7 @@ MODULE mo_cover_koe
   USE mo_kind,               ONLY: wp, i4
 
   USE mo_physical_constants, ONLY: re
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
   USE mo_math_utilities,     ONLY: gamma_fct
   USE mo_math_constants,     ONLY: dbl_eps, pi
 

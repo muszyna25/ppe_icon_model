@@ -59,7 +59,7 @@ USE mo_physical_constants,  ONLY: rd, rd_o_cpd, p0ref, grav, tmelt,  &
 USE mo_model_domain,        ONLY: t_patch
 USE mo_ext_data,            ONLY: t_external_data
 USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
 USE mo_run_config,          ONLY: iqv, iqcond
 USE mo_satad,               ONLY:  sat_pres_water, &  !! saturation vapor pressure w.r.t. water
       &                            sat_pres_ice,   &  !! saturation vapor pressure w.r.t. ice

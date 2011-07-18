@@ -169,7 +169,7 @@ USE mo_model_domain_import, ONLY: l_limited_area
 USE mo_dynamics_config,     ONLY: iequations
 USE mo_math_utilities,      ONLY: gc2cc, gvec2cvec, solve_chol_v, choldec_v, &
                                 & arc_length_v, t_cartesian_coordinates
-USE mo_parallel_configuration,  ONLY: nproma
+USE mo_parallel_config,  ONLY: nproma
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_intp_data_strc
 !USE mo_interpol_nml

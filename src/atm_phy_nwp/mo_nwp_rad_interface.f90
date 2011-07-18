@@ -40,7 +40,7 @@ MODULE mo_nwp_rad_interface
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_exception,            ONLY: message,  finish !message_tex
   USE mo_ext_data,             ONLY: t_external_data
-  USE mo_parallel_configuration,  ONLY: nproma, p_test_run
+  USE mo_parallel_config,  ONLY: nproma, p_test_run
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, &
     &                                io3, ntracer, ntracer_static
   USE mo_grf_interpolation,    ONLY: t_gridref_state
@@ -67,7 +67,7 @@ MODULE mo_nwp_rad_interface
 !   USE mo_sync,                 ONLY: SYNC_C, sync_patch_array_mult
 
 #ifdef __OMP_RADIATION__  
-  USE mo_parallel_configuration,        ONLY: radiation_threads
+  USE mo_parallel_config,        ONLY: radiation_threads
   USE mo_timer,               ONLY: timer_omp_radiation, timer_omp_model, timer_start, timer_stop
 #endif
 

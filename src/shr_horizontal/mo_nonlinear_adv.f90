@@ -68,7 +68,7 @@ USE mo_exception,          ONLY: finish
 USE mo_model_domain,       ONLY: t_patch
 USE mo_dynamics_config,    ONLY: idiv_method,lshallow_water
 USE mo_io_config,               ONLY: l_outputtime, l_diagtime
-USE mo_parallel_configuration,  ONLY: nproma
+USE mo_parallel_config,  ONLY: nproma
 USE mo_interpolation,      ONLY: t_int_state,                    &
   &                              rbf_vec_interpol_edge,        &
   &                              cells2verts_scalar,           &

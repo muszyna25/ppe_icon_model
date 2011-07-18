@@ -91,11 +91,11 @@ MODULE mo_advection_hflux
     &                               rbf_interpol_c2grad, lsq_high_ord,       &
     &                               lsq_high_set, cells2edges_scalar
   USE mo_dynamics_config,     ONLY: itime_scheme
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,          ONLY: ntracer
   USE mo_loopindices,         ONLY: get_indices_e
   USE mo_sync,                ONLY: SYNC_C, SYNC_C1, sync_patch_array_mult
-  USE mo_parallel_configuration, ONLY: p_test_run, n_ghost_rows
+  USE mo_parallel_config, ONLY: p_test_run, n_ghost_rows
   USE mo_advection_nml,       ONLY: lcompute, lcleanup
   USE mo_advection_config,    ONLY: advection_config
   USE mo_advection_utils,     ONLY: laxfr_upflux, back_traj_o1, back_traj_o2,     &

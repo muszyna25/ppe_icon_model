@@ -38,7 +38,7 @@ MODULE mo_held_suarez_interface
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_model_domain,       ONLY: t_patch
   USE mo_interpolation,      ONLY: t_int_state, cells2edges_scalar
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
   USE mo_hs_test,            ONLY: held_suarez_forcing_temp,  &

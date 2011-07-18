@@ -58,7 +58,7 @@ MODULE mo_gw_test
   USE mo_physical_constants,  ONLY: grav, rd, cpd, re, omega
   USE mo_math_constants,      ONLY: pi
   USE mo_vertical_coord_table,ONLY: vct_a,vct_b
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
 
   IMPLICIT NONE
 

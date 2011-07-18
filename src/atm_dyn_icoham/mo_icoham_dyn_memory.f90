@@ -47,7 +47,7 @@ MODULE mo_icoham_dyn_memory
   USE mo_exception,           ONLY: message,finish
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm, t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
   USE mo_advection_config,    ONLY: advection_config
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
   USE mo_linked_list,         ONLY: t_var_list

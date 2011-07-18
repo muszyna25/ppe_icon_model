@@ -42,7 +42,7 @@ MODULE mo_ha_dynamics_adv
   USE mo_math_operators,     ONLY: grad_fd_norm, div, div_avg
   USE mo_dynamics_config,    ONLY: idiv_method, lshallow_water
   USE mo_io_config,          ONLY: l_outputtime, lwrite_omega, l_diagtime
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,         ONLY: nlev, nlevp1
   USE mo_interpolation,      ONLY: t_int_state, rbf_vec_interpol_edge,     &
                                    cells2edges_scalar, edges2cells_scalar, &

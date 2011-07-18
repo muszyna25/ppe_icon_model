@@ -44,7 +44,7 @@ MODULE mo_ha_dynamics
   USE mo_math_operators,     ONLY: grad_fd_norm, div, div_avg
   USE mo_dynamics_config,    ONLY: lshallow_water, idiv_method
   USE mo_ha_dyn_config,      ONLY: ha_dyn_config 
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,         ONLY: nlev, nlevp1
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_interpolation,      ONLY: t_int_state, cell_avg, cells2edges_scalar, &

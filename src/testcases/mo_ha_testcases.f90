@@ -78,7 +78,7 @@ MODULE mo_ha_testcases
   USE mo_ext_data,        ONLY: ext_data
   USE mo_model_domain_import,ONLY: n_dom
   USE mo_interpolation,   ONLY: t_int_state
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,      ONLY: ltransport, iqv
   USE mo_dynamics_config, ONLY: ltwotime,itime_scheme,lshallow_water,&
                                 lcoriolis,nnow,nold,nnew

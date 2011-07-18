@@ -43,7 +43,7 @@ MODULE mo_ha_diagnostics
   USE mo_model_domain_import,ONLY: n_dom
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data,           ONLY: ext_data
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,         ONLY: dtime, nsteps, nlev, ntracer,iforcing
   USE mo_dynamics_config,    ONLY: lshallow_water
   USE mo_physical_constants, ONLY: rgrav, cpd, grav

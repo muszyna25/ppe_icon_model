@@ -95,7 +95,7 @@ MODULE mo_ha_rungekutta
   USE mo_model_domain,     ONLY: t_patch
   USE mo_ext_data,         ONLY: t_external_data
   USE mo_interpolation,    ONLY: t_int_state
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,       ONLY: nlev, ltransport
   USE mo_icoham_dyn_types, ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_ha_prog_util,     ONLY: copy_prog_state

@@ -49,7 +49,7 @@ MODULE mo_nwp_phy_init
   USE mo_model_domain_import,ONLY: nroot 
   USE mo_impl_constants,     ONLY: min_rlcell
   USE mo_loopindices,        ONLY: get_indices_c
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,         ONLY: ltestcase, iqv, iqc, msg_level
 !  USE mo_atm_phy_nwp_nml,    ONLY: inwp_gscp, inwp_convection,&
 !       &                           inwp_radiation, inwp_turb,inwp_surface,&

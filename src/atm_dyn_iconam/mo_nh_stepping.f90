@@ -55,7 +55,7 @@ MODULE mo_nh_stepping
   USE mo_dynamics_config,     ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1,nsav2, &
                                     itime_scheme
   USE mo_io_config,               ONLY: l_outputtime, l_diagtime, l_checkpoint_time
-  USE mo_parallel_configuration,  ONLY: nproma, itype_comm
+  USE mo_parallel_config,  ONLY: nproma, itype_comm
   USE mo_run_config,          ONLY: ltestcase, dtime, nsteps,  &
     &                               ltransport, ntracer, lforcing, iforcing, &
     &                               msg_level, ltimer
@@ -129,7 +129,7 @@ MODULE mo_nh_stepping
 #ifdef __OMP_RADIATION__  
   USE mo_nwp_rad_interface,   ONLY: nwp_start_omp_radiation_thread, model_end_thread, &
     & radiation_thread_status, model_thread_status, thread_busy 
-  USE mo_parallel_configuration,        ONLY: nh_stepping_threads
+  USE mo_parallel_config,        ONLY: nh_stepping_threads
 #endif
   
   IMPLICIT NONE

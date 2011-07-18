@@ -64,7 +64,7 @@ MODULE mo_hdiff
 !  USE mo_diffusion_nml,       ONLY: k2, k4
   USE mo_diffusion_config,    ONLY: diffusion_config  
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_math_operators,      ONLY: nabla2_vec, nabla2_scalar, &
                                     nabla4_vec, nabla4_scalar

@@ -54,7 +54,7 @@ MODULE mo_oce_forcing
 !-------------------------------------------------------------------------
 !
 USE mo_kind,                ONLY: wp
-USE mo_parallel_configuration,  ONLY: nproma
+USE mo_parallel_config,  ONLY: nproma
 USE mo_ocean_nml,           ONLY: iforc_oce, no_tracer,itestcase_oce, &
   &                              basin_center_lat, basin_center_lon,  &
   &                              basin_width_deg, basin_height_deg  

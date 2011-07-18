@@ -46,7 +46,7 @@ MODULE mo_echam_phy_interface
   USE mo_icoham_dyn_types,  ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_interpolation,     ONLY: t_int_state, rbf_vec_interpol_cell, & 
                                 & edges2cells_scalar
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,        ONLY: nlev, ltimer
   USE mo_radiation_config,  ONLY: dt_rad
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e

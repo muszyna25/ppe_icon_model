@@ -47,7 +47,7 @@ MODULE mo_ext_data
 
   USE mo_kind
   USE mo_io_units,           ONLY: filename_max
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
   USE mo_impl_constants,     ONLY: inwp, ihs_ocean
   USE mo_run_config,         ONLY: iforcing
   USE mo_extpar_config,      ONLY: itopo, fac_smooth_topo, n_iter_smooth_topo
@@ -62,7 +62,7 @@ MODULE mo_ext_data
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_sync,               ONLY: SYNC_C, SYNC_V, sync_patch_array
   USE mo_mpi,                ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
-  USE mo_parallel_configuration,  ONLY: p_test_run
+  USE mo_parallel_config,  ONLY: p_test_run
   USE mo_communication,      ONLY: idx_no, blk_no
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_var_list,           ONLY: default_var_list_settings, &

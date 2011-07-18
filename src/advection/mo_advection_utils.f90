@@ -61,7 +61,7 @@ MODULE mo_advection_utils
   USE mo_model_domain,        ONLY: t_patch
   USE mo_interpolation,       ONLY: t_int_state
   USE mo_io_units,            ONLY: nnml,nnml_output
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,          ONLY: ntracer, num_lev, nlev,        &
     &                               iforcing, io3, iqt,            &
     &                               iqcond, ntracer_static, lvert_nest

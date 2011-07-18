@@ -50,7 +50,7 @@ MODULE mo_oce_math_operators
 !
 !
 USE mo_kind,               ONLY: wp
-USE mo_parallel_configuration,  ONLY: nproma
+USE mo_parallel_config,  ONLY: nproma
 USE mo_run_config,         ONLY: ltimer
 USE mo_math_constants
 USE mo_physical_constants

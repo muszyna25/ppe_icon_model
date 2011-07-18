@@ -42,7 +42,7 @@ MODULE mo_ocean_model
   USE mo_output,              ONLY: init_output_files
   USE mo_io_vlist,            ONLY: write_vlist_oce, destruct_vlist_oce
   
-  USE mo_parallel_configuration, ONLY: p_test_run
+  USE mo_parallel_config, ONLY: p_test_run
   
   USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
   

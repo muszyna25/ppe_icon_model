@@ -58,7 +58,7 @@ MODULE mo_nwp_turb_interface
        &                             t_nwp_phy_tend
   USE mo_nwp_lnd_state,        ONLY: t_lnd_prog, t_lnd_diag
 
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,           ONLY: msg_level, ntracer, iqv, iqc, &
     &                                iqi, iqr, iqs
   USE mo_io_config,            ONLY: inextra_2d

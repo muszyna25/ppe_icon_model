@@ -40,7 +40,7 @@ MODULE mo_real_timer
 #endif
 
   USE mo_mpi, ONLY: num_test_procs, num_work_procs
-  USE mo_parallel_configuration, ONLY: p_test_run
+  USE mo_parallel_config, ONLY: p_test_run
                             
 
   IMPLICIT NONE

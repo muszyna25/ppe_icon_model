@@ -44,7 +44,7 @@ USE mo_master_nml,          ONLY: lrestart
 USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output
 USE mo_output,              ONLY: init_output_files, close_output_files, write_output
 
-USE mo_parallel_configuration, ONLY: p_test_run
+USE mo_parallel_config, ONLY: p_test_run
 
 USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
 

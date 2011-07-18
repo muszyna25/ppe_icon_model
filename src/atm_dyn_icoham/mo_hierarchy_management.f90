@@ -71,7 +71,7 @@ MODULE mo_hierarchy_management
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config 
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_io_config,           ONLY: lprepare_output
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,          ONLY: ldynamics, ltransport, &
     &                               nlev, nlevp1, ntracer, iforcing, lforcing
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm

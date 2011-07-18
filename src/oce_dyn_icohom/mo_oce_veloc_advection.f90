@@ -47,7 +47,7 @@ MODULE mo_oce_veloc_advection
 !
 !
 USE mo_kind,                ONLY: wp
-USE mo_parallel_configuration,  ONLY: nproma
+USE mo_parallel_config,  ONLY: nproma
 USE mo_math_constants
 USE mo_physical_constants
 USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, &

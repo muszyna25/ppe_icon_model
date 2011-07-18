@@ -55,7 +55,7 @@ MODULE mo_nwp_gw_interface
   USE mo_vertical_grid,        ONLY: nrdmax_u
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag,prm_diag,&
     &                                t_nwp_phy_tend
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,           ONLY: msg_level
 !   USE mo_atm_phy_nwp_nml,     ONLY: inwp_sso , inwp_gwd
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config

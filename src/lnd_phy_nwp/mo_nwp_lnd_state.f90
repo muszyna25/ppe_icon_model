@@ -64,7 +64,7 @@ MODULE mo_nwp_lnd_state
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
 !!$USE mo_global_variables,    ONLY: l_nest_rcf
 ! USE mo_dynamics_config,         ONLY: dynamics_config 
-  USE mo_parallel_configuration,  ONLY: nproma
+  USE mo_parallel_config,  ONLY: nproma
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: n_dom, l_limited_area
