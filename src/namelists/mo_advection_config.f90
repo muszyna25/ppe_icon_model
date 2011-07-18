@@ -45,15 +45,9 @@ MODULE mo_advection_config
 
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom,  &
-    &                              ino_hadv, iup, imiura, imiura3, iup3,   &
-    &                              ino_vadv, iup_v, imuscl_vcfl, imuscl_v, &
-    &                              ippm_vcfl, ippm_v, inol, islopel_sm,    &
-    &                              islopel_m, ifluxl_m, ifluxl_sm, inol_v, &
-    &                              islopel_vsm, islopel_vm, ifluxl_vpd,    &
-    &                              ino_flx, izero_grad, iparent_flx,       &
-    &                              inoforcing, iheldsuarez, iecham, inwp,  &
-    &                              ildf_dry, ildf_echam
-  USE mo_grid_configuration, ONLY: n_dom
+    &                              imiura, imiura3, ippm_vcfl, ippm_v,     &
+    &                              ino_flx, izero_grad, iparent_flx, inwp
+  USE mo_grid_config,        ONLY: n_dom
 
   IMPLICIT NONE
   PUBLIC
