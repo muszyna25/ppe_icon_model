@@ -69,7 +69,7 @@ MODULE mo_advection_stepping
   USE mo_model_domain,        ONLY: t_patch
   USE mo_math_operators,      ONLY: div
   USE mo_interpolation,       ONLY: t_int_state
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ntracer, ltimer, iforcing, iqv
   USE mo_nonhydrostatic_config,ONLY: iadv_rcf
   USE mo_advection_hflux,     ONLY: hor_upwind_flux
@@ -80,7 +80,6 @@ MODULE mo_advection_stepping
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_mpi,                 ONLY: my_process_is_mpi_seq
   USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult
-  USE mo_advection_nml,       ONLY: iubc_adv, iadv_slev
   USE mo_advection_config,    ONLY: advection_config
   USE mo_advection_utils,     ONLY: ptr_delp_mc_now, ptr_delp_mc_new
   USE mo_model_domain_import, ONLY: l_limited_area, lfeedback
@@ -394,7 +393,8 @@ CONTAINS
           &              ptr_delp_mc_now,                            &! in
           &              advection_config(jg)%ivadv_tracer,          &! in
           &              advection_config(jg)%itype_vlimit,          &! in
-          &              iubc_adv(jg), iadv_slev(jg,:),              &! in
+          &              advection_config(jg)%iubc_adv,              &! in
+          &              advection_config(jg)%iadv_slev(:),          &! in
           &              p_mflx_tracer_v,                            &! out
           &              opt_topflx_tra=opt_topflx_tra,              &! in
           &              opt_q_int=opt_q_int,                        &! out
@@ -451,7 +451,7 @@ CONTAINS
 
           DO jt = 1, ntracer ! Tracer loop
 
-            DO jk = iadv_slev(jg,jt), nlev
+            DO jk = advection_config(jg)%iadv_slev(jt), nlev
 
               ! index of top half level
               ikp1 = jk + 1
@@ -594,7 +594,8 @@ CONTAINS
       &                  p_mflx_contra_h, p_vn_contra_traj, p_dtime, p_patch,&! in
       &                  p_int_state, advection_config(jg)%ihadv_tracer,     &! in
       &                  advection_config(jg)%igrad_c_miura, i_itype_hlimit, &! in
-      &                  iadv_slev(jg,:), advection_config(jg)%iord_backtraj,&! in
+      &                  advection_config(jg)%iadv_slev(:),                  &! in
+      &                  advection_config(jg)%iord_backtraj,                 &! in
       &                  p_mflx_tracer_h, opt_rlend=i_rlend                  )! inout,in
 
 
@@ -609,7 +610,8 @@ CONTAINS
     !  using optimized divergence routine for 4D fields
     CALL div( p_patch, p_int_state, p_mflx_tracer_h,               &! in
       &       z_fluxdiv_c,                                         &! inout
-      &       ntracer, opt_slev=iadv_slev(jg,:), opt_rlend=i_rlend )! in
+      &       ntracer, opt_slev=advection_config(jg)%iadv_slev(:), &! in
+      &       opt_rlend=i_rlend                                    )! in
 
 
     IF (p_patch%cell_type == 6) THEN
@@ -644,7 +646,8 @@ CONTAINS
         &                p_vn_contra_traj, p_dtime, p_patch,                &! in
         &                p_int_state, advection_config(jg)%ihadv_tracer,    &! in
         &                advection_config(jg)%igrad_c_miura,                &! in
-        &                advection_config(jg)%itype_hlimit, iadv_slev(jg,:),&! in
+        &                advection_config(jg)%itype_hlimit,                 &! in
+        &                advection_config(jg)%iadv_slev(:),                 &! in
         &                advection_config(jg)%iord_backtraj,                &! in
         &                p_mflx_tracer_h, opt_rlend=min_rledge              )! inout,in
 
@@ -652,10 +655,10 @@ CONTAINS
       !  compute divergence of the upwind fluxes for tracers
       !
       DO jt = 1, ntracer
-        CALL div( p_mflx_tracer_h(:,:,:,jt),         &! in
-          &       p_patch, p_int_state,              &! in
-          &       z_fluxdiv_c(:,:,:,jt),             &! inout
-          &       opt_slev=iadv_slev(jg,jt)          )! in
+        CALL div( p_mflx_tracer_h(:,:,:,jt),                     &! in
+          &       p_patch, p_int_state,                          &! in
+          &       z_fluxdiv_c(:,:,:,jt),                         &! inout
+          &       opt_slev=advection_config(jg)%iadv_slev(jt)    )! in
       ENDDO
 
     ENDIF ! cell_type == 6
@@ -678,7 +681,7 @@ CONTAINS
 
       DO jt = 1, ntracer ! Tracer loop
 
-        DO jk = iadv_slev(jg,jt), nlev
+        DO jk = advection_config(jg)%iadv_slev(jt), nlev
 
           DO jc = i_startidx, i_endidx
 
@@ -761,7 +764,8 @@ CONTAINS
         &              ptr_delp_mc_now,                            &! in
         &              advection_config(jg)%ivadv_tracer,          &! in
         &              advection_config(jg)%itype_vlimit,          &! in
-        &              iubc_adv(jg), iadv_slev(jg,:),              &! in
+        &              advection_config(jg)%iubc_adv,              &! in
+        &              advection_config(jg)%iadv_slev(:),          &! in
         &              p_mflx_tracer_v,                            &! out
         &              opt_topflx_tra=opt_topflx_tra,              &! in
         &              opt_q_int=opt_q_int,                        &! out
@@ -783,7 +787,7 @@ CONTAINS
 
         DO jt = 1, ntracer ! Tracer loop
 
-          DO jk = iadv_slev(jg,jt), nlev
+          DO jk = advection_config(jg)%iadv_slev(jt), nlev
 
             ! index of top half level
             ikp1 = jk + 1
@@ -832,7 +836,7 @@ CONTAINS
                           i_startidx, i_endidx, i_rlstart, i_rlend)
 
         DO jt = 1, ntracer
-          DO jk = iadv_slev(jg,jt), nlev
+          DO jk = advection_config(jg)%iadv_slev(jt), nlev
             DO jc = i_startidx, i_endidx
               opt_ddt_tracer_adv(jc,jk,jb,jt) =               &
                 &           (  p_tracer_new(jc,jk,jb,jt)      &

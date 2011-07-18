@@ -71,7 +71,7 @@ MODULE mo_advection_nml
   PRIVATE
   PUBLIC :: transport_nml_setup, setup_transport, read_transport_namelist
 
-  PUBLIC :: iadv_slev, iubc_adv, iup, imiura, imiura3,                     &
+  PUBLIC :: iadv_slev, iup, imiura, imiura3,                     &
     &       inol, islopel_sm, islopel_m, ifluxl_m, ifluxl_sm, iup_v,       &
     &       imuscl_v, imuscl_vcfl, ippm_v, ippm_vcfl, inol_v, islopel_vsm, & 
     &       islopel_vm, ifluxl_vpd, t_compute, t_cleanup, lcompute,        &
