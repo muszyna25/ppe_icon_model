@@ -62,7 +62,7 @@ MODULE mo_subdivision
     & min_rledge, max_rledge, min_rlvert, max_rlvert,                &
     & min_rlcell_int, min_rledge_int, min_rlvert_int, max_hw
   USE mo_math_constants,     ONLY: pi
-  USE mo_exception,          ONLY: finish, message
+  USE mo_exception,          ONLY: finish, message, get_filename_noext
 
   USE mo_parallel_configuration,  ONLY: nproma
   USE mo_run_config,          ONLY: ltransport
@@ -91,7 +91,7 @@ MODULE mo_subdivision
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e,  &
     & grf_bdyintp_end_c, grf_bdyintp_end_e, grf_fbk_start_c, grf_fbk_start_e, &
     & grf_bdywidth_c, grf_bdywidth_e, grf_nudgintp_start_c, grf_nudgintp_start_e
-  USE mo_grid_config,         ONLY: n_dom, n_dom_start, nroot, patch_weight
+  USE mo_grid_config,         ONLY: n_dom, n_dom_start, patch_weight
   USE mo_model_domimp_patches,ONLY: destruct_patches, allocate_patch
   USE mo_intp_data_strc,      ONLY: t_int_state
   USE mo_intp_state,          ONLY: allocate_int_state, destruct_2d_interpol_state
@@ -588,8 +588,8 @@ CONTAINS
 
       IF(p_pe_work == 0) THEN
 
-        WRITE (div_file,'(a,i0,2(a,i2.2),a)') 'iconR',nroot,'B',wrk_p_patch_g%level, &
-          & '_DOM',wrk_p_patch_g%id,'-div.txt'
+        WRITE (div_file,'(a,a)') &
+          & TRIM(get_filename_noext(wrk_p_patch_g%grid_filename)),'-div.txt'
 
         n = find_next_free_unit(10,99)
 
