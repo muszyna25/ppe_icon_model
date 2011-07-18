@@ -68,7 +68,7 @@ MODULE mo_atm_nml_crosscheck
                                     iequations, itime_scheme, idiv_method,     &
                                     divavg_cntrwgt, sw_ref_height,             &
                                     lcoriolis, lshallow_water, ltwotime
-  USE mo_advection_config,    ONLY: advection_config !, configure_advection
+  USE mo_advection_config,    ONLY: advection_config, configure_advection
 
   USE mo_nonhydrostatic_config
   USE mo_ha_dyn_config,     ONLY: ha_dyn_config
