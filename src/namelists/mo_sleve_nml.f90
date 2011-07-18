@@ -35,12 +35,11 @@
 MODULE mo_sleve_nml
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom
+  USE mo_impl_constants,      ONLY: max_dom
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_master_nml,          ONLY: lrestart
-  USE mo_mpi,                 ONLY: p_pe, p_io
+  USE mo_mpi,                 ONLY: my_process_is_stdio 
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
     &                               open_and_restore_namelist, close_tmpfile
 
@@ -51,7 +50,6 @@ MODULE mo_sleve_nml
     &                               config_decay_exp     => decay_exp    , &
     &                               config_flat_height   => flat_height  , &
     &                               config_stretch_fac   => stretch_fac
-
 
   IMPLICIT NONE
   PRIVATE
@@ -80,65 +78,6 @@ MODULE mo_sleve_nml
                        decay_scale_2, decay_exp, flat_height, stretch_fac
 
 CONTAINS
-
-  !-------------------------------------------------------------------------
- !>
- !!  Initialization of the SLEVE coordinate namelist
- !!
- !!
- !! @par Revision History
- !!  Initial version by Guenther Zaengl (2010-07-21)
-
- SUBROUTINE sleve_nml_setup
-
-!   CHARACTER(len=max_char_length), PARAMETER :: &
-!             routine = 'mo_sleve_nml:sleve_nml_setup'
-
-
-  !local variable
-  INTEGER :: i_status
-
-  !------------------------------------------------------------
-  ! 2.0 set up the default values for dynamics_nml
-  !------------------------------------------------------------
-  !
-  !
-  ! a) Parameters determining the distribution of model layers
-  !    (if not read in from a table)
-  min_lay_thckn   = 50._wp      ! Layer thickness of lowermost layer
-  top_height      = 23500._wp   ! Height of model top
-  stretch_fac     = 1._wp       ! Scaling factor for stretching/squeezing the model layer distribution
-
-  ! b) Parameters setting up the decay function of the topographic signal
-  decay_scale_1   = 4000._wp    ! Decay scale of large-scale topography component
-  decay_scale_2   = 2500._wp    ! Decay scale of small-scale topography component
-  decay_exp       = 1.2_wp      ! Exponent for decay function
-  flat_height     = 16000._wp   ! Height above which the coordinate surfaces are flat
-  !
-  !
-  !------------------------------------------------------------
-  ! 3.0 Read the nonhydrostatic namelist.
-  !------------------------------------------------------------
-  ! (done so far by all MPI processes)
-  !
-  CALL position_nml ('sleve_nml', status=i_status)
-  SELECT CASE (i_status)
-  CASE (positioned)
-     READ (nnml, sleve_nml)
-  END SELECT
-  !
-  !------------------------------------------------------------
-  ! 4.0 check the consistency of the parameters
-  !------------------------------------------------------------
-  !
-  !currently no consistency check...
-
-  ! write the contents of the namelist to an ASCII file
-
-  IF(p_pe == p_io) WRITE(nnml_output,nml=sleve_nml)
-
-END SUBROUTINE sleve_nml_setup
-
   !-------------------------------------------------------------------------
   !>
   !! Read Namelist for SLEVE coordinate. 
@@ -153,14 +92,12 @@ END SUBROUTINE sleve_nml_setup
   !! - fills the configuration state (partly)    
   !!
   !! @par Revision History
-  !!  by Daniel Reinert, DWD (2011-06-07)
+  !!  by Daniel Reinert, DWD (2011-07-06)
   !!
   SUBROUTINE read_sleve_namelist( filename )
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
-!    INTEGER :: jg           ! loop index
-
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_sleve_nml:read_sleve_namelist'
 
@@ -206,17 +143,6 @@ END SUBROUTINE sleve_nml_setup
     !----------------------------------------------------
     ! 4. Fill the configuration state
     !----------------------------------------------------
-!    DO jg = 1,max_dom
-!      sleve_config(jg)%min_lay_thckn = min_lay_thckn
-!      sleve_config(jg)%top_height    = top_height
-!      sleve_config(jg)%decay_scale_1 = decay_scale_1
-!      sleve_config(jg)%decay_scale_2 = decay_scale_2
-!      sleve_config(jg)%decay_exp     = decay_exp
-!      sleve_config(jg)%flat_height   = flat_height
-!      sleve_config(jg)%stretch_fac   = stretch_fac
-!    ENDDO
-!
-
     config_min_lay_thckn = min_lay_thckn
     config_top_height    = top_height
     config_decay_scale_1 = decay_scale_1
@@ -233,8 +159,7 @@ END SUBROUTINE sleve_nml_setup
     CALL store_and_close_namelist(funit, 'sleve_nml') 
 
     ! 6. write the contents of the namelist to an ASCII file
-    !
-    IF(p_pe == p_io) WRITE(nnml_output,nml=sleve_nml)
+    IF(my_process_is_stdio()) WRITE(nnml_output,nml=sleve_nml)
 
   END SUBROUTINE read_sleve_namelist
 

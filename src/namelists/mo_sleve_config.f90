@@ -44,19 +44,20 @@
 MODULE mo_sleve_config
 
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: max_dom
+ !USE mo_impl_constants,      ONLY: max_dom
 
   IMPLICIT NONE
 
-  PUBLIC
+  PRIVATE
+  PUBLIC :: min_lay_thckn, stretch_fac, top_height
+  PUBLIC :: decay_scale_1, decay_scale_2, decay_exp, flat_height
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
-
   !>
   !!--------------------------------------------------------------------------
   !! Type definition 
   !!--------------------------------------------------------------------------
-!  TYPE :: t_sleve_config
+  !TYPE :: t_sleve_config
 
     ! a) Parameters specifying the distrubution of the coordinate surfaces
     !     (the initializations are a workaround for a NEC compiler bug)
@@ -73,9 +74,9 @@ MODULE mo_sleve_config
     REAL(wp):: flat_height    ! Height above which the coordinate surfaces are exactly flat
                               ! additional feature not available in the standard
                               ! SLEVE definition
- ! END TYPE t_sleve_config
+  !END TYPE t_sleve_config
   !>
   !!
- ! TYPE(t_sleve_config) :: sleve_config(max_dom)
+  !TYPE(t_sleve_config) :: sleve_config(max_dom)
 
 END MODULE mo_sleve_config
