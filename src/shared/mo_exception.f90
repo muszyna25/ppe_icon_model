@@ -60,7 +60,7 @@ MODULE mo_exception
   PUBLIC :: open_log, close_log
   PUBLIC :: debug_messages_on, debug_messages_off
   PUBLIC :: number_of_warnings, number_of_errors
-  PUBLIC ::  get_filename_noext
+  PUBLIC :: get_filename_noext
 
   INTEGER, PARAMETER :: em_none  = 0   !< normal message
   INTEGER, PARAMETER :: em_info  = 1   !< informational message

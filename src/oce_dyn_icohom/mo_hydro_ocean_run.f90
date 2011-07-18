@@ -48,7 +48,7 @@ MODULE mo_hydro_ocean_run
 !
 USE mo_impl_constants,         ONLY: max_char_length
 USE mo_model_domain,           ONLY: t_patch
-USE mo_model_domain_import,    ONLY: n_dom, nroot
+! USE mo_model_domain_import,    ONLY: n_dom, nroot
 USE mo_ocean_nml,              ONLY: n_zlev, iswm_oce, no_tracer,itestcase_oce
 USE mo_dynamics_config,        ONLY: nold, nnew
 USE mo_io_config,              ONLY: out_expname
@@ -219,17 +219,20 @@ CONTAINS
       CALL destruct_vlist_oce( jg )
 
       ! contruct gridfile name once more as in control_model:
-      WRITE (gridfile,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',jlev,'-grid.nc'
-      INQUIRE (FILE=gridfile, EXIST=l_exist)
-      IF (.NOT. l_exist) CALL finish(TRIM(routine),' gridfile does not exist')
+!       WRITE (gridfile,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',jlev,'-grid.nc'
+!       INQUIRE (FILE=gridfile, EXIST=l_exist)
+!       IF (.NOT. l_exist) CALL finish(TRIM(routine),' gridfile does not exist')
 
+      
       ! contruct new outputfile name:
+      
       jfile = jfile +1
-      WRITE (outputfile,'(a,a,i0,a,i2.2,a,i0,a,i4.4,a)')  &
-           &  TRIM(out_expname), '_O.R', nroot, 'B', jlev, 'L', n_zlev, '_', jfile, '.nc'
+      WRITE (outputfile,'(a,a,a,a,i4.4,a)')  &
+        &  TRIM(out_expname), '_', TRIM(get_filename_noext(ppatch(jg)%grid_filename)), &
+        & '_', jfile, '.nc'
       WRITE(message_text,'(a,a)') 'New output file for setup_vlist_oce is ',TRIM(outputfile)
       CALL message(trim(routine),message_text)
-      CALL setup_vlist_oce( ppatch(jg), TRIM(gridfile), TRIM(outputfile), jg )
+      CALL setup_vlist_oce( ppatch(jg), TRIM(ppatch(jg)%grid_filename), TRIM(outputfile), jg )
 
     END IF
 

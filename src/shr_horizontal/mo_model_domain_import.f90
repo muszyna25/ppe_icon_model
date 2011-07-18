@@ -105,7 +105,7 @@ MODULE mo_model_domain_import
   USE mo_model_domimp_setup,   ONLY: reshape_int, reshape_real,                     &
        &                             calculate_cart_normal,                         &
        &                             init_quad_twoadjcells, init_coriolis
-  USE mo_grid_config,         ONLY:  n_dom,       &
+  USE mo_grid_config,         ONLY:  n_dom, nroot, start_lev,      &
        &                             parent_id, lfeedback, lplane, l_limited_area,  &
        &                             corio_lat, max_childdom, n_dom_start,          &
        &                             lredgrid_phys,                    &
