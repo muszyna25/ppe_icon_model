@@ -60,8 +60,9 @@ MODULE mo_icon_cpl_init_comp
 #ifndef NOMPI
 
   USE mo_icon_cpl, ONLY : MPI_SUCCESS, MPI_COMM_NULL,         &
-   &                      l_MPI_was_initialized,              &
-   &                      l_debug, cplout,                    &
+   &                      l_MPI_was_initialized
+#endif
+  USE mo_icon_cpl, ONLY : l_debug, cplout,                    &
    &                      fieldname,                          &
    &                      grids, comps,                       &
    &                      fields, complist,                   &
@@ -89,12 +90,6 @@ MODULE mo_icon_cpl_init_comp
   INTEGER                        :: len        ! length 
   INTEGER                        :: ierr       ! returned error from MPI functions
 
-#else
-
-  IMPLICIT NONE
-
-#endif
-
   PRIVATE
 
   PUBLIC :: icon_cpl_init_comp, get_my_local_comp_id, icon_cpl_redirect_stdout
@@ -109,9 +104,9 @@ CONTAINS
     INTEGER, INTENT(out)         :: ierror
 
     INTEGER                      :: comp_comm
+    INTEGER                      :: key, color
 
     INTEGER                      :: i               !< loop count
-    INTEGER                      :: key, color
 
 
     ! -------------------------------------------------------------------
@@ -300,10 +295,13 @@ CONTAINS
     ! Initialise variables
     ! -------------------------------------------------------------------
 
-    i         = 0
-    ierror    = 0
-    comp_id   = 0
-    comp_comm = 0
+    i                        = 0
+    color                    = global_comp_id
+    key                      = 0
+    ierror                   = 0
+    comp_id                  = 1
+    comp_comm                = 0
+    comps(comp_id)%comp_name = TRIM(comp_name)
 
 #endif
 
