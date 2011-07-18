@@ -129,7 +129,7 @@ MODULE mo_dump_restore
   USE mo_io_units,           ONLY: filename_max, nerr
   USE mo_model_domain,       ONLY: t_patch
   USE mo_grid_config,        ONLY: start_lev, n_dom, n_dom_start, lfeedback, &
-                                   l_limited_area, max_childdom, parent_id
+                                   l_limited_area, max_childdom, dynamics_parent_grid_id
   USE mo_intp_data_strc      ! We need all from that module
   USE mo_grf_intp_data_strc  ! We need all from that module
 !  USE mo_interpol_nml        ! We need all from that module
@@ -2222,14 +2222,14 @@ CONTAINS
         p_patch(jg)%parent_id = 0
       ELSE
         ! Note: the first element of parent_id refers to jg=2
-        p_patch(jg)%level = p_patch(parent_id(jg-1))%level + 1
-        p_patch(jg)%parent_id = parent_id(jg-1)
+        p_patch(jg)%level = p_patch(dynamics_parent_grid_id(jg))%level + 1
+        p_patch(jg)%parent_id = dynamics_parent_grid_id(jg)
       ENDIF
 
       n_chd = 0
 
       DO jg1 = jg+1, n_dom
-        IF (jg == parent_id(jg1-1)) THEN
+        IF (jg == dynamics_parent_grid_id(jg1)) THEN
           n_chd = n_chd + 1
           p_patch(jg)%child_id(n_chd) = jg1
           p_patch(jg1)%parent_child_index = n_chd

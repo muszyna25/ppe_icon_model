@@ -86,7 +86,6 @@ MODULE mo_ocean_model
   USE mo_model_domain_import, ONLY: &!  grid_nml_setup,          & ! process grid control parameters
     & n_dom,                & !    :
     & n_dom_start,          & !    :
-    & parent_id,            & !    :
     & import_patches,       & !
     & destruct_patches        !
   

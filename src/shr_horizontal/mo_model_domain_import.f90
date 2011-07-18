@@ -106,7 +106,7 @@ MODULE mo_model_domain_import
        &                             calculate_cart_normal,                         &
        &                             init_quad_twoadjcells, init_coriolis
   USE mo_grid_config,         ONLY:  n_dom, nroot, start_lev,      &
-       &                             parent_id, lfeedback, lplane, l_limited_area,  &
+       &                             lfeedback, lplane, l_limited_area,  &
        &                             corio_lat, max_childdom, n_dom_start,          &
        &                             lredgrid_phys,                    &
        & dynamics_grid_filename,  dynamics_parent_grid_id,             &

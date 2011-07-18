@@ -53,13 +53,11 @@ MODULE mo_grid_nml
 
   USE mo_grid_config,        ONLY:                                         &
     & config_global_cell_type             => global_cell_type,             &
-    & config_nroot                        => nroot,                        &
     & config_start_lev                    => start_lev,                    &
     & config_n_dom                        => n_dom,                        &
     & config_lfeedback                    => lfeedback,                    &
     & config_lplane                       => lplane,                       &
     & config_corio_lat                    => corio_lat,                    &
-    & config_parent_id                    => parent_id,                    &
     & config_l_limited_area               => l_limited_area,               &
     & config_patch_weight                 => patch_weight,                 &
     & config_lredgrid_phys                => lredgrid_phys,                &
@@ -82,12 +80,10 @@ MODULE mo_grid_nml
   ! ------------------------------------------------------------------------
 
   INTEGER    :: cell_type                ! cell type:
-  INTEGER    :: nroot                    ! root division of initial edges
   INTEGER    :: start_lev                ! coarsest bisection level
   INTEGER    :: n_dom                    ! number of model domains, 1=global domain only 
   INTEGER    :: n_dom_start=1 
   INTEGER    :: max_childdom
-  INTEGER    :: parent_id(max_dom-1)     ! ID of parent domain
 
   LOGICAL    :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
   LOGICAL    :: lredgrid_phys(max_dom)   ! If set to .true. is calculated on a reduced grid
@@ -112,8 +108,8 @@ MODULE mo_grid_nml
 
   INTEGER :: no_of_dynamics_grids, no_of_radiation_grids
 
-  NAMELIST /grid_nml/ cell_type, nroot, start_lev, n_dom, lfeedback,       &
-    &                 lplane, corio_lat, parent_id, l_limited_area,        &
+  NAMELIST /grid_nml/ cell_type, start_lev, n_dom, lfeedback,       &
+    &                 lplane, corio_lat, l_limited_area,        &
     &                 patch_weight, lpatch0, lredgrid_phys,                &
     &                 dynamics_grid_filename,  dynamics_parent_grid_id,    &
     &                 radiation_grid_filename, dynamics_radiation_grid_link
@@ -157,15 +153,9 @@ MODULE mo_grid_nml
     !------------------------------------------------------------
 
     cell_type   = itri
-    nroot       = 2
     start_lev   = 4
     n_dom       = 1
-    
-    ! Note: the first element of parent_id refers to the first nested domain
-    DO i = 1, max_dom-1
-      parent_id(i) = i
-    ENDDO
-  
+      
     lfeedback   = .TRUE.
     lplane      = .FALSE.
     l_limited_area = .FALSE.
@@ -197,57 +187,57 @@ MODULE mo_grid_nml
     ! convert degrees in radiant for the Coriolis latitude
     corio_lat =  corio_lat/rad2deg
 
-    IF (dynamics_grid_filename(1) == "") THEN
-      ! dynamics_grid_filename not filled
-      ! we have an old style namelist
-
-      ! fill dynamics_grid_filename
-      ! fill level and parent ids
-      patch_level(1) = start_lev
-      dynamics_parent_grid_id(1) = 0       
-      DO jg = 2, n_dom
-        dynamics_parent_grid_id(jg) = parent_id(jg-1)
-        patch_level(jg) = patch_level(dynamics_parent_grid_id(jg))+1
-      ENDDO 
-    
-      ! fill the grid prefix
-      IF (lplane) THEN
-           gridtype='plan'
-      ELSE
-           gridtype='icon'
-      END IF
-    
-      DO jg = 1, n_dom
-        jlev = patch_level(jg)
-        ! Allow file names without "DOM" specifier if n_dom=1.
-        IF (n_dom == 1) THEN
-          ! Check if file name without "DOM" specifier exists.
-          WRITE (patch_file,'(a,a,i0,a,i2.2,a)') &
-              & TRIM(gridtype),'R',nroot,'B',jlev,'-grid.nc'
-          INQUIRE (FILE=patch_file, EXIST=l_exist)
-          ! Otherwise use file name with "DOM" specifier
-          IF (.NOT. l_exist)                                           &
-              & WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)')              &
-              & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
-        ELSE
-          ! n_dom >1 --> "'_DOM',jg" required in file name
-          WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)') &
-              & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
-        ENDIF
-        dynamics_grid_filename(jg) = patch_file
-      ENDDO
-
-      IF (lpatch0) THEN
-        ! fill radiation_grid_filename
-        jlev = start_lev-1
-        jg=0        
-        WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)') &
-            & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
-        radiation_grid_filename(1) = patch_file
-        dynamics_radiation_grid_link(1) = 1
-      ENDIF
-    
-    ENDIF
+!     IF (dynamics_grid_filename(1) == "") THEN
+!       ! dynamics_grid_filename not filled
+!       ! we have an old style namelist
+! 
+!       ! fill dynamics_grid_filename
+!       ! fill level and parent ids
+!       patch_level(1) = start_lev
+!       dynamics_parent_grid_id(1) = 0       
+!       DO jg = 2, n_dom
+!         dynamics_parent_grid_id(jg) = parent_id(jg-1)
+!         patch_level(jg) = patch_level(dynamics_parent_grid_id(jg))+1
+!       ENDDO 
+!     
+!       ! fill the grid prefix
+!       IF (lplane) THEN
+!            gridtype='plan'
+!       ELSE
+!            gridtype='icon'
+!       END IF
+!     
+!       DO jg = 1, n_dom
+!         jlev = patch_level(jg)
+!         ! Allow file names without "DOM" specifier if n_dom=1.
+!         IF (n_dom == 1) THEN
+!           ! Check if file name without "DOM" specifier exists.
+!           WRITE (patch_file,'(a,a,i0,a,i2.2,a)') &
+!               & TRIM(gridtype),'R',nroot,'B',jlev,'-grid.nc'
+!           INQUIRE (FILE=patch_file, EXIST=l_exist)
+!           ! Otherwise use file name with "DOM" specifier
+!           IF (.NOT. l_exist)                                           &
+!               & WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)')              &
+!               & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
+!         ELSE
+!           ! n_dom >1 --> "'_DOM',jg" required in file name
+!           WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)') &
+!               & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
+!         ENDIF
+!         dynamics_grid_filename(jg) = patch_file
+!       ENDDO
+! 
+!       IF (lpatch0) THEN
+!         ! fill radiation_grid_filename
+!         jlev = start_lev-1
+!         jg=0        
+!         WRITE (patch_file,'(a,a,i0,2(a,i2.2),a)') &
+!             & TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
+!         radiation_grid_filename(1) = patch_file
+!         dynamics_radiation_grid_link(1) = 1
+!       ENDIF
+!     
+!     ENDIF
 
     ! find out how many grids we have
 !     jg=1
@@ -296,13 +286,11 @@ MODULE mo_grid_nml
   SUBROUTINE fill_grid_nml_configure()
 
     config_global_cell_type  = cell_type
-    config_nroot             = nroot
     config_start_lev         = start_lev
     config_n_dom             = n_dom
     config_lfeedback         = lfeedback
     config_lplane            = lplane
     config_corio_lat         = corio_lat
-    config_parent_id         = parent_id
     config_l_limited_area    = l_limited_area
     config_patch_weight      = patch_weight
     config_lredgrid_phys     = lredgrid_phys

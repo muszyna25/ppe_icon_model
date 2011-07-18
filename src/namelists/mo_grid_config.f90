@@ -66,7 +66,7 @@ USE mo_read_netcdf_parallel, ONLY:                &
   PUBLIC :: check_grid_configuration
   
   PUBLIC :: global_cell_type, nroot, start_lev, n_dom, lfeedback,       &
-    &       lplane, corio_lat, parent_id, l_limited_area, patch_weight, &
+    &       lplane, corio_lat, l_limited_area, patch_weight, &
     &       lredgrid_phys
 
   PUBLIC :: dynamics_grid_filename,  dynamics_parent_grid_id,     &
@@ -91,7 +91,6 @@ INCLUDE 'netcdf.inc'
   INTEGER  :: n_dom                    ! number of model domains, 1=global domain only 
   INTEGER  :: n_dom_start=1 
   INTEGER  :: max_childdom
-  INTEGER  :: parent_id(max_dom-1)     !ID of parent domain
 
   LOGICAL  :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
   LOGICAL  :: lredgrid_phys(max_dom)   ! If set to .true. is calculated on a reduced grid
