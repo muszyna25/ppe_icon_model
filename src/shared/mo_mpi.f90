@@ -35,7 +35,7 @@ MODULE mo_mpi
   PUBLIC :: p_communicator_a, p_communicator_b, p_communicator_d
 
   PUBLIC :: p_pe, p_io, p_nprocs, process_mpi_test_id, process_mpi_root_id
-  PUBLIC :: num_test_procs, num_work_procs, num_io_procs
+  PUBLIC :: num_test_procs, num_work_procs, process_mpi_io_size
   
   PUBLIC :: p_stop, p_abort
 
@@ -89,7 +89,7 @@ MODULE mo_mpi
 
 
   CHARACTER(len=64) :: process_mpi_name
-  INTEGER, PARAMETER :: stdio_process = 0
+  INTEGER, PARAMETER :: process_mpi_stdio_id = 0
   INTEGER :: process_mpi_root_id = 0
   INTEGER :: process_mpi_test_id = 0
   
@@ -121,15 +121,15 @@ MODULE mo_mpi
   INTEGER :: p_io     = 0     ! PE number of PE handling IO
   INTEGER :: p_nprocs = 1     ! number of available PEs (processors)
   
+  !------------------------------------------------------------
   ! Processor distribution:
   ! num_test_procs: 0 or 1
   ! num_work_procs: number of procs running in parallel on the model
-  ! num_io_procs:   number of procs for I/O
-  ! num_test_procs + num_work_procs + num_io_procs = p_nprocs
-
+  ! process_mpi_io_size:   number of procs for I/O
+  ! num_test_procs + num_work_procs + process_mpi_io_size = p_nprocs
   INTEGER :: num_test_procs
   INTEGER :: num_work_procs
-  INTEGER :: num_io_procs
+  INTEGER :: process_mpi_io_size
 
 ! non blocking calls
 
@@ -318,17 +318,17 @@ MODULE mo_mpi
 CONTAINS
 
   !------------------------------------------------------------------------------
-
   SUBROUTINE set_process_mpi_name(name)
     CHARACTER(len=*), INTENT(in) ::name
     
     process_mpi_name = TRIM(name)
 
   END SUBROUTINE set_process_mpi_name
+  !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
   ! Rene: this has become obsolete and should be erased.
-  ! Leonidas: It is used to idendify globally the proccess that caused an error
+  ! It is used to idendify globally the proccess that caused an error
   INTEGER FUNCTION get_my_global_mpi_id()
     get_my_global_mpi_id = my_global_mpi_id
   END FUNCTION get_my_global_mpi_id
@@ -495,7 +495,7 @@ CONTAINS
     END IF
 
     ! fill some derived variabkes
-    IF (my_process_mpi_all_id == stdio_process) &
+    IF (my_process_mpi_all_id == process_mpi_stdio_id) &
       process_is_stdio = .TRUE.
     process_is_mpi_parallel = (process_mpi_all_size > 1)
 

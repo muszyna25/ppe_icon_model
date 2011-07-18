@@ -47,27 +47,21 @@ MODULE mo_parallel_nml
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,   &
                                   & open_and_restore_namelist, close_tmpfile
 
-  USE mo_parallel_config, ONLY: config_n_ghost_rows        => n_ghost_rows,        &
-                                     & config_division_method     => division_method,     &
-                                     & config_l_log_checks        => l_log_checks,        &
-                                     & config_l_fast_sum          => l_fast_sum,          &
-                                     & config_p_test_run          => p_test_run,          &
-                                     & config_l_test_openmp       => l_test_openmp,       &
-                                     & config_num_test_procs      => num_test_procs,      &
-                                     & config_num_work_procs      => num_work_procs,      &
-                                     & config_num_io_procs        => num_io_procs,        &
-                                     & config_p_test_pe           => p_test_pe,           &
-                                     & config_p_work_pe0          => p_work_pe0,          &
-                                     & config_p_io_pe0            => p_io_pe0,            &
-                                     & config_p_n_work            => p_n_work,            &
-                                     & config_p_pe_work           => p_pe_work,           &
-                                     & config_pio_type            => pio_type,            &
-                                     & config_itype_comm          => itype_comm,          &
-                                     & config_iorder_sendrecv     => iorder_sendrecv,     &
-                                     & config_radiation_threads   => radiation_threads,   &
-                                     & config_nh_stepping_threads => nh_stepping_threads, &
-                                     & config_nproma              => nproma,              &
-                                     & div_geometric
+  USE mo_parallel_config, ONLY: &
+    & config_n_ghost_rows        => n_ghost_rows,        &
+    & config_division_method     => division_method,     &
+    & config_l_log_checks        => l_log_checks,        &
+    & config_l_fast_sum          => l_fast_sum,          &
+    & config_p_test_run          => p_test_run,          &
+    & config_l_test_openmp       => l_test_openmp,       &
+    & config_num_io_procs        => num_io_procs,        &
+    & config_pio_type            => pio_type,            &
+    & config_itype_comm          => itype_comm,          &
+    & config_iorder_sendrecv     => iorder_sendrecv,     &
+    & config_radiation_threads   => radiation_threads,   &
+    & config_nh_stepping_threads => nh_stepping_threads, &
+    & config_nproma              => nproma,              &
+    & div_geometric
 
   IMPLICIT NONE
   PRIVATE
@@ -105,39 +99,11 @@ MODULE mo_parallel_nml
 
   LOGICAL :: l_test_openmp
 
-  ! Processor distribution:
-  ! num_test_procs: 0 or 1
-  ! num_work_procs: number of procs running in parallel on the model
-  ! num_io_procs:   number of procs for I/O
-  ! num_test_procs + num_work_procs + num_io_procs = p_nprocs
-
-  INTEGER :: num_test_procs
-  INTEGER :: num_work_procs
-  INTEGER :: num_io_procs
-
-  ! Note: p_test_pe, p_work_pe0, p_io_pe0 are identical on all PEs
-
-  ! In a verification run, p_test_pe is the number of the PE running the complete model,
-  ! otherwise it contains -1
-
-  INTEGER :: p_test_pe      ! Number of test PE
-  INTEGER :: p_work_pe0     ! Number of workgroup PE 0 within all PEs
-  INTEGER :: p_io_pe0       ! Number of I/O PE 0 within all PEs (p_nprocs if no I/O PEs)
-
-  ! Note: p_n_work, p_pe_work are NOT identical on all PEs
-
-  ! p_n_work: Number of PEs working together:
-  ! - num_work_procs for non-verification runs
-  ! - num_work_procs for verification runs on pes != p_test_pe
-  ! - 1              for verification runs on p_test_pe
-  ! - num_io_procs   always on I/O pes
-
-  INTEGER :: p_n_work
-  INTEGER :: p_pe_work        ! PE number within work group
-
   ! Type of parallel I/O
   INTEGER :: pio_type
 
+  INTEGER :: num_io_procs
+  
   ! Type of (halo) communication: 
   ! 1 = synchronous communication with local memory for exchange buffers
   ! 2 = synchronous communication with global memory for exchange buffers
@@ -201,34 +167,10 @@ MODULE mo_parallel_nml
     ! only 1 thread. This allows for verifying the OpenMP implementation
     l_test_openmp = .FALSE.
 
-    ! Processor distribution:
-    ! num_test_procs: 0 or 1
-    ! num_work_procs: number of procs running in parallel on the model
-    ! num_io_procs:   number of procs for I/O
-    ! num_test_procs + num_work_procs + num_io_procs = p_nprocs
-    num_test_procs = 0
-    num_work_procs = 1
-    num_io_procs = 0
-
-    ! Note: p_test_pe, p_work_pe0, p_io_pe0 are identical on all PEs
-    ! In a verification run, p_test_pe is the number of the PE running the complete model,
-    ! otherwise it contains -1
-    p_test_pe  = -1      ! Number of test PE
-    p_work_pe0 =  0      ! Number of workgroup PE 0 within all PEs
-    p_io_pe0   =  1      ! Number of I/O PE 0 within all PEs (p_nprocs if no I/O PEs)
-
-    ! Note: p_n_work, p_pe_work are NOT identical on all PEs
-    ! p_n_work: Number of PEs working together:
-    ! - num_work_procs for non-verification runs
-    ! - num_work_procs for verification runs on pes != p_test_pe
-    ! - 1              for verification runs on p_test_pe
-    ! - num_io_procs   always on I/O pes
-    p_n_work=1
-    p_pe_work=0        ! PE number within work group
-
     ! Type of parallel I/O
     pio_type = 1
-
+    num_io_procs = 0
+    
     ! Type of (halo) communication: 
     ! 1 = synchronous communication with local memory for exchange buffers
     ! 2 = synchronous communication with global memory for exchange buffers
@@ -286,24 +228,14 @@ MODULE mo_parallel_nml
   !>
   !! 
   SUBROUTINE fill_parallel_nml_configure
-
-    !-----------------------------------------------------
-    ! fill the parallel_configuration
-
+       
     config_n_ghost_rows        = n_ghost_rows
     config_division_method     = division_method
     config_l_log_checks        = l_log_checks
     config_l_fast_sum          = l_fast_sum
     config_p_test_run          = p_test_run
     config_l_test_openmp       = l_test_openmp
-    config_num_test_procs      = num_test_procs
-    config_num_work_procs      = num_work_procs
     config_num_io_procs        = num_io_procs
-    config_p_test_pe           = p_test_pe
-    config_p_work_pe0          = p_work_pe0
-    config_p_io_pe0            = p_io_pe0
-    config_p_n_work            = p_n_work
-    config_p_pe_work           = p_pe_work
     config_pio_type            = pio_type
     config_itype_comm          = itype_comm
     config_iorder_sendrecv     = iorder_sendrecv

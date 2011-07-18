@@ -39,7 +39,7 @@ MODULE mo_parallel_config
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_COMM_NULL, MPI_COMM_SELF, MPI_UNDEFINED, &
      &   p_comm_work, p_comm_work_test, p_comm_work_2_io, p_comm_input_bcast, &
-     & p_comm_work_io, num_test_procs, num_work_procs, num_io_procs
+     & p_comm_work_io, num_test_procs, num_work_procs
 
 #else
   USE mo_mpi,                ONLY:  p_comm_work, p_comm_work_test, &
@@ -67,39 +67,54 @@ MODULE mo_parallel_config
   
   ! computing setup
   ! ---------------
-  INTEGER            :: nproma              ! inner loop length/vector length
+  INTEGER  :: nproma = 1              ! inner loop length/vector length
 
   ! Number of rows of ghost cells
-  INTEGER :: n_ghost_rows
-
+  INTEGER :: n_ghost_rows = 1
 
   ! Division method for area subdivision
   INTEGER, PARAMETER :: div_from_file = 0  ! Read from file
   INTEGER, PARAMETER :: div_geometric = 1  ! Geometric subdivision
   INTEGER, PARAMETER :: div_metis     = 2  ! Use Metis
 
-  INTEGER :: division_method 
+  INTEGER :: division_method = 1
 
   ! Flag if checks in a verification run should be logged
-
-  LOGICAL :: l_log_checks
+  LOGICAL :: l_log_checks = .false.
 
   ! Flag if fast but nonreproducible sum should be used
-
-  LOGICAL :: l_fast_sum
+  LOGICAL :: l_fast_sum = .false.
 
   ! Please note for the following variables: The default settings are for NO_MPI runs!
 
   ! p_test_run indicates a verification run, i.e. a run where 1 PE runs the complete
   ! model whereas the other PEs do a real parallelized run
-
-  LOGICAL :: p_test_run
+  LOGICAL :: p_test_run = .false.
 
   ! if l_test_openmp is set together with p_test_run, then the verification PE uses
   ! only 1 thread. This allows for verifying the OpenMP implementation
+  LOGICAL :: l_test_openmp = .false.
 
-  LOGICAL :: l_test_openmp
 
+  ! Type of parallel I/O
+  INTEGER :: pio_type = 1
+  
+  INTEGER :: num_io_procs = 0
+
+  ! Type of (halo) communication: 
+  ! 1 = synchronous communication with local memory for exchange buffers
+  ! 2 = synchronous communication with global memory for exchange buffers
+  ! 3 = asynchronous communication within dynamical core with global memory 
+  !     for exchange buffers (not yet implemented)
+  INTEGER :: itype_comm = 1
+
+  ! Order of send/receive sequence in exchange routines
+  ! 1 = irecv, send
+  ! 2 = isend, recv
+  INTEGER :: iorder_sendrecv = 1
+
+  INTEGER :: radiation_threads   = 1
+  INTEGER :: nh_stepping_threads = 1
 
   ! Note: p_test_pe, p_work_pe0, p_io_pe0 are identical on all PEs
 
@@ -121,25 +136,6 @@ MODULE mo_parallel_config
   INTEGER :: p_n_work
   INTEGER :: p_pe_work        ! PE number within work group
 
-
-  ! Type of parallel I/O
-
-  INTEGER :: pio_type
-
-  ! Type of (halo) communication: 
-  ! 1 = synchronous communication with local memory for exchange buffers
-  ! 2 = synchronous communication with global memory for exchange buffers
-  ! 3 = asynchronous communication within dynamical core with global memory 
-  !     for exchange buffers (not yet implemented)
-  INTEGER :: itype_comm
-
-  ! Order of send/receive sequence in exchange routines
-  ! 1 = irecv, send
-  ! 2 = isend, recv
-  INTEGER :: iorder_sendrecv
-
-  INTEGER :: radiation_threads
-  INTEGER :: nh_stepping_threads 
 
   ! MPI communicators
 !   INTEGER :: p_comm_work        ! Communicator for work group

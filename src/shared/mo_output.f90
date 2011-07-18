@@ -41,8 +41,7 @@ MODULE mo_output
   USE mo_exception,           ONLY: finish, message_text, get_filename_noext
   USE mo_impl_constants,      ONLY: max_dom
   USE mo_kind,                ONLY: wp
-  USE mo_mpi,                 ONLY: p_pe, p_io
-  USE mo_parallel_config, ONLY: num_io_procs
+  USE mo_mpi,                 ONLY: p_pe, p_io, process_mpi_io_size
   USE mo_io_units,            ONLY: filename_max
   USE mo_model_domain_import, ONLY: n_dom, nroot, lplane
   USE mo_ocean_nml,           ONLY: n_zlev
@@ -154,7 +153,7 @@ CONTAINS
 
       ! If not called for the first time, close previous output files
       ! (only if we are actually doing output!)
-      IF(num_io_procs == 0 .AND. p_pe == p_io) THEN
+      IF(process_mpi_io_size == 0 .AND. p_pe == p_io) THEN
         DO jg = n_dom, 1, -1
           CALL close_output_vlist(jg)
         ENDDO
@@ -208,7 +207,7 @@ CONTAINS
         ! #slo# must be aligned with general output
         CALL setup_vlist_oce( p_patch(1:), TRIM(p_patch(jg)%grid_filename), TRIM(outputfile), jg )
       ELSE
-        IF(num_io_procs == 0) THEN
+        IF(process_mpi_io_size == 0) THEN
           IF(p_pe == p_io) CALL open_output_vlist(TRIM(outputfile), jg)
         ELSE
           CALL set_output_file(outputfile, jg)
@@ -220,7 +219,7 @@ CONTAINS
     ! Setup I/O PEs if this is the initial call and I/O PEs are enabled
     ! Note that this has to be done AFTER the output files are set!
 
-    IF(jfile == 1 .AND. num_io_procs>0) CALL setup_io_procs()
+    IF(jfile == 1 .AND. process_mpi_io_size>0) CALL setup_io_procs()
 
 
   END SUBROUTINE init_output_files
@@ -236,11 +235,11 @@ CONTAINS
     INTEGER jg
 
     DO jg = n_dom, 1, -1
-      IF(num_io_procs == 0 .AND. p_pe == p_io) CALL close_output_vlist(jg)
+      IF(process_mpi_io_size == 0 .AND. p_pe == p_io) CALL close_output_vlist(jg)
       CALL destruct_vlist( jg )
     ENDDO
 
-    IF(num_io_procs>0) CALL shutdown_io_procs
+    IF(process_mpi_io_size>0) CALL shutdown_io_procs
 
   END SUBROUTINE close_output_files
 
@@ -261,7 +260,7 @@ CONTAINS
 !       CALL add_time(REAL(sec,wp),0,0,0,outptime)
 !    END IF
 !
-!    IF(num_io_procs == 0) THEN
+!    IF(process_mpi_io_size == 0) THEN
 !      CALL write_vlist(outptime)
 !    ELSE
 !      CALL output_async(outptime)
@@ -269,13 +268,13 @@ CONTAINS
 !
 
     IF ( PRESENT(z_sim_time) ) THEN  
-      IF(num_io_procs == 0) THEN
+      IF(process_mpi_io_size == 0) THEN
         CALL write_vlist(datetime, z_sim_time(1))
       ELSE
         CALL output_async(datetime,z_sim_time(1))
       ENDIF
     ELSE
-      IF(num_io_procs == 0) THEN
+      IF(process_mpi_io_size == 0) THEN
         CALL write_vlist(datetime)
       ELSE
         CALL output_async(datetime)

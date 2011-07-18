@@ -53,7 +53,7 @@ MODULE mo_io_async
 #ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
 #endif
-  USE mo_mpi,  ONLY: p_comm_work, p_comm_work_io, p_comm_work_2_io
+  USE mo_mpi,  ONLY: p_comm_work, p_comm_work_io, p_comm_work_2_io, process_mpi_io_size
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
@@ -63,7 +63,7 @@ MODULE mo_io_async
   USE mo_mpi,                 ONLY: p_pe, p_bcast, p_barrier, p_stop, p_real_dp, p_send, &
     & p_recv, my_process_is_mpi_test
   USE mo_parallel_config,  ONLY: p_pe_work, p_work_pe0, p_io_pe0,     &
-   &                                num_work_procs, num_io_procs, pio_type
+   &                                num_work_procs, pio_type
   USE mo_global_variables,    ONLY: setup_physics
   USE mo_nonhydrostatic_nml,  ONLY: ivctype, nonhydrostatic_nml_setup
 ! USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
@@ -408,7 +408,7 @@ CONTAINS
     ALLOCATE(var_pe_no(MAXVAL(num_output_vars(1:n_dom)), n_dom))
     var_pe_no(:,:) = -1
 
-    IF(num_io_procs <= n_dom) THEN
+    IF(process_mpi_io_size <= n_dom) THEN
 
       ! Every I/O PE gets at least 1 domain, no need to do parallel I/O
       ! We map the domains just cyclically to the I/O procs, maybe there exist better ways ...
@@ -416,7 +416,7 @@ CONTAINS
       use_pio = .FALSE.
 
       my_io_task_no = p_pe_work
-      num_io_tasks = num_io_procs
+      num_io_tasks = process_mpi_io_size
 
       DO jg = 1, n_dom
         io_task_no(jg) = MOD(jg-1,num_io_tasks)
