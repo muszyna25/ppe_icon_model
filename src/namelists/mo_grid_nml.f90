@@ -51,7 +51,7 @@ MODULE mo_grid_nml
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
                                  & open_and_restore_namelist, close_tmpfile
 
-  USE mo_grid_configuration, ONLY:                                         &
+  USE mo_grid_config,        ONLY:                                         &
     & config_global_cell_type             => global_cell_type,             &
     & config_nroot                        => nroot,                        &
     & config_start_lev                    => start_lev,                    &

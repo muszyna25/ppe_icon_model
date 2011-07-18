@@ -128,7 +128,7 @@ MODULE mo_dump_restore
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_io_units,           ONLY: filename_max, nerr
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_grid_configuration, ONLY: start_lev, n_dom, n_dom_start, lfeedback, &
+  USE mo_grid_config,        ONLY: start_lev, n_dom, n_dom_start, lfeedback, &
                                    l_limited_area, max_childdom, parent_id
   USE mo_intp_data_strc      ! We need all from that module
   USE mo_grf_intp_data_strc  ! We need all from that module

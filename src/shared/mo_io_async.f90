@@ -82,7 +82,7 @@ MODULE mo_io_async
    &                                vlist_set_date_time, vlist_start_step, vlist_write_var,      &
    &                                num_output_vars, outvar_desc,                                &
    &                                get_outvar_ptr_ha, get_outvar_ptr_nh
-  USE mo_grid_configuration,  ONLY: n_dom, parent_id
+  USE mo_grid_config,         ONLY: n_dom, parent_id
   USE mo_vertical_coord_table,ONLY: init_vertical_coord_table
   USE mo_vertical_grid,       ONLY: init_hybrid_coord, init_sleve_coord
   USE mo_advection_nml,       ONLY: transport_nml_setup

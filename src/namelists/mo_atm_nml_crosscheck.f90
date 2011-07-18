@@ -61,7 +61,7 @@ MODULE mo_atm_nml_crosscheck
   USE mo_io_config
   USE mo_gridref_config
   USE mo_interpol_config
-  USE mo_grid_configuration
+  USE mo_grid_config
   USE mo_sleve_config
 
   USE mo_dynamics_config,     ONLY: configure_dynamics,                        &

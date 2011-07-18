@@ -32,7 +32,7 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-MODULE mo_grid_configuration
+MODULE mo_grid_config
 !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
@@ -111,7 +111,7 @@ CONTAINS
     INTEGER  :: jg
 !    INTEGER  :: funit
     LOGICAL  :: file_exists
-    CHARACTER(*), PARAMETER :: method_name = "mo_grid_configuration:check_grid_configuration"
+    CHARACTER(*), PARAMETER :: method_name = "mo_grid_config:check_grid_configuration"
 
     !-----------------------------------------------------------------------
     ! find out how many grids we have
@@ -200,4 +200,4 @@ CONTAINS
     
   END SUBROUTINE check_grid_configuration
 
-END MODULE mo_grid_configuration
+END MODULE mo_grid_config

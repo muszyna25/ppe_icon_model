@@ -129,7 +129,7 @@ MODULE mo_io_vlist
     &                               ntracer, ltransport, nsteps, dtime,         &
     &                               ldynamics, ltestcase, lvert_nest, msg_level,&
     &                               iqv, iqc, iqi, iqcond
-  USE mo_grid_configuration,  ONLY : global_cell_type
+  USE mo_grid_config,        ONLY : global_cell_type
   USE mo_echam_phy_config
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_advection_nml,       ONLY: iadv_slev

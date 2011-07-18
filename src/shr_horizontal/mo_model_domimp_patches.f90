@@ -121,7 +121,7 @@ USE mo_model_domain,       ONLY: t_patch
 USE mo_parallel_configuration,  ONLY: nproma
 USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real, calculate_cart_normal,&
      &                           init_quad_twoadjcells, init_coriolis
-USE mo_grid_configuration, ONLY: start_lev, nroot, n_dom, n_dom_start,    &
+USE mo_grid_config,      ONLY: start_lev, nroot, n_dom, n_dom_start,    &
      &                           lfeedback, l_limited_area, max_childdom, &
      & dynamics_grid_filename,  dynamics_parent_grid_id,  &
      & radiation_grid_filename, dynamics_radiation_grid_link,   &

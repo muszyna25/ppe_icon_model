@@ -171,7 +171,7 @@ USE mo_model_domain_import, ONLY: n_dom, n_dom_start, lplane, l_limited_area, lf
 USE mo_namelist,            ONLY: position_nml, POSITIONED
 USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
 USE mo_parallel_configuration,  ONLY: nproma
-USE mo_grid_configuration,  ONLY: global_cell_type
+USE mo_grid_config,  ONLY: global_cell_type
 USE mo_run_config,          ONLY: ltransport
 USE mo_dynamics_config,     ONLY: iequations
 USE mo_mpi,                 ONLY: p_pe, p_io

@@ -65,7 +65,7 @@ MODULE mo_advection_utils
   USE mo_run_config,          ONLY: ntracer, num_lev, nlev,        &
     &                               iforcing, io3, iqt,            &
     &                               iqcond, ntracer_static, lvert_nest
-  USE mo_grid_configuration,  ONLY: n_dom
+  USE mo_grid_config,  ONLY: n_dom
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom,      &
     &                               min_rlcell_int, min_rledge_int, inwp

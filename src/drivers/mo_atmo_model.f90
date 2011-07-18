@@ -123,7 +123,7 @@ USE mo_model_domain_import, ONLY: &  !grid_nml_setup,          & ! process grid 
 & import_patches,       & !
 & destruct_patches        !
 
-USE mo_grid_configuration,   ONLY: parent_id
+USE mo_grid_config,      ONLY: parent_id
 
 ! Horizontal interpolation
 !

@@ -59,7 +59,7 @@ MODULE mo_nh_stepping
   USE mo_run_config,          ONLY: ltestcase, dtime, nsteps,  &
     &                               ltransport, ntracer, lforcing, iforcing, &
     &                               msg_level, ltimer
-  USE mo_grid_configuration, ONLY :  global_cell_type
+  USE mo_grid_config, ONLY :  global_cell_type
     
 !  USE mo_atm_phy_nwp_nml,     ONLY: tcall_phy
   USE mo_atm_phy_nwp_config,  ONLY: tcall_phy

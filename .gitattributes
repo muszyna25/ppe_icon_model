@@ -1045,7 +1045,7 @@ src/namelists/mo_echam_phy_nml.f90 -text
 src/namelists/mo_extpar_config.f90 -text
 src/namelists/mo_extpar_nml.f90 -text
 src/namelists/mo_global_variables.f90 -text
-src/namelists/mo_grid_configuration.f90 -text
+src/namelists/mo_grid_config.f90 -text
 src/namelists/mo_grid_nml.f90 -text
 src/namelists/mo_gridref_config.f90 -text
 src/namelists/mo_gridref_nml.f90 -text

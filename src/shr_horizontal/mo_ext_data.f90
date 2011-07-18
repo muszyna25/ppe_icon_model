@@ -56,7 +56,7 @@ MODULE mo_ext_data
   USE mo_model_domain,       ONLY: t_patch
   USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_grid_configuration, ONLY: n_dom
+  USE mo_grid_config,        ONLY: n_dom
   USE mo_interpolation,      ONLY: t_int_state, cells2verts_scalar
   USE mo_math_operators,     ONLY: nabla4_scalar
   USE mo_loopindices,        ONLY: get_indices_c

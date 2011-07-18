@@ -46,8 +46,8 @@ MODULE mo_atm_phy_nwp_config
   USE mo_impl_constants, ONLY: max_dom,MAX_CHAR_LENGTH,itconv,itccov,&
     &                               itrad,itradheat, itsso,itgscp,itsatad,itupdate,&
     &                               itturb, itsfc,  itgwd, iphysproc
-  USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_grid_configuration,  ONLY: n_dom
+  USE mo_exception,        ONLY: message, message_text, finish
+  USE mo_grid_config,      ONLY: n_dom
 
   USE mo_run_config,          ONLY: dtime, ltestcase
   USE mo_data_turbdiff,       ONLY: imode_turb,                              &
