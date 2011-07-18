@@ -212,7 +212,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
     LOGICAL :: lsuccess
     LOGICAL :: l_have_output
-
+    INTEGER :: istat
 
     ! For the coupling
 
@@ -294,64 +294,63 @@ CONTAINS
     ! If we belong to the I/O PEs just call io_main_proc before reading patches.
     ! This routine will never return
     
-!    IF (my_process_is_io()) CALL io_main_proc
-!    !------
-!    
-!    !check patch allocation status
-!    IF ( ALLOCATED(p_patch_global)) THEN
-!      CALL finish(TRIM(routine), 'patch already allocated')
-!    END IF
-!    !
-!    ! allocate patch array to start patch construction
-!    ALLOCATE(p_patch_global(n_dom_start:n_dom), stat=ist)
-!    IF (ist/=success) THEN
-!      CALL finish(TRIM(routine), 'allocation of patch failed')
-!    ENDIF
-!    
-!    IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
-!      CALL restore_patches_netcdf( p_patch_global )
-!    ELSE
-!      CALL import_patches( p_patch_global,                       &
-!                           nlev,nlevp1,num_lev,num_levp1,nshift, &
-!                           locean=.FALSE. )
-!    ENDIF
-!    
-!    IF(lrestore_states) THEN
-!      ! After the restore is done set p_comm_input_bcast in the
-!      ! same way as it would be set in parallel_nml_setup when
-!      ! no restore is wanted:
-!      IF(p_test_run) THEN
-!        ! Test PE reads and broadcasts to workers
-!        p_comm_input_bcast = p_comm_work_test
-!      ELSE
-!        ! PE 0 reads and broadcasts
-!        p_comm_input_bcast = p_comm_work
-!      ENDIF
-!    ENDIF
-!    
+    IF (my_process_is_io()) CALL io_main_proc
+    
+    ! Check patch allocation status
+
+    IF ( ALLOCATED(p_patch_global)) THEN
+      CALL finish(TRIM(routine), 'patch already allocated')
+    END IF
+     
+    ! Allocate patch array to start patch construction
+
+    ALLOCATE(p_patch_global(n_dom_start:n_dom), stat=istat)
+    IF (istat/=success) THEN
+      CALL finish(TRIM(routine), 'allocation of patch failed')
+    ENDIF
+    
+    IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
+      CALL restore_patches_netcdf( p_patch_global )
+    ELSE
+      CALL import_patches( p_patch_global,                       &
+                           nlev,nlevp1,num_lev,num_levp1,nshift, &
+                           locean=.FALSE. )
+    ENDIF
+    
+    IF(lrestore_states) THEN
+      ! After the restore is done set p_comm_input_bcast in the
+      ! same way as it would be set in parallel_nml_setup when
+      ! no restore is wanted:
+      IF(p_test_run) THEN
+        ! Test PE reads and broadcasts to workers
+        p_comm_input_bcast = p_comm_work_test
+      ELSE
+        ! PE 0 reads and broadcasts
+        p_comm_input_bcast = p_comm_work
+      ENDIF
+    ENDIF
 
     !-----------------------------------------------------------------------------
     ! 5. Construct interpolation state (global), compute interpolation coefficients.
     !-----------------------------------------------------------------------------
     !CALL configure_interpolation (jlev,n_dom,global_cell_type)
 
-    ! allocate type for interpolation state
+    ! Allocate array for interpolation state
     
- !   ALLOCATE( p_int_state_global(n_dom_start:n_dom), &
- !           & p_grf_state_global(n_dom_start:n_dom),STAT=ist)
- !   IF (ist /= SUCCESS) THEN
- !     CALL finish(TRIM(routine),'allocation for ptr_int_state failed')
- !   ENDIF
- !   
- !   IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
- !     ! Read interpolation state from NetCDF
- !     CALL restore_interpol_state_netcdf(p_patch_global, p_int_state_global)
- !   ELSE
- !     ! Interpolation state is constructed for
- !     ! the full domain on every PE and divided later
- !     CALL construct_2d_interpol_state(p_patch_global, p_int_state_global)
- !   ENDIF
- !
+    ALLOCATE( p_int_state_global(n_dom_start:n_dom), &
+            & p_grf_state_global(n_dom_start:n_dom),STAT=istat)
+    IF (istat /= SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for ptr_int_state failed')
+    ENDIF
+    
+    IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
+      ! Read interpolation state from NetCDF
+      CALL restore_interpol_state_netcdf(p_patch_global, p_int_state_global)
+    ELSE
+      ! Interpolation state is constructed for
+      ! the full domain on every PE and divided later
+      CALL construct_2d_interpol_state(p_patch_global, p_int_state_global)
+    ENDIF
 
     !-----------------------------------------------------------------------------
     ! 6. Construct grid refinment (coefficient) state
@@ -444,7 +443,7 @@ CONTAINS
     !    Assign values to derived variables in the configuration states
     !---------------------------------------------------------------------
 
-   !CALL configure_dynamics(lrestart, n_dom)
+    CALL configure_dynamics(lrestart, n_dom)
    !CALL configure_diffusion(n_dom, parent_id, nlev, vct_a, vct_b, apzero)
 
    !DO jg =1,n_dom
@@ -879,122 +878,8 @@ CONTAINS
     INTEGER :: n_io, jg, jfile, n_file, ist, n_diag, n_chkpt
     LOGICAL :: l_have_output
    
-    !-------------------------------------------------------------------
-    ! 1. Open the atmosphere-specific namelist file and create a 
-    !    new file in which all the namelist variables and their
-    !    actual values used in the model run will be stored.
-    !-------------------------------------------------------------------
-    CALL open_nml(TRIM(atm_namelist_filename))
-    IF(my_process_is_stdio()) CALL open_nml_output('NAMELIST_ICON_output_atm')
-
-    ! The namelists ('run_nml' and 'testcase_ctl') are read in seperate
-    ! subroutines. The validity of the user-specified configurations is
-    ! checked right after each namelist is read.
-    ! The two 'setup' subroutines above must be called before grid and patch
-    ! import because during the import procedure the topography and land-sea
-    ! mask will be initialized. They are related to the atmos/ocean switch
-    ! as well as the selected test case.
     
-   !CALL run_nml_setup   ! subroutine no longer exists!!!
-    
-    !-------------------------------------------------------------------
-    ! Initialize various timers; initialize data and time 
-    !-------------------------------------------------------------------
-    IF (ltimer) CALL init_timer
-    
-    ! parallel_nml_setup must be called after setup_run since it needs
-    ! some variables read in setup_run
-    
-!     CALL parallel_nml_setup
-    
-    !-------------------------------------------------------------------
-    ! Initialize test case setup 
-    !-------------------------------------------------------------------
-    IF (ltestcase) THEN
-      
-      SELECT CASE (iequations)
-      CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
-        CALL read_ha_testcase_namelist( atm_namelist_filename )
-        
-      CASE (inh_atmosphere)
-        CALL read_nh_testcase_namelist( atm_namelist_filename )
-        
-      CASE DEFAULT
-        CALL finish( TRIM(routine),' invalid value for iequations!' )
-      END SELECT
-      
-    ENDIF
-    
-    !-------------------------------------------------------------------
-    ! step 2: import computational domain of the model
-    !-------------------------------------------------------------------
-    ! 2a) read namelist 'grid_ctl' from the namelist file (already
-    !     opened above) and set up the grid/patch configuration.
-    !-------------------------------------------------------------------
-    
-!    CALL grid_nml_setup
-!   CALL read_grid_namelist( )
-    
-    !-------------------------------------------------------------------
-    ! 2b) patch import
-    !-------------------------------------------------------------------
-    
-    !-------------------------------------------------------------------
-    ! If we belong to the I/O PEs just call io_main_proc before reading patches.
-    ! This routine will never return
-    
-    IF (my_process_is_io()) CALL io_main_proc
-    !-------------------------------------------------------------------
-    
-    !check patch allocation status
-    IF ( ALLOCATED(p_patch_global)) THEN
-      CALL finish(TRIM(routine), 'patch already allocated')
-    END IF
-    !
-    ! allocate patch array to start patch construction
-    ALLOCATE(p_patch_global(n_dom_start:n_dom), stat=ist)
-    IF (ist/=success) THEN
-      CALL finish(TRIM(routine), 'allocation of patch failed')
-    ENDIF
-    
-    IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
-      CALL restore_patches_netcdf( p_patch_global )
-    ELSE
-      CALL import_patches( p_patch_global,                       &
-                           nlev,nlevp1,num_lev,num_levp1,nshift, &
-                           locean=.FALSE. )
-    ENDIF
-    
-    IF(lrestore_states) THEN
-      ! After the restore is done set p_comm_input_bcast in the
-      ! same way as it would be set in parallel_nml_setup when
-      ! no restore is wanted:
-      IF(p_test_run) THEN
-        ! Test PE reads and broadcasts to workers
-        p_comm_input_bcast = p_comm_work_test
-      ELSE
-        ! PE 0 reads and broadcasts
-        p_comm_input_bcast = p_comm_work
-      ENDIF
-    ENDIF
-    
-    !------------------------------------------------------------------
-    ! step 3a: Read namelist 'dynamics_ctl'. This has to be done
-    !          before the interpolation state is computed.
-    !------------------------------------------------------------------
-  ! CALL dynamics_nml_setup(n_dom)
-    
-    !------------------------------------------------------------------
-    ! Read specific dynamics namelists for the nonhydrost. dynamical core
-    !------------------------------------------------------------------
-    SELECT CASE (iequations)
-    
-    CASE (inh_atmosphere)
-     !CALL nonhydrostatic_nml_setup
-      
-    CASE DEFAULT
-    END SELECT
-    
+   
     !------------------------------------------------------------------
     ! step 3a-a: ! read nwp physics namelist, ...
     !------------------------------------------------------------------
@@ -1005,45 +890,6 @@ CONTAINS
       CALL setup_nwp_lnd
     ENDIF
     
-    !------------------------------------------------------------------
-    ! step 3b: Read namelist 'transport_ctl',
-    !------------------------------------------------------------------
-    IF (ltransport) THEN
-      CALL transport_nml_setup
-    END IF
-    
-    !------------------------------------------------------------------
-    ! step 4: construct interpolation and the grid refinement state
-    !------------------------------------------------------------------
-    ! - Allocate memory for the interpolation state;
-    ! - Calculate interpolation coefficients.
-    !------------------------------------------------------------------
-    ! KF empty SR, call needs to be shifted
-   !CALL gridref_nml_setup
-    
-    ! interpolation state not used for ocean model
-    ! #slo# - temporarily switched on for comparison with rbf-reconstruction
-    
-   !CALL interpol_nml_setup(p_patch_global)
-    
-    !
-    ! allocate type for interpolation state
-    !
-    
-    ALLOCATE( p_int_state_global(n_dom_start:n_dom), &
-            & p_grf_state_global(n_dom_start:n_dom),STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for ptr_int_state failed')
-    ENDIF
-    
-    IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
-      ! Read interpolation state from NetCDF
-      CALL restore_interpol_state_netcdf(p_patch_global, p_int_state_global)
-    ELSE
-      ! Interpolation state is constructed for
-      ! the full domain on every PE and divided later
-      CALL construct_2d_interpol_state(p_patch_global, p_int_state_global)
-    ENDIF
  
     !------------------------------------------------------------------
     ! step 5a: init the structure of the model equations
