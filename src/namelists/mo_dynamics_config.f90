@@ -107,10 +107,6 @@ CONTAINS
     CHARACTER(LEN=*),PARAMETER :: routine='mo_dynamics_config:setup_dynamics_config'
 
     !------------------------
-
-    lshallow_water = (iequations==ISHALLOW_WATER)
-    ltwotime = (itime_scheme/=LEAPFROG_EXPL).AND.(itime_scheme/=LEAPFROG_SI)
-
     ! Set time level indices
 
     IF (lrestart) THEN
