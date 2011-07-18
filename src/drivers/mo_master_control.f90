@@ -1,5 +1,5 @@
 !>
-!! Provides th master control methods and paramaters
+!! Provides the master control methods and paramaters
 !! 
 !!        
 !! @par Revision History
@@ -155,8 +155,8 @@ MODULE mo_master_control
 
             IF ( get_my_global_mpi_id() == jg ) THEN
 
-               CALL icon_cpl_init_comp ( 'oce', my_process_model, comp_id, ierr )
                CALL set_my_component("OCEAN", ocean_process , ocean_namelist_filename)
+               CALL icon_cpl_init_comp ( 'oce', my_process_model, comp_id, ierr )
 
 !rr  will be moved into mo_ocean_model.f90
 !rr               coupling_namelist_status = &
@@ -170,8 +170,8 @@ MODULE mo_master_control
 
             IF ( get_my_global_mpi_id() == jg ) THEN
 
-               CALL icon_cpl_init_comp ( 'atm', my_process_model, comp_id, ierr )
                CALL set_my_component("ATMO", atmo_process ,atmo_namelist_filename)
+               CALL icon_cpl_init_comp ( 'atm', my_process_model, comp_id, ierr )
 
 !rr will be moved into mo_atmo_model.f90
 !rr               coupling_namelist_status = &
