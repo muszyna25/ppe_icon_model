@@ -53,7 +53,6 @@ USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I
 USE mo_global_variables,    ONLY: setup_physics           ! process forcing control parameters
 USE mo_nonhydrostatic_nml,  ONLY: ivctype,              & ! type of vertical coordinate
 & nonhydrostatic_nml_setup
-USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
 !USE mo_io_config,           ONLY: dt_data, dt_file, dt_diag, dt_checkpoint 
 USE mo_io_config,         ONLY:  dt_data,dt_file,dt_diag,dt_checkpoint
 USE mo_dynamics_config,   ONLY: iequations
@@ -494,7 +493,7 @@ INTEGER, POINTER :: grid_glob_index(:)
     ! step 3a: Read namelist 'dynamics_ctl'. This has to be done
     !          before the interpolation state is computed.
     !------------------------------------------------------------------
-    CALL dynamics_nml_setup(n_dom)
+  ! CALL dynamics_nml_setup(n_dom)
     
     !------------------------------------------------------------------
     ! Read specific dynamics namelists for the nonhydrost. dynamical core

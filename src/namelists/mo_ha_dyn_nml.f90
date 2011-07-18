@@ -1,6 +1,6 @@
 !>
-!! Namelist specific to the hydro atm dynamical core. 
-!! 
+!! Namelist specific to the hydro atm dynamical core.
+!!
 !! @par Revision History
 !!
 !! @par Copyright
@@ -34,15 +34,15 @@ MODULE mo_ha_dyn_nml
 
   USE mo_ha_dyn_config,         ONLY: ha_dyn_config
   USE mo_kind,                  ONLY: wp
-  USE mo_mpi,                   ONLY: p_pe, p_io
+  USE mo_impl_constants,        ONLY: AB2
+  USE mo_mpi,                   ONLY: my_process_is_stdio
   USE mo_io_units,              ONLY: nnml, nnml_output
-  USE mo_exception,             ONLY: message, message_text, finish
+  USE mo_exception,             ONLY: message, finish
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_master_nml,            ONLY: lrestart
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
-  USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist, &       
+  USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist, &
                                       open_and_restore_namelist, close_tmpfile
-  USE mo_impl_constants,        ONLY:  AB2
 
   IMPLICIT NONE
   PRIVATE
@@ -55,41 +55,44 @@ MODULE mo_ha_dyn_nml
   !---------------------
 
   INTEGER  :: ileapfrog_startup  ! choice of the first time step in
-                                     ! a leapfrog time stepping scheme
-                                     ! 1 = Euler forward
-                                     ! 2 = several sub-steps
+                                 ! a leapfrog time stepping scheme
+                                 ! 1 = Euler forward
+                                 ! 2 = several sub-steps
 
   REAL(wp) :: asselin_coeff      ! parameter used in Asselin filter
 
   INTEGER  :: si_expl_scheme     ! scheme for the explicit part of the
-                                     ! 2-time-level semi-implicit time integration.
-                                     ! See mo_impl_constants for the options.
+                                 ! 2-time-level semi-implicit time integration.
+                                 ! See mo_impl_constants for the options.
   REAL(wp) :: si_2tls
 
   REAL(wp) :: si_rtol     ! relative tolerance
 
   REAL(wp) :: si_coeff    !  = 0 : explicit scheme(for *d*,*t*,*alps*).
-                              !  = 1 : semi implicit scheme.
-                              !  in (0,1): a weighted scheme
+                          !  = 1 : semi implicit scheme.
+                          !  in (0,1): a weighted scheme
 
   REAL(wp) :: si_offctr   ! weighting parameter used in calculating the
-                              ! second temporal derivatives in the semi-implicit
-                              ! correction scheme. The value read from namelist are
-                              ! assumed to be the offcentering (i.e. between 0 and 1).
+                          ! second temporal derivatives in the semi-implicit
+                          ! correction scheme. The value read from namelist are
+                          ! assumed to be the offcentering (i.e. between 0 and 1).
 
 
 
   REAL(wp) :: si_cmin     ! min. phase speed of the decomposed modes to be
-                              ! solved by the semi-implicit correction scheme
+                          ! solved by the semi-implicit correction scheme
   LOGICAL  :: lsi_3d      ! if .true., solve the 3D equation
 
-  LOGICAL  :: lref_temp   ! if .TRUE., involve the reference temperature profile
-                              ! in the calculation of pressure gradient force.
+  LOGICAL :: ldry_dycore  ! if .TRUE., ignore the effact of water vapor,
+                          ! cloud liquid and cloud ice on virtual temperature.
 
-  NAMELIST/ha_dyn_nml/ ileapfrog_startup, asselin_coeff,     &
+  LOGICAL  :: lref_temp   ! if .TRUE., involve the reference temperature profile
+                          ! in the calculation of pressure gradient force.
+
+  NAMELIST/ha_dyn_nml/ ileapfrog_startup, asselin_coeff, &
                        si_expl_scheme, si_2tls, si_rtol, &
                        si_coeff, si_offctr, si_cmin,     &
-                       lsi_3d, lref_temp
+                       lsi_3d, ldry_dycore, lref_temp
 
 CONTAINS
   !>
@@ -105,20 +108,21 @@ CONTAINS
     !------------------------------------------------------------
     ileapfrog_startup = 1
     asselin_coeff     = 0.1_wp
- 
-    si_expl_scheme    = AB2 
-    si_2tls           = 0.6_wp 
+
+    si_expl_scheme    = AB2
+    si_2tls           = 0.6_wp
     si_rtol           = 1.e-3_wp
 
     si_coeff          = 1.0_wp
     si_offctr         = 0.7_wp
     si_cmin           = 30._wp
     lsi_3d            = .FALSE.
- 
+
+    ldry_dycore       = .FALSE.
     lref_temp         = .FALSE.
 
     !------------------------------------------------------------------------
-    ! If this is a resumed integration, overwrite the defaults above by 
+    ! If this is a resumed integration, overwrite the defaults above by
     ! values in the restart file
     !------------------------------------------------------------------------
     IF (lrestart) THEN
@@ -128,7 +132,7 @@ CONTAINS
     END IF
 
     !------------------------------------------------------------------------
-    ! Read user's (new) specifications. (Done so far by all MPI processors)
+    ! Read user's (new) specifications. (Done so far by all MPI processes)
     !------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('ha_dyn_nml', STATUS=istat)
@@ -154,11 +158,11 @@ CONTAINS
       CALL message(TRIM(routine),                            &
           'use of reference temperature switched ON in ' //  &
           'calculation of pressure gradient force.')
-    ELSE                                                                    
+    ELSE
       CALL message(TRIM(routine),                            &
            'use of reference temperature switched OFF in '// &
            'calculation of pressure gradient force.')
-    ENDIF 
+    ENDIF
 
     !-----------------------------------------------------
     ! Store the namelist for restart
@@ -168,7 +172,7 @@ CONTAINS
     CALL store_and_close_namelist(funit, 'ha_dyn_nml')
 
     ! write the contents of the namelist to an ASCII file
-    IF(p_pe == p_io) WRITE(nnml_output,nml=ha_dyn_nml)
+    IF(my_process_is_stdio()) WRITE(nnml_output,nml=ha_dyn_nml)
 
     !-----------------------------------------------------
     ! Fill configuration state
@@ -183,6 +187,7 @@ CONTAINS
     ha_dyn_config% si_cmin           = si_cmin
     ha_dyn_config% lsi_3d            = lsi_3d
     ha_dyn_config% lref_temp         = lref_temp
+    ha_dyn_config% ldry_dycore       = ldry_dycore
 
   END SUBROUTINE read_ha_dyn_namelist
 

@@ -52,7 +52,7 @@ MODULE mo_ocean_model
   USE mo_global_variables,    ONLY: setup_physics        ! process forcing control parameters
 !0  &                               impiom,            & !    :
   USE mo_ocean_nml,           ONLY: setup_ocean_nml
-  USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
+! USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
 ! USE mo_io_config,           ONLY: dt_data, dt_file, dt_diag
   USE mo_io_config,         ONLY:  dt_data,dt_file,dt_diag!,dt_checkpoint
   USE mo_run_config,        ONLY: &
@@ -259,7 +259,8 @@ CONTAINS
     ! step 3a: Read namelist 'dynamics_ctl'. This has to be done
     !          before the interpolation state is computed.
     !------------------------------------------------------------------
-    CALL dynamics_nml_setup(n_dom)
+   !CALL dynamics_nml_setup(n_dom)
+    CALL finish(TRIM(routine),'subroutine dynamics_nml_setup no longer exists!')
     
     !------------------------------------------------------------------
     ! step 3b: Read namelist 'transport_ctl',

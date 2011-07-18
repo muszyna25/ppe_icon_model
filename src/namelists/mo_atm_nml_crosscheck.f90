@@ -66,7 +66,7 @@ MODULE mo_atm_nml_crosscheck
 
   USE mo_dynamics_config,     ONLY: configure_dynamics,                        &
                                     iequations, itime_scheme, idiv_method,     &
-                                    divavg_cntrwgt, sw_ref_height, ldry_dycore,&
+                                    divavg_cntrwgt, sw_ref_height,             &
                                     lcoriolis, lshallow_water, ltwotime
   USE mo_advection_config,    ONLY: advection_config !, configure_advection
 
@@ -240,7 +240,9 @@ CONTAINS
       CALL finish( TRIM(ROUTINE),'idiv_method =2 not valid for the hexagonal model')
     ENDIF
 
-    IF ((iforcing==IHELDSUAREZ.OR.iforcing==ILDF_DRY).AND.(.NOT.ldry_dycore)) &
+    IF ((iequations==IHS_ATM_TEMP.OR.iequations==IHS_ATM_THETA).AND.    &
+        (iforcing==IHELDSUAREZ.OR.iforcing==ILDF_DRY).AND.              &
+        (.NOT.ha_dyn_config%ldry_dycore))                               &
     CALL finish( TRIM(ROUTINE),'ldry_dycore should be .TRUE. for the '//&
                'Held-Suarez test and the dry local diabatic forcing test.')
 
@@ -359,9 +361,6 @@ CONTAINS
         CALL message(TRIM(routine),' WARNING! NWP forcing set but '//&
                     'only turbulence selected!')
 
-        IF ((iequations==INH_ATMOSPHERE).AND.(iforcing==inwp).AND.ldry_dycore) &
-        CALL finish(TRIM(routine),'ldry_dycore = .TRUE. not allowed for '//&
-                   'the nonhydrostaic atm model with NWP physics.')
 
         ! check radiation scheme in relation to chosen ozone
 

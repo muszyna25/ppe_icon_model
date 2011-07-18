@@ -42,7 +42,8 @@ MODULE mo_ha_diag_util
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data,           ONLY: t_external_data
   USE mo_math_operators,     ONLY: grad_fd_norm, div, div_avg, rot_vertex
-  USE mo_dynamics_config,    ONLY: idiv_method, ldry_dycore, lshallow_water
+  USE mo_dynamics_config,    ONLY: idiv_method, lshallow_water
+  USE mo_ha_dyn_config,      ONLY: ha_dyn_config
   USE mo_io_config,          ONLY: lwrite_omega, l_outputtime
   USE mo_parallel_configuration,  ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: nlev, nlevp1, iqv, iqc, iqi, iqr, iqs, iforcing
@@ -555,7 +556,7 @@ CONTAINS
 !$OMP PARALLEL  PRIVATE(jbs)
     IF (.NOT. lshallow_water) THEN
 
-      IF (ldry_dycore) THEN
+      IF (ha_dyn_config%ldry_dycore) THEN
 !$OMP WORKSHARE
         p_diag% qx       (:,:,:) = 0._wp
         p_diag% virt_incr(:,:,:) = 0._wp

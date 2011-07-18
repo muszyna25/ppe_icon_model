@@ -112,7 +112,7 @@ MODULE mo_io_vlist
   USE mo_ocean_nml,           ONLY: n_zlev, iforc_oce,no_tracer
   USE mo_dynamics_config,     ONLY: itime_scheme,iequations,lshallow_water,     &
     &                               idiv_method, divavg_cntrwgt,                &
-    &                               ldry_dycore, nold, nnow, lcoriolis
+    &                               nold, nnow, lcoriolis
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_io_config,           ONLY: lwrite_omega, lwrite_pres, lwrite_z3,       &
@@ -576,27 +576,27 @@ CONTAINS
    !----------------------------
     IF (iequations == 1 .OR. iequations == 2) THEN
 
-      CALL addGlobAttTxtFromLog('dynamics_ctl:lsi_3d',&
+      CALL addGlobAttTxtFromLog('ha_dyn_nml:lsi_3d',&
            ha_dyn_config%lsi_3d,vlistID(k_jg),astatus)
-      CALL addGlobAttInt('dynamics_ctl:ileapfrog_startup', &
+      CALL addGlobAttInt('ha_dyn_nml:ileapfrog_startup', &
            ha_dyn_config%ileapfrog_startup,vlistID(k_jg),astatus)
-      CALL addGlobAttFlt('dynamics_ctl:asselin_coeff',&
+      CALL addGlobAttFlt('ha_dyn_nml:asselin_coeff',&
            ha_dyn_config%asselin_coeff,vlistID(k_jg),astatus)
-      CALL addGlobAttFlt('dynamics_ctl:si_2tls',&
+      CALL addGlobAttFlt('ha_dyn_nml:si_2tls',&
            ha_dyn_config%si_2tls,vlistID(k_jg),astatus)
-      CALL addGlobAttFlt('dynamics_ctl:si_coeff',&
+      CALL addGlobAttFlt('ha_dyn_nml:si_coeff',&
            ha_dyn_config%si_coeff,vlistID(k_jg),astatus)
-      CALL addGlobAttFlt('dynamics_ctl:si_offctr',&
+      CALL addGlobAttFlt('ha_dyn_nml:si_offctr',&
            ha_dyn_config%si_offctr,vlistID(k_jg),astatus)
-      CALL addGlobAttFlt('dynamics_ctl:si_rtol',&
+      CALL addGlobAttFlt('ha_dyn_nml:si_rtol',&
            ha_dyn_config%si_rtol,vlistID(k_jg),astatus)
-      CALL addGlobAttFlt('dynamics_ctl:si_cmin',&
+      CALL addGlobAttFlt('ha_dyn_nml:si_cmin',&
            ha_dyn_config%si_cmin,vlistID(k_jg),astatus)
-      CALL addGlobAttInt('dynamics_ctl:si_expl_scheme',&
+      CALL addGlobAttInt('ha_dyn_nml:si_expl_scheme',&
            ha_dyn_config%si_expl_scheme,vlistID(k_jg),astatus)
-      CALL addGlobAttTxtFromLog('dynamics_ctl:ldry_dycore',&
+      CALL addGlobAttTxtFromLog('ha_dyn_nml:ldry_dycore',&
            ha_dyn_config%ldry_dycore,vlistID(k_jg),astatus)
-      CALL addGlobAttTxtFromLog('dynmaics_ctl:lref_temp',&
+      CALL addGlobAttTxtFromLog('ha_dyn_nml:lref_temp',&
            ha_dyn_config%lref_temp,vlistID(k_jg),astatus)
     ENDIF
 

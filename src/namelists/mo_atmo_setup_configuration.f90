@@ -35,7 +35,6 @@
 MODULE mo_atmo_setup_configuration
 
   USE mo_mpi,                 ONLY: my_process_is_stdio 
-  USE mo_master_nml,          ONLY: lrestart
   USE mo_namelist,            ONLY: open_nml_output, close_nml_output
 
   USE mo_time_nml,            ONLY: read_time_namelist
@@ -64,9 +63,6 @@ MODULE mo_atmo_setup_configuration
   USE mo_grid_nml,            ONLY: read_grid_namelist
   USE mo_interpol_nml,        ONLY: read_interpol_namelist
 
-  USE mo_io_restart_namelist,  ONLY: read_restart_namelists
-  USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
-  
   IMPLICIT NONE
   
   PRIVATE
@@ -94,7 +90,10 @@ CONTAINS
     CALL read_parallel_namelist   (TRIM(shr_namelist_filename))
 
     !-----------------------------------------------------------------
-    ! Read namelist setups that are specific to the atm model 
+    ! Read namelist setups that are specific to the atm model.
+    ! In case of a coupled simulation, the ocean model may also
+    ! read some of these namelists, but probably from a different
+    ! ASCII file containing different values.
     !-----------------------------------------------------------------
     ! General
 

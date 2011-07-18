@@ -38,7 +38,6 @@ MODULE mo_dynamics_nml
                                   & config_itime_scheme   => itime_scheme,   &
                                   & config_idiv_method    => idiv_method,    &
                                   & config_divavg_cntrwgt => divavg_cntrwgt, &
-                                  & config_ldry_dycore    => ldry_dycore,    &
                                   & config_sw_ref_height  => sw_ref_height,  &
                                   & config_lcoriolis      => lcoriolis
 
@@ -48,7 +47,7 @@ MODULE mo_dynamics_nml
   USE mo_physical_constants,  ONLY: grav
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_mpi,                 ONLY: p_pe, p_io
+  USE mo_mpi,                 ONLY: my_process_is_stdio 
 
   USE mo_master_nml,          ONLY: lrestart
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,   &       
@@ -57,14 +56,11 @@ MODULE mo_dynamics_nml
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: read_dynamics_namelist
-  PUBLIC :: dynamics_nml_setup
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
-
   !---------------------------------------------------------------
-  ! Namelist variables and auxiliary parameters setting up the
-  ! configuration of the dynamical core
+  ! Namelist variables 
   !---------------------------------------------------------------
   ! time stepping scheme 
 
@@ -92,9 +88,6 @@ MODULE mo_dynamics_nml
 
   REAL(wp) :: divavg_cntrwgt ! weight of central cell for divergence averaging
 
-  LOGICAL :: ldry_dycore     ! if .TRUE., ignore the effact of water vapor,
-                             ! cloud liquid and cloud ice on virtual temperature.
-
   REAL(wp) :: sw_ref_height  ! reference height to linearize around if using
                              ! lshallow_water and semi-implicit correction
 
@@ -102,8 +95,7 @@ MODULE mo_dynamics_nml
 
   NAMELIST/dynamics_nml/ iequations,  itime_scheme,   &
                          idiv_method, divavg_cntrwgt, &
-                         ldry_dycore, sw_ref_height,  &
-                         lcoriolis
+                         sw_ref_height,  lcoriolis
 
 CONTAINS
   !>
@@ -121,7 +113,6 @@ CONTAINS
     itime_scheme   = LEAPFROG_SI
     idiv_method    = 1
     divavg_cntrwgt = 0.5_wp
-    ldry_dycore    = .FALSE.
     sw_ref_height  = 0.9_wp*2.94e4_wp/grav
     lcoriolis      = .TRUE.
  
@@ -136,7 +127,7 @@ CONTAINS
     END IF
 
     !------------------------------------------------------------------------
-    ! Read user's (new) specifications. (Done so far by all MPI processors)
+    ! Read user's (new) specifications. (Done so far by all MPI processes)
     !------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('dynamics_nml', STATUS=istat)
@@ -167,7 +158,7 @@ CONTAINS
     CALL store_and_close_namelist(funit, 'dynamics_nml')
 
     ! write the contents of the namelist to an ASCII file
-    IF(p_pe == p_io) WRITE(nnml_output,nml=dynamics_nml)
+    IF(my_process_is_stdio()) WRITE(nnml_output,nml=dynamics_nml)
 
     !-----------------------------------------------------
     ! 5. Fill configuration state
@@ -177,19 +168,10 @@ CONTAINS
     config_itime_scheme   = itime_scheme
     config_idiv_method    = idiv_method
     config_divavg_cntrwgt = divavg_cntrwgt
-    config_ldry_dycore    = ldry_dycore
     config_sw_ref_height  = sw_ref_height
     config_lcoriolis      = lcoriolis
 
   END SUBROUTINE read_dynamics_namelist
-
-  !>
-  !!
-  SUBROUTINE dynamics_nml_setup(i_ndom)
-
-    INTEGER, INTENT(IN) :: i_ndom
- 
-  END SUBROUTINE dynamics_nml_setup
   !-------------
 
 END MODULE mo_dynamics_nml

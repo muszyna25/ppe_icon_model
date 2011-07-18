@@ -1718,8 +1718,6 @@ n\_dom>1\tabularnewline
 
 Defined and used in: src/namelists/mo\_gridref\_nml.f90
 
-
-
 %------------------------------------------------------------------------------
 % interpol_nml: horizontal interpolation/reconstruction
 %------------------------------------------------------------------------------
@@ -1817,6 +1815,177 @@ i\_cori\_method=3
 \end{longtab}
 
 Defined and used in: src/namelists/mo\_interpol\_nml.f90
+
+
+
+%-----------------------------------------------------------------------------
+% dynamics_nml:
+%-----------------------------------------------------------------------------
+\subsection{dynamics\_nml}
+This namelist is relevant if run\_nml:ldynamics=.TRUE.
+
+\begin{longtab}
+
+\hline 
+iequations&
+I& 1& &
+Equations and prognostic variables. Use positive indices for the atmosphere 
+and negative indices for the ocean.&\tabularnewline
+&&&&0: shallow water model&\tabularnewline
+&&&&1: hydrostatic atmosphere, T&\tabularnewline
+&&&&2: hydrostatic atm., $\theta$$\cdot$dp&\tabularnewline
+&&&&3: non-hydrostatic atmosphere&\tabularnewline
+&&&&-1: hydrostatic ocean&
+\tabularnewline
+
+\hline
+itime\_scheme&
+I& 4& &
+Time integration scheme:& \tabularnewline
+& & & & 1: pure advection (no dynamics)& \tabularnewline
+& & & & 2: 2 time level semi implicit (not yet implemented)& iequations=1 or 2
+\tabularnewline
+& & & & 3: 3 time level explicit& iequations=1 or 2 
+\tabularnewline
+& & & & 4: 3 time level with semi implicit correction& iequations=1 or 2
+\tabularnewline
+& & & & 5: standard 4th-order Runge-Kutta method (4-stage)& iequations=1 or 2
+\tabularnewline
+& & & &
+6: SSPRK(5,4) scheme (5-stage)& iequations=1 or 2
+\tabularnewline
+&&&&&
+\tabularnewline
+& & & & 3: same as default, but computation of velocity tendencies 
+in corrector step only& iequations=3 and i\_cell\_type=3
+\tabularnewline
+& & & & 4: Matsuno scheme& iequations=3 and i\_cell\_type=3
+\tabularnewline
+& & & & 6: same as default, but usage of velocity tendencies 
+at (nnow+nnew)/2& iequations=3 and i\_cell\_type=3
+\tabularnewline
+
+\hline 
+idiv\_method&
+I& 1& &
+Method for divergence computation:&
+grid\_nml:cell\_type=3\tabularnewline
+& & & & 1: Standard Gaussian integral. Hydrostatic atm.~model: 
+for unaveraged normal components,
+Non-hydrostatic atm.~model: for averaged normal components &
+\tabularnewline
+& & & & 2: bilinear averaging of divergence& \tabularnewline
+
+\hline 
+divavg\_cntrwgt&
+R& 0.5& &
+Weight of central cell for divergence averaging&
+idiv\_method= 2 
+\tabularnewline
+
+\hline 
+sw\_ref\_height &
+R &  0.9*2.94e4/g& m &
+Reference height of shallow water model used for 
+linearization in the semi-implicit time stepping scheme&
+\tabularnewline
+
+\hline 
+lcoriolis &
+L & .TRUE.& &
+Coriolis force&
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_dynamics\_nml.f90
+
+%-----------------------------------------------------------------------------
+% ha_dyn_nml: hydrostatic atm dynamics
+%-----------------------------------------------------------------------------
+\subsection{ha\_dyn\_nml}
+
+This namelist is relevant if 
+run\_nml:ldynamics=.TRUE. 
+and dynamics\_nml:iequations=IHS\_ATM\_TEMP or IHS\_ATM\_THETA.
+
+\begin{longtab}
+
+\hline 
+ileapfrog\_startup&
+I& 1& &
+How to integrate the first time step when the leapfrog scheme
+is chosen. 1 = Euler forward; 2 = a series of sub-steps. &
+itime\_scheme= 3 or 4 \tabularnewline
+
+\hline 
+asselin\_coeff&
+R& 0.1& &
+Asselin filter coefficient&
+itime\_scheme= 3 or 4 \tabularnewline
+
+\hline 
+si\_2tls &
+R & 0.6 & &
+weight of time step n+1. Valid range: [0,1] &
+itime\_scheme=2\tabularnewline
+
+\hline
+si\_expl\_scheme &
+I & 2 & &
+scheme for the explicit part used in the 2 time level
+semi-implicit time stepping scheme. 1 = Euler forward;
+2 = Adams-Bashforth 2nd order &
+itime\_scheme=2\tabularnewline
+
+\hline 
+si\_cmin&
+R & 30.0 & m/s&
+semi implicit correction is done for eigenmodes with speeds larger
+than si\_cmin&
+itime\_scheme=4 and lsi\_3d=.FALSE.\tabularnewline
+
+\hline 
+si\_coeff&
+R & 1.0 & &
+weight of the semi implicit correction&
+itime\_scheme=4 \tabularnewline
+
+\hline 
+si\_offctr&
+R & 0.7 & &
+&
+itime\_scheme=4 \tabularnewline
+
+\hline 
+si\_rtol &
+R & 1.0e-3 & &
+relative tolerance for GMRES solver&
+itime\_scheme=4 \tabularnewline
+
+\hline 
+lsi\_3d&
+L& .FALSE.& &
+3D GMRES solver or decomposistion into 2D problems&
+lshallow\_water=.FALSE. and itime\_scheme=4\tabularnewline
+\hline 
+
+\hline
+ldry\_dycore &
+L & .TRUE. & &
+Assume dry atmosphere &
+iequations$\in$\{1,2\}
+\tabularnewline
+
+\hline 
+lref\_temp &
+L & .FALSE. & &
+Set a background temperature profile as base state 
+when computing the pressure graident force &
+iequations$\in$\{1,2\} 
+\tabularnewline
+
+\end{longtab}
 
 
 
@@ -1924,34 +2093,34 @@ Physics induced tendencies.&
 lwrite\_radiation &
 L&  .FALSE. & &
 Radiation related fields.&
-Always .FALSE. if iforcing=inoforcing,iheldsuarez,ildf\_dry 
+Always .FALSE. if iforcing=inoforcing, iheldsuarez, ildf\_dry 
 \tabularnewline
 
 \hline
 lwrite\_precip &
 L&  .FALSE. & &
 Precipitation &
-Always .FALSE. if iforcing=inoforcing,iheldsuarez,ildf\_dry 
+Always .FALSE. if iforcing=inoforcing, iheldsuarez, ildf\_dry 
 \tabularnewline
 
 \hline
 lwrite\_cloud&
 L& .FALSE.  & &
 Cloud variables &
-Always .FALSE. if iforcing=inoforcing,iheldsuarez,ildf\_dry 
+Always .FALSE. if iforcing=inoforcing, iheldsuarez, ildf\_dry 
 \tabularnewline
 
 \hline
 lwrite\_tke& L& .TRUE. &
 & TKE & .FALSE.  \\
-Always .FALSE. if iforcing=inoforcing,iheldsuarez,ildf\_dry 
+Always .FALSE. if iforcing=inoforcing, iheldsuarez, ildf\_dry 
 \tabularnewline
 
 \hline
 lwrite\_surface&
 L& .FALSE. & &
 surface variables &
-Always .FALSE. if iforcing=inoforcing,iheldsuarez,ildf\_dry 
+Always .FALSE. if iforcing=inoforcing, iheldsuarez, ildf\_dry 
 \tabularnewline
 
 \hline
@@ -1990,216 +2159,7 @@ Defined and used in: src/namelists/mo\_io\_nml.f90
 
 
 
-\subsection{dynamics\_ctl (used if run\_nml/ldynamics=.TRUE.)}
 
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
-
-\hline 
-iequations&
-I& 1& &
-Equations and prognostic variables. Use positive indices for the atmosphere 
-and negative indices for the ocean.\\
-0: shallow water model\\
-1: hydrostatic atmosphere, T\\
-2: hydrostatic atm., $\theta$$\cdot$dp\\
-3: non-hydrostatic atmosphere\\
--1: hydrostatic ocean&
-\tabularnewline
-
-\hline
-\endhead
-\hline 
-idiv\_method&
-I&
-1&
-&
-Method for divergence computation:&
-i\_cell\_type=3\tabularnewline
-&
-&
-&
-&
-1: Standard Gaussian integral. Hydrostatic atm.~model: for unaveraged normal components,
-Non-hydrostatic atm.~model: for averaged normal components &
-\tabularnewline
-&
-&
-&
-&
-2: bilinear averaging of divergence&
-\tabularnewline
-\hline 
-divavg\_cntrwgt&
-R&
-0.5&
-&
-Weight of central cell for divergence averaging&
-idiv\_method= 2 
-\tabularnewline
-\hline 
-lsi\_3d&
-L&
-.FALSE.&
-&
-3D GMRES solver or decomposistion into 2D problems&
-lshallow\_water=.FALSE. and itime\_scheme=4\tabularnewline
-\hline 
-itime\_scheme&
-I&
-4&
-&
-Time integration scheme:&
-\tabularnewline
-&
-&
-&
-&
-1: pure advection (no dynamics)&
-\tabularnewline
-&
-&
-&
-&
-2: 2 time level semi implicit (not yet implemented)& iequations=1 or 2
-\tabularnewline
-&
-&
-&
-&
-3: 3 time level explicit& iequations=1 or 2
-\tabularnewline
-&
-&
-&
-&
-4: 3 time level with semi implicit correction& iequations=1 or 2
-\tabularnewline
-&
-&
-&
-&
-5: standard 4th-order Runge-Kutta method (4-stage)& iequations=1 or 2
-\tabularnewline
-&
-&
-&
-&
-6: SSPRK(5,4) scheme (5-stage)& iequations=1 or 2
-\tabularnewline
-&&&&&
-\tabularnewline
-&
-&
-&
-&
-3: same as default, but computation of velocity tendencies in corrector step only& iequations=3 and i\_cell\_type=3
-\tabularnewline
-&
-&
-&
-&
-4: Matsuno scheme& iequations=3 and i\_cell\_type=3
-\tabularnewline
-&
-&
-&
-&
-6: same as default, but usage of velocity tendencies at (nnow+nnew)/2& iequations=3 and i\_cell\_type=3
-\tabularnewline
-\hline 
-ileapfrog\_startup&
-I&
-1&
-&
-How to integrate the first time step when the leapfrog scheme
-is chosen. 1 = Euler forward; 2 = a series of sub-steps. &
-itime\_scheme= 3 or 4 \tabularnewline
-\hline 
-asselin\_coeff&
-R&
-0.1&
-&
-Asselin filter coefficient&
-itime\_scheme= 3 or 4 \tabularnewline
-\hline 
-si\_2tls &
-R &
-0.6 &
-&
-weight of time step n+1. Valid range: [0,1] &
-itime\_scheme=2\tabularnewline
-\hline
-si\_expl\_scheme &
-I &
-2 &
-&
-scheme for the explicit part used in the 2 time level
-semi-implicit time stepping scheme. 1 = Euler forward;
-2 = Adams-Bashforth 2nd order &
-itime\_scheme=2\tabularnewline
-\hline 
-si\_cmin&
-R &
-30.0 &
-m/s&
-semi implicit correction is done for eigenmodes with speeds larger
-than si\_cmin&
-itime\_scheme=4 and lsi\_3d=.FALSE.\tabularnewline
-\hline 
-si\_coeff&
-R &
-1.0 &
-&
-weight of the semi implicit correction&
-itime\_scheme=4 \tabularnewline
-\hline 
-si\_offctr&
-R &
-0.7 &
-&
-future implict weight for si correction&
-itime\_scheme=4 \tabularnewline
-\hline 
-si\_rtol &
-R &
-1.0e-3 &
-&
-relative tolerance for GMRES solver&
-itime\_scheme=4 \tabularnewline
-\hline
-ldry\_dycore &
-L &
-.TRUE. &
-&
-Assume dry atmosphere &
-iequations$\in$\{1,2\}
-\tabularnewline
-\hline 
-lref\_temp &
-L &
-.FALSE. &
- &
-Set a background temperature profile as base state &
-iequations$\in$\{1,2\}
-\tabularnewline
-\hline
-
-\hline 
-lcoriolis &
-L & .TRUE.& &
-Coriolis force&
-\tabularnewline
-
-\end{longtable}
-
-Defined and used in: src/namelists/mo\_dynamics\_nml.f90
 
 \subsection{nonhydrostatic\_ctl (used if run\_nml/iequations=3)}
 
