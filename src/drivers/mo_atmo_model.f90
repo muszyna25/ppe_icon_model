@@ -194,6 +194,9 @@ USE mo_diffusion_config,   ONLY: configure_diffusion
 USE mo_echam_phy_config,   ONLY: configure_echam_phy 
 USE mo_echam_conv_config,  ONLY: configure_echam_convection
 
+USE mo_atmo_hydrostatic,    ONLY: atmo_hydrostatic 
+USE mo_atmo_nonhydrostatic, ONLY: atmo_nonhydrostatic 
+
 !-------------------------------------------------------------------------
 IMPLICIT NONE
 PRIVATE
@@ -487,20 +490,18 @@ CONTAINS
 
     ENDIF
 
-
-    !----------------------------------------------------------------------
+    !---------------------------------------------------------------------
     ! 11. The hydrostatic and nonhydrostatic models branch from this point
-    !----------------------------------------------------------------------
+    !---------------------------------------------------------------------
+
     SELECT CASE(iequations)
-    CASE(ISHALLOW_WATER,IHS_ATM_TEMP,IHS_ATM_THETA)
-
-      !CALL atmo_hydrostatic(....)
-
-    CASE(INH_ATMOSPHERE)
-
-      !CALL atmo_nonhydrostatic(....)
+    CASE(ishallow_water,ihs_atm_temp,ihs_atm_theta)
+      CALL atmo_hydrostatic
+    CASE(inh_atmosphere)
+      CALL atmo_nonhydrostatic
     END SELECT
-   
+
+
     !---------------------------------------------------------------------
     ! 12. Integration finished. Carry out the shared clean-up processes
     !---------------------------------------------------------------------

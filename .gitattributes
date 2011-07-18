@@ -987,7 +987,9 @@ src/coupler/psmile_redirstdout.c -text
 src/diagnostics/mo_err_norm.f90 -text
 src/diagnostics/mo_tropopause.f90 -text
 src/drivers/control_model.f90 -text
+src/drivers/mo_atmo_hydrostatic.f90 -text
 src/drivers/mo_atmo_model.f90 -text
+src/drivers/mo_atmo_nonhydrostatic.f90 -text
 src/drivers/mo_master_control.f90 -text
 src/drivers/mo_ocean_model.f90 -text
 src/drivers/mo_radiation_model.f90 -text
