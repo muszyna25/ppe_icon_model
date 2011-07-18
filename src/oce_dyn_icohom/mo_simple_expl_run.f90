@@ -56,12 +56,12 @@ USE mo_io_units,               ONLY: filename_max
 USE mo_impl_constants,         ONLY: sea_boundary, max_char_length,           &
   &                                  min_rlcell, min_rledge, toplev  !, min_rlvert
 USE mo_model_domain,           ONLY: t_patch
-USE mo_model_domain_import,    ONLY: n_dom, nroot
+USE mo_model_domain_import,    ONLY: n_dom
 USE mo_ocean_nml,              ONLY: n_zlev, iswm_oce
 USE mo_dynamics_config,        ONLY: nold
 USE mo_io_config,              ONLY: out_expname
 USE mo_run_config,             ONLY: nsteps, dtime
-USE mo_exception,              ONLY: message, message_text, finish
+USE mo_exception,              ONLY: message, message_text, finish, get_filename_noext
 USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time
 USE mo_loopindices,            ONLY: get_indices_c, get_indices_e
 USE mo_oce_state,              ONLY: t_hydro_ocean_state
@@ -595,17 +595,18 @@ CONTAINS
         CALL destruct_vlist_oce( jg )
 
         ! contruct gridfile name once more as in control_model:
-        WRITE (gridfile,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',jlev,'-grid.nc'
-        INQUIRE (FILE=gridfile, EXIST=l_exist)
-        IF (.NOT. l_exist) CALL finish(TRIM(routine),' gridfile does not exist')
+!         WRITE (gridfile,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',jlev,'-grid.nc'
+!         INQUIRE (FILE=gridfile, EXIST=l_exist)
+!         IF (.NOT. l_exist) CALL finish(TRIM(routine),' gridfile does not exist')
 
-        ! contruct new outputfile name:
+        ! contruct new outputfile name:      
         jfile = jfile +1
-        WRITE (outputfile,'(a,a,i0,a,i2.2,a,i0,a,i4.4,a)')  &
-             &  TRIM(out_expname), '_O.R', nroot, 'B', jlev, 'L', n_zlev, '_', jfile, '.nc'
+        WRITE (outputfile,'(a,a,a,a,i4.4,a)')  &
+          &  TRIM(out_expname), '_', TRIM(get_filename_noext(ppatch(jg)%grid_filename)), &
+          & '_', jfile, '.nc'
         WRITE(message_text,'(a,a)') 'New output file for setup_vlist_oce is ',TRIM(outputfile)
         CALL message(trim(routine),message_text)
-        CALL setup_vlist_oce( ppatch(jg), TRIM(gridfile), TRIM(outputfile), jg )
+        CALL setup_vlist_oce( ppatch(jg), TRIM(ppatch(jg)%grid_filename), TRIM(outputfile), jg )
 
       END IF
 

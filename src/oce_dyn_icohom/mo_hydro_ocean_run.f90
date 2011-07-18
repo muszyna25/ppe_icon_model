@@ -225,8 +225,7 @@ CONTAINS
 !       IF (.NOT. l_exist) CALL finish(TRIM(routine),' gridfile does not exist')
 
       
-      ! contruct new outputfile name:
-      
+      ! contruct new outputfile name:      
       jfile = jfile +1
       WRITE (outputfile,'(a,a,a,a,i4.4,a)')  &
         &  TRIM(out_expname), '_', TRIM(get_filename_noext(ppatch(jg)%grid_filename)), &
