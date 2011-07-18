@@ -80,7 +80,7 @@ MODULE mo_advection_stepping
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_mpi,                 ONLY: my_process_is_mpi_seq
   USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult
-  USE mo_advection_nml,       ONLY: iubc_adv, iadv_slev, cSTR, coeff_grid
+  USE mo_advection_nml,       ONLY: iubc_adv, iadv_slev
   USE mo_advection_config,    ONLY: advection_config
   USE mo_advection_utils,     ONLY: ptr_delp_mc_now, ptr_delp_mc_new
   USE mo_model_domain_import, ONLY: l_limited_area, lfeedback
@@ -305,7 +305,8 @@ CONTAINS
     ! precompute modified timestep (timestep multiplied by Strang-splitting
     ! coefficient and a second coefficient to account for either a
     ! vertical z- or p-system)
-    pdtime_mod = cSTR * coeff_grid * p_dtime
+    pdtime_mod = advection_config(jg)%cSTR * advection_config(jg)%coeff_grid &
+      &        * p_dtime
 
     IF (my_process_is_mpi_seq()) THEN
       l_parallel = .FALSE.
@@ -387,7 +388,8 @@ CONTAINS
 
         CALL vert_upwind_flux( p_patch, ptr_current_tracer,          &! in
           &              p_mflx_contra_v, p_w_contra_traj,           &! inout,in
-          &              cSTR*p_dtime, p_pres_ic_now, p_pres_mc_now, &! in
+          &              advection_config(jg)%cSTR*p_dtime,          &! in
+          &              p_pres_ic_now, p_pres_mc_now,               &! in
           &              p_cellhgt_mc_now, z_rcellhgt_mc_now,        &! in
           &              ptr_delp_mc_now,                            &! in
           &              advection_config(jg)%ivadv_tracer,          &! in
@@ -753,7 +755,8 @@ CONTAINS
 
       CALL vert_upwind_flux( p_patch, ptr_current_tracer,          &! in
         &              p_mflx_contra_v, p_w_contra_traj,           &! inout,in
-        &              cSTR*p_dtime, p_pres_ic_now, p_pres_mc_now, &! in
+        &              advection_config(jg)%cSTR*p_dtime,          &! in
+        &              p_pres_ic_now, p_pres_mc_now,               &! in
         &              p_cellhgt_mc_now, z_rcellhgt_mc_now,        &! in
         &              ptr_delp_mc_now,                            &! in
         &              advection_config(jg)%ivadv_tracer,          &! in

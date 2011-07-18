@@ -77,7 +77,7 @@ MODULE mo_advection_vflux
   USE mo_parallel_config,  ONLY: nproma
   USE mo_dynamics_config,     ONLY: iequations 
   USE mo_run_config,          ONLY: ntracer, msg_level, lvert_nest
-  USE mo_advection_nml,       ONLY: coeff_grid, lcompute, lcleanup
+  USE mo_advection_nml,       ONLY: lcompute, lcleanup
   USE mo_advection_config,    ONLY: advection_config
   USE mo_advection_utils,     ONLY: laxfr_upflux_v, laxfr_upflux
   USE mo_advection_limiter,   ONLY: v_muscl_slimiter_mo, v_muscl_slimiter_sm, &
@@ -425,8 +425,12 @@ CONTAINS
     INTEGER  :: nlev, nlevp1           !< number of full and half levels
     INTEGER  :: jc, jk, jb             !< index of cell, vertical level and block
     INTEGER  :: jkm1                   !< jk - 1
+    INTEGER  :: jg                     !< patch ID
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
+    REAL(wp) :: coeff_grid             !< parameter which is used to make the vertical 
+                                       !< advection scheme applicable to a height      
+                                       !< based coordinate system (coeff_grid=-1)
     !-------------------------------------------------------------------------
 
     ! check optional arguments
@@ -453,6 +457,9 @@ CONTAINS
     ELSE
       i_rlend = min_rlcell_int
     ENDIF
+
+    ! get patch ID
+    jg = p_patch%id
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
@@ -488,7 +495,7 @@ CONTAINS
           p_upflux(jc,jk,jb) =                                  &
             &  laxfr_upflux_v( p_mflx_contra_v(jc,jk,jb),       &
             &                p_cc(jc,jkm1,jb), p_cc(jc,jk,jb),  &
-            &                coeff_grid )
+            &                advection_config(jg)%coeff_grid )
 
         END DO ! end loop over cells
 
@@ -669,6 +676,7 @@ CONTAINS
     INTEGER  :: jkm1, ikp1, ikp1_ic      !< vertical level minus and plus one
     INTEGER  :: cfl_counter              !< checks, wheter we encountered CFL>1
     INTEGER  :: jc, jk, jb               !< index of cell, vertical level and block
+    INTEGER  :: jg                       !< patch ID
     INTEGER  :: jkkp, jkkm
     INTEGER  :: ist                      !< status variable
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
@@ -676,6 +684,9 @@ CONTAINS
     INTEGER, DIMENSION(nproma)::   &     !< similar to jkm and jk, but number of
       &   jkm_int, jk_int                !< cells to skip for CFL>1 have been
                                          !< substracted/added
+    REAL(wp) :: coeff_grid               !< parameter which is used to make the vertical 
+                                         !< advection scheme applicable to a height      
+                                         !< based coordinate system (coeff_grid=-1)
 
 !DR    REAL(wp) :: cfl_m_max, cfl_p_max !< maximum Courant number from both sides
 
@@ -723,6 +734,12 @@ CONTAINS
     ELSE
       i_rlend = min_rlcell_int
     ENDIF
+
+    ! get patch ID
+    jg = p_patch%id
+
+    ! save some paperwork
+    coeff_grid = advection_config(jg)%coeff_grid
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
@@ -1505,6 +1522,10 @@ CONTAINS
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
     INTEGER  :: jc, jk, jb              !< index of cell, vertical level and block
+    INTEGER  :: jg                      !< patch ID
+    REAL(wp) :: coeff_grid              !< parameter which is used to make the vertical 
+                                        !< advection scheme applicable to a height      
+                                        !< based coordinate system (coeff_grid=-1)
 
 !DR    REAL(wp) :: cfl_m_max, cfl_p_max !< maximum Courant number from both sides
     !-----------------------------------------------------------------------
@@ -1541,6 +1562,13 @@ CONTAINS
     ELSE
       i_rlend = min_rlcell_int
     ENDIF
+
+    ! get patch ID
+    jg = p_patch%id
+
+    ! save some paperwork
+    coeff_grid = advection_config(jg)%coeff_grid
+
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
@@ -2117,8 +2145,13 @@ CONTAINS
     REAL(wp) ::   &                      !< auxiliaries for fractional CFL number computation
       &  z_aux_p(nproma), z_aux_m(nproma)
 
+    REAL(wp) :: coeff_grid              !< parameter which is used to make the vertical 
+                                        !< advection scheme applicable to a height      
+                                        !< based coordinate system (coeff_grid=-1)
     !-----------------------------------------------------------------------
 
+    ! get patch ID
+    jg = p_patch%id
 
     ! check optional arguments
     IF ( PRESENT(opt_slev) ) THEN
@@ -2137,6 +2170,8 @@ CONTAINS
 
     IF (l_out_edgeval) THEN
       coeff_grid = -1._wp ! needs to be set in case of a call from the hexagonal NH code
+    ELSE
+      coeff_grid = advection_config(jg)%coeff_grid
     ENDIF
 
     IF ( PRESENT(opt_topflx_tra) ) THEN
@@ -2156,9 +2191,6 @@ CONTAINS
     ELSE
       i_rlend = min_rlcell_int
     ENDIF
-
-    ! get patch ID
-    jg = p_patch%id
 
     ! maximum number of lists
     nlist_max = advection_config(jg)%ivcfl_max - 1
