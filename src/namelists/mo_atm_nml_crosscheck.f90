@@ -244,6 +244,9 @@ CONTAINS
     CALL finish( TRIM(ROUTINE),'ldry_dycore should be .TRUE. for the '//&
                'Held-Suarez test and the dry local diabatic forcing test.')
 
+    lshallow_water = (iequations==ISHALLOW_WATER)
+    ltwotime = (itime_scheme/=LEAPFROG_EXPL).AND.(itime_scheme/=LEAPFROG_SI)
+
     !--------------------------------------------------------------------
     ! Testcases
     !--------------------------------------------------------------------

@@ -1,14 +1,7 @@
 !>
 !! Namelist for the configuration of interpolation and reconstruction.
 !!
-!! These subroutines are called by control_model
-!!
 !! @par Revision History
-!! Revision history in mo_intp_state and mo_intp_data_strc (r4300)
-!! Modification by Constantin Junk, MPI-M (2011-05-05)
-!! - some updates on the structure
-!! - renamed setup_interpol to interpol_nml_setup
-!! - moved interpol namelist variables from mo_intp_data_strc to mo_interpol_nml
 !!
 !! @par Copyright
 !! 2002-2010 by DWD and MPI-M

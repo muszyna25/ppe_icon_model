@@ -282,15 +282,17 @@ INTEGER, POINTER :: grid_glob_index(:)
     ! 3. Assign values to derived variables in the configuration states
     !---------------------------------------------------------------------
 
-    !  CALL configure_interpolation (jlev,n_dom,global_cell_type)
+    ! CALL configure_advection(iequations) ??????
 
-    CALL configure_dynamics(lrestart, n_dom)
 
-    ! CALL configure_advection(iequations)
+    !CALL import_patches(...)
 
-    CALL configure_diffusion(n_dom, parent_id, nlev, vct_a, vct_b, apzero)
+    !CALL configure_interpolation (jlev,n_dom,global_cell_type)
+    !CALL construct_interpolation
+    !compute interpolation coefficients...
 
-    CALL configure_atm_phy_nwp
+    !CALL domain_decomp( p_patch_global, ..., p_int_state_global, ....)
+
 
    !---------------------------------------------------------------------
     SELECT CASE (iequations)
@@ -309,12 +311,14 @@ INTEGER, POINTER :: grid_glob_index(:)
       ENDIF
     CASE DEFAULT
     END SELECT
- 
    !---------------------------------------------------------------------
 
-  CALL configure_echam_phy (ltestcase, ctest_name)
+   !CALL configure_dynamics(lrestart, n_dom)
+   !CALL configure_diffusion(n_dom, parent_id, nlev, vct_a, vct_b, apzero)
 
-  CALL configure_echam_convection(nlev, vct_a, vct_b, ceta)
+   !CALL configure_atm_phy_nwp
+   !CALL configure_echam_phy (ltestcase, ctest_name)
+   !CALL configure_echam_convection(nlev, vct_a, vct_b, ceta)
 
 
     !---------------------------------------------------------------------
@@ -359,7 +363,9 @@ INTEGER, POINTER :: grid_glob_index(:)
     !---------------------------------------------------------------------
     ! 5. Perform time stepping
     !---------------------------------------------------------------------
+    ! Initial conditions
 
+    ! 
     !---------------------------------------------------------------------
     ! 6. Integration finished. Clean up.
     !---------------------------------------------------------------------

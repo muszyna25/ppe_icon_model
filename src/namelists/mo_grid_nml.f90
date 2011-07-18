@@ -1,12 +1,7 @@
 !>
-!!        Contains the variables to set up the grid configuration
-!!
+!!  Contains the variables to set up the grid configuration
 !!        
 !! @par Revision History
-!!   Revision History in mo_model_domimp_setup.f90 (r3965)
-!!   Modification by Constantin Junk, MPI-M (2011-04-05)
-!!   - moved setup_files to grid_nml_setup and restructured
-!!     reading the namelist and setting the default variables
 !!
 !! @par Copyright
 !! 2002-2006 by DWD and MPI-M
