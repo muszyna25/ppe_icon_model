@@ -607,11 +607,11 @@ SUBROUTINE allocate_patch(p_patch)
   ALLOCATE( p_patch%verts%owner_g(p_patch%n_patch_verts_g))
 
 END SUBROUTINE allocate_patch
+!-------------------------------------------------------------------------
+
+
 
 !-------------------------------------------------------------------------
-!
-!
-
 !>
 !!               Initialization of the patch components with data stored.
 !!

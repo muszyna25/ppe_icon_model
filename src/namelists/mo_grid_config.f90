@@ -41,6 +41,22 @@ MODULE mo_grid_config
   USE mo_mpi,                ONLY: p_pe, p_io
   USE mo_math_constants,     ONLY: rad2deg
 
+#ifndef NOMPI
+! The USE statement below lets this module use the routines from
+! mo_read_netcdf_parallel where only 1 processor is reading
+! and broadcasting the results
+USE mo_read_netcdf_parallel, ONLY:                &
+   NF_NOWRITE, NF_GLOBAL, NF_NOERR, nf_strerror,  &
+   nf_open            => p_nf_open,               &
+   nf_close           => p_nf_close,              &
+   nf_inq_dimid       => p_nf_inq_dimid,          &
+   nf_inq_dimlen      => p_nf_inq_dimlen,         &
+   nf_inq_varid       => p_nf_inq_varid,          &
+   nf_get_att_int     => p_nf_get_att_int,        &
+   nf_get_var_int     => p_nf_get_var_int,        &
+   nf_get_var_double  => p_nf_get_var_double
+#endif
+
   IMPLICIT NONE
 
   CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
@@ -59,6 +75,12 @@ MODULE mo_grid_config
   PUBLIC :: n_dom_start, max_childdom     
 
   PUBLIC :: no_of_dynamics_grids, no_of_radiation_grids
+  ! ------------------------------------------------------------------------
+
+
+#ifdef NOMPI
+INCLUDE 'netcdf.inc'
+#endif
 
   ! ------------------------------------------------------------------------
   !Configuration variables
@@ -146,9 +168,12 @@ CONTAINS
     no_of_radiation_grids = jg-1
     n_dom = no_of_dynamics_grids
 
-    ! some checks
     IF (no_of_dynamics_grids < 1) &
       CALL finish( TRIM(method_name), 'no dynamics grid is defined')
+      
+    ! get here the nroot, eventually it should be moved into the patch info
+    nroot = get_grid_root(dynamics_grid_filename(1))
+    write(0,*) "   nroot = ", nroot
         
     IF (no_of_radiation_grids > 0) THEN
       n_dom_start = 0
@@ -199,5 +224,30 @@ CONTAINS
 
     
   END SUBROUTINE check_grid_configuration
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  INTEGER FUNCTION get_grid_root( patch_file )
+    CHARACTER(len=*),    INTENT(in)  ::  patch_file   ! name of grid file
+
+    INTEGER :: ncid, grid_root
+
+    CALL nf(nf_open(TRIM(patch_file), NF_NOWRITE, ncid))
+    CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'grid_root', grid_root))
+    CALL nf(nf_close(ncid))
+
+    get_grid_root = grid_root
+    
+  END FUNCTION get_grid_root
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  SUBROUTINE nf(status)
+    INTEGER, INTENT(in) :: status
+    IF (status /= nf_noerr) THEN
+      CALL finish('mo_model_domain_import netCDF error', nf_strerror(status))
+    ENDIF
+  END SUBROUTINE nf
+  !-------------------------------------------------------------------------
 
 END MODULE mo_grid_config
