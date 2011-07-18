@@ -280,16 +280,16 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 3. Initialize various timers; initialize data and time 
     !-------------------------------------------------------------------
-    !! IF (ltimer) CALL init_timer
+    IF (ltimer) CALL init_timer
 
     !------------------
-    ! Next, define the horizontal and vertical conditions since they are aready
-    !  needed for some derived namelist parameters
+    ! Next, define the horizontal and vertical grids since they are aready
+    ! needed for some derived control parameters. This includes
     ! - patch import
-    ! - domain decompistion (?)
+    ! - domain decompistion
     ! - vertical coordinates
     !-------------------------------------------------------------------
-    ! 4. Import_patches
+    ! 4. Import patches
     !-------------------------------------------------------------------
     ! If we belong to the I/O PEs just call io_main_proc before reading patches.
     ! This routine will never return
@@ -367,7 +367,6 @@ CONTAINS
 !      ENDIF
 !    ENDIF
 !    
-
 
     !-------------------------------------------------------------------
     ! 7. Domain decomposition
