@@ -132,7 +132,6 @@ MODULE mo_io_vlist
   USE mo_grid_config,        ONLY : global_cell_type
   USE mo_echam_phy_config
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
-  USE mo_advection_nml,       ONLY: iadv_slev
   USE mo_advection_config,    ONLY: advection_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config
 ! USE mo_gw_hines_nml,        ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
@@ -677,8 +676,8 @@ CONTAINS
          &  advection_config(k_jg)%igrad_c_miura,vlistID(k_jg),astatus)
        CALL addGlobAttTxtFromLog('transport_ctl:lclip_tracer',&
          &  advection_config(k_jg)%lclip_tracer,vlistID(k_jg),astatus)
-       CALL addGlobAttInt('transport_ctl:iadv_slev',iadv_slev(k_jg,max_ntracer), &
-         &                vlistID(k_jg),astatus)
+       CALL addGlobAttInt('transport_ctl:iadv_slev',          &
+         &  advection_config(k_jg)%iadv_slev(max_ntracer),vlistID(k_jg),astatus)
        CALL addGlobAttFlt('transport_ctl:upstr_beta_adv',     &
          &  advection_config(k_jg)%upstr_beta_adv,vlistID(k_jg),astatus)
     END IF

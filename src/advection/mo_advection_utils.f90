@@ -55,7 +55,7 @@
 !!
 MODULE mo_advection_utils
 
-  USE mo_advection_nml,       ONLY: shape_func, zeta, eta, wgt_zeta, wgt_eta
+  USE mo_advection_config,    ONLY: shape_func, zeta, eta, wgt_zeta, wgt_eta
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_model_domain,        ONLY: t_patch

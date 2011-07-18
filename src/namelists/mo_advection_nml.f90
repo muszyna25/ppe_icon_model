@@ -48,7 +48,7 @@ MODULE mo_advection_nml
   USE mo_master_nml,          ONLY: lrestart
   USE mo_run_config,          ONLY: ntracer, ntracer_static, num_lev, nlev, &
     &                               iforcing, io3, iqcond, lvert_nest, iqv
-  USE mo_grid_config,        ONLY: n_dom, global_cell_type
+  USE mo_grid_config,         ONLY: n_dom, global_cell_type
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom,  &
     &                               ino_hadv, iup, imiura, imiura3, iup3,   &
     &                               ino_vadv, iup_v, imuscl_vcfl, imuscl_v, &
@@ -64,21 +64,14 @@ MODULE mo_advection_nml
   USE mo_nonhydrostatic_config,  ONLY: l_open_ubc, kstart_moist, kstart_qv
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &
     &                               open_and_restore_namelist, close_tmpfile
-  USE mo_advection_config 
+  USE mo_advection_config,    ONLY: advection_config 
 
   
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: transport_nml_setup, setup_transport, read_transport_namelist
 
-  PUBLIC :: iadv_slev, iup, imiura, imiura3,                     &
-    &       inol, islopel_sm, islopel_m, ifluxl_m, ifluxl_sm, iup_v,       &
-    &       imuscl_v, imuscl_vcfl, ippm_v, ippm_vcfl, inol_v, islopel_vsm, & 
-    &       islopel_vm, ifluxl_vpd, t_compute, t_cleanup, lcompute,        &
-    &       lcleanup, iup3, ino_flx, izero_grad, iparent_flx
-
-  PUBLIC :: shape_func, zeta, eta, wgt_zeta, wgt_eta
-
+  PUBLIC :: lcleanup, lcompute, t_compute, t_cleanup
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -194,14 +187,6 @@ MODULE mo_advection_nml
 
   TYPE(t_compute) :: lcompute
   TYPE(t_cleanup) :: lcleanup
-
-
-  REAL(wp), POINTER ::  &
-    &  ptr_delp_mc_now(:,:,:) => NULL() !< pointer to old layer thickness
-                                        !< at cell center
-  REAL(wp), POINTER ::  &
-    &  ptr_delp_mc_new(:,:,:) => NULL() !< pointer to new layer thickness
-                                        !< at cell center
 
 
 CONTAINS

@@ -72,6 +72,7 @@ MODULE mo_advection_config
 !!$  END TYPE t_cleanup
 
 
+
   !!--------------------------------------------------------------------------
   !! Basic configuration setup for tracer advection
   !!--------------------------------------------------------------------------
@@ -147,10 +148,10 @@ MODULE mo_advection_config
     REAL(wp) :: coeff_grid       !< parameter which is used to make the vertical 
                                  !< advection scheme applicable to a height      
                                  !< based coordinate system (coeff_grid=-1)      
-
-!!$    TYPE(t_compute) :: lcompute                                                  
+                   
+!!$    TYPE(t_compute) :: lcompute
 !!$    TYPE(t_cleanup) :: lcleanup
-                                                              
+                                           
   END TYPE t_advection_config
 
   !>
@@ -170,15 +171,6 @@ MODULE mo_advection_config
 
 
 
-  REAL(wp), POINTER :: ptr_delp_mc_now(:,:,:)  !< pointer to old layer thickness      
-                                               !< at cell center                      
-  REAL(wp), POINTER :: ptr_delp_mc_new(:,:,:)  !< pointer to new layer thickness      
-                                               !< at cell center
-
-
-  PRIVATE:: shape_func, zeta, eta, wgt_zeta, wgt_eta, ptr_delp_mc_now, &
-    &       ptr_delp_mc_new 
-
 CONTAINS
 
   !>
@@ -192,11 +184,11 @@ CONTAINS
   !! @par Revision History
   !! Initial revision by Daniel Reinert, DWD (2011-04-20)
   !!
-  SUBROUTINE configure_advection( jg, num_lev, num_lev_1, iequations, iforcing,  &
-    &                            iqv, kstart_moist, kstart_qv, lvert_nest,       &
-    &                            l_open_ubc, ntracer )
+  SUBROUTINE configure_advection( jg, num_lev, num_lev_1, iequations,    &
+    &                            iforcing, iqv, kstart_moist, kstart_qv, &
+    &                            lvert_nest, l_open_ubc, ntracer )
   !
-    INTEGER, INTENT(IN) :: jg           !< patch index
+    INTEGER, INTENT(IN) :: jg           !< patch 
     INTEGER, INTENT(IN) :: num_lev      !< number of vertical levels
     INTEGER, INTENT(IN) :: num_lev_1    !< vertical levels of global patch
     INTEGER, INTENT(IN) :: iequations
@@ -394,36 +386,41 @@ CONTAINS
     ! quadrature is applied
     !
 
-    ! Coordinates of integration points (in \zeta,\eta-System)
-    zeta(1) = -1._wp/SQRT(3._wp)
-    zeta(2) =  1._wp/SQRT(3._wp)
-    zeta(3) =  1._wp/SQRT(3._wp)
-    zeta(4) = -1._wp/SQRT(3._wp)
+    IF (jg == 1) THEN
 
-    eta(1)  = -1._wp/SQRT(3._wp)
-    eta(2)  = -1._wp/SQRT(3._wp)
-    eta(3)  =  1._wp/SQRT(3._wp)
-    eta(4)  =  1._wp/SQRT(3._wp)
+      ! Coordinates of integration points (in \zeta,\eta-System)
+      !
+      zeta(1) = -1._wp/SQRT(3._wp)
+      zeta(2) =  1._wp/SQRT(3._wp)
+      zeta(3) =  1._wp/SQRT(3._wp)
+      zeta(4) = -1._wp/SQRT(3._wp)
 
+      eta(1)  = -1._wp/SQRT(3._wp)
+      eta(2)  = -1._wp/SQRT(3._wp)
+      eta(3)  =  1._wp/SQRT(3._wp)
+      eta(4)  =  1._wp/SQRT(3._wp)
 
-    ! shape functions for mapping
-    DO jm = 1,4
-      shape_func(1,jg) = 0.25_wp * (1._wp-zeta(jg))*(1._wp-eta(jg))
-      shape_func(2,jg) = 0.25_wp * (1._wp+zeta(jg))*(1._wp-eta(jg))
-      shape_func(3,jg) = 0.25_wp * (1._wp+zeta(jg))*(1._wp+eta(jg))
-      shape_func(4,jg) = 0.25_wp * (1._wp-zeta(jg))*(1._wp+eta(jg))
-    END DO
+      ! shape functions for mapping
+      !
+      DO jm = 1,4
+        shape_func(1,jm) = 0.25_wp * (1._wp-zeta(jm))*(1._wp-eta(jm))
+        shape_func(2,jm) = 0.25_wp * (1._wp+zeta(jm))*(1._wp-eta(jm))
+        shape_func(3,jm) = 0.25_wp * (1._wp+zeta(jm))*(1._wp+eta(jm))
+        shape_func(4,jm) = 0.25_wp * (1._wp-zeta(jm))*(1._wp+eta(jm))
+      END DO
 
-    ! Gauss quadrature weights
-    wgt_zeta(1) = 1._wp
-    wgt_zeta(2) = 1._wp
-    wgt_zeta(3) = 1._wp
-    wgt_zeta(4) = 1._wp
+      ! Gauss quadrature weights
+      !
+      wgt_zeta(1) = 1._wp
+      wgt_zeta(2) = 1._wp
+      wgt_zeta(3) = 1._wp
+      wgt_zeta(4) = 1._wp
 
-    wgt_eta(1)  = 1._wp
-    wgt_eta(2)  = 1._wp
-    wgt_eta(3)  = 1._wp
-    wgt_eta(4)  = 1._wp
+      wgt_eta(1)  = 1._wp
+      wgt_eta(2)  = 1._wp
+      wgt_eta(3)  = 1._wp
+      wgt_eta(4)  = 1._wp
+    END IF
 
   END SUBROUTINE configure_advection
 
