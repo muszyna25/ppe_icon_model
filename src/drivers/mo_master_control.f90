@@ -198,6 +198,7 @@ MODULE mo_master_control
             CALL set_my_component("OCEAN", ocean_process , ocean_namelist_filename)
 
          ELSE
+
             CALL finish(method_name,'check master namelist setup!')
 
          END IF
@@ -213,39 +214,43 @@ MODULE mo_master_control
        WRITE ( * , * ) ' Component specific namelists have to be different!'
     ENDIF
 
-    WRITE (complist(comp_id)%nml_name,'(A13)') 'NAMELIST_ICON'
+    IF ( in_coupled_mode ) THEN
 
-    SELECT CASE ( my_process_model )
+       WRITE (complist(comp_id)%nml_name,'(A13)') 'NAMELIST_ICON'
 
-    CASE ( atmo_process )
+       SELECT CASE ( my_process_model )
 
-       complist(comp_id)%comp_name      = TRIM(atmo_name)
-       complist(comp_id)%comp_process   = atmo_process
-       complist(comp_id)%min_rank       = atmo_min_rank
-       complist(comp_id)%max_rank       = atmo_max_rank
-       complist(comp_id)%inc_rank       = atmo_inc_rank
+       CASE ( atmo_process )
 
-       IF (TRIM(atmo_namelist_filename) /= "") THEN
-          str_len = LEN_TRIM(atmo_namelist_filename)
-          WRITE (complist(comp_id)%nml_name(14:14),'(A1)') '_'
-          WRITE (complist(comp_id)%nml_name(15:15+str_len),'(A)') TRIM(atmo_namelist_filename)
-       ENDIF
+          complist(comp_id)%comp_name      = TRIM(atmo_name)
+          complist(comp_id)%comp_process   = atmo_process
+          complist(comp_id)%min_rank       = atmo_min_rank
+          complist(comp_id)%max_rank       = atmo_max_rank
+          complist(comp_id)%inc_rank       = atmo_inc_rank
 
-    CASE ( ocean_process )
+          IF (TRIM(atmo_namelist_filename) /= "") THEN
+             str_len = LEN_TRIM(atmo_namelist_filename)
+             WRITE (complist(comp_id)%nml_name(14:14),'(A1)') '_'
+             WRITE (complist(comp_id)%nml_name(15:15+str_len),'(A)') TRIM(atmo_namelist_filename)
+          ENDIF
 
-       complist(comp_id)%comp_name      = TRIM(ocean_name)
-       complist(comp_id)%l_comp_status  = l_ocean_active
-       complist(comp_id)%min_rank       = ocean_min_rank
-       complist(comp_id)%max_rank       = ocean_max_rank
-       complist(comp_id)%inc_rank       = ocean_inc_rank
+       CASE ( ocean_process )
 
-       IF (TRIM(ocean_namelist_filename) /= "") THEN
-          str_len = LEN_TRIM(ocean_namelist_filename)
-          WRITE (complist(comp_id)%nml_name(14:14),'(A1)') '_'
-          WRITE (complist(comp_id)%nml_name(15:15+str_len),'(A)') TRIM(ocean_namelist_filename)
-       ENDIF
+          complist(comp_id)%comp_name      = TRIM(ocean_name)
+          complist(comp_id)%l_comp_status  = l_ocean_active
+          complist(comp_id)%min_rank       = ocean_min_rank
+          complist(comp_id)%max_rank       = ocean_max_rank
+          complist(comp_id)%inc_rank       = ocean_inc_rank
 
-    END SELECT
+          IF (TRIM(ocean_namelist_filename) /= "") THEN
+             str_len = LEN_TRIM(ocean_namelist_filename)
+             WRITE (complist(comp_id)%nml_name(14:14),'(A1)') '_'
+             WRITE (complist(comp_id)%nml_name(15:15+str_len),'(A)') TRIM(ocean_namelist_filename)
+          ENDIF
+
+       END SELECT
+
+    ENDIF
 
     init_master_control = 0
     
