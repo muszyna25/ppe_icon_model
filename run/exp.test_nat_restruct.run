@@ -191,7 +191,8 @@ B=4               # number of bisections applied for the global grid
 IREF=.true.
 NDOM=1
 LPATCH0=.true.    # must be set to .TRUE. if the reduced grid is used for radiation
-exp_grid_filename=iconR${R}B0${B}_DOM0${NDOM}-grid.nc 
+exp_grid_filename=iconR${R}B0${B}_DOM01-grid.nc 
+#exp_grid_filename=iconR${R}B05_DOM02-grid.nc 
 #
 N=40              # nlev = number of full levels
 OPT="spr0.90"     # grid optimization
@@ -258,6 +259,7 @@ cell_type = 3            ! 3: triangular cells
 /
 &extpar_nml
  itopo          = 0
+/
 &run_nml
  nsteps         = ${NSTEPS}    ! 50 ! 1200 ! 7200 !10
  dtime          = 600.0        ! [s] timestep in seconds
