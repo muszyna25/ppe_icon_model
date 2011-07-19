@@ -252,6 +252,8 @@ CONTAINS
     END SELECT
 
 
+  IF (ltransport) THEN
+
     i_listlen = LEN_TRIM(advection_config(jg)%ctracer_list)
 
     SELECT CASE ( iforcing )
@@ -363,7 +365,6 @@ CONTAINS
     END SELECT
 
 
-
     ! flux compuation methods - consistency check
     !
     SELECT CASE (global_cell_type)
@@ -392,6 +393,7 @@ CONTAINS
       ENDIF
     ENDIF
 
+  END IF ! ltransport
 
 
     !--------------------------------------------------------------------
