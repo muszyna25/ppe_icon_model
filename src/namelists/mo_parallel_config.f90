@@ -43,7 +43,7 @@ MODULE mo_parallel_config
 
 #else
   USE mo_mpi,                ONLY:  p_comm_work, p_comm_work_test, &
-    & num_test_procs, num_work_procs, num_io_procs
+    & num_test_procs, num_work_procs
 #endif
 
   IMPLICIT NONE
