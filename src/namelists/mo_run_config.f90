@@ -161,10 +161,10 @@ CONTAINS
 
     END SELECT
 
-    !--------------------------
-    ! Number of static tracers
+   !!--------------------------
+   !! Number of static tracers
 
-    ntracer_static = 0
+   !ntracer_static = 0
 
   END SUBROUTINE configure_run
 

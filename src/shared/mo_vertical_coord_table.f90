@@ -66,7 +66,6 @@ MODULE mo_vertical_coord_table
   USE mo_exception,          ONLY: message_text, message, finish
   USE mo_impl_constants,     ONLY: success, max_char_length, ishallow_water, &
                                    ihs_atm_temp, ihs_atm_theta, inh_atmosphere
-  USE mo_run_config,         ONLY: nvclev
   USE mo_physical_constants, ONLY: grav, rcpd, rd
 
   IMPLICIT NONE
@@ -134,7 +133,7 @@ CONTAINS
   !
   ! !SUBROUTINE INTERFACE:
 
-  SUBROUTINE init_vertical_coord_table(iequations,nlev)
+  SUBROUTINE init_vertical_coord_table(iequations,klev)
 
     ! !DESCRIPTION:
     !  Initialization of the hybrid vertical coordinate
@@ -142,7 +141,7 @@ CONTAINS
     ! !REVISION HISTORY:
     !  Original version by Hui Wan, MPI-M, 2006-02-09
     !
-    INTEGER, INTENT(IN) :: nlev        !< number of ful levels
+    INTEGER, INTENT(IN) :: klev        !< number of ful levels
     INTEGER, INTENT(IN) :: iequations
     INTEGER :: jk
     !EOP
@@ -151,7 +150,7 @@ CONTAINS
 
     ! read the A and B parameters of the vertical coordinate
 
-    CALL read_vct(iequations,nlev)
+    CALL read_vct(iequations,klev)
 
     CALL message('vertical_coord_table:init_vertical_coord', '')
     CALL message('', 'Vertical coordinate table')
@@ -163,11 +162,11 @@ CONTAINS
 
     ! allocate memory for the auxiliary parameters and arrays
 
-    CALL alloc_vct(nlev)
+    CALL alloc_vct(klev)
 
     ! assign values to the the auxiliary parameters and arrays
 
-    CALL init_vct(nlev)
+    CALL init_vct(klev)
 
   END SUBROUTINE init_vertical_coord_table
 
@@ -182,9 +181,9 @@ CONTAINS
   !! Read the A and B parameters of the hybrid vertical grid,
   !! which define the half level pressure: ph=A+B*ps [Pa]
   !!
-  SUBROUTINE  read_vct (iequations,nlev)
+  SUBROUTINE  read_vct (iequations,klev)
 
-    INTEGER, INTENT(IN) :: nlev
+    INTEGER, INTENT(IN) :: klev
     INTEGER, INTENT(IN) :: iequations
 
     ! Local variables
@@ -201,23 +200,23 @@ CONTAINS
 
     ! allocate memory
 
-    ALLOCATE(vct_a(nvclev), STAT=ist)
+    ALLOCATE(vct_a(klev+1), STAT=ist)
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), ' allocation of vct_a failed')
     ENDIF
 
-    ALLOCATE(vct_b(nvclev), STAT=ist)
+    ALLOCATE(vct_b(klev+1), STAT=ist)
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), ' allocation of vct_b failed')
     ENDIF
 
-    ALLOCATE(vct(nvclev*2), STAT=ist)
+    ALLOCATE(vct((klev+1)*2), STAT=ist)
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), ' allocation of vct failed')
     ENDIF
 
     ! Open file
-    WRITE(line,FMT='(i4)') nlev
+    WRITE(line,FMT='(i4)') klev
     !
     SELECT CASE(iequations)
     CASE(ishallow_water,ihs_atm_temp,ihs_atm_theta)
@@ -245,7 +244,7 @@ CONTAINS
     ENDIF
 
     ! Read A and B
-    DO jk=1,nvclev
+    DO jk=1,klev+1
        READ (iunit,*,IOSTAT=ist) ik, vct_a(jk), vct_b(jk)
        IF(ist/=success)THEN
           CALL finish (TRIM(routine), 'reading vct_a and vct_b failed')
@@ -254,8 +253,8 @@ CONTAINS
 
     CLOSE(iunit)
 
-    vct(       1:       nvclev) = vct_a(:)
-    vct(nvclev+1:nvclev+nvclev) = vct_b(:)
+    vct(     1: klev+1   ) = vct_a(:)
+    vct(klev+2:(klev+1)*2) = vct_b(:)
 
   END SUBROUTINE  read_vct
 
@@ -266,11 +265,11 @@ CONTAINS
 
   !>
   !!
-  SUBROUTINE alloc_vct(nlev)
+  SUBROUTINE alloc_vct(klev)
 
-    INTEGER, INTENT(IN) :: nlev
+    INTEGER, INTENT(IN) :: klev
     INTEGER :: ist
-    INTEGER :: nlevp1
+    INTEGER :: klevp1
 
     CHARACTER(len=max_char_length),PARAMETER :: routine = &
          & 'mo_vertical_coord_table:alloc_vct'
@@ -278,64 +277,64 @@ CONTAINS
     !-----------------------------------------------------------------------
     !BOC
 
-    nlevp1 = nlev+1
+    klevp1 = klev+1
 
-    ALLOCATE (ralpha(nlev), STAT=ist)
+    ALLOCATE (ralpha(klev), STAT=ist)
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), ' allocation of ralpha failed')
     ENDIF
 
-    ALLOCATE (rlnpr(nlev), STAT=ist)
+    ALLOCATE (rlnpr(klev), STAT=ist)
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), ' allocation of rlnpr failed')
     ENDIF
 
-    ALLOCATE (dela(nlev), STAT=ist)
+    ALLOCATE (dela(klev), STAT=ist)
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), ' allocation of dela failed')
     ENDIF
 
-    ALLOCATE (delb(nlev), STAT=ist)
+    ALLOCATE (delb(klev), STAT=ist)
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), ' allocation of delb failed')
     ENDIF
 
-    ALLOCATE (rddelb(nlev), STAT=ist)
+    ALLOCATE (rddelb(klev), STAT=ist)
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), ' allocation of rddelb failed')
     ENDIF
 
-    ALLOCATE (cpg(nlev), STAT=ist)
+    ALLOCATE (cpg(klev), STAT=ist)
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), ' allocation of cpg failed')
     ENDIF
 
-    ALLOCATE (delpr(nlev), STAT=ist)
+    ALLOCATE (delpr(klev), STAT=ist)
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), ' allocation of rdelpr failed')
     ENDIF
 
-    ALLOCATE (rdelpr(nlev), STAT=ist)
+    ALLOCATE (rdelpr(klev), STAT=ist)
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), ' allocation of rdelpr failed')
     ENDIF
 
-    ALLOCATE (alpham(nlev), STAT=ist)
+    ALLOCATE (alpham(klev), STAT=ist)
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), ' allocation of alpham failed')
     ENDIF
 
-    ALLOCATE (ardprc(nlev), STAT=ist)
+    ALLOCATE (ardprc(klev), STAT=ist)
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), ' allocation of ardprc failed')
     ENDIF
 
-    ALLOCATE (ceta(nlev), STAT=ist)
+    ALLOCATE (ceta(klev), STAT=ist)
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), ' allocation of ceta failed')
     ENDIF
 
-    ALLOCATE (cetah(nlevp1), STAT=ist)
+    ALLOCATE (cetah(klevp1), STAT=ist)
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), ' allocation of cetah failed')
     ENDIF
@@ -366,13 +365,13 @@ CONTAINS
   !! @par
   !!  for more details see file AUTHORS
   !!
-  SUBROUTINE init_vct(nlev)
+  SUBROUTINE init_vct(klev)
 
-    INTEGER, INTENT(IN) :: nlev
+    INTEGER, INTENT(IN) :: klev
 
     !  Local scalars:
     REAL(wp) :: za, zb, zetam, zetap, zp, zp0icao, zpp, zrd, zs, zsm
-    INTEGER  :: ilev, nlevp1, ilevp1, iplev, iplvp1, is, ism, ist, &
+    INTEGER  :: ilev, klevp1, ilevp1, iplev, iplvp1, is, ism, ist, &
       &         jk, jlev
 
     !  Intrinsic functions
@@ -390,13 +389,13 @@ CONTAINS
     zrd       = rd
     ralpha(1) = zrd*LOG(2._wp)
     rlnpr(1)  = 2._wp*ralpha(1)
-    ilev      = nlev
+    ilev      = klev
     ilevp1    = ilev + 1
-    nlevp1    = ilevp1
+    klevp1    = ilevp1
     nlevm1    = ilev - 1
     iplev     = 0
     iplvp1    = 1
-    is        = nvclev + ilevp1
+    is        = klevp1 + ilevp1
     ism       = is - 1
     zpp       = vct(1)
     zsm       = vct(is)
@@ -412,7 +411,7 @@ CONTAINS
     ptricao = EXP(rdlnpti/rd)
     gsticao = tsticao*(rdlnpti-1._wp/alrrdic)
 
-    zb      = vct(nvclev+iplvp1+1)
+    zb      = vct(klevp1+iplvp1+1)
 
     !-- 2. Calculate pressure-level values
 
@@ -434,7 +433,7 @@ CONTAINS
 
       alpham(iplev) = ralpha(iplev)*rcpd
       ardprc(iplev) = rlnpr(iplev)*rdelpr(iplev)*rcpd
-      zb            = vct(nvclev+iplvp1+1)
+      zb            = vct(klevp1+iplvp1+1)
 
     ENDDO
 
@@ -452,13 +451,13 @@ CONTAINS
 
       !-- 3. Calculate sigma-level values
 
-      za = vct(ism-nvclev)
+      za = vct(ism-klevp1)
 
       DO WHILE ( za == 0._wp )
 
         is  = ism
         ism = is - 1
-        ist = is - nvclev
+        ist = is - klevp1
         zs  = zsm
         zsm = vct(is)
         IF (ist==1) THEN
@@ -470,26 +469,26 @@ CONTAINS
           rlnpr(ist)  = zrd*LOG(zs/zsm)
           ralpha(ist) = zrd - zsm*rlnpr(ist)/(zs-zsm)
         END IF
-        za = vct(ism-nvclev)
+        za = vct(ism-klevp1)
 
       END DO
 
       IF (za>0._wp) THEN
-        nlmsgl = ism - nvclev
+        nlmsgl = ism - klevp1
         nlmslp = nlmsgl + 1
         nlmsla = nlmslp
       END IF
 
       !-- 4. Calculate dela, delb, rddelb, cpg, and complete alphdb
 
-      DO jk = 1, nlev
+      DO jk = 1, klev
         dela(jk)   = vct(jk+1) - vct(jk)
-        delb(jk)   = vct(nvclev+jk+1) - vct(nvclev+jk)
+        delb(jk)   = vct(klevp1+jk+1) - vct(klevp1+jk)
         rddelb(jk) = rd*delb(jk)
-        cpg(jk)    = vct(nvclev+jk)*vct(jk+1) - vct(nvclev+jk+1)*vct(jk)
+        cpg(jk)    = vct(klevp1+jk)*vct(jk+1) - vct(klevp1+jk+1)*vct(jk)
       END DO
 
-      DO jk = nlmslp, nlev
+      DO jk = nlmslp, klev
         alpham(jk) = ralpha(jk)*delb(jk)
       END DO
 
@@ -497,11 +496,11 @@ CONTAINS
 
     !-- 5. Compute full level values of the hybrid coordinate
 
-    zetam    = vct(1)/apzero + vct(nvclev+1)
+    zetam    = vct(1)/apzero + vct(klevp1+1)
     cetah(1) = zetam
 
-    DO jlev = 1, nlev
-      zetap         = vct(jlev+1)/apzero + vct(nvclev+1+jlev)
+    DO jlev = 1, klev
+      zetap         = vct(jlev+1)/apzero + vct(klevp1+1+jlev)
       ceta(jlev)    = (zetam+zetap)*.5_wp
       cetah(jlev+1) = zetap
       zetam = zetap

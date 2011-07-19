@@ -55,7 +55,7 @@ USE mo_nonhydrostatic_config,ONLY: ivctype, kstart_moist, kstart_qv, l_open_ubc
 !USE mo_io_config,           ONLY: dt_data, dt_file, dt_diag, dt_checkpoint 
 USE mo_io_config,         ONLY:  dt_data,dt_file,dt_diag,dt_checkpoint
 USE mo_dynamics_config,   ONLY: iequations
-USE mo_run_config,        ONLY: &
+USE mo_run_config,        ONLY: configure_run, &
 & dtime,                & !    namelist parameter
 & nsteps,               & !    :
 & ltransport,           & !    :
@@ -254,15 +254,24 @@ CONTAINS
     END IF ! lrestart
 
     !---------------------------------------------------------------------
-    ! 1. Read namelists (newly) specified by the user; fill the 
-    !    corresponding sections of the configuration states.
+    ! 1.1 Read namelists (newly) specified by the user; fill the 
+    !     corresponding sections of the configuration states.
     !---------------------------------------------------------------------
     CALL read_atmo_namelists(atm_namelist_filename,shr_namelist_filename)
 
     !---------------------------------------------------------------------
-    ! 2. Cross-check namelists
+    ! 1.2 Cross-check namelist setups
     !---------------------------------------------------------------------
     CALL atm_crosscheck
+
+    !---------------------------------------------------------------------
+    ! 2. Call configure_run to finish filling the run_config state.
+    !    This needs to be done very early (but anyway after atm_crosscheck)
+    !    because some component of the state, e.g., num_lev, 
+    !    may be modified in this subroutine which affect the following
+    !    CALLs.
+    !---------------------------------------------------------------------
+    CALL configure_run
 
     !-------------------------------------------------------------------
     ! 3.1 Initialize various timers; initialize data and time 
