@@ -147,7 +147,7 @@ if [[ "x$nested_grids" != "x../grids/iconR2B05_DOM02.nc" ]] ; then
     cp -f $griddir/iconR2B0?_DOM0?.nc ../grids
   else
     echo "  No grids found --> exit test"
-    check_error 0 "exp.nat_jww_restruct"
+    check_error 0 "exp.nat_jww_nwp_mpiomp"
     exit 0
   fi
 fi
@@ -172,7 +172,7 @@ fi
 # If the model runs with mpi_procs=1, then this script exits without error:
 if [[ ${mpi_procs} = 1 ]]; then
   echo "This test must not be started if mpi_procs=1 --> exit test without error"
-  check_error 0 "exp.nat_jww_restruct"
+  check_error 0 "exp.nat_jww_nwp_mpiomp"
   exit 0
 fi
 # If running in parallel, mpi_procs must be bigger than 2:
@@ -231,7 +231,7 @@ cat > master_namelist_${EXPNAME} << EOF
  l_test_openmp  = .true.
  l_log_checks   = .true.
 /
-EOF 
+EOF
 !
 cat > NAMELIST_${EXPNAME} << EOF
 !
@@ -261,7 +261,7 @@ cat > NAMELIST_${EXPNAME} << EOF
  dtime          = 600.0        ! [s] timestep in seconds
  ltestcase      = .TRUE.       ! run testcase
  ldynamics      = .TRUE.       ! dynamics
- iforcing       = 3            ! ECHAM physics
+ iforcing       = 0            ! ECHAM physics
  ltransport     = .TRUE.       ! switch on tracer transport
  ntracer        =  5            ! number of tracers
  nlev           = ${N}         ! number of full levels of vertical grid 
