@@ -266,7 +266,7 @@ cell_type = 3            ! 3: triangular cells
  ltestcase      = .TRUE.       ! run testcase
  ldynamics      = .TRUE.       ! dynamics
  iforcing       = 0            ! ECHAM physics
- ltransport     = .TRUE.       ! switch on tracer transport
+ ltransport     = .false.       ! switch on tracer transport
  ntracer        =  5            ! number of tracers
  nlev           = ${N}         ! number of full levels of vertical grid 
  msg_level      = 12           ! detailed report during integration
@@ -274,17 +274,17 @@ cell_type = 3            ! 3: triangular cells
  ldump_states   = .false.
  lrestore_states= .false. 
 /
-&dynamics_ctl
+&dynamics_nml
  iequations     = ${IEQ}       ! equation system
  lcoriolis      = .TRUE.
  itime_scheme   = 5
  idiv_method    = 1
  divavg_cntrwgt = 0.50
 /
-&transport_ctl
+&transport_nml
   ctracer_list  = '12345'
 /
-&diffusion_ctl
+&diffusion_nml
  hdiff_order      = 5
  hdiff_efdt_ratio = 10.0
  hdiff_smag_fac   = 0.15
@@ -293,15 +293,15 @@ cell_type = 3            ! 3: triangular cells
  hdiff_multfac    = 1.0
  hdiff_tv_ratio   = 1.0
 /
-&interpol_ctl
+&interpol_nml
 nudge_zone_width  = 4
 /
-&gridref_ctl
+&gridref_nml
  grf_intmethod_ct = 2
  grf_tracfbk      = 2
  denom_diffu_v    = 150.
 /
-&nonhydrostatic_ctl
+&nonhydrostatic_nml
  iadv_rhotheta  = 2
  ivctype        = 2            ! sleve vertical coordinate
  exner_expol    = 0.60
@@ -312,7 +312,7 @@ nudge_zone_width  = 4
  l_open_ubc     = .false.
  l_nest_rcf     = .true.
 /
-&sleve_ctl
+&sleve_nml
  min_lay_thckn  = 50.
  top_height     = 32500.
  decay_scale_1  = 4000.
@@ -320,7 +320,7 @@ nudge_zone_width  = 4
  decay_exp      = 1.2
  flat_height    = 16000.
 /
-&nwp_phy_ctl
+&nwp_phy_nml
 inwp_gscp       = 1
 inwp_convection = 1
 inwp_radiation  = 1
@@ -330,9 +330,9 @@ inwp_turb       = 2
 &radiation_nml
  irad_o3 = 6
 /
-&regularization_ctl
+&regularization_nml
 /
-&ocean_ctl
+&ocean_nml
 /
 EOF
 #
