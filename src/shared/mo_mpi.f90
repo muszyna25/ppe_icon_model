@@ -47,7 +47,7 @@ MODULE mo_mpi
   !----------- should not be public -----------------------------------------
   PUBLIC :: process_mpi_test_id, process_mpi_root_id
   !----------- to be removed -----------------------------------------
-  PUBLIC :: p_pe, p_io, p_nprocs
+  PUBLIC :: p_pe, p_io
   PUBLIC :: num_test_procs, num_work_procs,             &
        &    p_test_pe, p_work_pe0, p_io_pe0,            &
        &    p_n_work, p_pe_work
@@ -118,7 +118,7 @@ MODULE mo_mpi
   ! num_test_procs: 0 or 1
   ! num_work_procs: number of procs running in parallel on the model
   ! process_mpi_io_size:   number of procs for I/O
-  ! num_test_procs + num_work_procs + process_mpi_io_size = p_nprocs
+  ! num_test_procs + num_work_procs + process_mpi_io_size = process_mpi_all_size
   INTEGER :: num_test_procs
   INTEGER :: num_work_procs
   INTEGER :: process_mpi_io_size
@@ -130,7 +130,7 @@ MODULE mo_mpi
 
   INTEGER :: p_test_pe     ! Number of test PE
   INTEGER :: p_work_pe0    ! Number of workgroup PE 0 within all PEs
-  INTEGER :: p_io_pe0      ! Number of I/O PE 0 within all PEs (p_nprocs if no I/O PEs)
+  INTEGER :: p_io_pe0      ! Number of I/O PE 0 within all PEs (process_mpi_all_size if no I/O PEs)
 
   ! Note: p_n_work, p_pe_work are NOT identical on all PEs
 
@@ -156,7 +156,6 @@ MODULE mo_mpi
 
   INTEGER :: p_pe     = 0     ! this is the PE number of this task
   INTEGER :: p_io     = 0     ! PE number of PE handling IO
-  INTEGER :: p_nprocs = 1     ! number of available PEs (processors)
   
 ! non blocking calls
 
@@ -523,7 +522,7 @@ CONTAINS
       num_test_procs = 0
     ENDIF
 
-    num_work_procs = p_nprocs - num_test_procs - num_io_procs
+    num_work_procs = process_mpi_all_size - num_test_procs - num_io_procs
     ! Check if there are sufficient PEs at all
     IF(num_work_procs < 1) THEN
       CALL finish(method_name, &
@@ -796,7 +795,6 @@ CONTAINS
     ! set some of the old variables
     ! should be rempved once the old variables are cleaned
     p_pe = my_process_mpi_all_id
-    p_nprocs = process_mpi_all_size
     
   END SUBROUTINE set_process_mpi_communicator
   !------------------------------------------------------------------------------
