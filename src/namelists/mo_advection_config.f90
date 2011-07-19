@@ -7,8 +7,7 @@
 !! <external_procedure(), or by using @see.>
 !! <Don't forget references to literature.>
 !!
-!! @author <name, affiliation>
-!! @author <name, affiliation>
+!! @author Daniel Reinert, DWD
 !!
 !!
 !! @par Revision History

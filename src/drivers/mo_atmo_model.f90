@@ -766,7 +766,7 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
+!    CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
     INTEGER :: n_io, jg, jfile, n_file, ist, n_diag, n_chkpt
     LOGICAL :: l_have_output
    
