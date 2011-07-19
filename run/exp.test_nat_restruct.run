@@ -189,8 +189,9 @@ R=2               # nroot
 B=4               # number of bisections applied for the global grid
 # Variables needed when runnig the model with grid refinement (IREF must be .TRUE.)
 IREF=.true.
-NDOM=2
+NDOM=1
 LPATCH0=.true.    # must be set to .TRUE. if the reduced grid is used for radiation
+exp_grid_filename=iconR${R}B0${B}_DOM0${NDOM}-grid.nc 
 #
 N=40              # nlev = number of full levels
 OPT="spr0.90"     # grid optimization
@@ -246,10 +247,11 @@ cat > NAMELIST_${EXPNAME} << EOF
  dt_diag        = ${DT_DATA}
 /
 &grid_nml
- nroot          = ${R}         ! root division of icosahedron edges
- start_lev      = ${B}         ! number of bisections applied for the base grid
+cell_type = 3            ! 3: triangular cells
+!nroot       = ${R}         ! root division of icosahedron edges
+ start_lev   = ${B}         ! number of bisections applied for the base grid
+ dynamics_grid_filename = "${exp_grid_filename}" 
  n_dom          = ${NDOM}
- i_cell_type    = 3            ! triangular cells
  lfeedback      = .true.,
  lpatch0        = ${LPATCH0}
  lredgrid_phys  = .true.,.true.
