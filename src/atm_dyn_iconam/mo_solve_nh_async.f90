@@ -62,7 +62,7 @@ MODULE mo_solve_nh_async
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_advection_hflux,   ONLY: upwind_hflux_miura, upwind_hflux_miura3
   USE mo_communication,     ONLY: start_async_comm, complete_async_comm
-  USE mo_mpi,               ONLY: p_nprocs
+  USE mo_mpi,               ONLY: my_process_is_mpi_seq, my_process_is_mpi_parallel
   USE mo_math_constants,    ONLY: dbl_eps
   USE mo_grf_interpolation, ONLY: denom_diffu_v
   USE mo_timer,             ONLY: timer_solve_nh, timer_start, timer_stop
@@ -1687,7 +1687,8 @@ MODULE mo_solve_nh_async
 !$OMP END DO
 
     ! Boundary update in case of nesting
-    IF (istep == 1 .AND. (l_limited_area .OR. p_patch%id > 1) .AND. p_nprocs==1) THEN
+    IF (istep == 1 .AND. (l_limited_area .OR. p_patch%id > 1) &
+      .AND. my_process_is_mpi_seq() ) THEN
 
       rl_start = 1
       rl_end   = grf_bdywidth_c
@@ -1958,7 +1959,7 @@ MODULE mo_solve_nh_async
    CALL start_async_comm(p_patch%comm_pat_e,1,nlev,bufr%send_e1,bufr%recv_e1,&
                          p_nh%prog(nnew)%vn)
 
-   IF (p_nprocs > 1) THEN
+   IF (my_process_is_mpi_parallel() ) THEN
 
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,jb,i_startblk,i_endblk,i_startidx,i_endidx)
      IF (l_limited_area .OR. p_patch%id > 1) THEN

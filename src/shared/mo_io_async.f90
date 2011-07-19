@@ -61,9 +61,8 @@ MODULE mo_io_async
                                     inh_atmosphere, ishallow_water, inwp
   USE mo_datetime,            ONLY: t_datetime
   USE mo_mpi,                 ONLY: p_pe, p_bcast, p_barrier, p_stop, p_real_dp, p_send, &
-    & p_recv, my_process_is_mpi_test
-  USE mo_parallel_config,  ONLY: p_pe_work, p_work_pe0, p_io_pe0,     &
-   &                                num_work_procs, pio_type
+    & p_recv, my_process_is_mpi_test, p_pe_work, p_work_pe0, p_io_pe0, num_work_procs
+  USE mo_parallel_config,  ONLY: pio_type
   USE mo_global_variables,    ONLY: setup_physics
   USE mo_nonhydrostatic_config, ONLY: ivctype
 ! USE mo_dynamics_nml,        ONLY: dynamics_nml_setup

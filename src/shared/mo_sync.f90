@@ -54,10 +54,10 @@ USE mo_io_units,           ONLY: find_next_free_unit, filename_max
 USE mo_mpi,                ONLY: p_pe, p_nprocs, p_bcast, p_sum, p_max, p_min, &
   & p_send, p_recv, p_comm_work_test,  p_comm_work, &
   & my_process_is_mpi_test, get_my_mpi_all_id, process_mpi_test_id, &
-  & my_process_is_mpi_parallel
+  & my_process_is_mpi_parallel,       &
+  & p_work_pe0, p_pe_work
 USE mo_parallel_config, ONLY:p_test_run,   &
-                                 n_ghost_rows, l_log_checks, l_fast_sum,       &
-                                 p_work_pe0, p_pe_work
+  & n_ghost_rows, l_log_checks, l_fast_sum
 USE mo_communication,      ONLY: exchange_data,                                &
                                  exchange_data_mult, t_comm_pattern,           &
                                  blk_no, idx_no, exchange_data_gm

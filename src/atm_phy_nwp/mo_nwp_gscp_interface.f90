@@ -43,7 +43,7 @@ MODULE mo_nwp_gscp_interface
 
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: message, message_text, finish
-  USE mo_mpi,                  ONLY: p_pe, p_nprocs
+  USE mo_mpi,                  ONLY: p_pe
   USE mo_parallel_config,  ONLY: p_test_run, nproma
   USE mo_sync,                 ONLY: SYNC_C, sync_patch_array_mult
 

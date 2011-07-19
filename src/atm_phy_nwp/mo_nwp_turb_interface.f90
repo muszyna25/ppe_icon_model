@@ -42,7 +42,7 @@ MODULE mo_nwp_turb_interface
 
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: message, message_text, finish
-  USE mo_mpi,                  ONLY: p_pe, p_nprocs
+  USE mo_mpi,                  ONLY: p_pe
 
   USE mo_model_domain,         ONLY: t_patch
   USE mo_grf_interpolation,    ONLY: t_gridref_state

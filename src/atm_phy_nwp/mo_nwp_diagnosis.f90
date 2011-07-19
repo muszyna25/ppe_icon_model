@@ -78,7 +78,6 @@ MODULE mo_nwp_diagnosis
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_sync,               ONLY: sync_patch_array, sync_patch_array_mult, &
                                    SYNC_C, SYNC_C1
-  USE mo_mpi,                ONLY: p_nprocs
  
 
 

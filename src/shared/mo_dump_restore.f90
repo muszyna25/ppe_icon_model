@@ -135,8 +135,7 @@ MODULE mo_dump_restore
 !  USE mo_interpol_nml        ! We need all from that module
  USE mo_interpol_config      ! We need all from that module
   USE mo_gridref_config      ! We need all from that module         
-  USE mo_mpi,                ONLY: p_nprocs
-  USE mo_parallel_config,       ONLY: p_n_work, p_pe_work
+  USE mo_mpi,                ONLY: p_nprocs, p_n_work, p_pe_work
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
   USE mo_communication,      ONLY: t_comm_pattern, blk_no, idx_no, idx_1d
   USE mo_model_domimp_patches, ONLY: allocate_patch

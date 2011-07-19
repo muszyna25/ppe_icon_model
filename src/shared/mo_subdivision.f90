@@ -78,11 +78,10 @@ MODULE mo_subdivision
   USE mo_mpi,                ONLY: MPI_UNDEFINED, MPI_COMM_NULL
 #endif
   USE mo_mpi,                ONLY: p_comm_work, my_process_is_mpi_test, &
-    & my_process_is_mpi_seq, process_mpi_test_id
+    & my_process_is_mpi_seq, process_mpi_test_id, p_pe_work, p_work_pe0, p_n_work
 
-  USE mo_parallel_config,       ONLY:  p_test_run, p_n_work, p_pe_work, &
-    &  p_work_pe0, division_method, n_ghost_rows, div_from_file,   &
-    & div_geometric
+  USE mo_parallel_config,       ONLY:  p_test_run, &
+    & division_method, n_ghost_rows, div_from_file, div_geometric
     
 #ifdef HAVE_METIS
   USE mo_parallel_config,    ONLY: div_metis

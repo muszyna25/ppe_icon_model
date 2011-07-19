@@ -35,7 +35,7 @@ MODULE mo_mpi
   PUBLIC :: p_communicator_a, p_communicator_b, p_communicator_d
 
   PUBLIC :: p_pe, p_io, p_nprocs, process_mpi_test_id, process_mpi_root_id
-  PUBLIC :: num_test_procs, num_work_procs, process_mpi_io_size
+  PUBLIC :: process_mpi_io_size
   
   PUBLIC :: p_stop, p_abort
 
@@ -43,8 +43,12 @@ MODULE mo_mpi
   PUBLIC :: p_isend, p_irecv, p_wait, p_wait_any
   PUBLIC :: p_gather, p_max, p_min, p_sum, p_global_sum, p_field_sum
   PUBLIC :: p_probe
-  
-!   PUBLIC :: p_set_communicator
+
+  !----------- to be removed -----------------------------------------
+  PUBLIC :: num_test_procs, num_work_procs,             &
+       &    p_test_pe, p_work_pe0, p_io_pe0,            &
+       &    p_n_work, p_pe_work
+  !--------------------------------------------------------------------
 
 #ifndef NOMPI
   PUBLIC :: MPI_INTEGER, MPI_STATUS_SIZE, MPI_SUCCESS, MPI_ANY_SOURCE,     &
@@ -106,6 +110,36 @@ MODULE mo_mpi
   LOGICAL :: process_is_stdio
   LOGICAL :: process_is_mpi_test
   
+  !------------------------------------------------------------
+  ! Processor distribution:
+  ! num_test_procs: 0 or 1
+  ! num_work_procs: number of procs running in parallel on the model
+  ! process_mpi_io_size:   number of procs for I/O
+  ! num_test_procs + num_work_procs + process_mpi_io_size = p_nprocs
+  INTEGER :: num_test_procs
+  INTEGER :: num_work_procs
+  INTEGER :: process_mpi_io_size
+
+  ! Note: p_test_pe, p_work_pe0, p_io_pe0 are identical on all PEs
+
+  ! In a verification run, p_test_pe is the number of the PE running the complete model,
+  ! otherwise it contains -1
+
+  INTEGER :: p_test_pe     ! Number of test PE
+  INTEGER :: p_work_pe0    ! Number of workgroup PE 0 within all PEs
+  INTEGER :: p_io_pe0      ! Number of I/O PE 0 within all PEs (p_nprocs if no I/O PEs)
+
+  ! Note: p_n_work, p_pe_work are NOT identical on all PEs
+
+  ! p_n_work: Number of PEs working together:
+  ! - num_work_procs for non-verification runs
+  ! - num_work_procs for verification runs on pes != p_test_pe
+  ! - 1              for verification runs on p_test_pe
+  ! - num_io_procs   always on I/O pes
+
+  INTEGER :: p_n_work
+  INTEGER :: p_pe_work        ! PE number within work group
+
   ! MPI communicators
   INTEGER :: p_comm_work        ! Communicator for work group
   INTEGER :: p_comm_work_test   ! Communicator spanning work group and test PE
@@ -121,16 +155,6 @@ MODULE mo_mpi
   INTEGER :: p_io     = 0     ! PE number of PE handling IO
   INTEGER :: p_nprocs = 1     ! number of available PEs (processors)
   
-  !------------------------------------------------------------
-  ! Processor distribution:
-  ! num_test_procs: 0 or 1
-  ! num_work_procs: number of procs running in parallel on the model
-  ! process_mpi_io_size:   number of procs for I/O
-  ! num_test_procs + num_work_procs + process_mpi_io_size = p_nprocs
-  INTEGER :: num_test_procs
-  INTEGER :: num_work_procs
-  INTEGER :: process_mpi_io_size
-
 ! non blocking calls
 
   ! module intrinsic names
@@ -170,6 +194,7 @@ MODULE mo_mpi
   INTEGER :: p_int_i4_byte  = 0
   INTEGER :: p_int_i8_byte  = 0
 
+  CHARACTER(len=256) :: message_text = ''
 
   ! define generic interfaces to allow proper compiling with picky compilers
   ! like NAG f95 for clean argument checking and shortening the call sequence.
@@ -402,6 +427,246 @@ CONTAINS
     run_is_global_mpi_parallel = is_global_mpi_parallel
   END FUNCTION run_is_global_mpi_parallel
   !------------------------------------------------------------------------------
+  
+  !------------------------------------------------------------------------------
+  SUBROUTINE print_info_stderr (name, text)
+    CHARACTER (len=*), INTENT(in) :: name
+    CHARACTER (len=*), INTENT(in) :: text
+
+    IF (my_process_is_stdio() ) THEN
+      WRITE (nerr,'(a,a,a)') TRIM(name), ": ", TRIM(text)
+    ENDIF
+  
+  END SUBROUTINE print_info_stderr
+  !------------------------------------------------------------------------------
+  
+  
+  !------------------------------------------------------------------------------
+  SUBROUTINE finish (name, text)
+    CHARACTER (len=*), INTENT(in) :: name
+    CHARACTER (len=*), INTENT(in) :: text
+
+    WRITE (nerr,'(i4.4,a,a,a)') my_global_mpi_id, ": ", TRIM(name), ": ", TRIM(text)
+    CALL p_abort
+      
+  END SUBROUTINE finish
+  !------------------------------------------------------------------------------
+  
+  
+  !-------------------------------------------------------------------------
+  SUBROUTINE set_mpi_work_communicators(lrestore_states, p_test_run, l_test_openmp, num_io_procs)
+    LOGICAL,INTENT(IN) :: lrestore_states
+    LOGICAL,INTENT(INOUT) :: p_test_run, l_test_openmp
+    INTEGER,INTENT(INOUT) :: num_io_procs
+    
+!   !local variables
+    INTEGER :: i_status, my_color, peer_comm, p_error
+    CHARACTER(*), PARAMETER :: method_name = "set_mpi_work_communicators"
+
+
+! check l_test_openmp
+#ifndef _OPENMP
+  IF (l_test_openmp) THEN
+    CALL print_info_stderr(method_name, &
+       & 'l_test_openmp has no effect if the model is compiled without OpenMP support')
+    CALL print_info_stderr(method_name, &
+       & '--> l_test_openmp set to .FALSE.')
+    l_test_openmp = .FALSE.
+  END IF
+#endif
+
+    ! check p_test_run and num_io_procs
+#ifdef NOMPI
+    ! Unconditionally set p_test_run to .FALSE. and num_io_procs to 0,
+    ! all other variables are already set correctly
+    IF (p_test_run) THEN
+      CALL print_info_stderr(method_name, &
+       & 'p_test_run has no effect if the model is compiled with the NOMPI compiler directive')
+      CALL print_info_stderr(method_name, &
+       & '--> p_test_run set to .FALSE.')
+      p_test_run = .FALSE.
+    END IF
+    IF (num_io_procs /= 0) THEN
+      CALL print_info_stderr(method_name, &
+       & 'num_io_procs has no effect if the model is compiled with the NOMPI compiler directive')
+      CALL print_info_stderr(method_name, &
+       & '--> num_io_procs set to 0')
+      num_io_procs = 0
+    END IF
+
+#else
+
+
+    ! A run on 1 PE is never a verification run,
+    ! correct this if the user should set it differently
+    IF (p_test_run .AND. my_process_is_mpi_seq()) THEN
+      CALL print_info_stderr(method_name, &
+          & 'p_test_run has no effect in seq run')
+      CALL print_info_stderr(method_name, &
+          & '--> p_test_run set to .FALSE.')
+      p_test_run = .FALSE.
+    ENDIF
+    ! for safety only    
+    IF(num_io_procs < 0) num_io_procs = 0
+  
+
+    ! Set dependent control variables according
+    ! to the (modified) NAMELIST varaibles
+    ! -----------------------------------------
+    ! Set up processor numbers
+    IF(p_test_run) THEN
+      num_test_procs = 1
+    ELSE
+      num_test_procs = 0
+    ENDIF
+
+    num_work_procs = p_nprocs - num_test_procs - num_io_procs
+    ! Check if there are sufficient PEs at all
+    IF(num_work_procs < 1) THEN
+      CALL finish(method_name, &
+      & 'not enough processors for given values of p_test_run/num_io_procs')
+    ELSE IF (p_test_run .AND. num_work_procs == 1) THEN
+      CALL finish(method_name, &
+      & 'running p_test_run with only 1 work processor does not make sense')
+    ENDIF
+
+    WRITE(message_text,'(3(a,i0))') 'Number of procs for test: ',num_test_procs, &
+      & ', work: ',num_work_procs,', I/O: ',num_io_procs
+    CALL print_info_stderr(method_name, message_text)
+
+  ! Set up p_test_pe, p_work_pe0, p_io_pe0 which are identical on all PEs
+
+  IF(p_test_run) THEN
+    p_test_pe = 0
+  ELSE
+    p_test_pe = -1
+  ENDIF
+
+  p_work_pe0 = num_test_procs
+  p_io_pe0   = num_test_procs + num_work_procs
+
+  ! if OpenMP is used, the test PE uses only 1 thread in order to check
+  ! the correctness of the OpenMP implementation
+  ! Currently the I/O PEs are also single threaded!
+#ifdef _OPENMP
+  IF (l_test_openmp .AND. p_pe == p_test_pe) CALL OMP_SET_NUM_THREADS(1)
+  IF (p_pe >= p_io_pe0) CALL OMP_SET_NUM_THREADS(1)
+#endif
+
+  ! Set up p_n_work and p_pe_work which are NOT identical on all PEs
+
+  IF(p_pe < p_work_pe0) THEN
+    ! Test PE (if present)
+    p_n_work  = 1          ! 1 PE in verification work group
+    p_pe_work = 0          ! PE number within work group
+  ELSE IF(p_pe < p_io_pe0) THEN
+    ! Work PE
+    p_n_work  = num_work_procs
+    p_pe_work = p_pe - num_test_procs
+  ELSE
+    ! I/O PE (if present)
+    p_n_work  = num_io_procs
+    p_pe_work = p_pe - num_test_procs - num_work_procs
+  ENDIF
+
+
+  ! Set communicators
+  ! =================
+
+  ! Split communicator process_mpi_all_comm between test/work/io
+  ! to get p_comm_work which is the communicator for
+  ! usage WITHIN every group of the 3 different type
+
+  IF(p_pe < p_work_pe0) THEN
+    my_color = 1 ! Test PE
+  ELSE IF(p_pe < p_io_pe0) THEN
+    my_color = 2 ! Work PE
+  ELSE
+    my_color = 3 ! I/O PE
+  ENDIF
+
+  CALL MPI_Comm_split(process_mpi_all_comm, my_color, p_pe, p_comm_work, p_error)
+
+  ! Set p_comm_work_test, the communicator spanning work group and test PE
+
+  IF(p_test_run) THEN
+    IF(p_pe < p_io_pe0) THEN
+      my_color = 1
+    ELSE
+      my_color = MPI_UNDEFINED ! p_comm_work_test must never be used on I/O PEs
+    ENDIF
+
+    CALL MPI_Comm_split(process_mpi_all_comm, my_color, p_pe, p_comm_work_test, p_error)
+  ELSE
+    ! If not a test run, p_comm_work_test must not be used at all
+    p_comm_work_test = MPI_COMM_NULL
+  ENDIF
+
+  ! Set p_comm_work_io, the communicator spanning work group and I/O PEs
+
+  IF(num_io_procs > 0) THEN
+    IF(p_pe < p_work_pe0) THEN
+      my_color = MPI_UNDEFINED ! p_comm_work_io must never be used on test PE
+    ELSE
+      my_color = 1
+    ENDIF
+
+    CALL MPI_Comm_split(process_mpi_all_comm, my_color, p_pe, p_comm_work_io, p_error)
+  ELSE
+    ! If no I/O PEs are present, p_comm_work_io must not be used at all
+    p_comm_work_io = MPI_COMM_NULL
+  ENDIF
+
+  ! Set p_comm_input_bcast, the communicator for broadcasting the NetCDF input
+  IF(lrestore_states) THEN
+    ! NetCDF input is only read by the test pe and MUST NOT be broadcast
+    IF(p_pe == p_test_pe) THEN
+      p_comm_input_bcast = MPI_COMM_SELF ! i.e. effectively no broadcast
+    ELSE
+      p_comm_input_bcast = MPI_COMM_NULL ! Must not be used!
+    ENDIF
+  ELSE
+    IF(p_pe < p_io_pe0) THEN
+      IF(p_test_run) THEN
+        ! Test PE reads and broadcasts to workers
+        p_comm_input_bcast = p_comm_work_test
+      ELSE
+        ! PE 0 reads and broadcasts
+        p_comm_input_bcast = p_comm_work
+      ENDIF
+    ELSE
+      ! I/O PEs never participate in reading
+      p_comm_input_bcast = MPI_COMM_NULL
+    ENDIF
+  ENDIF
+
+  ! Create Intercommunicator work PEs - I/O PEs
+
+  ! From MPI-Report:
+  ! Advice to users: We recommend using a dedicated peer communicator, such as a
+  ! duplicate of MPI_COMM_WORLD, to avoid trouble with peer communicators.
+
+  ! No idea what these troubles may be in reality, but let us follow the advice
+
+  CALL MPI_Comm_dup(process_mpi_all_comm, peer_comm, p_error)
+
+  IF(p_pe /= p_test_pe .AND. num_io_procs>0) THEN
+
+    IF(p_pe < p_io_pe0) THEN
+      CALL MPI_Intercomm_create(p_comm_work, 0, peer_comm, p_io_pe0,  1, p_comm_work_2_io, p_error)
+    ELSE
+      CALL MPI_Intercomm_create(p_comm_work, 0, peer_comm, p_work_pe0,1, p_comm_work_2_io, p_error)
+    ENDIF
+  ELSE
+    ! No Intercommunicator
+    p_comm_work_2_io = MPI_COMM_NULL
+  ENDIF
+#endif
+
+
+  END SUBROUTINE set_mpi_work_communicators
+  !-------------------------------------------------------------------------
+  
 
   !------------------------------------------------------------------------------
   !>

@@ -41,7 +41,7 @@ MODULE mo_nwp_conv_interface
 
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: message, message_text, finish
-  USE mo_mpi,                  ONLY: p_pe, p_nprocs
+  USE mo_mpi,                  ONLY: p_pe
   USE mo_parallel_config, ONLY:  p_test_run, nproma
 
   USE mo_model_domain,         ONLY: t_patch

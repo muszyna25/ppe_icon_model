@@ -131,12 +131,13 @@ MODULE mo_parallel_nml
                           nproma
        
   CONTAINS
+  
+  !-------------------------------------------------------------------------
   !>
-  !!
   !! @par Revision History
   !! Initial version by Rainer Johanni, Nov 2009
   !! Adapted for I/O PEs, Rainer Johanni, Nov 2010
-  !!
+  !! Leonidas Linardakis, namelist restructuring, Jul 2011
   SUBROUTINE read_parallel_namelist( filename )
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
@@ -224,9 +225,9 @@ MODULE mo_parallel_nml
     CALL fill_parallel_nml_configure()
     
   END SUBROUTINE read_parallel_namelist
+  !-------------------------------------------------------------------------
    
-  !>
-  !! 
+  !-------------------------------------------------------------------------
   SUBROUTINE fill_parallel_nml_configure
        
     config_n_ghost_rows        = n_ghost_rows
@@ -244,7 +245,6 @@ MODULE mo_parallel_nml
     config_nproma              = nproma
 
   END SUBROUTINE fill_parallel_nml_configure
-
   !-------------------------------------------------------------------------
 
 END MODULE mo_parallel_nml
