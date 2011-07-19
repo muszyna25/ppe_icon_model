@@ -1059,12 +1059,13 @@ CONTAINS
 
     ENDIF
 
-    WRITE (datetime_format,'(A1,A2,A11)') '(',year_fmt_str,',5(X,I2),X)'
+   !WRITE (datetime_format,'(A1,A2,A11)') '(',year_fmt_str,',5(X,I2),X)'
+    WRITE (datetime_format,'(A1,A2,A13)') '(',year_fmt_str,',5(1X,I2),1X)'
 
     ! Read from string
     ! --------------------------------------
 
-    READ(datetime_str, datetime_format) datetime%year,   &
+    READ(datetime_str, TRIM(datetime_format)) datetime%year,   &
          &                              datetime%month,  &
          &                              datetime%day,    &
          &                              datetime%hour,   &
