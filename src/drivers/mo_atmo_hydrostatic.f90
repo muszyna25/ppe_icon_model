@@ -2,8 +2,6 @@
 !! @brief workflow for the ICON atmospheric hydrostatic model
 !!
 !! @author
-!!  Hui Wan             (MPI-M)
-!!  Kristina Froehlich, MPI-M
 !!
 !! @par Copyright
 !! 2002-2011 by DWD and MPI-M
@@ -34,62 +32,37 @@
 !!
 MODULE mo_atmo_hydrostatic
 
-USE mo_exception,           ONLY: message, finish
-USE mo_mpi,                 ONLY: p_stop, p_pe, p_io,  &
-& my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
-& my_process_is_stdio
+  USE mo_exception,         ONLY: message, finish
+  USE mo_impl_constants,    ONLY: SUCCESS, MAX_CHAR_LENGTH
+  USE mo_impl_constants,    ONLY: inoforcing, iheldsuarez, ildf_dry, &
+                                  iecham, ildf_echam
+  USE mo_timer,             ONLY: print_timer
 
-USE mo_master_nml,          ONLY: lrestart
-USE mo_output,              ONLY: init_output_files, close_output_files, write_output
+  USE mo_master_nml,        ONLY: lrestart
+  USE mo_parallel_config,   ONLY: p_test_run
+  USE mo_time_config,       ONLY: time_config
+  USE mo_run_config,        ONLY: dtime, nsteps, ltestcase, ltimer,iforcing, nlev
+  USE mo_ha_testcases,      ONLY: ctest_name
+  USE mo_io_config,         ONLY: dt_data, dt_file, dt_diag, dt_checkpoint
+  USE mo_dynamics_config,   ONLY: iequations
 
-USE mo_parallel_config, ONLY: p_test_run
+  USE mo_atmo_control,        ONLY: p_patch
+  USE mo_intp_data_strc,      ONLY: p_int_state
+  USE mo_grf_intp_data_strc,  ONLY: p_grf_state
 
+  USE mo_vertical_coord_table,ONLY: vct_a, vct_b, ceta
+  USE mo_icoham_dyn_memory,   ONLY: p_hydro_state, destruct_icoham_dyn_state
+  USE mo_ha_stepping,         ONLY: prepare_ha_dyn, initcond_ha_dyn, perform_ha_stepping
 
-USE mo_io_config,         ONLY:  dt_data,dt_file,dt_diag,dt_checkpoint
-USE mo_dynamics_config,   ONLY: iequations
-USE mo_run_config,        ONLY: &
-& dtime,                & !    namelist parameter
-& nsteps,               & !    :
-& ltransport,           & !    :
-& lforcing,             & !    :
-& ltestcase,            & !    :
-& ltimer,               & !    :
-& iforcing,             & !    namelist parameter
-& nlev,     &
-& iqv,      &
-& ntracer
+  USE mo_echam_phy_config,    ONLY: configure_echam_phy
+  USE mo_echam_phy_init,      ONLY: prepare_echam_phy, initcond_echam_phy, &
+                                  & additional_restart_init
+  USE mo_echam_phy_memory,    ONLY: destruct_echam_phy_state
+  USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
 
-USE mo_ha_testcases, ONLY: ctest_name
-
-USE mo_impl_constants, ONLY:&
-    & ihs_atm_temp,         & !    :
-    & ihs_atm_theta,        & !    :
-    & ishallow_water,       & !    :
-    & ildf_dry,             & !    :
-    & ildf_echam,           & !    :
-    & inoforcing,           & !    :
-    & iheldsuarez,          & !    :
-    & iecham
-USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
-
-
-USE mo_time_config,         ONLY: time_config
-USE mo_io_restart,          ONLY: read_restart_files
-
-USE mo_atmo_control,        ONLY: p_patch
-USE mo_intp_data_strc,      ONLY: p_int_state
-USE mo_grf_intp_data_strc,  ONLY: p_grf_state
-
-USE mo_vertical_coord_table,ONLY: vct_a, vct_b, ceta
-USE mo_icoham_dyn_memory,   ONLY: p_hydro_state, destruct_icoham_dyn_state
-USE mo_ha_stepping,         ONLY: prepare_ha_dyn, initcond_ha_dyn, perform_ha_stepping
-
-USE mo_echam_phy_config,    ONLY: configure_echam_phy
-USE mo_echam_phy_init,      ONLY: prepare_echam_phy, initcond_echam_phy, &
-                                & additional_restart_init
-USE mo_echam_phy_memory,    ONLY: destruct_echam_phy_state
-USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
-
+  USE mo_io_restart,           ONLY: read_restart_files
+  USE mo_io_restart_attributes,ONLY: get_restart_attribute
+  USE mo_output,               ONLY: init_output_files, close_output_files, write_output
 
   IMPLICIT NONE
   PRIVATE
@@ -101,14 +74,17 @@ CONTAINS
   !!
   SUBROUTINE atmo_hydrostatic
 
+    LOGICAL :: lsuccess, l_have_output
+    INTEGER :: n_io, n_file, n_diag, n_chkpt
+    INTEGER :: jfile
+
     CHARACTER(*), PARAMETER :: routine = "atmo_hydrostatic"
-    LOGICAL :: lsuccess
-    LOGICAL :: l_have_output
 
     !------------------------------------------------------------------
     ! Initialize parameters and solvers;
     ! Allocate memory for model state vectors.
     !------------------------------------------------------------------
+
     CALL prepare_ha_dyn( p_patch(1:) )
 
     IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
@@ -119,6 +95,7 @@ CONTAINS
     !------------------------------------------------------------------
     ! Set initial conditions for time integration.
     !------------------------------------------------------------------
+
     IF (lrestart) THEN
     ! This is an resumed integration. Read model state from restart file(s).
 
@@ -144,101 +121,69 @@ CONTAINS
 
     END IF ! lrestart
 
-!    !---------------------------------------------------------
-!    ! The most primitive event handling algorithm:
-!    ! compute time step interval for taking a certain action
-!    !---------------------------------------------------------
-!
-!    n_io    = NINT(dt_data/dtime)        ! write output
-!    n_file  = NINT(dt_file/dtime)        ! trigger new output file
-!    n_chkpt = NINT(dt_checkpoint/dtime)  ! write restart files
-!    n_diag  = MAX(1,NINT(dt_diag/dtime)) ! diagnose of total integrals
-!
-!    !------------------------------------------------------------------
-!    ! Prepare output file
-!    !------------------------------------------------------------------
-!    IF (.NOT.lrestart) THEN
-!    ! Initialize the first output file which will contain also the
-!    ! initial conditions.
-!
-!      jfile = 1
-!      CALL init_output_files(jfile, lclose=.FALSE.)
-!
-!    ELSE
-!    ! No need to write out the initial condition, thus no output
-!    ! during the first integration step. This run will produce
-!    ! output if n_io <= integration_length.
-!
-!      CALL get_restart_attribute('next_output_file',jfile)
-!
-!      IF (n_io.le.(nsteps-1)) THEN
-!         CALL init_output_files(jfile, lclose=.FALSE.)
-!         l_have_output = .TRUE.
-!      ELSE
-!         l_have_output = .FALSE.
-!      END IF
-!
-!    END IF
-!
+    !------------------------------------------------------------------
+    ! The most primitive event handling algorithm:
+    ! compute time step interval for taking a certain action
+    !------------------------------------------------------------------
 
-!    !------------------------------------------------------------------
-!    !  get and write out some of the inital values
-!    !------------------------------------------------------------------
-!    IF (.NOT.lrestart) THEN
-!
-!    ! diagnose u and v to have meaningful initial output
-!
-!    DO jg = 1, n_dom
+    n_io    = NINT(dt_data/dtime)        ! write output
+    n_file  = NINT(dt_file/dtime)        ! trigger new output file
+    n_chkpt = NINT(dt_checkpoint/dtime)  ! write restart files
+    n_diag  = MAX(1,NINT(dt_diag/dtime)) ! diagnose of total integrals
 
-!        SELECT CASE (p_patch(jg)%cell_type)
-!        CASE (3)
-!          CALL rbf_vec_interpol_cell(p_hydro_state(jg)%prog(1)%vn,p_patch(jg), &
-!            & p_int_state(jg),p_hydro_state(jg)%diag%u,p_hydro_state(jg)%diag%v)
-!        CASE (6)
-!          CALL edges2cells_scalar(p_hydro_state(jg)%prog(1)%vn,p_patch(jg), &
-!            & p_int_state(jg)%hex_east,p_hydro_state(jg)%diag%u)
-!          CALL edges2cells_scalar(p_hydro_state(jg)%prog(1)%vn,p_patch(jg), &
-!            & p_int_state(jg)%hex_north,p_hydro_state(jg)%diag%v)
-!        END SELECT
-!
-!    ENDDO
-!
-!    ! Note: here the derived output variables are not yet available
-!    ! (omega, divergence, vorticity)
-!    CALL write_output( time_config%cur_datetime )
-!    l_have_output = .TRUE.
-!
-!    END IF ! not lrestart
-!
+    !------------------------------------------------------------------
+    ! Initialize output file if necessary;
+    ! Write out initial conditions.
+    !------------------------------------------------------------------
 
-!    !------------------------------------------------------------------
-!    ! Now start the time stepping:
-!    ! The special initial time step for the three time level schemes
-!    ! is executed within process_grid_level
-!    !------------------------------------------------------------------
+    IF (.NOT.lrestart) THEN
+    ! Initialize the first output file which will contain also the
+    ! initial conditions.
 
-!      CALL perform_ha_stepping( p_patch(1:), p_int_state(1:), p_grf_state(1:), &
-!                              & p_hydro_state, time_config%cur_datetime,       &
-!                              & n_io, n_file, n_chkpt, n_diag, jfile,          &
-!                              & l_have_output                                  )
-!
-!    IF (ltimer) CALL print_timer
-!
-    !
+      jfile = 1
+      CALL init_output_files(jfile, lclose=.FALSE.)
+      CALL write_output( time_config%cur_datetime )
+      l_have_output = .TRUE.
+
+    ELSE
+    ! No need to write out the initial condition, thus no output
+    ! during the first integration step. This run will produce
+    ! output if n_io <= integration_length.
+
+      CALL get_restart_attribute('next_output_file',jfile)
+
+      IF (n_io.le.(nsteps-1)) THEN
+         CALL init_output_files(jfile, lclose=.FALSE.)
+         l_have_output = .TRUE.
+      ELSE
+         l_have_output = .FALSE.
+      END IF
+
+    END IF
+
+    !------------------------------------------------------------------
+    ! Time integraion
+    !------------------------------------------------------------------
+
+    CALL perform_ha_stepping( p_patch(1:), p_int_state(1:), p_grf_state(1:), &
+                            & p_hydro_state, time_config%cur_datetime,       &
+                            & n_io, n_file, n_chkpt, n_diag, jfile,          &
+                            & l_have_output                                  )
+
+
     !---------------------------------------------------------------------
-    ! 6. Integration finished. Clean up.
+    ! Integration finished. Start to clean up.
     !---------------------------------------------------------------------
+    IF (ltimer) CALL print_timer
 
-!   CALL message(TRIM(routine),'start to clean up')
-!
+    CALL message(TRIM(routine),'start to clean up')
 
-!     CALL destruct_icoham_dyn_state
+    CALL destruct_icoham_dyn_state
 !     DEALLOCATE (p_hydro_state, STAT=ist)
 !     IF (ist /= SUCCESS) THEN
 !       CALL finish(TRIM(routine),'deallocation for p_hydro_state failed')
 !     ENDIF
 !
-!   ! Delete output variable lists
 !   IF (l_have_output) CALL close_output_files
 !
 !

@@ -677,18 +677,6 @@ CONTAINS
 !
 !      SELECT CASE (iequations)
 !
-!      CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
-!        SELECT CASE (p_patch(jg)%cell_type)
-!        CASE (3)
-!          CALL rbf_vec_interpol_cell(p_hydro_state(jg)%prog(1)%vn,p_patch(jg), &
-!            & p_int_state(jg),p_hydro_state(jg)%diag%u,p_hydro_state(jg)%diag%v)
-!        CASE (6)
-!          CALL edges2cells_scalar(p_hydro_state(jg)%prog(1)%vn,p_patch(jg), &
-!            & p_int_state(jg)%hex_east,p_hydro_state(jg)%diag%u)
-!          CALL edges2cells_scalar(p_hydro_state(jg)%prog(1)%vn,p_patch(jg), &
-!            & p_int_state(jg)%hex_north,p_hydro_state(jg)%diag%v)
-!        END SELECT
-!
 !      CASE (inh_atmosphere)
 !        SELECT CASE (p_patch(jg)%cell_type)
 !        CASE (3)
@@ -819,12 +807,6 @@ CONTAINS
     ENDIF
     
  
-    
-    !-------------------------------------------------------------------------
-    ! set up horizontal diffusion after the vertical coordinate is configured
-    !-------------------------------------------------------------------------
-  ! CALL diffusion_nml_setup(n_dom,parent_id,nlev)
-    
     !------------------------------------------------------------------
     ! step 5b: allocate state variables
     !------------------------------------------------------------------
@@ -863,7 +845,6 @@ CONTAINS
     ! step 6: initialize output
     !------------------------------------------------------------------
     
-   !CALL io_nml_setup ! is empty and now only a place holder
     CALL setup_gmt_output(p_patch(n_dom)%nlev)
     
     ! The model produces output files for all grid levels
@@ -890,37 +871,6 @@ CONTAINS
     ! Prepare for time integration
     !------------------------------------------------------------------
     SELECT CASE (iequations)
-    CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
-
-    !------------------------------------------------------------------
-    ! Set initial conditions for time integration.
-    !------------------------------------------------------------------
-    IF (lrestart) THEN
-    ! This is an resumed integration. Read model state from restart file(s).
-
-      CALL read_restart_files
-      CALL message(TRIM(routine),'normal exit from read_restart_files')
-
-      ! Initialize logical variables in echam physics state.
-      ! This is necessary for now because logical arrays can not yet be
-      ! written into restart files.
-
-      IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN                                       
-        CALL additional_restart_init( p_patch(1:) )                                            
-      END IF                                                                                   
-
-    ELSE
-    ! This is an initial run (cold start). Compute initial condition for 
-    ! test cases, or read externally given initial conditions.
-
-      CALL initcond_ha_dyn( p_patch(1:), p_int_state(1:),  &
-                          & p_grf_state(1:), p_hydro_state )
-
-      IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM)      &
-      CALL initcond_echam_phy( p_patch(1:),p_hydro_state, ltestcase, ctest_name )
-
-    END IF ! lrestart
-                                                                                               
     !--------------------
     CASE (inh_atmosphere)
       CALL prepare_nh_integration(p_patch(1:), p_nh_state, p_int_state(1:), p_grf_state(1:))
@@ -1002,18 +952,6 @@ CONTAINS
     DO jg = 1, n_dom
 
       SELECT CASE (iequations)
-
-      CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
-        SELECT CASE (p_patch(jg)%cell_type)
-        CASE (3)
-          CALL rbf_vec_interpol_cell(p_hydro_state(jg)%prog(1)%vn,p_patch(jg), &
-            & p_int_state(jg),p_hydro_state(jg)%diag%u,p_hydro_state(jg)%diag%v)
-        CASE (6)
-          CALL edges2cells_scalar(p_hydro_state(jg)%prog(1)%vn,p_patch(jg), &
-            & p_int_state(jg)%hex_east,p_hydro_state(jg)%diag%u)
-          CALL edges2cells_scalar(p_hydro_state(jg)%prog(1)%vn,p_patch(jg), &
-            & p_int_state(jg)%hex_north,p_hydro_state(jg)%diag%v)
-        END SELECT
 
       CASE (inh_atmosphere)
         SELECT CASE (p_patch(jg)%cell_type)
