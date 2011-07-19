@@ -43,8 +43,8 @@ cat > $atmo_namelist << EOF
 !
 &parallel_nml
  nproma         = ${NPROMA}
- p_test_run     = $test_mpi
- l_test_openmp  = $test_openmp_
+ p_test_run     = .false.
+ l_test_openmp  = .false.
  l_log_checks   = .false.
 /
 &grid_nml
@@ -54,7 +54,8 @@ cat > $atmo_namelist << EOF
 &gridref_nml
 /
 &run_nml
- nlev        = ${N}         ! number of full levels of vertical grid
+ num_lev     = ${N},        ! number of full levels of vertical grid
+ nlev        = ${N},        ! number of full levels of vertical grid
  ntracer     = 0            ! number of tracers
  nsteps      = 10           ! [day] length of run
  dtime       = 600.0        ! [s] timestep
