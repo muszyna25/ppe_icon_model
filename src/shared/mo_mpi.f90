@@ -1024,11 +1024,10 @@ CONTAINS
        CALL p_abort
     END IF
 
-    IF (global_mpi_size > 1) THEN
-      is_global_mpi_parallel = .TRUE.
-    ELSE
-      global_mpi_size = 1 ! just in case we got wrong size
-    ENDIF
+    ! for non blocking calls
+    p_mrequest = p_request_alloc_size
+    ALLOCATE(p_request(p_mrequest))
+    p_irequest = 0
     
     ! lets check the available MPI version
     CALL MPI_GET_VERSION (version, subversion, p_error)
@@ -1071,6 +1070,7 @@ CONTAINS
     CALL MPI_TYPE_MATCH_SIZE(MPI_TYPECLASS_INTEGER, p_int_i4_byte, p_int_i4, p_error)
     CALL MPI_TYPE_MATCH_SIZE(MPI_TYPECLASS_INTEGER, p_int_i8_byte, p_int_i8, p_error)
 
+
 #ifdef __DEBUG__
     WRITE (nerr,'(/,a)')    ' MPI transfer sizes [bytes]:'
     WRITE (nerr,'(a,i4)') '  INTEGER generic:', p_int_byte
@@ -1081,12 +1081,19 @@ CONTAINS
     WRITE (nerr,'(a,i4)') '  REAL double    :', p_real_dp_byte
 #endif
 
+! MPI ends here
 #else
 
   WRITE (nerr,'(a,a)')  method_name, ' No MPI: Single processor run.'
 
 #endif
 
+
+    IF (global_mpi_size > 1) THEN
+      is_global_mpi_parallel = .TRUE.
+    ELSE
+      global_mpi_size = 1 ! just in case we got wrong size
+    ENDIF
 
 #ifdef _OPENMP
     ! The number of threads, if varying, will be defined via
@@ -1160,6 +1167,7 @@ CONTAINS
 !        WRITE (nerr,'(1x,a,i3)') ' global_no_of_threads is ', global_no_of_threads
 !     ENDIF
 ! #endif
+
 
     ! by default, the global communicator is the process communicator
     CALL set_process_mpi_name(global_mpi_name)
