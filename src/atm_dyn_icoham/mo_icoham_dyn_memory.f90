@@ -106,6 +106,7 @@ CONTAINS
              routine = 'mo_icoham_dyn_memory:construct_icoham_dyn_state'
 
     !---
+    CALL message('','')
     CALL message(TRIM(routine),'Construction of 3D dynamics state vector started.')
 
     ndomain = SIZE(p_patch)
@@ -226,6 +227,7 @@ CONTAINS
     ENDDO
 
     CALL message(TRIM(routine),'Construction of 3D dynamics state vector finished.')
+    CALL message('','')
 
   END SUBROUTINE construct_icoham_dyn_state
 

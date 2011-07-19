@@ -169,7 +169,7 @@ CONTAINS
       ! Raw data file name(s) for output
       !
       WRITE (outputfile,'(a,a,i4.4,a)')  &
-        &  TRIM(out_expname), TRIM(grid_filename),'_', jfile, '.nc'
+        &  TRIM(out_expname)//TRIM(grid_filename),'_', jfile, '.nc'
       
 !       SELECT CASE (iequations)
 !         !
