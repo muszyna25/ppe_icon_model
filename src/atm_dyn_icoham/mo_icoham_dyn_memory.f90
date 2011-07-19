@@ -66,7 +66,6 @@ MODULE mo_icoham_dyn_memory
   PUBLIC :: construct_icoham_dyn_state, destruct_icoham_dyn_state
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
-  CHARACTER(len=*), PARAMETER :: thismodule = 'mo_icoham_dyn_memory'
 
   !----------------------------------------------------------------------------
   !                          MEMORY BUFFER 
@@ -151,7 +150,7 @@ CONTAINS
 
       ALLOCATE(p_hydro_state(jg)%prog(1:ntimelevel), STAT=istat)
       IF (istat/=SUCCESS) &
-      CALL finish(TRIM(thismodule),'allocation of prognostic state array failed')
+      CALL finish(TRIM(routine),'allocation of prognostic state array failed')
 
       DO jt = 1,ntimelevel
 
@@ -235,13 +234,13 @@ CONTAINS
   !!
   SUBROUTINE destruct_icoham_dyn_state
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_icoham_dyn_memory:destruct_icoham_dyn_state'
 
     INTEGER :: ntimelevel, ndomain
     INTEGER :: jt    !< time level index
     INTEGER :: jg    !< grid level/domain index
-    INTEGER :: ist   !< system status code
+    INTEGER :: istat !< system status code
 
     !---
 
@@ -268,11 +267,15 @@ CONTAINS
       CALL delete_var_list( hydro_prog_out_list(jg) )
       CALL delete_var_list( hydro_diag_out_list(jg) )
 
-      DEALLOCATE( p_hydro_state(jg)%prog, STAT=ist )
-      IF (ist/=SUCCESS) &
-      CALL finish(TRIM(thismodule),'deallocation of prognostic state array failed')
+      DEALLOCATE( p_hydro_state(jg)%prog, STAT=istat )
+      IF (istat/=SUCCESS) &
+      CALL finish(TRIM(routine),'deallocation of prognostic state array failed')
 
     ENDDO
+
+    DEALLOCATE (p_hydro_state, STAT=istat)
+    IF (istat /= SUCCESS) & 
+    CALL finish(TRIM(routine),'deallocation for p_hydro_state failed')
 
     CALL message(TRIM(routine),'Destruction of 3D dynamics state vector finished.')
 

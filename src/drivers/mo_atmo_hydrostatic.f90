@@ -1,7 +1,7 @@
 !>
 !! @brief workflow for the ICON atmospheric hydrostatic model
 !!
-!! @author
+!! @author Hui Wan (MPI-M)
 !!
 !! @par Copyright
 !! 2002-2011 by DWD and MPI-M
@@ -32,14 +32,11 @@
 !!
 MODULE mo_atmo_hydrostatic
 
-  USE mo_exception,         ONLY: message, finish
-  USE mo_impl_constants,    ONLY: SUCCESS, MAX_CHAR_LENGTH
-  USE mo_impl_constants,    ONLY: inoforcing, iheldsuarez, ildf_dry, &
-                                  iecham, ildf_echam
+  USE mo_exception,         ONLY: message
+  USE mo_impl_constants,    ONLY: iecham, ildf_echam
   USE mo_timer,             ONLY: print_timer
 
   USE mo_master_nml,        ONLY: lrestart
-  USE mo_parallel_config,   ONLY: p_test_run
   USE mo_time_config,       ONLY: time_config
   USE mo_run_config,        ONLY: dtime, nsteps, ltestcase, ltimer,iforcing, nlev
   USE mo_ha_testcases,      ONLY: ctest_name
@@ -52,17 +49,18 @@ MODULE mo_atmo_hydrostatic
 
   USE mo_vertical_coord_table,ONLY: vct_a, vct_b, ceta
   USE mo_icoham_dyn_memory,   ONLY: p_hydro_state, destruct_icoham_dyn_state
-  USE mo_ha_stepping,         ONLY: prepare_ha_dyn, initcond_ha_dyn, perform_ha_stepping
+  USE mo_ha_stepping,         ONLY: prepare_ha_dyn, initcond_ha_dyn, &
+                                    perform_ha_stepping
 
   USE mo_echam_phy_config,    ONLY: configure_echam_phy
   USE mo_echam_phy_init,      ONLY: prepare_echam_phy, initcond_echam_phy, &
-                                  & additional_restart_init
-  USE mo_echam_phy_memory,    ONLY: destruct_echam_phy_state
+                                    additional_restart_init
   USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
 
   USE mo_io_restart,           ONLY: read_restart_files
   USE mo_io_restart_attributes,ONLY: get_restart_attribute
-  USE mo_output,               ONLY: init_output_files, close_output_files, write_output
+  USE mo_output,               ONLY: init_output_files, close_output_files,&
+                                     write_output
 
   IMPLICIT NONE
   PRIVATE
@@ -159,7 +157,7 @@ CONTAINS
          l_have_output = .FALSE.
       END IF
 
-    END IF
+    END IF ! (not) lrestart
 
     !------------------------------------------------------------------
     ! Time integraion
@@ -170,30 +168,23 @@ CONTAINS
                             & n_io, n_file, n_chkpt, n_diag, jfile,          &
                             & l_have_output                                  )
 
+    IF (ltimer) CALL print_timer
 
     !---------------------------------------------------------------------
     ! Integration finished. Start to clean up.
     !---------------------------------------------------------------------
-    IF (ltimer) CALL print_timer
-
     CALL message(TRIM(routine),'start to clean up')
 
     CALL destruct_icoham_dyn_state
-!     DEALLOCATE (p_hydro_state, STAT=ist)
-!     IF (ist /= SUCCESS) THEN
-!       CALL finish(TRIM(routine),'deallocation for p_hydro_state failed')
-!     ENDIF
-!
-!   IF (l_have_output) CALL close_output_files
-!
-!
-!   IF(iforcing == iecham .OR. iforcing== ildf_echam) THEN
-!     CALL destruct_echam_phy_state  ! deallocate state vector
-!     CALL cleanup_echam_phy         ! deallocate parameter arrays
-!       (including cleanup_echam_convection?)
-!   ENDIF
+
+    IF (iforcing==IECHAM .OR. iforcing==ILDF_ECHAM) THEN
+      CALL cleanup_echam_phy
+    ENDIF
+
+    IF (l_have_output) CALL close_output_files
 
   END SUBROUTINE atmo_hydrostatic
+  !-------------
 
 END MODULE mo_atmo_hydrostatic
 

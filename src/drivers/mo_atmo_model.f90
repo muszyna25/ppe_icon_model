@@ -76,10 +76,8 @@ USE mo_impl_constants, ONLY:&
     & inh_atmosphere,       & !    :
     & ishallow_water,       & !    :
     & ildf_dry,             & !    :
-    & ildf_echam,           & !    :
     & inoforcing,           & !    :
     & iheldsuarez,          & !    :
-    & iecham,               & !    :
     & inwp
 
 USE mo_advection_nml,       ONLY: transport_nml_setup,  & ! process transport
@@ -109,7 +107,6 @@ USE mo_dump_restore,        ONLY: dump_patch_state_netcdf,       &
 & restore_interpol_state_netcdf, &
 & restore_gridref_state_netcdf
 
-USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
 USE mo_nonhydro_state,      ONLY: p_nh_state
 USE mo_atmo_control,        ONLY: p_patch_global, p_patch_subdiv, p_patch
 
@@ -135,16 +132,11 @@ USE mo_vertical_grid,       ONLY: init_hybrid_coord, init_sleve_coord
 
 ! State variables
 !
-USE mo_icoham_dyn_memory,   ONLY: destruct_icoham_dyn_state
 USE mo_nonhydro_state,      ONLY: destruct_nh_state
 
 
 ! Parameterized forcing
 !
-USE mo_echam_phy_memory,    ONLY: destruct_echam_phy_state
-USE mo_echam_phy_init,      ONLY: initcond_echam_phy, &
-                                & additional_restart_init
-USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
 USE mo_gmt_output,          ONLY: setup_gmt_output
 USE mo_nwp_phy_state,       ONLY: construct_nwp_phy_state,   &
 & destruct_nwp_phy_state
@@ -707,12 +699,7 @@ CONTAINS
 !    ! is executed within process_grid_level
 !    !------------------------------------------------------------------
 !    SELECT CASE (iequations)
-!
 !    CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
-!      CALL perform_ha_stepping( p_patch(1:), p_int_state(1:), p_grf_state(1:), &
-!                              & p_hydro_state, time_config%cur_datetime,       &
-!                              & n_io, n_file, n_chkpt, n_diag, jfile,          &
-!                              & l_have_output                                  )
 !
 !    CASE (inh_atmosphere)
 !      CALL perform_nh_stepping( p_patch, p_int_state, p_grf_state, p_nh_state,   &
@@ -733,13 +720,7 @@ CONTAINS
 !   ! Delete state variables
 !
 !   SELECT CASE (iequations)
-!
 !   CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
-!     CALL destruct_icoham_dyn_state
-!     DEALLOCATE (p_hydro_state, STAT=ist)
-!     IF (ist /= SUCCESS) THEN
-!       CALL finish(TRIM(routine),'deallocation for p_hydro_state failed')
-!     ENDIF
 !
 !   CASE (inh_atmosphere)
 !
@@ -758,19 +739,9 @@ CONTAINS
 !   ! Deallocate memory for the parameterized forcing
 !   SELECT CASE (iforcing)
 !
-!   CASE (inoforcing,iheldsuarez,ildf_dry)
-!     ! nothing to be done
-!
-!   CASE (iecham,ildf_echam)
-!     CALL destruct_echam_phy_state  ! deallocate state vector
-!     CALL cleanup_echam_phy         ! deallocate parameter arrays
-!
 !   CASE (inwp)
 !     CALL destruct_nwp_phy_state
 !     CALL destruct_nwp_lnd_state(p_lnd_state)
-!
-!   CASE DEFAULT
-!     CALL finish(TRIM(routine),'iforcing has value that is not allowed')
 !
 !   END SELECT
 !   
@@ -812,13 +783,8 @@ CONTAINS
     !------------------------------------------------------------------
     
     SELECT CASE (iequations)
-    !
     CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
-      ALLOCATE (p_hydro_state(n_dom), stat=ist)
-      IF (ist /= success) THEN
-        CALL finish(TRIM(routine),'allocation for p_hydro_state failed')
-      ENDIF
-      !
+
     CASE (inh_atmosphere)
      ALLOCATE (p_nh_state(n_dom), stat=ist)
      IF (ist /= success) THEN
@@ -982,12 +948,7 @@ CONTAINS
     ! is executed within process_grid_level
     !------------------------------------------------------------------
     SELECT CASE (iequations)
-
     CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
-      CALL perform_ha_stepping( p_patch(1:), p_int_state(1:), p_grf_state(1:), &
-                              & p_hydro_state, time_config%cur_datetime,       &
-                              & n_io, n_file, n_chkpt, n_diag, jfile,          &
-                              & l_have_output                                  )
 
     CASE (inh_atmosphere)
       CALL perform_nh_stepping( p_patch, p_int_state, p_grf_state, p_nh_state,   &
@@ -1007,13 +968,7 @@ CONTAINS
     ! Delete state variables
 
     SELECT CASE (iequations)
-
     CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
-      CALL destruct_icoham_dyn_state
-      DEALLOCATE (p_hydro_state, STAT=ist)
-      IF (ist /= SUCCESS) THEN
-        CALL finish(TRIM(routine),'deallocation for p_hydro_state failed')
-      ENDIF
 
     CASE (inh_atmosphere)
 
@@ -1033,19 +988,9 @@ CONTAINS
     ! Deallocate memory for the parameterized forcing
     SELECT CASE (iforcing)
 
-    CASE (inoforcing,iheldsuarez,ildf_dry)
-      ! nothing to be done
-
-    CASE (iecham,ildf_echam)
-      CALL destruct_echam_phy_state  ! deallocate state vector
-      CALL cleanup_echam_phy         ! deallocate parameter arrays
-
     CASE (inwp)
       CALL destruct_nwp_phy_state
       CALL destruct_nwp_lnd_state(p_lnd_state)
-
-    CASE DEFAULT
-      CALL finish(TRIM(routine),'iforcing has value that is not allowed')
 
     END SELECT
     

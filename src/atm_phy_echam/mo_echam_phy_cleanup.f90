@@ -33,6 +33,7 @@
 !!
 MODULE mo_echam_phy_cleanup
 
+  USE mo_echam_phy_memory,   ONLY: destruct_echam_phy_state
   USE mo_echam_phy_config,   ONLY: phy_config => echam_phy_config
   USE mo_echam_conv_config,  ONLY: cleanup_echam_convection
   USE mo_vdiff_solver,       ONLY: cleanup_vdiff_solver
@@ -60,7 +61,7 @@ CONTAINS
       CALL cleanup_echam_convection  ! deallocate array "cevapcu"
     END IF
 
-   !"CALL destruct_echam_phy_state" can be called here instead of in "control_model"
+    CALL destruct_echam_phy_state
 
   END SUBROUTINE cleanup_echam_phy
   !-------------
