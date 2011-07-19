@@ -142,7 +142,7 @@ USE mo_nonhydro_state,      ONLY: destruct_nh_state
 ! Parameterized forcing
 !
 USE mo_echam_phy_memory,    ONLY: destruct_echam_phy_state
-USE mo_echam_phy_init,      ONLY: prepare_echam_phy, initcond_echam_phy, &
+USE mo_echam_phy_init,      ONLY: initcond_echam_phy, &
                                 & additional_restart_init
 USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
 USE mo_gmt_output,          ONLY: setup_gmt_output
@@ -157,7 +157,7 @@ USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
 
 ! Time integration
 !
-USE mo_ha_stepping,         ONLY: prepare_ha_dyn, initcond_ha_dyn, perform_ha_stepping
+USE mo_ha_stepping,         ONLY: initcond_ha_dyn, perform_ha_stepping
 USE mo_nh_stepping,         ONLY: prepare_nh_integration, perform_nh_stepping
 ! External data
 USE mo_ext_data,            ONLY: ext_data, init_ext_data, destruct_ext_data
@@ -627,15 +627,6 @@ CONTAINS
 !   CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
 !
 !   !------------------------------------------------------------------
-!   ! Initialize parameters and solvers;
-!   ! Allocate memory for model state vectors.
-!   !------------------------------------------------------------------
-!   CALL prepare_ha_dyn( p_patch(1:) )
-!   IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
-!     CALL prepare_echam_phy( p_patch(1:) )
-!   END IF
-!
-!   !------------------------------------------------------------------
 !   ! Set initial conditions for time integration.
 !   !------------------------------------------------------------------
 !   IF (lrestart) THEN
@@ -936,15 +927,6 @@ CONTAINS
     CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
 
     !------------------------------------------------------------------
-    ! Initialize parameters and solvers;
-    ! Allocate memory for model state vectors.
-    !------------------------------------------------------------------
-    CALL prepare_ha_dyn( p_patch(1:) )
-    IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
-      CALL prepare_echam_phy( p_patch(1:) )
-    END IF
-
-    !------------------------------------------------------------------
     ! Set initial conditions for time integration.
     !------------------------------------------------------------------
     IF (lrestart) THEN
@@ -969,7 +951,7 @@ CONTAINS
                           & p_grf_state(1:), p_hydro_state )
 
       IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM)      &
-      CALL initcond_echam_phy( p_patch(1:),p_hydro_state )
+      CALL initcond_echam_phy( p_patch(1:),p_hydro_state, ltestcase, ctest_name )
 
     END IF ! lrestart
                                                                                                

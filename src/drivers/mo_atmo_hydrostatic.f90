@@ -38,20 +38,13 @@ USE mo_exception,           ONLY: message, finish
 USE mo_mpi,                 ONLY: p_stop, p_pe, p_io,  &
 & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
 & my_process_is_stdio
-USE mo_timer,               ONLY: init_timer, print_timer
+
 USE mo_master_nml,          ONLY: lrestart
-USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output
 USE mo_output,              ONLY: init_output_files, close_output_files, write_output
 
 USE mo_parallel_config, ONLY: p_test_run
 
-USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
 
-! Control parameters: run control, dynamics, i/o
-!
-USE mo_global_variables,    ONLY: setup_physics           ! process forcing control parameters
-USE mo_nonhydrostatic_config,ONLY: ivctype, kstart_moist, kstart_qv, l_open_ubc
-!USE mo_io_config,           ONLY: dt_data, dt_file, dt_diag, dt_checkpoint 
 USE mo_io_config,         ONLY:  dt_data,dt_file,dt_diag,dt_checkpoint
 USE mo_dynamics_config,   ONLY: iequations
 USE mo_run_config,        ONLY: &
@@ -62,169 +55,64 @@ USE mo_run_config,        ONLY: &
 & ltestcase,            & !    :
 & ltimer,               & !    :
 & iforcing,             & !    namelist parameter
-& ldump_states,         & ! flag if states should be dumped
-& lrestore_states,      & ! flag if states should be restored
-& nlev,nlevp1,          &
-& num_lev,num_levp1,    &
-& iqv, nshift,          &
-& lvert_nest, ntracer
+& nlev,     &
+& iqv,      &
+& ntracer
+
+USE mo_ha_testcases, ONLY: ctest_name
 
 USE mo_impl_constants, ONLY:&
     & ihs_atm_temp,         & !    :
     & ihs_atm_theta,        & !    :
-    & inh_atmosphere,       & !    :
     & ishallow_water,       & !    :
     & ildf_dry,             & !    :
     & ildf_echam,           & !    :
     & inoforcing,           & !    :
     & iheldsuarez,          & !    :
-    & iecham,               & !    :
-    & inwp
+    & iecham
 
-USE mo_advection_nml,       ONLY: transport_nml_setup,  & ! process transport
-& setup_transport         ! control parameters
+USE mo_vertical_coord_table, ONLY: vct_a, vct_b, ceta
 
-! For the coupling
-USE mo_impl_constants, ONLY: CELLS
-USE mo_master_control, ONLY : atmo_process, is_coupled_run
-USE mo_icon_cpl_init_comp, ONLY : get_my_local_comp_id
-USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid
-USE mo_icon_cpl_def_field, ONLY : ICON_cpl_def_field
-USE mo_icon_cpl_search, ONLY : ICON_cpl_search
-USE mo_model_domain_import, ONLY : get_patch_global_indexes
-
-! Test cases
-!
-USE mo_ha_testcases,     ONLY: read_ha_testcase_namelist, ctest_name
-USE mo_nh_testcases,     ONLY: read_nh_testcase_namelist ! process non-hyd. atm. test ctl. par.
-
-! Memory
-!
-USE mo_subdivision,         ONLY: decompose_atmo_domain,         &
-& copy_processor_splitting,      &
-& set_patch_communicators
-USE mo_dump_restore,        ONLY: dump_patch_state_netcdf,       &
-& restore_patches_netcdf,        &
-& restore_interpol_state_netcdf, &
-& restore_gridref_state_netcdf
-
-USE mo_atmo_control,        ONLY: p_patch_global, p_patch_subdiv, p_patch
-
-! Horizontal grid
-!
-USE mo_grid_nml,            ONLY: read_grid_namelist
-USE mo_model_domain_import, ONLY: &  !grid_nml_setup,          & ! process grid control parameters
-& n_dom,                & !    :
-& n_dom_start,          & !    :
-!    & parent_id,            & !    :
-& import_patches,       & !
-& destruct_patches        !
-
-! Horizontal interpolation
-!
-USE mo_intp_state,          ONLY: construct_2d_interpol_state, &
-& destruct_2d_interpol_state
-USE mo_interpolation,       ONLY: rbf_vec_interpol_cell,       &
-& edges2cells_scalar
-USE mo_grf_interpolation,   ONLY: construct_2d_gridref_state,  &
-& destruct_2d_gridref_state
-
-! Vertical grid
-!
-USE mo_vertical_coord_table,ONLY: init_vertical_coord_table, &
-  &                               vct_a, vct_b, ceta, apzero
-USE mo_vertical_grid,       ONLY: init_hybrid_coord, init_sleve_coord
-
-! State variables
-!
+USE mo_atmo_control,        ONLY: p_patch
 USE mo_icoham_dyn_memory,   ONLY: destruct_icoham_dyn_state
-USE mo_nonhydro_state,      ONLY: destruct_nh_state
 
+USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
 
-! Parameterized forcing
-!
+USE mo_ha_stepping,        ONLY: prepare_ha_dyn, initcond_ha_dyn, perform_ha_stepping
+
+USE mo_time_config,        ONLY: time_config
+USE mo_echam_phy_config,   ONLY: configure_echam_phy 
+USE mo_echam_conv_config,  ONLY: configure_echam_convection
 USE mo_echam_phy_memory,    ONLY: destruct_echam_phy_state
 USE mo_echam_phy_init,      ONLY: prepare_echam_phy, initcond_echam_phy, &
                                 & additional_restart_init
 USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
-USE mo_gmt_output,          ONLY: setup_gmt_output
-USE mo_nwp_phy_state,       ONLY: construct_nwp_phy_state,   &
-& destruct_nwp_phy_state
-USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config,configure_atm_phy_nwp
-USE mo_lnd_nwp_nml,         ONLY: setup_nwp_lnd
-USE mo_nwp_lnd_state,       ONLY: construct_nwp_lnd_state,   &
-& destruct_nwp_lnd_state, p_lnd_state
 
-USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
-
-! Time integration
-!
-USE mo_ha_stepping,         ONLY: prepare_ha_dyn, initcond_ha_dyn, perform_ha_stepping
-USE mo_nh_stepping,         ONLY: prepare_nh_integration, perform_nh_stepping
-! External data
-USE mo_ext_data,            ONLY: ext_data, init_ext_data, destruct_ext_data
-
-!  USE mo_nwp_phy_init,          ONLY: init_nwp_phy
-!!$  USE mo_gscp_cosmo,          ONLY: hydci_pp_init
-
-
-!-------------------------------------------------------------------------
-! to break circular dependency
-
-USE mo_intp_data_strc,      ONLY: p_int_state_global, p_int_state_subdiv, p_int_state
-USE mo_grf_intp_data_strc,  ONLY: p_grf_state_global, p_grf_state_subdiv, p_grf_state
-
-!-------------------------------------------------------------------------
-USE mo_io_restart,           ONLY: read_restart_info_file, read_restart_files
-USE mo_io_restart_namelist,  ONLY: read_restart_namelists
-USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
-
-USE mo_atmo_setup_configuration, ONLY: read_atmo_namelists
-USE mo_atm_nml_crosscheck,       ONLY: atm_crosscheck
-
-USE mo_time_config,        ONLY: time_config      ! variable
-USE mo_dynamics_config,    ONLY: configure_dynamics  ! subroutine
-USE mo_interpol_config,    ONLY: configure_interpolation 
-USE mo_advection_config,   ONLY: configure_advection
-USE mo_diffusion_config,   ONLY: configure_diffusion
-USE mo_echam_phy_config,   ONLY: configure_echam_phy 
-USE mo_echam_conv_config,  ONLY: configure_echam_convection
-
-!-------------------------------------------------------------------------
-IMPLICIT NONE
-PRIVATE
-
-PUBLIC :: atmo_hydrostatic
+  IMPLICIT NONE
+  PRIVATE
+  PUBLIC :: atmo_hydrostatic
 
 CONTAINS
-!>
-!!
+  !>
+  !!
+  !!
   SUBROUTINE atmo_hydrostatic
 
-    CHARACTER(*), PARAMETER :: routine = "mo_atmo_hydrostatic"
+    CHARACTER(*), PARAMETER :: routine = "atmo_hydrostatic"
     LOGICAL :: lsuccess
     LOGICAL :: l_have_output
-    INTEGER, POINTER :: grid_glob_index(:)
 
-   !CALL configure_echam_phy (ltestcase, ctest_name)
-   !CALL configure_echam_convection(nlev, vct_a, vct_b, ceta)
-
-
-    !---------------------------------------------------------------------
-    ! Initial conditions
     !------------------------------------------------------------------
-    ! Prepare for time integration
+    ! Initialize parameters and solvers;
+    ! Allocate memory for model state vectors.
     !------------------------------------------------------------------
+    CALL prepare_ha_dyn( p_patch(1:) )
 
-!   !------------------------------------------------------------------
-!   ! Initialize parameters and solvers;
-!   ! Allocate memory for model state vectors.
-!   !------------------------------------------------------------------
-!   CALL prepare_ha_dyn( p_patch(1:) )
-!   IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
-!     CALL prepare_echam_phy( p_patch(1:) )
-!   END IF
-!
+    IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
+      CALL prepare_echam_phy( p_patch(1:), ltestcase, ctest_name, &
+                            & nlev, vct_a, vct_b, ceta )
+    END IF
+
 !   !------------------------------------------------------------------
 !   ! Set initial conditions for time integration.
 !   !------------------------------------------------------------------
@@ -250,7 +138,7 @@ CONTAINS
 !                         & p_grf_state(1:), p_hydro_state )
 !
 !     IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM)      &
-!     CALL initcond_echam_phy( p_patch(1:),p_hydro_state )
+!     CALL initcond_echam_phy( p_patch(1:),p_hydro_state, ltestcase, ctest_name )
 !
 !   END IF ! lrestart
 !                                                                                              
@@ -342,8 +230,6 @@ CONTAINS
 
 !   CALL message(TRIM(routine),'start to clean up')
 !   
-!   ! Delete state variables
-!
 
 !     CALL destruct_icoham_dyn_state
 !     DEALLOCATE (p_hydro_state, STAT=ist)
@@ -358,19 +244,8 @@ CONTAINS
 !   IF(iforcing == iecham .OR. iforcing== ildf_echam) THEN
 !     CALL destruct_echam_phy_state  ! deallocate state vector
 !     CALL cleanup_echam_phy         ! deallocate parameter arrays
+!       (including cleanup_echam_convection?)
 !   ENDIF
-
-!   ! Deallocate external data
-!   CALL destruct_ext_data
-!
-!   ! deallocate ext_data array
-!   DEALLOCATE(ext_data, stat=ist)
-!   IF (ist/=success) THEN
-!     CALL finish(TRIM(routine), 'deallocation of ext_data')
-!   ENDIF
-!   
-!   CALL message(TRIM(routine),'clean-up finished')
-!   
 
   END SUBROUTINE atmo_hydrostatic
   

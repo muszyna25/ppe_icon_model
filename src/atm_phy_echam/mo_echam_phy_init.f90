@@ -6,8 +6,9 @@
 !!
 !! @par Revision History
 !! First version by Hui Wan, 2010-07-20
-!!!! @par Copyright
-!! 2002-2010 by DWD and MPI-M
+!!
+!! @par Copyright
+!! 2002-2011 by DWD and MPI-M
 !! This software is provided for non-commercial use only.
 !! See the LICENSE and the WARRANTY conditions.
 !!
@@ -40,14 +41,15 @@ MODULE mo_echam_phy_init
 
   ! model configuration
   USE mo_dynamics_config,      ONLY: nnow 
-  USE mo_parallel_config,  ONLY: nproma
-  USE mo_run_config,           ONLY: nlev, nlevp1, nvclev,  &
-    &                              iqv, iqt, ntracer, ltestcase
-  USE mo_vertical_coord_table,ONLY: vct
-  USE mo_echam_phy_config,      ONLY: phy_config => echam_phy_config
+  USE mo_parallel_config,      ONLY: nproma
+  USE mo_run_config,           ONLY: nlev, nlevp1, nvclev, iqv, iqt, ntracer
+  USE mo_vertical_coord_table, ONLY: vct
+  USE mo_echam_phy_config,     ONLY: phy_config => echam_phy_config, &
+                                   & configure_echam_phy
+  USE mo_echam_conv_config,    ONLY: configure_echam_convection
 
   ! test cases
-  USE mo_ha_testcases,       ONLY: ctest_name, ape_sst_case
+  USE mo_ha_testcases,       ONLY: ape_sst_case
   USE mo_ape_params,         ONLY: ape_sst
 
   ! radiation
@@ -68,7 +70,7 @@ MODULE mo_echam_phy_init
 
   ! air-sea-land interface
   USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd, &
-    &                                init_sfc_indices
+                                     init_sfc_indices
 
   ! domain and indices
   USE mo_model_domain,         ONLY: t_patch
@@ -78,8 +80,8 @@ MODULE mo_echam_phy_init
   USE mo_icoham_dyn_types,     ONLY: t_hydro_atm
   USE mo_eta_coord_diag,       ONLY: half_level_pressure, full_level_pressure
   USE mo_echam_phy_memory,     ONLY: construct_echam_phy_state,    &
-    &                                prm_field, t_echam_phy_field, &
-    &                                prm_tend,  t_echam_phy_tend
+                                     prm_field, t_echam_phy_field, &
+                                     prm_tend,  t_echam_phy_tend
 
 
   IMPLICIT NONE
@@ -98,15 +100,25 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Hui Wan, MPI-M (2010-07)
   !!
-  SUBROUTINE prepare_echam_phy( p_patch )
+  SUBROUTINE prepare_echam_phy( p_patch, ltestcase, ctest_name, &
+                                nlev, vct_a, vct_b, ceta        )
 
-    TYPE(t_patch),INTENT(IN) :: p_patch(:)
+    TYPE(t_patch),   INTENT(IN) :: p_patch(:)
+    LOGICAL,         INTENT(IN) :: ltestcase
+    CHARACTER(LEN=*),INTENT(IN) :: ctest_name
+    INTEGER,         INTENT(IN) :: nlev
+    REAL(wp),        INTENT(IN) :: vct_a(:), vct_b(:), ceta(:)
+
     INTEGER :: khydromet, ktrac
 
     !-------------------------------------------------------------------
     ! Initialize parameters and lookup tables
     !-------------------------------------------------------------------
-    ! For radiation
+    ! Main switches (phy_config%lrad, phy_config%lcond, etc.)
+
+    CALL configure_echam_phy (ltestcase, ctest_name)
+
+    ! For radiation:
 
     IF (phy_config%lrad) THEN
       ssi(:) = ssi_amip(:)
@@ -114,6 +126,14 @@ CONTAINS
       CALL setup_srtm
       CALL lrtm_setup
       CALL setup_newcld_optics
+    END IF
+
+    ! For cumulus convection: 
+    ! - assign value to echam_conv_config%nmctop;
+    ! - allocate echam_conv_config%cevapcu(:) and assign values.
+
+    IF (phy_config%lconv) THEN
+      CALL configure_echam_convection(nlev, vct_a, vct_b, ceta)
     END IF
 
     ! For surface processes: 
@@ -138,9 +158,8 @@ CONTAINS
       khydromet = iqt - 2        ! # of hydrometeors
       ktrac = ntracer - iqt + 1  ! # of non-water species 
 
-     !CALL init_vdiff_solver( khydromet, ktrac, nproma, nlev, nsfc_type )
       CALL init_vdiff_solver( khydromet, ktrac, nlev )
-      CALL init_vdiff_params( nlev, nlevp1, nvclev, vct )
+      CALL init_vdiff_params( nlev, nlev+1, nlev+1, vct )
     ENDIF
 
     ! Lookup tables for saturation vapour pressure
@@ -148,19 +167,15 @@ CONTAINS
     IF (phy_config%lconv.OR.phy_config%lcond.OR.phy_config%lvdiff) &
     CALL init_convect_tables
 
-    ! For cumulus convection
-    !CJ: former cuparam now inlcuded in echam_conv_nml_setup
-    !CALL cuparam
-
-    ! For large scale condensation
+    ! For large scale condensation:
 
     IF (phy_config%lcond) THEN
       CALL init_cloud_tables
       CALL sucloud( nlev, vct        &
-!!$     &         , lmidatm=.FALSE.  &
+!0      &         , lmidatm=.FALSE.  &
         &         , lcouple=.FALSE.  &
         &         , lipcc=.FALSE.    &
-!!$     &         , lham=.FALSE.     &
+!0      &         , lham=.FALSE.     &
         &         )
     END IF
 
@@ -179,10 +194,12 @@ CONTAINS
   !! @par Revision History
   !! Initial version by Hui Wan, MPI-M (2010-07)
   !!
-  SUBROUTINE initcond_echam_phy( p_patch, p_hydro_state )
+  SUBROUTINE initcond_echam_phy( p_patch, p_hydro_state, ltestcase, ctest_name )
 
     TYPE(t_patch)    ,INTENT(IN) :: p_patch(:)
     TYPE(t_hydro_atm),INTENT(IN) :: p_hydro_state(:)
+    LOGICAL,          INTENT(IN) :: ltestcase
+    CHARACTER(LEN=*), INTENT(IN) :: ctest_name
 
     ! local variables and pointers
 
