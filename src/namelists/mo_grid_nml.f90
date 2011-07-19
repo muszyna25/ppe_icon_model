@@ -96,11 +96,6 @@ MODULE mo_grid_nml
                                          ! for any of the first level child patches,
                                          ! processor splitting will be performed
 
-  LOGICAL    :: lpatch0                  ! If set to .true. an additional patch one
-                                         ! level below the root patch is allocated
-                                         ! and read so that physics calculations
-                                         ! on a coarser grid are possible
-
   CHARACTER(LEN=filename_max) :: dynamics_grid_filename(max_dom)
   INTEGER                     :: dynamics_parent_grid_id(max_dom)
   CHARACTER(LEN=filename_max) :: radiation_grid_filename(max_dom)
@@ -110,7 +105,7 @@ MODULE mo_grid_nml
 
   NAMELIST /grid_nml/ cell_type, start_lev, n_dom, lfeedback,       &
     &                 lplane, corio_lat, l_limited_area,        &
-    &                 patch_weight, lpatch0, lredgrid_phys,                &
+    &                 patch_weight, lredgrid_phys,                &
     &                 dynamics_grid_filename,  dynamics_parent_grid_id,    &
     &                 radiation_grid_filename, dynamics_radiation_grid_link
 
@@ -161,7 +156,6 @@ MODULE mo_grid_nml
     l_limited_area = .FALSE.
     corio_lat   = 0.0_wp
     patch_weight= 0.0_wp
-    lpatch0     = .FALSE.
     lredgrid_phys = .FALSE.
 
     !----------------------------------------------------------------
@@ -276,6 +270,7 @@ MODULE mo_grid_nml
     ! write the contents of the namelist to an ASCII file
     IF(my_process_is_stdio()) WRITE(nnml_output,nml=grid_nml)
 
+!     write(0,*) 'read_grid_namelist:', TRIM(dynamics_grid_filename(1))
     CALL fill_grid_nml_configure()
        
   END SUBROUTINE read_grid_namelist

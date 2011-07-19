@@ -16,59 +16,65 @@
 #
 # EXPNAME = experiment name
 # NPROMA  = array blocking length / inner loop length
+
 #
 # These values must be set here as shell variables so that they can be used
 # also in the executing section of the completed run script:
 # 
 IEQ=1             # equation system
-R=2               # nroot
+#R=2               # nroot
 B=4               # number of bisections applied for the global grid
 N=31              # nlev = number of full levels
-OPT="spr0.90"     # grid optimization
-cp_grid_filename=iconR${R}B0${B}-grid_${OPT}.nc
-exp_grid_filename=iconR${R}B0${B}-grid.nc
-#
+
+atmo_dyn_grids='iconR2B04-grid_spr0.90.nc'
+atmo_grids=$atmo_dyn_grids
+
+start_date="2008-09-01T00:00:00Z"
+dt_restart=6000.
+
 #-----------------------------------------------------------------------------
-#
+atmo_namelist=NAMELIST_${EXPNAME}
+
 # ICON namelist parameters
 # ------------------------
 # For a complete list see Namelist_overview and Namelist_overview.pdf
 #  
-cat > NAMELIST_${EXPNAME} << EOF
+cat > $atmo_namelist << EOF
 !
-&parallel_ctl
+&parallel_nml
+ nproma         = ${NPROMA}
+ p_test_run     = $test_mpi
+ l_test_openmp  = $test_openmp_
+ l_log_checks   = .false.
 /
-&grid_ctl
-! nroot       = ${R}         ! root division of icosahedron edges
-! start_lev   = ${B}         ! number of bisections applied for the base grid
- dynamics_grid_filename = "${exp_grid_filename}"
+&grid_nml
+ cell_type = 3            ! triangular cells
+ dynamics_grid_filename = "${atmo_dyn_grids}",
 /
-&gridref_ctl
+&gridref_nml
 /
-&run_ctl
- nproma      = ${NPROMA}    ! array blocking length
+&run_nml
  nlev        = ${N}         ! number of full levels of vertical grid
  ntracer     = 0            ! number of tracers
- run_day     = 10           ! [day] length of run
+ nsteps      = 10           ! [day] length of run
  dtime       = 600.0        ! [s] timestep
- iequations  = ${IEQ}       ! hydrostatic atmosphere using T as progn. var.
- i_cell_type = 3            ! triangular cells
  ldynamics   = .TRUE.       ! dynamics
  ltransport  = .FALSE.      ! transport 
  iforcing    = 0            ! no forcing
  ltestcase   = .TRUE.       ! run testcase
 /
-&testcase_ctl
+&testcase_nml
  ctest_name  = 'JWw'        ! test case identifier
 /
-&io_ctl
+&io_nml
  out_expname = '${EXPNAME}' ! file name base
 /
-&dynamics_ctl
+&dynamics_nml
+ iequations  = ${IEQ}       ! hydrostatic atmosphere using T as progn. var.
 /
-&diffusion_ctl
+&diffusion_nml
 /
-&transport_ctl
+&transport_nml
 /
 EOF
 #

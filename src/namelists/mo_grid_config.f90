@@ -103,11 +103,6 @@ INCLUDE 'netcdf.inc'
                                        ! for any of the first level child patches,
                                        ! processor splitting will be performed
 
-!   LOGICAL :: lpatch0                  ! If set to .true. an additional patch one
-!                                       ! level below the root patch is allocated
-!                                       ! and read so that physics calculations
-!                                       ! on a coarser grid are possible
-
   CHARACTER(LEN=filename_max) :: dynamics_grid_filename(max_dom)
   INTEGER                     :: dynamics_parent_grid_id(max_dom)
   CHARACTER(LEN=filename_max) :: radiation_grid_filename(max_dom)
@@ -139,6 +134,8 @@ CONTAINS
     ! and check if they exist
     no_of_dynamics_grids  = 0
     no_of_radiation_grids = 0
+
+!     write(0,*) method_name, TRIM(dynamics_grid_filename(1))
     
     jg=1
     DO WHILE (dynamics_grid_filename(jg) /= "")
@@ -221,7 +218,7 @@ CONTAINS
     ! write the contents of the namelist to an ASCII file
 !     IF(p_pe == p_io) WRITE(nnml_output,nml=grid_nml)
 
-    
+!     write(0,*) method_name, ' is done'
   END SUBROUTINE check_grid_configuration
   !-------------------------------------------------------------------------
 

@@ -87,7 +87,6 @@ CONTAINS
     !-----------------------------------------------------------------
 
     CALL read_time_namelist       (TRIM(shr_namelist_filename))
-    CALL read_parallel_namelist   (TRIM(shr_namelist_filename))
 
     !-----------------------------------------------------------------
     ! Read namelist setups that are specific to the atm model.
@@ -96,6 +95,8 @@ CONTAINS
     ! ASCII file containing different values.
     !-----------------------------------------------------------------
     ! General
+    ! parallel_namelist may differ for different components
+    CALL read_parallel_namelist   (TRIM(atm_namelist_filename))
 
     CALL read_run_namelist        (TRIM(atm_namelist_filename))
     CALL read_ha_testcase_namelist(TRIM(atm_namelist_filename))
