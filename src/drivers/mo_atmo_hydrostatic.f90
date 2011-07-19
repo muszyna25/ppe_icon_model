@@ -70,23 +70,26 @@ USE mo_impl_constants, ONLY:&
     & inoforcing,           & !    :
     & iheldsuarez,          & !    :
     & iecham
-
-USE mo_vertical_coord_table, ONLY: vct_a, vct_b, ceta
-
-USE mo_atmo_control,        ONLY: p_patch
-USE mo_icoham_dyn_memory,   ONLY: destruct_icoham_dyn_state
-
 USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
 
-USE mo_ha_stepping,        ONLY: prepare_ha_dyn, initcond_ha_dyn, perform_ha_stepping
 
-USE mo_time_config,        ONLY: time_config
-USE mo_echam_phy_config,   ONLY: configure_echam_phy 
-USE mo_echam_conv_config,  ONLY: configure_echam_convection
-USE mo_echam_phy_memory,    ONLY: destruct_echam_phy_state
+USE mo_time_config,         ONLY: time_config
+USE mo_io_restart,          ONLY: read_restart_files
+
+USE mo_atmo_control,        ONLY: p_patch
+USE mo_intp_data_strc,      ONLY: p_int_state
+USE mo_grf_intp_data_strc,  ONLY: p_grf_state
+
+USE mo_vertical_coord_table,ONLY: vct_a, vct_b, ceta
+USE mo_icoham_dyn_memory,   ONLY: p_hydro_state, destruct_icoham_dyn_state
+USE mo_ha_stepping,         ONLY: prepare_ha_dyn, initcond_ha_dyn, perform_ha_stepping
+
+USE mo_echam_phy_config,    ONLY: configure_echam_phy
 USE mo_echam_phy_init,      ONLY: prepare_echam_phy, initcond_echam_phy, &
                                 & additional_restart_init
+USE mo_echam_phy_memory,    ONLY: destruct_echam_phy_state
 USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
+
 
   IMPLICIT NONE
   PRIVATE
@@ -113,41 +116,39 @@ CONTAINS
                             & nlev, vct_a, vct_b, ceta )
     END IF
 
-!   !------------------------------------------------------------------
-!   ! Set initial conditions for time integration.
-!   !------------------------------------------------------------------
-!   IF (lrestart) THEN
-!   ! This is an resumed integration. Read model state from restart file(s).
-!
-!     CALL read_restart_files
-!     CALL message(TRIM(routine),'normal exit from read_restart_files')
-!
-!     ! Initialize logical variables in echam physics state.
-!     ! This is necessary for now because logical arrays can not yet be
-!     ! written into restart files.
-!
-!     IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN                                       
-!       CALL additional_restart_init( p_patch(1:) )                                            
-!     END IF                                                                                   
-!
-!   ELSE
-!   ! This is an initial run (cold start). Compute initial condition for 
-!   ! test cases, or read externally given initial conditions.
-!
-!     CALL initcond_ha_dyn( p_patch(1:), p_int_state(1:),  &
-!                         & p_grf_state(1:), p_hydro_state )
-!
-!     IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM)      &
-!     CALL initcond_echam_phy( p_patch(1:),p_hydro_state, ltestcase, ctest_name )
-!
-!   END IF ! lrestart
-!                                                                                              
+    !------------------------------------------------------------------
+    ! Set initial conditions for time integration.
+    !------------------------------------------------------------------
+    IF (lrestart) THEN
+    ! This is an resumed integration. Read model state from restart file(s).
+
+      CALL read_restart_files
+      CALL message(TRIM(routine),'normal exit from read_restart_files')
+
+      ! Initialize logical variables in echam physics state.
+      ! This is necessary for now because logical arrays can not yet be
+      ! written into restart files.
+
+      IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
+        CALL additional_restart_init( p_patch(1:) )
+      END IF
+    ELSE
+    ! This is an initial run (cold start). Compute initial condition for
+    ! test cases, or read externally given initial conditions.
+
+      CALL initcond_ha_dyn( p_patch(1:), p_int_state(1:),  &
+                          & p_grf_state(1:), p_hydro_state )
+
+      IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) &
+      CALL initcond_echam_phy( p_patch(1:),p_hydro_state, ltestcase, ctest_name )
+
+    END IF ! lrestart
 
 !    !---------------------------------------------------------
-!    ! The most primitive event handling algorithm: 
+!    ! The most primitive event handling algorithm:
 !    ! compute time step interval for taking a certain action
-!    !--------------------------------------------------------- 
-! 
+!    !---------------------------------------------------------
+!
 !    n_io    = NINT(dt_data/dtime)        ! write output
 !    n_file  = NINT(dt_file/dtime)        ! trigger new output file
 !    n_chkpt = NINT(dt_checkpoint/dtime)  ! write restart files
@@ -157,7 +158,7 @@ CONTAINS
 !    ! Prepare output file
 !    !------------------------------------------------------------------
 !    IF (.NOT.lrestart) THEN
-!    ! Initialize the first output file which will contain also the 
+!    ! Initialize the first output file which will contain also the
 !    ! initial conditions.
 !
 !      jfile = 1
@@ -166,19 +167,19 @@ CONTAINS
 !    ELSE
 !    ! No need to write out the initial condition, thus no output
 !    ! during the first integration step. This run will produce
-!    ! output if n_io <= integration_length. 
+!    ! output if n_io <= integration_length.
 !
 !      CALL get_restart_attribute('next_output_file',jfile)
 !
 !      IF (n_io.le.(nsteps-1)) THEN
 !         CALL init_output_files(jfile, lclose=.FALSE.)
-!         l_have_output = .TRUE.  
+!         l_have_output = .TRUE.
 !      ELSE
 !         l_have_output = .FALSE.
 !      END IF
 !
 !    END IF
-! 
+!
 
 !    !------------------------------------------------------------------
 !    !  get and write out some of the inital values
@@ -186,7 +187,7 @@ CONTAINS
 !    IF (.NOT.lrestart) THEN
 !
 !    ! diagnose u and v to have meaningful initial output
-!    
+!
 !    DO jg = 1, n_dom
 
 !        SELECT CASE (p_patch(jg)%cell_type)
@@ -201,7 +202,7 @@ CONTAINS
 !        END SELECT
 !
 !    ENDDO
-!    
+!
 !    ! Note: here the derived output variables are not yet available
 !    ! (omega, divergence, vorticity)
 !    CALL write_output( time_config%cur_datetime )
@@ -223,13 +224,13 @@ CONTAINS
 !
 !    IF (ltimer) CALL print_timer
 !
-    ! 
+    !
     !---------------------------------------------------------------------
     ! 6. Integration finished. Clean up.
     !---------------------------------------------------------------------
 
 !   CALL message(TRIM(routine),'start to clean up')
-!   
+!
 
 !     CALL destruct_icoham_dyn_state
 !     DEALLOCATE (p_hydro_state, STAT=ist)
@@ -239,7 +240,7 @@ CONTAINS
 !
 !   ! Delete output variable lists
 !   IF (l_have_output) CALL close_output_files
-!   
+!
 !
 !   IF(iforcing == iecham .OR. iforcing== ildf_echam) THEN
 !     CALL destruct_echam_phy_state  ! deallocate state vector
@@ -248,6 +249,6 @@ CONTAINS
 !   ENDIF
 
   END SUBROUTINE atmo_hydrostatic
-  
+
 END MODULE mo_atmo_hydrostatic
 

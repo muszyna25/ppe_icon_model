@@ -185,8 +185,6 @@ USE mo_dynamics_config,    ONLY: configure_dynamics  ! subroutine
 USE mo_interpol_config,    ONLY: configure_interpolation 
 USE mo_advection_config,   ONLY: configure_advection
 USE mo_diffusion_config,   ONLY: configure_diffusion
-USE mo_echam_phy_config,   ONLY: configure_echam_phy 
-USE mo_echam_conv_config,  ONLY: configure_echam_convection
 
 USE mo_atmo_hydrostatic,    ONLY: atmo_hydrostatic 
 USE mo_atmo_nonhydrostatic, ONLY: atmo_nonhydrostatic 
@@ -399,7 +397,8 @@ CONTAINS
       
       ! Dump divided patches with interpolation and grf state to NetCDF file and exit
       
-      CALL message(TRIM(routine),'ldump_states is set: dumping patches+states and finishing')
+      CALL message(TRIM(routine),'ldump_states is set: '//&
+                  'dumping patches+states and finishing')
       
       IF(.NOT. my_process_is_mpi_test()) THEN
         DO jg = n_dom_start, n_dom
@@ -575,8 +574,6 @@ CONTAINS
    ! - atmo_hydrostatic
    ! - atmo_nonhydrostatic
    !=============================================================================
-   !CALL configure_echam_phy (ltestcase, ctest_name)
-   !CALL configure_echam_convection(nlev, vct_a, vct_b, ceta)
 
      !nohydostatic
      !CALL configure_atm_phy_nwp
@@ -624,37 +621,6 @@ CONTAINS
     ! Prepare for time integration
     !------------------------------------------------------------------
 !   SELECT CASE (iequations)
-!   CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
-!
-!   !------------------------------------------------------------------
-!   ! Set initial conditions for time integration.
-!   !------------------------------------------------------------------
-!   IF (lrestart) THEN
-!   ! This is an resumed integration. Read model state from restart file(s).
-!
-!     CALL read_restart_files
-!     CALL message(TRIM(routine),'normal exit from read_restart_files')
-!
-!     ! Initialize logical variables in echam physics state.
-!     ! This is necessary for now because logical arrays can not yet be
-!     ! written into restart files.
-!
-!     IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN                                       
-!       CALL additional_restart_init( p_patch(1:) )                                            
-!     END IF                                                                                   
-!
-!   ELSE
-!   ! This is an initial run (cold start). Compute initial condition for 
-!   ! test cases, or read externally given initial conditions.
-!
-!     CALL initcond_ha_dyn( p_patch(1:), p_int_state(1:),  &
-!                         & p_grf_state(1:), p_hydro_state )
-!
-!     IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM)      &
-!     CALL initcond_echam_phy( p_patch(1:),p_hydro_state )
-!
-!   END IF ! lrestart
-!                                                                                              
 !   !--------------------
 !   CASE (inh_atmosphere)
 !     CALL prepare_nh_integration(p_patch(1:), p_nh_state, p_int_state(1:), p_grf_state(1:))
