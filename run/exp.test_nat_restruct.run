@@ -1,0 +1,549 @@
+#!/bin/ksh
+#=============================================================================
+#=============================================================================
+#
+# ICON run script. Created by ./config/make_target_runscript
+# target machine is squall
+# target use_compiler is nag
+# with mpi=yes
+# with openmp=no
+# memory_model=default
+# submit with qsub
+# 
+#=============================================================================
+set -x
+#-----------------------------------------------------------------------------
+check_error()
+{
+    # Check if the first parameter (return status) is not OK
+    # Arguments:
+    #   $1 = error status: 0 = OK, not 0 = ERROR
+    #   $2 = error message
+
+    if [ "${STATUS_FILE}" = "" ]
+    then
+      STATUS_FILE=${basedir}/.status.file
+    fi
+    
+    echo "$1" > ${STATUS_FILE}
+    echo "$1" > ${basedir}/run/${job_name}.status
+
+    if [ $1 != 0 ] 
+    then
+        echo "QSUBW_ERROR: JOB_%HOSTNAME%_%PID%: RC = "
+        echo "check_error()"
+        echo "   ERROR : $2"
+        exit $1
+    fi
+
+}
+
+warning()
+{
+    # Warning if the first parameter (return status) is not OK
+    # Arguments:
+    #   $1 = error status: 0 = OK, not 0 = ERROR
+    #   $2 = error message
+    if [ $1 != 0 ]
+    then
+        echo "   WARNING : $2"
+    fi
+}
+
+#-----------------------------------------------------------------------------
+# target parameters
+# ----------------------------
+site="zmaw.de"
+target="squall"
+compiler="nag"
+loadmodule="nag/5.2.747 gcc/4.5.2 ncl/5.2.1-bin "
+job_name="exp.test_nat_restruct.run"
+# ----------------------------
+# restart sepicifics
+# ----------------------------
+export F_NORCW=65535
+# ----------------------------
+NPROMA=8
+#-----------------------------------------------------------------------------
+# MPI variables
+# ----------------------------
+mpi_root=/sw/lenny-x64/mpi/mpich2-1.3.1-static-nag52
+no_of_nodes=1
+mpi_procs=8
+start="/sw/lenny-x64/mpi/mpich2-1.3.1-static-nag52/bin/mpiexec -n $mpi_procs"
+START="$start"
+# ----------------------------
+# openmp environment variables
+# ----------------------------
+export OMP_NUM_THREADS=1
+export ICON_THREADS=1
+export OMP_SCHEDULE="static"
+export OMP_DYNAMIC="false"
+export OMP_STACKSIZE=200M
+#-----------------------------------------------------------------------------
+# absolute paths of directories
+calldir=$(pwd)
+# cd $(dirname $0)
+thisdir=$(pwd)
+basedir=${thisdir%/*}                   # determine base directory
+bindir="${basedir}/build/x86_64-unknown-linux-gnu/bin"   # binaries
+BUILDDIR=build/x86_64-unknown-linux-gnu
+export ICON_BASE_PATH=$basedir
+#-----------------------------------------------------------------------------
+# load ../setting if exists  
+if [ -a ../setting ]
+then
+  echo "Load Setting"
+  . ../setting
+fi
+#-----------------------------------------------------------------------------
+#=============================================================================
+# load profile
+if [ -a  /client/etc/profile.zmaw ] ; then
+. /client/etc/profile.zmaw
+#=============================================================================
+#=============================================================================
+# load modules
+module purge
+module load "$loadmodule"
+module list
+#=============================================================================
+fi
+#=============================================================================
+export LD_LIBRARY_PATH=/sw/lenny-x64/netcdf-4.1.1-static-nag52/lib:$LD_LIBRARY_PATH
+#=============================================================================
+EXPNAME=test_nat_restruct
+#=============================================================================
+# ===================================
+# squall.zmaw.de batch job parameters
+# --------------------
+#$ -S /bin/bash
+#$ -o LOG.exp.test_nat_restruct.run.o
+#$ -j y
+#$ -cwd
+#$ -pe linux64 8
+# We changed back to only squall queue because 
+# the squall-bigmem runs into a hanging job.
+##$ -q squall,squall-bigmem
+#$ -q squall
+#$ -v MPIROOT=/sw/lenny-x64/mpi/mpich2-1.3.1-static-nag52
+#-------------------------------------------
+export MPD_CON_EXT=job_$$
+# start mpd (MPI deamon for MPICH2)
+/sw/lenny-x64/mpi/mpich2-1.3.1-static-nag52/bin/mpd &
+sleep 2
+mpdid=$(/sw/lenny-x64/mpi/mpich2-1.3.1-static-nag52/bin/mpdtrace -l | awk '{print $1}')
+echo "mpd started as $mpdid"
+#======================================
+#-----------------------------------------------------------------------------
+
+nested_grids=$(ls ../grids/iconR2B05_DOM02.nc)
+if [[ "x$nested_grids" != "x../grids/iconR2B05_DOM02.nc" ]] ; then
+  echo "Try to copy grids generated for a different compiler"
+  firstfound=$(ls ../../../*/build/grids/iconR2B03_DOM00.nc|head -1)
+  griddir=${firstfound%/*}
+  if [[ -a ${griddir}/iconR2B03_DOM00.nc && -a ${griddir}/iconR2B04_DOM01.nc && -a ${griddir}/iconR2B05_DOM02.nc ]]; then
+    echo "  Copy grids from ${griddir} and make test"
+    cp -f $griddir/iconR2B0?_DOM0?.nc ../grids
+  else
+    echo "  No grids found --> exit test"
+    check_error 0 "exp.nat_jww_restruct"
+    exit 0
+  fi
+fi
+#-----------------------------------------------------------------------------
+#=============================================================================
+#
+# This section of the run script containes the specifications of the experiment.
+# The specifications are passed by namelist to the program.
+# For a complete list see Namelist_overview.pdf
+#
+# EXPNAME and NPROMA must be defined in as environment variables or must 
+# they must be substituted with appropriate values.
+#
+# DWD, 2010-08-31
+#
+#-----------------------------------------------------------------------------
+# Basic specifications of the simulation
+# --------------------------------------
+#
+# This test must have available at least 3 MPI processes.
+#
+# If the model runs with mpi_procs=1, then this script exits without error:
+if [[ ${mpi_procs} = 1 ]]; then
+  echo "This test must not be started if mpi_procs=1 --> exit test without error"
+  check_error 0 "exp.nat_jww_restruct"
+  exit 0
+fi
+# If running in parallel, mpi_procs must be bigger than 2:
+if [[ ${mpi_procs} = 2 ]]; then
+  echo "This test needs at least 3 MPI processes --> increase mpi_procs from 2 to 3"
+  mpi_procs=3
+  START=${START%2}3
+fi
+#
+# These values need to be stored in variables, which are needed to 
+# construct filenames  or directories:
+# 
+R=2               # nroot
+B=4               # number of bisections applied for the global grid
+# Variables needed when runnig the model with grid refinement (IREF must be .TRUE.)
+IREF=.true.
+NDOM=2
+LPATCH0=.true.    # must be set to .TRUE. if the reduced grid is used for radiation
+#
+N=40              # nlev = number of full levels
+OPT="spr0.90"     # grid optimization
+#
+IEQ=3             # equation system
+#                     1=hydrost. atm. T
+#                     1=hydrost. atm. theta dp
+#                     3=non-hydrost. atm., 
+#                     0=shallow water model
+#                    -1=hydrost. ocean
+#
+#
+DTIME=120         # time step in seconds
+NSTEPS=50         # number of time steps to run
+DT_DATA=`expr ${DTIME} \* ${NSTEPS}`   # data output at the end of the integration
+#
+#-----------------------------------------------------------------------------
+#
+# ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#
+cat > master_namelist_${EXPNAME} << EOF
+!
+&master_ctl
+ lrestart               = .FALSE.
+ l_atmo_active          = .TRUE.
+ atmo_namelist_filename = "icon_atm.namelist"
+ l_ocean_active         = .FALSE.
+/
+&time_nml
+ ini_datetime_string = "2008-09-01T00:00:00Z"
+ dt_restart          = 6000.
+/
+&parallel_nml
+ nproma         = ${NPROMA}   
+ p_test_run     = .true.
+ l_test_openmp  = .true.
+ l_log_checks   = .true.
+/
+EOF 
+!
+cat > NAMELIST_${EXPNAME} << EOF
+!
+&nh_testcase_nml
+ nh_test_name   = 'jabw_m'     ! test case identifier
+ rh_at_1000hpa  = 0.99
+ qv_max         = 35.e-3
+/
+&io_nml
+ out_expname    = '${EXPNAME}' ! file name base
+ dt_data        = ${DT_DATA}   ! [s] output interval
+ dt_diag        = ${DT_DATA}
+/
+&grid_nml
+ nroot          = ${R}         ! root division of icosahedron edges
+ start_lev      = ${B}         ! number of bisections applied for the base grid
+ n_dom          = ${NDOM}
+ i_cell_type    = 3            ! triangular cells
+ lfeedback      = .true.,
+ lpatch0        = ${LPATCH0}
+ lredgrid_phys  = .true.,.true.
+/
+&extpar_nml
+ itopo          = 0
+&run_nml
+ nsteps         = ${NSTEPS}    ! 50 ! 1200 ! 7200 !10
+ dtime          = 600.0        ! [s] timestep in seconds
+ ltestcase      = .TRUE.       ! run testcase
+ ldynamics      = .TRUE.       ! dynamics
+ iforcing       = 3            ! ECHAM physics
+ ltransport     = .TRUE.       ! switch on tracer transport
+ ntracer        =  5            ! number of tracers
+ nlev           = ${N}         ! number of full levels of vertical grid 
+ msg_level      = 12           ! detailed report during integration
+ ltimer         = .false.
+ ldump_states   = .false.
+ lrestore_states= .false. 
+/
+&dynamics_ctl
+ iequations     = ${IEQ}       ! equation system
+ lcoriolis      = .TRUE.
+ itime_scheme   = 5
+ idiv_method    = 1
+ divavg_cntrwgt = 0.50
+/
+&transport_ctl
+  ctracer_list  = '12345'
+/
+&diffusion_ctl
+ hdiff_order      = 5
+ hdiff_efdt_ratio = 10.0
+ hdiff_smag_fac   = 0.15
+ lhdiff_vn        = .TRUE.
+ lhdiff_temp      = .TRUE.
+ hdiff_multfac    = 1.0
+ hdiff_tv_ratio   = 1.0
+/
+&interpol_ctl
+nudge_zone_width  = 4
+/
+&gridref_ctl
+ grf_intmethod_ct = 2
+ grf_tracfbk      = 2
+ denom_diffu_v    = 150.
+/
+&nonhydrostatic_ctl
+ iadv_rhotheta  = 2
+ ivctype        = 2            ! sleve vertical coordinate
+ exner_expol    = 0.60
+ vwind_offctr   = 0.12
+ damp_height    = 23000.
+ rayleigh_coeff = 0.05
+ iadv_rcf       = 4
+ l_open_ubc     = .false.
+ l_nest_rcf     = .true.
+/
+&sleve_ctl
+ min_lay_thckn  = 50.
+ top_height     = 32500.
+ decay_scale_1  = 4000.
+ decay_scale_2  = 2500.
+ decay_exp      = 1.2
+ flat_height    = 16000.
+/
+&nwp_phy_ctl
+inwp_gscp       = 1
+inwp_convection = 1
+inwp_radiation  = 1
+inwp_cldcover   = 3
+inwp_turb       = 2
+/
+&radiation_nml
+ irad_o3 = 6
+/
+&regularization_ctl
+/
+&ocean_ctl
+/
+EOF
+#
+#=============================================================================
+#
+# This section of the run script prepares and starts the model integration. 
+#
+# bindir and START must be defined as environment variables or
+# they must be substituted with appropriate values.
+#
+# Marco Giorgetta, MPI-M, 2010-04-21
+#
+#-----------------------------------------------------------------------------
+#
+# set ICON_THREADS
+#
+# export ICON_THREADS=${OMP_NUM_THREADS}
+#
+#-----------------------------------------------------------------------------
+#
+# directory of this script, must be in ICON base directory
+#
+DIR=$(pwd -P)
+ICONDIR=${DIR%/*}
+#
+#-----------------------------------------------------------------------------
+#
+# model
+#
+MODEL=${bindir}/control_model
+#
+ls -l ${MODEL}
+check_error $? "${MODEL} does not exist?"
+#
+#-----------------------------------------------------------------------------
+#
+# experiment directory, with plenty of space, create if new
+#
+EXPDIR=${ICONDIR}/experiments/${EXPNAME}
+#
+if [ ! -d ${EXPDIR} ]; then
+    mkdir -p ${EXPDIR}
+fi
+#
+ls -ld ${EXPDIR}
+if [ ! -d ${EXPDIR} ]; then
+    mkdir ${EXPDIR}
+#else
+#   rm -rf ${EXPDIR}
+#   mkdir  ${EXPDIR}
+fi
+ls -ld ${EXPDIR}
+check_error $? "${EXPDIR} does not exist?"
+#
+#-----------------------------------------------------------------------------
+#
+# data directories
+#
+DATADIR=${ICONDIR}/data
+#
+#-----------------------------------------------------------------------------
+#
+# get grid files
+#
+case ${IEQ} in
+    0 | 1 | 2 )
+        # shallow water | hydrost. atm. T| hydrost. atm. theta dp 
+        # =======================================================
+        #
+        # model constants
+        # ---------------
+        cp -f ${DATADIR}/rrtmg_lw.nc           ${EXPDIR} # LW radiation constants
+        cp -f ${DATADIR}/ECHAM6_CldOptProps.nc ${EXPDIR} # cloud optical properties
+        #
+        # horizontal grid
+        # ---------------
+        HGRIDDIR=${ICONDIR}/grids
+        AGRIDNAME=iconR${R}B0${B}-grid_${OPT}.nc
+        HGRIDNAME=iconR${R}B0${B}-grid.nc
+        #
+        rm ${EXPDIR}/${HGRIDNAME}
+        ln -s ${HGRIDDIR}/${AGRIDNAME} ${EXPDIR}/${HGRIDNAME}
+        check_error $? "ln -s ${HGRIDDIR}/${AGRIDNAME}"
+        #
+        # vertical grid
+        # -------------
+        VGRIDDIR=${ICONDIR}/vertical_coord_tables
+        VGRIDNAME=atm_hyb_sp_${N}
+        #
+        rm ${EXPDIR}/${VGRIDNAME}
+        ln -s ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
+        check_error $? "ln -s ${VGRIDDIR}/${VGRIDNAME}"
+        #
+        ;;
+     3 )
+        #  non-hydrost. atm.
+        # ==================
+        #
+        # model constants
+        # ---------------
+        cp -f ${DATADIR}/rrtmg_lw.nc           ${EXPDIR} # LW radiation constants
+        cp -f ${DATADIR}/ECHAM6_CldOptProps.nc ${EXPDIR} # cloud optical properties
+        #
+        # horizontal grid
+        # ---------------
+        if [[ $IREF != ".true." ]] ; then
+
+        HGRIDDIR=${ICONDIR}/grids
+        AGRIDNAME=iconR${R}B0${B}-grid_${OPT}.nc
+        HGRIDNAME=iconR${R}B0${B}-grid.nc
+
+        rm  ${EXPDIR}/${HGRIDNAME}
+        ln -s ${HGRIDDIR}/${AGRIDNAME} ${EXPDIR}/${HGRIDNAME}
+        check_error $? "ln -s ${HGRIDDIR}/${AGRIDNAME}"
+        
+        else
+
+        HGRIDDIR=${ICONDIR}/grids
+        if [[ $LPATCH0 = ".true." ]] ; then 
+         B_S=`expr $B - 1`
+         DOM_S=0
+        else 
+         B_S=$B
+         DOM_S=1
+        fi
+         B_MAX=`expr $B + $NDOM - 1`
+
+         B_C=$B_S
+         DOM_C=$DOM_S
+        while [[ $B_C -le $B_MAX ]] ; do
+
+         AGRIDNAME=iconR${R}B0${B_C}_DOM0${DOM_C}.nc
+         HGRIDNAME=iconR${R}B0${B_C}_DOM0${DOM_C}-grid.nc
+         rm  ${EXPDIR}/${HGRIDNAME}
+         ln -s ${HGRIDDIR}/${AGRIDNAME} ${EXPDIR}/${HGRIDNAME}
+         check_error $? "ln -s ${HGRIDDIR}/${AGRIDNAME}"
+
+         B_C=`expr $B_C + 1`
+         DOM_C=`expr $DOM_C + 1`
+        done 
+        fi     
+
+        #
+        
+        #
+        # vertical grid
+        # -------------
+        VGRIDDIR=${ICONDIR}/vertical_coord_tables
+        VGRIDNAME=atm_hyb_sz_${N}
+        #
+        rm  ${EXPDIR}/${VGRIDNAME}
+        ln -s ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
+        warning $? "ln -s ${VGRIDDIR}/${VGRIDNAME} failed"
+        #
+        ;;
+    -1 )
+        # hydrost. ocean
+        # ==============
+        #
+        # horizontal grid
+        # ---------------
+        HGRIDNAME=iconR${R}B0${B}-grid.nc
+        # default path for grid
+        if [[ x$HGRIDDIR  = x ]] ; then
+          HGRIDDIR=${ICONDIR}/grids
+        fi
+        #
+        # default grid names for aqua planet/Stommel basin/etopo topography
+        if [[ x$OGRIDNAME  = x ]] ; then
+          if [[ x$USE_AQUAP = "xY" ]] ; then
+            OGRIDNAME=iconR${R}B0${B}-ocean_aqua_planet.nc
+          # OGRIDNAME=iconR${R}B0${B}-ocean_aqua_planet_${OPT}.nc  #  ?include optimization?
+          fi
+          if [[ x$USE_ETOPO = "xY" ]] ; then
+          # OGRIDNAME=iconR${R}B0${B}-ocean_etopo40_planet.nc      #  including bathymetry
+            OGRIDNAME=iconR${R}B0${B}-ocean_etopo40_flat.nc        #  flat bottom
+          fi
+          if [[ x$USE_BASIN = "xY" ]] ; then
+          # OGRIDNAME=iconR${R}B0${B}-ocean_basin.nc               #  standard name
+            OGRIDNAME=iconR${R}B0${B}-ocean_bas10-80N.nc           #  new Stommel basin 10-80N
+          fi
+        fi
+        #
+        rm  ${EXPDIR}/${HGRIDNAME}
+        ln -s ${HGRIDDIR}/${OGRIDNAME} ${EXPDIR}/${HGRIDNAME}
+        check_error $? "ln -s $ {HGRIDDIR}/${OGRIDNAME}"
+        #
+        # vertical grid
+        # -------------
+        # is defined in ocean_ctl namelist
+        #
+        ;;
+esac
+#
+#-----------------------------------------------------------------------------
+#
+# get namelist
+#
+mv -f ${DIR}/NAMELIST_${EXPNAME} ${EXPDIR}/NAMELIST_ICON
+check_error $? "cp -f ${DIR}/NAMELIST_${EXPNAME}"
+#
+#-----------------------------------------------------------------------------
+#
+# start experiment
+#
+cd ${EXPDIR}
+#
+${START} ${MODEL}
+#
+check_error $? "${START} ${MODEL}"
+#
+#-----------------------------------------------------------------------------
+#
+echo "============================"
+echo "Script run successfully"
+echo "============================"
+exit 0
+#-----------------------------------------------------------------------------
