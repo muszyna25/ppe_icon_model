@@ -114,14 +114,9 @@ USE mo_nonhydro_state,      ONLY: p_nh_state
 USE mo_atmo_control,        ONLY: p_patch_global, p_patch_subdiv, p_patch
 
 ! Horizontal grid
-!
-USE mo_grid_nml,            ONLY: read_grid_namelist
-USE mo_model_domain_import, ONLY: &  !grid_nml_setup,          & ! process grid control parameters
-& n_dom,                & !    :
-& n_dom_start,          & !    :
-!    & parent_id,            & !    :
-& import_patches,       & !
-& destruct_patches        !
+USE mo_grid_config,         ONLY: n_dom, n_dom_start, global_cell_type, &
+                                  dynamics_parent_grid_id
+USE mo_model_domain_import, ONLY: import_patches, destruct_patches
 
 ! Horizontal interpolation
 !
@@ -215,7 +210,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
     LOGICAL :: lsuccess
     LOGICAL :: l_have_output
-    INTEGER :: istat
+    INTEGER :: jg, istat
 
     ! For the coupling
 
@@ -333,10 +328,11 @@ CONTAINS
       ENDIF
     ENDIF
 
-    !-----------------------------------------------------------------------------
-    ! 5. Construct interpolation state (global), compute interpolation coefficients.
-    !-----------------------------------------------------------------------------
-    !CALL configure_interpolation (jlev,n_dom,global_cell_type)
+    !--------------------------------------------------------------------------------
+    ! 5. Construct interpolation state, compute interpolation coefficients.
+    !--------------------------------------------------------------------------------
+    
+    CALL configure_interpolation( global_cell_type, n_dom, p_patch_global(1:)%level )
 
     ! Allocate array for interpolation state
     
@@ -356,69 +352,66 @@ CONTAINS
     ENDIF
 
     !-----------------------------------------------------------------------------
-    ! 6. Construct grid refinment (coefficient) state
+    ! 6. Construct grid refinment state, compute coefficients
     !-----------------------------------------------------------------------------
-!    ! For the NH model, the initialization routines called from
-!    ! construct_2d_gridref_state require the metric terms to be present
-!    IF (n_dom_start==0 .OR. n_dom > 1) THEN
-!      IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
-!        ! Read gridref state from NetCDF
-!        CALL restore_gridref_state_netcdf(p_patch_global, p_grf_state_global)
-!      ELSE
-!        CALL construct_2d_gridref_state (p_patch_global, p_grf_state_global)
-!      ENDIF
-!    ENDIF
-!    
+    ! For the NH model, the initialization routines called from
+    ! construct_2d_gridref_state require the metric terms to be present
+
+    IF (n_dom_start==0 .OR. n_dom > 1) THEN
+      IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
+        ! Read gridref state from NetCDF
+        CALL restore_gridref_state_netcdf(p_patch_global, p_grf_state_global)
+      ELSE
+        CALL construct_2d_gridref_state (p_patch_global, p_grf_state_global)
+      ENDIF
+    ENDIF
 
     !-------------------------------------------------------------------
-    ! 7. Domain decomposition
-    !-------------------------------------------------------------------
-    !  Divide patches and interpolation states for parallel runs.
-    !  This is only done if the model runs really in parallel.
+    ! 7. Domain decomposition: 
+    !    Divide patches and interpolation states for parallel runs.
+    !    This is only done if the model runs really in parallel.
+    !-------------------------------------------------------------------   
+    IF (my_process_is_mpi_seq()  &
+      &  .OR. lrestore_states) THEN
+      
+      ! This is a verification run or a run on a single processor
+      ! or the divided states have been read, just set pointers
+      
+      p_patch => p_patch_global
+      p_int_state => p_int_state_global
+      p_grf_state => p_grf_state_global
+      
+      IF (my_process_is_mpi_seq()) THEN
+        p_patch(:)%comm = p_comm_work
+      ELSE
+        CALL set_patch_communicators(p_patch)
+      ENDIF
+      
+    ELSE
+      
+      CALL decompose_atmo_domain( locean=.FALSE. )
+      
+    ENDIF
     
-!    IF (my_process_is_mpi_seq()  &
-!      &  .OR. lrestore_states) THEN
-!      
-!      ! This is a verification run or a run on a single processor
-!      ! or the divided states have been read, just set pointers
-!      
-!      p_patch => p_patch_global
-!      p_int_state => p_int_state_global
-!      p_grf_state => p_grf_state_global
-!      
-!      IF (my_process_is_mpi_seq()) THEN
-!        p_patch(:)%comm = p_comm_work
-!      ELSE
-!        CALL set_patch_communicators(p_patch)
-!      ENDIF
-!      
-!    ELSE
-!      
-!      CALL decompose_atmo_domain( locean=.FALSE. )
-!      
-!    ENDIF
-!    
-!    ! In case of a test run: Copy processor splitting to test PE
-!    IF(p_test_run) CALL copy_processor_splitting(p_patch)
-!    
-!    IF(ldump_states)THEN
-!      
-!      ! Dump divided patches with interpolation and grf state to NetCDF file and exit
-!      
-!      CALL message(TRIM(routine),'ldump_states is set: dumping patches+states and finishing')
-!      
-!      IF(.NOT. my_process_is_mpi_test()) THEN
-!        DO jg = n_dom_start, n_dom
-!          CALL dump_patch_state_netcdf(p_patch(jg),p_int_state(jg),p_grf_state(jg))
-!        ENDDO
-!      ENDIF
-!      
-!      CALL p_stop
-!      STOP
-!      
-!    ENDIF
-!
-!
+    ! In case of a test run: Copy processor splitting to test PE
+    IF(p_test_run) CALL copy_processor_splitting(p_patch)
+    
+    IF(ldump_states)THEN
+      
+      ! Dump divided patches with interpolation and grf state to NetCDF file and exit
+      
+      CALL message(TRIM(routine),'ldump_states is set: dumping patches+states and finishing')
+      
+      IF(.NOT. my_process_is_mpi_test()) THEN
+        DO jg = n_dom_start, n_dom
+          CALL dump_patch_state_netcdf(p_patch(jg),p_int_state(jg),p_grf_state(jg))
+        ENDDO
+      ENDIF
+      
+      CALL p_stop
+      STOP
+      
+    ENDIF
 
    !---------------------------------------------------------------------
    ! 8. Import vertical grid/ define vertical coordinate
@@ -446,8 +439,9 @@ CONTAINS
     !    Assign values to derived variables in the configuration states
     !---------------------------------------------------------------------
 
-    CALL configure_dynamics(lrestart, n_dom)
-   !CALL configure_diffusion(n_dom, parent_id, nlev, vct_a, vct_b, apzero)
+    CALL configure_dynamics ( lrestart, n_dom )
+    CALL configure_diffusion( n_dom, dynamics_parent_grid_id, &
+                            & nlev, vct_a, vct_b, apzero      )
 
    !DO jg =1,n_dom
    !  CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,      &
@@ -455,14 +449,25 @@ CONTAINS
    !    &                      kstart_qv(jg), lvert_nest, l_open_ubc, ntracer ) 
    !ENDDO
 
+    !------------------------------------------------------------------
+    ! 10. Create and optionally read external data fields
+    !------------------------------------------------------------------
+    ALLOCATE (ext_data(n_dom), STAT=istat)
+    IF (istat /= SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for ext_data failed')
+    ENDIF
+    
+    ! allocate memory for atmospheric/oceanic external data and
+    ! optionally read those data from netCDF file.
+    CALL init_ext_data (p_patch(1:), p_int_state, ext_data)
+
     !---------------------------------------------------------------------
-    ! 10. Do the setup for the coupled run
+    ! 11. Do the setup for the coupled run
     !
     ! For the time being this could all go into a subroutine which is
     ! common to atmo and ocean. Does this make sense if the setup deviates
     ! too much in future.
     !---------------------------------------------------------------------
-
     IF ( is_coupled_run() ) THEN
  
       comp_id = get_my_local_comp_id (atmo_process)
@@ -491,77 +496,77 @@ CONTAINS
     ENDIF
 
     !---------------------------------------------------------------------
-    ! 11. The hydrostatic and nonhydrostatic models branch from this point
+    ! 12. The hydrostatic and nonhydrostatic models branch from this point
     !---------------------------------------------------------------------
-
     SELECT CASE(iequations)
     CASE(ishallow_water,ihs_atm_temp,ihs_atm_theta)
       CALL atmo_hydrostatic
+
     CASE(inh_atmosphere)
       CALL atmo_nonhydrostatic
+
+    CASE DEFAULT
+      CALL finish( TRIM(routine),'unknown choice for iequaions.')
     END SELECT
 
 
     !---------------------------------------------------------------------
-    ! 12. Integration finished. Carry out the shared clean-up processes
+    ! 13. Integration finished. Carry out the shared clean-up processes
     !---------------------------------------------------------------------
-!   ! Delete grids
+    ! Destruct external data state
 
-!   IF (n_dom > 1) THEN
-!     CALL destruct_2d_gridref_state( p_patch, p_grf_state )
-!   ENDIF
-!
-!   IF (my_process_is_mpi_seq()  &
-!     & .OR. lrestore_states) THEN
-!     DEALLOCATE (p_grf_state_global, STAT=ist)
-!   ELSE
-!     DEALLOCATE (p_grf_state_subdiv, STAT=ist)
-!   ENDIF
-!   IF (ist /= SUCCESS) THEN
-!     CALL finish(TRIM(routine),'deallocation for ptr_grf_state failed')
-!   ENDIF
-!     
-!   ! Deallocate interpolation fields
-!
-!   CALL destruct_2d_interpol_state( p_int_state )
-!   IF  (my_process_is_mpi_seq()  &
-!     & .OR. lrestore_states) THEN
-!     DEALLOCATE (p_int_state_global, STAT=ist)
-!   ELSE
-!     DEALLOCATE (p_int_state_subdiv, STAT=ist)
-!   ENDIF
-!   IF (ist /= SUCCESS) THEN
-!     CALL finish(TRIM(routine),'deallocation for ptr_int_state failed')
-!   ENDIF
-!   
-!   ! Deallocate external data
-!   CALL destruct_ext_data
-!
-!   ! deallocate ext_data array
-!   DEALLOCATE(ext_data, stat=ist)
-!   IF (ist/=success) THEN
-!     CALL finish(TRIM(routine), 'deallocation of ext_data')
-!   ENDIF
-!   
-!   ! Deallocate grid patches
-!   !
-!   CALL destruct_patches( p_patch, locean=.FALSE. )
-!
-!   IF (my_process_is_mpi_seq()  &
-!     & .OR. lrestore_states) THEN
-!     DEALLOCATE( p_patch_global, STAT=ist )
-!   ELSE
-!     DEALLOCATE( p_patch_subdiv, STAT=ist )
-!   ENDIF
-!   IF (ist/=SUCCESS) THEN
-!     CALL finish(TRIM(routine),'deallocate for patch array failed')
-!   ENDIF
-!   
-!   ! deallocate output switches
-!   !
-!   
-!   CALL message(TRIM(routine),'clean-up finished')
-!   
+    CALL destruct_ext_data
+
+    ! deallocate ext_data array
+    DEALLOCATE(ext_data, stat=istat)
+    IF (istat/=success) THEN
+      CALL finish(TRIM(routine), 'deallocation of ext_data')
+    ENDIF
+
+    ! Deconstruct grid refinement state
+
+    IF (n_dom > 1) THEN
+      CALL destruct_2d_gridref_state( p_patch, p_grf_state )
+    ENDIF
+
+    IF (my_process_is_mpi_seq()  &
+      & .OR. lrestore_states) THEN
+      DEALLOCATE (p_grf_state_global, STAT=istat)
+    ELSE
+      DEALLOCATE (p_grf_state_subdiv, STAT=istat)
+    ENDIF
+    IF (istat /= SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for ptr_grf_state failed')
+    ENDIF
+
+    ! Deallocate interpolation fields
+
+    CALL destruct_2d_interpol_state( p_int_state )
+    IF  (my_process_is_mpi_seq()  &
+      & .OR. lrestore_states) THEN
+      DEALLOCATE (p_int_state_global, STAT=istat)
+    ELSE
+      DEALLOCATE (p_int_state_subdiv, STAT=istat)
+    ENDIF
+    IF (istat /= SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for ptr_int_state failed')
+    ENDIF
+
+    ! Deallocate grid patches
+
+    CALL destruct_patches( p_patch, locean=.FALSE. )
+
+    IF (my_process_is_mpi_seq()  &
+      & .OR. lrestore_states) THEN
+      DEALLOCATE( p_patch_global, STAT=istat )
+    ELSE
+      DEALLOCATE( p_patch_subdiv, STAT=istat )
+    ENDIF
+    IF (istat/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocate for patch array failed')
+    ENDIF
+
+    CALL message(TRIM(routine),'clean-up finished')
 
   END SUBROUTINE atmo_model
 
@@ -579,27 +584,6 @@ CONTAINS
     !---------------------------------------------------------------------
     ! 4. Construct model states (variable lists); set initial conditions.
     !---------------------------------------------------------------------
-
- 
-
-    !---------------------------------------------------------------------
-    ! 4.b General for all atmospheric versions
-    !
-    !---------------------------------------------------------------------
-
-!    !------------------------------------------------------------------
-!    ! Create and optionally read external data fields
-!    !------------------------------------------------------------------
-!    ALLOCATE (ext_data(n_dom), STAT=ist)
-!    IF (ist /= SUCCESS) THEN
-!      CALL finish(TRIM(routine),'allocation for ext_data failed')
-!    ENDIF
-!    
-!    ! allocate memory for atmospheric/oceanic external data and
-!    ! optionally read those data from netCDF file.
-!    CALL init_ext_data (p_patch(1:), p_int_state, ext_data)
-!
-
    
  !   SELECT CASE (iequations)
     !---------------------------------------------------------------------
@@ -892,20 +876,6 @@ CONTAINS
     ENDIF
     
  
-    !------------------------------------------------------------------
-    ! step 5a: init the structure of the model equations
-    !------------------------------------------------------------------
-
-    ! For the NH model, the initialization routines called from
-    ! construct_2d_gridref_state require the metric terms to be present
-    IF (n_dom_start==0 .OR. n_dom > 1) THEN
-      IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
-        ! Read gridref state from NetCDF
-        CALL restore_gridref_state_netcdf(p_patch_global, p_grf_state_global)
-      ELSE
-        CALL construct_2d_gridref_state (p_patch_global, p_grf_state_global)
-      ENDIF
-    ENDIF
     
     !-------------------------------------------------------------------------
     ! set up horizontal diffusion after the vertical coordinate is configured
@@ -936,52 +906,6 @@ CONTAINS
       !
     END SELECT
     
-    !------------------------------------------------------------------
-    !  Divide patches and interpolation states for parallel runs.
-    !  This is only done if the model runs really in parallel.
-    !------------------------------------------------------------------
-    
-    IF (my_process_is_mpi_seq()  &
-      &  .OR. lrestore_states) THEN
-      
-      ! This is a verification run or a run on a single processor
-      ! or the divided states have been read, just set pointers
-      
-      p_patch => p_patch_global
-      p_int_state => p_int_state_global
-      p_grf_state => p_grf_state_global
-      
-      IF (my_process_is_mpi_seq()) THEN
-        p_patch(:)%comm = p_comm_work
-      ELSE
-        CALL set_patch_communicators(p_patch)
-      ENDIF
-      
-    ELSE
-      
-      CALL decompose_atmo_domain( locean=.FALSE. )
-      
-    ENDIF
-    
-    ! In case of a test run: Copy processor splitting to test PE
-    IF(p_test_run) CALL copy_processor_splitting(p_patch)
-    
-    IF(ldump_states)THEN
-      
-      ! Dump divided patches with interpolation and grf state to NetCDF file and exit
-      
-      CALL message(TRIM(routine),'ldump_states is set: dumping patches+states and finishing')
-      
-      IF(.NOT. my_process_is_mpi_test()) THEN
-        DO jg = n_dom_start, n_dom
-          CALL dump_patch_state_netcdf(p_patch(jg),p_int_state(jg),p_grf_state(jg))
-        ENDDO
-      ENDIF
-      
-      CALL p_stop
-      STOP
-      
-    ENDIF
     
     
     !------------------------------------------------------------------
@@ -1001,19 +925,7 @@ CONTAINS
     
     ! The model produces output files for all grid levels
  
-    
-    !------------------------------------------------------------------
-    ! Create and optionally read external data fields
-    !------------------------------------------------------------------
-    ALLOCATE (ext_data(n_dom), STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for ext_data failed')
-    ENDIF
-    
-    ! allocate memory for atmospheric/oceanic external data and
-    ! optionally read those data from netCDF file.
-    CALL init_ext_data (p_patch(1:), p_int_state, ext_data)
-    
+        
     ! Parameterized forcing:
     ! 1. Create forcing state variables
     ! 2. Set up parameterizations
@@ -1249,20 +1161,6 @@ CONTAINS
     ! Delete output variable lists
     IF (l_have_output) CALL close_output_files
     
-    ! Delete grids
-    IF (n_dom > 1) THEN
-      CALL destruct_2d_gridref_state( p_patch, p_grf_state )
-    ENDIF
-
-    IF (my_process_is_mpi_seq()  &
-      & .OR. lrestore_states) THEN
-      DEALLOCATE (p_grf_state_global, STAT=ist)
-    ELSE
-      DEALLOCATE (p_grf_state_subdiv, STAT=ist)
-    ENDIF
-    IF (ist /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for ptr_grf_state failed')
-    ENDIF
       
     ! Deallocate memory for the parameterized forcing
     SELECT CASE (iforcing)
@@ -1283,47 +1181,7 @@ CONTAINS
 
     END SELECT
     
-    ! Deallocate interpolation fields
-
-    CALL destruct_2d_interpol_state( p_int_state )
-    IF  (my_process_is_mpi_seq()  &
-      & .OR. lrestore_states) THEN
-      DEALLOCATE (p_int_state_global, STAT=ist)
-    ELSE
-      DEALLOCATE (p_int_state_subdiv, STAT=ist)
-    ENDIF
-    IF (ist /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for ptr_int_state failed')
-    ENDIF
-    
-    ! Deallocate external data
-    CALL destruct_ext_data
-
-    ! deallocate ext_data array
-    DEALLOCATE(ext_data, stat=ist)
-    IF (ist/=success) THEN
-      CALL finish(TRIM(routine), 'deallocation of ext_data')
-    ENDIF
-    
-    ! Deallocate grid patches
-    !
-    CALL destruct_patches( p_patch, locean=.FALSE. )
-
-    IF (my_process_is_mpi_seq()  &
-      & .OR. lrestore_states) THEN
-      DEALLOCATE( p_patch_global, STAT=ist )
-    ELSE
-      DEALLOCATE( p_patch_subdiv, STAT=ist )
-    ENDIF
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocate for patch array failed')
-    ENDIF
-    
-    ! deallocate output switches
-    !
-    
-    CALL message(TRIM(routine),'clean-up finished')
-    
+   
   END SUBROUTINE atmo_model_old
   
 END MODULE mo_atmo_model

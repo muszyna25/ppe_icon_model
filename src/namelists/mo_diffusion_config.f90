@@ -118,15 +118,15 @@ MODULE mo_diffusion_config
 CONTAINS
   !>
   !!
-  SUBROUTINE configure_diffusion( n_dom, parent_id, nlev, &
-                                & vct_a, vct_b, apzero    )
+  SUBROUTINE configure_diffusion( n_dom, dynamics_parent_grid_id,  &
+                                & nlev, vct_a, vct_b, apzero       )
 
     INTEGER, INTENT(IN) :: n_dom
-    INTEGER, INTENT(IN) :: parent_id(max_dom-1) !< list of parent ID's
+    INTEGER, INTENT(IN) :: dynamics_parent_grid_id(max_dom)
     INTEGER, INTENT(IN) :: nlev
     REAL(WP),INTENT(IN) :: vct_a(nlev+1), vct_b(nlev+1), apzero
 
-    INTEGER  :: jg, jk
+    INTEGER  :: jg, jk, jgp
     REAL(wp) :: zpres(nlev+1)
 
     REAL(wp),POINTER :: k2_pres_max
@@ -244,19 +244,19 @@ CONTAINS
 
     ELSE
 
-      diffusion_config(1)%k2= 1._wp/( diffusion_config(jg)%hdiff_efdt_ratio*8._wp)
-      diffusion_config(1)%k4= 1._wp/( diffusion_config(jg)%hdiff_efdt_ratio*64._wp)
-      diffusion_config(1)%k6= 1._wp/( diffusion_config(jg)%hdiff_efdt_ratio*512._wp)
+      diffusion_config(1)%k2 = 1._wp/ (diffusion_config(1)%hdiff_efdt_ratio*8._wp)
+      diffusion_config(1)%k4 = 1._wp/ (diffusion_config(1)%hdiff_efdt_ratio*64._wp)
+      diffusion_config(1)%k6 = 1._wp/ (diffusion_config(1)%hdiff_efdt_ratio*512._wp)
   
       DO jg = 2, n_dom
 
-         diffusion_config(jg)%k2 = diffusion_config(parent_id(jg-1))%k2 &
-                                  *diffusion_config(jg)%hdiff_multfac
-         diffusion_config(jg)%k4 = diffusion_config(parent_id(jg-1))%k4 &
-                                  *diffusion_config(jg)%hdiff_multfac
-         diffusion_config(jg)%k6 = diffusion_config(parent_id(jg-1))%k6 &
-                                  *diffusion_config(jg)%hdiff_multfac
+         jgp = dynamics_parent_grid_id(jg)
+         
+         diffusion_config(jg)%k2 = diffusion_config(jgp)%k2 * diffusion_config(jg)%hdiff_multfac
+         diffusion_config(jg)%k4 = diffusion_config(jgp)%k4 * diffusion_config(jg)%hdiff_multfac
+         diffusion_config(jg)%k6 = diffusion_config(jgp)%k6 * diffusion_config(jg)%hdiff_multfac
       ENDDO
+
     ENDIF
 
   END SUBROUTINE configure_diffusion
