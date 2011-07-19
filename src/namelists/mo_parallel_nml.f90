@@ -39,7 +39,6 @@ MODULE mo_parallel_nml
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_master_nml,          ONLY: lrestart
-! USE mo_mpi,                 ONLY: p_pe, p_io, p_nprocs, p_all_comm
   USE mo_mpi,                 ONLY: my_process_is_stdio
 #ifndef NOMPI
   USE mo_exception,           ONLY: message_text

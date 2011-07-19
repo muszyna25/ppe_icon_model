@@ -73,7 +73,7 @@ MODULE mo_subdivision
     & rbf_vec_dim_v, rbf_c2grad_dim
   USE mo_grf_interpolation,  ONLY: t_gridref_state, t_gridref_single_state
   USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
-  USE mo_mpi,                ONLY: p_pe, p_nprocs, p_bcast, p_send, p_recv
+  USE mo_mpi,                ONLY: p_pe, p_bcast, p_send, p_recv
 #ifndef NOMPI
   USE mo_mpi,                ONLY: MPI_UNDEFINED, MPI_COMM_NULL
 #endif

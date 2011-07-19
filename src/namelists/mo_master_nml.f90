@@ -35,7 +35,6 @@ MODULE mo_master_nml
 
   USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH
   USE mo_exception,      ONLY: warning, message_text, finish
-  USE mo_mpi,            ONLY: p_nprocs
   USE mo_io_units,       ONLY: filename_max, nnml
   USE mo_namelist,       ONLY: open_nml, position_nml, POSITIONED
 
@@ -104,7 +103,7 @@ CONTAINS
     atmo_restart_info_filename = "restart.info"
     l_atmo_active = .FALSE.
     atmo_min_rank = 0
-    atmo_max_rank = p_nprocs
+    atmo_max_rank = -1
     atmo_inc_rank = 1
 
     ocean_name     = ""
@@ -112,7 +111,7 @@ CONTAINS
     ocean_restart_info_filename = "restart.info"
     l_ocean_active = .FALSE.
     ocean_min_rank = 0
-    ocean_max_rank = p_nprocs
+    ocean_max_rank = -1
     ocean_inc_rank = 1
 
     !------------------------------------------------------------------

@@ -51,7 +51,7 @@ USE mo_exception,          ONLY: finish
 USE mo_model_domain,       ONLY: t_patch
 USE mo_parallel_config, ONLY: nproma
 USE mo_io_units,           ONLY: find_next_free_unit, filename_max
-USE mo_mpi,                ONLY: p_pe, p_nprocs, p_bcast, p_sum, p_max, p_min, &
+USE mo_mpi,                ONLY: p_pe, p_bcast, p_sum, p_max, p_min, &
   & p_send, p_recv, p_comm_work_test,  p_comm_work, &
   & my_process_is_mpi_test, get_my_mpi_all_id, process_mpi_test_id, &
   & my_process_is_mpi_parallel,       &

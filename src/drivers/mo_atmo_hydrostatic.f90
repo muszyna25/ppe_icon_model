@@ -35,7 +35,7 @@
 MODULE mo_atmo_hydrostatic
 
 USE mo_exception,           ONLY: message, finish
-USE mo_mpi,                 ONLY: p_stop, p_pe, p_io, p_nprocs, &
+USE mo_mpi,                 ONLY: p_stop, p_pe, p_io,  &
 & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
 & my_process_is_stdio
 USE mo_timer,               ONLY: init_timer, print_timer

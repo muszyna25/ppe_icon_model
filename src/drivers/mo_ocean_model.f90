@@ -33,7 +33,7 @@
 MODULE mo_ocean_model
   
   USE mo_exception,           ONLY: message, finish  ! use always
-  USE mo_mpi,                 ONLY: p_stop, p_pe, p_io, p_nprocs, &
+  USE mo_mpi,                 ONLY: p_stop, p_pe, p_io,  &
     & p_comm_work_test, p_comm_input_bcast, p_comm_work, &
     & my_process_is_mpi_test, my_process_is_mpi_seq, my_process_is_io
   USE mo_timer,               ONLY: init_timer, print_timer

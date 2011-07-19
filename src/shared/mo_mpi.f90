@@ -30,11 +30,11 @@ MODULE mo_mpi
   PUBLIC :: set_process_mpi_communicator
 
   PUBLIC :: process_mpi_all_comm
+  
   PUBLIC :: p_comm_work, p_comm_work_test
   PUBLIC :: p_comm_work_2_io, p_comm_input_bcast, p_comm_work_io
   PUBLIC :: p_communicator_a, p_communicator_b, p_communicator_d
 
-  PUBLIC :: p_pe, p_io, p_nprocs, process_mpi_test_id, process_mpi_root_id
   PUBLIC :: process_mpi_io_size
   
   PUBLIC :: p_stop, p_abort
@@ -44,7 +44,10 @@ MODULE mo_mpi
   PUBLIC :: p_gather, p_max, p_min, p_sum, p_global_sum, p_field_sum
   PUBLIC :: p_probe
 
+  !----------- should not be public -----------------------------------------
+  PUBLIC :: process_mpi_test_id, process_mpi_root_id
   !----------- to be removed -----------------------------------------
+  PUBLIC :: p_pe, p_io, p_nprocs
   PUBLIC :: num_test_procs, num_work_procs,             &
        &    p_test_pe, p_work_pe0, p_io_pe0,            &
        &    p_n_work, p_pe_work
