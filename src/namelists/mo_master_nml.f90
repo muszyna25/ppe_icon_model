@@ -67,7 +67,7 @@ MODULE mo_master_nml
   INTEGER :: ocean_max_rank
   INTEGER :: ocean_inc_rank
 
-  NAMELIST /master_ctl/ l_atmo_active, atmo_name, atmo_namelist_filename,    &
+  NAMELIST /master_nml/ l_atmo_active, atmo_name, atmo_namelist_filename,    &
                       & atmo_min_rank, atmo_max_rank, atmo_inc_rank,         &
                       & atmo_restart_info_filename,                          &
                       & l_ocean_active, ocean_name, ocean_namelist_filename, &
@@ -79,7 +79,7 @@ CONTAINS
   !>
   !! Initialization of variables that contain general information
   !! about the coupled model run. The configuration is read from
-  !! namelist 'master_ctl'.
+  !! namelist 'master_nml'.
   !!
   !! @par Revision History
   !!
@@ -126,19 +126,19 @@ CONTAINS
       RETURN
     ENDIF
     
-    CALL position_nml('master_ctl',STATUS=istat)
+    CALL position_nml('master_nml',STATUS=istat)
     
     IF (istat/=POSITIONED) THEN
 
       CALL finish( TRIM(routine), &
-                 & 'Namelist master_ctl not found in file '  &
+                 & 'Namelist master_nml not found in file '  &
                  & //TRIM(namelist_filename) )
 
       read_master_namelist=-2
       RETURN      
     ENDIF
         
-    READ (nnml, master_ctl)
+    READ (nnml, master_nml)
     CLOSE (nnml, IOSTAT=istat)
 
     read_master_namelist=SUCCESS

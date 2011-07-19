@@ -217,7 +217,7 @@ DT_DATA=`expr ${DTIME} \* ${NSTEPS}`   # data output at the end of the integrati
 #
 cat > master_namelist_${EXPNAME} << EOF
 !
-&master_ctl
+&master_nml
  lrestart               = .FALSE.
  l_atmo_active          = .TRUE.
  atmo_namelist_filename = "icon_atm.namelist"
