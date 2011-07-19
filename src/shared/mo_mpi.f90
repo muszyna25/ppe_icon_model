@@ -134,7 +134,7 @@ MODULE mo_mpi
   INTEGER :: my_mpi_function  ! test, or work, or i/o
   INTEGER, PARAMETER :: test_mpi_process = 1
   INTEGER, PARAMETER :: work_mpi_process = 2
-  INTEGER, PARAMETER :: io_mpi_process = 2
+  INTEGER, PARAMETER :: io_mpi_process = 3
   
   !------------------------------------------------------------
   ! Processor distribution:
