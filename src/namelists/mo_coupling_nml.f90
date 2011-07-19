@@ -77,7 +77,7 @@ MODULE mo_coupling_nml
   CHARACTER(LEN=132)  :: end_date   = ""
 
 
-  NAMELIST /coupling_ctl/ coupling_freq,       &
+  NAMELIST /coupling_nml/ coupling_freq,       &
                           time_step,           &
                           l_time_average,      &
                           l_time_accumulation, &
@@ -136,19 +136,19 @@ CONTAINS
        RETURN
     ENDIF
 
-    CALL position_nml('coupling_ctl',STATUS=istat)
+    CALL position_nml('coupling_nml',STATUS=istat)
 
     IF (istat/=POSITIONED) THEN
 
        CALL finish( TRIM(routine), &
-            & 'Namelist master_ctl not found in file '  &
+            & 'Namelist coupling_nml not found in file '  &
             & //TRIM(namelist_filename) )
 
        read_coupling_namelist=-2
        RETURN      
     ENDIF
 
-    READ (nnml, coupling_ctl)
+    READ (nnml, coupling_nml)
     CLOSE (nnml, IOSTAT=istat)
 
     ! -------------------------------------------------------------------
