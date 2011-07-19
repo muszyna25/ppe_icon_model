@@ -61,7 +61,7 @@ MODULE mo_parallel_nml
     & config_radiation_threads   => radiation_threads,   &
     & config_nh_stepping_threads => nh_stepping_threads, &
     & config_nproma              => nproma,              &
-    & div_geometric
+    & div_geometric, check_parallel_configuration
 
   IMPLICIT NONE
   PRIVATE
@@ -243,6 +243,8 @@ MODULE mo_parallel_nml
     config_radiation_threads   = radiation_threads
     config_nh_stepping_threads = nh_stepping_threads
     config_nproma              = nproma
+
+    CALL check_parallel_configuration()
 
   END SUBROUTINE fill_parallel_nml_configure
   !-------------------------------------------------------------------------

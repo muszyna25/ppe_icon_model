@@ -114,7 +114,7 @@ CONTAINS
     !--------------------------------------------------------------------
     ! Parallelization
     !--------------------------------------------------------------------
-    CALL check_parallel_configuration(lrestore_states)
+    CALL check_parallel_configuration()
 
     !--------------------------------------------------------------------
     ! Length if this integration

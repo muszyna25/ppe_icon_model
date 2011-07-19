@@ -107,9 +107,8 @@ MODULE mo_parallel_config
 CONTAINS
   
   !-------------------------------------------------------------------------
-  SUBROUTINE check_parallel_configuration(lrestore_states)
+  SUBROUTINE check_parallel_configuration()
  
-    LOGICAL,INTENT(IN) :: lrestore_states
 !   !local variables
 !     INTEGER :: i_status, my_color, peer_comm, p_error
     CHARACTER(*), PARAMETER :: method_name = "check_parallel_configuration"
