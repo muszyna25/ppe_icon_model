@@ -33,7 +33,7 @@
 !!
 MODULE mo_master_nml
 
-  USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH
+  USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH, SUCCESS
   USE mo_exception,      ONLY: warning, message_text, finish
   USE mo_io_units,       ONLY: filename_max, nnml
   USE mo_namelist,       ONLY: open_nml, position_nml, POSITIONED
@@ -90,7 +90,6 @@ CONTAINS
     ! Local variables
     !
     INTEGER :: istat
-    INTEGER :: i, str_len
     CHARACTER(len=MAX_CHAR_LENGTH) :: routine = 'mo_master_nml:read_master_namelist'
 
     !------------------------------------------------------------
@@ -141,6 +140,8 @@ CONTAINS
         
     READ (nnml, master_ctl)
     CLOSE (nnml, IOSTAT=istat)
+
+    read_master_namelist=SUCCESS
 
   END FUNCTION read_master_namelist
 
