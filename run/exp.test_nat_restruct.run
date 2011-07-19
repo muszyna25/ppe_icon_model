@@ -69,7 +69,7 @@ NPROMA=8
 # ----------------------------
 mpi_root=/sw/lenny-x64/mpi/mpich2-1.3.1-static-nag52
 no_of_nodes=1
-mpi_procs=8
+mpi_procs=1
 start="/sw/lenny-x64/mpi/mpich2-1.3.1-static-nag52/bin/mpiexec -n $mpi_procs"
 START="$start"
 # ----------------------------
@@ -170,11 +170,11 @@ fi
 # This test must have available at least 3 MPI processes.
 #
 # If the model runs with mpi_procs=1, then this script exits without error:
-if [[ ${mpi_procs} = 1 ]]; then
-  echo "This test must not be started if mpi_procs=1 --> exit test without error"
-  check_error 0 "exp.nat_jww_nwp_mpiomp"
-  exit 0
-fi
+#if [[ ${mpi_procs} = 1 ]]; then
+#  echo "This test must not be started if mpi_procs=1 --> exit test without error"
+#  check_error 0 "exp.nat_jww_nwp_mpiomp"
+#  exit 0
+#fi
 # If running in parallel, mpi_procs must be bigger than 2:
 if [[ ${mpi_procs} = 2 ]]; then
   echo "This test needs at least 3 MPI processes --> increase mpi_procs from 2 to 3"
@@ -527,7 +527,10 @@ esac
 #
 # get namelist
 #
-mv -f ${DIR}/NAMELIST_${EXPNAME} ${EXPDIR}/NAMELIST_ICON
+mv -f ${DIR}/master_namelist_${EXPNAME} ${EXPDIR}/icon_master.namelist
+check_error $? "cp -f ${DIR}/master_namelist_${EXPNAME}"
+
+mv -f ${DIR}/NAMELIST_${EXPNAME} ${EXPDIR}/icon_atm.namelist
 check_error $? "cp -f ${DIR}/NAMELIST_${EXPNAME}"
 #
 #-----------------------------------------------------------------------------
