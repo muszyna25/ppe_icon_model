@@ -52,7 +52,6 @@ MODULE mo_gw_hines_nml
 
   PRIVATE
   PUBLIC :: read_gw_hines_namelist
-  PUBLIC :: gw_hines_nml_setup      !< setup subroutine for Hines gravity wave parameterization
   PUBLIC :: gw_hines_nml            !< namelist for Hines gravity wave parameterization
 
   PUBLIC :: lheatcal, emiss_lev, rmscon, kstar, m_min
@@ -104,16 +103,6 @@ NAMELIST /gw_hines_nml/ &
 !!$  & lrmscon_lat, lat_rmscon_lo, lat_rmscon_hi, rmscon_lo, rmscon_hi
 
 CONTAINS
-  !>
-  !! Set Hines parameterization for atmospheric gravity waves
-  !!
-  !! @par Revision History
-  !!   Revision History in mo_echam_vdiff_params (r4300)
-  !!   Modification by Constantin Junk, MPI-M (2011-05-05)
-  !!   - renamed setup_vdiff to echam_vdiff_nml_setup
-  !!
-  SUBROUTINE gw_hines_nml_setup
-  END SUBROUTINE gw_hines_nml_setup
 
   !-------------------------------------------------------------------------
   !
@@ -139,7 +128,7 @@ CONTAINS
     INTEGER :: istat, funit
     INTEGER :: jg 
 
-    CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines_nml: read_gw_hines_namelist'
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines_nml:read_gw_hines_namelist'
 
     !-----------------------
     ! 1. default settings   
@@ -194,7 +183,6 @@ CONTAINS
     ! 6. write the contents of the namelist to an ASCII file
     !
     IF(p_pe == p_io) WRITE(nnml_output,nml=gw_hines_nml)
-
 
   END SUBROUTINE read_gw_hines_namelist
 
