@@ -1194,7 +1194,8 @@ nlev = p_patch%nlev
 i_startblk = p_patch%cells%start_blk(grf_nudge_start_c,1)
 i_endblk   = p_patch%cells%end_blk(min_rlcell,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt)
+!DR!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
@@ -1261,7 +1262,8 @@ ENDDO
 i_startblk = p_patch%cells%start_blk(grf_nudge_start_c,1)
 i_endblk   = p_patch%cells%end_blk(min_rlcell,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt)
+!DR!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
