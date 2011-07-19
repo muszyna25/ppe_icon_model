@@ -629,6 +629,7 @@ run/grid.create_nested_grids -text
 run/grid.create_ocean_grids -text
 run/grid.create_torus_grid -text
 run/ico_grd_spr_sw_ref -text
+run/nml_hat_nag_tornado -text
 run/post.hat_jww -text
 run/post.hat_jww-moist_cld-cnv-vdf -text
 run/post.hom_lsm -text

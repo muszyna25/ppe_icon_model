@@ -1,0 +1,443 @@
+#!/bin/ksh
+#=============================================================================
+#=============================================================================
+#
+# ICON run script. Created by ./config/make_target_runscript
+# target machine is tornado
+# target use_compiler is nag
+# with mpi=yes
+# with openmp=no
+# memory_model=default
+# submit with qsub
+#
+#=============================================================================
+set -x
+#-----------------------------------------------------------------------------
+check_error()
+{
+    # Check if the first parameter (return status) is not OK
+    # Arguments:
+    #   $1 = error status: 0 = OK, not 0 = ERROR
+    #   $2 = error message
+
+    if [ "${STATUS_FILE}" = "" ]
+    then
+      STATUS_FILE=${basedir}/.status.file
+    fi
+
+    echo "$1" > ${STATUS_FILE}
+    echo "$1" > ${basedir}/run/${job_name}.status
+
+    if [ $1 != 0 ]
+    then
+        echo "QSUBW_ERROR: JOB_%HOSTNAME%_%PID%: RC = "
+        echo "check_error()"
+        echo "   ERROR : $2"
+        exit $1
+    fi
+
+}
+
+warning()
+{
+    # Warning if the first parameter (return status) is not OK
+    # Arguments:
+    #   $1 = error status: 0 = OK, not 0 = ERROR
+    #   $2 = error message
+    if [ $1 != 0 ]
+    then
+        echo "   WARNING : $2"
+    fi
+}
+
+#-----------------------------------------------------------------------------
+# target parameters
+# ----------------------------
+site="dkrz.de"
+target="tornado"
+compiler="nag"
+loadmodule="NAG/5.2.721 gcc/4.5.2 ncl/5.2.1-gccsys cdo/default jdk "
+job_name="exp.test_hat_jww-moist_cld-cnv-vdf.run"
+# ----------------------------
+NPROMA=8
+#-----------------------------------------------------------------------------
+# MPI variables
+# ----------------------------
+mpi_root=/sw/sles10-x64/ofed/openmpi-1.4.0-nag52
+no_of_nodes=1
+mpi_procs=1
+start="/sw/sles10-x64/ofed/openmpi-1.4.0-nag52/bin/mpiexec -n $mpi_procs"
+START="$start"
+# ----------------------------
+# openmp environment variables
+# ----------------------------
+export OMP_NUM_THREADS=1
+export ICON_THREADS=1
+export OMP_SCHEDULE="static"
+export OMP_DYNAMIC="false"
+export OMP_STACKSIZE=200M
+#-----------------------------------------------------------------------------
+# absolute paths of directories
+calldir=$(pwd)
+# cd $(dirname $0)
+thisdir=$(pwd)
+basedir=${thisdir%/*}                   # determine base directory
+bindir="${basedir}/build/x86_64-unknown-linux-gnu/bin"   # binaries
+BUILDDIR=build/x86_64-unknown-linux-gnu
+export ICON_BASE_PATH=$basedir
+#-----------------------------------------------------------------------------
+# load ../setting if exists
+if [ -a ../setting ]
+then
+  echo "Load Setting"
+  . ../setting
+fi
+#-----------------------------------------------------------------------------
+#=============================================================================
+# load profile
+if [ -a  /client/etc/profile.zmaw ] ; then
+. /client/etc/profile.zmaw
+#=============================================================================
+#=============================================================================
+# load modules
+module purge
+module load "$loadmodule"
+module list
+#=============================================================================
+fi
+#=============================================================================
+export LD_LIBRARY_PATH=/sw/sles10-x64/netcdf-4.0.1-without-hdf5/lib:$LD_LIBRARY_PATH
+#=============================================================================
+EXPNAME=test_hat_jww-moist_cld-cnv-vdf
+#=============================================================================
+# ===========================
+# tornado.dkrz.de batch job parameters
+# ---------------------------
+#$ -S /bin/bash
+#$ -o LOG.exp.test_hat_jww-moist_cld-cnv-vdf.run.o
+#$ -N exp.test_hat_jww-moist_cld-cnv-vdf.run
+#$ -l s_cpu=04:00:00
+#$ -pe orte8 8
+#$ -j y
+#$ -cwd
+#$ -q cluster
+# ==========================
+#=============================================================================
+#
+# This section of the run script containes the specifications of the experiment.
+# The specifications are passed by namelist to the program.
+# For a complete list see Namelist_overview.pdf
+#
+# Marco Giorgetta, MPI-M, 2010-04-21
+# Hui Wan,         MPI-M, 2011-03-24
+#
+#-----------------------------------------------------------------------------
+#
+# Basic specifications of the simulation
+# --------------------------------------
+#
+# These variables are set in the header section of the completed run script:
+#
+# EXPNAME = experiment name
+# NPROMA  = array blocking length / inner loop length
+#
+# These values must be set here as shell variables so that they can be used in the
+# executing section of the completed run script:
+#
+IEQ=1             # hydrostatic atmosphere
+R=2               # nroot
+B=1               # number of bisections applied for the global grid
+N=31              # nlev = number of full levels
+OPT="spr0.90"     # grid optimization
+exp_grid_filename=iconR${R}B0${B}-grid.nc
+#
+#-----------------------------------------------------------------------------
+#
+# ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#
+cat > master_namelist_${EXPNAME} << EOF
+&master_nml
+ lrestart = .FALSE.
+ l_atmo_active = .TRUE.
+ atmo_namelist_filename = "icon_atm.namelist"
+ l_ocean_active = .FALSE.
+/
+&time_nml
+ ini_datetime_string = "2008-09-01T00:00:00Z"
+ dt_restart   = 6000.
+/
+&parallel_nml
+ nproma      = ${NPROMA}    ! array blocking length
+/
+EOF
+cat > NAMELIST_${EXPNAME} << EOF
+!
+&run_nml
+ nsteps      = 2 
+ dtime       = 600.0        ! [s] timestep in seconds
+ ltestcase   = .TRUE.       ! run testcase
+ ldynamics   = .TRUE.       ! dynamics
+ iforcing    = 0 !2            ! ECHAM physics
+ ltransport  = .FALSE. !.TRUE.       ! switch on tracer transport
+ ntracer     = 0 !3            ! number of tracers
+ nlev        = ${N}         ! number of full levels of vertical grid
+/
+&testcase_nml
+ ctest_name  = 'JWw-Moist'  ! test case identifier
+ lrh_linear_pres = .TRUE.   ! initial RH is a linear function of pressure
+ rh_at_1000hpa   = 0.75     ! [] initial rel. humidity at 1000 hPa
+/
+&io_nml
+ out_expname      = '${EXPNAME}' ! file name base
+ dt_data          = 6000.        ! [s] write output
+ dt_file          = 6000.        ! [s] trigger new output file
+ dt_checkpoint    = 3000.
+ lwrite_tend_phy  = .TRUE.
+ lwrite_precip    = .TRUE.
+ lwrite_cloud     = .TRUE.
+ lwrite_radiation = .FALSE.
+/
+&grid_nml
+ cell_type = 3            ! 3: triangular cells
+!nroot       = ${R}         ! root division of icosahedron edges
+ start_lev   = ${B}         ! number of bisections applied for the base grid
+ dynamics_grid_filename = "${exp_grid_filename}"
+/
+&gridref_nml
+/
+&interpol_nml
+/
+&dynamics_nml
+ iequations  = ${IEQ}       ! 1: hydrost. atmosphere
+/
+&ha_dyn_nml
+ ldry_dycore = .TRUE.       ! dry dynamical core
+/
+&diffusion_nml
+/
+&transport_nml
+ ctracer_list='vwi'         ! water vapour, cloud water, cloud ice, constant field
+/
+&echam_phy_nml
+ lrad = .FALSE.  ! no radiation, only convection, large-scale condensation and vdiff
+/
+&echam_conv_nml
+/
+&radiation_nml
+/
+EOF
+#
+#=============================================================================
+#
+# This section of the run script prepares and starts the model integration.
+#
+# bindir and START must be defined as environment variables or
+# they must be substituted with appropriate values.
+#
+# Marco Giorgetta, MPI-M, 2010-04-21
+#
+#-----------------------------------------------------------------------------
+#
+# set ICON_THREADS
+#
+# export ICON_THREADS=${OMP_NUM_THREADS}
+#
+#-----------------------------------------------------------------------------
+#
+# directory of this script, must be in ICON base directory
+#
+DIR=$(pwd -P)
+ICONDIR=${DIR%/*}
+#
+#-----------------------------------------------------------------------------
+#
+# model
+#
+MODEL=${bindir}/control_model
+#
+ls -l ${MODEL}
+check_error $? "${MODEL} does not exist?"
+#
+#-----------------------------------------------------------------------------
+#
+# experiment directory, with plenty of space, create if new
+#
+EXPDIR=${ICONDIR}/experiments/${EXPNAME}
+#
+if [ ! -d ${EXPDIR} ]; then
+    mkdir -p ${EXPDIR}
+fi
+#
+ls -ld ${EXPDIR}
+if [ ! -d ${EXPDIR} ]; then
+    mkdir ${EXPDIR}
+else
+   rm -rf ${EXPDIR}
+   mkdir  ${EXPDIR}
+fi
+ls -ld ${EXPDIR}
+check_error $? "${EXPDIR} does not exist?"
+#
+#-----------------------------------------------------------------------------
+#
+# data directories
+#
+DATADIR=${ICONDIR}/data
+#
+#-----------------------------------------------------------------------------
+#
+# get grid files
+#
+case ${IEQ} in
+    0 | 1 | 2 )
+        # shallow water | hydrost. atm. T| hydrost. atm. theta dp
+        # =======================================================
+        #
+        # model constants
+        # ---------------
+        cp -f ${DATADIR}/rrtmg_lw.nc           ${EXPDIR} # LW radiation constants
+        cp -f ${DATADIR}/ECHAM6_CldOptProps.nc ${EXPDIR} # cloud optical properties
+        #
+        # horizontal grid
+        # ---------------
+        HGRIDDIR=${ICONDIR}/grids
+        AGRIDNAME=iconR${R}B0${B}-grid_${OPT}.nc
+        HGRIDNAME=iconR${R}B0${B}-grid.nc
+        #
+        ln -s ${HGRIDDIR}/${AGRIDNAME} ${EXPDIR}/${HGRIDNAME}
+        check_error $? "ln -s ${HGRIDDIR}/${AGRIDNAME}"
+        #
+        # vertical grid
+        # -------------
+        VGRIDDIR=${ICONDIR}/vertical_coord_tables
+        VGRIDNAME=atm_hyb_sp_${N}
+        #
+        ln -s ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
+        check_error $? "ln -s ${VGRIDDIR}/${VGRIDNAME}"
+        #
+        ;;
+     3 )
+        #  non-hydrost. atm.
+        # ==================
+        #
+        # model constants
+        # ---------------
+        cp -f ${DATADIR}/rrtmg_lw.nc           ${EXPDIR} # LW radiation constants
+        cp -f ${DATADIR}/ECHAM6_CldOptProps.nc ${EXPDIR} # cloud optical properties
+        #
+        # horizontal grid
+        # ---------------
+        if [[ $IREF != ".true." ]] ; then
+
+        HGRIDDIR=${ICONDIR}/grids
+        AGRIDNAME=iconR${R}B0${B}-grid_${OPT}.nc
+        HGRIDNAME=iconR${R}B0${B}-grid.nc
+
+        ln -s ${HGRIDDIR}/${AGRIDNAME} ${EXPDIR}/${HGRIDNAME}
+        check_error $? "ln -s ${HGRIDDIR}/${AGRIDNAME}"
+
+        else
+
+        HGRIDDIR=${ICONDIR}/grids
+        if [[ $LPATCH0 = ".true." ]] ; then
+         B_S=`expr $B - 1`
+         DOM_S=0
+        else
+         B_S=$B
+         DOM_S=1
+        fi
+         B_MAX=`expr $B + $NDOM - 1`
+
+         B_C=$B_S
+         DOM_C=$DOM_S
+        while [[ $B_C -le $B_MAX ]] ; do
+
+         AGRIDNAME=iconR${R}B0${B_C}_DOM0${DOM_C}.nc
+         HGRIDNAME=iconR${R}B0${B_C}_DOM0${DOM_C}-grid.nc
+         ln -s ${HGRIDDIR}/${AGRIDNAME} ${EXPDIR}/${HGRIDNAME}
+         check_error $? "ln -s ${HGRIDDIR}/${AGRIDNAME}"
+
+         B_C=`expr $B_C + 1`
+         DOM_C=`expr $DOM_C + 1`
+        done
+        fi
+
+        #
+
+        #
+        # vertical grid
+        # -------------
+        VGRIDDIR=${ICONDIR}/vertical_coord_tables
+        VGRIDNAME=atm_hyb_sz_${N}
+        #
+        ln -s ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
+        warning $? "ln -s ${VGRIDDIR}/${VGRIDNAME} failed"
+        #
+        ;;
+    -1 )
+        # hydrost. ocean
+        # ==============
+        #
+        # horizontal grid
+        # ---------------
+        HGRIDNAME=iconR${R}B0${B}-grid.nc
+        # default path for grid
+        if [[ x$HGRIDDIR  = x ]] ; then
+          HGRIDDIR=${ICONDIR}/grids
+        fi
+        #
+        # default grid names for aqua planet/Stommel basin/etopo topography
+        if [[ x$OGRIDNAME  = x ]] ; then
+          if [[ x$USE_AQUAP = "xY" ]] ; then
+            OGRIDNAME=iconR${R}B0${B}-ocean_aqua_planet.nc
+          # OGRIDNAME=iconR${R}B0${B}-ocean_aqua_planet_${OPT}.nc  #  ?include optimization?
+          fi
+          if [[ x$USE_ETOPO = "xY" ]] ; then
+          # OGRIDNAME=iconR${R}B0${B}-ocean_etopo40_planet.nc      #  including bathymetry
+            OGRIDNAME=iconR${R}B0${B}-ocean_etopo40_flat.nc        #  flat bottom
+          fi
+          if [[ x$USE_BASIN = "xY" ]] ; then
+          # OGRIDNAME=iconR${R}B0${B}-ocean_basin.nc               #  standard name
+            OGRIDNAME=iconR${R}B0${B}-ocean_bas10-80N.nc           #  new Stommel basin 10-80N
+          fi
+        fi
+        #
+        ln -s ${HGRIDDIR}/${OGRIDNAME} ${EXPDIR}/${HGRIDNAME}
+        check_error $? "ln -s $ {HGRIDDIR}/${OGRIDNAME}"
+        #
+        # vertical grid
+        # -------------
+        # is defined in ocean_ctl namelist
+        #
+        ;;
+esac
+#
+#-----------------------------------------------------------------------------
+#
+# get namelist
+#
+mv -f ${DIR}/master_namelist_${EXPNAME} ${EXPDIR}/icon_master.namelist
+check_error $? "cp -f ${DIR}/master_namelist_${EXPNAME}"
+
+mv -f ${DIR}/NAMELIST_${EXPNAME} ${EXPDIR}/icon_atm.namelist
+check_error $? "cp -f ${DIR}/NAMELIST_${EXPNAME}"
+#
+#-----------------------------------------------------------------------------
+#
+# start experiment
+#
+cd ${EXPDIR}
+#
+${START} ${MODEL}
+#
+check_error $? "${START} ${MODEL}"
+#
+#-----------------------------------------------------------------------------
+#
+echo "============================"
+echo "Script run successfully"
+echo "============================"
+exit 0
+#-----------------------------------------------------------------------------
