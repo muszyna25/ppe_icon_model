@@ -78,7 +78,7 @@ MODULE mo_subdivision
   USE mo_mpi,                ONLY: MPI_UNDEFINED, MPI_COMM_NULL
 #endif
   USE mo_mpi,                ONLY: p_comm_work, my_process_is_mpi_test, &
-    & my_process_is_mpi_seq, process_mpi_test_id, p_pe_work, p_work_pe0, p_n_work
+    & my_process_is_mpi_seq, process_mpi_all_test_id, p_pe_work, p_work_pe0, p_n_work
 
   USE mo_parallel_config,       ONLY:  p_test_run, &
     & division_method, n_ghost_rows, div_from_file, div_geometric
@@ -157,10 +157,10 @@ CONTAINS
     IF(.NOT. p_test_run) RETURN ! Nothing to do
 
     IF(p_pe == p_work_pe0) THEN
-      CALL p_send(proc_split, process_mpi_test_id, 1)
+      CALL p_send(proc_split, process_mpi_all_test_id, 1)
       ibuf(:,1) = p_patch(:)%n_proc
       ibuf(:,2) = p_patch(:)%proc0
-      CALL p_send(ibuf, process_mpi_test_id, 2)
+      CALL p_send(ibuf, process_mpi_all_test_id, 2)
     ENDIF
 
     IF(my_process_is_mpi_test()) THEN

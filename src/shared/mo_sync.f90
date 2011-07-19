@@ -53,7 +53,7 @@ USE mo_parallel_config, ONLY: nproma
 USE mo_io_units,           ONLY: find_next_free_unit, filename_max
 USE mo_mpi,                ONLY: p_pe, p_bcast, p_sum, p_max, p_min, &
   & p_send, p_recv, p_comm_work_test,  p_comm_work, &
-  & my_process_is_mpi_test, get_my_mpi_all_id, process_mpi_test_id, &
+  & my_process_is_mpi_test, get_my_mpi_all_id, process_mpi_all_test_id, &
   & my_process_is_mpi_parallel,       &
   & p_work_pe0, p_pe_work
 USE mo_parallel_config, ONLY:p_test_run,   &
@@ -534,10 +534,10 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
 
    nblks_g = (ndim_g-1)/nproma+1
 
-   IF(get_my_mpi_all_id() == process_mpi_test_id) THEN
+   IF(get_my_mpi_all_id() == process_mpi_all_test_id) THEN
 
       IF(comm_lev==0) THEN
-         CALL p_bcast(arr(:,:,1:nblks_g), process_mpi_test_id, comm=p_comm_work_test)
+         CALL p_bcast(arr(:,:,1:nblks_g), process_mpi_all_test_id, comm=p_comm_work_test)
       ELSE
          CALL p_send(arr(:,:,1:nblks_g),comm_proc0(comm_lev)+p_work_pe0,1)
       ENDIF
@@ -546,10 +546,10 @@ SUBROUTINE check_patch_array_3(typ, p_patch, arr, opt_varname)
 
       ALLOCATE(arr_g(nproma,ndim2,nblks_g))
       IF(comm_lev==0) THEN
-         CALL p_bcast(arr_g(:,:,1:nblks_g), process_mpi_test_id, comm=p_comm_work_test)
+         CALL p_bcast(arr_g(:,:,1:nblks_g), process_mpi_all_test_id, comm=p_comm_work_test)
       ELSE
          IF(p_pe_work==comm_proc0(comm_lev)) &
-           & CALL p_recv(arr_g(:,:,1:nblks_g), process_mpi_test_id, 1)
+           & CALL p_recv(arr_g(:,:,1:nblks_g), process_mpi_all_test_id, 1)
          CALL p_bcast(arr_g(:,:,1:nblks_g),0,comm=glob_comm(comm_lev))
       ENDIF
 
@@ -1253,12 +1253,12 @@ SUBROUTINE check_result(res, routine, res_on_testpe)
   IF(my_process_is_mpi_test()) aux(:) = res(:)
 
   IF(comm_lev==0) THEN
-    CALL p_bcast(aux, process_mpi_test_id, comm=p_comm_work_test)
+    CALL p_bcast(aux, process_mpi_all_test_id, comm=p_comm_work_test)
   ELSE
-    IF(get_my_mpi_all_id() == process_mpi_test_id) THEN
+    IF(get_my_mpi_all_id() == process_mpi_all_test_id) THEN
       CALL p_send(aux, comm_proc0(comm_lev)+p_work_pe0, 1)
     ELSE
-      IF(p_pe_work==comm_proc0(comm_lev)) CALL p_recv(aux, process_mpi_test_id, 1)
+      IF(p_pe_work==comm_proc0(comm_lev)) CALL p_recv(aux, process_mpi_all_test_id, 1)
       CALL p_bcast(aux, 0, comm=glob_comm(comm_lev))
     ENDIF
   ENDIF

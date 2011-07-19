@@ -140,9 +140,9 @@ MODULE mo_io_vlist
   USE mo_model_domain,        ONLY: t_patch,t_patch_ocean
   USE mo_physical_constants,  ONLY: grav
   USE mo_communication,       ONLY: exchange_data, t_comm_pattern
-  USE mo_mpi,                 ONLY: my_process_is_mpi_root, my_process_is_stdio, &
-    &  my_process_is_mpi_test, my_process_is_mpi_seq, process_mpi_test_id,       &
-    &  process_mpi_root_id, p_recv, p_send
+  USE mo_mpi,                 ONLY: my_process_is_mpi_workroot, my_process_is_stdio, &
+    &  my_process_is_mpi_test, my_process_is_mpi_seq, process_mpi_all_test_id,       &
+    &  process_mpi_all_workroot_id, p_recv, p_send
   USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag
   USE mo_oce_state,           ONLY: t_hydro_ocean_state, t_hydro_ocean_prog,      &
@@ -3198,12 +3198,12 @@ CONTAINS
 
     IF(p_test_run) THEN
       IF(.NOT. my_process_is_mpi_test()) THEN
-        ! Gather all data on p_work_pe0 and send it to process_mpi_test_id for verification
+        ! Gather all data on process_mpi_all_workroot_id and send it to process_mpi_test_id for verification
         CALL exchange_data(p_comm_pat, RECV=tmp_field, SEND=in_field)
-        IF(my_process_is_mpi_root()) CALL p_send(tmp_field, process_mpi_test_id, 1)
+        IF(my_process_is_mpi_workroot()) CALL p_send(tmp_field, process_mpi_all_test_id, 1)
       ELSE
         ! Receive result from parallel worker PEs and check for correctness
-        CALL p_recv(tmp_field, process_mpi_root_id, 1)
+        CALL p_recv(tmp_field, process_mpi_all_workroot_id, 1)
         DO jb = 1, nblks
           jend = nproma
           IF(jb==nblks) jend = npromz

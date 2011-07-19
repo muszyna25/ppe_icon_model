@@ -26,7 +26,7 @@ MODULE mo_mpi
   ! Logical functions
   PUBLIC :: run_is_global_mpi_parallel
   PUBLIC :: my_process_is_stdio, my_process_is_mpi_parallel
-  PUBLIC :: my_process_is_mpi_seq, my_process_is_mpi_test, my_process_is_mpi_root
+  PUBLIC :: my_process_is_mpi_seq, my_process_is_mpi_test, my_process_is_mpi_workroot
   PUBLIC :: my_process_is_io
 
   ! get parameters
@@ -38,6 +38,8 @@ MODULE mo_mpi
 
   ! some public communicators
   PUBLIC :: process_mpi_all_comm
+  PUBLIC :: process_mpi_all_test_id, process_mpi_all_workroot_id
+  
   
   PUBLIC :: p_comm_work, p_comm_work_test
   PUBLIC :: p_comm_work_2_io, p_comm_input_bcast, p_comm_work_io
@@ -51,8 +53,6 @@ MODULE mo_mpi
   PUBLIC :: p_gather, p_max, p_min, p_sum, p_global_sum, p_field_sum
   PUBLIC :: p_probe
 
-  !----------- should not be public -----------------------------------------
-  PUBLIC :: process_mpi_test_id, process_mpi_root_id
   !----------- to be removed -----------------------------------------
   PUBLIC :: p_pe, p_io
   PUBLIC :: num_test_procs, num_work_procs,             &
@@ -100,25 +100,34 @@ MODULE mo_mpi
 
 
   ! public parallel run information
-
   CHARACTER(len=64) :: global_mpi_name
   CHARACTER(len=64) :: process_mpi_name
+  ! Do not change the following parameters
   INTEGER, PARAMETER :: process_mpi_stdio_id = 0
-  INTEGER :: process_mpi_root_id = 0
-  INTEGER :: process_mpi_test_id = 0
+  INTEGER, PARAMETER :: process_mpi_root_id = 0
   
   ! communicator sets
+  ! this is the global communicator
   INTEGER :: global_mpi_communicator  ! replaces MPI_COMM_WORLD 
   INTEGER :: global_mpi_size          ! total number of processes in global world
   INTEGER :: my_global_mpi_id         ! process id in global world
   LOGICAL :: is_global_mpi_parallel
   
-  INTEGER :: process_mpi_all_comm     ! communicator in a model
-  INTEGER :: process_mpi_all_size     ! total number of processes in global world
+  ! this is the communicator for the whole component (atmo/ocean/etc)
+  INTEGER :: process_mpi_all_comm     ! communicator in the whole model-component
+  INTEGER :: process_mpi_all_size     ! total number of processes in the whole model-component
   INTEGER :: my_process_mpi_all_id
   LOGICAL :: process_is_mpi_parallel
   LOGICAL :: process_is_stdio
   LOGICAL :: process_is_mpi_test
+  INTEGER :: process_mpi_all_workroot_id  ! the root process in component
+  INTEGER :: process_mpi_all_test_id  ! the test process in component
+  
+  ! this is the local work communicator (computation, i/o, etc)
+  INTEGER :: process_mpi_local_comm     ! communicator in the work group
+  INTEGER :: process_mpi_local_size     ! total number of processes in the whole model-component
+  INTEGER :: my_process_mpi_local_id
+  
   
   !------------------------------------------------------------
   ! Processor distribution:
@@ -171,7 +180,6 @@ MODULE mo_mpi
 !!#ifndef NOMPI
 !!LK  INTEGER :: iope                  ! PE able to do IO
 !!#endif
-  INTEGER :: npes                  ! number of available PEs
 
   INTEGER :: nbcast                ! counter for broadcasts for debugging
 
@@ -376,7 +384,7 @@ CONTAINS
   
   !------------------------------------------------------------------------------
   INTEGER FUNCTION get_mpi_root_id()
-    get_mpi_root_id = process_mpi_root_id
+    get_mpi_root_id = process_mpi_all_workroot_id
   END FUNCTION get_mpi_root_id
   !------------------------------------------------------------------------------
 
@@ -423,9 +431,9 @@ CONTAINS
  
   !------------------------------------------------------------------------------
   !>
-  LOGICAL FUNCTION my_process_is_mpi_root()
-    my_process_is_mpi_root = (my_process_mpi_all_id == process_mpi_root_id)
-  END FUNCTION my_process_is_mpi_root
+  LOGICAL FUNCTION my_process_is_mpi_workroot()
+    my_process_is_mpi_workroot = (my_process_mpi_all_id == process_mpi_all_workroot_id)
+  END FUNCTION my_process_is_mpi_workroot
   !------------------------------------------------------------------------------
   
  
@@ -505,22 +513,26 @@ CONTAINS
 
 #else
 
-
     ! A run on 1 PE is never a verification run,
-    ! correct this if the user should set it differently
-    IF (p_test_run .AND. my_process_is_mpi_seq()) THEN
-      CALL print_info_stderr(method_name, &
-          & 'p_test_run has no effect in seq run')
-      CALL print_info_stderr(method_name, &
-          & '--> p_test_run set to .FALSE.')
-      p_test_run = .FALSE.
+    ! correct this if the user should set it differently    
+    IF (process_mpi_all_size < 2) THEN
+      IF (p_test_run) THEN
+        CALL print_info_stderr(method_name, &
+            & 'p_test_run has no effect in seq run')
+        CALL print_info_stderr(method_name, &
+            & '--> p_test_run set to .FALSE.')
+        p_test_run = .FALSE.
+      ENDIF
+      IF (num_io_procs > 0) THEN
+        CALL print_info_stderr(method_name, &
+            & 'num_io_procs cannot be > 0 in seq run')
+        CALL print_info_stderr(method_name, &
+            & '--> num_io_procs set to 0')
+        num_io_procs = 0
+      ENDIF
     ENDIF
-    ! for safety only    
-    IF(num_io_procs < 0) num_io_procs = 0
-  
-
-    ! Set dependent control variables according
-    ! to the (modified) NAMELIST varaibles
+    IF(num_io_procs < 0) num_io_procs = 0 ! for safety only  
+    
     ! -----------------------------------------
     ! Set up processor numbers
     IF(p_test_run) THEN
@@ -528,8 +540,9 @@ CONTAINS
     ELSE
       num_test_procs = 0
     ENDIF
-
+        
     num_work_procs = process_mpi_all_size - num_test_procs - num_io_procs
+    
     ! Check if there are sufficient PEs at all
     IF(num_work_procs < 1) THEN
       CALL finish(method_name, &
@@ -543,13 +556,13 @@ CONTAINS
       & ', work: ',num_work_procs,', I/O: ',num_io_procs
     CALL print_info_stderr(method_name, message_text)
 
-  ! Set up p_test_pe, p_work_pe0, p_io_pe0 which are identical on all PEs
-
-  IF(p_test_run) THEN
-    p_test_pe = 0
-  ELSE
-    p_test_pe = -1
-  ENDIF
+    ! Everything seems ok. Proceed to setup the communicators and ids
+    ! Set up p_test_pe, p_work_pe0, p_io_pe0 which are identical on all PEs
+    IF(p_test_run) THEN
+      p_test_pe = 0
+    ELSE
+      p_test_pe = -1
+    ENDIF
 
   p_work_pe0 = num_test_procs
   p_io_pe0   = num_test_procs + num_work_procs
@@ -689,6 +702,8 @@ CONTAINS
     p_comm_input_bcast      = process_mpi_all_comm
     p_comm_work_io          = MPI_COMM_NULL
     p_comm_work_test        = MPI_COMM_NULL
+    
+    process_mpi_io_size         = 0
     
     ! set some of the old variables
     ! should be rempved once the old variables are cleaned
@@ -3899,7 +3914,7 @@ CONTAINS
     nbcast = nbcast+1
 #endif
 
-    IF (npes == 1) THEN
+    IF (process_mpi_all_size == 1) THEN
        RETURN
     ELSE
        CALL MPI_BCAST (t_buffer, 1, p_real_dp, p_source, &
@@ -3939,7 +3954,7 @@ CONTAINS
     nbcast = nbcast+1
 #endif
 
-    IF (npes == 1) THEN
+    IF (process_mpi_all_size == 1) THEN
        RETURN
     ELSE
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_dp, p_source, &
@@ -3980,7 +3995,7 @@ CONTAINS
     nbcast = nbcast+1
 #endif
 
-    IF (npes == 1) THEN
+    IF (process_mpi_all_size == 1) THEN
        RETURN
     ELSE
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_dp, p_source, &
@@ -4021,7 +4036,7 @@ CONTAINS
     nbcast = nbcast+1
 #endif
 
-    IF (npes == 1) THEN
+    IF (process_mpi_all_size == 1) THEN
        RETURN
     ELSE
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_dp, p_source, &
@@ -4062,7 +4077,7 @@ CONTAINS
     nbcast = nbcast+1
 #endif
 
-    IF (npes == 1) THEN
+    IF (process_mpi_all_size == 1) THEN
        RETURN
     ELSE
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_dp, p_source, &
@@ -4103,7 +4118,7 @@ CONTAINS
     nbcast = nbcast+1
 #endif
 
-    IF (npes == 1) THEN
+    IF (process_mpi_all_size == 1) THEN
        RETURN
     ELSE
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_real_dp, p_source, &
@@ -4144,7 +4159,7 @@ CONTAINS
     nbcast = nbcast+1
 #endif
 
-    IF (npes == 1) THEN
+    IF (process_mpi_all_size == 1) THEN
        RETURN
     ELSE
        CALL MPI_BCAST (t_buffer, 1, p_int_i4, p_source, &
@@ -4185,7 +4200,7 @@ CONTAINS
     nbcast = nbcast+1
 #endif
 
-    IF (npes == 1) THEN
+    IF (process_mpi_all_size == 1) THEN
        RETURN
     ELSE
        CALL MPI_BCAST (t_buffer, 1, p_int_i8, p_source, &
@@ -4226,7 +4241,7 @@ CONTAINS
     nbcast = nbcast+1
 #endif
 
-    IF (npes == 1) THEN
+    IF (process_mpi_all_size == 1) THEN
        RETURN
     ELSE
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_int, p_source, &
@@ -4267,7 +4282,7 @@ CONTAINS
     nbcast = nbcast+1
 #endif
 
-    IF (npes == 1) THEN
+    IF (process_mpi_all_size == 1) THEN
        RETURN
     ELSE
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_int, p_source, &
@@ -4308,7 +4323,7 @@ CONTAINS
     nbcast = nbcast+1
 #endif
 
-    IF (npes == 1) THEN
+    IF (process_mpi_all_size == 1) THEN
        RETURN
     ELSE
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_int, p_source, &
@@ -4349,7 +4364,7 @@ CONTAINS
     nbcast = nbcast+1
 #endif
 
-    IF (npes == 1) THEN
+    IF (process_mpi_all_size == 1) THEN
        RETURN
     ELSE
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_int, p_source, &
@@ -4391,7 +4406,7 @@ CONTAINS
     nbcast = nbcast+1
 #endif
 
-    IF (npes == 1) THEN
+    IF (process_mpi_all_size == 1) THEN
        RETURN
     ELSE
        CALL MPI_BCAST (t_buffer, 1, p_bool, p_source, &
@@ -4432,7 +4447,7 @@ CONTAINS
     nbcast = nbcast+1
 #endif
 
-    IF (npes == 1) THEN
+    IF (process_mpi_all_size == 1) THEN
        RETURN
     ELSE
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_bool, p_source, &
@@ -4473,7 +4488,7 @@ CONTAINS
     nbcast = nbcast+1
 #endif
 
-    IF (npes == 1) THEN
+    IF (process_mpi_all_size == 1) THEN
        RETURN
     ELSE
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_bool, p_source, &
@@ -4514,7 +4529,7 @@ CONTAINS
     nbcast = nbcast+1
 #endif
 
-    IF (npes == 1) THEN
+    IF (process_mpi_all_size == 1) THEN
        RETURN
     ELSE
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_bool, p_source, &
@@ -4555,7 +4570,7 @@ CONTAINS
     nbcast = nbcast+1
 #endif
 
-    IF (npes == 1) THEN
+    IF (process_mpi_all_size == 1) THEN
        RETURN
     ELSE
        CALL MPI_BCAST (t_buffer, SIZE(t_buffer), p_bool, p_source, &
@@ -4596,7 +4611,7 @@ CONTAINS
     nbcast = nbcast+1
 #endif
 
-    IF (npes == 1) THEN
+    IF (process_mpi_all_size == 1) THEN
        RETURN
     ELSE
        CALL MPI_BCAST (t_buffer, LEN(t_buffer), p_char, p_source, &
@@ -4638,7 +4653,7 @@ CONTAINS
     nbcast = nbcast+1
 #endif
 
-    IF (npes == 1) THEN
+    IF (process_mpi_all_size == 1) THEN
        RETURN
     ELSE
        lexlength=LEN(t_buffer(1))
