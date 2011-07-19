@@ -108,8 +108,6 @@ USE mo_dump_restore,        ONLY: dump_patch_state_netcdf,       &
 & restore_interpol_state_netcdf, &
 & restore_gridref_state_netcdf
 
-USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
-USE mo_nonhydro_state,      ONLY: p_nh_state
 USE mo_atmo_control,        ONLY: p_patch_global, p_patch_subdiv, p_patch
 
 ! Horizontal grid
@@ -146,7 +144,6 @@ USE mo_nonhydro_state,      ONLY: destruct_nh_state
 ! Parameterized forcing
 !
 USE mo_echam_phy_memory,    ONLY: destruct_echam_phy_state
-USE mo_echam_phy_setup,     ONLY: setup_echam_phy
 USE mo_echam_phy_init,      ONLY: prepare_echam_phy, initcond_echam_phy, &
                                 & additional_restart_init
 USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
@@ -209,37 +206,10 @@ CONTAINS
     LOGICAL :: l_have_output
     INTEGER, POINTER :: grid_glob_index(:)
 
-   
    !CALL configure_echam_phy (ltestcase, ctest_name)
    !CALL configure_echam_convection(nlev, vct_a, vct_b, ceta)
 
 
-!    !------------------------------------------------------------------
-!    ! Create and optionally read external data fields
-!    !------------------------------------------------------------------
-!    ALLOCATE (ext_data(n_dom), STAT=ist)
-!    IF (ist /= SUCCESS) THEN
-!      CALL finish(TRIM(routine),'allocation for ext_data failed')
-!    ENDIF
-!    
-!    ! allocate memory for atmospheric/oceanic external data and
-!    ! optionally read those data from netCDF file.
-!    CALL init_ext_data (p_patch(1:), p_int_state, ext_data)
-!
-
-   
-!      ALLOCATE (p_hydro_state(n_dom), stat=ist)
-!      IF (ist /= success) THEN
-!        CALL finish(TRIM(routine),'allocation for p_hydro_state failed')
-!      ENDIF
-
-!        IF(iforcing=iecham .OR. iforcing = ildf_echam)THEN
-!         CALL setup_echam_phy
-!        ENDIF
-
-
-    !---------------------------------------------------------------------
-    !  Perform time stepping
     !---------------------------------------------------------------------
     ! Initial conditions
     !------------------------------------------------------------------

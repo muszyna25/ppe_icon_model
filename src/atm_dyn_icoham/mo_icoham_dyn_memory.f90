@@ -68,17 +68,17 @@ MODULE mo_icoham_dyn_memory
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
   CHARACTER(len=*), PARAMETER :: thismodule = 'mo_icoham_dyn_memory'
 
-  !!----------------------------------------------------------------------------
-  !! Memory buffer
-  !!----------------------------------------------------------------------------
+  !----------------------------------------------------------------------------
+  !                          MEMORY BUFFER 
+  !----------------------------------------------------------------------------
 
   TYPE(t_hydro_atm),TARGET,ALLOCATABLE :: p_hydro_state(:) !< state vector on
                                                            !< different grid levels
                                                            !< shape: (n_dom)
 
-  !!--------------------------------------------------------------------------
-  !!                          VARIABLE LISTS
-  !!--------------------------------------------------------------------------
+  !--------------------------------------------------------------------------
+  !                          VARIABLE LISTS
+  !--------------------------------------------------------------------------
   TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_prog_list(:,:)    !< shape: (n_dom,ntimelevel)
   TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_diag_list(:)      !< shape: (n_dom)
   TYPE(t_var_list),PUBLIC,ALLOCATABLE :: hydro_tend_dyn_list(:)  !< shape: (n_dom)
@@ -96,22 +96,27 @@ CONTAINS
   !!
   SUBROUTINE construct_icoham_dyn_state( ntimelevel, ntracer, p_patch )
 
-    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-      &  routine = 'mo_icoham_dyn_memory:construct_icoham_dyn_state'
-
-    INTEGER,INTENT(IN)       :: ntimelevel, ntracer
+    INTEGER,      INTENT(IN) :: ntimelevel, ntracer
     TYPE(t_patch),INTENT(IN) :: p_patch(:)
 
-    !local variables
+    INTEGER :: ndomain, jg, jt, istat, nblks_c, nblks_e, nblks_v, nlev
     CHARACTER(len=MAX_CHAR_LENGTH) :: listname, varname_prefix
-    CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
-    &  ctracer_list
+    CHARACTER(len=MAX_CHAR_LENGTH) :: ctracer_list !< list of tracers to initialize
 
-    INTEGER :: ndomain, jg, jt, ist, nblks_c, nblks_e, nblks_v, nlev
+    CHARACTER(len=*),PARAMETER ::  &
+             routine = 'mo_icoham_dyn_memory:construct_icoham_dyn_state'
 
+    !---
     CALL message(TRIM(routine),'Construction of 3D dynamics state vector started.')
 
     ndomain = SIZE(p_patch)
+
+    ! Allocate state array
+
+    ALLOCATE (p_hydro_state(ndomain), stat=istat)
+    IF (istat /= success) THEN
+      CALL finish(TRIM(routine),'allocation of p_hydro_state failed')
+    ENDIF
 
     ! Allocate list arrays
 
@@ -121,9 +126,9 @@ CONTAINS
             & hydro_tend_phy_list(ndomain),        &
             & hydro_prog_out_list(ndomain),        &
             & hydro_diag_out_list(ndomain),        &
-            & STAT=ist)
+            & STAT=istat)
 
-    IF (ist/=SUCCESS) CALL finish(TRIM(thismodule), &
+    IF (istat/=SUCCESS) CALL finish(TRIM(routine), &
       &'allocation of hydrostatic prog/diag list array failed')
 
     ! Build a field list and a tendency list for each grid level.
@@ -144,8 +149,8 @@ CONTAINS
       !----------------------------
       ! 1.1 Prognostic variables
 
-      ALLOCATE(p_hydro_state(jg)%prog(1:ntimelevel), STAT=ist)
-      IF (ist/=SUCCESS) &
+      ALLOCATE(p_hydro_state(jg)%prog(1:ntimelevel), STAT=istat)
+      IF (istat/=SUCCESS) &
       CALL finish(TRIM(thismodule),'allocation of prognostic state array failed')
 
       DO jt = 1,ntimelevel

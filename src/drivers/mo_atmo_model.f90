@@ -142,7 +142,6 @@ USE mo_nonhydro_state,      ONLY: destruct_nh_state
 ! Parameterized forcing
 !
 USE mo_echam_phy_memory,    ONLY: destruct_echam_phy_state
-USE mo_echam_phy_setup,     ONLY: setup_echam_phy
 USE mo_echam_phy_init,      ONLY: prepare_echam_phy, initcond_echam_phy, &
                                 & additional_restart_init
 USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
@@ -587,19 +586,6 @@ CONTAINS
    
  !   SELECT CASE (iequations)
     !---------------------------------------------------------------------
-    ! 4.c Hydrostatic
-    !---------------------------------------------------------------------
-!     CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
-!      ALLOCATE (p_hydro_state(n_dom), stat=ist)
-!      IF (ist /= success) THEN
-!        CALL finish(TRIM(routine),'allocation for p_hydro_state failed')
-!      ENDIF
-
-!        IF(iforcing=iecham .OR. iforcing = ildf_echam)THEN
-!         CALL setup_echam_phy
-!        ENDIF
-
-    !---------------------------------------------------------------------
     ! 4.c Non-Hydrostatic / NWP
     !---------------------------------------------------------------------
 
@@ -933,10 +919,6 @@ CONTAINS
     SELECT CASE (iforcing)
     CASE (inoforcing,iheldsuarez,ildf_dry)
       ! nothing to be done
-      !
-    CASE (iecham,ildf_echam)
-      ! ECHAM forcing
-      CALL setup_echam_phy
     CASE (inwp)
       ! NWP forcing
       !    CALL setup_nwp_phy( p_patch(1:) )  ! read Namelist, ... moved before setup transport

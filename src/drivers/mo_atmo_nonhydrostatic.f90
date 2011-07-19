@@ -73,10 +73,8 @@ USE mo_impl_constants, ONLY:&
     & inh_atmosphere,       & !    :
     & ishallow_water,       & !    :
     & ildf_dry,             & !    :
-    & ildf_echam,           & !    :
     & inoforcing,           & !    :
     & iheldsuarez,          & !    :
-    & iecham,               & !    :
     & inwp
 
 USE mo_advection_nml,       ONLY: transport_nml_setup,  & ! process transport
@@ -143,11 +141,6 @@ USE mo_nonhydro_state,      ONLY: destruct_nh_state
 
 ! Parameterized forcing
 !
-USE mo_echam_phy_memory,    ONLY: destruct_echam_phy_state
-USE mo_echam_phy_setup,     ONLY: setup_echam_phy
-USE mo_echam_phy_init,      ONLY: prepare_echam_phy, initcond_echam_phy, &
-                                & additional_restart_init
-USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy
 USE mo_gmt_output,          ONLY: setup_gmt_output
 USE mo_nwp_phy_state,       ONLY: construct_nwp_phy_state,   &
 & destruct_nwp_phy_state
@@ -188,8 +181,6 @@ USE mo_dynamics_config,    ONLY: configure_dynamics  ! subroutine
 USE mo_interpol_config,    ONLY: configure_interpolation 
 USE mo_advection_config,   ONLY: configure_advection
 USE mo_diffusion_config,   ONLY: configure_diffusion
-USE mo_echam_phy_config,   ONLY: configure_echam_phy 
-USE mo_echam_conv_config,  ONLY: configure_echam_convection
 
 !-------------------------------------------------------------------------
 IMPLICIT NONE
