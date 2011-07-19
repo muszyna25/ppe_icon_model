@@ -38,13 +38,13 @@ USE mo_exception,           ONLY: message, finish
 USE mo_mpi,                 ONLY: p_stop, p_pe, p_io, &
 & p_comm_work_test, p_comm_input_bcast, p_comm_work, &
 & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
-& my_process_is_stdio
+& my_process_is_stdio, set_mpi_work_communicators
 USE mo_timer,               ONLY: init_timer, print_timer
 USE mo_master_nml,          ONLY: lrestart
 USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output
 USE mo_output,              ONLY: init_output_files, close_output_files, write_output
 
-USE mo_parallel_config, ONLY: p_test_run
+USE mo_parallel_config, ONLY: p_test_run, l_test_openmp, num_io_procs
 
 USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
 
@@ -265,9 +265,14 @@ CONTAINS
     CALL atm_crosscheck
 
     !-------------------------------------------------------------------
-    ! 3. Initialize various timers; initialize data and time 
+    ! 3.1 Initialize various timers; initialize data and time 
     !-------------------------------------------------------------------
     IF (ltimer) CALL init_timer
+
+    !-------------------------------------------------------------------
+    ! 3.2 Initialize the mpi work groups
+    !-------------------------------------------------------------------
+    CALL set_mpi_work_communicators(lrestore_states, p_test_run, l_test_openmp, num_io_procs)    
 
     !------------------
     ! Next, define the horizontal and vertical grids since they are aready

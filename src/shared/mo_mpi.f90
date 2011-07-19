@@ -23,6 +23,13 @@ MODULE mo_mpi
   PUBLIC :: start_mpi
   PUBLIC :: p_stop, p_abort
 
+  !The given communicator will be the all communicator for this component
+  PUBLIC :: set_process_mpi_communicator
+  ! Sets the test, work, i/o communicators
+  PUBLIC :: set_mpi_work_communicators
+  ! set other parameters
+  PUBLIC :: set_process_mpi_name
+  
   ! Logical functions
   PUBLIC :: run_is_global_mpi_parallel
   PUBLIC :: my_process_is_stdio, my_process_is_mpi_parallel, my_process_is_mpi_all_parallel
@@ -30,11 +37,8 @@ MODULE mo_mpi
   PUBLIC :: my_process_is_io
 
   ! get parameters
-  PUBLIC :: get_mpi_root_id, get_my_global_mpi_id, get_my_mpi_all_id
+  PUBLIC :: get_mpi_all_workroot_id, get_my_global_mpi_id, get_my_mpi_all_id
 
-  ! set parameters
-  PUBLIC :: set_process_mpi_name
-  PUBLIC :: set_process_mpi_communicator !The given communicator will be the all communicator for this component
 
   ! some public communicators
   PUBLIC :: process_mpi_all_comm
@@ -386,9 +390,9 @@ CONTAINS
   !------------------------------------------------------------------------------
   
   !------------------------------------------------------------------------------
-  INTEGER FUNCTION get_mpi_root_id()
-    get_mpi_root_id = process_mpi_all_workroot_id
-  END FUNCTION get_mpi_root_id
+  INTEGER FUNCTION get_mpi_all_workroot_id()
+    get_mpi_all_workroot_id = process_mpi_all_workroot_id
+  END FUNCTION get_mpi_all_workroot_id
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
@@ -399,9 +403,6 @@ CONTAINS
 
   !------------------------------------------------------------------------------
   LOGICAL FUNCTION my_process_is_io()
-!     my_process_is_io = process_is_io
-!DR workaround for SX9, as long as process_is_io is not defined.
-!DR Otherwise SX9 compiler complains about result not being defined
      my_process_is_io = (my_mpi_function == io_mpi_process)
   END FUNCTION my_process_is_io
   !------------------------------------------------------------------------------
@@ -496,13 +497,13 @@ CONTAINS
 
 ! check l_test_openmp
 #ifndef _OPENMP
-  IF (l_test_openmp) THEN
-    CALL print_info_stderr(method_name, &
-       & 'l_test_openmp has no effect if the model is compiled without OpenMP support')
-    CALL print_info_stderr(method_name, &
-       & '--> l_test_openmp set to .FALSE.')
-    l_test_openmp = .FALSE.
-  END IF
+    IF (l_test_openmp) THEN
+      CALL print_info_stderr(method_name, &
+        & 'l_test_openmp has no effect if the model is compiled without OpenMP support')
+      CALL print_info_stderr(method_name, &
+        & '--> l_test_openmp set to .FALSE.')
+      l_test_openmp = .FALSE.
+    END IF
 #endif
 
     ! check p_test_run and num_io_procs
@@ -608,7 +609,7 @@ CONTAINS
       my_mpi_function = io_mpi_process
     ENDIF
 
-   CALL MPI_Comm_split(process_mpi_all_comm, my_mpi_function, p_pe, p_comm_work, p_error)
+    CALL MPI_Comm_split(process_mpi_all_comm, my_mpi_function, p_pe, p_comm_work, p_error)
 
     ! Set p_comm_work_test, the communicator spanning work group and test PE
     IF(p_test_run) THEN
@@ -706,11 +707,8 @@ CONTAINS
     IF (l_test_openmp .AND. p_pe == p_test_pe) CALL OMP_SET_NUM_THREADS(1)
     IF (p_pe >= p_io_pe0) CALL OMP_SET_NUM_THREADS(1)
 #endif
-
-
   
 #endif
-
 
   END SUBROUTINE set_mpi_work_communicators
   !-------------------------------------------------------------------------
