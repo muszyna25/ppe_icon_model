@@ -25,7 +25,7 @@ MODULE mo_mpi
 
   ! Logical functions
   PUBLIC :: run_is_global_mpi_parallel
-  PUBLIC :: my_process_is_stdio, my_process_is_mpi_parallel
+  PUBLIC :: my_process_is_stdio, my_process_is_mpi_parallel, my_process_is_mpi_all_parallel
   PUBLIC :: my_process_is_mpi_seq, my_process_is_mpi_test, my_process_is_mpi_workroot
   PUBLIC :: my_process_is_io
 
@@ -34,7 +34,7 @@ MODULE mo_mpi
 
   ! set parameters
   PUBLIC :: set_process_mpi_name
-  PUBLIC :: set_process_mpi_communicator !The given communicator will be the all communicator for this process
+  PUBLIC :: set_process_mpi_communicator !The given communicator will be the all communicator for this component
 
   ! some public communicators
   PUBLIC :: process_mpi_all_comm
@@ -119,7 +119,6 @@ MODULE mo_mpi
   INTEGER :: my_process_mpi_all_id
   LOGICAL :: process_is_mpi_parallel
   LOGICAL :: process_is_stdio
-  LOGICAL :: process_is_mpi_test
   INTEGER :: process_mpi_all_workroot_id  ! the root process in component
   INTEGER :: process_mpi_all_test_id  ! the test process in component
   
@@ -128,6 +127,10 @@ MODULE mo_mpi
   INTEGER :: process_mpi_local_size     ! total number of processes in the whole model-component
   INTEGER :: my_process_mpi_local_id
   
+  INTEGER :: my_mpi_function  ! test, or work, or i/o
+  INTEGER, PARAMETER :: test_mpi_process = 1
+  INTEGER, PARAMETER :: work_mpi_process = 2
+  INTEGER, PARAMETER :: io_mpi_process = 2
   
   !------------------------------------------------------------
   ! Processor distribution:
@@ -399,26 +402,36 @@ CONTAINS
 !     my_process_is_io = process_is_io
 !DR workaround for SX9, as long as process_is_io is not defined.
 !DR Otherwise SX9 compiler complains about result not being defined
-     my_process_is_io = .TRUE.
+     my_process_is_io = (my_mpi_function == io_mpi_process)
   END FUNCTION my_process_is_io
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
   LOGICAL FUNCTION my_process_is_mpi_test()
-    my_process_is_mpi_test = process_is_mpi_test
+    my_process_is_mpi_test = (my_mpi_function == test_mpi_process)
   END FUNCTION my_process_is_mpi_test
   !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
   !>
-  ! If is mpi paralellel and not a test process
+  ! If is mpi parallel and not a test process
   !! Note: mpi i/o processes do not count is mpi paralell work
   !!        Only computational processes are checked for running in parallel
   LOGICAL FUNCTION my_process_is_mpi_parallel()
     my_process_is_mpi_parallel = process_is_mpi_parallel
   END FUNCTION my_process_is_mpi_parallel
   !------------------------------------------------------------------------------
+
+
+  !------------------------------------------------------------------------------
+  !>
+  ! If is mpi all parallel
+  LOGICAL FUNCTION my_process_is_mpi_all_parallel()
+    my_process_is_mpi_all_parallel = (process_mpi_all_size > 1)
+  END FUNCTION my_process_is_mpi_all_parallel
+  !------------------------------------------------------------------------------
   
+  !------------------------------------------------------------------------------
   !>
   !! If is not mpi work paralellel or this is a test process
   !! returns true
@@ -534,13 +547,17 @@ CONTAINS
     IF(num_io_procs < 0) num_io_procs = 0 ! for safety only  
     
     ! -----------------------------------------
-    ! Set up processor numbers
+    ! Set if test
     IF(p_test_run) THEN
       num_test_procs = 1
+      p_test_pe = 0
     ELSE
       num_test_procs = 0
+      p_test_pe = -1
     ENDIF
         
+    ! -----------------------------------------
+    ! how many work processors?
     num_work_procs = process_mpi_all_size - num_test_procs - num_io_procs
     
     ! Check if there are sufficient PEs at all
@@ -558,131 +575,140 @@ CONTAINS
 
     ! Everything seems ok. Proceed to setup the communicators and ids
     ! Set up p_test_pe, p_work_pe0, p_io_pe0 which are identical on all PEs
-    IF(p_test_run) THEN
-      p_test_pe = 0
-    ELSE
-      p_test_pe = -1
-    ENDIF
+    p_work_pe0 = num_test_procs
+    p_io_pe0   = num_test_procs + num_work_procs   
 
-  p_work_pe0 = num_test_procs
-  p_io_pe0   = num_test_procs + num_work_procs
-
-  ! if OpenMP is used, the test PE uses only 1 thread in order to check
-  ! the correctness of the OpenMP implementation
-  ! Currently the I/O PEs are also single threaded!
-#ifdef _OPENMP
-  IF (l_test_openmp .AND. p_pe == p_test_pe) CALL OMP_SET_NUM_THREADS(1)
-  IF (p_pe >= p_io_pe0) CALL OMP_SET_NUM_THREADS(1)
-#endif
-
-  ! Set up p_n_work and p_pe_work which are NOT identical on all PEs
-
-  IF(p_pe < p_work_pe0) THEN
-    ! Test PE (if present)
-    p_n_work  = 1          ! 1 PE in verification work group
-    p_pe_work = 0          ! PE number within work group
-  ELSE IF(p_pe < p_io_pe0) THEN
-    ! Work PE
-    p_n_work  = num_work_procs
-    p_pe_work = p_pe - num_test_procs
-  ELSE
-    ! I/O PE (if present)
-    p_n_work  = num_io_procs
-    p_pe_work = p_pe - num_test_procs - num_work_procs
-  ENDIF
-
-
-  ! Set communicators
-  ! =================
-
-  ! Split communicator process_mpi_all_comm between test/work/io
-  ! to get p_comm_work which is the communicator for
-  ! usage WITHIN every group of the 3 different type
-
-  IF(p_pe < p_work_pe0) THEN
-    my_color = 1 ! Test PE
-  ELSE IF(p_pe < p_io_pe0) THEN
-    my_color = 2 ! Work PE
-  ELSE
-    my_color = 3 ! I/O PE
-  ENDIF
-
-  CALL MPI_Comm_split(process_mpi_all_comm, my_color, p_pe, p_comm_work, p_error)
-
-  ! Set p_comm_work_test, the communicator spanning work group and test PE
-
-  IF(p_test_run) THEN
-    IF(p_pe < p_io_pe0) THEN
-      my_color = 1
-    ELSE
-      my_color = MPI_UNDEFINED ! p_comm_work_test must never be used on I/O PEs
-    ENDIF
-
-    CALL MPI_Comm_split(process_mpi_all_comm, my_color, p_pe, p_comm_work_test, p_error)
-  ELSE
-    ! If not a test run, p_comm_work_test must not be used at all
-    p_comm_work_test = MPI_COMM_NULL
-  ENDIF
-
-  ! Set p_comm_work_io, the communicator spanning work group and I/O PEs
-
-  IF(num_io_procs > 0) THEN
+    ! Set up p_n_work and p_pe_work which are NOT identical on all PEs
     IF(p_pe < p_work_pe0) THEN
-      my_color = MPI_UNDEFINED ! p_comm_work_io must never be used on test PE
+      ! Test PE (if present)
+      p_n_work  = 1          ! 1 PE in verification work group
+      p_pe_work = 0          ! PE number within work group
+    ELSE IF(p_pe < p_io_pe0) THEN
+      ! Work PE
+      p_n_work  = num_work_procs
+      p_pe_work = p_pe - num_test_procs
     ELSE
-      my_color = 1
+      ! I/O PE (if present)
+      p_n_work  = num_io_procs
+      p_pe_work = p_pe - num_test_procs - num_work_procs
     ENDIF
 
-    CALL MPI_Comm_split(process_mpi_all_comm, my_color, p_pe, p_comm_work_io, p_error)
-  ELSE
-    ! If no I/O PEs are present, p_comm_work_io must not be used at all
-    p_comm_work_io = MPI_COMM_NULL
-  ENDIF
 
-  ! Set p_comm_input_bcast, the communicator for broadcasting the NetCDF input
-  IF(lrestore_states) THEN
-    ! NetCDF input is only read by the test pe and MUST NOT be broadcast
-    IF(p_pe == p_test_pe) THEN
-      p_comm_input_bcast = MPI_COMM_SELF ! i.e. effectively no broadcast
+    ! Set communicators
+    ! =================
+
+    ! Split communicator process_mpi_all_comm between test/work/io
+    ! to get p_comm_work which is the communicator for
+    ! usage WITHIN every group of the 3 different type
+    IF(p_pe < p_work_pe0) THEN
+      my_mpi_function = test_mpi_process
+    ELSE IF(p_pe < p_io_pe0) THEN
+      my_mpi_function = work_mpi_process
     ELSE
-      p_comm_input_bcast = MPI_COMM_NULL ! Must not be used!
+      my_mpi_function = io_mpi_process
     ENDIF
-  ELSE
-    IF(p_pe < p_io_pe0) THEN
-      IF(p_test_run) THEN
-        ! Test PE reads and broadcasts to workers
-        p_comm_input_bcast = p_comm_work_test
+
+   CALL MPI_Comm_split(process_mpi_all_comm, my_mpi_function, p_pe, p_comm_work, p_error)
+
+    ! Set p_comm_work_test, the communicator spanning work group and test PE
+    IF(p_test_run) THEN
+      IF(p_pe < p_io_pe0) THEN
+        my_color = 1
       ELSE
-        ! PE 0 reads and broadcasts
-        p_comm_input_bcast = p_comm_work
+        my_color = MPI_UNDEFINED ! p_comm_work_test must never be used on I/O PEs
+      ENDIF
+
+      CALL MPI_Comm_split(process_mpi_all_comm, my_color, p_pe, p_comm_work_test, p_error)
+    ELSE
+      ! If not a test run, p_comm_work_test must not be used at all
+      p_comm_work_test = MPI_COMM_NULL
+    ENDIF
+
+    ! Set p_comm_work_io, the communicator spanning work group and I/O PEs
+    IF(num_io_procs > 0) THEN
+      IF(p_pe < p_work_pe0) THEN
+        my_color = MPI_UNDEFINED ! p_comm_work_io must never be used on test PE
+      ELSE
+        my_color = 1
+      ENDIF
+
+      CALL MPI_Comm_split(process_mpi_all_comm, my_color, p_pe, p_comm_work_io, p_error)
+    ELSE
+      ! If no I/O PEs are present, p_comm_work_io must not be used at all
+      p_comm_work_io = MPI_COMM_NULL
+    ENDIF
+
+    ! Set p_comm_input_bcast, the communicator for broadcasting the NetCDF input
+    IF(lrestore_states) THEN
+      ! NetCDF input is only read by the test pe and MUST NOT be broadcast
+      IF(p_pe == p_test_pe) THEN
+        p_comm_input_bcast = MPI_COMM_SELF ! i.e. effectively no broadcast
+      ELSE
+        p_comm_input_bcast = MPI_COMM_NULL ! Must not be used!
       ENDIF
     ELSE
-      ! I/O PEs never participate in reading
-      p_comm_input_bcast = MPI_COMM_NULL
+      IF(p_pe < p_io_pe0) THEN
+        IF(p_test_run) THEN
+          ! Test PE reads and broadcasts to workers
+          p_comm_input_bcast = p_comm_work_test
+        ELSE
+          ! PE 0 reads and broadcasts
+          p_comm_input_bcast = p_comm_work
+        ENDIF
+      ELSE
+        ! I/O PEs never participate in reading
+        p_comm_input_bcast = MPI_COMM_NULL
+      ENDIF
     ENDIF
-  ENDIF
 
-  ! Create Intercommunicator work PEs - I/O PEs
+    ! Create Intercommunicator work PEs - I/O PEs
 
-  ! From MPI-Report:
-  ! Advice to users: We recommend using a dedicated peer communicator, such as a
-  ! duplicate of MPI_COMM_WORLD, to avoid trouble with peer communicators.
+    ! From MPI-Report:
+    ! Advice to users: We recommend using a dedicated peer communicator, such as a
+    ! duplicate of MPI_COMM_WORLD, to avoid trouble with peer communicators.
 
-  ! No idea what these troubles may be in reality, but let us follow the advice
+    ! No idea what these troubles may be in reality, but let us follow the advice
 
-  CALL MPI_Comm_dup(process_mpi_all_comm, peer_comm, p_error)
+    CALL MPI_Comm_dup(process_mpi_all_comm, peer_comm, p_error)
 
-  IF(p_pe /= p_test_pe .AND. num_io_procs>0) THEN
+    IF(p_pe /= p_test_pe .AND. num_io_procs>0) THEN
 
-    IF(p_pe < p_io_pe0) THEN
-      CALL MPI_Intercomm_create(p_comm_work, 0, peer_comm, p_io_pe0,  1, p_comm_work_2_io, p_error)
+      IF(p_pe < p_io_pe0) THEN
+        CALL MPI_Intercomm_create(p_comm_work, 0, peer_comm, p_io_pe0, &
+          &  1, p_comm_work_2_io, p_error)
+      ELSE
+        CALL MPI_Intercomm_create(p_comm_work, 0, peer_comm, p_work_pe0,&
+          & 1, p_comm_work_2_io, p_error)
+      ENDIF
     ELSE
-      CALL MPI_Intercomm_create(p_comm_work, 0, peer_comm, p_work_pe0,1, p_comm_work_2_io, p_error)
+      ! No Intercommunicator
+      p_comm_work_2_io = MPI_COMM_NULL
     ENDIF
-  ELSE
-    ! No Intercommunicator
-    p_comm_work_2_io = MPI_COMM_NULL
-  ENDIF
+
+    ! fill some derived variables
+    process_mpi_all_workroot_id = p_work_pe0
+    process_mpi_all_test_id     = p_work_pe0-1
+    process_mpi_io_size         = num_io_procs
+
+    ! In case of test run, only the test process is stdio
+    process_is_stdio = (my_process_mpi_all_id == process_mpi_stdio_id)
+    process_is_mpi_parallel = (num_work_procs > 1)
+
+    ! still to be filled
+    process_mpi_local_comm  = process_mpi_all_comm
+    process_mpi_local_size  = process_mpi_all_size
+    my_process_mpi_local_id = my_process_mpi_all_id         
+    
+    ! if OpenMP is used, the test PE uses only 1 thread in order to check
+    ! the correctness of the OpenMP implementation
+    ! Currently the I/O PEs are also single threaded!
+#ifdef _OPENMP
+    IF (l_test_openmp .AND. p_pe == p_test_pe) CALL OMP_SET_NUM_THREADS(1)
+    IF (p_pe >= p_io_pe0) CALL OMP_SET_NUM_THREADS(1)
+#endif
+
+
+  
 #endif
 
 
@@ -693,21 +719,36 @@ CONTAINS
   !>
   SUBROUTINE set_default_mpi_work_variables()
     
-    ! fill some derived variabkes
+    ! fill some derived variables
     process_is_stdio = (my_process_mpi_all_id == process_mpi_stdio_id)
     process_is_mpi_parallel = (process_mpi_all_size > 1)
-    process_is_mpi_test     = .false.
+    my_mpi_function = work_mpi_process
+    
+    process_mpi_all_test_id     = -1
+    process_mpi_all_workroot_id = 0
+    process_mpi_io_size         = 0
 
+    process_mpi_local_comm  = process_mpi_all_comm
+    process_mpi_local_size  = process_mpi_all_size
+    my_process_mpi_local_id = my_process_mpi_all_id         
+
+    ! set some of the old variables
+    ! should be removed once the old variables are cleaned
+    p_pe           = my_process_mpi_all_id
+    p_io           = 0 
+    num_test_procs = 0
+    num_work_procs = process_mpi_all_size
+    p_test_pe      = -1
+    p_work_pe0     = 0
+    p_io_pe0       = process_mpi_all_size    ! Number of I/O PE 0 within all PEs (process_mpi_all_size if no I/O PEs)
+    p_n_work       = process_mpi_all_size
+    p_pe_work      = my_process_mpi_all_id
+    
     p_comm_work             = process_mpi_all_comm
     p_comm_input_bcast      = process_mpi_all_comm
     p_comm_work_io          = MPI_COMM_NULL
     p_comm_work_test        = MPI_COMM_NULL
-    
-    process_mpi_io_size         = 0
-    
-    ! set some of the old variables
-    ! should be rempved once the old variables are cleaned
-    p_pe = my_process_mpi_all_id
+    p_comm_work_2_io        = MPI_COMM_NULL
 
     ! print some info
     IF ( .NOT. process_is_mpi_parallel) THEN
@@ -4819,7 +4860,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (my_process_is_mpi_parallel()) THEN
+    IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_sum, SIZE(zfield), p_real_dp, &
             MPI_SUM, p_comm, p_error)
     ELSE
@@ -4846,7 +4887,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (my_process_is_mpi_parallel()) THEN
+    IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_ALLREDUCE (kfield, p_sum, SIZE(kfield), p_int_i8, &
             MPI_SUM, p_comm, p_error)
     ELSE
@@ -4874,7 +4915,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (my_process_is_mpi_parallel()) THEN
+    IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_REDUCE (zfield, pe_sums, SIZE(zfield), p_real_dp, &
             MPI_SUM, process_mpi_root_id, p_comm, p_error)
        p_sum = SUM(pe_sums)
@@ -4902,7 +4943,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (my_process_is_mpi_parallel()) THEN
+    IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_REDUCE (zfield, p_sum, SIZE(zfield), p_real_dp, &
             MPI_SUM, process_mpi_root_id, p_comm, p_error)
        IF (.NOT. my_process_is_stdio()) p_sum = 0.0_dp
@@ -4929,7 +4970,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (my_process_is_mpi_parallel()) THEN
+    IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_max, 1, p_real_dp, &
             MPI_MAX, p_comm, p_error)
     ELSE
@@ -4956,7 +4997,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (my_process_is_mpi_parallel()) THEN
+    IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_max, SIZE(zfield), p_real_dp, &
             MPI_MAX, p_comm, p_error)
     ELSE
@@ -4983,7 +5024,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (my_process_is_mpi_parallel()) THEN
+    IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_max, SIZE(zfield), p_real_dp, &
             MPI_MAX, p_comm, p_error)
     ELSE
@@ -5011,7 +5052,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (my_process_is_mpi_parallel()) THEN
+    IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_max, SIZE(zfield), p_real_dp, &
             MPI_MAX, p_comm, p_error)
     ELSE
@@ -5037,7 +5078,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (my_process_is_mpi_parallel()) THEN
+    IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_min, 1, p_real_dp, &
             MPI_MIN, p_comm, p_error)
     ELSE
@@ -5064,7 +5105,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (my_process_is_mpi_parallel()) THEN
+    IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_min, SIZE(zfield), p_real_dp, &
             MPI_MIN, p_comm, p_error)
     ELSE
@@ -5091,7 +5132,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (my_process_is_mpi_parallel()) THEN
+    IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_min, SIZE(zfield), p_real_dp, &
             MPI_MIN, p_comm, p_error)
     ELSE
@@ -5118,7 +5159,7 @@ CONTAINS
        p_comm = process_mpi_all_comm
     ENDIF
 
-    IF (my_process_is_mpi_parallel()) THEN
+    IF (my_process_is_mpi_all_parallel()) THEN
        CALL MPI_ALLREDUCE (zfield, p_min, SIZE(zfield), p_real_dp, &
             MPI_MIN, p_comm, p_error)
     ELSE
