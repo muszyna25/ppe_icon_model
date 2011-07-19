@@ -19,16 +19,24 @@ MODULE mo_mpi
 
   PRIVATE                          ! all declarations are private
 
-! subroutines defined, overloaded depending on argument type
+  ! start/stop methods
   PUBLIC :: start_mpi
+  PUBLIC :: p_stop, p_abort
+
+  ! Logical functions
+  PUBLIC :: run_is_global_mpi_parallel
   PUBLIC :: my_process_is_stdio, my_process_is_mpi_parallel
   PUBLIC :: my_process_is_mpi_seq, my_process_is_mpi_test, my_process_is_mpi_root
   PUBLIC :: my_process_is_io
-  PUBLIC :: run_is_global_mpi_parallel
-  PUBLIC :: get_mpi_root_id, get_my_global_mpi_id, get_my_mpi_all_id
-  PUBLIC :: set_process_mpi_name
-  PUBLIC :: set_process_mpi_communicator
 
+  ! get parameters
+  PUBLIC :: get_mpi_root_id, get_my_global_mpi_id, get_my_mpi_all_id
+
+  ! set parameters
+  PUBLIC :: set_process_mpi_name
+  PUBLIC :: set_process_mpi_communicator !The given communicator will be the all communicator for this process
+
+  ! some public communicators
   PUBLIC :: process_mpi_all_comm
   
   PUBLIC :: p_comm_work, p_comm_work_test
@@ -37,8 +45,7 @@ MODULE mo_mpi
 
   PUBLIC :: process_mpi_io_size
   
-  PUBLIC :: p_stop, p_abort
-
+  ! Main communication methods
   PUBLIC :: p_send, p_recv, p_sendrecv, p_bcast, p_barrier
   PUBLIC :: p_isend, p_irecv, p_wait, p_wait_any
   PUBLIC :: p_gather, p_max, p_min, p_sum, p_global_sum, p_field_sum
@@ -94,7 +101,7 @@ MODULE mo_mpi
 
   ! public parallel run information
 
-
+  CHARACTER(len=64) :: global_mpi_name
   CHARACTER(len=64) :: process_mpi_name
   INTEGER, PARAMETER :: process_mpi_stdio_id = 0
   INTEGER :: process_mpi_root_id = 0
@@ -669,6 +676,36 @@ CONTAINS
   END SUBROUTINE set_mpi_work_communicators
   !-------------------------------------------------------------------------
   
+  !------------------------------------------------------------------------------
+  !>
+  SUBROUTINE set_default_mpi_work_variables()
+    
+    ! fill some derived variabkes
+    process_is_stdio = (my_process_mpi_all_id == process_mpi_stdio_id)
+    process_is_mpi_parallel = (process_mpi_all_size > 1)
+    process_is_mpi_test     = .false.
+
+    p_comm_work             = process_mpi_all_comm
+    p_comm_input_bcast      = process_mpi_all_comm
+    p_comm_work_io          = MPI_COMM_NULL
+    p_comm_work_test        = MPI_COMM_NULL
+    
+    ! set some of the old variables
+    ! should be rempved once the old variables are cleaned
+    p_pe = my_process_mpi_all_id
+
+    ! print some info
+    IF ( .NOT. process_is_mpi_parallel) THEN
+      WRITE (nerr,'(a,a,a)') method_name, TRIM(process_mpi_name), &
+      ': Single processor run.'
+    ELSEIF (process_is_stdio) THEN
+      WRITE (nerr,'(a,i0,a)') method_name, TRIM(process_mpi_name), &
+        '  runs on ', process_mpi_all_size, ' mpi processes.'
+    END IF
+    
+  END SUBROUTINE set_default_mpi_work_variables
+  !------------------------------------------------------------------------------
+  
 
   !------------------------------------------------------------------------------
   !>
@@ -685,24 +722,11 @@ CONTAINS
     process_mpi_all_comm    = new_communicator
     process_mpi_all_size    = 1
     my_process_mpi_all_id   = 0
-    process_is_mpi_parallel = .false.
-    process_is_stdio        = .true.
-    process_is_mpi_test     = .false.
-
-    p_comm_work             = process_mpi_all_comm
-    p_comm_input_bcast      = process_mpi_all_comm
-    p_comm_work_io          = MPI_COMM_NULL
-    p_comm_work_test        = MPI_COMM_NULL
+    
 #else
     ! since here we define the process all communicator
     ! the work communicator is identical to the all communicator
-    ! and the no test or i/o processes are present
-    p_comm_work             = process_mpi_all_comm
-    p_comm_input_bcast      = process_mpi_all_comm
-    p_comm_work_io          = MPI_COMM_NULL
-    p_comm_work_test        = MPI_COMM_NULL
-    process_is_mpi_test     = .false.
-
+    ! and the no test or i/o processes are present    
     CALL MPI_INITIALIZED(l_mpi_is_initialised, p_error)
 
     IF (p_error /= MPI_SUCCESS) THEN
@@ -761,10 +785,6 @@ CONTAINS
        CALL p_abort
     END IF
 
-    ! fill some derived variabkes
-    IF (my_process_mpi_all_id == process_mpi_stdio_id) &
-      process_is_stdio = .TRUE.
-    process_is_mpi_parallel = (process_mpi_all_size > 1)
 
 !     CALL MPI_COMM_DUP(process_mpi_all_comm,p_comm_work,p_error)
 !     IF (p_error /= MPI_SUCCESS) THEN
@@ -782,20 +802,8 @@ CONTAINS
    
 #endif
 
-    IF (process_mpi_all_comm /= global_mpi_communicator) THEN
-      IF ( .NOT. process_is_mpi_parallel) THEN
-        WRITE (nerr,'(a,a,a)') method_name, TRIM(process_mpi_name), &
-          ': Single processor run.'
-      ELSEIF (process_is_stdio) THEN
-        WRITE (nerr,'(a,i0,a)') method_name, TRIM(process_mpi_name), &
-          '  runs on ', process_mpi_all_size, ' mpi processes.'
-      END IF
-    END IF
-
-    ! set some of the old variables
-    ! should be rempved once the old variables are cleaned
-    p_pe = my_process_mpi_all_id
-    
+    CALL set_default_mpi_work_variables()
+        
   END SUBROUTINE set_process_mpi_communicator
   !------------------------------------------------------------------------------
 
@@ -872,7 +880,8 @@ CONTAINS
     ELSE
       yname = '(unnamed)'
     END IF
-
+    global_mpi_name = TRIM(yname)
+    
     ! start MPI
 #ifndef NOMPI
 #ifdef _OPENMP
@@ -1099,6 +1108,7 @@ CONTAINS
 ! #endif
 
     ! by default, the global communicator is the process communicator
+    CALL set_process_mpi_name(global_mpi_name)
     CALL set_process_mpi_communicator(global_mpi_communicator)
     
   END SUBROUTINE start_mpi
