@@ -174,7 +174,8 @@ USE mo_atm_nml_crosscheck,       ONLY: atm_crosscheck
 
 USE mo_time_config,        ONLY: time_config      ! variable
 USE mo_dynamics_config,    ONLY: configure_dynamics  ! subroutine
-USE mo_interpol_config,    ONLY: configure_interpolation 
+!USE mo_interpol_config,    ONLY: configure_interpolation 
+USE mo_interpol_config
 USE mo_advection_config,   ONLY: configure_advection
 USE mo_diffusion_config,   ONLY: configure_diffusion
 
@@ -295,7 +296,7 @@ CONTAINS
     ! If we belong to the I/O PEs just call io_main_proc before reading patches.
     ! This routine will never return
     
-    IF (my_process_is_io()) CALL io_main_proc
+  ! IF (my_process_is_io()) CALL io_main_proc
     
     ! Check patch allocation status
 
@@ -354,6 +355,15 @@ CONTAINS
       CALL construct_2d_interpol_state(p_patch_global, p_int_state_global)
     ENDIF
 
+    write(0,*) 'rbf_vec_dim_c =', rbf_vec_dim_c
+    write(0,*) 'rbf_vec_dim_v =', rbf_vec_dim_v
+    write(0,*) 'rbf_vec_dim_e =', rbf_vec_dim_e
+
+    write(0,*) 'rbf_vec_scale_c =', rbf_vec_scale_c
+    write(0,*) 'rbf_vec_scale_v =', rbf_vec_scale_v
+    write(0,*) 'rbf_vec_scale_e =', rbf_vec_scale_e
+   
+    write(0,*) maxval(p_int_state_global(1)%rbf_vec_coeff_e)
     !-----------------------------------------------------------------------------
     ! 6. Construct grid refinment state, compute coefficients
     !-----------------------------------------------------------------------------
