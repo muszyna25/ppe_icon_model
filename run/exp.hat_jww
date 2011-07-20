@@ -51,7 +51,6 @@ IEQ=1             # equation system
 #                     2=non-hydrost. atm., 
 #                    -1=shallow water model
 #                    -2=hydrost. ocean
-B=4               # number of bisections applied for the global grid
 N=31              # nlev = number of full levels
 #-----------------------------------------------------------------------------
 

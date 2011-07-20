@@ -53,8 +53,6 @@ MODULE mo_grid_nml
 
   USE mo_grid_config,        ONLY:                                         &
     & config_global_cell_type             => global_cell_type,             &
-    & config_start_lev                    => start_lev,                    &
-    & config_n_dom                        => n_dom,                        &
     & config_lfeedback                    => lfeedback,                    &
     & config_lplane                       => lplane,                       &
     & config_corio_lat                    => corio_lat,                    &
@@ -80,9 +78,6 @@ MODULE mo_grid_nml
   ! ------------------------------------------------------------------------
 
   INTEGER    :: cell_type                ! cell type:
-  INTEGER    :: start_lev                ! coarsest bisection level
-  INTEGER    :: n_dom                    ! number of model domains, 1=global domain only 
-  INTEGER    :: n_dom_start=1 
   INTEGER    :: max_childdom
 
   LOGICAL    :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
@@ -103,7 +98,7 @@ MODULE mo_grid_nml
 
   INTEGER :: no_of_dynamics_grids, no_of_radiation_grids
 
-  NAMELIST /grid_nml/ cell_type, start_lev, n_dom, lfeedback,       &
+  NAMELIST /grid_nml/ cell_type, lfeedback,       &
     &                 lplane, corio_lat, l_limited_area,        &
     &                 patch_weight, lredgrid_phys,                &
     &                 dynamics_grid_filename,  dynamics_parent_grid_id,    &
@@ -148,8 +143,6 @@ MODULE mo_grid_nml
     !------------------------------------------------------------
 
     cell_type   = itri
-    start_lev   = 4
-    n_dom       = 1
       
     lfeedback   = .TRUE.
     lplane      = .FALSE.
@@ -281,8 +274,6 @@ MODULE mo_grid_nml
   SUBROUTINE fill_grid_nml_configure()
 
     config_global_cell_type  = cell_type
-    config_start_lev         = start_lev
-    config_n_dom             = n_dom
     config_lfeedback         = lfeedback
     config_lplane            = lplane
     config_corio_lat         = corio_lat

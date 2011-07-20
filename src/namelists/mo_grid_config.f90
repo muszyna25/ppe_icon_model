@@ -168,7 +168,9 @@ CONTAINS
       CALL finish( TRIM(method_name), 'no dynamics grid is defined')
       
     ! get here the nroot, eventually it should be moved into the patch info
-    nroot = get_grid_root(dynamics_grid_filename(1))
+!     nroot = get_grid_root(dynamics_grid_filename(1))
+    CALL get_grid_root_level(dynamics_grid_filename(1), nroot, start_lev)
+    
 !     write(0,*) "   nroot = ", nroot
         
     IF (no_of_radiation_grids > 0) THEN
@@ -223,6 +225,21 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------
+  SUBROUTINE get_grid_root_level( patch_file, grid_root, grid_level )
+    CHARACTER(len=*),    INTENT(in)  ::  patch_file   ! name of grid file
+    INTEGER,    INTENT(inout)  ::  grid_root, grid_level
+
+    INTEGER :: ncid
+
+    CALL nf(nf_open(TRIM(patch_file), NF_NOWRITE, ncid))
+    CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'grid_root', grid_root))
+    CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'grid_level', grid_level))
+    CALL nf(nf_close(ncid))
+
+  END SUBROUTINE get_grid_root_level
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
   INTEGER FUNCTION get_grid_root( patch_file )
     CHARACTER(len=*),    INTENT(in)  ::  patch_file   ! name of grid file
 
@@ -233,7 +250,7 @@ CONTAINS
     CALL nf(nf_close(ncid))
 
     get_grid_root = grid_root
-    
+
   END FUNCTION get_grid_root
   !-------------------------------------------------------------------------
 
