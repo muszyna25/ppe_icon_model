@@ -7,7 +7,7 @@
 # target use_compiler is nag
 # with mpi=yes
 # with openmp=no
-# memory_model=default
+# memory_model=verylarge
 # submit with qsub
 # 
 #=============================================================================
@@ -76,7 +76,7 @@ NPROMA=8
 # ----------------------------
 mpi_root=/sw/lenny-x64/mpi/mpich2-1.3.1-static-nag52
 no_of_nodes=1
-mpi_procs=8
+mpi_procs=1
 start="/sw/lenny-x64/mpi/mpich2-1.3.1-static-nag52/bin/mpiexec -n $mpi_procs"
 START="$start"
 # ----------------------------
@@ -154,7 +154,7 @@ if [[ "x$nested_grids" != "x../grids/iconR2B05_DOM02.nc" ]] ; then
     cp -f $griddir/iconR2B0?_DOM0?.nc ../grids
   else
     echo "  No grids found --> exit test"
-    check_error 0 "exp.nat_jww_nwp_mpiomp"
+    check_error 0 "exp.nat_restruct"
     exit 0
   fi
 fi
@@ -196,8 +196,10 @@ R=2               # nroot
 B=4               # number of bisections applied for the global grid
 # Variables needed when runnig the model with grid refinement (IREF must be .TRUE.)
 IREF=.true.
-NDOM=2
-LPATCH0=.true.    # must be set to .TRUE. if the reduced grid is used for radiation
+NDOM=1
+#LPATCH0=.true.    # must be set to .TRUE. if the reduced grid is used for radiation
+exp_grid_filename=iconR${R}B0${B}_DOM01-grid.nc
+#grid_filename = iconR${R}B0${B}_DOM01.nc
 #
 N=40              # nlev = number of full levels
 OPT="spr0.90"     # grid optimization
@@ -211,7 +213,7 @@ IEQ=3             # equation system
 #
 #
 DTIME=120         # time step in seconds
-NSTEPS=50         # number of time steps to run
+NSTEPS=5         # number of time steps to run
 DT_DATA=`expr ${DTIME} \* ${NSTEPS}`   # data output at the end of the integration
 #
 #-----------------------------------------------------------------------------
@@ -232,16 +234,15 @@ cat > master_namelist_${EXPNAME} << EOF
  ini_datetime_string = "2008-09-01T00:00:00Z"
  dt_restart          = 6000.
 /
+EOF
+!
+cat > NAMELIST_${EXPNAME} << EOF
 &parallel_nml
  nproma         = ${NPROMA}   
  p_test_run     = .true.
  l_test_openmp  = .true.
  l_log_checks   = .true.
 /
-EOF
-!
-cat > NAMELIST_${EXPNAME} << EOF
-!
 &nh_testcase_nml
  nh_test_name   = 'jabw_m'     ! test case identifier
  rh_at_1000hpa  = 0.99
@@ -253,23 +254,25 @@ cat > NAMELIST_${EXPNAME} << EOF
  dt_diag        = ${DT_DATA}
 /
 &grid_nml
- nroot          = ${R}         ! root division of icosahedron edges
+! nroot          = ${R}         ! root division of icosahedron edges
+ dynamics_grid_filename = "${exp_grid_filename}" 
  start_lev      = ${B}         ! number of bisections applied for the base grid
  n_dom          = ${NDOM}
- i_cell_type    = 3            ! triangular cells
+ cell_type    = 3            ! triangular cells
  lfeedback      = .true.,
- lpatch0        = ${LPATCH0}
+! lpatch0        = ${LPATCH0}
  lredgrid_phys  = .true.,.true.
 /
 &extpar_nml
  itopo          = 0
+/
 &run_nml
  nsteps         = ${NSTEPS}    ! 50 ! 1200 ! 7200 !10
  dtime          = 600.0        ! [s] timestep in seconds
  ltestcase      = .TRUE.       ! run testcase
  ldynamics      = .TRUE.       ! dynamics
- iforcing       = 3            ! ECHAM physics
- ltransport     = .TRUE.       ! switch on tracer transport
+ iforcing       = 0            ! ECHAM physics
+ ltransport     = .false.       ! switch on tracer transport
  ntracer        =  5            ! number of tracers
  nlev           = ${N}         ! number of full levels of vertical grid 
  msg_level      = 12           ! detailed report during integration
@@ -382,10 +385,10 @@ check_error $? "${EXPDIR} does not exist?"
 # get grid files
 #
 all_grids="${atmo_grids} ${ocean_grids}"
-for gridfile in ${all_grids}; do
-  rm ${EXPDIR}/$gridfile
-  ln -s ${HGRIDDIR}/${gridfile} ${EXPDIR}/${gridfile}
-done
+#for gridfile in ${all_grids}; do
+  rm ${EXPDIR}/$exp_grid_filename
+  ln -s ${HGRIDDIR}/iconR${R}B0${B}_DOM01.nc ${EXPDIR}/${exp_grid_filename}
+#done
 
 #-----------------------------------------------------------------------------
 case ${IEQ} in
@@ -456,32 +459,14 @@ set_default run_atmo '.false.'
 set_default atmo_namelist 'none'
 set_default ocean_namelist 'none'
 
-cat > icon_master.namelist << EOF
-&master_nml
- lrestart               = $restart
- l_atmo_active          = $run_atmo
- atmo_namelist_filename = "$atmo_namelist"
- l_ocean_active         = $run_ocean
- ocean_namelist_filename = "$ocean_namelist"
-/
-&time_nml
- ini_datetime_string = "$start_date"
- dt_restart          = $dt_restart
-/
-EOF
-
 #-----------------------------------------------------------------------------
 # get namelist
 #
-if [[ x$atmo_namelist != xnone  ]]; then
-  mv -f ${DIR}/$atmo_namelist ${EXPDIR}/$atmo_namelist
-  check_error $? "cp -f ${DIR}/$atmo_namelist"
-fi
+mv -f ${DIR}/master_namelist_${EXPNAME} ${EXPDIR}/icon_master.namelist
+check_error $? "cp -f ${DIR}/master_namelist_${EXPNAME}"
 
-if [[ x$ocean_namelist != xnone  ]]; then
-  mv -f ${DIR}/$ocean_namelist ${EXPDIR}/$ocean_namelist
-  check_error $? "mv -f ${DIR}/$atmo_namelist"
-fi
+mv -f ${DIR}/NAMELIST_${EXPNAME} ${EXPDIR}/icon_atm.namelist
+check_error $? "cp -f ${DIR}/NAMELIST_${EXPNAME}"
 
 #-----------------------------------------------------------------------------
 #
