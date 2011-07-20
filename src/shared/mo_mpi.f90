@@ -513,6 +513,7 @@ CONTAINS
        comm_type = comm_flag
     ENDIF
 
+#ifndef NOMPI
     SELECT CASE(comm_type)
 
     CASE(null_comm_type)
@@ -538,6 +539,7 @@ CONTAINS
       ENDIF
 
     END SELECT
+#endif
     
   END SUBROUTINE set_comm_input_bcast
   !-------------------------------------------------------------------------
