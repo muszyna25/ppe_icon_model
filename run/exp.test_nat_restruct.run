@@ -50,6 +50,13 @@ warning()
     fi
 }
 
+set_default()
+{
+  if [[ "x$(eval echo \$$1)" == "x" ]]; then
+    eval $1=$2
+  fi
+}
+
 #-----------------------------------------------------------------------------
 # target parameters
 # ----------------------------
@@ -69,7 +76,7 @@ NPROMA=8
 # ----------------------------
 mpi_root=/sw/lenny-x64/mpi/mpich2-1.3.1-static-nag52
 no_of_nodes=1
-mpi_procs=1
+mpi_procs=8
 start="/sw/lenny-x64/mpi/mpich2-1.3.1-static-nag52/bin/mpiexec -n $mpi_procs"
 START="$start"
 # ----------------------------
@@ -189,10 +196,8 @@ R=2               # nroot
 B=4               # number of bisections applied for the global grid
 # Variables needed when runnig the model with grid refinement (IREF must be .TRUE.)
 IREF=.true.
-NDOM=1
+NDOM=2
 LPATCH0=.true.    # must be set to .TRUE. if the reduced grid is used for radiation
-exp_grid_filename=iconR${R}B0${B}_DOM01-grid.nc 
-#exp_grid_filename=iconR${R}B05_DOM02-grid.nc 
 #
 N=40              # nlev = number of full levels
 OPT="spr0.90"     # grid optimization
@@ -248,25 +253,23 @@ cat > NAMELIST_${EXPNAME} << EOF
  dt_diag        = ${DT_DATA}
 /
 &grid_nml
-cell_type = 3            ! 3: triangular cells
-!nroot       = ${R}         ! root division of icosahedron edges
- start_lev   = ${B}         ! number of bisections applied for the base grid
- dynamics_grid_filename = "${exp_grid_filename}" 
+ nroot          = ${R}         ! root division of icosahedron edges
+ start_lev      = ${B}         ! number of bisections applied for the base grid
  n_dom          = ${NDOM}
+ i_cell_type    = 3            ! triangular cells
  lfeedback      = .true.,
  lpatch0        = ${LPATCH0}
  lredgrid_phys  = .true.,.true.
 /
 &extpar_nml
  itopo          = 0
-/
 &run_nml
  nsteps         = ${NSTEPS}    ! 50 ! 1200 ! 7200 !10
  dtime          = 600.0        ! [s] timestep in seconds
  ltestcase      = .TRUE.       ! run testcase
  ldynamics      = .TRUE.       ! dynamics
- iforcing       = 0            ! ECHAM physics
- ltransport     = .false.       ! switch on tracer transport
+ iforcing       = 3            ! ECHAM physics
+ ltransport     = .TRUE.       ! switch on tracer transport
  ntracer        =  5            ! number of tracers
  nlev           = ${N}         ! number of full levels of vertical grid 
  msg_level      = 12           ! detailed report during integration
@@ -336,6 +339,7 @@ inwp_turb       = 2
 /
 EOF
 #
+#!/bin/ksh
 #=============================================================================
 #
 # This section of the run script prepares and starts the model integration. 
@@ -347,34 +351,20 @@ EOF
 #
 #-----------------------------------------------------------------------------
 #
-# set ICON_THREADS
-#
-# export ICON_THREADS=${OMP_NUM_THREADS}
-#
-#-----------------------------------------------------------------------------
-#
-# directory of this script, must be in ICON base directory
+# directories definition
 #
 DIR=$(pwd -P)
 ICONDIR=${DIR%/*}
-#
-#-----------------------------------------------------------------------------
-#
-# model
-#
-MODEL=${bindir}/control_model
-#
-ls -l ${MODEL}
-check_error $? "${MODEL} does not exist?"
-#
+HGRIDDIR=${ICONDIR}/grids
+EXPDIR=${ICONDIR}/experiments/${EXPNAME}
+# data directories
+DATADIR=${ICONDIR}/data
 #-----------------------------------------------------------------------------
 #
 # experiment directory, with plenty of space, create if new
 #
-EXPDIR=${ICONDIR}/experiments/${EXPNAME}
-#
 if [ ! -d ${EXPDIR} ]; then
-    mkdir -p ${EXPDIR}
+  mkdir -p ${EXPDIR}
 fi
 #
 ls -ld ${EXPDIR}
@@ -386,17 +376,18 @@ if [ ! -d ${EXPDIR} ]; then
 fi
 ls -ld ${EXPDIR}
 check_error $? "${EXPDIR} does not exist?"
-#
-#-----------------------------------------------------------------------------
-#
-# data directories
-#
-DATADIR=${ICONDIR}/data
-#
+
 #-----------------------------------------------------------------------------
 #
 # get grid files
 #
+all_grids="${atmo_grids} ${ocean_grids}"
+for gridfile in ${all_grids}; do
+  rm ${EXPDIR}/$gridfile
+  ln -s ${HGRIDDIR}/${gridfile} ${EXPDIR}/${gridfile}
+done
+
+#-----------------------------------------------------------------------------
 case ${IEQ} in
     0 | 1 | 2 )
         # shallow water | hydrost. atm. T| hydrost. atm. theta dp 
@@ -406,16 +397,6 @@ case ${IEQ} in
         # ---------------
         cp -f ${DATADIR}/rrtmg_lw.nc           ${EXPDIR} # LW radiation constants
         cp -f ${DATADIR}/ECHAM6_CldOptProps.nc ${EXPDIR} # cloud optical properties
-        #
-        # horizontal grid
-        # ---------------
-        HGRIDDIR=${ICONDIR}/grids
-        AGRIDNAME=iconR${R}B0${B}-grid_${OPT}.nc
-        HGRIDNAME=iconR${R}B0${B}-grid.nc
-        #
-        rm ${EXPDIR}/${HGRIDNAME}
-        ln -s ${HGRIDDIR}/${AGRIDNAME} ${EXPDIR}/${HGRIDNAME}
-        check_error $? "ln -s ${HGRIDDIR}/${AGRIDNAME}"
         #
         # vertical grid
         # -------------
@@ -435,49 +416,7 @@ case ${IEQ} in
         # ---------------
         cp -f ${DATADIR}/rrtmg_lw.nc           ${EXPDIR} # LW radiation constants
         cp -f ${DATADIR}/ECHAM6_CldOptProps.nc ${EXPDIR} # cloud optical properties
-        #
-        # horizontal grid
-        # ---------------
-        if [[ $IREF != ".true." ]] ; then
-
-        HGRIDDIR=${ICONDIR}/grids
-        AGRIDNAME=iconR${R}B0${B}-grid_${OPT}.nc
-        HGRIDNAME=iconR${R}B0${B}-grid.nc
-
-        rm  ${EXPDIR}/${HGRIDNAME}
-        ln -s ${HGRIDDIR}/${AGRIDNAME} ${EXPDIR}/${HGRIDNAME}
-        check_error $? "ln -s ${HGRIDDIR}/${AGRIDNAME}"
         
-        else
-
-        HGRIDDIR=${ICONDIR}/grids
-        if [[ $LPATCH0 = ".true." ]] ; then 
-         B_S=`expr $B - 1`
-         DOM_S=0
-        else 
-         B_S=$B
-         DOM_S=1
-        fi
-         B_MAX=`expr $B + $NDOM - 1`
-
-         B_C=$B_S
-         DOM_C=$DOM_S
-        while [[ $B_C -le $B_MAX ]] ; do
-
-         AGRIDNAME=iconR${R}B0${B_C}_DOM0${DOM_C}.nc
-         HGRIDNAME=iconR${R}B0${B_C}_DOM0${DOM_C}-grid.nc
-         rm  ${EXPDIR}/${HGRIDNAME}
-         ln -s ${HGRIDDIR}/${AGRIDNAME} ${EXPDIR}/${HGRIDNAME}
-         check_error $? "ln -s ${HGRIDDIR}/${AGRIDNAME}"
-
-         B_C=`expr $B_C + 1`
-         DOM_C=`expr $DOM_C + 1`
-        done 
-        fi     
-
-        #
-        
-        #
         # vertical grid
         # -------------
         VGRIDDIR=${ICONDIR}/vertical_coord_tables
@@ -491,52 +430,68 @@ case ${IEQ} in
     -1 )
         # hydrost. ocean
         # ==============
-        #
-        # horizontal grid
-        # ---------------
-        HGRIDNAME=iconR${R}B0${B}-grid.nc
-        # default path for grid
-        if [[ x$HGRIDDIR  = x ]] ; then
-          HGRIDDIR=${ICONDIR}/grids
-        fi
-        #
-        # default grid names for aqua planet/Stommel basin/etopo topography
-        if [[ x$OGRIDNAME  = x ]] ; then
-          if [[ x$USE_AQUAP = "xY" ]] ; then
-            OGRIDNAME=iconR${R}B0${B}-ocean_aqua_planet.nc
-          # OGRIDNAME=iconR${R}B0${B}-ocean_aqua_planet_${OPT}.nc  #  ?include optimization?
-          fi
-          if [[ x$USE_ETOPO = "xY" ]] ; then
-          # OGRIDNAME=iconR${R}B0${B}-ocean_etopo40_planet.nc      #  including bathymetry
-            OGRIDNAME=iconR${R}B0${B}-ocean_etopo40_flat.nc        #  flat bottom
-          fi
-          if [[ x$USE_BASIN = "xY" ]] ; then
-          # OGRIDNAME=iconR${R}B0${B}-ocean_basin.nc               #  standard name
-            OGRIDNAME=iconR${R}B0${B}-ocean_bas10-80N.nc           #  new Stommel basin 10-80N
-          fi
-        fi
-        #
-        rm  ${EXPDIR}/${HGRIDNAME}
-        ln -s ${HGRIDDIR}/${OGRIDNAME} ${EXPDIR}/${HGRIDNAME}
-        check_error $? "ln -s $ {HGRIDDIR}/${OGRIDNAME}"
-        #
-        # vertical grid
-        # -------------
-        # is defined in ocean_ctl namelist
-        #
         ;;
 esac
 #
 #-----------------------------------------------------------------------------
 #
+# create ICON master namelist
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+
+cd ${EXPDIR}
+
+
+if [[ x$atmo_namelist != x ]]; then
+  set_default run_atmo '.true.'
+fi
+
+if [[ x$ocean_namelist != x ]]; then
+  set_default run_ocean '.true.'
+fi
+
+set_default restart '.false.'
+set_default run_ocean '.false.'
+set_default run_atmo '.false.'
+set_default atmo_namelist 'none'
+set_default ocean_namelist 'none'
+
+cat > icon_master.namelist << EOF
+&master_nml
+ lrestart               = $restart
+ l_atmo_active          = $run_atmo
+ atmo_namelist_filename = "$atmo_namelist"
+ l_ocean_active         = $run_ocean
+ ocean_namelist_filename = "$ocean_namelist"
+/
+&time_nml
+ ini_datetime_string = "$start_date"
+ dt_restart          = $dt_restart
+/
+EOF
+
+#-----------------------------------------------------------------------------
 # get namelist
 #
-mv -f ${DIR}/master_namelist_${EXPNAME} ${EXPDIR}/icon_master.namelist
-check_error $? "cp -f ${DIR}/master_namelist_${EXPNAME}"
+if [[ x$atmo_namelist != xnone  ]]; then
+  mv -f ${DIR}/$atmo_namelist ${EXPDIR}/$atmo_namelist
+  check_error $? "cp -f ${DIR}/$atmo_namelist"
+fi
 
-mv -f ${DIR}/NAMELIST_${EXPNAME} ${EXPDIR}/icon_atm.namelist
-check_error $? "cp -f ${DIR}/NAMELIST_${EXPNAME}"
+if [[ x$ocean_namelist != xnone  ]]; then
+  mv -f ${DIR}/$ocean_namelist ${EXPDIR}/$ocean_namelist
+  check_error $? "mv -f ${DIR}/$atmo_namelist"
+fi
+
+#-----------------------------------------------------------------------------
 #
+# model
+#
+MODEL=${bindir}/control_model
+#
+ls -l ${MODEL}
+check_error $? "${MODEL} does not exist?"
+#-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 #
 # start experiment
