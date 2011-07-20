@@ -89,7 +89,6 @@ MODULE mo_run_nml
   LOGICAL :: ltransport      ! if .TRUE., switch on large-scale tracer transport
   INTEGER :: ntracer         ! number of advected tracers
 
-  INTEGER :: nlev               ! number of full levels = number of layers
   LOGICAL :: lvert_nest         ! if .TRUE., switch on vertical nesting
   INTEGER :: num_lev(max_dom)   ! number of full levels for each domain
   INTEGER :: nshift (max_dom)   ! half level of parent domain which coincides 
@@ -108,7 +107,7 @@ MODULE mo_run_nml
                      ltestcase,    ldynamics,       &
                      iforcing,     ltransport,      &
                      ntracer,                       &
-                     lvert_nest,   nlev,            &
+                     lvert_nest,                    &
                      num_lev,      nshift,          &
                      nsteps,       dtime,           &
                      ltimer,       timers_level,    &
@@ -137,8 +136,7 @@ CONTAINS
     ntracer         = 0
 
     lvert_nest = .FALSE. ! no vertical nesting
-    nlev       = 31
-    num_lev(:) = nlev    ! number of full levels for each domain
+    num_lev(:) = 31    ! number of full levels for each domain
     nshift(:)  = 0       ! please do not change the default.
                          ! otherwise the initialization of 
                          ! p_patch(jg)%nshift in "import patches" 
@@ -207,7 +205,7 @@ CONTAINS
     config_ntracer         = ntracer 
 
     config_lvert_nest      = lvert_nest
-    config_nlev            = nlev
+    config_nlev            = num_lev(1)
     config_num_lev(:)      = num_lev(:)
     config_nshift(:)       = nshift(:)
 

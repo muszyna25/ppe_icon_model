@@ -626,7 +626,7 @@ set_run_target_default()
 
   set_default use_nproma 8
   set_default use_nodes 1
-  set_default use_mpi_procs 1
+  set_default use_mpi_procs 2
   
   if [[ $use_openmp == "yes" ]]; then
     set_default use_openmp_threads 2

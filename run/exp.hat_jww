@@ -77,7 +77,6 @@ cat > $atmo_namelist << EOF
 /
 &run_nml
  num_lev     = ${N},        ! number of full levels of vertical grid
- nlev        = ${N},        ! number of full levels of vertical grid
  ntracer     = 0            ! number of tracers
  nsteps      = ${nsteps}    ! [day] length of run
  dtime       = ${dtime}     ! [s] timestep
