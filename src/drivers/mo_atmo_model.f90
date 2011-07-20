@@ -267,12 +267,10 @@ CONTAINS
     !---------------------------------------------------------------------
     ! 2. Call configure_run to finish filling the run_config state.
     !    This needs to be done very early (but anyway after atm_crosscheck)
-    !    because some component of the state, e.g., num_lev, 
-    !    may be modified in this subroutine which affect the following
-    !    CALLs.
+    !    because some component of the state, e.g., num_lev, may be 
+    !    modified in this subroutine which affect the following CALLs.
     !---------------------------------------------------------------------
     CALL configure_run
-
 
     !-------------------------------------------------------------------
     ! 3.1 Initialize the mpi work groups
@@ -280,7 +278,7 @@ CONTAINS
     CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs)
 
     !-------------------------------------------------------------------
-    ! 3.2 Initialize various timers; initialize data and time
+    ! 3.2 Initialize various timers
     !-------------------------------------------------------------------
     IF (ltimer) CALL init_timer
 
@@ -296,7 +294,7 @@ CONTAINS
     ! If we belong to the I/O PEs just call io_main_proc before reading patches.
     ! This routine will never return
     
-  ! IF (my_process_is_io()) CALL io_main_proc
+    IF (my_process_is_io()) CALL io_main_proc
     
     ! Check patch allocation status
 
