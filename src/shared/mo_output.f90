@@ -1,4 +1,3 @@
-#define NOMPI
 !>
 !! Contains output routines for CDI output
 !! This module acts merely as a wrapper for either calling the direct
@@ -349,7 +348,7 @@ CONTAINS
 #ifdef NOMPI
     CALL write_restart
 #else
-    CALL write_restart( p_patch )
+    CALL write_restart( patch )
 #endif
 
     CALL close_writing_restart_files

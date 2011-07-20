@@ -1,5 +1,3 @@
-#define NOMPI
-
 MODULE mo_io_restart
   !
   USE mo_kind,                  ONLY: wp
@@ -1176,26 +1174,26 @@ CONTAINS
               CASE (GRID_UNSTRUCTURED_CELL)
                 IF (info%ndims == 2) THEN
                   rptr2d => element%field%r_ptr(:,:,nindex,1,1) 
-                  CALL scatter_cells(r5d, rptr2d)
+                  CALL scatter_cells(r5d, rptr2d, p_patch=p_patch)
                 ELSE
                   rptr3d => element%field%r_ptr(:,:,:,nindex,1) 
-                  CALL scatter_cells(r5d, rptr3d)
+                  CALL scatter_cells(r5d, rptr3d, p_patch=p_patch)
                 ENDIF
               CASE (GRID_UNSTRUCTURED_VERT)
                 IF (info%ndims == 2) THEN
                   rptr2d => element%field%r_ptr(:,:,nindex,1,1) 
-                  CALL scatter_vertices(r5d, rptr2d)
+                  CALL scatter_vertices(r5d, rptr2d, p_patch=p_patch)
                 ELSE
                   rptr3d => element%field%r_ptr(:,:,:,nindex,1) 
-                  CALL scatter_vertices(r5d, rptr3d)
+                  CALL scatter_vertices(r5d, rptr3d, p_patch=p_patch)
                 ENDIF
               CASE (GRID_UNSTRUCTURED_EDGE)
                 IF (info%ndims == 2) THEN
                   rptr2d => element%field%r_ptr(:,:,nindex,1,1) 
-                  CALL scatter_edges(r5d, rptr2d)
+                  CALL scatter_edges(r5d, rptr2d, p_patch=p_patch)
                 ELSE
                   rptr3d => element%field%r_ptr(:,:,:,nindex,1) 
-                  CALL scatter_edges(r5d, rptr3d)
+                  CALL scatter_edges(r5d, rptr3d, p_patch=p_patch)
                 ENDIF
               CASE default
                 CALL finish('out_stream','unknown grid type')

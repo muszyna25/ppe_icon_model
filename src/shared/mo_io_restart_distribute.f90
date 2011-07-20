@@ -1,10 +1,9 @@
-#define NOMPI
-
 MODULE mo_io_restart_distribute
   !
   USE mo_kind,          ONLY: wp
 #ifndef NOMPI
-  USE mo_mpi,           ONLY: p_io, p_bcast, p_comm_work
+  USE mo_mpi,           ONLY: p_io, p_bcast, p_comm_work, &
+                              my_process_is_mpi_seq 
   USE mo_model_domain,  ONLY: t_patch
   USE mo_communication, ONLY: idx_no, blk_no, exchange_data
 #endif
@@ -114,15 +113,19 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: tmp_array(:,:) 
     INTEGER :: n1, n2
     !
-    n1 = SIZE(in_array, 1)
-    n2 = (p_patch%n_patch_cells_g-1)/n1+1
-    ALLOCATE(tmp_array(n1, n2))
     !
-    CALL exchange_data(p_patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array) 
-    r1d => out_array(:,1,1,1,1)
-    CALL reorder(tmp_array, r1d)
-    !
-    DEALLOCATE(tmp_array)
+    IF (.NOT.my_process_is_mpi_seq()) THEN
+      n1 = SIZE(in_array, 1)
+      n2 = (p_patch%n_patch_cells_g-1)/n1+1
+      ALLOCATE(tmp_array(n1, n2))
+      CALL exchange_data(p_patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array) 
+      r1d => out_array(:,1,1,1,1)
+      CALL reorder(tmp_array, r1d)
+      DEALLOCATE(tmp_array)
+    ELSE
+      r1d => out_array(:,1,1,1,1)
+      CALL reorder(in_array, r1d)
+    ENDIF
 #else
     r1d => out_array(:,1,1,1,1)
     CALL reorder(in_array, r1d)
@@ -143,16 +146,19 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: tmp_array(:,:,:) 
     INTEGER :: n1, n2, n3
     !
-    n1 = SIZE(in_array, 1)
-    n2 = SIZE(in_array, 2)
-    n3 = (p_patch%n_patch_cells_g-1)/n1+1
-    ALLOCATE(tmp_array(n1, n2, n3))
-    !
-    CALL exchange_data(p_patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array) 
-    r2d => out_array(:,:,1,1,1)
-    CALL reorder(tmp_array, r2d)
-    !
-    DEALLOCATE(tmp_array)
+    IF (.NOT.my_process_is_mpi_seq()) THEN
+      n1 = SIZE(in_array, 1)
+      n2 = SIZE(in_array, 2)
+      n3 = (p_patch%n_patch_cells_g-1)/n1+1
+      ALLOCATE(tmp_array(n1, n2, n3))
+      CALL exchange_data(p_patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array) 
+      r2d => out_array(:,:,1,1,1)
+      CALL reorder(tmp_array, r2d)
+      DEALLOCATE(tmp_array)
+    ELSE
+      r2d => out_array(:,:,1,1,1)
+      CALL reorder(in_array, r2d)
+    ENDIF
 #else
     r2d => out_array(:,:,1,1,1)
     CALL reorder(in_array, r2d)
@@ -173,15 +179,18 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: tmp_array(:,:) 
     INTEGER :: n1, n2
     !
-    n1 = SIZE(in_array, 1)
-    n2 = (p_patch%n_patch_edges_g-1)/n1+1
-    ALLOCATE(tmp_array(n1, n2))
-    !
-    CALL exchange_data(p_patch%comm_pat_gather_e, RECV=tmp_array, SEND=in_array) 
-    r1d => out_array(:,1,1,1,1)
-    CALL reorder(tmp_array, r1d)
-    !
-    DEALLOCATE(tmp_array)
+    IF (.NOT.my_process_is_mpi_seq()) THEN
+      n1 = SIZE(in_array, 1)
+      n2 = (p_patch%n_patch_edges_g-1)/n1+1
+      ALLOCATE(tmp_array(n1, n2))
+      CALL exchange_data(p_patch%comm_pat_gather_e, RECV=tmp_array, SEND=in_array) 
+      r1d => out_array(:,1,1,1,1)
+      CALL reorder(tmp_array, r1d)
+      DEALLOCATE(tmp_array)
+    ELSE
+      r1d => out_array(:,1,1,1,1)
+      CALL reorder(in_array, r1d)
+    ENDIF
 #else
     r1d => out_array(:,1,1,1,1)
     CALL reorder(in_array, r1d)
@@ -202,16 +211,19 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: tmp_array(:,:,:) 
     INTEGER :: n1, n2, n3
     !
-    n1 = SIZE(in_array, 1)
-    n2 = SIZE(in_array, 2)
-    n3 = (p_patch%n_patch_edges_g-1)/n1+1
-    ALLOCATE(tmp_array(n1, n2, n3))
-    !
-    CALL exchange_data(p_patch%comm_pat_gather_e, RECV=tmp_array, SEND=in_array) 
-    r2d => out_array(:,:,1,1,1)
-    CALL reorder(tmp_array, r2d)
-    !
-    DEALLOCATE(tmp_array)
+    IF (.NOT.my_process_is_mpi_seq()) THEN
+      n1 = SIZE(in_array, 1)
+      n2 = SIZE(in_array, 2)
+      n3 = (p_patch%n_patch_edges_g-1)/n1+1
+      ALLOCATE(tmp_array(n1, n2, n3))
+      CALL exchange_data(p_patch%comm_pat_gather_e, RECV=tmp_array, SEND=in_array) 
+      r2d => out_array(:,:,1,1,1)
+      CALL reorder(tmp_array, r2d)
+      DEALLOCATE(tmp_array)
+    ELSE
+      r2d => out_array(:,:,1,1,1)
+      CALL reorder(in_array, r2d)
+    ENDIF
 #else
     r2d => out_array(:,:,1,1,1)
     CALL reorder(in_array, r2d)
@@ -232,15 +244,18 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: tmp_array(:,:) 
     INTEGER :: n1, n2
     !
-    n1 = SIZE(in_array, 1)
-    n2 = (p_patch%n_patch_verts_g-1)/n1+1
-    ALLOCATE(tmp_array(n1, n2))
-    !
-    CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
-    r1d => out_array(:,1,1,1,1)
-    CALL reorder(tmp_array, r1d)
-    !
-    DEALLOCATE(tmp_array)
+    IF (.NOT.my_process_is_mpi_seq()) THEN
+      n1 = SIZE(in_array, 1)
+      n2 = (p_patch%n_patch_verts_g-1)/n1+1
+      ALLOCATE(tmp_array(n1, n2))
+      CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
+      r1d => out_array(:,1,1,1,1)
+      CALL reorder(tmp_array, r1d)
+      DEALLOCATE(tmp_array)
+    ELSE
+      r1d => out_array(:,1,1,1,1)
+      CALL reorder(in_array, r1d)
+    ENDIF
 #else
     r1d => out_array(:,1,1,1,1)
     CALL reorder(in_array, r1d)
@@ -261,16 +276,19 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: tmp_array(:,:,:) 
     INTEGER :: n1, n2, n3
     !
-    n1 = SIZE(in_array, 1)
-    n2 = SIZE(in_array, 2)
-    n3 = (p_patch%n_patch_verts_g-1)/n1+1
-    ALLOCATE(tmp_array(n1, n2, n3))
-    !
-    CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
-    r2d => out_array(:,:,1,1,1)
-    CALL reorder(tmp_array, r2d)
-    !
-    DEALLOCATE(tmp_array)
+    IF (.NOT.my_process_is_mpi_seq()) THEN
+      n1 = SIZE(in_array, 1)
+      n2 = SIZE(in_array, 2)
+      n3 = (p_patch%n_patch_verts_g-1)/n1+1
+      ALLOCATE(tmp_array(n1, n2, n3))
+      CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
+      r2d => out_array(:,:,1,1,1)
+      CALL reorder(tmp_array, r2d)
+      DEALLOCATE(tmp_array)
+    ELSE
+      r2d => out_array(:,:,1,1,1)
+      CALL reorder(in_array, r2d)
+    ENDIF
 #else
     r2d => out_array(:,:,1,1,1)
     CALL reorder(in_array, r2d)
@@ -294,15 +312,18 @@ CONTAINS
     INTEGER, ALLOCATABLE :: tmp_array(:,:) 
     INTEGER :: n1, n2
     !
-    n1 = SIZE(in_array, 1)
-    n2 = (p_patch%n_patch_cells_g-1)/n1+1
-    ALLOCATE(tmp_array(n1, n2))
-    !
-    CALL exchange_data(p_patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array) 
-    i1d => out_array(:,1,1,1,1)
-    CALL reorder(tmp_array, i1d)
-    !
-    DEALLOCATE(tmp_array)
+    IF (.NOT.my_process_is_mpi_seq()) THEN
+      n1 = SIZE(in_array, 1)
+      n2 = (p_patch%n_patch_cells_g-1)/n1+1
+      ALLOCATE(tmp_array(n1, n2))
+      CALL exchange_data(p_patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array) 
+      i1d => out_array(:,1,1,1,1)
+      CALL reorder(tmp_array, i1d)
+      DEALLOCATE(tmp_array)
+    ELSE
+      i1d => out_array(:,1,1,1,1)
+      CALL reorder(in_array, i1d)
+    ENDIF
 #else
     i1d => out_array(:,1,1,1,1)
     CALL reorder(in_array, i1d)
@@ -323,16 +344,19 @@ CONTAINS
     INTEGER, ALLOCATABLE :: tmp_array(:,:,:) 
     INTEGER :: n1, n2, n3
     !
-    n1 = SIZE(in_array, 1)
-    n2 = SIZE(in_array, 2)
-    n3 = (p_patch%n_patch_cells_g-1)/n1+1
-    ALLOCATE(tmp_array(n1, n2, n3))
-    !
-    CALL exchange_data(p_patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array) 
-    i2d => out_array(:,:,1,1,1)
-    CALL reorder(tmp_array, i2d)
-    !
-    DEALLOCATE(tmp_array)
+    IF (.NOT.my_process_is_mpi_seq()) THEN
+      n1 = SIZE(in_array, 1)
+      n2 = SIZE(in_array, 2)
+      n3 = (p_patch%n_patch_cells_g-1)/n1+1
+      ALLOCATE(tmp_array(n1, n2, n3))
+      CALL exchange_data(p_patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array) 
+      i2d => out_array(:,:,1,1,1)
+      CALL reorder(tmp_array, i2d)
+      DEALLOCATE(tmp_array)
+    ELSE
+      i2d => out_array(:,:,1,1,1)
+      CALL reorder(in_array, i2d)
+    ENDIF
 #else
     i2d => out_array(:,:,1,1,1)
     CALL reorder(in_array, i2d)
@@ -353,15 +377,18 @@ CONTAINS
     INTEGER, ALLOCATABLE :: tmp_array(:,:) 
     INTEGER :: n1, n2
     !
-    n1 = SIZE(in_array, 1)
-    n2 = (p_patch%n_patch_edges_g-1)/n1+1
-    ALLOCATE(tmp_array(n1, n2))
-    !
-    CALL exchange_data(p_patch%comm_pat_gather_e, RECV=tmp_array, SEND=in_array) 
-    i1d => out_array(:,1,1,1,1)
-    CALL reorder(tmp_array, i1d)
-    !
-    DEALLOCATE(tmp_array)
+    IF (.NOT.my_process_is_mpi_seq()) THEN
+      n1 = SIZE(in_array, 1)
+      n2 = (p_patch%n_patch_edges_g-1)/n1+1
+      ALLOCATE(tmp_array(n1, n2))
+      CALL exchange_data(p_patch%comm_pat_gather_e, RECV=tmp_array, SEND=in_array) 
+      i1d => out_array(:,1,1,1,1)
+      CALL reorder(tmp_array, i1d)
+      DEALLOCATE(tmp_array)
+    ELSE
+      i1d => out_array(:,1,1,1,1)
+      CALL reorder(in_array, i1d)
+    ENDIF
 #else
     i1d => out_array(:,1,1,1,1)
     CALL reorder(in_array, i1d)
@@ -382,16 +409,19 @@ CONTAINS
     INTEGER, ALLOCATABLE :: tmp_array(:,:,:) 
     INTEGER :: n1, n2, n3
     !
-    n1 = SIZE(in_array, 1)
-    n2 = SIZE(in_array, 2)
-    n3 = (p_patch%n_patch_edges_g-1)/n1+1
-    ALLOCATE(tmp_array(n1, n2, n3))
-    !
-    CALL exchange_data(p_patch%comm_pat_gather_e, RECV=tmp_array, SEND=in_array) 
-    i2d => out_array(:,:,1,1,1)
-    CALL reorder(tmp_array, i2d)
-    !
-    DEALLOCATE(tmp_array)
+    IF (.NOT.my_process_is_mpi_seq()) THEN
+      n1 = SIZE(in_array, 1)
+      n2 = SIZE(in_array, 2)
+      n3 = (p_patch%n_patch_edges_g-1)/n1+1
+      ALLOCATE(tmp_array(n1, n2, n3))
+      CALL exchange_data(p_patch%comm_pat_gather_e, RECV=tmp_array, SEND=in_array) 
+      i2d => out_array(:,:,1,1,1)
+      CALL reorder(tmp_array, i2d)
+      DEALLOCATE(tmp_array)
+    ELSE
+      i2d => out_array(:,:,1,1,1)
+      CALL reorder(in_array, i2d)
+    ENDIF
 #else
     i2d => out_array(:,:,1,1,1)
     CALL reorder(in_array, i2d)
@@ -412,15 +442,18 @@ CONTAINS
     INTEGER, ALLOCATABLE :: tmp_array(:,:) 
     INTEGER :: n1, n2
     !
-    n1 = SIZE(in_array, 1)
-    n2 = (p_patch%n_patch_verts_g-1)/n1+1
-    ALLOCATE(tmp_array(n1, n2))
-    !
-    CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
-    i1d => out_array(:,1,1,1,1)
-    CALL reorder(tmp_array, i1d)
-    !
-    DEALLOCATE(tmp_array)
+    IF (.NOT.my_process_is_mpi_seq()) THEN
+      n1 = SIZE(in_array, 1)
+      n2 = (p_patch%n_patch_verts_g-1)/n1+1
+      ALLOCATE(tmp_array(n1, n2))
+      CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
+      i1d => out_array(:,1,1,1,1)
+      CALL reorder(tmp_array, i1d)
+      DEALLOCATE(tmp_array)
+    ELSE
+      i1d => out_array(:,1,1,1,1)
+      CALL reorder(in_array, i1d)
+    ENDIF
 #else
     i1d => out_array(:,1,1,1,1)
     CALL reorder(in_array, i1d)
@@ -441,16 +474,19 @@ CONTAINS
     INTEGER, ALLOCATABLE :: tmp_array(:,:,:) 
     INTEGER :: n1, n2, n3
     !
-    n1 = SIZE(in_array, 1)
-    n2 = SIZE(in_array, 2)
-    n3 = (p_patch%n_patch_verts_g-1)/n1+1
-    ALLOCATE(tmp_array(n1, n2, n3))
-    !
-    CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
-    i2d => out_array(:,:,1,1,1)
-    CALL reorder(tmp_array, i2d)
-    !
-    DEALLOCATE(tmp_array)
+    IF (.NOT.my_process_is_mpi_seq()) THEN
+      n1 = SIZE(in_array, 1)
+      n2 = SIZE(in_array, 2)
+      n3 = (p_patch%n_patch_verts_g-1)/n1+1
+      ALLOCATE(tmp_array(n1, n2, n3))
+      CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
+      i2d => out_array(:,:,1,1,1)
+      CALL reorder(tmp_array, i2d)
+      DEALLOCATE(tmp_array)
+    ELSE
+      i2d => out_array(:,:,1,1,1)
+      CALL reorder(in_array, i2d)
+    ENDIF
 #else
     i2d => out_array(:,:,1,1,1)
     CALL reorder(in_array, i2d)
@@ -474,15 +510,18 @@ CONTAINS
     LOGICAL, ALLOCATABLE :: tmp_array(:,:) 
     INTEGER :: n1, n2
     !
-    n1 = SIZE(in_array, 1)
-    n2 = (p_patch%n_patch_cells_g-1)/n1+1
-    ALLOCATE(tmp_array(n1, n2))
-    !
-    CALL exchange_data(p_patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array) 
-    l1d => out_array(:,1,1,1,1)
-    CALL reorder(tmp_array, l1d)
-    !
-    DEALLOCATE(tmp_array)
+    IF (.NOT.my_process_is_mpi_seq()) THEN
+      n1 = SIZE(in_array, 1)
+      n2 = (p_patch%n_patch_cells_g-1)/n1+1
+      ALLOCATE(tmp_array(n1, n2))
+      CALL exchange_data(p_patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array) 
+      l1d => out_array(:,1,1,1,1)
+      CALL reorder(tmp_array, l1d)
+      DEALLOCATE(tmp_array)
+    ELSE
+      l1d => out_array(:,1,1,1,1)
+      CALL reorder(in_array, l1d)
+    ENDIF
 #else
     l1d => out_array(:,1,1,1,1)
     CALL reorder(in_array, l1d)
@@ -503,16 +542,19 @@ CONTAINS
     LOGICAL, ALLOCATABLE :: tmp_array(:,:,:) 
     INTEGER :: n1, n2, n3
     !
-    n1 = SIZE(in_array, 1)
-    n2 = SIZE(in_array, 2)
-    n3 = (p_patch%n_patch_cells_g-1)/n1+1
-    ALLOCATE(tmp_array(n1, n2, n3))
-    !
-    CALL exchange_data(p_patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array) 
-    l2d => out_array(:,:,1,1,1)
-    CALL reorder(tmp_array, l2d)
-    !
-    DEALLOCATE(tmp_array)
+    IF (.NOT.my_process_is_mpi_seq()) THEN
+      n1 = SIZE(in_array, 1)
+      n2 = SIZE(in_array, 2)
+      n3 = (p_patch%n_patch_cells_g-1)/n1+1
+      ALLOCATE(tmp_array(n1, n2, n3))
+      CALL exchange_data(p_patch%comm_pat_gather_c, RECV=tmp_array, SEND=in_array) 
+      l2d => out_array(:,:,1,1,1)
+      CALL reorder(tmp_array, l2d)
+      DEALLOCATE(tmp_array)
+    ELSE
+      l2d => out_array(:,:,1,1,1)
+      CALL reorder(in_array, l2d)
+    ENDIF
 #else
     l2d => out_array(:,:,1,1,1)
     CALL reorder(in_array, l2d)
@@ -533,15 +575,18 @@ CONTAINS
     LOGICAL, ALLOCATABLE :: tmp_array(:,:) 
     INTEGER :: n1, n2
     !
-    n1 = SIZE(in_array, 1)
-    n2 = (p_patch%n_patch_edges_g-1)/n1+1
-    ALLOCATE(tmp_array(n1, n2))
-    !
-    CALL exchange_data(p_patch%comm_pat_gather_e, RECV=tmp_array, SEND=in_array) 
-    l1d => out_array(:,1,1,1,1)
-    CALL reorder(tmp_array, l1d)
-    !
-    DEALLOCATE(tmp_array)
+    IF (.NOT.my_process_is_mpi_seq()) THEN
+      n1 = SIZE(in_array, 1)
+      n2 = (p_patch%n_patch_edges_g-1)/n1+1
+      ALLOCATE(tmp_array(n1, n2))
+      CALL exchange_data(p_patch%comm_pat_gather_e, RECV=tmp_array, SEND=in_array) 
+      l1d => out_array(:,1,1,1,1)
+      CALL reorder(tmp_array, l1d)
+      DEALLOCATE(tmp_array)
+    ELSE
+      l1d => out_array(:,1,1,1,1)
+      CALL reorder(in_array, l1d)
+    ENDIF
 #else
     l1d => out_array(:,1,1,1,1)
     CALL reorder(in_array, l1d)
@@ -562,16 +607,19 @@ CONTAINS
     LOGICAL, ALLOCATABLE :: tmp_array(:,:,:) 
     INTEGER :: n1, n2, n3
     !
-    n1 = SIZE(in_array, 1)
-    n2 = SIZE(in_array, 2)
-    n3 = (p_patch%n_patch_edges_g-1)/n1+1
-    ALLOCATE(tmp_array(n1, n2, n3))
-    !
-    CALL exchange_data(p_patch%comm_pat_gather_e, RECV=tmp_array, SEND=in_array) 
-    l2d => out_array(:,:,1,1,1)
-    CALL reorder(tmp_array, l2d)
-    !
-    DEALLOCATE(tmp_array)
+    IF (.NOT.my_process_is_mpi_seq()) THEN
+      n1 = SIZE(in_array, 1)
+      n2 = SIZE(in_array, 2)
+      n3 = (p_patch%n_patch_edges_g-1)/n1+1
+      ALLOCATE(tmp_array(n1, n2, n3))
+      CALL exchange_data(p_patch%comm_pat_gather_e, RECV=tmp_array, SEND=in_array) 
+      l2d => out_array(:,:,1,1,1)
+      CALL reorder(tmp_array, l2d)
+      DEALLOCATE(tmp_array)
+    ELSE
+      l2d => out_array(:,:,1,1,1)
+      CALL reorder(in_array, l2d)
+    ENDIF
 #else
     l2d => out_array(:,:,1,1,1)
     CALL reorder(in_array, l2d)
@@ -592,15 +640,18 @@ CONTAINS
     LOGICAL, ALLOCATABLE :: tmp_array(:,:) 
     INTEGER :: n1, n2
     !
-    n1 = SIZE(in_array, 1)
-    n2 = (p_patch%n_patch_verts_g-1)/n1+1
-    ALLOCATE(tmp_array(n1, n2))
-    !
-    CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
-    l1d => out_array(:,1,1,1,1)
-    CALL reorder(tmp_array, l1d)
-    !
-    DEALLOCATE(tmp_array)
+    IF (.NOT.my_process_is_mpi_seq()) THEN
+      n1 = SIZE(in_array, 1)
+      n2 = (p_patch%n_patch_verts_g-1)/n1+1
+      ALLOCATE(tmp_array(n1, n2))
+      CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
+      l1d => out_array(:,1,1,1,1)
+      CALL reorder(tmp_array, l1d)
+      DEALLOCATE(tmp_array)
+    ELSE
+      l1d => out_array(:,1,1,1,1)
+      CALL reorder(in_array, l1d)
+    ENDIF
 #else
     l1d => out_array(:,1,1,1,1)
     CALL reorder(in_array, l1d)
@@ -621,16 +672,19 @@ CONTAINS
     LOGICAL, ALLOCATABLE :: tmp_array(:,:,:) 
     INTEGER :: n1, n2, n3
     !
-    n1 = SIZE(in_array, 1)
-    n2 = SIZE(in_array, 2)
-    n3 = (p_patch%n_patch_verts_g-1)/n1+1
-    ALLOCATE(tmp_array(n1, n2, n3))
-    !
-    CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
-    l2d => out_array(:,:,1,1,1)
-    CALL reorder(tmp_array, l2d)
-    !
-    DEALLOCATE(tmp_array)
+    IF (.NOT.my_process_is_mpi_seq()) THEN
+      n1 = SIZE(in_array, 1)
+      n2 = SIZE(in_array, 2)
+      n3 = (p_patch%n_patch_verts_g-1)/n1+1
+      ALLOCATE(tmp_array(n1, n2, n3))
+      CALL exchange_data(p_patch%comm_pat_gather_v, RECV=tmp_array, SEND=in_array) 
+      l2d => out_array(:,:,1,1,1)
+      CALL reorder(tmp_array, l2d)
+      DEALLOCATE(tmp_array)
+    ELSE
+      l2d => out_array(:,:,1,1,1)
+      CALL reorder(in_array, l2d)
+    ENDIF
 #else
     l2d => out_array(:,:,1,1,1)
     CALL reorder(in_array, l2d)
@@ -971,7 +1025,7 @@ CONTAINS
     !
     out_array(:,:) = 0.0_wp
     !
-    DO j = 1, SIZE(out_array)
+    DO j = 1, SIZE(global_index)
       jb = blk_no(j)
       jl = idx_no(j)
       out_array(jl,jb) = in_array(global_index(j))
@@ -991,7 +1045,7 @@ CONTAINS
     out_array(:,:,:) = 0.0_wp
     !
     DO jk = 1, SIZE(out_array,2)
-      DO j = 1, SIZE(out_array,1)*SIZE(out_array,3)
+      DO j = 1, SIZE(global_index)
         jb = blk_no(j)
         jl = idx_no(j)
         out_array(jl,jk,jb) = in_array(global_index(j),jk)
@@ -1014,7 +1068,7 @@ CONTAINS
     !
     out_array(:,:) = 0
     !
-    DO j = 1, SIZE(out_array)
+    DO j = 1, SIZE(global_index)
       jb = blk_no(j)
       jl = idx_no(j)
       out_array(jl,jb) = in_array(global_index(j))
@@ -1034,7 +1088,7 @@ CONTAINS
     out_array(:,:,:) = 0
     !
     DO jk = 1, SIZE(out_array,2)
-      DO j = 1, SIZE(out_array,1)*SIZE(out_array,3)
+      DO j = 1, SIZE(global_index)
         jb = blk_no(j)
         jl = idx_no(j)
         out_array(jl,jk,jb) = in_array(global_index(j),jk)
@@ -1057,7 +1111,7 @@ CONTAINS
     !
     out_array(:,:) = .FALSE.
     !
-    DO j = 1, SIZE(out_array)
+    DO j = 1, SIZE(global_index)
       jb = blk_no(j)
       jl = idx_no(j)
       out_array(jl,jb) = in_array(global_index(j))
@@ -1077,7 +1131,7 @@ CONTAINS
     out_array(:,:,:) = .FALSE.
     !
     DO jk = 1, SIZE(out_array,2)
-      DO j = 1, SIZE(out_array,1)*SIZE(out_array,3)
+      DO j = 1, SIZE(global_index)
         jb = blk_no(j)
         jl = idx_no(j)
         out_array(jl,jk,jb) = in_array(global_index(j),jk)

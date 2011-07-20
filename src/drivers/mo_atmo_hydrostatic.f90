@@ -75,6 +75,9 @@ CONTAINS
     LOGICAL :: lsuccess, l_have_output
     INTEGER :: n_io, n_file, n_diag, n_chkpt
     INTEGER :: jfile
+#ifndef NOMPI
+    INTEGER :: jg
+#endif
 
     CHARACTER(*), PARAMETER :: routine = "atmo_hydrostatic"
 
@@ -97,7 +100,14 @@ CONTAINS
     IF (lrestart) THEN
     ! This is an resumed integration. Read model state from restart file(s).
 
+#ifdef NOMPI
       CALL read_restart_files
+#else
+      jg = 1
+     !DO jg = n_dom_start,n_dom
+        CALL read_restart_files( p_patch(jg) )
+     !END DO
+#endif
       CALL message(TRIM(routine),'normal exit from read_restart_files')
 
       ! Initialize logical variables in echam physics state.

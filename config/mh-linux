@@ -57,7 +57,7 @@ load_modules=""
 #-----------------------------------------------------------------------------
 # cc is the gcc
 CC     = gcc
-CFLAGS = -std=c99 -march=native -O2 -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE
+CFLAGS = -std=gnu99 -march=native -O2 -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE
 
 case "$fortran_compiler" in
     default|gcc)
@@ -154,7 +154,7 @@ case "$fortran_compiler" in
     sun-debug)
         config_compiler=sun_debug
         CC          = gcc
-        CFLAGS      = -O -DsunFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -std=c99
+        CFLAGS      = -O -DsunFortran -DHAVE_LIBNETCDF -DHAVE_CF_INTERFACE -std=gnu99
         FC          = sunf95
         F77         = sunf95
         FFLAGS      = -O0 -fpp -fstore -fnonstd -g -C -XList  -D__BOUNDCHECK -DUSE_CRAY_POINTER=0
