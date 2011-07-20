@@ -393,7 +393,8 @@ CONTAINS
       CALL decompose_atmo_domain( locean=.FALSE. )
       
     ENDIF
-    
+
+    ! Note: fro this point the p_patch is used
     ! In case of a test run: Copy processor splitting to test PE
     IF(p_test_run) CALL copy_processor_splitting(p_patch)
     
@@ -421,16 +422,16 @@ CONTAINS
     SELECT CASE (iequations)
     
     CASE (ishallow_water)
-      CALL init_vertical_coord_table(iequations, p_patch_global(1)%nlev)
+      CALL init_vertical_coord_table(iequations, p_patch(1)%nlev)
       
     CASE (ihs_atm_temp, ihs_atm_theta)
-      CALL init_vertical_coord_table(iequations, p_patch_global(1)%nlev)
+      CALL init_vertical_coord_table(iequations, p_patch(1)%nlev)
       
     CASE (inh_atmosphere)
       IF (ivctype == 1) THEN
-        CALL init_hybrid_coord(iequations, p_patch_global(1)%nlev)
+        CALL init_hybrid_coord(iequations, p_patch(1)%nlev)
       ELSE IF (ivctype == 2) THEN
-        CALL init_sleve_coord(p_patch_global(1)%nlev)
+        CALL init_sleve_coord(p_patch(1)%nlev)
       ENDIF
     CASE DEFAULT
     END SELECT

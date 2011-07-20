@@ -169,7 +169,7 @@ CONTAINS
       
     ! get here the nroot, eventually it should be moved into the patch info
     nroot = get_grid_root(dynamics_grid_filename(1))
-    write(0,*) "   nroot = ", nroot
+!     write(0,*) "   nroot = ", nroot
         
     IF (no_of_radiation_grids > 0) THEN
       n_dom_start = 0
