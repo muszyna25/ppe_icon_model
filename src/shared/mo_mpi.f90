@@ -772,6 +772,7 @@ CONTAINS
     ! In case of test run, only the test process is stdio
     process_is_stdio = (my_process_mpi_all_id == process_mpi_stdio_id)
     process_is_mpi_parallel = (num_work_procs > 1)
+    IF (my_process_is_mpi_test()) process_is_mpi_parallel = .false.
 
     ! still to be filled
     process_mpi_local_comm  = process_mpi_all_comm
