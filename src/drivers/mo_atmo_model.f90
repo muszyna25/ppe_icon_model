@@ -273,15 +273,16 @@ CONTAINS
     !---------------------------------------------------------------------
     CALL configure_run
 
-    !-------------------------------------------------------------------
-    ! 3.1 Initialize various timers; initialize data and time 
-    !-------------------------------------------------------------------
-    IF (ltimer) CALL init_timer
 
     !-------------------------------------------------------------------
-    ! 3.2 Initialize the mpi work groups
+    ! 3.1 Initialize the mpi work groups
     !-------------------------------------------------------------------
     CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs)
+
+    !-------------------------------------------------------------------
+    ! 3.2 Initialize various timers; initialize data and time
+    !-------------------------------------------------------------------
+    IF (ltimer) CALL init_timer
 
     !------------------
     ! Next, define the horizontal and vertical grids since they are aready
