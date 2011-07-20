@@ -1,5 +1,7 @@
 #-----------------------------------------------------------------------------
-
+# check if the nested grids have been created
+# currently they should be presetn in all machines, except maybe on the NEC
+#
 nested_grids=$(ls ../grids/iconR2B05_DOM02.nc)
 if [[ "x$nested_grids" != "x../grids/iconR2B05_DOM02.nc" ]] ; then
   echo "Try to copy grids generated for a different compiler"
@@ -15,9 +17,10 @@ if [[ "x$nested_grids" != "x../grids/iconR2B05_DOM02.nc" ]] ; then
   fi
 fi
 #-----------------------------------------------------------------------------
+
 #=============================================================================
 #
-# This section of the run script containes the specifications of the experiment.
+# This section of the run script contains the specifications of the experiment.
 # The specifications are passed by namelist to the program.
 # For a complete list see Namelist_overview.pdf
 #
@@ -45,6 +48,41 @@ if [[ ${mpi_procs} = 2 ]]; then
   START=${START%2}3
 fi
 #
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#
+#-----------------------------------------------------------------------------
+# the namelist filename
+atmo_namelist=NAMELIST_${EXPNAME}
+#
+#-----------------------------------------------------------------------------
+# the grid files
+atmo_dyn_grids="iconR2B04_DOM01.nc iconR2B05_DOM02.nc"
+atmo_dyn_hierarchy="0                1"
+atmo_rad_grids="iconR2B03_DOM00.nc"
+atmo_grids="${atmo_dyn_grids} ${atmo_rad_grids}"
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date="2008-09-01T00:00:00Z"
+ndays_restart=60
+dt_restart=`expr ${ndays_restart} \* 86400`
+#
+#-----------------------------------------------------------------------------
+# model timing
+dtime=120
+ndays=10
+nsteps=`expr ${ndays} \* 86400 / ${dtime}`
+nsteps=50
+dt_data=`expr ${dtime} \* ${nsteps}`   # data output at the end of the integration
+#
+#-----------------------------------------------------------------------------
+
+
+
 # These values need to be stored in variables, which are needed to 
 # construct filenames  or directories:
 # 
@@ -64,11 +102,6 @@ IEQ=3             # equation system
 #                     3=non-hydrost. atm., 
 #                     0=shallow water model
 #                    -1=hydrost. ocean
-#
-#
-DTIME=120         # time step in seconds
-NSTEPS=50         # number of time steps to run
-DT_DATA=`expr ${DTIME} \* ${NSTEPS}`   # data output at the end of the integration
 #
 #-----------------------------------------------------------------------------
 #
