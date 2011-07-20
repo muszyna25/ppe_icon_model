@@ -325,6 +325,10 @@ CONTAINS
       ! same way as it would be set in parallel_nml_setup when
       ! no restore is wanted:
       CALL set_comm_input_bcast()
+    ELSE
+        CALL import_patches( p_patch_global,                       &
+                            nlev,nlevp1,num_lev,num_levp1,nshift, &
+                            locean=.FALSE. )      
     ENDIF
 
     !--------------------------------------------------------------------------------
