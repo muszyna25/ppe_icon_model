@@ -150,7 +150,6 @@ CONTAINS
 
     ! read the A and B parameters of the vertical coordinate
 
-!     write(0,*) 'init_vertical_coord_table, klev:', klev
     CALL read_vct(iequations,klev)
 
     CALL message('vertical_coord_table:init_vertical_coord', '')
@@ -237,7 +236,6 @@ CONTAINS
     IF(ist/=success)THEN
       CALL finish (TRIM(routine), 'open vertical coordinate table file failed')
     ENDIF
-    WRITE(0,*)'vertical file is',vct_file, iequations
 
     ! Skip header line
     READ (iunit,*,IOSTAT=ist) line

@@ -116,7 +116,8 @@ CONTAINS
         CALL message('','')
 
       CASE DEFAULT
-        CALL finish(TRIM(routine),'Invalid test case with ECHAM6 physics')
+        CALL message(TRIM(routine),'Testcase = '//TRIM(ctest_name))
+        CALL finish (TRIM(routine),'Invalid test case with ECHAM6 physics')
       END SELECT
     ENDIF
 
