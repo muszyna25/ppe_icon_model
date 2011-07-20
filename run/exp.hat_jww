@@ -35,7 +35,8 @@ atmo_grids=$atmo_dyn_grids
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2008-09-01T00:00:00Z"
-dt_restart=6000.0
+ndays_restart=60
+dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -46,6 +47,10 @@ nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 #-----------------------------------------------------------------------------
 # model parameters
 IEQ=1             # equation system
+#                     1=hydrost. atm.
+#                     2=non-hydrost. atm., 
+#                    -1=shallow water model
+#                    -2=hydrost. ocean
 B=4               # number of bisections applied for the global grid
 N=31              # nlev = number of full levels
 #-----------------------------------------------------------------------------
