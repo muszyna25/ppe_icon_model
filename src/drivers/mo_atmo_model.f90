@@ -255,7 +255,6 @@ CONTAINS
     ! 1.1 Read namelists (newly) specified by the user; fill the 
     !     corresponding sections of the configuration states.
     !---------------------------------------------------------------------
-    WRITE(0,*) 'we are in atmo now'
 
     CALL read_atmo_namelists(atm_namelist_filename,shr_namelist_filename)
 
@@ -447,11 +446,11 @@ CONTAINS
     CALL configure_diffusion( n_dom, dynamics_parent_grid_id, &
                             & nlev, vct_a, vct_b, apzero      )
 
-   !DO jg =1,n_dom
-   !  CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,      &
-   !    &                      iequations, iforcing, iqv, kstart_moist(jg), &
-   !    &                      kstart_qv(jg), lvert_nest, l_open_ubc, ntracer ) 
-   !ENDDO
+    DO jg =1,n_dom
+     CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,      &
+       &                      iequations, iforcing, iqv, kstart_moist(jg), &
+       &                      kstart_qv(jg), lvert_nest, l_open_ubc, ntracer ) 
+   ENDDO
 
     !------------------------------------------------------------------
     ! 10. Create and optionally read external data fields
@@ -869,12 +868,12 @@ CONTAINS
     IF (ltransport) THEN
       CALL setup_transport( iequations )
 
-      DO jg = 1, n_dom
-        CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,     &
-          &                      iequations, iforcing, iqv, kstart_moist(jg),&
-          &                      kstart_qv(jg), lvert_nest, l_open_ubc,      &
-          &                      ntracer  ) 
-      ENDDO
+   !   DO jg = 1, n_dom
+   !     CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,     &
+   !       &                      iequations, iforcing, iqv, kstart_moist(jg),&
+   !       &                      kstart_qv(jg), lvert_nest, l_open_ubc,      &
+   !       &                      ntracer  ) 
+   !   ENDDO
     ENDIF
     
     !------------------------------------------------------------------

@@ -59,7 +59,9 @@ MODULE mo_atm_nml_crosscheck
   USE mo_parallel_config, ONLY: check_parallel_configuration
   USE mo_run_config,          ONLY: lrestore_states, nsteps, dtime, iforcing,  &
     &                               ltransport, ntracer, nlev, io3, ltestcase, &
-    &                               iqcond, ntracer_static
+    &                               iqcond, ntracer_static,&
+    &                               iqv, iqc, iqi, iqs, iqr, iqcond, iqt, io3, &
+    &                               ico2
                                   
   USE mo_io_config
   USE mo_gridref_config
@@ -389,13 +391,13 @@ CONTAINS
     ! NWP physics
     !--------------------------------------------------------------------
     IF (iforcing==inwp) THEN
-      DO jg =1,n_dom
+ 
+     DO jg =1,n_dom
 
-        IF( (atm_phy_nwp_config(jg)%inwp_convection >0 ) .OR. &
-            (atm_phy_nwp_config(jg)%inwp_gscp > 0)       .AND.&
-             atm_phy_nwp_config(jg)%inwp_satad == 0)&
-         & CALL finish( TRIM(routine),'satad has to be switched on')
-
+        IF( atm_phy_nwp_config(jg)%inwp_satad == 0       .AND. &
+          & ((atm_phy_nwp_config(jg)%inwp_convection >0 ) .OR. &
+          &  (atm_phy_nwp_config(jg)%inwp_gscp > 0      )    ) ) &
+        &  CALL finish( TRIM(routine),'satad has to be switched on')
 
          IF( MOD( REAL(  iadv_rcf,wp)*dtime, &
            &         atm_phy_nwp_config(jg)%dt_conv) /= 0._wp )  THEN
@@ -444,6 +446,46 @@ CONTAINS
     !--------------------------------------------------------------------
     ! Tracers and diabatic forcing
     !--------------------------------------------------------------------
+
+    !--------------------------------------------------------------------
+    ! Tracer indices need to be set before further checking
+    !--------------------------------------------------------------------
+
+    SELECT CASE(iforcing)
+    CASE (IECHAM,ILDF_ECHAM)
+
+      iqv    = 1     !> water vapour
+      iqc    = 2     !! cloud water
+      iqi    = 3     !! ice
+      iqcond = iqi   !! index of last hydrometeor to ease summation over all of them
+      iqt    = 4     !! starting index of non-water species 
+      io3    = 5     !! O3
+      ico2   = 6     !! CO2
+
+    CASE (INWP)
+
+      iqv    = 1     !> water vapour
+      iqc    = 2     !! cloud water
+      iqi    = 3     !! ice
+      iqr    = 4     !! rain water
+      iqs    = 5     !! snow
+      iqcond = iqs   !! index of last hydrometeor to ease summation over all of them
+      io3    = 6     !! O3
+      ico2   = 7     !! CO2
+      iqt    = 6     !! start index of other tracers than hydrometeors
+
+    CASE default
+
+      iqv    = 1     !> water vapour
+      iqc    = 2     !! cloud water
+      iqi    = 3     !! ice
+      iqcond = iqi   !! index of last hydrometeor to ease summation over all of them
+      iqt    = 4     !! starting index of non-water species
+      io3    = 5     !! O3
+      ico2   = 6     !! CO2
+
+    END SELECT
+
     IF (ltransport) THEN
     DO jg = 1,n_dom
 
@@ -534,23 +576,24 @@ CONTAINS
           END SELECT
         END SELECT
 
+!KF comment out temporarly since physics should run without advection
 
-        IF ( ( atm_phy_nwp_config(jg)%inwp_radiation > 0 )      &
-          &  .AND. (irad_o3==0 .OR. irad_o3==6) )         THEN
-          IF ( advection_config(jg)%ihadv_tracer(io3) /= 0 ) THEN
-            advection_config(jg)%ihadv_tracer(io3) = 0
-            WRITE(message_text,'(a,i1,a)') &
-              & 'Attention: Since irad_o3 is set to ',irad_o3,', ihadv_tracer(io3) is set to 0.'
-            CALL message(TRIM(routine),message_text)
-          ENDIF
-          IF ( advection_config(jg)%ivadv_tracer(io3) /= 0 ) THEN
-            advection_config(jg)%ivadv_tracer(io3) = 0
-            WRITE(message_text,'(a,i1,a)') &
-              & 'Attention: Since irad_o3 is set to ',irad_o3,', ivadv_tracer(io3) is set to 0.'
-            CALL message(TRIM(routine),message_text)
-          ENDIF
-        ENDIF
-
+!        IF ( ( atm_phy_nwp_config(jg)%inwp_radiation > 0 )      &
+!          &  .AND. (irad_o3==0 .OR. irad_o3==6) )         THEN
+!          IF ( advection_config(jg)%ihadv_tracer(io3) /= 0 ) THEN
+!            advection_config(jg)%ihadv_tracer(io3) = 0
+!            WRITE(message_text,'(a,i1,a)') &
+!              & 'Attention: Since irad_o3 is set to ',irad_o3,', ihadv_tracer(io3) is set to 0.'
+!            CALL message(TRIM(routine),message_text)
+!          ENDIF
+!          IF ( advection_config(jg)%ivadv_tracer(io3) /= 0 ) THEN
+!            advection_config(jg)%ivadv_tracer(io3) = 0
+!            WRITE(message_text,'(a,i1,a)') &
+!              & 'Attention: Since irad_o3 is set to ',irad_o3,', ivadv_tracer(io3) is set to 0.'
+!            CALL message(TRIM(routine),message_text)
+!          ENDIF
+!        ENDIF
+!
 
       CASE (inoforcing, iheldsuarez, iecham, ildf_dry, ildf_echam)
       !...........................................................

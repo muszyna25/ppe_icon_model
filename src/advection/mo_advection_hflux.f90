@@ -603,6 +603,7 @@ CONTAINS
     !             with    flux limiter following Zalesak (1979)
     !
 
+    WRITE(0,*)'ldcompute=', ld_compute
     IF ( ld_compute ) THEN
       ! allocate temporary arrays for distance vectors and upwind cells
       ALLOCATE( z_distv_bary(nproma,nlev,p_patch%nblks_e,2),             &

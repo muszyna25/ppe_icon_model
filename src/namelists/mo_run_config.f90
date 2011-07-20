@@ -133,48 +133,12 @@ CONTAINS
       lforcing = .FALSE.
     END SELECT
 
-    !----------------
-    ! Tracer indices
-
-    SELECT CASE(iforcing)
-    CASE (IECHAM,ILDF_ECHAM)
-
-      iqv    = 1     !> water vapour
-      iqc    = 2     !! cloud water
-      iqi    = 3     !! ice
-      iqcond = iqi   !! index of last hydrometeor to ease summation over all of them
-      iqt    = 4     !! starting index of non-water species 
-      io3    = 5     !! O3
-      ico2   = 6     !! CO2
-
-    CASE (INWP)
-
-      iqv    = 1     !> water vapour
-      iqc    = 2     !! cloud water
-      iqi    = 3     !! ice
-      iqr    = 4     !! rain water
-      iqs    = 5     !! snow
-      iqcond = iqs   !! index of last hydrometeor to ease summation over all of them
-      io3    = 6     !! O3
-      ico2   = 7     !! CO2
-      iqt    = 6     !! start index of other tracers than hydrometeors
-
-    CASE default
-
-      iqv    = 1     !> water vapour
-      iqc    = 2     !! cloud water
-      iqi    = 3     !! ice
-      iqcond = iqi   !! index of last hydrometeor to ease summation over all of them
-      iqt    = 4     !! starting index of non-water species
-      io3    = 5     !! O3
-      ico2   = 6     !! CO2
-
-    END SELECT
-
    !!--------------------------
    !! Number of static tracers
 
    !ntracer_static = 0
+
+    WRITE(0,*)'configure run ntracer=',ntracer
 
   END SUBROUTINE configure_run
 
