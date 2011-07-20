@@ -214,21 +214,15 @@ CONTAINS
     !--------------------------------------------------------------------
     ! Tracer transport
     !--------------------------------------------------------------------
+    ! General
 
-    ! Special check for hexagonal grid
-    ! 
-    SELECT CASE (global_cell_type)
-    CASE (6)
-      ! 3rd order upwind horizontal advection scheme
-      advection_config(jg)%ihadv_tracer(:) = iup3
-      ! semi monotonous flux limiter
-      advection_config(jg)%itype_hlimit(:) = ifluxl_sm
-      WRITE(message_text,'(a)') 'Attention: on the hexagonal grid, ',              &
-        &  'ihadv_tracer(:) = iup3 and itype_hlimit(:) = ifluxl_sm are the only ', &
-        &  'possible settings. Please adjust your namelist settings accordingly'
-      CALL message(TRIM(routine),message_text)
-    END SELECT
+    IF(ltransport .AND. ntracer <= 0) THEN
+      CALL finish( TRIM(routine),'Tracer transport switched on but ntracer <= 0')
+    ENDIF
 
+    IF (.NOT.ltransport .AND. ntracer > 0) &
+      CALL finish( TRIM(routine),          &
+      'either set ltransport = true or ntracer to 0 ')
 
     IF((itime_scheme==tracer_only).AND.(.NOT.ltransport)) THEN
       WRITE(message_text,'(A,i2,A)') &
@@ -236,168 +230,73 @@ CONTAINS
       CALL finish( TRIM(routine),TRIM(message_text))
     END IF
 
-    IF(ltransport .AND. ntracer <= 0) THEN
-      CALL finish( TRIM(routine),'Tracer transport switched on but ntracer <= 0')
-      ! [for nwp forcing ntracer setting is treated in setup_transport]
-    ENDIF
 
+    IF (ltransport) THEN
+    DO jg = 1,n_dom
+
+      !---------------------------------------
+      ! Special check for the hexagonal model
+
+      SELECT CASE (global_cell_type)
+      CASE (6)
+        ! 3rd order upwind horizontal advection scheme
+        advection_config(jg)%ihadv_tracer(:) = iup3
+        ! semi monotonous flux limiter
+        advection_config(jg)%itype_hlimit(:) = ifluxl_sm
+        WRITE(message_text,'(a)') 'Attention: on the hexagonal grid, ',              &
+          &  'ihadv_tracer(:) = iup3 and itype_hlimit(:) = ifluxl_sm are the only ', &
+          &  'possible settings. Please adjust your namelist settings accordingly'
+        CALL message(TRIM(routine),message_text)
+      END SELECT
+
+      !----------------------------------------------
+      ! Flux compuation methods - consistency check
+
+      SELECT CASE (global_cell_type)
+      CASE (3)
+        IF ( ANY(advection_config(jg)%ihadv_tracer(1:ntracer) > 3))   THEN
+          CALL finish( TRIM(routine),                                       &
+               'incorrect settings for TRI-C grid ihadv_tracer. Must be 0,1,2, or 3 ')
+        ENDIF
+      CASE (6)
+        IF (ANY(advection_config(jg)%ihadv_tracer(1:ntracer) == 2) .OR.     &
+         &  ANY(advection_config(jg)%ihadv_tracer(1:ntracer) == 3))   THEN 
+          CALL finish( TRIM(routine),                                       &
+               'incorrect settings for HEX-C grid ihadv_tracer. Must be 0,1, or 4 ')
+        ENDIF
+      END SELECT
+
+
+      !----------------------------------------------
+      ! Limiter - consistency check
+
+      IF (global_cell_type == 6) THEN
+        IF ( ANY(advection_config(jg)%itype_hlimit(1:ntracer) == islopel_sm ) .OR.   &
+          &  ANY(advection_config(jg)%itype_hlimit(1:ntracer) == islopel_m  ) .OR.   &
+          &  ANY(advection_config(jg)%itype_hlimit(1:ntracer) == ifluxl_m   )) THEN
+          CALL finish( TRIM(routine),                                     &
+           'incorrect settings for itype_hlimit and hexagonal grid. Must be 0 or 4 ')
+        ENDIF
+      ENDIF
+
+    END DO ! jg = 1,n_dom
+    END IF ! ltransport
+
+    !...........................................................
+    ! Tracers and diabatic forcing
+    !...........................................................
     SELECT CASE (iforcing)
     CASE(IECHAM,ILDF_ECHAM)
+
       IF (ntracer < 3) &
       CALL finish(TRIM(routine),'ECHAM physics needs at least 3 tracers')
 
     CASE(INWP)
+
       IF (ntracer < 5) &
       CALL finish(TRIM(routine),'NWP physics needs at least 3 tracers')
+
     END SELECT
-
-
-  IF (ltransport) THEN
-
-    i_listlen = LEN_TRIM(advection_config(jg)%ctracer_list)
-
-    SELECT CASE ( iforcing )
-    CASE ( INWP )
-      
-      SELECT CASE (atm_phy_nwp_config(jg)%inwp_radiation)
-      CASE (0)
-        IF ( ntracer /= iqcond ) THEN
-          ntracer = iqcond
-          WRITE(message_text,'(a,i3)') 'Attention: according to physics, ntracer is set to',iqcond
-          CALL message(TRIM(routine),message_text)
-        ENDIF
-        IF ( i_listlen /= iqcond ) THEN
-          DO jt=1,ntracer
-            WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
-          ENDDO
-          WRITE(message_text,'(a)') &
-            & 'Attention: according to physics, ctracer_list is set to ',&
-            & advection_config(jg)%ctracer_list(1:ntracer)
-          CALL message(TRIM(routine),message_text)
-        ENDIF
-      CASE (1)
-        ntracer_static = 1
-        IF ( ntracer /= iqcond ) THEN
-          ntracer = iqcond
-          WRITE(message_text,'(a,i3)') &
-            &  'Attention: according to physics, ntracer is set to', iqcond   
-          CALL message(TRIM(routine),message_text)
-          WRITE(message_text,'(a)') &
-            &  'In addition, there is one static tracer for O3'
-          CALL message(TRIM(routine),message_text)
-        ENDIF
-        IF ( i_listlen /= ntracer ) THEN
-          DO jt=1,ntracer
-            WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
-          ENDDO
-          WRITE(message_text,'(a)') &
-            & 'Attention: according to physics, ctracer_list is set to ',&
-            &   advection_config(jg)%ctracer_list(1:ntracer)
-          CALL message(TRIM(routine),message_text)
-        ENDIF
-      CASE (2)
-        SELECT CASE (irad_o3)
-        CASE (0)
-          IF ( ntracer /= iqcond  ) THEN
-            ntracer = iqcond
-            WRITE(message_text,'(a,i3)') &
-              &  'Attention: according to physics, ntracer is set to', iqcond      
-            CALL message(TRIM(routine),message_text)
-          ENDIF
-          IF ( i_listlen /= ntracer ) THEN
-            DO jt=1,ntracer
-              WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
-            ENDDO
-            WRITE(message_text,'(a)') &
-              & 'Attention: according to physics, ctracer_list is set to ', &
-              &  advection_config(jg)%ctracer_list(1:ntracer)
-            CALL message(TRIM(routine),message_text)
-          ENDIF
-        CASE (6)
-          ntracer_static = 1
-          IF ( ntracer /= iqcond  ) THEN
-            ntracer = iqcond
-            WRITE(message_text,'(a,i3)') &
-              &  'Attention: according to physics, ntracer is set to', iqcond
-            CALL message(TRIM(routine),message_text)           
-            WRITE(message_text,'(a)') &
-              &  'In addition, there is one static tracer for O3'
-            CALL message(TRIM(routine),message_text)           
-          ENDIF
-          IF ( i_listlen /= ntracer ) THEN
-            DO jt=1,ntracer
-              WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
-            ENDDO
-            WRITE(message_text,'(a)') &
-              & 'Attention: according to physics with radiation and O3 ', &
-              &  'ctracer_list is set to ', &
-              &  advection_config(jg)%ctracer_list(1:ntracer)
-            CALL message(TRIM(routine),message_text)
-          ENDIF
-        END SELECT
-      END SELECT
-
-
-      IF ( ( atm_phy_nwp_config(jg)%inwp_radiation > 0 )      &
-        &  .AND. (irad_o3==0 .OR. irad_o3==6) )         THEN
-        IF ( advection_config(jg)%ihadv_tracer(io3) /= 0 ) THEN
-          advection_config(jg)%ihadv_tracer(io3) = 0
-          WRITE(message_text,'(a,i1,a)') &
-            & 'Attention: Since irad_o3 is set to ',irad_o3,', ihadv_tracer(io3) is set to 0.'
-          CALL message(TRIM(routine),message_text)
-        ENDIF
-        IF ( advection_config(jg)%ivadv_tracer(io3) /= 0 ) THEN
-          advection_config(jg)%ivadv_tracer(io3) = 0
-          WRITE(message_text,'(a,i1,a)') &
-            & 'Attention: Since irad_o3 is set to ',irad_o3,', ivadv_tracer(io3) is set to 0.'
-          CALL message(TRIM(routine),message_text)
-        ENDIF
-      ENDIF
-
-
-    CASE (inoforcing, iheldsuarez, iecham, ildf_dry, ildf_echam)
-    
-      IF ( i_listlen < ntracer .AND. i_listlen /= 0 ) THEN
-        ntracer = i_listlen
-        CALL message(TRIM(routine),'number of tracers is adjusted according to given list')
-      END IF
-    
-    END SELECT
-
-
-    ! flux compuation methods - consistency check
-    !
-    SELECT CASE (global_cell_type)
-    CASE (3)
-      IF ( ANY(advection_config(jg)%ihadv_tracer(1:ntracer) > 3))   THEN
-        CALL finish( TRIM(routine),                                       &
-             'incorrect settings for TRI-C grid ihadv_tracer. Must be 0,1,2, or 3 ')
-      ENDIF
-    CASE (6)
-      IF (ANY(advection_config(jg)%ihadv_tracer(1:ntracer) == 2) .OR.     &
-       &  ANY(advection_config(jg)%ihadv_tracer(1:ntracer) == 3))   THEN 
-        CALL finish( TRIM(routine),                                       &
-             'incorrect settings for HEX-C grid ihadv_tracer. Must be 0,1, or 4 ')
-      ENDIF
-    END SELECT
-
-
-    ! limiter - consistency check
-    !
-    IF (global_cell_type == 6) THEN
-      IF ( ANY(advection_config(jg)%itype_hlimit(1:ntracer) == islopel_sm ) .OR.   &
-        &  ANY(advection_config(jg)%itype_hlimit(1:ntracer) == islopel_m  ) .OR.   &
-        &  ANY(advection_config(jg)%itype_hlimit(1:ntracer) == ifluxl_m   )) THEN
-        CALL finish( TRIM(routine),                                     &
-         'incorrect settings for itype_hlimit and hexagonal grid. Must be 0 or 4 ')
-      ENDIF
-    ENDIF
-
-  END IF ! ltransport
-
-  IF (.NOT. ltransport .AND. ntracer > 0) &
-    CALL finish( TRIM(routine),                                     &
-         ' either set ltransport = true or ntracer to 0 ')
 
     !--------------------------------------------------------------------
     ! Grid and dynamics
@@ -541,6 +440,132 @@ CONTAINS
       CALL print_value('ntracer' ,ntracer)
       CALL finish(TRIM(routine), 'Not enough tracers for ECHAM physics with RRTM.')
     END IF
+
+    !--------------------------------------------------------------------
+    ! Tracers and diabatic forcing
+    !--------------------------------------------------------------------
+    IF (ltransport) THEN
+    DO jg = 1,n_dom
+
+      i_listlen = LEN_TRIM(advection_config(jg)%ctracer_list)
+
+      SELECT CASE ( iforcing )
+      CASE ( INWP )
+      !...........................................................
+      ! in NWP physics
+      !...........................................................
+        
+        SELECT CASE (atm_phy_nwp_config(jg)%inwp_radiation)
+        CASE (0)
+          IF ( ntracer /= iqcond ) THEN
+            ntracer = iqcond
+            WRITE(message_text,'(a,i3)') 'Attention: for NWP physics, '//&
+                                         'ntracer is set to',iqcond
+            CALL message(TRIM(routine),message_text)
+          ENDIF
+          IF ( i_listlen /= iqcond ) THEN
+            DO jt=1,ntracer
+              WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
+            ENDDO
+            WRITE(message_text,'(a)') &
+              & 'Attention: according to physics, ctracer_list is set to ',&
+              & advection_config(jg)%ctracer_list(1:ntracer)
+            CALL message(TRIM(routine),message_text)
+          ENDIF
+        CASE (1)
+          ntracer_static = 1
+          IF ( ntracer /= iqcond ) THEN
+            ntracer = iqcond
+            WRITE(message_text,'(a,i3)') &
+              &  'Attention: according to physics, ntracer is set to', iqcond   
+            CALL message(TRIM(routine),message_text)
+            WRITE(message_text,'(a)') &
+              &  'In addition, there is one static tracer for O3'
+            CALL message(TRIM(routine),message_text)
+          ENDIF
+          IF ( i_listlen /= ntracer ) THEN
+            DO jt=1,ntracer
+              WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
+            ENDDO
+            WRITE(message_text,'(a)') &
+              & 'Attention: according to physics, ctracer_list is set to ',&
+              &   advection_config(jg)%ctracer_list(1:ntracer)
+            CALL message(TRIM(routine),message_text)
+          ENDIF
+        CASE (2)
+          SELECT CASE (irad_o3)
+          CASE (0)
+            IF ( ntracer /= iqcond  ) THEN
+              ntracer = iqcond
+              WRITE(message_text,'(a,i3)') &
+                &  'Attention: according to physics, ntracer is set to', iqcond      
+              CALL message(TRIM(routine),message_text)
+            ENDIF
+            IF ( i_listlen /= ntracer ) THEN
+              DO jt=1,ntracer
+                WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
+              ENDDO
+              WRITE(message_text,'(a)') &
+                & 'Attention: according to physics, ctracer_list is set to ', &
+                &  advection_config(jg)%ctracer_list(1:ntracer)
+              CALL message(TRIM(routine),message_text)
+            ENDIF
+          CASE (6)
+            ntracer_static = 1
+            IF ( ntracer /= iqcond  ) THEN
+              ntracer = iqcond
+              WRITE(message_text,'(a,i3)') &
+                &  'Attention: according to physics, ntracer is set to', iqcond
+              CALL message(TRIM(routine),message_text)           
+              WRITE(message_text,'(a)') &
+                &  'In addition, there is one static tracer for O3'
+              CALL message(TRIM(routine),message_text)           
+            ENDIF
+            IF ( i_listlen /= ntracer ) THEN
+              DO jt=1,ntracer
+                WRITE(advection_config(jg)%ctracer_list(jt:jt),'(i1.1)')jt
+              ENDDO
+              WRITE(message_text,'(a)') &
+                & 'Attention: according to physics with radiation and O3 ', &
+                &  'ctracer_list is set to ', &
+                &  advection_config(jg)%ctracer_list(1:ntracer)
+              CALL message(TRIM(routine),message_text)
+            ENDIF
+          END SELECT
+        END SELECT
+
+
+        IF ( ( atm_phy_nwp_config(jg)%inwp_radiation > 0 )      &
+          &  .AND. (irad_o3==0 .OR. irad_o3==6) )         THEN
+          IF ( advection_config(jg)%ihadv_tracer(io3) /= 0 ) THEN
+            advection_config(jg)%ihadv_tracer(io3) = 0
+            WRITE(message_text,'(a,i1,a)') &
+              & 'Attention: Since irad_o3 is set to ',irad_o3,', ihadv_tracer(io3) is set to 0.'
+            CALL message(TRIM(routine),message_text)
+          ENDIF
+          IF ( advection_config(jg)%ivadv_tracer(io3) /= 0 ) THEN
+            advection_config(jg)%ivadv_tracer(io3) = 0
+            WRITE(message_text,'(a,i1,a)') &
+              & 'Attention: Since irad_o3 is set to ',irad_o3,', ivadv_tracer(io3) is set to 0.'
+            CALL message(TRIM(routine),message_text)
+          ENDIF
+        ENDIF
+
+
+      CASE (inoforcing, iheldsuarez, iecham, ildf_dry, ildf_echam)
+      !...........................................................
+      ! Other types of adiabatic forcing
+      !...........................................................
+      
+        IF ( i_listlen < ntracer .AND. i_listlen /= 0 ) THEN
+          ntracer = i_listlen
+          CALL message(TRIM(routine),'number of tracers is adjusted according to given list')
+        END IF
+      
+      END SELECT ! iforcing
+
+    END DO ! jg = 1,n_dom
+    END IF ! ltransport
 
     !--------------------------------------------------------------------
     ! Horizontal diffusion
