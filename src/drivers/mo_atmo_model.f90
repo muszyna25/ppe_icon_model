@@ -354,15 +354,6 @@ CONTAINS
       CALL construct_2d_interpol_state(p_patch_global, p_int_state_global)
     ENDIF
 
-    write(0,*) 'rbf_vec_dim_c =', rbf_vec_dim_c
-    write(0,*) 'rbf_vec_dim_v =', rbf_vec_dim_v
-    write(0,*) 'rbf_vec_dim_e =', rbf_vec_dim_e
-
-    write(0,*) 'rbf_vec_scale_c =', rbf_vec_scale_c
-    write(0,*) 'rbf_vec_scale_v =', rbf_vec_scale_v
-    write(0,*) 'rbf_vec_scale_e =', rbf_vec_scale_e
-   
-    write(0,*) maxval(p_int_state_global(1)%rbf_vec_coeff_e)
     !-----------------------------------------------------------------------------
     ! 6. Construct grid refinment state, compute coefficients
     !-----------------------------------------------------------------------------
