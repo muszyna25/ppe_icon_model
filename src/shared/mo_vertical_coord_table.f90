@@ -150,6 +150,7 @@ CONTAINS
 
     ! read the A and B parameters of the vertical coordinate
 
+    write(0,*) 'init_vertical_coord_table, klev:', klev
     CALL read_vct(iequations,klev)
 
     CALL message('vertical_coord_table:init_vertical_coord', '')

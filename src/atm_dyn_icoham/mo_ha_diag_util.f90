@@ -568,7 +568,7 @@ CONTAINS
 !$OMP DO PRIVATE(jb,is,ie)
         DO jb = jbs,nblks_c
           CALL get_indices_c(p_patch, jb,jbs,nblks_c, is,ie, 2)
-
+          write(0,*) jb, is,ie, iqv
           SELECT CASE (iforcing)
           CASE (inwp) !DWD's NWP physics has 4 hydrometeors
             p_diag% qx(is:ie,:,jb) =   p_prog%tracer(is:ie,:,jb,iqc) &! cloud water

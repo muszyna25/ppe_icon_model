@@ -27,8 +27,11 @@ MODULE mo_mpi
   PUBLIC :: set_process_mpi_communicator
   ! Sets the test, work, i/o communicators
   PUBLIC :: set_mpi_work_communicators
+  ! Sets the p_comm_input_bcast
+  PUBLIC :: set_comm_input_bcast
   ! set other parameters
   PUBLIC :: set_process_mpi_name
+
   
   ! Logical functions
   PUBLIC :: run_is_global_mpi_parallel
@@ -38,6 +41,7 @@ MODULE mo_mpi
 
   ! get parameters
   PUBLIC :: get_mpi_all_workroot_id, get_my_global_mpi_id, get_my_mpi_all_id
+  PUBLIC :: default_comm_type, null_comm_type
 
 
   ! some public communicators
@@ -109,6 +113,8 @@ MODULE mo_mpi
   ! Do not change the following parameters
   INTEGER, PARAMETER :: process_mpi_stdio_id = 0
   INTEGER, PARAMETER :: process_mpi_root_id = 0
+  INTEGER, PARAMETER :: default_comm_type = 1
+  INTEGER, PARAMETER :: null_comm_type = 0
   
   ! communicator sets
   ! this is the global communicator
@@ -121,10 +127,13 @@ MODULE mo_mpi
   INTEGER :: process_mpi_all_comm     ! communicator in the whole model-component
   INTEGER :: process_mpi_all_size     ! total number of processes in the whole model-component
   INTEGER :: my_process_mpi_all_id
-  LOGICAL :: process_is_mpi_parallel
-  LOGICAL :: process_is_stdio
   INTEGER :: process_mpi_all_workroot_id  ! the root process in component
   INTEGER :: process_mpi_all_test_id  ! the test process in component
+  LOGICAL :: process_is_mpi_parallel
+  LOGICAL :: process_is_stdio
+  LOGICAL :: is_mpi_test_run = .false.
+  LOGICAL :: is_openmp_test_run = .false.
+  
   
   ! this is the local work communicator (computation, i/o, etc)
   INTEGER :: process_mpi_local_comm     ! communicator in the work group
@@ -483,10 +492,58 @@ CONTAINS
   END SUBROUTINE finish
   !------------------------------------------------------------------------------
   
+
+  !------------------------------------------------------------------------------
+  !>
+  !! Sets the p_comm_input_bcast
+  !! If comm_flag == null_comm_type then
+  !!    only the test process reads and
+  !!    no broadcast takes place
+  !! Otherwise
+  !!    the test or the root process reads
+  !!    and broadcasts to the rest
+  SUBROUTINE set_comm_input_bcast (comm_flag)
+    INTEGER, INTENT(in), OPTIONAL:: comm_flag
+
+    INTEGER :: comm_type
+
+    comm_type = default_comm_type
+    
+    IF (PRESENT(comm_flag)) THEN
+       comm_type = comm_flag
+    ENDIF
+
+    SELECT CASE(comm_type)
+
+    CASE(null_comm_type)
+      IF(my_process_is_mpi_test()) THEN
+        p_comm_input_bcast = MPI_COMM_SELF ! i.e. effectively no broadcast
+      ELSE
+        p_comm_input_bcast = MPI_COMM_NULL ! Must not be used!
+      ENDIF
+    
+    CASE default
+    
+      IF (my_process_is_io()) THEN
+        ! I/O PEs never participate in reading
+        p_comm_input_bcast = MPI_COMM_NULL
+      ELSE      
+        IF(is_mpi_test_run) THEN
+          ! Test PE reads and broadcasts to workers
+          p_comm_input_bcast = p_comm_work_test
+        ELSE
+          ! PE 0 reads and broadcasts
+          p_comm_input_bcast = p_comm_work
+        ENDIF
+      ENDIF
+
+    END SELECT
+    
+  END SUBROUTINE set_comm_input_bcast
+  !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
-  SUBROUTINE set_mpi_work_communicators(lrestore_states, p_test_run, l_test_openmp, num_io_procs)
-    LOGICAL,INTENT(IN) :: lrestore_states
+  SUBROUTINE set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs)
     LOGICAL,INTENT(INOUT) :: p_test_run, l_test_openmp
     INTEGER,INTENT(INOUT) :: num_io_procs
     
@@ -495,6 +552,7 @@ CONTAINS
     CHARACTER(*), PARAMETER :: method_name = "set_mpi_work_communicators"
 
 
+     
 ! check l_test_openmp
 #ifndef _OPENMP
     IF (l_test_openmp) THEN
@@ -524,6 +582,11 @@ CONTAINS
        & '--> num_io_procs set to 0')
       num_io_procs = 0
     END IF
+
+    ! set the sequential values
+    p_work_pe0 = 0
+    num_io_procs = 0
+    num_work_procs = 1
 
 #else
 
@@ -639,28 +702,30 @@ CONTAINS
       p_comm_work_io = MPI_COMM_NULL
     ENDIF
 
-    ! Set p_comm_input_bcast, the communicator for broadcasting the NetCDF input
-    IF(lrestore_states) THEN
-      ! NetCDF input is only read by the test pe and MUST NOT be broadcast
-      IF(p_pe == p_test_pe) THEN
-        p_comm_input_bcast = MPI_COMM_SELF ! i.e. effectively no broadcast
-      ELSE
-        p_comm_input_bcast = MPI_COMM_NULL ! Must not be used!
-      ENDIF
-    ELSE
-      IF(p_pe < p_io_pe0) THEN
-        IF(p_test_run) THEN
-          ! Test PE reads and broadcasts to workers
-          p_comm_input_bcast = p_comm_work_test
-        ELSE
-          ! PE 0 reads and broadcasts
-          p_comm_input_bcast = p_comm_work
-        ENDIF
-      ELSE
-        ! I/O PEs never participate in reading
-        p_comm_input_bcast = MPI_COMM_NULL
-      ENDIF
-    ENDIF
+    
+!     The following is moved to set_comm_input_bcast
+!     ! Set p_comm_input_bcast, the communicator for broadcasting the NetCDF input
+!     IF(lrestore_states) THEN
+!       ! NetCDF input is only read by the test pe and MUST NOT be broadcast
+!       IF(p_pe == p_test_pe) THEN
+!         p_comm_input_bcast = MPI_COMM_SELF ! i.e. effectively no broadcast
+!       ELSE
+!         p_comm_input_bcast = MPI_COMM_NULL ! Must not be used!
+!       ENDIF
+!     ELSE
+!       IF(p_pe < p_io_pe0) THEN
+!         IF(p_test_run) THEN
+!           ! Test PE reads and broadcasts to workers
+!           p_comm_input_bcast = p_comm_work_test
+!         ELSE
+!           ! PE 0 reads and broadcasts
+!           p_comm_input_bcast = p_comm_work
+!         ENDIF
+!       ELSE
+!         ! I/O PEs never participate in reading
+!         p_comm_input_bcast = MPI_COMM_NULL
+!       ENDIF
+!     ENDIF
 
     ! Create Intercommunicator work PEs - I/O PEs
 
@@ -686,6 +751,17 @@ CONTAINS
       p_comm_work_2_io = MPI_COMM_NULL
     ENDIF
 
+
+    ! if OpenMP is used, the test PE uses only 1 thread in order to check
+    ! the correctness of the OpenMP implementation
+    ! Currently the I/O PEs are also single threaded!
+#ifdef _OPENMP
+    IF (l_test_openmp .AND. p_pe == p_test_pe) CALL OMP_SET_NUM_THREADS(1)
+    IF (p_pe >= p_io_pe0) CALL OMP_SET_NUM_THREADS(1)
+#endif
+  
+#endif
+
     ! fill some derived variables
     process_mpi_all_workroot_id = p_work_pe0
     process_mpi_all_test_id     = p_work_pe0-1
@@ -698,18 +774,15 @@ CONTAINS
     ! still to be filled
     process_mpi_local_comm  = process_mpi_all_comm
     process_mpi_local_size  = process_mpi_all_size
-    my_process_mpi_local_id = my_process_mpi_all_id         
-    
-    ! if OpenMP is used, the test PE uses only 1 thread in order to check
-    ! the correctness of the OpenMP implementation
-    ! Currently the I/O PEs are also single threaded!
-#ifdef _OPENMP
-    IF (l_test_openmp .AND. p_pe == p_test_pe) CALL OMP_SET_NUM_THREADS(1)
-    IF (p_pe >= p_io_pe0) CALL OMP_SET_NUM_THREADS(1)
-#endif
-  
-#endif
+    my_process_mpi_local_id = my_process_mpi_all_id
 
+    ! fill my  parameters
+    is_mpi_test_run = p_test_run
+    is_openmp_test_run = l_test_openmp
+
+    ! fill other default
+    CALL set_comm_input_bcast()    
+    
   END SUBROUTINE set_mpi_work_communicators
   !-------------------------------------------------------------------------
   
@@ -725,6 +798,8 @@ CONTAINS
     process_mpi_all_test_id     = -1
     process_mpi_all_workroot_id = 0
     process_mpi_io_size         = 0
+    is_mpi_test_run = .false.
+    is_openmp_test_run = .false.
 
     process_mpi_local_comm  = process_mpi_all_comm
     process_mpi_local_size  = process_mpi_all_size

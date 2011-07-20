@@ -35,10 +35,9 @@
 MODULE mo_atmo_model
 
 USE mo_exception,           ONLY: message, finish
-USE mo_mpi,                 ONLY: p_stop, p_pe, p_io, &
-& p_comm_work_test, p_comm_input_bcast, p_comm_work, &
+USE mo_mpi,                 ONLY: p_stop, p_comm_work, &
 & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
-& my_process_is_stdio, set_mpi_work_communicators
+& my_process_is_stdio, set_mpi_work_communicators, set_comm_input_bcast, null_comm_type
 USE mo_timer,               ONLY: init_timer, print_timer
 USE mo_master_nml,          ONLY: lrestart
 USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output
@@ -282,7 +281,7 @@ CONTAINS
     !-------------------------------------------------------------------
     ! 3.2 Initialize the mpi work groups
     !-------------------------------------------------------------------
-    CALL set_mpi_work_communicators(lrestore_states, p_test_run, l_test_openmp, num_io_procs)    
+    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs)
 
     !------------------
     ! Next, define the horizontal and vertical grids since they are aready
@@ -311,25 +310,20 @@ CONTAINS
       CALL finish(TRIM(routine), 'allocation of patch failed')
     ENDIF
     
-    IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
-      CALL restore_patches_netcdf( p_patch_global )
-    ELSE
-      CALL import_patches( p_patch_global,                       &
-                           nlev,nlevp1,num_lev,num_levp1,nshift, &
-                           locean=.FALSE. )
-    ENDIF
-    
     IF(lrestore_states) THEN
+      ! Before the restore set p_comm_input_bcast to null
+      CALL set_comm_input_bcast(null_comm_type)
+      IF( .NOT. my_process_is_mpi_test()) THEN
+        CALL restore_patches_netcdf( p_patch_global )
+      ELSE
+        CALL import_patches( p_patch_global,                       &
+                            nlev,nlevp1,num_lev,num_levp1,nshift, &
+                            locean=.FALSE. )
+      ENDIF
       ! After the restore is done set p_comm_input_bcast in the
       ! same way as it would be set in parallel_nml_setup when
       ! no restore is wanted:
-      IF(p_test_run) THEN
-        ! Test PE reads and broadcasts to workers
-        p_comm_input_bcast = p_comm_work_test
-      ELSE
-        ! PE 0 reads and broadcasts
-        p_comm_input_bcast = p_comm_work
-      ENDIF
+      CALL set_comm_input_bcast()
     ENDIF
 
     !--------------------------------------------------------------------------------
