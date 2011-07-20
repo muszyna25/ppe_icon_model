@@ -537,7 +537,7 @@ CONTAINS
     att_txt = TRIM(modelname)//'-'//TRIM(modelversion)
     CALL addGlobAttTxt('model-version',att_txt,vlistID(k_jg),astatus)
     !
-    ! Parameters of /grid_ctl/
+    ! Parameters of /grid_nml/
     ! ------------------------
     CALL addGlobAttInt('nroot',nroot,vlistID(k_jg),astatus)
     CALL addGlobAttInt('start_lev',start_lev,vlistID(k_jg),astatus)
@@ -546,28 +546,28 @@ CONTAINS
     CALL addGlobAttTxtFromLog('lplane',lplane,vlistID(k_jg),astatus)
     CALL addGlobAttTxtFromLog('lvert_nest',lvert_nest,vlistID(k_jg),astatus)
     !
-    ! Parameters of /run_ctl/
+    ! Parameters of /run_nml/
     ! -----------------------
-    CALL addGlobAttInt('run_ctl:global_cell_type',global_cell_type,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_ctl:num_lev',num_lev(k_jg),vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('run_ctl:dtime',dtime,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_ctl:iequations',iequations,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_ctl:ntracer',ntracer,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('run_ctl:ldynamics',ldynamics,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('run_ctl:ltransport',ltransport,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_ctl:iforcing',iforcing,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('run_ctl:ltestcase',ltestcase,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_ctl:nproma',nproma,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_ctl:nsteps',nsteps,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_ctl:itopo',itopo,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_ctl:msg_level',msg_level,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('run_nml:global_cell_type',global_cell_type,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('run_nml:num_lev',num_lev(k_jg),vlistID(k_jg),astatus)
+    CALL addGlobAttFlt('run_nml:dtime',dtime,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('run_nml:iequations',iequations,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('run_nml:ntracer',ntracer,vlistID(k_jg),astatus)
+    CALL addGlobAttTxtFromLog('run_nml:ldynamics',ldynamics,vlistID(k_jg),astatus)
+    CALL addGlobAttTxtFromLog('run_nml:ltransport',ltransport,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('run_nml:iforcing',iforcing,vlistID(k_jg),astatus)
+    CALL addGlobAttTxtFromLog('run_nml:ltestcase',ltestcase,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('run_nml:nproma',nproma,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('run_nml:nsteps',nsteps,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('run_nml:itopo',itopo,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('run_nml:msg_level',msg_level,vlistID(k_jg),astatus)
     !
-    ! Parameters of /dynamics_ctl/
+    ! Parameters of /dynamics_nml/
     ! ----------------------------
-    CALL addGlobAttInt('dynamics_ctl:itime_scheme',itime_scheme,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('dynamics_ctl:idiv_method',idiv_method,vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('dynamics_ctl:divavg_cntrwgt',divavg_cntrwgt,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('dynamics_ctl:lcoriolis',lcoriolis, &
+    CALL addGlobAttInt('dynamics_nml:itime_scheme',itime_scheme,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('dynamics_nml:idiv_method',idiv_method,vlistID(k_jg),astatus)
+    CALL addGlobAttFlt('dynamics_nml:divavg_cntrwgt',divavg_cntrwgt,vlistID(k_jg),astatus)
+    CALL addGlobAttTxtFromLog('dynamics_nml:lcoriolis',lcoriolis, &
                               vlistID(k_jg),astatus)
 
    !----------------------------
@@ -601,108 +601,108 @@ CONTAINS
 
 
     !
-    ! Parameters of /nonhydrostatic_ctl/
+    ! Parameters of /nonhydrostatic_nml/
     ! ----------------------------
 
     IF (iequations == 3) THEN
-       CALL addGlobAttInt('nonhydrostatic_ctl:ivctype',ivctype,vlistID(k_jg),astatus)
-       CALL addGlobAttInt('nonhydrostatic_ctl:iadv_rcf',iadv_rcf,vlistID(k_jg),astatus)
+       CALL addGlobAttInt('nonhydrostatic_nml:ivctype',ivctype,vlistID(k_jg),astatus)
+       CALL addGlobAttInt('nonhydrostatic_nml:iadv_rcf',iadv_rcf,vlistID(k_jg),astatus)
 
        IF (global_cell_type == 3) THEN
-         CALL addGlobAttFlt('nonhydrostatic_ctl:rayleigh_coeff',   &
+         CALL addGlobAttFlt('nonhydrostatic_nml:rayleigh_coeff',   &
                  &         rayleigh_coeff(k_jg),vlistID(k_jg),astatus)
-         CALL addGlobAttFlt('nonhydrostatic_ctl:damp_height',      &
+         CALL addGlobAttFlt('nonhydrostatic_nml:damp_height',      &
                  &         damp_height(k_jg),vlistID(k_jg),astatus)
-         CALL addGlobAttFlt('nonhydrostatic_ctl:vwind_offctr',     &
+         CALL addGlobAttFlt('nonhydrostatic_nml:vwind_offctr',     &
                  &         vwind_offctr,vlistID(k_jg),astatus)
-         CALL addGlobAttTxtFromLog('nonhydrostatic_ctl:l_nest_rcf',&
+         CALL addGlobAttTxtFromLog('nonhydrostatic_nml:l_nest_rcf',&
                  &         l_nest_rcf,vlistID(k_jg),astatus)
-         CALL addGlobAttInt('nonhydrostatic_ctl:iadv_rhotheta',    &
+         CALL addGlobAttInt('nonhydrostatic_nml:iadv_rhotheta',    &
                  &         iadv_rhotheta,vlistID(k_jg),astatus)
-         CALL addGlobAttInt('nonhydrostatic_ctl:igradp_method',    &
+         CALL addGlobAttInt('nonhydrostatic_nml:igradp_method',    &
                  &         igradp_method,vlistID(k_jg),astatus)
-         CALL addGlobAttFlt('nonhydrostatic_ctl:exner_expol',      &
+         CALL addGlobAttFlt('nonhydrostatic_nml:exner_expol',      &
                  &         exner_expol,vlistID(k_jg),astatus)
-         CALL addGlobAttTxtFromLog('nonhydrostatic_ctl:l_open_ubc',&
+         CALL addGlobAttTxtFromLog('nonhydrostatic_nml:l_open_ubc',&
                  &         l_open_ubc,vlistID(k_jg),astatus)
        ELSEIF (global_cell_type == 6) THEN
-         CALL addGlobAttTxtFromLog('nonhydrostatic_ctl:ltheta_up_hori', &
+         CALL addGlobAttTxtFromLog('nonhydrostatic_nml:ltheta_up_hori', &
                  &         ltheta_up_hori,vlistID(k_jg),astatus)
-         CALL addGlobAttTxtFromLog('nonhydrostatic_ctl:ltheta_up_vert',&
+         CALL addGlobAttTxtFromLog('nonhydrostatic_nml:ltheta_up_vert',&
                  &         ltheta_up_vert,vlistID(k_jg),astatus)
-         CALL addGlobAttFlt('nonhydrostatic_ctl:gmres_rtol_nh',      &
+         CALL addGlobAttFlt('nonhydrostatic_nml:gmres_rtol_nh',      &
                  &         gmres_rtol_nh,vlistID(k_jg),astatus)
-         CALL addGlobAttFlt('nonhydrostatic_ctl:upstr_beta',      &
+         CALL addGlobAttFlt('nonhydrostatic_nml:upstr_beta',      &
                  &         upstr_beta,vlistID(k_jg),astatus)
 
        ENDIF
     END IF
     !
-    ! Parameters of /diffusion_ctl/
+    ! Parameters of /diffusion_nml/
     ! -----------------------------
-    CALL addGlobAttInt('diffusion_ctl:hdiff_order',            &
+    CALL addGlobAttInt('diffusion_nml:hdiff_order',            &
       &  diffusion_config(k_jg)%hdiff_order,vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('diffusion_ctl:hdiff_efdt_ratio',       &
+    CALL addGlobAttFlt('diffusion_nml:hdiff_efdt_ratio',       &
       &  diffusion_config(k_jg)%hdiff_efdt_ratio,vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('diffusion_ctl:hdiff_multfac',          &
+    CALL addGlobAttFlt('diffusion_nml:hdiff_multfac',          &
       &  diffusion_config(k_jg)%hdiff_multfac,vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('diffusion_ctl:hdiff_tv_ratio',         &
+    CALL addGlobAttFlt('diffusion_nml:hdiff_tv_ratio',         &
       &  diffusion_config(k_jg)%hdiff_tv_ratio,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('diffusion_ctl:lhdiff_temp',     &
+    CALL addGlobAttTxtFromLog('diffusion_nml:lhdiff_temp',     &
       &  diffusion_config(k_jg)%lhdiff_temp,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('diffusion_ctl:lhdiff_vn',       &
+    CALL addGlobAttTxtFromLog('diffusion_nml:lhdiff_vn',       &
       &  diffusion_config(k_jg)%lhdiff_vn,vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('diffusion_ctl:hdiff_smag_fac',         &
+    CALL addGlobAttFlt('diffusion_nml:hdiff_smag_fac',         &
       &  diffusion_config(k_jg)%hdiff_smag_fac,vlistID(k_jg),astatus)
     !
-    ! Parameters of /transport_ctl/
+    ! Parameters of /transport_nml/
     ! -----------------------------
     IF (ltransport) THEN
-       CALL addGlobAttInt('transport_ctl:ihadv_tracer',       &
+       CALL addGlobAttInt('transport_nml:ihadv_tracer',       &
          &  advection_config(k_jg)%ihadv_tracer(max_ntracer),vlistID(k_jg),astatus)
-       CALL addGlobAttInt('transport_ctl:ivadv_tracer',       &
+       CALL addGlobAttInt('transport_nml:ivadv_tracer',       &
          &  advection_config(k_jg)%ivadv_tracer(max_ntracer),vlistID(k_jg),astatus)
-       CALL addGlobAttTxtFromLog('transport_ctl:lvadv_tracer',&
+       CALL addGlobAttTxtFromLog('transport_nml:lvadv_tracer',&
          &  advection_config(k_jg)%lvadv_tracer,vlistID(k_jg),astatus)
-       CALL addGlobAttTxtFromLog('transport_ctl:lstrang',     &
+       CALL addGlobAttTxtFromLog('transport_nml:lstrang',     &
          &  advection_config(k_jg)%lstrang,vlistID(k_jg),astatus)
-       CALL addGlobAttInt('transport_ctl:itype_vlimit',       &
+       CALL addGlobAttInt('transport_nml:itype_vlimit',       &
          &  advection_config(k_jg)%itype_vlimit(max_ntracer),vlistID(k_jg),astatus)
-       CALL addGlobAttInt('transport_ctl:itype_hlimit',       &
+       CALL addGlobAttInt('transport_nml:itype_hlimit',       &
          &  advection_config(k_jg)%itype_hlimit(max_ntracer),vlistID(k_jg),astatus)
-       CALL addGlobAttInt('transport_ctl:iord_backtraj',      &
+       CALL addGlobAttInt('transport_nml:iord_backtraj',      &
          &  advection_config(k_jg)%iord_backtraj,vlistID(k_jg),astatus)
-       CALL addGlobAttInt('transport_ctl:igrad_c_miura',      &
+       CALL addGlobAttInt('transport_nml:igrad_c_miura',      &
          &  advection_config(k_jg)%igrad_c_miura,vlistID(k_jg),astatus)
-       CALL addGlobAttTxtFromLog('transport_ctl:lclip_tracer',&
+       CALL addGlobAttTxtFromLog('transport_nml:lclip_tracer',&
          &  advection_config(k_jg)%lclip_tracer,vlistID(k_jg),astatus)
-       CALL addGlobAttInt('transport_ctl:iadv_slev',          &
+       CALL addGlobAttInt('transport_nml:iadv_slev',          &
          &  advection_config(k_jg)%iadv_slev(max_ntracer),vlistID(k_jg),astatus)
-       CALL addGlobAttFlt('transport_ctl:upstr_beta_adv',     &
+       CALL addGlobAttFlt('transport_nml:upstr_beta_adv',     &
          &  advection_config(k_jg)%upstr_beta_adv,vlistID(k_jg),astatus)
     END IF
     !
-    ! Parameters of /io_ctl/
+    ! Parameters of /io_nml/
     ! ----------------------
-    CALL addGlobAttTxt('io_ctl:out_expname',TRIM(out_expname),vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('io_ctl:dt_data',dt_data,vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('io_ctl:dt_file',dt_file,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('io_ctl:out_filetype',out_filetype,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('io_ctl:lwrite_vorticity',lwrite_vorticity,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('io_ctl:lwrite_pres',lwrite_pres,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('io_ctl:lwrite_z3',lwrite_z3,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('io_ctl:lwrite_omega',lwrite_omega,vlistID(k_jg),astatus)
+    CALL addGlobAttTxt('io_nml:out_expname',TRIM(out_expname),vlistID(k_jg),astatus)
+    CALL addGlobAttFlt('io_nml:dt_data',dt_data,vlistID(k_jg),astatus)
+    CALL addGlobAttFlt('io_nml:dt_file',dt_file,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('io_nml:out_filetype',out_filetype,vlistID(k_jg),astatus)
+    CALL addGlobAttTxtFromLog('io_nml:lwrite_vorticity',lwrite_vorticity,vlistID(k_jg),astatus)
+    CALL addGlobAttTxtFromLog('io_nml:lwrite_pres',lwrite_pres,vlistID(k_jg),astatus)
+    CALL addGlobAttTxtFromLog('io_nml:lwrite_z3',lwrite_z3,vlistID(k_jg),astatus)
+    CALL addGlobAttTxtFromLog('io_nml:lwrite_omega',lwrite_omega,vlistID(k_jg),astatus)
     !
     IF (ntracer > 0) THEN
       DO jt=1,ntracer
         WRITE(cjt,'(i3.3)') jt
-        CALL addGlobAttTxtFromLog('io_ctl:lwrite_tracer(' // TRIM(ADJUSTL(cjt)) // ')', &
+        CALL addGlobAttTxtFromLog('io_nml:lwrite_tracer(' // TRIM(ADJUSTL(cjt)) // ')', &
         &                  lwrite_tracer(jt),vlistID(k_jg),astatus)
       END DO
     END IF
-    CALL addGlobAttTxtFromLog('io_ctl:lwrite_precip',lwrite_precip,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('io_ctl:lwrite_cloud',lwrite_cloud,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('io_ctl:lwrite_divergence',lwrite_divergence,vlistID(k_jg),astatus)
+    CALL addGlobAttTxtFromLog('io_nml:lwrite_precip',lwrite_precip,vlistID(k_jg),astatus)
+    CALL addGlobAttTxtFromLog('io_nml:lwrite_cloud',lwrite_cloud,vlistID(k_jg),astatus)
+    CALL addGlobAttTxtFromLog('io_nml:lwrite_divergence',lwrite_divergence,vlistID(k_jg),astatus)
 
 
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -722,32 +722,32 @@ CONTAINS
         CALL addGlobAttTxtFromLog('echam_phy_nml:lcover',get_lcover(),vlistID(k_jg),astatus)
         CALL addGlobAttTxtFromLog('echam_phy_nml:lgw_hines',get_lgw_hines(),vlistID(k_jg),astatus)
         !
-        !!! Parameters of /echam_conv_ctl/
+        !!! Parameters of /echam_conv_nml/
         !---------------------------------
         IF ( get_lconv() ) THEN
-           CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfpen', &
+           CALL addGlobAttTxtFromLog('echam_conv_nml:lmfpen', &
                 echam_conv_config%lmfpen,vlistID(k_jg),astatus)
-           CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfmid', &
+           CALL addGlobAttTxtFromLog('echam_conv_nml:lmfmid', &
                 echam_conv_config%lmfmid,vlistID(k_jg),astatus)
-          !CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfscv', &
+          !CALL addGlobAttTxtFromLog('echam_conv_nml:lmfscv', &
           !     echam_conv_config%lmfscv,vlistID(k_jg),astatus)
-           CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfdd',  &
+           CALL addGlobAttTxtFromLog('echam_conv_nml:lmfdd',  &
                 echam_conv_config%lmfdd,vlistID(k_jg),astatus)
-           CALL addGlobAttTxtFromLog('echam_conv_ctl:lmfdudv',&
+           CALL addGlobAttTxtFromLog('echam_conv_nml:lmfdudv',&
                 echam_conv_config%lmfdudv,vlistID(k_jg),astatus)
-           CALL addGlobAttInt('echam_conv_ctl:iconv', &
+           CALL addGlobAttInt('echam_conv_nml:iconv', &
                 echam_conv_config%iconv,vlistID(k_jg),astatus)
-           CALL addGlobAttFlt('echam_conv_ctl:cmftau', &
+           CALL addGlobAttFlt('echam_conv_nml:cmftau', &
                 echam_conv_config%cmftau,vlistID(k_jg),astatus)
-           CALL addGlobAttFlt('echam_conv_ctl:cmfctop', &
+           CALL addGlobAttFlt('echam_conv_nml:cmfctop', &
                 echam_conv_config%cmfctop,vlistID(k_jg),astatus)
-           CALL addGlobAttFlt('echam_conv_ctl:cprcon', &
+           CALL addGlobAttFlt('echam_conv_nml:cprcon', &
                 echam_conv_config%cprcon,vlistID(k_jg),astatus)
-           CALL addGlobAttFlt('echam_conv_ctl:cminbuoy',&
+           CALL addGlobAttFlt('echam_conv_nml:cminbuoy',&
                 echam_conv_config%cminbuoy,vlistID(k_jg),astatus)
-           CALL addGlobAttFlt('echam_conv_ctl:entrpen', &
+           CALL addGlobAttFlt('echam_conv_nml:entrpen', &
                 echam_conv_config%entrpen,vlistID(k_jg),astatus)
-           CALL addGlobAttFlt('echam_conv_ctl:dlev',    &
+           CALL addGlobAttFlt('echam_conv_nml:dlev',    &
                 echam_conv_config%dlev,vlistID(k_jg),astatus)
         END IF
         !
@@ -762,27 +762,27 @@ CONTAINS
 !!$        END IF
 
       CASE (inwp)
-        !!! Parameters of /nwp_phy_ctl/
+        !!! Parameters of /nwp_phy_nml/
         !-------------------------------
-       CALL addGlobAttInt('nwp_phy_ctl:inwp_gscp',atm_phy_nwp_config(k_jg)%inwp_gscp,&
+       CALL addGlobAttInt('nwp_phy_nml:inwp_gscp',atm_phy_nwp_config(k_jg)%inwp_gscp,&
          &vlistID(k_jg),astatus)
-       CALL addGlobAttInt('nwp_phy_ctl:inwp_convection',atm_phy_nwp_config(k_jg)%inwp_convection,&
+       CALL addGlobAttInt('nwp_phy_nml:inwp_convection',atm_phy_nwp_config(k_jg)%inwp_convection,&
          &vlistID(k_jg),astatus)
-       CALL addGlobAttInt('nwp_phy_ctl:inwp_cldcover',atm_phy_nwp_config(k_jg)%inwp_cldcover,&
+       CALL addGlobAttInt('nwp_phy_nml:inwp_cldcover',atm_phy_nwp_config(k_jg)%inwp_cldcover,&
          &vlistID(k_jg),astatus)
-       CALL addGlobAttInt('nwp_phy_ctl:inwp_radiation',atm_phy_nwp_config(k_jg)%inwp_radiation,&
+       CALL addGlobAttInt('nwp_phy_nml:inwp_radiation',atm_phy_nwp_config(k_jg)%inwp_radiation,&
          &vlistID(k_jg),astatus)
-       CALL addGlobAttInt('nwp_phy_ctl:inwp_satad',atm_phy_nwp_config(k_jg)%inwp_satad,&
+       CALL addGlobAttInt('nwp_phy_nml:inwp_satad',atm_phy_nwp_config(k_jg)%inwp_satad,&
          &vlistID(k_jg),astatus)
-       CALL addGlobAttInt('nwp_phy_ctl:inwp_turb',atm_phy_nwp_config(k_jg)%inwp_turb,&
+       CALL addGlobAttInt('nwp_phy_nml:inwp_turb',atm_phy_nwp_config(k_jg)%inwp_turb,&
          &vlistID(k_jg),astatus)
-       CALL addGlobAttInt('nwp_phy_ctl:inwp_sso',atm_phy_nwp_config(k_jg)%inwp_sso,&
+       CALL addGlobAttInt('nwp_phy_nml:inwp_sso',atm_phy_nwp_config(k_jg)%inwp_sso,&
          &vlistID(k_jg),astatus)
-       CALL addGlobAttFlt('nwp_phy_ctl:dt_conv',atm_phy_nwp_config(k_jg)%dt_conv ,&
+       CALL addGlobAttFlt('nwp_phy_nml:dt_conv',atm_phy_nwp_config(k_jg)%dt_conv ,&
          &vlistID(k_jg),astatus)
-       CALL addGlobAttFlt('nwp_phy_ctl:dt_rad',atm_phy_nwp_config(k_jg)%dt_rad  ,&
+       CALL addGlobAttFlt('nwp_phy_nml:dt_rad',atm_phy_nwp_config(k_jg)%dt_rad  ,&
          &vlistID(k_jg),astatus)
-       CALL addGlobAttFlt('nwp_phy_ctl:dt_sso',atm_phy_nwp_config(k_jg)%dt_sso ,&
+       CALL addGlobAttFlt('nwp_phy_nml:dt_sso',atm_phy_nwp_config(k_jg)%dt_sso ,&
          &vlistID(k_jg),astatus)
       END SELECT
     END IF
@@ -807,122 +807,122 @@ CONTAINS
     ! --------------------------------------------------------
     IF (ltestcase) THEN
       !
-      ! Parameters of /testcase_ctl/
+      ! Parameters of /testcase_nml/
       ! -----------------------------
       IF(iequations == 0 .OR. &
          iequations == 1 .OR. &
          iequations == 2 ) THEN
       !
-         CALL addGlobAttTxt('testcase_ctl:ctest_name',TRIM(ctest_name),vlistID(k_jg),astatus)
+         CALL addGlobAttTxt('testcase_nml:ctest_name',TRIM(ctest_name),vlistID(k_jg),astatus)
          !
          IF ( TRIM(ctest_name) == 'GW') THEN
-            CALL addGlobAttFlt('testcase_ctl:gw_brunt_vais',gw_brunt_vais,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('testcase_ctl:gw_u0',gw_u0,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('testcase_ctl:gw_lon_deg',gw_lon_deg,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('testcase_ctl:gw_lat_deg',gw_lat_deg,vlistID(k_jg),astatus)
+            CALL addGlobAttFlt('testcase_nml:gw_brunt_vais',gw_brunt_vais,vlistID(k_jg),astatus)
+            CALL addGlobAttFlt('testcase_nml:gw_u0',gw_u0,vlistID(k_jg),astatus)
+            CALL addGlobAttFlt('testcase_nml:gw_lon_deg',gw_lon_deg,vlistID(k_jg),astatus)
+            CALL addGlobAttFlt('testcase_nml:gw_lat_deg',gw_lat_deg,vlistID(k_jg),astatus)
          !
          ELSEIF ( TRIM(ctest_name) == 'JWw' ) THEN
-            CALL addGlobAttFlt('testcase_ctl:jw_uptb',jw_uptb,vlistID(k_jg),astatus)
+            CALL addGlobAttFlt('testcase_nml:jw_uptb',jw_uptb,vlistID(k_jg),astatus)
          !
          ELSEIF ( TRIM(ctest_name) == 'MRW' .OR. TRIM(ctest_name) == 'MRW2'  ) THEN
-            CALL addGlobAttFlt('testcase_ctl:mountctr_lon_deg',  &
+            CALL addGlobAttFlt('testcase_nml:mountctr_lon_deg',  &
                       &        mountctr_lon_deg,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('testcase_ctl:mountctr_lat_deg',  &
+            CALL addGlobAttFlt('testcase_nml:mountctr_lat_deg',  &
                       &        mountctr_lat_deg,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('testcase_ctl:mountctr_height',   &
+            CALL addGlobAttFlt('testcase_nml:mountctr_height',   &
                       &        mountctr_height,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('testcase_ctl:mount_half_width',  &
+            CALL addGlobAttFlt('testcase_nml:mount_half_width',  &
                       &        mount_half_width,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('testcase_ctl:mount_u0',          &
+            CALL addGlobAttFlt('testcase_nml:mount_u0',          &
                       &        mount_u0,vlistID(k_jg),astatus)
          !
          ELSEIF ( TRIM(ctest_name) == 'RH' ) THEN
-            CALL addGlobAttInt('testcase_ctl:rh_wavenum',rh_wavenum,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('testcase_ctl:rh_init_shift_deg', &
+            CALL addGlobAttInt('testcase_nml:rh_wavenum',rh_wavenum,vlistID(k_jg),astatus)
+            CALL addGlobAttFlt('testcase_nml:rh_init_shift_deg', &
                       &        rh_init_shift_deg,vlistID(k_jg),astatus)
          !
          ELSEIF ( TRIM(ctest_name) == 'HS' ) THEN
-            CALL addGlobAttInt('testcase_ctl:ihs_init_type',ihs_init_type,vlistID(k_jg),astatus)
-            CALL addGlobAttTxtFromLog('testcase_ctl:lhs_vn_ptb',lhs_vn_ptb,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('testcase_ctl:hs_vn_ptb_scale',   &
+            CALL addGlobAttInt('testcase_nml:ihs_init_type',ihs_init_type,vlistID(k_jg),astatus)
+            CALL addGlobAttTxtFromLog('testcase_nml:lhs_vn_ptb',lhs_vn_ptb,vlistID(k_jg),astatus)
+            CALL addGlobAttFlt('testcase_nml:hs_vn_ptb_scale',   &
                       &        hs_vn_ptb_scale,vlistID(k_jg),astatus)
          !
          ELSEIF ( TRIM(ctest_name) == 'JWw-Moist' .OR. TRIM(ctest_name) == 'APE' &
                   .OR. TRIM(ctest_name) == 'LDF-Moist' ) THEN
-            CALL addGlobAttTxtFromLog('testcase_ctl:lrh_linear_pres',&
+            CALL addGlobAttTxtFromLog('testcase_nml:lrh_linear_pres',&
                       &        lrh_linear_pres,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('testcase_ctl:rh_at_1000hpa',         &
+            CALL addGlobAttFlt('testcase_nml:rh_at_1000hpa',         &
                       &        rh_at_1000hpa,vlistID(k_jg),astatus)
          !
          ELSEIF ( TRIM(ctest_name) == 'PA' ) THEN
-            CALL addGlobAttTxtFromLog('testcase_ctl:linit_tracer_fv',&
+            CALL addGlobAttTxtFromLog('testcase_nml:linit_tracer_fv',&
                       &        linit_tracer_fv,vlistID(k_jg),astatus)
          !
          END IF
 
       !
-      ! Parameters of /nh_testcase_ctl/
+      ! Parameters of /nh_testcase_nml/
       ! -----------------------------
       ELSEIF (iequations == 3) THEN
       !
-         CALL addGlobAttTxt('nh_testcase_ctl:nh_test_name', &
+         CALL addGlobAttTxt('nh_testcase_nml:nh_test_name', &
                   &         TRIM(nh_test_name),vlistID(k_jg),astatus)
          !
          IF ( TRIM(nh_test_name) == 'jabw') THEN
-            CALL addGlobAttFlt('nh_testcase_ctl:jw_up',jw_up,vlistID(k_jg),astatus)
+            CALL addGlobAttFlt('nh_testcase_nml:jw_up',jw_up,vlistID(k_jg),astatus)
          !
          ELSEIF ( TRIM(nh_test_name) == 'mrw2_nh') THEN
-            CALL addGlobAttFlt('nh_testcase_ctl:u0_mrw',u0_mrw,vlistID(k_jg),astatus)
+            CALL addGlobAttFlt('nh_testcase_nml:u0_mrw',u0_mrw,vlistID(k_jg),astatus)
          !
          ELSEIF ( TRIM(nh_test_name) == 'mrw2_nh' .OR. TRIM(nh_test_name) == 'mwbr_const') THEN
-            CALL addGlobAttFlt('nh_testcase_ctl:mount_height_mrw',     &
+            CALL addGlobAttFlt('nh_testcase_nml:mount_height_mrw',     &
                  &             mount_height_mrw,vlistID(k_jg),astatus)
-            !CALL addGlobAttFlt('nh_testcase_ctl:mount_half_width',     &
+            !CALL addGlobAttFlt('nh_testcase_nml:mount_half_width',     &
             !     &             mount_half_width,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('nh_testcase_ctl:mount_lonctr_mrw_deg', &
+            CALL addGlobAttFlt('nh_testcase_nml:mount_lonctr_mrw_deg', &
                  &             mount_lonctr_mrw_deg,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('nh_testcase_ctl:mount_latctr_mrw_deg', &
+            CALL addGlobAttFlt('nh_testcase_nml:mount_latctr_mrw_deg', &
                  &             mount_latctr_mrw_deg,vlistID(k_jg),astatus)
          !
          ELSEIF ( TRIM(nh_test_name) == 'mwbr_const') THEN
-            CALL addGlobAttFlt('nh_testcase_ctl:u0_mwbr_const',         &
+            CALL addGlobAttFlt('nh_testcase_nml:u0_mwbr_const',         &
                  &             u0_mwbr_const,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('nh_testcase_ctl:temp_i_mwbr_const',     &
+            CALL addGlobAttFlt('nh_testcase_nml:temp_i_mwbr_const',     &
                  &             temp_i_mwbr_const,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('nh_testcase_ctl:p_int_mwbr_const',      &
+            CALL addGlobAttFlt('nh_testcase_nml:p_int_mwbr_const',      &
                  &             p_int_mwbr_const,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('nh_testcase_ctl:bruntvais_u_mwbr_const',&
+            CALL addGlobAttFlt('nh_testcase_nml:bruntvais_u_mwbr_const',&
                  &             bruntvais_u_mwbr_const,vlistID(k_jg),astatus)
          !
          ELSEIF ( TRIM(nh_test_name) == 'bell') THEN
-            CALL addGlobAttFlt('nh_testcase_ctl:mount_height',          &
+            CALL addGlobAttFlt('nh_testcase_nml:mount_height',          &
                  &             mount_height,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('nh_testcase_ctl:torus_domain_length',   &
+            CALL addGlobAttFlt('nh_testcase_nml:torus_domain_length',   &
                  &             torus_domain_length,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('nh_testcase_ctl:nh_brunt_vais',         &
+            CALL addGlobAttFlt('nh_testcase_nml:nh_brunt_vais',         &
                  &             nh_brunt_vais,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('nh_testcase_ctl:nh_u0',nh_u0,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('nh_testcase_ctl:nh_t0',nh_t0,vlistID(k_jg),astatus)
+            CALL addGlobAttFlt('nh_testcase_nml:nh_u0',nh_u0,vlistID(k_jg),astatus)
+            CALL addGlobAttFlt('nh_testcase_nml:nh_t0',nh_t0,vlistID(k_jg),astatus)
          !
          ELSEIF ( TRIM(nh_test_name) == 'PA') THEN
-            CALL addGlobAttFlt('nh_testcase_ctl:rotate_axis_deg',       &
+            CALL addGlobAttFlt('nh_testcase_nml:rotate_axis_deg',       &
                  &             rotate_axis_deg,vlistID(k_jg),astatus)
-            !CALL addGlobAttTxtFromLog('nh_testcase_ctl:linit_tracer_fv',&
+            !CALL addGlobAttTxtFromLog('nh_testcase_nml:linit_tracer_fv',&
             !    &                     linit_tracer_fv,vlistID(k_jg),astatus)
          !
          ELSEIF ( TRIM(nh_test_name) == 'HS_nh') THEN
-            CALL addGlobAttTxtFromLog('nh_testcase_ctl:lhs_nh_vn_ptb',  &
+            CALL addGlobAttTxtFromLog('nh_testcase_nml:lhs_nh_vn_ptb',  &
                 &                     lhs_nh_vn_ptb,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('nh_testcase_ctl:hs_nh_vn_ptb_scale',    &
+            CALL addGlobAttFlt('nh_testcase_nml:hs_nh_vn_ptb_scale',    &
                 &                     hs_nh_vn_ptb_scale,vlistID(k_jg),astatus)
          !
          ELSEIF ( TRIM(nh_test_name) == 'jabw' .OR. TRIM(nh_test_name) == 'mrw') THEN
-            CALL addGlobAttFlt('nh_testcase_ctl:qv_max',qv_max,vlistID(k_jg),astatus)
-            !CALL addGlobAttFlt('nh_testcase_ctl:rh_at_1000hpa',         &
+            CALL addGlobAttFlt('nh_testcase_nml:qv_max',qv_max,vlistID(k_jg),astatus)
+            !CALL addGlobAttFlt('nh_testcase_nml:rh_at_1000hpa',         &
             !    &              rh_at_1000hpa,vlistID(k_jg),astatus)
          !
          ELSEIF ( TRIM(nh_test_name) == 'APE_nh') THEN
-            CALL addGlobAttTxt('nh_testcase_ctl:ape_sst_case',          &
+            CALL addGlobAttTxt('nh_testcase_nml:ape_sst_case',          &
                 &              TRIM(ape_sst_case),vlistID(k_jg),astatus)
          !
          END IF
@@ -2091,7 +2091,7 @@ CONTAINS
     CALL addGlobAttTxt('model-version',TRIM(modelname)//'-'//TRIM(modelversion),&
     &                  vlistID(k_jg),astatus)
     !
-    ! Parameters of /grid_ctl/
+    ! Parameters of /grid_nml/
     ! ------------------------
     CALL addGlobAttInt('nroot',nroot,vlistID(k_jg),astatus)
     CALL addGlobAttInt('start_lev',start_lev,vlistID(k_jg),astatus)
@@ -2099,21 +2099,21 @@ CONTAINS
     CALL addGlobAttTxtFromLog('lfeedback',lfeedback(k_jg),vlistID(k_jg),astatus)
     CALL addGlobAttTxtFromLog('lplane',lplane,vlistID(k_jg),astatus)
     !
-    ! Parameters of /run_ctl/
+    ! Parameters of /run_nml/
     ! -----------------------
-    CALL addGlobAttInt('run_ctl:global_cell_type',global_cell_type,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('run_nml:global_cell_type',global_cell_type,vlistID(k_jg),astatus)
     !
-!   CALL addGlobAttInt('run_ctl:nlev',nlev,vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('run_ctl:dtime',dtime,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_ctl:iequations',iequations,vlistID(k_jg),astatus)
+!   CALL addGlobAttInt('run_nml:nlev',nlev,vlistID(k_jg),astatus)
+    CALL addGlobAttFlt('run_nml:dtime',dtime,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('run_nml:iequations',iequations,vlistID(k_jg),astatus)
     !
-!   CALL addGlobAttTxtFromLog('run_ctl:ltestcase',ltestcase,vlistID(k_jg),astatus)
+!   CALL addGlobAttTxtFromLog('run_nml:ltestcase',ltestcase,vlistID(k_jg),astatus)
     !
-    CALL addGlobAttInt('run_ctl:nproma',nproma,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_ctl:nsteps',nsteps,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_ctl:msg_level',msg_level,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('run_nml:nproma',nproma,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('run_nml:nsteps',nsteps,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('run_nml:msg_level',msg_level,vlistID(k_jg),astatus)
     !
-    ! Parameters of /ocean_ctl/
+    ! Parameters of /ocean_nml/
     ! ------------------------
     CALL addGlobAttInt('ocean_ctl:iforc_oce',iforc_oce,vlistID(k_jg),astatus)
     CALL addGlobAttInt('ntracer',ntrac_oce,vlistID(k_jg),astatus)
@@ -2591,8 +2591,7 @@ CONTAINS
     delete = .FALSE.
     not_found = .FALSE.
 
-    ! get ctracer_list
-    ctracer_list = advection_config(jg)%ctracer_list
+
 
     SELECT CASE(varname)
       CASE ('PS');              ptr2 => p_diag%pres_sfc
@@ -2684,6 +2683,10 @@ CONTAINS
 
     ! If not found in the list above, check for tracers
 
+
+    ! get ctracer_list
+    ctracer_list = advection_config(jg)%ctracer_list
+
     IF(not_found) THEN
       DO jt = 1, ntracer ! all tracer
         ctracer = ctracer_list(jt:jt)
@@ -2719,6 +2722,7 @@ CONTAINS
 !          RETURN
 !        ENDIF
       ENDDO
+
 
       DO jt = 1, inextra_2d ! 2d debug variables
         WRITE(anextra,'(I1)') jt
@@ -2927,7 +2931,6 @@ CONTAINS
           IF(delete) DEALLOCATE(ptr2)
 
         ELSE
-
           IF(my_process_is_stdio()) ALLOCATE(streamvar2(n_tot, klev))
           CALL gather_array2( outvar_desc(ivar, jg)%type, p_patch(jg), ptr3,&
                &                       streamvar2,outvar_desc(ivar,jg)%name )

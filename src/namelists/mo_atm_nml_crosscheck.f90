@@ -395,6 +395,9 @@ CONTAINS
 
   END IF ! ltransport
 
+  IF (.NOT. ltransport .AND. ntracer > 0) &
+    CALL finish( TRIM(routine),                                     &
+         ' either set ltransport = true or ntracer to 0 ')
 
     !--------------------------------------------------------------------
     ! Grid and dynamics

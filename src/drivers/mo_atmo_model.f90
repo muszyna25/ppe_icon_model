@@ -59,7 +59,6 @@ USE mo_run_config,        ONLY: configure_run, &
 & nsteps,               & !    :
 & ltransport,           & !    :
 & lforcing,             & !    :
-& ltestcase,            & !    :
 & ltimer,               & !    :
 & iforcing,             & !    namelist parameter
 & ldump_states,         & ! flag if states should be dumped
@@ -136,9 +135,8 @@ USE mo_nonhydro_state,      ONLY: destruct_nh_state
 
 ! Parameterized forcing
 !
-USE mo_gmt_output,          ONLY: setup_gmt_output
 USE mo_nwp_phy_state,       ONLY: construct_nwp_phy_state,   &
-& destruct_nwp_phy_state
+  &                               destruct_nwp_phy_state
 USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config,configure_atm_phy_nwp
 USE mo_lnd_nwp_nml,         ONLY: setup_nwp_lnd
 USE mo_nwp_lnd_state,       ONLY: construct_nwp_lnd_state,   &
@@ -257,11 +255,14 @@ CONTAINS
     ! 1.1 Read namelists (newly) specified by the user; fill the 
     !     corresponding sections of the configuration states.
     !---------------------------------------------------------------------
+    WRITE(0,*) 'we are in atmo now'
+
     CALL read_atmo_namelists(atm_namelist_filename,shr_namelist_filename)
 
     !---------------------------------------------------------------------
     ! 1.2 Cross-check namelist setups
     !---------------------------------------------------------------------
+
     CALL atm_crosscheck
 
     !---------------------------------------------------------------------
@@ -785,7 +786,7 @@ CONTAINS
     !------------------------------------------------------------------
     IF ( iforcing == inwp) THEN
 !  !( p_patch_global(1:) )  ! read Namelist, ...
-      CALL configure_atm_phy_nwp
+!      CALL configure_atm_phy_nwp
 !      IF (inwp_surface > 0)
       CALL setup_nwp_lnd
     ENDIF
@@ -824,7 +825,7 @@ CONTAINS
     ! step 6: initialize output
     !------------------------------------------------------------------
     
-    CALL setup_gmt_output(p_patch(n_dom)%nlev)
+!    CALL setup_gmt_output(p_patch(n_dom)%nlev)
     
     ! The model produces output files for all grid levels
  

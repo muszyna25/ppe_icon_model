@@ -46,6 +46,7 @@ USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribut
 USE mo_io_config,            ONLY: dt_data,dt_file,dt_diag,dt_checkpoint
 USE mo_run_config,           ONLY: &
   &                               dtime,                & !    namelist parameter
+  &                               ltestcase,            &
   &                               nsteps,               & !    :
   &                               ltimer,               & !    :
   &                               iforcing                !    namelist parameter
@@ -53,7 +54,7 @@ USE mo_impl_constants,       ONLY: inoforcing,           & !    :
   &                                inwp
 ! Horizontal grid
 USE mo_atmo_control,         ONLY: p_patch_subdiv, p_patch
-USE mo_model_domain_import,  ONLY: n_dom
+USE mo_grid_config,          ONLY: n_dom
 ! to break circular dependency KF???
 USE mo_intp_data_strc,       ONLY: p_int_state_global, p_int_state_subdiv, p_int_state
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state_global, p_grf_state_subdiv, p_grf_state
@@ -68,7 +69,6 @@ USE mo_nwp_phy_state,        ONLY: construct_nwp_phy_state, &
 USE mo_lnd_nwp_nml,          ONLY: setup_nwp_lnd
 USE mo_nwp_lnd_state,        ONLY: construct_nwp_lnd_state,   &
   &                                destruct_nwp_lnd_state, p_lnd_state
-USE mo_gmt_output,           ONLY: setup_gmt_output
 ! Time integration
 USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping
 
@@ -92,9 +92,9 @@ CONTAINS
     LOGICAL :: l_have_output
    
 
-     !nohydostatic
-     CALL configure_atm_phy_nwp
-  
+    IF(iforcing == inwp) THEN
+     CALL configure_atm_phy_nwp(n_dom, ltestcase)
+    ENDIF
  
     !---------------------------------------------------------------------
     ! 4.c Non-Hydrostatic / NWP
@@ -117,13 +117,6 @@ CONTAINS
        ENDIF
 
      ENDIF
-
-    !------------------------------------------------------------------
-    ! initialize output
-    !------------------------------------------------------------------
-    
-    CALL setup_gmt_output(p_patch(n_dom)%nlev)
-
 
     !---------------------------------------------------------------------
     ! 5. Perform time stepping

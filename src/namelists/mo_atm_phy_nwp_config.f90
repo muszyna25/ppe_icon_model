@@ -47,9 +47,8 @@ MODULE mo_atm_phy_nwp_config
     &                               itrad,itradheat, itsso,itgscp,itsatad,itupdate,&
     &                               itturb, itsfc,  itgwd, iphysproc
   USE mo_exception,        ONLY: message, message_text, finish
-  USE mo_grid_config,      ONLY: n_dom
 
-  USE mo_run_config,          ONLY: dtime, ltestcase
+!  USE mo_run_config,          ONLY: dtime, ltestcase
   USE mo_data_turbdiff,       ONLY: imode_turb,                              &
     &                               limpltkediff, ltkesso, lexpcor,          &
     &                               tur_len, pat_len, a_stab,                &
@@ -119,11 +118,9 @@ MODULE mo_atm_phy_nwp_config
     &  tcall_phy(max_dom,iphysproc) !! each domain and phys. process
 
 
-
-
 CONTAINS
 
-SUBROUTINE configure_atm_phy_nwp
+SUBROUTINE configure_atm_phy_nwp(n_dom,ltestcase)
  !-------------------------------------------------------------------------
   !
   !>
@@ -136,8 +133,10 @@ SUBROUTINE configure_atm_phy_nwp
   !! Initial revision by Daniel Reinert, DWD (2010-10-06)
   !! revision for restructurring by Kristina Froehlich MPI-M (2011-07-12)
 
-  INTEGER :: jg
+  INTEGER, INTENT(IN) :: n_dom
+  LOGICAL, INTENT(IN) :: ltestcase
 
+  INTEGER :: jg
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine =  &
                               'setup_atm_phy_nwp'
 

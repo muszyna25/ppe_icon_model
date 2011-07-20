@@ -96,7 +96,6 @@ MODULE mo_ocean_model
     & destruct_2d_interpol_state
   
   USE mo_oce_state,           ONLY: t_hydro_ocean_state, destruct_hydro_ocean_state  
-  USE mo_gmt_output,          ONLY: setup_gmt_output
   
 !0  USE mo_mpiom_phy_state,     ONLY: construct_mpiom_phy_state, &
 !0    &                               destruct_mpiom_phy_state
@@ -379,7 +378,6 @@ CONTAINS
     
    !CALL io_nml_setup !is empty by now KF
     CALL finish(TRIM(routine),'subroutine io_nml_sestup no longer exists!!')
-    CALL setup_gmt_output(p_patch(n_dom)%nlev)
     
     ! The model produces output files for all grid levels
  
