@@ -441,7 +441,7 @@ GRID_LEVEL_LOOP: DO jg = n_dom_start, n_dom
 
   ! calculate Cartesian components of primal normal
   ! (later these should be provided by the grid generator)
-  CALL calculate_cart_normal( lcoriolis, p_single_patch )
+  CALL calculate_cart_normal( lplane, p_single_patch )
 
   ! Initialize the data for the quadrilateral cells
   ! formed by the two adjacent cells of an edge.
