@@ -178,13 +178,18 @@ CONTAINS
 
     TYPE(t_patch), INTENT(INOUT) :: p_patch(n_dom_start:)
 
-#ifdef NOMPI
-    CALL finish('mo_subdivision','set_patch_communicators must only be called in parallel runs')
-#else
+! #ifdef NOMPI
+!     CALL finish('mo_subdivision','set_patch_communicators must only be called in parallel runs')
+! #else
     INTEGER jc, jgc, jg, jgp, n_proc_total, comm, mpierr
     INTEGER, ALLOCATABLE :: patch_no(:)
 
+    IF (my_process_is_mpi_seq()) THEN
+      p_patch(:)%comm = p_comm_work
+      RETURN
+    ENDIF
 
+#ifndef NOMPI
     ! Default if processor set is not split
 
     p_patch(:)%comm   = p_comm_work

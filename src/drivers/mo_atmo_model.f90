@@ -35,7 +35,7 @@
 MODULE mo_atmo_model
 
 USE mo_exception,           ONLY: message, finish
-USE mo_mpi,                 ONLY: p_stop, p_comm_work, &
+USE mo_mpi,                 ONLY: p_stop, &
 & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
 & my_process_is_stdio, set_mpi_work_communicators, set_comm_input_bcast, null_comm_type
 USE mo_timer,               ONLY: init_timer, print_timer
@@ -382,11 +382,11 @@ CONTAINS
       p_int_state => p_int_state_global
       p_grf_state => p_grf_state_global
       
-      IF (my_process_is_mpi_seq()) THEN
-        p_patch(:)%comm = p_comm_work
-      ELSE
+!       IF (my_process_is_mpi_seq()) THEN
+!         p_patch(:)%comm = p_comm_work
+!       ELSE
         CALL set_patch_communicators(p_patch)
-      ENDIF
+!       ENDIF
       
     ELSE
       
