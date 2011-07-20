@@ -108,13 +108,13 @@ CONTAINS
      IF(iforcing == inwp) THEN
        CALL construct_nwp_phy_state( p_patch(1:) )
        
-       IF (atm_phy_nwp_config(1)%inwp_surface > 0 ) THEN
+!       IF (atm_phy_nwp_config(1)%inwp_surface > 0 ) THEN
          ALLOCATE (p_lnd_state(n_dom), stat=ist)
          IF (ist /= success) THEN
            CALL finish(TRIM(routine),'allocation for p_lnd_state failed')
          ENDIF
          CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
-       ENDIF
+!       ENDIF
 
      ENDIF
 

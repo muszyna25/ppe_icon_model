@@ -138,8 +138,6 @@ CONTAINS
 
    !ntracer_static = 0
 
-    WRITE(0,*)'configure run ntracer=',ntracer
-
   END SUBROUTINE configure_run
 
 
