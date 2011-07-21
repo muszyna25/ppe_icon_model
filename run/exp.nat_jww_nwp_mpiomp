@@ -1,6 +1,8 @@
+#!/bin/ksh
+
 #-----------------------------------------------------------------------------
 # check if the nested grids have been created
-# currently they should be presetn in all machines, except maybe on the NEC
+# currently they should be present in all machines, except maybe on the NEC
 #
 nested_grids=$(ls ../grids/iconR2B05_DOM02.nc)
 if [[ "x$nested_grids" != "x../grids/iconR2B05_DOM02.nc" ]] ; then
@@ -16,22 +18,8 @@ if [[ "x$nested_grids" != "x../grids/iconR2B05_DOM02.nc" ]] ; then
     exit 0
   fi
 fi
-#-----------------------------------------------------------------------------
 
-#=============================================================================
-#
-# This section of the run script contains the specifications of the experiment.
-# The specifications are passed by namelist to the program.
-# For a complete list see Namelist_overview.pdf
-#
-# EXPNAME and NPROMA must be defined in as environment variables or must 
-# they must be substituted with appropriate values.
-#
-# DWD, 2010-08-31
-#
 #-----------------------------------------------------------------------------
-# Basic specifications of the simulation
-# --------------------------------------
 #
 # This test must have available at least 3 MPI processes.
 #
@@ -47,23 +35,35 @@ if [[ ${mpi_procs} = 2 ]]; then
   mpi_procs=3
   START=${START%2}3
 fi
+#-----------------------------------------------------------------------------
+
+#=============================================================================
+#
+# This section of the run script contains the specifications of the experiment.
+# The specifications are passed by namelist to the program.
+# For a complete list see Namelist_overview.pdf
+#
+# DWD, 2010-08-31
+#
+#=============================================================================
+#
+# These variables are set in the header section of the completed run script:
+#   EXPNAME = experiment name
+#   nproma  = array blocking length / inner loop length
+# They may be overwritten here
 #
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
+# Basic specifications of the simulation
+# --------------------------------------
+
+#-----------------------------------------------------------------------------
 # The following values must be set here as shell variables so that they can be used
 # also in the executing section of the completed run script
-#
 #-----------------------------------------------------------------------------
 # the namelist filename
 atmo_namelist=NAMELIST_${EXPNAME}
-#
-#-----------------------------------------------------------------------------
-# the grid files
-atmo_dyn_grids="iconR2B04_DOM01.nc iconR2B05_DOM02.nc"
-atmo_dyn_hierarchy="0                1"
-atmo_rad_grids="iconR2B03_DOM00.nc"
-atmo_grids="${atmo_dyn_grids} ${atmo_rad_grids}"
 #
 #-----------------------------------------------------------------------------
 # global timing
@@ -80,67 +80,75 @@ nsteps=50
 dt_data=`expr ${dtime} \* ${nsteps}`   # data output at the end of the integration
 #
 #-----------------------------------------------------------------------------
-
-
-
-# These values need to be stored in variables, which are needed to 
-# construct filenames  or directories:
-# 
-R=2               # nroot
-B=4               # number of bisections applied for the global grid
-# Variables needed when runnig the model with grid refinement (IREF must be .TRUE.)
-IREF=.true.
-NDOM=2
-LPATCH0=.true.    # must be set to .TRUE. if the reduced grid is used for radiation
-#
-N=40              # nlev = number of full levels
-OPT="spr0.90"     # grid optimization
-#
-IEQ=3             # equation system
+# model parameters
+model_equations=3             # equation system
 #                     1=hydrost. atm. T
 #                     1=hydrost. atm. theta dp
 #                     3=non-hydrost. atm., 
 #                     0=shallow water model
 #                    -1=hydrost. ocean
-#
+nlev=40              # nlev = number of full levels
+#-----------------------------------------------------------------------------
+# the grid parameters
+atmo_dyn_grids="iconR2B04_DOM01.nc iconR2B05_DOM02.nc"
+dynamics_parent_grid_id="0,                1"
+atmo_rad_grids="iconR2B03_DOM00.nc"
+lredgrid_phys=".true., .true."
+lfeedback=.true.
+#-----------------------------------------------------------------------------
+
+
 #-----------------------------------------------------------------------------
 #
-# ICON namelist parameters
+# write ICON namelist parameters
 # ------------------------
 # For a complete list see Namelist_overview and Namelist_overview.pdf
 #
-cat > NAMELIST_${EXPNAME} << EOF
-!
-&parallel_ctl
+# ------------------------
+# reconstrcuct the grid parameters in namelist form
+dynamics_grid_filename=""
+for gridfile in ${atmo_dyn_grids}; do
+  dynamics_grid_filename="${dynamics_grid_filename} '${gridfile}',"
+done
+radiation_grid_filename=""
+for gridfile in ${atmo_rad_grids}; do
+  radiation_grid_filename="${radiation_grid_filename} '${gridfile}',"
+done
+dynamics_parent_grid_id="${dynamics_parent_grid_id},"
+lredgrid_phys="${lredgrid_phys},"
+lfeedback="${lfeedback}," .true.,
+
+# ------------------------
+
+cat > ${atmo_namelist} << EOF
+&parallel_nml
+ nproma         = ${nproma}
  p_test_run     = .true.
  l_test_openmp  = .true.
- l_log_checks   = .true.  
+ l_log_checks   = .true.
 /
-&nh_testcase_ctl
+&grid_nml
+ cell_type = 3            ! triangular cells
+ dynamics_grid_filename  = ${dynamics_grid_filename}
+ radiation_grid_filename = ${radiation_grid_filename}
+ dynamics_parent_grid_id = ${dynamics_parent_grid_id}
+ lredgrid_phys           = ${lredgrid_phys}
+/
+&nh_testcase_nml
  nh_test_name   = 'jabw_m'     ! test case identifier
  rh_at_1000hpa  = 0.99
  qv_max         = 35.e-3
 /
-&io_ctl
+&io_nml
  out_expname    = '${EXPNAME}' ! file name base
- dt_data        = ${DT_DATA}   ! [s] output interval
- dt_diag        = ${DT_DATA}
+ dt_data        = ${dt_data}   ! [s] output interval
+ dt_diag        = ${dt_data}
 /
-&grid_ctl
- nroot          = ${R}         ! root division of icosahedron edges
- start_lev      = ${B}         ! number of bisections applied for the base grid
- n_dom          = ${NDOM}
- lfeedback      = .true.,
- lpatch0        = ${LPATCH0}
- lredgrid_phys  = .true.,.true.
 /
-&run_ctl
- nproma         = ${NPROMA}    ! array blocking length
- nlev           = ${N}         ! number of full levels of vertical grid
- nsteps         = ${NSTEPS}    ! 50 ! 1200 ! 7200 !
- dtime          = ${DTIME}     ! timestep in seconds
- iequations     = ${IEQ}       ! equation system
- i_cell_type    = 3            ! triangular cells
+&run_nml
+ num_lev        = ${nlev},        ! number of full levels of vertical grid
+ nsteps         = ${nsteps}    ! 50 ! 1200 ! 7200 !
+ dtime          = ${dtime}     ! timestep in seconds
  ldynamics      = .TRUE.       ! dynamics
  ltransport     = .TRUE.
  ntracer        = 5            ! default: 0
@@ -153,7 +161,7 @@ cat > NAMELIST_${EXPNAME} << EOF
  ldump_states   = .false.
  lrestore_states= .false. 
 /
-&nwp_phy_ctl
+&nwp_phy_nml
 inwp_gscp       = 1
 inwp_convection = 1
 inwp_radiation  = 1
@@ -163,7 +171,7 @@ inwp_turb       = 2
 &radiation_nml
  irad_o3 = 6
 /
-&nonhydrostatic_ctl
+&nonhydrostatic_nml
  iadv_rhotheta  = 2
  ivctype        = 2            ! sleve vertical coordinate
  exner_expol    = 0.60
@@ -174,7 +182,7 @@ inwp_turb       = 2
  l_open_ubc     = .false.
  l_nest_rcf     = .true.
 /
-&sleve_ctl
+&sleve_nml
  min_lay_thckn  = 50.
  top_height     = 32500.
  decay_scale_1  = 4000.
@@ -182,15 +190,16 @@ inwp_turb       = 2
  decay_exp      = 1.2
  flat_height    = 16000.
 /
-&dynamics_ctl
+&dynamics_nml
+ iequations     = ${model_equations}       ! equation system
  itime_scheme   = 5
  idiv_method    = 1
  divavg_cntrwgt = 0.50
 /
-&transport_ctl
+&transport_nml
   ctracer_list  = '12345'
 /
-&diffusion_ctl
+&diffusion_nml
  hdiff_order      = 5
  hdiff_efdt_ratio = 10.0
  hdiff_smag_fac   = 0.15
@@ -199,17 +208,13 @@ inwp_turb       = 2
  hdiff_multfac    = 1.0
  hdiff_tv_ratio   = 1.0
 /
-&interpol_ctl
+&interpol_nml
 nudge_zone_width  = 4
 /
-&gridref_ctl
+&gridref_nml
  grf_intmethod_ct = 2
  grf_tracfbk      = 2
  denom_diffu_v    = 150.
-/
-&regularization_ctl
-/
-&ocean_ctl
 /
 EOF
 #

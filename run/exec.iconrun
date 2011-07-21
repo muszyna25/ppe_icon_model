@@ -40,6 +40,7 @@ check_error $? "${EXPDIR} does not exist?"
 #
 # get grid files
 #
+atmo_grids="${atmo_dyn_grids} ${atmo_rad_grids}"
 all_grids="${atmo_grids} ${ocean_grids}"
 for gridfile in ${all_grids}; do
   rm ${EXPDIR}/$gridfile
@@ -47,7 +48,7 @@ for gridfile in ${all_grids}; do
 done
 
 #-----------------------------------------------------------------------------
-case ${IEQ} in
+case ${model_equations} in
     0 | 1 | 2 )
         # shallow water | hydrost. atm. T| hydrost. atm. theta dp 
         # =======================================================
@@ -60,7 +61,7 @@ case ${IEQ} in
         # vertical grid
         # -------------
         VGRIDDIR=${ICONDIR}/vertical_coord_tables
-        VGRIDNAME=atm_hyb_sp_${N}
+        VGRIDNAME=atm_hyb_sp_${nlev}
         #
         rm ${EXPDIR}/${VGRIDNAME}
         ln -s ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
@@ -79,7 +80,7 @@ case ${IEQ} in
         # vertical grid
         # -------------
         VGRIDDIR=${ICONDIR}/vertical_coord_tables
-        VGRIDNAME=atm_hyb_sz_${N}
+        VGRIDNAME=atm_hyb_sz_${nlev}
         #
         rm  ${EXPDIR}/${VGRIDNAME}
         ln -s ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}

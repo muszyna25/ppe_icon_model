@@ -14,23 +14,18 @@
 # --------------------------------------
 #
 # These variables are set in the header section of the completed run script:
+#   EXPNAME = experiment name
+#   nproma  = array blocking length / inner loop length
+# They may be overwritten here
 #
-# EXPNAME = experiment name
-# NPROMA  = array blocking length / inner loop length
 #-----------------------------------------------------------------------------
 #
 #-----------------------------------------------------------------------------
 # The following values must be set here as shell variables so that they can be used
 # also in the executing section of the completed run script
-#
 #-----------------------------------------------------------------------------
 # the namelist filename
 atmo_namelist=NAMELIST_${EXPNAME}
-#
-#-----------------------------------------------------------------------------
-# the grid files
-atmo_dyn_grids='iconR2B04-grid_spr0.90.nc'
-atmo_grids=$atmo_dyn_grids
 #
 #-----------------------------------------------------------------------------
 # global timing
@@ -46,12 +41,16 @@ nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 #
 #-----------------------------------------------------------------------------
 # model parameters
-IEQ=1             # equation system
+model_equations=1   # equation system
 #                     1=hydrost. atm.
 #                     2=non-hydrost. atm., 
 #                    -1=shallow water model
 #                    -2=hydrost. ocean
-N=31              # nlev = number of full levels
+nlev=31             # nlev = number of full levels
+#-----------------------------------------------------------------------------
+# the grid files
+atmo_dyn_grids='iconR2B04-grid_spr0.90.nc'
+atmo_grids=$atmo_dyn_grids
 #-----------------------------------------------------------------------------
 
 
@@ -63,7 +62,7 @@ N=31              # nlev = number of full levels
 cat > $atmo_namelist << EOF
 !
 &parallel_nml
- nproma         = ${NPROMA}
+ nproma         = ${nproma}
  p_test_run     = .false.
  l_test_openmp  = .false.
  l_log_checks   = .false.
@@ -75,7 +74,7 @@ cat > $atmo_namelist << EOF
 &gridref_nml
 /
 &run_nml
- num_lev     = ${N},        ! number of full levels of vertical grid
+ num_lev     = ${nlev},        ! number of full levels of vertical grid
  ntracer     = 0            ! number of tracers
  nsteps      = ${nsteps}    ! [day] length of run
  dtime       = ${dtime}     ! [s] timestep
@@ -91,7 +90,7 @@ cat > $atmo_namelist << EOF
  out_expname = '${EXPNAME}' ! file name base
 /
 &dynamics_nml
- iequations  = ${IEQ}       ! hydrostatic atmosphere using T as progn. var.
+ iequations  = ${model_equations}       ! hydrostatic atmosphere using T as progn. var.
 /
 &diffusion_nml
 /
