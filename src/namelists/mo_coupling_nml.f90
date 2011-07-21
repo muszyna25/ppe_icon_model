@@ -43,7 +43,7 @@ MODULE mo_coupling_nml
   !
   !-------------------------------------------------------------------------
 
-  USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH
+  USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH,SUCCESS
   USE mo_exception, ONLY: warning, message_text, finish
   USE mo_io_units,  ONLY: filename_max, nnml
   USE mo_namelist,  ONLY: open_nml, position_nml, POSITIONED
@@ -103,7 +103,7 @@ CONTAINS
     ! Local variables
     !
 
-    INTEGER :: i, istat
+    INTEGER :: istat
 
     CHARACTER(len=max_char_length), PARAMETER :: &
          &   routine = 'mo_coupling_nml:read_coupling_namelist'
@@ -160,6 +160,8 @@ CONTAINS
     complist(comp_id)%coupling_freq       = coupling_freq
     complist(comp_id)%time_step           = time_step
     complist(comp_id)%l_redirect_stdout   = l_redirect_stdout
+
+    read_coupling_namelist=SUCCESS
 
   END FUNCTION read_coupling_namelist
 
