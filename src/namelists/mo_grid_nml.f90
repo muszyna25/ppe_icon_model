@@ -63,7 +63,7 @@ MODULE mo_grid_nml
     & config_dynamics_parent_grid_id      => dynamics_parent_grid_id,      &
     & config_radiation_grid_filename      => radiation_grid_filename,      &
     & config_dyn_radiation_grid_link      => dynamics_radiation_grid_link, &
-    & check_grid_configuration
+    & check_grid_configuration, max_rad_dom
 
   IMPLICIT NONE
 
@@ -93,7 +93,7 @@ MODULE mo_grid_nml
 
   CHARACTER(LEN=filename_max) :: dynamics_grid_filename(max_dom)
   INTEGER                     :: dynamics_parent_grid_id(max_dom)
-  CHARACTER(LEN=filename_max) :: radiation_grid_filename(max_dom)
+  CHARACTER(LEN=filename_max) :: radiation_grid_filename(max_rad_dom)
   INTEGER                     :: dynamics_radiation_grid_link(max_dom)
 
   INTEGER :: no_of_dynamics_grids, no_of_radiation_grids
@@ -126,9 +126,9 @@ MODULE mo_grid_nml
     INTEGER  ::  patch_level(max_dom)
     LOGICAL :: l_exist
 
-    !-----------------------------------------------------------------------
-    ! clear grid filenames and hierarchy
-
+    !------------------------------------------------------------
+    !  set up the default values for grid_nml
+    !------------------------------------------------------------
     no_of_dynamics_grids  = 0
     no_of_radiation_grids = 0
     DO i = 1, max_dom
@@ -137,10 +137,7 @@ MODULE mo_grid_nml
       dynamics_parent_grid_id(i)  = 0
       dynamics_radiation_grid_link(i) = 0
     ENDDO
-    
-    !------------------------------------------------------------
-    ! 3.0 set up the default values for grid_nml
-    !------------------------------------------------------------
+    dynamics_radiation_grid_link(1) = 1
 
     cell_type   = itri
       

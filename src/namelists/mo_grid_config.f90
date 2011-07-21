@@ -63,7 +63,7 @@ USE mo_read_netcdf_parallel, ONLY:                &
 
   PRIVATE
 
-  PUBLIC :: check_grid_configuration
+  PUBLIC :: check_grid_configuration, max_rad_dom
   
   PUBLIC :: global_cell_type, nroot, start_lev, n_dom, lfeedback,       &
     &       lplane, corio_lat, l_limited_area, patch_weight, &
@@ -82,6 +82,7 @@ USE mo_read_netcdf_parallel, ONLY:                &
 INCLUDE 'netcdf.inc'
 #endif
 
+  INTEGER, PARAMETER  :: max_rad_dom = 3
   ! ------------------------------------------------------------------------
   !Configuration variables
   ! ------------------------------------------------------------------------
@@ -105,7 +106,7 @@ INCLUDE 'netcdf.inc'
 
   CHARACTER(LEN=filename_max) :: dynamics_grid_filename(max_dom)
   INTEGER                     :: dynamics_parent_grid_id(max_dom)
-  CHARACTER(LEN=filename_max) :: radiation_grid_filename(max_dom)
+  CHARACTER(LEN=filename_max) :: radiation_grid_filename(max_rad_dom)
   INTEGER                     :: dynamics_radiation_grid_link(max_dom)
 
   INTEGER :: no_of_dynamics_grids, no_of_radiation_grids
@@ -159,7 +160,7 @@ CONTAINS
         CALL finish( TRIM(method_name), TRIM(message_text))
       ENDIF
       jg=jg+1
-      IF (jg > max_dom) EXIT
+      IF (jg > max_rad_dom) EXIT
     END DO
     no_of_radiation_grids = jg-1
     n_dom = no_of_dynamics_grids
