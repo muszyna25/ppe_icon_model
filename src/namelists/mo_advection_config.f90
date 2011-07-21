@@ -45,7 +45,8 @@ MODULE mo_advection_config
   USE mo_kind,               ONLY: wp
   USE mo_impl_constants,     ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom,  &
     &                              imiura, imiura3, ippm_vcfl, ippm_v,     &
-    &                              ino_flx, izero_grad, iparent_flx, inwp
+    &                              ino_flx, izero_grad, iparent_flx, inwp, &
+    &                              imuscl_vcfl, imuscl_v
 
   IMPLICIT NONE
   PUBLIC
@@ -54,21 +55,21 @@ MODULE mo_advection_config
 
 
 
-!!$  ! Derived types to allow for the onetime computation of tracer independent parts
-!!$  !
-!!$  TYPE t_compute                                                               
-!!$    LOGICAL :: muscl_v (MAX_NTRACER)                                           
-!!$    LOGICAL :: ppm_v   (MAX_NTRACER)                                           
-!!$    LOGICAL :: miura_h (MAX_NTRACER)                                           
-!!$    LOGICAL :: miura3_h(MAX_NTRACER)                                           
-!!$  END TYPE t_compute                                                           
-!!$                                                                               
-!!$  TYPE t_cleanup                                                              
-!!$    LOGICAL :: muscl_v (MAX_NTRACER)                                           
-!!$    LOGICAL :: ppm_v   (MAX_NTRACER)                                           
-!!$    LOGICAL :: miura_h (MAX_NTRACER)                                           
-!!$    LOGICAL :: miura3_h(MAX_NTRACER)                                           
-!!$  END TYPE t_cleanup
+  ! Derived types to allow for the onetime computation of tracer independent parts
+  !
+  TYPE t_compute                                                               
+    LOGICAL :: muscl_v (MAX_NTRACER)                                           
+    LOGICAL :: ppm_v   (MAX_NTRACER)                                           
+    LOGICAL :: miura_h (MAX_NTRACER)                                           
+    LOGICAL :: miura3_h(MAX_NTRACER)                                           
+  END TYPE t_compute                                                           
+                                                                               
+  TYPE t_cleanup                                                              
+    LOGICAL :: muscl_v (MAX_NTRACER)                                           
+    LOGICAL :: ppm_v   (MAX_NTRACER)                                           
+    LOGICAL :: miura_h (MAX_NTRACER)                                           
+    LOGICAL :: miura3_h(MAX_NTRACER)                                           
+  END TYPE t_cleanup
 
 
 
@@ -148,15 +149,16 @@ MODULE mo_advection_config
                                  !< advection scheme applicable to a height      
                                  !< based coordinate system (coeff_grid=-1)      
                    
-!!$    TYPE(t_compute) :: lcompute
-!!$    TYPE(t_cleanup) :: lcleanup
-                                           
   END TYPE t_advection_config
 
   !>
   !!
   TYPE(t_advection_config), TARGET :: advection_config(max_dom)
 
+!DR For the time being lcompute and lcleanup are not added to the 
+!DR advection_config state
+  TYPE(t_compute) :: lcompute
+  TYPE(t_cleanup) :: lcleanup
 
 
   REAL(wp) :: shape_func(4,4)  !< shape functions for mapping the FFSL departure
@@ -271,112 +273,112 @@ CONTAINS
 
 
 
-!!$    ! to save some paperwork
-!!$    ivadv_tracer(:) = advection_config(jg)%ivadv_tracer(:)
-!!$    ihadv_tracer(:) = advection_config(jg)%ihadv_tracer(:)
-!!$
-!!$    ! MUSCL_V[CFL] specific settings (vertical transport)
-!!$    !
-!!$    advection_config(jg)%lcompute%muscl_v(:) = .FALSE.
-!!$    advection_config(jg)%lcleanup%muscl_v(:) = .FALSE.
-!!$
-!!$    IF ( ANY(ivadv_tracer == imuscl_v) .OR. ANY(ivadv_tracer == imuscl_vcfl)  ) THEN
-!!$      ! Search for the first tracer jt for which vertical advection of
-!!$      ! type MUSCL has been selected.
-!!$      DO jt=1,ntracer
-!!$        IF ( ivadv_tracer(jt) == imuscl_v .OR. ivadv_tracer(jt) == imuscl_vcfl ) THEN
-!!$          advection_config(jg)%lcompute%muscl_v(jt) = .TRUE.
-!!$          exit
-!!$        ENDIF
-!!$      ENDDO
-!!$
-!!$      ! Search for the last tracer jt for which vertical advection of
-!!$      ! type MUSCL has been selected.
-!!$      DO jt=ntracer,1,-1
-!!$        IF ( ivadv_tracer(jt) == imuscl_v .OR. ivadv_tracer(jt) == imuscl_vcfl ) THEN
-!!$          advection_config(jg)%lcleanup%muscl_v(jt) = .TRUE.
-!!$          exit
-!!$        ENDIF
-!!$      ENDDO
-!!$    END IF
+    ! to save some paperwork
+    ivadv_tracer(:) = advection_config(1)%ivadv_tracer(:)
+    ihadv_tracer(:) = advection_config(1)%ihadv_tracer(:)
+
+    ! MUSCL_V[CFL] specific settings (vertical transport)
+    !
+    lcompute%muscl_v(:) = .FALSE.
+    lcleanup%muscl_v(:) = .FALSE.
+
+    IF ( ANY(ivadv_tracer == imuscl_v) .OR. ANY(ivadv_tracer == imuscl_vcfl)  ) THEN
+      ! Search for the first tracer jt for which vertical advection of
+      ! type MUSCL has been selected.
+      DO jt=1,ntracer
+        IF ( ivadv_tracer(jt) == imuscl_v .OR. ivadv_tracer(jt) == imuscl_vcfl ) THEN
+          lcompute%muscl_v(jt) = .TRUE.
+          exit
+        ENDIF
+      ENDDO
+
+      ! Search for the last tracer jt for which vertical advection of
+      ! type MUSCL has been selected.
+      DO jt=ntracer,1,-1
+        IF ( ivadv_tracer(jt) == imuscl_v .OR. ivadv_tracer(jt) == imuscl_vcfl ) THEN
+          lcleanup%muscl_v(jt) = .TRUE.
+          exit
+        ENDIF
+      ENDDO
+    END IF
 
 
-!!$    ! PPM_V[CFL] specific settings (vertical transport)
-!!$    !
-!!$    advection_config(jg)%lcompute%ppm_v(:)   = .FALSE.
-!!$    advection_config(jg)%lcleanup%ppm_v(:)   = .FALSE.
-!!$
-!!$    IF ( ANY(ivadv_tracer == ippm_v) .OR. ANY(ivadv_tracer == ippm_vcfl)  ) THEN
-!!$      ! Search for the first tracer jt for which vertical advection of
-!!$      ! type PPM has been selected.
-!!$      DO jt=1,ntracer
-!!$        IF ( ivadv_tracer(jt) == ippm_v .OR. ivadv_tracer(jt) == ippm_vcfl ) THEN
-!!$          advection_config(jg)%lcompute%ppm_v(jt) = .TRUE.
-!!$          exit
-!!$        ENDIF
-!!$      ENDDO
-!!$
-!!$      ! Search for the last tracer jt for which vertical advection of
-!!$      ! type PPM has been selected.
-!!$      DO jt=ntracer,1,-1
-!!$        IF ( ivadv_tracer(jt) == ippm_v .OR. ivadv_tracer(jt) == ippm_vcfl ) THEN
-!!$          advection_config(jg)%lcleanup%ppm_v(jt) = .TRUE.
-!!$          exit
-!!$        ENDIF
-!!$      ENDDO
-!!$    END IF
+    ! PPM_V[CFL] specific settings (vertical transport)
+    !
+    lcompute%ppm_v(:)   = .FALSE.
+    lcleanup%ppm_v(:)   = .FALSE.
+
+    IF ( ANY(ivadv_tracer == ippm_v) .OR. ANY(ivadv_tracer == ippm_vcfl)  ) THEN
+      ! Search for the first tracer jt for which vertical advection of
+      ! type PPM has been selected.
+      DO jt=1,ntracer
+        IF ( ivadv_tracer(jt) == ippm_v .OR. ivadv_tracer(jt) == ippm_vcfl ) THEN
+          lcompute%ppm_v(jt) = .TRUE.
+          exit
+        ENDIF
+      ENDDO
+
+      ! Search for the last tracer jt for which vertical advection of
+      ! type PPM has been selected.
+      DO jt=ntracer,1,-1
+        IF ( ivadv_tracer(jt) == ippm_v .OR. ivadv_tracer(jt) == ippm_vcfl ) THEN
+          lcleanup%ppm_v(jt) = .TRUE.
+          exit
+        ENDIF
+      ENDDO
+    END IF
 
 
-!!$    !
-!!$    ! MIURA specific settings
-!!$    !
-!!$    advection_config(jg)%lcompute%miura_h(:) = .FALSE.
-!!$    advection_config(jg)%lcleanup%miura_h(:) = .FALSE.
-!!$
-!!$    IF ( ANY(ihadv_tracer(1:ntracer) == imiura) ) THEN
-!!$      ! Search for the first tracer jt for which horizontal advection of
-!!$      ! type MIURA has been selected.
-!!$      DO jt=1,ntracer
-!!$        IF ( ihadv_tracer(jt) == imiura ) THEN
-!!$          advection_config(jg)%lcompute%miura_h(jt) = .TRUE.
-!!$          exit
-!!$        ENDIF
-!!$      ENDDO
-!!$
-!!$      ! Search for the last tracer jt for which horizontal advection of
-!!$      ! type MIURA has been selected.
-!!$      DO jt=ntracer,1,-1
-!!$        IF ( ihadv_tracer(jt) == imiura ) THEN
-!!$          advection_config(jg)%lcleanup%miura_h(jt) = .TRUE.
-!!$          exit
-!!$        ENDIF
-!!$      ENDDO
-!!$    END IF
+    !
+    ! MIURA specific settings
+    !
+    lcompute%miura_h(:) = .FALSE.
+    lcleanup%miura_h(:) = .FALSE.
+
+    IF ( ANY(ihadv_tracer(1:ntracer) == imiura) ) THEN
+      ! Search for the first tracer jt for which horizontal advection of
+      ! type MIURA has been selected.
+      DO jt=1,ntracer
+        IF ( ihadv_tracer(jt) == imiura ) THEN
+          lcompute%miura_h(jt) = .TRUE.
+          exit
+        ENDIF
+      ENDDO
+
+      ! Search for the last tracer jt for which horizontal advection of
+      ! type MIURA has been selected.
+      DO jt=ntracer,1,-1
+        IF ( ihadv_tracer(jt) == imiura ) THEN
+          lcleanup%miura_h(jt) = .TRUE.
+          exit
+        ENDIF
+      ENDDO
+    END IF
 
 
-!!$    !
-!!$    ! MIURA3 specific settings
-!!$    !
-!!$    advection_config(jg)%lcompute%miura3_h(:) = .FALSE.
-!!$    advection_config(jg)%lcleanup%miura3_h(:) = .FALSE.
-!!$
-!!$    ! Search for the first tracer jt for which horizontal advection of
-!!$    ! type MIURA3 has been selected.
-!!$    DO jt=1,ntracer
-!!$      IF ( ihadv_tracer(jt) == imiura3 ) THEN
-!!$        advection_config(jg)%lcompute%miura3_h(jt) = .TRUE.
-!!$        exit
-!!$      ENDIF
-!!$    ENDDO
-!!$
-!!$    ! Search for the last tracer jt for which horizontal advection of
-!!$    ! type MIURA3 has been selected.
-!!$    DO jt=ntracer,1,-1
-!!$      IF ( ihadv_tracer(jt) == imiura3 ) THEN
-!!$        advection_config(jg)%lcleanup%miura3_h(jt) = .TRUE.
-!!$        exit
-!!$      ENDIF
-!!$    ENDDO
+    !
+    ! MIURA3 specific settings
+    !
+    lcompute%miura3_h(:) = .FALSE.
+    lcleanup%miura3_h(:) = .FALSE.
+
+    ! Search for the first tracer jt for which horizontal advection of
+    ! type MIURA3 has been selected.
+    DO jt=1,ntracer
+      IF ( ihadv_tracer(jt) == imiura3 ) THEN
+        lcompute%miura3_h(jt) = .TRUE.
+        exit
+      ENDIF
+    ENDDO
+
+    ! Search for the last tracer jt for which horizontal advection of
+    ! type MIURA3 has been selected.
+    DO jt=ntracer,1,-1
+      IF ( ihadv_tracer(jt) == imiura3 ) THEN
+        lcleanup%miura3_h(jt) = .TRUE.
+        exit
+      ENDIF
+    ENDDO
 
 
     !

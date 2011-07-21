@@ -74,11 +74,10 @@ MODULE mo_advection_vflux
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_parallel_config,     ONLY: nproma
   USE mo_dynamics_config,     ONLY: iequations 
   USE mo_run_config,          ONLY: ntracer, msg_level, lvert_nest
-  USE mo_advection_nml,       ONLY: lcompute, lcleanup
-  USE mo_advection_config,    ONLY: advection_config
+  USE mo_advection_config,    ONLY: advection_config, lcompute, lcleanup
   USE mo_advection_utils,     ONLY: laxfr_upflux_v, laxfr_upflux
   USE mo_advection_limiter,   ONLY: v_muscl_slimiter_mo, v_muscl_slimiter_sm, &
    &                                v_ppm_slimiter_mo, v_ppm_slimiter_sm,     &
