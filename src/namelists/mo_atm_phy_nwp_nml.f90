@@ -280,17 +280,17 @@ CONTAINS
     atm_phy_nwp_config(0)%inwp_turb       = inwp_turb
     atm_phy_nwp_config(0)%inwp_surface    = inwp_surface
 
-    atm_phy_nwp_config(0)% dt_conv        = dt_conv (jg)
-    atm_phy_nwp_config(0)% dt_ccov        = dt_ccov (jg)
-    atm_phy_nwp_config(0)% dt_rad         = dt_rad  (jg)
-    atm_phy_nwp_config(0)% dt_radheat     = dt_radheat(jg)
-    atm_phy_nwp_config(0)% dt_sso         = dt_sso   (jg)
-    atm_phy_nwp_config(0)% dt_gwd         = dt_gwd   (jg)
-    atm_phy_nwp_config(0)% dt_gscp        = dt_gscp  (jg)
-    atm_phy_nwp_config(0)% dt_satad       = dt_satad (jg)
-    atm_phy_nwp_config(0)% dt_turb        = dt_turb  (jg)
-    atm_phy_nwp_config(0)% dt_sfc         = dt_sfc   (jg)
-    atm_phy_nwp_config(0)% dt_update      = dt_update(jg)
+    atm_phy_nwp_config(0)% dt_conv        = dt_conv (1)
+    atm_phy_nwp_config(0)% dt_ccov        = dt_ccov (1)
+    atm_phy_nwp_config(0)% dt_rad         = dt_rad  (1)
+    atm_phy_nwp_config(0)% dt_radheat     = dt_radheat(1)
+    atm_phy_nwp_config(0)% dt_sso         = dt_sso   (1)
+    atm_phy_nwp_config(0)% dt_gwd         = dt_gwd   (1)
+    atm_phy_nwp_config(0)% dt_gscp        = dt_gscp  (1)
+    atm_phy_nwp_config(0)% dt_satad       = dt_satad (1)
+    atm_phy_nwp_config(0)% dt_turb        = dt_turb  (1)
+    atm_phy_nwp_config(0)% dt_sfc         = dt_sfc   (1)
+    atm_phy_nwp_config(0)% dt_update      = dt_update(1)
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
