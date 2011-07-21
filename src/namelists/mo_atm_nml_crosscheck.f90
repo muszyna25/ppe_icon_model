@@ -391,8 +391,10 @@ CONTAINS
     ! NWP physics
     !--------------------------------------------------------------------
     IF (iforcing==inwp) THEN
+    
+      CALL configure_atm_phy_nwp(n_dom,ltestcase)
  
-     DO jg =1,n_dom
+      DO jg =1,n_dom
 
         IF( atm_phy_nwp_config(jg)%inwp_satad == 0       .AND. &
           & ((atm_phy_nwp_config(jg)%inwp_convection >0 ) .OR. &
