@@ -30,7 +30,8 @@ MODULE mo_io_restart_namelist
 #endif
   !
 #ifndef HAVE_F2003
-  INTEGER, PARAMETER :: nmllen_max = 4096
+!   INTEGER, PARAMETER :: nmllen_max = 4096
+  INTEGER, PARAMETER :: nmllen_max = 8192
 #endif
   !
   TYPE t_att_namelist
