@@ -269,28 +269,6 @@ CONTAINS
 !      atm_phy_nwp_config(jg)%qc0             = qc0 
 
     ENDDO
-    ! fill the 0 patch parameters
-    atm_phy_nwp_config(0)%inwp_convection = inwp_convection
-    atm_phy_nwp_config(0)%inwp_cldcover   = inwp_cldcover
-    atm_phy_nwp_config(0)%inwp_radiation  = inwp_radiation
-    atm_phy_nwp_config(0)%inwp_sso        = inwp_sso
-    atm_phy_nwp_config(0)%inwp_gwd        = inwp_gwd
-    atm_phy_nwp_config(0)%inwp_gscp       = inwp_gscp
-    atm_phy_nwp_config(0)%inwp_satad      = inwp_satad
-    atm_phy_nwp_config(0)%inwp_turb       = inwp_turb
-    atm_phy_nwp_config(0)%inwp_surface    = inwp_surface
-
-    atm_phy_nwp_config(0)% dt_conv        = dt_conv (1)
-    atm_phy_nwp_config(0)% dt_ccov        = dt_ccov (1)
-    atm_phy_nwp_config(0)% dt_rad         = dt_rad  (1)
-    atm_phy_nwp_config(0)% dt_radheat     = dt_radheat(1)
-    atm_phy_nwp_config(0)% dt_sso         = dt_sso   (1)
-    atm_phy_nwp_config(0)% dt_gwd         = dt_gwd   (1)
-    atm_phy_nwp_config(0)% dt_gscp        = dt_gscp  (1)
-    atm_phy_nwp_config(0)% dt_satad       = dt_satad (1)
-    atm_phy_nwp_config(0)% dt_turb        = dt_turb  (1)
-    atm_phy_nwp_config(0)% dt_sfc         = dt_sfc   (1)
-    atm_phy_nwp_config(0)% dt_update      = dt_update(1)
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
