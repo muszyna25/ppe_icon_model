@@ -133,11 +133,13 @@ MODULE mo_grid_nml
     no_of_radiation_grids = 0
     DO i = 1, max_dom
       dynamics_grid_filename(i)   = ""
-      radiation_grid_filename(i)  = ""
       dynamics_parent_grid_id(i)  = 0
       dynamics_radiation_grid_link(i) = 0
     ENDDO
     dynamics_radiation_grid_link(1) = 1
+    DO i = 1, max_rad_dom
+      radiation_grid_filename(i)  = ""
+    ENDDO
 
     cell_type   = itri
       
