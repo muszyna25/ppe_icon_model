@@ -154,8 +154,6 @@ cat > ${atmo_namelist} << EOF
  ntracer        = 5            ! default: 0
  iforcing       = 3            ! diabatic forcing
  ltestcase      = .TRUE.       ! run testcase
- itopo          = 0
- lcorio         = .TRUE.
  msg_level      = 12           ! detailed report during integration
  ltimer         = .false.
  ldump_states   = .false.
@@ -167,6 +165,7 @@ inwp_convection = 1
 inwp_radiation  = 1
 inwp_cldcover   = 3
 inwp_turb       = 2
+inwp_satad      = 1
 /
 &radiation_nml
  irad_o3 = 6
@@ -195,6 +194,7 @@ inwp_turb       = 2
  itime_scheme   = 5
  idiv_method    = 1
  divavg_cntrwgt = 0.50
+ lcoriolis      = .TRUE.
 /
 &transport_nml
   ctracer_list  = '12345'
@@ -215,6 +215,9 @@ nudge_zone_width  = 4
  grf_intmethod_ct = 2
  grf_tracfbk      = 2
  denom_diffu_v    = 150.
+/
+&extpar_nml
+ itopo          = 0
 /
 EOF
 #

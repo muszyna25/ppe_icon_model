@@ -73,7 +73,7 @@ IFORCING=1        # forcing to the equation system
 cat > NAMELIST_${EXPNAME} << EOF
 &parallel_nml
  nproma         = ${NPROMA}
- p_test_run     = .false.
+ p_test_run     = .true.
  l_test_openmp  = .false.
  l_log_checks   = .false.
 /
