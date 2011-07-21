@@ -222,9 +222,9 @@ CONTAINS
       CALL finish( TRIM(routine),'Tracer transport switched on but ntracer <= 0')
     ENDIF
 
-    IF (.NOT.ltransport .AND. ntracer > 0) &
-      CALL finish( TRIM(routine),          &
-      'either set ltransport = true or ntracer to 0 ')
+   !IF (.NOT.ltransport .AND. ntracer > 0) &
+   !  CALL finish( TRIM(routine),          &
+   !  'either set ltransport = true or ntracer to 0 ')
 
     IF((itime_scheme==tracer_only).AND.(.NOT.ltransport)) THEN
       WRITE(message_text,'(A,i2,A)') &
@@ -431,25 +431,11 @@ CONTAINS
       ENDDO
     END IF
 
-    !--------------------------------------------------------------------
-    ! ECHAM physics
-    !--------------------------------------------------------------------
-    IF ((iforcing==IECHAM).AND.(echam_phy_config%lrad).AND. &
-        (irad_o3 > 0) .AND. (io3 > ntracer) ) THEN
-
-      CALL print_value('irad_o3' ,irad_o3)
-      CALL print_value('io3    ' ,io3)
-      CALL print_value('ntracer' ,ntracer)
-      CALL finish(TRIM(routine), 'Not enough tracers for ECHAM physics with RRTM.')
-    END IF
 
     !--------------------------------------------------------------------
     ! Tracers and diabatic forcing
     !--------------------------------------------------------------------
-
-    !--------------------------------------------------------------------
     ! Tracer indices need to be set before further checking
-    !--------------------------------------------------------------------
 
     SELECT CASE(iforcing)
     CASE (IECHAM,ILDF_ECHAM)
@@ -603,6 +589,15 @@ CONTAINS
         IF ( i_listlen < ntracer .AND. i_listlen /= 0 ) THEN
           ntracer = i_listlen
           CALL message(TRIM(routine),'number of tracers is adjusted according to given list')
+        END IF
+
+        IF ((iforcing==IECHAM).AND.(echam_phy_config%lrad).AND. &
+            (irad_o3 > 0) .AND. (io3 > ntracer) ) THEN
+
+          CALL print_value('irad_o3' ,irad_o3)
+          CALL print_value('io3    ' ,io3)
+          CALL print_value('ntracer' ,ntracer)
+          CALL finish(TRIM(routine), 'Not enough tracers for ECHAM physics with RRTM.')
         END IF
       
       END SELECT ! iforcing
