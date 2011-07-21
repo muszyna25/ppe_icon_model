@@ -562,24 +562,23 @@ CONTAINS
           END SELECT
         END SELECT
 
-!KF comment out temporarly since physics should run without advection
 
-!        IF ( ( atm_phy_nwp_config(jg)%inwp_radiation > 0 )      &
-!          &  .AND. (irad_o3==0 .OR. irad_o3==6) )         THEN
-!          IF ( advection_config(jg)%ihadv_tracer(io3) /= 0 ) THEN
-!            advection_config(jg)%ihadv_tracer(io3) = 0
-!            WRITE(message_text,'(a,i1,a)') &
-!              & 'Attention: Since irad_o3 is set to ',irad_o3,', ihadv_tracer(io3) is set to 0.'
-!            CALL message(TRIM(routine),message_text)
-!          ENDIF
-!          IF ( advection_config(jg)%ivadv_tracer(io3) /= 0 ) THEN
-!            advection_config(jg)%ivadv_tracer(io3) = 0
-!            WRITE(message_text,'(a,i1,a)') &
-!              & 'Attention: Since irad_o3 is set to ',irad_o3,', ivadv_tracer(io3) is set to 0.'
-!            CALL message(TRIM(routine),message_text)
-!          ENDIF
-!        ENDIF
-!
+        IF ( ( atm_phy_nwp_config(jg)%inwp_radiation > 0 )      &
+          &  .AND. (irad_o3==0 .OR. irad_o3==6) )         THEN
+          IF ( advection_config(jg)%ihadv_tracer(io3) /= 0 ) THEN
+            advection_config(jg)%ihadv_tracer(io3) = 0
+            WRITE(message_text,'(a,i1,a)') &
+              & 'Attention: Since irad_o3 is set to ',irad_o3,', ihadv_tracer(io3) is set to 0.'
+            CALL message(TRIM(routine),message_text)
+          ENDIF
+          IF ( advection_config(jg)%ivadv_tracer(io3) /= 0 ) THEN
+            advection_config(jg)%ivadv_tracer(io3) = 0
+            WRITE(message_text,'(a,i1,a)') &
+              & 'Attention: Since irad_o3 is set to ',irad_o3,', ivadv_tracer(io3) is set to 0.'
+            CALL message(TRIM(routine),message_text)
+          ENDIF
+        ENDIF
+
 
       CASE (inoforcing, iheldsuarez, iecham, ildf_dry, ildf_echam)
       !...........................................................
