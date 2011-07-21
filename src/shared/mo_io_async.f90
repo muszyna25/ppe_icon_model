@@ -85,7 +85,7 @@ MODULE mo_io_async
   USE mo_grid_config,         ONLY: n_dom
   USE mo_vertical_coord_table,ONLY: init_vertical_coord_table
   USE mo_vertical_grid,       ONLY: init_hybrid_coord, init_sleve_coord
-  USE mo_advection_nml,       ONLY: transport_nml_setup
+!  USE mo_advection_nml,       ONLY: transport_nml_setup
   USE mo_namelist,            ONLY: close_nml
 
   !-------------------------------------------------------------------------------------------------
@@ -281,7 +281,7 @@ CONTAINS
    !CALL dynamics_nml_setup(n_dom)  
     CALL finish(TRIM(modname),'subroutine dynamics_nml_setup  no longer exists')
 
-    IF (ltransport) CALL transport_nml_setup
+!    IF (ltransport) CALL transport_nml_setup
 
     SELECT CASE (iequations)
       CASE (ishallow_water)

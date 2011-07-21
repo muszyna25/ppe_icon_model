@@ -78,8 +78,6 @@ USE mo_impl_constants, ONLY:&
     & iheldsuarez,          & !    :
     & inwp
 
-USE mo_advection_nml,       ONLY: transport_nml_setup,  & ! process transport
-& setup_transport         ! control parameters
 
 ! For the coupling
 USE mo_impl_constants, ONLY: CELLS
@@ -866,7 +864,7 @@ CONTAINS
     ! set dependent variables/model components, depending on this (transport)
     ! namelist and potentially others
     IF (ltransport) THEN
-      CALL setup_transport( iequations )
+   !   CALL setup_transport( iequations )
 
    !   DO jg = 1, n_dom
    !     CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,     &

@@ -66,8 +66,8 @@ MODULE mo_ocean_model
     & num_lev, num_levp1,   &
     & nshift
   
-  USE mo_advection_nml,       ONLY: transport_nml_setup,  & ! process transport
-    & setup_transport         ! control parameters
+!  USE mo_advection_nml,       ONLY: transport_nml_setup,  & ! process transport
+!    & setup_transport         ! control parameters
   
   USE mo_subdivision,         ONLY: decompose_atmo_domain,         &
     & copy_processor_splitting,      &
@@ -263,9 +263,9 @@ CONTAINS
     !------------------------------------------------------------------
     ! step 3b: Read namelist 'transport_ctl',
     !------------------------------------------------------------------
-    IF (ltransport) THEN
-      CALL transport_nml_setup
-    END IF
+!    IF (ltransport) THEN
+!      CALL transport_nml_setup
+!    END IF
     
     !------------------------------------------------------------------
     ! step 4: construct interpolation and the grid refinement state
@@ -412,9 +412,9 @@ CONTAINS
     !------------------------------------------------------------------
     ! set dependent variables/model components, depending on this (transport)
     ! namelist and potentially others
-    IF (ltransport) THEN
-      CALL setup_transport( IHS_OCEAN )
-    ENDIF
+!    IF (ltransport) THEN
+!      CALL setup_transport( IHS_OCEAN )
+!    ENDIF
     
     !------------------------------------------------------------------
     ! Close the namelist files.
