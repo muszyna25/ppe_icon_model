@@ -111,11 +111,11 @@ MODULE mo_atm_phy_nwp_config
 
   !>
   !!
-  TYPE(t_atm_phy_nwp_config) :: atm_phy_nwp_config(max_dom) !< shape: (n_dom)
+  TYPE(t_atm_phy_nwp_config) :: atm_phy_nwp_config(0:max_dom) !< shape: (n_dom)
 
 
   REAL(wp) ::  &                    !> Field of calling-time interval (seconds) for
-    &  tcall_phy(max_dom,iphysproc) !! each domain and phys. process
+    &  tcall_phy(0:max_dom,iphysproc) !! each domain and phys. process
 
 
 CONTAINS
@@ -142,7 +142,7 @@ SUBROUTINE configure_atm_phy_nwp(n_dom,ltestcase)
 
     tcall_phy(:,:) = 0._wp
 
-    DO jg = 1,n_dom
+    DO jg = 0,n_dom
       ! Slow physics:
       ! currently for each domain the same time intervals are set
       !

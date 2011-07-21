@@ -228,7 +228,7 @@ CONTAINS
     !----------------------------------------------------
     ! 4. Fill the configuration state
     !----------------------------------------------------
-    DO jg= 1,max_dom
+    DO jg=1,max_dom
       atm_phy_nwp_config(jg)%inwp_convection = inwp_convection
       atm_phy_nwp_config(jg)%inwp_cldcover   = inwp_cldcover
       atm_phy_nwp_config(jg)%inwp_radiation  = inwp_radiation
@@ -238,6 +238,7 @@ CONTAINS
       atm_phy_nwp_config(jg)%inwp_satad      = inwp_satad
       atm_phy_nwp_config(jg)%inwp_turb       = inwp_turb
       atm_phy_nwp_config(jg)%inwp_surface    = inwp_surface
+      
       atm_phy_nwp_config(jg)% dt_conv        = dt_conv (jg) 
       atm_phy_nwp_config(jg)% dt_ccov        = dt_ccov (jg)
       atm_phy_nwp_config(jg)% dt_rad         = dt_rad  (jg)
@@ -268,6 +269,28 @@ CONTAINS
 !      atm_phy_nwp_config(jg)%qc0             = qc0 
 
     ENDDO
+    ! fill the 0 patch parameters
+    atm_phy_nwp_config(0)%inwp_convection = inwp_convection
+    atm_phy_nwp_config(0)%inwp_cldcover   = inwp_cldcover
+    atm_phy_nwp_config(0)%inwp_radiation  = inwp_radiation
+    atm_phy_nwp_config(0)%inwp_sso        = inwp_sso
+    atm_phy_nwp_config(0)%inwp_gwd        = inwp_gwd
+    atm_phy_nwp_config(0)%inwp_gscp       = inwp_gscp
+    atm_phy_nwp_config(0)%inwp_satad      = inwp_satad
+    atm_phy_nwp_config(0)%inwp_turb       = inwp_turb
+    atm_phy_nwp_config(0)%inwp_surface    = inwp_surface
+
+    atm_phy_nwp_config(0)% dt_conv        = dt_conv (jg)
+    atm_phy_nwp_config(0)% dt_ccov        = dt_ccov (jg)
+    atm_phy_nwp_config(0)% dt_rad         = dt_rad  (jg)
+    atm_phy_nwp_config(0)% dt_radheat     = dt_radheat(jg)
+    atm_phy_nwp_config(0)% dt_sso         = dt_sso   (jg)
+    atm_phy_nwp_config(0)% dt_gwd         = dt_gwd   (jg)
+    atm_phy_nwp_config(0)% dt_gscp        = dt_gscp  (jg)
+    atm_phy_nwp_config(0)% dt_satad       = dt_satad (jg)
+    atm_phy_nwp_config(0)% dt_turb        = dt_turb  (jg)
+    atm_phy_nwp_config(0)% dt_sfc         = dt_sfc   (jg)
+    atm_phy_nwp_config(0)% dt_update      = dt_update(jg)
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
