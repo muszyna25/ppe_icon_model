@@ -137,8 +137,8 @@ SUBROUTINE configure_atm_phy_nwp(n_dom,ltestcase)
   LOGICAL, INTENT(IN) :: ltestcase
 
   INTEGER :: jg
-  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine =  &
-                              'setup_atm_phy_nwp'
+  !0!CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+  !0!  &      routine = 'mo_atm_phy_nwp_config:configure_atm_phy_nwp'
 
     tcall_phy(:,:) = 0._wp
 

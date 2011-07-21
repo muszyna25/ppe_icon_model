@@ -117,7 +117,7 @@ CONTAINS
 
     CHARACTER(LEN=*),INTENT(IN) :: filename
     INTEGER :: istat, funit
-    CHARACTER(len=*),PARAMETER :: routine = 'mo_gridref_nml: read_gridref_namelist'
+    !0!CHARACTER(len=*),PARAMETER :: routine = 'mo_gridref_nml:read_gridref_namelist'
 
     !-----------------------
     ! 1. default settings   

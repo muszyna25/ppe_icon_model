@@ -175,10 +175,9 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
-    INTEGER :: jg          ! loop index
 
-    CHARACTER(len=*), PARAMETER ::  &
-      &  routine = 'mo_radiation_nml: read_radiation_namelist'
+    !0!CHARACTER(len=*), PARAMETER ::  &
+    !0!  &  routine = 'mo_radiation_nml:read_radiation_namelist'
 
     !-----------------------
     ! 1. default settings   

@@ -108,7 +108,7 @@ CONTAINS
   !!
   SUBROUTINE configure_run
 
-    CHARACTER(LEN=*),PARAMETER :: routine = 'mo_:config_run'
+    !0!CHARACTER(LEN=*),PARAMETER :: routine = 'mo_run_config:configure_run'
 
     !----------------------------
     ! Number of vertical levels

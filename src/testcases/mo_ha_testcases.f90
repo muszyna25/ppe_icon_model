@@ -173,8 +173,8 @@ MODULE mo_ha_testcases
     CHARACTER(LEN=*),INTENT(IN) :: filename
     INTEGER :: istat, funit
 
-    CHARACTER(len=*), PARAMETER :: &
-             routine = 'mo_ha_testcases:read_ha_testcase_namelist'
+    !0!CHARACTER(len=*), PARAMETER :: &
+    !0!  &      routine = 'mo_ha_testcases:read_ha_testcase_namelist'
 
     !------------------------------
     ! Default values

@@ -162,7 +162,7 @@ MODULE mo_lnd_nwp_nml
     INTEGER :: istat, funit
     INTEGER :: jg            ! loop index
 
-    CHARACTER(len=*), PARAMETER :: routine = 'mo_lnd_nwp_nml:read_nwp_lnd_namelist'
+    !0!CHARACTER(len=*), PARAMETER :: routine = 'mo_lnd_nwp_nml:read_nwp_lnd_namelist'
 
     !-----------------------
     ! 1. default settings   

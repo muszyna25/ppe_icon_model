@@ -140,10 +140,10 @@ MODULE mo_parallel_nml
   SUBROUTINE read_parallel_namelist( filename )
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
-    INTEGER :: istat, my_color, peer_comm, p_error
+    INTEGER :: istat
     INTEGER :: funit
-    CHARACTER(len=*), PARAMETER ::   &
-            &  method_name = 'read_parallel_namelist'
+    !0!CHARACTER(len=*), PARAMETER ::   &
+    !0!        &  method_name = 'mo_parallel_nml:read_parallel_namelist'
 
     !--------------------------------------------
     ! set default values

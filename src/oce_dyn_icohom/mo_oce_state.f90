@@ -370,17 +370,13 @@ CONTAINS
 !!
   SUBROUTINE construct_hydro_ocean_prog(p_patch, p_os_prog)
 
-    TYPE(t_var_list) :: list
     TYPE(t_patch), INTENT(in), TARGET         :: p_patch
     TYPE(t_hydro_ocean_prog), INTENT(inout)   :: p_os_prog
 
-
-    INTEGER  :: n
     INTEGER  :: nblks_c, nblks_e !, nblks_v
-    INTEGER  :: ist
 
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      &      routine = 'mo_oce_state:construct_hydro_ocean_prog'
+    !0!CHARACTER(len=max_char_length), PARAMETER :: &
+    !0!  &      routine = 'mo_oce_state:construct_hydro_ocean_prog'
 
     !-------------------------------------------------------------------------
     nblks_c = p_patch%nblks_c

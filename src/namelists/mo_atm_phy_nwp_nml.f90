@@ -133,8 +133,8 @@ CONTAINS
 
   INTEGER :: i_status
 
-  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-    &  routine = 'mo_atm_phy_nwp_nml:read_inwp_nml'
+  !0!CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+  !0!  &  routine = 'mo_atm_phy_nwp_nml:read_inwp_nml'
 
     CALL position_nml ('nwp_phy_nml', status=i_status)
     !
@@ -171,8 +171,8 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit, jg
-    CHARACTER(len=*), PARAMETER ::  &
-      &  routine = 'mo_atm_phy_nwp_nml:read_nwp_phy_namelist'
+    !0!CHARACTER(len=*), PARAMETER ::  &
+    !0!  &  routine = 'mo_atm_phy_nwp_nml:read_nwp_phy_namelist'
 
     !-----------------------
     ! 1. default settings   

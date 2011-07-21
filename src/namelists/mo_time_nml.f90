@@ -97,7 +97,7 @@ CONTAINS
    INTEGER  :: restart_year, restart_month,  restart_day,    &
      &         restart_hour, restart_minute, restart_second
 
-   CHARACTER(len=*), PARAMETER ::  routine = 'mo_time_nml:read_time_namelist'
+   !0!CHARACTER(len=*), PARAMETER ::  routine = 'mo_time_nml:read_time_namelist'
 
    !------------------------------------------------------------------------
    ! Default values
@@ -183,7 +183,7 @@ CONTAINS
          time_config%cur_datetime%day      = restart_day
          time_config%cur_datetime%hour     = restart_hour
          time_config%cur_datetime%minute   = restart_minute
-         time_config%cur_datetime%second   = restart_second
+         time_config%cur_datetime%second   = REAL(restart_second,wp)
 
         CALL date_to_time(time_config%cur_datetime) ! fill date time structure
       END IF

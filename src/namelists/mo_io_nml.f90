@@ -136,7 +136,7 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
-    CHARACTER(len=*), PARAMETER :: routine = 'mo_io_nml:read_io_namelist'
+    !0!CHARACTER(len=*), PARAMETER :: routine = 'mo_io_nml:read_io_namelist'
 
     !-----------------------
     ! 1. default settings

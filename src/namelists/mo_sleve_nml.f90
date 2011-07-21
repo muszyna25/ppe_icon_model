@@ -98,8 +98,8 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
-    CHARACTER(len=*), PARAMETER ::  &
-      &  routine = 'mo_sleve_nml:read_sleve_namelist'
+    !0!CHARACTER(len=*), PARAMETER ::  &
+    !0!  &  routine = 'mo_sleve_nml:read_sleve_namelist'
 
     !-----------------------
     ! 1. default settings   

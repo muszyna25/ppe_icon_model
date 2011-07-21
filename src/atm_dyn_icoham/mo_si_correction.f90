@@ -536,7 +536,7 @@ ENDIF
 !  Code resturcturing by Almut Gassmann, MPI-M, (2008-09-18)
 !
 
-  CHARACTER(len=*), PARAMETER :: routine = 'mo_si_correction:add_si_correction_2d'
+  !0!CHARACTER(len=*), PARAMETER :: routine = 'mo_si_correction:add_si_correction_2d'
 
   REAL(wp),INTENT(IN) :: si_coeff, si_rtol
   LOGICAL, INTENT(IN) :: lshallow_water

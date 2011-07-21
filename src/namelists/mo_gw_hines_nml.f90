@@ -128,7 +128,7 @@ CONTAINS
     INTEGER :: istat, funit
     INTEGER :: jg 
 
-    CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines_nml:read_gw_hines_namelist'
+    !0!CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines_nml:read_gw_hines_namelist'
 
     !-----------------------
     ! 1. default settings   
