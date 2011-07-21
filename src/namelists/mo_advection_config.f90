@@ -153,7 +153,7 @@ MODULE mo_advection_config
 
   !>
   !!
-  TYPE(t_advection_config), TARGET :: advection_config(max_dom)
+  TYPE(t_advection_config), TARGET :: advection_config(0:max_dom)
 
 !DR For the time being lcompute and lcleanup are not added to the 
 !DR advection_config state

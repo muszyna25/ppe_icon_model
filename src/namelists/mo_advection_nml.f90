@@ -274,7 +274,7 @@ CONTAINS
     ! 5. Fill the configuration state
     !----------------------------------------------------
 
-    DO jg= 1,max_dom
+    DO jg= 0,max_dom
       advection_config(jg)%ctracer_list   = ctracer_list
       advection_config(jg)%ihadv_tracer(:)= ihadv_tracer(:)
       advection_config(jg)%ivadv_tracer(:)= ivadv_tracer(:)
