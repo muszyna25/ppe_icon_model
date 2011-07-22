@@ -33,7 +33,6 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 #
 #-----------------------------------------------------------------------------
 # model timing
-# model timing
 dtime=600
 ndays=300
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`

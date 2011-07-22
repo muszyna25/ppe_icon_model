@@ -8,6 +8,7 @@
 # Hui Wan,         MPI-M, 2010-08-17
 #
 #-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
 #
 # Basic specifications of the simulation
 # --------------------------------------
@@ -16,15 +17,49 @@
 #
 # EXPNAME = experiment name
 # NPROMA  = array blocking length / inner loop length
+#-----------------------------------------------------------------------------
 #
-# These values must be set here as shell variables so that they can be used in the
-# executing section of the completed run script:
-# 
-IEQ=1             # hydrostatic atmosphere
-R=2               # nroot
-B=4               # number of bisections applied for the global grid
-N=31              # nlev = number of full levels
-OPT="spr0.90"     # grid optimization
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#
+#-----------------------------------------------------------------------------
+# the namelist filename
+atmo_namelist=NAMELIST_${EXPNAME}
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date="2008-09-01T00:00:00Z"
+ndays_restart=60
+dt_restart=`expr ${ndays_restart} \* 86400`
+#
+#-----------------------------------------------------------------------------
+# model timing
+dtime=600
+ndays=10
+nsteps=`expr ${ndays} \* 86400 / ${dtime}`
+dt_diag=`expr 24 \* 3600  `  # int output each 24 hours
+dt_file=`expr 1 \* 86400 `   # 1 day per file
+dt_data=21600.               # write output every 6 hours
+dt_rad=3600.                 # compute radiative transfer every hour
+#
+nsteps=10
+#-----------------------------------------------------------------------------
+# model parameters
+model_equations=1 # equation system
+#                     1=hydrost. atm.
+#                     2=non-hydrost. atm., 
+#                    -1=shallow water model
+#                    -2=hydrost. ocean
+nlev=31              # nlev = number of full levels
+iforcing=2      # ECHAM physics
+#
+#-----------------------------------------------------------------------------
+# the grid files
+atmo_dyn_grids='iconR2B04-grid_spr0.90.nc'
+#
+#-----------------------------------------------------------------------------
+
 #
 #-----------------------------------------------------------------------------
 #
@@ -34,52 +69,53 @@ OPT="spr0.90"     # grid optimization
 #
 cat > NAMELIST_${EXPNAME} << EOF
 !
-&parallel_ctl
+&parallel_nml
+ nproma         = ${nproma}
+ p_test_run     = .false.
+ l_test_openmp  = .false.
+ l_log_checks   = .false.
 /
-&grid_ctl
- nroot       = ${R}         ! root division of icosahedron edges
- start_lev   = ${B}         ! number of bisections applied for the base grid
+&grid_nml
+ cell_type = 3            ! triangular cells
+ dynamics_grid_filename = "${atmo_dyn_grids}",
 /
-&gridref_ctl
-/
-&run_ctl
- nproma      = ${NPROMA}    ! array blocking length
- nlev        = ${N}         ! number of full levels of vertical grid
- run_day     = 10           ! [day] run length
- dtime       = 600.0        ! [s] timestep in seconds
- iequations  = ${IEQ}       ! 1: hydrost. atmosphere
- i_cell_type = 3            ! 3: triangular cells
+&run_nml
+ num_lev     = ${nlev},      ! number of full levels of vertical grid
+ nsteps      = ${nsteps}    ! number of steps length of run
+ dtime       = ${dtime}     ! [s] timestep in seconds
  ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
  ldynamics   = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
  ltransport  = .TRUE.       ! switch on tracer transport   --> transport_ctl
  ntracer     = 5            ! number of tracers
- iforcing    = 2            ! ECHAM physics                --> echam_phy_nml
+ iforcing    = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
+ msg_level   = 10           ! detailed report during integration 
 /
-&testcase_ctl
+&dynamics_nml
+ iequations  = ${model_equations}       ! 1: hydrost. atmosphere
+/
+&ha_testcase_nml
  ctest_name  = 'JWw-Moist'  ! test case identifier
  lrh_linear_pres = .TRUE.   ! initial RH is a linear function of pressure
  rh_at_1000hpa   = 0.75     ! [] initial rel. humidity at 1000 hPa 
 /
-&io_ctl
- out_expname = '${EXPNAME}' ! file name base
- dt_data     = 21600.       ! [s] write output every 6 hours
- dt_file     = 86400.       ! [s] trigger new output file every day
- lwrite_radiation = .TRUE.  ! add radiation fields to output
-/
-&dynamics_ctl
+&ha_dyn_nml
  ldry_dycore = .TRUE.       ! dry dynamical core
 /
-&diffusion_ctl
+&io_nml
+ out_expname = '${EXPNAME}' ! file name base
+ dt_data     = ${dt_data}   ! [s] write output every 6 hours
+ dt_file     = ${dt_file}   ! [s] trigger new output file every day
+ lwrite_radiation = .TRUE.  ! add radiation fields to output
 /
 &transport_ctl
  ctracer_list='vwi44'        ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
 /
 &echam_phy_nml
 /
-&echam_conv_ctl
+&echam_conv_nml
 /
 &radiation_nml
- dt_rad     = 3600.         ! [s] compute radiative transfer hourly
+ dt_rad     = ${dt_rad}     ! [s] compute radiative transfer hourly
  irad_h2o   = 1             ! prognostic vapor, liquid and ice
  irad_co2   = 2             ! constant co2 vmr
  irad_ch4   = 0             ! switch off ch4
