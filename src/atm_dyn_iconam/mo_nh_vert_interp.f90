@@ -46,17 +46,20 @@ MODULE mo_nh_vert_interp
   USE mo_physical_constants,  ONLY: grav, cpd, rd, cvd_o_rd, p0ref, vtmpc1, rdv, o_m_rdv
   USE mo_grid_config,         ONLY: n_dom
   USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_prepicon_nml,        ONLY: nlev_in, zpbl1, zpbl2, &
-                                    i_oper_mode, l_w_in, l_zp_out
+  USE mo_prepicon_nml,        ONLY: nlev_in, nlevsoil_in, zpbl1, zpbl2, &
+                                    i_oper_mode, l_w_in, l_zp_out, l_sfc_in
   USE mo_prepicon_utils,      ONLY: t_prepicon_state, nzplev
   USE mo_ifs_coord,           ONLY: half_level_pressure, full_level_pressure, &
                                     auxhyb, geopot
   USE mo_nh_init_utils,       ONLY: interp_uv_2_vn, init_w, adjust_w, convert_thdvars, & 
-                                    virtual_temp
+                                    virtual_temp, convert_omega2w
   USE mo_math_operators,      ONLY: grad_fd_norm, grad_fd_tang
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c
-  USE mo_sync,                ONLY: sync_patch_array, SYNC_C
+  USE mo_grf_interpolation,   ONLY: t_gridref_state
+  USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol2_vec_grf
+  USE mo_sync,                ONLY: sync_patch_array, SYNC_C, SYNC_E
   USE mo_satad,               ONLY: sat_pres_water
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil
 
   IMPLICIT NONE
   PRIVATE
@@ -107,14 +110,15 @@ CONTAINS
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !!
   !!
-  SUBROUTINE vertical_interpolation(p_patch, p_int, prepicon)
+  SUBROUTINE vertical_interpolation(p_patch, p_int, p_grf, prepicon)
 
     TYPE(t_patch),          INTENT(IN)       :: p_patch(:)
     TYPE(t_int_state),      INTENT(IN)       :: p_int(:)
+    TYPE(t_gridref_state),  INTENT(IN)       :: p_grf(:)
     TYPE(t_prepicon_state), INTENT(INOUT)    :: prepicon(:)
 
     ! LOCAL VARIABLES
-    INTEGER :: jg
+    INTEGER :: jg, jn, jgc
 
 !-------------------------------------------------------------------------
 
@@ -124,6 +128,18 @@ CONTAINS
 
       CALL vert_interp(p_patch(jg), p_int(jg), prepicon(jg))
 
+      ! Apply boundary interpolation for u and v because the outer nest boundary
+      ! points would remain undefined otherwise
+      DO jn = 1, p_patch(jg)%n_childdom
+
+        jgc = p_patch(jg)%child_id(jn)
+
+        CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int(jg), p_grf(jg)%p_dom(jn), &
+          &                               jn, 1, prepicon(jg)%atm%w, prepicon(jgc)%atm%w )
+
+        CALL interpol2_vec_grf (p_patch(jg), p_patch(jgc), p_int(jg), p_grf(jg)%p_dom(jn), &
+          &                                jn, prepicon(jg)%atm%vn, prepicon(jgc)%atm%vn )
+      ENDDO
     ENDDO
 
   END SUBROUTINE vertical_interpolation
@@ -345,7 +361,14 @@ CONTAINS
     ! Convert u and v on cell points to vn at edge points
     CALL interp_uv_2_vn(p_patch, p_int, prepicon%atm%u, prepicon%atm%v, prepicon%atm%vn)
 
+    CALL sync_patch_array(SYNC_E,p_patch,prepicon%atm%vn)
+
     IF (l_w_in) THEN
+      ! convert omega to w
+      CALL convert_omega2w(prepicon%atm_in%omega, prepicon%atm_in%w,   &
+                           prepicon%atm_in%pres, prepicon%atm_in%temp, &
+                           p_patch%nblks_c, p_patch%npromz_c, nlev_in  )
+
       ! Compute coefficients for w interpolation
       CALL prepare_lin_intp(prepicon%atm_in%z3d, prepicon%z_ifc,                &
                             p_patch%nblks_c, p_patch%npromz_c, nlev_in, nlevp1, &
@@ -365,6 +388,13 @@ CONTAINS
     ELSE
       ! Initialize vertical wind field
       CALL init_w(p_patch, p_int, prepicon%atm%vn, prepicon%z_ifc, prepicon%atm%w)
+    ENDIF
+
+    CALL sync_patch_array(SYNC_C,p_patch,prepicon%atm%w)
+
+    IF (l_sfc_in) THEN 
+      ! process surface fields
+      CALL process_sfcfields(p_patch, prepicon)
     ENDIF
 
   END SUBROUTINE vert_interp
@@ -1319,8 +1349,10 @@ CONTAINS
                        pres_ml(jc,jkm+1,jb))**(-rd*dtvdz(jc,jkp)/grav)-1._wp)/dtvdz(jc,jkp)
 
             ELSE
-              z_up   = z3d_ml(jc,jkm,jb) + (rd*0.5_wp*(tempv_ml(jc,jkm,jb) +                 &
-                       tempv_ml(jc,jkm+1,jb))/grav)*LOG(pres_ml(jc,jkm,jb)/pres_pl(jc,jkp,jb))
+!              z_up   = z3d_ml(jc,jkm,jb) + (rd*0.5_wp*(tempv_ml(jc,jkm,jb) +                 &
+!                       tempv_ml(jc,jkm+1,jb))/grav)*LOG(pres_ml(jc,jkm,jb)/pres_pl(jc,jkp,jb))
+              z_up   = z3d_zl(jc,jkz,jb) + (rd*tempv_zl(jc,jkz,jb)/grav) * &
+                &                   LOG(pres_zl(jc,jkz,jb)/pres_pl(jc,jkp,jb))
               z_down = z3d_ml(jc,jkm+1,jb) + (rd*0.5_wp*(tempv_ml(jc,jkm,jb) +                 &
                        tempv_ml(jc,jkm+1,jb))/grav)*LOG(pres_ml(jc,jkm+1,jb)/pres_pl(jc,jkp,jb))
             ENDIF
@@ -1355,8 +1387,8 @@ CONTAINS
               z_up   = z3d_zl(jc,jkz,jb) + tempv_zl(jc,jkz,jb)*((pres_pl(jc,jkp,jb) /   &
                        pres_zl(jc,jkz,jb))**(-rd*dtvdz(jc,jkp)/grav)-1._wp)/dtvdz(jc,jkp)
             ELSE
-              z_up   = z3d_zl(jc,jkz,jb) + (rd*0.5_wp*(tempv_zl(jc,jkz,jb) +                 &
-                       tempv_zl(jc,jkz+1,jb))/grav)*LOG(pres_zl(jc,jkz,jb)/pres_pl(jc,jkp,jb))
+              z_up   = z3d_zl(jc,jkz,jb) + (rd*tempv_zl(jc,jkz,jb)/grav) * &
+                       LOG(pres_zl(jc,jkz,jb)/pres_pl(jc,jkp,jb))
             ENDIF
 
             z3d_pl(jc,jkp,jb) = z_up
@@ -1731,8 +1763,11 @@ CONTAINS
           l_found(:) = .FALSE.
           DO jk1 = jk_start, nlevs_in-1
             DO jc = 1, nlen
-              IF (zalml_out(jc,jk) <  zalml_in(jc,jk1) .AND. &
-                  zalml_out(jc,jk) >= zalml_in(jc,jk1+1)) THEN
+              IF (zalml_in(jc,jk1) >= zpbl1 .OR. zalml_out(jc,jk) >= zpbl1) THEN
+                l_found(jc) = .TRUE.
+                ik1(jc)     = jk_start
+              ELSE IF (zalml_out(jc,jk) <  zalml_in(jc,jk1) .AND. &
+                       zalml_out(jc,jk) >= zalml_in(jc,jk1+1)) THEN
 
                 wfac = (zalml_out(jc,jk)-zalml_in(jc,jk1+1))/&
                        (zalml_in(jc,jk1)-zalml_in(jc,jk1+1))
@@ -1831,11 +1866,11 @@ CONTAINS
     REAL(wp) :: wfac, fricred, mult_limit
 
 
-    REAL(wp), DIMENSION(nproma) :: uv1, uv2, dudz_up, zdiff_inout, red_speed
+    REAL(wp), DIMENSION(nproma) :: uv1, uv2, dudz_up
     LOGICAL , DIMENSION(nproma) :: l_found
 
     REAL(wp), DIMENSION(nproma,nlevs_in)  :: zalml_in, fric_red, uv_mod, g1, g2, g3
-    REAL(wp), DIMENSION(nproma,nlevs_out) :: zalml_out
+    REAL(wp), DIMENSION(nproma,nlevs_out) :: zalml_out, zdiff_inout, red_speed
 
 !-------------------------------------------------------------------------
 
@@ -1874,10 +1909,6 @@ CONTAINS
 
         ! Vertical gradient between zpbl1 and zpbl2
         dudz_up(jc) = (uv2(jc) - uv1(jc))/(zpbl2 - zpbl1)
-
-        ! height distance between lowest input and output grid point 
-        ! (negative if extrapolation takes place)
-        zdiff_inout(jc) = z3d_out(jc,nlevs_out,jb) - z3d_in(jc,nlevs_in,jb) 
       ENDDO
 
       DO jk1 = 1, nlevs_in
@@ -1912,18 +1943,29 @@ CONTAINS
       ! resolution than the source grid; thus, the reduction is used for l_hires_intp only
 
       IF (l_hires_intp) THEN
-        CALL finish("uv_intp:","High-resolution corrections are not yet implemented")
-        DO jc = 1, nlen
 
-          ! zdiff_inout > 0 means that the target grid point is higher than the source point
-          IF (zdiff_inout(jc) <= 100._wp) THEN
-            red_speed(jc) = 1._wp + MAX(0._wp,MIN(1.5_wp,-1.e-3_wp*zdiff_inout(jc)))
-          ELSE IF (zdiff_inout(jc) <= 300._wp) THEN
-            red_speed(jc) = 1._wp - (zdiff_inout(jc)-100._wp)/200._wp
-          ELSE
-            red_speed(jc) = 0._wp
-          ENDIF
+        DO jk = 1, nlevs_out
+          DO jc = 1, nlen
+
+            ! height distance between lowest input and output grid points
+            ! (negative if extrapolation takes place)
+            zdiff_inout(jc,jk) = z3d_out(jc,jk,jb) - z3d_in(jc,nlevs_in,jb) 
+
+            IF (zdiff_inout(jc,jk) <= -500._wp) THEN
+              red_speed(jc,jk) = 0.25_wp
+            ELSE IF (zdiff_inout(jc,jk) <= -100._wp) THEN
+              red_speed(jc,jk) = 1._wp + (zdiff_inout(jc,jk) + 100._wp)*1.875e-3_wp
+            ELSE
+              red_speed(jc,jk) = 1._wp
+            ENDIF
+
+          ENDDO
         ENDDO
+
+      ELSE !  no artificial reduction
+
+        red_speed(:,:) = 1._wp
+
       ENDIF
 
 
@@ -1988,6 +2030,10 @@ CONTAINS
 
             ENDIF
 
+            ! Artificial reduction for large downward extrapolation distances
+            ! if high-resolution mode is selected
+            uv_out(jc,jk,jb) = uv_out(jc,jk,jb)*red_speed(jc,jk)
+
           ENDIF
 
           ! Height above lowest model level - needed for restoring the frictional layer
@@ -2010,8 +2056,11 @@ CONTAINS
           l_found(:) = .FALSE.
           DO jk1 = jk_start, nlevs_in-1
             DO jc = 1, nlen
-              IF (zalml_out(jc,jk) <  zalml_in(jc,jk1) .AND. &
-                  zalml_out(jc,jk) >= zalml_in(jc,jk1+1)) THEN
+              IF (zalml_in(jc,jk1) >= zpbl1 .OR. zalml_out(jc,jk) >= zpbl1) THEN
+                l_found(jc) = .TRUE.
+                ik1(jc)     = jk_start
+              ELSE IF (zalml_out(jc,jk) <  zalml_in(jc,jk1) .AND. &
+                       zalml_out(jc,jk) >= zalml_in(jc,jk1+1)) THEN
 
                 wfac = (zalml_out(jc,jk)-zalml_in(jc,jk1+1))/&
                        (zalml_in(jc,jk1)-zalml_in(jc,jk1+1))
@@ -2020,7 +2069,7 @@ CONTAINS
                 l_found(jc) = .TRUE.
                 ik1(jc)     = jk1
 
-                uv_out(jc,jk,jb) =  uv_out(jc,jk,jb) - fricred
+                uv_out(jc,jk,jb) = (uv_out(jc,jk,jb)/red_speed(jc,jk)-fricred)*red_speed(jc,jk)
 
               ELSE IF (zalml_out(jc,jk) > zalml_in(jc,jk_start)) THEN
                 l_found(jc) = .TRUE.
@@ -2117,7 +2166,7 @@ CONTAINS
     REAL(wp) :: wfac, pbldev, rhum, qtot
 
 
-    REAL(wp), DIMENSION(nproma) :: qv1, qv2, dqvdz_up, zdiff_inout
+    REAL(wp), DIMENSION(nproma) :: qv1, qv2, dqvdz_up
     LOGICAL , DIMENSION(nproma) :: l_found
     LOGICAL                     :: l_check_qv_qc
 
@@ -2134,7 +2183,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,jk1,jc,nlen,jk_start,jk_start_in,jk_start_out,ik1,wfac,pbldev,&
-!$OMP            rhum,qtot,qv1,qv2,dqvdz_up,zdiff_inout,l_found,zalml_in,zalml_out,  &
+!$OMP            rhum,qtot,qv1,qv2,dqvdz_up,l_found,zalml_in,zalml_out,              &
 !$OMP            qv_mod,pbl_dev,g1,g2,g3,qsat_in,qsat_out)
 
     DO jb = 1, nblks
@@ -2174,10 +2223,6 @@ CONTAINS
 
         ! Vertical gradient between zpbl1 and zpbl2
         dqvdz_up(jc) = (qv2(jc) - qv1(jc))/(zpbl2 - zpbl1)
-
-        ! height distance between lowest input and output grid point 
-        ! (negative if extrapolation takes place)
-        zdiff_inout(jc) = z3d_out(jc,nlevs_out,jb) - z3d_in(jc,nlevs_in,jb) 
       ENDDO
 
       DO jk1 = 1, nlevs_in
@@ -2280,8 +2325,11 @@ CONTAINS
           l_found(:) = .FALSE.
           DO jk1 = jk_start, nlevs_in-1
             DO jc = 1, nlen
-              IF (zalml_out(jc,jk) <  zalml_in(jc,jk1) .AND. &
-                  zalml_out(jc,jk) >= zalml_in(jc,jk1+1)) THEN
+              IF (zalml_in(jc,jk1) >= zpbl1 .OR. zalml_out(jc,jk) >= zpbl1) THEN
+                l_found(jc) = .TRUE.
+                ik1(jc)     = jk_start
+              ELSE IF (zalml_out(jc,jk) <  zalml_in(jc,jk1) .AND. &
+                       zalml_out(jc,jk) >= zalml_in(jc,jk1+1)) THEN
 
                 wfac = (zalml_out(jc,jk)-zalml_in(jc,jk1+1))/&
                        (zalml_in(jc,jk1)-zalml_in(jc,jk1+1))
@@ -2352,5 +2400,107 @@ CONTAINS
 !$OMP END PARALLEL
 
   END SUBROUTINE qv_intp
+
+  !-------------
+  !>
+  !! SUBROUTINE process_sfcfields
+  !! Routine to convert surface fields interpolated horizontally by IFS2ICON
+  !! to the ICON prognostic variables. Important ingredients are 
+  !! - height adjustment of temperatures (partly done)
+  !! - vertical interpolation of soil temperature and moisture (not yet done)
+  !! - conversion of soil moisture information (not yet done)
+  !! - height adjustment of snow cover information (not yet done)
+  !!
+  !! Other open items - just to document them somewhere
+  !! - IFS2ICON needs to take into account land-sea-mask information for horizontal
+  !!   interpolation of surface fields
+  !! - Proper conversion of soil moisture may require information about soil types
+  !!   and field capacity or similar things
+  !! - And, the most complicated problem, lakes/islands not present at all in the
+  !!   source data, is not yet addressed at all here!
+  !!
+  !! When implementing all that, consider opening a new module -
+  !! this one is already large enough, and surface data handling is not primarily
+  !! an issue of vertical interpolation
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD(2011-07-20)
+  !!
+  !!
+  SUBROUTINE process_sfcfields(p_patch, prepicon)
+
+
+    TYPE(t_patch),          INTENT(IN)       :: p_patch
+    TYPE(t_prepicon_state), INTENT(INOUT)    :: prepicon
+
+
+    ! LOCAL VARIABLES
+
+    INTEGER :: jb, jk, jc, jk1
+    INTEGER :: nlen, nlev
+
+!-------------------------------------------------------------------------
+
+    nlev = p_patch%nlev
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,jk1,jc,nlen)
+
+    DO jb = 1, p_patch%nblks_c
+      IF (jb /= p_patch%nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = p_patch%npromz_c
+      ENDIF
+
+      ! 2D fields that do not require height adjustment
+      ! these fields are simply copied
+      DO jc = 1, nlen
+        prepicon%sfc%skinres(jc,jb) = prepicon%sfc_in%skinres(jc,jb) 
+        prepicon%sfc%ls_mask(jc,jb) = prepicon%sfc_in%ls_mask(jc,jb)
+        IF (prepicon%sfc_in%seaice(jc,jb) >= 0._wp) THEN
+          prepicon%sfc%seaice(jc,jb)  = prepicon%sfc_in%seaice(jc,jb) 
+        ELSE
+          prepicon%sfc%seaice(jc,jb)  = -0.1_wp 
+        ENDIF
+      ENDDO
+
+      ! 2D fields that require height adjustment
+      ! unfortunately, skin temperature is the only variable for which it is
+      ! intuitively clear what to do ...
+      DO jc = 1, nlen
+        ! Adjust skin temperature with the difference between the atmospheric
+        ! temperatures at the lowest model level
+        prepicon%sfc%tskin(jc,jb)    = prepicon%sfc_in%tskin(jc,jb) +         &
+          (prepicon%atm%temp(jc,nlev,jb) - prepicon%atm_in%temp(jc,nlev_in,jb))
+
+        prepicon%sfc%tsnow(jc,jb)    = prepicon%sfc_in%tsnow(jc,jb) 
+        prepicon%sfc%snowweq(jc,jb)  = prepicon%sfc_in%snowweq(jc,jb) 
+        prepicon%sfc%snowdens(jc,jb) = prepicon%sfc_in%snowdens(jc,jb) 
+      ENDDO
+
+      ! 3D fields: soil temperature and moisture
+      ! What is implemented here so far is definitely nonsense!
+      ! Just for testing technical functionality...
+      DO jk = 1, MIN(nlevsoil_in, nlev_soil)
+        DO jc = 1, nlen
+          prepicon%sfc%tsoil(jc,jb,jk)     = prepicon%sfc_in%tsoil(jc,jb,jk)
+          prepicon%sfc%soilwater(jc,jb,jk) = prepicon%sfc_in%soilwater(jc,jb,jk)
+        ENDDO
+      ENDDO
+
+      jk1 = MIN(nlevsoil_in, nlev_soil)
+      DO jk = jk1+1, nlev_soil
+        DO jc = 1, nlen
+          prepicon%sfc%tsoil(jc,jb,jk)     = prepicon%sfc_in%tsoil(jc,jb,jk1)
+          prepicon%sfc%soilwater(jc,jb,jk) = prepicon%sfc_in%soilwater(jc,jb,jk1)
+        ENDDO
+      ENDDO
+
+    ENDDO
+!$OMP END DO 
+!$OMP END PARALLEL
+
+  END SUBROUTINE process_sfcfields
 
 END MODULE mo_nh_vert_interp

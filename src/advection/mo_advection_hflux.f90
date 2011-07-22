@@ -1183,11 +1183,11 @@ CONTAINS
       IF (advection_config(pid)%llsq_svd) THEN
       CALL recon_lsq_cell_q_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                    opt_rlstart=4 )
+        &                    opt_rlstart=2 )
       ELSE
       CALL recon_lsq_cell_q( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,        &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                    opt_rlstart=4 )
+        &                    opt_rlstart=2 )
       ENDIF
     ELSE IF (lsq_high_ord == 30) THEN
       ! cubic reconstruction without cross derivatives
@@ -1195,11 +1195,11 @@ CONTAINS
       IF (advection_config(pid)%llsq_svd) THEN
       CALL recon_lsq_cell_cpoor_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,&
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                    opt_rlstart=4 )
+        &                    opt_rlstart=2 )
       ELSE
       CALL recon_lsq_cell_cpoor( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                    opt_rlstart=4 )
+        &                    opt_rlstart=2 )
       ENDIF
     ELSE IF (lsq_high_ord == 3) THEN
       ! cubic reconstruction with cross derivatives
@@ -1207,11 +1207,11 @@ CONTAINS
       IF (advection_config(pid)%llsq_svd) THEN
       CALL recon_lsq_cell_c_svd( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,    &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                    opt_rlstart=4 )
+        &                    opt_rlstart=2 )
       ELSE
       CALL recon_lsq_cell_c( p_cc, p_patch, p_int%lsq_high, z_lsq_coeff,        &
         &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
-        &                    opt_rlstart=4 )
+        &                    opt_rlstart=2 )
       ENDIF
     ENDIF
 

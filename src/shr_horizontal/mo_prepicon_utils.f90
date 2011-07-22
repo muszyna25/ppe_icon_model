@@ -1,3 +1,13 @@
+!>
+!! This module contains the I/O routines for prep_icon and the driver
+!! routines for topography preprocessing
+!!
+!! @author Guenther Zaengl, DWD
+!!
+!!
+!! @par Revision History
+!! First version by Guenther Zaengl, DWD (2011-07-13)
+!!
 !! @par Copyright
 !! 2002-2010 by DWD and MPI-M
 !! This software is provided for non-commercial use only.
@@ -35,7 +45,8 @@ MODULE mo_prepicon_utils
   USE mo_extpar_config,       ONLY: n_iter_smooth_topo
   USE mo_dynamics_config,     ONLY: iequations
   USE mo_nonhydrostatic_config,ONLY: ivctype
-  USE mo_prepicon_nml,        ONLY: i_oper_mode, nlev_in, l_zp_out, l_w_in
+  USE mo_prepicon_nml,        ONLY: i_oper_mode, nlev_in, l_zp_out, l_w_in,&
+  &                                 nlevsoil_in, l_sfc_in
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: SUCCESS, max_char_length, max_dom
   USE mo_exception,           ONLY: message, finish, message_text
@@ -54,7 +65,7 @@ MODULE mo_prepicon_utils
                                     interp_uv_2_vn, init_w, convert_thdvars, virtual_temp
   USE mo_model_domain_import, ONLY: lfeedback
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
-
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil
 
   IMPLICIT NONE
 
@@ -65,22 +76,24 @@ MODULE mo_prepicon_utils
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  TYPE :: t_pi_atm_in
+  TYPE :: t_pi_atm_in ! atmospheric input variables; surface geopotential is regarded as
+                      ! atmospheric variable here because the atmospheric fields cannot be processed without it
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:)   :: psfc, phi_sfc
-    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: temp, pres, z3d, u, v, w, qv, qc, qi, qr, qs
+    REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: temp, pres, z3d, u, v, omega, &
+      &                                         w, qv, qc, qi, qr, qs
 
   END TYPE t_pi_atm_in
 
-!  TYPE :: t_pi_sfc_in
+  TYPE :: t_pi_sfc_in
 
-!    REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: geopot
+    REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: tsnow, tskin, snowweq, snowdens, &
+                                              skinres, ls_mask, seaice
+    REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: tsoil, soilwater
 
-!  END TYPE t_pi_sfc_in
+  END TYPE t_pi_sfc_in
 
   TYPE :: t_pi_atm
-
- !   REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: ??
 
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: vn, u, v, w, temp, theta_v, exner, rho, &
                                                pres, qv, qc, qi, qr, qs
@@ -94,11 +107,13 @@ MODULE mo_prepicon_utils
 
   END TYPE t_pi_diag
 
- ! TYPE :: t_pi_sfc
+  TYPE :: t_pi_sfc
 
- !   REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: ??
+    REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: tsnow, tskin, snowweq, snowdens, &
+                                              skinres, ls_mask, seaice
+    REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: tsoil, soilwater
 
- ! END TYPE t_pi_sfc
+  END TYPE t_pi_sfc
 
 
   TYPE :: t_prepicon_state
@@ -109,11 +124,11 @@ MODULE mo_prepicon_utils
     REAL(wp), ALLOCATABLE, DIMENSION(:,:,:) :: z_ifc, z_mc
 
     TYPE (t_pi_atm_in) :: atm_in
-!    TYPE (t_pi_sfc_in) :: sfc_in
+    TYPE (t_pi_sfc_in) :: sfc_in
     TYPE (t_pi_atm)    :: atm
     TYPE (t_pi_diag)   :: plev
     TYPE (t_pi_diag)   :: zlev
-!   TYPE (t_pi_sfc)    :: sfc
+    TYPE (t_pi_sfc)    :: sfc
 
   END TYPE t_prepicon_state
 
@@ -131,7 +146,7 @@ MODULE mo_prepicon_utils
     &  gridCellID, gridEdgeID, gridVertexID
 
   INTEGER, DIMENSION(max_gridlevs) ::  &
-    &  vlistID, taxisID, zaxisID_surface, zaxisID_hybrid,&
+    &  vlistID, taxisID, zaxisID_surface, zaxisID_hybrid, &
     &  zaxisID_hybrid_half, zaxisID_pres, zaxisID_hgt
 
 
@@ -143,14 +158,27 @@ MODULE mo_prepicon_utils
   INTEGER, SAVE :: iostep = 0
   INTEGER :: klev, nzplev
 
-  PUBLIC :: prepicon, t_prepicon_state, t_pi_atm_in, t_pi_atm, t_pi_diag!, t_pi_sfc_in, t_pi_sfc
+  PUBLIC :: prepicon, t_prepicon_state, t_pi_atm_in, t_pi_atm, t_pi_diag, t_pi_sfc_in, t_pi_sfc
+
+  PUBLIC :: nzplev
+
   PUBLIC :: init_prepicon, init_topo_output_files, write_prepicon_output,            &
             setup_prepicon_vlist, compute_coord_fields, close_prepicon_output_files, &
-            convert_variables, init_atmo_output_files, nzplev
+            convert_variables, init_atmo_output_files, deallocate_prepicon
 
   CONTAINS
 
-
+  !-------------
+  !>
+  !! SUBROUTINE init_prepicon
+  !! Initialization routine of prep_icon:
+  !! Reads in data and processes topography blending and feedback in the
+  !! presence of nested domains
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD(2011-07-14)
+  !!
+  !!
   SUBROUTINE init_prepicon (p_int_state, p_grf_state, prepicon)
 
     TYPE(t_int_state),     TARGET, INTENT(IN) :: p_int_state(:)
@@ -162,12 +190,12 @@ MODULE mo_prepicon_utils
     LOGICAL :: l_exist
 
     INTEGER :: no_cells, no_verts, no_levels
-    INTEGER :: ncid, dimid, varid
+    INTEGER :: ncid, dimid, varid, mpi_comm
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_prepicon_utils:init_prepicon'
     CHARACTER(LEN=filename_max) :: topo_file(max_dom), ifs2icon_file(max_dom)
-
+    CHARACTER(LEN=10) :: psvar
 !-------------------------------------------------------------------------
 
     IF (l_zp_out) THEN ! set number of z and p levels for diagnostic output
@@ -176,81 +204,13 @@ MODULE mo_prepicon_utils
       nzplev = 1
     ENDIF
 
-    ! Allocate memory for topography and coordinate fields
+    ! Allocate memory for prep_icon state
+    CALL allocate_prepicon (prepicon)
 
-    DO jg = 1, n_dom
 
-      nlev = p_patch(jg)%nlev
-      nlevp1 = nlev + 1
-      nblks_c = p_patch(jg)%nblks_c
-      nblks_v = p_patch(jg)%nblks_v
-      nblks_e = p_patch(jg)%nblks_e
+    IF (i_oper_mode >= 2 .AND. l_zp_out) THEN ! set levels for test output on pressure and height levels
 
-      IF (i_oper_mode == 2) nlev_in = p_patch(jg)%nlev
-
-      ! basic prep_icon data
-      ALLOCATE(prepicon(jg)%topography_c    (nproma,nblks_c),        &
-               prepicon(jg)%topography_c_smt(nproma,nblks_c) ,       &
-               prepicon(jg)%topography_v    (nproma,nblks_v),        &
-               prepicon(jg)%topography_v_smt(nproma,nblks_v) ,       &
-               prepicon(jg)%z_ifc           (nproma,nlevp1,nblks_c), &
-               prepicon(jg)%z_mc            (nproma,nlev  ,nblks_c) )
-
-      IF (i_oper_mode >= 2) THEN
-        ! Allocate atmospheric input data
-        ALLOCATE(prepicon(jg)%atm_in%psfc(nproma,        nblks_c), &
-                 prepicon(jg)%atm_in%phi_sfc(nproma,     nblks_c), &
-                 prepicon(jg)%atm_in%pres(nproma,nlev_in,nblks_c), &
-                 prepicon(jg)%atm_in%z3d (nproma,nlev_in,nblks_c), &
-                 prepicon(jg)%atm_in%temp(nproma,nlev_in,nblks_c), &
-                 prepicon(jg)%atm_in%u   (nproma,nlev_in,nblks_c), &
-                 prepicon(jg)%atm_in%v   (nproma,nlev_in,nblks_c), &
-                 prepicon(jg)%atm_in%w   (nproma,nlev_in,nblks_c), &
-                 prepicon(jg)%atm_in%qv  (nproma,nlev_in,nblks_c), &
-                 prepicon(jg)%atm_in%qc  (nproma,nlev_in,nblks_c), &
-                 prepicon(jg)%atm_in%qi  (nproma,nlev_in,nblks_c), &
-                 prepicon(jg)%atm_in%qr  (nproma,nlev_in,nblks_c), &
-                 prepicon(jg)%atm_in%qs  (nproma,nlev_in,nblks_c)  )
-
-        ! Allocate surface input data
- !       ALLOCATE(prepicon(jg)%sfc_in%t_g(nproma,nblks_c))
-      ENDIF
-
-      IF (i_oper_mode >= 2) THEN
-        ! Allocate atmospheric output data
-        ALLOCATE(prepicon(jg)%atm%vn        (nproma,nlev  ,nblks_e), &
-                 prepicon(jg)%atm%u         (nproma,nlev  ,nblks_c), &
-                 prepicon(jg)%atm%v         (nproma,nlev  ,nblks_c), &
-                 prepicon(jg)%atm%w         (nproma,nlevp1,nblks_c), &
-                 prepicon(jg)%atm%temp      (nproma,nlev  ,nblks_c), &
-                 prepicon(jg)%atm%exner     (nproma,nlev  ,nblks_c), &
-                 prepicon(jg)%atm%pres      (nproma,nlev  ,nblks_c), &
-                 prepicon(jg)%atm%rho       (nproma,nlev  ,nblks_c), &
-                 prepicon(jg)%atm%theta_v   (nproma,nlev  ,nblks_c), &
-                 prepicon(jg)%atm%qv        (nproma,nlev  ,nblks_c), &
-                 prepicon(jg)%atm%qc        (nproma,nlev  ,nblks_c), &
-                 prepicon(jg)%atm%qi        (nproma,nlev  ,nblks_c), &
-                 prepicon(jg)%atm%qr        (nproma,nlev  ,nblks_c), &
-                 prepicon(jg)%atm%qs        (nproma,nlev  ,nblks_c)  )
-      ENDIF
-
-      IF (l_zp_out) THEN
-        ! Allocate fields for diagostic output
-        ALLOCATE(prepicon(jg)%plev%levels(nzplev),                    &
-                 prepicon(jg)%zlev%levels(nzplev),                    &
-                 prepicon(jg)%plev%u         (nproma,nzplev,nblks_c), &
-                 prepicon(jg)%plev%v         (nproma,nzplev,nblks_c), &
-                 prepicon(jg)%plev%temp      (nproma,nzplev,nblks_c), &
-                 prepicon(jg)%plev%pres      (nproma,nzplev,nblks_c), &
-                 prepicon(jg)%plev%z3d       (nproma,nzplev,nblks_c), &
-                 prepicon(jg)%plev%qv        (nproma,nzplev,nblks_c), &
-                 prepicon(jg)%zlev%u         (nproma,nzplev,nblks_c), &
-                 prepicon(jg)%zlev%v         (nproma,nzplev,nblks_c), &
-                 prepicon(jg)%zlev%temp      (nproma,nzplev,nblks_c), &
-                 prepicon(jg)%zlev%pres      (nproma,nzplev,nblks_c), &
-                 prepicon(jg)%zlev%z3d       (nproma,nzplev,nblks_c), &
-                 prepicon(jg)%zlev%qv        (nproma,nzplev,nblks_c)  )
-
+      DO jg = 1, n_dom
         ! set levels - attention: ordering of the levels must be top-down as for the model levels
         DO jk = 1, nzplev
           prepicon(jg)%zlev%levels(nzplev+1-jk) = REAL(jk-1,wp)*1000._wp ! every 1000 m
@@ -266,7 +226,11 @@ MODULE mo_prepicon_utils
         prepicon(jg)%plev%levels(3)  =  25000._wp
         prepicon(jg)%plev%levels(2)  =  20000._wp
         prepicon(jg)%plev%levels(1)  =  10000._wp
-      ENDIF
+      ENDDO
+
+    ENDIF
+
+    DO jg = 1, n_dom
 
       jlev = p_patch(jg)%level
 
@@ -274,7 +238,7 @@ MODULE mo_prepicon_utils
         !
         ! generate file name
         !
-        WRITE(topo_file(jg),'(a,a)') 'extpar_',p_patch(jg)%grid_filename
+        WRITE(topo_file(jg),'(a,i0,2(a,i2.2),a)') 'extpar_R',nroot,'B',jlev,'_DOM',jg,'.nc'
 
         INQUIRE (FILE=topo_file(jg), EXIST=l_exist)
         IF (.NOT.l_exist) THEN
@@ -393,7 +357,7 @@ MODULE mo_prepicon_utils
 
       ENDIF
 
-      IF(i_oper_mode >= 2) THEN
+      IF (i_oper_mode >= 2) THEN
 
         CALL read_netcdf_data (ncid, 'T', p_patch(jg)%n_patch_cells_g,                  &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
@@ -407,10 +371,10 @@ MODULE mo_prepicon_utils
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     nlev_in,prepicon(jg)%atm_in%v)
 
-        IF (l_w_in) THEN
+        IF (l_w_in) THEN ! note: input vertical velocity is in fact omega (Pa/s)
           CALL read_netcdf_data (ncid, 'W', p_patch(jg)%n_patch_cells_g,                  &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     nlev_in,prepicon(jg)%atm_in%w)
+            &                     nlev_in,prepicon(jg)%atm_in%omega)
         ENDIF
 
         CALL read_netcdf_data (ncid, 'QV', p_patch(jg)%n_patch_cells_g,                 &
@@ -433,7 +397,21 @@ MODULE mo_prepicon_utils
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     nlev_in,prepicon(jg)%atm_in%qs)
 
-        CALL read_netcdf_data (ncid, 'PS', p_patch(jg)%n_patch_cells_g,                 &
+        ! Check if surface pressure (PS) or its logarithm (LNPS) is provided as input
+        IF (p_pe == p_io) THEN
+          IF (nf_inq_varid(ncid, 'PS', varid) == nf_noerr) THEN
+            psvar = 'PS'
+          ELSE IF (nf_inq_varid(ncid, 'LNPS', varid) == nf_noerr) THEN
+            psvar = 'LNPS'
+          ENDIF
+        ENDIF
+
+        IF (msg_level >= 10) THEN
+          WRITE(message_text,'(a)') 'surface pressure variable: '//TRIM(psvar)
+          CALL message('', TRIM(message_text))
+        ENDIF
+
+        CALL read_netcdf_data (ncid, TRIM(psvar), p_patch(jg)%n_patch_cells_g,          &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     prepicon(jg)%atm_in%psfc)
 
@@ -450,15 +428,91 @@ MODULE mo_prepicon_utils
           &                    nlev_in,prepicon(jg)%atm_in%pres)
       ENDIF
 
+      IF (i_oper_mode >= 2 .AND. l_sfc_in) THEN ! Read also surface data
+
+        CALL read_netcdf_data (ncid, 'SKT', p_patch(jg)%n_patch_cells_g,                &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     prepicon(jg)%sfc_in%tskin)
+
+        CALL read_netcdf_data (ncid, 'T_SNOW', p_patch(jg)%n_patch_cells_g,             &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     prepicon(jg)%sfc_in%tsnow)
+
+        CALL read_netcdf_data (ncid, 'W_SNOW', p_patch(jg)%n_patch_cells_g,             &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     prepicon(jg)%sfc_in%snowweq)
+
+        CALL read_netcdf_data (ncid, 'RHO_SNOW', p_patch(jg)%n_patch_cells_g,           &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     prepicon(jg)%sfc_in%snowdens)
+
+        CALL read_netcdf_data (ncid, 'W_I', p_patch(jg)%n_patch_cells_g,               &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     prepicon(jg)%sfc_in%skinres)
+
+        CALL read_netcdf_data (ncid, 'LSM', p_patch(jg)%n_patch_cells_g,               &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     prepicon(jg)%sfc_in%ls_mask)
+
+        CALL read_netcdf_data (ncid, 'CI', p_patch(jg)%n_patch_cells_g,               &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     prepicon(jg)%sfc_in%seaice)
+
+        CALL read_netcdf_data (ncid, 'STL1', p_patch(jg)%n_patch_cells_g,               &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     prepicon(jg)%sfc_in%tsoil(:,:,1))
+
+        CALL read_netcdf_data (ncid, 'STL2', p_patch(jg)%n_patch_cells_g,               &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     prepicon(jg)%sfc_in%tsoil(:,:,2))
+
+        CALL read_netcdf_data (ncid, 'STL3', p_patch(jg)%n_patch_cells_g,               &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     prepicon(jg)%sfc_in%tsoil(:,:,3))
+
+        CALL read_netcdf_data (ncid, 'STL4', p_patch(jg)%n_patch_cells_g,               &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     prepicon(jg)%sfc_in%tsoil(:,:,4))
+
+        CALL read_netcdf_data (ncid, 'SWVL1', p_patch(jg)%n_patch_cells_g,              &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     prepicon(jg)%sfc_in%soilwater(:,:,1))
+
+        CALL read_netcdf_data (ncid, 'SWVL2', p_patch(jg)%n_patch_cells_g,              &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     prepicon(jg)%sfc_in%soilwater(:,:,2))
+
+        CALL read_netcdf_data (ncid, 'SWVL3', p_patch(jg)%n_patch_cells_g,              &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     prepicon(jg)%sfc_in%soilwater(:,:,3))
+
+        CALL read_netcdf_data (ncid, 'SWVL4', p_patch(jg)%n_patch_cells_g,              &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     prepicon(jg)%sfc_in%soilwater(:,:,4))
+
+      ENDIF
+
       IF (jg == 1 .AND. i_oper_mode == 3) THEN ! Allocate and read in vertical coordinate tables
 
         ALLOCATE(vct_a(nlev_in+1), vct_b(nlev_in+1), vct(2*(nlev_in+1)))
 
-        CALL nf(nf_inq_varid(ncid, 'hyai', varid))
-        CALL nf(nf_get_var_double(ncid, varid, vct_a))
+        IF(p_pe == p_io) THEN
+          CALL nf(nf_inq_varid(ncid, 'hyai', varid))
+          CALL nf(nf_get_var_double(ncid, varid, vct_a))
 
-        CALL nf(nf_inq_varid(ncid, 'hybi', varid))
-        CALL nf(nf_get_var_double(ncid, varid, vct_b))
+          CALL nf(nf_inq_varid(ncid, 'hybi', varid))
+          CALL nf(nf_get_var_double(ncid, varid, vct_b))
+        ENDIF
+
+        IF(p_test_run) THEN
+          mpi_comm = p_comm_work_test
+        ELSE
+          mpi_comm = p_comm_work
+        ENDIF
+
+        CALL p_bcast(vct_a, p_io, mpi_comm)
+        CALL p_bcast(vct_b, p_io, mpi_comm)
+
 
         vct(1:nlev_in+1)             = vct_a(:)
         vct(nlev_in+2:2*(nlev_in+1)) = vct_b(:)
@@ -496,7 +550,7 @@ MODULE mo_prepicon_utils
 
       ENDIF
 
-    ENDDO
+    ENDDO ! loop over model domains
 
     IF (n_dom > 1) CALL topo_blending_and_fbk(p_int_state, p_grf_state, prepicon, 1)
 
@@ -525,7 +579,7 @@ MODULE mo_prepicon_utils
       CALL topography_blending(p_patch(jg), p_patch(jgc), p_int(jg),  &
                p_int(jgc), p_grf(jg)%p_dom(jn), jn,                   &
                prepicon(jg)%topography_c, prepicon(jgc)%topography_c, &
-               prepicon(jg)%topography_v, prepicon(jgc)%topography_v)
+               prepicon(jgc)%topography_v                             )
 
       IF (p_patch(jgc)%n_childdom > 0) &
         CALL topo_blending_and_fbk(p_int, p_grf, prepicon, jgc)
@@ -539,7 +593,7 @@ MODULE mo_prepicon_utils
       IF (lfeedback(jgc)) THEN
         CALL topography_feedback(p_patch(jg), p_int(jg), p_grf(jg), jn, &
           prepicon(jg)%topography_c, prepicon(jgc)%topography_c,        &
-          prepicon(jg)%topography_v, prepicon(jgc)%topography_v)
+          prepicon(jg)%topography_v                                     )
       ENDIF
 
     ENDDO
@@ -670,6 +724,7 @@ MODULE mo_prepicon_utils
     INTEGER :: jg, jlev
     INTEGER :: nlev              !< number of full levels
     CHARACTER(LEN=filename_max) :: gridtype, outputfile
+    CHARACTER(LEN=filename_max) :: gridfile(max_dom)
 
     gridtype='icon'
 
@@ -677,6 +732,9 @@ MODULE mo_prepicon_utils
 
       jlev = p_patch(jg)%level
       nlev = p_patch(jg)%nlev
+
+      WRITE (gridfile(jg),'(a,a,i0,2(a,i2.2),a)') &
+        &    TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
 
       CALL setup_prepicon_vlist( TRIM(p_patch(jg)%grid_filename), jg )
 
@@ -716,6 +774,231 @@ MODULE mo_prepicon_utils
     ENDDO
 
   END SUBROUTINE init_atmo_output_files
+
+
+  !-------------
+  !>
+  !! SUBROUTINE allocate_prepicon
+  !! Allocates the components of the prepicon data type
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD(2011-07-14)
+  !!
+  !!
+  SUBROUTINE allocate_prepicon (prepicon)
+
+    TYPE(t_prepicon_state), INTENT(INOUT) :: prepicon(:)
+
+    ! Local variables: loop control and dimensions
+    INTEGER :: jg, nlev, nlevp1, nblks_c, nblks_v, nblks_e
+
+!-------------------------------------------------------------------------
+
+    ! Loop over model domains
+    DO jg = 1, n_dom
+
+      nlev = p_patch(jg)%nlev
+      nlevp1 = nlev + 1
+      nblks_c = p_patch(jg)%nblks_c
+      nblks_v = p_patch(jg)%nblks_v
+      nblks_e = p_patch(jg)%nblks_e
+
+      IF (i_oper_mode == 2) nlev_in = p_patch(jg)%nlev
+
+      ! basic prep_icon data
+      ALLOCATE(prepicon(jg)%topography_c    (nproma,nblks_c),        &
+               prepicon(jg)%topography_c_smt(nproma,nblks_c) ,       &
+               prepicon(jg)%topography_v    (nproma,nblks_v),        &
+               prepicon(jg)%topography_v_smt(nproma,nblks_v) ,       &
+               prepicon(jg)%z_ifc           (nproma,nlevp1,nblks_c), &
+               prepicon(jg)%z_mc            (nproma,nlev  ,nblks_c) )
+
+      IF (i_oper_mode >= 2) THEN
+        ! Allocate atmospheric input data
+        ALLOCATE(prepicon(jg)%atm_in%psfc(nproma,         nblks_c), &
+                 prepicon(jg)%atm_in%phi_sfc(nproma,      nblks_c), &
+                 prepicon(jg)%atm_in%pres (nproma,nlev_in,nblks_c), &
+                 prepicon(jg)%atm_in%z3d  (nproma,nlev_in,nblks_c), &
+                 prepicon(jg)%atm_in%temp (nproma,nlev_in,nblks_c), &
+                 prepicon(jg)%atm_in%u    (nproma,nlev_in,nblks_c), &
+                 prepicon(jg)%atm_in%v    (nproma,nlev_in,nblks_c), &
+                 prepicon(jg)%atm_in%w    (nproma,nlev_in,nblks_c), &
+                 prepicon(jg)%atm_in%omega(nproma,nlev_in,nblks_c), &
+                 prepicon(jg)%atm_in%qv   (nproma,nlev_in,nblks_c), &
+                 prepicon(jg)%atm_in%qc   (nproma,nlev_in,nblks_c), &
+                 prepicon(jg)%atm_in%qi   (nproma,nlev_in,nblks_c), &
+                 prepicon(jg)%atm_in%qr   (nproma,nlev_in,nblks_c), &
+                 prepicon(jg)%atm_in%qs   (nproma,nlev_in,nblks_c)  )
+
+        ! Allocate surface input data
+        ALLOCATE(prepicon(jg)%sfc_in%tskin    (nproma,nblks_c            ), &
+                 prepicon(jg)%sfc_in%tsnow    (nproma,nblks_c            ), &
+                 prepicon(jg)%sfc_in%snowweq  (nproma,nblks_c            ), &
+                 prepicon(jg)%sfc_in%snowdens (nproma,nblks_c            ), &
+                 prepicon(jg)%sfc_in%skinres  (nproma,nblks_c            ), &
+                 prepicon(jg)%sfc_in%ls_mask  (nproma,nblks_c            ), &
+                 prepicon(jg)%sfc_in%seaice   (nproma,nblks_c            ), &
+                 prepicon(jg)%sfc_in%tsoil    (nproma,nblks_c,nlevsoil_in), &
+                 prepicon(jg)%sfc_in%soilwater(nproma,nblks_c,nlevsoil_in)  )
+
+        ! Allocate atmospheric output data
+        ALLOCATE(prepicon(jg)%atm%vn        (nproma,nlev  ,nblks_e), &
+                 prepicon(jg)%atm%u         (nproma,nlev  ,nblks_c), &
+                 prepicon(jg)%atm%v         (nproma,nlev  ,nblks_c), &
+                 prepicon(jg)%atm%w         (nproma,nlevp1,nblks_c), &
+                 prepicon(jg)%atm%temp      (nproma,nlev  ,nblks_c), &
+                 prepicon(jg)%atm%exner     (nproma,nlev  ,nblks_c), &
+                 prepicon(jg)%atm%pres      (nproma,nlev  ,nblks_c), &
+                 prepicon(jg)%atm%rho       (nproma,nlev  ,nblks_c), &
+                 prepicon(jg)%atm%theta_v   (nproma,nlev  ,nblks_c), &
+                 prepicon(jg)%atm%qv        (nproma,nlev  ,nblks_c), &
+                 prepicon(jg)%atm%qc        (nproma,nlev  ,nblks_c), &
+                 prepicon(jg)%atm%qi        (nproma,nlev  ,nblks_c), &
+                 prepicon(jg)%atm%qr        (nproma,nlev  ,nblks_c), &
+                 prepicon(jg)%atm%qs        (nproma,nlev  ,nblks_c)  )
+
+        ! Allocate surface output data
+        ALLOCATE(prepicon(jg)%sfc%tskin    (nproma,nblks_c          ), &
+                 prepicon(jg)%sfc%tsnow    (nproma,nblks_c          ), &
+                 prepicon(jg)%sfc%snowweq  (nproma,nblks_c          ), &
+                 prepicon(jg)%sfc%snowdens (nproma,nblks_c          ), &
+                 prepicon(jg)%sfc%skinres  (nproma,nblks_c          ), &
+                 prepicon(jg)%sfc%ls_mask  (nproma,nblks_c          ), &
+                 prepicon(jg)%sfc%seaice   (nproma,nblks_c          ), &
+                 prepicon(jg)%sfc%tsoil    (nproma,nblks_c,nlev_soil), &
+                 prepicon(jg)%sfc%soilwater(nproma,nblks_c,nlev_soil)  )
+
+      ENDIF
+
+      IF (i_oper_mode >= 2 .AND. l_zp_out) THEN
+        ! Allocate fields for diagostic output
+        ALLOCATE(prepicon(jg)%plev%levels(nzplev),                    &
+                 prepicon(jg)%zlev%levels(nzplev),                    &
+                 prepicon(jg)%plev%u         (nproma,nzplev,nblks_c), &
+                 prepicon(jg)%plev%v         (nproma,nzplev,nblks_c), &
+                 prepicon(jg)%plev%temp      (nproma,nzplev,nblks_c), &
+                 prepicon(jg)%plev%pres      (nproma,nzplev,nblks_c), &
+                 prepicon(jg)%plev%z3d       (nproma,nzplev,nblks_c), &
+                 prepicon(jg)%plev%qv        (nproma,nzplev,nblks_c), &
+                 prepicon(jg)%zlev%u         (nproma,nzplev,nblks_c), &
+                 prepicon(jg)%zlev%v         (nproma,nzplev,nblks_c), &
+                 prepicon(jg)%zlev%temp      (nproma,nzplev,nblks_c), &
+                 prepicon(jg)%zlev%pres      (nproma,nzplev,nblks_c), &
+                 prepicon(jg)%zlev%z3d       (nproma,nzplev,nblks_c), &
+                 prepicon(jg)%zlev%qv        (nproma,nzplev,nblks_c)  )
+      ENDIF
+
+    ENDDO ! loop over model domains
+
+  END SUBROUTINE allocate_prepicon
+
+  !-------------
+  !>
+  !! SUBROUTINE deallocate_prepicon
+  !! Deallocates the components of the prepicon data type
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD(2011-07-14)
+  !!
+  !!
+  SUBROUTINE deallocate_prepicon (prepicon)
+
+    TYPE(t_prepicon_state), INTENT(INOUT) :: prepicon(:)
+
+    ! Local variables: loop control
+    INTEGER :: jg
+
+!-------------------------------------------------------------------------
+
+    ! Loop over model domains
+    DO jg = 1, n_dom
+
+      ! basic prep_icon data
+      DEALLOCATE(prepicon(jg)%topography_c,   &
+               prepicon(jg)%topography_c_smt, &
+               prepicon(jg)%topography_v,     &
+               prepicon(jg)%topography_v_smt, &
+               prepicon(jg)%z_ifc,            &
+               prepicon(jg)%z_mc              )
+
+      IF (i_oper_mode >= 2) THEN
+        ! atmospheric input data
+        DEALLOCATE(prepicon(jg)%atm_in%psfc,  &
+                 prepicon(jg)%atm_in%phi_sfc, &
+                 prepicon(jg)%atm_in%pres,    &
+                 prepicon(jg)%atm_in%z3d,     &
+                 prepicon(jg)%atm_in%temp,    &
+                 prepicon(jg)%atm_in%u,       &
+                 prepicon(jg)%atm_in%v,       &
+                 prepicon(jg)%atm_in%w,       &
+                 prepicon(jg)%atm_in%omega,   &
+                 prepicon(jg)%atm_in%qv,      &
+                 prepicon(jg)%atm_in%qc,      &
+                 prepicon(jg)%atm_in%qi,      &
+                 prepicon(jg)%atm_in%qr,      &
+                 prepicon(jg)%atm_in%qs )
+
+        ! surface input data
+        DEALLOCATE(prepicon(jg)%sfc_in%tskin,  &
+                 prepicon(jg)%sfc_in%tsnow,    &
+                 prepicon(jg)%sfc_in%snowweq,  &
+                 prepicon(jg)%sfc_in%snowdens, &
+                 prepicon(jg)%sfc_in%skinres,  &
+                 prepicon(jg)%sfc_in%ls_mask,  &
+                 prepicon(jg)%sfc_in%seaice,   &
+                 prepicon(jg)%sfc_in%tsoil,    &
+                 prepicon(jg)%sfc_in%soilwater )
+
+        ! atmospheric output data
+        DEALLOCATE(prepicon(jg)%atm%vn,    &
+                 prepicon(jg)%atm%u,       &
+                 prepicon(jg)%atm%v,       &
+                 prepicon(jg)%atm%w,       &
+                 prepicon(jg)%atm%temp,    &
+                 prepicon(jg)%atm%exner,   &
+                 prepicon(jg)%atm%pres,    &
+                 prepicon(jg)%atm%rho,     &
+                 prepicon(jg)%atm%theta_v, &
+                 prepicon(jg)%atm%qv,      &
+                 prepicon(jg)%atm%qc,      &
+                 prepicon(jg)%atm%qi,      &
+                 prepicon(jg)%atm%qr,      &
+                 prepicon(jg)%atm%qs       )
+
+        ! surface output data
+        DEALLOCATE(prepicon(jg)%sfc%tskin,  &
+                 prepicon(jg)%sfc%tsnow,    &
+                 prepicon(jg)%sfc%snowweq,  &
+                 prepicon(jg)%sfc%snowdens, &
+                 prepicon(jg)%sfc%skinres,  &
+                 prepicon(jg)%sfc%ls_mask,  &
+                 prepicon(jg)%sfc%seaice,   &
+                 prepicon(jg)%sfc%tsoil,    &
+                 prepicon(jg)%sfc%soilwater )
+
+      ENDIF
+
+      IF (i_oper_mode >= 2 .AND. l_zp_out) THEN
+        !  fields for diagostic output
+        DEALLOCATE(prepicon(jg)%plev%levels, &
+                 prepicon(jg)%zlev%levels,   &
+                 prepicon(jg)%plev%u,        &
+                 prepicon(jg)%plev%v,        &
+                 prepicon(jg)%plev%temp,     &
+                 prepicon(jg)%plev%pres,     &
+                 prepicon(jg)%plev%z3d,      &
+                 prepicon(jg)%plev%qv,       &
+                 prepicon(jg)%zlev%u,        &
+                 prepicon(jg)%zlev%v,        &
+                 prepicon(jg)%zlev%temp,     &
+                 prepicon(jg)%zlev%pres,     &
+                 prepicon(jg)%zlev%z3d,      &
+                 prepicon(jg)%zlev%qv        )
+      ENDIF
+
+    ENDDO ! loop over model domains
+
+  END SUBROUTINE deallocate_prepicon
 
 
   SUBROUTINE setup_prepicon_vlist(grid_filename, k_jg)
@@ -984,7 +1267,7 @@ MODULE mo_prepicon_utils
     DEALLOCATE(levels)
     CALL zaxisDefVct(zaxisID_hybrid_half(k_jg), 2*nlevp1, vct(1:2*nlevp1))
 
-    IF (l_zp_out) THEN
+   IF (i_oper_mode >= 2 .AND. l_zp_out) THEN
       zaxisID_pres(k_jg) = zaxisCreate(ZAXIS_PRESSURE, nzplev)
       zaxisID_hgt(k_jg)  = zaxisCreate(ZAXIS_HEIGHT, nzplev)
       ALLOCATE(levels(nzplev))
@@ -997,6 +1280,7 @@ MODULE mo_prepicon_utils
       CALL zaxisDefVct(zaxisID_pres(k_jg), nzplev, prepicon(k_jg)%plev%levels(1:nzplev))
       CALL zaxisDefVct(zaxisID_hgt(k_jg),  nzplev, prepicon(k_jg)%zlev%levels(1:nzplev))
     ENDIF
+
     !
     !=========================================================================
     ! time dimension
@@ -1154,7 +1438,137 @@ MODULE mo_prepicon_utils
 
     ENDIF
 
-    IF (l_zp_out) THEN
+    IF (i_oper_mode >= 2 .AND. l_sfc_in) THEN
+
+      CALL addVar(TimeVar('TSN',&
+      &                   'temperature of snow layer',&
+      &                   'K', 238, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('TSK',&
+      &                   'skin temperature',&
+      &                   'm', 235, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('SNWE',&
+      &                   'snow water equivalent',&
+      &                   'm', 141, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('SNDENS',&
+      &                   'snow density',&
+      &                   'kg/m**3', 33, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('SRC',&
+      &                   'skin reservoir content',&
+      &                   'm', 33, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('SEAICE',&
+      &                   'sea-ice cover',&
+      &                   '(0-1)', 33, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('LSM',&
+      &                   'land-sea mask',&
+      &                   '(0-1)', 172, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('TSOIL1',&
+      &                   'soil temperature level 1',&
+      &                   'K', 139, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('TSOIL2',&
+      &                   'soil temperature level 2',&
+      &                   'K', 139, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('TSOIL3',&
+      &                   'soil temperature level 3',&
+      &                   'K', 139, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('TSOIL4',&
+      &                   'soil temperature level 4',&
+      &                   'K', 139, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('TSOIL5',&
+      &                   'soil temperature level 5',&
+      &                   'K', 139, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('TSOIL6',&
+      &                   'soil temperature level 6',&
+      &                   'K', 139, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('TSOIL7',&
+      &                   'soil temperature level 7',&
+      &                   'K', 139, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('WSOIL1',&
+      &                   'soil water content level 1',&
+      &                   'm**3/m**3', 39, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('WSOIL2',&
+      &                   'soil water content level 2',&
+      &                   'm**3/m**3', 39, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('WSOIL3',&
+      &                   'soil water content level 3',&
+      &                   'm**3/m**3', 39, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('WSOIL4',&
+      &                   'soil water content level 4',&
+      &                   'm**3/m**3', 39, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('WSOIL5',&
+      &                   'soil water content level 5',&
+      &                   'm**3/m**3', 39, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('WSOIL6',&
+      &                   'soil water content level 6',&
+      &                   'm**3/m**3', 39, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('WSOIL7',&
+      &                   'soil water content level 7',&
+      &                   'm**3/m**3', 39, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+    ENDIF
+
+    IF (i_oper_mode >= 2 .AND. l_zp_out) THEN
       CALL addVar(TimeVar('UZ',&
       &                   'zonal wind',&
       &                   'm/s', 131, 128,&
@@ -1413,6 +1827,28 @@ MODULE mo_prepicon_utils
       CASE ('QI');              ptr3 => prepicon(jg)%atm%qi
       CASE ('QR');              ptr3 => prepicon(jg)%atm%qr
       CASE ('QS');              ptr3 => prepicon(jg)%atm%qs
+
+      CASE ('TSN');             ptr2 => prepicon(jg)%sfc%tsnow
+      CASE ('TSK');             ptr2 => prepicon(jg)%sfc%tskin
+      CASE ('SNWE');            ptr2 => prepicon(jg)%sfc%snowweq
+      CASE ('SNDENS');          ptr2 => prepicon(jg)%sfc%snowdens
+      CASE ('SRC');             ptr2 => prepicon(jg)%sfc%skinres
+      CASE ('SEAICE');          ptr2 => prepicon(jg)%sfc%seaice
+      CASE ('LSM');             ptr2 => prepicon(jg)%sfc%ls_mask
+      CASE ('TSOIL1');          ptr2 => prepicon(jg)%sfc%tsoil(:,:,1)
+      CASE ('TSOIL2');          ptr2 => prepicon(jg)%sfc%tsoil(:,:,2)
+      CASE ('TSOIL3');          ptr2 => prepicon(jg)%sfc%tsoil(:,:,3)
+      CASE ('TSOIL4');          ptr2 => prepicon(jg)%sfc%tsoil(:,:,4)
+      CASE ('TSOIL5');          ptr2 => prepicon(jg)%sfc%tsoil(:,:,5)
+      CASE ('TSOIL6');          ptr2 => prepicon(jg)%sfc%tsoil(:,:,6)
+      CASE ('TSOIL7');          ptr2 => prepicon(jg)%sfc%tsoil(:,:,7)
+      CASE ('WSOIL1');          ptr2 => prepicon(jg)%sfc%soilwater(:,:,1)
+      CASE ('WSOIL2');          ptr2 => prepicon(jg)%sfc%soilwater(:,:,2)
+      CASE ('WSOIL3');          ptr2 => prepicon(jg)%sfc%soilwater(:,:,3)
+      CASE ('WSOIL4');          ptr2 => prepicon(jg)%sfc%soilwater(:,:,4)
+      CASE ('WSOIL5');          ptr2 => prepicon(jg)%sfc%soilwater(:,:,5)
+      CASE ('WSOIL6');          ptr2 => prepicon(jg)%sfc%soilwater(:,:,6)
+      CASE ('WSOIL7');          ptr2 => prepicon(jg)%sfc%soilwater(:,:,7)
 
       CASE ('UP');              ptr3 => prepicon(jg)%plev%u
       CASE ('VP');              ptr3 => prepicon(jg)%plev%v

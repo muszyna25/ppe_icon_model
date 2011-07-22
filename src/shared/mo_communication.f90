@@ -1271,7 +1271,7 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
 
    REAL(wp) :: send_buf(ndim2tot,p_pat%n_send),recv_buf(ndim2tot,p_pat%n_recv)
 
-   INTEGER :: i, k, kshift, ik, jb, jl, n, np, irs, iss, pid, icount
+   INTEGER :: i, k, kshift, jb,ik, jl, n, np, irs, iss, pid, icount
    LOGICAL :: lsend, ladd, l_par
 
 !-----------------------------------------------------------------------
@@ -2061,7 +2061,7 @@ SUBROUTINE start_async_comm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1,
    TYPE(t_fieldptr) :: recv(nfields)
    INTEGER        :: ndim2(nfields), noffset(nfields)
 
-   INTEGER :: i, k, jb, jl, n, np, irs, iss, pid, icount
+   INTEGER :: i, k, ik, jb, jl, n, np, irs, iss, pid, icount
 
 !-----------------------------------------------------------------------
 
@@ -2576,13 +2576,14 @@ END SUBROUTINE exchange_data_grf
 !================================================================================================
 ! REAL SECTION ----------------------------------------------------------------------------------
 ! 
-SUBROUTINE exchange_data_r2d(p_pat, recv, send, add, send_lbound2)
+SUBROUTINE exchange_data_r2d(p_pat, recv, send, add, send_lbound2, l_recv_exists)
    !
    TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
    REAL(wp), INTENT(INOUT), TARGET        :: recv(:,:)
    REAL(wp), INTENT(IN), OPTIONAL, TARGET :: send(:,:)
    REAL(wp), INTENT(IN), OPTIONAL, TARGET :: add (:,:)
    INTEGER, OPTIONAL :: send_lbound2
+   LOGICAL, OPTIONAL :: l_recv_exists
 
    REAL(wp) :: tmp_recv(SIZE(recv,1),1,SIZE(recv,2))
    REAL(wp) :: send_buf(1,p_pat%n_send)
@@ -2618,7 +2619,7 @@ SUBROUTINE exchange_data_r2d(p_pat, recv, send, add, send_lbound2)
 
    ENDIF
 
-   IF (PRESENT(send)) THEN
+   IF (PRESENT(send) .AND. .NOT. PRESENT(l_recv_exists)) THEN
      tmp_recv(:,1,:) = 0._wp
    ELSE
      tmp_recv(:,1,:) = recv(:,:)
@@ -2659,13 +2660,14 @@ END SUBROUTINE exchange_data_r2d
 !================================================================================================
 ! INTEGER SECTION -------------------------------------------------------------------------------
 ! 
-SUBROUTINE exchange_data_i2d(p_pat, recv, send, add, send_lbound2)
+SUBROUTINE exchange_data_i2d(p_pat, recv, send, add, send_lbound2, l_recv_exists)
    !
    TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
    INTEGER, INTENT(INOUT), TARGET        :: recv(:,:)
    INTEGER, INTENT(IN), OPTIONAL, TARGET :: send(:,:)
    INTEGER, INTENT(IN), OPTIONAL, TARGET :: add (:,:)
    INTEGER, OPTIONAL :: send_lbound2
+   LOGICAL, OPTIONAL :: l_recv_exists
 
    INTEGER :: tmp_recv(SIZE(recv,1),1,SIZE(recv,2))
    INTEGER :: send_buf(1,p_pat%n_send)
@@ -2701,7 +2703,7 @@ SUBROUTINE exchange_data_i2d(p_pat, recv, send, add, send_lbound2)
 
    ENDIF
 
-   IF (PRESENT(send)) THEN
+   IF (PRESENT(send) .AND. .NOT. PRESENT(l_recv_exists)) THEN
      tmp_recv(:,1,:) = 0
    ELSE
      tmp_recv(:,1,:) = recv(:,:)
@@ -2742,12 +2744,13 @@ END SUBROUTINE exchange_data_i2d
 !================================================================================================
 ! LOGICAL SECTION -------------------------------------------------------------------------------
 ! 
-SUBROUTINE exchange_data_l2d(p_pat, recv, send, send_lbound2)
+SUBROUTINE exchange_data_l2d(p_pat, recv, send, send_lbound2, l_recv_exists)
    !
    TYPE(t_comm_pattern), INTENT(IN), TARGET :: p_pat
    LOGICAL, INTENT(INOUT), TARGET        :: recv(:,:)
    LOGICAL, INTENT(IN), OPTIONAL, TARGET :: send(:,:)
    INTEGER, OPTIONAL :: send_lbound2
+   LOGICAL, OPTIONAL :: l_recv_exists
 
    LOGICAL :: tmp_recv(SIZE(recv,1),1,SIZE(recv,2))
    LOGICAL :: send_buf(1,p_pat%n_send)
@@ -2782,7 +2785,7 @@ SUBROUTINE exchange_data_l2d(p_pat, recv, send, send_lbound2)
 
    ENDIF
 
-   IF (PRESENT(send)) THEN
+   IF (PRESENT(send) .AND. .NOT. PRESENT(l_recv_exists)) THEN
      tmp_recv(:,1,:) = .FALSE.
    ELSE
      tmp_recv(:,1,:) = recv(:,:)

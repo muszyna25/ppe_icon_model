@@ -65,13 +65,15 @@ MODULE mo_prepicon_nml
   !
   INTEGER  :: i_oper_mode   ! operation mode
   INTEGER  :: nlev_in       ! number of model levels of input data
+  INTEGER  :: nlevsoil_in   ! number of soil levels of input data
 
   REAL(wp) :: zpbl1, zpbl2  ! AGL heights used for vertical gradient computation
-  LOGICAL  :: l_w_in           ! Logical switch if w is provided as input
-  LOGICAL  :: l_zp_out         ! Logical switch for diagnostic output on pressure and height levels
+  LOGICAL  :: l_w_in        ! Logical switch if w is provided as input
+  LOGICAL  :: l_sfc_in      ! Logical switch if surface fields are provided as input
+  LOGICAL  :: l_zp_out      ! Logical switch for diagnostic output on pressure and height levels
 
   NAMELIST /prepicon_ctl/ i_oper_mode, nlev_in, zpbl1, zpbl2, &
-                          l_w_in, l_zp_out
+                          l_w_in, l_zp_out, nlevsoil_in, l_sfc_in
   !
   !
   !
@@ -102,9 +104,11 @@ CONTAINS
   !
   i_oper_mode = 1           ! operation mode
   nlev_in     = 91          ! number of levels of input data
+  nlevsoil_in = 4           ! number of soil levels of input data
   zpbl1       = 500._wp     ! AGL heights used for computing vertical 
   zpbl2       = 1000._wp    ! gradients
   l_w_in      = .FALSE.     ! true: w is provided as input
+  l_sfc_in    = .TRUE.      ! true: surface fields are provided as input
   l_zp_out    = .FALSE.     ! true: diagnostic output on p and z levels
   !
   !

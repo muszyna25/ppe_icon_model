@@ -54,6 +54,8 @@ MODULE mo_nh_init_utils
   USE mo_grf_bdyintp,         ONLY: interpol_scal_grf
   USE mo_math_constants,      ONLY: pi
   USE mo_exception,           ONLY: message, message_text, finish
+  USE mo_mpi,                 ONLY: p_pe,my_process_is_mpi_parallel
+  USE mo_communication,       ONLY: exchange_data, exchange_data_mult
   USE mo_sync,                ONLY: sync_patch_array, SYNC_C, SYNC_V
   USE mo_interpolation,       ONLY: t_int_state, cells2verts_scalar, edges2cells_scalar
   USE mo_grf_interpolation,   ONLY: t_gridref_state, t_gridref_single_state 
@@ -61,6 +63,9 @@ MODULE mo_nh_init_utils
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_v, get_indices_e
   USE mo_interpol_config,     ONLY: nudge_zone_width
   USE mo_impl_constants_grf,  ONLY: grf_fbk_start_c, grf_bdywidth_c
+  USE mo_subdivision,         ONLY: p_grf_state_local_parent, p_patch_local_parent, &
+                                    p_int_state_local_parent
+
 
   IMPLICIT NONE
   PRIVATE
@@ -72,7 +77,7 @@ MODULE mo_nh_init_utils
   PUBLIC :: nflat, nflatlev ! diese beiden Variablen muessen aus mo_vertical_grid raus!!!
   PUBLIC :: hydro_adjust, init_hybrid_coord, init_sleve_coord, compute_smooth_topo,    &
             init_vert_coord, topography_blending, topography_feedback, interp_uv_2_vn, &
-            init_w, adjust_w, convert_thdvars, virtual_temp
+            init_w, adjust_w, convert_thdvars, virtual_temp, convert_omega2w
 
 CONTAINS
   !-------------
@@ -246,6 +251,64 @@ CONTAINS
 
   !-------------
   !>
+  !! SUBROUTINE convert_omega2w
+  !! Converts the hydrostatic vertical velocity (omega, Pa/s) 
+  !! into physical vertical velocity (m/s)
+  !! Note: this routine has to be called on the input grid,
+  !! where omega, pressure and temperature are not vertically staggered
+  !!
+  !! Required input fields: omega, pressure, temperature
+  !! Output: vertical wind speed
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD(2011-07-20)
+  !!
+  !!
+  !!
+  SUBROUTINE convert_omega2w(omega, w, pres, temp, nblks, npromz, nlev)
+
+
+    ! Input fields
+    REAL(wp), INTENT(IN) :: omega (:,:,:) ! omega (Pa/s)
+    REAL(wp), INTENT(IN) :: pres  (:,:,:) ! pressure (Pa)
+    REAL(wp), INTENT(IN) :: temp  (:,:,:) ! virtual temperature (K)
+
+    ! Output
+    REAL(wp), INTENT(OUT) :: w(:,:,:)  ! vertical velocity (m/s)
+
+    ! Input dimension parameters
+    INTEGER , INTENT(IN) :: nblks      ! Number of blocks
+    INTEGER , INTENT(IN) :: npromz     ! Length of last block
+    INTEGER , INTENT(IN) :: nlev       ! Number of model levels
+
+
+    ! LOCAL VARIABLES
+    INTEGER :: jb, jk, jc
+    INTEGER :: nlen
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,nlen,jk,jc)
+
+    DO jb = 1, nblks
+      IF (jb /= nblks) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz
+      ENDIF
+
+      DO jk = 1, nlev      
+        DO jc = 1, nlen
+          w(jc,jk,jb) = -rd*omega(jc,jk,jb)*temp(jc,jk,jb)/(grav*pres(jc,jk,jb))
+        ENDDO
+      ENDDO
+
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+  END SUBROUTINE convert_omega2w
+  !-------------
+  !>
   !! SUBROUTINE virtual_temp
   !! Computes virtual temperature
   !!
@@ -339,7 +402,8 @@ CONTAINS
     REAL(wp), INTENT(IN) :: v(:,:,:) ! meridional wind component on cell points (m/s)
 
     ! Output field (prognostic model variable) - defined at full model levels
-    REAL(wp), INTENT(OUT) :: vn(:,:,:)  ! edge-normal wind component (m/s)
+    ! Intent (INOUT) because lateral nest boundaries cannot be filled here
+    REAL(wp), INTENT(INOUT) :: vn(:,:,:)  ! edge-normal wind component (m/s)
 
     ! LOCAL VARIABLES
     INTEGER :: jb, jk, je
@@ -413,7 +477,8 @@ CONTAINS
     REAL(wp), INTENT(IN) :: z_ifc(:,:,:) ! height of half levels (m)
 
     ! Output field - defined at half model levels
-    REAL(wp), INTENT(OUT) :: w(:,:,:)  ! vertical wind component (m/s)
+    ! Intent (INOUT) because lateral nest boundaries cannot be filled here
+    REAL(wp), INTENT(INOUT) :: w(:,:,:)  ! vertical wind component (m/s)
 
     ! LOCAL VARIABLES
     INTEGER :: jb, jk, je, jc
@@ -550,15 +615,26 @@ CONTAINS
       CALL get_indices_c(p_patch, jb, i_startblk, nblks_c, &
                          i_startidx, i_endidx, 2)
 
+      ! Lower boundary condition
       DO jc = i_startidx, i_endidx
         w(jc,nlevp1,jb) = z_wsfc_c(jc,1,jb)
       ENDDO
+
+      ! Merging of lower boundary condition with interpolated data
       DO jk = nlev, 2, -1
         wfac = vct_b(jk)**6
         DO jc = i_startidx, i_endidx
           w(jc,jk,jb) = (1._wp-wfac)*w(jc,jk,jb) + wfac*z_wsfc_c(jc,1,jb)
         ENDDO
       ENDDO
+
+      ! Upper boundary condition and smooth transition below
+      DO jc = i_startidx, i_endidx
+        w(jc,1,jb) = 0._wp
+        w(jc,2,jb) = 0.33_wp*w(jc,2,jb)
+        w(jc,3,jb) = 0.66_wp*w(jc,3,jb)
+      ENDDO
+
     ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
@@ -776,7 +852,7 @@ CONTAINS
   !! Initial release by Guenther Zaengl, DWD, (2011-07-05)
   !!
   SUBROUTINE topography_blending(p_pp, p_pc, p_intp, p_intc, p_grf, i_chidx, &
-               topo_cp, topo_cc, topo_vp, topo_vc)
+               topo_cp, topo_cc, topo_vc)
 
     ! patch at parent and child level
     TYPE(t_patch),                TARGET, INTENT(IN) :: p_pp, p_pc
@@ -789,26 +865,49 @@ CONTAINS
     INTEGER, INTENT(IN) :: i_chidx
 
     ! topography on cells and vertices: p = parent level, c = child level
-    REAL(wp), INTENT(INOUT), DIMENSION(:,:) :: topo_cp, topo_cc, topo_vp, topo_vc
+    REAL(wp), INTENT(IN),     DIMENSION(:,:) :: topo_cp
+    REAL(wp), INTENT(INOUT),  DIMENSION(:,:) :: topo_cc, topo_vc
 
     ! auxiliary fields needed for SR calls (SR's expect 3D fields)
-    REAL(wp) :: z_topo_cp(nproma,1,p_pp%nblks_c)
-    REAL(wp) :: z_topo_cc(nproma,1,p_pc%nblks_c)
-    REAL(wp) :: z_topo_vc(nproma,1,p_pc%nblks_v)
+    REAL(wp), TARGET :: z_topo_cp(nproma,1,p_pp%nblks_c)
+    REAL(wp)         :: z_topo_cc(nproma,1,p_pc%nblks_c)
+    REAL(wp)         :: z_topo_vc(nproma,1,p_pc%nblks_v)
 
+    ! another auxiliary needed to handle MPI parallelization, and a related pointer
+    REAL(wp), ALLOCATABLE, TARGET :: z_topo_clp (:,:,:)
+    REAL(wp), POINTER             :: ptr_topo_cp(:,:,:)
 
-    INTEGER  :: jb, jc, jv, nblks_c
+    TYPE(t_gridref_single_state), POINTER :: ptr_grf
+    TYPE(t_patch),                POINTER :: ptr_pp
+    TYPE(t_int_state),            POINTER :: ptr_int
+
+    INTEGER  :: jgc, jb, jc, jv, nblks_c
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom, i_rlstart, i_rlend
     REAL(wp) :: wfac
+    LOGICAL  :: l_parallel
 
     !-------------------------------------------------------------------------
 
-    ! *** Note: this routine is not yet set up for MPI parallelization ***!
+    jgc = p_pc%id
 
-    IF (msg_level >= 15) THEN
+!    IF (p_nprocs == 1 .OR. p_pe == p_test_pe) THEN
+    IF(my_process_is_mpi_parallel()) THEN
+      l_parallel = .FALSE.
+      ptr_grf    => p_grf
+      ptr_pp     => p_pp
+      ptr_int    => p_intp
+    ELSE
+      l_parallel = .TRUE.
+      ptr_grf    => p_grf_state_local_parent(jgc)%p_dom(i_chidx)
+      ptr_pp     => p_patch_local_parent(jgc)
+      ptr_int    => p_int_state_local_parent(jgc)
+      ALLOCATE(z_topo_clp(nproma,1,ptr_pp%nblks_c))
+    ENDIF
+
+    IF (msg_level >= 10) THEN
       WRITE(message_text,'(2(a,i2))') 'topography blending, domain ',&
         p_pp%id,'  => domain ',p_pc%id
-        CALL message('', TRIM(message_text))
+      CALL message('', TRIM(message_text))
     ENDIF
 
     z_topo_cc(:,:,:) = 0._wp
@@ -825,13 +924,30 @@ CONTAINS
       ENDDO
     ENDDO
 
-    ! 1.(b) Interpolate coarse topography on fine mesh
+    ! 1.(b) Copy this auxiliary field to the local parent in case of MPI parallelization
+    IF (l_parallel) THEN
+      CALL exchange_data(ptr_pp%comm_pat_glb_to_loc_c, RECV=z_topo_clp, SEND=z_topo_cp)
+      ptr_topo_cp => z_topo_clp
+      ! synchronization (CALL sync does not work on local parent)
+      CALL exchange_data(ptr_pp%comm_pat_c, ptr_topo_cp)
+    ELSE
+      ptr_topo_cp => z_topo_cp
+    ENDIF
+
+    ! 1.(c) Interpolate coarse topography on fine mesh
+
+    ! Comment: one could avoid the awkward procedure of interpolating boundary zone and
+    ! prognostic zone separately by introducing appropriate interpolation routines and communication
+    ! patterns (both of which are optimized for runtime tasks). However, those routines
+    ! would not be needed anywhere else, and terrain blending is not runtime-critical
+
     ! Lateral boundary zone
     CALL interpol_scal_grf (p_pp, p_pc, p_intp, p_grf, i_chidx, 1,              &
                             f3din1=z_topo_cp, f3dout1=z_topo_cc, lnoshift=.TRUE.)
     ! Prognostic part of the model domain
-    CALL interpol_scal_nudging (p_pp, p_intp, p_grf, i_chidx, 0, 1, 1, &
-                                f3din1=z_topo_cp, f3dout1=z_topo_cc    )
+    ! Note: in contrast to boundary interpolation, nudging expects the input on the local parent grid
+    CALL interpol_scal_nudging (ptr_pp, ptr_int, ptr_grf, i_chidx, 0, 1, 1, &
+                                f3din1=ptr_topo_cp, f3dout1=z_topo_cc       )
 
 
     ! 2. Apply terrain blending to cell points
@@ -879,6 +995,8 @@ CONTAINS
 
       ENDDO
     ENDDO
+
+    CALL sync_patch_array(SYNC_C,p_pc,topo_cc)
 
     ! 3.(a) Copy blended topography to z_topo_cc to prepare interpolation to vertices
     i_rlstart  = 1
@@ -940,6 +1058,10 @@ CONTAINS
       ENDDO
     ENDDO
 
+    CALL sync_patch_array(SYNC_V,p_pc,topo_vc)
+
+    IF (l_parallel) DEALLOCATE(z_topo_clp)
+
   END SUBROUTINE topography_blending
 
 
@@ -952,7 +1074,7 @@ CONTAINS
   !! Initial release by Guenther Zaengl, DWD, (2011-07-05)
   !!
   SUBROUTINE topography_feedback(p_pp, p_int, p_grf, i_chidx, &
-               topo_cp, topo_cc, topo_vp, topo_vc)
+               topo_cp, topo_cc, topo_vp)
 
     ! patch at parent level
     TYPE(t_patch),                TARGET, INTENT(IN) :: p_pp
@@ -965,23 +1087,46 @@ CONTAINS
     INTEGER, INTENT(IN) :: i_chidx
 
     ! topography on cells and vertices: p = parent level, c = child level
-    REAL(wp), INTENT(INOUT), DIMENSION(:,:) :: topo_cp, topo_cc, topo_vp, topo_vc
-
+    REAL(wp), INTENT(IN),    DIMENSION(:,:)         :: topo_cc
+    REAL(wp), INTENT(INOUT), DIMENSION(:,:), TARGET :: topo_cp, topo_vp
 
     ! auxiliary fields needed for SR calls (SR's expect 3D fields)
     REAL(wp) :: z_topo_cp(nproma,1,p_pp%nblks_c)
     REAL(wp) :: z_topo_vp(nproma,1,p_pp%nblks_v)
 
-    INTEGER  :: jb, jc, jv, nblks_c
+    ! another auxiliary to handle MPI parallelization, and related pointer
+    REAL(wp), ALLOCATABLE, TARGET :: z_topo_clp(:,:)
+    REAL(wp), POINTER             :: ptr_topo_cp(:,:)
+
+    TYPE(t_gridref_state), POINTER :: ptr_grf
+    TYPE(t_patch),         POINTER :: ptr_pp
+
+    INTEGER  :: jgc, jb, jc, jv, nblks_c
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom, i_rlstart, i_rlend
 
     INTEGER, POINTER, DIMENSION(:,:,:) :: iidx, iblk
 
+    LOGICAL :: l_parallel
+
     !-------------------------------------------------------------------------
 
-    ! *** Note: this routine is not yet set up for MPI parallelization ***!
+    jgc = p_pp%child_id(i_chidx) ! child domain ID
 
-    IF (msg_level >= 15) THEN
+!    IF (p_nprocs == 1 .OR. p_pe == p_test_pe) THEN
+      IF(my_process_is_mpi_parallel()) THEN
+      l_parallel  =  .FALSE.
+      ptr_pp      => p_pp
+      ptr_grf     => p_grf
+      ptr_topo_cp => topo_cp
+    ELSE
+      l_parallel = .TRUE.
+      ALLOCATE(z_topo_clp(nproma,p_patch_local_parent(jgc)%nblks_c))
+      ptr_pp      => p_patch_local_parent(jgc)
+      ptr_grf     => p_grf_state_local_parent(jgc)
+      ptr_topo_cp => z_topo_clp
+    ENDIF
+
+    IF (msg_level >= 10) THEN
       WRITE(message_text,'(2(a,i2))') 'topography feedback, domain ',&
         p_pp%child_id(i_chidx),'  => domain ',p_pp%id
         CALL message('', TRIM(message_text))
@@ -991,31 +1136,38 @@ CONTAINS
     i_rlstart  = grf_fbk_start_c
     i_rlend    = min_rlcell_int
 
-    i_startblk = p_pp%cells%start_blk(i_rlstart,i_chidx)
-    i_endblk   = p_pp%cells%end_blk(i_rlend,i_chidx)
+    i_startblk = ptr_pp%cells%start_blk(i_rlstart,i_chidx)
+    i_endblk   = ptr_pp%cells%end_blk(i_rlend,i_chidx)
 
-    i_nchdom = MAX(1,p_pp%n_childdom)
-
-    iidx => p_pp%cells%child_idx
-    iblk => p_pp%cells%child_blk
+    iidx => ptr_pp%cells%child_idx
+    iblk => ptr_pp%cells%child_blk
 
     ! Perform feedback for cell points in the prognostic part of the nest overlap area
     DO jb = i_startblk, i_endblk
 
-      CALL get_indices_c(p_pp, jb, i_startblk, i_endblk,                  &
+      CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk,                &
                          i_startidx, i_endidx, i_rlstart, i_rlend, i_chidx)
 
       DO jc = i_startidx, i_endidx
-        topo_cp(jc,jb) =                                                     &
-          topo_cc(iidx(jc,jb,1),iblk(jc,jb,1))*p_grf%fbk_wgt_c(jc,jb,1) + &
-          topo_cc(iidx(jc,jb,2),iblk(jc,jb,2))*p_grf%fbk_wgt_c(jc,jb,2) + &
-          topo_cc(iidx(jc,jb,3),iblk(jc,jb,3))*p_grf%fbk_wgt_c(jc,jb,3) + &
-          topo_cc(iidx(jc,jb,4),iblk(jc,jb,4))*p_grf%fbk_wgt_c(jc,jb,4)
+        ptr_topo_cp(jc,jb) =                                                &
+          topo_cc(iidx(jc,jb,1),iblk(jc,jb,1))*ptr_grf%fbk_wgt_c(jc,jb,1) + &
+          topo_cc(iidx(jc,jb,2),iblk(jc,jb,2))*ptr_grf%fbk_wgt_c(jc,jb,2) + &
+          topo_cc(iidx(jc,jb,3),iblk(jc,jb,3))*ptr_grf%fbk_wgt_c(jc,jb,3) + &
+          topo_cc(iidx(jc,jb,4),iblk(jc,jb,4))*ptr_grf%fbk_wgt_c(jc,jb,4)
       ENDDO
     ENDDO
 
+    IF (l_parallel) THEN
+      ! Attention: the feedback communication pattern is defined on the local parent (ptr_pp), ...
+      CALL exchange_data(ptr_pp%comm_pat_loc_to_glb_c_fbk, RECV=topo_cp, SEND=ptr_topo_cp, &
+                         l_recv_exists=.TRUE.)
+    ENDIF
+    ! ... whereas the subsequent halo communication needs to be done on the parent grid (p_pp)
+    CALL sync_patch_array(SYNC_C,p_pp,topo_cp)
+
 
     ! Copy fed-back topography to z_topo_cp to prepare interpolation to vertices
+    i_nchdom = MAX(1,p_pp%n_childdom)
     i_rlstart  = 1
     i_rlend    = min_rlcell
     i_startblk = p_pp%cells%start_blk(i_rlstart,1)
@@ -1052,6 +1204,9 @@ CONTAINS
       ENDDO
     ENDDO
 
+    CALL sync_patch_array(SYNC_V,p_pp,topo_vp)
+
+    IF (l_parallel) DEALLOCATE(z_topo_clp)
 
   END SUBROUTINE topography_feedback
 
