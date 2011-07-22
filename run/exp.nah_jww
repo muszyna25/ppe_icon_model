@@ -15,25 +15,117 @@
 # Basic specifications of the simulation
 # --------------------------------------
 #
-# These values need to be stored in variables, which are needed to 
-# construct filenames  or directories:
-# 
-R=2               # nroot
-B=4               # number of bisections applied for the global grid
-N=26              # nlev = number of full levels
-OPT="spr0.90"     # grid optimization
+# These variables are set in the header section of the completed run script:
 #
-IEQ=3             # equation system
+# EXPNAME = experiment name
+# NPROMA  = array blocking length / inner loop length
+#-----------------------------------------------------------------------------
+#
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#
+#-----------------------------------------------------------------------------
+# the namelist filename
+atmo_namelist=NAMELIST_${EXPNAME}
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date="2008-09-01T00:00:00Z"
+ndays_restart=60
+dt_restart=`expr ${ndays_restart} \* 86400`
+#
+#-----------------------------------------------------------------------------
+# model timing
+dtime=240
+ndays=10
+nsteps=`expr ${ndays} \* 86400 / ${dtime}`
+dt_diag=`expr 24 \* 3600  `  # int output each 24 hours
+dt_file=`expr 1 \* 86400 `   # 1 day per file
+dt_data=21600.               # write output every 6 hours
+dt_rad=3600.                 # compute radiative transfer every hour
+#
+#-----------------------------------------------------------------------------
+# model parameters
+model_equations=3 # equation system
 #                     1=hydrost. atm. (T dynamics)
 #                     2=hydrost. atm. (theta dynamics)
 #                     3=non-hydrost. atm., 
 #                    -1=shallow water model
 #                    -2=hydrost. ocean
+nlev=26              # nlev = number of full levels
+iforcing=0        # no forcing
 #
+#-----------------------------------------------------------------------------
+# the grid files
+atmo_dyn_grids='iconR2B04-grid_spr0.90.nc'
 #
-DTIME=240         # time step in seconds
-NDAYS=10          # number of model days to run
+#-----------------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
 #
+# ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#
+cat > ${atmo_namelist} << EOF
+!
+&parallel_nml
+ nproma         = ${nproma}
+ p_test_run     = .false.
+ l_test_openmp  = .false.
+ l_log_checks   = .false.
+/
+&grid_nml
+ cell_type = 6            ! triangular cells
+ dynamics_grid_filename = "${atmo_dyn_grids}",
+/
+&run_nml
+ num_lev     = ${nlev},      ! number of full levels of vertical grid
+ nsteps      = ${nsteps}    ! number of steps length of run
+ dtime       = ${dtime}     ! [s] timestep in seconds
+ ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
+ ldynamics   = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
+ ltransport  = .FALSE.      ! switch off tracer transport   --> transport_ctl
+ ntracer     = 0            ! number of tracers
+ iforcing    = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
+ msg_level   = 10           ! detailed report during integration 
+/
+&dynamics_nml
+ iequations  = ${model_equations}       ! 1: hydrost. atmosphere
+/
+&ha_dyn_nml
+ ldry_dycore = .TRUE.       ! dry dynamical core
+ ltheta_up_hori = .TRUE     ! use upstream biased theta advection
+ upstr_beta  = 1.0          ! 3rd order upstream theta advection
+/
+&ha_testcase_nml
+ ctest_name  = 'JWw-Moist'  ! test case identifier
+ lrh_linear_pres = .TRUE.   ! initial RH is a linear function of pressure
+ rh_at_1000hpa   = 0.75     ! [] initial rel. humidity at 1000 hPa 
+/
+&io_nml
+ out_expname = '${EXPNAME}' ! file name base
+/
+&transport_nml
+ ctracer_list='vwi'         ! water vapour, cloud water, cloud ice, constant field
+/
+&echam_phy_nml
+ lrad = .FALSE.             ! no radiation, only convection, large-scale condensation and vdiff
+/
+EOF
+#
+
+
+
+
+
+#-----------------------------------------------------------------------------
+#
+# Basic specifications of the simulation
+# --------------------------------------
 #-----------------------------------------------------------------------------
 #
 # ICON namelist parameters
@@ -42,30 +134,7 @@ NDAYS=10          # number of model days to run
 #
 cat > NAMELIST_${EXPNAME} << EOF
 !
-&parallel_ctl
 /
-&testcase_ctl
-/
-&io_ctl
- out_expname = '${EXPNAME}' ! file name base
-/
-&grid_ctl
- nroot       = ${R}         ! root division of icosahedron edges
- start_lev   = ${B}         ! number of bisections applied for the base grid
-/
-&run_ctl
- nproma      = ${NPROMA}    ! array blocking length
- nlev        = ${N}         ! number of full levels of vertical grid
- ntracer     = 0            ! number of tracers
- run_day     = ${NDAYS}     ! run length in days
- dtime       = ${DTIME}     ! timestep in seconds
- iequations  = ${IEQ}       ! equation system
- i_cell_type = 6            ! hexagonal cells
- ldynamics   = .TRUE.       ! dynamics
- ltransport  = .FALSE.      ! transport 
- iforcing    = 0            ! diabatic forcing
- ltestcase   = .TRUE.       ! run testcase
- msg_level   = 10           ! detailed report during integration
 /
 &nonhydrostatic_ctl
  ltheta_up_hori = .TRUE     ! use upstream biased theta advection

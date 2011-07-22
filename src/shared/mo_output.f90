@@ -167,8 +167,8 @@ CONTAINS
       grid_filename = get_filename_noext(p_patch(jg)%grid_filename)
       ! Raw data file name(s) for output
       !
-      WRITE (outputfile,'(a,a,i4.4,a)')  &
-        &  TRIM(out_expname)//TRIM(grid_filename),'_', jfile, '.nc'
+      WRITE (outputfile,'(a,a,a,a,i4.4,a)')  &
+        &  TRIM(out_expname),"_",TRIM(grid_filename),'_', jfile, '.nc'
       
 !       SELECT CASE (iequations)
 !         !
