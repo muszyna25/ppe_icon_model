@@ -39,7 +39,7 @@ MODULE mo_prepicon_utils
 
   USE mo_kind
   USE mo_io_units,            ONLY: filename_max
-  USE mo_parallel_config,     ONLY: nproma
+  USE mo_parallel_config,     ONLY: nproma, p_test_run
   USE mo_run_config,          ONLY: num_lev, num_levp1, msg_level, &
     &                                dtime, nvclev
   USE mo_extpar_config,       ONLY: n_iter_smooth_topo
@@ -53,7 +53,7 @@ MODULE mo_prepicon_utils
   USE mo_grid_config,         ONLY: n_dom, nroot, start_lev, global_cell_type
   USE mo_interpolation,       ONLY: t_int_state, cells2verts_scalar
   USE mo_grf_interpolation,   ONLY: t_gridref_state
-  USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast
+  USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
   USE mo_ext_data,            ONLY: smooth_topography, read_netcdf_data
   USE mo_atmo_control,        ONLY: p_patch
   USE mo_io_vlist,            ONLY: GATHER_C, GATHER_E, GATHER_V, num_output_vars, outvar_desc, &
