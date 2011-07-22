@@ -66,7 +66,7 @@ PUBLIC :: blk_no, idx_no, idx_1d
 PUBLIC :: setup_comm_pattern, exchange_data, exchange_data_reverse,   &
           exchange_data_mult, exchange_data_grf, exchange_data_gm,    &
           start_delayed_exchange, do_delayed_exchange,                &
-          start_async_comm, complete_async_comm
+          start_async_comm, complete_async_comm, exchange_data_4de3
 
 PUBLIC :: time_sync
 !
@@ -1569,6 +1569,174 @@ SUBROUTINE exchange_data_mult(p_pat, nfields, ndim2tot, recv1, send1, add1, recv
 
 END SUBROUTINE exchange_data_mult
 
+!>
+!! Does data exchange according to a communication pattern (in p_pat).
+!!
+!!
+!! @par Revision History
+!! Initial version by Rainer Johanni, Nov 2009
+!! Optimized version by Guenther Zaengl to process a 4D field whose extra dimension
+!! is on the third index
+!!
+SUBROUTINE exchange_data_4de3(p_pat, nfields, ndim2tot, recv, send)
+
+   TYPE(t_comm_pattern), INTENT(IN) :: p_pat
+
+   REAL(wp), INTENT(INOUT)           :: recv(:,:,:,:)
+   REAL(wp), INTENT(IN   ), OPTIONAL :: send(:,:,:,:)
+
+   INTEGER, INTENT(IN)           :: nfields, ndim2tot
+
+   INTEGER :: ndim2, noffset
+
+   REAL(wp) :: send_buf(ndim2tot,p_pat%n_send),recv_buf(ndim2tot,p_pat%n_recv)
+
+   INTEGER :: i, k, ik, jb, jl, n, np, irs, iss, pid, icount
+   LOGICAL :: lsend
+
+!-----------------------------------------------------------------------
+
+   IF (PRESENT(send)) THEN
+     lsend  = .TRUE.
+   ELSE
+     lsend  = .FALSE.
+   ENDIF
+
+   ndim2 = SIZE(recv,2)
+
+   IF ((iorder_sendrecv == 1 .OR. iorder_sendrecv == 3)) THEN
+     ! Set up irecv's for receive buffers
+     DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
+
+       pid    = p_pat%pelist_recv(np) ! ID of receiver PE
+       irs    = p_pat%recv_startidx(np)
+       icount = p_pat%recv_count(np)*ndim2tot
+       CALL p_irecv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+
+     ENDDO
+   ENDIF
+
+
+   ! Set up send buffer
+#ifdef __SX__
+   IF ( lsend ) THEN
+     DO n = 1, nfields
+       noffset = (n-1)*ndim2
+!CDIR UNROLL=6
+       DO k = 1, ndim2
+         DO i = 1, p_pat%n_send
+           send_buf(k+noffset,i) = &
+             send(p_pat%send_src_idx(i),k,n,p_pat%send_src_blk(i))
+         ENDDO
+       ENDDO
+     ENDDO
+   ELSE
+       ! Send and receive arrays are identical (for boundary exchange)
+     DO n = 1, nfields
+       noffset = (n-1)*ndim2
+!CDIR UNROLL=6
+       DO k = 1, ndim2
+         DO i = 1, p_pat%n_send
+           send_buf(k+noffset,i) = &
+             recv(p_pat%send_src_idx(i),k,n,p_pat%send_src_blk(i))
+         ENDDO
+       ENDDO
+     ENDDO
+   ENDIF
+#else
+   DO i = 1, p_pat%n_send
+     jb = p_pat%send_src_blk(i)
+     jl = p_pat%send_src_idx(i)
+     IF ( lsend ) THEN
+       DO n = 1, nfields
+         noffset = (n-1)*ndim2
+         DO k = 1, ndim2
+           send_buf(k+noffset,i) = send(jl,k,n,jb)
+         ENDDO
+       ENDDO
+     ELSE
+       DO n = 1, nfields
+         noffset = (n-1)*ndim2
+         DO k = 1, ndim2
+           send_buf(k+noffset,i) = recv(jl,k,n,jb)
+         ENDDO
+       ENDDO
+     ENDIF
+   ENDDO
+#endif
+
+
+   ! Send our data
+   IF (iorder_sendrecv == 1) THEN
+     DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+
+       pid    = p_pat%pelist_send(np) ! ID of sender PE
+       iss    = p_pat%send_startidx(np)
+       icount = p_pat%send_count(np)*ndim2tot
+       CALL p_send(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+
+     ENDDO
+   ELSE IF (iorder_sendrecv == 2) THEN ! use isend/recv
+     DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+
+       pid    = p_pat%pelist_send(np) ! ID of sender PE
+       iss    = p_pat%send_startidx(np)
+       icount = p_pat%send_count(np)*ndim2tot
+       CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+
+     ENDDO
+
+     DO np = 1, p_pat%np_recv ! loop over PEs from where to receive the data
+
+       pid    = p_pat%pelist_recv(np) ! ID of receiver PE
+       irs    = p_pat%recv_startidx(np)
+       icount = p_pat%recv_count(np)*ndim2tot
+       CALL p_recv(recv_buf(1,irs), pid, 1, p_count=icount, comm=p_comm_work)
+
+     ENDDO
+   ELSE IF (iorder_sendrecv == 3) THEN ! use isend/irecv
+     DO np = 1, p_pat%np_send ! loop over PEs where to send the data
+
+       pid    = p_pat%pelist_send(np) ! ID of sender PE
+       iss    = p_pat%send_startidx(np)
+       icount = p_pat%send_count(np)*ndim2tot
+       CALL p_isend(send_buf(1,iss), pid, 1, p_count=icount, comm=p_comm_work)
+
+     ENDDO
+   ENDIF
+
+   ! Wait for all outstanding requests to finish
+
+   CALL p_wait
+
+   ! Fill in receive buffer
+
+#ifdef __SX__
+   DO n = 1, nfields
+     noffset = (n-1)*ndim2
+!CDIR UNROLL=6
+     DO k = 1, ndim2
+       DO i = 1, p_pat%n_pnts
+         recv(p_pat%recv_dst_idx(i),k,n,p_pat%recv_dst_blk(i)) =  &
+           recv_buf(k+noffset,p_pat%recv_src(i))
+       ENDDO
+     ENDDO
+   ENDDO
+#else
+   DO i = 1, p_pat%n_pnts
+     jb = p_pat%recv_dst_blk(i)
+     jl = p_pat%recv_dst_idx(i)
+     ik  = p_pat%recv_src(i)
+     DO n = 1, nfields
+       noffset = (n-1)*ndim2
+       DO k = 1, ndim2
+         recv(jl,k,n,jb) = recv_buf(k+noffset,ik)
+       ENDDO
+     ENDDO
+   ENDDO
+#endif
+
+END SUBROUTINE exchange_data_4de3
 
 
 !>

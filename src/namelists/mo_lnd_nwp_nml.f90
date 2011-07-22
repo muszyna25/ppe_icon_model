@@ -64,76 +64,55 @@ MODULE mo_lnd_nwp_nml
 
   PRIVATE
 
-  INTEGER ::  nlev_soil,  nztlev  !! number of soil layers, time integration scheme
-  INTEGER ::  nlev_snow           !! number of snow layers
-  INTEGER ::  nsfc_subs           !! number of TILES
+!> Action Variables for physical schemes
+! --------------------------------------
+  INTEGER ::  nlev_soil, nztlev    !! number of soil layers, time integration scheme
+  INTEGER ::  nlev_snow        !! number of snow layers
+  INTEGER ::  nsfc_subs        !! number of TILES
+  INTEGER ::  itype_gscp                               ! type of grid-scale precipitation physics
+  INTEGER ::  itype_trvg                               ! type of vegetation transpiration parameterization
+  INTEGER ::  itype_evsl                               ! type of parameterization of bare soil evaporation
+  INTEGER ::  itype_tran                               ! type of surface to atmospher transfer
+  INTEGER ::  itype_root                               ! type of root density distribution
+  INTEGER ::  itype_heatcond                           ! type of soil heat conductivity
+  INTEGER ::  itype_hydbound                           ! type of hydraulic lower boundary condition
+  INTEGER ::  itype_subs                               ! type of subscale surface treatment =1 MOSAIC, =2 TILE       
 
 
 
-  LOGICAL ::  lseaice     !> forecast with sea ice model
-  LOGICAL ::  llake       !! forecst with lake model FLake
-  LOGICAL ::  lmelt       !! soil model with melting process
-  LOGICAL ::  lmelt_var   !! freezing temperature dependent on water content
-  LOGICAL ::  lmulti_snow !! run the multi-layer snow model
 
+  LOGICAL ::       &
+       lseaice,    & !> forecast with sea ice model
+       llake,      & !! forecst with lake model FLake
+       lmelt     , & !! soil model with melting process
+       lmelt_var , & !! freezing temperature dependent on water content
+       lmulti_snow,& !! run the multi-layer snow model
+       lstomata   , & ! map of minimum stomata resistance
+       l2tls      , & ! forecast with 2-TL integration scheme
+       lana_rho_snow                         ! if .TRUE., take rho_snow-values from analysis file 
+!--------------------------------------------------------------------
+! nwp forcing (right hand side)
+!--------------------------------------------------------------------
 
-  NAMELIST /lnd_nml/ nlev_soil, nztlev, nlev_snow, nsfc_subs, &
-    &                lseaice, llake, lmulti_snow  
+  NAMELIST/lnd_nml/ nlev_soil, nztlev, nlev_snow, nsfc_subs, &
+ &                  lseaice, llake, lmelt, lmelt_var, lmulti_snow,    itype_gscp   , & 
+    itype_trvg                              , & 
+    itype_evsl                              , & 
+    itype_tran                              , & 
+    itype_root                              , & 
+    itype_heatcond                          , & 
+    itype_hydbound                          , & 
+    lstomata                                , & 
+    l2tls                                   , & 
+    lana_rho_snow                           , & 
+    itype_subs            
    
   PUBLIC :: read_nwp_lnd_namelist, setup_nwp_lnd !(latter to be removed)
 
  CONTAINS
 
   !-------------------------------------------------------------------------
-  !
-  !>
-  !! Setup NWP physics
-  !!
-  !! Read namelist for physics. Choose the physical package and subsequent
-  !! parameters.
-  !!
-  !! @par Revision History
-  !! Initial revision by Daniel Reinert, DWD (2010-10-06)
-  !!
   SUBROUTINE setup_nwp_lnd
-
-    INTEGER :: i_stat, funit
-
-    !------------------------------------------------------------
-    ! Default settings
-    !------------------------------------------------------------
-
-     nlev_soil       = 7     !> 7 = default value for number of soil layers
-     nztlev          = 2     !> 2 = default value for time integration scheme
-     nlev_snow       = 1     !> 0 = default value for number of snow layers
-     nsfc_subs       = 2     !> 1 = default value for number of TILES
-
-
-
-  !> KF  current settings to get NWP turbulence running
-     lseaice    = .FALSE.
-     llake      = .FALSE.
-     lmulti_snow= .FALSE.
-    
-
-    !------------------------------------------------------------------
-    ! If this is a resumed integration, overwrite the defaults above 
-    ! by values used in the previous integration.
-    !------------------------------------------------------------------
-    IF (lrestart) THEN
-      funit = open_and_restore_namelist('lnd_nml')
-      READ(funit,NML=lnd_nml)
-      CALL close_tmpfile(funit)
-    END IF
-
-    !------------------------------------------------------------------------
-    ! Read user's (new) specifications. (Done so far by all MPI processors)
-    !------------------------------------------------------------------------
-
-    CALL position_nml ('lnd_nml', status=i_stat)
-    IF (i_stat == POSITIONED) THEN
-      READ (nnml, lnd_nml)
-    ENDIF
 
   END SUBROUTINE setup_nwp_lnd
 
@@ -167,15 +146,35 @@ MODULE mo_lnd_nwp_nml
     !-----------------------
     ! 1. default settings   
     !-----------------------
-    nlev_soil   = 7     !> 7 = default value for number of soil layers
-    nztlev      = 2     !> 2 = default value for time integration scheme
-    nlev_snow   = 1     !> 0 = default value for number of snow layers
-    nsfc_subs   = 2     !> 1 = default value for number of TILES
 
-    !> KF  current settings to get NWP turbulence running
-    lseaice     = .FALSE.
-    llake       = .FALSE.
-    lmulti_snow = .FALSE.
+    nlev_soil       = 7     !> 7 = default value for number of soil layers
+    nztlev          = 2     !> 2 = default value for time integration scheme
+    nlev_snow       = 1     !> 0 = default value for number of snow layers
+    nsfc_subs       = 21    !> 1 = default value for number of TILES
+    nztlev          = 2                        ! time step scheme 2,3
+    lmelt       = .TRUE.                       ! soil model with melting process
+    lmelt_var   = .TRUE.                       ! freezing temperature dependent on water content
+    lmulti_snow = .FALSE.                      ! run the multi-layer snow model
+    !
+    itype_gscp=3                               ! type of grid-scale precipitation physics
+    itype_trvg=2                               ! type of vegetation transpiration parameterization
+    itype_evsl=2                               ! type of parameterization of bare soil evaporation
+    itype_tran=2                               ! type of surface to atmospher transfer
+    itype_root=1                               ! type of root density distribution
+    itype_heatcond=1                           ! type of soil heat conductivity
+    itype_hydbound=1                           ! type of hydraulic lower boundary condition
+    lstomata=.true.                            ! map of minimum stomata resistance
+    l2tls  =.true.                             ! forecast with 2-TL integration scheme
+    lana_rho_snow=.false.                      ! if .TRUE., take rho_snow-values from analysis file 
+    itype_subs=2                               ! type of subscale surface treatment =1 MOSAIC, =2 TILE       
+
+
+  !> KF  current settings to get NWP turbulence running
+     lseaice    = .FALSE.
+     llake      = .FALSE.
+     lmulti_snow= .FALSE.
+    
+
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 

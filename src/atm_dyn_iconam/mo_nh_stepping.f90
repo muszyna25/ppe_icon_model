@@ -95,7 +95,8 @@ MODULE mo_nh_stepping
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_io_units,            ONLY: find_next_free_unit
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH,iphysproc,itconv,   &
-    &                               itccov, itrad, itradheat, itsso, itsatad, inwp
+    &                               itccov, itrad, itradheat, itsso, itsatad,    &
+    &                               itsfc
   USE mo_physical_constants,  ONLY: cvd, cvd_o_rd
   USE mo_divergent_modes,     ONLY: divergent_modes_5band, impl_vert_adv_theta, &
                                     impl_vert_adv_theta_5diag
@@ -125,6 +126,8 @@ MODULE mo_nh_stepping
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
   USE mo_vertical_coord_table,ONLY: vct
+  USE mo_master_nml,          ONLY: lrestart
+  USE mo_io_restart_attributes,ONLY: get_restart_attribute
 
 #ifdef __OMP_RADIATION__  
   USE mo_nwp_rad_interface,   ONLY: nwp_start_omp_radiation_thread, model_end_thread, &
@@ -202,6 +205,8 @@ MODULE mo_nh_stepping
   LOGICAL, ALLOCATABLE :: linit_dyn(:)  ! determines whether dynamics has already been initialized
 
 
+  REAL(wp), ALLOCATABLE :: sim_time(:)  ! elapsed simulation time
+
   ! Needed by supervise_total_integrals_nh to keep data between steps
   REAL(wp), ALLOCATABLE, SAVE :: z_total_tracer_old(:)
   REAL(wp), ALLOCATABLE, SAVE :: z_total_tracer_0(:)
@@ -227,7 +232,7 @@ MODULE mo_nh_stepping
   TYPE(t_int_state), INTENT(IN)        :: p_int(n_dom)
   TYPE(t_gridref_state), INTENT(INOUT) :: p_grf(n_dom)
 
-  TYPE(t_nh_state),INTENT(INOUT):: p_nh_state(:)
+  TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
 
   INTEGER :: ntl
 
@@ -362,7 +367,6 @@ MODULE mo_nh_stepping
   TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
   TYPE(t_datetime), INTENT(INOUT)      :: datetime
 
-  REAL(wp)                             :: sim_time(n_dom)
   INTEGER                              :: jfile, jstep, jb, nlen, jg
   REAL(wp)                             :: vnmax, wmax
   REAL(wp)                             :: vn_aux(p_patch(1)%nblks_int_e)
@@ -371,8 +375,6 @@ MODULE mo_nh_stepping
 
 !$  INTEGER omp_get_num_threads
 !-----------------------------------------------------------------------
-
-  sim_time(:) = 0._wp
 
   jfile = 1
 
@@ -427,7 +429,7 @@ MODULE mo_nh_stepping
     ! Store first old exner pressure
     ! (to prepare some kind of divergence damping, or to account for
     ! physically based 'implicit weights' in forward backward time stepping)
-    IF (jstep == 1) THEN
+    IF (jstep == 1 .AND. .NOT. lrestart) THEN
 !$OMP PARALLEL PRIVATE(jg)
 !   write(0,*) 'Entering perform_nh_timeloop, threads=',omp_get_num_threads()
       DO jg = 1, n_dom
@@ -515,7 +517,11 @@ MODULE mo_nh_stepping
     IF (l_checkpoint_time) THEN
       DO jg = 1, n_dom
         CALL create_restart_file( p_patch(jg), datetime,        &
-                                & vct, jfile, l_have_output      )
+                                & vct, jfile, l_have_output,    &
+                                & t_elapsed_phy,                &
+                                & lcall_phy, sim_time(jg),      &
+                                & jstep_adv(jg)%ntsteps,        &
+                                & jstep_adv(jg)%marchuk_order   )
       END DO
 
       ! Create the master (meta) file in ASCII format which contains
@@ -588,7 +594,8 @@ MODULE mo_nh_stepping
   !
   ! deallocate flow control variables
   !
-  DEALLOCATE( lstep_adv, lcall_phy, linit_slowphy, linit_dyn, t_elapsed_phy, STAT=ist )
+  DEALLOCATE( lstep_adv, lcall_phy, linit_slowphy, linit_dyn, t_elapsed_phy, &
+    &         sim_time, STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ( 'mo_nh_stepping: perform_nh_stepping',          &
       &    'deallocation for lstep_adv, lcall_phy,' //            &
@@ -606,8 +613,9 @@ MODULE mo_nh_stepping
 !
   TYPE(t_patch), TARGET, INTENT(IN)            :: p_patch(n_dom_start:n_dom)
 
-  INTEGER                              :: jg !, nlen
+  INTEGER                              :: jg, jp !, nlen
   INTEGER                              :: ist
+  CHARACTER(len=MAX_CHAR_LENGTH)       :: attname   ! attribute name
 
 !-----------------------------------------------------------------------
   ! Allocate global buffers for MPI communication
@@ -630,22 +638,47 @@ MODULE mo_nh_stepping
     CALL finish ( 'mo_nh_stepping: perform_nh_stepping',           &
     &      'allocation for jstep_adv failed' )
   ENDIF
-  ! initialize
-  jstep_adv(:)%ntsteps       = 0
-  jstep_adv(:)%marchuk_order = 0
 
 
   ! allocate flow control variables for transport and slow physics calls
   ALLOCATE(lstep_adv(n_dom),lcall_phy(n_dom,iphysproc),linit_slowphy(n_dom), &
-    &      linit_dyn(n_dom),t_elapsed_phy(n_dom,iphysproc), STAT=ist )
+    &      linit_dyn(n_dom),t_elapsed_phy(n_dom,iphysproc), sim_time(n_dom), &
+    &      STAT=ist )
   IF (ist /= SUCCESS) THEN
     CALL finish ( 'mo_nh_stepping: perform_nh_stepping',           &
     &      'allocation for flow control variables failed' )
   ENDIF
+  !
   ! initialize
-  t_elapsed_phy(:,:) = 0._wp
-  linit_slowphy(:)   = .TRUE.
-  linit_dyn(:)       = .TRUE.
+  IF (lrestart) THEN
+    linit_slowphy(:)  = .FALSE.
+    !
+    ! Get sim_time, t_elapsed_phy and lcall_phy from restart file
+    DO jg = 1,n_dom
+      WRITE(attname,'(a,i2.2)') 'jstep_adv_ntsteps_DOM',jg
+      CALL get_restart_attribute(TRIM(attname), jstep_adv(jg)%ntsteps)
+      WRITE(attname,'(a,i2.2)') 'jstep_adv_marchuk_order_DOM',jg
+      CALL get_restart_attribute(TRIM(attname), jstep_adv(jg)%marchuk_order)
+      WRITE(attname,'(a,i2.2)') 'sim_time_DOM',jg
+      CALL get_restart_attribute(TRIM(attname), sim_time(jg))
+      DO jp = 1,iphysproc
+        WRITE(attname,'(a,i2.2,a,i2.2)') 't_elapsed_phy_DOM',jg,'_PHY',jp
+        CALL get_restart_attribute(TRIM(attname), t_elapsed_phy(jg,jp))
+
+        WRITE(attname,'(a,i2.2,a,i2.2)') 'lcall_phy_DOM',jg,'_PHY',jp
+        CALL get_restart_attribute(TRIM(attname), lcall_phy(jg,jp))
+      ENDDO
+    ENDDO
+    linit_dyn(:)      = .FALSE.
+  ELSE
+    jstep_adv(:)%ntsteps       = 0
+    jstep_adv(:)%marchuk_order = 0
+    sim_time(:)                = 0._wp
+    linit_slowphy(:)           = .TRUE.
+    t_elapsed_phy(:,:)         = 0._wp
+    linit_dyn(:)               = .TRUE.
+  ENDIF
+
 
   DO jg=1, n_dom
     ALLOCATE(                                                                      &
@@ -664,6 +697,21 @@ MODULE mo_nh_stepping
       &      'w_traj, rhodz_mc_now, rhodz_mc_new, rho_ic, '       // &
       &      'topflx_tra failed' )
     ENDIF
+    !
+    ! initialize (as long as restart output is synchroinzed with advection, 
+    ! these variables do not need to go into the restart file)
+!$OMP PARALLEL
+!$OMP WORKSHARE
+    prep_adv(jg)%mass_flx_me (:,:,:) = 0._wp
+    prep_adv(jg)%mass_flx_ic (:,:,:) = 0._wp
+    prep_adv(jg)%vn_traj     (:,:,:) = 0._wp
+    prep_adv(jg)%w_traj      (:,:,:) = 0._wp
+    prep_adv(jg)%rhodz_mc_now(:,:,:) = 0._wp
+    prep_adv(jg)%rhodz_mc_new(:,:,:) = 0._wp
+    prep_adv(jg)%rho_ic      (:,:,:) = 0._wp
+    prep_adv(jg)%topflx_tra  (:,:,:) = 0._wp
+!$OMP END WORKSHARE
+!$OMP END PARALLEL
 
     ! Allocate global buffers for MPI communication
     IF (itype_comm >= 2 .AND. my_process_is_mpi_parallel()) THEN
@@ -2183,6 +2231,8 @@ MODULE mo_nh_stepping
       IF ( tcall_phy(jg,itradheat) > 0._wp )  lcall_phy(jg,itradheat) = .TRUE.
 
       IF ( tcall_phy(jg,itsso) > 0._wp )  lcall_phy(jg,itsso) = .TRUE.
+ 
+      IF ( tcall_phy(jg,itsfc) > 0._wp )  lcall_phy(jg,itsfc) = .TRUE.
 
     ELSE
       !

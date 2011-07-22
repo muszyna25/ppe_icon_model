@@ -351,11 +351,13 @@ CONTAINS
     ! Loop over all var_lists and open the associated files. Set
     ! file IDs if necessary.
     !
+    WRITE(0,*)'nvar_list=',nvar_lists
     DO i = 1, nvar_lists
       var_lists(i)%p%first = .FALSE.
     ENDDO
     !
     DO i = 1, nvar_lists
+    WRITE(0,*)'nvar_list=',i
       !
       ! skip, if file is already opened
       !
@@ -380,6 +382,8 @@ CONTAINS
       !
       restart_filename = basename//'_'//TRIM(private_restart_time) &
            &                     //'_'//TRIM(var_lists(i)%p%model_type)//'.nc'
+
+      WRITE(0,*)'we are in restart list ', TRIM(restart_filename)
       !
       IF (my_process_is_stdio()) THEN
         SELECT CASE (var_lists(i)%p%restart_type)
@@ -639,6 +643,9 @@ CONTAINS
       ! retrieve information from actual linked list element
       !
       info => element%field%info
+      !
+      WRITE(0,*)'add var =',element%field%info%name
+      WRITE(0,*)'with zaxis = ',element%field%info%vgrid   
       !
       ! skip this field ?
       !
@@ -900,12 +907,16 @@ CONTAINS
     ! Loop over all fields in linked list
     !
     element => start_with
-    element%next_list_element => this_list%p%first_list_element    
+    element%next_list_element => this_list%p%first_list_element  
+  
+    WRITE(0,*)'restart list name', this_list%p%name
     !
     for_all_list_elements: DO
       !
       element => element%next_list_element
       IF (.NOT.ASSOCIATED(element)) EXIT
+      WRITE(0,*)'element name', element%field%info%name, element%field%info%lrestart, &
+        &                       element%field%info%ndims
       !
       rptr2d => NULL()
       rptr3d => NULL()

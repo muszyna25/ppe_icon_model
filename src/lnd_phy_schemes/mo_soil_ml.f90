@@ -403,26 +403,10 @@ USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing t
 USE mo_cuparameters,       ONLY: rho_w => rhoh2o ! density of liquid water (kg/m^3)
 !
 USE mo_phyparam_soil   
-
-
-! For future use!
-!!$USE mo_atm_phy_nwp_nml, ONLY:   &  
-!!$    lmelt ,       & ! soil model with melting process
-!!$    lmelt_var,    & ! freezing temperature dependent on water content
-!!$    lmulti_snow,  & ! run the multi-layer snow model
-!!$    itype_gscp,   & ! type of grid-scale precipitation physics
-!!$    itype_trvg,   & ! type of vegetation transpiration parameterization
-!!$    itype_evsl,   & ! type of parameterization of bare soil evaporation
-!!$    itype_tran,   & ! type of surface to atmospher transfer
-!!$    itype_root,   & ! type of root density distribution
-!!$    itype_heatcond,&! type of soil heat conductivity
-!!$    itype_hydbound,&! type of hydraulic lower boundary condition
-!!$    lstomata,      &! map of minimum stomata resistance
-!!$    l2tls,         &! forecast with 2-TL integration scheme 
-!!$    lana_rho_snow   ! if .TRUE., take rho_snow-values from analysis file
-                               
-
-  USE mo_exception,       ONLY: message, finish, message_text
+!
+USE mo_lnd_nwp_config
+!                           
+USE mo_exception,       ONLY: message, finish, message_text
 #endif
 
 
@@ -504,7 +488,7 @@ SUBROUTINE terra_multlay (                &
                   sai          , & ! surface area index                              --
                   tai          , & ! transpiration area index                        --
                   eai          , & ! earth area (evaporative surface area) index     --
-                  rlandmask    , & ! landpoint mask                                  --
+                  landmask    , & ! landpoint mask                                  --
                   rsmin2d      ,  & ! minimum stomata resistance                    ( s/m )
 !
                   u            , & ! zonal wind speed                              ( m/s )
@@ -550,36 +534,15 @@ SUBROUTINE terra_multlay (                &
                   sobs         , & ! solar radiation at the ground                 ( W/m2)
                   thbs         , & ! thermal radiation at the ground               ( W/m2)
                   pabs         , & !!!! photosynthetic active radiation               ( W/m2)
-
 ! 
                   runoff_s     , & ! surface water runoff; sum over forecast      (kg/m2)
                   runoff_g     , & ! soil water runoff; sum over forecast         (kg/m2)
-                  rstom        , & ! stomata resistance                           ( s/m )
-                  lhfl_bs      , & ! average latent heat flux from bare soil evap.( W/m2)
-                  lhfl_pl      , & ! average latent heat flux from plants         ( W/m2)
-!
-                  nstart       , & ! first time step of the forecast
+!                 nstart       , & ! first time step of the forecast
                   ntstep       , & ! actual time step
                                    ! indices for permutation of three time levels
 !                 nold         , & ! corresponds to ntstep - 1
                   nnow         , & ! corresponds to ntstep 
-                  nnew         , & ! corresponds to ntstep + 1
-                  nztlev          , & ! time step scheme 2,3
-                  lmelt        , & ! soil model with melting process
-                  lmelt_var    , & ! freezing temperature dependent on water content
-                  lmulti_snow  , & ! run the multi-layer snow model
-!
-                  itype_gscp   , & ! type of grid-scale precipitation physics
-                  itype_trvg   , & ! type of vegetation transpiration parameterization
-                  itype_evsl   , & ! type of parameterization of bare soil evaporation
-                  itype_tran   , & ! type of surface to atmospher transfer
-                  itype_root   , & ! type of root density distribution
-                  itype_heatcond   , & ! type of soil heat conductivity
-                  itype_hydbound   , & ! type of hydraulic lower boundary condition
-                  lstomata         , & ! map of minimum stomata resistance
-                  l2tls            , & ! forecast with 2-TL integration scheme
-                  lana_rho_snow    ,  & ! if .TRUE., take rho_snow-values from analysis file 
-                  itype_subs         & 
+                  nnew           & ! corresponds to ntstep + 1
                                          )
 
 
@@ -590,13 +553,13 @@ SUBROUTINE terra_multlay (                &
 IMPLICIT NONE
 
   INTEGER (KIND=iintegers), INTENT(IN)  ::  &
-                  nstart       , & ! first time step of the forecast
+!                  nstart       , & ! first time step of the forecast
                   ntstep       , & ! actual time step
                                    ! indices for permutation of three time levels
 !                 nold         , & ! corresponds to ntstep - 1
                   nnow         , & ! corresponds to ntstep 
-                  nnew         , & ! corresponds to ntstep + 1
-                  nztlev              ! time step scheme 2,3 
+                  nnew             ! corresponds to ntstep + 1
+!                  nztlev              ! time step scheme 2,3 
 
   INTEGER (KIND=iintegers), INTENT(IN)  ::  &
                   ie, je           , & ! array dimensions
@@ -611,7 +574,7 @@ IMPLICIT NONE
   REAL    (KIND = ireals), INTENT(IN)  ::  &
                   dt                    
 
-  INTEGER (KIND = iintegers), DIMENSION(ie,je,nsubs1), INTENT(IN) :: & 
+  INTEGER,                 DIMENSION(ie,je,nsubs1), INTENT(IN) :: & 
                   soiltyp_subs      ! type of the soil (keys 0-9)                     --
   REAL    (KIND = ireals), DIMENSION(ie,je,nsubs1), INTENT(IN) :: & 
                   plcov        , & ! fraction of plant cover                         --
@@ -619,9 +582,9 @@ IMPLICIT NONE
                   sai          , & ! surface area index                              --
                   tai          , & ! transpiration area index                        --
                   eai              ! earth area (evaporative surface area) index     --
-  REAL    (KIND = ireals)      , DIMENSION(ie,je,nsubs1), INTENT(IN) :: & 
-                  rlandmask        ! landpoint mask fractions                                 --
-   REAL    (KIND = ireals), DIMENSION(ie,je), INTENT(IN) :: & 
+  REAL    (KIND = ireals), DIMENSION(ie,je,nsubs1), INTENT(INOUT) :: & 
+                  landmask        ! landpoint mask fractions                                 --
+  REAL    (KIND = ireals), DIMENSION(ie,je), INTENT(IN) :: & 
                  rsmin2d          ! minimum stomata resistance                    ( s/m )
 
   REAL    (KIND = ireals), DIMENSION(ie,je,ke,nztlev), INTENT(IN) :: & 
@@ -694,32 +657,13 @@ IMPLICIT NONE
   REAL    (KIND = ireals), DIMENSION(ie,je,nsubs1), INTENT(INOUT) :: &
                   runoff_s     , & ! surface water runoff; sum over forecast      (kg/m2)
                   runoff_g         ! soil water runoff; sum over forecast         (kg/m2)
-  REAL    (KIND = ireals), DIMENSION(ie,je), INTENT(INOUT) :: &
-                  rstom            ! stomata resistance                           ( s/m )
-  REAL    (KIND = ireals), DIMENSION(ie,je), INTENT(INOUT) :: &
-                  lhfl_bs          ! average latent heat flux from bare soil evap.( W/m2)
-  REAL    (KIND = ireals), DIMENSION(ie,je,ke_soil), INTENT(INOUT) :: &
-                  lhfl_pl          ! average latent heat flux from plants         ( W/m2)
+!!$  REAL    (KIND = ireals), DIMENSION(ie,je), INTENT(INOUT) :: &
+!!$                  rstom            ! stomata resistance                           ( s/m )
+!!$  REAL    (KIND = ireals), DIMENSION(ie,je), INTENT(INOUT) :: &
+!!$                  lhfl_bs          ! average latent heat flux from bare soil evap.( W/m2)
+!!$  REAL    (KIND = ireals), DIMENSION(ie,je,ke_soil), INTENT(INOUT) :: &
+!!$                  lhfl_pl          ! average latent heat flux from plants         ( W/m2)
 
-  LOGICAL, INTENT(IN) :: &
-                  lmelt        , & ! soil model with melting process
-                  lmelt_var    , & ! freezing temperature dependent on water content
-                  lmulti_snow      ! run the multi-layer snow model
-
-  INTEGER (KIND=iintegers), INTENT(IN)  ::  &
-                  itype_gscp   , & ! type of grid-scale precipitation physics
-                  itype_trvg   , & ! type of vegetation transpiration parameterization
-                  itype_evsl   , & ! type of parameterization of bare soil evaporation
-                  itype_tran   , & ! type of surface to atmospher transfer
-                  itype_root   , & ! type of root density distribution
-                  itype_heatcond   , & ! type of soil heat conductivity
-                  itype_hydbound   , & ! type of hydraulic lower boundary condition
-                  itype_subs           ! type of MOSAIC/TILE approach
-
-  LOGICAL, INTENT(IN) :: &
-                  lstomata         , & ! map of minimum stomata resistance
-                  l2tls            , & ! forecast with 2-TL integration scheme
-                  lana_rho_snow        ! if .TRUE., take rho_snow-values from analysis file 
 
 !--------------------------------------------------------------------------------
 ! TERRA Declarations
@@ -1257,9 +1201,26 @@ CHARACTER (LEN=80)                    ::  &
 
 !>JH
   prg_gsp=0._ireals ! graupel not implemented yet 
-  llandmask=.FALSE.
-  WHERE (rlandmask > 0.5_ireals) llandmask=.TRUE.
 !<JH
+
+! >JH NEW SECTION FOR DEFINITION OF LAND POINTS !
+  llandmask=.FALSE.
+  do ns=nsubs0,nsubs1
+     !amf ---
+     ! Prepare basic surface properties (for land-points only)
+ 
+     DO   j = jstarts, jends
+        DO i = istarts, iends
+           IF(landmask(i,j,ns) > 0.5_ireals) THEN        ! for land-points only
+              llandmask(i,j,ns) = .true.
+           END IF
+        ENDDO
+     ENDDO
+  END DO
+! <JH
+
+
+
 
   ierror = 0
   yerror = '        '
@@ -1320,6 +1281,64 @@ CHARACTER (LEN=80)                    ::  &
   !>JH WRITE(*,*) subsfrac(1,1,1),subsfrac(1,1,2),t_so(1,1,:,:,:),'cf_snow ',cf_snow
 
 
+!!$  write(0,*) "SFC-DIAGNOSIS TERRA ",ke,dt,nsubs1
+!!$  write(0,*) "zml_soil: ",czmls
+!!$  write(0,*) "t", t(25,36,:,:)
+!!$  write(0,*) "p0",p0(25,36,:)
+!!$  write(0,*) "qv",qv(25,36,:,:)
+!!$  write(0,*) "u",u(25,36,:,:)
+!!$  write(0,*) "ps",ps(25,36,:)
+!!$  write(0,*) "t_g",t_g(25,36,:,:)
+!!$  write(0,*) "qv_s",qv_s(25,36,:,:)
+!!$  write(0,*) "t_so",t_so(25,36,:,:,:)
+!!$  write(0,*) "w_so",w_so(25,36,:,:,:)
+!!$  write(0,*) "tch_t",tch(25,36,:)
+!!$  write(0,*) "tcm_t",tcm(25,36,:)
+!!$  write(0,*) " tfv_t",tfv(25,36,:)
+!!$  write(0,*) "soiltyp_t",soiltyp_subs(25,36,:)
+!!$  write(0,*) "plcov_t",  plcov(25,36,:)
+!!$  write(0,*) "rootdp_t", rootdp(25,36,:)
+!!$  write(0,*) "sai_t",   sai(25,36,:) 
+!!$  write(0,*) "tai_t",   tai(25,36,:) 
+!!$  write(0,*) "eai_t",   eai(25,36,:) 
+!!$  write(0,*) "t_2m_t",  t_2m(25,36,:) 
+!!$  write(0,*) "u_10m_t", u_10m(25,36,:)   
+!!$  write(0,*) "v_10m_t", v_10m(25,36,:)    
+!!$  write(0,*) "sobs_t",  sobs(25,36,:)    
+!!$  write(0,*) "thbs_t",  thbs(25,36,:)     
+!!$  write(0,*) "pabs_t",  pabs(25,36,:)     
+!!$  write(0,*) "llandmask_t",llandmask(25,36,:)    
+
+
+
+! >JH NEW SECTION FOR DEFINITION OF LAND POINTS !
+do ns=nsubs0,nsubs1
+!amf ---
+
+! Prepare basic surface properties (for land-points only)
+ 
+  DO   j = jstarts, jends
+    DO i = istarts, iends
+!subs      IF(llandmask(i,j)) THEN        ! for land-points only
+
+
+!>JH
+!      IF(llandmask(i,j,ns)) THEN        ! for land-points only
+
+
+!subs        mstyp       = NINT(soiltyp_subs(i,j))        ! soil type
+        mstyp       = soiltyp_subs(i,j,ns)        ! soil type
+        IF(m_styp(i,j) < 9 ) llandmask(i,j,ns) = .true.
+!>JH      ENDIF
+    ENDDO
+  ENDDO
+END DO
+!!!! <JH
+
+
+
+
+
 !subs em
 IF(itype_subs .EQ. 2) THEN    ! tiles
   IF (ntstep == 0) THEN
@@ -1330,10 +1349,10 @@ IF(itype_subs .EQ. 2) THEN    ! tiles
 
 !    PRINT *,nsubs0,nsubs1,i,j,ns,'subsfrac(i,j,:)',subsfrac(i,j,ns-1),subsfrac(i,j,ns)
 
-            IF (w_snow(i,j,nx,ns).NE.w_snow(i,j,nx,ns-1)) &
-              & PRINT *,i,j,'w_snow(i,j,nx,ns).ne.w_snow(i,j,nx,ns-1)'
-            IF (subsfrac(i,j,ns-1)+subsfrac(i,j,ns).NE.1._ireals) &
-              & PRINT *,i,j,'subsfrac(i,j,ns-1)+subsfrac(i,j,ns).ne.1.'
+!            IF (w_snow(i,j,nx,ns).NE.w_snow(i,j,nx,ns-1)) &
+!              & PRINT *,i,j,'w_snow(i,j,nx,ns).ne.w_snow(i,j,nx,ns-1)'
+!            IF (subsfrac(i,j,ns-1)+subsfrac(i,j,ns).NE.1._ireals) &
+!              & PRINT *,i,j,'subsfrac(i,j,ns-1)+subsfrac(i,j,ns).ne.1.'
 
 !IF(MOD(i,340).eq.0 .and. MOD(j,186).eq.0 .and. w_snow(i,j,nx,ns).gt.0) &
 !print *,i,j,'sub',subsfrac(i,j,ns-1),subsfrac(i,j,ns),w_snow(i,j,nx,ns),w_snow(i,j,nx,ns-1)
@@ -1411,7 +1430,12 @@ do ns=nsubs0,nsubs1
   DO   j = jstarts, jends
     DO i = istarts, iends
 !subs      IF(llandmask(i,j)) THEN        ! for land-points only
-      IF(llandmask(i,j,ns)) THEN        ! for land-points only
+
+
+!>JH
+!      IF(llandmask(i,j,ns)) THEN        ! for land-points only
+
+
 !subs        mstyp       = NINT(soiltyp_subs(i,j))        ! soil type
         mstyp       = soiltyp_subs(i,j,ns)        ! soil type
         m_styp(i,j) = mstyp                     ! array for soil type
@@ -1443,7 +1467,12 @@ do ns=nsubs0,nsubs1
         zpsis(i,j)    = -zpsi0 * 10**(1.88_ireals-0.013_ireals*zsandf(i,j))
         zb_por(i,j)   = 2.91_ireals + .159_ireals*zclayf(i,j)
         zedb(i,j)     = 1._ireals/zb_por(i,j)
-      ENDIF
+
+! print*,i,j,zporv(i,j),zclayf(i,j),zpsis(i,j),zb_por(i,j)
+
+!<JH
+        IF(m_styp(i,j) < 9 ) llandmask(i,j,ns) = .true.
+!>JH      ENDIF
     ENDDO
   ENDDO
 
@@ -1467,12 +1496,12 @@ do ns=nsubs0,nsubs1
 ! For ntstep=nstart : Some preparations
 ! =====================================
 
-  IF (ntstep == nstart) THEN
+!>JH  IF (ntstep == nstart) THEN
 !   Determine constants clgk0 for BATS-scheme
     DO jb       = 1, 10
       clgk0(jb) = LOG10(MAX(zepsi,ck0di(jb)/ckrdi))
     END DO
-  ENDIF
+!<JH  ENDIF
 
 ! For ntstep=0 : Some preparations
 ! ================================
@@ -1601,6 +1630,9 @@ do ns=nsubs0,nsubs1
             IF (llandmask(i,j,ns)) THEN             ! for land-points only
               IF (t_so(i,j,kso,nx,ns) < (t0_melt-zepsi)) THEN
                 zaa    = g*zpsis(i,j)/lh_f
+
+! print*,i,j,zaa,zedb(i,j),zporv(i,j),t_so(i,j,0:4,1,:)
+
                 zw_m(i,j)     = zporv(i,j)*zdzhs(kso)
                 zw_m(i,j)   = zw_m(i,j)*                                          &
 !subs                  ((t_so(i,j,kso,nx) - t0_melt)/(t_so(i,j,kso,nx)*zaa))**(-zedb(i,j))
@@ -1942,7 +1974,8 @@ ENDIF
                                +(v(i,j,ke,nx) + v(i,jm1,ke,nx))**2 )
 !subs        ztvs       = t_g (i,j,nx)*(1.0_ireals + rvd_m_o*qv_s(i,j,nx))
         ztvs       = t_g (i,j,nx,ns)*(1.0_ireals + rvd_m_o*qv_s(i,j,nx,ns))
-IF(i.eq.1 .and. j.eq.1)  print *,ns,'ztvs',ztvs,t_g (i,j,nx,ns),rvd_m_o,qv_s(i,j,nx,ns)
+!JH IF(i.eq.1 .and. j.eq.1)  print *,ns,'ztvs',ztvs,t_g (i,j,nx,ns),rvd_m_o,qv_s(i,j,nx,ns),zuv,ps(i,j,nx),t(i,j,ke,nx)
+       
         !  'potential' temperature of lowest atmospheric layer
         zplow          = p0(i,j,ke) + pp(i,j,ke,nx)
         zth_low (i,j)  =  t(i,j,ke,nx) *( (ps(i,j,nx)/zplow)**rdocp )
@@ -1963,6 +1996,56 @@ IF(i.eq.1 .and. j.eq.1)  print *,ns,'ztvs',ztvs,t_g (i,j,nx,ns),rvd_m_o,qv_s(i,j
 !   heat flux between layers 1&2 based on current temperature profile
 !subs    zg1(i,j)= zalam(i,j,1)*(t_so(i,j,1,nx)-t_so(i,j,2,nx))/zdzms(2)
     zg1(i,j)= zalam(i,j,1)*(t_so(i,j,1,nx,ns)-t_so(i,j,2,nx,ns))/zdzms(2)
+
+
+
+
+
+  if (i.eq.40 .and. j.eq.1) then
+print*, "SFC-DIAGNOSIS TERRA ",ke,dt,nsubs1,ntstep
+print*," nztlev ",               nztlev   
+print*," lmelt  ",               lmelt    
+print*," lmelt_var ",            lmelt_var
+print*," lmulti_snow ",          lmulti_snow 
+print*," itype_gscp ",           itype_gscp
+print*," itype_trvg ",           itype_trvg
+print*," itype_evsl ",           itype_evsl
+print*," itype_tran ",           itype_tran
+print*," itype_root ",           itype_root
+print*," itype_heatcond ",       itype_heatcond
+print*," itype_hydbound ",       itype_hydbound
+print*," lstomata  ",            lstomata
+print*," l2tls ",                l2tls  
+print*," lana_rho_snow ",        lana_rho_snow
+print*," itype_subs ",           itype_subs
+  print*, "zml_soil: ",czmls
+  print*, "t", t(i,j,ke,:)
+  print*, "p0",p0(i,j,ke)
+  print*, "qv",qv(i,j,ke,:)
+  print*, "u",u(i,j,ke,:)
+  print*, "ps",ps(i,j,:)
+  print*, "t_g",t_g(i,j,:,:)
+  print*, "qv_s",qv_s(i,j,:,:)
+  print*, "t_so",t_so(i,j,:,:,:)
+  print*, "w_so",w_so(i,j,:,:,:)
+  print*, "tch_t",tch(i,j,:)
+  print*, "tcm_t",tcm(i,j,:)
+  print*, " tfv_t",tfv(i,j,:)
+  print*, "soiltyp_t",soiltyp_subs(i,j,:)
+  print*, "plcov_t",  plcov(i,j,:)
+  print*, "rootdp_t", rootdp(i,j,:)
+  print*, "sai_t",   sai(i,j,:) 
+  print*, "tai_t",   tai(i,j,:) 
+  print*, "eai_t",   eai(i,j,:) 
+  print*, "t_2m_t",  t_2m(i,j,:) 
+  print*, "u_10m_t", u_10m(i,j,:)   
+  print*, "v_10m_t", v_10m(i,j,:)    
+  print*, "sobs_t",  sobs(i,j,:)    
+  print*, "thbs_t",  thbs(i,j,:)     
+  print*, "pabs_t",  pabs(i,j,:)     
+  print*, "llandmask_t",llandmask(i,j,:) 
+
+     end if
 
 !   estimates of sensible and latent heat flux
     zrho_atm(i,j)=ps(i,j,nx)/(r_d*ztvs)
@@ -2359,7 +2442,7 @@ IF(i.eq.1 .and. j.eq.1)  print *,ns,'ztvs',ztvs,t_g (i,j,nx,ns),rvd_m_o,qv_s(i,j
         zrhoch(i,j)    = ztmch(i,j)*(1._ireals/g) + zepsi
 
 IF(i.eq.1 .and. j.eq.1) &
- print *,ns,'zplow',p0(i,j,ke) , pp(i,j,ke,nx)
+!JH  print *,ns,'zplow',p0(i,j,ke) , pp(i,j,ke,nx),qv(i,j,ke)
         ! saturation specific humidity for t_s and t_snow and first derivative
         z2iw        = zts_pm(i,j)*b2w + (1._ireals - zts_pm(i,j))*b2i
         z4iw        = zts_pm(i,j)*b4w + (1._ireals - zts_pm(i,j))*b4i
@@ -2500,7 +2583,7 @@ IF(i.eq.1 .and. j.eq.1) &
 !subs                          * eai(i,j)/sai(i,j)        ! relative source surface
                           * eai(i,j,ns)/sai(i,j,ns)        ! relative source surface
                                                      !  of the bare soil
-            lhfl_bs(i,j) = lh_v * zesoil(i,j)
+!            lhfl_bs(i,j) = lh_v * zesoil(i,j)
           END IF ! upwards directed potential evaporation
         END IF   ! land points
       END DO
@@ -2558,7 +2641,7 @@ IF(i.eq.1 .and. j.eq.1) &
 !subs                          * eai(i,j)/sai(i,j) ! relative source surface
                           * eai(i,j,ns)/sai(i,j,ns) ! relative source surface
                                               ! of the bare soil
-            lhfl_bs(i,j) = lh_v * zesoil(i,j)
+!            lhfl_bs(i,j) = lh_v * zesoil(i,j)
           END IF  ! upwards directed potential evaporation
         END IF    ! land points
       END DO
@@ -2608,7 +2691,7 @@ IF(i.eq.1 .and. j.eq.1) &
 !subs                                   * tai(i,j)/sai(i,j)       ! transp. surface
                                    * tai(i,j,ns)/sai(i,j,ns)       ! transp. surface
                                      ! relative source surface of the plants
-              lhfl_pl(i,j,kso)= lh_v * ztrang(i,j,kso)
+!              lhfl_pl(i,j,kso)= lh_v * ztrang(i,j,kso)
               ztrangs(i,j)    = ztrangs(i,j) + ztrang(i,j,kso)
             END IF  ! upwards directed potential evaporation .AND. m_styp > 2
           END IF    ! land-points only
@@ -2760,7 +2843,7 @@ IF(i.eq.1 .and. j.eq.1) &
               END IF
 
               zrstom     = 1.0_ireals/zedrstom              ! stomatal resistance
-              rstom(i,j) = zrstom
+!              rstom(i,j) = zrstom
               zrveg      = zrla + zrstom
               ! Transpiration rate of dry leaves:
 !subs              ztraleav(i,j)=zep_s(i,j)*tai(i,j)/(sai(i,j)+zrveg*zcatm)
@@ -2794,7 +2877,7 @@ IF(i.eq.1 .and. j.eq.1) &
                   IF(zw_fr(i,j,kso)+ztrang(i,j,kso)*zdtdrhw/zdzhs(kso) &
                                     .LT.zpwp(i,j)) ztrang(i,j,kso) = 0._ireals
                 ENDIF
-                lhfl_pl(i,j,kso)= lh_v * ztrang(i,j,kso)
+!                lhfl_pl(i,j,kso)= lh_v * ztrang(i,j,kso)
                 ztrangs(i,j)    = ztrangs(i,j) + ztrang(i,j,kso)
               END IF  ! upwards directed potential evaporation only
             END IF    ! m_styp > 2
@@ -2824,7 +2907,9 @@ IF(i.eq.1 .and. j.eq.1) &
 !subs        qv_s(i,j,nnew) = qv_s(i,j,nx)
         qv_s(i,j,nx  ,ns) = qv (i,j,ke,nx) - ze_sum /(zrhoch(i,j) + zepsi)
         qv_s(i,j,nnew,ns) = qv_s(i,j,nx,ns)
-      END IF     ! land points
+
+ 
+     END IF     ! land points
     END DO
   END DO
 
@@ -3951,6 +4036,16 @@ DO kso = ke_soil,0,-1
 
 !>JH IF(i.eq.i_loc.and. j.eq.j_loc.and. kso.eq.1 .and. my_cart_id.eq.isub) &
 !print *,ns,kso,'after sweep',t_so(i,j,kso,nnew,ns),zfor_s(i,j)
+
+  if (i.eq.40 .and. j.eq.1) then
+print*, "SFC-DIAGNOSIS TERRA II ",ke,dt,nsubs1,ntstep
+
+  print*, "t_so",t_so(i,j,:,:,:)
+  print*, "w_so",w_so(i,j,:,:,:)
+
+end if
+
+
       END IF          ! land-points only
     END DO
   END DO
@@ -4907,6 +5002,7 @@ DO kso = 1,ke_soil
 !subs        w_so(i,j,kso,nnew) = w_so(i,j,kso,nx) + zdt*zdwgdt(i,j,kso)/rho_w
       IF (llandmask(i,j,ns)) THEN  ! for landpoints only
         w_so(i,j,kso,nnew,ns) = w_so(i,j,kso,nx,ns) + zdt*zdwgdt(i,j,kso)/rho_w
+!        print*,'w_so(i,j,kso,nnew,ns) ',kso,nnew,ns,w_so(25,36,kso,nnew,ns)
       END IF  ! land-points only
     END DO
   END DO

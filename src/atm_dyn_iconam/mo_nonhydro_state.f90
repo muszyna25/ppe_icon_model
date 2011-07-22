@@ -440,7 +440,8 @@ MODULE mo_nonhydro_state
     TYPE(t_patch),     INTENT(IN)   ::  & ! patch
       &  p_patch(n_dom)
 
-    TYPE(t_nh_state),INTENT(INOUT) :: p_nh_state(:)
+    TYPE(t_nh_state),  INTENT(INOUT)::  & ! nh state at different grid levels
+      &  p_nh_state(n_dom)
 
     INTEGER, OPTIONAL, INTENT(IN)   ::  & ! number of timelevels
       &  n_timelevels    
@@ -459,8 +460,6 @@ MODULE mo_nonhydro_state
 !-----------------------------------------------------------------------
 
     CALL message (TRIM(routine), 'Construction of NH state started')
-
- !  n_dom = SIZE(p_patch)
 
     DO jg = 1, n_dom
 
@@ -804,8 +803,8 @@ MODULE mo_nonhydro_state
     ! w            p_prog%w(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('upward air velocity', 'm s-1', 'upward air velocity')
     grib2_desc = t_grib2_var(0, 2, 9, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_prog_list, TRIM(vname_prefix)//'w', p_prog%w,               &
-      &          GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,     &
+    CALL add_var( p_prog_list, TRIM(vname_prefix)//'w', p_prog%w,                &
+      &          GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc, &
       &          ldims=shape3d_chalf )
 
 
@@ -1189,7 +1188,7 @@ MODULE mo_nonhydro_state
       DO jt =1,n_timlevs
         WRITE(ctrc,'(I2.2)')jt
         CALL add_ref( p_diag_list, 'ddt_vn_adv',                                   &
-                    & 'ddt_adv_vn'//ctrc, p_diag%ddt_vn_adv_ptr(jt)%p_3d,          &
+                    & 'ddt_vn_adv'//ctrc, p_diag%ddt_vn_adv_ptr(jt)%p_3d,          &
                     & GRID_UNSTRUCTURED_EDGE, ZAXIS_HYBRID,                        &
                     & t_cf_var('ddt_adv_vn'//ctrc, 'm s-2',''),                    &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&

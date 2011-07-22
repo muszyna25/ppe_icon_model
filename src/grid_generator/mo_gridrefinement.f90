@@ -2340,6 +2340,8 @@ CONTAINS
     INTEGER :: varid41, varid42, varid43, varid44, varid45, varid46, varid47, varid48
     INTEGER :: varid49, varid50
 
+    INTEGER :: ifs2icon_cell, ifs2icon_edge, ifs2icon_vertex
+
 #ifdef __SX__
     INTEGER :: iargc
     CHARACTER(LEN= 32) :: arg_str
@@ -2503,6 +2505,20 @@ CONTAINS
     CALL nf(nf_put_att_text(ncid, varid_elatv, 'units', 6, 'radian'))
     !
     !---------------------------------------------------------------------
+    !
+    ! ifs2icon variables 
+    !
+    CALL nf(nf_def_var(ncid, 'ifs2icon_cell_grid', nf_double, 1, dim_ncell, ifs2icon_cell))
+    CALL nf(nf_put_att_text(ncid, ifs2icon_cell, 'long_name', 17, 'ifs to icon cells'))
+    CALL nf(nf_put_att_text(ncid, ifs2icon_cell, 'coordinates', 9, 'clon clat'))
+    !
+    CALL nf(nf_def_var(ncid, 'ifs2icon_edge_grid', nf_double, 1, dim_nedge, ifs2icon_edge))
+    CALL nf(nf_put_att_text(ncid, ifs2icon_edge, 'long_name', 16, 'ifs to icon edge'))
+    CALL nf(nf_put_att_text(ncid, ifs2icon_edge, 'coordinates', 9, 'elon elat'))
+    !
+    CALL nf(nf_def_var(ncid, 'ifs2icon_vertex_grid', nf_double, 1, dim_nvertex, ifs2icon_vertex))
+    CALL nf(nf_put_att_text(ncid, ifs2icon_vertex, 'long_name', 18, 'ifs to icon vertex'))
+    CALL nf(nf_put_att_text(ncid, ifs2icon_vertex, 'coordinates', 9, 'vlon vlat'))
     !
     ! test variables (areas)
     !

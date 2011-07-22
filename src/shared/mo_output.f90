@@ -38,7 +38,7 @@
 MODULE mo_output
 
   USE mo_exception,           ONLY: finish, message_text, get_filename_noext
-  USE mo_impl_constants,      ONLY: max_dom
+  USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH
   USE mo_kind,                ONLY: wp
   USE mo_mpi,                 ONLY: p_pe, p_io, process_mpi_io_size
   USE mo_io_units,            ONLY: filename_max
@@ -288,17 +288,29 @@ CONTAINS
   !! Hui Wan (MPI-M, 2011-05)
   !!
   SUBROUTINE create_restart_file( patch, datetime, pvct,      &
-                                & jfile, l_have_output     )
+                                & jfile, l_have_output,       &
+                                & opt_t_elapsed_phy,          &
+                                & opt_lcall_phy, opt_sim_time,&
+                                & opt_jstep_adv_ntsteps,      &
+                                & opt_jstep_adv_marchuk_order )
 
     TYPE(t_patch),   INTENT(IN) :: patch
     TYPE(t_datetime),INTENT(IN) :: datetime
     REAL(wp),INTENT(IN) :: pvct(:) 
     INTEGER, INTENT(IN) :: jfile  ! current output file index
     LOGICAL, INTENT(IN) :: l_have_output
-    
+
+    REAL(wp), INTENT(IN), OPTIONAL :: opt_t_elapsed_phy(:,:)
+    LOGICAL , INTENT(IN), OPTIONAL :: opt_lcall_phy(:,:)
+    REAL(wp), INTENT(IN), OPTIONAL :: opt_sim_time
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_ntsteps
+    INTEGER,  INTENT(IN), OPTIONAL :: opt_jstep_adv_marchuk_order
+   
     INTEGER :: klev, jg, kcell, kvert, kedge, icelltype
    
     CHARACTER(LEN=132) :: string
+    CHARACTER(len=MAX_CHAR_LENGTH) :: attname   ! attribute name
+    INTEGER :: jp, jp_end   ! loop index and array size
 
     !----------------
     ! Initialization
@@ -321,6 +333,43 @@ CONTAINS
     CALL set_restart_attribute( 'nnew'    , nnew    (jg))
     CALL set_restart_attribute( 'nnow_rcf', nnow_rcf(jg))
     CALL set_restart_attribute( 'nnew_rcf', nnew_rcf(jg))
+
+    !----------------
+    ! additional restart-output for nonhydrostatic model
+    IF (PRESENT(opt_sim_time)) THEN
+      WRITE(attname,'(a,i2.2)') 'sim_time_DOM',jg
+      CALL set_restart_attribute( TRIM(attname), opt_sim_time )
+    ENDIF
+
+    !-------------------------------------------------------------
+    ! DR
+    ! WORKAROUND FOR FIELDS WHICH NEED TO GO INTO THE RESTART FILE, 
+    ! BUT SO FAR CANNOT BE HANDELED CORRECTLY BY ADD_VAR OR 
+    ! SET_RESTART_ATTRIBUTE
+    !-------------------------------------------------------------
+
+    IF (PRESENT(opt_jstep_adv_ntsteps)) THEN
+        WRITE(attname,'(a,i2.2)') 'jstep_adv_ntsteps_DOM',jg
+        CALL set_restart_attribute( TRIM(attname), opt_jstep_adv_ntsteps )
+    ENDIF
+
+    IF (PRESENT(opt_jstep_adv_marchuk_order)) THEN
+        WRITE(attname,'(a,i2.2)') 'jstep_adv_marchuk_order_DOM',jg
+        CALL set_restart_attribute( TRIM(attname), opt_jstep_adv_marchuk_order )
+    ENDIF
+
+    IF (PRESENT(opt_t_elapsed_phy) .AND. PRESENT(opt_lcall_phy)) THEN
+      ! Inquire array size
+      jp_end = SIZE(opt_t_elapsed_phy,2)
+      DO jp = 1, jp_end
+        WRITE(attname,'(a,i2.2,a,i2.2)') 't_elapsed_phy_DOM',jg,'_PHY',jp
+        CALL set_restart_attribute( TRIM(attname), opt_t_elapsed_phy(jg,jp) )
+
+        WRITE(attname,'(a,i2.2,a,i2.2)') 'lcall_phy_DOM',jg,'_PHY',jp
+        CALL set_restart_attribute( TRIM(attname), opt_lcall_phy(jg,jp) )
+      ENDDO
+    ENDIF
+
 
     IF (l_have_output) THEN
       CALL set_restart_attribute( 'next_output_file', jfile+1 )

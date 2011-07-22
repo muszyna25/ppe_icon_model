@@ -310,51 +310,6 @@ CONTAINS
         IF (ierrstat.NE.0) THEN
            CALL finish(eroutine, errormsg)
         END IF
-
-!#else
-!  CALL organize_turbdiff(action='tran_diff', iini=0, lstfnct=.TRUE., &
-!!
-!         &  dt_var=tcall_turb_jg, dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1, &
-!!
-!         &  ie=nproma, je=1, ke=nlev, ke1=nlevp1, kcm=nlevp1,  vst=0, &
-!!
-!         &  istart   =i_startidx, iend   =i_endidx, istartu=i_startidx, iendu=i_endidx, &
-!         &  istartpar=i_startidx, iendpar=i_endidx, istartv=i_startidx, iendv=i_endidx, &
-!!
-!         &  jstart   =1,          jend   =1       , jstartu=1         , jendu=1       , &
-!         &  jstartpar=1         , jendpar=1       , jstartv=1         , jendv=1       , &
-!!
-!         &  l_hori=mean_charlen, hhl=p_metrics%z_ifc(1,1,jb), dp0=p_diag%dpres_mc(1,1,jb), &
-!!
-!         &  fr_land=ext_data%atm%fr_land(1,jb), depth_lk=ext_data%atm%depth_lk(1,jb), &
-!         &  sai=prm_diag%sai(1,jb), h_ice=prm_diag%h_ice (1,jb), &
-!!
-!         &  ps=p_diag%pres_sfc(1,jb), t_g=lnd_prog_now%t_g(1,jb), qv_s=lnd_diag%qv_s(1,jb), &
-!!
-!         &  u=p_diag%u(1,1,jb), v=p_diag%v(1,1,jb), w=p_prog%w(1,1,jb), T=p_diag%temp(1,1,jb),&
-!         &  qv=p_prog_rcf%tracer(1,1,jb,iqv), qc=p_prog_rcf%tracer(1,1,jb,iqc), &
-!!
-!         &  prs=p_diag%pres(1,1,jb), rho=p_prog%rho(1,1,jb), epr=p_prog%exner(1,1,jb), &
-!!
-!         &  gz0=prm_diag%gz0(1,jb), tcm=prm_diag%tcm(1,jb), tch=prm_diag%tch(1,jb), &
-!         &  tfm=prm_diag%tfm(1,jb), tfh=prm_diag%tfh(1,jb), tfv=prm_diag%tfv(1,jb), &
-!!
-!         &  tke =z_tke (1,1,jb,1)   ,&! edr =prm_diag%edr(1,1,jb), &
-!         &  tkvm=prm_diag%tkvm(1,1,jb), tkvh=prm_diag%tkvh(1,1,jb), rcld=prm_diag%rcld(1,1,jb), &
-!!
-!         &  u_tens=prm_nwp_tend%ddt_u_turb(1,1,jb), v_tens=prm_nwp_tend%ddt_v_turb(1,1,jb), &
-!         &  tketens=prm_nwp_tend%ddt_tke(1,1,jb), &
-!         &  ut_sso=prm_nwp_tend%ddt_u_sso(1,1,jb), vt_sso=prm_nwp_tend%ddt_v_sso(1,1,jb) ,&
-!!
-!         &  t_2m=prm_diag%t_2m(1,jb), qv_2m=prm_diag%qv_2m(1,jb), td_2m=prm_diag%td_2m(1,jb), &
-!         &  rh_2m=prm_diag%rh_2m(1,jb), u_10m=prm_diag%u_10m(1,jb), v_10m=prm_diag%v_10m(1,jb), &
-!         &  shfl_s=prm_diag%shfl_s(1,jb), lhfl_s=prm_diag%lhfl_s(1,jb), &
-!!
-!         &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
-
-        IF (ierrstat.NE.0) THEN
-           CALL finish(eroutine, errormsg)
-        END IF
 !#endif
         !KF write back to new status
         p_prog_rcf%tke(i_startidx:i_endidx,:,jb)=z_tke(i_startidx:i_endidx,:,jb,1)

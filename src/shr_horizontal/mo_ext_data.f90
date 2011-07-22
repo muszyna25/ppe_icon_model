@@ -76,7 +76,7 @@ MODULE mo_ext_data
 
   IMPLICIT NONE
 
-  INTEGER::  nlev_pres, nmonths ! 
+  INTEGER::  nlev_pres, nlev_height, nmonths ! 
 
   ! required for testing/reading topography
   INCLUDE 'netcdf.inc'
@@ -95,11 +95,12 @@ MODULE mo_ext_data
   PUBLIC :: init_ext_data
   PUBLIC :: construct_ext_data  ! PUBLIC attribute only necessary for postpro.f90
   PUBLIC :: destruct_ext_data
-
+  PUBLIC :: smooth_topography, read_netcdf_data
 
   INTERFACE read_netcdf_data
     MODULE PROCEDURE read_netcdf_2d
     MODULE PROCEDURE read_netcdf_2d_int
+    MODULE PROCEDURE read_netcdf_3d
     MODULE PROCEDURE read_netcdf_4d
   END INTERFACE read_netcdf_data
 
@@ -440,7 +441,7 @@ CONTAINS
         ext_data(jg)%atm%lai_mx(:,:)      = 3._wp   ! max Leaf area index
         ext_data(jg)%atm%rootdp(:,:)      = 1._wp   ! root depth
         ext_data(jg)%atm%rsmin(:,:)       = 150._wp ! minimal stomata resistence
-        ext_data(jg)%atm%soiltyp(:,:)     = 3       ! soil type
+        ext_data(jg)%atm%soiltyp(:,:)     = 8       ! soil type
       END DO
 
     ENDIF
@@ -453,7 +454,9 @@ CONTAINS
         CALL read_ext_data_atm (p_patch, ext_data)
         IF (n_iter_smooth_topo > 0) THEN
           DO jg = 1, n_dom
-            CALL smooth_topography (p_patch(jg), p_int_state(jg))
+            CALL smooth_topography (p_patch(jg), p_int_state(jg),  &
+                                    ext_data(jg)%atm%topography_c, &
+                                    ext_data(jg)%atm%topography_v)
           ENDDO
         ENDIF
 
@@ -1297,7 +1300,7 @@ CONTAINS
     !-------------------------------------------------------
 
     TYPE(t_patch), INTENT(IN)            :: p_patch(:)
-    INTEGER :: no_cells
+    INTEGER :: no_cells, no_verts
     INTEGER :: ncid, dimid
     INTEGER :: jg
 
@@ -1491,15 +1494,16 @@ END SUBROUTINE inquire_external_files
 
       ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
 
+        ! As extpar "knows" only the triangular grid, cells and vertices need to be switched here
         ! triangle center
         CALL read_netcdf_data (ncid, 'topography_c', p_patch(jg)%n_patch_verts_g,       &
           &                     p_patch(jg)%n_patch_verts, p_patch(jg)%verts%glb_index, &
-          &                     ext_data(jg)%atm%topography_c)
+          &                     ext_data(jg)%atm%topography_v)
 
         ! triangle vertex
         CALL read_netcdf_data (ncid, 'topography_v', p_patch(jg)%n_patch_cells_g,       &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     ext_data(jg)%atm%topography_v)
+          &                     ext_data(jg)%atm%topography_c)
 
       ENDIF
 
@@ -1766,6 +1770,64 @@ END SUBROUTINE inquire_external_files
 
   END SUBROUTINE read_netcdf_2d_int
 
+ !-------------------------------------------------------------------------
+  !>
+  !! Read 3D (inlcuding height) dataset from netcdf file
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2010-07-14)
+  !! Adapted for parallel runs by Rainer Johanni (2010-12-07)
+  !! Adapted for 3 D by Guenther Zaengl, DWD (2011-07-11)
+  !!
+  SUBROUTINE read_netcdf_3d (ncid, varname, glb_arr_len, &
+       &                     loc_arr_len, glb_index, &
+       &                     nlevs,      var_out)
+
+    CHARACTER(len=*), INTENT(IN)  ::  &  !< Var name of field to be read
+      &  varname
+
+    INTEGER, INTENT(IN) :: ncid          !< id of netcdf file
+    INTEGER, INTENT(IN) :: nlevs         !< vertical levels of netcdf file
+    INTEGER, INTENT(IN) :: glb_arr_len   !< length of 1D field (global)
+    INTEGER, INTENT(IN) :: loc_arr_len   !< length of 1D field (local)
+    INTEGER, INTENT(IN) :: glb_index(:)  !< Index mapping local to global
+
+    REAL(wp), INTENT(INOUT) :: &         !< output field
+      &  var_out(:,:,:)
+
+    INTEGER :: varid, mpi_comm, j, jl, jb, jk, jt
+    REAL(wp):: z_dummy_array(glb_arr_len,nlevs)!< local dummy array
+  !-------------------------------------------------------------------------
+
+    ! Get var ID
+    IF(p_pe==p_io) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
+
+    IF(p_test_run) THEN
+      mpi_comm = p_comm_work_test
+    ELSE
+      mpi_comm = p_comm_work
+    ENDIF
+
+    ! I/O PE reads and broadcasts data
+
+    IF(p_pe==p_io) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:)))
+    CALL p_bcast(z_dummy_array, p_io, mpi_comm)
+
+    var_out(:,:,:) = 0._wp
+
+    ! Set var_out from global data
+     DO jk = 1, nlevs
+       DO j = 1, loc_arr_len
+
+         jb = blk_no(j) ! Block index in distributed patch
+         jl = idx_no(j) ! Line  index in distributed patch
+               
+         var_out(jl,jk,jb) = z_dummy_array(glb_index(j),jk)
+
+       ENDDO
+     ENDDO
+
+  END SUBROUTINE read_netcdf_3d
 
 
  !-------------------------------------------------------------------------
@@ -1822,7 +1884,7 @@ END SUBROUTINE inquire_external_files
              jb = blk_no(j) ! Block index in distributed patch
              jl = idx_no(j) ! Line  index in distributed patch
                
-             var_out(jl,jk,jb,jt) = z_dummy_array(jt,jk,glb_index(j))
+             var_out(jl,jk,jb,jt) = z_dummy_array(glb_index(j),jk,jt)
 
           ENDDO
        ENDDO
@@ -1845,10 +1907,11 @@ END SUBROUTINE inquire_external_files
 
   !-------------------------------------------------------------------------
 
-   SUBROUTINE smooth_topography (p_patch, p_int)
+   SUBROUTINE smooth_topography (p_patch, p_int, topography_c, topography_v)
 
-    TYPE(t_patch), INTENT(IN)            :: p_patch
-    TYPE(t_int_state), INTENT(IN)        :: p_int
+    TYPE(t_patch), INTENT(IN)       :: p_patch
+    TYPE(t_int_state), INTENT(IN)   :: p_int
+    REAL(wp), INTENT(INOUT)         :: topography_c(:,:), topography_v(:,:)
 
     ! local variables
     INTEGER  :: jg, jb, jc, iter, il
@@ -1861,7 +1924,7 @@ END SUBROUTINE inquire_external_files
 
     jg = p_patch%id
 
-    z_topo_v(:,1,:) = ext_data(jg)%atm%topography_v(:,:)
+    z_topo_v(:,1,:) = topography_v(:,:)
     z_nabla4_topo(:,1,:) = 0._wp
 
     i_startblk = p_patch%cells%start_blk(2,1)
@@ -1871,7 +1934,7 @@ END SUBROUTINE inquire_external_files
 !    write(0,*) 'fac_smooth_topo=',fac_smooth_topo
 
     DO iter = 1, n_iter_smooth_topo
-      z_topo(:,1,:)   = ext_data(jg)%atm%topography_c(:,:)
+      z_topo(:,1,:)   = topography_c(:,:)
       z_topo_old(:,1,:) = z_topo(:,1,:)
 
       CALL nabla4_scalar(z_topo, p_patch, p_int, z_nabla4_topo, &
@@ -1922,29 +1985,25 @@ END SUBROUTINE inquire_external_files
           ENDIF
 
           !If it became a local maximum in the new field with regard to old neighbors, avoid it:
-          IF (( zmaxtop < z_topo_new  ) .AND. &
-            & ( z_nabla4_topo(jc,1,jb) < 0.0_wp )) THEN
-            ext_data(jg)%atm%topography_c(jc,jb) = &
-               & MAX(z_topo_old(jc,1,jb),zmaxtop)
+          IF (( zmaxtop < z_topo_new  ) .AND. ( z_nabla4_topo(jc,1,jb) < 0.0_wp )) THEN
+            topography_c(jc,jb) = MAX(z_topo_old(jc,1,jb),zmaxtop)
             CYCLE
           ENDIF
           !If it became a local minimum in the new field with regard to old neighbors, avoid it:
-          IF (( zmintop > z_topo_new  ) .AND. &
-            & ( z_nabla4_topo(jc,1,jb) > 0.0_wp )) THEN
-            ext_data(jg)%atm%topography_c(jc,jb) = &
-               & MIN(z_topo_old(jc,1,jb),zmintop)
+          IF (( zmintop > z_topo_new  ) .AND. ( z_nabla4_topo(jc,1,jb) > 0.0_wp )) THEN
+            topography_c(jc,jb) = MIN(z_topo_old(jc,1,jb),zmintop)
             CYCLE
           ENDIF
 
-          ext_data(jg)%atm%topography_c(jc,jb)=z_topo_new
+          topography_c(jc,jb)=z_topo_new
 
         ENDDO
 
       ENDDO
 
-      z_topo(:,1,:)   = ext_data(jg)%atm%topography_c(:,:)
+      z_topo(:,1,:)   = topography_c(:,:)
       CALL sync_patch_array(SYNC_C, p_patch, z_topo)
-      ext_data(jg)%atm%topography_c(:,:)=z_topo(:,1,:)
+      topography_c(:,:)=z_topo(:,1,:)
 
       DO jb = i_startblk,nblks_c
 
@@ -1973,41 +2032,33 @@ END SUBROUTINE inquire_external_files
            !zmaxtop and zmintop are now mx resp min of all neighbors
           ENDDO
 
-           !If it became e local maximum in the new field, avoid it
-           IF ( ( zmaxtop < z_topo(jc,1,jb) ) .AND. &
-             & ( z_nabla4_topo(jc,1,jb) < 0.0_wp ) ) THEN
-             ext_data(jg)%atm%topography_c(jc,jb) = &
-               & MAX(z_topo_old(jc,1,jb),zmaxtop)
-           !If it became e local minimum in the new field, avoid it
-           ELSEIF ( ( zmintop > z_topo(jc,1,jb) ) .AND. &
-               & ( z_nabla4_topo(jc,1,jb) > 0.0_wp ) ) THEN
-             ext_data(jg)%atm%topography_c(jc,jb) = &
-               & MIN(z_topo_old(jc,1,jb),zmintop)
+           !If it became a local maximum in the new field, avoid it
+           IF ( ( zmaxtop < z_topo(jc,1,jb) ) .AND. ( z_nabla4_topo(jc,1,jb) < 0.0_wp ) ) THEN
+             topography_c(jc,jb) = MAX(z_topo_old(jc,1,jb),zmaxtop)
+           !If it became a local minimum in the new field, avoid it
+           ELSEIF (( zmintop > z_topo(jc,1,jb) ) .AND. ( z_nabla4_topo(jc,1,jb) > 0.0_wp )) THEN
+             topography_c(jc,jb) = MIN(z_topo_old(jc,1,jb),zmintop)
            ENDIF
 
         ENDDO
 
       ENDDO
 
-      z_topo(:,1,:)   = ext_data(jg)%atm%topography_c(:,:)
+      z_topo(:,1,:)   = topography_c(:,:)
       CALL sync_patch_array(SYNC_C, p_patch, z_topo)
-      ext_data(jg)%atm%topography_c(:,:)=z_topo(:,1,:)
+      topography_c(:,:)=z_topo(:,1,:)
 
     ENDDO !iter
 
 
     ! Interpolate smooth topography from cells to vertices
-    z_topo(:,1,:)   = ext_data(jg)%atm%topography_c(:,:)
+    z_topo(:,1,:)   = topography_c(:,:)
     CALL cells2verts_scalar(z_topo,p_patch,p_int%cells_aw_verts,z_topo_v,1,1)
 
     CALL sync_patch_array(SYNC_V,p_patch,z_topo_v)
 
-     ext_data(jg)%atm%topography_v(:,:) = z_topo_v(:,1,:)
+    topography_v(:,:) = z_topo_v(:,1,:)
 
-!    PRINT *,'Max topo_c=',MAXVAL(ext_data(jg)%atm%topography_c(:,:))
-!    PRINT *,'Min topo_c=',MINVAL(ext_data(jg)%atm%topography_c(:,:))
-!    PRINT *,'Max topo_v=',MAXVAL(ext_data(jg)%atm%topography_v(:,:))
-!    PRINT *,'Min topo_v=',MINVAL(ext_data(jg)%atm%topography_v(:,:))
 
   END SUBROUTINE smooth_topography
 

@@ -1,6 +1,3 @@
-#if (defined (__GNUC__) || defined(__SUNPRO_F95) || defined(__SX__))
-#define HAVE_F95
-#endif
 !>
 !!  !MODULE:  mo_nwp_phy_state\\
 !!
@@ -104,9 +101,6 @@ MODULE mo_nwp_lnd_state
   PUBLIC :: t_lnd_diag   !!       for diagnostic variables
   PUBLIC :: t_tiles
 
-#ifdef HAVE_F95
-  PUBLIC :: t_ptr_lnd
-#endif
 
   TYPE t_ptr_lnd
     REAL(wp),POINTER :: p_3d(:,:,:) ! pointer to 3D (spatial) array
@@ -125,12 +119,14 @@ MODULE mo_nwp_lnd_state
       t_g          (:,:)       , & ! weighted surface temperature                  (  K  )
       t_gt         (:,:,:,:)   , & ! weighted surface temperature on tiles         (  K  )
       w_snow       (:,:,:,:)   , & ! water content of snow                         (m H2O)
-      rho_snow     (:,:,:)     , & ! snow density                                  (kg/m**3)
+      rho_snow     (:,:,:,:)     , & ! snow density                                  (kg/m**3)
       rho_snow_mult(:,:,:,:,:) , & ! snow density                                  (kg/m**3)
       w_i          (:,:,:,:)   , & ! water content of interception water           (m H2O)
       t_so         (:,:,:,:,:) , & ! soil temperature (main level)                 (  K  )
       w_so         (:,:,:,:,:) , & ! total water content (ice + liquid water)      (m H20)
       w_so_ice     (:,:,:,:,:) , & ! ice content                                   (m H20)
+      wliq_snow    (:,:,:,:,:) , & ! liquid water content in the snow              (m H2O)
+      wtot_snow    (:,:,:,:,:) , & ! total (liquid + solid) water content of snow  (m H2O)
       dzh_snow     (:,:,:,:,:)     ! layer thickness between half levels in snow   (  m  )
 
     TYPE(t_ptr_lnd), ALLOCATABLE :: t_snow_ptr(:,:)
@@ -138,12 +134,14 @@ MODULE mo_nwp_lnd_state
     TYPE(t_ptr_lnd), ALLOCATABLE :: t_s_ptr(:,:)
     TYPE(t_ptr_lnd), ALLOCATABLE :: t_gt_ptr(:,:) 
     TYPE(t_ptr_lnd), ALLOCATABLE :: w_snow_ptr(:,:) 
-    TYPE(t_ptr_lnd), ALLOCATABLE :: rho_snow_ptr(:)
+    TYPE(t_ptr_lnd), ALLOCATABLE :: rho_snow_ptr(:,:)
     TYPE(t_ptr_lnd), ALLOCATABLE :: rho_snow_mult_ptr(:,:)
     TYPE(t_ptr_lnd), ALLOCATABLE :: w_i_ptr(:,:)
     TYPE(t_ptr_lnd), ALLOCATABLE :: t_so_ptr(:,:)
     TYPE(t_ptr_lnd), ALLOCATABLE :: w_so_ptr(:,:)
     TYPE(t_ptr_lnd), ALLOCATABLE :: w_so_ice_ptr(:,:)
+    TYPE(t_ptr_lnd), ALLOCATABLE :: wliq_snow_ptr(:,:)
+    TYPE(t_ptr_lnd), ALLOCATABLE :: wtot_snow_ptr(:,:)
     TYPE(t_ptr_lnd), ALLOCATABLE :: dzh_snow_ptr(:,:)
 
   END TYPE t_lnd_prog
@@ -159,11 +157,9 @@ MODULE mo_nwp_lnd_state
       qv_st    (:,:,:,:) , & ! specific humidity at the surface              (kg/kg)
       h_snow   (:,:,:,:) , & ! snow height                                   (  m  
       freshsnow(:,:,:)   , & ! indicator for age of snow in top of snow layer(  -  )
-      wliq_snow(:,:,:,:) , & ! liquid water content in the snow              (m H2O)
-      wtot_snow(:,:,:,:) , & ! total (liquid + solid) water content of snow  (m H2O)
       runoff_s (:,:,:)   , & ! surface water runoff; sum over forecast      (kg/m2)
       runoff_g (:,:,:)   , & ! soil water runoff; sum over forecast         (kg/m2)
-      rstom    (:,:,:)   , & ! stomata resistance                           ( s/m )
+      rstom    (:,:)   , & ! stomata resistance                           ( s/m )
       lhfl_bs  (:,:,:)   , & ! average latent heat flux from bare soil evap.( W/m2)
       lhfl_pl  (:,:,:)   , & ! average latent heat flux from plants         ( W/m2)
       fr_seaice(:,:)     , & !< fraction of sea ice                         ( )   
@@ -175,8 +171,6 @@ MODULE mo_nwp_lnd_state
     TYPE(t_ptr_lnd), ALLOCATABLE :: qv_st_ptr(:,:)
     TYPE(t_ptr_lnd), ALLOCATABLE :: h_snow_ptr(:,:)
     TYPE(t_ptr_lnd), ALLOCATABLE :: freshsnow_ptr(:)
-    TYPE(t_ptr_lnd), ALLOCATABLE :: wliq_snow_ptr(:,:) 
-    TYPE(t_ptr_lnd), ALLOCATABLE :: wtot_snow_ptr(:,:) 
     TYPE(t_ptr_lnd), ALLOCATABLE :: runoff_s_ptr(:)
     TYPE(t_ptr_lnd), ALLOCATABLE :: runoff_g_ptr(:)
     TYPE(t_ptr_lnd), ALLOCATABLE :: rstom_ptr(:)
@@ -229,7 +223,7 @@ MODULE mo_nwp_lnd_state
     TYPE(t_patch), TARGET, INTENT(IN)   :: p_patch(n_dom) ! patch
     INTEGER, OPTIONAL, INTENT(IN)       :: n_timelevels   ! number of timelevels
 
-    TYPE(t_lnd_state),TARGET,INTENT(INOUT) :: p_lnd_state(:)
+    TYPE(t_lnd_state), TARGET, INTENT(INOUT) :: p_lnd_state(n_dom)
                                            ! nh state at different grid levels
     INTEGER :: ntl, &! local number of timelevels
                ist, &! status
@@ -450,8 +444,9 @@ MODULE mo_nwp_lnd_state
     ! & p_prog_lnd%t_g(nproma,nblks_c), STAT = ist)
     cf_desc    = t_cf_var('t_g', 'K', 'weighted surface temperature')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( prog_list, vname_prefix//'t_g', p_prog_lnd%t_g,                     &
-         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc, ldims=shape2d )
+    CALL add_var( prog_list, vname_prefix//'t_g', p_prog_lnd%t_g,                 &
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc,           &
+         & ldims=shape2d)
 
 
     IF ( atm_phy_nwp_config(p_jg)%inwp_surface > 0) THEN
@@ -512,7 +507,8 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_snow_mult', p_prog_lnd%t_snow_mult,  &
      & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,  cf_desc, grib2_desc,                 &
-     & ldims=shape5d_snow_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. ) 
+     & ldims=(/nproma,nlev_snow+1,nztlev,nsfc_subs,kblks/),                        &
+     & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. ) 
 
 !!$    ! fill the seperate variables belonging to the container t_snow_mult
 !!$    ALLOCATE(p_prog_lnd%t_snow_mult_ptr(nztlev,nsfc_subs))
@@ -585,25 +581,25 @@ MODULE mo_nwp_lnd_state
 
 
 
-    ! & p_prog_lnd%rho_snow(nproma,nblks_c,nsfc_subs)
+    ! & p_prog_lnd%rho_snow(nproma,nblks_c,nztlev,nsfc_subs)
     cf_desc    = t_cf_var('rho_snow', 'kg/m**3', 'snow density')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'rho_snow', p_prog_lnd%rho_snow,       &
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc,           &
-         & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
+         & ldims=shape4d_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
     
 
-    ! fill the seperate variables belonging to the container rho_snow
-    ALLOCATE(p_prog_lnd%rho_snow_ptr(nsfc_subs))
-      DO jsfc = 1,nsfc_subs
-        WRITE(csfc,'(i1)') jsfc 
-        CALL add_ref( prog_list, vname_prefix//'rho_snow',                              &
-                 & vname_prefix//'rho_snow_'//csfc, p_prog_lnd%rho_snow_ptr(jsfc)%p_2d, &
-                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                               &
-                 & t_cf_var('rho_snow_'//csfc, '', ''),                                 &
-                 & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),        &
-                 & ldims=shape2d )
-      END DO
+!!$    ! fill the seperate variables belonging to the container rho_snow
+!!$    ALLOCATE(p_prog_lnd%rho_snow_ptr(nsfc_subs))
+!!$      DO jsfc = 1,nsfc_subs
+!!$        WRITE(csfc,'(i1)') jsfc 
+!!$        CALL add_ref( prog_list, vname_prefix//'rho_snow',                              &
+!!$                 & vname_prefix//'rho_snow_'//csfc, p_prog_lnd%rho_snow_ptr(jsfc)%p_2d, &
+!!$                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                               &
+!!$                 & t_cf_var('rho_snow_'//csfc, '', ''),                                 &
+!!$                 & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),        &
+!!$                 & ldims=shape2d )
+!!$      END DO
 
 
 
@@ -743,6 +739,54 @@ MODULE mo_nwp_lnd_state
 !!$      ENDDO
 
 
+    ! & p_prog_lnd%wliq_snow(nproma,nlev_snow,nblks_c,nztlev,nsfc_subs)
+    cf_desc    = t_cf_var('wliq_snow', 'm H2O', 'liquid water content in snow')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( prog_list, vname_prefix//'wliq_snow', p_prog_lnd%wliq_snow,            &
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,  cf_desc, grib2_desc,                 &
+         & ldims=shape5d_snow_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+
+!!$    ! fill the seperate variables belonging to the container wliq_snow
+!!$    ALLOCATE(p_prog_lnd%wliq_snow_ptr(nztlev,nsfc_subs))
+!!$      DO jsfc = 1,nsfc_subs
+!!$        DO jzt = 1, nztlev
+!!$          WRITE(csfc_zt,'(i2)') jsfc*jzt 
+!!$          CALL add_ref( prog_list, vname_prefix//'wliq_snow',                    &
+!!$                 & vname_prefix//'wliq_snow_'//TRIM(csfc_zt),                    &
+!!$                 & p_prog_lnd%wliq_snow_ptr(jzt,jsfc)%p_2d,                      &
+!!$                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                         &
+!!$                 & t_cf_var('wliq_snow_'//csfc_zt, '', ''),                      &
+!!$                 & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+!!$                 & ldims=shape2d )
+!!$        END DO
+!!$      ENDDO
+
+
+
+
+    ! & p_prog_lnd%wtot_snow(nproma,nlev_snow,nblks_c,nztlev,nsfc_subs)
+    cf_desc    = t_cf_var('wtot_snow', 'm H2O', 'total water content in snow')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( prog_list, vname_prefix//'wtot_snow', p_prog_lnd%wtot_snow,            &
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,  cf_desc, grib2_desc,                 &
+         & ldims=shape5d_snow_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+
+!!$    ! fill the seperate variables belonging to the container wtot_snow
+!!$    ALLOCATE(p_prog_lnd%wtot_snow_ptr(nztlev,nsfc_subs))
+!!$      DO jsfc = 1,nsfc_subs
+!!$        DO jzt = 1, nztlev
+!!$          WRITE(csfc_zt,'(i2)') jsfc*jzt 
+!!$          CALL add_ref( prog_list, vname_prefix//'wtot_snow',                    &
+!!$                 & vname_prefix//'wtot_snow_'//TRIM(csfc_zt),                    &
+!!$                 & p_prog_lnd%wtot_snow_ptr(jzt,jsfc)%p_2d,                      &
+!!$                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                         &
+!!$                 & t_cf_var('wtot_snow_'//csfc_zt, '', ''),                      &
+!!$                 & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+!!$                 & ldims=shape2d )
+!!$        END DO
+!!$      ENDDO
+
+
 
     ! & p_prog_lnd%dzh_snow(nproma,nlev_snow,nblks_c,nztlev,nsfc_subs)
     cf_desc    = t_cf_var('dzh_snow', 'm', 'layer thickness between half levels in snow')
@@ -782,15 +826,23 @@ MODULE mo_nwp_lnd_state
     p_prog_lnd%t_so(:,9,:,:,:) = 282.1_wp !!HW: be careful about the indices!!
 
 !   p_prog_lnd%w_so(:,:,:,:,:) =0.5E-3_wp !! JH
-    p_prog_lnd%w_so(:,1,:,:,:) = 1.8E-3_wp !! JH
-    p_prog_lnd%w_so(:,2,:,:,:) = 3.7E-3_wp !! JH
-    p_prog_lnd%w_so(:,3,:,:,:) = 11.3E-3_wp !! JH
-    p_prog_lnd%w_so(:,4,:,:,:) = 35.1E-3_wp !! JH
-    p_prog_lnd%w_so(:,5,:,:,:) = 56.7E-3_wp !! JH
-    p_prog_lnd%w_so(:,6,:,:,:) = 254.6E-3_wp !! JH
-    p_prog_lnd%w_so(:,7,:,:,:) = 763.9E-3_wp !! JH
-    p_prog_lnd%w_so(:,8,:,:,:) = 2291.5E-3_wp !! JH
-
+    p_prog_lnd%w_so(:,1,:,:,:) = 1.8E-3_wp*2._wp !! JH
+    p_prog_lnd%w_so(:,2,:,:,:) = 3.7E-3_wp*2._wp !! JH
+    p_prog_lnd%w_so(:,3,:,:,:) = 11.3E-3_wp*2._wp !! JH
+    p_prog_lnd%w_so(:,4,:,:,:) = 35.1E-3_wp*2._wp !! JH
+    p_prog_lnd%w_so(:,5,:,:,:) = 56.7E-3_wp*2._wp !! JH
+    p_prog_lnd%w_so(:,6,:,:,:) = 254.6E-3_wp*2._wp !! JH
+    p_prog_lnd%w_so(:,7,:,:,:) = 763.9E-3_wp*2._wp !! JH
+    p_prog_lnd%w_so(:,8,:,:,:) = 2291.5E-3_wp*2._wp !! JH
+ 
+    p_prog_lnd%w_so_ice(:,1,:,:,:) = 0._wp
+    p_prog_lnd%w_so_ice(:,2,:,:,:) = 0._wp 
+    p_prog_lnd%w_so_ice(:,3,:,:,:) = 0._wp 
+    p_prog_lnd%w_so_ice(:,4,:,:,:) = 0._wp 
+    p_prog_lnd%w_so_ice(:,5,:,:,:) = 0._wp 
+    p_prog_lnd%w_so_ice(:,6,:,:,:) = 0._wp 
+    p_prog_lnd%w_so_ice(:,7,:,:,:) = 0._wp 
+    p_prog_lnd%w_so_ice(:,8,:,:,:) = 0._wp 
     END IF !inwp_surface > 0
 
   END SUBROUTINE new_nwp_lnd_prog_list
@@ -847,7 +899,7 @@ MODULE mo_nwp_lnd_state
     !
     CALL new_var_list( diag_list, TRIM(listname) )
     CALL default_var_list_settings( diag_list,                 &
-                                  & lrestart=.TRUE.,           &
+                                  & lrestart=.FALSE.,           &
                                   & restart_type=FILETYPE_NC2  )
 
     !------------------------------
@@ -873,7 +925,7 @@ MODULE mo_nwp_lnd_state
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'qv_st', p_diag_lnd%qv_st,                        &
            & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc,      &
-           & ldims=shape4d_subs )
+           & ldims=shape4d_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
 
 !!$    ! fill the seperate variables belonging to the container qv_st
 !!$    ALLOCATE(p_diag_lnd%qv_st_ptr(nztlev,nsfc_subs))
@@ -937,12 +989,12 @@ MODULE mo_nwp_lnd_state
 
 
 
-    ! & p_diag_lnd%wliq_snow(nproma,nblks_c,nztlev,nsfc_subs)
-    cf_desc    = t_cf_var('wliq_snow', 'm H2O', 'liquid water content in the snow')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, 'wliq_snow', p_diag_lnd%wliq_snow,                     &
-           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc,           &
-           & ldims=shape4d_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
+!    ! & p_diag_lnd%wliq_snow(nproma,nblks_c,nlev_snow,nztlev,nsfc_subs)
+!    cf_desc    = t_cf_var('wliq_snow', 'm H2O', 'liquid water content in the snow')
+!    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+!    CALL add_var( diag_list, 'wliq_snow', p_diag_lnd%wliq_snow,                     &
+!           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc,           &
+!           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
 
 !!$    ! fill the seperate variables belonging to the container wliq_snow
 !!$    ALLOCATE(p_diag_lnd%wliq_snow_ptr(nztlev,nsfc_subs))
@@ -961,12 +1013,12 @@ MODULE mo_nwp_lnd_state
 
 
 
-       ! & p_diag_lnd%wtot_snow(nproma,nblks_c,nztlev,nsfc_subs)
-    cf_desc    = t_cf_var('wtot_snow', 'm H2O', 'total water content in the snow')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( diag_list, 'wtot_snow', p_diag_lnd%wtot_snow,                     &
-           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc,           &
-           & ldims=shape4d_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
+!       ! & p_diag_lnd%wtot_snow(nproma,nblks_c,nlev_snow,nztlev,nsfc_subs)
+!    cf_desc    = t_cf_var('wtot_snow', 'm H2O', 'total water content in the snow')
+!    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+!    CALL add_var( diag_list, 'wtot_snow', p_diag_lnd%wtot_snow,                     &
+!           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc,           &
+!           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
 
 !!$    ! fill the seperate variables belonging to the container wtot_snow
 !!$    ALLOCATE(p_diag_lnd%wtot_snow_ptr(nztlev,nsfc_subs))
@@ -1027,26 +1079,15 @@ MODULE mo_nwp_lnd_state
 
 
 
-    ! & p_diag_lnd%rstom(nproma,nblks_c,nsfc_subs)
+    ! & p_diag_lnd%rstom(nproma,nblks_c)
     cf_desc    = t_cf_var('rstom', 's/m', 'stomata resistance')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'rstom', p_diag_lnd%rstom,                             &
            & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc,           &
-           & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
-
-    ! fill the seperate variables belonging to the container rstom
-    ALLOCATE(p_diag_lnd%rstom_ptr(nsfc_subs))
-      DO jsfc = 1,nsfc_subs
-        WRITE(csfc,'(i1)') jsfc 
-        CALL add_ref( diag_list, 'rstom',                                         &
-                 & vname_prefix//'rstom_'//csfc, p_diag_lnd%rstom_ptr(jsfc)%p_2d, &
-                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                         &
-                 & t_cf_var('rstom_'//csfc, '', ''),                              &
-                 & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),  &
-                 & ldims=shape2d )
-      END DO
+           & ldims=shape2d, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
 
 
+  
 
     ! & p_diag_lnd%lhfl_bs(nproma,nblks_c,nsfc_subs)
     cf_desc    = t_cf_var('lhfl_bs', 'W/m2', 'average latent heat flux from bare soil evap.')

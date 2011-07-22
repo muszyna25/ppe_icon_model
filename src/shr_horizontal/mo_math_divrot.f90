@@ -186,7 +186,7 @@ CONTAINS
 !!
 SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   &                           opt_slev, opt_elev, opt_rlstart,      &
-  &                           opt_rlend )
+  &                           opt_rlend, opt_lconsv )
 
   TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation 
     &  ptr_patch                          !<is performed
@@ -206,6 +206,9 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   INTEGER, INTENT(IN), OPTIONAL ::  &   !< start and end values of refin_ctrl flag
     &  opt_rlstart, opt_rlend
 
+  LOGICAL, INTENT(IN), OPTIONAL ::  &   !< if true, conservative reconstruction is used
+    &  opt_lconsv
+
   REAL(wp), INTENT(INOUT) ::  &  !< cell based coefficients (geographical components)
     &  p_coeff(:,:,:,:)          !< (constant and gradients in latitudinal and
                                  !< longitudinal direction)
@@ -221,7 +224,7 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   INTEGER :: jc, jk, jb               !< index of cell, vertical level and block
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
-
+  LOGICAL :: l_consv
 
   !-----------------------------------------------------------------------
 
@@ -245,6 +248,11 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     rl_end = opt_rlend
   ELSE
     rl_end = min_rlcell
+  END IF
+  IF ( PRESENT(opt_lconsv) ) THEN
+    l_consv = opt_lconsv
+  ELSE
+    l_consv = .FALSE.
   END IF
 
 
@@ -314,13 +322,23 @@ SUBROUTINE recon_lsq_cell_l( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
           & * p_coeff(jc,jk,jb,3))
 
         ! constant
-        p_coeff(jc,jk,jb,1) = p_cc(jc,jk,jb)                                         &
-          &                 - p_coeff(jc,jk,jb,2) * ptr_int_lsq%lsq_moments(jc,jb,1) &
-          &                 - p_coeff(jc,jk,jb,3) * ptr_int_lsq%lsq_moments(jc,jb,2)
-
+        p_coeff(jc,jk,jb,1) = p_cc(jc,jk,jb)
 
       END DO ! end loop over cells
     END DO ! end loop over vertical levels
+
+    IF (l_consv) THEN
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+          ! constant
+          p_coeff(jc,jk,jb,1) = p_coeff(jc,jk,jb,1)                                    &
+            &                 - p_coeff(jc,jk,jb,2) * ptr_int_lsq%lsq_moments(jc,jb,1) &
+            &                 - p_coeff(jc,jk,jb,3) * ptr_int_lsq%lsq_moments(jc,jb,2)
+
+
+        END DO ! end loop over cells
+      END DO ! end loop over vertical levels
+    ENDIF
 
   END DO ! end loop over blocks
 !$OMP END DO
@@ -358,7 +376,7 @@ END SUBROUTINE recon_lsq_cell_l
 !!
 SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   &                           opt_slev, opt_elev, opt_rlstart,      &
-  &                           opt_rlend )
+  &                           opt_rlend, opt_lconsv )
 
   TYPE(t_patch), TARGET, INTENT(IN) :: &  !< patch on which computation 
     &  ptr_patch                          !< is performed
@@ -378,6 +396,9 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   INTEGER, INTENT(IN), OPTIONAL ::  &   !< start and end values of refin_ctrl flag
     &  opt_rlstart, opt_rlend
 
+  LOGICAL, INTENT(IN), OPTIONAL ::  &   !< if true, conservative reconstruction is used
+    &  opt_lconsv
+
   REAL(wp), INTENT(INOUT) ::  &  !< cell based coefficients (geographical components)
     &  p_coeff(:,:,:,:)          !< (constant and gradients in latitudinal and
                                  !< longitudinal direction)
@@ -391,7 +412,7 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
   INTEGER :: jc, jk, jb              !< index of cell, vertical level and block
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
-
+  LOGICAL :: l_consv
 
   !-----------------------------------------------------------------------
 
@@ -415,6 +436,11 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
     rl_end = opt_rlend
   ELSE
     rl_end = min_rlcell
+  END IF
+  IF ( PRESENT(opt_lconsv) ) THEN
+    l_consv = opt_lconsv
+  ELSE
+    l_consv = .FALSE.
   END IF
 
 
@@ -475,16 +501,26 @@ SUBROUTINE recon_lsq_cell_l_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
           &                 + ptr_int_lsq%lsq_pseudoinv(jc,1,2,jb) * z_b(jc,jk,2)  &
           &                 + ptr_int_lsq%lsq_pseudoinv(jc,1,3,jb) * z_b(jc,jk,3)
 
-        ! At the end, the coefficient c0 is derived from the linear constraint
-        !
         ! constant
-        p_coeff(jc,jk,jb,1) = p_cc(jc,jk,jb)                                         &
-          &                 - p_coeff(jc,jk,jb,2) * ptr_int_lsq%lsq_moments(jc,jb,1) &
-          &                 - p_coeff(jc,jk,jb,3) * ptr_int_lsq%lsq_moments(jc,jb,2)
-
+        p_coeff(jc,jk,jb,1) = p_cc(jc,jk,jb)
 
       END DO ! end loop over cells
     END DO ! end loop over vertical levels
+
+    IF (l_consv) THEN
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+
+          ! In the case of a conservative reconstruction, 
+          ! the coefficient c0 is derived from the linear constraint
+          !
+          p_coeff(jc,jk,jb,1) = p_coeff(jc,jk,jb,1)                                    &
+            &                 - p_coeff(jc,jk,jb,2) * ptr_int_lsq%lsq_moments(jc,jb,1) &
+            &                 - p_coeff(jc,jk,jb,3) * ptr_int_lsq%lsq_moments(jc,jb,2)
+
+        END DO ! end loop over cells
+      END DO ! end loop over vertical levels
+    ENDIF
 
   END DO ! end loop over blocks
 !$OMP END DO
@@ -693,28 +729,28 @@ SUBROUTINE recon_lsq_cell_q( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
         !
         ! Solve linear system Rx=Q^T d by back substitution
         !
-        p_coeff(jc,jk,jb,6) = ptr_rrdiag(jc,5,jb) * z_qt_times_d(5)
-        p_coeff(jc,jk,jb,5) = ptr_rrdiag(jc,4,jb)                                         &
-          &                 * ( z_qt_times_d(4) - ptr_rutri(jc,1,jb)*p_coeff(jc,jk,jb,6) )
-        p_coeff(jc,jk,jb,4) = ptr_rrdiag(jc,3,jb)                                         &
-          &                 * ( z_qt_times_d(3) - ptr_rutri(jc,2,jb)*p_coeff(jc,jk,jb,5)  &
-          &                 - ptr_rutri(jc,3,jb) * p_coeff(jc,jk,jb,6) )
-        p_coeff(jc,jk,jb,3) = ptr_rrdiag(jc,2,jb)                                         &
-          &                 * ( z_qt_times_d(2) - ptr_rutri(jc,4,jb)*p_coeff(jc,jk,jb,4)  &
-          &                 - ptr_rutri(jc,5,jb) * p_coeff(jc,jk,jb,5)                    &
-          &                 - ptr_rutri(jc,6,jb) * p_coeff(jc,jk,jb,6) )
-        p_coeff(jc,jk,jb,2) = ptr_rrdiag(jc,1,jb)                                         &
-          &                 * ( z_qt_times_d(1) - ptr_rutri(jc,7,jb)*p_coeff(jc,jk,jb,3)  &
-          &                 - ptr_rutri(jc,8,jb) * p_coeff(jc,jk,jb,4)                    &
-          &                 - ptr_rutri(jc,9,jb) * p_coeff(jc,jk,jb,5)                    &
-          &                 - ptr_rutri(jc,10,jb)* p_coeff(jc,jk,jb,6) )
+        p_coeff(jc,jk,6,jb) = ptr_rrdiag(jc,5,jb) * z_qt_times_d(5)
+        p_coeff(jc,jk,5,jb) = ptr_rrdiag(jc,4,jb)                                         &
+          &                 * ( z_qt_times_d(4) - ptr_rutri(jc,1,jb)*p_coeff(jc,jk,6,jb) )
+        p_coeff(jc,jk,4,jb) = ptr_rrdiag(jc,3,jb)                                         &
+          &                 * ( z_qt_times_d(3) - ptr_rutri(jc,2,jb)*p_coeff(jc,jk,5,jb)  &
+          &                 - ptr_rutri(jc,3,jb) * p_coeff(jc,jk,6,jb) )
+        p_coeff(jc,jk,3,jb) = ptr_rrdiag(jc,2,jb)                                         &
+          &                 * ( z_qt_times_d(2) - ptr_rutri(jc,4,jb)*p_coeff(jc,jk,4,jb)  &
+          &                 - ptr_rutri(jc,5,jb) * p_coeff(jc,jk,5,jb)                    &
+          &                 - ptr_rutri(jc,6,jb) * p_coeff(jc,jk,6,jb) )
+        p_coeff(jc,jk,2,jb) = ptr_rrdiag(jc,1,jb)                                         &
+          &                 * ( z_qt_times_d(1) - ptr_rutri(jc,7,jb)*p_coeff(jc,jk,3,jb)  &
+          &                 - ptr_rutri(jc,8,jb) * p_coeff(jc,jk,4,jb)                    &
+          &                 - ptr_rutri(jc,9,jb) * p_coeff(jc,jk,5,jb)                    &
+          &                 - ptr_rutri(jc,10,jb)* p_coeff(jc,jk,6,jb) )
 
-        p_coeff(jc,jk,jb,1) = p_cc(jc,jk,jb)                                              &
-          &                  - p_coeff(jc,jk,jb,2) * ptr_int_lsq%lsq_moments(jc,jb,1)     &
-          &                  - p_coeff(jc,jk,jb,3) * ptr_int_lsq%lsq_moments(jc,jb,2)     &
-          &                  - p_coeff(jc,jk,jb,4) * ptr_int_lsq%lsq_moments(jc,jb,3)     &
-          &                  - p_coeff(jc,jk,jb,5) * ptr_int_lsq%lsq_moments(jc,jb,4)     &
-          &                  - p_coeff(jc,jk,jb,6) * ptr_int_lsq%lsq_moments(jc,jb,5)
+        p_coeff(jc,jk,1,jb) = p_cc(jc,jk,jb)                                              &
+          &                  - p_coeff(jc,jk,2,jb) * ptr_int_lsq%lsq_moments(jc,jb,1)     &
+          &                  - p_coeff(jc,jk,3,jb) * ptr_int_lsq%lsq_moments(jc,jb,2)     &
+          &                  - p_coeff(jc,jk,4,jb) * ptr_int_lsq%lsq_moments(jc,jb,3)     &
+          &                  - p_coeff(jc,jk,5,jb) * ptr_int_lsq%lsq_moments(jc,jb,4)     &
+          &                  - p_coeff(jc,jk,6,jb) * ptr_int_lsq%lsq_moments(jc,jb,5)
 
 
       END DO ! end loop over cells
@@ -989,22 +1025,22 @@ SUBROUTINE recon_lsq_cell_q_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
         ! performance penalty on the NEC. Instead the intrinsic dot product
         ! function is used.
 !CDIR BEGIN EXPAND=9
-        p_coeff(jc,jk,jb,6) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,5,1:9,jb), &
+        p_coeff(jc,jk,6,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,5,1:9,jb), &
           &                               z_b(1:9,jc,jk))
-        p_coeff(jc,jk,jb,5) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,4,1:9,jb), &
+        p_coeff(jc,jk,5,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,4,1:9,jb), &
           &                               z_b(1:9,jc,jk))
-        p_coeff(jc,jk,jb,4) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,3,1:9,jb), &
+        p_coeff(jc,jk,4,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,3,1:9,jb), &
           &                               z_b(1:9,jc,jk))
-        p_coeff(jc,jk,jb,3) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,2,1:9,jb), &
+        p_coeff(jc,jk,3,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,2,1:9,jb), &
           &                               z_b(1:9,jc,jk))
-        p_coeff(jc,jk,jb,2) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,1,1:9,jb), &
+        p_coeff(jc,jk,2,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,1,1:9,jb), &
           &                               z_b(1:9,jc,jk))
 !CDIR END
 
 
         ! At the end, the coefficient c0 is derived from the linear constraint
         !
-        p_coeff(jc,jk,jb,1) = p_cc(jc,jk,jb) - DOT_PRODUCT(p_coeff(jc,jk,jb,2:6), &
+        p_coeff(jc,jk,1,jb) = p_cc(jc,jk,jb) - DOT_PRODUCT(p_coeff(jc,jk,2:6,jb), &
           &                   ptr_int_lsq%lsq_moments(jc,jb,1:5))
 
 
@@ -1291,44 +1327,44 @@ SUBROUTINE recon_lsq_cell_cpoor( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
         !
         ! Solve linear system Rx=Q^T d by back substitution
         !
-        p_coeff(jc,jk,jb,8) = ptr_rrdiag(jc,7,jb) * z_qt_times_d(7)
-        p_coeff(jc,jk,jb,7) = ptr_rrdiag(jc,6,jb)                                         &
-          &                 * ( z_qt_times_d(6) - ptr_rutri(jc,1,jb)*p_coeff(jc,jk,jb,8) )
-        p_coeff(jc,jk,jb,6) = ptr_rrdiag(jc,5,jb)                                         &
-          &                 * ( z_qt_times_d(5) - ptr_rutri(jc,2,jb)*p_coeff(jc,jk,jb,7)  &
-          &                 - ptr_rutri(jc,3,jb) * p_coeff(jc,jk,jb,8) )
-        p_coeff(jc,jk,jb,5) = ptr_rrdiag(jc,4,jb)                                         &
-          &                 * ( z_qt_times_d(4) - ptr_rutri(jc,4,jb)*p_coeff(jc,jk,jb,6)  &
-          &                 - ptr_rutri(jc,5,jb) * p_coeff(jc,jk,jb,7)                    &
-          &                 - ptr_rutri(jc,6,jb) * p_coeff(jc,jk,jb,8) )
-        p_coeff(jc,jk,jb,4) = ptr_rrdiag(jc,3,jb)                                         &
-          &                 * ( z_qt_times_d(3) - ptr_rutri(jc,7,jb)*p_coeff(jc,jk,jb,5)  &
-          &                 - ptr_rutri(jc,8,jb) * p_coeff(jc,jk,jb,6)                    &
-          &                 - ptr_rutri(jc,9,jb) * p_coeff(jc,jk,jb,7)                    &
-          &                 - ptr_rutri(jc,10,jb)* p_coeff(jc,jk,jb,8) )
-        p_coeff(jc,jk,jb,3) = ptr_rrdiag(jc,2,jb)                                         &
-          &                 * ( z_qt_times_d(2) - ptr_rutri(jc,11,jb)*p_coeff(jc,jk,jb,4) &
-          &                 - ptr_rutri(jc,12,jb) * p_coeff(jc,jk,jb,5)                   &
-          &                 - ptr_rutri(jc,13,jb) * p_coeff(jc,jk,jb,6)                   &
-          &                 - ptr_rutri(jc,14,jb) * p_coeff(jc,jk,jb,7)                   &
-          &                 - ptr_rutri(jc,15,jb) * p_coeff(jc,jk,jb,8) )
-        p_coeff(jc,jk,jb,2) = ptr_rrdiag(jc,1,jb)                                         &
-          &                 * ( z_qt_times_d(1) - ptr_rutri(jc,16,jb)*p_coeff(jc,jk,jb,3) &
-          &                 - ptr_rutri(jc,17,jb) * p_coeff(jc,jk,jb,4)                   &
-          &                 - ptr_rutri(jc,18,jb) * p_coeff(jc,jk,jb,5)                   &
-          &                 - ptr_rutri(jc,19,jb) * p_coeff(jc,jk,jb,6)                   &
-          &                 - ptr_rutri(jc,20,jb) * p_coeff(jc,jk,jb,7)                   &
-          &                 - ptr_rutri(jc,21,jb) * p_coeff(jc,jk,jb,8) )
+        p_coeff(jc,jk,8,jb) = ptr_rrdiag(jc,7,jb) * z_qt_times_d(7)
+        p_coeff(jc,jk,7,jb) = ptr_rrdiag(jc,6,jb)                                         &
+          &                 * ( z_qt_times_d(6) - ptr_rutri(jc,1,jb)*p_coeff(jc,jk,8,jb) )
+        p_coeff(jc,jk,6,jb) = ptr_rrdiag(jc,5,jb)                                         &
+          &                 * ( z_qt_times_d(5) - ptr_rutri(jc,2,jb)*p_coeff(jc,jk,7,jb)  &
+          &                 - ptr_rutri(jc,3,jb) * p_coeff(jc,jk,8,jb) )
+        p_coeff(jc,jk,5,jb) = ptr_rrdiag(jc,4,jb)                                         &
+          &                 * ( z_qt_times_d(4) - ptr_rutri(jc,4,jb)*p_coeff(jc,jk,6,jb)  &
+          &                 - ptr_rutri(jc,5,jb) * p_coeff(jc,jk,7,jb)                    &
+          &                 - ptr_rutri(jc,6,jb) * p_coeff(jc,jk,8,jb) )
+        p_coeff(jc,jk,4,jb) = ptr_rrdiag(jc,3,jb)                                         &
+          &                 * ( z_qt_times_d(3) - ptr_rutri(jc,7,jb)*p_coeff(jc,jk,5,jb)  &
+          &                 - ptr_rutri(jc,8,jb) * p_coeff(jc,jk,6,jb)                    &
+          &                 - ptr_rutri(jc,9,jb) * p_coeff(jc,jk,7,jb)                    &
+          &                 - ptr_rutri(jc,10,jb)* p_coeff(jc,jk,8,jb) )
+        p_coeff(jc,jk,3,jb) = ptr_rrdiag(jc,2,jb)                                         &
+          &                 * ( z_qt_times_d(2) - ptr_rutri(jc,11,jb)*p_coeff(jc,jk,4,jb) &
+          &                 - ptr_rutri(jc,12,jb) * p_coeff(jc,jk,5,jb)                   &
+          &                 - ptr_rutri(jc,13,jb) * p_coeff(jc,jk,6,jb)                   &
+          &                 - ptr_rutri(jc,14,jb) * p_coeff(jc,jk,7,jb)                   &
+          &                 - ptr_rutri(jc,15,jb) * p_coeff(jc,jk,8,jb) )
+        p_coeff(jc,jk,2,jb) = ptr_rrdiag(jc,1,jb)                                         &
+          &                 * ( z_qt_times_d(1) - ptr_rutri(jc,16,jb)*p_coeff(jc,jk,3,jb) &
+          &                 - ptr_rutri(jc,17,jb) * p_coeff(jc,jk,4,jb)                   &
+          &                 - ptr_rutri(jc,18,jb) * p_coeff(jc,jk,5,jb)                   &
+          &                 - ptr_rutri(jc,19,jb) * p_coeff(jc,jk,6,jb)                   &
+          &                 - ptr_rutri(jc,20,jb) * p_coeff(jc,jk,7,jb)                   &
+          &                 - ptr_rutri(jc,21,jb) * p_coeff(jc,jk,8,jb) )
 
 
-        p_coeff(jc,jk,jb,1) = p_cc(jc,jk,jb)                                              &
-          &                  - p_coeff(jc,jk,jb,2) * ptr_int_lsq%lsq_moments(jc,jb,1)     &
-          &                  - p_coeff(jc,jk,jb,3) * ptr_int_lsq%lsq_moments(jc,jb,2)     &
-          &                  - p_coeff(jc,jk,jb,4) * ptr_int_lsq%lsq_moments(jc,jb,3)     &
-          &                  - p_coeff(jc,jk,jb,5) * ptr_int_lsq%lsq_moments(jc,jb,4)     &
-          &                  - p_coeff(jc,jk,jb,6) * ptr_int_lsq%lsq_moments(jc,jb,5)     &
-          &                  - p_coeff(jc,jk,jb,7) * ptr_int_lsq%lsq_moments(jc,jb,6)     &
-          &                  - p_coeff(jc,jk,jb,8) * ptr_int_lsq%lsq_moments(jc,jb,7)
+        p_coeff(jc,jk,1,jb) = p_cc(jc,jk,jb)                                              &
+          &                  - p_coeff(jc,jk,2,jb) * ptr_int_lsq%lsq_moments(jc,jb,1)     &
+          &                  - p_coeff(jc,jk,3,jb) * ptr_int_lsq%lsq_moments(jc,jb,2)     &
+          &                  - p_coeff(jc,jk,4,jb) * ptr_int_lsq%lsq_moments(jc,jb,3)     &
+          &                  - p_coeff(jc,jk,5,jb) * ptr_int_lsq%lsq_moments(jc,jb,4)     &
+          &                  - p_coeff(jc,jk,6,jb) * ptr_int_lsq%lsq_moments(jc,jb,5)     &
+          &                  - p_coeff(jc,jk,7,jb) * ptr_int_lsq%lsq_moments(jc,jb,6)     &
+          &                  - p_coeff(jc,jk,8,jb) * ptr_int_lsq%lsq_moments(jc,jb,7)
 
 
       END DO ! end loop over cells
@@ -1518,26 +1554,26 @@ SUBROUTINE recon_lsq_cell_cpoor_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
         ! performance penalty on the NEC. Instead the intrinsic dot product
         ! function is used.
 !CDIR BEGIN EXPAND=9
-        p_coeff(jc,jk,jb,8) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,7,1:9,jb), &
+        p_coeff(jc,jk,8,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,7,1:9,jb), &
           &                               z_b(1:9,jc,jk))
-        p_coeff(jc,jk,jb,7) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,6,1:9,jb), &
+        p_coeff(jc,jk,7,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,6,1:9,jb), &
           &                               z_b(1:9,jc,jk))
-        p_coeff(jc,jk,jb,6) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,5,1:9,jb), &
+        p_coeff(jc,jk,6,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,5,1:9,jb), &
           &                               z_b(1:9,jc,jk))
-        p_coeff(jc,jk,jb,5) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,4,1:9,jb), &
+        p_coeff(jc,jk,5,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,4,1:9,jb), &
           &                               z_b(1:9,jc,jk))
-        p_coeff(jc,jk,jb,4) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,3,1:9,jb), &
+        p_coeff(jc,jk,4,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,3,1:9,jb), &
           &                               z_b(1:9,jc,jk))
-        p_coeff(jc,jk,jb,3) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,2,1:9,jb), &
+        p_coeff(jc,jk,3,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,2,1:9,jb), &
           &                               z_b(1:9,jc,jk))
-        p_coeff(jc,jk,jb,2) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,1,1:9,jb), &
+        p_coeff(jc,jk,2,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,1,1:9,jb), &
           &                               z_b(1:9,jc,jk))
 !CDIR END
 
         ! At the end, the coefficient c0 is derived from the linear constraint
         !
 !CDIR EXPAND=7
-        p_coeff(jc,jk,jb,1) = p_cc(jc,jk,jb) - DOT_PRODUCT(p_coeff(jc,jk,jb,2:8), &
+        p_coeff(jc,jk,1,jb) = p_cc(jc,jk,jb) - DOT_PRODUCT(p_coeff(jc,jk,2:8,jb), &
           &                   ptr_int_lsq%lsq_moments(jc,jb,1:7))
 
       END DO ! end loop over cells
@@ -1757,63 +1793,63 @@ SUBROUTINE recon_lsq_cell_c( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
         !
         ! Solve linear system Rx=Q^T d by back substitution
         !
-        p_coeff(jc,jk,jb,10) = ptr_rrdiag(jc,9,jb) * z_qt_times_d(9)
-        p_coeff(jc,jk,jb,9)  = ptr_rrdiag(jc,8,jb)                                         &
-          &                  * ( z_qt_times_d(8) - ptr_rutri(jc,1,jb)*p_coeff(jc,jk,jb,10) )
-        p_coeff(jc,jk,jb,8)  = ptr_rrdiag(jc,7,jb)                                         &
-          &                  * ( z_qt_times_d(7) - ptr_rutri(jc,2,jb)*p_coeff(jc,jk,jb,9)  &
-          &                  - ptr_rutri(jc,3,jb) * p_coeff(jc,jk,jb,10) )
-        p_coeff(jc,jk,jb,7)  = ptr_rrdiag(jc,6,jb)                                         &
-          &                  * ( z_qt_times_d(6) - ptr_rutri(jc,4,jb)*p_coeff(jc,jk,jb,8)  &
-          &                  - ptr_rutri(jc,5,jb) * p_coeff(jc,jk,jb,9)                    &
-          &                  - ptr_rutri(jc,6,jb) * p_coeff(jc,jk,jb,10) )
-        p_coeff(jc,jk,jb,6)  = ptr_rrdiag(jc,5,jb)                                         &
-          &                  * ( z_qt_times_d(5) - ptr_rutri(jc,7,jb)*p_coeff(jc,jk,jb,7)  &
-          &                  - ptr_rutri(jc,8,jb) * p_coeff(jc,jk,jb,8)                    &
-          &                  - ptr_rutri(jc,9,jb) * p_coeff(jc,jk,jb,9)                    &
-          &                  - ptr_rutri(jc,10,jb)* p_coeff(jc,jk,jb,10) )
-        p_coeff(jc,jk,jb,5)  = ptr_rrdiag(jc,4,jb)                                         &
-          &                  * ( z_qt_times_d(4) - ptr_rutri(jc,11,jb)*p_coeff(jc,jk,jb,6) &
-          &                  - ptr_rutri(jc,12,jb) * p_coeff(jc,jk,jb,7)                   &
-          &                  - ptr_rutri(jc,13,jb) * p_coeff(jc,jk,jb,8)                   &
-          &                  - ptr_rutri(jc,14,jb) * p_coeff(jc,jk,jb,9)                   &
-          &                  - ptr_rutri(jc,15,jb) * p_coeff(jc,jk,jb,10) )
-        p_coeff(jc,jk,jb,4)  = ptr_rrdiag(jc,3,jb)                                         &
-          &                  * ( z_qt_times_d(3) - ptr_rutri(jc,16,jb)*p_coeff(jc,jk,jb,5) &
-          &                  - ptr_rutri(jc,17,jb) * p_coeff(jc,jk,jb,6)                   &
-          &                  - ptr_rutri(jc,18,jb) * p_coeff(jc,jk,jb,7)                   &
-          &                  - ptr_rutri(jc,19,jb) * p_coeff(jc,jk,jb,8)                   &
-          &                  - ptr_rutri(jc,20,jb) * p_coeff(jc,jk,jb,9)                   &
-          &                  - ptr_rutri(jc,21,jb) * p_coeff(jc,jk,jb,10) )
-        p_coeff(jc,jk,jb,3)  = ptr_rrdiag(jc,2,jb)                                         &
-          &                  * ( z_qt_times_d(2) - ptr_rutri(jc,22,jb)*p_coeff(jc,jk,jb,4) &
-          &                  - ptr_rutri(jc,23,jb) * p_coeff(jc,jk,jb,5)                   &
-          &                  - ptr_rutri(jc,24,jb) * p_coeff(jc,jk,jb,6)                   &
-          &                  - ptr_rutri(jc,25,jb) * p_coeff(jc,jk,jb,7)                   &
-          &                  - ptr_rutri(jc,26,jb) * p_coeff(jc,jk,jb,8)                   &
-          &                  - ptr_rutri(jc,27,jb) * p_coeff(jc,jk,jb,9)                   &
-          &                  - ptr_rutri(jc,28,jb) * p_coeff(jc,jk,jb,10) )
-        p_coeff(jc,jk,jb,2)  = ptr_rrdiag(jc,1,jb)                                         &
-          &                  * ( z_qt_times_d(1) - ptr_rutri(jc,29,jb)*p_coeff(jc,jk,jb,3) &
-          &                  - ptr_rutri(jc,30,jb) * p_coeff(jc,jk,jb,4)                   &
-          &                  - ptr_rutri(jc,31,jb) * p_coeff(jc,jk,jb,5)                   &
-          &                  - ptr_rutri(jc,32,jb) * p_coeff(jc,jk,jb,6)                   &
-          &                  - ptr_rutri(jc,33,jb) * p_coeff(jc,jk,jb,7)                   &
-          &                  - ptr_rutri(jc,34,jb) * p_coeff(jc,jk,jb,8)                   &
-          &                  - ptr_rutri(jc,35,jb) * p_coeff(jc,jk,jb,9)                   &
-          &                  - ptr_rutri(jc,36,jb) * p_coeff(jc,jk,jb,10) )
+        p_coeff(jc,jk,10,jb) = ptr_rrdiag(jc,9,jb) * z_qt_times_d(9)
+        p_coeff(jc,jk,9,jb)  = ptr_rrdiag(jc,8,jb)                                         &
+          &                  * ( z_qt_times_d(8) - ptr_rutri(jc,1,jb)*p_coeff(jc,jk,10,jb) )
+        p_coeff(jc,jk,8,jb)  = ptr_rrdiag(jc,7,jb)                                         &
+          &                  * ( z_qt_times_d(7) - ptr_rutri(jc,2,jb)*p_coeff(jc,jk,9,jb)  &
+          &                  - ptr_rutri(jc,3,jb) * p_coeff(jc,jk,10,jb) )
+        p_coeff(jc,jk,7,jb)  = ptr_rrdiag(jc,6,jb)                                         &
+          &                  * ( z_qt_times_d(6) - ptr_rutri(jc,4,jb)*p_coeff(jc,jk,8,jb)  &
+          &                  - ptr_rutri(jc,5,jb) * p_coeff(jc,jk,9,jb)                    &
+          &                  - ptr_rutri(jc,6,jb) * p_coeff(jc,jk,10,jb) )
+        p_coeff(jc,jk,6,jb)  = ptr_rrdiag(jc,5,jb)                                         &
+          &                  * ( z_qt_times_d(5) - ptr_rutri(jc,7,jb)*p_coeff(jc,jk,7,jb)  &
+          &                  - ptr_rutri(jc,8,jb) * p_coeff(jc,jk,8,jb)                    &
+          &                  - ptr_rutri(jc,9,jb) * p_coeff(jc,jk,9,jb)                    &
+          &                  - ptr_rutri(jc,10,jb)* p_coeff(jc,jk,10,jb) )
+        p_coeff(jc,jk,5,jb)  = ptr_rrdiag(jc,4,jb)                                         &
+          &                  * ( z_qt_times_d(4) - ptr_rutri(jc,11,jb)*p_coeff(jc,jk,6,jb) &
+          &                  - ptr_rutri(jc,12,jb) * p_coeff(jc,jk,7,jb)                   &
+          &                  - ptr_rutri(jc,13,jb) * p_coeff(jc,jk,8,jb)                   &
+          &                  - ptr_rutri(jc,14,jb) * p_coeff(jc,jk,9,jb)                   &
+          &                  - ptr_rutri(jc,15,jb) * p_coeff(jc,jk,10,jb) )
+        p_coeff(jc,jk,4,jb)  = ptr_rrdiag(jc,3,jb)                                         &
+          &                  * ( z_qt_times_d(3) - ptr_rutri(jc,16,jb)*p_coeff(jc,jk,5,jb) &
+          &                  - ptr_rutri(jc,17,jb) * p_coeff(jc,jk,6,jb)                   &
+          &                  - ptr_rutri(jc,18,jb) * p_coeff(jc,jk,7,jb)                   &
+          &                  - ptr_rutri(jc,19,jb) * p_coeff(jc,jk,8,jb)                   &
+          &                  - ptr_rutri(jc,20,jb) * p_coeff(jc,jk,9,jb)                   &
+          &                  - ptr_rutri(jc,21,jb) * p_coeff(jc,jk,10,jb) )
+        p_coeff(jc,jk,3,jb)  = ptr_rrdiag(jc,2,jb)                                         &
+          &                  * ( z_qt_times_d(2) - ptr_rutri(jc,22,jb)*p_coeff(jc,jk,4,jb) &
+          &                  - ptr_rutri(jc,23,jb) * p_coeff(jc,jk,5,jb)                   &
+          &                  - ptr_rutri(jc,24,jb) * p_coeff(jc,jk,6,jb)                   &
+          &                  - ptr_rutri(jc,25,jb) * p_coeff(jc,jk,7,jb)                   &
+          &                  - ptr_rutri(jc,26,jb) * p_coeff(jc,jk,8,jb)                   &
+          &                  - ptr_rutri(jc,27,jb) * p_coeff(jc,jk,9,jb)                   &
+          &                  - ptr_rutri(jc,28,jb) * p_coeff(jc,jk,10,jb) )
+        p_coeff(jc,jk,2,jb)  = ptr_rrdiag(jc,1,jb)                                         &
+          &                  * ( z_qt_times_d(1) - ptr_rutri(jc,29,jb)*p_coeff(jc,jk,3,jb) &
+          &                  - ptr_rutri(jc,30,jb) * p_coeff(jc,jk,4,jb)                   &
+          &                  - ptr_rutri(jc,31,jb) * p_coeff(jc,jk,5,jb)                   &
+          &                  - ptr_rutri(jc,32,jb) * p_coeff(jc,jk,6,jb)                   &
+          &                  - ptr_rutri(jc,33,jb) * p_coeff(jc,jk,7,jb)                   &
+          &                  - ptr_rutri(jc,34,jb) * p_coeff(jc,jk,8,jb)                   &
+          &                  - ptr_rutri(jc,35,jb) * p_coeff(jc,jk,9,jb)                   &
+          &                  - ptr_rutri(jc,36,jb) * p_coeff(jc,jk,10,jb) )
 
 
-        p_coeff(jc,jk,jb,1)  = p_cc(jc,jk,jb)                                              &
-          &                  - p_coeff(jc,jk,jb,2)  * ptr_int_lsq%lsq_moments(jc,jb,1)     &
-          &                  - p_coeff(jc,jk,jb,3)  * ptr_int_lsq%lsq_moments(jc,jb,2)     &
-          &                  - p_coeff(jc,jk,jb,4)  * ptr_int_lsq%lsq_moments(jc,jb,3)     &
-          &                  - p_coeff(jc,jk,jb,5)  * ptr_int_lsq%lsq_moments(jc,jb,4)     &
-          &                  - p_coeff(jc,jk,jb,6)  * ptr_int_lsq%lsq_moments(jc,jb,5)     &
-          &                  - p_coeff(jc,jk,jb,7)  * ptr_int_lsq%lsq_moments(jc,jb,6)     &
-          &                  - p_coeff(jc,jk,jb,8)  * ptr_int_lsq%lsq_moments(jc,jb,7)     &
-          &                  - p_coeff(jc,jk,jb,9)  * ptr_int_lsq%lsq_moments(jc,jb,8)     &
-          &                  - p_coeff(jc,jk,jb,10) * ptr_int_lsq%lsq_moments(jc,jb,9)
+        p_coeff(jc,jk,1,jb)  = p_cc(jc,jk,jb)                                              &
+          &                  - p_coeff(jc,jk,2,jb)  * ptr_int_lsq%lsq_moments(jc,jb,1)     &
+          &                  - p_coeff(jc,jk,3,jb)  * ptr_int_lsq%lsq_moments(jc,jb,2)     &
+          &                  - p_coeff(jc,jk,4,jb)  * ptr_int_lsq%lsq_moments(jc,jb,3)     &
+          &                  - p_coeff(jc,jk,5,jb)  * ptr_int_lsq%lsq_moments(jc,jb,4)     &
+          &                  - p_coeff(jc,jk,6,jb)  * ptr_int_lsq%lsq_moments(jc,jb,5)     &
+          &                  - p_coeff(jc,jk,7,jb)  * ptr_int_lsq%lsq_moments(jc,jb,6)     &
+          &                  - p_coeff(jc,jk,8,jb)  * ptr_int_lsq%lsq_moments(jc,jb,7)     &
+          &                  - p_coeff(jc,jk,9,jb)  * ptr_int_lsq%lsq_moments(jc,jb,8)     &
+          &                  - p_coeff(jc,jk,10,jb) * ptr_int_lsq%lsq_moments(jc,jb,9)
 
       END DO ! end loop over cells
 
@@ -2007,30 +2043,30 @@ SUBROUTINE recon_lsq_cell_c_svd( p_cc, ptr_patch, ptr_int_lsq, p_coeff, &
         ! function is applied
 !CDIR BEGIN EXPAND=9
 
-        p_coeff(jc,jk,jb,10) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,9,1:9,jb), &
+        p_coeff(jc,jk,10,jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,9,1:9,jb), &
           &                               z_b(1:9,jc,jk))
-        p_coeff(jc,jk,jb, 9) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,8,1:9,jb), &
+        p_coeff(jc,jk,9, jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,8,1:9,jb), &
           &                               z_b(1:9,jc,jk))
-        p_coeff(jc,jk,jb, 8) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,7,1:9,jb), &
+        p_coeff(jc,jk,8, jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,7,1:9,jb), &
           &                               z_b(1:9,jc,jk))
-        p_coeff(jc,jk,jb, 7) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,6,1:9,jb), &
+        p_coeff(jc,jk,7, jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,6,1:9,jb), &
           &                               z_b(1:9,jc,jk))
-        p_coeff(jc,jk,jb, 6) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,5,1:9,jb), &
+        p_coeff(jc,jk,6, jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,5,1:9,jb), &
           &                               z_b(1:9,jc,jk))
-        p_coeff(jc,jk,jb, 5) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,4,1:9,jb), &
+        p_coeff(jc,jk,5, jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,4,1:9,jb), &
           &                               z_b(1:9,jc,jk))
-        p_coeff(jc,jk,jb, 4) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,3,1:9,jb), &
+        p_coeff(jc,jk,4, jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,3,1:9,jb), &
           &                               z_b(1:9,jc,jk))
-        p_coeff(jc,jk,jb, 3) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,2,1:9,jb), &
+        p_coeff(jc,jk,3, jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,2,1:9,jb), &
           &                               z_b(1:9,jc,jk))
-        p_coeff(jc,jk,jb, 2) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,1,1:9,jb), &
+        p_coeff(jc,jk,2, jb) = DOT_PRODUCT(ptr_int_lsq%lsq_pseudoinv(jc,1,1:9,jb), &
           &                               z_b(1:9,jc,jk))
 
 !CDIR END
 
 
 !CDIR BEGIN EXPAND=9
-        p_coeff(jc,jk,jb,1)  = p_cc(jc,jk,jb) - DOT_PRODUCT(p_coeff(jc,jk,jb,2:10), &
+        p_coeff(jc,jk,1,jb)  = p_cc(jc,jk,jb) - DOT_PRODUCT(p_coeff(jc,jk,2:10,jb), &
           &                    ptr_int_lsq%lsq_moments(jc,jb,1:9))
 
 

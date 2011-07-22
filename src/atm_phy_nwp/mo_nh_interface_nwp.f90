@@ -647,9 +647,9 @@ CONTAINS
 
     IF (  lcall_phy_jg(itsfc)) THEN
 
-      CALL nwp_surface    (  tcall_phy_jg(itsfc),              & !>input
+      CALL nwp_surface    (  tcall_phy_jg(itsfc), jstep,        & !>input
                             & pt_patch, p_metrics,              & !>input
-                            & ext_data,                          & !>input
+                            & ext_data,                         & !>input
                             & pt_prog,                          & !>inout
                             & pt_prog_rcf,     & !>in/inout rcf=reduced calling freq.
                             & pt_diag ,                         & !>inout

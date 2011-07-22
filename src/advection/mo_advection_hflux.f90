@@ -93,8 +93,9 @@ MODULE mo_advection_hflux
   USE mo_dynamics_config,     ONLY: itime_scheme
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ntracer
-  USE mo_loopindices,         ONLY: get_indices_e
-  USE mo_sync,                ONLY: SYNC_C, SYNC_C1, sync_patch_array_mult
+  USE mo_loopindices,         ONLY: get_indices_e, get_indices_c
+  USE mo_sync,                ONLY: SYNC_C, SYNC_C1, sync_patch_array_mult, &
+    &                               sync_patch_array_4de3
   USE mo_parallel_config,     ONLY: p_test_run, n_ghost_rows
   USE mo_advection_config,    ONLY: advection_config, lcompute, lcleanup
   USE mo_advection_utils,     ONLY: laxfr_upflux, back_traj_o1, back_traj_o2,   &
@@ -353,9 +354,7 @@ CONTAINS
       DO je = i_startidx, i_endidx
         DO jk = slev, elev
 #else
-#ifdef __SX__
 !CDIR UNROLL=6
-#endif
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 #endif
@@ -514,10 +513,10 @@ CONTAINS
     INTEGER  :: slev, elev         !< vertical start and end level
     INTEGER  :: ist                !< status variable
     INTEGER  :: je, jk, jb         !< index of edge, vert level, block
+    INTEGER  :: ilc0, ibc0         !< line and block index for local cell center
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_nchdom, i_rlend_c, i_rlend_tr, i_rlend_vt
-    INTEGER  :: ilc0, ibc0         !< line and block index for local cell center
-    INTEGER  :: pid                !< patch ID
+    LOGICAL  :: l_consv            !< true if conservative lsq reconstruction is used
 
    !-------------------------------------------------------------------------
 
@@ -581,6 +580,10 @@ CONTAINS
       i_rlend_vt = MAX(i_rlend_tr - 1, min_rledge)
     ENDIF
 
+    ! use nonconservative lsq reconstruction; should be specified via a namelist
+    ! variable that still needs to be introduced in interpol_ctl
+    l_consv = .FALSE.
+
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
 
@@ -602,13 +605,15 @@ CONTAINS
     !             with    flux limiter following Zalesak (1979)
     !
 
-    WRITE(0,*)'ldcompute=', ld_compute
     IF ( ld_compute ) THEN
       ! allocate temporary arrays for distance vectors and upwind cells
       ALLOCATE( z_distv_bary(nproma,nlev,p_patch%nblks_e,2),             &
         &       z_cell_indices(nproma,nlev,p_patch%nblks_e,2),           &
-        &       z_distv_gausspoint(nproma,nlev,p_patch%nblks_c,3,2),     &
         &       STAT=ist )
+      IF (p_itype_hlimit == islopel_m .OR. p_itype_hlimit == islopel_sm) &
+        ALLOCATE( z_distv_gausspoint(nproma,nlev,p_patch%nblks_c,3,2),   &
+          &       STAT=ist )
+
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine),                                     &
           &  'allocation for z_distv_bary, z_cell_indices, ' //          &
@@ -622,14 +627,20 @@ CONTAINS
     IF (p_igrad_c_miura == 1) THEN
       ! least squares method
       IF (advection_config(pid)%llsq_svd) THEN
-      CALL recon_lsq_cell_l_svd( p_cc, p_patch, p_int%lsq_lin, z_lsq_coeff,   &
-        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c)
+      CALL recon_lsq_cell_l_svd( p_cc, p_patch, p_int%lsq_lin, z_lsq_coeff,     &
+        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
+        &                    opt_lconsv=l_consv)
       ELSE
-      CALL recon_lsq_cell_l( p_cc, p_patch, p_int%lsq_lin, z_lsq_coeff,       &
-        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c)
+      CALL recon_lsq_cell_l( p_cc, p_patch, p_int%lsq_lin, z_lsq_coeff,         &
+        &                    opt_slev=slev, opt_elev=elev, opt_rlend=i_rlend_c, &
+        &                    opt_lconsv=l_consv)
       ENDIF
 
-      ptr_cc   => z_lsq_coeff(:,:,:,1)   ! first coefficient of lsq rec.
+      IF (l_consv) THEN
+        ptr_cc   => z_lsq_coeff(:,:,:,1)   ! first coefficient of lsq rec.
+      ELSE
+        ptr_cc   => p_cc(:,:,:)
+      ENDIF
       ptr_grad => z_lsq_coeff(:,:,:,2:3) ! gradients of lsq rec.
 
     ELSE IF (p_igrad_c_miura == 2) THEN
@@ -724,8 +735,6 @@ CONTAINS
     END IF ! ld_compute
 
 
-    ! *** the slope limiters still have to be adapted to the reordered halo cells ***!
-
     ! 3. If desired, slopes of reconstruction are limited using either a monotonous
     !    or a semi-monotonous version of the Barth-Jespersen slope limiter.
     !
@@ -802,22 +811,23 @@ CONTAINS
     i_startblk = p_patch%edges%start_blk(i_rlstart,1)
     i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
 
-    IF ( l_out_edgeval ) THEN   ! Calculate 'edge value' of advected quantity
-
-      IF ( p_patch%id > 1 ) THEN ! initialize also nest boundary points with zero
+    ! initialize also nest boundary points with zero
+    IF ( l_out_edgeval .AND. p_patch%id > 1 ) THEN
 !$OMP WORKSHARE
-        p_out_e(:,:,1:i_startblk) = 0._wp
+      p_out_e(:,:,1:i_startblk) = 0._wp
 !$OMP END WORKSHARE
-      ENDIF
+    ENDIF
 
-      IF (p_igrad_c_miura == 1 .AND.                                          &
-       & (p_itype_hlimit == islopel_sm .OR. p_itype_hlimit == islopel_m)) THEN
+    IF (l_consv .AND. p_igrad_c_miura == 1 .AND.                           &
+     & (p_itype_hlimit == islopel_sm .OR. p_itype_hlimit == islopel_m)) THEN
 
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0), SCHEDULE(runtime)
-        DO jb = i_startblk, i_endblk
+      DO jb = i_startblk, i_endblk
 
-          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                             i_startidx, i_endidx, i_rlstart, i_rlend)
+        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, i_rlstart, i_rlend)
+
+        IF ( l_out_edgeval ) THEN   ! Calculate 'edge value' of advected quantity
 
 !CDIR UNROLL=5
           DO jk = slev, elev
@@ -836,66 +846,13 @@ CONTAINS
                 &  +   (z_distv_bary(je,jk,jb,2) - p_int%lsq_lin%lsq_moments(ilc0,ibc0,2)) &
                 &  * ptr_grad(ilc0,jk,ibc0,2) )
 
-            ENDDO ! loop over cells
-
+            ENDDO ! loop over edges
           ENDDO   ! loop over vertical levels
 
-        END DO    ! loop over blocks
-!$OMP END DO
-
-      ELSE
-
-        ! If no slope limiter is applied, this cheaper formulation without the
-        ! moments can be used. This version would also be appropriate if a non-conservative
-        ! reconstruction is chosen (independent from the chosen limiter). But then
-        ! a check of the logical variable llsq_rec_consv would be necessary, whose value
-        ! is not readily available in this module.
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0), SCHEDULE(runtime)
-        DO jb = i_startblk, i_endblk
-
-          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                             i_startidx, i_endidx, i_rlstart, i_rlend)
+        ELSE
 
 !CDIR UNROLL=5
           DO jk = slev, elev
-
-            DO je = i_startidx, i_endidx
-
-              ! Calculate reconstructed tracer value at barycenter of rhomboidal
-              ! area which is swept across the corresponding edge.
-              ilc0 = z_cell_indices(je,jk,jb,1)
-              ibc0 = z_cell_indices(je,jk,jb,2)
-
-              ! Calculate 'edge value' of advected quantity (cc_bary)
-              p_out_e(je,jk,jb) = ptr_cc(ilc0,jk,ibc0)                       &
-                &    + z_distv_bary(je,jk,jb,1) * ptr_grad(ilc0,jk,ibc0,1)   &
-                &    + z_distv_bary(je,jk,jb,2) * ptr_grad(ilc0,jk,ibc0,2)
-
-            ENDDO ! loop over cells
-
-          ENDDO   ! loop over vertical levels
-
-        END DO    ! loop over blocks
-!$OMP END DO
-
-      ENDIF
-
-
-    ELSE ! compute flux
-
-
-      IF (p_igrad_c_miura == 1 .AND.                                          &
-       & (p_itype_hlimit == islopel_sm .OR. p_itype_hlimit == islopel_m)) THEN
-
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0), SCHEDULE(runtime)
-        DO jb = i_startblk, i_endblk
-
-          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                             i_startidx, i_endidx, i_rlstart, i_rlend)
-
-!CDIR UNROLL=5
-          DO jk = slev, elev
-
             DO je = i_startidx, i_endidx
 
               ! Calculate reconstructed tracer value at barycenter of rhomboidal
@@ -910,50 +867,68 @@ CONTAINS
                 &  +   (z_distv_bary(je,jk,jb,2) - p_int%lsq_lin%lsq_moments(ilc0,ibc0,2)) &
                 &  * ptr_grad(ilc0,jk,ibc0,2) )) * p_mass_flx_e(je,jk,jb)
 
-            ENDDO ! loop over cells
-
+            ENDDO ! loop over edges
           ENDDO   ! loop over vertical levels
 
-        END DO    ! loop over blocks
+        ENDIF
+
+      END DO    ! loop over blocks
 !$OMP END DO
+ 
+    ELSE
 
-      ELSE
+      ! If no slope limiter is applied, a more efficient formulation without the
+      ! moments can be used.
 
-        ! If no slope limiter is applied, this cheaper formulation without the
-        ! moments can be used. This version would also be appropriate if a non-conservative
-        ! reconstruction is chosen (independent from the chosen limiter). But then
-        ! a check of the logical variable llsq_rec_consv would be necessary, whose value
-        ! is not readily available in this module.
 !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx,ilc0,ibc0), SCHEDULE(runtime)
-        DO jb = i_startblk, i_endblk
+      DO jb = i_startblk, i_endblk
 
-          CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-                             i_startidx, i_endidx, i_rlstart, i_rlend)
+        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+                           i_startidx, i_endidx, i_rlstart, i_rlend)
+
+        IF ( l_out_edgeval ) THEN   ! Calculate 'edge value' of advected quantity
 
 !CDIR UNROLL=5
           DO jk = slev, elev
-
             DO je = i_startidx, i_endidx
 
               ! Calculate reconstructed tracer value at barycenter of rhomboidal
               ! area which is swept across the corresponding edge.
               ilc0 = z_cell_indices(je,jk,jb,1)
+              ibc0 = z_cell_indices(je,jk,jb,2)  
+
+              ! Calculate 'edge value' of advected quantity (cc_bary)
+              p_out_e(je,jk,jb) = ptr_cc(ilc0,jk,ibc0)                       &
+                &    + z_distv_bary(je,jk,jb,1) * ptr_grad(ilc0,jk,ibc0,1)   &
+                &    + z_distv_bary(je,jk,jb,2) * ptr_grad(ilc0,jk,ibc0,2)
+
+            ENDDO ! loop over edges
+          ENDDO   ! loop over vertical levels
+
+        ELSE
+
+!CDIR UNROLL=5
+          DO jk = slev, elev
+            DO je = i_startidx, i_endidx
+
+              ! Calculate reconstructed tracer value at barycenter of rhomboidal
+              ! area which is swept across the corresponding edge.  
+              ilc0 = z_cell_indices(je,jk,jb,1)
               ibc0 = z_cell_indices(je,jk,jb,2)
 
               ! Calculate flux at cell edge (cc_bary*v_{n}* \Delta p)
-              p_out_e(je,jk,jb) = ( ptr_cc(ilc0,jk,ibc0)                      &
-                &    + z_distv_bary(je,jk,jb,1) * ptr_grad(ilc0,jk,ibc0,1)    &
-                &    + z_distv_bary(je,jk,jb,2) * ptr_grad(ilc0,jk,ibc0,2) )  &
-                &    * p_mass_flx_e(je,jk,jb)
+              p_out_e(je,jk,jb) = ( ptr_cc(ilc0,jk,ibc0)                        &
+                  &    + z_distv_bary(je,jk,jb,1) * ptr_grad(ilc0,jk,ibc0,1)    &
+                  &    + z_distv_bary(je,jk,jb,2) * ptr_grad(ilc0,jk,ibc0,2) )  &
+                  &    * p_mass_flx_e(je,jk,jb)
 
-            ENDDO ! loop over cells
-
+            ENDDO ! loop over edges
           ENDDO   ! loop over vertical levels
 
-        END DO    ! loop over blocks
-!$OMP END DO
+        ENDIF
 
-      ENDIF
+      ENDDO    ! loop over blocks
+!$OMP END DO
 
     ENDIF
 !$OMP END PARALLEL
@@ -979,8 +954,9 @@ CONTAINS
 
     IF ( ld_cleanup ) THEN
       ! deallocate temporary arrays for velocity, Gauss-points and barycenters
-      DEALLOCATE( z_distv_bary, z_cell_indices, z_distv_gausspoint, &
-      &           STAT=ist )
+      DEALLOCATE( z_distv_bary, z_cell_indices, STAT=ist )
+      IF (p_itype_hlimit == islopel_m .OR. p_itype_hlimit == islopel_sm) &
+        & DEALLOCATE( z_distv_gausspoint, STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine),                                &
           &  'deallocation for z_distv_bary, z_cell_indices, '  //  &
@@ -1075,7 +1051,7 @@ CONTAINS
                                        !< i.e. output flux across the edge
 
    REAL(wp) ::   &                     !< coefficients of lsq reconstruction
-      &  z_lsq_coeff(nproma,p_patch%nlev,p_patch%nblks_c,lsq_high_set%dim_unk+1) 
+      &  z_lsq_coeff(nproma,p_patch%nlev,lsq_high_set%dim_unk+1,p_patch%nblks_c) 
                                        !< at cell center
                                        !< includes c0 and gradients in zonal and
                                        !< meridional direction
@@ -1108,6 +1084,7 @@ CONTAINS
     INTEGER  :: slev, elev         !< vertical start and end level
     INTEGER  :: ist                !< status variable
     INTEGER  :: je, jk, jb         !< index of edge, vert level, block
+    INTEGER  :: jc, ji, dim_unk
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_rlend_c, i_nchdom
     INTEGER  :: pid                !< patch ID
@@ -1165,6 +1142,8 @@ CONTAINS
       z_lsq_coeff(:,:,:,:) = 0._wp
     ENDIF
 
+    dim_unk = lsq_high_set%dim_unk+1
+
     !
     ! advection is done with an upwind scheme and a piecewise quadratic
     ! or cubic approximation of the tracer subgrid distribution.
@@ -1180,9 +1159,9 @@ CONTAINS
 
     IF ( ld_compute ) THEN
       ! allocate temporary arrays for quadrature and upwind cells
-      ALLOCATE( z_quad_vector_sum(nproma,lsq_high_set%dim_unk+1,nlev,p_patch%nblks_e), &
-        &       z_rdreg_area(nproma,nlev,p_patch%nblks_e),                             &
-        &       z_cell_indices(nproma,nlev,p_patch%nblks_e,2),                         &
+      ALLOCATE( z_quad_vector_sum(nproma,dim_unk,nlev,p_patch%nblks_e), &
+        &       z_rdreg_area(nproma,nlev,p_patch%nblks_e),              &
+        &       z_cell_indices(nproma,nlev,p_patch%nblks_e,2),          &
         &       STAT=ist )
       IF (ist /= SUCCESS) THEN
         CALL finish ( TRIM(routine),                                 &
@@ -1237,8 +1216,9 @@ CONTAINS
 
 
     ! Synchronize polynomial coefficients
-    CALL sync_patch_array_mult(SYNC_C1,p_patch,lsq_high_set%dim_unk+1,  &
-      &                        f4din=z_lsq_coeff )
+    ! Note: a special sync routine is needed here because the fourth dimension
+    ! of z_lsq_coeff is (for efficiency reasons) on the third index
+    CALL sync_patch_array_4de3(SYNC_C1,p_patch,lsq_high_set%dim_unk+1,z_lsq_coeff)
 
 
     !
@@ -1371,295 +1351,150 @@ CONTAINS
     !    of piecewise quadratic/cubic approximation). Only the reconstruction for
     !    the local cell is taken into account.
 
-    !
-    ! in order to have a proper vectorization at this point, one needs to
-    ! distinguish between a quadratic and cubic reconstruction.
-    !
-    SELECT  CASE( lsq_high_ord )
-
-    CASE( 2 )  ! quadratic reconstruction
-
-
 !$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
 
-      ! Before starting, preset halo edges that are not processed with zero's in order
-      ! to avoid access of uninitialized array elements in subsequent routines
-      ! Necessary when called within dycore
+    ! First of all, preset halo edges that are not processed with zero's in order
+    ! to avoid access of uninitialized array elements in subsequent routines
+    ! Necessary when called within dycore
 
-      IF ( l_out_edgeval ) THEN
-        i_startblk = p_patch%edges%start_blk(i_rlend-1,i_nchdom)
-        i_endblk   = p_patch%edges%end_blk(min_rledge_int-3,i_nchdom)
+    IF ( l_out_edgeval ) THEN
+      i_startblk = p_patch%edges%start_blk(i_rlend-1,i_nchdom)
+      i_endblk   = p_patch%edges%end_blk(min_rledge_int-3,i_nchdom)
 
 !$OMP WORKSHARE
-        p_out_e(:,:,i_startblk:i_endblk) = 0._wp
+      p_out_e(:,:,i_startblk:i_endblk) = 0._wp
 !$OMP END WORKSHARE
-      ENDIF
+    ENDIF
 
-      i_startblk = p_patch%edges%start_blk(i_rlstart,1)
-      i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
+    i_startblk = p_patch%edges%start_blk(i_rlstart,1)
+    i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
+
+    ! initialize also nest boundary points with zero
+    IF ( l_out_edgeval .AND. p_patch%id > 1 ) THEN
+!$OMP WORKSHARE
+      p_out_e(:,:,1:i_startblk) = 0._wp
+!$OMP END WORKSHARE
+    ENDIF
+
+ !$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
+        &                i_startidx, i_endidx, i_rlstart, i_rlend)
 
       IF ( l_out_edgeval ) THEN   ! Calculate 'edge value' of advected quantity
 
-        IF ( p_patch%id > 1 ) THEN ! initialize also nest boundary points with zero
-!$OMP WORKSHARE
-          p_out_e(:,:,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
-        ENDIF
+      ! Integral over departure region, normalized by departure region area
+      ! (equals the tracer area average)
+      ! - z_quad_vector_sum : tracer independent part
+      ! - z_lsq_coeff       : tracer dependent part (lsq coefficients)
 
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
-      DO jb = i_startblk, i_endblk
+        SELECT  CASE( lsq_high_ord )
+        CASE( 2 )  ! quadratic reconstruction
 
-        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-          &                i_startidx, i_endidx, i_rlstart, i_rlend)
-
-!CDIR UNROLL=2
+!CDIR UNROLL=4
         DO jk = slev, elev
-
           DO je = i_startidx, i_endidx
 
-            ! Integral over departure region, normalized by departure region area
-            ! (equals the tracer area average)
-            ! - z_quad_vector_sum : tracer independent part
-            ! - z_lsq_coeff       : tracer dependent part (lsq coefficients)
 !CDIR EXPAND=6
-            p_out_e(je,jk,jb) =                                                         &
-              &  DOT_PRODUCT( z_lsq_coeff( ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb),1:6), &
+            p_out_e(je,jk,jb) =                                                       &
+              &  DOT_PRODUCT(z_lsq_coeff(ptr_ilc(je,jk,jb),jk,1:6,ptr_ibc(je,jk,jb)), &
               &  z_quad_vector_sum(je,1:6,jk,jb) ) * z_rdreg_area(je,jk,jb)
 
-          ENDDO ! loop over edges
+          ENDDO
+        ENDDO
 
-        ENDDO  ! loop over levels
+        CASE( 30 )  ! cubic reconstruction without third order cross derivatives
 
-      ENDDO  ! loop over blocks
-!$OMP END DO
-
-
-      ELSE ! compute flux
-
-
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-          &                i_startidx, i_endidx, i_rlstart, i_rlend)
-
-!CDIR UNROLL=2
+!CDIR UNROLL=5
         DO jk = slev, elev
-
           DO je = i_startidx, i_endidx
 
-            ! Calculate flux at cell edge (cc_avg * mass_flx)
-            !
-            ! Integral over departure region, normalized by departure region area
-            ! (equals the tracer area average) times the mass flux
-            ! - z_quad_vector_sum : tracer independent part
-            ! - z_lsq_coeff       : tracer dependent part (lsq coefficients)
-!CDIR EXPAND=6
-            p_out_e(je,jk,jb) =                                                          &
-              &  ( DOT_PRODUCT( z_lsq_coeff(ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb),1:6), &
-              &    z_quad_vector_sum(je,1:6,jk,jb) ) * z_rdreg_area(je,jk,jb) )          &
-              &  * p_mass_flx_e(je,jk,jb)
-
-          ENDDO ! loop over edges
-
-        ENDDO  ! loop over levels
-
-      ENDDO  ! loop over blocks
-!$OMP END DO
-
-      ENDIF  ! l_out_edgeval
-!$OMP END PARALLEL
-
-
-    CASE( 30 ) ! cubic reconstruction without third order cross derivatives
-
-
-!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-
-      ! Before starting, preset halo edges that are not processed with zero's in order
-      ! to avoid access of uninitialized array elements in subsequent routines
-      ! Necessary when called within dycore
-
-      IF ( l_out_edgeval ) THEN
-        i_startblk = p_patch%edges%start_blk(i_rlend-1,i_nchdom)
-        i_endblk   = p_patch%edges%end_blk(min_rledge_int-3,i_nchdom)
-
-!$OMP WORKSHARE
-        p_out_e(:,:,i_startblk:i_endblk) = 0._wp
-!$OMP END WORKSHARE
-      ENDIF
-
-      i_startblk = p_patch%edges%start_blk(i_rlstart,1)
-      i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
-
-      IF ( l_out_edgeval ) THEN   ! Calculate 'edge value' of advected quantity
-
-        IF ( p_patch%id > 1 ) THEN ! initialize also nest boundary points with zero
-!$OMP WORKSHARE
-          p_out_e(:,:,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
-        ENDIF
-
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-          &                i_startidx, i_endidx, i_rlstart, i_rlend)
-
-!CDIR UNROLL=2
-        DO jk = slev, elev
-
-          DO je = i_startidx, i_endidx
-
-            ! Integral over departure region, normalized by departure region area
-            ! (equals the tracer area average)
-            ! - z_quad_vector_sum : tracer independent part
-            ! - z_lsq_coeff       : tracer dependent part (lsq coefficients)
 !CDIR EXPAND=8
-            p_out_e(je,jk,jb) =                                                         &
-              &  DOT_PRODUCT( z_lsq_coeff( ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb),1:8), &
+            p_out_e(je,jk,jb) =                                                       &
+              &  DOT_PRODUCT(z_lsq_coeff(ptr_ilc(je,jk,jb),jk,1:8,ptr_ibc(je,jk,jb)), &
               &  z_quad_vector_sum(je,1:8,jk,jb) ) * z_rdreg_area(je,jk,jb)
 
-          ENDDO ! loop over edges
+          ENDDO
+        ENDDO
 
-        ENDDO  ! loop over levels
+        CASE( 3 )  ! cubic reconstruction with third order cross derivatives
 
-      ENDDO  ! loop over blocks
-!$OMP END DO
-
-
-      ELSE ! compute flux
-
-
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-          &                i_startidx, i_endidx, i_rlstart, i_rlend)
-
-!CDIR UNROLL=2
+!CDIR UNROLL=4
         DO jk = slev, elev
-
           DO je = i_startidx, i_endidx
 
-            ! Calculate flux at cell edge (cc_avg * mass_flx)
-            !
-            ! Integral over departure region, normalized by departure region area
-            ! (equals the tracer area average) times the mass flux
-            ! - z_quad_vector_sum : tracer independent part
-            ! - z_lsq_coeff       : tracer dependent part (lsq coefficients)
-!CDIR EXPAND=8
-            p_out_e(je,jk,jb) =                                                          &
-              &  ( DOT_PRODUCT( z_lsq_coeff(ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb),1:8), &
-              &    z_quad_vector_sum(je,1:8,jk,jb) ) * z_rdreg_area(je,jk,jb) )          &
-              &  * p_mass_flx_e(je,jk,jb)
-
-          ENDDO ! loop over edges
-
-        ENDDO  ! loop over levels
-
-      ENDDO  ! loop over blocks
-!$OMP END DO
-
-      ENDIF  ! l_out_edgeval
-!$OMP END PARALLEL
-
-
-    CASE( 3 )  ! cubic reconstruction with cross derivatives
-
-
-!$OMP PARALLEL PRIVATE(i_startblk,i_endblk)
-
-      ! Before starting, preset halo edges that are not processed with zero's in order
-      ! to avoid access of uninitialized array elements in subsequent routines
-      ! Necessary when called within dycore
-
-      IF ( l_out_edgeval ) THEN
-        i_startblk = p_patch%edges%start_blk(i_rlend-1,i_nchdom)
-        i_endblk   = p_patch%edges%end_blk(min_rledge_int-3,i_nchdom)
-
-!$OMP WORKSHARE
-        p_out_e(:,:,i_startblk:i_endblk) = 0._wp
-!$OMP END WORKSHARE
-      ENDIF
-
-      i_startblk = p_patch%edges%start_blk(i_rlstart,1)
-      i_endblk   = p_patch%edges%end_blk(i_rlend,i_nchdom)
-
-      IF ( l_out_edgeval ) THEN   ! Calculate 'edge value' of advected quantity
-
-        IF ( p_patch%id > 1 ) THEN ! initialize also nest boundary points with zero
-!$OMP WORKSHARE
-          p_out_e(:,:,1:i_startblk) = 0._wp
-!$OMP END WORKSHARE
-        ENDIF
-
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-          &                i_startidx, i_endidx, i_rlstart, i_rlend)
-
-!CDIR UNROLL=2
-        DO jk = slev, elev
-
-          DO je = i_startidx, i_endidx
-
-            ! Integral over departure region, normalized by departure region area
-            ! (equals the tracer area average)
-            ! - z_quad_vector_sum : tracer independent part
-            ! - z_lsq_coeff       : tracer dependent part (lsq coefficients)
 !CDIR EXPAND=10
-            p_out_e(je,jk,jb) =                                                         &
-              &  DOT_PRODUCT( z_lsq_coeff( ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb),1:10), &
+            p_out_e(je,jk,jb) =                                                        &
+              &  DOT_PRODUCT(z_lsq_coeff(ptr_ilc(je,jk,jb),jk,1:10,ptr_ibc(je,jk,jb)), &
               &  z_quad_vector_sum(je,1:10,jk,jb) ) * z_rdreg_area(je,jk,jb)
 
-          ENDDO ! loop over edges
+          ENDDO
+        ENDDO
 
-        ENDDO  ! loop over levels
+        END SELECT
 
-      ENDDO  ! loop over blocks
-!$OMP END DO
+      ELSE   ! Compute flux at cell edge (edge value * mass_flx)
 
+       ! Calculate flux at cell edge 
+       !
+       ! Integral over departure region, normalized by departure region area
+       ! (equals the tracer area average) times the mass flux
+       ! - z_quad_vector_sum : tracer independent part
+       ! - z_lsq_coeff       : tracer dependent part (lsq coefficients)
 
-      ELSE ! compute flux
+        SELECT  CASE( lsq_high_ord )
+        CASE( 2 )  ! quadratic reconstruction
 
-
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
-      DO jb = i_startblk, i_endblk
-
-        CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
-          &                i_startidx, i_endidx, i_rlstart, i_rlend)
-
-!CDIR UNROLL=2
+!CDIR UNROLL=4
         DO jk = slev, elev
-
           DO je = i_startidx, i_endidx
 
-            ! Calculate flux at cell edge (cc_avg * mass_flx)
-            !
-            ! Integral over departure region, normalized by departure region area
-            ! (equals the tracer area average) times the mass flux
-            ! - z_quad_vector_sum : tracer independent part
-            ! - z_lsq_coeff       : tracer dependent part (lsq coefficients)
-!CDIR EXPAND=10
-            p_out_e(je,jk,jb) =                                                           &
-              &  ( DOT_PRODUCT( z_lsq_coeff(ptr_ilc(je,jk,jb),jk,ptr_ibc(je,jk,jb),1:10), &
-              &    z_quad_vector_sum(je,1:10,jk,jb) ) * z_rdreg_area(je,jk,jb) )          &
+!CDIR EXPAND=6
+            p_out_e(je,jk,jb) =                                                       &
+              &  DOT_PRODUCT(z_lsq_coeff(ptr_ilc(je,jk,jb),jk,1:6,ptr_ibc(je,jk,jb)), &
+              &  z_quad_vector_sum(je,1:6,jk,jb) ) * z_rdreg_area(je,jk,jb)           &
               &  * p_mass_flx_e(je,jk,jb)
 
-          ENDDO ! loop over edges
+          ENDDO
+        ENDDO
 
-        ENDDO  ! loop over levels
+        CASE( 30 )  ! cubic reconstruction without third order cross derivatives
 
-      ENDDO  ! loop over blocks
+!CDIR UNROLL=5
+        DO jk = slev, elev
+          DO je = i_startidx, i_endidx
+
+!CDIR EXPAND=8
+            p_out_e(je,jk,jb) =                                                       &
+              &  DOT_PRODUCT(z_lsq_coeff(ptr_ilc(je,jk,jb),jk,1:8,ptr_ibc(je,jk,jb)), &
+              &  z_quad_vector_sum(je,1:8,jk,jb) ) * z_rdreg_area(je,jk,jb)           &
+              &  * p_mass_flx_e(je,jk,jb)
+
+          ENDDO
+        ENDDO
+
+        CASE( 3 )  ! cubic reconstruction with third order cross derivatives
+
+!CDIR UNROLL=4
+        DO jk = slev, elev
+          DO je = i_startidx, i_endidx
+
+!CDIR EXPAND=10
+            p_out_e(je,jk,jb) =                                                        &
+              &  DOT_PRODUCT(z_lsq_coeff(ptr_ilc(je,jk,jb),jk,1:10,ptr_ibc(je,jk,jb)), &
+              &  z_quad_vector_sum(je,1:10,jk,jb) ) * z_rdreg_area(je,jk,jb)           &
+              &  * p_mass_flx_e(je,jk,jb)
+
+          ENDDO
+        ENDDO
+
+        END SELECT
+
+      ENDIF
+    ENDDO  ! loop over blocks
 !$OMP END DO
-
-      ENDIF  ! l_out_edgeval
 !$OMP END PARALLEL
-
-    END SELECT
-
 
 
     !

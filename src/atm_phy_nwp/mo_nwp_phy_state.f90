@@ -65,7 +65,7 @@ MODULE mo_nwp_phy_state
 ! !USES:
 
 USE mo_kind,                ONLY: wp
-USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
+USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc
 USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: ntracer, iqcond
 USE mo_exception,           ONLY: message, finish !,message_text
@@ -128,6 +128,7 @@ TYPE t_nwp_phy_diag
    TYPE(t_ptr_phy),ALLOCATABLE :: cfm_ptr(:)  !< pointer array: average of cfm
    TYPE(t_ptr_phy),ALLOCATABLE :: cfh_ptr(:)  !< pointer array: average of cfh
    TYPE(t_ptr_phy),ALLOCATABLE :: z0m_ptr(:)  !< pointer array: average of z0m
+   TYPE(t_ptr_phy),ALLOCATABLE :: tra_rate_ptr(:) !< pointer array: tracer rates
 
   REAL(wp), POINTER ::  &
        &   tracer_rate(:,:,:) , & !> (nproma,nblks,4) precipitation rate of rain and snow
@@ -185,6 +186,7 @@ TYPE t_nwp_phy_diag
        &  lwflxtoa_avg(:,:),    & !! longwave net flux at toa [W/m2], mean since last output
        &  swflxtoa_avg(:,:),    & !! shortwave net flux at toa [W/m2], mean since last output
        &  acdnc(:,:,:)            !! cloud droplet number concentration [1/m**3]
+
   
 
  !> Parameter fields for turbulence
@@ -451,6 +453,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     !------------------
     ! 2D and 3D variables
 
+    kcloud= 4
 
 
     ! &      diag%tracer_rate(nproma,nblks_c,4)
@@ -459,7 +462,41 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     CALL add_var( diag_list, 'tracer_rate', diag%tracer_rate,          &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,cf_desc, grib2_desc, &
           &                                   ldims=(/nproma,kblks,4/),&
-          &                                           lrestart=.FALSE. )
+          &         lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
+
+    ALLOCATE( diag%tra_rate_ptr(kcloud))
+    vname_prefix='tra_rate_'
+
+           !qv
+        CALL add_ref( diag_list, 'tracer_rate',                                     &
+                    & TRIM(vname_prefix)//'qv', diag%tra_rate_ptr(1)%p_2d,          &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                         &
+                    & t_cf_var(TRIM(vname_prefix)//'qv', '','unknown'),             &
+                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape2d)
+           !qc
+        CALL add_ref( diag_list, 'tracer_rate',                                     &
+                    & TRIM(vname_prefix)//'qc', diag%tra_rate_ptr(2)%p_2d,          &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                         &
+                    & t_cf_var(TRIM(vname_prefix)//'qc', '','unknown'),             &
+                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape2d)
+           !qr
+        CALL add_ref( diag_list, 'tracer_rate',                                     &
+                    & TRIM(vname_prefix)//'qr', diag%tra_rate_ptr(3)%p_2d,          &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                         &
+                    & t_cf_var(TRIM(vname_prefix)//'qr', '','precipitation rate'),  &
+                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape2d)
+           !qs
+        CALL add_ref( diag_list, 'tracer_rate',                                     &
+                    & TRIM(vname_prefix)//'qs', diag%tra_rate_ptr(4)%p_2d,          &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                         &
+                    & t_cf_var(TRIM(vname_prefix)//'qs', '','snowfall rate'),       &
+                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape2d)
+
+
 
     ! &      diag%rain_gsp(nproma,nblks_c)
     cf_desc    = t_cf_var('rain_gsp ', 'kg m-2 ', 'gridscale rain ')
@@ -481,21 +518,21 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'rain_con', diag%rain_con,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
-                &                              ldims=shape2d,lrestart=.FALSE. )
+                &                              ldims=shape2d,lrestart=.TRUE. )
 
     ! &      diag%snow_con(nproma,nblks_c)
     cf_desc    = t_cf_var('snow_con', 'kg m-2', 'convective snow')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'snow_con', diag%snow_con,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
-                &   ldims=shape2d ,lrestart=.FALSE. )
+                &   ldims=shape2d ,lrestart=.TRUE. )
 
     ! &      diag%tot_prec(nproma,nblks_c)
     cf_desc    = t_cf_var('tot_prec', '', 'total precip')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tot_prec', diag%tot_prec,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, &
-                & ldims=shape2d,  lrestart=.FALSE. )
+                & ldims=shape2d,  lrestart=.TRUE. )
 
     ! &      diag%tot_prec_rate_avg(nproma,nblks_c)
     cf_desc    = t_cf_var('tot_prec_rate_avg', '', 'total precip, time average')
@@ -584,7 +621,6 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                   & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
 
     ! fill the seperate variables belonging to the container tot_cld_vi
-    kcloud= 4
     ALLOCATE( diag%tci_ptr(kcloud))
     vname_prefix='T'
        
@@ -856,28 +892,24 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'lwflxclr', diag%lwflxclr,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
-        !                &  lmiss=.true.,     missval=0._wp                      )
 
         ! &      diag% lwflxall(nproma,nlevp1,nblks_c)
         cf_desc    = t_cf_var('lwflxall', 'W m-2 ', 'longwave net flux')
         grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'lwflxall', diag%lwflxall,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3dkp1 )
-        !                &  lmiss=.true.,     missval=0._wp                      )
 
         ! &      diag% trsolclr(nproma,nlev,nblks_c)
         cf_desc    = t_cf_var('trsolclr', '', 'shortwave clear-sky net tranmissivity')
         grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'trsolclr', diag%trsolclr,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d)
-!                &  lmiss=.true.,     missval=0._wp                      )
 
         ! &      diag%  trsolall(nproma,nlevp1,nblks_c)
         cf_desc    = t_cf_var('trsolall', '', 'shortwave net tranmissivity')
         grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'trsolall', diag%trsolall,                             &
           & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3dkp1)
-        !                &  lmiss=.true.,     missval=0._wp                      )
 
         !------------------
         !Turbulence 2D variables
@@ -1178,22 +1210,21 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     cf_desc    = t_cf_var('tkvm', 'm s-2', ' turbulent diffusion coefficients for momentum')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tkvm', diag%tkvm,                             &
-                & GRID_UNSTRUCTURED_CELL,  ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d) !,&
-  !              &  lmiss=.true.,     missval=0._wp                      )
+                & GRID_UNSTRUCTURED_CELL,  ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d)
 
    ! &      diag%tkvh(nproma,nlev,nblks_c)
     cf_desc    = t_cf_var('tkvh', 'm s-2', ' turbulent diffusion coefficients for heat')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tkvh', diag%tkvh,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d) !,&
-  !              &  lmiss=.true.,     missval=0._wp                      )
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, &
+                &                                                 ldims=shape3d) 
 
    ! &      diag%rcld(nproma,nlev,nblks_c)
     cf_desc    = t_cf_var('rcld', '', 'standard deviation of the saturation deficit')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'rcld', diag%rcld,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d) !,&
-   !             &  lmiss=.true.,     missval=0._wp                      )
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,&
+                &                                                 ldims=shape3dkp1)
 
    ! &      diag%edr(nproma,nlevp1,nblks_c)
     cf_desc    = t_cf_var('edr', '', 'eddy dissipation rate')

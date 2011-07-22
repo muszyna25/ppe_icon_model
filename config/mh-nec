@@ -75,7 +75,7 @@ INLINE   = $INLINE -pi rexp=global_sum_array2,laxfr_upflux
 INLINE   = $INLINE -pi rexp=foelhmcu,foeewmcu,foeewm,foeldcp,foeldcpm
 INLINE   = $INLINE -pi rexp=foeewm_v,foeewmcu_v,foedem,foeldcpmcu,foedemcu
 INLINE   = $INLINE -pi rexp=foeewl,foeewi
-INLINE   = $INLINE -pi rexp=qsat_rho
+INLINE   = $INLINE -pi rexp=qsat_rho,sat_pres_water
 INLINE   = $INLINE -pi rexp=p_wait
 
 # standard flags for C compiler
@@ -165,7 +165,7 @@ case "$mh_setup" in
     with_openmp=no
 
     CFLAGS   = $CFLAGS -DNOMPI
-    FFLAGS   =    -sx9 -DNOMPI $DEBUGFLAGS $FPTRAP -DDEBUG_COEFF
+    FFLAGS   =    -sx9 -DNOMPI $DEBUGFLAGS $FPTRAP
     LDFLAGS  = $LDFLAGS $LDDEBUG
 
     ;;
@@ -177,7 +177,7 @@ case "$mh_setup" in
     with_openmp=yes
 
     CFLAGS   = $CFLAGS -DNOMPI
-    FFLAGS   =    -sx9 -DNOMPI $DEBUGFLAGS $FPTRAP -DDEBUG_COEFF  $OMPFLAGS
+    FFLAGS   =    -sx9 -DNOMPI $DEBUGFLAGS $FPTRAP $OMPFLAGS
     LDFLAGS  = $LDFLAGS $LDDEBUG
 
     ;;

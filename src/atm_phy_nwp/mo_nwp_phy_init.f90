@@ -90,6 +90,7 @@ MODULE mo_nwp_phy_init
 
   USE mo_nh_testcases,         ONLY: nh_test_name, ape_sst_case
   USE mo_ape_params,           ONLY: ape_sst
+  USE mo_master_nml,           ONLY: lrestart
 
   IMPLICIT NONE
 
@@ -154,7 +155,9 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     nlevp1 = p_patch%nlevp1
     jg     = p_patch%id
 
-    IF ( ltestcase )THEN 
+
+
+    IF ( ltestcase .AND. .NOT. lrestart)THEN 
 
     rl_start = 1 ! Initialization should be done for all points
     rl_end   = min_rlcell

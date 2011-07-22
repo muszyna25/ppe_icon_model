@@ -58,7 +58,7 @@ USE mo_mpi,                ONLY: p_pe, p_bcast, p_sum, p_max, p_min, &
   & p_work_pe0, p_pe_work
 USE mo_parallel_config, ONLY:p_test_run,   &
   & n_ghost_rows, l_log_checks, l_fast_sum
-USE mo_communication,      ONLY: exchange_data,                                &
+USE mo_communication,      ONLY: exchange_data, exchange_data_4de3,            &
                                  exchange_data_mult, t_comm_pattern,           &
                                  blk_no, idx_no, exchange_data_gm
 
@@ -75,7 +75,8 @@ PUBLIC :: sync_patch_array, check_patch_array,                        &
           global_sum_array, omp_global_sum_array,                     &
           global_sum_array2, global_sum_array3,                       &
           sync_patch_array_mult, push_glob_comm, pop_glob_comm,       &
-          global_min, global_max, sync_patch_array_gm
+          global_min, global_max, sync_patch_array_gm,                &
+          sync_patch_array_4de3
 
 !
 !variables
@@ -317,6 +318,58 @@ SUBROUTINE sync_patch_array_mult(typ, p_patch, nfields, f3din1, f3din2, f3din3, 
    ENDIF
 
 END SUBROUTINE sync_patch_array_mult
+
+!>
+!! Does boundary exchange for a 4D field for which the extra dimension
+!! is on the third index.
+!!
+!! @par Revision History
+!! Optimized version by Guenther Zaengl, Apr 2010, based on routines
+!! developed by Rainer Johanni
+!!
+SUBROUTINE sync_patch_array_4de3(typ, p_patch, nfields, f4din)
+
+   INTEGER, INTENT(IN)             :: typ
+   TYPE(t_patch), INTENT(IN), TARGET :: p_patch
+   INTEGER,     INTENT(IN)         :: nfields
+
+   REAL(wp), INTENT(INOUT) :: f4din(:,:,:,:)
+
+   REAL(wp), ALLOCATABLE :: arr3(:,:,:)
+   TYPE(t_comm_pattern), POINTER :: p_pat
+   INTEGER :: i, ndim2tot
+
+!-----------------------------------------------------------------------
+
+    IF(typ == SYNC_C) THEN
+      p_pat => p_patch%comm_pat_c
+    ELSE IF(typ == SYNC_E) THEN
+      p_pat => p_patch%comm_pat_e
+    ELSE IF(typ == SYNC_V) THEN
+      p_pat => p_patch%comm_pat_v
+    ELSE IF(typ == SYNC_C1) THEN
+      p_pat => p_patch%comm_pat_c1
+    ENDIF
+
+   ! If this is a verification run, check consistency before doing boundary exchange
+   IF (p_test_run) THEN
+     ALLOCATE(arr3(UBOUND(f4din,1), UBOUND(f4din,2), UBOUND(f4din,4)))
+     DO i = 1, nfields
+       arr3(:,:,:) = f4din(:,:,i,:)
+       CALL check_patch_array_3(typ, p_patch, arr3, 'sync')
+     ENDDO
+     DEALLOCATE(arr3)
+   ENDIF
+
+   ! Boundary exchange for work PEs
+   IF(p_nprocs /= 1 .AND. p_pe /= p_test_pe) THEN
+     IF (nfields/=UBOUND(f4din,3)) &
+       CALL finish('sync_patch_array_4de3','inconsistent arguments')
+     ndim2tot = nfields*SIZE(f4din,2)
+     CALL exchange_data_4de3(p_pat, nfields, ndim2tot, recv=f4din)
+   ENDIF
+
+END SUBROUTINE sync_patch_array_4de3
 
 !>
 !! Does boundary exchange for up to 5 3D cell-based fields or a 4D field.

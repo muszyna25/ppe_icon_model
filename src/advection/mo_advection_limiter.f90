@@ -157,12 +157,13 @@ CONTAINS
       &  r_p(nproma,ptr_patch%nlev,ptr_patch%nblks_c),&   !< of cell jc to guarantee
       &  r_m(nproma,ptr_patch%nlev,ptr_patch%nblks_c)     !< no overshoot/undershoot
 
-    REAL(wp) :: r_frac(nproma) !< computed minimum fraction which must multiply
-                               !< the flux at the edge
+    REAL(wp) :: r_frac !< computed minimum fraction which must multiply
+                       !< the flux at the edge
 
-    REAL(wp) :: z_min(nproma), z_max(nproma) !< minimum/maximum value in cell and neighboring cells
-    REAL(wp) :: z_signum(nproma)             !< sign of antidiffusive velocity
-    REAL(wp) :: p_p(nproma), p_m(nproma)     !< sum of antidiffusive fluxes into and out of cell jc
+    REAL(wp) :: z_min(nproma,ptr_patch%nlev), & !< minimum/maximum value in cell and neighboring cells
+      &         z_max(nproma,ptr_patch%nlev) 
+    REAL(wp) :: z_signum             !< sign of antidiffusive velocity
+    REAL(wp) :: p_p, p_m             !< sum of antidiffusive fluxes into and out of cell jc
 
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices of two
       &  iilc, iibc                          !< neighbor cells (array)
@@ -266,31 +267,20 @@ CONTAINS
           !
           z_mflx_low(je,jk,jb) =  &
             &  laxfr_upflux( p_mass_flx_e(je,jk,jb), p_cc(iilc(je,jb,1),jk,iibc(je,jb,1)), &
-            &                             p_cc(iilc(je,jb,2),jk,iibc(je,jb,2)) )
+            &                                        p_cc(iilc(je,jb,2),jk,iibc(je,jb,2)) )
+
 
           ! calculate antidiffusive flux for each edge
           z_anti(je,jk,jb)     = p_mflx_tracer_h(je,jk,jb) - z_mflx_low(je,jk,jb)
 
-        END DO  ! end loop over edges
 
+        END DO  ! end loop over edges
       END DO  ! end loop over levels
 
     END DO  ! end loop over blocks
 !$OMP END DO
-!$OMP END PARALLEL
 
 
-    !
-    ! 2. Compute the updated low order solution z_tracer_new_low
-    !
-    !  compute divergence of low order fluxes
-    CALL div( z_mflx_low, ptr_patch, ptr_int,              &! in
-      &       z_fluxdiv_c(:,:,:),                          &! inout
-      &       opt_rlstart=3, opt_rlend=min_rlcell_int-1,   &! in
-      &       opt_slev=slev, opt_elev=elev                 )! in
-
-
-!$OMP PARALLEL PRIVATE(i_rlstart_c,i_rlend_c,i_startblk,i_endblk)
     i_rlstart_c  = grf_bdywidth_c - 1
     i_rlend_c    = min_rlcell_int - 1
     i_startblk   = ptr_patch%cells%start_blk(i_rlstart_c,1)
@@ -306,24 +296,18 @@ CONTAINS
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
 #else
-!CDIR UNROLL=5
+!CDIR UNROLL=4
       DO jk = slev, elev
-
         DO jc = i_startidx, i_endidx
 #endif
 
-          z_tracer_new_low(jc,jk,jb) =                           &
-            &      ( p_cc(jc,jk,jb) * ptr_delp_mc_now(jc,jk,jb)  &
-            &      - p_dtime * z_fluxdiv_c(jc,jk,jb) )           &
-            &      / ptr_delp_mc_new(jc,jk,jb)
-
-    !
-    ! 3. Define "antidiffusive" fluxes A(jc,jk,jb,je) for each cell. It is the difference
-    !    between the high order fluxes (given by the FFSL-scheme) and the low order
-    !    ones. Multiply with geometry factor to have units [kg/kg] and the correct sign.
-    !    - positive for outgoing fluxes
-    !    - negative for incoming fluxes
-    !    this sign convention is related to the definition of the divergence operator.
+          !
+          ! 2. Define "antidiffusive" fluxes A(jc,jk,jb,je) for each cell. It is the difference
+          !    between the high order fluxes (given by the FFSL-scheme) and the low order
+          !    ones. Multiply with geometry factor to have units [kg/kg] and the correct sign.
+          !    - positive for outgoing fluxes
+          !    - negative for incoming fluxes
+          !    this sign convention is related to the definition of the divergence operator.
 
           z_mflx_anti(jc,jk,jb,1) =                                                  &
             &     p_dtime * ptr_int%geofac_div(jc,1,jb) / ptr_delp_mc_new(jc,jk,jb)  &
@@ -336,6 +320,27 @@ CONTAINS
           z_mflx_anti(jc,jk,jb,3) =                                                  &
             &     p_dtime * ptr_int%geofac_div(jc,3,jb) / ptr_delp_mc_new(jc,jk,jb)  &
             &   * z_anti(iidx(jc,jb,3),jk,iblk(jc,jb,3))
+
+
+          !  compute also divergence of low order fluxes
+          z_fluxdiv_c(jc,jk,jb) =  &
+            & z_mflx_low(iidx(jc,jb,1),jk,iblk(jc,jb,1)) * ptr_int%geofac_div(jc,1,jb) + &
+            & z_mflx_low(iidx(jc,jb,2),jk,iblk(jc,jb,2)) * ptr_int%geofac_div(jc,2,jb) + &
+            & z_mflx_low(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * ptr_int%geofac_div(jc,3,jb)
+
+        ENDDO
+      ENDDO
+
+      !
+      ! 3. Compute the updated low order solution z_tracer_new_low
+      !
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+
+          z_tracer_new_low(jc,jk,jb) =                           &
+            &      ( p_cc(jc,jk,jb) * ptr_delp_mc_now(jc,jk,jb)  &
+            &      - p_dtime * z_fluxdiv_c(jc,jk,jb) )           &
+            &      / ptr_delp_mc_new(jc,jk,jb)
 
           ! precalculate local maximum of current tracer value and low order
           ! updated value
@@ -368,44 +373,49 @@ CONTAINS
       DO jc = i_startidx, i_endidx
         DO jk = slev, elev
 #else
-!CDIR UNROLL=5
+!CDIR UNROLL=2
       DO jk = slev, elev
         DO jc = i_startidx, i_endidx
 #endif
 
-          ! Sum of all incoming antidiffusive fluxes into cell jc
-          p_p(jc) =  -1._wp * (MIN(0._wp,z_mflx_anti(jc,jk,jb,1))   &
-                             + MIN(0._wp,z_mflx_anti(jc,jk,jb,2))   &
-                             + MIN(0._wp,z_mflx_anti(jc,jk,jb,3)) )
-
-          ! Sum of all outgoing antidiffusive fluxes out of cell jc
-          p_m(jc) =  MAX(0._wp,z_mflx_anti(jc,jk,jb,1))  &
-                &  + MAX(0._wp,z_mflx_anti(jc,jk,jb,2))  &
-                &  + MAX(0._wp,z_mflx_anti(jc,jk,jb,3))
-
           ! max value of cell and its neighbors
           ! also look back to previous time step
-          z_max(jc) = MAX( z_tracer_max(jc,jk,jb),                          &
-            &              z_tracer_max(iilnc(jc,jb,1),jk,iibnc(jc,jb,1)),  &
-            &              z_tracer_max(iilnc(jc,jb,2),jk,iibnc(jc,jb,2)),  &
-            &              z_tracer_max(iilnc(jc,jb,3),jk,iibnc(jc,jb,3)) )
+          z_max(jc,jk) = MAX( z_tracer_max(jc,jk,jb),                          &
+            &                 z_tracer_max(iilnc(jc,jb,1),jk,iibnc(jc,jb,1)),  &
+            &                 z_tracer_max(iilnc(jc,jb,2),jk,iibnc(jc,jb,2)),  &
+            &                 z_tracer_max(iilnc(jc,jb,3),jk,iibnc(jc,jb,3)) )
 
           ! min value of cell and its neighbors
           ! also look back to previous time step
-          z_min(jc) = MIN( z_tracer_min(jc,jk,jb),                          &
-            &              z_tracer_min(iilnc(jc,jb,1),jk,iibnc(jc,jb,1)),  &
-            &              z_tracer_min(iilnc(jc,jb,2),jk,iibnc(jc,jb,2)),  &
-            &              z_tracer_min(iilnc(jc,jb,3),jk,iibnc(jc,jb,3)) )
+          z_min(jc,jk) = MIN( z_tracer_min(jc,jk,jb),                          &
+            &                 z_tracer_min(iilnc(jc,jb,1),jk,iibnc(jc,jb,1)),  &
+            &                 z_tracer_min(iilnc(jc,jb,2),jk,iibnc(jc,jb,2)),  &
+            &                 z_tracer_min(iilnc(jc,jb,3),jk,iibnc(jc,jb,3)) )
+        ENDDO
+      ENDDO
+
+      DO jk = slev, elev
+        DO jc = i_startidx, i_endidx
+
+          ! Sum of all incoming antidiffusive fluxes into cell jc
+          p_p =  -1._wp * (MIN(0._wp,z_mflx_anti(jc,jk,jb,1))   &
+                         + MIN(0._wp,z_mflx_anti(jc,jk,jb,2))   &
+                         + MIN(0._wp,z_mflx_anti(jc,jk,jb,3)) )
+
+          ! Sum of all outgoing antidiffusive fluxes out of cell jc
+          p_m =  MAX(0._wp,z_mflx_anti(jc,jk,jb,1))  &
+            &  + MAX(0._wp,z_mflx_anti(jc,jk,jb,2))  &
+            &  + MAX(0._wp,z_mflx_anti(jc,jk,jb,3))
 
           ! fraction which must multiply all fluxes out of cell jc to guarantee no
           ! undershoot
           ! Nominator: maximum allowable decrease of q
-          r_m(jc,jk,jb) = (z_tracer_new_low(jc,jk,jb) - z_min(jc))/(p_m(jc) + dbl_eps)
+          r_m(jc,jk,jb) = (z_tracer_new_low(jc,jk,jb) - z_min(jc,jk))/(p_m + dbl_eps)
 
           ! fraction which must multiply all fluxes into cell jc to guarantee no
           ! overshoot
           ! Nominator: maximum allowable increase of q
-          r_p(jc,jk,jb) = (z_max(jc) - z_tracer_new_low(jc,jk,jb))/(p_p(jc) + dbl_eps)
+          r_p(jc,jk,jb) = (z_max(jc,jk) - z_tracer_new_low(jc,jk,jb))/(p_p + dbl_eps)
 
         ENDDO
       ENDDO
@@ -438,27 +448,29 @@ CONTAINS
       DO je = i_startidx, i_endidx
         DO jk = slev, elev
 #else
+!CDIR UNROLL=3
       DO jk = slev, elev
         DO je = i_startidx, i_endidx
 #endif
 
-          z_signum(je) = SIGN(1._wp,z_anti(je,jk,jb))
+          z_signum = SIGN(1._wp,z_anti(je,jk,jb))
 
-          ! This does the same as an IF (z_signum(je) > 0) THEN ... ELSE ... ENDIF,
+          ! This does the same as an IF (z_signum > 0) THEN ... ELSE ... ENDIF,
           ! but is computationally more efficient
-          r_frac(je) = 0.5_wp*( (1._wp+z_signum(je))*              &
-             &         MIN(r_m(iilc(je,jb,1),jk,iibc(je,jb,1)),    &
-             &             r_p(iilc(je,jb,2),jk,iibc(je,jb,2)))    &
-             &         -  (z_signum(je)-1._wp)*                    &
-             &         MIN(r_m(iilc(je,jb,2),jk,iibc(je,jb,2)),    &
-             &             r_p(iilc(je,jb,1),jk,iibc(je,jb,1)))    )
+          r_frac = 0.5_wp*( (1._wp+z_signum)*                &
+             &     MIN(r_m(iilc(je,jb,1),jk,iibc(je,jb,1)),  &
+             &         r_p(iilc(je,jb,2),jk,iibc(je,jb,2)))  &
+             &     +  (1._wp-z_signum)*                      &
+             &     MIN(r_m(iilc(je,jb,2),jk,iibc(je,jb,2)),  &
+             &         r_p(iilc(je,jb,1),jk,iibc(je,jb,1)))  )
 
           ! Limited flux
-          p_mflx_tracer_h(je,jk,jb) = z_mflx_low(je,jk,jb)                  &
-            &                       + MIN(1._wp,r_frac(je)) * z_anti(je,jk,jb)
+          p_mflx_tracer_h(je,jk,jb) = z_mflx_low(je,jk,jb)               &
+            &                       + MIN(1._wp,r_frac) * z_anti(je,jk,jb)
 
         ENDDO
       ENDDO
+
     ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
@@ -526,9 +538,9 @@ CONTAINS
       &  r_m(nproma,ptr_patch%nlev,ptr_patch%nblks_c) !< of cell jc to guarantee
                                                       !< positive definiteness
 
-    REAL(wp) :: z_signum(nproma)             !< sign of mass flux
+    REAL(wp) :: z_signum                     !< sign of mass flux
                                              !< >0: out; <0: in
-    REAL(wp) :: p_m(nproma)                  !< sum of fluxes out of cell jc
+    REAL(wp) :: p_m                          !< sum of fluxes out of cell jc
                                              !< [kg m^-3]
 
     INTEGER, DIMENSION(:,:,:), POINTER :: &  !< Pointer to line and block indices of two
@@ -617,7 +629,7 @@ CONTAINS
         DO jc = i_startidx, i_endidx
           DO jk = slev, elev
 #else
-!CDIR UNROLL=5
+!CDIR UNROLL=4
         DO jk = slev, elev
           DO jc = i_startidx, i_endidx
 #endif
@@ -637,21 +649,19 @@ CONTAINS
         !
         ! 2. Compute total outward mass
         !
-!CDIR UNROLL=5
         DO jk = slev, elev
-
           DO jc = i_startidx, i_endidx
 
             ! Sum of all outgoing fluxes out of cell jc
-            p_m(jc) =  MAX(0._wp,z_mflx(jc,jk,jb,1))  &
-                  &  + MAX(0._wp,z_mflx(jc,jk,jb,2))  &
-                  &  + MAX(0._wp,z_mflx(jc,jk,jb,3))
+            p_m =  MAX(0._wp,z_mflx(jc,jk,jb,1))  &
+              &  + MAX(0._wp,z_mflx(jc,jk,jb,2))  &
+              &  + MAX(0._wp,z_mflx(jc,jk,jb,3))
 
             ! fraction which must multiply all fluxes out of cell jc to guarantee no
             ! undershoot
             ! Nominator: maximum allowable decrease of \rho q
             r_m(jc,jk,jb) = MIN(1._wp, (p_cc(jc,jk,jb)*ptr_delp_mc_now(jc,jk,jb)) &
-              &                        /(p_m(jc) + dbl_eps) )
+              &                        /(p_m + dbl_eps) )
 
           ENDDO
         ENDDO
@@ -719,18 +729,18 @@ CONTAINS
           DO jc = i_startidx, i_endidx
 
             ! Sum of all outgoing fluxes out of cell jc
-            p_m(jc) =  MAX(0._wp,z_mflx(jc,jk,jb,1))  &
-                  &  + MAX(0._wp,z_mflx(jc,jk,jb,2))  &
-                  &  + MAX(0._wp,z_mflx(jc,jk,jb,3))  &
-                  &  + MAX(0._wp,z_mflx(jc,jk,jb,4))  &
-                  &  + MAX(0._wp,z_mflx(jc,jk,jb,5))  &
-                  &  + MAX(0._wp,z_mflx(jc,jk,jb,6))
+            p_m =  MAX(0._wp,z_mflx(jc,jk,jb,1))  &
+              &  + MAX(0._wp,z_mflx(jc,jk,jb,2))  &
+              &  + MAX(0._wp,z_mflx(jc,jk,jb,3))  &
+              &  + MAX(0._wp,z_mflx(jc,jk,jb,4))  &
+              &  + MAX(0._wp,z_mflx(jc,jk,jb,5))  &
+              &  + MAX(0._wp,z_mflx(jc,jk,jb,6))
 
             ! fraction which must multiply all fluxes out of cell jc to guarantee no
             ! undershoot
             ! Nominator: maximum allowable decrease of \rho q
             r_m(jc,jk,jb) = MIN(1._wp, (p_cc(jc,jk,jb)*ptr_delp_mc_now(jc,jk,jb)) &
-              &                        /(p_m(jc) + dbl_eps) )
+              &                        /(p_m + dbl_eps) )
 
           ENDDO
         ENDDO
@@ -772,11 +782,11 @@ CONTAINS
 
             ! p_mflx_tracer_h > 0: flux directed from cell 1 -> 2
             ! p_mflx_tracer_h < 0: flux directed from cell 2 -> 1
-            z_signum(je) = SIGN(1._wp,p_mflx_tracer_h(je,jk,jb))
+            z_signum = SIGN(1._wp,p_mflx_tracer_h(je,jk,jb))
 
-            p_mflx_tracer_h(je,jk,jb) = p_mflx_tracer_h(je,jk,jb) * 0.5_wp      &
-              & *( (1._wp + z_signum(je)) * r_m(iilc(je,jb,1),jk,iibc(je,jb,1)) &
-              &   +(1._wp - z_signum(je)) * r_m(iilc(je,jb,2),jk,iibc(je,jb,2)) )
+            p_mflx_tracer_h(je,jk,jb) = p_mflx_tracer_h(je,jk,jb) * 0.5_wp  &
+              & *( (1._wp + z_signum) * r_m(iilc(je,jb,1),jk,iibc(je,jb,1)) &
+              &   +(1._wp - z_signum) * r_m(iilc(je,jb,2),jk,iibc(je,jb,2)) )
   
           ENDDO
         ENDDO
@@ -804,12 +814,12 @@ CONTAINS
 
             ! p_mflx_tracer_h > 0: flux directed from cell 1 -> 2
             ! p_mflx_tracer_h < 0: flux directed from cell 2 -> 1
-            z_signum(je) = SIGN(1._wp,p_mflx_tracer_h(je,jk,jb)) &
+            z_signum = SIGN(1._wp,p_mflx_tracer_h(je,jk,jb)) &
               & *ptr_patch%edges%system_orientation(je,jb)
 
-            p_mflx_tracer_h(je,jk,jb) = p_mflx_tracer_h(je,jk,jb) * 0.5_wp      &
-              & *( (1._wp + z_signum(je)) * r_m(iilc(je,jb,1),jk,iibc(je,jb,1)) &
-              &   +(1._wp - z_signum(je)) * r_m(iilc(je,jb,2),jk,iibc(je,jb,2)) )
+            p_mflx_tracer_h(je,jk,jb) = p_mflx_tracer_h(je,jk,jb) * 0.5_wp  &
+              & *( (1._wp + z_signum) * r_m(iilc(je,jb,1),jk,iibc(je,jb,1)) &
+              &   +(1._wp - z_signum) * r_m(iilc(je,jb,2),jk,iibc(je,jb,2)) )
   
           ENDDO
         ENDDO

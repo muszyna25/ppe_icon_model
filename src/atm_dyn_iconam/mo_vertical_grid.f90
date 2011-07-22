@@ -850,10 +850,14 @@ MODULE mo_vertical_grid
       ! Rayleigh damping coefficient for w
       DO jk = 1, nrdmax(jg)
         jk1 = jk + nshift_total(jg)
-        z_diff = MAX(0.0_wp,vct_a(jk1)-damp_height(jg))
+!        z_diff = MAX(0.0_wp,vct_a(jk1)-damp_height(jg))
+        z_diff = vct_a(1) - vct_a(jk1)
         IF (jg == 1 .OR. damp_height(jg) /= damp_height(1)) THEN
-          p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*(SIN(pi_2*z_diff/ &
-            MAX(1.e-3_wp,vct_a(nshift_total(jg)+1)-damp_height(jg))))**2
+!          p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*(SIN(pi_2*z_diff/ &
+!            MAX(1.e-3_wp,vct_a(nshift_total(jg)+1)-damp_height(jg))))**2
+          p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*&
+          (1._wp-TANH(3.8_wp*z_diff/MAX(1.e-6_wp,vct_a(1)-damp_height(jg))))
+
         ELSE
           p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*(SIN(pi_2*z_diff/ &
             MAX(1.e-3_wp,vct_a(1)-damp_height(jg))))**2
@@ -864,12 +868,15 @@ MODULE mo_vertical_grid
       ! Enhancement coefficient for nabla4 background diffusion near model top
       DO jk = 1, nrdmax(jg)
         jk1 = jk + nshift_total(jg)
-        z_diff = MAX(0.0_wp,0.5_wp*(vct_a(jk1)+vct_a(jk1+1))-damp_height(jg))
-        p_nh(jg)%metrics%enhfac_diffu(jk) = 1._wp              &
-          &  +(diffusion_config(jg)%hdiff_efdt_ratio           &
-          &  /diffusion_config(jg)%hdiff_min_efdt_ratio-1._wp) &
-          &  *(SIN(pi_2*z_diff                                 &
-          &  /MAX(1.e-3_wp,0.5_wp*(vct_a(1)+vct_a(2))-damp_height(jg))))**2
+!        z_diff = MAX(0.0_wp,0.5_wp*(vct_a(jk1)+vct_a(jk1+1))-damp_height(jg))
+        z_diff = 0.5_wp*(vct_a(1)+vct_a(2))-0.5_wp*(vct_a(jk1)+vct_a(jk1+1))
+        p_nh(jg)%metrics%enhfac_diffu(jk) = 1._wp + &
+ !         (hdiff_efdt_ratio/hdiff_min_efdt_ratio-1._wp)*(SIN(pi_2*z_diff/ &
+ !         MAX(1.e-3_wp,0.5_wp*(vct_a(1)+vct_a(2))-damp_height(jg))))**2
+          (diffusion_config(jg)%hdiff_efdt_ratio/  &
+           diffusion_config(jg)%hdiff_min_efdt_ratio-1._wp)* &
+          (1._wp-TANH(3.8_wp*z_diff                          &
+          /MAX(1.e-6_wp,0.5_wp*(vct_a(1)+vct_a(2))-damp_height(jg))))
       ENDDO
 
       DO jk = 1, nrdmax_u(jg)
