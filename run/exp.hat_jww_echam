@@ -8,7 +8,6 @@
 # Hui Wan,         MPI-M, 2010-08-17
 #
 #-----------------------------------------------------------------------------
-#-----------------------------------------------------------------------------
 #
 # Basic specifications of the simulation
 # --------------------------------------
@@ -60,14 +59,14 @@ atmo_dyn_grids='iconR2B04-grid_spr0.90.nc'
 #
 #-----------------------------------------------------------------------------
 
-#
+
 #-----------------------------------------------------------------------------
 #
 # ICON namelist parameters
 # ------------------------
 # For a complete list see Namelist_overview and Namelist_overview.pdf
 #
-cat > NAMELIST_${EXPNAME} << EOF
+cat > ${atmo_namelist} << EOF
 !
 &parallel_nml
  nproma         = ${nproma}
@@ -93,13 +92,13 @@ cat > NAMELIST_${EXPNAME} << EOF
 &dynamics_nml
  iequations  = ${model_equations}       ! 1: hydrost. atmosphere
 /
+&ha_dyn_nml
+ ldry_dycore = .TRUE.       ! dry dynamical core
+/
 &ha_testcase_nml
  ctest_name  = 'JWw-Moist'  ! test case identifier
  lrh_linear_pres = .TRUE.   ! initial RH is a linear function of pressure
  rh_at_1000hpa   = 0.75     ! [] initial rel. humidity at 1000 hPa 
-/
-&ha_dyn_nml
- ldry_dycore = .TRUE.       ! dry dynamical core
 /
 &io_nml
  out_expname = '${EXPNAME}' ! file name base
