@@ -9,7 +9,6 @@
 #
 # Marco Giorgetta, MPI-M, 2010-04-21
 # Hui Wan,         MPI-M, 2010-07-12
-# Leonidas Linardakis, MPI-M, 2011-07-20
 #
 #-----------------------------------------------------------------------------
 #
@@ -41,9 +40,9 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 dtime=600
 ndays=300
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
-nsteps=10
 dt_diag=`expr 24 \* 3600  `   # int output each 24 hours
 dt_file=`expr 10 \* 86400 `   # 10 days per file
+dt_data=86400                 # daily output
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -59,7 +58,6 @@ iforcing=1        # forcing to the equation system
 #-----------------------------------------------------------------------------
 # the grid files
 atmo_dyn_grids='iconR2B04-grid_spr0.90.nc'
-atmo_grids=$atmo_dyn_grids
 #
 #-----------------------------------------------------------------------------
 
@@ -87,14 +85,14 @@ cat > NAMELIST_${EXPNAME} << EOF
 /
 &io_nml
  out_expname = '${EXPNAME}' ! file name base
- dt_data     = 86400        ! [s] daily output
+ dt_data     = ${dt_data}        ! [s] daily output
  dt_file     = ${dt_file}   ! 10 days per file
  dt_diag     = ${dt_diag}
 /
 &run_nml
  num_lev     = ${nlev},        ! number of full levels of vertical grid
  ntracer     = 0            ! number of tracers
- nsteps      = ${nsteps}    ! [day] length of run
+ nsteps      = ${nsteps}    ! number of steps length of run
  dtime       = ${dtime}     ! timestep in seconds
  ldynamics   = .TRUE.       ! dynamics
  ltransport  = .FALSE.      ! transport 

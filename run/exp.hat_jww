@@ -50,7 +50,6 @@ nlev=31             # nlev = number of full levels
 #-----------------------------------------------------------------------------
 # the grid files
 atmo_dyn_grids='iconR2B04-grid_spr0.90.nc'
-atmo_grids=$atmo_dyn_grids
 #-----------------------------------------------------------------------------
 
 
