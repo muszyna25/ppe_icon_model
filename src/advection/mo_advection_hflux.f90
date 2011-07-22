@@ -509,6 +509,7 @@ CONTAINS
 
     REAL(wp) :: z_dthalf                !< \Delta t/2
 
+    INTEGER  :: pid
     INTEGER  :: nlev               !< number of full levels
     INTEGER  :: slev, elev         !< vertical start and end level
     INTEGER  :: ist                !< status variable

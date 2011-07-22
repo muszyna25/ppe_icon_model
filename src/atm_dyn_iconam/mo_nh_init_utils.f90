@@ -40,11 +40,13 @@ MODULE mo_nh_init_utils
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_state,      ONLY: t_nh_metrics
-  USE mo_run_nml,             ONLY: nproma, i_cell_type, msg_level
+  USE mo_parallel_config,     ONLY: nproma
+  USE mo_run_config,          ONLY: msg_level
+  USE mo_dynamics_config,     ONLY: iequations
   USE mo_physical_constants,  ONLY: grav, cpd, rd, cvd_o_rd, p0ref, vtmpc1
   USE mo_vertical_coord_table,ONLY: vct_a, vct_b, vct, read_vct
-  USE mo_nonhydrostatic_nml,  ONLY: ivctype
-  USE mo_sleve_nml,           ONLY: sleve_nml_setup, min_lay_thckn, top_height, decay_scale_1, &
+  USE mo_nonhydrostatic_config,ONLY: ivctype
+  USE mo_sleve_config,        ONLY: min_lay_thckn, top_height, decay_scale_1, &
                                     decay_scale_2, decay_exp, flat_height, stretch_fac
   USE mo_impl_constants,      ONLY: max_dom, SUCCESS, min_rlcell, min_rlcell_int, &
                                     min_rlvert, min_rlvert_int
@@ -57,7 +59,7 @@ MODULE mo_nh_init_utils
   USE mo_grf_interpolation,   ONLY: t_gridref_state, t_gridref_single_state 
   USE mo_math_operators,      ONLY: nabla2_scalar, grad_fd_norm
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_v, get_indices_e
-  USE mo_interpol_nml,        ONLY: nudge_zone_width
+  USE mo_interpol_config,     ONLY: nudge_zone_width
   USE mo_impl_constants_grf,  ONLY: grf_fbk_start_c, grf_bdywidth_c
 
   IMPLICIT NONE
@@ -136,7 +138,7 @@ CONTAINS
       ! Because the vertical discretization differs between the triangular and
       ! hexagonal NH cores, a case discrimination is needed here
       DO jk = nlev-1, 1, -1
-        IF (i_cell_type == 3) THEN
+        IF (p_patch%cell_type == 3) THEN
           DO jc = 1, nlen
             z_fac1(jc) = p_nh_metrics%wgtfac_c(jc,jk+1,jb)*(temp_v(jc,jk+1) &
               - p_nh_metrics%theta_ref_mc(jc,jk+1,jb)*exner(jc,jk+1,jb))    &
@@ -158,7 +160,7 @@ CONTAINS
             zc(jc) = -(z_fac2(jc)*z_fac3(jc)/p_nh_metrics%ddqz_z_half(jc,jk+1,jb) &
               + z_fac2(jc)*p_nh_metrics%d_exner_dz_ref_ic(jc,jk+1,jb))
           ENDDO !jc
-        ELSE IF (i_cell_type == 6) THEN
+        ELSE IF (p_patch%cell_type == 6) THEN
           DO jc = 1, nlen
             z_fac3(jc) = grav/cpd*p_nh_metrics%ddqz_z_half(jc,jk+1,jb)
             z_fac1(jc) = exner(jc,jk+1,jb)
@@ -583,7 +585,7 @@ CONTAINS
     ! number of vertical half levels
     nlevp1 = nlev+1
 
-    CALL read_vct (nlev)
+    CALL read_vct (iequations, nlev)
 
     DO jk = 1, nlevp1
       IF (vct_b(jk) /= 0.0_wp) THEN
@@ -629,7 +631,8 @@ CONTAINS
     ENDIF
 
     ! Read namelist for SLEVE coordinate
-    CALL sleve_nml_setup
+!    is already done in the all-namelist read-routine
+!    CALL sleve_nml_setup
 
     ! However, vct_b also needs to be defined because it is used elsewhere
     ALLOCATE(vct_b(nlevp1), STAT=ist)

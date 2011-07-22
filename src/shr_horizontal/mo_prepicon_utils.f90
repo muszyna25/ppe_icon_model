@@ -29,14 +29,17 @@ MODULE mo_prepicon_utils
 
   USE mo_kind
   USE mo_io_units,            ONLY: filename_max
-  USE mo_run_nml,             ONLY: num_lev, num_levp1, nproma, i_cell_type, msg_level, &
-    &                               dtime, iequations, n_iter_smooth_topo, nvclev
-  USE mo_nonhydrostatic_nml,  ONLY: ivctype
+  USE mo_parallel_config,     ONLY: nproma
+  USE mo_run_config,          ONLY: num_lev, num_levp1, msg_level, &
+    &                                dtime, nvclev
+  USE mo_extpar_config,       ONLY: n_iter_smooth_topo
+  USE mo_dynamics_config,     ONLY: iequations
+  USE mo_nonhydrostatic_config,ONLY: ivctype
   USE mo_prepicon_nml,        ONLY: i_oper_mode, nlev_in, l_zp_out, l_w_in
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: SUCCESS, max_char_length, max_dom
   USE mo_exception,           ONLY: message, finish, message_text
-  USE mo_grid_nml,            ONLY: n_dom, nroot, start_lev
+  USE mo_grid_config,         ONLY: n_dom, nroot, start_lev, global_cell_type
   USE mo_interpolation,       ONLY: t_int_state, cells2verts_scalar
   USE mo_grf_interpolation,   ONLY: t_gridref_state
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast
@@ -45,7 +48,7 @@ MODULE mo_prepicon_utils
   USE mo_io_vlist,            ONLY: GATHER_C, GATHER_E, GATHER_V, num_output_vars, outvar_desc, &
                                     gather_array1, gather_array2
   USE mo_datetime,            ONLY: t_datetime, print_datetime
-  USE mo_io_nml,              ONLY: lkeep_in_sync
+  USE mo_io_config,              ONLY: lkeep_in_sync
   USE mo_nh_init_utils,       ONLY: nflat, nflatlev, compute_smooth_topo, init_vert_coord, &
                                     topography_blending, topography_feedback,              &
                                     interp_uv_2_vn, init_w, convert_thdvars, virtual_temp
@@ -287,16 +290,16 @@ MODULE mo_prepicon_utils
         ! get number of cells and vertices
         !
         CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
-        IF (i_cell_type == 3) THEN ! triangular grid
+        IF (global_cell_type == 3) THEN ! triangular grid
           CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
-        ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+        ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
           CALL nf(nf_inq_dimlen(ncid, dimid, no_verts))
         ENDIF
 
         CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
-        IF (i_cell_type == 3) THEN ! triangular grid
+        IF (global_cell_type == 3) THEN ! triangular grid
           CALL nf(nf_inq_dimlen(ncid, dimid, no_verts))
-        ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+        ELSEIF (global_cell_type == 6) THEN ! hexagonal grid
           CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
         ENDIF
 
@@ -322,22 +325,22 @@ MODULE mo_prepicon_utils
 
       ! triangle center
 
-      IF (i_cell_type == 3) THEN     ! triangular grid
+      IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
         CALL read_netcdf_data (ncid, 'topography_c', p_patch(jg)%n_patch_cells_g,       &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     prepicon(jg)%topography_c)
-      ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+      ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
         CALL read_netcdf_data (ncid, 'topography_c', p_patch(jg)%n_patch_verts_g,       &
           &                     p_patch(jg)%n_patch_verts, p_patch(jg)%verts%glb_index, &
           &                     prepicon(jg)%topography_v)
       ENDIF
 
       ! triangle vertex
-      IF (i_cell_type == 3) THEN     ! triangular grid
+      IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
         CALL read_netcdf_data (ncid, 'topography_v', p_patch(jg)%n_patch_verts_g,       &
           &                     p_patch(jg)%n_patch_verts, p_patch(jg)%verts%glb_index, &
           &                     prepicon(jg)%topography_v)
-      ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+      ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
         CALL read_netcdf_data (ncid, 'topography_v', p_patch(jg)%n_patch_cells_g,       &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     prepicon(jg)%topography_c)
@@ -605,7 +608,7 @@ MODULE mo_prepicon_utils
 
     !------------------------------------------------------------------------
 
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (6)
       l_half_lev_centr = .TRUE.
       ! The HALF LEVEL where the model layer are flat, moves one layer upward.
@@ -634,7 +637,7 @@ MODULE mo_prepicon_utils
         nshift_total(jg) = nshift_total(jgp) + p_patch(jg)%nshift
         nflatlev(jg)     = nflatlev(1) - nshift_total(jg)
       ENDIF
-      IF (i_cell_type == 6) nflatlev(jg) = nflat
+      IF (global_cell_type == 6) nflatlev(jg) = nflat
       IF (jg > 1 .AND. nshift_total(jg) > 0 .AND. nflatlev(jg) < 1) THEN
         CALL finish ('mo_prepicon_utils:compute_coord_fields', &
                      'nflat must be higher than the top of the innermost nested domain')
@@ -752,7 +755,7 @@ MODULE mo_prepicon_utils
     !
     CALL nf(nf_open(TRIM(grid_filename), NF_NOWRITE, ncid))
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
       CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
     CASE (6)
@@ -763,7 +766,7 @@ MODULE mo_prepicon_utils
     CALL nf(nf_inq_dimid(ncid, 'edge', dimid))
     CALL nf(nf_inq_dimlen(ncid, dimid, i_ne))
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
       CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
     CASE (6)
@@ -771,9 +774,9 @@ MODULE mo_prepicon_utils
     END SELECT
     CALL nf(nf_inq_dimlen(ncid, dimid, i_nv))
     !
-    i_ncb = i_cell_type*i_nc
+    i_ncb = global_cell_type*i_nc
     i_neb = 4*i_ne
-    i_nvb = (9-i_cell_type)*i_nv
+    i_nvb = (9-global_cell_type)*i_nv
     !
     ALLOCATE(clon(i_nc), clat(i_nc), clonv(i_ncb), clatv(i_ncb))
     ALLOCATE(elon(i_ne), elat(i_ne), elonv(i_neb), elatv(i_neb))
@@ -783,9 +786,9 @@ MODULE mo_prepicon_utils
     ! cell grid
     !
     gridCellID(k_jg) = gridCreate(GRID_UNSTRUCTURED, i_nc)
-    CALL gridDefNvertex(gridCellID(k_jg), i_cell_type)
+    CALL gridDefNvertex(gridCellID(k_jg), global_cell_type)
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
       name = 'clon'
     CASE (6)
@@ -803,7 +806,7 @@ MODULE mo_prepicon_utils
     CALL gridDefXlongname(gridCellID(k_jg), long_name(1:lnlen))
     CALL gridDefXunits(gridCellID(k_jg), units(1:ulen))
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
       name = 'clat'
     CASE (6)
@@ -821,7 +824,7 @@ MODULE mo_prepicon_utils
     CALL gridDefYlongname(gridCellID(k_jg), long_name(1:lnlen))
     CALL gridDefYunits(gridCellID(k_jg), units(1:ulen))
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
       CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
     CASE (6)
@@ -831,7 +834,7 @@ MODULE mo_prepicon_utils
     !
     CALL gridDefXbounds(gridCellID(k_jg), clonv)
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
       CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
     CASE (6)
@@ -887,9 +890,9 @@ MODULE mo_prepicon_utils
     ! vertex grid
     !
     gridVertexID(k_jg) = gridCreate(GRID_UNSTRUCTURED, i_nv)
-    CALL gridDefNvertex(gridVertexID(k_jg), 9-i_cell_type)
+    CALL gridDefNvertex(gridVertexID(k_jg), 9-global_cell_type)
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
       name = 'vlon'
     CASE (6)
@@ -907,7 +910,7 @@ MODULE mo_prepicon_utils
     CALL gridDefXlongname(gridVertexID(k_jg), long_name(1:lnlen))
     CALL gridDefXunits(gridVertexID(k_jg), units(1:ulen))
     !
-    SELECT CASE (i_cell_type)
+    SELECT CASE (global_cell_type)
     CASE (3)
       name = 'vlat'
     CASE (6)
@@ -925,18 +928,18 @@ MODULE mo_prepicon_utils
     CALL gridDefYlongname(gridVertexID(k_jg), long_name(1:lnlen))
     CALL gridDefYunits(gridVertexID(k_jg), units(1:ulen))
     !
-    IF(i_cell_type==3) THEN
+    IF(global_cell_type==3) THEN
       CALL nf(nf_inq_varid(ncid, 'vlon_vertices', varid))
-    ELSEIF(i_cell_type==6) THEN
+    ELSEIF(global_cell_type==6) THEN
       CALL nf(nf_inq_varid(ncid, 'clon_vertices', varid))
     ENDIF
     CALL nf(nf_get_var_double(ncid, varid, vlonv))
     !
     CALL gridDefXbounds(gridVertexID(k_jg), vlonv)
     !
-    IF(i_cell_type==3) THEN
+    IF(global_cell_type==3) THEN
       CALL nf(nf_inq_varid(ncid, 'vlat_vertices', varid))
-    ELSEIF(i_cell_type==6) THEN
+    ELSEIF(global_cell_type==6) THEN
       CALL nf(nf_inq_varid(ncid, 'clat_vertices', varid))
     ENDIF
     CALL nf(nf_get_var_double(ncid, varid, vlatv))
@@ -1013,26 +1016,26 @@ MODULE mo_prepicon_utils
     ! global attributes
     !
     !
-    ! Parameters of /grid_ctl/
+    ! Parameters of /grid_nml/
     ! ------------------------
     CALL addGlobAttInt('nroot',nroot,vlistID(k_jg),astatus)
     CALL addGlobAttInt('start_lev',start_lev,vlistID(k_jg),astatus)
     CALL addGlobAttInt('n_dom',n_dom,vlistID(k_jg),astatus)
     !
-    ! Parameters of /run_ctl/
+    ! Parameters of /run_nml/
     ! -----------------------
-    CALL addGlobAttInt('run_ctl:i_cell_type',i_cell_type,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_ctl:num_lev',num_lev(k_jg),vlistID(k_jg),astatus)
+    CALL addGlobAttInt('run_nml:global_cell_type',global_cell_type,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('run_nml:num_lev',num_lev(k_jg),vlistID(k_jg),astatus)
 
-    CALL addGlobAttInt('run_ctl:iequations',iequations,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('run_nml:iequations',iequations,vlistID(k_jg),astatus)
  
 
     !
-    ! Parameters of /nonhydrostatic_ctl/
+    ! Parameters of /nonhydrostatic_nml/
     ! ----------------------------
 
     IF (iequations == 3) THEN
-       CALL addGlobAttInt('nonhydrostatic_ctl:ivctype',ivctype,vlistID(k_jg),astatus)
+       CALL addGlobAttInt('nonhydrostatic_nml:ivctype',ivctype,vlistID(k_jg),astatus)
 
     END IF
 

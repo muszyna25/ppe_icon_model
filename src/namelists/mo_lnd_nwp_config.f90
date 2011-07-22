@@ -49,7 +49,10 @@ MODULE mo_lnd_nwp_config
   IMPLICIT NONE
 
   PUBLIC :: nlev_soil, nztlev ,nlev_snow ,nsfc_subs
-  PUBLIC ::   lseaice,  llake, lmelt , lmelt_var ,   lmulti_snow 
+  PUBLIC :: lseaice,  llake, lmelt , lmelt_var ,   lmulti_snow 
+  PUBLIC :: itype_gscp, itype_trvg ,    itype_evsl, itype_tran 
+  PUBLIC :: itype_root, itype_heatcond, itype_hydbound  
+  PUBLIC :: lstomata,   l2tls, lana_rho_snow, itype_subs     
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -62,12 +65,28 @@ MODULE mo_lnd_nwp_config
   INTEGER ::  nlev_soil, nztlev  !! number of soil layers, time integration scheme
   INTEGER ::  nlev_snow          !! number of snow layers
   INTEGER ::  nsfc_subs          !! number of TILES
+  INTEGER ::  itype_gscp                               ! type of grid-scale precipitation physics
+  INTEGER ::  itype_trvg                               ! type of vegetation transpiration parameterization
+  INTEGER ::  itype_evsl                               ! type of parameterization of bare soil evaporation
+  INTEGER ::  itype_tran                               ! type of surface to atmospher transfer
+  INTEGER ::  itype_root                               ! type of root density distribution
+  INTEGER ::  itype_heatcond                           ! type of soil heat conductivity
+  INTEGER ::  itype_hydbound                           ! type of hydraulic lower boundary condition
+  INTEGER ::  itype_subs                               ! type of subscale surface treatment =1 MOSAIC, =2 TILE 
+
 
   LOGICAL ::  lseaice     !> forecast with sea ice model
   LOGICAL ::  llake       !! forecst with lake model FLake
   LOGICAL ::  lmelt       !! soil model with melting process
   LOGICAL ::  lmelt_var   !! freezing temperature dependent on water content
   LOGICAL ::  lmulti_snow !! run the multi-layer snow model
+  LOGICAL ::  lstomata    !! map of minimum stomata resistance
+  LOGICAL ::  l2tls       !! forecast with 2-TL integration scheme
+  LOGICAL ::  lana_rho_snow !! if .TRUE., take rho_snow-values from analysis file 
+
+! already in impl_constants
+!  REAL(wp), DIMENSION(8):: zml_soil=(/ 0.005_wp,0.02_wp,0.06_wp,0.18_wp,0.54_wp,1.62_wp,&
+!    & 4.86_wp,14.58_wp /)
 
 !  END TYPE t_nwp_lnd_config
 

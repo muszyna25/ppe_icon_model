@@ -55,7 +55,7 @@ USE mo_mpi,                ONLY: p_pe, p_bcast, p_sum, p_max, p_min, &
   & p_send, p_recv, p_comm_work_test,  p_comm_work, &
   & my_process_is_mpi_test, get_my_mpi_all_id, process_mpi_all_test_id, &
   & my_process_is_mpi_parallel,       &
-  & p_work_pe0
+  & p_work_pe0,p_pe_work
 USE mo_parallel_config, ONLY:p_test_run,   &
   & n_ghost_rows, l_log_checks, l_fast_sum
 USE mo_communication,      ONLY: exchange_data, exchange_data_4de3,            &
@@ -362,7 +362,8 @@ SUBROUTINE sync_patch_array_4de3(typ, p_patch, nfields, f4din)
    ENDIF
 
    ! Boundary exchange for work PEs
-   IF(my_process_is_mpi_parallel()) THEN
+!   IF(p_nprocs /= 1 .AND. p_pe /= p_test_pe) THEN
+     IF(my_process_is_mpi_parallel()) THEN
      IF (nfields/=UBOUND(f4din,3)) &
        CALL finish('sync_patch_array_4de3','inconsistent arguments')
      ndim2tot = nfields*SIZE(f4din,2)
