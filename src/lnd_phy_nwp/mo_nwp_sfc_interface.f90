@@ -263,9 +263,6 @@ print*, "SFC-DIAGNOSIS INTERFACE ",jstep
 !!$    zml_soil=(/ 0.005,0.02,0.06,0.18,0.54,1.62,4.86,14.58 /)
 
 
-
- 
-
     t_t(1:i_endidx,:,jb,1) = p_diag%temp(1:i_endidx,:,jb)
     t_t(1:i_endidx,:,jb,2) = p_diag%temp(1:i_endidx,:,jb)
     qv_t(1:i_endidx,:,jb,1) =  p_prog_rcf%tracer(1:i_endidx,:,jb,iqv)
@@ -301,10 +298,14 @@ print*, "SFC-DIAGNOSIS INTERFACE ",jstep
        thbs_t(1:i_endidx,jb,isubs)     =  prm_diag%lwflxsfc (1:i_endidx,jb) 
        pabs_t(1:i_endidx,jb,isubs)     =  prm_diag%swflxsfc (1:i_endidx,jb) 
        landmask_t(1:i_endidx,jb,isubs) =  ext_data%atm%fr_land(1:i_endidx,jb)
-       t_so_t(1:i_endidx,0:nlev_soil+1,jb,1,isubs) = lnd_prog%t_so(1:i_endidx,1:nlev_soil+2,jb,1,isubs)
-       t_so_t(1:i_endidx,0:nlev_soil+1,jb,2,isubs) = lnd_prog%t_so(1:i_endidx,1:nlev_soil+2,jb,2,isubs)
-       t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,1,isubs) = lnd_prog%t_snow_mult(1:i_endidx,1:nlev_soil+1,jb,1,isubs)
-       t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,2,isubs) = lnd_prog%t_snow_mult(1:i_endidx,1:nlev_soil+1,jb,2,isubs)
+       t_so_t(1:i_endidx,0:nlev_soil+1,jb,1,isubs) = &
+         &                                lnd_prog%t_so(1:i_endidx,1:nlev_soil+2,jb,1,isubs)
+       t_so_t(1:i_endidx,0:nlev_soil+1,jb,2,isubs) = &
+         &                                lnd_prog%t_so(1:i_endidx,1:nlev_soil+2,jb,2,isubs)
+       t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,1,isubs) = &
+         &                               lnd_prog%t_snow_mult(1:i_endidx,1:nlev_soil+1,jb,1,isubs)
+       t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,2,isubs) =&
+         &                               lnd_prog%t_snow_mult(1:i_endidx,1:nlev_soil+1,jb,2,isubs)
     end do
 
 

@@ -6,7 +6,6 @@
 !! <Include any applicable external references inline as module::procedure,>
 !! <external_procedure(), or by using @see.>
 !! <Don't forget references to literature.>
-!!
 !! @author <name, affiliation>
 !! @author <name, affiliation>
 !!
