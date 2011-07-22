@@ -3309,31 +3309,31 @@ CONTAINS
           cell_desc(2,nc) = cclon
         ELSE IF (cclat>=0._wp .AND. cclon>=0.2_wp*pi .AND. cclon<=0.6_wp*pi) THEN
           cell_desc(1,nc) = cclat
-          cell_desc(2,nc) = cclon - 0.4*pi
+          cell_desc(2,nc) = cclon - 0.4_wp*pi
         ELSE IF (cclat>=0._wp .AND. cclon>=0.6_wp*pi) THEN
           cell_desc(1,nc) = cclat
-          cell_desc(2,nc) = cclon - 0.8*pi
+          cell_desc(2,nc) = cclon - 0.8_wp*pi
         ELSE IF (cclat>=0._wp .AND. cclon<=-0.6_wp*pi) THEN
           cell_desc(1,nc) = cclat
-          cell_desc(2,nc) = cclon + 0.8*pi
+          cell_desc(2,nc) = cclon + 0.8_wp*pi
         ELSE IF (cclat>=0._wp .AND. cclon>=-0.6_wp*pi .AND. cclon<=-0.2_wp*pi) THEN
           cell_desc(1,nc) = cclat
-          cell_desc(2,nc) = cclon + 0.4*pi
+          cell_desc(2,nc) = cclon + 0.4_wp*pi
         ELSE IF (cclat<0._wp .AND. (cclon<=-0.8_wp*pi .OR. cclon>=0.8_wp*pi)) THEN
           cell_desc(1,nc) = -cclat
           cell_desc(2,nc) = cclon + pi
         ELSE IF (cclat<0._wp .AND. cclon>=-0.8_wp*pi .AND. cclon<=-0.4_wp*pi) THEN
           cell_desc(1,nc) = -cclat
-          cell_desc(2,nc) = cclon + 0.6*pi
+          cell_desc(2,nc) = cclon + 0.6_wp*pi
         ELSE IF (cclat<0._wp .AND. cclon>=-0.4_wp*pi .AND. cclon<=0.0_wp*pi) THEN
           cell_desc(1,nc) = -cclat
-          cell_desc(2,nc) = cclon + 0.2*pi
+          cell_desc(2,nc) = cclon + 0.2_wp*pi
         ELSE IF (cclat<0._wp .AND. cclon>=0.0_wp*pi .AND. cclon<=0.4_wp*pi) THEN
           cell_desc(1,nc) = -cclat
-          cell_desc(2,nc) = cclon - 0.2*pi
+          cell_desc(2,nc) = cclon - 0.2_wp*pi
         ELSE IF (cclat<0._wp .AND. cclon>=0.4_wp*pi .AND. cclon<=0.8_wp*pi) THEN
           cell_desc(1,nc) = -cclat
-          cell_desc(2,nc) = cclon - 0.6*pi
+          cell_desc(2,nc) = cclon - 0.6_wp*pi
         ENDIF
 
         IF (cell_desc(2,nc)>pi) THEN

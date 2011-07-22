@@ -194,7 +194,6 @@ CONTAINS
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
     LOGICAL :: lsuccess
-    LOGICAL :: l_have_output
     INTEGER :: jg, istat
 
     ! For the coupling

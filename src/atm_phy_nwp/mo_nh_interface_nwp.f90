@@ -986,7 +986,7 @@ CONTAINS
 !        & pflxsfclw =prm_diag%lwflxsfc (1,jb)   ,&         ! out  longwave surface net flux [W/m2]
 !        & pflxtoasw =prm_diag%swflxtoa (1,jb) )            ! out shortwave toa net flux     [W/m2]
 !#endif
-        IF ( p_sim_time .GT. 1.e-1 ) THEN
+        IF ( p_sim_time > 1.e-1_wp ) THEN
 
          !sum up for averaged fluxes
          DO jc =  i_startidx, i_endidx
@@ -1276,7 +1276,7 @@ CONTAINS
 
     IF (ltimer) CALL timer_stop(timer_physic_acc)
 
-    IF (jstep .GT. 1 .OR. (jstep == 1 .AND. lcall_phy_jg(itupdate))) THEN
+    IF (jstep > 1 .OR. (jstep == 1 .AND. lcall_phy_jg(itupdate))) THEN
      CALL nwp_diagnosis(lcall_phy_jg,lredgrid,jstep,     & !input
 
                             & tcall_phy_jg,p_sim_time,             & !input

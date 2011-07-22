@@ -243,7 +243,7 @@ CONTAINS
     ENDDO !jb
 
 !!$OMP END DO
-     IF (tot_moist .GT. 1.e-25) THEN
+     IF (tot_moist > 1.e-25_wp) THEN
        ptr_nh_prog%tracer(:,:,:,iqv) = ptr_nh_prog%tracer(:,:,:,iqv) * ztmc_ape / tot_moist
      END IF
 !!$OMP DO PRIVATE(jb,jk,nlen)    

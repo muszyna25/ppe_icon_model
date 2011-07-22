@@ -278,7 +278,6 @@ CONTAINS
     INTEGER           :: i_status, jp, prlength ! local prognostic array length
 
     ! variabels for dynamic variable list construction
-    TYPE(t_var_list) :: list
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:construct_hydro_ocean_state'
@@ -323,7 +322,7 @@ CONTAINS
 
     ! local variables
 
-    INTEGER                                   :: jg, prlength, ist, jp
+    INTEGER                                   :: jg, prlength, ist
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:destruct_hydro_ocean_state'

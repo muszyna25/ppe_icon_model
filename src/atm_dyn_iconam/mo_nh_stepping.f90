@@ -2013,7 +2013,7 @@ MODULE mo_nh_stepping
     DO jk = 1,nlev
       z0(1:nlen) = p_patch(jg)%cells%area(1:nlen,jb)      &
       & *p_nh_state(jg)%metrics%ddqz_z_full(1:nlen,jk,jb) &
-      & /p_patch(jg)%n_patch_cells_g
+      & /REAL(p_patch(jg)%n_patch_cells_g,wp)
       z1(1:nlen,jb) = z1(1:nlen,jb)&
       & +p_prog%rho(1:nlen,jk,jb)*z0(1:nlen)
       z2(1:nlen,jb) = z2(1:nlen,jb)&
