@@ -2061,7 +2061,7 @@ SUBROUTINE start_async_comm(p_pat, nfields, ndim2tot, send_buf, recv_buf, recv1,
    TYPE(t_fieldptr) :: recv(nfields)
    INTEGER        :: ndim2(nfields), noffset(nfields)
 
-   INTEGER :: i, k, ik, jb, jl, n, np, irs, iss, pid, icount
+   INTEGER :: i, k, jb, jl, n, np, irs, iss, pid, icount
 
 !-----------------------------------------------------------------------
 

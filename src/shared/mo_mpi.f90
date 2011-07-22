@@ -551,7 +551,7 @@ CONTAINS
     INTEGER,INTENT(INOUT) :: num_io_procs
     
 !   !local variables
-    INTEGER :: i_status, my_color, peer_comm, p_error
+    INTEGER :: my_color, peer_comm, p_error
     CHARACTER(*), PARAMETER :: method_name = "set_mpi_work_communicators"
 
 
