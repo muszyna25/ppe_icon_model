@@ -1,3 +1,6 @@
+#if (defined (__GNUC__) || defined(__SUNPRO_F95) )
+#define HAVE_F95
+#endif
 !>
 !!  !MODULE:  mo_nwp_phy_state\\
 !!
@@ -96,6 +99,9 @@ MODULE mo_nwp_lnd_state
   PUBLIC :: p_lnd_state  !> state vector (variable) for land scheme
 
   !types
+#ifdef HAVE_F95
+  PUBLIC :: t_ptr_lnd
+#endif
   PUBLIC :: t_lnd_state  !> state vector  for land scheme
   PUBLIC :: t_lnd_prog   !!       for prognostic variables
   PUBLIC :: t_lnd_diag   !!       for diagnostic variables
