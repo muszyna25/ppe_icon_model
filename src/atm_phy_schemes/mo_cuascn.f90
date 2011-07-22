@@ -308,7 +308,7 @@ INTEGER(KIND=jpim) :: jll, jlm, jlx(klon)
 
 REAL(KIND=jprb) :: z_cldmax, z_cprc2, z_cwdrag, z_cwifrac, zalfaw,&
  & zbe, zbuoc, zc, zcbf, zcons2, zd, zdfi, &
- & zdkbuo, zdken, zdnoprc, zdphi, &
+ & zdkbuo, zdken, zdnoprc, &
  & zdt, zfac, zfacbuo, zint, zkedke, zlcrit, &
  & zleen, zlnew, zmfmax, zmftest, zmfulk, zmfun, &
  & zmfuqk, zmfusk, zoealfa, zoealfap, zprcdgw, &
