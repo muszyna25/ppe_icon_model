@@ -88,6 +88,7 @@ MODULE mo_atm_phy_nwp_nml
   INTEGER  :: inwp_satad         !! saturation adjustment
   INTEGER  :: inwp_turb          !! turbulence
   INTEGER  :: inwp_surface       !! surface including soil, ocean, ice,lake
+  REAL(wp)::  qi0, qc0 !! variables for hydci_pp
 
 !  INTEGER  :: imode_turb, itype_wcld, icldm_turb, itype_tran
 !   
@@ -100,7 +101,7 @@ MODULE mo_atm_phy_nwp_nml
 !  LOGICAL  :: lseaice  !> forecast with sea ice model
 !  LOGICAL  :: llake    !! forecst with lake model FLake
 !
-!  REAL(wp)::  qi0, qc0 !! variables for hydci_pp
+
 
   NAMELIST /nwp_phy_nml/ inwp_convection, inwp_cldcover,           &
     &                    inwp_radiation, inwp_sso, inwp_gwd,       &
@@ -110,14 +111,15 @@ MODULE mo_atm_phy_nwp_nml
     &                    dt_rad, dt_radheat,                       &
     &                    dt_sso, dt_gwd,                           &
     &                    dt_gscp, dt_satad,                        &
-    &                    dt_turb, dt_sfc ! ,                          & 
+    &                    dt_turb, dt_sfc ,                         & 
+    &                    qi0, qc0
 !    &                    imode_turb,                               &
 !    &                    limpltkediff, ltkesso, lexpcor,           &
 !    &                    tur_len, pat_len, a_stab,                 &
 !    &                    tkhmin, tkmmin, c_diff,                   &
 !    &                    itype_wcld, icldm_turb,                   &
 !    &                    itype_tran, rlam_heat, rlam_mom, rat_sea, &
-!    &                    qi0, qc0
+  
 
 
 
@@ -201,8 +203,8 @@ CONTAINS
       dt_radheat(jg)=  dt_update(jg)
     ENDDO
 
-!    qi0 = 0.0_wp 
-!    qc0 = 0.0_wp 
+    qi0 = 0.0_wp 
+    qc0 = 0.0_wp 
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -250,6 +252,8 @@ CONTAINS
       atm_phy_nwp_config(jg)% dt_turb        = dt_turb  (jg)
       atm_phy_nwp_config(jg)% dt_sfc         = dt_sfc   (jg)
       atm_phy_nwp_config(jg)% dt_update      = dt_update(jg)
+      atm_phy_nwp_config(jg)%qi0             = qi0 
+      atm_phy_nwp_config(jg)%qc0             = qc0 
 
 !      atm_phy_nwp_config(jg)%lseaice         = lseaice 
 !      atm_phy_nwp_config(jg)%llake           = llake
@@ -265,8 +269,7 @@ CONTAINS
 !      atm_phy_nwp_config(jg)%c_diff          = c_diff
 !      atm_phy_nwp_config(jg)%itype_wcld      = itype_wcld
 !      atm_phy_nwp_config(jg)%icldm_turb      = icldm_turb
-!      atm_phy_nwp_config(jg)%qi0             = qi0 
-!      atm_phy_nwp_config(jg)%qc0             = qc0 
+
 
     ENDDO
 
