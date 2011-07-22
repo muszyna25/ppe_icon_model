@@ -706,7 +706,7 @@ MODULE mo_nh_diffusion
     !------------------------------------------
 
       ! a) mean area edge
-      z_mean_area_edge=8.0*pi*re*re/p_patch%n_patch_edges_g
+      z_mean_area_edge=8.0_wp*pi*re*re/REAL(p_patch%n_patch_edges_g,wp)
 
       ! b) compute density at vertices and edges
       CALL cells2verts_scalar(p_nh_prog%rho, p_patch, p_int%cells_aw_verts, z_rho_v)

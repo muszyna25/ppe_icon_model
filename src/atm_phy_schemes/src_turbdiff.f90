@@ -5196,7 +5196,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
                   DO j=jstartpar,jendpar
                   DO i=istartpar,iendpar
                      a(i,j,k,n)= &
-                      -(hlp(i,j,k)+wichfakt*(hlp(i,j,k-1)-2*hlp(i,j,k) &
+                      -(hlp(i,j,k)+wichfakt*(hlp(i,j,k-1)-2._ireals*hlp(i,j,k) &
                                          +hlp(i,j,k+1)))/dicke(i,j,k)
                   END DO
                   END DO
@@ -5847,9 +5847,10 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
                DO j=jstartpar,jendpar
                DO i=istartpar,iendpar
                   len=hhl(i,j,k-1)-hhl(i,j,k+1)
-                  hlp(i,j,k)=(tketens(i,j,k-1)-tketens(i,j,k)) &
-                     +MIN( securi*len**2/(4*tke(i,j,k,ntur)*dt_tke), c_diff*len_scale(i,j,k)) &
-                      *( (tke(i,j,k-1,ntur)-tke(i,j,k+1,ntur))/len )**2
+                  hlp(i,j,k)=(tketens(i,j,k-1)-tketens(i,j,k))                &
+                    & +MIN( securi*len**2/(4._ireals*tke(i,j,k,ntur)*dt_tke), &
+                    &       c_diff*len_scale(i,j,k))                          &
+                    & *( (tke(i,j,k-1,ntur)-tke(i,j,k+1,ntur))/len )**2
  
                END DO
                END DO
@@ -5897,9 +5898,9 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
             DO j=jstartpar,jendpar
             DO i=istartpar,iendpar
                dicke(i,j,k)=z1d2*(hhl(i,j,k-1)-hhl(i,j,k+1))*rhon(i,j,k)
-               tketens(i,j,k)= &
-                     -(hlp(i,j,k)+wichfakt*(hlp(i,j,k-1)-2*hlp(i,j,k) &
-                                        +hlp(i,j,k+1)))/dicke(i,j,k)
+               tketens(i,j,k)=                                                                &
+                 &  -( hlp(i,j,k)+wichfakt*(hlp(i,j,k-1)-2._ireals*hlp(i,j,k)+hlp(i,j,k+1)) ) &
+                 &  /dicke(i,j,k)
             END DO
             END DO
          END DO

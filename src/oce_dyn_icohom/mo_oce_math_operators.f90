@@ -1730,8 +1730,8 @@ INTEGER, PARAMETER :: DISTANCE_WEIGHT =1
 INTEGER, PARAMETER :: UPWIND          =2
 !TYPE(t_cartesian_coordinates)    :: cv_c1_e0, cv_c2_e0
 !TYPE(t_cartesian_coordinates)    :: cc_c1, cc_c2, cc_e0
-CHARACTER(len=max_char_length), PARAMETER :: &
-       & routine = ('mo_oce_AB_timestepping_mimetic:height_related_quantities')
+!0!CHARACTER(len=max_char_length), PARAMETER :: &
+!0!  & routine = ('mo_oce_AB_timestepping_mimetic:height_related_quantities')
 
 !-------------------------------------------------------------------------------
 !CALL message (TRIM(routine), 'start')

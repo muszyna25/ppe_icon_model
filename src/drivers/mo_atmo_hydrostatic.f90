@@ -72,7 +72,7 @@ CONTAINS
   !!
   SUBROUTINE atmo_hydrostatic
 
-    LOGICAL :: lsuccess, l_have_output
+    LOGICAL :: l_have_output
     INTEGER :: n_io, n_file, n_diag, n_chkpt
     INTEGER :: jfile
 #ifndef NOMPI

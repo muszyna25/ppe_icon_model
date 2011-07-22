@@ -97,7 +97,7 @@ MODULE mo_master_control
     ! !Local variables
     !
     INTEGER :: master_namelist_status
-    INTEGER :: coupling_namelist_status
+!rr    INTEGER :: coupling_namelist_status
     INTEGER :: jg, comp_id, str_len, ierr
     INTEGER :: new_comm
     INTEGER :: nbr_components

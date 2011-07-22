@@ -113,7 +113,6 @@ CONTAINS
 
     CHARACTER(LEN=*), INTENT(IN) :: filename 
     INTEGER :: istat, funit
-    INTEGER :: jg
 
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_diffusion_nml: read_diffusion_namelist'

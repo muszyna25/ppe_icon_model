@@ -489,7 +489,8 @@ CONTAINS
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    INTEGER :: ist, shape2d(2), shape3d(3), shape4d(4), shapesfc(3)
+    INTEGER :: shape2d(2), shape3d(3), shapesfc(3)
+!0!    INTEGER :: shape4d(4)
     INTEGER :: ientr, jsfc, jtrc
 
     CHARACTER(LEN=1) :: csfc
@@ -1133,27 +1134,6 @@ CONTAINS
     END DO
     !-----------------------------------
 
-!!$    ! Variables for debugging
-!!$    ALLOCATE( field% debug_2d_1(nproma,         nblks), &
-!!$      &       field% debug_2d_2(nproma,         nblks), &
-!!$      &       field% debug_2d_3(nproma,         nblks), &
-!!$      &       field% debug_2d_4(nproma,         nblks), &
-!!$      &       field% debug_2d_5(nproma,         nblks), &
-!!$      &       field% debug_2d_6(nproma,         nblks), &
-!!$      &       field% debug_2d_7(nproma,         nblks), &
-!!$      &       field% debug_2d_8(nproma,         nblks), &
-!!$      &       field% debug_3d_1(nproma, nlev,   nblks), &
-!!$      &       field% debug_3d_2(nproma, nlev,   nblks), &
-!!$      &       field% debug_3d_3(nproma, nlev,   nblks), &
-!!$      &       field% debug_3d_4(nproma, nlev,   nblks), &
-!!$      &       field% debug_3d_5(nproma, nlev,   nblks), &
-!!$      &       field% debug_3d_6(nproma, nlev,   nblks), &
-!!$      &       field% debug_3d_7(nproma, nlev,   nblks), &
-!!$      &       field% debug_3d_8(nproma, nlev,   nblks), &
-!!$      &       STAT=ist                          )
-!!$
-!!$    IF (ist/=SUCCESS) CALL finish(TRIM(thismodule),'allocation of debugging fields failed')
-
   END SUBROUTINE new_echam_phy_field_list
   !-------------
   !>
@@ -1177,7 +1157,7 @@ CONTAINS
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    INTEGER :: ist, shape3d(3), shape_trc(4)
+    INTEGER :: shape3d(3), shape_trc(4)
     INTEGER :: ientr, jtrc
     !------------------------------
 

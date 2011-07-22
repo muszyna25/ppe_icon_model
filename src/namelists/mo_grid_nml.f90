@@ -121,10 +121,11 @@ MODULE mo_grid_nml
   SUBROUTINE read_grid_namelist( filename )
     
     CHARACTER(LEN=*), INTENT(IN) :: filename                                           
-    INTEGER  :: i_status, i, jg, jlev, funit
-    CHARACTER(filename_max) :: patch_file, gridtype
-    INTEGER  ::  patch_level(max_dom)
-    LOGICAL :: l_exist
+    INTEGER  :: i_status, i, funit
+!    INTEGER  :: jg, jlev
+!    CHARACTER(filename_max) :: patch_file, gridtype
+!    INTEGER  ::  patch_level(max_dom)
+!    LOGICAL :: l_exist
 
     !------------------------------------------------------------
     !  set up the default values for grid_nml
