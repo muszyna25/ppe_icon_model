@@ -96,7 +96,7 @@ CONTAINS
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
-    INTEGER :: jk
+!!$    INTEGER :: jk
     
     INTEGER :: &
       & jj, itaja, jb !& ! output from routine get_utc_date_tr
@@ -570,7 +570,7 @@ CONTAINS
 
       DO JM1=1,ICP
         JM  = JM1-1
-        ZM  = JM
+        ZM  = REAL(JM,wp)
         Z2M = ZM+ZM
         ZRE1= SQRT(Z2M+3._wp)
         ZE1 = 1._wp/ZRE1
@@ -603,7 +603,7 @@ CONTAINS
         JM2 = JM+2
 
         DO JN=JM2,IC
-          ZN = JN
+          ZN = REAL(JN,wp)
           ZN2= ZN**2
           ZE2= SQRT((4._wp*ZN2-1._wp)/(ZN2-ZM**2))
           JJ = JJ+1
