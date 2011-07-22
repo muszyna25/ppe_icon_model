@@ -108,7 +108,7 @@ CONTAINS
 
     end_name = INDEX(name, '.', back=.true.)
     IF (end_name > 0) THEN
-      filename = name(1:end_name)
+      filename = name(1:end_name-1)
     ELSE
       filename = TRIM(name)
     ENDIF
