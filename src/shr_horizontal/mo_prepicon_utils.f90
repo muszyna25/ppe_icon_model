@@ -271,7 +271,7 @@ MODULE mo_prepicon_utils
         !
         ! generate file name
         !
-        WRITE(topo_file(jg),'(a,i0,2(a,i2.2),a)') 'extpar_R',nroot,'B',jlev,'_DOM',jg,'.nc'
+        WRITE(topo_file(jg),'(a,a)') 'extpar_',p_patch(jg)%grid_filename
 
         INQUIRE (FILE=topo_file(jg), EXIST=l_exist)
         IF (.NOT.l_exist) THEN
@@ -351,7 +351,7 @@ MODULE mo_prepicon_utils
         !
         ! generate file name
         !
-        WRITE(ifs2icon_file(jg),'(a,i0,2(a,i2.2),a)') 'ifs2icon_R',nroot,'B',jlev,'_DOM',jg,'.nc'
+        WRITE(ifs2icon_file(jg),'(a,a)') 'ifs2icon_',p_patch(jg)%grid_filename
 
         INQUIRE (FILE=ifs2icon_file(jg), EXIST=l_exist)
         IF (.NOT.l_exist) THEN
@@ -667,7 +667,6 @@ MODULE mo_prepicon_utils
     INTEGER :: jg, jlev
     INTEGER :: nlev              !< number of full levels
     CHARACTER(LEN=filename_max) :: gridtype, outputfile
-    CHARACTER(LEN=filename_max) :: gridfile(max_dom)
 
     gridtype='icon'
 
@@ -675,9 +674,6 @@ MODULE mo_prepicon_utils
 
       jlev = p_patch(jg)%level
       nlev = p_patch(jg)%nlev
-
-      WRITE (gridfile(jg),'(a,a,i0,2(a,i2.2),a)') &
-        &    TRIM(gridtype),'R',nroot,'B',jlev,'_DOM',jg,'-grid.nc'
 
       CALL setup_prepicon_vlist( TRIM(p_patch(jg)%grid_filename), jg )
 
