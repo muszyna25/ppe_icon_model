@@ -248,7 +248,9 @@ resolution=${horizontal_resolution}${vertical_resolution}
 export PlotPath=${plot_file_path}
 export Resolution=${resolution}
 export ConfigStr=${config_string}
-export ExpName=${EXP}_${resolution}
+if [ x${ExpName} == "x" ]; then
+  export ExpName=${EXP}_${resolution}
+fi
 
 # Temporary variables
 if [ $cdo_silence -eq 1 ]; then
