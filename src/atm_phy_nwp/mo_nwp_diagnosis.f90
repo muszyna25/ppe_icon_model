@@ -151,7 +151,7 @@ CONTAINS
 
     REAL(wp):: z_help, p_sim_time_s6
 
-    INTEGER :: jc,jk,jb,jt,jg      !block index
+    INTEGER :: jc,jk,jb,jg      !block index
     INTEGER :: kstart_moist
 
     INTEGER :: ioverlap(nproma)
@@ -232,7 +232,7 @@ CONTAINS
 ! from the model start
 
 
-    IF ( p_sim_time .GT. 1.e-1 ) THEN
+    IF ( p_sim_time > 1.e-1_wp ) THEN
 
 !$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc)
       DO jb = i_startblk, i_endblk
@@ -271,7 +271,7 @@ CONTAINS
 
           ENDDO
         ENDDO
-        IF ( p_sim_time .GT. 1.e-1 ) THEN
+        IF ( p_sim_time > 1.e-1_wp ) THEN
          DO jc = i_startidx, i_endidx 
           pt_diag%tracer_vi_avg(jc,jb,1:3) = ( pt_diag%tracer_vi_avg(jc,jb,1:3) &
                               &  * (p_sim_time - tcall_phy_jg(itupdate))    &
@@ -288,7 +288,7 @@ CONTAINS
 !         convective precipitation rate and grid-scale precipitation rate
 
 
-    IF ( p_sim_time .GT. 1.e-1 ) THEN
+    IF ( p_sim_time > 1.e-1_wp ) THEN
 
 !$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc)
       DO jb = i_startblk, i_endblk
@@ -315,7 +315,7 @@ CONTAINS
 ! latent heat, sensible heat and evaporation rate at surface. Calculation of average values 
 ! since model start
 
-    IF ( p_sim_time .GT. 1.e-1 ) THEN
+    IF ( p_sim_time > 1.e-1_wp) THEN
 
 !$OMP DO PRIVATE(jb, i_startidx,i_endidx,jc)
       DO jb = i_startblk, i_endblk
@@ -367,10 +367,11 @@ CONTAINS
 ! Check if it is 00, 06, 12 or 18 UTC. In this case update the value of 
 !    dt_s6avg average variables 
 
-    IF (MOD(p_sim_time + time_config%ini_datetime%daysec, dt_s6avg) == 0 &
-      & .AND. p_sim_time > 0.1) THEN
+    IF (MOD(p_sim_time + time_config%ini_datetime%daysec, dt_s6avg) == 0._wp &
+      & .AND. p_sim_time > 0.1_wp) THEN
        l_s6avg = .TRUE.
-       p_sim_time_s6 = INT( (p_sim_time+time_config%ini_datetime%daysec)/dt_s6avg) * dt_s6avg
+       p_sim_time_s6 = REAL(INT( (p_sim_time+time_config%ini_datetime%daysec)/dt_s6avg),wp) &
+         &             * dt_s6avg
     ELSE
        l_s6avg = .FALSE.
     END IF

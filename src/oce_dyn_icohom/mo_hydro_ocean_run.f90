@@ -120,10 +120,11 @@ CONTAINS
   ! local variables
   INTEGER :: jt, jg, n_temp
   INTEGER :: jstep, jfile, jlev
-  LOGICAL :: l_exist
+!  LOGICAL :: l_exist
   TYPE(t_oce_timeseries), POINTER :: oce_ts
 
-  CHARACTER(LEN=filename_max)  :: outputfile, gridfile
+  CHARACTER(LEN=filename_max)  :: outputfile
+!  CHARACTER(LEN=filename_max)  :: gridfile
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &      routine = 'mo_hydro_ocean_run:perform_ho_stepping'
   !------------------------------------------------------------------

@@ -136,9 +136,10 @@ CONTAINS
     INTEGER :: rl_start, rl_end, i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: iswm_ocex
 
-    LOGICAL :: l_exist
+!    LOGICAL :: l_exist
 
-    CHARACTER(LEN=filename_max)                     :: outputfile, gridfile
+    CHARACTER(LEN=filename_max)               :: outputfile
+!    CHARACTER(LEN=filename_max)               :: gridfile
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       &      routine = 'mo_simple_expl_oce:perform_expl_step_oce'
 

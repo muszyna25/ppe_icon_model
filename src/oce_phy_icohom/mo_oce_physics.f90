@@ -464,12 +464,12 @@ CONTAINS
    TYPE(t_hydro_ocean_state), TARGET :: p_os
    TYPE (t_ho_params), INTENT(INOUT) :: params_oce
 !   ! Local variables
-   INTEGER  :: ist, jc, jb, jk, i_no_trac
-   INTEGER  :: il_e1, ib_e1,il_e2, ib_e2,il_e3, ib_e3
+   INTEGER  :: jc, jb, jk, i_no_trac
+!   INTEGER  :: il_e1, ib_e1,il_e2, ib_e2,il_e3, ib_e3
    INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_end_c
    REAL(wp) :: z_bv, z_a, dz_inv, z_shear
    REAL(wp) :: z_Ri
-   REAL(wp) :: z_edge_ave 
+!   REAL(wp) :: z_edge_ave 
 !   !-------------------------------------------------------------------------
     rl_start_c   = 1
     rl_end_c     = min_rlcell

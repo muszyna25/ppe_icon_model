@@ -1168,7 +1168,7 @@ INTEGER :: rl_start, rl_end
 !INTEGER :: rl_start_e, rl_end_e, je
 REAL(wp) :: delta_z
 REAL(wp) :: z_div_c(nproma,n_zlev,p_patch%nblks_c)
-REAL(wp) :: z_vn(nproma,n_zlev,p_patch%nblks_e)
+!REAL(wp) :: z_vn(nproma,n_zlev,p_patch%nblks_e)
 !TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
 !CHARACTER(len=max_char_length), PARAMETER :: &
 !       & routine = ('mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mimetic')
