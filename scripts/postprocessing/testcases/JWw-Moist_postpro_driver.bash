@@ -360,8 +360,8 @@ EOF
       while [ $fid -le $post_end ]; do
    
         tid4=$(printf "%04d" $fid)
-        fori=${model_data_path}${EXP}${DOMAIN}_${resolution}_${tid4}".nc"
-        ftmp=${tmp_data_path}${EXP}_${resolution}_${tid4}"_cloud_p.nc"
+        fori=${model_data_path}${ExpName}_${tid4}".nc"
+        ftmp=${tmp_data_path}${ExpName}_${tid4}"_cloud_p.nc"
        #cdo $silence ml2pl,90000,85000,80000,70000 \
         cdo $silence ml2pl,90000 \
                      -selname,OMEGA_PHY,ACLC,Qw,Qi,PS    ${fori} ${ftmp}

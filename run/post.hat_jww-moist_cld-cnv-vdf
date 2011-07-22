@@ -9,7 +9,7 @@
 #
 Model="ICOHAM"
 EXP="test_hat_jww-moist_cld-cnv-vdf"
-grid_name="iconR2B04-grid_spr0.90"
+grid_name="iconR2B04-grid"
 ExpName="${EXP}_${grid_name}"
 config_string="JWw-Moist R2B04"
 cell_type=3
