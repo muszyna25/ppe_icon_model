@@ -188,6 +188,7 @@ CONTAINS
     REAL(wp) :: lu_class_frac(nproma,p_patch%nblks_c,1:nsfc_subs)
 
 !em>
+#if 0
 
   ! local variables related to the blocking
 
@@ -419,6 +420,7 @@ print*, "SFC-DIAGNOSIS INTERFACE ",jstep
 !!$      CALL message('', TRIM(message_text))
 !!$    ENDIF
 
+#endif
       
   END SUBROUTINE nwp_surface
 
