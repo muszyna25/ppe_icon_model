@@ -504,9 +504,9 @@ INTEGER  ::   &              ! work array for SVD lapack routine
 
 
 !DR for DEBUG purposes
-#ifdef DEBUG_COEFF
+! #ifdef DEBUG_COEFF LL it's used in openmp directives, 
 REAL(wp) :: za_debug(nproma,lsq_dim_c,lsq_dim_unk)
-#endif
+! #endif
 !--------------------------------------------------------------------
 
 
