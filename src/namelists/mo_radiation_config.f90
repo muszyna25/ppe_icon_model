@@ -99,11 +99,16 @@ MODULE mo_radiation_config
     ! --- Default gas volume mixing ratios - 1990 values (CMIP5)
     !
     !DR preliminary restart fix
-!    REAL(kind=2*wp) :: vmr_co2   !< CO2
-    REAL(wp) :: vmr_co2   !< CO2
-    REAL(wp) :: vmr_ch4     !< CH4
+    ! REAL(kind=2*wp) :: vmr_co2   !< CO2
+#ifdef __SX__
+    INTEGER, PARAMETER :: qp = SELECTED_REAL_KIND(24, 307)
+    REAL(qp) :: vmr_co2    =  353.9e-06_qp     !< CO2
+#else
+    REAL(wp) :: vmr_co2    =  353.9e-06_wp     !< CO2
+#endif
     REAL(wp) :: vmr_n2o     !< N20
     REAL(wp) :: vmr_o2      !< O2
+    REAL(wp) :: vmr_ch4     !< CH4
     REAL(wp) :: vmr_cfc11   !< CFC 11
     REAL(wp) :: vmr_cfc12   !< CFC 12
     !

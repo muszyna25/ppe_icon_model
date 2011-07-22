@@ -43,6 +43,7 @@ MODULE mo_nh_init_utils
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: msg_level
   USE mo_dynamics_config,     ONLY: iequations
+  USE mo_parallel_config,     ONLY: p_test_run
   USE mo_physical_constants,  ONLY: grav, cpd, rd, cvd_o_rd, p0ref, vtmpc1
   USE mo_vertical_coord_table,ONLY: vct_a, vct_b, vct, read_vct
   USE mo_nonhydrostatic_config,ONLY: ivctype

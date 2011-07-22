@@ -138,7 +138,9 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
   INTEGER :: i_startblk, i_endblk    !> blocks
   INTEGER :: i_startidx, i_endidx    !! slices
   INTEGER :: i_nchdom                !! domain index
-  INTEGER  :: nexp
+  INTEGER :: nexp
+  INTEGER :: inwp_turb_init          !< 1: initialize nwp_turb
+                                     !< 0: do not initialize
 
   INTEGER :: ierrstat=0
   CHARACTER (LEN=25) :: eroutine=''
@@ -370,22 +372,22 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
   ! thus, it must be set even if no turbulence scheme called
   nsfc_type = 1
 
-  IF (  atm_phy_nwp_config(jg)%inwp_turb == 1 ) THEN
+  IF (  atm_phy_nwp_config(jg)%inwp_turb == 1 .AND. .NOT. lrestart ) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init COSMO turbulence')
-    
-      rl_start = 1 ! Initialization should be done for all points
-      rl_end   = min_rlcell
 
-      i_startblk = p_patch%cells%start_blk(rl_start,1)
-      i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+    rl_start = 1 ! Initialization should be done for all points
+    rl_end   = min_rlcell
 
- 
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+
 !$OMP PARALLEL
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx)
 
-  DO jb = i_startblk, i_endblk
+    DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
 &                       i_startidx, i_endidx, rl_start, rl_end)
@@ -398,6 +400,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
          &  fr_land=ext_data%atm%fr_land(:,jb), plcov=ext_data%atm%plcov_mx(:,jb), & 
          &  sai=prm_diag%sai(:,jb), lai=ext_data%atm%lai_mx(:,jb), &
          &  tai=prm_diag%tai(:,jb), eai=prm_diag%eai(:,jb) )
+
 
         CALL organize_turbdiff(action='tran_diff', iini=1, lstfnct=.TRUE., &
 !
@@ -439,7 +442,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
          &  shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb), &     
 !
          &  ierrstat=ierrstat, errormsg=errormsg, eroutine=eroutine )
-  ENDDO
+    ENDDO
 !$OMP END DO
 
 !$OMP PARALLEL WORKSHARE
