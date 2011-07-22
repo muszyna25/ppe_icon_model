@@ -42,7 +42,7 @@ cd $WRKDIR
 #-----------------------------------------------------------------------------
 # some clean-up
 # rm iconR2B0?-grid.nc
-# rm iconR2B0?-grid_spr0.90*
+# rm iconR2B0?-grid*
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
@@ -170,7 +170,7 @@ if [ "x$make_symm_grids" == "xtrue" ] ; then
   set_default_create_grids
   use_optimization='.true.'
   base_file_name=iconR2B
-  optimization_extension="-grid_spr0.90"
+  optimization_extension="-grid"
   use_isotropy_correction='.true.'
   isotropy_rotation_coeff=0.75
   isotropy_stretch_coeff=0.1
@@ -253,8 +253,8 @@ check_error $? "create icon patch hierarchy"
 #=============================================================================
 if [ "x$make_patches" == "xtrue" ] ; then
 
-  cp iconR2B03-grid_spr0.90.nc iconR2B03_DOM00.nc
-  cp iconR2B04-grid_spr0.90.nc iconR2B04_DOM01.nc
+  cp iconR2B03-grid.nc iconR2B03_DOM00.nc
+  cp iconR2B04-grid.nc iconR2B04_DOM01.nc
   startRefine=1
 
   no_of_patches=4

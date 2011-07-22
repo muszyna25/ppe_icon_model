@@ -57,7 +57,7 @@ iforcing=1        # forcing to the equation system
 #                     1 = Held-Suarez forcing
 #-----------------------------------------------------------------------------
 # the grid files
-atmo_dyn_grids='iconR2B04-grid_spr0.90.nc'
+atmo_dyn_grids='iconR2B04-grid.nc'
 #
 #-----------------------------------------------------------------------------
 

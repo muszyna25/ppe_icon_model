@@ -54,7 +54,7 @@ iforcing=2        # ECHAM physics
 #
 #-----------------------------------------------------------------------------
 # the grid files
-atmo_dyn_grids='iconR2B04-grid_spr0.90.nc'
+atmo_dyn_grids='iconR2B04-grid.nc'
 #
 #-----------------------------------------------------------------------------
 
@@ -105,6 +105,7 @@ cat > ${atmo_namelist} << EOF
  dt_data     = ${dt_data}   ! [s] write output every 6 hours
  dt_file     = ${dt_file}   ! [s] trigger new output file every day
  lwrite_radiation = .FALSE. ! do no add radiation fields to output
+ lwrite_cloud = .TRUE.
 /
 &transport_nml
  ctracer_list='vwi'         ! water vapour, cloud water, cloud ice, constant field
