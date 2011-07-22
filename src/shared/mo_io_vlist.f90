@@ -3233,7 +3233,7 @@ CONTAINS
           ENDDO
         ENDDO
       ELSE
-        ! Gather all data on p_work_pe0
+        ! Gather all data on process_mpi_all_workroot_id
         CALL exchange_data(p_comm_pat, RECV=tmp_field, SEND=in_field)
       ENDIF
     ENDIF
