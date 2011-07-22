@@ -48,7 +48,6 @@ MODULE mo_atm_phy_nwp_config
     &                               itturb, itsfc,  itgwd, iphysproc
   USE mo_exception,        ONLY: message, message_text, finish
 
-!  USE mo_run_config,          ONLY: dtime, ltestcase
   USE mo_data_turbdiff,       ONLY: imode_turb,                              &
     &                               limpltkediff, ltkesso, lexpcor,          &
     &                               tur_len, pat_len, a_stab,                &
@@ -120,7 +119,7 @@ MODULE mo_atm_phy_nwp_config
 
 CONTAINS
 
-SUBROUTINE configure_atm_phy_nwp(n_dom,ltestcase)
+SUBROUTINE configure_atm_phy_nwp(n_dom,ltestcase, iadv_rcf, dtime)
  !-------------------------------------------------------------------------
   !
   !>
@@ -133,12 +132,15 @@ SUBROUTINE configure_atm_phy_nwp(n_dom,ltestcase)
   !! Initial revision by Daniel Reinert, DWD (2010-10-06)
   !! revision for restructurring by Kristina Froehlich MPI-M (2011-07-12)
 
+
+  REAL(wp),INTENT(IN) :: dtime
   INTEGER, INTENT(IN) :: n_dom
+  INTEGER, INTENT(IN) :: iadv_rcf
   LOGICAL, INTENT(IN) :: ltestcase
 
   INTEGER :: jg
-  !0!CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
-  !0!  &      routine = 'mo_atm_phy_nwp_config:configure_atm_phy_nwp'
+  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+    &      routine = 'mo_atm_phy_nwp_config:configure_atm_phy_nwp'
 
     tcall_phy(:,:) = 0._wp
 
@@ -224,31 +226,19 @@ SUBROUTINE configure_atm_phy_nwp(n_dom,ltestcase)
 
     ENDDO
 
-!       lseaice    = atm_phy_nwp_config(1)%lseaice       
-!      llake      = atm_phy_nwp_config(1)%llake         
-!      imode_turb = atm_phy_nwp_config(1)%imode_turb    
-!      limpltkediff = atm_phy_nwp_config(1)%limpltkediff  
-!      ltkesso     = atm_phy_nwp_config(1)%ltkesso       
-!      lexpcor     = atm_phy_nwp_config(1)%lexpcor       
-!      tur_len     = atm_phy_nwp_config(1)%tur_len        
-!      pat_len     = atm_phy_nwp_config(1)%pat_len        
-!      a_stab      = atm_phy_nwp_config(1)%a_stab    
-!      tkhmin      = atm_phy_nwp_config(1)%tkhmin         
-!      tkmmin      = atm_phy_nwp_config(1)%tkmmin         
-!      c_diff      = atm_phy_nwp_config(1)%c_diff         
-!      itype_wcld  = atm_phy_nwp_config(1)%itype_wcld     
-!      icldm_turb  = atm_phy_nwp_config(1)%icldm_turb  
-!      itype_tran  = atm_phy_nwp_config(1)%itype_tran  
-!      rlam_heat   = atm_phy_nwp_config(1)%rlam_heat
-!      rlam_mom    = atm_phy_nwp_config(1)%rlam_mom
-!      rat_sea     = atm_phy_nwp_config(1)%rat_sea     
-!
-!
-
     IF( atm_phy_nwp_config(1)%inwp_turb == 2) THEN
        CALL init_sfc_indices( ltestcase, 'APE' ) !call of a hydrostatic testcase
                                              ! to obtain the demanded parameters
     ENDIF
+
+    IF( MOD( REAL(  iadv_rcf,wp)*dtime, &
+      &         atm_phy_nwp_config(jg)%dt_conv) /= 0._wp )  THEN
+      WRITE(message_text,'(a,I4,2F10.2)') &
+        &'advective and convective timesteps are not- but will be synchronized ', &
+        &     1, REAL(  iadv_rcf,wp)*dtime,tcall_phy(1,itconv)
+      CALL message(TRIM(routine), TRIM(message_text))
+    ENDIF
+
  
 END SUBROUTINE configure_atm_phy_nwp
 

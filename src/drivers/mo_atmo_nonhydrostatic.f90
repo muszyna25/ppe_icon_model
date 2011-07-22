@@ -50,6 +50,7 @@ USE mo_run_config,           ONLY: &
   &                               nsteps,               & !    :
   &                               ltimer,               & !    :
   &                               iforcing                !    namelist parameter
+USE mo_nonhydrostatic_config, ONLY: iadv_rcf
 USE mo_impl_constants,       ONLY: inoforcing,           & !    :
   &                                inwp
 ! Horizontal grid
@@ -93,7 +94,7 @@ CONTAINS
    
 
     IF(iforcing == inwp) THEN
-     CALL configure_atm_phy_nwp(n_dom, ltestcase)
+     CALL configure_atm_phy_nwp(n_dom, ltestcase, iadv_rcf, dtime)
     ENDIF
  
     !---------------------------------------------------------------------

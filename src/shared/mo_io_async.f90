@@ -64,15 +64,14 @@ MODULE mo_io_async
     & p_recv, my_process_is_mpi_test, p_pe_work, p_work_pe0, p_io_pe0, num_work_procs
   USE mo_parallel_config,  ONLY: pio_type
   USE mo_global_variables,    ONLY: setup_physics
-  USE mo_nonhydrostatic_config, ONLY: ivctype
+  USE mo_nonhydrostatic_config, ONLY: ivctype, iadv_rcf
 ! USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
 ! USE mo_diffusion_nml,       ONLY: diffusion_nml_setup
 !  USE mo_io_nml,              ONLY: io_nml_setup
   USE mo_io_config            
   USE mo_dynamics_config,     ONLY: iequations 
   USE mo_run_config,          ONLY: ldump_states, ltransport, lforcing, num_lev, iforcing, nlev,&
-    &                               ltestcase
- ! USE mo_atm_phy_nwp_nml,     ONLY: setup_nwp_phy, inwp_surface
+    &                               ltestcase, dtime
   USE mo_atm_phy_nwp_config, ONLY: configure_atm_phy_nwp
   USE mo_io_units,            ONLY: filename_max
   USE mo_communication,       ONLY: idx_no, blk_no
@@ -306,7 +305,7 @@ CONTAINS
 
     IF ( iforcing == inwp) THEN 
 !      CALL setup_nwp_phy
-      CALL configure_atm_phy_nwp(n_dom,ltestcase)
+      CALL configure_atm_phy_nwp(n_dom,ltestcase, iadv_rcf, dtime)
 !KF temp
 !      IF (inwp_surface > 0) CALL setup_nwp_lnd
     ENDIF

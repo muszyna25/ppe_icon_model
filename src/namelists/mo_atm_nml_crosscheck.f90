@@ -392,7 +392,7 @@ CONTAINS
     !--------------------------------------------------------------------
     IF (iforcing==inwp) THEN
     
-      CALL configure_atm_phy_nwp(n_dom,ltestcase)
+ !     CALL configure_atm_phy_nwp(n_dom,ltestcase)
  
       DO jg =1,n_dom
 
@@ -401,13 +401,6 @@ CONTAINS
           &  (atm_phy_nwp_config(jg)%inwp_gscp > 0      )    ) ) &
         &  CALL finish( TRIM(routine),'satad has to be switched on')
 
-         IF( MOD( REAL(  iadv_rcf,wp)*dtime, &
-           &         atm_phy_nwp_config(jg)%dt_conv) /= 0._wp )  THEN
-           WRITE(message_text,'(a,I4,2F10.2)') &
-           &'advective and convective timesteps are not- but will be synchronized ', &
-           &     1, REAL(  iadv_rcf,wp)*dtime,tcall_phy(1,itconv)
-           CALL message(TRIM(routine), TRIM(message_text))
-         ENDIF
 
         IF( (atm_phy_nwp_config(jg)%inwp_gscp==0) .AND. &
           & (atm_phy_nwp_config(jg)%inwp_convection==0) .AND.&
