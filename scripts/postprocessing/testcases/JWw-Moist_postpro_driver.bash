@@ -63,7 +63,7 @@ export Model="ICOHAM"     # or: export Model="ECHAM"
 
 # for automatic testing
 dir=`pwd -P`
-icon_path=${dir%%scripts/postprocessing/testcases}
+icon_path=${ICON_BASE_PATH}/
 
 # Output frequency expressed as number of time slices per day. 
 # (The value you give here must be ASCII representations of integer values, 
@@ -249,8 +249,10 @@ export PlotPath=${plot_file_path}
 export Resolution=${resolution}
 export ConfigStr=${config_string}
 if [ x${ExpName} == "x" ]; then
-  export ExpName=${EXP}_${resolution}
+  echo "Error in ExpName:", $ExpName
+  exit
 fi
+export ExpName=${ExpName}
 
 # Temporary variables
 if [ $cdo_silence -eq 1 ]; then
@@ -307,12 +309,14 @@ if [ $plot_precip -eq 1 ]; then
    else
        export DataPath=${model_data_path}
    fi
-   echo
+   echo "ExpName=${ExpName}"
    echo "=== Plotting precipitation ..."
    ncl JWw-Moist_plot_PS-Precip.ncl 
    check_error $? "In script JWw-Moist_postpro_driver.bash: part 'Plotting precipitation'"
    echo "=== Done."
 fi
+
+
 #------------------------------------------------------------------------
 # interpolate and plot vertical velocity, cloud cover and hydrometeor 
 #------------------------------------------------------------------------
