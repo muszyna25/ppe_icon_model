@@ -427,9 +427,6 @@ CONTAINS
     INTEGER  :: jg                     !< patch ID
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
-    REAL(wp) :: coeff_grid             !< parameter which is used to make the vertical 
-                                       !< advection scheme applicable to a height      
-                                       !< based coordinate system (coeff_grid=-1)
     !-------------------------------------------------------------------------
 
     ! check optional arguments

@@ -1085,7 +1085,7 @@ CONTAINS
     INTEGER  :: slev, elev         !< vertical start and end level
     INTEGER  :: ist                !< status variable
     INTEGER  :: je, jk, jb         !< index of edge, vert level, block
-    INTEGER  :: jc, ji, dim_unk
+    INTEGER  :: dim_unk
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_rlend_c, i_nchdom
     INTEGER  :: pid                !< patch ID
