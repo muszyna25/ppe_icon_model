@@ -801,7 +801,8 @@ CONTAINS
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
-                           i_startidx, i_endidx, i_rlstart, i_rlend)
+                           i_startidx, i_endidx, i_rlstart, min_rledge)
+                          !i_startidx, i_endidx, i_rlstart, i_rlend)
 
 #ifdef __LOOP_EXCHANGE
         DO je = i_startidx, i_endidx
