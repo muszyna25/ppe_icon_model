@@ -63,9 +63,10 @@ MODULE mo_mpi
 
   !----------- to be removed -----------------------------------------
   PUBLIC :: p_pe, p_io
-  PUBLIC :: num_test_procs, num_work_procs,             &
-       &    p_test_pe, p_work_pe0, p_io_pe0,            &
+  PUBLIC :: num_test_procs, num_work_procs,     &
+       &    p_work_pe0, p_io_pe0,               &
        &    p_n_work, p_pe_work
+  !     p_test_pe,
   !--------------------------------------------------------------------
 
 #ifndef NOMPI
