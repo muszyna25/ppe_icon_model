@@ -191,25 +191,25 @@ CONTAINS
 
       IF (atm_phy_nwp_config(jg)%inwp_gwd == 1) THEN
 
-        CALL gwdrag_wms(                                  &
-           & kidia    = i_startidx                      , & 
-           & kfdia    = i_endidx                        , &
-           & klon     = nproma                          , &
+        CALL gwdrag_wms(                                   &
+           & kidia    = i_startidx                      ,  & 
+           & kfdia    = i_endidx                        ,  &
+           & klon     = nproma                          ,  &
            & klev     = nlev                            ,  & !< in:  actual array size
-           & klevp1   = nlevp1                           ,&
-           & ptstep   = tcall_gwd_jg                    , & !< in:  time step
+           & klevp1   = nlevp1                          ,  &
+           & ptstep   = tcall_gwd_jg                    ,  & !< in:  time step
            & ptm1     = p_diag%temp             (:,:,jb),  & !< in:  temperature
            & pum1     = p_diag%u                (:,:,jb),  & !< in:  zonal wind component
            & pvm1     = p_diag%v                (:,:,jb),  & !< in:  meridional wind component
            & papm1    = p_diag%pres             (:,:,jb),  & !< in:  full level pressure
            & paphm1   = p_diag%pres_ifc         (:,:,jb),  & !< in:  half level pressure
-           & pgeo1    = p_metrics%geopot_agl   (:,:,jb),  & !< in:  full level geopote
-           & pgelat   = p_patch%cells%center   (:,jb)%lat, &
+           & pgeo1    = p_metrics%geopot_agl    (:,:,jb),  & !< in:  full level geopote
+           & pgelat   = p_patch%cells%center    (:,jb)%lat,&
            & pprecip  = prm_diag%tot_prec       (:,jb)    ,&
-           & ptenu    = prm_nwp_tend%ddt_u_gwd   (:,:,jb),  & !< out: u-tendency
-           & ptenv    = prm_nwp_tend%ddt_v_gwd   (:,:,jb),  & !< out: v-tendency
-           & pfluxu   = z_fluxv (:,:,jb) ,&
-           & pfluxv   = z_fluxv (:,:,jb)   ) !<
+           & ptenu    = prm_nwp_tend%ddt_u_gwd  (:,:,jb),  & !< out: u-tendency
+           & ptenv    = prm_nwp_tend%ddt_v_gwd  (:,:,jb),  & !< out: v-tendency
+           & pfluxu   = z_fluxu (:,:,jb)                ,  & !< out: 
+           & pfluxv   = z_fluxv (:,:,jb)   )                 !< out: 
 
       ELSE IF (atm_phy_nwp_config(jg)%inwp_gwd > 0) THEN
 
