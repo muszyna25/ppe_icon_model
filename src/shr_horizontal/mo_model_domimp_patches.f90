@@ -290,11 +290,12 @@ INTEGER,INTENT(IN) :: num_lev(:), num_levp1(:), nshift(:)
 LOGICAL,INTENT(IN) :: locean
 TYPE(t_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
 
-INTEGER :: jg, jg1, jlev, n_chd
+INTEGER :: jg, jg1, n_chd
+!INTEGER :: jlev
 
-LOGICAL :: l_exist
+!LOGICAL :: l_exist
 
-CHARACTER(filename_max) :: patch_file, gridtype
+!CHARACTER(filename_max) :: patch_file, gridtype
 
 TYPE(t_patch), POINTER ::  &
   &  p_single_patch => NULL()

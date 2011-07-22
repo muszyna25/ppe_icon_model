@@ -1300,7 +1300,7 @@ CONTAINS
     !-------------------------------------------------------
 
     TYPE(t_patch), INTENT(IN)            :: p_patch(:)
-    INTEGER :: no_cells, no_verts
+    INTEGER :: no_cells
     INTEGER :: ncid, dimid
     INTEGER :: jg
 
@@ -1795,7 +1795,7 @@ END SUBROUTINE inquire_external_files
     REAL(wp), INTENT(INOUT) :: &         !< output field
       &  var_out(:,:,:)
 
-    INTEGER :: varid, mpi_comm, j, jl, jb, jk, jt
+    INTEGER :: varid, mpi_comm, j, jl, jb, jk
     REAL(wp):: z_dummy_array(glb_arr_len,nlevs)!< local dummy array
   !-------------------------------------------------------------------------
 
