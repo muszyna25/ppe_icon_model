@@ -1102,7 +1102,7 @@ CONTAINS
     TYPE(t_gridref_state), POINTER :: ptr_grf
     TYPE(t_patch),         POINTER :: ptr_pp
 
-    INTEGER  :: jgc, jb, jc, jv, nblks_c
+    INTEGER  :: jgc, jb, jc, jv
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom, i_rlstart, i_rlend
 
     INTEGER, POINTER, DIMENSION(:,:,:) :: iidx, iblk

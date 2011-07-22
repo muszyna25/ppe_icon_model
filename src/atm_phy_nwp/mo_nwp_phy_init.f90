@@ -139,8 +139,8 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
   INTEGER :: i_startidx, i_endidx    !! slices
   INTEGER :: i_nchdom                !! domain index
   INTEGER :: nexp
-  INTEGER :: inwp_turb_init          !< 1: initialize nwp_turb
-                                     !< 0: do not initialize
+!  INTEGER :: inwp_turb_init          !< 1: initialize nwp_turb
+!                                     !< 0: do not initialize
 
   INTEGER :: ierrstat=0
   CHARACTER (LEN=25) :: eroutine=''
