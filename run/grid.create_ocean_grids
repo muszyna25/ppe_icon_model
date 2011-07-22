@@ -225,7 +225,7 @@ create_ocean_grid()
   fi    
   # typeset -Z2 Bm1 B it does not work on squall, needs further check
   ((Bm1=B-$REFINE_ITERATIONS))
-  INPGRID_EXT="-grid_spr0.90"
+  INPGRID_EXT="-grid"
   INPGRID=iconR${R}B0${Bm1}${INPGRID_EXT}.nc
   # if the INPGRID does not exits, create it
   if [[ ! -f $INPGRID ]] ; then
