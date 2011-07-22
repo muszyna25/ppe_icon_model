@@ -106,6 +106,7 @@ cat > ${atmo_namelist} << EOF
  dt_file     = ${dt_file}   ! [s] trigger new output file every day
  lwrite_radiation = .FALSE. ! do no add radiation fields to output
  lwrite_cloud = .TRUE.
+ lwrite_precip = .TRUE.
 /
 &transport_nml
  ctracer_list='vwi'         ! water vapour, cloud water, cloud ice, constant field
