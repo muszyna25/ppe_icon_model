@@ -74,7 +74,7 @@ cat > ${atmo_namelist} << EOF
 !
 &parallel_nml
  nproma         = ${nproma}
- p_test_run     = .true.
+ p_test_run     = .false.
  l_test_openmp  = .false.
  l_log_checks   = .false.
 /
