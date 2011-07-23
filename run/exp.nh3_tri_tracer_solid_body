@@ -43,7 +43,6 @@ dt_diag=`expr 24 \* 3600 `   # int output each 24 hours
 dt_file=`expr 30 \* 86400 `   # 30 days per file
 dt_data=`expr 288 \* 3600 `  # output each 288 hours
 #
-nsteps=20
 #-----------------------------------------------------------------------------
 # model parameters
 model_equations=3 # equation system
@@ -72,7 +71,7 @@ cat > ${atmo_namelist} << EOF
 !
 &parallel_nml
  nproma         = ${nproma}
- p_test_run     = .true.
+ p_test_run     = .false.
  l_test_openmp  = .false.
  l_log_checks   = .false.
 /
