@@ -17,6 +17,8 @@ ICONDIR=${DIR%/*}
 #
 EXP="test_nh3_tri_tracer_solid_body"
 #EXP="nh3_tri_tracer_solid_body"
+grid_name="iconR2B04-grid"
+ExpName="${EXP}_${grid_name}"
 horizontal_resolution="R2B04"
 VERTICAL_RES=3
 PFMT="eps"
@@ -39,6 +41,8 @@ fi
 # Write new ${set_env} file
 #
 echo "EXP=\"${EXP}\""                                       >  ${set_env}
+echo "grid_name=\"${grid_name}\""                           >> ${set_env}
+echo "ExpName=\"${ExpName}\""                               >> ${set_env}
 echo "horizontal_resolution=\"${horizontal_resolution}\""   >> ${set_env}
 echo "VERTICAL_RES=\"${VERTICAL_RES}\""                     >> ${set_env}
 echo "PFMT=\"${PFMT}\""                                     >> ${set_env}

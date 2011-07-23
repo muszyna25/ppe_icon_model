@@ -133,9 +133,9 @@ vertical_resolution="L${VERTICAL_RES}"
 export FNAM="${EXP}_${horizontal_resolution}${vertical_resolution}_0001.nc"
 export CONFIG_STRING="SBR tri ${horizontal_resolution}${vertical_resolution} spr0.90"
 export RESOLUTION="${horizontal_resolution}${vertical_resolution}"
-export ExpName=${EXP}_${RESOLUTION}
+export ExpName=${ExpName}
 # 1.6 Define location of input grid-file
-export GRIDFILE="${icon_path}grids/icon${horizontal_resolution}-grid_spr0.90.nc"
+export GRIDFILE="${DIRI}/${grid_name}.nc"
 export PFMT
 export PNAME=${EXP}_${PNAME}
 export ivel
