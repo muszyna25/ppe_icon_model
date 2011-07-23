@@ -17,6 +17,8 @@ ICONDIR=${DIR%/*}
 # Set parameters for postprocessing
 #
 EXPN="test_nh35_tri_jws"
+grid_name="iconR2B04-grid"
+ExpName="${EXPN}_${grid_name}"
 Root=2
 Bis=4
 ver_res="L35"
@@ -38,6 +40,8 @@ fi
 # Write new ${set_env} file
 #
 echo "EXPN=\"${EXPN}\""                                  >  ${set_env}
+echo "grid_name=\"${grid_name}\""                           >> ${set_env}
+echo "ExpName=\"${ExpName}\""                               >> ${set_env}
 echo "Root=\"${Root}\""                                  >> ${set_env}
 echo "Bis=\"${Bis}\""                                    >> ${set_env}
 echo "ver_res=\"${ver_res}\""                            >> ${set_env}

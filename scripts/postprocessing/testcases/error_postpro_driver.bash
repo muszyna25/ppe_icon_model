@@ -99,7 +99,9 @@ export hor_res="R${Root}B0${Bis}"
 export CONFIG_STRING="${EXPN} ${hor_res}${ver_res} ${gridopt}"
 
 # 1.5 Define location of input grid-file
-export GridFileN="${icon_path}grids/icon${hor_res}-grid_${gridopt}.nc"
+
+export DIRI="${icon_path}experiments/$EXPN/"
+export GridFileN="${DIRI}/${grid_name}.nc"
 
 #--------------------------------------------------------------------------
 # 2. Decide what to do
@@ -117,7 +119,6 @@ export PNAME="${EXPN}_${hor_res}${var_res}_PS_error_norms"
 
 #Directory of Namelist and experiment data, assumed that input file looks like
 # ${DIRI}${EXPN}_${hor_res}${ver_res}_000*.nc
-export DIRI="${icon_path}experiments/${EXPN}/"
 
 # Where should the plot files be located? Don't forget the trailing "/".
 #Plot file path
@@ -142,7 +143,7 @@ export IconFileN="${DIRI}${VarN}.nc"
 
 #get the data
 
-cdo -s selname,${VarN} ${DIRI}${EXPN}_${hor_res}${ver_res}_0001.nc ${IconFileN}
+cdo -s selname,${VarN} ${DIRI}${ExpName}_0001.nc ${IconFileN}
 check_error $? "Calling of cdo" 
 
 #   for file in `ls ${DIRI}${EXPN}_${hor_res}${ver_res}_000[2-9].nc`
