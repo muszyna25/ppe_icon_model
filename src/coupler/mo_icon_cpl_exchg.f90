@@ -379,7 +379,7 @@ CONTAINS
              ELSE
 
                 IF (  fptr%coupling%time_operation == cpl_field_avg ) THEN
-                   weight = 1.0_wp / float(fptr%accumulation_count)
+                   weight = 1.0_wp / REAL(fptr%accumulation_count,wp)
                 ELSE
                    weight = 1.0_wp
                 ENDIF

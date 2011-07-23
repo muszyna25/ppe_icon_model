@@ -211,7 +211,7 @@ CONTAINS
 
        ! Update date and time for this event
 
-       seconds = float(events(id)%time_step)
+       seconds = REAL(events(id)%time_step,wp)
        minutes = 0
        hours   = 0
        days    = 0
@@ -243,7 +243,7 @@ CONTAINS
        events(event_id)%elapsed_time = 0
     ENDIF
 
-    seconds = float(events(event_id)%time_step)
+    seconds = REAL(events(event_id)%time_step,wp)
     minutes = 0
     hours   = 0
     days    = 0
