@@ -210,8 +210,27 @@ then
 fi
 
 
-# For the NCL plotting scripts
+# Where should the plot files be located? Don't forget the trailing "/".
 
+model_data_path="${icon_path}experiments/$EXP/"
+
+plot_file_path="${model_data_path}plots/"
+
+#--------------------------------------------------------------------------
+# Now specify the directory in which the pressure level data and other
+# intermediate files (excluding the remapping weights) should be placed.
+# Don't forget the trailing "/".
+
+tmp_data_path="${model_data_path}tmp/"
+
+resolution=${horizontal_resolution}${vertical_resolution}
+# fori=${model_data_path}${EXP}${DOMAIN}_${resolution}
+# ftmp=${tmp_data_path}${EXP}_${resolution}
+fori=${model_data_path}${ExpName}
+ftmp=${tmp_data_path}${ExpName}
+
+# For the NCL plotting scripts
+export script_path=`pwd`"/JWw_postpro_scripts/"
 export Model="ICOHDC"
 export DataPath=${tmp_data_path}
 export PlotPath=${plot_file_path}
@@ -223,18 +242,7 @@ if [ x${ExpName} == "x" ]; then
 fi
 export ExpName=${ExpName}
 
-# Where should the plot files be located? Don't forget the trailing "/".
 
-model_data_path="${icon_path}experiments/$EXP/"
-
-plot_file_path="${model_data_path}plots/"
-
-#--------------------------------------------------------------------------
-# Now specify the directory in which the pressure level data and other 
-# intermediate files (excluding the remapping weights) should be placed. 
-# Don't forget the trailing "/".
-
-tmp_data_path="${model_data_path}tmp/"
 
 # Location of the file that contains /will contain the weights. 
 # Don't forget the trailing "/".
@@ -292,12 +300,6 @@ echo "=== Postprocessing started for the JW wave test."
 #===================== Info ==================================
 # Temporary variables
 
-export script_path=`pwd`"/JWw_postpro_scripts/"
-resolution=${horizontal_resolution}${vertical_resolution}
-fori=${model_data_path}${EXP}${DOMAIN}_${resolution}
-ftmp=${tmp_data_path}${EXP}_${resolution}
-fori=${model_data_path}${ExpName}
-ftmp=${tmp_data_path}${ExpName}
 
 # The directories for intermediate data and plots will be created, if 
 # not already there
