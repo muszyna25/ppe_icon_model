@@ -10,84 +10,103 @@
 # DWD, 2010-08-31
 #
 #-----------------------------------------------------------------------------
+#
 # Basic specifications of the simulation
 # --------------------------------------
 #
-# These values need to be stored in variables, which are needed to 
-# construct filenames  or directories:
-# 
-R=2               # nroot
-B=4               # number of bisections applied for the global grid
-N=35              # nlev = number of full levels
-OPT="spr0.90"     # grid optimization
+# These variables are set in the header section of the completed run script:
 #
-IEQ=3             # equation system
-#                     1=hydrost. atm. T
-#                     1=hydrost. atm. theta dp
-#                     3=non-hydrost. atm., 
-#                     0=shallow water model
-#                    -1=hydrost. ocean
-#
-#
-DTIME=320         # time step in seconds
-DT_DIAG=`expr 4 \* 3600  `   # int output each 4 hours
-#
+# EXPNAME = experiment name
+# NPROMA  = array blocking length / inner loop length
 #-----------------------------------------------------------------------------
 #
-# ICON namelist parameters
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#
+#-----------------------------------------------------------------------------
+# the namelist filename
+atmo_namelist=NAMELIST_${EXPNAME}
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date="2008-09-01T00:00:00Z"
+ndays_restart=60
+dt_restart=`expr ${ndays_restart} \* 86400`
+#
+#-----------------------------------------------------------------------------
+# model timing
+dtime=320
+ndays=12
+nsteps=`expr ${ndays} \* 86400 / ${dtime}`
+dt_diag=`expr 4 \* 3600 `    #  output each 4 hours
+dt_file=`expr 30 \* 86400 `  # 30 days per file
+dt_data=`expr 1 \* 86400 `   # output daily
+#
+nsteps=20
+#-----------------------------------------------------------------------------
+# model parameters
+model_equations=3 # equation system
+#                     1=hydrost. atm. (T dynamics)
+#                     2=hydrost. atm. (theta dynamics)
+#                     3=non-hydrost. atm.,
+#                    -1=shallow water model
+#                    -2=hydrost. ocean
+nlev=35           # nlev = number of full levels
+iforcing=0        # adiabatic forcing
+#
+#-----------------------------------------------------------------------------
+# the grid files
+atmo_dyn_grids='iconR2B04-grid.nc'
+#
+#-----------------------------------------------------------------------------
+
+
+
+#-----------------------------------------------------------------------------
+#
+# write ICON namelist parameters
 # ------------------------
 # For a complete list see Namelist_overview and Namelist_overview.pdf
 #
-cat > NAMELIST_${EXPNAME} << EOF
+cat > ${atmo_namelist} << EOF
 !
-&parallel_ctl
-p_test_run         = .false.
-division_method    = 1
-n_ghost_rows       = 1
-l_log_checks       = .false.  
+&parallel_nml
+ nproma         = ${nproma}
+ p_test_run     = .true.
+ l_test_openmp  = .false.
+ l_log_checks   = .false.
+ division_method    = 1
+ n_ghost_rows       = 1
 /
-&nh_testcase_ctl
- nh_test_name      = 'jabw_s'     ! test case identifier
-/
-&io_ctl
- out_expname       = '${EXPNAME}' ! file name base
- dt_data           = 86400.0      ! [s] output interval
- dt_diag           = ${DT_DIAG}
- lwrite_vorticity  = .TRUE.
- lwrite_pres       = .TRUE.
- lwrite_z3         = .TRUE.
- lwrite_omega      = .TRUE.
- lwrite_divergence = .TRUE.
-/
-&grid_ctl
- nroot       = ${R}         ! root division of icosahedron edges
- start_lev   = ${B}         ! number of bisections applied for the base grid
-/
-&run_ctl
- nproma      = ${NPROMA}    ! array blocking length
- nlev        = ${N}         ! number of full levels of vertical grid
- ntracer     = 0            ! number of tracers
- run_day     = 12           ! run length in days
- dtime       = ${DTIME}     ! timestep in seconds
- iequations  = ${IEQ}       ! equation system
- i_cell_type = 3            ! triangular cells
+&grid_nml
+ cell_type = 3            ! triangular cells
+ dynamics_grid_filename = "${atmo_dyn_grids}",
+/ 
+&run_nml
+ num_lev     = ${nlev},      ! number of full levels of vertical grid
+ nsteps      = ${nsteps}    ! number of steps length of run
+ dtime       = ${dtime}     ! [s] timestep in seconds
+ ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
  ldynamics   = .TRUE.       ! dynamics
- ltransport  = .FALSE.      ! transport 
- iforcing    = 0            ! diabatic forcing
- ltestcase   = .TRUE.       ! run testcase
- msg_level   = 10           ! detailed report during integration 
+ ltransport  = .FALSE.      ! transport
+ iforcing    = ${iforcing}  !
+ ntracer     = 0                ! number of tracers - default 0
+ msg_level   = 10           ! detailed report during integration
 /
-&nonhydrostatic_ctl
- iadv_rhotheta = 2
- igradp_method = 2  !new default
-/
-&dynamics_ctl
+&dynamics_nml
+ iequations  = ${model_equations}       ! 1: hydrost. atmosphere
  idiv_method    = 1
  divavg_cntrwgt = 0.50
 /
-&transport_ctl
+&nh_testcase_nml
+ nh_test_name      = 'jabw_s'     ! test case identifier
 /
-&diffusion_ctl
+&nonhydrostatic_nml
+ iadv_rhotheta = 2
+ igradp_method = 2  !new default
+/
+&diffusion_nml
  hdiff_order      = 5
  hdiff_efdt_ratio = 10.0
  lhdiff_vn        = .TRUE.
@@ -95,13 +114,14 @@ l_log_checks       = .false.
  hdiff_multfac    = 1.0
  hdiff_tv_ratio   = 1.0
 /
-&interpol_ctl
-/
-&gridref_ctl
-/
-&regularization_ctl
-/
-&ocean_ctl
+&io_nml
+ out_expname = '${EXPNAME}'       ! file name base
+ dt_data     = ${dt_data}       ! write output every 96 hours
+ dt_diag           = ${dt_diag}
+ lwrite_vorticity  = .TRUE.
+ lwrite_pres       = .TRUE.
+ lwrite_z3         = .TRUE.
+ lwrite_omega      = .TRUE.
 /
 EOF
-#
+#-----------------------------------------------------------------------------
