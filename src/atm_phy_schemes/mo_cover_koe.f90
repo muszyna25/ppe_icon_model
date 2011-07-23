@@ -292,14 +292,14 @@ CASE( 1 )
 ! stratiform cloud
 !  liquid cloud
      !assumed box distribution, width 0.2 qlsat, saturation above qlsat
-      deltaq = box_liq * zqlsat(jl,jk)                                        ! box width = 2*deltaq
+      deltaq = box_liq * zqlsat(jl,jk)                                      ! box width = 2*deltaq
       IF ( ( qv(jl,jk) + qc(jl,jk) - deltaq ) > zqlsat(jl,jk) ) THEN
         cc_turb_liq(jl,jk) = 1.0_wp
         qc_turb  (jl,jk)   = qv(jl,jk) + qc(jl,jk) - zqlsat(jl,jk)
       ELSE 
-        cc_turb_liq(jl,jk) = ( qv(jl,jk) + qc(jl,jk) + deltaq - zqlsat(jl,jk) )    / (2*deltaq)
+        cc_turb_liq(jl,jk) = ( qv(jl,jk) + qc(jl,jk) + deltaq - zqlsat(jl,jk) )   / (2._wp*deltaq)
         IF ( cc_turb_liq(jl,jk) > 0.0_wp ) THEN
-          qc_turb  (jl,jk) = ( qv(jl,jk) + qc(jl,jk) + deltaq - zqlsat(jl,jk) )**2 / (4*deltaq)
+          qc_turb  (jl,jk) = ( qv(jl,jk) + qc(jl,jk) + deltaq - zqlsat(jl,jk) )**2/ (4._wp*deltaq)
         ELSE
           qc_turb  (jl,jk) = 0.0_wp
         ENDIF
@@ -309,17 +309,17 @@ CASE( 1 )
      !ice cloud: assumed box distribution, width 0.1 qisat, saturation above qv 
      !           (qv is microphysical threshold for ice as seen by grid scale microphysics)
       IF ( qi(jl,jk) > zcldlim ) THEN
-       !deltaq     = min( box_ice * zqisat(jl,jk), 10._wp * qi(jl,jk) )       ! box width = 2*deltaq
-        deltaq     = box_ice * zqisat(jl,jk)                                  ! box width = 2*deltaq
-        qisat_grid = max( qv(jl,jk), zqisat(jl,jk) )                          ! qsat grid-scale
-       !qisat_grid = zqisat(jl,jk)                                            ! qsat grid-scale
+       !deltaq     = min( box_ice * zqisat(jl,jk), 10._wp * qi(jl,jk) )     ! box width = 2*deltaq
+        deltaq     = box_ice * zqisat(jl,jk)                                ! box width = 2*deltaq
+        qisat_grid = max( qv(jl,jk), zqisat(jl,jk) )                        ! qsat grid-scale
+       !qisat_grid = zqisat(jl,jk)                                          ! qsat grid-scale
         IF ( ( qv(jl,jk) + qi(jl,jk) - deltaq) > qisat_grid ) THEN
           cc_turb_ice(jl,jk) = 1.0_wp
           qi_turb    (jl,jk) = qv(jl,jk) + qi(jl,jk) - qisat_grid
         ELSE
-          cc_turb_ice(jl,jk) = ( qv(jl,jk) + qi(jl,jk) + deltaq - qisat_grid  )    / (2*deltaq)
+          cc_turb_ice(jl,jk) = ( qv(jl,jk) + qi(jl,jk) + deltaq - qisat_grid  )   / (2._wp*deltaq)
           IF ( cc_turb_ice(jl,jk) > 0.0_wp ) THEN
-            qi_turb  (jl,jk) = ( qv(jl,jk) + qi(jl,jk) + deltaq - qisat_grid  )**2 / (4*deltaq)
+            qi_turb  (jl,jk) = ( qv(jl,jk) + qi(jl,jk) + deltaq - qisat_grid  )**2/ (4._wp*deltaq)
           ELSE
             qi_turb  (jl,jk) = 0.0_wp
           ENDIF
@@ -339,7 +339,7 @@ CASE( 1 )
       cc_conv(jl,jk) = ( pmfude_rate(jl,jk) / rho(jl,jk) ) &                  ! cc = detrainment / rho / 
                    & / ( pmfude_rate(jl,jk) / rho(jl,jk) + 1.0_wp / taudecay )!      ( Du/rho + 1/tau,decay )
       qc_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*      foealfa(tt(jl,jk))   ! ql up  foealfa = liquid/(liquid+ice)
-      qi_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*( 1 - foealfa(tt(jl,jk)) ) ! qi up
+      qi_conv(jl,jk) = cc_conv(jl,jk) * plu(jl,jk)*(1._wp-foealfa(tt(jl,jk))) ! qi up
       cc_conv(jl,jk) = min(max(0.0_wp,cc_conv(jl,jk)),1.0_wp)
       qc_conv(jl,jk) = min(max(0.0_wp,qc_conv(jl,jk)),0.1_wp*qv(jl,jk))       ! qc limit to 10%qv
       qi_conv(jl,jk) = min(max(0.0_wp,qi_conv(jl,jk)),0.1_wp*qv(jl,jk))       ! qi limit to 10%qv

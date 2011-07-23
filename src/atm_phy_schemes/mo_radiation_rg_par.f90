@@ -73,15 +73,15 @@ MODULE mo_radiation_rg_par
 
 !     *COMGRZ*  : Limits of spectral intervals (for information only)
       REAL(wp) :: grenze(2,2,jpspec)
-  !              WMIN1    WMAX1     WMIN2    WMAX2
-  DATA grenze/  1.5300,   4.6420    ,999.    ,  0.    , &
-                0.7000,   1.5300    ,999.    ,  0.    , &
-                0.2451,   0.7000    ,999.    ,  0.    , &
-               20.0000, 104.5150    ,999.    ,  0.    , &
-               12.5000,  20.0000    ,999.    ,  0.    , &
-                8.3333,   9.0090    , 10.3093, 12.5000, &
-                9.0090,  10.3093    ,999.    ,  0.    , &
-                4.6420,   8.3333    ,999.    ,  0.    /
+  !             WMIN1      , WMAX1       , WMIN2       , WMAX2
+  DATA grenze /  1.5300_wp ,   4.6420_wp , 999._wp     ,  0._wp    , &
+                 0.7000_wp ,   1.5300_wp , 999._wp     ,  0._wp    , &
+                 0.2451_wp ,   0.7000_wp , 999._wp     ,  0._wp    , &
+                20.0000_wp , 104.5150_wp , 999._wp     ,  0._wp    , &
+                12.5000_wp ,  20.0000_wp , 999._wp     ,  0._wp    , &
+                 8.3333_wp ,   9.0090_wp ,  10.3093_wp , 12.5000_wp, &
+                 9.0090_wp ,  10.3093_wp , 999._wp     ,  0._wp    , &
+                 4.6420_wp ,   8.3333_wp , 999._wp     ,  0._wp      /
 
 !     DATEN ZU DEN OPTISCHEN EIGENSCHAFTEN FUER FLUESSIGWASSER
 !     FUER ALLE 8 SPEKTRALINTERVALLE (SOLAR+THERMISCH).
