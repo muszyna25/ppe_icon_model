@@ -1087,7 +1087,7 @@ CONTAINS
 
     ! Threshold for switching between analytical formulas for constant temperature and
     ! constant vertical gradient of temperature, respectively
-    dtvdz_thresh = 1.e-4 ! 0.1 K/km
+    dtvdz_thresh = 1.e-4_wp ! 0.1 K/km
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,nlen,jk,jk1,jc,dtvdz_up,dtvdz_down,p_up,p_down)
@@ -1234,7 +1234,7 @@ CONTAINS
 
     ! Threshold for switching between analytical formulas for constant temperature and
     ! constant vertical gradient of temperature, respectively
-    dtvdz_thresh = 1.e-4 ! 0.1 K/km
+    dtvdz_thresh = 1.e-4_wp ! 0.1 K/km
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jkm,jkp,jkz,jc,nlen,jkm_start,jkz_start,bot_idx_ml,bot_idx_zl, &
@@ -1664,9 +1664,9 @@ CONTAINS
           IF (slope(jc,jb) <= 5.e-2_wp) THEN ! 50 m/km
             redinv1(jc) = 1._wp
           ELSE IF (slope(jc,jb) <= 3.5e-1_wp) THEN ! 350 m/km
-            redinv1(jc) = 1. - LOG(slope(jc,jb)/5.e-2_wp)/LOG(10._wp)
+            redinv1(jc) = 1._wp - LOG(slope(jc,jb)/5.e-2_wp)/LOG(10._wp)
           ELSE
-            redinv1(jc) = 1. - LOG(7._wp)/LOG(10._wp)
+            redinv1(jc) = 1._wp - LOG(7._wp)/LOG(10._wp)
           ENDIF
 
           ! zdiff_inout > 0 means that the target grid point is higher than the source point
