@@ -702,7 +702,6 @@ CHARACTER (LEN=80)                    ::  &
     kso            , & ! loop index for soil moisture layers           
     ksn            , & ! loop index for snow layers
     k              , & ! loop index for snow layers
-    kso_zag        , & ! loop index for snow layers
     ke_soil_hy     , & ! number of active soil moisture layers
     i              , & ! loop index in x-direction              
     j              , & ! loop index in y-direction              
@@ -846,7 +845,6 @@ CHARACTER (LEN=80)                    ::  &
     zlhfl_snow     , & ! latent heatflux at snow surface
     zfor_snow      , & ! total forcing at snow surface
     zfr_melt       , & ! melting snow fraction
-!    zdwsnm         , & ! utility variable for snow melt determination
     zdwgme         , & ! utility variable for snow melt determination
     zdelt_s        , & ! utility variable for snow melt determination
     ze_avail       , & ! utility variable for snow melt determination
@@ -857,8 +855,9 @@ CHARACTER (LEN=80)                    ::  &
     zalas_mult    (ie,je,ke_snow),    & ! heat conductivity of snow
     ztsnownew_mult(ie,je,0:ke_snow),  & ! preliminary value of snow surface temperature
     zextinct      (ie,je,ke_snow),    & ! solar radiation extinction coefficient in snow (1/m)
-    zfor_snow_mult(ie,je),            & ! total forcing at snow surface
-    zfor_total    (ie,je)               ! total forcing at surface
+    zfor_snow_mult(ie,je)               ! total forcing at snow surface
+!  REAL    (KIND=ireals   ) ::  &
+!    zfor_total    (ie,je)               ! total forcing at surface
 
   REAL    (KIND=ireals   ) ::  &
 !
@@ -888,15 +887,11 @@ CHARACTER (LEN=80)                    ::  &
     zfr_ice        , & ! reduction factor for water transport
     zfr_ice_free   , & ! reduction factor for water transport
     zwso_new       , & ! preliminary value of soil water content
-    w_p            , & ! preliminary value of soil water content
-!    zwsnew         , & ! preliminary value of snow water equivalent
     zw_ovpv        , & ! utility variable
 !
 !   Implicit solution of thermal and hydraulic equations
 !
     zakb           , & ! utility variable
-    zakb_m1        , & ! utility variable
-    zakb_p1        , & ! utility variable
     zzz            , & ! utility variable
     z1dgam1        , & ! utility variable
     zredm          , & ! utility variable
@@ -1166,7 +1161,7 @@ CHARACTER (LEN=80)                    ::  &
     zthetas, zlamli, zlamsat, zlams, rsandf, zlamq, zlam0, zrhod, zlamdry,  &
     zsri, zKe, zthliq, zlamic
 
-  INTEGER (KIND=iintegers) :: i_loc, j_loc, isub
+!>JH  INTEGER (KIND=iintegers) :: i_loc, j_loc, isub
 
 !- End of header
 !==============================================================================
@@ -1234,7 +1229,7 @@ CHARACTER (LEN=80)                    ::  &
   nx  = nnow
   IF ( (ntstep == 0) .AND. (.NOT. l2tls) ) THEN
     ! use the original dt and not dt/2
-    zdt = 2 * dt
+    zdt = 2._ireals * dt
   ELSE
     zdt = dt
   ENDIF
@@ -1464,7 +1459,7 @@ do ns=nsubs0,nsubs1
         ! Arrays for soil water freezing/melting
         zsandf(i,j)   = csandf(mstyp)
         zclayf(i,j)   = cclayf(mstyp)
-        zpsis(i,j)    = -zpsi0 * 10**(1.88_ireals-0.013_ireals*zsandf(i,j))
+        zpsis(i,j)    = -zpsi0 * 10._ireals**(1.88_ireals-0.013_ireals*zsandf(i,j))
         zb_por(i,j)   = 2.91_ireals + .159_ireals*zclayf(i,j)
         zedb(i,j)     = 1._ireals/zb_por(i,j)
 
@@ -1887,7 +1882,7 @@ IF (itype_heatcond == 2) THEN
 
       zrhod   = 2700.0_ireals*(1.0_ireals-zthetas)
       zlamdry = ( 0.135_ireals*zrhod + 64.7_ireals )                     &
-              / ( 2700.0_ireals - 0.947*zrhod )
+              / ( 2700.0_ireals - 0.947_ireals*zrhod )
 
 !subs      zsri    = MIN(1.0_ireals, (w_so(i,j,kso,nx)/zdzhs(kso)) / zthetas)
       zsri    = MIN(1.0_ireals, (w_so(i,j,kso,nx,ns)/zdzhs(kso)) / zthetas)
@@ -2574,8 +2569,8 @@ IF(i.eq.1 .and. j.eq.1) &
 
             ! if first soil layer is frozen, allow evaporation at potential
             ! rate; if soil type is rock, evaporation is not allowed at all
-            zice        = zsf_heav(1.5_ireals - m_styp(i,j)) ! 1 only for ice
-            zevap       = zrock(i,j) + zice          ! 1 for all, but rock
+            zice        = zsf_heav(1.5_ireals - REAL(m_styp(i,j),ireals)) ! 1 only for ice
+            zevap       = zrock(i,j) + zice                               ! 1 for all, but rock
             zbeta  = zbeta + (1._ireals - zbeta)*zice
             zesoil(i,j) = zevap*zbeta*zep_s(i,j)      & ! evaporation
                           *(1._ireals - zf_wi  (i,j)) & ! not water covered
@@ -2604,20 +2599,20 @@ IF(i.eq.1 .and. j.eq.1) &
                                               ! evaporation
             zsnull(i,j) = zsnull(i,j)/(znull*zporv(i,j))
             ! Treatment of ice (m_styp=1) and rocks (m_styp=2)
-            zice   = zsf_heav(1.5_ireals - m_styp(i,j)) ! 1 only for ice
-            zevap  = zrock(i,j) + zice                  ! 1 for all soil types
-                                                        ! but rock and ice (=0)
+            zice   = zsf_heav(1.5_ireals - REAL(m_styp(i,j),ireals)) ! 1 only for ice
+            zevap  = zrock(i,j) + zice                               ! 1 for all soil types
+                                                                     ! but rock and ice (=0)
             zbeta  = 0.0_ireals
             IF (m_styp(i,j).ge.3) THEN ! Computations not for ice and rocks
               ! auxiliary quantities
-              zbf1   = 5.5_ireals - 0.8_ireals* zbedi(i,j)*                &
-                      (1.0_ireals + 0.1_ireals*(zbedi(i,j) - 4.0_ireals)*  &
+              zbf1   = 5.5_ireals - 0.8_ireals* zbedi(i,j)*                   &
+                      (1.0_ireals + 0.1_ireals*(zbedi(i,j) - 4.0_ireals)*     &
                        clgk0(m_styp(i,j)) )
-              zbf2   = (zbedi(i,j) - 3.7_ireals + 5.0_ireals/zbedi(i,j))/  &
+              zbf2   = (zbedi(i,j) - 3.7_ireals + 5.0_ireals/zbedi(i,j))/     &
                       (5.0_ireals + zbedi(i,j))
               zdmax  = zbedi(i,j)*cfinull*zk0di(i,j)/crhowm 
               zs1(i,j)  = zs1(i,j)/(z1*zporv(i,j))
-              zd     = 1.02_ireals*zdmax*zs1(i,j)**(zbedi(i,j) + 2) *      &
+              zd     = 1.02_ireals*zdmax*zs1(i,j)**(zbedi(i,j) + 2._ireals) * &
                                                 (zsnull(i,j)/zs1(i,j))**zbf1
               zck    = (1.0_ireals + 1550.0_ireals*cdmin/zdmax)*zbf2
               ! maximum sustainable moisture flux in the uppermost surface
@@ -3521,8 +3516,8 @@ END DO
 
   DO  kso = 1,ke_soil
     ! utility variables used to avoid if-constructs in following loops
-    zro_sfak = zsf_heav(0.5_ireals + msr_off - kso)  ! 1.0 for 'surface runoff'
-    zro_gfak = 1._ireals - zro_sfak                  ! 1.0 for 'ground runoff'
+    zro_sfak = zsf_heav(0.5_ireals + REAL(msr_off - kso,ireals))  ! 1.0 for 'surface runoff'
+    zro_gfak = 1._ireals - zro_sfak                               ! 1.0 for 'ground runoff'
 
     IF (kso==i250) THEN  
       zfmb_fak = 1.0_ireals
@@ -4761,10 +4756,10 @@ END DO
                        /(t0_melt           -csnow_tmin)
           zrho_snowf = MAX(crhosminf,MIN(crhosmaxf,zrho_snowf))
           DO ksn = 2, ke_snow
-!subs            IF (rho_snow_mult(i,j,ksn,nx) .LT. 6*zrho_snowf &
+!subs            IF (rho_snow_mult(i,j,ksn,nx) .LT. 6._ireals*zrho_snowf &
 !subs              & .AND. rho_snow_mult(i,j,ksn,nx) .NE. 0.0_ireals) THEN
 !subs              zdens_old = rho_snow_mult(i,j,ksn,nx)
-            IF (rho_snow_mult(i,j,ksn,nx,ns) .LT. 6*zrho_snowf &
+            IF (rho_snow_mult(i,j,ksn,nx,ns) .LT. 6._ireals*zrho_snowf &
               & .AND. rho_snow_mult(i,j,ksn,nx,ns) .NE. 0.0_ireals) THEN
               zdens_old = rho_snow_mult(i,j,ksn,nx,ns)
               zeta =         &! compactive viscosity of snow
