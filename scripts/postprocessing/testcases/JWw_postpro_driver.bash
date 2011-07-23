@@ -210,6 +210,18 @@ then
 fi
 
 
+# For the NCL plotting scripts
+
+export Model="ICOHDC"
+export DataPath=${tmp_data_path}
+export PlotPath=${plot_file_path}
+export Resolution=${resolution}
+export ConfigStr=${config_string}
+if [ x${ExpName} == "x" ]; then
+  echo "Error in ExpName:", $ExpName
+  exit
+fi
+export ExpName=${ExpName}
 
 # Where should the plot files be located? Don't forget the trailing "/".
 
@@ -284,6 +296,8 @@ export script_path=`pwd`"/JWw_postpro_scripts/"
 resolution=${horizontal_resolution}${vertical_resolution}
 fori=${model_data_path}${EXP}${DOMAIN}_${resolution}
 ftmp=${tmp_data_path}${EXP}_${resolution}
+fori=${model_data_path}${ExpName}
+ftmp=${tmp_data_path}${ExpName}
 
 # The directories for intermediate data and plots will be created, if 
 # not already there
@@ -354,14 +368,6 @@ elif [ ${cn_plot_option} -eq 0 ]; then
    plot_omega=0
 fi
 
-# For the NCL plotting scripts
-
-export Model="ICOHDC"
-export DataPath=${tmp_data_path}
-export PlotPath=${plot_file_path}
-export Resolution=${resolution}
-export ConfigStr=${config_string}
-export ExpName=${EXP}_${resolution}
 
 #------------------------------------------------------------------------
 # plot ps at selected time steps (see the ncl script)

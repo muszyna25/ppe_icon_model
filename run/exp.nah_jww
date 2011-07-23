@@ -62,11 +62,9 @@ atmo_dyn_grids='iconR2B04-grid.nc'
 #
 #-----------------------------------------------------------------------------
 
-
-#-----------------------------------------------------------------------------
 #-----------------------------------------------------------------------------
 #
-# ICON namelist parameters
+# write ICON namelist parameters
 # ------------------------
 # For a complete list see Namelist_overview and Namelist_overview.pdf
 #
