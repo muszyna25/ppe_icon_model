@@ -690,7 +690,7 @@ echo "=== The plots can be found in "${plot_file_path}
 
 if [ $rm_tmp_files -eq 1 ]; then
 
-   rm ${tmp_data_path}/${EXP}_${resolution}*.nc 
+   rm ${tmp_data_path}/${ExpName}*.nc
 
    if [ `ls ${tmp_data_path} |wc -l` -eq 0 ]; then
       rm -rf ${tmp_data_path}

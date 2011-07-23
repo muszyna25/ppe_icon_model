@@ -14,102 +14,122 @@
 # Basic specifications of the simulation
 # --------------------------------------
 #
-# These values need to be stored in variables, which are needed to 
-# construct filenames  or directories:
-# 
-R=2               # nroot
-B=4               # number of bisections applied for the global grid
-N=3              # nlev = number of full levels
-OPT="spr0.90"     # grid optimization
+# These variables are set in the header section of the completed run script:
 #
-IEQ=3             # equation system
-#                     1=hydrost. atm.
-#                     2=non-hydrost. atm., 
-#                    -1=shallow water model
-#                    -2=hydrost. ocean
-#
-# Here the length of the integration is converted from number of days 
-# to number of timesteps.
-#
-DTIME=900      #864    !288     !432     # time step in seconds
-DT_DATA=`expr 288 \* 3600  `   # output each 288 hours
-DT_FILE=`expr 30 \* 86400 `   # 30 day per file
-NDAYS=12       #number of days to run 
-
-#
+# EXPNAME = experiment name
+# NPROMA  = array blocking length / inner loop length
 #-----------------------------------------------------------------------------
 #
-# ICON namelist parameters
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#
+#-----------------------------------------------------------------------------
+# the namelist filename
+atmo_namelist=NAMELIST_${EXPNAME}
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date="2008-09-01T00:00:00Z"
+ndays_restart=60
+dt_restart=`expr ${ndays_restart} \* 86400`
+#
+#-----------------------------------------------------------------------------
+# model timing
+dtime=900
+ndays=12
+nsteps=`expr ${ndays} \* 86400 / ${dtime}`
+dt_diag=`expr 24 \* 3600 `   # int output each 24 hours
+dt_file=`expr 30 \* 86400 `   # 30 days per file
+dt_data=`expr 288 \* 3600 `  # output each 288 hours
+#
+nsteps=20
+#-----------------------------------------------------------------------------
+# model parameters
+model_equations=3 # equation system
+#                     1=hydrost. atm. (T dynamics)
+#                     2=hydrost. atm. (theta dynamics)
+#                     3=non-hydrost. atm.,
+#                    -1=shallow water model
+#                    -2=hydrost. ocean
+nlev=3              # nlev = number of full levels
+iforcing=0        # no forcing
+#
+#-----------------------------------------------------------------------------
+# the grid files
+atmo_dyn_grids='iconR2B04-grid.nc'
+#
+#-----------------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------------
+#
+# write ICON namelist parameters
 # ------------------------
 # For a complete list see Namelist_overview and Namelist_overview.pdf
 #
-cat > NAMELIST_${EXPNAME} << EOF
+cat > ${atmo_namelist} << EOF
 !
-&parallel_ctl
+&parallel_nml
+ nproma         = ${nproma}
+ p_test_run     = .true.
+ l_test_openmp  = .false.
+ l_log_checks   = .false.
 /
-&nh_testcase_ctl
- nh_test_name= 'PA'            ! test case identifier PA=pure advection test case
+&grid_nml
+ cell_type = 3            ! triangular cells
+ dynamics_grid_filename = "${atmo_dyn_grids}",
 /
-&io_ctl
- out_expname = '${EXPNAME}'       ! file name base
- dt_data     = ${DT_DATA}       ! write output every 96 hours
- dt_file     = ${DT_FILE}       ! trigger new output file every 30 day
- lwrite_vorticity = .FALSE.     ! do not write out averaged vorticity at cells
- lwrite_pres   = .FALSE.        ! do not write out full level pressure
- lwrite_z3     = .FALSE.        ! do not write out geopotential on full levels
- lwrite_omega  = .FALSE.        ! do not write out vertical velocity inpressure coordinates
-/
-&grid_ctl
- nroot       = ${R}             ! root division of icosahedron edges
- start_lev   = ${B}             ! number of bisections applied for the base grid
- lfeedback   = .FALSE.          ! no feedback to parent grid
-/
-&run_ctl
- nproma      = ${NPROMA}        ! array blocking length
- nlev        = ${N}             ! number of full levels of vertical grid
- ntracer     = 2                ! number of tracers - default 0
- run_day     = ${NDAYS}         ! run length in days
- dtime       = ${DTIME}         ! timestep in seconds
- iequations  = ${IEQ}           ! equation system
- i_cell_type = 3                ! triangular cells
+&run_nml
+ num_lev     = ${nlev},      ! number of full levels of vertical grid
+ nsteps      = ${nsteps}    ! number of steps length of run
+ dtime       = ${dtime}     ! [s] timestep in seconds
+ ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
  ldynamics   = .FALSE.          ! dynamics
- ltransport  = .TRUE.           ! transport 
- iforcing    = 0                ! diabatic forcing
- ltestcase   = .TRUE.           ! run testcase
- lcorio      = .FALSE.          ! no coriolis force
- msg_level   = 10               ! detailed report during integration 
+ ltransport  = .TRUE.           ! transport
+ iforcing    = ${iforcing}  !
+ ntracer     = 2                ! number of tracers - default 0
+ msg_level   = 10           ! detailed report during integration
 /
-&nonhydrostatic_ctl
- iadv_rhotheta = 2
- igradp_method = 2  !new default
- /
-&dynamics_ctl
+&dynamics_nml
+ iequations  = ${model_equations}       ! 1: hydrost. atmosphere
+ lcoriolis   = .FALSE.          ! no coriolis force
  itime_scheme     = 1           ! 1=pure advection (no dynamics)
- idiv_method      = 1           ! 
+ idiv_method      = 1           !
  divavg_cntrwgt   = 0.5
 /
-&transport_ctl
+&nh_testcase_nml
+ nh_test_name   = 'PA'      ! test case identifier PA=pure advection test case
+/
+&nonhydrostatic_nml
+ iadv_rhotheta = 2
+ igradp_method = 2  !new default
+/
+&transport_nml
   ctracer_list = '4'            ! list of tracer names
   ihadv_tracer = 3              ! default: miura
   ivadv_tracer = 3              ! default: ppm
   lvadv_tracer = .FALSE.        ! default: .TRUE.
   itype_vlimit = 0              ! default: 1
-  itype_hlimit = 0   
+  itype_hlimit = 0
   lclip_tracer = .FALSE.        ! default: .FALSE.
 /
-&diffusion_ctl
+&diffusion_nml
  hdiff_order       = -1         ! -1=no diffusion
  hdiff_efdt_ratio = 0.2         ! ration of e-folding time step
 /
-&interpol_ctl
+&interpol_nml
  llsq_high_consv = .TRUE.        ! conservative
  lsq_high_ord     = 3            ! 3
 /
-&gridref_ctl
-/
-&regularization_ctl
-/
-&ocean_ctl
+&io_nml
+ out_expname = '${EXPNAME}'       ! file name base
+ dt_data     = ${dt_data}       ! write output every 96 hours
+ dt_file     = ${dt_file}       ! trigger new output file every 30 day
+ lwrite_vorticity = .FALSE.     ! do not write out averaged vorticity at cells
+ lwrite_pres   = .FALSE.        ! do not write out full level pressure
+ lwrite_z3     = .FALSE.        ! do not write out geopotential on full levels
+ lwrite_omega  = .FALSE.        ! do not write out vertical velocity inpressure coordinates
 /
 EOF
-#
+#-----------------------------------------------------------------------------
