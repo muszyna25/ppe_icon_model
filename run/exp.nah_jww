@@ -45,6 +45,7 @@ dt_file=`expr 1 \* 86400 `   # 1 day per file
 dt_data=21600.               # write output every 6 hours
 dt_rad=3600.                 # compute radiative transfer every hour
 #
+nsteps=10
 #-----------------------------------------------------------------------------
 # model parameters
 model_equations=3 # equation system
@@ -74,7 +75,7 @@ cat > ${atmo_namelist} << EOF
 !
 &parallel_nml
  nproma         = ${nproma}
- p_test_run     = .false.
+ p_test_run     = .true.
  l_test_openmp  = .false.
  l_log_checks   = .false.
 /
@@ -96,65 +97,15 @@ cat > ${atmo_namelist} << EOF
 &dynamics_nml
  iequations  = ${model_equations}       ! 1: hydrost. atmosphere
 /
-&ha_dyn_nml
- ldry_dycore = .TRUE.       ! dry dynamical core
+&nh_testcase_nml
+ nh_test_name   = 'jabw'     ! test case identifier
+/
+&nonhydrostatic_nml
  ltheta_up_hori = .TRUE     ! use upstream biased theta advection
  upstr_beta  = 1.0          ! 3rd order upstream theta advection
-/
-&ha_testcase_nml
- ctest_name  = 'JWw-Moist'  ! test case identifier
- lrh_linear_pres = .TRUE.   ! initial RH is a linear function of pressure
- rh_at_1000hpa   = 0.75     ! [] initial rel. humidity at 1000 hPa 
 /
 &io_nml
  out_expname = '${EXPNAME}' ! file name base
-/
-&transport_nml
- ctracer_list='vwi'         ! water vapour, cloud water, cloud ice, constant field
-/
-&echam_phy_nml
- lrad = .FALSE.             ! no radiation, only convection, large-scale condensation and vdiff
-/
-EOF
-#
-
-
-
-
-
-#-----------------------------------------------------------------------------
-#
-# Basic specifications of the simulation
-# --------------------------------------
-#-----------------------------------------------------------------------------
-#
-# ICON namelist parameters
-# ------------------------
-# For a complete list see Namelist_overview and Namelist_overview.pdf
-#
-cat > NAMELIST_${EXPNAME} << EOF
-!
-/
-/
-&nonhydrostatic_ctl
- ltheta_up_hori = .TRUE     ! use upstream biased theta advection
- upstr_beta  = 1.0          ! 3rd order upstream theta advection
-/
-&dynamics_ctl
-/
-&transport_ctl
-/
-&diffusion_ctl
- lhdiff_vn   = .FALSE.
- lhdiff_temp = .FALSE.
-/
-&interpol_ctl
-/
-&gridref_ctl
-/
-&regularization_ctl
-/
-&ocean_ctl
 /
 EOF
 #
