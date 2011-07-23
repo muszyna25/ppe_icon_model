@@ -1118,7 +1118,7 @@ CONTAINS
 
     WRITE (datetime_format,'(A1,A2,A15)') '(',year_fmt_str,',5(A1,I2.2),A1)'
 
-    second = INT(datetime%second,i8)
+    second = INT(datetime%second)
 
     ! Write string
     ! --------------------------------------

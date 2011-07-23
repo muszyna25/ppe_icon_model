@@ -55,7 +55,7 @@ MODULE mo_io_async
 #endif
   USE mo_mpi,  ONLY: p_comm_work, p_comm_work_io, p_comm_work_2_io, process_mpi_io_size
 
-  USE mo_kind,                ONLY: wp
+  USE mo_kind,                ONLY: wp, i8
   USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: max_dom, ihs_atm_temp, ihs_atm_theta, &
                                     inh_atmosphere, ishallow_water, inwp
@@ -717,7 +717,7 @@ CONTAINS
 
         IF(var_pe_no(n, jg) /= p_pe_work) THEN
           ! Update the offset in the memory window and cycle
-          ioff(:) = ioff(:) + n_own(:)*outvar_desc(n,jg)%nlev
+          ioff(:) = ioff(:) + INT(n_own(:)*outvar_desc(n,jg)%nlev,i8)
           CYCLE
         ENDIF
 
@@ -748,7 +748,7 @@ CONTAINS
 
           ! Update the offset in the memory window on compute PEs
 
-          ioff(:) = ioff(:) + n_own(:)
+          ioff(:) = ioff(:) + INT(n_own(:),i8)
 
           ! var1 is stored in the order in which the variable was stored on compute PEs,
           ! get it back into the global storage order
@@ -1013,7 +1013,7 @@ CONTAINS
 
     ! Calculate the amount of memory needed to store all variables to be output
 
-    mem_size = 0
+    mem_size = 0_i8
 
     DO jg = 1, n_dom
 
@@ -1024,9 +1024,9 @@ CONTAINS
 
         ! Calculate total memory size
         SELECT CASE(type)
-          CASE (GATHER_C); mem_size = mem_size + patch_owner_info(jg)%n_own_cells*nlev
-          CASE (GATHER_E); mem_size = mem_size + patch_owner_info(jg)%n_own_edges*nlev
-          CASE (GATHER_V); mem_size = mem_size + patch_owner_info(jg)%n_own_verts*nlev
+          CASE (GATHER_C); mem_size = mem_size + INT(patch_owner_info(jg)%n_own_cells*nlev,i8)
+          CASE (GATHER_E); mem_size = mem_size + INT(patch_owner_info(jg)%n_own_edges*nlev,i8)
+          CASE (GATHER_V); mem_size = mem_size + INT(patch_owner_info(jg)%n_own_verts*nlev,i8)
           CASE DEFAULT
             CALL finish(modname, 'Illegal type from vlist_get_VarGrid')
         END SELECT
@@ -1039,7 +1039,7 @@ CONTAINS
     ! Get the amount of bytes per default REAL variable (as used in MPI communication)
     CALL MPI_Type_extent(p_real_dp, nbytes_real, mpierr)
 
-    mem_bytes = mem_size*nbytes_real
+    mem_bytes = mem_size*INT(nbytes_real,i8)
 
     ! allocate amount of memory needed with MPI_Alloc_mem
 
@@ -1262,17 +1262,17 @@ CONTAINS
         IF(ASSOCIATED(ptr3)) THEN
           DO jk = 1, outvar_desc(n,jg)%nlev
             DO i = 1, n_own
-              mem_ptr(i+ioff) = ptr3(iidx(i),jk,iblk(i))
+              mem_ptr(INT(i,i8)+ioff) = ptr3(iidx(i),jk,iblk(i))
             ENDDO
-            ioff = ioff + n_own
+            ioff = ioff + INT(n_own,i8)
           ENDDO
           IF(reset) ptr3 = 0._wp
           IF(delete) DEALLOCATE(ptr3)
         ELSE
           DO i = 1, n_own
-            mem_ptr(i+ioff) = ptr2(iidx(i),iblk(i))
+            mem_ptr(INT(i,i8)+ioff) = ptr2(iidx(i),iblk(i))
           ENDDO
-          ioff = ioff + n_own
+          ioff = ioff + INT(n_own,i8)
           IF(reset) ptr2 = 0._wp
           IF(delete) DEALLOCATE(ptr2)
         ENDIF
@@ -1442,12 +1442,12 @@ CONTAINS
         ALLOCATE(var(n_tot*outvar_desc(n,jg)%nlev))
 
         IF(ASSOCIATED(ptr3)) THEN
-          ioff = 0
+          ioff = 0_i8
           DO jk = 1, outvar_desc(n,jg)%nlev
             DO i = 1, n_tot
-              var(i+ioff) = ptr3(idx_no(i),jk,blk_no(i))
+              var(INT(i,i8)+ioff) = ptr3(idx_no(i),jk,blk_no(i))
             ENDDO
-            ioff = ioff + n_tot
+            ioff = ioff + INT(n_tot,i8)
           ENDDO
           IF(reset) ptr3 = 0._wp
           IF(delete) DEALLOCATE(ptr3)
