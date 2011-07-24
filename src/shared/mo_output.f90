@@ -200,8 +200,8 @@ CONTAINS
 !         !
 !       END SELECT
 
-      WRITE(0,'(a,a)') ' Initial output file for setup_vlist is ', &
-          &              TRIM(outputfile)
+    ! WRITE(0,'(a,a)') ' Initial output file for setup_vlist is ', &
+    !     &              TRIM(outputfile)
       IF (iequations == ihs_ocean) THEN
         ! #slo# must be aligned with general output
         CALL setup_vlist_oce( p_patch(1:), TRIM(p_patch(jg)%grid_filename), TRIM(outputfile), jg )

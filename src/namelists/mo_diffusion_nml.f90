@@ -36,7 +36,7 @@ MODULE mo_diffusion_nml
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_kind,                ONLY: wp
   USE mo_mpi,                 ONLY: my_process_is_stdio 
-  USE mo_exception,           ONLY: message, message_text, finish
+  USE mo_exception,           ONLY: message, finish
   USE mo_impl_constants,      ONLY: max_dom
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
@@ -164,10 +164,14 @@ CONTAINS
       lhdiff_vn   = .FALSE.
 
     CASE(2,3,4,5,24,42)
+
       IF ((.NOT.lhdiff_temp).AND.(.NOT.lhdiff_vn)) THEN
-        WRITE(message_text,'(a,i3,a)') 'hdiff_order = ',hdiff_order, &
-             ' but lhdiff_temp and lhdiff_vn both set to .FALSE.'
-        CALL finish(TRIM(routine),TRIM(message_text))
+        CALL message('','')
+        CALL message('','lhdiff_temp and lhdiff_vn both set to .FALSE. by user.')
+        CALL message('','Horizontal diffusion is thus switched off and '// &
+                        'hdiff_order reset to -1')
+        CALL message('','')
+        hdiff_order = -1
       END IF
 
     CASE DEFAULT
