@@ -130,7 +130,7 @@ CONTAINS
     !-----------------------
     ! 1. default settings   
     !-----------------------
-    lheatcal = .TRUE.
+    lheatcal = .FALSE.
 
     emiss_lev = 10          ! is correct for L31 and L47
     rmscon    = 1.0_wp      ! default value used in ECHAM5
