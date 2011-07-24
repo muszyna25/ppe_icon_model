@@ -49,8 +49,6 @@ MODULE mo_ocean_model
   
   ! Control parameters: run control, dynamics, i/o
   !
-!0  USE mo_global_variables,    ONLY: setup_physics        ! process forcing control parameters
-!0  &                               impiom,            & !    :
   USE mo_ocean_nml,           ONLY: setup_ocean_nml
 ! USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
 ! USE mo_io_config,           ONLY: dt_data, dt_file, dt_diag
@@ -359,28 +357,21 @@ CONTAINS
           CALL dump_patch_state_netcdf(p_patch(jg),p_int_state(jg),p_grf_state(jg))
         ENDDO
       ENDIF
-      
+
       CALL p_stop
       STOP
-      
+
     ENDIF
-    
-!0    !------------------------------------------------------------------
-!0    ! step i: Setup physics
-!0    !------------------------------------------------------------------
-!0    IF ( lforcing ) THEN
-!0      CALL setup_physics
-!0    END IF
-    
+
     !------------------------------------------------------------------
     ! step 6: initialize output
     !------------------------------------------------------------------
-    
+
    !CALL io_nml_setup !is empty by now KF
     CALL finish(TRIM(routine),'subroutine io_nml_sestup no longer exists!!')
-    
+
     ! The model produces output files for all grid levels
- 
+
     !------------------------------------------------------------------
     ! Create and optionally read external data fields
     !------------------------------------------------------------------
@@ -388,7 +379,7 @@ CONTAINS
     IF (ist /= success) THEN
       CALL finish(TRIM(routine),'allocation for ext_data failed')
     ENDIF
-    
+
     !------------------------------------------------------------------
     ! Prepare raw data output file
     !------------------------------------------------------------------

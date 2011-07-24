@@ -54,8 +54,6 @@ MODULE mo_radiation_model
 !  
 !  ! Control parameters: run control, dynamics, i/o
 !  !
-!  USE mo_global_variables,    ONLY: setup_physics           ! process forcing control parameters
-!  !!$     &                              impiom,            & !    :
 !  USE mo_nonhydrostatic_nml,  ONLY: ivctype,              & ! type of vertical coordinate
 !    & nonhydrostatic_nml_setup
 !  USE mo_dynamics_nml,        ONLY: dynamics_nml_setup

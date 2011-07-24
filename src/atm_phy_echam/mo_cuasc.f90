@@ -55,7 +55,7 @@ MODULE mo_cuasc
 !                                 , cthomi, ccsacl, clmax, clmin          &
 !                                 , ceffmin, ceffmax, crhoi, cauloc
 ! USE mo_ham_aerosol_params, ONLY : ncdnc
-! USE mo_global_variables,   ONLY : ltimer
+! USE mo_run_config,         ONLY : ltimer
 ! USE mo_timer,              ONLY : timer_start, timer_stop, timer_cuasc
 
 #else

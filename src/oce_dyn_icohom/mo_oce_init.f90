@@ -50,7 +50,6 @@ MODULE mo_oce_init
 !
 !
 USE mo_kind,               ONLY: wp
-!USE mo_global_variables,   ONLY: nproma, n_zlev
 USE mo_physical_constants, ONLY: re, rre, omega, rgrav
 USE mo_math_constants
 USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer , &

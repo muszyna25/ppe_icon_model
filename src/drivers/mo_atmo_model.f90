@@ -49,7 +49,6 @@ USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I
 
 ! Control parameters: run control, dynamics, i/o
 !
-!USE mo_global_variables,    ONLY: setup_physics           ! process forcing control parameters
 USE mo_nonhydrostatic_config,ONLY: ivctype, kstart_moist, kstart_qv, l_open_ubc
 !USE mo_io_config,           ONLY: dt_data, dt_file, dt_diag, dt_checkpoint 
 USE mo_io_config,         ONLY:  dt_data,dt_file,dt_diag,dt_checkpoint
@@ -774,9 +773,9 @@ CONTAINS
 !    CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
     INTEGER :: n_io, jg, jfile, n_file, ist, n_diag, n_chkpt
     LOGICAL :: l_have_output
-   
-    
-   
+
+
+
     !------------------------------------------------------------------
     ! step 3a-a: ! read nwp physics namelist, ...
     !------------------------------------------------------------------
@@ -786,8 +785,8 @@ CONTAINS
 !      IF (inwp_surface > 0)
       CALL setup_nwp_lnd
     ENDIF
-    
- 
+
+
     !------------------------------------------------------------------
     ! step 5b: allocate state variables
     !------------------------------------------------------------------
@@ -806,26 +805,17 @@ CONTAINS
      ENDIF
       !
     END SELECT
-    
-    
-    
-!    !------------------------------------------------------------------
-!    ! step i: Setup physics
-!    !------------------------------------------------------------------
-!    IF ( lforcing ) THEN
-!      CALL setup_physics
-!    END IF
-    
-    
+
+
     !------------------------------------------------------------------
     ! step 6: initialize output
     !------------------------------------------------------------------
-    
+
 !    CALL setup_gmt_output(p_patch(n_dom)%nlev)
-    
+
     ! The model produces output files for all grid levels
- 
-        
+
+
     ! Parameterized forcing:
     ! 1. Create forcing state variables
     ! 2. Set up parameterizations
