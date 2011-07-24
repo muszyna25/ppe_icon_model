@@ -351,13 +351,13 @@ CONTAINS
     ! Loop over all var_lists and open the associated files. Set
     ! file IDs if necessary.
     !
-    WRITE(0,*)'nvar_list=',nvar_lists
+   !WRITE(0,*)'nvar_list=',nvar_lists
     DO i = 1, nvar_lists
       var_lists(i)%p%first = .FALSE.
     ENDDO
     !
     DO i = 1, nvar_lists
-    WRITE(0,*)'nvar_list=',i
+   !WRITE(0,*)'nvar_list=',i
       !
       ! skip, if file is already opened
       !
@@ -383,7 +383,7 @@ CONTAINS
       restart_filename = basename//'_'//TRIM(private_restart_time) &
            &                     //'_'//TRIM(var_lists(i)%p%model_type)//'.nc'
 
-      WRITE(0,*)'we are in restart list ', TRIM(restart_filename)
+     !WRITE(0,*)'we are in restart list ', TRIM(restart_filename)
       !
       IF (my_process_is_stdio()) THEN
         SELECT CASE (var_lists(i)%p%restart_type)

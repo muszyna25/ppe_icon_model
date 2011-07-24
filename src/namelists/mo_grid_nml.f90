@@ -156,9 +156,9 @@ MODULE mo_grid_nml
     ! by values in the previous integration.
     !----------------------------------------------------------------
     IF (lrestart) THEN
-      funit = open_and_restore_namelist('grid_nml')
-      READ(funit,NML=grid_nml)
-      CALL close_tmpfile(funit)
+    ! funit = open_and_restore_namelist('grid_nml')
+    ! READ(funit,NML=grid_nml)
+    ! CALL close_tmpfile(funit)
     END IF
 
     !------------------------------------------------------------
@@ -256,9 +256,9 @@ MODULE mo_grid_nml
     !-----------------------------------------------------                                        
     ! Store the namelist for restart                                                              
     !-----------------------------------------------------                                        
-    funit = open_tmpfile()
-    WRITE(funit,NML=grid_nml)
-    CALL store_and_close_namelist(funit, 'grid_nml')
+  ! funit = open_tmpfile()
+  ! WRITE(funit,NML=grid_nml)
+  ! CALL store_and_close_namelist(funit, 'grid_nml')
 
     ! write the contents of the namelist to an ASCII file
     IF(my_process_is_stdio()) WRITE(nnml_output,nml=grid_nml)
