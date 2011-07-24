@@ -145,6 +145,7 @@ CONTAINS
                                                !< and dry deposition. "zxtems" in ECHAM5
     INTEGER  :: jk
     INTEGER  :: jks   !< start index for vertical loops
+    INTEGER  :: nc    !< number of cells/columns from (jce-jcs+1)
     INTEGER  :: jc
     INTEGER  :: ntrac !< # of tracers excluding water vapour and hydrometeors
                       !< (handled by sub-models, e.g., chemical species)
@@ -169,6 +170,9 @@ CONTAINS
     REAL(wp) :: ztkevn  (nbdim,nlev) !< intermediate value of tke
 
 !!$ REAL(wp) :: rlfland (nbdim), rlfglac (nbdim)
+
+    ! number of cells/columns from index jcs to jce
+    nc = jce-jcs+1
 
     ! start index for vertical loops
     jks=1
@@ -718,17 +722,20 @@ CONTAINS
 
       IF (ltimer) call timer_start(timer_gw_hines)
 
-      CALL gw_hines (                           &
-!!$        &             krow,                     &
-        &             jce, nbdim, nlev,         &
-        &             field% presi_old(:,:,jb), &
-        &             field% presm_old(:,:,jb), &
-        &             field% temp(:,:,jb),      &
-        &             field%    u(:,:,jb),      &
-        &             field%    v(:,:,jb),      &
-!!$        &             aprflux(:,krow),          &
-        &             tend% temp_gwh(:,:,jb),   &
-        &             tend%    u_gwh(:,:,jb),   &
+      CALL gw_hines ( jg                       ,&
+        &             nbdim                    ,&
+        &             jcs                      ,&
+        &             jce                      ,&
+        &             nc                       ,&
+        &             nlev                     ,&
+        &             field% presi_old(:,:,jb) ,&
+        &             field% presm_old(:,:,jb) ,&
+        &             field% temp(:,:,jb)      ,&
+        &             field%    u(:,:,jb)      ,&
+        &             field%    v(:,:,jb)      ,&
+!!$        &             aprflux(:,krow)          ,&
+        &             tend% temp_gwh(:,:,jb)   ,&
+        &             tend%    u_gwh(:,:,jb)   ,&
         &             tend%    v_gwh(:,:,jb) )
 
       IF (ltimer) call timer_stop(timer_gw_hines)

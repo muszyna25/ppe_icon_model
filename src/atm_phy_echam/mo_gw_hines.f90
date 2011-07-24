@@ -5,21 +5,17 @@
 #endif
 MODULE mo_gw_hines
 
-  USE mo_kind,       ONLY: wp
 !!$#ifdef _PROFILE
 !!$  USE mo_profile,    ONLY: trace_start, trace_stop
 !!$#endif
 
-  USE mo_io_units,             ONLY: nout, nerr
-  USE mo_exception,            ONLY: finish 
+  USE mo_exception,            ONLY: message_text, message, finish 
 
+  USE mo_kind,       ONLY: wp
   USE mo_math_constants,       ONLY: pi
-  USE mo_physical_constants,   ONLY: re, grav, rd, cpd, rhoh2o
+  USE mo_physical_constants,   ONLY: grav, rd, cpd !!$, re, rhoh2o
 
-  USE mo_gw_hines_nml,         ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
-!!$  USE mo_gw_hines_nml,         ONLY: lfront, rms_front, front_thres
-!!$  USE mo_gw_hines_nml,         ONLY: lozpr, pcrit, pcons
-!!$  USE mo_gw_hines_nml,         ONLY: lrmscon_lat, rmscon_lat
+  USE mo_gw_hines_config,      ONLY: gw_hines_config
 
 !!$  USE mo_geoloc,               ONLY: ilat
 !!$  USE mo_vertical_coord_table, ONLY: vct_a, vct_b
@@ -37,18 +33,18 @@ MODULE mo_gw_hines
   ! Internal switches and constants !
   ! ---------------------------------
 
-  INTEGER  :: naz   = 8
+  INTEGER  :: naz        = 8
 
-  REAL(wp) :: slope = 1.0_wp
+  REAL(wp) :: slope      = 1.0_wp
 
-  REAL(wp) :: f1    = 1.5_wp 
-  REAL(wp) :: f2    = 0.3_wp 
-  REAL(wp) :: f3    = 1.0_wp 
-  REAL(wp) :: f5    = 1.0_wp 
-  REAL(wp) :: f6    = 0.5_wp   
+  REAL(wp) :: f1         = 1.5_wp 
+  REAL(wp) :: f2         = 0.3_wp 
+  REAL(wp) :: f3         = 1.0_wp 
+  REAL(wp) :: f5         = 1.0_wp 
+  REAL(wp) :: f6         = 0.5_wp   
 
-  REAL(wp) :: ksmin = 1.e-5_wp       
-  REAL(wp) :: ksmax = 1.e-4_wp       
+  REAL(wp) :: ksmin      = 1.e-5_wp       
+  REAL(wp) :: ksmax      = 1.e-4_wp       
 
   INTEGER  :: icutoff    = 0   
   REAL(wp) :: alt_cutoff = 105.e3_wp
@@ -56,20 +52,57 @@ MODULE mo_gw_hines
   REAL(wp) :: smco       = 2.0_wp      !  (test value: smco = 1.0)
   INTEGER  :: nsmax      = 5           !  (test value: nsmax = 2)
 
+  !----------------------------------------------------
+  ! Grid level/domain specific configuration parameters
+  !----------------------------------------------------
+
+  LOGICAL  :: lheatcal      !< true : compute momentum flux dep., heating and diffusion coefficient
+                            !< false: compute only momentum flux deposition
+
+  INTEGER  :: emiss_lev     !< number of levels above the ground at which gw are emitted
+  REAL(wp) :: rmscon        !< root mean square gravity wave wind at lowest level (m/s)
+  REAL(wp) :: kstar         !< typical gravity wave horizontal wavenumber (1/m)
+  REAL(wp) :: m_min         !< minimum bound in  vertical wavenumber (1/m)
+
+!!$  LOGICAL  :: lfront        !< true: compute gw sources emerging from fronts and background
+!!$                            !< (Charron and Manzini, 2002)
+!!$  REAL(wp) :: rms_front     !< rms frontal gw wind at source level  (m/s)
+!!$  REAL(wp) :: front_thres   !< minimum value of the frontogenesis function, for which
+!!$                            !< gravity waves are emitted from fronts [(K/m)^2/hour]
+!!$
+!!$  LOGICAL  :: lozpr         !< true: for background enhancement associated with precipitation
+!!$                            !< (Manzini et al., 1997)
+!!$  REAL(wp) :: pcrit         !< critical precipitation value (mm/d), above which 
+!!$                            !< gravity wave rms wind enhancement is applied
+!!$  REAL(wp) :: pcons         !< adimensional factor for background enhancement 
+!!$                            !< associated with precipitation
+!!$
+!!$  LOGICAL  :: lrmscon_lat   !< true:   use latitude dependent rmscon as defined
+!!$                            !< through rmscon_lo, rmscon_hi, lat_rmscon_lo, and lat_rmscon_hi
+!!$                            !< false:  use uniform rmscon
+!!$                            !< attention: may be overwritten if lfront or lozpr is true
+!!$  REAL(wp) :: lat_rmscon_lo !< rmscon_lo is used equatorward of this latitude (degN)
+!!$  REAL(wp) :: lat_rmscon_hi !< rmscon_hi is used poleward of this latitude (degN)
+!!$  REAL(wp) :: rmscon_lo     !< rmscon used equatorward of lat_rmscon_lo
+!!$  REAL(wp) :: rmscon_hi     !< rmscon used poleward of lat_rmscon_hi
+
 CONTAINS
 
-  SUBROUTINE gw_hines (                       &
-!!$    &                  krow,                  &! in
-    &                   kproma, kbdim, klev,  &! in
-    &                   paphm1,               &! in,  p at half levels
-    &                   papm1,                &! in,  p at full levels
-    &                   ptm1,                 &! in,  T
-    &                   pum1,                 &! in,  u
-    &                   pvm1,                 &! in,  v
-!!$    &                   paprflux,             &! in, precipitation flux at surface 
-    &                   tend_t_gwh,           &! out, dT/dt|Hines
-    &                   tend_u_gwh,           &! out, du/dt|Hines
-    &                   tend_v_gwh   )         ! out, dv/dt|Hines
+  SUBROUTINE gw_hines ( jg         ,&! in,  grid level/domain index
+    &                   nbdim      ,&! in,  dimension of block of cells/columns
+    &                   jcs        ,&! in,  start index of loops over cells/columns
+    &                   jce        ,&! in,  end   index ...
+    &                   nc         ,&! in,  number of cells/columns in loop (jce-jcs+1)
+    &                   nlev       ,&! in,  number of levels
+    &                   paphm1     ,&! in,  p at half levels
+    &                   papm1      ,&! in,  p at full levels
+    &                   ptm1       ,&! in,  T
+    &                   pum1       ,&! in,  u
+    &                   pvm1       ,&! in,  v
+!!$    &                   paprflux   ,&! in, precipitation flux at surface 
+    &                   tend_t_gwh ,&! out, dT/dt|Hines
+    &                   tend_u_gwh ,&! out, du/dt|Hines
+    &                   tend_v_gwh ) ! out, dv/dt|Hines
 
 
     !
@@ -100,64 +133,72 @@ CONTAINS
     IMPLICIT NONE
 
     ! scalar argument with intent(IN)
-!!$    INTEGER  ,INTENT(in) ::  krow
-    INTEGER  ,INTENT(in) ::  kproma, kbdim, klev
+    INTEGER  ,INTENT(in)  :: jg
+    INTEGER  ,INTENT(in)  :: nbdim
+    INTEGER  ,INTENT(in)  :: jcs
+    INTEGER  ,INTENT(in)  :: jce
+    INTEGER  ,INTENT(in)  :: nc
+    INTEGER  ,INTENT(in)  :: nlev
 
     !  Array arguments with intent(IN):
     ! Input 1D
-!!$    REAL(wp) ,INTENT(in) :: paprflux(kbdim)     ! precipitation flux
+!!$    REAL(wp) ,INTENT(in)  :: paprflux(nbdim)         ! precipitation flux
     ! Input 2D
-    REAL(wp) ,INTENT(in) :: paphm1(kbdim,klev+1) ! half level pressure (t-dt)
-    REAL(wp) ,INTENT(in) :: papm1(kbdim,klev)    ! full level pressure (t-dt)
-    REAL(wp) ,INTENT(in) :: ptm1(kbdim,klev)     ! temperature (t-dt)
-    REAL(wp) ,INTENT(in) :: pum1(kbdim,klev)     ! zonal wind (t-dt)
-    REAL(wp) ,INTENT(in) :: pvm1(kbdim,klev)     ! meridional wind (t-dt)
+    REAL(wp) ,INTENT(in)  :: paphm1(nbdim,nlev+1)    ! half level pressure (t-dt)
+    REAL(wp) ,INTENT(in)  :: papm1(nbdim,nlev)       ! full level pressure (t-dt)
+    REAL(wp) ,INTENT(in)  :: ptm1(nbdim,nlev)        ! temperature (t-dt)
+    REAL(wp) ,INTENT(in)  :: pum1(nbdim,nlev)        ! zonal wind (t-dt)
+    REAL(wp) ,INTENT(in)  :: pvm1(nbdim,nlev)        ! meridional wind (t-dt)
 
     !  Array arguments with intent(OUT):
     ! - input/output 2d
-    REAL(wp) ,INTENT(out) :: tend_t_gwh(kbdim,klev)  ! tendency of temperature
-    REAL(wp) ,INTENT(out) :: tend_u_gwh(kbdim,klev)  ! tendency of zonal wind
-    REAL(wp) ,INTENT(out) :: tend_v_gwh(kbdim,klev)  ! tendency of meridional wind
+    REAL(wp) ,INTENT(out) :: tend_t_gwh(nbdim,nlev)  ! tendency of temperature
+    REAL(wp) ,INTENT(out) :: tend_u_gwh(nbdim,nlev)  ! tendency of zonal wind
+    REAL(wp) ,INTENT(out) :: tend_v_gwh(nbdim,nlev)  ! tendency of meridional wind
 
     !  Local arrays for ccc/mam hines gwd scheme:
 
     ! Important local parameter (passed to all subroutines):
-    INTEGER, PARAMETER :: nazmth = 8  ! max azimuth array dimension size 
+    INTEGER, PARAMETER :: nazmth = 8     ! max azimuth array dimension size 
 
-    REAL(wp) :: pressg(kproma)  ! Surface pressure (pascal)  
-!!$    REAL(wp) :: zpr(kproma)     ! precipitation (check dims: echam5 change)
+    REAL(wp) :: pressg(nc)               ! Surface pressure (pascal)  
+!!$    REAL(wp) :: zpr(nc)                  ! precipitation (check dims: echam5 change)
 
     ! * Vertical positioning arrays and work arrays:                       
-    REAL(wp) :: sgj(kproma,klev), shj(kproma,klev), shxkj(kproma,klev)
-    REAL(wp) :: dsgj(kproma,klev), dttdsf(kproma)
+    REAL(wp) :: sgj(nc,nlev)
+    REAL(wp) :: shj(nc,nlev)
+    REAL(wp) :: shxkj(nc,nlev)
+    REAL(wp) :: dsgj(nc,nlev)
+    REAL(wp) :: dttdsf(nc)
 
-    REAL(wp) :: utendgw(kproma,klev) ! zonal tend, gravity wave spectrum (m/s^2)
-    REAL(wp) :: vtendgw(kproma,klev) ! merid tend, gravity wave spectrum (m/s^2)
-    REAL(wp) :: ttendgw(kproma,klev) ! temperature tend, gravity wave spectrum (K/s)
-    REAL(wp) :: diffco(kproma,klev)  ! diffusion coefficient (m^2/s) 
+    REAL(wp) :: utendgw(nc,nlev)         ! zonal tend, gravity wave spectrum (m/s^2)
+    REAL(wp) :: vtendgw(nc,nlev)         ! merid tend, gravity wave spectrum (m/s^2)
+    REAL(wp) :: ttendgw(nc,nlev)         ! temperature tend, gravity wave spectrum (K/s)
+    REAL(wp) :: diffco(nc,nlev)          ! diffusion coefficient (m^2/s) 
 
-    REAL(wp) :: flux_u(kproma,klev)  ! zonal momentum flux (pascals)
-    REAL(wp) :: flux_v(kproma,klev)  ! meridional momentum flux (pascals) 
+    REAL(wp) :: flux_u(nc,nlev)          ! zonal momentum flux (pascals)
+    REAL(wp) :: flux_v(nc,nlev)          ! meridional momentum flux (pascals) 
 
-    REAL(wp) :: uhs(kproma,klev)      ! zonal wind (m/s), input for hines param
-    REAL(wp) :: vhs(kproma,klev)      ! merid wind (m/s), input for hines param
-    REAL(wp) :: bvfreq(kproma,klev)   ! background brunt vassala frequency (rad/s)
-    REAL(wp) :: density(kproma,klev)  ! background density (kg/m^3)
-    REAL(wp) :: visc_mol(kproma,klev) ! molecular viscosity (m^2/s) 
-    REAL(wp) :: alt(kproma,klev)      ! background altitude (m)
+    REAL(wp) :: uhs(nc,nlev)             ! zonal wind (m/s), input for hines param
+    REAL(wp) :: vhs(nc,nlev)             ! merid wind (m/s), input for hines param
+    REAL(wp) :: bvfreq(nc,nlev)          ! background brunt vassala frequency (rad/s)
+    REAL(wp) :: density(nc,nlev)         ! background density (kg/m^3)
+    REAL(wp) :: visc_mol(nc,nlev)        ! molecular viscosity (m^2/s) 
+    REAL(wp) :: alt(nc,nlev)             ! background altitude (m)
 
-    REAL(wp) :: rmswind(kproma)        ! rms gravity wave  wind, lowest level (m/s) 
-    REAL(wp) :: anis(kproma,nazmth)    ! anisotropy factor (sum over azimuths = 1) 
-    REAL(wp) :: k_alpha(kproma,nazmth) ! horizontal wavenumber of each azimuth (1/m)
-    LOGICAL  :: lorms(kproma)       ! .true. for rmswind /=0 at launching level 
+    REAL(wp) :: rmswind(nc)              ! rms gravity wave  wind, lowest level (m/s) 
+    REAL(wp) :: anis(nc,nazmth)          ! anisotropy factor (sum over azimuths = 1) 
+    REAL(wp) :: k_alpha(nc,nazmth)       ! horizontal wavenumber of each azimuth (1/m)
+    LOGICAL  :: lorms(nc)                ! .true. for rmswind /=0 at launching level 
 
-    REAL(wp) :: m_alpha(kproma,klev,nazmth) ! cutoff vertical wavenumber (1/m)
-    REAL(wp) :: mmin_alpha(kproma,nazmth)   ! minumum value of m_alpha
-    REAL(wp) :: sigma_t(kproma,klev)        ! total rms gw wind (m/s)
+    REAL(wp) :: m_alpha(nc,nlev,nazmth)  ! cutoff vertical wavenumber (1/m)
+    REAL(wp) :: mmin_alpha(nc,nazmth)    ! minumum value of m_alpha
+    REAL(wp) :: sigma_t(nc,nlev)         ! total rms gw wind (m/s)
 
     ! gw variances from orographic sources (for coupling to a orogwd)
-    REAL(wp) :: sigsqmcw(kproma,klev,nazmth), sigmatm(kproma,klev)
-    REAL(wp) :: vtmp(kproma)
+    REAL(wp) :: sigsqmcw(nc,nlev,nazmth)
+    REAL(wp) :: sigmatm(nc,nlev)
+    REAL(wp) :: vtmp(nc)
 
     !
     ! Local scalars:
@@ -166,9 +207,39 @@ CONTAINS
     REAL(wp) :: rgocp, hscal, ratio, paphm1_inv
 !!$    REAL(wp) :: zpcons
 
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines:gw_hines'
+
 !!$#ifdef _PROFILE
 !!$  CALL trace_start ('gw_hines', 20)
 !!$#endif
+
+    !
+    !--  Check consistency of nc, jcs and jce
+    !
+    IF ( nc /= jce-jcs+1 ) CALL finish(TRIM(routine),'nc /= jce-jcs+1')
+    !
+    !--  Set up domain specific configuration
+    !
+
+    lheatcal      = gw_hines_config(jg) %lheatcal
+    emiss_lev     = gw_hines_config(jg) %emiss_lev
+    rmscon        = gw_hines_config(jg) %rmscon
+    kstar         = gw_hines_config(jg) %kstar
+    m_min         = gw_hines_config(jg) %m_min
+
+!!$    lfront        = gw_hines_config(jg) %lfront
+!!$    rms_front     = gw_hines_config(jg) %rms_front
+!!$    front_thres   = gw_hines_config(jg) %front_thres
+!!$
+!!$    lozpr         = gw_hines_config(jg) %lozpr
+!!$    pcrit         = gw_hines_config(jg) %pcrit
+!!$    pcons         = gw_hines_config(jg) %pcons
+!!$
+!!$    lrmscon_lat   = gw_hines_config(jg) %lrmscon_lat
+!!$    lat_rmscon_lo = gw_hines_config(jg) %lat_rmscon_lo
+!!$    lat_rmscon_hi = gw_hines_config(jg) %lat_rmscon_hi
+!!$    rmscon_lo     = gw_hines_config(jg) %rmscon_lo
+!!$    rmscon_hi     = gw_hines_config(jg) %rmscon_hi
 
     !
     !--  Initialize the ccc/mam hines gwd scheme
@@ -194,54 +265,50 @@ CONTAINS
 
 !!$    ! precipitation (check the units!):
 !!$    zpcons = (1000.0_wp*86400.0_wp)/rhoh2o
-!!$    zpr(1:kproma)=zpcons*paprflux(1:kproma)
+!!$    zpr(1:nc)=zpcons*paprflux(1:nc)
 
     rgocp=rd/cpd
 
     ! Vertical positioning arrays: 
-    vtmp(1:kproma) = rgocp
-    DO jk=1,klev
+    vtmp(1:nc) = rgocp
+    DO jk=1,nlev
 !IBM* novector
-      DO jl=1,kproma
-        paphm1_inv = 1._wp/paphm1(jl,klev+1)
-        shj(jl,jk)=papm1(jl,jk)*paphm1_inv
-        sgj(jl,jk)=papm1(jl,jk)*paphm1_inv
-        dsgj(jl,jk)=(paphm1(jl,jk+1)-paphm1(jl,jk))*paphm1_inv
+      DO jl=1,nc
+        paphm1_inv = 1._wp/paphm1(jl+jcs-1,nlev+1)
+        shj(jl,jk)=papm1(jl+jcs-1,jk)*paphm1_inv
+        sgj(jl,jk)=papm1(jl+jcs-1,jk)*paphm1_inv
+        dsgj(jl,jk)=(paphm1(jl+jcs-1,jk+1)-paphm1(jl+jcs-1,jk))*paphm1_inv
       END DO
-      shxkj(1:kproma,jk) = sgj(1:kproma,jk)**rgocp
+      shxkj(1:nc,jk) = sgj(1:nc,jk)**rgocp
     END DO
 
     ! Surface pressure: 
-    DO jl=1,kproma
-      pressg(jl)=paphm1(jl,klev+1)
-    END DO
+    pressg(1:nc)=paphm1(jcs:jce,nlev+1)
 
     !
     !     * calculate b v frequency at all points
     !     * and smooth bvfreq.
 
-    DO jk=2,klev
+    DO jk=2,nlev
 !IBM* novector
-      DO jl=1,kproma
-        dttdsf(jl)=(ptm1(jl,jk)/shxkj(jl,jk)-ptm1(jl,jk-1)/shxkj(jl,jk-1)) &
+      DO jl=1,nc
+        dttdsf(jl)=(ptm1(jl+jcs-1,jk)/shxkj(jl,jk)-ptm1(jl+jcs-1,jk-1)/shxkj(jl,jk-1)) &
           /(shj(jl,jk)-shj(jl,jk-1))
         dttdsf(jl)=MIN(dttdsf(jl), -5.0_wp/sgj(jl,jk))
         dttdsf(jl)=dttdsf(jl)*shxkj(jl,jk)
 
         bvfreq(jl,jk)=-dttdsf(jl)*sgj(jl,jk)/rd
       END DO
-      bvfreq(1:kproma,jk) = SQRT(bvfreq(1:kproma,jk))
+      bvfreq(1:nc,jk) = SQRT(bvfreq(1:nc,jk))
 
 !IBM* novector
-      DO jl=1,kproma
-        bvfreq(jl,jk) = bvfreq(jl,jk)*grav/ptm1(jl,jk)
-      END DO
+      bvfreq(1:nc,jk) = bvfreq(1:nc,jk)*grav/ptm1(jcs:jce,jk)
     END DO
 
     bvfreq(:,1) = bvfreq(:,2)
 
-    DO jk=2,klev
-      DO jl=1,kproma
+    DO jk=2,nlev
+      DO jl=1,nc
         ratio=5.0_wp*LOG(sgj(jl,jk)/sgj(jl,jk-1))
         bvfreq(jl,jk) = (bvfreq(jl,jk-1) + ratio*bvfreq(jl,jk))/(1.0_wp+ratio)
       END DO
@@ -249,19 +316,19 @@ CONTAINS
 
     !     * altitude and density at bottom.
 
-    alt(:,klev) = 0.0_wp
+    alt(:,nlev) = 0.0_wp
 !IBM* novector
-    DO jl=1,kproma
-      hscal = rd * ptm1(jl,klev) / grav
-      density(jl,klev) = sgj(jl,klev) * pressg(jl) / (grav*hscal)
+    DO jl=1,nc
+      hscal = rd * ptm1(jl+jcs-1,nlev) / grav
+      density(jl,nlev) = sgj(jl,nlev) * pressg(jl) / (grav*hscal)
     END DO
 
     !     * altitude and density at remaining levels.
 
-    DO jk=klev-1,1,-1
+    DO jk=nlev-1,1,-1
 !IBM* novector
-      DO jl=1,kproma
-        hscal = rd * ptm1(jl,jk) / grav
+      DO jl=1,nc
+        hscal = rd * ptm1(jl+jcs-1,jk) / grav
         alt(jl,jk) = alt(jl,jk+1) + hscal * dsgj(jl,jk) / sgj(jl,jk)
         density(jl,jk) = sgj(jl,jk) * pressg(jl) / (grav*hscal)
       END DO
@@ -283,7 +350,7 @@ CONTAINS
 
     !     * defile bottom launch level (emission level of gws)
 
-    levbot = klev-emiss_lev   
+    levbot = nlev-emiss_lev   
 
     !     * initialize switch for column calculation
 
@@ -292,44 +359,38 @@ CONTAINS
     !     * background wind minus value at bottom launch level.
 
     DO jk=1,levbot
-      DO jl=1,kproma 
-        uhs(jl,jk) = pum1(jl,jk) - pum1(jl,levbot)
-        vhs(jl,jk) = pvm1(jl,jk) - pvm1(jl,levbot)
-      END DO
+      uhs(1:nc,jk) = pum1(jcs:jce,jk) - pum1(jcs:jce,levbot)
+      vhs(1:nc,jk) = pvm1(jcs:jce,jk) - pvm1(jcs:jce,levbot)
     END DO
 
     !     * specify root mean square wind at bottom launch level.
 
-    DO jl=1,kproma 
-      anis(jl,:)   = 1.0_wp/REAL(naz,wp)
-    END DO
+    anis(1:nc,1:naz) = 1.0_wp/REAL(naz,wp)
 
 !!$       IF (lrmscon_lat) THEN
 !!$          !     * latitude dependent GW source
-!!$          DO jl=1,kproma
+!!$          DO jl=1,nc
 !!$            rmswind(jl)=rmscon_lat(ilat(jl,krow))
 !!$          END DO
 !!$       ELSE
-    DO jl=1,kproma
-      rmswind(jl) = rmscon
-    END DO
+    rmswind(1:nc) = rmscon
 !!$       ENDIF
 
 !!$       !     * gravity waves from fronts:
 !!$       IF (lfront) THEN
-!!$          CALL gw_fronts(krow, kproma, klev, nazmth, rmswind, anis)
+!!$          CALL gw_fronts(krow, nc, nlev, nazmth, rmswind, anis)
 !!$       ENDIF
 
 !!$       !     * modulation by precipitation:
 !!$       IF (lozpr) THEN
-!!$          DO jl=1,kproma 
+!!$          DO jl=1,nc 
 !!$             IF (zpr(jl) > pcrit) THEN
 !!$                rmswind(jl) = rmscon + ( (zpr(jl)-pcrit)/zpr(jl) )*pcons
 !!$             ENDIF
 !!$          END DO
 !!$       ENDIF
 
-    DO jl=1,kproma 
+    DO jl=1,nc 
       IF (rmswind(jl) > 0.0_wp) THEN
         lorms(jl) = .TRUE.
       ENDIF
@@ -339,23 +400,21 @@ CONTAINS
     !     * calculate gw tendencies (note that diffusion coefficient and
     !     * heating rate only calculated if lheatcal = .TRUE.).
     !
-    CALL hines_extro ( kproma, klev, nazmth,                          & 
-      &                utendgw, vtendgw, ttendgw, diffco,             &
-      &                flux_u, flux_v,                                & 
-      &                uhs, vhs, bvfreq, density, visc_mol, alt,      & 
-      &                rmswind, anis, k_alpha, sigsqmcw,              &
-      &                m_alpha,  mmin_alpha ,sigma_t, sigmatm,        & 
+    CALL hines_extro ( nc, nlev, nazmth,                          & 
+      &                utendgw, vtendgw, ttendgw, diffco,         &
+      &                flux_u, flux_v,                            & 
+      &                uhs, vhs, bvfreq, density, visc_mol, alt,  & 
+      &                rmswind, anis, k_alpha, sigsqmcw,          &
+      &                m_alpha,  mmin_alpha ,sigma_t, sigmatm,    & 
       &                levbot, lorms)
 
 
     !   update tendencies: 
     !
-    DO jk=1, klev
-      DO jl=1,kproma
-        tend_t_gwh(jl,jk) = ttendgw(jl,jk)
-        tend_u_gwh(jl,jk) = utendgw(jl,jk)
-        tend_v_gwh(jl,jk) = vtendgw(jl,jk)
-      END DO
+    DO jk=1, nlev
+      tend_t_gwh(jcs:jce,jk) = ttendgw(1:nc,jk)
+      tend_u_gwh(jcs:jce,jk) = utendgw(1:nc,jk)
+      tend_v_gwh(jcs:jce,jk) = vtendgw(1:nc,jk)
     END DO
     !
 
@@ -670,6 +729,9 @@ CONTAINS
     REAL(wp) :: visc, visc_min, sp1, f2mfac
 
     REAL(wp) :: n_over_m(nlons), sigfac(nlons), vtmp1(nlons), vtmp2(nlons)
+
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines:hines_wavnum'
+
     !-----------------------------------------------------------------------     
     !
 !!$#ifdef _PROFILE
@@ -689,8 +751,7 @@ CONTAINS
        lend   = levtop         
        lincr  = -1
     ELSE
-       WRITE (nerr,*) ' Error: level index not increasing downward '
-       CALL finish('hines_wavnum','Run terminated')
+       CALL finish(TRIM(routine),'level index not increasing downward')
     END IF
 
 
@@ -1525,6 +1586,8 @@ CONTAINS
     REAL(wp) :: xinp (nlons*nazmth), xout (nlons*nazmth)
     INTEGER  :: vlen,nlorms,ic,ix,nerror
 
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines:hines_hines_intgrl'
+
     !-----------------------------------------------------------------------
     !
     !  initialize local scalar and arrays
@@ -1761,20 +1824,33 @@ CONTAINS
           DO i = il1, il2
              IF (icond(i-il1+1) > 0) EXIT
           END DO
-          WRITE (nout,*) 
-          WRITE (nout,*) '******************************'
-          WRITE (nout,*) 'hines integral i_alpha < 0 '
-          WRITE (nout,*) '  longitude i=',i
-          WRITE (nout,*) '  azimuth   n=',n
-          WRITE (nout,*) '  level   lev=',lev
-          WRITE (nout,*) '  i_alpha =',i_alpha(i,n)
-          WRITE (nout,*) '  v_alpha =',v_alpha(i,lev,n)
-          WRITE (nout,*) '  m_alpha =',m_alpha(i,lev,n)
-          WRITE (nout,*) '  q_alpha =',v_alpha(i,lev,n)*rbvfb(i)
-          WRITE (nout,*) '  qm      =',v_alpha(i,lev,n)*rbvfb(i)*m_alpha(i,lev,n)
-          WRITE (nout,*) '******************************'
-          WRITE (nerr,*) ' Error: Hines i_alpha integral is negative  '
-          CALL finish(' hines_intgrl','Run terminated')
+
+          WRITE (message_text,*) ' '
+          CALL message(TRIM(routine),message_text)
+          WRITE (message_text,*) '******************************'
+          CALL message(TRIM(routine),message_text)
+          WRITE (message_text,*) 'hines integral i_alpha < 0 '
+          CALL message(TRIM(routine),message_text)
+          WRITE (message_text,*) '  column i =',i
+          CALL message(TRIM(routine),message_text)
+          WRITE (message_text,*) '  azimuth n=',n
+          CALL message(TRIM(routine),message_text)
+          WRITE (message_text,*) '  levellev =',lev
+          CALL message(TRIM(routine),message_text)
+          WRITE (message_text,*) '  i_alpha  =',i_alpha(i,n)
+          CALL message(TRIM(routine),message_text)
+          WRITE (message_text,*) '  v_alpha  =',v_alpha(i,lev,n)
+          CALL message(TRIM(routine),message_text)
+          WRITE (message_text,*) '  m_alpha  =',m_alpha(i,lev,n)
+          CALL message(TRIM(routine),message_text)
+          WRITE (message_text,*) '  q_alpha  =',v_alpha(i,lev,n)*rbvfb(i)
+          CALL message(TRIM(routine),message_text)
+          WRITE (message_text,*) '  qm       =',v_alpha(i,lev,n)*rbvfb(i)*m_alpha(i,lev,n)
+          CALL message(TRIM(routine),message_text)
+          WRITE (message_text,*) '******************************'
+
+          CALL finish(TRIM(routine),'Hines i_alpha integral is negative')
+
        END IF
   
     END DO
@@ -1918,6 +1994,9 @@ CONTAINS
     INTEGER  :: ialt(nlons)
     INTEGER  :: levbot, levtop, lincr, i, l, nalt, j
     REAL(wp) :: hscale
+
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines:hines_exp'
+
     !-----------------------------------------------------------------------     
     
     hscale = 5.e3_wp 
@@ -1932,8 +2011,7 @@ CONTAINS
        levtop = lev2
        lincr  = -1
     ELSE
-       WRITE (nerr,*) ' Error: level index not increasing downward '
-       CALL finish('hines_exp','Run terminated')
+       CALL finish(TRIM(routine),'level index not increasing downward')
     END IF
     !
     !  data values at first level above alt_exp.
@@ -2055,7 +2133,7 @@ CONTAINS
     !-----------------------------------------------------------------------
   END SUBROUTINE vert_smooth
 
-!!$  SUBROUTINE  gw_fronts(krow, kproma, klev, nazmth, rmswind, ani)
+!!$  SUBROUTINE  gw_fronts(krow, nc, nlev, nazmth, rmswind, ani)
 !!$    !
 !!$    !
 !!$    !  may 22/2000 - m. charron
@@ -2068,19 +2146,19 @@ CONTAINS
 !!$    !  input arguments:
 !!$    !
 !!$    !     * klon     = number of longitudes 
-!!$    !     * nazmth     = azimuthal array dimension (nazmth >= naz).
+!!$    !     * nazmth   = azimuthal array dimension (nazmth >= naz).
 !!$    !
 !!$    !  subroutine arguments.
 !!$    !
-!!$    INTEGER,  INTENT(in)  :: krow, kproma, klev, nazmth
-!!$    REAL(wp), INTENT(out) :: rmswind(kproma)
-!!$    REAL(wp), INTENT(out) :: ani(kproma,nazmth)
+!!$    INTEGER,  INTENT(in)  :: krow, nc, nlev, nazmth
+!!$    REAL(wp), INTENT(out) :: rmswind(nc)
+!!$    REAL(wp), INTENT(out) :: ani(nc,nazmth)
 !!$    !
 !!$    !  internal variables.
 !!$    !
 !!$    INTEGER  :: jl, jdir
 !!$    INTEGER  :: opp(nazmth)
-!!$    REAL(wp) :: angle(kproma), gen(kproma)
+!!$    REAL(wp) :: angle(nc), gen(nc)
 !!$
 !!$
 !!$    IF ( naz == 8 ) THEN
@@ -2099,9 +2177,9 @@ CONTAINS
 !!$       opp(4)=2
 !!$    END IF
 !!$
-!!$    CALL calculate_gen ( krow, kproma, klev, gen, angle )
+!!$    CALL calculate_gen ( krow, nc, nlev, gen, angle )
 !!$
-!!$    DO jl=1,kproma
+!!$    DO jl=1,nc
 !!$       IF ( gen(jl) >= front_thres*2.7777778E-14_wp ) THEN
 !!$          rmswind(jl) = rms_front
 !!$          jdir=INT( angle(jl)/360.0_wp*REAL(naz,wp) ) + 1
@@ -2117,7 +2195,7 @@ CONTAINS
 !!$    !-----------------------------------------------------------------------
 !!$  END SUBROUTINE gw_fronts
 !!$
-!!$  SUBROUTINE calculate_gen(krow, kproma, klev, gen, angle)
+!!$  SUBROUTINE calculate_gen(krow, nc, nlev, gen, angle)
 !!$    !
 !!$    ! determine the value of the frontogenesis function
 !!$    !
@@ -2131,20 +2209,20 @@ CONTAINS
 !!$    !
 !!$    !  input arguements:
 !!$    !
-!!$    !     * kproma     = last longitudinal index to use (1 <= kproma <= nlons).
+!!$    !     * nc     = last longitudinal index to use (1 <= nc <= nlons).
 !!$    !
 !!$    !  subroutine arguements.
 !!$    !
-!!$    INTEGER,                     INTENT(in)  :: krow, kproma, klev
-!!$    REAL(wp), DIMENSION(kproma), INTENT(out) :: gen, angle
+!!$    INTEGER,                 INTENT(in)  :: krow, nc, nlev
+!!$    REAL(wp), DIMENSION(nc), INTENT(out) :: gen, angle
 !!$    !
 !!$    !  internal variables.
 !!$    !
 !!$    INTEGER                     :: jl, jglat, jrow, iplev
-!!$    REAL(wp), DIMENSION(kproma) :: dalpsdl, dalpsdm, dudl, dvdl, ps  , vort, div
-!!$    REAL(wp), DIMENSION(kproma) :: dtdl   , dtdm   , uu  , vv  , uup1, uum1, vvp1
-!!$    REAL(wp), DIMENSION(kproma) :: vvm1   , tt     , ttp1, ttm1
-!!$    REAL(wp), DIMENSION(kproma) :: mu, cstmu, zrcst
+!!$    REAL(wp), DIMENSION(nc)     :: dalpsdl, dalpsdm, dudl, dvdl, ps  , vort, div
+!!$    REAL(wp), DIMENSION(nc)     :: dtdl   , dtdm   , uu  , vv  , uup1, uum1, vvp1
+!!$    REAL(wp), DIMENSION(nc)     :: vvm1   , tt     , ttp1, ttm1
+!!$    REAL(wp), DIMENSION(nc)     :: mu, cstmu, zrcst
 !!$    REAL(wp)                    :: za, zb, zap1, zbp1
 !!$    REAL(wp)                    :: zaplus, zaminus, zbplus, zbminus
 !!$    REAL(wp)                    :: term_1, term_2, term_3l, term_3m, term_4l, term_4m
@@ -2155,7 +2233,7 @@ CONTAINS
 !!$!------------------------------------------------------------------------------
 !!$
 !!$    jrow=krow
-!!$    iplev=klev-emiss_lev
+!!$    iplev=nlev-emiss_lev
 !!$
 !!$    ps     (:)=EXP(alpsm1(:,jrow))
 !!$    za        =vct_a   (iplev)
@@ -2166,7 +2244,7 @@ CONTAINS
 !!$    zaminus   =zap1-za
 !!$    zbplus    =zbp1+zb
 !!$    zbminus   =zbp1-zb
-!!$    DO jl=1,kproma
+!!$    DO jl=1,nc
 !!$      jglat     =ilat(jl,jrow)
 !!$      mu(jl)    =0.5_wp*gl_twomu(jglat)
 !!$      zrcst(jl) =1.0_wp/gl_sqcst(jglat)
@@ -2192,7 +2270,7 @@ CONTAINS
 !!$    dudl(:) = dudlm1(:,iplev  ,jrow)*zrcst(:)
 !!$    dvdl(:) = dvdlm1(:,iplev  ,jrow)*zrcst(:)
 !!$
-!!$    DO jl=1,kproma
+!!$    DO jl=1,nc
 !!$      term_1  = (2.0_wp*pr/(zaplus+ps(jl)*zbplus))**kappa
 !!$      term_2  = 1.0_wp/(zaminus+ps(jl)*zbminus)
 !!$      term_3l = ps(jl)*dalpsdl(jl)*zbplus*term_2

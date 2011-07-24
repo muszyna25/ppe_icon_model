@@ -1,7 +1,7 @@
 %% LyX 1.4.5.1 created this file.  For more info, see http://www.lyx.org/.
 %% Do not edit unless you really know what you are doing.
 
-\documentclass[10pt,english,a4paper,twoside,landscape]{article}
+\documentclass[10pt,english,a4paper,landscape]{article}
 
 \usepackage[T1]{fontenc}
 
@@ -26,16 +26,25 @@
 \usepackage{babel}
 \makeatother
 
-\newenvironment{longtab}{
-\begin{longtable}{|>{\raggedright}p{5.5cm}|>{\raggedright}p{2cm}|>{\raggedright}p{3.2cm}|>{\raggedright}p{1cm}|>{\raggedright}p{5cm}|>{\raggedright}p{4.5cm}|}
+\newenvironment{longtab}
+{
+\begin{longtable}
+{|>{\raggedright}p{3cm}
+ |>{\raggedright}p{1cm}
+ |>{\raggedright}p{1.5cm}
+ |>{\raggedright}p{1cm}
+ |>{\raggedright}p{8cm}
+ |>{\raggedright}p{4cm}|}
 \hline
-Parameter&
-Type& Default& Unit&
-Description & Scope
+Parameter& Type& Default& Unit& Description & Scope
 \tabularnewline
 \hline
 \endhead
-}{\hline\end{longtable}}
+}
+{
+\hline
+\end{longtable}
+}
 
 \begin{document}
 
@@ -96,18 +105,13 @@ given at the end of each table.
 
 \subsection{Namelist parameters defining the atmosphere grid}
 
+%-----------------------------------------------------------------------------
+% graph_ini:
+%-----------------------------------------------------------------------------
 \subsubsection{graph\_ini (NAMELIST\_GRAPH)}
 
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
-\hline
-\endhead
+\begin{longtab}
+
 \hline 
 nroot&
 I&
@@ -115,6 +119,7 @@ I&
 &
 root subdivision of initial edges&
 \tabularnewline
+
 \hline 
 grid\_levels&
 I&
@@ -131,64 +136,54 @@ L&
 switch for generating a double periodic planar grid. The root level
 consists of 8 triangles.&
 \tabularnewline
-\hline
-\end{longtable}
+
+\end{longtab}
 
 Defined and used in: src/grid\_generator/mo\_io\_graph.f90
 
-
+%-----------------------------------------------------------------------------
+% grid_ini:
+%-----------------------------------------------------------------------------
 \subsubsection{grid\_ini (NAMELIST\_GRID)}
 
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
+\begin{longtab}
+
 \hline
-\endhead
-\hline 
 nroot&
 I&
 2&
 &
 root subdivision of initial edges&
 \tabularnewline
-\hline 
+
+\hline
 grid\_levels&
 I&
 4&
 &
 number of edge bisections following the root subdivision&
 \tabularnewline
-\hline 
+
+\hline
 lplane&
 L&
 .FALSE.&
 &
 switch for generating planar grid. The root level consists of 8 triangles.&
 \tabularnewline
-\hline
-\end{longtable}
+
+\end{longtab}
 
 Defined and used in: src/grid\_generator/mo\_io\_grid.f90
 
-
+%-----------------------------------------------------------------------------
+% grid_options:
+%-----------------------------------------------------------------------------
 \subsubsection{grid\_options (NAMELIST\_GRID)}
 
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
+\begin{longtab}
+
 \hline
-\endhead
-\hline 
 x\_rot\_angle&
 R&
 0.0&
@@ -196,8 +191,8 @@ deg&
 Rotation of the icosahedron about the x-axis (connecting the origin
 and {[}0$^\circ$E, 0$^\circ$N])&
 \tabularnewline
-\endfirsthead
-\hline 
+
+\hline
 y\_rot\_angle &
 R&
 0.0&
@@ -205,7 +200,8 @@ deg&
 Rotation of the icosahedron about the y-axis (connecting the origin
 and {[}90$^\circ$E, 0$^\circ$N), done after the rotation about the x-axis.&
 \tabularnewline
-\hline 
+
+\hline
 z\_rot\_angle &
 R&
 0.0&
@@ -213,7 +209,8 @@ deg&
 rotation of the icosahedron about the z-axis (connecting the origin
 and {[}0$^\circ$E, 90$^\circ$N), done after the rotation about the y-axis.&
 \tabularnewline
-\hline 
+
+\hline
 itype\_optimize&
 I&
 4&
@@ -250,55 +247,55 @@ Grid optimization type&
 &
 4: spring dynamics&
 \tabularnewline
-\hline 
+
+\hline
 l\_c\_grid &
 L &
 .FALSE. &
 &
 C-grid constraint on last level&
 \tabularnewline
-\hline 
+
+\hline
 maxlev\_optim &
 I &
 100 &
 &
 Maximum grid level where the optimization is applied&
-i\_type\_optimize = 1 or 4 \tabularnewline
-\hline 
+i\_type\_optimize = 1 or 4
+\tabularnewline
+
+\hline
 beta\_spring &
 R &
 0.90&
 &
 tuning factor for target grid length &
-i\_type\_optimize = 4 \tabularnewline
-\hline
-\end{longtable}
+i\_type\_optimize = 4
+\tabularnewline
+
+\end{longtab}
 
 Defined and used in: src/grid\_generator/mo\_io\_grid.f90
 
 
+%-----------------------------------------------------------------------------
+% plane_options:
+%-----------------------------------------------------------------------------
 \subsubsection{plane\_options (NAMELIST\_GRID)}
 
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
+\begin{longtab}
+
 \hline
-\endhead
-\hline 
 tria\_arc\_km &
 R &
 10.0 &
 km&
 length of triangle edge on plane&
-lplane=.TRUE.\tabularnewline
-\hline
-\endfirsthead
-\end{longtable}
+lplane=.TRUE.
+\tabularnewline
+
+\end{longtab}
 
 The number of grid points is generated by root level section and further
 bisections. The double periodic root level consists of 8 triangles.
@@ -308,47 +305,46 @@ Currently the planar option can only be used as an $f$-plane.
 \noindent Defined and used in: src/grid\_generator/mo\_io\_grid.f90
 
 
+%-----------------------------------------------------------------------------
+% gridref_ini:
+%-----------------------------------------------------------------------------
 \subsubsection{gridref\_ini (NAMELIST\_GRIDREF)}
 
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{2cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
+\begin{longtab}
+
 \hline
-\endhead
-\hline 
 grid\_root&
 I&
 2&
 &
 root subdivision of initial edges&
 \tabularnewline
-\hline 
+
+\hline
 start\_lev&
 I&
 4&
 &
 number of edge bisections following the root subdivision&
 \tabularnewline
-\hline 
+
+\hline
 n\_dom&
 I&
 2&
 &
 number of logical model domains, including the global one&
 \tabularnewline
-\hline 
+
+\hline
 n\_phys\_dom&
 I&
 n\_dom&
 &
 number of physical model domains, may be larger than n\_dom (in this case, domain merging is applied)&
 \tabularnewline
-\hline 
+
+\hline
 parent\_id&
 I(n\_phys\_ dom-1)&
 i&
@@ -356,7 +352,8 @@ i&
 ID of parent domain (first entry refers to first nested domain; needs to be
 specified only in case of more than one nested domain per grid level)&
 \tabularnewline
-\hline 
+
+\hline
 logical\_id&
 I(n\_phys\_ dom-1)&
 i+1&
@@ -364,13 +361,15 @@ i+1&
 logical grid ID of parent domain (first entry refers to first nested domain; needs to be
 specified only in case of domain merging, i.e. n\_dom $<$ n\_phys\_dom) &
 \tabularnewline
-\hline 
+
+\hline
 l\_plot&
 L&
 .FALSE.&
 &
 produces GMT plots showing the locations of the nested domains&
 \tabularnewline
+
 \hline
 l\_circ&
 L&
@@ -378,14 +377,16 @@ L&
 &
 Create circular (.T.) or rectangular (.F.) refined domains &
 \tabularnewline
-\hline 
+
+\hline
 l\_rotate&
 L&
 .FALSE.&
 &
 Rotates center point into the equator in case of l\_circ = .FALSE. & lcirc=.FALSE.
 \tabularnewline
-\hline 
+
+\hline
 write\_hierarchy&
 I&
 1&
@@ -394,7 +395,8 @@ I&
 1: Output in addition parent grid of global model domain (required for computing physics on a reduced grid) \\
 2: Output all grids back to level 0 (required for hierarchical search algorithms) &
 \tabularnewline
-\hline 
+
+\hline
 bdy\_indexing\_depth&
 I&
 max\_rlcell (=8)&
@@ -403,31 +405,38 @@ Number of cell rows along the lateral boundary of a model domain for which the r
 fields contain the distance from the lateral boundary; needs to be enlarged when lateral
 boundary nudging is required for one-way nesting &
 \tabularnewline
-\hline 
+
+\hline
 radius&
 R(n\_dom-1)&
 30.&
 deg&
 radius of nested domain (first entry refers to first nested domain; needs to be
 specified for each nested domain separately)&
-lcirc=.TRUE. \tabularnewline
-\hline 
+lcirc=.TRUE.
+\tabularnewline
+
+\hline
 hwidth\_lon&
 R(n\_dom-1)&
 20.&
 deg&
 zonal half-width of refined domain (first entry refers to first nested domain; needs to be
 specified for each nested domain separately)&
-lcirc=.FALSE. \tabularnewline
-\hline 
+lcirc=.FALSE.
+\tabularnewline
+
+\hline
 hwidth\_lat&
 R(n\_dom-1)&
 20.&
 deg&
 meridional half-width of refined domain (first entry refers to first nested domain; needs to be
 specified for each nested domain separately)&
-lcirc=.FALSE. \tabularnewline
-\hline 
+lcirc=.FALSE.
+\tabularnewline
+
+\hline
 center\_lon&
 R(n\_dom-1)&
 90.&
@@ -435,7 +444,8 @@ deg&
 center longitude of refined domain (first entry refers to first nested domain; needs to be
 specified for each nested domain separately)&
 \tabularnewline
-\hline 
+
+\hline
 center\_lat&
 R(n\_dom-1)&
 30.&
@@ -443,11 +453,10 @@ deg&
 center latitude of refined domain (first entry refers to first nested domain; needs to be
 specified for each nested domain separately)&
 \tabularnewline
-\hline
-\end{longtable}
+
+\end{longtab}
 
 Defined and used in: src/grid\_generator/mo\_gridrefinement.f90
-
 
 
 \subsection{Namelist parameters defining the ocean grid (NAMELIST\_OCEAN\_GRID)}
@@ -455,26 +464,22 @@ Defined and used in: src/grid\_generator/mo\_gridrefinement.f90
 The ocean grids are created by the script \verb+run/create_ocen_grid.run+
 
 
+%-----------------------------------------------------------------------------
+% grid_geometry_conditions:
+%-----------------------------------------------------------------------------
 \subsubsection{grid\_geometry\_conditions}
 
 
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
+\begin{longtab}
+
 \hline
-\endhead
-\hline 
 no\_of\_conditions &
 I &
 0 &
 &
 Number of geometric conditions &
 \tabularnewline
+
 \hline
 patch\_shape &
 I(no\_of\_conditions) &
@@ -482,6 +487,7 @@ I(no\_of\_conditions) &
 &
 1=rectangle; 2=circle &
 \tabularnewline
+
 \hline
 patch\_center\_x &
 R(no\_of\_conditions) &
@@ -489,6 +495,7 @@ R(no\_of\_conditions) &
 degrees &
 longitude of patch center &
 \tabularnewline
+
 \hline
 patch\_center\_y &
 R(no\_of\_conditions) &
@@ -496,6 +503,7 @@ R(no\_of\_conditions) &
 degrees &
 latitude of patch center &
 \tabularnewline
+
 \hline
 rectangle\_xradious &
 R(no\_of\_conditions) &
@@ -504,6 +512,7 @@ degrees &
 half meridional extension of a rectangular patch &
 patch\_shape=1
 \tabularnewline
+
 \hline
 rectangle\_yradious &
 R(no\_of\_conditions) &
@@ -512,6 +521,7 @@ degrees &
 half zonal extension of a rectangular patch &
 patch\_shape=1
 \tabularnewline
+
 \hline
 circle\_radious &
 R(no\_of\_conditions) &
@@ -520,33 +530,28 @@ degrees &
 radius of a circular patch &
 patch\_shape=2
 \tabularnewline
-\hline
-\endfirsthead
-\end{longtable}
+
+\end{longtab}
 
 
 Defined in \verb+mo_grid_conditions.f90+
 
 
+%-----------------------------------------------------------------------------
+% create_ocean_grid:
+%-----------------------------------------------------------------------------
 \subsubsection{create\_ocean\_grid}
 
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
+\begin{longtab}
+
 \hline
-\endhead
-\hline 
 only\_get\_sea\_land\_mask &
 L &
 .false. &
 &
 .true.:returns the whole grid with a sea-land mask; .false.:returns only the ocean grid &
 \tabularnewline
+
 \hline
 smooth\_ocean\_boundary &
 L &
@@ -554,6 +559,7 @@ L &
 &
 .true.:smooths the ocean boundaries so no triabgle has two boundary edges; .false.:no smoothing&
 \tabularnewline
+
 \hline
 input\_file &
 C &
@@ -561,6 +567,7 @@ C &
 &
 name of the input grid file &
 \tabularnewline
+
 \hline
 elevation\_file &
 C &
@@ -569,6 +576,7 @@ C &
 name of the file containing cell elevation values for the input\_file  &
 no\_of\_conditions=0
 \tabularnewline
+
 \hline
 elevation\_field &
 C &
@@ -577,6 +585,7 @@ C &
 name of the field containing the cell elevation values  &
 no\_of\_conditions=0
 \tabularnewline
+
 \hline
 min\_sea\_depth &
 R &
@@ -584,6 +593,7 @@ R &
 m (negative)&
 if cell elevation < min\_sea\_depth then the cell is consider sea   &
 \tabularnewline
+
 \hline
 set\_sea\_depth &
 R &
@@ -591,6 +601,7 @@ R &
 m (negative)&
 if not 0, then sea cells are of set\_sea\_depth elevation  &
 \tabularnewline
+
 \hline
 set\_min\_sea\_depth &
 R &
@@ -598,6 +609,7 @@ R &
 m (negative)&
 if not 0, then sea cells have a maximum of set\_min\_sea\_depth elevation  &
 \tabularnewline
+
 \hline
 edge\_elev\_interp\_method &
 I &
@@ -605,6 +617,7 @@ I &
 &
 compute edge elevation from cells using: linear interpolation=1; min value   = 2  &
 \tabularnewline
+
 \hline
 output\_refined\_ocean\_file &
 C &
@@ -612,35 +625,29 @@ C &
 &
 name of the output refined ocean grid file &
 \tabularnewline
-\hline
-\endfirsthead
-\end{longtable}
+
+\end{longtab}
 
 Defined in \verb+mo_create_ocean_grid.f90+
 
 
 \subsection{Namelist parameters defining the torus grid (NAMELIST\_TORUS\_GRID)} 
 
+%-----------------------------------------------------------------------------
+% torus_grid_parameters:
+%-----------------------------------------------------------------------------
 \subsubsection{torus\_grid\_parameters}
 
+\begin{longtab}
 
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
 \hline
-\endhead
-\hline 
 y\_no\_of\_rows &
 I &
  &
 4 &
 number of triangle rows of the torus grid &
 \tabularnewline
+
 \hline
 x\_no\_of\_columns &
 I &
@@ -648,6 +655,7 @@ I &
 8 &
 number of triangle columns of the torus grid &
 \tabularnewline
+
 \hline
 edge\_length &
 R &
@@ -655,6 +663,7 @@ m &
 1000.0 &
 the triangle edge length&
 \tabularnewline
+
 \hline
 x\_center &
 R &
@@ -662,6 +671,7 @@ m &
 0.0 &
 the x coordinate of the torus center&
 \tabularnewline
+
 \hline
 y\_center &
 R &
@@ -669,6 +679,7 @@ m &
 0.0 &
 the y coordinate of the torus center&
 \tabularnewline
+
 \hline
 out\_file\_name &
 C &
@@ -676,6 +687,7 @@ C &
 &
 the torus grid file name &
 \tabularnewline
+
 \hline
 unfolded\_torus\_file\_name &
 C &
@@ -683,6 +695,7 @@ C &
 &
 the unfolded torus grid file name (for plotting) &
 \tabularnewline
+
 \hline
 ascii\_filename &
 C &
@@ -690,9 +703,8 @@ C &
 &
 the unfolded torus grid ascci file name (for plotting) &
 \tabularnewline
-\hline
-\endfirsthead
-\end{longtable}
+
+\end{longtab}
 
 Defined in \verb+mo_create_torus_grid.f90+. See the run script \verb+run/create_torus_grid.run+.
 
@@ -815,13 +827,13 @@ number of halo cell rows&
 
 \hline 
 l\_log\_checks &
-L &&
+L & & &
 &
 \tabularnewline
 
 \hline 
 l\_fast\_sum &
-L &&
+L &&&
 &
 \tabularnewline
 
@@ -969,8 +981,6 @@ I& 0& &
 Number of advected tracers handled by the large-scale transport scheme&
 \tabularnewline
 
-
-
 \hline
 lvert\_nest &
 L & .FALSE.& &
@@ -1018,7 +1028,6 @@ controls how much printout is written during runtime. \\
 For values less than 5, only the time step is written.&
 \tabularnewline
 
-
 \end{longtab}
 
 Defined and used in: src/namelists/mo\_run\_nml.f90
@@ -1027,69 +1036,89 @@ Defined and used in: src/namelists/mo\_run\_nml.f90
 %-------------------------------------------------------------------
 % ha_testcase_nml:
 %-------------------------------------------------------------------
-\subsubsection{ha\_testcase\_nml (Scope: ltestcase=.TRUE. and iequations=[0,1,2] in run\_nml)}
+\subsection{ha\_testcase\_nml (Scope: ltestcase=.TRUE. and iequations=[0,1,2] in run\_nml)}
 \begin{longtab}
 
 \hline 
 ctest\_name&
 C& 'JWw'& &
-Name of test case:\\
+Name of test case: &
+\tabularnewline
+&&&&&
 \tabularnewline
 & & & &
 'SW\_GW': gravity wave&
-lshallow\_water=.TRUE.\tabularnewline
+lshallow\_water=.TRUE.
+\tabularnewline
 & & & &
 'USBR': unsteady solid body rotation &
-lshallow\_water=.TRUE.\tabularnewline
+lshallow\_water=.TRUE.
+\tabularnewline
 & & & &
 'Will\_2': Williamson test 2&
-lshallow\_water=.TRUE.\tabularnewline
+lshallow\_water=.TRUE.
+\tabularnewline
 & & & &
 'Will\_3': Williamson test 3&
-lshallow\_water=.TRUE.\tabularnewline
+lshallow\_water=.TRUE.
+\tabularnewline
 & & & &
 'Will\_5': Williamson test 5&
-lshallow\_water=.TRUE.\tabularnewline
+lshallow\_water=.TRUE.
+\tabularnewline
 & & & &
 'Will\_6': Williamson test 6&
-lshallow\_water=.TRUE.\tabularnewline
+lshallow\_water=.TRUE.
+\tabularnewline
 & & & &
 'GW': gravity wave (nlev=20 only!) &
-lshallow\_water=.FALSE.\tabularnewline
+lshallow\_water=.FALSE.
+\tabularnewline
 & & & &
 'LDF': local diabatic forcing test without physics&
-lshallow\_water=.FALSE.\\and iforcing=4\tabularnewline
+lshallow\_water=.FALSE.\\and iforcing=4
+\tabularnewline
 & & & &
 'LDF-Moist': local diabatic forcing test with physics initalised with zonal wind field &
-lshallow\_water=.FALSE.,\\and iforcing=5\tabularnewline
+lshallow\_water=.FALSE.,\\and iforcing=5
+\tabularnewline
 & & & &
 'HS': Held-Suarez test &
-lshallow\_water=.FALSE.\tabularnewline
+lshallow\_water=.FALSE.
+\tabularnewline
 & & & &
 'JWs': Jablonowski-Will. steady state&
-lshallow\_water=.FALSE.\tabularnewline
+lshallow\_water=.FALSE.
+\tabularnewline
 & & & &
 'JWw': Jablonowski-Will. wave test&
-lshallow\_water=.FALSE.\tabularnewline
+lshallow\_water=.FALSE.
+\tabularnewline
 & & & &
 'JWw-Moist': Jablonowski-Will. wave test including moisture&
-lshallow\_water=.FALSE.\tabularnewline
+lshallow\_water=.FALSE.
+\tabularnewline
 & & & &
 'APE': aqua planet experiment&
-lshallow\_water=.FALSE.\tabularnewline
+lshallow\_water=.FALSE.
+\tabularnewline
 & & & &
 'MRW': mountain induced Rossby wave&
-lshallow\_water=.FALSE.\tabularnewline
+lshallow\_water=.FALSE.
+\tabularnewline
 & & & &
 'MRW2': modified mountain induced Rossby wave&
-lshallow\_water=.FALSE.\tabularnewline
+lshallow\_water=.FALSE.
+\tabularnewline
 & & & &
 'PA': pure advection&
-lshallow\_water=.FALSE.\tabularnewline
+lshallow\_water=.FALSE.
+\tabularnewline
 & & & &
 'SV': stationary vortex&
 lshallow\_water=.FALSE., 
-ntracer = 2\tabularnewline
+ntracer = 2
+\tabularnewline
 & & & &
 'DF1': deformational flow test 1&
 \tabularnewline
@@ -1125,67 +1154,78 @@ ctest\_name= 'GW'
 gw\_u0&
 R& 0.0& m/s&
 zonal wind parameter&
-ctest\_name= 'GW'\tabularnewline
+ctest\_name= 'GW'
+\tabularnewline
 
 \hline 
 gw\_lon\_deg&
 R& 180.0& deg&
 longitude of initial perturbation&
-ctest\_name= 'GW'\tabularnewline
+ctest\_name= 'GW'
+\tabularnewline
 
 \hline 
 gw\_lat\_deg&
 R& 0.0& deg&
 latitude of initial perturbation&
-ctest\_name= 'GW'\tabularnewline
+ctest\_name= 'GW'
+\tabularnewline
 
 \hline 
 jw\_uptb&
 R& 1.0& m/s (?)&
 amplitude of the wave pertubation&
-ctest\_name= 'JWw'\tabularnewline
+ctest\_name= 'JWw'
+\tabularnewline
 
 \hline 
 mountctr\_lon\_deg&
 R& 90.0& deg&
 longitude of mountain peak&
-ctest\_name= 'MRW(2)'\tabularnewline
+ctest\_name= 'MRW(2)'
+\tabularnewline
 
 \hline 
 mountctr\_lat\_deg&
 R& 30.0& deg&
 latitude of mountain peak&
-ctest\_name= 'MRW(2)'\tabularnewline
+ctest\_name= 'MRW(2)'
+\tabularnewline
 
 \hline 
 mountctr\_height&
 R& 2000.0& m&
 mountain height&
-ctest\_name= 'MRW(2)'\tabularnewline
+ctest\_name= 'MRW(2)'
+\tabularnewline
 
 \hline 
 mountctr\_half\_width&
 R& 1500000.0& m&
 mountain half width&
-ctest\_name= 'MRW(2)'\tabularnewline
+ctest\_name= 'MRW(2)'
+\tabularnewline
 
 \hline 
 mount\_u0&
 R& 20.0& m/s&
 wind speed for MRW cases&
-ctest\_name= 'MRW(2)'\tabularnewline
+ctest\_name= 'MRW(2)'
+\tabularnewline
 
 \hline 
 rh\_wavenum&
 I& 4& &
 wave number&
-ctest\_name= 'RH'\tabularnewline
+ctest\_name= 'RH'
+\tabularnewline
 
 \hline 
 rh\_init\_shift\_deg&
 R& 0.0& deg&
 pattern shift&
-ctest\_name= 'RH'\tabularnewline
+ctest\_name= 'RH'
+\tabularnewline
 
 \hline 
 ihs\_init\_type&
@@ -1271,9 +1311,10 @@ Defined and used in: src/testcases/mo\_ha\_testcases.f90
 %-------------------------------------------------------------------------------
 % nh_test_nml:
 %-------------------------------------------------------------------------------
-\subsubsection{nh\_testcase\_nml (Scope: ltestcase=.TRUE. and iequations=3 in run\_nml)}
+\subsection{nh\_testcase\_nml (Scope: ltestcase=.TRUE. and iequations=3 in run\_nml)}
 
 \begin{longtab}
+
 \hline 
 nh\_test\_name&
 C& 'jabw'& &
@@ -1434,38 +1475,44 @@ nh\_test\_name = 'bell', lplane=.TRUE.
 rotate\_axis\_deg&
 R& 0.0& deg&
 Earth's rotation axis pitch angle&
-nh\_test\_name= 'PA' \tabularnewline
+nh\_test\_name= 'PA'
+\tabularnewline
 
 \hline
 lhs\_nh\_vn\_ptb&
 L& .TRUE.& &
 Add random noise to the initial wind field in the Held-Suarez test. &
-nh\_test\_name= 'HS\_nh'\tabularnewline
+nh\_test\_name= 'HS\_nh'
+\tabularnewline
 
 \hline 
 lhs\_fric\_heat&
 L& .FALSE.& &
 add frictional heating from Rayleigh friction in the Held-Suarez test.&
-nh\_test\_name= 'HS\_nh'\tabularnewline
+nh\_test\_name= 'HS\_nh'
+\tabularnewline
 
 \hline 
 hs\_nh\_vn\_ptb\_scale&
 R& 1.& m/s &
 Magnitude of the random noise added to the initial wind field in the
 Held-Suarez test. &
-nh\_test\_name= 'HS\_nh'\tabularnewline
+nh\_test\_name= 'HS\_nh'
+\tabularnewline
 
 \hline
 rh\_at\_1000hpa&
 R& 0.7& 1 &
 relative humidity at 1000 hPa &
-nh\_test\_name= 'jabw', nh\_test\_name= 'mrw'\tabularnewline
+nh\_test\_name= 'jabw', nh\_test\_name= 'mrw'
+\tabularnewline
 
 \hline
 qv\_max&
 R& 20.e-3& kg/kg &
 specific humidity in the tropics &
-nh\_test\_name= 'jabw', nh\_test\_name= 'mrw'\tabularnewline
+nh\_test\_name= 'jabw', nh\_test\_name= 'mrw'
+\tabularnewline
 
 \hline
 ape\_sst\_case&
@@ -1532,7 +1579,7 @@ number of model domains, 1 = global domain only&
 
 \hline 
 l\_limited\_area &
-L & .FALSE.& &
+L & .FALSE.& & &
 \tabularnewline
 
 \hline 
@@ -2304,11 +2351,6 @@ for triangles only with iequations=3, for hexagons with hdiff\_order=3
 Defined and used in: src/namelists/mo\_diffusion\_nml.f90
 
 
-%IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
-%IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
-%IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
-%IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII
-
 %------------------------------------------------------------------------------
 % io_nml:
 %------------------------------------------------------------------------------
@@ -2466,30 +2508,13 @@ iequations = 3 {\color{red}(to be done for 1, 2)}
 
 Defined and used in: src/namelists/mo\_io\_nml.f90
 
-
-%CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-%CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-%CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-%CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
-
-
-
-
-
-
+%------------------------------------------------------------------------------
+% transport_nml:
+%------------------------------------------------------------------------------
 \subsection{transport\_ctl (used if run\_nml/ltransport=.TRUE.)}
 
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
-\hline
-\endhead
-\hline 
+\begin{longtab}
+
 ihadv\_tracer&
 I(ntracer)&
 2&
@@ -2748,25 +2773,19 @@ L&
 use QR decomposition (FALSE) or SV decomposition (TRUE) for least squares design matrix A&
 \tabularnewline
 \hline
-\end{longtable}
+\end{longtab}
 
 Defined and used in: src/namelists/mo\_advection\_nml.f90
 
 
 
+%------------------------------------------------------------------------------
+% nwp_phy_nml:
+%------------------------------------------------------------------------------
 \subsection{nwp\_phy\_ctl}
 
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{2.cm}|>{\raggedright}p{1.2cm}|>{\raggedright}p{1.2cm}|>{\raggedright}p{5.5cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
-\hline
-\endhead
-\hline 
+\begin{longtab}
+
 inwp\_gscp&
 I&
 0&
@@ -3151,40 +3170,37 @@ not recomended to change
 it is halved
 &
 \tabularnewline
-\hline 
-\end{longtable}
+
+\end{longtab}
 
 
 Defined and used in: src/namelists/mo\_atm\_phy\_nwp\_nml.f90
 
 
+%------------------------------------------------------------------------------
+% radiation_nml:
+%------------------------------------------------------------------------------
 \subsection{radiation\_nml}
 
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1.4cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
+\begin{longtab}
+
 \hline
-\endhead
-\hline %---end of head---
 ldiur &
 L&
 .TRUE.&
 &
 switch for solar irradiation: \\.TRUE.:diurnal cycle, \\.FALSE.:zonally averaged irradiation&
 \tabularnewline
-\hline %---end of head---
+
+\hline
 nmonth &
 I&
 0&
 &
 0: Earth circles on orbit\\1-12: Earth orbit position fixed for specified month&
 \tabularnewline
-\hline %---end of head---
+
+\hline
 yr\_perp &
 L&
 -99999&
@@ -3192,7 +3208,7 @@ L&
 year used for lyr\_perp = .TRUE.&
 \tabularnewline
 
-\hline %---end of head---
+\hline
 lyr\_perp &
 L&
 .FALSE.&
@@ -3200,7 +3216,7 @@ L&
 .FALSE.: transient Earth orbit following VSOP87 \\ .TRUE.: Earth orbit of year yr\_perp of the VSOP87 orbit is perpertuated &
 \tabularnewline
 
-\hline %---end of head---
+\hline
 dt\_rad &
 R&
 7200.&
@@ -3208,7 +3224,7 @@ second&
 time interval of full radiation computation&
 run\_nml/iforcing = iecham
 \tabularnewline
-\hline %---
+\hline
 izenith&
 I&
 3\par
@@ -3222,7 +3238,7 @@ Choice of zenith angle formula for the radiative transfer computation.\par
 4: Zenith angle and irradiance changing with season, latitude, and time of day (iforcing=inwp only)
 &
 \tabularnewline
-\hline %--- 
+\hline 
 irad\_h2o\par 
 irad\_co2\par 
 irad\_ch4\par 
@@ -3258,7 +3274,7 @@ irad\_h2o = 1\par
 irad\_co2 = 2\par
 and 0 for all the other agents for run\_nml/iforcing = 2 (ECHAM).\par
 \tabularnewline
-\hline %---
+\hline
 vmr\_co2\par
 vmr\_ch4\par
 vmr\_n2o\par
@@ -3278,31 +3294,25 @@ R&
 Volume mixing ratio of the radiative agents&
 \tabularnewline
 \hline
-\end{longtable}
+\end{longtab}
 
 Defined and used in: src/namelists/mo\_radiation\_nml.f90
 
 
+%------------------------------------------------------------------------------
+% nwp_lnd_nml:
+%------------------------------------------------------------------------------
 \subsection{nwp\_lnd\_nml}
 
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1.4cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
-\hline
-\endhead
-\hline %---end of head---
+\begin{longtab}
+
 nlev\_soil &
 I&
 7&
 &
 number of soil layers&
 \tabularnewline
-\hline %---end of head---
+\hline
 nlev\_snow &
 I&
 1&
@@ -3310,88 +3320,84 @@ I&
 number of snow layers\\
 for {\tt lmulti\_snow=.true.}&
 \tabularnewline
-\hline %---end of head---
+\hline
 nsfc\_subs &
 I&
 1&
 &
 number of tiles&
 \tabularnewline
-\hline %---end of head---
+\hline
 nztlev &
 I&
 2&
 &
 used time integration scheme&
 \tabularnewline
-\hline %---end of head---
+\hline
 lmulti\_snow &
 L&
 .FALSE.&
 &
 .TRUE. for use of multi-layer snow model&
 \tabularnewline
-\hline %---end of head---
+\hline
 lseaice &
 L&
 .FALSE.&
 &
 .TRUE. for use of sea-ice model&
 \tabularnewline
-\hline %---end of head---
+\hline
 llake &
 L&
 .FALSE.&
 &
 .TRUE. for use of lake model&
 \tabularnewline
-\hline %---end of head---
-\end{longtable}
+\hline
+\end{longtab}
 
 Defined and used in: src/namelists/mo\_nwp\_lnd\_nml.f90
 
-%------------------------------ switches for ECHAM physics -----------------------------
+
+%------------------------------ switches for ECHAM physics 
+
+%------------------------------------------------------------------------------
+% echam_phy_nml:
+%------------------------------------------------------------------------------
 \subsection{echam\_phy\_nml}
 
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1.4cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
-\hline
-\endhead
-\hline %---end of head---
+\begin{longtab}
+
 lrad &
 L&
 .TRUE.&&
 Switch on radiation.&
 iforcing = 2
 \tabularnewline
-\hline %---
+\hline
 lvdiff &
 L&
 .TRUE.&&
 Switch on turbulent mixing (i.e. vertical diffusion).&
 iforcing = 2
 \tabularnewline
-\hline %---
+\hline
 lconv &
 L&
 .TRUE.&&
 Switch on cumulus convection.&
 iforcing = 2
 \tabularnewline
-\hline %---
+\hline
 lcond &
 L&
 .TRUE.&&
 Switch on large scale condensation.&
 iforcing = 2
 \tabularnewline
-\hline %---
+\hline
 lcover &
 L&
 .FALSE.&&
@@ -3399,7 +3405,7 @@ L&
 iforcing = 2\par
 Note: lcover = .TRUE. runs, but has not been evaluated (yet) in ICON.
 \tabularnewline
-\hline %---
+\hline
 llandsurf &
 L&
 .FALSE.&&
@@ -3407,7 +3413,7 @@ L&
 iforcing = 2\par
 {\color{red}Not implemeted yet}
 \tabularnewline
-\hline %---
+\hline
 lssodrag &
 L&
 .FALSE.&&
@@ -3415,15 +3421,14 @@ L&
 iforcing = 2\par
 {\color{red}Not implemeted yet}
 \tabularnewline
-\hline %---
-lagwdrag &
+\hline
+lgw\_hines &
 L&
 .FALSE.&&
-.TRUE. for atmospheric gravity wave drag&
+.TRUE. for atmospheric gravity wave drag by the Hines scheme&
 iforcing = 2\par
-{\color{red}Not implemeted yet}
 \tabularnewline
-\hline %---
+\hline
 lice &
 L&
 .FALSE.&&
@@ -3431,7 +3436,7 @@ L&
 iforcing = 2\par
 {\color{red}Not implemeted yet}
 \tabularnewline
-\hline %---
+\hline
 lmeltpond &
 L&
 .FALSE.&&
@@ -3439,7 +3444,7 @@ L&
 iforcing = 2\par
 {\color{red}Not implemeted yet}
 \tabularnewline
-\hline %---
+\hline
 lmlo &
 L&
 .FALSE.&&
@@ -3447,7 +3452,7 @@ L&
 iforcing = 2\par
 {\color{red}Not implemeted yet}
 \tabularnewline
-\hline %---
+\hline
 lhd &
 L&
 .FALSE.&&
@@ -3455,69 +3460,54 @@ L&
 iforcing = 2\par
 {\color{red}Not implemeted yet}
 \tabularnewline
-\hline %---
-lmidatm &
-L&
-.FALSE.&&
-.TRUE. for middle atmosphere model version&
-iforcing = 2\par
-{\color{red}Not implemeted yet}
-\tabularnewline
-\hline %---
-\end{longtable}
+\hline
+\end{longtab}
 
 Defined and used in: src/namelists/mo\_echam\_phy\_nml.f90
 
 
+%------------------------------------------------------------------------------
+% echam_conv_nml:
+%------------------------------------------------------------------------------
 \subsection{echam\_conv\_ctl}
 
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1.4cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope
-\tabularnewline
-\hline
-\endhead
-\hline %---end of head---
+\begin{longtab}
+
 lmfpen &
 L&
 .TRUE.&&
 Switch on penetrative convection.&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
-\hline %---
+\hline
 lmfmid &
 L&
 .TRUE.&&
 Switch on midlevel convection.&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
-\hline %---
+\hline
 lmfscv &
 L&
 .TRUE.&&
 Switch on shallow convection.&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
-\hline %---
+\hline
 lmfdd &
 L&
 .TRUE.&&
 Switch on cumulus downdraft.&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
-\hline %---
+\hline
 lmfdudv &
 L&
 .TRUE.&&
 Switch on cumulus friction.&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
-\hline %---
+\hline
 iconv&
 I &
 1 &&
@@ -3527,14 +3517,14 @@ Choice of cumulus convection scheme.\par
 3: hybrid scheme &
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
-\hline %---
+\hline
 cmftau &
 R &
 10800. &&
 Characteristic convective adjustment time scale.&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
-\hline %---
+\hline
 cmfctop &
 R &
 0.3 &&
@@ -3542,91 +3532,136 @@ Fractional convective mass flux (valid range [0,1])
 across the top of cloud &
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
-\hline %---
+\hline
 cprcon &
 R &
 1.0e-4 &&
 Coefficient for determining conversion from cloud water to rain.&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
-\hline %---
+\hline
 cminbuoy &
 R &
 0.025 &&
 Minimum excess buoyancy.&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
-\hline %---
+\hline
 entrpen &
 R &
 1.0e-4 &&
 Entrainment rate for penetrative convection.&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
-\hline %---
+\hline
 dlev &
 R &
 3.e4 & Pa &
 Critical thickness necessary for the onset of convective precipitation.&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
-\hline %---
+\hline
 nauto &
 I &
 1 &&
 autoconversion scheme:\\1: Beheng (1994)\par2: Khairoutdinov and Kogan (2000)&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
-\hline %---
+\hline
 lconvmassfix &
 L &
 .FALSE. &&
 aerosol mass fixer in convection&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
-\hline %---
-\end{longtable}
+\hline
+\end{longtab}
 
 Defined and used in: src/atm\_phy\_echam/mo\_echam\_conv\_parameters.f90
 
+
+%------------------------------------------------------------------------------
+% echam_vdiff_nml:
+%------------------------------------------------------------------------------
 \subsection{echam\_vdiff\_ctl}
 
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1.4cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope
-\tabularnewline
+\begin{longtab}
+
 \hline
-\endhead
-\hline %---end of head---
 lsfc\_mon\_flux &
 L&
 .TRUE.&&
 Switch on surface momentum flux.&
 lvdiff = .TRUE.
 \tabularnewline
-\hline %---
+
+\hline
 lsfc\_heat\_flux &
-L&
-.TRUE.&&
+L                &
+.TRUE.           &
+                 &
 Switch on surface sensible and latent heat flux.&
 lvdiff = .TRUE.
 \tabularnewline
-\hline %---
-\end{longtable}
+
+\end{longtab}
 
 Defined and used in: src/namelists/mo\_echam\_vdiff\_nml.f90
 
-%----------------------- end of switches for ECHAM turbulent mixing scheme --------------------
 
+%------------------------------------------------------------------------------
+% gw_hines_nml:
+%------------------------------------------------------------------------------
+\subsection{gw\_hines\_nml}
 
+\begin{longtab}
 
+\hline
+lheatcal    &
+L           &
+.FALSE.     &&
+TRUE : compute also heating rate and diffusion coefficient resulting from the dissipation of gravity waves &
+lgw\_hines = .TRUE.
+\tabularnewline
 
+\hline
+emiss\_lev  &
+I           &
+10          &&
+Index of model level, counted from the surface, from which the gravity wave spectra are emitted &
+lgw\_hines = .TRUE.
+\tabularnewline
 
+\hline
+rmscon      &
+R           &
+1.0         &
+m/s         &
+Root mean square gravity wave wind at the emission level &
+lgw\_hines = .TRUE.
+\tabularnewline
+
+\hline
+kstar       &
+R           &
+5.0e-5      &
+1/m         &
+Typical gravity wave horizontal wavenumber &
+lgw\_hines = .TRUE.
+\tabularnewline
+
+\hline
+m\_min      &
+R           &
+0.0         &
+1/m         &
+Minimum bound in  vertical wavenumber &
+lgw\_hines = .TRUE.
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_gw\_hines\_nml.f90
 
 
 \subsection{Namelist parameters for testcases (NAMELIST\_ICON)}
@@ -3639,24 +3674,20 @@ conditions are computed internally.
 
 \section{Externally provided data}
 
+%------------------------------------------------------------------------------
+% ext_par_nml:
+%------------------------------------------------------------------------------
 \subsection{ext\_par\_ctl (Scope: itopo=1 in run\_nml)}
 
-\begin{longtable}{|>{\raggedright}p{3cm}|>{\raggedright}p{1cm}|>{\raggedright}p{1.5cm}|>{\raggedright}p{1cm}|>{\raggedright}p{6cm}|>{\raggedright}p{4cm}|}
-\hline 
-Parameter&
-Type&
-Default&
-Unit&
-Description&
-Scope\tabularnewline
-\hline
-\endhead
+\begin{longtab}
+
 \hline 
 itopo&
 I & 0& &
 0: analytical topography/ext. data \\
 1: topography/ext. data read from file&
 \tabularnewline
+
 \hline 
 n\_iter\_smooth\_topo &
 I &
@@ -3666,6 +3697,7 @@ iterations of topography smoother
 &
 itopo = 1
 \tabularnewline
+
 \hline 
 fac\_smooth\_topo&
 R &
@@ -3675,10 +3707,11 @@ pre-factor of topography smoother
 &
 n\_iter\_smooth\_topo > 0
 \tabularnewline
-\hline 
-\end{longtable}
+
+\end{longtab}
 
 Defined and used in: src/namelists/mo\_global\_variables.f90
+
 
 \subsection{Information on vertical level distribution}
 

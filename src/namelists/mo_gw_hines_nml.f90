@@ -37,27 +37,24 @@
 !!
 MODULE mo_gw_hines_nml
 
-  USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_dom
+  USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_units,            ONLY: nnml, nnml_output
-  USE mo_exception,           ONLY: message, print_value
-  USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
+  USE mo_exception,           ONLY: finish
+
+  USE mo_kind,                ONLY: wp
+  USE mo_impl_constants,      ONLY: max_dom
+
+  USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_master_nml,          ONLY: lrestart
-  USE mo_gw_hines_config,     ONLY: gw_hines_config
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &     
     &                               open_and_restore_namelist, close_tmpfile
-  USE mo_mpi,                ONLY: p_pe, p_io
+
+  USE mo_gw_hines_config,     ONLY: gw_hines_config
 
   IMPLICIT NONE
 
   PRIVATE
   PUBLIC :: read_gw_hines_namelist
-  PUBLIC :: gw_hines_nml            !< namelist for Hines gravity wave parameterization
-
-  PUBLIC :: lheatcal, emiss_lev, rmscon, kstar, m_min
-!!$  PUBLIC :: lfront, rms_front, front_thres
-!!$  PUBLIC :: lozpr, pcrit, pcons
-!!$  PUBLIC :: lrmscon_lat, lat_rmscon_lo, lat_rmscon_hi, rmscon_lo, rmscon_hi
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -68,8 +65,8 @@ MODULE mo_gw_hines_nml
   LOGICAL  :: lheatcal      !< true : compute momentum flux dep., heating and diffusion coefficient
                             !< false: compute only momentum flux deposition
 
-  INTEGER  :: emiss_lev     !< root mean square gravity wave wind at lowest level (m/s)
-  REAL(wp) :: rmscon        !< number of levels above the ground at which gw are emitted
+  INTEGER  :: emiss_lev     !< number of levels above the ground at which gw are emitted
+  REAL(wp) :: rmscon        !< root mean square gravity wave wind at lowest level (m/s)
   REAL(wp) :: kstar         !< typical gravity wave horizontal wavenumber (1/m)
   REAL(wp) :: m_min         !< minimum bound in  vertical wavenumber (1/m)
 
@@ -124,11 +121,11 @@ CONTAINS
   !!
   SUBROUTINE read_gw_hines_namelist( filename )
 
-    CHARACTER(LEN=*), INTENT(IN) :: filename
+    CHARACTER(len=*), INTENT(in) :: filename
     INTEGER :: istat, funit
     INTEGER :: jg 
 
-    !0!CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines_nml:read_gw_hines_namelist'
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines_nml:read_gw_hines_namelist'
 
     !-----------------------
     ! 1. default settings   
@@ -150,19 +147,40 @@ CONTAINS
       CALL close_tmpfile(funit)
     END IF
 
-    !--------------------------------------------------------------------
-    ! 3. Read user's (new) specifications (Done so far by all MPI processes)
-    !--------------------------------------------------------------------
+    !----------------------------------------------------
+    ! 3. Read user's (new) specifications
+    !    (Done so far by all MPI processes)
+    !----------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('gw_hines_nml', status=istat)
     SELECT CASE (istat)
-    CASE (POSITIONED)
+    CASE (positioned)
       READ (nnml, gw_hines_nml)
     END SELECT
     CALL close_nml
 
     !----------------------------------------------------
-    ! 4. Fill the configuration state
+    ! 4. Sanity Check
+    !----------------------------------------------------
+    IF ( emiss_lev < 0 )   CALL finish( TRIM(routine), 'emiss_lev < 0 is not allowed')
+    IF ( rmscon < 0.0_wp ) CALL finish( TRIM(routine), 'rmscon < 0. is not allowed')
+    IF ( kstar  < 0.0_wp ) CALL finish( TRIM(routine), 'kstar  < 0. is not allowed')
+    IF ( m_min  < 0.0_wp ) CALL finish( TRIM(routine), 'm_min  < 0. is not allowed')
+
+    !-----------------------------------------------------
+    ! 5. Store the namelist for restart
+    !-----------------------------------------------------
+    funit = open_tmpfile()
+    WRITE(funit,NML=gw_hines_nml)                    
+    CALL store_and_close_namelist(funit, 'gw_hines_nml') 
+
+    !-----------------------------------------------------
+    ! 6. Write the namelist to an ASCII file
+    !-----------------------------------------------------
+    IF ( my_process_is_stdio() ) WRITE(nnml_output,nml=gw_hines_nml)
+
+    !----------------------------------------------------
+    ! 7. Fill the configuration state
     !----------------------------------------------------
 
     DO jg = 1,max_dom
@@ -173,18 +191,6 @@ CONTAINS
       gw_hines_config(jg)%m_min     = m_min
     ENDDO
 
-    !-----------------------------------------------------
-    ! 5. Store the namelist for restart
-    !-----------------------------------------------------
-    funit = open_tmpfile()
-    WRITE(funit,NML=gw_hines_nml)                    
-    CALL store_and_close_namelist(funit, 'gw_hines_nml') 
-
-    ! 6. write the contents of the namelist to an ASCII file
-    !
-    IF(p_pe == p_io) WRITE(nnml_output,nml=gw_hines_nml)
-
   END SUBROUTINE read_gw_hines_namelist
-
 
 END MODULE mo_gw_hines_nml

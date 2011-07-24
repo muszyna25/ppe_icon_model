@@ -44,9 +44,10 @@
 MODULE mo_gw_hines_config
 
   USE mo_kind,           ONLY: wp
-  USE mo_impl_constants, ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom
+  USE mo_impl_constants, ONLY: max_dom
 
   IMPLICIT NONE
+
   PRIVATE
   PUBLIC :: t_gw_hines_config, gw_hines_config
 
@@ -60,10 +61,10 @@ MODULE mo_gw_hines_config
   LOGICAL  :: lheatcal      !< true : compute momentum flux dep., heating and diffusion coefficient
                             !< false: compute only momentum flux deposition
 
-  INTEGER  :: emiss_lev     !< root mean square gravity wave wind at lowest level (m/s)
-  REAL(wp) :: rmscon        !< number of levels above the ground at which gw are emitted
+  INTEGER  :: emiss_lev     !< number of levels above the ground at which gw are emitted
+  REAL(wp) :: rmscon        !< root mean square gravity wave wind at lowest level (m/s)
   REAL(wp) :: kstar         !< typical gravity wave horizontal wavenumber (1/m)
-  REAL(wp) :: m_min         !< minimum bound in  vertical wavenumber (1/m)
+  REAL(wp) :: m_min         !< minimum bound in vertical wavenumber (1/m)
 
 !!$  LOGICAL  :: lfront        !< true: compute gw sources emerging from fronts and background
 !!$                            !< (Charron and Manzini, 2002)
