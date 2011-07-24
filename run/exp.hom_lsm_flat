@@ -1,3 +1,5 @@
+#!/bin/ksh
+
 #=============================================================================
 #
 # This section of the run script containes the specifications of the ocean experiment.
@@ -40,8 +42,7 @@ else
     fi
   fi
 fi
-#
-
+#-----------------------------------------------------------------------------
 
 
 #-----------------------------------------------------------------------------
@@ -49,80 +50,83 @@ fi
 # Basic specifications of the simulation
 # --------------------------------------
 #
-# These values are stored in variables, which are used in the namelist below
-# Specific ocean parameters may be edited in the ocean_ctl at the end of this script
-# 
-R=2               # nroot
-B=4               # number of bisections applied for the global grid
-OPT=""            # grid optimization "hro", "spr0.90", "" default
+# These variables are set in the header section of the completed run script:
 #
-IEQ=-1            # equation system
-#                     1=hydrost. atm.
-#                     2=non-hydrost. atm., 
-#                     0=shallow water model
-#                    -1=hydrost. ocean
+# EXPNAME = experiment name
+# NPROMA  = array blocking length / inner loop length
+#-----------------------------------------------------------------------------
 #
-# length of the integration in timesteps or days
-NSTEPS=0             # for short model test - set NDAYS to zero when using NSTEPS
-NDAYS=1              # number of model days to run - use alternatively to NSTEPS
-#                    
-DTIME=900            # time step in seconds
-INIMONTH=3           # start month of integration
-INIYEAR=2011         # start year of integration
-# HGRIDDIR=""                                    # ocean grid path is default "$ICONDIR/grids"
-# HGRIDDIR=/pool/data/ICON/grids                 # grid path is "pool"
-# OGRIDNAME=""                                   # ocean horizontal grid file name is default
-# OGRIDNAME=iconR${R}B0${B}-ocean_basin_0_60.nc  # grid file name for Peter's pentagonal basin
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#
+#-----------------------------------------------------------------------------
+# the namelist filename
+ocean_namelist=NAMELIST_${EXPNAME}
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date="2011-03-00T00:00:00Z"
+ndays_restart=60
+dt_restart=`expr ${ndays_restart} \* 86400`
+#
+#-----------------------------------------------------------------------------
+# model timing
+dtime=900
+ndays=1
+nsteps=`expr ${ndays} \* 86400 / ${dtime}`
+dt_diag=`expr 4 \* 3600 `    #  output each 4 hours
+dt_data=21600.     #      ! [s] output interval 6 hr
+dt_file=3.1536e7   #     ! [s] interval for generation of new output file 1year)
+#
+#-----------------------------------------------------------------------------
+# model parameters
+model_equations=-1 # equation system
+#                    -1=shallow water model
+#                    -2=hydrost. ocean
+#
+#-----------------------------------------------------------------------------
+# the grid files
 # USE_AQUAP="Y"      # "Y": ocean horizontal gridfile base is "aqua_planet"
   USE_ETOPO="Y"      # "Y": ocean horizontal gridfile base is "etopo40_flat"
 # USE_BASIN="Y"      # "Y": ocean horizontal gridfile base is "bas10-80N"
 #-----------------------------------------------------------------------------
+grid_ext="etopo40_flat"
+if [ x$USE_AQUAP == "xY"  ] ; then
+  grid_ext="aqua_planet"
+elif  [ x$USE_BASIN == "xY"  ] ; then
+  grid_ext="bas10-80N"
+fi
+ocean_grids='iconR2B04-ocean_${grid_ext}.nc'
 #
-# ICON namelist parameters
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+#
+# write ICON namelist parameters
 # ------------------------
 # For a complete list see Namelist_overview and Namelist_overview.pdf
 #
-cat > NAMELIST_${EXPNAME} << EOF
+cat > ${ocean_namelist} << EOF
 !
-&parallel_ctl
+&parallel_nml
+ nproma         = ${nproma}
+ p_test_run     = .false.
+ l_test_openmp  = .false.
+ l_log_checks   = .false.
 /
-&testcase_ctl
+&grid_nml
+ cell_type = 3            ! triangular cells
+ dynamics_grid_filename = "${ocean_grids}",
 /
-&io_ctl
- out_expname = '${EXPNAME}' ! file name base
- dt_data     = 21600.       ! [s] output interval (6 hr)
- dt_file     = 3.1536e7     ! [s] interval for generation of new output file (3600*24*365 -> 1y)
- lkeep_in_sync = .TRUE.     ! sync after each timestep
+&run_nml
+ nsteps      = ${nsteps}    ! number of steps length of run
+ dtime       = ${dtime}     ! [s] timestep in seconds
+ msg_level   = 10           ! detailed report during integration
 /
-&grid_ctl
- nroot       = ${R}         ! root division of icosahedron edges
- start_lev   = ${B}         ! number of bisections applied for the base grid
-/
-&run_ctl
- ! i_cell_type = 3          ! always triangular cells for ocean (default)
- iequations  = ${IEQ}       ! equation system
- dtime       = ${DTIME}     ! timestep in seconds
- nproma      = ${NPROMA}    ! array blocking length
- ini_year    = $INIYEAR     ! initial year
- ini_month   = $INIMONTH    ! initial month
- nsteps      = ${NSTEPS}    ! number of time steps to integrate
- run_day     = ${NDAYS}     ! number of days to integrate
-/
-&nonhydrostatic_ctl
-/
-&dynamics_ctl
-/
-&transport_ctl
-/
-&diffusion_ctl
-/
-&interpol_ctl
-/
-&gridref_ctl
-/
-&regularization_ctl
-/
-&octst_ctl
+&dynamics_nml
+ iequations  = ${model_equations}       ! 1: hydrost. atmosphere
+&octst_nml
   i_dbg_oce=1                    ! initialize MIN/MAX  debug output via mo_index_oce
   i_dbg_inx=0                    ! initialize one cell debug output via mo_index_oce
   str_proc_tst = 'abt',
@@ -131,7 +135,7 @@ cat > NAMELIST_${EXPNAME} << EOF
   rlat_in = 30.0 rlon_in = -70.0 ! lat/lon-location of one cell debug output
   h_val=1.0 t_val=1.0            ! initial values for elevation and temperature at one cell
 /
-&ocean_ctl
+&ocean_nml
   n_zlev             =    4      ! number of vertical levels and (dzlev_m) thicknesses
   dzlev_m(1:20)      =  500.0,  500.0,  500.0,  500.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0,
                        1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
@@ -162,7 +166,7 @@ cat > NAMELIST_${EXPNAME} << EOF
   i_bc_veloc_bot     = 0         ! Boundary condition for normal velocity for ocean bottom
   bottom_drag_coeff  = 0.0025    ! Chezy coefficient for bottom friction
   wstress_coeff      = 0.2       ! wind stress coefficient for top boundary forcing
-  basin_center_lat   = 30.0      ! lat-lon coordinate of basin center, used 
+  basin_center_lat   = 30.0      ! lat-lon coordinate of basin center, used
   basin_center_lon   =  0.0      ! in (non-global) basin configuration such as the Stommel-type tests
   basin_width_deg    = 80.0      ! basin extension in x-direction, units are degrees
   basin_height_deg   = 60.0      ! basin extension in y-direction, units are degrees
@@ -170,14 +174,23 @@ cat > NAMELIST_${EXPNAME} << EOF
                                  ! 1=full varying Coriolis
                                  ! 2=beta-plane (linear) approximation to Coriolis
                                  ! 3=f-plane (constant) approximation to Coriolis
-                                 ! IMPORTANT: SOME TESTCASES REQUIRE SPECIFIC SETTINGS: 
+                                 ! IMPORTANT: SOME TESTCASES REQUIRE SPECIFIC SETTINGS:
                                  !  for Stommel-type basin (2D- and 3D, testcase 27 and/or 30) select
                                  !  f- or beta-plane.
-  expl_vertical_velocity_diff = 0  ! 0=explicit, 1 = implicit  
+  expl_vertical_velocity_diff = 0  ! 0=explicit, 1 = implicit
   expl_vertical_tracer_diff   = 0  ! 0=explicit, 1 = implicit
 /
+&io_nml
+ out_expname = '${EXPNAME}'       ! file name base
+ dt_data     = ${dt_data}       ! write output every 96 hours
+ dt_file     = ${dt_file}     ! [s] interval for generation of new output file (3600*24*365 -> 1y)
+ lkeep_in_sync = .TRUE.     ! sync after each timestep
+/
 EOF
+#-----------------------------------------------------------------------------
 
+
+#-----------------------------------------------------------------------------
 # Different choices for parameters and levels:
 
 # k_veloc_h       =   0.04
