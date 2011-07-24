@@ -49,7 +49,7 @@ USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I
 
 ! Control parameters: run control, dynamics, i/o
 !
-USE mo_global_variables,    ONLY: setup_physics           ! process forcing control parameters
+!USE mo_global_variables,    ONLY: setup_physics           ! process forcing control parameters
 USE mo_nonhydrostatic_config,ONLY: ivctype, kstart_moist, kstart_qv, l_open_ubc
 !USE mo_io_config,           ONLY: dt_data, dt_file, dt_diag, dt_checkpoint 
 USE mo_io_config,         ONLY:  dt_data,dt_file,dt_diag,dt_checkpoint
@@ -809,12 +809,12 @@ CONTAINS
     
     
     
-    !------------------------------------------------------------------
-    ! step i: Setup physics
-    !------------------------------------------------------------------
-    IF ( lforcing ) THEN
-      CALL setup_physics
-    END IF
+!    !------------------------------------------------------------------
+!    ! step i: Setup physics
+!    !------------------------------------------------------------------
+!    IF ( lforcing ) THEN
+!      CALL setup_physics
+!    END IF
     
     
     !------------------------------------------------------------------

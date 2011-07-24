@@ -49,7 +49,7 @@ MODULE mo_ocean_model
   
   ! Control parameters: run control, dynamics, i/o
   !
-  USE mo_global_variables,    ONLY: setup_physics        ! process forcing control parameters
+!0  USE mo_global_variables,    ONLY: setup_physics        ! process forcing control parameters
 !0  &                               impiom,            & !    :
   USE mo_ocean_nml,           ONLY: setup_ocean_nml
 ! USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
@@ -365,12 +365,12 @@ CONTAINS
       
     ENDIF
     
-    !------------------------------------------------------------------
-    ! step i: Setup physics
-    !------------------------------------------------------------------
-    IF ( lforcing ) THEN
-      CALL setup_physics
-    END IF
+!0    !------------------------------------------------------------------
+!0    ! step i: Setup physics
+!0    !------------------------------------------------------------------
+!0    IF ( lforcing ) THEN
+!0      CALL setup_physics
+!0    END IF
     
     !------------------------------------------------------------------
     ! step 6: initialize output
