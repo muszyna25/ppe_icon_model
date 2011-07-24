@@ -94,8 +94,9 @@ CONTAINS
    CHARACTER(LEN=*), INTENT(IN) :: filename
    INTEGER  :: istat, funit,calendar_old
    CHARACTER(len=32) :: ini_datetime_string_old
-   INTEGER  :: restart_year, restart_month,  restart_day,    &
-     &         restart_hour, restart_minute, restart_second
+   INTEGER  :: restart_year, restart_month,  restart_day
+   INTEGER  :: restart_hour, restart_minute
+   REAL(wp) :: restart_second
 
    !0!CHARACTER(len=*), PARAMETER ::  routine = 'mo_time_nml:read_time_namelist'
 
@@ -183,7 +184,7 @@ CONTAINS
          time_config%cur_datetime%day      = restart_day
          time_config%cur_datetime%hour     = restart_hour
          time_config%cur_datetime%minute   = restart_minute
-         time_config%cur_datetime%second   = REAL(restart_second,wp)
+         time_config%cur_datetime%second   = restart_second
 
         CALL date_to_time(time_config%cur_datetime) ! fill date time structure
       END IF

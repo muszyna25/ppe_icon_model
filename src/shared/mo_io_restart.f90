@@ -644,8 +644,8 @@ CONTAINS
       !
       info => element%field%info
       !
-      WRITE(0,*)'add var =',element%field%info%name
-      WRITE(0,*)'with zaxis = ',element%field%info%vgrid   
+     !WRITE(0,*)'add var =',element%field%info%name
+     !WRITE(0,*)'with zaxis = ',element%field%info%vgrid   
       !
       ! skip this field ?
       !
@@ -909,14 +909,14 @@ CONTAINS
     element => start_with
     element%next_list_element => this_list%p%first_list_element  
   
-    WRITE(0,*)'restart list name', this_list%p%name
+   !WRITE(0,*)'restart list name', this_list%p%name
     !
     for_all_list_elements: DO
       !
       element => element%next_list_element
       IF (.NOT.ASSOCIATED(element)) EXIT
-      WRITE(0,*)'element name', element%field%info%name, element%field%info%lrestart, &
-        &                       element%field%info%ndims
+     !WRITE(0,*)'element name', element%field%info%name, element%field%info%lrestart, &
+     !  &                       element%field%info%ndims
       !
       rptr2d => NULL()
       rptr3d => NULL()
