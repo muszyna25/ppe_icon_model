@@ -44,9 +44,9 @@
 MODULE mo_extpar_config
 
   USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: max_dom
 
   IMPLICIT NONE
+
   PRIVATE
   PUBLIC :: itopo, fac_smooth_topo, n_iter_smooth_topo
 

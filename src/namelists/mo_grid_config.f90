@@ -35,26 +35,20 @@
 MODULE mo_grid_config
 !-------------------------------------------------------------------------
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_impl_constants,     ONLY: max_dom, max_char_length, itri, ihex, max_char_length
+  USE mo_exception,          ONLY: message_text, finish
+  USE mo_impl_constants,     ONLY: max_dom, itri, ihex
   USE mo_io_units,           ONLY: filename_max 
-  USE mo_mpi,                ONLY: p_pe, p_io
-  USE mo_math_constants,     ONLY: rad2deg
+!  USE mo_mpi,                ONLY: p_pe, p_io
 
 #ifndef NOMPI
 ! The USE statement below lets this module use the routines from
 ! mo_read_netcdf_parallel where only 1 processor is reading
 ! and broadcasting the results
 USE mo_read_netcdf_parallel, ONLY:                &
-   NF_NOWRITE, NF_GLOBAL, NF_NOERR, nf_strerror,  &
+   nf_nowrite, nf_global, nf_noerr, nf_strerror,  &
    nf_open            => p_nf_open,               &
    nf_close           => p_nf_close,              &
-   nf_inq_dimid       => p_nf_inq_dimid,          &
-   nf_inq_dimlen      => p_nf_inq_dimlen,         &
-   nf_inq_varid       => p_nf_inq_varid,          &
-   nf_get_att_int     => p_nf_get_att_int,        &
-   nf_get_var_int     => p_nf_get_var_int,        &
-   nf_get_var_double  => p_nf_get_var_double
+   nf_get_att_int     => p_nf_get_att_int
 #endif
 
   IMPLICIT NONE
@@ -232,9 +226,9 @@ CONTAINS
 
     INTEGER :: ncid
 
-    CALL nf(nf_open(TRIM(patch_file), NF_NOWRITE, ncid))
-    CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'grid_root', grid_root))
-    CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'grid_level', grid_level))
+    CALL nf(nf_open(TRIM(patch_file), nf_nowrite, ncid))
+    CALL nf(nf_get_att_int(ncid, nf_global, 'grid_root', grid_root))
+    CALL nf(nf_get_att_int(ncid, nf_global, 'grid_level', grid_level))
     CALL nf(nf_close(ncid))
 
   END SUBROUTINE get_grid_root_level
@@ -246,8 +240,8 @@ CONTAINS
 
     INTEGER :: ncid, grid_root
 
-    CALL nf(nf_open(TRIM(patch_file), NF_NOWRITE, ncid))
-    CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'grid_root', grid_root))
+    CALL nf(nf_open(TRIM(patch_file), nf_nowrite, ncid))
+    CALL nf(nf_get_att_int(ncid, nf_global, 'grid_root', grid_root))
     CALL nf(nf_close(ncid))
 
     get_grid_root = grid_root

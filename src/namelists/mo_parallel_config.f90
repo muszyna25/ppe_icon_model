@@ -33,8 +33,8 @@
 !!
 MODULE mo_parallel_config
 
-  USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: message, message_text, finish
+  USE mo_exception,          ONLY: message, finish
+
   IMPLICIT NONE
 
   PRIVATE
