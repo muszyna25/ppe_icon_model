@@ -52,23 +52,23 @@
 !!
 MODULE mo_divergent_modes
 
-  USE mo_kind,                ONLY: wp
-  USE mo_nonhydrostatic_config,ONLY: gmres_rtol_nh, upstr_beta, ltheta_up_hori
-  USE mo_parallel_config,  ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: dtime
-  USE mo_model_domain,        ONLY: t_patch
-  USE mo_model_domain_import, ONLY: lplane
-  USE mo_interpolation,       ONLY: t_int_state,  &
-                                    cells2edges_scalar, edges2cells_scalar
-  USE mo_nonhydro_state,      ONLY: t_nh_state, t_nh_metrics
-  USE mo_physical_constants,  ONLY: cpd, rd, cvd, cvd_o_rd, rd_o_cpd
-  USE mo_math_operators,      ONLY: div, grad_fd_norm, grad_dir_edge,  &
-  &                                 directional_laplace
-  USE m_gmres,                ONLY: gmres
-  USE mo_exception,           ONLY: finish
-  USE mo_vertical_grid,       ONLY: nflat
-  USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
-  &                                 sync_patch_array_mult
+  USE mo_kind,                  ONLY: wp
+  USE mo_nonhydrostatic_config, ONLY: gmres_rtol_nh, upstr_beta, ltheta_up_hori
+  USE mo_parallel_config,       ONLY: nproma
+  USE mo_run_config,            ONLY: dtime
+  USE mo_model_domain,          ONLY: t_patch
+  USE mo_model_domain_import,   ONLY: lplane
+  USE mo_interpolation,         ONLY: t_int_state,  &
+    &                                 cells2edges_scalar, edges2cells_scalar
+  USE mo_nonhydro_state,        ONLY: t_nh_state, t_nh_metrics
+  USE mo_physical_constants,    ONLY: cpd, rd, cvd, cvd_o_rd, rd_o_cpd
+  USE mo_math_operators,        ONLY: div, grad_fd_norm, grad_dir_edge,  &
+    &                                 directional_laplace
+  USE m_gmres,                  ONLY: gmres
+  USE mo_exception,             ONLY: finish
+  USE mo_vertical_grid,         ONLY: nflat
+  USE mo_sync,                  ONLY: SYNC_E, SYNC_C, sync_patch_array, &
+    &                                 sync_patch_array_mult
 
   IMPLICIT NONE
 
