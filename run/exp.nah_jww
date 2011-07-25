@@ -101,6 +101,9 @@ cat > ${atmo_namelist} << EOF
  ltheta_up_hori = .TRUE     ! use upstream biased theta advection
  upstr_beta  = 1.0          ! 3rd order upstream theta advection
 /
+&diffusion_nml
+ hdiff_order = -1
+/
 &io_nml
  out_expname = '${EXPNAME}' ! file name base
 /
