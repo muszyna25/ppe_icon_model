@@ -835,8 +835,8 @@ MODULE mo_divergent_modes
 
     nblks_c   = p_patch%nblks_int_c
     npromz_c  = p_patch%npromz_int_c
-    nlev  = p_patch%nlev
-    nlev  = p_patch%nlevp1
+    nlev      = p_patch%nlev
+    nlevp1    = p_patch%nlevp1
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb, nlen, jk, z_a, z_b, z_c, z_d, z_e, z_q, z_r, z_fac, z_sig_p, z_sig_m, &
