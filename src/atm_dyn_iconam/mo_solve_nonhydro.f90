@@ -59,7 +59,7 @@ MODULE mo_solve_nonhydro
   USE mo_advection_hflux,   ONLY: upwind_hflux_miura, upwind_hflux_miura3
   USE mo_sync,              ONLY: SYNC_E, SYNC_C, sync_patch_array, sync_patch_array_mult, &
                                   sync_patch_array_gm
-  USE mo_mpi,               ONLY: my_process_is_mpi_seq
+  USE mo_mpi,               ONLY: my_process_is_mpi_all_seq
   USE mo_timer,             ONLY: timer_solve_nh, timer_start, timer_stop
 
   IMPLICIT NONE
@@ -1616,7 +1616,7 @@ MODULE mo_solve_nonhydro
 
     ! Boundary update in case of nesting
     IF (istep == 1 .AND. (l_limited_area .OR. p_patch%id > 1) &
-      & .AND. my_process_is_mpi_seq() ) THEN
+      & .AND. my_process_is_mpi_all_seq() ) THEN
 
       rl_start = 1
       rl_end   = grf_bdywidth_c
@@ -1735,7 +1735,7 @@ MODULE mo_solve_nonhydro
     IF (ltimer) CALL timer_stop(timer_solve_nh)
 
     ! The remaining computations are needed for MPI-parallelized applications only
-    IF (my_process_is_mpi_seq() ) RETURN
+    IF (my_process_is_mpi_all_seq() ) RETURN
 
 !$OMP PARALLEL PRIVATE(rl_start,rl_end,jb,i_startblk,i_endblk,i_startidx,i_endidx)
     IF (l_limited_area .OR. p_patch%id > 1) THEN

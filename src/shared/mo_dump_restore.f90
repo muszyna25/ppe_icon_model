@@ -135,7 +135,7 @@ MODULE mo_dump_restore
 !  USE mo_interpol_nml        ! We need all from that module
  USE mo_interpol_config      ! We need all from that module
   USE mo_gridref_config      ! We need all from that module         
-  USE mo_mpi,                ONLY: my_process_is_mpi_parallel, p_n_work, p_pe_work
+  USE mo_mpi,                ONLY: my_process_is_mpi_all_parallel, p_n_work, p_pe_work
   USE mo_impl_constants_grf, ONLY: grf_bdyintp_start_c, grf_bdyintp_start_e
   USE mo_communication,      ONLY: t_comm_pattern, blk_no, idx_no, idx_1d
   USE mo_model_domimp_patches, ONLY: allocate_patch
@@ -2044,7 +2044,7 @@ CONTAINS
     IF (n_dom_start==0 .OR. n_dom > 1) &
       & CALL def_grf_state(p, .TRUE.)
 
-    IF(my_process_is_mpi_parallel() .AND. p%id>n_dom_start) THEN ! Definitions for local parent
+    IF(my_process_is_mpi_all_parallel() .AND. p%id>n_dom_start) THEN ! Definitions for local parent
       prefix = 'lp.'
       CALL def_patch(p_patch_local_parent(p%id))
       CALL def_int_state(p_patch_local_parent(p%id), .FALSE.)
@@ -2068,7 +2068,7 @@ CONTAINS
     IF (n_dom_start==0 .OR. n_dom > 1) &
       & CALL grf_state_io(p, pg)
 
-    IF(my_process_is_mpi_parallel() .AND. p%id>n_dom_start) THEN ! Output for local parent
+    IF(my_process_is_mpi_all_parallel() .AND. p%id>n_dom_start) THEN ! Output for local parent
       prefix = 'lp.'
       CALL patch_io(p_patch_local_parent(p%id))
       CALL int_state_io(p_patch_local_parent(p%id), p_int_state_local_parent(p%id))
@@ -2284,7 +2284,7 @@ CONTAINS
 
     p_patch(n_dom_start:n_dom)%max_childdom =  max_childdom
 
-    IF(my_process_is_mpi_parallel()) THEN
+    IF(my_process_is_mpi_all_parallel()) THEN
 
       ALLOCATE(p_patch_local_parent(n_dom_start+1:n_dom),     &
                p_int_state_local_parent(n_dom_start+1:n_dom), &
@@ -2358,7 +2358,7 @@ CONTAINS
       prefix = ' '
       CALL restore_patch_netcdf(p_patch(jg))
 
-      IF(my_process_is_mpi_parallel() .AND. jg>n_dom_start) THEN
+      IF(my_process_is_mpi_all_parallel() .AND. jg>n_dom_start) THEN
         prefix = 'lp.'
         CALL restore_patch_netcdf(p_patch_local_parent(jg))
       ENDIF
@@ -2429,7 +2429,7 @@ CONTAINS
       prefix = ' '
       CALL int_state_io(p_patch(jg), p_int_state(jg))
 
-      IF(my_process_is_mpi_parallel() .AND. jg>n_dom_start) THEN
+      IF(my_process_is_mpi_all_parallel() .AND. jg>n_dom_start) THEN
         CALL allocate_int_state(p_patch_local_parent(jg), p_int_state_local_parent(jg))
         prefix = 'lp.'
         CALL int_state_io(p_patch_local_parent(jg), p_int_state_local_parent(jg))
@@ -2488,7 +2488,7 @@ CONTAINS
       prefix = ' '
       CALL grf_state_io(p_patch(jg), p_grf_state(jg))
 
-      IF(my_process_is_mpi_parallel() .AND. jg>n_dom_start) THEN
+      IF(my_process_is_mpi_all_parallel() .AND. jg>n_dom_start) THEN
         CALL allocate_grf_state(p_patch_local_parent(jg), p_grf_state_local_parent(jg))
         prefix = 'lp.'
         CALL grf_state_io(p_patch_local_parent(jg), p_grf_state_local_parent(jg))

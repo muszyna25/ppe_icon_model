@@ -37,7 +37,7 @@ MODULE mo_mpi
   PUBLIC :: run_is_global_mpi_parallel
   PUBLIC :: my_process_is_stdio, my_process_is_mpi_parallel, my_process_is_mpi_all_parallel
   PUBLIC :: my_process_is_mpi_seq, my_process_is_mpi_test, my_process_is_mpi_workroot
-  PUBLIC :: my_process_is_io
+  PUBLIC :: my_process_is_mpi_all_seq, my_process_is_io
 
   ! get parameters
   PUBLIC :: get_mpi_all_workroot_id, get_my_global_mpi_id, get_my_mpi_all_id
@@ -440,6 +440,14 @@ CONTAINS
   LOGICAL FUNCTION my_process_is_mpi_all_parallel()
     my_process_is_mpi_all_parallel = (process_mpi_all_size > 1)
   END FUNCTION my_process_is_mpi_all_parallel
+  !------------------------------------------------------------------------------
+  
+  !------------------------------------------------------------------------------
+  !>
+  ! If is mpi all parallel
+  LOGICAL FUNCTION my_process_is_mpi_all_seq()
+    my_process_is_mpi_all_seq = (process_mpi_all_size <= 1)
+  END FUNCTION my_process_is_mpi_all_seq
   !------------------------------------------------------------------------------
   
   !------------------------------------------------------------------------------

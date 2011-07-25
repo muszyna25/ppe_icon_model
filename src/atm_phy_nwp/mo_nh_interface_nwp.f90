@@ -91,7 +91,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nwp_rad_interface,  ONLY: nwp_radiation
   USE mo_sync,               ONLY: sync_patch_array, sync_patch_array_mult, &
                                    SYNC_C, SYNC_C1
-  USE mo_mpi,                ONLY: my_process_is_mpi_parallel
+  USE mo_mpi,                ONLY: my_process_is_mpi_all_parallel
   USE mo_nwp_diagnosis,      ONLY: nwp_diagnosis
 !  USE mo_communication,      ONLY: time_sync
 
@@ -584,7 +584,7 @@ CONTAINS
       ! (This is more efficient than synchronizing three variables)
       CALL sync_patch_array(SYNC_C, pt_patch, z_aux_tempv)
 
-      IF (my_process_is_mpi_parallel() ) THEN
+      IF (my_process_is_mpi_all_parallel() ) THEN
         rl_start = min_rlcell_int-1
         rl_end   = min_rlcell 
 
