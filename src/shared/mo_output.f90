@@ -100,7 +100,7 @@ CONTAINS
 
     INTEGER :: jg, jlev
     INTEGER :: nlev              !< number of full levels
-    CHARACTER(LEN=filename_max) :: gridtype, outputfile
+    CHARACTER(LEN=filename_max) :: outputfile
     CHARACTER(LEN=filename_max) :: grid_filename
 
     IF(.NOT.lclose) THEN
@@ -112,15 +112,15 @@ CONTAINS
       ! in the input file name. Use l_omit_dom to check if this is the case.
       l_omit_dom = .FALSE.
 
-      IF (lplane) THEN
-        gridtype='plan'
-      ELSE
-        gridtype='icon'
-      END IF
+!       IF (lplane) THEN
+!         gridtype='plan'
+!       ELSE
+!         gridtype='icon'
+!       END IF
 
       DO jg = 1, n_dom
 
-        jlev = p_patch(jg)%level
+!         jlev = p_patch(jg)%level
 
         ! Grid file name(s) for input
         !

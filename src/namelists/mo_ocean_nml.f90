@@ -52,8 +52,8 @@ MODULE mo_ocean_nml
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_impl_constants,     ONLY: max_char_length
   USE mo_io_units,           ONLY: nnml, nnml_output
-  USE mo_namelist,           ONLY: position_nml, positioned
-  USE mo_mpi,                ONLY: p_pe, p_io
+  USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
+  USE mo_mpi,                ONLY: my_process_is_stdio
 
   IMPLICIT NONE
 
@@ -236,7 +236,9 @@ MODULE mo_ocean_nml
  !!    - separated subroutine ocean_nml_setup from the original
  !!      setup_run subroutine (which is moved to mo_run_nml)
  !!
- SUBROUTINE setup_ocean_nml
+ SUBROUTINE setup_ocean_nml( filename )
+
+    CHARACTER(LEN=*), INTENT(IN) :: filename
 
      INTEGER :: i_status
 
@@ -264,6 +266,7 @@ MODULE mo_ocean_nml
      !------------------------------------------------------------
      ! (done so far by all MPI processes)
 
+     CALL open_nml(TRIM(filename))
      CALL position_nml ('ocean_nml', status=i_status)
      SELECT CASE (i_status)
      CASE (positioned)
@@ -302,7 +305,7 @@ MODULE mo_ocean_nml
      ENDIF
  
      ! write the contents of the namelist to an ASCII file
-     IF(p_pe == p_io) WRITE(nnml_output,nml=ocean_nml)
+     IF(my_process_is_stdio()) WRITE(nnml_output,nml=ocean_nml)
 
      !------------------------------------------------------------
      ! 6.0 Read octst_nml namelist
@@ -327,9 +330,10 @@ MODULE mo_ocean_nml
      CASE (positioned)
        READ (nnml, octst_nml)
      END SELECT
+     CALL close_nml
 
      ! write the contents of the namelist to an ASCII file
-     IF(p_pe == p_io) WRITE(nnml_output,nml=octst_nml)
+     IF(my_process_is_stdio()) WRITE(nnml_output,nml=octst_nml)
 
 
 END SUBROUTINE setup_ocean_nml

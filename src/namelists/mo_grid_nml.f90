@@ -43,7 +43,7 @@ MODULE mo_grid_nml
   USE mo_kind,               ONLY: wp
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_io_units,           ONLY: nnml, nnml_output,filename_max
-  USE mo_namelist,           ONLY: position_nml, POSITIONED, open_nml, close_nml
+  USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
   USE mo_impl_constants,     ONLY: max_dom, max_char_length, itri, ihex
   USE mo_math_constants,     ONLY: rad2deg

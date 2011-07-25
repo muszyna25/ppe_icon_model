@@ -71,8 +71,9 @@ PROGRAM control_model
   INTEGER    :: master_control_status
   
   INTEGER    :: my_process_component
-  CHARACTER(len=filename_max) my_namelist_filename
-
+  CHARACTER(len=filename_max) :: my_namelist_filename
+  CHARACTER(len=filename_max) :: master_namelist_filename="icon_master.namelist"
+ 
   !declaration of OpenMP Runtime Library Routines:
 !$  INTEGER omp_get_max_threads
 !$  INTEGER omp_get_num_threads
@@ -110,7 +111,7 @@ PROGRAM control_model
   !-------------------------------------------------------------------
   ! Initialize the master control
 
-  master_control_status = init_master_control("icon_master.namelist")
+  master_control_status = init_master_control(TRIM(master_namelist_filename))
   
   my_namelist_filename = get_my_namelist_filename()
   my_process_component = get_my_process_component()
@@ -118,10 +119,10 @@ PROGRAM control_model
   SELECT CASE (my_process_component)
 
   CASE (atmo_process)
-    CALL atmo_model(my_namelist_filename,"icon_master.namelist")
+    CALL atmo_model(my_namelist_filename,TRIM(master_namelist_filename))
 
   CASE (ocean_process)
-    CALL ocean_model(my_namelist_filename)
+    CALL ocean_model(my_namelist_filename, TRIM(master_namelist_filename))
 
   CASE (radiation_process)
     CALL radiation_model(my_namelist_filename)

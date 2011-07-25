@@ -2052,6 +2052,8 @@ CONTAINS
     nzlevp1 = n_zlev + 1
     zaxisID_halfdepth(k_jg)  = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, nzlevp1)
     !
+    
+    
     ALLOCATE(levels(n_zlev))
     DO il = 1, n_zlev
       levels(il) = p_patch(k_jg)%patch_oce%zlev_m(il)

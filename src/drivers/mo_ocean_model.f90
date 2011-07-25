@@ -33,25 +33,26 @@
 MODULE mo_ocean_model
   
   USE mo_exception,           ONLY: message, finish  ! use always
-  USE mo_mpi,                 ONLY: p_stop, p_pe, p_io,  &
-    & p_comm_work_test, p_comm_input_bcast, p_comm_work, &
-    & my_process_is_mpi_test, my_process_is_mpi_seq, my_process_is_io
+  USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs
+  USE mo_mpi,                 ONLY: p_stop, &
+    & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
+    & my_process_is_stdio, set_mpi_work_communicators, set_comm_input_bcast, null_comm_type
   USE mo_timer,               ONLY: init_timer, print_timer
-  USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output
   USE mo_datetime,            ONLY: t_datetime
   USE mo_output,              ONLY: init_output_files
   USE mo_io_vlist,            ONLY: write_vlist_oce, destruct_vlist_oce
-  
-  USE mo_parallel_config, ONLY: p_test_run
+  USE mo_grid_config,         ONLY: n_dom, n_dom_start, global_cell_type, &
+                                  dynamics_parent_grid_id
+  USE mo_dynamics_config,     ONLY: iequations
   
   USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
   
+  USE mo_interpol_config,    ONLY: configure_interpolation
+  USE mo_advection_config,   ONLY: configure_advection
   
   ! Control parameters: run control, dynamics, i/o
   !
   USE mo_ocean_nml,           ONLY: setup_ocean_nml
-! USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
-! USE mo_io_config,           ONLY: dt_data, dt_file, dt_diag
   USE mo_io_config,         ONLY:  dt_data,dt_file,dt_diag!,dt_checkpoint
   USE mo_run_config,        ONLY: &
     & dtime,                & !    :
@@ -60,9 +61,11 @@ MODULE mo_ocean_model
     & ltimer,               & !    :
     & ldump_states,         & ! flag if states should be dumped
     & lrestore_states,      &  ! flag if states should be restored
+    & iforcing,             & !  
     & nlev, nlevp1,         & !
     & num_lev, num_levp1,   &
-    & nshift
+    & iqv, nshift,          &
+    & lvert_nest, ntracer
   
 !  USE mo_advection_nml,       ONLY: transport_nml_setup,  & ! process transport
 !    & setup_transport         ! control parameters
@@ -101,7 +104,7 @@ MODULE mo_ocean_model
   USE mo_impl_constants,      ONLY: success, IHS_OCEAN
   
   ! External data
-  USE mo_ext_data,            ONLY: ext_data
+  USE mo_ext_data,            ONLY: ext_data, init_ext_data, destruct_ext_data
   
 !   USE mo_test_hydro_ocean,    ONLY: prepare_ho_integration, finalise_ho_integration!, &
 !     &                               test_hydro_ocean
@@ -122,6 +125,7 @@ MODULE mo_ocean_model
   USE mo_model_domain_import, ONLY : get_patch_global_indexes
 
   !-------------------------------------------------------------
+  USE mo_ocean_setup_configuration, ONLY: read_ocean_namelists
 
   USE mo_time_config, ONLY: time_config
 
@@ -134,9 +138,9 @@ MODULE mo_ocean_model
 CONTAINS
   !>
   !! 
-  SUBROUTINE ocean_model(namelist_filename)
+  SUBROUTINE ocean_model(oce_namelist_filename,shr_namelist_filename)
     
-    CHARACTER(LEN=*), INTENT(in) :: namelist_filename
+    CHARACTER(LEN=*), INTENT(in) :: oce_namelist_filename,shr_namelist_filename
 
     CHARACTER(*), PARAMETER :: routine = "mo_ocean_model:ocean_model"
 
@@ -161,41 +165,44 @@ CONTAINS
     INTEGER :: grid_id
     INTEGER :: grid_shape(2) 
     INTEGER :: field_shape(3) 
-    INTEGER :: i, ierror
+    INTEGER :: i, error_status
     INTEGER :: no_of_entities
     INTEGER :: patch_no
     INTEGER, POINTER :: grid_glob_index(:)
 
     !-------------------------------------------------------------------
     
-    CALL message(TRIM(routine),'start model initialization.')
-    
+    !---------------------------------------------------------------------
+    ! 1.1 Read namelists (newly) specified by the user; fill the 
+    !     corresponding sections of the configuration states.
+    !---------------------------------------------------------------------
+
+    CALL read_ocean_namelists(oce_namelist_filename,shr_namelist_filename)
+
+    !---------------------------------------------------------------------
+    ! 1.2 Cross-check namelist setups
+    !---------------------------------------------------------------------
+
+!     CALL atm_crosscheck
+
+    !---------------------------------------------------------------------
+    ! 2. Call configure_run to finish filling the run_config state.
+    !    This needs to be done very early (but anyway after atm_crosscheck)
+    !    because some component of the state, e.g., num_lev, may be 
+    !    modified in this subroutine which affect the following CALLs.
+    !---------------------------------------------------------------------
+!     CALL configure_run
+
     !-------------------------------------------------------------------
-    ! step 1: Open the namelist file and read most basic namelists.
+    ! 3.1 Initialize the mpi work groups
     !-------------------------------------------------------------------
-    
-    CALL open_nml(TRIM(namelist_filename))
-    
-    ! Create a new file in which all the namelist variables and their
-    ! actual values used in the model run will be stored.
-    
-    IF(p_pe == p_io) CALL open_nml_output('NAMELIST_ICON_output')
-    
-    ! Read namelists 'run_ctl' and 'ocean_ctl' 
-    
-  ! CALL run_nml_setup
-    CALL finish(TRIM(routine),'subroutine run_nml_setup no longer exists!')
-    CALL setup_ocean_nml
-    
+    CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs)
+
     !-------------------------------------------------------------------
-    ! Initialize timers
+    ! 3.2 Initialize various timers
     !-------------------------------------------------------------------
     IF (ltimer) CALL init_timer
-    
-    ! parallel_nml_setup must be called after setup_run since it needs
-    ! some variables read in setup_run
-    
-!     CALL parallel_nml_setup
+
     
     !-------------------------------------------------------------------
     ! Initialize date and time
@@ -203,85 +210,55 @@ CONTAINS
     datetime = time_config%ini_datetime
     
     !-------------------------------------------------------------------
-    ! step 2: import computational domain of the model
-    !-------------------------------------------------------------------
-    ! 2a) read namelist 'grid_ctl' from the namelist file (already
-    !     opened above) and set up the grid/patch configuration.
-    !-------------------------------------------------------------------
-  ! CALL grid_nml_setup
-    
-    !-------------------------------------------------------------------
-    ! 2b) patch import
+    ! 4. Import patches
     !-------------------------------------------------------------------
     ! If we belong to the I/O PEs just call io_main_proc before reading patches.
     ! This routine will never return
     
     IF (my_process_is_io()) CALL io_main_proc
-    !-------------------------------------------------------------------
     
-    !check patch allocation status
+    ! Check patch allocation status
+
     IF ( ALLOCATED(p_patch_global)) THEN
       CALL finish(TRIM(routine), 'patch already allocated')
     END IF
-    !
-    ! allocate patch array to start patch construction
-    ALLOCATE(p_patch_global(n_dom_start:n_dom), stat=ist)
-    IF (ist/=success) THEN
+     
+    ! Allocate patch array to start patch construction
+
+    ALLOCATE(p_patch_global(n_dom_start:n_dom), stat=error_status)
+    IF (error_status/=success) THEN
       CALL finish(TRIM(routine), 'allocation of patch failed')
     ENDIF
     
-    IF(lrestore_states .AND. .NOT. my_process_is_mpi_test()) THEN
-      CALL restore_patches_netcdf( p_patch_global )
-    ELSE
-      CALL import_patches( p_patch_global,                       &
-                           nlev,nlevp1,num_lev,num_levp1,nshift, &
-                           locean=.TRUE. )
-    ENDIF
-    
     IF(lrestore_states) THEN
+      ! Before the restore set p_comm_input_bcast to null
+      CALL set_comm_input_bcast(null_comm_type)
+      IF( .NOT. my_process_is_mpi_test()) THEN
+        CALL restore_patches_netcdf( p_patch_global )
+      ELSE
+        CALL import_patches( p_patch_global,                       &
+                            nlev,nlevp1,num_lev,num_levp1,nshift )
+      ENDIF
       ! After the restore is done set p_comm_input_bcast in the
       ! same way as it would be set in parallel_nml_setup when
       ! no restore is wanted:
-      IF(p_test_run) THEN
-        ! Test PE reads and broadcasts to workers
-        p_comm_input_bcast = p_comm_work_test
-      ELSE
-        ! PE 0 reads and broadcasts
-        p_comm_input_bcast = p_comm_work
-      ENDIF
+      CALL set_comm_input_bcast()
+    ELSE
+        CALL import_patches( p_patch_global,                       &
+                            nlev,nlevp1,num_lev,num_levp1,nshift )      
     ENDIF
+
+    !--------------------------------------------------------------------------------
+    ! 5. Construct interpolation state, compute interpolation coefficients.
+    !--------------------------------------------------------------------------------
     
-    !------------------------------------------------------------------
-    ! step 3a: Read namelist 'dynamics_ctl'. This has to be done
-    !          before the interpolation state is computed.
-    !------------------------------------------------------------------
-   !CALL dynamics_nml_setup(n_dom)
-    CALL finish(TRIM(routine),'subroutine dynamics_nml_setup no longer exists!')
+    CALL configure_interpolation( global_cell_type, n_dom, p_patch_global(1:)%level )
+
+    ! Allocate array for interpolation state
     
-    !------------------------------------------------------------------
-    ! step 3b: Read namelist 'transport_ctl',
-    !------------------------------------------------------------------
-!    IF (ltransport) THEN
-!      CALL transport_nml_setup
-!    END IF
-    
-    !------------------------------------------------------------------
-    ! step 4: construct interpolation and the grid refinement state
-    !------------------------------------------------------------------
-    ! - Allocate memory for the interpolation state;
-    ! - Calculate interpolation coefficients.
-    !------------------------------------------------------------------
-    ! interpolation state not used for ocean model
-    ! #slo# - temporarily switched on for comparison with rbf-reconstruction
-    !IF (iequations /= ihs_ocean) THEN
-    
- !  CALL interpol_nml_setup(p_patch_global)
-    
-    ! allocate type for interpolation state
-    
-    ALLOCATE (p_int_state_global(n_dom_start:n_dom), &
-      & p_grf_state_global(n_dom_start:n_dom),stat=ist)
-    IF (ist /= success) THEN
+    ALLOCATE( p_int_state_global(n_dom_start:n_dom), &
+            & p_grf_state_global(n_dom_start:n_dom),STAT=error_status)
+    IF (error_status /= SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for ptr_int_state failed')
     ENDIF
     
@@ -294,12 +271,6 @@ CONTAINS
       CALL construct_2d_interpol_state(p_patch_global, p_int_state_global)
     ENDIF
     
-    !END IF
-    
-    !-------------------------------------------------------------------------
-    ! set up horizontal diffusion after the vertical coordinate is configured
-    !-------------------------------------------------------------------------
-  ! CALL diffusion_nml_setup(n_dom,parent_id,nlev)
     
     !------------------------------------------------------------------
     ! step 5b: allocate state variables
@@ -315,34 +286,35 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for p_hydro_state failed')
     ENDIF
 
-    !------------------------------------------------------------------
-    !  Divide patches and interpolation states for parallel runs.
-    !  This is only done if the model runs really in parallel.
-    !------------------------------------------------------------------
-    IF(my_process_is_mpi_seq() .OR. lrestore_states) THEN
+    
+    !-------------------------------------------------------------------
+    ! 7. Domain decomposition: 
+    !    Divide patches and interpolation states for parallel runs.
+    !    This is only done if the model runs really in parallel.
+    !-------------------------------------------------------------------   
+    IF (my_process_is_mpi_seq()  &
+      &  .OR. lrestore_states) THEN
       
       ! This is a verification run or a run on a single processor
       ! or the divided states have been read, just set pointers
       
       p_patch => p_patch_global
-      ! #slo# - temporarily switched on for comparison with rbf-reconstruction
-      !IF (iequations /= ihs_ocean) THEN
       p_int_state => p_int_state_global
       p_grf_state => p_grf_state_global
-      !ENDIF
       
-      IF(my_process_is_mpi_seq()) THEN
-        p_patch(:)%comm = p_comm_work
-      ELSE
+!       IF (my_process_is_mpi_seq()) THEN
+!         p_patch(:)%comm = p_comm_work
+!       ELSE
         CALL set_patch_communicators(p_patch)
-      ENDIF
+!       ENDIF
       
     ELSE
       
-      CALL decompose_atmo_domain(locean=.TRUE.)
+      CALL decompose_atmo_domain( )
       
     ENDIF
-    
+
+    ! Note: fro this point the p_patch is used
     ! In case of a test run: Copy processor splitting to test PE
     IF(p_test_run) CALL copy_processor_splitting(p_patch)
     
@@ -350,35 +322,51 @@ CONTAINS
       
       ! Dump divided patches with interpolation and grf state to NetCDF file and exit
       
-      CALL message(TRIM(routine),'ldump_states is set: dumping patches+states and finishing')
+      CALL message(TRIM(routine),'ldump_states is set: '//&
+                  'dumping patches+states and finishing')
       
       IF(.NOT. my_process_is_mpi_test()) THEN
         DO jg = n_dom_start, n_dom
           CALL dump_patch_state_netcdf(p_patch(jg),p_int_state(jg),p_grf_state(jg))
         ENDDO
       ENDIF
-
+      
       CALL p_stop
       STOP
-
+      
     ENDIF
 
-    !------------------------------------------------------------------
-    ! step 6: initialize output
-    !------------------------------------------------------------------
 
-   !CALL io_nml_setup !is empty by now KF
-    CALL finish(TRIM(routine),'subroutine io_nml_sestup no longer exists!!')
 
-    ! The model produces output files for all grid levels
+    !---------------------------------------------------------------------
+    ! 9. Horizontal and vertical grid(s) are now defined.
+    !    Assign values to derived variables in the configuration states
+    !---------------------------------------------------------------------
+
+!     CALL configure_dynamics ( lrestart, n_dom )
+!     CALL configure_diffusion( n_dom, dynamics_parent_grid_id, &
+!                             & nlev, vct_a, vct_b, apzero      )
+
+    DO jg =1,n_dom
+     CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,      &
+       &                      iequations, iforcing, iqv, 0, &
+       &                      0, .false., .true., ntracer )
+    ENDDO
+
+
 
     !------------------------------------------------------------------
-    ! Create and optionally read external data fields
+    ! 10. Create and optionally read external data fields
     !------------------------------------------------------------------
-    ALLOCATE (ext_data(n_dom), stat=ist)
-    IF (ist /= success) THEN
+    ALLOCATE (ext_data(n_dom), STAT=error_status)
+    IF (error_status /= SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for ext_data failed')
     ENDIF
+    
+    ! allocate memory for atmospheric/oceanic external data and
+    ! optionally read those data from netCDF file.
+!     CALL init_ext_data (p_patch(1:), p_int_state, ext_data)
+    
 
     !------------------------------------------------------------------
     ! Prepare raw data output file
@@ -387,6 +375,10 @@ CONTAINS
     jfile   = 1
     
     ! Set up global attributes and variable lists for NetCDF output file
+     n_io    = NINT(dt_data/dtime)        ! write output
+     n_file  = NINT(dt_file/dtime)        ! trigger new output file
+!      n_chkpt = NINT(dt_checkpoint/dtime)  ! write restart files
+     n_diag  = MAX(1,NINT(dt_diag/dtime)) ! diagnose of total integrals
 
     CALL init_output_files(jfile, lclose=.FALSE.)
     
@@ -406,14 +398,6 @@ CONTAINS
 !    IF (ltransport) THEN
 !      CALL setup_transport( IHS_OCEAN )
 !    ENDIF
-    
-    !------------------------------------------------------------------
-    ! Close the namelist files.
-    !------------------------------------------------------------------
-    CALL close_nml
-    IF (p_pe == p_io) THEN
-      CALL close_nml_output
-    END IF
     
     !------------------------------------------------------------------
     ! Write out the inital values
@@ -436,7 +420,7 @@ CONTAINS
 
       CALL get_patch_global_indexes ( patch_no, CELLS, no_of_entities, grid_glob_index )
       ! should grid_glob_index become a pointer in ICON_cpl_def_grid as well?
-      CALL ICON_cpl_def_grid ( comp_id, grid_shape, grid_glob_index, grid_id, ierror )
+      CALL ICON_cpl_def_grid ( comp_id, grid_shape, grid_glob_index, grid_id, error_status )
   
       field_name(1) = "SST"
       field_name(2) = "TAUX"
@@ -449,7 +433,7 @@ CONTAINS
 
       DO i = 1, no_of_fields
          CALL ICON_cpl_def_field ( field_name(i), comp_id, grid_id, field_id(i), &
-   &                               field_shape, ierror )
+   &                               field_shape, error_status )
       ENDDO
 
       CALL ICON_cpl_search
@@ -482,6 +466,20 @@ CONTAINS
     CALL finalise_ho_integration(p_hyoce_state, p_phys_param, p_physics_oce)
     
     
+
+    !---------------------------------------------------------------------
+    ! 13. Integration finished. Carry out the shared clean-up processes
+    !---------------------------------------------------------------------
+    ! Destruct external data state
+
+    CALL destruct_ext_data
+
+    ! deallocate ext_data array
+    DEALLOCATE(ext_data, stat=error_status)
+    IF (error_status/=success) THEN
+      CALL finish(TRIM(routine), 'deallocation of ext_data')
+    ENDIF
+    
     ! Delete variable lists
 
     DO jg = 1, n_dom
@@ -507,7 +505,7 @@ CONTAINS
     
     ! Deallocate grid patches
 
-    CALL destruct_patches( p_patch, locean=.TRUE. )
+    CALL destruct_patches( p_patch )
 
     IF(my_process_is_mpi_seq() .OR. lrestore_states) THEN
       DEALLOCATE( p_patch_global, stat=ist )
@@ -519,7 +517,7 @@ CONTAINS
     ENDIF
     
     CALL message(TRIM(routine),'clean-up finished')
-    
+
   END SUBROUTINE ocean_model
   
 END MODULE mo_ocean_model

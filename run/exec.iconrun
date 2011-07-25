@@ -43,8 +43,10 @@ check_error $? "${EXPDIR} does not exist?"
 atmo_grids="${atmo_dyn_grids} ${atmo_rad_grids}"
 all_grids="${atmo_grids} ${ocean_grids}"
 for gridfile in ${all_grids}; do
+  ls -l ${HGRIDDIR}/$gridfile
+  check_error $? "${HGRIDDIR}/$gridfile does not exist."
   rm ${EXPDIR}/$gridfile
-  ln -s ${HGRIDDIR}/${gridfile} ${EXPDIR}/${gridfile}
+  ln -s ${HGRIDDIR}/${gridfile} ${EXPDIR}/${gridfile}  
 done
 
 #-----------------------------------------------------------------------------

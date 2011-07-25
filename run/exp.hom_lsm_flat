@@ -66,7 +66,7 @@ ocean_namelist=NAMELIST_${EXPNAME}
 #
 #-----------------------------------------------------------------------------
 # global timing
-start_date="2011-03-00T00:00:00Z"
+start_date="2011-03-01T00:00:00Z"
 ndays_restart=60
 dt_restart=`expr ${ndays_restart} \* 86400`
 #
@@ -97,7 +97,7 @@ if [ x$USE_AQUAP == "xY"  ] ; then
 elif  [ x$USE_BASIN == "xY"  ] ; then
   grid_ext="bas10-80N"
 fi
-ocean_grids='iconR2B04-ocean_${grid_ext}.nc'
+ocean_grids="iconR2B04-ocean_${grid_ext}.nc"
 #
 #-----------------------------------------------------------------------------
 
@@ -126,6 +126,7 @@ cat > ${ocean_namelist} << EOF
 /
 &dynamics_nml
  iequations  = ${model_equations}       ! 1: hydrost. atmosphere
+/
 &octst_nml
   i_dbg_oce=1                    ! initialize MIN/MAX  debug output via mo_index_oce
   i_dbg_inx=0                    ! initialize one cell debug output via mo_index_oce

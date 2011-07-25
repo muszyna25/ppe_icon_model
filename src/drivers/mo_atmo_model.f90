@@ -35,47 +35,43 @@
 MODULE mo_atmo_model
 
 USE mo_exception,           ONLY: message, finish
+USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs
 USE mo_mpi,                 ONLY: p_stop, &
-& my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
-& my_process_is_stdio, set_mpi_work_communicators, set_comm_input_bcast, null_comm_type
+  & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
+  & my_process_is_stdio, set_mpi_work_communicators, set_comm_input_bcast, null_comm_type
 USE mo_timer,               ONLY: init_timer, print_timer
 USE mo_master_nml,          ONLY: lrestart
-USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output
 USE mo_output,              ONLY: init_output_files, close_output_files, write_output
 
-USE mo_parallel_config, ONLY: p_test_run, l_test_openmp, num_io_procs
 
 USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
 
 ! Control parameters: run control, dynamics, i/o
 !
 USE mo_nonhydrostatic_config,ONLY: ivctype, kstart_moist, kstart_qv, l_open_ubc
-!USE mo_io_config,           ONLY: dt_data, dt_file, dt_diag, dt_checkpoint 
-USE mo_io_config,         ONLY:  dt_data,dt_file,dt_diag,dt_checkpoint
 USE mo_dynamics_config,   ONLY: iequations
 USE mo_run_config,        ONLY: configure_run, &
-& dtime,                & !    namelist parameter
-& nsteps,               & !    :
-& ltransport,           & !    :
-& lforcing,             & !    :
-& ltimer,               & !    :
-& iforcing,             & !    namelist parameter
-& ldump_states,         & ! flag if states should be dumped
-& lrestore_states,      & ! flag if states should be restored
-& nlev,nlevp1,          &
-& num_lev,num_levp1,    &
-& iqv, nshift,          &
-& lvert_nest, ntracer
+  & dtime,                & !    namelist parameter
+  & ltransport,           & !    :
+  & lforcing,             & !    :
+  & ltimer,               & !    :
+  & iforcing,             & !    namelist parameter
+  & ldump_states,         & ! flag if states should be dumped
+  & lrestore_states,      & ! flag if states should be restored
+  & nlev,nlevp1,          &
+  & num_lev,num_levp1,    &
+  & iqv, nshift,          &
+  & lvert_nest, ntracer
 
 USE mo_impl_constants, ONLY:&
-    & ihs_atm_temp,         & !    :
-    & ihs_atm_theta,        & !    :
-    & inh_atmosphere,       & !    :
-    & ishallow_water,       & !    :
-    & ildf_dry,             & !    :
-    & inoforcing,           & !    :
-    & iheldsuarez,          & !    :
-    & inwp
+  & ihs_atm_temp,         & !    :
+  & ihs_atm_theta,        & !    :
+  & inh_atmosphere,       & !    :
+  & ishallow_water,       & !    :
+  & ildf_dry,             & !    :
+  & inoforcing,           & !    :
+  & iheldsuarez,          & !    :
+  & inwp
 
 
 ! For the coupling
@@ -193,7 +189,7 @@ CONTAINS
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
     LOGICAL :: lsuccess
-    INTEGER :: jg, istat
+    INTEGER :: jg
 
     ! For the coupling
 
@@ -205,7 +201,7 @@ CONTAINS
     INTEGER :: grid_id
     INTEGER :: grid_shape(2) 
     INTEGER :: field_shape(3) 
-    INTEGER :: i, ierror
+    INTEGER :: i, error_status
     INTEGER :: no_of_entities
     INTEGER :: patch_no
     INTEGER, POINTER :: grid_glob_index(:)
@@ -300,8 +296,8 @@ CONTAINS
      
     ! Allocate patch array to start patch construction
 
-    ALLOCATE(p_patch_global(n_dom_start:n_dom), stat=istat)
-    IF (istat/=success) THEN
+    ALLOCATE(p_patch_global(n_dom_start:n_dom), stat=error_status)
+    IF (error_status/=success) THEN
       CALL finish(TRIM(routine), 'allocation of patch failed')
     ENDIF
     
@@ -312,8 +308,7 @@ CONTAINS
         CALL restore_patches_netcdf( p_patch_global )
       ELSE
         CALL import_patches( p_patch_global,                       &
-                            nlev,nlevp1,num_lev,num_levp1,nshift, &
-                            locean=.FALSE. )
+                            nlev,nlevp1,num_lev,num_levp1,nshift)
       ENDIF
       ! After the restore is done set p_comm_input_bcast in the
       ! same way as it would be set in parallel_nml_setup when
@@ -321,8 +316,7 @@ CONTAINS
       CALL set_comm_input_bcast()
     ELSE
         CALL import_patches( p_patch_global,                       &
-                            nlev,nlevp1,num_lev,num_levp1,nshift, &
-                            locean=.FALSE. )      
+                            nlev,nlevp1,num_lev,num_levp1,nshift)      
     ENDIF
 
     !--------------------------------------------------------------------------------
@@ -334,8 +328,8 @@ CONTAINS
     ! Allocate array for interpolation state
     
     ALLOCATE( p_int_state_global(n_dom_start:n_dom), &
-            & p_grf_state_global(n_dom_start:n_dom),STAT=istat)
-    IF (istat /= SUCCESS) THEN
+            & p_grf_state_global(n_dom_start:n_dom),STAT=error_status)
+    IF (error_status /= SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for ptr_int_state failed')
     ENDIF
     
@@ -386,7 +380,7 @@ CONTAINS
       
     ELSE
       
-      CALL decompose_atmo_domain( locean=.FALSE. )
+      CALL decompose_atmo_domain()
       
     ENDIF
 
@@ -446,13 +440,13 @@ CONTAINS
      CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,      &
        &                      iequations, iforcing, iqv, kstart_moist(jg), &
        &                      kstart_qv(jg), lvert_nest, l_open_ubc, ntracer ) 
-   ENDDO
+    ENDDO
 
     !------------------------------------------------------------------
     ! 10. Create and optionally read external data fields
     !------------------------------------------------------------------
-    ALLOCATE (ext_data(n_dom), STAT=istat)
-    IF (istat /= SUCCESS) THEN
+    ALLOCATE (ext_data(n_dom), STAT=error_status)
+    IF (error_status /= SUCCESS) THEN
       CALL finish(TRIM(routine),'allocation for ext_data failed')
     ENDIF
     
@@ -474,7 +468,7 @@ CONTAINS
 
       CALL get_patch_global_indexes ( patch_no, CELLS, no_of_entities, grid_glob_index )
       ! should grid_glob_index become a pointer in ICON_cpl_def_grid as well?
-      CALL ICON_cpl_def_grid ( comp_id, grid_shape, grid_glob_index, grid_id, ierror )
+      CALL ICON_cpl_def_grid ( comp_id, grid_shape, grid_glob_index, grid_id, error_status )
   
       field_name(1) = "SST"
       field_name(2) = "TAUX"
@@ -487,7 +481,7 @@ CONTAINS
 
       DO i = 1, no_of_fields
          CALL ICON_cpl_def_field ( field_name(i), comp_id, grid_id, field_id(i), &
-                                 & field_shape, ierror )
+                                 & field_shape, error_status )
       ENDDO
 
       CALL ICON_cpl_search
@@ -517,8 +511,8 @@ CONTAINS
     CALL destruct_ext_data
 
     ! deallocate ext_data array
-    DEALLOCATE(ext_data, stat=istat)
-    IF (istat/=success) THEN
+    DEALLOCATE(ext_data, stat=error_status)
+    IF (error_status/=success) THEN
       CALL finish(TRIM(routine), 'deallocation of ext_data')
     ENDIF
 
@@ -530,11 +524,11 @@ CONTAINS
 
     IF (my_process_is_mpi_seq()  &
       & .OR. lrestore_states) THEN
-      DEALLOCATE (p_grf_state_global, STAT=istat)
+      DEALLOCATE (p_grf_state_global, STAT=error_status)
     ELSE
-      DEALLOCATE (p_grf_state_subdiv, STAT=istat)
+      DEALLOCATE (p_grf_state_subdiv, STAT=error_status)
     ENDIF
-    IF (istat /= SUCCESS) THEN
+    IF (error_status /= SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for ptr_grf_state failed')
     ENDIF
 
@@ -543,25 +537,25 @@ CONTAINS
     CALL destruct_2d_interpol_state( p_int_state )
     IF  (my_process_is_mpi_seq()  &
       & .OR. lrestore_states) THEN
-      DEALLOCATE (p_int_state_global, STAT=istat)
+      DEALLOCATE (p_int_state_global, STAT=error_status)
     ELSE
-      DEALLOCATE (p_int_state_subdiv, STAT=istat)
+      DEALLOCATE (p_int_state_subdiv, STAT=error_status)
     ENDIF
-    IF (istat /= SUCCESS) THEN
+    IF (error_status /= SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocation for ptr_int_state failed')
     ENDIF
 
     ! Deallocate grid patches
 
-    CALL destruct_patches( p_patch, locean=.FALSE. )
+    CALL destruct_patches( p_patch )
 
     IF (my_process_is_mpi_seq()  &
       & .OR. lrestore_states) THEN
-      DEALLOCATE( p_patch_global, STAT=istat )
+      DEALLOCATE( p_patch_global, STAT=error_status )
     ELSE
-      DEALLOCATE( p_patch_subdiv, STAT=istat )
+      DEALLOCATE( p_patch_subdiv, STAT=error_status )
     ENDIF
-    IF (istat/=SUCCESS) THEN
+    IF (error_status/=SUCCESS) THEN
       CALL finish(TRIM(routine),'deallocate for patch array failed')
     ENDIF
 
@@ -762,6 +756,7 @@ CONTAINS
   !---------------------------------------------------------------------
   !---------------------------------------------------------------------
   !---------------------------------------------------------------------
+#if 0  
   !---------------------------------------------------------------------
   SUBROUTINE atmo_model_old(atm_namelist_filename,shr_namelist_filename)
     
@@ -996,6 +991,7 @@ CONTAINS
     
    
   END SUBROUTINE atmo_model_old
+#endif
   
 END MODULE mo_atmo_model
 

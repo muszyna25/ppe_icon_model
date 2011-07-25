@@ -130,7 +130,7 @@ USE mo_grid_config,      ONLY: start_lev, nroot, n_dom, n_dom_start,    &
 !DR USE mo_model_domimp_topo,  ONLY: init_topography
 USE mo_ocean_topo,         ONLY: init_ocean_patch
 USE mo_dynamics_config,    ONLY: lcoriolis
-
+USE mo_master_control,     ONLY: my_process_is_ocean
 #ifndef NOMPI
 ! The USE statement below lets this module use the routines from
 ! mo_read_netcdf_parallel where only 1 processor is reading
@@ -283,11 +283,10 @@ END SUBROUTINE set_patches_grid_filename
 !! Modification by Stephan Lorenz, MPI-M (2010-02-06)
 !!  - new subroutine for initialization of ocean patch
 !!
-SUBROUTINE import_patches( p_patch, nlev,nlevp1,num_lev,num_levp1,nshift,locean)
+SUBROUTINE import_patches( p_patch, nlev,nlevp1,num_lev,num_levp1,nshift)
 
 INTEGER,INTENT(IN) :: nlev, nlevp1
 INTEGER,INTENT(IN) :: num_lev(:), num_levp1(:), nshift(:)
-LOGICAL,INTENT(IN) :: locean
 TYPE(t_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
 
 INTEGER :: jg, jg1, n_chd
@@ -452,7 +451,7 @@ GRID_LEVEL_LOOP: DO jg = n_dom_start, n_dom
   CALL init_coriolis( lcoriolis, lplane, p_single_patch )
 
 
-  IF (locean) THEN
+  IF (my_process_is_ocean()) THEN
 
     ! #slo# old ocean init routines - not used any more
     ! CALL mark_lateral_boundary_edges( p_single_patch )
@@ -1813,10 +1812,9 @@ END SUBROUTINE reshape_idx_list
 !! Modification by Almut Gassmann, MPI-M (2008-10-30)
 !! - add Coriolis destruction
 !!
-  SUBROUTINE destruct_patches( p_patch, locean )
+  SUBROUTINE destruct_patches( p_patch )
 
     TYPE(t_patch), TARGET, INTENT(inout) :: p_patch(n_dom_start:)
-    LOGICAL,INTENT(IN) :: locean
 
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &        routine = 'mo_model_domimp_patches:destruct_patches'
@@ -1833,7 +1831,7 @@ GRID_LEVEL_LOOP: DO jg = n_dom_start, n_dom
   ! DEALLOCATE EXTERNAL DATA
   !
 
-  IF (locean) THEN
+  IF (my_process_is_ocean()) THEN
 
     ! deallocate vertical domain
     DEALLOCATE(p_patch(jg)%patch_oce%del_zlev_i,STAT=ist)

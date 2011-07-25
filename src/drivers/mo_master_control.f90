@@ -69,7 +69,8 @@ MODULE mo_master_control
 
   PUBLIC ::  init_master_control, get_my_namelist_filename,           &
     & get_my_process_component, get_my_process_name, is_coupled_run,  &
-    & atmo_process, ocean_process, radiation_process
+    & atmo_process, ocean_process, radiation_process,                 &
+    & my_process_is_ocean
 
 
   ! ------------------------------------------------------------------------
@@ -311,6 +312,14 @@ MODULE mo_master_control
     is_coupled_run = in_coupled_mode
     
   END FUNCTION is_coupled_run
+  !------------------------------------------------------------------------
+  
+  !------------------------------------------------------------------------
+  LOGICAL FUNCTION my_process_is_ocean()
+
+    my_process_is_ocean = (my_process_model == ocean_process)
+    
+  END FUNCTION my_process_is_ocean
   !------------------------------------------------------------------------
 
 END MODULE mo_master_control
