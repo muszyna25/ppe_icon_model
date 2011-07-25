@@ -87,23 +87,23 @@ MODULE mo_advection_hflux
     &                               recon_lsq_cell_l_svd, recon_lsq_cell_q_svd, &
     &                               recon_lsq_cell_cpoor_svd,                   &
     &                               recon_lsq_cell_c_svd
-  USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_edge,      &
-    &                               rbf_interpol_c2grad, lsq_high_ord,       &
+  USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_edge,         &
+    &                               rbf_interpol_c2grad, lsq_high_ord,          &
     &                               lsq_high_set, cells2edges_scalar
   USE mo_dynamics_config,     ONLY: itime_scheme
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ntracer
-  USE mo_loopindices,         ONLY: get_indices_e, get_indices_c
-  USE mo_sync,                ONLY: SYNC_C, SYNC_C1, sync_patch_array_mult, &
+  USE mo_loopindices,         ONLY: get_indices_e
+  USE mo_sync,                ONLY: SYNC_C1, sync_patch_array_mult,             &
     &                               sync_patch_array_4de3
-  USE mo_parallel_config,     ONLY: p_test_run, n_ghost_rows
+  USE mo_parallel_config,     ONLY: p_test_run
   USE mo_advection_config,    ONLY: advection_config, lcompute, lcleanup
   USE mo_advection_utils,     ONLY: laxfr_upflux, back_traj_o1, back_traj_o2,   &
     &                               back_traj_dreg_o1, prep_gauss_quadrature_q, &
     &                               prep_gauss_quadrature_cpoor,                &
     &                               prep_gauss_quadrature_c
-  USE mo_advection_limiter,   ONLY: hflx_limiter_mo, hflx_limiter_sm,         &
-    &                               h_miura_slimiter_mo, h_miura_slimiter_sm, &
+  USE mo_advection_limiter,   ONLY: hflx_limiter_mo, hflx_limiter_sm,           &
+    &                               h_miura_slimiter_mo, h_miura_slimiter_sm,   &
     &                               shift_gauss_points
   USE mo_df_test,             ONLY: df_distv_barycenter !, df_cell_indices
   USE mo_ha_testcases,        ONLY: ctest_name

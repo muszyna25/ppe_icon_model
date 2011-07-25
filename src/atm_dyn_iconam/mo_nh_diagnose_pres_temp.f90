@@ -39,7 +39,6 @@ MODULE mo_nh_diagnose_pres_temp
   USE mo_model_domain,        ONLY: t_patch
   USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nwp_lnd_state,       ONLY: t_lnd_prog
-  USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,          ONLY: iqv, iqc, iqi, iqs, iqr, &
     &                               lforcing, iforcing
   USE mo_impl_constants,      ONLY: min_rlcell, MAX_CHAR_LENGTH 

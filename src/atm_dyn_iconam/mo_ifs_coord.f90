@@ -45,7 +45,7 @@ MODULE mo_ifs_coord
 
 
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: message_text, message, finish
+  USE mo_exception,          ONLY: finish
   USE mo_impl_constants,     ONLY: success, max_char_length
   USE mo_physical_constants, ONLY: grav, rcpd, rd
   USE mo_prepicon_nml,       ONLY: nlev_in

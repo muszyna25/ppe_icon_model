@@ -130,7 +130,7 @@ USE mo_parallel_config,  ONLY: nproma
 USE mo_math_utilities,     ONLY: gc2cc,cc2gc,       &
   &                              t_geographical_coordinates, t_cartesian_coordinates,   &
   &                              vector_product, arc_length
-USE mo_math_constants,     ONLY: pi, deg2rad
+USE mo_math_constants,     ONLY: deg2rad
 USE mo_physical_constants, ONLY: re, omega!, rgrav
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e, get_indices_v
 USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real

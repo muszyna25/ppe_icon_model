@@ -42,21 +42,21 @@
 !!
 MODULE mo_atm_phy_nwp_config
 
-  USE mo_kind,           ONLY: wp
-  USE mo_impl_constants, ONLY: max_dom,MAX_CHAR_LENGTH,itconv,itccov,&
+  USE mo_kind,                ONLY: wp
+  USE mo_impl_constants,      ONLY: max_dom,MAX_CHAR_LENGTH,itconv,itccov,&
     &                               itrad,itradheat, itsso,itgscp,itsatad,itupdate,&
     &                               itturb, itsfc,  itgwd, iphysproc
-  USE mo_exception,        ONLY: message, message_text, finish
+  USE mo_exception,           ONLY: message, message_text !, finish
 
-  USE mo_data_turbdiff,       ONLY: imode_turb,                              &
-    &                               limpltkediff, ltkesso, lexpcor,          &
-    &                               tur_len, pat_len, a_stab,                &
-    &                               tkhmin, tkmmin, c_diff,                  &
-    &                               itype_wcld, icldm_turb,                  &
-    &                               itype_tran, rlam_heat, rlam_mom, rat_sea,&
-    &                               llake, lseaice 
+!  USE mo_data_turbdiff,       ONLY: imode_turb,                              &
+!    &                               limpltkediff, ltkesso, lexpcor,          &
+!    &                               tur_len, pat_len, a_stab,                &
+!    &                               tkhmin, tkmmin, c_diff,                  &
+!    &                               itype_wcld, icldm_turb,                  &
+!    &                               itype_tran, rlam_heat, rlam_mom, rat_sea,&
+!    &                               llake, lseaice 
 
-  USE mo_icoham_sfc_indices,  ONLY: init_sfc_indices, nsfc_type
+  USE mo_icoham_sfc_indices,  ONLY: init_sfc_indices !, nsfc_type
 
   IMPLICIT NONE
 

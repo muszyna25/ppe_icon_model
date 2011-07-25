@@ -84,7 +84,7 @@ MODULE mo_nwp_phy_init
 
 
   USE mo_satad,                ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
-    &                                spec_humi,qsat_rho !! Specific humidity
+    &                                spec_humi !,qsat_rho !! Specific humidity
 
   USE data_gwd,                ONLY: sugwwms
 

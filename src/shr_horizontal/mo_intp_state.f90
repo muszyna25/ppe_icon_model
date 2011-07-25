@@ -163,18 +163,15 @@ MODULE mo_intp_state
 !
 !
 USE mo_kind,                ONLY: wp
-USE mo_io_units,            ONLY: nnml, nnml_output
 USE mo_exception,           ONLY: message, finish
 USE mo_impl_constants,      ONLY: SUCCESS
 USE mo_model_domain,        ONLY: t_patch
-USE mo_model_domain_import, ONLY: n_dom, n_dom_start, lplane, l_limited_area, lfeedback
-USE mo_namelist,            ONLY: position_nml, POSITIONED
+USE mo_model_domain_import, ONLY: n_dom, n_dom_start, lplane, l_limited_area
 USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
-USE mo_parallel_config,  ONLY: nproma
-USE mo_grid_config,  ONLY: global_cell_type
+USE mo_parallel_config,     ONLY: nproma
+USE mo_grid_config,         ONLY: global_cell_type
 USE mo_run_config,          ONLY: ltransport
 USE mo_dynamics_config,     ONLY: iequations
-USE mo_mpi,                 ONLY: p_pe, p_io
 
 !USE mo_interpol_nml
 USE mo_interpol_config

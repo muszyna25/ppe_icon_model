@@ -65,7 +65,7 @@ MODULE mo_nwp_phy_state
 ! !USES:
 
 USE mo_kind,                ONLY: wp
-USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, iphysproc
+USE mo_impl_constants,      ONLY: success, max_char_length
 USE mo_parallel_config,     ONLY: nproma
 USE mo_run_config,          ONLY: ntracer, iqcond
 USE mo_exception,           ONLY: message, finish !,message_text
@@ -313,7 +313,7 @@ SUBROUTINE construct_nwp_phy_state( p_patch)
 
 TYPE(t_patch), TARGET, INTENT(in) :: p_patch(n_dom)
 
-CHARACTER(len=MAX_CHAR_LENGTH) :: listname
+CHARACTER(len=max_char_length) :: listname
 INTEGER ::  jg,ist, nblks_c, nlev, nlevp1
 
 !-----------------------------------------------------------------------
@@ -331,13 +331,13 @@ CALL message('mo_nwp_phy_state:construct_nwp_state', &
   ! as well as the corresponding list arrays.
 
   ALLOCATE(prm_diag(n_dom), prm_nwp_diag_list(n_dom),STAT=ist)
-  IF(ist/=SUCCESS)THEN
+  IF(ist/=success)THEN
     CALL finish ('mo_nwp_phy_state:construct_nwp_state', &
       'allocation of diagnostic physical array and list failed')
   ENDIF
 
   ALLOCATE(prm_nwp_tend(n_dom), prm_nwp_tend_list(n_dom), STAT=ist)
-  IF(ist/=SUCCESS)THEN
+  IF(ist/=success)THEN
     CALL finish ('mo_nwp_phy_state:construct_nwp_state', &
       'allocation of tendency physical array and list failed')
   ENDIF
@@ -410,7 +410,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
     INTEGER,INTENT(IN) :: klev, klevp1, kblks,k_jg !< dimension sizes
 
     CHARACTER(len=*),INTENT(IN)     :: listname
-    CHARACTER(len= MAX_CHAR_LENGTH) :: vname_prefix
+    CHARACTER(len=max_char_length)  :: vname_prefix
     CHARACTER(LEN=1)                :: csfc
 
     TYPE(t_var_list)    ,INTENT(INOUT) :: diag_list

@@ -57,24 +57,13 @@ MODULE mo_advection_utils
 
   USE mo_advection_config,    ONLY: shape_func, zeta, eta, wgt_zeta, wgt_eta
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message, finish, message_text
   USE mo_model_domain,        ONLY: t_patch
   USE mo_interpolation,       ONLY: t_int_state
-  USE mo_io_units,            ONLY: nnml,nnml_output
-  USE mo_parallel_config,  ONLY: nproma
-  USE mo_run_config,          ONLY: ntracer, num_lev, nlev,        &
-    &                               iforcing, io3, iqt,            &
-    &                               iqcond, ntracer_static, lvert_nest
-  USE mo_grid_config,  ONLY: n_dom
+  USE mo_parallel_config,     ONLY: nproma
   USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
-  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom,      &
-    &                               min_rlcell_int, min_rledge_int, inwp
+  USE mo_impl_constants,      ONLY: min_rlcell_int, min_rledge_int
   USE mo_math_constants,      ONLY: dbl_eps
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
-  USE mo_namelist,            ONLY: position_nml, POSITIONED
-  USE mo_mpi,                 ONLY: p_pe, p_io
-  USE mo_radiation_config,    ONLY: irad_o3
-  USE mo_nonhydrostatic_config,  ONLY: l_open_ubc
 
   IMPLICIT NONE
 

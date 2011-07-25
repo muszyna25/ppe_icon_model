@@ -45,7 +45,7 @@ MODULE mo_interpol_config
 
   USE mo_kind,                ONLY: wp
   USE mo_intp_data_strc,      ONLY: t_lsq_set, sick_a, sick_o
-  USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH
+  USE mo_impl_constants,      ONLY: max_dom
   USE mo_exception,           ONLY: message, finish
 
   IMPLICIT NONE

@@ -54,10 +54,8 @@ USE mo_model_domain,        ONLY: t_patch
 USE mo_intp_data_strc,      ONLY: t_int_state
 USE mo_impl_constants_grf,  ONLY: grf_nudgintp_start_c, grf_nudgintp_start_e, &
                                   grf_nudge_start_e
-USE mo_parallel_config,  ONLY: nproma
+USE mo_parallel_config,     ONLY: nproma
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
-USE mo_mpi,                 ONLY: p_pe
-USE mo_communication,       ONLY: exchange_data, exchange_data_grf
 
 USE mo_grf_intp_data_strc
 
