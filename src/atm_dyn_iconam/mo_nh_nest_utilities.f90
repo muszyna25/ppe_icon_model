@@ -54,7 +54,7 @@ USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlcell_int, min_rl
       &                           MAX_CHAR_LENGTH
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
 USE mo_impl_constants_grf,  ONLY: grf_bdyintp_start_c,                       &
-                                  grf_bdyintp_end_c, grf_bdyintp_end_e,      &
+                                  grf_bdyintp_end_c,                         &
                                   grf_fbk_start_c,                           &
                                   grf_bdywidth_c, grf_bdywidth_e,            &
                                   grf_nudgintp_start_c, grf_nudgintp_start_e,&
@@ -429,8 +429,6 @@ IF (msg_level >= 10) THEN
   CALL message(TRIM(routine),message_text)
 ENDIF
 
-WRITE(0,*)'we are in nest interpolation!!'
-
 !$  num_threads_omp = omp_get_max_threads()
 
 p_diagp       => p_nh_state(jg)%diag
@@ -644,10 +642,7 @@ IF (l_child_vertnest) THEN
     aux3dc = 0._wp
   ENDIF
 
-  WRITE(0,*) 'before sync'
-
   CALL sync_patch_array(SYNC_E,p_pp,p_diagp%dvn_ie_int)
-  WRITE(0,*) 'after sync'
 
   CALL interpol_vec_ubc (p_pp, p_pc, p_grf%p_dom(i_chidx), i_chidx, &
                          p_diagp%dvn_ie_int, p_diagc%dvn_ie_ubc)
@@ -1174,7 +1169,7 @@ LOGICAL, INTENT(IN) :: lstep_adv  ! Switch if nudging is done for tracers
                                   ! (only if tracer transport is called)
 
 ! Indices
-INTEGER :: jb, jc, jk, jt, je, i_nchdom, i_startblk, i_endblk, &
+INTEGER :: jb, jc, jk, je, i_nchdom, i_startblk, i_endblk, &
            i_startidx, i_endidx
 
 INTEGER :: nlev                   ! number of vertical full levels
@@ -1198,7 +1193,7 @@ nlev = p_patch%nlev
 i_startblk = p_patch%cells%start_blk(grf_nudge_start_c,1)
 i_endblk   = p_patch%cells%end_blk(min_rlcell,i_nchdom)
 
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,jt)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
 DO jb = i_startblk, i_endblk
 
   CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, &
