@@ -156,7 +156,7 @@ CONTAINS
 
            ELSE                             
               !antisymmetric about the equator, placed at 30 N
-              zTempLat(jc) = -25._wp * (zlat(jc) - pi/6._wp)**2 
+              zTempLat(jc) = -25._wp * (zlat(jc) - pi/9._wp)**2 
 
            END IF
 
