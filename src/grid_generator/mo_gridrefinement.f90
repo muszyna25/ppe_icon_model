@@ -2355,7 +2355,7 @@ CONTAINS
     REAL(wp), ALLOCATABLE :: zv2d(:,:), zv2dx(:,:), zv2dy(:,:)
 
     REAL(wp) :: swap(4)
-!     INTEGER :: str_idx, end_idx
+    INTEGER :: str_idx, end_idx
 
     !EOP
     !-------------------------------------------------------------------------
@@ -3022,25 +3022,25 @@ CONTAINS
     CALL nf(nf_close(ncid))
 
    !------------------------------------------------------------------------
-!     write(*,*) '---',TRIM(filename), '---'
-!     str_idx=LBOUND(p%verts%start_idx, 1)
-!     end_idx=str_idx+SIZE(p%verts%start_idx, 1)-1
-!     DO i=str_idx,end_idx
-!       write(*,*) 'verts%start_idx, end:', i, p%verts%start_idx(i,1), p%verts%end_idx(i,1)
-!     ENDDO
-! 
-!     str_idx=LBOUND(p%edges%start_idx, 1)
-!     end_idx=str_idx+SIZE(p%edges%start_idx, 1)-1
-!     DO i=str_idx,end_idx
-!       write(*,*) 'edges%start_idx, end:', i, p%edges%start_idx(i,1), p%edges%end_idx(i,1)
-!     ENDDO
-! 
-!     str_idx=LBOUND(p%cells%start_idx, 1)
-!     end_idx=str_idx+SIZE(p%cells%start_idx, 1)-1
-!     DO i=str_idx,end_idx
-!       write(*,*) 'cells%start_idx, end:', i, p%cells%start_idx(i,1), p%cells%end_idx(i,1)
-!     ENDDO
-!     write(*,*) '-------------------'
+    write(*,*) '---',TRIM(filename), '---'
+    str_idx=LBOUND(p%verts%start_idx, 1)
+    end_idx=str_idx+SIZE(p%verts%start_idx, 1)-1
+    DO i=str_idx,end_idx
+      write(*,*) 'verts%start_idx, end:', i, p%verts%start_idx(i,1), p%verts%end_idx(i,1)
+    ENDDO
+
+    str_idx=LBOUND(p%edges%start_idx, 1)
+    end_idx=str_idx+SIZE(p%edges%start_idx, 1)-1
+    DO i=str_idx,end_idx
+      write(*,*) 'edges%start_idx, end:', i, p%edges%start_idx(i,1), p%edges%end_idx(i,1)
+    ENDDO
+
+    str_idx=LBOUND(p%cells%start_idx, 1)
+    end_idx=str_idx+SIZE(p%cells%start_idx, 1)-1
+    DO i=str_idx,end_idx
+      write(*,*) 'cells%start_idx, end:', i, p%cells%start_idx(i,1), p%cells%end_idx(i,1)
+    ENDDO
+    write(*,*) '-------------------'
     
 
   END SUBROUTINE write_patch

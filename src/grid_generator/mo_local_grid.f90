@@ -83,7 +83,7 @@ MODULE mo_local_grid
     & grid_set_parents_from, set_grid_parent_id,                     &
     & set_no_of_subgrids, set_start_subgrids, grid_set_sea_depth,    &
     & grid_set_min_sea_depth, set_grid_level, get_grid_level,        &
-    & set_grid_netcdf_flags
+    & set_grid_netcdf_flags, get_number_of_vertices
 
   PUBLIC :: print_grid_cell, print_grid_edge, print_grid_vertex
 
@@ -601,6 +601,20 @@ CONTAINS
 
   END FUNCTION get_vertices
   !-----------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------
+  !>
+  !! Returns a pointer to the vertices structure associated with the grid_id
+  INTEGER FUNCTION get_number_of_vertices(grid_id)
+    INTEGER, INTENT(in) :: grid_id
+
+    CALL check_active_grid_id(grid_id)
+
+    get_number_of_vertices = get_grid_object(grid_id)%verts%no_of_existvertices
+
+  END FUNCTION get_number_of_vertices
+  !-----------------------------------------------------------------------
+
 
   !-----------------------------------------------------------------------
   LOGICAL FUNCTION grid_is_filled(grid_id)

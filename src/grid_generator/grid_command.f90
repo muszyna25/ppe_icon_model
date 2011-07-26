@@ -7,7 +7,7 @@ PROGRAM grid_command
   USE mo_create_torus_grid,     ONLY: create_torus_grid
   USE mo_create_ocean_grid,     ONLY: create_ocean_grid
   USE mo_local_patch_hierarchy, ONLY: create_patches
-  USE mo_local_grid_refinement, ONLY: grid_refine
+  USE mo_local_grid_refinement, ONLY: grid_refine, coarsen_grid_file
   USE mo_grid_toolbox,          ONLY: concatenate_grid_files,create_dual, &
     &   shift_grid_ids
   USE mo_grid_checktools,       ONLY: check_grid_file, grid_statistics_file,&
@@ -43,6 +43,7 @@ PROGRAM grid_command
   CHARACTER(len=32), PARAMETER :: global_grid_generator_c ='global_grid_generator'
   CHARACTER(len=32), PARAMETER :: global_grid_refine_c ='global_grid_refine'
   CHARACTER(len=32), PARAMETER :: shift_grid_ids_c ='shift_grid_ids'
+  CHARACTER(len=32), PARAMETER :: coarsen_grid_c ='coarsen_grid'
 
   CHARACTER(len=32) :: command =''
   CHARACTER(len=filename_max) :: param_1 = ''
@@ -78,13 +79,13 @@ PROGRAM grid_command
       OPEN (500, FILE = command_file,STATUS = 'OLD')
       READ (500, *) command, param_1, param_2, param_3
       CLOSE(500)
-!       print *, 'command:', command
-!       print *, 'param_1:', param_1
-!       print *, 'param_2:', param_2
-!       print *, 'param_3:', param_3
-!       CALL get_command_argument(3, in_file_2)
-!       CALL get_command_argument(4, out_file)
       CALL concatenate_grid_files(param_1, param_2, param_3)
+
+    CASE (coarsen_grid_c)
+      OPEN (500, FILE = command_file,STATUS = 'OLD')
+      READ (500, *) command, param_1, param_2, param_3
+      CLOSE(500)
+      CALL coarsen_grid_file(param_1, param_2, param_3)
 
     CASE (create_dual_c)
 !       CALL get_command_argument(3, out_file)

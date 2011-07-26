@@ -48,7 +48,7 @@ MODULE mo_create_ocean_grid
   USE mo_local_grid
   USE mo_grid_conditions,      ONLY: cut_conditional_grid, &
     & read_grid_conditions, get_conditional_cells
-  USE mo_io_local_grid,        ONLY: read_netcdf_grid, write_netcdf_grid, &
+  USE mo_io_local_grid,        ONLY: read_new_netcdf_grid, write_netcdf_grid, &
     & read_netcdf_cell_elevation, write_netcdf_vertical_strc
   USE mo_grid_toolbox,         ONLY: get_grid_from_cell_list, &
     & smooth_boundaryfrom_cell_list, &
@@ -200,8 +200,7 @@ CONTAINS
     INTEGER :: no_of_conditions, i
 
     ! read initial grid and elevation
-    init_grid_id = new_grid()
-    CALL read_netcdf_grid(init_grid_id, input_file)
+    init_grid_id = read_new_netcdf_grid(input_file)
     
     NULLIFY(sea_cell_list%value)
     ocean_grid_id=init_grid_id

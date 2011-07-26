@@ -90,8 +90,7 @@ CONTAINS
 
     CALL message('===============','===============')
     CALL message('check_grid_file',TRIM(in_file))
-    grid_id = new_grid()
-    CALL read_netcdf_grid(grid_id, in_file)
+    grid_id = read_new_netcdf_grid(in_file)
     CALL check_grid_connectivity(grid_id)
     CALL delete_grid(grid_id)
 
@@ -108,8 +107,7 @@ CONTAINS
 
     CALL message('===============','===============')
     CALL message('check_grid_file',TRIM(in_file))
-    grid_id = new_grid()
-    CALL read_netcdf_grid(grid_id, in_file)
+    grid_id = read_new_netcdf_grid(in_file)
 
     ! latex files
     ! for vertices
@@ -154,8 +152,7 @@ CONTAINS
 
     INTEGER :: grid_id
 
-    grid_id = new_grid()
-    CALL read_netcdf_grid(grid_id, in_file)
+    grid_id = read_new_netcdf_grid(in_file)
     CALL write_netcdf_grid(grid_id, out_file)
     CALL delete_grid(grid_id)
 
@@ -169,8 +166,7 @@ CONTAINS
 
     INTEGER :: grid_id
 
-    grid_id = new_grid()
-    CALL read_netcdf_grid(grid_id, in_file)
+    grid_id = read_new_netcdf_grid(in_file)
     CALL inverse_connectivity_verts(grid_id)
     CALL write_netcdf_grid(grid_id, out_file)
     CALL delete_grid(grid_id)
@@ -184,8 +180,7 @@ CONTAINS
 
     INTEGER :: grid_id
 
-    grid_id = new_grid()
-    CALL read_netcdf_grid(grid_id, in_file)
+    grid_id = read_new_netcdf_grid(in_file)
     CALL set_sphere_geom_grid(grid_id)
     CALL write_netcdf_grid(grid_id, out_file)
     CALL delete_grid(grid_id)

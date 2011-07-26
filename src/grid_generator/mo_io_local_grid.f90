@@ -110,7 +110,7 @@ MODULE mo_io_local_grid
   PUBLIC :: read_netcdf_grid, write_netcdf_grid
   PUBLIC :: read_netcdf_cell_elevation
   PUBLIC :: write_netcdf_vertical_strc, read_netcdf_vertical_strc
-  PUBLIC :: read_no_of_subgrids
+  PUBLIC :: read_no_of_subgrids, read_new_netcdf_grid
   !--------------------------------------------------------------------
 
 CONTAINS
@@ -291,7 +291,26 @@ CONTAINS
     
   END FUNCTION read_no_of_subgrids
   !-------------------------------------------------------------------------
-
+  
+  !-------------------------------------------------------------------------
+  INTEGER FUNCTION read_new_netcdf_grid(file_name, check_read_grid_ids) result(new_grid_id)
+    CHARACTER(LEN=filename_max), OPTIONAL, INTENT(in) :: file_name
+    LOGICAL, OPTIONAL, INTENT(in) :: check_read_grid_ids
+    
+    new_grid_id = new_grid()
+    IF (PRESENT(file_name)) THEN
+      CALL set_grid_filename(new_grid_id, file_name)
+    ENDIF
+    IF (PRESENT(check_read_grid_ids)) THEN
+      CALL read_netcdf_grid(new_grid_id, read_grid_ids=check_read_grid_ids)
+    ELSE
+      CALL read_netcdf_grid(new_grid_id)
+    ENDIF
+    
+  END FUNCTION read_new_netcdf_grid
+      
+    
+ 
   !-------------------------------------------------------------------------
   SUBROUTINE read_netcdf_grid(grid_id, file_name, read_grid_ids)
     INTEGER, INTENT(in) :: grid_id
@@ -1647,7 +1666,7 @@ CONTAINS
 !     DO i=str_idx,end_idx
 !       write(*,*) 'verts%start_idx, end:', i, verts%start_idx(i,1), verts%end_idx(i,1)
 !     ENDDO
-!     
+! 
 !     str_idx=LBOUND(edges%start_idx, 1)
 !     end_idx=str_idx+SIZE(edges%start_idx, 1)-1
 !     DO i=str_idx,end_idx

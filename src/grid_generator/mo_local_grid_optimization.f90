@@ -72,6 +72,7 @@ MODULE mo_local_grid_optimization
   USE mo_timer,          ONLY: new_timer, timer_start, timer_stop, print_timer, delete_timer
   USE mo_local_grid
   USE mo_base_geometry
+  USE mo_grid_conditions, ONLY: get_inner_vertices
 
   IMPLICIT NONE
 
@@ -111,6 +112,8 @@ MODULE mo_local_grid_optimization
   LOGICAL  :: use_adaptive_dt, use_adaptive_spring_length, use_local_reference_length
   LOGICAL  :: use_isotropy_correction, use_barycenter_force
   LOGICAL  :: use_edge_springs, use_centers_spring_correction
+
+  INTEGER :: optimize_vertex_depth
 
   ! R refinement parameters
   INTEGER, PARAMETER :: R_refine_none=0
@@ -183,7 +186,7 @@ CONTAINS
       & isotropy_rotation_coeff, isotropy_stretch_coeff, use_edge_springs,    &
       & centers_springcorrection_coeff, use_centers_spring_correction, &
       & R_refine_method, R_refine_center_lon, R_refine_center_lat, R_refine_ratio, &
-      & R_refine_flat_radius
+      & R_refine_flat_radius, optimize_vertex_depth
 
 
     ! set default values
@@ -229,7 +232,7 @@ CONTAINS
     input_file = ''
     output_file = ''
 
-
+    optimize_vertex_depth = 1
     R_refine_method=R_refine_none
     R_refine_ratio=0.5_wp
     R_refine_flat_radius=0.05_wp
@@ -251,6 +254,9 @@ CONTAINS
       geocoord%lat = R_refine_center_lat
       R_refine_center = gc2cc(geocoord)
     ENDIF
+    IF (optimize_vertex_depth < 1) &
+      CALL finish('grid_optimization',&
+        & 'optimize_vertex_depth must be > 0')
 
     WRITE(message_text,'(a)') "===================================="
     CALL message ('', TRIM(message_text))
@@ -380,48 +386,49 @@ CONTAINS
     timer_optimize_grid = new_timer("optimize_grid")
     CALL timer_start(timer_optimize_grid)
       
-    IF (dual_iterations == 0) THEN
+!     IF (dual_iterations == 0) THEN
       opt_result = optimize_grid_methods(grid_id)
       CALL timer_stop(timer_optimize_grid)
       CALL print_timer(timer_optimize_grid)
       CALL delete_timer(timer_optimize_grid)
       RETURN
-    ENDIF
-        
-    DO iteration=1,dual_iterations
-      ! optimize the prime and dual
-      opt_result = optimize_grid_methods(grid_id, depth_level)
-      ! IF (opt_result == max_min_condition_reached) EXIT
-      CALL get_triangle_circumcenters(grid_id)
-      !CALL get_cell_barycenters(grid_id)
-      dual_grid_id = get_basic_dual_grid(grid_id)
-      CALL delete_grid(grid_id)
-      opt_result = optimize_grid_methods(dual_grid_id)
-      CALL get_cell_barycenters(dual_grid_id)
-      grid_id = get_basic_dual_grid(dual_grid_id)
-      CALL delete_grid(dual_grid_id)
-      ! IF (opt_result == max_min_condition_reached) EXIT
-    ENDDO ! i=1,dual_iterations
-    !opt_result = optimize_grid_methods(grid_id, depth_level)
-
-    CALL timer_stop(timer_optimize_grid)
-    CALL print_timer(timer_optimize_grid)
-    CALL delete_timer(timer_optimize_grid)
+!     ENDIF
+!         
+!     DO iteration=1,dual_iterations
+!       ! optimize the prime and dual
+!       opt_result = optimize_grid_methods(grid_id, depth_level)
+!       ! IF (opt_result == max_min_condition_reached) EXIT
+!       CALL get_triangle_circumcenters(grid_id)
+!       !CALL get_cell_barycenters(grid_id)
+!       dual_grid_id = get_basic_dual_grid(grid_id)
+!       CALL delete_grid(grid_id)
+!       opt_result = optimize_grid_methods(dual_grid_id)
+!       CALL get_cell_barycenters(dual_grid_id)
+!       grid_id = get_basic_dual_grid(dual_grid_id)
+!       CALL delete_grid(dual_grid_id)
+!       ! IF (opt_result == max_min_condition_reached) EXIT
+!     ENDDO ! i=1,dual_iterations
+!     !opt_result = optimize_grid_methods(grid_id, depth_level)
+! 
+!     CALL timer_stop(timer_optimize_grid)
+!     CALL print_timer(timer_optimize_grid)
+!     CALL delete_timer(timer_optimize_grid)
           
   END SUBROUTINE optimize_grid
   !---------------------------------------------------------
 
   !-------------------------------------------------------------------------
-  INTEGER FUNCTION optimize_grid_methods(grid_id, depth_level) result(opt_result)
+  INTEGER FUNCTION optimize_grid_methods(grid_id) result(opt_result)
 
     INTEGER, INTENT(inout) :: grid_id
-    INTEGER, INTENT(in), OPTIONAL :: depth_level
-
+!     INTEGER, INTENT(in), OPTIONAL :: depth_level
 
     TYPE(t_grid), POINTER :: in_grid
     TYPE(t_grid_cells), POINTER :: cells
     TYPE(t_grid_edges), POINTER :: edges
     TYPE(t_grid_vertices), POINTER :: verts
+
+    TYPE(t_integer_list)  :: inner_verts_list
 
     INTEGER :: no_of_cells, no_of_edges, no_of_vertices
     INTEGER :: max_cell_vertices, max_vertex_connect
@@ -473,7 +480,7 @@ CONTAINS
 !    REAL(wp) :: ref_length
    REAL(wp) :: diff_length
 
-    INTEGER :: vertex_edges
+    INTEGER :: vertex_edges, vertex_list_idx
 !     REAL(wp) :: max_vertex_edge, min_vertex_edge, max_vertex_edge_ratio
     LOGICAL :: is_triangle_grid, use_spring_cellcenters
 
@@ -498,13 +505,15 @@ CONTAINS
     no_of_cells = cells%no_of_existcells
     max_cell_vertices  = cells%max_no_of_vertices
     max_vertex_connect = verts%max_connectivity
-    IF (PRESENT(depth_level)) THEN
-      start_vertex = verts%start_idx(depth_level,1)
-      end_vertex   = verts%end_idx(depth_level,1)
-    ELSE
-      start_vertex = 1
-      end_vertex   = no_of_vertices
-    ENDIF
+!     IF (PRESENT(depth_level)) THEN
+!       start_vertex = verts%start_idx(depth_level,1)
+!       end_vertex   = verts%end_idx(depth_level,1)
+!     ELSE
+    start_vertex = 1
+    end_vertex   = no_of_vertices
+!     ENDIF
+    inner_verts_list=get_inner_vertices(grid_id,optimize_vertex_depth)
+    write(0,*) 'no_of_vertices:', no_of_vertices, inner_verts_list%list_size
     
     is_triangle_grid = max_cell_vertices == 3
     use_spring_cellcenters = (dual_use_spring_cellcenters .AND. .NOT. is_triangle_grid) .OR. &
@@ -1013,7 +1022,8 @@ CONTAINS
       ! total vertex force
       max_force = 0.0_wp
       total_force = 0.0_wp
-      DO vertex = start_vertex, end_vertex
+      DO vertex_list_idx=1,inner_verts_list%list_size
+        vertex = inner_verts_list%value(vertex_list_idx)
         ! remove normal component from force
         vertex_force(vertex)%x = vertex_force(vertex)%x - &
           & DOT_PRODUCT(vertex_force(vertex)%x, verts%cartesian(vertex)%x) &
@@ -1067,7 +1077,8 @@ CONTAINS
       ! compute vertex velocities and new positions
       max_velocity = 0.0_wp
       ekin = 0.0_wp
-      DO vertex = start_vertex, end_vertex
+      DO vertex_list_idx=1,inner_verts_list%list_size
+        vertex = inner_verts_list%value(vertex_list_idx)
 
         ! solve for spring equation
         ! semi-implicit Stroermer-Verlet scheme
@@ -1145,6 +1156,7 @@ CONTAINS
 
     ENDDO ! iteration=1, maxit
 
+    DEALLOCATE(inner_verts_list%value)
     DEALLOCATE(edge_force,vertex_force,vertex_velocity)
     DEALLOCATE(vertex_edge_ref_length)
     DEALLOCATE(edge_ref_length)

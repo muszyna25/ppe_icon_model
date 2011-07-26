@@ -43,14 +43,13 @@ MODULE mo_grid_conditions
   USE mo_exception,          ONLY: message_text, message, finish
   USE mo_io_units,           ONLY: nnml, filename_max
   USE mo_namelist,           ONLY: position_nml, open_nml, positioned
-  USE mo_local_grid,         ONLY: t_grid_cells, new_grid, delete_grid, &
-    & cut_off_grid, set_grid_creation, get_cells, t_integer_list!, undefined
+  USE mo_local_grid
   USE mo_base_geometry,      ONLY: t_cartesian_coordinates, t_geographical_coordinates, gc2cc, &
     & arc_length
 !  USE mo_local_grid_geometry,ONLY: geographical_to_cartesian
   USE mo_grid_toolbox,       ONLY: smooth_boundaryfrom_cell_list, &
     & get_grid_from_cell_list
-  USE mo_io_local_grid,      ONLY: read_netcdf_grid, write_netcdf_grid
+  USE mo_io_local_grid,      ONLY: read_new_netcdf_grid, write_netcdf_grid
   USE mo_timer
 
   IMPLICIT NONE
@@ -60,7 +59,9 @@ MODULE mo_grid_conditions
   ! !VERSION CONTROL:
   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: cut_local_grid, cut_conditional_grid, read_grid_conditions, get_conditional_cells
+  PUBLIC :: cut_local_grid, cut_conditional_grid, read_grid_conditions
+  PUBLIC :: get_conditional_cells
+  PUBLIC :: get_boundary_vertices, get_inner_vertices
   !----------------------------------------
 
   ! !DEFINE PARAMETERS:
@@ -173,8 +174,7 @@ CONTAINS
 
     tmp=read_grid_conditions(param_file_name)
 
-    in_grid_id = new_grid()
-    CALL read_netcdf_grid(in_grid_id, input_file)
+    in_grid_id = read_new_netcdf_grid(input_file)
 
     out_grid_id = cut_conditional_grid(in_grid_id)
     IF (out_grid_id == in_grid_id .OR. out_grid_id < 1)&
@@ -187,10 +187,209 @@ CONTAINS
   END SUBROUTINE cut_local_grid
   !-------------------------------------------------------------------------
 
+  !-------------------------------------------------------------------------
+  !>
+  !! Returns a list of boundary vertices with vertex_depth <= depth
+  FUNCTION get_boundary_vertices(grid_id, depth) result(boundary_verts_list)
+    INTEGER, INTENT(in) :: grid_id, depth
+    TYPE(t_integer_list) :: boundary_verts_list
+
+    TYPE(t_integer_list)  :: verts_depth_list
+    INTEGER :: no_of_verts, vertex_index
+    INTEGER :: error_status
+
+    verts_depth_list = get_vertex_depths(grid_id,depth)
+
+    no_of_verts = get_number_of_vertices(grid_id)
+    ALLOCATE(boundary_verts_list%value(no_of_verts),stat=error_status)
+    IF (error_status > 0) &
+      & CALL finish ('get_boudary_edges', 'ALLOCATE(boundary_edges_list)')    
+   
+    boundary_verts_list%list_size = 0
+    DO vertex_index=1,no_of_verts
+      IF (verts_depth_list%value(vertex_index) >= 0 .AND. &
+        & verts_depth_list%value(vertex_index) <= depth) THEN
+        boundary_verts_list%list_size = boundary_verts_list%list_size +1
+        boundary_verts_list%value(boundary_verts_list%list_size) = vertex_index
+      ENDIF
+    ENDDO
+    
+    DEALLOCATE(verts_depth_list%value)
+    
+  END FUNCTION get_boundary_vertices
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Returns a list of inner vertices with vertex_depth > depth
+  FUNCTION get_inner_vertices(grid_id, depth) result(inner_verts_list)
+    INTEGER, INTENT(in) :: grid_id, depth
+    TYPE(t_integer_list) :: inner_verts_list
+
+    TYPE(t_integer_list)  :: verts_depth_list
+    INTEGER :: no_of_verts, vertex_index
+    INTEGER :: error_status
+
+    verts_depth_list = get_vertex_depths(grid_id,depth)
+
+    no_of_verts = get_number_of_vertices(grid_id)
+    ALLOCATE(inner_verts_list%value(no_of_verts),stat=error_status)
+    IF (error_status > 0) &
+      & CALL finish ('get_boudary_edges', 'ALLOCATE(boundary_edges_list)')
+
+    inner_verts_list%list_size = 0
+    DO vertex_index=1,no_of_verts
+      IF (verts_depth_list%value(vertex_index) < 0 .OR. &
+        & verts_depth_list%value(vertex_index) > depth) THEN
+        inner_verts_list%list_size = inner_verts_list%list_size +1
+        inner_verts_list%value(inner_verts_list%list_size) = vertex_index
+      ENDIF
+    ENDDO
+
+    DEALLOCATE(verts_depth_list%value)
+
+  END FUNCTION get_inner_vertices
+  !-------------------------------------------------------------------------
 
 
   !-------------------------------------------------------------------------
-  !   SUBROUTINE cut_local_grid(param_file_name)
+  !>
+  !! Returns the depth of ecah vertex from the boundary
+  !! 0=boundary
+  !! -1 = vertex_depth is > depth
+  !! if there are no boundaries then all vertexes get -1
+  FUNCTION get_vertex_depths(grid_id, depth) result(verts_depth_list)
+    INTEGER, INTENT(in) :: grid_id, depth
+    TYPE(t_integer_list) :: verts_depth_list
+
+    TYPE(t_grid),       POINTER :: current_grid
+    TYPE(t_grid_edges), POINTER :: edges
+    TYPE(t_grid_vertices), POINTER :: verts
+    TYPE(t_integer_list)  :: boundary_edges_list
+    INTEGER, POINTER :: vertex_stack(:)
+    INTEGER :: stack_size
+    
+    INTEGER :: no_of_verts, vertex_index, stack_vertex_index, neigbor_idx
+    INTEGER :: edge_index, edge_list_index, stack_vertex_depth
+    INTEGER :: error_status
+
+    IF (depth < 0) &
+      & CALL finish ('get_vertex_depths', 'depth < 0')
+
+    current_grid  => get_grid(grid_id)
+    verts         => current_grid%verts
+    edges         => current_grid%edges
+    no_of_verts    = verts%no_of_existvertices
+
+    ALLOCATE(verts_depth_list%value(no_of_verts),stat=error_status)
+    IF (error_status > 0) &
+      & CALL finish ('get_vertex_depths', 'ALLOCATE(verts_depth_list)')
+
+    boundary_edges_list = get_boundary_edges(grid_id)
+
+    !mark all vertices as inner
+    verts_depth_list%value(1:no_of_verts) = -1
+
+    IF (boundary_edges_list%list_size == 0) THEN
+      ! all vertices are internal, retuen
+      DEALLOCATE(boundary_edges_list%value)
+      RETURN
+    ENDIF
+
+    ! make a stack
+    ALLOCATE(vertex_stack(no_of_verts),stat=error_status)
+    IF (error_status > 0) &
+      & CALL finish ('get_vertex_depths', 'ALLOCATE(vertex_stack)')
+    stack_size=0
+    
+    ! mark boundary vertices as 0 and add them to the stack
+    DO edge_list_index = 1, boundary_edges_list%list_size
+      edge_index = boundary_edges_list%value(edge_list_index)
+      
+      vertex_index =  edges%get_vertex_index(edge_index,1)
+      IF (verts_depth_list%value(vertex_index) < 0) THEN
+        stack_size=stack_size+1
+        vertex_stack(stack_size) = vertex_index
+        verts_depth_list%value(vertex_index) = 0
+      ENDIF
+      
+      vertex_index =  edges%get_vertex_index(edge_index,2)
+      IF (verts_depth_list%value(vertex_index) < 0) THEN
+        stack_size=stack_size+1
+        vertex_stack(stack_size) = vertex_index
+        verts_depth_list%value(vertex_index) = 0
+      ENDIF
+   ENDDO
+
+   ! while the stack is not empty
+   !   pop a vertex
+   !   if the vertex is < depth, process its neigbors
+   DO WHILE(stack_size > 0)
+     stack_vertex_index =  vertex_stack(stack_size)
+     stack_size = stack_size - 1
+     stack_vertex_depth = verts_depth_list%value(stack_vertex_index)
+     IF (verts_depth_list%value(stack_vertex_index) < depth) THEN
+        ! check its neigbors
+        DO neigbor_idx=1, verts%max_connectivity
+          vertex_index=verts%get_neighbor_index(stack_vertex_index,neigbor_idx)
+          IF (vertex_index > 0) THEN
+          
+            IF (verts_depth_list%value(vertex_index) < 0) THEN
+              stack_size=stack_size+1
+              vertex_stack(stack_size) = vertex_index
+              verts_depth_list%value(vertex_index) = stack_vertex_depth + 1
+            ENDIF
+            
+          ENDIF          
+        ENDDO 
+     ENDIF
+
+   ENDDO
+
+   DEALLOCATE(vertex_stack)
+    
+  END FUNCTION get_vertex_depths
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !!
+  FUNCTION get_boundary_edges(grid_id) result(boundary_edges_list)
+    INTEGER, INTENT(in) :: grid_id
+    TYPE(t_integer_list)  :: boundary_edges_list
+
+    TYPE(t_grid),       POINTER :: current_grid
+    TYPE(t_grid_edges), POINTER :: edges
+    INTEGER :: no_of_edges, no_of_boundary_edges, edge_index
+    INTEGER :: error_status
+
+    current_grid  => get_grid(grid_id)
+    edges         => current_grid%edges
+    no_of_edges   = edges%no_of_existedges
+
+    ALLOCATE(boundary_edges_list%value(no_of_edges),stat=error_status)
+    IF (error_status > 0) &
+      & CALL finish ('get_boudary_edges', 'ALLOCATE(boundary_edges_list)')
+!     boundary_edges_list%value(:) = 0
+
+    no_of_boundary_edges    = 0
+    DO edge_index = 1, no_of_edges
+      ! check if it is outer boundary
+      IF (edges%get_cell_index(edge_index,1) == 0 .OR. &
+        & edges%get_cell_index(edge_index,2) == 0) THEN
+        ! add edge to boundary list
+        no_of_boundary_edges = no_of_boundary_edges + 1
+        boundary_edges_list%value(no_of_boundary_edges) = edge_index
+      ENDIF
+    ENDDO
+    
+    boundary_edges_list%list_size = no_of_boundary_edges
+
+  END FUNCTION get_boundary_edges
+  !-------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
   !>
   !! Cuts-off the cut_grid_id from in_grid_id. Private
   INTEGER FUNCTION cut_conditional_grid(in_grid_id, param_file) result(cut_grid_id)

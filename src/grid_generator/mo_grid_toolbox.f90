@@ -45,7 +45,7 @@ MODULE mo_grid_toolbox
 !     & min_rledge, max_rledge,  &
 !     & min_rlvert, max_rlvert
   USE mo_local_grid
-  USE mo_io_local_grid,  ONLY: read_netcdf_grid,write_netcdf_grid
+  USE mo_io_local_grid,  ONLY: read_new_netcdf_grid,write_netcdf_grid
 !  USE mo_local_grid_geometry,ONLY: geographical_to_cartesian
 
   IMPLICIT NONE
@@ -739,10 +739,8 @@ END FUNCTION concatenate_grids
 
     INTEGER :: in_grid_id_1, in_grid_id_2, out_grid_id
 
-    in_grid_id_1 = new_grid()
-    CALL read_netcdf_grid(in_grid_id_1, in_file_1)
-    in_grid_id_2 = new_grid()
-    CALL read_netcdf_grid(in_grid_id_2, in_file_2)
+    in_grid_id_1 = read_new_netcdf_grid(in_file_1)
+    in_grid_id_2 = read_new_netcdf_grid(in_file_2)
 
     out_grid_id = concatenate_grids(in_grid_id_1,in_grid_id_2)
     CALL write_netcdf_grid(out_grid_id, out_file)
@@ -781,8 +779,7 @@ END FUNCTION concatenate_grids
 
     INTEGER :: in_grid_id, out_grid_id
 
-    in_grid_id = new_grid()
-    CALL read_netcdf_grid(in_grid_id, in_file)
+    in_grid_id = read_new_netcdf_grid(in_file)
     out_grid_id = get_dual_grid(in_grid_id)
     CALL write_netcdf_grid(out_grid_id, out_file)
 
@@ -1131,8 +1128,7 @@ END FUNCTION concatenate_grids
     INTEGER :: no_of_cells, no_of_edges, no_of_verts
     INTEGER :: i
 
-    grid_id = new_grid()
-    CALL read_netcdf_grid(grid_id, file_name, read_grid_ids=.true.)
+    grid_id = read_new_netcdf_grid(file_name, check_read_grid_ids=.true.)
 
     grid_obj => get_grid(grid_id)
     cells => grid_obj%cells

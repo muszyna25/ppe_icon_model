@@ -47,7 +47,7 @@ MODULE mo_icosahedron_grid
 
   USE mo_base_geometry,  ONLY: t_cartesian_coordinates!, cc2gc
   USE mo_math_constants, ONLY: pi_5
-  USE mo_io_local_grid,  ONLY: read_netcdf_grid, write_netcdf_grid
+  USE mo_io_local_grid,  ONLY: read_new_netcdf_grid, write_netcdf_grid
   USE mo_grid_toolbox,   ONLY: get_basic_dual_grid
   USE mo_local_grid_geometry,     ONLY: set_sphere_geom_grid, get_cell_barycenters!, &
 !    & use_cartesian_centers
@@ -154,8 +154,7 @@ CONTAINS
       !  print *, ' icon_norm_edge=', icon_norm_edge, ' icon_norm_dual_edge=', icon_norm_dual_edge
       end_level = no_of_levels
     ELSE
-      base_grid_id = new_grid()
-      CALL read_netcdf_grid(base_grid_id, input_file)
+      base_grid_id = read_new_netcdf_grid(input_file)
       start_level = get_grid_level(base_grid_id) + 1
       end_level = start_level + no_of_levels - 1
    ENDIF

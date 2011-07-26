@@ -46,17 +46,19 @@ MODULE mo_local_grid_refinement
 
   USE mo_base_geometry,      ONLY: sphere_cartesian_midpoint
 
-  USE mo_local_grid,         ONLY: t_grid, t_grid_cells, t_grid_edges, t_grid_vertices,           &
-    & new_grid, delete_grid,get_grid, allocate_grid_object, refined_bisection_grid,       &
-    & parent_child_identical, parenttype_edge, parenttype_triangle, set_grid_creation,    &
-    & grid_set_exist_eq_allocated, set_nest_defaultindexes, grid_get_parent_pointers,     &
-    & set_grid_parent_id, set_no_of_subgrids, set_start_subgrids
+  USE mo_local_grid
+!   USE mo_local_grid,         ONLY: t_grid, t_grid_cells, t_grid_edges, t_grid_vertices,           &
+!     & new_grid, delete_grid,get_grid, allocate_grid_object, refined_bisection_grid,       &
+!     & parent_child_identical, parenttype_edge, parenttype_triangle, set_grid_creation,    &
+!     & grid_set_exist_eq_allocated, set_nest_defaultindexes, grid_get_parent_pointers,     &
+!     & set_grid_parent_id, set_no_of_subgrids, set_start_subgrids
 
   USE mo_grid_conditions,    ONLY: cut_conditional_grid
   USE mo_local_grid_geometry,ONLY: set_sphere_geom_grid, get_common_edge_vertex
-  USE mo_local_grid_hierarchy, ONLY: create_grid_hierarchy
+!   USE mo_local_grid_hierarchy, ONLY: create_grid_hierarchy
+  USE mo_local_grid_optimization, ONLY: read_grid_optimization_param, optimize_grid
 
-  USE mo_io_local_grid,      ONLY: read_netcdf_grid, write_netcdf_grid
+  USE mo_io_local_grid,      ONLY: read_new_netcdf_grid, write_netcdf_grid
 
   IMPLICIT NONE
 
@@ -69,6 +71,7 @@ MODULE mo_local_grid_refinement
   PUBLIC :: refine_grid_edgebisection
   PUBLIC :: refine_grid_insert_centers
   PUBLIC :: complete_grid_connectivity
+  PUBLIC :: coarsen_grid_file
   !----------------------------------------
 
   INTEGER :: max_cell_vertices, max_vertex_connect
@@ -143,8 +146,7 @@ CONTAINS
 
     CALL read_param(param_file_name)
 
-    in_grid_id = new_grid()
-    CALL read_netcdf_grid(in_grid_id, input_file)
+    in_grid_id = read_new_netcdf_grid(input_file)
 
 !     CALL message ('grid_refine', 'start timer')
     timer_total_grid_refine = new_timer("total grid_refine")
@@ -154,15 +156,16 @@ CONTAINS
     cutoff_grid_id = cut_conditional_grid(in_grid_id, param_file_name)
     IF (cutoff_grid_id /= in_grid_id) THEN
       CALL delete_grid(in_grid_id)
-      ! since the parent grid is = 0 this is not necessary
-      ! CALL grid_set_parents_from(work_grid_id)
     ENDIF
 
 !     CALL message ('grid_refine', 'refine_grid_edgebisection...')
     out_grid_id = refine_grid_edgebisection(cutoff_grid_id)
     CALL delete_grid(cutoff_grid_id)
-    CALL set_sphere_geom_grid(out_grid_id)
 !     CALL create_grid_hierarchy(out_grid_id)
+
+    CALL read_grid_optimization_param(param_file_name)
+    CALL optimize_grid(out_grid_id)
+    CALL set_sphere_geom_grid(out_grid_id)
 
     IF (refine_depth < 2) THEN
       WRITE(file_name,'(a)')  TRIM(output_file)
@@ -178,6 +181,77 @@ CONTAINS
     CALL delete_grid(out_grid_id)
 
   END SUBROUTINE grid_refine
+  !-------------------------------------------------------------------------
+
+
+  !-------------------------------------------------------------------------
+  !   SUBROUTINE cut_local_grid(param_file_name)
+  !>
+  !! Main routine for refining a grid by edge-bisection. Public
+  SUBROUTINE coarsen_grid_file(child_filename, parent_filename, out_filename)
+
+    CHARACTER(LEN=*), INTENT(in) :: child_filename, parent_filename, out_filename
+
+    INTEGER :: child_grid_id, parent_grid_id
+
+    child_grid_id  = read_new_netcdf_grid(child_filename)
+    parent_grid_id = read_new_netcdf_grid(parent_filename)
+
+!     CALL message ('grid_refine', 'start timer')
+    
+    CALL coarsen_child_parent_grid(child_grid_id, parent_grid_id)
+
+    CALL write_netcdf_grid(parent_grid_id, out_filename)
+
+    CALL delete_grid(child_grid_id)
+    CALL delete_grid(parent_grid_id)
+
+  END SUBROUTINE coarsen_grid_file
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Read-adjust the parent vertxes coordinates to the child's
+  !! Effectivel carsens the child grid
+  SUBROUTINE coarsen_child_parent_grid(child_grid_id, parent_grid_id)
+    INTEGER, INTENT(in)  :: child_grid_id, parent_grid_id
+    !-------------------------------------------------------------------------
+    TYPE(t_grid), POINTER :: parent_grid, child_grid
+
+    TYPE(t_grid_vertices), POINTER :: parent_verts, child_verts
+
+    INTEGER :: no_of_child_verts, no_of_parent_verts
+    INTEGER :: child_vertex,parent_vertex
+    INTEGER :: timer_coarsen
+
+    timer_coarsen = new_timer("coarsen_child_parent_grid")
+    CALL timer_start(timer_coarsen)
+
+    parent_verts => get_vertices(parent_grid_id)
+    child_verts  => get_vertices(child_grid_id)
+    no_of_child_verts = child_verts%no_of_existvertices
+    no_of_parent_verts = parent_verts%no_of_existvertices
+!$OMP PARALLEL
+!$OMP DO PRIVATE(child_vertex,parent_vertex)
+    DO child_vertex = 1, no_of_child_verts
+      parent_vertex = child_verts%parent_index(child_vertex)
+      IF (parent_vertex > no_of_parent_verts)  &
+         & CALL finish('coarsen_child_parent_grid',&
+         & 'parent_vertex > no_of_parent_verts')
+      IF (parent_vertex > 0) THEN
+         parent_verts%vertex(parent_vertex) = child_verts%vertex(child_vertex)
+      ENDIF
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+    CALL timer_stop(timer_coarsen)
+    CALL print_timer(timer_coarsen)
+    CALL delete_timer(timer_coarsen)
+
+    CALL set_sphere_geom_grid(parent_grid_id)
+
+  END SUBROUTINE coarsen_child_parent_grid
   !-------------------------------------------------------------------------
 
 

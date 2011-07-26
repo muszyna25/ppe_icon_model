@@ -654,6 +654,7 @@ CONTAINS
       & varid282, varid403, varid49, varid50
 
     INTEGER :: i, j
+    INTEGER :: str_idx, end_idx
 
 #ifdef __SX__
     INTEGER :: iargc
@@ -1433,6 +1434,26 @@ CONTAINS
       !------------------------------------------------------------------------
 
       CALL nf(nf_close(ncid))
+   !------------------------------------------------------------------------
+    write(*,*) '---',TRIM(output), '---'
+    str_idx=LBOUND(gg%verts%start_idx, 1)
+    end_idx=str_idx+SIZE(gg%verts%start_idx, 1)-1
+    DO i=str_idx,end_idx
+      write(*,*) 'verts%start_idx, end:', i, gg%verts%start_idx(i,1), gg%verts%end_idx(i,1)
+    ENDDO
+
+    str_idx=LBOUND(gg%edges%start_idx, 1)
+    end_idx=str_idx+SIZE(gg%edges%start_idx, 1)-1
+    DO i=str_idx,end_idx
+      write(*,*) 'edges%start_idx, end:', i, gg%edges%start_idx(i,1), gg%edges%end_idx(i,1)
+    ENDDO
+
+    str_idx=LBOUND(gg%cells%start_idx, 1)
+    end_idx=str_idx+SIZE(gg%cells%start_idx, 1)-1
+    DO i=str_idx,end_idx
+      write(*,*) 'cells%start_idx, end:', i, gg%cells%start_idx(i,1), gg%cells%end_idx(i,1)
+    ENDDO
+    write(*,*) '-------------------'
 
     ENDDO
 
