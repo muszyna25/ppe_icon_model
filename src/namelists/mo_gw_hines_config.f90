@@ -62,7 +62,7 @@ MODULE mo_gw_hines_config
                             !< false: compute only momentum flux deposition
 
   INTEGER  :: emiss_lev     !< number of levels above the ground at which gw are emitted
-  REAL(wp) :: rmscon        !< [m/s] root mean square gravity wave wind at lowest level
+  REAL(wp) :: rmscon        !< [m/s] root mean square gravity wave wind at emission level
   REAL(wp) :: kstar         !< [1/m] typical gravity wave horizontal wavenumber
   REAL(wp) :: m_min         !< [1/m] minimum bound in vertical wavenumber
 
@@ -88,9 +88,9 @@ MODULE mo_gw_hines_config
                             !<      use linear interpolation between rmscon_eq and rmscon
                             !< false: use rmscon for all latitudes
                             !< attention: may be overwritten if lfront or lozpr is true
-  REAL(wp) :: lat_rmscon_eq !< [degN] rmscon_tro is used equatorward of this latitude
+  REAL(wp) :: lat_rmscon_eq !< [degN] rmscon_eq is used equatorward of this latitude
   REAL(wp) :: lat_rmscon    !< [degN] rmscon is used poleward of this latitude
-  REAL(wp) :: rmscon_eq     !< [m/s]  rmscon used equatorward of lat_rmscon_eq
+  REAL(wp) :: rmscon_eq     !< [m/s]  rms constant used equatorward of lat_rmscon_eq
 
   END TYPE t_gw_hines_config
 

@@ -3473,12 +3473,14 @@ Defined and used in: src/namelists/mo\_echam\_phy\_nml.f90
 
 \begin{longtab}
 
+\hline
 lmfpen &
 L&
 .TRUE.&&
 Switch on penetrative convection.&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
+
 \hline
 lmfmid &
 L&
@@ -3486,6 +3488,7 @@ L&
 Switch on midlevel convection.&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
+
 \hline
 lmfscv &
 L&
@@ -3493,6 +3496,7 @@ L&
 Switch on shallow convection.&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
+
 \hline
 lmfdd &
 L&
@@ -3500,6 +3504,7 @@ L&
 Switch on cumulus downdraft.&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
+
 \hline
 lmfdudv &
 L&
@@ -3507,6 +3512,7 @@ L&
 Switch on cumulus friction.&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
+
 \hline
 iconv&
 I &
@@ -3517,6 +3523,7 @@ Choice of cumulus convection scheme.\par
 3: hybrid scheme &
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
+
 \hline
 cmftau &
 R &
@@ -3524,6 +3531,7 @@ R &
 Characteristic convective adjustment time scale.&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
+
 \hline
 cmfctop &
 R &
@@ -3532,6 +3540,7 @@ Fractional convective mass flux (valid range [0,1])
 across the top of cloud &
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
+
 \hline
 cprcon &
 R &
@@ -3539,6 +3548,7 @@ R &
 Coefficient for determining conversion from cloud water to rain.&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
+
 \hline
 cminbuoy &
 R &
@@ -3546,6 +3556,7 @@ R &
 Minimum excess buoyancy.&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
+
 \hline
 entrpen &
 R &
@@ -3553,6 +3564,7 @@ R &
 Entrainment rate for penetrative convection.&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
+
 \hline
 dlev &
 R &
@@ -3560,6 +3572,7 @@ R &
 Critical thickness necessary for the onset of convective precipitation.&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
+
 \hline
 nauto &
 I &
@@ -3567,6 +3580,7 @@ I &
 autoconversion scheme:\\1: Beheng (1994)\par2: Khairoutdinov and Kogan (2000)&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
+
 \hline
 lconvmassfix &
 L &
@@ -3574,7 +3588,7 @@ L &
 aerosol mass fixer in convection&
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
-\hline
+
 \end{longtab}
 
 Defined and used in: src/atm\_phy\_echam/mo\_echam\_conv\_parameters.f90
@@ -3612,7 +3626,7 @@ Defined and used in: src/namelists/mo\_echam\_vdiff\_nml.f90
 %------------------------------------------------------------------------------
 % gw_hines_nml:
 %------------------------------------------------------------------------------
-\subsection{gw\_hines\_nml}
+\subsection{gw\_hines\_nml (Scope: lgw\_hines = .TRUE. in echam\_phy\_nml)}
 
 \begin{longtab}
 
@@ -3620,8 +3634,10 @@ Defined and used in: src/namelists/mo\_echam\_vdiff\_nml.f90
 lheatcal    &
 L           &
 .FALSE.     &&
-TRUE : compute also heating rate and diffusion coefficient resulting from the dissipation of gravity waves &
-lgw\_hines = .TRUE.
+.TRUE.: compute drag, heating rate and diffusion coefficient from the dissipation of gravity waves&
+\tabularnewline
+&&&&
+.FALSE.: compute drag only &
 \tabularnewline
 
 \hline
@@ -3629,7 +3645,6 @@ emiss\_lev  &
 I           &
 10          &&
 Index of model level, counted from the surface, from which the gravity wave spectra are emitted &
-lgw\_hines = .TRUE.
 \tabularnewline
 
 \hline
@@ -3638,7 +3653,6 @@ R           &
 1.0         &
 m/s         &
 Root mean square gravity wave wind at the emission level &
-lgw\_hines = .TRUE.
 \tabularnewline
 
 \hline
@@ -3647,7 +3661,6 @@ R           &
 5.0e-5      &
 1/m         &
 Typical gravity wave horizontal wavenumber &
-lgw\_hines = .TRUE.
 \tabularnewline
 
 \hline
@@ -3656,7 +3669,49 @@ R           &
 0.0         &
 1/m         &
 Minimum bound in  vertical wavenumber &
-lgw\_hines = .TRUE.
+\tabularnewline
+
+\hline
+lrmscon\_lat &
+L            &
+.FALSE.      &
+             &
+.TRUE.:  use latitude dependent rms wind &
+\tabularnewline
+&&&& - |latitude| >= lat\_rmscon: use rmscon &
+\tabularnewline
+&&&& - |latitude| <= lat\_rmscon\_eq: use rmscon\_eq &
+\tabularnewline
+&&&& - lat\_rmscon\_eq < |latitude| < lat\_rmscon: use linear interpolation between rmscon\_eq and rmscon &
+\tabularnewline
+&&&& .FALSE.: use globally constant rms wind rmscon &
+\tabularnewline
+
+\hline
+lat\_rmscon\_eq &
+R               &
+5.0             &
+deg N           &
+rmscon\_eq is used equatorward of this latitude &
+lrmscon\_lat = .TRUE.
+\tabularnewline
+
+\hline
+lat\_rmscon     &
+R               &
+10.0            &
+deg N           &
+rmscon is used polward of this latitude &
+lrmscon\_lat = .TRUE.
+\tabularnewline
+
+\hline
+rmscon\_eq      &
+R               &
+1.2             &
+m/s             &
+is used equatorward of latitude lat\_rmscon\_eq &
+lrmscon\_lat = .TRUE.
 \tabularnewline
 
 \end{longtab}
