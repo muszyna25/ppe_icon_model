@@ -588,7 +588,7 @@ class Ifs2Icon
   # function for later computation of hydrostatic atmosphere pressure
   PRES_EXPR = lambda {|height| "101325.0*exp((-1)*(1.602769777072154)*log((exp(#{height}/#{SCALEHEIGHT})*213.15+75.0)/288.15))"}
   TEMP_EXPR = lambda {|height| "213.0+75.0*exp(-#{height}/#{SCALEHEIGHT})"}
-  RHO_EXPR  = lambda {|pressure,temperature| "#{pressure}/(#{C_R}/#{temperatur})"}
+  RHO_EXPR  = lambda {|pressure,temperature| "#{pressure}/(#{C_R}*#{temperature})"}
   W_EXPR    = lambda {|omega,rho| "#{omega}/(-#{rho}*#{C_EARTH_GRAV})"}
 
   include Ecmwf2Icon
@@ -1023,12 +1023,14 @@ class Ifs2Icon
     Cdo.expr("'#{presName}=#{PRES_EXPR['geopotheight']}'", :in => intermediateHeight, :out => presFile)
     Cdo.expr("'#{tempName}=#{TEMP_EXPR['geopotheight']}'", :in => intermediateHeight, :out => tempFile)
     # compute the hydrostatic density
-    Cdo.chainCall("setname,#{densityName} -mulc,#{C_R} -div",in: [presFile,tempFile].join(' '), out: densityFile)
+    #Cdo.chainCall("setname,#{densityName} -mulc,#{C_R} -div",in: [presFile,tempFile].join(' '), out: densityFile)
+    Cdo.chainCall("setname,#{densityName} -divc,#{C_R} -div",in: [presFile,tempFile].join(' '), out: densityFile)
     Cdo.merge(in: [intermediateW,densityFile].join(' '),out: tmp)
     # compute vertical velocity in new units
     Cdo.expr("'#{verticalVelocityName}=#{W_EXPR[verticalVelocityName,densityName]}'",in:  tmp, out: intermediateWWithNewUnit)
 
     Cdo.copy(in: intermediateWWithNewUnit, out: 'intermediateVerticalVelocity.nc') if @options[:debug]
+
 
     # add the new vertical velocity to the intermediat file back again
     newIntermediateFile = tfile
