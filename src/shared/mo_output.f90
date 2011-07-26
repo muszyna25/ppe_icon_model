@@ -37,18 +37,19 @@
 !!
 MODULE mo_output
 
-  USE mo_exception,           ONLY: finish, message_text, get_filename_noext
-  USE mo_impl_constants,      ONLY: max_dom, MAX_CHAR_LENGTH
+  USE mo_exception,           ONLY: message_text, get_filename_noext !, finish
+  USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH
   USE mo_kind,                ONLY: wp
   USE mo_mpi,                 ONLY: p_pe, p_io, process_mpi_io_size
   USE mo_io_units,            ONLY: filename_max
-  USE mo_model_domain_import, ONLY: n_dom, nroot, lplane
-  USE mo_ocean_nml,           ONLY: n_zlev
+  USE mo_model_domain_import, ONLY: n_dom !, nroot, lplane
+!  USE mo_ocean_nml,           ONLY: n_zlev
   USE mo_io_config,           ONLY: out_expname
-  USE mo_impl_constants,      ONLY: ihs_atm_temp,         &
-     &                              ihs_atm_theta,        &
-     &                              inh_atmosphere,       &
-     &                              ishallow_water,ihs_ocean
+  USE mo_impl_constants,      ONLY: ihs_ocean !,            &
+!     &                              ihs_atm_temp,         &
+!     &                              ihs_atm_theta,        &
+!     &                              inh_atmosphere,       &
+!     &                              ishallow_water
   USE mo_dynamics_config,     ONLY: iequations, nold, nnow, nnew, nnew_rcf, nnow_rcf 
   USE mo_atmo_control,        ONLY: p_patch
   USE mo_io_vlist,            ONLY: setup_vlist, destruct_vlist,           &

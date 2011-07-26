@@ -95,90 +95,88 @@ MODULE mo_io_vlist
   !
   !
   !
-  USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish, message
-  USE mo_datetime,            ONLY: t_datetime, print_datetime
-  USE mo_impl_constants,      ONLY: max_char_length, max_dom, modelname, &
-    &                               modelversion, icc
-  USE mo_nonhydrostatic_config,ONLY: rayleigh_coeff, damp_height, iadv_rhotheta, &
-    &                               vwind_offctr, igradp_method, exner_expol,   &
-    &                               ltheta_up_hori, ltheta_up_vert,             &
-    &                               gmres_rtol_nh, iadv_rcf, ivctype,           &
-    &                               upstr_beta, l_open_ubc, l_nest_rcf,         &
-    &                               thslp_zdiffu
-  USE mo_impl_constants,      ONLY: ntrac_oce, ihs_atm_temp, ihs_atm_theta,     &
-    &                               inh_atmosphere, ishallow_water,             &
-    &                               inwp, iecham,ildf_echam
-  USE mo_ocean_nml,           ONLY: n_zlev, iforc_oce,no_tracer
-  USE mo_dynamics_config,     ONLY: itime_scheme,iequations,lshallow_water,     &
-    &                               idiv_method, divavg_cntrwgt,                &
-    &                               nold, nnow, lcoriolis
-  USE mo_ha_dyn_config,       ONLY: ha_dyn_config
-  USE mo_diffusion_config,    ONLY: diffusion_config
-  USE mo_io_config,           ONLY: lwrite_omega, lwrite_pres, lwrite_z3,       &
-    &                               lwrite_vorticity, lwrite_divergence,        &
-    &                               lwrite_tend_phy, lwrite_radiation,          &
-    &                               lwrite_precip, lwrite_cloud, lwrite_tracer, &
-    &                               lwrite_tke,  lwrite_surface,                &
-    &                               lwrite_extra, inextra_2d,inextra_3d,        &
-    &                               out_filetype, out_expname,                  &
-    &                               dt_data, dt_file, lkeep_in_sync
-  USE mo_parallel_config,  ONLY: nproma, p_test_run
-  USE mo_extpar_config,       ONLY: itopo
-  USE mo_run_config,          ONLY: num_lev, num_levp1, iforcing, lforcing,     &
-    &                               ntracer, ltransport, nsteps, dtime,         &
-    &                               ldynamics, ltestcase, lvert_nest, msg_level,&
-    &                               iqv, iqc, iqi, iqcond
-  USE mo_grid_config,        ONLY : global_cell_type
+  USE mo_kind,                  ONLY: wp
+  USE mo_exception,             ONLY: finish, message
+  USE mo_datetime,              ONLY: t_datetime, print_datetime
+  USE mo_impl_constants,        ONLY: max_char_length, max_dom, modelname,        &
+    &                                 modelversion, icc
+  USE mo_nonhydrostatic_config, ONLY: rayleigh_coeff, damp_height, iadv_rhotheta, &
+    &                                 vwind_offctr, igradp_method, exner_expol,   &
+    &                                 ltheta_up_hori, ltheta_up_vert,             &
+    &                                 gmres_rtol_nh, iadv_rcf, ivctype,           &
+    &                                 upstr_beta, l_open_ubc, l_nest_rcf
+  USE mo_impl_constants,        ONLY: ntrac_oce, ihs_atm_temp, ihs_atm_theta,     &
+    &                                 inh_atmosphere, ishallow_water,             &
+    &                                 inwp, iecham,ildf_echam
+  USE mo_ocean_nml,             ONLY: n_zlev, iforc_oce,no_tracer
+  USE mo_dynamics_config,       ONLY: itime_scheme,iequations,lshallow_water,     &
+    &                                 idiv_method, divavg_cntrwgt,                &
+    &                                 nold, nnow, lcoriolis
+  USE mo_ha_dyn_config,         ONLY: ha_dyn_config
+  USE mo_diffusion_config,      ONLY: diffusion_config
+  USE mo_io_config,             ONLY: lwrite_omega, lwrite_pres, lwrite_z3,       &
+    &                                 lwrite_vorticity, lwrite_divergence,        &
+    &                                 lwrite_tend_phy, lwrite_radiation,          &
+    &                                 lwrite_precip, lwrite_cloud, lwrite_tracer, &
+    &                                 lwrite_tke,  lwrite_surface,                &
+    &                                 lwrite_extra, inextra_2d,inextra_3d,        &
+    &                                 out_filetype, out_expname,                  &
+    &                                 dt_data, dt_file, lkeep_in_sync
+  USE mo_parallel_config,       ONLY: nproma, p_test_run
+  USE mo_extpar_config,         ONLY: itopo
+  USE mo_run_config,            ONLY: num_lev, num_levp1, iforcing, lforcing,     &
+    &                                 ntracer, ltransport, nsteps, dtime,         &
+    &                                 ldynamics, ltestcase, lvert_nest, msg_level,&
+    &                                 iqv, iqc, iqi, iqcond
+  USE mo_grid_config,           ONLY: global_cell_type
   USE mo_echam_phy_config
-  USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
-  USE mo_advection_config,    ONLY: advection_config
-  USE mo_echam_conv_config,   ONLY: echam_conv_config
-! USE mo_gw_hines_nml,        ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
-  USE mo_vertical_coord_table,ONLY: vct
-  USE mo_model_domain_import, ONLY: start_lev, nroot, n_dom, lfeedback, lplane
-  USE mo_model_domain,        ONLY: t_patch,t_patch_ocean
-  USE mo_physical_constants,  ONLY: grav
-  USE mo_communication,       ONLY: exchange_data, t_comm_pattern
-  USE mo_mpi,                 ONLY: my_process_is_mpi_workroot, my_process_is_stdio, &
-    &  my_process_is_mpi_test, my_process_is_mpi_seq, process_mpi_all_test_id,       &
+  USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
+  USE mo_advection_config,      ONLY: advection_config
+  USE mo_echam_conv_config,     ONLY: echam_conv_config
+! USE mo_gw_hines_nml,          ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
+  USE mo_vertical_coord_table,  ONLY: vct
+  USE mo_model_domain_import,   ONLY: start_lev, nroot, n_dom, lfeedback, lplane
+  USE mo_model_domain,          ONLY: t_patch,t_patch_ocean
+  USE mo_physical_constants,    ONLY: grav
+  USE mo_communication,         ONLY: exchange_data, t_comm_pattern
+  USE mo_mpi,                   ONLY: my_process_is_mpi_workroot, my_process_is_stdio, &
+    &  my_process_is_mpi_test, my_process_is_mpi_seq, process_mpi_all_test_id,         &
     &  process_mpi_all_workroot_id, p_recv, p_send
-  USE mo_icoham_dyn_types,    ONLY: t_hydro_atm_prog, t_hydro_atm_diag
-  USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag
-  USE mo_oce_state,           ONLY: t_hydro_ocean_state, t_hydro_ocean_prog,      &
-       &                            t_hydro_ocean_diag
-  USE mo_oce_forcing,         ONLY: t_ho_sfc_flx
-  USE mo_icoham_dyn_memory,   ONLY: p_hydro_state
-  USE mo_atmo_control,        ONLY: p_patch
-  USE mo_nonhydro_state,      ONLY: p_nh_state
-  USE mo_nwp_lnd_state,       ONLY: p_lnd_state
-  USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag, &
-       &                            prm_diag, prm_nwp_tend
-  USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag
-  USE mo_echam_phy_memory,    ONLY: prm_field, prm_tend
-  USE mo_radiation_config,    ONLY: izenith, irad_h2o,                  &
-    &                               irad_co2, irad_ch4, irad_n2o, irad_o3,      &
-    &                               irad_o2, irad_cfc11, irad_cfc12,  irad_aero
-  USE mo_impl_constants,      ONLY: max_ntracer
-  USE mo_ha_testcases,        ONLY: ctest_name, ihs_init_type, lhs_vn_ptb,      &
-    &                               hs_vn_ptb_scale, lrh_linear_pres,           &
-    &                               rh_at_1000hpa,linit_tracer_fv
-  USE mo_gw_test,             ONLY: gw_brunt_vais, gw_u0,gw_lon_deg, gw_lat_deg
-  USE mo_rh_test,             ONLY: rh_wavenum, rh_init_shift_deg
-  USE mo_jw_test,             ONLY: jw_uptb
-  USE mo_mrw_test,            ONLY: mountctr_lon_deg, mountctr_lat_deg,         &
-    &                               mountctr_height, mount_half_width,          &
-    &                               mount_u0
-  USE mo_nh_testcases,        ONLY: nh_test_name, mount_height,                 &
-    &                               torus_domain_length, nh_brunt_vais, nh_u0,  &
-    &                               nh_t0, layer_thickness, jw_up,&
-    &                               u0_mrw, mount_height_mrw,                   &
-    &                               mount_lonctr_mrw_deg, mount_latctr_mrw_deg, &
-    &                               p_int_mwbr_const, temp_i_mwbr_const,        &
-    &                               bruntvais_u_mwbr_const, u0_mwbr_const,      &
-    &                               rotate_axis_deg, lhs_nh_vn_ptb,             &
-    &                               hs_nh_vn_ptb_scale, qv_max, ape_sst_case
-    !&                              mount_half_width,rh_at_1000hpa,linit_tracer_fv
+  USE mo_icoham_dyn_types,      ONLY: t_hydro_atm_prog, t_hydro_atm_diag
+  USE mo_nonhydro_state,        ONLY: t_nh_prog, t_nh_diag
+  USE mo_oce_state,             ONLY: t_hydro_ocean_state, t_hydro_ocean_prog,    &
+       &                              t_hydro_ocean_diag
+  USE mo_oce_forcing,           ONLY: t_ho_sfc_flx
+  USE mo_icoham_dyn_memory,     ONLY: p_hydro_state
+  USE mo_atmo_control,          ONLY: p_patch
+  USE mo_nonhydro_state,        ONLY: p_nh_state
+  USE mo_nwp_lnd_state,         ONLY: p_lnd_state
+  USE mo_nwp_phy_state,         ONLY: prm_diag, prm_nwp_tend !, t_nwp_phy_diag
+  USE mo_nwp_lnd_state,         ONLY: t_lnd_prog, t_lnd_diag
+  USE mo_echam_phy_memory,      ONLY: prm_field, prm_tend
+  USE mo_radiation_config,      ONLY: izenith, irad_h2o,                          &
+    &                                 irad_co2, irad_ch4, irad_n2o, irad_o3,      &
+    &                                 irad_o2, irad_cfc11, irad_cfc12,  irad_aero
+  USE mo_impl_constants,        ONLY: max_ntracer
+  USE mo_ha_testcases,          ONLY: ctest_name, ihs_init_type, lhs_vn_ptb,      &
+    &                                 hs_vn_ptb_scale, lrh_linear_pres,           &
+    &                                 rh_at_1000hpa,linit_tracer_fv
+  USE mo_gw_test,               ONLY: gw_brunt_vais, gw_u0,gw_lon_deg, gw_lat_deg
+  USE mo_rh_test,               ONLY: rh_wavenum, rh_init_shift_deg
+  USE mo_jw_test,               ONLY: jw_uptb
+  USE mo_mrw_test,              ONLY: mountctr_lon_deg, mountctr_lat_deg,         &
+    &                                 mountctr_height, mount_half_width,          &
+    &                                 mount_u0
+  USE mo_nh_testcases,          ONLY: nh_test_name, mount_height,                 &
+    &                                 torus_domain_length, nh_brunt_vais, nh_u0,  &
+    &                                 nh_t0, jw_up,                               &
+    &                                 u0_mrw, mount_height_mrw,                   &
+    &                                 mount_lonctr_mrw_deg, mount_latctr_mrw_deg, &
+    &                                 p_int_mwbr_const, temp_i_mwbr_const,        &
+    &                                 bruntvais_u_mwbr_const, u0_mwbr_const,      &
+    &                                 rotate_axis_deg, lhs_nh_vn_ptb,             &
+    &                                 hs_nh_vn_ptb_scale, qv_max, ape_sst_case
+    !&                                mount_half_width,rh_at_1000hpa,linit_tracer_fv
 
   IMPLICIT NONE
 

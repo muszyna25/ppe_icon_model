@@ -40,8 +40,7 @@
 MODULE mo_nwp_gw_interface
 
   USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: message, message_text, finish
-  USE mo_mpi,                  ONLY: p_pe
+  USE mo_exception,            ONLY: message
 
   USE mo_model_domain,         ONLY: t_patch
 
@@ -53,11 +52,9 @@ MODULE mo_nwp_gw_interface
   USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag,&
     &                                t_nh_metrics
   USE mo_vertical_grid,        ONLY: nrdmax_u
-  USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag,prm_diag,&
-    &                                t_nwp_phy_tend
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
+  USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: msg_level
-!   USE mo_atm_phy_nwp_nml,     ONLY: inwp_sso , inwp_gwd
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_sso_cosmo,            ONLY: sso
   USE mo_gwd_wms,              ONLY: gwdrag_wms

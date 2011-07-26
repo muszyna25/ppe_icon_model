@@ -49,8 +49,7 @@ MODULE mo_nh_held_suarez_interface
                                       & held_suarez_forcing_vn
   USE mo_nh_diagnose_pres_temp, ONLY: diagnose_pres_temp
   USE mo_physical_constants,    ONLY: rd_o_cpd
-  USE mo_exception,             ONLY: finish
-  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH
+!!$  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH
   USE mo_nh_testcases,          ONLY: lhs_fric_heat
 
   IMPLICIT NONE

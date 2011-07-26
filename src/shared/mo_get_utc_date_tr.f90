@@ -90,7 +90,7 @@ CONTAINS
       idd, imm, iyy, ihh, iday, imonth, ihour, immhours, iyyhours, &
       iyear_hours
 
-    CHARACTER (LEN=3)            :: yweek(7)
+!!$    CHARACTER (LEN=3)            :: yweek(7)
 
     ! And for computing the amount of seconds of the whole forecast time,
     ! an 8-Byte INTEGER has to be used. Otherwise the computation fails after
@@ -103,8 +103,8 @@ CONTAINS
     ! Begin subroutine get_utc_date
 
     DATA         month  / 31 ,  28 ,  31 ,  30 ,  31 ,  30 ,       &
-      31 ,  31 ,  30 ,  31 ,  30 ,  31 /
-    DATA         yweek  /'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN' /
+      &                   31 ,  31 ,  30 ,  31 ,  30 ,  31 /
+!!$    DATA         yweek  /'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN' /
 
 
     ! Statementfunction: ileap(yy) = 0:  no leap year,

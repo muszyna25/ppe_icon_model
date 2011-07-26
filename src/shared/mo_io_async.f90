@@ -63,15 +63,15 @@ MODULE mo_io_async
   USE mo_mpi,                 ONLY: p_pe, p_bcast, p_barrier, p_stop, p_real_dp, p_send, &
     & p_recv, my_process_is_mpi_test, p_pe_work, p_work_pe0, p_io_pe0, num_work_procs
   USE mo_parallel_config,  ONLY: pio_type
-  USE mo_nonhydrostatic_config, ONLY: ivctype, iadv_rcf
+  USE mo_nonhydrostatic_config, ONLY: ivctype !, iadv_rcf
 !  USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
 !  USE mo_diffusion_nml,       ONLY: diffusion_nml_setup
 !  USE mo_io_nml,              ONLY: io_nml_setup
   USE mo_io_config            
-  USE mo_dynamics_config,     ONLY: iequations 
-  USE mo_run_config,          ONLY: ldump_states, ltransport, lforcing, num_lev, iforcing, nlev,&
-    &                               ltestcase, dtime
-  USE mo_atm_phy_nwp_config, ONLY: configure_atm_phy_nwp
+  USE mo_dynamics_config,     ONLY: iequations
+  USE mo_run_config,          ONLY: ldump_states, num_lev, iforcing!, ltransport, nlev ,&
+!    &                               ltestcase , dtime
+!  USE mo_atm_phy_nwp_config, ONLY: configure_atm_phy_nwp
   USE mo_io_units,            ONLY: filename_max
   USE mo_communication,       ONLY: idx_no, blk_no
   USE mo_io_vlist,            ONLY: GATHER_C, GATHER_E, GATHER_V,                                &

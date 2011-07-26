@@ -54,7 +54,7 @@ MODULE mo_event_manager
   USE mo_datetime, ONLY : t_datetime, add_time
 #ifndef NOMPI
 !   USE mpi, ONLY         : MPI_Abort
-  USE mo_icon_cpl, ONLY : initial_date, ICON_COMM
+  USE mo_icon_cpl, ONLY : initial_date !, ICON_COMM
 #else
   USE mo_icon_cpl, ONLY : initial_date
 #endif

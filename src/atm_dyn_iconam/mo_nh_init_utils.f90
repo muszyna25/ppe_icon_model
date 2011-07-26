@@ -37,35 +37,34 @@
 !!
 MODULE mo_nh_init_utils
 
-  USE mo_kind,                ONLY: wp
-  USE mo_model_domain,        ONLY: t_patch
-  USE mo_nonhydro_state,      ONLY: t_nh_metrics
-  USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: msg_level
-  USE mo_dynamics_config,     ONLY: iequations
-  USE mo_parallel_config,     ONLY: p_test_run
-  USE mo_physical_constants,  ONLY: grav, cpd, rd, cvd_o_rd, p0ref, vtmpc1
-  USE mo_vertical_coord_table,ONLY: vct_a, vct_b, vct, read_vct
-  USE mo_nonhydrostatic_config,ONLY: ivctype
-  USE mo_sleve_config,        ONLY: min_lay_thckn, top_height, decay_scale_1, &
-                                    decay_scale_2, decay_exp, flat_height, stretch_fac
-  USE mo_impl_constants,      ONLY: max_dom, SUCCESS, min_rlcell, min_rlcell_int, &
-                                    min_rlvert, min_rlvert_int
-  USE mo_grf_nudgintp,        ONLY: interpol_scal_nudging
-  USE mo_grf_bdyintp,         ONLY: interpol_scal_grf
-  USE mo_math_constants,      ONLY: pi
-  USE mo_exception,           ONLY: message, message_text, finish
-  USE mo_mpi,                 ONLY: p_pe,my_process_is_mpi_parallel
-  USE mo_communication,       ONLY: exchange_data, exchange_data_mult
-  USE mo_sync,                ONLY: sync_patch_array, SYNC_C, SYNC_V
-  USE mo_interpolation,       ONLY: t_int_state, cells2verts_scalar, edges2cells_scalar
-  USE mo_grf_interpolation,   ONLY: t_gridref_state, t_gridref_single_state 
-  USE mo_math_operators,      ONLY: nabla2_scalar, grad_fd_norm
-  USE mo_loopindices,         ONLY: get_indices_c, get_indices_v, get_indices_e
-  USE mo_interpol_config,     ONLY: nudge_zone_width
-  USE mo_impl_constants_grf,  ONLY: grf_fbk_start_c, grf_bdywidth_c
-  USE mo_subdivision,         ONLY: p_grf_state_local_parent, p_patch_local_parent, &
-                                    p_int_state_local_parent
+  USE mo_kind,                  ONLY: wp
+  USE mo_model_domain,          ONLY: t_patch
+  USE mo_nonhydro_state,        ONLY: t_nh_metrics
+  USE mo_parallel_config,       ONLY: nproma
+  USE mo_run_config,            ONLY: msg_level
+  USE mo_dynamics_config,       ONLY: iequations
+  USE mo_physical_constants,    ONLY: grav, cpd, rd, cvd_o_rd, p0ref, vtmpc1
+  USE mo_vertical_coord_table,  ONLY: vct_a, vct_b, vct, read_vct
+  USE mo_nonhydrostatic_config, ONLY: ivctype
+  USE mo_sleve_config,          ONLY: min_lay_thckn, top_height, decay_scale_1, &
+                                      decay_scale_2, decay_exp, flat_height, stretch_fac
+  USE mo_impl_constants,        ONLY: max_dom, SUCCESS, min_rlcell, min_rlcell_int, &
+                                      min_rlvert, min_rlvert_int
+  USE mo_grf_nudgintp,          ONLY: interpol_scal_nudging
+  USE mo_grf_bdyintp,           ONLY: interpol_scal_grf
+  USE mo_math_constants,        ONLY: pi
+  USE mo_exception,             ONLY: message, message_text, finish
+  USE mo_mpi,                   ONLY: my_process_is_mpi_parallel !,p_pe
+  USE mo_communication,         ONLY: exchange_data
+  USE mo_sync,                  ONLY: sync_patch_array, SYNC_C, SYNC_V
+  USE mo_interpolation,         ONLY: t_int_state, cells2verts_scalar, edges2cells_scalar
+  USE mo_grf_interpolation,     ONLY: t_gridref_state, t_gridref_single_state 
+  USE mo_math_operators,        ONLY: nabla2_scalar, grad_fd_norm
+  USE mo_loopindices,           ONLY: get_indices_c, get_indices_v, get_indices_e
+  USE mo_interpol_config,       ONLY: nudge_zone_width
+  USE mo_impl_constants_grf,    ONLY: grf_fbk_start_c, grf_bdywidth_c
+  USE mo_subdivision,           ONLY: p_grf_state_local_parent, p_patch_local_parent, &
+                                      p_int_state_local_parent
 
 
   IMPLICIT NONE

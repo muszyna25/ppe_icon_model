@@ -54,19 +54,19 @@ MODULE mo_oce_forcing
 !-------------------------------------------------------------------------
 !
 USE mo_kind,                ONLY: wp
-USE mo_parallel_config,  ONLY: nproma
+USE mo_parallel_config,     ONLY: nproma
 USE mo_ocean_nml,           ONLY: iforc_oce, no_tracer,itestcase_oce, &
-  &                              basin_center_lat, basin_center_lon,  &
-  &                              basin_width_deg, basin_height_deg  
+  &                               basin_center_lat,                   &
+  &                               basin_width_deg, basin_height_deg  
 USE mo_dynamics_config,     ONLY: nold 
 USE mo_model_domain,        ONLY: t_patch
 USE mo_oce_state,           ONLY: t_hydro_ocean_state
 USE mo_exception,           ONLY: finish, message !, message_text
 USE mo_math_constants,      ONLY: pi, deg2rad
 USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, &
-  &                               sea_boundary, analyt_stat !,             &
-! &                               land, sea, boundary,                     &
-! &                               min_rlcell, min_rledge, min_rlvert,      &
+  &                               sea_boundary, analyt_stat !,          &
+! &                               land, sea, boundary,                  &
+! &                               min_rlcell, min_rledge, min_rlvert
 USE mo_loopindices,         ONLY: get_indices_c
 USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec
 IMPLICIT NONE

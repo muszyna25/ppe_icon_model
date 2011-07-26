@@ -70,8 +70,7 @@ MODULE mo_advection_stepping
   USE mo_math_operators,      ONLY: div
   USE mo_interpolation,       ONLY: t_int_state
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: ntracer, ltimer, iforcing, iqv
-  USE mo_nonhydrostatic_config,ONLY: iadv_rcf
+  USE mo_run_config,          ONLY: ntracer, ltimer, iforcing
   USE mo_advection_hflux,     ONLY: hor_upwind_flux
   USE mo_advection_vflux,     ONLY: vert_upwind_flux
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
@@ -82,7 +81,7 @@ MODULE mo_advection_stepping
   USE mo_sync,                ONLY: SYNC_C, sync_patch_array_mult
   USE mo_advection_config,    ONLY: advection_config
   USE mo_advection_utils,     ONLY: ptr_delp_mc_now, ptr_delp_mc_new
-  USE mo_model_domain_import, ONLY: l_limited_area, lfeedback
+  USE mo_model_domain_import, ONLY: l_limited_area
 
   IMPLICIT NONE
 

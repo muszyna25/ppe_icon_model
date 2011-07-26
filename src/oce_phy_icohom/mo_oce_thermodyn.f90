@@ -50,11 +50,10 @@ MODULE mo_oce_thermodyn
 !
 !
 USE mo_kind,                ONLY: wp
-USE mo_ocean_nml,           ONLY: n_zlev, t_ref, s_ref
+USE mo_ocean_nml,           ONLY: n_zlev !, t_ref, s_ref
 USE mo_model_domain,        ONLY: t_patch
-USE mo_impl_constants,      ONLY: min_rlcell,sea_boundary, sea_boundary
-!   &                               toplev
-! &                               success, max_char_length,                &
+USE mo_impl_constants,      ONLY: min_rlcell,sea_boundary, sea_boundary !, &
+!  &                               toplev, success, max_char_length
 !USE mo_exception,           ONLY: message, finish
 USE mo_loopindices,         ONLY: get_indices_c!, get_indices_e, get_indices_v
 USE mo_oce_physics,          ONLY: t_ho_params!params_oce

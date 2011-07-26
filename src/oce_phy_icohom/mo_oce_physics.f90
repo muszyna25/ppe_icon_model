@@ -57,12 +57,12 @@ USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_
 USE mo_parallel_config,  ONLY: nproma
 USE mo_model_domain,        ONLY: t_patch
 USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, &!! min_rledge, min_rlvert,      &
- &                               land, sea_boundary    
+  &                               sea_boundary    
 USE mo_exception,           ONLY: message, finish
 USE mo_oce_state,           ONLY: t_hydro_ocean_state!, t_hydro_ocean_diag
-USE mo_physical_constants,  ONLY: grav
+!USE mo_physical_constants,  ONLY: grav
 USE mo_loopindices,         ONLY: get_indices_c
-USE mo_math_constants,      ONLY: pi 
+!USE mo_math_constants,      ONLY: pi 
 IMPLICIT NONE
 
 

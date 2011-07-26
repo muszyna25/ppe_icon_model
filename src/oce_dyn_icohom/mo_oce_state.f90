@@ -51,21 +51,20 @@ MODULE mo_oce_state
 !
 !
   USE mo_kind,                ONLY: wp
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_parallel_config,     ONLY: nproma
   USE mo_impl_constants,      ONLY: success, max_char_length, &
-    & min_rledge, min_rlcell, boundary, sea, ntrac_oce
-  USE mo_ocean_nml,           ONLY: n_zlev, t_ref, s_ref
+    &                               min_rledge, min_rlcell, boundary, ntrac_oce !, sea
+  USE mo_ocean_nml,           ONLY: n_zlev
   USE mo_exception,           ONLY: message, finish
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: n_dom
   USE mo_math_utilities,      ONLY: t_cartesian_coordinates
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c
 
-  USE mo_linked_list,  ONLY: t_var_list
-  USE mo_var_list,     ONLY: default_var_list_settings, &
-                           & add_var,                   &
-                           & new_var_list,              &
-                           & delete_var_list
+  USE mo_linked_list,         ONLY: t_var_list
+  USE mo_var_list,            ONLY: add_var,                  &
+    &                               new_var_list,             &
+    &                               delete_var_list
   USE mo_cf_convention
   USE mo_grib2
   USE mo_cdi_constants

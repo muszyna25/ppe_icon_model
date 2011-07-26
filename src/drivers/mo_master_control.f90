@@ -43,27 +43,26 @@ MODULE mo_master_control
 !
 !-------------------------------------------------------------------------
 
-  USE mo_exception,  ONLY: warning, message, finish
-  USE mo_mpi,        ONLY: set_process_mpi_name, get_my_global_mpi_id, &
-    &                      set_process_mpi_communicator
+  USE mo_exception,          ONLY: message, finish
+  USE mo_mpi,                ONLY: set_process_mpi_name, get_my_global_mpi_id, &
+    &                              set_process_mpi_communicator
 
-  USE mo_icon_cpl,   ONLY: get_cpl_local_comm, complist
-  USE mo_icon_cpl_init, ONLY: icon_cpl_init
+  USE mo_icon_cpl,           ONLY: get_cpl_local_comm, complist
+  USE mo_icon_cpl_init,      ONLY: icon_cpl_init
   USE mo_icon_cpl_init_comp, ONLY: icon_cpl_init_comp
 
-  USE mo_io_units,    ONLY: filename_max, nnml
+  USE mo_io_units,           ONLY: filename_max
   
-  USE mo_master_nml,  ONLY: read_master_namelist,           &
-    & l_atmo_active, atmo_name, atmo_namelist_filename,     &
-    & atmo_min_rank, atmo_max_rank, atmo_inc_rank,          &
-    & l_ocean_active, ocean_name, ocean_namelist_filename,  &
-    & ocean_min_rank, ocean_max_rank, ocean_inc_rank,       &
-    & lrestart
+  USE mo_master_nml,         ONLY: read_master_namelist,                                 &
+    &                              l_atmo_active, atmo_name, atmo_namelist_filename,     &
+    &                              atmo_min_rank, atmo_max_rank, atmo_inc_rank,          &
+    &                              l_ocean_active, ocean_name, ocean_namelist_filename,  &
+    &                              ocean_min_rank, ocean_max_rank, ocean_inc_rank,       &
+    &                              lrestart
     
-  
-  USE mo_coupling_nml, ONLY: read_coupling_namelist
+  !USE mo_coupling_nml,       ONLY: read_coupling_namelist
 
-  USE mo_namelist,     ONLY: open_nml,  close_nml
+  !USE mo_namelist,           ONLY: open_nml,  close_nml
 
   IMPLICIT NONE
 

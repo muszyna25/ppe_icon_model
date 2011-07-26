@@ -88,11 +88,11 @@ MODULE mo_cufunctions
   
   
   USE mo_cuparameters, ONLY: r2es, r3les, r3ies, r4les, r4ies,   &
-    & r5alvcp, r5alscp, r5les, r5ies,          &
+    & r5alvcp, r5alscp, &!r5les, r5ies,          &
     & ralvdcp, ralsdcp, rtice, rtwat,          &
     & rtwat_rtice_r,rticecu,rtwat_rticecu_r,   &
-    & rcdhalf, rcdhpi2, rcheta, rchetb, rchbb, &
-    & rchbcd,  rchbd,   rchb23a,rchbbcd,rchba, &
+!    & rcdhalf, rcdhpi2, rcheta, rchetb, rchbb, &
+!    & rchbcd,  rchbd, rchb23a, rchbbcd, rchba, &
     & njkt1, njkt2,                            &
     & retv     ,rlvtt    ,rlstt    ,rtt,&
     & rd       ,rkappa   ,ratm ,               &
