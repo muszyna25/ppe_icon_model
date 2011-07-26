@@ -200,8 +200,8 @@ class PreProcOptions
       end
 
       # Optional argument with keyword completion.
-      opts.on("-t", "--interpolation-type [TYPE]", [:simple, :bilinear, :bicubic],
-              "Select interpolation type (simple, bilinear, bicubic)") do |t|
+      opts.on("-t", "--interpolation-type [TYPE]", [:simple, :bilinear, :bicubic, :horizontal_only],
+              "Select interpolation type (simple,bilinear,bicubic,horizontal_only)") do |t|
         options[:interpolation_type] = t
       end
       # Optional argument with keyword completion.
@@ -588,7 +588,21 @@ class Ifs2Icon
   def run
     readVars
 
-    computeOutputVars
+    Dbg.msg("Start computing output variables",false,@options[:debug])
+    Dbg.msg("Do only remapping of the required output varialbes if they are present in the input file",
+            @options[:verbose],@options[:debug])
+
+    horizontalInterpolation
+
+    if @options[:interpolation_type].to_s == "horizontal_only"
+      # merge all horizontal interpolations together
+      Dbg.msg("Creating output with horizontal interpolation only!",true,true)
+      Dbg.msg("Compining files into output file '#{@ofile}'",@options[:verbose], @options[:debug])
+      Cdo.merge(:in => @outvars.values.join(" "),:out => @ofile)
+      exit
+    else
+      verticalInterpolation
+    end
 
     applyLSM
 
@@ -647,17 +661,6 @@ class Ifs2Icon
     @lock.synchronize {@invars[var] = varfile}
   end
 
-  # Main method for setting the preprocessing output
-  def computeOutputVars
-    Dbg.msg("Start computing output variables",false,@options[:debug])
-    Dbg.msg("Do only remapping of the required output varialbes if they are present in the input file",
-            @options[:verbose],@options[:debug])
-
-    horizontalInterpolation
-
-    verticalInterpolation
-  end
-
   def horizontalInterpolation
     ths = []
     @outvars.each_key {|ovar|
@@ -690,7 +693,7 @@ class Ifs2Icon
     Dbg.msg("Compining files into output file '#{intermediateFile}'",@options[:verbose], @options[:debug])
     Dbg.msg(@outvars.keys.join(" "),@options[:verbose], @options[:debug])
     Cdo.merge(:in => @outvars.values.join(" "),:out => intermediateFile)
-    case @options[:model_type] 
+    case @options[:model_type]
     when 'hydrostatic'
       # perform vertical interpolation wrt. original surface pressure and orography
       Cdo.remapeta(@options[:vctfile],@options[:orofile],:in => intermediateFile,:out => hybridlayerfile)
@@ -715,8 +718,8 @@ class Ifs2Icon
     end
   end
 
-  def writeOutput
-    Cdo.copy(:in => @_preout,:out => @ofile)
+  def writeOutput(ofile=@ofile)
+    Cdo.copy(:in => @_preout,:out => ofile)
   end
 
   # create a file for a given varriable on a certain grid
