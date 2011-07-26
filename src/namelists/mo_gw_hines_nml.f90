@@ -66,38 +66,41 @@ MODULE mo_gw_hines_nml
                             !< false: compute only momentum flux deposition
 
   INTEGER  :: emiss_lev     !< number of levels above the ground at which gw are emitted
-  REAL(wp) :: rmscon        !< root mean square gravity wave wind at lowest level (m/s)
-  REAL(wp) :: kstar         !< typical gravity wave horizontal wavenumber (1/m)
-  REAL(wp) :: m_min         !< minimum bound in  vertical wavenumber (1/m)
+  REAL(wp) :: rmscon        !< [m/s] root mean square gravity wave wind at lowest level
+  REAL(wp) :: kstar         !< [1/m] typical gravity wave horizontal wavenumber
+  REAL(wp) :: m_min         !< [1/m] minimum bound in  vertical wavenumber
 
 !!$  LOGICAL  :: lfront        !< true: compute gw sources emerging from fronts and background
 !!$                            !< (Charron and Manzini, 2002)
-!!$  REAL(wp) :: rms_front     !< rms frontal gw wind at source level  (m/s)
-!!$  REAL(wp) :: front_thres   !< minimum value of the frontogenesis function, for which
-!!$                            !< gravity waves are emitted from fronts [(K/m)^2/hour]
+!!$  REAL(wp) :: rms_front     !< [m/s] rms frontal gw wind at source level
+!!$  REAL(wp) :: front_thres   !< [(K/m)^2/hr] minimum value of the frontogenesis function,
+!!$                            !< for which gravity waves are emitted from fronts
 !!$
 !!$  LOGICAL  :: lozpr         !< true: for background enhancement associated with precipitation
 !!$                            !< (Manzini et al., 1997)
-!!$  REAL(wp) :: pcrit         !< critical precipitation value (mm/d), above which 
+!!$  REAL(wp) :: pcrit         !< [mm/d] critical precipitation value, above which 
 !!$                            !< gravity wave rms wind enhancement is applied
-!!$  REAL(wp) :: pcons         !< adimensional factor for background enhancement 
+!!$  REAL(wp) :: pcons         !< [] adimensional factor for background enhancement 
 !!$                            !< associated with precipitation
-!!$
-!!$  LOGICAL  :: lrmscon_lat   !< true:   use latitude dependent rmscon as defined
-!!$                            !< through rmscon_lo, rmscon_hi, lat_rmscon_lo, and lat_rmscon_hi
-!!$                            !< false:  use uniform rmscon
-!!$                            !< attention: may be overwritten if lfront or lozpr is true
-!!$  REAL(wp) :: lat_rmscon_lo !< rmscon_lo is used equatorward of this latitude (degN)
-!!$  REAL(wp) :: lat_rmscon_hi !< rmscon_hi is used poleward of this latitude (degN)
-!!$  REAL(wp) :: rmscon_lo     !< rmscon used equatorward of lat_rmscon_lo
-!!$  REAL(wp) :: rmscon_hi     !< rmscon used poleward of lat_rmscon_hi
+
+  LOGICAL  :: lrmscon_lat   !< true:  use latitude dependent rmscon
+                            !< - |latitude| >= lat_rmscon:
+                            !<      use rmscon
+                            !< - |latitude| <= lat_rmscon_eq:
+                            !<      use rmscon_eq
+                            !< - lat_rmscon_eq < |latitude| < lat_rmscon: 
+                            !<      use linear interpolation between rmscon_eq and rmscon
+                            !< false: use rmscon for all latitudes
+                            !< attention: may be overwritten if lfront or lozpr is true
+  REAL(wp) :: lat_rmscon_eq !< [degN] rmscon_tro is used equatorward of this latitude
+  REAL(wp) :: lat_rmscon    !< [degN] rmscon is used poleward of this latitude
+  REAL(wp) :: rmscon_eq     !< [m/s]  rmscon used equatorward of lat_rmscon_eq
 
 
-NAMELIST /gw_hines_nml/ &
-  & lheatcal, rmscon, emiss_lev, kstar, m_min !!$,                    &
-!!$  & lfront, rms_front, front_thres,                                &
-!!$  & lozpr, pcrit, pcons,                                           &
-!!$  & lrmscon_lat, lat_rmscon_lo, lat_rmscon_hi, rmscon_lo, rmscon_hi
+NAMELIST /gw_hines_nml/ lheatcal, rmscon, emiss_lev, kstar, m_min,         &
+!!$  &                     lfront, rms_front, front_thres,                    &
+!!$  &                     lozpr, pcrit, pcons,                               &
+  &                     lrmscon_lat, lat_rmscon_eq, lat_rmscon, rmscon_eq
 
 CONTAINS
 
@@ -130,12 +133,17 @@ CONTAINS
     !-----------------------
     ! 1. default settings   
     !-----------------------
-    lheatcal = .FALSE.
+    lheatcal      = .FALSE.
 
-    emiss_lev = 10          ! is correct for L31 and L47
-    rmscon    = 1.0_wp      ! default value used in ECHAM5
-    kstar     = 5.0e-5_wp   ! = 2*pi/(126000 m)
-    m_min     = 0.0_wp
+    emiss_lev     = 10         ! is correct for L31 and L47
+    rmscon        = 1.0_wp     ! default value used in ECHAM5
+    kstar         = 5.0e-5_wp  ! = 2*pi/(126000 m)
+    m_min         = 0.0_wp
+
+    lrmscon_lat   = .FALSE.    ! ICON default: no latitude dependence
+    lat_rmscon_eq =  5.0_wp    ! as in ECHAM6 T63
+    lat_rmscon    = 10.0_wp    ! as in ECHAM6 T63
+    rmscon_eq     = 1.2_wp     ! as in ECHAM6 T63
 
     !------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
@@ -162,10 +170,25 @@ CONTAINS
     !----------------------------------------------------
     ! 4. Sanity Check
     !----------------------------------------------------
-    IF ( emiss_lev < 0 )   CALL finish( TRIM(routine), 'emiss_lev < 0 is not allowed')
-    IF ( rmscon < 0.0_wp ) CALL finish( TRIM(routine), 'rmscon < 0. is not allowed')
-    IF ( kstar  < 0.0_wp ) CALL finish( TRIM(routine), 'kstar  < 0. is not allowed')
-    IF ( m_min  < 0.0_wp ) CALL finish( TRIM(routine), 'm_min  < 0. is not allowed')
+    IF ( emiss_lev < 0 )   CALL finish(TRIM(routine),'emiss_lev < 0 is not allowed')
+    IF ( rmscon < 0.0_wp ) CALL finish(TRIM(routine),'rmscon < 0. is not allowed')
+    IF ( kstar  < 0.0_wp ) CALL finish(TRIM(routine),'kstar  < 0. is not allowed')
+    IF ( m_min  < 0.0_wp ) CALL finish(TRIM(routine),'m_min  < 0. is not allowed')
+
+    IF ( lrmscon_lat ) THEN
+      !
+      CALL finish(TRIM(routine),'lrmscon_lat = .TRUE. not yet allowed')
+      !
+      IF ( ABS(lat_rmscon_eq) > 90.0_wp ) &
+        & CALL finish(TRIM(routine),'|lat_rmscon_eq| > 90. degN is not valid')
+      IF ( ABS(lat_rmscon)    > 90.0_wp ) &
+        & CALL finish(TRIM(routine),'|lat_rmscon| > 90. degN is not valid')
+      IF ( ABS(lat_rmscon_eq) > ABS(lat_rmscon) ) &
+        & CALL finish(TRIM(routine),'|lat_rmscon_eq| > |lat_rmscon| is not allowed')
+      IF ( rmscon_eq < 0.0_wp ) &
+        & CALL finish(TRIM(routine),'rmscon_eq < 0. is not allowed')
+      !
+    END IF
 
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
@@ -184,11 +207,18 @@ CONTAINS
     !----------------------------------------------------
 
     DO jg = 1,max_dom
-      gw_hines_config(jg)%lheatcal  = lheatcal
-      gw_hines_config(jg)%emiss_lev = emiss_lev
-      gw_hines_config(jg)%rmscon    = rmscon
-      gw_hines_config(jg)%kstar     = kstar
-      gw_hines_config(jg)%m_min     = m_min
+      
+      gw_hines_config(jg) %lheatcal      = lheatcal
+      gw_hines_config(jg) %emiss_lev     = emiss_lev
+      gw_hines_config(jg) %rmscon        = rmscon
+      gw_hines_config(jg) %kstar         = kstar
+      gw_hines_config(jg) %m_min         = m_min
+
+      gw_hines_config(jg) %lrmscon_lat   = lrmscon_lat
+      gw_hines_config(jg) %lat_rmscon_eq = lat_rmscon_eq
+      gw_hines_config(jg) %lat_rmscon    = lat_rmscon
+      gw_hines_config(jg) %rmscon_eq     = rmscon_eq
+
     ENDDO
 
   END SUBROUTINE read_gw_hines_namelist
