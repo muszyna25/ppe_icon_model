@@ -726,7 +726,8 @@ MODULE mo_nonhydro_state
     ! Tracer array for (model) internal use
 
     ! tracer         p_prog%tracer(nproma,nlev,nblks_c,ntracer+ntracer_static)
-    IF ( (ltransport .OR. iforcing == inwp) .AND. l_alloc_tracer  ) THEN
+    IF ( ntracer > 0 .AND. l_alloc_tracer  ) THEN
+
       cf_desc    = t_cf_var('tracer', 'kg kg-1', 'tracer')
       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_prog_list, 'tracer', p_prog%tracer,                       &
@@ -735,7 +736,7 @@ MODULE mo_nonhydro_state
                   & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
 
 
-      IF (  iforcing == inwp ) THEN
+      IF (  iforcing == inwp  ) THEN
 
       ! Reference to individual tracer, for I/O
 
@@ -795,7 +796,7 @@ MODULE mo_nonhydro_state
         ENDIF
 
       ENDIF ! iforcing
-    ENDIF ! ltransport or iforcing
+    ENDIF ! ktracer
     !
     ! variables defined at half levels 
     !
@@ -1533,7 +1534,9 @@ MODULE mo_nonhydro_state
     !
     ! tracers
     !
-    IF ( ltransport ) THEN
+!    IF ( ltransport ) THEN
+    IF ( ntracer >0 ) THEN
+
       ! grf_tend_tracer   p_diag%grf_tend_tracer(nproma,nlev,nblks_c,ntracer)
       !
       cf_desc    = t_cf_var('tracer_tendency', 'kg kg-1 s-1',                   &

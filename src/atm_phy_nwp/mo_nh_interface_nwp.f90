@@ -800,34 +800,7 @@ CONTAINS
 &              qc_tot = prm_diag%tot_cld     (:,:,jb,iqc) ,       & !! out: clw      -"-
 &              qi_tot = prm_diag%tot_cld     (:,:,jb,iqi) )         !! out: ci       -"-
           IF (timers_level > 2) CALL timer_stop(timer_cover_koe)
-!#else
-!          IF (timers_level > 2) CALL timer_start(timer_cover_koe)
-!          CALL cover_koe &
-!&             (kidia  = i_startidx ,   kfdia  = i_endidx  ,       & !! in:  horizonal begin, end indices
-!&              klon = nproma,  kstart = kstart_moist(jg)  ,       & !! in:  horiz. and vert. vector length
-!&              klev   = nlev, icldscheme = inwp_cldcover  ,       & !! in:  cloud cover option
-!&              tt     = pt_diag%temp         (1,1,jb)     ,       & !! in:  temperature at full levels
-!&              pp     = pt_diag%pres         (1,1,jb)     ,       & !! in:  pressure at full levels
-!&              ps     = pt_diag%pres_sfc     (1,jb)       ,       & !! in:  surface pressure at full levels
-!&              t_g    = lnd_prog_now%t_g     (1,jb)       ,       & !! in:  surface temperature  
-!&              pgeo   = p_metrics%geopot_agl (1,1,jb)     ,       & !! in:  geopotential height
-!&              rho    = pt_prog%rho          (1,1,jb  )   ,       & !! in:  density
-!&              rcld   = rcld                              ,       & !! in:  standard deviation of saturation deficit
-!&              ldland = landseemask          (1,jb)       ,       & !! in:  land/sea mask
-!&              ldcum  = prm_diag%locum       (1,jb)       ,       & !! in:  convection on/off
-!&              kcbot  = prm_diag%mbas_con    (1,jb)       ,       & !! in:  convective cloud base
-!&              kctop  = prm_diag%mtop_con    (1,jb)       ,       & !! in:  convective cloud top
-!&              pmfude_rate = prm_diag%con_udd(1,1,jb,3)   ,       & !! in:  convective updraft detrainment rate
-!&              plu         = prm_diag%con_udd(1,1,jb,7)   ,       & !! in:  updraft condensate 
-!&              qv     = pt_prog_rcf%tracer   (1,1,jb,iqv) ,       & !! in:  spec. humidity
-!&              qc     = pt_prog_rcf%tracer   (1,1,jb,iqc) ,       & !! in:  cloud water
-!&              qi     = pt_prog_rcf%tracer   (1,1,jb,iqi) ,       & !! in:  cloud ice
-!&              cc_tot = prm_diag%tot_cld     (1,1,jb,icc) ,       & !! out: cloud diagnostics
-!&              qv_tot = prm_diag%tot_cld     (1,1,jb,iqv) ,       & !! out: qv       -"-
-!&              qc_tot = prm_diag%tot_cld     (1,1,jb,iqc) ,       & !! out: clw      -"-
-!&              qi_tot = prm_diag%tot_cld     (1,1,jb,iqi) )         !! out: ci       -"-
-!          IF (timers_level > 2) CALL timer_stop(timer_cover_koe)
-!#endif
+
       ENDDO
   
 !$OMP END DO
@@ -958,34 +931,7 @@ CONTAINS
         & pflxsfcsw =prm_diag%swflxsfc (:,jb)   ,&        ! out shortwave surface net flux [W/m2]
         & pflxsfclw =prm_diag%lwflxsfc (:,jb)   ,&        ! out longwave surface net flux  [W/m2]
         & pflxtoasw =prm_diag%swflxtoa (:,jb) )           ! out shortwave toa net flux     [W/m2]
-!#else
-!        CALL radheat (                   &
-!        !
-!        ! input
-!        ! -----
-!        !
-!        & jcs=i_startidx                         ,&! in     start index of inner do loop
-!        & jce=i_endidx                           ,&! in     end index of inner do loop
-!        & kbdim=nproma                           ,&! in     loop length and dimension size
-!        & klev=nlev                              ,&! in     vertical dimension size
-!        & klevp1=nlevp1                          ,&! in     vertical dimension size
-!        & pmair=z_airmass                        ,&! in     layer air mass              [kg/m2]
-!        & pq=pt_prog_rcf%tracer(1,1,jb,iqv)      ,&! in     specific moisture           [kg/kg]
-!        & pi0=zi0                                ,&! in     solar incoming flux at TOA  [W/m2]
-!        & ptsfc=lnd_prog_now%t_g(1,jb)           ,&! in     surface temperature         [K]
-!        & ptsfctrad=prm_diag%tsfctrad(1,jb)      ,&! in     sfc temp. used for pflxlw   [K]
-!        & ptrmsw=prm_diag%trsolall (1,1,jb)      ,&! in     shortwave net tranmissivity []
-!        & pflxlw=prm_diag%lwflxall (1,1,jb)      ,&! in     longwave net flux           [W/m2]
-!        !
-!        ! output
-!        ! ------
-!        !
-!        & pdtdtradsw=prm_nwp_tend%ddt_temp_radsw (1,1,jb),&! out    rad. heating by SW      [K/s]
-!        & pdtdtradlw=prm_nwp_tend%ddt_temp_radlw (1,1,jb),&! out    rad. heating by LW      [K/s]
-!        & pflxsfcsw =prm_diag%swflxsfc (1,jb)   ,&         ! out shortwave surface net flux [W/m2]
-!        & pflxsfclw =prm_diag%lwflxsfc (1,jb)   ,&         ! out  longwave surface net flux [W/m2]
-!        & pflxtoasw =prm_diag%swflxtoa (1,jb) )            ! out shortwave toa net flux     [W/m2]
-!#endif
+
         IF ( p_sim_time > 1.e-1_wp ) THEN
 
          !sum up for averaged fluxes

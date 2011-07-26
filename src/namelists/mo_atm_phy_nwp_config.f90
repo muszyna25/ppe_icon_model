@@ -119,7 +119,8 @@ MODULE mo_atm_phy_nwp_config
 
 CONTAINS
 
-SUBROUTINE configure_atm_phy_nwp(n_dom,ltestcase, iadv_rcf, dtime)
+SUBROUTINE configure_atm_phy_nwp(n_dom,pat_level,&
+     &                           ltestcase, iadv_rcf, dtime)
  !-------------------------------------------------------------------------
   !
   !>
@@ -133,18 +134,39 @@ SUBROUTINE configure_atm_phy_nwp(n_dom,ltestcase, iadv_rcf, dtime)
   !! revision for restructurring by Kristina Froehlich MPI-M (2011-07-12)
 
 
-  REAL(wp),INTENT(IN) :: dtime
+
   INTEGER, INTENT(IN) :: n_dom
   INTEGER, INTENT(IN) :: iadv_rcf
+  INTEGER, INTENT(IN) :: pat_level(n_dom)
+  REAL(wp),INTENT(IN) :: dtime
   LOGICAL, INTENT(IN) :: ltestcase
+
+
 
   INTEGER :: jg
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
     &      routine = 'mo_atm_phy_nwp_config:configure_atm_phy_nwp'
 
+!      IF (msg_level >= 12) &
+         CALL message(TRIM(routine), '')
+
+   DO jg = 1,n_dom
+ 
+     atm_phy_nwp_config(jg)%dt_gscp   =  ( REAL(iadv_rcf,wp)         &
+          &                           * (dtime/2._wp**(pat_level(jg) &
+          &                             -              pat_level(1))) )  !seconds
+     atm_phy_nwp_config(jg)%dt_turb   = atm_phy_nwp_config(jg)%dt_gscp
+     atm_phy_nwp_config(jg)%dt_sfc    = atm_phy_nwp_config(jg)%dt_gscp
+     atm_phy_nwp_config(jg)%dt_satad  = atm_phy_nwp_config(jg)%dt_gscp
+     atm_phy_nwp_config(jg)%dt_update = atm_phy_nwp_config(jg)%dt_gscp
+     atm_phy_nwp_config(jg)%dt_radheat= atm_phy_nwp_config(jg)%dt_gscp
+    ENDDO
+
     tcall_phy(:,:) = 0._wp
 
     DO jg = 1,n_dom
+
+
       ! Slow physics:
       ! currently for each domain the same time intervals are set
       !
@@ -171,12 +193,6 @@ SUBROUTINE configure_atm_phy_nwp(n_dom,ltestcase, iadv_rcf, dtime)
       IF (  atm_phy_nwp_config(jg)% inwp_cldcover == 0 ) THEN     ! 0 = no cloud cover
         tcall_phy(jg,itccov) = 0._wp
       ENDIF
-
-!      ELSE
-!        tcall_phy(jg,itccov) = dt_rad(jg)           ! cloud cover
-!                                                    ! should be coupled
-!      ENDIF                                         ! to convection
-                                                    ! and radiation!
 
       IF (  atm_phy_nwp_config(jg)% inwp_radiation == 0 ) THEN    ! 0 = no radiation
         tcall_phy(jg,itrad)     =  0._wp
@@ -224,6 +240,10 @@ SUBROUTINE configure_atm_phy_nwp(n_dom,ltestcase, iadv_rcf, dtime)
         tcall_phy(jg,itsfc) =   atm_phy_nwp_config(jg)%dt_turb  !seconds
       ENDIF
 
+       WRITE(0,*)'nwp_phy dt rad=', tcall_phy(jg,itupdate)
+      WRITE(0,*)'nwp_phy dt rad=', tcall_phy(jg,itsatad)
+      WRITE(0,*)'nwp_phy dt rad=',   tcall_phy(jg,itrad)
+        WRITE(0,*)'nwp_phy dt radheat=',   tcall_phy(jg,itradheat)
     ENDDO
 
     IF( atm_phy_nwp_config(1)%inwp_turb == 2) THEN

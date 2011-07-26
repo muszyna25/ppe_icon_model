@@ -9,6 +9,8 @@
 !!
 !! @par Revision History
 !! First implementation by Kristina Froehlich, DWD (2010-06-20>)
+!!  namelist varaibles for calling frequency of fast physics schemes
+!!   have been removed to ensure the high frequent calls
 !!
 !! @par Copyright
 !! 2002-2010 by DWD and MPI-M
@@ -69,15 +71,8 @@ MODULE mo_atm_phy_nwp_nml
   REAL(wp) :: dt_conv(max_dom)   !> field element for convection
   REAL(wp) :: dt_ccov(max_dom)   !! field element for subscale cloud cover
   REAL(wp) :: dt_rad(max_dom)    !! "-"                     radiation
-  REAL(wp) :: dt_radheat(max_dom)!! "-" rad. heating from radiative fluxes with updated cosmu0 
   REAL(wp) :: dt_sso(max_dom)    !! "-"  for subscale orographic gravity waves
   REAL(wp) :: dt_gwd(max_dom)    !! "-"  for subscale gravity waves
-  REAL(wp) :: dt_gscp(max_dom)   !! field element for microphysics
-  REAL(wp) :: dt_satad(max_dom)  !! field element for sat. adjustment
-  REAL(wp) :: dt_turb(max_dom)   !! field element for turbulence
-  REAL(wp) :: dt_sfc(max_dom)    !! field element for surface
-  REAL(wp) :: dt_update(max_dom) !! field element for tracer phys update
-
 
   INTEGER  :: inwp_convection    !! convection
   INTEGER  :: inwp_cldcover      !! cloud cover
@@ -108,10 +103,8 @@ MODULE mo_atm_phy_nwp_nml
     &                    inwp_gscp, inwp_satad,                    &
     &                    inwp_turb, inwp_surface,                  &
     &                    dt_conv, dt_ccov,                         &
-    &                    dt_rad, dt_radheat,                       &
+    &                    dt_rad,                                   &
     &                    dt_sso, dt_gwd,                           &
-    &                    dt_gscp, dt_satad,                        &
-    &                    dt_turb, dt_sfc ,                         & 
     &                    qi0, qc0
 !    &                    imode_turb,                               &
 !    &                    limpltkediff, ltkesso, lexpcor,           &
@@ -195,12 +188,6 @@ CONTAINS
       dt_rad  (jg) = 1800._wp     !seconds
       dt_sso  (jg) = 3600._wp     !seconds
       dt_gwd  (jg) = 3600._wp     !seconds
-      dt_gscp (jg) = 100._wp      !seconds
-      dt_turb (jg) = 100._wp      !seconds
-      dt_sfc  (jg) = 100._wp      !seconds
-      dt_satad(jg) = 100._wp      !seconds
-      dt_update(jg) =  dt_satad (jg)
-      dt_radheat(jg)=  dt_update(jg)
     ENDDO
 
     qi0 = 0.0_wp 
@@ -244,16 +231,11 @@ CONTAINS
       atm_phy_nwp_config(jg)% dt_conv        = dt_conv (jg) 
       atm_phy_nwp_config(jg)% dt_ccov        = dt_ccov (jg)
       atm_phy_nwp_config(jg)% dt_rad         = dt_rad  (jg)
-      atm_phy_nwp_config(jg)% dt_radheat     = dt_radheat(jg)
       atm_phy_nwp_config(jg)% dt_sso         = dt_sso   (jg)
       atm_phy_nwp_config(jg)% dt_gwd         = dt_gwd   (jg)
-      atm_phy_nwp_config(jg)% dt_gscp        = dt_gscp  (jg)
-      atm_phy_nwp_config(jg)% dt_satad       = dt_satad (jg)
-      atm_phy_nwp_config(jg)% dt_turb        = dt_turb  (jg)
-      atm_phy_nwp_config(jg)% dt_sfc         = dt_sfc   (jg)
-      atm_phy_nwp_config(jg)% dt_update      = dt_update(jg)
       atm_phy_nwp_config(jg)%qi0             = qi0 
       atm_phy_nwp_config(jg)%qc0             = qc0 
+
 
 !      atm_phy_nwp_config(jg)%lseaice         = lseaice 
 !      atm_phy_nwp_config(jg)%llake           = llake

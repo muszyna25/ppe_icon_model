@@ -298,7 +298,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     ENDDO      !jb
 !$OMP END DO
 !$OMP END PARALLEL    
-    
+
   ELSEIF (  atm_phy_nwp_config(jg)%inwp_radiation == 2 ) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init Ritter Geleyn')

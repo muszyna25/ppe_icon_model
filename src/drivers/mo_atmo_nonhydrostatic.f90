@@ -91,10 +91,16 @@ CONTAINS
 
     INTEGER :: n_io, jg, jfile, n_file, ist, n_diag, n_chkpt
     LOGICAL :: l_have_output
-   
+    INTEGER :: pat_level(n_dom)
+
+    DO jg=1,n_dom
+       pat_level(jg)= p_patch(jg)%level
+    ENDDO
 
     IF(iforcing == inwp) THEN
-     CALL configure_atm_phy_nwp(n_dom, ltestcase, iadv_rcf, dtime)
+      WRITE(0,*)'call configure nwp'
+     CALL configure_atm_phy_nwp(n_dom, pat_level(:),&
+          &                     ltestcase, iadv_rcf, dtime )
     ENDIF
  
     !---------------------------------------------------------------------

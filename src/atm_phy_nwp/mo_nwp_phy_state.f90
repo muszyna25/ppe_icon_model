@@ -891,7 +891,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         cf_desc    = t_cf_var('lwflxclr', 'W m-2', 'longwave clear-sky net flux')
         grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'lwflxclr', diag%lwflxclr,                             &
-          & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+          & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3dkp1 )
 
         ! &      diag% lwflxall(nproma,nlevp1,nblks_c)
         cf_desc    = t_cf_var('lwflxall', 'W m-2 ', 'longwave net flux')
@@ -903,7 +903,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
         cf_desc    = t_cf_var('trsolclr', '', 'shortwave clear-sky net tranmissivity')
         grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
         CALL add_var( diag_list, 'trsolclr', diag%trsolclr,                             &
-          & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d)
+          & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc, ldims=shape3dkp1)
 
         ! &      diag%  trsolall(nproma,nlevp1,nblks_c)
         cf_desc    = t_cf_var('trsolall', '', 'shortwave net tranmissivity')

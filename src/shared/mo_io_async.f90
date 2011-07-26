@@ -302,7 +302,8 @@ CONTAINS
 
     IF ( iforcing == inwp) THEN 
 !      CALL setup_nwp_phy
-      CALL configure_atm_phy_nwp(n_dom,ltestcase, iadv_rcf, dtime)
+!      CALL configure_atm_phy_nwp(n_dom, p_patch(:)%level,&
+!          &                     ltestcase, iadv_rcf, dtime )
 !KF temp
 !      IF (inwp_surface > 0) CALL setup_nwp_lnd
     ENDIF

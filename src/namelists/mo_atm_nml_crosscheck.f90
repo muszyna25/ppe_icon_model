@@ -233,6 +233,8 @@ CONTAINS
     END IF
 
 
+    ntracer_static = 0
+
     IF (ltransport) THEN
     DO jg = 1,n_dom
 

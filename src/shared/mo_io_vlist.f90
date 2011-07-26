@@ -1038,7 +1038,7 @@ CONTAINS
       &           k_jg)
     ENDIF
     ! tracer fields
-    IF (ntracer > 0) THEN
+    IF (ntracer > 0 .AND. (iforcing == inwp .OR. ltransport)) THEN
       DO jt = 1, ntracer
         IF (lwrite_tracer(jt)) THEN
           ctracer = ctracer_list(jt:jt)
