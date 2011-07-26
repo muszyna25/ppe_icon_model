@@ -292,7 +292,7 @@ MODULE mo_nwp_lnd_state
 
         WRITE(0,*)'lnd_state timelevel=',jt,'and domain= ',jg
         WRITE(varname_prefix,'(a,i2.2,a)') 'lnd_prog_TL',jt,'_'
-        CALL  new_nwp_lnd_prog_list(nblks_c, TRIM(listname),                 &
+        CALL  new_nwp_lnd_prog_list(jg, nblks_c, TRIM(listname),             &
           &     TRIM(varname_prefix), p_lnd_state(jg)%lnd_prog_nwp_list(jt), &
           &     p_lnd_state(jg)%prog_lnd(jt))
 
@@ -303,7 +303,7 @@ MODULE mo_nwp_lnd_state
       !
       WRITE(listname,'(a,i2.2)') 'lnd_diag_of_domain_',jg
       WRITE(varname_prefix,'(a)') 'lnd_diag_'
-      CALL new_nwp_lnd_diag_list( nblks_c, TRIM(listname),           &
+      CALL new_nwp_lnd_diag_list(jg, nblks_c, TRIM(listname),        &
         &   TRIM(varname_prefix), p_lnd_state(jg)%lnd_diag_nwp_list, &
         &   p_lnd_state(jg)%diag_lnd)
 
