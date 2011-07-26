@@ -547,8 +547,6 @@ MODULE mo_nh_stepping
   SUBROUTINE deallocate_nh_stepping ()
 !
 
-
-
   INTEGER                              ::  jg, ist
 
 !-----------------------------------------------------------------------
@@ -822,7 +820,6 @@ MODULE mo_nh_stepping
 
     !--------------------------------------------------------------------------
 
-
     !--------------------------------------------------------------------------
     ! settings for calling frequency for slow physics
     !--------------------------------------------------------------------------
@@ -952,6 +949,7 @@ MODULE mo_nh_stepping
       ENDIF
 
 
+
       IF ( l_limited_area .AND. jg == 1 ) THEN
         ! Perform interpolation of lateral boundary data from a driving model
         ! This routine still has to be written...
@@ -1078,27 +1076,28 @@ MODULE mo_nh_stepping
           ! NOTE (DR): To me it is not clear yet, which timestep should be
           ! used for the first call of the slow_physics part dt_rcf, dt_loc,
           ! tcall_phy(jg,:) ...?
-          CALL nwp_nh_interface(lcall_phy(jg,:),                 & !in
-            &                   lredgrid_phys(jg),               & !in
-            &                   nstep_global,                    & !in
-            &                   tcall_phy(jg,:),                 & !in
-            &                   sim_time(jg),                    & !in 
-            &                   p_patch(jg)  ,                   & !in
-            &                   p_int_state(jg),                 & !in
-            &                   p_nh_state(jg)%metrics ,         & !in
-            &                   p_patch(jgp),                    & !in
-            &                   p_int_state(jgp),                & !in
-            &                   p_grf_state(jgp),                & !in
-            &                   ext_data(jg)           ,         & !in
-            &                   mean_charlen(jg)       ,         & !in
-            &                   p_nh_state(jg)%prog(n_now) ,     & !inout
-            &                   p_nh_state(jg)%prog(n_now_rcf) , & !inout
-            &                   p_nh_state(jg)%prog(n_now_rcf) , & !inout
-            &                   p_nh_state(jg)%diag,             & !inout
-            &                   prm_diag  (jg),                  & !inout
-            &                   prm_nwp_tend(jg)                ,&
-            &                   p_lnd_state(jg)%diag_lnd,        &
-            &                   p_lnd_state(jg)%prog_lnd(nnow(jg)) ) !out
+          CALL nwp_nh_interface(lcall_phy(jg,:),                   & !in
+            &                  lredgrid_phys(jg),                  & !in
+            &                  nstep_global,                       & !in
+            &                  tcall_phy(jg,:),                    & !in
+            &                  sim_time(jg),                       & !in 
+            &                  p_patch(jg)  ,                      & !in
+            &                  p_int_state(jg),                    & !in
+            &                  p_nh_state(jg)%metrics ,            & !in
+            &                  p_patch(jgp),                       & !in
+            &                  p_int_state(jgp),                   & !in
+            &                  p_grf_state(jgp),                   & !in
+            &                  ext_data(jg)           ,            & !in
+            &                  mean_charlen(jg)       ,            & !in
+            &                  p_nh_state(jg)%prog(n_now) ,        & !inout
+            &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
+            &                  p_nh_state(jg)%prog(n_now_rcf) ,    & !inout
+            &                  p_nh_state(jg)%diag,                & !inout
+            &                  prm_diag  (jg),                     & !inout
+            &                  prm_nwp_tend(jg)                ,   &
+            &                  p_lnd_state(jg)%diag_lnd,           &
+            &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
+            &                  p_lnd_state(jg)%prog_lnd(n_now_rcf) ) !inout
 
           linit_slowphy(jg) = .FALSE. ! no further initialization calls needed
         ENDIF
@@ -1205,7 +1204,6 @@ MODULE mo_nh_stepping
             &         prep_adv(jg)%rho_ic, prep_adv(jg)%topflx_tra          )! inout,out
 
 
-
           IF (lstep_adv(jg)) THEN
 
             CALL step_advection( p_patch(jg), p_int_state(jg), dt_rcf,         & !in
@@ -1246,27 +1244,28 @@ MODULE mo_nh_stepping
 
           !> moist tracer update is now synchronized with advection and satad
 
-          CALL nwp_nh_interface(lcall_phy(jg,:),                 & !in
-            &                   lredgrid_phys(jg),               & !in
-            &                   nstep_global,                    & !in
-            &                   t_elapsed_phy(jg,:),             & !in
-            &                   sim_time(jg),                    & !in  
-            &                   p_patch(jg)  ,                   & !in
-            &                   p_int_state(jg),                 & !in
-            &                   p_nh_state(jg)%metrics ,         & !in
-            &                   p_patch(jgp),                    & !in
-            &                   p_int_state(jgp),                & !in
-            &                   p_grf_state(jgp),                & !in
-            &                   ext_data(jg)           ,         & !in
-            &                   mean_charlen(jg)       ,         & !in
-            &                   p_nh_state(jg)%prog(n_new) ,     & !inout
-            &                   p_nh_state(jg)%prog(n_now_rcf),  & !in for tke
-            &                   p_nh_state(jg)%prog(n_new_rcf) , & !inout
-            &                   p_nh_state(jg)%diag ,            & !inout
-            &                   prm_diag  (jg),                  & !inout
-            &                   prm_nwp_tend(jg),                &
-            &                   p_lnd_state(jg)%diag_lnd,        &
-            &                   p_lnd_state(jg)%prog_lnd(nnow(jg))  )  !out
+          CALL nwp_nh_interface(lcall_phy(jg,:),                   & !in
+            &                  lredgrid_phys(jg),                  & !in
+            &                  nstep_global,                       & !in
+            &                  t_elapsed_phy(jg,:),                & !in
+            &                  sim_time(jg),                       & !in  
+            &                  p_patch(jg)  ,                      & !in
+            &                  p_int_state(jg),                    & !in
+            &                  p_nh_state(jg)%metrics ,            & !in
+            &                  p_patch(jgp),                       & !in
+            &                  p_int_state(jgp),                   & !in
+            &                  p_grf_state(jgp),                   & !in
+            &                  ext_data(jg)           ,            & !in
+            &                  mean_charlen(jg)       ,            & !in
+            &                  p_nh_state(jg)%prog(n_new) ,        & !inout
+            &                  p_nh_state(jg)%prog(n_now_rcf),     & !in for tke
+            &                  p_nh_state(jg)%prog(n_new_rcf) ,    & !inout
+            &                  p_nh_state(jg)%diag ,               & !inout
+            &                  prm_diag  (jg),                     & !inout
+            &                  prm_nwp_tend(jg),                   &
+            &                  p_lnd_state(jg)%diag_lnd,           &
+            &                  p_lnd_state(jg)%prog_lnd(n_now_rcf),& !inout
+            &                  p_lnd_state(jg)%prog_lnd(n_new_rcf) ) !inout
 
         ENDIF !iforcing
 

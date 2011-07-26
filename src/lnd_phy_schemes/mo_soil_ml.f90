@@ -702,6 +702,7 @@ CHARACTER (LEN=80)                    ::  &
     kso            , & ! loop index for soil moisture layers           
     ksn            , & ! loop index for snow layers
     k              , & ! loop index for snow layers
+    kso_zag        , & ! loop index for snow layers
     ke_soil_hy     , & ! number of active soil moisture layers
     i              , & ! loop index in x-direction              
     j              , & ! loop index in y-direction              
@@ -736,7 +737,7 @@ CHARACTER (LEN=80)                    ::  &
 !
     zuv            , & ! wind velocity in lowest atmospheric layer
     ztvs           , & ! virtual temperature at the surface
-    zplow          , & ! pressure of lowest atmospheric layer
+    zplow          , & ! pressure of lowest atmospheric layer 
     zqvlow         , & ! specific humidity of lowest atmospheric layer
     zrss           , & ! ice covered part of grid element
     zrww           , & ! water covered part of grid element
@@ -845,6 +846,7 @@ CHARACTER (LEN=80)                    ::  &
     zlhfl_snow     , & ! latent heatflux at snow surface
     zfor_snow      , & ! total forcing at snow surface
     zfr_melt       , & ! melting snow fraction
+!    zdwsnm         , & ! utility variable for snow melt determination
     zdwgme         , & ! utility variable for snow melt determination
     zdelt_s        , & ! utility variable for snow melt determination
     ze_avail       , & ! utility variable for snow melt determination
@@ -855,9 +857,8 @@ CHARACTER (LEN=80)                    ::  &
     zalas_mult    (ie,je,ke_snow),    & ! heat conductivity of snow
     ztsnownew_mult(ie,je,0:ke_snow),  & ! preliminary value of snow surface temperature
     zextinct      (ie,je,ke_snow),    & ! solar radiation extinction coefficient in snow (1/m)
-    zfor_snow_mult(ie,je)               ! total forcing at snow surface
-!  REAL    (KIND=ireals   ) ::  &
-!    zfor_total    (ie,je)               ! total forcing at surface
+    zfor_snow_mult(ie,je),            & ! total forcing at snow surface
+    zfor_total    (ie,je)               ! total forcing at surface
 
   REAL    (KIND=ireals   ) ::  &
 !
@@ -887,11 +888,15 @@ CHARACTER (LEN=80)                    ::  &
     zfr_ice        , & ! reduction factor for water transport
     zfr_ice_free   , & ! reduction factor for water transport
     zwso_new       , & ! preliminary value of soil water content
+    w_p            , & ! preliminary value of soil water content
+!    zwsnew         , & ! preliminary value of snow water equivalent
     zw_ovpv        , & ! utility variable
 !
 !   Implicit solution of thermal and hydraulic equations
 !
     zakb           , & ! utility variable
+    zakb_m1        , & ! utility variable
+    zakb_p1        , & ! utility variable
     zzz            , & ! utility variable
     z1dgam1        , & ! utility variable
     zredm          , & ! utility variable
@@ -1161,7 +1166,7 @@ CHARACTER (LEN=80)                    ::  &
     zthetas, zlamli, zlamsat, zlams, rsandf, zlamq, zlam0, zrhod, zlamdry,  &
     zsri, zKe, zthliq, zlamic
 
-!>JH  INTEGER (KIND=iintegers) :: i_loc, j_loc, isub
+  INTEGER (KIND=iintegers) :: i_loc, j_loc, isub
 
 !- End of header
 !==============================================================================
@@ -1486,7 +1491,7 @@ do ns=nsubs0,nsubs1
         ENDIF
       ENDDO
     ENDDO
-  ENDDO
+ ENDDO
 
 ! For ntstep=nstart : Some preparations
 ! =====================================
@@ -2605,10 +2610,10 @@ IF(i.eq.1 .and. j.eq.1) &
             zbeta  = 0.0_ireals
             IF (m_styp(i,j).ge.3) THEN ! Computations not for ice and rocks
               ! auxiliary quantities
-              zbf1   = 5.5_ireals - 0.8_ireals* zbedi(i,j)*                   &
-                      (1.0_ireals + 0.1_ireals*(zbedi(i,j) - 4.0_ireals)*     &
+              zbf1   = 5.5_ireals - 0.8_ireals* zbedi(i,j)*                &
+                      (1.0_ireals + 0.1_ireals*(zbedi(i,j) - 4.0_ireals)*  &
                        clgk0(m_styp(i,j)) )
-              zbf2   = (zbedi(i,j) - 3.7_ireals + 5.0_ireals/zbedi(i,j))/     &
+              zbf2   = (zbedi(i,j) - 3.7_ireals + 5.0_ireals/zbedi(i,j))/  &
                       (5.0_ireals + zbedi(i,j))
               zdmax  = zbedi(i,j)*cfinull*zk0di(i,j)/crhowm 
               zs1(i,j)  = zs1(i,j)/(z1*zporv(i,j))

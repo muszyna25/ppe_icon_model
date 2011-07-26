@@ -121,7 +121,7 @@ CONTAINS
                             & pt_prog_now_rcf, pt_prog_rcf,        & !in/inout
                             & pt_diag ,                            & !inout
                             & prm_diag,prm_nwp_tend,lnd_diag,      &
-                            & lnd_prog_now                         ) !inout
+                            & lnd_prog_now, lnd_prog_new           ) !inout
 
     !>
     ! !INPUT PARAMETERS:
@@ -153,7 +153,7 @@ CONTAINS
                                                           !< red. calling frequency for tracers!
     TYPE(t_nwp_phy_diag),       INTENT(inout) :: prm_diag
     TYPE(t_nwp_phy_tend),TARGET,INTENT(inout) :: prm_nwp_tend
-    TYPE(t_lnd_prog),           INTENT(inout) :: lnd_prog_now
+    TYPE(t_lnd_prog),           INTENT(inout) :: lnd_prog_now, lnd_prog_new
     TYPE(t_lnd_diag),           INTENT(inout) :: lnd_diag
 
     ! !OUTPUT PARAMETERS:            !<variables induced by the whole physics
@@ -267,13 +267,13 @@ CONTAINS
 
         CALL message('mo_nh_interface_nwp:', 'before satad')
 
-        WRITE(message_text,'(a,2E15.5)') ' max/min QV  = ',&
+        WRITE(message_text,'(a,2E17.9)') ' max/min QV  = ',&
              & MAXVAL(pt_prog_rcf%tracer(:,:,:,iqv)), MINVAL(pt_prog_rcf%tracer (:,:,: ,iqv))
         CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E15.5)') ' max/min QC  = ',&
+        WRITE(message_text,'(a,2E17.9)') ' max/min QC  = ',&
              & MAXVAL(pt_prog_rcf%tracer(:,:,:,iqc)), MINVAL(pt_prog_rcf%tracer (:,:,: ,iqc))
         CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E15.5)') ' max/min T  = ',&
+        WRITE(message_text,'(a,2E17.9)') ' max/min T  = ',&
              & MAXVAL(pt_diag%temp(:,:,:)), MINVAL(pt_diag%temp (:,:,:) )
         CALL message('', TRIM(message_text))
 
@@ -362,13 +362,13 @@ CONTAINS
 
         CALL message('mo_nh_interface_nwp:', 'after satad')
 
-        WRITE(message_text,'(a,2E15.5)') ' max/min QV  = ',&
+        WRITE(message_text,'(a,2E17.9)') ' max/min QV  = ',&
              & MAXVAL(pt_prog_rcf%tracer(:,:,:,iqv)), MINVAL(pt_prog_rcf%tracer (:,:,: ,iqv) )
         CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E15.5)') ' max/min QC  = ',&
+        WRITE(message_text,'(a,2E17.9)') ' max/min QC  = ',&
              & MAXVAL(pt_prog_rcf%tracer(:,:,:,iqc)), MINVAL(pt_prog_rcf%tracer (:,:,: ,iqc) )
         CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E15.5)') ' max/min T  = ',&
+        WRITE(message_text,'(a,2E17.9)') ' max/min T  = ',&
              & MAXVAL(pt_diag%temp(:,:,:)), MINVAL(pt_diag%temp (:,:,:) )
         CALL message('', TRIM(message_text))
 
@@ -406,13 +406,13 @@ CONTAINS
       IF (timers_level > 3) CALL timer_stop(timer_phys_u_v)
 
       IF (msg_level >= 15) THEN
-        WRITE(message_text,'(a,2E10.3)') 'max/min vn  = ',&
+        WRITE(message_text,'(a,2E17.9)') 'max/min vn  = ',&
              & MAXVAL (pt_prog%vn(:,:,:)), MINVAL(pt_prog%vn(:,:,:))
         CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E10.3)') 'max/min u  = ',&
+        WRITE(message_text,'(a,2E17.9)') 'max/min u  = ',&
              & MAXVAL (pt_diag%u(:,:,:)), MINVAL(pt_diag%u(:,:,:))
         CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E10.3)') 'max/min v  = ',&
+        WRITE(message_text,'(a,2E17.9)') 'max/min v  = ',&
              & MAXVAL (pt_diag%v(:,:,:)), MINVAL(pt_diag%v(:,:,:) )
         CALL message('', TRIM(message_text))
       ENDIF
@@ -457,7 +457,7 @@ CONTAINS
     IF (  lcall_phy_jg(itturb)) THEN
 
       IF (timers_level > 1) CALL timer_start(timer_nwp_turbulence)
-      CALL nwp_turbulence (   tcall_phy_jg(itturb),              & !>input
+      CALL nwp_turbulence (  tcall_phy_jg(itturb),              & !>input
                             & pt_patch, p_metrics,              & !>input
                             & ext_data, mean_charlen,           & !>input
                             & pt_prog,                          & !>inout
@@ -648,13 +648,14 @@ CONTAINS
     IF (  lcall_phy_jg(itsfc)) THEN
 
       CALL nwp_surface    (  tcall_phy_jg(itsfc), jstep,        & !>input
-                            & pt_patch, p_metrics,              & !>input
+                            & pt_patch,                         & !>input
                             & ext_data,                         & !>input
-                            & pt_prog,                          & !>inout
+!DR                            & pt_prog,                          & !>inout
                             & pt_prog_rcf,     & !>in/inout rcf=reduced calling freq.
                             & pt_diag ,                         & !>inout
                             & prm_diag,                         & !>inout 
-                            & lnd_prog_now,lnd_diag             )!>inout
+                            & lnd_prog_now, lnd_prog_new,       & !>inout
+                            & lnd_diag                          ) !>inout
     ENDIF !lcall(itsfc)
 
     IF (timers_level > 1) CALL timer_stop(timer_fast_phys)
@@ -840,14 +841,14 @@ CONTAINS
       IF (timers_level > 2) CALL timer_stop(timer_diagnose_pres_temp)
     
       IF (ltimer) CALL timer_start(timer_nwp_radiation)
-      CALL nwp_radiation (lredgrid,p_sim_time,                   & ! in
-           &              pt_patch,pt_par_patch,                 & ! in
-           &              pt_par_int_state,                      & ! in
-           &              pt_par_grf_state,                      & ! in
-           &              ext_data,                              & ! in
-           &              pt_prog,pt_prog_rcf,                   & ! inout
-           &              pt_diag,prm_diag,                      & ! inout
-           &              lnd_prog_now                           ) ! in
+      CALL nwp_radiation (lredgrid,p_sim_time,   & ! in
+           &              pt_patch,pt_par_patch, & ! in
+           &              pt_par_int_state,      & ! in
+           &              pt_par_grf_state,      & ! in
+           &              ext_data,              & ! in
+           &              pt_prog,pt_prog_rcf,   & ! inout
+           &              pt_diag,prm_diag,      & ! inout
+           &              lnd_prog_now           ) ! in
       IF (ltimer) CALL timer_stop(timer_nwp_radiation)
      
     ENDIF
@@ -874,7 +875,7 @@ CONTAINS
         & zsct       = zsct )
       IF (timers_level > 1) CALL timer_stop(timer_pre_radiation_nwp)
       
-      
+
     !in order to account for mesh refinement
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
@@ -964,16 +965,16 @@ CONTAINS
       IF (timers_level > 2) CALL timer_stop(timer_radheat)
       
       IF (msg_level >= 14) THEN
-        WRITE(message_text,'(a,2E10.3)') 'max/min SW transmissivity  = ',&
+        WRITE(message_text,'(a,2E17.9)') 'max/min SW transmissivity  = ',&
              & MAXVAL (prm_diag%trsolall(:,:,:)), MINVAL(prm_diag%trsolall(:,:,:))
         CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E10.3)') 'max/min LW net flux  = ',&
+        WRITE(message_text,'(a,2E17.9)') 'max/min LW net flux  = ',&
              & MAXVAL (prm_diag%lwflxall(:,:,:)), MINVAL(prm_diag%lwflxall(:,:,:))
         CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E10.3)') 'max/min dTdt sw= ',&
+        WRITE(message_text,'(a,2E17.9)') 'max/min dTdt sw= ',&
           & MAXVAL (prm_nwp_tend%ddt_temp_radsw(:,:,:)),MINVAL(prm_nwp_tend%ddt_temp_radsw(:,:,:))
         CALL message('', TRIM(message_text))
-         WRITE(message_text,'(a,2E10.3)') 'max/min dTdt lw= ',&
+         WRITE(message_text,'(a,2E17.9)') 'max/min dTdt lw= ',&
           & MAXVAL (prm_nwp_tend%ddt_temp_radlw(:,:,:)),MINVAL(prm_nwp_tend%ddt_temp_radlw(:,:,:))
         CALL message('', TRIM(message_text))
       ENDIF
@@ -1099,16 +1100,16 @@ CONTAINS
 
       IF (msg_level >= 15) THEN
 
-        WRITE(message_text,'(a,2E15.5)') ' max/min z_ddt_temp = ',&
+        WRITE(message_text,'(a,2E17.9)') ' max/min z_ddt_temp = ',&
           & MAXVAL( z_ddt_temp(:,:,:)),  &
           & MINVAL( z_ddt_temp(:,:,:))
         CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E15.5)') ' max/min z_ddt_qv  = ',&
+        WRITE(message_text,'(a,2E17.9)') ' max/min z_ddt_qv  = ',&
           & MAXVAL( prm_nwp_tend%ddt_tracer_pconv(:,:,:,iqv)),  &
           & MINVAL( prm_nwp_tend%ddt_tracer_pconv(:,:,:,iqv))
         CALL message('', TRIM(message_text))
 
-       WRITE(message_text,'(a,2(E10.3,2x))') 'max/min ddt_exner  = ',&
+       WRITE(message_text,'(a,2(E17.9,2x))') 'max/min ddt_exner  = ',&
           & MAXVAL (pt_diag%ddt_exner_phy(:,:,:) ), MINVAL(pt_diag%ddt_exner_phy(:,:,:)  )
         CALL message('', TRIM(message_text))
       ENDIF
@@ -1212,7 +1213,7 @@ CONTAINS
       IF (ltimer) CALL timer_stop(timer_physic_acc_2)
 
       IF (msg_level >= 15) THEN
-        WRITE(message_text,'(a,2(E10.3,2x))') 'max/min ddt_vn  = ',&
+        WRITE(message_text,'(a,2(E17.9,2x))') 'max/min ddt_vn  = ',&
              & MAXVAL (pt_diag%ddt_vn_phy(:,:,:) ), MINVAL(pt_diag%ddt_vn_phy(:,:,:)  )
         CALL message('', TRIM(message_text))
       ENDIF
@@ -1321,15 +1322,15 @@ CONTAINS
 
         CALL message('mo_nh_update_prog:', 'nh-tendencies')
 
-        WRITE(message_text,'(a,2(E10.3,3x))') ' max/min ddt_qv  = ',&
+        WRITE(message_text,'(a,2(E17.9,3x))') ' max/min ddt_qv  = ',&
           & MAXVAL(pt_diag%ddt_tracer_phy(:,:,:,iqv) ), &
           & MINVAL(pt_diag%ddt_tracer_phy(:,:,:,iqv) )
         CALL message('', TRIM(message_text))
 
-        WRITE(message_text,'(a,2E15.5)') 'updated max/min QV  = ',&
+        WRITE(message_text,'(a,2E17.9)') 'updated max/min QV  = ',&
           & MAXVAL(pt_prog_rcf%tracer(:,:,:,iqv)), MINVAL(pt_prog_rcf%tracer (:,:,: ,iqv) )
         CALL message('', TRIM(message_text))
-        WRITE(message_text,'(a,2E15.5)') 'updated max/min QC  = ',&
+        WRITE(message_text,'(a,2E17.9)') 'updated max/min QC  = ',&
           & MAXVAL(pt_prog_rcf%tracer(:,:,:,iqc)), MINVAL(pt_prog_rcf%tracer (:,:,: ,iqc) )
         CALL message('', TRIM(message_text))
       ENDIF
