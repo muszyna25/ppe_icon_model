@@ -113,7 +113,8 @@ MODULE mo_nh_stepping
   USE mo_advection_stepping,  ONLY: step_advection
   USE mo_nh_dtp_interface,    ONLY: prepare_tracer
   USE mo_nh_diffusion,        ONLY: diffusion_tria, diffusion_hex
-  USE mo_mpi,                 ONLY: my_process_is_stdio, my_process_is_mpi_parallel
+  USE mo_mpi,                 ONLY: my_process_is_stdio, my_process_is_mpi_parallel, &
+    & my_process_is_mpi_all_seq
   
   USE mo_sync,                ONLY: global_sum_array, sync_patch_array_mult, &
                                     push_glob_comm, pop_glob_comm, global_max, &
@@ -484,7 +485,8 @@ MODULE mo_nh_stepping
     ! Diagnostics computation is not yet properly MPI-parallelized
 #ifdef NOMPI
     IF(global_cell_type == 3) THEN
-      IF (l_diagtime .AND. (lstep_adv(1) .OR. jstep==nsteps))  THEN
+      IF (l_diagtime .AND. my_process_is_mpi_all_seq() .AND. &
+        & (lstep_adv(1) .OR. jstep==nsteps))  THEN
         IF (jstep == iadv_rcf) THEN
           CALL supervise_total_integrals_nh( 1, p_patch(1:), p_nh_state,      &
                                            & nnow(1:n_dom), nnow_rcf(1:n_dom))

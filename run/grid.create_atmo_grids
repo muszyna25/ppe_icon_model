@@ -33,20 +33,15 @@ commandFile=command.grid
 #-----------------------------------------------------------------------------
 # define the levels to create
 start_level=0
-no_of_levels=4            
+no_of_levels=5            
 start_optimize=2
-end_optimize=4
+end_optimize=5
 refinement_method=1     # 1=edge bisection, 2=dual centers
 cd $WRKDIR
 #-----------------------------------------------------------------------------
-#-----------------------------------------------------------------------------
-# some clean-up
-# rm iconR2B0?-grid.nc
-# rm iconR2B0?-grid*
-#-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
-set_default_create_grids()
+set_default_optimization_grids()
 {
 dual_iterations=0       # prime/dual iterations
 
@@ -94,27 +89,36 @@ dual_centers_spring_stiffness=1.0
 dual_total_force_condition=1.0
 dual_max_force_condition=1.0
 centers_local_condition=1.0
+
+optimize_vertex_depth=4
 }
-#-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
-create_grids()
+set_sym_optimization_grids()
 {
-parameterFile=create_icon_grid.namelist
-command=create_icon_grid
+  set_default_optimization_grids
+  use_optimization='.true.'
+  use_isotropy_correction='.true.'
+  isotropy_rotation_coeff=0.75
+  isotropy_stretch_coeff=0.1
+  use_edge_springs='.true.'
+  use_adaptive_spring_length='.true.'
+  prime_ref_length_coeff=1.0
+  use_local_reference_length='.true.'
+  local_reference_length_coeff=0.75
+  prime_use_spring_cellcenters='.true.'
+  prime_centers_ref_length_coeff=1.0
+  prime_centers_spring_stiffness=1.0  # the stiffness of vertex-cell center springs
+  #-----------------------------------------------------------------------------
+}
+
+#-----------------------------------------------------------------------------
+add_optimization_namelist()
+{
+parameterFile=$1
 #-----------------------------------------------------------------------------
 # namelist
-cat > $parameterFile << EOF
-&icosahedron_grid
-  no_of_levels = $no_of_levels
-  start_level =  $start_level
-  start_optimize= $start_optimize
-  end_optimize  = $end_optimize
-  refinement_method = $refinement_method
-  output_file  = '$base_file_name'
-  optimization_extension = '$optimization_extension'
-  ! input_file = '${input_file}'
-/
+cat >> $parameterFile << EOF
 &grid_optimization
   use_optimization              = $use_optimization
   use_edge_springs              = $use_edge_springs
@@ -127,11 +131,11 @@ cat > $parameterFile << EOF
   dual_ref_length_coeff              = $dual_ref_length_coeff
   dual_centers_ref_length_coeff      = $dual_centers_ref_length_coeff
   prime_soft_spring_stiffness   = $prime_soft_spring_stiffness
-  prime_hard_spring_stiffness   = $prime_hard_spring_stiffness   
+  prime_hard_spring_stiffness   = $prime_hard_spring_stiffness
   prime_centers_spring_stiffness= $prime_centers_spring_stiffness
-  dual_soft_spring_stiffness    = $dual_soft_spring_stiffness    
-  dual_hard_spring_stiffness    = $dual_hard_spring_stiffness    
-  dual_centers_spring_stiffness = $dual_centers_spring_stiffness 
+  dual_soft_spring_stiffness    = $dual_soft_spring_stiffness
+  dual_hard_spring_stiffness    = $dual_hard_spring_stiffness
+  dual_centers_spring_stiffness = $dual_centers_spring_stiffness
   use_centers_spring_correction = $use_centers_spring_correction
   centers_springcorrection_coeff= $centers_springcorrection_coeff
   spring_friction               = $spring_friction
@@ -151,10 +155,35 @@ cat > $parameterFile << EOF
   isotropy_stretch_coeff        = $isotropy_stretch_coeff
   use_barycenter_force          = $use_barycenter_force
   barycenter_force_coeff        = $barycenter_force_coeff
+  optimize_vertex_depth         = $optimize_vertex_depth
 /
 EOF
 #-----------------------------------------------------------------------------
+}
+#-----------------------------------------------------------------------------
 
+
+#-----------------------------------------------------------------------------
+create_grids()
+{
+parameterFile=create_icon_grid.namelist
+command=create_icon_grid
+#-----------------------------------------------------------------------------
+# namelist
+cat > $parameterFile << EOF
+&icosahedron_grid
+  no_of_levels = $no_of_levels
+  start_level =  $start_level
+  start_optimize= $start_optimize
+  end_optimize  = $end_optimize
+  refinement_method = $refinement_method
+  output_file  = '$base_file_name'
+  optimization_extension = '$optimization_extension'
+  ! input_file = '${input_file}'
+/
+EOF
+#-----------------------------------------------------------------------------
+add_optimization_namelist $parameterFile
 #-----------------------------------------------------------------------------
 # run grid generator
 echo $command $parameterFile > $commandFile
@@ -167,21 +196,9 @@ check_error $? "create icon grid"
 #=============================================================================
 # create symmetry grids
 if [ "x$make_symm_grids" == "xtrue" ] ; then
-  set_default_create_grids
-  use_optimization='.true.'
+  set_sym_optimization_grids
   base_file_name=iconR2B
   optimization_extension="-grid"
-  use_isotropy_correction='.true.'
-  isotropy_rotation_coeff=0.75
-  isotropy_stretch_coeff=0.1
-  use_edge_springs='.true.'
-  use_adaptive_spring_length='.true.'
-  prime_ref_length_coeff=1.0
-  use_local_reference_length='.true.'
-  local_reference_length_coeff=0.75
-  prime_use_spring_cellcenters='.true.'
-  prime_centers_ref_length_coeff=1.0 
-  prime_centers_spring_stiffness=1.0  # the stiffness of vertex-cell center springs
   #-----------------------------------------------------------------------------
   create_grids
 fi
@@ -210,10 +227,8 @@ cat > $parameterFile << EOF
   input_file = "$input_file"
   output_file = "$output_file"
 /
-&grid_optimization
-  use_optimization              = .false.
-/
 EOF
+add_optimization_namelist $parameterFile 
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
@@ -253,10 +268,12 @@ check_error $? "create icon patch hierarchy"
 #=============================================================================
 if [ "x$make_patches" == "xtrue" ] ; then
 
-  cp iconR2B03-grid.nc iconR2B03_DOM00.nc
   cp iconR2B04-grid.nc iconR2B04_DOM01.nc
+  echo 'coarsen_grid iconR2B04_DOM01.nc iconR2B03-grid.nc iconR2B03_DOM00.nc' > $commandFile
+  ${run_commmand}
+  check_error $? "coarsen_grid"  
   startRefine=1
-
+  
   no_of_patches=4
   patchNameList=(  iconR2B03_DOM00.nc iconR2B04_DOM01.nc iconR2B05_DOM02.nc iconR2B06_DOM03.nc)
   circleRadiousList=(   "none"            "none"                 35.0               18.0)
@@ -269,10 +286,12 @@ if [ "x$make_patches" == "xtrue" ] ; then
   patchIDList=(         1                   2                    3  )
   patchParentIDList=(   0                   1                    2  )
 
-
   patch_shape=2
   patch_center_x=-90.0
   patch_center_y=40.0
+
+  set_sym_optimization_grids
+#   set_default_optimization_grids
 
   # create patches
   i=$startRefine; j=$((startRefine+1));
