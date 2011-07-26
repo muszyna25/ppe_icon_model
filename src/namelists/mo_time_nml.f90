@@ -39,7 +39,7 @@ MODULE mo_time_nml
                                     & date_to_time, string_to_datetime
   USE mo_time_config,           ONLY: time_config
   USE mo_io_units,              ONLY: nnml, nnml_output
-  USE mo_master_nml,            ONLY: lrestart
+  USE mo_master_control,     ONLY: is_restart_run
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                   ONLY: my_process_is_stdio 
 
@@ -122,7 +122,7 @@ CONTAINS
    ! length of restart cycle
     dt_restart     = 86400._wp*30._wp   ! = 30 days
 
-  IF (lrestart) THEN      
+  IF (is_restart_run()) THEN
  
    ! 2.1 Overwrite the defaults above by values in the restart file
 
@@ -164,7 +164,7 @@ CONTAINS
     CALL string_to_datetime( ini_datetime_string, time_config%ini_datetime )
     CALL date_to_time( time_config%ini_datetime )
 
-    IF (lrestart) THEN
+    IF (is_restart_run()) THEN
       ! In a resumed integration, if the calendar or initial date/time 
       ! is different from those in the restart file,
       ! we regard this integration as a new one with its own calendar. 
@@ -193,7 +193,7 @@ CONTAINS
       ! In an initial run, current date/time is, naturally, the initial date/time
       time_config%cur_datetime = time_config%ini_datetime
 
-    END IF !lrestart
+    END IF !is_restart_run()
 
     CALL string_to_datetime( end_datetime_string, time_config%end_datetime ) 
     CALL date_to_time( time_config%end_datetime )

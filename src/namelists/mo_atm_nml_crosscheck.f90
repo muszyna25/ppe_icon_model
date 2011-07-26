@@ -45,7 +45,6 @@ MODULE mo_atm_nml_crosscheck
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message, message_text, finish, print_value
-  USE mo_master_nml,          ONLY: lrestart
   USE mo_impl_constants,      ONLY: max_char_length, max_dom,itconv,itccov,    &
     &                               itrad,itradheat, itsso, itgscp, itsatad,   &
     &                               itupdate, itturb, itsfc, itgwd, iphysproc, &

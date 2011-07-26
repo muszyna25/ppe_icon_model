@@ -45,8 +45,8 @@ MODULE mo_gw_hines_nml
   USE mo_impl_constants,      ONLY: max_dom
 
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_master_nml,          ONLY: lrestart
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &     
+  USE mo_master_control,     ONLY: is_restart_run
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist, &
     &                               open_and_restore_namelist, close_tmpfile
 
   USE mo_gw_hines_config,     ONLY: gw_hines_config
@@ -149,7 +149,7 @@ CONTAINS
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
     !------------------------------------------------------------------
-    IF (lrestart) THEN
+    IF (is_restart_run()) THEN
       funit = open_and_restore_namelist('gw_hines_nml')
       READ(funit,NML=gw_hines_nml)
       CALL close_tmpfile(funit)
