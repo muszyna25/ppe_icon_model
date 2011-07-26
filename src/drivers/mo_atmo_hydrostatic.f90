@@ -36,7 +36,7 @@ MODULE mo_atmo_hydrostatic
   USE mo_impl_constants,    ONLY: iecham, ildf_echam
   USE mo_timer,             ONLY: print_timer
 
-  USE mo_master_nml,        ONLY: lrestart
+  USE mo_master_control,  ONLY: is_restart_run
   USE mo_time_config,       ONLY: time_config
   USE mo_run_config,        ONLY: dtime, nsteps, ltestcase, ltimer,iforcing, nlev
   USE mo_ha_testcases,      ONLY: ctest_name
@@ -97,7 +97,7 @@ CONTAINS
     ! Set initial conditions for time integration.
     !------------------------------------------------------------------
 
-    IF (lrestart) THEN
+    IF (is_restart_run()) THEN
     ! This is an resumed integration. Read model state from restart file(s).
 
 #ifdef NOMPI
@@ -127,7 +127,7 @@ CONTAINS
       IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) &
       CALL initcond_echam_phy( p_patch(1:),p_hydro_state, ltestcase, ctest_name )
 
-    END IF ! lrestart
+    END IF ! is_restart_run()
 
     !------------------------------------------------------------------
     ! The most primitive event handling algorithm:
@@ -144,7 +144,7 @@ CONTAINS
     ! Write out initial conditions.
     !------------------------------------------------------------------
 
-    IF (.NOT.lrestart) THEN
+    IF (.NOT.is_restart_run()) THEN
     ! Initialize the first output file which will contain also the
     ! initial conditions.
 
@@ -167,7 +167,7 @@ CONTAINS
          l_have_output = .FALSE.
       END IF
 
-    END IF ! (not) lrestart
+    END IF ! (not) is_restart_run()
 
     !------------------------------------------------------------------
     ! Time integraion

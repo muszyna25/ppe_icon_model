@@ -90,7 +90,7 @@ MODULE mo_nwp_phy_init
 
   USE mo_nh_testcases,         ONLY: nh_test_name, ape_sst_case
   USE mo_ape_params,           ONLY: ape_sst
-  USE mo_master_nml,           ONLY: lrestart
+  USE mo_master_control,       ONLY: is_restart_run
 
   IMPLICIT NONE
 
@@ -159,7 +159,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 
 
 
-    IF ( ltestcase .AND. .NOT. lrestart)THEN 
+    IF ( ltestcase .AND. .NOT. is_restart_run())THEN
 
     rl_start = 1 ! Initialization should be done for all points
     rl_end   = min_rlcell
@@ -372,7 +372,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
   ! thus, it must be set even if no turbulence scheme called
   nsfc_type = 1
 
-  IF (  atm_phy_nwp_config(jg)%inwp_turb == 1 .AND. .NOT. lrestart ) THEN
+  IF (  atm_phy_nwp_config(jg)%inwp_turb == 1 .AND. .NOT. is_restart_run() ) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init COSMO turbulence')
 

@@ -35,7 +35,7 @@ MODULE mo_atmo_nonhydrostatic
 USE mo_exception,            ONLY: message, finish
 USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH
 USE mo_timer,                ONLY: print_timer
-USE mo_master_nml,           ONLY: lrestart
+USE mo_master_control,       ONLY: is_restart_run
 USE mo_output,               ONLY: init_output_files, close_output_files,&
   &                                write_output
 USE mo_interpolation,        ONLY: rbf_vec_interpol_cell,       &
@@ -136,7 +136,7 @@ CONTAINS
       ! Set initial conditions for time integration.
       !------------------------------------------------------------------
      
-    IF (lrestart) THEN
+    IF (is_restart_run()) THEN
       ! This is an resumed integration. Read model state from restart file(s).
 
       CALL read_restart_files
@@ -161,7 +161,7 @@ CONTAINS
      !------------------------------------------------------------------
      ! Prepare output file
      !------------------------------------------------------------------
-     IF (.NOT.lrestart) THEN
+     IF (.NOT.is_restart_run()) THEN
        ! Initialize the first output file which will contain also the 
        ! initial conditions.
 
@@ -187,7 +187,7 @@ CONTAINS
     !------------------------------------------------------------------
     !  get and write out some of the inital values
     !------------------------------------------------------------------
-    IF (.NOT.lrestart) THEN
+    IF (.NOT.is_restart_run()) THEN
 
     ! diagnose u and v to have meaningful initial output
     
@@ -211,7 +211,7 @@ CONTAINS
     CALL write_output( time_config%cur_datetime )
     l_have_output = .TRUE.
 
-    END IF ! not lrestart
+    END IF ! not is_restart_run()
 
     !------------------------------------------------------------------
     ! Now start the time stepping:

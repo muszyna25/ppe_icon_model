@@ -126,7 +126,7 @@ MODULE mo_nh_stepping
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
   USE mo_nh_held_suarez_interface, ONLY: held_suarez_nh_interface
   USE mo_vertical_coord_table,ONLY: vct
-  USE mo_master_nml,          ONLY: lrestart
+  USE mo_master_control,      ONLY: is_restart_run
   USE mo_io_restart_attributes,ONLY: get_restart_attribute
 
 #ifdef __OMP_RADIATION__  
@@ -429,7 +429,7 @@ MODULE mo_nh_stepping
     ! Store first old exner pressure
     ! (to prepare some kind of divergence damping, or to account for
     ! physically based 'implicit weights' in forward backward time stepping)
-    IF (jstep == 1 .AND. .NOT. lrestart) THEN
+    IF (jstep == 1 .AND. .NOT. is_restart_run()) THEN
 !$OMP PARALLEL PRIVATE(jg)
 !   write(0,*) 'Entering perform_nh_timeloop, threads=',omp_get_num_threads()
       DO jg = 1, n_dom
@@ -650,7 +650,7 @@ MODULE mo_nh_stepping
   ENDIF
   !
   ! initialize
-  IF (lrestart) THEN
+  IF (is_restart_run()) THEN
     linit_slowphy(:)  = .FALSE.
     !
     ! Get sim_time, t_elapsed_phy and lcall_phy from restart file

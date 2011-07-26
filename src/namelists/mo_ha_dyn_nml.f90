@@ -39,7 +39,7 @@ MODULE mo_ha_dyn_nml
   USE mo_io_units,              ONLY: nnml, nnml_output
   USE mo_exception,             ONLY: message, finish
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_master_nml,            ONLY: lrestart
+  USE mo_master_control,        ONLY: is_restart_run
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
   USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist, &
                                       open_and_restore_namelist, close_tmpfile
@@ -125,7 +125,7 @@ CONTAINS
     ! If this is a resumed integration, overwrite the defaults above by
     ! values in the restart file
     !------------------------------------------------------------------------
-    IF (lrestart) THEN
+    IF (is_restart_run()) THEN
       funit = open_and_restore_namelist('ha_dyn_nml')
       READ(funit,NML=ha_dyn_nml)
       CALL close_tmpfile(funit)

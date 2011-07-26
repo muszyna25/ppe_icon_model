@@ -35,7 +35,7 @@ MODULE mo_vdiff_nml
   USE mo_vdiff_config,        ONLY: vdiff_config
   USE mo_io_units,            ONLY: nnml
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
-  USE mo_master_nml,          ONLY: lrestart
+  USE mo_master_control,      ONLY: is_restart_run
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
                                   & open_and_restore_namelist, close_tmpfile
 
@@ -73,7 +73,7 @@ CONTAINS
     ! If this is a resumed integration, overwrite the defaults above 
     ! by values in the previous integration.
     !----------------------------------------------------------------
-    IF (lrestart) THEN
+    IF (is_restart_run()) THEN
       funit = open_and_restore_namelist('vdiff_nml')
       READ(funit,NML=vdiff_nml)
       CALL close_tmpfile(funit)

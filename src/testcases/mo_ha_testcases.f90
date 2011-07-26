@@ -71,7 +71,7 @@ MODULE mo_ha_testcases
   USE mo_impl_constants,  ONLY: SUCCESS, MAX_CHAR_LENGTH, TRACER_ONLY
   USE mo_io_units,        ONLY: nnml, nnml_output
   USE mo_namelist,        ONLY: position_nml, POSITIONED, open_nml, close_nml
-  USE mo_master_nml,      ONLY: lrestart
+  USE mo_master_control,  ONLY: is_restart_run
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist, &
                                  & open_and_restore_namelist, close_tmpfile
   USE mo_model_domain,    ONLY: t_patch
@@ -216,7 +216,7 @@ MODULE mo_ha_testcases
     ! If this is a resumed integration, overwrite the defaults above
     ! by values in the previous integration.
     !----------------------------------------------------------------
-    IF (lrestart) THEN
+    IF (is_restart_run()) THEN
       funit = open_and_restore_namelist('ha_testcase_nml')
       READ(funit,NML=ha_testcase_nml)
       CALL close_tmpfile(funit)
