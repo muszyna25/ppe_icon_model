@@ -19,6 +19,10 @@ module Cdo
   State = {}
   @@CDO = ENV['CDO'].nil? ? '/usr/bin/cdo' : ENV['CDO']
 
+  # Only operators with documentation are accessible vie the build-in help.
+  # Other have to be added manually
+  @@undocumentedOperators = %w[geopotheight pressure_fl pressure_hl]
+
   def Cdo.Debug=(value)
     State[:debug] = value
   end
@@ -38,7 +42,7 @@ module Cdo
   end
 
   def Cdo.setCdo(cdo)
-    puts "Will use #{cdo} instead of #@@CDO"
+    puts "Will use #{cdo} instead of #@@CDO" if Cdo.Debug
     @@CDO = cdo
   end
 
@@ -48,6 +52,7 @@ module Cdo
     help      = IO.popen(cmd).readlines.map {|l| l.chomp.lstrip}
     if 5 >= help.size
       warn "Operators could not get listed by running the CDO binary (#{@@CDO})"
+      pp help if Cdo.Debug
       exit
     else
       help[help.index("Operators:")+1].split
@@ -97,7 +102,7 @@ module Cdo
     # args is expected to look like [opt1,...,optN,:in => iStream,:out => oStream] where
     # iStream could be another CDO call (timmax(selname(Temp,U,V,ifile.nc))
     puts "Operator #{sym.to_s} is called" if State[:debug]
-    if getOperators.include?(sym.to_s)
+    if getOperators.include?(sym.to_s) or @@undocumentedOperators.include?(sym.to_s)
       io = args.find {|a| a.class == Hash}
       args.delete_if {|a| a.class == Hash}
       if /(info|show|griddes)/.match(sym)
@@ -116,11 +121,12 @@ end
 class PreProcOptions
   def self.parse(args)
     # The options specified on the command line will be collected in *options*.
-    options                    = {}
-    options[:interpolation_type] = :simple
-    options[:verbose]            = false
-    options[:openmp]             = 4
-    options[:model_type] = 'hydrostatic'
+    options                        = {}
+    options[:interpolation_type]   = :simple
+    options[:verbose]              = false
+    options[:openmp]               = 4
+    options[:model_type]           = 'hydrostatic'
+    options[:persistent_tempfiles] = false
 
     opts = OptionParser.new do |opts|
       opts.banner = "Usage: ifs2icon.rb [options]"
@@ -141,6 +147,37 @@ class PreProcOptions
               "Use FILE write output variables") do |file|
         options[:outputfile] = file
               end
+      opts.on("-O", "--output-variables x,y,z", Array, "'list' of output variables") do |list|
+        options[:outputvars] = list
+      end
+
+      # Optional argument with keyword completion.
+      opts.on("-m", "--model-type [TYPE]", [:hydrostatic, :nonhydrostatic],
+              "Select model type (hydrostatic, nonhydrostatic) - default:hydrostatic") do |t|
+        options[:model_type] = t
+      end
+      #
+
+      opts.on("-c", "--global-config", "<filename>", String, :REQUIRED) do |file|
+        options[:configfile] = file
+        # instead of using all these options, a config file can be specified
+        load file #if Module.constants.include?("PreProcOpts")
+        PreProcOpts.constants.each {|const|
+          val = PreProcOpts.const_get(const)
+          case const.to_s
+          when 'CONFIG' then
+            val = Ecmwf2Icon::readConfig(val,'string','json')
+          when 'ZLEVELS' then
+            val = val.split(',')
+          when 'OUTPUTVARS' then
+            val = val.split(',')
+          else
+            puts "Parsing value of #{const.to_s}" if options[:debug]
+          end
+          const = const.to_s.downcase.to_sym
+          options[const] = val
+        }
+      end
 
       # optional configuration file using csv like format
       opts.on("--txt-config FILE", "Use FILE as configuration file", "Format should be a separated columns text file (e.g. csv)") do |file|
@@ -171,26 +208,6 @@ class PreProcOptions
       opts.on("--json-config FILE", "Use FILE as JSON configuration file","Format example:\n"+jsonStringExample) do |file|
         options[:config] = Ecmwf2Icon::readConfig(file,'file','json')
       end
-      opts.on("-c", "--global-config", "<filename>", String, :REQUIRED) do |file|
-        options[:configfile] = file
-        # instead of using all these options, a config file can be specified
-        load file #if Module.constants.include?("PreProcOpts")
-        PreProcOpts.constants.each {|const|
-          val = PreProcOpts.const_get(const)
-          case const.to_s
-          when 'CONFIG' then
-            val = Ecmwf2Icon::readConfig(val,'string','json')
-          when 'ZLEVELS' then
-            val = val.split(',')
-          when 'OUTPUTVARS' then
-            val = val.split(',')
-          else
-            puts "Parsing value of #{const.to_s}" if options[:debug]
-          end
-          const = const.to_s.downcase.to_sym
-          options[const] = val
-        }
-      end
 
       opts.on("-V","--vct-file FILE","FILE should containt a vertable coordinates table for the required number of z levels") do |file|
         options[:vctfile] = file
@@ -204,34 +221,15 @@ class PreProcOptions
               "Select interpolation type (simple,bilinear,bicubic,horizontal_only)") do |t|
         options[:interpolation_type] = t
       end
-      # Optional argument with keyword completion.
-      opts.on("-m", "--model-type [TYPE]", [:hydrostatic, :nonhydrostatic],
-              "Select model type (hydrostatic, nonhydrostatic)") do |t|
-        options[:model_type] = t
-      end
-      #
-      # List of output variables
-      opts.on("-O", "--output-variables x,y,z", Array, "'list' of output variables") do |list|
-        options[:outputvars] = list
-      end
+
+      # Set the path of the cdo binary to use
+      opts.on("--cdo PATH_TO_CDO","Set the path of the CDO binary for computations (default:/usr/bin/cdo)") {|path|
+        options[:cdo] = path
+      }
 
       # Set OpenMP multithreadding for CDO
       opts.on("-P", "--openmp p", Numeric, "Set number of OpenMP threads to <p>") do |p|
         options[:openmp] = p
-      end
-
-      # Boolean switches
-      opts.on("-s", "--strict", "Process only variables which have valid entry in the configuration") do |v|
-        options[:strict] = v
-      end
-      opts.on("-C", "--check", "Check input file and configuration on which output variables are available.") do |v|
-        options[:check] = v
-      end
-      opts.on("-v", "--verbose", "Run verbosely") do |v|
-        options[:verbose] = v
-      end
-      opts.on("-D", "--debug", "Run in debug mode") do |v|
-        options[:debug] = v
       end
 
       # create zlevel options for each given output variables
@@ -259,13 +257,36 @@ class PreProcOptions
 
       # Another typical switch to print the version.
       opts.on_tail("--version", "Show version") do
-        puts 'PreProc ' + [0,0,1].join('.')
+        puts 'ifs2icon ' + [1,0].join('.')
         exit
       end
+
+      # development switches: USE AT YOUR OWN RIST!
+      opts.on("--persistent-tempfiles",
+              "DEVELOPEMENT SWITCH: Create persistent intermediate files instead of cleaning up when finishing the script") {|v|
+        options[:persistent_tempfiles] = v
+      }
+
+      # Boolean switches
+      opts.on("-s", "--strict", "Process only variables which have valid entry in the configuration") do |v|
+        options[:strict] = v
+      end
+      opts.on("-C", "--check", "Check input file and configuration on which output variables are available.") do |v|
+        options[:check] = v
+      end
+      opts.on("-v", "--verbose", "Run verbosely") do |v|
+        options[:verbose] = v
+      end
+      opts.on("-D", "--debug", "Run in debug mode") do |v|
+        options[:debug] = v
+      end
+
     end
 
     opts.parse!(args)
 
+    # Consistency checks for options
+    # mandatory ones
     begin
       mandatory = [:outputfile, :inputfile, :gridfile, :outputvars]
       missing = mandatory.select{ |param| options[param].nil? }
@@ -279,6 +300,9 @@ class PreProcOptions
       puts opts
       exit
     end
+
+    checkModelOptions(options)
+
     options
   end
   def self.splitLevels(list)
@@ -287,6 +311,41 @@ class PreProcOptions
       ret[sublist[0]] = sublist[1..-1]
     }
     ret
+  end
+  def self.checkFile(filename,sinfo,relatedOption,model)
+    unless filename
+      warn "Please provide #{sinfo} file (option:#{relatedOption}) for #{model} model input"
+      exit
+    end
+    unless File.readable?(filename)
+      warn "Unable to read from #{sinfo} file '#{filename}'"
+      exit
+    end
+  end
+  def self.checkModelOptions(options)
+    # for hydrostatic mode vct and orography are required
+    if options[:model_type].to_s == "hydrostatic"
+      checkFile(options[:vctfile], 'vct'      , '--vct-file'      , options[:model_type])
+      checkFile(options[:orofile], 'orography', '--orography-file', options[:model_type])
+    end
+    # target vertical coordinate is required for nonhydrostatic mode
+    if options[:model_type].to_s == "nonhydrostatic"
+      checkFile(options[:zcoordinates], 'target vertical coordinate', '--zcoordinates', options[:model_type])
+    end
+    # check vct file: Should have C-style notation (start with 0) which is not
+    # the case for icon vcts
+    if options[:vctfile]
+      uncommentedLines = File.open(options[:vctfile]).readlines.map(&:chomp).find_all {|l| l[0] != '#'}.map(&:strip)
+      # check if first line starts with 1 or 0; if 1 increate all indicess by 1
+      if uncommentedLines[0][0] == "1"
+        newvct = options[:vctfile] + '_converted'
+        Dbg.msg("VCT start with 1 but CDO requires C-Style indexing. Create converted vct file '#{newvct}'",options[:verbose],options[:debug])
+        File.open(newvct,"w") {|f|
+          uncommentedLines.each {|line| i,a,b = line.gsub(/ +/,' ').split; f << [i.to_i-1 ,a,b].join(' ') << "\n"}
+        }
+        options[:vctfile] = newvct
+      end
+    end
   end
 end
 # ==============================================================================
@@ -597,7 +656,7 @@ class Ifs2Icon
     if @options[:interpolation_type].to_s == "horizontal_only"
       # merge all horizontal interpolations together
       Dbg.msg("Creating output with horizontal interpolation only!",true,true)
-      Dbg.msg("Compining files into output file '#{@ofile}'",@options[:verbose], @options[:debug])
+      Dbg.msg("Combining files into output file '#{@ofile}'",@options[:verbose], @options[:debug])
       Cdo.merge(:in => @outvars.values.join(" "),:out => @ofile)
       exit
     else
@@ -628,6 +687,7 @@ class Ifs2Icon
     # Use names for netcdf files and codes for grib input files
     operator  = /grb/.match(File.extname(@ifile)) ? :showcode : :showname
     inputVars = Cdo.send(operator,:in => @ifile)
+
     # Use numbers as identifiers for grib input
     inputVars.map!(& :to_i) if operator == :showcode
 
@@ -662,11 +722,11 @@ class Ifs2Icon
   end
 
   def horizontalInterpolation
-    ths = []
+    #ths = []
     @outvars.each_key {|ovar|
       Dbg.msg("Processing '#{ovar}' ...",@options[:verbose],@options[:debug])
 
-      ths << Thread.new(ovar) {|ovar|
+    #  ths << Thread.new(ovar) {|ovar|
         # determine the grid of the variable
         grid     = Ecmwf2Icon.grid(ovar,@config).to_sym
         gridfile = @gridvars[GRID_VARIABLES[grid]]
@@ -681,18 +741,23 @@ class Ifs2Icon
         # Perform conservative remapping
         Cdo.remapcon(gridfile,:in => copyfile,:out => outfile,:options => "-P #{@options[:openmp]}")
 
-        @lock.synchronize { @outvars[ovar] = outfile }
-      }
+    #    @lock.synchronize { @outvars[ovar] = outfile }
+        @outvars[ovar] = outfile
+    #  }
     }
-    ths.each {|t| t.join}
+    #ths.each {|t| t.join}
   end
 
   def verticalInterpolation
+    # function for later computation of hydrostatic atmosphere pressure
+    expr = lambda {|varname| "101325.0*exp((-1)*(1.602769777072154)*log((exp(#{varname}/10000.0)*213.15+75.0)/288.15))"}
+
     # merge all horizontal interpolations together
     intermediateFile, hybridlayerfile, reallayerfile = tfile, tfile, tfile
-    Dbg.msg("Compining files into output file '#{intermediateFile}'",@options[:verbose], @options[:debug])
-    Dbg.msg(@outvars.keys.join(" "),@options[:verbose], @options[:debug])
+    Dbg.msg("Combining files into output file '#{intermediateFile}'",false, @options[:debug])
+    Dbg.msg("Output variables before vertical interpolation: " + @outvars.keys.join(" "),false, @options[:debug])
     Cdo.merge(:in => @outvars.values.join(" "),:out => intermediateFile)
+
     case @options[:model_type]
     when 'hydrostatic'
       # perform vertical interpolation wrt. original surface pressure and orography
@@ -705,20 +770,78 @@ class Ifs2Icon
         @_preout = hybridlayerfile
       end
     when 'nonhydrostatic'
-      #perform interpolation of 3D height field
-      warn "Vertical interpolation onto a 3D vertical coordinate is not implemented, yet!"
-      warn "Create intermediate output file"
-      Cdo.copy(:in => intermediateFile,:out => 'intermediate_nonhydrostatic.nc')
-      warn "Abort #{__FILE__}!"
-      exit
-    else
-      warn "'#{@options[:model_type]}' is an invalid model type!"
-      warn "Abort #{__FILE__}!"
-      exit
+      # some variable name definitions. They might change in the future
+      iFShydpressVarname         = 'pres'
+      iCONhydpressVarname        = 'pres'
+      iCONverticalCoordinateName = 'ZF3'
+
+      # create 3d height from IFS intput data with 'cdo geopotheight'
+      intermediateHeight, intermediateHeightAndPresFile, intermediatePressure  = tfile, tfile, tfile
+      Cdo.geopotheight(:in => intermediateFile,:out => intermediateHeight)
+
+      # Create output with vertical height axis of intermediate IFS
+      Cdo.copy(:in => intermediateHeight,:out => 'intermediateHeights.nc') if @options[:debug]
+      Cdo.copy(:in => intermediateFile,  :out => 'intermediateIFS.nc')     if @options[:debug]
+
+      # =======================================================================
+      # PRESSURE HANDLING:
+      # * create 3d pressure from intermediate IFS interpolation (horiz)
+      Cdo.chainCall("-setname,#{iFShydpressVarname} -pressure_fl",:in => intermediateFile,:out => intermediatePressure)
+
+      # debug output containing the intermediate 3d IFS pressure coordinate
+      Cdo.copy(:in => intermediatePressure,:out => 'intermediatePressure.nc') if @options[:debug]
+
+      if false #version for patched geopotheight operator
+        Cdo.selname('pres',:in => intermediateHeight, :out => intermediatePressure)
+        tmp = tfile
+        Cdo.delname('pres',:in => intermediateHeight, :out => tmp)
+        Cdo.copy(:in => tmp,:out => intermediateHeight)
+      end
+
+      # * substract hydrostatic pressure on intermediate IFS heights from the
+      #   real intermediate IFS pressure levels
+      #   - compute hydrostatic pressure on 3d height field, same formular like stdatm operator in CDO
+      #     * Use expr operator like
+      #        cdo expr 'press=101325.0*exp((-1)*(1.602769777072154)*log((exp(height/10000.0)*213.15+75.0)/288.15))'
+      hydrostaticPresOnIntermediateHeights, diff, diffOnIconVertGrid = tfile,tfile,tfile
+      Cdo.expr("'#{iFShydpressVarname}=#{expr['geopotheight']}'",
+               :in => intermediateHeight, :out => hydrostaticPresOnIntermediateHeights)
+      #     * substract the hydrostatic pressure from the IFS pressures
+      Cdo.sub(:in => [intermediatePressure,hydrostaticPresOnIntermediateHeights].join(' '), :out => diff)
+
+      # * 3d linerar interpolation if the pressure differences onto the ICON vertical height levels
+      Cdo.intlevelx3d(intermediateHeight,:in => [diff,@options[:zcoordinates]].join(' '), :out => diffOnIconVertGrid)
+
+      # * add hydrostatic pressure values for the ICON heights
+      #   - remove target z coordinate and reset variable name for later operations (add)
+      tmp = tfile
+      Cdo.delname(iCONverticalCoordinateName, :in => diffOnIconVertGrid, :out => tmp)
+      Cdo.setname(iCONhydpressVarname       , :in => tmp               , :out => diffOnIconVertGrid) #TODO not necessary
+      # prepare hydrostatic pressure in vertical ICON grid
+      hydrostaticPressOnIconHeights, iconPressure = tfile, tfile
+
+      Cdo.expr("'#{iCONhydpressVarname}=#{expr[iCONverticalCoordinateName]}'",
+               :in => @options[:zcoordinates], :out => hydrostaticPressOnIconHeights)
+      Cdo.add(:in => [diffOnIconVertGrid,hydrostaticPressOnIconHeights].join(' '),:out => iconPressure)
+
+      # Interpolated pressure for later debugging
+      Cdo.copy(:in => iconPressure,:out => 'intermediatePressure.nc') if @options[:debug]
+      #    * check results!!!!
+      #
+      # handling of the rest:
+      # * perform 3d interpolation of any other 3d variables with intlevel3d
+      remainingVariablesFile, @_preout = tfile,tfile
+      Cdo.intlevelx3d(intermediateHeight,
+                      :in => [intermediateFile,@options[:zcoordinates]].join(' '),
+                      :out => remainingVariablesFile)
+
+      # Merge back into a single output file
+      Cdo.merge(:in => [remainingVariablesFile,iconPressure].join(' '),:out => @_preout)
     end
   end
 
   def writeOutput(ofile=@ofile)
+    Dbg.msg("Create output file '#{ofile}'",@options[:verbose],@options[:debug])
     Cdo.copy(:in => @_preout,:out => ofile)
   end
 
@@ -732,9 +855,15 @@ class Ifs2Icon
     @invars.keys
   end
   def tfile
-    t = Tempfile.new(self.class.to_s)
-    @@_tempfiles << t
-    t.path
+    unless @options[:persistent_tempfiles]
+      t = Tempfile.new(self.class.to_s)
+      @@_tempfiles << t
+      t.path
+    else
+      t = "_"+rand(1000000).to_s
+      @@_tempfiles << t
+      t
+    end
   end
   private :readVars, :readVar, :remapVar, :tfile
 end
@@ -744,6 +873,7 @@ if __FILE__ == $0
   case test
   when 'proc'
     options  = PreProcOptions.parse(ARGV)
+    Cdo.setCdo(options[:cdo]) if options[:cdo]
     pp options if options[:debug]
     Cdo.Debug = options[:debug] if options[:verbose]
     #=======================================================
@@ -773,4 +903,3 @@ end
 # Open Points:
 # * verification to hydrostatic model
 # * orography on edges
-# * 3D vertical coordinate
