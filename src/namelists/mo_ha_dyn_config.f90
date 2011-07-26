@@ -43,12 +43,13 @@
 !!
 MODULE mo_ha_dyn_config
 
-  USE mo_kind, ONLY: wp
-  USE mo_impl_constants, ONLY: IHS_ATM_THETA
+  USE mo_kind,           ONLY: wp
+  USE mo_exception,      ONLY: message, print_value
+  USE mo_impl_constants, ONLY: LEAPFROG_EXPL, LEAPFROG_SI, TWO_TL_SI 
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: t_ha_dyn_config, ha_dyn_config
+  PUBLIC :: t_ha_dyn_config, ha_dyn_config, configure_ha_dyn
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -92,5 +93,52 @@ MODULE mo_ha_dyn_config
   !!
   TYPE(t_ha_dyn_config) :: ha_dyn_config
 
+CONTAINS
+  !>
+  !! Currently contains only printing
+  !!
+  SUBROUTINE configure_ha_dyn( itime_scheme )
+
+    INTEGER,INTENT(IN) :: itime_scheme
+
+    CALL message('','')
+    CALL message('','------ Hydrostatic atm dynamical core ------')
+
+    SELECT CASE(itime_scheme)
+    CASE (LEAPFROG_EXPL)
+
+      CALL message('', 'itime_scheme = LEAPFROG_EXPL')
+      CALL print_value('ileapfrog_startup ', ha_dyn_config% ileapfrog_startup)
+      CALL print_value('asseline_coeff    ', ha_dyn_config% asselin_coeff)
+
+    CASE (LEAPFROG_SI)
+
+      CALL message('', 'itime_scheme = LEAPFROG_SI')
+      CALL print_value('ileapfrog_startup ', ha_dyn_config% ileapfrog_startup)
+      CALL print_value('asseline_coeff    ', ha_dyn_config% asselin_coeff    )
+      CALL print_value('si_coeff          ', ha_dyn_config% si_coeff         )
+      CALL print_value('si_offctr         ', ha_dyn_config% si_offctr        )
+      CALL print_value('si_cmin           ', ha_dyn_config% si_cmin          )
+      CALL print_value('si_rtol           ', ha_dyn_config% si_rtol          )
+      CALL print_value('lsi_3d            ', ha_dyn_config% lsi_3d           )
+
+    CASE (TWO_TL_SI)
+
+      CALL message('', 'itime_scheme = TWO_TL_SI')
+      CALL print_value('si_expl_scheme    ', ha_dyn_config% si_expl_scheme)
+      CALL print_value('si_2tls           ', ha_dyn_config% si_2tls       )
+      CALL print_value('si_rtol           ', ha_dyn_config% si_rtol       )
+
+    END SELECT
+
+    CALL print_value('ldry_dycore       ', ha_dyn_config% ldry_dycore)
+    CALL print_value('lref_temp         ', ha_dyn_config% lref_temp  )
+    CALL print_value('ltheta_dyn        ', ha_dyn_config% ltheta_dyn )
+
+    CALL message('','--------------------------')
+    CALL message('','')
+
+  END SUBROUTINE configure_ha_dyn
+  !-----------
 END MODULE mo_ha_dyn_config
 

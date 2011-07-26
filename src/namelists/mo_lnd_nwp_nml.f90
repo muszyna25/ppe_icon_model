@@ -187,7 +187,7 @@ MODULE mo_lnd_nwp_nml
     END IF
 
     !-------------------------------------------------------------------------
-    ! 3. Read user's (new) specifications (Done so far by all MPI processors)
+    ! 3. Read user's (new) specifications (Done so far by all MPI processes)
     !-------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('lnd_nml', status=istat)

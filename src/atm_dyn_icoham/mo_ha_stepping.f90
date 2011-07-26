@@ -49,7 +49,7 @@ MODULE mo_ha_stepping
   USE mo_ext_data,            ONLY: ext_data
   USE mo_model_domain_import, ONLY: n_dom
   USE mo_dynamics_config,     ONLY: itime_scheme, lshallow_water, ltwotime, nnow, nold
-  USE mo_ha_dyn_config,       ONLY: ha_dyn_config
+  USE mo_ha_dyn_config,       ONLY: ha_dyn_config, configure_ha_dyn
   USE mo_io_config,           ONLY: l_outputtime, lprepare_output, l_diagtime,  &
                                   & l_checkpoint_time
   USE mo_run_config,          ONLY: nsteps, dtime, ntracer,  &
@@ -98,6 +98,8 @@ CONTAINS
     !-----------------------------------
     ! Set up scheme-specific constants
     !-----------------------------------
+    CALL configure_ha_dyn( itime_scheme )
+
     SELECT CASE (itime_scheme)
     CASE (LEAPFROG_SI) 
       CALL init_si_params( ha_dyn_config%lsi_3d,            &

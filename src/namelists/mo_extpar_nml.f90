@@ -91,7 +91,7 @@ CONTAINS
     END IF
 
     !------------------------------------------------------------------------
-    ! Read user's (new) specifications. (Done so far by all MPI processors)
+    ! Read user's (new) specifications. (Done so far by all MPI processes)
     !------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('extpar_nml', status=istat)

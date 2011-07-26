@@ -38,7 +38,7 @@
 MODULE mo_echam_conv_config
 
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: finish, print_value, message
+  USE mo_exception,          ONLY: finish, print_value, message, message_text
   USE mo_impl_constants,     ONLY: SUCCESS
   USE mo_physical_constants, ONLY: grav
 
@@ -126,6 +126,43 @@ CONTAINS
 
     CHARACTER(LEN=*),PARAMETER :: &
              routine = 'mo_echam_conv_config:config_echam_convection'
+
+    !------------------------------------------------------------------------
+    ! Print the configuration on stdio
+    !------------------------------------------------------------------------
+    CALL message('','')
+    CALL message('','------- configuration of the ECHAM convection scheme --------')
+
+    SELECT CASE (echam_conv_config% iconv)
+    CASE(1); CALL message('','--- iconv = 1 -> Convection: Nordeng (default)')
+    CASE(2); CALL message('','--- iconv = 2 -> Convection: Tiedtke')
+    CASE(3); CALL message('','--- iconv = 3 -> Convection: Hybrid')
+    CASE default
+      WRITE(message_text,'(a,i0,a)') 'iconv = ',echam_conv_config% iconv, &
+                                     ' is not supported'
+      CALL finish(TRIM(routine),message_text)
+    END SELECT
+
+    SELECT CASE(echam_conv_config% ncvmicro)
+    CASE (0); CALL message('','--- ncvmicro = 0')
+    CASE DEFAULT
+      CALL finish(TRIM(routine),'ncvmicro > 0 not yet supported in ICON')
+    END SELECT
+
+    CALL print_value(' lmfpen   ', echam_conv_config% lmfpen)
+    CALL print_value(' lmfmid   ', echam_conv_config% lmfmid)
+    CALL print_value(' lmfdd    ', echam_conv_config% lmfdd)
+    CALL print_value(' lmfdudv  ', echam_conv_config% lmfdudv)
+
+    CALL print_value(' cmftau   ', echam_conv_config% cmftau)
+    CALL print_value(' cmfctop  ', echam_conv_config% cmfctop)
+    CALL print_value(' cprcon   ', echam_conv_config% cprcon)
+    CALL print_value(' cminbuoy ', echam_conv_config% cminbuoy)
+    CALL print_value(' entrpen  ', echam_conv_config% entrpen)
+    CALL print_value(' dlev     ', echam_conv_config% dlev)
+
+    CALL message('','---------------------------')
+    CALL message('','')
 
     !------------------------------------------------------------------------
     ! Determine highest level *nmctop* for cloud base of midlevel convection

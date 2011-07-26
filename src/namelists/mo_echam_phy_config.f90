@@ -103,15 +103,16 @@ CONTAINS
         echam_phy_config% lhd       = .FALSE.
 
         CALL message('','')
-        CALL message('','Running hydrostatic atm model with ECHAM6 physics.')
+        CALL message('','Running the hydrostatic atm model with ECHAM6 physics.')
         CALL message('','Testcase = '//TRIM(ctest_name))
+        CALL message('','')
 
-        CALL print_value('echam_phy_config% llandsurf = ',echam_phy_config% llandsurf)
-        CALL print_value('echam_phy_config% lssodrag  = ',echam_phy_config% lssodrag )
-        CALL print_value('echam_phy_config% lice      = ',echam_phy_config% lice     )
-        CALL print_value('echam_phy_config% lmeltpond = ',echam_phy_config% lmeltpond)
-        CALL print_value('echam_phy_config% lmlo      = ',echam_phy_config% lmlo     )
-        CALL print_value('echam_phy_config% lhd       = ',echam_phy_config% lhd      )
+        CALL print_value('llandsurf ',echam_phy_config% llandsurf)
+        CALL print_value('lssodrag  ',echam_phy_config% lssodrag )
+        CALL print_value('lice      ',echam_phy_config% lice     )
+        CALL print_value('lmeltpond ',echam_phy_config% lmeltpond)
+        CALL print_value('lmlo      ',echam_phy_config% lmlo     )
+        CALL print_value('lhd       ',echam_phy_config% lhd      )
 
         CALL message('','')
 

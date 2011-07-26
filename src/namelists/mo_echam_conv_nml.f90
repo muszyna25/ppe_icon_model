@@ -121,7 +121,7 @@ CONTAINS
     END IF
 
     !-------------------------------------------------------------------------
-    ! Read user's (new) specifications. (Done so far by all MPI processors)
+    ! Read user's (new) specifications. (Done so far by all MPI processes)
     !-------------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml('echam_conv_nml',STATUS=ist)
@@ -134,38 +134,18 @@ CONTAINS
     !------------------------------------------------------------
     ! Sanity check
     !------------------------------------------------------------
-    CALL message('','')
-    CALL message('','------- namelist echam_conv_nml --------')
-
     SELECT CASE (iconv)
-    CASE(1); CALL message('','--- iconv = 1 -> Convection: Nordeng (default)')
-    CASE(2); CALL message('','--- iconv = 2 -> Convection: Tiedtke')
-    CASE(3); CALL message('','--- iconv = 3 -> Convection: Hybrid')
+    CASE(1,2,3)  !OK
     CASE default
       WRITE(message_text,'(a,i0,a)') 'iconv = ',iconv,' is not supported'
       CALL finish(TRIM(routine),message_text)
     END SELECT
 
     SELECT CASE(ncvmicro)
-    CASE (0); CALL message('','--- ncvmicro = 0')
+    CASE (0)  !OK
     CASE DEFAULT
       CALL finish(TRIM(routine),'ncvmicro > 0 not yet supported in ICON')
     END SELECT
-
-    CALL print_value(' lmfpen  ',lmfpen)
-    CALL print_value(' lmfmid  ',lmfmid)
-    CALL print_value(' lmfdd   ',lmfdd)
-    CALL print_value(' lmfdudv ',lmfdudv)
-
-    CALL print_value(' cmftau   ',cmftau)
-    CALL print_value(' cmfctop  ',cmfctop)
-    CALL print_value(' cprcon   ',cprcon)
-    CALL print_value(' cminbuoy ',cminbuoy)
-    CALL print_value(' entrpen  ',entrpen)
-    CALL print_value(' dlev     ',dlev)
-
-    CALL message('','---------------------------')
-    CALL message('','')
 
     !-----------------------------------------------------
     ! Store the namelist for restart

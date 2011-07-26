@@ -154,15 +154,6 @@ CONTAINS
     IF (si_2tls<0.5_wp.OR.si_2tls>1._wp) CALL finish( TRIM(routine), &
       'Improper value for parameter si_2tls. Should be in [0.5,1]')
 
-    IF (lref_temp) THEN
-      CALL message(TRIM(routine),                            &
-          'use of reference temperature switched ON in ' //  &
-          'calculation of pressure gradient force.')
-    ELSE
-      CALL message(TRIM(routine),                            &
-           'use of reference temperature switched OFF in '// &
-           'calculation of pressure gradient force.')
-    ENDIF
 
     !-----------------------------------------------------
     ! Store the namelist for restart
