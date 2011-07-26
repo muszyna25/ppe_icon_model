@@ -46,6 +46,7 @@ MODULE mo_dynamics_config
   USE mo_exception,             ONLY: finish
   USE mo_impl_constants,        ONLY: MAX_DOM
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
+  USE mo_master_control,        ONLY: is_restart_run
 
   IMPLICIT NONE
   PRIVATE
@@ -95,9 +96,8 @@ MODULE mo_dynamics_config
 CONTAINS
   !>
   !!
-  SUBROUTINE configure_dynamics( lrestart,ndom )
+  SUBROUTINE configure_dynamics( ndom )
 
-    LOGICAL,INTENT(IN) :: lrestart
     INTEGER,INTENT(IN) :: ndom
 
     INTEGER :: jdom
@@ -106,7 +106,7 @@ CONTAINS
     !------------------------
     ! Set time level indices
 
-    IF (lrestart) THEN
+    IF (is_restart_run()) THEN
       ! Read time level indices from restart file.
       ! NOTE: this part will be modified later for a proper handling
       ! of multiple domains!!!
@@ -123,7 +123,7 @@ CONTAINS
         CALL get_restart_attribute( 'nnew_rcf',nnew_rcf(jdom) )
       !END DO
 
-    ELSE ! not lrestart
+    ELSE ! not is_restart_run
 
       nnow(:) = 1
       nnew(:) = 2

@@ -49,6 +49,7 @@ MODULE mo_ocean_model
   
   USE mo_interpol_config,    ONLY: configure_interpolation
   USE mo_advection_config,   ONLY: configure_advection
+  USE mo_dynamics_config,    ONLY: configure_dynamics  ! subroutine
   
   ! Control parameters: run control, dynamics, i/o
   !
@@ -343,14 +344,14 @@ CONTAINS
     !    Assign values to derived variables in the configuration states
     !---------------------------------------------------------------------
 
-!     CALL configure_dynamics ( lrestart, n_dom )
+    CALL configure_dynamics ( n_dom )
 !     CALL configure_diffusion( n_dom, dynamics_parent_grid_id, &
 !                             & nlev, vct_a, vct_b, apzero      )
 
     DO jg =1,n_dom
-     CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,      &
-       &                      iequations, iforcing, iqv, 0, &
-       &                      0, .false., .true., ntracer )
+      CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,      &
+        &                      iequations, iforcing, iqv, 0, &
+        &                      0, .false., .true., ntracer )
     ENDDO
 
 

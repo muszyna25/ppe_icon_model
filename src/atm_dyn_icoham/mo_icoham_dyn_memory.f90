@@ -164,7 +164,7 @@ CONTAINS
                                 & TRIM(varname_prefix),                    &
                                 & hydro_prog_list(jg,jt),                  &
                                 & p_hydro_state(jg)%prog(jt),              &
-                                & lrestart=.TRUE.                          )
+                                & store_in_restart=.TRUE.                          )
       END DO
 
       ! 1.2 Diagnostic variables
@@ -177,7 +177,7 @@ CONTAINS
                               & TRIM(listname), TRIM(varname_prefix), &
                               & hydro_diag_list(jg),                  &
                               & p_hydro_state(jg)%diag,               &
-                              & lrestart=.FALSE.                      )
+                              & store_in_restart=.FALSE.                      )
 
       ! 1.3 Tendencies
 
@@ -189,7 +189,7 @@ CONTAINS
                               & TRIM(varname_prefix),                    &
                               & hydro_tend_dyn_list(jg),                 &
                               & p_hydro_state(jg)%tend_dyn,              &
-                              & lrestart=.TRUE.                          )
+                              & store_in_restart=.TRUE.                          )
 
       WRITE(listname,'(a,i2.2)')  'hydro_tend_phy_D',jg
       WRITE(varname_prefix,'(a)') 'ha_tend_phy_'
@@ -199,7 +199,7 @@ CONTAINS
                               & TRIM(varname_prefix),                    &
                               & hydro_tend_phy_list(jg),                 &
                               & p_hydro_state(jg)%tend_phy,              &
-                              & lrestart=.FALSE.                         )
+                              & store_in_restart=.FALSE.                         )
 
       !----------------------------
       ! 2.  For organizing output
@@ -212,7 +212,7 @@ CONTAINS
                               & TRIM(varname_prefix),                    &
                               & hydro_prog_out_list(jg),                 &
                               & p_hydro_state(jg)%prog_out,              &
-                              & lrestart=.FALSE.                         )
+                              & store_in_restart=.FALSE.                         )
 
       WRITE(listname,'(a,i2.2)')  'hydro_diag_out_D',jg
       WRITE(varname_prefix,'(a)') 'ha_diag_out_'
@@ -222,7 +222,7 @@ CONTAINS
                               & TRIM(listname), TRIM(varname_prefix), &
                               & hydro_diag_out_list(jg),              &
                               & p_hydro_state(jg)%diag_out,           &
-                              & lrestart=.FALSE.                      )
+                              & store_in_restart=.FALSE.                      )
 
     ENDDO
 
@@ -290,12 +290,12 @@ CONTAINS
                                 & ctracer_list, ltheta_dyn,       &
                                 & kblks_c, kblks_e,               &
                                 & listname, vname_prefix,         &
-                                & field_list, field, lrestart )
+                                & field_list, field, store_in_restart )
 
     INTEGER,INTENT(IN) :: kproma, klev, ktracer  !< dimension sizes
     LOGICAL,INTENT(IN) :: ltheta_dyn
     INTEGER,INTENT(IN) :: kblks_c, kblks_e       !< dimension sizes
-    LOGICAL,INTENT(IN) :: lrestart               !< store in restart file?
+    LOGICAL,INTENT(IN) :: store_in_restart               !< store in restart file?
 
     CHARACTER(len=*),INTENT(IN) :: listname, vname_prefix
     CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
@@ -318,7 +318,7 @@ CONTAINS
 
     CALL new_var_list( field_list, TRIM(listname) )
     CALL default_var_list_settings( field_list,                &
-                                  & lrestart=lrestart,         &
+                                  & lrestart=store_in_restart,         &
                                   & restart_type=FILETYPE_NC2  )
 
     ! Add variables to the list 
@@ -389,12 +389,12 @@ CONTAINS
                                 & ltheta_dyn,                          &
                                 & kblks_c, kblks_e, kblks_v,           & 
                                 & listname, vname_prefix,              &
-                                & field_list, field, lrestart )
+                                & field_list, field, store_in_restart )
 
     INTEGER,INTENT(IN) :: kproma, klev, ktracer      !< dimension sizes
     LOGICAL,INTENT(IN) :: ltheta_dyn
     INTEGER,INTENT(IN) :: kblks_c, kblks_e, kblks_v  !< dimension sizes
-    LOGICAL,INTENT(IN) :: lrestart
+    LOGICAL,INTENT(IN) :: store_in_restart
 
     CHARACTER(len=*),INTENT(IN) :: listname, vname_prefix
     CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
@@ -416,7 +416,7 @@ CONTAINS
     ! Register a variable list and apply default settings
 
     CALL new_var_list( field_list, TRIM(listname) )
-    CALL default_var_list_settings( field_list, lrestart=lrestart ) 
+    CALL default_var_list_settings( field_list, lrestart=store_in_restart ) 
 
     !----------------------------
     ! Add variables to the list 

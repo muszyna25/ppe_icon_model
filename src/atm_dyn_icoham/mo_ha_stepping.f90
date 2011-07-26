@@ -55,7 +55,7 @@ MODULE mo_ha_stepping
   USE mo_run_config,          ONLY: nsteps, dtime, ntracer,  &
                                   & ldynamics, ltransport, msg_level, ltimer,   &
                                   & ltestcase
-  USE mo_master_nml,          ONLY: lrestart
+  USE mo_master_control,      ONLY: is_restart_run
   USE mo_ha_testcases,        ONLY: init_testcase
   USE mo_si_correction,       ONLY: init_si_params
   USE mo_ha_rungekutta,       ONLY: init_RungeKutta
@@ -308,7 +308,7 @@ CONTAINS
     ! 3-time-level schemes. In case of a restart run, the treatment is 
     ! not necessary, thus the variable is set to .TRUE. 
 
-    l_3tl_init(1:n_dom) = (.NOT.ltwotime).AND.(.NOT.lrestart).AND.(jstep==1)
+    l_3tl_init(1:n_dom) = (.NOT.ltwotime).AND.(.NOT.is_restart_run()).AND.(jstep==1)
 
     ! Call recursive subroutine 'process_grid_level', which executes
     ! one timestep for the global domain and calls itself in the presence

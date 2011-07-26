@@ -53,11 +53,13 @@ MODULE mo_master_control
 
   USE mo_io_units,    ONLY: filename_max, nnml
   
-  USE mo_master_nml,  ONLY: read_master_namelist,                             &
-    &                   l_atmo_active, atmo_name, atmo_namelist_filename,     &
-    &                   atmo_min_rank, atmo_max_rank, atmo_inc_rank,          &
-    &                   l_ocean_active, ocean_name, ocean_namelist_filename,  &
-    &                   ocean_min_rank, ocean_max_rank, ocean_inc_rank
+  USE mo_master_nml,  ONLY: read_master_namelist,           &
+    & l_atmo_active, atmo_name, atmo_namelist_filename,     &
+    & atmo_min_rank, atmo_max_rank, atmo_inc_rank,          &
+    & l_ocean_active, ocean_name, ocean_namelist_filename,  &
+    & ocean_min_rank, ocean_max_rank, ocean_inc_rank,       &
+    & lrestart
+    
   
   USE mo_coupling_nml, ONLY: read_coupling_namelist
 
@@ -70,7 +72,7 @@ MODULE mo_master_control
   PUBLIC ::  init_master_control, get_my_namelist_filename,           &
     & get_my_process_component, get_my_process_name, is_coupled_run,  &
     & atmo_process, ocean_process, radiation_process,                 &
-    & my_process_is_ocean
+    & my_process_is_ocean, is_restart_run
 
 
   ! ------------------------------------------------------------------------
@@ -312,6 +314,14 @@ MODULE mo_master_control
     is_coupled_run = in_coupled_mode
     
   END FUNCTION is_coupled_run
+  !------------------------------------------------------------------------
+  
+  !------------------------------------------------------------------------
+  LOGICAL FUNCTION is_restart_run()
+
+    is_restart_run = lrestart
+    
+  END FUNCTION is_restart_run
   !------------------------------------------------------------------------
   
   !------------------------------------------------------------------------

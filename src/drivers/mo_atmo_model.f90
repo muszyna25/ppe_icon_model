@@ -40,7 +40,7 @@ USE mo_mpi,                 ONLY: p_stop, &
   & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
   & my_process_is_stdio, set_mpi_work_communicators, set_comm_input_bcast, null_comm_type
 USE mo_timer,               ONLY: init_timer, print_timer
-USE mo_master_nml,          ONLY: lrestart
+USE mo_master_control,      ONLY: is_restart_run
 USE mo_output,              ONLY: init_output_files, close_output_files, write_output
 
 
@@ -209,7 +209,7 @@ CONTAINS
     !---------------------------------------------------------------------
     ! 0. If this is a resumed or warm-start run...
     !---------------------------------------------------------------------
-    IF (lrestart) THEN
+    IF (is_restart_run()) THEN
 
       ! First read the restart master file (ASCII format) to find out
       ! which NetCDF files the model should read.
@@ -241,7 +241,7 @@ CONTAINS
       CALL read_restart_attributes('restart_atm.nc')
       CALL message(TRIM(routine), 'read global attributes from atm restart file')
 
-    END IF ! lrestart
+    END IF ! is_restart_run()
 
     !---------------------------------------------------------------------
     ! 1.1 Read namelists (newly) specified by the user; fill the 
@@ -432,7 +432,7 @@ CONTAINS
     !    Assign values to derived variables in the configuration states
     !---------------------------------------------------------------------
 
-    CALL configure_dynamics ( lrestart, n_dom )
+    CALL configure_dynamics ( n_dom )
     CALL configure_diffusion( n_dom, dynamics_parent_grid_id, &
                             & nlev, vct_a, vct_b, apzero      )
 
