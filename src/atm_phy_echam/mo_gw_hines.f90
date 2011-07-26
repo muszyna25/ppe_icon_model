@@ -60,31 +60,35 @@ MODULE mo_gw_hines
                             !< false: compute only momentum flux deposition
 
   INTEGER  :: emiss_lev     !< number of levels above the ground at which gw are emitted
-  REAL(wp) :: rmscon        !< root mean square gravity wave wind at lowest level (m/s)
-  REAL(wp) :: kstar         !< typical gravity wave horizontal wavenumber (1/m)
-  REAL(wp) :: m_min         !< minimum bound in  vertical wavenumber (1/m)
+  REAL(wp) :: rmscon        !< [m/s] root mean square gravity wave wind at emission level
+  REAL(wp) :: kstar         !< [1/m] typical gravity wave horizontal wavenumber
+  REAL(wp) :: m_min         !< [1/m] minimum bound in  vertical wavenumber
 
 !!$  LOGICAL  :: lfront        !< true: compute gw sources emerging from fronts and background
 !!$                            !< (Charron and Manzini, 2002)
-!!$  REAL(wp) :: rms_front     !< rms frontal gw wind at source level  (m/s)
-!!$  REAL(wp) :: front_thres   !< minimum value of the frontogenesis function, for which
-!!$                            !< gravity waves are emitted from fronts [(K/m)^2/hour]
+!!$  REAL(wp) :: rms_front     !< [m/s] rms frontal gw wind at source level
+!!$  REAL(wp) :: front_thres   !< [(K/m)^2/hr] minimum value of the frontogenesis function,
+!!$                            !< for which gravity waves are emitted from fronts
 !!$
 !!$  LOGICAL  :: lozpr         !< true: for background enhancement associated with precipitation
 !!$                            !< (Manzini et al., 1997)
-!!$  REAL(wp) :: pcrit         !< critical precipitation value (mm/d), above which 
+!!$  REAL(wp) :: pcrit         !< [mm/d] critical precipitation value, above which 
 !!$                            !< gravity wave rms wind enhancement is applied
-!!$  REAL(wp) :: pcons         !< adimensional factor for background enhancement 
+!!$  REAL(wp) :: pcons         !< [] adimensional factor for background enhancement 
 !!$                            !< associated with precipitation
-!!$
-!!$  LOGICAL  :: lrmscon_lat   !< true:   use latitude dependent rmscon as defined
-!!$                            !< through rmscon_lo, rmscon_hi, lat_rmscon_lo, and lat_rmscon_hi
-!!$                            !< false:  use uniform rmscon
-!!$                            !< attention: may be overwritten if lfront or lozpr is true
-!!$  REAL(wp) :: lat_rmscon_lo !< rmscon_lo is used equatorward of this latitude (degN)
-!!$  REAL(wp) :: lat_rmscon_hi !< rmscon_hi is used poleward of this latitude (degN)
-!!$  REAL(wp) :: rmscon_lo     !< rmscon used equatorward of lat_rmscon_lo
-!!$  REAL(wp) :: rmscon_hi     !< rmscon used poleward of lat_rmscon_hi
+
+  LOGICAL  :: lrmscon_lat   !< true:  use latitude dependent rmscon
+                            !< - |latitude| >= lat_rmscon:
+                            !<      use rmscon
+                            !< - |latitude| <= lat_rmscon_eq:
+                            !<      use rmscon_eq
+                            !< - lat_rmscon_eq < |latitude| < lat_rmscon: 
+                            !<      use linear interpolation between rmscon_eq and rmscon
+                            !< false: use rmscon for all latitudes
+                            !< attention: may be overwritten if lfront or lozpr is true
+  REAL(wp) :: lat_rmscon_eq !< [degN] rmscon_eq is used equatorward of this latitude
+  REAL(wp) :: lat_rmscon    !< [degN] rmscon is used poleward of this latitude
+  REAL(wp) :: rmscon_eq     !< [m/s]  rms constant used equatorward of lat_rmscon_eq
 
 CONTAINS
 
@@ -99,6 +103,7 @@ CONTAINS
     &                   ptm1       ,&! in,  T
     &                   pum1       ,&! in,  u
     &                   pvm1       ,&! in,  v
+    &                   lat_deg    ,&! in,  latitude in deg N
 !!$    &                   paprflux   ,&! in, precipitation flux at surface 
     &                   tend_t_gwh ,&! out, dT/dt|Hines
     &                   tend_u_gwh ,&! out, du/dt|Hines
@@ -143,6 +148,7 @@ CONTAINS
     !  Array arguments with intent(IN):
     ! Input 1D
 !!$    REAL(wp) ,INTENT(in)  :: paprflux(nbdim)         ! precipitation flux
+    REAL(wp) ,INTENT(in)  :: lat_deg(nbdim)          ! latitude in deg N
     ! Input 2D
     REAL(wp) ,INTENT(in)  :: paphm1(nbdim,nlev+1)    ! half level pressure (t-dt)
     REAL(wp) ,INTENT(in)  :: papm1(nbdim,nlev)       ! full level pressure (t-dt)
@@ -235,11 +241,10 @@ CONTAINS
 !!$    pcrit         = gw_hines_config(jg) %pcrit
 !!$    pcons         = gw_hines_config(jg) %pcons
 !!$
-!!$    lrmscon_lat   = gw_hines_config(jg) %lrmscon_lat
-!!$    lat_rmscon_lo = gw_hines_config(jg) %lat_rmscon_lo
-!!$    lat_rmscon_hi = gw_hines_config(jg) %lat_rmscon_hi
-!!$    rmscon_lo     = gw_hines_config(jg) %rmscon_lo
-!!$    rmscon_hi     = gw_hines_config(jg) %rmscon_hi
+    lrmscon_lat   = gw_hines_config(jg) %lrmscon_lat
+    lat_rmscon_eq = gw_hines_config(jg) %lat_rmscon_eq
+    lat_rmscon    = gw_hines_config(jg) %lat_rmscon
+    rmscon_eq     = gw_hines_config(jg) %rmscon_eq
 
     !
     !--  Initialize the ccc/mam hines gwd scheme
@@ -367,14 +372,17 @@ CONTAINS
 
     anis(1:nc,1:naz) = 1.0_wp/REAL(naz,wp)
 
-!!$       IF (lrmscon_lat) THEN
-!!$          !     * latitude dependent GW source
-!!$          DO jl=1,nc
-!!$            rmswind(jl)=rmscon_lat(ilat(jl,krow))
-!!$          END DO
-!!$       ELSE
-    rmswind(1:nc) = rmscon
-!!$       ENDIF
+    IF (lrmscon_lat) THEN
+      ! latitude dependent gravity wave source
+      ! - poleward of lat_rmscon               : rmscon
+      ! - equatorward of lat_rmscon_eq         : rmscon_eq
+      ! - between lat_rmscon_eq and lat_rmscon : linear interpolation between rmscon and rmscon_eq
+      rmswind(1:nc) = ( MAX(MIN((ABS(lat_deg(1:nc))-lat_rmscon_eq),1.0_wp),0.0_wp) * rmscon      &
+        &              +MAX(MIN((lat_rmscon-ABS(lat_Deg(1:nc)))   ,1.0_wp),0.0_wp) * rmscon_eq ) &
+        &            /(lat_rmscon-lat_rmscon_eq)
+    ELSE
+      rmswind(1:nc) = rmscon
+    ENDIF
 
 !!$       !     * gravity waves from fronts:
 !!$       IF (lfront) THEN

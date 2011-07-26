@@ -177,14 +177,16 @@ CONTAINS
 
     IF ( lrmscon_lat ) THEN
       !
-      CALL finish(TRIM(routine),'lrmscon_lat = .TRUE. not yet allowed')
-      !
-      IF ( ABS(lat_rmscon_eq) > 90.0_wp ) &
-        & CALL finish(TRIM(routine),'|lat_rmscon_eq| > 90. degN is not valid')
-      IF ( ABS(lat_rmscon)    > 90.0_wp ) &
-        & CALL finish(TRIM(routine),'|lat_rmscon| > 90. degN is not valid')
-      IF ( ABS(lat_rmscon_eq) > ABS(lat_rmscon) ) &
-        & CALL finish(TRIM(routine),'|lat_rmscon_eq| > |lat_rmscon| is not allowed')
+      IF ( lat_rmscon_eq <  0.0_wp  ) &
+        & CALL finish(TRIM(routine),'lat_rmscon_eq <  0. degN is not valid')
+      IF ( lat_rmscon_eq > 90.0_wp ) &
+        & CALL finish(TRIM(routine),'lat_rmscon_eq > 90. degN is not valid')
+      IF ( lat_rmscon    <  0.0_wp ) &
+        & CALL finish(TRIM(routine),'lat_rmscon    <  0. degN is not valid')
+      IF ( lat_rmscon    > 90.0_wp ) &
+        & CALL finish(TRIM(routine),'lat_rmscon    > 90. degN is not valid')
+      IF ( lat_rmscon_eq > lat_rmscon ) &
+        & CALL finish(TRIM(routine),'lat_rmscon_eq > lat_rmscon is not allowed')
       IF ( rmscon_eq < 0.0_wp ) &
         & CALL finish(TRIM(routine),'rmscon_eq < 0. is not allowed')
       !

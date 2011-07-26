@@ -90,12 +90,12 @@ CONTAINS
   SUBROUTINE physc( jg,jb,jcs,jce,nbdim,pdtime,psteplen,  &
                   & ltrig_rad,ptime_radtran,ptime_radheat )
 
-    INTEGER, INTENT(IN) :: jg         !< grid level/domain index 
-    INTEGER, INTENT(IN) :: jb         !< block index
-    INTEGER, INTENT(IN) :: jcs, jce   !< start/end column index within this block
-    INTEGER, INTENT(IN) :: nbdim      !< size of this block
-    REAL(wp),INTENT(IN) :: pdtime     !< time step
-    REAL(wp),INTENT(IN) :: psteplen   !< 2*pdtime in case of leapfrog
+    INTEGER, INTENT(IN) :: jg             !< grid level/domain index 
+    INTEGER, INTENT(IN) :: jb             !< block index
+    INTEGER, INTENT(IN) :: jcs, jce       !< start/end column index within this block
+    INTEGER, INTENT(IN) :: nbdim          !< size of this block
+    REAL(wp),INTENT(IN) :: pdtime         !< time step
+    REAL(wp),INTENT(IN) :: psteplen       !< 2*pdtime in case of leapfrog
 
     LOGICAL, INTENT(IN) :: ltrig_rad      !< perform radiative transfer computation
     REAL(wp),INTENT(IN) :: ptime_radtran  !< time instance of the radiative transfer
@@ -107,40 +107,42 @@ CONTAINS
     TYPE(t_echam_phy_field),POINTER :: field 
     TYPE(t_echam_phy_tend) ,POINTER :: tend
 
-    REAL(wp) :: zbetaa (nbdim,nlev)   !< qt distribution minimum in beta
-    REAL(wp) :: zbetab (nbdim,nlev)   !< qt distribution maximum in beta
+    REAL(wp) :: zlat_deg(nbdim)           !< latitude in deg N
+
+    REAL(wp) :: zbetaa (nbdim,nlev)       !< qt distribution minimum in beta
+    REAL(wp) :: zbetab (nbdim,nlev)       !< qt distribution maximum in beta
     REAL(wp) :: zbetass(nbdim,nlev)
 
-    REAL(wp) :: zhmixtau   (nbdim,nlev) !< timescale of mixing for horizontal eddies
-    REAL(wp) :: zvmixtau   (nbdim,nlev) !< timescale of mixing for vertical turbulence
-    REAL(wp) :: zqtvar_prod(nbdim,nlev) !< production rate of total water variance
-                                        !< due to turbulence. Computed in "vdiff",
-                                        !< used by "cloud"
-    INTEGER  :: itype(nbdim)            !< type of convection
+    REAL(wp) :: zhmixtau   (nbdim,nlev)   !< timescale of mixing for horizontal eddies
+    REAL(wp) :: zvmixtau   (nbdim,nlev)   !< timescale of mixing for vertical turbulence
+    REAL(wp) :: zqtvar_prod(nbdim,nlev)   !< production rate of total water variance
+                                          !< due to turbulence. Computed in "vdiff",
+                                          !< used by "cloud"
+    INTEGER  :: itype(nbdim)              !< type of convection
     INTEGER  :: invb (nbdim)
 
-    REAL(wp) :: zfrl (nbdim)           !< fraction of land in the grid box
-    REAL(wp) :: zfrw (nbdim)           !< fraction of water (without ice) in the grid point
-    REAL(wp) :: zfri (nbdim)           !< fraction of ice in the grid box
-    REAL(wp) :: zfrc (nbdim,nsfc_type) !< zfrl, zfrw, zfrc combined
+    REAL(wp) :: zfrl (nbdim)              !< fraction of land in the grid box
+    REAL(wp) :: zfrw (nbdim)              !< fraction of water (without ice) in the grid point
+    REAL(wp) :: zfri (nbdim)              !< fraction of ice in the grid box
+    REAL(wp) :: zfrc (nbdim,nsfc_type)    !< zfrl, zfrw, zfrc combined
 
     REAL(wp) :: zqhflx (nbdim)
     INTEGER  :: ilab   (nbdim,nlev)
     REAL(wp) :: zcvcbot(nbdim)
     REAL(wp) :: zwcape (nbdim)
 
-    REAL(wp) :: zqtec  (nbdim,nlev) !< tracer tendency due to entrainment/detrainment
-    REAL(wp) :: zxtecl (nbdim,nlev) !< tracer tendency due to entrainment/detrainment
-    REAL(wp) :: zxteci (nbdim,nlev) !< tracer tendency due to entrainment/detrainment
-    REAL(wp) :: zxtecnl(nbdim,nlev) !< tracer tendency due to entrainment/detrainment
-    REAL(wp) :: zxtecni(nbdim,nlev) !< tracer tendency due to entrainment/detrainment
+    REAL(wp) :: zqtec  (nbdim,nlev)       !< tracer tendency due to entrainment/detrainment
+    REAL(wp) :: zxtecl (nbdim,nlev)       !< tracer tendency due to entrainment/detrainment
+    REAL(wp) :: zxteci (nbdim,nlev)       !< tracer tendency due to entrainment/detrainment
+    REAL(wp) :: zxtecnl(nbdim,nlev)       !< tracer tendency due to entrainment/detrainment
+    REAL(wp) :: zxtecni(nbdim,nlev)       !< tracer tendency due to entrainment/detrainment
 
-    REAL(wp) :: ztsi                !< total solar irradiation at 1 AU   [W/m2]
-    REAL(wp) :: zi0    (nbdim)      !< solar incoming radiation at TOA   [W/m2]
-    REAL(wp) :: zmair  (nbdim,nlev) !< mass of air                       [kg/m2]
-    REAL(wp) :: zdelp  (nbdim,nlev) !< layer thickness in pressure coordinate  [Pa]
+    REAL(wp) :: ztsi                      !< total solar irradiation at 1 AU   [W/m2]
+    REAL(wp) :: zi0    (nbdim)            !< solar incoming radiation at TOA   [W/m2]
+    REAL(wp) :: zmair  (nbdim,nlev)       !< mass of air                       [kg/m2]
+    REAL(wp) :: zdelp  (nbdim,nlev)       !< layer thickness in pressure coordinate  [Pa]
 
-    INTEGER  :: ihpbl  (nbdim)      !< location of PBL top given as vertical level index
+    INTEGER  :: ihpbl  (nbdim)            !< location of PBL top given as vertical level index
     REAL(wp) :: zxt_emis(nbdim,ntracer-iqt+1)  !< tracer tendency due to surface emission
                                                !< and dry deposition. "zxtems" in ECHAM5
     INTEGER  :: jk
@@ -722,6 +724,8 @@ CONTAINS
 
       IF (ltimer) call timer_start(timer_gw_hines)
 
+      zlat_deg(jcs:jce) = p_patch(jg)%cells%center(jcs:jce,jb)%lat * 180._wp/pi
+
       CALL gw_hines ( jg                       ,&
         &             nbdim                    ,&
         &             jcs                      ,&
@@ -733,6 +737,7 @@ CONTAINS
         &             field% temp(:,:,jb)      ,&
         &             field%    u(:,:,jb)      ,&
         &             field%    v(:,:,jb)      ,&
+        &             zlat_deg(:)              ,&
 !!$        &             aprflux(:,krow)          ,&
         &             tend% temp_gwh(:,:,jb)   ,&
         &             tend%    u_gwh(:,:,jb)   ,&
