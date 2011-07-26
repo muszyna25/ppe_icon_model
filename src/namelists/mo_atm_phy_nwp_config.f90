@@ -240,10 +240,6 @@ SUBROUTINE configure_atm_phy_nwp(n_dom,pat_level,&
         tcall_phy(jg,itsfc) =   atm_phy_nwp_config(jg)%dt_turb  !seconds
       ENDIF
 
-       WRITE(0,*)'nwp_phy dt rad=', tcall_phy(jg,itupdate)
-      WRITE(0,*)'nwp_phy dt rad=', tcall_phy(jg,itsatad)
-      WRITE(0,*)'nwp_phy dt rad=',   tcall_phy(jg,itrad)
-        WRITE(0,*)'nwp_phy dt radheat=',   tcall_phy(jg,itradheat)
     ENDDO
 
     IF( atm_phy_nwp_config(1)%inwp_turb == 2) THEN
@@ -251,11 +247,11 @@ SUBROUTINE configure_atm_phy_nwp(n_dom,pat_level,&
                                              ! to obtain the demanded parameters
     ENDIF
 
-    IF( MOD( REAL(  iadv_rcf,wp)*dtime, &
+    IF( MOD( REAL(iadv_rcf,wp)*dtime, &
       &         atm_phy_nwp_config(jg)%dt_conv) /= 0._wp )  THEN
-      WRITE(message_text,'(a,I4,2F10.2)') &
-        &'advective and convective timesteps are not- but will be synchronized ', &
-        &     1, REAL(  iadv_rcf,wp)*dtime,tcall_phy(1,itconv)
+      WRITE(message_text,'(a,2F9.1)') &
+        &'advective and convective timesteps are not, but will be synchronized ', &
+        &    REAL(iadv_rcf,wp)*dtime,tcall_phy(1,itconv)
       CALL message(TRIM(routine), TRIM(message_text))
     ENDIF
 

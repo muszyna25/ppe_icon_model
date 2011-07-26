@@ -285,17 +285,17 @@ CONTAINS
 
     IF (run_is_global_mpi_parallel() .AND. &
       & (l_debug .OR. ilevel == em_warn .OR. ilevel == em_error)) THEN
-     WRITE(write_text,'(1x,a,i6,a,a)') 'PE ', get_my_global_mpi_id(), ' ', &
-       & TRIM(message_text)
-     lprint = .TRUE.
-   ELSE
-     write_text = message_text
-   END IF
+      WRITE(write_text,'(1x,a,i6,a,a)') 'PE ', get_my_global_mpi_id(), ' ', &
+        & TRIM(message_text)
+      lprint = .TRUE.
+    ELSE
+      write_text = message_text
+    END IF
 
-   IF (my_process_is_stdio() .OR. lprint) THEN
-     WRITE(iout,'(1x,a)') TRIM(write_text)
-     IF (l_log) WRITE(nlog,'(1x,a)') TRIM(write_text)
-   END IF
+    IF (my_process_is_stdio() .OR. lprint) THEN
+      WRITE(iout,'(1x,a)') TRIM(write_text)
+      IF (l_log) WRITE(nlog,'(1x,a)') TRIM(write_text)
+    END IF
 
   END SUBROUTINE message
   !-------------
