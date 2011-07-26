@@ -126,6 +126,7 @@ class PreProcOptions
     options[:verbose]              = false
     options[:openmp]               = 4
     options[:model_type]           = 'hydrostatic'
+    options[:threaded]             = false
     options[:persistent_tempfiles] = false
 
     opts = OptionParser.new do |opts|
@@ -231,6 +232,10 @@ class PreProcOptions
       opts.on("-P", "--openmp p", Numeric, "Set number of OpenMP threads to <p>") do |p|
         options[:openmp] = p
       end
+      # Switch on multithreadded processing files/varialbles
+      opts.on("-T","--multithreaded","Process files/variables/remapping multithreaded (Can produse high load!)") do |v|
+        options[:threaded] = v
+      end
 
       # create zlevel options for each given output variables
       opts.on("-z","--zlevels lev0,lev1,..,levN",
@@ -238,11 +243,20 @@ class PreProcOptions
               "'list' of target zlevels (not required for initial ICON data)") {|list|
         options[:zlevels] = list
       }
-      options[:zcoordinates] = {}
       opts.on("-Z","--zcoordinates FILE",
               String,
-              "File with the 3D height field (nonhydrostatic case)") {|file|
-        options[:zcoordinates] = file
+              "File with the 3D height field on full levels (nonhydrostatic case)") {|file|
+        options[:fullzcoordinates] = file
+      }
+      opts.on("-Z","--full-zcoordinates FILE",
+              String,
+              "File with the 3D height field on full levels (nonhydrostatic case)") {|file|
+        options[:fullzcoordinates] = file
+      }
+      opts.on("-Z","--half-zcoordinates FILE",
+              String,
+              "File with the 3D height field on half levels (nonhydrostatic case)") {|file|
+        options[:halfzcoordinates] = file
       }
 
       opts.separator ""
@@ -257,7 +271,19 @@ class PreProcOptions
 
       # Another typical switch to print the version.
       opts.on_tail("--version", "Show version") do
-        puts 'ifs2icon ' + [1,0].join('.')
+        puts 'ifs2icon ' + [1,1].join('.')
+        puts <<-END
+        Performs horizontal and vertical interpolation off half and full level variables.
+        Special handling for
+        * pressure:
+          compute differnce sto hydrostatic pressure using cdo stdatm operator
+          perform vertical interpolation off these differences
+          add hydrostatic pressure of the target vertical grid
+        * vertical velocity
+          input is OMEGA [Pa/s], output should be W [m/s]: OMEGA = -rho*g*W
+          compute rho = P/(R*T) with P and T being hydrostatic (again cdo's stdatm)
+          replace input vertical velocity with W=OMEGA/(-rho*g)
+          END
         exit
       end
 
@@ -317,7 +343,7 @@ class PreProcOptions
       warn "Please provide #{sinfo} file (option:#{relatedOption}) for #{model} model input"
       exit
     end
-    unless File.readable?(filename)
+    unless File.readable?(filename) and File.file?(filename)
       warn "Unable to read from #{sinfo} file '#{filename}'"
       exit
     end
@@ -330,7 +356,14 @@ class PreProcOptions
     end
     # target vertical coordinate is required for nonhydrostatic mode
     if options[:model_type].to_s == "nonhydrostatic"
-      checkFile(options[:zcoordinates], 'target vertical coordinate', '--zcoordinates', options[:model_type])
+      # check for presence of 3d vertical coordinate on full level if there is such an output variable
+      levelKey = Ecmwf2Icon::DefaultColumnNames[:nlevels]
+      unless (options[:config].send(levelKey).uniq & Ecmwf2Icon::DefaultNlevelIDs[:full]).empty?
+        checkFile(options[:fullzcoordinates], 'target vertical coordinate', '--full-zcoordinates', options[:model_type]) 
+      end
+      unless (options[:config].send(levelKey).uniq & Ecmwf2Icon::DefaultNlevelIDs[:half]).empty?
+        checkFile(options[:halfzcoordinates], 'target vertical coordinate', '--half-zcoordinates', options[:model_type]) 
+      end
     end
     # check vct file: Should have C-style notation (start with 0) which is not
     # the case for icon vcts
@@ -379,8 +412,7 @@ module Ecmwf2Icon
   ]
   DefaultConfig = ExtCsv.new('array','plain',_defaultConfig.transpose)
 
-  DefaultColumnNames =
-    {
+  DefaultColumnNames = {
       :outName                 => :outputname,
       :inName                  => :inputname,
       :code                    => :code,
@@ -389,7 +421,13 @@ module Ecmwf2Icon
       :nlevels                 => :nlevel,
       :info                    => :description,
       :horizontalInterpolation => :I
-    }
+  }
+
+  DefaultNlevelIDs = {
+    :full => ['full','nlev'],
+    :half => ['half','nlev+1'],
+    :surf => ['surf','1']
+  }
 
   def defaultConfig
     DefaultConfig
@@ -544,6 +582,14 @@ end
 # * (TODO) apply land-see-mask
 # * (TODO) to concistency checks
 class Ifs2Icon
+  C_R          = 287.05
+  SCALEHEIGHT  = 10000.0
+  C_EARTH_GRAV = 9.80665
+  # function for later computation of hydrostatic atmosphere pressure
+  PRES_EXPR = lambda {|height| "101325.0*exp((-1)*(1.602769777072154)*log((exp(#{height}/#{SCALEHEIGHT})*213.15+75.0)/288.15))"}
+  TEMP_EXPR = lambda {|height| "213.0+75.0*exp(-#{height}/#{SCALEHEIGHT})"}
+  RHO_EXPR  = lambda {|pressure,temperature| "#{pressure}/(#{C_R}/#{temperatur})"}
+  W_EXPR    = lambda {|omega,rho| "#{omega}/(-#{rho}*#{C_EARTH_GRAV})"}
 
   include Ecmwf2Icon
 
@@ -572,7 +618,9 @@ class Ifs2Icon
 
     @tempfiles = []
 
-    @invars, @outvars, @gridvars = {}, {}, {}
+    @invars, @outvars, @grids, @weights = {}, {}, {}, {}
+
+    @ifile, @ofile = @options[:inputfile], @options[:outputfile]
 
     # Create internal configuration state
     if @options[:config].nil?
@@ -586,9 +634,8 @@ class Ifs2Icon
 
     Ecmwf2Icon.displayConfig(@config,@options[:verbose], @options[:debug])
 
-    prepareGridfiles
+    prepareGridAndWeights
 
-    @ifile, @ofile = @options[:inputfile], @options[:outputfile]
 
     # Read input variables form File
     @invars = getInputVariables
@@ -671,14 +718,20 @@ class Ifs2Icon
   end
 
   # Create files for later usage as grid description for the remapping
-  def prepareGridfiles
+  def prepareGridAndWeights
     GRID_VARIABLES.each {|k,v|
+      # only generate weights if they are needed
+      next unless @config.grid.uniq.include?(k.to_s)
+
       Dbg.msg("Selecting #{k} grid from #{@options[:gridfile]}",false, @options[:debug])
       varfile = tfile
       Cdo.selname(v,:in => @options[:gridfile],:out => varfile)
-      @gridvars[v] = varfile
+      @grids[v] = varfile
       Dbg.msg("#{k} grid is now in #{varfile}",false, @options[:debug])
-      Dbg.msg(IO.popen("ls -crtlh #{varfile}").read,false,@options[:debug])
+
+      weightsfile = tfile
+      Cdo.gencon(varfile,:in => @ifile, :out => weightsfile,:options => "-P #{@options[:openmp]}")
+      @weights[v] = weightsfile
     }
   end
 
@@ -698,15 +751,68 @@ class Ifs2Icon
     invars
   end
 
+  def fullLevelInputVars
+    inputVarsByLevelType(:full)
+  end
+  def halfLevelInputVars
+    inputVarsByLevelType(:half)
+  end
+  def surfLevelInputVars
+    inputVarsByLevelType(:surf)
+  end
+
+  def inputVarsByLevelType(ltype)
+    vnames = []
+    tag = case ltype
+    when :full then 'nlev'
+    when :half then 'nlev+1'
+    when :surf then '1'
+    end
+    @invars.each_key {|k|
+      column = case k
+      when Fixnum then :code
+      when String then :inputname
+      else 
+        warn "Wrong Input variable information in variable 'invars'"
+        exit
+      end
+      unless ( names = @config.selectBy(column => k,:nlevel => "'#{tag}'").outputname; names.empty?)
+        vnames << names[0]
+      end
+    }
+    vnames
+  end
+
+  def levelTypeOfVar(varname)
+    [:full, :half, :surf].each {|ltype|
+      return ltype if inputVarsByLevelType(ltype).include?(varname)
+    }
+    warn "No level Type found for variable '#{varname}'"
+    return false
+  end
+
+
   # Split the input file into one file per variable
   def readVars
-    threads = []
-    @invars.keys.each {|k|
-      Dbg.msg("Reading variable '#{k}' ...",false,@options[:debug])
-      varfile = tfile
-      threads << Thread.new(k) {|v| readVar(v,varfile) }
-    }
-    threads.each {|t| t.join}
+    if @options[:threaded]
+      threads = []
+      @invars.keys.each {|k|
+        Dbg.msg("reading variable '#{k}' ...",false,@options[:debug])
+        varfile = tfile
+        threads << Thread.new(k) {|var| 
+          readVar(var,varfile)
+          @lock.synchronize {@invars[var] = varfile}
+        }
+      }
+      threads.each {|t| t.join}
+    else
+      @invars.keys.each {|var|
+        Dbg.msg("reading variable '#{var}' ...",false,@options[:debug])
+        varfile = tfile
+        readVar(var,varfile)
+        @invars[var] = varfile
+      }
+    end
   end
 
   # Every variable 'var' is read from the input and saved into another temporary file
@@ -718,18 +824,42 @@ class Ifs2Icon
                  warn "Wrong usage of variable identifier for '#{var}' (class #{var.class})!"
                end
     Cdo.send(operator,var,:in => @ifile, :out => varfile)
-    @lock.synchronize {@invars[var] = varfile}
   end
 
   def horizontalInterpolation
-    #ths = []
-    @outvars.each_key {|ovar|
-      Dbg.msg("Processing '#{ovar}' ...",@options[:verbose],@options[:debug])
+    if @options[:threaded]
+      ths = []
+      @outvars.each_key {|outvar|
+        Dbg.msg("Processing '#{outvar}' ...",@options[:verbose],@options[:debug])
 
-    #  ths << Thread.new(ovar) {|ovar|
+        ths << Thread.new(outvar) {|ovar|
+          # determine the grid of the variable
+          grid       = Ecmwf2Icon.grid(ovar,@config).to_sym
+          gridfile   = @grids[GRID_VARIABLES[grid]]
+          weightfile = @weights[GRID_VARIABLES[grid]]
+
+          # remap the variable onto its icon grid provided in the configuration
+          ivar              = @config.selectBy(DefaultColumnNames[:outName] => ovar).code[0].to_i
+          copyfile, outfile = tfile, tfile
+
+          # create netcdf version of the input
+          Cdo.chainCall("-setname,#{ovar} -copy",:in => @invars[ivar],:out => copyfile,:options => "-f nc")
+
+          # Perform conservative remapping with pregenerated weights
+          Cdo.remap([gridfile,weightfile],:in => copyfile,:out => outfile)
+
+          @lock.synchronize { @outvars[ovar] = outfile }
+        }
+      }
+      ths.each {|t| t.join}
+    else
+      @outvars.each_key {|ovar|
+        Dbg.msg("Processing '#{ovar}' ...",@options[:verbose],@options[:debug])
+
         # determine the grid of the variable
-        grid     = Ecmwf2Icon.grid(ovar,@config).to_sym
-        gridfile = @gridvars[GRID_VARIABLES[grid]]
+        grid       = Ecmwf2Icon.grid(ovar,@config).to_sym
+        gridfile   = @grids[GRID_VARIABLES[grid]]
+        weightfile = @weights[GRID_VARIABLES[grid]]
 
         # remap the variable onto its icon grid provided in the configuration
         ivar              = @config.selectBy(DefaultColumnNames[:outName] => ovar).code[0].to_i
@@ -738,20 +868,15 @@ class Ifs2Icon
         # create netcdf version of the input
         Cdo.chainCall("-setname,#{ovar} -copy",:in => @invars[ivar],:out => copyfile,:options => "-f nc")
 
-        # Perform conservative remapping
-        Cdo.remapcon(gridfile,:in => copyfile,:out => outfile,:options => "-P #{@options[:openmp]}")
+        # Perform conservative remapping with pregenerated weights
+        Cdo.remap([gridfile,weightfile],:in => copyfile,:out => outfile)
 
-    #    @lock.synchronize { @outvars[ovar] = outfile }
         @outvars[ovar] = outfile
-    #  }
-    }
-    #ths.each {|t| t.join}
+      }
+    end
   end
 
   def verticalInterpolation
-    # function for later computation of hydrostatic atmosphere pressure
-    expr = lambda {|varname| "101325.0*exp((-1)*(1.602769777072154)*log((exp(#{varname}/10000.0)*213.15+75.0)/288.15))"}
-
     # merge all horizontal interpolations together
     intermediateFile, hybridlayerfile, reallayerfile = tfile, tfile, tfile
     Dbg.msg("Combining files into output file '#{intermediateFile}'",false, @options[:debug])
@@ -770,79 +895,154 @@ class Ifs2Icon
         @_preout = hybridlayerfile
       end
     when 'nonhydrostatic'
-      # some variable name definitions. They might change in the future
-      iFShydpressVarname         = 'pres'
-      iCONhydpressVarname        = 'pres'
-      iCONverticalCoordinateName = 'ZF3'
-
       # create 3d height from IFS intput data with 'cdo geopotheight'
-      intermediateHeight, intermediateHeightAndPresFile, intermediatePressure  = tfile, tfile, tfile
+      intermediateHeight = tfile
       Cdo.geopotheight(:in => intermediateFile,:out => intermediateHeight)
 
       # Create output with vertical height axis of intermediate IFS
       Cdo.copy(:in => intermediateHeight,:out => 'intermediateHeights.nc') if @options[:debug]
       Cdo.copy(:in => intermediateFile,  :out => 'intermediateIFS.nc')     if @options[:debug]
 
+      iconPressure     = verticalPressureHandling(intermediateFile,intermediateHeight)
+      intermediateFile = verticalVelocityHandling(intermediateFile,intermediateHeight)
+
       # =======================================================================
-      # PRESSURE HANDLING:
-      # * create 3d pressure from intermediate IFS interpolation (horiz)
-      Cdo.chainCall("-setname,#{iFShydpressVarname} -pressure_fl",:in => intermediateFile,:out => intermediatePressure)
-
-      # debug output containing the intermediate 3d IFS pressure coordinate
-      Cdo.copy(:in => intermediatePressure,:out => 'intermediatePressure.nc') if @options[:debug]
-
-      if false #version for patched geopotheight operator
-        Cdo.selname('pres',:in => intermediateHeight, :out => intermediatePressure)
-        tmp = tfile
-        Cdo.delname('pres',:in => intermediateHeight, :out => tmp)
-        Cdo.copy(:in => tmp,:out => intermediateHeight)
-      end
-
-      # * substract hydrostatic pressure on intermediate IFS heights from the
-      #   real intermediate IFS pressure levels
-      #   - compute hydrostatic pressure on 3d height field, same formular like stdatm operator in CDO
-      #     * Use expr operator like
-      #        cdo expr 'press=101325.0*exp((-1)*(1.602769777072154)*log((exp(height/10000.0)*213.15+75.0)/288.15))'
-      hydrostaticPresOnIntermediateHeights, diff, diffOnIconVertGrid = tfile,tfile,tfile
-      Cdo.expr("'#{iFShydpressVarname}=#{expr['geopotheight']}'",
-               :in => intermediateHeight, :out => hydrostaticPresOnIntermediateHeights)
-      #     * substract the hydrostatic pressure from the IFS pressures
-      Cdo.sub(:in => [intermediatePressure,hydrostaticPresOnIntermediateHeights].join(' '), :out => diff)
-
-      # * 3d linerar interpolation if the pressure differences onto the ICON vertical height levels
-      Cdo.intlevelx3d(intermediateHeight,:in => [diff,@options[:zcoordinates]].join(' '), :out => diffOnIconVertGrid)
-
-      # * add hydrostatic pressure values for the ICON heights
-      #   - remove target z coordinate and reset variable name for later operations (add)
-      tmp = tfile
-      Cdo.delname(iCONverticalCoordinateName, :in => diffOnIconVertGrid, :out => tmp)
-      Cdo.setname(iCONhydpressVarname       , :in => tmp               , :out => diffOnIconVertGrid) #TODO not necessary
-      # prepare hydrostatic pressure in vertical ICON grid
-      hydrostaticPressOnIconHeights, iconPressure = tfile, tfile
-
-      Cdo.expr("'#{iCONhydpressVarname}=#{expr[iCONverticalCoordinateName]}'",
-               :in => @options[:zcoordinates], :out => hydrostaticPressOnIconHeights)
-      Cdo.add(:in => [diffOnIconVertGrid,hydrostaticPressOnIconHeights].join(' '),:out => iconPressure)
-
-      # Interpolated pressure for later debugging
-      Cdo.copy(:in => iconPressure,:out => 'intermediatePressure.nc') if @options[:debug]
-      #    * check results!!!!
-      #
-      # handling of the rest:
+      # HANDLING OF OTHER VARIABLES
       # * perform 3d interpolation of any other 3d variables with intlevel3d
       remainingVariablesFile, @_preout = tfile,tfile
-      Cdo.intlevelx3d(intermediateHeight,
-                      :in => [intermediateFile,@options[:zcoordinates]].join(' '),
-                      :out => remainingVariablesFile)
+      # split into full and half level variables
+      fullLevelVarnames = fullLevelInputVars
+      halfLevelVarnames = halfLevelInputVars
+      surfLevelVarnames = surfLevelInputVars
+      pp({:full => fullLevelVarnames, :half => halfLevelVarnames,:surf => surfLevelVarnames}) if @options[:debug]
 
-      # Merge back into a single output file
-      Cdo.merge(:in => [remainingVariablesFile,iconPressure].join(' '),:out => @_preout)
+      iconOutFiles = []
+      {
+        :full => fullLevelVarnames,
+        :half => halfLevelVarnames,
+        :surf => surfLevelVarnames
+      }.each {|ltype,lvarnames|
+        unless lvarnames.empty?
+          selfile = tfile
+          Cdo.selname(lvarnames.join(','),:in => intermediateFile,:out => selfile)
+          targetZFile = case ltype 
+                        when :full then @options[:fullzcoordinates]
+                        when :half then @options[:halfzcoordinates]
+                        end
+          unless ltype == :surf
+            iconLevelVarsFile = tfile
+            Cdo.intlevelx3d(intermediateHeight, :in => [selfile,targetZFile].join(' '), :out => iconLevelVarsFile)
+            iconOutFiles << iconLevelVarsFile
+          else
+            iconOutFiles << selfile
+          end
+        else
+          puts "No #{ltype.to_s} type variables found." if @options[:debug]
+        end
+      }
+
+
+      # =======================================================================
+      # MERGE BACK INTO A SINGLE OUTPUT FILE
+      Cdo.merge(:in => [iconOutFiles,iconPressure].flatten.join(' '),:out => @_preout)
     end
   end
 
+  def verticalPressureHandling(intermediateFile,intermediateHeight)
+    # some variable name definitions. They might change in the future
+    iFShydpressVarname         = 'pres'
+    iCONhydpressVarname        = 'pres'
+    iCONverticalCoordinateName = 'ZF3'
+
+    # =======================================================================
+    # PRESSURE HANDLING:
+    # * create 3d pressure from intermediate IFS interpolation (horiz)
+    intermediatePressure = tfile
+    Cdo.chainCall("-setname,#{iFShydpressVarname} -pressure_fl",:in => intermediateFile,:out => intermediatePressure)
+
+    # debug output containing the intermediate 3d IFS pressure coordinate
+    Cdo.copy(:in => intermediatePressure,:out => 'intermediateIFSPressure.nc') if @options[:debug]
+
+    if false #version for patched geopotheight operator
+      Cdo.selname('pres',:in => intermediateHeight, :out => intermediatePressure)
+      tmp = tfile
+      Cdo.delname('pres',:in => intermediateHeight, :out => tmp)
+      Cdo.copy(:in => tmp,:out => intermediateHeight)
+    end
+
+    # * substract hydrostatic pressure on intermediate IFS heights from the
+    #   real intermediate IFS pressure levels
+    #   - compute hydrostatic pressure on 3d height field, same formular like stdatm operator in CDO
+    #     * Use expr operator like
+    #        cdo expr 'press=101325.0*exp((-1)*(1.602769777072154)*log((exp(height/10000.0)*213.15+75.0)/288.15))'
+    hydrostaticPresOnIntermediateHeights, diff, diffOnIconVertGrid = tfile,tfile,tfile
+    Cdo.expr("'#{iFShydpressVarname}=#{PRES_EXPR['geopotheight']}'",
+             :in => intermediateHeight, :out => hydrostaticPresOnIntermediateHeights)
+
+    #     * substract the hydrostatic pressure from the IFS pressures
+    Cdo.sub(:in => [intermediatePressure,hydrostaticPresOnIntermediateHeights].join(' '), :out => diff)
+    #
+    # * 3d linerar interpolation if the pressure differences onto the ICON vertical height levels
+    Cdo.intlevelx3d(intermediateHeight,:in => [diff,@options[:fullzcoordinates]].join(' '), :out => diffOnIconVertGrid)
+    #
+    # * add hydrostatic pressure values for the ICON heights
+    #   - remove target z coordinate and reset variable name for later operations (add)
+    tmp = tfile
+    Cdo.delname(iCONverticalCoordinateName, :in => diffOnIconVertGrid, :out => tmp)
+    Cdo.setname(iCONhydpressVarname       , :in => tmp               , :out => diffOnIconVertGrid) #TODO not necessary
+    # prepare hydrostatic pressure in vertical ICON grid
+    hydrostaticPressOnIconHeights, iconPressure = tfile, tfile
+    Cdo.expr("'#{iCONhydpressVarname}=#{PRES_EXPR[iCONverticalCoordinateName]}'",
+             :in => @options[:fullzcoordinates], :out => hydrostaticPressOnIconHeights)
+    Cdo.add(:in => [diffOnIconVertGrid,hydrostaticPressOnIconHeights].join(' '),:out => iconPressure)
+
+    # Interpolated pressure for later debugging
+    Cdo.copy(:in => iconPressure,:out => 'iCONPressure.nc') if @options[:debug]
+
+    iconPressure
+  end
+
+  # Compute W[m/s] out of OMEGA [Pa/s] according to
+  # * OMEGA = -rho*g*W
+  # * rho   = P/(R*T) out of P/rho = R*T
+  # where P and T are hydrostatic pressure and temperatur. After this
+  # computation the vertical interpolation onto the target is done so that
+  # there is only on interpolation step
+  #
+  # verticalVelocityHandling() changes the name of the intermediate File
+  # (pre-vertical-interpolation-state)
+  def verticalVelocityHandling(intermediateFile, intermediateHeight)
+    # select variable from intermediate IFS intput AND REMOVE it from the origin
+    verticalVelocityName = @config.selectBy(code: 135).outputname[0]
+    intermediateW, intermediateWWithNewUnit, tmp = tfile, tfile, tfile
+    Cdo.selname(verticalVelocityName,in: intermediateFile, out: intermediateW)
+
+    # create pressure and temperature for appropriate vertical coordinate
+    presFile, tempFile, densityFile = tfile , tfile, tfile
+    presName, tempName, densityName = 'pres', 't'  , 'rho'
+    Cdo.expr("'#{presName}=#{PRES_EXPR['geopotheight']}'", :in => intermediateHeight, :out => presFile)
+    Cdo.expr("'#{tempName}=#{TEMP_EXPR['geopotheight']}'", :in => intermediateHeight, :out => tempFile)
+    # compute the hydrostatic density
+    Cdo.chainCall("setname,#{densityName} -mulc,#{C_R} -div",in: [presFile,tempFile].join(' '), out: densityFile)
+    Cdo.merge(in: [intermediateW,densityFile].join(' '),out: tmp)
+    # compute vertical velocity in new units
+    Cdo.expr("'#{verticalVelocityName}=#{W_EXPR[verticalVelocityName,densityName]}'",in:  tmp, out: intermediateWWithNewUnit)
+
+    Cdo.copy(in: intermediateWWithNewUnit, out: 'intermediateVerticalVelocity.nc') if @options[:debug]
+
+    # add the new vertical velocity to the intermediat file back again
+    newIntermediateFile = tfile
+    Cdo.replace(in: [intermediateFile,intermediateWWithNewUnit].join(' '), out: newIntermediateFile)
+
+    newIntermediateFile
+  end
   def writeOutput(ofile=@ofile)
     Dbg.msg("Create output file '#{ofile}'",@options[:verbose],@options[:debug])
-    Cdo.copy(:in => @_preout,:out => ofile)
+    if @_preout
+      Cdo.copy(:in => @_preout,:out => ofile)
+    else
+      Cdo.merge(:in => @outvars.values.join(' '), :out => ofile)
+    end
   end
 
   # create a file for a given varriable on a certain grid
@@ -860,7 +1060,7 @@ class Ifs2Icon
       @@_tempfiles << t
       t.path
     else
-      t = "_"+rand(1000000).to_s
+      t = "_"+rand(10000000).to_s
       @@_tempfiles << t
       t
     end
@@ -883,11 +1083,14 @@ if __FILE__ == $0
     else
       p.run
     end
-  when 'ext'
-    conf = Ecmwf2Icon::DefaultConfig
-    puts Ecmwf2Icon::DefaultConfig.to_string("tsv")
-    #   puts Ecmwf2Icon::DefaultConfig.datacolumns
-    puts "ecmwf's name of 'OMEGA' is '#{conf.selectBy(:outputname => 'OMEGA').inputname[0]}'"
+  when 'test'
+    options  = PreProcOptions.parse(ARGV)
+    Cdo.setCdo(options[:cdo]) if options[:cdo]
+    pp options if options[:debug]
+    Cdo.Debug = options[:debug] if options[:verbose]
+    #=======================================================
+    p    = Ifs2Icon.new(options)
+    p.verticalVelocityHandling('','')
   when 'cdo'
     include Cdo
     Cdo.Debug = ENV['debug'].nil? ? false : true
