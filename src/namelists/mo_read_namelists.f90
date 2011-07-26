@@ -63,6 +63,7 @@ MODULE mo_read_namelists
   USE mo_grid_nml,            ONLY: read_grid_namelist
   USE mo_interpol_nml,        ONLY: read_interpol_namelist
   USE mo_ocean_nml,           ONLY: setup_ocean_nml
+  USE mo_atm_nml_crosscheck,       ONLY: atm_crosscheck
 
   IMPLICIT NONE
   
@@ -150,8 +151,7 @@ CONTAINS
 
     IF(my_process_is_stdio()) CALL open_nml_output('NAMELIST_ICON_output_oce')
 
-    !-----------------------------------------------------------------
-    ! Read namelist setups that are shared with the ocean model when 
+   ! Read namelist setups that are shared with the ocean model when 
     ! performing a coupled simulation
     !-----------------------------------------------------------------
 
@@ -168,6 +168,8 @@ CONTAINS
     CALL read_parallel_namelist   (TRIM(oce_namelist_filename))
 
     CALL read_run_namelist        (TRIM(oce_namelist_filename))
+    CALL read_ha_testcase_namelist(TRIM(oce_namelist_filename))
+    CALL read_nh_testcase_namelist(TRIM(oce_namelist_filename))
     CALL read_io_namelist         (TRIM(oce_namelist_filename))
 
     ! Grid, dynamics, and transport
@@ -177,15 +179,27 @@ CONTAINS
     CALL read_interpol_namelist   (TRIM(oce_namelist_filename))
 
     CALL read_dynamics_namelist   (TRIM(oce_namelist_filename))
+    CALL read_ha_dyn_namelist     (TRIM(oce_namelist_filename))
+    CALL read_nonhydrostatic_namelist(TRIM(oce_namelist_filename))
+    CALL read_sleve_namelist      (TRIM(oce_namelist_filename))
 
     CALL read_diffusion_namelist  (TRIM(oce_namelist_filename))
 
     CALL read_transport_namelist  (TRIM(oce_namelist_filename))
 
     ! Physics
-    CALL read_extpar_namelist     (TRIM(oce_namelist_filename))
-    CALL read_vdiff_namelist      (TRIM(oce_namelist_filename))
 
+    CALL read_extpar_namelist     (TRIM(oce_namelist_filename))
+    CALL read_radiation_namelist  (TRIM(oce_namelist_filename))
+    CALL read_vdiff_namelist      (TRIM(oce_namelist_filename))
+    CALL read_echam_conv_namelist (TRIM(oce_namelist_filename))
+    CALL read_gw_hines_namelist   (TRIM(oce_namelist_filename))
+    CALL read_nwp_lnd_namelist    (TRIM(oce_namelist_filename))
+    CALL read_nwp_phy_namelist    (TRIM(oce_namelist_filename))
+    CALL read_echam_phy_namelist  (TRIM(oce_namelist_filename))
+
+    CALL atm_crosscheck()
+    
     CALL setup_ocean_nml          (TRIM(oce_namelist_filename))
     !-----
     IF (my_process_is_stdio()) THEN
