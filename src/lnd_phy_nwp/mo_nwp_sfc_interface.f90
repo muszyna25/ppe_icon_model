@@ -329,8 +329,10 @@ print*, "SFC-DIAGNOSIS INTERFACE ",jstep
           ! copy prognostic variables to local fields with time levels
           t_snow_t(1:i_endidx,jb,1,isubs) = lnd_prog_now%t_snow(1:i_endidx,jb,isubs)
           t_snow_t(1:i_endidx,jb,2,isubs) = lnd_prog_now%t_snow(1:i_endidx,jb,isubs)
-          t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,1,isubs) = lnd_prog_now%t_snow_mult(1:i_endidx,1:nlev_snow+1,jb,isubs)
-          t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,2,isubs) = lnd_prog_now%t_snow_mult(1:i_endidx,1:nlev_snow+1,jb,isubs)
+          t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,1,isubs) = &
+            & lnd_prog_now%t_snow_mult(1:i_endidx,1:nlev_snow+1,jb,isubs)
+          t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,2,isubs) = &
+            & lnd_prog_now%t_snow_mult(1:i_endidx,1:nlev_snow+1,jb,isubs)
           t_s_t(1:i_endidx,jb,1,isubs)    = lnd_prog_now%t_s(1:i_endidx,jb,isubs)
           t_s_t(1:i_endidx,jb,2,isubs)    = lnd_prog_now%t_s(1:i_endidx,jb,isubs)
           t_gt_t(1:i_endidx,jb,1,isubs)   = lnd_prog_now%t_gt(1:i_endidx,jb,isubs)
@@ -339,22 +341,36 @@ print*, "SFC-DIAGNOSIS INTERFACE ",jstep
           w_snow_t(1:i_endidx,jb,2,isubs) = lnd_prog_now%w_snow(1:i_endidx,jb,isubs)
           rho_snow_t(1:i_endidx,jb,1,isubs) =lnd_prog_now%rho_snow(1:i_endidx,jb,isubs)
           rho_snow_t(1:i_endidx,jb,2,isubs) =lnd_prog_now%rho_snow(1:i_endidx,jb,isubs)
-          rho_snow_mult_t(1:i_endidx,1:nlev_snow,jb,1,isubs) = lnd_prog_now%rho_snow_mult(1:i_endidx,1:nlev_snow,jb,isubs)
-          rho_snow_mult_t(1:i_endidx,1:nlev_snow,jb,2,isubs) = lnd_prog_now%rho_snow_mult(1:i_endidx,1:nlev_snow,jb,isubs)
+          rho_snow_mult_t(1:i_endidx,1:nlev_snow,jb,1,isubs) = &
+            & lnd_prog_now%rho_snow_mult(1:i_endidx,1:nlev_snow,jb,isubs)
+          rho_snow_mult_t(1:i_endidx,1:nlev_snow,jb,2,isubs) = &
+            & lnd_prog_now%rho_snow_mult(1:i_endidx,1:nlev_snow,jb,isubs)
           w_i_t(1:i_endidx,jb,1,isubs) = lnd_prog_now%w_i(1:i_endidx,jb,isubs)
           w_i_t(1:i_endidx,jb,2,isubs) = lnd_prog_now%w_i(1:i_endidx,jb,isubs)
-          t_so_t(1:i_endidx,0:nlev_soil+1,jb,1,isubs) = lnd_prog_now%t_so(1:i_endidx,1:nlev_soil+2,jb,isubs)
-          t_so_t(1:i_endidx,0:nlev_soil+1,jb,2,isubs) = lnd_prog_now%t_so(1:i_endidx,1:nlev_soil+2,jb,isubs)
-          w_so_t(1:i_endidx,1:nlev_soil+1,jb,1,isubs) = lnd_prog_now%w_so(1:i_endidx,1:nlev_soil+1,jb,isubs)
-          w_so_t(1:i_endidx,1:nlev_soil+1,jb,2,isubs) = lnd_prog_now%w_so(1:i_endidx,1:nlev_soil+1,jb,isubs)
-          w_so_ice_t(1:i_endidx,1:nlev_soil+1,jb,1,isubs) = lnd_prog_now%w_so_ice(1:i_endidx,1:nlev_soil+1,jb,isubs)
-          w_so_ice_t(1:i_endidx,1:nlev_soil+1,jb,2,isubs) = lnd_prog_now%w_so_ice(1:i_endidx,1:nlev_soil+1,jb,isubs)
-          wliq_snow_t(1:i_endidx,1:nlev_snow,jb,1,isubs) = lnd_prog_now%wliq_snow(1:i_endidx,1:nlev_snow,jb,isubs)
-          wliq_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs) = lnd_prog_now%wliq_snow(1:i_endidx,1:nlev_snow,jb,isubs)
-          wtot_snow_t(1:i_endidx,1:nlev_snow,jb,1,isubs) = lnd_prog_now%wtot_snow(1:i_endidx,1:nlev_snow,jb,isubs)
-          wtot_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs) = lnd_prog_now%wtot_snow(1:i_endidx,1:nlev_snow,jb,isubs)
-          dzh_snow_t(1:i_endidx,1:nlev_snow,jb,1,isubs)  = lnd_prog_now%dzh_snow(1:i_endidx,1:nlev_snow,jb,isubs)
-          dzh_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs)  = lnd_prog_now%dzh_snow(1:i_endidx,1:nlev_snow,jb,isubs)
+          t_so_t(1:i_endidx,0:nlev_soil+1,jb,1,isubs) = &
+            & lnd_prog_now%t_so(1:i_endidx,1:nlev_soil+2,jb,isubs)
+          t_so_t(1:i_endidx,0:nlev_soil+1,jb,2,isubs) = &
+            & lnd_prog_now%t_so(1:i_endidx,1:nlev_soil+2,jb,isubs)
+          w_so_t(1:i_endidx,1:nlev_soil+1,jb,1,isubs) = &
+            & lnd_prog_now%w_so(1:i_endidx,1:nlev_soil+1,jb,isubs)
+          w_so_t(1:i_endidx,1:nlev_soil+1,jb,2,isubs) = &
+            & lnd_prog_now%w_so(1:i_endidx,1:nlev_soil+1,jb,isubs)
+          w_so_ice_t(1:i_endidx,1:nlev_soil+1,jb,1,isubs) = &
+            & lnd_prog_now%w_so_ice(1:i_endidx,1:nlev_soil+1,jb,isubs)
+          w_so_ice_t(1:i_endidx,1:nlev_soil+1,jb,2,isubs) = &
+            & lnd_prog_now%w_so_ice(1:i_endidx,1:nlev_soil+1,jb,isubs)
+          wliq_snow_t(1:i_endidx,1:nlev_snow,jb,1,isubs) = &
+            & lnd_prog_now%wliq_snow(1:i_endidx,1:nlev_snow,jb,isubs)
+          wliq_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs) = &
+            & lnd_prog_now%wliq_snow(1:i_endidx,1:nlev_snow,jb,isubs)
+          wtot_snow_t(1:i_endidx,1:nlev_snow,jb,1,isubs) = &
+            & lnd_prog_now%wtot_snow(1:i_endidx,1:nlev_snow,jb,isubs)
+          wtot_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs) = &
+            & lnd_prog_now%wtot_snow(1:i_endidx,1:nlev_snow,jb,isubs)
+          dzh_snow_t(1:i_endidx,1:nlev_snow,jb,1,isubs)  = &
+            & lnd_prog_now%dzh_snow(1:i_endidx,1:nlev_snow,jb,isubs)
+          dzh_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs)  = &
+            & lnd_prog_now%dzh_snow(1:i_endidx,1:nlev_snow,jb,isubs)
         ENDDO
 
 
@@ -513,19 +529,27 @@ print*, "SFC-DIAGNOSIS INTERFACE ",jstep
        ! copy updated variables back to prognostic fields
         DO isubs = 1,nsfc_subs
           lnd_prog_new%t_snow(1:i_endidx,jb,isubs) = t_snow_t(1:i_endidx,jb,2,isubs)
-          lnd_prog_new%t_snow_mult(1:i_endidx,1:nlev_snow+1,jb,isubs) = t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,2,isubs)
+          lnd_prog_new%t_snow_mult(1:i_endidx,1:nlev_snow+1,jb,isubs) = &
+            & t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,2,isubs)
           lnd_prog_new%t_s(1:i_endidx,jb,isubs) = t_s_t(1:i_endidx,jb,2,isubs)
           lnd_prog_new%t_gt(1:i_endidx,jb,isubs) = t_gt_t(1:i_endidx,jb,2,isubs)
           lnd_prog_new%w_snow(1:i_endidx,jb,isubs) = w_snow_t(1:i_endidx,jb,2,isubs)
           lnd_prog_new%rho_snow(1:i_endidx,jb,isubs) = rho_snow_t(1:i_endidx,jb,2,isubs)
-          lnd_prog_new%rho_snow_mult(1:i_endidx,1:nlev_snow,jb,isubs) = rho_snow_mult_t(1:i_endidx,1:nlev_snow,jb,2,isubs)
+          lnd_prog_new%rho_snow_mult(1:i_endidx,1:nlev_snow,jb,isubs) = &
+            & rho_snow_mult_t(1:i_endidx,1:nlev_snow,jb,2,isubs)
           lnd_prog_new%w_i(1:i_endidx,jb,isubs) = w_i_t(1:i_endidx,jb,2,isubs) 
-          lnd_prog_new%t_so(1:i_endidx,1:nlev_soil+2,jb,isubs) = t_so_t(1:i_endidx,0:nlev_soil+1,jb,2,isubs)
-          lnd_prog_new%w_so(1:i_endidx,1:nlev_soil+1,jb,isubs) = w_so_t(1:i_endidx,1:nlev_soil+1,jb,2,isubs)
-          lnd_prog_new%w_so_ice(1:i_endidx,1:nlev_soil+1,jb,isubs)= w_so_ice_t(1:i_endidx,1:nlev_soil+1,jb,2,isubs)
-          lnd_prog_new%wliq_snow(1:i_endidx,1:nlev_snow,jb,isubs) = wliq_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs)
-          lnd_prog_new%wtot_snow(1:i_endidx,1:nlev_snow,jb,isubs) = wtot_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs)
-          lnd_prog_new%dzh_snow(:1:i_endidx,1:nlev_snow,jb,isubs) = dzh_snow_t(1:i_endidx,1:nlev_snow,jb,1,isubs)
+          lnd_prog_new%t_so(1:i_endidx,1:nlev_soil+2,jb,isubs) = &
+            & t_so_t(1:i_endidx,0:nlev_soil+1,jb,2,isubs)
+          lnd_prog_new%w_so(1:i_endidx,1:nlev_soil+1,jb,isubs) = &
+            & w_so_t(1:i_endidx,1:nlev_soil+1,jb,2,isubs)
+          lnd_prog_new%w_so_ice(1:i_endidx,1:nlev_soil+1,jb,isubs)= &
+            & w_so_ice_t(1:i_endidx,1:nlev_soil+1,jb,2,isubs)
+          lnd_prog_new%wliq_snow(1:i_endidx,1:nlev_snow,jb,isubs) = &
+            & wliq_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs)
+          lnd_prog_new%wtot_snow(1:i_endidx,1:nlev_snow,jb,isubs) = &
+            & wtot_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs)
+          lnd_prog_new%dzh_snow(:1:i_endidx,1:nlev_snow,jb,isubs) = &
+            & dzh_snow_t(1:i_endidx,1:nlev_snow,jb,1,isubs)
 
           lnd_diag%qv_st(1:i_endidx,jb,isubs)  = qv_st_t(1:i_endidx,jb,2,isubs)
           lnd_diag%h_snow(1:i_endidx,jb,isubs) = h_snow_t(1:i_endidx,jb,2,isubs)
