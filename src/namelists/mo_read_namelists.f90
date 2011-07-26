@@ -32,7 +32,7 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-MODULE mo_atmo_setup_configuration
+MODULE mo_read_namelists
 
   USE mo_mpi,                 ONLY: my_process_is_stdio 
   USE mo_namelist,            ONLY: open_nml_output, close_nml_output
@@ -62,11 +62,12 @@ MODULE mo_atmo_setup_configuration
   USE mo_sleve_nml,           ONLY: read_sleve_namelist
   USE mo_grid_nml,            ONLY: read_grid_namelist
   USE mo_interpol_nml,        ONLY: read_interpol_namelist
+  USE mo_ocean_nml,           ONLY: setup_ocean_nml
 
   IMPLICIT NONE
   
   PRIVATE
-  PUBLIC :: read_atmo_namelists !, setup_atmo_configuration
+  PUBLIC :: read_atmo_namelists, read_ocean_namelists
   
 CONTAINS
   !>
@@ -136,6 +137,62 @@ CONTAINS
     END IF
         
   END SUBROUTINE read_atmo_namelists
+  !-------------------------------------------------------------------------
+  
+  !! Read namelists;
+  !! Create a new file in which all the namelist variables and their
+  !! actual values used in the model run will be stored.
+  !!
+  SUBROUTINE read_ocean_namelists(oce_namelist_filename,shr_namelist_filename)
+    
+    CHARACTER(LEN=*), INTENT(in) :: oce_namelist_filename
+    CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
+
+    IF(my_process_is_stdio()) CALL open_nml_output('NAMELIST_ICON_output_oce')
+
+    !-----------------------------------------------------------------
+    ! Read namelist setups that are shared with the ocean model when 
+    ! performing a coupled simulation
+    !-----------------------------------------------------------------
+
+    CALL read_time_namelist       (TRIM(shr_namelist_filename))
+
+    !-----------------------------------------------------------------
+    ! Read namelist setups that are specific to the atm model.
+    ! In case of a coupled simulation, the ocean model may also
+    ! read some of these namelists, but probably from a different
+    ! ASCII file containing different values.
+    !-----------------------------------------------------------------
+    ! General
+    ! parallel_namelist may differ for different components
+    CALL read_parallel_namelist   (TRIM(oce_namelist_filename))
+
+    CALL read_run_namelist        (TRIM(oce_namelist_filename))
+    CALL read_io_namelist         (TRIM(oce_namelist_filename))
+
+    ! Grid, dynamics, and transport
+
+    CALL read_grid_namelist       (TRIM(oce_namelist_filename))
+    CALL read_gridref_namelist    (TRIM(oce_namelist_filename))
+    CALL read_interpol_namelist   (TRIM(oce_namelist_filename))
+
+    CALL read_dynamics_namelist   (TRIM(oce_namelist_filename))
+
+    CALL read_diffusion_namelist  (TRIM(oce_namelist_filename))
+
+    CALL read_transport_namelist  (TRIM(oce_namelist_filename))
+
+    ! Physics
+    CALL read_extpar_namelist     (TRIM(oce_namelist_filename))
+    CALL read_vdiff_namelist      (TRIM(oce_namelist_filename))
+
+    CALL setup_ocean_nml          (TRIM(oce_namelist_filename))
+    !-----
+    IF (my_process_is_stdio()) THEN
+      CALL close_nml_output
+    END IF
+        
+  END SUBROUTINE read_ocean_namelists
   !-------------------------------------------------------------------------
   
   !-------------------------------------------------------------------------
@@ -266,5 +323,5 @@ CONTAINS
   
   
   
-END MODULE mo_atmo_setup_configuration
+END MODULE mo_read_namelists
 

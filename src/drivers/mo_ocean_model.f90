@@ -53,7 +53,6 @@ MODULE mo_ocean_model
   
   ! Control parameters: run control, dynamics, i/o
   !
-  USE mo_ocean_nml,           ONLY: setup_ocean_nml
   USE mo_io_config,         ONLY:  dt_data,dt_file,dt_diag!,dt_checkpoint
   USE mo_run_config,        ONLY: &
     & dtime,                & !    :
@@ -126,7 +125,7 @@ MODULE mo_ocean_model
   USE mo_model_domain_import, ONLY : get_patch_global_indexes
 
   !-------------------------------------------------------------
-  USE mo_ocean_setup_configuration, ONLY: read_ocean_namelists
+  USE mo_read_namelists, ONLY: read_ocean_namelists
 
   USE mo_time_config, ONLY: time_config
 

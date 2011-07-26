@@ -159,7 +159,7 @@ USE mo_io_restart,           ONLY: read_restart_info_file, read_restart_files
 USE mo_io_restart_namelist,  ONLY: read_restart_namelists
 USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
 
-USE mo_atmo_setup_configuration, ONLY: read_atmo_namelists
+USE mo_read_namelists,     ONLY: read_atmo_namelists
 USE mo_atm_nml_crosscheck,       ONLY: atm_crosscheck
 
 USE mo_time_config,        ONLY: time_config      ! variable
