@@ -44,7 +44,7 @@
 MODULE mo_nonhydrostatic_config
 
   USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: max_dom
+  USE mo_impl_constants,     ONLY: max_dom ! MATSUNO_DEF,MATSUNO_COR,MATSUNO_AVE  
 
   IMPLICIT NONE
 

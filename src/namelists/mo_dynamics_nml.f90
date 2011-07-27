@@ -35,7 +35,6 @@
 MODULE mo_dynamics_nml
 
   USE mo_dynamics_config,     ONLY: config_iequations     => iequations,     &
-                                  & config_itime_scheme   => itime_scheme,   &
                                   & config_idiv_method    => idiv_method,    &
                                   & config_divavg_cntrwgt => divavg_cntrwgt, &
                                   & config_sw_ref_height  => sw_ref_height,  &
@@ -43,7 +42,7 @@ MODULE mo_dynamics_nml
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: message_text, finish
-  USE mo_impl_constants,      ONLY: UNKNOWN, LEAPFROG_SI, IHS_ATM_TEMP
+  USE mo_impl_constants,      ONLY: IHS_ATM_TEMP
   USE mo_physical_constants,  ONLY: grav
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
@@ -66,14 +65,6 @@ MODULE mo_dynamics_nml
 
   INTEGER  :: iequations
 
-  INTEGER  :: itime_scheme   ! parameter used to select the time stepping scheme
-                             ! = 1, explicit 2 time level scheme
-                             ! = 2, semi implicit 2 time level scheme
-                             ! = 3, explicit leapfrog
-                             ! = 4, leapfrog with semi implicit correction
-                             ! = 5, 4-stage Runge-Kutta method
-                             ! = 6, SSPRK(5,4) (Runge-Kutta) method
-
   ! way of computing the divergence operator in the triangular model -------------
 
   INTEGER  :: idiv_method    ! 1: Hydrostatic atmospheric model: 
@@ -93,7 +84,7 @@ MODULE mo_dynamics_nml
 
   LOGICAL  :: lcoriolis      ! if .TRUE.,  the Coriolis force is switched on
 
-  NAMELIST/dynamics_nml/ iequations,  itime_scheme,   &
+  NAMELIST/dynamics_nml/ iequations,                  &
                          idiv_method, divavg_cntrwgt, &
                          sw_ref_height,  lcoriolis
 
@@ -110,7 +101,6 @@ CONTAINS
     ! Set up the default values
     !------------------------------------------------------------
     iequations     = IHS_ATM_TEMP
-    itime_scheme   = LEAPFROG_SI
     idiv_method    = 1
     divavg_cntrwgt = 0.5_wp
     sw_ref_height  = 0.9_wp*2.94e4_wp/grav
@@ -140,11 +130,6 @@ CONTAINS
     !-----------------------------------------------------
     ! Sanity check
     !-----------------------------------------------------
-    IF((itime_scheme<=0).OR.(itime_scheme>=unknown)) THEN
-      WRITE(message_text,'(A,i2)') &
-      'wrong value of itime_scheme, must be 1 ...', unknown -1
-      CALL finish( TRIM(routine),TRIM(message_text))
-    ENDIF
 
     IF (idiv_method > 2 .OR. idiv_method < 1 )THEN
       CALL finish(TRIM(routine),'Error: idiv_method must be 1 or 2 !')
@@ -165,7 +150,6 @@ CONTAINS
     !-----------------------------------------------------
 
     config_iequations     = iequations
-    config_itime_scheme   = itime_scheme
     config_idiv_method    = idiv_method
     config_divavg_cntrwgt = divavg_cntrwgt
     config_sw_ref_height  = sw_ref_height

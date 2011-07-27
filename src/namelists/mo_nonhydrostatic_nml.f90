@@ -36,7 +36,8 @@ MODULE mo_nonhydrostatic_nml
 
   USE mo_kind,                  ONLY: wp
   USE mo_exception,             ONLY: finish
-  USE mo_impl_constants,        ONLY: max_dom
+  USE mo_impl_constants,        ONLY: max_dom, MATSUNO_DEF,MATSUNO_COR,MATSUNO_AVE,&
+    &                                 TRACER_ONLY,  MATSUNO_UNK
   USE mo_io_units,              ONLY: nnml, nnml_output
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_master_control,        ONLY: is_restart_run
@@ -246,6 +247,12 @@ CONTAINS
     !--------------------------------------------------------------------
     ! Reset values of rayleigh_coeff and damp_height to that of the 
     ! global domain if not specified
+    SELECT CASE (itime_scheme)
+    CASE (TRACER_ONLY, MATSUNO_DEF,MATSUNO_COR,MATSUNO_AVE,MATSUNO_UNK ) !OK
+    CASE DEFAULT
+      CALL finish( TRIM(routine),'wrong value for nonhydrostatic_nml:itime_scheme. '//&
+                 & 'See mo_impl_constants.f90 for possible options.' )
+    END SELECT
 
     DO jg = 2, max_dom
       IF (damp_height(jg) < 0.0_wp) THEN

@@ -158,7 +158,7 @@ CONTAINS
     ! Sanity Check
     !-----------------------------------------------------
     SELECT CASE (itime_scheme)
-    CASE (TWO_TL_SI,LEAPFROG_EXPL,LEAPFROG_SI,RK4,SSPRK54) !OK
+    CASE (TRACER_ONLY,TWO_TL_SI,LEAPFROG_EXPL,LEAPFROG_SI,RK4,SSPRK54) !OK
     CASE DEFAULT
       CALL finish( TRIM(routine),'wrong value for ha_dyn_nml:itime_scheme. '//&
                  & 'See mo_impl_constants.f90 for possible options.' )

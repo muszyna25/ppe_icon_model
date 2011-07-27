@@ -55,7 +55,7 @@ MODULE mo_atm_nml_crosscheck
     &                               iup3, ifluxl_sm, islopel_m, islopel_sm,    &
     &                               ifluxl_m  
   USE mo_time_config,         ONLY: time_config
-  USE mo_parallel_config, ONLY: check_parallel_configuration
+  USE mo_parallel_config,     ONLY: check_parallel_configuration
   USE mo_run_config,          ONLY: lrestore_states, nsteps, dtime, iforcing,  &
     &                               ltransport, ntracer, nlev, io3, ltestcase, &
     &                               iqcond, ntracer_static,&
@@ -345,7 +345,6 @@ CONTAINS
 
       ENDDO
     END IF
-
 
 
     !--------------------------------------------------------------------
