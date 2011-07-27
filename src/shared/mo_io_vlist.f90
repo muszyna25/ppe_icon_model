@@ -104,12 +104,13 @@ MODULE mo_io_vlist
     &                                 vwind_offctr, igradp_method, exner_expol,   &
     &                                 ltheta_up_hori, ltheta_up_vert,             &
     &                                 gmres_rtol_nh, iadv_rcf, ivctype,           &
-    &                                 upstr_beta, l_open_ubc, l_nest_rcf
+    &                                 upstr_beta, l_open_ubc, l_nest_rcf !,         &
+!   &                                 itime_scheme_nh_atm => itime_scheme
   USE mo_impl_constants,        ONLY: ntrac_oce, ihs_atm_temp, ihs_atm_theta,     &
     &                                 inh_atmosphere, ishallow_water,             &
     &                                 inwp, iecham,ildf_echam
   USE mo_ocean_nml,             ONLY: n_zlev, iforc_oce,no_tracer
-  USE mo_dynamics_config,       ONLY: itime_scheme,iequations,lshallow_water,     &
+  USE mo_dynamics_config,       ONLY: iequations,lshallow_water,                  &
     &                                 idiv_method, divavg_cntrwgt,                &
     &                                 nold, nnow, lcoriolis
   USE mo_ha_dyn_config,         ONLY: ha_dyn_config
@@ -562,7 +563,6 @@ CONTAINS
     !
     ! Parameters of /dynamics_nml/
     ! ----------------------------
-    CALL addGlobAttInt('dynamics_nml:itime_scheme',itime_scheme,vlistID(k_jg),astatus)
     CALL addGlobAttInt('dynamics_nml:idiv_method',idiv_method,vlistID(k_jg),astatus)
     CALL addGlobAttFlt('dynamics_nml:divavg_cntrwgt',divavg_cntrwgt,vlistID(k_jg),astatus)
     CALL addGlobAttTxtFromLog('dynamics_nml:lcoriolis',lcoriolis, &
@@ -573,6 +573,8 @@ CONTAINS
    !----------------------------
     IF (iequations == 1 .OR. iequations == 2) THEN
 
+      CALL addGlobAttInt('ha_dyn_nml:itime_scheme', &
+           ha_dyn_config%itime_scheme,vlistID(k_jg),astatus)
       CALL addGlobAttTxtFromLog('ha_dyn_nml:lsi_3d',&
            ha_dyn_config%lsi_3d,vlistID(k_jg),astatus)
       CALL addGlobAttInt('ha_dyn_nml:ileapfrog_startup', &
@@ -603,6 +605,8 @@ CONTAINS
     ! ----------------------------
 
     IF (iequations == 3) THEN
+      !CALL addGlobAttInt('nonhydrostatic_nml:itime_scheme',&
+      !                  & itime_scheme_nh_atm,vlistID(k_jg),astatus)
        CALL addGlobAttInt('nonhydrostatic_nml:ivctype',ivctype,vlistID(k_jg),astatus)
        CALL addGlobAttInt('nonhydrostatic_nml:iadv_rcf',iadv_rcf,vlistID(k_jg),astatus)
 

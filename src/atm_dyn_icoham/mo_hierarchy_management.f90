@@ -66,7 +66,7 @@ MODULE mo_hierarchy_management
   USE mo_grf_interpolation,   ONLY: t_gridref_state, grf_intmethod_c,    &
     &                               grf_intmethod_ct
   USE mo_grf_bdyintp,         ONLY: interpol_scal_grf, interpol_scal2d_grf
-  USE mo_dynamics_config,     ONLY: ltwotime, itime_scheme, lshallow_water, &
+  USE mo_dynamics_config,     ONLY: ltwotime, lshallow_water,            &
                                     nold, nnow, nnew, nsav1, nsav2
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config 
   USE mo_diffusion_config,    ONLY: diffusion_config
@@ -361,7 +361,7 @@ CONTAINS
 
         zdtime = dt_loc
 
-        SELECT CASE (itime_scheme)
+        SELECT CASE (ha_dyn_config%itime_scheme)
           !------------------
           ! Pure advection
           !------------------
@@ -401,6 +401,7 @@ CONTAINS
           CALL prepare_tracer( p_patch(jg), p_int_state(jg),   &! in
             &                  p_hydro_state(jg)%prog(n_now),  &! in
             &                  p_hydro_state(jg)%prog(n_new),  &! in
+            &                  ha_dyn_config%itime_scheme,     &! in
             &                  ha_dyn_config%si_2tls,          &! in
             &                  p_hydro_state(jg)%diag,         &! inout
             &                  z_mflx_me, z_vn_traj,           &! out
@@ -495,6 +496,7 @@ CONTAINS
             CALL prepare_tracer( p_patch(jg), p_int_state(jg),    &! in
               &           p_hydro_state(jg)%prog(n_now),          &! in
               &           p_hydro_state(jg)%prog(n_new),          &! in
+              &           ha_dyn_config%itime_scheme,             &! in
               &           ha_dyn_config%si_2tls,                  &! in
               &           p_hydro_state(jg)%diag,                 &! inout
               &           z_mflx_me, z_vn_traj,                   &! out
@@ -711,7 +713,7 @@ CONTAINS
 
           ! Second part of the dynamical core: semi-implicit correction
 
-          IF (itime_scheme == leapfrog_si) THEN ! Add semi-implicit correction
+          IF (ha_dyn_config%itime_scheme == leapfrog_si) THEN ! Add semi-implicit correction
 
             IF (ha_dyn_config%ltheta_dyn) THEN
               CALL convert_theta2t_lin( p_patch(jg),                   &
@@ -764,6 +766,7 @@ CONTAINS
             CALL prepare_tracer( p_patch(jg), p_int_state(jg),    &! in
               &                  p_hydro_state(jg)%prog(n_now),   &! in
               &                  p_hydro_state(jg)%prog(n_new),   &! in
+              &                  ha_dyn_config%itime_scheme,      &! in
               &                  ha_dyn_config%si_2tls,           &! in
               &                  p_hydro_state(jg)%diag,          &! inout
               &                  z_mflx_me, z_vn_traj,            &! out
@@ -1067,7 +1070,8 @@ CONTAINS
       !==========================================================================
       ! Asselin filter for the leapfrog scheme
       !========================================
-      IF ( (itime_scheme==leapfrog_expl).OR.(itime_scheme==leapfrog_si) ) THEN
+      IF ( (ha_dyn_config%itime_scheme==leapfrog_expl).OR. &
+           (ha_dyn_config%itime_scheme==leapfrog_si) ) THEN
 
         CALL asselin( ha_dyn_config%asselin_coeff,     &
                       ha_dyn_config%ltheta_dyn,        &
@@ -1326,6 +1330,7 @@ CONTAINS
         CALL prepare_tracer( p_patch(jg), p_int_state(jg),    &! in
           &                  p_hydro_state(jg)%prog(n_now),   &! in
           &                  p_hydro_state(jg)%prog(n_new),   &! in
+          &                  ha_dyn_config%itime_scheme,      &! in
           &                  ha_dyn_config%si_2tls,           &! in
           &                  p_hydro_state(jg)%diag,          &! inout
           &                  z_mflx_me, z_vn_traj,            &! out
@@ -1399,6 +1404,7 @@ CONTAINS
         CALL prepare_tracer( p_patch(jg), p_int_state(jg),    &! in
           &                  p_hydro_state(jg)%prog(n_now),   &! in
           &                  p_hydro_state(jg)%prog(n_new),   &! in
+          &                  ha_dyn_config%itime_scheme,      &! in
           &                  ha_dyn_config%si_2tls,           &! in
           &                  p_hydro_state(jg)%diag,          &! inout
           &                  z_mflx_me, z_vn_traj,            &! out
@@ -1465,6 +1471,7 @@ CONTAINS
         CALL prepare_tracer( p_patch(jg), p_int_state(jg),    &! in
           &                  p_hydro_state(jg)%prog(n_now),   &! in
           &                  p_hydro_state(jg)%prog(n_new),   &! in
+          &                  ha_dyn_config%itime_scheme,      &! in
           &                  ha_dyn_config%si_2tls,           &! in
           &                  p_hydro_state(jg)%diag,          &! inout
           &                  z_mflx_me, z_vn_traj,            &! out
@@ -1523,7 +1530,7 @@ CONTAINS
         &                      p_hydro_state(jg)%prog(n_new),  & !inout
         &                      p_hydro_state(jg)%tend_dyn     )  !inout
 
-      IF (itime_scheme==leapfrog_si) THEN
+      IF (ha_dyn_config%itime_scheme==leapfrog_si) THEN
 
         IF (ha_dyn_config%ltheta_dyn) THEN
           CALL convert_theta2t_lin( p_patch(jg), p_hydro_state(jg)%prog(n_now),&
@@ -1573,6 +1580,7 @@ CONTAINS
         CALL prepare_tracer( p_patch(jg), p_int_state(jg),  &! in
           &           p_hydro_state(jg)%prog(n_now),        &! in
           &           p_hydro_state(jg)%prog(n_new),        &! in
+          &           ha_dyn_config%itime_scheme,           &! in
           &           ha_dyn_config%si_2tls,                &! in
           &           p_hydro_state(jg)%diag,               &! inout
           &           z_mflx_me, z_vn_traj,                 &! out

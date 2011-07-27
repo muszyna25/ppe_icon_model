@@ -37,8 +37,7 @@
 MODULE mo_ha_dtp_interface
 
   USE mo_kind,               ONLY: wp
-  USE mo_dynamics_config,    ONLY: itime_scheme
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_parallel_config,    ONLY: nproma
   USE mo_run_config,         ONLY: nlev, nlevp1
   USE mo_model_domain,       ONLY: t_patch
   USE mo_ext_data,           ONLY: t_external_data
@@ -163,8 +162,8 @@ CONTAINS
   !! First version by Hui Wan, MPI-M (2010-02-02)
   !!
   SUBROUTINE prepare_tracer( p_patch, p_int_state,          &! in
-                             p_now, p_new, palpha,          &! in
-                             p_diag,                        &! inout
+                             p_now, p_new, itime_scheme,    &! in
+                             palpha, p_diag,                &! inout
                              p_mflux_me, p_vn_traj,         &! out
                              p_mflux_ic, p_weta_traj,       &! out
                              p_delp_mc_now,                 &! out
@@ -176,6 +175,7 @@ CONTAINS
     TYPE(t_hydro_atm_prog),INTENT(in)    :: p_now, p_new
     TYPE(t_hydro_atm_diag),INTENT(inout) :: p_diag
 
+    INTEGER, INTENT(in)  :: itime_scheme
     REAL(wp),INTENT(in)  :: palpha
 
     REAL(wp),INTENT(out) :: p_mflux_me   (nproma,nlev,  p_patch%nblks_e)
