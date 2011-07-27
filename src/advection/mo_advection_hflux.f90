@@ -79,7 +79,8 @@ MODULE mo_advection_hflux
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, SUCCESS, TRACER_ONLY,      &
     &                               min_rledge_int, min_rledge, min_rlcell_int, &
     &                               iup, imiura, imiura3, islopel_sm, islopel_m,&
-    &                               ifluxl_m, ifluxl_sm, iup3
+    &                               ifluxl_m, ifluxl_sm, iup3, INH_ATMOSPHERE,  &
+    &                               IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER
   USE mo_model_domain,        ONLY: t_patch
   USE mo_math_operators,      ONLY: grad_green_gauss_cell, recon_lsq_cell_l,    &
     &                               recon_lsq_cell_q, recon_lsq_cell_cpoor,     &
@@ -90,7 +91,9 @@ MODULE mo_advection_hflux
   USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_edge,         &
     &                               rbf_interpol_c2grad, lsq_high_ord,          &
     &                               lsq_high_set, cells2edges_scalar
-  USE mo_dynamics_config,     ONLY: itime_scheme
+  USE mo_dynamics_config,     ONLY: iequations
+  USE mo_ha_dyn_config,       ONLY: ha_dyn_config
+  USE mo_nonhydrostatic_config, ONLY: itime_scheme_nh_atm => itime_scheme
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ntracer
   USE mo_loopindices,         ONLY: get_indices_e
@@ -518,6 +521,7 @@ CONTAINS
     INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER  :: i_rlstart, i_rlend, i_nchdom, i_rlend_c, i_rlend_tr, i_rlend_vt
     LOGICAL  :: l_consv            !< true if conservative lsq reconstruction is used
+    INTEGER  :: itime_scheme
 
    !-------------------------------------------------------------------------
 
@@ -705,6 +709,17 @@ CONTAINS
       !
       ! This section has been included for testing purposes
       !
+      SELECT CASE (iequations)
+      CASE (inh_atmosphere)
+        itime_scheme = itime_scheme_nh_atm
+
+      CASE (ihs_atm_temp, ihs_atm_theta, ishallow_water)
+        itime_scheme = ha_dyn_config%itime_scheme
+
+      CASE DEFAULT
+        CALL finish(TRIM(routine),'cannot get the value of itime_scheme')
+      END SELECT
+
       SELECT CASE (itime_scheme)
        !------------------
        ! Pure advection

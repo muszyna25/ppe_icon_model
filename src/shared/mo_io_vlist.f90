@@ -104,8 +104,8 @@ MODULE mo_io_vlist
     &                                 vwind_offctr, igradp_method, exner_expol,   &
     &                                 ltheta_up_hori, ltheta_up_vert,             &
     &                                 gmres_rtol_nh, iadv_rcf, ivctype,           &
-    &                                 upstr_beta, l_open_ubc, l_nest_rcf !,         &
-!   &                                 itime_scheme_nh_atm => itime_scheme
+    &                                 upstr_beta, l_open_ubc, l_nest_rcf,         &
+    &                                 itime_scheme_nh_atm => itime_scheme
   USE mo_impl_constants,        ONLY: ntrac_oce, ihs_atm_temp, ihs_atm_theta,     &
     &                                 inh_atmosphere, ishallow_water,             &
     &                                 inwp, iecham,ildf_echam
@@ -605,8 +605,8 @@ CONTAINS
     ! ----------------------------
 
     IF (iequations == 3) THEN
-      !CALL addGlobAttInt('nonhydrostatic_nml:itime_scheme',&
-      !                  & itime_scheme_nh_atm,vlistID(k_jg),astatus)
+       CALL addGlobAttInt('nonhydrostatic_nml:itime_scheme',&
+                         & itime_scheme_nh_atm,vlistID(k_jg),astatus)
        CALL addGlobAttInt('nonhydrostatic_nml:ivctype',ivctype,vlistID(k_jg),astatus)
        CALL addGlobAttInt('nonhydrostatic_nml:iadv_rcf',iadv_rcf,vlistID(k_jg),astatus)
 
