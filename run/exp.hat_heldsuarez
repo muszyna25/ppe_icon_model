@@ -102,7 +102,9 @@ cat > NAMELIST_${EXPNAME} << EOF
 /
 &dynamics_nml
  iequations  = ${model_equations}       ! equation system
- itime_scheme = 2           ! 2 time level semi-implicit
+/
+&ha_dyn_nml
+ itime_scheme = 12          ! 2 time level semi-implicit
 /
 EOF
 #

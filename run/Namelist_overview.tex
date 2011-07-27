@@ -1879,32 +1879,6 @@ and negative indices for the ocean.&\tabularnewline
 &&&&-1: hydrostatic ocean&
 \tabularnewline
 
-\hline
-itime\_scheme&
-I& 4& &
-Time integration scheme:& \tabularnewline
-& & & & 1: pure advection (no dynamics)& \tabularnewline
-& & & & 2: 2 time level semi implicit (not yet implemented)& iequations=1 or 2
-\tabularnewline
-& & & & 3: 3 time level explicit& iequations=1 or 2 
-\tabularnewline
-& & & & 4: 3 time level with semi implicit correction& iequations=1 or 2
-\tabularnewline
-& & & & 5: standard 4th-order Runge-Kutta method (4-stage)& iequations=1 or 2
-\tabularnewline
-& & & &
-6: SSPRK(5,4) scheme (5-stage)& iequations=1 or 2
-\tabularnewline
-&&&&&
-\tabularnewline
-& & & & 3: same as default, but computation of velocity tendencies 
-in corrector step only& iequations=3 and i\_cell\_type=3
-\tabularnewline
-& & & & 4: Matsuno scheme& iequations=3 and i\_cell\_type=3
-\tabularnewline
-& & & & 6: same as default, but usage of velocity tendencies 
-at (nnow+nnew)/2& iequations=3 and i\_cell\_type=3
-\tabularnewline
 
 \hline 
 idiv\_method&
@@ -1952,24 +1926,40 @@ and dynamics\_nml:iequations=IHS\_ATM\_TEMP or IHS\_ATM\_THETA.
 
 \begin{longtab}
 
+\hline
+itime\_scheme&
+I& 4& &
+Time integration scheme:& \tabularnewline
+& & & & 11: pure advection (no dynamics)& \tabularnewline
+& & & & 12: 2 time level semi implicit (not yet implemented)&
+\tabularnewline
+& & & & 13: 3 time level explicit&
+\tabularnewline
+& & & & 14: 3 time level with semi implicit correction&
+\tabularnewline
+& & & & 15: standard 4th-order Runge-Kutta method (4-stage)&
+\tabularnewline
+& & & & 16: SSPRK(5,4) scheme (5-stage)&
+\tabularnewline
+
 \hline 
 ileapfrog\_startup&
 I& 1& &
 How to integrate the first time step when the leapfrog scheme
 is chosen. 1 = Euler forward; 2 = a series of sub-steps. &
-itime\_scheme= 3 or 4 \tabularnewline
+itime\_scheme= 13 or 14 \tabularnewline
 
 \hline 
 asselin\_coeff&
 R& 0.1& &
 Asselin filter coefficient&
-itime\_scheme= 3 or 4 \tabularnewline
+itime\_scheme= 13 or 14 \tabularnewline
 
 \hline 
 si\_2tls &
 R & 0.6 & &
 weight of time step n+1. Valid range: [0,1] &
-itime\_scheme=2\tabularnewline
+itime\_scheme=12\tabularnewline
 
 \hline
 si\_expl\_scheme &
@@ -1977,38 +1967,38 @@ I & 2 & &
 scheme for the explicit part used in the 2 time level
 semi-implicit time stepping scheme. 1 = Euler forward;
 2 = Adams-Bashforth 2nd order &
-itime\_scheme=2\tabularnewline
+itime\_scheme=12\tabularnewline
 
 \hline 
 si\_cmin&
 R & 30.0 & m/s&
 semi implicit correction is done for eigenmodes with speeds larger
 than si\_cmin&
-itime\_scheme=4 and lsi\_3d=.FALSE.\tabularnewline
+itime\_scheme=14 and lsi\_3d=.FALSE.\tabularnewline
 
 \hline 
 si\_coeff&
 R & 1.0 & &
 weight of the semi implicit correction&
-itime\_scheme=4 \tabularnewline
+itime\_scheme=14 \tabularnewline
 
 \hline 
 si\_offctr&
 R & 0.7 & &
 &
-itime\_scheme=4 \tabularnewline
+itime\_scheme=14 \tabularnewline
 
 \hline 
 si\_rtol &
 R & 1.0e-3 & &
 relative tolerance for GMRES solver&
-itime\_scheme=4 \tabularnewline
+itime\_scheme=14 \tabularnewline
 
 \hline 
 lsi\_3d&
 L& .FALSE.& &
 3D GMRES solver or decomposistion into 2D problems&
-lshallow\_water=.FALSE. and itime\_scheme=4\tabularnewline
+lshallow\_water=.FALSE. and itime\_scheme=14\tabularnewline
 \hline 
 
 \hline
@@ -2036,11 +2026,25 @@ iequations$\in$\{1,2\}
 \subsection{nonhydrostatic\_nml (relevant if run\_nml:iequations=3)}
 
 \begin{longtab}
+
+\hline
+itime\_scheme&
+I& 4& &
+Time integration scheme:& \tabularnewline
+& & & & 3: same as default, but computation of velocity tendencies 
+in corrector step only& iequations=3 and cell\_type=3
+\tabularnewline
+& & & & 4: Matsuno scheme& iequations=3 and cell\_type=3
+\tabularnewline
+& & & & 6: same as default, but usage of velocity tendencies 
+at (nnow+nnew)/2& iequations=3 and cell\_type=3
+\tabularnewline
+
 \hline 
 rayleigh\_coeff&
 R(n\_dom)& 0.05& &
 Rayleigh damping coefficient (Klemp, Dudhia, Hassiotis: MWR136, pp.3987-4004)&
-i\_cell\_type=3
+cell\_type=3
 \tabularnewline
 
 \hline 
@@ -2072,14 +2076,14 @@ Height above which moist physics and advection of cloud and precipitation variab
 k2\_updamp\_coeff&
 R& 2.0e6& &
 enhanced 2nd order diffusion coefficient in upper damping layer&
-i\_cell\_type=6, hdiff\_order=3 (Smagorinski)
+cell\_type=6, hdiff\_order=3 (Smagorinski)
 \tabularnewline
 
 \hline 
 vwind\_offctr&
 R& 0.05& &
 Off-centering in vertical wind solver&
-i\_cell\_type=3
+cell\_type=3
 \tabularnewline
 
 \hline 
@@ -2323,7 +2327,7 @@ a 3 time level time stepping scheme) (only for triangles currently) &
 \hline 
 hdiff\_min\_efdt\_ratio&
 R& 1.0 & &
-minimum value of hdiff\_efdt\_ratio near model top & iequations=3 .AND. i\_cell\_type=3
+minimum value of hdiff\_efdt\_ratio near model top & iequations=3 .AND. cell\_type=3
 \tabularnewline
 
 \hline 
@@ -2538,7 +2542,7 @@ Horiz. transport scheme:&
 &
 &
 2: miura (2nd order, lin. reconstr.)&
-if i\_cell\_type=3
+if cell\_type=3
 \tabularnewline
 &
 &
@@ -2552,7 +2556,7 @@ lsq\_high\_ord $\in$ [2,3]
 &
 &
 4: up3 (3rd or 4th order upstream)&
-if i\_cell\_type=6
+if cell\_type=6
 \tabularnewline
 \hline 
 ivadv\_tracer&
