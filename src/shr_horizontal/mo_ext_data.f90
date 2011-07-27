@@ -976,6 +976,16 @@ CONTAINS
         &           grib2_desc, ldims=shape2d_c)
 
 
+!!$      ! landuse class fraction
+!!$      !
+!!$      ! lu_class_fraction    p_ext_atm%lu_class_fraction(nproma,nblks_c)
+!!$      cf_desc    = t_cf_var('lu_class_fraction', '-', 'landuse class fraction')
+!!$      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+!!$      CALL add_var( p_ext_atm_list, 'lu_class_fraction', p_ext_atm%lu_class_fraction, &
+!!$        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
+!!$        &           grib2_desc, ldims=shape3d_c)
+
+
     ENDIF ! iforcing = nwp
   ENDIF ! iequations = 3
 
