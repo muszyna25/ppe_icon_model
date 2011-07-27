@@ -193,13 +193,10 @@ MODULE mo_impl_constants
   INTEGER,PARAMETER :: UNKNOWN       = 7
 
   ! the non-hydrostatic model
-  INTEGER,PARAMETER :: MATSUNO_DEF  = 31 ! semi-implicit two time level
-  INTEGER,PARAMETER :: MATSUNO_COR  = 32 ! explicit leapfrog
-  INTEGER,PARAMETER :: MATSUNO_AVE  = 34
-  INTEGER,PARAMETER :: MATSUNO_UNK  = 35
-
-
-
+  INTEGER,PARAMETER :: MATSUNO_DEF  = 4 !31 future enumeration to make the belonging clear,  Matsuno scheme
+  INTEGER,PARAMETER :: MATSUNO_COR  = 3 !32 Matsuno, comp of velocity tendencies on corretor step only
+  INTEGER,PARAMETER :: MATSUNO_UNK  = 5 !34 Matsuno, variation unknown
+  INTEGER,PARAMETER :: MATSUNO_AVE  = 6 !33 Matsuno with velocitiy tendendcies averaged over 2 time steps
 
 
   ! Scheme for the "slow" component in the TWO_TL_SI time stepping
