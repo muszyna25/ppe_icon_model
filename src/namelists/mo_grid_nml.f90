@@ -134,7 +134,7 @@ MODULE mo_grid_nml
     no_of_radiation_grids = 0
     DO i = 1, max_dom
       dynamics_grid_filename(i)   = ""
-      dynamics_parent_grid_id(i)  = 0
+      dynamics_parent_grid_id(i)  = i-1
       dynamics_radiation_grid_link(i) = 0
     ENDDO
     dynamics_radiation_grid_link(1) = 1
