@@ -68,10 +68,10 @@ MODULE mo_atm_nml_crosscheck
   USE mo_grid_config
   USE mo_sleve_config
 
-  USE mo_dynamics_config,     ONLY: configure_dynamics,                        &
-    &                               iequations, idiv_method, itime_scheme,     &
-    &                               divavg_cntrwgt, sw_ref_height,             &
-    &                               lcoriolis, lshallow_water, ltwotime !  itime_scheme
+  USE mo_dynamics_config,     ONLY: configure_dynamics,                 &
+    &                               iequations, idiv_method,            &
+    &                               divavg_cntrwgt, sw_ref_height,      &
+    &                               lcoriolis, lshallow_water, ltwotime
   USE mo_advection_config,    ONLY: advection_config, configure_advection
 
   USE mo_nonhydrostatic_config, ONLY: itime_scheme_nh => itime_scheme
@@ -234,9 +234,14 @@ CONTAINS
     END SELECT 
 
     lshallow_water = (iequations==ISHALLOW_WATER)
-    ltwotime = (itime_scheme/=LEAPFROG_EXPL).AND.(itime_scheme/=LEAPFROG_SI)
-!    ltwotime = (ha_dyn_config%itime_scheme/=LEAPFROG_EXPL) &
-!      &        .AND.(ha_dyn_config%itime_scheme/=LEAPFROG_SI)
+
+    SELECT CASE (iequations)
+    CASE (IHS_ATM_TEMP,IHS_ATM_THETA,ISHALLOW_WATER)
+
+      ltwotime = (ha_dyn_config%itime_scheme/=LEAPFROG_EXPL).AND. &
+                 (ha_dyn_config%itime_scheme/=LEAPFROG_SI)
+
+    END SELECT
 
     !--------------------------------------------------------------------
     ! Testcases
@@ -550,20 +555,27 @@ CONTAINS
     !  CALL finish( TRIM(routine),          &
     !  'either set ltransport = true or ntracer to 0 ')
 
-    IF(iequations == INH_ATMOSPHERE .AND. itime_scheme_nh == tracer_only &
-      &                                        .AND. (.NOT.ltransport)) THEN
-      WRITE(message_text,'(A,i2,A)') &
-        'itime_scheme set to ', tracer_only, 'but ltransport to .FALSE.'
-      CALL finish( TRIM(routine),TRIM(message_text))
-    END IF
+    SELECT CASE (iequations)
+    CASE (INH_ATMOSPHERE)
 
-!    IF(iequations <= IHS_ATM_THETA .AND. ha_dyn_config%itime_scheme == tracer_only &
-!      &                                            .AND. (.NOT.ltransport)) THEN
-!      WRITE(message_text,'(A,i2,A)') &
-!        'itime_scheme set to ', tracer_only, 'but ltransport to .FALSE.'
-!      CALL finish( TRIM(routine),TRIM(message_text))
-!    END IF
+      IF ((itime_scheme_nh==tracer_only) .AND. (.NOT.ltransport)) THEN
+        WRITE(message_text,'(A,i2,A)') &
+          'nonhydrostatic_nml:itime_scheme set to ', tracer_only, &
+          '(TRACER_ONLY), but ltransport to .FALSE.'
+        CALL finish( TRIM(routine),TRIM(message_text))
+      END IF
 
+    CASE (IHS_ATM_TEMP,IHS_ATM_THETA,ISHALLOW_WATER)
+
+      IF ( (ha_dyn_config%itime_scheme==tracer_only).AND. &
+           (.NOT.ltransport)) THEN
+        WRITE(message_text,'(A,i2,A)') &
+          'ha_dyn_nml:itime_scheme set to ', tracer_only, &
+          '(TRACER_ONLY), but ltransport to .FALSE.'
+        CALL finish( TRIM(routine),TRIM(message_text))
+      END IF
+
+    END SELECT
 
     IF (ltransport) THEN
     DO jg = 1,n_dom
