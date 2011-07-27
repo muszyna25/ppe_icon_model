@@ -1198,6 +1198,12 @@ CHARACTER (LEN=80)                    ::  &
 !------------------------------------------------------------------------------
 
 
+! Horizontal domain for computation
+  istarts = istartpar
+  iends   = iendpar
+  jstarts = jstartpar
+  jends   = jendpar
+
 
 !>JH
   prg_gsp=0._ireals ! graupel not implemented yet 
@@ -1241,12 +1247,6 @@ CHARACTER (LEN=80)                    ::  &
 
   ! time step for run-off computation
   zroffdt = zdt
-
-! Horizontal domain for computation
-  istarts = istartpar
-  iends   = iendpar
-  jstarts = jstartpar
-  jends   = jendpar
 
 #ifdef NECSX
   CALL collapse(.TRUE., ie, je, istartpar, iendpar, jstartpar, jendpar)
