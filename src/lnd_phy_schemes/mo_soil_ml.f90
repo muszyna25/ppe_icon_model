@@ -1312,13 +1312,13 @@ CHARACTER (LEN=80)                    ::  &
 
 
 ! >JH NEW SECTION FOR DEFINITION OF LAND POINTS !
-do ns=nsubs0,nsubs1
+!DRdo ns=nsubs0,nsubs1
 !amf ---
 
 ! Prepare basic surface properties (for land-points only)
  
-  DO   j = jstarts, jends
-    DO i = istarts, iends
+!DR  DO   j = jstarts, jends
+!DR    DO i = istarts, iends
 !subs      IF(llandmask(i,j)) THEN        ! for land-points only
 
 
@@ -1327,12 +1327,12 @@ do ns=nsubs0,nsubs1
 
 
 !subs        mstyp       = NINT(soiltyp_subs(i,j))        ! soil type
-        mstyp       = soiltyp_subs(i,j,ns)        ! soil type
-        IF(m_styp(i,j) < 9 ) llandmask(i,j,ns) = .true.
+!DR        mstyp       = soiltyp_subs(i,j,ns)        ! soil type
+!DR        IF(m_styp(i,j) < 9 ) llandmask(i,j,ns) = .true.
 !>JH      ENDIF
-    ENDDO
-  ENDDO
-END DO
+!DR    ENDDO
+!DR  ENDDO
+!DREND DO
 !!!! <JH
 
 
@@ -1471,7 +1471,7 @@ do ns=nsubs0,nsubs1
 ! print*,i,j,zporv(i,j),zclayf(i,j),zpsis(i,j),zb_por(i,j)
 
 !<JH
-        IF(m_styp(i,j) < 9 ) llandmask(i,j,ns) = .true.
+!DR        IF(m_styp(i,j) < 9 ) llandmask(i,j,ns) = .true.
 !>JH      ENDIF
     ENDDO
   ENDDO
@@ -2002,48 +2002,48 @@ ENDIF
 
 
   if (i.eq.40 .and. j.eq.1) then
-print*, "SFC-DIAGNOSIS TERRA ",ke,dt,nsubs1,ntstep
-print*," nztlev ",               nztlev   
-print*," lmelt  ",               lmelt    
-print*," lmelt_var ",            lmelt_var
-print*," lmulti_snow ",          lmulti_snow 
-print*," itype_gscp ",           itype_gscp
-print*," itype_trvg ",           itype_trvg
-print*," itype_evsl ",           itype_evsl
-print*," itype_tran ",           itype_tran
-print*," itype_root ",           itype_root
-print*," itype_heatcond ",       itype_heatcond
-print*," itype_hydbound ",       itype_hydbound
-print*," lstomata  ",            lstomata
-print*," l2tls ",                l2tls  
-print*," lana_rho_snow ",        lana_rho_snow
-print*," itype_subs ",           itype_subs
-  print*, "zml_soil: ",czmls
-  print*, "t", t(i,j,ke,:)
-  print*, "p0",p0(i,j,ke)
-  print*, "qv",qv(i,j,ke,:)
-  print*, "u",u(i,j,ke,:)
-  print*, "ps",ps(i,j,:)
-  print*, "t_g",t_g(i,j,:,:)
-  print*, "qv_s",qv_s(i,j,:,:)
-  print*, "t_so",t_so(i,j,:,:,:)
-  print*, "w_so",w_so(i,j,:,:,:)
-  print*, "tch_t",tch(i,j,:)
-  print*, "tcm_t",tcm(i,j,:)
-  print*, " tfv_t",tfv(i,j,:)
-  print*, "soiltyp_t",soiltyp_subs(i,j,:)
-  print*, "plcov_t",  plcov(i,j,:)
-  print*, "rootdp_t", rootdp(i,j,:)
-  print*, "sai_t",   sai(i,j,:) 
-  print*, "tai_t",   tai(i,j,:) 
-  print*, "eai_t",   eai(i,j,:) 
-  print*, "t_2m_t",  t_2m(i,j,:) 
-  print*, "u_10m_t", u_10m(i,j,:)   
-  print*, "v_10m_t", v_10m(i,j,:)    
-  print*, "sobs_t",  sobs(i,j,:)    
-  print*, "thbs_t",  thbs(i,j,:)     
-  print*, "pabs_t",  pabs(i,j,:)     
-  print*, "llandmask_t",llandmask(i,j,:) 
+write(0,*) "SFC-DIAGNOSIS TERRA ",ke,dt,nsubs1,ntstep
+write(0,*)" nztlev ",               nztlev   
+write(0,*)" lmelt  ",               lmelt    
+write(0,*)" lmelt_var ",            lmelt_var
+write(0,*)" lmulti_snow ",          lmulti_snow 
+write(0,*)" itype_gscp ",           itype_gscp
+write(0,*)" itype_trvg ",           itype_trvg
+write(0,*)" itype_evsl ",           itype_evsl
+write(0,*)" itype_tran ",           itype_tran
+write(0,*)" itype_root ",           itype_root
+write(0,*)" itype_heatcond ",       itype_heatcond
+write(0,*)" itype_hydbound ",       itype_hydbound
+write(0,*)" lstomata  ",            lstomata
+write(0,*)" l2tls ",                l2tls  
+write(0,*)" lana_rho_snow ",        lana_rho_snow
+write(0,*)" itype_subs ",           itype_subs
+  write(0,*) "zml_soil: ",czmls
+  write(0,*) "t", t(i,j,ke,:)
+  write(0,*) "p0",p0(i,j,ke)
+  write(0,*) "qv",qv(i,j,ke,:)
+  write(0,*) "u",u(i,j,ke,:)
+  write(0,*) "ps",ps(i,j,:)
+  write(0,*) "t_g",t_g(i,j,:,:)
+  write(0,*) "qv_s",qv_s(i,j,:,:)
+  write(0,*) "t_so",t_so(i,j,:,:,:)
+  write(0,*) "w_so",w_so(i,j,:,:,:)
+  write(0,*) "tch_t",tch(i,j,:)
+  write(0,*) "tcm_t",tcm(i,j,:)
+  write(0,*) " tfv_t",tfv(i,j,:)
+  write(0,*) "soiltyp_t",soiltyp_subs(i,j,:)
+  write(0,*) "plcov_t",  plcov(i,j,:)
+  write(0,*) "rootdp_t", rootdp(i,j,:)
+  write(0,*) "sai_t",   sai(i,j,:) 
+  write(0,*) "tai_t",   tai(i,j,:) 
+  write(0,*) "eai_t",   eai(i,j,:) 
+  write(0,*) "t_2m_t",  t_2m(i,j,:) 
+  write(0,*) "u_10m_t", u_10m(i,j,:)   
+  write(0,*) "v_10m_t", v_10m(i,j,:)    
+  write(0,*) "sobs_t",  sobs(i,j,:)    
+  write(0,*) "thbs_t",  thbs(i,j,:)     
+  write(0,*) "pabs_t",  pabs(i,j,:)     
+  write(0,*) "llandmask_t",llandmask(i,j,:) 
 
      end if
 

@@ -548,7 +548,7 @@ print*, "SFC-DIAGNOSIS INTERFACE ",jstep
             & wliq_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs)
           lnd_prog_new%wtot_snow(1:i_endidx,1:nlev_snow,jb,isubs) = &
             & wtot_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs)
-          lnd_prog_new%dzh_snow(:1:i_endidx,1:nlev_snow,jb,isubs) = &
+          lnd_prog_new%dzh_snow(1:i_endidx,1:nlev_snow,jb,isubs)  = &
             & dzh_snow_t(1:i_endidx,1:nlev_snow,jb,1,isubs)
 
           lnd_diag%qv_st(1:i_endidx,jb,isubs)  = qv_st_t(1:i_endidx,jb,2,isubs)
