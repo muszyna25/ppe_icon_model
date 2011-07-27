@@ -80,7 +80,7 @@ esac
 case $ac_sitename in 
   dkrz.de)
     #  pwr6
-    config_target=blizzard  
+    config_target=blizzard
     NETCDFROOT  = /sw/aix53/netcdf-3.6.3
     LAPACKROOT  = /sw/aix53/lapack-3.2.0
     LAPACK_LIB  = -llapack -lessl -lblas

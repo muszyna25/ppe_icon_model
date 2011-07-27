@@ -908,6 +908,9 @@ if test "x$load_modules" != x; then
    echo module load "$load_modules" >> build_command
    echo module list >> build_command
 fi
+if [[ "x${config_target}" == "xblizzard" ]]; then
+   echo "export LDR_CNTRL=MAXDATA=0xD0000000@DSA"  >> build_command
+fi
 echo "$make_command" >> build_command
 chmod +x build_command
 
