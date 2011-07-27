@@ -57,7 +57,8 @@ MODULE mo_solve_nh_async
                                   t_buffer_memory
   USE mo_physical_constants,ONLY: cpd, rd, cvd, cvd_o_rd, grav, rd_o_cpd, p0ref
   USE mo_math_operators,    ONLY: div, rot_vertex, div_avg
-  USE mo_vertical_grid,     ONLY: nflatlev, nrdmax, nflat_gradp
+  USE mo_vertical_grid,     ONLY: nrdmax, nflat_gradp
+  USE mo_nh_init_utils,     ONLY: nflatlev
   USE mo_loopindices,       ONLY: get_indices_c, get_indices_e
   USE mo_impl_constants,    ONLY: min_rlcell_int, min_rledge_int, min_rlvert_int, min_rlcell
   USE mo_impl_constants_grf,ONLY: grf_bdywidth_c, grf_bdywidth_e

@@ -42,7 +42,7 @@ MODULE mo_vector_operations
   USE mo_io_config,               ONLY: l_outputtime
   USE mo_parallel_config,  ONLY: nproma, p_test_run
   USE mo_run_config,       ONLY: ltimer, dtime
-  USE mo_vertical_grid,    ONLY: nflat
+  USE mo_nh_init_utils,    ONLY: nflat
   USE mo_model_domain,     ONLY: t_patch
   USE mo_interpolation,    ONLY: t_int_state,        edges2edges_scalar, &
                                  edges2cells_scalar, cells2edges_scalar, &

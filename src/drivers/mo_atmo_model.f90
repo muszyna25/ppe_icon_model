@@ -119,7 +119,7 @@ USE mo_grf_interpolation,   ONLY: construct_2d_gridref_state,  &
 !
 USE mo_vertical_coord_table,ONLY: init_vertical_coord_table, &
   &                               vct_a, vct_b, ceta, apzero
-USE mo_vertical_grid,       ONLY: init_hybrid_coord, init_sleve_coord
+USE mo_nh_init_utils,       ONLY: init_hybrid_coord, init_sleve_coord
 
 ! State variables
 !
@@ -419,7 +419,7 @@ CONTAINS
       
     CASE (inh_atmosphere)
       IF (ivctype == 1) THEN
-        CALL init_hybrid_coord(iequations, p_patch(1)%nlev)
+        CALL init_hybrid_coord(p_patch(1)%nlev)
       ELSE IF (ivctype == 2) THEN
         CALL init_sleve_coord(p_patch(1)%nlev)
       ENDIF

@@ -66,7 +66,7 @@ MODULE mo_divergent_modes
     &                                 directional_laplace
   USE m_gmres,                  ONLY: gmres
   USE mo_exception,             ONLY: finish
-  USE mo_vertical_grid,         ONLY: nflat
+  USE mo_nh_init_utils,         ONLY: nflat
   USE mo_sync,                  ONLY: SYNC_E, SYNC_C, sync_patch_array, &
     &                                 sync_patch_array_mult
 

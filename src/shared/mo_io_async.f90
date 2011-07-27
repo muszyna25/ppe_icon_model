@@ -82,7 +82,7 @@ MODULE mo_io_async
    &                                get_outvar_ptr_ha, get_outvar_ptr_nh
   USE mo_grid_config,         ONLY: n_dom
   USE mo_vertical_coord_table,ONLY: init_vertical_coord_table
-  USE mo_vertical_grid,       ONLY: init_hybrid_coord, init_sleve_coord
+  USE mo_nh_init_utils,       ONLY: init_hybrid_coord, init_sleve_coord
 !  USE mo_advection_nml,       ONLY: transport_nml_setup
   USE mo_namelist,            ONLY: close_nml
 
@@ -293,7 +293,7 @@ CONTAINS
         CALL finish(TRIM(modname),'subroutine nonhydrostatic_nml no longer exists')
 
         IF (ivctype == 1) THEN
-          CALL init_hybrid_coord (iequations, num_lev(1))
+          CALL init_hybrid_coord (num_lev(1))
         ELSE IF (ivctype == 2) THEN
           CALL init_sleve_coord (num_lev(1))
         ENDIF

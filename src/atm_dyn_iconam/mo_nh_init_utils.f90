@@ -48,8 +48,9 @@ MODULE mo_nh_init_utils
   USE mo_nonhydrostatic_config, ONLY: ivctype
   USE mo_sleve_config,          ONLY: min_lay_thckn, top_height, decay_scale_1, &
                                       decay_scale_2, decay_exp, flat_height, stretch_fac
-  USE mo_impl_constants,        ONLY: max_dom, SUCCESS, min_rlcell, min_rlcell_int, &
-                                      min_rlvert, min_rlvert_int
+  USE mo_impl_constants,        ONLY: max_dom, SUCCESS, MAX_CHAR_LENGTH, min_rlcell, &
+                                      min_rlcell_int, min_rlvert, min_rlvert_int
+  USE mo_nh_testcases,          ONLY: layer_thickness, n_flat_level
   USE mo_grf_nudgintp,          ONLY: interpol_scal_nudging
   USE mo_grf_bdyintp,           ONLY: interpol_scal_grf
   USE mo_math_constants,        ONLY: pi
@@ -74,7 +75,8 @@ MODULE mo_nh_init_utils
 
   INTEGER:: nflat, nflatlev(max_dom)
 
-  PUBLIC :: nflat, nflatlev ! diese beiden Variablen muessen aus mo_vertical_grid raus!!!
+  PUBLIC :: nflat, nflatlev
+
   PUBLIC :: hydro_adjust, init_hybrid_coord, init_sleve_coord, compute_smooth_topo,    &
             init_vert_coord, topography_blending, topography_feedback, interp_uv_2_vn, &
             init_w, adjust_w, convert_thdvars, virtual_temp, convert_omega2w
@@ -653,25 +655,73 @@ CONTAINS
   !!
   SUBROUTINE init_hybrid_coord(nlev)
 
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_nh_init_utils:init_hybrid_coord'
+
     INTEGER, INTENT(IN) :: nlev  !< number of full levels
-    INTEGER  :: jk
+    REAL(wp) :: z_height, z_flat
+    INTEGER  :: jk, ist
     INTEGER  :: nlevp1            !< number of half levels
     !-------------------------------------------------------------------------
 
     ! number of vertical half levels
     nlevp1 = nlev+1
 
-    CALL read_vct (iequations, nlev)
+    ! read hybrid parameters as in the hydrostatic model
+    IF ( layer_thickness < 0.0_wp) THEN
 
-    DO jk = 1, nlevp1
-      IF (vct_b(jk) /= 0.0_wp) THEN
-        nflat = jk-1
-        nflatlev(1) = nflat
-        EXIT
+      CALL read_vct (iequations,nlev)
+
+      DO jk = 1, nlevp1
+        IF (vct_b(jk) /= 0.0_wp) THEN
+          nflat = jk-1
+          nflatlev(1) = nflat
+          EXIT
+        ENDIF
+      ENDDO
+
+    ELSE
+
+      ALLOCATE(vct_a(nlevp1), STAT=ist)
+      IF(ist/=SUCCESS)THEN
+        CALL finish (TRIM(routine), &
+                     'allocation of vct_a failed')
       ENDIF
-    ENDDO
 
-    CALL message('mo_nh_init_utils: init_hybrid_coord', '')
+      ALLOCATE(vct_b(nlevp1), STAT=ist)
+      IF(ist/=SUCCESS)THEN
+        CALL finish (TRIM(routine), &
+                     'allocation of vct_b failed')
+      ENDIF
+
+      ALLOCATE(vct(nlevp1*2), STAT=ist)
+      IF(ist/=SUCCESS)THEN
+        CALL finish (TRIM(routine), &
+                     'allocation of vct failed')
+      ENDIF
+
+      nflat  = -1
+      z_flat = REAL(nlevp1-n_flat_level,wp) * layer_thickness
+      DO jk = 1, nlevp1
+        z_height  = layer_thickness*REAL(nlevp1-jk,wp)
+        vct_a(jk) = z_height
+        IF ( z_height >= z_flat) THEN
+          vct_b(jk) = 0.0_wp
+        ELSE
+          vct_b(jk) = (z_flat - z_height)/z_flat
+          IF (nflat == -1) THEN
+            nflat = jk-1
+          ENDIF
+        ENDIF
+      ENDDO
+      nflatlev(1) = nflat
+
+      vct(       1:       nlevp1) = vct_a(:)
+      vct(nlevp1+1:nlevp1+nlevp1) = vct_b(:)
+
+    ENDIF
+
+    CALL message(TRIM(routine), ' coordinate setup finished')
 
   END SUBROUTINE init_hybrid_coord
 
