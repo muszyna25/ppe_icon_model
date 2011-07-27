@@ -706,9 +706,9 @@ MODULE mo_prepicon_utils
 
       ! Compute 3D coordinate fields for cell points (for vertex points needed
       ! only temporarily in set_nh_metrics)
-      CALL init_vert_coord(p_patch(jg), prepicon(jg)%topography_c, prepicon(jg)%topography_c_smt,&
-                           prepicon(jg)%z_ifc, prepicon(jg)%z_mc,                                &
-                           nlev, nblks_c, npromz_c, nshift_total(jg), nflatlev(jg),              &
+      CALL init_vert_coord(prepicon(jg)%topography_c, prepicon(jg)%topography_c_smt, &
+                           prepicon(jg)%z_ifc, prepicon(jg)%z_mc,                    &
+                           nlev, nblks_c, npromz_c, nshift_total(jg), nflatlev(jg),  &
                            l_half_lev_centr)
 
 

@@ -1271,10 +1271,8 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Guenther Zaengl, DWD, (2011-07-01)
   !!
-  SUBROUTINE init_vert_coord(p_patch, topo, topo_smt, z3d_i, z3d_m,              &
+  SUBROUTINE init_vert_coord(topo, topo_smt, z3d_i, z3d_m,                      &
                              nlev, nblks, npromz, nshift, nflat, l_half_lev_centr)
-
-    TYPE(t_patch), TARGET, INTENT(IN) :: p_patch
 
     ! Input parameters:
     INTEGER, INTENT(IN) :: nlev, nblks, & ! field dimensions
@@ -1306,6 +1304,8 @@ CONTAINS
         nlen = nproma
       ELSE
         nlen = npromz
+        z3d_i(nlen+1:nproma,:,jb) = 0._wp
+        z3d_m(nlen+1:nproma,:,jb) = 0._wp
      ENDIF
 
      z3d_i(1:nlen,nlevp1,jb) = topo(1:nlen,jb)

@@ -68,7 +68,7 @@ MODULE mo_vertical_grid
   USE mo_math_constants,      ONLY: pi_2, pi
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c
   USE mo_nonhydro_state,      ONLY: t_nh_state
-  USE mo_nh_init_utils,       ONLY: nflat, nflatlev
+  USE mo_nh_init_utils,       ONLY: nflat, nflatlev, compute_smooth_topo, init_vert_coord
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
                                     sync_patch_array_mult, global_min, global_max
 
@@ -94,70 +94,6 @@ MODULE mo_vertical_grid
 
   CONTAINS
 
-
-  !---------------------------------------------------------------------------
-  !>
-  !! Compuutes the smoothed topography needed for the SLEVE coordinate.
-  !! May be bypassed once an option for reading the smooth topography from data
-  !! is available
-  !!
-  !! @par Revision History
-  !! Initial release by Guenther Zaengl, DWD, (2010-07-21)
-  !!
-  SUBROUTINE compute_smooth_topo(p_patch, p_int)
-
-    TYPE(t_patch),TARGET,INTENT(IN) :: p_patch
-    TYPE(t_int_state), INTENT(IN) :: p_int
-
-    INTEGER  :: jg, jb, jc, iter, niter
-    INTEGER  :: i_startblk, nblks_c, i_startidx, i_endidx
-    REAL(wp) :: z_topo(nproma,1,p_patch%nblks_c),nabla2_topo(nproma,1,p_patch%nblks_c)
-    REAL(wp) :: z_topo_v(nproma,1,p_patch%nblks_v)
-
-    !-------------------------------------------------------------------------
-
-    jg = p_patch%id
-    niter = 25 ! 25 smoothing iterations (do we need this to be a namelist variable?)
-
-    ! Initialize auxiliary fields for topography with data and nullify nabla2 field
-    z_topo(:,1,:)      = ext_data(jg)%atm%topography_c(:,:)
-    z_topo_v(:,1,:)    = ext_data(jg)%atm%topography_v(:,:)
-    nabla2_topo(:,1,:) = 0._wp
-
-    i_startblk = p_patch%cells%start_blk(2,1)
-    nblks_c    = p_patch%nblks_c
-
-    CALL sync_patch_array(SYNC_C,p_patch,z_topo)
-
-    ! Apply nabla2-diffusion niter times to create smooth topography
-    DO iter = 1, niter
-
-      CALL nabla2_scalar(z_topo, p_patch, p_int, nabla2_topo, 1, 1)
-
-      DO jb = i_startblk,nblks_c
-
-        CALL get_indices_c(p_patch, jb, i_startblk, nblks_c, &
-                           i_startidx, i_endidx, 2)
-
-        DO jc = i_startidx, i_endidx
-          z_topo(jc,1,jb) = z_topo(jc,1,jb) + 0.125_wp*nabla2_topo(jc,1,jb) &
-            &                               * p_patch%cells%area(jc,jb)
-        ENDDO
-      ENDDO
-
-      CALL sync_patch_array(SYNC_C,p_patch,z_topo)
-
-    ENDDO
-
-    ! Interpolate smooth topography from cells to vertices
-    CALL cells2verts_scalar(z_topo,p_patch,p_int%cells_aw_verts,z_topo_v,1,1)
-
-    CALL sync_patch_array(SYNC_V,p_patch,z_topo_v)
-
-    ext_data(jg)%atm%topography_smt_c(:,:) = z_topo(:,1,:)
-    ext_data(jg)%atm%topography_smt_v(:,:) = z_topo_v(:,1,:)
-
-  END SUBROUTINE compute_smooth_topo
 
   !----------------------------------------------------------------------------
   !>
@@ -241,11 +177,19 @@ MODULE mo_vertical_grid
 
       ! Compute smooth topography when SLEVE coordinate is used
       IF (ivctype == 2) THEN
-        CALL compute_smooth_topo(p_patch(jg), p_int(jg))
+        CALL compute_smooth_topo(p_patch(jg), p_int(jg), ext_data(jg)%atm%topography_c, &
+                      ext_data(jg)%atm%topography_smt_c, ext_data(jg)%atm%topography_v, &
+                      ext_data(jg)%atm%topography_smt_v                                 )
       ENDIF
 
+      ! Initialize vertical coordinate for cell points
+      CALL init_vert_coord(ext_data(jg)%atm%topography_c, ext_data(jg)%atm%topography_smt_c, &
+                           p_nh(jg)%metrics%z_ifc, p_nh(jg)%metrics%z_mc,                    &
+                           nlev, nblks_c, npromz_c, nshift_total(jg), nflatlev(jg),          &
+                           l_half_lev_centr                                                  )
+
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk, jk1, z_fac1, z_fac2, z_topo_dev)
+!$OMP DO PRIVATE(jb, nlen, jk)
       DO jb = 1,nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -254,80 +198,17 @@ MODULE mo_vertical_grid
            nlen = npromz_c
            ! To avoid uninitialized field elements going in the output routine
            p_nh(jg)%metrics%geopot(nlen+1:nproma,:,jb) = 0._wp
-           p_nh(jg)%metrics%z_ifc (nlen+1:nproma,:,jb) = 0._wp
-        ENDIF
-
-        p_nh(jg)%metrics%z_ifc(1:nlen,nlevp1,jb) = ext_data(jg)%atm%topography_c(1:nlen,jb)
-
-        ! vertical interface height
-        IF (ivctype == 1) THEN ! hybrid Gal-Chen coordinate
-          DO jk = 1, nlev
-            jk1 = jk + nshift_total(jg)
-            p_nh(jg)%metrics%z_ifc(1:nlen,jk,jb) = &
-            & vct_a(jk1) + vct_b(jk1)*p_nh(jg)%metrics%z_ifc(1:nlen,nlevp1,jb)
-          ENDDO
-        ELSE IF (ivctype == 2) THEN ! SLEVE coordinate (Leuenberger et al. MWR 2010)
-          DO jk = 1, nflatlev(jg)
-            jk1 = jk + nshift_total(jg)
-            p_nh(jg)%metrics%z_ifc(1:nlen,jk,jb) = vct_a(jk1)
-          ENDDO
-          DO jk = nflatlev(jg) + 1, nlev
-            jk1 = jk + nshift_total(jg)
-            ! Scaling factors for large-scale and small-scale topography
-            z_fac1 = SINH((top_height/decay_scale_1)**decay_exp - &
-              &           (vct_a(jk1)/decay_scale_1)**decay_exp)/ &
-              &      SINH((top_height/decay_scale_1)**decay_exp)
-            z_fac2 = SINH((top_height/decay_scale_2)**decay_exp - &
-              &           (vct_a(jk1)/decay_scale_2)**decay_exp)/ &
-              &      SINH((top_height/decay_scale_2)**decay_exp)
-
-            ! Small-scale topography (i.e. full topo - smooth topo)
-            z_topo_dev(1:nlen) = ext_data(jg)%atm%topography_c(1:nlen,jb) - &
-              &                  ext_data(jg)%atm%topography_smt_c(1:nlen,jb)
-
-            p_nh(jg)%metrics%z_ifc(1:nlen,jk,jb) = vct_a(jk1) +       &
-              & ext_data(jg)%atm%topography_smt_c(1:nlen,jb)*z_fac1 + &
-              & z_topo_dev(1:nlen)*z_fac2
-          ENDDO
-          ! Ensure that layers do not intersect; except for the surface layer, the interface level
-          ! distance is limited to min_lay_thckn
-          DO jk = nlev-1, 1, -1
-            DO jc = 1, nlen
-              p_nh(jg)%metrics%z_ifc(jc,jk,jb) = MAX(p_nh(jg)%metrics%z_ifc(jc,jk,jb), &
-                p_nh(jg)%metrics%z_ifc(jc,jk+1,jb)+min_lay_thckn)
-            ENDDO
-          ENDDO
         ENDIF
 
         DO jk = 1, nlevp1
           ! geopotential (at interfaces)
-          p_nh(jg)%metrics%geopot_ifc(1:nlen,jk,jb) = grav * &
-          &                p_nh(jg)%metrics%z_ifc(1:nlen,jk,jb)
+          p_nh(jg)%metrics%geopot_ifc(1:nlen,jk,jb) = grav*p_nh(jg)%metrics%z_ifc(1:nlen,jk,jb)
         ENDDO
 
         DO jk = 1, nlev
-          ! geometric height of full levels
-          p_nh(jg)%metrics%z_mc(1:nlen,jk,jb) = 0.5_wp    &
-            &  * (p_nh(jg)%metrics%z_ifc(1:nlen,jk  ,jb)  &
-            &  +  p_nh(jg)%metrics%z_ifc(1:nlen,jk+1,jb))
           ! geopotential on full levels
-          p_nh(jg)%metrics%geopot(1:nlen,jk,jb) = grav &
-          & * p_nh(jg)%metrics%z_mc(1:nlen,jk,jb)
-    
+          p_nh(jg)%metrics%geopot(1:nlen,jk,jb) = grav*p_nh(jg)%metrics%z_mc(1:nlen,jk,jb)
         ENDDO
-
-        !-------------------------------------------------------------
-        !-------------------------------------------------------------
-        IF (l_half_lev_centr) THEN
-          ! redefine half levels to be in the center between full levels
-          DO jk = 2, nlev
-            p_nh(jg)%metrics%z_ifc(1:nlen,jk,jb) = 0.5_wp * &
-            & (p_nh(jg)%metrics%z_mc(1:nlen,jk-1,jb) &
-            & +p_nh(jg)%metrics%z_mc(1:nlen,jk  ,jb))
-          ENDDO
-        ENDIF
-        !-------------------------------------------------------------
-        !-------------------------------------------------------------
 
         DO jk = 1, nlev
           ! functional determinant of the metrics (is positive), full levels
@@ -421,63 +302,13 @@ MODULE mo_vertical_grid
       nblks_v   = p_patch(jg)%nblks_int_v
       npromz_v  = p_patch(jg)%npromz_int_v
 
+      ! Initialize vertical coordinate for vertex points
+      CALL init_vert_coord(ext_data(jg)%atm%topography_v, ext_data(jg)%atm%topography_smt_v, &
+                           z_ifv, z_mfv, nlev, nblks_v, npromz_v, nshift_total(jg),          &
+                           nflatlev(jg), l_half_lev_centr                                    )
+
       ! Start index for slope computations
       i_startblk = p_patch(jg)%edges%start_blk(2,1)
-
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb, nlen, jk, jk1, z_fac1, z_fac2, z_topo_dev)
-      DO jb = 1,nblks_v
-        IF (jb /= nblks_v) THEN
-           nlen = nproma
-        ELSE
-           nlen = npromz_v
-        ENDIF
-        z_ifv(1:nlen,nlevp1,jb) = ext_data(jg)%atm%topography_v(1:nlen,jb)
-        ! vertical interface height at vertices
-        IF (ivctype == 1) THEN ! hybrid Gal-Chen coordinate
-          DO jk = 1, nlev
-            jk1 = jk + nshift_total(jg)
-            z_ifv(1:nlen,jk,jb) = vct_a(jk1) + vct_b(jk1)*z_ifv(1:nlen,nlevp1,jb)
-          ENDDO
-        ELSE IF (ivctype == 2) THEN ! SLEVE coordinate (Leuenberger et al. MWR 2010)
-
-          DO jk = 1, nflatlev(jg)
-            jk1 = jk + nshift_total(jg)
-            z_ifv(1:nlen,jk,jb) = vct_a(jk1)
-          ENDDO
-          DO jk = nflatlev(jg) + 1, nlev
-            jk1 = jk + nshift_total(jg)
-            ! Scaling factors for large-scale and small-scale topography
-            z_fac1 = SINH((top_height/decay_scale_1)**decay_exp - &
-              &           (vct_a(jk1)/decay_scale_1)**decay_exp)/ &
-              &      SINH((top_height/decay_scale_1)**decay_exp)
-            z_fac2 = SINH((top_height/decay_scale_2)**decay_exp - &
-              &           (vct_a(jk1)/decay_scale_2)**decay_exp)/ &
-              &      SINH((top_height/decay_scale_2)**decay_exp)
-
-            ! Small-scale topography (i.e. full topo - smooth topo)
-            z_topo_dev(1:nlen) = ext_data(jg)%atm%topography_v(1:nlen,jb) - &
-              &                  ext_data(jg)%atm%topography_smt_v(1:nlen,jb)
-
-            z_ifv(1:nlen,jk,jb) = vct_a(jk1) +                        &
-              & ext_data(jg)%atm%topography_smt_v(1:nlen,jb)*z_fac1 + &
-              & z_topo_dev(1:nlen)*z_fac2
-          ENDDO
-        ENDIF
-
-        IF (l_half_lev_centr) THEN
-          DO jk = 1, nlev
-            ! full level height
-            z_mfv(1:nlen,jk,jb)=0.5_wp*(z_ifv(1:nlen,jk,jb)+z_ifv(1:nlen,jk+1,jb))
-          ENDDO
-          ! redefine half levels to be in the center between full levels
-          DO jk = 2, nlev
-            z_ifv(1:nlen,jk,jb) = 0.5_wp*(z_mfv(1:nlen,jk-1,jb)+z_mfv(1:nlen,jk,jb))
-          ENDDO
-        ENDIF
-      ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
 
       p_nh(jg)%metrics%ddxt_z_half = 0._wp
       p_nh(jg)%metrics%ddxn_z_half = 0._wp
