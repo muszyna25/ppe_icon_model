@@ -702,37 +702,52 @@ CALL nf(nf_open(TRIM(p_patch%grid_filename), NF_NOWRITE, ncid))
 
 CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'grid_root', icheck))
 IF (icheck /= nroot) THEN
+   WRITE(message_text,'(a,i4,a,i4)') &
+     & 'grid_root attribute:', icheck,', R:',nroot
+   CALL message  ('mo_model_domain_import/read_patch', TRIM(message_text))
    WRITE(message_text,'(a)') &
-     & '"grid_root" global attribute in grid file differs from the "R" parameter in the filename'
+     & 'Mismatch between "grid_root" attribute and "R" parameter in the filename'
    CALL finish  ('mo_model_domain_import/read_patch', TRIM(message_text))
 END IF
 
 CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'grid_level', igrid_level))
 IF (igrid_level /= ilev) THEN
+   WRITE(message_text,'(a,i4,a,i4)') &
+     & 'grid_level attribute:', igrid_level,', B:',ilev
+   CALL message  ('mo_model_domain_import/read_patch', TRIM(message_text))
    WRITE(message_text,'(a)') &
-     & '"grid_level" global attribute in grid file differs from the "B" parameter in the filename'
+     & 'Mismatch between "grid_level" attribute and "B" parameter in the filename'
    CALL finish  ('mo_model_domain_import/read_patch', TRIM(message_text))
 END IF
 
 ! Check additional attributes for consistency with the current namelist settings
 CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'grid_ID', igrid_id))
 IF ((.NOT.l_limited_area).AND.(igrid_id /= ig)) THEN
+   WRITE(message_text,'(a,i4,a,i4)') &
+     & 'grid ID attribute:', igrid_id,', namelist value:',ig
+   CALL message  ('mo_model_domain_import/read_patch', TRIM(message_text))
    WRITE(message_text,'(a)') &
-     & '"grid ID" global attribute in input file does not match the namelist setting'
+     & 'Mismatch between "grid ID" attribute and corresponding namelist setting'
    CALL finish  ('mo_model_domain_import/read_patch', TRIM(message_text))
 END IF
 
 CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'parent_grid_ID', iparent_id))
 IF ((.NOT.l_limited_area).AND.(iparent_id /= ipar_id)) THEN
+   WRITE(message_text,'(a,i4,a,i4)') &
+     & 'parent ID attribute:', iparent_id,', namelist value:',ipar_id
+   CALL message  ('mo_model_domain_import/read_patch', TRIM(message_text))
    WRITE(message_text,'(a)') &
-     & '"parent grid ID" global attribute in input file does not match the namelist setting'
+     & 'Mismatch between "parent grid ID" attribute and corresponding namelist setting'
    CALL finish  ('mo_model_domain_import/read_patch', TRIM(message_text))
 END IF
 
 CALL nf(nf_get_att_int(ncid, NF_GLOBAL, 'max_childdom', i_max_childdom))
 IF (i_max_childdom /= max_childdom) THEN
+   WRITE(message_text,'(a,i4,a,i4)') &
+     & 'max_childdom attribute:', i_max_childdom,', namelist value:',max_childdom
+   CALL message  ('mo_model_domain_import/read_patch', TRIM(message_text))
    WRITE(message_text,'(a)') &
-     & '"max_childdom" of the namelist differs from that of the input file global attribute'
+     & 'Mismatch between "max_childdom" attribute and corresponding namelist setting'
    CALL finish  ('mo_model_domain_import/read_patch', TRIM(message_text))
 END IF
 
