@@ -48,7 +48,7 @@ MODULE mo_ext_data
   USE mo_kind
   USE mo_io_units,           ONLY: filename_max
   USE mo_parallel_config,  ONLY: nproma
-  USE mo_impl_constants,     ONLY: inwp, ihs_ocean
+  USE mo_impl_constants,     ONLY: inwp, ihs_ocean, inh_atmosphere
   USE mo_run_config,         ONLY: iforcing
   USE mo_extpar_config,      ONLY: itopo, fac_smooth_topo, n_iter_smooth_topo
   USE mo_dynamics_config,    ONLY: iequations
@@ -448,7 +448,7 @@ CONTAINS
 
     CASE(1) ! read external data from netcdf dataset
 
-      IF ( iforcing/=ihs_ocean) THEN
+      IF ( iequations/=ihs_ocean) THEN
         CALL message( TRIM(routine),'Start reading external data from file' )
 
         CALL read_ext_data_atm (p_patch, ext_data)
@@ -507,43 +507,42 @@ CONTAINS
     CALL message (TRIM(routine), 'Construction of data structure for ' // &
       &                          'external data started')
 
-    DO jg = 1, n_dom
+    IF (iequations/=ihs_ocean) THEN  ! atmosphere model ---------------------
 
-      !
-      ! Build external data list for constant in time atmospheric fields
-      WRITE(listname,'(a,i2.2)') 'ext_data_atm_D',jg
-      CALL new_ext_data_atm_list(p_patch(jg), ext_data(jg)%atm,       &
-        &                        ext_data(jg)%atm_list, TRIM(listname))
+      ! Build external data list for constant-in-time fields for the atm model
+      DO jg = 1, n_dom
+        WRITE(listname,'(a,i2.2)') 'ext_data_atm_D',jg
+        CALL new_ext_data_atm_list(p_patch(jg), ext_data(jg)%atm,       &
+          &                        ext_data(jg)%atm_list, TRIM(listname))
+      END DO
 
-
+      ! Build external data list for time-dependent fields
       IF (iforcing==inwp) THEN
-        !       
-        ! Build external data list for time-dependent atmospheric fields
-        WRITE(listname,'(a,i2.2)') 'ext_data_atm_td_D',jg
-        CALL new_ext_data_atm_td_list(p_patch(jg), ext_data(jg)%atm_td,       &
-          &                           ext_data(jg)%atm_td_list, TRIM(listname))
+      DO jg = 1, n_dom
+          WRITE(listname,'(a,i2.2)') 'ext_data_atm_td_D',jg
+          CALL new_ext_data_atm_td_list(p_patch(jg), ext_data(jg)%atm_td,       &
+            &                           ext_data(jg)%atm_td_list, TRIM(listname))
+      END DO
       END IF
 
-      !
-      IF (iforcing==ihs_ocean) THEN
-        ! Build external data list for constant in time oceanic fields
+    ELSE ! iequations==ihs_ocean ------------------------------------------
+
+      ! Build external data list for constant-in-time fields for the ocean model
+      DO jg = 1, n_dom
         WRITE(listname,'(a,i2.2)') 'ext_data_oce_D',jg
         CALL new_ext_data_oce_list(p_patch(jg), ext_data(jg)%oce,       &
           &                        ext_data(jg)%oce_list, TRIM(listname))
-      ENDIF
-      !
-      ! Build external data list for time-dependent oceanic fields
+      END DO ! jg = 1,n_dom
+
+      ! Build external data list for time-dependent fields
       ! ### to be done ###
 
-    END DO
+    ENDIF ! atmosphere or ocean ------
 
     CALL message (TRIM(routine), 'Construction of data structure for ' // &
       &                          'external data finished')
 
   END SUBROUTINE construct_ext_data
-
-
-
 
   !-------------------------------------------------------------------------
   !
@@ -620,7 +619,7 @@ CONTAINS
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
-  IF (iequations==3) THEN
+  IF (iequations==inh_atmosphere) THEN
 
     ! smoothed topography height at cell center
     !
@@ -975,7 +974,6 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape2d_c)
 
-
 !!$      ! landuse class fraction
 !!$      !
 !!$      ! lu_class_fraction    p_ext_atm%lu_class_fraction(nproma,nblks_c)
@@ -985,9 +983,8 @@ CONTAINS
 !!$        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
 !!$        &           grib2_desc, ldims=shape3d_c)
 
-
-    ENDIF ! iforcing = nwp
-  ENDIF ! iequations = 3
+    ENDIF ! iforcing = inwp
+  ENDIF ! iequations = inh_atmosphere
 
 
 ! #Hermann#
@@ -1269,31 +1266,36 @@ CONTAINS
     CALL message (TRIM(routine), 'Destruction of data structure for' // &
       &                          'external data started')
 
-    DO jg = 1,n_dom
+    IF (iequations/=ihs_ocean) THEN  ! atmosphere model ------------------
 
-      ! Delete list of constant in time atmospheric elements
-      CALL delete_var_list( ext_data(jg)%atm_list )
-
+      DO jg = 1,n_dom
+        ! Delete list of constant in time atmospheric elements
+        CALL delete_var_list( ext_data(jg)%atm_list )
+      ENDDO
+  
       IF (iforcing==inwp) THEN
-      ! Delete list of time-dependent atmospheric elements
-      CALL delete_var_list( ext_data(jg)%atm_td_list )
+      DO jg = 1,n_dom
+        ! Delete list of time-dependent atmospheric elements
+        CALL delete_var_list( ext_data(jg)%atm_td_list )
+      ENDDO
       END IF
 
-      IF (iforcing==ihs_ocean) THEN
+    ELSE ! iequations==ihs_ocean ------------------------------------------
+
+      DO jg = 1,n_dom
         ! Delete list of constant in time oceanic elements
         CALL delete_var_list( ext_data(jg)%oce_list )
-      ENDIF
+      ENDDO
+  
+        ! Delete list of time-dependent oceanic elements
+        ! ### to be added if necessary ###
 
-      ! Delete list of time-dependent oceanic elements
-      ! ### to be added if necessary ###
-
-    ENDDO
+    END IF
 
     CALL message (TRIM(routine), 'Destruction of data structure for' // &
       &                          'external data finished')
 
   END SUBROUTINE destruct_ext_data
-
 
 
 
