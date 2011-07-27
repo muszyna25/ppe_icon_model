@@ -283,7 +283,6 @@ cat > NAMELIST_${EXPNAME} << EOF
 &dynamics_nml
  iequations     = ${IEQ}       ! equation system
  lcoriolis      = .TRUE.
- itime_scheme   = 5
  idiv_method    = 1
  divavg_cntrwgt = 0.50
 /
@@ -308,6 +307,7 @@ nudge_zone_width  = 4
  denom_diffu_v    = 150.
 /
 &nonhydrostatic_nml
+ itime_scheme   = 5
  iadv_rhotheta  = 2
  ivctype        = 2            ! sleve vertical coordinate
  exner_expol    = 0.60

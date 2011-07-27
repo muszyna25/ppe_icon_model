@@ -80,11 +80,11 @@ cat > NAMELIST_${EXPNAME} << EOF
  msg_level   = 10               ! detailed report during integration 
 /
 &nonhydrostatic_ctl
+ itime_scheme     = 1           ! 1=pure advection (no dynamics)
  /
 &dynamics_ctl
  ldry_dycore = .TRUE.           ! assume dry atmosphere
  lref_temp   = .FALSE.          ! set a background temperature profile as base state
- itime_scheme     = 1           ! 1=pure advection (no dynamics)
  idiv_method      = 2           ! bilinear averaging
 /
 &transport_ctl

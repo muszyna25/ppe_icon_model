@@ -95,6 +95,7 @@ cat > NAMELIST_${EXPNAME} << EOF
  decay_exp       = 1.2
 /
 &nonhydrostatic_ctl
+ itime_scheme    = 5        ! default 4; 5: modified Matsuno for better numerical stability of sound waves
  iadv_rhotheta   = 2
  ivctype         = 2        ! set vertical grid automatically using sleve_ctl
  igradp_method   = 2        ! new default
@@ -135,7 +136,6 @@ cat > NAMELIST_${EXPNAME} << EOF
 /
 &dynamics_ctl
  idiv_method     = 1
- itime_scheme    = 5        ! default 4; 5: modified Matsuno for better numerical stability of sound waves
  divavg_cntrwgt  = 0.50
 /
 &transport_ctl

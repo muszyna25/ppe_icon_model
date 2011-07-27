@@ -93,7 +93,6 @@ cat > ${atmo_namelist} << EOF
 &dynamics_nml
  iequations  = ${model_equations}       ! 1: hydrost. atmosphere
  lcoriolis   = .FALSE.          ! no coriolis force
- itime_scheme     = 1           ! 1=pure advection (no dynamics)
  idiv_method      = 1           !
  divavg_cntrwgt   = 0.5
 /
@@ -101,6 +100,7 @@ cat > ${atmo_namelist} << EOF
  nh_test_name   = 'PA'      ! test case identifier PA=pure advection test case
 /
 &nonhydrostatic_nml
+ itime_scheme     = 1           ! 1=pure advection (no dynamics)
  iadv_rhotheta = 2
  igradp_method = 2  !new default
 /

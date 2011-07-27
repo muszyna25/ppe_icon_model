@@ -171,6 +171,7 @@ inwp_satad      = 1
  irad_o3 = 6
 /
 &nonhydrostatic_nml
+ itime_scheme   = 5
  iadv_rhotheta  = 2
  ivctype        = 2            ! sleve vertical coordinate
  exner_expol    = 0.60
@@ -191,7 +192,6 @@ inwp_satad      = 1
 /
 &dynamics_nml
  iequations     = ${model_equations}       ! equation system
- itime_scheme   = 5
  idiv_method    = 1
  divavg_cntrwgt = 0.50
  lcoriolis      = .TRUE.
