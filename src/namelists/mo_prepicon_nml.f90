@@ -47,8 +47,8 @@ MODULE mo_prepicon_nml
   USE mo_exception,          ONLY: finish
   USE mo_impl_constants,     ONLY: max_char_length
   USE mo_io_units,           ONLY: nnml, nnml_output
-  USE mo_namelist,           ONLY: position_nml, positioned
-  USE mo_mpi,                ONLY: p_pe, p_io
+  USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
+  USE mo_mpi,                ONLY: my_process_is_stdio 
 
   IMPLICIT NONE
 
@@ -72,7 +72,7 @@ MODULE mo_prepicon_nml
   LOGICAL  :: l_sfc_in      ! Logical switch if surface fields are provided as input
   LOGICAL  :: l_zp_out      ! Logical switch for diagnostic output on pressure and height levels
 
-  NAMELIST /prepicon_ctl/ i_oper_mode, nlev_in, zpbl1, zpbl2, &
+  NAMELIST /prepicon_nml/ i_oper_mode, nlev_in, zpbl1, zpbl2, &
                           l_w_in, l_zp_out, nlevsoil_in, l_sfc_in
   !
   !
@@ -90,9 +90,9 @@ CONTAINS
  !! @par Revision History
  !!  Initial version by Guenther Zaengl (2011-07-11)
 
- SUBROUTINE prepicon_nml_setup
-
-
+ SUBROUTINE prepicon_nml_setup( filename )
+    
+  CHARACTER(LEN=*), INTENT(IN) :: filename
 
   !local variable
   INTEGER :: i_status
@@ -117,11 +117,13 @@ CONTAINS
   !------------------------------------------------------------
   ! (done so far by all MPI processes)
   !
-  CALL position_nml ('prepicon_ctl', status=i_status)
+  CALL open_nml(TRIM(filename))
+  CALL position_nml ('prepicon_nml', status=i_status)
   SELECT CASE (i_status)
   CASE (positioned)
-     READ (nnml, prepicon_ctl)
+     READ (nnml, prepicon_nml)
   END SELECT
+  CALL close_nml
   !
   !------------------------------------------------------------
   ! 4.0 check the consistency of the parameters
@@ -131,7 +133,7 @@ CONTAINS
 
   ! write the contents of the namelist to an ASCII file
 
-  IF(p_pe == p_io) WRITE(nnml_output,nml=prepicon_ctl)
+  IF(my_process_is_stdio()) WRITE(nnml_output,nml=prepicon_nml)
 
 END SUBROUTINE prepicon_nml_setup
 

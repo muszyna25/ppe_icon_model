@@ -318,7 +318,7 @@ MODULE mo_prepicon_utils
         !
         ! generate file name
         !
-        WRITE(ifs2icon_file(jg),'(a,a)') 'ifs2icon_',p_patch(jg)%grid_filename
+        WRITE(ifs2icon_file(jg),'(a,i0,2(a,i2.2),a)') 'ifs2icon_R',nroot,'B',jlev,'_DOM',jg,'.nc'
 
         INQUIRE (FILE=ifs2icon_file(jg), EXIST=l_exist)
         IF (.NOT.l_exist) THEN

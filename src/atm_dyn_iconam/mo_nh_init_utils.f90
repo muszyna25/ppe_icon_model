@@ -891,7 +891,7 @@ CONTAINS
     jgc = p_pc%id
 
 !    IF (p_nprocs == 1 .OR. p_pe == p_test_pe) THEN
-    IF(my_process_is_mpi_parallel()) THEN
+    IF(.NOT. my_process_is_mpi_parallel()) THEN
       l_parallel = .FALSE.
       ptr_grf    => p_grf
       ptr_pp     => p_pp
@@ -1113,7 +1113,7 @@ CONTAINS
     jgc = p_pp%child_id(i_chidx) ! child domain ID
 
 !    IF (p_nprocs == 1 .OR. p_pe == p_test_pe) THEN
-      IF(my_process_is_mpi_parallel()) THEN
+      IF(.NOT. my_process_is_mpi_parallel()) THEN
       l_parallel  =  .FALSE.
       ptr_pp      => p_pp
       ptr_grf     => p_grf

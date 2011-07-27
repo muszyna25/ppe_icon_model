@@ -135,10 +135,11 @@ CONTAINS
         jgc = p_patch(jg)%child_id(jn)
 
         CALL interpol_scal_grf (p_patch(jg), p_patch(jgc), p_int(jg), p_grf(jg)%p_dom(jn), &
-          &                               jn, 1, prepicon(jg)%atm%w, prepicon(jgc)%atm%w )
+                                jn, 1, prepicon(jg)%atm%w, prepicon(jgc)%atm%w )
 
         CALL interpol2_vec_grf (p_patch(jg), p_patch(jgc), p_int(jg), p_grf(jg)%p_dom(jn), &
-          &                                jn, prepicon(jg)%atm%vn, prepicon(jgc)%atm%vn )
+                                jn, prepicon(jg)%atm%vn, prepicon(jgc)%atm%vn )
+
       ENDDO
     ENDDO
 
@@ -1349,10 +1350,8 @@ CONTAINS
                        pres_ml(jc,jkm+1,jb))**(-rd*dtvdz(jc,jkp)/grav)-1._wp)/dtvdz(jc,jkp)
 
             ELSE
-!              z_up   = z3d_ml(jc,jkm,jb) + (rd*0.5_wp*(tempv_ml(jc,jkm,jb) +                 &
-!                       tempv_ml(jc,jkm+1,jb))/grav)*LOG(pres_ml(jc,jkm,jb)/pres_pl(jc,jkp,jb))
-              z_up   = z3d_zl(jc,jkz,jb) + (rd*tempv_zl(jc,jkz,jb)/grav) * &
-                &                   LOG(pres_zl(jc,jkz,jb)/pres_pl(jc,jkp,jb))
+              z_up   = z3d_ml(jc,jkm,jb) + (rd*0.5_wp*(tempv_ml(jc,jkm,jb) +                 &
+                       tempv_ml(jc,jkm+1,jb))/grav)*LOG(pres_ml(jc,jkm,jb)/pres_pl(jc,jkp,jb))
               z_down = z3d_ml(jc,jkm+1,jb) + (rd*0.5_wp*(tempv_ml(jc,jkm,jb) +                 &
                        tempv_ml(jc,jkm+1,jb))/grav)*LOG(pres_ml(jc,jkm+1,jb)/pres_pl(jc,jkp,jb))
             ENDIF
