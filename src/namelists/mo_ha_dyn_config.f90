@@ -60,6 +60,8 @@ MODULE mo_ha_dyn_config
   !!--------------------------------------------------------------------------
   TYPE :: t_ha_dyn_config
 
+    INTEGER  :: itime_scheme       !< Time stepping scheme. See mo_impl_constants.f90 for 
+                                   !< the available choices.
     INTEGER  :: ileapfrog_startup  !<
     REAL(wp) :: asselin_coeff      !<
 
@@ -97,14 +99,13 @@ CONTAINS
   !>
   !! Currently contains only printing
   !!
-  SUBROUTINE configure_ha_dyn( itime_scheme )
+  SUBROUTINE configure_ha_dyn
 
-    INTEGER,INTENT(IN) :: itime_scheme
 
     CALL message('','')
     CALL message('','------ Hydrostatic atm dynamical core ------')
 
-    SELECT CASE(itime_scheme)
+    SELECT CASE(ha_dyn_config% itime_scheme)
     CASE (LEAPFROG_EXPL)
 
       CALL message('', 'itime_scheme = LEAPFROG_EXPL')

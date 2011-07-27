@@ -48,7 +48,7 @@ MODULE mo_ha_stepping
   USE mo_model_domain,        ONLY: t_patch
   USE mo_ext_data,            ONLY: ext_data
   USE mo_model_domain_import, ONLY: n_dom
-  USE mo_dynamics_config,     ONLY: itime_scheme, lshallow_water, ltwotime, nnow, nold
+  USE mo_dynamics_config,     ONLY: lshallow_water, ltwotime, nnow, nold
   USE mo_ha_dyn_config,       ONLY: ha_dyn_config, configure_ha_dyn
   USE mo_io_config,           ONLY: l_outputtime, lprepare_output, l_diagtime,  &
                                   & l_checkpoint_time
@@ -98,16 +98,16 @@ CONTAINS
     !-----------------------------------
     ! Set up scheme-specific constants
     !-----------------------------------
-    CALL configure_ha_dyn( itime_scheme )
+    CALL configure_ha_dyn
 
-    SELECT CASE (itime_scheme)
+    SELECT CASE (ha_dyn_config%itime_scheme)
     CASE (LEAPFROG_SI) 
       CALL init_si_params( ha_dyn_config%lsi_3d,            &
                            ha_dyn_config%si_offctr,         &
                            ha_dyn_config%si_cmin,           &
                            lshallow_water                   )
     CASE (RK4,SSPRK54) 
-      CALL init_RungeKutta(itime_scheme)
+      CALL init_RungeKutta(ha_dyn_config%itime_scheme)
     END SELECT
 
     !---------------------------------------------------------------
@@ -125,7 +125,7 @@ CONTAINS
     ELSE                ; nadd = 0
     ENDIF
 
-    SELECT CASE (itime_scheme)
+    SELECT CASE (ha_dyn_config%itime_scheme)
     CASE (LEAPFROG_EXPL, LEAPFROG_SI, RK4, SSPRK54)
     ! 3 time level scheme, or 2 time level scheme with multi stages
       ntl = 3 + nadd
