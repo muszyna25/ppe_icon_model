@@ -34,10 +34,11 @@ MODULE mo_ha_dyn_nml
 
   USE mo_ha_dyn_config,         ONLY: ha_dyn_config
   USE mo_kind,                  ONLY: wp
-  USE mo_impl_constants,        ONLY: AB2, LEAPFROG_SI, UNKNOWN
+  USE mo_impl_constants,        ONLY: AB2, TRACER_ONLY, TWO_TL_SI, LEAPFROG_EXPL, &
+                                      LEAPFROG_SI, RK4, SSPRK54
   USE mo_mpi,                   ONLY: my_process_is_stdio
   USE mo_io_units,              ONLY: nnml, nnml_output
-  USE mo_exception,             ONLY: message_text, message, finish
+  USE mo_exception,             ONLY: finish
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_master_control,        ONLY: is_restart_run
   USE mo_io_restart_attributes, ONLY: get_restart_attribute
@@ -55,12 +56,12 @@ MODULE mo_ha_dyn_nml
   !---------------------
 
   INTEGER  :: itime_scheme   ! variable used to select the time stepping scheme
-                             ! = 1, explicit 2 time level scheme
-                             ! = 2, semi implicit 2 time level scheme
-                             ! = 3, explicit leapfrog
-                             ! = 4, leapfrog with semi implicit correction
-                             ! = 5, 4-stage Runge-Kutta method
-                             ! = 6, SSPRK(5,4) (Runge-Kutta) method
+                             ! = 1, preparational computations for advection test
+                             ! = 12, semi implicit 2 time level scheme
+                             ! = 13, explicit leapfrog
+                             ! = 14, leapfrog with semi implicit correction
+                             ! = 15, 4-stage Runge-Kutta method
+                             ! = 16, SSPRK(5,4) (Runge-Kutta) method
 
   INTEGER  :: ileapfrog_startup  ! choice of time stepping scheme for 
                                  ! the first step in
@@ -156,11 +157,12 @@ CONTAINS
     !-----------------------------------------------------
     ! Sanity Check
     !-----------------------------------------------------
-    IF((itime_scheme<=0).OR.(itime_scheme>=unknown)) THEN
-      WRITE(message_text,'(A,i2)') &
-      'wrong value of itime_scheme, must be 1 ...', unknown -1
-      CALL finish( TRIM(routine),TRIM(message_text))
-    ENDIF
+    SELECT CASE (itime_scheme)
+    CASE (TWO_TL_SI,LEAPFROG_EXPL,LEAPFROG_SI,RK4,SSPRK54) !OK
+    CASE DEFAULT
+      CALL finish( TRIM(routine),'wrong value for ha_dyn_nml:itime_scheme. '//&
+                 & 'See mo_impl_constants.f90 for possible options.' )
+    END SELECT
 
     IF (asselin_coeff<0._wp) CALL finish( TRIM(routine), &
       'wrong (negative) coefficient of Asselin filter')

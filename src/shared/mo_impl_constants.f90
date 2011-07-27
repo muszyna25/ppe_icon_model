@@ -185,12 +185,11 @@ MODULE mo_impl_constants
   INTEGER,PARAMETER :: TRACER_ONLY   = 1 ! pure tracer advection
 
   ! the hydrostatic model
-  INTEGER,PARAMETER :: TWO_TL_SI     = 2 ! semi-implicit two time level
-  INTEGER,PARAMETER :: LEAPFROG_EXPL = 3 ! explicit leapfrog
-  INTEGER,PARAMETER :: LEAPFROG_SI   = 4 ! semi-implicit leapfrog
-  INTEGER,PARAMETER :: RK4           = 5 ! standard 4th-order Runge-Kutta method
-  INTEGER,PARAMETER :: SSPRK54       = 6 ! SSP RK(5,4)
-  INTEGER,PARAMETER :: UNKNOWN       = 7
+  INTEGER,PARAMETER :: TWO_TL_SI     = 12 ! semi-implicit two time level
+  INTEGER,PARAMETER :: LEAPFROG_EXPL = 13 ! explicit leapfrog
+  INTEGER,PARAMETER :: LEAPFROG_SI   = 14 ! semi-implicit leapfrog
+  INTEGER,PARAMETER :: RK4           = 15 ! standard 4th-order Runge-Kutta method
+  INTEGER,PARAMETER :: SSPRK54       = 16 ! SSP RK(5,4)
 
   ! the non-hydrostatic model
   INTEGER,PARAMETER :: MATSUNO_DEF  = 4 !31 future enumeration to make the belonging clear,  Matsuno scheme
