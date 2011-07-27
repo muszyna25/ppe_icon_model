@@ -207,7 +207,7 @@ CONTAINS
     REAL(wp) :: thbs_t(nproma,p_patch%nblks_c,1:nsfc_subs)
     REAL(wp) :: pabs_t(nproma,p_patch%nblks_c,1:nsfc_subs)
 
-    REAL(wp) :: lu_class_frac(nproma,p_patch%nblks_c,1:nsfc_subs)
+!DR    REAL(wp) :: lu_class_frac(nproma,p_patch%nblks_c,1:nsfc_subs)
 
 !--------------------------------------------------------------
 
@@ -300,7 +300,7 @@ print*, "SFC-DIAGNOSIS INTERFACE ",jstep
 
 
         DO isubs = 1,nsfc_subs
-          lu_class_frac(1:i_endidx,jb,isubs)= ext_data%atm%lu_class_fraction(1:i_endidx,jb,isubs)
+!DR          lu_class_frac(1:i_endidx,jb,isubs)= ext_data%atm%lu_class_fraction(1:i_endidx,jb,isubs)
           tch_t(1:i_endidx,jb,isubs)      = prm_diag%tch(1:i_endidx,jb)
           tcm_t(1:i_endidx,jb,isubs)      = prm_diag%tcm(1:i_endidx,jb)
           tfv_t(1:i_endidx,jb,isubs)      = prm_diag%tfv(1:i_endidx,jb)
