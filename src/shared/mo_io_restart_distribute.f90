@@ -1,4 +1,8 @@
 MODULE mo_io_restart_distribute
+#ifdef __xlC__
+@PROCESS smp=noopt
+@PROCESS noopt
+#endif
   !
   USE mo_kind,          ONLY: wp
 #ifndef NOMPI
