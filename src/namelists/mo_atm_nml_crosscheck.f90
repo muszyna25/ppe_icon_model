@@ -212,101 +212,6 @@ CONTAINS
       ENDIF
     ENDIF
 
-    !--------------------------------------------------------------------
-    ! Tracer transport
-    !--------------------------------------------------------------------
-    ! General
-
-    IF(ltransport .AND. ntracer <= 0) THEN
-      CALL finish( TRIM(routine),'Tracer transport switched on but ntracer <= 0')
-    ENDIF
-
-   !IF (.NOT.ltransport .AND. ntracer > 0) &
-   !  CALL finish( TRIM(routine),          &
-   !  'either set ltransport = true or ntracer to 0 ')
-
-    IF(iequations == INH_ATMOSPHERE .AND. itime_scheme_nh == tracer_only &
-      &                                        .AND. (.NOT.ltransport)) THEN
-      WRITE(message_text,'(A,i2,A)') &
-        'itime_scheme set to ', tracer_only, 'but ltransport to .FALSE.'
-      CALL finish( TRIM(routine),TRIM(message_text))
-    END IF
-
-!    IF(iequations <= IHS_ATM_THETA .AND. ha_dyn_config%itime_scheme == tracer_only &
-!      &                                            .AND. (.NOT.ltransport)) THEN
-!      WRITE(message_text,'(A,i2,A)') &
-!        'itime_scheme set to ', tracer_only, 'but ltransport to .FALSE.'
-!      CALL finish( TRIM(routine),TRIM(message_text))
-!    END IF
-
-    ntracer_static = 0
-
-    IF (ltransport) THEN
-    DO jg = 1,n_dom
-
-      !---------------------------------------
-      ! Special check for the hexagonal model
-
-      SELECT CASE (global_cell_type)
-      CASE (6)
-        ! 3rd order upwind horizontal advection scheme
-        advection_config(jg)%ihadv_tracer(:) = iup3
-        ! semi monotonous flux limiter
-        advection_config(jg)%itype_hlimit(:) = ifluxl_sm
-        WRITE(message_text,'(a)') 'Attention: on the hexagonal grid, ',              &
-          &  'ihadv_tracer(:) = iup3 and itype_hlimit(:) = ifluxl_sm are the only ', &
-          &  'possible settings. Please adjust your namelist settings accordingly'
-        CALL message(TRIM(routine),message_text)
-      END SELECT
-
-      !----------------------------------------------
-      ! Flux compuation methods - consistency check
-
-      SELECT CASE (global_cell_type)
-      CASE (3)
-        IF ( ANY(advection_config(jg)%ihadv_tracer(1:ntracer) > 3))   THEN
-          CALL finish( TRIM(routine),                                       &
-               'incorrect settings for TRI-C grid ihadv_tracer. Must be 0,1,2, or 3 ')
-        ENDIF
-      CASE (6)
-        IF (ANY(advection_config(jg)%ihadv_tracer(1:ntracer) == 2) .OR.     &
-         &  ANY(advection_config(jg)%ihadv_tracer(1:ntracer) == 3))   THEN 
-          CALL finish( TRIM(routine),                                       &
-               'incorrect settings for HEX-C grid ihadv_tracer. Must be 0,1, or 4 ')
-        ENDIF
-      END SELECT
-
-
-      !----------------------------------------------
-      ! Limiter - consistency check
-
-      IF (global_cell_type == 6) THEN
-        IF ( ANY(advection_config(jg)%itype_hlimit(1:ntracer) == islopel_sm ) .OR.   &
-          &  ANY(advection_config(jg)%itype_hlimit(1:ntracer) == islopel_m  ) .OR.   &
-          &  ANY(advection_config(jg)%itype_hlimit(1:ntracer) == ifluxl_m   )) THEN
-          CALL finish( TRIM(routine),                                     &
-           'incorrect settings for itype_hlimit and hexagonal grid. Must be 0 or 4 ')
-        ENDIF
-      ENDIF
-
-    END DO ! jg = 1,n_dom
-    END IF ! ltransport
-
-    !...........................................................
-    ! Tracers and diabatic forcing
-    !...........................................................
-    SELECT CASE (iforcing)
-    CASE(IECHAM,ILDF_ECHAM)
-
-      IF (ntracer < 3) &
-      CALL finish(TRIM(routine),'ECHAM physics needs at least 3 tracers')
-
-    CASE(INWP)
-
-      IF (ntracer < 5) &
-      CALL finish(TRIM(routine),'NWP physics needs at least 3 tracers')
-
-    END SELECT
 
     !--------------------------------------------------------------------
     ! Grid and dynamics
@@ -437,11 +342,29 @@ CONTAINS
     END IF
 
 
+
     !--------------------------------------------------------------------
     ! Tracers and diabatic forcing
     !--------------------------------------------------------------------
-    ! Tracer indices need to be set before further checking
+    SELECT CASE (iforcing)
+    CASE(IECHAM,ILDF_ECHAM)
 
+      IF (ntracer < 3) &
+      CALL finish(TRIM(routine),'ECHAM physics needs at least 3 tracers')
+
+    CASE(INWP)
+
+      ! If iforcing=INWP is chosen, we do not want to set ntracer explicitly.
+      ! Instead, ntracer and ntracer_static will be set automatically, 
+      ! according to the selected radiation scheme.
+      !IF (ntracer < 5) &
+      !CALL finish(TRIM(routine),'NWP physics needs at least 5 tracers')
+
+    END SELECT
+
+    !
+    ! Tracer indices need to be set before further checking
+    !
     SELECT CASE(iforcing)
     CASE (IECHAM,ILDF_ECHAM)
 
@@ -476,6 +399,8 @@ CONTAINS
       ico2   = 6     !! CO2
 
     END SELECT
+
+    ntracer_static = 0
 
     IF (ltransport) THEN
     DO jg = 1,n_dom
@@ -608,6 +533,89 @@ CONTAINS
 
     END DO ! jg = 1,n_dom
     END IF ! ltransport
+
+
+    !--------------------------------------------------------------------
+    ! Tracer transport
+    !--------------------------------------------------------------------
+    ! General
+
+    ! similar check already performed in read_run_namelist.
+    !
+    !IF(ltransport .AND. ntracer <= 0) THEN
+    !  CALL finish( TRIM(routine),'Tracer transport switched on but ntracer <= 0')
+    !ENDIF
+
+    !IF (.NOT.ltransport .AND. ntracer > 0) &
+    !  CALL finish( TRIM(routine),          &
+    !  'either set ltransport = true or ntracer to 0 ')
+
+    IF(iequations == INH_ATMOSPHERE .AND. itime_scheme_nh == tracer_only &
+      &                                        .AND. (.NOT.ltransport)) THEN
+      WRITE(message_text,'(A,i2,A)') &
+        'itime_scheme set to ', tracer_only, 'but ltransport to .FALSE.'
+      CALL finish( TRIM(routine),TRIM(message_text))
+    END IF
+
+!    IF(iequations <= IHS_ATM_THETA .AND. ha_dyn_config%itime_scheme == tracer_only &
+!      &                                            .AND. (.NOT.ltransport)) THEN
+!      WRITE(message_text,'(A,i2,A)') &
+!        'itime_scheme set to ', tracer_only, 'but ltransport to .FALSE.'
+!      CALL finish( TRIM(routine),TRIM(message_text))
+!    END IF
+
+
+    IF (ltransport) THEN
+    DO jg = 1,n_dom
+
+      !---------------------------------------
+      ! Special check for the hexagonal model
+
+      SELECT CASE (global_cell_type)
+      CASE (6)
+        ! 3rd order upwind horizontal advection scheme
+        advection_config(jg)%ihadv_tracer(:) = iup3
+        ! semi monotonous flux limiter
+        advection_config(jg)%itype_hlimit(:) = ifluxl_sm
+        WRITE(message_text,'(a)') 'Attention: on the hexagonal grid, ',              &
+          &  'ihadv_tracer(:) = iup3 and itype_hlimit(:) = ifluxl_sm are the only ', &
+          &  'possible settings. Please adjust your namelist settings accordingly'
+        CALL message(TRIM(routine),message_text)
+      END SELECT
+
+      !----------------------------------------------
+      ! Flux compuation methods - consistency check
+
+      SELECT CASE (global_cell_type)
+      CASE (3)
+        IF ( ANY(advection_config(jg)%ihadv_tracer(1:ntracer) > 3))   THEN
+          CALL finish( TRIM(routine),                                       &
+               'incorrect settings for TRI-C grid ihadv_tracer. Must be 0,1,2, or 3 ')
+        ENDIF
+      CASE (6)
+        IF (ANY(advection_config(jg)%ihadv_tracer(1:ntracer) == 2) .OR.     &
+         &  ANY(advection_config(jg)%ihadv_tracer(1:ntracer) == 3))   THEN 
+          CALL finish( TRIM(routine),                                       &
+               'incorrect settings for HEX-C grid ihadv_tracer. Must be 0,1, or 4 ')
+        ENDIF
+      END SELECT
+
+
+      !----------------------------------------------
+      ! Limiter - consistency check
+
+      IF (global_cell_type == 6) THEN
+        IF ( ANY(advection_config(jg)%itype_hlimit(1:ntracer) == islopel_sm ) .OR.   &
+          &  ANY(advection_config(jg)%itype_hlimit(1:ntracer) == islopel_m  ) .OR.   &
+          &  ANY(advection_config(jg)%itype_hlimit(1:ntracer) == ifluxl_m   )) THEN
+          CALL finish( TRIM(routine),                                     &
+           'incorrect settings for itype_hlimit and hexagonal grid. Must be 0 or 4 ')
+        ENDIF
+      ENDIF
+
+    END DO ! jg = 1,n_dom
+    END IF ! ltransport
+
 
     !--------------------------------------------------------------------
     ! Horizontal diffusion

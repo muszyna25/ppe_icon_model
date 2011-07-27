@@ -178,8 +178,16 @@ CONTAINS
       CALL finish( TRIM(routine),'wrong value for iforcing')
     END SELECT
 
-    IF (ltransport.AND.ntracer<1) CALL finish(TRIM(routine), &
-    'Tracer transport is switched on, but number of advected tracers is smaller than 1')
+    ! If we choose to have NWP-forcing for the nonhydrostatic model, we want 
+    ! to avoid the necessity of setting ntracer explicitly. Thus, a sanity 
+    ! check for ntracer is triggered only, if iforcing /= INWP.
+    IF (iforcing /= INWP) THEN
+      IF ((ntracer<0).OR.(ntracer>max_ntracer)) CALL finish( TRIM(routine), &
+      'wrong number of tracers. Valid range: 0<= ntracer <=20')
+
+      IF (ltransport .AND. ntracer<1) CALL finish(TRIM(routine), &
+      'Tracer transport is switched on, but number of advected tracers is smaller than 1')
+    ENDIF
 
     IF (ANY(num_lev < 0)) CALL finish(TRIM(routine),'"num_lev" must be positive')
     IF (ANY(nshift  < 0)) CALL finish(TRIM(routine),'"nshift" must be positive')
@@ -187,8 +195,6 @@ CONTAINS
     IF (nsteps < 0) CALL finish(TRIM(routine),'"nsteps" must not be negative')
     IF (dtime <= 0._wp) CALL finish(TRIM(routine),'"dtime" must be positive')
 
-    IF ((ntracer<0).OR.(ntracer>max_ntracer)) CALL finish( TRIM(routine), &
-    'wrong number of tracers. Valid range: 0<= ntracer <=20')
 
     !----------------------------------------------------
     ! Fill part of the configuration state
