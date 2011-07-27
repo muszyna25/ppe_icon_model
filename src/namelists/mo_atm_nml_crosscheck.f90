@@ -69,12 +69,12 @@ MODULE mo_atm_nml_crosscheck
   USE mo_sleve_config
 
   USE mo_dynamics_config,     ONLY: configure_dynamics,                        &
-    &                               iequations, itime_scheme, idiv_method,     &
+    &                               iequations, idiv_method, itime_scheme,     &
     &                               divavg_cntrwgt, sw_ref_height,             &
-    &                               lcoriolis, lshallow_water, ltwotime
+    &                               lcoriolis, lshallow_water, ltwotime !  itime_scheme
   USE mo_advection_config,    ONLY: advection_config, configure_advection
 
-  USE mo_nonhydrostatic_config
+  USE mo_nonhydrostatic_config, ONLY: itime_scheme_nh => itime_scheme
   USE mo_ha_dyn_config,     ONLY: ha_dyn_config
   USE mo_diffusion_config,  ONLY: diffusion_config, configure_diffusion
 
@@ -225,12 +225,19 @@ CONTAINS
    !  CALL finish( TRIM(routine),          &
    !  'either set ltransport = true or ntracer to 0 ')
 
-    IF((itime_scheme==tracer_only).AND.(.NOT.ltransport)) THEN
+    IF(iequations == INH_ATMOSPHERE .AND. itime_scheme_nh == tracer_only &
+      &                                        .AND. (.NOT.ltransport)) THEN
       WRITE(message_text,'(A,i2,A)') &
-      'itime_scheme set to ', tracer_only, 'but ltransport to .FALSE.'
+        'itime_scheme set to ', tracer_only, 'but ltransport to .FALSE.'
       CALL finish( TRIM(routine),TRIM(message_text))
     END IF
 
+!    IF(iequations <= IHS_ATM_THETA .AND. ha_dyn_config%itime_scheme == tracer_only &
+!      &                                            .AND. (.NOT.ltransport)) THEN
+!      WRITE(message_text,'(A,i2,A)') &
+!        'itime_scheme set to ', tracer_only, 'but ltransport to .FALSE.'
+!      CALL finish( TRIM(routine),TRIM(message_text))
+!    END IF
 
     ntracer_static = 0
 
@@ -323,6 +330,8 @@ CONTAINS
 
     lshallow_water = (iequations==ISHALLOW_WATER)
     ltwotime = (itime_scheme/=LEAPFROG_EXPL).AND.(itime_scheme/=LEAPFROG_SI)
+!    ltwotime = (ha_dyn_config%itime_scheme/=LEAPFROG_EXPL) &
+!      &        .AND.(ha_dyn_config%itime_scheme/=LEAPFROG_SI)
 
     !--------------------------------------------------------------------
     ! Testcases

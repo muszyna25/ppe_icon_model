@@ -60,6 +60,8 @@ MODULE mo_nonhydrostatic_config
   !!----------------------------------------------------------------------------
 !  TYPE :: t_nonhydrostatic_config
 
+    INTEGER  :: itime_scheme            !< Choice of time stepping scheme
+
     INTEGER :: iadv_rcf                 !if 1: no reduced calling frequency for adv. and phy.
                                         !if 2: adv. and phys. are called only every 2nd
                                         !      time step.

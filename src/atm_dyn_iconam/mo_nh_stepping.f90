@@ -47,21 +47,20 @@ MODULE mo_nh_stepping
 !
 !
 
-  USE mo_kind,                ONLY: wp
-  USE mo_nonhydro_state,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics, &
-                                    construct_nh_state, bufr
-  USE mo_nonhydrostatic_config,  ONLY: iadv_rcf, l_nest_rcf, ltheta_up_vert
-  USE mo_diffusion_config,    ONLY: diffusion_config
-  USE mo_dynamics_config,     ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1,nsav2, &
-                                    itime_scheme
-  USE mo_io_config,               ONLY: l_outputtime, l_diagtime, l_checkpoint_time
-  USE mo_parallel_config,  ONLY: nproma, itype_comm
-  USE mo_run_config,          ONLY: ltestcase, dtime, nsteps,  &
-    &                               ltransport, ntracer, lforcing, iforcing, &
-    &                               msg_level, ltimer
-  USE mo_grid_config, ONLY :  global_cell_type
+  USE mo_kind,                 ONLY: wp
+  USE mo_nonhydro_state,       ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics, &
+                                     construct_nh_state, bufr
+  USE mo_nonhydrostatic_config,ONLY: iadv_rcf, l_nest_rcf, ltheta_up_vert, itime_scheme
+  USE mo_diffusion_config,     ONLY: diffusion_config
+  USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1,nsav2 !, &
+!                                    itime_scheme
+  USE mo_io_config,            ONLY: l_outputtime, l_diagtime, l_checkpoint_time
+  USE mo_parallel_config,      ONLY: nproma, itype_comm
+  USE mo_run_config,           ONLY: ltestcase, dtime, nsteps,  &
+    &                                ltransport, ntracer, lforcing, iforcing, &
+    &                                msg_level, ltimer
+  USE mo_grid_config,          ONLY: global_cell_type
     
-!  USE mo_atm_phy_nwp_nml,     ONLY: tcall_phy
   USE mo_atm_phy_nwp_config,  ONLY: tcall_phy
   USE mo_nwp_phy_init,        ONLY: init_nwp_phy
   USE mo_nwp_phy_state,       ONLY: prm_diag, prm_nwp_tend, mean_charlen

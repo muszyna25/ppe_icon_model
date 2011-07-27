@@ -183,12 +183,24 @@ MODULE mo_impl_constants
 
   ! identifiers for atm time stepping schemes
   INTEGER,PARAMETER :: TRACER_ONLY   = 1 ! pure tracer advection
+
+  ! the hydrostatic model
   INTEGER,PARAMETER :: TWO_TL_SI     = 2 ! semi-implicit two time level
   INTEGER,PARAMETER :: LEAPFROG_EXPL = 3 ! explicit leapfrog
   INTEGER,PARAMETER :: LEAPFROG_SI   = 4 ! semi-implicit leapfrog
   INTEGER,PARAMETER :: RK4           = 5 ! standard 4th-order Runge-Kutta method
   INTEGER,PARAMETER :: SSPRK54       = 6 ! SSP RK(5,4)
   INTEGER,PARAMETER :: UNKNOWN       = 7
+
+  ! the non-hydrostatic model
+  INTEGER,PARAMETER :: MATSUNO_DEF  = 31 ! semi-implicit two time level
+  INTEGER,PARAMETER :: MATSUNO_COR  = 32 ! explicit leapfrog
+  INTEGER,PARAMETER :: MATSUNO_AVE  = 34
+  INTEGER,PARAMETER :: MATSUNO_UNK  = 35
+
+
+
+
 
   ! Scheme for the "slow" component in the TWO_TL_SI time stepping
   INTEGER,PARAMETER :: EULER_FORWARD = 1

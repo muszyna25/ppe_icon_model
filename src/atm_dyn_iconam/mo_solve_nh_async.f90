@@ -41,15 +41,16 @@
 !!
 MODULE mo_solve_nh_async
 
-  USE mo_kind,              ONLY: wp
-  USE mo_nonhydrostatic_config,ONLY: iadv_rhotheta, igradp_method, l_open_ubc, l_zdiffu_t
-  USE mo_dynamics_config,   ONLY: itime_scheme, idiv_method
-  USE mo_diffusion_config,  ONLY: diffusion_config
-  USE mo_parallel_config,  ONLY: nproma, p_test_run
-  USE mo_run_config,        ONLY: ltimer, lvert_nest
-  USE mo_model_domain,      ONLY: t_patch
-  USE mo_model_domain_import,ONLY: nroot, l_limited_area, lfeedback
-  USE mo_interpolation,     ONLY: t_int_state, cells2edges_scalar, edges2cells_scalar,      &
+  USE mo_kind,                 ONLY: wp
+  USE mo_nonhydrostatic_config,ONLY: itime_scheme,iadv_rhotheta, igradp_method, &
+    &                                l_open_ubc, l_zdiffu_t
+  USE mo_dynamics_config,      ONLY:  idiv_method
+  USE mo_diffusion_config,     ONLY: diffusion_config
+  USE mo_parallel_config,      ONLY: nproma, p_test_run
+  USE mo_run_config,           ONLY: ltimer, lvert_nest
+  USE mo_model_domain,         ONLY: t_patch
+  USE mo_model_domain_import,  ONLY: nroot, l_limited_area, lfeedback
+  USE mo_interpolation,        ONLY: t_int_state, cells2edges_scalar, edges2cells_scalar,      &
                                   rbf_vec_interpol_edge, cell_avg, rbf_vec_interpol_vertex, &
                                   nudge_max_coeff
   USE mo_nonhydro_state,    ONLY: t_nh_state, t_nh_metrics, t_nh_diag, t_nh_prog, &

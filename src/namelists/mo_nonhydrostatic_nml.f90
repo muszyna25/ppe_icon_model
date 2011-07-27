@@ -46,6 +46,7 @@ MODULE mo_nonhydrostatic_nml
 
   USE mo_nonhydrostatic_config, ONLY: &
                                     ! from namelist
+                                    & config_itime_scheme     => itime_scheme     , &
                                     & config_iadv_rcf         => iadv_rcf         , &
                                     & config_ivctype          => ivctype          , &
                                     & config_htop_moist_proc  => htop_moist_proc  , &
@@ -82,6 +83,14 @@ MODULE mo_nonhydrostatic_nml
   !-----------------------------------------------------------------------------
   ! Namelist variables
   !-----------------------------------------------------------------------------
+
+
+  INTEGER  :: itime_scheme   ! parameter used to select the time stepping scheme
+                             ! = 1, explicit 2 time level scheme for tracer
+                             ! = 3, Matsuno, comp of velocity tendencies on corretor step only
+                             ! = 4, Matsuno scheme
+                             ! = 5, under development
+                             ! = 6, Matsuno with velocitiy tendendcies averaged over 2 time steps
 
   INTEGER :: iadv_rcf                ! if 1: no reduced calling frequency for adv. and phy.
                                      ! if 2: adv. and phys. are called every 2nd time step.
@@ -126,8 +135,8 @@ MODULE mo_nonhydrostatic_nml
   INTEGER :: kstart_qv(max_dom)      ! related flow control variable (NOT a namelist variable)
 
 
-  NAMELIST /nonhydrostatic_nml/ iadv_rcf, ivctype, htop_moist_proc, htop_qvadv,            &
-                              & damp_height, damp_height_u, rayleigh_coeff,                &
+  NAMELIST /nonhydrostatic_nml/ itime_scheme, iadv_rcf, ivctype, htop_moist_proc,          &
+                              & htop_qvadv, damp_height, damp_height_u, rayleigh_coeff,    &
                               & damp_timescale_u, vwind_offctr, iadv_rhotheta,             &
                               & igradp_method, exner_expol, l_open_ubc, l_nest_rcf,        &
                               & l_masscorr_nest, l_zdiffu_t, thslp_zdiffu, thhgtd_zdiffu,  &
@@ -163,6 +172,9 @@ CONTAINS
     !-----------------------
     ! 1. default settings
     !-----------------------
+
+    ! Time scheme chose for the nh-model
+    itime_scheme = 4 ! Matsuno scheme
 
     ! reduced calling frequency for transport
     iadv_rcf = 1  ! no reduced calling frequency
@@ -303,6 +315,7 @@ CONTAINS
        config_ltheta_up_vert    = ltheta_up_vert
        config_gmres_rtol_nh     = gmres_rtol_nh
        config_iadv_rcf          = iadv_rcf
+       config_itime_scheme      = itime_scheme
        config_ivctype           = ivctype
        config_upstr_beta        = upstr_beta
        config_l_open_ubc        = l_open_ubc

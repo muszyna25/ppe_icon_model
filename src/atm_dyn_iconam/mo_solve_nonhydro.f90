@@ -40,15 +40,15 @@
 !!
 MODULE mo_solve_nonhydro
 
-  USE mo_kind,              ONLY: wp
-  USE mo_nonhydrostatic_config,ONLY: iadv_rhotheta, igradp_method, l_open_ubc
-  USE mo_dynamics_config,   ONLY: itime_scheme, idiv_method
-  USE mo_parallel_config,  ONLY: nproma, p_test_run, itype_comm
-  USE mo_run_config,        ONLY: ltimer, lvert_nest
-  USE mo_model_domain,      ONLY: t_patch
+  USE mo_kind,                 ONLY: wp
+  USE mo_nonhydrostatic_config,ONLY: itime_scheme,iadv_rhotheta, igradp_method, l_open_ubc
+  USE mo_dynamics_config,      ONLY: idiv_method
+  USE mo_parallel_config,    ONLY: nproma, p_test_run, itype_comm
+  USE mo_run_config,         ONLY: ltimer, lvert_nest
+  USE mo_model_domain,       ONLY: t_patch
   USE mo_model_domain_import,ONLY: l_limited_area
-  USE mo_interpolation,     ONLY: t_int_state, cells2edges_scalar, rbf_vec_interpol_edge
-  USE mo_nonhydro_state,    ONLY: t_nh_state, t_nh_metrics, t_nh_diag, t_nh_prog, &
+  USE mo_interpolation,      ONLY: t_int_state, cells2edges_scalar, rbf_vec_interpol_edge
+  USE mo_nonhydro_state,     ONLY: t_nh_state, t_nh_metrics, t_nh_diag, t_nh_prog, &
                                   t_buffer_memory
   USE mo_physical_constants,ONLY: cpd, rd, cvd, cvd_o_rd, grav, rd_o_cpd, p0ref
   USE mo_math_operators,    ONLY: div, rot_vertex, div_avg
