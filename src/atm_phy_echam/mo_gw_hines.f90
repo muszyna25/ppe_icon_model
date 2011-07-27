@@ -306,7 +306,7 @@ CONTAINS
       END DO
       bvfreq(1:nc,jk) = SQRT(bvfreq(1:nc,jk))
 
-!IBM* novector
+!!HW!! !IBM* novector
       bvfreq(1:nc,jk) = bvfreq(1:nc,jk)*grav/ptm1(jcs:jce,jk)
     END DO
 
