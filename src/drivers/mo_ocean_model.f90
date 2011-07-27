@@ -363,9 +363,9 @@ CONTAINS
       CALL finish(TRIM(routine),'allocation for ext_data failed')
     ENDIF
     
-    ! allocate memory for atmospheric/oceanic external data and
+    ! allocate memory for oceanic external data and
     ! optionally read those data from netCDF file.
-!     CALL init_ext_data (p_patch(1:), p_int_state, ext_data)
+      CALL init_ext_data (p_patch(1:), p_int_state, ext_data)
     
 
     !------------------------------------------------------------------
