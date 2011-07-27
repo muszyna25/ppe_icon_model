@@ -50,6 +50,7 @@ MODULE mo_read_namelists
   USE mo_diffusion_nml,       ONLY: read_diffusion_namelist 
   USE mo_io_nml,              ONLY: read_io_namelist
   USE mo_extpar_nml,          ONLY: read_extpar_namelist
+  USE mo_prepicon_nml,        ONLY: read_prepicon_namelist
   USE mo_advection_nml,       ONLY: read_transport_namelist
   USE mo_gridref_nml,         ONLY: read_gridref_namelist
   USE mo_echam_phy_nml,       ONLY: read_echam_phy_namelist
@@ -130,6 +131,9 @@ CONTAINS
     CALL read_nwp_lnd_namelist    (TRIM(atm_namelist_filename))
     CALL read_nwp_phy_namelist    (TRIM(atm_namelist_filename))
     CALL read_echam_phy_namelist  (TRIM(atm_namelist_filename))
+
+    ! Initialization with real data
+    CALL read_prepicon_namelist   (TRIM(atm_namelist_filename))
 
     !-----
 

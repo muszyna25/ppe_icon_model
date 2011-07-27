@@ -90,7 +90,7 @@ CONTAINS
  !! @par Revision History
  !!  Initial version by Guenther Zaengl (2011-07-11)
 
- SUBROUTINE prepicon_nml_setup( filename )
+ SUBROUTINE read_prepicon_namelist( filename )
     
   CHARACTER(LEN=*), INTENT(IN) :: filename
 
@@ -135,6 +135,6 @@ CONTAINS
 
   IF(my_process_is_stdio()) WRITE(nnml_output,nml=prepicon_nml)
 
-END SUBROUTINE prepicon_nml_setup
+END SUBROUTINE read_prepicon_namelist
 
 END MODULE mo_prepicon_nml

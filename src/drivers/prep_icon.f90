@@ -104,7 +104,7 @@ USE mo_prepicon_utils,      ONLY: init_prepicon, prepicon, write_prepicon_output
   & compute_coord_fields, init_topo_output_files, close_prepicon_output_files,    &
   & convert_variables, init_atmo_output_files, deallocate_prepicon
   
-USE mo_prepicon_nml,        ONLY: i_oper_mode, prepicon_nml_setup, l_zp_out
+USE mo_prepicon_nml,        ONLY: i_oper_mode, l_zp_out
 USE mo_nh_vert_interp,      ONLY: vertical_interpolation, interpolate_to_p_and_z_levels
 
 USE mo_extpar_config,      ONLY: itopo
@@ -161,7 +161,6 @@ IMPLICIT NONE
 
     CALL read_atmo_namelists("NAMELIST_PREPICON","icon_master.namelist")
 
-    CALL prepicon_nml_setup("NAMELIST_PREPICON")
 
     !---------------------------------------------------------------------
     ! 1.2 Cross-check namelist setups
