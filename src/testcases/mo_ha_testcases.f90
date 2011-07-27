@@ -67,7 +67,7 @@ MODULE mo_ha_testcases
 ! 
 
   USE mo_kind,            ONLY: wp
-  USE mo_exception,       ONLY: message, finish
+  USE mo_exception,       ONLY: message_text, message, finish
   USE mo_impl_constants,  ONLY: SUCCESS, MAX_CHAR_LENGTH, TRACER_ONLY
   USE mo_io_units,        ONLY: nnml, nnml_output
   USE mo_namelist,        ONLY: position_nml, POSITIONED, open_nml, close_nml
@@ -80,8 +80,9 @@ MODULE mo_ha_testcases
   USE mo_interpolation,   ONLY: t_int_state
   USE mo_parallel_config,  ONLY: nproma
   USE mo_run_config,      ONLY: ltransport, iqv
-  USE mo_dynamics_config, ONLY: ltwotime,itime_scheme,lshallow_water,&
-                                lcoriolis,nnow,nold,nnew
+  USE mo_dynamics_config, ONLY: ltwotime, lshallow_water, lcoriolis, &
+                                nnow,nold,nnew
+  USE mo_ha_dyn_config,   ONLY: ha_dyn_config
        
   USE mo_icoham_dyn_types, ONLY: t_hydro_atm
   USE mo_ha_prog_util,     ONLY: copy_prog_state,                    &
@@ -270,6 +271,20 @@ MODULE mo_ha_testcases
   INTEGER :: ist     !< status variable
 !-------------------------------------------------
 
+  SELECT CASE (ctest_name)
+  CASE('PA','SV','DF1','DF2','DF3','DF4')
+
+    IF ((.NOT.ltwotime).OR.(ha_dyn_config%itime_scheme/=TRACER_ONLY)) THEN 
+
+      WRITE(message_text,'(A,I3)') 'running the hydrostatic atm model in'//&
+           & TRIM(ctest_name)//' mode requires ltwotime = .TRUE. and '   //&
+           & 'ha_dyn_nml:itime_scheme =', TRACER_ONLY
+
+      CALL finish(TRIM(routine),TRIM(message_text))
+
+    END IF
+  END SELECT
+
 DO jg = 1,n_dom
 
   nlev = pt_patch(jg)%nlev
@@ -277,13 +292,7 @@ DO jg = 1,n_dom
   IF (lshallow_water) THEN
 
     IF (TRIM(ctest_name)=='PA') THEN
-      !
-      IF ( .NOT.ltwotime .OR. (itime_scheme /= TRACER_ONLY) ) THEN 
-        CALL finish(TRIM(routine),'running the model in  &
-          & Pure Advection mode requires ltwotime=.TRUE. and &
-          & itime_scheme=1.')
-      END IF
-      !
+
       CALL init_hydro_state_prog_patest(pt_patch(jg),       &
            &           pt_hydro_state(jg)%prog(nnow(jg)),   &
            &           pt_hydro_state(jg)%diag,             &
@@ -362,12 +371,6 @@ DO jg = 1,n_dom
              & rotate_axis_deg)
 
      CASE ('PA')
-        !
-        IF ( .NOT.ltwotime .OR. (itime_scheme /= TRACER_ONLY) )           &
-             & CALL finish(TRIM(routine),'running the model in  &
-             & Pure Advection mode requires ltwotime=.TRUE. and &
-             & itime_scheme=1.')
-        !
         CALL init_hydro_state_prog_patest(pt_patch(jg),       &
              &           pt_hydro_state(jg)%prog(nnow(jg)),   &
              &           pt_hydro_state(jg)%diag,             &
@@ -383,11 +386,6 @@ DO jg = 1,n_dom
 
      CASE ('SV')
         !
-        IF ( .NOT.ltwotime .OR. (itime_scheme /= TRACER_ONLY) )           &
-             & CALL finish(TRIM(routine),'running the model in  &
-             & Stationary Vortex mode requires ltwotime=.TRUE. and &
-             & itime_scheme=1.')
-        !
         CALL init_hydro_state_prog_svtest(pt_patch(jg),       &
              &           pt_hydro_state(jg)%prog(nnow(jg)),   &
              &           pt_hydro_state(jg)%diag,             &
@@ -401,10 +399,6 @@ DO jg = 1,n_dom
 
      CASE ('DF1', 'DF2', 'DF3', 'DF4')
         !
-        IF ( .NOT.ltwotime .OR. (itime_scheme /= TRACER_ONLY) ) &
-             & CALL finish(TRIM(routine),'running the model in  &
-             & deformational flow mode requires ltwotime=.TRUE. and &
-             & itime_scheme=1.')
         !
         ! allocate temporary arrays for distance vectors and upwind cells
         ALLOCATE( df_distv_barycenter(nproma,nlev,pt_patch(jg)%nblks_e,2),    &
