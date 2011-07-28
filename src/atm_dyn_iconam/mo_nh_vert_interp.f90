@@ -1446,6 +1446,10 @@ CONTAINS
     ! Initialization - no slope can be computed on lateral boundary points
     slope_c(:,:)    = 0._wp
 
+    slope_norm (:,1,:) = 0._wp
+    slope_tang (:,1,:) = 0._wp
+    slope_abs_e(:,1,:) = 0._wp
+
     z_topo_c(:,1,:) = topo_c(:,:)
     z_topo_v(:,1,:) = topo_v(:,:)
 

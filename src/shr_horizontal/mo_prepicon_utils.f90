@@ -56,7 +56,7 @@ MODULE mo_prepicon_utils
   USE mo_interpolation,       ONLY: t_int_state, cells2verts_scalar
   USE mo_grf_interpolation,   ONLY: t_gridref_state
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
-  USE mo_ext_data,            ONLY: smooth_topography, read_netcdf_data
+  USE mo_ext_data,            ONLY: smooth_topography, read_netcdf_data, t_external_data
   USE mo_atmo_control,        ONLY: p_patch
   USE mo_io_vlist,            ONLY: GATHER_C, GATHER_E, GATHER_V, num_output_vars, outvar_desc, &
                                     gather_array1, gather_array2
@@ -182,12 +182,13 @@ MODULE mo_prepicon_utils
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !!
   !!
-  SUBROUTINE init_prepicon (p_int_state, p_grf_state, prepicon)
+  SUBROUTINE init_prepicon (p_int_state, p_grf_state, prepicon, ext_data)
 
     TYPE(t_int_state),     TARGET, INTENT(IN) :: p_int_state(:)
     TYPE(t_gridref_state), TARGET, INTENT(IN) :: p_grf_state(:)
 
     TYPE(t_prepicon_state), INTENT(INOUT) :: prepicon(:)
+    TYPE(t_external_data),  INTENT(INOUT), OPTIONAL :: ext_data(:)
 
     INTEGER :: jg, jlev, nlev, nlevp1, nblks_c, nblks_v, nblks_e, jk
     LOGICAL :: l_exist
@@ -557,6 +558,17 @@ MODULE mo_prepicon_utils
 
     IF (n_dom > 1) CALL topo_blending_and_fbk(p_int_state, p_grf_state, prepicon, 1)
 
+    IF (PRESENT(ext_data)) THEN
+
+      ! Copy smoothed and blended external data to the topography fields in the external parameter state
+      DO jg = 1, n_dom
+
+        ext_data(jg)%atm%topography_c(:,:) = prepicon(jg)%topography_c(:,:)
+        ext_data(jg)%atm%topography_v(:,:) = prepicon(jg)%topography_v(:,:)
+
+      ENDDO
+
+    ENDIF
 
   END SUBROUTINE init_prepicon
 
@@ -647,6 +659,7 @@ MODULE mo_prepicon_utils
           nlen = npromz_e
         ENDIF
 
+        ! Wind speed
         DO jk = 1, nlev
           DO je = 1, nlen
             p_nh_state(jg)%prog(nnow(jg))%vn(je,jk,jb) = prepicon(jg)%atm%vn(je,jk,jb)
@@ -665,8 +678,10 @@ MODULE mo_prepicon_utils
           nlen = npromz_c
         ENDIF
 
+        ! 3D fields
         DO jk = 1, nlev
           DO jc = 1, nlen
+            ! Dynamic prognostic variables on cell points
             p_nh_state(jg)%prog(nnow(jg))%w(jc,jk,jb)       = prepicon(jg)%atm%w(jc,jk,jb)
             p_nh_state(jg)%prog(nnow(jg))%theta_v(jc,jk,jb) = prepicon(jg)%atm%theta_v(jc,jk,jb)
             p_nh_state(jg)%prog(nnow(jg))%exner(jc,jk,jb)   = prepicon(jg)%atm%exner(jc,jk,jb)
@@ -676,6 +691,10 @@ MODULE mo_prepicon_utils
               p_nh_state(jg)%prog(nnow(jg))%rho(jc,jk,jb) *      &
               p_nh_state(jg)%prog(nnow(jg))%theta_v(jc,jk,jb)
 
+            ! Pressure is needed in nwp_phy_init
+            p_nh_state(jg)%diag%pres(jc,jk,jb) = prepicon(jg)%atm%pres(jc,jk,jb)
+
+            ! Moisture variables
             p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(jc,jk,jb,iqv) = prepicon(jg)%atm%qv(jc,jk,jb)
             p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(jc,jk,jb,iqc) = prepicon(jg)%atm%qc(jc,jk,jb)
             p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(jc,jk,jb,iqi) = prepicon(jg)%atm%qi(jc,jk,jb)
@@ -683,8 +702,11 @@ MODULE mo_prepicon_utils
             p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(jc,jk,jb,iqs) = prepicon(jg)%atm%qs(jc,jk,jb)
           ENDDO
         ENDDO
+
+        ! w at surface level and 2D fields
         DO jc = 1, nlen
-          p_nh_state(jg)%prog(nnow(jg))%w(jc,nlevp1,jb) = prepicon(jg)%atm%w(jc,nlevp1,jb)
+          p_nh_state(jg)%prog(nnow(jg))%w(jc,nlevp1,jb)     = prepicon(jg)%atm%w(jc,nlevp1,jb)
+          p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g(jc,jb) = prepicon(jg)%sfc%tskin(jc,jb)
         ENDDO
 
       ENDDO

@@ -72,7 +72,12 @@ USE mo_nwp_lnd_state,        ONLY: construct_nwp_lnd_state,   &
   &                                destruct_nwp_lnd_state, p_lnd_state
 ! Time integration
 USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping
-
+! Initialization with real data
+USE mo_prepicon_utils,      ONLY: init_prepicon, prepicon, copy_prepicon2prog, &
+  &                               compute_coord_fields,  deallocate_prepicon
+USE mo_prepicon_nml,        ONLY: i_oper_mode
+USE mo_nh_vert_interp,      ONLY: vertical_interpolation
+USE mo_ext_data,            ONLY: ext_data
 
 !-------------------------------------------------------------------------
 
@@ -146,7 +151,51 @@ CONTAINS
                                                                                        
    !--------------------
 
+     ! Initialize model with real atmospheric data if appropriate switches are set
+     IF (.NOT. ltestcase .AND. .NOT. is_restart_run() .AND. iforcing == inwp) THEN
+
+       CALL message(TRIM(routine),'Real-data mode: perform initialization with IFS2ICON data')
+
+       ! Allocate prepicon data type
+       ALLOCATE (prepicon(n_dom), stat=ist)
+       IF (ist /= success) THEN
+         CALL finish(TRIM(routine),'allocation for prepicon failed')
+       ENDIF
+
+       i_oper_mode = 3 ! For the time being, the only option that works when called
+                       ! from the main ICON program
+ 
+       ! allocate memory for topography and coordinate fields,
+       ! read topo data from netCDF file, 
+       ! optionally smooth topography data,
+       ! and, in case of nesting, perform topography blending and feedback
+       CALL init_prepicon (p_int_state(1:), p_grf_state(1:), prepicon, ext_data)
+
+     ENDIF
+
      CALL prepare_nh_integration(p_patch(1:), p_nh_state, p_int_state(1:), p_grf_state(1:))
+
+     ! Continue operations for real-data initialization
+     IF (.NOT. ltestcase .AND. .NOT. is_restart_run() .AND. iforcing == inwp) THEN
+
+       ! Compute the 3D coordinate fields
+       CALL compute_coord_fields(p_int_state(1:), prepicon)
+
+       ! Perform vertical interpolation from intermediate IFS2ICON grid to ICON grid
+       ! and convert variables to the NH set of prognostic variables
+       CALL vertical_interpolation(p_patch(1:), p_int_state(1:), p_grf_state(1:), prepicon)
+
+       ! Finally copy the results to the prognostic model variables
+       CALL copy_prepicon2prog(prepicon, p_nh_state, p_lnd_state)
+
+       ! Deallocate prepicon data type
+       CALL deallocate_prepicon(prepicon)
+       DEALLOCATE (prepicon, stat=ist)
+       IF (ist /= success) THEN
+         CALL finish(TRIM(routine),'deallocation for prepicon failed')
+       ENDIF
+
+     ENDIF
 
      !---------------------------------------------------------
      ! The most primitive event handling algorithm: 

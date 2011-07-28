@@ -108,6 +108,7 @@ USE mo_prepicon_nml,        ONLY: i_oper_mode, l_zp_out
 USE mo_nh_vert_interp,      ONLY: vertical_interpolation, interpolate_to_p_and_z_levels
 
 USE mo_extpar_config,      ONLY: itopo
+USE mo_master_nml,         ONLY: lrestart
 
 !-------------------------------------------------------------------------
 IMPLICIT NONE
@@ -158,6 +159,8 @@ IMPLICIT NONE
     ! 1.1 Read namelists (newly) specified by the user; fill the 
     !     corresponding sections of the configuration states.
     !---------------------------------------------------------------------
+
+    lrestart = .FALSE. ! restarting is not available for prep_icon
 
     CALL read_atmo_namelists("NAMELIST_PREPICON","icon_master.namelist")
 
@@ -303,7 +306,7 @@ IMPLICIT NONE
     ! Allocate prepicon data type
     ALLOCATE (prepicon(n_dom), stat=ist)
     IF (ist /= success) THEN
-      CALL finish(routine,'allocation for prepicon failed')
+      CALL finish(TRIM(routine),'allocation for prepicon failed')
     ENDIF
     
     ! allocate memory for topography and coordinate fields,
@@ -353,7 +356,7 @@ IMPLICIT NONE
     CALL deallocate_prepicon(prepicon)
     DEALLOCATE (prepicon, stat=ist)
     IF (ist /= success) THEN
-      CALL finish(routine,'deallocation for prepicon failed')
+      CALL finish(TRIM(routine),'deallocation for prepicon failed')
     ENDIF
 
 
