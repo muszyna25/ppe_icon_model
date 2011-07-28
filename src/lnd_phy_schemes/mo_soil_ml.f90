@@ -5298,7 +5298,7 @@ REAL (KIND=ireals), INTENT (IN)          ::    &
 ! Begin subroutine tgcom
 
   WHERE ( (llp(istart:iend,jstart:jend) .EQV. .TRUE.) .AND.                   &
-                                       (ws(istart:iend,jstart:jend) > 0.0) )
+                                       (ws(istart:iend,jstart:jend) > 0.0_ireals) )
       tg(istart:iend,jstart:jend) = ts(istart:iend,jstart:jend) +             &
            (1.0_ireals - MIN(1.0_ireals,ws(istart:iend,jstart:jend)/cf_snow)) &
              * (tb(istart:iend,jstart:jend) - ts(istart:iend,jstart:jend))
