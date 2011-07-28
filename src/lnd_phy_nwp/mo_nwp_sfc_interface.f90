@@ -38,67 +38,32 @@
 MODULE mo_nwp_sfc_interface
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message, message_text , finish
-
+  USE mo_exception,           ONLY: message, message_text, finish
   USE mo_model_domain,        ONLY: t_patch
-!  USE mo_grf_interpolation,   ONLY: t_gridref_state
-  USE mo_impl_constants,      ONLY: min_rlcell_int, icc, zml_soil
+  USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
- ! USE mo_subdivision,         ONLY: p_patch_local_parent
-
   USE mo_ext_data,            ONLY: t_external_data
-  USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag,&
-    &                               t_nh_metrics
-  USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag, prm_diag,&
-    &                               t_nwp_phy_tend
-  USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag, &
-    &                               t_tiles
+  USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag
+  USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag, prm_diag
+  USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag, t_tiles
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: msg_level, iqv
- 
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nztlev, nlev_snow, nsfc_subs, &
     &                               lseaice, llake, lmulti_snow
   USE mo_satad,               ONLY: sat_pres_water, spec_humi  
-!  USE mo_icoham_sfc_indices, ONLY: nsfc_type, igbm, iwtr, iice, ilnd
-  USE mo_physical_constants,  ONLY: &
-     t0_melt => tmelt,& ! absolute zero for temperature
-     r_v   => rv    , & ! gas constant for water vapour
-     r_d   => rd    , & ! gas constant for dry air
-     rvd_m_o=>vtmpc1, & ! r_v/r_d - 1
-     o_m_rdv        , & ! 1 - r_d/r_v
-     rdv            , & ! r_d / r_v
-     lh_v  => alv   , & ! latent heat of vapourization
-     lh_s  => als   , & ! latent heat of sublimation
-     lh_f  => alf   , & ! latent heat of fusion
-     cp_d  => cpd   , & ! specific heat of dry air at constant press
-     cpdr  => rcpd  , & ! (specific heat of dry air at constant press)^-1
-     g     => grav  , & ! acceleration due to gravity
-     sigma => stbo  , & ! Boltzmann-constant
-     rdocp => rd_o_cpd  ! r_d / cp_d
-  USE mo_convect_tables,      ONLY:   &
-     b1    => c1es  , & !! constants for computing the sat. vapour
-     b2w   => c3les , & !! pressure over water (l) and ice (i)
-     b2i   => c3ies , & !!               -- " --
-     b4w   => c4les , & !!               -- " --
-     b4i   => c4ies , & !!               -- " --
-     b234w => c5les     !!               -- " --
-  USE mo_cuparameters,        ONLY: rho_w => rhoh2o  ! density of liquid water (kg/m^3)
-  USE mo_phyparam_soil
-  USE mo_nwp_phy_init
+  USE mo_phyparam_soil,       ONLY: ireals
   USE mo_soil_ml,             ONLY: terra_multlay
-!  USE mo_aggregate_surface,  ONLY: subsmean,subs_disaggregate_radflux,subsmean_albedo
-
+!  USE mo_aggregate_surface,   ONLY: subsmean,subs_disaggregate_radflux,subsmean_albedo
+!  USE mo_icoham_sfc_indices,  ONLY: nsfc_type, igbm, iwtr, iice, ilnd
   
   IMPLICIT NONE
 
   PRIVATE
 
-!<em
   PUBLIC  ::  nwp_surface, nwp_surface_init
-!em>
+
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -202,7 +167,7 @@ CONTAINS
     ! number of vertical levels
     nlev   = p_patch%nlev
 
-    !in order to account for mesh refinement
+    ! in order to account for mesh refinement
     rl_start = grf_bdywidth_c+1
     rl_end   = min_rlcell_int
 
@@ -210,8 +175,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 
-print*, "SFC-DIAGNOSIS INTERFACE ",jstep
-
+    write(0,*) "SFC-DIAGNOSIS INTERFACE ",jstep
 
 
 
@@ -259,7 +223,11 @@ print*, "SFC-DIAGNOSIS INTERFACE ",jstep
 !!$    zml_soil=(/ 0.005,0.02,0.06,0.18,0.54,1.62,4.86,14.58 /)
 
 
- 
+
+        !
+        ! Since the data structure of TERRA differs from that in ICON, 
+        ! we have to do some matching (i.e. copying)
+        ! 
         qv_t(1:i_endidx,:,jb,1) = p_prog_rcf%tracer(1:i_endidx,:,jb,iqv)
         qv_t(1:i_endidx,:,jb,2) = p_prog_rcf%tracer(1:i_endidx,:,jb,iqv)
         t_t(1:i_endidx,:,jb,1)  = p_diag%temp(1:i_endidx,:,jb)
@@ -296,14 +264,14 @@ print*, "SFC-DIAGNOSIS INTERFACE ",jstep
           landmask_t(1:i_endidx,jb,isubs) = ext_data%atm%fr_land(1:i_endidx,jb)
 
 
-          ! copy diagnostic variables to local fields with time levels
+          ! copy diagnostic variables
           qv_st_t(1:i_endidx,jb,1,isubs)  = lnd_diag%qv_st(1:i_endidx,jb,isubs)
           qv_st_t(1:i_endidx,jb,2,isubs)  = lnd_diag%qv_st(1:i_endidx,jb,isubs)
           h_snow_t(1:i_endidx,jb,1,isubs) = lnd_diag%h_snow(1:i_endidx,jb,isubs)
           h_snow_t(1:i_endidx,jb,2,isubs) = lnd_diag%h_snow(1:i_endidx,jb,isubs)
 
 
-          ! copy prognostic variables to local fields with time levels
+          ! copy prognostic variables
           t_snow_t(1:i_endidx,jb,1,isubs) = lnd_prog_now%t_snow(1:i_endidx,jb,isubs)
           t_snow_t(1:i_endidx,jb,2,isubs) = lnd_prog_now%t_snow(1:i_endidx,jb,isubs)
           t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,1,isubs) = &
@@ -316,8 +284,8 @@ print*, "SFC-DIAGNOSIS INTERFACE ",jstep
           t_gt_t(1:i_endidx,jb,2,isubs)   = lnd_prog_now%t_gt(1:i_endidx,jb,isubs)
           w_snow_t(1:i_endidx,jb,1,isubs) = lnd_prog_now%w_snow(1:i_endidx,jb,isubs)
           w_snow_t(1:i_endidx,jb,2,isubs) = lnd_prog_now%w_snow(1:i_endidx,jb,isubs)
-          rho_snow_t(1:i_endidx,jb,1,isubs) =lnd_prog_now%rho_snow(1:i_endidx,jb,isubs)
-          rho_snow_t(1:i_endidx,jb,2,isubs) =lnd_prog_now%rho_snow(1:i_endidx,jb,isubs)
+          rho_snow_t(1:i_endidx,jb,1,isubs) = lnd_prog_now%rho_snow(1:i_endidx,jb,isubs)
+          rho_snow_t(1:i_endidx,jb,2,isubs) = lnd_prog_now%rho_snow(1:i_endidx,jb,isubs)
           rho_snow_mult_t(1:i_endidx,1:nlev_snow,jb,1,isubs) = &
             & lnd_prog_now%rho_snow_mult(1:i_endidx,1:nlev_snow,jb,isubs)
           rho_snow_mult_t(1:i_endidx,1:nlev_snow,jb,2,isubs) = &
@@ -503,7 +471,7 @@ print*, "SFC-DIAGNOSIS INTERFACE ",jstep
 
 
 
-       ! copy updated variables back to prognostic fields
+       ! copy updated variables back to ICON-prognostic fields
         DO isubs = 1,nsfc_subs
           lnd_prog_new%t_snow(1:i_endidx,jb,isubs) = t_snow_t(1:i_endidx,jb,2,isubs)
           lnd_prog_new%t_snow_mult(1:i_endidx,1:nlev_snow+1,jb,isubs) = &
@@ -530,6 +498,9 @@ print*, "SFC-DIAGNOSIS INTERFACE ",jstep
 
           lnd_diag%qv_st(1:i_endidx,jb,isubs)  = qv_st_t(1:i_endidx,jb,2,isubs)
           lnd_diag%h_snow(1:i_endidx,jb,isubs) = h_snow_t(1:i_endidx,jb,2,isubs)
+
+          !DR ATTENTION: only valid, if nsfc_subs=1 !!!!!
+          lnd_prog_new%t_g(1:i_endidx,jb) = t_gt_t(1:i_endidx,jb,2,1)
         ENDDO
 
 !#endif

@@ -2001,51 +2001,50 @@ ENDIF
 
 
 
-  if (i.eq.40 .and. j.eq.1) then
-write(0,*) "SFC-DIAGNOSIS TERRA ",ke,dt,nsubs1,ntstep
-write(0,*)" nztlev ",               nztlev   
-write(0,*)" lmelt  ",               lmelt    
-write(0,*)" lmelt_var ",            lmelt_var
-write(0,*)" lmulti_snow ",          lmulti_snow 
-write(0,*)" itype_gscp ",           itype_gscp
-write(0,*)" itype_trvg ",           itype_trvg
-write(0,*)" itype_evsl ",           itype_evsl
-write(0,*)" itype_tran ",           itype_tran
-write(0,*)" itype_root ",           itype_root
-write(0,*)" itype_heatcond ",       itype_heatcond
-write(0,*)" itype_hydbound ",       itype_hydbound
-write(0,*)" lstomata  ",            lstomata
-write(0,*)" l2tls ",                l2tls  
-write(0,*)" lana_rho_snow ",        lana_rho_snow
-write(0,*)" itype_subs ",           itype_subs
-  write(0,*) "zml_soil: ",czmls
-  write(0,*) "t", t(i,j,ke,:)
-  write(0,*) "p0",p0(i,j,ke)
-  write(0,*) "qv",qv(i,j,ke,:)
-  write(0,*) "u",u(i,j,ke,:)
-  write(0,*) "ps",ps(i,j,:)
-  write(0,*) "t_g",t_g(i,j,:,:)
-  write(0,*) "qv_s",qv_s(i,j,:,:)
-  write(0,*) "t_so",t_so(i,j,:,:,:)
-  write(0,*) "w_so",w_so(i,j,:,:,:)
-  write(0,*) "tch_t",tch(i,j,:)
-  write(0,*) "tcm_t",tcm(i,j,:)
-  write(0,*) " tfv_t",tfv(i,j,:)
-  write(0,*) "soiltyp_t",soiltyp_subs(i,j,:)
-  write(0,*) "plcov_t",  plcov(i,j,:)
-  write(0,*) "rootdp_t", rootdp(i,j,:)
-  write(0,*) "sai_t",   sai(i,j,:) 
-  write(0,*) "tai_t",   tai(i,j,:) 
-  write(0,*) "eai_t",   eai(i,j,:) 
-  write(0,*) "t_2m_t",  t_2m(i,j,:) 
-  write(0,*) "u_10m_t", u_10m(i,j,:)   
-  write(0,*) "v_10m_t", v_10m(i,j,:)    
-  write(0,*) "sobs_t",  sobs(i,j,:)    
-  write(0,*) "thbs_t",  thbs(i,j,:)     
-  write(0,*) "pabs_t",  pabs(i,j,:)     
-  write(0,*) "llandmask_t",llandmask(i,j,:) 
-
-     end if
+!!$    if (i.eq.40 .and. j.eq.1) then
+!!$      write(0,*) "SFC-DIAGNOSIS TERRA ",ke,dt,nsubs1,ntstep
+!!$      write(0,*)" nztlev ",               nztlev   
+!!$      write(0,*)" lmelt  ",               lmelt    
+!!$      write(0,*)" lmelt_var ",            lmelt_var
+!!$      write(0,*)" lmulti_snow ",          lmulti_snow 
+!!$      write(0,*)" itype_gscp ",           itype_gscp
+!!$      write(0,*)" itype_trvg ",           itype_trvg
+!!$      write(0,*)" itype_evsl ",           itype_evsl
+!!$      write(0,*)" itype_tran ",           itype_tran
+!!$      write(0,*)" itype_root ",           itype_root
+!!$      write(0,*)" itype_heatcond ",       itype_heatcond
+!!$      write(0,*)" itype_hydbound ",       itype_hydbound
+!!$      write(0,*)" lstomata  ",            lstomata
+!!$      write(0,*)" l2tls ",                l2tls  
+!!$      write(0,*)" lana_rho_snow ",        lana_rho_snow
+!!$      write(0,*)" itype_subs ",           itype_subs
+!!$      write(0,*) "zml_soil: ",czmls
+!!$      write(0,*) "t", t(i,j,ke,:)
+!!$      write(0,*) "p0",p0(i,j,ke)
+!!$      write(0,*) "qv",qv(i,j,ke,:)
+!!$      write(0,*) "u",u(i,j,ke,:)
+!!$      write(0,*) "ps",ps(i,j,:)
+!!$      write(0,*) "t_g",t_g(i,j,:,:)
+!!$      write(0,*) "qv_s",qv_s(i,j,:,:)
+!!$      write(0,*) "t_so",t_so(i,j,:,:,:)
+!!$      write(0,*) "w_so",w_so(i,j,:,:,:)
+!!$      write(0,*) "tch_t",tch(i,j,:)
+!!$      write(0,*) "tcm_t",tcm(i,j,:)
+!!$      write(0,*) " tfv_t",tfv(i,j,:)
+!!$      write(0,*) "soiltyp_t",soiltyp_subs(i,j,:)
+!!$      write(0,*) "plcov_t",  plcov(i,j,:)
+!!$      write(0,*) "rootdp_t", rootdp(i,j,:)
+!!$      write(0,*) "sai_t",   sai(i,j,:) 
+!!$      write(0,*) "tai_t",   tai(i,j,:) 
+!!$      write(0,*) "eai_t",   eai(i,j,:) 
+!!$      write(0,*) "t_2m_t",  t_2m(i,j,:) 
+!!$      write(0,*) "u_10m_t", u_10m(i,j,:)   
+!!$      write(0,*) "v_10m_t", v_10m(i,j,:)    
+!!$      write(0,*) "sobs_t",  sobs(i,j,:)    
+!!$      write(0,*) "thbs_t",  thbs(i,j,:)     
+!!$      write(0,*) "pabs_t",  pabs(i,j,:)     
+!!$      write(0,*) "llandmask_t",llandmask(i,j,:) 
+!!$    end if
 
 !   estimates of sensible and latent heat flux
     zrho_atm(i,j)=ps(i,j,nx)/(r_d*ztvs)
@@ -4037,13 +4036,11 @@ DO kso = ke_soil,0,-1
 !>JH IF(i.eq.i_loc.and. j.eq.j_loc.and. kso.eq.1 .and. my_cart_id.eq.isub) &
 !print *,ns,kso,'after sweep',t_so(i,j,kso,nnew,ns),zfor_s(i,j)
 
-  if (i.eq.40 .and. j.eq.1) then
-print*, "SFC-DIAGNOSIS TERRA II ",ke,dt,nsubs1,ntstep
-
-  print*, "t_so",t_so(i,j,:,:,:)
-  print*, "w_so",w_so(i,j,:,:,:)
-
-end if
+!!$  if (i.eq.40 .and. j.eq.1) then
+!!$    print*, "SFC-DIAGNOSIS TERRA II ",ke,dt,nsubs1,ntstep
+!!$    print*, "t_so",t_so(i,j,:,:,:)
+!!$    print*, "w_so",w_so(i,j,:,:,:)
+!!$  end if
 
 
       END IF          ! land-points only
