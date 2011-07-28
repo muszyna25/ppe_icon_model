@@ -78,7 +78,7 @@ CONTAINS
     !------------------------------------------------------------
     itopo              = 0
     fac_smooth_topo    = 0.015625_wp
-    n_iter_smooth_topo = 35
+    n_iter_smooth_topo = 2
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
