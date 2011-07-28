@@ -1928,8 +1928,8 @@ END SUBROUTINE inquire_external_files
     ! local variables
     INTEGER  :: jg, jb, jc, iter, il
     INTEGER  :: i_startblk, nblks_c, i_startidx, i_endidx
-    REAL(wp) :: z_topo(nproma,1,p_patch%nblks_c),z_nabla4_topo(nproma,1,p_patch%nblks_c), &
-      &         z_topo_old(nproma,1,p_patch%nblks_c)
+    REAL(wp) :: z_topo(nproma,1,p_patch%nblks_c),z_nabla4_topo(nproma,1,p_patch%nblks_c),  &
+      &         z_topo_old(nproma,1,p_patch%nblks_c),z_nabla2_topo(nproma,1,p_patch%nblks_c)
     REAL(wp) :: z_topo_v(nproma,1,p_patch%nblks_v)
     REAL(wp) :: zmaxtop,zmintop,z_topo_new
 
@@ -1938,8 +1938,9 @@ END SUBROUTINE inquire_external_files
 
     z_topo_v(:,1,:) = topography_v(:,:)
     z_nabla4_topo(:,1,:) = 0._wp
+    z_nabla2_topo(:,1,:) = 0._wp
 
-    i_startblk = p_patch%cells%start_blk(2,1)
+    i_startblk = p_patch%cells%start_blk(3,1)
     nblks_c    = p_patch%nblks_c
 
 !    write(0,*) 'n_iter_smooth_topo=',n_iter_smooth_topo
@@ -1950,12 +1951,12 @@ END SUBROUTINE inquire_external_files
       z_topo_old(:,1,:) = z_topo(:,1,:)
 
       CALL nabla4_scalar(z_topo, p_patch, p_int, z_nabla4_topo, &
-        & opt_slev=1, opt_elev=1  )
+        & opt_slev=1, opt_elev=1, opt_nabla2=z_nabla2_topo )
 
       DO jb = i_startblk,nblks_c
 
         CALL get_indices_c(p_patch, jb, i_startblk, nblks_c, &
-                           i_startidx, i_endidx, 2)
+                           i_startidx, i_endidx, 3)
 
         DO jc = i_startidx, i_endidx
 
@@ -2020,7 +2021,7 @@ END SUBROUTINE inquire_external_files
       DO jb = i_startblk,nblks_c
 
         CALL get_indices_c(p_patch, jb, i_startblk, nblks_c, &
-                           i_startidx, i_endidx, 2)
+                           i_startidx, i_endidx, 3)
         DO jc = i_startidx, i_endidx
 
           !Limiter to avoid amplification of local extrema

@@ -40,11 +40,13 @@ MODULE mo_prepicon_utils
   USE mo_kind
   USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: num_lev, num_levp1, msg_level, &
-    &                                dtime, nvclev
+  USE mo_run_config,          ONLY: num_lev, num_levp1, msg_level, dtime, nvclev, &
+                                    iqv, iqc, iqi, iqr, iqs
   USE mo_extpar_config,       ONLY: n_iter_smooth_topo
-  USE mo_dynamics_config,     ONLY: iequations
+  USE mo_dynamics_config,     ONLY: iequations, nnow, nnew, nnow_rcf, nnew_rcf
   USE mo_nonhydrostatic_config,ONLY: ivctype
+  USE mo_nonhydro_state,      ONLY: t_nh_state
+  USE mo_nwp_lnd_state,       ONLY: t_lnd_state
   USE mo_prepicon_nml,        ONLY: i_oper_mode, nlev_in, l_zp_out, l_w_in,&
   &                                 nlevsoil_in, l_sfc_in
   USE mo_model_domain,        ONLY: t_patch
@@ -164,7 +166,8 @@ MODULE mo_prepicon_utils
 
   PUBLIC :: init_prepicon, init_topo_output_files, write_prepicon_output,            &
             setup_prepicon_vlist, compute_coord_fields, close_prepicon_output_files, &
-            convert_variables, init_atmo_output_files, deallocate_prepicon
+            convert_variables, init_atmo_output_files, deallocate_prepicon,          &
+            copy_prepicon2prog
 
   CONTAINS
 
@@ -238,7 +241,7 @@ MODULE mo_prepicon_utils
         !
         ! generate file name
         !
-        WRITE(topo_file(jg),'(a,i0,2(a,i2.2),a)') 'extpar_R',nroot,'B',jlev,'_DOM',jg,'.nc'
+        WRITE(topo_file(jg),'(2a)') 'extpar_',TRIM(p_patch(jg)%grid_filename)
 
         INQUIRE (FILE=topo_file(jg), EXIST=l_exist)
         IF (.NOT.l_exist) THEN
@@ -600,6 +603,98 @@ MODULE mo_prepicon_utils
 
 
   END SUBROUTINE topo_blending_and_fbk
+
+  !-------------
+  !>
+  !! SUBROUTINE copy_prepicon2prog
+  !! Copies atmospheric and surface fields interpolated by prep_icon to the
+  !! prognostic model state variables if the respective parts of prep_icon 
+  !! are called directly 
+  !!
+  !! Required input: prepicon state
+  !! Output is written on fields of NH state and land state
+  !!
+  !! @par Revision History
+  !! Initial version by Guenther Zaengl, DWD(2011-07-28)
+  !!
+  !!
+  SUBROUTINE copy_prepicon2prog(prepicon, p_nh_state, p_lnd_state)
+
+    TYPE(t_prepicon_state), INTENT(IN) :: prepicon(:)
+
+    TYPE(t_nh_state),  INTENT(INOUT) :: p_nh_state(:)
+    TYPE(t_lnd_state), INTENT(INOUT) :: p_lnd_state(:)
+
+    INTEGER :: jg, jb, jk, jc, je
+    INTEGER :: nblks_c, npromz_c, nblks_e, npromz_e, nlen, nlev, nlevp1
+
+!$OMP PARALLEL PRIVATE(jg,nblks_c,npromz_c,nblks_e,npromz_e,nlev,nlevp1)
+    DO jg = 1, n_dom
+
+      nblks_c   = p_patch(jg)%nblks_c
+      npromz_c  = p_patch(jg)%npromz_c
+      nblks_e   = p_patch(jg)%nblks_e
+      npromz_e  = p_patch(jg)%npromz_e
+      nlev      = p_patch(jg)%nlev
+      nlevp1    = p_patch(jg)%nlevp1
+
+!$OMP DO PRIVATE(jb,jk,je,nlen)
+      DO jb = 1, nblks_e
+
+        IF (jb /= nblks_e) THEN
+          nlen = nproma
+        ELSE
+          nlen = npromz_e
+        ENDIF
+
+        DO jk = 1, nlev
+          DO je = 1, nlen
+            p_nh_state(jg)%prog(nnow(jg))%vn(je,jk,jb) = prepicon(jg)%atm%vn(je,jk,jb)
+          ENDDO
+        ENDDO
+
+      ENDDO
+!$OMP END DO
+
+!$OMP DO PRIVATE(jb,jk,jc,nlen)
+      DO jb = 1, nblks_c
+
+        IF (jb /= nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = npromz_c
+        ENDIF
+
+        DO jk = 1, nlev
+          DO jc = 1, nlen
+            p_nh_state(jg)%prog(nnow(jg))%w(jc,jk,jb)       = prepicon(jg)%atm%w(jc,jk,jb)
+            p_nh_state(jg)%prog(nnow(jg))%theta_v(jc,jk,jb) = prepicon(jg)%atm%theta_v(jc,jk,jb)
+            p_nh_state(jg)%prog(nnow(jg))%exner(jc,jk,jb)   = prepicon(jg)%atm%exner(jc,jk,jb)
+            p_nh_state(jg)%prog(nnow(jg))%rho(jc,jk,jb)     = prepicon(jg)%atm%rho(jc,jk,jb)
+
+            p_nh_state(jg)%prog(nnow(jg))%rhotheta_v(jc,jk,jb) = &
+              p_nh_state(jg)%prog(nnow(jg))%rho(jc,jk,jb) *      &
+              p_nh_state(jg)%prog(nnow(jg))%theta_v(jc,jk,jb)
+
+            p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(jc,jk,jb,iqv) = prepicon(jg)%atm%qv(jc,jk,jb)
+            p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(jc,jk,jb,iqc) = prepicon(jg)%atm%qc(jc,jk,jb)
+            p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(jc,jk,jb,iqi) = prepicon(jg)%atm%qi(jc,jk,jb)
+            p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(jc,jk,jb,iqr) = prepicon(jg)%atm%qr(jc,jk,jb)
+            p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(jc,jk,jb,iqs) = prepicon(jg)%atm%qs(jc,jk,jb)
+          ENDDO
+        ENDDO
+        DO jc = 1, nlen
+          p_nh_state(jg)%prog(nnow(jg))%w(jc,nlevp1,jb) = prepicon(jg)%atm%w(jc,nlevp1,jb)
+        ENDDO
+
+      ENDDO
+!$OMP END DO
+
+    ENDDO
+!$OMP END PARALLEL
+
+  END SUBROUTINE copy_prepicon2prog
+
 
   SUBROUTINE convert_variables(p_int, prepicon)
 
