@@ -76,7 +76,7 @@ MODULE mo_ext_data
 
   IMPLICIT NONE
 
-  INTEGER::  nlev_pres, nlev_height, nmonths ! 
+  INTEGER::  nlev_pres, nmonths
 
   ! required for testing/reading topography
   INCLUDE 'netcdf.inc'
@@ -1502,10 +1502,9 @@ CONTAINS
     CHARACTER(filename_max) :: extpar_file !< file name for reading in
     CHARACTER(filename_max) :: ozone_file  !< file name for reading in
 
-    LOGICAL :: l_exist
     INTEGER :: jg
-    INTEGER :: i_lev, no_cells, no_verts
-    INTEGER :: ncid, dimid
+    INTEGER :: i_lev
+    INTEGER :: ncid
 
 
 !-------------------------------------------------------------------------
