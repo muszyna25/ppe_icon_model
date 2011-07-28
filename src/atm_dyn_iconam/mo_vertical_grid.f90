@@ -41,36 +41,33 @@
 
 MODULE mo_vertical_grid
 
-  USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: finish, message, message_text
-  USE mo_model_domain,        ONLY: t_patch
-  USE mo_ext_data,            ONLY: ext_data
-  USE mo_model_domain_import, ONLY: n_dom
-  USE mo_nonhydrostatic_config,ONLY: rayleigh_coeff,damp_height, igradp_method, ivctype,  & 
-    &                               vwind_offctr, exner_expol, l_zdiffu_t, thslp_zdiffu, &
-    &                               thhgtd_zdiffu, htop_moist_proc, htop_qvadv,          &
-    &                               kstart_moist, kstart_qv, damp_timescale_u, damp_height_u
-  USE mo_diffusion_config,    ONLY: diffusion_config
-  USE mo_sleve_config,        ONLY: min_lay_thckn, top_height, decay_scale_1, &
-    &                               decay_scale_2, decay_exp, flat_height, stretch_fac
-  USE mo_parallel_config,  ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: ltestcase, msg_level
-  USE mo_vertical_coord_table,ONLY: vct_a, vct_b, vct, read_vct
-  USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, max_dom, &
-    &                               min_rlcell_int, min_rlcell
-  USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c
-  USE mo_nh_testcases,        ONLY: layer_thickness, n_flat_level
-  USE mo_physical_constants,  ONLY: grav, p0ref, grav, rd, rd_o_cpd, cpd
-  USE mo_math_operators,      ONLY: grad_fd_norm, grad_fd_tang, nabla2_scalar
-  USE mo_timer,               ONLY: init_timer, cleanup_timer
-  USE mo_interpolation,       ONLY: t_int_state, cells2edges_scalar, &
-                                    cells2verts_scalar, verts2edges_scalar
-  USE mo_math_constants,      ONLY: pi_2, pi
-  USE mo_loopindices,         ONLY: get_indices_e, get_indices_c
-  USE mo_nonhydro_state,      ONLY: t_nh_state
-  USE mo_nh_init_utils,       ONLY: nflat, nflatlev, compute_smooth_topo, init_vert_coord
-  USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array, &
-                                    sync_patch_array_mult, global_min, global_max
+  USE mo_kind,                  ONLY: wp
+  USE mo_exception,             ONLY: finish, message, message_text
+  USE mo_model_domain,          ONLY: t_patch
+  USE mo_ext_data,              ONLY: ext_data
+  USE mo_model_domain_import,   ONLY: n_dom
+  USE mo_nonhydrostatic_config, ONLY: rayleigh_coeff,damp_height, igradp_method, ivctype,  & 
+    &                                 vwind_offctr, exner_expol, l_zdiffu_t, thslp_zdiffu, &
+    &                                 thhgtd_zdiffu, htop_moist_proc, htop_qvadv,          &
+    &                                 kstart_moist, kstart_qv, damp_timescale_u, damp_height_u
+  USE mo_diffusion_config,      ONLY: diffusion_config
+  USE mo_parallel_config,       ONLY: nproma, p_test_run
+  USE mo_run_config,            ONLY: msg_level
+  USE mo_vertical_coord_table,  ONLY: vct_a
+  USE mo_impl_constants,        ONLY: MAX_CHAR_LENGTH, max_dom, &
+    &                                 min_rlcell_int, min_rlcell
+  USE mo_impl_constants_grf,    ONLY: grf_bdywidth_c, grf_bdywidth_e, grf_fbk_start_c
+  USE mo_physical_constants,    ONLY: grav, p0ref, grav, rd, rd_o_cpd, cpd
+  USE mo_math_operators,        ONLY: grad_fd_norm, grad_fd_tang
+  USE mo_timer,                 ONLY: init_timer, cleanup_timer
+  USE mo_interpolation,         ONLY: t_int_state, cells2edges_scalar, &
+    &                               cells2verts_scalar, verts2edges_scalar
+  USE mo_math_constants,        ONLY: pi_2
+  USE mo_loopindices,           ONLY: get_indices_e, get_indices_c
+  USE mo_nonhydro_state,        ONLY: t_nh_state
+  USE mo_nh_init_utils,         ONLY: nflat, nflatlev, compute_smooth_topo, init_vert_coord
+  USE mo_sync,                  ONLY: SYNC_E, SYNC_V, sync_patch_array, &
+                                      sync_patch_array_mult, global_min, global_max
 
   IMPLICIT NONE
 
