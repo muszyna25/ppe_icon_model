@@ -42,28 +42,21 @@
 MODULE mo_nwp_gscp_interface
 
   USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: message, message_text, finish
-  USE mo_mpi,                  ONLY: p_pe
-  USE mo_parallel_config,  ONLY: p_test_run, nproma
-  USE mo_sync,                 ONLY: SYNC_C, sync_patch_array_mult
+  USE mo_exception,            ONLY: message, message_text
+  USE mo_parallel_config,      ONLY: nproma
+  USE mo_sync,                 ONLY: sync_patch_array_mult
 
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_grf_interpolation,    ONLY: t_gridref_state
   USE mo_impl_constants,       ONLY: min_rlcell_int
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
 
-  USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag,&
-    &                                t_nh_metrics
+  USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_nonhydrostatic_config,ONLY: kstart_moist
-  USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag,prm_diag,&
-    &                                t_nwp_phy_tend
-  USE mo_run_config,           ONLY: msg_level, ntracer, iqv, iqc, &
-    &                                iqi, iqr, iqs
-!  USE mo_atm_phy_nwp_nml,      ONLY: inwp_gscp
+  USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag
+  USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, iqr, iqs
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_gscp_cosmo,           ONLY: hydci_pp
-  USE mo_satad,                ONLY: satad_v_3D
 
   IMPLICIT NONE
 
