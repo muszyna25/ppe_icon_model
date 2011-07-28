@@ -121,7 +121,8 @@ MODULE mo_grid_nml
   SUBROUTINE read_grid_namelist( filename )
     
     CHARACTER(LEN=*), INTENT(IN) :: filename                                           
-    INTEGER  :: i_status, i, funit
+    INTEGER  :: i_status, i
+!    INTEGER  :: funit
 !    INTEGER  :: jg, jlev
 !    CHARACTER(filename_max) :: patch_file, gridtype
 !    INTEGER  ::  patch_level(max_dom)

@@ -125,7 +125,7 @@ MODULE mo_vertical_grid
     REAL(wp) :: z_diff, z1, z2, z3, z_help(nproma),            &
       &         z_temp(nproma), z_rho(nproma,p_patch(1)%nlev), &
       &         z_aux1(nproma), z_aux2(nproma)
-    REAL(wp) :: z_fac1, z_fac2, z_topo_dev(nproma), z_maxslope, z_maxhdiff, z_offctr
+    REAL(wp) :: z_maxslope, z_maxhdiff, z_offctr
     REAL(wp), ALLOCATABLE :: z_ifv(:,:,:), z_mfv(:,:,:)
     REAL(wp), ALLOCATABLE :: z_me(:,:,:),z_maxslp(:,:,:),z_maxhgtd(:,:,:),z_shift(:,:,:)
     REAL(wp) :: extrapol_dist

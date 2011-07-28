@@ -374,7 +374,8 @@ CONTAINS
     INTEGER, INTENT(inout) :: grid_id
     INTEGER, INTENT(in), OPTIONAL :: depth_level
 
-    INTEGER :: dual_grid_id,iteration,opt_result
+!    INTEGER :: dual_grid_id, iteration
+    INTEGER :: opt_result
     INTEGER :: timer_optimize_grid
 
     !--------------------------------------------------------------
