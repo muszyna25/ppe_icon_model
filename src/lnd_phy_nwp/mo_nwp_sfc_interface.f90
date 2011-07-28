@@ -37,40 +37,33 @@
 !!
 MODULE mo_nwp_sfc_interface
 
-  USE mo_kind,                 ONLY: wp
-  USE mo_exception,            ONLY: message, message_text , finish
+  USE mo_kind,                ONLY: wp
+  USE mo_exception,           ONLY: message, message_text , finish
 
-  USE mo_model_domain,         ONLY: t_patch
-!  USE mo_grf_interpolation,    ONLY: t_gridref_state
-  USE mo_impl_constants,       ONLY: min_rlcell_int, icc, zml_soil
-  USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
-  USE mo_loopindices,          ONLY: get_indices_c
- ! USE mo_subdivision,          ONLY: p_patch_local_parent
+  USE mo_model_domain,        ONLY: t_patch
+!  USE mo_grf_interpolation,   ONLY: t_gridref_state
+  USE mo_impl_constants,      ONLY: min_rlcell_int, icc, zml_soil
+  USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
+  USE mo_loopindices,         ONLY: get_indices_c
+ ! USE mo_subdivision,         ONLY: p_patch_local_parent
 
-  USE mo_ext_data,             ONLY: t_external_data
-  USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag,&
-   &                                 t_nh_metrics
-  USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag,prm_diag,&
-       &                             t_nwp_phy_tend
-  USE mo_nwp_lnd_state,        ONLY: t_lnd_prog, t_lnd_diag, &
-!<em
-                                     t_tiles
-!em>
-
-  USE mo_parallel_config,  ONLY: nproma
-  USE mo_run_config,              ONLY: msg_level, iqv
+  USE mo_ext_data,            ONLY: t_external_data
+  USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag,&
+    &                               t_nh_metrics
+  USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag, prm_diag,&
+    &                               t_nwp_phy_tend
+  USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag, &
+    &                               t_tiles
+  USE mo_parallel_config,     ONLY: nproma
+  USE mo_run_config,          ONLY: msg_level, iqv
  
-  USE mo_atm_phy_nwp_config,   ONLY:  atm_phy_nwp_config
+  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 
-  USE mo_lnd_nwp_config,       ONLY: nlev_soil, nztlev, nlev_snow, nsfc_subs, &
-    &                                lseaice, llake, lmulti_snow
-!  USE mo_turbdiff_ras,       ONLY: organize_turbdiff
-  USE mo_satad,              ONLY: sat_pres_water, spec_humi  
-  USE src_turbdiff,          ONLY: organize_turbdiff
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nztlev, nlev_snow, nsfc_subs, &
+    &                               lseaice, llake, lmulti_snow
+  USE mo_satad,               ONLY: sat_pres_water, spec_humi  
 !  USE mo_icoham_sfc_indices, ONLY: nsfc_type, igbm, iwtr, iice, ilnd
-  USE mo_vdiff_driver,       ONLY: vdiff
-  USE mo_echam_vdiff_params, ONLY: z0m_oce
-  USE mo_physical_constants, ONLY: &
+  USE mo_physical_constants,  ONLY: &
      t0_melt => tmelt,& ! absolute zero for temperature
      r_v   => rv    , & ! gas constant for water vapour
      r_d   => rd    , & ! gas constant for dry air
@@ -85,17 +78,17 @@ MODULE mo_nwp_sfc_interface
      g     => grav  , & ! acceleration due to gravity
      sigma => stbo  , & ! Boltzmann-constant
      rdocp => rd_o_cpd  ! r_d / cp_d
-  USE mo_convect_tables,   ONLY:   &
+  USE mo_convect_tables,      ONLY:   &
      b1    => c1es  , & !! constants for computing the sat. vapour
      b2w   => c3les , & !! pressure over water (l) and ice (i)
      b2i   => c3ies , & !!               -- " --
      b4w   => c4les , & !!               -- " --
      b4i   => c4ies , & !!               -- " --
      b234w => c5les     !!               -- " --
-  USE mo_cuparameters,       ONLY: rho_w => rhoh2o    ! density of liquid water (kg/m^3)
+  USE mo_cuparameters,        ONLY: rho_w => rhoh2o  ! density of liquid water (kg/m^3)
   USE mo_phyparam_soil
   USE mo_nwp_phy_init
-  USE mo_soil_ml,            ONLY: terra_multlay
+  USE mo_soil_ml,             ONLY: terra_multlay
 !  USE mo_aggregate_surface,  ONLY: subsmean,subs_disaggregate_radflux,subsmean_albedo
 
   
@@ -133,33 +126,21 @@ CONTAINS
     TYPE(t_lnd_diag),            INTENT(inout):: lnd_diag      !< diag vars for sfc
     REAL(wp),                    INTENT(in)   :: tcall_sfc_jg  !< time interval for 
                                                                !< surface
-!    REAL(wp),                    INTENT(in)   :: mean_charlen  !< characteristic griddistance
-!    TYPE(t_nwp_phy_tend),TARGET, INTENT(inout):: prm_nwp_tend  !< atm tend vars      
-!                                                               !< needed by turbulence
 
     ! Local array bounds:
     !
-    INTEGER :: nblks_c, nblks_e        !> number of blocks for cells / edges
-    INTEGER :: npromz_e, npromz_c      !> length of last block line
-
+    INTEGER :: nblks_c                 !> number of blocks for cells
     INTEGER :: rl_start, rl_end
     INTEGER :: i_startblk, i_endblk    !> blocks
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
-    INTEGER :: nlev, nlevp1            !< number of full and half levels
+    INTEGER :: nlev                    !< number of full and half levels
     INTEGER :: isubs            
 
     ! Local scalars:
     !
     INTEGER :: jc,jb,jg      !loop indices
  
-    ! local variables for turbdiff
-    !
-    INTEGER :: ierrstat=0
-    CHARACTER (LEN=25) :: eroutine=''
-    CHARACTER (LEN=80) :: errormsg=''
-
-
     ! local prognostic variables
     !
     REAL(wp) :: t_snow_t       (nproma,               p_patch%nblks_c, nztlev, nsfc_subs)
@@ -214,16 +195,12 @@ CONTAINS
     ! local variables related to the blocking
 
     nblks_c   = p_patch%nblks_int_c
-    npromz_c  = p_patch%npromz_int_c
-    nblks_e   = p_patch%nblks_int_e
-    npromz_e  = p_patch%npromz_int_e
 
     i_nchdom  = MAX(1,p_patch%n_childdom)
     jg        = p_patch%id
 
     ! number of vertical levels
     nlev   = p_patch%nlev
-    nlevp1 = p_patch%nlevp1
 
     !in order to account for mesh refinement
     rl_start = grf_bdywidth_c+1
@@ -554,11 +531,6 @@ print*, "SFC-DIAGNOSIS INTERFACE ",jstep
           lnd_diag%qv_st(1:i_endidx,jb,isubs)  = qv_st_t(1:i_endidx,jb,2,isubs)
           lnd_diag%h_snow(1:i_endidx,jb,isubs) = h_snow_t(1:i_endidx,jb,2,isubs)
         ENDDO
-
-
-        IF (ierrstat.NE.0) THEN
-           CALL finish(eroutine, errormsg)
-        END IF
 
 !#endif
   

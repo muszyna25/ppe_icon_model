@@ -416,7 +416,7 @@ USE mo_exception,       ONLY: message, finish, message_text
 !------------------------------------------------------------------------------
 
 !IMPLICIT NONE
-PRIVATE:: normalize
+PRIVATE:: normalize, tgcom
 
 !------------------------------------------------------------------------------
 ! Public subroutines
@@ -5098,15 +5098,15 @@ DO ns = nsubs0, nsubs1
 IF(lmulti_snow) THEN
 !subs  CALL tgcom ( t_g(:,:,nnew), t_snow_mult(:,:,1,nnew), t_s(:,:,nnew), &
 !subs               w_snow(:,:,nnew), llandmask(:,:), ie, je, cf_snow,     &
-!>JH  CALL tgcom ( t_g(:,:,nnew,ns), t_snow_mult(:,:,1,nnew,ns), t_s(:,:,nnew,ns), &
-!               w_snow(:,:,nnew,ns), llandmask(:,:,ns), ie, je, cf_snow,     &
-!<JH            istarts, iends, jstarts, jends )
+  CALL tgcom ( t_g(:,:,nnew,ns), t_snow_mult(:,:,1,nnew,ns), t_s(:,:,nnew,ns), &
+               w_snow(:,:,nnew,ns), llandmask(:,:,ns), ie, je, cf_snow,        &
+              istarts, iends, jstarts, jends )
 ELSE
 !subs  CALL tgcom ( t_g(:,:,nnew), t_snow(:,:,nnew), t_s(:,:,nnew),        &
 !subs               w_snow(:,:,nnew), llandmask(:,:), ie, je, cf_snow,     &
-!>JH  CALL tgcom ( t_g(:,:,nnew,ns), t_snow(:,:,nnew,ns), t_s(:,:,nnew,ns),        &
-!               w_snow(:,:,nnew,ns), llandmask(:,:,ns), ie, je, cf_snow,     &
-!<JH            istarts, iends, jstarts, jends )
+  CALL tgcom ( t_g(:,:,nnew,ns), t_snow(:,:,nnew,ns), t_s(:,:,nnew,ns),        &
+               w_snow(:,:,nnew,ns), llandmask(:,:,ns), ie, je, cf_snow,     &
+              istarts, iends, jstarts, jends )
 
 ENDIF
 
@@ -5252,6 +5252,65 @@ REAL    (KIND=ireals   ) ::  &
   end do
 
 END SUBROUTINE normalize
+
+
+
+SUBROUTINE tgcom (tg, ts, tb, ws, llp, ie, je, cf_snow,                 &
+                  istart, iend, jstart, jend)
+
+!-------------------------------------------------------------------------------
+!
+! Description:
+!   Computation of the temperature tg at the boundary layer between the ground
+!   and the atmosphere. Only 2-dimensional arrays can be passed to tgcom. It
+!   must be called using the desired time level.
+!
+! Method:
+!   For grid points above water and for grid points on land that are not
+!   covered with snow:   tg = ground surface temperature tb
+!   For snow covered land points, tg is a function of the temperature of the
+!   the snow surface ts and the ground surface temperature tb:
+!       tg = ts + exp( -rhde*ws ) * (tb-ts)
+!   from Version 2.18 on replaced by
+!       tg = ts + ( 1. - MIN(1.,ws/cf_snow)) * (tb -ts)
+!
+!-------------------------------------------------------------------------------
+
+! Parameter list:
+
+INTEGER (KIND=iintegers), INTENT (IN)    ::    &
+  ie, je,                     & ! dimensions of the fields
+  istart, iend, jstart, jend    ! start and end-indices of the computation
+
+REAL (KIND=ireals), INTENT (INOUT)       ::    &
+  tg (ie,je)    ! temperature at the boundary between ground and atmosphere
+
+REAL (KIND=ireals), INTENT (IN)          ::    &
+  ts (ie,je), & ! temperature of the snow surface
+  tb (ie,je), & ! temperature of the ground surface
+  ws (ie,je)    ! water content of snow
+
+LOGICAL,  INTENT (IN)                    ::    &
+  llp (ie,je)   ! pattern of land- and sea-points
+
+REAL (KIND=ireals), INTENT (IN)          ::    &
+  cf_snow       ! factor for the computation
+
+!-------------------------------------------------------------------------------
+
+! Begin subroutine tgcom
+
+  WHERE ( (llp(istart:iend,jstart:jend) .EQV. .TRUE.) .AND.                   &
+                                       (ws(istart:iend,jstart:jend) > 0.0) )
+      tg(istart:iend,jstart:jend) = ts(istart:iend,jstart:jend) +             &
+           (1.0_ireals - MIN(1.0_ireals,ws(istart:iend,jstart:jend)/cf_snow)) &
+             * (tb(istart:iend,jstart:jend) - ts(istart:iend,jstart:jend))
+  ELSEWHERE
+      tg(istart:iend,jstart:jend) =   tb(istart:iend,jstart:jend)
+  END WHERE
+
+END SUBROUTINE tgcom
+
 
 !==============================================================================
 
