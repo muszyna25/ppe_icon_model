@@ -47,7 +47,7 @@ MODULE mo_ext_data
 
   USE mo_kind
   USE mo_io_units,           ONLY: filename_max
-  USE mo_parallel_config,  ONLY: nproma
+  USE mo_parallel_config,    ONLY: nproma
   USE mo_impl_constants,     ONLY: inwp, ihs_ocean, inh_atmosphere
   USE mo_run_config,         ONLY: iforcing
   USE mo_extpar_config,      ONLY: itopo, fac_smooth_topo, n_iter_smooth_topo
@@ -62,7 +62,7 @@ MODULE mo_ext_data
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_sync,               ONLY: SYNC_C, SYNC_V, sync_patch_array
   USE mo_mpi,                ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
-  USE mo_parallel_config,  ONLY: p_test_run
+  USE mo_parallel_config,    ONLY: p_test_run
   USE mo_communication,      ONLY: idx_no, blk_no
   USE mo_linked_list,        ONLY: t_var_list
   USE mo_var_list,           ONLY: default_var_list_settings, &
@@ -96,6 +96,7 @@ MODULE mo_ext_data
   PUBLIC :: construct_ext_data  ! PUBLIC attribute only necessary for postpro.f90
   PUBLIC :: destruct_ext_data
   PUBLIC :: smooth_topography, read_netcdf_data
+
 
   INTERFACE read_netcdf_data
     MODULE PROCEDURE read_netcdf_2d
@@ -247,6 +248,9 @@ MODULE mo_ext_data
 
   END TYPE t_external_atmos
 
+
+  INTEGER, ALLOCATABLE :: nclass_lu(:)  !< number of landuse classes
+                                        !< dim: n_dom
 
 
   !>
@@ -400,9 +404,9 @@ CONTAINS
     !  1.  inquire external files for their data structure
     !-------------------------------------------------------------------------
 
-    IF(irad_o3 == 3) THEN 
-      CALL inquire_external_files(p_patch)
-    ENDIF
+    ALLOCATE(nclass_lu(n_dom))
+    CALL inquire_external_files(p_patch)
+
 
     !------------------------------------------------------------------
     !  2.  construct external fields for the model
@@ -426,25 +430,25 @@ CONTAINS
       CALL message( TRIM(routine),'Running with analytical topography' )
       IF(irad_o3 == 3) THEN
         CALL message( TRIM(routine),'external ozone data required' )
-        CALL read_ext_data_atm (p_patch, ext_data)
+        CALL read_ext_data_atm (p_patch, ext_data)   ! read ozone
       ENDIF
 
 
       IF(iforcing == inwp) THEN
-      !
-      ! initalize external data with meaningful data, in the case that they 
-      ! are not read in from file.
-      DO jg = 1, n_dom
-        ext_data(jg)%atm%fr_land(:,:)     = 1._wp   ! land fraction
-        ext_data(jg)%atm%fr_land_smt(:,:) = 1._wp   ! land fraction (smoothed)
-        ext_data(jg)%atm%plcov_mx(:,:)    = 0.5_wp  ! plant cover
-        ext_data(jg)%atm%lai_mx(:,:)      = 3._wp   ! max Leaf area index
-        ext_data(jg)%atm%rootdp(:,:)      = 1._wp   ! root depth
-        ext_data(jg)%atm%rsmin(:,:)       = 150._wp ! minimal stomata resistence
-        ext_data(jg)%atm%soiltyp(:,:)     = 8       ! soil type
-      END DO
+        !
+        ! initalize external data with meaningful data, in the case that they 
+        ! are not read in from file.
+        DO jg = 1, n_dom
+          ext_data(jg)%atm%fr_land(:,:)     = 1._wp   ! land fraction
+          ext_data(jg)%atm%fr_land_smt(:,:) = 1._wp   ! land fraction (smoothed)
+          ext_data(jg)%atm%plcov_mx(:,:)    = 0.5_wp  ! plant cover
+          ext_data(jg)%atm%lai_mx(:,:)      = 3._wp   ! max Leaf area index
+          ext_data(jg)%atm%rootdp(:,:)      = 1._wp   ! root depth
+          ext_data(jg)%atm%rsmin(:,:)       = 150._wp ! minimal stomata resistence
+          ext_data(jg)%atm%soiltyp(:,:)     = 8       ! soil type
+        END DO
 
-    ENDIF
+      ENDIF
 
     CASE(1) ! read external data from netcdf dataset
 
@@ -466,7 +470,7 @@ CONTAINS
         CALL finish(TRIM(routine),&
           &    'OCEAN tried to read in atmospheric topography data')
 
-!DR       CALL read_ext_data_oce (p_patch, ext_data)
+!DR        CALL read_ext_data_oce (p_patch, ext_data)
       ENDIF
 
     CASE DEFAULT
@@ -576,11 +580,13 @@ CONTAINS
     TYPE(t_cf_var)    :: cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
+    INTEGER :: jg
+
     INTEGER :: nblks_c, &    !< number of cell blocks to allocate
       &        nblks_e, &    !< number of edge blocks to allocate
       &        nblks_v       !< number of vertex blocks to allocate
 
-    INTEGER :: shape2d_c(2), shape2d_e(2), shape2d_v(2) !, shape3d_c(3)
+    INTEGER :: shape2d_c(2), shape2d_e(2), shape2d_v(2)
 
     INTEGER :: ientr         !< "entropy" of horizontal slice
     !--------------------------------------------------------------
@@ -590,6 +596,8 @@ CONTAINS
     nblks_e = p_patch%nblks_e
     nblks_v = p_patch%nblks_v
 
+    ! get patch ID
+    jg = p_patch%id
 
     ientr = 16   ! "entropy" of horizontal slice
 
@@ -597,7 +605,6 @@ CONTAINS
     shape2d_c = (/ nproma, nblks_c /)
     shape2d_e = (/ nproma, nblks_e /)
     shape2d_v = (/ nproma, nblks_v /)
-!DR shape3d_c = (/ nproma, nblks_c, nsfc_subs /)
 
 
     !
@@ -974,14 +981,15 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape2d_c)
 
-!!$      ! landuse class fraction
-!!$      !
-!!$      ! lu_class_fraction    p_ext_atm%lu_class_fraction(nproma,nblks_c)
-!!$      cf_desc    = t_cf_var('lu_class_fraction', '-', 'landuse class fraction')
-!!$      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-!!$      CALL add_var( p_ext_atm_list, 'lu_class_fraction', p_ext_atm%lu_class_fraction, &
-!!$        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-!!$        &           grib2_desc, ldims=shape3d_c)
+
+      ! landuse class fraction
+      !
+      ! lu_class_fraction    p_ext_atm%lu_class_fraction(nproma,nblks_c,nclass_lu)
+      cf_desc    = t_cf_var('lu_class_fraction', '-', 'landuse class fraction')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'lu_class_fraction', p_ext_atm%lu_class_fraction, &
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
+        &           grib2_desc, ldims=(/ nproma, nblks_c, nclass_lu(jg) /))
 
     ENDIF ! iforcing = inwp
   ENDIF ! iequations = inh_atmosphere
@@ -1311,91 +1319,167 @@ CONTAINS
     !
     !-------------------------------------------------------
 
-    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
-    INTEGER :: no_cells
-    INTEGER :: ncid, dimid
+    TYPE(t_patch), INTENT(IN)      :: p_patch(:)
+
     INTEGER :: jg
+    INTEGER :: no_cells, no_verts
+    INTEGER :: ncid, dimid
 
     LOGICAL :: l_exist
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_ext_data: inquire_external_files'
 
+    CHARACTER(filename_max) :: extpar_file !< file name for reading in
     CHARACTER(filename_max) :: ozone_file  !< file name for reading in
 
-    ! default values for nlev_pres and nmonths
-    nlev_pres = 1
-    nmonths   = 1
-
+!-------------------------------------------------------------------------
 
     DO jg= 1,n_dom
 
-       IF(irad_o3 == 3) THEN
+      !------------------------------------------------!
+      ! 1. Check validity of external parameter file   !
+      !------------------------------------------------!
+      IF (itopo == 1 .AND. iequations /=ihs_ocean ) THEN
 
-       IF(p_pe == p_io) THEN
+        IF(p_pe == p_io) THEN
+          !
+          ! generate file name
+          !
+          WRITE(extpar_file,'(a,a)') 'extpar_',TRIM(p_patch(jg)%grid_filename)
+          CALL message("read_ext_data_atm, extpar_file=",extpar_file)
+        
+          INQUIRE (FILE=extpar_file, EXIST=l_exist)
+          IF (.NOT.l_exist) THEN
+            CALL finish(TRIM(routine),'external data file is not found.')
+          ENDIF
 
-        WRITE(ozone_file,'(a,i2.2,a)') 'o3_icon_DOM',jg,'.nc'
+          !
+          ! open file
+          !
+          CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid))
 
-        INQUIRE (FILE=ozone_file, EXIST=l_exist)
-        IF (.NOT.l_exist) THEN
-          CALL finish(TRIM(routine),'ozone file of domain is not found.')
+          !
+          ! get number of cells and vertices
+          !
+          CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
+          IF (p_patch(jg)%cell_type == 3) THEN ! triangular grid
+            CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+          ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
+            CALL nf(nf_inq_dimlen(ncid, dimid, no_verts))
+          ENDIF
+
+          CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
+          IF (p_patch(jg)%cell_type == 3) THEN ! triangular grid
+            CALL nf(nf_inq_dimlen(ncid, dimid, no_verts))
+          ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
+            CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+          ENDIF
+
+          !
+          ! check the number of cells and verts
+          !
+          IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
+            CALL finish(TRIM(ROUTINE),&
+            & 'Number of patch cells and cells in extpar file do not match.')
+          ENDIF
+          IF(p_patch(jg)%n_patch_verts_g /= no_verts) THEN
+            CALL finish(TRIM(ROUTINE),&
+            & 'Number of patch verts and verts in extpar file do not match.')
+          ENDIF
+
+          !
+          ! get the number of landuse classes
+          !
+          CALL nf(nf_inq_dimid (ncid, 'nclass_lu', dimid))
+          CALL nf(nf_inq_dimlen(ncid, dimid, nclass_lu(jg)))
+
+          !
+          ! close file
+          !
+          CALL nf(nf_close(ncid))
+
         ENDIF
+      ENDIF
 
-        !
-        ! open file: do I have to enhance the number of ncid?
-        !
-        CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid))
 
-        ! get number of cells in triangles and hexagons
-        !
+      !------------------------------------------------!
+      ! 2. Check validity of ozone file                !
+      !------------------------------------------------!
 
-        !triangles
-        IF (p_patch(jg)%cell_type == 3) THEN ! triangular grid
-           CALL nf(nf_inq_dimid (ncid, 'cell', dimid))
-           CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
-       ENDIF
+      IF(irad_o3 == 3) THEN
+
+        ! default values for nlev_pres and nmonths
+        nlev_pres = 1
+        nmonths   = 1
+
+        IF(p_pe == p_io) THEN
+
+          WRITE(ozone_file,'(a,i2.2,a)') 'o3_icon_DOM',jg,'.nc'
+
+          INQUIRE (FILE=ozone_file, EXIST=l_exist)
+          IF (.NOT.l_exist) THEN
+            CALL finish(TRIM(routine),'ozone file of domain is not found.')
+          ENDIF
+
+          !
+          ! open file
+          !
+          CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid))
+
+          ! get number of cells in triangles and hexagons
+          !
+
+          !triangles
+          IF (p_patch(jg)%cell_type == 3) THEN ! triangular grid
+            CALL nf(nf_inq_dimid (ncid, 'cell', dimid))
+            CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+          ENDIF
        
-       !hexagons
-        IF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
-           CALL nf(nf_inq_dimid (ncid, 'vertex', dimid))
-           CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
-        ENDIF
+          !hexagons
+          IF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
+            CALL nf(nf_inq_dimid (ncid, 'vertex', dimid))
+            CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+          ENDIF
 
-        !
-        ! check the number of cells and verts
-        !
-        IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
-          CALL finish(TRIM(ROUTINE),&
-          & 'Number of patch cells and cells in ozone file do not match.')
-        ENDIF
+          !
+          ! check the number of cells and verts
+          !
+          IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
+            CALL finish(TRIM(ROUTINE),&
+            & 'Number of patch cells and cells in ozone file do not match.')
+          ENDIF
           
-      ! check the vertical structure
-        CALL nf(nf_inq_dimid (ncid, 'plev', dimid))
-        CALL nf(nf_inq_dimlen(ncid, dimid, nlev_pres))
+          ! check the vertical structure
+          CALL nf(nf_inq_dimid (ncid, 'plev', dimid))
+          CALL nf(nf_inq_dimlen(ncid, dimid, nlev_pres))
         
-        CALL message(TRIM(ROUTINE),message_text)
-        WRITE(message_text,'(A,I4)')  &
-           & 'Number of pressure levels in ozone file = ', &
-           & nlev_pres
+          CALL message(TRIM(ROUTINE),message_text)
+          WRITE(message_text,'(A,I4)')  &
+            & 'Number of pressure levels in ozone file = ', &
+            & nlev_pres
 
-        ! check the time structure
-        CALL nf(nf_inq_dimid (ncid, 'time', dimid))
-        CALL nf(nf_inq_dimlen(ncid, dimid, nmonths))
+          ! check the time structure
+          CALL nf(nf_inq_dimid (ncid, 'time', dimid))
+          CALL nf(nf_inq_dimlen(ncid, dimid, nmonths))
         
-        CALL message(TRIM(ROUTINE),message_text)
-        WRITE(message_text,'(A,I4)')  &
-           & 'Number of months in ozone file = ', &
-           & nmonths
+          CALL message(TRIM(ROUTINE),message_text)
+          WRITE(message_text,'(A,I4)')  &
+            & 'Number of months in ozone file = ', &
+            & nmonths
 
-     ENDIF ! pe
+          !
+          ! close file
+          !
+          CALL nf(nf_close(ncid))
 
-  ENDIF !o3
+        ENDIF ! pe
 
-  IF(p_pe == p_io) CALL nf(nf_close(ncid))
+      ENDIF !o3
 
-  ENDDO ! ndom
+    ENDDO ! ndom
 
-END SUBROUTINE inquire_external_files
+  END SUBROUTINE inquire_external_files
 
 
   !-------------------------------------------------------------------------
@@ -1432,53 +1516,14 @@ END SUBROUTINE inquire_external_files
       i_lev = p_patch(jg)%level
 
       IF(p_pe == p_io) THEN
+
         !
-        ! generate file name
+        ! generate file name and open file
         !
-!         WRITE(extpar_file,'(a,i1,a,i1,a,i1,a)') &
-!           & 'extpar_R',nroot,'B0',start_lev,'_DOM0',jg,'.nc'
         WRITE(extpar_file,'(a,a)') &
           & 'extpar_',TRIM(p_patch(jg)%grid_filename)
-        CALL message("read_ext_data_atm, extpar_file=",extpar_file)
-        
-        INQUIRE (FILE=extpar_file, EXIST=l_exist)
-        IF (.NOT.l_exist) THEN
-          CALL finish(TRIM(routine),'external data file is not found.')
-        ENDIF
-
-        !
-        ! open file
-        !
         CALL nf(nf_open(TRIM(extpar_file), NF_NOWRITE, ncid))
 
-        !
-        ! get number of cells and vertices
-        !
-        CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
-        IF (p_patch(jg)%cell_type == 3) THEN ! triangular grid
-          CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
-        ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
-          CALL nf(nf_inq_dimlen(ncid, dimid, no_verts))
-        ENDIF
-
-        CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
-        IF (p_patch(jg)%cell_type == 3) THEN ! triangular grid
-          CALL nf(nf_inq_dimlen(ncid, dimid, no_verts))
-        ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
-          CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
-        ENDIF
-
-        !
-        ! check the number of cells and verts
-        !
-        IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
-          CALL finish(TRIM(ROUTINE),&
-          & 'Number of patch cells and cells in topography file do not match.')
-        ENDIF
-        IF(p_patch(jg)%n_patch_verts_g /= no_verts) THEN
-          CALL finish(TRIM(ROUTINE),&
-          & 'Number of patch verts and verts in topography file do not match.')
-        ENDIF
       ENDIF
 
 
@@ -1487,7 +1532,6 @@ END SUBROUTINE inquire_external_files
       ! Read topography for triangle centers and vertices
       !
       !-------------------------------------------------------
-
 
       !
       ! topography
@@ -1640,23 +1684,23 @@ END SUBROUTINE inquire_external_files
           !
           WRITE(ozone_file,'(a,I2.2,a)') 'o3_icon_DOM',jg,'.nc'
           CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid))
-
-          IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
-            CALL read_netcdf_data (ncid, 'O3', & ! &
-              &                    p_patch(jg)%n_patch_cells_g,  &
-              &                    p_patch(jg)%n_patch_cells,    &
-              &                    p_patch(jg)%cells%glb_index,  & 
-              &                    nlev_pres,  nmonths,          &
-              &                    ext_data(jg)%atm_td%O3)
-          ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
-            CALL read_netcdf_data (ncid, 'O3', & 
-              &                    p_patch(jg)%n_patch_verts_g,  &
-              &                    p_patch(jg)%n_patch_verts,    & 
-              &                    p_patch(jg)%verts%glb_index,  &
-              &                    nlev_pres, nmonths,           &
-              &                    ext_data(jg)%atm_td%O3)
-          ENDIF
         ENDIF ! pe
+
+        IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
+          CALL read_netcdf_data (ncid, 'O3', & ! &
+            &                    p_patch(jg)%n_patch_cells_g,  &
+            &                    p_patch(jg)%n_patch_cells,    &
+            &                    p_patch(jg)%cells%glb_index,  & 
+            &                    nlev_pres,  nmonths,          &
+            &                    ext_data(jg)%atm_td%O3)
+        ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
+          CALL read_netcdf_data (ncid, 'O3', & 
+            &                    p_patch(jg)%n_patch_verts_g,  &
+            &                    p_patch(jg)%n_patch_verts,    & 
+            &                    p_patch(jg)%verts%glb_index,  &
+            &                    nlev_pres, nmonths,           &
+            &                    ext_data(jg)%atm_td%O3)
+        ENDIF
 
         !
         ! close file
