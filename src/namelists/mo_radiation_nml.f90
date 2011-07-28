@@ -70,8 +70,6 @@ MODULE mo_radiation_nml
                                  & config_mmr_o2     => mmr_o2
 
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: finish
-  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH, max_dom
   USE mo_mpi,                ONLY: p_pe, p_io
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml 
   USE mo_io_units,           ONLY: nnml, nnml_output

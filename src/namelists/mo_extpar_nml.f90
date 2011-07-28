@@ -32,20 +32,19 @@
 !!
 MODULE mo_extpar_nml
 
-  USE mo_kind,           ONLY: wp
-  USE mo_exception,      ONLY: finish
-  USE mo_io_units,       ONLY: nnml, nnml_output
-  USE mo_namelist,       ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_mpi,            ONLY: p_pe, p_io
-  USE mo_master_control,  ONLY: is_restart_run
+  USE mo_kind,                ONLY: wp
+  USE mo_exception,           ONLY: finish
+  USE mo_io_units,            ONLY: nnml, nnml_output
+  USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
+  USE mo_mpi,                 ONLY: p_pe, p_io
+  USE mo_master_control,      ONLY: is_restart_run
 
-  USE mo_io_restart_attributes, ONLY: get_restart_attribute
-  USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,   &
-                                    & open_and_restore_namelist, close_tmpfile
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist         , &
+                                  & open_and_restore_namelist, close_tmpfile
 
-  USE mo_extpar_config,  ONLY: config_itopo              => itopo             , &
-                             & config_fac_smooth_topo    => fac_smooth_topo   , &
-                             & config_n_iter_smooth_topo => n_iter_smooth_topo
+  USE mo_extpar_config,       ONLY: config_itopo              => itopo             , &
+                                  & config_fac_smooth_topo    => fac_smooth_topo   , &
+                                  & config_n_iter_smooth_topo => n_iter_smooth_topo
 
   IMPLICIT NONE
   PRIVATE

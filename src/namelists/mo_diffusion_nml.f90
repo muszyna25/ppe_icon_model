@@ -37,7 +37,6 @@ MODULE mo_diffusion_nml
   USE mo_kind,                ONLY: wp
   USE mo_mpi,                 ONLY: my_process_is_stdio 
   USE mo_exception,           ONLY: message, finish
-  USE mo_impl_constants,      ONLY: max_dom
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_master_control,      ONLY: is_restart_run

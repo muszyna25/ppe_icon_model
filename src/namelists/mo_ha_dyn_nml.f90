@@ -41,7 +41,6 @@ MODULE mo_ha_dyn_nml
   USE mo_exception,             ONLY: finish
   USE mo_namelist,              ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_master_control,        ONLY: is_restart_run
-  USE mo_io_restart_attributes, ONLY: get_restart_attribute
   USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist, &
                                       open_and_restore_namelist, close_tmpfile
 

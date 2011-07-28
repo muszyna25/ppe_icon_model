@@ -37,7 +37,6 @@ MODULE mo_interpol_nml
   USE mo_impl_constants,      ONLY: max_dom
   USE mo_mpi,                 ONLY: my_process_is_stdio 
   USE mo_master_control,      ONLY: is_restart_run
-  USE mo_intp_data_strc,      ONLY: t_lsq_set
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &

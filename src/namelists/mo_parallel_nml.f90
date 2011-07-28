@@ -35,32 +35,28 @@
 !!
 MODULE mo_parallel_nml
 
-  USE mo_exception,           ONLY: message, finish
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
-  USE mo_master_control,     ONLY: is_restart_run
+  USE mo_master_control,      ONLY: is_restart_run
   USE mo_mpi,                 ONLY: my_process_is_stdio
-#ifndef NOMPI
-  USE mo_exception,           ONLY: message_text
-#endif
-  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,   &
+  USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,            &
                                   & open_and_restore_namelist, close_tmpfile
 
-  USE mo_parallel_config, ONLY: &
-    & config_n_ghost_rows        => n_ghost_rows,        &
-    & config_division_method     => division_method,     &
-    & config_l_log_checks        => l_log_checks,        &
-    & config_l_fast_sum          => l_fast_sum,          &
-    & config_p_test_run          => p_test_run,          &
-    & config_l_test_openmp       => l_test_openmp,       &
-    & config_num_io_procs        => num_io_procs,        &
-    & config_pio_type            => pio_type,            &
-    & config_itype_comm          => itype_comm,          &
-    & config_iorder_sendrecv     => iorder_sendrecv,     &
-    & config_radiation_threads   => radiation_threads,   &
-    & config_nh_stepping_threads => nh_stepping_threads, &
-    & config_nproma              => nproma,              &
-    & div_geometric, check_parallel_configuration
+  USE mo_parallel_config,     ONLY: &
+                                  & config_n_ghost_rows        => n_ghost_rows,        &
+                                  & config_division_method     => division_method,     &
+                                  & config_l_log_checks        => l_log_checks,        &
+                                  & config_l_fast_sum          => l_fast_sum,          &
+                                  & config_p_test_run          => p_test_run,          &
+                                  & config_l_test_openmp       => l_test_openmp,       &
+                                  & config_num_io_procs        => num_io_procs,        &
+                                  & config_pio_type            => pio_type,            &
+                                  & config_itype_comm          => itype_comm,          &
+                                  & config_iorder_sendrecv     => iorder_sendrecv,     &
+                                  & config_radiation_threads   => radiation_threads,   &
+                                  & config_nh_stepping_threads => nh_stepping_threads, &
+                                  & config_nproma              => nproma,              &
+                                  & div_geometric, check_parallel_configuration
 
   IMPLICIT NONE
   PRIVATE

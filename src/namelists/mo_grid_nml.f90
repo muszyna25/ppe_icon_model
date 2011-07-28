@@ -41,15 +41,15 @@ MODULE mo_grid_nml
 !
 !
   USE mo_kind,               ONLY: wp
-  USE mo_exception,          ONLY: message, message_text, finish
+!  USE mo_exception,          ONLY: message, message_text, finish
   USE mo_io_units,           ONLY: nnml, nnml_output,filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
-  USE mo_impl_constants,     ONLY: max_dom, max_char_length, itri, ihex
+  USE mo_impl_constants,     ONLY: max_dom, itri
   USE mo_math_constants,     ONLY: rad2deg
   USE mo_master_control,     ONLY: is_restart_run
-  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist,   &
-                                 & open_and_restore_namelist, close_tmpfile
+!  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist, &
+!                                 & open_and_restore_namelist, close_tmpfile
 
   USE mo_grid_config,        ONLY:                                         &
     & config_global_cell_type             => global_cell_type,             &
@@ -78,7 +78,6 @@ MODULE mo_grid_nml
   ! ------------------------------------------------------------------------
 
   INTEGER    :: cell_type                ! cell type:
-  INTEGER    :: max_childdom
 
   LOGICAL    :: lfeedback(max_dom)       ! specifies if feedback to parent grid is performed
   LOGICAL    :: lredgrid_phys(max_dom)   ! If set to .true. is calculated on a reduced grid

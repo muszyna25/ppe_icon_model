@@ -35,8 +35,7 @@ MODULE mo_echam_conv_nml
 
   USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: SUCCESS
-  USE mo_exception,           ONLY: print_value,message,message_text,finish
+  USE mo_exception,           ONLY: message_text,finish
   USE mo_io_units,            ONLY: nnml
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_master_control,      ONLY: is_restart_run

@@ -50,8 +50,7 @@ MODULE mo_advection_nml
   USE mo_impl_constants,      ONLY: MAX_CHAR_LENGTH, max_ntracer, max_dom,      &
     &                               imiura, imiura3, iup3, ippm_vcfl, ippm_v,   &
     &                               inol, islopel_sm, islopel_m, ifluxl_m,      &
-    &                               ifluxl_sm, inol_v, islopel_vsm, islopel_vm, &
-    &                               ifluxl_vpd
+    &                               ifluxl_sm, inol_v, islopel_vsm, ifluxl_vpd
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: p_pe, p_io
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,     &

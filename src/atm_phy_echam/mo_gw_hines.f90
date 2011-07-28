@@ -58,7 +58,7 @@ MODULE mo_gw_hines
   USE mo_exception,            ONLY: message_text, message, finish 
 
   USE mo_kind,       ONLY: wp
-  USE mo_math_constants,       ONLY: pi
+!!$  USE mo_math_constants,       ONLY: pi
   USE mo_physical_constants,   ONLY: grav, rd, cpd !!$, re, rhoh2o
 
   USE mo_gw_hines_config,      ONLY: gw_hines_config
@@ -88,9 +88,6 @@ MODULE mo_gw_hines
   REAL(wp) :: f3         = 1.0_wp 
   REAL(wp) :: f5         = 1.0_wp 
   REAL(wp) :: f6         = 0.5_wp   
-
-  REAL(wp) :: ksmin      = 1.e-5_wp       
-  REAL(wp) :: ksmax      = 1.e-4_wp       
 
   INTEGER  :: icutoff    = 0   
   REAL(wp) :: alt_cutoff = 105.e3_wp

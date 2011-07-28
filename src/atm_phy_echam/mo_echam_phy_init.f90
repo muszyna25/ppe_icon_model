@@ -42,15 +42,15 @@ MODULE mo_echam_phy_init
   ! model configuration
   USE mo_dynamics_config,      ONLY: nnow 
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_run_config,           ONLY: nlev, nlevp1, nvclev, iqv, iqt, ntracer
+  USE mo_run_config,           ONLY: nlev, iqv, iqt, ntracer
   USE mo_vertical_coord_table, ONLY: vct
   USE mo_echam_phy_config,     ONLY: phy_config => echam_phy_config, &
                                    & configure_echam_phy
   USE mo_echam_conv_config,    ONLY: configure_echam_convection
 
   ! test cases
-  USE mo_ha_testcases,       ONLY: ape_sst_case
-  USE mo_ape_params,         ONLY: ape_sst
+  USE mo_ha_testcases,         ONLY: ape_sst_case
+  USE mo_ape_params,           ONLY: ape_sst
 
   ! radiation
   USE mo_radiation_config,     ONLY: ssi, tsi
@@ -70,7 +70,7 @@ MODULE mo_echam_phy_init
 
   ! air-sea-land interface
   USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd, &
-                                     init_sfc_indices
+                                   & init_sfc_indices
 
   ! domain and indices
   USE mo_model_domain,         ONLY: t_patch
@@ -80,8 +80,8 @@ MODULE mo_echam_phy_init
   USE mo_icoham_dyn_types,     ONLY: t_hydro_atm
   USE mo_eta_coord_diag,       ONLY: half_level_pressure, full_level_pressure
   USE mo_echam_phy_memory,     ONLY: construct_echam_phy_state,    &
-                                     prm_field, t_echam_phy_field, &
-                                     prm_tend,  t_echam_phy_tend
+                                   & prm_field, t_echam_phy_field, &
+                                   & prm_tend,  t_echam_phy_tend
 
 
   IMPLICIT NONE

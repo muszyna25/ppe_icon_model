@@ -41,7 +41,7 @@ MODULE mo_dynamics_nml
                                   & config_lcoriolis      => lcoriolis
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message_text, finish
+  USE mo_exception,           ONLY: finish
   USE mo_impl_constants,      ONLY: IHS_ATM_TEMP
   USE mo_physical_constants,  ONLY: grav
   USE mo_io_units,            ONLY: nnml, nnml_output
