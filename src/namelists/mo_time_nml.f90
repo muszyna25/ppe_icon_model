@@ -162,6 +162,8 @@ CONTAINS
     time_config%calendar = calendar
 
     CALL string_to_datetime( ini_datetime_string, time_config%ini_datetime )
+
+    time_config%ini_datetime%calendar = time_config%calendar
     CALL date_to_time( time_config%ini_datetime )
 
     IF (is_restart_run()) THEN
@@ -196,6 +198,8 @@ CONTAINS
     END IF !is_restart_run()
 
     CALL string_to_datetime( end_datetime_string, time_config%end_datetime ) 
+
+    time_config%end_datetime%calendar = time_config%calendar
     CALL date_to_time( time_config%end_datetime )
 
     time_config%dt_restart = dt_restart
