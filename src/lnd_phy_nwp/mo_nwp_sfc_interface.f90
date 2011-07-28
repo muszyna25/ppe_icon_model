@@ -38,20 +38,20 @@
 MODULE mo_nwp_sfc_interface
 
   USE mo_kind,                ONLY: wp
-  USE mo_exception,           ONLY: message, message_text, finish
+!  USE mo_exception,           ONLY: message, message_text
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_ext_data,            ONLY: t_external_data
   USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag
-  USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag, prm_diag
+  USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag
   USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag, t_tiles
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: msg_level, iqv
+  USE mo_run_config,          ONLY: iqv !,msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nztlev, nlev_snow, nsfc_subs, &
-    &                               lseaice, llake, lmulti_snow
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nztlev, nlev_snow, nsfc_subs !, &
+!    &                               lseaice ,llake, lmulti_snow
   USE mo_satad,               ONLY: sat_pres_water, spec_humi  
   USE mo_phyparam_soil,       ONLY: ireals
   USE mo_soil_ml,             ONLY: terra_multlay
@@ -355,7 +355,7 @@ CONTAINS
         &  rho_snow_mult =  rho_snow_mult_t(:,1:nlev_snow,jb,:,:), & ! snow density                  (kg/m**3)
         &  h_snow        =  h_snow_t(:,jb,:,:)    , & ! snow height                                  (  m  ) 
         &  w_i           =  w_i_t(:,jb,:,:)       , & ! water content of interception water          (m H2O)
-        &  t_so          =  t_so_t(:,0:nlev_soil+1,jb,:,:),&!lnd_prog%t_so(:,0:nlev_soil+1,:,:,jb)    , & ! soil temperature (main level) (  K  )
+        &  t_so          =  t_so_t(:,0:nlev_soil+1,jb,:,:),&      ! soil temperature (main level)    (  K  )
         &  w_so          =  w_so_t(:,1:nlev_soil+1,jb,:,:)    , & ! total water conent (ice + liquid water)       (m H20)
         &  w_so_ice      =  w_so_ice_t(:,1:nlev_soil+1,jb,:,:), & ! ice content                                   (m H20)
         &  t_2m          =  t_2m_t(:,jb,:),& !prm_diag%t_2m(:,jb)      , & ! ,nsfc_subs, temperature in 2m        (  K  )
@@ -373,13 +373,13 @@ CONTAINS
         &  prs_gsp       =  prm_diag%snow_gsp(:,jb)    , & ! precipitation rate of snow, grid-scale        (kg/m2*s)
         &  prg_gsp       =  prm_diag%rain_gsp(:,jb)    , & !!! TEST!! JH precipitation rate of graupel, grid-scale     (kg/m2*s)
            !
-        &  tch           = tch_t(:,jb,:),& ! prm_diag%tch(:,jb)       , & ! ,nsfc_subs,  turbulent transfer coefficient for heat   ( -- )
-        &  tcm           = tcm_t(:,jb,:),& !prm_diag%tcm(:,jb)       , & ! ,nsfc_subs, turbulent transfer coefficient for momentum ( -- )
-        &  tfv           = tfv_t(:,jb,:),& !prm_diag%tfv(:,jb)       , & ! ,nsfc_subs, laminar reduction factor for evaporation    ( -- )
+        &  tch           = tch_t(:,jb,:),& !prm_diag%tch(:,jb) , & ! ,nsfc_subs, turbulent transfer coefficient for heat     ( -- )
+        &  tcm           = tcm_t(:,jb,:),& !prm_diag%tcm(:,jb) , & ! ,nsfc_subs, turbulent transfer coefficient for momentum ( -- )
+        &  tfv           = tfv_t(:,jb,:),& !prm_diag%tfv(:,jb) , & ! ,nsfc_subs, laminar reduction factor for evaporation    ( -- )
            ! 
-        &  sobs          = sobs_t(:,jb,:) ,& !prm_diag%swflxsfc (:,jb,jb) , & ! ,nsfc_subs, solar radiation at the ground          ( W/m2)
-        &  thbs          = thbs_t(:,jb,:) ,& !prm_diag%lwflxsfc (:,jb,jb) , & ! ,nsfc_subs, thermal radiation at the ground        ( W/m2)
-        &  pabs          = pabs_t(:,jb,:)  ,& !prm_diag%swflxsfc (:,jb) , & !!!! ,nsfc_subs, photosynthetic active radiation       ( W/m2)
+        &  sobs          = sobs_t(:,jb,:) ,& !prm_diag%swflxsfc (:,jb,jb) , & ! ,nsfc_subs, solar radiation at the ground   (W/m2)
+        &  thbs          = thbs_t(:,jb,:) ,& !prm_diag%lwflxsfc (:,jb,jb) , & ! ,nsfc_subs, thermal radiation at the ground (W/m2)
+        &  pabs          = pabs_t(:,jb,:) ,& !prm_diag%swflxsfc (:,jb)    , & ! ,nsfc_subs, photosynthetic active radiation (W/m2)
            ! 
         &  runoff_s      =  lnd_diag%runoff_s(:,jb,:)  , & ! surface water runoff; sum over forecast      (kg/m2)
         &  runoff_g      =  lnd_diag%runoff_g(:,jb,:)  , & ! soil water runoff; sum over forecast         (kg/m2)
