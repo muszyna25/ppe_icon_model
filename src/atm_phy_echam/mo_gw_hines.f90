@@ -3,6 +3,52 @@
 #else
 #define FSEL(a,b,c) MERGE(b,c,(a) >= 0._wp)
 #endif
+!>
+!! Hines parameterization for the vertical transport and dissipation 
+!! of unresolved gravity wave spectra originating from the troposphere.
+!!
+!!
+!! Authors:
+!!    
+!! @author   c. mclandress   ists   august 1995
+!! @author   n. mcfarlane    cccma  may 1995
+!! @author   m. charron      mpi-m  2000-2001
+!! @author   e. manzini      mpi-m  february 2002 (re-write, based on cccgwd)                 
+!! @author   h. schmidt      mpi-m  march 2003 
+!! @author   h. schmidt      mpi-m  april 2010 (add latitude dependent source function)
+!!
+!!
+!! @par Revision History
+!! - implementation in ICON based on echam-6.0.10, r2480
+!!   by Marco Giorgetta, MPI-M (2011-07-28)
+!!
+!! @par Copyright
+!! 2002-2010 by DWD and MPI-M
+!! This software is provided for non-commercial use only.
+!! See the LICENSE and the WARRANTY conditions.
+!!
+!! @par License
+!! The use of ICON is hereby granted free of charge for an unlimited time,
+!! provided the following rules are accepted and applied:
+!! <ol>
+!! <li> You may use or modify this code for your own non commercial and non
+!!    violent purposes.
+!! <li> The code may not be re-distributed without the consent of the authors.
+!! <li> The copyright notice and statement of authorship must appear in all
+!!    copies.
+!! <li> You accept the warranty conditions (see WARRANTY).
+!! <li> In case you intend to use the code commercially, we oblige you to sign
+!!    an according license agreement with DWD and MPI-M.
+!! </ol>
+!!
+!! @par Warranty
+!! This code has been tested up to a certain level. Defects and weaknesses,
+!! which may be included in the code, do not establish any warranties by the
+!! authors.
+!! The authors do not make any warranty, express or implied, or assume any
+!! liability or responsibility for the use, acquisition or application of this
+!! software.
+!!
 MODULE mo_gw_hines
 
 !!$#ifdef _PROFILE
@@ -122,17 +168,6 @@ CONTAINS
     !   only calculated if lheatcal = .TRUE.
     !
     !        *gw_hines* is called from *physc*.
-    !
-    !  Authors:
-    !    
-    !   c. mclandress   ists   august 1995
-    !   n. mcfarlane    cccma  may 1995
-    !   m. charron      mpi-m  2000-2001
-    !   e. manzini      mpi-m  february 2002 (re-write, based on cccgwd)                 
-    !   h. schmidt      mpi-m  march 2003 
-    !   h. schmidt      mpi-m  april 2010 (latitude dependent source function
-    !                                      added)
-    !   m. giorgetta    mpi-m  June  2011 adapted for ICON
     !
 
     IMPLICIT NONE
