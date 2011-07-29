@@ -43,7 +43,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
   USE mo_loopindices,         ONLY: get_indices_c
-  USE mo_ext_data,            ONLY: t_external_data
+  USE mo_ext_data,            ONLY: t_external_data !DR, nclass_lu
   USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag
   USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag
   USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag, t_tiles
@@ -101,7 +101,7 @@ CONTAINS
     INTEGER :: i_startidx, i_endidx    !< slices
     INTEGER :: i_nchdom                !< domain index
     INTEGER :: nlev                    !< number of full and half levels
-    INTEGER :: isubs            
+    INTEGER :: isubs !DR, n_lu            
 
     ! Local scalars:
     !
@@ -130,31 +130,31 @@ CONTAINS
     REAL(wp) :: qv_st_t (nproma, p_patch%nblks_c, nztlev, nsfc_subs)
     REAL(wp) :: h_snow_t(nproma, p_patch%nblks_c, nztlev, nsfc_subs) 
 
-    REAL(wp) :: t_t(nproma, p_patch%nlev,p_patch%nblks_c,1:nztlev)
-    REAL(wp) :: qv_t(nproma,p_patch%nlev,p_patch%nblks_c,1:nztlev)
-    REAL(wp) :: pp_t(nproma,p_patch%nlev,p_patch%nblks_c,1:nztlev)
-    REAL(wp) :: u_t(nproma,p_patch%nlev,p_patch%nblks_c,1:nztlev)
-    REAL(wp) :: v_t(nproma,p_patch%nlev,p_patch%nblks_c,1:nztlev)
+    REAL(wp) :: t_t (nproma, p_patch%nlev, p_patch%nblks_c, nztlev)
+    REAL(wp) :: qv_t(nproma, p_patch%nlev, p_patch%nblks_c, nztlev)
+    REAL(wp) :: pp_t(nproma, p_patch%nlev, p_patch%nblks_c, nztlev)
+    REAL(wp) :: u_t (nproma, p_patch%nlev, p_patch%nblks_c, nztlev)
+    REAL(wp) :: v_t (nproma, p_patch%nlev, p_patch%nblks_c, nztlev)
+    REAL(wp) :: ps_t(nproma,               p_patch%nblks_c, nztlev) 
 
-    REAL(wp) :: ps_t(nproma,p_patch%nblks_c,1:nztlev) 
-    REAL(wp) :: tch_t(nproma,p_patch%nblks_c,1:nsfc_subs)
-    REAL(wp) :: tcm_t(nproma,p_patch%nblks_c,1:nsfc_subs)
-    REAL(wp) :: tfv_t(nproma,p_patch%nblks_c,1:nsfc_subs)
-    INTEGER  :: soiltyp_t(nproma,p_patch%nblks_c,1:nsfc_subs)
-    REAL(wp) :: plcov_t(nproma,p_patch%nblks_c,1:nsfc_subs)
-    REAL(wp) :: rootdp_t(nproma,p_patch%nblks_c,1:nsfc_subs)
-    REAL(wp) :: sai_t(nproma,p_patch%nblks_c,1:nsfc_subs)
-    REAL(wp) :: tai_t(nproma,p_patch%nblks_c,1:nsfc_subs)
-    REAL(wp) :: eai_t(nproma,p_patch%nblks_c,1:nsfc_subs)
-    REAL(wp) :: landmask_t(nproma,p_patch%nblks_c,1:nsfc_subs)
-    REAL(wp) :: t_2m_t(nproma,p_patch%nblks_c,1:nsfc_subs)
-    REAL(wp) :: u_10m_t(nproma,p_patch%nblks_c,1:nsfc_subs)
-    REAL(wp) :: v_10m_t(nproma,p_patch%nblks_c,1:nsfc_subs)
-    REAL(wp) :: sobs_t(nproma,p_patch%nblks_c,1:nsfc_subs)
-    REAL(wp) :: thbs_t(nproma,p_patch%nblks_c,1:nsfc_subs)
-    REAL(wp) :: pabs_t(nproma,p_patch%nblks_c,1:nsfc_subs)
+    REAL(wp) :: tch_t     (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: tcm_t     (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: tfv_t     (nproma, p_patch%nblks_c, nsfc_subs)
+    INTEGER  :: soiltyp_t (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: plcov_t   (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: rootdp_t  (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: sai_t     (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: tai_t     (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: eai_t     (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: landmask_t(nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: t_2m_t    (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: u_10m_t   (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: v_10m_t   (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: sobs_t    (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: thbs_t    (nproma, p_patch%nblks_c, nsfc_subs)
+    REAL(wp) :: pabs_t    (nproma, p_patch%nblks_c, nsfc_subs)
 
-!DR    REAL(wp) :: lu_class_frac(nproma,p_patch%nblks_c,1:nsfc_subs)
+!DR    REAL(wp) :: lu_class_frac(nproma,p_patch%nblks_c,nclass_lu)
 
 !--------------------------------------------------------------
 
@@ -246,7 +246,6 @@ CONTAINS
 
 
         DO isubs = 1,nsfc_subs
-!DR          lu_class_frac(1:i_endidx,jb,isubs)= ext_data%atm%lu_class_fraction(1:i_endidx,jb,isubs)
           tch_t(1:i_endidx,jb,isubs)      = prm_diag%tch(1:i_endidx,jb)
           tcm_t(1:i_endidx,jb,isubs)      = prm_diag%tcm(1:i_endidx,jb)
           tfv_t(1:i_endidx,jb,isubs)      = prm_diag%tfv(1:i_endidx,jb)
@@ -319,6 +318,9 @@ CONTAINS
             & lnd_prog_now%dzh_snow(1:i_endidx,1:nlev_snow,jb,isubs)
         ENDDO
 
+!DR        DO n_lu =1, nclass_lu
+!DR          lu_class_frac(1:i_endidx,jb,n_lu)= ext_data%atm%lu_class_fraction(1:i_endidx,jb,n_lu)
+!DR        ENDDO
 
 
         CALL terra_multlay(                &

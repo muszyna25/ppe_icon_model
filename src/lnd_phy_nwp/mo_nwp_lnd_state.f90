@@ -73,8 +73,8 @@ MODULE mo_nwp_lnd_state
                                      nsfc_subs
   USE mo_linked_list,          ONLY: t_var_list
   USE mo_var_list,             ONLY: default_var_list_settings, &
-    &                               add_var, add_ref,          &
-    &                               new_var_list,              &
+    &                               add_var, add_ref,           &
+    &                               new_var_list,               &
     &                               delete_var_list
   USE mo_cf_convention
   USE mo_grib2

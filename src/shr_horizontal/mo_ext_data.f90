@@ -91,9 +91,9 @@ MODULE mo_ext_data
   PUBLIC :: t_external_ocean
 !  PUBLIC :: external_ocean_td
   PUBLIC :: ext_data
+  PUBLIC :: nclass_lu
 
   PUBLIC :: init_ext_data
-  PUBLIC :: construct_ext_data  ! PUBLIC attribute only necessary for postpro.f90
   PUBLIC :: destruct_ext_data
   PUBLIC :: smooth_topography, read_netcdf_data
 
