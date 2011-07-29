@@ -68,7 +68,7 @@ USE mo_run_config,           ONLY: nsteps, ntracer
 USE mo_ncar_testcases,      ONLY: init_pure_adv_wind, init_pure_adv_tracers
 USE mo_io_units,            ONLY: find_next_free_unit
 USE mo_exception,           ONLY: finish
-USE mo_mpi,                 ONLY: p_pe, p_io
+USE mo_mpi,                 ONLY: my_process_is_stdio
 USE mo_datetime,            ONLY: rdaylen
 
 IMPLICIT NONE
@@ -437,7 +437,7 @@ CONTAINS
 
 
     ! Open the datafile in first time step
-    IF ( p_pe == p_io .AND. k_step == 1 ) THEN
+    IF ( my_process_is_stdio() .AND. k_step == 1 ) THEN
       file_ti   = 'vertical_velocity.dat'
       n_file_ti = find_next_free_unit(10,20)
       OPEN( UNIT=n_file_ti, FILE=TRIM(file_ti), FORM='FORMATTED', IOSTAT=ist )
@@ -611,7 +611,7 @@ CONTAINS
 !    ENDDO
 
     ! write vertical velocity to data file
-    IF(p_pe == p_io .AND. k_step >= 1) THEN
+    IF(my_process_is_stdio() .AND. k_step >= 1) THEN
       zsim_days = p_sim_time / rdaylen
       WRITE(n_file_ti,'(i21,f22.8,e22.8,e22.8)') &
             k_step, zsim_days, zomega_mid, zw

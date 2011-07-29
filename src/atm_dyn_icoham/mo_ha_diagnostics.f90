@@ -50,7 +50,7 @@ MODULE mo_ha_diagnostics
   USE mo_vertical_coord_table, ONLY: dela, delb
   USE mo_icoham_dyn_types,   ONLY: t_hydro_atm, t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_io_units,           ONLY: find_next_free_unit
-  USE mo_mpi,                ONLY: p_pe, p_io
+  USE mo_mpi,                ONLY: my_process_is_stdio
   USE mo_sync,               ONLY: global_sum_array
 
   IMPLICIT NONE
@@ -364,7 +364,7 @@ MODULE mo_ha_diagnostics
       ENDIF
 
 
-     IF(p_pe == p_io) THEN
+     IF(my_process_is_stdio()) THEN
 
       ! calculate the relative error of total mass, energy and tracer
       IF (k_step == 1) THEN
@@ -406,7 +406,7 @@ MODULE mo_ha_diagnostics
           ENDDO
 
         ENDIF ! ntracer > 0
-      ENDIF ! p_pe == p_io
+      ENDIF ! my_process_is_stdio()
 
       ! save the total integrals for the next step
       total_mass_old = z_total_mass
@@ -440,7 +440,7 @@ MODULE mo_ha_diagnostics
         ENDIF
       ENDIF
  
-     ENDIF ! p_pe == p_io
+     ENDIF ! my_process_is_stdio()
 
   !=====================================================
   ! Shallow water model model (lshallow_water = .TRUE.)
@@ -510,7 +510,7 @@ MODULE mo_ha_diagnostics
 
       DEALLOCATE(z_circulation, z_enstrophy)
 
-      IF(p_pe == p_io) THEN
+      IF(my_process_is_stdio()) THEN
         WRITE(n_file_ti,'(i24,f24.10,e24.10,e24.10,e24.10,e24.10)') &
               k_step,z_elapsed_time,z_total_mass,z_total_energy,&
               z_total_circulation,z_total_enstrophy
@@ -518,7 +518,7 @@ MODULE mo_ha_diagnostics
         IF (k_step == nsteps) THEN
           CLOSE(UNIT=n_file_ti)
         ENDIF
-      ENDIF ! p_pe == p_io
+      ENDIF ! my_process_is_stdio()
 
   ENDIF !(.NOT.lshallow_water)
 
