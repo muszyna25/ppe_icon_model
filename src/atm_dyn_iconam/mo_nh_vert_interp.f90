@@ -1872,6 +1872,8 @@ CONTAINS
     REAL(wp), DIMENSION(nproma) :: uv1, uv2, dudz_up
     LOGICAL , DIMENSION(nproma) :: l_found
 
+    LOGICAL :: lrestore_fricred
+
     REAL(wp), DIMENSION(nproma,nlevs_in)  :: zalml_in, fric_red, uv_mod, g1, g2, g3
     REAL(wp), DIMENSION(nproma,nlevs_out) :: zalml_out, zdiff_inout, red_speed
 
@@ -1886,6 +1888,11 @@ CONTAINS
       mult_limit = 0.5_wp
     ENDIF
 
+    IF (PRESENT(l_restore_fricred)) THEN
+      lrestore_fricred = l_restore_fricred
+    ELSE
+      lrestore_fricred = .TRUE.
+    ENDIF
 
 !$OMP PARALLEL
 
@@ -2053,7 +2060,7 @@ CONTAINS
       ENDDO
 
       ! subtract frictional reduction from preliminary wind field
-      IF (l_restore_fricred) THEN
+      IF (lrestore_fricred) THEN
         jk_start = jk_start_in - 1
         DO jk = jk_start_out, nlevs_out
           l_found(:) = .FALSE.
