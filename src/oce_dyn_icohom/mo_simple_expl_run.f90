@@ -49,7 +49,7 @@ MODULE mo_simple_expl_run
 !-------------------------------------------------------------------------
 !
 USE mo_kind,                   ONLY: wp
-USE mo_mpi,                    ONLY: my_process_is_stdio()
+USE mo_mpi,                    ONLY: my_process_is_stdio
 USE mo_parallel_config,  ONLY: nproma
 USE mo_io_units,               ONLY: filename_max
 !USE mo_impl_constants,         ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
