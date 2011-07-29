@@ -43,7 +43,6 @@ MODULE mo_oce_tracer_transport
 !   
 ! 
 USE mo_kind,                      ONLY: wp, sp
-USE mo_mpi,                       ONLY: p_pe, p_io
 USE mo_math_utilities,            ONLY: t_cartesian_coordinates!, gc2cc
 USE mo_impl_constants,            ONLY: sea_boundary, sea,&
   &                                     min_rlcell, min_rledge, min_rlcell, &

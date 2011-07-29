@@ -49,7 +49,7 @@ MODULE mo_simple_expl_run
 !-------------------------------------------------------------------------
 !
 USE mo_kind,                   ONLY: wp
-USE mo_mpi,                    ONLY: p_pe, p_io
+USE mo_mpi,                    ONLY: my_process_is_stdio()
 USE mo_parallel_config,  ONLY: nproma
 USE mo_io_units,               ONLY: filename_max
 !USE mo_impl_constants,         ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
@@ -182,7 +182,7 @@ CONTAINS
       !WRITE(message_text,'(a,i10)') ' - begin of jstep =', jstep
       !CALL message (TRIM(routine), message_text)
 
-      IF (p_pe == p_io .AND. ldbg) THEN
+      IF (my_process_is_stdio() .AND. ldbg) THEN
 
         jkp=c_k+1
         IF ( iswm_oce == 1 ) jkp=c_k
@@ -232,7 +232,7 @@ CONTAINS
           &                 pstate_oce(jg)%p_prog(jt)%tracer(:,:,:,1:2), &
           &                 pstate_oce(jg)%p_diag%rho(:,:,:) )
 
-        IF (p_pe == p_io .AND. ldbg) THEN
+        IF (my_process_is_stdio() .AND. ldbg) THEN
           WRITE(message_text,form4ar) &
             &   'Density    C =', pstate_oce(jg)%p_diag%rho(c_i,c_k,c_b),   &
             &  '  Dens(k+1) C =', pstate_oce(jg)%p_diag%rho(c_i,c_k+1,c_b), &
@@ -248,7 +248,7 @@ CONTAINS
           &                        pstate_oce(jg)%p_diag%rho(:,:,:),       &
           &                        pstate_oce(jg)%p_prog(jt)%h(:,:),       &
           &                        pstate_oce(jg)%p_diag%press_hyd(:,:,:) )
-        IF (p_pe == p_io .AND. ldbg) THEN
+        IF (my_process_is_stdio() .AND. ldbg) THEN
           WRITE(message_text,form4ar) &
             &   'Hyd.Press. C =', pstate_oce(jg)%p_diag%press_hyd(c_i,c_k,c_b),   &
             &  '  Pres(k+1) C =', pstate_oce(jg)%p_diag%press_hyd(c_i,c_k+1,c_b), &
@@ -287,7 +287,7 @@ CONTAINS
       ! #slo# use 3-d version!
       CALL grad_fd_norm_oce_2d( pstate_oce(jg)%p_prog(jt)%h, ppatch(jg), z_gradh_e)
 
-      IF (p_pe == p_io .AND. ldbg) THEN
+      IF (my_process_is_stdio() .AND. ldbg) THEN
         WRITE(message_text,form4ar) &
           &   'Elev. at C1  =', pstate_oce(jg)%p_prog(jt)%h(nc_i(1),nc_b(1)), &
           &  '  Elevat. C2  =', pstate_oce(jg)%p_prog(jt)%h(nc_i(2),nc_b(2)), &
@@ -347,7 +347,7 @@ CONTAINS
         END DO
       END DO
 
-      IF (p_pe == p_io .AND. ldbg) THEN
+      IF (my_process_is_stdio() .AND. ldbg) THEN
         WRITE(message_text,form4ar) &
           &   'Press.gradE1 =', pstate_oce(jg)%p_diag%press_grad(ne_i(1),c_k,ne_b(1)), &
           &  '   P_grad  E2 =', pstate_oce(jg)%p_diag%press_grad(ne_i(2),c_k,ne_b(2)), &
@@ -384,7 +384,7 @@ CONTAINS
       ! #slo# - change sequence in mo_math: call calc_vert_veloc(vn_e,ppatch,h_c,w_c)
       !PKCALL calc_vert_velocity(ppatch(jg), z_vn_pred_e, pstate_oce(jg)%p_prog(jt)%h, z_w_pred_c )
 
-      IF (p_pe == p_io .AND. ldbg) THEN
+      IF (my_process_is_stdio() .AND. ldbg) THEN
 
         ! test call of divergence of hor.vel. as in calc_vert_velocity:
         CALL div_oce( z_vn_pred_e, ppatch(jg), z_divhor_c)
@@ -417,7 +417,7 @@ CONTAINS
 
       z_h_pred_c(:,1,:) = pstate_oce(jg)%p_prog(jt)%h(:,:) + dtime * z_w_pred_c(:,1,:)
 
-      IF (p_pe == p_io .AND. ldbg) THEN
+      IF (my_process_is_stdio() .AND. ldbg) THEN
         jkp=3
         if ( iswm_oce == 1 ) jkp=2
         WRITE(message_text,form4ar) &
@@ -465,7 +465,7 @@ CONTAINS
         z_tracer_c(:,:,:) = pstate_oce(jg)%p_prog(jt)%tracer(:,:,:,1)
         CALL upwind_hflux_oce( ppatch(jg), z_tracer_c, z_vn_pred_e, z_h_e(:,1,:), z_upflux_e )
 
-        IF (p_pe == p_io .AND. ldbg) THEN
+        IF (my_process_is_stdio() .AND. ldbg) THEN
           WRITE(message_text,form4ar) &
             &     'Mapped H  E1 =', z_h_e(ne_i(1),c_k,ne_b(1)), &
             &    '  Mapped H E2 =', z_h_e(ne_i(2),c_k,ne_b(2)), &
@@ -535,7 +535,7 @@ CONTAINS
         z_tracer_c(:,:,:) = z_tracer_c(:,:,:)*ppatch(jg)%patch_oce%wet_c(:,:,:) + &
           &                 z_trtend_c(:,:,:)
 
-        IF (p_pe == p_io .AND. ldbg) THEN
+        IF (my_process_is_stdio() .AND. ldbg) THEN
           WRITE(message_text,form4ar) &
             &     'Horflx    E1 =', z_upflux_e(ne_i(1),c_k,ne_b(1)), &
             &    '  Horflx   E2 =', z_upflux_e(ne_i(2),c_k,ne_b(2)), &
@@ -625,7 +625,7 @@ CONTAINS
     ENDDO TIME_LOOP
 
 
-    IF (p_pe == p_io .AND. ldbg) THEN
+    IF (my_process_is_stdio() .AND. ldbg) THEN
       CALL message (TRIM(routine),' - after completion of time loop at cell C:')
       WRITE(message_text,form4ar) &
         &   'Elevation h  =', pstate_oce(jg)%p_prog(jt)%h (c_i,c_b), &
@@ -761,7 +761,7 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-    IF (p_pe == p_io .AND. ldbg) THEN
+    IF (my_process_is_stdio() .AND. ldbg) THEN
       WRITE(*,form4ar) &
         &  '  zhorflx  E1 =', zhorflx_e(ne_i(1),c_k,ne_b(1)), &
         & '         ph_e  =', ph_e(ne_i(1),ne_b(1))
@@ -854,7 +854,7 @@ CONTAINS
               &  laxfr_upflux_v( pw_c(jc,jk,jb),  &
               &                  pvar_c(jc,jkm1,jb), pvar_c(jc,jk,jb), zcoeff_grid )
 
-            IF (p_pe == p_io .AND. ldbg) THEN
+            IF (my_process_is_stdio() .AND. ldbg) THEN
               IF ((jb==110).and.(jc==14).and.(jk==2)) THEN
                 WRITE(*,form4ar) &
                   &  '  pupflux_v C =', pupflux_i(jc,jk,jb), &

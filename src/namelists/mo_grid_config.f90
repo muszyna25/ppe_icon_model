@@ -38,7 +38,6 @@ MODULE mo_grid_config
   USE mo_exception,          ONLY: message_text, finish
   USE mo_impl_constants,     ONLY: max_dom, itri, ihex
   USE mo_io_units,           ONLY: filename_max 
-!  USE mo_mpi,                ONLY: p_pe, p_io
 
 #ifndef NOMPI
 ! The USE statement below lets this module use the routines from

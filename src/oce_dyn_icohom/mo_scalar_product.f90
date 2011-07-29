@@ -46,7 +46,6 @@ MODULE mo_scalar_product
 !-------------------------------------------------------------------------
 !
 USE mo_kind,               ONLY: wp
-!USE mo_mpi,                ONLY: p_pe, p_io
 !USE mo_io_units,           ONLY: filename_max
 USE mo_parallel_config,  ONLY: nproma
 USE mo_physical_constants, ONLY : re

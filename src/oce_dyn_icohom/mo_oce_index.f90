@@ -37,7 +37,7 @@ MODULE mo_oce_index
 !-------------------------------------------------------------------------
 !
 USE mo_kind,                   ONLY: wp
-USE mo_mpi,                    ONLY: p_pe, p_io
+USE mo_mpi,                    ONLY: my_process_is_stdio
 USE mo_io_units,               ONLY: nerr
 USE mo_parallel_config,  ONLY: nproma
 USE mo_run_config,             ONLY: nsteps
@@ -482,7 +482,7 @@ CONTAINS
  !  ipl_indx = 0
  !END IF
 
-  IF (p_pe == p_io) THEN
+  IF (my_process_is_stdio()) THEN
     WRITE(iout,99) ' MAX/MIN ',strout,':',klev, &
       &              maxval(p_array(1:nproma,klev,1:ndimblk)),     &
       &              minval(p_array(1:nproma,klev,1:ndimblk))

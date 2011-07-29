@@ -44,7 +44,6 @@ MODULE mo_oce_diffusion
 !   
 ! 
 USE mo_kind,                      ONLY: wp
-!USE mo_mpi,                       ONLY: p_pe, p_io
 USE mo_physical_constants
 USE mo_math_utilities,            ONLY: t_cartesian_coordinates, gvec2cvec!, gc2cc
 USE mo_impl_constants,            ONLY: boundary, sea_boundary ,max_char_length, &
