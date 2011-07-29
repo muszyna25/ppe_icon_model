@@ -121,8 +121,8 @@ USE data_modelconfig, ONLY :   &
 !------------------------------------------------------------------------------
 
 USE data_constants  , ONLY :   &
-
-! 2. physical constants and related variables
+!
+! 0. physical constants and related variables
 ! -------------------------------------------
     r_d        ,    & ! gas constant for dry air
     cp_d       ,    & ! specific heat of dry air at constant pressure
@@ -132,8 +132,8 @@ USE data_constants  , ONLY :   &
 
 !------------------------------------------------------------------------------
 
-USE data_fields     , ONLY :   &
-
+USE data_fields     , ONLY :    &
+!
 ! 1. constant fields for the reference atmosphere                     (unit)
 ! -----------------------------------------------
     p0         ,    & ! reference pressure at full levels             ( Pa  )
@@ -174,8 +174,8 @@ USE data_fields     , ONLY :   &
 
 !------------------------------------------------------------------------------
 
-USE data_runcontrol , ONLY :   &
-
+USE data_runcontrol , ONLY :    &
+!
 ! 1. start and end of the forecast
 ! --------------------------------
                       ! indices for permutation of three time levels
@@ -226,8 +226,8 @@ PUBLIC :: sso
 ! The following variables are tunable parameters for the sub-grid scale
 ! orography scheme. They are global in this module.
 
-REAL (KIND = ireals) ::     &
-
+REAL (KIND = ireals) ::      &
+!
 ! Tunable parameters
 ! ------------------
 ! Gsigcr  = 0.80_ireals   , &   ! top layer for low level drag
