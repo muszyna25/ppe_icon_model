@@ -405,6 +405,9 @@ CONTAINS
     !-------------------------------------------------------------------------
 
     ALLOCATE(nclass_lu(n_dom))
+    ! Set default value for nclass_lu. Will be overwritten, if external data 
+    ! are read from file
+    nclass_lu(1:n_dom) = 1
     CALL inquire_external_files(p_patch)
 
 
@@ -1408,7 +1411,6 @@ CONTAINS
       !------------------------------------------------!
 
       IF(irad_o3 == 3) THEN
-
         ! default values for nlev_pres and nmonths
         nlev_pres = 1
         nmonths   = 1
@@ -1674,6 +1676,7 @@ CONTAINS
       !-------------------------------------------------------
 
     IF(irad_o3 == 3) THEN
+
       DO jg = 1,n_dom
         IF(p_pe == p_io) THEN
 
