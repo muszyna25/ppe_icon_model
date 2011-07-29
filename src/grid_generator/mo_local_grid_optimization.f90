@@ -65,8 +65,8 @@ MODULE mo_local_grid_optimization
   USE mo_io_units,       ONLY: nnml, filename_max
   USE mo_namelist,       ONLY: position_nml, open_nml, positioned
   USE mo_math_constants, ONLY: pi
-  USE mo_local_grid_geometry,ONLY: get_triangle_circumcenters, get_cell_barycenters,&
-    & use_cartesian_centers
+  USE mo_local_grid_geometry,ONLY: get_triangle_circumcenters, get_cell_barycenters !,&
+!    & use_cartesian_centers
   USE mo_io_local_grid,  ONLY: read_netcdf_grid, write_netcdf_grid
   USE mo_grid_toolbox,   ONLY: get_basic_dual_grid
   USE mo_timer,          ONLY: new_timer, timer_start, timer_stop, print_timer, delete_timer
@@ -90,7 +90,6 @@ MODULE mo_local_grid_optimization
   REAL(wp) :: prime_ref_length_coeff, prime_centers_ref_length_coeff
   REAL(wp) :: dual_ref_length_coeff, dual_centers_ref_length_coeff
 
-  REAL(wp) :: edge_ratio_condition
   REAL(wp) :: p_total_force_condition, p_max_force_condition, max_min_condition
   REAL(wp) :: d_total_force_condition, d_max_force_condition
   REAL(wp) :: centers_vertex_condition

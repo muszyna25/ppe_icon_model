@@ -46,8 +46,7 @@ MODULE mo_create_ocean_grid
   USE mo_io_units,             ONLY: filename_max, nnml
   USE mo_namelist,             ONLY: position_nml, open_nml, positioned
   USE mo_local_grid
-  USE mo_grid_conditions,      ONLY: cut_conditional_grid, &
-    & read_grid_conditions, get_conditional_cells
+  USE mo_grid_conditions,      ONLY: read_grid_conditions, get_conditional_cells
   USE mo_io_local_grid,        ONLY: read_new_netcdf_grid, write_netcdf_grid, &
     & read_netcdf_cell_elevation, write_netcdf_vertical_strc
   USE mo_grid_toolbox,         ONLY: get_grid_from_cell_list, &
