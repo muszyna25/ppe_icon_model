@@ -189,10 +189,6 @@ CONTAINS
     END SELECT
     
 
-    !-----------------------------------------------------
-    ! Set dependent variables
-    !-----------------------------------------------------
-
            
 !     write(0,*) no_of_dynamics_grids
 !     write(0,*) dynamics_grid_filename(1:no_of_dynamics_grids)
@@ -205,17 +201,6 @@ CONTAINS
 
 !     CALL finish("grid_nml_setup","stop")
 
-    !-----------------------------------------------------                                        
-    ! Store the namelist for restart                                                              
-    !-----------------------------------------------------                                        
-   !funit = open_tmpfile()                                                                        
-   !WRITE(funit,NML=grid_nml)                                                                     
-   !CALL store_and_close_namelist(funit, 'grid_nml')
-
-    ! write the contents of the namelist to an ASCII file
-!     IF(p_pe == p_io) WRITE(nnml_output,nml=grid_nml)
-
-!     write(0,*) method_name, ' is done'
   END SUBROUTINE check_grid_configuration
   !-------------------------------------------------------------------------
 

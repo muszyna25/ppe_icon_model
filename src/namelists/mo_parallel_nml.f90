@@ -209,10 +209,11 @@ MODULE mo_parallel_nml
     !-----------------------------------------------------
     ! Store the namelist for restart
     !-----------------------------------------------------
-    funit = open_tmpfile()
-    WRITE(funit,NML=parallel_nml)
-    CALL store_and_close_namelist(funit, 'parallel_nml')
-    
+    IF(my_process_is_stdio())  THEN
+      funit = open_tmpfile()
+      WRITE(funit,NML=parallel_nml)
+      CALL store_and_close_namelist(funit, 'parallel_nml')
+    ENDIF
     !-----------------------------------------------------
     ! Write the final namelist to an ASCII file
     IF (my_process_is_stdio()) WRITE(nnml_output,nml=parallel_nml)

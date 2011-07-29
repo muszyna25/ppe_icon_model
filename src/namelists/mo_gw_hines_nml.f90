@@ -195,10 +195,11 @@ CONTAINS
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
     !-----------------------------------------------------
-    funit = open_tmpfile()
-    WRITE(funit,NML=gw_hines_nml)                    
-    CALL store_and_close_namelist(funit, 'gw_hines_nml') 
-
+    IF(my_process_is_stdio())  THEN
+      funit = open_tmpfile()
+      WRITE(funit,NML=gw_hines_nml)                    
+      CALL store_and_close_namelist(funit, 'gw_hines_nml') 
+    ENDIF
     !-----------------------------------------------------
     ! 6. Write the namelist to an ASCII file
     !-----------------------------------------------------

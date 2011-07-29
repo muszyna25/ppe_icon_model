@@ -52,7 +52,7 @@ MODULE mo_advection_nml
     &                               inol, islopel_sm, islopel_m, ifluxl_m,      &
     &                               ifluxl_sm, inol_v, islopel_vsm, ifluxl_vpd
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
-  USE mo_mpi,                 ONLY: p_pe, p_io
+  USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,     &
     &                               open_and_restore_namelist, close_tmpfile
   USE mo_advection_config,    ONLY: advection_config 
@@ -294,14 +294,15 @@ CONTAINS
     !-----------------------------------------------------
     ! 6. Store the namelist for restart
     !-----------------------------------------------------
-    funit = open_tmpfile()
-    WRITE(funit,NML=transport_nml)                    
-    CALL store_and_close_namelist(funit, 'transport_nml')             
-
+    IF(my_process_is_stdio())  THEN
+      funit = open_tmpfile()
+      WRITE(funit,NML=transport_nml)                    
+      CALL store_and_close_namelist(funit, 'transport_nml')             
+    ENDIF
 
     ! 7. write the contents of the namelist to an ASCII file
     !
-    IF(p_pe == p_io) WRITE(nnml_output,nml=transport_nml)
+    IF(my_process_is_stdio()) WRITE(nnml_output,nml=transport_nml)
 
 
   END SUBROUTINE read_transport_namelist

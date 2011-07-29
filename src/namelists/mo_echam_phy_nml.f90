@@ -51,6 +51,7 @@ MODULE mo_echam_phy_nml
   USE mo_master_control,     ONLY: is_restart_run
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist, &
                                  & open_and_restore_namelist, close_tmpfile
+  USE mo_mpi,                ONLY: my_process_is_stdio
 
   IMPLICIT NONE
   PRIVATE
@@ -127,10 +128,11 @@ CONTAINS
     !-----------------------------------------------------
     ! Store the namelist for restart
     !-----------------------------------------------------
-    funit = open_tmpfile()
-    WRITE(funit,NML=echam_phy_nml)
-    CALL store_and_close_namelist(funit, 'echam_phy_nml')
-
+    IF(my_process_is_stdio())  THEN
+      funit = open_tmpfile()
+      WRITE(funit,NML=echam_phy_nml)
+      CALL store_and_close_namelist(funit, 'echam_phy_nml')
+    ENDIF
     !-----------------------------------------------------
     ! Fill the configuration state
     !-----------------------------------------------------

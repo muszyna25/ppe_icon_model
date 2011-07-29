@@ -138,10 +138,12 @@ CONTAINS
     !-----------------------------------------------------
     ! 4. Store the namelist for restart
     !-----------------------------------------------------
-    funit = open_tmpfile()
-    WRITE(funit,NML=dynamics_nml)
-    CALL store_and_close_namelist(funit, 'dynamics_nml')
-
+    IF(my_process_is_stdio())  THEN
+      funit = open_tmpfile()
+      WRITE(funit,NML=dynamics_nml)
+      CALL store_and_close_namelist(funit, 'dynamics_nml')
+    ENDIF
+    
     ! write the contents of the namelist to an ASCII file
     IF(my_process_is_stdio()) WRITE(nnml_output,nml=dynamics_nml)
 

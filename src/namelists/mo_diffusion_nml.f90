@@ -200,10 +200,11 @@ CONTAINS
     !-----------------------------------------------------
     ! 6. Store the namelist for restart
     !-----------------------------------------------------
-    funit = open_tmpfile()
-    WRITE(funit,NML=diffusion_nml)                    
-    CALL store_and_close_namelist(funit,'diffusion_nml') 
-
+    IF(my_process_is_stdio())  THEN
+      funit = open_tmpfile()
+      WRITE(funit,NML=diffusion_nml)                    
+      CALL store_and_close_namelist(funit,'diffusion_nml') 
+    ENDIF
     ! 7. write the contents of the namelist to an ASCII file
     IF(my_process_is_stdio()) WRITE(nnml_output,nml=diffusion_nml)
 

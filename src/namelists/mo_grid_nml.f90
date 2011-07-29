@@ -48,8 +48,8 @@ MODULE mo_grid_nml
   USE mo_impl_constants,     ONLY: max_dom, itri
   USE mo_math_constants,     ONLY: rad2deg
   USE mo_master_control,     ONLY: is_restart_run
-!  USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist, &
-!                                 & open_and_restore_namelist, close_tmpfile
+  USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,  &
+                                    & open_and_restore_namelist, close_tmpfile
 
   USE mo_grid_config,        ONLY:                                         &
     & config_global_cell_type             => global_cell_type,             &
@@ -121,7 +121,7 @@ MODULE mo_grid_nml
     
     CHARACTER(LEN=*), INTENT(IN) :: filename                                           
     INTEGER  :: i_status, i
-!    INTEGER  :: funit
+    INTEGER  :: funit
 !    INTEGER  :: jg, jlev
 !    CHARACTER(filename_max) :: patch_file, gridtype
 !    INTEGER  ::  patch_level(max_dom)
@@ -156,9 +156,9 @@ MODULE mo_grid_nml
     ! by values in the previous integration.
     !----------------------------------------------------------------
     IF (is_restart_run()) THEN
-    ! funit = open_and_restore_namelist('grid_nml')
-    ! READ(funit,NML=grid_nml)
-    ! CALL close_tmpfile(funit)
+      funit = open_and_restore_namelist('grid_nml')
+      READ(funit,NML=grid_nml)
+      CALL close_tmpfile(funit)
     END IF
 
     !------------------------------------------------------------
@@ -253,17 +253,21 @@ MODULE mo_grid_nml
 
 !     CALL finish("grid_nml_setup","stop")
 
-    !-----------------------------------------------------                                        
-    ! Store the namelist for restart                                                              
-    !-----------------------------------------------------                                        
-  ! funit = open_tmpfile()
-  ! WRITE(funit,NML=grid_nml)
-  ! CALL store_and_close_namelist(funit, 'grid_nml')
 
-    ! write the contents of the namelist to an ASCII file
-    IF(my_process_is_stdio()) WRITE(nnml_output,nml=grid_nml)
+    !-----------------------------------------------------
+    !  Store the namelist for restart
+    !-----------------------------------------------------
+    IF(my_process_is_stdio())  THEN
+      funit = open_tmpfile()
+      WRITE(funit,NML=grid_nml)
+      CALL store_and_close_namelist(funit, 'grid_nml')
 
-!     write(0,*) 'read_grid_namelist:', TRIM(dynamics_grid_filename(1))
+      ! write the contents of the namelist to an ASCII file
+      WRITE(nnml_output,nml=grid_nml)
+    ENDIF
+
+
+    !-----------------------------------------------------
     CALL fill_grid_nml_configure()
        
   END SUBROUTINE read_grid_namelist

@@ -38,6 +38,7 @@ MODULE mo_vdiff_nml
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
                                   & open_and_restore_namelist, close_tmpfile
+  USE mo_mpi,                 ONLY: my_process_is_stdio
 
   IMPLICIT NONE
   PRIVATE
@@ -93,9 +94,11 @@ CONTAINS
     !-----------------------------------------------------
     ! Store the namelist for restart
     !-----------------------------------------------------
-    funit = open_tmpfile()
-    WRITE(funit,NML=vdiff_nml)
-    CALL store_and_close_namelist(funit, 'vdiff_nml')
+    IF(my_process_is_stdio())  THEN
+      funit = open_tmpfile()
+      WRITE(funit,NML=vdiff_nml)
+      CALL store_and_close_namelist(funit, 'vdiff_nml')
+    ENDIF
 
     !-----------------------------------------------------
     ! Fill the configuration state

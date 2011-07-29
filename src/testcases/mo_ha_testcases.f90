@@ -237,10 +237,11 @@ MODULE mo_ha_testcases
     !-----------------------------------------------------
     ! Store the namelist for restart
     !-----------------------------------------------------
-    funit = open_tmpfile()
-    WRITE(funit,NML=ha_testcase_nml)
-    CALL store_and_close_namelist(funit, 'ha_testcase_nml')
-
+    IF(my_process_is_stdio())  THEN
+      funit = open_tmpfile()
+      WRITE(funit,NML=ha_testcase_nml)
+      CALL store_and_close_namelist(funit, 'ha_testcase_nml')
+    ENDIF
     ! Write the contents of the namelist to an ASCII file.
     ! Probably will be removed later.
     IF(my_process_is_stdio()) WRITE(nnml_output,nml=ha_testcase_nml)

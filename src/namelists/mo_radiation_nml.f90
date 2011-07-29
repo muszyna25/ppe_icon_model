@@ -70,8 +70,8 @@ MODULE mo_radiation_nml
                                  & config_mmr_o2     => mmr_o2
 
   USE mo_kind,               ONLY: wp
-  USE mo_mpi,                ONLY: p_pe, p_io
-  USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml 
+  USE mo_mpi,                ONLY: my_process_is_stdio
+  USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_physical_constants, ONLY: amd, amco2, amch4, amn2o, amo2
   USE mo_master_control,     ONLY: is_restart_run
@@ -263,13 +263,14 @@ CONTAINS
     !-----------------------------------------------------
     ! 5. Store the namelist for restart
     !-----------------------------------------------------
-    funit = open_tmpfile()
-    WRITE(funit,NML=radiation_nml)                    
-    CALL store_and_close_namelist(funit, 'radiation_nml') 
-
+    IF(my_process_is_stdio())  THEN
+      funit = open_tmpfile()
+      WRITE(funit,NML=radiation_nml)
+      CALL store_and_close_namelist(funit, 'radiation_nml') 
+    ENDIF
     ! 6. write the contents of the namelist to an ASCII file
     !
-    IF(p_pe == p_io) WRITE(nnml_output,nml=radiation_nml)
+    IF(my_process_is_stdio()) WRITE(nnml_output,nml=radiation_nml)
 
   END SUBROUTINE read_radiation_namelist
 

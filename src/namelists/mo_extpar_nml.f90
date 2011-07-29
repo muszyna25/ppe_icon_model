@@ -36,7 +36,7 @@ MODULE mo_extpar_nml
   USE mo_exception,           ONLY: finish
   USE mo_io_units,            ONLY: nnml, nnml_output
   USE mo_namelist,            ONLY: position_nml, positioned, open_nml, close_nml
-  USE mo_mpi,                 ONLY: p_pe, p_io
+  USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_master_control,      ONLY: is_restart_run
 
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist         , &
@@ -119,12 +119,13 @@ CONTAINS
     !-----------------------------------------------------
     ! Store the namelist for restart
     !-----------------------------------------------------
-    funit = open_tmpfile()
-    WRITE(funit,NML=extpar_nml)
-    CALL store_and_close_namelist(funit, 'extpar_nml')
-
+    IF(my_process_is_stdio())  THEN
+      funit = open_tmpfile()
+      WRITE(funit,NML=extpar_nml)
+      CALL store_and_close_namelist(funit, 'extpar_nml')
+    ENDIF
     !write the contents of the namelist to an ASCII file
-    IF(p_pe == p_io) WRITE(nnml_output,nml=extpar_nml)
+    IF(my_process_is_stdio()) WRITE(nnml_output,nml=extpar_nml)
 
   END SUBROUTINE read_extpar_namelist
 
