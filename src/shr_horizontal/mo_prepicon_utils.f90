@@ -62,8 +62,8 @@ MODULE mo_prepicon_utils
                                     gather_array1, gather_array2
   USE mo_datetime,            ONLY: t_datetime, print_datetime
   USE mo_io_config,              ONLY: lkeep_in_sync
-  USE mo_nh_init_utils,       ONLY: nflat, nflatlev, compute_smooth_topo, init_vert_coord, &
-                                    topography_blending, topography_feedback,              &
+  USE mo_nh_init_utils,       ONLY: nflat, nflatlev, compute_smooth_topo, init_vert_coord,  &
+                                    topography_blending, topography_feedback, hydro_adjust, &
                                     interp_uv_2_vn, init_w, convert_thdvars, virtual_temp
   USE mo_model_domain_import, ONLY: lfeedback
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
@@ -91,7 +91,7 @@ MODULE mo_prepicon_utils
   TYPE :: t_pi_sfc_in
 
     REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: tsnow, tskin, snowweq, snowdens, &
-                                              skinres, ls_mask, seaice
+                                              skinres, ls_mask, seaice, phi
     REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: tsoil, wsoil
 
   END TYPE t_pi_sfc_in
@@ -435,6 +435,13 @@ MODULE mo_prepicon_utils
 
       IF (i_oper_mode >= 2 .AND. l_sfc_in) THEN ! Read also surface data
 
+        ! Here, surface-level surface geopotential should be read in
+        ! This is not yet available because it has the same GRIB code as model-level 
+        ! surface geopotential, thus, we use the latter for the time being
+        CALL read_netcdf_data (ncid, 'GEOSP', p_patch(jg)%n_patch_cells_g,              &
+          &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+          &                     prepicon(jg)%sfc_in%phi)
+
         CALL read_netcdf_data (ncid, 'SKT', p_patch(jg)%n_patch_cells_g,                &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     prepicon(jg)%sfc_in%tskin)
@@ -566,7 +573,11 @@ MODULE mo_prepicon_utils
 
         ext_data(jg)%atm%topography_c(:,:) = prepicon(jg)%topography_c(:,:)
         ext_data(jg)%atm%topography_v(:,:) = prepicon(jg)%topography_v(:,:)
-
+        IF (l_sfc_in) THEN
+          ! In addition, copy climatological deep-soil temperature to soil level nlev_soil+1
+          ! These are limited to -60 deg C because less is definitely nonsense
+          prepicon(jg)%sfc%tsoil(:,:,nlev_soil+1) = MAX(213.15_wp,ext_data(jg)%atm%t_cl(:,:))
+        ENDIF
       ENDDO
 
     ENDIF
@@ -638,7 +649,7 @@ MODULE mo_prepicon_utils
     TYPE(t_nh_state),  INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_lnd_state), INTENT(INOUT) :: p_lnd_state(:)
 
-    INTEGER :: jg, jb, jk, jc, je, jt, js
+    INTEGER :: jg, jb, jk, jc, je, jt, js, jp
     INTEGER :: nblks_c, npromz_c, nblks_e, npromz_e, nlen, nlev, nlevp1, ntl, ntlr
 
 !$OMP PARALLEL PRIVATE(jg,nblks_c,npromz_c,nblks_e,npromz_e,nlev,nlevp1,ntl,ntlr)
@@ -672,7 +683,7 @@ MODULE mo_prepicon_utils
       ENDDO
 !$OMP END DO
 
-!$OMP DO PRIVATE(jb,jk,jc,nlen,jt,js)
+!$OMP DO PRIVATE(jb,jk,jc,nlen,jt,js,jp)
       DO jb = 1, nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -705,13 +716,19 @@ MODULE mo_prepicon_utils
           ENDDO
         ENDDO
 
-        ! w at surface level and ground temperature
+        ! w at surface level
         DO jc = 1, nlen
           p_nh_state(jg)%prog(ntl)%w(jc,nlevp1,jb)  = prepicon(jg)%atm%w(jc,nlevp1,jb)
-          p_lnd_state(jg)%prog_lnd(ntlr)%t_g(jc,jb) = prepicon(jg)%sfc%tskin(jc,jb)
         ENDDO
 
-        IF ( atm_phy_nwp_config(jg)%inwp_surface > 0 ) THEN
+        ! ground temperature
+        IF (l_sfc_in) THEN
+          DO jc = 1, nlen
+            p_lnd_state(jg)%prog_lnd(ntlr)%t_g(jc,jb) = prepicon(jg)%sfc%tskin(jc,jb)
+          ENDDO
+        ENDIF
+
+        IF ( l_sfc_in .AND. atm_phy_nwp_config(jg)%inwp_surface > 0 ) THEN
           DO jt = 1, nsfc_subs
             DO jc = 1, nlen
               p_lnd_state(jg)%prog_lnd(ntlr)%t_snow(jc,jb,jt)   = prepicon(jg)%sfc%tsnow(jc,jb)
@@ -721,13 +738,23 @@ MODULE mo_prepicon_utils
             ENDDO
           ENDDO
 
+          ! Multi-layer surface fields
           DO jt = 1, nsfc_subs
-            DO js = 1, nlev_soil+2
+
+            DO js = 0, nlev_soil+1
+              jp = js+1 ! indexing for the ICON state field starts at 1
               DO jc = 1, nlen
-                p_lnd_state(jg)%prog_lnd(ntlr)%t_so(jc,js,jb,jt)= prepicon(jg)%sfc%tsoil(jc,js,jb)
-                p_lnd_state(jg)%prog_lnd(ntlr)%w_so(jc,js,jb,jt)= prepicon(jg)%sfc%wsoil(jc,js,jb)
+                p_lnd_state(jg)%prog_lnd(ntlr)%t_so(jc,jp,jb,jt)= prepicon(jg)%sfc%tsoil(jc,js,jb)
               ENDDO
             ENDDO
+
+            ! For soil water, no comparable layer shift exists
+    !        DO js = 1, nlev_soil+1
+    !          DO jc = 1, nlen
+    !            p_lnd_state(jg)%prog_lnd(ntlr)%w_so(jc,js,jb,jt)= prepicon(jg)%sfc%wsoil(jc,js,jb)
+    !          ENDDO
+    !        ENDDO
+
           ENDDO
         ENDIF
 
@@ -736,6 +763,17 @@ MODULE mo_prepicon_utils
 
     ENDDO
 !$OMP END PARALLEL
+
+    ! Finally, compute exact hydrostatic adjustment for thermodynamic fields
+    DO jg = 1, n_dom
+
+      ntl = nnow(jg)
+
+      CALL hydro_adjust(p_patch(jg), p_nh_state(jg)%metrics,                                  &
+                        p_nh_state(jg)%prog(ntl)%rho,     p_nh_state(jg)%prog(ntl)%exner,     &
+                        p_nh_state(jg)%prog(ntl)%theta_v, p_nh_state(jg)%prog(ntl)%rhotheta_v )
+
+    ENDDO
 
   END SUBROUTINE copy_prepicon2prog
 
@@ -970,15 +1008,17 @@ MODULE mo_prepicon_utils
                  prepicon(jg)%atm_in%qs   (nproma,nlev_in,nblks_c)  )
 
         ! Allocate surface input data
-        ALLOCATE(prepicon(jg)%sfc_in%tskin    (nproma,nblks_c            ), &
-                 prepicon(jg)%sfc_in%tsnow    (nproma,nblks_c            ), &
-                 prepicon(jg)%sfc_in%snowweq  (nproma,nblks_c            ), &
-                 prepicon(jg)%sfc_in%snowdens (nproma,nblks_c            ), &
-                 prepicon(jg)%sfc_in%skinres  (nproma,nblks_c            ), &
-                 prepicon(jg)%sfc_in%ls_mask  (nproma,nblks_c            ), &
-                 prepicon(jg)%sfc_in%seaice   (nproma,nblks_c            ), &
-                 prepicon(jg)%sfc_in%tsoil    (nproma,nblks_c,nlevsoil_in), &
-                 prepicon(jg)%sfc_in%wsoil    (nproma,nblks_c,nlevsoil_in)  )
+        ! The extra soil temperature levels are not read in; they are only used to simplify vertical interpolation
+        ALLOCATE(prepicon(jg)%sfc_in%phi      (nproma,nblks_c                ), &
+                 prepicon(jg)%sfc_in%tskin    (nproma,nblks_c                ), &
+                 prepicon(jg)%sfc_in%tsnow    (nproma,nblks_c                ), &
+                 prepicon(jg)%sfc_in%snowweq  (nproma,nblks_c                ), &
+                 prepicon(jg)%sfc_in%snowdens (nproma,nblks_c                ), &
+                 prepicon(jg)%sfc_in%skinres  (nproma,nblks_c                ), &
+                 prepicon(jg)%sfc_in%ls_mask  (nproma,nblks_c                ), &
+                 prepicon(jg)%sfc_in%seaice   (nproma,nblks_c                ), &
+                 prepicon(jg)%sfc_in%tsoil    (nproma,nblks_c,0:nlevsoil_in+1), &
+                 prepicon(jg)%sfc_in%wsoil    (nproma,nblks_c,0:nlevsoil_in+1)  )
 
         ! Allocate atmospheric output data
         ALLOCATE(prepicon(jg)%atm%vn        (nproma,nlev  ,nblks_e), &
@@ -997,15 +1037,15 @@ MODULE mo_prepicon_utils
                  prepicon(jg)%atm%qs        (nproma,nlev  ,nblks_c)  )
 
         ! Allocate surface output data
-        ALLOCATE(prepicon(jg)%sfc%tskin    (nproma,nblks_c            ), &
-                 prepicon(jg)%sfc%tsnow    (nproma,nblks_c            ), &
-                 prepicon(jg)%sfc%snowweq  (nproma,nblks_c            ), &
-                 prepicon(jg)%sfc%snowdens (nproma,nblks_c            ), &
-                 prepicon(jg)%sfc%skinres  (nproma,nblks_c            ), &
-                 prepicon(jg)%sfc%ls_mask  (nproma,nblks_c            ), &
-                 prepicon(jg)%sfc%seaice   (nproma,nblks_c            ), &
-                 prepicon(jg)%sfc%tsoil    (nproma,nblks_c,nlev_soil+2), &
-                 prepicon(jg)%sfc%wsoil    (nproma,nblks_c,nlev_soil+2)  )
+        ALLOCATE(prepicon(jg)%sfc%tskin    (nproma,nblks_c              ), &
+                 prepicon(jg)%sfc%tsnow    (nproma,nblks_c              ), &
+                 prepicon(jg)%sfc%snowweq  (nproma,nblks_c              ), &
+                 prepicon(jg)%sfc%snowdens (nproma,nblks_c              ), &
+                 prepicon(jg)%sfc%skinres  (nproma,nblks_c              ), &
+                 prepicon(jg)%sfc%ls_mask  (nproma,nblks_c              ), &
+                 prepicon(jg)%sfc%seaice   (nproma,nblks_c              ), &
+                 prepicon(jg)%sfc%tsoil    (nproma,nblks_c,0:nlev_soil+1), &
+                 prepicon(jg)%sfc%wsoil    (nproma,nblks_c,nlev_soil+1)    )
 
       ENDIF
 
@@ -1053,86 +1093,87 @@ MODULE mo_prepicon_utils
     DO jg = 1, n_dom
 
       ! basic prep_icon data
-      DEALLOCATE(prepicon(jg)%topography_c,   &
-               prepicon(jg)%topography_c_smt, &
-               prepicon(jg)%topography_v,     &
-               prepicon(jg)%topography_v_smt, &
-               prepicon(jg)%z_ifc,            &
-               prepicon(jg)%z_mc              )
+      DEALLOCATE(prepicon(jg)%topography_c,     &
+                 prepicon(jg)%topography_c_smt, &
+                 prepicon(jg)%topography_v,     &
+                 prepicon(jg)%topography_v_smt, &
+                 prepicon(jg)%z_ifc,            &
+                 prepicon(jg)%z_mc              )
 
       IF (i_oper_mode >= 2) THEN
         ! atmospheric input data
-        DEALLOCATE(prepicon(jg)%atm_in%psfc,  &
-                 prepicon(jg)%atm_in%phi_sfc, &
-                 prepicon(jg)%atm_in%pres,    &
-                 prepicon(jg)%atm_in%z3d,     &
-                 prepicon(jg)%atm_in%temp,    &
-                 prepicon(jg)%atm_in%u,       &
-                 prepicon(jg)%atm_in%v,       &
-                 prepicon(jg)%atm_in%w,       &
-                 prepicon(jg)%atm_in%omega,   &
-                 prepicon(jg)%atm_in%qv,      &
-                 prepicon(jg)%atm_in%qc,      &
-                 prepicon(jg)%atm_in%qi,      &
-                 prepicon(jg)%atm_in%qr,      &
-                 prepicon(jg)%atm_in%qs )
+        DEALLOCATE(prepicon(jg)%atm_in%psfc,    &
+                   prepicon(jg)%atm_in%phi_sfc, &
+                   prepicon(jg)%atm_in%pres,    &
+                   prepicon(jg)%atm_in%z3d,     &
+                   prepicon(jg)%atm_in%temp,    &
+                   prepicon(jg)%atm_in%u,       &
+                   prepicon(jg)%atm_in%v,       &
+                   prepicon(jg)%atm_in%w,       &
+                   prepicon(jg)%atm_in%omega,   &
+                   prepicon(jg)%atm_in%qv,      &
+                   prepicon(jg)%atm_in%qc,      &
+                   prepicon(jg)%atm_in%qi,      &
+                   prepicon(jg)%atm_in%qr,      &
+                   prepicon(jg)%atm_in%qs )
 
         ! surface input data
-        DEALLOCATE(prepicon(jg)%sfc_in%tskin,  &
-                 prepicon(jg)%sfc_in%tsnow,    &
-                 prepicon(jg)%sfc_in%snowweq,  &
-                 prepicon(jg)%sfc_in%snowdens, &
-                 prepicon(jg)%sfc_in%skinres,  &
-                 prepicon(jg)%sfc_in%ls_mask,  &
-                 prepicon(jg)%sfc_in%seaice,   &
-                 prepicon(jg)%sfc_in%tsoil,    &
-                 prepicon(jg)%sfc_in%wsoil     )
+        DEALLOCATE(prepicon(jg)%sfc_in%phi,      &
+                   prepicon(jg)%sfc_in%tskin,    &
+                   prepicon(jg)%sfc_in%tsnow,    &
+                   prepicon(jg)%sfc_in%snowweq,  &
+                   prepicon(jg)%sfc_in%snowdens, &
+                   prepicon(jg)%sfc_in%skinres,  &
+                   prepicon(jg)%sfc_in%ls_mask,  &
+                   prepicon(jg)%sfc_in%seaice,   &
+                   prepicon(jg)%sfc_in%tsoil,    &
+                   prepicon(jg)%sfc_in%wsoil     )
 
         ! atmospheric output data
-        DEALLOCATE(prepicon(jg)%atm%vn,    &
-                 prepicon(jg)%atm%u,       &
-                 prepicon(jg)%atm%v,       &
-                 prepicon(jg)%atm%w,       &
-                 prepicon(jg)%atm%temp,    &
-                 prepicon(jg)%atm%exner,   &
-                 prepicon(jg)%atm%pres,    &
-                 prepicon(jg)%atm%rho,     &
-                 prepicon(jg)%atm%theta_v, &
-                 prepicon(jg)%atm%qv,      &
-                 prepicon(jg)%atm%qc,      &
-                 prepicon(jg)%atm%qi,      &
-                 prepicon(jg)%atm%qr,      &
-                 prepicon(jg)%atm%qs       )
+        DEALLOCATE(prepicon(jg)%atm%vn,      &
+                   prepicon(jg)%atm%u,       &
+                   prepicon(jg)%atm%v,       &
+                   prepicon(jg)%atm%w,       &
+                   prepicon(jg)%atm%temp,    &
+                   prepicon(jg)%atm%exner,   &
+                   prepicon(jg)%atm%pres,    &  
+                   prepicon(jg)%atm%rho,     &
+                   prepicon(jg)%atm%theta_v, &
+                   prepicon(jg)%atm%qv,      &
+                   prepicon(jg)%atm%qc,      &
+                   prepicon(jg)%atm%qi,      &
+                   prepicon(jg)%atm%qr,      &
+                   prepicon(jg)%atm%qs       )
 
         ! surface output data
-        DEALLOCATE(prepicon(jg)%sfc%tskin,  &
-                 prepicon(jg)%sfc%tsnow,    &
-                 prepicon(jg)%sfc%snowweq,  &
-                 prepicon(jg)%sfc%snowdens, &
-                 prepicon(jg)%sfc%skinres,  &
-                 prepicon(jg)%sfc%ls_mask,  &
-                 prepicon(jg)%sfc%seaice,   &
-                 prepicon(jg)%sfc%tsoil,    &
-                 prepicon(jg)%sfc%wsoil     )
+        DEALLOCATE(prepicon(jg)%sfc%tskin,    &
+                   prepicon(jg)%sfc%tsnow,    &
+                   prepicon(jg)%sfc%snowweq,  &
+                   prepicon(jg)%sfc%snowdens, &
+                   prepicon(jg)%sfc%skinres,  &
+                   prepicon(jg)%sfc%ls_mask,  &
+                   prepicon(jg)%sfc%seaice,   &
+                   prepicon(jg)%sfc%tsoil,    &
+                   prepicon(jg)%sfc%wsoil     )
 
       ENDIF
 
       IF (i_oper_mode >= 2 .AND. l_zp_out) THEN
         !  fields for diagostic output
         DEALLOCATE(prepicon(jg)%plev%levels, &
-                 prepicon(jg)%zlev%levels,   &
-                 prepicon(jg)%plev%u,        &
-                 prepicon(jg)%plev%v,        &
-                 prepicon(jg)%plev%temp,     &
-                 prepicon(jg)%plev%pres,     &
-                 prepicon(jg)%plev%z3d,      &
-                 prepicon(jg)%plev%qv,       &
-                 prepicon(jg)%zlev%u,        &
-                 prepicon(jg)%zlev%v,        &
-                 prepicon(jg)%zlev%temp,     &
-                 prepicon(jg)%zlev%pres,     &
-                 prepicon(jg)%zlev%z3d,      &
-                 prepicon(jg)%zlev%qv        )
+                   prepicon(jg)%zlev%levels,   &
+                   prepicon(jg)%plev%u,        &
+                   prepicon(jg)%plev%v,        &
+                   prepicon(jg)%plev%temp,     &
+                   prepicon(jg)%plev%pres,     &
+                   prepicon(jg)%plev%z3d,      &
+                   prepicon(jg)%plev%qv,       &
+                   prepicon(jg)%zlev%u,        &
+                   prepicon(jg)%zlev%v,        &
+                   prepicon(jg)%zlev%temp,     &
+                   prepicon(jg)%zlev%pres,     &
+                   prepicon(jg)%zlev%z3d,      &
+                   prepicon(jg)%zlev%qv        )
       ENDIF
 
     ENDDO ! loop over model domains
@@ -1663,6 +1704,12 @@ MODULE mo_prepicon_utils
       &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
       &           k_jg)
 
+      CALL addVar(TimeVar('TSOIL8',&
+      &                   'soil temperature level 8',&
+      &                   'K', 139, 128,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
       CALL addVar(TimeVar('WSOIL1',&
       &                   'soil water content level 1',&
       &                   'm**3/m**3', 39, 128,&
@@ -1981,6 +2028,7 @@ MODULE mo_prepicon_utils
       CASE ('TSOIL5');          ptr2 => prepicon(jg)%sfc%tsoil(:,:,5)
       CASE ('TSOIL6');          ptr2 => prepicon(jg)%sfc%tsoil(:,:,6)
       CASE ('TSOIL7');          ptr2 => prepicon(jg)%sfc%tsoil(:,:,7)
+      CASE ('TSOIL8');          ptr2 => prepicon(jg)%sfc%tsoil(:,:,8)
       CASE ('WSOIL1');          ptr2 => prepicon(jg)%sfc%wsoil(:,:,1)
       CASE ('WSOIL2');          ptr2 => prepicon(jg)%sfc%wsoil(:,:,2)
       CASE ('WSOIL3');          ptr2 => prepicon(jg)%sfc%wsoil(:,:,3)

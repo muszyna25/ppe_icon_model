@@ -48,7 +48,7 @@ USE mo_dynamics_config,   ONLY: iequations
 USE mo_run_config,        ONLY: configure_run, &
   & ltimer,               & !    :
   & nlev,nlevp1,          &
-  & num_lev,num_levp1, nshift
+  & num_lev,num_levp1, nshift, iforcing
 
 USE mo_impl_constants, ONLY:  inh_atmosphere
 
@@ -82,7 +82,7 @@ USE mo_nh_init_utils,       ONLY: init_hybrid_coord, init_sleve_coord
 !
 
 
-USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
+USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, inwp
 
 
 USE mo_intp_data_strc,      ONLY: p_int_state_global, p_int_state_subdiv, p_int_state
@@ -95,7 +95,7 @@ USE mo_atm_nml_crosscheck,       ONLY: atm_crosscheck
 USE mo_time_config,        ONLY: time_config      ! variable
 USE mo_dynamics_config,    ONLY: configure_dynamics  ! subroutine
 USE mo_interpol_config
-
+USE mo_ext_data,            ONLY: ext_data, init_ext_data, destruct_ext_data
 USE mo_atmo_nonhydrostatic, ONLY: atmo_nonhydrostatic 
 
 ! USE statements referring directly to prep_icon
@@ -181,7 +181,7 @@ IMPLICIT NONE
 
     ! This is hardcoded for prep_icon because running this program is nonsense otherwise
     itopo = 1
-
+    iforcing = inwp
 
     !-------------------------------------------------------------------
     ! 3.1 Initialize the mpi work groups
@@ -303,6 +303,19 @@ IMPLICIT NONE
 
     CALL configure_dynamics ( n_dom )
 
+    !------------------------------------------------------------------
+    ! 10. Create and optionally read external data fields
+    !------------------------------------------------------------------
+    ALLOCATE (ext_data(n_dom), STAT=error_status)
+    IF (error_status /= SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for ext_data failed')
+    ENDIF
+    
+    ! allocate memory for atmospheric/oceanic external data and
+    ! optionally read those data from netCDF file.
+    CALL init_ext_data (p_patch(1:), p_int_state(1:), ext_data)
+
+
     ! Allocate prepicon data type
     ALLOCATE (prepicon(n_dom), stat=ist)
     IF (ist /= success) THEN
@@ -313,7 +326,7 @@ IMPLICIT NONE
     ! read topo data from netCDF file, 
     ! optionally smooth topography data,
     ! and, in case of nesting, perform topography blending and feedback
-    CALL init_prepicon (p_int_state(1:), p_grf_state(1:), prepicon)
+    CALL init_prepicon (p_int_state(1:), p_grf_state(1:), prepicon, ext_data)
 
     ! Compute the 3D coordinate fields
     CALL compute_coord_fields(p_int_state(1:), prepicon)
@@ -360,6 +373,18 @@ IMPLICIT NONE
     ENDIF
 
 
+    !---------------------------------------------------------------------
+    ! 13. Integration finished. Carry out the shared clean-up processes
+    !---------------------------------------------------------------------
+    ! Destruct external data state
+
+    CALL destruct_ext_data
+
+    ! deallocate ext_data array
+    DEALLOCATE(ext_data, stat=error_status)
+    IF (error_status/=success) THEN
+      CALL finish(TRIM(routine), 'deallocation of ext_data')
+    ENDIF
 
     ! Deconstruct grid refinement state
 

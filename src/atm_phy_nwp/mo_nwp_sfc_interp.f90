@@ -45,6 +45,8 @@ MODULE mo_nwp_sfc_interp
   USE mo_prepicon_nml,        ONLY: nlevsoil_in, nlev_in
   USE mo_prepicon_utils,      ONLY: t_prepicon_state
   USE mo_lnd_nwp_config,      ONLY: nlev_soil
+  USE mo_impl_constants,      ONLY: zml_soil
+  USE mo_physical_constants,  ONLY: grav
 
   IMPLICIT NONE
   PRIVATE
@@ -88,15 +90,41 @@ CONTAINS
 
     ! LOCAL VARIABLES
 
-    INTEGER :: jb, jk, jc, jk1
-    INTEGER :: nlen, nlev
+    INTEGER  :: jb, jk, jc, jk1, idx0(nlev_soil)
+    INTEGER  :: nlen, nlev
+    ! Soil layer depths in IFS
+    REAL(wp) :: zsoil_ifs(4)=(/ 0.07_wp,0.21_wp,0.72_wp,1.89_wp/)
+    ! Standard atmosphere vertical temperature gradient
+    REAL(wp) :: dtdz_clim = -6.5e-3_wp
+
+    REAL(wp) :: tcorr1(nproma),tcorr2(nproma),wfac,wfac_vintp(nlev_soil)
 
 !-------------------------------------------------------------------------
 
     nlev = p_patch%nlev
 
+    ! Vertical interpolation indices and weights
+    DO jk = 1, nlev_soil
+      IF (zml_soil(jk) < zsoil_ifs(1)) THEN
+        idx0(jk)       = 0
+        wfac_vintp(jk) = 1._wp - zml_soil(jk)/zsoil_ifs(1)
+      ELSE IF (zml_soil(jk) > zsoil_ifs(nlevsoil_in)) THEN
+        idx0(jk)       = nlevsoil_in
+        wfac_vintp(jk) = 1._wp - (zml_soil(jk)-zsoil_ifs(nlevsoil_in))/&
+                                 (zml_soil(8) -zsoil_ifs(nlevsoil_in))
+      ELSE
+        DO jk1 = 1, nlevsoil_in-1
+          IF (zml_soil(jk) > zsoil_ifs(jk1) .AND. zml_soil(jk) <= zsoil_ifs(jk1+1)) THEN
+            idx0(jk)       = jk1
+            wfac_vintp(jk) = (zsoil_ifs(jk1+1)-zml_soil(jk)) / &
+                             (zsoil_ifs(jk1+1)-zsoil_ifs(jk1))
+          ENDIF
+        ENDDO
+      ENDIF
+    ENDDO
+
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,jk1,jc,nlen)
+!$OMP DO PRIVATE(jb,jk,jk1,jc,nlen,wfac,tcorr1,tcorr2)
 
     DO jb = 1, p_patch%nblks_c
       IF (jb /= p_patch%nblks_c) THEN
@@ -107,8 +135,10 @@ CONTAINS
 
       ! 2D fields that do not require height adjustment
       ! these fields are simply copied
+      ! Note: seaice and land-sea-mask are currently unused
       DO jc = 1, nlen
-        prepicon%sfc%skinres(jc,jb) = prepicon%sfc_in%skinres(jc,jb) 
+        prepicon%sfc%skinres(jc,jb) = prepicon%sfc_in%skinres(jc,jb)
+
         prepicon%sfc%ls_mask(jc,jb) = prepicon%sfc_in%ls_mask(jc,jb)
         IF (prepicon%sfc_in%seaice(jc,jb) >= 0._wp) THEN
           prepicon%sfc%seaice(jc,jb)  = prepicon%sfc_in%seaice(jc,jb) 
@@ -123,29 +153,59 @@ CONTAINS
       DO jc = 1, nlen
         ! Adjust skin temperature with the difference between the atmospheric
         ! temperatures at the lowest model level
-        prepicon%sfc%tskin(jc,jb)    = prepicon%sfc_in%tskin(jc,jb) +         &
+        prepicon%sfc%tskin(jc,jb)      = prepicon%sfc_in%tskin(jc,jb) +         &
           (prepicon%atm%temp(jc,nlev,jb) - prepicon%atm_in%temp(jc,nlev_in,jb))
+        prepicon%sfc%tsoil(jc,jb,0)    = prepicon%sfc%tskin(jc,jb) ! tsoil(0) duplicates ground temp
 
+        ! Height adjustment for snow variables is not yet implemented
         prepicon%sfc%tsnow(jc,jb)    = prepicon%sfc_in%tsnow(jc,jb) 
         prepicon%sfc%snowweq(jc,jb)  = prepicon%sfc_in%snowweq(jc,jb) 
         prepicon%sfc%snowdens(jc,jb) = prepicon%sfc_in%snowdens(jc,jb) 
       ENDDO
 
-      ! 3D fields: soil temperature and moisture
-      ! What is implemented here so far is definitely nonsense!
-      ! Just for testing technical functionality...
-      DO jk = 1, MIN(nlevsoil_in, nlev_soil)
+
+!! *************************************************************************************
+      ! Here, conversion of IFS soil moisture data into TERRA soil moisture data
+      ! has to be implemented
+!! *************************************************************************************
+
+
+
+      ! Height adjustment of soil temperatures
+      DO jc = 1, nlen
+        ! correction for ground level
+        tcorr1(jc) = prepicon%atm%temp(jc,nlev,jb) - prepicon%atm_in%temp(jc,nlev_in,jb)
+        ! climatological correction for deep soil levels
+        tcorr2(jc) = dtdz_clim*(prepicon%topography_c(jc,jb)-prepicon%sfc_in%phi(jc,jb)/grav)
+      ENDDO
+
+      DO jk = 1, nlevsoil_in
+        wfac = REAL(jk,wp)/REAL(nlevsoil_in,wp) ! weight for climatological correction
         DO jc = 1, nlen
-          prepicon%sfc%tsoil(jc,jb,jk) = prepicon%sfc_in%tsoil(jc,jb,jk)
-          prepicon%sfc%wsoil(jc,jb,jk) = prepicon%sfc_in%wsoil(jc,jb,jk)
+          prepicon%sfc_in%tsoil(jc,jb,jk) = prepicon%sfc_in%tsoil(jc,jb,jk) + &
+            wfac*tcorr2(jc) + (1._wp-wfac)*tcorr1(jc)
         ENDDO
       ENDDO
 
-      jk1 = MIN(nlevsoil_in, nlev_soil)
-      DO jk = jk1+1, nlev_soil+2
+      ! Fill extra levels of incoming data to simplify vertical interpolation
+      DO jc = 1, nlen
+        prepicon%sfc_in%tsoil(jc,jb,0) = prepicon%sfc%tskin(jc,jb) ! already height-adjusted
+        prepicon%sfc_in%wsoil(jc,jb,0) = prepicon%sfc_in%wsoil(jc,jb,1) ! no-gradient condition for moisture
+
+        ! outgoing tsoil(nlev_soil+1) has been initialized with the external parameter field t_cl before
+        prepicon%sfc_in%tsoil(jc,jb,nlevsoil_in+1) = prepicon%sfc%tsoil(jc,jb,nlev_soil+1)
+        ! assume no-gradient condition for soil moisture
+        prepicon%sfc_in%wsoil(jc,jb,nlevsoil_in+1) = prepicon%sfc_in%wsoil(jc,jb,nlevsoil_in)
+        prepicon%sfc%wsoil(jc,jb,nlev_soil+1)      = prepicon%sfc_in%wsoil(jc,jb,nlevsoil_in)
+      ENDDO
+
+      ! Vertical interpolation of multi-layer soil fields from IFS levels to TERRA levels
+      DO jk = 1, nlev_soil
         DO jc = 1, nlen
-          prepicon%sfc%tsoil(jc,jb,jk) = prepicon%sfc_in%tsoil(jc,jb,jk1)
-          prepicon%sfc%wsoil(jc,jb,jk) = prepicon%sfc_in%wsoil(jc,jb,jk1)
+          prepicon%sfc%tsoil(jc,jb,jk) = wfac_vintp(jk) *prepicon%sfc_in%tsoil(jc,jb,idx0(jk))+ &
+                                  (1._wp-wfac_vintp(jk))*prepicon%sfc_in%tsoil(jc,jb,idx0(jk)+1)
+          prepicon%sfc%wsoil(jc,jb,jk) = wfac_vintp(jk) *prepicon%sfc_in%wsoil(jc,jb,idx0(jk))+ &
+                                  (1._wp-wfac_vintp(jk))*prepicon%sfc_in%wsoil(jc,jb,idx0(jk)+1)
         ENDDO
       ENDDO
 
