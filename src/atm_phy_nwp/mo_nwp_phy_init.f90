@@ -36,61 +36,58 @@
 !!
 MODULE mo_nwp_phy_init
 
-  USE mo_kind,               ONLY: wp
-  USE mo_math_constants,     ONLY: pi
-  USE mo_physical_constants, ONLY: re
-  USE mo_nwp_phy_state,      ONLY: t_nwp_phy_diag,t_nwp_phy_tend
-  USE mo_nwp_lnd_state,      ONLY: t_lnd_prog,t_lnd_diag
-  USE mo_ext_data,           ONLY: t_external_data
-  USE mo_nonhydro_state,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_exception,          ONLY: message, finish,message_text
+  USE mo_kind,                ONLY: wp
+  USE mo_math_constants,      ONLY: pi
+  USE mo_physical_constants,  ONLY: re
+  USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag,t_nwp_phy_tend
+  USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag  !, t_tiles
+  USE mo_ext_data,            ONLY: t_external_data
+  USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
+  USE mo_exception,           ONLY: message, finish,message_text
   USE mo_vertical_coord_table,ONLY: vct_a, vct
-  USE mo_model_domain,       ONLY: t_patch
-  USE mo_model_domain_import,ONLY: nroot 
-  USE mo_impl_constants,     ONLY: min_rlcell
-  USE mo_loopindices,        ONLY: get_indices_c
-  USE mo_parallel_config,  ONLY: nproma
-  USE mo_run_config,         ONLY: ltestcase, iqv, iqc, msg_level
-!  USE mo_atm_phy_nwp_nml,    ONLY: inwp_gscp, inwp_convection,&
-!       &                           inwp_radiation, inwp_turb,inwp_surface,&
-!       &                           inwp_gwd
-  USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
+  USE mo_model_domain,        ONLY: t_patch
+  USE mo_model_domain_import, ONLY: nroot 
+  USE mo_impl_constants,      ONLY: min_rlcell
+  USE mo_loopindices,         ONLY: get_indices_c
+  USE mo_parallel_config,     ONLY: nproma
+  USE mo_run_config,          ONLY: ltestcase, iqv, iqc, msg_level
+  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   !radiation
-  USE mo_newcld_optics,        ONLY: setup_newcld_optics
-  USE mo_lrtm_setup,           ONLY: lrtm_setup
-  USE mo_radiation_config,     ONLY: ssi, tsi, irad_aero
-  USE mo_srtm_config,          ONLY: setup_srtm, ssi_amip
-  USE mo_radiation_rg_par,     ONLY: rad_aibi, init_aerosol, zaef
+  USE mo_newcld_optics,       ONLY: setup_newcld_optics
+  USE mo_lrtm_setup,          ONLY: lrtm_setup
+  USE mo_radiation_config,    ONLY: ssi, tsi, irad_aero
+  USE mo_srtm_config,         ONLY: setup_srtm, ssi_amip
+  USE mo_radiation_rg_par,    ONLY: rad_aibi, init_aerosol, zaef
   ! microphysics
-  USE mo_gscp_cosmo,           ONLY: hydci_pp_init
+  USE mo_gscp_cosmo,          ONLY: hydci_pp_init
   ! convection
-  USE mo_cuparameters,         ONLY: sucst,  sucumf,    &
+  USE mo_cuparameters,        ONLY: sucst,  sucumf,    &
     &                                su_yoethf,         &
     &                                sucldp, suphli,    &
     &                                suvdf , suvdfs
-  USE mo_convect_tables,       ONLY: init_convect_tables
+  USE mo_convect_tables,      ONLY: init_convect_tables
   !turbulence
-!  USE mo_turbdiff_ras,         ONLY: init_canopy, organize_turbdiff
-  USE src_turbdiff,            ONLY: init_canopy, organize_turbdiff
+!  USE mo_turbdiff_ras,        ONLY: init_canopy, organize_turbdiff
+  USE src_turbdiff,           ONLY: init_canopy, organize_turbdiff
 ! for APE_nh experiments
 
   ! air-sea-land interface
-  USE mo_icoham_sfc_indices,   ONLY: nsfc_type, iwtr, iice, ilnd !, &
+  USE mo_icoham_sfc_indices,  ONLY: nsfc_type, iwtr, iice, ilnd !, &
  !   &                                init_sfc_indices
  ! vertical diffusion
-  USE mo_echam_vdiff_params,   ONLY: init_vdiff_params, z0m_min, &
+  USE mo_echam_vdiff_params,  ONLY: init_vdiff_params, z0m_min, &
     &                                tke_min 
-  USE mo_vdiff_solver,         ONLY: init_vdiff_solver
+  USE mo_vdiff_solver,        ONLY: init_vdiff_solver
+  USE mo_nwp_sfc_interface,   ONLY: nwp_surface_init
 
-
-  USE mo_satad,                ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
+  USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                                spec_humi !,qsat_rho !! Specific humidity
 
-  USE data_gwd,                ONLY: sugwwms
+  USE data_gwd,               ONLY: sugwwms
 
-  USE mo_nh_testcases,         ONLY: nh_test_name, ape_sst_case
-  USE mo_ape_params,           ONLY: ape_sst
-  USE mo_master_control,       ONLY: is_restart_run
+  USE mo_nh_testcases,        ONLY: nh_test_name, ape_sst_case
+  USE mo_ape_params,          ONLY: ape_sst
+  USE mo_master_control,      ONLY: is_restart_run
 
   IMPLICIT NONE
 
@@ -507,11 +504,14 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 ! ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 3) THEN  !DUALM
   ENDIF
 
-  IF (  atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN  ! TERRA
 
+  IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN  ! TERRA
+    CALL nwp_surface_init(p_patch, ext_data, p_prog_lnd_now,  &
+      &                   p_prog_lnd_new )
   END IF
 
-  IF (  atm_phy_nwp_config(jg)%inwp_gwd == 1 ) THEN  ! IFS gwd scheme
+
+  IF ( atm_phy_nwp_config(jg)%inwp_gwd == 1 ) THEN  ! IFS gwd scheme
 
      CALL sugwwms(nflevg= nlevp1, ppref=pref)
      CALL message('mo_nwp_phy_init:', 'non-orog GWs initialized')

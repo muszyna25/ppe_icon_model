@@ -49,6 +49,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag, t_tiles
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: iqv !,msg_level
+  USe mo_extpar_config,       ONLY: itopo
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nztlev, nlev_snow, nsfc_subs !, &
 !    &                               lseaice ,llake, lmulti_snow
@@ -537,18 +538,30 @@ CONTAINS
       
   END SUBROUTINE nwp_surface
 
+  !-------------------------------------------------------------------------
+  !>
+  !! Init surface model TERRA
   !!
-  !!-------------------------------------------------------------------------
+  !! Init surface model TERRA.
   !!
-  SUBROUTINE nwp_surface_init    ( p_patch,                      & !>input
-                                   subsfrac,                     &
-                                   frac_thres,                   &
-                                   pt_tiles )
+  !! @par Revision History
+  !! Initial revision by Ekaterina Machulskaya, DWD (2011-07-??)
+  !! Modification by Daniel Reienrt, DWD (2011-07-29)
+  !! - initialize climatological layer t_so(nlev_soil+2)
+  !!
+!!$  SUBROUTINE nwp_surface_init    ( p_patch,        & !>in
+!!$                                   subsfrac,       &
+!!$                                   frac_thres,     &
+!!$                                   pt_tiles )
+  SUBROUTINE nwp_surface_init( p_patch, ext_data, p_prog_lnd_now, &
+    &                          p_prog_lnd_new )
                                    
-    TYPE(t_patch),       TARGET,                        INTENT(IN)    :: p_patch         !<grid/patch info.
-    REAL(KIND = ireals), DIMENSION(nproma,1,nsfc_subs), INTENT(IN)    :: subsfrac
-    REAL(KIND = ireals),                                INTENT(IN)    :: frac_thres     
-    TYPE(t_tiles),       TARGET,                        INTENT(INOUT) :: pt_tiles        !correspondence between grid & tiles
+    TYPE(t_patch), TARGET, INTENT(IN)    :: p_patch       !<grid/patch info.
+    TYPE(t_external_data), INTENT(IN)    :: ext_data
+    TYPE(t_lnd_prog)     , INTENT(INOUT) :: p_prog_lnd_now, p_prog_lnd_new
+!!$    REAL(wp)             , INTENT(IN)   :: subsfrac(nproma,1,nsfc_subs)
+!!$    REAL(wp)             , INTENT(IN)   :: frac_thres     
+!!$    TYPE(t_tiles), TARGET, INTENT(INOUT):: pt_tiles      !correspondence between grid & tiles
     
     ! Local array bounds:
     
@@ -560,6 +573,7 @@ CONTAINS
     ! Local scalars:
 
     INTEGER :: jc,jb,ns     
+  !-------------------------------------------------------------------------
 
     i_nchdom  = MAX(1,p_patch%n_childdom)
 
@@ -578,20 +592,34 @@ CONTAINS
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
           & i_startidx, i_endidx, rl_start, rl_end)
 
-        DO ns = 1, nsfc_subs
+        IF (itopo == 1) THEN
+          DO ns = 1, nsfc_subs
+            DO jc = i_startidx, i_endidx
 
-          pt_tiles%length(ns,jb) = 0
+              ! initialize climatological layer (deepest layer of t_so)
+              p_prog_lnd_now%t_so(jc,nlev_soil+2,jb,ns) = ext_data%atm%t_cl(jc,jb)
+              p_prog_lnd_new%t_so(jc,nlev_soil+2,jb,ns) = ext_data%atm%t_cl(jc,jb)
 
-          DO jc = i_startidx, i_endidx
-            IF(subsfrac(jc,1,ns) > frac_thres) THEN
-              pt_tiles%length(ns,jb) = pt_tiles%length(ns,jb) + 1
-              pt_tiles%corrsp(pt_tiles%length(ns,jb),ns,jb) = jc
-            END IF
+            END DO
           END DO
+        ENDIF
 
-        END DO
 
-      ENDDO
+!!$        DO ns = 1, nsfc_subs
+!!$
+!!$          pt_tiles%length(ns,jb) = 0
+!!$
+!!$          DO jc = i_startidx, i_endidx
+!!$
+!!$            IF(subsfrac(jc,1,ns) > frac_thres) THEN
+!!$              pt_tiles%length(ns,jb) = pt_tiles%length(ns,jb) + 1
+!!$              pt_tiles%corrsp(pt_tiles%length(ns,jb),ns,jb) = jc
+!!$            END IF
+!!$          END DO
+!!$
+!!$        END DO
+
+      ENDDO  ! jb loop
 !$OMP END DO
 !$OMP END PARALLEL
 
