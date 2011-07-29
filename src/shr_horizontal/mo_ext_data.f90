@@ -268,6 +268,9 @@ MODULE mo_ext_data
     REAL(wp), POINTER ::   &   !< aerosol optical thickness of black carbon    [ ]
       &  o3(:,:,:,:)           ! index1=1,nproma, index2=nlev_pres,
                                ! index3=1,nblks_c, index4=1,ntimes
+    REAL(wp),POINTER::  &
+      &   pfoz(:),      &      !full levels of of ozone pressure
+      &   phoz(:)              !half levels of ozone pressure field 
     !
     ! *** radiation parameters ***
     REAL(wp), POINTER ::   &   !< aerosol optical thickness of black carbon    [ ]
@@ -408,8 +411,8 @@ CONTAINS
     ! Set default value for nclass_lu. Will be overwritten, if external data 
     ! are read from file
     nclass_lu(1:n_dom) = 1
-    CALL inquire_external_files(p_patch)
 
+    CALL inquire_external_files(p_patch)
 
     !------------------------------------------------------------------
     !  2.  construct external fields for the model
@@ -430,12 +433,18 @@ CONTAINS
     CASE(0) ! do not read external data
             ! topography from analytical functions
 
-      CALL message( TRIM(routine),'Running with analytical topography' )
+    !-------------------------------------------------------------------------
+    !Ozone and aerosols
+    !-------------------------------------------------------------------------
+
       IF(irad_o3 == 3) THEN
         CALL message( TRIM(routine),'external ozone data required' )
         CALL read_ext_data_atm (p_patch, ext_data)   ! read ozone
       ENDIF
 
+    !-------------------------------------------------------------------------
+    ! surface/vegetation  parameter
+    !-------------------------------------------------------------------------
 
       IF(iforcing == inwp) THEN
         !
@@ -452,6 +461,8 @@ CONTAINS
         END DO
 
       ENDIF
+
+      CALL message( TRIM(routine),'Running with analytical topography' )
 
     CASE(1) ! read external data from netcdf dataset
 
@@ -485,12 +496,8 @@ CONTAINS
 
   END SUBROUTINE init_ext_data
 
-
-
   !-------------------------------------------------------------------------
   !>
-  !! Top-level procedure for building external data structure
-  !!
   !! Top-level procedure for building external data structure
   !!
   !! @par Revision History
@@ -590,6 +597,7 @@ CONTAINS
       &        nblks_v       !< number of vertex blocks to allocate
 
     INTEGER :: shape2d_c(2), shape2d_e(2), shape2d_v(2)
+    INTEGER :: shape2d_sfc(3)
 
     INTEGER :: ientr         !< "entropy" of horizontal slice
     !--------------------------------------------------------------
@@ -601,14 +609,13 @@ CONTAINS
 
     ! get patch ID
     jg = p_patch%id
-
     ientr = 16   ! "entropy" of horizontal slice
 
     ! predefined array shapes
-    shape2d_c = (/ nproma, nblks_c /)
-    shape2d_e = (/ nproma, nblks_e /)
-    shape2d_v = (/ nproma, nblks_v /)
-
+    shape2d_c  = (/ nproma, nblks_c /)
+    shape2d_e  = (/ nproma, nblks_e /)
+    shape2d_v  = (/ nproma, nblks_v /)
+    shape2d_sfc= (/ nproma, nblks_c,nclass_lu(jg) /) 
 
     !
     ! Register a field list and apply default settings
@@ -992,7 +999,7 @@ CONTAINS
       grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_list, 'lu_class_fraction', p_ext_atm%lu_class_fraction, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
-        &           grib2_desc, ldims=(/ nproma, nblks_c, nclass_lu(jg) /))
+        &           grib2_desc, ldims=shape2d_sfc)
 
     ENDIF ! iforcing = inwp
   ENDIF ! iequations = inh_atmosphere
@@ -1681,12 +1688,19 @@ CONTAINS
         IF(p_pe == p_io) THEN
 
 
-          !
           ! open file
           !
           WRITE(ozone_file,'(a,I2.2,a)') 'o3_icon_DOM',jg,'.nc'
           CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid))
         ENDIF ! pe
+
+        ! read pressure levels of ozone climatology
+        !  CALL nf(nf_inq_dimid (ncid, 'plev', dimid))
+        !  CALL nf(nf_inq_dimlen(ncid, dimid, nlev_pres))
+       ! IF ( .NOT. ALLOCATED(pfoz))  ALLOCATE(pfoz(nlev_pres))
+       ! IF ( .NOT. ALLOCATED(pfoz))  ALLOCATE(phoz(nlev_pres+1))
+
+        !CALL nf(nf_get_var_double(ncid, 'plev', ext_data(jg)%atm_td%pfoz(:)))
 
         IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
           CALL read_netcdf_data (ncid, 'O3', & ! &
@@ -1715,7 +1729,14 @@ CONTAINS
 !    write(0,*)'try to give a number of ozone'
 !    write(0,*)'any value jan', ext_data(1)%atm_td%O3(1,1,1,1)
 !    write(0,*)'maxval dec',MAXVAL( ext_data(1)%atm_td%O3(:,nlev_pres,:,nmonths))
- 
+
+!   ! define half levels of ozone pressure grid
+!   ! upper boundary: ph =      0.Pa -> extrapolation of uppermost value
+!   ! lower boundary: ph = 125000.Pa -> extrapolation of lowermost value
+!   phoz(1)=0._dp
+!   phoz(2:noz)=(pfoz(1:noz-1)+pfoz(2:noz))/2._dp
+!   phoz(noz+1)=125000._dp
+!
 
   END SUBROUTINE read_ext_data_atm
   !-------------------------------------------------------------------------

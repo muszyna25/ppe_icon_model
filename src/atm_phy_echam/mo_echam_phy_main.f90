@@ -337,6 +337,16 @@ CONTAINS
           field% albvisdif(jcs:jce,jb) = 0.07_wp ! ~ albedo of water
           field% albnirdif(jcs:jce,jb) = 0.07_wp ! ~ albedo of water
 
+          
+          !  as a preparation step:
+          !  bring ozone climatology via time weigths onto a 3D field 
+!
+!        DO jl=1,nproma
+!          z_o3_3d(jcs:jce,:,jb) = wgt1_m*ext_data(jg)%atm_td_O3(jcs:jce,:,nmw1_m)&
+!                                 & +wgt2_m*ext_data(jg)%atm_td_O3ozone(jcs:jce,:nmw2_m)
+!        END DO
+
+
 !!$        ! debug fields "radin"
 !!$        !
 !!$        DO jc = jcs,jce

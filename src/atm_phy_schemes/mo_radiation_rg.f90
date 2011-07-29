@@ -352,8 +352,8 @@ CONTAINS
 
       REAL(wp) :: zepflx ! Minimum 'grey' flux to avoid 1./0.
 
-      REAL(wp) :: pflfpmn,pflfdmn,pflfumn,pflcpmn,pflcdmn,pflcumn
-      REAL(wp) :: pflfpmx,pflfdmx,pflfumx,pflcpmx,pflcdmx,pflcumx
+ !     REAL(wp) :: pflfpmn,pflfdmn,pflfumn,pflcpmn,pflcdmn,pflcumn
+ !KF unusedvar     REAL(wp) :: pflfpmx,pflfdmx,pflfumx,pflcpmx,pflcdmx,pflcumx
 
       INTEGER j1b        ! index of debug-point
  
