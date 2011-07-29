@@ -363,62 +363,62 @@ CONTAINS
          ENDDO
          
 
-          CALL vdiff( lsfc_mom_flux  = vdiff_config%lsfc_mom_flux,                       &! in
-                      lsfc_heat_flux = vdiff_config%lsfc_heat_flux,                      &! in
-                & kproma = i_endidx, kbdim   = nproma,                                   &! in
-                & klev   = nlev,   klevm1    = nlev-1,  klevp1=nlevp1,                   &! in
-                & ktrac  = itrac,  ksfc_type = nsfc_type,                                &! in
-                & idx_wtr= iwtr,   idx_ice   = iice,   idx_lnd =ilnd,  idx_gbm=1 ,&! in 
-                & pdtime = tcall_turb_jg,       pstep_len = tcall_turb_jg     ,&! in
+          CALL vdiff( lsfc_mom_flux  = vdiff_config%lsfc_mom_flux                        ,&! in
+                &     lsfc_heat_flux = vdiff_config%lsfc_heat_flux                       ,&! in
+                & kproma = i_endidx, kbdim   = nproma                                    ,&! in
+                & klev   = nlev,   klevm1    = nlev-1,  klevp1=nlevp1                    ,&! in
+                & ktrac  = itrac,  ksfc_type = nsfc_type                                 ,&! in
+                & idx_wtr= iwtr,   idx_ice   = iice,   idx_lnd =ilnd                     ,&! in 
+                & pdtime = tcall_turb_jg,       pstep_len = tcall_turb_jg                ,&! in
                 !
-                & pfrc      = zfrc(:,:,jb),            ptsfc  = zdummy_tsfc(:,:,jb)         ,&! in
-                !& pqsat_sfc = zdummy_qvsfc  (:,:,jb)                                        ,&! in
-                & pocu      = prm_diag%ocu    (:,jb),  pocv   = prm_diag%ocv      (:,jb)    ,&! in
-                & ppsfc     = p_diag%pres_sfc(:,jb),  pcoriol= p_patch%cells%f_c(:,jb)    ,&! in
+                & pfrc      = zfrc(:,:,jb),            ptsfc  = zdummy_tsfc(:,:,jb)      ,&! in
+                !& pqsat_sfc = zdummy_qvsfc  (:,:,jb)                                     ,&! in
+                & pocu      = prm_diag%ocu    (:,jb),  pocv   = prm_diag%ocv      (:,jb) ,&! in
+                & ppsfc     = p_diag%pres_sfc(:,jb),  pcoriol= p_patch%cells%f_c(:,jb)   ,&! in
                 !
-                & pum1      = p_diag% u  (:,:,jb),    pvm1 = p_diag% v        (:,:,jb)    ,&! in
-                & ptm1      = p_diag%temp(:,:,jb),    pqm1 = p_prog_rcf%tracer(:,:,jb,iqv),&! in
-                & pxlm1     = p_prog_rcf%tracer(:,:,jb,iqc)                                ,&! in
-                & pxim1     = p_prog_rcf%tracer(:,:,jb,iqi)                                ,&! in
-                & pxm1      = z_plitot (:,:,jb) ,      pxtm1 = zdummy_it         (:,:,:,jb) ,&! in
+                & pum1      = p_diag% u  (:,:,jb),   pvm1 = p_diag% v        (:,:,jb)    ,&! in
+                & ptm1      = p_diag%temp(:,:,jb),   pqm1 = p_prog_rcf%tracer(:,:,jb,iqv),&! in
+                & pxlm1     = p_prog_rcf%tracer(:,:,jb,iqc)                              ,&! in
+                & pxim1     = p_prog_rcf%tracer(:,:,jb,iqi)                              ,&! in
+                & pxm1      = z_plitot (:,:,jb) ,    pxtm1 = zdummy_it        (:,:,:,jb) ,&! in
                 !
-                & paphm1  = p_diag%pres_ifc(:,:,jb),  papm1 = p_diag%pres        (:,:,jb) ,&! in
-                & pdelpm1 = p_diag%dpres_mc(:,:,jb),  pgeom1= p_metrics%geopot_agl(:,:,jb) ,&! in 
-                & ptvm1   = p_diag%tempv   (:,:,jb),  paclc = prm_diag%tot_cld(:,:,jb,icc) ,&! in
-                & ptkem1  = p_prog_now_rcf%tke (:,2:nlevp1,jb)                             ,&! in
+                & paphm1 = p_diag%pres_ifc(:,:,jb),  papm1 = p_diag%pres        (:,:,jb) ,&! in
+                & pdelpm1= p_diag%dpres_mc(:,:,jb),  pgeom1= p_metrics%geopot_agl(:,:,jb),&! in 
+                & ptvm1  = p_diag%tempv   (:,:,jb),  paclc = prm_diag%tot_cld(:,:,jb,icc),&! in
+                & ptkem1 = p_prog_now_rcf%tke (:,2:nlevp1,jb)                            ,&! in
                 !
                 & pxt_emis= zdummy_ith     (:,:,jb),   pxvar   = zdummy_i     (:,:,jb)   ,&! inout
                 & pthvvar = prm_diag%thvvar(:,2:nlevp1,jb), pustar = prm_diag%ustar(:,jb),&! inout
                 & pz0m_tile = prm_diag%z0m_tile(:,jb,:)                                  ,&! inout
-                & pkedisp  = prm_diag%kedisp(:,jb)                                        ,&! inout
+                & pkedisp  = prm_diag%kedisp(:,jb)                                       ,&! inout
                 !
-                & pute    = prm_nwp_tend%ddt_u_turb     (:,:,jb)                       ,&! inout
-                & pvte    = prm_nwp_tend%ddt_v_turb     (:,:,jb)                       ,&! inout
-                & ptte    = prm_nwp_tend%ddt_temp_turb  (:,:,jb)                       ,&! inout
-                & pqte    = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv)                   ,&! inout
-                & pxlte   = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc)                   ,&! inout
-                & pxite   = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqi)                   ,&! inout
-                & pxtte    = zdummy_ot3(:,:,:,jb)                                      ,&! inout
+                & pute    = prm_nwp_tend%ddt_u_turb     (:,:,jb)                         ,&! inout
+                & pvte    = prm_nwp_tend%ddt_v_turb     (:,:,jb)                         ,&! inout
+                & ptte    = prm_nwp_tend%ddt_temp_turb  (:,:,jb)                         ,&! inout
+                & pqte    = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv)                     ,&! inout
+                & pxlte   = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc)                     ,&! inout
+                & pxite   = prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqi)                     ,&! inout
+                & pxtte    = zdummy_ot3(:,:,:,jb)                                        ,&! inout
                 !
-                & pz0m    = prm_diag%z0m(:,jb)                         ,&! out
-                & pute_vdf = zdummy_o1 (:,:,jb)                                        ,&! out
-                & pvte_vdf = zdummy_o2 (:,:,jb),        ptte_vdf = zdummy_o3 (:,:,jb)  ,&! out
-                & pqte_vdf = zdummy_o4 (:,:,jb),        pxlte_vdf= zdummy_o5 (:,:,jb)  ,&! out
-                & pxite_vdf= zdummy_o6 (:,:,jb),        pxtte_vdf= zdummy_ot2(:,:,:,jb),&! out
+                & pz0m    = prm_diag%z0m(:,jb)                                           ,&! out
+                & pute_vdf = zdummy_o1 (:,:,jb)                                          ,&! out
+                & pvte_vdf = zdummy_o2 (:,:,jb),        ptte_vdf = zdummy_o3 (:,:,jb)    ,&! out
+                & pqte_vdf = zdummy_o4 (:,:,jb),        pxlte_vdf= zdummy_o5 (:,:,jb)    ,&! out
+                & pxite_vdf= zdummy_o6 (:,:,jb),        pxtte_vdf= zdummy_ot2(:,:,:,jb)  ,&! out
                 !
-                & pqsat_tile = zdummy_qvsfc  (:,:,jb)                                  ,&! out
-                & pxvarprod= zdummy_o7(:,:,jb),         pvmixtau = zdummy_o8 (:,:,jb)  ,&! out
-                & pqv_mflux_sfc=prm_diag%qhfl_s (:,jb), pthvsig  = zdummy_oh (:,jb)    ,&! out
-                & ptke     = p_prog_rcf%tke (:,2:nlevp1,jb), ihpbl = idummy_oh (:,jb)  ,&! inout
-                & pghpbl   = prm_diag%ghpbl (:,jb), pri =  prm_diag%ri (:,2:nlevp1,jb) ,&! out
-                & pmixlen  = prm_diag%mixlen (:,2:nlevp1,jb)                           ,&! out
-                & pcfm     = prm_diag%cfm    (:,2:nlevp1,jb)                           ,&! out
-                & pcfh     = prm_diag%cfh    (:,2:nlevp1,jb)                           ,&! out
-                & pcfv     = prm_diag%cfv    (:,2:nlevp1,jb)                           ,&! out
-                & pcfm_tile= prm_diag%cfm_tile(:,jb,:)                                  ,&! out
-                & pcfh_tile= prm_diag%cfh_tile(:,jb,:)                                  ,&! out
-                & pcftke   = prm_diag%cftke  (:,2:nlevp1,jb)                           ,&! out
-                & pcfthv   = prm_diag%cfthv  (:,2:nlevp1,jb))                            ! out
+                & pqsat_tile = zdummy_qvsfc  (:,:,jb)                                    ,&! out
+                & pxvarprod= zdummy_o7(:,:,jb),         pvmixtau = zdummy_o8 (:,:,jb)    ,&! out
+                & pqv_mflux_sfc=prm_diag%qhfl_s (:,jb), pthvsig  = zdummy_oh (:,jb)      ,&! out
+                & ptke     = p_prog_rcf%tke (:,2:nlevp1,jb), ihpbl = idummy_oh (:,jb)    ,&! inout
+                & pghpbl   = prm_diag%ghpbl (:,jb), pri =  prm_diag%ri (:,2:nlevp1,jb)   ,&! out
+                & pmixlen  = prm_diag%mixlen (:,2:nlevp1,jb)                             ,&! out
+                & pcfm     = prm_diag%cfm    (:,2:nlevp1,jb)                             ,&! out
+                & pcfh     = prm_diag%cfh    (:,2:nlevp1,jb)                             ,&! out
+                & pcfv     = prm_diag%cfv    (:,2:nlevp1,jb)                             ,&! out
+                & pcfm_tile= prm_diag%cfm_tile(:,jb,:)                                   ,&! out
+                & pcfh_tile= prm_diag%cfh_tile(:,jb,:)                                   ,&! out
+                & pcftke   = prm_diag%cftke  (:,2:nlevp1,jb)                             ,&! out
+                & pcfthv   = prm_diag%cfthv  (:,2:nlevp1,jb))                              ! out
 
 
       !-------------------------------------------------------------------------

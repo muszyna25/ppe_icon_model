@@ -64,7 +64,7 @@ CONTAINS
   !!
   SUBROUTINE vdiff ( lsfc_mom_flux, lsfc_heat_flux,                    &! in
                      kproma, kbdim, klev, klevm1, klevp1, ktrac,       &! in
-                     ksfc_type, idx_wtr, idx_ice, idx_lnd, idx_gbm,    &! in
+                     ksfc_type, idx_wtr, idx_ice, idx_lnd,             &! in
                      pdtime, pstep_len,                                &! in
                      pcoriol,    pfrc,        ptsfc,                   &! in
                      pocu,       pocv,        ppsfc,                   &! in
@@ -77,7 +77,7 @@ CONTAINS
                      ptvm1,      paclc,    ptkem1, ptkem0, pxt_emis,   &! in/inout
 #endif
                      pxvar,      pthvvar,                              &! inout
-                     pustar,     pz0m_tile,       pkedisp,    &! inout
+                     pustar,     pz0m_tile,   pkedisp,                 &! inout
                      pute,       pvte,        ptte,        pqte,       &! inout
                      pxlte,      pxite,       pxtte,                   &! inout
                      pz0m,                                             &! out
@@ -93,7 +93,7 @@ CONTAINS
 
   LOGICAL, INTENT(IN)  :: lsfc_mom_flux, lsfc_heat_flux
   INTEGER, INTENT(IN)  :: kproma, kbdim, klev, klevm1, klevp1, ktrac
-  INTEGER, INTENT(IN)  :: ksfc_type, idx_wtr, idx_ice, idx_lnd, idx_gbm
+  INTEGER, INTENT(IN)  :: ksfc_type, idx_wtr, idx_ice, idx_lnd
   REAL(wp),INTENT(IN)  :: pdtime, pstep_len
 
   REAL(wp),INTENT(IN)  :: pcoriol   (kbdim)           !< Coriolis parameter: 2*omega*sin(lat)
