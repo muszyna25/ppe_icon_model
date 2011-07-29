@@ -43,12 +43,11 @@ USE mo_kind, ONLY: &
 
 !USE mo_exception,          ONLY: message, finish ,message_text
 USE mo_physical_constants, ONLY: &
-    rvd_m_o  =>vtmpc1   , & !! r_v/r_d - 1
-    o_m_rdv             , & !! 1 - r_d/r_v
-    rdv                 , & !! r_d / r_v
-    lhocp    => alvdcp  , & !! lh_v/cp_d
-    b3       => tmelt   , & !! melting temperature of ice/snow
-    t0       => tmelt       !! melting temperature of ice/snow
+!    rvd_m_o  =>vtmpc1   , & !! r_v/r_d - 1
+!    o_m_rdv             , & !! 1 - r_d/r_v
+!    rdv                 , & !! r_d / r_v
+    lhocp    => alvdcp  !, & !! lh_v/cp_d
+!    b3       => tmelt   , & !! melting temperature of ice/snow
 
 USE data_turbulence, ONLY: &
     clc_diag            , & !! cloud cover at saturation in statistical cloud diagnostic
@@ -60,13 +59,13 @@ USE mo_physical_constants, ONLY: &
 USE mo_math_constants, ONLY: &
     uc2 => sqrt3            !!               -- " --
 
-USE mo_convect_tables, ONLY: &
-    b1       => c1es    , & !! constants for computing the sat. vapour
-    b2w      => c3les   , & !! pressure over water (l) and ice (i)
-    b2i      => c3ies   , & !!               -- " --
-    b4w      => c4les   , & !!               -- " --
-    b4i      => c4ies   , & !!               -- " --
-    b234w    => c5les       !!               -- " --
+!USE mo_convect_tables, ONLY: &
+!    b1       => c1es    , & !! constants for computing the sat. vapour
+!    b2w      => c3les   , & !! pressure over water (l) and ice (i)
+!    b2i      => c3ies   , & !!               -- " --
+!    b4w      => c4les   , & !!               -- " --
+!    b4i      => c4ies   , & !!               -- " --
+!    b234w    => c5les       !!               -- " --
 
 USE mo_satad, ONLY: zpsat_w => sat_pres_water, & !! saturation vapor pressure w.r.t. water
 !                   zpsat_i => sat_pres_ice  , & !! saturation vapor pressure w.r.t. ice
