@@ -67,7 +67,8 @@ MODULE mo_prepicon_utils
                                     interp_uv_2_vn, init_w, convert_thdvars, virtual_temp
   USE mo_model_domain_import, ONLY: lfeedback
   USE mo_ifs_coord,           ONLY: alloc_vct, init_vct, vct, vct_a, vct_b
-  USE mo_lnd_nwp_config,      ONLY: nlev_soil
+  USE mo_lnd_nwp_config,      ONLY: nlev_soil, nsfc_subs
+  USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
 
   IMPLICIT NONE
 
@@ -91,7 +92,7 @@ MODULE mo_prepicon_utils
 
     REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: tsnow, tskin, snowweq, snowdens, &
                                               skinres, ls_mask, seaice
-    REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: tsoil, soilwater
+    REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: tsoil, wsoil
 
   END TYPE t_pi_sfc_in
 
@@ -113,7 +114,7 @@ MODULE mo_prepicon_utils
 
     REAL(wp), ALLOCATABLE, DIMENSION (:,:) :: tsnow, tskin, snowweq, snowdens, &
                                               skinres, ls_mask, seaice
-    REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: tsoil, soilwater
+    REAL(wp), ALLOCATABLE, DIMENSION (:,:,:) :: tsoil, wsoil
 
   END TYPE t_pi_sfc
 
@@ -480,19 +481,19 @@ MODULE mo_prepicon_utils
 
         CALL read_netcdf_data (ncid, 'SWVL1', p_patch(jg)%n_patch_cells_g,              &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%sfc_in%soilwater(:,:,1))
+          &                     prepicon(jg)%sfc_in%wsoil(:,:,1))
 
         CALL read_netcdf_data (ncid, 'SWVL2', p_patch(jg)%n_patch_cells_g,              &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%sfc_in%soilwater(:,:,2))
+          &                     prepicon(jg)%sfc_in%wsoil(:,:,2))
 
         CALL read_netcdf_data (ncid, 'SWVL3', p_patch(jg)%n_patch_cells_g,              &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%sfc_in%soilwater(:,:,3))
+          &                     prepicon(jg)%sfc_in%wsoil(:,:,3))
 
         CALL read_netcdf_data (ncid, 'SWVL4', p_patch(jg)%n_patch_cells_g,              &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-          &                     prepicon(jg)%sfc_in%soilwater(:,:,4))
+          &                     prepicon(jg)%sfc_in%wsoil(:,:,4))
 
       ENDIF
 
@@ -637,10 +638,10 @@ MODULE mo_prepicon_utils
     TYPE(t_nh_state),  INTENT(INOUT) :: p_nh_state(:)
     TYPE(t_lnd_state), INTENT(INOUT) :: p_lnd_state(:)
 
-    INTEGER :: jg, jb, jk, jc, je
-    INTEGER :: nblks_c, npromz_c, nblks_e, npromz_e, nlen, nlev, nlevp1
+    INTEGER :: jg, jb, jk, jc, je, jt, js
+    INTEGER :: nblks_c, npromz_c, nblks_e, npromz_e, nlen, nlev, nlevp1, ntl, ntlr
 
-!$OMP PARALLEL PRIVATE(jg,nblks_c,npromz_c,nblks_e,npromz_e,nlev,nlevp1)
+!$OMP PARALLEL PRIVATE(jg,nblks_c,npromz_c,nblks_e,npromz_e,nlev,nlevp1,ntl,ntlr)
     DO jg = 1, n_dom
 
       nblks_c   = p_patch(jg)%nblks_c
@@ -649,6 +650,8 @@ MODULE mo_prepicon_utils
       npromz_e  = p_patch(jg)%npromz_e
       nlev      = p_patch(jg)%nlev
       nlevp1    = p_patch(jg)%nlevp1
+      ntl       = nnow(jg)
+      ntlr      = nnow_rcf(jg)
 
 !$OMP DO PRIVATE(jb,jk,je,nlen)
       DO jb = 1, nblks_e
@@ -662,14 +665,14 @@ MODULE mo_prepicon_utils
         ! Wind speed
         DO jk = 1, nlev
           DO je = 1, nlen
-            p_nh_state(jg)%prog(nnow(jg))%vn(je,jk,jb) = prepicon(jg)%atm%vn(je,jk,jb)
+            p_nh_state(jg)%prog(ntl)%vn(je,jk,jb) = prepicon(jg)%atm%vn(je,jk,jb)
           ENDDO
         ENDDO
 
       ENDDO
 !$OMP END DO
 
-!$OMP DO PRIVATE(jb,jk,jc,nlen)
+!$OMP DO PRIVATE(jb,jk,jc,nlen,jt,js)
       DO jb = 1, nblks_c
 
         IF (jb /= nblks_c) THEN
@@ -682,32 +685,51 @@ MODULE mo_prepicon_utils
         DO jk = 1, nlev
           DO jc = 1, nlen
             ! Dynamic prognostic variables on cell points
-            p_nh_state(jg)%prog(nnow(jg))%w(jc,jk,jb)       = prepicon(jg)%atm%w(jc,jk,jb)
-            p_nh_state(jg)%prog(nnow(jg))%theta_v(jc,jk,jb) = prepicon(jg)%atm%theta_v(jc,jk,jb)
-            p_nh_state(jg)%prog(nnow(jg))%exner(jc,jk,jb)   = prepicon(jg)%atm%exner(jc,jk,jb)
-            p_nh_state(jg)%prog(nnow(jg))%rho(jc,jk,jb)     = prepicon(jg)%atm%rho(jc,jk,jb)
+            p_nh_state(jg)%prog(ntl)%w(jc,jk,jb)       = prepicon(jg)%atm%w(jc,jk,jb)
+            p_nh_state(jg)%prog(ntl)%theta_v(jc,jk,jb) = prepicon(jg)%atm%theta_v(jc,jk,jb)
+            p_nh_state(jg)%prog(ntl)%exner(jc,jk,jb)   = prepicon(jg)%atm%exner(jc,jk,jb)
+            p_nh_state(jg)%prog(ntl)%rho(jc,jk,jb)     = prepicon(jg)%atm%rho(jc,jk,jb)
 
-            p_nh_state(jg)%prog(nnow(jg))%rhotheta_v(jc,jk,jb) = &
-              p_nh_state(jg)%prog(nnow(jg))%rho(jc,jk,jb) *      &
-              p_nh_state(jg)%prog(nnow(jg))%theta_v(jc,jk,jb)
+            p_nh_state(jg)%prog(ntl)%rhotheta_v(jc,jk,jb) = &
+              p_nh_state(jg)%prog(ntl)%rho(jc,jk,jb) * p_nh_state(jg)%prog(ntl)%theta_v(jc,jk,jb)
 
             ! Pressure is needed in nwp_phy_init
             p_nh_state(jg)%diag%pres(jc,jk,jb) = prepicon(jg)%atm%pres(jc,jk,jb)
 
             ! Moisture variables
-            p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(jc,jk,jb,iqv) = prepicon(jg)%atm%qv(jc,jk,jb)
-            p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(jc,jk,jb,iqc) = prepicon(jg)%atm%qc(jc,jk,jb)
-            p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(jc,jk,jb,iqi) = prepicon(jg)%atm%qi(jc,jk,jb)
-            p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(jc,jk,jb,iqr) = prepicon(jg)%atm%qr(jc,jk,jb)
-            p_nh_state(jg)%prog(nnow_rcf(jg))%tracer(jc,jk,jb,iqs) = prepicon(jg)%atm%qs(jc,jk,jb)
+            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqv) = prepicon(jg)%atm%qv(jc,jk,jb)
+            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqc) = prepicon(jg)%atm%qc(jc,jk,jb)
+            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqi) = prepicon(jg)%atm%qi(jc,jk,jb)
+            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqr) = prepicon(jg)%atm%qr(jc,jk,jb)
+            p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqs) = prepicon(jg)%atm%qs(jc,jk,jb)
           ENDDO
         ENDDO
 
-        ! w at surface level and 2D fields
+        ! w at surface level and ground temperature
         DO jc = 1, nlen
-          p_nh_state(jg)%prog(nnow(jg))%w(jc,nlevp1,jb)     = prepicon(jg)%atm%w(jc,nlevp1,jb)
-          p_lnd_state(jg)%prog_lnd(nnow_rcf(jg))%t_g(jc,jb) = prepicon(jg)%sfc%tskin(jc,jb)
+          p_nh_state(jg)%prog(ntl)%w(jc,nlevp1,jb)  = prepicon(jg)%atm%w(jc,nlevp1,jb)
+          p_lnd_state(jg)%prog_lnd(ntlr)%t_g(jc,jb) = prepicon(jg)%sfc%tskin(jc,jb)
         ENDDO
+
+        IF ( atm_phy_nwp_config(jg)%inwp_surface > 0 ) THEN
+          DO jt = 1, nsfc_subs
+            DO jc = 1, nlen
+              p_lnd_state(jg)%prog_lnd(ntlr)%t_snow(jc,jb,jt)   = prepicon(jg)%sfc%tsnow(jc,jb)
+              p_lnd_state(jg)%prog_lnd(ntlr)%w_snow(jc,jb,jt)   = prepicon(jg)%sfc%snowweq(jc,jb)
+              p_lnd_state(jg)%prog_lnd(ntlr)%rho_snow(jc,jb,jt) = prepicon(jg)%sfc%snowdens(jc,jb)
+              p_lnd_state(jg)%prog_lnd(ntlr)%w_i(jc,jb,jt)      = prepicon(jg)%sfc%skinres(jc,jb)
+            ENDDO
+          ENDDO
+
+          DO jt = 1, nsfc_subs
+            DO js = 1, nlev_soil+2
+              DO jc = 1, nlen
+                p_lnd_state(jg)%prog_lnd(ntlr)%t_so(jc,js,jb,jt)= prepicon(jg)%sfc%tsoil(jc,js,jb)
+                p_lnd_state(jg)%prog_lnd(ntlr)%w_so(jc,js,jb,jt)= prepicon(jg)%sfc%wsoil(jc,js,jb)
+              ENDDO
+            ENDDO
+          ENDDO
+        ENDIF
 
       ENDDO
 !$OMP END DO
@@ -956,7 +978,7 @@ MODULE mo_prepicon_utils
                  prepicon(jg)%sfc_in%ls_mask  (nproma,nblks_c            ), &
                  prepicon(jg)%sfc_in%seaice   (nproma,nblks_c            ), &
                  prepicon(jg)%sfc_in%tsoil    (nproma,nblks_c,nlevsoil_in), &
-                 prepicon(jg)%sfc_in%soilwater(nproma,nblks_c,nlevsoil_in)  )
+                 prepicon(jg)%sfc_in%wsoil    (nproma,nblks_c,nlevsoil_in)  )
 
         ! Allocate atmospheric output data
         ALLOCATE(prepicon(jg)%atm%vn        (nproma,nlev  ,nblks_e), &
@@ -975,15 +997,15 @@ MODULE mo_prepicon_utils
                  prepicon(jg)%atm%qs        (nproma,nlev  ,nblks_c)  )
 
         ! Allocate surface output data
-        ALLOCATE(prepicon(jg)%sfc%tskin    (nproma,nblks_c          ), &
-                 prepicon(jg)%sfc%tsnow    (nproma,nblks_c          ), &
-                 prepicon(jg)%sfc%snowweq  (nproma,nblks_c          ), &
-                 prepicon(jg)%sfc%snowdens (nproma,nblks_c          ), &
-                 prepicon(jg)%sfc%skinres  (nproma,nblks_c          ), &
-                 prepicon(jg)%sfc%ls_mask  (nproma,nblks_c          ), &
-                 prepicon(jg)%sfc%seaice   (nproma,nblks_c          ), &
-                 prepicon(jg)%sfc%tsoil    (nproma,nblks_c,nlev_soil), &
-                 prepicon(jg)%sfc%soilwater(nproma,nblks_c,nlev_soil)  )
+        ALLOCATE(prepicon(jg)%sfc%tskin    (nproma,nblks_c            ), &
+                 prepicon(jg)%sfc%tsnow    (nproma,nblks_c            ), &
+                 prepicon(jg)%sfc%snowweq  (nproma,nblks_c            ), &
+                 prepicon(jg)%sfc%snowdens (nproma,nblks_c            ), &
+                 prepicon(jg)%sfc%skinres  (nproma,nblks_c            ), &
+                 prepicon(jg)%sfc%ls_mask  (nproma,nblks_c            ), &
+                 prepicon(jg)%sfc%seaice   (nproma,nblks_c            ), &
+                 prepicon(jg)%sfc%tsoil    (nproma,nblks_c,nlev_soil+2), &
+                 prepicon(jg)%sfc%wsoil    (nproma,nblks_c,nlev_soil+2)  )
 
       ENDIF
 
@@ -1064,7 +1086,7 @@ MODULE mo_prepicon_utils
                  prepicon(jg)%sfc_in%ls_mask,  &
                  prepicon(jg)%sfc_in%seaice,   &
                  prepicon(jg)%sfc_in%tsoil,    &
-                 prepicon(jg)%sfc_in%soilwater )
+                 prepicon(jg)%sfc_in%wsoil     )
 
         ! atmospheric output data
         DEALLOCATE(prepicon(jg)%atm%vn,    &
@@ -1091,7 +1113,7 @@ MODULE mo_prepicon_utils
                  prepicon(jg)%sfc%ls_mask,  &
                  prepicon(jg)%sfc%seaice,   &
                  prepicon(jg)%sfc%tsoil,    &
-                 prepicon(jg)%sfc%soilwater )
+                 prepicon(jg)%sfc%wsoil     )
 
       ENDIF
 
@@ -1959,13 +1981,13 @@ MODULE mo_prepicon_utils
       CASE ('TSOIL5');          ptr2 => prepicon(jg)%sfc%tsoil(:,:,5)
       CASE ('TSOIL6');          ptr2 => prepicon(jg)%sfc%tsoil(:,:,6)
       CASE ('TSOIL7');          ptr2 => prepicon(jg)%sfc%tsoil(:,:,7)
-      CASE ('WSOIL1');          ptr2 => prepicon(jg)%sfc%soilwater(:,:,1)
-      CASE ('WSOIL2');          ptr2 => prepicon(jg)%sfc%soilwater(:,:,2)
-      CASE ('WSOIL3');          ptr2 => prepicon(jg)%sfc%soilwater(:,:,3)
-      CASE ('WSOIL4');          ptr2 => prepicon(jg)%sfc%soilwater(:,:,4)
-      CASE ('WSOIL5');          ptr2 => prepicon(jg)%sfc%soilwater(:,:,5)
-      CASE ('WSOIL6');          ptr2 => prepicon(jg)%sfc%soilwater(:,:,6)
-      CASE ('WSOIL7');          ptr2 => prepicon(jg)%sfc%soilwater(:,:,7)
+      CASE ('WSOIL1');          ptr2 => prepicon(jg)%sfc%wsoil(:,:,1)
+      CASE ('WSOIL2');          ptr2 => prepicon(jg)%sfc%wsoil(:,:,2)
+      CASE ('WSOIL3');          ptr2 => prepicon(jg)%sfc%wsoil(:,:,3)
+      CASE ('WSOIL4');          ptr2 => prepicon(jg)%sfc%wsoil(:,:,4)
+      CASE ('WSOIL5');          ptr2 => prepicon(jg)%sfc%wsoil(:,:,5)
+      CASE ('WSOIL6');          ptr2 => prepicon(jg)%sfc%wsoil(:,:,6)
+      CASE ('WSOIL7');          ptr2 => prepicon(jg)%sfc%wsoil(:,:,7)
 
       CASE ('UP');              ptr3 => prepicon(jg)%plev%u
       CASE ('VP');              ptr3 => prepicon(jg)%plev%v
