@@ -44,7 +44,6 @@ MODULE mo_nwp_gscp_interface
   USE mo_kind,                 ONLY: wp
   USE mo_exception,            ONLY: message, message_text
   USE mo_parallel_config,      ONLY: nproma
-  USE mo_sync,                 ONLY: sync_patch_array_mult
 
   USE mo_model_domain,         ONLY: t_patch
   USE mo_impl_constants,       ONLY: min_rlcell_int
