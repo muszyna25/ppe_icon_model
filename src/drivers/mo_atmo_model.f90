@@ -452,7 +452,7 @@ CONTAINS
     
     ! allocate memory for atmospheric/oceanic external data and
     ! optionally read those data from netCDF file.
-    CALL init_ext_data (p_patch(1:), p_int_state, ext_data)
+    CALL init_ext_data (p_patch(1:), p_int_state(1:), ext_data)
 
     !---------------------------------------------------------------------
     ! 11. Do the setup for the coupled run

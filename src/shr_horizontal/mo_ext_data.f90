@@ -390,7 +390,7 @@ CONTAINS
   SUBROUTINE init_ext_data (p_patch, p_int_state, ext_data)
 
     TYPE(t_patch), INTENT(IN)            :: p_patch(:)
-    TYPE(t_int_state), INTENT(IN)        :: p_int_state(n_dom)
+    TYPE(t_int_state), INTENT(IN)        :: p_int_state(:)
     TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
 
     INTEGER :: jg
@@ -1988,9 +1988,6 @@ CONTAINS
 
     i_startblk = p_patch%cells%start_blk(3,1)
     nblks_c    = p_patch%nblks_c
-
-!    write(0,*) 'n_iter_smooth_topo=',n_iter_smooth_topo
-!    write(0,*) 'fac_smooth_topo=',fac_smooth_topo
 
     DO iter = 1, n_iter_smooth_topo
       z_topo(:,1,:)   = topography_c(:,:)
