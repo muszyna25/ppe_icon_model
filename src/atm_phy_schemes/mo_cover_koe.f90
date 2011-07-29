@@ -49,35 +49,16 @@ MODULE mo_cover_koe
 
   USE mo_kind,               ONLY: wp, i4
 
-  USE mo_physical_constants, ONLY: re
-  USE mo_parallel_config,  ONLY: nproma
-  USE mo_math_utilities,     ONLY: gamma_fct
-  USE mo_math_constants,     ONLY: dbl_eps, pi
-
-  USE mo_physical_constants, ONLY: rv     , & !! gas constant for water vapour
-                                   rd     , & !! gas constant for dry air
-                                   vtmpc1 , & !! r_v/r_d - 1
-                                   o_m_rdv, & !! 1 - r_d/r_v
-                                   rdv    , & !! r_d / r_v
-                                   alv    , & !! latent heat of vapourization
-                                   als    , & !! latent heat of sublimation
-                                   alf    , & !! latent heat of fusion
-                                   cpd    , & !! specific heat of dry air at constant press
-                                   rcpd   , & !! (spec. heat of dry air at constant press)^-1
-                                   tmelt  , & !! melting temperature of ice/snow
-                                   rhoh2o , & !! density of liquid water (kg/m^3)
-                                   grav       !! acceleration due to gravity
+  USE mo_physical_constants, ONLY: rdv    , & !! r_d / r_v
+                                   tmelt      !! melting temperature of ice/snow
 
   USE mo_convect_tables,     ONLY: c1es   , & !! constants for computing the sat. vapour
                                    c3les  , & !! pressure over water (l) and ice (i)
                                    c3ies  , & !!               -- " --
                                    c4les  , & !!               -- " --
-                                   c4ies  , & !!               -- " --
-                                   c5les      !!               -- " --
+                                   c4ies      !!               -- " --
 
   USE mo_cufunctions,        ONLY: foealfa    !! liquid fraction as in Tiedtke/Bechtold convection
-
-  USE mo_exception,          ONLY: message, finish, message_text
 
   USE mo_cloud_diag,         ONLY: cloud_diag
 
@@ -200,8 +181,8 @@ REAL(KIND=wp), DIMENSION(klon,klev)  :: &
 
 
 REAL(KIND=wp) ::          &
-  fgew   , fgee   , fgqv   , fgqs , & ! name of statement functions
-  ztt    , zzpv   , zzpa   , zzps , &
+  fgew   , fgee   , fgqs   , &!fgqv   , & ! name of statement functions
+  ztt    , zzpv   , zzpa   , zzps   , &
   zt_ice1, zt_ice2, zf_ice , deltaq , qisat_grid
 
 REAL(KIND=wp), DIMENSION(klon,klev)  :: &
@@ -225,7 +206,7 @@ REAL(KIND=wp), PARAMETER  :: &
   fgee(ztt)            = c1es * EXP( c3ies*(ztt - tmelt)/(ztt - c4ies) )  ! ztt: temperature
 
 ! statement function to calculate specific humitdity
-  fgqv(zzpv,zzpa)      = rdv * zzpv / (zzpa - (1._wp-rdv)*zzpv)           ! zzpv: vapour pressure
+!  fgqv(zzpv,zzpa)      = rdv * zzpv / (zzpa - (1._wp-rdv)*zzpv)           ! zzpv: vapour pressure
 
 ! statement function to calculate saturation specific humidities from RH=esat/e (proper and safe)
   fgqs(zzps,zzpv,zzpa) = rdv * zzps / (zzpa - (1._wp-rdv)*zzpv)           ! zzps: saturation vapour pressure
