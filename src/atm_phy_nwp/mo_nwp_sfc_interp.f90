@@ -39,9 +39,7 @@ MODULE mo_nwp_sfc_interp
 
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_run_config,          ONLY: msg_level
   USE mo_parallel_config,     ONLY: nproma 
-  USE mo_exception,           ONLY: message, message_text, finish
   USE mo_prepicon_nml,        ONLY: nlevsoil_in, nlev_in
   USE mo_prepicon_utils,      ONLY: t_prepicon_state
   USE mo_lnd_nwp_config,      ONLY: nlev_soil

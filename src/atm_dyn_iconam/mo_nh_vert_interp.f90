@@ -39,15 +39,13 @@ MODULE mo_nh_vert_interp
 
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_nonhydro_state,      ONLY: t_nh_metrics
   USE mo_interpolation,       ONLY: t_int_state, edges2cells_scalar
-  USE mo_run_config,          ONLY: msg_level
   USE mo_parallel_config,     ONLY: nproma 
-  USE mo_physical_constants,  ONLY: grav, cpd, rd, cvd_o_rd, p0ref, vtmpc1, rdv, o_m_rdv
+  USE mo_physical_constants,  ONLY: grav, rd, rdv, o_m_rdv
   USE mo_grid_config,         ONLY: n_dom
-  USE mo_exception,           ONLY: message, message_text, finish
+  USE mo_exception,           ONLY: finish
   USE mo_prepicon_nml,        ONLY: nlev_in, zpbl1, zpbl2, &
-                                    i_oper_mode, l_w_in, l_zp_out, l_sfc_in
+                                    i_oper_mode, l_w_in, l_sfc_in
   USE mo_prepicon_utils,      ONLY: t_prepicon_state, nzplev
   USE mo_ifs_coord,           ONLY: half_level_pressure, full_level_pressure, &
                                     auxhyb, geopot

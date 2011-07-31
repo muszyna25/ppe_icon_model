@@ -42,8 +42,7 @@
 MODULE mo_atm_phy_nwp_nml
 
   USE mo_kind,                ONLY: wp
-  USE mo_impl_constants,      ONLY: max_dom,MAX_CHAR_LENGTH
-  USE mo_exception,           ONLY: message, message_text, finish
+  USE mo_impl_constants,      ONLY: max_dom !,MAX_CHAR_LENGTH
   USE mo_namelist,            ONLY: position_nml, POSITIONED, open_nml, close_nml
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_io_units,            ONLY: nnml, nnml_output
@@ -53,13 +52,13 @@ MODULE mo_atm_phy_nwp_nml
     &                               open_and_restore_namelist, close_tmpfile
 
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
-  USE mo_data_turbdiff,       ONLY: imode_turb,                              &
-    &                               limpltkediff, ltkesso, lexpcor,          &
-    &                               tur_len, pat_len, a_stab,                &
-    &                               tkhmin, tkmmin, c_diff,                  &
-    &                               itype_wcld, icldm_turb,                  &
-    &                               itype_tran, rlam_heat, rlam_mom, rat_sea,&
-    &                               llake, lseaice
+!  USE mo_data_turbdiff,       ONLY: imode_turb,                              &
+!    &                               limpltkediff, ltkesso, lexpcor,          &
+!    &                               tur_len, pat_len, a_stab,                &
+!    &                               tkhmin, tkmmin, c_diff,                  &
+!    &                               itype_wcld, icldm_turb,                  &
+!    &                               itype_tran, rlam_heat, rlam_mom, rat_sea,&
+!    &                               llake, lseaice
 
   IMPLICIT NONE
   PRIVATE

@@ -40,27 +40,26 @@ MODULE mo_prepicon_utils
   USE mo_kind
   USE mo_io_units,            ONLY: filename_max
   USE mo_parallel_config,     ONLY: nproma, p_test_run
-  USE mo_run_config,          ONLY: num_lev, num_levp1, msg_level, dtime, nvclev, &
+  USE mo_run_config,          ONLY: num_lev, num_levp1, msg_level, nvclev, &
                                     iqv, iqc, iqi, iqr, iqs
   USE mo_extpar_config,       ONLY: n_iter_smooth_topo
-  USE mo_dynamics_config,     ONLY: iequations, nnow, nnew, nnow_rcf, nnew_rcf
+  USE mo_dynamics_config,     ONLY: iequations, nnow, nnow_rcf
   USE mo_nonhydrostatic_config,ONLY: ivctype
   USE mo_nonhydro_state,      ONLY: t_nh_state
   USE mo_nwp_lnd_state,       ONLY: t_lnd_state
   USE mo_prepicon_nml,        ONLY: i_oper_mode, nlev_in, l_zp_out, l_w_in,&
   &                                 nlevsoil_in, l_sfc_in
-  USE mo_model_domain,        ONLY: t_patch
-  USE mo_impl_constants,      ONLY: SUCCESS, max_char_length, max_dom
+  USE mo_impl_constants,      ONLY: max_char_length, max_dom
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, start_lev, global_cell_type
-  USE mo_interpolation,       ONLY: t_int_state, cells2verts_scalar
+  USE mo_interpolation,       ONLY: t_int_state
   USE mo_grf_interpolation,   ONLY: t_gridref_state
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
   USE mo_ext_data,            ONLY: smooth_topography, read_netcdf_data, t_external_data
   USE mo_atmo_control,        ONLY: p_patch
   USE mo_io_vlist,            ONLY: GATHER_C, GATHER_E, GATHER_V, num_output_vars, outvar_desc, &
                                     gather_array1, gather_array2
-  USE mo_datetime,            ONLY: t_datetime, print_datetime
+  USE mo_datetime,            ONLY: t_datetime
   USE mo_io_config,              ONLY: lkeep_in_sync
   USE mo_nh_init_utils,       ONLY: nflat, nflatlev, compute_smooth_topo, init_vert_coord,  &
                                     topography_blending, topography_feedback, hydro_adjust, &
