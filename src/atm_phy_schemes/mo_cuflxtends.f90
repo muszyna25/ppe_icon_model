@@ -66,13 +66,8 @@ MODULE mo_cuflxtends
   
 !  USE yomhook   ,ONLY : lhook,   dr_hook
   !KF
-  USE mo_cuparameters, ONLY: r2es     ,r3les    ,r3ies    ,r4les    ,&
-    &                        r4ies    ,r5les    ,r5ies    ,r5alvcp  ,&
-    &                        r5alscp  ,ralvdcp  ,ralsdcp  ,rtwat    ,&
-    &                        rtice    ,rticecu  ,rtwat_rtice_r      ,&
-    &                        rtwat_rticecu_r                        ,&
-    &                        lphylin  ,rlptrc,  lepcld              ,&
-    &                        rcucov   ,rcpecons ,rtaumel  ,rhebc    ,&
+  USE mo_cuparameters, ONLY: lphylin  ,rlptrc,  lepcld              ,&
+    &                        rcucov   ,rcpecons ,rtaumel  ,&!rhebc    ,&
     &                        rmfcfl,  rmfsoltq,  rmfsoluv           ,&
     &                        rmfsolct, rmfcmin,rg       ,rcpd       ,&
     &                        rlvtt   , rlstt    ,rlmlt    ,rtt      ,&
@@ -406,9 +401,6 @@ CONTAINS
               ztarg=pten(jl,jk)-zsnmlt/zfac
               zoealfa=0.545_JPRB*(TANH(0.17_JPRB*(ztarg-rlptrc))+1.0_JPRB)
               !>KF use functions!
-              !          ZFOEEWL=R2ES*EXP(R3LES*(ZTARG-RTT)/(ZTARG-R4LES))
-              !          ZFOEEWI=R2ES*EXP(R3IES*(ZTARG-RTT)/(ZTARG-R4IES))
-              !          ZOEEWM=ZOEALFA*ZFOEEWL + (1.0_JPRB-ZOEALFA)*ZFOEEWI
               zoeewm=zoealfa*foeewl(ztarg) + (1.0_JPRB-zoealfa)*foeewi(ztarg)
               !<KF
               pqsen(jl,jk)=zoeewm/pap(jl,jk)

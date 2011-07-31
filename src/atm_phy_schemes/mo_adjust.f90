@@ -77,13 +77,12 @@ MODULE mo_adjust
    !&                       RTWAT_RTICECU_R
 
    USE mo_cuparameters, ONLY : r2es     ,r3les    ,r3ies    ,r4les    ,&
-     & r4ies    ,r5les    ,r5ies    ,r5alvcp  ,&
-     & r5alscp  ,ralvdcp  ,ralsdcp  ,rtwat    ,&
-     & rtice    ,rticecu  ,rtwat_rtice_r      ,&
-     & rtwat_rticecu_r                        ,&
-     & lphylin, rlptrc   ,rlpal1   ,rlpal2    ,&
-     & retv     ,rlvtt    ,rlstt    ,rtt      ,&
-     & lhook,   dr_hook
+     &                         r4ies    ,r5alvcp                      ,&
+     &                         r5alscp  ,ralvdcp  ,ralsdcp            ,&
+     &                         rtice                                  ,&
+     &                         lphylin  ,rlptrc   ,rlpal1   ,rlpal2   ,&
+     &                         retv     ,rtt                          ,&
+     &                         lhook    ,dr_hook
 
    IMPLICIT NONE
 

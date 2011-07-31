@@ -66,7 +66,6 @@ MODULE mo_cuinit
     &                          lphylin, njkt2,njkt1  ,&
     &                       lmfdudv, entrpen, rdepths,&
     &                          rcpd   ,retv, rd, rg  ,&
-    &                          rlvtt  ,rlstt    ,rtt ,&
     &                          rlmin                 ,&
     &                          lhook,   dr_hook
 

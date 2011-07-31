@@ -90,7 +90,6 @@ MODULE mo_cumaster
 #ifdef __ICON__
   USE mo_kind   ,ONLY: JPRB=>wp     , &
     &                  jpim=>i4
-  USE mo_exception,          ONLY: message, message_text
 #endif
 
 #ifdef __GME__
@@ -101,17 +100,14 @@ MODULE mo_cumaster
   
 !  USE yomhook   ,ONLY : lhook,   dr_hook
   !KF
-  USE mo_cuparameters , ONLY : r2es     ,r3les    ,r3ies    ,r4les    ,&
-    & r4ies    ,r5les    ,r5ies    ,r5alvcp  ,r5alscp  ,&
-    & ralvdcp  ,ralsdcp  ,rtwat    ,rtice    ,rticecu  ,&
-    & rtwat_rticecu_r    ,rtwat_rtice_r                ,&
-    & entrpen  ,entrscv  ,lmfdd    ,lmfdudv  ,&
+  USE mo_cuparameters , ONLY : r5alvcp  ,r5alscp                ,&
+    & rtwat                                                     ,&
+    & entrpen  ,entrscv  ,lmfdd    ,lmfdudv                     ,&
     & rtau      ,rdepths ,lmfscv  ,lmfpen   ,lmfit    ,njkt2    ,&
-    & rmfcfl    ,rmflic  ,rmflia  ,rmfsoluv ,njkt4    ,njkt5    ,&
+    & rmfcfl    ,rmflic  ,rmflia  ,rmfsoluv                     ,&
     & ruvper    ,rmfsoltq,rmfsolct,rmfcmin  ,lmfsmooth,lmfwstar ,&
     & lmftrac   ,   LMFUVDIS                                    ,&
-    & rg       ,rd      ,rcpd  ,retv , rlvtt    ,rlstt   ,rtt   ,&
-    & rpi      , entrdd   ,njkt3,                                &
+    & rg       ,rd      ,rcpd  ,retv , rlvtt                    ,&
     & lhook,   dr_hook
   
   

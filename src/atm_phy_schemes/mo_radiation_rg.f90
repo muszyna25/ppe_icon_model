@@ -41,11 +41,7 @@ MODULE mo_radiation_rg
 
   USE mo_exception,          ONLY: message, message_text  
 
-  USE mo_math_constants    , ONLY: pi , &
-    &                              pid5 => pi_5!, & !pi*0.2
-
-  USE mo_physical_constants, ONLY: re , &! radius of the earth; phys. dim. (m)
-    &                              g     => grav  , & !! acceleration due to gravity
+  USE mo_physical_constants, ONLY: g     => grav  , & !! acceleration due to gravity
     &                              r_d   => rd, &
     &                              r_v   => rv, &
     &                              Rvd_m_o =>  vtmpc1, &
@@ -55,7 +51,6 @@ MODULE mo_radiation_rg
   &                               jpsol,jpther,jpspec, &
   &                               ncgas, nfast, &
   &                               coai, cobi, coali, cobti, &
-  &                               grenze, &
   &                               zlwe, zlww, zlwg, zlwemn, zlwemx, &
   &                               zaea, zaes, zaef, zaeg, &
   &                               ziwe, ziwemn, ziwemx, ziww, ziwg!, &

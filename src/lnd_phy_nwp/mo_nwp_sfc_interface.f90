@@ -46,7 +46,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_ext_data,            ONLY: t_external_data !DR, nclass_lu
   USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag
   USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag
-  USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag, t_tiles
+  USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag !!$, t_tiles
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: iqv !,msg_level
   USe mo_extpar_config,       ONLY: itopo
@@ -54,7 +54,6 @@ MODULE mo_nwp_sfc_interface
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nztlev, nlev_snow, nsfc_subs !, &
 !    &                               lseaice ,llake, lmulti_snow
   USE mo_satad,               ONLY: sat_pres_water, spec_humi  
-  USE mo_phyparam_soil,       ONLY: ireals
   USE mo_soil_ml,             ONLY: terra_multlay
 !  USE mo_aggregate_surface,   ONLY: subsmean,subs_disaggregate_radflux,subsmean_albedo
 !  USE mo_icoham_sfc_indices,  ONLY: nsfc_type, igbm, iwtr, iice, ilnd

@@ -48,36 +48,22 @@ MODULE mo_nwp_diagnosis
 
   USE mo_kind,               ONLY: wp
 
-  USE mo_timer,              ONLY: timer_physics, timer_start, timer_stop
-  USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_impl_constants,     ONLY: itconv, itccov, itrad, itgscp,         &
-    &                              itsatad, itupdate, itturb, itradheat,  &
-    &                              itsso, icc,                            &
-    &                              min_rlcell_int, min_rledge_int, min_rlcell
-  USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
-  USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
-  USE mo_interpolation,      ONLY: t_int_state, rbf_vec_interpol_cell,    &
-                                   edges2cells_scalar
-  USE mo_grf_interpolation,  ONLY: t_gridref_single_state, &
-    &                              t_gridref_state
+  USE mo_impl_constants,     ONLY: itccov, itupdate, icc, min_rlcell_int
+  USE mo_impl_constants_grf, ONLY: grf_bdywidth_c
+  USE mo_loopindices,        ONLY: get_indices_c
+  USE mo_interpolation,      ONLY: t_int_state
 
   USE mo_model_domain,       ONLY: t_patch
   
   USE mo_nonhydro_state,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_nwp_phy_state,      ONLY: t_nwp_phy_diag,&
-                                 & t_nwp_phy_tend,  prm_diag
-  USE mo_parallel_config,  ONLY: nproma, p_test_run
-  USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, &
-       &                          iqr, iqs, msg_level, ltimer
+  USE mo_nwp_phy_state,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
+  USE mo_parallel_config,    ONLY: nproma
   USE mo_time_config,        ONLY: time_config
-  USE mo_physical_constants, ONLY: rd, rd_o_cpd, vtmpc1, p0ref, cvd_o_rd, &
-                                   lh_v     => alv      !! latent heat of vapourization
+  USE mo_physical_constants, ONLY: lh_v     => alv      !! latent heat of vapourization
 
 !  USE mo_atm_phy_nwp_nml,    ONLY: inwp_cldcover, inwp_radiation,  dt_rad,&
 !                                   inwp_sso, inwp_turb 
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
-  USE mo_sync,               ONLY: sync_patch_array, sync_patch_array_mult, &
-                                   SYNC_C, SYNC_C1
  
 
 
