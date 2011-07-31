@@ -112,8 +112,10 @@ MODULE mo_nh_stepping
   USE mo_advection_stepping,  ONLY: step_advection
   USE mo_nh_dtp_interface,    ONLY: prepare_tracer
   USE mo_nh_diffusion,        ONLY: diffusion_tria, diffusion_hex
-  USE mo_mpi,                 ONLY: my_process_is_stdio, my_process_is_mpi_parallel, &
-    & my_process_is_mpi_all_seq
+  USE mo_mpi,                 ONLY: my_process_is_stdio, my_process_is_mpi_parallel
+#ifdef NOMPI
+  USE mo_mpi,                 ONLY: my_process_is_mpi_all_seq
+#endif
   
   USE mo_sync,                ONLY: global_sum_array, sync_patch_array_mult, &
                                     push_glob_comm, pop_glob_comm, global_max, &

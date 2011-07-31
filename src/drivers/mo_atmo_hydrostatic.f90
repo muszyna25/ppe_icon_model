@@ -41,7 +41,6 @@ MODULE mo_atmo_hydrostatic
   USE mo_run_config,        ONLY: dtime, nsteps, ltestcase, ltimer,iforcing, nlev
   USE mo_ha_testcases,      ONLY: ctest_name
   USE mo_io_config,         ONLY: dt_data, dt_file, dt_diag, dt_checkpoint
-  USE mo_dynamics_config,   ONLY: iequations
 
   USE mo_atmo_control,        ONLY: p_patch
   USE mo_intp_data_strc,      ONLY: p_int_state
@@ -52,7 +51,6 @@ MODULE mo_atmo_hydrostatic
   USE mo_ha_stepping,         ONLY: prepare_ha_dyn, initcond_ha_dyn, &
                                     perform_ha_stepping
 
-  USE mo_echam_phy_config,    ONLY: configure_echam_phy
   USE mo_echam_phy_init,      ONLY: prepare_echam_phy, initcond_echam_phy, &
                                     additional_restart_init
   USE mo_echam_phy_cleanup,   ONLY: cleanup_echam_phy

@@ -38,10 +38,9 @@ USE mo_exception,           ONLY: message, finish
 USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs
 USE mo_mpi,                 ONLY: p_stop, &
   & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
-  & my_process_is_stdio, set_mpi_work_communicators, set_comm_input_bcast, null_comm_type
-USE mo_timer,               ONLY: init_timer, print_timer
+  & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type
+USE mo_timer,               ONLY: init_timer
 USE mo_master_control,      ONLY: is_restart_run
-USE mo_output,              ONLY: init_output_files, close_output_files, write_output
 
 
 USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
@@ -51,9 +50,6 @@ USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I
 USE mo_nonhydrostatic_config,ONLY: ivctype, kstart_moist, kstart_qv, l_open_ubc
 USE mo_dynamics_config,   ONLY: iequations
 USE mo_run_config,        ONLY: configure_run, &
-  & dtime,                & !    namelist parameter
-  & ltransport,           & !    :
-  & lforcing,             & !    :
   & ltimer,               & !    :
   & iforcing,             & !    namelist parameter
   & ldump_states,         & ! flag if states should be dumped
@@ -67,11 +63,7 @@ USE mo_impl_constants, ONLY:&
   & ihs_atm_temp,         & !    :
   & ihs_atm_theta,        & !    :
   & inh_atmosphere,       & !    :
-  & ishallow_water,       & !    :
-  & ildf_dry,             & !    :
-  & inoforcing,           & !    :
-  & iheldsuarez,          & !    :
-  & inwp
+  & ishallow_water
 
 
 ! For the coupling
@@ -83,11 +75,6 @@ USE mo_icon_cpl_def_field, ONLY : ICON_cpl_def_field
 USE mo_icon_cpl_search, ONLY : ICON_cpl_search
 USE mo_model_domain_import, ONLY : get_patch_global_indexes
 
-! Test cases
-!
-USE mo_ha_testcases,     ONLY: read_ha_testcase_namelist, ctest_name
-USE mo_nh_testcases,     ONLY: read_nh_testcase_namelist ! process non-hyd. atm. test ctl. par.
-
 ! Memory
 !
 USE mo_subdivision,         ONLY: decompose_atmo_domain,         &
@@ -98,7 +85,6 @@ USE mo_dump_restore,        ONLY: dump_patch_state_netcdf,       &
 & restore_interpol_state_netcdf, &
 & restore_gridref_state_netcdf
 
-USE mo_nonhydro_state,      ONLY: p_nh_state
 USE mo_atmo_control,        ONLY: p_patch_global, p_patch_subdiv, p_patch
 
 ! Horizontal grid
@@ -108,39 +94,21 @@ USE mo_model_domain_import, ONLY: import_patches, destruct_patches
 
 ! Horizontal interpolation
 !
-USE mo_intp_state,          ONLY: construct_2d_interpol_state, &
-& destruct_2d_interpol_state
-USE mo_interpolation,       ONLY: rbf_vec_interpol_cell,       &
-& edges2cells_scalar
-USE mo_grf_interpolation,   ONLY: construct_2d_gridref_state,  &
-& destruct_2d_gridref_state
+USE mo_intp_state,          ONLY: construct_2d_interpol_state,  destruct_2d_interpol_state
+USE mo_grf_interpolation,   ONLY: construct_2d_gridref_state,   destruct_2d_gridref_state
 
 ! Vertical grid
 !
 USE mo_vertical_coord_table,ONLY: init_vertical_coord_table, &
-  &                               vct_a, vct_b, ceta, apzero
+  &                               vct_a, vct_b, apzero
 USE mo_nh_init_utils,       ONLY: init_hybrid_coord, init_sleve_coord
-
-! State variables
-!
-USE mo_nonhydro_state,      ONLY: destruct_nh_state
-
 
 ! Parameterized forcing
 !
-USE mo_nwp_phy_state,       ONLY: construct_nwp_phy_state,   &
-  &                               destruct_nwp_phy_state
-USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config,configure_atm_phy_nwp
-USE mo_lnd_nwp_nml,         ONLY: setup_nwp_lnd
-USE mo_nwp_lnd_state,       ONLY: construct_nwp_lnd_state,   &
-& destruct_nwp_lnd_state, p_lnd_state
-
 USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
 
 ! Time integration
 !
-USE mo_ha_stepping,         ONLY: initcond_ha_dyn, perform_ha_stepping
-USE mo_nh_stepping,         ONLY: prepare_nh_integration, perform_nh_stepping
 ! External data
 USE mo_ext_data,            ONLY: ext_data, init_ext_data, destruct_ext_data
 
@@ -155,14 +123,13 @@ USE mo_intp_data_strc,      ONLY: p_int_state_global, p_int_state_subdiv, p_int_
 USE mo_grf_intp_data_strc,  ONLY: p_grf_state_global, p_grf_state_subdiv, p_grf_state
 
 !-------------------------------------------------------------------------
-USE mo_io_restart,           ONLY: read_restart_info_file, read_restart_files
+USE mo_io_restart,           ONLY: read_restart_info_file
 USE mo_io_restart_namelist,  ONLY: read_restart_namelists
-USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
+USE mo_io_restart_attributes,ONLY: read_restart_attributes
 
 USE mo_read_namelists,     ONLY: read_atmo_namelists
 USE mo_atm_nml_crosscheck,       ONLY: atm_crosscheck
 
-USE mo_time_config,        ONLY: time_config      ! variable
 USE mo_dynamics_config,    ONLY: configure_dynamics  ! subroutine
 !USE mo_interpol_config,    ONLY: configure_interpolation 
 USE mo_interpol_config
@@ -563,435 +530,5 @@ CONTAINS
 
   END SUBROUTINE atmo_model
 
-
-   !=============================================================================
-   ! The lines below will be sorted into two subroutines:
-   ! - atmo_hydrostatic
-   ! - atmo_nonhydrostatic
-   !=============================================================================
-
-     !nohydostatic
-     !CALL configure_atm_phy_nwp
-    !---------------------------------------------------------------------
-    ! 4. Construct model states (variable lists); set initial conditions.
-    !---------------------------------------------------------------------
-   
- !   SELECT CASE (iequations)
-    !---------------------------------------------------------------------
-    ! 4.c Non-Hydrostatic / NWP
-    !---------------------------------------------------------------------
-
- !   CASE (inh_atmosphere)
- !    ALLOCATE (p_nh_state(n_dom), stat=ist)
- !    IF (ist /= success) THEN
- !      CALL finish(TRIM(routine),'allocation for p_nh_state failed')
- !    ENDIF
- !    ALLOCATE (p_lnd_state(n_dom), stat=ist)
- !    IF (ist /= success) THEN
- !      CALL finish(TRIM(routine),'allocation for p_lnd_state failed')
- !    ENDIF
-
-!    IF(iforcing= inwp) THEN
-!      CALL construct_nwp_phy_state( p_patch(1:) )
-!     IF (inwp_surface > 0 )&
-!       &       CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
-!    ENDIF
-    !
-
-
-    !------------------------------------------------------------------
-    ! initialize output
-    !------------------------------------------------------------------
-    
-    !CALL setup_gmt_output(p_patch(n_dom)%nlev)
-
-    
-    ! The model produces output files for all grid levels
-
-    !---------------------------------------------------------------------
-    ! 5. Perform time stepping
-    !---------------------------------------------------------------------
-    ! Initial conditions
-    !------------------------------------------------------------------
-    ! Prepare for time integration
-    !------------------------------------------------------------------
-!   SELECT CASE (iequations)
-!   !--------------------
-!   CASE (inh_atmosphere)
-!     CALL prepare_nh_integration(p_patch(1:), p_nh_state, p_int_state(1:), p_grf_state(1:))
-!
-!   CASE DEFAULT
-!   END SELECT
-!
-
-!    !---------------------------------------------------------
-!    ! The most primitive event handling algorithm: 
-!    ! compute time step interval for taking a certain action
-!    !--------------------------------------------------------- 
-! 
-!    n_io    = NINT(dt_data/dtime)        ! write output
-!    n_file  = NINT(dt_file/dtime)        ! trigger new output file
-!    n_chkpt = NINT(dt_checkpoint/dtime)  ! write restart files
-!    n_diag  = MAX(1,NINT(dt_diag/dtime)) ! diagnose of total integrals
-!
-!    !------------------------------------------------------------------
-!    ! Prepare output file
-!    !------------------------------------------------------------------
-!    IF (.NOT.lrestart) THEN
-!    ! Initialize the first output file which will contain also the 
-!    ! initial conditions.
-!
-!      jfile = 1
-!      CALL init_output_files(jfile, lclose=.FALSE.)
-!
-!    ELSE
-!    ! No need to write out the initial condition, thus no output
-!    ! during the first integration step. This run will produce
-!    ! output if n_io <= integration_length. 
-!
-!      CALL get_restart_attribute('next_output_file',jfile)
-!
-!      IF (n_io.le.(nsteps-1)) THEN
-!         CALL init_output_files(jfile, lclose=.FALSE.)
-!         l_have_output = .TRUE.  
-!      ELSE
-!         l_have_output = .FALSE.
-!      END IF
-!
-!    END IF
-! 
-
-!    !------------------------------------------------------------------
-!    !  get and write out some of the inital values
-!    !------------------------------------------------------------------
-!    IF (.NOT.lrestart) THEN
-!
-!    ! diagnose u and v to have meaningful initial output
-!    
-!    DO jg = 1, n_dom
-!
-!      SELECT CASE (iequations)
-!
-!      CASE (inh_atmosphere)
-!        SELECT CASE (p_patch(jg)%cell_type)
-!        CASE (3)
-!          CALL rbf_vec_interpol_cell(p_nh_state(jg)%prog(1)%vn,p_patch(jg),&
-!            & p_int_state(jg),p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
-!        CASE (6)
-!          CALL edges2cells_scalar(p_nh_state(jg)%prog(1)%vn,p_patch(jg), &
-!            & p_int_state(jg)%hex_east,p_nh_state(jg)%diag%u)
-!          CALL edges2cells_scalar(p_nh_state(jg)%prog(1)%vn,p_patch(jg), &
-!            & p_int_state(jg)%hex_north,p_nh_state(jg)%diag%v)
-!        END SELECT
-!
-!      CASE DEFAULT
-!      END SELECT
-!    ENDDO
-!    
-!    ! Note: here the derived output variables are not yet available
-!    ! (omega, divergence, vorticity)
-!    CALL write_output( time_config%cur_datetime )
-!    l_have_output = .TRUE.
-!
-!    END IF ! not lrestart
-!
-
-!    !------------------------------------------------------------------
-!    ! Now start the time stepping:
-!    ! The special initial time step for the three time level schemes
-!    ! is executed within process_grid_level
-!    !------------------------------------------------------------------
-!    SELECT CASE (iequations)
-!    CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
-!
-!    CASE (inh_atmosphere)
-!      CALL perform_nh_stepping( p_patch, p_int_state, p_grf_state, p_nh_state,   &
-!                              & time_config%cur_datetime,                        &
-!                              & n_io, n_file, n_chkpt, n_diag, l_have_output     )
-!    CASE DEFAULT
-!    END SELECT
-! 
-!    IF (ltimer) CALL print_timer
-!
-    ! 
-    !---------------------------------------------------------------------
-    ! 6. Integration finished. Clean up.
-    !---------------------------------------------------------------------
-
-!   CALL message(TRIM(routine),'start to clean up')
-!   
-!   ! Delete state variables
-!
-!   SELECT CASE (iequations)
-!   CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
-!
-!   CASE (inh_atmosphere)
-!
-!     CALL destruct_nh_state( p_nh_state )
-!     DEALLOCATE (p_nh_state, STAT=ist)
-!     IF (ist /= SUCCESS) THEN
-!       CALL finish(TRIM(routine),'deallocation for p_nh_state failed')
-!     ENDIF
-!
-!   CASE DEFAULT
-!   END SELECT
-!
-!   ! Delete output variable lists
-!   IF (l_have_output) CALL close_output_files
-!   
-!   ! Deallocate memory for the parameterized forcing
-!   SELECT CASE (iforcing)
-!
-!   CASE (inwp)
-!     CALL destruct_nwp_phy_state
-!     CALL destruct_nwp_lnd_state(p_lnd_state)
-!
-!   END SELECT
-!   
-
-
-
-
-  !---------------------------------------------------------------------
-  !---------------------------------------------------------------------
-  !---------------------------------------------------------------------
-  !---------------------------------------------------------------------
-#if 0  
-  !---------------------------------------------------------------------
-  SUBROUTINE atmo_model_old(atm_namelist_filename,shr_namelist_filename)
-    
-    CHARACTER(LEN=*), INTENT(in) :: atm_namelist_filename
-    CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
-
-    CHARACTER(*), PARAMETER :: routine = "mo_atmo_model:atmo_model"
-
-!    CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
-    INTEGER :: n_io, jg, jfile, n_file, ist, n_diag, n_chkpt
-    LOGICAL :: l_have_output
-
-
-
-    !------------------------------------------------------------------
-    ! step 3a-a: ! read nwp physics namelist, ...
-    !------------------------------------------------------------------
-    IF ( iforcing == inwp) THEN
-!  !( p_patch_global(1:) )  ! read Namelist, ...
-!      CALL configure_atm_phy_nwp
-!      IF (inwp_surface > 0)
-      CALL setup_nwp_lnd
-    ENDIF
-
-
-    !------------------------------------------------------------------
-    ! step 5b: allocate state variables
-    !------------------------------------------------------------------
-    
-    SELECT CASE (iequations)
-    CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
-
-    CASE (inh_atmosphere)
-     ALLOCATE (p_nh_state(n_dom), stat=ist)
-     IF (ist /= success) THEN
-       CALL finish(TRIM(routine),'allocation for p_nh_state failed')
-     ENDIF
-     ALLOCATE (p_lnd_state(n_dom), stat=ist)
-     IF (ist /= success) THEN
-       CALL finish(TRIM(routine),'allocation for p_lnd_state failed')
-     ENDIF
-      !
-    END SELECT
-
-
-    !------------------------------------------------------------------
-    ! step 6: initialize output
-    !------------------------------------------------------------------
-
-!    CALL setup_gmt_output(p_patch(n_dom)%nlev)
-
-    ! The model produces output files for all grid levels
-
-
-    ! Parameterized forcing:
-    ! 1. Create forcing state variables
-    ! 2. Set up parameterizations
-    !
-    SELECT CASE (iforcing)
-    CASE (inoforcing,iheldsuarez,ildf_dry)
-      ! nothing to be done
-    CASE (inwp)
-      ! NWP forcing
-      !    CALL setup_nwp_phy( p_patch(1:) )  ! read Namelist, ... moved before setup transport
-      CALL construct_nwp_phy_state( p_patch(1:) )
-      CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
-      !    CALL init_nwp_phy(p_patch(1:))
-    CASE default
-      CALL finish(TRIM(routine),'iforcing has value that is not allowed')
-    END SELECT
-
-    !------------------------------------------------------------------
-    ! Prepare for time integration
-    !------------------------------------------------------------------
-    SELECT CASE (iequations)
-    !--------------------
-    CASE (inh_atmosphere)
-      CALL prepare_nh_integration(p_patch(1:), p_nh_state, p_int_state(1:), p_grf_state(1:))
- 
-    CASE DEFAULT
-    END SELECT
- 
-    !------------------------------------------------------------------
-    ! Daniel: Suggestion for point 5 of Feature #333
-    ! (5. Subroutine to setup model components depending on this
-    ! namelist, to be called after all namelists have been read, and
-    ! a synoptic check has been done)
-    !------------------------------------------------------------------
-    ! set dependent variables/model components, depending on this (transport)
-    ! namelist and potentially others
-    IF (ltransport) THEN
-   !   CALL setup_transport( iequations )
-
-   !   DO jg = 1, n_dom
-   !     CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,     &
-   !       &                      iequations, iforcing, iqv, kstart_moist(jg),&
-   !       &                      kstart_qv(jg), lvert_nest, l_open_ubc,      &
-   !       &                      ntracer  ) 
-   !   ENDDO
-    ENDIF
-    
-    !------------------------------------------------------------------
-    ! Close the namelist files.
-    !------------------------------------------------------------------
-    
-    CALL close_nml
-    IF (my_process_is_stdio()) THEN
-      CALL close_nml_output
-    END IF
-    
-    !---------------------------------------------------------
-    ! The most primitive event handling algorithm: 
-    ! compute time step interval for taking a certain action
-    !--------------------------------------------------------- 
- 
-    n_io    = NINT(dt_data/dtime)        ! write output
-    n_file  = NINT(dt_file/dtime)        ! trigger new output file
-    n_chkpt = NINT(dt_checkpoint/dtime)  ! write restart files
-    n_diag  = MAX(1,NINT(dt_diag/dtime)) ! diagnose of total integrals
-
-    !------------------------------------------------------------------
-    ! Prepare output file
-    !------------------------------------------------------------------
-    IF (.NOT.lrestart) THEN
-    ! Initialize the first output file which will contain also the 
-    ! initial conditions.
-
-      jfile = 1
-      CALL init_output_files(jfile, lclose=.FALSE.)
-
-    ELSE
-    ! No need to write out the initial condition, thus no output
-    ! during the first integration step. This run will produce
-    ! output if n_io <= integration_length. 
-
-      CALL get_restart_attribute('next_output_file',jfile)
-
-      IF (n_io.le.(nsteps-1)) THEN
-         CALL init_output_files(jfile, lclose=.FALSE.)
-         l_have_output = .TRUE.  
-      ELSE
-         l_have_output = .FALSE.
-      END IF
-
-    END IF
- 
-    !------------------------------------------------------------------
-    !  get and write out some of the inital values
-    !------------------------------------------------------------------
-    IF (.NOT.lrestart) THEN
-
-    ! diagnose u and v to have meaningful initial output
-    
-    DO jg = 1, n_dom
-
-      SELECT CASE (iequations)
-
-      CASE (inh_atmosphere)
-        SELECT CASE (p_patch(jg)%cell_type)
-        CASE (3)
-          CALL rbf_vec_interpol_cell(p_nh_state(jg)%prog(1)%vn,p_patch(jg),&
-            & p_int_state(jg),p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
-        CASE (6)
-          CALL edges2cells_scalar(p_nh_state(jg)%prog(1)%vn,p_patch(jg), &
-            & p_int_state(jg)%hex_east,p_nh_state(jg)%diag%u)
-          CALL edges2cells_scalar(p_nh_state(jg)%prog(1)%vn,p_patch(jg), &
-            & p_int_state(jg)%hex_north,p_nh_state(jg)%diag%v)
-        END SELECT
-
-      CASE DEFAULT
-      END SELECT
-    ENDDO
-    
-    ! Note: here the derived output variables are not yet available
-    ! (omega, divergence, vorticity)
-    CALL write_output( time_config%cur_datetime )
-    l_have_output = .TRUE.
-
-    END IF ! not lrestart
-
-    !------------------------------------------------------------------
-    ! Now start the time stepping:
-    ! The special initial time step for the three time level schemes
-    ! is executed within process_grid_level
-    !------------------------------------------------------------------
-    SELECT CASE (iequations)
-    CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
-
-    CASE (inh_atmosphere)
-      CALL perform_nh_stepping( p_patch, p_int_state, p_grf_state, p_nh_state,   &
-                              & time_config%cur_datetime,                        &
-                              & n_io, n_file, n_chkpt, n_diag, l_have_output     )
-    CASE DEFAULT
-    END SELECT
- 
-    IF (ltimer) CALL print_timer
-    
-    !------------------------------------------------------------------
-    !  cleaning up process
-    !------------------------------------------------------------------
-    
-    CALL message(TRIM(routine),'start to clean up')
-    
-    ! Delete state variables
-
-    SELECT CASE (iequations)
-    CASE (ishallow_water, ihs_atm_temp, ihs_atm_theta)
-
-    CASE (inh_atmosphere)
-
-      CALL destruct_nh_state( p_nh_state )
-      DEALLOCATE (p_nh_state, STAT=ist)
-      IF (ist /= SUCCESS) THEN
-        CALL finish(TRIM(routine),'deallocation for p_nh_state failed')
-      ENDIF
-
-    CASE DEFAULT
-    END SELECT
-
-    ! Delete output variable lists
-    IF (l_have_output) CALL close_output_files
-    
-      
-    ! Deallocate memory for the parameterized forcing
-    SELECT CASE (iforcing)
-
-    CASE (inwp)
-      CALL destruct_nwp_phy_state
-      CALL destruct_nwp_lnd_state(p_lnd_state)
-
-    END SELECT
-    
-   
-  END SUBROUTINE atmo_model_old
-#endif
-  
 END MODULE mo_atmo_model
 

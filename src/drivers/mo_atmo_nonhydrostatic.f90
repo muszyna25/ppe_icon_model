@@ -33,7 +33,7 @@
 MODULE mo_atmo_nonhydrostatic
 
 USE mo_exception,            ONLY: message, finish
-USE mo_impl_constants,       ONLY: SUCCESS, MAX_CHAR_LENGTH
+USE mo_impl_constants,       ONLY: SUCCESS
 USE mo_timer,                ONLY: print_timer
 USE mo_master_control,       ONLY: is_restart_run
 USE mo_output,               ONLY: init_output_files, close_output_files,&
@@ -42,7 +42,7 @@ USE mo_interpolation,        ONLY: rbf_vec_interpol_cell,       &
   &                                edges2cells_scalar
 USE mo_time_config,          ONLY: time_config      ! variable
 USE mo_io_restart,           ONLY: read_restart_files
-USE mo_io_restart_attributes,ONLY: read_restart_attributes, get_restart_attribute
+USE mo_io_restart_attributes,ONLY: get_restart_attribute
 USE mo_io_config,            ONLY: dt_data,dt_file,dt_diag,dt_checkpoint
 USE mo_run_config,           ONLY: &
   &                               dtime,                & !    namelist parameter
@@ -51,23 +51,20 @@ USE mo_run_config,           ONLY: &
   &                               ltimer,               & !    :
   &                               iforcing                !    namelist parameter
 USE mo_nonhydrostatic_config, ONLY: iadv_rcf
-USE mo_impl_constants,       ONLY: inoforcing,           & !    :
-  &                                inwp
+USE mo_impl_constants,       ONLY: inwp
 ! Horizontal grid
-USE mo_atmo_control,         ONLY: p_patch_subdiv, p_patch
+USE mo_atmo_control,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom
 ! to break circular dependency KF???
-USE mo_intp_data_strc,       ONLY: p_int_state_global, p_int_state_subdiv, p_int_state
-USE mo_grf_intp_data_strc,   ONLY: p_grf_state_global, p_grf_state_subdiv, p_grf_state
+USE mo_intp_data_strc,       ONLY: p_int_state
+USE mo_grf_intp_data_strc,   ONLY: p_grf_state
 ! NH-namelist state
-USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config,&  !> namelist state
-  &                                configure_atm_phy_nwp !> subroutine
+USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp !> subroutine
 ! NH-Model states
 USE mo_nonhydro_state,       ONLY: p_nh_state,   &
   &                                destruct_nh_state
 USE mo_nwp_phy_state,        ONLY: construct_nwp_phy_state, &
   &                                destruct_nwp_phy_state
-USE mo_lnd_nwp_nml,          ONLY: setup_nwp_lnd
 USE mo_nwp_lnd_state,        ONLY: construct_nwp_lnd_state,   &
   &                                destruct_nwp_lnd_state, p_lnd_state
 ! Time integration
@@ -120,13 +117,11 @@ CONTAINS
      IF(iforcing == inwp) THEN
        CALL construct_nwp_phy_state( p_patch(1:) )
        
-!       IF (atm_phy_nwp_config(1)%inwp_surface > 0 ) THEN
          ALLOCATE (p_lnd_state(n_dom), stat=ist)
          IF (ist /= success) THEN
            CALL finish(TRIM(routine),'allocation for p_lnd_state failed')
          ENDIF
          CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
-!       ENDIF
 
      ENDIF
 

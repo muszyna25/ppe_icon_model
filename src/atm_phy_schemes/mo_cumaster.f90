@@ -100,7 +100,7 @@ MODULE mo_cumaster
   
 !  USE yomhook   ,ONLY : lhook,   dr_hook
   !KF
-  USE mo_cuparameters , ONLY : r5alvcp  ,r5alscp                ,&
+  USE mo_cuparameters , ONLY :                                   &
     & rtwat                                                     ,&
     & entrpen  ,entrscv  ,lmfdd    ,lmfdudv                     ,&
     & rtau      ,rdepths ,lmfscv  ,lmfpen   ,lmfit    ,njkt2    ,&

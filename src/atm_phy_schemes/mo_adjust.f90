@@ -79,7 +79,6 @@ MODULE mo_adjust
    USE mo_cuparameters, ONLY : r2es     ,r3les    ,r3ies    ,r4les    ,&
      &                         r4ies    ,r5alvcp                      ,&
      &                         r5alscp  ,ralvdcp  ,ralsdcp            ,&
-     &                         rtice                                  ,&
      &                         lphylin  ,rlptrc   ,rlpal1   ,rlpal2   ,&
      &                         retv     ,rtt                          ,&
      &                         lhook    ,dr_hook
