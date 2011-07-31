@@ -41,6 +41,7 @@ MODULE mo_echam_phy_interface
   USE mo_datetime,          ONLY: t_datetime, print_datetime, add_time
   USE mo_math_constants,    ONLY: pi
   USE mo_model_domain,      ONLY: t_patch
+  USE mo_master_nml,        ONLY: lrestart
   USE mo_echam_phy_config,  ONLY: phy_config => echam_phy_config
   USE mo_echam_phy_memory,  ONLY: prm_field, prm_tend
   USE mo_icoham_dyn_types,  ONLY: t_hydro_atm_prog, t_hydro_atm_diag
@@ -252,7 +253,8 @@ CONTAINS
       CALL add_time(dsec,0,0,0,datetime_radtran) ! add time increment to get date and
       !                                          ! time information for the zenith angle comp.
 
-      ltrig_rad   = l1st_phy_call.OR.(MOD(NINT(datetime%daysec),NINT(dt_rad)) == 0)
+      ltrig_rad   = ( l1st_phy_call.AND.(.NOT.lrestart)            ).OR. &
+                    ( MOD(NINT(datetime%daysec),NINT(dt_rad)) == 0 )
       l1st_phy_call = .FALSE.
 
       ztime_radheat = 2._wp*pi * datetime%daytim 
