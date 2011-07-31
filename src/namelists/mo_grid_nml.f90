@@ -41,7 +41,7 @@ MODULE mo_grid_nml
 !
 !
   USE mo_kind,               ONLY: wp
-!  USE mo_exception,          ONLY: message, message_text, finish
+! USE mo_exception,          ONLY: message, message_text, finish
   USE mo_io_units,           ONLY: nnml, nnml_output,filename_max
   USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
   USE mo_mpi,                ONLY: my_process_is_stdio 
@@ -121,7 +121,7 @@ MODULE mo_grid_nml
     
     CHARACTER(LEN=*), INTENT(IN) :: filename                                           
     INTEGER  :: i_status, i
-    INTEGER  :: funit
+!    INTEGER  :: funit
 !    INTEGER  :: jg, jlev
 !    CHARACTER(filename_max) :: patch_file, gridtype
 !    INTEGER  ::  patch_level(max_dom)
@@ -156,9 +156,9 @@ MODULE mo_grid_nml
     ! by values in the previous integration.
     !----------------------------------------------------------------
     IF (is_restart_run()) THEN
-      funit = open_and_restore_namelist('grid_nml')
-      READ(funit,NML=grid_nml)
-      CALL close_tmpfile(funit)
+    ! funit = open_and_restore_namelist('grid_nml')
+    ! READ(funit,NML=grid_nml)
+    ! CALL close_tmpfile(funit)
     END IF
 
     !------------------------------------------------------------
@@ -258,9 +258,9 @@ MODULE mo_grid_nml
     !  Store the namelist for restart
     !-----------------------------------------------------
     IF(my_process_is_stdio())  THEN
-      funit = open_tmpfile()
-      WRITE(funit,NML=grid_nml)
-      CALL store_and_close_namelist(funit, 'grid_nml')
+    ! funit = open_tmpfile()
+    ! WRITE(funit,NML=grid_nml)
+    ! CALL store_and_close_namelist(funit, 'grid_nml')
 
       ! write the contents of the namelist to an ASCII file
       WRITE(nnml_output,nml=grid_nml)
