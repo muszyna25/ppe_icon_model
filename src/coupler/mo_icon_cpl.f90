@@ -125,8 +125,8 @@ MODULE mo_icon_cpl
 #ifndef NOMPI
   USE mpi
 #endif
-  USE mo_kind, ONLY     : wp
-  USE mo_datetime, ONLY : t_datetime
+  USE mo_kind, ONLY      : wp
+  USE mo_time_base, ONLY : t_julian_date
 
   IMPLICIT NONE
   
@@ -263,12 +263,12 @@ MODULE mo_icon_cpl
 !! - Status of the field: false || true
 !! - Field (short)name
 !!
-  TYPE (t_comp),  POINTER    :: comps (:)   => NULL()
-  TYPE (t_grid),  POINTER    :: grids (:)   => NULL()
-  TYPE (t_field), POINTER    :: fields(:)   => NULL()
+  TYPE (t_comp),  POINTER   :: comps (:)   => NULL()
+  TYPE (t_grid),  POINTER   :: grids (:)   => NULL()
+  TYPE (t_field), POINTER   :: fields(:)   => NULL()
 
-  TYPE(t_datetime)           :: initial_date
-  TYPE(t_datetime)           :: final_date
+  TYPE(t_julian_date)       :: initial_date
+  TYPE(t_julian_date)       :: final_date
 
   ! Number of active components and grids
 

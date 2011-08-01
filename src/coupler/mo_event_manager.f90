@@ -50,27 +50,22 @@
 !!
 MODULE mo_event_manager
 
-  USE mo_kind, ONLY     : wp
-  USE mo_datetime, ONLY : t_datetime, add_time
-#ifndef NOMPI
-!   USE mpi, ONLY         : MPI_Abort
-  USE mo_icon_cpl, ONLY : initial_date !, ICON_COMM
-#else
-  USE mo_icon_cpl, ONLY : initial_date
-#endif
-  USE mo_exception, ONLY: finish
+  USE mo_kind, ONLY      : wp
+  USE mo_time_base, ONLY : t_julian_date, add_time
+  USE mo_icon_cpl, ONLY  : initial_date
+  USE mo_exception, ONLY : finish
 
   IMPLICIT NONE
 
   PRIVATE
 
   TYPE t_event
-     LOGICAL          :: l_is_initialised
-     INTEGER          :: delta_time
-     INTEGER          :: time_step
-     INTEGER          :: elapsed_time
-     INTEGER          :: lag
-     TYPE(t_datetime) :: current_date
+     LOGICAL             :: l_is_initialised
+     INTEGER             :: delta_time
+     INTEGER             :: time_step
+     INTEGER             :: elapsed_time
+     INTEGER             :: lag
+     TYPE(t_julian_date) :: current_date
   END TYPE t_event
 
   INTEGER, PARAMETER     :: event_inc = 8
@@ -91,10 +86,6 @@ CONTAINS
     ALLOCATE ( events(number_of_events), STAT = ierr )
     IF ( ierr > 0 ) THEN
        CALL finish("event_init","Error allocating events")
-!        PRINT *, ' Error allocating events '
-! #ifndef NOMPI
-!        CALL MPI_Abort ( ICON_COMM, 1, ierr )
-! #endif
     ENDIF
 
     DO id = 1, number_of_events
@@ -120,10 +111,8 @@ CONTAINS
     INTEGER, INTENT(in)          :: lag        !< lag times time_step
     INTEGER, INTENT(out)         :: event_id   !< returned hanle
 
-    REAL(wp) :: seconds
-    INTEGER  :: minutes
-    INTEGER  :: hours
-    INTEGER  :: days
+    INTEGER :: seconds
+    INTEGER :: days
 
     INTEGER                      :: new_dim
 
@@ -149,10 +138,6 @@ CONTAINS
 
        IF ( ierr > 0 ) THEN
          CALL finish("event_add","Error allocating events")
-!           PRINT *, ' Error allocating new_events '
-! #ifndef NOMPI
-!           CALL MPI_Abort ( ICON_COMM, 1, ierr )
-! #endif
        ENDIF
 
        ! ----------------------------------------------------------------
@@ -180,10 +165,6 @@ CONTAINS
 
        IF ( ierr > 0 ) THEN
          CALL finish("event_add"," Error deallocating events")
-!           PRINT *, ' Error deallocating events '
-! #ifndef NOMPI
-!           CALL MPI_Abort ( ICON_COMM, 1, ierr )
-! #endif
        ENDIF
 
        events => new_events
@@ -211,12 +192,10 @@ CONTAINS
 
        ! Update date and time for this event
 
-       seconds = REAL(events(id)%time_step,wp)
-       minutes = 0
-       hours   = 0
+       seconds = events(id)%time_step
        days    = 0
 
-       CALL add_time ( seconds, minutes, hours, days, events(id)%current_date )
+       CALL add_time ( days, seconds, events(id)%current_date )
 
     ENDIF
 
@@ -228,10 +207,8 @@ CONTAINS
 
     INTEGER, INTENT(in) :: event_id
 
-    REAL(wp) :: seconds
-    INTEGER  :: minutes
-    INTEGER  :: hours
-    INTEGER  :: days
+    INTEGER :: seconds
+    INTEGER :: days
 
     l_action = .FALSE.
 
@@ -243,14 +220,12 @@ CONTAINS
        events(event_id)%elapsed_time = 0
     ENDIF
 
-    seconds = REAL(events(event_id)%time_step,wp)
-    minutes = 0
-    hours   = 0
+    seconds = events(event_id)%time_step
     days    = 0
 
     ! Update date and time for this event
 
-    CALL add_time ( seconds, minutes, hours, days, events(event_id)%current_date )
+    CALL add_time ( days, seconds, events(event_id)%current_date )
 
   END FUNCTION event_check
 
