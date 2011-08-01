@@ -48,8 +48,8 @@ MODULE mo_grid_nml
   USE mo_impl_constants,     ONLY: max_dom, itri
   USE mo_math_constants,     ONLY: rad2deg
   USE mo_master_control,     ONLY: is_restart_run
-  USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,  &
-                                    & open_and_restore_namelist, close_tmpfile
+!  USE mo_io_restart_namelist,   ONLY: open_tmpfile, store_and_close_namelist,  &
+!                                    & open_and_restore_namelist, close_tmpfile
 
   USE mo_grid_config,        ONLY:                                         &
     & config_global_cell_type             => global_cell_type,             &

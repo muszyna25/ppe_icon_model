@@ -36,28 +36,27 @@ MODULE mo_ocean_model
   USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs
   USE mo_mpi,                 ONLY: p_stop, &
     & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
-    & my_process_is_stdio, set_mpi_work_communicators, set_comm_input_bcast, null_comm_type
+    & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type
   USE mo_timer,               ONLY: init_timer, print_timer
   USE mo_datetime,            ONLY: t_datetime
   USE mo_output,              ONLY: init_output_files
   USE mo_io_vlist,            ONLY: write_vlist_oce, destruct_vlist_oce
-  USE mo_grid_config,         ONLY: n_dom, n_dom_start, global_cell_type, &
-                                  dynamics_parent_grid_id
+  USE mo_grid_config,         ONLY: n_dom, n_dom_start, global_cell_type !, &
+!                                  dynamics_parent_grid_id
   USE mo_dynamics_config,     ONLY: iequations
   
   USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
   
-  USE mo_interpol_config,    ONLY: configure_interpolation
-  USE mo_advection_config,   ONLY: configure_advection
-  USE mo_dynamics_config,    ONLY: configure_dynamics  ! subroutine
+  USE mo_interpol_config,     ONLY: configure_interpolation
+  USE mo_advection_config,    ONLY: configure_advection
+  USE mo_dynamics_config,     ONLY: configure_dynamics  ! subroutine
   
   ! Control parameters: run control, dynamics, i/o
   !
-  USE mo_io_config,         ONLY:  dt_data,dt_file,dt_diag!,dt_checkpoint
-  USE mo_run_config,        ONLY: &
+  USE mo_io_config,           ONLY:  dt_data,dt_file,dt_diag!,dt_checkpoint
+  USE mo_run_config,          ONLY: &
     & dtime,                & !    :
-    & ltransport,           & !    :
-    & lforcing,             & !    :
+!    & ltransport,           & !    :
     & ltimer,               & !    :
     & ldump_states,         & ! flag if states should be dumped
     & lrestore_states,      &  ! flag if states should be restored
@@ -65,7 +64,7 @@ MODULE mo_ocean_model
     & nlev, nlevp1,         & !
     & num_lev, num_levp1,   &
     & iqv, nshift,          &
-    & lvert_nest, ntracer
+    & ntracer
   
 !  USE mo_advection_nml,       ONLY: transport_nml_setup,  & ! process transport
 !    & setup_transport         ! control parameters
@@ -92,22 +91,22 @@ MODULE mo_ocean_model
   
   ! Horizontal interpolation
   !
-! USE mo_interpol_nml,        ONLY: interpol_nml_setup   ! process interpol. ctl. params.
+!  USE mo_interpol_nml,        ONLY: interpol_nml_setup   ! process interpol. ctl. params.
   USE mo_intp_state,          ONLY: construct_2d_interpol_state, &
     & destruct_2d_interpol_state
   
-  USE mo_oce_state,           ONLY: t_hydro_ocean_state, destruct_hydro_ocean_state  
+  USE mo_oce_state,           ONLY: t_hydro_ocean_state 
   
 !0  USE mo_mpiom_phy_state,     ONLY: construct_mpiom_phy_state, &
 !0    &                               destruct_mpiom_phy_state
   
-  USE mo_impl_constants,      ONLY: success, IHS_OCEAN
+  USE mo_impl_constants,      ONLY: success !, ihs_ocean
   
   ! External data
   USE mo_ext_data,            ONLY: ext_data, init_ext_data, destruct_ext_data
   
-!   USE mo_test_hydro_ocean,    ONLY: prepare_ho_integration, finalise_ho_integration!, &
-!     &                               test_hydro_ocean
+!  USE mo_test_hydro_ocean,    ONLY: prepare_ho_integration, finalise_ho_integration!, &
+!    &                               test_hydro_ocean
   USE mo_hydro_ocean_run,      ONLY: perform_ho_stepping,&
     & prepare_ho_integration,&
     & finalise_ho_integration
@@ -116,18 +115,18 @@ MODULE mo_ocean_model
   USE mo_oce_physics,         ONLY: t_ho_params, t_ho_physics
 
   ! For the coupling
-  USE mo_impl_constants, ONLY: CELLS, MAX_CHAR_LENGTH
-  USE mo_master_control, ONLY : ocean_process, is_coupled_run
-  USE mo_icon_cpl_init_comp, ONLY : get_my_local_comp_id
-  USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid
-  USE mo_icon_cpl_def_field, ONLY : ICON_cpl_def_field
-  USE mo_icon_cpl_search, ONLY : ICON_cpl_search
+  USE mo_impl_constants,      ONLY: CELLS, MAX_CHAR_LENGTH
+  USE mo_master_control,      ONLY : ocean_process, is_coupled_run
+  USE mo_icon_cpl_init_comp,  ONLY : get_my_local_comp_id
+  USE mo_icon_cpl_def_grid,   ONLY : ICON_cpl_def_grid
+  USE mo_icon_cpl_def_field,  ONLY : ICON_cpl_def_field
+  USE mo_icon_cpl_search,     ONLY : ICON_cpl_search
   USE mo_model_domain_import, ONLY : get_patch_global_indexes
 
   !-------------------------------------------------------------
-  USE mo_read_namelists, ONLY: read_ocean_namelists
+  USE mo_read_namelists,      ONLY: read_ocean_namelists
 
-  USE mo_time_config, ONLY: time_config
+  USE mo_time_config,         ONLY: time_config
 
   IMPLICIT NONE
   
@@ -396,7 +395,7 @@ CONTAINS
     ! set dependent variables/model components, depending on this (transport)
     ! namelist and potentially others
 !    IF (ltransport) THEN
-!      CALL setup_transport( IHS_OCEAN )
+!      CALL setup_transport( ihs_ocean )
 !    ENDIF
     
     !------------------------------------------------------------------

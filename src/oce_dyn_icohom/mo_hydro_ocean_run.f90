@@ -49,7 +49,7 @@ MODULE mo_hydro_ocean_run
 USE mo_impl_constants,         ONLY: max_char_length
 USE mo_model_domain,           ONLY: t_patch
 USE mo_model_domain_import,    ONLY: n_dom
-USE mo_ocean_nml,              ONLY: n_zlev, iswm_oce, no_tracer,itestcase_oce
+USE mo_ocean_nml,              ONLY: iswm_oce, no_tracer,itestcase_oce
 USE mo_dynamics_config,        ONLY: nold, nnew
 USE mo_io_config,              ONLY: out_expname
 USE mo_run_config,             ONLY: nsteps, dtime, ltimer
@@ -57,7 +57,6 @@ USE mo_exception,              ONLY: message, message_text, finish, get_filename
 USE mo_io_units,               ONLY: filename_max
 USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time
 USE mo_timer,                  ONLY: timer_total, timer_start, timer_stop
-!USE mo_loopindices,            ONLY: get_indices_c, get_indices_e
 USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab,            &
   &                                  calc_normal_velocity_ab  ,           &
   &                                  calc_vert_velocity
@@ -68,7 +67,7 @@ USE mo_oce_physics,            ONLY: t_ho_params,t_ho_physics, construct_ho_phys
   &                                  init_ho_physics, destruct_ho_physics, construct_ho_params, &
   &                                  init_ho_params, destruct_ho_params
 USE mo_io_vlist,               ONLY: setup_vlist_oce, write_vlist_oce, destruct_vlist_oce
-USE mo_oce_index,              ONLY: c_b, c_i, c_k, ldbg, form4ar, init_index_test
+USE mo_oce_index,              ONLY: init_index_test !, c_b, c_i, c_k, ldbg, form4ar
 USE mo_oce_forcing,            ONLY: t_ho_sfc_flx,construct_ho_sfcflx, update_ho_sfcflx
 USE mo_interpolation,          ONLY: t_int_state
 USE mo_oce_init,               ONLY: init_ho_testcases

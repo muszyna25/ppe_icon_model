@@ -48,13 +48,13 @@ MODULE mo_oce_ab_timestepping_mimetic
 ! 
 USE mo_kind,                      ONLY: wp
 USE mo_parallel_config,          ONLY: nproma
-USE mo_math_utilities,            ONLY: t_cartesian_coordinates!, gc2cc
+USE mo_math_utilities,            ONLY: t_cartesian_coordinates
 USE mo_impl_constants,            ONLY: sea_boundary,                                     &
   &                                     min_rlcell, min_rledge, min_rlcell,               &
   &                                     max_char_length
-USE mo_ocean_nml,                 ONLY: n_zlev, i_dbg_oce, i_dbg_inx, str_proc_tst,       &
+USE mo_ocean_nml,                 ONLY: n_zlev,                                           &
   &                                     solver_tolerance, l_inverse_flip_flop,            &
-  &                                     ab_const, ab_beta, ab_gam, iswm_oce, idisc_scheme,&
+  &                                     ab_const, ab_beta, ab_gam, iswm_oce,              &
   &                                     expl_vertical_velocity_diff,iforc_oce
 USE mo_run_config,                ONLY: dtime
 USE mo_dynamics_config,           ONLY: nold, nnew
@@ -64,25 +64,23 @@ USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag,
 USE mo_model_domain,              ONLY: t_patch
 USE mo_oce_linear_solver,         ONLY: gmres_oce, gmres_e2e
 USE mo_exception,                 ONLY: message, finish!, message_text
-USE mo_loopindices,               ONLY: get_indices_c, get_indices_e !, get_indices_v
-USE mo_oce_boundcond,             ONLY: bot_bound_cond_horz_veloc, top_bound_cond_horz_veloc!,&
-! &                                     bot_bound_cond_vert_veloc, top_bound_cond_vert_veloc
+USE mo_loopindices,               ONLY: get_indices_c, get_indices_e
+USE mo_oce_boundcond,             ONLY: bot_bound_cond_horz_veloc, top_bound_cond_horz_veloc
 USE mo_oce_thermodyn,             ONLY: calc_density, calc_internal_press
 USE mo_oce_physics,               ONLY: t_ho_params
-USE mo_oce_forcing,               ONLY: t_ho_sfc_flx, update_ho_sfcflx
-USE mo_scalar_product,            ONLY: map_cell2edges, map_edges2cell, map_edges2edges, &
+USE mo_oce_forcing,               ONLY: t_ho_sfc_flx !, update_ho_sfcflx
+USE mo_scalar_product,            ONLY: map_cell2edges, map_edges2cell, map_edges2edges,  &
   &                                     calc_scalar_product_for_veloc
-USE mo_oce_math_operators,        ONLY: div_oce, grad_fd_norm_oce, grad_fd_norm_oce_2d,  &
+USE mo_oce_math_operators,        ONLY: div_oce, grad_fd_norm_oce, grad_fd_norm_oce_2d,   &
   &                                     height_related_quantities
 
-!USE mo_math_gradients,            ONLY: grad_fd_norm
-USE mo_oce_veloc_advection,       ONLY: veloc_adv_horz_mimetic,veloc_adv_vert_mimetic,&
-                                         &veloc_adv_vert_RBF
+USE mo_oce_veloc_advection,       ONLY: veloc_adv_horz_mimetic,veloc_adv_vert_mimetic !,    &
+!                                         &veloc_adv_vert_RBF
 
-USE mo_interpolation,             ONLY: t_int_state, rbf_vec_interpol_cell
+USE mo_interpolation,             ONLY: t_int_state !, rbf_vec_interpol_cell
 USE mo_oce_index,                 ONLY: print_mxmn, jkc, jkdim, ipl_src
-USE mo_oce_diffusion,             ONLY: velocity_diffusion_horz_mimetic,&
-  &                                     velocity_diffusion_vert_mimetic, &
+USE mo_oce_diffusion,             ONLY: velocity_diffusion_horz_mimetic,                  &
+  &                                     velocity_diffusion_vert_mimetic,                  &
                                         veloc_diffusion_vert_impl
 
 IMPLICIT NONE

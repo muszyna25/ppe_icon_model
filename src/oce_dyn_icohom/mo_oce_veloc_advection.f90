@@ -51,14 +51,10 @@ USE mo_parallel_config,  ONLY: nproma
 USE mo_math_constants
 USE mo_physical_constants
 USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, &
-  &                               sea_boundary, sea, boundary, &
-  &                               full_coriolis, beta_plane_coriolis,&
-  &                               f_plane_coriolis, zero_coriolis
+  &                               sea_boundary, sea, boundary
 USE mo_model_domain,        ONLY: t_patch
-USE mo_ocean_nml,           ONLY: n_zlev,iswm_oce, ab_beta, ab_gam, L_INVERSE_FLIP_FLOP, &
-  &                               CORIOLIS_TYPE, basin_center_lat!, basin_center_lon,  &
-!  &                               basin_width_deg, basin_height_deg  
-USE mo_loopindices,         ONLY: get_indices_c, get_indices_e, get_indices_v
+USE mo_ocean_nml,           ONLY: n_zlev,iswm_oce, L_INVERSE_FLIP_FLOP !, ab_beta, ab_gam
+USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
 USE mo_oce_state,           ONLY: t_hydro_ocean_diag, t_hydro_ocean_aux
 USE mo_oce_math_operators,  ONLY: rot_vertex_ocean,rot_vertex_ocean_origin,rot_vertex_ocean_total,&
  &                                grad_fd_norm_oce
@@ -67,9 +63,9 @@ USE mo_math_utilities,      ONLY: gvec2cvec, t_cartesian_coordinates!gc2cc,cc2gc
 USE mo_scalar_product,      ONLY: map_cell2edges, dual_flip_flop, &
   &                               primal_map_c2e, map_edges2edges
 USE mo_interpolation,       ONLY: t_int_state, rbf_vec_interpol_edge,&
-  &                               edges2cells_scalar, verts2edges_scalar,&
+  &                               verts2edges_scalar,&!edges2cells_scalar,&
   &                               rbf_vec_interpol_cell
-!USE mo_oce_index,              ONLY: c_k, ne_b, ne_i, form4ar! , ldbg
+
 IMPLICIT NONE
 
 PRIVATE

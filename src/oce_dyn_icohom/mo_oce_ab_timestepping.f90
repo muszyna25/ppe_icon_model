@@ -47,7 +47,7 @@ MODULE mo_oce_ab_timestepping
 !   
 ! 
 !USE mo_kind,                           ONLY: wp
-USE mo_impl_constants,                 ONLY: max_char_length!sea_boundary, &
+!USE mo_impl_constants,                 ONLY: max_char_length, sea_boundary, &
 !  &                                          min_rlcell, min_rledge, min_rlcell, &
 USE mo_ocean_nml,                      ONLY: idisc_scheme
 USE mo_dynamics_config,                ONLY: nold, nnew

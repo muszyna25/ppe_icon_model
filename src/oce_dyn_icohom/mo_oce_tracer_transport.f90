@@ -31,7 +31,7 @@
 !! The authors do not make any warranty, express or implied, or assume any
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
-!! 
+!!
 MODULE mo_oce_tracer_transport
 !-------------------------------------------------------------------------  
 !
@@ -39,14 +39,14 @@ MODULE mo_oce_tracer_transport
 !    modified for ICON project, DWD/MPI-M 2006
 !  
 !-------------------------------------------------------------------------  
-!  
-!   
-! 
-USE mo_kind,                      ONLY: wp, sp
+!
+!
+!
+USE mo_kind,                      ONLY: wp
 USE mo_math_utilities,            ONLY: t_cartesian_coordinates!, gc2cc
-USE mo_impl_constants,            ONLY: sea_boundary, sea,&
-  &                                     min_rlcell, min_rledge, min_rlcell, &
-  &                                     max_char_length
+USE mo_impl_constants,            ONLY: sea_boundary, &
+  &                                     min_rlcell, min_rledge, min_rlcell !, &
+!  &                                     max_char_length
 USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, idisc_scheme,    &
                                     &   ab_const, ab_gam, expl_vertical_tracer_diff,&
                                     &   iswm_oce
@@ -55,16 +55,16 @@ USE mo_dynamics_config,           ONLY: nold, nnew
 USE mo_run_config,                ONLY: dtime
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state!, t_hydro_ocean_diag
 USE mo_model_domain,              ONLY: t_patch
-USE mo_exception,                 ONLY:  finish!, message_text,message
+!USE mo_exception,                 ONLY:  finish, message_text,message
 USE mo_loopindices,               ONLY: get_indices_c, get_indices_e !, get_indices_v
 USE mo_oce_boundcond,             ONLY: top_bound_cond_tracer!,&
 USE mo_oce_physics
 USE mo_oce_forcing,               ONLY: t_ho_sfc_flx!, update_ho_sfcflx
- USE mo_scalar_product,           ONLY:  map_cell2edges,map_edges2cell
+ USE mo_scalar_product,           ONLY:  map_cell2edges
 
 USE mo_oce_math_operators,        ONLY: div_oce!, grad_fd_norm_oce, grad_fd_norm_oce_2d
 !USE mo_interpolation,             ONLY: t_int_state
-USE mo_oce_index,                 ONLY: c_i, c_b, c_k, ne_b, ne_i, nc_b, nc_i, form4ar, ldbg
+!USE mo_oce_index,                 ONLY: c_i, c_b, c_k, ne_b, ne_i, nc_b, nc_i, form4ar
 USE mo_advection_utils,           ONLY: laxfr_upflux, laxfr_upflux_v
 USE mo_oce_diffusion,             ONLY: tracer_diffusion_horz, tracer_diffusion_vert_expl,&
                                         & tracer_diffusion_vert_impl

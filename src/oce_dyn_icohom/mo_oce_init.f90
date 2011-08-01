@@ -56,24 +56,17 @@ USE mo_ocean_nml,          ONLY: iswm_oce, n_zlev, no_tracer , &
    &                             itestcase_oce,  &
    &                             basin_center_lat, basin_center_lon,idisc_scheme,&
    &                             basin_height_deg,  basin_width_deg
-!  &                             iforc_oce, inoforcing, analyt_forc, core_forc, full_forc, &
-!  &                             core_annwind, wstress_coeff
-USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, & !success,               &
-  & min_rlcell, min_rledge,  &
-  & oce_testcase_zero, oce_testcase_init, oce_testcase_file                             
-!  &                              land , boundary
+USE mo_impl_constants,     ONLY: max_char_length, sea, sea_boundary, &
+  &                              min_rlcell, min_rledge,  &
+  &                              oce_testcase_zero, oce_testcase_init, oce_testcase_file                             
 USE mo_dynamics_config,    ONLY: nold,nnew
-USE mo_loopindices,        ONLY: get_indices_c, get_indices_e!, get_indices_v
-USE mo_exception,          ONLY: finish, message!, message_text
+USE mo_loopindices,        ONLY: get_indices_c, get_indices_e
+USE mo_exception,          ONLY: finish, message
 USE mo_model_domain,       ONLY: t_patch
-USE mo_math_utilities,     ONLY: gc2cc,cvec2gvec, t_cartesian_coordinates,&
-  &                              t_geographical_coordinates
-USE mo_oce_forcing,         ONLY: t_ho_sfc_flx!, t_ho_core_forc, t_ho_full_forc,  &
-!  &                              t_ho_sfc_flx, f_coreforc, f_fullforc,          &
-!  &                              construct_ho_sfcflx, destruct_ho_sfcflx
-USE mo_oce_state,         ONLY: t_hydro_ocean_state
-USE mo_scalar_product,            ONLY: map_cell2edges, map_edges2cell, map_edges2edges, &
-  &                                     calc_scalar_product_for_veloc
+!USE mo_math_utilities,     ONLY: t_cartesian_coordinates, t_geographical_coordinates
+USE mo_oce_forcing,        ONLY: t_ho_sfc_flx
+USE mo_oce_state,          ONLY: t_hydro_ocean_state
+USE mo_scalar_product,     ONLY: calc_scalar_product_for_veloc
 IMPLICIT NONE
 PRIVATE
 
@@ -82,23 +75,11 @@ CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
 ! public interface
 !
-! public subroutines
-!PUBLIC :: init_ho_forcing_old
-!PUBLIC :: destruct_ho_forcing
 PUBLIC :: init_ho_testcases
 
-!private implementation
-!PRIVATE :: init_ho_forcing_analytical
-!PRIVATE :: init_ho_core_forcing
-!PRIVATE :: init_ho_full_forcing
-!PRIVATE :: init_ho_forcing_U_10_CORE
-!PRIVATE :: init_testcase
-!PRIVATE :: init_four_layer_Stommel
-!PRIVATE :: init_twenty_layer_box
-!PRIVATE :: init_twenty_layer_ocean
-
 REAL(wp), PARAMETER :: aleph = 0.0_wp 
-REAL (wp), PARAMETER :: u0 =(2.0_wp*pi*re)/(12.0_wp*24.0_wp*3600.0_wp)
+REAL(wp), PARAMETER :: u0 =(2.0_wp*pi*re)/(12.0_wp*24.0_wp*3600.0_wp)
+
 CONTAINS
 
 ! 

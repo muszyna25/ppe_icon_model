@@ -50,11 +50,10 @@ MODULE mo_simple_expl_run
 !
 USE mo_kind,                   ONLY: wp
 USE mo_mpi,                    ONLY: my_process_is_stdio
-USE mo_parallel_config,  ONLY: nproma
+USE mo_parallel_config,        ONLY: nproma
 USE mo_io_units,               ONLY: filename_max
-!USE mo_impl_constants,         ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
 USE mo_impl_constants,         ONLY: sea_boundary, max_char_length,           &
-  &                                  min_rlcell, min_rledge, toplev  !, min_rlvert
+  &                                  min_rlcell, min_rledge, toplev
 USE mo_model_domain,           ONLY: t_patch
 USE mo_model_domain_import,    ONLY: n_dom
 USE mo_ocean_nml,              ONLY: n_zlev, iswm_oce
@@ -65,11 +64,11 @@ USE mo_exception,              ONLY: message, message_text, finish, get_filename
 USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time
 USE mo_loopindices,            ONLY: get_indices_c, get_indices_e
 USE mo_oce_state,              ONLY: t_hydro_ocean_state
-USE mo_oce_thermodyn,           ONLY: calc_density, calc_internal_press
+USE mo_oce_thermodyn,          ONLY: calc_density, calc_internal_press
 USE mo_oce_math_operators,     ONLY: grad_fd_norm_oce_2d, grad_fd_norm_oce, div_oce
 USE mo_advection_utils,        ONLY: laxfr_upflux, laxfr_upflux_v
 USE mo_physical_constants,     ONLY: grav
-USE mo_io_vlist,               ONLY: setup_vlist_oce, write_vlist_oce, destruct_vlist_oce
+USE mo_io_vlist,               ONLY: setup_vlist_oce, destruct_vlist_oce !, write_vlist_oce
 USE mo_oce_index,              ONLY: c_b, c_i, c_k, ne_b, ne_i, nc_b, nc_i, form4ar, ldbg
 USE mo_oce_physics,            ONLY: t_ho_params
 

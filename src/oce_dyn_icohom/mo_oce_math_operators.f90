@@ -50,12 +50,12 @@ MODULE mo_oce_math_operators
 !
 !
 USE mo_kind,               ONLY: wp
-USE mo_parallel_config,  ONLY: nproma
+USE mo_parallel_config,    ONLY: nproma
 USE mo_run_config,         ONLY: ltimer
 USE mo_math_constants
 USE mo_physical_constants
 USE mo_impl_constants,     ONLY: land_boundary, boundary, sea, sea_boundary, &!land, sea,
-  &                              min_rlcell, min_rledge, min_rlvert,max_char_length
+  &                              min_rlcell, min_rledge, min_rlvert !,max_char_length
 USE mo_model_domain,       ONLY: t_patch
 USE mo_ocean_nml,          ONLY: lviscous, n_zlev, iswm_oce
 USE mo_dynamics_config,    ONLY: nold
@@ -64,8 +64,8 @@ USE mo_exception,          ONLY: finish
 USE mo_timer,              ONLY: timer_start, timer_stop, timer_div, timer_grad
 #endif
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e, get_indices_v
-USE mo_oce_state,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag
-USE mo_math_utilities,     ONLY: gc2cc,gvec2cvec, t_cartesian_coordinates
+USE mo_oce_state,          ONLY: t_hydro_ocean_state
+!USE mo_math_utilities,     ONLY: t_cartesian_coordinates
 IMPLICIT NONE
 
 PRIVATE

@@ -46,16 +46,14 @@ MODULE mo_scalar_product
 !-------------------------------------------------------------------------
 !
 USE mo_kind,               ONLY: wp
-!USE mo_io_units,           ONLY: filename_max
-USE mo_parallel_config,  ONLY: nproma
-USE mo_physical_constants, ONLY : re
-USE mo_impl_constants,     ONLY: sea_boundary, sea,&!max_char_length, &
+USE mo_parallel_config,    ONLY: nproma
+USE mo_impl_constants,     ONLY: sea_boundary,     &!max_char_length, &
 !  &                             land, land_boundary, boundary, sea,  &
-  &                             min_rlcell, min_rledge, min_rlvert
-USE mo_loopindices,        ONLY: get_indices_c, get_indices_e, get_indices_v
+  &                             min_rlcell, min_rledge !, min_rlvert
+USE mo_loopindices,        ONLY: get_indices_c, get_indices_e !, get_indices_v
 USE mo_model_domain,       ONLY: t_patch
 USE mo_oce_state,          ONLY: t_hydro_ocean_diag
-USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce, ab_gam
+USE mo_ocean_nml,          ONLY: n_zlev, iswm_oce !, ab_gam
 USE mo_math_utilities,     ONLY: gvec2cvec, cvec2gvec, t_cartesian_coordinates
 !USE mo_oce_index,          ONLY: ne_b, ne_i, nv_b, nv_i, form4ar, ldbg, c_k!, c_b, c_i
 !USE mo_exception,          ONLY: message, message_text
