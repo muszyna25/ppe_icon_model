@@ -190,7 +190,7 @@ MODULE mo_prepicon_utils
     TYPE(t_prepicon_state), INTENT(INOUT) :: prepicon(:)
     TYPE(t_external_data),  INTENT(INOUT), OPTIONAL :: extdata(:)
 
-    INTEGER :: jg, jlev, nlev, nlevp1, nblks_c, nblks_v, nblks_e, jk
+    INTEGER :: jg, jlev, jk
     LOGICAL :: l_exist
 
     INTEGER :: no_cells, no_verts, no_levels
@@ -828,7 +828,7 @@ MODULE mo_prepicon_utils
     TYPE(t_int_state),  INTENT(IN)       :: p_int(:)
     TYPE(t_prepicon_state), INTENT(INOUT):: prepicon(:)
 
-    INTEGER :: jg, jgp, nblks_c, npromz_c, nblks_v, npromz_v, nlev, nlevp1
+    INTEGER :: jg, jgp, nblks_c, npromz_c, nlev, nlevp1
     INTEGER :: i_nchdom
     INTEGER :: nshift_total(n_dom)       !< Total shift of model top w.r.t. global domain
     LOGICAL :: l_half_lev_centr
@@ -1195,18 +1195,11 @@ MODULE mo_prepicon_utils
     REAL(wp), ALLOCATABLE :: levels(:)
 
     CHARACTER(len=11) :: name
-    CHARACTER(len=12) :: qname
-    CHARACTER(len=10) :: dbgname
-    CHARACTER(len=3)  :: cjt
-    CHARACTER(LEN=1)  :: ctracer
-    CHARACTER(LEN=1)  :: anextra ! number of debug fields
     CHARACTER(len=NF_MAX_NAME) :: long_name, units
-    INTEGER :: i, jt
+    INTEGER :: i
     INTEGER :: ivar
     INTEGER :: gridid, zaxisid
-    INTEGER :: elemid, tableid
 
-    CHARACTER(len=NF_MAX_NAME) :: att_txt
     INTEGER                    :: astatus
 
     !=========================================================================

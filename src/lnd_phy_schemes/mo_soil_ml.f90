@@ -702,7 +702,6 @@ CHARACTER (LEN=80)                    ::  &
     kso            , & ! loop index for soil moisture layers           
     ksn            , & ! loop index for snow layers
     k              , & ! loop index for snow layers
-    kso_zag        , & ! loop index for snow layers
     ke_soil_hy     , & ! number of active soil moisture layers
     i              , & ! loop index in x-direction              
     j              , & ! loop index in y-direction              
@@ -857,8 +856,10 @@ CHARACTER (LEN=80)                    ::  &
     zalas_mult    (ie,je,ke_snow),    & ! heat conductivity of snow
     ztsnownew_mult(ie,je,0:ke_snow),  & ! preliminary value of snow surface temperature
     zextinct      (ie,je,ke_snow),    & ! solar radiation extinction coefficient in snow (1/m)
-    zfor_snow_mult(ie,je),            & ! total forcing at snow surface
-    zfor_total    (ie,je)               ! total forcing at surface
+    zfor_snow_mult(ie,je)               ! total forcing at snow surface
+
+!  REAL    (KIND=ireals   ) ::  &
+!    zfor_total    (ie,je)               ! total forcing at surface
 
   REAL    (KIND=ireals   ) ::  &
 !
@@ -888,15 +889,12 @@ CHARACTER (LEN=80)                    ::  &
     zfr_ice        , & ! reduction factor for water transport
     zfr_ice_free   , & ! reduction factor for water transport
     zwso_new       , & ! preliminary value of soil water content
-    w_p            , & ! preliminary value of soil water content
 !    zwsnew         , & ! preliminary value of snow water equivalent
     zw_ovpv        , & ! utility variable
 !
 !   Implicit solution of thermal and hydraulic equations
 !
     zakb           , & ! utility variable
-    zakb_m1        , & ! utility variable
-    zakb_p1        , & ! utility variable
     zzz            , & ! utility variable
     z1dgam1        , & ! utility variable
     zredm          , & ! utility variable
@@ -1166,7 +1164,7 @@ CHARACTER (LEN=80)                    ::  &
     zthetas, zlamli, zlamsat, zlams, rsandf, zlamq, zlam0, zrhod, zlamdry,  &
     zsri, zKe, zthliq, zlamic
 
-  INTEGER (KIND=iintegers) :: i_loc, j_loc, isub
+!  INTEGER (KIND=iintegers) :: i_loc, j_loc, isub
 
 !- End of header
 !==============================================================================

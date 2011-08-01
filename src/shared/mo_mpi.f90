@@ -198,7 +198,9 @@ MODULE mo_mpi
 !!LK  INTEGER :: iope                  ! PE able to do IO
 !!#endif
 
+#ifdef DEBUG
   INTEGER :: nbcast                ! counter for broadcasts for debugging
+#endif
 
   ! MPI native transfer types
 

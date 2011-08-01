@@ -163,7 +163,7 @@ CONTAINS
 
     ! LOCAL VARIABLES
 
-    INTEGER :: jb, jk, jc, jk1, jk_start
+    INTEGER :: jb, jc, jk
     INTEGER :: nlen, nlev, nlevp1
 
     ! Auxiliary fields for input data
@@ -418,7 +418,7 @@ CONTAINS
 
     ! LOCAL VARIABLES
 
-    INTEGER :: jb, jk, jc, jk1, jk_start
+    INTEGER :: jb, jk
     INTEGER :: nlen, nlev
 
     ! Auxiliary field for input data

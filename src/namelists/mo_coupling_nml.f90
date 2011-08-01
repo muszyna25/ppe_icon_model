@@ -106,8 +106,8 @@ CONTAINS
     LOGICAL :: first
     LOGICAL :: l_redirect_stdout
 
-    CHARACTER(len=max_char_length), PARAMETER :: &
-         &   routine = 'mo_coupling_nml:read_coupling_namelist'
+!!$    CHARACTER(len=max_char_length), PARAMETER :: &
+!!$         &   routine = 'mo_coupling_nml:read_coupling_namelist'
 
     RETURN
 
