@@ -49,7 +49,7 @@ USE mo_math_utilities,            ONLY: t_cartesian_coordinates, gvec2cvec!, gc2
 USE mo_impl_constants,            ONLY: boundary, sea_boundary, &
   &                                     min_rlcell, min_rledge, min_rlcell !, &
 !  &                                     max_char_length
-USE mo_parallel_config,  ONLY: nproma
+USE mo_parallel_config,           ONLY: nproma
 USE mo_ocean_nml,                 ONLY: n_zlev, iswm_oce
 USE mo_run_config,                ONLY: dtime
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, t_hydro_ocean_aux
@@ -57,10 +57,10 @@ USE mo_model_domain,              ONLY: t_patch
 !USE mo_exception,                 ONLY: message, finish!, message_text
 USE mo_loopindices,               ONLY: get_indices_c, get_indices_e !, get_indices_v
 !USE mo_oce_boundcond,             ONLY: bot_bound_cond_horz_veloc, top_bound_cond_horz_veloc!,&
- ! &                                     bot_bound_cond_vert_veloc, top_bound_cond_vert_veloc
+!  &                                     bot_bound_cond_vert_veloc, top_bound_cond_vert_veloc
 USE mo_oce_physics
 USE mo_scalar_product,            ONLY: map_cell2edges, primal_map_c2e
-USE mo_oce_math_operators,        ONLY: grad_fd_norm_oce, nabla2_vec_ocean !, div_oce
+USE mo_oce_math_operators,        ONLY: nabla2_vec_ocean !, div_oce
 
 IMPLICIT NONE
 

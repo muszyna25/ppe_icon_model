@@ -172,39 +172,22 @@ USE prognostic_pp, ONLY : pi,gamma_fct, &
 
 #ifdef __ICON__
 
-USE mo_kind,               ONLY: ireals=>wp     , &
+USE mo_kind              , ONLY: ireals=>wp     , &
                                  iintegers=>i4
 USE mo_math_utilities    , ONLY: gamma_fct
 USE mo_math_constants    , ONLY: pi
 USE mo_physical_constants, ONLY: r_v   => rv    , & !> gas constant for water vapour
-                                 r_d   => rd    , & !! gas constant for dry air
-                                 rvd_m_o=>vtmpc1, & !! r_v/r_d - 1
-                                 o_m_rdv        , & !! 1 - r_d/r_v
-                                 rdv            , & !! r_d / r_v
                                  lh_v  => alv   , & !! latent heat of vapourization
                                  lh_s  => als   , & !! latent heat of sublimation
-                                 lh_f  => alf   , & !! latent heat of fusion
-                                 cp_d  => cpd   , & !! specific heat of dry air at constant press
                                  cpdr  => rcpd  , & !! (spec. heat of dry air at constant press)^-1
                                  cvdr  => rcvd  , & !! (spec. heat of dry air at const vol)^-1
-                                 b3    => tmelt , & !! melting temperature of ice/snow
-                                 rho_w => rhoh2o, & !! density of liquid water (kg/m^3)
-                                 g     => grav  , & !! acceleration due to gravity
                                  t0    => tmelt     !! melting temperature of ice/snow
-
-USE mo_convect_tables,     ONLY: b1    => c1es  , & !! constants for computing the sat. vapour
-                                 b2w   => c3les , & !! pressure over water (l) and ice (i)
-                                 b2i   => c3ies , & !!               -- " --
-                                 b4w   => c4les , & !!               -- " --
-                                 b4i   => c4ies , & !!               -- " --
-                                 b234w => c5les     !!               -- " --
-USE mo_satad,              ONLY: satad_v_3d,     &  !! new saturation adjustment
-                                 sat_pres_water, &  !! saturation vapor pressure w.r.t. water
-                                 sat_pres_ice!,   &  !! saturation vapor pressure w.r.t. ice
+USE mo_satad             , ONLY: satad_v_3d     , & !! new saturation adjustment
+                                 sat_pres_water , & !! saturation vapor pressure w.r.t. water
+                                 sat_pres_ice!   , & !! saturation vapor pressure w.r.t. ice
 !                                 spec_humi          !! Specific humidity 
-USE mo_exception,          ONLY: message, message_text
-!USE mo_atm_phy_nwp_config, ONLY: qi0 => atm_phy_nwp_config(1)%qi0,&
-!                               & qc0=> atm_phy_nwp_config(1)%qc0 
+USE mo_exception         , ONLY: message, message_text
+
 #endif
 
 !==============================================================================

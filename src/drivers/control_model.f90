@@ -50,11 +50,8 @@ PROGRAM control_model
   USE mo_io_units,            ONLY: filename_max
 !$ USE mo_exception,          ONLY: message_text, message     ! use only if compiled with OpenMP
 
-  USE mo_mpi,                 ONLY: start_mpi , p_stop, p_pe, set_process_mpi_communicator
+  USE mo_mpi,                 ONLY: start_mpi , p_stop
 
-! USE mo_namelist,            ONLY: open_nml,  close_nml, open_nml_output, close_nml_output
-! USE mo_output,              ONLY: init_output_files, close_output_files, write_output
-  
   USE mo_atmo_model,          ONLY: atmo_model
   USE mo_ocean_model,         ONLY: ocean_model
   USE mo_radiation_model,     ONLY: radiation_model
@@ -71,6 +68,7 @@ PROGRAM control_model
   INTEGER    :: master_control_status
   
   INTEGER    :: my_process_component
+
   CHARACTER(len=filename_max) :: my_namelist_filename
   CHARACTER(len=filename_max) :: master_namelist_filename="icon_master.namelist"
  

@@ -33,84 +33,85 @@
 !!
 PROGRAM prep_icon
 
-USE mo_exception,           ONLY: message, finish
+USE mo_exception,             ONLY: message, finish
 !$  USE mo_exception,         ONLY: message_text     ! use only if compiled with OpenMP
-USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs
-USE mo_mpi,                 ONLY: start_mpi, p_stop, &
-  & my_process_is_io, my_process_is_mpi_seq, set_mpi_work_communicators
-USE mo_timer,               ONLY: init_timer
+
+USE mo_parallel_config,       ONLY: p_test_run, l_test_openmp, num_io_procs
+USE mo_mpi,                   ONLY: start_mpi, p_stop,         &
+  &                                 my_process_is_mpi_seq,     &
+  &                                 set_mpi_work_communicators
+USE mo_timer,                 ONLY: init_timer
 
 
 ! Control parameters: run control, dynamics, i/o
 !
-USE mo_nonhydrostatic_config,ONLY: ivctype
-USE mo_dynamics_config,   ONLY: iequations
-USE mo_run_config,        ONLY: configure_run, &
-  & ltimer,               & !    :
-  & nlev,nlevp1,          &
-  & num_lev,num_levp1, nshift, iforcing
+USE mo_nonhydrostatic_config, ONLY: ivctype
+USE mo_dynamics_config,       ONLY: iequations
+USE mo_run_config,            ONLY: configure_run,        &
+  &                                 ltimer,               &
+  &                                 nlev,nlevp1,          &
+  &                                 num_lev,num_levp1, nshift, iforcing
 
 USE mo_impl_constants, ONLY:  inh_atmosphere
 
 ! Memory
 !
-USE mo_subdivision,         ONLY: decompose_atmo_domain,         &
-& copy_processor_splitting,  set_patch_communicators
+USE mo_subdivision,           ONLY: decompose_atmo_domain,     &
+  &                                 copy_processor_splitting,  &
+  &                                 set_patch_communicators
 
 
-USE mo_atmo_control,        ONLY: p_patch_global, p_patch_subdiv, p_patch
+USE mo_atmo_control,          ONLY: p_patch_global, p_patch_subdiv, p_patch
 
 ! Horizontal grid
-USE mo_grid_config,         ONLY: n_dom, n_dom_start, global_cell_type
+!
+USE mo_grid_config,           ONLY: n_dom, n_dom_start, global_cell_type
                                   
-USE mo_model_domain_import, ONLY: import_patches, destruct_patches
+USE mo_model_domain_import,   ONLY: import_patches, destruct_patches
 
 ! Horizontal interpolation
 !
-USE mo_intp_state,          ONLY: construct_2d_interpol_state, &
+USE mo_intp_state,            ONLY: construct_2d_interpol_state, &
 & destruct_2d_interpol_state
 
-USE mo_grf_interpolation,   ONLY: construct_2d_gridref_state,  &
+USE mo_grf_interpolation,     ONLY: construct_2d_gridref_state,  &
 & destruct_2d_gridref_state
 
 ! Vertical grid
 !
-
-USE mo_nh_init_utils,       ONLY: init_hybrid_coord, init_sleve_coord
-
-! State variables
-!
+USE mo_nh_init_utils,         ONLY: init_hybrid_coord, init_sleve_coord
 
 
-USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH, inwp
+USE mo_impl_constants,        ONLY: SUCCESS, inwp
 
 
-USE mo_intp_data_strc,      ONLY: p_int_state_global, p_int_state_subdiv, p_int_state
-USE mo_grf_intp_data_strc,  ONLY: p_grf_state_global, p_grf_state_subdiv, p_grf_state
+USE mo_intp_data_strc,        ONLY: p_int_state_global, p_int_state_subdiv, p_int_state
+USE mo_grf_intp_data_strc,    ONLY: p_grf_state_global, p_grf_state_subdiv, p_grf_state
 
 
-USE mo_read_namelists,     ONLY: read_atmo_namelists
-USE mo_atm_nml_crosscheck,       ONLY: atm_crosscheck
+USE mo_read_namelists,        ONLY: read_atmo_namelists
+USE mo_atm_nml_crosscheck,    ONLY: atm_crosscheck
 
-USE mo_time_config,        ONLY: time_config      ! variable
-USE mo_dynamics_config,    ONLY: configure_dynamics  ! subroutine
+USE mo_time_config,           ONLY: time_config         ! variable
+USE mo_dynamics_config,       ONLY: configure_dynamics  ! subroutine
 USE mo_interpol_config
-USE mo_ext_data,            ONLY: ext_data, init_ext_data, destruct_ext_data
-USE mo_atmo_nonhydrostatic, ONLY: atmo_nonhydrostatic 
+USE mo_ext_data,              ONLY: ext_data, init_ext_data, destruct_ext_data
 
 ! USE statements referring directly to prep_icon
-USE mo_time_config, ONLY: time_config 
-USE mo_prepicon_utils,      ONLY: init_prepicon, prepicon, write_prepicon_output, &
-  & compute_coord_fields, init_topo_output_files, close_prepicon_output_files,    &
+!
+USE mo_time_config,           ONLY: time_config 
+USE mo_prepicon_utils,        ONLY: init_prepicon, prepicon, write_prepicon_output, &
+  & compute_coord_fields, init_topo_output_files, close_prepicon_output_files,      &
   & convert_variables, init_atmo_output_files, deallocate_prepicon
   
-USE mo_prepicon_nml,        ONLY: i_oper_mode, l_zp_out
-USE mo_nh_vert_interp,      ONLY: vertical_interpolation, interpolate_to_p_and_z_levels
+USE mo_prepicon_nml,          ONLY: i_oper_mode, l_zp_out
+USE mo_nh_vert_interp,        ONLY: vertical_interpolation, interpolate_to_p_and_z_levels
 
-USE mo_extpar_config,      ONLY: itopo
-USE mo_master_nml,         ONLY: lrestart
+USE mo_extpar_config,         ONLY: itopo
+USE mo_master_nml,            ONLY: lrestart
 
 !-------------------------------------------------------------------------
+
 IMPLICIT NONE
 
   ! local variables
