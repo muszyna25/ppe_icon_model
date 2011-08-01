@@ -44,7 +44,7 @@
 MODULE mo_lnd_nwp_config
 
   USE mo_kind,           ONLY: wp
-  USE mo_impl_constants, ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom
+  USE mo_impl_constants, ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom, zml_soil
 
   IMPLICIT NONE
 
@@ -52,7 +52,9 @@ MODULE mo_lnd_nwp_config
   PUBLIC :: lseaice,  llake, lmelt , lmelt_var ,   lmulti_snow 
   PUBLIC :: itype_gscp, itype_trvg ,    itype_evsl, itype_tran 
   PUBLIC :: itype_root, itype_heatcond, itype_hydbound  
-  PUBLIC :: lstomata,   l2tls, lana_rho_snow, itype_subs     
+  PUBLIC :: lstomata,   l2tls, lana_rho_snow, itype_subs 
+    
+  PUBLIC :: configure_lnd_nwp
 
   CHARACTER(len=*),PARAMETER,PRIVATE :: version = '$Id$'
 
@@ -95,5 +97,30 @@ MODULE mo_lnd_nwp_config
 !  TYPE(t_nwp_lnd_config) :: nwp_lnd_config(max_dom)
 
 
+CONTAINS
+
+  !>
+  !! setup components of the NWP land scheme depending on its namelist
+  !!
+  !! Setup of additional nwp-land control variables depending on the 
+  !! land-NAMELIST and potentially other namelists. This routine is 
+  !! called, after all namelists have been read and a synoptic consistency 
+  !! check has been done.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2011-08-01)
+  !!
+  SUBROUTINE configure_lnd_nwp()
+  !
+
+    !-----------------------------------------------------------------------
+
+    ! number of soil layers
+    ! Note that this number must be consistent with the number of entries 
+    ! in zml_soil. zml_soil provides soil layer half level heights.
+    nlev_soil = SIZE(zml_soil)-1  !< currently 7
+
+
+  END SUBROUTINE configure_lnd_nwp
 
 END MODULE mo_lnd_nwp_config

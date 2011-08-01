@@ -53,6 +53,7 @@ USE mo_run_config,           ONLY: &
 USE mo_dynamics_config,      ONLY: nnow, nnow_rcf
 USE mo_nonhydrostatic_config, ONLY: iadv_rcf
 USE mo_impl_constants,       ONLY: inwp
+USE mo_lnd_nwp_config,       ONLY: configure_lnd_nwp
 ! Horizontal grid
 USE mo_atmo_control,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom
@@ -66,8 +67,8 @@ USE mo_nonhydro_state,       ONLY: p_nh_state,   &
   &                                destruct_nh_state
 USE mo_nwp_phy_state,        ONLY: construct_nwp_phy_state, &
   &                                destruct_nwp_phy_state
-USE mo_nwp_lnd_state,        ONLY: construct_nwp_lnd_state,   &
-  &                                destruct_nwp_lnd_state, p_lnd_state
+USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,    &
+  &                                destruct_nwp_lnd_state
 USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 ! Time integration
 USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping
@@ -125,11 +126,12 @@ CONTAINS
      IF(iforcing == inwp) THEN
        CALL construct_nwp_phy_state( p_patch(1:) )
        
-         ALLOCATE (p_lnd_state(n_dom), stat=ist)
-         IF (ist /= success) THEN
-           CALL finish(TRIM(routine),'allocation for p_lnd_state failed')
-         ENDIF
-         CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
+       ALLOCATE (p_lnd_state(n_dom), stat=ist)
+       IF (ist /= success) THEN
+         CALL finish(TRIM(routine),'allocation for p_lnd_state failed')
+       ENDIF
+       CALL configure_lnd_nwp()
+       CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
 
      ENDIF
 

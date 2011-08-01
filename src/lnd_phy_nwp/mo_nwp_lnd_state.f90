@@ -452,6 +452,7 @@ MODULE mo_nwp_lnd_state
          & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,  cf_desc, grib2_desc,        &
          & ldims=shape3d_subs, lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )  
 
+
     ! fill the seperate variables belonging to the container t_gt
     ALLOCATE(p_prog_lnd%t_gt_ptr(nsfc_subs))
       DO jsfc = 1,nsfc_subs
