@@ -291,13 +291,29 @@ MODULE mo_nh_stepping
 
   CALL allocate_nh_stepping (p_patch)
 
-  IF (iforcing==inwp) THEN
+  IF (iforcing == inwp .AND. is_restart_run()) THEN
     DO jg=1, n_dom
       CALL init_nwp_phy( dtime                 ,&
            & p_patch(jg)                       ,&
            & p_nh_state(jg)%metrics            ,&
            & p_nh_state(jg)%prog(nnow(jg))     ,&
            & p_nh_state(jg)%prog(nnew(jg))     ,&
+           & p_nh_state(jg)%diag               ,&
+           & prm_diag(jg)                      ,&
+           & prm_nwp_tend(jg)                  ,&
+           & p_lnd_state(jg)%prog_lnd(nnow(jg)),&
+           & p_lnd_state(jg)%prog_lnd(nnew(jg)),&
+           & p_lnd_state(jg)%diag_lnd          ,&
+           & ext_data(jg)                      ,&
+           & mean_charlen(jg)                   )
+    ENDDO
+  ELSE IF (iforcing == inwp) THEN ! for cold start, use atmospheric fields at time level nnow only
+    DO jg=1, n_dom
+      CALL init_nwp_phy( dtime                 ,&
+           & p_patch(jg)                       ,&
+           & p_nh_state(jg)%metrics            ,&
+           & p_nh_state(jg)%prog(nnow(jg))     ,&
+           & p_nh_state(jg)%prog(nnow(jg))     ,&
            & p_nh_state(jg)%diag               ,&
            & prm_diag(jg)                      ,&
            & prm_nwp_tend(jg)                  ,&

@@ -71,9 +71,10 @@ MODULE mo_prepicon_nml
   LOGICAL  :: l_w_in        ! Logical switch if w is provided as input
   LOGICAL  :: l_sfc_in      ! Logical switch if surface fields are provided as input
   LOGICAL  :: l_zp_out      ! Logical switch for diagnostic output on pressure and height levels
+  LOGICAL  :: l_extdata_out ! Logical switch to write extdata fields into output (to simplify checking)
 
-  NAMELIST /prepicon_nml/ i_oper_mode, nlev_in, zpbl1, zpbl2, &
-                          l_w_in, l_zp_out, nlevsoil_in, l_sfc_in
+  NAMELIST /prepicon_nml/ i_oper_mode, nlev_in, zpbl1, zpbl2,                  &
+                          l_w_in, l_zp_out, nlevsoil_in, l_sfc_in, l_extdata_out
   !
   !
   !
@@ -110,6 +111,7 @@ CONTAINS
   l_w_in      = .FALSE.     ! true: w is provided as input
   l_sfc_in    = .TRUE.      ! true: surface fields are provided as input
   l_zp_out    = .FALSE.     ! true: diagnostic output on p and z levels
+  l_extdata_out = .FALSE.   ! true: copy extdata fields into output
   !
   !
   !------------------------------------------------------------

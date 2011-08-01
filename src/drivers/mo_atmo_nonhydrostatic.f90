@@ -50,6 +50,7 @@ USE mo_run_config,           ONLY: &
   &                               nsteps,               & !    :
   &                               ltimer,               & !    :
   &                               iforcing                !    namelist parameter
+USE mo_dynamics_config,      ONLY: nnow, nnow_rcf
 USE mo_nonhydrostatic_config, ONLY: iadv_rcf
 USE mo_impl_constants,       ONLY: inwp
 ! Horizontal grid
@@ -67,6 +68,7 @@ USE mo_nwp_phy_state,        ONLY: construct_nwp_phy_state, &
   &                                destruct_nwp_phy_state
 USE mo_nwp_lnd_state,        ONLY: construct_nwp_lnd_state,   &
   &                                destruct_nwp_lnd_state, p_lnd_state
+USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 ! Time integration
 USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping
 ! Initialization with real data
@@ -91,8 +93,8 @@ CONTAINS
     CHARACTER(*), PARAMETER :: routine = "mo_atmo_nonhydrostatic"
 
 
-    INTEGER :: n_io, jg, jfile, n_file, ist, n_diag, n_chkpt
-    LOGICAL :: l_have_output
+    INTEGER :: n_io, jg, jfile, n_file, ist, n_diag, n_chkpt, ntl, ntlr
+    LOGICAL :: l_have_output, l_realcase
     INTEGER :: pat_level(n_dom)
 
     DO jg=1,n_dom
@@ -103,6 +105,12 @@ CONTAINS
       WRITE(0,*)'call configure nwp'
      CALL configure_atm_phy_nwp(n_dom, pat_level(:),&
           &                     ltestcase, iadv_rcf, dtime )
+    ENDIF
+
+    IF (.NOT. ltestcase .AND. iforcing == inwp) THEN
+      l_realcase = .TRUE.
+    ELSE
+      l_realcase = .FALSE.
     ENDIF
  
     !---------------------------------------------------------------------
@@ -147,7 +155,7 @@ CONTAINS
    !--------------------
 
      ! Initialize model with real atmospheric data if appropriate switches are set
-     IF (.NOT. ltestcase .AND. .NOT. is_restart_run() .AND. iforcing == inwp) THEN
+     IF (l_realcase .AND. .NOT. is_restart_run()) THEN
 
        CALL message(TRIM(routine),'Real-data mode: perform initialization with IFS2ICON data')
 
@@ -171,7 +179,7 @@ CONTAINS
      CALL prepare_nh_integration(p_patch(1:), p_nh_state, p_int_state(1:), p_grf_state(1:))
 
      ! Continue operations for real-data initialization
-     IF (.NOT. ltestcase .AND. .NOT. is_restart_run() .AND. iforcing == inwp) THEN
+     IF (l_realcase .AND. .NOT. is_restart_run()) THEN
 
        ! Compute the 3D coordinate fields
        CALL compute_coord_fields(p_int_state(1:), prepicon)
@@ -234,19 +242,32 @@ CONTAINS
     IF (.NOT.is_restart_run()) THEN
 
     ! diagnose u and v to have meaningful initial output
+    ! For real-case runs, also diagnose pressure and temperature
+    ! because these variables are needed for initializing the physics parameterizations
     
     DO jg = 1, n_dom
 
-        SELECT CASE (p_patch(jg)%cell_type)
+      ! time levels
+      ntl  = nnow(jg)
+      ntlr = nnow_rcf(jg)
+
+      SELECT CASE (p_patch(jg)%cell_type)
         CASE (3)
-          CALL rbf_vec_interpol_cell(p_nh_state(jg)%prog(1)%vn,p_patch(jg),&
-            & p_int_state(jg),p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
+        CALL rbf_vec_interpol_cell(p_nh_state(jg)%prog(ntl)%vn,p_patch(jg),&
+          & p_int_state(jg),p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
         CASE (6)
-          CALL edges2cells_scalar(p_nh_state(jg)%prog(1)%vn,p_patch(jg), &
-            & p_int_state(jg)%hex_east,p_nh_state(jg)%diag%u)
-          CALL edges2cells_scalar(p_nh_state(jg)%prog(1)%vn,p_patch(jg), &
-            & p_int_state(jg)%hex_north,p_nh_state(jg)%diag%v)
-        END SELECT
+        CALL edges2cells_scalar(p_nh_state(jg)%prog(ntl)%vn,p_patch(jg), &
+          & p_int_state(jg)%hex_east,p_nh_state(jg)%diag%u)
+        CALL edges2cells_scalar(p_nh_state(jg)%prog(ntl)%vn,p_patch(jg), &
+          & p_int_state(jg)%hex_north,p_nh_state(jg)%diag%v)
+      END SELECT
+
+      IF (l_realcase) THEN ! for test cases, diagnose_pres_temp is currently called in nh_testcases
+        CALL diagnose_pres_temp(p_nh_state(jg)%metrics, p_nh_state(jg)%prog(ntl),        &
+          &                     p_nh_state(jg)%prog(ntlr), p_nh_state(jg)%diag,          &
+          &                     p_patch(jg), opt_calc_temp=.TRUE., opt_calc_pres=.TRUE., &
+          &                     lnd_prog=p_lnd_state(jg)%prog_lnd(ntlr) )
+      ENDIF
 
     ENDDO
     

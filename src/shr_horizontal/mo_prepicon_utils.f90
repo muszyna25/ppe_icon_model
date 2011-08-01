@@ -48,14 +48,14 @@ MODULE mo_prepicon_utils
   USE mo_nonhydro_state,      ONLY: t_nh_state
   USE mo_nwp_lnd_state,       ONLY: t_lnd_state
   USE mo_prepicon_nml,        ONLY: i_oper_mode, nlev_in, l_zp_out, l_w_in,&
-  &                                 nlevsoil_in, l_sfc_in
+  &                                 nlevsoil_in, l_sfc_in, l_extdata_out
   USE mo_impl_constants,      ONLY: max_char_length, max_dom
   USE mo_exception,           ONLY: message, finish, message_text
   USE mo_grid_config,         ONLY: n_dom, nroot, start_lev, global_cell_type
   USE mo_interpolation,       ONLY: t_int_state
   USE mo_grf_interpolation,   ONLY: t_gridref_state
   USE mo_mpi,                 ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
-  USE mo_ext_data,            ONLY: smooth_topography, read_netcdf_data, t_external_data
+  USE mo_ext_data,            ONLY: smooth_topography, read_netcdf_data, t_external_data, ext_data
   USE mo_atmo_control,        ONLY: p_patch
   USE mo_io_vlist,            ONLY: GATHER_C, GATHER_E, GATHER_V, num_output_vars, outvar_desc, &
                                     gather_array1, gather_array2
@@ -182,13 +182,13 @@ MODULE mo_prepicon_utils
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !!
   !!
-  SUBROUTINE init_prepicon (p_int_state, p_grf_state, prepicon, ext_data)
+  SUBROUTINE init_prepicon (p_int_state, p_grf_state, prepicon, extdata)
 
     TYPE(t_int_state),     TARGET, INTENT(IN) :: p_int_state(:)
     TYPE(t_gridref_state), TARGET, INTENT(IN) :: p_grf_state(:)
 
     TYPE(t_prepicon_state), INTENT(INOUT) :: prepicon(:)
-    TYPE(t_external_data),  INTENT(INOUT), OPTIONAL :: ext_data(:)
+    TYPE(t_external_data),  INTENT(INOUT), OPTIONAL :: extdata(:)
 
     INTEGER :: jg, jlev, nlev, nlevp1, nblks_c, nblks_v, nblks_e, jk
     LOGICAL :: l_exist
@@ -565,17 +565,17 @@ MODULE mo_prepicon_utils
 
     IF (n_dom > 1) CALL topo_blending_and_fbk(p_int_state, p_grf_state, prepicon, 1)
 
-    IF (PRESENT(ext_data)) THEN
+    IF (PRESENT(extdata)) THEN
 
       ! Copy smoothed and blended external data to the topography fields in the external parameter state
       DO jg = 1, n_dom
 
-        ext_data(jg)%atm%topography_c(:,:) = prepicon(jg)%topography_c(:,:)
-        ext_data(jg)%atm%topography_v(:,:) = prepicon(jg)%topography_v(:,:)
+        extdata(jg)%atm%topography_c(:,:) = prepicon(jg)%topography_c(:,:)
+        extdata(jg)%atm%topography_v(:,:) = prepicon(jg)%topography_v(:,:)
         IF (l_sfc_in) THEN
           ! In addition, copy climatological deep-soil temperature to soil level nlev_soil+1
           ! These are limited to -60 deg C because less is definitely nonsense
-          prepicon(jg)%sfc%tsoil(:,:,nlev_soil+1) = MAX(213.15_wp,ext_data(jg)%atm%t_cl(:,:))
+          prepicon(jg)%sfc%tsoil(:,:,nlev_soil+1) = MAX(213.15_wp,extdata(jg)%atm%t_cl(:,:))
         ENDIF
       ENDDO
 
@@ -702,9 +702,6 @@ MODULE mo_prepicon_utils
 
             p_nh_state(jg)%prog(ntl)%rhotheta_v(jc,jk,jb) = &
               p_nh_state(jg)%prog(ntl)%rho(jc,jk,jb) * p_nh_state(jg)%prog(ntl)%theta_v(jc,jk,jb)
-
-            ! Pressure is needed in nwp_phy_init
-            p_nh_state(jg)%diag%pres(jc,jk,jb) = prepicon(jg)%atm%pres(jc,jk,jb)
 
             ! Moisture variables
             p_nh_state(jg)%prog(ntlr)%tracer(jc,jk,jb,iqv) = prepicon(jg)%atm%qv(jc,jk,jb)
@@ -1816,6 +1813,113 @@ MODULE mo_prepicon_utils
 
     ENDIF
 
+    ! Optional output of external parameter fields for the purpose of checking
+    IF (i_oper_mode >= 2 .AND. l_extdata_out) THEN
+
+      CALL addVar(TimeVar('FR_LAND',&
+      &                   'land fraction',&
+      &                   '(0-1)', 255, 255,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('ICE', 'sea-ice cover fraction',&
+      &                   '(0-1)', 255, 255,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('PLCOV_MX', 'max. plant cover fraction',&
+      &                   '(0-1)', 255, 255,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('LAI_MX', 'leaf-area index',&
+      &                   '(0-1)', 255, 255,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('ROOTDP', 'root depth',&
+      &                   'm', 255, 255,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('RSMIN', 'min. stomata resistance',&
+      &                   's/m', 255, 255,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('FOR_D', 'deciduous forest fraction',&
+      &                   '(0-1)', 255, 255,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('FOR_E', 'evergreen forest fraction',&
+      &                   '(0-1)', 255, 255,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('URBAN', 'urban fraction',&
+      &                   '(0-1)', 255, 255,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('Z0', 'roughness length',&
+      &                   'm', 255, 255,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('NDVI_MAX', 'max. NDVI',&
+      &                   '(0-1)', 255, 255,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+!      CALL addVar(TimeVar('SOILTYP', 'soil type',&
+!      &                   '(0-1)', 255, 255,&
+!      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+!      &           k_jg)
+
+      CALL addVar(TimeVar('EMIS_RAD', 'lw emissivity',&
+      &                   '(0-1)', 255, 255,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('T_CL', 'climatological temperature',&
+      &                   'K', 255, 255,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('SSO_STDH', 'SSO stdev',&
+      &                   'm', 255, 255,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('SSO_THETA', 'SSO angle',&
+      &                   'rad', 255, 255,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('SSO_GAMMA', 'SSO anisotropy',&
+      &                   '(0-1)', 255, 255,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('SSO_SIGMA', 'SSO slope',&
+      &                   '(0-1)', 255, 255,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('FR_LAKE', 'lake fraction',&
+      &                   '(0-1)', 255, 255,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+      CALL addVar(TimeVar('DEPTH_LK', 'lake depth',&
+      &                   '(0-1)', 255, 255,&
+      &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+      &           k_jg)
+
+    ENDIF
+
+
     CALL nf(nf_close(ncid))
     !
     !=========================================================================
@@ -2047,6 +2151,26 @@ MODULE mo_prepicon_utils
       CASE ('PZ');              ptr3 => prepicon(jg)%zlev%pres
       CASE ('QVZ');             ptr3 => prepicon(jg)%zlev%qv
 
+      CASE ('FR_LAND');         ptr2 => ext_data(jg)%atm%fr_land
+      CASE ('ICE');             ptr2 => ext_data(jg)%atm%fr_ice
+      CASE ('PLCOV_MX');        ptr2 => ext_data(jg)%atm%plcov_mx
+      CASE ('LAI_MX');          ptr2 => ext_data(jg)%atm%lai_mx
+      CASE ('ROOTDP');          ptr2 => ext_data(jg)%atm%rootdp
+      CASE ('RSMIN');           ptr2 => ext_data(jg)%atm%rsmin
+      CASE ('FOR_D');           ptr2 => ext_data(jg)%atm%for_d
+      CASE ('FOR_E');           ptr2 => ext_data(jg)%atm%for_e
+      CASE ('URBAN');           ptr2 => ext_data(jg)%atm%urban
+      CASE ('Z0');              ptr2 => ext_data(jg)%atm%z0
+      CASE ('NDVI_MAX');        ptr2 => ext_data(jg)%atm%ndvi_max
+!      CASE ('SOILTYP');         ptr2 => ext_data(jg)%atm%soiltyp
+      CASE ('EMIS_RAD');        ptr2 => ext_data(jg)%atm%emis_rad
+      CASE ('T_CL');            ptr2 => ext_data(jg)%atm%t_cl
+      CASE ('SSO_STDH');        ptr2 => ext_data(jg)%atm%sso_stdh
+      CASE ('SSO_THETA');       ptr2 => ext_data(jg)%atm%sso_theta
+      CASE ('SSO_GAMMA');       ptr2 => ext_data(jg)%atm%sso_gamma
+      CASE ('SSO_SIGMA');       ptr2 => ext_data(jg)%atm%sso_sigma
+      CASE ('FR_LAKE');         ptr2 => ext_data(jg)%atm%fr_lake
+      CASE ('DEPTH_LK');        ptr2 => ext_data(jg)%atm%depth_lk
 
       CASE DEFAULT;             not_found = .TRUE.
     END SELECT

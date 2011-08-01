@@ -144,9 +144,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
   CHARACTER (LEN=80) :: errormsg=''
 
   INTEGER :: khydromet, ktrac
-!>JH  
-!  REAL(wp), DIMENSION(9):: czmls=(/ 0.,0.005,0.02,0.06,0.18,0.54,1.62,4.86,14.58 /)
-!<JH
+
     i_nchdom  = MAX(1,p_patch%n_childdom)
 
     ! number of vertical levels
@@ -156,7 +154,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 
 
 
-    IF ( ltestcase .AND. .NOT. is_restart_run())THEN
+    IF (.NOT. is_restart_run())THEN
 
     rl_start = 1 ! Initialization should be done for all points
     rl_end   = min_rlcell
@@ -169,7 +167,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
              &  i_startidx, i_endidx, rl_start, rl_end)
 
-        IF( nh_test_name == 'APE_nh') THEN
+        IF(ltestcase .AND. nh_test_name == 'APE_nh') THEN
 
           ! t_g = ape_sst1
           
@@ -183,7 +181,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
           & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
           END DO
 
-        ELSE ! any other testcase
+        ELSE IF (ltestcase) THEN ! any other testcase
 
           ! t_g  =  t(nlev)
           ! qv_ s= qv(nlev)
@@ -199,6 +197,12 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
           & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
 
           END DO
+        ELSE ! For real-case simulations, initialize also qv_s
+          DO jc = i_startidx, i_endidx
+            p_prog_lnd_new%t_g(jc,jb) =  p_prog_lnd_now%t_g(jc,jb)
+            p_diag_lnd%qv_s    (jc,jb) = &
+            & spec_humi(sat_pres_water(p_prog_lnd_now%t_g(jc,jb)),p_diag%pres_sfc(jc,jb))
+          ENDDO
         ENDIF
         
       END DO
