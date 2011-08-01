@@ -42,7 +42,8 @@ MODULE mo_icon_cpl_def_field
 
   USE mo_icon_cpl, ONLY         : ICON_comm,         & ! MPI communicator
      &                            t_field,           & ! Field type
-!rr     &                            complist,          & ! component information
+     &                            t_comp,            & ! Field type
+     &                            complist,          & ! component information
      &                            fields,            & ! exchange fields
      &                            nbr_ICON_inc,      & ! increment for memory
      &                            nbr_active_fields, & ! total number of coupling fields
@@ -164,9 +165,25 @@ CONTAINS
 
     ! -------------------------------------------------------------------
     ! Determine global field_id
+    !
+    ! Currently the global field id is determined from the position in the
+    ! namelist file. This requires that all components need to have the
+    ! same namelist file for coupling. Possibly this contains coupling
+    ! fields which are not handled by an individual component.
+    ! On the long term e need to find a different way to get a global
+    ! field id, e.g. through the hash value of its character string
+    !
+    ! Note that the global field id is later used for the MPI message tag
+    ! which ensures that a field sent as sea surface temperature will be
+    ! received as sea surface temperature.
+    !
     ! -------------------------------------------------------------------
 
     nbr_max_fields = SIZE(config_fields)
+
+    ! -------------------------------------------------------------------
+    ! Rather than doing a string comparision we could used hash values
+    ! -------------------------------------------------------------------
 
     DO global_field_id = 1, nbr_max_fields
        IF ( TRIM(field_name) == TRIM(config_fields(global_field_id)%name) ) THEN
@@ -176,10 +193,10 @@ CONTAINS
     ENDDO
 
     IF ( global_field_id > nbr_max_fields ) THEN
-       WRITE ( * , * ) ' Fieldname not found in list: ', TRIM(field_name)
-#ifndef NOMPI
-       CALL MPI_Abort ( ICON_comm, 1, ierr )
-#endif
+       WRITE ( * , * ) ' Fieldname not declared in namelist: ', TRIM(field_name)
+       WRITE ( * , * ) ' Field will not be exchanged! ', TRIM(field_name)
+       field_id = -1
+       RETURN
     ENDIF
 
     ! -------------------------------------------------------------------

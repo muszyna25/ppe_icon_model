@@ -142,10 +142,6 @@ MODULE mo_icon_cpl
 
   INTEGER, PARAMETER        :: maxchar = 132
 
-  ! Size of global list of names for coupling fields
-
-  INTEGER, PARAMETER        :: nbr_max_fields = 32
-
   ! Setting for debug output
 
   LOGICAL, PARAMETER        :: l_debug     = .true.
@@ -188,9 +184,6 @@ MODULE mo_icon_cpl
      INTEGER                :: min_rank
      INTEGER                :: max_rank
      INTEGER                :: inc_rank
-     LOGICAL                :: L_TIME_AVERAGE
-     LOGICAL                :: L_TIME_ACCUMULATION
-     INTEGER                :: COUPLING_FREQ
      INTEGER                :: TIME_STEP
      LOGICAL                :: L_REDIRECT_STDOUT
   END TYPE t_comp

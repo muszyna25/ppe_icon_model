@@ -43,17 +43,12 @@ MODULE mo_coupling_nml
   !
   !-------------------------------------------------------------------------
 
-  USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH,SUCCESS
-  USE mo_exception, ONLY: warning, message_text, finish
-  USE mo_io_units,  ONLY: filename_max, nnml
-  USE mo_namelist,  ONLY: open_nml, close_nml, position_nml, POSITIONED
+  USE mo_impl_constants,  ONLY: max_char_length
+  USE mo_exception,       ONLY: finish
+  USE mo_io_units,        ONLY: nnml
+  USE mo_namelist,        ONLY: open_nml, close_nml, position_nml, POSITIONED
 
-  USE mo_coupling_config, ONLY : config_fields
-
-  USE mo_icon_cpl,  ONLY : nbr_max_fields,           &
-       &                   l_debug,                  &
-       &                   initial_date, final_date, &
-       &                   nbr_ICON_comps
+  USE mo_coupling_config, ONLY: t_field_nml, config_fields
 
   IMPLICIT NONE
 
@@ -94,20 +89,26 @@ CONTAINS
   !! @par Revision History
   !!
   SUBROUTINE read_coupling_namelist (namelist_filename)
-    
+
     CHARACTER(LEN=*), INTENT(in) :: namelist_filename
 
     !
     ! Local variables
     !
 
+    TYPE(t_field_nml), POINTER :: new_fields(:)
+
     INTEGER :: i
+    INTEGER :: ierr
+    INTEGER :: new_dim
+
+    INTEGER :: nbr_fields
     INTEGER :: istat
     LOGICAL :: first
     LOGICAL :: l_redirect_stdout
 
-!!$    CHARACTER(len=max_char_length), PARAMETER :: &
-!!$         &   routine = 'mo_coupling_nml:read_coupling_namelist'
+    CHARACTER(len=max_char_length), PARAMETER :: &
+         &   routine = 'mo_coupling_nml:read_coupling_namelist'
 
     RETURN
 
@@ -115,11 +116,13 @@ CONTAINS
     ! Allocate space for namelist input
     ! -------------------------------------------------------------------
 
-    ALLOCATE(config_fields(nbr_max_fields))
+    nbr_fields = 8
 
-    !------------------------------------------------------------
+    ALLOCATE(config_fields(nbr_fields))
+
+    !--------------------------------------------------------------------
     ! 1. Set default values
-    !------------------------------------------------------------
+    !--------------------------------------------------------------------
 
     frequency           = 0
     time_step           = 0
@@ -128,10 +131,10 @@ CONTAINS
     l_time_accumulation = .FALSE.
     l_redirect_stdout   = .FALSE.
 
-    !------------------------------------------------------------------
+    !--------------------------------------------------------------------
     ! 2. If this is a resumed integration, overwrite the defaults above 
     !    by values used in the previous integration.
-    !------------------------------------------------------------------
+    !--------------------------------------------------------------------
 
 !rr    IF (is_restart_run()) THEN
 !rr      funit = open_and_restore_namelist('coupling_nml')
@@ -140,37 +143,79 @@ CONTAINS
 !rr    END IF
 
     !--------------------------------------------------------------------
-    ! 3. Read user's (new) specifications (Done so far by all MPI processes)
+    ! 3. Read user's (new) specifications (done so far by all MPI processes)
     !--------------------------------------------------------------------
 
     first = .TRUE.
-    i = 0
+    i     = 0
 
-    !------------------------------------------------------
-    ! loop over occurences of namelist group /coupling_nml/
-    !------------------------------------------------------
-    
+    !--------------------------------------------------------------------
+    ! 3.a loop over occurences of namelist group /coupling_nml/
+    !--------------------------------------------------------------------
+
     DO
 
        CALL open_nml (TRIM(namelist_filename))
        CALL position_nml('coupling_nml', lrewind=first, status=istat)
 
+       frequency = 0
+       time_step = 0
+       lag       = 0
+       l_time_average      = .FALSE.
+       l_time_accumulation = .FALSE.
+
        first = .FALSE.
 
-       !------------------------------
-       ! if namelist group is present:
-       !------------------------------
+       !-----------------------------------------------------------------
+       ! 3.b if namelist group is present
+       !-----------------------------------------------------------------
 
        SELECT CASE (istat)
 
        CASE (POSITIONED)
 
           READ  (nnml, coupling_nml)
+
           i = i + 1
 
-          !----------------------------------------------------
-          ! 4. Fill the configuration state
-          !----------------------------------------------------
+          !--------------------------------------------------------------
+          ! 3.c allocate more memory if needed
+          !--------------------------------------------------------------
+
+          IF ( i > nbr_fields ) THEN
+
+             ! we need to allocated more memory
+
+             new_dim = nbr_fields + 8
+
+             ALLOCATE ( new_fields(new_dim), STAT = ierr )
+             IF ( ierr > 0 ) &
+                  CALL finish ( TRIM(routine), ' Error allocating fields ' )
+
+             new_fields (1:nbr_fields) = config_fields (1:nbr_fields)
+
+             DEALLOCATE ( config_fields, STAT = ierr )
+             IF ( ierr > 0 ) &
+                  CALL finish ( TRIM(routine), ' Error deallocating fields ' )
+
+             config_fields => new_fields
+
+             ! update size
+
+             nbr_fields = new_dim
+
+          ENDIF
+
+          !--------------------------------------------------------------
+          ! 4. Consistency check
+          !--------------------------------------------------------------
+
+          if ( frequency < time_step ) &
+               CALL finish (TRIM(routine), 'Coupling frequency must be larger that time step' )
+
+          !--------------------------------------------------------------
+          ! 5. Fill the configuration state
+          !--------------------------------------------------------------
 
           config_fields(i)%name                = name
           config_fields(i)%frequency           = frequency

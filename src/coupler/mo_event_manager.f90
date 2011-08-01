@@ -50,8 +50,9 @@
 !!
 MODULE mo_event_manager
 
+  USE mo_kind, ONLY      : wp
   USE mo_time_base, ONLY : t_julian_date, add_time
-  USE mo_icon_cpl,  ONLY : initial_date
+  USE mo_icon_cpl, ONLY  : initial_date
   USE mo_exception, ONLY : finish
 
   IMPLICIT NONE

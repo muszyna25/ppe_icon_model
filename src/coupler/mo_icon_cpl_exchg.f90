@@ -53,6 +53,7 @@ MODULE mo_icon_cpl_exchg
 #ifndef NOMPI
 
   USE mo_icon_cpl, ONLY : t_field, fields,  &
+   &                      nbr_ICON_fields,  &
    &                      t_source_struct, source_locs, &
    &                      t_target_struct, target_locs, &
    &                      l_debug, debug_level, cplout, &
@@ -134,6 +135,15 @@ CONTAINS
     ierror = 0
 
     info   = 0
+
+    
+    ! -------------------------------------------------------------------
+    ! Check field id and return if field was not declared.
+    ! -------------------------------------------------------------------
+
+    IF ( field_id < 1 .OR.  field_id > nbr_ICON_fields ) RETURN
+
+    IF ( .NOT. fields(field_id)%l_field_status ) RETURN
 
 #ifndef NOMPI
 
@@ -282,6 +292,14 @@ CONTAINS
 
     l_coupling   = .TRUE.
     l_end_of_run = .FALSE.
+
+    ! -------------------------------------------------------------------
+    ! Check field id and return if field was not declared.
+    ! -------------------------------------------------------------------
+
+    IF ( field_id < 1 .OR.  field_id > nbr_ICON_fields ) RETURN
+
+    IF ( .NOT. fields(field_id)%l_field_status ) RETURN
 
     ! -------------------------------------------------------------------
     ! First check whether this process has to send data to someone else
