@@ -30,7 +30,7 @@
 {
 \begin{longtable}
 {|>{\raggedright}p{3cm}
- |>{\raggedright}p{1cm}
+ |>{\raggedright}p{1.5cm}
  |>{\raggedright}p{1.5cm}
  |>{\raggedright}p{1cm}
  |>{\raggedright}p{8cm}
@@ -2015,9 +2015,15 @@ Defined and used in: src/namelists/mo\_io\_nml.f90
 
 \begin{longtab}
 
+lvadv\_tracer&
+L& .TRUE.& & TRUE : compute vertical tracer advection& \tabularnewline
+& &       & & FALSE: do not compute vertical tracer advection &
+\tabularnewline
+
+\hline 
 ihadv\_tracer&
 I(ntracer)&
-2& & Horiz. transport scheme:& \tabularnewline
+2& & Tracer specific method to compute horizontal advection:& \tabularnewline
 & & 4& & 0: no horiz. transport & \tabularnewline
 & & & & 1: upwind (1st order) & \tabularnewline
 & & & & 2: miura (2nd order, lin. reconstr.)& if cell\_type=3 \tabularnewline
@@ -2027,18 +2033,13 @@ I(ntracer)&
 \hline 
 ivadv\_tracer&
 I(ntracer)&
-3& & Vert. transport scheme:& \tabularnewline
+3& & Tracer specific method to compute vertical advection:& lvadv\_tracer=TRUE \tabularnewline
 & & & & 0: no vert. transport& \tabularnewline
 & & & & 1: upwind (1st order)& \tabularnewline
 & & & & 2: muscl\_cfl (2nd order, handles $\mathrm{CFL}>1$)& \tabularnewline
 & & & & 20: muscl (2nd order)& \tabularnewline
 & & & & 3: ppm\_cfl ($3^{\mathrm{rd}}$ order, handles $\mathrm{CFL}>1$)& \tabularnewline
 & & & & 30: ppm (3rd order)& \tabularnewline
-
-\hline 
-lvadv\_tracer&
-L& .TRUE.& & calculate vertical tracer advection&
-\tabularnewline
 
 \hline 
 lstrang &
