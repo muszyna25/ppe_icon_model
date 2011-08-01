@@ -502,7 +502,8 @@ CONTAINS
           lnd_diag%h_snow(1:i_endidx,jb,isubs) = h_snow_t(1:i_endidx,jb,2,isubs)
 
           !DR ATTENTION: only valid, if nsfc_subs=1 !!!!!
-          lnd_prog_new%t_g(1:i_endidx,jb) = t_gt_t(1:i_endidx,jb,2,1)
+          WHERE (ext_data%atm%fr_land(i_startidx:i_endidx,jb)>0.5_wp) &
+            lnd_prog_new%t_g(i_startidx:i_endidx,jb) = t_gt_t(i_startidx:i_endidx,jb,2,1)
         ENDDO
 
 !#endif
@@ -601,6 +602,8 @@ CONTAINS
               p_prog_lnd_now%t_so(jc,nlev_soil+2,jb,ns) = ext_data%atm%t_cl(jc,jb)
               p_prog_lnd_new%t_so(jc,nlev_soil+2,jb,ns) = ext_data%atm%t_cl(jc,jb)
 
+              p_prog_lnd_now%t_gt(jc,jb,ns) = p_prog_lnd_now%t_g(jc,jb)
+              p_prog_lnd_new%t_gt(jc,jb,ns) = p_prog_lnd_now%t_g(jc,jb)
             END DO
           END DO
         ENDIF
