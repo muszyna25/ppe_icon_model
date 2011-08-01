@@ -740,14 +740,14 @@ MODULE mo_prepicon_utils
             DO js = 0, nlev_soil+1
               jp = js+1 ! indexing for the ICON state field starts at 1
               DO jc = 1, nlen
-                p_lnd_state(jg)%prog_lnd(ntlr)%t_so(jc,jp,jb,jt)= prepicon(jg)%sfc%tsoil(jc,js,jb)
+                p_lnd_state(jg)%prog_lnd(ntlr)%t_so(jc,jp,jb,jt)= prepicon(jg)%sfc%tsoil(jc,jb,js)
               ENDDO
             ENDDO
 
             ! For soil water, no comparable layer shift exists
     !        DO js = 1, nlev_soil+1
     !          DO jc = 1, nlen
-    !            p_lnd_state(jg)%prog_lnd(ntlr)%w_so(jc,js,jb,jt)= prepicon(jg)%sfc%wsoil(jc,js,jb)
+    !            p_lnd_state(jg)%prog_lnd(ntlr)%w_so(jc,js,jb,jt)= prepicon(jg)%sfc%wsoil(jc,jb,js)
     !          ENDDO
     !        ENDDO
 
