@@ -42,12 +42,17 @@ MODULE mo_icon_cpl_def_field
 
   USE mo_icon_cpl, ONLY         : ICON_comm,         & ! MPI communicator
      &                            t_field,           & ! Field type
+     &                            t_comp,            & ! Field type
+     &                            complist,          & ! component information
      &                            fields,            & ! exchange fields
-     &                            fieldname,         & ! name of coupling fields
      &                            nbr_ICON_inc,      & ! increment for memory
      &                            nbr_active_fields, & ! total number of coupling fields
-     &                            nbr_ICON_fields      ! allocated size for fields
+     &                            nbr_ICON_fields,   & ! allocated size for fields
+     &                            cpl_field_none,    &
+     &                            cpl_field_avg,     &
+     &                            cpl_field_acc
 
+  USE mo_coupling_config, ONLY  : config_fields
   USE mo_event_manager, ONLY    : event_add
 
   IMPLICIT NONE
@@ -119,10 +124,16 @@ CONTAINS
           new_fields(i)%comp_id         = 0
           new_fields(i)%grid_id         = 0
           new_fields(i)%global_field_id = 0
-          new_fields(i)%lag             = 0
           new_fields(i)%field_shape     = 0
           new_fields(i)%l_field_status  = .FALSE.
+
+          new_fields(i)%coupling%lag       = 0
+          new_fields(i)%coupling%frequency = 0
+          new_fields(i)%coupling%time_step = 0
+          new_fields(i)%coupling%time_operation = 0
+
           Nullify ( new_fields(i)%send_field_acc )
+
        ENDDO
 
        !
@@ -156,10 +167,10 @@ CONTAINS
     ! Determine global field_id
     ! -------------------------------------------------------------------
 
-    nbr_max_fields = SIZE(fieldname)
+    nbr_max_fields = SIZE(config_fields)
 
     DO global_field_id = 1, nbr_max_fields
-       IF ( TRIM(field_name) == TRIM(fieldname(global_field_id)) ) THEN
+       IF ( TRIM(field_name) == TRIM(config_fields(global_field_id)%name) ) THEN
           WRITE ( * , * ) ' Global Field ID is: ', global_field_id
           EXIT
        ENDIF
@@ -184,17 +195,34 @@ CONTAINS
     fptr%grid_id         = grid_id
     fptr%global_field_id = global_field_id
 
-    ! TODO: get lag value from input
-    fptr%lag             = 0
     fptr%field_shape     = field_shape
     nbr_active_fields    = nbr_active_fields + 1
+
+    ! -------------------------------------------------------------------
+    ! Initialize coupling, substitute for the OASIS4 XML reading and storage
+    ! -------------------------------------------------------------------
+
+    IF ( config_fields(global_field_id)%l_time_accumulation ) THEN
+       fptr%coupling%time_operation = cpl_field_acc
+    ELSE IF ( config_fields(global_field_id)%l_time_average ) THEN
+       fptr%coupling%time_operation = cpl_field_avg
+    ELSE
+       fptr%coupling%time_operation = cpl_field_none
+    ENDIF
+
+    fptr%coupling%lag       = config_fields(global_field_id)%lag
+    fptr%coupling%frequency = config_fields(global_field_id)%frequency
+    fptr%coupling%time_step = config_fields(global_field_id)%time_step
+
+!rr Info shold come form the component
+!rr fptr%coupling%time_step = complist(comp_id)%config_fields(global_field_id)%time_step
 
     ! -------------------------------------------------------------------
     ! Signal new coupling event and store event_id in  fptr%event_id
     ! -------------------------------------------------------------------
 
-    CALL event_add ( fptr%event_id, fptr%coupling%coupling_freq, &
-                     fptr%coupling%time_step, fptr%lag )
+    CALL event_add ( fptr%event_id, fptr%coupling%frequency, &
+                     fptr%coupling%time_step, fptr%coupling%lag )
 
   END SUBROUTINE ICON_cpl_def_field
 

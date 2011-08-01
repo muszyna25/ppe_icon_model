@@ -1041,6 +1041,7 @@ src/namelists/mo_advection_nml.f90 -text
 src/namelists/mo_atm_nml_crosscheck.f90 -text
 src/namelists/mo_atm_phy_nwp_config.f90 -text
 src/namelists/mo_atm_phy_nwp_nml.f90 -text
+src/namelists/mo_coupling_config.f90 -text
 src/namelists/mo_coupling_nml.f90 -text
 src/namelists/mo_diffusion_config.f90 -text
 src/namelists/mo_diffusion_nml.f90 -text

@@ -142,10 +142,9 @@ MODULE mo_icon_cpl
 
   INTEGER, PARAMETER        :: maxchar = 132
 
-  ! List of names for coupling fields
+  ! Size of global list of names for coupling fields
 
   INTEGER, PARAMETER        :: nbr_max_fields = 32
-  CHARACTER(len=maxchar)    :: fieldname(nbr_max_fields)
 
   ! Setting for debug output
 
@@ -224,16 +223,22 @@ MODULE mo_icon_cpl
 !!
 
   TYPE t_coupling
+     INTEGER                :: lag
      INTEGER                :: time_operation
-     INTEGER                :: coupling_freq
+     INTEGER                :: frequency
      INTEGER                :: time_step
   END TYPE t_coupling
 
 !>
-!! Coupling Type
+!! Field Type
 !!
 !! Data type to store information about coupling
 !!
+!! - Component ID
+!! - Grid ID
+!! - Global field ID
+!! - Status of the field: false || true
+!! - Field (short)name
 !! - time_operation (average / accumate / none )
 !! - couping_freq coupling frequency in seconds
 !!
@@ -243,7 +248,6 @@ MODULE mo_icon_cpl
      INTEGER                :: grid_id
      INTEGER                :: global_field_id
      INTEGER                :: event_id
-     INTEGER                :: lag
      INTEGER                :: field_shape(3)
      INTEGER                :: accumulation_count
      LOGICAL                :: l_field_status
@@ -252,20 +256,9 @@ MODULE mo_icon_cpl
      TYPE(t_coupling)       :: coupling
   END TYPE t_field
 
-!>
-!! Field Type
-!!
-!! Data type to store field information containing
-!!
-!! - Component ID
-!! - Grid ID
-!! - Global field ID
-!! - Status of the field: false || true
-!! - Field (short)name
-!!
-  TYPE (t_comp),  POINTER   :: comps (:)   => NULL()
-  TYPE (t_grid),  POINTER   :: grids (:)   => NULL()
-  TYPE (t_field), POINTER   :: fields(:)   => NULL()
+  TYPE (t_comp),  POINTER     :: comps (:)     => NULL()
+  TYPE (t_grid),  POINTER     :: grids (:)     => NULL()
+  TYPE (t_field), POINTER     :: fields(:)     => NULL()
 
   TYPE(t_julian_date)       :: initial_date
   TYPE(t_julian_date)       :: final_date

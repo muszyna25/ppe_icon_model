@@ -64,7 +64,8 @@ MODULE mo_read_namelists
   USE mo_grid_nml,            ONLY: read_grid_namelist
   USE mo_interpol_nml,        ONLY: read_interpol_namelist
   USE mo_ocean_nml,           ONLY: setup_ocean_nml
-  USE mo_atm_nml_crosscheck,       ONLY: atm_crosscheck
+  USE mo_coupling_nml,        ONLY: read_coupling_namelist
+  USE mo_atm_nml_crosscheck,  ONLY: atm_crosscheck
 
   IMPLICIT NONE
   
@@ -131,6 +132,10 @@ CONTAINS
     CALL read_nwp_lnd_namelist    (TRIM(atm_namelist_filename))
     CALL read_nwp_phy_namelist    (TRIM(atm_namelist_filename))
     CALL read_echam_phy_namelist  (TRIM(atm_namelist_filename))
+
+    ! Coupling
+
+    CALL read_coupling_namelist   (TRIM(atm_namelist_filename))
 
     ! Initialization with real data
     CALL read_prepicon_namelist   (TRIM(atm_namelist_filename))
@@ -201,6 +206,10 @@ CONTAINS
     CALL read_nwp_lnd_namelist    (TRIM(oce_namelist_filename))
     CALL read_nwp_phy_namelist    (TRIM(oce_namelist_filename))
     CALL read_echam_phy_namelist  (TRIM(oce_namelist_filename))
+
+    ! Coupling
+
+    CALL read_coupling_namelist   (TRIM(oce_namelist_filename))
 
     CALL atm_crosscheck()
     

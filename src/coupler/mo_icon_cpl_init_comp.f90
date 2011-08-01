@@ -63,17 +63,14 @@ MODULE mo_icon_cpl_init_comp
    &                      l_MPI_was_initialized
 #endif
   USE mo_icon_cpl, ONLY : l_debug, cplout,                    &
-   &                      fieldname,                          &
    &                      grids, comps,                       &
    &                      fields, complist,                   &
    &                      nbr_active_comps,                   &
    &                      nbr_active_grids,                   &
    &                      nbr_active_fields,                  &
+   &                      nbr_max_fields,                     &
    &                      nbr_ICON_fields, nbr_ICON_comps,    &
    &                      nbr_ICON_grids, nbr_ICON_inc,       &
-   &                      cpl_field_none,                     &
-   &                      cpl_field_avg,                      &
-   &                      cpl_field_acc,                      &
    &                      ICON_comm,                          &
    &                      ICON_global_rank, ICON_global_size, &
    &                      ICON_local_rank, ICON_local_size
@@ -137,20 +134,6 @@ CONTAINS
        l_MPI_was_initialized = .TRUE.
 
     ENDIF
-
-    ! -------------------------------------------------------------------
-    ! Set up list of allowed coupling fields
-    ! -------------------------------------------------------------------
-
-    fieldname(:) = ''
-    fieldname(1) = 'TEST1'
-    fieldname(2) = 'TEST2'
-    fieldname(3) = 'TEST3'
-    fieldname(4) = 'TEST4'
-    fieldname(5) = 'TEST5'
-    fieldname(6) = 'TEST6'
-    fieldname(7) = 'TEST7'
-    fieldname(8) = 'TEST8'
 
     ! -------------------------------------------------------------------
     ! Get a local component ID
@@ -264,8 +247,12 @@ CONTAINS
        fields(:)%comp_id        = -1
        fields(:)%grid_id        = -1
        fields(:)%event_id       = -1
-       fields(:)%lag            =  0
        fields(:)%l_field_status = .FALSE.
+
+       fields(:)%coupling%lag            = 0
+       fields(:)%coupling%time_operation = 0
+       fields(:)%coupling%frequency      = 0
+       fields(:)%coupling%time_step      = 0
 
        DO i = 1, nbr_ICON_fields
           NULLIFY ( fields(i)%send_field_acc )
@@ -273,22 +260,6 @@ CONTAINS
 
     ENDIF
 
-    ! -------------------------------------------------------------------
-    ! Initialize coupling, substitute for the OASIS4 XML reading and storage
-    ! -------------------------------------------------------------------
-
-    DO i = 1, nbr_ICON_fields
-       IF ( complist(comp_id)%l_time_accumulation ) THEN
-          fields(i)%coupling%time_operation = cpl_field_acc
-       ELSE IF ( complist(comp_id)%l_time_average ) THEN
-          fields(i)%coupling%time_operation = cpl_field_avg
-       ELSE
-          fields(i)%coupling%time_operation = cpl_field_none
-       ENDIF
-
-       fields(i)%coupling%coupling_freq = complist(comp_id)%coupling_freq
-       fields(i)%coupling%time_step     = complist(comp_id)%time_step
-    ENDDO
 #else
 
     ! -------------------------------------------------------------------

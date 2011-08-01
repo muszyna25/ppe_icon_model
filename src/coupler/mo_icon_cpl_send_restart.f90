@@ -86,7 +86,7 @@ CONTAINS
 
        fptr => fields(field_id)
 
-       IF ( fptr%lag > 0 ) THEN
+       IF ( fptr%coupling%lag > 0 ) THEN
 
            len = LEN_TRIM(fptr%field_name) - 1
            WRITE(file_name(8:8+len), '(A7)') TRIM( fptr%field_name )

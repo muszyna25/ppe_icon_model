@@ -46,13 +46,14 @@ MODULE mo_coupling_nml
   USE mo_impl_constants, ONLY: MAX_CHAR_LENGTH,SUCCESS
   USE mo_exception, ONLY: warning, message_text, finish
   USE mo_io_units,  ONLY: filename_max, nnml
-  USE mo_namelist,  ONLY: open_nml, position_nml, POSITIONED
+  USE mo_namelist,  ONLY: open_nml, close_nml, position_nml, POSITIONED
 
-  USE mo_icon_cpl,  ONLY : complist,                           &
-       &                   l_debug,                            &
-       &                   initial_date, final_date,           &
+  USE mo_coupling_config, ONLY : config_fields
+
+  USE mo_icon_cpl,  ONLY : nbr_max_fields,           &
+       &                   l_debug,                  &
+       &                   initial_date, final_date, &
        &                   nbr_ICON_comps
-
 
   IMPLICIT NONE
 
@@ -69,19 +70,17 @@ MODULE mo_coupling_nml
 
   LOGICAL            :: l_time_average
   LOGICAL            :: l_time_accumulation
-  LOGICAL            :: l_redirect_stdout
-  INTEGER            :: coupling_freq
+  INTEGER            :: frequency
   INTEGER            :: time_step
+  INTEGER            :: lag
+  CHARACTER(len=132) :: name
 
-  CHARACTER(LEN=132)  :: start_date = ""
-  CHARACTER(LEN=132)  :: end_date   = ""
-
-
-  NAMELIST /coupling_nml/ coupling_freq,       &
+  NAMELIST /coupling_nml/ name,                &
+                          frequency,           &
                           time_step,           &
+                          lag,                 &
                           l_time_average,      &
-                          l_time_accumulation, &
-                          l_redirect_stdout
+                          l_time_accumulation
 
 CONTAINS
 
@@ -94,29 +93,35 @@ CONTAINS
   !!
   !! @par Revision History
   !!
-  INTEGER FUNCTION read_coupling_namelist (namelist_filename, comp_id)
+  SUBROUTINE read_coupling_namelist (namelist_filename)
     
     CHARACTER(LEN=*), INTENT(in) :: namelist_filename
-    INTEGER, INTENT(in)          :: comp_id
 
     !
     ! Local variables
     !
 
+    INTEGER :: i
     INTEGER :: istat
+    LOGICAL :: first
+    LOGICAL :: l_redirect_stdout
 
     CHARACTER(len=max_char_length), PARAMETER :: &
          &   routine = 'mo_coupling_nml:read_coupling_namelist'
 
-    !-----------------------------------------------------------------------
+    RETURN
+
+    ! -------------------------------------------------------------------
+    ! Allocate space for namelist input
+    ! -------------------------------------------------------------------
+
+    ALLOCATE(config_fields(nbr_max_fields))
 
     !------------------------------------------------------------
     ! 1. Set default values
     !------------------------------------------------------------
 
-    start_date(1:22)    = '1900-01-01T00:00:00Z'
-    end_date  (1:22)    = '1950-01-01T00:00:00Z'
-    coupling_freq       = 0
+    frequency           = 0
     time_step           = 0
 
     l_time_average      = .FALSE.
@@ -124,45 +129,64 @@ CONTAINS
     l_redirect_stdout   = .FALSE.
 
     !------------------------------------------------------------------
-    ! 2. Read user's specifications (done so far by all MPI processes)
+    ! 2. If this is a resumed integration, overwrite the defaults above 
+    !    by values used in the previous integration.
     !------------------------------------------------------------------
 
-    OPEN (nnml, FILE=TRIM(namelist_filename), IOSTAT=istat, &
-         & STATUS='old', ACTION='read', DELIM='apostrophe')
+!rr    IF (is_restart_run()) THEN
+!rr      funit = open_and_restore_namelist('coupling_nml')
+!rr      READ(funit,NML=coupling_nml)
+!rr      CALL close_tmpfile(funit)
+!rr    END IF
 
-    IF (istat/=0) THEN
-       CALL warning(namelist_filename,"not found")
-       read_coupling_namelist=-1
-       RETURN
-    ENDIF
+    !--------------------------------------------------------------------
+    ! 3. Read user's (new) specifications (Done so far by all MPI processes)
+    !--------------------------------------------------------------------
 
-    CALL position_nml('coupling_nml',STATUS=istat)
+    first = .TRUE.
+    i = 0
 
-    IF (istat/=POSITIONED) THEN
+    !------------------------------------------------------
+    ! loop over occurences of namelist group /coupling_nml/
+    !------------------------------------------------------
+    
+    DO
 
-       CALL finish( TRIM(routine), &
-            & 'Namelist coupling_nml not found in file '  &
-            & //TRIM(namelist_filename) )
+       CALL open_nml (TRIM(namelist_filename))
+       CALL position_nml('coupling_nml', lrewind=first, status=istat)
 
-       read_coupling_namelist=-2
-       RETURN      
-    ENDIF
+       first = .FALSE.
 
-    READ (nnml, coupling_nml)
-    CLOSE (nnml, IOSTAT=istat)
+       !------------------------------
+       ! if namelist group is present:
+       !------------------------------
 
-    ! -------------------------------------------------------------------
-    ! Assign component namelist input
-    ! -------------------------------------------------------------------
+       SELECT CASE (istat)
 
-    complist(comp_id)%l_time_average      = l_time_average
-    complist(comp_id)%l_time_accumulation = l_time_accumulation
-    complist(comp_id)%coupling_freq       = coupling_freq
-    complist(comp_id)%time_step           = time_step
-    complist(comp_id)%l_redirect_stdout   = l_redirect_stdout
+       CASE (POSITIONED)
 
-    read_coupling_namelist=SUCCESS
+          READ  (nnml, coupling_nml)
+          i = i + 1
 
-  END FUNCTION read_coupling_namelist
+          !----------------------------------------------------
+          ! 4. Fill the configuration state
+          !----------------------------------------------------
+
+          config_fields(i)%name                = name
+          config_fields(i)%frequency           = frequency
+          config_fields(i)%time_step           = time_step
+          config_fields(i)%lag                 = lag
+          config_fields(i)%l_time_average      = l_time_average
+          config_fields(i)%l_time_accumulation = l_time_accumulation
+
+       END SELECT
+
+       IF ( istat /= POSITIONED ) EXIT
+
+    END DO
+
+    CALL close_nml
+
+  END SUBROUTINE read_coupling_namelist
 
 END MODULE mo_coupling_nml

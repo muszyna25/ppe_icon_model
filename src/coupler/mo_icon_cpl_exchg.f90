@@ -324,7 +324,7 @@ CONTAINS
 
     l_action = event_check ( fptr%event_id )
 
-    IF ( l_action .AND. l_end_of_run .AND. fptr%lag > 0 ) l_coupling = .FALSE.
+    IF ( l_action .AND. l_end_of_run .AND. fptr%coupling%lag > 0 ) l_coupling = .FALSE.
 
     IF ( l_debug .AND. debug_level > 1 ) THEN
        WRITE ( cplout , * ) ICON_global_rank, ' : put action for event ', &
