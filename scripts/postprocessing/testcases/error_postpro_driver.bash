@@ -191,8 +191,8 @@ echo "  "
 echo "=== Postprocessing finished."
 echo "=== The plots can be found in "${DIRO}
 
-rm ${DIRI}${VarN}.nc
-rm ${ErrorFile}
+#rm ${DIRI}${VarN}.nc
+#rm ${ErrorFile}
 
 exit 0
 #

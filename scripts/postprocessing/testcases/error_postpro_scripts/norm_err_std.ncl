@@ -196,17 +196,20 @@ if (isatt(IFile, "nlev"))then
   Nvl=31
 end if
 
+dtime_io=-1.
 ;printVarSummary(Nvl)
 if (isatt(IFile, "dt_data"))then
   dtime_io=IFile@dt_data
  else
-  if (isatt(IFile, "io_ctl:dt_data"))then
-   att="io_ctl:dt_data"
+  if (isatt(IFile, "io_nml:dt_data"))then
+   att="io_nml:dt_data"
    dtime_io=IFile@$att$
   else
    dtime_io=-1.
   end if
 end if
+
+print("dtime_io="+dtime_io)
 
 ;printVarSummary(dtime)
  if (isatt(IFile, "i_cell_type"))then
@@ -228,7 +231,7 @@ end if
   ExpN=IFile@out_expname
  else
   if (isatt(IFile, "io_ctl:out_expname"))then
-   att="io_ctl:out_expname"
+   att="io_nml:out_expname"
    ExpN=IFile@$att$
   else
    ExpN="JWs"
