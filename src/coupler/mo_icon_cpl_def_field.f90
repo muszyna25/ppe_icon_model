@@ -42,8 +42,7 @@ MODULE mo_icon_cpl_def_field
 
   USE mo_icon_cpl, ONLY         : ICON_comm,         & ! MPI communicator
      &                            t_field,           & ! Field type
-     &                            t_comp,            & ! Field type
-     &                            complist,          & ! component information
+!rr     &                            complist,          & ! component information
      &                            fields,            & ! exchange fields
      &                            nbr_ICON_inc,      & ! increment for memory
      &                            nbr_active_fields, & ! total number of coupling fields

@@ -68,7 +68,6 @@ MODULE mo_icon_cpl_init_comp
    &                      nbr_active_comps,                   &
    &                      nbr_active_grids,                   &
    &                      nbr_active_fields,                  &
-   &                      nbr_max_fields,                     &
    &                      nbr_ICON_fields, nbr_ICON_comps,    &
    &                      nbr_ICON_grids, nbr_ICON_inc,       &
    &                      ICON_comm,                          &
