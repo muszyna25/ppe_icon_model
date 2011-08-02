@@ -138,25 +138,25 @@ MODULE mo_lnd_nwp_nml
     ! 1. default settings   
     !-----------------------
 
-    nztlev          = 2       !> 2 = default value for time integration scheme
-    nlev_snow       = 1       !> 0 = default value for number of snow layers
-    nsfc_subs       = 12      !> 1 = default value for number of TILES
-    nztlev          = 2       ! time step scheme 2,3
-    lmelt       = .TRUE.      ! soil model with melting process
-    lmelt_var   = .TRUE.      ! freezing temperature dependent on water content
-    lmulti_snow = .FALSE.     ! run the multi-layer snow model
+    nztlev         = 2       ! 2 = default value for time integration scheme
+    nlev_snow      = 1       ! 0 = default value for number of snow layers
+    nsfc_subs      = 3       ! 1 = default value for number of TILES
+    nztlev         = 2       ! time step scheme 2,3
+    lmelt          = .TRUE.  ! soil model with melting process
+    lmelt_var      = .TRUE.  ! freezing temperature dependent on water content
+    lmulti_snow    = .FALSE. ! run the multi-layer snow model
     !
-    itype_gscp=3              ! type of grid-scale precipitation physics
-    itype_trvg=2              ! type of vegetation transpiration parameterization
-    itype_evsl=2              ! type of parameterization of bare soil evaporation
-    itype_tran=2              ! type of surface to atmospher transfer
-    itype_root=1              ! type of root density distribution
-    itype_heatcond=1          ! type of soil heat conductivity
-    itype_hydbound=1          ! type of hydraulic lower boundary condition
-    lstomata=.true.           ! map of minimum stomata resistance
-    l2tls  =.true.            ! forecast with 2-TL integration scheme
-    lana_rho_snow=.false.     ! if .TRUE., take rho_snow-values from analysis file 
-    itype_subs=2              ! type of subscale surface treatment =1 MOSAIC, =2 TILE       
+    itype_gscp     = 3       ! type of grid-scale precipitation physics
+    itype_trvg     = 2       ! type of vegetation transpiration parameterization
+    itype_evsl     = 2       ! type of parameterization of bare soil evaporation
+    itype_tran     = 2       ! type of surface to atmospher transfer
+    itype_root     = 1       ! type of root density distribution
+    itype_heatcond = 1       ! type of soil heat conductivity
+    itype_hydbound = 1       ! type of hydraulic lower boundary condition
+    lstomata       =.TRUE.   ! map of minimum stomata resistance
+    l2tls          =.TRUE.   ! forecast with 2-TL integration scheme
+    lana_rho_snow  =.FALSE.  ! if .TRUE., take rho_snow-values from analysis file 
+    itype_subs     = 2       ! type of subscale surface treatment =1 MOSAIC, =2 TILE       
 
 
     !> KF  current settings to get NWP turbulence running
