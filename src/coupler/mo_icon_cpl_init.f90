@@ -59,7 +59,7 @@ MODULE mo_icon_cpl_init
 
 #ifndef NOMPI
 
-  USE mo_icon_cpl, ONLY : datatype,                           &
+  USE mo_icon_cpl, ONLY : comps, nbr_ICON_comps, datatype,    &
    &                      MPI_DOUBLE_PRECISION, MPI_REAL,     &
    &                      MPI_CHARACTER, MPI_INTEGER,         &
    &                      MPI_LOGICAL, MPI_COMPLEX,           &
@@ -94,6 +94,7 @@ MODULE mo_icon_cpl_init
   INTEGER                        :: ierror     ! returned error from MPI functions
 
 #else
+  USE mo_icon_cpl, ONLY : comps, nbr_ICON_comps
 
   IMPLICIT NONE
 
@@ -110,6 +111,10 @@ CONTAINS
     ! -------------------------------------------------------------------
     ! Initialise variables
     ! -------------------------------------------------------------------
+
+    ALLOCATE ( comps(nbr_ICON_comps) )
+
+    comps(:)%l_comp_status = .FALSE.
 
 #ifndef NOMPI
 

@@ -101,7 +101,7 @@ MODULE mo_master_control
     INTEGER :: new_comm
     INTEGER :: nbr_components
 
-    CHARACTER(LEN=*), PARAMETER :: method_name = "master_cotrol"
+    CHARACTER(LEN=*), PARAMETER :: method_name = "master_control"
     !-----------------------------------------------------------------------
     
     CALL message(method_name,'start model initialization.')

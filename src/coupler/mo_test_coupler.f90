@@ -1,8 +1,9 @@
 
 MODULE test_coupler_mod
 
+  USE mo_icon_cpl, ONLY : cplout, complist
+
   USE mo_kind, ONLY     : wp
-  USE mo_datetime
 
   PUBLIC
 
@@ -12,7 +13,7 @@ MODULE test_coupler_mod
 
   ! grid characteristic
 
-  INTEGER                          :: grid_loc_dim
+  INTEGER, PARAMETER               :: grid_loc_dim = 100
   INTEGER                          :: grid_glo_dim
   INTEGER                          :: grid_cmp_dim
   INTEGER                          :: nbr_land_points

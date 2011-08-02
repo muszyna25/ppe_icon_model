@@ -110,8 +110,6 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
          &   routine = 'mo_coupling_nml:read_coupling_namelist'
 
-    RETURN
-
     ! -------------------------------------------------------------------
     ! Allocate space for namelist input
     ! -------------------------------------------------------------------
