@@ -127,12 +127,7 @@ CONTAINS
     !
     REAL(wp) :: h_snow_t(nproma, p_patch%nblks_c, nztlev, nsfc_subs) 
 
-    REAL(wp) :: t_t (nproma, p_patch%nlev, p_patch%nblks_c, nztlev)
-    REAL(wp) :: qv_t(nproma, p_patch%nlev, p_patch%nblks_c, nztlev)
-    REAL(wp) :: pp_t(nproma, p_patch%nlev, p_patch%nblks_c, nztlev)
-    REAL(wp) :: u_t (nproma, p_patch%nlev, p_patch%nblks_c, nztlev)
-    REAL(wp) :: v_t (nproma, p_patch%nlev, p_patch%nblks_c, nztlev)
-    REAL(wp) :: ps_t(nproma,               p_patch%nblks_c, nztlev) 
+!DR    REAL(wp) :: pp_t(nproma, p_patch%nlev, p_patch%nblks_c, nztlev)
 
     REAL(wp) :: tch_t     (nproma, p_patch%nblks_c, nsfc_subs)
     REAL(wp) :: tcm_t     (nproma, p_patch%nblks_c, nsfc_subs)
@@ -174,6 +169,7 @@ CONTAINS
 
 
     write(0,*) "SFC-DIAGNOSIS INTERFACE ",jstep
+
 
 
 !$OMP PARALLEL
@@ -407,6 +403,8 @@ CONTAINS
               lnd_prog_now%t_gt(i_startidx:i_endidx,jb,isubs)
             lnd_prog_new%t_g(i_startidx:i_endidx,jb) = lnd_prog_new%t_gt(i_startidx:i_endidx,jb,1)
             lnd_diag%qv_s(i_startidx:i_endidx,jb) = lnd_diag%qv_st(i_startidx:i_endidx,jb,1)
+            prm_diag%tch (1:i_endidx,jb) = tch_t (1:i_endidx,jb,1)
+            prm_diag%t_2m(1:i_endidx,jb) = t_2m_t(1:i_endidx,jb,1)
           END WHERE
 
         ENDDO
@@ -426,7 +424,6 @@ CONTAINS
   ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
-
 
       
   END SUBROUTINE nwp_surface

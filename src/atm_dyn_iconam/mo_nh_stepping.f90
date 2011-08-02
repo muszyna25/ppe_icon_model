@@ -2250,8 +2250,6 @@ MODULE mo_nh_stepping
 
       IF ( tcall_phy(jg,itsso) > 0._wp )  lcall_phy(jg,itsso) = .TRUE.
  
-      IF ( tcall_phy(jg,itsfc) > 0._wp )  lcall_phy(jg,itsfc) = .TRUE.
-
     ELSE
       !
       ! all physics packages (except saturation adjustment) are forced to run

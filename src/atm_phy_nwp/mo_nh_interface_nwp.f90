@@ -642,12 +642,12 @@ CONTAINS
 
     ENDIF 
 
+
     IF (  lcall_phy_jg(itsfc)) THEN
 
       CALL nwp_surface    (  tcall_phy_jg(itsfc), jstep,        & !>input
                             & pt_patch,                         & !>input
                             & ext_data,                         & !>input
-!DR                            & pt_prog,                          & !>inout
                             & pt_prog_rcf,     & !>in/inout rcf=reduced calling freq.
                             & pt_diag ,                         & !>inout
                             & prm_diag,                         & !>inout 

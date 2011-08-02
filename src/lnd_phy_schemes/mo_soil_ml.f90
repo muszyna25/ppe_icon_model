@@ -2135,6 +2135,7 @@ ENDIF
 ! ENDIF
 
 
+
 ! In debugging mode and if transfer coefficient occured for at least one grid point
   IF (m_limit > 0 .AND. ldebug) THEN
     WRITE(*,'(1X,A,/,2(1X,A,F10.2,A,/),1X,A,F10.2,/,1X,A,F10.3,/)')                  &
@@ -5085,6 +5086,7 @@ IF(itype_subs .EQ. 2) THEN    ! tiles
     END DO        ! soil layers
   END DO
 END IF
+
 
 DO ns = nsubs0, nsubs1
 !em>
