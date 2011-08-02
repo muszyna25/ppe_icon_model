@@ -685,6 +685,7 @@ scripts/buildbot_scripts/public_html/model_compare/job_info_template.txt -text
 scripts/buildbot_scripts/public_html/model_compare/run_html.ksh -text
 scripts/buildbot_scripts/public_html/model_compare/test_hat_jww.html -text
 scripts/buildbot_scripts/public_html/model_compare/test_hom_1.html -text
+scripts/buildbot_scripts/public_html/model_compare/test_hom_lsm.html -text
 scripts/buildbot_scripts/public_html/model_compare/test_nah_jww.html -text
 scripts/buildbot_scripts/public_html/model_compare/test_nat_jww_nwp_mpiomp.html -text
 scripts/buildbot_scripts/public_html/model_compare/test_nh35_tri_jws.html -text
