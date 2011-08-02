@@ -140,7 +140,7 @@ MODULE mo_lnd_nwp_nml
 
     nztlev         = 2       ! 2 = default value for time integration scheme
     nlev_snow      = 1       ! 0 = default value for number of snow layers
-    nsfc_subs      = 2       ! 1 = default value for number of TILES
+    nsfc_subs      = 1       ! 1 = default value for number of TILES
     nztlev         = 2       ! time step scheme 2,3
     lmelt          = .TRUE.  ! soil model with melting process
     lmelt_var      = .TRUE.  ! freezing temperature dependent on water content
