@@ -500,16 +500,13 @@ CONTAINS
 
     ENDIF
 
-    IF (lcall_phy_jg(itupdate) .OR. lcall_phy_jg(itsatad) .OR. &
-      & lcall_phy_jg(itgscp)   .OR. lcall_phy_jg(itturb)  ) THEN
 
-      ! Synchronize tracers if any of the updating processes was active
-      IF (timers_level > 1) CALL timer_start(timer_phys_sync_patch)
-      CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer, f4din=pt_prog_rcf%tracer, &
-                                 lpart4d=.TRUE.)
-      IF (timers_level > 1) CALL timer_stop(timer_phys_sync_patch)
+    ! Synchronize tracers if any of the updating processes was active
+    IF (timers_level > 1) CALL timer_start(timer_phys_sync_patch)
+    CALL sync_patch_array_mult(SYNC_C, pt_patch, ntracer, f4din=pt_prog_rcf%tracer, &
+                               lpart4d=.TRUE.)
+    IF (timers_level > 1) CALL timer_stop(timer_phys_sync_patch)
 
-    ENDIF
 
     IF (lcall_phy_jg(itsatad) .OR. lcall_phy_jg(itgscp) .OR. &
       & lcall_phy_jg(itturb)) THEN

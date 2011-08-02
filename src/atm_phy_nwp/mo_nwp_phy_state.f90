@@ -1315,12 +1315,13 @@ SUBROUTINE new_nwp_phy_tend_list( klev,  kblks,   &
     TYPE(t_cf_var)    ::    cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
-    INTEGER :: shape3d(3), shape4d(4)
+    INTEGER :: shape3d(3), shape3dkp1(3), shape4d(4)
     INTEGER :: ientr, ktracer
 
     ientr = 16 ! "entropy" of horizontal slice
 
     shape3d    = (/nproma, klev,  kblks        /)
+    shape3dkp1 = (/nproma, klev+1,    kblks    /)
     shape4d    = (/nproma, klev,  kblks, iqcond/)
 
 
@@ -1592,7 +1593,8 @@ SUBROUTINE new_nwp_phy_tend_list( klev,  kblks,   &
          &                            'tendency of turbulent kinetic energy ')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( phy_tend_list, 'ddt_tke', phy_tend%ddt_tke,             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+                GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID_HALF, cf_desc, grib2_desc,&
+                &                                               ldims=shape3dkp1 )
 
 !
     CALL message('mo_nwp_phy_state:construct_nwp_phy_tend', &

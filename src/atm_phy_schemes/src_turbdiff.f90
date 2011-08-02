@@ -2610,7 +2610,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 
       LOGICAL limplizit, & !(teil-)implizite Berechnung der Diffus.tend.
               lexplizit, & !(teil-)explizite Berechnung der Diffus.tend.
-              lcircterm    !Zirkulationsterm muss berechnet werden
+              lcircterm(ie,je)    !Zirkulationsterm muss berechnet werden
 
 !     Lokale Integer-Hilfsvariablen:
 
@@ -4665,25 +4665,26 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 
 ! 7)  Bestimmung des Drucktransporttermes (Zirculationstermes):
 
-      lcircterm=.FALSE.
+      lcircterm(:,:)=.FALSE.
 
       DO j=jstartpar,jendpar
       DO i=istartpar,iendpar
          IF (dpat(i,j).GT.z0) THEN
             l_pat(i,j)=l_hori*dpat(i,j)/(l_hori+dpat(i,j))
-            lcircterm=.TRUE.
+            lcircterm(i,j)=.TRUE.
          ELSE
             l_pat(i,j) = z0
          END IF
       END DO
       END DO
-!print *,"lcircterm=",lcircterm
-!print *,"fr_land=",MINVAL(fr_land),MAXVAL(fr_land)," gz0=",MINVAL(gz0),MAXVAL(gz0)
-!print *,"pat_len=",pat_len," dpat=",MINVAL(dpat),MAXVAL(dpat)
 
-      IF (lcircterm) THEN !Der Zirculationsterm (Drucktransportterm muss berechnet werden)
 
          DO k=2,ke1
+            DO j=jstartpar,jendpar
+            DO i=istartpar,iendpar
+               tketens(i,j,k)=z0
+            END DO
+            END DO
 
             IF (k.LT.ke1) THEN
 !              Interpolation des Druckes auf die naechst hoehere 
@@ -4691,6 +4692,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 
                DO j=jstartpar,jendpar
                DO i=istartpar,iendpar
+                 IF (lcircterm(i,j)) &
                   lay(i,j)=(prs(i,j,k)*dp0(i,j,k-1)+prs(i,j,k-1)*dp0(i,j,k)) &
                           /(dp0(i,j,k)+dp0(i,j,k-1))
                END DO   
@@ -4698,7 +4700,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
             ELSE
                DO j=jstartpar,jendpar
                DO i=istartpar,iendpar
-                  lay(i,j)=pr(i,j)
+                 IF (lcircterm(i,j)) lay(i,j)=pr(i,j)
                END DO
                END DO
             END IF
@@ -4706,6 +4708,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
             DO j=jstartpar,jendpar
             DO i=istartpar,iendpar
 
+               IF (lcircterm(i,j)) THEN
                fakt=z1-z2*ABS(a(i,j,k,3)-z1d2)
                len=MAX( l_pat(i,j), SQRT(fakt*len_scale(i,j,k)*l_hori) )
 
@@ -4724,7 +4727,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 
 !              Die Divergenz des zugehoerigen Flusses ist gleichzeitig
 !              eine weitere Quelle fuer thermische Energie.
-
+               ENDIF
             END DO
             END DO
 !print *,"k=",k
@@ -4732,18 +4735,7 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 !         " tketens=",MINVAL(tketens(:,:,k)),  MAXVAL(tketens(:,:,k))
 
          END DO   
-
-      ELSE
-
-         DO k=2,ke1
-            DO j=jstartpar,jendpar
-            DO i=istartpar,iendpar
-               tketens(i,j,k)=z0
-            END DO
-            END DO
-         END DO   
-         
-      END IF   
+  
 
 
 ! 8)  Berechnung der korrigierten Flussdichten, die fuer die 
@@ -4856,10 +4848,11 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 !           Addition des Gradienten, welcher zur Temperatur-
 !           flussdichte durch Drucktransport gehoert:
 
-            IF (ltmpcor.AND.lcircterm) THEN
+            IF (ltmpcor) THEN
                DO k=2,ke1 
                   DO j=jstartpar,jendpar
                   DO i=istartpar,iendpar
+                    IF (lcircterm(i,j)) &
                      a(i,j,k,tem)=a(i,j,k,tem) &
                                   -tketens(i,j,k)/(cp_d*a(i,j,k,1))
                   END DO
@@ -5729,10 +5722,10 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
 !        Interpolationen auf Hauptflaechen fuer die Standardabweichnung
 !        des Saettigungsdefizites und den Drucktransport:
 
-         IF (lcircterm) THEN
             DO k=2,ke1
                DO j=jstartpar,jendpar
                DO i=istartpar,iendpar  
+                 IF (lcircterm(i,j)) &
                   tketens(i,j,k)=rhon(i,j,k)*tkvh(i,j,k)/tke(i,j,k,ntur) &
                                             *tketens(i,j,k)*len_scale(i,j,k)
                END DO
@@ -5741,12 +5734,12 @@ SUBROUTINE turbdiff(dt_var,dt_tke,lstfnct)
             DO k=2,ke
                DO j=jstartpar,jendpar
                DO i=istartpar,iendpar  
+                 IF (lcircterm(i,j)) &
                   tketens(i,j,k)=(tketens(i,j,k)+tketens(i,j,k+1)) &
                                 /(len_scale(i,j,k)+len_scale(i,j,k+1))
                END DO
                END DO
             END DO
-         END IF
 
          DO j=jstartpar,jendpar
          DO i=istartpar,iendpar  
