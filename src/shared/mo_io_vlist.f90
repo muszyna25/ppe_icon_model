@@ -99,7 +99,7 @@ MODULE mo_io_vlist
   USE mo_exception,             ONLY: finish, message
   USE mo_datetime,              ONLY: t_datetime, print_datetime
   USE mo_impl_constants,        ONLY: max_char_length, max_dom, modelname,        &
-    &                                 modelversion, icc
+    &                                 modelversion, icc, zml_soil
   USE mo_nonhydrostatic_config, ONLY: rayleigh_coeff, damp_height, iadv_rhotheta, &
     &                                 vwind_offctr, igradp_method, exner_expol,   &
     &                                 ltheta_up_hori, ltheta_up_vert,             &
@@ -134,7 +134,7 @@ MODULE mo_io_vlist
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_advection_config,      ONLY: advection_config
   USE mo_echam_conv_config,     ONLY: echam_conv_config
-  USE mo_lnd_nwp_config,        ONLY: nlev_soil, nsfc_subs
+  USE mo_lnd_nwp_config,        ONLY: nlev_soil, nsfc_subs, nlev_snow
 ! USE mo_gw_hines_nml,          ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
   USE mo_vertical_coord_table,  ONLY: vct
   USE mo_model_domain_import,   ONLY: start_lev, nroot, n_dom, lfeedback, lplane
@@ -209,9 +209,10 @@ MODULE mo_io_vlist
     &  gridCellID, gridEdgeID, gridVertexID
 
   INTEGER, DIMENSION(max_gridlevs) ::  &
-    &  vlistID, taxisID, zaxisID_surface, zaxisID_hybrid,&
+    &  vlistID, taxisID, zaxisID_surface, zaxisID_hybrid,      &
     &  zaxisID_hybrid_half, zaxisIDdepth_m, zaxisID_halfdepth, &
-    &  zaxisID_depth_below_land, zaxisID_depth_below_land_p1
+    &  zaxisID_depth_below_land, zaxisID_depth_below_land_p1,  &
+    &  zaxisID_generic_snow, zaxisID_generic_snow_p1
 
 
   INTEGER, DIMENSION(max_outvars,max_gridlevs) ::  &
@@ -518,19 +519,32 @@ CONTAINS
     !
     zaxisID_depth_below_land_p1(k_jg) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, nlev_soil+2)
     ALLOCATE(levels(nlev_soil+2))
-    DO i = 1, nlev_soil+2
-      levels(i) = REAL(i,wp)
+      levels(1) = 0._wp
+    DO i = 1, nlev_soil+1
+      levels(i+1) = zml_soil(i)*100._wp
     END DO
     CALL zaxisDefLevels(zaxisID_depth_below_land_p1(k_jg), levels)
     DEALLOCATE(levels)
     !
     zaxisID_depth_below_land(k_jg) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, nlev_soil+1)
-    ALLOCATE(levels(nlev_soil+1))
-    DO i = 1, nlev_soil+1
+    CALL zaxisDefLevels(zaxisID_depth_below_land(k_jg), zml_soil*100._wp)
+    !
+    zaxisID_generic_snow_p1(k_jg) = zaxisCreate(ZAXIS_GENERIC, nlev_snow+1)
+    ALLOCATE(levels(nlev_snow+1))
+    DO i = 1, nlev_snow+1
       levels(i) = REAL(i,wp)
     END DO
-    CALL zaxisDefLevels(zaxisID_depth_below_land(k_jg), levels)
+    CALL zaxisDefLevels(zaxisID_generic_snow_p1(k_jg), levels)
     DEALLOCATE(levels)
+    !
+    zaxisID_generic_snow(k_jg) = zaxisCreate(ZAXIS_GENERIC, nlev_snow)
+    ALLOCATE(levels(nlev_snow))
+    DO i = 1, nlev_snow
+      levels(i) = REAL(i,wp)
+    END DO
+    CALL zaxisDefLevels(zaxisID_generic_snow(k_jg), levels)
+    DEALLOCATE(levels)
+
     !
     !=========================================================================
     ! time dimension
@@ -1466,6 +1480,16 @@ CONTAINS
 
         DO jt = 1, nsfc_subs
           WRITE(cjt,'(i2)') jt
+          WRITE(name,'(A,A)') "T_SNOW_MULT_tile_", TRIM(ADJUSTL(cjt))
+          WRITE(long_name,'(A,A)') "temperature of the snow-surface tile ",TRIM(ADJUSTL(cjt))
+          CALL addVar(TimeVar(TRIM(name),TRIM(long_name),&
+          &          'K',11,201,&
+          &           vlistID(k_jg), gridCellID(k_jg),zaxisID_generic_snow_p1(k_jg)),&
+          &           k_jg)
+        ENDDO
+
+        DO jt = 1, nsfc_subs
+          WRITE(cjt,'(i2)') jt
           WRITE(name,'(A,A)') "T_S_tile_", TRIM(ADJUSTL(cjt))
           WRITE(long_name,'(A,A)') "temperature of ground surface tile ",TRIM(ADJUSTL(cjt))
           CALL addVar(TimeVar(TRIM(name),TRIM(long_name),&
@@ -1491,6 +1515,16 @@ CONTAINS
           CALL addVar(TimeVar(TRIM(name),TRIM(long_name),&
           &          'kg/m**3',11,201,&
           &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &           k_jg)
+        ENDDO
+
+        DO jt = 1, nsfc_subs
+          WRITE(cjt,'(i2)') jt
+          WRITE(name,'(A,A)') "RHO_SNOW_MULT_tile_", TRIM(ADJUSTL(cjt))
+          WRITE(long_name,'(A,A)') "snow density tile ",TRIM(ADJUSTL(cjt))
+          CALL addVar(TimeVar(TRIM(name),TRIM(long_name),&
+          &          'kg/m**3',11,201,&
+          &           vlistID(k_jg), gridCellID(k_jg),zaxisID_generic_snow(k_jg)),&
           &           k_jg)
         ENDDO
 
@@ -1534,6 +1568,39 @@ CONTAINS
           CALL addVar(TimeVar(TRIM(name),TRIM(long_name),&
           &          'm H2O',11,201,&
           &           vlistID(k_jg), gridCellID(k_jg),zaxisID_depth_below_land(k_jg)),&
+          &           k_jg)
+
+        ENDDO
+
+        DO jt = 1, nsfc_subs
+          WRITE(cjt,'(i2)') jt
+          WRITE(name,'(A,A)') "WLIQ_SNOW_tile_", TRIM(ADJUSTL(cjt))
+          WRITE(long_name,'(A,A)') "liquid water content in snow tile",TRIM(ADJUSTL(cjt))
+          CALL addVar(TimeVar(TRIM(name),TRIM(long_name),&
+          &          'm H2O',11,201,&
+          &           vlistID(k_jg), gridCellID(k_jg),zaxisID_generic_snow(k_jg)),&
+          &           k_jg)
+
+        ENDDO
+
+        DO jt = 1, nsfc_subs
+          WRITE(cjt,'(i2)') jt
+          WRITE(name,'(A,A)') "WTOT_SNOW_tile_", TRIM(ADJUSTL(cjt))
+          WRITE(long_name,'(A,A)') "total water content in snow tile",TRIM(ADJUSTL(cjt))
+          CALL addVar(TimeVar(TRIM(name),TRIM(long_name),&
+          &          'm H2O',11,201,&
+          &           vlistID(k_jg), gridCellID(k_jg),zaxisID_generic_snow(k_jg)),&
+          &           k_jg)
+
+        ENDDO
+
+        DO jt = 1, nsfc_subs
+          WRITE(cjt,'(i2)') jt
+          WRITE(name,'(A,A)') "DZH_SNOW_tile_", TRIM(ADJUSTL(cjt))
+          WRITE(long_name,'(A,A)') "layer thickness between half levels in snow tile",TRIM(ADJUSTL(cjt))
+          CALL addVar(TimeVar(TRIM(name),TRIM(long_name),&
+          &          'm',11,201,&
+          &           vlistID(k_jg), gridCellID(k_jg),zaxisID_generic_snow(k_jg)),&
           &           k_jg)
 
         ENDDO
@@ -2869,51 +2936,81 @@ CONTAINS
           RETURN
         ENDIF
 
-       WRITE(name,'(A,A)') "T_SNOW_tile_", TRIM(ADJUSTL(cjt))
+        WRITE(name,'(A,A)') "T_SNOW_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
           ptr2 => p_prog_lnd%t_snow(:,:,jt)
           RETURN
         ENDIF
 
-       WRITE(name,'(A,A)') "T_S_tile_", TRIM(ADJUSTL(cjt))
+        WRITE(name,'(A,A)') "T_SNOW_MULT_tile_", TRIM(ADJUSTL(cjt))
+        IF(varname == TRIM(name)) THEN
+          ptr3 => p_prog_lnd%t_snow_mult(:,:,:,jt)
+          RETURN
+        ENDIF
+
+        WRITE(name,'(A,A)') "T_S_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
           ptr2 => p_prog_lnd%t_s(:,:,jt)
           RETURN
         ENDIF
 
-       WRITE(name,'(A,A)') "W_SNOW_tile_", TRIM(ADJUSTL(cjt))
+        WRITE(name,'(A,A)') "W_SNOW_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
           ptr2 => p_prog_lnd%w_snow(:,:,jt)
           RETURN
         ENDIF
 
-       WRITE(name,'(A,A)') "RHO_SNOW_tile_", TRIM(ADJUSTL(cjt))
+        WRITE(name,'(A,A)') "RHO_SNOW_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
           ptr2 => p_prog_lnd%rho_snow(:,:,jt)
           RETURN
         ENDIF
 
-       WRITE(name,'(A,A)') "W_I_tile_", TRIM(ADJUSTL(cjt))
+        WRITE(name,'(A,A)') "RHO_SNOW_MULT_tile_", TRIM(ADJUSTL(cjt))
+        IF(varname == TRIM(name)) THEN
+          ptr3 => p_prog_lnd%rho_snow_mult(:,:,:,jt)
+          RETURN
+        ENDIF
+
+        WRITE(name,'(A,A)') "W_I_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
           ptr2 => p_prog_lnd%w_i(:,:,jt)
           RETURN
         ENDIF
 
-       WRITE(name,'(A,A)') "T_SO_tile_", TRIM(ADJUSTL(cjt))
+        WRITE(name,'(A,A)') "T_SO_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
           ptr3 => p_prog_lnd%t_so(:,:,:,jt)
           RETURN
         ENDIF
 
-       WRITE(name,'(A,A)') "W_SO_tile_", TRIM(ADJUSTL(cjt))
+        WRITE(name,'(A,A)') "W_SO_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
           ptr3 => p_prog_lnd%w_so(:,:,:,jt)
           RETURN
         ENDIF
 
-       WRITE(name,'(A,A)') "W_SO_ICE_tile_", TRIM(ADJUSTL(cjt))
+        WRITE(name,'(A,A)') "W_SO_ICE_tile_", TRIM(ADJUSTL(cjt))
         IF(varname == TRIM(name)) THEN
           ptr3 => p_prog_lnd%w_so_ice(:,:,:,jt)
+          RETURN
+        ENDIF
+
+        WRITE(name,'(A,A)') "WLIQ_SNOW_tile_", TRIM(ADJUSTL(cjt))
+        IF(varname == TRIM(name)) THEN
+          ptr3 => p_prog_lnd%wliq_snow(:,:,:,jt)
+          RETURN
+        ENDIF
+
+        WRITE(name,'(A,A)') "WTOT_SNOW_tile_", TRIM(ADJUSTL(cjt))
+        IF(varname == TRIM(name)) THEN
+          ptr3 => p_prog_lnd%wtot_snow(:,:,:,jt)
+          RETURN
+        ENDIF
+
+        WRITE(name,'(A,A)') "DZH_SNOW_tile_", TRIM(ADJUSTL(cjt))
+        IF(varname == TRIM(name)) THEN
+          ptr3 => p_prog_lnd%dzh_snow(:,:,:,jt)
           RETURN
         ENDIF
       ENDDO
