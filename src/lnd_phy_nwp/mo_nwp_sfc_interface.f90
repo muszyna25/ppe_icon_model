@@ -496,8 +496,6 @@ CONTAINS
               p_prog_lnd_now%t_gt(jc,jb,ns) = p_prog_lnd_now%t_g(jc,jb)
               p_prog_lnd_new%t_gt(jc,jb,ns) = p_prog_lnd_now%t_g(jc,jb)
 
-              p_prog_lnd_now%t_s(jc,jb,ns) = p_prog_lnd_now%t_so(jc,1,jb,ns)
-              p_prog_lnd_new%t_s(jc,jb,ns) = p_prog_lnd_new%t_so(jc,1,jb,ns)
             END DO
           END DO
         ENDIF
