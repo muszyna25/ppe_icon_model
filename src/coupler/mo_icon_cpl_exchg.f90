@@ -109,7 +109,7 @@ MODULE mo_icon_cpl_exchg
 
 #else
 
-!  USE mo_icon_cpl, ONLY : t_field, fields, target_locs
+  USE mo_icon_cpl, ONLY : nbr_ICON_fields, t_field, fields, target_locs
 !DR Quick fix for sequential compilation
   USE mo_icon_cpl, ONLY : nbr_ICON_fields, fields
 
