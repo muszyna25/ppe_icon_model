@@ -228,19 +228,19 @@ CONTAINS
         ! Since the data structure of TERRA differs from that in ICON, 
         ! we have to do some matching (i.e. copying)
         ! 
-        qv_t(1:i_endidx,:,jb,1) = p_prog_rcf%tracer(1:i_endidx,:,jb,iqv)
-        qv_t(1:i_endidx,:,jb,2) = p_prog_rcf%tracer(1:i_endidx,:,jb,iqv)
-        t_t(1:i_endidx,:,jb,1)  = p_diag%temp(1:i_endidx,:,jb)
-        t_t(1:i_endidx,:,jb,2)  = p_diag%temp(1:i_endidx,:,jb)
-        u_t(1:i_endidx,:,jb,1)  = p_diag%u(1:i_endidx,:,jb)
-        u_t(1:i_endidx,:,jb,2)  = p_diag%u(1:i_endidx,:,jb)
-        v_t(1:i_endidx,:,jb,1)  = p_diag%v(1:i_endidx,:,jb)
-        v_t(1:i_endidx,:,jb,2)  = p_diag%v(1:i_endidx,:,jb)
-        pp_t(1:i_endidx,:,jb,1) = 0._wp
-        pp_t(1:i_endidx,:,jb,2) = 0._wp
-
-        ps_t(1:i_endidx,jb,1)   = p_diag%pres_sfc(1:i_endidx,jb)
-        ps_t(1:i_endidx,jb,2)   = p_diag%pres_sfc(1:i_endidx,jb)
+!!$        qv_t(1:i_endidx,:,jb,1) = p_prog_rcf%tracer(1:i_endidx,:,jb,iqv)
+!!$        qv_t(1:i_endidx,:,jb,2) = p_prog_rcf%tracer(1:i_endidx,:,jb,iqv)
+!!$        t_t(1:i_endidx,:,jb,1)  = p_diag%temp(1:i_endidx,:,jb)
+!!$        t_t(1:i_endidx,:,jb,2)  = p_diag%temp(1:i_endidx,:,jb)
+!!$        u_t(1:i_endidx,:,jb,1)  = p_diag%u(1:i_endidx,:,jb)
+!!$        u_t(1:i_endidx,:,jb,2)  = p_diag%u(1:i_endidx,:,jb)
+!!$        v_t(1:i_endidx,:,jb,1)  = p_diag%v(1:i_endidx,:,jb)
+!!$        v_t(1:i_endidx,:,jb,2)  = p_diag%v(1:i_endidx,:,jb)
+!!$        pp_t(1:i_endidx,:,jb,1) = 0._wp
+!!$        pp_t(1:i_endidx,:,jb,2) = 0._wp
+!!$
+!!$        ps_t(1:i_endidx,jb,1)   = p_diag%pres_sfc(1:i_endidx,jb)
+!!$        ps_t(1:i_endidx,jb,2)   = p_diag%pres_sfc(1:i_endidx,jb)
 
 
 
@@ -264,8 +264,8 @@ CONTAINS
 
 
           ! copy diagnostic variables
-          qv_st_t(1:i_endidx,jb,1,isubs)  = lnd_diag%qv_st(1:i_endidx,jb,isubs)
-          qv_st_t(1:i_endidx,jb,2,isubs)  = lnd_diag%qv_st(1:i_endidx,jb,isubs)
+!!$          qv_st_t(1:i_endidx,jb,1,isubs)  = lnd_diag%qv_st(1:i_endidx,jb,isubs)
+!!$          qv_st_t(1:i_endidx,jb,2,isubs)  = lnd_diag%qv_st(1:i_endidx,jb,isubs)
           h_snow_t(1:i_endidx,jb,1,isubs) = lnd_diag%h_snow(1:i_endidx,jb,isubs)
           h_snow_t(1:i_endidx,jb,2,isubs) = lnd_diag%h_snow(1:i_endidx,jb,isubs)
 
@@ -279,8 +279,8 @@ CONTAINS
             & lnd_prog_now%t_snow_mult(1:i_endidx,1:nlev_snow+1,jb,isubs)
           t_s_t(1:i_endidx,jb,1,isubs)    = lnd_prog_now%t_s(1:i_endidx,jb,isubs)
           t_s_t(1:i_endidx,jb,2,isubs)    = lnd_prog_now%t_s(1:i_endidx,jb,isubs)
-          t_gt_t(1:i_endidx,jb,1,isubs)   = lnd_prog_now%t_gt(1:i_endidx,jb,isubs)
-          t_gt_t(1:i_endidx,jb,2,isubs)   = lnd_prog_now%t_gt(1:i_endidx,jb,isubs)
+!!$          t_gt_t(1:i_endidx,jb,1,isubs)   = lnd_prog_now%t_gt(1:i_endidx,jb,isubs)
+!!$          t_gt_t(1:i_endidx,jb,2,isubs)   = lnd_prog_now%t_gt(1:i_endidx,jb,isubs)
           w_snow_t(1:i_endidx,jb,1,isubs) = lnd_prog_now%w_snow(1:i_endidx,jb,isubs)
           w_snow_t(1:i_endidx,jb,2,isubs) = lnd_prog_now%w_snow(1:i_endidx,jb,isubs)
           rho_snow_t(1:i_endidx,jb,1,isubs) = lnd_prog_now%rho_snow(1:i_endidx,jb,isubs)
@@ -302,7 +302,7 @@ CONTAINS
           w_so_ice_t(1:i_endidx,1:nlev_soil+1,jb,1,isubs) = &
             & lnd_prog_now%w_so_ice(1:i_endidx,1:nlev_soil+1,jb,isubs)
           w_so_ice_t(1:i_endidx,1:nlev_soil+1,jb,2,isubs) = &
-            & lnd_prog_now%w_so_ice(1:i_endidx,1:nlev_soil+1,jb,isubs)
+            & lnd_prog_now%w_so_ice(1:i_endidx,1:nlev_soil+1,jb,isubs)  
           wliq_snow_t(1:i_endidx,1:nlev_snow,jb,1,isubs) = &
             & lnd_prog_now%wliq_snow(1:i_endidx,1:nlev_snow,jb,isubs)
           wliq_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs) = &
@@ -339,19 +339,19 @@ CONTAINS
         &  landmask      = landmask_t(:,jb,:) ,& !ext_data%atm%fr_land(:,jb) , & ! ,1, landpoint mask                         --
         &  rsmin2d       = ext_data%atm%rsmin(:,jb),  & ! minimum stomata resistance    ( s/m )
            !
-        &  u  = u_t(:,1:nlev,jb,:)         , & ! zonal wind speed                       ( m/s )
-        &  v  = v_t(:,1:nlev,jb,:)         , & ! meridional wind speed                  ( m/s )
-        &  t  = t_t(:,1:nlev,jb,:)         , & ! temperature                            (  k  )
-        &  qv = qv_t(:,1:nlev,jb,:)        , & ! specific water vapor content           (kg/kg)
-        &  p0 = p_diag%pres(:,1:nlev,jb)   , & !!!!JH base state pressure               ( Pa  ) 
-        &  pp = pp_t(:,1:nlev,jb,:)        , & ! deviation from the reference pressure  ( pa  )
-        &  ps = ps_t(:,jb,:)               , & ! surface pressure                       ( pa  )
+        &  u  =  p_diag%u(:,:,jb)             , & ! zonal wind speed                       ( m/s )
+        &  v  =  p_diag%v(:,:,jb)             , & ! meridional wind speed                  ( m/s )
+        &  t  =  p_diag%temp(:,:,jb)          , & ! temperature                            (  k  )
+        &  qv = p_prog_rcf%tracer(:,:,jb,iqv) , & ! specific water vapor content           (kg/kg)
+        &  p0 = p_diag%pres(:,:,jb)           , & !!!!JH base state pressure               ( Pa  ) 
+!       &  pp = pp_t(:,1:nlev,jb,:)           , & ! deviation from the reference pressure  ( pa  )
+        &  ps = p_diag%pres_sfc(:,jb)         , & ! surface pressure                       ( pa  )
            !
         &  t_snow        =  t_snow_t(:,jb,:,:)    , & ! temperature of the snow-surface              (  K  )
         &  t_snow_mult   =  t_snow_mult_t(:,0:nlev_snow,jb,:,:), & ! temperature of the snow-surface (  K  )
         &  t_s           =  t_s_t(:,jb,:,:)       , & ! temperature of the ground surface            (  K  )
-        &  t_g           =  t_gt_t(:,jb,:,:)      , & ! weighted surface temperature                 (  K  )
-        &  qv_s          =  qv_st_t(:,jb,:,:)     , & ! specific humidity at the surface             (kg/kg)
+        &  t_g           =  lnd_prog_now%t_gt(:,jb,:)     , & ! weighted surface temperature                 (  K  )
+        &  qv_s          =  lnd_diag%qv_st(:,jb,:)  , & ! specific humidity at the surface             (kg/kg)
         &  w_snow        =  w_snow_t(:,jb,:,:)    , & ! water content of snow                        (m H2O)
         &  rho_snow      =  rho_snow_t(:,jb,:,:)  , & ! snow density                                 (kg/m**3)
         &  rho_snow_mult =  rho_snow_mult_t(:,1:nlev_snow,jb,:,:), & ! snow density                  (kg/m**3)
@@ -502,12 +502,11 @@ CONTAINS
           lnd_diag%h_snow(1:i_endidx,jb,isubs) = h_snow_t(1:i_endidx,jb,2,isubs)
 
           !DR ATTENTION: only valid, if nsfc_subs=1 !!!!!
-          WHERE (ext_data%atm%fr_land(i_startidx:i_endidx,jb)>0.5_wp) &
-            lnd_prog_new%t_g(i_startidx:i_endidx,jb) = t_gt_t(i_startidx:i_endidx,jb,2,1)
+          lnd_prog_new%t_g(1:i_endidx,jb) = t_gt_t(1:i_endidx,jb,2,1)
         ENDDO
 
 !#endif
-
+  
       ELSE IF (  atm_phy_nwp_config(jg)%inwp_surface == 2 ) THEN
 
           !-------------------------------------------------------------------------
@@ -521,7 +520,6 @@ CONTAINS
   ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
-
 
 
 
@@ -598,9 +596,6 @@ CONTAINS
         IF (itopo == 1) THEN
           DO ns = 1, nsfc_subs
             DO jc = i_startidx, i_endidx
-
-              p_prog_lnd_now%t_gt(jc,jb,ns) = p_prog_lnd_now%t_g(jc,jb)
-              p_prog_lnd_new%t_gt(jc,jb,ns) = p_prog_lnd_now%t_g(jc,jb)
 
               ! initialize climatological layer (deepest layer of t_so)
               p_prog_lnd_now%t_so(jc,nlev_soil+2,jb,ns) = ext_data%atm%t_cl(jc,jb)
