@@ -496,7 +496,7 @@ SUBROUTINE terra_multlay (                &
                   t            , & ! temperature                                   (  k  )
                   qv           , & ! specific water vapor content                  (kg/kg)
                   p0           , & !!!! base state pressure                           (Pa) 
-                  pp           , & ! deviation from the reference pressure         ( pa  )
+!                 pp           , & ! deviation from the reference pressure         ( pa  )
                   ps           , & ! surface pressure                              ( pa  )
 !
                   t_snow       , & ! temperature of the snow-surface               (  K  )
@@ -594,8 +594,8 @@ IMPLICIT NONE
                   qv               ! specific water vapor content                  (kg/kg)
   REAL    (KIND = ireals), DIMENSION(ie,je,ke), INTENT(IN) :: & 
                   p0               !!!! base state pressure                           (Pa) 
-  REAL    (KIND = ireals), DIMENSION(ie,je,ke,nztlev), INTENT(IN) :: & 
-                  pp               ! deviation from the reference pressure         ( pa  )
+!!$  REAL    (KIND = ireals), DIMENSION(ie,je,ke,nztlev), INTENT(IN) :: & 
+!!$                  pp               ! deviation from the reference pressure         ( pa  )
 
   REAL    (KIND = ireals), DIMENSION(ie,je,nztlev), INTENT(IN) ::    &
                   ps               ! surface pressure                               ( pa  )
@@ -606,7 +606,7 @@ IMPLICIT NONE
                   t_snow_mult      ! temperature of the snow-surface               (  K  )
   REAL    (KIND = ireals), DIMENSION(ie,je,nztlev,nsubs1), INTENT(INOUT) :: &
                   t_s              ! temperature of the ground surface             (  K  )
-  REAL    (KIND = ireals), DIMENSION(ie,je,nztlev,nsubs1)  :: &
+  REAL    (KIND = ireals), DIMENSION(ie,je,nsubs1)  :: &
                   t_g          , & ! weighted surface temperature                  (  K  )
                   qv_s             ! specific humidity at the surface              (kg/kg)
   REAL    (KIND = ireals), DIMENSION(ie,je,nztlev,nsubs1), INTENT(INOUT) :: &
@@ -1215,7 +1215,7 @@ CHARACTER (LEN=80)                    ::  &
  
      DO   j = jstarts, jends
         DO i = istarts, iends
-           IF(landmask(i,j,ns) > 0.5_ireals) THEN        ! for land-points only
+           IF(landmask(i,j,ns) >= 0.5_ireals) THEN        ! for land-points only
               llandmask(i,j,ns) = .true.
            END IF
         ENDDO
@@ -1968,20 +1968,20 @@ ENDIF
 !subs      IF (llandmask(i,j)) THEN     ! for land-points only
       IF (llandmask(i,j,ns)) THEN     ! for land-points only
         im1        = MAX( 1, i-1)
-        zuv        = 0.5_ireals*SQRT ( (u(i,j,ke,nx) + u(im1,j,ke,nx))**2 &
-                               +(v(i,j,ke,nx) + v(i,jm1,ke,nx))**2 )
+        zuv        = 0.5_ireals*SQRT ( (u(i,j,ke) + u(im1,j,ke))**2 &
+                               +(v(i,j,ke) + v(i,jm1,ke))**2 )
 !subs        ztvs       = t_g (i,j,nx)*(1.0_ireals + rvd_m_o*qv_s(i,j,nx))
-        ztvs       = t_g (i,j,nx,ns)*(1.0_ireals + rvd_m_o*qv_s(i,j,nx,ns))
+        ztvs       = t_g (i,j,ns)*(1.0_ireals + rvd_m_o*qv_s(i,j,ns))
 !JH IF(i.eq.1 .and. j.eq.1)  print *,ns,'ztvs',ztvs,t_g (i,j,nx,ns),rvd_m_o,qv_s(i,j,nx,ns),zuv,ps(i,j,nx),t(i,j,ke,nx)
        
         !  'potential' temperature of lowest atmospheric layer
-        zplow          = p0(i,j,ke) + pp(i,j,ke,nx)
-        zth_low (i,j)  =  t(i,j,ke,nx) *( (ps(i,j,nx)/zplow)**rdocp )
+        zplow          = p0(i,j,ke) ! + pp(i,j,ke)
+        zth_low (i,j)  =  t(i,j,ke) *( (ps(i,j)/zplow)**rdocp )
 !>JH IF(zth_low (i,j).ge.350.) print *,ns,'zth_low (i,j).ge.350.',zth_low (i,j),i_global(i),j_global(j)
 !subs        zdt_atm (i,j)  =  zth_low(i,j)-t_g(i,j,nx)
 !subs        zdq_atm (i,j)  =  qv(i,j,ke,nx)-qv_s(i,j,nx)
-        zdt_atm (i,j)  =  zth_low(i,j)-t_g(i,j,nx,ns)
-        zdq_atm (i,j)  =  qv(i,j,ke,nx)-qv_s(i,j,nx,ns)
+        zdt_atm (i,j)  =  zth_low(i,j)-t_g(i,j,ns)
+        zdq_atm (i,j)  =  qv(i,j,ke)-qv_s(i,j,ns)
 
 !   introduce an artificical upper boundary on transfer coefficients in cases
 !   where an extreme cooling/heating of topmost soil layer may be caused due
@@ -2045,7 +2045,7 @@ ENDIF
 !!$    end if
 
 !   estimates of sensible and latent heat flux
-    zrho_atm(i,j)=ps(i,j,nx)/(r_d*ztvs)
+    zrho_atm(i,j)=ps(i,j)/(r_d*ztvs)
 !subs    zshfl(i,j) = tch(i,j)*zuv*zrho_atm(i,j)*cp_d*zdt_atm(i,j)
 !subs    zlhfl(i,j) = tch(i,j)*zuv*zrho_atm(i,j)*lh_v*zdq_atm(i,j)
     zshfl(i,j) = tch(i,j,ns)*zuv*zrho_atm(i,j)*cp_d*zdt_atm(i,j)
@@ -2147,8 +2147,8 @@ ENDIF
       DO i = istarts, iends
       im1 = MAX(1,i-1)
       IF (limit_tch(i,j)) THEN
-        zuv        = 0.5_ireals*SQRT ( (u(i,j,ke,nx) + u(im1,j,ke,nx))**2 &
-                               +(v(i,j,ke,nx) + v(i,jm1,ke,nx))**2 )
+        zuv        = 0.5_ireals*SQRT ( (u(i,j,ke) + u(im1,j,ke))**2 &
+                               +(v(i,j,ke) + v(i,jm1,ke))**2 )
         yhc       ='COOLING'
         IF (zeb1(i,j) > 0._ireals) Yhc='HEATING'
 !!$>JH        PRINT 7001,ntstep,i,j,my_cart_id,Yhc,ps(i,j,nx),  &
@@ -2431,9 +2431,9 @@ ENDIF
         zwin     (i,j) = w_i   (i,j,nx,ns)
 
         ! moisture and potential temperature of lowest atmospheric layer
-        zplow          = p0(i,j,ke) + pp(i,j,ke,nx)
-        zqvlow         = qv(i,j,ke,nx)
-        zth_low (i,j)  =  t(i,j,ke,nx) *( (ps(i,j,nx)/zplow)**rdocp )
+        zplow          = p0(i,j,ke) ! + pp(i,j,ke)
+        zqvlow         = qv(i,j,ke)
+        zth_low (i,j)  =  t(i,j,ke) *( (ps(i,j)/zplow)**rdocp )
 
         ! density*transfer coefficient*wind velocity
         zrhoch(i,j)    = ztmch(i,j)*(1._ireals/g) + zepsi
@@ -2444,13 +2444,13 @@ IF(i.eq.1 .and. j.eq.1) &
         z2iw        = zts_pm(i,j)*b2w + (1._ireals - zts_pm(i,j))*b2i
         z4iw        = zts_pm(i,j)*b4w + (1._ireals - zts_pm(i,j))*b4i
         z234iw      = z2iw*(b3 - z4iw)
-        zqs         = zsf_qsat( zsf_psat_iw(zts(i,j), z2iw,z4iw), ps(i,j,nx) )
+        zqs         = zsf_qsat( zsf_psat_iw(zts(i,j), z2iw,z4iw), ps(i,j) )
         zdqs        = zqvlow - zqs
         IF (ABS(zdqs).LT.zepsi) zdqs = 0._ireals
         z2iw        = ztsnow_pm(i,j)*b2w + (1._ireals - ztsnow_pm(i,j))*b2i
         z4iw        = ztsnow_pm(i,j)*b4w + (1._ireals - ztsnow_pm(i,j))*b4i
         z234iw      = z2iw*(b3 - z4iw)
-        zqsnow      = zsf_qsat(zsf_psat_iw(ztsnow(i,j),z2iw,z4iw), ps(i,j,nx))
+        zqsnow      = zsf_qsat(zsf_psat_iw(ztsnow(i,j),z2iw,z4iw), ps(i,j))
         zdqvtsnow(i,j)= zsf_dqvdt_iw(ztsnow(i,j), zqsnow, z4iw,z234iw)
         zdqsnow     = zqvlow - zqsnow
         IF (ABS(zdqsnow).LT.zepsi) zdqsnow = 0._ireals
@@ -2824,8 +2824,8 @@ IF(i.eq.1 .and. j.eq.1) &
               z2iw       = zts_pm(i,j)*b2w + (1._ireals - zts_pm(i,j))*b2i
               z4iw       = zts_pm(i,j)*b4w + (1._ireals - zts_pm(i,j))*b4i
               zepsat     = zsf_psat_iw(t(i,j,ke,nx),z2iw,z4iw)
-              zepke      = qv(i,j,ke,nx)*ps(i,j,nx)/                   &
-                                        (rdv + o_m_rdv*qv(i,j,ke,nx))
+              zepke      = qv(i,j,ke)*ps(i,j)/                   &
+                                        (rdv + o_m_rdv*qv(i,j,ke))
               zf_sat     = MAX(0.0_ireals,MIN(1.0_ireals,1.0_ireals -  &
                                               (zepsat - zepke)/csatdef))
               ! zf_sat paralysed:
@@ -2902,8 +2902,8 @@ IF(i.eq.1 .and. j.eq.1) &
                + zrs    (i,j  )    ! formation of rime
 !subs        qv_s(i,j,nx  ) = qv (i,j,ke,nx) - ze_sum /(zrhoch(i,j) + zepsi)
 !subs        qv_s(i,j,nnew) = qv_s(i,j,nx)
-        qv_s(i,j,nx  ,ns) = qv (i,j,ke,nx) - ze_sum /(zrhoch(i,j) + zepsi)
-        qv_s(i,j,nnew,ns) = qv_s(i,j,nx,ns)
+        qv_s(i,j,ns) = qv (i,j,ke) - ze_sum /(zrhoch(i,j) + zepsi)
+!JH     qv_s(i,j,nnew,ns) = qv_s(i,j,nx,ns)
 
  
      END IF     ! land points
@@ -5093,13 +5093,13 @@ DO ns = nsubs0, nsubs1
 IF(lmulti_snow) THEN
 !subs  CALL tgcom ( t_g(:,:,nnew), t_snow_mult(:,:,1,nnew), t_s(:,:,nnew), &
 !subs               w_snow(:,:,nnew), llandmask(:,:), ie, je, cf_snow,     &
-  CALL tgcom ( t_g(:,:,nnew,ns), t_snow_mult(:,:,1,nnew,ns), t_s(:,:,nnew,ns), &
+  CALL tgcom ( t_g(:,:,ns), t_snow_mult(:,:,1,nnew,ns), t_s(:,:,nnew,ns), &
                w_snow(:,:,nnew,ns), llandmask(:,:,ns), ie, je, cf_snow,        &
               istarts, iends, jstarts, jends )
 ELSE
 !subs  CALL tgcom ( t_g(:,:,nnew), t_snow(:,:,nnew), t_s(:,:,nnew),        &
 !subs               w_snow(:,:,nnew), llandmask(:,:), ie, je, cf_snow,     &
-  CALL tgcom ( t_g(:,:,nnew,ns), t_snow(:,:,nnew,ns), t_s(:,:,nnew,ns),        &
+  CALL tgcom ( t_g(:,:,ns), t_snow(:,:,nnew,ns), t_s(:,:,nnew,ns),        &
                w_snow(:,:,nnew,ns), llandmask(:,:,ns), ie, je, cf_snow,     &
               istarts, iends, jstarts, jends )
 
