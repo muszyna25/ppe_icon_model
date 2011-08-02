@@ -176,7 +176,6 @@ CONTAINS
     write(0,*) "SFC-DIAGNOSIS INTERFACE ",jstep
 
 
-
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs), SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
@@ -397,7 +396,8 @@ CONTAINS
           lnd_prog_new%wtot_snow(1:i_endidx,1:nlev_snow,jb,isubs) = &
             & wtot_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs)
           lnd_prog_new%dzh_snow(1:i_endidx,1:nlev_snow,jb,isubs)  = &
-            & dzh_snow_t(1:i_endidx,1:nlev_snow,jb,1,isubs)
+            & dzh_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs)
+
 
           lnd_diag%h_snow(1:i_endidx,jb,isubs) = h_snow_t(1:i_endidx,jb,2,isubs)
 
@@ -408,7 +408,9 @@ CONTAINS
             lnd_prog_new%t_g(i_startidx:i_endidx,jb) = lnd_prog_new%t_gt(i_startidx:i_endidx,jb,1)
             lnd_diag%qv_s(i_startidx:i_endidx,jb) = lnd_diag%qv_st(i_startidx:i_endidx,jb,1)
           END WHERE
+
         ENDDO
+
 
   
       ELSE IF (  atm_phy_nwp_config(jg)%inwp_surface == 2 ) THEN
@@ -424,7 +426,6 @@ CONTAINS
   ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
-
 
 
       
@@ -495,6 +496,8 @@ CONTAINS
               p_prog_lnd_now%t_gt(jc,jb,ns) = p_prog_lnd_now%t_g(jc,jb)
               p_prog_lnd_new%t_gt(jc,jb,ns) = p_prog_lnd_now%t_g(jc,jb)
 
+              p_prog_lnd_now%t_s(jc,jb,ns) = p_prog_lnd_now%t_so(jc,1,jb,ns)
+              p_prog_lnd_new%t_s(jc,jb,ns) = p_prog_lnd_new%t_so(jc,1,jb,ns)
             END DO
           END DO
         ENDIF
