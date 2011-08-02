@@ -277,7 +277,7 @@ USE data_fields     , ONLY :   &
     t_2m      ,     & ! temperature in 2m                             (  K  )
 !    u_10m     ,     & ! zonal wind in 10m                             ( m/s )
 !    v_10m     ,     & ! meridional wind in 10m                        ( m/s )
-    uv_low     ,     & ! wind speed at lowest model level              ( m/s )
+    uv_low     ,     & ! wind speed at lowest model level              ( m/s ) 
     freshsnow ,     & ! indicator for age of snow in top of snow layer(  -  )
     wliq_snow ,     & ! liquid water content in the snow              (m H2O)
     wtot_snow ,     & ! total (liquid + solid) water content of snow  (m H2O)
