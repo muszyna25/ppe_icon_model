@@ -835,7 +835,7 @@ If .TRUE.: Current experiment is started form a restart.&
 \hline
 dt\_restart &
 R & 86400.*30.& s &
-Length of restart cycle in seconds.
+Length of restart cycle in seconds&
 \tabularnewline
 
 \hline 
@@ -850,13 +850,13 @@ Calendar type: \\
 \hline 
 ini\_datatime\_string &
 C & '2008-09-01T00:00:00Z' &&
-Initial date and time of the simulaiton. 
+Initial date and time of the simulation&
 \tabularnewline
 
 \hline 
 end\_datatime\_string &
 C & 2008-09-01T01:40:00Z' &&
-End date and time of the simulaiton. 
+End date and time of the simulation&
 \tabularnewline
 
 \hline 
@@ -888,18 +888,6 @@ chunk length&
 n\_ghost\_rows &
 I & 1& &
 number of halo cell rows&
-\tabularnewline
-
-\hline 
-l\_log\_checks &
-L & & &
-&
-\tabularnewline
-
-\hline 
-l\_fast\_sum &
-L &&&
-&
 \tabularnewline
 
 \hline 
@@ -1105,13 +1093,6 @@ If set to .true. vertical nesting is switched on (i.e.\ variable number of verti
 \tabularnewline
 
 \hline 
-nlev&
-I& 31& &
-Number of vertical layers &
-lvert\_nest=.FALSE.
-\tabularnewline
-
-\hline 
 num\_nlev&
 I(max\_dom)& 31& &
 Number of full levels (atm.) for each domain&
@@ -1185,22 +1166,8 @@ lplane=.TRUE.
 %\tabularnewline
 
 \hline 
-n\_dom &
-I & 1& &
-number of model domains, 1 = global domain only&
-\tabularnewline
-
-\hline 
 l\_limited\_area &
 L & .FALSE.& & &
-\tabularnewline
-
-\hline 
-parent\_id&
-I(n\_dom-1)& i& &
-ID of parent domain (first entry refers to first nested domain; needs to be
-specified only in case of more than one nested domain per grid level)\\ MUST
-be the same as in gridref\_ini & n\_dom>1
 \tabularnewline
 
 \hline 
@@ -1223,13 +1190,6 @@ the total number of processors. For the root patch and higher level childs,
 patch\_weight is not used. However, patch\_weight must be set to 0 for these patches
 to avoid confusion.&
 n\_dom>1
-\tabularnewline
-
-\hline 
-lpatch0 &
-L & .FALSE.& &
-If set to .true. an additional patch one level below the root patch is allocated and read
-so that physics calculations on a coarser grid are possible &
 \tabularnewline
 
 \hline 
@@ -2655,19 +2615,19 @@ I&
 \tabularnewline
 
 \hline
-yr\_perp &
-L&
--99999&
-&
-year used for lyr\_perp = .TRUE.&
-\tabularnewline
-
-\hline
 lyr\_perp &
 L&
 .FALSE.&
 &
 .FALSE.: transient Earth orbit following VSOP87 \\ .TRUE.: Earth orbit of year yr\_perp of the VSOP87 orbit is perpertuated &
+\tabularnewline
+
+\hline
+yr\_perp &
+L&
+-99999&
+&
+year used for lyr\_perp = .TRUE.&
 \tabularnewline
 
 \hline
@@ -2850,9 +2810,10 @@ Note: lcover = .TRUE. runs, but has not been evaluated (yet) in ICON.
 \tabularnewline
 
 \hline
-llandsurf &
+lgw\_hines &
 L& .FALSE.&&
-.TRUE. for surface exchanges& iforcing = 2\par {\color{red}Not implemeted yet}
+.TRUE. for atmospheric gravity wave drag by the Hines scheme&
+iforcing = 2\par
 \tabularnewline
 
 \hline
@@ -2862,10 +2823,9 @@ L& .FALSE.&&
 \tabularnewline
 
 \hline
-lgw\_hines &
+llandsurf &
 L& .FALSE.&&
-.TRUE. for atmospheric gravity wave drag by the Hines scheme&
-iforcing = 2\par
+.TRUE. for surface exchanges& iforcing = 2\par {\color{red}Not implemeted yet}
 \tabularnewline
 
 \hline
@@ -2881,16 +2841,16 @@ L& .FALSE.&&
 \tabularnewline
 
 \hline
-lmlo &
-L& .FALSE.&&
-.TRUE. for mixed layer ocean& iforcing = 2\par {\color{red}Not implemeted yet}
-\tabularnewline
-
-\hline
 lhd &
 L& .FALSE.&&
 .TRUE. for hydrologic discharge model& iforcing = 2\par
 {\color{red}Not implemeted yet}
+\tabularnewline
+
+\hline
+lmlo &
+L& .FALSE.&&
+.TRUE. for mixed layer ocean& iforcing = 2\par {\color{red}Not implemeted yet}
 \tabularnewline
 
 \hline
@@ -2919,7 +2879,8 @@ iforcing = 2 .AND. lconv = .TRUE.
 \hline
 ncvmicro&
 I & 0 &&
-Choice of convective microphysics scheme.\par
+Choice of convective microphysics scheme.&
+
 iforcing = 2 .AND. lconv = .TRUE.
 \tabularnewline
 
@@ -3000,9 +2961,9 @@ Defined and used in: src/namelists/mo\_echam\_conv\_nml.f90
 
 
 %------------------------------------------------------------------------------
-% echam_vdiff_nml:
+% vdiff_nml:
 %------------------------------------------------------------------------------
-\subsection{echam\_vdiff\_nml}
+\subsection{vdiff\_nml}
 
 \begin{longtab}
 
