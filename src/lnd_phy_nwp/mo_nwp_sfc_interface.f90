@@ -279,8 +279,8 @@ CONTAINS
             & lnd_prog_now%t_snow_mult(1:i_endidx,1:nlev_snow+1,jb,isubs)
           t_s_t(1:i_endidx,jb,1,isubs)    = lnd_prog_now%t_s(1:i_endidx,jb,isubs)
           t_s_t(1:i_endidx,jb,2,isubs)    = lnd_prog_now%t_s(1:i_endidx,jb,isubs)
-!!$          t_gt_t(1:i_endidx,jb,1,isubs)   = lnd_prog_now%t_gt(1:i_endidx,jb,isubs)
-!!$          t_gt_t(1:i_endidx,jb,2,isubs)   = lnd_prog_now%t_gt(1:i_endidx,jb,isubs)
+          t_gt_t(1:i_endidx,jb,1,isubs)   = lnd_prog_now%t_gt(1:i_endidx,jb,isubs)
+          t_gt_t(1:i_endidx,jb,2,isubs)   = lnd_prog_now%t_gt(1:i_endidx,jb,isubs)
           w_snow_t(1:i_endidx,jb,1,isubs) = lnd_prog_now%w_snow(1:i_endidx,jb,isubs)
           w_snow_t(1:i_endidx,jb,2,isubs) = lnd_prog_now%w_snow(1:i_endidx,jb,isubs)
           rho_snow_t(1:i_endidx,jb,1,isubs) = lnd_prog_now%rho_snow(1:i_endidx,jb,isubs)
@@ -350,8 +350,8 @@ CONTAINS
         &  t_snow        =  t_snow_t(:,jb,:,:)    , & ! temperature of the snow-surface              (  K  )
         &  t_snow_mult   =  t_snow_mult_t(:,0:nlev_snow,jb,:,:), & ! temperature of the snow-surface (  K  )
         &  t_s           =  t_s_t(:,jb,:,:)       , & ! temperature of the ground surface            (  K  )
-        &  t_g           =  lnd_prog_now%t_gt(:,jb,:)     , & ! weighted surface temperature                 (  K  )
-        &  qv_s          =  lnd_diag%qv_st(:,jb,:)  , & ! specific humidity at the surface             (kg/kg)
+        &  t_g           =  lnd_prog_now%t_gt(:,jb,:), & ! weighted surface temperature                 (  K  )
+        &  qv_s          =  lnd_diag%qv_st(:,jb,:)   , & ! specific humidity at the surface             (kg/kg)
         &  w_snow        =  w_snow_t(:,jb,:,:)    , & ! water content of snow                        (m H2O)
         &  rho_snow      =  rho_snow_t(:,jb,:,:)  , & ! snow density                                 (kg/m**3)
         &  rho_snow_mult =  rho_snow_mult_t(:,1:nlev_snow,jb,:,:), & ! snow density                  (kg/m**3)
@@ -479,7 +479,7 @@ CONTAINS
           lnd_prog_new%t_snow_mult(1:i_endidx,1:nlev_snow+1,jb,isubs) = &
             & t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,2,isubs)
           lnd_prog_new%t_s(1:i_endidx,jb,isubs) = t_s_t(1:i_endidx,jb,2,isubs)
-          lnd_prog_new%t_gt(1:i_endidx,jb,isubs) = t_gt_t(1:i_endidx,jb,2,isubs)
+!          lnd_prog_new%t_gt(1:i_endidx,jb,isubs) = t_gt_t(1:i_endidx,jb,2,isubs)
           lnd_prog_new%w_snow(1:i_endidx,jb,isubs) = w_snow_t(1:i_endidx,jb,2,isubs)
           lnd_prog_new%rho_snow(1:i_endidx,jb,isubs) = rho_snow_t(1:i_endidx,jb,2,isubs)
           lnd_prog_new%rho_snow_mult(1:i_endidx,1:nlev_snow,jb,isubs) = &
@@ -493,12 +493,12 @@ CONTAINS
             & w_so_ice_t(1:i_endidx,1:nlev_soil+1,jb,2,isubs)
           lnd_prog_new%wliq_snow(1:i_endidx,1:nlev_snow,jb,isubs) = &
             & wliq_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs)
-          lnd_prog_new%wtot_snow(1:i_endidx,1:nlev_snow,jb,isubs) = &
+          lnd_prog_new%wtot_snow(1:i_endidx,1:nlev_snow,jb,isubs) = & 
             & wtot_snow_t(1:i_endidx,1:nlev_snow,jb,2,isubs)
           lnd_prog_new%dzh_snow(1:i_endidx,1:nlev_snow,jb,isubs)  = &
             & dzh_snow_t(1:i_endidx,1:nlev_snow,jb,1,isubs)
 
-          lnd_diag%qv_st(1:i_endidx,jb,isubs)  = qv_st_t(1:i_endidx,jb,2,isubs)
+!          lnd_diag%qv_st(1:i_endidx,jb,isubs)  = qv_st_t(1:i_endidx,jb,2,isubs)
           lnd_diag%h_snow(1:i_endidx,jb,isubs) = h_snow_t(1:i_endidx,jb,2,isubs)
 
           !DR ATTENTION: only valid, if nsfc_subs=1 !!!!!
