@@ -11,6 +11,8 @@
 EXP="test_hom_lsm"
 horizontal_resolution="R2B04"
 vertical_resolution="L4"
+grid_name="iconR2B04-ocean_etopo40_flat"
+ExpName="${EXP}_${grid_name}"
 
 # Preliminary test phase: run on specific systems and compiler only
 #  - 2011-01-31: mpipc/tornado/squall - all compilers
@@ -61,9 +63,11 @@ fi
 # Write new ${set_env} file
 #
 echo "EXP=\"${EXP}\""                                     >  ${set_env}
+echo "grid_name=\"${grid_name}\""                         >> ${set_env}
+echo "ExpName=\"${ExpName}\""                             >> ${set_env}
 echo "horizontal_resolution=\"${horizontal_resolution}\"" >> ${set_env}
 echo "vertical_resolution=\"${vertical_resolution}\""     >> ${set_env}
-#echo "config_string=\"${config_string}\""                 >> ${set_env}
+#echo "config_string=\"${config_string}\""                >> ${set_env}
 
 # Load modules for CDO and NCL
 #
@@ -98,7 +102,7 @@ echo "-- ---------------------------------------------------------"
 echo "-- hom_lsm_postpro_driver.bash ends at $(date) --"
 echo "-- ---------------------------------------------------------"
 
-rm -f ${set_env}
+#rm -f ${set_env}
 
 check_error $? "Creating of Plots"
 

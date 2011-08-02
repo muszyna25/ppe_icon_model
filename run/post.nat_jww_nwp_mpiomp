@@ -17,10 +17,12 @@ ICONDIR=${DIR%/*}
 EXP="test_nat_jww_nwp_mpiomp"
 #EXP="nat_jww_nwp_mpiomp"
 GRID1=R2B04L40
+GRID1=iconR2B04_DOM01
 GRID2=R2B05L40
+GRID2=iconR2B05_DOM02
 FILED="${ICONDIR}/experiments/$EXP/"
-FILE1="${EXP}_DOM01_${GRID1}_0001.nc"
-FILE2="${EXP}_DOM02_${GRID2}_0001.nc"
+FILE1="${EXP}_${GRID1}_0001.nc"
+FILE2="${EXP}_${GRID2}_0001.nc"
 
 if [[ ! -f ${FILED}/${FILE1} && ! -f ${FILED}/${FILE2} ]]; then
   echo "Both data files have not been generated --> exit postprocessing"

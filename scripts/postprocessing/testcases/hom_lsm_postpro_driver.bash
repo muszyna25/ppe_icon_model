@@ -79,9 +79,9 @@ mkdir -p $model_data_path
 cd $model_data_path
 
 # Parameters for ncl including double quotes
-ifile="${EXP}_O.${resolution}_0001.nc"
-ofile="${EXP}_${resolution}_ELEV"
-ofile="${EXP}_${resolution}_W"                  #  Vertical velocity
+ifile="${ExpName}_0001.nc"
+ofile="${ExpName}_${resolution}_ELEV"
+ofile="${ExpName}_${resolution}_W"              #  Vertical velocity
 otype="eps"                                     #  plot file format
 varname="ELEV"                                  #  Surface elevation
 varname="W"                                     #  Vertical velocity
@@ -114,11 +114,11 @@ echo
 #echo "=== Plotting ocean elevation ..."
 echo "=== Plotting vertical velocity ..."
 source ./scr_${EXP}_nclcmd.here
-mkdir plots
+mkdir -p plots
 echo "new Dir"
 mv ${ofile}.eps plots/.
 #check_error $? "In script icon_ocean.ncl:"
-rm scr_${EXP}_nclcmd.here
+#rm scr_${EXP}_nclcmd.here
 echo "=== Done."
 
 echo 
