@@ -730,33 +730,98 @@ dynamics, transport, physics etc.
 \begin{longtab}
 
 \hline
-lrestart&
+l\_atmo\_active &
 L & .FALSE.& &
-If .TRUE., simulation starts from a model state read from restart file(s).&
+If .TRUE., the atmosphere model is started.&
 \tabularnewline
 
 \hline
-atmo\_restart\_info\_filename&
-C & 'restart.info'& &
-Name (including full path) of the restart info file for the atm model &
+atmo\_name &
+C & & &
+character string to identify the atmosphere component.&
+\tabularnewline
+
+
+\hline
+atmo\_namelist\_filename &
+C & & &
+namelist containing the atmospere namelists .&
 \tabularnewline
 
 \hline
-ocean\_restart\_info\_filename&
-C & 'restart.info'& &
-Name (including full path) of the restart info file for the ocean model &
+atmo\_min\_rank &
+I & 0 & &
+Start MPI rank for the atmosphere.&
 \tabularnewline
 
 \hline
-atmo\_namelist\_filename&
-C & 'NAMELIST\_ICON'& &
-Name (including full path) of the atmosphere-specific namelist file &
+atmo\_max\_rank &
+I & -1 & &
+End MPI rank for the atmosphere.&
 \tabularnewline
 
 \hline
-ocean\_namelist\_filename&
-C & 'NAMELIST\_ICON'& &
-Name (including full path) of the ocean-specific namelist file &
+atmo\_inc\_rank &
+I & 0 & &
+stride of MPI ranks.&
+\tabularnewline
+
+\hline
+atmo\_restart\_info\_filename &
+C & restart.info & &
+Name (including full path) of the restart info file for the atm model&
+\tabularnewline
+
+%---------------
+
+\hline
+l\_ocean\_active &
+L & .FALSE.& &
+If .TRUE., the ocean model is started.&
+\tabularnewline
+
+\hline
+ocean\_name &
+C & & &
+character string to identify the ocean component.&
+\tabularnewline
+
+\hline
+ocean\_namelist\_filename &
+C & & &
+namelist containing the ocean namelists .&
+\tabularnewline
+
+\hline
+ocean\_min\_rank &
+I & 0 & &
+Start MPI rank for the ocean.&
+\tabularnewline
+
+\hline
+ocean\_max\_rank &
+I & -1 & &
+End MPI rank for the ocean.&
+\tabularnewline
+
+\hline
+ocean\_inc\_rank &
+I & 0 & &
+stride of MPI ranks.&
+\tabularnewline
+
+\hline
+ocean\_restart\_info\_filename &
+C & restart.info & &
+Name (including full path) of the restart info file for the atm model&
+\tabularnewline
+
+% -----------------------
+
+\hline
+l\_restart&
+L & .FALSE. & &
+If .TRUE.: Current experiment is started form a restart.&
 \tabularnewline
 
 \end{longtab}
@@ -904,7 +969,59 @@ Experimental!&
 
 Defined and used in: src/namelists/mo\_parallel\_nml.f90
 
+%------------------------------------------------------------------------------
+% coupling_nml:
+%------------------------------------------------------------------------------
+\subsection{coupling\_nml}
+\begin{longtab}
 
+\hline 
+name & 
+C &
+blank &  &
+short name of the coupling field &
+\tabularnewline
+
+\hline 
+frequency &
+I &
+0 &
+s &
+coupling frequency &
+\tabularnewline
+
+\hline 
+time\_step &
+I &
+0 &
+s &
+model time step &
+\tabularnewline
+
+\hline 
+lag &
+I &
+0 &   &
+offset to coupling event in number of model time step &
+\tabularnewline
+
+\hline 
+l\_time\_average &
+L &
+.FALSE. &  &
+.TRUE.: time averaging between to coupling events &
+\tabularnewline
+
+\hline 
+l\_time\_accumulation &
+L &
+.FALSE. &  &
+.TRUE.: accumulation of coupling fields in time between to coupling events &
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_coupling\_nml.f90
 
 %------------------------------------------------------------------------------
 % run_nml
