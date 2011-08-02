@@ -1553,7 +1553,8 @@ CONTAINS
         DO jt = 1, nsfc_subs
           WRITE(cjt,'(i2)') jt
           WRITE(name,'(A,A)') "W_SO_tile_", TRIM(ADJUSTL(cjt))
-          WRITE(long_name,'(A,A)') "total water content (ice + liquid water) tile",TRIM(ADJUSTL(cjt))
+          WRITE(long_name,'(A,A)') "total water content (ice + liquid water) tile", &
+          &                        TRIM(ADJUSTL(cjt))
           CALL addVar(TimeVar(TRIM(name),TRIM(long_name),&
           &          'm H2O',11,201,&
           &           vlistID(k_jg), gridCellID(k_jg),zaxisID_depth_below_land(k_jg)),&
@@ -1597,7 +1598,8 @@ CONTAINS
         DO jt = 1, nsfc_subs
           WRITE(cjt,'(i2)') jt
           WRITE(name,'(A,A)') "DZH_SNOW_tile_", TRIM(ADJUSTL(cjt))
-          WRITE(long_name,'(A,A)') "layer thickness between half levels in snow tile",TRIM(ADJUSTL(cjt))
+          WRITE(long_name,'(A,A)') "layer thickness between half levels in snow tile", &
+          & TRIM(ADJUSTL(cjt))
           CALL addVar(TimeVar(TRIM(name),TRIM(long_name),&
           &          'm',11,201,&
           &           vlistID(k_jg), gridCellID(k_jg),zaxisID_generic_snow(k_jg)),&
