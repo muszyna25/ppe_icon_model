@@ -1195,8 +1195,7 @@ n\_dom>1
 \hline 
 lredgrid\_phys &
 L & .FALSE.& &
-If set to .true.  is calculated on a reduced grid (= one grid level higher);
-requires lpatch0=.TRUE. &
+If set to .true.  is calculated on a reduced grid (= one grid level higher) &
 \tabularnewline
 
 \hline 
@@ -2221,6 +2220,7 @@ run\_nml/iforcing = inwp
 1: hydci (COSMO-EU microphysics)
 &
 \tabularnewline
+
 \hline 
 inwp\_convection&
 I&
@@ -2243,6 +2243,7 @@ convection
 1: Tiedtke/Bechtold convection
 &
 \tabularnewline
+
 \hline 
 inwp\_cldcover&
 I&
@@ -2279,6 +2280,7 @@ cloud cover scheme for radiation
 3: clouds from COSMO SGS cloud scheme
 &
 \tabularnewline
+
 \hline 
 inwp\_radiation&
 I&
@@ -2308,6 +2310,7 @@ radiation
 2: Ritter-Geleyn radiation
 &
 \tabularnewline
+
 \hline 
 inwp\_satad&
 I&
@@ -2330,6 +2333,7 @@ saturation adjustment
 1: 
 &
 \tabularnewline
+
 \hline 
 inwp\_turb&
 I&
@@ -2359,6 +2363,7 @@ vertical diffusion and transfer
 2: ECHAM diffusion
 &
 \tabularnewline
+
 \hline 
 inwp\_sso&
 I&
@@ -2381,6 +2386,7 @@ subgrid scale orographic drag
 1: 
 &
 \tabularnewline
+
 \hline 
 inwp\_surface&
 I&
@@ -2403,6 +2409,7 @@ surface scheme
 1: 
 &
 \tabularnewline
+
 \hline 
  dt\_conv &
 R&
@@ -2425,50 +2432,7 @@ currently each subdomain has
 the same value
 &
 \tabularnewline
-\hline 
- dt\_rad &
-R&
-1800.&
-seconds&
-time interval of radiation call
-&run\_nml/iforcing = inwp
-\tabularnewline
-&
-(max\_dom)&
-&
-&
-currently each subdomain has
-&
-\tabularnewline
-&
-&
-&
-&
-the same value
-&
-\tabularnewline
-\hline 
- dt\_sso &
-R&
-3600.&
-seconds&
-time interval of sso call
-&run\_nml/iforcing = inwp
-\tabularnewline
-&
-(max\_dom)&
-&
-&
-currently each subdomain has
-&
-\tabularnewline
-&
-&
-&
-&
-the same value
-&
-\tabularnewline
+
 \hline 
  dt\_ccov &
 R&
@@ -2492,96 +2456,50 @@ currently is not used
 the same value
 &
 \tabularnewline
+
 \hline 
-dt\_gscp &
+ dt\_rad &
 R&
-iadv\_rcf * dtime &
+1800.&
 seconds&
-time interval of gscp call
+time interval of radiation call
 &run\_nml/iforcing = inwp
 \tabularnewline
 &
 (max\_dom)&
 &
 &
-each subdomain 
-&
-not recomended to change
-\tabularnewline
-&
-&
-&
-&
-it is halved
+currently each subdomain has
 &
 \tabularnewline
+&
+&
+&
+&
+the same value
+&
+\tabularnewline
+
 \hline 
-dt\_satad &
+ dt\_sso &
 R&
-iadv\_rcf * dtime &
+3600.&
 seconds&
-time interval of satad call
+time interval of sso call
 &run\_nml/iforcing = inwp
 \tabularnewline
 &
 (max\_dom)&
 &
 &
-each subdomain 
-&
-not recomended to change
-\tabularnewline
-&
-&
-&
-&
-it is halved
+currently each subdomain has
 &
 \tabularnewline
-\hline 
-dt\_turb &
-R&
-dt\_gscp &
-seconds&
-time interval of turb call
-&run\_nml/iforcing = inwp
-\tabularnewline
-&
-(max\_dom)&
-&
-&
-each subdomain 
-&
-not recomended to change
-\tabularnewline
 &
 &
 &
 &
-it is halved
-&
-\tabularnewline
-\hline 
-dt\_radheat &
-R&
-dt\_satad &
-seconds&
-time interval of radheat call
-&run\_nml/iforcing = inwp
-\tabularnewline
-&
-(max\_dom)&
-&
-&
-each subdomain 
-&
-not recomended to change
-\tabularnewline
-&
-&
-&
-&
-it is halved
+the same value
 &
 \tabularnewline
 
