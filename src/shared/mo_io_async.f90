@@ -264,56 +264,6 @@ CONTAINS
       STOP
     ENDIF
 
-    ! ----------------------------------------------------------------------------------------------
-    ! This routine is called from control_model immediatly before reading patches.
-    ! Unfortunately the setup (reading the namelists) is not completed at that point
-    ! since it is interspersed with calculations (like setting up the interploation).
-    ! Therefore we have to complete the setup here, at least for all relevant data
-    ! which is needed in this module and for setting up the CDI vlists.
-    !
-    ! Please note that the setup sequence of control_model is duplicated here.
-    ! !!! This implies that changes in control_model have to be repeated here !!!
-
-   !CALL diffusion_nml_setup(n_dom,parent_id,nlev)
-    CALL finish(TRIM(modname),'subroutine diffusion_nml_setup no longer exists')
-   !CALL dynamics_nml_setup(n_dom)  
-    CALL finish(TRIM(modname),'subroutine dynamics_nml_setup  no longer exists')
-
-!    IF (ltransport) CALL transport_nml_setup
-
-    SELECT CASE (iequations)
-      CASE (ishallow_water)
-        CALL init_vertical_coord_table(iequations, num_lev(1))
-        !
-      CASE (ihs_atm_temp, ihs_atm_theta)
-        CALL init_vertical_coord_table(iequations, num_lev(1))
-        !
-      CASE (inh_atmosphere)
-       !CALL nonhydrostatic_nml_setup
-        CALL finish(TRIM(modname),'subroutine nonhydrostatic_nml no longer exists')
-
-        IF (ivctype == 1) THEN
-          CALL init_hybrid_coord (num_lev(1))
-        ELSE IF (ivctype == 2) THEN
-          CALL init_sleve_coord (num_lev(1))
-        ENDIF
-        !
-    END SELECT
-
-    IF ( iforcing == inwp) THEN 
-!      CALL setup_nwp_phy
-!      CALL configure_atm_phy_nwp(n_dom, p_patch(:)%level,&
-!          &                     ltestcase, iadv_rcf, dtime )
-!KF temp
-!      IF (inwp_surface > 0) CALL setup_nwp_lnd
-    ENDIF
-
-!    CALL io_nml_setup
-
-    CALL close_nml
-
-    ! ----------------------------------------------------------------------------------------------
-    ! Done with setup, receive relevant parts of patch configuration from compute PEs
 
     CALL receive_patch_configuration
 
