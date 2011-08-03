@@ -38,7 +38,7 @@
 MODULE mo_nwp_sfc_interface
 
   USE mo_kind,                ONLY: wp
-!  USE mo_exception,           ONLY: message, message_text
+  USE mo_exception,           ONLY: message !, message_text
   USE mo_model_domain,        ONLY: t_patch
   USE mo_impl_constants,      ONLY: min_rlcell_int, zml_soil
   USE mo_impl_constants_grf,  ONLY: grf_bdywidth_c
@@ -48,7 +48,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag
   USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag !!$, t_tiles
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: iqv !,msg_level
+  USE mo_run_config,          ONLY: iqv ,msg_level
   USe mo_extpar_config,       ONLY: itopo
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nztlev, nlev_snow, nsfc_subs !, &
@@ -168,8 +168,9 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 
-    write(0,*) "SFC-DIAGNOSIS INTERFACE ",jstep
-
+    IF (msg_level >= 12) THEN
+      CALL message('mo_nwp_sfc_interface: ', 'call land-surface scheme')
+    ENDIF
 
 
 !$OMP PARALLEL
