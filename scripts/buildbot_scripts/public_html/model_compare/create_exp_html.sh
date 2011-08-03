@@ -1,7 +1,7 @@
 #!/bin/ksh
 
 Part1="test_hat_jww-moist_cld-cnv-vdf"
-Lists="iconR2B04-grid_0002_precip_APRC"
+Lists="R2B04L31_0002_precip_APRC"
 
 cat > ${Part1}.html <<EOF
 <html>
