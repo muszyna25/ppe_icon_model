@@ -1215,7 +1215,7 @@ CHARACTER (LEN=80)                    ::  &
  
      DO   j = jstarts, jends
         DO i = istarts, iends
-           IF(landmask(i,j,ns) >= 0.5_ireals) THEN        ! for land-points only
+           IF(landmask(i,j,ns) > 0.5_ireals) THEN        ! for land-points only
               llandmask(i,j,ns) = .true.
            END IF
         ENDDO
