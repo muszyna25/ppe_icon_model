@@ -81,7 +81,7 @@ cd $model_data_path
 # Parameters for ncl including double quotes
 ifile="${ExpName}_0001.nc"
 ofile="${ExpName}_${resolution}_ELEV"
-ofile="${ExpName}_${resolution}_W"              #  Vertical velocity
+ofile="${plotBaseName}_W"                       #  Vertical velocity
 otype="eps"                                     #  plot file format
 varname="ELEV"                                  #  Surface elevation
 varname="W"                                     #  Vertical velocity

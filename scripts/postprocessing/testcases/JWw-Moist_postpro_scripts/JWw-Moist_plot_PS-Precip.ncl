@@ -19,6 +19,7 @@
   Resolution = getenv("Resolution") 
   ConfigStr  = getenv("ConfigStr")
   ExpName    = getenv("ExpName")
+  plotBaseName = getenv("plotBaseName")
   CellType   = getenv("cell_type")
   OutFrq     = stringtoint(getenv("output_frequency"))
   dayStart   = stringtoint(getenv("post_start"))
@@ -57,7 +58,7 @@
   else
      DataFileName = DataPath + ExpName +"_"+sprinti("%4.4i",iday)+".nc"
   end if
-  PlotFileName = PlotPath + ExpName +"_"+sprinti("%4.4i",iday)+"_precip"
+  PlotFileName = PlotPath + plotBaseName +"_"+sprinti("%4.4i",iday)+"_precip"
 
   if (Model.eq."ICOHAM") then
      prName = (/"APRL","RSFL","SSFL","APRC","RSFC","SSFC"/)

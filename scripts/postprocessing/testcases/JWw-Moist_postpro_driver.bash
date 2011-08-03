@@ -253,6 +253,7 @@ if [ x${ExpName} == "x" ]; then
   exit
 fi
 export ExpName=${ExpName}
+export plotBaseName=${plotBaseName}
 
 # Temporary variables
 if [ $cdo_silence -eq 1 ]; then

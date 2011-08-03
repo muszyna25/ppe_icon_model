@@ -19,6 +19,7 @@
   Resolution = getenv("Resolution") 
   ConfigStr  = getenv("ConfigStr")
   ExpName    = getenv("ExpName")
+  plotBaseName = getenv("plotBaseName")
   VarName    = getenv("JWw_VarName")
   CellType   = getenv("cell_type")
   OutFrq     = stringtoint(getenv("output_frequency"))
@@ -31,10 +32,10 @@
 
   if (VarName.eq."T") then
      DataFileName = DataPath + ExpName +"_T850.nc"
-     PlotFileName = PlotPath + ExpName +"_T850"
+     PlotFileName = PlotPath + plotBaseName +"_T850"
   else
      DataFileName = DataPath + ExpName +".nc"
-     PlotFileName = PlotPath + ExpName +"_PS"
+     PlotFileName = PlotPath + plotBaseName +"_PS"
   end if
 
 ;---------------------------------------------------------------

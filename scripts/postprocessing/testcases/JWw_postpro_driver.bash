@@ -226,8 +226,6 @@ tmp_data_path="${model_data_path}tmp/"
 resolution=${horizontal_resolution}${vertical_resolution}
 # fori=${model_data_path}${EXP}${DOMAIN}_${resolution}
 # ftmp=${tmp_data_path}${EXP}_${resolution}
-fori=${model_data_path}${ExpName}
-ftmp=${tmp_data_path}${ExpName}
 
 # For the NCL plotting scripts
 export script_path=`pwd`"/JWw_postpro_scripts/"
@@ -241,6 +239,9 @@ if [ x${ExpName} == "x" ]; then
   exit
 fi
 export ExpName=${ExpName}
+export plotBaseName=${plotBaseName}
+fori=${model_data_path}${ExpName}
+ftmp=${tmp_data_path}${ExpName}
 
 
 

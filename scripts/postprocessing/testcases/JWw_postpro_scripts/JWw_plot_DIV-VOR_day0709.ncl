@@ -24,6 +24,7 @@
   Resolution = getenv("Resolution")
   ConfigStr  = getenv("ConfigStr")
   ExpName    = getenv("ExpName")
+  plotBaseName = getenv("plotBaseName")
   VarName    = getenv("JWw_VarName")
   CellType   = getenv("cell_type")
   OutFrq     = stringtoint(getenv("output_frequency"))
@@ -36,7 +37,7 @@
 ;---------------------------------------------------------------
 
   DataFileName = DataPath + ExpName +"_"+VarName+"850.nc"
-  PlotFileName = PlotPath + ExpName +"_"+VarName+"850"
+  PlotFileName = PlotPath + plotBaseName +"_"+VarName+"850"
 
 ;---------------------------------------------------------------
 ; time steps to be plotted
