@@ -587,7 +587,7 @@ IMPLICIT NONE
   REAL    (KIND = ireals), DIMENSION(ie,je), INTENT(IN) :: & 
                  rsmin2d          ! minimum stomata resistance                    ( s/m )
 
-  REAL    (KIND = ireals), DIMENSION(ie,je,ke,nztlev), INTENT(IN) :: & 
+  REAL    (KIND = ireals), DIMENSION(ie,je,ke), INTENT(IN) :: & 
                   u            , & ! zonal wind speed                              ( m/s )
                   v            , & ! meridional wind speed                         ( m/s )
                   t            , & ! temperature                                   (  k  )
@@ -597,7 +597,7 @@ IMPLICIT NONE
 !!$  REAL    (KIND = ireals), DIMENSION(ie,je,ke,nztlev), INTENT(IN) :: & 
 !!$                  pp               ! deviation from the reference pressure         ( pa  )
 
-  REAL    (KIND = ireals), DIMENSION(ie,je,nztlev), INTENT(IN) ::    &
+  REAL    (KIND = ireals), DIMENSION(ie,je), INTENT(IN) ::    &
                   ps               ! surface pressure                               ( pa  )
 
   REAL    (KIND = ireals), DIMENSION(ie,je,nztlev,nsubs1), INTENT(INOUT) :: &
@@ -2814,7 +2814,7 @@ IF(i.eq.1 .and. j.eq.1) &
               ! Temperature function
               if(ntstep.eq.0.and.itype_tran.ne.2) then
 !subs                t_2m(i,j)=t(i,j,ke,nx)
-                t_2m(i,j,ns)=t(i,j,ke,nx)
+                t_2m(i,j,ns)=t(i,j,ke)
               endif
               zf_tem     = MAX(0.0_ireals,MIN(1.0_ireals,4.0_ireals*     &
 !subs                           (t_2m(i,j)-t0_melt)*(ctend-t_2m(i,j))/(ctend-t0_melt)**2))
@@ -2824,7 +2824,7 @@ IF(i.eq.1 .and. j.eq.1) &
               ! necessary for determination of  slope of the saturation curve)
               z2iw       = zts_pm(i,j)*b2w + (1._ireals - zts_pm(i,j))*b2i
               z4iw       = zts_pm(i,j)*b4w + (1._ireals - zts_pm(i,j))*b4i
-              zepsat     = zsf_psat_iw(t(i,j,ke,nx),z2iw,z4iw)
+              zepsat     = zsf_psat_iw(t(i,j,ke),z2iw,z4iw)
               zepke      = qv(i,j,ke)*ps(i,j)/                   &
                                         (rdv + o_m_rdv*qv(i,j,ke))
               zf_sat     = MAX(0.0_ireals,MIN(1.0_ireals,1.0_ireals -  &
