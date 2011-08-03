@@ -161,14 +161,6 @@ CONTAINS
         prepicon%sfc%snowdens(jc,jb) = prepicon%sfc_in%snowdens(jc,jb) 
       ENDDO
 
-
-!! *************************************************************************************
-      ! Here, conversion of IFS soil moisture data into TERRA soil moisture data
-      ! has to be implemented
-!! *************************************************************************************
-
-
-
       ! Height adjustment of soil temperatures
       DO jc = 1, nlen
         ! correction for ground level
@@ -206,6 +198,14 @@ CONTAINS
                                   (1._wp-wfac_vintp(jk))*prepicon%sfc_in%wsoil(jc,jb,idx0(jk)+1)
         ENDDO
       ENDDO
+
+
+
+!! *************************************************************************************
+      ! Here, conversion of IFS soil moisture data into TERRA soil moisture data
+      ! has to be implemented
+!! *************************************************************************************
+
 
     ENDDO
 !$OMP END DO 
