@@ -1332,6 +1332,94 @@ n\_dom>1\tabularnewline
 Defined and used in: src/namelists/mo\_gridref\_nml.f90
 
 %------------------------------------------------------------------------------
+% prepicon_nml
+%------------------------------------------------------------------------------
+\subsection{prepicon\_nml}
+
+Remark: prepicon\_nml contains switches controlling the real-data initialization functionality of ICON.
+There are currently two ways of using it: 
+\begin{itemize}
+\item
+Using the preprocessing tool prep\_icon, it is possible to \\
+(a) generate the three-dimensional coordinate fields needed by IFS2ICON if IFS2ICON is requested to do
+the horizontal and vertical interpolation from the IFS grid to the ICON grid \\
+(b) convert the hydrostatic set of variables provided by IFS2ICON to the nonhydrostatic set of equations
+needed by ICONAM, and \\
+(c) perform the vertical interpolation to the ICON grid if IFS2ICON is requested to do only
+the horizontal interpolation step.
+\item
+If ICONAM (iequations=3) is combined with NWP physics (iforcing=3), setting ltestcase=.false. activates functionality (c) while running
+the ICON executable.
+\end{itemize}
+
+
+\begin{longtab}
+
+\hline 
+i\_oper\_mode&
+I & 1& &
+Operating mode if the prep\_icon executable is run: \\
+1: generate coordinate fields \\
+2: convert IFS2ICON output to NH prognostic variables\\
+3: do vertical interpolation&
+\tabularnewline
+
+\hline 
+nlev\_in&
+I & 91 & &
+number of model levels of input data&
+\tabularnewline
+
+\hline 
+nlevsoil\_in&
+I & 4 & &
+number of soil levels of input data&
+\tabularnewline
+
+\hline 
+zpbl1 &
+R & 500.0& m&
+bottom height (AGL) of layer used for gradient computation&
+\tabularnewline
+
+\hline 
+zpbl2 &
+R & 1000.0& m&
+top height (AGL) of layer used for gradient computation&
+\tabularnewline
+
+\hline 
+l\_w\_in&
+L & .FALSE.& &
+Logical switch if vertical wind is provided as input &
+\tabularnewline
+
+\hline 
+l\_sfc\_in&
+L & .TRUE.& &
+Logical switch if surface fields are provided as input (mandatory when inwp\_surface $>$0) &
+\tabularnewline
+
+\hline 
+l\_zp\_in&
+L & .FALSE.& &
+Logical switch for diagnostic output on pressure and height levels & prep\_icon only
+\tabularnewline
+
+\hline 
+l\_extdata\_out&
+L & .FALSE.& &
+Logical switch to write extdata fields into output & prep\_icon only
+\tabularnewline
+
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_prepicon\_nml.f90
+
+
+
+%------------------------------------------------------------------------------
 % interpol_nml: horizontal interpolation/reconstruction
 %------------------------------------------------------------------------------
 \subsection{interpol\_nml}
@@ -1642,6 +1730,12 @@ Shortest damping time scale (reached at model top)&
 htop\_moist\_proc&
 R& 200000.0& m&
 Height above which moist physics and advection of cloud and precipitation variables are turned off&
+\tabularnewline
+
+\hline 
+htop\_qvadv&
+R& 250000.0& m&
+Height above which QV advection is turned off (do not use except for debugging purposes)&
 \tabularnewline
 
 \hline 

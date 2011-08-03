@@ -61,7 +61,7 @@ USE mo_grid_config,          ONLY: n_dom
 USE mo_intp_data_strc,       ONLY: p_int_state
 USE mo_grf_intp_data_strc,   ONLY: p_grf_state
 ! NH-namelist state
-USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp !> subroutine
+USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
 ! NH-Model states
 USE mo_nonhydro_state,       ONLY: p_nh_state,   &
   &                                destruct_nh_state
@@ -75,7 +75,7 @@ USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping
 ! Initialization with real data
 USE mo_prepicon_utils,      ONLY: init_prepicon, prepicon, copy_prepicon2prog, &
   &                               compute_coord_fields,  deallocate_prepicon
-USE mo_prepicon_nml,        ONLY: i_oper_mode
+USE mo_prepicon_nml,        ONLY: i_oper_mode, l_sfc_in
 USE mo_nh_vert_interp,      ONLY: vertical_interpolation
 USE mo_ext_data,            ONLY: ext_data
 
@@ -169,6 +169,11 @@ CONTAINS
 
        i_oper_mode = 3 ! For the time being, the only option that works when called
                        ! from the main ICON program
+
+       IF (atm_phy_nwp_config(1)%inwp_surface > 0 .AND. .NOT. l_sfc_in) THEN
+         CALL finish(TRIM(routine),'A real-data run with surface scheme requires &
+                                    &surface input data')
+       ENDIF
  
        ! allocate memory for topography and coordinate fields,
        ! read topo data from netCDF file, 
