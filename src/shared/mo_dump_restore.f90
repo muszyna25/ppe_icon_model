@@ -129,7 +129,8 @@ MODULE mo_dump_restore
   USE mo_io_units,           ONLY: filename_max, nerr
   USE mo_model_domain,       ONLY: t_patch
   USE mo_grid_config,        ONLY: start_lev, n_dom, n_dom_start, lfeedback, &
-                                   l_limited_area, max_childdom, dynamics_parent_grid_id
+                                   l_limited_area, max_childdom, dynamics_parent_grid_id, &
+                                   global_cell_type
   USE mo_intp_data_strc      ! We need all from that module
   USE mo_grf_intp_data_strc  ! We need all from that module
 !  USE mo_interpol_nml        ! We need all from that module
@@ -2225,6 +2226,9 @@ CONTAINS
     ! This is copied from mo_model_domimp_patches/import_patches !!!
 
     max_childdom = 0
+
+    ! Set cell type to the value specified in the namelists for all patches
+    p_patch(n_dom_start:n_dom)%cell_type = global_cell_type
 
     IF(n_dom_start==0) THEN
       ! The physic parent (parent of the root patch) should also be read
