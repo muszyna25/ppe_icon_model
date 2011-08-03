@@ -451,13 +451,14 @@ CONTAINS
         ! initalize external data with meaningful data, in the case that they 
         ! are not read in from file.
         DO jg = 1, n_dom
-          ext_data(jg)%atm%fr_land(:,:)     = 1._wp   ! land fraction
-          ext_data(jg)%atm%fr_land_smt(:,:) = 1._wp   ! land fraction (smoothed)
-          ext_data(jg)%atm%plcov_mx(:,:)    = 0.5_wp  ! plant cover
-          ext_data(jg)%atm%lai_mx(:,:)      = 3._wp   ! max Leaf area index
-          ext_data(jg)%atm%rootdp(:,:)      = 1._wp   ! root depth
-          ext_data(jg)%atm%rsmin(:,:)       = 150._wp ! minimal stomata resistence
-          ext_data(jg)%atm%soiltyp(:,:)     = 8       ! soil type
+          ext_data(jg)%atm%fr_land(:,:)     = 0._wp    ! land fraction
+          ext_data(jg)%atm%fr_land_smt(:,:) = 0._wp    ! land fraction (smoothed)
+          ext_data(jg)%atm%plcov_mx(:,:)    = 0.5_wp   ! plant cover
+          ext_data(jg)%atm%lai_mx(:,:)      = 3._wp    ! max Leaf area index
+          ext_data(jg)%atm%rootdp(:,:)      = 1._wp    ! root depth
+          ext_data(jg)%atm%rsmin(:,:)       = 150._wp  ! minimal stomata resistence
+          ext_data(jg)%atm%soiltyp(:,:)     = 8        ! soil type
+          ext_data(jg)%atm%z0(:,:)          = 0.001_wp ! roughness length
         END DO
 
       ENDIF
