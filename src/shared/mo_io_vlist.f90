@@ -2930,6 +2930,8 @@ CONTAINS
 
       ! check for land variables
       !
+      IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN  ! TERRA
+
       DO jt = 1, nsfc_subs
         WRITE(cjt, '(i2)') jt
         WRITE(name,'(A,A)') "T_GT_tile_", TRIM(ADJUSTL(cjt))
@@ -3016,6 +3018,8 @@ CONTAINS
           RETURN
         ENDIF
       ENDDO
+
+      ENDIF
 
 
 
