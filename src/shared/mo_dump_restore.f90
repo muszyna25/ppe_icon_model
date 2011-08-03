@@ -121,7 +121,7 @@ MODULE mo_dump_restore
                                    min_rledge, max_rledge, &
                                    min_rlvert, max_rlvert, &
                                    min_rlcell_int, min_rledge_int
-  USE mo_exception,          ONLY: message_text, message, finish
+  USE mo_exception,          ONLY: message_text, message, finish, warning
   USE mo_parallel_config, ONLY: nproma
   USE mo_run_config,         ONLY: ltransport, &
      &                             num_lev, num_levp1, nshift
@@ -1926,12 +1926,39 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE check_att_double
+  !-------------------------------------------------------------------------
+
 
   !-------------------------------------------------------------------------
-  !
+  !> restore_dim
+  !! Checks if dimension "dim_name" in NetCDF file has given value
+  !! Restores the given value to the netcdf value, if they differ
+  SUBROUTINE restore_dim(dim_name, dim_value)
+
+    CHARACTER(LEN=*), INTENT(IN) :: dim_name
+    INTEGER, INTENT(INOUT) :: dim_value
+
+    INTEGER :: dimid, stat, val
+
+    stat = nf_inq_dimid (ncid, dim_name, dimid)
+    IF(stat /= nf_noerr) &
+      & CALL finish(modname,'Dimension '//TRIM(dim_name)//' not found in NetCDF file')
+
+    CALL nf(nf_inq_dimlen(ncid, dimid, val))
+    IF(val /= dim_value) THEN
+      WRITE(message_text,'(a,a,i0,a,i0)') dim_name,': NetCDF value = ',val,' expected: ',dim_value
+      CALL warning(modname,message_text)
+      WRITE(message_text,'(a,i0)') " Expected value will be restored to:", val
+      CALL warning(modname,message_text)
+      dim_value = val
+    ENDIF
+
+  END SUBROUTINE restore_dim
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
   !> check_dim
   !! Checks if dimension "dim_name" in NetCDF file has given value
-
   SUBROUTINE check_dim(dim_name, dim_value)
 
     CHARACTER(LEN=*), INTENT(IN) :: dim_name
@@ -1950,6 +1977,7 @@ CONTAINS
     ENDIF
 
   END SUBROUTINE check_dim
+
   !
   !-------------------------------------------------------------------------
   ! Public interface routines
@@ -2341,7 +2369,7 @@ CONTAINS
       CALL check_dim('max_childdom', p_patch(jg)%max_childdom)
 
       ! nverts_per_cell must conform to p%cell_type
-      CALL check_dim('nverts_per_cell', p_patch(jg)%cell_type)
+      CALL restore_dim('nverts_per_cell', p_patch(jg)%cell_type)
 
       CALL check_dim('n_levels', p_patch(jg)%nlev)
 
