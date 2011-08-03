@@ -64,17 +64,17 @@ MODULE mo_lnd_nwp_config
 
 !  TYPE t_nwp_lnd_config
 
-  INTEGER ::  nlev_soil, nztlev  !! number of soil layers, time integration scheme
-  INTEGER ::  nlev_snow          !! number of snow layers
-  INTEGER ::  nsfc_subs          !! number of TILES
-  INTEGER ::  itype_gscp                               ! type of grid-scale precipitation physics
-  INTEGER ::  itype_trvg                               ! type of vegetation transpiration parameterization
-  INTEGER ::  itype_evsl                               ! type of parameterization of bare soil evaporation
-  INTEGER ::  itype_tran                               ! type of surface to atmospher transfer
-  INTEGER ::  itype_root                               ! type of root density distribution
-  INTEGER ::  itype_heatcond                           ! type of soil heat conductivity
-  INTEGER ::  itype_hydbound                           ! type of hydraulic lower boundary condition
-  INTEGER ::  itype_subs                               ! type of subscale surface treatment =1 MOSAIC, =2 TILE 
+  INTEGER ::  nlev_soil, nztlev  ! number of soil layers, time integration scheme
+  INTEGER ::  nlev_snow          ! number of snow layers
+  INTEGER ::  nsfc_subs          ! number of TILES
+  INTEGER ::  itype_gscp         ! type of grid-scale precipitation physics
+  INTEGER ::  itype_trvg         ! type of vegetation transpiration parameterization
+  INTEGER ::  itype_evsl         ! type of parameterization of bare soil evaporation
+  INTEGER ::  itype_tran         ! type of surface to atmospher transfer
+  INTEGER ::  itype_root         ! type of root density distribution
+  INTEGER ::  itype_heatcond     ! type of soil heat conductivity
+  INTEGER ::  itype_hydbound     ! type of hydraulic lower boundary condition
+  INTEGER ::  itype_subs         ! type of subscale surface treatment =1 MOSAIC, =2 TILE 
 
 
   LOGICAL ::  lseaice     !> forecast with sea ice model

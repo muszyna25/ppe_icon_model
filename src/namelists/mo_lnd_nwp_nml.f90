@@ -47,14 +47,25 @@ MODULE mo_lnd_nwp_nml
   USE mo_io_restart_namelist, ONLY: open_tmpfile, store_and_close_namelist,  &
     &                               open_and_restore_namelist, close_tmpfile
 
-  USE mo_lnd_nwp_config,      ONLY: config_nztlev      => nztlev     , &
-    &                               config_nlev_snow   => nlev_snow  , &
-    &                               config_nsfc_subs   => nsfc_subs  , &
-    &                               config_lseaice     => lseaice    , &
-    &                               config_llake       => llake      , &
-    &                               config_lmelt       => lmelt      , &
-    &                               config_lmelt_var   => lmelt_var  , &
-    &                               config_lmulti_snow => lmulti_snow
+  USE mo_lnd_nwp_config,      ONLY: config_nztlev      => nztlev        , &
+    &                               config_nlev_snow   => nlev_snow     , &
+    &                               config_nsfc_subs   => nsfc_subs     , &
+    &                               config_lseaice     => lseaice       , &
+    &                               config_llake       => llake         , &
+    &                               config_lmelt       => lmelt         , &
+    &                               config_lmelt_var   => lmelt_var     , &
+    &                               config_lmulti_snow => lmulti_snow   , &
+    &                               config_itype_gscp  => itype_gscp    , &
+    &                               config_itype_trvg  => itype_trvg    , &
+    &                               config_itype_evsl  => itype_evsl    , &
+    &                               config_itype_tran  => itype_tran    , &
+    &                               config_itype_root  => itype_root    , &
+    &                               config_lstomata    => lstomata      , &
+    &                               config_l2tls       => l2tls         , &
+    &                               config_itype_subs  => itype_subs    , &
+    &                            config_itype_heatcond => itype_heatcond, &
+    &                            config_itype_hydbound => itype_hydbound, &
+    &                            config_lana_rho_snow  => lana_rho_snow
 
   IMPLICIT NONE
 
@@ -200,6 +211,17 @@ MODULE mo_lnd_nwp_nml
       config_lmelt       = lmelt
       config_lmelt_var   = lmelt_var
       config_lmulti_snow = lmulti_snow
+      config_itype_gscp  = itype_gscp
+      config_itype_trvg  = itype_trvg
+      config_itype_evsl  = itype_evsl
+      config_itype_tran  = itype_tran
+      config_itype_root  = itype_root
+      config_lstomata    = lstomata
+      config_l2tls       = l2tls
+      config_itype_subs  = itype_subs
+      config_itype_heatcond = itype_heatcond
+      config_itype_hydbound = itype_hydbound
+      config_lana_rho_snow  = lana_rho_snow
     ENDDO
 
     !-----------------------------------------------------
