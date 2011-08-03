@@ -1341,12 +1341,14 @@ CONTAINS
         CALL open_output_vlist('TEST-'//output_file_name(jg), jg)
       ENDDO
       new_output_files = .FALSE.
-
+      nstep = 0
     ENDIF
 
-    idate = cdiEncodeDate(datetime%year, datetime%month, datetime%day)
-    itime = cdiEncodeTime(datetime%hour, datetime%minute, NINT(datetime%second))
-    CALL vlist_start_step(idate, itime)
+
+    DO jg = 1, n_dom
+      CALL vlist_set_date_time(jg, idate, itime)
+      CALL vlist_start_step(jg, nstep)
+    ENDDO
 
     ! Go over all patches and output data
 
