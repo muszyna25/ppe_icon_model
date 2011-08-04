@@ -2,72 +2,143 @@
 <html>
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-15">
-<title>Buildbot ICON</title>
+<title>ICON Buildbot</title>
 </head>
 
 <body>
-<h1>Buildbot for ICON</h1>
+<h1>ICON Buildbot</h1>
 
-Buildbot starts every night a test suite on different machines, using different compilers.<p>
-<h3>The test consists in:</h3>
-<ol style="list-style-type: decimal;">
-  <li>removing files from the previous test</li>
-  <li>retrieving the most recent revision existing on "trunk/icon-dev"
-  <li>running "configure&make" for a specifed target machine and compiler
-  <li>making test runs with the following sub steps:
-  <ol style="list-style-type: lower-roman;">
-   <li>make run scripts for the target machine and for all experiments, for which descriptor files named run/exp.test_* exist
-   <li>launch the test run scripts
-   <li>launch existing post processing scripts, named run/post_*
-  </ol>
-</ol>
+Buildbot starts every night a test suite on a set of builders differing in machines, compilers 
+and parallelization setup. A standard Buildbot test unpacks the model code and scripts from the  
+repositors, configures and compiles the codes for the selected builder, and runs a series of 
+standard test experiments and related post-processings. Figures resulting from the 
+post-processings are archived and are uploaded to web pages for comparison with reference 
+figures.<p>
 
-<h3>The success (in green) or failure (in red) of these tests is displayed on the following pages:</h3>
+<h2>Status results</h2>
 
-<ul>
-  <li><a href="waterfall?reload=600&show_events=false&show_time=604800"><b>Waterfall display:</b></a>
-    Displays success/failure for all 4 steps listed above for all build targets, in chronological order.
-  </li>
+<table border="1" cellspacing="0" cellpadding="2">
 
-  <li><a href="grid?reload=600&width=20"><b>Grid display:</b></a>
-  Displays overall success or failure for the 20 most recent revisions tested by Buildbot, including regular nightly builds and additional test builds, ordered by build target.
-  </li>
+<thead>
 
-  <li><a href="tgrid?reload=600&length=15"><b>Transposed Grid Display:</b></a> 
-   Presents the same information as the grid, but lists the revisions down the side.
-  </li>
+<tr valign="baseline">
+<td><i>Display</i></td>
+<td><i>What it shows</i></td>
+</tr>
 
-  <li><a href="one_box_per_builder"><b>Latest build:</b></a>
-  Displays the overall success or failure for the last test of each builder, ordered by builder.
-  </li>
+</thead>
 
-  <li><a href="one_line_per_build?numbuilds=30"><b>List display:</b></a> Displays the overall success or failure of the most recent builds, ordered by time of completion of the build tests.
-  </li>
+<tfoot>
+</tfoot>
 
-  <li><a href="buildslaves"><b>Build slaves:</b></a>
-  Displays the status of all machines used by this Buildbot.
-  </li>
-</ul>
+<tbody>
 
-<h3>Postprocessing results are displayed here in comparison to a reference result from<br> an earlier revision:</h3>
-<ul>
-  <li><a href="model_compare/test_hat_jww.html"><b>exp.test_hat_jww</b></a></li>
-  <li><a href="model_compare/test_hat_jww-moist_cld-cnv-vdf.html"><b>exp.test_hat_jww-moist_cld-cnv-vdf</b></a></li>
+<tr valign="baseline">
+<td><a href="waterfall?show_events=false&show_time=604800">Waterfall</a></td>
+<td>Status of each step of the Buildbot tests for the past 7 days</td>
+</tr>
 
-  <li><a href="model_compare/test_nah_jww.html"><b>exp.test_nah_jww</b></a></li>
+<tr valign="baseline">
+<td><a href="grid?width=10">Grid</a></td>
+<td>Status of the complete Builbot test for the 10 latest tested revisions</td>
+</tr>
 
-  <li><a href="model_compare/test_nh35_tri_jws.html"><b>exp.test_nh35_tri_jws</b></a></li>
+<tr valign="baseline">
+<td><a href="one_box_per_builder">Latest build</a></td>
+<td>Status of the complete Builbot test for the latest test on each builder</td>
+</tr>
 
-  <li><a href="model_compare/test_nat_jww_nwp_mpiomp.html"><b>exp.test_nat_jww_nwp_mpiomp</b></a></li>
+<tr valign="baseline">
+<td><a href="one_line_per_build">List</a></td>
+<td>Status of the complete Builbot test for the latest 15 tests</td>
+</tr>
 
-  <li><a href="model_compare/test_nh3_tri_tracer_solid_body.html"><b>exp.test_nh3_tri_tracer_solid_body</b></a></li> 
+<tr valign="baseline">
+<td><a href="buildslaves">Build slaves</a></td>
+<td>Information on machines ("slaves"), builders, etc.</td>
+</tr>
 
-  <li><a href="model_compare/test_hom_lsm.html"><b>exp.test_hom_lsm</b></a></li> 
-</ul>
+</tbody>
+
+</table>
+
+<h2>Eperiment results</h2>
+
+
+<table border="1" cellspacing="0" cellpadding="2">
+
+<thead>
+
+<tr valign="baseline">
+<td width="230"><i>Experiment (exp)</i></td>
+<td width="300"><i>Description</i></td>
+<td width="150"><i>Model</i></td>
+<td width="120"><i>Grid</i></td>
+</tr>
+
+</thead>
+
+<tfoot>
+</tfoot>
+
+<tbody>
+
+<tr valign="baseline">
+<td><a href="model_compare/test_hat_jww.html">test_hat_jww</a></td>
+<td>Jablonowski Williamson baroclinic wave test</td>
+<td>hydrost. atmosphere</td>
+<td>triangle</td>
+</tr>
+
+<tr valign="baseline">
+<td><a href="model_compare/test_hat_jww-moist_cld-cnv-vdf.html">test_hat_jww-moist_cld-cnv-vdf</a></td>
+<td>Jablonowski Williamson baroclinic wave test + ECHAM physics</td>
+<td>hydrost. atmosphere</td>
+<td>triangle</td>
+</tr>
+
+<tr valign="baseline">
+<td><a href="model_compare/test_nah_jww.html">test_nah_jww</a></td>
+<td>Jablonowski Williamson baroclinic wave test</td>
+<td>non-hydrost. atmosph.</td>
+<td>hexagon/pentagon</td>
+</tr>
+
+<tr valign="baseline">
+<td><a href="model_compare/test_nat_jww_nwp_mpiomp.html">test_nat_jww_nwp_mpiomp</a></td>
+<td>Jablonowski Williamson baroclinic wave test + NWP physics, parallelization test</td>
+<td>non-hydrost. atmosph.</td>
+<td>triangle</td>
+</tr>
+
+<tr valign="baseline">
+<td><a href="model_compare/test_nh35_tri_jws.html">test_nh35_tri_jws</a></td>
+<td>Jablonowski Williamson steady-state test</td>
+<td>non-hydrost. atmosph.</td>
+<td>triangle</td>
+</tr>
+
+<tr valign="baseline">
+<td><a href="model_compare/test_nh3_tri_tracer_solid_body.html">test_nh3_tri_tracer_solid_body</a></td>
+<td>Solid body rotation transport test</td>
+<td>non-hydrost. atmosph.</td>
+<td>triangle</td>
+</tr>
+
+<tr valign="baseline">
+<td><a href="model_compare/test_hom_lsm.html">test_hom_lsm</a></td>
+<td>Wind forcing experiment with real land sea mask</td>
+<td>hydrostatic ocean</td>
+<td>triangle</td>
+</tr>
+
+</tbody>
+
+</table>
 
 <h3>About Buildbot</h3>
 <ul>
-  <li><a href="http://buildbot.net"><b>Buildbot home page</b></a></li>
-  <li><a href="about"><b>Buildbot version used</b></a></li>
+  <li><a href="about">Buildbot version used here</a></li>
+  <li>Buildbot home page: <a href="http://trac.buildbot.net" target="_blank">http://trac.buildbot.net</a></li>
 </ul>
 </body> </html>
