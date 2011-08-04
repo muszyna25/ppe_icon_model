@@ -646,6 +646,9 @@ CONTAINS
   !>
   SUBROUTINE nwp_omp_rrtm_radiation_thread ( )
 
+    REAL(wp), PARAMETER::  &
+      & cosmu0_dark =  -1.e-9_wp  ! minimum cosmu0, for smaller values no shortwave calculations
+    
     REAL(wp):: albvisdir     (nproma,omp_radiation_data%pt_patch%nblks_c) !<
     REAL(wp):: albnirdir     (nproma,omp_radiation_data%pt_patch%nblks_c) !<
     REAL(wp):: albvisdif     (nproma,omp_radiation_data%pt_patch%nblks_c) !<
@@ -656,7 +659,6 @@ CONTAINS
 
     ! Local scalars:
     REAL(wp):: zsct        ! solar constant (at time of year)
-    REAL(wp):: cosmu0_dark ! minimum cosmu0, for smaller values no shortwave calculations
     INTEGER:: jc,jk,jb
     INTEGER:: jg                !domain id
     INTEGER:: nlev, nlevp1      !< number of full and half levels
@@ -678,9 +680,6 @@ CONTAINS
     !-------------------------------------------------------------------------
     !> Radiation setup
     !-------------------------------------------------------------------------
-   ! determine minimum cosmu0 value
-    ! for cosmu0 values smaller than that don't do shortwave calculations
-    cosmu0_dark = -1.e-9_wp
 
     ! Calculation of zenith angle optimal during dt_rad.
     ! (For radheat, actual zenith angle is calculated separately.)
@@ -1077,6 +1076,9 @@ CONTAINS
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
 
+    REAL(wp), PARAMETER::  &
+      & cosmu0_dark =  -1.e-9_wp  ! minimum cosmu0, for smaller values no shortwave calculations
+    
     REAL(wp),INTENT(in)         :: p_sim_time
 
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
@@ -1097,7 +1099,6 @@ CONTAINS
 
     ! Local scalars:
     REAL(wp):: zsct        ! solar constant (at time of year)
-    REAL(wp):: cosmu0_dark ! minimum cosmu0, for smaller values no shortwave calculations
     INTEGER:: jc,jk,jb
     INTEGER:: jg                !domain id
     INTEGER:: nlev, nlevp1      !< number of full and half levels
@@ -1120,10 +1121,6 @@ CONTAINS
     !-------------------------------------------------------------------------
     !> Radiation setup
     !-------------------------------------------------------------------------
-
-    ! determine minimum cosmu0 value
-    ! for cosmu0 values smaller than that don't do shortwave calculations
-    cosmu0_dark = -1.e-9_wp
 
     ! Calculation of zenith angle optimal during dt_rad.
     ! (For radheat, actual zenith angle is calculated separately.)
@@ -1236,6 +1233,9 @@ CONTAINS
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
 !      &  routine = 'mo_nwp_rad_interface:'
 
+    REAL(wp), PARAMETER::  &
+      & cosmu0_dark =  -1.e-9_wp  ! minimum cosmu0, for smaller values no shortwave calculations
+    
     REAL(wp),INTENT(in)         :: p_sim_time
 
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
@@ -1293,7 +1293,6 @@ CONTAINS
 
     ! Local scalars:
     REAL(wp):: zsct        ! solar constant (at time of year)
-    REAL(wp):: cosmu0_dark ! minimum cosmu0, for smaller values no shortwave calculations
     INTEGER:: jc,jk,jb
     INTEGER:: jg                !domain id
     INTEGER:: nlev, nlevp1      !< number of full and half levels
@@ -1316,16 +1315,6 @@ CONTAINS
     !-------------------------------------------------------------------------
     !> Radiation setup
     !-------------------------------------------------------------------------
-
-    ! determine minimum cosmu0 value
-    ! for cosmu0 values smaller than that don't do shortwave calculations
-    SELECT CASE (atm_phy_nwp_config(jg)%inwp_radiation)
-    CASE (1)
-      cosmu0_dark = -1.e-9_wp
-    CASE (2)
-      cosmu0_dark =  1.e-9_wp
-    END SELECT
-
 
     ! Calculation of zenith angle optimal during dt_rad.
     ! (For radheat, actual zenith angle is calculated separately.)
@@ -1567,6 +1556,9 @@ CONTAINS
 !    REAL(wp), PARAMETER::  &
 !      & zqco2 = 0.5014E-03_wp*353.9_wp/330._wp ! CO2 (mixing ratio 353.9 ppm (like vmr_co2))
 
+    REAL(wp), PARAMETER::  &
+      & cosmu0_dark =  1.e-9_wp  ! minimum cosmu0, for smaller values no shortwave calculations
+    
     LOGICAL, INTENT(in)         :: lredgrid        !< use reduced grid for radiation
 
     REAL(wp),INTENT(in)         :: p_sim_time
@@ -1653,7 +1645,6 @@ CONTAINS
 
     ! Local scalars:
     REAL(wp):: zsct        ! solar constant (at time of year)
-    REAL(wp):: cosmu0_dark ! minimum cosmu0, for smaller values no shortwave calculations
     INTEGER:: jc,jk,jb
     INTEGER:: jg                !domain id
     INTEGER:: nlev, nlevp1      !< number of full and half levels
@@ -1680,18 +1671,7 @@ CONTAINS
     ! CO2 help variable for Ritter-Geleyn scheme
     zqco2 = 0.5014E-03_wp*vmr_co2/330.e-6_wp
 
-
-    ! determine minimum cosmu0 value
-    ! for cosmu0 values smaller than that don't do shortwave calculations
-    SELECT CASE (atm_phy_nwp_config(jg)%inwp_radiation)
-    CASE (1)
-      cosmu0_dark = -1.e-9_wp
-    CASE (2)
-      cosmu0_dark =  1.e-9_wp
-    END SELECT
-
-    !O3
-
+    ! O3
     SELECT CASE (irad_o3)
     CASE (6)
       CALL calc_o3_clim(                             &
@@ -2045,6 +2025,9 @@ CONTAINS
 !    REAL(wp), PARAMETER::  &
 !      & zqco2 = 0.5014E-03_wp*353.9_wp/330._wp ! CO2 (mixing ratio 353.9 ppm (like vmr_co2))
 
+    REAL(wp), PARAMETER::  &
+      & cosmu0_dark =  1.e-9_wp  ! minimum cosmu0, for smaller values no shortwave calculations
+    
     LOGICAL, INTENT(in)         :: lredgrid        !< use reduced grid for radiation
 
     REAL(wp),INTENT(in)         :: p_sim_time
@@ -2168,7 +2151,6 @@ CONTAINS
 
     ! Local scalars:
     REAL(wp):: zsct        ! solar constant (at time of year)
-    REAL(wp):: cosmu0_dark ! minimum cosmu0, for smaller values no shortwave calculations
     INTEGER:: jc,jk,jb
     INTEGER:: jg                !domain id
     INTEGER:: nlev, nlevp1      !< number of full and half levels
@@ -2195,18 +2177,7 @@ CONTAINS
     ! CO2 help variable for Ritter-Geleyn scheme
     zqco2 = 0.5014E-03_wp*vmr_co2/330.e-6_wp
 
-
-    ! determine minimum cosmu0 value
-    ! for cosmu0 values smaller than that don't do shortwave calculations
-    SELECT CASE (atm_phy_nwp_config(jg)%inwp_radiation)
-    CASE (1)
-      cosmu0_dark = -1.e-9_wp
-    CASE (2)
-      cosmu0_dark =  1.e-9_wp
-    END SELECT
-
-    !O3
-
+    ! O3
     SELECT CASE (irad_o3)
     CASE (6)
       CALL calc_o3_clim(                             &
