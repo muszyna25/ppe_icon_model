@@ -77,9 +77,10 @@ MODULE mo_nh_init_utils
 
   PUBLIC :: nflat, nflatlev
 
-  PUBLIC :: hydro_adjust, init_hybrid_coord, init_sleve_coord, compute_smooth_topo,    &
-            init_vert_coord, topography_blending, topography_feedback, interp_uv_2_vn, &
-            init_w, adjust_w, convert_thdvars, virtual_temp, convert_omega2w
+  PUBLIC :: hydro_adjust, init_hybrid_coord, init_sleve_coord, compute_smooth_topo, &
+    &       init_vert_coord, topography_blending, topography_feedback,              &
+    &       interp_uv_2_vn, init_w, adjust_w, convert_thdvars, virtual_temp,        &
+    &       convert_omega2w
 
 CONTAINS
   !-------------
@@ -642,6 +643,7 @@ CONTAINS
 !$OMP END PARALLEL
 
   END SUBROUTINE adjust_w
+
 
   !---------------------------------------------------------------------------
   !>

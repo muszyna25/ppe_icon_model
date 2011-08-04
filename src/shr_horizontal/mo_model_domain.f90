@@ -767,6 +767,9 @@ TYPE t_patch
   ! with the upper margin of the current domain jg
   INTEGER :: nshift
   !
+  ! total shift of model top with respect to global domain
+  INTEGER :: nshift_total
+  !
   ! the same information seen from the parent level (duplication needed to simplify flow control)
   INTEGER :: nshift_child
 

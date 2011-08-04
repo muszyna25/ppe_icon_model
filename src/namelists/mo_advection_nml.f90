@@ -184,21 +184,6 @@ CONTAINS
                                 ! =0.0 selects 4th order advection in up3
     llsq_svd        = .FALSE.   ! apply QR-decomposition (FALSE)
 
-!DR    iadv_slev(:,:)      = 1         ! vertical start level !DR should go into 
-!DR                                    ! the derived variables-section since it 
-!DR                                    ! is not part of our namelist
-
-!DR special settings for global_cell_type=6 will be done during the 
-!DR crosscheck. At this point it is important to get rid of any 
-!DR dependencies. 
-!DR    SELECT CASE (global_cell_type)
-!DR    CASE (3)
-!DR      ihadv_tracer(:) = imiura    ! miura horizontal advection scheme
-!DR      itype_hlimit(:) = ifluxl_m  ! monotonous flux limiter
-!DR    CASE (6)
-!DR      ihadv_tracer(:) = iup3      ! 3rd order upwind horizontal advection scheme
-!DR      itype_hlimit(:) = ifluxl_sm ! semi monotonous flux limiter
-!DR    END SELECT
 
 
     !------------------------------------------------------------------

@@ -43,8 +43,11 @@
 !!
 MODULE mo_nonhydrostatic_config
 
-  USE mo_kind,               ONLY: wp
-  USE mo_impl_constants,     ONLY: max_dom ! MATSUNO_DEF,MATSUNO_COR,MATSUNO_AVE  
+  USE mo_kind,                 ONLY: wp
+  USE mo_impl_constants,       ONLY: max_dom, MAX_CHAR_LENGTH !, & 
+!    &                                MATSUNO_DEF,MATSUNO_COR,MATSUNO_AVE  
+  USE mo_exception,            ONLY: message, message_text
+  USE mo_vertical_coord_table, ONLY: vct_a, vct_b
 
   IMPLICIT NONE
 
@@ -109,6 +112,66 @@ MODULE mo_nonhydrostatic_config
   !>
   !!
 !  TYPE(t_nonhydrostatic_config) :: nonhydrostatic_config(max_dom) ! config state 
+
+
+CONTAINS
+
+  !>
+  !! Setup of additional nonhydrostatic control variables
+  !!
+  !! Setup of additional nonhydrostatic control variables depending on the 
+  !! nonhydrostatic-NAMELIST and potentially other namelists. This routine is 
+  !! called, after all namelists have been read and a synoptic consistency 
+  !! check has been done.
+  !!
+  !! @par Revision History
+  !! Initial revision by Daniel Reinert, DWD (2011-08-04)
+  !!
+  SUBROUTINE configure_nonhydrostatic(jg, nlev, nshift_total)
+  !
+    INTEGER, INTENT(IN) :: jg           !< patch 
+    INTEGER, INTENT(IN) :: nlev         !< number of full vertical levels 
+    INTEGER, INTENT(IN) :: nshift_total 
+
+    INTEGER :: jk, jk1
+
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER ::  &
+      &  routine = 'mo_nonhydrostatic_config:configure_nonhydrostatic'
+
+    !-----------------------------------------------------------------------
+
+
+    ! Determine start level for moist physics processes (specified by htop_moist_proc)
+    DO jk = 1, nlev
+      jk1 = jk + nshift_total
+      IF (0.5_wp*(vct_a(jk1)+vct_a(jk1+1)) < htop_moist_proc) THEN
+        kstart_moist(jg) = jk
+        EXIT
+      ENDIF
+    ENDDO
+
+    IF ( kstart_moist(jg) > 1 ) THEN
+      WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
+        '; computation of moist physics processes starts in layer ', kstart_moist(jg)
+      CALL message(TRIM(routine),message_text)
+    ENDIF
+
+    ! Determine start level for QV advection (specified by htop_qvadv)
+    DO jk = 1, nlev
+      jk1 = jk + nshift_total
+      IF (0.5_wp*(vct_a(jk1)+vct_a(jk1+1)) < htop_qvadv) THEN
+        kstart_qv(jg) = jk
+        EXIT
+      ENDIF
+    ENDDO
+
+    IF ( kstart_qv(jg) > 1 ) THEN
+      WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
+        '; computation of QV advection starts in layer ', kstart_qv(jg)
+      CALL message(TRIM(routine),message_text)
+    ENDIF
+
+  END SUBROUTINE configure_nonhydrostatic
 
 
 END MODULE mo_nonhydrostatic_config

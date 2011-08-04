@@ -426,7 +426,7 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-      
+
   END SUBROUTINE nwp_surface
 
   !-------------------------------------------------------------------------

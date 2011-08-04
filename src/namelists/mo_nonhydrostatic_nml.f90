@@ -70,10 +70,8 @@ MODULE mo_nonhydrostatic_nml
                                     & config_ltheta_up_hori   => ltheta_up_hori   , &
                                     & config_upstr_beta       => upstr_beta       , &
                                     & config_ltheta_up_vert   => ltheta_up_vert   , &
-                                    & config_k2_updamp_coeff  => k2_updamp_coeff  , &
-                                    ! not from namelist
-                                    & config_kstart_moist     => kstart_moist     , &
-                                    & config_kstart_qv        => kstart_qv
+                                    & config_k2_updamp_coeff  => k2_updamp_coeff
+
 
   IMPLICIT NONE
   PRIVATE
@@ -131,10 +129,6 @@ MODULE mo_nonhydrostatic_nml
   REAL(wp) :: k2_updamp_coeff        ! 2nd order additional horizontal diffusion
                                      ! coefficient in the upper damping zone
 
-  ! Reated parameters not part of the namelist
-  INTEGER :: kstart_moist(max_dom)   ! related flow control variable (NOT a namelist variable)
-  INTEGER :: kstart_qv(max_dom)      ! related flow control variable (NOT a namelist variable)
-
 
   NAMELIST /nonhydrostatic_nml/ itime_scheme, iadv_rcf, ivctype, htop_moist_proc,          &
                               & htop_qvadv, damp_height, damp_height_u, rayleigh_coeff,    &
@@ -188,8 +182,7 @@ CONTAINS
     ! computed everywhere by default)
     htop_moist_proc = 200000._wp
     htop_qvadv      = 250000._wp
-    kstart_moist(:) = 1
-    kstart_qv(:)    = 1
+
 
     ! Settings for icell_type=3
     damp_height(1)    = 30000.0_wp
@@ -312,8 +305,6 @@ CONTAINS
 !
        config_rayleigh_coeff(:) = rayleigh_coeff(:)
        config_damp_height   (:) = damp_height   (:)
-       config_kstart_moist  (:) = kstart_moist  (:)
-       config_kstart_qv     (:) = kstart_qv     (:)
        config_iadv_rhotheta     = iadv_rhotheta
        config_vwind_offctr      = vwind_offctr
        config_igradp_method     = igradp_method

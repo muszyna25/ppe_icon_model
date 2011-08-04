@@ -38,7 +38,7 @@ MODULE mo_nwp_phy_init
 
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: pi
-  USE mo_physical_constants,  ONLY: re
+  USE mo_physical_constants,  ONLY: re, grav
   USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag,t_nwp_phy_tend
   USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag  !, t_tiles
   USE mo_ext_data,            ONLY: t_external_data
@@ -365,6 +365,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
         CALL message('mo_nwp_phy_init:', 'convection initialized')
   ENDIF
 
+
   !------------------------------------------
   !< setup for turbulence
   !------------------------------------------
@@ -376,6 +377,12 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
   IF (  atm_phy_nwp_config(jg)%inwp_turb == 1 .AND. .NOT. is_restart_run() ) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init COSMO turbulence')
+
+
+    ! initialize gz0
+    !
+!DR    prm_diag%gz0(:,:) = grav * ext_data%atm%z0(:,:)  ! roughness length * g
+
 
     rl_start = 1 ! Initialization should be done for all points
     rl_end   = min_rlcell

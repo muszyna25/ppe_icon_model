@@ -173,7 +173,6 @@ MODULE mo_lnd_nwp_nml
     !> KF  current settings to get NWP turbulence running
     lseaice    = .FALSE.
     llake      = .FALSE.
-    lmulti_snow= .FALSE.
     
 
 
@@ -232,6 +231,8 @@ MODULE mo_lnd_nwp_nml
       WRITE(funit,NML=lnd_nml)                    
       CALL store_and_close_namelist(funit, 'lnd_nml') 
     ENDIF
+
+
     ! 6. write the contents of the namelist to an ASCII file
     IF(my_process_is_stdio()) WRITE(nnml_output,nml=lnd_nml)
 

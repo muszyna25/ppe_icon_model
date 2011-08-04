@@ -49,7 +49,7 @@ MODULE mo_vertical_grid
   USE mo_nonhydrostatic_config, ONLY: rayleigh_coeff,damp_height, igradp_method, ivctype,  & 
     &                                 vwind_offctr, exner_expol, l_zdiffu_t, thslp_zdiffu, &
     &                                 thhgtd_zdiffu, htop_moist_proc, htop_qvadv,          &
-    &                                 kstart_moist, kstart_qv, damp_timescale_u, damp_height_u
+    &                                 damp_timescale_u, damp_height_u
   USE mo_diffusion_config,      ONLY: diffusion_config
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_run_config,            ONLY: msg_level
@@ -111,10 +111,10 @@ MODULE mo_vertical_grid
     TYPE(t_nh_state), INTENT(INOUT)      :: p_nh(n_dom)
     TYPE(t_int_state),  INTENT(IN)       :: p_int(n_dom)
 
-    INTEGER :: jg, jgp, jk, jk1, jk_start, jb, jc, je, jv, jn, jgc, nlen, &
+    INTEGER :: jg, jk, jk1, jk_start, jb, jc, je, jv, jn, jgc, nlen, &
                nblks_c, npromz_c, nblks_e, npromz_e, nblks_v, npromz_v, ic, jkmax
     INTEGER :: nlev, nlevp1              !< number of full levels
-    INTEGER :: nshift_total(n_dom)       !< Total shift of model top w.r.t. global domain
+
     ! Note: the present way of setting up coordinate surfaces will not work for vertical refinement
     INTEGER :: i_startidx, i_endidx, i_startblk, i_endblk, i_nchdom, icount_total
     INTEGER :: ica(max_dom)
@@ -137,7 +137,6 @@ MODULE mo_vertical_grid
     ! running timer
     CALL init_timer
 
-    nshift_total(1) = 0
 
     DO jg = 1,n_dom
 
@@ -162,12 +161,10 @@ MODULE mo_vertical_grid
 
       ! total shift of model top with respect to global domain
       IF (jg > 1) THEN
-        jgp = p_patch(jg)%parent_id
-        nshift_total(jg) = nshift_total(jgp) + p_patch(jg)%nshift
-        nflatlev(jg)     = nflatlev(1) - nshift_total(jg)
+        nflatlev(jg)     = nflatlev(1) - p_patch(jg)%nshift_total
       ENDIF
       IF (p_patch(jg)%cell_type == 6) nflatlev(jg) = nflat
-      IF (jg > 1 .AND. nshift_total(jg) > 0 .AND. nflatlev(jg) < 1) THEN
+      IF (jg > 1 .AND. p_patch(jg)%nshift_total > 0 .AND. nflatlev(jg) < 1) THEN
         CALL finish (TRIM(routine), &
                      'nflat must be more than the top of the innermost nested domain')
       ENDIF
@@ -181,8 +178,8 @@ MODULE mo_vertical_grid
 
       ! Initialize vertical coordinate for cell points
       CALL init_vert_coord(ext_data(jg)%atm%topography_c, ext_data(jg)%atm%topography_smt_c, &
-                           p_nh(jg)%metrics%z_ifc, p_nh(jg)%metrics%z_mc,                    &
-                           nlev, nblks_c, npromz_c, nshift_total(jg), nflatlev(jg),          &
+                           p_nh(jg)%metrics%z_ifc, p_nh(jg)%metrics%z_mc, nlev,              &
+                           nblks_c, npromz_c, p_patch(jg)%nshift_total, nflatlev(jg),        &
                            l_half_lev_centr                                                  )
 
 !$OMP PARALLEL
@@ -301,7 +298,7 @@ MODULE mo_vertical_grid
 
       ! Initialize vertical coordinate for vertex points
       CALL init_vert_coord(ext_data(jg)%atm%topography_v, ext_data(jg)%atm%topography_smt_v, &
-                           z_ifv, z_mfv, nlev, nblks_v, npromz_v, nshift_total(jg),          &
+                           z_ifv, z_mfv, nlev, nblks_v, npromz_v, p_patch(jg)%nshift_total,  &
                            nflatlev(jg), l_half_lev_centr                                    )
 
       ! Start index for slope computations
@@ -434,35 +431,35 @@ MODULE mo_vertical_grid
 !$OMP END PARALLEL
       ENDIF
 
-      ! Determine start level for moist physics processes (specified by htop_moist_proc)
-      DO jk = 1, nlev
-        jk1 = jk + nshift_total(jg)
-        IF (0.5_wp*(vct_a(jk1)+vct_a(jk1+1)) < htop_moist_proc) THEN
-          kstart_moist(jg) = jk
-          EXIT
-        ENDIF
-      ENDDO
-
-      IF (kstart_moist(jg) > 1 .AND. msg_level >= 10) THEN
-        WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
-          '; computation of moist physics processes starts in layer ', kstart_moist(jg)
-        CALL message(TRIM(routine),message_text)
-      ENDIF
-
-      ! Determine start level for QV advection (specified by htop_qvadv)
-      DO jk = 1, nlev
-        jk1 = jk + nshift_total(jg)
-        IF (0.5_wp*(vct_a(jk1)+vct_a(jk1+1)) < htop_qvadv) THEN
-          kstart_qv(jg) = jk
-          EXIT
-        ENDIF
-      ENDDO
-
-      IF (kstart_qv(jg) > 1 .AND. msg_level >= 10) THEN
-        WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
-          '; computation of QV advection starts in layer ', kstart_qv(jg)
-        CALL message(TRIM(routine),message_text)
-      ENDIF
+!!$      ! Determine start level for moist physics processes (specified by htop_moist_proc)
+!!$      DO jk = 1, nlev
+!!$        jk1 = jk + nshift_total(jg)
+!!$        IF (0.5_wp*(vct_a(jk1)+vct_a(jk1+1)) < htop_moist_proc) THEN
+!!$          kstart_moist(jg) = jk
+!!$          EXIT
+!!$        ENDIF
+!!$      ENDDO
+!!$
+!!$      IF (kstart_moist(jg) > 1 .AND. msg_level >= 10) THEN
+!!$        WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
+!!$          '; computation of moist physics processes starts in layer ', kstart_moist(jg)
+!!$        CALL message(TRIM(routine),message_text)
+!!$      ENDIF
+!!$
+!!$      ! Determine start level for QV advection (specified by htop_qvadv)
+!!$      DO jk = 1, nlev
+!!$        jk1 = jk + nshift_total(jg)
+!!$        IF (0.5_wp*(vct_a(jk1)+vct_a(jk1+1)) < htop_qvadv) THEN
+!!$          kstart_qv(jg) = jk
+!!$          EXIT
+!!$        ENDIF
+!!$      ENDDO
+!!$
+!!$      IF (kstart_qv(jg) > 1 .AND. msg_level >= 10) THEN
+!!$        WRITE(message_text,'(2(a,i4))') 'Domain', jg, &
+!!$          '; computation of QV advection starts in layer ', kstart_qv(jg)
+!!$        CALL message(TRIM(routine),message_text)
+!!$      ENDIF
 
       ! offcentering in vertical mass flux 
       p_nh(jg)%metrics%vwind_expl_wgt(:,:) = 0.5_wp - vwind_offctr
@@ -475,7 +472,7 @@ MODULE mo_vertical_grid
       p_nh(jg)%metrics%rayleigh_u(:)   = 0.0_wp
       p_nh(jg)%metrics%enhfac_diffu(:) = 1.0_wp
 
-      jkmax = MAX(2,nshift_total(jg)+nflatlev(jg))
+      jkmax = MAX(2,p_patch(jg)%nshift_total+nflatlev(jg))
       damp_height(jg) = MAX(vct_a(jkmax),damp_height(jg))
       damp_height_u   = MAX(0.5_wp*(vct_a(jkmax-1)+vct_a(jkmax)),damp_height_u)
 
@@ -483,19 +480,19 @@ MODULE mo_vertical_grid
       nrdmax(jg) = 1
       nrdmax_u(jg) = 0
       DO jk = 2, nlevp1
-        jk1 = jk + nshift_total(jg)
+        jk1 = jk + p_patch(jg)%nshift_total
         IF (vct_a(jk1) >= damp_height(jg))                     nrdmax(jg)   = jk
         IF (0.5_wp*(vct_a(jk1-1)+vct_a(jk1)) >= damp_height_u) nrdmax_u(jg) = jk-1
       ENDDO
 
       ! Rayleigh damping coefficient for w
       DO jk = 1, nrdmax(jg)
-        jk1 = jk + nshift_total(jg)
+        jk1 = jk + p_patch(jg)%nshift_total
 !        z_diff = MAX(0.0_wp,vct_a(jk1)-damp_height(jg))
         z_diff = vct_a(1) - vct_a(jk1)
         IF (jg == 1 .OR. damp_height(jg) /= damp_height(1)) THEN
 !          p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*(SIN(pi_2*z_diff/ &
-!            MAX(1.e-3_wp,vct_a(nshift_total(jg)+1)-damp_height(jg))))**2
+!            MAX(1.e-3_wp,vct_a(p_patch(jg)%nshift_total+1)-damp_height(jg))))**2
           p_nh(jg)%metrics%rayleigh_w(jk)= rayleigh_coeff(jg)*&
           (1._wp-TANH(3.8_wp*z_diff/MAX(1.e-6_wp,vct_a(1)-damp_height(jg))))
 
@@ -508,7 +505,7 @@ MODULE mo_vertical_grid
 
       ! Enhancement coefficient for nabla4 background diffusion near model top
       DO jk = 1, nrdmax(jg)
-        jk1 = jk + nshift_total(jg)
+        jk1 = jk + p_patch(jg)%nshift_total
 !        z_diff = MAX(0.0_wp,0.5_wp*(vct_a(jk1)+vct_a(jk1+1))-damp_height(jg))
         z_diff = 0.5_wp*(vct_a(1)+vct_a(2))-0.5_wp*(vct_a(jk1)+vct_a(jk1+1))
         p_nh(jg)%metrics%enhfac_diffu(jk) = 1._wp + &
@@ -521,7 +518,7 @@ MODULE mo_vertical_grid
       ENDDO
 
       DO jk = 1, nrdmax_u(jg)
-        jk1 = jk + nshift_total(jg)
+        jk1 = jk + p_patch(jg)%nshift_total
         z_diff = 0.5_wp*(vct_a(1)+vct_a(2))-0.5_wp*(vct_a(jk1)+vct_a(jk1+1))
         p_nh(jg)%metrics%rayleigh_u(jk) = 1._wp/damp_timescale_u*  &
           (1._wp-TANH(3.8_wp*z_diff/MAX(1.e-6_wp,0.5_wp*(vct_a(1)+vct_a(2))-damp_height_u)))
@@ -535,7 +532,7 @@ MODULE mo_vertical_grid
           'Damping coefficients for u and w; diffusion enhancement coefficient:'
         CALL message('mo_vertical_grid',message_text)
         DO jk = 1, MAX(nrdmax(jg),nrdmax_u(jg))
-          jk1 = jk + nshift_total(jg)
+          jk1 = jk + p_patch(jg)%nshift_total
           WRITE(message_text,'(a,i5,a,f8.1,3e13.5)') 'level',jk,', half-level height',vct_a(jk1),&
             p_nh(jg)%metrics%rayleigh_u(jk), p_nh(jg)%metrics%rayleigh_w(jk),                    &
             p_nh(jg)%metrics%enhfac_diffu(jk)

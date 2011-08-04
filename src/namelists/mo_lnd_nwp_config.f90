@@ -86,9 +86,7 @@ MODULE mo_lnd_nwp_config
   LOGICAL ::  l2tls       !! forecast with 2-TL integration scheme
   LOGICAL ::  lana_rho_snow !! if .TRUE., take rho_snow-values from analysis file 
 
-! already in impl_constants
-!  REAL(wp), DIMENSION(8):: zml_soil=(/ 0.005_wp,0.02_wp,0.06_wp,0.18_wp,0.54_wp,1.62_wp,&
-!    & 4.86_wp,14.58_wp /)
+! zml_soil in impl_constants
 
 !  END TYPE t_nwp_lnd_config
 

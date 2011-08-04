@@ -47,7 +47,8 @@ USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I
 
 ! Control parameters: run control, dynamics, i/o
 !
-USE mo_nonhydrostatic_config,ONLY: ivctype, kstart_moist, kstart_qv, l_open_ubc
+USE mo_nonhydrostatic_config,ONLY: ivctype, kstart_moist, kstart_qv,    &
+  &                                l_open_ubc, configure_nonhydrostatic
 USE mo_dynamics_config,   ONLY: iequations
 USE mo_run_config,        ONLY: configure_run, &
   & ltimer,               & !    :
@@ -390,6 +391,7 @@ CONTAINS
       ELSE IF (ivctype == 2) THEN
         CALL init_sleve_coord(p_patch(1)%nlev)
       ENDIF
+
     CASE DEFAULT
     END SELECT
 
@@ -402,6 +404,12 @@ CONTAINS
     CALL configure_dynamics ( n_dom )
     CALL configure_diffusion( n_dom, dynamics_parent_grid_id, &
                             & nlev, vct_a, vct_b, apzero      )
+
+    IF (iequations == inh_atmosphere) THEN
+      DO jg =1,n_dom
+        CALL configure_nonhydrostatic(jg, p_patch(jg)%nlev, p_patch(jg)%nshift_total)
+      ENDDO
+    ENDIF
 
     DO jg =1,n_dom
      CALL configure_advection( jg, p_patch(jg)%nlev, p_patch(1)%nlev,      &

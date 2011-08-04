@@ -136,7 +136,7 @@ MODULE mo_nh_stepping
     & radiation_thread_status, model_thread_status, thread_busy 
   USE mo_parallel_config,        ONLY: nh_stepping_threads
 #endif
-  
+
   IMPLICIT NONE
 
   PRIVATE
@@ -1461,6 +1461,7 @@ MODULE mo_nh_stepping
           &                      opt_calc_temp=.TRUE.,                                  &
           &                      opt_calc_pres=.TRUE.                                 )
       ENDIF
+
 
       ! Finally, switch between time levels now and new for next time step
       n_temp   = nnow(jg)
