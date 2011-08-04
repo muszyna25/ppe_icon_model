@@ -30,7 +30,12 @@ echo "================================================="
 
 cd ${TARGET_PATH}
 
+# This call is done at the begin of the script to save the jpg-file for the yesterday
+# run. At the end when the new eps plots have been loaded and the eps-files has been 
+# created out of the eps-files we are caolling the script ones again
+
 ${TARGET_PATH}/run_html.ksh
+
 echo "STATUS: $?"
 
 # Check if a new upload directory is there
