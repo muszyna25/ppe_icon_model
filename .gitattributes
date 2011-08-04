@@ -674,7 +674,6 @@ scripts/buildbot_scripts/public_html/model_compare/ScreenStyle.css -text
 scripts/buildbot_scripts/public_html/model_compare/compare_template.html -text
 scripts/buildbot_scripts/public_html/model_compare/convert2jpg.ksh -text
 scripts/buildbot_scripts/public_html/model_compare/create_exp_html.sh -text
-scripts/buildbot_scripts/public_html/model_compare/create_html.ksh -text
 scripts/buildbot_scripts/public_html/model_compare/crontab.info -text
 scripts/buildbot_scripts/public_html/model_compare/crontjob_create_plots.ksh -text
 scripts/buildbot_scripts/public_html/model_compare/get_eps-files.ksh -text
