@@ -673,11 +673,8 @@ scripts/buildbot_scripts/public_html/model_compare/EXPs_7 -text
 scripts/buildbot_scripts/public_html/model_compare/ScreenStyle.css -text
 scripts/buildbot_scripts/public_html/model_compare/compare_template.html -text
 scripts/buildbot_scripts/public_html/model_compare/convert2jpg.ksh -text
-scripts/buildbot_scripts/public_html/model_compare/create_exp_html.sh -text
 scripts/buildbot_scripts/public_html/model_compare/crontab.info -text
-scripts/buildbot_scripts/public_html/model_compare/crontjob_create_plots.ksh -text
 scripts/buildbot_scripts/public_html/model_compare/get_eps-files.ksh -text
-scripts/buildbot_scripts/public_html/model_compare/job_info_template.txt -text
 scripts/buildbot_scripts/public_html/model_compare/run_html.ksh -text
 scripts/buildbot_scripts/public_html/model_compare/test_hat_jww-moist_cld-cnv-vdf.html -text
 scripts/buildbot_scripts/public_html/model_compare/test_hat_jww.html -text
