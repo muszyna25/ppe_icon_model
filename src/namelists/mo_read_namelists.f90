@@ -78,9 +78,11 @@ MODULE mo_read_namelists
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC :: read_atmo_namelists, read_ocean_namelists
+  PUBLIC :: read_atmo_namelists, read_ocean_namelists, read_cpl_dummy_namelists
 
 CONTAINS
+
+  !---------------------------------------------------------------------
   !>
   !! Read namelists for atmospheric models
   !!
@@ -167,9 +169,9 @@ CONTAINS
     IF (my_process_is_stdio()) CALL close_nml_output
 
   END SUBROUTINE read_atmo_namelists
-
   !-------------------------------------------------------------------------
 
+  !---------------------------------------------------------------------
   !>
   !! Read namelists for ocean models
   !!
@@ -236,7 +238,95 @@ CONTAINS
     IF (my_process_is_stdio()) CALL close_nml_output
 
   END SUBROUTINE read_ocean_namelists
+  !-------------------------------------------------------------------------
 
+  !---------------------------------------------------------------------
+  !>
+  !! Read namelists for coupling dummy models
+  !!
+  SUBROUTINE read_cpl_dummy_namelists(cpl_dummy_namelist,shr_namelist_filename)
+
+    CHARACTER(LEN=*), INTENT(in) :: cpl_dummy_namelist
+    CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
+
+    !-----------------------------------------------------------------
+    ! Create a new file in which all the namelist variables and their
+    ! actual values used in the model run will be stored.
+    !-----------------------------------------------------------------
+
+    IF(my_process_is_stdio()) CALL open_nml_output('NAMELIST_ICON_output_atm')
+
+    !-----------------------------------------------------------------
+    ! Read namelists that are shared by all components of the model.
+    ! This means that the same namelists with the same values are
+    ! read by all components of a coupled system.
+    !-----------------------------------------------------------------
+
+    CALL read_time_namelist           (TRIM(shr_namelist_filename))
+
+    !-----------------------------------------------------------------
+    ! Read namelist that are specific to the atm model.
+    ! In case of a coupled simulation, the ocean model may also
+    ! read some of these namelists, but probably from a different
+    ! ASCII file containing different values.
+    !-----------------------------------------------------------------
+
+    ! General
+    !
+    CALL read_parallel_namelist       (TRIM(cpl_dummy_namelist))
+    CALL read_run_namelist            (TRIM(cpl_dummy_namelist))
+    CALL read_io_namelist             (TRIM(cpl_dummy_namelist))
+
+    ! Grid
+    !
+    CALL read_grid_namelist           (TRIM(cpl_dummy_namelist))
+    CALL read_gridref_namelist        (TRIM(cpl_dummy_namelist))
+    CALL read_interpol_namelist       (TRIM(cpl_dummy_namelist))
+    CALL read_sleve_namelist          (TRIM(cpl_dummy_namelist))
+    !
+    ! Dynamics
+    !
+    CALL read_dynamics_namelist       (TRIM(cpl_dummy_namelist))
+    CALL read_ha_dyn_namelist         (TRIM(cpl_dummy_namelist))
+    CALL read_nonhydrostatic_namelist (TRIM(cpl_dummy_namelist))
+    CALL read_diffusion_namelist      (TRIM(cpl_dummy_namelist))
+
+    ! Transport
+    !
+    CALL read_transport_namelist      (TRIM(cpl_dummy_namelist))
+
+    ! Physics
+    !
+    CALL read_echam_phy_namelist      (TRIM(cpl_dummy_namelist))
+    CALL read_nwp_phy_namelist        (TRIM(cpl_dummy_namelist))
+    CALL read_radiation_namelist      (TRIM(cpl_dummy_namelist))
+    CALL read_vdiff_namelist          (TRIM(cpl_dummy_namelist))
+    CALL read_echam_conv_namelist     (TRIM(cpl_dummy_namelist))
+    CALL read_gw_hines_namelist       (TRIM(cpl_dummy_namelist))
+    CALL read_nwp_lnd_namelist        (TRIM(cpl_dummy_namelist))
+
+    ! Initial conditions
+    !
+    CALL read_prepicon_namelist       (TRIM(cpl_dummy_namelist))
+    CALL read_ha_testcase_namelist    (TRIM(cpl_dummy_namelist))
+    CALL read_nh_testcase_namelist    (TRIM(cpl_dummy_namelist))
+
+    ! Boundary conditions
+    !
+    CALL read_extpar_namelist         (TRIM(cpl_dummy_namelist))
+
+    ! Coupling
+    !
+    CALL read_coupling_namelist       (TRIM(cpl_dummy_namelist))
+
+    !-----------------------------------------------------------------
+    ! Close the file in which all the namelist variables and their
+    ! actual values were stored.
+    !-----------------------------------------------------------------
+
+    IF (my_process_is_stdio()) CALL close_nml_output
+
+  END SUBROUTINE read_cpl_dummy_namelists
   !-------------------------------------------------------------------------
 
 END MODULE mo_read_namelists
