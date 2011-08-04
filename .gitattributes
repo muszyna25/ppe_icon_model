@@ -677,9 +677,6 @@ scripts/buildbot_scripts/public_html/model_compare/create_exp_html.sh -text
 scripts/buildbot_scripts/public_html/model_compare/create_html.ksh -text
 scripts/buildbot_scripts/public_html/model_compare/crontab.info -text
 scripts/buildbot_scripts/public_html/model_compare/crontjob_create_plots.ksh -text
-scripts/buildbot_scripts/public_html/model_compare/dir.mpipc56 -text
-scripts/buildbot_scripts/public_html/model_compare/dir.squall -text
-scripts/buildbot_scripts/public_html/model_compare/dir.tornado -text
 scripts/buildbot_scripts/public_html/model_compare/get_eps-files.ksh -text
 scripts/buildbot_scripts/public_html/model_compare/job_info_template.txt -text
 scripts/buildbot_scripts/public_html/model_compare/run_html.ksh -text
