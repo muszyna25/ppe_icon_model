@@ -16,11 +16,8 @@ MODULE test_coupler_mod
   INTEGER, PARAMETER               :: grid_loc_dim = 100
   INTEGER                          :: grid_glo_dim
   INTEGER                          :: grid_cmp_dim
-  INTEGER                          :: nbr_land_points
 
   ! process counting
-
-  INTEGER                          :: n_pes, my_pe
 
   INTEGER                          :: nbr_ocean_procs
   INTEGER                          :: nbr_atmos_procs
@@ -28,10 +25,6 @@ MODULE test_coupler_mod
   ! Arguments for cpl interfaces
   ! ----------------------------
   !
-  ! Component description
-
-  CHARACTER(len=32)                :: comp_name
-
   ! Grid description
 
   INTEGER                          :: grid_id
@@ -45,19 +38,6 @@ MODULE test_coupler_mod
 
   ! Return code for error handling
 
-  CHARACTER(len=132)               :: err_string
   INTEGER                          :: info
-  INTEGER                          :: len
-  INTEGER                          :: ierror
-
-  ! MPI Communicator handling
-
-  INTEGER                          :: ICON_atmos_comm
-  INTEGER                          :: n_atm_pes
-  INTEGER                          :: atm_pe
-
-  INTEGER                          :: ICON_ocean_comm
-  INTEGER                          :: n_ocn_pes
-  INTEGER                          :: ocn_pe
 
 END MODULE test_coupler_mod

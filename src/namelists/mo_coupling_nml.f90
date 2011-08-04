@@ -147,13 +147,14 @@ CONTAINS
     first = .TRUE.
     i     = 0
 
+    CALL open_nml (TRIM(namelist_filename))
+
     !--------------------------------------------------------------------
     ! 3.a loop over occurences of namelist group /coupling_nml/
     !--------------------------------------------------------------------
 
     DO
 
-       CALL open_nml (TRIM(namelist_filename))
        CALL position_nml('coupling_nml', lrewind=first, status=istat)
 
        frequency = 0
