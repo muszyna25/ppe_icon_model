@@ -44,7 +44,8 @@ MODULE mo_master_nml
   
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: read_master_namelist, lrestart, no_of_models, master_nml_array
+  PUBLIC :: read_master_namelist, lrestart, no_of_models
+  PUBLIC :: t_master_nml, master_nml_array
 
 
   ! Component models

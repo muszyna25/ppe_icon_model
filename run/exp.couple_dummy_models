@@ -1,0 +1,147 @@
+#=============================================================================
+#
+# This section of the run script defines the experiment.
+# The specifications are passed by namelist to the program.
+# For a complete list see Namelist_overview.pdf
+#
+# Marco Giorgetta, MPI-M, 2011-01-29
+# Hui Wan,         MPI-M, 2010-08-17
+# Leonidas Linardakis, MPI-M, 2011-07-20
+#
+#-----------------------------------------------------------------------------
+#
+# Basic specifications of the simulation
+# --------------------------------------
+#
+# These variables are set in the header section of the completed run script:
+#   EXPNAME = experiment name
+#   nproma  = array blocking length / inner loop length
+# They may be overwritten here
+#
+#-----------------------------------------------------------------------------
+#
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#-----------------------------------------------------------------------------
+# the namelist filename
+dummy_1_namelist=NAMELIST_dummy_1_${EXPNAME}
+dummy_2_namelist=NAMELIST_dummy_2_${EXPNAME}
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date="2008-09-01T00:00:00Z"
+ndays_restart=60
+dt_restart=`expr ${ndays_restart} \* 86400`
+#
+#-----------------------------------------------------------------------------
+# model timing
+dtime=600
+ndays=10
+nsteps=`expr ${ndays} \* 86400 / ${dtime}`
+nsteps=5
+#
+#-----------------------------------------------------------------------------
+# model parameters
+model_equations=1   # equation system
+#                     1=hydrost. atm.
+#                     2=non-hydrost. atm., 
+#                    -1=shallow water model
+#                    -2=hydrost. ocean
+nlev=31             # nlev = number of full levels
+#-----------------------------------------------------------------------------
+# the grid files
+atmo_dyn_grids='iconR2B03-grid.nc'
+#-----------------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------------
+# write ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#  
+cat > $dummy_1_namelist << EOF
+!
+&parallel_nml
+ nproma         = ${nproma}
+ p_test_run     = .false.
+ l_test_openmp  = .false.
+ l_log_checks   = .false.
+/
+&grid_nml
+ cell_type = 3            ! triangular cells
+ dynamics_grid_filename = "${atmo_dyn_grids}",
+/
+&gridref_nml
+/
+&run_nml
+ num_lev     = ${nlev},        ! number of full levels of vertical grid
+ ntracer     = 0            ! number of tracers
+ nsteps      = ${nsteps}    ! [day] length of run
+ dtime       = ${dtime}     ! [s] timestep
+ ldynamics   = .TRUE.       ! dynamics
+ ltransport  = .FALSE.      ! transport 
+ iforcing    = 0            ! no forcing
+ ltestcase   = .TRUE.       ! run testcase
+/
+&testcase_nml
+ ctest_name  = 'JWw'        ! test case identifier
+/
+&io_nml
+ out_expname = '${EXPNAME}' ! file name base
+/
+&dynamics_nml
+ iequations  = ${model_equations}       ! hydrostatic atmosphere using T as progn. var.
+/
+&diffusion_nml
+/
+&transport_nml
+/
+EOF
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# write dummy ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#
+cat > $dummy_2_namelist << EOF
+!
+&parallel_nml
+ nproma         = ${nproma}
+ p_test_run     = .false.
+ l_test_openmp  = .false.
+ l_log_checks   = .false.
+/
+&grid_nml
+ cell_type = 3            ! triangular cells
+ dynamics_grid_filename = "${atmo_dyn_grids}",
+/
+&gridref_nml
+/
+&run_nml
+ num_lev     = ${nlev},        ! number of full levels of vertical grid
+ ntracer     = 0            ! number of tracers
+ nsteps      = ${nsteps}    ! [day] length of run
+ dtime       = ${dtime}     ! [s] timestep
+ ldynamics   = .TRUE.       ! dynamics
+ ltransport  = .FALSE.      ! transport
+ iforcing    = 0            ! no forcing
+ ltestcase   = .TRUE.       ! run testcase
+/
+&testcase_nml
+ ctest_name  = 'JWw'        ! test case identifier
+/
+&io_nml
+ out_expname = '${EXPNAME}' ! file name base
+/
+&dynamics_nml
+ iequations  = ${model_equations}       ! hydrostatic atmosphere using T as progn. var.
+/
+&diffusion_nml
+/
+&transport_nml
+/
+EOF
+#-----------------------------------------------------------------------------
+

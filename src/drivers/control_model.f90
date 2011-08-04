@@ -55,12 +55,12 @@ PROGRAM control_model
   USE mo_atmo_model,          ONLY: atmo_model
   USE mo_ocean_model,         ONLY: ocean_model
   USE mo_radiation_model,     ONLY: radiation_model
-
+  USE mo_cpl_dummy_model,     ONLY: cpl_dummy_model
   USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
 
   USE mo_master_control,      ONLY: init_master_control,  &
     & get_my_namelist_filename, get_my_process_component, &
-    & is_coupled_run,                                     &
+    & is_coupled_run, dummy_process,                      &
     & atmo_process, ocean_process, radiation_process
 
   IMPLICIT NONE
@@ -123,6 +123,9 @@ PROGRAM control_model
     CALL ocean_model(my_namelist_filename, TRIM(master_namelist_filename))
 
   CASE (radiation_process)
+    CALL radiation_model(my_namelist_filename)
+
+  CASE (dummy_process)
     CALL radiation_model(my_namelist_filename)
 
   CASE default

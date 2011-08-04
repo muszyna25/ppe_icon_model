@@ -453,6 +453,7 @@ CONTAINS
   !> This method simulates the timestepping for the sent - receive
   ! coupling process
   SUBROUTINE cpl_dummy_timestepping()
+    CALL message('This is the mo_cpl_dummy_model','cpl_dummy_timestepping')
   END SUBROUTINE cpl_dummy_timestepping
   !-------------------------------------------------------------------------
 

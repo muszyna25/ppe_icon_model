@@ -64,7 +64,7 @@ MODULE mo_master_control
 
   PUBLIC ::  init_master_control, get_my_namelist_filename,           &
     & get_my_process_component, get_my_process_name, is_coupled_run,  &
-    & atmo_process, ocean_process, radiation_process,                 &
+    & atmo_process, ocean_process, radiation_process, dummy_process,  &
     & my_process_is_ocean, is_restart_run
 
 
@@ -72,7 +72,7 @@ MODULE mo_master_control
   INTEGER, PARAMETER :: atmo_process  = 1
   INTEGER, PARAMETER :: ocean_process = 2
   INTEGER, PARAMETER :: radiation_process = 3
-  INTEGER, PARAMETER :: dummy_process = 4
+  INTEGER, PARAMETER :: dummy_process = 99
   ! ------------------------------------------------------------------------
   INTEGER :: my_process_model ! =atmo_process,ocean_process,...
   INTEGER :: my_model_no ! 1,2,3  (id uniquely this process, even if it has the
@@ -130,7 +130,9 @@ MODULE mo_master_control
       CALL set_my_component_null()
      
       DO model_no =1, no_of_models
-     
+
+        write(0,*) 'master_nml_array:', model_no, master_nml_array(model_no)%model_name
+        
         DO jg = master_nml_array(model_no)%model_min_rank,&
           & master_nml_array(model_no)%model_max_rank,&
           & master_nml_array(model_no)%model_inc_rank

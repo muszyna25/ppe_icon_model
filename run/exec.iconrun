@@ -112,11 +112,25 @@ if [[ x$ocean_namelist != x ]]; then
   run_ocean=${run_ocean:=".true."}
 fi
 
+if [[ x$dummy_1_namelist != x ]]; then
+  run_dummy_1=${run_dummy_1:=".true."}
+fi
+
+if [[ x$dummy_2_namelist != x ]]; then
+  run_dummy_2=${run_dummy_2:=".true."}
+fi
+
 restart=${restart:=".false."}
 run_ocean=${run_ocean:=".false."}
 run_atmo=${run_atmo:=".false"}
+run_dummy_1=${run_dummy_1:=".false."}
+run_dummy_2=${run_dummy_2:=".false."}
 atmo_namelist=${atmo_namelist:="none"}
 ocean_namelist=${ocean_namelist:="none"}
+dummy_1_namelist=${dummy_1_namelist:="none"}
+dummy_2_namelist=${dummy_1_namelist:="none"}
+
+#-----------------------------------------------------------------------------
 master_namelist=icon_master.namelist
 
 cat > $master_namelist << EOF
@@ -140,8 +154,8 @@ cat >> $master_namelist << EOF
   model_namelist_filename="$atmo_namelist"
   model_restart_info_filename=""
   model_type=1
-  model_min_rank=1
-  model_max_rank=65536
+  model_min_rank=0
+  model_max_rank=65535
   model_inc_rank=1
 /
 EOF
@@ -154,8 +168,36 @@ cat >> $master_namelist << EOF
   model_namelist_filename="$ocean_namelist"
   model_restart_info_filename=""
   model_type=2
+  model_min_rank=0
+  model_max_rank=65535
+  model_inc_rank=1
+/
+EOF
+fi
+
+if [[ $run_dummy_1 == '.true.' ]]; then
+cat >> $master_namelist << EOF
+&master_model_nml
+  model_name="dummy_1"
+  model_namelist_filename="$dummy_1_namelist"
+  model_restart_info_filename=""
+  model_type=99
+  model_min_rank=0
+  model_max_rank=0
+  model_inc_rank=1
+/
+EOF
+fi
+
+if [[ $run_dummy_2 == '.true.' ]]; then
+cat >> $master_namelist << EOF
+&master_model_nml
+  model_name="dummy_2"
+  model_namelist_filename="$dummy_2_namelist"
+  model_restart_info_filename=""
+  model_type=99
   model_min_rank=1
-  model_max_rank=65536
+  model_max_rank=1
   model_inc_rank=1
 /
 EOF
