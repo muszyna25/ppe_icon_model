@@ -40,40 +40,35 @@ MODULE mo_master_nml
 
   IMPLICIT NONE
 
-  CHARACTER(len=*), PARAMETER, PRIVATE :: version = '$Id$'
+  PRIVATE
+  
+  CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC
+  PUBLIC :: read_master_namelist, lrestart, no_of_models, master_nml_array
 
-  !-------------------------------------------------------------------------
-  ! Namelist variables 
-  !-------------------------------------------------------------------------
-  LOGICAL :: lrestart
 
   ! Component models
+  !--------------------------------------------------------------
+  ! TYPE definitions
+  !> Holds a list of initegers
+  TYPE t_master_nml
+    CHARACTER(len=132) :: model_name
+    CHARACTER(len=filename_max) :: model_namelist_filename
+    CHARACTER(len=filename_max) :: model_restart_info_filename
+    INTEGER :: model_type
+    INTEGER :: model_min_rank
+    INTEGER :: model_max_rank
+    INTEGER :: model_inc_rank
+  END TYPE t_master_nml
 
-  CHARACTER(len=132) :: atmo_name
-  CHARACTER(len=filename_max) :: atmo_namelist_filename
-  CHARACTER(len=filename_max) :: atmo_restart_info_filename
-  LOGICAL :: l_atmo_active
-  INTEGER :: atmo_min_rank
-  INTEGER :: atmo_max_rank
-  INTEGER :: atmo_inc_rank
-
-  CHARACTER(len=132) :: ocean_name
-  CHARACTER(len=filename_max) :: ocean_namelist_filename
-  CHARACTER(len=filename_max) :: ocean_restart_info_filename
-  LOGICAL :: l_ocean_active
-  INTEGER :: ocean_min_rank
-  INTEGER :: ocean_max_rank
-  INTEGER :: ocean_inc_rank
-
-  NAMELIST /master_nml/ l_atmo_active, atmo_name, atmo_namelist_filename,    &
-                      & atmo_min_rank, atmo_max_rank, atmo_inc_rank,         &
-                      & atmo_restart_info_filename,                          &
-                      & l_ocean_active, ocean_name, ocean_namelist_filename, &
-                      & ocean_min_rank, ocean_max_rank, ocean_inc_rank,      &
-                      & ocean_restart_info_filename,                         &
-                      & lrestart
+  INTEGER, PARAMETER :: max_no_of_models=10
+  INTEGER :: no_of_models
+  TYPE(t_master_nml) :: master_nml_array(max_no_of_models)
+  
+    !-------------------------------------------------------------------------
+    ! Namelist variables
+    !-------------------------------------------------------------------------
+    LOGICAL :: lrestart
 
 CONTAINS
   !>
@@ -89,59 +84,88 @@ CONTAINS
     !
     ! Local variables
     !
+    !-------------------------------------------------------------------------
+    ! Namelist variables
+    !-------------------------------------------------------------------------
+    LOGICAL :: lrestart
+    CHARACTER(len=132) :: model_name
+    CHARACTER(len=filename_max) :: model_namelist_filename
+    CHARACTER(len=filename_max) :: model_restart_info_filename
+    INTEGER :: model_type
+    INTEGER :: model_min_rank
+    INTEGER :: model_max_rank
+    INTEGER :: model_inc_rank
+
+    NAMELIST /master_model_nml/    &
+      model_name,                  &
+      model_namelist_filename,     &
+      model_restart_info_filename, &
+      model_type,                  &
+      model_min_rank,              &
+      model_max_rank,              &
+      model_inc_rank               
+    NAMELIST /master_nml/ lrestart
+
     INTEGER :: istat
-    CHARACTER(len=MAX_CHAR_LENGTH) :: routine = 'mo_master_nml:read_master_namelist'
+    LOGICAL :: rewnd
+    CHARACTER(len=*), PARAMETER :: routine = 'mo_master_nml:read_master_namelist'
 
-    !------------------------------------------------------------
-    ! 1. Set default values
-    !------------------------------------------------------------
+
+    !------------------------------------------------------------------
+    ! Read  master_nml (done so far by all MPI processes)
+    !------------------------------------------------------------------
     lrestart      = .FALSE.
-
-    atmo_name     = ""
-    atmo_namelist_filename     = "NAMELIST_ICON"
-    atmo_restart_info_filename = "restart.info"
-    l_atmo_active = .FALSE.
-    atmo_min_rank = 0
-    atmo_max_rank = -1
-    atmo_inc_rank = 1
-
-    ocean_name     = ""
-    ocean_namelist_filename     = "NAMELIST_ICON"
-    ocean_restart_info_filename = "restart.info"
-    l_ocean_active = .FALSE.
-    ocean_min_rank = 0
-    ocean_max_rank = -1
-    ocean_inc_rank = 1
-
-    !------------------------------------------------------------------
-    ! 2. Read user's specifications (done so far by all MPI processes)
-    !------------------------------------------------------------------
-
     OPEN( nnml, FILE=TRIM(namelist_filename), IOSTAT=istat, &
         & STATUS='old', ACTION='read', DELIM='apostrophe')
-
     IF (istat/=0) THEN
       CALL warning(namelist_filename,"not found")
       read_master_namelist=-1
       RETURN
     ENDIF
-    
     CALL position_nml('master_nml',STATUS=istat)
-    
-    IF (istat/=POSITIONED) THEN
+    IF (istat==POSITIONED) THEN
+      READ (nnml, master_nml)
+    ENDIF        
 
-      CALL finish( TRIM(routine), &
-                 & 'Namelist master_nml not found in file '  &
-                 & //TRIM(namelist_filename) )
+    !------------------------------------------------------------------
+    ! Read  master_model_nml (done so far by all MPI processes)
+    !------------------------------------------------------------------
+    no_of_models = 0
+    rewnd = .true.
+    DO
+      CALL position_nml('master_model_nml', lrewind=rewnd, status=istat)
+      IF ( istat /= POSITIONED ) EXIT
+      IF (no_of_models >= max_no_of_models) THEN
+        CALL finish(routine, 'no_of_models >= max_no_of_models')
+      ENDIF
+      rewnd=.false.
+      
+      ! default values
+      model_name=''
+      model_namelist_filename=''
+      model_restart_info_filename=''
+      model_type=0
+      model_min_rank=0
+      model_max_rank=-1 
+      model_inc_rank=1
+      
+      READ  (nnml, master_model_nml)
 
-      read_master_namelist=-2
-      RETURN      
-    ENDIF
-        
-    READ (nnml, master_nml)
+      no_of_models=no_of_models+1
+      master_nml_array(no_of_models)%model_name              = model_name
+      master_nml_array(no_of_models)%model_namelist_filename = model_namelist_filename
+      master_nml_array(no_of_models)%model_restart_info_filename=&
+        & model_restart_info_filename
+      master_nml_array(no_of_models)%model_type              = model_type
+      master_nml_array(no_of_models)%model_min_rank          = model_min_rank
+      master_nml_array(no_of_models)%model_max_rank          = model_max_rank
+      master_nml_array(no_of_models)%model_inc_rank          = model_inc_rank
+
+    ENDDO
+      
     CLOSE (nnml, IOSTAT=istat)
-
-    read_master_namelist=SUCCESS
+   !------------------------------------------------------------------
+   read_master_namelist=SUCCESS
 
   END FUNCTION read_master_namelist
 

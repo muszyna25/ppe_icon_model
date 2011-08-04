@@ -117,21 +117,51 @@ run_ocean=${run_ocean:=".false."}
 run_atmo=${run_atmo:=".false"}
 atmo_namelist=${atmo_namelist:="none"}
 ocean_namelist=${ocean_namelist:="none"}
+master_namelist=icon_master.namelist
 
-
-cat > icon_master.namelist << EOF
+cat > $master_namelist << EOF
 &master_nml
  lrestart               = $restart
- l_atmo_active          = $run_atmo
- atmo_namelist_filename = "$atmo_namelist"
- l_ocean_active         = $run_ocean
- ocean_namelist_filename = "$ocean_namelist"
 /
 &time_nml
  ini_datetime_string = "$start_date"
  dt_restart          = $dt_restart
 /
 EOF
+#-----------------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------------
+# create master_model_nml
+if [[ $run_atmo == '.true.' ]]; then
+cat >> $master_namelist << EOF
+&master_model_nml
+  model_name="ATMO"
+  model_namelist_filename="$atmo_namelist"
+  model_restart_info_filename=""
+  model_type=1
+  model_min_rank=1
+  model_max_rank=65536
+  model_inc_rank=1
+/
+EOF
+fi
+
+if [[ $run_ocean == '.true.' ]]; then
+cat >> $master_namelist << EOF
+&master_model_nml
+  model_name="OCEAN"
+  model_namelist_filename="$ocean_namelist"
+  model_restart_info_filename=""
+  model_type=2
+  model_min_rank=1
+  model_max_rank=65536
+  model_inc_rank=1
+/
+EOF
+fi
+#-----------------------------------------------------------------------------
+
 
 #-----------------------------------------------------------------------------
 # get namelist
