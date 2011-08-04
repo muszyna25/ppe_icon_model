@@ -87,8 +87,8 @@ case $ac_sitename in
     MPIROOT=/usr/lpp/ppe.poe
     
     load_profile="." "/client/etc/profile.blizzard"
+#    make_command="/sw/aix61/qnq/0.0.5/bin/qnq" "-n" "32" "-c" "cluster" "-w" "03:50:00" "make" "-j" "32"
     make_command="make" "-j" "4"
-    make_command="/sw/aix61/qnq/0.0.5/bin/qnq" "-n" "32" "-c" "cluster" "-w" "03:50:00" "make" "-j" "32"
     mpi_startrun=poe
     submit="llsubmit"
     use_shell=/bin/bash
