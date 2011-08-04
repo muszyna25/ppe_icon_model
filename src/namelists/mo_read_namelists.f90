@@ -214,7 +214,7 @@ CONTAINS
     ! Dynamics, transport and physics
     ! (still using the old setup)
     !
-    CALL setup_ocean_nml              (TRIM(oce_namelist_filename))
+    CALL read_dynamics_namelist       (TRIM(oce_namelist_filename))
 
     ! Boundary conditions
     !
@@ -223,6 +223,10 @@ CONTAINS
     ! Coupling
     !
     CALL read_coupling_namelist       (TRIM(oce_namelist_filename))
+
+    ! More namelists from the old setup
+    !
+    CALL setup_ocean_nml              (TRIM(oce_namelist_filename))
 
     !-----------------------------------------------------------------
     ! Close the file in which all the namelist variables and their
