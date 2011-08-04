@@ -1038,6 +1038,7 @@ CONTAINS
     wrk_p_patch%nlev   = wrk_p_patch_g%nlev
     wrk_p_patch%nlevp1 = wrk_p_patch_g%nlevp1
     wrk_p_patch%nshift = wrk_p_patch_g%nshift
+    wrk_p_patch%nshift_total = wrk_p_patch_g%nshift_total
     wrk_p_patch%nshift_child = wrk_p_patch_g%nshift_child
 
     !-----------------------------------------------------------------------------------------------

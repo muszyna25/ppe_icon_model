@@ -2286,9 +2286,13 @@ CONTAINS
           !- 1 nested domain per grid level
           p_patch(jg)%nshift = num_lev(p_patch(jg)%parent_id) - num_lev(jg)
         ENDIF
+
+        jgp = p_patch(jg)%parent_id
+        p_patch(jg)%nshift_total = p_patch(jgp)%nshift_total + p_patch(jg)%nshift
       ELSE
         ! Note: the first nshift-value refers to the global domain
         p_patch(jg)%nshift = 0
+        p_patch(jg)%nshift_total = 0
       ENDIF
     ENDDO
 
