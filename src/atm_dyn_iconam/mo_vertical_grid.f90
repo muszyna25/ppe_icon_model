@@ -48,8 +48,8 @@ MODULE mo_vertical_grid
   USE mo_model_domain_import,   ONLY: n_dom
   USE mo_nonhydrostatic_config, ONLY: rayleigh_coeff,damp_height, igradp_method, ivctype,  & 
     &                                 vwind_offctr, exner_expol, l_zdiffu_t, thslp_zdiffu, &
-    &                                 thhgtd_zdiffu, htop_moist_proc, htop_qvadv,          &
-    &                                 damp_timescale_u, damp_height_u
+!!$    &                                 htop_moist_proc, htop_qvadv,                         &
+    &                                 thhgtd_zdiffu, damp_timescale_u, damp_height_u
   USE mo_diffusion_config,      ONLY: diffusion_config
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_run_config,            ONLY: msg_level

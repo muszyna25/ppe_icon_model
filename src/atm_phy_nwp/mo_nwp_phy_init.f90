@@ -38,7 +38,7 @@ MODULE mo_nwp_phy_init
 
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: pi
-  USE mo_physical_constants,  ONLY: re, grav
+  USE mo_physical_constants,  ONLY: re !, grav
   USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag,t_nwp_phy_tend
   USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag  !, t_tiles
   USE mo_ext_data,            ONLY: t_external_data

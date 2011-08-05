@@ -95,7 +95,7 @@ MODULE mo_nh_stepping
   USE mo_io_units,            ONLY: find_next_free_unit
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH,iphysproc,itconv,   &
     &                               itccov, itrad, itradheat, itsso, itsatad,    &
-    &                               itsfc, inwp
+    &                               inwp
   USE mo_physical_constants,  ONLY: cvd, cvd_o_rd
   USE mo_divergent_modes,     ONLY: divergent_modes_5band, impl_vert_adv_theta, &
                                     impl_vert_adv_theta_5diag

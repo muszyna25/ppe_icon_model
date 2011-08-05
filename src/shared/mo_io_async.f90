@@ -53,25 +53,20 @@ MODULE mo_io_async
 #ifndef USE_CRAY_POINTER
   USE, INTRINSIC :: ISO_C_BINDING, ONLY: c_ptr, c_intptr_t, c_f_pointer
 #endif
-  USE mo_mpi,  ONLY: p_comm_work, p_comm_work_io, p_comm_work_2_io, process_mpi_io_size
+  USE mo_mpi,                 ONLY: p_pe, p_bcast, p_barrier, p_stop, p_real_dp, p_send, p_recv, &
+    &                               p_comm_work, p_comm_work_io, p_comm_work_2_io,               &
+    &                               my_process_is_mpi_test, p_pe_work, p_work_pe0, p_io_pe0,     &
+    &                               num_work_procs, process_mpi_io_size
 
   USE mo_kind,                ONLY: wp, i8
   USE mo_exception,           ONLY: finish
-  USE mo_impl_constants,      ONLY: max_dom, ihs_atm_temp, ihs_atm_theta, &
-                                    inh_atmosphere, ishallow_water, inwp
+  USE mo_impl_constants,      ONLY: max_dom, ihs_atm_temp, ihs_atm_theta,                        &
+                                    inh_atmosphere, ishallow_water
+
   USE mo_datetime,            ONLY: t_datetime
-  USE mo_mpi,                 ONLY: p_pe, p_bcast, p_barrier, p_stop, p_real_dp, p_send, &
-    & p_recv, my_process_is_mpi_test, p_pe_work, p_work_pe0, p_io_pe0, num_work_procs
-  USE mo_parallel_config,  ONLY: pio_type
-  USE mo_nonhydrostatic_config, ONLY: ivctype !, iadv_rcf
-!  USE mo_dynamics_nml,        ONLY: dynamics_nml_setup
-!  USE mo_diffusion_nml,       ONLY: diffusion_nml_setup
-!  USE mo_io_nml,              ONLY: io_nml_setup
-  USE mo_io_config            
+  USE mo_parallel_config,     ONLY: pio_type
   USE mo_dynamics_config,     ONLY: iequations
-  USE mo_run_config,          ONLY: ldump_states, num_lev, iforcing!, ltransport, nlev ,&
-!    &                               ltestcase , dtime
-!  USE mo_atm_phy_nwp_config, ONLY: configure_atm_phy_nwp
+  USE mo_run_config,          ONLY: ldump_states
   USE mo_io_units,            ONLY: filename_max
   USE mo_communication,       ONLY: idx_no, blk_no
   USE mo_io_vlist,            ONLY: GATHER_C, GATHER_E, GATHER_V,                                &
@@ -81,18 +76,14 @@ MODULE mo_io_async
    &                                num_output_vars, outvar_desc,                                &
    &                                get_outvar_ptr_ha, get_outvar_ptr_nh
   USE mo_grid_config,         ONLY: n_dom
-  USE mo_vertical_coord_table,ONLY: init_vertical_coord_table
-  USE mo_nh_init_utils,       ONLY: init_hybrid_coord, init_sleve_coord
-!  USE mo_advection_nml,       ONLY: transport_nml_setup
-  USE mo_namelist,            ONLY: close_nml
 
-  !-------------------------------------------------------------------------------------------------
+  !------------------------------------------------------------------------------------------------
   ! Needed only for compute PEs, patches are NOT set on I/O PEs
 
   USE mo_atmo_control,        ONLY: p_patch
 
   ! End of needed only for compute PEs
-  !-------------------------------------------------------------------------------------------------
+  !------------------------------------------------------------------------------------------------
 
   IMPLICIT NONE
 
