@@ -40,7 +40,7 @@ USE mo_mpi,                 ONLY: p_stop, &
   & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
   & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type
 USE mo_timer,               ONLY: init_timer
-USE mo_master_control,      ONLY: is_restart_run, get_my_process_name
+USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, get_my_couple_id
 
 
 USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
@@ -70,7 +70,7 @@ USE mo_impl_constants, ONLY:&
 ! For the coupling
 USE mo_impl_constants, ONLY: CELLS
 USE mo_master_control, ONLY : atmo_process, is_coupled_run
-USE mo_icon_cpl_init_comp, ONLY : get_my_local_comp_id
+! USE mo_icon_cpl_init_comp, ONLY : get_my_local_comp_id
 USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid
 USE mo_icon_cpl_def_field, ONLY : ICON_cpl_def_field
 USE mo_icon_cpl_search, ONLY : ICON_cpl_search
@@ -359,12 +359,17 @@ CONTAINS
     !---------------------------------------------------------------------
     IF ( is_coupled_run() ) THEN
  
-      comp_id = get_my_local_comp_id (atmo_process)
+      comp_id = get_my_couple_id ()
       patch_no = 1
 
-      CALL get_patch_global_indexes ( patch_no, CELLS, no_of_entities, grid_glob_index )
+      grid_shape(1)=1
+      grid_shape(2)=p_patch(patch_no)%n_patch_cells
+
+      ! CALL get_patch_global_indexes ( patch_no, CELLS, no_of_entities, grid_glob_index )
       ! should grid_glob_index become a pointer in ICON_cpl_def_grid as well?
-      CALL ICON_cpl_def_grid ( comp_id, grid_shape, grid_glob_index, grid_id, error_status )
+      CALL ICON_cpl_def_grid ( &
+        & comp_id, grid_shape, p_patch(patch_no)%cells%glb_index, & ! input
+        & grid_id, error_status )                                   ! output
   
       field_name(1) = "SST"
       field_name(2) = "TAUX"

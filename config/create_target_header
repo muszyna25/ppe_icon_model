@@ -34,6 +34,7 @@ else
 fi
 
 set_default use_omp_stacksize 50M
+let mpi_total_procs=${use_nodes}*${use_mpi_procs}
 
 cat >> $output_script << EOF
 #=============================================================================
@@ -105,8 +106,8 @@ nproma=$use_nproma
 # ----------------------------
 mpi_root=$use_mpi_root
 no_of_nodes=$use_nodes
-mpi_procs=$use_mpi_procs.
-mpi_total_procs=`expr ${no_of_nodes} \*  ${mpi_procs}`
+mpi_procs=$use_mpi_procs
+mpi_total_procs=$mpi_total_procs
 start="$start"
 START="\$start"
 # ----------------------------
