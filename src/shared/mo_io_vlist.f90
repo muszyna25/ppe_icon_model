@@ -3024,7 +3024,7 @@ CONTAINS
 
 
       ! If we are here, the varname was definitly not found
-      CALL finish('get_outvar_ptr_nh', 'Unkown variable type name: '//varname)
+      CALL finish('get_outvar_ptr_nh', 'Unknown variable type name: '//varname)
     ENDIF
 
   END SUBROUTINE get_outvar_ptr_nh
@@ -3123,7 +3123,7 @@ CONTAINS
     !   ENDDO
     !  ENDIF
     ! If we are here, the varname was definitly not found
-    !CALL finish('get_outvar_ptr_oce', 'Unkown variable type name: '//varname)
+    !CALL finish('get_outvar_ptr_oce', 'Unknown variable type name: '//varname)
 
   END SUBROUTINE get_outvar_ptr_oce
   !-------------------------------------------------------------------------------------------------
