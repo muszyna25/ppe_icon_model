@@ -863,7 +863,7 @@ CONTAINS
     CHARACTER(len=*), PARAMETER :: method_name = 'split_process_mpi_communicator'
 #ifdef NOMPI
     RETURN
-#endif
+#else    
     !--------------------------------------------
     ! check if mpi is initialized
     CALL MPI_INITIALIZED(l_mpi_is_initialised, p_error)
@@ -882,6 +882,7 @@ CONTAINS
       STOP
     END IF
     CALL set_process_mpi_communicator(new_communicator)
+#endif
 
   END SUBROUTINE split_global_mpi_communicator
   !------------------------------------------------------------------------------

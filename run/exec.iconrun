@@ -175,6 +175,15 @@ cat >> $master_namelist << EOF
 EOF
 fi
 
+#split the number of procs in two for each of the dummy component
+dummy_1_min_rank=0
+dummy_1_max_rank=`expr ${mpi_total_procs} / 2 - 1`
+dummy_1_inc_rank=1
+dummy_2_min_rank=`expr ${dummy_1_max_rank} + 1`
+dummy_2_max_rank=`expr ${mpi_total_procs} - 1`
+dummy_2_inc_rank=1
+
+
 if [[ $run_dummy_1 == '.true.' ]]; then
 cat >> $master_namelist << EOF
 &master_model_nml
@@ -182,9 +191,9 @@ cat >> $master_namelist << EOF
   model_namelist_filename="$dummy_1_namelist"
   model_restart_info_filename=""
   model_type=99
-  model_min_rank=0
-  model_max_rank=0
-  model_inc_rank=1
+  model_min_rank=$dummy_1_min_rank
+  model_max_rank=$dummy_1_max_rank
+  model_inc_rank=$dummy_1_inc_rank
 /
 EOF
 fi
@@ -196,9 +205,9 @@ cat >> $master_namelist << EOF
   model_namelist_filename="$dummy_2_namelist"
   model_restart_info_filename=""
   model_type=99
-  model_min_rank=1
-  model_max_rank=1
-  model_inc_rank=1
+  model_min_rank=$dummy_2_min_rank
+  model_max_rank=$dummy_2_max_rank
+  model_inc_rank=$dummy_2_inc_rank
 /
 EOF
 fi
