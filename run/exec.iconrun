@@ -36,74 +36,8 @@ fi
 ls -ld ${EXPDIR}
 check_error $? "${EXPDIR} does not exist?"
 
-#-----------------------------------------------------------------------------
-#
-# get grid files
-#
-atmo_grids="${atmo_dyn_grids} ${atmo_rad_grids}"
-all_grids="${atmo_grids} ${ocean_grids}"
-for gridfile in ${all_grids}; do
-  ls -l ${HGRIDDIR}/$gridfile
-  check_error $? "${HGRIDDIR}/$gridfile does not exist."
-  rm ${EXPDIR}/$gridfile
-  ln -s ${HGRIDDIR}/${gridfile} ${EXPDIR}/${gridfile}  
-done
 
 #-----------------------------------------------------------------------------
-case ${model_equations} in
-    0 | 1 | 2 )
-        # shallow water | hydrost. atm. T| hydrost. atm. theta dp 
-        # =======================================================
-        #
-        # model constants
-        # ---------------
-        cp -f ${DATADIR}/rrtmg_lw.nc           ${EXPDIR} # LW radiation constants
-        cp -f ${DATADIR}/ECHAM6_CldOptProps.nc ${EXPDIR} # cloud optical properties
-        #
-        # vertical grid
-        # -------------
-        VGRIDDIR=${ICONDIR}/vertical_coord_tables
-        VGRIDNAME=atm_hyb_sp_${nlev}
-        #
-        rm ${EXPDIR}/${VGRIDNAME}
-        ln -s ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
-        check_error $? "ln -s ${VGRIDDIR}/${VGRIDNAME}"
-        #
-        ;;
-     3 )
-        #  non-hydrost. atm.
-        # ==================
-        #
-        # model constants
-        # ---------------
-        cp -f ${DATADIR}/rrtmg_lw.nc           ${EXPDIR} # LW radiation constants
-        cp -f ${DATADIR}/ECHAM6_CldOptProps.nc ${EXPDIR} # cloud optical properties
-        
-        # vertical grid
-        # -------------
-        VGRIDDIR=${ICONDIR}/vertical_coord_tables
-        VGRIDNAME=atm_hyb_sz_${nlev}
-        #
-        rm  ${EXPDIR}/${VGRIDNAME}
-        ln -s ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
-        warning $? "ln -s ${VGRIDDIR}/${VGRIDNAME} failed"
-        #
-        ;;
-    -1 )
-        # hydrost. ocean
-        # ==============
-        ;;
-esac
-#
-#-----------------------------------------------------------------------------
-#
-# create ICON master namelist
-# ------------------------
-# For a complete list see Namelist_overview and Namelist_overview.pdf
-
-cd ${EXPDIR}
-
-
 if [[ x$atmo_namelist != x ]]; then
   run_atmo=${run_atmo:=".true."}
 fi
@@ -119,6 +53,59 @@ fi
 if [[ x$dummy_2_namelist != x ]]; then
   run_dummy_2=${run_dummy_2:=".true."}
 fi
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+#
+# get grid files
+#
+atmo_grids="${atmo_dyn_grids} ${atmo_rad_grids}"
+all_grids="${atmo_grids} ${ocean_grids}"
+for gridfile in ${all_grids}; do
+  ls -l ${HGRIDDIR}/$gridfile
+  check_error $? "${HGRIDDIR}/$gridfile does not exist."
+  rm ${EXPDIR}/$gridfile
+  ln -s ${HGRIDDIR}/${gridfile} ${EXPDIR}/${gridfile}  
+done
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+if [[ $run_atmo == '.true.' ]]; then
+   # =======================================================
+   #
+   # model constants
+   # ---------------
+   cp -f ${DATADIR}/rrtmg_lw.nc           ${EXPDIR} # LW radiation constants
+   cp -f ${DATADIR}/ECHAM6_CldOptProps.nc ${EXPDIR} # cloud optical properties
+   #
+   # =======================================================
+   # vertical grid
+   # -------------
+   VGRIDDIR=${ICONDIR}/vertical_coord_tables
+   if [[ $atmo_model_equations == 3 ]] ; then
+      VGRIDNAME=atm_hyb_sz_${nlev}
+      rm  ${EXPDIR}/${VGRIDNAME}
+      ln -s ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
+      warning $? "ln -s ${VGRIDDIR}/${VGRIDNAME} failed"
+   else
+     VGRIDNAME=atm_hyb_sp_${nlev}
+     rm ${EXPDIR}/${VGRIDNAME}
+     ln -s ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
+     check_error $? "ln -s ${VGRIDDIR}/${VGRIDNAME}"
+   fi
+   #
+fi
+#-----------------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------------
+#
+# create ICON master namelist
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+
+cd ${EXPDIR}
+
 
 restart=${restart:=".false."}
 run_ocean=${run_ocean:=".false."}

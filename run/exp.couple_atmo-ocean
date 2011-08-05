@@ -43,11 +43,11 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 dtime=600
 ndays=10
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
-nsteps=20
+nsteps=10
 #
 #-----------------------------------------------------------------------------
 # model parameters
-model_equations=1   # equation system
+atmo_model_equations=1   # equation system
 #                     1=hydrost. atm.
 #                     2=non-hydrost. atm., 
 #                    -1=shallow water model
@@ -55,7 +55,17 @@ model_equations=1   # equation system
 nlev=31             # nlev = number of full levels
 #-----------------------------------------------------------------------------
 # the grid files
-atmo_dyn_grids='iconR2B04-grid.nc'
+#-----------------------------------------------------------------------------
+grid_ext="etopo40_flat"
+if [ x$USE_AQUAP == "xY"  ] ; then
+  grid_ext="aqua_planet"
+elif  [ x$USE_BASIN == "xY"  ] ; then
+  grid_ext="bas10-80N"
+fi
+ocean_grids="iconR2B04-ocean_${grid_ext}.nc"
+#
+#-----------------------------------------------------------------------------
+atmo_dyn_grids="$ocean_grids"
 #-----------------------------------------------------------------------------
 
 
@@ -68,7 +78,7 @@ cat > $atmo_namelist << EOF
 !
 &parallel_nml
  nproma         = ${nproma}
- p_test_run     = .false.
+ p_test_run     = .true.
  l_test_openmp  = .false.
  l_log_checks   = .false.
 /
@@ -87,6 +97,7 @@ cat > $atmo_namelist << EOF
  ltransport  = .FALSE.      ! transport 
  iforcing    = 0            ! no forcing
  ltestcase   = .TRUE.       ! run testcase
+ ltimer      = .false.
 /
 &testcase_nml
  ctest_name  = 'JWw'        ! test case identifier
@@ -95,7 +106,7 @@ cat > $atmo_namelist << EOF
  out_expname = '${EXPNAME}' ! file name base
 /
 &dynamics_nml
- iequations  = ${model_equations}       ! hydrostatic atmosphere using T as progn. var.
+ iequations  = ${atmo_model_equations}       ! hydrostatic atmosphere using T as progn. var.
 /
 &diffusion_nml
 /
@@ -133,7 +144,7 @@ nsteps=10
 #
 #-----------------------------------------------------------------------------
 # model parameters
-model_equations=-1 # equation system
+ocean_model_equations=-1 # equation system
 #                    -1=shallow water model
 #                    -2=hydrost. ocean
 #
@@ -175,9 +186,10 @@ cat > ${ocean_namelist} << EOF
  nsteps      = ${nsteps}    ! number of steps length of run
  dtime       = ${dtime}     ! [s] timestep in seconds
  msg_level   = 10           ! detailed report during integration
+ ltimer      = .false. 
 /
 &dynamics_nml
- iequations  = ${model_equations}       ! 1: hydrost. atmosphere
+ iequations  = ${ocean_model_equations}       ! 1: hydrost. atmosphere
 /
 &octst_nml
   i_dbg_oce=1                    ! initialize MIN/MAX  debug output via mo_index_oce

@@ -419,6 +419,7 @@ CONTAINS
           IF ( i < idx_range(2) ) THEN
              IF ( gptr%grid_glob_index(i) > gptr%grid_glob_index(i+1) ) THEN
                 PRINT *, 'ERROR: Currently ascending order of src list indices is assumed.'
+                RETURN
                 CALL MPI_Abort ( ICON_comm, 1, ierr )
              ENDIF
           ENDIF
@@ -427,6 +428,7 @@ CONTAINS
        DO i = 1, tptr%target_list_len - 1
           IF ( tptr%target_list(i) > tptr%target_list(i+1) ) THEN
              PRINT *, 'ERROR: Currently ascending order of tgt list indices is assumed .'
+             RETURN
              DO ii = 1, tptr%target_list_len
                 PRINT *, ii, tptr%target_list(ii)
              ENDDO
