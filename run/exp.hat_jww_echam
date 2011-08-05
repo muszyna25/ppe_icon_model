@@ -44,7 +44,7 @@ dt_rad=3600.                 # compute radiative transfer every hour
 #
 #-----------------------------------------------------------------------------
 # model parameters
-model_equations=1 # equation system
+atmo_model_equations=1 # equation system
 #                     1=hydrost. atm.
 #                     2=non-hydrost. atm., 
 #                    -1=shallow water model
@@ -89,7 +89,7 @@ cat > ${atmo_namelist} << EOF
  msg_level   = 10           ! detailed report during integration 
 /
 &dynamics_nml
- iequations  = ${model_equations}       ! 1: hydrost. atmosphere
+ iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere
 /
 &ha_dyn_nml
  ldry_dycore = .TRUE.       ! dry dynamical core

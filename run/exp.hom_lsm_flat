@@ -82,7 +82,7 @@ dt_file=3.1536e7   #     ! [s] interval for generation of new output file 1year)
 #
 #-----------------------------------------------------------------------------
 # model parameters
-model_equations=-1 # equation system
+ocean_model_equations=-1 # equation system
 #                    -1=shallow water model
 #                    -2=hydrost. ocean
 #
@@ -126,7 +126,7 @@ cat > ${ocean_namelist} << EOF
  msg_level   = 10           ! detailed report during integration
 /
 &dynamics_nml
- iequations  = ${model_equations}       ! 1: hydrost. atmosphere
+ iequations  = ${ocean_model_equations}       ! 1: hydrost. atmosphere
 /
 &octst_nml
   i_dbg_oce=1                    ! initialize MIN/MAX  debug output via mo_index_oce

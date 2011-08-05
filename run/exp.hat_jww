@@ -41,7 +41,7 @@ nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 #
 #-----------------------------------------------------------------------------
 # model parameters
-model_equations=1   # equation system
+atmo_model_equations=1   # equation system
 #                     1=hydrost. atm.
 #                     2=non-hydrost. atm., 
 #                    -1=shallow water model
@@ -89,7 +89,7 @@ cat > $atmo_namelist << EOF
  out_expname = '${EXPNAME}' ! file name base
 /
 &dynamics_nml
- iequations  = ${model_equations}       ! hydrostatic atmosphere using T as progn. var.
+ iequations  = ${atmo_model_equations}       ! hydrostatic atmosphere using T as progn. var.
 /
 &diffusion_nml
 /

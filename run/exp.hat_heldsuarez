@@ -46,7 +46,7 @@ dt_data=86400                 # daily output
 #
 #-----------------------------------------------------------------------------
 # model parameters
-model_equations=1 # equation system
+atmo_model_equations=1 # equation system
 #                     1=hydrost. atm.
 #                     2=non-hydrost. atm., 
 #                    -1=shallow water model
@@ -101,7 +101,7 @@ cat > NAMELIST_${EXPNAME} << EOF
  msg_level   = 10           ! detailed report during integration 
 /
 &dynamics_nml
- iequations  = ${model_equations}       ! equation system
+ iequations  = ${atmo_model_equations}       ! equation system
 /
 &ha_dyn_nml
  itime_scheme = 12          ! 2 time level semi-implicit

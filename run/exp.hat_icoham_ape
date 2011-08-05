@@ -45,7 +45,7 @@ dt_checkpoint=`expr 10 \* 86400 `  # write restart file every 10 days
 #
 #-----------------------------------------------------------------------------
 # model parameters
-model_equations=1 # equation system
+atmo_model_equations=1 # equation system
 #                     1=hydrost. atm.
 #                     2=non-hydrost. atm., 
 #                    -1=shallow water model
@@ -106,7 +106,7 @@ cat > ${atmo_namelist} << EOF
  lwrite_pres      = .FALSE.          ! remove pressure from output
 /
 &dynamics_nml
- iequations  = ${model_equations}    ! 1: hydrost. atmosphere
+ iequations  = ${atmo_model_equations}    ! 1: hydrost. atmosphere
 /
 &ha_dyn_nml
  ldry_dycore = .FALSE.      ! moist dynamical core
