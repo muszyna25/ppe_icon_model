@@ -45,7 +45,7 @@ MODULE mo_master_control
 
   USE mo_exception,          ONLY: message, finish
   USE mo_mpi,                ONLY: set_process_mpi_name, get_my_global_mpi_id, &
-    &                              set_process_mpi_communicator
+    &                              split_global_mpi_communicator
 
   USE mo_icon_cpl,           ONLY: get_cpl_local_comm!, complist
   USE mo_icon_cpl_init,      ONLY: icon_cpl_init
@@ -131,8 +131,7 @@ MODULE mo_master_control
      
       DO model_no =1, no_of_models
 
-        write(0,*) 'master_nml_array:', model_no, master_nml_array(model_no)%model_name
-        
+!         write(0,*) 'master_nml_array:', model_no, master_nml_array(model_no)%model_name        
         DO jg = master_nml_array(model_no)%model_min_rank,&
           & master_nml_array(model_no)%model_max_rank,&
           & master_nml_array(model_no)%model_inc_rank
@@ -169,9 +168,9 @@ MODULE mo_master_control
       ! Inform tghe coupler of what we are
       CALL icon_cpl_init_comp ( my_model_name, my_process_model, comp_id, ierr )
       ! make the component communicator available for use within the ICON components
-      new_comm = get_cpl_local_comm()
-      CALL set_process_mpi_communicator ( new_comm )
-    ENDIF   
+      ! new_comm = get_cpl_local_comm()
+      CALL split_global_mpi_communicator ( my_model_no )
+    ENDIF
     !------------------------------------------------------------
 
     

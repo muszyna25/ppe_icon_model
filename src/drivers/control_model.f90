@@ -113,6 +113,8 @@ PROGRAM control_model
   
   my_namelist_filename = get_my_namelist_filename()
   my_process_component = get_my_process_component()
+
+!   write(0,*) 'control model. my_process_component=',my_process_component
   
   SELECT CASE (my_process_component)
 
@@ -126,7 +128,7 @@ PROGRAM control_model
     CALL radiation_model(my_namelist_filename)
 
   CASE (dummy_process)
-    CALL radiation_model(my_namelist_filename)
+    CALL cpl_dummy_model(my_namelist_filename, TRIM(master_namelist_filename))
 
   CASE default
     CALL finish("control_model","my_process_component is unkown")

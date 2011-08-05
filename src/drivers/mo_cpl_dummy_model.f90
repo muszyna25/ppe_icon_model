@@ -40,7 +40,7 @@ USE mo_mpi,                 ONLY: p_stop, &
   & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
   & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type
 USE mo_timer,               ONLY: init_timer
-USE mo_master_control,      ONLY: is_restart_run
+USE mo_master_control,      ONLY: is_restart_run, get_my_process_name
 
 
 USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
@@ -155,7 +155,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
 
     CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
-    CHARACTER(*), PARAMETER :: routine = "mo_cpl_dummy_model:cpl_dummy_model"
+    CHARACTER(*), PARAMETER :: method_name = "mo_cpl_dummy_model:cpl_dummy_model"
     LOGICAL :: lsuccess
     INTEGER :: jg
 
@@ -180,6 +180,10 @@ CONTAINS
     !     corresponding sections of the configuration states.
     !---------------------------------------------------------------------
 
+    write(0,*) TRIM(get_my_process_name()), ': Start of ', method_name
+!     CALL p_stop
+!     STOP
+    
     CALL read_cpl_dummy_namelists(cpl_dummy_namelist_filename,shr_namelist_filename)
 
     !---------------------------------------------------------------------
@@ -219,13 +223,13 @@ CONTAINS
     
     ! Check patch allocation status
     IF ( ALLOCATED(p_patch_global)) THEN
-      CALL finish(TRIM(routine), 'patch already allocated')
+      CALL finish(TRIM(method_name), 'patch already allocated')
     END IF
      
     ! Allocate patch array to start patch construction
     ALLOCATE(p_patch_global(n_dom_start:n_dom), stat=error_status)
     IF (error_status/=success) THEN
-      CALL finish(TRIM(routine), 'allocation of patch failed')
+      CALL finish(TRIM(method_name), 'allocation of patch failed')
     ENDIF
     
     CALL import_patches( p_patch_global,                       &
@@ -242,7 +246,7 @@ CONTAINS
     ALLOCATE( p_int_state_global(n_dom_start:n_dom), &
             & p_grf_state_global(n_dom_start:n_dom),STAT=error_status)
     IF (error_status /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for ptr_int_state failed')
+      CALL finish(TRIM(method_name),'allocation for ptr_int_state failed')
     ENDIF
     
     ! Interpolation state is constructed for
@@ -339,7 +343,7 @@ CONTAINS
     !------------------------------------------------------------------
     ALLOCATE (ext_data(n_dom), STAT=error_status)
     IF (error_status /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'allocation for ext_data failed')
+      CALL finish(TRIM(method_name),'allocation for ext_data failed')
     ENDIF
     
     ! allocate memory for atmospheric/oceanic external data and
@@ -372,8 +376,9 @@ CONTAINS
       field_name(8) = ""
 
       DO i = 1, no_of_fields
-         CALL ICON_cpl_def_field ( field_name(i), comp_id, grid_id, field_id(i), &
-                                 & field_shape, error_status )
+      ! gives some strange message
+!          CALL ICON_cpl_def_field ( field_name(i), comp_id, grid_id, field_id(i), &
+!                                  & field_shape, error_status )
       ENDDO
 
       CALL ICON_cpl_search
@@ -398,7 +403,7 @@ CONTAINS
     ! deallocate ext_data array
     DEALLOCATE(ext_data, stat=error_status)
     IF (error_status/=success) THEN
-      CALL finish(TRIM(routine), 'deallocation of ext_data')
+      CALL finish(TRIM(method_name), 'deallocation of ext_data')
     ENDIF
 
     ! Deconstruct grid refinement state
@@ -414,7 +419,7 @@ CONTAINS
       DEALLOCATE (p_grf_state_subdiv, STAT=error_status)
     ENDIF
     IF (error_status /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for ptr_grf_state failed')
+      CALL finish(TRIM(method_name),'deallocation for ptr_grf_state failed')
     ENDIF
 
     ! Deallocate interpolation fields
@@ -427,7 +432,7 @@ CONTAINS
       DEALLOCATE (p_int_state_subdiv, STAT=error_status)
     ENDIF
     IF (error_status /= SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocation for ptr_int_state failed')
+      CALL finish(TRIM(method_name),'deallocation for ptr_int_state failed')
     ENDIF
 
     ! Deallocate grid patches
@@ -441,10 +446,10 @@ CONTAINS
       DEALLOCATE( p_patch_subdiv, STAT=error_status )
     ENDIF
     IF (error_status/=SUCCESS) THEN
-      CALL finish(TRIM(routine),'deallocate for patch array failed')
+      CALL finish(TRIM(method_name),'deallocate for patch array failed')
     ENDIF
 
-    CALL message(TRIM(routine),'clean-up finished')
+    CALL message(TRIM(method_name),'clean-up finished')
 
   END SUBROUTINE cpl_dummy_model
   !-------------------------------------------------------------------------

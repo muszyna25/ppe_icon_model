@@ -128,7 +128,7 @@ run_dummy_2=${run_dummy_2:=".false."}
 atmo_namelist=${atmo_namelist:="none"}
 ocean_namelist=${ocean_namelist:="none"}
 dummy_1_namelist=${dummy_1_namelist:="none"}
-dummy_2_namelist=${dummy_1_namelist:="none"}
+dummy_2_namelist=${dummy_2_namelist:="none"}
 
 #-----------------------------------------------------------------------------
 master_namelist=icon_master.namelist
@@ -224,6 +224,24 @@ if [[ x$ocean_namelist != xnone  && x$ocean_namelist != x ]] ; then
   else
     check_error 1 "${DIR}/$ocean_namelist does not exist"
   fi  
+fi
+
+if [[ x$dummy_1_namelist != xnone  && x$dummy_1_namelist != x ]] ; then
+  if [[ -f ${DIR}/$dummy_1_namelist ]] ; then
+    mv -f ${DIR}/$dummy_1_namelist ${EXPDIR}/$dummy_1_namelist
+    check_error $? "mv -f ${DIR}/$dummy_1_namelist"
+  else
+    check_error 1 "${DIR}/$dummy_1_namelist does not exist"
+  fi
+fi
+
+if [[ x$dummy_2_namelist != xnone  && x$dummy_2_namelist != x ]] ; then
+  if [[ -f ${DIR}/$dummy_2_namelist ]] ; then
+    mv -f ${DIR}/$dummy_2_namelist ${EXPDIR}/$dummy_2_namelist
+    check_error $? "mv -f ${DIR}/$dummy_2_namelist"
+  else
+    check_error 1 "${DIR}/$dummy_2_namelist does not exist"
+  fi
 fi
 
 #-----------------------------------------------------------------------------

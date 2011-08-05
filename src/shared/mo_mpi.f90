@@ -23,6 +23,8 @@ MODULE mo_mpi
   PUBLIC :: start_mpi
   PUBLIC :: p_stop, p_abort
 
+  ! split the global communicator to _process_mpi_communicator
+  PUBLIC :: split_global_mpi_communicator
   !The given communicator will be the all communicator for this component
   PUBLIC :: set_process_mpi_communicator
   ! Sets the test, work, i/o communicators
@@ -848,7 +850,41 @@ CONTAINS
     
   END SUBROUTINE set_default_mpi_work_variables
   !------------------------------------------------------------------------------
-  
+
+  !------------------------------------------------------------------------------
+  !>
+  !! Splits the global communicator into this component's communicator
+  !! Should be called before the component configuration
+  SUBROUTINE split_global_mpi_communicator(component_no)
+    INTEGER, INTENT(in) :: component_no
+
+    INTEGER :: new_communicator
+    LOGICAL             :: l_mpi_is_initialised
+    CHARACTER(len=*), PARAMETER :: method_name = 'split_process_mpi_communicator'
+#ifdef NOMPI
+    RETURN
+#endif
+    !--------------------------------------------
+    ! check if mpi is initialized
+    CALL MPI_INITIALIZED(l_mpi_is_initialised, p_error)
+    IF (p_error /= MPI_SUCCESS) THEN
+      WRITE (nerr,'(a,a)') method_name, ' MPI_INITITIALIZED failed.'
+      WRITE (nerr,'(a,i4)') ' Error =  ', p_error
+      STOP
+    END IF
+    !--------------------------------------------
+    ! split global_mpi_communicator 
+    CALL MPI_Comm_split(global_mpi_communicator, component_no, my_global_mpi_id, &
+      & new_communicator, p_error)
+    IF (p_error /= MPI_SUCCESS) THEN
+      WRITE (nerr,'(a,a)') method_name, ' MPI_Comm_split failed.'
+      WRITE (nerr,'(a,i4)') ' Error =  ', p_error
+      STOP
+    END IF
+    CALL set_process_mpi_communicator(new_communicator)
+
+  END SUBROUTINE split_global_mpi_communicator
+  !------------------------------------------------------------------------------
 
   !------------------------------------------------------------------------------
   !>

@@ -25,8 +25,8 @@
 # also in the executing section of the completed run script
 #-----------------------------------------------------------------------------
 # the namelist filename
-dummy_1_namelist=NAMELIST_dummy_1_${EXPNAME}
-dummy_2_namelist=NAMELIST_dummy_2_${EXPNAME}
+dummy_1_namelist=NAMELIST_${EXPNAME}_1
+dummy_2_namelist=NAMELIST_${EXPNAME}_2
 #
 #-----------------------------------------------------------------------------
 # global timing
@@ -144,4 +144,5 @@ cat > $dummy_2_namelist << EOF
 /
 EOF
 #-----------------------------------------------------------------------------
+
 
