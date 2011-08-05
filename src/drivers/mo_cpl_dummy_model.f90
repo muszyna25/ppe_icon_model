@@ -380,11 +380,11 @@ CONTAINS
       field_name(7) = ""
       field_name(8) = ""
 
-      DO i = 1, no_of_fields
+!      DO i = 1, no_of_fields
       ! gives some strange message
 !          CALL ICON_cpl_def_field ( field_name(i), comp_id, grid_id, field_id(i), &
 !                                  & field_shape, error_status )
-      ENDDO
+!      ENDDO
 
       CALL ICON_cpl_search
 

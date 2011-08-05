@@ -59,7 +59,7 @@ PROGRAM control_model
   USE mo_icon_cpl_finalize,   ONLY: icon_cpl_finalize
 
   USE mo_master_control,      ONLY: init_master_control,  &
-    & get_my_namelist_filename, get_my_process_component, &
+    & get_my_namelist_filename, get_my_process_type, &
     & is_coupled_run, dummy_process,                      &
     & atmo_process, ocean_process, radiation_process
 
@@ -112,7 +112,7 @@ PROGRAM control_model
   master_control_status = init_master_control(TRIM(master_namelist_filename))
   
   my_namelist_filename = get_my_namelist_filename()
-  my_process_component = get_my_process_component()
+  my_process_component = get_my_process_type()
 
 !   write(0,*) 'control model. my_process_component=',my_process_component
   

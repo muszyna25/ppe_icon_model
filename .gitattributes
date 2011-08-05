@@ -592,6 +592,7 @@ run/Namelist_overview.tex -text
 run/README -text
 run/compile_for_developers.ksh -text
 run/exec.iconrun -text
+run/exp.couple_atmo-ocean -text
 run/exp.couple_dummy_models -text
 run/exp.hat_heldsuarez -text
 run/exp.hat_icoham_ape -text

@@ -130,6 +130,13 @@ ocean_namelist=${ocean_namelist:="none"}
 dummy_1_namelist=${dummy_1_namelist:="none"}
 dummy_2_namelist=${dummy_2_namelist:="none"}
 
+ocean_min_rank=${ocean_min_rank:=0}
+ocean_max_rank=${ocean_max_rank:=65535}
+ocean_inc_rank=${ocean_inc_rank:=1}
+atmo_min_rank=${atmo_min_rank:=0}
+atmo_max_rank=${atmo_max_rank:=65535}
+atmo_inc_rank=${atmo_inc_rank:=1}
+
 #-----------------------------------------------------------------------------
 master_namelist=icon_master.namelist
 
@@ -154,9 +161,9 @@ cat >> $master_namelist << EOF
   model_namelist_filename="$atmo_namelist"
   model_restart_info_filename=""
   model_type=1
-  model_min_rank=0
-  model_max_rank=65535
-  model_inc_rank=1
+  model_min_rank=$atmo_min_rank
+  model_max_rank=$atmo_max_rank
+  model_inc_rank=$atmo_inc_rank
 /
 EOF
 fi
@@ -168,9 +175,9 @@ cat >> $master_namelist << EOF
   model_namelist_filename="$ocean_namelist"
   model_restart_info_filename=""
   model_type=2
-  model_min_rank=0
-  model_max_rank=65535
-  model_inc_rank=1
+  model_min_rank=$ocean_min_rank
+  model_max_rank=$ocean_max_rank
+  model_inc_rank=$ocean_inc_rank
 /
 EOF
 fi

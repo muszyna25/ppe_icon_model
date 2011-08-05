@@ -86,7 +86,7 @@ MODULE mo_icon_cpl_search
 
   USE mo_icon_cpl_send_restart, ONLY : ICON_cpl_send_restart
 
-  USE mo_master_control, ONLY: get_my_process_component
+  USE mo_master_control, ONLY: get_my_process_type
 
   IMPLICIT NONE
 
@@ -179,7 +179,7 @@ CONTAINS
        DO grid_id = 1, nbr_active_grids
           grid_extent(1) = MINVAL( grids(grid_id)%grid_glob_index )
           grid_extent(2) = MAXVAL( grids(grid_id)%grid_glob_index )
-          grid_extent(3) = get_my_process_component() ! Rene: this should not be in here.
+          grid_extent(3) = get_my_process_type() ! Rene: this should not be in here.
        ENDDO
     ENDDO
 
@@ -236,7 +236,7 @@ CONTAINS
 
     DO i = 1, ICON_global_size
 
-       IF ( all_extents(3,i) == get_my_process_component() ) CYCLE
+       IF ( all_extents(3,i) == get_my_process_type() ) CYCLE
 
        idx_range(1) = MAX(all_extents(1,i),grid_extent(1))
        idx_range(2) = MIN(all_extents(2,i),grid_extent(2))
@@ -306,7 +306,7 @@ CONTAINS
 
        DO i = 1, ICON_global_size
 
-          IF ( all_extents(3,i) == get_my_process_component() ) CYCLE
+          IF ( all_extents(3,i) == get_my_process_type() ) CYCLE
 
           idx_range(1) = MAX(all_extents(1,i),grid_extent(1))
           idx_range(2) = MIN(all_extents(2,i),grid_extent(2))
