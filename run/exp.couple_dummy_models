@@ -62,6 +62,34 @@ atmo_dyn_grids='iconR2B03-grid.nc'
 #  
 cat > $dummy_1_namelist << EOF
 !
+&coupling_nml
+  name                = 'TEST1'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'TEST2'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'TEST3'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'TEST4'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
 &parallel_nml
  nproma         = ${nproma}
  p_test_run     = .false.
@@ -107,6 +135,34 @@ EOF
 #
 cat > $dummy_2_namelist << EOF
 !
+&coupling_nml
+  name                = 'TEST1'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'TEST2'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'TEST3'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'TEST4'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
 &parallel_nml
  nproma         = ${nproma}
  p_test_run     = .false.

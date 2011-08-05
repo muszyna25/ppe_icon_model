@@ -47,7 +47,7 @@ MODULE mo_master_control
   USE mo_mpi,                ONLY: set_process_mpi_name, get_my_global_mpi_id, &
     &                              split_global_mpi_communicator
 
-  USE mo_icon_cpl,           ONLY: get_cpl_local_comm!, complist
+  USE mo_icon_cpl,           ONLY: get_cpl_local_comm
   USE mo_icon_cpl_init,      ONLY: icon_cpl_init
   USE mo_icon_cpl_init_comp, ONLY: icon_cpl_init_comp
 

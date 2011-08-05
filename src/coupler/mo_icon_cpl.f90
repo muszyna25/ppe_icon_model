@@ -274,8 +274,6 @@ MODULE mo_icon_cpl
 
   INTEGER, PARAMETER        :: nbr_ICON_comps    = 4
 
-  TYPE (t_comp)             :: complist (nbr_ICON_comps)
-
   ! General MPI function arguments
 
   INTEGER, PARAMETER        :: initag = 100 ! base tag to mark header

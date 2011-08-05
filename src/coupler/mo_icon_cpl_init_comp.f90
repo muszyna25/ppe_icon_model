@@ -63,8 +63,7 @@ MODULE mo_icon_cpl_init_comp
    &                      l_MPI_was_initialized
 #endif
   USE mo_icon_cpl, ONLY : l_debug, cplout,                    &
-   &                      grids, comps,                       &
-   &                      fields, complist,                   &
+   &                      grids, comps, fields,               &
    &                      nbr_active_comps,                   &
    &                      nbr_active_grids,                   &
    &                      nbr_active_fields,                  &
@@ -265,13 +264,6 @@ CONTAINS
 
     ENDIF
 
-    ! fill complist
-    complist(comp_id)%comp_name      = TRIM(comp_name)
-    complist(comp_id)%comp_process   = global_comp_no
-    complist(comp_id)%min_rank       = comp_min_rank
-    complist(comp_id)%max_rank       = comp_max_rank
-    complist(comp_id)%inc_rank       = comp_inc_rank
-
 #else
 
     ! -------------------------------------------------------------------
@@ -335,13 +327,17 @@ CONTAINS
 
     ! TODO: replace with user namelist input
 
+    LOGICAL                      :: l_redirect_stdout 
+
     INTEGER, PARAMETER           :: parallel_io = 1 !< switch for writing cplout
                                                     !<  - 1 write in parallel
                                                     !<  - 0 all in one
 
-    IF (  complist(comp_id)%l_redirect_stdout ) THEN
+    l_redirect_stdout = .FALSE.
 
-       comp_name = complist(comp_id)%comp_name
+    IF ( l_redirect_stdout ) THEN
+
+       comp_name = comps(comp_id)%comp_name
 
        lenstr = LEN_TRIM (comp_name)
 

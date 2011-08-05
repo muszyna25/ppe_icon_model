@@ -43,7 +43,6 @@ MODULE mo_icon_cpl_def_field
   USE mo_icon_cpl, ONLY         : ICON_comm,         & ! MPI communicator
      &                            t_field,           & ! Field type
      &                            t_comp,            & ! Field type
-     &                            complist,          & ! component information
      &                            fields,            & ! exchange fields
      &                            nbr_ICON_inc,      & ! increment for memory
      &                            nbr_active_fields, & ! total number of coupling fields
@@ -229,9 +228,6 @@ CONTAINS
     fptr%coupling%lag       = config_fields(global_field_id)%lag
     fptr%coupling%frequency = config_fields(global_field_id)%frequency
     fptr%coupling%time_step = config_fields(global_field_id)%time_step
-
-!rr Info shold come form the component
-!rr fptr%coupling%time_step = complist(comp_id)%config_fields(global_field_id)%time_step
 
     ! -------------------------------------------------------------------
     ! Signal new coupling event and store event_id in  fptr%event_id

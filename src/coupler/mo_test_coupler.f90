@@ -1,8 +1,6 @@
 
 MODULE test_coupler_mod
 
-  USE mo_icon_cpl, ONLY : cplout, complist
-
   USE mo_kind, ONLY     : wp
 
   PUBLIC

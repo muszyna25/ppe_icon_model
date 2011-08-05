@@ -34,13 +34,15 @@
 !!
 MODULE mo_cpl_dummy_model
 
+USE mo_kind,                ONLY: wp
 USE mo_exception,           ONLY: message, finish
 USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs
 USE mo_mpi,                 ONLY: p_stop, &
   & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
   & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type
 USE mo_timer,               ONLY: init_timer
-USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, get_my_couple_id
+USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, &
+                                  get_my_model_no, get_my_couple_id
 
 
 USE mo_io_async,            ONLY: io_main_proc            ! main procedure for I/O PEs
@@ -74,6 +76,7 @@ USE mo_master_control, ONLY : atmo_process, is_coupled_run
 USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid
 USE mo_icon_cpl_def_field, ONLY : ICON_cpl_def_field
 USE mo_icon_cpl_search, ONLY : ICON_cpl_search
+USE mo_icon_cpl_exchg, ONLY : ICON_cpl_put, ICON_cpl_get
 USE mo_model_domain_import, ONLY : get_patch_global_indexes
 
 ! Memory
@@ -161,7 +164,7 @@ CONTAINS
 
     ! For the coupling
 
-    INTEGER, PARAMETER :: no_of_fields = 12
+    INTEGER, PARAMETER :: no_of_fields = 8
 
     CHARACTER(LEN=MAX_CHAR_LENGTH) ::  field_name(no_of_fields)
     INTEGER :: field_id(no_of_fields)
@@ -371,20 +374,28 @@ CONTAINS
         & comp_id, grid_shape, p_patch(patch_no)%cells%glb_index, & ! input
         & grid_id, error_status )                                   ! output
   
-      field_name(1) = "SST"
-      field_name(2) = "TAUX"
-      field_name(3) = "TAUY"
-      field_name(4) = ""
-      field_name(5) = ""
-      field_name(6) = ""
-      field_name(7) = ""
-      field_name(8) = ""
+      field_name(1) = "TEST1"
+      field_name(2) = "TEST2"
+      field_name(3) = "TEST3"
+      field_name(4) = "TEST4"
+      field_name(5) = "TEST5"
+      field_name(6) = "TEST6"
+      field_name(7) = "TEST7"
+      field_name(8) = "TEST8"
 
-!      DO i = 1, no_of_fields
-      ! gives some strange message
-!          CALL ICON_cpl_def_field ( field_name(i), comp_id, grid_id, field_id(i), &
-!                                  & field_shape, error_status )
-!      ENDDO
+      ! horizontal dimension of the exchange field
+
+      field_shape(1) = grid_shape(1)
+      field_shape(2) = grid_shape(2)
+
+      ! number of bundles
+
+      field_shape(3) = 1
+
+      DO i = 1, no_of_fields
+          CALL ICON_cpl_def_field ( field_name(i), comp_id, grid_id, field_id(i), &
+                                  & field_shape, error_status )
+      ENDDO
 
       CALL ICON_cpl_search
 
@@ -395,8 +406,8 @@ CONTAINS
     ! This procedure simulates the timestepping for the sent - receive
     ! coupling process
     !---------------------------------------------------------------------
-    CALL cpl_dummy_timestepping()
-      
+
+    CALL cpl_dummy_timestepping(no_of_fields, field_id, field_shape)
 
     !---------------------------------------------------------------------
     ! 13. Dummy Carry out the shared clean-up processes
@@ -462,8 +473,70 @@ CONTAINS
   !-------------------------------------------------------------------------
   !> This method simulates the timestepping for the sent - receive
   ! coupling process
-  SUBROUTINE cpl_dummy_timestepping()
+  SUBROUTINE cpl_dummy_timestepping(no_of_fields, field_id, field_shape)
+
+    INTEGER, INTENT(IN) :: no_of_fields
+    INTEGER, INTENT(IN) :: field_id(no_of_fields)
+    INTEGER, INTENT(IN) :: field_shape(3)
+
+    CHARACTER(*), PARAMETER :: method_name = "mo_cpl_dummy_model:cpl_dummy_model"
+
+    INTEGER       :: i, nb
+    INTEGER       :: patch_no
+    INTEGER       :: id
+    INTEGER       :: ierror
+    INTEGER       :: info
+    INTEGER       :: model_id
+
+    REAL(kind=wp) :: recv_field (field_shape(1):field_shape(2),field_shape(3))
+    REAL(kind=wp) :: send_field (field_shape(1):field_shape(2),field_shape(3))
+
     CALL message('This is the mo_cpl_dummy_model','cpl_dummy_timestepping')
+
+    model_id = get_my_model_no()
+    patch_no = 1
+
+    ! what is the proper conversion form int to wp?
+
+    DO nb = 1, field_shape(3)
+       DO i = field_shape(1), field_shape(2)
+          send_field(i,nb) = p_patch(patch_no)%cells%glb_index(i)
+       ENDDO
+    ENDDO
+
+    SELECT CASE (model_id)
+
+    CASE ( 1 )  
+
+       DO i = 1, 4
+          id = field_id(i)
+          CALL ICON_cpl_put ( id, field_shape, send_field, ierror )
+       ENDDO
+
+       DO i = 5, no_of_fields
+          id = field_id(i)
+          CALL ICON_cpl_get ( id, field_shape, recv_field, info, ierror )
+       ENDDO
+
+    CASE ( 2 )
+
+       DO i = 5, no_of_fields
+          id = field_id(i)
+          CALL ICON_cpl_put ( id, field_shape, send_field, ierror )
+       ENDDO
+
+       DO i = 1, 4
+          id = field_id(i)
+          CALL ICON_cpl_get ( id, field_shape, recv_field, info, ierror )
+       ENDDO
+
+    CASE DEFAULT
+
+       CALL message(TRIM(method_name),'more than 2 dummy comps are not supported')    
+       CALL finish (TRIM(method_name),'deallocate for patch array failed')
+
+    END SELECT
+
   END SUBROUTINE cpl_dummy_timestepping
   !-------------------------------------------------------------------------
 
