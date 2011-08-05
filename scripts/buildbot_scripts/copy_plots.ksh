@@ -83,11 +83,17 @@ find experiments -name '*.eps' -exec cp {} /tmp/${BUILDER}/. \;
 #---------------------------------------------------------------------
 #---------------------------------------------------------------------
 
-BASE_DIR=/tmp/BuildBot/${BUILDER}/archive/${DATE}/buildbot/${REV}/${BUILDER}/${BUILDER_NR}
+#BASE_DIR=/tmp/BuildBot/${BUILDER}/archive/${DATE}/buildbot/${REV}/${BUILDER}/${BUILDER_NR}
 
-if [ -d /tmp/BuildBot/${BUILDER}/archive ]
+# This directory is only a temporary directory. Buildbot is downloadin the directpory
+# to mpipc91 and saves the data in /pool/data/ICON/archiv/${DATE}/buildbot/${REV}/${BUILDER}/${BUILDER_NR}
+# If a new run is started the BASE_DIR can be deleted. In the other case we would always create new directories in /mp
+
+BASE_DIR=/tmp/BuildBot/ICON/archive/${BUILDER}
+
+if [ -d  ${BASE_DIR} ]
 then
-  rm -rf /tmp/BuildBot/${BUILDER}/archive
+  rm -rf ${BASE_DIR}
 fi
 
 mkdir -p ${BASE_DIR}
@@ -99,3 +105,4 @@ copy_files
 echo "Copy ps-files"
 FILES=`find experiments -name '*.ps'`
 copy_files
+
