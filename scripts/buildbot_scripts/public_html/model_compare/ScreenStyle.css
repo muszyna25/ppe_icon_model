@@ -17,8 +17,8 @@ table#UserCanvas tr, td {
     border-top: 0.13mm solid black;
     border-right: 0.13mm solid black;
     border-left: 0.13mm solid black;
-    width: 200;
-    height: 120;
+    width: 250;
+/*    height: 120;*/
     text-align: center;
 }
 
@@ -39,8 +39,8 @@ table#UserCanvas tr, td {
     border-top: 0.13mm solid black;
     border-right: 0.13mm solid black;
     border-left: 0.13mm solid black;
-    width: 500;
-    height: 120;
+    width: 550;
+/*    height: 150;*/
     text-align: center;
 }
 
@@ -51,13 +51,12 @@ table#UserCanvas tr, td {
     border-right: 0.13mm solid black;
     border-left: 0.13mm solid black;
     width: 350;
-    height: 84;
     text-align: center;
 }
 
   #title_sp_1 { 
 /*    background-color: rgb(153, 153, 153);*/
-    width: 80;
+    width: 100;
     text-align: left;
     font-weight:bold
 }
