@@ -1905,107 +1905,105 @@ CONTAINS
     i_startblk = pt_patch%cells%start_blk(rl_start,1)
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
-    IF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 .AND. .NOT. lredgrid) THEN
 
-      IF (msg_level >= 12) &
-        &           CALL message('mo_nwp_rad_interface', 'RG radiation on full grid')
+    IF (msg_level >= 12) &
+      &           CALL message('mo_nwp_rad_interface', 'RG radiation on full grid')
 
-      !in order to account for mesh refinement
-      rl_start = grf_bdywidth_c+1
-      rl_end   = min_rlcell_int
+    !in order to account for mesh refinement
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
 
-      i_startblk = pt_patch%cells%start_blk(rl_start,1)
-      i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = pt_patch%cells%start_blk(rl_start,1)
+    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,zi0,losol,lo_sol),SCHEDULE(guided)
-      !
-      DO jb = i_startblk, i_endblk
+    !
+    DO jb = i_startblk, i_endblk
 
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-          &                         i_startidx, i_endidx, rl_start, rl_end)
+      CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+        &                         i_startidx, i_endidx, rl_start, rl_end)
 
-        DO jk = 1,nlev
-          DO jc = i_startidx,i_endidx
-            zsqv (jc,jk,jb) = qsat_rho(pt_diag%temp(jc,jk,jb),pt_prog%rho(jc,jk,jb))
-          ENDDO
+      DO jk = 1,nlev
+        DO jc = i_startidx,i_endidx
+          zsqv (jc,jk,jb) = qsat_rho(pt_diag%temp(jc,jk,jb),pt_prog%rho(jc,jk,jb))
         ENDDO
+      ENDDO
 
-        albvisdir(i_startidx:i_endidx,jb) = 0.07_wp ! ~ albedo of water
-        alb_ther(i_startidx:i_endidx,jb) = 0.004_wp
+      albvisdir(i_startidx:i_endidx,jb) = 0.07_wp ! ~ albedo of water
+      alb_ther(i_startidx:i_endidx,jb) = 0.004_wp
 
-        prm_diag%tsfctrad(i_startidx:i_endidx,jb) = lnd_prog_now%t_g(i_startidx:i_endidx,jb)
+      prm_diag%tsfctrad(i_startidx:i_endidx,jb) = lnd_prog_now%t_g(i_startidx:i_endidx,jb)
 
-        ! CO2 (mixing ratio 353.9 ppm as vmr_co2)
-        DO jk = 1,nlev
-          DO jc = i_startidx,i_endidx
-            zduco2(jc,jk,jb) = zqco2 * pt_diag%dpres_mc (jc,jk,jb)
-          ENDDO
+      ! CO2 (mixing ratio 353.9 ppm as vmr_co2)
+      DO jk = 1,nlev
+        DO jc = i_startidx,i_endidx
+          zduco2(jc,jk,jb) = zqco2 * pt_diag%dpres_mc (jc,jk,jb)
         ENDDO
+      ENDDO
 
-        ! Switch off solar radiation calculations where sun is below horizon:
-        WHERE ( prm_diag%cosmu0(i_startidx:i_endidx,jb) > 1.e-8_wp ) !zepmu0 )
-          lo_sol(i_startidx:i_endidx) = .TRUE.
-        ELSEWHERE
-          lo_sol(i_startidx:i_endidx) = .FALSE.
-        END WHERE
-        losol = ANY(lo_sol(i_startidx:i_endidx))
+      ! Switch off solar radiation calculations where sun is below horizon:
+      WHERE ( prm_diag%cosmu0(i_startidx:i_endidx,jb) > 1.e-8_wp ) !zepmu0 )
+        lo_sol(i_startidx:i_endidx) = .TRUE.
+      ELSEWHERE
+        lo_sol(i_startidx:i_endidx) = .FALSE.
+      END WHERE
+      losol = ANY(lo_sol(i_startidx:i_endidx))
 
 
 !#ifdef __BOUNDCHECK
-        CALL fesft ( &
+      CALL fesft ( &
                                 !  Input:
-          & pti = pt_diag%temp_ifc (:,:,jb) , &! Temperature at layer boundaries
-          & pdp = pt_diag%dpres_mc (:,:,jb), &! pressure thickness
-          & pclc_in= prm_diag%tot_cld  (:,:,jb,icc) , &
-          & pqv = prm_diag%tot_cld(:,:,jb,iqv), &! pt_prog_rcf%tracer(:,:,jb,iqv)
-          & pqvs = zsqv(:,:,jb), &!saturation water vapor
-          & pqcwc = prm_diag%tot_cld    (:,:,jb,iqc) ,&
-          & pqiwc = prm_diag%tot_cld    (:,:,jb,iqi) ,&
-          & pduco2 = zduco2 (:,:,jb), &! layer CO2 content
-          & pduo3  = zduo3(:,:,jb),&! layer O3 content
-          & paeq1 = zaeq1(:,:,jb), &
-          & paeq2 = zaeq2(:,:,jb),&
-          & paeq3 = zaeq3(:,:,jb),&
-          & paeq4 = zaeq4(:,:,jb),&
-          & paeq5 = zaeq5(:,:,jb),&
-          & papre_in =  pt_diag%pres_sfc (:,jb), & ! Surface pressure
-          & psmu0 = prm_diag%cosmu0 (:,jb) , & ! Cosine of zenith angle
-          & palso = albvisdir(:,jb), & ! solar surface albedo
-          & palth = alb_ther(:,jb), & ! thermal surface albedo
-          & psct = zsct, &! solar constant (at time of year)
-          & kig1s = 1 ,&
-          & kig1e = nproma , &
-          & ki3s = 1, &
-          & ki3e = nlev,&
-          & ki1sc= i_startidx, &
-          & ki1ec= i_endidx, &
-          & lsolar = losol, &! control switch for solar calculations
-          !          & lsolar = .TRUE., &! control switch for solar calculations
-          & lthermal =.TRUE., &
-          & lcrf = .FALSE., &! control switch for cloud-free calcul.
+        & pti = pt_diag%temp_ifc (:,:,jb) , &! Temperature at layer boundaries
+        & pdp = pt_diag%dpres_mc (:,:,jb), &! pressure thickness
+        & pclc_in= prm_diag%tot_cld  (:,:,jb,icc) , &
+        & pqv = prm_diag%tot_cld(:,:,jb,iqv), &! pt_prog_rcf%tracer(:,:,jb,iqv)
+        & pqvs = zsqv(:,:,jb), &!saturation water vapor
+        & pqcwc = prm_diag%tot_cld    (:,:,jb,iqc) ,&
+        & pqiwc = prm_diag%tot_cld    (:,:,jb,iqi) ,&
+        & pduco2 = zduco2 (:,:,jb), &! layer CO2 content
+        & pduo3  = zduo3(:,:,jb),&! layer O3 content
+        & paeq1 = zaeq1(:,:,jb), &
+        & paeq2 = zaeq2(:,:,jb),&
+        & paeq3 = zaeq3(:,:,jb),&
+        & paeq4 = zaeq4(:,:,jb),&
+        & paeq5 = zaeq5(:,:,jb),&
+        & papre_in =  pt_diag%pres_sfc (:,jb), & ! Surface pressure
+        & psmu0 = prm_diag%cosmu0 (:,jb) , & ! Cosine of zenith angle
+        & palso = albvisdir(:,jb), & ! solar surface albedo
+        & palth = alb_ther(:,jb), & ! thermal surface albedo
+        & psct = zsct, &! solar constant (at time of year)
+        & kig1s = 1 ,&
+        & kig1e = nproma , &
+        & ki3s = 1, &
+        & ki3e = nlev,&
+        & ki1sc= i_startidx, &
+        & ki1ec= i_endidx, &
+        & lsolar = losol, &! control switch for solar calculations
+        !          & lsolar = .TRUE., &! control switch for solar calculations
+        & lthermal =.TRUE., &
+        & lcrf = .FALSE., &! control switch for cloud-free calcul.
                                 ! Output:
-          & pflt  = prm_diag%lwflxall(:,:,jb),& !Thermal radiative fluxes at each layer boundary
-          & pfls  = zfls  (:,:,jb)  &! solar radiative fluxes at each layer boundary
-          & )
+        & pflt  = prm_diag%lwflxall(:,:,jb),& !Thermal radiative fluxes at each layer boundary
+        & pfls  = zfls  (:,:,jb)  &! solar radiative fluxes at each layer boundary
+        & )
 
-        zi0 (i_startidx:i_endidx) = prm_diag%cosmu0(i_startidx:i_endidx,jb) * zsct
-        ! compute sw transmissivity trsolall from sw fluxes
-        DO jk = 1,nlevp1
-          DO jc = i_startidx,i_endidx
-            IF (prm_diag%cosmu0(jc,jb) < 1.e-8_wp) THEN
-              prm_diag%trsolall(jc,jk,jb) = 0.0_wp
-            ELSE
-              prm_diag%trsolall(jc,jk,jb) = zfls(jc,jk,jb) / zi0(jc)
-            ENDIF
-          ENDDO
+      zi0 (i_startidx:i_endidx) = prm_diag%cosmu0(i_startidx:i_endidx,jb) * zsct
+      ! compute sw transmissivity trsolall from sw fluxes
+      DO jk = 1,nlevp1
+        DO jc = i_startidx,i_endidx
+          IF (prm_diag%cosmu0(jc,jb) < 1.e-8_wp) THEN
+            prm_diag%trsolall(jc,jk,jb) = 0.0_wp
+          ELSE
+            prm_diag%trsolall(jc,jk,jb) = zfls(jc,jk,jb) / zi0(jc)
+          ENDIF
         ENDDO
+      ENDDO
 
-      ENDDO !jb
+    ENDDO !jb
 !$OMP END DO
 !$OMP END PARALLEL
 
-    ENDIF
 
   END SUBROUTINE nwp_rg_radiation
   !---------------------------------------------------------------------------------------
@@ -2410,178 +2408,177 @@ CONTAINS
     i_startblk = pt_patch%cells%start_blk(rl_start,1)
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
-    IF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 .AND. lredgrid) THEN
 
       ! section for computing radiation on reduced grid
 
-      IF (p_test_run) THEN
-        prm_diag%lwflxall(:,:,:) = 0._wp
-        prm_diag%trsolall(:,:,:) = 0._wp
-      ENDIF
+    IF (p_test_run) THEN
+      prm_diag%lwflxall(:,:,:) = 0._wp
+      prm_diag%trsolall(:,:,:) = 0._wp
+    ENDIF
 
-      IF (msg_level >= 12) &
-        &  CALL message('mo_nwp_rad_interface', 'Ritter-Geleyn radiation on reduced grid')
+    IF (msg_level >= 12) &
+      &  CALL message('mo_nwp_rad_interface', 'Ritter-Geleyn radiation on reduced grid')
 
-      IF (my_process_is_mpi_seq()) THEN
-        l_parallel = .FALSE.
-      ELSE
-        l_parallel = .TRUE.
-      ENDIF
+    IF (my_process_is_mpi_seq()) THEN
+      l_parallel = .FALSE.
+    ELSE
+      l_parallel = .TRUE.
+    ENDIF
 
-      i_chidx     =  pt_patch%parent_child_index
+    i_chidx     =  pt_patch%parent_child_index
 
-      IF (jg == 1 .OR. .NOT. l_parallel) THEN
-        ptr_pp => pt_par_patch
-        nblks_par_c = pt_par_patch%nblks_c
+    IF (jg == 1 .OR. .NOT. l_parallel) THEN
+      ptr_pp => pt_par_patch
+      nblks_par_c = pt_par_patch%nblks_c
 
-        ! number of vertical levels
-        ! ** for the time being, the radiation grid is assumed to have the same
-        !    levels as the main grid **
-        ! nlev   = ptr_pp%nlev
-        ! nlevp1 = ptr_pp%nlevp1
-      ELSE ! Nested domain with MPI parallelization
-        ptr_pp      => p_patch_local_parent(jg)
-        nblks_par_c =  ptr_pp%nblks_c
+      ! number of vertical levels
+      ! ** for the time being, the radiation grid is assumed to have the same
+      !    levels as the main grid **
+      ! nlev   = ptr_pp%nlev
+      ! nlevp1 = ptr_pp%nlevp1
+    ELSE ! Nested domain with MPI parallelization
+      ptr_pp      => p_patch_local_parent(jg)
+      nblks_par_c =  ptr_pp%nblks_c
 
-        ! number of vertical levels
-        ! ** for the time being, the radiation grid is assumed to have the same
-        !    levels as the main grid **
-        ! nlev   = ptr_pp%nlev
-        ! nlevp1 = ptr_pp%nlevp1
-      ENDIF
+      ! number of vertical levels
+      ! ** for the time being, the radiation grid is assumed to have the same
+      !    levels as the main grid **
+      ! nlev   = ptr_pp%nlev
+      ! nlevp1 = ptr_pp%nlevp1
+    ENDIF
 
-      ALLOCATE (zrg_cosmu0   (nproma,nblks_par_c),          &
-        zrg_albvisdir(nproma,nblks_par_c),          &
-        zrg_alb_ther (nproma,nblks_par_c),          &
-        zrg_pres_sfc (nproma,nblks_par_c),          &
-        zrg_temp_ifc (nproma,nlevp1,nblks_par_c),   &
-        zrg_dpres_mc (nproma,nlev  ,nblks_par_c),   &
-        zrg_sqv      (nproma,nlev  ,nblks_par_c),   &
-        zrg_duco2    (nproma,nlev  ,nblks_par_c),   &
-        zrg_o3       (nproma,nlev  ,nblks_par_c),   &
-        zrg_aeq1     (nproma,nlev  ,nblks_par_c),   &
-        zrg_aeq2     (nproma,nlev  ,nblks_par_c),   &
-        zrg_aeq3     (nproma,nlev  ,nblks_par_c),   &
-        zrg_aeq4     (nproma,nlev  ,nblks_par_c),   &
-        zrg_aeq5     (nproma,nlev  ,nblks_par_c),   &
-        zrg_tot_cld  (nproma,nlev  ,nblks_par_c,4), &
-        zrg_fls      (nproma,nlevp1,nblks_par_c),   &
-        zrg_lwflxall (nproma,nlevp1,nblks_par_c),   &
-        zrg_trsolall (nproma,nlevp1,nblks_par_c)    )
+    ALLOCATE (zrg_cosmu0   (nproma,nblks_par_c),          &
+      zrg_albvisdir(nproma,nblks_par_c),          &
+      zrg_alb_ther (nproma,nblks_par_c),          &
+      zrg_pres_sfc (nproma,nblks_par_c),          &
+      zrg_temp_ifc (nproma,nlevp1,nblks_par_c),   &
+      zrg_dpres_mc (nproma,nlev  ,nblks_par_c),   &
+      zrg_sqv      (nproma,nlev  ,nblks_par_c),   &
+      zrg_duco2    (nproma,nlev  ,nblks_par_c),   &
+      zrg_o3       (nproma,nlev  ,nblks_par_c),   &
+      zrg_aeq1     (nproma,nlev  ,nblks_par_c),   &
+      zrg_aeq2     (nproma,nlev  ,nblks_par_c),   &
+      zrg_aeq3     (nproma,nlev  ,nblks_par_c),   &
+      zrg_aeq4     (nproma,nlev  ,nblks_par_c),   &
+      zrg_aeq5     (nproma,nlev  ,nblks_par_c),   &
+      zrg_tot_cld  (nproma,nlev  ,nblks_par_c,4), &
+      zrg_fls      (nproma,nlevp1,nblks_par_c),   &
+      zrg_lwflxall (nproma,nlevp1,nblks_par_c),   &
+      zrg_trsolall (nproma,nlevp1,nblks_par_c)    )
 
 
-      rl_start = 1 ! SR radiation is not set up to handle boundaries of nested domains
-      rl_end   = min_rlcell_int
+    rl_start = 1 ! SR radiation is not set up to handle boundaries of nested domains
+    rl_end   = min_rlcell_int
 
-      i_startblk = pt_patch%cells%start_blk(rl_start,1)
-      i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
+    i_startblk = pt_patch%cells%start_blk(rl_start,1)
+    i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
-      ! *** this parallel section will be removed later once real data are
-      !     are available as input for radiation ***
+    ! *** this parallel section will be removed later once real data are
+    !     are available as input for radiation ***
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
-      !
-      DO jb = i_startblk, i_endblk
+    !
+    DO jb = i_startblk, i_endblk
 
-        CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
-          &                         i_startidx, i_endidx, rl_start, rl_end)
+      CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
+        &                         i_startidx, i_endidx, rl_start, rl_end)
 
-        DO jk = 1,nlev
-          DO jc = i_startidx,i_endidx
-            zsqv (jc,jk,jb) = qsat_rho(pt_diag%temp(jc,jk,jb),pt_prog%rho(jc,jk,jb))
-          ENDDO
+      DO jk = 1,nlev
+        DO jc = i_startidx,i_endidx
+          zsqv (jc,jk,jb) = qsat_rho(pt_diag%temp(jc,jk,jb),pt_prog%rho(jc,jk,jb))
         ENDDO
+      ENDDO
 
-        albvisdir(i_startidx:i_endidx,jb) = 0.07_wp ! ~ albedo of water
-        alb_ther(i_startidx:i_endidx,jb) = 0.004_wp
-        !        zduo3(i_startidx:i_endidx,:,jb)= 0.0_wp
-        zaeq1(i_startidx:i_endidx,:,jb)= 0.0_wp !  1.e-10_wp
-        zaeq2(i_startidx:i_endidx,:,jb)= 0.0_wp !  1.e-10_wp
-        zaeq3(i_startidx:i_endidx,:,jb)= 0.0_wp !  1.e-10_wp
-        zaeq4(i_startidx:i_endidx,:,jb)= 0.0_wp !  1.e-10_wp
-        zaeq5(i_startidx:i_endidx,:,jb)= 0.0_wp !  1.e-10_wp
+      albvisdir(i_startidx:i_endidx,jb) = 0.07_wp ! ~ albedo of water
+      alb_ther(i_startidx:i_endidx,jb) = 0.004_wp
+      !        zduo3(i_startidx:i_endidx,:,jb)= 0.0_wp
+      zaeq1(i_startidx:i_endidx,:,jb)= 0.0_wp !  1.e-10_wp
+      zaeq2(i_startidx:i_endidx,:,jb)= 0.0_wp !  1.e-10_wp
+      zaeq3(i_startidx:i_endidx,:,jb)= 0.0_wp !  1.e-10_wp
+      zaeq4(i_startidx:i_endidx,:,jb)= 0.0_wp !  1.e-10_wp
+      zaeq5(i_startidx:i_endidx,:,jb)= 0.0_wp !  1.e-10_wp
 
-        prm_diag%tsfctrad(i_startidx:i_endidx,jb) = lnd_prog_now%t_g(i_startidx:i_endidx,jb)
+      prm_diag%tsfctrad(i_startidx:i_endidx,jb) = lnd_prog_now%t_g(i_startidx:i_endidx,jb)
 
-        ! CO2 (mixing ratio 353.9 ppm as vmr_co2)
-        DO jk = 1,nlev
-          DO jc = i_startidx,i_endidx
-            zduco2(jc,jk,jb) = zqco2 * pt_diag%dpres_mc (jc,jk,jb)
-          ENDDO
+      ! CO2 (mixing ratio 353.9 ppm as vmr_co2)
+      DO jk = 1,nlev
+        DO jc = i_startidx,i_endidx
+          zduco2(jc,jk,jb) = zqco2 * pt_diag%dpres_mc (jc,jk,jb)
         ENDDO
+      ENDDO
 
-      ENDDO ! blocks
+    ENDDO ! blocks
 
 !$OMP END DO
 !$OMP END PARALLEL
 
-      CALL upscale_rad_input_rg(pt_patch, pt_par_patch, pt_par_grf_state,                    &
-        & prm_diag%cosmu0, albvisdir, alb_ther, pt_diag%temp_ifc, pt_diag%dpres_mc,          &
-        & prm_diag%tot_cld, zsqv ,zduco2, zduo3,                     &
-        & zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,pt_diag%pres_sfc,                                    &
-        & zrg_cosmu0, zrg_albvisdir, zrg_alb_ther, zrg_temp_ifc, zrg_dpres_mc,               &
-        & zrg_tot_cld, zrg_sqv ,zrg_duco2, zrg_o3,                                           &
-        & zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5,zrg_pres_sfc     )
+    CALL upscale_rad_input_rg(pt_patch, pt_par_patch, pt_par_grf_state,                    &
+      & prm_diag%cosmu0, albvisdir, alb_ther, pt_diag%temp_ifc, pt_diag%dpres_mc,          &
+      & prm_diag%tot_cld, zsqv ,zduco2, zduo3,                     &
+      & zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,pt_diag%pres_sfc,                                    &
+      & zrg_cosmu0, zrg_albvisdir, zrg_alb_ther, zrg_temp_ifc, zrg_dpres_mc,               &
+      & zrg_tot_cld, zrg_sqv ,zrg_duco2, zrg_o3,                                           &
+      & zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5,zrg_pres_sfc     )
 
-      rl_start = grf_ovlparea_start_c
-      rl_end   = min_rlcell_int
+    rl_start = grf_ovlparea_start_c
+    rl_end   = min_rlcell_int
 
-      i_startblk = ptr_pp%cells%start_blk(rl_start,i_chidx)
-      i_endblk   = ptr_pp%cells%end_blk(rl_end,i_chidx)
+    i_startblk = ptr_pp%cells%start_blk(rl_start,i_chidx)
+    i_endblk   = ptr_pp%cells%end_blk(rl_end,i_chidx)
 
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,lo_sol,losol,zi0) ,SCHEDULE(guided)
-      !
-      DO jb = i_startblk, i_endblk
+    !
+    DO jb = i_startblk, i_endblk
 
-        CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
-          &                         i_startidx, i_endidx, rl_start, rl_end, i_chidx)
+      CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &
+        &                         i_startidx, i_endidx, rl_start, rl_end, i_chidx)
 
-        ! Switch off solar radiation calculations where sun is below horizon:
-        WHERE ( zrg_cosmu0(i_startidx:i_endidx,jb) > 1.e-8_wp ) !zepmu0 )
-          lo_sol(i_startidx:i_endidx) = .TRUE.
-        ELSEWHERE
-          lo_sol(i_startidx:i_endidx) = .FALSE.
-        END WHERE
-        losol = ANY(lo_sol(i_startidx:i_endidx))
+      ! Switch off solar radiation calculations where sun is below horizon:
+      WHERE ( zrg_cosmu0(i_startidx:i_endidx,jb) > 1.e-8_wp ) !zepmu0 )
+        lo_sol(i_startidx:i_endidx) = .TRUE.
+      ELSEWHERE
+        lo_sol(i_startidx:i_endidx) = .FALSE.
+      END WHERE
+      losol = ANY(lo_sol(i_startidx:i_endidx))
 
 !#ifdef __BOUNDCHECK
-        CALL fesft ( &
-                                !  Input:
-          & pti = zrg_temp_ifc (:,:,jb) , &! Temperature at layer boundaries
-          & pdp = zrg_dpres_mc (:,:,jb), &! pressure thickness
-          & pclc_in= zrg_tot_cld  (:,:,jb,icc) , &
-          & pqv = zrg_tot_cld(:,:,jb,iqv), &! pt_prog_rcf%tracer(:,:,jb,iqv)
-          & pqvs = zrg_sqv(:,:,jb), &!saturation water vapor
-          & pqcwc = zrg_tot_cld    (:,:,jb,iqc) ,&
-          & pqiwc = zrg_tot_cld    (:,:,jb,iqi) ,&
-          & pduco2 = zrg_duco2 (:,:,jb), &! layer CO2 content
-          & pduo3  = zrg_o3 (:,:,jb),&! layer O3 content
-          & paeq1 = zrg_aeq1(:,:,jb), &
-          & paeq2 = zrg_aeq2(:,:,jb),&
-          & paeq3 = zrg_aeq3(:,:,jb),&
-          & paeq4 = zrg_aeq4(:,:,jb),&
-          & paeq5 = zrg_aeq5(:,:,jb),&
-          & papre_in = zrg_pres_sfc (:,jb), & ! Surface pressure
-          & psmu0 = zrg_cosmu0 (:,jb) , & ! Cosine of zenith angle
-          & palso = zrg_albvisdir(:,jb), & ! solar surface albedo
-          & palth = zrg_alb_ther(:,jb), & ! thermal surface albedo
-          & psct = zsct, &! solar constant (at time of year)
-          & kig1s = 1 ,&
-          & kig1e = nproma , &
-          & ki3s = 1, &
-          & ki3e = nlev,&
-          & ki1sc= i_startidx, &
-          & ki1ec= i_endidx, &
-          & lsolar = losol, &! control switch for solar calculations
-          !          & lsolar = .TRUE., &! control switch for solar calculations
-          & lthermal =.TRUE., &
-          & lcrf = .FALSE., &! control switch for cloud-free calcul.
+      CALL fesft ( &
+                                         !  Input:
+        & pti = zrg_temp_ifc (:,:,jb) , &! Temperature at layer boundaries
+        & pdp = zrg_dpres_mc (:,:,jb), &! pressure thickness
+        & pclc_in= zrg_tot_cld  (:,:,jb,icc) , &
+        & pqv = zrg_tot_cld(:,:,jb,iqv), &! pt_prog_rcf%tracer(:,:,jb,iqv)
+        & pqvs = zrg_sqv(:,:,jb), &!saturation water vapor
+        & pqcwc = zrg_tot_cld    (:,:,jb,iqc) ,&
+        & pqiwc = zrg_tot_cld    (:,:,jb,iqi) ,&
+        & pduco2 = zrg_duco2 (:,:,jb), &! layer CO2 content
+        & pduo3  = zrg_o3 (:,:,jb),&! layer O3 content
+        & paeq1 = zrg_aeq1(:,:,jb), &
+        & paeq2 = zrg_aeq2(:,:,jb),&
+        & paeq3 = zrg_aeq3(:,:,jb),&
+        & paeq4 = zrg_aeq4(:,:,jb),&
+        & paeq5 = zrg_aeq5(:,:,jb),&
+        & papre_in = zrg_pres_sfc (:,jb), & ! Surface pressure
+        & psmu0 = zrg_cosmu0 (:,jb) , & ! Cosine of zenith angle
+        & palso = zrg_albvisdir(:,jb), & ! solar surface albedo
+        & palth = zrg_alb_ther(:,jb), & ! thermal surface albedo
+        & psct = zsct, &! solar constant (at time of year)
+        & kig1s = 1 ,&
+        & kig1e = nproma , &
+        & ki3s = 1, &
+        & ki3e = nlev,&
+        & ki1sc= i_startidx, &
+        & ki1ec= i_endidx, &
+        & lsolar = losol, &! control switch for solar calculations
+        !          & lsolar = .TRUE., &! control switch for solar calculations
+        & lthermal =.TRUE., &
+        & lcrf = .FALSE., &! control switch for cloud-free calcul.
                                 ! Output:
-          & pflt  = zrg_lwflxall(:,:,jb) ,& ! Thermal radiative fluxes at each layer boundary
-          & pfls  = zrg_fls  (:,:,jb)  &! solar radiative fluxes at each layer boundary
-          & )
+        & pflt  = zrg_lwflxall(:,:,jb) ,& ! Thermal radiative fluxes at each layer boundary
+        & pfls  = zrg_fls  (:,:,jb)  &! solar radiative fluxes at each layer boundary
+        & )
 !#else
 !        CALL fesft ( &
 !                                !  Input:
@@ -2627,34 +2624,33 @@ CONTAINS
 !#endif
 
 
-        zi0 (i_startidx:i_endidx) = zrg_cosmu0(i_startidx:i_endidx,jb) * zsct
-        ! compute sw transmissivity trsolall from sw fluxes
-        DO jk = 1,nlevp1
-          DO jc = i_startidx,i_endidx
-            ! This is needed to avoid false synchronization errors
-            IF (zrg_cosmu0(jc,jb) < 1.e-8_wp) THEN
-              zrg_trsolall(jc,jk,jb) = 0._wp
-            ELSE
-              zrg_trsolall(jc,jk,jb) = zrg_fls(jc,jk,jb) / zi0(jc)
-            ENDIF
-          ENDDO
+      zi0 (i_startidx:i_endidx) = zrg_cosmu0(i_startidx:i_endidx,jb) * zsct
+      ! compute sw transmissivity trsolall from sw fluxes
+      DO jk = 1,nlevp1
+        DO jc = i_startidx,i_endidx
+          ! This is needed to avoid false synchronization errors
+          IF (zrg_cosmu0(jc,jb) < 1.e-8_wp) THEN
+            zrg_trsolall(jc,jk,jb) = 0._wp
+          ELSE
+            zrg_trsolall(jc,jk,jb) = zrg_fls(jc,jk,jb) / zi0(jc)
+          ENDIF
         ENDDO
+      ENDDO
 
-      ENDDO ! blocks
+    ENDDO ! blocks
 
 !$OMP END DO
 !$OMP END PARALLEL
 
-      CALL downscale_rad_output_rg(pt_patch, pt_par_patch, pt_par_int_state,         &
-        & pt_par_grf_state, zrg_lwflxall, zrg_trsolall, &
-        & prm_diag%lwflxall, prm_diag%trsolall )
+    CALL downscale_rad_output_rg(pt_patch, pt_par_patch, pt_par_int_state,         &
+      & pt_par_grf_state, zrg_lwflxall, zrg_trsolall, &
+      & prm_diag%lwflxall, prm_diag%trsolall )
 
-      DEALLOCATE (zrg_cosmu0,zrg_albvisdir,zrg_alb_ther,                      &
-        & zrg_pres_sfc,zrg_temp_ifc,zrg_dpres_mc,zrg_sqv,zrg_duco2,zrg_o3,    &
-        & zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5,                       &
-        & zrg_tot_cld, zrg_fls,zrg_lwflxall, zrg_trsolall)
+    DEALLOCATE (zrg_cosmu0,zrg_albvisdir,zrg_alb_ther,                      &
+      & zrg_pres_sfc,zrg_temp_ifc,zrg_dpres_mc,zrg_sqv,zrg_duco2,zrg_o3,    &
+      & zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5,                       &
+      & zrg_tot_cld, zrg_fls,zrg_lwflxall, zrg_trsolall)
 
-    ENDIF !inwp_radiation
 
   END SUBROUTINE nwp_rg_radiation_reduced
 
