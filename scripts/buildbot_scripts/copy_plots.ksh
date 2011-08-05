@@ -44,7 +44,7 @@ copy_files ()
 #===============================================================
 # Script begin
 #===============================================================
-
+set -x
 #---------------------------------------------------------------------
 #---------------------------------------------------------------------
 # Save Plots for Buildbot web-Page
@@ -74,7 +74,7 @@ echo "_BUILDER_ ${BUILDER}" >> /tmp/${BUILDER}/job_info.txt
 echo "_REVISION_ ${REV}" >> /tmp/${BUILDER}/job_info.txt
 echo "_UPDATE_ ${PUPDATE}" >> /tmp/${BUILDER}/job_info.txt
 echo "_BUILDID_ ${BUILDER_NR}" >> /tmp/${BUILDER}/job_info.txt
-
+pwd
 find experiments -name '*.eps' -exec cp {} /tmp/${BUILDER}/. \;
 
 #---------------------------------------------------------------------
@@ -83,25 +83,24 @@ find experiments -name '*.eps' -exec cp {} /tmp/${BUILDER}/. \;
 #---------------------------------------------------------------------
 #---------------------------------------------------------------------
 
-#BASE_DIR=/tmp/BuildBot/${BUILDER}/archive/${DATE}/buildbot/${REV}/${BUILDER}/${BUILDER_NR}
+BASE_DIR=/tmp/BuildBot/${BUILDER}/archive/${DATE}/buildbot/${REV}/${BUILDER}/${BUILDER_NR}
 
 # This directory is only a temporary directory. Buildbot is downloadin the directpory
 # to mpipc91 and saves the data in /pool/data/ICON/archiv/${DATE}/buildbot/${REV}/${BUILDER}/${BUILDER_NR}
 # If a new run is started the BASE_DIR can be deleted. In the other case we would always create new directories in /mp
 
-BASE_DIR=/tmp/BuildBot/ICON/archive/${BUILDER}
 
-if [ -d  ${BASE_DIR} ]
+if [ -d  /tmp/BuildBot/${BUILDER}/archive ]
 then
-  rm -rf ${BASE_DIR}
+  rm -rf /tmp/BuildBot/${BUILDER}/archive
 fi
 
 mkdir -p ${BASE_DIR}
-
+pwd
 echo "Copy eps-files"
 FILES=`find experiments -name '*.eps'`
 copy_files
-
+pwd
 echo "Copy ps-files"
 FILES=`find experiments -name '*.ps'`
 copy_files
