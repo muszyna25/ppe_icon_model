@@ -78,9 +78,11 @@ MODULE mo_master_control
   INTEGER :: my_model_no ! 1,2,3  (id uniquely this process, even if it has the
                          ! same my_process_model with other compnents
                          ! Example: Two different components may run the dummy_process
+  INTEGER :: my_coupling_comp_id ! the coupling id for this component 
   CHARACTER(len=filename_max) :: my_namelist_filename
   CHARACTER(len=64) :: my_model_name
   
+  INTEGER :: my_model_min_rank, my_model_max_rank, my_model_inc_rank 
   LOGICAL :: in_coupled_mode
 
 
@@ -97,7 +99,7 @@ MODULE mo_master_control
     ! !Local variables
     !
     INTEGER :: master_namelist_status
-    INTEGER :: model_no, jg, comp_id, str_len, ierr
+    INTEGER :: model_no, jg, str_len, ierr
     INTEGER :: new_comm
 
     CHARACTER(LEN=*), PARAMETER :: method_name = "master_control"
@@ -166,60 +168,12 @@ MODULE mo_master_control
     !------------------------------------------------------------
     IF ( in_coupled_mode ) THEN
       ! Inform tghe coupler of what we are
-      CALL icon_cpl_init_comp ( my_model_name, my_process_model, comp_id, ierr )
-      ! make the component communicator available for use within the ICON components
-      ! new_comm = get_cpl_local_comm()
+      CALL icon_cpl_init_comp ( my_model_name, my_model_no, my_process_model, &
+        & my_model_min_rank, my_model_max_rank, my_model_inc_rank,            &
+        my_coupling_comp_id, ierr )
+      ! split the global_mpi_communicator into the components
       CALL split_global_mpi_communicator ( my_model_no )
     ENDIF
-    !------------------------------------------------------------
-
-    
-    !------------------------------------------------------------
-
-!     IF ( in_coupled_mode .AND. atmo_namelist_filename == ocean_namelist_filename ) THEN
-!        WRITE ( * , * ) ' Component specific namelists have to be different!'
-!     ENDIF
-
-    !------------------------------------------------------------
-!     Leonidas: This has to be moved and use the master namelist
-
-!     IF ( in_coupled_mode ) THEN
-! 
-!        WRITE (complist(comp_id)%nml_name,'(A13)') 'NAMELIST_ICON'
-! 
-!        SELECT CASE ( my_process_model )
-! 
-!        CASE ( atmo_process )
-! 
-!           complist(comp_id)%comp_name      = TRIM(atmo_name)
-!           complist(comp_id)%comp_process   = atmo_process
-!           complist(comp_id)%min_rank       = atmo_min_rank
-!           complist(comp_id)%max_rank       = atmo_max_rank
-!           complist(comp_id)%inc_rank       = atmo_inc_rank
-! 
-!           IF (TRIM(atmo_namelist_filename) /= "") THEN
-!              str_len = LEN_TRIM(atmo_namelist_filename)
-!              WRITE (complist(comp_id)%nml_name(14:14),'(A1)') '_'
-!              WRITE (complist(comp_id)%nml_name(15:15+str_len),'(A)') TRIM(atmo_namelist_filename)
-!           ENDIF
-! 
-!        CASE ( ocean_process )
-! 
-!           complist(comp_id)%comp_name      = TRIM(ocean_name)
-!           complist(comp_id)%l_comp_status  = l_ocean_active
-!           complist(comp_id)%min_rank       = ocean_min_rank
-!           complist(comp_id)%max_rank       = ocean_max_rank
-!           complist(comp_id)%inc_rank       = ocean_inc_rank
-! 
-!           IF (TRIM(ocean_namelist_filename) /= "") THEN
-!              str_len = LEN_TRIM(ocean_namelist_filename)
-!              WRITE (complist(comp_id)%nml_name(14:14),'(A1)') '_'
-!              WRITE (complist(comp_id)%nml_name(15:15+str_len),'(A)') TRIM(ocean_namelist_filename)
-!           ENDIF
-! 
-!        END SELECT
-! 
-!     ENDIF
     !------------------------------------------------------------
 
     init_master_control = 0
@@ -239,6 +193,10 @@ MODULE mo_master_control
     my_process_model     = comp_id
     my_namelist_filename = TRIM(comp_namelist)
     my_model_name = TRIM(comp_name)
+    
+    my_model_min_rank    = master_nml_array(comp_no)%model_min_rank
+    my_model_max_rank    = master_nml_array(comp_no)%model_max_rank
+    my_model_inc_rank    = master_nml_array(comp_no)%model_inc_rank
 
     CALL check_my_component()
     CALL set_process_mpi_name(TRIM(my_model_name))
@@ -274,6 +232,9 @@ MODULE mo_master_control
     my_process_model     = 0
     my_namelist_filename = ''
     my_model_name        = ''
+    my_model_min_rank    = -1
+    my_model_max_rank    = -2
+    my_model_inc_rank    = -1
 
   END SUBROUTINE set_my_component_null
   !------------------------------------------------------------------------

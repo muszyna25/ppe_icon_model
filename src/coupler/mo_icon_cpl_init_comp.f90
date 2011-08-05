@@ -91,11 +91,17 @@ MODULE mo_icon_cpl_init_comp
   PUBLIC :: icon_cpl_init_comp, get_my_local_comp_id, icon_cpl_redirect_stdout
 
 CONTAINS
+  
 
-  SUBROUTINE ICON_cpl_init_comp ( comp_name, global_comp_id, comp_id, ierror )
+  SUBROUTINE icon_cpl_init_comp ( comp_name, global_comp_no, global_comp_type, &
+    & comp_min_rank, comp_max_rank, comp_inc_rank,                             &
+    comp_id, ierror )
 
     CHARACTER(len=*), INTENT(in) :: comp_name
-    INTEGER, INTENT(in)          :: global_comp_id
+    INTEGER, INTENT(in)          :: global_comp_no   ! the component unique number
+    INTEGER, INTENT(in)          :: global_comp_type ! the component type (ocean, atmo, etc)
+    INTEGER, INTENT(in)          :: comp_min_rank, comp_max_rank, comp_inc_rank ! ranks for this component
+    
     INTEGER, INTENT(out)         :: comp_id
     INTEGER, INTENT(out)         :: ierror
 
@@ -151,7 +157,7 @@ CONTAINS
     ! Derive component communicators
     ! -------------------------------------------------------------------
 
-    color = global_comp_id
+    color = global_comp_no
     key   = 0
 
     comp_comm = MPI_COMM_NULL
@@ -259,6 +265,13 @@ CONTAINS
 
     ENDIF
 
+    ! fill complist
+    complist(comp_id)%comp_name      = TRIM(comp_name)
+    complist(comp_id)%comp_process   = global_comp_no
+    complist(comp_id)%min_rank       = comp_min_rank
+    complist(comp_id)%max_rank       = comp_max_rank
+    complist(comp_id)%inc_rank       = comp_inc_rank
+
 #else
 
     ! -------------------------------------------------------------------
@@ -266,7 +279,7 @@ CONTAINS
     ! -------------------------------------------------------------------
 
     i                        = 0
-    color                    = global_comp_id
+    color                    = global_comp_no
     key                      = 0
     ierror                   = 0
     comp_id                  = 1
