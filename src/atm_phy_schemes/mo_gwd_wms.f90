@@ -1,11 +1,19 @@
 !>
-!! <Short description of module for listings and indices>
+!!    THIS ROUTINE COMPUTES NON-OROGRAPHIC GRAVITY WAVE DRAG
+!!     AFTER SCINOCCA (2003) AND Mc LANDRESS AND SCINOCCIA (JAS 2005)
+!!     HYDROSTATIC NON-ROTATIONAL SIMPLIFIED VERSION OF THE
+!!     WARNER AND MCINTYRE (1996) NON-OROGRAPHIC GRAVITY WAVE PARAMETERIZATION
+!!     CONSTANTS HAVE BEEN OPTIMIZED FOLLOWING M. ERN ET AL. (ATMOS. CHEM. PHYS. 2006)
 !!
-!! <Describe the concepts of the procedures and algorithms used in the module.>
-!! <Details of procedures are documented below with their definitions.>
-!! <Include any applicable external references inline as module::procedure,>
-!! <external_procedure(), or by using @see.>
-!! <Don't forget references to literature.>
+!!     REFERENCE: Orr, A., P. Bechtold, J. Scinoccia, M. Ern, M. Janiskova, 2010:
+!!                Improved middle atmosphere climate and analysis in the ECMWF forecasting system
+!!                through a non-orographic gravity wave parametrization. J.  Climate., 23, 5905-5926.
+!!
+!!     LAUNCH SPECTRUM - GENERALIZED DESAUBIES
+!!     INCLUDES A CRITICAL-LEVEL CORRECTION THAT PREVENTS THE
+!!     MOMEMTUM DEPOSITION IN EACH AZIMUTH FROM DRIVING THE FLOW TO SPEEDS FASTER
+!!     THAN THE PHASE SPEED OF THE WAVES, I.E. WHEN WAVES BREAK THEY DRAG THE MEAN
+!!     FLOW TOWARDS THEIR PHASE SPEED - NOT PAST IT.
 !!
 !! @author  J. SCINOCCIA
 !! @author  A. ORR          E.C.M.W.F.     August 2008
@@ -71,33 +79,10 @@ CONTAINS
     & pgelat, pprecip,&
     & ptenu, ptenv,   pfluxu, pfluxv)
     
-   !<**** *GWDRAG_WMS*  MASTER ROUTINE FOR CUMULUS MASSFLUX-SCHEME
+   !<**** *GWDRAG_WMS*
    !!
    !!     Original Fortran Code by   J. SCINOCCIA
    !!     Rewritten in IFS format by A. ORR          E.C.M.W.F.     August 2008
-   !! 
-   !!     PURPOSE
-   !!     -------
-   !!
-   !!          THIS ROUTINE COMPUTES NON-OROGRAPHIC GRAVITY WAVE DRAG
-   !!     AFTER SCINOCCA (2003) AND Mc LANDRESS AND SCINOCCIA (JAS 2005)
-   !!     HYDROSTATIC NON-ROTATIONAL SIMPLIFIED VERSION OF THE
-   !!     WARNER AND MCINTYRE (1996) NON-OROGRAPHIC GRAVITY WAVE PARAMETERIZATION
-   !!     CONSTANTS HAVE BEEN OPTIMIZED FOLLOWING M. ERN ET AL. (ATMOS. CHEM. PHYS. 2006)
-   !!
-   !!     REFERENCE: Orr, A., P. Bechtold, J. Scinoccia, M. Ern, M. Janiskova, 2010:
-   !!                Improved middle atmosphere climate and analysis in the ECMWF forecasting system
-   !!                through a non-orographic gravity wave parametrization. J.  Climate., 23, 5905-5926.
-   !!
-   !!     LAUNCH SPECTRUM - GENERALIZED DESAUBIES
-   !!     INCLUDES A CRITICAL-LEVEL CORRECTION THAT PREVENTS THE
-   !!     MOMEMTUM DEPOSITION IN EACH AZIMUTH FROM DRIVING THE FLOW TO SPEEDS FASTER
-   !!     THAN THE PHASE SPEED OF THE WAVES, I.E. WHEN WAVES BREAK THEY DRAG THE MEAN
-   !!     FLOW TOWARDS THEIR PHASE SPEED - NOT PAST IT.
-   !! 
-   !!**   INTERFACE.
-   !!     ----------
-   !!          *GWDRAG_WMS* IS CALLED FROM *CALLPAR*
    !! 
    !!     MODIFICATIONS
    !!     -------------
