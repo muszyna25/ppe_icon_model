@@ -2329,6 +2329,36 @@ run\_nml/iforcing = inwp
 &
 \tabularnewline
 
+\hline
+$qi0$&
+R&
+0.0&
+kg/kg &
+cloud ice threshold for autoconversion &
+inwp\_gscp=1 
+\tabularnewline
+&
+&
+&
+&
+&
+\tabularnewline
+
+\hline
+$qc0$&
+R&
+0.0&
+kg/kg &
+cloud water threshold for autoconversion &
+inwp\_gscp=1 
+\tabularnewline
+&
+&
+&
+&
+&
+\tabularnewline
+
 \hline 
 inwp\_convection&
 I&
@@ -2491,9 +2521,33 @@ subgrid scale orographic drag
 &
 &
 &
-1: 
+1: (COSMO) Lott and Miller scheme 
 &
 \tabularnewline
+
+\hline 
+inwp\_gwd&
+I&
+0&
+&
+non-orographic gravity wave drag
+&run\_nml/iforcing = inwp
+\tabularnewline
+&
+&
+&
+&
+0: none
+&
+\tabularnewline
+&
+&
+&
+&
+1:Orr-Ern-Bechtold-scheme(IFS)  
+&
+\tabularnewline
+
 
 \hline 
 inwp\_surface&
@@ -2594,6 +2648,29 @@ R&
 3600.&
 seconds&
 time interval of sso call
+&run\_nml/iforcing = inwp
+\tabularnewline
+&
+(max\_dom)&
+&
+&
+currently each subdomain has
+&
+\tabularnewline
+&
+&
+&
+&
+the same value
+&
+\tabularnewline
+
+\hline 
+ dt\_gwd &
+R&
+3600.&
+seconds&
+time interval of gwd call
 &run\_nml/iforcing = inwp
 \tabularnewline
 &
