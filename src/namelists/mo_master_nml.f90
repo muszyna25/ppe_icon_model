@@ -88,7 +88,6 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! Namelist variables
     !-------------------------------------------------------------------------
-    LOGICAL :: lrestart
     CHARACTER(len=132) :: model_name
     CHARACTER(len=filename_max) :: model_namelist_filename
     CHARACTER(len=filename_max) :: model_restart_info_filename
