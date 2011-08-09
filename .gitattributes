@@ -862,10 +862,12 @@ src/atm_dyn_iconam/mo_nh_diffusion.f90 -text
 src/atm_dyn_iconam/mo_nh_dtp_interface.f90 -text
 src/atm_dyn_iconam/mo_nh_feedback.f90 -text
 src/atm_dyn_iconam/mo_nh_held_suarez_interface.f90 -text
+src/atm_dyn_iconam/mo_nh_hex_util.f90 -text
 src/atm_dyn_iconam/mo_nh_init_utils.f90 -text
 src/atm_dyn_iconam/mo_nh_nest_utilities.f90 -text
 src/atm_dyn_iconam/mo_nh_prog_util.f90 -text
 src/atm_dyn_iconam/mo_nh_stepping.f90 -text
+src/atm_dyn_iconam/mo_nh_supervise.f90 -text
 src/atm_dyn_iconam/mo_nh_vert_interp.f90 -text
 src/atm_dyn_iconam/mo_nonhydro_state.f90 -text
 src/atm_dyn_iconam/mo_solve_nh_async.f90 -text

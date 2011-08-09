@@ -41,9 +41,12 @@ MODULE mo_nh_prog_util
 
   USE mo_kind,                ONLY: wp
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH
+  USE mo_parallel_config,     ONLY: nproma
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_nonhydro_state,      ONLY: t_nh_prog
+  USE mo_nonhydro_state,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_exception,           ONLY: message, finish
+  USE mo_interpolation,       ONLY: t_int_state
+  USE mo_physical_constants,  ONLY: cvd_o_rd
 
   IMPLICIT NONE
   PRIVATE
@@ -163,5 +166,7 @@ CONTAINS
     CALL message('','=========================================')
 
   END SUBROUTINE nh_prog_add_random
+  !-----------------------------------------------------------------------------
+  
 
 END MODULE mo_nh_prog_util
