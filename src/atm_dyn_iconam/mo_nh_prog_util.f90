@@ -50,7 +50,7 @@ MODULE mo_nh_prog_util
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  PUBLIC :: nh_prog_add_random
+  PUBLIC :: nh_prog_add_random, forcing_straka
 
 CONTAINS
   !-------------
@@ -163,5 +163,102 @@ CONTAINS
     CALL message('','=========================================')
 
   END SUBROUTINE nh_prog_add_random
+  !-----------------------------------------------------------------------------
+  
+  !-----------------------------------------------------------------------------
+  !>
+  !! forcing_straka
+  !!
+  !! Computes the tendency from an (artificial) forcing term.
+  !! Currently that contains the Straka test case.
+  !!
+  !! @par Revision History
+  !! Initial release by Almut Gassmann, MPI-M (2009-10.16)
+  !!
+  SUBROUTINE  forcing_straka(p_nh_prog,p_patch,p_int_state,p_metrics,p_nh_diag)
+
+    TYPE(t_patch),TARGET, INTENT(in) :: p_patch    !< single patch
+    TYPE(t_int_state),INTENT(in)  :: p_int_state!< single interpolation state
+    TYPE(t_nh_metrics),INTENT(in) :: p_metrics  !< single metrics state
+    TYPE(t_nh_prog), INTENT(in)   :: p_nh_prog  !< single nh prognostic state
+    TYPE(t_nh_diag), INTENT(inout):: p_nh_diag  !< single nh diagnostic state
+
+    REAL(wp), PARAMETER :: z_ny=75.0_wp !< Straka test diffusion coefficient
+    REAL(wp) :: z_lapl_theta(nproma,p_patch%nlev  ,p_patch%nblks_c),  &
+                z_lapl_w    (nproma,p_patch%nlevp1,p_patch%nblks_c),  &
+                z_lapl_vn   (nproma,p_patch%nlev  ,p_patch%nblks_e)
+    INTEGER :: jb, jk, nlen, nblks_e, npromz_e, nblks_c, npromz_c, &
+               kp1, km1
+    INTEGER :: nlev, nlevp1         !< number of full and half levels
+    !--------------------------------------------------------------------------
+
+    nblks_c   = p_patch%nblks_int_c
+    npromz_c  = p_patch%npromz_int_c
+    nblks_e   = p_patch%nblks_int_e
+    npromz_e  = p_patch%npromz_int_e
+
+    ! number of vertical levels
+    nlev   = p_patch%nlev
+    nlevp1 = p_patch%nlevp1
+
+    ! Horizontal part
+    CALL nabla2_scalar(p_nh_prog%theta_v, p_patch, p_int_state, z_lapl_theta)
+    CALL nabla2_scalar(p_nh_prog%w, p_patch, p_int_state, z_lapl_w, 2, nlev)
+    CALL nabla2_vec(p_nh_prog%vn, p_patch, p_int_state, z_lapl_vn)
+
+    ! Vertical part
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb, nlen, jk,kp1,km1)
+    DO jb = 1, nblks_e
+      IF (jb /= nblks_e) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz_e
+      ENDIF
+      DO jk = 1, nlev
+        kp1=MIN(jk+1,nlev)
+        km1=MAX(jk-1,1)
+        p_nh_diag%ddt_vn(1:nlen,jk,jb) = z_ny*(z_lapl_vn(1:nlen,jk,jb)+ &
+          (p_nh_prog%vn(1:nlen,km1,jb)-2.0_wp*p_nh_prog%vn(1:nlen,jk,jb)&
+           +p_nh_prog%vn(1:nlen,kp1,jb))&
+           /(p_metrics%ddqz_z_full_e(1:nlen,jk,jb)**2))
+      ENDDO
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb, nlen, jk,kp1,km1)
+    DO jb = 1, nblks_c
+      IF (jb /= nblks_c) THEN
+        nlen = nproma
+      ELSE
+        nlen = npromz_c
+      ENDIF
+      DO jk = 1, nlev
+        kp1=MIN(jk+1,nlev)
+        km1=MAX(jk-1,1)
+        p_nh_diag%ddt_exner(1:nlen,jk,jb) = z_ny*&
+          (z_lapl_theta(1:nlen,jk,jb)+(p_nh_prog%theta_v(1:nlen,km1,jb)&
+          -2.0_wp*p_nh_prog%theta_v(1:nlen,jk,jb)&
+                 +p_nh_prog%theta_v(1:nlen,kp1,jb))&
+          /(p_metrics%ddqz_z_full(1:nlen,jk,jb)**2))&
+          /cvd_o_rd*p_nh_prog%exner(1:nlen,jk,jb)&
+          /p_nh_prog%theta_v(1:nlen,jk,jb)
+      ENDDO
+      DO jk = 2, nlev ! bottom and top tendencies do not exist
+        kp1=MIN(jk+1,nlevp1)
+        km1=MAX(jk-1,1)
+        p_nh_diag%ddt_w(1:nlen,jk,jb) = z_ny*&
+          (z_lapl_w(1:nlen,jk,jb)+(p_nh_prog%w(1:nlen,km1,jb)&
+          -2.0_wp*p_nh_prog%w(1:nlen,jk,jb)+p_nh_prog%w(1:nlen,kp1,jb))&
+          /(p_metrics%ddqz_z_half(1:nlen,jk,jb)**2))
+      ENDDO
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+  END SUBROUTINE forcing_straka
+  !-----------------------------------------------------------------------------
 
 END MODULE mo_nh_prog_util

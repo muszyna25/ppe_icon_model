@@ -51,9 +51,9 @@ Makefiles:
 
 % ./configure
 
-Now use "make" to compile the source codes and build the model executables:
+Now use "./build_command" to compile the source codes and build the model executables:
 
-% make
+% ./build_command
 
 Note:
 1. For using other compilers, use:
