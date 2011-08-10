@@ -22,12 +22,12 @@ DATADIR=${ICONDIR}/data
 #
 # experiment directory, with plenty of space, create if new
 #
-if [ ! -d ${EXPDIR} ]; then
+if [ ! -d ${EXPDIR} ] ;  then
   mkdir -p ${EXPDIR}
 fi
 #
 ls -ld ${EXPDIR}
-if [ ! -d ${EXPDIR} ]; then
+if [ ! -d ${EXPDIR} ] ;  then
     mkdir ${EXPDIR}
 #else
 #   rm -rf ${EXPDIR}
@@ -38,19 +38,19 @@ check_error $? "${EXPDIR} does not exist?"
 
 
 #-----------------------------------------------------------------------------
-if [ x$atmo_namelist != x ]; then
+if [ x$atmo_namelist != x ] ; then
   run_atmo=${run_atmo:=".true."}
 fi
 
-if [ x$ocean_namelist != x ]; then
+if [ x$ocean_namelist != x ] ; then
   run_ocean=${run_ocean:=".true."}
 fi
 
-if [ x$dummy_1_namelist != x ]; then
+if [ x$dummy_1_namelist != x ] ; then
   run_dummy_1=${run_dummy_1:=".true."}
 fi
 
-if [ x$dummy_2_namelist != x ]; then
+if [ x$dummy_2_namelist != x ] ; then
   run_dummy_2=${run_dummy_2:=".true."}
 fi
 #-----------------------------------------------------------------------------
@@ -70,7 +70,7 @@ done
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
-if [ $run_atmo = '.true.' ]; then
+if [ $run_atmo = '.true.' ] ;  then
    # =======================================================
    #
    # model constants
@@ -141,7 +141,7 @@ EOF
 
 #-----------------------------------------------------------------------------
 # create master_model_nml
-if [ $run_atmo = '.true.' ]; then
+if [ $run_atmo = '.true.' ] ;  then
 cat >> $master_namelist << EOF
 &master_model_nml
   model_name="ATMO"
@@ -155,7 +155,7 @@ cat >> $master_namelist << EOF
 EOF
 fi
 
-if [ $run_ocean = '.true.' ]; then
+if [ $run_ocean = '.true.' ] ;  then
 cat >> $master_namelist << EOF
 &master_model_nml
   model_name="OCEAN"
@@ -178,7 +178,7 @@ dummy_2_max_rank=`expr ${mpi_total_procs} - 1`
 dummy_2_inc_rank=1
 
 
-if [ $run_dummy_1 = '.true.' ]; then
+if [ $run_dummy_1 = '.true.' ] ;  then
 cat >> $master_namelist << EOF
 &master_model_nml
   model_name="dummy_1"
@@ -192,7 +192,7 @@ cat >> $master_namelist << EOF
 EOF
 fi
 
-if [ $run_dummy_2 = '.true.' ]; then
+if [ $run_dummy_2 = '.true.' ] ;  then
 cat >> $master_namelist << EOF
 &master_model_nml
   model_name="dummy_2"
@@ -211,7 +211,7 @@ fi
 #-----------------------------------------------------------------------------
 # get namelist
 #
-if [ x$atmo_namelist != xnone  && x$atmo_namelist != x ] ; then
+if [ x$atmo_namelist != xnone ] ; then
   if [[ -f ${DIR}/$atmo_namelist ]] ; then
     mv -f ${DIR}/$atmo_namelist ${EXPDIR}/$atmo_namelist
     check_error $? "cp -f ${DIR}/$atmo_namelist"
@@ -220,7 +220,7 @@ if [ x$atmo_namelist != xnone  && x$atmo_namelist != x ] ; then
   fi  
 fi
 
-if [ x$ocean_namelist != xnone  && x$ocean_namelist != x ] ; then
+if [ x$ocean_namelist != xnone ] ; then
   if [[ -f ${DIR}/$ocean_namelist ]] ; then
     mv -f ${DIR}/$ocean_namelist ${EXPDIR}/$ocean_namelist
     check_error $? "mv -f ${DIR}/$ocean_namelist"
@@ -229,7 +229,7 @@ if [ x$ocean_namelist != xnone  && x$ocean_namelist != x ] ; then
   fi  
 fi
 
-if [ x$dummy_1_namelist != xnone  && x$dummy_1_namelist != x ] ; then
+if [ x$dummy_1_namelist != xnone ] ; then
   if [[ -f ${DIR}/$dummy_1_namelist ]] ; then
     mv -f ${DIR}/$dummy_1_namelist ${EXPDIR}/$dummy_1_namelist
     check_error $? "mv -f ${DIR}/$dummy_1_namelist"
@@ -238,7 +238,7 @@ if [ x$dummy_1_namelist != xnone  && x$dummy_1_namelist != x ] ; then
   fi
 fi
 
-if [ x$dummy_2_namelist != xnone  && x$dummy_2_namelist != x ] ; then
+if [ x$dummy_2_namelist != xnone ] ; then
   if [[ -f ${DIR}/$dummy_2_namelist ]] ; then
     mv -f ${DIR}/$dummy_2_namelist ${EXPDIR}/$dummy_2_namelist
     check_error $? "mv -f ${DIR}/$dummy_2_namelist"
