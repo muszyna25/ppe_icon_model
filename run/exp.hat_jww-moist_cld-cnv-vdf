@@ -70,50 +70,48 @@ atmo_dyn_grids='iconR2B04-grid.nc'
 cat > ${atmo_namelist} << EOF
 !
 &parallel_nml
- nproma         = ${nproma}
- p_test_run     = .false.
- l_test_openmp  = .false.
- l_log_checks   = .false.
+ nproma      = ${nproma}
 /
 &grid_nml
- cell_type = 3            ! triangular cells
  dynamics_grid_filename = "${atmo_dyn_grids}",
 /
 &run_nml
- num_lev     = ${nlev},      ! number of full levels of vertical grid
+ num_lev     = ${nlev},     ! number of full levels of vertical grid
  nsteps      = ${nsteps}    ! number of steps length of run
  dtime       = ${dtime}     ! [s] timestep in seconds
  ltestcase   = .TRUE.       ! run testcase                 --> testcase_ctl
  ldynamics   = .TRUE.       ! dynamics                     --> dynamics_ctl, diffusion_ctl
  ltransport  = .TRUE.       ! switch on tracer transport   --> transport_ctl
  ntracer     = 3            ! number of tracers
- iforcing    = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
+ iforcing    = ${iforcing}  ! forcing                      --> echam_phy_nml
  msg_level   = 10           ! detailed report during integration 
 /
 &dynamics_nml
- iequations  = ${atmo_model_equations}       ! 1: hydrost. atmosphere
+ iequations  = ${atmo_model_equations}
 /
 &ha_dyn_nml
  ldry_dycore = .TRUE.       ! dry dynamical core
 /
 &ha_testcase_nml
  ctest_name  = 'JWw-Moist'  ! test case identifier
- lrh_linear_pres = .TRUE.   ! initial RH is a linear function of pressure
- rh_at_1000hpa   = 0.75     ! [] initial rel. humidity at 1000 hPa 
+ lrh_linear_pres  = .TRUE.  ! initial RH is a linear function of pressure
+ rh_at_1000hpa    = 0.75    ! [] initial rel. humidity at 1000 hPa 
 /
 &io_nml
- out_expname = '${EXPNAME}' ! file name base
- dt_data     = ${dt_data}   ! [s] write output every 6 hours
- dt_file     = ${dt_file}   ! [s] trigger new output file every day
- lwrite_radiation = .FALSE. ! do no add radiation fields to output
- lwrite_cloud = .TRUE.
- lwrite_precip = .TRUE.
+ out_expname      = '${EXPNAME}'     ! file name base
+ dt_data          = ${dt_data}       ! [s] time interval for data output
+ dt_file          = ${dt_file}       ! [s] time interval for new output files
+ dt_checkpoint    = ${dt_checkpoint} ! [s] time interval for re-start files
+ lwrite_tend_phy  = .TRUE.  ! .TRUE.: additional output for physics tendencies
+ lwrite_radiation = .FALSE. ! .TRUE.: additional output for radiation
+ lwrite_cloud     = .TRUE.  ! .TRUE.: additional output for cloud
+ lwrite_precip    = .TRUE.  ! .TRUE.: additional output for precipitation
 /
 &transport_nml
- ctracer_list='vwi'         ! water vapour, cloud water, cloud ice, constant field
+ ctracer_list='vwi'         ! v: water vapour, w: cloud water, i: cloud ice
 /
 &echam_phy_nml
- lrad = .FALSE.             ! no radiation, only convection, large-scale condensation and vdiff
+ lrad = .FALSE.             ! no radiation
 /
 EOF
 #
