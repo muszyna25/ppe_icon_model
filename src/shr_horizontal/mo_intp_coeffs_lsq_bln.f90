@@ -1251,7 +1251,7 @@ REAL(wp) :: z_sum
   !-------------------------------------------------------
   ! loop over all blocks and cells
 
-!$OMP DO PRIVATE(jb,jc,je,jv,nlen,ile,ibe,idx_ce,ilv1,ilv2,ibv1,ibv2,ilv,ibv)
+!$OMP DO PRIVATE(jb,jc,je,jv,nlen,ile,ibe,idx_ce,ilv1,ilv2,ibv1,ibv2,ilv,ibv,z_sum)
   DO jb = 1, nblks_c
     IF (jb /= nblks_c) THEN
       nlen = nproma
