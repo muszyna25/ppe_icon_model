@@ -1922,7 +1922,7 @@ ENDIF
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx,je,z_pn_k,z_pt_k,&
 !$OMP ilc1,ibc1,ilc2,ibc2,ilv1,ibv1,ilv2,ibv2,je1,ile,ibe,z_proj,z_pn_j,&
-!$OMP jm,jn,nincr,ilr,ibr,jr1,z_lon,z_lat,z_norm,z_cart_no)
+!$OMP jm,jn,nincr,ilr,ibr,jr1,z_lon,z_lat,z_norm,z_cart_no,z_cart_ea)
       DO jb = i_startblk, i_endblk
         CALL get_indices_e(ptr_patch, jb, i_startblk, i_endblk, &
         &                  i_startidx, i_endidx, rl_start, rl_end)
