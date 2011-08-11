@@ -122,13 +122,17 @@ MODULE mo_radiation_config
   
     ! 2.0 Non NAMELIST global variables and parameters
     ! --------------------------------
-    !
+
+    REAL(wp) :: rad_csalbw(10) ! slope of solar albedo with respect to soil water content
+                               ! as a function of depth of upper soil layer
+  
+    
     ! vertical profile parameters (vpp) of CH4 and N2O
     REAL(wp), PARAMETER :: vpp_ch4(3) = (/1.25e-01_wp,  683.0_wp, -1.43_wp/)
     REAL(wp), PARAMETER :: vpp_n2o(3) = (/1.20e-02_wp, 1395.0_wp, -1.43_wp/)
     !
     !
-    ! --- solar ativity
+    ! --- solar activity
     !
     REAL(wp) :: ssi(14)  !< spectrally resolved solar irradiance (SSI) [W/m2]
     !                    !< at 1 AU distance from the sun

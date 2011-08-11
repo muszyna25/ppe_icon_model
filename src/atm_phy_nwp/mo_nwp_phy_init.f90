@@ -47,7 +47,7 @@ MODULE mo_nwp_phy_init
   USE mo_vertical_coord_table,ONLY: vct_a, vct
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: nroot 
-  USE mo_impl_constants,      ONLY: min_rlcell
+  USE mo_impl_constants,      ONLY: min_rlcell, zml_soil
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma
   USE mo_run_config,          ONLY: ltestcase, iqv, iqc, msg_level
@@ -55,7 +55,7 @@ MODULE mo_nwp_phy_init
   !radiation
   USE mo_newcld_optics,       ONLY: setup_newcld_optics
   USE mo_lrtm_setup,          ONLY: lrtm_setup
-  USE mo_radiation_config,    ONLY: ssi, tsi, irad_aero
+  USE mo_radiation_config,    ONLY: ssi, tsi, irad_aero, rad_csalbw 
   USE mo_srtm_config,         ONLY: setup_srtm, ssi_amip
   USE mo_radiation_rg_par,    ONLY: rad_aibi, init_aerosol, zaef
   ! microphysics
@@ -76,10 +76,10 @@ MODULE mo_nwp_phy_init
  !   &                                init_sfc_indices
  ! vertical diffusion
   USE mo_echam_vdiff_params,  ONLY: init_vdiff_params, z0m_min, &
-    &                                tke_min 
+    &                                tke_min
   USE mo_vdiff_solver,        ONLY: init_vdiff_solver
   USE mo_nwp_sfc_interface,   ONLY: nwp_surface_init
-
+  USE mo_phyparam_soil,       ONLY: csalbw
   USE mo_satad,               ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                                spec_humi !,qsat_rho !! Specific humidity
 
@@ -125,12 +125,11 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
   REAL(wp), PARAMETER :: h_scal = 10000._wp    ! [m]      scale height
   REAL(wp), PARAMETER :: p0sl   = 101325._wp   ! [Pa]     sea level pressure
   REAL(wp)            :: zlat, zprat, zn1, zn2, zcdnc
-  
+
   LOGICAL  :: lland, lglac
   
-  INTEGER :: jb,jc,jg
+  INTEGER :: jb,jc,jg,ist
   INTEGER :: nlev, nlevp1            !< number of full and half levels
-!  INTEGER :: jg
   INTEGER :: rl_start, rl_end
   INTEGER :: i_startblk, i_endblk    !> blocks
   INTEGER :: i_startidx, i_endidx    !! slices
@@ -338,7 +337,11 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
         & aerdes   = prm_diag%aerdes )
       
     ENDIF
-    
+
+    DO ist = 1, 10
+      rad_csalbw(ist) = csalbw(ist) / (2.0_wp * zml_soil(1))
+    ENDDO
+
   ENDIF
   !------------------------------------------
   !< call for convection

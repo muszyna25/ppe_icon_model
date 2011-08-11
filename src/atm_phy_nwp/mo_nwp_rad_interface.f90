@@ -40,26 +40,28 @@ MODULE mo_nwp_rad_interface
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_exception,            ONLY: message,  finish !message_tex
   USE mo_ext_data,             ONLY: t_external_data
-  USE mo_parallel_config,  ONLY: nproma, p_test_run
+  USE mo_parallel_config,      ONLY: nproma, p_test_run
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, &
     &                                io3, ntracer, ntracer_static
   USE mo_grf_interpolation,    ONLY: t_gridref_state
-  USE mo_impl_constants,       ONLY: min_rlcell_int, icc !, min_rlcell 
+  USE mo_impl_constants,       ONLY: min_rlcell_int, icc!, min_rlcell 
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
   USE mo_interpolation,        ONLY: t_int_state
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
-  USE mo_nwp_lnd_state,        ONLY: t_lnd_prog
+  USE mo_nwp_lnd_state,        ONLY: t_lnd_prog, t_lnd_diag
   USE mo_model_domain,         ONLY: t_patch
   USE mo_mpi,                  ONLY: my_process_is_mpi_seq
+  USE mo_phyparam_soil,        ONLY: csalb, csalb_snow_min, csalb_snow_max, &
+    &                                csalb_snow_fe, csalb_snow_fd, csalb_p, cf_snow
   USE mo_phys_nest_utilities,  ONLY: upscale_rad_input, downscale_rad_output, &
     &                                upscale_rad_input_rg, downscale_rad_output_rg
   USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag !,prm_diag
   USE mo_o3_util,              ONLY: calc_o3_clim
-  USE mo_physical_constants,   ONLY: amd, amo3
+  USE mo_physical_constants,   ONLY: amd, amo3, tmelt
   USE mo_radiation,            ONLY: radiation, pre_radiation_nwp_steps
-  USE mo_radiation_config,     ONLY: irad_o3, irad_aero, vmr_co2
+  USE mo_radiation_config,     ONLY: irad_o3, irad_aero, vmr_co2, rad_csalbw
   USE mo_radiation_rg,         ONLY: fesft
   USE mo_radiation_rg_par,     ONLY: aerdis
   USE mo_satad,                ONLY: qsat_rho
@@ -788,7 +790,7 @@ CONTAINS
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
   SUBROUTINE nwp_radiation ( lredgrid, p_sim_time,pt_patch,pt_par_patch, &
-    & pt_par_int_state, pt_par_grf_state, ext_data,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
+    & pt_par_int_state,pt_par_grf_state,ext_data,lnd_diag,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
     & lnd_prog_now )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
@@ -803,6 +805,7 @@ CONTAINS
     TYPE(t_int_state),    TARGET,INTENT(in):: pt_par_int_state  !< " for parent grid
     TYPE(t_gridref_state),TARGET,INTENT(in) :: pt_par_grf_state  !< grid refinement state
     TYPE(t_external_data),INTENT(in):: ext_data
+    TYPE(t_lnd_diag),     INTENT(in):: lnd_diag      !< diag vars for sfc
     TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog     !<the prognostic variables
     TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog_rcf !<the prognostic variables (with
     !< reduced calling frequency for tracers!
@@ -840,19 +843,19 @@ CONTAINS
 
       RETURN
     ENDIF !inwp_radiation = 1
-   
+
 
     IF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 .AND. .NOT. lredgrid) THEN
     
-      CALL nwp_rg_radiation ( lredgrid, p_sim_time,pt_patch,pt_par_patch, &
-        & pt_par_int_state, pt_par_grf_state,ext_data,&
+      CALL nwp_rg_radiation ( p_sim_time,pt_patch, &
+        & ext_data,lnd_diag, &
         & pt_prog,pt_prog_rcf,pt_diag,prm_diag, lnd_prog_now )
 
 
     ELSEIF ( atm_phy_nwp_config(jg)%inwp_radiation == 2 .AND. lredgrid) THEN
 
-      CALL nwp_rg_radiation_reduced ( lredgrid, p_sim_time,pt_patch,pt_par_patch, &
-        & pt_par_int_state, pt_par_grf_state,ext_data,&
+      CALL nwp_rg_radiation_reduced ( p_sim_time,pt_patch,pt_par_patch, &
+        & pt_par_int_state, pt_par_grf_state,ext_data,lnd_diag, &
         & pt_prog,pt_prog_rcf,pt_diag,prm_diag, lnd_prog_now )
 
 
@@ -879,9 +882,6 @@ CONTAINS
     !< reduced calling frequency for tracers!
     TYPE(t_nh_diag), TARGET, INTENT(in)  :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
-
-
-    INTEGER :: itype(nproma)   !< type of convection
 
     ! for Ritter-Geleyn radiation:
     REAL(wp):: zduo3(nproma,pt_patch%nlev,pt_patch%nblks_c)
@@ -910,14 +910,11 @@ CONTAINS
     INTEGER:: jc,jk,jb
     INTEGER:: jg                !domain id
     INTEGER:: nlev, nlevp1      !< number of full and half levels
-    INTEGER:: nblks_par_c       !nblks for reduced grid
 
     INTEGER:: rl_start, rl_end
     INTEGER:: i_startblk, i_endblk    !> blocks
     INTEGER:: i_startidx, i_endidx    !< slices
     INTEGER:: i_nchdom                !< domain index
-    INTEGER:: i_chidx
-    LOGICAL:: l_parallel
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
@@ -1099,17 +1096,14 @@ CONTAINS
 
     ! Local scalars:
     REAL(wp):: zsct        ! solar constant (at time of year)
-    INTEGER:: jc,jk,jb
+    INTEGER:: jb
     INTEGER:: jg                !domain id
     INTEGER:: nlev, nlevp1      !< number of full and half levels
-    INTEGER:: nblks_par_c       !nblks for reduced grid
 
     INTEGER:: rl_start, rl_end
     INTEGER:: i_startblk, i_endblk    !> blocks
     INTEGER:: i_startidx, i_endidx    !< slices
     INTEGER:: i_nchdom                !< domain index
-    INTEGER:: i_chidx
-    LOGICAL:: l_parallel
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
@@ -1249,7 +1243,6 @@ CONTAINS
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog_now
 
-!    REAL(wp):: z_cosmu0      (nproma,pt_patch%nblks_c) !< Cosine of zenith angle
     REAL(wp):: albvisdir     (nproma,pt_patch%nblks_c) !<
     REAL(wp):: albnirdir     (nproma,pt_patch%nblks_c) !<
     REAL(wp):: albvisdif     (nproma,pt_patch%nblks_c) !<
@@ -1279,21 +1272,17 @@ CONTAINS
     REAL(wp), ALLOCATABLE, TARGET:: zrg_lwflxall (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_trsolclr (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_trsolall (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_fls (:,:,:)
     ! Pointer to parent patach or local parent patch for reduced grid
     TYPE(t_patch), POINTER       :: ptr_pp
 
     INTEGER :: itype(nproma)   !< type of convection
 
-    REAL(wp):: zi0        (nproma)  !< solar incoming radiation at TOA   [W/m2]
-!!$    REAL(wp):: zflt(nproma,pt_patch%nlevp1 ,pt_patch%nblks_c)
-    REAL(wp):: zfls(nproma,pt_patch%nlevp1 ,pt_patch%nblks_c)
     REAL(wp):: alb_ther    (nproma,pt_patch%nblks_c) !!
 
 
     ! Local scalars:
     REAL(wp):: zsct        ! solar constant (at time of year)
-    INTEGER:: jc,jk,jb
+    INTEGER:: jk,jb
     INTEGER:: jg                !domain id
     INTEGER:: nlev, nlevp1      !< number of full and half levels
     INTEGER:: nblks_par_c       !nblks for reduced grid
@@ -1546,8 +1535,8 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rg_radiation ( lredgrid, p_sim_time,pt_patch,pt_par_patch, &
-    & pt_par_int_state, pt_par_grf_state,ext_data,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
+  SUBROUTINE nwp_rg_radiation ( p_sim_time,pt_patch, &
+    & ext_data,lnd_diag,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
     & lnd_prog_now )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
@@ -1559,15 +1548,11 @@ CONTAINS
     REAL(wp), PARAMETER::  &
       & cosmu0_dark =  1.e-9_wp  ! minimum cosmu0, for smaller values no shortwave calculations
     
-    LOGICAL, INTENT(in)         :: lredgrid        !< use reduced grid for radiation
-
     REAL(wp),INTENT(in)         :: p_sim_time
 
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
-    TYPE(t_patch),        TARGET,INTENT(in) :: pt_par_patch !<grid/patch info (parent grid)
-    TYPE(t_int_state),    TARGET,INTENT(in):: pt_par_int_state  !< " for parent grid
-    TYPE(t_gridref_state),TARGET,INTENT(in) :: pt_par_grf_state  !< grid refinement state
     TYPE(t_external_data),INTENT(in):: ext_data
+    TYPE(t_lnd_diag),     INTENT(in):: lnd_diag      !< diag vars for sfc
     TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog     !<the prognostic variables
     TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog_rcf !<the prognostic variables (with
     !< reduced calling frequency for tracers!
@@ -1575,27 +1560,13 @@ CONTAINS
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog_now
 
-!    REAL(wp):: z_cosmu0      (nproma,pt_patch%nblks_c) !< Cosine of zenith angle
-    REAL(wp):: albvisdir     (nproma,pt_patch%nblks_c) !<
-    REAL(wp):: albnirdir     (nproma,pt_patch%nblks_c) !<
     REAL(wp):: albvisdif     (nproma,pt_patch%nblks_c) !<
-    REAL(wp):: albnirdif     (nproma,pt_patch%nblks_c) !<
-    REAL(wp):: aclcov        (nproma,pt_patch%nblks_c) !<
-
-    INTEGER :: itype(nproma)   !< type of convection
 
     REAL(wp):: zi0        (nproma)  !< solar incoming radiation at TOA   [W/m2]
     ! for Ritter-Geleyn radiation:
     REAL(wp):: zqco2
-    REAL(wp):: zsqv     (nproma,pt_patch%nlev,pt_patch%nblks_c) !< saturation water vapor mixing ratio
-!!$    REAL(wp):: zflt(nproma,pt_patch%nlevp1 ,pt_patch%nblks_c)
-    REAL(wp):: zfls(nproma,pt_patch%nlevp1 ,pt_patch%nblks_c)
-!!$    REAL(wp):: zfltf(nproma,2 ,pt_patch%nblks_c)
-!!$    REAL(wp):: zflsf(nproma,2 ,pt_patch%nblks_c)
-!!$    REAL(wp):: zflpar(nproma,pt_patch%nblks_c)
-!!$    REAL(wp):: zflsp(nproma,pt_patch%nblks_c)
-!!$    REAL(wp):: zflsd(nproma,pt_patch%nblks_c)
-!!$    REAL(wp):: zflsu(nproma,pt_patch%nblks_c)
+    REAL(wp):: zsqv (nproma,pt_patch%nlev,pt_patch%nblks_c) !< saturation water vapor mixing ratio
+    REAL(wp):: zfls (nproma,pt_patch%nlevp1 ,pt_patch%nblks_c)
     REAL(wp):: zduo3(nproma,pt_patch%nlev,pt_patch%nblks_c)
     REAL(wp):: zaeq1(nproma,pt_patch%nlev,pt_patch%nblks_c)
     REAL(wp):: zaeq2(nproma,pt_patch%nlev,pt_patch%nblks_c)
@@ -1610,17 +1581,6 @@ CONTAINS
     ! These fields need to be allocatable because they have different dimensions for
     ! the global grid and nested grids, and for runs with/without MPI parallelization
     ! Input fields
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_alb_ther(:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_pres_sfc(:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_temp_ifc(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_dpres_mc(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_sqv(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_duco2(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq1(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq2(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq3(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq4(:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_aeq5(:,:,:)
     ! for ozone:
     REAL(wp):: &
       & zptop32(nproma,pt_patch%nblks_c), &
@@ -1645,17 +1605,16 @@ CONTAINS
 
     ! Local scalars:
     REAL(wp):: zsct        ! solar constant (at time of year)
+    REAL(wp):: zvege, zsnow, zsalb_snow, zsnow_alb
     INTEGER:: jc,jk,jb
     INTEGER:: jg                !domain id
     INTEGER:: nlev, nlevp1      !< number of full and half levels
-    INTEGER:: nblks_par_c       !nblks for reduced grid
 
     INTEGER:: rl_start, rl_end
     INTEGER:: i_startblk, i_endblk    !> blocks
     INTEGER:: i_startidx, i_endidx    !< slices
     INTEGER:: i_nchdom                !< domain index
-    INTEGER:: i_chidx
-    LOGICAL:: l_parallel
+    INTEGER:: ist
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
@@ -1930,8 +1889,111 @@ CONTAINS
         ENDDO
       ENDDO
 
-      albvisdir(i_startidx:i_endidx,jb) = 0.07_wp ! ~ albedo of water
-      alb_ther(i_startidx:i_endidx,jb) = 0.004_wp
+      ! geographical dependent thermal albedo
+      alb_ther(i_startidx:i_endidx,jb) = 1._wp-ext_data%atm%emis_rad(i_startidx:i_endidx,jb)
+
+      !------------------------------------------------------------------------------
+      ! Calculation of surface albedo taking soil type,              
+      ! vegetation and snow/ice conditions into account
+      !------------------------------------------------------------------------------
+      
+      IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
+        
+        DO jc = i_startidx,i_endidx
+
+          ist = 10
+
+          IF (ext_data%atm%lsm_atm_c(jc,jb)==1 .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
+            ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
+          ENDIF
+          albvisdif(jc,jb) = csalb(ist)
+          IF ( ext_data%atm%lsm_atm_c(jc,jb)==1) THEN
+            ! ATTENTION: only valid, if nsfc_subs=1
+            albvisdif(jc,jb) = csalb(ist) - rad_csalbw(ist)*lnd_prog_now%w_so(jc,1,jb,1)
+          ENDIF  ! lsoil, llandmask
+          
+        ENDDO
+        
+      ELSE
+        
+        DO jc = i_startidx,i_endidx
+          
+          ist = 10
+
+          IF (ext_data%atm%lsm_atm_c(jc,jb)==1 .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
+            ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
+          ENDIF
+          albvisdif(jc,jb) = csalb(ist)
+          
+        ENDDO
+      
+      ENDIF
+
+      !sea-ice model not yet implemented
+!      IF (atm_phy_nwp_config(jg)%lseaice) THEN
+!        DO jc = i_startidx,i_endidx
+!          ! In case the sea ice model is used AND water point AND ice is present,
+!          ! compute ice albedo for water points with an empirical formula taken from GME.
+!          ! The ice albedo is the lower the warmer, and therefore wetter, the ice is.
+!          ! Use ice temperature at time level nnow (2-time level scheme in sea ice model).
+!!          IF ((.NOT. llandmask(i,j)) .AND. (h_ice(i,j,nnow) > 0.0_ireals))               &
+!!            zalso(i,j) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
+!!            * csalb(10)
+!          IF (( ext_data%atm%lsm_atm_c(jc,jb)==0) .AND. (prm_diag%h_ice(i,j,nnow) > 0.0_wp)) &
+!            albvisdif(jc,jb) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
+!            * csalb(10)
+!        ENDDO
+!      ENDIF
+
+      !lake model not yet implemented
+!      IF (atm_phy_nwp_config(jg)%llake) THEN
+!        DO jc = i_startidx,i_endidx
+!          IF((ext_data%atm%depth_lk(jc,jb)      >  0.0_wp) .AND.    &
+!            (prm_diag%h_ice(jc,jb) >= h_Ice_min_flk) ) THEN
+!            !  In case the lake model FLake is used AND lake point AND ice is present,
+!            !  compute ice albedo for lake points with an empirical formulation 
+!            !  proposed by Mironov and Ritter (2004) for use in GME 
+!            !  [ice_albedo=function(ice_surface_temperature)].
+!            !  Use surface temperature at time level "nnow".
+!
+!            albvisdif(jc,jb) = EXP(-c_albice_MR*(tpl_T_f-t_s(i,j,nnow))/tpl_T_f)
+!            albvisdif(jc,jb) = albedo_whiteice_ref * (1._ireals-zalso(i,j)) +      &
+!              albedo_blueice_ref  * albvisdif(jc,jb)
+!          ENDIF
+!        ENDDO
+!      ENDIF
+
+      ! Snow cover and vegetation
+      ! -------------------------
+
+      IF (atm_phy_nwp_config(jg)%inwp_surface == 1) THEN !soil model switched on
+        DO jc = i_startidx,i_endidx
+          zvege= 0.0_wp
+          zsnow= 0.0_wp
+          IF (ext_data%atm%lsm_atm_c(jc,jb)==1) THEN 
+            ! consider effects of aging on solar snow albedo
+            ! ATTENTION: only valid, if nsfc_subs=1            
+            zsalb_snow = csalb_snow_min + &
+              & lnd_diag%freshsnow(jc,jb,1)*(csalb_snow_max-csalb_snow_min)
+            zsnow_alb = zsalb_snow*(1._wp-ext_data%atm%for_e(jc,jb)-ext_data%atm%for_d(jc,jb)) &
+              + csalb_snow_fe * ext_data%atm%for_e(jc,jb)                       &
+              + csalb_snow_fd * ext_data%atm%for_d(jc,jb)
+
+          ! account for snow cover and plant cover and compute final solar
+          ! snow albedo
+            zvege = ext_data%atm%plcov_mx(jc,jb)
+            ! ATTENTION: only valid, if nsfc_subs=1
+            IF (lnd_prog_now%w_snow(jc,jk,1) > 0.0_wp) THEN
+              ! ATTENTION: only valid, if nsfc_subs=1
+              zsnow = MIN(1.0_wp, lnd_prog_now%w_snow(jc,jk,1) / cf_snow)
+            ENDIF
+            albvisdif(jc,jb) = zsnow * zsnow_alb +                               &
+              (1.0_wp - zsnow) * (zvege * csalb_p + (1.0_wp - zvege) * albvisdif(jc,jb))
+          ENDIF !   llandmask
+        ENDDO
+      ENDIF !inwp_surface == 1
+
+!      albvisdif(i_startidx:i_endidx,jb) = 0.07_wp ! ~ albedo of water
 
       prm_diag%tsfctrad(i_startidx:i_endidx,jb) = lnd_prog_now%t_g(i_startidx:i_endidx,jb)
 
@@ -1970,7 +2032,7 @@ CONTAINS
         & paeq5 = zaeq5(:,:,jb),&
         & papre_in =  pt_diag%pres_sfc (:,jb), & ! Surface pressure
         & psmu0 = prm_diag%cosmu0 (:,jb) , & ! Cosine of zenith angle
-        & palso = albvisdir(:,jb), & ! solar surface albedo
+        & palso = albvisdif(:,jb), & ! solar surface albedo
         & palth = alb_ther(:,jb), & ! thermal surface albedo
         & psct = zsct, &! solar constant (at time of year)
         & kig1s = 1 ,&
@@ -2013,8 +2075,8 @@ CONTAINS
   !! @par Revision History
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
-  SUBROUTINE nwp_rg_radiation_reduced ( lredgrid, p_sim_time,pt_patch,pt_par_patch, &
-    & pt_par_int_state, pt_par_grf_state,ext_data,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
+  SUBROUTINE nwp_rg_radiation_reduced ( p_sim_time,pt_patch,pt_par_patch, &
+    & pt_par_int_state, pt_par_grf_state,ext_data,lnd_diag,pt_prog,pt_prog_rcf,pt_diag,prm_diag, &
     & lnd_prog_now )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
@@ -2026,8 +2088,6 @@ CONTAINS
     REAL(wp), PARAMETER::  &
       & cosmu0_dark =  1.e-9_wp  ! minimum cosmu0, for smaller values no shortwave calculations
     
-    LOGICAL, INTENT(in)         :: lredgrid        !< use reduced grid for radiation
-
     REAL(wp),INTENT(in)         :: p_sim_time
 
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
@@ -2035,6 +2095,7 @@ CONTAINS
     TYPE(t_int_state),    TARGET,INTENT(in):: pt_par_int_state  !< " for parent grid
     TYPE(t_gridref_state),TARGET,INTENT(in) :: pt_par_grf_state  !< grid refinement state
     TYPE(t_external_data),INTENT(in):: ext_data
+    TYPE(t_lnd_diag),     INTENT(in):: lnd_diag      !< diag vars for sfc
     TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog     !<the prognostic variables
     TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog_rcf !<the prognostic variables (with
     !< reduced calling frequency for tracers!
@@ -2042,54 +2103,26 @@ CONTAINS
     TYPE(t_nwp_phy_diag),       INTENT(inout):: prm_diag
     TYPE(t_lnd_prog),           INTENT(inout):: lnd_prog_now
 
-!    REAL(wp):: z_cosmu0      (nproma,pt_patch%nblks_c) !< Cosine of zenith angle
-    REAL(wp):: albvisdir     (nproma,pt_patch%nblks_c) !<
-    REAL(wp):: albnirdir     (nproma,pt_patch%nblks_c) !<
     REAL(wp):: albvisdif     (nproma,pt_patch%nblks_c) !<
-    REAL(wp):: albnirdif     (nproma,pt_patch%nblks_c) !<
-    REAL(wp):: aclcov        (nproma,pt_patch%nblks_c) !<
     ! For radiation on reduced grid
     ! These fields need to be allocatable because they have different dimensions for
     ! the global grid and nested grids, and for runs with/without MPI parallelization
     ! Input fields
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_fr_land  (:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_fr_glac  (:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_cosmu0   (:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_albvisdir(:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_albnirdir(:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_albvisdif(:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_albnirdif(:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_tsfc     (:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_pres_ifc (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_pres     (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_temp     (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_o3       (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_acdnc    (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_tot_cld  (:,:,:,:)
     ! Output fields
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_aclcov   (:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_lwflxclr (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_lwflxall (:,:,:)
-    REAL(wp), ALLOCATABLE, TARGET:: zrg_trsolclr (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_trsolall (:,:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_fls (:,:,:)
     ! Pointer to parent patach or local parent patch for reduced grid
     TYPE(t_patch), POINTER       :: ptr_pp
 
-    INTEGER :: itype(nproma)   !< type of convection
-
     REAL(wp):: zi0        (nproma)  !< solar incoming radiation at TOA   [W/m2]
     ! for Ritter-Geleyn radiation:
     REAL(wp):: zqco2
-    REAL(wp):: zsqv     (nproma,pt_patch%nlev,pt_patch%nblks_c) !< saturation water vapor mixing ratio
-!!$    REAL(wp):: zflt(nproma,pt_patch%nlevp1 ,pt_patch%nblks_c)
-    REAL(wp):: zfls(nproma,pt_patch%nlevp1 ,pt_patch%nblks_c)
-!!$    REAL(wp):: zfltf(nproma,2 ,pt_patch%nblks_c)
-!!$    REAL(wp):: zflsf(nproma,2 ,pt_patch%nblks_c)
-!!$    REAL(wp):: zflpar(nproma,pt_patch%nblks_c)
-!!$    REAL(wp):: zflsp(nproma,pt_patch%nblks_c)
-!!$    REAL(wp):: zflsd(nproma,pt_patch%nblks_c)
-!!$    REAL(wp):: zflsu(nproma,pt_patch%nblks_c)
+    REAL(wp):: zsqv (nproma,pt_patch%nlev,pt_patch%nblks_c) !< saturation water vapor mixing ratio
     REAL(wp):: zduo3(nproma,pt_patch%nlev,pt_patch%nblks_c)
     REAL(wp):: zaeq1(nproma,pt_patch%nlev,pt_patch%nblks_c)
     REAL(wp):: zaeq2(nproma,pt_patch%nlev,pt_patch%nblks_c)
@@ -2149,6 +2182,7 @@ CONTAINS
 
     ! Local scalars:
     REAL(wp):: zsct        ! solar constant (at time of year)
+    REAL(wp):: zvege, zsnow, zsalb_snow, zsnow_alb
     INTEGER:: jc,jk,jb
     INTEGER:: jg                !domain id
     INTEGER:: nlev, nlevp1      !< number of full and half levels
@@ -2159,6 +2193,7 @@ CONTAINS
     INTEGER:: i_startidx, i_endidx    !< slices
     INTEGER:: i_nchdom                !< domain index
     INTEGER:: i_chidx
+    INTEGER:: ist
     LOGICAL:: l_parallel
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
@@ -2448,7 +2483,7 @@ CONTAINS
     ENDIF
 
     ALLOCATE (zrg_cosmu0   (nproma,nblks_par_c),          &
-      zrg_albvisdir(nproma,nblks_par_c),          &
+      zrg_albvisdif(nproma,nblks_par_c),          &
       zrg_alb_ther (nproma,nblks_par_c),          &
       zrg_pres_sfc (nproma,nblks_par_c),          &
       zrg_temp_ifc (nproma,nlevp1,nblks_par_c),   &
@@ -2472,11 +2507,11 @@ CONTAINS
 
     i_startblk = pt_patch%cells%start_blk(rl_start,1)
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
-
+    
     ! *** this parallel section will be removed later once real data are
     !     are available as input for radiation ***
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,ist,zvege,zsnow,zsalb_snow,zsnow_alb)
     !
     DO jb = i_startblk, i_endblk
 
@@ -2489,8 +2524,111 @@ CONTAINS
         ENDDO
       ENDDO
 
-      albvisdir(i_startidx:i_endidx,jb) = 0.07_wp ! ~ albedo of water
-      alb_ther(i_startidx:i_endidx,jb) = 0.004_wp
+      ! geographical dependent thermal albedo
+      alb_ther(i_startidx:i_endidx,jb) = 1._wp-ext_data%atm%emis_rad(i_startidx:i_endidx,jb)
+      
+      !------------------------------------------------------------------------------
+      ! Calculation of surface albedo taking soil type,              
+      ! vegetation and snow/ice conditions into account
+      !------------------------------------------------------------------------------
+      
+      IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
+        
+        DO jc = i_startidx,i_endidx
+
+          ist = 10
+
+          IF (ext_data%atm%lsm_atm_c(jc,jb)==1 .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
+            ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
+          ENDIF
+          albvisdif(jc,jb) = csalb(ist)
+          IF ( ext_data%atm%lsm_atm_c(jc,jb)==1) THEN
+            ! ATTENTION: only valid, if nsfc_subs=1
+            albvisdif(jc,jb) = csalb(ist) - rad_csalbw(ist)*lnd_prog_now%w_so(jc,1,jb,1)
+          ENDIF  ! lsoil, llandmask
+          
+        ENDDO
+        
+      ELSE
+        
+        DO jc = i_startidx,i_endidx
+          
+          ist = 10
+
+          IF (ext_data%atm%lsm_atm_c(jc,jb)==1 .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
+            ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
+          ENDIF
+          albvisdif(jc,jb) = csalb(ist)
+          
+        ENDDO
+      
+      ENDIF
+
+      !sea-ice model not yet implemented
+!      IF (atm_phy_nwp_config(jg)%lseaice) THEN
+!        DO jc = i_startidx,i_endidx
+!          ! In case the sea ice model is used AND water point AND ice is present,
+!          ! compute ice albedo for water points with an empirical formula taken from GME.
+!          ! The ice albedo is the lower the warmer, and therefore wetter, the ice is.
+!          ! Use ice temperature at time level nnow (2-time level scheme in sea ice model).
+!!          IF ((.NOT. llandmask(i,j)) .AND. (h_ice(i,j,nnow) > 0.0_ireals))               &
+!!            zalso(i,j) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
+!!            * csalb(10)
+!          IF (( ext_data%atm%lsm_atm_c(jc,jb)==0) .AND. (prm_diag%h_ice(i,j,nnow) > 0.0_wp)) &
+!            albvisdif(jc,jb) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
+!            * csalb(10)
+!        ENDDO
+!      ENDIF
+
+      !lake model not yet implemented
+!      IF (atm_phy_nwp_config(jg)%llake) THEN
+!        DO jc = i_startidx,i_endidx
+!          IF((ext_data%atm%depth_lk(jc,jb)      >  0.0_wp) .AND.    &
+!            (prm_diag%h_ice(jc,jb) >= h_Ice_min_flk) ) THEN
+!            !  In case the lake model FLake is used AND lake point AND ice is present,
+!            !  compute ice albedo for lake points with an empirical formulation 
+!            !  proposed by Mironov and Ritter (2004) for use in GME 
+!            !  [ice_albedo=function(ice_surface_temperature)].
+!            !  Use surface temperature at time level "nnow".
+!
+!            albvisdif(jc,jb) = EXP(-c_albice_MR*(tpl_T_f-t_s(i,j,nnow))/tpl_T_f)
+!            albvisdif(jc,jb) = albedo_whiteice_ref * (1._ireals-zalso(i,j)) +      &
+!              albedo_blueice_ref  * albvisdif(jc,jb)
+!          ENDIF
+!        ENDDO
+!      ENDIF
+
+      ! Snow cover and vegetation
+      ! -------------------------
+
+      IF (atm_phy_nwp_config(jg)%inwp_surface == 1) THEN !soil model switched on
+        DO jc = i_startidx,i_endidx
+          zvege= 0.0_wp
+          zsnow= 0.0_wp
+          IF (ext_data%atm%lsm_atm_c(jc,jb)==1) THEN 
+            ! consider effects of aging on solar snow albedo
+            ! ATTENTION: only valid, if nsfc_subs=1            
+            zsalb_snow = csalb_snow_min + &
+              & lnd_diag%freshsnow(jc,jb,1)*(csalb_snow_max-csalb_snow_min)
+            zsnow_alb = zsalb_snow*(1._wp-ext_data%atm%for_e(jc,jb)-ext_data%atm%for_d(jc,jb)) &
+              + csalb_snow_fe * ext_data%atm%for_e(jc,jb)                       &
+              + csalb_snow_fd * ext_data%atm%for_d(jc,jb)
+            ! account for snow cover and plant cover and compute final solar
+            ! snow albedo
+            zvege = ext_data%atm%plcov_mx(jc,jb)
+            ! ATTENTION: only valid, if nsfc_subs=1
+            IF (lnd_prog_now%w_snow(jc,jk,1) > 0.0_wp) THEN
+              ! ATTENTION: only valid, if nsfc_subs=1
+              zsnow = MIN(1.0_wp, lnd_prog_now%w_snow(jc,jk,1) / cf_snow)
+            ENDIF
+            albvisdif(jc,jb) = zsnow * zsnow_alb +                               &
+              (1.0_wp - zsnow) * (zvege * csalb_p + (1.0_wp - zvege) * albvisdif(jc,jb))
+          ENDIF !   llandmask
+        ENDDO
+      ENDIF !inwp_surface == 1
+      
+!      albvisdif(i_startidx:i_endidx,jb) = 0.07_wp ! ~ albedo of water
+
       !        zduo3(i_startidx:i_endidx,:,jb)= 0.0_wp
       zaeq1(i_startidx:i_endidx,:,jb)= 0.0_wp !  1.e-10_wp
       zaeq2(i_startidx:i_endidx,:,jb)= 0.0_wp !  1.e-10_wp
@@ -2513,10 +2651,10 @@ CONTAINS
 !$OMP END PARALLEL
 
     CALL upscale_rad_input_rg(pt_patch, pt_par_patch, pt_par_grf_state,                    &
-      & prm_diag%cosmu0, albvisdir, alb_ther, pt_diag%temp_ifc, pt_diag%dpres_mc,          &
+      & prm_diag%cosmu0, albvisdif, alb_ther, pt_diag%temp_ifc, pt_diag%dpres_mc,          &
       & prm_diag%tot_cld, zsqv ,zduco2, zduo3,                     &
       & zaeq1,zaeq2,zaeq3,zaeq4,zaeq5,pt_diag%pres_sfc,                                    &
-      & zrg_cosmu0, zrg_albvisdir, zrg_alb_ther, zrg_temp_ifc, zrg_dpres_mc,               &
+      & zrg_cosmu0, zrg_albvisdif, zrg_alb_ther, zrg_temp_ifc, zrg_dpres_mc,               &
       & zrg_tot_cld, zrg_sqv ,zrg_duco2, zrg_o3,                                           &
       & zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5,zrg_pres_sfc     )
 
@@ -2562,7 +2700,7 @@ CONTAINS
         & paeq5 = zrg_aeq5(:,:,jb),&
         & papre_in = zrg_pres_sfc (:,jb), & ! Surface pressure
         & psmu0 = zrg_cosmu0 (:,jb) , & ! Cosine of zenith angle
-        & palso = zrg_albvisdir(:,jb), & ! solar surface albedo
+        & palso = zrg_albvisdif(:,jb), & ! solar surface albedo
         & palth = zrg_alb_ther(:,jb), & ! thermal surface albedo
         & psct = zsct, &! solar constant (at time of year)
         & kig1s = 1 ,&
@@ -2598,7 +2736,7 @@ CONTAINS
 !          & paeq5 = zrg_aeq5(1,1,jb),&
 !          & papre_in = zrg_pres_sfc (1,jb), & ! Surface pressure
 !          & psmu0 = zrg_cosmu0 (1,jb) , & ! Cosine of zenith angle
-!          & palso = zrg_albvisdir(1,jb), & ! solar surface albedo
+!          & palso = zrg_albvisdif(1,jb), & ! solar surface albedo
 !          & palth = zrg_alb_ther(1,jb), & ! thermal surface albedo
 !          & psct = zsct, &! solar constant (at time of year)
 !          & kig1s = 1 ,&
@@ -2646,14 +2784,12 @@ CONTAINS
       & pt_par_grf_state, zrg_lwflxall, zrg_trsolall, &
       & prm_diag%lwflxall, prm_diag%trsolall )
 
-    DEALLOCATE (zrg_cosmu0,zrg_albvisdir,zrg_alb_ther,                      &
+    DEALLOCATE (zrg_cosmu0,zrg_albvisdif,zrg_alb_ther,                      &
       & zrg_pres_sfc,zrg_temp_ifc,zrg_dpres_mc,zrg_sqv,zrg_duco2,zrg_o3,    &
       & zrg_aeq1,zrg_aeq2,zrg_aeq3,zrg_aeq4,zrg_aeq5,                       &
       & zrg_tot_cld, zrg_fls,zrg_lwflxall, zrg_trsolall)
 
-
   END SUBROUTINE nwp_rg_radiation_reduced
-
 
 END MODULE mo_nwp_rad_interface
 

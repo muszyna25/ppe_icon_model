@@ -843,6 +843,7 @@ CONTAINS
            &              pt_par_int_state,      & ! in
            &              pt_par_grf_state,      & ! in
            &              ext_data,              & ! in
+           &              lnd_diag,              & ! in
            &              pt_prog,pt_prog_rcf,   & ! inout
            &              pt_diag,prm_diag,      & ! inout
            &              lnd_prog_now           ) ! in
