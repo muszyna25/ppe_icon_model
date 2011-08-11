@@ -51,7 +51,7 @@ MODULE mo_grid_checktools
     & get_cell_barycenters, set_sphere_geom_grid
     !, get_triangle_circumcenters, geographical_to_cartesian
   USE mo_physical_constants, ONLY: re
-  USE mo_grid_toolbox , ONLY : inverse_connectivity_verts !, get_basic_dual_grid
+  USE mo_grid_toolbox , ONLY :  inverse_connectivity_verts! get_basic_dual_grid
   IMPLICIT NONE
 
   !-------------------------------------------------------------------------
@@ -730,8 +730,9 @@ CONTAINS
   SUBROUTINE check_grid_connectivity_cells(in_grid_id)
     INTEGER, INTENT(in) :: in_grid_id
 
-    TYPE(t_grid),          POINTER :: in_grid
-    TYPE(t_grid_cells),    POINTER :: cells
+    TYPE(t_grid), POINTER :: in_grid
+    TYPE(t_grid_cells), POINTER :: cells
+    TYPE(t_grid_edges), POINTER :: edges
     TYPE(t_grid_vertices), POINTER :: verts
     INTEGER :: no_of_cells
     INTEGER :: cell,ncell,j,k,vertex
@@ -739,6 +740,7 @@ CONTAINS
 
     in_grid => get_grid(in_grid_id)
     cells => in_grid%cells
+    edges => in_grid%edges
     verts => in_grid%verts
     no_of_cells = cells%no_of_existcells
 

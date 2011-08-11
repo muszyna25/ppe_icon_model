@@ -35,12 +35,12 @@ MODULE mo_real_timer
 #ifndef NOMPI
   USE mo_mpi,       ONLY: p_recv, p_send, p_barrier, p_real_dp, &
                           p_pe, p_io, p_comm_work, p_comm_work_test
+  USE mo_parallel_config, ONLY: p_test_run
 #else
   USE mo_mpi,       ONLY: p_pe, p_io,  p_comm_work, p_comm_work_test
 #endif
 
   USE mo_mpi, ONLY: num_test_procs, num_work_procs
-  USE mo_parallel_config, ONLY: p_test_run
                             
 
   IMPLICIT NONE

@@ -26,7 +26,7 @@ fi
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
-make_symm_grids="true"
+make_comb_opt_grids="true"
 make_patches="true"
 run_commmand="${start} $bindir/grid_command"
 commandFile=command.grid
@@ -40,16 +40,18 @@ refinement_method=1     # 1=edge bisection, 2=dual centers
 cd $WRKDIR
 #-----------------------------------------------------------------------------
 
+
 #-----------------------------------------------------------------------------
 set_default_optimization_grids()
 {
 dual_iterations=0       # prime/dual iterations
+max_iterations=10000
 
 use_optimization='.false.'
 use_barycenter_force='.false.'
 barycenter_force_coeff="1.0"
 
-use_isotropy_correction='.false.'
+use_isotropy_force='.false.'
 isotropy_rotation_coeff="0.5"
 isotropy_stretch_coeff="0.1"
 
@@ -58,99 +60,95 @@ use_adaptive_spring_length='.false.'
 use_local_reference_length='.false.'
 local_reference_length_coeff=1.0
 
-prime_ref_length_coeff=1.0
+prime_ref_length_coeff=1.1
+minedge_ref_length_weight=0.2
 prime_soft_spring_stiffness=1.0  # the stiffness of "large" prime springs
 prime_hard_spring_stiffness=1.0  # the stiffness of "small" prime springs
 
 use_centers_spring_correction='.false.'
 centers_springcorrection_coeff=0.25
 
-prime_use_spring_cellcenters='.false.'
-prime_centers_ref_length_coeff=0.9 
-prime_centers_spring_stiffness=1.0  # the stiffness of vertex-cell center springs
+use_prime_spring_cellcenters='.false.'
+use_dual_spring_cellcenters='.false.'
+centers_ref_length_coeff=0.9
+centers_spring_stiffness=1.0  # the stiffness of vertex-cell center springs
 
-spring_friction=2.0
+spring_friction=1.6
 spring_dt=1.6e-2
-use_adaptive_dt='.true.'
+use_adaptive_dt='.false.'
 max_dt_distance_ratio=5.0e-5
 
-prime_total_force_condition=0.025  # exit condition for total force
+prime_total_force_condition=0.05  # exit condition for total force
 prime_max_force_condition=0.01   # exit condition for max force
 max_min_condition=1.1            # exit condition for max/min edge
 centers_vertex_condition=1.005
 
-#-----------------------------------------------------------------------------
-dual_use_spring_cellcenters=".false."
-dual_ref_length_coeff=1.0
-dual_centers_ref_length_coeff=1.0
-dual_soft_spring_stiffness=1.0
-dual_hard_spring_stiffness=1.0
-dual_centers_spring_stiffness=1.0
-dual_total_force_condition=1.0
-dual_max_force_condition=1.0
 centers_local_condition=1.0
 
+#-----------------------------
 optimize_vertex_depth=4
+
 }
+#-----------------------------------------------------------------------------
+
+
 
 #-----------------------------------------------------------------------------
-set_sym_optimization_grids()
+set_comb_optimization_grids()
 {
   set_default_optimization_grids
+  
   use_optimization='.true.'
-  use_isotropy_correction='.true.'
-  isotropy_rotation_coeff=0.75
-  isotropy_stretch_coeff=0.1
+
   use_edge_springs='.true.'
   use_adaptive_spring_length='.true.'
-  prime_ref_length_coeff=1.0
+  
   use_local_reference_length='.true.'
   local_reference_length_coeff=0.75
-  prime_use_spring_cellcenters='.true.'
-  prime_centers_ref_length_coeff=1.0
-  prime_centers_spring_stiffness=1.0  # the stiffness of vertex-cell center springs
-  #-----------------------------------------------------------------------------
+  
+  use_prime_spring_cellcenters='.true.'
+  centers_ref_length_coeff=1.0 
+  centers_spring_stiffness=1.0  # the stiffness of vertex-cell center springs
+  
+  use_isotropy_force='.true.'
+  isotropy_rotation_coeff=1.0
+  isotropy_stretch_coeff=0.1
 }
+#-----------------------------------------------------------------------------
+
 
 #-----------------------------------------------------------------------------
 add_optimization_namelist()
 {
 parameterFile=$1
 #-----------------------------------------------------------------------------
-# namelist
 cat >> $parameterFile << EOF
 &grid_optimization
   use_optimization              = $use_optimization
+  max_iterations                = $max_iterations
   use_edge_springs              = $use_edge_springs
   use_adaptive_dt               = $use_adaptive_dt
-  dual_use_spring_cellcenters   = $dual_use_spring_cellcenters
-  prime_use_spring_cellcenters  = $prime_use_spring_cellcenters
+  use_prime_spring_cellcenters  = $use_prime_spring_cellcenters
+  use_dual_spring_cellcenters   = $use_dual_spring_cellcenters
   max_dt_distance_ratio         = $max_dt_distance_ratio
-  prime_ref_length_coeff             = $prime_ref_length_coeff
-  prime_centers_ref_length_coeff     = $prime_centers_ref_length_coeff
-  dual_ref_length_coeff              = $dual_ref_length_coeff
-  dual_centers_ref_length_coeff      = $dual_centers_ref_length_coeff
+  prime_ref_length_coeff        = $prime_ref_length_coeff
+  centers_ref_length_coeff      = $centers_ref_length_coeff
+  minedge_ref_length_weight     = $minedge_ref_length_weight
   prime_soft_spring_stiffness   = $prime_soft_spring_stiffness
-  prime_hard_spring_stiffness   = $prime_hard_spring_stiffness
-  prime_centers_spring_stiffness= $prime_centers_spring_stiffness
-  dual_soft_spring_stiffness    = $dual_soft_spring_stiffness
-  dual_hard_spring_stiffness    = $dual_hard_spring_stiffness
-  dual_centers_spring_stiffness = $dual_centers_spring_stiffness
+  prime_hard_spring_stiffness   = $prime_hard_spring_stiffness   
+  centers_spring_stiffness      = $centers_spring_stiffness
   use_centers_spring_correction = $use_centers_spring_correction
   centers_springcorrection_coeff= $centers_springcorrection_coeff
   spring_friction               = $spring_friction
   spring_dt                     = $spring_dt
-  dual_iterations               = $dual_iterations
   p_total_force_condition       = $prime_total_force_condition
-  d_total_force_condition       = $dual_total_force_condition
   p_max_force_condition         = $prime_max_force_condition
-  d_max_force_condition         = $dual_max_force_condition
   max_min_condition             = $max_min_condition
   centers_vertex_condition      = $centers_local_condition
   use_adaptive_spring_length    = $use_adaptive_spring_length
   use_local_reference_length    = $use_local_reference_length
   local_reference_length_coeff  = $local_reference_length_coeff
-  use_isotropy_correction       = $use_isotropy_correction
+  use_isotropy_force       = $use_isotropy_force
   isotropy_rotation_coeff       = $isotropy_rotation_coeff
   isotropy_stretch_coeff        = $isotropy_stretch_coeff
   use_barycenter_force          = $use_barycenter_force
@@ -158,10 +156,8 @@ cat >> $parameterFile << EOF
   optimize_vertex_depth         = $optimize_vertex_depth
 /
 EOF
-#-----------------------------------------------------------------------------
 }
 #-----------------------------------------------------------------------------
-
 
 #-----------------------------------------------------------------------------
 create_grids()
@@ -195,8 +191,8 @@ check_error $? "create icon grid"
 
 #=============================================================================
 # create symmetry grids
-if [ "x$make_symm_grids" == "xtrue" ] ; then
-  set_sym_optimization_grids
+if [ "x$make_comb_opt_grids" == "xtrue" ] ; then
+  set_comb_optimization_grids
   base_file_name=iconR2B
   optimization_extension="-grid"
   #-----------------------------------------------------------------------------
@@ -290,7 +286,7 @@ if [ "x$make_patches" == "xtrue" ] ; then
   patch_center_x=-90.0
   patch_center_y=40.0
 
-  set_sym_optimization_grids
+  set_comb_optimization_grids
 #   set_default_optimization_grids
 
   # create patches

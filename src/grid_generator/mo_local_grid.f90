@@ -52,7 +52,7 @@ MODULE mo_local_grid
     & t_tangent_vectors
   USE mo_impl_constants,  ONLY: &
     & min_rlcell, max_rlcell, min_rlcell_int, &
-    & min_rlvert, max_rlvert,                 &
+    & min_rlvert, max_rlvert,                 & ! min_rlvert_int,
     & min_rledge, max_rledge, min_rledge_int
 
   IMPLICIT NONE

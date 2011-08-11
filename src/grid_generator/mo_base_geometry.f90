@@ -44,9 +44,9 @@
 !!
 MODULE mo_base_geometry
 
-  USE mo_kind,           ONLY: wp
-  USE mo_math_constants, ONLY: pi, pi_2, dbl_eps
-  USE mo_exception,      ONLY: finish
+  USE mo_kind, ONLY: wp
+  USE mo_math_constants, ONLY: pi, pi_2, dbl_eps, eps
+  USE mo_exception, ONLY: finish
 
   IMPLICIT NONE
 #include "grid_definitions.inc"

@@ -216,6 +216,7 @@ CONTAINS
   SUBROUTINE coarsen_child_parent_grid(child_grid_id, parent_grid_id)
     INTEGER, INTENT(in)  :: child_grid_id, parent_grid_id
     !-------------------------------------------------------------------------
+!     TYPE(t_grid), POINTER :: parent_grid, child_grid
 
     TYPE(t_grid_vertices), POINTER :: parent_verts, child_verts
 

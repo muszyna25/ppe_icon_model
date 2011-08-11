@@ -11,7 +11,7 @@
 !!    (use_adaptive_spring_length, use_local_reference_length)
 !!
 !! C. Cell-centers to vertices springs. Gives a "dual" force.
-!!    (dual_use_spring_cellcenters, prime_use_spring_cellcenters)
+!!    (dual_use_spring_cellcenters, use_prime_spring_cellcenters)
 !!    Keeps cell areas ratio small and redistributes the local edge force
 !!
 !! D. Cell shape edge-spring reference length correction. 
@@ -22,7 +22,7 @@
 !! E. Barycenter forcing. (use_barycenter_force)
 !!    Vertexes are moved close to the barycenter of the dual.
 !!
-!! F. Isotropy forcing. (use_isotropy_correction)
+!! F. Isotropy forcing. (use_isotropy_force)
 !!    Aims to improve shape quality and smootheness
 !!
 !! @par Revision History
@@ -65,9 +65,9 @@ MODULE mo_local_grid_optimization
   USE mo_io_units,       ONLY: nnml, filename_max
   USE mo_namelist,       ONLY: position_nml, open_nml, positioned
   USE mo_math_constants, ONLY: pi
-  USE mo_local_grid_geometry,ONLY: get_triangle_circumcenters, get_cell_barycenters !,&
-!    & use_cartesian_centers
-  USE mo_io_local_grid,  ONLY: read_netcdf_grid, write_netcdf_grid
+  USE mo_local_grid_geometry,ONLY: get_triangle_circumcenters, get_cell_barycenters,&
+    & use_cartesian_centers
+  USE mo_io_local_grid,  ONLY: read_new_netcdf_grid, write_netcdf_grid
   USE mo_grid_toolbox,   ONLY: get_basic_dual_grid
   USE mo_timer,          ONLY: new_timer, timer_start, timer_stop, print_timer, delete_timer
   USE mo_local_grid
@@ -84,19 +84,18 @@ MODULE mo_local_grid_optimization
   ! PUBLIC :: optimize_grid_set_lengths
 
   INTEGER, PARAMETER :: max_min_condition_reached = 4
+  INTEGER :: max_iterations
 
-  LOGICAL  :: use_optimization
-  INTEGER ::  dual_iterations
-  REAL(wp) :: prime_ref_length_coeff, prime_centers_ref_length_coeff
-  REAL(wp) :: dual_ref_length_coeff, dual_centers_ref_length_coeff
+  REAL(wp) :: prime_ref_length_coeff, centers_ref_length_coeff
+  REAL(wp) :: minedge_ref_length_weight
 
+  REAL(wp) :: edge_ratio_condition
   REAL(wp) :: p_total_force_condition, p_max_force_condition, max_min_condition
-  REAL(wp) :: d_total_force_condition, d_max_force_condition
   REAL(wp) :: centers_vertex_condition
 
   REAL(wp) :: prime_hard_spring_stiffness, prime_soft_spring_stiffness
-  REAL(wp) :: dual_hard_spring_stiffness, dual_soft_spring_stiffness, spring_friction
-  REAL(wp) :: dual_centers_spring_stiffness, prime_centers_spring_stiffness
+  REAL(wp) :: spring_friction
+  REAL(wp) :: centers_spring_stiffness
   
   REAL(wp) :: local_reference_length_coeff
   REAL(wp) :: centers_springcorrection_coeff
@@ -107,9 +106,10 @@ MODULE mo_local_grid_optimization
   REAL(wp) :: barycenter_force_coeff
   REAL(wp) :: isotropy_rotation_coeff, isotropy_stretch_coeff
   
-  LOGICAL  :: dual_use_spring_cellcenters, prime_use_spring_cellcenters
+  LOGICAL  :: use_optimization
+  LOGICAL  :: use_prime_spring_cellcenters, use_dual_spring_cellcenters
   LOGICAL  :: use_adaptive_dt, use_adaptive_spring_length, use_local_reference_length
-  LOGICAL  :: use_isotropy_correction, use_barycenter_force
+  LOGICAL  :: use_isotropy_force, use_barycenter_force
   LOGICAL  :: use_edge_springs, use_centers_spring_correction
 
   INTEGER :: optimize_vertex_depth
@@ -135,9 +135,34 @@ CONTAINS
   !-------------------------------------------------------------------------
 ! #define compute_edge_length arc_length
 ! #define compute_edge_length norma
-! #define c arc_length_normalsphere
+! #define compute_edge_length arc_length_normalsphere
 #define compute_edge_length d_norma_3d
+#define compute_arc_length(v) d_arc_of_hord_normalsphere(d_norma_3d(v))
+#define compute_arc_of_length d_arc_of_hord_normalsphere
+        
+  !-------------------------------------------------------------------------
+  FUNCTION get_tangent_unit(in_vector, sphere_point) result(tan_unit_vector)
+    TYPE(t_cartesian_coordinates), INTENT(in) :: in_vector, sphere_point
+    TYPE(t_cartesian_coordinates) :: tan_unit_vector
 
+    tan_unit_vector%x =  in_vector%x - &
+    & DOT_PRODUCT( in_vector%x, sphere_point%x) * sphere_point%x
+    d_normalize(tan_unit_vector)
+        
+  END FUNCTION get_tangent_unit
+  
+  FUNCTION get_tangent_unit_x(in_vector, sphere_point) result(x)
+    TYPE(t_cartesian_coordinates), INTENT(in) :: in_vector, sphere_point
+    REAL(wp) :: x(3)
+
+    x =  in_vector%x - &
+    & DOT_PRODUCT( in_vector%x, sphere_point%x) * sphere_point%x
+    d_normalize_x(x)
+    
+        
+  END FUNCTION get_tangent_unit_x
+  !-------------------------------------------------------------------------
+  
   !-------------------------------------------------------------------------
   !
   !
@@ -170,37 +195,33 @@ CONTAINS
     TYPE(t_geographical_coordinates) :: geocoord
     INTEGER :: i_status
 
-    NAMELIST /grid_optimization/ use_optimization, dual_iterations, &
+    NAMELIST /grid_optimization/ use_optimization, &
       & spring_dt, p_total_force_condition, p_max_force_condition, max_min_condition, &
-      & d_total_force_condition, d_max_force_condition,           &
-      & dual_hard_spring_stiffness, dual_soft_spring_stiffness, spring_friction, input_file,   &
-      & output_file, dual_use_spring_cellcenters, prime_use_spring_cellcenters, &
-      & dual_centers_spring_stiffness, prime_centers_spring_stiffness, &
+      & spring_friction, input_file,  minedge_ref_length_weight,  &
+      & output_file, use_prime_spring_cellcenters, use_dual_spring_cellcenters, &
+      & centers_spring_stiffness, &
       & prime_hard_spring_stiffness, prime_soft_spring_stiffness, use_adaptive_dt, &
       & max_dt_distance_ratio, use_adaptive_spring_length,           &
-      & prime_ref_length_coeff, prime_centers_ref_length_coeff,                &
-      & dual_ref_length_coeff, dual_centers_ref_length_coeff, use_local_reference_length, &
-      & centers_vertex_condition, use_isotropy_correction,  &
+      & prime_ref_length_coeff, centers_ref_length_coeff,                &
+      & use_local_reference_length, &
+      & centers_vertex_condition, use_isotropy_force,  &
       & local_reference_length_coeff, use_barycenter_force, barycenter_force_coeff, &
       & isotropy_rotation_coeff, isotropy_stretch_coeff, use_edge_springs,    &
       & centers_springcorrection_coeff, use_centers_spring_correction, &
       & R_refine_method, R_refine_center_lon, R_refine_center_lat, R_refine_ratio, &
-      & R_refine_flat_radius, optimize_vertex_depth
+      & R_refine_flat_radius, optimize_vertex_depth, max_iterations
 
 
     ! set default values
+    max_iterations = 10000
     use_optimization = .false.
     prime_ref_length_coeff = 1.0_wp
-    prime_centers_ref_length_coeff = 1.0_wp
-    dual_ref_length_coeff = 1.0_wp
+    minedge_ref_length_weight = 0.25_wp
+    centers_ref_length_coeff = 1.0_wp
 
-    dual_centers_ref_length_coeff = 1.0_wp
     prime_hard_spring_stiffness = 1.0_wp
     prime_soft_spring_stiffness = 1.0_wp
-    dual_hard_spring_stiffness = 1.0_wp
-    dual_soft_spring_stiffness = 1.0_wp
-    dual_centers_spring_stiffness = 1.0_wp
-    prime_centers_spring_stiffness = 0.9_wp
+    centers_spring_stiffness = 0.9_wp
     local_reference_length_coeff = 0.0_wp
     centers_springcorrection_coeff = 0.0_wp
     barycenter_force_coeff = 0.0_wp
@@ -213,25 +234,22 @@ CONTAINS
 
     p_total_force_condition = 0.5_wp
     p_max_force_condition = 0.25_wp
-    d_total_force_condition = 0.2_wp
-    d_max_force_condition = 0.1_wp
     centers_vertex_condition = 1.0_wp
     max_min_condition = 1.0_wp
 
-    prime_use_spring_cellcenters = .false.
-    dual_use_spring_cellcenters = .false.
+    use_prime_spring_cellcenters = .false.
+    use_dual_spring_cellcenters = .false.
     use_adaptive_dt = .false.
     use_adaptive_spring_length = .false.
     use_local_reference_length = .false.
-    use_isotropy_correction = .false.
+    use_isotropy_force = .false.
     use_barycenter_force = .false.
     use_edge_springs = .true.
 
-    dual_iterations = 0
     input_file = ''
     output_file = ''
-
     optimize_vertex_depth = 1
+
     R_refine_method=R_refine_none
     R_refine_ratio=0.5_wp
     R_refine_flat_radius=0.05_wp
@@ -253,22 +271,19 @@ CONTAINS
       geocoord%lat = R_refine_center_lat
       R_refine_center = gc2cc(geocoord)
     ENDIF
+
     IF (optimize_vertex_depth < 1) &
       CALL finish('grid_optimization',&
         & 'optimize_vertex_depth must be > 0')
-
+    
     WRITE(message_text,'(a)') "===================================="
     CALL message ('', TRIM(message_text))
     CALL message ('', '   Grid Optimization')
-    WRITE(message_text,'(a,i4)') 'dual_iterations=', dual_iterations
-    CALL message ('', TRIM(message_text))
-    WRITE(message_text,*) 'prime_use_spring_cellcenters=', prime_use_spring_cellcenters
-    CALL message ('', TRIM(message_text))
-    WRITE(message_text,*) 'dual_use_spring_cellcenters=', dual_use_spring_cellcenters
+    WRITE(message_text,*) 'use_prime_spring_cellcenters=', use_prime_spring_cellcenters
     CALL message ('', TRIM(message_text))
     WRITE(message_text,*) 'use_adaptive_spring_length=', use_adaptive_spring_length
     CALL message ('', TRIM(message_text))
-    WRITE(message_text,*) 'use_isotropy_correction=', use_isotropy_correction
+    WRITE(message_text,*) 'use_isotropy_force=', use_isotropy_force
     CALL message ('', TRIM(message_text))
     WRITE(message_text,*) 'use_adaptive_dt=', use_adaptive_dt
     CALL message ('', TRIM(message_text))
@@ -282,26 +297,15 @@ CONTAINS
     CALL message ('', TRIM(message_text))
     WRITE(message_text,'(a,f8.4)') 'prime_ref_length_coeff=', prime_ref_length_coeff
     CALL message ('', TRIM(message_text))
-    WRITE(message_text,'(a,f8.4)') 'prime_centers_ref_length_coeff=', &
-      & prime_centers_ref_length_coeff
-    CALL message ('', TRIM(message_text))
-    WRITE(message_text,'(a,f8.4)') 'dual_ref_length_coeff=', dual_ref_length_coeff
-    CALL message ('', TRIM(message_text))
-    WRITE(message_text,'(a,f8.4)') 'dual_centers_ref_length_coeff=', dual_centers_ref_length_coeff
+    WRITE(message_text,'(a,f8.4)') 'centers_ref_length_coeff=', &
+      & centers_ref_length_coeff
     CALL message ('', TRIM(message_text))
     WRITE(message_text,'(a,f8.4)') 'prime_soft_spring_stiffness=', prime_soft_spring_stiffness
     CALL message ('', TRIM(message_text))
     WRITE(message_text,'(a,f8.4)') 'prime_hard_spring_stiffness=', prime_hard_spring_stiffness
     CALL message ('', TRIM(message_text))
-    WRITE(message_text,'(a,f8.4)') 'dual_soft_spring_stiffness=', dual_soft_spring_stiffness
-    CALL message ('', TRIM(message_text))
-    WRITE(message_text,'(a,f8.4)') 'dual_hard_spring_stiffness=', dual_hard_spring_stiffness
-    CALL message ('', TRIM(message_text))
-    WRITE(message_text,'(a,f8.4)') 'prime_centers_spring_stiffness=', &
-      & prime_centers_spring_stiffness
-    CALL message ('', TRIM(message_text))
-    WRITE(message_text,'(a,f8.4)') 'dual_centers_spring_stiffness=', &
-      & dual_centers_spring_stiffness
+    WRITE(message_text,'(a,f8.4)') 'centers_spring_stiffness=', &
+      & centers_spring_stiffness
     CALL message ('', TRIM(message_text))
     WRITE(message_text,'(a,f8.4)') 'local_reference_length_coeff=', &
       & local_reference_length_coeff
@@ -320,10 +324,6 @@ CONTAINS
     CALL message ('', TRIM(message_text))
     WRITE(message_text,'(a,f8.4)') 'p_max_force_condition=', p_max_force_condition
     CALL message ('', TRIM(message_text))
-    WRITE(message_text,'(a,f8.4)') 'd_total_force_condition=', d_total_force_condition
-    CALL message ('', TRIM(message_text))
-    WRITE(message_text,'(a,f8.4)') 'd_max_force_condition=', d_max_force_condition
-    CALL message ('', TRIM(message_text))
     WRITE(message_text,'(a,f8.4)') 'max_min_condition=', max_min_condition
     CALL message ('', TRIM(message_text))
     WRITE(message_text,'(a,f8.4)') 'centers_vertex_condition=', centers_vertex_condition
@@ -337,15 +337,6 @@ CONTAINS
   !-------------------------------------------------------------------------
 
   !---------------------------------------------------------
-!   SUBROUTINE optimize_grid_set_lengths(icon_norm_edge, icon_norm_dual_edge)
-!
-!      REAL(wp), INTENT(in) :: icon_norm_edge, icon_norm_dual_edge
-!
-!      desired_prime_edge = icon_norm_edge
-!      desired_dual_edge = icon_norm_dual_edge
-!
-!   END SUBROUTINE optimize_grid_set_lengths
-  !---------------------------------------------------------
 
   !---------------------------------------------------------
   SUBROUTINE optimize_grid_file(param_file_name)
@@ -356,8 +347,7 @@ CONTAINS
 
     CALL read_grid_optimization_param(param_file_name)
 
-    grid_id = new_grid()
-    CALL read_netcdf_grid(grid_id, input_file)
+    grid_id = read_new_netcdf_grid(input_file)
 
     CALL optimize_grid(grid_id)
 
@@ -373,7 +363,6 @@ CONTAINS
     INTEGER, INTENT(inout) :: grid_id
     INTEGER, INTENT(in), OPTIONAL :: depth_level
 
-!    INTEGER :: dual_grid_id, iteration
     INTEGER :: opt_result
     INTEGER :: timer_optimize_grid
 
@@ -386,33 +375,12 @@ CONTAINS
     timer_optimize_grid = new_timer("optimize_grid")
     CALL timer_start(timer_optimize_grid)
       
-!     IF (dual_iterations == 0) THEN
-      opt_result = optimize_grid_methods(grid_id)
-      CALL timer_stop(timer_optimize_grid)
-      CALL print_timer(timer_optimize_grid)
-      CALL delete_timer(timer_optimize_grid)
-      RETURN
-!     ENDIF
-!         
-!     DO iteration=1,dual_iterations
-!       ! optimize the prime and dual
-!       opt_result = optimize_grid_methods(grid_id, depth_level)
-!       ! IF (opt_result == max_min_condition_reached) EXIT
-!       CALL get_triangle_circumcenters(grid_id)
-!       !CALL get_cell_barycenters(grid_id)
-!       dual_grid_id = get_basic_dual_grid(grid_id)
-!       CALL delete_grid(grid_id)
-!       opt_result = optimize_grid_methods(dual_grid_id)
-!       CALL get_cell_barycenters(dual_grid_id)
-!       grid_id = get_basic_dual_grid(dual_grid_id)
-!       CALL delete_grid(dual_grid_id)
-!       ! IF (opt_result == max_min_condition_reached) EXIT
-!     ENDDO ! i=1,dual_iterations
-!     !opt_result = optimize_grid_methods(grid_id, depth_level)
-! 
-!     CALL timer_stop(timer_optimize_grid)
-!     CALL print_timer(timer_optimize_grid)
-!     CALL delete_timer(timer_optimize_grid)
+    opt_result = optimize_grid_methods(grid_id)
+    CALL timer_stop(timer_optimize_grid)
+    CALL print_timer(timer_optimize_grid)
+    CALL delete_timer(timer_optimize_grid)
+      
+    RETURN
           
   END SUBROUTINE optimize_grid
   !---------------------------------------------------------
@@ -422,7 +390,7 @@ CONTAINS
 
     INTEGER, INTENT(inout) :: grid_id
 !     INTEGER, INTENT(in), OPTIONAL :: depth_level
-
+    
     TYPE(t_grid), POINTER :: in_grid
     TYPE(t_grid_cells), POINTER :: cells
     TYPE(t_grid_edges), POINTER :: edges
@@ -433,9 +401,9 @@ CONTAINS
     INTEGER :: no_of_cells, no_of_edges, no_of_vertices
     INTEGER :: max_cell_vertices, max_vertex_connect
     INTEGER :: edge, cell, vertex, start_vertex, end_vertex
-    INTEGER :: min_edge_no, max_edge_no
+!     INTEGER :: min_edge_no, max_edge_no
    
-    INTEGER :: iteration, j, maxit
+    INTEGER :: iteration, j
 
     REAL (wp) :: dt, new_dt, old_dt
     REAL (wp) :: friction
@@ -448,15 +416,17 @@ CONTAINS
     REAL (wp) :: spring_ref_length, global_ref_length
     
     REAL(wp) :: length, average_length, min_length, max_length, centers_ref_length
+    REAL(wp) :: triangle_area
+    
     REAL(wp) :: max_dt_distance
     
-    REAL(wp) :: spring_stiffness, centers_spring_stiffness
+    REAL(wp) :: spring_stiffness
 
     REAL(wp), ALLOCATABLE :: edge_force(:)
 
     REAL(wp) :: spring_dt_force_coeff, spring_dt_velocity_coeff
     REAL(wp) :: force_ceoff, velocity_coeff
-    REAL(wp) :: spring_ref_length_coeff, half_ref_length_coeff, centers_ref_length_coeff
+    REAL(wp) :: spring_ref_length_coeff, half_ref_length_coeff
 
     REAL(wp) :: soft_spring_stiffness, hard_spring_stiffness
     REAL(wp) :: s_max_force_condition
@@ -464,25 +434,24 @@ CONTAINS
     ! REAL(wp), PARAMETER :: inv_sqrt_3 = 1.0_wp/SQRT(3.0_wp)
     ! REAL(wp), PARAMETER :: sqrt_2 = SQRT(2.0_wp)
     TYPE(t_cartesian_coordinates), ALLOCATABLE :: vertex_velocity(:), vertex_force(:)
-    TYPE(t_cartesian_coordinates), ALLOCATABLE :: cell_vertex_centers_vector(:,:)
+    TYPE(t_cartesian_coordinates), ALLOCATABLE :: cell_isotropy_vector(:)
+!     TYPE(t_cartesian_coordinates), ALLOCATABLE :: cell_vertex_centers_vector(:,:)
     TYPE(t_cartesian_coordinates), POINTER :: cell_center
-    TYPE(t_cartesian_coordinates) :: cell_isotropy_vector, edge_dual_vector
-    TYPE(t_cartesian_coordinates), ALLOCATABLE :: cell_centers_vector(:)
+!     TYPE(t_cartesian_coordinates), ALLOCATABLE :: cell_centers_vector(:)
 !    TYPE(cartesian_coordinates) :: cell_center, vertex_vector, spring_vector
+    TYPE(t_cartesian_coordinates) :: vertex_centers_vector(16)  ! should be >= max_vertex_connect
+    TYPE(t_cartesian_coordinates) :: vertex_cell_force(16)
+    REAL(wp) :: vertex_centers_length(16)
 
-    TYPE(t_cartesian_coordinates) :: vertex_centers_vector(32)  ! should be >= max_vertex_connect
-    REAL(wp) :: vertex_centers_length(32)
-
-    TYPE(t_cartesian_coordinates) :: vertex_vector, force_vector
+    TYPE(t_cartesian_coordinates) :: edge_vector, vertex_vector, force_vector
     REAL(wp),  ALLOCATABLE :: vertex_edge_ref_length(:)
     REAL(wp),  ALLOCATABLE :: cell_center_ref_length(:)
     REAL(wp),  ALLOCATABLE :: edge_ref_length(:)
+    REAL(wp),  ALLOCATABLE :: cell_edge_ref(:)
 !    REAL(wp) :: ref_length
-   REAL(wp) :: diff_length
+    REAL(wp) :: diff_length
 
     INTEGER :: vertex_edges, vertex_list_idx
-!     REAL(wp) :: max_vertex_edge, min_vertex_edge, max_vertex_edge_ratio
-    LOGICAL :: is_triangle_grid, use_spring_cellcenters
 
     INTEGER :: dual_grid_id, istat
     TYPE(t_grid), POINTER :: dual_grid
@@ -490,8 +459,12 @@ CONTAINS
 
     REAL(wp), POINTER :: vertex_ref_length(:)
     REAL(wp) :: R_refine_ratio_coeff
-!     REAL(wp) :: tmp_max,tmp_min
 
+    LOGICAL :: is_triangle_grid!, use_cell_center_correction
+    LOGICAL :: use_R_refine, use_vertex_ref_length, use_cell_centers
+    LOGICAL :: use_prime_spring_cellcenters
+    LOGICAL :: use_edge_ref_length
+        
     CHARACTER(*), PARAMETER :: method_name = "optimize_grid_methods"
     ! INTEGER :: dual_grid_id
 
@@ -512,12 +485,26 @@ CONTAINS
     start_vertex = 1
     end_vertex   = no_of_vertices
 !     ENDIF
+
     inner_verts_list=get_inner_vertices(grid_id,optimize_vertex_depth)
-    write(0,*) 'no_of_vertices:', no_of_vertices, inner_verts_list%list_size
-    
+!     write(*,*) 'no_of_vertices:', no_of_vertices, inner_verts_list%list_size
+
+    !-----------------------------------------------------------------------
+    !-----------------------------------------------------------------------
+    ! Calculate some conditions    
     is_triangle_grid = max_cell_vertices == 3
-    use_spring_cellcenters = (dual_use_spring_cellcenters .AND. .NOT. is_triangle_grid) .OR. &
-        & (prime_use_spring_cellcenters .AND. is_triangle_grid)
+    use_R_refine = (R_refine_method == R_refine_none)
+    !---------------
+    IF (use_dual_spring_cellcenters .AND. use_prime_spring_cellcenters) THEN
+      CALL finish(method_name, &
+        & "Cannot use both use_dual_spring_cellcenters .AND. use_prime_spring_cellcenters")
+    ENDIF
+    !---------------
+    use_edge_ref_length = use_prime_spring_cellcenters .OR. use_edge_springs
+    use_vertex_ref_length = use_local_reference_length .OR. use_R_refine
+    use_cell_centers = use_isotropy_force .OR. use_prime_spring_cellcenters
+!     use_cell_center_correction = use_isotropy_force .OR. use_centers_spring_correction
+    !-----------------------------------------------------------------------
     
     ! allocate auxiliary vectors
     ALLOCATE(edge_force(no_of_edges), &
@@ -527,29 +514,54 @@ CONTAINS
         CALL finish (method_name, 'ALLOCATE(vertex_force,vertex_velocity')
     ENDIF
 
-    ALLOCATE(vertex_edge_ref_length(no_of_vertices), edge_ref_length(no_of_edges), &
-      & cell_vertex_centers_vector(max_vertex_connect,no_of_cells),&
-      & cell_centers_vector(no_of_cells), &
-      & stat=istat)
-    IF (istat > 0) THEN
-      CALL finish (method_name, &
-        & 'ALLOCATE(vertex_edge_ref_length, ...')
+    IF (use_edge_ref_length) THEN
+      ALLOCATE(edge_ref_length(no_of_edges), stat=istat)
+      IF (istat > 0) THEN
+        CALL finish (method_name, 'ALLOCATE(edge_ref_length')
+      ENDIF
+    ENDIF
+    
+
+    IF (use_local_reference_length) THEN
+      ALLOCATE(vertex_edge_ref_length(no_of_vertices), stat=istat)
+      IF (istat > 0) &
+        CALL finish (method_name, &
+          & 'ALLOCATE(vertex_edge_ref_length, ...')
+    ENDIF
+    
+    IF (use_prime_spring_cellcenters) THEN
+      ALLOCATE(cell_center_ref_length(no_of_cells), &
+        cell_edge_ref(max_cell_vertices), stat=istat)
+      IF (istat > 0) CALL finish (method_name, &
+          & 'ALLOCATE(cell_center_ref_length')
     ENDIF
 
-!     IF (R_refine_method == R_refine_springedges_linear) THEN
-    ALLOCATE(vertex_ref_length(no_of_vertices), &
-      & cell_center_ref_length(no_of_cells), stat=istat)
-    IF (istat > 0) THEN
-      CALL finish (method_name, &
-        & 'ALLOCATE(vertex_ref_length)')
+    IF (use_isotropy_force) THEN
+      ALLOCATE(cell_isotropy_vector(no_of_cells), stat=istat)
+      IF (istat > 0) &
+        CALL finish (method_name, &
+          & 'ALLOCATE(cell_isotropy_vector)')
     ENDIF
+    
+!     IF (use_cell_center_correction) THEN
+!       ALLOCATE(cell_vertex_centers_vector(max_vertex_connect,no_of_cells), stat=istat)
+!       IF (istat > 0)&
+!         CALL finish (method_name, &
+!           & 'ALLOCATE(cell_vertex_centers_vector')
 !     ENDIF
-    !-----------------------------------------------------------------------
+    
+    IF (use_vertex_ref_length) THEN
+      ALLOCATE(vertex_ref_length(no_of_vertices), stat=istat)
+      IF (istat > 0)  CALL finish (method_name, &
+          & 'ALLOCATE(vertex_ref_length)')
+    ENDIF
+
+    
+     !-----------------------------------------------------------------------
     !lambda   = 2.0_wp*pi/(SQRT(REAL(no_of_cells,wp)*1.0_wp))
     !spring_ref_length     = lambda
     friction = spring_friction
     dt       = spring_dt
-    maxit    = 1000000
     !-----------------------------------------------------------------------
     ! Compute R_refine constants
     IF (R_refine_method == R_refine_springedges_linear) THEN
@@ -559,23 +571,11 @@ CONTAINS
         (1.0_wp - R_refine_ratio)/ (1.0_wp - R_refine_flat_radius)
     ENDIF    
     !-----------------------------------------------------------------------
-    IF (is_triangle_grid) THEN
-       s_max_force_condition   = p_max_force_condition
-       s_total_force_condition = p_total_force_condition
-       spring_ref_length_coeff = prime_ref_length_coeff
-       centers_ref_length_coeff= prime_centers_ref_length_coeff * 0.8660254038_wp
-       soft_spring_stiffness   = prime_soft_spring_stiffness
-       hard_spring_stiffness   = prime_hard_spring_stiffness
-       centers_spring_stiffness= prime_centers_spring_stiffness
-    ELSE
-       s_max_force_condition   = d_max_force_condition
-       s_total_force_condition = d_total_force_condition
-       spring_ref_length_coeff        = dual_ref_length_coeff
-       centers_ref_length_coeff= dual_centers_ref_length_coeff
-       soft_spring_stiffness   = dual_soft_spring_stiffness
-       hard_spring_stiffness   = dual_hard_spring_stiffness
-       centers_spring_stiffness= dual_centers_spring_stiffness
-    ENDIF
+    s_max_force_condition   = p_max_force_condition
+    s_total_force_condition = p_total_force_condition
+    spring_ref_length_coeff = prime_ref_length_coeff
+    soft_spring_stiffness   = prime_soft_spring_stiffness
+    hard_spring_stiffness   = prime_hard_spring_stiffness
 
     !-----------------------------------------------------------------------
     ! compute spring_ref_length
@@ -583,22 +583,24 @@ CONTAINS
     min_length = 1E100_wp
     max_length = 0.0_wp
     DO edge = 1, no_of_edges
-      edge_dual_vector%x =  &
+
+      edge_vector%x = &
         & verts%cartesian(edges%get_vertex_index(edge,2))%x - &
         & verts%cartesian(edges%get_vertex_index(edge,1))%x
 
       length = &
-       & compute_edge_length(edge_dual_vector)
+        compute_edge_length(edge_vector)
+      edges%primal_edge_length(edge) = compute_arc_of_length(length)
+      edges%cartesian_dual_normal(edge)%x = edge_vector%x / length
 
-      average_length =  average_length + length
-      min_length = MIN(min_length,length)
-      max_length = MAX(max_length,length)
-
-    ENDDO
+    ENDDO ! edge = 1, no_of_edges
+    min_length = MINVAL(edges%primal_edge_length(1:no_of_edges))
+    max_length = MAXVAL(edges%primal_edge_length(1:no_of_edges))
+    average_length = SUM(edges%primal_edge_length(1:no_of_edges))/ REAL(no_of_edges,wp)
 
     half_ref_length_coeff = spring_ref_length_coeff * 0.5_wp
-    average_length = average_length / REAL(no_of_edges,wp)
-    global_ref_length = (min_length + 3.0_wp * average_length) / 4.0_wp
+    global_ref_length = (minedge_ref_length_weight * min_length) + &
+      & ((1.0_wp-minedge_ref_length_weight) * average_length)
     spring_ref_length = global_ref_length * spring_ref_length_coeff
 !    spring_ref_length  = min_length
     centers_ref_length = average_length * centers_ref_length_coeff
@@ -629,32 +631,21 @@ CONTAINS
     old_force = 1E100_wp
     old_velocity = 1E100_wp
 
-!     write(0,*) 'Start iteration'
+!     write(*,*) 'Start iteration'
     !-----------------------------------------------------------------------
-    DO iteration=1, maxit
-    !  write(0,*) "Iteration:",iteration
+    DO iteration=1, max_iterations
+!       write(*,*) "Iteration:",iteration
       !-----------------------------------------------------------------------
       ! get cell barycenters
       !CALL get_cell_barycenters(grid_id, center_type=use_cartesian_centers)
-      IF (is_triangle_grid) THEN
-        CALL get_triangle_circumcenters(grid_id)
-      ELSE
-        CALL get_cell_barycenters(grid_id)
+      IF (use_cell_centers) THEN 
+        IF (is_triangle_grid) THEN
+          CALL get_triangle_circumcenters(grid_id)
+        ELSE
+          CALL get_cell_barycenters(grid_id)
+        ENDIF
       ENDIF
-    !-----------------------------------------------------------------------
-      ! if this is the dual, replace by the voronoi of the delaunay
-      ! ie, the dual of the dual
-!       IF (.NOT. is_triangle_grid) THEN
-!         dual_grid_id = get_basic_dual_grid(grid_id)
-!         CALL delete_grid(grid_id)
-!         CALL get_triangle_circumcenters(dual_grid_id)
-!         grid_id = get_basic_dual_grid(dual_grid_id)
-!         CALL delete_grid(dual_grid_id)
-!         in_grid  => get_grid(grid_id)
-!         verts=>in_grid%verts
-!         edges=>in_grid%edges
-!         cells=>in_grid%cells
-!       ENDIF
+      !-----------------------------------------------------------------------
 
 
       !--------------------------------------------------------------------
@@ -664,78 +655,66 @@ CONTAINS
       max_length = 0.0_wp
       DO edge = 1, no_of_edges
 
-        edge_dual_vector%x = &
+        edge_vector%x = &
           & verts%cartesian(edges%get_vertex_index(edge,2))%x - &
           & verts%cartesian(edges%get_vertex_index(edge,1))%x
 
         length = &
-          compute_edge_length(edge_dual_vector)
-        edges%primal_edge_length(edge) = length
-        edges%cartesian_dual_normal(edge)%x = edge_dual_vector%x / length
-
-        average_length =  average_length + length
-        IF (min_length > length) THEN
-          min_length = length
-          min_edge_no = edge
-        ENDIF
-        IF (max_length < length) THEN
-          max_length = length
-          max_edge_no = edge
-        ENDIF
-
-        min_length = MIN(min_length,length)
-        max_length = MAX(max_length,length)
+          compute_edge_length(edge_vector)
+!         edges%primal_edge_length(edge) = length
+        edges%primal_edge_length(edge) = compute_arc_of_length(length)
+        edges%cartesian_dual_normal(edge)%x = edge_vector%x / length
 
       ENDDO ! edge = 1, no_of_edges
-
-      IF (max_length / min_length <= max_min_condition) THEN
-        opt_result = max_min_condition_reached
-        WRITE(0,*) TRIM(method_name), " iterated ", iteration, " times."
-        CALL message(method_name, &
-          & 'max_min_condition reached. Exit')
-        EXIT
-      ENDIF
+      min_length = MINVAL(edges%primal_edge_length(1:no_of_edges))
+      max_length = MAXVAL(edges%primal_edge_length(1:no_of_edges))
+      average_length = SUM(edges%primal_edge_length(1:no_of_edges))/ REAL(no_of_edges,wp)
 
       !--------------------------------------------------------------------
       ! adaptive spring_ref_length
-      average_length = average_length / REAL(no_of_edges,wp)
       max_dt_distance = (max_length - min_length) * max_dt_distance_ratio
       IF (use_adaptive_spring_length) THEN
-        global_ref_length = (min_length + 3.0_wp * average_length) / 4.0_wp
+        global_ref_length = (minedge_ref_length_weight * min_length) + &
+          & ((1.0_wp-minedge_ref_length_weight) * average_length)
         spring_ref_length = global_ref_length * spring_ref_length_coeff
         centers_ref_length = average_length * centers_ref_length_coeff
       ENDIF
+!       IF (max_length / min_length <= max_min_condition) THEN
+!         opt_result = max_min_condition_reached
+!         write(*,*) TRIM(method_name), " iterated ", iteration, " times."
+!         CALL message(method_name, &
+!           & 'max_min_condition reached. Exit')
+!         EXIT
+!       ENDIF
       
       !--------------------------------------------------------------------
-!$OMP PARALLEL PRIVATE(vertex_centers_vector, vertex_centers_length, istat)
+!$OMP PARALLEL PRIVATE(vertex_centers_length, istat)
       ! compute edge_ref_length
       SELECT CASE (R_refine_method)
-        CASE (R_refine_none) 
+        CASE (R_refine_none)
+        
+          IF (use_vertex_ref_length) THEN
 !$OMP DO PRIVATE(vertex)
-          DO vertex = 1, no_of_vertices
-            vertex_ref_length(vertex) = global_ref_length
-          ENDDO
+            DO vertex = 1, no_of_vertices
+              vertex_ref_length(vertex) = global_ref_length
+            ENDDO
 !$OMP ENDDO
+          ENDIF
         CASE (R_refine_springedges_linear)
-!           tmp_max=0._wp
-!           tmp_min=99999._wp
-!$OMP DO PRIVATE(vertex)          
+!$OMP DO PRIVATE(vertex)
           DO vertex=1,no_of_vertices
             ! vertex_ref_length gets a value from
             ! R_refine_ratio  to 1.0, x global_ref_length,
             ! as a linear function
             ! of the distance from the R_refine_center
-            vertex_ref_length(vertex) = MAX( &
-              (arc_length_normalsphere(verts%cartesian(vertex), R_refine_center) / pi) &
-               - R_refine_flat_radius, &
-               0.0_wp)
-               
             vertex_ref_length(vertex) = &
-              ((vertex_ref_length(vertex) * R_refine_ratio_coeff) + R_refine_ratio) * &
-              & global_ref_length
-          ENDDO    
+              (( MAX((arc_length_normalsphere(verts%cartesian(vertex), R_refine_center) / pi) &
+               - R_refine_flat_radius, 0.0_wp) * R_refine_ratio_coeff) + R_refine_ratio )     &
+               * global_ref_length
+          
+          ENDDO
 !$OMP ENDDO
-!           write(0,*) 'min,max edge_ref_length:', tmp_min, tmp_max,  tmp_min/tmp_max
+!           write(*,*) 'min,max edge_ref_length:', tmp_min, tmp_max,  tmp_min/tmp_max
         CASE default
           CALL finish(TRIM(method_name), "Uknown R_refine_method")          
       END SELECT
@@ -771,65 +750,62 @@ CONTAINS
         
       !-----------------------------------------------------------------------
       ! compute edge_ref_length
+      IF (use_edge_ref_length) THEN
+        IF (use_vertex_ref_length) THEN
 !$OMP DO PRIVATE(edge)
-      DO edge = 1, no_of_edges
-        edge_ref_length(edge) = half_ref_length_coeff * &
-          (vertex_ref_length(edges%get_vertex_index(edge,1)) + &
-            vertex_ref_length(edges%get_vertex_index(edge,2)))
-!           IF (edge_ref_length(edge) /=spring_ref_length) THEN
-!             write(0,*) vertex_ref_length(edges%get_vertex_index(edge,1)), &
-!               vertex_ref_length(edges%get_vertex_index(edge,2))
-!             write(0,*) edge_ref_length(edge), spring_ref_length
-!             CALL finish('compute edge_ref_length',&
-!               'edge_ref_length(edge) /=spring_ref_length')
-!           ENDIF
-!             write(0,*) edge_ref_length(edge), &
-!               vertex_ref_length(edges%get_vertex_index(edge,1)), &
-!               vertex_ref_length(edges%get_vertex_index(edge,2))
-!             tmp_max=MAX(tmp_max,edge_ref_length(edge))
-!             tmp_min=MIN(tmp_min,edge_ref_length(edge))
-      ENDDO
+          DO edge = 1, no_of_edges
+            edge_ref_length(edge) = half_ref_length_coeff * &
+              (vertex_ref_length(edges%get_vertex_index(edge,1)) + &
+                vertex_ref_length(edges%get_vertex_index(edge,2)))
+          ENDDO
 !$OMP ENDDO
+        ELSE
+!$OMP DO PRIVATE(edge)
+          DO edge = 1, no_of_edges
+            edge_ref_length(edge) =  global_ref_length         
+          ENDDO
+!$OMP ENDDO
+        ENDIF
+      ENDIF ! use_edge_ref_length
       
-
       !-----------------------------------------------------------------------
-      IF (use_isotropy_correction .OR. use_centers_spring_correction) THEN
-      ! compute cell_centers_vector (isotropy)
-!$OMP DO PRIVATE(cell, cell_center, j, vertex)
-        DO cell=1,no_of_cells
-          cell_center => cells%cartesian_center(cell)
-          cell_centers_vector(cell)%x = 0.0_wp
-          ! get cell_vertex_centers_vector, cell_centers_vector
-          DO j=1,max_cell_vertices
-            vertex=cells%get_vertex_index(cell,j)
-            IF (vertex > 0) THEN
-              cell_centers_vector(cell)%x = cell_centers_vector(cell)%x + &
-                verts%cartesian(vertex)%x - cell_center%x             
-              cell_vertex_centers_vector(j,cell) = &
-                normalize(verts%cartesian(vertex) - cell_center)
-            ENDIF
-          ENDDO !j=1,max_cell_vertices
-        ENDDO !cell=1,no_of_cells
-!$OMP ENDDO
-      ENDIF !(use_isotropy_correction .OR. use_centers_spring_correction)
+!       IF (use_isotropy_force .OR. use_centers_spring_correction) THEN
+!       ! compute cell_centers_vector (isotropy)
+! !$OMP DO PRIVATE(cell, cell_center, j, vertex)
+!         DO cell=1,no_of_cells
+!           cell_center => cells%cartesian_center(cell)
+!           cell_centers_vector(cell)%x = 0.0_wp
+!           ! get cell_vertex_centers_vector, cell_centers_vector
+!           DO j=1,max_cell_vertices
+!             vertex=cells%get_vertex_index(cell,j)
+!             IF (vertex > 0) THEN
+!               cell_centers_vector(cell)%x = cell_centers_vector(cell)%x + &
+!                 verts%cartesian(vertex)%x - cell_center%x             
+!               cell_vertex_centers_vector(j,cell) = &
+!                 normalize(verts%cartesian(vertex) - cell_center)
+!             ENDIF
+!           ENDDO !j=1,max_cell_vertices
+!         ENDDO !cell=1,no_of_cells
+! !$OMP ENDDO
+!       ENDIF !(use_isotropy_force .OR. use_centers_spring_correction)
       
 
       !-----------------------------------------------------------------------
       ! If use_centers_spring_correction adjust the edge_ref_length
-      IF (use_centers_spring_correction) THEN
-!$OMP DO PRIVATE(edge, j, cell)
-        DO edge=1,no_of_edges
-          DO j=1,2
-            cell=edges%get_cell_index(edge,j)
-            IF (cell > 0) THEN
-               edge_ref_length(edge) = edge_ref_length(edge) - &
-                 norma_of_vector_product(cell_centers_vector(cell), &
-                 edges%cartesian_dual_normal(edge)) * centers_springcorrection_coeff
-            ENDIF
-          ENDDO
-        ENDDO
-!$OMP ENDDO
-      ENDIF
+!       IF (use_centers_spring_correction) THEN
+! !$OMP DO PRIVATE(edge, j, cell)
+!         DO edge=1,no_of_edges
+!           DO j=1,2
+!             cell=edges%get_cell_index(edge,j)
+!             IF (cell > 0) THEN
+!                edge_ref_length(edge) = edge_ref_length(edge) - &
+!                  norma_of_vector_product(cell_centers_vector(cell), &
+!                  edges%cartesian_dual_normal(edge)) * centers_springcorrection_coeff
+!             ENDIF
+!           ENDDO
+!         ENDDO
+! !$OMP ENDDO
+!       ENDIF
 
       !========================================================================
       ! FORCING
@@ -861,108 +837,132 @@ CONTAINS
           edge_force(edge) = diff_length * spring_stiffness
           
 !           IF (edge_ref_length(edge) /=spring_ref_length) THEN
-!             write(0,*) edge_ref_length(edge), spring_ref_length
+!             write(*,*) edge_ref_length(edge), spring_ref_length
 !             CALL finish('compute edge force from springs',&
 !               'edge_ref_length(edge) /=spring_ref_length')
 !           ENDIF
 !           tmp_max=MAX(tmp_max,edge_ref_length(edge))
 !           tmp_min=MIN(tmp_min,edge_ref_length(edge))
         ENDDO
-!         write(0,*) 'min,max edge_ref_length:', tmp_min, tmp_max,  tmp_min/tmp_max
+!         write(*,*) 'min,max edge_ref_length:', tmp_min, tmp_max,  tmp_min/tmp_max
 !$OMP ENDDO
       ENDIF
             
       !--------------------------------------------------------------------
       ! if requested use forcing from the centers of the cells
-      IF (use_spring_cellcenters) THEN
+      IF (use_prime_spring_cellcenters) THEN
 !         max_vertex_edge_ratio = 0.0_wp
+!           write(*,*) " ======= use_prime_spring_cellcenters ========"
 
-!$OMP DO PRIVATE(cell,no_of_cell_edges,j,edge)
+!$OMP DO PRIVATE(cell,no_of_cell_edges,j,edge, cell_edge_ref, length, triangle_area)
         DO cell=1,no_of_cells
-          cell_center_ref_length(cell) = 0.0_wp
-          no_of_cell_edges = 0.0_wp
-          DO j=1,max_cell_vertices
-            edge=cells%get_edge_index(cell,j)
-            IF (edge > 0) THEN
-               cell_center_ref_length(cell) = &
-                  & cell_center_ref_length(cell) + edges%primal_edge_length(edge)
-!                  & cell_center_ref_length(cell) + edge_ref_length(edge)
-               no_of_cell_edges = no_of_cell_edges + 1.0_wp
-            ENDIF
-          ENDDO ! 1,max_cell_vertices
-          cell_center_ref_length(cell) =  cell_center_ref_length(cell) * &
-            & (centers_ref_length_coeff / no_of_cell_edges)
+          !--------------------------------------------
+          ! this works only for triangles.
+          cell_edge_ref(1) = edge_ref_length(cells%get_edge_index(cell,1))
+          cell_edge_ref(2) = edge_ref_length(cells%get_edge_index(cell,2))
+          cell_edge_ref(3) = edge_ref_length(cells%get_edge_index(cell,3))
+          length = (cell_edge_ref(1) + cell_edge_ref(2) + cell_edge_ref(3)) * 0.5_wp
+          triangle_area = SQRT(length * (length - cell_edge_ref(1)) * &
+            & (length - cell_edge_ref(2)) * (length - cell_edge_ref(3)))
+          
+          cell_center_ref_length(cell) = &
+            & (cell_edge_ref(1) * cell_edge_ref(2) * cell_edge_ref(3) * 0.25_wp &
+            & * centers_ref_length_coeff) / triangle_area
+          !--------------------------------------------
         ENDDO
 ! !$OMP ENDDO
         
         
-!$OMP DO PRIVATE(vertex,vertex_edges,vertex_vector,&
-!$OMP    j, cell,vertex_centers_vector, vertex_centers_length)
+!$OMP DO PRIVATE(vertex,vertex_vector,j, cell,vertex_cell_force,vertex_centers_vector, &
+!$OMP  vertex_centers_length)
+! vertex_edges,&
         DO vertex = start_vertex, end_vertex
 !           max_vertex_edge = 0.0_wp
 !           min_vertex_edge = 1E100_wp
-          vertex_edges = 0
+!           vertex_edges = 0
+          vertex_vector%x = verts%cartesian(vertex)%x
+!           write(*,*) vertex, " verts%cartesian:", vertex_vector%x
+
+          ! 1. The center-vertex length is measured on the sphere (ie. in great circles)
+          ! 2. Each center-vertx force is moved (not projected) onto the tangent to
+          !    the vertex plane
+          DO j=1,max_vertex_connect
+            cell = verts%get_cell_index(vertex,j)
+            vertex_cell_force(j)%x = 0.0_wp
+            
+            IF (cell /= 0) THEN
+                        
+              vertex_centers_vector(j)%x = &
+                & cells%cartesian_center(cell)%x - vertex_vector%x
+! Unfortunately this line is taken as > 99 
+              vertex_centers_length(j) = &
+& compute_arc_length(vertex_centers_vector(j))
+           
+              vertex_cell_force(j)%x = &
+                & get_tangent_unit_x(vertex_centers_vector(j), vertex_vector) * &
+                & (vertex_centers_length(j) - cell_center_ref_length(cell)) *    &
+                & centers_spring_stiffness
+              
+            ENDIF ! (cell /= 0) 
+          ENDDO ! j=1,max_vertex_connect
+          
+          DO j=1,max_vertex_connect
+            vertex_force(vertex)%x = vertex_force(vertex)%x + vertex_cell_force(j)%x
+          ENDDO ! j=1,max_vertex_connect
+          
+        ENDDO! vertex = start_vertex, end_vertex                
+!$OMP ENDDO
+      ENDIF ! use_prime_spring_cellcenters
+      !-----------------------------------------------------------------------
+      
+      !-----------------------------------------------------------------------
+      ! If use_isotropy_force apply rotation and dual force
+      IF (use_isotropy_force) THEN
+!$OMP DO PRIVATE(cell, cell_center, j, vertex)
+        DO cell=1,no_of_cells
+          ! compute vertex_centers_vector and isotropy cell_centers_vector
+          
+          cell_center => cells%cartesian_center(cell)
+          cell_isotropy_vector(cell)%x = 0.0_wp
+          
+          DO j=1,max_cell_vertices
+            vertex=cells%get_vertex_index(cell,j)
+            IF (vertex > 0) THEN
+              cell_isotropy_vector(cell)%x =  cell_isotropy_vector(cell)%x + &
+                & verts%cartesian(vertex)%x - cell_center%x  
+            ENDIF
+          ENDDO
+        ENDDO ! cell=1,no_of_cells
+!$OMP ENDDO
+
+
+!$OMP DO PRIVATE(vertex,vertex_vector, j, cell, vertex_centers_vector, vertex_cell_force)
+        ! compute rotation force for each vertwex
+        DO vertex=start_vertex,end_vertex
           vertex_vector%x = verts%cartesian(vertex)%x
           
           DO j=1,max_vertex_connect
-            cell = verts%get_cell_index(vertex,j)
+            cell=verts%get_cell_index(vertex,j)
+!             vertex_cell_force(j)%x = 0.0_wp
+            
             IF (cell /= 0) THEN
-              vertex_centers_vector(j)%x = &
-                & cells%cartesian_center(cell)%x - vertex_vector%x
-              vertex_centers_length(j) = &
-                & compute_edge_length(vertex_centers_vector(j))
-              vertex_force(vertex)%x = vertex_force(vertex)%x + &
-                & vertex_centers_vector(j)%x * &
-                & ((1.0_wp - cell_center_ref_length(cell)/vertex_centers_length(j)) * &
-                & centers_spring_stiffness)
-
-!               vertex_centers_ref_length(vertex) = vertex_centers_ref_length(vertex) + &
-!                 & vertex_centers_length(j)
-!               vertex_edges = vertex_edges + 1
-!               max_vertex_edge = MAX(max_vertex_edge, vertex_centers_length(j))
-!               min_vertex_edge = MIN(min_vertex_edge, vertex_centers_length(j))
-            ENDIF            
-          ENDDO ! j=1,max_vertex_connect
-        ENDDO! vertex = start_vertex, end_vertex
-!$OMP ENDDO
-
-!         IF (max_vertex_edge_ratio <= centers_vertex_condition .AND. &
-!           is_triangle_grid) THEN
-!           opt_result = max_min_condition_reached
-!           WRITE(0,*) method_name," iterated ", iteration, " times."
-!           WRITE(0,*) "max_vertex_edge_ratio:", max_vertex_edge_ratio, centers_vertex_condition
-!           CALL message(TRIM(method_name), &
-!             & 'vertex max_min_condition reached. Exit')
-!           EXIT
-!         ENDIF
-
-      ENDIF ! use_spring_cellcenters
-      
-!$OMP END PARALLEL
-      !-----------------------------------------------------------------------
-      ! If use_isotropy_correction apply rotation and dual force
-      IF (use_isotropy_correction) THEN
-!        write(0,*) "use_isotropy_correction"
-        DO cell=1,no_of_cells
-          ! compute rotation force
-          cell_isotropy_vector%x = cell_centers_vector(cell)%x
-          DO j=1,max_cell_vertices
-            vertex=cells%get_vertex_index(cell,j)            
-            IF (vertex > 0) THEN
-!              force_vector = &
-!                 vector_product(&
-!                   vector_product(cell_isotropy_vector, cell_vertex_centers_vector(j)),&
-!                   cell_vertex_centers_vector(j))
-!             calculate from ax(bxc)=b(a.c) - c(a.b)
-              
-              force_vector%x = cell_vertex_centers_vector(j, cell)%x * &
+                            
+              vertex_centers_vector(j) = &
+                normalize(vertex_vector - cells%cartesian_center(cell))
+                            
+              vertex_cell_force(j)%x = vertex_centers_vector(j)%x * &
                 (isotropy_rotation_coeff + isotropy_stretch_coeff) * &
-                DOT_PRODUCT(cell_vertex_centers_vector(j, cell)%x,cell_isotropy_vector%x) -&
-                cell_isotropy_vector%x  * isotropy_rotation_coeff
-              vertex_force(vertex)%x = vertex_force(vertex)%x + force_vector%x
-!                force_vector%x * isotropy_rotation_coeff
- !             WRITE(0,*) "rotation force:", force_vector%x * radius * isotropy_rotation_coeff
-            ENDIF
+                DOT_PRODUCT(vertex_centers_vector(j)%x,cell_isotropy_vector(cell)%x) -&
+                cell_isotropy_vector(cell)%x  * isotropy_rotation_coeff
+                
+              ! add force tangent to the sphere at this vertex              
+              vertex_force(vertex)%x = vertex_force(vertex)%x + &
+                & (vertex_cell_force(j)%x - &
+                & DOT_PRODUCT( vertex_cell_force(j)%x, vertex_vector%x) &
+                & * vertex_vector%x)
+            
+            ENDIF ! (cell /= 0)
+            
           ENDDO !j=1,max_cell_vertices
           
           ! compute stretching force
@@ -971,15 +971,18 @@ CONTAINS
 !             IF (edge > 0) THEN
 !               IF ((edges%primal_edge_length(edge) - ref_length) &
 !                    & * isotropy_stretch_coeff > 0.0_wp) &
-!                 write(0,*) "Stretching:", &
+!                 write(*,*) "Stretching:", &
 !                 & (edges%primal_edge_length(edge) - ref_length) * isotropy_stretch_coeff
 !               edge_force(edge) = edge_force(edge) + &
 !                 & (edges%primal_edge_length(edge) - ref_length) * isotropy_stretch_coeff
 !             ENDIF
 !           ENDDO !j=1,max_cell_vertices
           
-        ENDDO ! cell=1,no_of_cells
-      ENDIF ! use_isotropy_correction
+        ENDDO ! vertex=start_vertex,end_vertex
+!$OMP ENDDO          
+        
+      ENDIF ! use_isotropy_force
+!$OMP END PARALLEL
       !--------------------------------------------------------------------
 
       !--------------------------------------------------------------------
@@ -1004,18 +1007,30 @@ CONTAINS
 
       !--------------------------------------------------------------------
       ! compute vertex force from grid edges
+!       write(*,*) " ======= edge_spring ========"
       DO vertex = start_vertex, end_vertex
         DO j=1,max_vertex_connect
           edge = verts%get_edge_index(vertex,j)
           
           IF (edge /= 0) THEN
             orientation = MERGE(1.0_wp, -1.0_wp, edges%get_vertex_index(edge,1) == vertex)
+        
+            ! make force tangent to the sphere
+            ! this is not a projection, the norm is invarient
+!             force_vector = &
+!               & get_tangent_unit(edges%cartesian_dual_normal(edge), verts%cartesian(vertex))
+            
             vertex_force(vertex)%x = vertex_force(vertex)%x + &
-              & edge_force(edge) *  orientation * edges%cartesian_dual_normal(edge)%x
+              & edge_force(edge) *  orientation * &
+              get_tangent_unit_x(edges%cartesian_dual_normal(edge), verts%cartesian(vertex))
+            
+          
+
           ENDIF ! (edge /= 0)
 
         ENDDO !(j=1,max_vertex_connect)
       ENDDO !vertex = start_vertex, end_vertex
+!       write(*,*) " ======= end edge_spring ========"
       
       !--------------------------------------------------------------------
       !--------------------------------------------------------------------
@@ -1025,9 +1040,10 @@ CONTAINS
       DO vertex_list_idx=1,inner_verts_list%list_size
         vertex = inner_verts_list%value(vertex_list_idx)
         ! remove normal component from force
-        vertex_force(vertex)%x = vertex_force(vertex)%x - &
-          & DOT_PRODUCT(vertex_force(vertex)%x, verts%cartesian(vertex)%x) &
-          & * verts%cartesian(vertex)%x
+        ! force should not have a normal componenet from the construction
+!         vertex_force(vertex)%x = vertex_force(vertex)%x - &
+!           & DOT_PRODUCT(vertex_force(vertex)%x, verts%cartesian(vertex)%x) &
+!           & * verts%cartesian(vertex)%x
 
         ! get max, total force
         ! force = SQRT(DOT_PRODUCT(vertex_force(vertex)%x, vertex_force(vertex)%x))
@@ -1037,7 +1053,7 @@ CONTAINS
       ENDDO      
       total_force = SQRT(total_force) ! an approximation for checking conidtions
       max_force = SQRT(max_force)
-!       write(0,*) "total,max force:",total_force,max_force
+!       write(*,*) "total,max force:",total_force,max_force
 
       !--------------------------------------------------------------------
       ! compute adaptive dt if requested
@@ -1070,8 +1086,6 @@ CONTAINS
 !         print *, 'b. force_ceoff, velocity_coeff:', force_ceoff, velocity_coeff
 
       ENDIF !use_adaptive_dt
-
-
 
       !--------------------------------------------------------------------
       ! compute vertex velocities and new positions
@@ -1106,7 +1120,7 @@ CONTAINS
         force_ceoff = spring_dt_force_coeff
         velocity_coeff = spring_dt_velocity_coeff
 
-      ENDDO ! vertex = 1, no_of_vertices
+      ENDDO ! vertex_list_idx=1,inner_verts_list%list_size
       !--------------------------------------------------------------------
 
       IF (iteration==1) THEN
@@ -1130,7 +1144,7 @@ CONTAINS
       IF (iteration > 5 .AND. &
         max_force <= max_force_1 * s_max_force_condition .AND. &
         total_force <= total_force_1 * s_total_force_condition) THEN
-          WRITE(0,*) method_name," iterated ", iteration, " times."
+          write(0,*) method_name," iterated ", iteration, " times."
           CALL message(TRIM(method_name), &
             & 'Potential conditions reached. Exit')
           EXIT
@@ -1140,12 +1154,12 @@ CONTAINS
       IF (iteration > 5 .and. total_force > oldtotal_force) THEN
 !        CALL finish('optimize_grid_methods', &
 !          & 'potential energy increases. Please adjust spring_ref_length_coeff in the range 0.9..1.11')
-        WRITE(0,*) "Iteration ", iteration, ". Potential energy increases!"
+        write(0,*) "Iteration ", iteration, ". Potential energy increases!"
 !        EXIT
       ENDIF
       ! kinet energy should decrease to 1/10 of the maxium
 !      IF (iteration > 5 .and. ekin < 0.1_wp*maxekin ) EXIT
-      IF (iteration == maxit) THEN
+      IF (iteration == max_iterations) THEN
         CALL finish(method_name,'no convergence in grid iteration')
       ENDIF
 
@@ -1154,16 +1168,38 @@ CONTAINS
       old_velocity = max_velocity
 
 
-    ENDDO ! iteration=1, maxit
+    ENDDO ! iteration=1, max_iterations
 
     DEALLOCATE(inner_verts_list%value)
     DEALLOCATE(edge_force,vertex_force,vertex_velocity)
-    DEALLOCATE(vertex_edge_ref_length)
-    DEALLOCATE(edge_ref_length)
-    DEALLOCATE(cell_vertex_centers_vector, cell_centers_vector, cell_center_ref_length)
-!     IF (R_refine_method == R_refine_springedges_linear) THEN
-      DEALLOCATE(vertex_ref_length)
+
+    IF (use_edge_ref_length) THEN
+      DEALLOCATE(edge_ref_length)
+    ENDIF
+    
+    IF (use_local_reference_length) THEN
+      DEALLOCATE(vertex_edge_ref_length)
+    ENDIF
+
+    IF (use_isotropy_force) THEN
+      DEALLOCATE(cell_isotropy_vector)
+    ENDIF
+    
+!     IF (use_cell_centers) THEN
+!       DEALLOCATE(cell_centers_vector)
 !     ENDIF
+    
+    IF (use_prime_spring_cellcenters) THEN
+      DEALLOCATE(cell_center_ref_length, cell_edge_ref)
+    ENDIF
+    
+!     IF (use_cell_center_correction) THEN
+!       DEALLOCATE(cell_vertex_centers_vector)
+!     ENDIF
+    
+    IF (use_vertex_ref_length) THEN
+      DEALLOCATE(vertex_ref_length)
+    ENDIF
 
     RETURN
     

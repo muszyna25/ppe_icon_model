@@ -40,7 +40,7 @@ MODULE mo_timer
        &                   cleanup_timer => timer_reset_all, &
        &                   delete_timer => del_timer
 
-  USE mo_run_config, ONLY: ltimer
+!   USE mo_run_config, ONLY: ltimer
 
   IMPLICIT NONE
   PRIVATE
@@ -89,7 +89,7 @@ MODULE mo_timer
   PUBLIC :: timer_sso
   PUBLIC :: timer_cover_koe
   
-  PUBLIC :: ltimer                              !< if .true., switch on timer
+!   PUBLIC :: ltimer                              !< if .true., switch on timer
 
   !-------------------
   ! Module variables
