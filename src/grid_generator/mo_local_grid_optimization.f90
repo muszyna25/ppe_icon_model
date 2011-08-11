@@ -462,7 +462,6 @@ CONTAINS
 
     LOGICAL :: is_triangle_grid!, use_cell_center_correction
     LOGICAL :: use_R_refine, use_vertex_ref_length, use_cell_centers
-    LOGICAL :: use_prime_spring_cellcenters
     LOGICAL :: use_edge_ref_length
         
     CHARACTER(*), PARAMETER :: method_name = "optimize_grid_methods"
