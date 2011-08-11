@@ -75,7 +75,6 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 dtime=900
 ndays=1
 nsteps=`expr ${ndays} \* 86400 / ${dtime} + 1 `
-nsteps=10
 dt_diag=`expr 4 \* 3600 `    #  output each 4 hours
 dt_data=21600.     #      ! [s] output interval 6 hr
 dt_file=3.1536e7   #     ! [s] interval for generation of new output file 1year)
