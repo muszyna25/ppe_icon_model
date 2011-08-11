@@ -119,6 +119,6 @@ if [ ! -d  ${tmpDIR}/archive ]
 then
   mkdir -p ${tmpDIR}/archive
 fi
-cp -r /tmp/BuildBot/${BUILDER}/archive ${tmpDIR}/archive/${DATE}
+cp -r /tmp/BuildBot/${BUILDER}/archive/* ${tmpDIR}/archive/.
 #==================== End =====================================================
 
