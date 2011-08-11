@@ -745,11 +745,11 @@ MODULE mo_prepicon_utils
             ENDDO
 
             ! For soil water, no comparable layer shift exists
-    !        DO js = 1, nlev_soil+1
-    !          DO jc = 1, nlen
-    !            p_lnd_state(jg)%prog_lnd(ntlr)%w_so(jc,js,jb,jt)= prepicon(jg)%sfc%wsoil(jc,jb,js)
-    !          ENDDO
-    !        ENDDO
+            DO js = 1, nlev_soil+1
+              DO jc = 1, nlen
+                p_lnd_state(jg)%prog_lnd(ntlr)%w_so(jc,js,jb,jt)= prepicon(jg)%sfc%wsoil(jc,jb,js)
+              ENDDO
+            ENDDO
 
           ENDDO
         ENDIF

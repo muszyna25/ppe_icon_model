@@ -45,6 +45,7 @@ MODULE mo_nwp_sfc_interp
   USE mo_lnd_nwp_config,      ONLY: nlev_soil
   USE mo_impl_constants,      ONLY: zml_soil
   USE mo_physical_constants,  ONLY: grav
+  USE mo_ext_data,            ONLY: t_external_data
 
   IMPLICIT NONE
   PRIVATE
@@ -84,7 +85,7 @@ CONTAINS
 
     TYPE(t_patch),          INTENT(IN)       :: p_patch
     TYPE(t_prepicon_state), INTENT(INOUT)    :: prepicon
-
+    TYPE(t_external_data)                    :: ext_data      
 
     ! LOCAL VARIABLES
 
@@ -200,12 +201,25 @@ CONTAINS
       ENDDO
 
 
+      ! Conversion of IFS soil moisture data into TERRA soil moisture data
+      DO jk = 1, nlev_soil
+        DO jc = 1, nlen
 
-!! *************************************************************************************
-      ! Here, conversion of IFS soil moisture data into TERRA soil moisture data
-      ! has to be implemented
-!! *************************************************************************************
+          IF(ext_data%atm%soiltyp(jc,jb) == 3) prepicon%sfc%wsoil(jc,jb,jk) = &
+                                              (prepicon%sfc%wsoil(jc,jb,jk)*(0.196-0.042)+0.042)
+          IF(ext_data%atm%soiltyp(jc,jb) == 4) prepicon%sfc%wsoil(jc,jb,jk) = &
+                                              (prepicon%sfc%wsoil(jc,jb,jk)*(0.26-0.1)+0.1)
+          IF(ext_data%atm%soiltyp(jc,jb) == 5) prepicon%sfc%wsoil(jc,jb,jk) = &
+                                              (prepicon%sfc%wsoil(jc,jb,jk)*(0.34-0.11)+0.11)
+          IF(ext_data%atm%soiltyp(jc,jb) == 6) prepicon%sfc%wsoil(jc,jb,jk) = &
+                                              (prepicon%sfc%wsoil(jc,jb,jk)*(0.37-0.185)+0.185)
+          IF(ext_data%atm%soiltyp(jc,jb) == 7) prepicon%sfc%wsoil(jc,jb,jk) = &
+                                              (prepicon%sfc%wsoil(jc,jb,jk)*(0.463-0.257)+0.257)
+          IF(ext_data%atm%soiltyp(jc,jb) == 8) prepicon%sfc%wsoil(jc,jb,jk) = &
+                                              (prepicon%sfc%wsoil(jc,jb,jk)*(0.763-0.265)+0.265)
 
+        ENDDO
+      ENDDO
 
     ENDDO
 !$OMP END DO 
