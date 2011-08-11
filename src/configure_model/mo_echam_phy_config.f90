@@ -66,7 +66,7 @@ MODULE mo_echam_phy_config
     LOGICAL :: lmeltpond   !<  .true. for calculation of meltponds
     LOGICAL :: lmlo        !<  .true. for mixed layer ocean
     LOGICAL :: lhd         !<  .true. for hydrologic discharge model
-    LOGICAL :: lmidatm     !<  .true. for middle atmosphere model version
+!!$    LOGICAL :: lmidatm     !<  .true. for middle atmosphere model version
 
   END TYPE t_echam_phy_config
 

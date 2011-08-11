@@ -172,10 +172,10 @@ CONTAINS
     IF (phy_config%lcond) THEN
       CALL init_cloud_tables
       CALL sucloud( nlev, vct        &
-!0      &         , lmidatm=.FALSE.  &
+!!$        &         , lmidatm=.FALSE.  &
         &         , lcouple=.FALSE.  &
         &         , lipcc=.FALSE.    &
-!0      &         , lham=.FALSE.     &
+!!$        &         , lham=.FALSE.     &
         &         )
     END IF
 

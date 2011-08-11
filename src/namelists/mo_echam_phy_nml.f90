@@ -46,8 +46,8 @@
 MODULE mo_echam_phy_nml
 
   USE mo_echam_phy_config,   ONLY: echam_phy_config
-  USE mo_namelist,           ONLY: position_nml, POSITIONED, open_nml, close_nml
-  USE mo_io_units,           ONLY: nnml
+  USE mo_namelist,           ONLY: position_nml, positioned, open_nml, close_nml
+  USE mo_io_units,           ONLY: nnml, nnml_output
   USE mo_master_control,     ONLY: is_restart_run
   USE mo_io_restart_namelist,ONLY: open_tmpfile, store_and_close_namelist, &
                                  & open_and_restore_namelist, close_tmpfile
@@ -72,12 +72,12 @@ MODULE mo_echam_phy_nml
   LOGICAL :: lmeltpond  !< .true. for calculation of meltponds
   LOGICAL :: lmlo       !< .true. for mixed layer ocean
   LOGICAL :: lhd        !< .true. for hydrologic discharge model
-  LOGICAL :: lmidatm    !< .true. for middle atmosphere model version
+!!$  LOGICAL :: lmidatm    !< .true. for middle atmosphere model version
 
   NAMELIST /echam_phy_nml/ lrad, lvdiff, lconv, lcond,  &
                          & lcover, lssodrag, lgw_hines, &
                          & llandsurf, lice, lmeltpond,  &
-                         & lmlo, lhd, lmidatm
+                         & lmlo, lhd !!$, lmidatm
 
 CONTAINS
   !>
@@ -87,9 +87,9 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
 
-    !----------------------------------------------------------------
-    ! Set default values
-    !----------------------------------------------------------------
+    !------------------------------------------------------------------
+    ! 1. Set default values
+    !------------------------------------------------------------------
     lrad      = .TRUE.
     lvdiff    = .TRUE.
     lconv     = .TRUE.
@@ -102,40 +102,51 @@ CONTAINS
     lmeltpond = .FALSE.
     lmlo      = .FALSE.
     lhd       = .FALSE.
-    lmidatm   = .FALSE.
+!!$    lmidatm   = .FALSE.
 
-    !----------------------------------------------------------------
-    ! If this is a resumed integration, overwrite the defaults above 
-    ! by values used in the previous integration.
-    !----------------------------------------------------------------
+    !------------------------------------------------------------------
+    ! 2. If this is a resumed integration, overwrite the defaults above
+    !    by values used in the previous integration.
+    !------------------------------------------------------------------
     IF (is_restart_run()) THEN
       funit = open_and_restore_namelist('echam_phy_nml')
       READ(funit,NML=echam_phy_nml)
       CALL close_tmpfile(funit)
     END IF
                                                                                           
-    !---------------------------------------------------------------------
-    ! Read user's (new) specifications (Done so far by all MPI processes)
-    !---------------------------------------------------------------------
+    !------------------------------------------------------------------
+    ! 3. Read user's (new) specifications (done by all MPI processes)
+    !------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('echam_phy_nml', STATUS=istat)
     SELECT CASE (istat)
-    CASE (POSITIONED)
+    CASE (positioned)
       READ (nnml, echam_phy_nml)
     END SELECT
     CALL close_nml
 
-    !-----------------------------------------------------
-    ! Store the namelist for restart
-    !-----------------------------------------------------
+    !------------------------------------------------------------------
+    ! 4. Sanity Check
+    !------------------------------------------------------------------
+    ! nothing to be done
+
+    !------------------------------------------------------------------
+    ! 5. Store the namelist for restart
+    !------------------------------------------------------------------
     IF(my_process_is_stdio())  THEN
       funit = open_tmpfile()
       WRITE(funit,NML=echam_phy_nml)
       CALL store_and_close_namelist(funit, 'echam_phy_nml')
     ENDIF
-    !-----------------------------------------------------
-    ! Fill the configuration state
-    !-----------------------------------------------------
+
+    !------------------------------------------------------------------
+    ! 6. Write the namelist to an ASCII file
+    !------------------------------------------------------------------
+    IF ( my_process_is_stdio() ) WRITE(nnml_output,nml=echam_phy_nml)
+
+    !------------------------------------------------------------------
+    ! 7. Fill the configuration state
+    !------------------------------------------------------------------
     echam_phy_config% lrad      = lrad                                                
     echam_phy_config% lvdiff    = lvdiff                                              
     echam_phy_config% lconv     = lconv                                               
@@ -148,7 +159,7 @@ CONTAINS
     echam_phy_config% lmeltpond = lmeltpond                                           
     echam_phy_config% lmlo      = lmlo                                                
     echam_phy_config% lhd       = lhd                                                 
-    echam_phy_config% lmidatm   = lmidatm  
+!!$    echam_phy_config% lmidatm   = lmidatm  
 
   END SUBROUTINE read_echam_phy_namelist
 

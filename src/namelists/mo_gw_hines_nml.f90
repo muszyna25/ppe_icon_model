@@ -130,9 +130,9 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines_nml:read_gw_hines_namelist'
 
-    !-----------------------
-    ! 1. default settings   
-    !-----------------------
+    !------------------------------------------------------------------
+    ! 1. Set default values
+    !------------------------------------------------------------------
     lheatcal      = .FALSE.
 
     emiss_lev     = 10         ! is correct for L31 and L47
@@ -146,7 +146,7 @@ CONTAINS
     rmscon_eq     = 1.2_wp     ! as in ECHAM6 T63
 
     !------------------------------------------------------------------
-    ! 2. If this is a resumed integration, overwrite the defaults above 
+    ! 2. If this is a resumed integration, overwrite the defaults above
     !    by values used in the previous integration.
     !------------------------------------------------------------------
     IF (is_restart_run()) THEN
@@ -155,10 +155,9 @@ CONTAINS
       CALL close_tmpfile(funit)
     END IF
 
-    !----------------------------------------------------
-    ! 3. Read user's (new) specifications
-    !    (Done so far by all MPI processes)
-    !----------------------------------------------------
+    !------------------------------------------------------------------
+    ! 3. Read user's (new) specifications (done by all MPI processes)
+    !------------------------------------------------------------------
     CALL open_nml(TRIM(filename))
     CALL position_nml ('gw_hines_nml', status=istat)
     SELECT CASE (istat)
@@ -167,9 +166,9 @@ CONTAINS
     END SELECT
     CALL close_nml
 
-    !----------------------------------------------------
+    !------------------------------------------------------------------
     ! 4. Sanity Check
-    !----------------------------------------------------
+    !------------------------------------------------------------------
     IF ( emiss_lev < 0 )   CALL finish(TRIM(routine),'emiss_lev < 0 is not allowed')
     IF ( rmscon < 0.0_wp ) CALL finish(TRIM(routine),'rmscon < 0. is not allowed')
     IF ( kstar  < 0.0_wp ) CALL finish(TRIM(routine),'kstar  < 0. is not allowed')
@@ -192,22 +191,23 @@ CONTAINS
       !
     END IF
 
-    !-----------------------------------------------------
+    !------------------------------------------------------------------
     ! 5. Store the namelist for restart
-    !-----------------------------------------------------
+    !------------------------------------------------------------------
     IF(my_process_is_stdio())  THEN
       funit = open_tmpfile()
       WRITE(funit,NML=gw_hines_nml)                    
       CALL store_and_close_namelist(funit, 'gw_hines_nml') 
     ENDIF
-    !-----------------------------------------------------
+
+    !------------------------------------------------------------------
     ! 6. Write the namelist to an ASCII file
-    !-----------------------------------------------------
+    !------------------------------------------------------------------
     IF ( my_process_is_stdio() ) WRITE(nnml_output,nml=gw_hines_nml)
 
-    !----------------------------------------------------
+    !------------------------------------------------------------------
     ! 7. Fill the configuration state
-    !----------------------------------------------------
+    !------------------------------------------------------------------
 
     DO jg = 1,max_dom
       
