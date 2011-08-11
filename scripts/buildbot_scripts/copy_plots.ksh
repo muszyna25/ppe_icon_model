@@ -113,7 +113,7 @@ copy_files
 # The following part of the script is included to check the download from buildbot.
 # All plots are for a short time also saved in the slave working directory.
 
-tmpDIR=`dirname ${W_DIR}`
+tmpDIR=".."
 
 if [ ! -d  ${tmpDIR}/archive ]
 then
