@@ -109,3 +109,16 @@ echo "Copy ps-files"
 FILES=`find experiments -name '*.ps'`
 copy_files
 
+#==================== Begin =====================================================
+# The following part of the script is included to check the download from buildbot.
+# All plots are for a short time also saved in the slave working directory.
+
+tmpDIR=`dirname ${W_DIR}`
+
+if [ ! -d  ${tmpDIR}/archive ]
+then
+  mkdir -p ${tmpDIR}/archive
+fi
+cp -r /tmp/BuildBot/${BUILDER}/archive ${tmpDIR}/archive/${PUPDATE}
+#==================== End =====================================================
+
