@@ -101,14 +101,15 @@ set_comb_optimization_grids()
   use_optimization='.true.'
 
   use_edge_springs='.true.'
+  prime_ref_length_coeff=1.0
   use_adaptive_spring_length='.true.'
   
   use_local_reference_length='.true.'
   local_reference_length_coeff=0.75
   
-  use_prime_spring_cellcenters='.true.'
-  centers_ref_length_coeff=1.0 
-  centers_spring_stiffness=1.0  # the stiffness of vertex-cell center springs
+#   use_prime_spring_cellcenters='.true.'
+#   centers_ref_length_coeff=1.0 
+#   centers_spring_stiffness=1.0  # the stiffness of vertex-cell center springs
   
   use_isotropy_force='.true.'
   isotropy_rotation_coeff=1.0
