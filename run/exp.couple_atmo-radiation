@@ -1,0 +1,141 @@
+#=============================================================================
+#
+# Test experiment, running the hat_jww and hom_slm_flat experiments in parallel
+#
+#=============================================================================
+# This section of the run script defines the experiment.
+# The specifications are passed by namelist to the program.
+# For a complete list see Namelist_overview.pdf
+#
+# Marco Giorgetta, MPI-M, 2011-01-29
+# Hui Wan,         MPI-M, 2010-08-17
+# Leonidas Linardakis, MPI-M, 2011-07-20
+#
+#-----------------------------------------------------------------------------
+#
+# Basic specifications of the simulation
+# --------------------------------------
+#
+# These variables are set in the header section of the completed run script:
+#   EXPNAME = experiment name
+#   nproma  = array blocking length / inner loop length
+# They may be overwritten here
+#
+#-----------------------------------------------------------------------------
+#
+#-----------------------------------------------------------------------------
+# ATMO
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#-----------------------------------------------------------------------------
+
+#-----------------------------------------------------------------------------
+# RADIATION
+#-----------------------------------------------------------------------------
+# The following values must be set here as shell variables so that they can be used
+# also in the executing section of the completed run script
+#-----------------------------------------------------------------------------
+# the namelist filename
+radiation_namelist=NAMELIST_${EXPNAME}_atmo
+#
+#-----------------------------------------------------------------------------
+# global timing
+start_date="2008-09-01T00:00:00Z"
+ndays_restart=60
+dt_restart=`expr ${ndays_restart} \* 86400`
+#
+#-----------------------------------------------------------------------------
+# model timing
+dtime=600
+ndays=10
+nsteps=`expr ${ndays} \* 86400 / ${dtime}`
+nsteps=10
+#
+#-----------------------------------------------------------------------------
+# model parameters
+radiation_model_equations=1   # equation system
+#                     1=hydrost. atm.
+#                     2=non-hydrost. atm., 
+#                    -1=shallow water model
+#                    -2=hydrost. ocean
+nlev=31             # nlev = number of full levels
+#-----------------------------------------------------------------------------
+# the grid files
+#-----------------------------------------------------------------------------
+grid_ext="etopo40_flat"
+if [ x$USE_AQUAP == "xY"  ] ; then
+  grid_ext="aqua_planet"
+elif  [ x$USE_BASIN == "xY"  ] ; then
+  grid_ext="bas10-80N"
+fi
+ocean_grids="iconR2B04-ocean_${grid_ext}.nc"
+#
+#-----------------------------------------------------------------------------
+atmo_dyn_grids="iconR2B04-grid.nc"
+#-----------------------------------------------------------------------------
+
+
+#-----------------------------------------------------------------------------
+# write ICON namelist parameters
+# ------------------------
+# For a complete list see Namelist_overview and Namelist_overview.pdf
+#  
+cat > $radiation_namelist << EOF
+!
+&parallel_nml
+ nproma         = ${nproma}
+ p_test_run     = .true.
+ l_test_openmp  = .false.
+ l_log_checks   = .false.
+/
+&grid_nml
+ cell_type = 3            ! triangular cells
+ dynamics_grid_filename = "${atmo_dyn_grids}",
+/
+&gridref_nml
+/
+&run_nml
+ num_lev     = ${nlev},        ! number of full levels of vertical grid
+ ntracer     = 0            ! number of tracers
+ nsteps      = ${nsteps}    ! [day] length of run
+ dtime       = ${dtime}     ! [s] timestep
+ ldynamics   = .TRUE.       ! dynamics
+ ltransport  = .FALSE.      ! transport 
+ iforcing    = 0            ! no forcing
+ ltestcase   = .TRUE.       ! run testcase
+ ltimer      = .false.
+/
+&testcase_nml
+ ctest_name  = 'JWw'        ! test case identifier
+/
+&io_nml
+ out_expname = '${EXPNAME}' ! file name base
+/
+&dynamics_nml
+ iequations  = ${atmo_model_equations}       ! hydrostatic atmosphere using T as progn. var.
+/
+&diffusion_nml
+/
+&transport_nml
+/
+EOF
+#-----------------------------------------------------------------------------
+
+
+
+
+#-----------------------------------------------------------------------------
+#split the number of procs in two for each of the dummy component
+atmo_min_rank=0
+atmo_max_rank=`expr ${mpi_total_procs} / 2`
+atmo_inc_rank=1
+
+radiation_min_rank=`expr ${atmo_max_rank} + 1`
+radiation_max_rank=`expr ${mpi_total_procs} - 1`
+radiation_inc_rank=1
+
+radiation_min_rank=0
+radiation_max_rank=`expr ${mpi_total_procs} - 1`
+radiation_inc_rank=1
+#-----------------------------------------------------------------------------

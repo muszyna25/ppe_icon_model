@@ -38,21 +38,73 @@ check_error $? "${EXPDIR} does not exist?"
 
 
 #-----------------------------------------------------------------------------
-if [ x$atmo_namelist != x ] ; then
-  run_atmo=${run_atmo:=".true."}
+# set some default values and derive some run parameteres
+restart=${restart:=".false."}
+atmo_namelist=${atmo_namelist:="none"}
+ocean_namelist=${ocean_namelist:="none"}
+dummy_1_namelist=${dummy_1_namelist:="none"}
+dummy_2_namelist=${dummy_2_namelist:="none"}
+
+atmo_min_rank=${atmo_min_rank:=0}
+atmo_max_rank=${atmo_max_rank:=65535}
+atmo_inc_rank=${atmo_inc_rank:=1}
+
+ocean_min_rank=${ocean_min_rank:=0}
+ocean_max_rank=${ocean_max_rank:=65535}
+ocean_inc_rank=${ocean_inc_rank:=1}
+
+radiation_min_rank=${radiation_min_rank:=0}
+radiation_max_rank=${radiation_max_rank:=65535}
+radiation_inc_rank=${radiation_inc_rank:=1}
+
+#split the number of procs in two for each of the dummy component
+dummy_1_min_rank=${dummy_1_min_rank:=0}
+dummy_1_max_rank=${dummy_1_max_rank:`expr ${mpi_total_procs} / 2 - 1`}
+dummy_1_inc_rank=${dummy_1_inc_rank:1}
+
+dummy_2_min_rank=${dummy_2_min_rank:=`expr ${dummy_2_max_rank} + 1`}
+dummy_2_max_rank=${dummy_2_max_rank:`expr ${mpi_total_procs} - 1`}
+dummy_2_inc_rank=${dummy_2_inc_rank:1}
+
+if [ $atmo_namelist != "none" ] ; then
+  run_atmo=${run_atmo:="true"}
+else
+  run_atmo=${run_atmo:="false"}
 fi
 
-if [ x$ocean_namelist != x ] ; then
-  run_ocean=${run_ocean:=".true."}
+if [ $ocean_namelist !=  "none" ] ; then
+  run_ocean=${run_ocean:="true"}
+else  
+  run_ocean=${run_ocean:="false"}
 fi
 
-if [ x$dummy_1_namelist != x ] ; then
-  run_dummy_1=${run_dummy_1:=".true."}
+if [ $radiation_namelist != "none" ] ; then
+  run_radiation=${run_radiation:="true"}
+else  
+  run_radiation=${run_radiation:="false"}
 fi
 
-if [ x$dummy_2_namelist != x ] ; then
-  run_dummy_2=${run_dummy_2:=".true."}
+if [ $dummy_1_namelist != "none" ] ; then
+  run_dummy_1=${run_dummy_1:="true"}
+else
+  run_dummy_1=${run_dummy_1:="false"}
 fi
+
+if [ $dummy_2_namelist != "none" ] ; then
+  run_dummy_2=${run_dummy_2:="true"}
+else
+  run_dummy_2=${run_dummy_2:="false"}
+fi
+#-----------------------------------------------------------------------------
+
+cp_atmo_files="false"
+if [ $run_atmo = "true" ] ;  then 
+  cp_atmo_files="true"
+fi
+if [ $run_radiation = "true" ] ;  then
+  cp_atmo_files="true"
+fi
+
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
@@ -70,7 +122,7 @@ done
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
-if [ $run_atmo = '.true.' ] ;  then
+if [ $cp_atmo_files = "true" ] ;  then
    # =======================================================
    #
    # model constants
@@ -106,24 +158,6 @@ fi
 
 cd ${EXPDIR}
 
-
-restart=${restart:=".false."}
-run_ocean=${run_ocean:=".false."}
-run_atmo=${run_atmo:=".false"}
-run_dummy_1=${run_dummy_1:=".false."}
-run_dummy_2=${run_dummy_2:=".false."}
-atmo_namelist=${atmo_namelist:="none"}
-ocean_namelist=${ocean_namelist:="none"}
-dummy_1_namelist=${dummy_1_namelist:="none"}
-dummy_2_namelist=${dummy_2_namelist:="none"}
-
-ocean_min_rank=${ocean_min_rank:=0}
-ocean_max_rank=${ocean_max_rank:=65535}
-ocean_inc_rank=${ocean_inc_rank:=1}
-atmo_min_rank=${atmo_min_rank:=0}
-atmo_max_rank=${atmo_max_rank:=65535}
-atmo_inc_rank=${atmo_inc_rank:=1}
-
 #-----------------------------------------------------------------------------
 master_namelist=icon_master.namelist
 
@@ -141,7 +175,7 @@ EOF
 
 #-----------------------------------------------------------------------------
 # create master_model_nml
-if [ $run_atmo = '.true.' ] ;  then
+if [ $run_atmo = "true" ] ;  then
 cat >> $master_namelist << EOF
 &master_model_nml
   model_name="ATMO"
@@ -155,7 +189,7 @@ cat >> $master_namelist << EOF
 EOF
 fi
 
-if [ $run_ocean = '.true.' ] ;  then
+if [ $run_ocean = "true" ] ;  then
 cat >> $master_namelist << EOF
 &master_model_nml
   model_name="OCEAN"
@@ -169,16 +203,23 @@ cat >> $master_namelist << EOF
 EOF
 fi
 
-#split the number of procs in two for each of the dummy component
-dummy_1_min_rank=0
-dummy_1_max_rank=`expr ${mpi_total_procs} / 2 - 1`
-dummy_1_inc_rank=1
-dummy_2_min_rank=`expr ${dummy_1_max_rank} + 1`
-dummy_2_max_rank=`expr ${mpi_total_procs} - 1`
-dummy_2_inc_rank=1
+
+if [ $run_radiation = "true" ] ;  then
+cat >> $master_namelist << EOF
+&master_model_nml
+  model_name="radiation"
+  model_namelist_filename="$radiation_namelist"
+  model_restart_info_filename=""
+  model_type=3
+  model_min_rank=$radiation_min_rank
+  model_max_rank=$radiation_max_rank
+  model_inc_rank=$radiation_inc_rank
+/
+EOF
+fi
 
 
-if [ $run_dummy_1 = '.true.' ] ;  then
+if [ $run_dummy_1 = "true" ] ;  then
 cat >> $master_namelist << EOF
 &master_model_nml
   model_name="dummy_1"
@@ -192,7 +233,7 @@ cat >> $master_namelist << EOF
 EOF
 fi
 
-if [ $run_dummy_2 = '.true.' ] ;  then
+if [ $run_dummy_2 = "true" ] ;  then
 cat >> $master_namelist << EOF
 &master_model_nml
   model_name="dummy_2"
@@ -211,7 +252,7 @@ fi
 #-----------------------------------------------------------------------------
 # get namelist
 #
-if [ x$atmo_namelist != xnone ] ; then
+if [ $run_atmo = "true" ] ; then
   if [[ -f ${DIR}/$atmo_namelist ]] ; then
     mv -f ${DIR}/$atmo_namelist ${EXPDIR}/$atmo_namelist
     check_error $? "cp -f ${DIR}/$atmo_namelist"
@@ -220,7 +261,7 @@ if [ x$atmo_namelist != xnone ] ; then
   fi  
 fi
 
-if [ x$ocean_namelist != xnone ] ; then
+if [ $run_ocean = "true" ] ; then
   if [[ -f ${DIR}/$ocean_namelist ]] ; then
     mv -f ${DIR}/$ocean_namelist ${EXPDIR}/$ocean_namelist
     check_error $? "mv -f ${DIR}/$ocean_namelist"
@@ -229,7 +270,16 @@ if [ x$ocean_namelist != xnone ] ; then
   fi  
 fi
 
-if [ x$dummy_1_namelist != xnone ] ; then
+if [ $run_radiation = "true" ] ; then
+  if [[ -f ${DIR}/$radiation_namelist ]] ; then
+    mv -f ${DIR}/$radiation_namelist ${EXPDIR}/$radiation_namelist
+    check_error $? "mv -f ${DIR}/$radiation_namelist"
+  else
+    check_error 1 "${DIR}/$radiation_namelist does not exist"
+  fi  
+fi
+
+if [ $run_dummy_1 = "true" ] ; then
   if [[ -f ${DIR}/$dummy_1_namelist ]] ; then
     mv -f ${DIR}/$dummy_1_namelist ${EXPDIR}/$dummy_1_namelist
     check_error $? "mv -f ${DIR}/$dummy_1_namelist"
@@ -238,7 +288,7 @@ if [ x$dummy_1_namelist != xnone ] ; then
   fi
 fi
 
-if [ x$dummy_2_namelist != xnone ] ; then
+if [ $run_dummy_2 = "true" ] ; then
   if [[ -f ${DIR}/$dummy_2_namelist ]] ; then
     mv -f ${DIR}/$dummy_2_namelist ${EXPDIR}/$dummy_2_namelist
     check_error $? "mv -f ${DIR}/$dummy_2_namelist"
