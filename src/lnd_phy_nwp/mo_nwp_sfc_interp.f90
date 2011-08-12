@@ -2,11 +2,15 @@
 !! This module contains routines for the vertical interpolation of
 !! surface/soil fields provided by external analyses to the ICON grid
 !!
+!! Soil moisture is read from IFS2ICON as soil moisture index and then
+!! converted back to soil moisture mass [m] using TERRA soil types.
+!!
 !! @author Guenther Zaengl, DWD
 !!
 !!
 !! @par Revision History
-!! First version by Guenther Zaengl, DWD (2011-07-29)
+!! Guenther Zaengl, DWD (2011-07-29):                   first version
+!! Martin Koehler and Juergen Helmert, DWD (2011-0812): soil moisture index conversion
 !!
 !! @par Copyright
 !! 2002-2010 by DWD and MPI-M
@@ -45,7 +49,8 @@ MODULE mo_nwp_sfc_interp
   USE mo_lnd_nwp_config,      ONLY: nlev_soil
   USE mo_impl_constants,      ONLY: zml_soil
   USE mo_physical_constants,  ONLY: grav
-  USE mo_ext_data,            ONLY: t_external_data
+  USE mo_ext_data,            ONLY: t_external_data, ext_data
+  USE mo_exception,           ONLY: message, message_text, finish
 
   IMPLICIT NONE
   PRIVATE
@@ -63,33 +68,25 @@ CONTAINS
   !! Routine to convert surface fields interpolated horizontally by IFS2ICON
   !! to the ICON prognostic variables. Important ingredients are 
   !! - height adjustment of temperatures (partly done)
-  !! - vertical interpolation of soil temperature and moisture (not yet done)
-  !! - conversion of soil moisture information (not yet done)
+  !! - vertical interpolation of soil temperature and moisture 
+  !! - conversion of soil moisture information
   !! - height adjustment of snow cover information (not yet done)
   !!
   !! Other open items - just to document them somewhere
   !! - IFS2ICON needs to take into account land-sea-mask information for horizontal
   !!   interpolation of surface fields
-  !! - Proper conversion of soil moisture may require information about soil types
-  !!   and field capacity or similar things
   !! - And, the most complicated problem, lakes/islands not present at all in the
   !!   source data, is not yet addressed at all here!
-  !!
-  !!
-  !! @par Revision History
-  !! Initial version by Guenther Zaengl, DWD(2011-07-20)
-  !!
-  !!
-  SUBROUTINE process_sfcfields(p_patch, prepicon)
+
+   SUBROUTINE process_sfcfields(p_patch, prepicon)
 
 
     TYPE(t_patch),          INTENT(IN)       :: p_patch
     TYPE(t_prepicon_state), INTENT(INOUT)    :: prepicon
-    TYPE(t_external_data)                    :: ext_data      
 
     ! LOCAL VARIABLES
 
-    INTEGER  :: jb, jk, jc, jk1, idx0(nlev_soil)
+    INTEGER  :: jg, jb, jk, jc, jk1, idx0(nlev_soil)
     INTEGER  :: nlen, nlev
     ! Soil layer depths in IFS
     REAL(wp) :: zsoil_ifs(4)=(/ 0.07_wp,0.21_wp,0.72_wp,1.89_wp/)
@@ -101,6 +98,7 @@ CONTAINS
 !-------------------------------------------------------------------------
 
     nlev = p_patch%nlev
+    jg   = p_patch%id
 
     ! Vertical interpolation indices and weights
     DO jk = 1, nlev_soil
@@ -200,24 +198,22 @@ CONTAINS
         ENDDO
       ENDDO
 
-
-      ! Conversion of IFS soil moisture data into TERRA soil moisture data
+      ! Conversion of IFS soil moisture index (vertically interpolated) into TERRA soil moisture [m]
+      !   soil moisture index = (soil moisture - wilting point) / (field capacity - wilting point
       DO jk = 1, nlev_soil
         DO jc = 1, nlen
-
-          IF(ext_data%atm%soiltyp(jc,jb) == 3) prepicon%sfc%wsoil(jc,jb,jk) = &
-                                              (prepicon%sfc%wsoil(jc,jb,jk)*(0.196-0.042)+0.042)
-          IF(ext_data%atm%soiltyp(jc,jb) == 4) prepicon%sfc%wsoil(jc,jb,jk) = &
-                                              (prepicon%sfc%wsoil(jc,jb,jk)*(0.26-0.1)+0.1)
-          IF(ext_data%atm%soiltyp(jc,jb) == 5) prepicon%sfc%wsoil(jc,jb,jk) = &
-                                              (prepicon%sfc%wsoil(jc,jb,jk)*(0.34-0.11)+0.11)
-          IF(ext_data%atm%soiltyp(jc,jb) == 6) prepicon%sfc%wsoil(jc,jb,jk) = &
-                                              (prepicon%sfc%wsoil(jc,jb,jk)*(0.37-0.185)+0.185)
-          IF(ext_data%atm%soiltyp(jc,jb) == 7) prepicon%sfc%wsoil(jc,jb,jk) = &
-                                              (prepicon%sfc%wsoil(jc,jb,jk)*(0.463-0.257)+0.257)
-          IF(ext_data%atm%soiltyp(jc,jb) == 8) prepicon%sfc%wsoil(jc,jb,jk) = &
-                                              (prepicon%sfc%wsoil(jc,jb,jk)*(0.763-0.265)+0.265)
-
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 3) prepicon%sfc%wsoil(jc,jb,jk) = &
+                                                & (prepicon%sfc%wsoil(jc,jb,jk)*(0.196_wp - 0.042_wp) + 0.042_wp)
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 4) prepicon%sfc%wsoil(jc,jb,jk) = &
+                                                & (prepicon%sfc%wsoil(jc,jb,jk)*(0.26_wp  - 0.1_wp  ) + 0.1_wp  )
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 5) prepicon%sfc%wsoil(jc,jb,jk) = &
+                                                & (prepicon%sfc%wsoil(jc,jb,jk)*(0.34_wp  - 0.11_wp ) + 0.11_wp )
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 6) prepicon%sfc%wsoil(jc,jb,jk) = &
+                                                & (prepicon%sfc%wsoil(jc,jb,jk)*(0.37_wp  - 0.185_wp) + 0.185_wp)
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 7) prepicon%sfc%wsoil(jc,jb,jk) = &
+                                                & (prepicon%sfc%wsoil(jc,jb,jk)*(0.463_wp - 0.257_wp) + 0.257_wp)
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 8) prepicon%sfc%wsoil(jc,jb,jk) = &
+                                                & (prepicon%sfc%wsoil(jc,jb,jk)*(0.763_wp - 0.265_wp) + 0.265_wp)
         ENDDO
       ENDDO
 
