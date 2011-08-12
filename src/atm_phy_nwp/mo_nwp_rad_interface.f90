@@ -1983,9 +1983,9 @@ CONTAINS
           ! snow albedo
             zvege = ext_data%atm%plcov_mx(jc,jb)
             ! ATTENTION: only valid, if nsfc_subs=1
-            IF (lnd_prog_now%w_snow(jc,jk,1) > 0.0_wp) THEN
+            IF (lnd_prog_now%w_snow(jc,jb,1) > 0.0_wp) THEN
               ! ATTENTION: only valid, if nsfc_subs=1
-              zsnow = MIN(1.0_wp, lnd_prog_now%w_snow(jc,jk,1) / cf_snow)
+              zsnow = MIN(1.0_wp, lnd_prog_now%w_snow(jc,jb,1) / cf_snow)
             ENDIF
             albvisdif(jc,jb) = zsnow * zsnow_alb +                               &
               (1.0_wp - zsnow) * (zvege * csalb_p + (1.0_wp - zvege) * albvisdif(jc,jb))
@@ -2615,9 +2615,9 @@ CONTAINS
             ! snow albedo
             zvege = ext_data%atm%plcov_mx(jc,jb)
             ! ATTENTION: only valid, if nsfc_subs=1
-            IF (lnd_prog_now%w_snow(jc,jk,1) > 0.0_wp) THEN
+            IF (lnd_prog_now%w_snow(jc,jb,1) > 0.0_wp) THEN
               ! ATTENTION: only valid, if nsfc_subs=1
-              zsnow = MIN(1.0_wp, lnd_prog_now%w_snow(jc,jk,1) / cf_snow)
+              zsnow = MIN(1.0_wp, lnd_prog_now%w_snow(jc,jb,1) / cf_snow)
             ENDIF
             albvisdif(jc,jb) = zsnow * zsnow_alb +                               &
               (1.0_wp - zsnow) * (zvege * csalb_p + (1.0_wp - zvege) * albvisdif(jc,jb))
