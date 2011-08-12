@@ -59,11 +59,11 @@ radiation_inc_rank=${radiation_inc_rank:=1}
 
 #split the number of procs in two for each of the dummy component
 dummy_1_min_rank=${dummy_1_min_rank:=0}
-dummy_1_max_rank=${dummy_1_max_rank:`expr ${mpi_total_procs} / 2 - 1`}
+dummy_1_max_rank=${dummy_1_max_rank:=`expr ${mpi_total_procs} / 2 - 1`}
 dummy_1_inc_rank=${dummy_1_inc_rank:1}
 
 dummy_2_min_rank=${dummy_2_min_rank:=`expr ${dummy_2_max_rank} + 1`}
-dummy_2_max_rank=${dummy_2_max_rank:`expr ${mpi_total_procs} - 1`}
+dummy_2_max_rank=${dummy_2_max_rank:=`expr ${mpi_total_procs} - 1`}
 dummy_2_inc_rank=${dummy_2_inc_rank:1}
 
 if [ $atmo_namelist != "none" ] ; then
