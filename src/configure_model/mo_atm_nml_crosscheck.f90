@@ -55,6 +55,7 @@ MODULE mo_atm_nml_crosscheck
     &                               iup3, ifluxl_sm, islopel_m, islopel_sm,    &
     &                               ifluxl_m  
   USE mo_time_config,         ONLY: time_config
+  USE mo_io_config,           ONLY: dt_checkpoint
   USE mo_parallel_config,     ONLY: check_parallel_configuration
   USE mo_run_config,          ONLY: lrestore_states, nsteps, dtime, iforcing,  &
     &                               ltransport, ntracer, nlev, io3, ltestcase, &
@@ -200,6 +201,17 @@ CONTAINS
     WRITE(message_text,'(a,f10.2,a,f16.10,a)') &
          &'dt_restart :',time_config%dt_restart,' seconds =', &
          & time_config%dt_restart/86400._wp, ' days'
+    CALL message(routine,message_text)
+
+
+    ! Reset the value of dt_checkpoint if it is longer than dt_restart
+    ! so that at least one restart file is generated at the end of the cycle.
+
+    dt_checkpoint = MIN(dt_checkpoint,time_config%dt_restart)
+
+    WRITE(message_text,'(a,f10.2,a,f16.10,a)')          &
+         &'dt_checkpoint :',dt_checkpoint,' seconds =', &
+         & dt_checkpoint/86400._wp, ' days'
     CALL message(routine,message_text)
 
     !--------------------------------------------------------------------

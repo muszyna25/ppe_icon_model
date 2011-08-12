@@ -835,7 +835,15 @@ If .TRUE.: Current experiment is started form a restart.&
 \hline
 dt\_restart &
 R & 86400.*30.& s &
-Length of restart cycle in seconds&
+Length of restart cycle in seconds. 
+Note that the frequency of writing restart files is controlled by
+io\_nml:dt\_checkpoint. If the value of dt\_checkpoint resulting from 
+model default or user's specification is longer than dt\_restart, 
+it will be reset (by the model) to dt\_restart so 
+that at least one restart file is generated during the restart cycle. 
+If dt\_restart is larger than but not a multiple of dt\_checkpoint, 
+restart file will NOT be generated at the end of the restart cycle. 
+&
 \tabularnewline
 
 \hline 
@@ -2082,7 +2090,11 @@ Time interval of triggering new output file&
 \hline
 dt\_checkpoint&
 R& 2592000 & s&
-Time interval for writing restart files&
+Time interval for writing restart files.
+Note that if the value of dt\_checkpoint resulting from 
+model default or user's specification is longer than time\_nml:dt\_restart, 
+it will be reset (by the model) to dt\_restart so 
+that at least one restart file is generated during the restart cycle. 
 \tabularnewline
 
 \hline 
