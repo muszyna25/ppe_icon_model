@@ -200,6 +200,15 @@ CONTAINS
         ENDDO
       ENDDO
 
+!      CALL message('mo_nwp_sfc_interp:', 'after tsoil interpolation')
+!      WRITE(message_text,'(a,2E17.9)') ' max/min Tsoil  = ',&
+!           & MAXVAL(prepicon%sfc%tsoil(:,jb,:)), MINVAL(prepicon%sfc%tsoil(:,jb,:))
+!      CALL message('', TRIM(message_text))
+!      WRITE(message_text,'(a,2E17.9)') ' max/min Qsoil  = ',&
+!           & MAXVAL(prepicon%sfc%wsoil(:,jb,:)), MINVAL(prepicon%sfc%wsoil(:,jb,:))
+!      CALL message('', TRIM(message_text))
+
+
       ! Conversion of IFS soil moisture index (vertically interpolated) into TERRA soil moisture [m]
       !   soil moisture index = (soil moisture - wilting point) / (field capacity - wilting point)
       !   safety: min=air dryness point, max=pore volume
@@ -234,8 +243,16 @@ CONTAINS
             & dzsoil_icon(jk) * &
             & MIN(0.863_wp,&
             & MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.763_wp - 0.265_wp) + 0.265_wp),0.098_wp))
+
+      ! We need to catch problematic coast cases: IFS-ocean, ICON-land - for moisture and temperature 
+          prepicon%sfc%wsoil(jc,jb,jk) =  MIN(1.0_wp, MAX(0.0_wp, prepicon%sfc%wsoil(jc,jb,jk)))
         ENDDO
       ENDDO
+
+!      CALL message('mo_nwp_sfc_interp:', 'after wsoil conversion')
+!      WRITE(message_text,'(a,2E17.9)') ' max/min Tsoil  = ',&
+!           & MAXVAL(prepicon%sfc%tsoil(1:nlen,jb,1:nlev_soil)), MINVAL(prepicon%sfc%tsoil(1:nlen,jb,1:nlev_soil))
+!      CALL message('', TRIM(message_text))
 
     ENDDO
 !$OMP END DO 
