@@ -90,6 +90,7 @@ CONTAINS
     INTEGER  :: nlen, nlev
     ! Soil layer depths in IFS
     REAL(wp) :: zsoil_ifs(4)=(/ 0.07_wp,0.21_wp,0.72_wp,1.89_wp/)
+    REAL(wp) :: dzsoil_icon(8)=(/ 0.01_wp,0.02_wp,0.06_wp,0.18_wp,0.54_wp,1.62_wp,4.86_wp,14.58_wp/)
     ! Standard atmosphere vertical temperature gradient
     REAL(wp) :: dtdz_clim = -6.5e-3_wp
 
@@ -202,18 +203,24 @@ CONTAINS
       !   soil moisture index = (soil moisture - wilting point) / (field capacity - wilting point
       DO jk = 1, nlev_soil
         DO jc = 1, nlen
-          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 3) prepicon%sfc%wsoil(jc,jb,jk) = &
-                                                & (prepicon%sfc%wsoil(jc,jb,jk)*(0.196_wp - 0.042_wp) + 0.042_wp)
-          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 4) prepicon%sfc%wsoil(jc,jb,jk) = &
-                                                & (prepicon%sfc%wsoil(jc,jb,jk)*(0.26_wp  - 0.1_wp  ) + 0.1_wp  )
-          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 5) prepicon%sfc%wsoil(jc,jb,jk) = &
-                                                & (prepicon%sfc%wsoil(jc,jb,jk)*(0.34_wp  - 0.11_wp ) + 0.11_wp )
-          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 6) prepicon%sfc%wsoil(jc,jb,jk) = &
-                                                & (prepicon%sfc%wsoil(jc,jb,jk)*(0.37_wp  - 0.185_wp) + 0.185_wp)
-          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 7) prepicon%sfc%wsoil(jc,jb,jk) = &
-                                                & (prepicon%sfc%wsoil(jc,jb,jk)*(0.463_wp - 0.257_wp) + 0.257_wp)
-          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 8) prepicon%sfc%wsoil(jc,jb,jk) = &
-                                                & (prepicon%sfc%wsoil(jc,jb,jk)*(0.763_wp - 0.265_wp) + 0.265_wp)
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 3) prepicon%sfc%wsoil(jc,jb,jk) = dzsoil_icon(jk) * &
+         & MIN(0.364_wp,MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.196_wp - 0.042_wp) + 0.042_wp),0.012_wp))
+
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 4) prepicon%sfc%wsoil(jc,jb,jk) = dzsoil_icon(jk) * &
+         & MIN(0.445_wp,MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.26_wp  - 0.1_wp  ) + 0.1_wp),0.03_wp))
+
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 5) prepicon%sfc%wsoil(jc,jb,jk) = dzsoil_icon(jk) * &
+         & MIN(0.455_wp,MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.34_wp  - 0.11_wp ) + 0.11_wp),0.035_wp))
+
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 6) prepicon%sfc%wsoil(jc,jb,jk) = dzsoil_icon(jk) * &
+         & MIN(0.475_wp,MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.37_wp  - 0.185_wp) + 0.185_wp),0.06_wp))
+
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 7) prepicon%sfc%wsoil(jc,jb,jk) = dzsoil_icon(jk) * &
+         & MIN(0.507_wp,MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.463_wp - 0.257_wp) + 0.257_wp),0.065_wp))
+
+          IF(ext_data(jg)%atm%soiltyp(jc,jb) == 8) prepicon%sfc%wsoil(jc,jb,jk) = dzsoil_icon(jk) * &
+         & MIN(0.863_wp,MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.763_wp - 0.265_wp) + 0.265_wp),0.098_wp))
+
         ENDDO
       ENDDO
 
