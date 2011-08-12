@@ -9,8 +9,8 @@
 !!
 !!
 !! @par Revision History
-!! Guenther Zaengl, DWD (2011-07-29):                   first version
-!! Martin Koehler and Juergen Helmert, DWD (2011-0812): soil moisture index conversion
+!! Guenther Zaengl, DWD (2011-07-29):                    first version
+!! Martin Koehler and Juergen Helmert, DWD (2011-08-12): soil moisture index conversion
 !!
 !! @par Copyright
 !! 2002-2010 by DWD and MPI-M
@@ -200,27 +200,27 @@ CONTAINS
       ENDDO
 
       ! Conversion of IFS soil moisture index (vertically interpolated) into TERRA soil moisture [m]
-      !   soil moisture index = (soil moisture - wilting point) / (field capacity - wilting point
+      !   soil moisture index = (soil moisture - wilting point) / (field capacity - wilting point)
+      !   safety: min=air dryness point, max=pore volume
       DO jk = 1, nlev_soil
         DO jc = 1, nlen
           IF(ext_data(jg)%atm%soiltyp(jc,jb) == 3) prepicon%sfc%wsoil(jc,jb,jk) = dzsoil_icon(jk) * &
-         & MIN(0.364_wp,MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.196_wp - 0.042_wp) + 0.042_wp),0.012_wp))
+          & MIN(0.364_wp,MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.196_wp - 0.042_wp) + 0.042_wp),0.012_wp))
 
           IF(ext_data(jg)%atm%soiltyp(jc,jb) == 4) prepicon%sfc%wsoil(jc,jb,jk) = dzsoil_icon(jk) * &
-         & MIN(0.445_wp,MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.26_wp  - 0.1_wp  ) + 0.1_wp),0.03_wp))
+          & MIN(0.445_wp,MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.26_wp  - 0.1_wp  ) + 0.1_wp)  ,0.03_wp ))
 
           IF(ext_data(jg)%atm%soiltyp(jc,jb) == 5) prepicon%sfc%wsoil(jc,jb,jk) = dzsoil_icon(jk) * &
-         & MIN(0.455_wp,MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.34_wp  - 0.11_wp ) + 0.11_wp),0.035_wp))
+          & MIN(0.455_wp,MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.34_wp  - 0.11_wp ) + 0.11_wp) ,0.035_wp))
 
           IF(ext_data(jg)%atm%soiltyp(jc,jb) == 6) prepicon%sfc%wsoil(jc,jb,jk) = dzsoil_icon(jk) * &
-         & MIN(0.475_wp,MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.37_wp  - 0.185_wp) + 0.185_wp),0.06_wp))
+          & MIN(0.475_wp,MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.37_wp  - 0.185_wp) + 0.185_wp),0.06_wp ))
 
           IF(ext_data(jg)%atm%soiltyp(jc,jb) == 7) prepicon%sfc%wsoil(jc,jb,jk) = dzsoil_icon(jk) * &
-         & MIN(0.507_wp,MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.463_wp - 0.257_wp) + 0.257_wp),0.065_wp))
+          & MIN(0.507_wp,MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.463_wp - 0.257_wp) + 0.257_wp),0.065_wp))
 
           IF(ext_data(jg)%atm%soiltyp(jc,jb) == 8) prepicon%sfc%wsoil(jc,jb,jk) = dzsoil_icon(jk) * &
-         & MIN(0.863_wp,MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.763_wp - 0.265_wp) + 0.265_wp),0.098_wp))
-
+          & MIN(0.863_wp,MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.763_wp - 0.265_wp) + 0.265_wp),0.098_wp))
         ENDDO
       ENDDO
 
