@@ -1876,8 +1876,9 @@ CONTAINS
     i_endblk   = pt_patch%cells%end_blk(rl_end,i_nchdom)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,zi0,losol,lo_sol),SCHEDULE(guided)
-    !
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jk,zi0,losol,lo_sol, &
+!$OMP            ist,zvege,zsnow,zsalb_snow,zsnow_alb),SCHEDULE(guided)
+    
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
