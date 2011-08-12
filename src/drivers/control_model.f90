@@ -125,7 +125,7 @@ PROGRAM control_model
     CALL ocean_model(my_namelist_filename, TRIM(master_namelist_filename))
 
   CASE (radiation_process)
-    CALL radiation_model(my_namelist_filename)
+    CALL radiation_model(my_namelist_filename, TRIM(master_namelist_filename))
 
   CASE (dummy_process)
     CALL cpl_dummy_model(my_namelist_filename, TRIM(master_namelist_filename))

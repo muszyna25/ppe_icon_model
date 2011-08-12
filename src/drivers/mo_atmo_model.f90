@@ -69,7 +69,7 @@ USE mo_impl_constants, ONLY:&
 
 ! For the coupling
 USE mo_impl_constants, ONLY: CELLS
-USE mo_master_control, ONLY : atmo_process, is_coupled_run
+USE mo_master_control, ONLY : is_coupled_run
 USE mo_icon_cpl_init_comp, ONLY : get_my_local_comp_id
 USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid
 USE mo_icon_cpl_def_field, ONLY : ICON_cpl_def_field
@@ -340,11 +340,7 @@ CONTAINS
       p_int_state => p_int_state_global
       p_grf_state => p_grf_state_global
       
-!       IF (my_process_is_mpi_seq()) THEN
-!         p_patch(:)%comm = p_comm_work
-!       ELSE
-        CALL set_patch_communicators(p_patch)
-!       ENDIF
+      CALL set_patch_communicators(p_patch)
       
     ELSE
       
