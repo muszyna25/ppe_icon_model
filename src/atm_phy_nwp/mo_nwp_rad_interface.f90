@@ -1993,8 +1993,6 @@ CONTAINS
         ENDDO
       ENDIF !inwp_surface == 1
 
-!      albvisdif(i_startidx:i_endidx,jb) = 0.07_wp ! ~ albedo of water
-
       prm_diag%tsfctrad(i_startidx:i_endidx,jb) = lnd_prog_now%t_g(i_startidx:i_endidx,jb)
 
       ! CO2 (mixing ratio 353.9 ppm as vmr_co2)
@@ -2626,15 +2624,6 @@ CONTAINS
           ENDIF !   llandmask
         ENDDO
       ENDIF !inwp_surface == 1
-      
-!      albvisdif(i_startidx:i_endidx,jb) = 0.07_wp ! ~ albedo of water
-
-      !        zduo3(i_startidx:i_endidx,:,jb)= 0.0_wp
-      zaeq1(i_startidx:i_endidx,:,jb)= 0.0_wp !  1.e-10_wp
-      zaeq2(i_startidx:i_endidx,:,jb)= 0.0_wp !  1.e-10_wp
-      zaeq3(i_startidx:i_endidx,:,jb)= 0.0_wp !  1.e-10_wp
-      zaeq4(i_startidx:i_endidx,:,jb)= 0.0_wp !  1.e-10_wp
-      zaeq5(i_startidx:i_endidx,:,jb)= 0.0_wp !  1.e-10_wp
 
       prm_diag%tsfctrad(i_startidx:i_endidx,jb) = lnd_prog_now%t_g(i_startidx:i_endidx,jb)
 
