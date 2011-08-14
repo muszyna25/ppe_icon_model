@@ -917,9 +917,11 @@ src/atm_phy_nwp/mo_nwp_conv_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_diagnosis.f90 -text
 src/atm_phy_nwp/mo_nwp_gscp_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_gw_interface.f90 -text
+src/atm_phy_nwp/mo_nwp_mpiomp_rrtm_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_phy_init.f90 -text
 src/atm_phy_nwp/mo_nwp_phy_state.f90 -text
 src/atm_phy_nwp/mo_nwp_rad_interface.f90 -text
+src/atm_phy_nwp/mo_nwp_rrtm_interface.f90 -text
 src/atm_phy_nwp/mo_nwp_turb_interface.f90 -text
 src/atm_phy_nwp/mo_phys_nest_utilities.f90 -text
 src/atm_phy_schemes/data_flake.f90 -text
@@ -1136,6 +1138,7 @@ src/shared/mo_math_constants.f90 -text
 src/shared/mo_math_utilities.f90 -text
 src/shared/mo_mpi.f90 -text
 src/shared/mo_namelist.f90 -text
+src/shared/mo_ompthreads.f90 -text
 src/shared/mo_orbit.f90 -text
 src/shared/mo_output.f90 -text
 src/shared/mo_physical_constants.f90 -text

@@ -120,11 +120,9 @@ MODULE mo_nh_stepping
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_io_restart_attributes,ONLY: get_restart_attribute
 
-#ifdef __OMP_RADIATION__  
-  USE mo_nwp_rad_interface,   ONLY: nwp_start_omp_radiation_thread, model_end_thread, &
-    & radiation_thread_status, model_thread_status, thread_busy 
-  USE mo_parallel_config,        ONLY: nh_stepping_threads
-#endif
+  USE mo_nwp_mpiomp_rrtm_interface,   ONLY: nwp_start_radiation_ompthread, model_end_ompthread, &
+    & init_ompthread_radiation
+  USE mo_parallel_config,     ONLY: parallel_radiation_omp, nh_stepping_ompthreads
 
   IMPLICIT NONE
 
@@ -311,34 +309,39 @@ MODULE mo_nh_stepping
     ENDDO
   ENDIF
 
-#ifdef __OMP_RADIATION__
-  radiation_thread_status = thread_busy
-  model_thread_status     = thread_busy
-  CALL omp_set_nested(.true.)
-  CALL omp_set_num_threads(2)
-  write(0,*) 'omp_get_max_active_levels=',omp_get_max_active_levels
-  write(0,*) 'omp_get_max_threads=',omp_get_max_threads()
+  IF (parallel_radiation_omp) THEN
+
+    !---------------------------------------
+    CALL init_ompthread_radiation()
+    
+    CALL omp_set_nested(.true.)
+    CALL omp_set_num_threads(2)
+    write(0,*) 'omp_get_max_active_levels=',omp_get_max_active_levels
+    write(0,*) 'omp_get_max_threads=',omp_get_max_threads()
 !$OMP PARALLEL SECTIONS
 !$OMP SECTION
-!$  CALL omp_set_num_threads(nh_stepping_threads)
-  write(0,*) 'This is the nh_timeloop, max threads=',omp_get_max_threads()
-  write(0,*) 'omp_get_num_threads=',omp_get_num_threads()
-#endif
+!$  CALL omp_set_num_threads(nh_stepping_ompthreads)
+    write(0,*) 'This is the nh_timeloop, max threads=',omp_get_max_threads()
+    write(0,*) 'omp_get_num_threads=',omp_get_num_threads()
 
-  CALL perform_nh_timeloop (p_patch, p_int_state, p_grf_state, p_nh_state, &
-                            datetime, n_io, n_file, n_checkpoint, n_diag,  &
-                            l_have_output )
-
-#ifdef __OMP_RADIATION__  
-  CALL model_end_thread()
+    CALL perform_nh_timeloop (p_patch, p_int_state, p_grf_state, p_nh_state, &
+                              datetime, n_io, n_file, n_checkpoint, n_diag,  &
+                              l_have_output )
+    CALL model_end_ompthread()
 
 !$OMP SECTION
   write(0,*) 'This is the nwp_parallel_radiation_thread, max threads=',&
     omp_get_max_threads()
-  CALL nwp_start_omp_radiation_thread()
-  
+  CALL nwp_start_radiation_ompthread()
 !$OMP END PARALLEL SECTIONS
-#endif
+
+  ELSE
+    !---------------------------------------
+
+    CALL perform_nh_timeloop (p_patch, p_int_state, p_grf_state, p_nh_state, &
+                              datetime, n_io, n_file, n_checkpoint, n_diag,  &
+                              l_have_output )
+  ENDIF
 
 
   CALL deallocate_nh_stepping ()

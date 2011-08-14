@@ -41,7 +41,8 @@ MODULE mo_parallel_config
   ! Exported variables:
   PUBLIC :: nproma
 ! #ifdef __OMP_RADIATION__
-  PUBLIC :: radiation_threads, nh_stepping_threads
+  PUBLIC :: radiation_ompthreads, nh_stepping_ompthreads, parallel_radiation_omp
+  PUBLIC :: parallel_radiation_mpi, test_parallel_radiation
 ! #endif
   PUBLIC :: n_ghost_rows,                                     &
        &    div_from_file, div_geometric, div_metis, division_method, &
@@ -81,6 +82,10 @@ MODULE mo_parallel_config
   ! only 1 thread. This allows for verifying the OpenMP implementation
   LOGICAL :: l_test_openmp = .false.
 
+  LOGICAL :: parallel_radiation_omp = .false.
+  LOGICAL :: parallel_radiation_mpi = .false.
+  LOGICAL :: test_parallel_radiation = .false.
+
 
   ! Type of parallel I/O
   INTEGER :: pio_type = 1
@@ -99,8 +104,8 @@ MODULE mo_parallel_config
   ! 2 = isend, recv
   INTEGER :: iorder_sendrecv = 1
 
-  INTEGER :: radiation_threads   = 1
-  INTEGER :: nh_stepping_threads = 1
+  INTEGER :: radiation_ompthreads   = 1
+  INTEGER :: nh_stepping_ompthreads = 1
 
 
 
