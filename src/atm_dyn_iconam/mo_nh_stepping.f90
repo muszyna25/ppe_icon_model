@@ -314,8 +314,8 @@ MODULE mo_nh_stepping
     !---------------------------------------
     CALL init_ompthread_radiation()
     
-    CALL omp_set_nested(.true.)
-    CALL omp_set_num_threads(2)
+!$    CALL omp_set_nested(.true.)
+!$    CALL omp_set_num_threads(2)
 !$    write(0,*) 'omp_get_max_active_levels=',omp_get_max_active_levels
 !$    write(0,*) 'omp_get_max_threads=',omp_get_max_threads()
 !$OMP PARALLEL SECTIONS
