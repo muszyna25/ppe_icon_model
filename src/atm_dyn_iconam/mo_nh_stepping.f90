@@ -316,13 +316,13 @@ MODULE mo_nh_stepping
     
     CALL omp_set_nested(.true.)
     CALL omp_set_num_threads(2)
-    write(0,*) 'omp_get_max_active_levels=',omp_get_max_active_levels
-    write(0,*) 'omp_get_max_threads=',omp_get_max_threads()
+!$    write(0,*) 'omp_get_max_active_levels=',omp_get_max_active_levels
+!$    write(0,*) 'omp_get_max_threads=',omp_get_max_threads()
 !$OMP PARALLEL SECTIONS
 !$OMP SECTION
 !$  CALL omp_set_num_threads(nh_stepping_ompthreads)
-    write(0,*) 'This is the nh_timeloop, max threads=',omp_get_max_threads()
-    write(0,*) 'omp_get_num_threads=',omp_get_num_threads()
+!$    write(0,*) 'This is the nh_timeloop, max threads=',omp_get_max_threads()
+!$    write(0,*) 'omp_get_num_threads=',omp_get_num_threads()
 
     CALL perform_nh_timeloop (p_patch, p_int_state, p_grf_state, p_nh_state, &
                               datetime, n_io, n_file, n_checkpoint, n_diag,  &
@@ -330,7 +330,7 @@ MODULE mo_nh_stepping
     CALL model_end_ompthread()
 
 !$OMP SECTION
-  write(0,*) 'This is the nwp_parallel_radiation_thread, max threads=',&
+!$  write(0,*) 'This is the nwp_parallel_radiation_thread, max threads=',&
     omp_get_max_threads()
   CALL nwp_start_radiation_ompthread()
 !$OMP END PARALLEL SECTIONS

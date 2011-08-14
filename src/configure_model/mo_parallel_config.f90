@@ -40,10 +40,9 @@ MODULE mo_parallel_config
   PRIVATE
   ! Exported variables:
   PUBLIC :: nproma
-! #ifdef __OMP_RADIATION__
   PUBLIC :: radiation_ompthreads, nh_stepping_ompthreads, parallel_radiation_omp
   PUBLIC :: parallel_radiation_mpi, test_parallel_radiation
-! #endif
+
   PUBLIC :: n_ghost_rows,                                     &
        &    div_from_file, div_geometric, div_metis, division_method, &
        &    l_log_checks, l_fast_sum,                                 &

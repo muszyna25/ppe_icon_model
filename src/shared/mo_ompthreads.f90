@@ -176,9 +176,10 @@ CONTAINS
 !     ompthread_of(to_thread_id)%from_thread = thread_id
     my_thread%sync_status = ompthread_syncrequest
 !$OMP FLUSH(ompthread_of)
-    
-    wait_cnt = wait_for_syncrequest_ompthread(to_thread_id)
 
+    write(0,*) my_thread_id, ' waits for sync from ', to_thread_id
+    wait_cnt = wait_for_syncrequest_ompthread(to_thread_id)
+    write(0,*) my_thread_id, ' recieved sync from ', to_thread_id
     !-----------------------------
     ! make sure we communicate with the right thread.
 
@@ -199,7 +200,10 @@ CONTAINS
         
       ENDIF  
     ENDIF
-
+    
+    IF (sync_ompthread_to == ompthread_ends) THEN
+      write(0,*) to_thread_id, ' requested an end to ', my_thread_id
+    ENDIF
     ! -----------------------------------------
     ! at this point both threads are not busy
     ! aknowledge the sync by sendind to the opposite site thread_ready
@@ -210,7 +214,10 @@ CONTAINS
     wait_cnt = wait_for_ready_ompthread(my_thread_id)
    
     my_thread%request = sync_ompthread_to
-        
+    IF (sync_ompthread_to == ompthread_ends) THEN
+      write(0,*) to_thread_id, ' ackowledged ompthread_ends'
+    ENDIF
+    
     RETURN
     
   END FUNCTION sync_ompthread_to

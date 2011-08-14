@@ -68,11 +68,6 @@ MODULE mo_nwp_rrtm_interface
   USE mo_subdivision,          ONLY: p_patch_local_parent
 !   USE mo_sync,                 ONLY: SYNC_C, sync_patch_array_mult
 
-#ifdef __OMP_RADIATION__  
-  USE mo_parallel_config,        ONLY: radiation_threads
-  USE mo_timer,               ONLY: timer_omp_radiation, timer_omp_model, timer_start, timer_stop
-#endif
-
   IMPLICIT NONE
 
   PRIVATE

@@ -40,7 +40,7 @@ MODULE mo_nwp_mpiomp_rrtm_interface
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_exception,            ONLY: message,  finish !message_tex
   USE mo_ext_data,             ONLY: t_external_data
-  USE mo_parallel_config,      ONLY: nproma, p_test_run
+  USE mo_parallel_config,      ONLY: nproma, p_test_run, test_parallel_radiation
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, &
     &                                io3, ntracer, ntracer_static
   USE mo_grf_interpolation,    ONLY: t_gridref_state
@@ -300,9 +300,11 @@ CONTAINS
   !>
   SUBROUTINE model_end_ompthread()
 
+    INTEGER :: sync_status
     CALL end_ompthread(model_ompthread)
    
     write(0,*) 'Reached model_end_ompthread'
+    sync_status = model_ompthread.syncto.radiation_ompthread
 
   END SUBROUTINE model_end_ompthread
   !-----------------------------------------
@@ -379,32 +381,32 @@ CONTAINS
     wait_cnt=model_barrier()
 
     
-#ifdef __TEST_OMP_RADIATION__  
-    ! compare to the sequential version
-    CALL nwp_rrtm_radiation ( omp_radiation_data%p_sim_time,omp_radiation_data%pt_patch, &
-      & omp_radiation_data%ext_data, omp_radiation_data%pt_prog_rcf, &
-      & omp_radiation_data%pt_diag,omp_radiation_data%prm_diag, omp_radiation_data%lnd_prog_now )
+    IF (test_parallel_radiation) THEN
+      ! compare to the sequential version
+      CALL nwp_rrtm_radiation ( omp_radiation_data%p_sim_time,omp_radiation_data%pt_patch, &
+        & omp_radiation_data%ext_data, omp_radiation_data%pt_prog_rcf, &
+        & omp_radiation_data%pt_diag,omp_radiation_data%prm_diag, omp_radiation_data%lnd_prog_now )
 
-    IF (MAXVAL(ABS(omp_radiation_data%prm_diag%lwflxclr(:,:,:) &
-                - omp_radiation_data%lwflxclr(:,:,:))) /= 0.0_wp) THEN
-      CALL finish("receive_out_omp_radiation_data","lwflxclr differs")
+      IF (MAXVAL(ABS(omp_radiation_data%prm_diag%lwflxclr(:,:,:) &
+                  - omp_radiation_data%lwflxclr(:,:,:))) /= 0.0_wp) THEN
+        CALL finish("receive_out_omp_radiation_data","lwflxclr differs")
+      ENDIF
+
+      IF (MAXVAL(ABS(omp_radiation_data%prm_diag%trsolclr(:,:,:) &
+                  - omp_radiation_data%trsolclr(:,:,:))) /= 0.0_wp) THEN
+        CALL finish("receive_out_omp_radiation_data","trsolclr differs")
+      ENDIF
+
+      IF (MAXVAL(ABS(omp_radiation_data%prm_diag%lwflxall(:,:,:) &
+                  - omp_radiation_data%lwflxall(:,:,:))) /= 0.0_wp) THEN
+        CALL finish("receive_out_omp_radiation_data","lwflxall differs")
+      ENDIF
+
+      IF (MAXVAL(ABS(omp_radiation_data%prm_diag%trsolall(:,:,:) &
+                  - omp_radiation_data%trsolall(:,:,:))) /= 0.0_wp) THEN
+        CALL finish("receive_out_omp_radiation_data","trsolall differs")
+      ENDIF
     ENDIF
-    
-    IF (MAXVAL(ABS(omp_radiation_data%prm_diag%trsolclr(:,:,:) &
-                - omp_radiation_data%trsolclr(:,:,:))) /= 0.0_wp) THEN
-      CALL finish("receive_out_omp_radiation_data","trsolclr differs")
-    ENDIF
-    
-    IF (MAXVAL(ABS(omp_radiation_data%prm_diag%lwflxall(:,:,:) &
-                - omp_radiation_data%lwflxall(:,:,:))) /= 0.0_wp) THEN
-      CALL finish("receive_out_omp_radiation_data","lwflxall differs")
-    ENDIF
-    
-    IF (MAXVAL(ABS(omp_radiation_data%prm_diag%trsolall(:,:,:) &
-                - omp_radiation_data%trsolall(:,:,:))) /= 0.0_wp) THEN
-      CALL finish("receive_out_omp_radiation_data","trsolall differs")
-    ENDIF
-#endif
     
 !$OMP PARALLEL WORKSHARE
     omp_radiation_data%prm_diag%lwflxclr(:,:,:) =omp_radiation_data%lwflxclr(:,:,:)
@@ -465,9 +467,9 @@ CONTAINS
       CALL receive_in_omp_radiation_data()
 !       CALL timer_stop(timer_omp_radiation)
       
-#ifdef __TEST_OMP_RADIATION__
-      CALL nwp_rrtm_radiation_ompthread()
-#endif
+      IF (test_parallel_radiation) THEN
+        CALL nwp_rrtm_radiation_ompthread()
+      ENDIF
       
       CALL send_out_omp_radiation_data()
 
