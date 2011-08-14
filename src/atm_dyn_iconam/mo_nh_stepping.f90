@@ -331,7 +331,7 @@ MODULE mo_nh_stepping
 
 !$OMP SECTION
 !$  write(0,*) 'This is the nwp_parallel_radiation_thread, max threads=',&
-    omp_get_max_threads()
+!$    omp_get_max_threads()
   CALL nwp_start_radiation_ompthread()
 !$OMP END PARALLEL SECTIONS
 
