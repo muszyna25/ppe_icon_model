@@ -1,3 +1,4 @@
+#!/bin/ksh
 #=============================================================================
 #
 # Experimental setup:
@@ -62,6 +63,16 @@ atmo_dyn_grids='iconR2B04-grid.nc'
 #
 #-----------------------------------------------------------------------------
 
+
+p_test_run=${p_test_run:=".false."}
+l_test_openmp=".false."
+l_log_checks=".false."
+if [ $p_test_run = .true. ] ; then
+  l_test_openmp=".true."
+  l_log_checks=".true."
+fi
+
+
 #-----------------------------------------------------------------------------
 #
 # write ICON namelist parameters
@@ -72,9 +83,9 @@ cat > ${atmo_namelist} << EOF
 !
 &parallel_nml
  nproma         = ${nproma}
- p_test_run     = .false.
- l_test_openmp  = .false.
- l_log_checks   = .false.
+ p_test_run     = ${p_test_run}
+ l_test_openmp  = ${l_test_openmp}
+ l_log_checks   = ${l_log_checks}
 /
 &grid_nml
  cell_type = 6            ! triangular cells
