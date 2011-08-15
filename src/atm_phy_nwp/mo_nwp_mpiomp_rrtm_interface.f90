@@ -114,6 +114,7 @@ MODULE mo_nwp_mpiomp_rrtm_interface
     ! input
     TYPE(t_patch),        POINTER :: pt_patch     !<grid/patch info.
     TYPE(t_external_data),POINTER :: ext_data
+    TYPE(t_lnd_diag),     POINTER :: lnd_diag      !< diag vars for sfc
     TYPE(t_nh_prog),      POINTER :: pt_prog_rcf !<the prognostic variables (with
     TYPE(t_nh_diag),      POINTER :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag), POINTER :: prm_diag
@@ -384,7 +385,7 @@ CONTAINS
     IF (test_parallel_radiation) THEN
       ! compare to the sequential version
       CALL nwp_rrtm_radiation ( omp_radiation_data%p_sim_time,omp_radiation_data%pt_patch, &
-        & omp_radiation_data%ext_data, omp_radiation_data%pt_prog_rcf, &
+        & omp_radiation_data%ext_data,omp_radiation_data%lnd_diag,omp_radiation_data%pt_prog_rcf,&
         & omp_radiation_data%pt_diag,omp_radiation_data%prm_diag, omp_radiation_data%lnd_prog_now )
 
       IF (MAXVAL(ABS(omp_radiation_data%prm_diag%lwflxclr(:,:,:) &
@@ -485,7 +486,7 @@ CONTAINS
   !---------------------------------------------------------------------------------------
   !>
   SUBROUTINE nwp_omp_rrtm_interface ( p_sim_time,pt_patch, &
-    & ext_data,pt_prog_rcf,pt_diag,prm_diag, &
+    & ext_data,lnd_diag,pt_prog_rcf,pt_diag,prm_diag, &
     & lnd_prog_now )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
@@ -495,6 +496,7 @@ CONTAINS
 
     TYPE(t_patch),        TARGET, INTENT(in)    :: pt_patch     !<grid/patch info.
     TYPE(t_external_data),TARGET, INTENT(in)    :: ext_data
+    TYPE(t_lnd_diag),     TARGET, INTENT(in)    :: lnd_diag    !< diag vars for sfc
     TYPE(t_nh_prog),      TARGET, INTENT(inout) :: pt_prog_rcf !<the prognostic variables (with
     TYPE(t_nh_diag),      TARGET, INTENT(in)    :: pt_diag     !<the diagnostic variables
     TYPE(t_nwp_phy_diag), TARGET, INTENT(inout) :: prm_diag
@@ -508,6 +510,7 @@ CONTAINS
       ! first pass the patch info and wait to allocate the buffers
       omp_radiation_data%pt_patch => pt_patch
       omp_radiation_data%ext_data =>  ext_data
+      omp_radiation_data%lnd_diag =>  lnd_diag
       omp_radiation_data%pt_prog_rcf  =>  pt_prog_rcf
       omp_radiation_data%pt_diag =>  pt_diag
       omp_radiation_data%prm_diag =>  prm_diag

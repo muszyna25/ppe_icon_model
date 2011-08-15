@@ -299,7 +299,7 @@ CONTAINS
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
   SUBROUTINE nwp_rrtm_radiation ( p_sim_time,pt_patch, &
-    & ext_data,pt_prog_rcf,pt_diag,prm_diag, &
+    & ext_data,lnd_diag,pt_prog_rcf,pt_diag,prm_diag, &
     & lnd_prog_now )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
@@ -312,6 +312,7 @@ CONTAINS
 
     TYPE(t_patch),        TARGET,INTENT(in) :: pt_patch     !<grid/patch info.
     TYPE(t_external_data),INTENT(in):: ext_data
+    TYPE(t_lnd_diag),     INTENT(in):: lnd_diag      !< diag vars for sfc
     TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog_rcf !<the prognostic variables (with
     !< reduced calling frequency for tracers!
     TYPE(t_nh_diag), TARGET, INTENT(in)  :: pt_diag     !<the diagnostic variables
@@ -328,7 +329,8 @@ CONTAINS
 
     ! Local scalars:
     REAL(wp):: zsct        ! solar constant (at time of year)
-    INTEGER:: jb
+    REAL(wp):: zvege, zsnow, zsalb_snow, zsnow_alb
+    INTEGER:: jc,jb
     INTEGER:: jg                !domain id
     INTEGER:: nlev, nlevp1      !< number of full and half levels
 
@@ -336,6 +338,7 @@ CONTAINS
     INTEGER:: i_startblk, i_endblk    !> blocks
     INTEGER:: i_startidx, i_endidx    !< slices
     INTEGER:: i_nchdom                !< domain index
+    INTEGER:: ist
 
     i_nchdom  = MAX(1,pt_patch%n_childdom)
     jg        = pt_patch%id
@@ -374,8 +377,8 @@ CONTAINS
       &           CALL message('mo_nwp_rad_interface', 'RRTM radiation on full grid')
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,itype),SCHEDULE(guided)
-    !
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,itype, &
+!$OMP            ist,zvege,zsnow,zsalb_snow,zsnow_alb),SCHEDULE(guided)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -385,12 +388,120 @@ CONTAINS
       ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
       itype(1:i_endidx) = 0 !INT(field%rtype(1:i_endidx,jb))
 
-      albvisdir(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
-      albnirdir(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
-      albvisdif(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
-      albnirdif(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
-      prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog_now%t_g(1:i_endidx,jb)
+      !------------------------------------------------------------------------------
+      ! Calculation of surface albedo taking soil type,              
+      ! vegetation and snow/ice conditions into account
+      !------------------------------------------------------------------------------
+      
+      IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
+        
+        DO jc = 1,i_endidx
 
+          ist = 10
+
+          IF (ext_data%atm%lsm_atm_c(jc,jb)==1 .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
+            ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
+          ENDIF
+          albvisdif(jc,jb) = csalb(ist)
+          IF ( ext_data%atm%lsm_atm_c(jc,jb)==1) THEN
+            ! ATTENTION: only valid, if nsfc_subs=1
+            albvisdif(jc,jb) = csalb(ist) - rad_csalbw(ist)*lnd_prog_now%w_so(jc,1,jb,1)
+          ENDIF  ! lsoil, llandmask
+          
+        ENDDO
+        
+      ELSE
+        
+        DO jc = 1,i_endidx
+          
+          ist = 10
+
+          IF (ext_data%atm%lsm_atm_c(jc,jb)==1 .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
+            ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
+          ENDIF
+          albvisdif(jc,jb) = csalb(ist)
+          
+        ENDDO
+      
+      ENDIF
+
+      !sea-ice model not yet implemented
+!      IF (atm_phy_nwp_config(jg)%lseaice) THEN
+!        DO jc = 1,i_endidx
+!          ! In case the sea ice model is used AND water point AND ice is present,
+!          ! compute ice albedo for water points with an empirical formula taken from GME.
+!          ! The ice albedo is the lower the warmer, and therefore wetter, the ice is.
+!          ! Use ice temperature at time level nnow (2-time level scheme in sea ice model).
+!!          IF ((.NOT. llandmask(i,j)) .AND. (h_ice(i,j,nnow) > 0.0_ireals))               &
+!!            zalso(i,j) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
+!!            * csalb(10)
+!          IF (( ext_data%atm%lsm_atm_c(jc,jb)==0) .AND. (prm_diag%h_ice(i,j,nnow) > 0.0_wp)) &
+!            albvisdif(jc,jb) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
+!            * csalb(10)
+!        ENDDO
+!      ENDIF
+
+      !lake model not yet implemented
+!      IF (atm_phy_nwp_config(jg)%llake) THEN
+!        DO jc = 1,i_endidx
+!          IF((ext_data%atm%depth_lk(jc,jb)      >  0.0_wp) .AND.    &
+!            (prm_diag%h_ice(jc,jb) >= h_Ice_min_flk) ) THEN
+!            !  In case the lake model FLake is used AND lake point AND ice is present,
+!            !  compute ice albedo for lake points with an empirical formulation 
+!            !  proposed by Mironov and Ritter (2004) for use in GME 
+!            !  [ice_albedo=function(ice_surface_temperature)].
+!            !  Use surface temperature at time level "nnow".
+!
+!            albvisdif(jc,jb) = EXP(-c_albice_MR*(tpl_T_f-t_s(i,j,nnow))/tpl_T_f)
+!            albvisdif(jc,jb) = albedo_whiteice_ref * (1._ireals-zalso(i,j)) +      &
+!              albedo_blueice_ref  * albvisdif(jc,jb)
+!          ENDIF
+!        ENDDO
+!      ENDIF
+
+      ! Snow cover and vegetation
+      ! -------------------------
+
+      IF (atm_phy_nwp_config(jg)%inwp_surface == 1) THEN !soil model switched on
+        DO jc = 1,i_endidx
+          zvege= 0.0_wp
+          zsnow= 0.0_wp
+          IF (ext_data%atm%lsm_atm_c(jc,jb)==1) THEN 
+            ! consider effects of aging on solar snow albedo
+            ! ATTENTION: only valid, if nsfc_subs=1            
+            zsalb_snow = csalb_snow_min + &
+              & lnd_diag%freshsnow(jc,jb,1)*(csalb_snow_max-csalb_snow_min)
+            zsnow_alb = zsalb_snow*(1._wp-ext_data%atm%for_e(jc,jb)-ext_data%atm%for_d(jc,jb)) &
+              + csalb_snow_fe * ext_data%atm%for_e(jc,jb)                       &
+              + csalb_snow_fd * ext_data%atm%for_d(jc,jb)
+
+          ! account for snow cover and plant cover and compute final solar
+          ! snow albedo
+            zvege = ext_data%atm%plcov_mx(jc,jb)
+            ! ATTENTION: only valid, if nsfc_subs=1
+            IF (lnd_prog_now%w_snow(jc,jb,1) > 0.0_wp) THEN
+              ! ATTENTION: only valid, if nsfc_subs=1
+              zsnow = MIN(1.0_wp, lnd_prog_now%w_snow(jc,jb,1) / cf_snow)
+            ENDIF
+            albvisdif(jc,jb) = zsnow * zsnow_alb +                               &
+              (1.0_wp - zsnow) * (zvege * csalb_p + (1.0_wp - zvege) * albvisdif(jc,jb))
+          ENDIF !   llandmask
+        ENDDO
+      ENDIF !inwp_surface == 1
+
+      !Calculate direct albedo from diffuse albedo and solar zenith angle
+      !formula as in Ritter-Geleyn's fesft
+      DO jc = 1,i_endidx
+        albvisdir(jc,jb) =                                                                    &
+          & (1.0_wp + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/albvisdif(jc,jb) - 1.0_wp))) &
+          & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/albvisdif(jc,jb) - 1.0_wp)))**2
+      ENDDO
+
+      ! no distiction between vis and nir albedo
+      albnirdir(1:i_endidx,jb) = albvisdir(1:i_endidx,jb)
+      albnirdif(1:i_endidx,jb) = albvisdif(1:i_endidx,jb)
+
+      prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog_now%t_g(1:i_endidx,jb)
 
       CALL radiation(               &
                               !
@@ -453,7 +564,7 @@ CONTAINS
   !! Initial release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-13)
   !!
   SUBROUTINE nwp_rrtm_radiation_reduced ( p_sim_time,pt_patch,pt_par_patch, &
-    & pt_par_int_state, pt_par_grf_state,ext_data,pt_prog_rcf,pt_diag,prm_diag, &
+    & pt_par_int_state, pt_par_grf_state,ext_data,lnd_diag,pt_prog_rcf,pt_diag,prm_diag, &
     & lnd_prog_now )
 
 !    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER::  &
@@ -469,6 +580,7 @@ CONTAINS
     TYPE(t_int_state),    TARGET,INTENT(in):: pt_par_int_state  !< " for parent grid
     TYPE(t_gridref_state),TARGET,INTENT(in) :: pt_par_grf_state  !< grid refinement state
     TYPE(t_external_data),INTENT(in):: ext_data
+    TYPE(t_lnd_diag),     INTENT(in):: lnd_diag      !< diag vars for sfc
     TYPE(t_nh_prog), TARGET, INTENT(inout)  :: pt_prog_rcf !<the prognostic variables (with
     !< reduced calling frequency for tracers!
     TYPE(t_nh_diag), TARGET,    INTENT(inout):: pt_diag     !<the diagnostic variables
@@ -514,7 +626,8 @@ CONTAINS
 
     ! Local scalars:
     REAL(wp):: zsct        ! solar constant (at time of year)
-    INTEGER:: jk,jb
+    REAL(wp):: zvege, zsnow, zsalb_snow, zsnow_alb
+    INTEGER:: jc,jk,jb
     INTEGER:: jg                !domain id
     INTEGER:: nlev, nlevp1      !< number of full and half levels
     INTEGER:: nblks_par_c       !nblks for reduced grid
@@ -523,6 +636,7 @@ CONTAINS
     INTEGER:: i_startblk, i_endblk    !> blocks
     INTEGER:: i_startidx, i_endidx    !< slices
     INTEGER:: i_nchdom                !< domain index
+    INTEGER:: ist
     INTEGER:: i_chidx
     LOGICAL:: l_parallel
 
@@ -627,8 +741,7 @@ CONTAINS
       ! *** this parallel section will be removed later once real data are
       !     are available as input for radiation ***
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx)
-      !
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ist,zvege,zsnow,zsalb_snow,zsnow_alb)
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(pt_patch, jb, i_startblk, i_endblk, &
@@ -636,10 +749,120 @@ CONTAINS
 
 
         ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-        albvisdir(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
-        albnirdir(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
-        albvisdif(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
-        albnirdif(1:i_endidx,jb) = 0.07_wp ! ~ albedo of water
+
+      !------------------------------------------------------------------------------
+      ! Calculation of surface albedo taking soil type,              
+      ! vegetation and snow/ice conditions into account
+      !------------------------------------------------------------------------------
+
+      IF ( atm_phy_nwp_config(jg)%inwp_surface == 1 ) THEN
+
+        DO jc = 1,i_endidx
+
+          ist = 10
+
+          IF (ext_data%atm%lsm_atm_c(jc,jb)==1 .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
+            ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
+          ENDIF
+          albvisdif(jc,jb) = csalb(ist)
+          IF ( ext_data%atm%lsm_atm_c(jc,jb)==1) THEN
+            ! ATTENTION: only valid, if nsfc_subs=1
+            albvisdif(jc,jb) = csalb(ist) - rad_csalbw(ist)*lnd_prog_now%w_so(jc,1,jb,1)
+          ENDIF  ! lsoil, llandmask
+
+        ENDDO
+
+      ELSE
+
+        DO jc = 1,i_endidx
+
+          ist = 10
+
+          IF (ext_data%atm%lsm_atm_c(jc,jb)==1 .OR. lnd_prog_now%t_g(jc,jb) >= tmelt-1.7_wp ) THEN
+            ist = ext_data%atm%soiltyp(jc,jb) ! water (ist=9) and sea ice (ist=10) included
+          ENDIF
+          albvisdif(jc,jb) = csalb(ist)
+
+        ENDDO
+
+      ENDIF
+
+      !sea-ice model not yet implemented
+      !      IF (atm_phy_nwp_config(jg)%lseaice) THEN
+      !        DO jc = 1,i_endidx
+      !          ! In case the sea ice model is used AND water point AND ice is present,
+      !          ! compute ice albedo for water points with an empirical formula taken from GME.
+      !          ! The ice albedo is the lower the warmer, and therefore wetter, the ice is.
+      !          ! Use ice temperature at time level nnow (2-time level scheme in sea ice model).
+      !!          IF ((.NOT. llandmask(i,j)) .AND. (h_ice(i,j,nnow) > 0.0_ireals))               &
+      !!            zalso(i,j) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
+      !!            * csalb(10)
+      !          IF (( ext_data%atm%lsm_atm_c(jc,jb)==0) .AND. (prm_diag%h_ice(i,j,nnow) > 0.0_wp)) &
+      !            albvisdif(jc,jb) = (1.0_wp-0.3846_wp*EXP(-0.35_wp*(tmelt-t_ice(i,j,nnow)))) &
+      !            * csalb(10)
+      !        ENDDO
+      !      ENDIF
+
+      !lake model not yet implemented
+      !      IF (atm_phy_nwp_config(jg)%llake) THEN
+      !        DO jc = 1,i_endidx
+      !          IF((ext_data%atm%depth_lk(jc,jb)      >  0.0_wp) .AND.    &
+      !            (prm_diag%h_ice(jc,jb) >= h_Ice_min_flk) ) THEN
+      !            !  In case the lake model FLake is used AND lake point AND ice is present,
+      !            !  compute ice albedo for lake points with an empirical formulation 
+      !            !  proposed by Mironov and Ritter (2004) for use in GME 
+      !            !  [ice_albedo=function(ice_surface_temperature)].
+      !            !  Use surface temperature at time level "nnow".
+      !
+      !            albvisdif(jc,jb) = EXP(-c_albice_MR*(tpl_T_f-t_s(i,j,nnow))/tpl_T_f)
+      !            albvisdif(jc,jb) = albedo_whiteice_ref * (1._ireals-zalso(i,j)) +      &
+      !              albedo_blueice_ref  * albvisdif(jc,jb)
+      !          ENDIF
+      !        ENDDO
+      !      ENDIF
+
+      ! Snow cover and vegetation
+      ! -------------------------
+
+      IF (atm_phy_nwp_config(jg)%inwp_surface == 1) THEN !soil model switched on
+        DO jc = 1,i_endidx
+          zvege= 0.0_wp
+          zsnow= 0.0_wp
+          IF (ext_data%atm%lsm_atm_c(jc,jb)==1) THEN 
+            ! consider effects of aging on solar snow albedo
+            ! ATTENTION: only valid, if nsfc_subs=1            
+            zsalb_snow = csalb_snow_min + &
+              & lnd_diag%freshsnow(jc,jb,1)*(csalb_snow_max-csalb_snow_min)
+            zsnow_alb = zsalb_snow*(1._wp-ext_data%atm%for_e(jc,jb)-ext_data%atm%for_d(jc,jb)) &
+              + csalb_snow_fe * ext_data%atm%for_e(jc,jb)                       &
+              + csalb_snow_fd * ext_data%atm%for_d(jc,jb)
+
+            ! account for snow cover and plant cover and compute final solar
+            ! snow albedo
+            zvege = ext_data%atm%plcov_mx(jc,jb)
+            ! ATTENTION: only valid, if nsfc_subs=1
+            IF (lnd_prog_now%w_snow(jc,jb,1) > 0.0_wp) THEN
+              ! ATTENTION: only valid, if nsfc_subs=1
+              zsnow = MIN(1.0_wp, lnd_prog_now%w_snow(jc,jb,1) / cf_snow)
+            ENDIF
+            albvisdif(jc,jb) = zsnow * zsnow_alb +                               &
+              (1.0_wp - zsnow) * (zvege * csalb_p + (1.0_wp - zvege) * albvisdif(jc,jb))
+          ENDIF !   llandmask
+        ENDDO
+      ENDIF !inwp_surface == 1
+
+      !Calculate direct albedo from diffuse albedo and solar zenith angle
+      !formula as in Ritter-Geleyn's fesft
+      DO jc = 1,i_endidx
+        albvisdir(jc,jb) =                                                                    &
+          & (1.0_wp + 0.5_wp * (prm_diag%cosmu0(jc,jb) * (1.0_wp/albvisdif(jc,jb) - 1.0_wp))) &
+          & / (1.0_wp + (prm_diag%cosmu0(jc,jb) * (1.0_wp/albvisdif(jc,jb) - 1.0_wp)))**2
+      ENDDO
+
+      ! no distiction between vis and nir albedo
+      albnirdir(1:i_endidx,jb) = albvisdir(1:i_endidx,jb)
+      albnirdif(1:i_endidx,jb) = albvisdif(1:i_endidx,jb)
+
         prm_diag%tsfctrad(1:i_endidx,jb) = lnd_prog_now%t_g(1:i_endidx,jb)
 
       ENDDO ! blocks
@@ -665,8 +888,8 @@ CONTAINS
       i_endblk   = ptr_pp%cells%end_blk(rl_end,i_chidx)
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,itype) ,SCHEDULE(guided)
-      !
+!$OMP DO PRIVATE(jb,jk,i_startidx,i_endidx,itype),SCHEDULE(guided)      
+
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(ptr_pp, jb, i_startblk, i_endblk, &

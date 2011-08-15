@@ -148,16 +148,16 @@ MODULE mo_nwp_rad_interface
 
         IF (parallel_radiation_omp) THEN
           CALL nwp_omp_rrtm_interface ( p_sim_time,pt_patch, &
-            & ext_data, pt_prog_rcf, pt_diag, prm_diag, lnd_prog_now )
+            & ext_data, lnd_diag, pt_prog_rcf, pt_diag, prm_diag, lnd_prog_now )
         ELSE
           CALL nwp_rrtm_radiation ( p_sim_time,pt_patch, &
-            & ext_data, pt_prog_rcf, pt_diag, prm_diag, lnd_prog_now )
+            & ext_data,lnd_diag, pt_prog_rcf, pt_diag, prm_diag, lnd_prog_now )
         ENDIF
     
       ELSE 
 
         CALL nwp_rrtm_radiation_reduced (  p_sim_time,pt_patch,pt_par_patch, &
-          & pt_par_int_state, pt_par_grf_state,ext_data,&
+          & pt_par_int_state, pt_par_grf_state,ext_data,lnd_diag,&
           & pt_prog_rcf,pt_diag,prm_diag, lnd_prog_now )
           
       ENDIF
