@@ -38,7 +38,7 @@ MODULE mo_nwp_phy_init
 
   USE mo_kind,                ONLY: wp
   USE mo_math_constants,      ONLY: pi
-  USE mo_physical_constants,  ONLY: re !, grav
+  USE mo_physical_constants,  ONLY: re, grav
   USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag,t_nwp_phy_tend
   USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag  !, t_tiles
   USE mo_ext_data,            ONLY: t_external_data
@@ -384,8 +384,8 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 
     ! initialize gz0
     !
-!DR    prm_diag%gz0(:,:) = grav * ext_data%atm%z0(:,:)  ! roughness length * g
-
+    prm_diag%gz0(:,:) = grav * ext_data%atm%z0(:,:)  ! roughness length * g
+!DR prm_diag%gz0(:,:) = grav * ext_data%atm%z0(:,:)  ! roughness length * g
 
     rl_start = 1 ! Initialization should be done for all points
     rl_end   = min_rlcell
@@ -393,27 +393,26 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
-
 !$OMP PARALLEL
 
 !$OMP DO PRIVATE(jb,i_startidx,i_endidx)
 
     DO jb = i_startblk, i_endblk
 
-        CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
 &                       i_startidx, i_endidx, rl_start, rl_end)
 
-        CALL init_canopy( ie=nproma, je=1, ke=nlev, ke1=nlevp1, kcm=nlevp1, &
+      CALL init_canopy( ie=nproma, je=1, ke=nlev, ke1=nlevp1, kcm=nlevp1, &
 !
          &  istartpar=i_startidx, iendpar=i_endidx, jstartpar=1, jendpar=1, &
 !
-!         &  hhl=p_metrics%z_ifc(:,:,jb), &
+!        &  hhl=p_metrics%z_ifc(:,:,jb), &
          &  fr_land=ext_data%atm%fr_land(:,jb), plcov=ext_data%atm%plcov_mx(:,jb), & 
          &  sai=prm_diag%sai(:,jb), lai=ext_data%atm%lai_mx(:,jb), &
          &  tai=prm_diag%tai(:,jb), eai=prm_diag%eai(:,jb) )
 
 
-        CALL organize_turbdiff(action='tran_diff', iini=1, lstfnct=.TRUE., &
+      CALL organize_turbdiff(action='tran_diff', iini=1, lstfnct=.TRUE., &
 !
          &  dt_var=pdtime, dt_tke=pdtime, nprv=1, ntur=1, ntim=1, &
 !
@@ -462,9 +461,9 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 
 !$OMP END PARALLEL
 
-        CALL message('mo_nwp_phy_init:', 'cosmo turbulence initialized')
+    CALL message('mo_nwp_phy_init:', 'cosmo turbulence initialized')
 
-    ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 2) THEN  !ECHAM vdiff
+  ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 2) THEN  !ECHAM vdiff
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init ECHAM turbulence')
       ! Currently the tracer indices are sorted such that we count
@@ -480,40 +479,40 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     ! See mo_icoham_sfc_indicies.f90 for further details.
 
       !<KF temporarly set in, has to moved to general place
-      CALL init_convect_tables
+    CALL init_convect_tables
 
-!      CALL init_sfc_indices( ltestcase, 'APE' ) !call of a hydrostatic testcase
-                                                ! to obtain the demanded parameters
+!   CALL init_sfc_indices( ltestcase, 'APE' ) !call of a hydrostatic testcase
+                                              ! to obtain the demanded parameters
 
-      khydromet = 2 !iqt - 1        ! # of hydrometeors
-      ktrac = 1   !ntracer - iqt + 1  ! # of non-water species 
+    khydromet = 2 !iqt - 1        ! # of hydrometeors
+    ktrac = 1   !ntracer - iqt + 1  ! # of non-water species 
 
      !IF (p_patch%id == 1) CALL init_vdiff_solver( khydromet, ktrac, nproma, nlev, nsfc_type )
-      IF (p_patch%id == 1) CALL init_vdiff_solver( khydromet, ktrac, nlev )
+    IF (p_patch%id == 1) CALL init_vdiff_solver( khydromet, ktrac, nlev )
 
-      CALL init_vdiff_params( nlev, nlevp1, nlevp1, vct )
+    CALL init_vdiff_params( nlev, nlevp1, nlevp1, vct )
 
       !KF special setting for ICONAM
-       tke_min = 1.e-4_wp
+    tke_min = 1.e-4_wp
         
 !$OMP PARALLEL
 !$OMP PARALLEL WORKSHARE
-        prm_diag% ustar (:,:)   = 1._wp
-        prm_diag% kedisp(:,:)   = 0._wp
-        prm_diag% thvvar(:,:,:) = 1.e-4_wp
+    prm_diag% ustar (:,:)   = 1._wp
+    prm_diag% kedisp(:,:)   = 0._wp
+    prm_diag% thvvar(:,:,:) = 1.e-4_wp
 !$OMP END PARALLEL WORKSHARE
 !$OMP END PARALLEL
 
-        IF (iwtr<=nsfc_type) prm_diag%z0m_tile(:,:,iwtr) = 1.e-3_wp !see init_surf in echam (or z0m_oce?)
-        IF (iice<=nsfc_type) prm_diag%z0m_tile(:,:,iice) = 1.e-3_wp !see init_surf in echam (or z0m_ice?)
-        IF (ilnd<=nsfc_type) prm_diag%z0m_tile(:,:,ilnd) = z0m_min ! or maybe a larger value?
+    IF (iwtr<=nsfc_type) prm_diag%z0m_tile(:,:,iwtr) = 1.e-3_wp !see init_surf in echam (or z0m_oce?)
+    IF (iice<=nsfc_type) prm_diag%z0m_tile(:,:,iice) = 1.e-3_wp !see init_surf in echam (or z0m_ice?)
+    IF (ilnd<=nsfc_type) prm_diag%z0m_tile(:,:,ilnd) = z0m_min  ! or maybe a larger value?
 
 !    ENDIF
         
-        WRITE(message_text,'(a,3I4)') 'init sfc inidces = ',iwtr,iice,nsfc_type
-            CALL message('', TRIM(message_text))
+    WRITE(message_text,'(a,3I4)') 'init sfc inidces = ',iwtr,iice,nsfc_type
+    CALL message('', TRIM(message_text))
 
-        CALL message('mo_nwp_phy_init:', 'echam turbulence initialized')
+    CALL message('mo_nwp_phy_init:', 'echam turbulence initialized')
 
 ! ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 3) THEN  !DUALM
   ENDIF
