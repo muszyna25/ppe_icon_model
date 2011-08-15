@@ -108,6 +108,9 @@ fi
 if [ $run_radiation = "true" ] ;  then
   cp_atmo_files="true"
 fi
+if [ $run_dummy_1 = "true" ] ;  then
+  cp_atmo_files="true"
+fi
 
 #-----------------------------------------------------------------------------
 
