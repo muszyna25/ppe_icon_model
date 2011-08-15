@@ -1,5 +1,7 @@
+#!/bin/ksh
 #=============================================================================
-#
+# Test the coupling of two dummy models
+#=============================================================================
 # This section of the run script defines the experiment.
 # The specifications are passed by namelist to the program.
 # For a complete list see Namelist_overview.pdf
@@ -19,7 +21,13 @@
 # They may be overwritten here
 #
 #-----------------------------------------------------------------------------
-#
+# This test must have available at least 2 MPI processes.
+# If the model runs with mpi_procs=1, then this script exits without error:
+if [[ ${mpi_procs} = 1 ]] ; then
+  echo "This test uses at least 2 mpi_procs. Exit test without error"
+  check_error 0 ${EXPNAME}
+  exit 0
+fi
 #-----------------------------------------------------------------------------
 # The following values must be set here as shell variables so that they can be used
 # also in the executing section of the completed run script

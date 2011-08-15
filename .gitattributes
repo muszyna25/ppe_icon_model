@@ -616,6 +616,7 @@ run/exp.pk_hom -text
 run/exp.pure_adv -text
 run/exp.slo_hom_1 -text
 run/exp.stommel -text
+run/exp.test_couple_dummy_models -text
 run/exp.test_hat_jww -text
 run/exp.test_hat_jww-moist_cld-cnv-vdf -text
 run/exp.test_hom_lsm -text
