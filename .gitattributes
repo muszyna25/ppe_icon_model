@@ -1066,7 +1066,6 @@ src/lnd_phy_nwp/mo_nwp_sfc_interp.f90 -text
 src/lnd_phy_schemes/mo_phyparam_soil.f90 -text
 src/lnd_phy_schemes/mo_soil_ml.f90 -text
 src/namelists/mo_advection_nml.f90 -text
-src/namelists/mo_atm_phy_nwp_nml.f90 -text
 src/namelists/mo_coupling_nml.f90 -text
 src/namelists/mo_diffusion_nml.f90 -text
 src/namelists/mo_dynamics_nml.f90 -text
@@ -1082,6 +1081,7 @@ src/namelists/mo_io_nml.f90 -text
 src/namelists/mo_lnd_nwp_nml.f90 -text
 src/namelists/mo_master_nml.f90 -text
 src/namelists/mo_nonhydrostatic_nml.f90 -text
+src/namelists/mo_nwp_phy_nml.f90 -text
 src/namelists/mo_ocean_nml.f90 -text
 src/namelists/mo_parallel_nml.f90 -text
 src/namelists/mo_prepicon_nml.f90 -text
