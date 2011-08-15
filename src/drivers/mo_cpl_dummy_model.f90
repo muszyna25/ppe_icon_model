@@ -370,10 +370,18 @@ CONTAINS
 
       ! CALL get_patch_global_indexes ( patch_no, CELLS, no_of_entities, grid_glob_index )
       ! should grid_glob_index become a pointer in ICON_cpl_def_grid as well?
+
       CALL ICON_cpl_def_grid ( &
         & comp_id, grid_shape, p_patch(patch_no)%cells%glb_index, & ! input
         & grid_id, error_status )                                   ! output
   
+      ! Define exchange fields
+      !
+      ! We could also get the number of defined fields from the namelist module
+      ! and assign the names according the name. In practice this is a bit dangerous
+      ! as fields may require special treatment which is only known to the programmer
+      ! but not to the one who possibly modifies the namelist.
+
       field_name(1) = "TEST1"
       field_name(2) = "TEST2"
       field_name(3) = "TEST3"
@@ -388,7 +396,7 @@ CONTAINS
       field_shape(1) = grid_shape(1)
       field_shape(2) = grid_shape(2)
 
-      ! number of bundles
+      ! number of bundles or vertical levels
 
       field_shape(3) = 1
 

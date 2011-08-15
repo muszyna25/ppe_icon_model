@@ -90,6 +90,34 @@ cat > $dummy_1_namelist << EOF
   l_time_average      = .FALSE.
   l_time_accumulation = .FALSE.
 /
+&coupling_nml
+  name                = 'TEST5'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'TEST6'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'TEST7'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'TEST8'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
 &parallel_nml
  nproma         = ${nproma}
  p_test_run     = .false.
@@ -158,6 +186,34 @@ cat > $dummy_2_namelist << EOF
 /
 &coupling_nml
   name                = 'TEST4'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'TEST5'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'TEST6'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'TEST7'
+  time_step           =  ${dtime}
+  frequency           =  ${dtime}
+  l_time_average      = .FALSE.
+  l_time_accumulation = .FALSE.
+/
+&coupling_nml
+  name                = 'TEST8'
   time_step           =  ${dtime}
   frequency           =  ${dtime}
   l_time_average      = .FALSE.
