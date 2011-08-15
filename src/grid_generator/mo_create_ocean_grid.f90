@@ -254,7 +254,12 @@ CONTAINS
       init_grid_id = refined_grid_id
     ENDDO
     !------------------------------------------------------------------------
-
+    ! smooth the grid
+    IF (smooth_ocean_boundary) THEN
+      sea_cell_list = get_ocean_cell_list(init_grid_id, use_smoothing=.true.)
+      CALL fill_sea_land_mask_from_list(init_grid_id, sea_cell_list)
+    ENDIF
+    !------------------------------------------------------------------------
     CALL set_sphere_geom_grid(init_grid_id)
     CALL fill_edges_sea_land_mask(init_grid_id)
     IF (output_atmo_file /= "") THEN
@@ -263,7 +268,8 @@ CONTAINS
     !------------------------------------------------------------------------
 
     IF (.NOT. only_get_sea_land_mask) THEN
-      sea_cell_list = get_ocean_cell_list(init_grid_id)      
+      IF ( .NOT. smooth_ocean_boundary) &   ! if  smooth_ocean_boundary the  sea_cell_list is filled      
+        & sea_cell_list = get_ocean_cell_list(init_grid_id)      
       ocean_grid_id = get_grid_from_cell_list(init_grid_id, sea_cell_list)
       CALL delete_grid(init_grid_id)
     ELSE
@@ -288,16 +294,22 @@ CONTAINS
   !>
   !! Returns the ocean part of the in_grid_id. Private
   !! Ocean cells have elevation < min_sea_depth
-  FUNCTION get_ocean_cell_list(in_grid_id) result(smooth_sea_cell_list)
+  FUNCTION get_ocean_cell_list(in_grid_id, use_smoothing) result(smooth_sea_cell_list)
     INTEGER, INTENT(in)  :: in_grid_id
+    LOGICAL, INTENT(in), OPTIONAL :: use_smoothing
+    
     TYPE(t_integer_list) :: smooth_sea_cell_list
 
     TYPE(t_grid), POINTER :: in_grid
     TYPE(t_integer_list) :: sea_cell_list
     TYPE(t_float_list) :: elevation_list
     INTEGER :: no_of_cells
+    LOGICAL :: smooth_thelist
 
-    ! get sea-land for the original file
+    smooth_thelist = .false.
+    IF (PRESENT(use_smoothing)) smooth_thelist = use_smoothing
+    
+
     in_grid => get_grid(in_grid_id)
     in_grid%cells%min_sea_depth = min_sea_depth
     elevation_list%list_size    = in_grid%cells%no_of_allocatedcells
@@ -308,7 +320,7 @@ CONTAINS
     ! WRITE(0,*) "sea_cell_list size=", sea_cell_list%list_size
     
     ! smooth the boundary cells until converegnce
-    IF (smooth_ocean_boundary) THEN
+    IF (smooth_thelist) THEN
       CALL smooth_boundaryfrom_cell_list(in_grid_id, &
         & sea_cell_list, smooth_sea_cell_list, until_convergence)
       DEALLOCATE(sea_cell_list%value)
