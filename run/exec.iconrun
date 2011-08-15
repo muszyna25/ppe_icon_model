@@ -41,6 +41,7 @@ check_error $? "${EXPDIR} does not exist?"
 # set some default values and derive some run parameteres
 restart=${restart:=".false."}
 atmo_namelist=${atmo_namelist:="none"}
+radiation_namelist=${radiation_namelist:="none"}
 ocean_namelist=${ocean_namelist:="none"}
 dummy_1_namelist=${dummy_1_namelist:="none"}
 dummy_2_namelist=${dummy_2_namelist:="none"}
@@ -63,7 +64,7 @@ dummy_1_max_rank=${dummy_1_max_rank:=`expr ${mpi_total_procs} / 2 - 1`}
 # dummy_1_max_rank=${dummy_1_max_rank:=65535}
 dummy_1_inc_rank=${dummy_1_inc_rank:=1}
 
-dummy_2_min_rank=${dummy_2_min_rank:=`expr ${dummy_2_max_rank} + 1`}
+dummy_2_min_rank=${dummy_2_min_rank:=`expr ${dummy_1_max_rank} + 1`}
 dummy_2_max_rank=${dummy_2_max_rank:=`expr ${mpi_total_procs} - 1`}
 # dummy_2_min_rank=${dummy_2_min_rank:=1}
 # dummy_2_max_rank=${dummy_2_max_rank:=65535}
