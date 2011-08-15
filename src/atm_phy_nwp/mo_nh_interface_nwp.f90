@@ -76,8 +76,6 @@ MODULE mo_nh_interface_nwp
 
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
 
-!  USE mo_atm_phy_nwp_nml,    ONLY: inwp_cldcover, inwp_radiation !,&
-!                                   inwp_sso
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_cover_koe,          ONLY: cover_koe
   USE mo_satad,              ONLY: satad_v_3D

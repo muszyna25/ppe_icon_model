@@ -58,7 +58,7 @@ MODULE mo_read_namelists
   USE mo_advection_nml       ,ONLY: read_transport_namelist
 
   USE mo_echam_phy_nml       ,ONLY: read_echam_phy_namelist
-  USE mo_atm_phy_nwp_nml     ,ONLY: read_nwp_phy_namelist
+  USE mo_nwp_phy_nml         ,ONLY: read_nwp_phy_namelist
   USE mo_radiation_nml       ,ONLY: read_radiation_namelist
   USE mo_vdiff_nml           ,ONLY: read_vdiff_namelist
   USE mo_echam_conv_nml      ,ONLY: read_echam_conv_namelist

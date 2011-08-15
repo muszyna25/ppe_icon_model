@@ -36,7 +36,6 @@
 !!
 MODULE mo_nwp_rrtm_interface
 
-!  USE mo_atm_phy_nwp_nml,      ONLY: inwp_radiation, dt_rad, dt_radheat
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_exception,            ONLY: message,  finish !message_tex
   USE mo_ext_data,             ONLY: t_external_data

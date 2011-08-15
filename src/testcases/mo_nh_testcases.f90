@@ -61,7 +61,6 @@ MODULE mo_nh_testcases
 !  USE mo_grid_config, ONLY :  global_cell_type
     
   USE mo_dynamics_config,    ONLY: nnow, nnow_rcf, nnew, nnew_rcf
-!  USE mo_atm_phy_nwp_nml,    ONLY: inwp_gscp, inwp_convection
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
   USE mo_physical_constants, ONLY: grav, cpd, rd, cvd_o_rd, &
    &                               p0ref, re, omega, tmelt, vtmpc1, rv

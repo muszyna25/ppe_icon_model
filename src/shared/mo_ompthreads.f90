@@ -37,7 +37,6 @@
 !!
 MODULE mo_ompthreads
 
-!  USE mo_atm_phy_nwp_nml,      ONLY: inwp_radiation, dt_rad, dt_radheat
   USE mo_exception,            ONLY: message, warning, finish !message_tex
   USE mo_run_config,           ONLY: msg_level
 #ifdef _OPENMP

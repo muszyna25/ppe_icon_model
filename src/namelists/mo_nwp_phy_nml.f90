@@ -39,7 +39,7 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-MODULE mo_atm_phy_nwp_nml
+MODULE mo_nwp_phy_nml
 
   USE mo_kind,                ONLY: wp
   USE mo_impl_constants,      ONLY: max_dom !,MAX_CHAR_LENGTH
@@ -269,5 +269,5 @@ CONTAINS
   END SUBROUTINE read_nwp_phy_namelist
 
 
-END MODULE mo_atm_phy_nwp_nml
+END MODULE mo_nwp_phy_nml
 

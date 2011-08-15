@@ -1559,7 +1559,7 @@ MODULE mo_nh_stepping
             & tcall_phy(jg,ip) > 0._wp) THEN
 
             ! Please note: tcall_phy(jg,ip) = 0._wp indicates that the process
-            ! with number ip will not be called at all (see mo_atm_phy_nwp_nml)
+            ! with number ip will not be called at all (see mo_nwp_phy_nml)
             lcall_phy(jg,ip)       = .TRUE.
           ELSE
             lcall_phy(jg,ip)       = .FALSE.

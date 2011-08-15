@@ -61,8 +61,6 @@ MODULE mo_nwp_diagnosis
   USE mo_time_config,        ONLY: time_config
   USE mo_physical_constants, ONLY: lh_v     => alv      !! latent heat of vapourization
 
-!  USE mo_atm_phy_nwp_nml,    ONLY: inwp_cldcover, inwp_radiation,  dt_rad,&
-!                                   inwp_sso, inwp_turb 
   USE mo_atm_phy_nwp_config, ONLY: atm_phy_nwp_config
  
 

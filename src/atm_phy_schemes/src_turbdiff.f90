@@ -316,8 +316,6 @@ USE mo_data_turbdiff, ONLY : &
     lseaice,      & ! forecast with sea ice model
     llake           ! forecast with lake model FLake
 
-
-!USE mo_atm_phy_nwp_nml, ONLY :  inwp_sso, inwp_convection
 !-------------------------------------------------------------------------------
 #ifdef SCLM
 USE data_1d_global, ONLY : &

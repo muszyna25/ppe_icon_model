@@ -349,9 +349,9 @@ CONTAINS
         IF (  atm_phy_nwp_config(jg)%inwp_radiation > 0 )  THEN
 
           SELECT CASE (irad_o3)
-          CASE (0,6) ! ok
+          CASE (0,3,6) ! ok
           CASE default
-            CALL finish(TRIM(routine),'irad_o3 currently has to be 0 or 6.')
+!            CALL finish(TRIM(routine),'irad_o3 currently has to be 0 or 6.')
           END SELECT
         ENDIF
 
