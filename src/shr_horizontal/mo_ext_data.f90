@@ -452,7 +452,7 @@ CONTAINS
       SELECT CASE ( iforcing )
       CASE ( inwp )
         DO jg = 1, n_dom
-          ext_data(jg)%atm%emis_rad(:,:)    = 0.996_wp ! longwave surface emissivity 
+          ext_data(jg)%atm%emis_rad(:,:)    = 0.996_wp ! longwave surface emissivity
           ext_data(jg)%atm%fr_land(:,:)     = 0._wp    ! land fraction
           ext_data(jg)%atm%fr_land_smt(:,:) = 0._wp    ! land fraction (smoothed)
           ext_data(jg)%atm%plcov_mx(:,:)    = 0.5_wp   ! plant cover
