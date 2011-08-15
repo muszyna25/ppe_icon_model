@@ -48,7 +48,7 @@ MODULE mo_ext_data
   USE mo_kind
   USE mo_io_units,           ONLY: filename_max
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_impl_constants,     ONLY: inwp, ihs_ocean, inh_atmosphere
+  USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, ihs_ocean, inh_atmosphere
   USE mo_run_config,         ONLY: iforcing
   USE mo_extpar_config,      ONLY: itopo, fac_smooth_topo, n_iter_smooth_topo
   USE mo_dynamics_config,    ONLY: iequations
@@ -446,10 +446,11 @@ CONTAINS
     ! surface/vegetation  parameter
     !-------------------------------------------------------------------------
 
-      IF(iforcing == inwp) THEN
-        !
-        ! initalize external data with meaningful data, in the case that they 
-        ! are not read in from file.
+      !
+      ! initalize external data with meaningful data, in the case that they 
+      ! are not read in from file.
+      SELECT CASE ( iforcing )
+      CASE ( inwp )
         DO jg = 1, n_dom
           ext_data(jg)%atm%emis_rad(:,:)    = 0.996_wp ! longwave surface emissivity 
           ext_data(jg)%atm%fr_land(:,:)     = 0._wp    ! land fraction
@@ -461,8 +462,11 @@ CONTAINS
           ext_data(jg)%atm%soiltyp(:,:)     = 8        ! soil type
           ext_data(jg)%atm%z0(:,:)          = 0.001_wp ! roughness length
         END DO
-
-      ENDIF
+      CASE ( iecham, ildf_echam)
+        DO jg = 1, n_dom
+          ext_data(jg)%atm%emis_rad(:,:)    = 0.996_wp ! longwave surface emissivity
+        END DO
+      END SELECT
 
       CALL message( TRIM(routine),'Running with analytical topography' )
 
