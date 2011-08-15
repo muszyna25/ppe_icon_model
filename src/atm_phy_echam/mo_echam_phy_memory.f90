@@ -194,21 +194,21 @@ MODULE mo_echam_phy_memory
     REAL(wp),POINTER ::     &
       & aclc      (:,:,:),  &!< [m2/m2] fractional cloud cover   (was aclc in echam)
       & aclcac    (:,:,:),  &!< accumulated cloud cover
-      & aclcov    (:,  :),  &!< (vertically integrated) total cloud cover
+      & aclcov    (:,  :),  &!< (time accum and vertically integrated) total cloud cover
       & acdnc     (:,:,:),  &!< cloud droplet number concentration [1/m**3]
       & xvar      (:,:,:),  &!< variance of total water amount qv+qi+ql [kg/kg] (memory_g3b)
       & xskew     (:,:,:),  &!< skewness of total water amount qv+qi+ql [kg/kg]
       & relhum    (:,:,:),  &!< relative humidity (relhum of memory_g3b in ECHAM)
-      & aprl      (:,  :),  &!< sfc precip amount, rain+snow, large scale   [kg/m**2]
-      & aprc      (:,  :),  &!< sfc precip amount, rain+snow, convective    [kg/m**2]
-      & aprs      (:,  :),  &!< sfc snow   amount, large scale + convective [kg/m**2]
+      & aprl      (:,  :),  &!< (time accum) sfc precip amount, rain+snow, large scale   [kg/m**2]
+      & aprc      (:,  :),  &!< (time accum) sfc precip amount, rain+snow, convective    [kg/m**2]
+      & aprs      (:,  :),  &!< (time accum) sfc snow   amount, large scale + convective [kg/m**2]
       & rsfl      (:,  :),  &!< sfc rain flux, large scale [kg/m**2/s]
       & rsfc      (:,  :),  &!< sfc rain flux, convective  [kg/m**2/s]
       & ssfl      (:,  :),  &!< sfc snow flux, large scale [kg/m**2/s]
       & ssfc      (:,  :),  &!< sfc snow flux, convective  [kg/m**2/s]
-      & qvi       (:,  :),  &!< vertically integrated water vapor [kg/m**2s]
-      & xlvi      (:,  :),  &!< vertically integrated cloud water [kg/m**2s]
-      & xivi      (:,  :)    !< vertically integrated cloud ice [kg/m**2s]
+      & qvi       (:,  :),  &!< (time accum) vertically integrated water vapor [kg/m**2s]
+      & xlvi      (:,  :),  &!< (time accum) vertically integrated cloud water [kg/m**2s]
+      & xivi      (:,  :)    !< (time accum) vertically integrated cloud ice [kg/m**2s]
 
     REAL(wp),POINTER :: &
       & rintop (:,  :),     &!< low lever inversion, computed by "cover" (memory_g3b)

@@ -463,7 +463,7 @@ CONTAINS
       field => prm_field(jg)
 
       !----------------------------------------
-      ! Loop over all blocks in domain jg
+      ! Initialize logical variables
       !----------------------------------------
       nblks_c = p_patch(jg)%nblks_int_c
       jbs     = p_patch(jg)%cells%start_blk(2,1)
@@ -487,8 +487,23 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
+      !----------------------------------------
+      ! Reset accumulated variables
+      !----------------------------------------
+
+      field% aclcac(:,:,:) = 0._wp
+      field% aclcov(:,  :) = 0._wp
+
+      field% qvi   (:,  :) = 0._wp
+      field% xlvi  (:,  :) = 0._wp
+      field% xivi  (:,  :) = 0._wp
+
+      field% aprl  (:,  :) = 0._wp
+      field% aprc  (:,  :) = 0._wp
+      field% aprs  (:,  :) = 0._wp
+
+      NULLIFY( field )
     ENDDO !jg
-    write(0,*) 'additional_restat_init'
 
   END SUBROUTINE additional_restart_init
 

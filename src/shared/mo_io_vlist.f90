@@ -1420,12 +1420,30 @@ CONTAINS
         &                 '(0-1)', 223, 128,&
         &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
         &          k_jg)
-        !--- omega (for debugging) ---
-      CALL addVar(TimeVar('OMEGA_PHY',&
-        &                 'vertical velocity in pressure coordinate',&
-        &                 'Pa/s', 135, 128,&
-        &                 vlistID(k_jg), gridCellID(k_jg), zaxisID_hybrid(k_jg)),&
+        !--- qvi ---
+      CALL addVar(TimeVar('QVI',&
+        &                 'temporally and vertically integrated water vapor content',&
+        &                 's kg/m**2', 230, 128,&
+        &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
         &          k_jg)
+        !--- xlvi ---
+      CALL addVar(TimeVar('XLVI',&
+        &                 'temporally and vertically integrated cloud water content',&
+        &                 's kg/m**2', 231, 128,&
+        &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+        &          k_jg)
+        !--- xivi ---
+      CALL addVar(TimeVar('XIVI',&
+        &                 'temporally and vertically integrated cloud ice content',&
+        &                 's kg/m**2', 232, 128,&
+        &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+        &          k_jg)
+     !  !--- omega (for debugging) ---
+     !CALL addVar(TimeVar('OMEGA_PHY',&
+     !  &                 'vertical velocity in pressure coordinate',&
+     !  &                 'Pa/s', 135, 128,&
+     !  &                 vlistID(k_jg), gridCellID(k_jg), zaxisID_hybrid(k_jg)),&
+     !  &          k_jg)
       END SELECT !iforcing
     ENDIF !lwrite_cloud
 
@@ -2645,6 +2663,9 @@ CONTAINS
       CASE ('PHIS');            ptr2 => p_diag%geo_ic(:,nlevp1,:)
       CASE ('cosmu0');          ptr2 => prm_field(jg)%cosmu0
       CASE ('flxdwswtoa');      ptr2 => prm_field(jg)%flxdwswtoa
+      CASE ('QVI');             ptr2 => prm_field(jg)%qvi (:,:);   reset = .TRUE.
+      CASE ('XLVI');            ptr2 => prm_field(jg)%xlvi(:,:);   reset = .TRUE.
+      CASE ('XIVI');            ptr2 => prm_field(jg)%xivi(:,:);   reset = .TRUE.
       CASE ('APRL');            ptr2 => prm_field(jg)%aprl(:,:);   reset = .TRUE.
       CASE ('APRC');            ptr2 => prm_field(jg)%aprc(:,:);   reset = .TRUE.
       CASE ('APRS');            ptr2 => prm_field(jg)%aprs(:,:);   reset = .TRUE.
@@ -2668,9 +2689,6 @@ CONTAINS
       CASE ('tend_v_cnv');      ptr3 => prm_tend(jg)%v_cnv
       CASE ('tend_v_vdf');      ptr3 => prm_tend(jg)%v_vdf
       CASE ('tend_v_gwh');      ptr3 => prm_tend(jg)%v_gwh
-      !KF specify jt first!!
-!      CASE ('tend_qX_cnv');     ptr3 => prm_tend(jg)%q_cnv(:,:,:,jt)
-!      CASE ('tend_qX_vdf');     ptr3 => prm_tend(jg)%q_vdf(:,:,:,jt)
       CASE ('VOR');             ptr3 => p_diag%rel_vort
       CASE ('DIV');             ptr3 => p_diag%div
       !
