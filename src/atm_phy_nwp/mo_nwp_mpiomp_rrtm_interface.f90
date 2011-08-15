@@ -70,29 +70,18 @@ MODULE mo_nwp_mpiomp_rrtm_interface
   USE mo_nwp_rrtm_interface,   ONLY:  nwp_rrtm_radiation, nwp_rrtm_radiation_reduced
 
   USE mo_parallel_config,      ONLY: radiation_ompthreads
-  USE mo_timer,                ONLY: timer_omp_radiation, timer_omp_model, timer_start, timer_stop
+  USE mo_timer,                ONLY: timer_start, timer_stop, print_timer, &
+    & new_timer, delete_timer, timer_omp_radiation
 
-   USE mo_ompthreads
+  USE mo_ompthreads
 
   
   IMPLICIT NONE
 
 
   PRIVATE
-
-!!$  PUBLIC :: parameters, &
-!!$    &        types,      &
-!!$    &        variables,  &
-!!$    &        procedures
-  INTEGER, PARAMETER :: ompthread_busy = 1
-  INTEGER, PARAMETER :: ompthread_waits = 2
-  INTEGER, PARAMETER :: ompthread_in_barrier = 3
-  INTEGER, PARAMETER :: ompthread_ready = 4
-  INTEGER, PARAMETER :: ompthread_ends = 5
-
   
   PUBLIC :: nwp_start_radiation_ompthread, model_end_ompthread
-  PUBLIC :: radiation_ompthread_status, model_ompthread_status, ompthread_busy
   PUBLIC :: nwp_omp_rrtm_interface
   PUBLIC :: init_ompthread_radiation
 
@@ -301,10 +290,14 @@ CONTAINS
   SUBROUTINE model_end_ompthread()
 
     INTEGER :: sync_status
-    CALL end_ompthread(model_ompthread)
-   
-    write(0,*) 'Reached model_end_ompthread'
+    
+    CALL request_end_ompthread(model_ompthread)
+    write(0,*) 'model_ompthread requests end'
+    
     sync_status = model_ompthread.syncto.radiation_ompthread
+    
+    CALL end_ompthread(model_ompthread)
+    write(0,*) 'model_ompthread ends'
 
   END SUBROUTINE model_end_ompthread
   !-----------------------------------------
@@ -423,6 +416,7 @@ CONTAINS
   !-----------------------------------------
   !>
   SUBROUTINE nwp_start_radiation_ompthread()
+!     INTEGER :: timer_omp_radiation!, timer_omp_model, timer_omp_model_waits
 
 !$  INTEGER omp_get_num_threads
 
@@ -438,6 +432,11 @@ CONTAINS
     !--------------------------------------
     ! first call of the radiation ompthread
     ! we need to allocate the omp_radiation_data
+
+!     timer_omp_radiation = new_timer("omp_radiation")
+!     timer_omp_model = new_timer("omp_model")
+!     timer_omp_model_waits = new_timer("omp_model_waits")
+    
     CALL allocate_omp_radiation_data()
     
     ! receive input data
@@ -455,29 +454,33 @@ CONTAINS
     
     DO WHILE (ompthread_is_alive(radiation_ompthread))
       ! calculate radiation
-
-      ! this is for testing
-#ifndef __TEST_OMP_RADIATION__
+      ! the first itearation will calculate with the same input
+      ! but extended radiation timestep 
       CALL timer_start(timer_omp_radiation)
       CALL nwp_rrtm_radiation_ompthread()
       CALL timer_stop(timer_omp_radiation)
-#endif
 
+      
+! #ifndef __TEST_OMP_RADIATION__
+!       IF (test_parallel_radiation) THEN
 !       CALL timer_start(timer_omp_radiation)
-      CALL receive_in_omp_radiation_data()
+!       CALL nwp_rrtm_radiation_ompthread()
 !       CALL timer_stop(timer_omp_radiation)
-      
-      IF (test_parallel_radiation) THEN
-        CALL nwp_rrtm_radiation_ompthread()
-      ENDIF
-      
+! #endif
+
+      CALL receive_in_omp_radiation_data()
+
+      IF (ompthread_is_dead(radiation_ompthread)) EXIT
+            
       CALL send_out_omp_radiation_data()
 
     ENDDO
     !---------------------------
 
     write(0,*) 'Leaving nwp_start_radiation_ompthread'
-
+!     CALL print_timer(timer_omp_radiation)
+!     CALL delete_timer(timer_omp_radiation)
+    
   END SUBROUTINE nwp_start_radiation_ompthread
   
 
@@ -523,11 +526,13 @@ CONTAINS
 !       CALL timer_stop(timer_omp_model)    
     ENDIF
 
+!     CALL timer_start(timer_omp_model_waits)
     ! now sent the input data
     CALL send_in_omp_radiation_data(p_sim_time)
 
     ! and receive the output data
     CALL receive_out_omp_radiation_data()    
+!     CALL timer_stop(timer_omp_model_waits)
 !     CALL timer_start(timer_omp_model)
 
     write(0,*) "Leaving nwp_omp_rrtm_interface..."
@@ -561,7 +566,7 @@ CONTAINS
     INTEGER:: i_startidx, i_endidx    !< slices
     INTEGER:: i_nchdom                !< domain index
     INTEGER:: i_chidx
-    LOGICAL:: l_parallel
+!     LOGICAL:: l_parallel
 
     i_nchdom  = MAX(1,omp_radiation_data%pt_patch%n_childdom)
     jg        = omp_radiation_data%pt_patch%id
@@ -673,4 +678,23 @@ CONTAINS
   
 
 END MODULE mo_nwp_mpiomp_rrtm_interface
-
+! 
+!  ----------------------------------------------------------------------------------------------------
+!  Timer report:
+!  calls  t_min       t_average   t_max       t_total
+!  ----------------------------------------------------------------------------------------------------
+!  0: total                              1      02m09s      02m09s      02m09s      02m09s   129.831
+!  0: solve_nh                          34     .40207s      1.848s      4.250s      01m02s    62.842
+!  0: physics                            9      2.074s      4.575s     19.706s     41.172s    41.172
+!  0: nwp_radiation                      5     .02977s      3.777s     18.763s     18.885s    18.885
+!  0: physic_acc                         9     .14167s     .17915s     .26425s      1.612s     1.612
+!  0: physic_acc_2                       9     .08113s     .09902s     .13016s     .89114s     0.891
+!  0: nwp_turbulence                     8     .39173s     .50518s     .69060s      4.041s     4.041
+!  0: nwp_microphysics                   8     .18578s     .24390s     .39189s      1.951s     1.951
+!  0: phys_sync_patch                    9     .00000s     .00000s     .00000s     .00001s     0.000
+!  0: fast_phys                          8     .12697s     .17952s     .25356s      1.436s     1.436
+!  0: pre_radiation_nwp                  9     .00030s     .00032s     .00036s     .00288s     0.003
+!  0: intp                               1     .01288s     .01288s     .01288s     .01288s     0.013
+!  0: transport                          8      2.167s      2.955s      4.312s     23.644s    23.644
+!  ----------------------------------------------------------------------------------------------------
+ 

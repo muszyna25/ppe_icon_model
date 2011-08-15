@@ -15,11 +15,11 @@ nclscript=../scripts/postprocessing/tools/plotIconSphereGrid.ncl
 # examples of using min-max values
 # ncl plotIconSphereGrid.ncl 'grid="iconR2B05-grid_spr0.90"'   'var="dual_edge_length"' 'minValue=42000.0' 'maxValue=84000.0' &
 # example of plotting the edge sea-land mask
-# ncl $nclscript 'grid="../grids/iconR2B04-ocean_basin_spr0.90.nc"'   'var="edge_sea_land_mask"'
+ncl $nclscript 'grid="../grids/iconR2B04-ocean_etopo40_flat.nc"'   'var="edge_sea_land_mask"'
 # ncl $nclscript 'grid="../grids/iconR2B04-r_ref.nc"' 'lon=60.0' 'lat=0.0'
 # ncl $nclscript 'grid="../grids/iconR2B04-r_ref-hex.nc"' 'lon=60.0' 'lat=0.0'
-ncl $nclscript 'grid="../grids/iconR2B04-r_ref.nc"'
-ncl $nclscript 'grid="../grids/iconR2B04-r_ref-hex.nc"'
+#ncl $nclscript 'grid="../grids/iconR2B04-r_ref.nc"'
+#ncl $nclscript 'grid="../grids/iconR2B04-r_ref-hex.nc"'
 
 # ncl $nclscript 'grid="../grids/iconR2B04-base.nc"'
 # ncl $nclscript 'grid="../grids/iconR2B04-spring.nc"'

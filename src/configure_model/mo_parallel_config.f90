@@ -39,7 +39,7 @@ MODULE mo_parallel_config
 
   PRIVATE
   ! Exported variables:
-  PUBLIC :: nproma
+  PUBLIC :: nproma, openmp_threads
   PUBLIC :: radiation_ompthreads, nh_stepping_ompthreads, parallel_radiation_omp
   PUBLIC :: parallel_radiation_mpi, test_parallel_radiation
 
@@ -57,7 +57,10 @@ MODULE mo_parallel_config
 
   ! Number of rows of ghost cells
   INTEGER :: n_ghost_rows = 1
-
+  
+  INTEGER :: openmp_threads = -1 ! < 0 means this value is not used,
+                                 ! instead the system's value will be used
+  
   ! Division method for area subdivision
   INTEGER, PARAMETER :: div_from_file = 0  ! Read from file
   INTEGER, PARAMETER :: div_geometric = 1  ! Geometric subdivision

@@ -80,9 +80,9 @@ cat > $atmo_namelist << EOF
  division_method   = 1
  n_ghost_rows      = 1
  parallel_radiation_mpi  = .false.
- parallel_radiation_omp  = .true.
+ parallel_radiation_omp  = .false.
  test_parallel_radiation = .false.
- radiation_threads       = 1
+ radiation_threads       = 2
  nh_stepping_threads     = 1 
 /
 &grid_nml

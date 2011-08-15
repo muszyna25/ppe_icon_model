@@ -54,8 +54,11 @@ MODULE mo_ompthreads
   PUBLIC :: init_ompthreads
   PUBLIC :: new_ompthread
   PUBLIC :: end_ompthread
+  PUBLIC :: request_end_ompthread
+  PUBLIC :: delete_ompthread
   PUBLIC :: ompthread_has_endrequest
   PUBLIC :: ompthread_is_alive
+  PUBLIC :: ompthread_is_dead
 
   INTEGER, PARAMETER :: ompthreads_both_end = -2
   
@@ -65,12 +68,16 @@ MODULE mo_ompthreads
   INTEGER, PARAMETER :: ompthread_waits = 2
   INTEGER, PARAMETER :: ompthread_in_barrier = 3
   INTEGER, PARAMETER :: ompthread_ready = 4
-  INTEGER, PARAMETER :: ompthread_ends = 5
-  INTEGER, PARAMETER :: ompthread_syncrequest = 6
+  INTEGER, PARAMETER :: ompthread_ended = 5
+  INTEGER, PARAMETER :: ompthread_endrequest = 6
+  
+  INTEGER, PARAMETER :: ompthread_syncrequest = 7
+  INTEGER, PARAMETER :: ompthread_syncaknw = 8
   
   TYPE t_ompthread_strc
     INTEGER :: status
-    INTEGER :: request
+    INTEGER :: recieved_request
+    INTEGER :: send_request
 !     INTEGER :: comm_request
 !     INTEGER :: from_thread
     INTEGER :: sync_status
@@ -112,13 +119,14 @@ CONTAINS
 
     INTEGER :: thread_id
 !$ IF (omp_in_parallel()) THEN
-!$   CALL finish("new_ompthread","cannot be called form an omp parallel region")
+!$   CALL finish("new_ompthread","cannot be called from an omp parallel region")
 !$  ENDIF
     DO thread_id=1, max_ompthreads
       IF (ompthread_of(thread_id)%status == ompthread_notused) THEN
-        ompthread_of(thread_id)%status      = ompthread_ready
-        ompthread_of(thread_id)%sync_status = ompthread_ready
-        ompthread_of(thread_id)%request     = ompthread_null
+        ompthread_of(thread_id)%status           = ompthread_ready
+        ompthread_of(thread_id)%sync_status      = ompthread_null
+        ompthread_of(thread_id)%recieved_request = ompthread_null
+        ompthread_of(thread_id)%send_request     = ompthread_null
         new_ompthread%id = thread_id
         RETURN
       ENDIF
@@ -134,9 +142,21 @@ CONTAINS
     TYPE (t_ompthread), INTENT(in) :: thread
 
     ompthread_is_alive = &
-      & (ompthread_of(thread%id)%status /= ompthread_ends)
+      & (ompthread_of(thread%id)%status /= ompthread_ended)
 
   END FUNCTION ompthread_is_alive
+  !-----------------------------------------
+  
+  !-----------------------------------------
+  !>
+  LOGICAL FUNCTION ompthread_is_dead(thread)
+
+    TYPE (t_ompthread), INTENT(in) :: thread
+
+    ompthread_is_dead = &
+      & (ompthread_of(thread%id)%status == ompthread_ended)
+
+  END FUNCTION ompthread_is_dead
   !-----------------------------------------
   
   !-----------------------------------------
@@ -146,7 +166,7 @@ CONTAINS
     TYPE (t_ompthread), INTENT(in) :: thread
 
     ompthread_has_endrequest = &
-      & (ompthread_of(thread%id)%request == ompthread_ends)
+      & (ompthread_of(thread%id)%recieved_request == ompthread_endrequest)
 
   END FUNCTION ompthread_has_endrequest
   !-----------------------------------------
@@ -163,59 +183,60 @@ CONTAINS
     INTEGER  :: my_thread_id, to_thread_id
     INTEGER wait_cnt
     CHARACTER(len=*), PARAMETER :: method_name = "sync_ompthread_to"
-
-    sync_ompthread_to = ompthread_ready ! default value
     
     my_thread_id = thread_from%id
     to_thread_id = thread_to%id
     my_thread => ompthread_of(my_thread_id)
     to_thread => ompthread_of(to_thread_id)
     
-!     ompthread_of(to_thread_id)%comm_request = ompthread_sync
-!     ompthread_of(to_thread_id)%from_thread = thread_id
+    IF (ompthread_of(my_thread_id)%status == ompthread_ended) THEN
+      write(0,*) my_thread_id, ' is dead, but requests sync from thread ', to_thread_id
+      sync_ompthread_to = ompthread_ended
+      my_thread%recieved_request = sync_ompthread_to
+      RETURN
+    ENDIF
+    
     my_thread%sync_status = ompthread_syncrequest
 !$OMP FLUSH(ompthread_of)
 
+    !-----------------------------
+    ! if the other thread is dead then cancel sync
+    IF (ompthread_of(to_thread_id)%status == ompthread_ended) THEN
+      write(0,*) my_thread_id, ' requests sync from dead thread ', to_thread_id
+      sync_ompthread_to = ompthread_ended
+      my_thread%recieved_request = sync_ompthread_to
+      RETURN
+    ENDIF
+
+    !-----------------------------
+    ! sync the threads
     write(0,*) my_thread_id, ' waits for sync from ', to_thread_id
     wait_cnt = wait_for_syncrequest_ompthread(to_thread_id)
     write(0,*) my_thread_id, ' recieved sync from ', to_thread_id
     !-----------------------------
     ! make sure we communicate with the right thread.
+    ! ..................
 
-    !----------------------------- 
-    ! Note: if an ompthread ends, it will never be alive again
-    ! ( a new ompthread has to be created )
-    IF (to_thread%status == ompthread_ends) THEN
-      ! the other thread requests to end
-      IF (my_thread%status == ompthread_ends) THEN
-        CALL warning(method_name, 'Both threads request end')
-        sync_ompthread_to = ompthread_ends
-        
-      ELSE
-        ! if the other thread requests to end
-        ! then return the request and return
-        CALL message(method_name, ' Received ompthread_ends')
-        sync_ompthread_to = ompthread_ends        
-        
-      ENDIF  
+    !-----------------------------
+    ! get request
+    sync_ompthread_to = to_thread%send_request    
+    IF (sync_ompthread_to == ompthread_endrequest) THEN
+      write(0,*) my_thread_id, ' recieved ompthread_endrequest from ', to_thread_id
     ENDIF
     
-    IF (sync_ompthread_to == ompthread_ends) THEN
-      write(0,*) to_thread_id, ' requested an end to ', my_thread_id
-    ENDIF
     ! -----------------------------------------
-    ! at this point both threads are not busy
-    ! aknowledge the sync by sendind to the opposite site thread_ready
-    to_thread%sync_status = ompthread_ready
+    ! at this point both threads exchanged requests
+    ! aknowledge the sync by sending to the opposite site thread_ready
+    ! (otherwise we cannot be sure if the other thread got the right info)
+    to_thread%sync_status = ompthread_syncaknw
 !$OMP FLUSH(ompthread_of)
-
     ! wait until we get the ready signal
-    wait_cnt = wait_for_ready_ompthread(my_thread_id)
+    wait_cnt = wait_for_syncaknw_ompthread(my_thread_id)
+    write(0,*) my_thread_id, ' ackowledged sync from ', to_thread_id
    
-    my_thread%request = sync_ompthread_to
-    IF (sync_ompthread_to == ompthread_ends) THEN
-      write(0,*) to_thread_id, ' ackowledged ompthread_ends'
-    ENDIF
+    !----------------------------------------------
+    ! update my request
+    my_thread%recieved_request = sync_ompthread_to
     
     RETURN
     
@@ -241,33 +262,61 @@ CONTAINS
 
   !-----------------------------------------
   !>
-  INTEGER FUNCTION wait_for_ready_ompthread(thread_id) result(wait_cnt)
+  INTEGER FUNCTION wait_for_syncaknw_ompthread(thread_id) result(wait_cnt)
 
     INTEGER, INTENT(in) :: thread_id
 
     wait_cnt=0
     DO WHILE (.true.)
-      IF ( ompthread_of(thread_id)%sync_status == ompthread_ready) EXIT
+      IF ( ompthread_of(thread_id)%sync_status == ompthread_syncaknw) EXIT
 !       write(0,*) "thread_is_busy(thread_status):", thread_status
       wait_cnt = wait_cnt + 1
     ENDDO
     RETURN
 
-  END FUNCTION wait_for_ready_ompthread
+  END FUNCTION wait_for_syncaknw_ompthread
   !-----------------------------------------
 
 
   !-----------------------------------------
   !>
+  ! Note: if an ompthread ends, it will never be alive again
+  ! ( a new ompthread has to be created )
+  ! An ended ompthread will not communicate, its dead
   SUBROUTINE end_ompthread(thread)
 
     TYPE (t_ompthread), INTENT(in) :: thread
 
-    ompthread_of(thread%id)%status = ompthread_ends
-!$OMP FLUSH(ompthread_of)
+    ompthread_of(thread%id)%status = ompthread_ended
     write(0,*) 'Reached end_ompthread', thread%id
 
   END SUBROUTINE end_ompthread
+  !-----------------------------------------
+  
+
+  !-----------------------------------------
+  !>
+  SUBROUTINE request_end_ompthread(thread)
+
+    TYPE (t_ompthread), INTENT(in) :: thread
+
+    ompthread_of(thread%id)%send_request = ompthread_endrequest
+    write(0,*) 'set ompthread_endrequest for', thread%id
+
+  END SUBROUTINE request_end_ompthread
+  !-----------------------------------------
+  
+
+  !-----------------------------------------
+  !>
+  SUBROUTINE delete_ompthread(thread)
+
+    TYPE (t_ompthread), INTENT(in) :: thread
+
+    ompthread_of(thread%id)%status = ompthread_notused
+    write(0,*) 'Reached end_ompthread', thread%id
+
+  END SUBROUTINE delete_ompthread
   !-----------------------------------------
   
 

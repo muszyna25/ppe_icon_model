@@ -50,7 +50,6 @@ MODULE mo_timer
 
   PUBLIC :: timer_total                         !< IDs of timers
 
-  PUBLIC :: timer_omp_radiation, timer_omp_model
   PUBLIC :: timer_solve_nh
   PUBLIC :: timer_physics
                         !< IDs of timers
@@ -88,6 +87,7 @@ MODULE mo_timer
   PUBLIC :: timer_sync_psend_1, timer_sync_isend_2, timer_sync_recv_2,timer_sync_isend_3
   PUBLIC :: timer_sso
   PUBLIC :: timer_cover_koe
+  PUBLIC :: timer_omp_radiation
   
 !   PUBLIC :: ltimer                              !< if .true., switch on timer
 
@@ -97,7 +97,6 @@ MODULE mo_timer
 
   ! ID of timer for total model integration time
   INTEGER :: timer_total
-  INTEGER :: timer_omp_radiation, timer_omp_model
 
   INTEGER :: timer_solve_nh
   INTEGER :: timer_physics
@@ -147,13 +146,13 @@ MODULE mo_timer
   INTEGER :: timer_dyn2phy
   INTEGER :: timer_phy2dyn
 
+  INTEGER :: timer_omp_radiation
+
 CONTAINS
 
   SUBROUTINE init_timer
 
     timer_total     = new_timer("total")
-    timer_omp_radiation = new_timer("omp_radiation")
-    timer_omp_model = new_timer("omp_model")
 
     timer_solve_nh  = new_timer("solve_nh")
     
@@ -209,6 +208,8 @@ CONTAINS
     timer_echam_phy = new_timer("echam_phy")
     timer_dyn2phy   = new_timer("dyn2phy")
     timer_phy2dyn   = new_timer("phy2dyn")
+
+    timer_omp_radiation = new_timer("omp_radiation")
 
   END SUBROUTINE init_timer
 

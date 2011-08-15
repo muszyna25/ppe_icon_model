@@ -56,6 +56,7 @@ MODULE mo_parallel_nml
     & config_radiation_threads   => radiation_ompthreads,   &
     & config_nh_stepping_threads => nh_stepping_ompthreads, &
     & config_nproma              => nproma,                 &
+    & config_openmp_threads      => openmp_threads,         &
     & config_parallel_radiation_omp => parallel_radiation_omp,  &
     & config_parallel_radiation_mpi => parallel_radiation_mpi,  &
     & config_test_parallel_radiation=> test_parallel_radiation, &
@@ -64,60 +65,9 @@ MODULE mo_parallel_nml
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: read_parallel_namelist
- !PUBLIC :: fill_parallel_nml_configure
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  ! ------------------------------------------------------------------------
-  ! Number of rows of ghost cells
-  INTEGER :: n_ghost_rows
-
-  INTEGER :: division_method
-
-  ! Flag if checks in a verification run should be logged
-  LOGICAL :: l_log_checks
-
-  ! Flag if fast but nonreproducible sum should be used
-  LOGICAL :: l_fast_sum
-
-  ! Please note for the following variables: The default settings are for NO_MPI runs!
-
-  ! p_test_run indicates a verification run, i.e. a run where 1 PE runs the complete
-  ! model whereas the other PEs do a real parallelized run
-  LOGICAL :: p_test_run
-
-  ! if l_test_openmp is set together with p_test_run, then the verification PE uses
-  ! only 1 thread. This allows for verifying the OpenMP implementation
-  LOGICAL :: l_test_openmp
-
-  ! Type of parallel I/O
-  INTEGER :: pio_type
-  INTEGER :: num_io_procs
-  
-  ! Type of (halo) communication: 
-  ! 1 = synchronous communication with local memory for exchange buffers
-  ! 2 = synchronous communication with global memory for exchange buffers
-  ! 3 = asynchronous communication within dynamical core with global memory 
-  !     for exchange buffers (not yet implemented)
-  INTEGER :: itype_comm
-
-  ! Order of send/receive sequence in exchange routines
-  ! 1 = irecv, send
-  ! 2 = isend, recv
-  INTEGER :: iorder_sendrecv
-
-  !--------------------------------------------
-  ! namelist for parallel radiation
-  LOGICAL :: parallel_radiation_omp = .false.
-  LOGICAL :: parallel_radiation_mpi = .false.
-  LOGICAL :: test_parallel_radiation = .false.
-  INTEGER :: radiation_threads
-  INTEGER :: nh_stepping_threads
-  !--------------------------------------------
-
-  INTEGER :: nproma    ! inner loop length/vector length
-
-  
 
        
   CONTAINS
@@ -130,6 +80,57 @@ MODULE mo_parallel_nml
   !! Leonidas Linardakis, namelist restructuring, Jul 2011
   SUBROUTINE read_parallel_namelist( filename )
 
+    ! ------------------------------------------------------------------------
+    ! Number of rows of ghost cells
+    INTEGER :: n_ghost_rows
+
+    INTEGER :: division_method
+
+    ! Flag if checks in a verification run should be logged
+    LOGICAL :: l_log_checks
+
+    ! Flag if fast but nonreproducible sum should be used
+    LOGICAL :: l_fast_sum
+
+    ! Please note for the following variables: The default settings are for NO_MPI runs!
+
+    ! p_test_run indicates a verification run, i.e. a run where 1 PE runs the complete
+    ! model whereas the other PEs do a real parallelized run
+    LOGICAL :: p_test_run
+
+    ! if l_test_openmp is set together with p_test_run, then the verification PE uses
+    ! only 1 thread. This allows for verifying the OpenMP implementation
+    LOGICAL :: l_test_openmp
+
+    ! Type of parallel I/O
+    INTEGER :: pio_type
+    INTEGER :: num_io_procs
+    
+    ! Type of (halo) communication: 
+    ! 1 = synchronous communication with local memory for exchange buffers
+    ! 2 = synchronous communication with global memory for exchange buffers
+    ! 3 = asynchronous communication within dynamical core with global memory 
+    !     for exchange buffers (not yet implemented)
+    INTEGER :: itype_comm
+
+    ! Order of send/receive sequence in exchange routines
+    ! 1 = irecv, send
+    ! 2 = isend, recv
+    INTEGER :: iorder_sendrecv
+
+    !--------------------------------------------
+    ! namelist for parallel radiation
+    LOGICAL :: parallel_radiation_omp = .false.
+    LOGICAL :: parallel_radiation_mpi = .false.
+    LOGICAL :: test_parallel_radiation = .false.
+    INTEGER :: radiation_threads
+    INTEGER :: nh_stepping_threads
+    !--------------------------------------------
+
+    INTEGER :: nproma    ! inner loop length/vector length
+
+    INTEGER :: openmp_threads  
+    
     NAMELIST /parallel_nml/ n_ghost_rows,  division_method, &
       & l_log_checks,      l_fast_sum,          &
       & p_test_run,        l_test_openmp,       &
@@ -138,7 +139,7 @@ MODULE mo_parallel_nml
       & radiation_threads, nh_stepping_threads, &
       & nproma, parallel_radiation_omp,         &
       & parallel_radiation_mpi,                 &
-      & test_parallel_radiation
+      & test_parallel_radiation, openmp_threads
 
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat
@@ -186,7 +187,8 @@ MODULE mo_parallel_nml
 
     ! inner loop length/vector length
     nproma = 1
-
+    openmp_threads = -1 ! < 0 means do not use this value
+    
     ! parallel_radiation
     parallel_radiation_omp = .false.
     parallel_radiation_mpi = .false.
@@ -227,14 +229,8 @@ MODULE mo_parallel_nml
     ! Write the final namelist to an ASCII file
     IF (my_process_is_stdio()) WRITE(nnml_output,nml=parallel_nml)
 
-    CALL fill_parallel_nml_configure()
-    
-  END SUBROUTINE read_parallel_namelist
-  !-------------------------------------------------------------------------
-   
-  !-------------------------------------------------------------------------
-  SUBROUTINE fill_parallel_nml_configure
-       
+    !-----------------------------------------------------
+    ! fill_parallel_nml_configure       
     config_n_ghost_rows        = n_ghost_rows
     config_division_method     = division_method
     config_l_log_checks        = l_log_checks
@@ -248,13 +244,15 @@ MODULE mo_parallel_nml
     config_radiation_threads   = radiation_threads
     config_nh_stepping_threads = nh_stepping_threads
     config_nproma              = nproma
+    config_openmp_threads             = openmp_threads
     config_parallel_radiation_omp = parallel_radiation_omp
     config_parallel_radiation_mpi = parallel_radiation_mpi
     config_test_parallel_radiation= test_parallel_radiation
 
+    !-----------------------------------------------------
     CALL check_parallel_configuration()
-
-  END SUBROUTINE fill_parallel_nml_configure
+    
+  END SUBROUTINE read_parallel_namelist
   !-------------------------------------------------------------------------
 
 END MODULE mo_parallel_nml
