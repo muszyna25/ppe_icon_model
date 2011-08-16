@@ -823,7 +823,9 @@ scripts/postprocessing/tools/plotvar.ncl -text
 scripts/preprocessing/cdo.rb -text
 scripts/preprocessing/ifs2icon.conf -text
 scripts/preprocessing/ifs2icon.rb -text
-scripts/preprocessing/mars4icon -text
+scripts/preprocessing/mars4icon_smi_32r2- -text
+scripts/preprocessing/mars4icon_smi_32r3+ -text
+scripts/preprocessing/mars4icon_smi_ERAinterim -text
 scripts/preprocessing/omip2icon.rb -text
 scripts/preprocessing/testdata/2.98.128.table -text
 scripts/preprocessing/testdata/atm_hyb_sp_31 -text
