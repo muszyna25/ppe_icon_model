@@ -144,7 +144,7 @@ MODULE mo_io_vlist
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern
   USE mo_mpi,                   ONLY: my_process_is_mpi_workroot, my_process_is_stdio, &
     &  my_process_is_mpi_test, my_process_is_mpi_seq, process_mpi_all_test_id,         &
-    &  process_mpi_all_workroot_id, p_recv, p_send
+    &  process_mpi_all_workroot_id, p_recv, p_send, num_work_procs
   USE mo_icoham_dyn_types,      ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_nonhydro_state,        ONLY: t_nh_prog, t_nh_diag
   USE mo_oce_state,             ONLY: t_hydro_ocean_state, t_hydro_ocean_prog,       &
@@ -614,15 +614,16 @@ CONTAINS
     ! ----------------------
     CALL addGlobAttTxt('model-version',TRIM(modelname)//'-'//TRIM(modelversion),&
     &                  vlistID(k_jg),astatus)
+    CALL addGlobAttInt('mpi:num_work_procs',num_work_procs,vlistID(k_jg),astatus)
     !
     ! Parameters of /grid_nml/
     ! ------------------------
-    CALL addGlobAttInt('nroot',nroot,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('start_lev',start_lev,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('n_dom',n_dom,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('lfeedback', lfeedback(k_jg),vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('lplane',lplane,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('lvert_nest',lvert_nest,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('grid_nml:nroot',nroot,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('grid_nml:start_lev',start_lev,vlistID(k_jg),astatus)
+    CALL addGlobAttInt('grid_nml:n_dom',n_dom,vlistID(k_jg),astatus)
+    CALL addGlobAttTxtFromLog('grid_nml:lfeedback', lfeedback(k_jg),vlistID(k_jg),astatus)
+    CALL addGlobAttTxtFromLog('grid_nml:lplane',lplane,vlistID(k_jg),astatus)
+    CALL addGlobAttTxtFromLog('grid_nml:lvert_nest',lvert_nest,vlistID(k_jg),astatus)
     !
     ! Parameters of /run_nml/
     ! -----------------------
