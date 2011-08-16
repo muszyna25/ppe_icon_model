@@ -50,7 +50,7 @@ MODULE mo_ext_data
   USE mo_parallel_config,    ONLY: nproma
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, ihs_ocean, inh_atmosphere
   USE mo_run_config,         ONLY: iforcing
-  USE mo_extpar_config,      ONLY: itopo, fac_smooth_topo, n_iter_smooth_topo
+  USE mo_extpar_config,      ONLY: itopo, fac_smooth_topo, n_iter_smooth_topo, l_emiss
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_radiation_config,   ONLY: irad_o3
   USE mo_model_domain,       ONLY: t_patch
@@ -779,13 +779,10 @@ CONTAINS
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
-    ! external parameter for NWP forcing
-    IF (iforcing == inwp) THEN
 
-      ! Several IF-statements are necessary in order to allocate only
-      ! those fields which are necessary for the chosen
-      ! parameterizations.
-
+    SELECT CASE ( iforcing )
+    CASE ( inwp )
+      ! external parameter for NWP forcing
 
       ! roughness length
       !
@@ -1007,7 +1004,18 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape2d_sfc)
 
-    ENDIF ! iforcing = inwp
+    CASE ( iecham, ildf_echam)
+
+      ! longwave surface emissivity
+      !
+      ! emis_rad     p_ext_atm%emis_rad(nproma,nblks_c)
+      cf_desc    = t_cf_var('emis_rad', '-', 'longwave surface emissivity')
+      grib2_desc = t_grib2_var( 2, 3, 196, ientr, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'emis_rad', p_ext_atm%emis_rad, &
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
+        &           grib2_desc, ldims=shape2d_c)
+
+    END SELECT ! iforcing
   ENDIF ! iequations = inh_atmosphere
 
 
@@ -1592,8 +1600,9 @@ CONTAINS
           &                     ext_data(jg)%atm%fr_ice)
 
 
-        IF (iforcing == inwp) THEN
-
+        SELECT CASE ( iforcing )
+        CASE ( inwp )
+          
           CALL read_netcdf_data (ncid, 'PLCOV_MX', p_patch(jg)%n_patch_cells_g,           &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                     ext_data(jg)%atm%plcov_mx)
@@ -1634,9 +1643,11 @@ CONTAINS
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                     ext_data(jg)%atm%soiltyp)
 
-          CALL read_netcdf_data (ncid, 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,           &
-            &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
-            &                     ext_data(jg)%atm%emis_rad)
+          IF ( l_emiss ) THEN
+            CALL read_netcdf_data (ncid, 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,           &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     ext_data(jg)%atm%emis_rad)
+          ENDIF
 
           CALL read_netcdf_data (ncid, 'T_CL', p_patch(jg)%n_patch_cells_g,               &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
@@ -1665,7 +1676,16 @@ CONTAINS
           CALL read_netcdf_data (ncid, 'DEPTH_LK', p_patch(jg)%n_patch_cells_g,           &
             &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
             &                     ext_data(jg)%atm%depth_lk)
-        ENDIF ! (iforcing == inwp)
+
+        CASE ( iecham, ildf_echam )
+
+          IF ( l_emiss ) THEN
+            CALL read_netcdf_data (ncid, 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,           &
+              &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+              &                     ext_data(jg)%atm%emis_rad)
+          ENDIF
+          
+        END SELECT ! iforcing
         
       ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
 

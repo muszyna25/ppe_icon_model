@@ -44,7 +44,8 @@ MODULE mo_extpar_nml
 
   USE mo_extpar_config,       ONLY: config_itopo              => itopo             , &
                                   & config_fac_smooth_topo    => fac_smooth_topo   , &
-                                  & config_n_iter_smooth_topo => n_iter_smooth_topo
+                                  & config_n_iter_smooth_topo => n_iter_smooth_topo, &
+                                  & config_l_emiss            => l_emiss
 
   IMPLICIT NONE
   PRIVATE
@@ -60,8 +61,9 @@ MODULE mo_extpar_nml
 
   REAL(wp) :: fac_smooth_topo
   INTEGER  :: n_iter_smooth_topo
+  LOGICAL  :: l_emiss ! if true: read external emissivity map
 
-  NAMELIST /extpar_nml/ itopo, fac_smooth_topo,n_iter_smooth_topo
+  NAMELIST /extpar_nml/ itopo, fac_smooth_topo,n_iter_smooth_topo,l_emiss
 
 CONTAINS
   !>
@@ -78,6 +80,7 @@ CONTAINS
     itopo              = 0
     fac_smooth_topo    = 0.015625_wp
     n_iter_smooth_topo = 2
+    l_emiss            = .TRUE.
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -115,6 +118,7 @@ CONTAINS
     config_itopo              = itopo 
     config_fac_smooth_topo    = fac_smooth_topo 
     config_n_iter_smooth_topo = n_iter_smooth_topo
+    config_l_emiss            = l_emiss
 
     !-----------------------------------------------------
     ! Store the namelist for restart
