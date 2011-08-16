@@ -48,8 +48,8 @@ MODULE mo_ext_data
   USE mo_kind
   USE mo_io_units,           ONLY: filename_max
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, ihs_ocean, inh_atmosphere, &
-    &                              max_char_length, sea_boundary
+  USE mo_impl_constants,     ONLY: inwp, ihs_ocean, inh_atmosphere, io3_kinne,&
+      &  		           iecham, ildf_echam, max_char_length, sea_boundary
   USE mo_run_config,         ONLY: iforcing
   USE mo_ocean_nml,          ONLY: iforc_oce
   USE mo_extpar_config,      ONLY: itopo, fac_smooth_topo, n_iter_smooth_topo, l_emiss
@@ -62,7 +62,8 @@ MODULE mo_ext_data
   USE mo_math_operators,     ONLY: nabla4_scalar
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_sync,               ONLY: SYNC_C, SYNC_V, sync_patch_array
-  USE mo_mpi,                ONLY: p_pe, p_io, p_bcast, p_comm_work_test, p_comm_work
+  USE mo_mpi,                ONLY: my_process_is_stdio, p_pe,p_io, p_bcast,&
+    &                              p_comm_work_test, p_comm_work
   USE mo_parallel_config,    ONLY: p_test_run
   USE mo_communication,      ONLY: idx_no, blk_no
   USE mo_linked_list,        ONLY: t_var_list
@@ -437,19 +438,22 @@ CONTAINS
 
     ! Check, whether external data should be read from file
     ! 
-    SELECT CASE(itopo)
-
-    CASE(0) ! do not read external data
-            ! topography from analytical functions
 
     !-------------------------------------------------------------------------
     !Ozone and aerosols
     !-------------------------------------------------------------------------
 
-      IF(irad_o3 == 3) THEN
+      WRITE(0,*)'inquire  ozonefile if',irad_o3,'=',io3_kinne
+      IF(irad_o3 == io3_kinne) THEN
         CALL message( TRIM(routine),'external ozone data required' )
         CALL read_ext_data_atm (p_patch, ext_data)   ! read ozone
       ENDIF
+
+
+    SELECT CASE(itopo)
+
+    CASE(0) ! do not read external data
+            ! topography from analytical functions
 
     !-------------------------------------------------------------------------
     ! surface/vegetation  parameter
@@ -476,6 +480,8 @@ CONTAINS
           ext_data(jg)%atm%emis_rad(:,:)    = 0.996_wp ! longwave surface emissivity
         END DO
       END SELECT
+
+      CALL message( TRIM(routine),'Running with analytical topography' )
 
     CASE(1) ! read external data from netcdf dataset
 
@@ -1022,9 +1028,6 @@ CONTAINS
   ENDIF ! iequations = inh_atmosphere
 
 
-! #Hermann#
-! Echam physics external parameter have to be allocated and initialized as well
-
   END SUBROUTINE new_ext_data_atm_list
 
 
@@ -1097,7 +1100,25 @@ CONTAINS
     ! ATTENTION: a GRIB2 number will go to 
     ! the ozone mass mixing ratio...
     !
-    IF(irad_o3 == 3) THEN 
+    IF(irad_o3 == io3_kinne) THEN 
+
+      ! o3  main pressure level from read-in file
+      cf_desc    = t_cf_var('O3_pf', 'Pa',   &
+        &                   'ozone main pressure level')
+      grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_td_list, 'O3_pf', p_ext_atm_td%pfoz, &
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, &
+        &           grib2_desc, ldims=(/nlev_pres/) )
+      WRITE(0,*)'pfoz allocated',MAXVAL(p_ext_atm_td%pfoz(:)),nlev_pres
+
+      ! o3  intermediate pressure level
+      cf_desc    = t_cf_var('O3_ph', 'Pa',   &
+        &                   'ozone intermediate pressure level')
+      grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_td_list, 'O3_ph', p_ext_atm_td%phoz, &
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, &
+        &           grib2_desc, ldims=(/nlev_pres+1/) )
+
       ! o3       p_ext_atm_td%o3(nproma,nlev_pres,nblks_c,nmonths)
       cf_desc    = t_cf_var('O3', 'mole mole^-1',   &
         &                   'mole_fraction_of_ozone_in_air')
@@ -1398,7 +1419,7 @@ CONTAINS
       !------------------------------------------------!
       IF (itopo == 1 .AND. iequations /=ihs_ocean ) THEN
 
-        IF(p_pe == p_io) THEN
+        IF( my_process_is_stdio()) THEN
           !
           ! generate file name
           !
@@ -1463,17 +1484,22 @@ CONTAINS
       ! 2. Check validity of ozone file                !
       !------------------------------------------------!
 
-      IF(irad_o3 == 3) THEN
+      IF(irad_o3 == io3_kinne) THEN
+
+
         ! default values for nlev_pres and nmonths
         nlev_pres = 1
         nmonths   = 1
 
-        IF(p_pe == p_io) THEN
+        IF(my_process_is_stdio()) THEN
 
           WRITE(ozone_file,'(a,i2.2,a)') 'o3_icon_DOM',jg,'.nc'
 
+          ! Note resolution assignment is done per script by symbolic links
+
           INQUIRE (FILE=ozone_file, EXIST=l_exist)
           IF (.NOT.l_exist) THEN
+            WRITE(0,*) 'DOMAIN=',jg
             CALL finish(TRIM(routine),'ozone file of domain is not found.')
           ENDIF
 
@@ -1508,11 +1534,12 @@ CONTAINS
           ! check the vertical structure
           CALL nf(nf_inq_dimid (ncid, 'plev', dimid))
           CALL nf(nf_inq_dimlen(ncid, dimid, nlev_pres))
-        
+
           CALL message(TRIM(ROUTINE),message_text)
           WRITE(message_text,'(A,I4)')  &
             & 'Number of pressure levels in ozone file = ', &
             & nlev_pres
+          
 
           ! check the time structure
           CALL nf(nf_inq_dimid (ncid, 'time', dimid))
@@ -1559,10 +1586,11 @@ CONTAINS
     CHARACTER(filename_max) :: extpar_file !< file name for reading in
     CHARACTER(filename_max) :: ozone_file  !< file name for reading in
 
-    INTEGER :: jg
-    INTEGER :: i_lev
-    INTEGER :: ncid
+    INTEGER :: jg,i, mpi_comm
+    INTEGER :: i_lev,jk
+    INTEGER :: ncid, dimid, varid
 
+    REAL(wp)::zdummy_plev(nlev_pres)
 
 !-------------------------------------------------------------------------
 
@@ -1571,7 +1599,7 @@ CONTAINS
 
       i_lev = p_patch(jg)%level
 
-      IF(p_pe == p_io) THEN
+      IF(my_process_is_stdio()) THEN
 
         !
         ! generate file name and open file
@@ -1731,7 +1759,7 @@ CONTAINS
       !
       ! close file
       !
-      IF(p_pe == p_io) CALL nf(nf_close(ncid))
+      IF( my_process_is_stdio()) CALL nf(nf_close(ncid))
 
     ENDDO
 
@@ -1742,25 +1770,47 @@ CONTAINS
       ! Read ozone
       !-------------------------------------------------------
 
-    IF(irad_o3 == 3) THEN
+    IF(irad_o3 == io3_kinne) THEN
+
+        IF(p_test_run) THEN
+          mpi_comm = p_comm_work_test
+        ELSE
+          mpi_comm = p_comm_work
+        ENDIF
 
       DO jg = 1,n_dom
-        IF(p_pe == p_io) THEN
 
-
+        IF(my_process_is_stdio()) THEN
           ! open file
           !
           WRITE(ozone_file,'(a,I2.2,a)') 'o3_icon_DOM',jg,'.nc'
           CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid))
+          WRITE(0,*)'read ozone levels'
+          CALL nf(nf_inq_varid(ncid, 'plev', varid))
+          CALL nf(nf_get_var_double(ncid, varid,zdummy_plev(:) ))
+
+          !
         ENDIF ! pe
 
-        ! read pressure levels of ozone climatology
-        !  CALL nf(nf_inq_dimid (ncid, 'plev', dimid))
-        !  CALL nf(nf_inq_dimlen(ncid, dimid, nlev_pres))
-       ! IF ( .NOT. ALLOCATED(pfoz))  ALLOCATE(pfoz(nlev_pres))
-       ! IF ( .NOT. ALLOCATED(pfoz))  ALLOCATE(phoz(nlev_pres+1))
+        CALL p_bcast(zdummy_plev(:), p_io, mpi_comm)      
 
-        !CALL nf(nf_get_var_double(ncid, 'plev', ext_data(jg)%atm_td%pfoz(:)))
+          DO jk=1,nlev_pres
+            ext_data(jg)%atm_td%pfoz(jk)=zdummy_plev(jk)
+          ENDDO
+
+          ! define half levels of ozone pressure grid
+          ! upper boundary: ph =      0.Pa -> extrapolation of uppermost value
+          ! lower boundary: ph = 125000.Pa -> extrapolation of lowermost value
+          ext_data(jg)%atm_td%phoz(1)           = 0._wp
+          ext_data(jg)%atm_td%phoz(2:nlev_pres) = (ext_data(jg)%atm_td%pfoz(1:nlev_pres-1) &
+            &                                   +  ext_data(jg)%atm_td%pfoz(2:nlev_pres))*.5_wp
+          ext_data(jg)%atm_td%phoz(nlev_pres+1) = 125000._dp
+
+          DO i=1,nlev_pres
+            WRITE(0,*) 'full/half level press ozone ', i, ext_data(jg)%atm_td%pfoz(i),&
+              &                                           ext_data(jg)%atm_td%phoz(i+1)
+          ENDDO
+
 
         IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
           CALL read_netcdf_data (ncid, 'O3', & ! &
@@ -1781,22 +1831,11 @@ CONTAINS
         !
         ! close file
         !
-        IF(p_pe == p_io) CALL nf(nf_close(ncid))
+        IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
 
       ENDDO ! ndom
     ENDIF ! irad_o3
 
-!    write(0,*)'try to give a number of ozone'
-!    write(0,*)'any value jan', ext_data(1)%atm_td%O3(1,1,1,1)
-!    write(0,*)'maxval dec',MAXVAL( ext_data(1)%atm_td%O3(:,nlev_pres,:,nmonths))
-
-!   ! define half levels of ozone pressure grid
-!   ! upper boundary: ph =      0.Pa -> extrapolation of uppermost value
-!   ! lower boundary: ph = 125000.Pa -> extrapolation of lowermost value
-!   phoz(1)=0._dp
-!   phoz(2:noz)=(pfoz(1:noz-1)+pfoz(2:noz))/2._dp
-!   phoz(noz+1)=125000._dp
-!
 
   END SUBROUTINE read_ext_data_atm
   !-------------------------------------------------------------------------
@@ -2064,7 +2103,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
     ! Get var ID
-    IF(p_pe==p_io) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
+    IF( my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -2074,7 +2113,7 @@ CONTAINS
 
     ! I/O PE reads and broadcasts data
 
-    IF(p_pe==p_io) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:)))
+    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:)))
     CALL p_bcast(z_dummy_array, p_io, mpi_comm)
 
     var_out(:,:) = 0._wp
@@ -2116,7 +2155,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
     ! Get var ID
-    IF(p_pe==p_io) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
+    IF( my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -2126,7 +2165,7 @@ CONTAINS
 
     ! I/O PE reads and broadcasts data
 
-    IF(p_pe==p_io) CALL nf(nf_get_var_int(ncid, varid, z_dummy_array(:)))
+    IF( my_process_is_stdio()) CALL nf(nf_get_var_int(ncid, varid, z_dummy_array(:)))
     CALL p_bcast(z_dummy_array, p_io, mpi_comm)
 
     var_out(:,:) = 0
@@ -2172,7 +2211,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
     ! Get var ID
-    IF(p_pe==p_io) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
+    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -2182,7 +2221,7 @@ CONTAINS
 
     ! I/O PE reads and broadcasts data
 
-    IF(p_pe==p_io) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:)))
+    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:)))
     CALL p_bcast(z_dummy_array, p_io, mpi_comm)
 
     var_out(:,:,:) = 0._wp
@@ -2233,7 +2272,7 @@ CONTAINS
   !-------------------------------------------------------------------------
 
     ! Get var ID
-    IF(p_pe==p_io) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
+    IF(my_process_is_stdio()) CALL nf(nf_inq_varid(ncid, TRIM(varname), varid))
 
     IF(p_test_run) THEN
       mpi_comm = p_comm_work_test
@@ -2243,8 +2282,8 @@ CONTAINS
 
     ! I/O PE reads and broadcasts data
 
-    IF(p_pe==p_io) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:,:)))
-    CALL p_bcast(z_dummy_array, p_io, mpi_comm)
+    IF(my_process_is_stdio()) CALL nf(nf_get_var_double(ncid, varid, z_dummy_array(:,:,:)))
+    CALL p_bcast(z_dummy_array, p_io , mpi_comm)
 
     var_out(:,:,:,:) = 0._wp
 

@@ -222,6 +222,10 @@ MODULE mo_impl_constants
                                       ! microphysics, saturation adjustment, tracerupdate, 
                                       ! gwd, turbulence, surface
 
+  ! external parameter for radiation
+
+  INTEGER, PARAMETER :: io3_kinne    =  3
+  INTEGER, PARAMETER :: iaero_kinne  =  3
 
   !
   ! transport identifiers
