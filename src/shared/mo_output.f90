@@ -55,7 +55,6 @@ MODULE mo_output
   USE mo_io_vlist,            ONLY: setup_vlist, destruct_vlist,           &
      &                              open_output_vlist, close_output_vlist, &
      &                              write_vlist
-  USE mo_io_vlist,            ONLY: setup_vlist_oce
   USE mo_io_async,            ONLY: setup_io_procs, shutdown_io_procs, &
     &                               output_async, set_output_file
   USE mo_datetime,            ONLY: t_datetime,iso8601
@@ -144,7 +143,6 @@ CONTAINS
         ! Set up vlist for this grid level
         ! Please note: setup_vlist only sets up the vlist, it does not open any output file!
        
-        IF(iequations /= ihs_ocean) &
         CALL setup_vlist( TRIM(p_patch(jg)%grid_filename), jg )
 
       ENDDO
@@ -203,16 +201,16 @@ CONTAINS
 
     ! WRITE(0,'(a,a)') ' Initial output file for setup_vlist is ', &
     !     &              TRIM(outputfile)
-      IF (iequations == ihs_ocean) THEN
-        ! #slo# must be aligned with general output
-        CALL setup_vlist_oce( p_patch(1:), TRIM(p_patch(jg)%grid_filename), TRIM(outputfile), jg )
-      ELSE
+     !IF (iequations == ihs_ocean) THEN
+     !  ! #slo# must be aligned with general output
+     !  !CALL setup_vlist_oce( p_patch(1:), TRIM(p_patch(jg)%grid_filename), TRIM(outputfile), jg )
+     !ELSE
         IF(process_mpi_io_size == 0) THEN
           IF(p_pe == p_io) CALL open_output_vlist(TRIM(outputfile), jg)
         ELSE
           CALL set_output_file(outputfile, jg)
         ENDIF
-      ENDIF
+     !ENDIF
 
     ENDDO
 
@@ -315,11 +313,11 @@ CONTAINS
 
     !----------------
     ! Initialization
-    klev = patch%nlev
-    jg   = patch%id
-    kcell =patch%n_patch_cells_g
-    kvert = patch%n_patch_verts_g
-    kedge = patch%n_patch_edges_g
+    klev      = patch%nlev
+    jg        = patch%id
+    kcell     = patch%n_patch_cells_g
+    kvert     = patch%n_patch_verts_g
+    kedge     = patch%n_patch_edges_g
     icelltype = patch%cell_type
     
     CALL set_restart_attribute( 'current_year'  , datetime%year   )   

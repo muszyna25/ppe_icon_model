@@ -107,7 +107,7 @@ CONTAINS
     ! Sanity check
     !----------------------------------------------------
     SELECT CASE (itopo)
-    CASE (0,1) !OK
+    CASE (0,1,2) !OK
     CASE default
       CALL finish(TRIM(routine),'Wrong value for itopo. Must be 0 or 1.')
     END SELECT

@@ -40,8 +40,7 @@ MODULE mo_ocean_model
     & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type
   USE mo_timer,               ONLY: init_timer, print_timer
   USE mo_datetime,            ONLY: t_datetime
-  USE mo_output,              ONLY: init_output_files
-  USE mo_io_vlist,            ONLY: write_vlist_oce, destruct_vlist_oce
+  USE mo_output,              ONLY: init_output_files, write_output, close_output_files
   USE mo_grid_config,         ONLY: n_dom, n_dom_start, global_cell_type !, &
 !                                  dynamics_parent_grid_id
   USE mo_dynamics_config,     ONLY: iequations
@@ -96,7 +95,7 @@ MODULE mo_ocean_model
   USE mo_intp_state,          ONLY: construct_2d_interpol_state, &
     & destruct_2d_interpol_state
   
-  USE mo_oce_state,           ONLY: t_hydro_ocean_state 
+  USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_ocean_state
   
 !0  USE mo_mpiom_phy_state,     ONLY: construct_mpiom_phy_state, &
 !0    &                               destruct_mpiom_phy_state
@@ -112,8 +111,10 @@ MODULE mo_ocean_model
     & prepare_ho_integration,&
     & finalise_ho_integration
   
-  USE mo_oce_forcing,         ONLY: t_ho_sfc_flx
-  USE mo_oce_physics,         ONLY: t_ho_params, t_ho_physics
+  USE mo_oce_forcing,         ONLY: t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean, &
+    &                               v_sfc_flx
+  USE mo_oce_physics,         ONLY: t_ho_params!, t_ho_physics
+  USE mo_sea_ice,             ONLY: t_sea_ice 
 
   ! For the coupling
   USE mo_impl_constants,      ONLY: CELLS, MAX_CHAR_LENGTH
@@ -144,13 +145,11 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: routine = "mo_ocean_model:ocean_model"
 
-    ! Ad-hoc declaration for the hydrostatic ocean state variables.
-    ! This declaration and the declarations for the atmospheric model states, see
-    ! "USE mo_atmo_control" above, should eventually be organized in the same way.
-    TYPE(t_hydro_ocean_state), TARGET, ALLOCATABLE, SAVE :: p_hyoce_state(:)
-    TYPE(t_ho_sfc_flx)                              :: p_sfc_flx
     TYPE (t_ho_params)                              :: p_phys_param
-    TYPE(t_ho_physics)                              :: p_physics_oce
+    TYPE(t_atmos_for_ocean)                         :: p_as
+    TYPE(t_atmos_fluxes)                            :: p_atm_f
+    TYPE (t_sea_ice)                                :: p_ice
+
     TYPE(t_datetime)                                :: datetime
     
     INTEGER :: n_io, jg, jfile, n_file, ist, n_diag
@@ -275,17 +274,10 @@ CONTAINS
     !------------------------------------------------------------------
     ! step 5b: allocate state variables
     !------------------------------------------------------------------
-    
-    ALLOCATE (p_hyoce_state(n_dom), stat=ist)
+    ALLOCATE (v_ocean_state(n_dom), stat=ist)
     IF (ist /= success) THEN
-      CALL finish(TRIM(routine),'allocation for p_hyoce_state failed')
+      CALL finish(TRIM(routine),'allocation for v_ocean_state failed')
     ENDIF
-    ! #slo# - temporarily switched on for comparison with rbf-reconstruction
-    ALLOCATE (p_hydro_state(n_dom), stat=ist)
-    IF (ist /= success) THEN
-      CALL finish(TRIM(routine),'allocation for p_hydro_state failed')
-    ENDIF
-
     
     !-------------------------------------------------------------------
     ! 7. Domain decomposition: 
@@ -366,7 +358,6 @@ CONTAINS
     ! allocate memory for oceanic external data and
     ! optionally read those data from netCDF file.
       CALL init_ext_data (p_patch(1:), p_int_state, ext_data)
-    
 
     !------------------------------------------------------------------
     ! Prepare raw data output file
@@ -383,9 +374,9 @@ CONTAINS
     CALL init_output_files(jfile, lclose=.FALSE.)
     
     ! Prepare time integration
+      CALL prepare_ho_integration(p_patch(1:), v_ocean_state, ext_data, v_sfc_flx, &
+        &                         p_phys_param, p_as, p_atm_f, p_ice)
 
-    CALL prepare_ho_integration( p_patch(1:), p_hyoce_state,           &
-                               & p_sfc_flx, p_phys_param, p_physics_oce)
     
     !------------------------------------------------------------------
     ! Daniel: Suggestion for point 5 of Feature #333
@@ -402,7 +393,7 @@ CONTAINS
     !------------------------------------------------------------------
     ! Write out the inital values
     !------------------------------------------------------------------
-    CALL write_vlist_oce( p_patch(1:), p_hyoce_state, p_sfc_flx, datetime )
+    CALL write_output(datetime )
 
 
     !------------------------------------------------------------------
@@ -443,8 +434,12 @@ CONTAINS
 !       ENDDO
 
       CALL ICON_cpl_search
-
+      
     ENDIF
+
+   CALL write_output( datetime )
+
+
 
     !------------------------------------------------------------------
     ! Now start the time stepping:
@@ -456,11 +451,11 @@ CONTAINS
     n_file = NINT(dt_file/dtime)         ! - trigger output file
     n_diag = MAX(1,NINT(dt_diag/dtime))  ! - compute global intervals
     
-      CALL perform_ho_stepping( p_patch(1:), p_hyoce_state,&
-        & datetime, n_io, n_file,    &
-        & p_int_state(1:),           &
-        & p_sfc_flx,                 &
-        & p_phys_param)
+      CALL perform_ho_stepping( p_patch(1:), v_ocean_state,&
+        &                       ext_data, datetime, n_io, n_file,    &
+        &                       p_int_state(1:),                     &
+        &                       v_sfc_flx,                           &
+        &                       p_phys_param, p_as, p_atm_f, p_ice)
     
     IF (ltimer) CALL print_timer
     
@@ -469,7 +464,7 @@ CONTAINS
     !------------------------------------------------------------------
     CALL message(TRIM(routine),'start to clean up')
     
-    CALL finalise_ho_integration(p_hyoce_state, p_phys_param, p_physics_oce)
+    CALL finalise_ho_integration(v_ocean_state, p_phys_param, p_as, p_atm_f, p_ice)
     
     
 
@@ -477,6 +472,7 @@ CONTAINS
     ! 13. Integration finished. Carry out the shared clean-up processes
     !---------------------------------------------------------------------
     ! Destruct external data state
+!       CALL destruct_vlist_oce( jg )
 
     CALL destruct_ext_data
 
@@ -485,12 +481,6 @@ CONTAINS
     IF (error_status/=success) THEN
       CALL finish(TRIM(routine), 'deallocation of ext_data')
     ENDIF
-    
-    ! Delete variable lists
-
-    DO jg = 1, n_dom
-      CALL destruct_vlist_oce( jg )
-    END DO
     
     ! Deallocate interpolation fields
     ! interpolation state not used for ocean model
@@ -522,6 +512,9 @@ CONTAINS
       CALL finish(TRIM(routine),'deallocate for patch array failed')
     ENDIF
     
+    ! Delete variable lists
+    CALL close_output_files
+
     CALL message(TRIM(routine),'clean-up finished')
 
   END SUBROUTINE ocean_model

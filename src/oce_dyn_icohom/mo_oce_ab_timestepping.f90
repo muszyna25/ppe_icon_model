@@ -52,9 +52,10 @@ MODULE mo_oce_ab_timestepping
 USE mo_ocean_nml,                      ONLY: idisc_scheme
 USE mo_dynamics_config,                ONLY: nold, nnew
 USE mo_oce_state,                      ONLY: t_hydro_ocean_state!, t_hydro_ocean_diag
-USE mo_oce_forcing,                     ONLY: t_ho_sfc_flx
+USE mo_oce_forcing,                    ONLY: t_sfc_flx
 USE mo_interpolation,                  ONLY: t_int_state
 USE mo_model_domain,                   ONLY: t_patch
+USE mo_ext_data,                       ONLY: t_external_data
 !USE mo_exception,                      ONLY: message, finish!, message_text
 !USE mo_loopindices,                    ONLY: get_indices_c, get_indices_e !, get_indices_v
 !USE mo_oce_index,                      ONLY: c_i, c_b, c_k, ne_b, ne_i, nc_b, nc_i, form4ar, ldbg
@@ -90,11 +91,13 @@ CONTAINS
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
 !! 
-SUBROUTINE solve_free_surface_eq_ab(p_patch, p_os, p_sfc_flx, p_phys_param, timestep, p_int)
+SUBROUTINE solve_free_surface_eq_ab(p_patch, p_os, p_ext_data, p_sfc_flx, &
+  &                                 p_phys_param, timestep, p_int)
 !
 TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
-TYPE(t_hydro_ocean_state), TARGET             :: p_os 
-TYPE(t_ho_sfc_flx), INTENT(INOUT)             :: p_sfc_flx    
+TYPE(t_hydro_ocean_state), TARGET             :: p_os
+TYPE(t_external_data), TARGET                 :: p_ext_data 
+TYPE(t_sfc_flx), INTENT(INOUT)                :: p_sfc_flx    
 TYPE (t_ho_params)                            :: p_phys_param
 INTEGER                                       :: timestep
 TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL :: p_int
@@ -104,11 +107,13 @@ TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL :: p_int
 
 IF(idisc_scheme==MIMETIC_TYPE)THEN
 
-  CALL solve_free_sfc_ab_mimetic(p_patch, p_os, p_sfc_flx, p_phys_param, timestep, p_int)
+  CALL solve_free_sfc_ab_mimetic(p_patch, p_os, p_ext_data, p_sfc_flx, &
+    &                            p_phys_param, timestep, p_int)
 
 ELSEIF(idisc_scheme==RBF_TYPE)THEN
 
-  CALL solve_free_sfc_ab_RBF(p_patch, p_os, p_sfc_flx, p_phys_param, timestep, p_int)
+  CALL solve_free_sfc_ab_RBF(p_patch, p_os, p_ext_data, p_sfc_flx, &
+    &                        p_phys_param, timestep, p_int)
 
 ENDIF
 
@@ -123,13 +128,12 @@ END SUBROUTINE solve_free_surface_eq_ab
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
 !! 
-SUBROUTINE calc_normal_velocity_ab(p_patch, p_os)
+SUBROUTINE calc_normal_velocity_ab(p_patch, p_os, p_ext_data, p_phys_param)
 !
-! Patch on which computation is performed
 TYPE(t_patch), TARGET, INTENT(in) :: p_patch
-!
-! Type containing ocean state
 TYPE(t_hydro_ocean_state), TARGET :: p_os
+TYPE(t_external_data), TARGET     :: p_ext_data 
+TYPE (t_ho_params)                :: p_phys_param
 !
 !
 !  local variables
@@ -139,11 +143,11 @@ TYPE(t_hydro_ocean_state), TARGET :: p_os
 !-----------------------------------------------------------------------  
 IF(idisc_scheme==MIMETIC_TYPE)THEN
 
-  CALL calc_normal_velocity_ab_mimetic(p_patch, p_os)
+  CALL calc_normal_velocity_ab_mimetic(p_patch, p_os, p_ext_data, p_phys_param)
 
 ELSEIF(idisc_scheme==RBF_TYPE)THEN
 
-  CALL calc_normal_velocity_ab_RBF(p_patch, p_os)
+  CALL calc_normal_velocity_ab_RBF(p_patch, p_os, p_ext_data)
 
 ENDIF
 

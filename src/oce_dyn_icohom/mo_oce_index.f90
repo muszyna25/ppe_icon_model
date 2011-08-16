@@ -53,8 +53,9 @@ USE mo_impl_constants,         ONLY: land, land_boundary, boundary, sea_boundary
 USE mo_math_constants,         ONLY: pi
 USE mo_exception,              ONLY: message, message_text, finish
 USE mo_model_domain,           ONLY: t_patch
+USE mo_ext_data,               ONLY: t_external_data
 USE mo_model_domain_import,    ONLY: n_dom
-USE mo_oce_state,              ONLY: t_hydro_ocean_state
+USE mo_oce_state,              ONLY: t_hydro_ocean_state, v_base
 
 
 IMPLICIT NONE
@@ -94,11 +95,12 @@ CONTAINS
   !! Initial release by Stephan Lorenz, MPI-M (2010-11)
   !
   !
-  SUBROUTINE init_index_test (ppatch, pstate_oce)
+  SUBROUTINE init_index_test (ppatch, pstate_oce, p_ext_data)
 
 
   TYPE(t_patch),             TARGET, INTENT(IN)     :: ppatch(n_dom)
   TYPE(t_hydro_ocean_state), TARGET, INTENT(INOUT)  :: pstate_oce(n_dom)
+  TYPE(t_external_data),     TARGET, INTENT(IN)     :: p_ext_data(n_dom)
 
   INTEGER :: jg, jt, i, islmval, idolic
   !INTEGER :: jb, ji
@@ -257,9 +259,9 @@ CONTAINS
     END IF
 
     ! slm and coordinates of this point:
-    islmval = ppatch(jg)%patch_oce%lsm_oce_c(c_i,c_k,c_b)
-    idolic  = ppatch(jg)%patch_oce%dolic_c      (c_i,c_b)
-    bathy   = ppatch(jg)%patch_oce%bathymetry_c (c_i,c_b)
+    islmval = v_base%lsm_oce_c(c_i,c_k,c_b)
+    idolic  = v_base%dolic_c  (c_i,    c_b)
+    bathy   = p_ext_data(jg)%oce%bathymetry_c (c_i,c_b)
     zlat = ppatch(jg)%cells%center(c_i,c_b)%lat * 180.0_wp / pi
     zlon = ppatch(jg)%cells%center(c_i,c_b)%lon * 180.0_wp / pi
 
@@ -285,11 +287,11 @@ CONTAINS
       ! slm and coordinates of edges
       ne_b(i)=ppatch(jg)%cells%edge_blk(c_i,c_b,i)
       ne_i(i)=ppatch(jg)%cells%edge_idx(c_i,c_b,i)
-      islmval = ppatch(jg)%patch_oce%lsm_oce_e   (ne_i(i),c_k,ne_b(i))
-      idolic  = ppatch(jg)%patch_oce%dolic_e     (ne_i(i),ne_b(i))
-      bathy   = ppatch(jg)%patch_oce%bathymetry_e(ne_i(i),ne_b(i))
-      zlat    = ppatch(jg)%edges%center          (ne_i(i),ne_b(i))%lat * 180.0_wp / pi
-      zlon    = ppatch(jg)%edges%center          (ne_i(i),ne_b(i))%lon * 180.0_wp / pi
+      islmval = v_base%lsm_oce_e  (ne_i(i),c_k,ne_b(i))
+      idolic  = v_base%dolic_e    (ne_i(i),ne_b(i))
+      bathy   = p_ext_data(jg)%oce%bathymetry_e (ne_i(i),ne_b(i))
+      zlat    = ppatch(jg)%edges%center         (ne_i(i),ne_b(i))%lat * 180.0_wp / pi
+      zlon    = ppatch(jg)%edges%center         (ne_i(i),ne_b(i))%lon * 180.0_wp / pi
       ! output
       WRITE(message_text,97) ' Edge E',i,' block=',ne_b(i),'  index=',ne_i(i),              &
         &                    '  lsm_e=', islmval,'  dolic_e=',idolic,'  bathy_e=', bathy, &
@@ -301,11 +303,11 @@ CONTAINS
       ! slm and coordinates of vertices
       nv_b(i)=ppatch(jg)%cells%vertex_blk(c_i,c_b,i)
       nv_i(i)=ppatch(jg)%cells%vertex_idx(c_i,c_b,i)
-      islmval = ppatch(jg)%patch_oce%lsm_oce_c(c_i,c_k,c_b)
-      idolic  = ppatch(jg)%patch_oce%dolic_c      (c_i,c_b)
-      bathy   = ppatch(jg)%patch_oce%bathymetry_c (c_i,c_b)
-      zlat    = ppatch(jg)%edges%center          (nv_i(i),nv_b(i))%lat * 180.0_wp / pi
-      zlon    = ppatch(jg)%edges%center          (nv_i(i),nv_b(i))%lon * 180.0_wp / pi
+      islmval = v_base%lsm_oce_c(c_i,c_k,c_b)
+      idolic  = v_base%dolic_c  (c_i,    c_b)
+      bathy   = p_ext_data(jg)%oce%bathymetry_c (c_i,c_b)
+      zlat    = ppatch(jg)%edges%center         (nv_i(i),nv_b(i))%lat * 180.0_wp / pi
+      zlon    = ppatch(jg)%edges%center         (nv_i(i),nv_b(i))%lon * 180.0_wp / pi
       ! output
       WRITE(message_text,97) ' Vert V',i,' block=',nv_b(i),'  index=',nv_i(i),              &
         &                    '  lsm_c=', islmval,'  dolic_c=',idolic,'  bathy_c=', bathy, &
@@ -323,11 +325,11 @@ CONTAINS
         nc_b(i) = c_b
         WRITE(message_text,'(a)') ' Neighbor Cell is on LAND - NOT DEFINED'
       ELSE
-        islmval = ppatch(jg)%patch_oce%lsm_oce_c   (nc_i(i),c_k,nc_b(i))
-        idolic  = ppatch(jg)%patch_oce%dolic_c     (nc_i(i),nc_b(i))
-        bathy   = ppatch(jg)%patch_oce%bathymetry_c(nc_i(i),nc_b(i))
-        zlat    = ppatch(jg)%cells%center          (nc_i(i),nc_b(i))%lat * 180.0_wp / pi
-        zlon    = ppatch(jg)%cells%center          (nc_i(i),nc_b(i))%lon * 180.0_wp / pi
+        islmval = v_base%lsm_oce_c  (nc_i(i),c_k,nc_b(i))
+        idolic  = v_base%dolic_c    (nc_i(i),    nc_b(i))
+        bathy   = p_ext_data(jg)%oce%bathymetry_c (nc_i(i),nc_b(i))
+        zlat    = ppatch(jg)%cells%center         (nc_i(i),nc_b(i))%lat * 180.0_wp / pi
+        zlon    = ppatch(jg)%cells%center         (nc_i(i),nc_b(i))%lon * 180.0_wp / pi
         WRITE(message_text,97) ' Neighbor  C',i,' =',nc_b(i),'  index=',nc_i(i),            &
           &                    '  lsm_c=', islmval,'  dolic_c=',idolic,'  bathy_c=', bathy, &
           &                    '  lat=',zlat,'  lon=',zlon

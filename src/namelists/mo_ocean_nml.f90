@@ -82,12 +82,16 @@ MODULE mo_ocean_nml
   INTEGER  :: n_zlev        ! number of ocean levels
   REAL(wp) :: dzlev_m(100)  ! namelist input of layer thickness
 
-
-
+  INTEGER, PARAMETER :: toplev    = 1   ! surface ocean level
 
   ! parameterized forcing for ocean model:
-  INTEGER            :: iforc_oce       =   0   ! index of parameterized forcing
-
+  INTEGER            :: iforc_oce                 =   0   ! index of parameterized forcing
+  INTEGER, PARAMETER :: NO_FORCING                = 10
+  INTEGER, PARAMETER :: ANALYT_FORC               = 11
+  INTEGER,PARAMETER  :: FORCING_FROM_FILE_FLUX    = 12
+  INTEGER,PARAMETER  :: FORCING_FROM_FILE_FIELD   = 13
+  INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FLUX = 14
+  INTEGER, PARAMETER :: FORCING_FROM_COUPLED_FIELD= 15
 
   ! parameterized test cases for ocean model:
   INTEGER            :: itestcase_oce   =   0   ! index of parameterized test cases
@@ -128,7 +132,7 @@ MODULE mo_ocean_nml
 
   ! parameterized shallow water mode in the ocean model
   INTEGER            :: iswm_oce        =   0  ! switch for shallow water mode (1 = on, 0 = 3dim)
-  INTEGER            :: idisc_scheme   =    0  ! discretization scheme: 1 for mimetic, 
+  INTEGER            :: idisc_scheme    =   0  ! discretization scheme: 1 for mimetic, 
                                                ! 2 for RBF-type of discretization
  
   ! parameters for Adams-Bashforth semi-implicit time stepping scheme
@@ -156,6 +160,9 @@ MODULE mo_ocean_nml
   REAL(wp) :: s_ref                 = 0.0_wp   ! reference salinity for initialization
   REAL(wp) :: bottom_drag_coeff     = 0.002_wp ! chezy coefficient for bottom friction
   REAL(wp) :: wstress_coeff         = 1.e-4_wp ! windstress coefficient
+  INTEGER  :: temperature_relaxation= 1
+  REAL(wp) :: relaxation_param      = 0.0_wp   ! parameter for relaxation of tracer surface fluxes (same value for all tracers)
+                                               !this value is divided by number of seconds per month (=30*24*3600)
 
   INTEGER  :: coriolis_type         = 1        ! 0=zero Coriolis, the non-rotating case
                                                ! 1=full varying Coriolis
@@ -167,23 +174,39 @@ MODULE mo_ocean_nml
   REAL(wp) :: basin_center_lon     = 0.0_wp    ! in (non-global) basin configuration such as the Stommel-type tests
   REAL(wp) :: basin_width_deg      = 0.0_wp    ! basin extension in x-direction, units are degrees
   REAL(wp) :: basin_height_deg     = 0.0_wp    ! basin extension in y-direction, units are degrees
-                                               
 
-  LOGICAL  :: lviscous              =  .TRUE.  ! include friction or not
+  REAL(wp) :: MAX_VERT_DIFF_VELOC = 0.5_wp     !maximal diffusion coeff, used in implicit vertical velocity diffusion, if stability criterion is met
+  REAL(wp) :: MAX_VERT_DIFF_TRAC = 0.5_wp      !maximal diffusion coeff, used in implicit vertical tracer diffusion, if stability criterion is met
+  REAL(wp) :: CWA = 0.5E-3_wp                  !Tuning parameters for vertical mixing of tracer and velocity
+  REAL(wp) :: CWT = 0.5E-3_wp
+
+                                               
+  LOGICAL  :: lviscous              = .TRUE.
+  LOGICAL  :: l_RIGID_LID           = .FALSE.  ! include friction or not
   LOGICAL  :: l_inverse_flip_flop   = .FALSE.  ! true=complete discrete scalarproduct (slow)
                                                ! false=use a shortcut (faster)
-  NAMELIST/ocean_nml/ n_zlev, dzlev_m, idisc_scheme,                       &
-    &                 iswm_oce, i_oce_stepping, iforc_oce, itestcase_oce,  &
+
+  NAMELIST/ocean_dynamics_nml/ n_zlev, dzlev_m, idisc_scheme,              &
+    &                 iswm_oce, i_oce_stepping,                            &
     &                 i_bc_veloc_lateral,i_bc_veloc_top,i_bc_veloc_bot,    &
     &                 ab_const, ab_beta, ab_gam, solver_tolerance,         &
-    &                 EOS_TYPE, no_tracer,                                 &
+    &                 l_RIGID_LID, lviscous, l_inverse_flip_flop, coriolis_type,&
+    &                 basin_center_lat, basin_center_lon,                  &
+    &                 basin_width_deg,basin_height_deg,                    &
     &                 expl_vertical_velocity_diff,                         &
-    &                 expl_vertical_tracer_diff,                           & 
-    &                 k_veloc_h, k_veloc_v,  k_pot_temp_h, k_pot_temp_v,   &
-    &                 k_sal_h, k_sal_v, lviscous, l_inverse_flip_flop,     &
-    &                 t_ref, s_ref, bottom_drag_coeff, wstress_coeff, coriolis_type,&
-    &                 basin_center_lat, basin_center_lon, basin_width_deg,basin_height_deg
+    &                 expl_vertical_tracer_diff 
+ 
 
+
+  NAMELIST/ocean_physics_nml/EOS_TYPE, no_tracer,                          &
+    &                 k_veloc_h, k_veloc_v,  k_pot_temp_h, k_pot_temp_v,   &
+    &                 k_sal_h, k_sal_v,                                    &
+    &                 MAX_VERT_DIFF_VELOC, MAX_VERT_DIFF_TRAC,             &
+    &                 CWA, CWT,  bottom_drag_coeff, wstress_coeff       
+
+
+  NAMELIST/ocean_forcing_and_init_nml/iforc_oce, itestcase_oce,  &
+    &                 temperature_relaxation, relaxation_param
 
 
   ! ------------------------------------------------------------------------
@@ -267,14 +290,27 @@ MODULE mo_ocean_nml
      ! (done so far by all MPI processes)
 
      CALL open_nml(TRIM(filename))
-     CALL position_nml ('ocean_nml', status=i_status)
+     CALL position_nml ('ocean_dynamics_nml', status=i_status)
      SELECT CASE (i_status)
      CASE (positioned)
-       READ (nnml, ocean_nml)
+       READ (nnml, ocean_dynamics_nml)
      END SELECT
 
+     CALL position_nml ('ocean_physics_nml', status=i_status)
+     SELECT CASE (i_status)
+     CASE (positioned)
+       READ (nnml, ocean_physics_nml)
+     END SELECT
+
+     CALL position_nml ('ocean_forcing_and_init_nml', status=i_status)
+     SELECT CASE (i_status)
+     CASE (positioned)
+       READ (nnml, ocean_forcing_and_init_nml)
+     END SELECT
+
+
      !------------------------------------------------------------
-     ! 4.0 check the consistency of the parameters
+     ! 6.0 check the consistency of the parameters
      !------------------------------------------------------------
 
      IF( iswm_oce == 1 .AND. n_zlev > 1 ) THEN
@@ -305,8 +341,9 @@ MODULE mo_ocean_nml
      ENDIF
  
      ! write the contents of the namelist to an ASCII file
-     IF(my_process_is_stdio()) WRITE(nnml_output,nml=ocean_nml)
-
+     IF(my_process_is_stdio()) WRITE(nnml_output,nml=ocean_dynamics_nml)
+     IF(my_process_is_stdio()) WRITE(nnml_output,nml=ocean_physics_nml)
+     IF(my_process_is_stdio()) WRITE(nnml_output,nml=ocean_forcing_and_init_nml)
      !------------------------------------------------------------
      ! 6.0 Read octst_nml namelist
      !------------------------------------------------------------

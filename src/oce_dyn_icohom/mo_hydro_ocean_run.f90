@@ -48,44 +48,63 @@ MODULE mo_hydro_ocean_run
 !
 USE mo_impl_constants,         ONLY: max_char_length
 USE mo_model_domain,           ONLY: t_patch
-USE mo_model_domain_import,    ONLY: n_dom
-USE mo_ocean_nml,              ONLY: iswm_oce, no_tracer,itestcase_oce
+USE mo_model_domain_import,    ONLY: n_dom, nroot
+USE mo_ocean_nml,              ONLY: n_zlev, iswm_oce, no_tracer,itestcase_oce, EOS_type
 USE mo_dynamics_config,        ONLY: nold, nnew
-USE mo_io_config,              ONLY: out_expname
+USE mo_io_config,              ONLY: out_expname, istime4output, istime4newoutputfile
 USE mo_run_config,             ONLY: nsteps, dtime, ltimer
-USE mo_exception,              ONLY: message, message_text, finish, get_filename_noext
+USE mo_exception,              ONLY: message, message_text, finish
+USE mo_ext_data,               ONLY: t_external_data
 USE mo_io_units,               ONLY: filename_max
 USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time
 USE mo_timer,                  ONLY: timer_total, timer_start, timer_stop
+!USE mo_loopindices,            ONLY: get_indices_c, get_indices_e
 USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab,            &
   &                                  calc_normal_velocity_ab  ,           &
   &                                  calc_vert_velocity
 USE mo_oce_tracer_transport,   ONLY: advect_tracer_ab
-USE mo_oce_state,              ONLY: t_hydro_ocean_state,                     &
-  &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state
-USE mo_oce_physics,            ONLY: t_ho_params,t_ho_physics, construct_ho_physics,&
-  &                                  init_ho_physics, destruct_ho_physics, construct_ho_params, &
-  &                                  init_ho_params, destruct_ho_params
-USE mo_io_vlist,               ONLY: setup_vlist_oce, write_vlist_oce, destruct_vlist_oce
-USE mo_oce_index,              ONLY: init_index_test !, c_b, c_i, c_k, ldbg, form4ar
-USE mo_oce_forcing,            ONLY: t_ho_sfc_flx,construct_ho_sfcflx, update_ho_sfcflx
+USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_base, &
+  &                                  init_ho_base, v_base, &
+  &                                  construct_hydro_ocean_base, destruct_hydro_ocean_base, &
+  &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state, &
+  &                                  init_scalar_product_base, init_geo_factors_base
+USE mo_oce_physics,            ONLY: t_ho_params, &
+                                   & construct_ho_params, init_ho_params, &
+                                   &destruct_ho_params, update_ho_params
+USE mo_output,              ONLY: init_output_files, write_output, &
+                                  & create_restart_file
+USE mo_oce_index,              ONLY: c_b, c_i, c_k, ldbg, form4ar, init_index_test
+
 USE mo_interpolation,          ONLY: t_int_state
 USE mo_oce_init,               ONLY: init_ho_testcases
 USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
                                   & construct_oce_diagnostics,&
                                   & destruct_oce_diagnostics, t_oce_timeseries
+
+USE mo_oce_forcing,            ONLY: construct_sfcflx , &
+                                  & construct_atmos_for_ocean,&
+                                  & destruct_atmos_for_ocean,&
+                                  & construct_atmos_fluxes, destruct_atmos_fluxes,&
+                                  & t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
+USE mo_sea_ice,                ONLY:t_sea_ice, construct_sea_ice, destruct_sea_ice
+USE mo_oce_bulk,               ONLY: update_sfcflx
+USE mo_oce_thermodyn,          ONLY:calc_density_MPIOM_func, calc_density_lin_EOS_func,&
+                                    &calc_density_JMDWFG06_EOS_func
+!USE mo_physical_constants,     ONLY: kice
+
 IMPLICIT NONE
 
 PRIVATE
+INTEGER, PARAMETER :: kice = 1
 
 INCLUDE 'cdi.inc'
 
 !VERSION CONTROL:
 CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
-!public interface
+! public interface
 !
-! subroutines
+! public subroutines
 PUBLIC :: perform_ho_stepping
 PUBLIC :: prepare_ho_integration
 PUBLIC :: finalise_ho_integration
@@ -104,26 +123,31 @@ CONTAINS
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
   !
-  SUBROUTINE perform_ho_stepping( ppatch, pstate_oce,&
-                                & datetime, n_io, n_file, p_int,&
-                                & p_sfc_flx, p_phys_param)
+  SUBROUTINE perform_ho_stepping( ppatch, pstate_oce, p_ext_data, &
+                                & datetime, n_io, n_file, p_int,  &
+                                & p_sfc_flx, p_phys_param, p_as, p_atm_f, p_ice)
 
   TYPE(t_patch),             TARGET, INTENT(IN)     :: ppatch(n_dom)
   TYPE(t_hydro_ocean_state), TARGET, INTENT(INOUT)  :: pstate_oce(n_dom)
+  TYPE(t_external_data), TARGET, INTENT(IN)         :: p_ext_data(n_dom)
   TYPE(t_datetime), INTENT(INOUT)                   :: datetime
   INTEGER, INTENT(IN)                               :: n_io, n_file
   TYPE(t_int_state),TARGET,INTENT(IN), OPTIONAL     :: p_int(n_dom)
-  TYPE(t_ho_sfc_flx)                                :: p_sfc_flx
+  TYPE(t_sfc_flx)                                   :: p_sfc_flx
   TYPE (t_ho_params)                                :: p_phys_param 
+  TYPE(t_atmos_for_ocean),  INTENT(INOUT)           :: p_as
+  TYPE(t_atmos_fluxes ),       INTENT(INOUT)        :: p_atm_f
+  TYPE (t_sea_ice),             INTENT(INOUT)       :: p_ice
+
+
 
   ! local variables
-  INTEGER :: jt, jg, n_temp
-  INTEGER :: jstep, jfile, jlev
-!  LOGICAL :: l_exist
+  INTEGER :: jstep, jt, jg, n_temp
+  INTEGER :: jfile, jlev
+  LOGICAL :: l_exist
   TYPE(t_oce_timeseries), POINTER :: oce_ts
 
-  CHARACTER(LEN=filename_max)  :: outputfile
-!  CHARACTER(LEN=filename_max)  :: gridfile
+  CHARACTER(LEN=filename_max)  :: outputfile, gridfile
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &      routine = 'mo_hydro_ocean_run:perform_ho_stepping'
   !------------------------------------------------------------------
@@ -143,9 +167,9 @@ CONTAINS
   ! file 1 is opened in control_model setup:
   jfile = 1
 
-  CALL init_index_test( ppatch, pstate_oce )
+  CALL init_index_test( ppatch, pstate_oce, p_ext_data )
   IF ( iswm_oce == 1 ) THEN
-    CALL construct_oce_diagnostics( ppatch(jg), pstate_oce(jg), oce_ts)
+    CALL construct_oce_diagnostics( ppatch(jg), pstate_oce(jg), p_ext_data(jg), oce_ts)
   ENDIF
 
   IF (ltimer) CALL timer_start(timer_total)
@@ -162,15 +186,34 @@ CONTAINS
     ELSE
 
     !In case of a time-varying forcing: 
-    CALL update_ho_sfcflx(ppatch(jg), pstate_oce(jg), p_sfc_flx)
+    CALL update_sfcflx(ppatch(jg), pstate_oce(jg), p_as, p_ice, p_atm_f, p_sfc_flx, jstep)
+
+    SELECT CASE (EOS_TYPE)
+      CASE(1)
+
+        CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
+                            & calc_density_lin_EOS_func)
+
+     CASE(2)
+       CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
+                             & calc_density_MPIOM_func)
+
+    CASE(3)
+       CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
+                             & calc_density_JMDWFG06_EOS_func)
+
+    CASE DEFAULT
+
+   END SELECT
+
 
     ! solve for new free surface
-    CALL solve_free_surface_eq_ab (ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param, &
-      &                            jstep, p_int(jg))
+    CALL solve_free_surface_eq_ab (ppatch(jg), pstate_oce(jg), p_ext_data(jg), &
+      &                            p_sfc_flx, p_phys_param, jstep, p_int(jg))
 
     ! Step 4: calculate final normal velocity from predicted horizontal velocity vn_pred
     !         and updated surface height
-    CALL calc_normal_velocity_ab(ppatch(jg), pstate_oce(jg))
+    CALL calc_normal_velocity_ab(ppatch(jg), pstate_oce(jg), p_ext_data(jg), p_phys_param)
 
     IF ( iswm_oce /= 1 ) THEN
       ! Step 5: calculate vertical velocity from continuity equation under incompressiblity condition
@@ -203,35 +246,27 @@ CONTAINS
 !     IF (ldbg) WRITE(*,'(a,i5,2(a,g20.12))') '*** After jstep = ',jstep, &
 !       &  '  Elevation h =', pstate_oce(jg)%p_prog(nold(jg))%h(c_i,c_b), &
 !       &  '  Velocity  u =', pstate_oce(jg)%p_diag%u_pred(c_i,c_k,c_b)
-     IF ( (jstep/=1 .AND. MOD(jstep-1,n_io)==0) .OR. jstep==nsteps ) THEN
+     IF ( istime4output(jstep) .OR. jstep==nsteps ) THEN
       CALL message (TRIM(routine),'Write output at:')
       CALL print_datetime(datetime)
 
-      CALL write_vlist_oce( ppatch(jg), pstate_oce(jg), p_sfc_flx, datetime )
+      CALL write_output( datetime )
     END IF
 
     ! close the current output file and trigger a new one
     ! #slo#: not synchronized with write_vlist - should be closed/renamed/opened
     !        before new writing timestep!
-    IF (jstep/=1 .AND. (MOD(jstep-1,n_file)==0) .AND. jstep/=nsteps) THEN
+    IF (istime4newoutputfile(jstep) .AND. jstep/=nsteps) THEN
 
       jlev = ppatch(jg)%level
-      CALL destruct_vlist_oce( jg )
+!      CALL destruct_vlist( jg )
 
-      ! contruct gridfile name once more as in control_model:
-!       WRITE (gridfile,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',jlev,'-grid.nc'
-!       INQUIRE (FILE=gridfile, EXIST=l_exist)
-!       IF (.NOT. l_exist) CALL finish(TRIM(routine),' gridfile does not exist')
+      ! construct gridfile name once more as in control_model:
+      IF (.NOT. l_exist) CALL finish(TRIM(routine),' gridfile does not exist')
 
-      
-      ! contruct new outputfile name:      
+      ! contruct new outputfile name:
       jfile = jfile +1
-      WRITE (outputfile,'(a,a,a,a,i4.4,a)')  &
-        &  TRIM(out_expname), '_', TRIM(get_filename_noext(ppatch(jg)%grid_filename)), &
-        & '_', jfile, '.nc'
-      WRITE(message_text,'(a,a)') 'New output file for setup_vlist_oce is ',TRIM(outputfile)
-      CALL message(trim(routine),message_text)
-      CALL setup_vlist_oce( ppatch(jg), TRIM(ppatch(jg)%grid_filename), TRIM(outputfile), jg )
+      CALL init_output_files(jfile,lclose=.TRUE.)
 
     END IF
 
@@ -256,9 +291,6 @@ CONTAINS
   IF (ltimer) CALL timer_stop(timer_total)
 
   END SUBROUTINE perform_ho_stepping
-
-  !-------------------------------------------------------------------------
-
  !-------------------------------------------------------------------------
   !>
   !! Simple routine for preparing hydrostatic ocean model.
@@ -271,15 +303,22 @@ CONTAINS
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
   !
-  SUBROUTINE prepare_ho_integration(ppatch, pstate_oce, p_sfc_flx, p_phys_param, p_physics_oce)
+  SUBROUTINE prepare_ho_integration(ppatch, pstate_oce, p_ext_data, p_sfc_flx, &
+                                  & p_phys_param, p_as,&
+                                  & p_atm_f, p_ice)
 
-    TYPE(t_patch),             INTENT(INOUT)  :: ppatch(n_dom)
-    TYPE(t_hydro_ocean_state), INTENT(INOUT)  :: pstate_oce(n_dom)
-    TYPE(t_ho_sfc_flx)                        :: p_sfc_flx
-    TYPE (t_ho_params),        INTENT(INOUT)  :: p_phys_param 
-    TYPE(t_ho_physics),        INTENT(INOUT)  :: p_physics_oce
+    TYPE(t_patch),                INTENT(INOUT)  :: ppatch(n_dom)
+    TYPE(t_hydro_ocean_state),    INTENT(INOUT)  :: pstate_oce(n_dom)
+    TYPE(t_external_data),        INTENT(INOUT)  :: p_ext_data(n_dom)
+    TYPE(t_sfc_flx),              INTENT(INOUT)  :: p_sfc_flx
+    TYPE (t_ho_params),           INTENT(INOUT)  :: p_phys_param 
+    !TYPE(t_ho_physics),           INTENT(INOUT)  :: p_physics_oce 
+    TYPE(t_atmos_for_ocean ),     INTENT(INOUT)  :: p_as
+    TYPE(t_atmos_fluxes ),        INTENT(INOUT)  :: p_atm_f
+    TYPE (t_sea_ice),             INTENT(INOUT)  :: p_ice
 
     ! local variables
+    TYPE(t_hydro_ocean_base)                  :: p_base
     INTEGER :: jg
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       &      routine = 'mo_test_hydro_ocean:prepare_ho_integration'
@@ -297,22 +336,37 @@ CONTAINS
     ! construct ocean state and physics
     !------------------------------------------------------------------
 
+    ! hydro_ocean_base contains the 3-dimensional structures for the ocean state
+    CALL construct_hydro_ocean_base(ppatch(jg), v_base)
+    CALL init_ho_base(ppatch(jg), p_ext_data(jg), v_base)
+    CALL init_scalar_product_base( ppatch(jg), v_base )
+    CALL init_geo_factors_base( ppatch(jg), v_base )
+
+    !------------------------------------------------------------------
+    ! construct ocean state and physics
+    !------------------------------------------------------------------
+
     ! ppatch and pstate_oce have dimension n_dom
     CALL construct_hydro_ocean_state(ppatch, pstate_oce)
 
     CALL construct_ho_params(ppatch(jg), p_phys_param)
     CALL init_ho_params(p_phys_param)
 
-    CALL construct_ho_physics(ppatch(jg), p_physics_oce)
-    CALL init_ho_physics(p_physics_oce)
-
-
+    !CALL construct_ho_physics(ppatch(jg), p_physics_oce)
+    !CALL init_ho_physics(p_physics_oce)
 
     !------------------------------------------------------------------
     ! construct ocean forcing and testcases
     !------------------------------------------------------------------
-    CALL  construct_ho_sfcflx(ppatch(jg), p_sfc_flx)
-    CALL init_ho_testcases(ppatch(jg), pstate_oce(jg), p_sfc_flx)
+
+    CALL  construct_sfcflx(ppatch(jg), p_sfc_flx)
+
+    CALL construct_sea_ice(ppatch(jg), p_ice, kice)
+    CALL construct_atmos_for_ocean(ppatch(jg), p_as)
+    CALL construct_atmos_fluxes(ppatch(jg), p_atm_f, kice)
+
+    CALL init_ho_testcases(ppatch(jg), pstate_oce(jg), p_ext_data(jg), p_sfc_flx)
+  ! CALL init_ho_testcases(ppatch(jg), pstate_oce(jg), p_sfc_flx)
 
   END SUBROUTINE prepare_ho_integration
 
@@ -328,10 +382,15 @@ CONTAINS
   !! Initial release by Stephan Lorenz, MPI-M (2010-07)
   !
   !
-  SUBROUTINE finalise_ho_integration(p_os, p_phys_param, p_physics_oce)
-    TYPE(t_hydro_ocean_state), INTENT(INOUT)  :: p_os(n_dom)
-    TYPE (t_ho_params),        INTENT(INOUT)  :: p_phys_param 
-    TYPE(t_ho_physics),        INTENT(INOUT)  :: p_physics_oce
+  SUBROUTINE finalise_ho_integration(p_os, p_phys_param, p_as, p_atm_f, p_ice)
+    TYPE(t_hydro_ocean_state), INTENT(INOUT) :: p_os(n_dom)
+    TYPE (t_ho_params),        INTENT(INOUT) :: p_phys_param 
+    TYPE(t_atmos_for_ocean),   INTENT(INOUT) :: p_as
+    TYPE(t_atmos_fluxes ),     INTENT(INOUT) :: p_atm_f
+    TYPE (t_sea_ice),          INTENT(INOUT) :: p_ice
+
+
+    !TYPE(t_ho_physics),        INTENT(INOUT)  :: p_physics_oce
 
     !------------------------------------------------------------------
     ! destruct ocean physics and forcing
@@ -339,9 +398,11 @@ CONTAINS
     !------------------------------------------------------------------
      CALL destruct_hydro_ocean_state(p_os)
      CALL destruct_ho_params(p_phys_param)
-    CALL destruct_ho_physics(p_physics_oce)
 
-    !CALL destruct_ho_forcing
+     CALL destruct_sea_ice(p_ice)
+     CALL destruct_atmos_for_ocean(p_as)
+     CALL destruct_atmos_fluxes(p_atm_f)
+
 
   END SUBROUTINE finalise_ho_integration
 

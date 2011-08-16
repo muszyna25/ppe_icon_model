@@ -53,15 +53,16 @@ USE mo_dynamics_config,          ONLY: nold,nnew
 USE mo_parallel_config,  ONLY: nproma
 USE mo_run_config,                ONLY: dtime, nsteps
 USE mo_physical_constants,        ONLY: grav!, re
-USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, &
+USE mo_oce_state,                 ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, v_base, &
   &                                     set_lateral_boundary_values
 USE mo_model_domain,              ONLY: t_patch
+USE mo_ext_data,                  ONLY: t_external_data
 USE mo_exception,                 ONLY: message, finish!, message_text
 USE mo_loopindices,               ONLY: get_indices_c, get_indices_e !, get_indices_v
 USE mo_oce_math_operators,        ONLY: div_oce, grad_fd_norm_oce, grad_fd_norm_oce_2d,&
                                   & height_related_quantities
 USE mo_oce_physics,               ONLY: t_ho_params
-USE mo_oce_forcing,               ONLY: t_ho_sfc_flx
+USE mo_oce_forcing,               ONLY: t_sfc_flx
 USE mo_interpolation,             ONLY: t_int_state
 USE mo_scalar_product,            ONLY: calc_scalar_product_for_veloc
 USE mo_interpolation,             ONLY: t_int_state, rbf_vec_interpol_edge,       &
@@ -117,7 +118,7 @@ SUBROUTINE calculate_oce_diagnostics(p_patch, p_os, p_sfc_flx, p_phys_param, tim
 !
 TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
 TYPE(t_hydro_ocean_state), TARGET             :: p_os 
-TYPE(t_ho_sfc_flx), INTENT(INOUT)             :: p_sfc_flx
+TYPE(t_sfc_flx), INTENT(INOUT)                :: p_sfc_flx
 TYPE (t_ho_params)                            :: p_phys_param
 INTEGER                                       :: timestep
 TYPE(t_oce_timeseries),POINTER                :: oce_ts
@@ -166,14 +167,14 @@ IF(iswm_oce/=1)THEN
 
   DO jk=1,n_zlev
 
-    delta_z = p_patch%patch_oce%del_zlev_m(jk)
+    delta_z = v_base%del_zlev_m(jk)
 
     DO jb = i_startblk_c, i_endblk_c
       CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
          &                             rl_start_c, rl_end_c)
       DO jc = i_startidx_c, i_endidx_c
         IF (jk == 1) THEN
-         delta_z = p_patch%patch_oce%del_zlev_m(jk)&
+         delta_z = v_base%del_zlev_m(jk)&
                  & + p_os%p_prog(nold(1))%h(jc,jb)
         ENDIF
 
@@ -188,12 +189,12 @@ IF(iswm_oce/=1)THEN
         !Potential energy
         IF(jk==1)THEN
           z_w = (p_os%p_diag%w(jc,jk,jb)*p_os%p_prog(nold(1))%h(jc,jb)&
-             & +p_os%p_diag%w(jc,jk+1,jb)*0.5_wp*p_patch%patch_oce%del_zlev_i(jk))&
-             &/(0.5_wp*p_patch%patch_oce%del_zlev_i(jk)+p_os%p_prog(nold(1))%h(jc,jb))
+             & +p_os%p_diag%w(jc,jk+1,jb)*0.5_wp*v_base%del_zlev_i(jk))&
+             &/(0.5_wp*v_base%del_zlev_i(jk)+p_os%p_prog(nold(1))%h(jc,jb))
         ELSEIF(jk<n_zlev)THEN
-          z_w = (p_os%p_diag%w(jc,jk,jb)*p_patch%patch_oce%del_zlev_i(jk)&
-             & +p_os%p_diag%w(jc,jk+1,jb)*p_patch%patch_oce%del_zlev_i(jk+1))&
-             &/(p_patch%patch_oce%del_zlev_i(jk)+p_patch%patch_oce%del_zlev_i(jk+1))
+          z_w = (p_os%p_diag%w(jc,jk,jb)*v_base%del_zlev_i(jk)&
+             & +p_os%p_diag%w(jc,jk+1,jb)*v_base%del_zlev_i(jk+1))&
+             &/(v_base%del_zlev_i(jk)+v_base%del_zlev_i(jk+1))
         ENDIF 
 
         ptr_monitor%pot_energy = ptr_monitor%pot_energy&
@@ -234,8 +235,18 @@ ELSEIF(iswm_oce==1)THEN
 
       ptr_monitor%kin_energy = ptr_monitor%kin_energy &
       &+p_os%p_diag%kin(jc,1,jb)*p_os%p_prog(nold(1))%h(jc,jb)
+
+      DO i_no_t=1, no_tracer
+        ptr_monitor%tracer_content(i_no_t) = ptr_monitor%tracer_content(i_no_t)&
+        & + prism_vol*p_os%p_prog(nold(1))%tracer(jc,1,jb,i_no_t)
+      END DO
+
     END DO
   END DO
+
+!   DO i_no_t=1, no_tracer
+!     ptr_monitor%tracer_content(i_no_t) = ptr_monitor%tracer_content(i_no_t)/ptr_monitor%volume
+!   END DO
 
 ptr_monitor%pot_energy = ptr_monitor%pot_energy/ptr_monitor%volume
 ptr_monitor%kin_energy = ptr_monitor%kin_energy/ptr_monitor%volume
@@ -261,6 +272,14 @@ IF(oce_ts%oce_diagnostics(0)%total_energy/=0.0_wp)THEN
   write(*,*)'ACTUAL VALUES OF TOTAL ENERGY NORMALIZED BY INITIAL VALUE:     ',i,&
   &oce_ts%oce_diagnostics(i)%total_energy/ oce_ts%oce_diagnostics(0)%total_energy
 ENDIF
+DO i_no_t=1, no_tracer
+  IF(oce_ts%oce_diagnostics(0)%total_energy/=0.0_wp)THEN
+    write(*,*)'ACTUAL VALUES OF TOTAL TRACER CONTENT:     ',i,&
+    &oce_ts%oce_diagnostics(i)%tracer_content(i_no_t)&
+    &/ oce_ts%oce_diagnostics(0)%tracer_content(i_no_t)
+  ENDIF
+END DO
+
 END DO
 !CALL message (TRIM(routine), 'end')
 END SUBROUTINE calculate_oce_diagnostics
@@ -274,10 +293,11 @@ END SUBROUTINE calculate_oce_diagnostics
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2011).
 !! 
-SUBROUTINE construct_oce_diagnostics(p_patch, p_os, oce_ts)
+SUBROUTINE construct_oce_diagnostics(p_patch, p_os, p_ext_data, oce_ts)
 !
 TYPE(t_patch), TARGET, INTENT(in)             :: p_patch
-TYPE(t_hydro_ocean_state), TARGET             :: p_os 
+TYPE(t_hydro_ocean_state), TARGET             :: p_os
+TYPE(t_external_data), TARGET, INTENT(IN)     :: p_ext_data 
 TYPE(t_oce_timeseries),POINTER                :: oce_ts
 !
 !local variables
@@ -317,7 +337,7 @@ i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
 i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
 
 
-CALL height_related_quantities( p_patch, p_os)
+CALL height_related_quantities( p_patch, p_os, p_ext_data)
 
 IF(idisc_scheme==1)THEN
 CALL calc_scalar_product_for_veloc( p_patch,                &
@@ -348,14 +368,14 @@ CALL calc_vert_velocity( p_patch, p_os)
 
     DO jk=1,n_zlev
 
-      delta_z = p_patch%patch_oce%del_zlev_m(jk)
+      delta_z = v_base%del_zlev_m(jk)
 
       DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
          &                             rl_start_c, rl_end_c)
         DO jc = i_startidx_c, i_endidx_c
           IF (jk == 1) THEN
-           delta_z = p_patch%patch_oce%del_zlev_m(jk)&
+           delta_z = v_base%del_zlev_m(jk)&
                    & + p_os%p_prog(nold(1))%h(jc,jb)
           ENDIF
 
@@ -371,12 +391,12 @@ CALL calc_vert_velocity( p_patch, p_os)
         !Potential energy
         IF(jk==1)THEN
           z_w = (p_os%p_diag%w(jc,jk,jb)*p_os%p_prog(nold(1))%h(jc,jb)&
-             & +p_os%p_diag%w(jc,jk+1,jb)*0.5_wp*p_patch%patch_oce%del_zlev_i(jk))&
-             &/(0.5_wp*p_patch%patch_oce%del_zlev_i(jk)+p_os%p_prog(nold(1))%h(jc,jb))
+             & +p_os%p_diag%w(jc,jk+1,jb)*0.5_wp*v_base%del_zlev_i(jk))&
+             &/(0.5_wp*v_base%del_zlev_i(jk)+p_os%p_prog(nold(1))%h(jc,jb))
         ELSEIF(jk<n_zlev)THEN
-          z_w = (p_os%p_diag%w(jc,jk,jb)*p_patch%patch_oce%del_zlev_i(jk)&
-             & +p_os%p_diag%w(jc,jk+1,jb)*p_patch%patch_oce%del_zlev_i(jk+1))&
-             &/(p_patch%patch_oce%del_zlev_i(jk)+p_patch%patch_oce%del_zlev_i(jk+1))
+          z_w = (p_os%p_diag%w(jc,jk,jb)*v_base%del_zlev_i(jk)&
+             & +p_os%p_diag%w(jc,jk+1,jb)*v_base%del_zlev_i(jk+1))&
+             &/(v_base%del_zlev_i(jk)+v_base%del_zlev_i(jk+1))
         ENDIF 
 
         ptr_monitor%pot_energy = ptr_monitor%pot_energy&

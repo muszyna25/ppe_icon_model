@@ -123,9 +123,9 @@ USE mo_model_domimp_setup, ONLY: reshape_int, reshape_real, calculate_cart_norma
      &                           init_quad_twoadjcells, init_coriolis
 USE mo_grid_config,        ONLY: start_lev, nroot, n_dom, n_dom_start,    &
      &                           l_limited_area, max_childdom, &
+     &                           lfeedback, l_limited_area, max_childdom, &
      & dynamics_grid_filename,   dynamics_parent_grid_id,  &
      & radiation_grid_filename,  global_cell_type, lplane
-USE mo_ocean_topo,         ONLY: init_ocean_patch
 USE mo_dynamics_config,    ONLY: lcoriolis
 USE mo_master_control,     ONLY: my_process_is_ocean
 #ifndef NOMPI
@@ -413,7 +413,6 @@ p_patch(n_dom_start:n_dom)%max_childdom =  max_childdom
 !   gridtype='icon'
 ! END IF
 
-
 CALL set_patches_grid_filename(p_patch)
 
 GRID_LEVEL_LOOP: DO jg = n_dom_start, n_dom
@@ -460,7 +459,7 @@ GRID_LEVEL_LOOP: DO jg = n_dom_start, n_dom
     ! CALL init_ocean_patch_component( p_single_patch )
 
     ! #slo# new ocean init routine
-    CALL init_ocean_patch( p_single_patch )
+    !CALL init_ocean_patch( p_single_patch )
 
   END IF
 
@@ -1843,148 +1842,6 @@ INTEGER :: jg, ist
     CALL message (TRIM(routine), 'start')
 
 GRID_LEVEL_LOOP: DO jg = n_dom_start, n_dom
-
-  !
-  ! DEALLOCATE EXTERNAL DATA
-  !
-
-  IF (my_process_is_ocean()) THEN
-
-    ! deallocate vertical domain
-    DEALLOCATE(p_patch(jg)%patch_oce%del_zlev_i,STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'deallocating del_zlev_i failed')
-    ENDIF
-
-    DEALLOCATE(p_patch(jg)%patch_oce%zlev_m,STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'deallocating zlev_m failed')
-    ENDIF
-    DEALLOCATE(p_patch(jg)%patch_oce%zlev_i,STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'deallocating zlev_i failed')
-    ENDIF
-    DEALLOCATE(p_patch(jg)%patch_oce%del_zlev_m,STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'deallocating del_zlev_m failed')
-    ENDIF
-
-    ! deallocate bathymetry
-    DEALLOCATE(p_patch(jg)%patch_oce%bathymetry_c,STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'deallocating bathymetry_c failed')
-    ENDIF
-    DEALLOCATE(p_patch(jg)%patch_oce%bathymetry_e,STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'deallocating bathymetry_e failed')
-    ENDIF
-
-    ! deallocate 3-dim land-sea-mask
-    DEALLOCATE(p_patch(jg)%patch_oce%lsm_oce_c,STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'deallocating lsm_oce_c failed')
-    ENDIF
-    DEALLOCATE(p_patch(jg)%patch_oce%lsm_oce_e,STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'deallocating lsm_oce_e failed')
-    ENDIF
-    ! deepest ocean layer in column
-    DEALLOCATE(p_patch(jg)%patch_oce%dolic_c,STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'deallocating dolic_c failed')
-    ENDIF
-    DEALLOCATE(p_patch(jg)%patch_oce%dolic_e,STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'deallocating dolic_e failed')
-    ENDIF
-    ! deallocate 3-dim real land-sea-mask
-    DEALLOCATE(p_patch(jg)%patch_oce%wet_c,STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'deallocating wet_c failed')
-    ENDIF
-    DEALLOCATE(p_patch(jg)%patch_oce%wet_e,STAT=ist)
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'deallocating wet_e failed')
-    ENDIF
-    !DEALLOCATE(p_patch(jg)%patch_oce%wet_i,STAT=ist)
-    !IF (ist /= SUCCESS) THEN
-    !  CALL finish (routine,'deallocating wet_i failed')
-    !ENDIF
-
-    ! deallocate arrays for reconstruction
-    !DEALLOCATE(p_patch(jg)%patch_oce%cell2edge_vec,STAT=ist)
-    !IF (ist /= SUCCESS) THEN
-    !  CALL finish (routine,'deallocating cell2edge_vec failed')
-    !ENDIF
-    !DEALLOCATE(p_patch(jg)%patch_oce%cell2edge_weight,STAT=ist)
-    !IF (ist /= SUCCESS) THEN
-    !  CALL finish (routine,'deallocating cell2edge_weight failed')
-    !ENDIF
-    !DEALLOCATE(p_patch(jg)%patch_oce%vertex2dualedge_mid_vec,STAT=ist)
-    !IF (ist /= SUCCESS) THEN
-    !  CALL finish (routine,'deallocating vertex2dualedge_mid_vec failed')
-    !ENDIF
-    !DEALLOCATE(p_patch(jg)%patch_oce%vertex2dualedge_mid_weight,STAT=ist)
-    !IF (ist /= SUCCESS) THEN
-    !  CALL finish (routine,'deallocating vertex2dualedge_mid_weight failed')
-    !ENDIF
-!     DEALLOCATE(p_patch(jg)%patch_oce%mid_dual_edge,STAT=ist)
-!     IF (ist /= SUCCESS) THEN
-!       CALL finish (routine,'deallocating mid_dual_edge failed')
-!     ENDIF
-!     DEALLOCATE(p_patch(jg)%patch_oce%dist_vert2vert,STAT=ist)
-!     IF (ist /= SUCCESS) THEN
-!       CALL finish (routine,'deallocating dist_vert2vert failed')
-!     ENDIF
-      DEALLOCATE(p_patch(jg)%patch_oce%edge2cell_coeff_cc,STAT=ist)
-      IF (ist /= SUCCESS) THEN
-        CALL finish (routine,'deallocating edge2cell_coeff failed')
-      ENDIF
-     DEALLOCATE(p_patch(jg)%patch_oce%edge2cell_coeff_cc_t,STAT=ist)
-     IF (ist /= SUCCESS) THEN
-       CALL finish (routine,'deallocating edge2cell_coeff_t failed')
-     ENDIF
-     DEALLOCATE(p_patch(jg)%patch_oce%edge2vert_coeff_cc,STAT=ist)
-     IF (ist /= SUCCESS) THEN
-       CALL finish (routine,'deallocating edge2vert_coeff cc failed')
-     ENDIF
-     DEALLOCATE(p_patch(jg)%patch_oce%edge2vert_coeff_cc_t,STAT=ist)
-     IF (ist /= SUCCESS) THEN
-       CALL finish (routine,'deallocating edge2vert_coeff_cc t failed')
-     ENDIF
-     DEALLOCATE(p_patch(jg)%patch_oce%fixed_vol_norm,STAT=ist)
-     IF (ist /= SUCCESS) THEN
-       CALL finish (routine,'deallocating fixed_vol_norm failed')
-     ENDIF
-     DEALLOCATE(p_patch(jg)%patch_oce%variable_vol_norm,STAT=ist)
-     IF (ist /= SUCCESS) THEN
-       CALL finish (routine,'deallocating variable_vol_norm failed')
-     ENDIF
-     DEALLOCATE(p_patch(jg)%patch_oce%variable_dual_vol_norm,STAT=ist)
-     IF (ist /= SUCCESS) THEN
-       CALL finish (routine,'deallocating variable_dual_vol_norm failed')
-     ENDIF
-
-
-    ! deallocate geometrical factors
-    DEALLOCATE (p_patch(jg)%patch_oce%geofac_div, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocation for geofac_div failed')
-    ENDIF
-    DEALLOCATE (p_patch(jg)%patch_oce%geofac_qdiv, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocation for geofac_qdiv failed')
-    ENDIF
-    DEALLOCATE (p_patch(jg)%patch_oce%geofac_rot, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocation for geofac_rot failed')
-    ENDIF
-    DEALLOCATE (p_patch(jg)%patch_oce%geofac_n2s, STAT=ist )
-    IF (ist /= SUCCESS) THEN
-      CALL finish (routine,'allocation for geofac_n2s failed')
-    ENDIF
-
-  ENDIF
 
   !
   ! Deallocate grid information

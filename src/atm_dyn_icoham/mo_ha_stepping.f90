@@ -343,7 +343,6 @@ CONTAINS
     ENDIF !l_outputtime
 
     ! If it's time, close the current output file and trigger a new one
-
     IF (jstep/=1.AND.(MOD(jstep-1,n_file)==0).AND.jstep/=nsteps) THEN
       jfile = jfile +1
       CALL init_output_files(jfile,lclose=l_have_output)

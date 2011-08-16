@@ -48,15 +48,16 @@ MODULE mo_ext_data
   USE mo_kind
   USE mo_io_units,           ONLY: filename_max
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, ihs_ocean, inh_atmosphere
+  USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, ihs_ocean, inh_atmosphere, &
+    &                              max_char_length, sea_boundary
   USE mo_run_config,         ONLY: iforcing
+  USE mo_ocean_nml,          ONLY: iforc_oce
   USE mo_extpar_config,      ONLY: itopo, fac_smooth_topo, n_iter_smooth_topo, l_emiss
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_radiation_config,   ONLY: irad_o3
   USE mo_model_domain,       ONLY: t_patch
-  USE mo_impl_constants,     ONLY: MAX_CHAR_LENGTH
   USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_grid_config,        ONLY: n_dom
+  USE mo_grid_config,        ONLY: n_dom, nroot, dynamics_grid_filename
   USE mo_interpolation,      ONLY: t_int_state, cells2verts_scalar
   USE mo_math_operators,     ONLY: nabla4_scalar
   USE mo_loopindices,        ONLY: get_indices_c
@@ -312,23 +313,31 @@ MODULE mo_ext_data
   !!
   TYPE :: t_external_ocean
 
-    REAL(wp), POINTER ::   &   !< topographic height at cell centers  [m]
-      &  bathymetry_c(:,:)     !  index1=1,nproma, index2=1,nblks_c
+    ! ocean topography <=> bathymetric height used in the ocean 
+    ! cell centers and edges only
+    !
+    REAL(wp), POINTER ::   &  !<  bathymetric height at cell centers  [m]
+      &  bathymetry_c(:,:)    !  index1=1,nproma, index2=1,nblks_c
 
-    REAL(wp), POINTER ::   &   !< topographic height at cell edges    [m]
-      &  bathymetry_e(:,:)     ! index1=1,nproma, index2=1,nblks_e
+    REAL(wp), POINTER ::   &  !< topographic height at cell edges    [m]
+      &  bathymetry_e(:,:)    !  index1=1,nproma, index2=1,nblks_e
 
-    REAL(wp), POINTER ::   &   !< topographic height at cell vertices [m]
-      &  bathymetry_v(:,:)     ! index1=1,nproma, index2=1,nblks_v
+  ! REAL(wp), POINTER ::   &  !< topographic height at cell vertices [m]
+  !   &  bathymetry_v(:,:)    !  index1=1,nproma, index2=1,nblks_v
 
-    INTEGER, POINTER ::    &   !< land-sea-mask for cell centers
-      &  lsm_oce_c(:,:,:)      ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_c
+    ! *** Land-Sea-Mask ***
+    INTEGER, POINTER  ::   &  !< land-sea-mask for cell centers          [ ]
+      &  lsm_ctr_c(:,:)       !  index1=1,nproma, index2=1,nblks_c
+     INTEGER, POINTER ::   &  !< land-sea-mask for cell edges
+      &  lsm_ctr_e(:,:)       !  index1=1,nproma, index2=1,nblks_e
 
-    INTEGER, POINTER ::    &   !< land-sea-mask for cell edges
-      &  lsm_oce_e(:,:,:)      ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_e
+    ! OMIP forcing fluxes on cell centers. no_of_fluxes=3
+    !
+    REAL(wp), POINTER ::   &       !< omip monthly mean forcing fluxes
+      &  omip_forc_mon_c(:,:,:,:)  !  index1=nproma, index2=12, index3=nblks_c, index4=no_of_fluxes
 
-    INTEGER, POINTER ::    &   !< land-sea-mask for cell vertices
-      &  lsm_oce_v(:,:,:)      ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_v
+  ! REAL(wp), POINTER ::   &       !< omip monthly mean forcing fluxes
+  !   &  omip_forc_day_c(:,:,:,:)  !  index1=nproma, index2=365, index3=nblks_c, index4=no_of_fluxes
 
   END TYPE t_external_ocean
 
@@ -468,36 +477,29 @@ CONTAINS
         END DO
       END SELECT
 
-      CALL message( TRIM(routine),'Running with analytical topography' )
-
     CASE(1) ! read external data from netcdf dataset
 
-      IF ( iequations/=ihs_ocean) THEN
-        CALL message( TRIM(routine),'Start reading external data from file' )
+      CALL message( TRIM(routine),'Start reading external data from file' )
 
-        CALL read_ext_data_atm (p_patch, ext_data)
-        IF (n_iter_smooth_topo > 0) THEN
-          DO jg = 1, n_dom
-            CALL smooth_topography (p_patch(jg), p_int_state(jg),  &
-                                    ext_data(jg)%atm%topography_c, &
-                                    ext_data(jg)%atm%topography_v)
-          ENDDO
-        ENDIF
-
-       CALL message( TRIM(routine),'Finished reading external data' )
-
-      ELSE
-        CALL finish(TRIM(routine),&
-          &    'OCEAN tried to read in atmospheric topography data')
-
-!DR        CALL read_ext_data_oce (p_patch, ext_data)
+      CALL read_ext_data_atm (p_patch, ext_data)
+      IF (n_iter_smooth_topo > 0) THEN
+        DO jg = 1, n_dom
+          CALL smooth_topography (p_patch(jg), p_int_state(jg),  &
+                                  ext_data(jg)%atm%topography_c, &
+                                  ext_data(jg)%atm%topography_v)
+        ENDDO
       ENDIF
+
+      CALL message( TRIM(routine),'Finished reading external data' )
 
     CASE DEFAULT
 
       CALL finish( TRIM(routine), 'topography selection not supported' )
 
     END SELECT
+
+    ! read external ocean data from ocean gridfile (no itopo needed)
+    IF (iequations==ihs_ocean ) CALL read_ext_data_oce (p_patch, ext_data)
 
 
   END SUBROUTINE init_ext_data
@@ -530,6 +532,7 @@ CONTAINS
     IF (iequations/=ihs_ocean) THEN  ! atmosphere model ---------------------
 
       ! Build external data list for constant-in-time fields for the atm model
+      write(*,*) 'create new external data list for atmosphere'
       DO jg = 1, n_dom
         WRITE(listname,'(a,i2.2)') 'ext_data_atm_D',jg
         CALL new_ext_data_atm_list(p_patch(jg), ext_data(jg)%atm,       &
@@ -547,6 +550,7 @@ CONTAINS
 
     ELSE ! iequations==ihs_ocean ------------------------------------------
 
+      write(*,*) 'create new external data list for ocean'
       ! Build external data list for constant-in-time fields for the ocean model
       DO jg = 1, n_dom
         WRITE(listname,'(a,i2.2)') 'ext_data_oce_D',jg
@@ -940,7 +944,6 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
-
       ! NDVI yearly maximum
       !
       ! ndvi_max        p_ext_atm%ndvi_max(nproma,nblks_c)
@@ -1230,7 +1233,7 @@ CONTAINS
     INTEGER :: nblks_c, &    !< number of cell blocks to allocate
       &        nblks_e       !< number of edge blocks to allocate
 
-    INTEGER :: shape2d_c(2), shape2d_e(2)
+    INTEGER :: shape2d_c(2), shape2d_e(2), shape4d_c(4)
 
     INTEGER :: ientr         !< "entropy" of horizontal slice
     !--------------------------------------------------------------
@@ -1245,6 +1248,7 @@ CONTAINS
     ! predefined array shapes
     shape2d_c = (/ nproma, nblks_c /)
     shape2d_e = (/ nproma, nblks_e /)
+    shape4d_c = (/ nproma, 12, nblks_c, 3 /)
 
     !
     ! Register a field list and apply default settings
@@ -1274,6 +1278,32 @@ CONTAINS
     grib2_desc = t_grib2_var( 192, 140, 219, ientr, GRID_REFERENCE, GRID_EDGE)
     CALL add_var( p_ext_oce_list, 'bathymetry_e', p_ext_oce%bathymetry_e,      &
       &           GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
+
+    ! ocean land-sea-mask at surface on cell centers
+    !
+    ! lsm_ctr_c  p_ext_oce%lsm_ctr_c(nproma,nblks_c)
+    cf_desc    = t_cf_var('Ocean model land-sea-mask at cell center', '-2/-1/1/2', &
+      &                   'Ocean model land-sea-mask')
+    grib2_desc = t_grib2_var( 192, 140, 219, ientr, GRID_REFERENCE, GRID_CELL)
+    !#slo-2011-08-08# does not compile yet?
+    CALL add_var( p_ext_oce_list, 'lsm_ctr_c', p_ext_oce%lsm_ctr_c, &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
+
+    ! ocean land-sea-mask at surface on cell edge
+    !
+    cf_desc    = t_cf_var('Ocean model land-sea-mask at cell edge', '-2/0/2', &
+      &                   'Ocean model land-sea-mask')
+    grib2_desc = t_grib2_var( 192, 140, 219, ientr, GRID_REFERENCE, GRID_EDGE)
+    CALL add_var( p_ext_oce_list, 'lsm_ctr_e', p_ext_oce%lsm_ctr_e,      &
+      &           GRID_UNSTRUCTURED_EDGE, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_e )
+
+    ! omip forcing data on cell edge
+    !
+    cf_desc    = t_cf_var('Ocean model OMIP forcing data at cell edge', 'Pa, K', &
+      &                   'OMIP forcing data')
+    grib2_desc = t_grib2_var( 192, 140, 219, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_ext_oce_list, 'omip_forc_mon_c', p_ext_oce%omip_forc_mon_c,  &
+      &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape4d_c )
 
   END SUBROUTINE new_ext_data_oce_list
 
@@ -1351,13 +1381,15 @@ CONTAINS
 
     LOGICAL :: l_exist
 
+!-------------------------------------------------------------------------
+
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_ext_data: inquire_external_files'
 
     CHARACTER(filename_max) :: extpar_file !< file name for reading in
     CHARACTER(filename_max) :: ozone_file  !< file name for reading in
 
-!-------------------------------------------------------------------------
+!--------
 
     DO jg= 1,n_dom
 
@@ -1503,6 +1535,8 @@ CONTAINS
     ENDDO ! ndom
 
   END SUBROUTINE inquire_external_files
+
+  !-------------------------------------------------------------------------
 
 
   !-------------------------------------------------------------------------
@@ -1768,6 +1802,241 @@ CONTAINS
   !-------------------------------------------------------------------------
 
 
+  !-------------------------------------------------------------------------
+  !>
+  !! Read ocean external data
+  !!
+  !! Read ocean external data from netcdf
+  !!
+  !! @par Revision History
+  !! Initial revision by Stephan Lorenz, MPI (2011-06-17)
+  !!
+  SUBROUTINE read_ext_data_oce (p_patch, ext_data)
+
+    TYPE(t_patch), INTENT(IN)            :: p_patch(:)
+    TYPE(t_external_data), INTENT(INOUT) :: ext_data(:)
+
+    CHARACTER(len=max_char_length), PARAMETER :: &
+      routine = 'mo_ext_data:read_ext_data_oce'
+
+    CHARACTER(filename_max) :: grid_file   !< file name for reading in
+    CHARACTER(filename_max) :: omip_file   !< file name for reading in
+
+    LOGICAL :: l_exist
+    INTEGER :: jg, i_lev, i_cell_type, no_cells, no_verts, no_tst
+    INTEGER :: ncid, dimid
+
+    REAL(wp):: z_flux(nproma,12,p_patch(1)%nblks_c)
+
+
+!-------------------------------------------------------------------------
+
+    CALL message (TRIM(routine), 'start')
+
+!-------------------------------------------------------------------------
+
+    !  READ OCEAN BATHYMETRY
+
+    !-------------------------------------------------------------------------
+
+    !DO jg = 1,n_dom
+    jg = 1
+
+    i_lev       = p_patch(jg)%level
+    i_cell_type = p_patch(jg)%cell_type
+
+    IF(p_pe == p_io) THEN
+      !
+      ! bathymetry and lsm are read from the general ICON grid file
+      ! bathymetry and lsm integrated into grid file by grid generator
+      !WRITE (bathy_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-grid.nc'
+      !write(*,*) 'bathy_file = ',TRIM(bathy_file)
+      !write(*,*) 'dynamics_grid_filename = ', TRIM(dynamics_grid_filename(1))
+      grid_file = dynamics_grid_filename(jg)
+
+      INQUIRE (FILE=grid_file, EXIST=l_exist)
+      IF (.NOT.l_exist) THEN
+        CALL finish(TRIM(routine),'Grid file for reading bathymetry not found.')
+      ENDIF
+
+      !
+      ! open file
+      !
+      CALL nf(nf_open(TRIM(grid_file), NF_NOWRITE, ncid))
+
+      !
+      ! get number of cells and vertices
+      !
+      CALL nf(nf_inq_dimid(ncid, 'cell', dimid))
+      IF (i_cell_type == 3) THEN ! triangular grid
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+      ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_verts))
+      ENDIF
+
+      CALL nf(nf_inq_dimid(ncid, 'vertex', dimid))
+      IF (i_cell_type == 3) THEN ! triangular grid
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_verts))
+      ELSEIF (i_cell_type == 6) THEN ! hexagonal grid
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+      ENDIF
+
+      !
+      ! check the number of cells and verts
+      !
+      IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
+        CALL finish(TRIM(ROUTINE),&
+        & 'Number of patch cells and cells in bathymetry file do not match.')
+      ENDIF
+      IF(p_patch(jg)%n_patch_verts_g /= no_verts) THEN
+        CALL finish(TRIM(ROUTINE),&
+        & 'Number of patch verts and verts in bathymetry file do not match.')
+      ENDIF
+
+      WRITE(message_text,'(3(a,i6))') 'No of cells =', no_cells, &
+        &                           '  no of edges =', p_patch(jg)%n_patch_edges_g, &
+        &                           '  no of verts =', no_verts
+      CALL message( TRIM(routine),TRIM(message_text))
+    ENDIF
+
+
+    !-------------------------------------------------------
+    !
+    ! Read bathymetry for triangle centers and edges
+    !
+    !-------------------------------------------------------
+
+    ! triangle center and edges
+
+    IF (i_cell_type == 3) THEN     ! triangular grid
+
+      ! These arrays are not included in standard icon-grid, but they are
+      ! created by "create_ocean_grid"
+      CALL read_netcdf_data (ncid, 'cell_elevation', p_patch(jg)%n_patch_cells_g,     &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     ext_data(jg)%oce%bathymetry_c)
+
+      CALL read_netcdf_data (ncid, 'edge_elevation', p_patch(jg)%n_patch_edges_g,     &
+        &                     p_patch(jg)%n_patch_edges, p_patch(jg)%edges%glb_index, &
+        &                     ext_data(jg)%oce%bathymetry_e)
+     
+      ! get land-sea-mask on cells, integer marks are:
+      ! inner sea (-2), boundary sea (-1, cells and vertices), boundary (0, edges),
+      ! boundary land (1, cells and vertices), inner land (2)
+      CALL read_netcdf_data (ncid, 'cell_sea_land_mask', p_patch(jg)%n_patch_cells_g, &
+        &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                     ext_data(jg)%oce%lsm_ctr_c)
+
+      CALL read_netcdf_data (ncid, 'edge_sea_land_mask', p_patch(jg)%n_patch_edges_g, &
+        &                    p_patch(jg)%n_patch_edges, p_patch(jg)%edges%glb_index,  &
+        &                    ext_data(jg)%oce%lsm_ctr_e)
+
+    ENDIF
+
+    !
+    ! close file
+    !
+    IF(p_pe == p_io) CALL nf(nf_close(ncid))
+
+    !ENDDO ! jg
+
+    CALL message( TRIM(routine),'Ocean bathymetry for external data read' )
+
+    !-------------------------------------------------------------------------
+
+    !  READ OMIP FORCING
+
+    !-------------------------------------------------------------------------
+
+    IF (iforc_oce == 12) THEN
+
+    !DO jg = 1,n_dom
+      jg = 1
+
+      i_lev       = p_patch(jg)%level
+      i_cell_type = p_patch(jg)%cell_type
+
+      IF(p_pe == p_io) THEN
+        !
+        WRITE (omip_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-flux.nc'
+
+        INQUIRE (FILE=omip_file, EXIST=l_exist)
+        IF (.NOT.l_exist) THEN
+          CALL finish(TRIM(routine),'OMIP forcing flux file is not found.')
+        ENDIF
+
+        !
+        ! open file
+        !
+        CALL nf(nf_open(TRIM(omip_file), NF_NOWRITE, ncid))
+        CALL message( TRIM(routine),'Ocean OMIP flux file opened for read' )
+
+        !
+        ! get and check number of cells in OMIP data
+        !
+        CALL nf(nf_inq_dimid(ncid, 'ncells', dimid))
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+        CALL message( TRIM(routine),'Ocean OMIP flux file - read ????????' )
+
+        IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
+          CALL finish(TRIM(ROUTINE),&
+          & 'Number of patch cells and cells in OMIP flux file do not match.')
+        ENDIF
+
+        !
+        ! get number of timesteps
+        !
+        CALL nf(nf_inq_dimid(ncid, 'time', dimid))
+        CALL nf(nf_inq_dimlen(ncid, dimid, no_tst))
+        !
+        ! check
+        !
+        IF(no_tst /= 12) THEN
+          CALL finish(TRIM(ROUTINE),&
+          & 'Number of timesteps is not 12 (monthly averages)')
+        ENDIF
+      ENDIF
+
+
+      !-------------------------------------------------------
+      !
+      ! Read OMIP data for triangle centers
+      !
+      !-------------------------------------------------------
+
+      ! zonal wind stress
+      CALL read_netcdf_data (ncid, 'stress_x', p_patch(jg)%n_patch_cells_g,          &
+        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                    no_tst, z_flux(:,:,:))
+      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,1) = z_flux(:,:,:)
+
+      ! meridional wind stress
+      CALL read_netcdf_data (ncid, 'stress_y', p_patch(jg)%n_patch_cells_g,          &
+        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                    no_tst, z_flux)
+      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,2) = z_flux(:,:,:)
+
+      ! 2m-temperature for relaxation - read here but may not be used later
+      CALL read_netcdf_data (ncid, 'temp_2m', p_patch(jg)%n_patch_cells_g,           &
+        &                    p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
+        &                    no_tst, z_flux)
+      ext_data(jg)%oce%omip_forc_mon_c(:,:,:,3) = z_flux(:,:,:)
+
+      !
+      ! close file
+      !
+      IF(p_pe == p_io) CALL nf(nf_close(ncid))
+
+    !ENDDO
+
+      CALL message( TRIM(routine),'OMIP fluxes for external data read' )
+
+    END IF ! iforc_oce=12
+
+  END SUBROUTINE read_ext_data_oce
+  !-------------------------------------------------------------------------
+
+
 
   !-------------------------------------------------------------------------
   !>
@@ -1820,8 +2089,6 @@ CONTAINS
     ENDDO
 
   END SUBROUTINE read_netcdf_2d
-
-
 
   !-------------------------------------------------------------------------
   !>

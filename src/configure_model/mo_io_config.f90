@@ -47,6 +47,7 @@ MODULE mo_io_config
   USE mo_impl_constants, ONLY: MAX_NTRACER, MAX_CHAR_LENGTH, max_dom,&
     &                          SUCCESS
   USE mo_exception,      ONLY: message, finish
+  USE mo_run_config,        ONLY: dtime, nsteps
 
   IMPLICIT NONE
   PUBLIC
@@ -101,10 +102,40 @@ MODULE mo_io_config
   !!
   !TYPE(t_io_config):: io_config(max_dom)
 
-!CONTAINS
+CONTAINS
 !  !>
 !  !!
-!  SUBROUTINE configure_io(n_dom)
-!  END SUBROUTINE configure_io
+!  subroutine configure_io(n_dom)
+!  end subroutine configure_io
+
+   FUNCTION istime4output(current_timestep) RESULT(retval)
+     LOGICAL :: retval
+     INTEGER, INTENT(IN)  :: current_timestep
+
+     INTEGER :: n_io
+
+     n_io    = NINT(dt_data/dtime)        ! write output
+
+     IF ( MOD(current_timestep-1,n_io)==0 .AND. current_timestep/=1 ) THEN
+       retval = .TRUE.
+     ELSE
+       retval = .FALSE.
+     END IF
+   END FUNCTION istime4output
+
+   FUNCTION istime4newoutputfile(current_timestep) RESULT(retval)
+     LOGICAL :: retval
+     INTEGER, INTENT(IN) :: current_timestep
+
+     INTEGER :: n_file
+
+     n_file  = NINT(dt_file/dtime)        ! trigger new output file
+
+     IF (current_timestep/=1.AND.(MOD(current_timestep-1,n_file)==0)) THEN
+       retval = .TRUE.
+     ELSE
+       retval = .FALSE.
+     END IF
+   END FUNCTION istime4newoutputfile
 
 END MODULE mo_io_config

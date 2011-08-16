@@ -345,22 +345,23 @@ if [[ x$create_basin = "x.true." ]] ; then
   # topography file
   TOPFILE=""            # no topography file used for the basin
   #conditions
-  no_of_conditions=1
-  patch_shape=1              #  Parameter for new Stommel basin:
+  no_of_conditions=1    # use parameter for new Stommel basin (see below)
+  patch_shape=2
   rectangle_xradious=50.0
   rectangle_yradious=30.0
-  circle_radious=0.0
-  patch_center_x=-25.0
-  patch_center_y=45.0
-  # patch_shape=1            # 1=orthogonal, 2= circle
-  # rectangle_xradious=40.0  # x radius for orthogonal
-  # rectangle_yradious=30.0  # y radius for orthogonal
-  # circle_radious=0.0       # radius of circle
-  # patch_center_x=0.0       
-  # patch_center_y=30.0
+  circle_radious=30.0
+  patch_center_x=0.0
+  patch_center_y=30.0
+  # patch_shape=1            # 1=orthogonal, 2= circle   #  1 for slo; 2 for pk
+  # rectangle_xradious=50.0  # x radius for orthogonal   # 50 for slo
+  # rectangle_yradious=30.0  # y radius for orthogonal   # 30 for slo
+  # circle_radious=30.0      # radius of circle          #             30 for pk
+  # patch_center_x=-25.0     # x center for radius       #-25 for slo;  0 for pk
+  # patch_center_y=45.0      # y center for radius       # 45 for slo; 30 for pk
   # output grid name
   # OCEGRID=iconR${R}B0${B}-ocean_basin.nc
-  OCEGRID=iconR${R}B0${B}-ocean_bas10-80N.nc  #  new Stommel basin 10-80N
+  OCEGRID=iconR${R}B0${B}-ocean_bas10-80N.nc  #  new Stommel basin slo 10-80N
+  OCEGRID=iconR${R}B0${B}-ocean_bas0-60N.nc   #  new Stommel basin pk 0-60N
   ATMOGRID=iconR${R}B0${B}-atmo_basin.nc
 
   create_ocean_grid
@@ -403,7 +404,7 @@ if [[ x$create_etopo40_planet = "x.true." ]] ; then
   only_get_sea_land_mask=".true."
   smooth_ocean_boundary=".true."
   #bathymetry parameters
-  MINDEPTH="-250.0"     # minimum bathymetry depth to consider grid point as sea [m] in elevation file
+  MINDEPTH="0.0"        # minimum bathymetry depth to consider grid point as sea [m] in elevation file
   SEADEPTH="-12000.0"   # set ocean bathymetry to constant (flat bottom)
   INTMTH=3              # edge elevation interpolation method: 1= linear, 2=min,  3=max
   # topography file

@@ -63,12 +63,13 @@ USE mo_run_config,             ONLY: nsteps, dtime
 USE mo_exception,              ONLY: message, message_text, finish, get_filename_noext
 USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time
 USE mo_loopindices,            ONLY: get_indices_c, get_indices_e
-USE mo_oce_state,              ONLY: t_hydro_ocean_state
+USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_base, v_base
 USE mo_oce_thermodyn,          ONLY: calc_density, calc_internal_press
 USE mo_oce_math_operators,     ONLY: grad_fd_norm_oce_2d, grad_fd_norm_oce, div_oce
 USE mo_advection_utils,        ONLY: laxfr_upflux, laxfr_upflux_v
 USE mo_physical_constants,     ONLY: grav
-USE mo_io_vlist,               ONLY: setup_vlist_oce, destruct_vlist_oce !, write_vlist_oce
+USE mo_io_vlist,               ONLY: destruct_vlist
+USE mo_output  ,               ONLY: init_output_files, write_output, close_output_files
 USE mo_oce_index,              ONLY: c_b, c_i, c_k, ne_b, ne_i, nc_b, nc_i, form4ar, ldbg
 USE mo_oce_physics,            ONLY: t_ho_params
 
@@ -243,7 +244,7 @@ CONTAINS
         ! calculate hydrostatic pressure from density
         !------------------------------------------------------------------
         !
-        CALL calc_internal_press ( ppatch(jg),p_phys_param,                &
+        CALL calc_internal_press ( ppatch(jg),                             &
           &                        pstate_oce(jg)%p_diag%rho(:,:,:),       &
           &                        pstate_oce(jg)%p_prog(jt)%h(:,:),       &
           &                        pstate_oce(jg)%p_diag%press_hyd(:,:,:) )
@@ -396,7 +397,7 @@ CONTAINS
         WRITE(message_text,form4ar) &
           &          'Div(NorV)  C =', z_divhor_c(c_i,c_k,c_b), &
           &         ' Div(NV)*dz C =', z_divhor_c(c_i,c_k,c_b)* &
-          &   (pstate_oce(jg)%p_prog(jt)%h(c_i,c_b)+ppatch(jg)%patch_oce%del_zlev_m(c_k)), &
+          &   (pstate_oce(jg)%p_prog(jt)%h(c_i,c_b)+v_base%del_zlev_m(c_k)), &
           &         ' Div(NV)lv2 C =', z_divhor_c(c_i,jkp,c_b)
         CALL message (' ', message_text)
       END IF
@@ -509,13 +510,13 @@ CONTAINS
             jkp1 = jk + 1
 
             ! depth at coordinate surfaces - elemental prism depth
-            delta_z = ppatch(jg)%patch_oce%del_zlev_m(jk)
+            delta_z = v_base%del_zlev_m(jk)
 
             DO jc = i_startidx, i_endidx
 
               ! at surface level add surface elevation z_h_pred_c
               IF (jk == toplev)  &
-                &      delta_z = ppatch(jg)%patch_oce%del_zlev_m(jk) + z_h_pred_c(jc,1,jb)
+                &      delta_z = v_base%del_zlev_m(jk) + z_h_pred_c(jc,1,jb)
 
               ! divide by delta_z at level k
               ! positive vertical divergence in direction of w (upward positive)
@@ -531,7 +532,7 @@ CONTAINS
         !------------------------------------------------------------------
         z_trtend_c(:,:,:) =                   - dtime * z_divhor_c(:,:,:)  &
           &                                   - dtime * z_divver_c(:,:,:)
-        z_tracer_c(:,:,:) = z_tracer_c(:,:,:)*ppatch(jg)%patch_oce%wet_c(:,:,:) + &
+        z_tracer_c(:,:,:) = z_tracer_c(:,:,:)*v_base%wet_c(:,:,:) + &
           &                 z_trtend_c(:,:,:)
 
         IF (my_process_is_stdio() .AND. ldbg) THEN
@@ -581,8 +582,7 @@ CONTAINS
         !CALL message (TRIM(routine),'Write output at:')
         !CALL print_datetime(datetime)
 
-        !CALL write_vlist_oce( ppatch(jg), pstate_oce(jg), datetime )
-        !CALL write_vlist_oce( ppatch(jg), pstate_oce(jg), p_sfc_flx, datetime )
+        CALL write_output( datetime )
 
       END IF
 
@@ -592,7 +592,7 @@ CONTAINS
       IF (jstep/=1 .AND. (MOD(jstep-1,n_file)==0) .AND. jstep/=nsteps) THEN
 
         jlev = ppatch(jg)%level
-        CALL destruct_vlist_oce( jg )
+        CALL destruct_vlist( jg )
 
         ! contruct gridfile name once more as in control_model:
 !         WRITE (gridfile,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',jlev,'-grid.nc'
@@ -601,12 +601,7 @@ CONTAINS
 
         ! contruct new outputfile name:      
         jfile = jfile +1
-        WRITE (outputfile,'(a,a,a,a,i4.4,a)')  &
-          &  TRIM(out_expname), '_', TRIM(get_filename_noext(ppatch(jg)%grid_filename)), &
-          & '_', jfile, '.nc'
-        WRITE(message_text,'(a,a)') 'New output file for setup_vlist_oce is ',TRIM(outputfile)
-        CALL message(trim(routine),message_text)
-        CALL setup_vlist_oce( ppatch(jg), TRIM(ppatch(jg)%grid_filename), TRIM(outputfile), jg )
+        CALL init_output_files( jfile, .TRUE. )
 
       END IF
 
@@ -697,13 +692,13 @@ CONTAINS
       DO jk = 1, n_zlev
         DO je = i_startidx, i_endidx
 
-          IF ( ppatch%patch_oce%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+          IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
 
             ! depth at coordinate surfaces
-            delta_z = ppatch%patch_oce%del_zlev_m(jk)
+            delta_z = v_base%del_zlev_m(jk)
 
             ! at surface level add surface elevation h_e
-            IF (jk == toplev) delta_z = ppatch%patch_oce%del_zlev_m(jk) + ph_e(je,jb)
+            IF (jk == toplev) delta_z = v_base%del_zlev_m(jk) + ph_e(je,jb)
 
             ! compute mass flux at edges
             zhorflx_e(je,jk,jb) = pvn_e(je,jk,jb) * delta_z

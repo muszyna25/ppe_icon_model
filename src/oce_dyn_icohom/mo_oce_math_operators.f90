@@ -57,6 +57,7 @@ USE mo_physical_constants
 USE mo_impl_constants,     ONLY: land_boundary, boundary, sea, sea_boundary, &!land, sea,
   &                              min_rlcell, min_rledge, min_rlvert !,max_char_length
 USE mo_model_domain,       ONLY: t_patch
+USE mo_ext_data,           ONLY: t_external_data
 USE mo_ocean_nml,          ONLY: lviscous, n_zlev, iswm_oce
 USE mo_dynamics_config,    ONLY: nold
 USE mo_exception,          ONLY: finish
@@ -64,7 +65,7 @@ USE mo_exception,          ONLY: finish
 USE mo_timer,              ONLY: timer_start, timer_stop, timer_div, timer_grad
 #endif
 USE mo_loopindices,        ONLY: get_indices_c, get_indices_e, get_indices_v
-USE mo_oce_state,          ONLY: t_hydro_ocean_state
+USE mo_oce_state,          ONLY: t_hydro_ocean_state, t_hydro_ocean_diag, v_base
 !USE mo_math_utilities,     ONLY: t_cartesian_coordinates
 IMPLICIT NONE
 
@@ -211,9 +212,9 @@ IF (slev > 1) THEN
       ! (see Bonaventura and Ringler MWR 2005)
       !
 !  #slo# 2011-02-28 - correction (no change, see below)
-         IF ( ptr_patch%patch_oce%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-!          IF (     ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2)) == sea&
-!            &.AND. ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1))==sea) THEN
+         IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+!          IF (     v_base%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2)) == sea&
+!            &.AND. v_base%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1))==sea) THEN
           grad_norm_psi_e(je,jk,jb) =  &
             &  ( psi_c(iidx(je,jb,2),jk,iblk(je,jb,2)) - &
             &    psi_c(iidx(je,jb,1),jk,iblk(je,jb,1)) )  &
@@ -221,18 +222,18 @@ IF (slev > 1) THEN
         ELSE
           grad_norm_psi_e(je,jk,jb) =  0.0_wp
         ENDIF
-!           IF ( (ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2))&
-!           & == ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1)))&
-!           &.AND.ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1))<0) THEN
+!           IF ( (v_base%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2))&
+!           & == v_base%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1)))&
+!           &.AND.v_base%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1))<0) THEN
 ! 
-!             IF(   ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1))&
-!                & /= ptr_patch%patch_oce%lsm_oce_e(je,jk,jb))THEN
+!             IF(   v_base%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1))&
+!                & /= v_base%lsm_oce_e(je,jk,jb))THEN
 !               write(*,*)'I WARNING: INCONSISTENT LSM', jk, je,jb,iidx(je,jb,2),iblk(je,jb,2),&
 !                                                            & iidx(je,jb,1),iblk(je,jb,1)
 !               write(*,*)'lsm values:cell1, cell2, edge:',&
-!               &ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1)),&
-!               &ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2)),&
-!               &ptr_patch%patch_oce%lsm_oce_e(je,jk,jb)
+!               &v_base%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1)),&
+!               &v_base%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2)),&
+!               &v_base%lsm_oce_e(je,jk,jb)
 !             ENDIF
 !           ENDIF
       ENDDO
@@ -258,9 +259,9 @@ ELSE
       ! (see Bonaventura and Ringler MWR 2005)
       !
 !  #slo# 2011-02-28 - check of sea is identical, since sea_boundary doesn't exist on edges
-          IF ( ptr_patch%patch_oce%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
-   !  IF (     ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2)) <= sea_boundary&
-   !    &.AND. ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1))<=sea_boundary) THEN
+          IF ( v_base%lsm_oce_e(je,jk,jb) <= sea_boundary ) THEN
+   !  IF (     v_base%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2)) <= sea_boundary&
+   !    &.AND. v_base%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1))<=sea_boundary) THEN
           grad_norm_psi_e(je,jk,jb) =                     &
             &  ( psi_c(iidx(je,jb,2),jk,iblk(je,jb,2)) -  &
             &    psi_c(iidx(je,jb,1),jk,iblk(je,jb,1)) )  &
@@ -268,8 +269,8 @@ ELSE
 
 ! IF (jk==3 .and. grad_norm_psi_e(je,jk,jb)>0.0_wp) THEN
 !   write(*,*) 'gradient:', je,jb,grad_norm_psi_e(je,jk,jb), &
-!     &        ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2)), &
-!     &        ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1)), &
+!     &        v_base%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2)), &
+!     &        v_base%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1)), &
 !     &         psi_c(iidx(je,jb,2),jk,iblk(je,jb,2)), psi_c(iidx(je,jb,1),jk,iblk(je,jb,1))
 ! ENDIF
 ! IF(jk==3)THEN!.and.iblk(je,jb,2)==900)THEN
@@ -279,18 +280,18 @@ ELSE
         ELSE
           grad_norm_psi_e(je,jk,jb) =  0.0_wp
         ENDIF
-!           IF ( (ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2))&
-!           & == ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1)))&
-!           &.AND.ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1))<0) THEN
+!           IF ( (v_base%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2))&
+!           & == v_base%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1)))&
+!           &.AND.v_base%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1))<0) THEN
 ! 
-!             IF(   ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1))&
-!                & /= ptr_patch%patch_oce%lsm_oce_e(je,jk,jb))THEN
+!             IF(   v_base%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1))&
+!                & /= v_base%lsm_oce_e(je,jk,jb))THEN
 !               write(*,*)'II WARNING: INCONSISTENT LSM', jk, je,jb,iidx(je,jb,2),iblk(je,jb,2),&
 !                                                            & iidx(je,jb,1),iblk(je,jb,1)
 !               write(*,*)'lsm values:cell1, cell2, edge:',&
-!               &ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1)),&
-!               &ptr_patch%patch_oce%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2)),&
-!               &ptr_patch%patch_oce%lsm_oce_e(je,jk,jb)
+!               &v_base%lsm_oce_c(iidx(je,jb,1),jk,iblk(je,jb,1)),&
+!               &v_base%lsm_oce_c(iidx(je,jb,2),jk,iblk(je,jb,2)),&
+!               &v_base%lsm_oce_e(je,jk,jb)
 !             ENDIF
 !           ENDIF
       ENDDO
@@ -427,7 +428,7 @@ CASE (3) ! (cell_type == 3)
       ! by the finite difference approximation
       ! (see Bonaventura and Ringler MWR 2005)
       !
-         IF ( ptr_patch%patch_oce%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
+         IF ( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
           grad_norm_psi_e(je,jb) =  &
             &  ( psi_c(iidx(je,jb,2),iblk(je,jb,2)) - &
             &    psi_c(iidx(je,jb,1),iblk(je,jb,1)) )  &
@@ -612,20 +613,20 @@ CASE (3) ! (cell_type == 3)
         ! sea, sea_boundary, boundary (edges only), land_boundary, land =
         !  -2,      -1,         0,                  1,             2
 
-         IF ( ptr_patch%patch_oce%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
+         IF ( v_base%lsm_oce_c(jc,jk,jb) > sea_boundary ) THEN
            div_vec_c(jc,jk,jb) = 0.0_wp
          ELSE
-!            IF ( ptr_patch%patch_oce%lsm_oce_e(iidx(jc,jb,1),jk,iblk(jc,jb,1)) >= boundary ) &
+!            IF ( v_base%lsm_oce_e(iidx(jc,jb,1),jk,iblk(jc,jb,1)) >= boundary ) &
 !              &  vec_e(iidx(jc,jb,1),jk,iblk(jc,jb,1)) = 0.0_wp
-!            IF ( ptr_patch%patch_oce%lsm_oce_e(iidx(jc,jb,2),jk,iblk(jc,jb,2)) >= boundary ) &
+!            IF ( v_base%lsm_oce_e(iidx(jc,jb,2),jk,iblk(jc,jb,2)) >= boundary ) &
 !              &  vec_e(iidx(jc,jb,1),jk,iblk(jc,jb,2)) = 0.0_wp
-!            IF ( ptr_patch%patch_oce%lsm_oce_e(iidx(jc,jb,3),jk,iblk(jc,jb,3)) >= boundary ) &
+!            IF ( v_base%lsm_oce_e(iidx(jc,jb,3),jk,iblk(jc,jb,3)) >= boundary ) &
 !              &  vec_e(iidx(jc,jb,1),jk,iblk(jc,jb,3)) = 0.0_wp
 
           div_vec_c(jc,jk,jb) =  &
-            vec_e(iidx(jc,jb,1),jk,iblk(jc,jb,1)) * ptr_patch%patch_oce%geofac_div(jc,1,jb) + &
-            vec_e(iidx(jc,jb,2),jk,iblk(jc,jb,2)) * ptr_patch%patch_oce%geofac_div(jc,2,jb) + &
-            vec_e(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * ptr_patch%patch_oce%geofac_div(jc,3,jb)
+            vec_e(iidx(jc,jb,1),jk,iblk(jc,jb,1)) * v_base%geofac_div(jc,1,jb) + &
+            vec_e(iidx(jc,jb,2),jk,iblk(jc,jb,2)) * v_base%geofac_div(jc,2,jb) + &
+            vec_e(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * v_base%geofac_div(jc,3,jb)
         ENDIF
 
       END DO
@@ -636,7 +637,7 @@ CASE (3) ! (cell_type == 3)
 !    do jb=1,1
 !    do jc=1,10
 !      write(*,*)'vec_e, div_c, geofac:', jc,jb, &
-!        &   vec_e(jc,1,jb), div_vec_c(jc,1,jb), (ptr_patch%patch_oce%geofac_div(jc,jk,jb),jk=1,2)
+!        &   vec_e(jc,1,jb), div_vec_c(jc,1,jb), (v_base%geofac_div(jc,jk,jb),jk=1,2)
 !    enddo
 !    enddo
 !    do jb=1,1
@@ -684,7 +685,7 @@ CASE (6) ! (cell_type == 6)
 
           div_vec_c(jc,jk,jb) =  div_vec_c(jc,jk,jb) +   &
             &    vec_e(iidx(jc,jb,je),jk,iblk(jc,jb,je)) &
-            &  * ptr_patch%patch_oce%geofac_div(jc,je,jb)
+            &  * v_base%geofac_div(jc,je,jb)
 
         END DO
       END DO
@@ -865,7 +866,7 @@ DO jb = i_startblk, i_endblk
 
         !Check, if edge is sea or boundary edge and take care of dummy edge
         ! edge with indices ile, ibe is sea edge
-        IF ( ptr_patch%patch_oce%lsm_oce_e(ile,jk,ibe) <= sea_boundary ) THEN
+        IF ( v_base%lsm_oce_e(ile,jk,ibe) <= sea_boundary ) THEN
 
           !Distinguish the following cases
           ! edge ie_k is
@@ -896,7 +897,7 @@ DO jb = i_startblk, i_endblk
           iwet_cell_blk(2*jev-1) = ptr_patch%edges%cell_blk(ile,ibe,2)
 
         ! edge with indices ile, ibe is boundary edge
-        ELSE IF ( ptr_patch%patch_oce%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
+        ELSE IF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
 
           !dual edge length = distance between adjacent triangle centers
           !if edge belongs to boundary only half of this length is taken into account
@@ -920,7 +921,7 @@ DO jb = i_startblk, i_endblk
           icell_blk_2        = ptr_patch%edges%cell_blk(ile,ibe,2)
 
           !check which one is the ocean cell and store it
-          IF ( ptr_patch%patch_oce%lsm_oce_c(icell_idx_1,jk,icell_blk_1) <= sea_boundary ) THEN
+          IF ( v_base%lsm_oce_c(icell_idx_1,jk,icell_blk_1) <= sea_boundary ) THEN
             iwet_cell_idx(2*jev)  = icell_idx_1
             iwet_cell_idx(2*jev-1)= 0
             iwet_cell_blk(2*jev)  = icell_blk_1
@@ -1149,7 +1150,7 @@ DO jb = i_startblk, i_endblk
 
         !Check, if edge is sea or boundary edge and take care of dummy edge
         ! edge with indices ile, ibe is sea edge
-        IF ( ptr_patch%patch_oce%lsm_oce_e(ile,jk,ibe) == sea ) THEN
+        IF ( v_base%lsm_oce_e(ile,jk,ibe) == sea ) THEN
           !Distinguish the following cases
           ! edge ie_k is
           !a) ocean edge: compute as usual,
@@ -1361,7 +1362,7 @@ DO jb = i_startblk, i_endblk
 
         !Check, if edge is sea or boundary edge and take care of dummy edge
         ! edge with indices ile, ibe is sea edge
-        IF ( ptr_patch%patch_oce%lsm_oce_e(ile,jk,ibe) <= sea_boundary ) THEN
+        IF ( v_base%lsm_oce_e(ile,jk,ibe) <= sea_boundary ) THEN
 
           !Distinguish the following cases
           ! edge ie_k is
@@ -1391,7 +1392,7 @@ DO jb = i_startblk, i_endblk
           iwet_cell_blk(2*jev-1) = ptr_patch%edges%cell_blk(ile,ibe,2)
 
         ! edge with indices ile, ibe is boundary edge
-        ELSE IF ( ptr_patch%patch_oce%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
+        ELSE IF ( v_base%lsm_oce_e(ile,jk,ibe) == boundary ) THEN
 
           !dual edge length = distance between adjacent triangle centers
           !if edge belongs to boundary only half of this length is taken into account
@@ -1414,7 +1415,7 @@ DO jb = i_startblk, i_endblk
           icell_blk_2        = ptr_patch%edges%cell_blk(ile,ibe,2)
 
           !check which one is the ocean cell and store it
-          IF ( ptr_patch%patch_oce%lsm_oce_c(icell_idx_1,jk,icell_blk_1) <= sea_boundary ) THEN
+          IF ( v_base%lsm_oce_c(icell_idx_1,jk,icell_blk_1) <= sea_boundary ) THEN
             iwet_cell_idx(2*jev)  = icell_idx_1
             iwet_cell_idx(2*jev-1)= 0
             iwet_cell_blk(2*jev)  = icell_blk_1
@@ -1686,7 +1687,7 @@ DO jb = i_startblk, i_endblk
 
   !set output on land to zero
   DO jk = slev, elev
-    WHERE (ptr_patch%patch_oce%lsm_oce_e(1:nproma,jk,jb) >= land_boundary)
+    WHERE (v_base%lsm_oce_e(1:nproma,jk,jb) >= land_boundary)
       nabla2_vec_e(1:nproma,jk,jb) = 0.0_wp
     END WHERE
   ENDDO
@@ -1706,13 +1707,16 @@ END SUBROUTINE nabla2_vec_ocean
 !! @par Revision History
 !! Developed  by  Peter Korn, MPI-M (2010).
 !! 
-SUBROUTINE height_related_quantities( p_patch, p_os)
+SUBROUTINE height_related_quantities( p_patch, p_os, p_ext_data)
 !
 ! Patch on which computation is performed
 TYPE(t_patch), TARGET, INTENT(in) :: p_patch
 !
 ! Type containing ocean state
 TYPE(t_hydro_ocean_state), TARGET :: p_os
+!
+! Type containing external data
+TYPE(t_external_data), TARGET, INTENT(in) :: p_ext_data
 !
 !  local variables
 !
@@ -1759,9 +1763,9 @@ IF ( iswm_oce == 1 ) THEN  !  SWM
     !calculate for each fluid colum the total depth, i.e. 
     !from bottom boundary to surface height, i.e. using individual bathymetry for SWM
     DO jc = i_startidx_c, i_endidx_c
-      IF(p_patch%patch_oce%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+      IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
         p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
-                                  &- p_patch%patch_oce%bathymetry_c(jc,jb)
+                                  &- p_ext_data%oce%bathymetry_c(jc,jb)
       ELSE
         p_os%p_diag%thick_c(jc,jb) = 0.0_wp
       ENDIF 
@@ -1780,9 +1784,9 @@ ELSEIF(iswm_oce /= 1 )THEN
     !from bottom boundary to surface height 
     !the bottom boundary is zlev_i(dolic+1) since zlev_i(1)=0 (air-sea-boundary at h=0
     DO jc = i_startidx_c, i_endidx_c
-      IF ( p_patch%patch_oce%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN 
+      IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN 
         p_os%p_diag%thick_c(jc,jb) = p_os%p_prog(nold(1))%h(jc,jb)&
-        &                          + p_patch%patch_oce%zlev_i(p_patch%patch_oce%dolic_c(jc,jb)+1)
+        &                          + v_base%zlev_i(v_base%dolic_c(jc,jb)+1)
       ELSE
         p_os%p_diag%thick_c(jc,jb) = 0.0_wp
       ENDIF
@@ -1812,13 +1816,13 @@ CASE(DISTANCE_WEIGHT)
       il_c2 = p_patch%edges%cell_idx(je,jb,2) 
       ib_c2 = p_patch%edges%cell_blk(je,jb,2) 
 
-      z_dist_e_c1 = 0.5_wp!p_patch%patch_oce%dist_cell2edge(je,jb,1) !0.5_wp 
-      z_dist_e_c2 = 0.5_wp!p_patch%patch_oce%dist_cell2edge(je,jb,2) !0.5_wp 
+      z_dist_e_c1 = 0.5_wp!v_base%dist_cell2edge(je,jb,1) !0.5_wp 
+      z_dist_e_c2 = 0.5_wp!v_base%dist_cell2edge(je,jb,2) !0.5_wp 
 
       !z_dist_e_c1=p_patch%edges%edge_cell_length(je,jb,1)
       !z_dist_e_c2=p_patch%edges%edge_cell_length(je,jb,2)
 
-      IF ( p_patch%patch_oce%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN   
+      IF ( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN   
         p_os%p_diag%thick_e(je,jb) = ( z_dist_e_c1*p_os%p_diag%thick_c(il_c1,ib_c1)&
                               &+   z_dist_e_c2*p_os%p_diag%thick_c(il_c2,ib_c2) )&
                               &/(z_dist_e_c1+z_dist_e_c2)
@@ -1849,7 +1853,7 @@ CASE(upwind)
       ib_c2 = p_patch%edges%cell_blk(je,jb,2) 
 
 
-      IF( p_patch%patch_oce%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
+      IF( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
 
         IF(p_os%p_prog(nold(1))%vn(je,1,jb)>0.0_wp)THEN
           p_os%p_diag%thick_e(je,jb) = p_os%p_diag%thick_c(il_c1,ib_c1)
@@ -1887,12 +1891,12 @@ CASE(DISTANCE_WEIGHT)
       il_c2 = p_patch%edges%cell_idx(je,jb,2) 
       ib_c2 = p_patch%edges%cell_blk(je,jb,2) 
 
-      z_dist_e_c1 = 0.5_wp!p_patch%patch_oce%dist_cell2edge(je,jb,1)
-      z_dist_e_c2 = 0.5_wp!p_patch%patch_oce%dist_cell2edge(je,jb,2)
+      z_dist_e_c1 = 0.5_wp!v_base%dist_cell2edge(je,jb,1)
+      z_dist_e_c2 = 0.5_wp!v_base%dist_cell2edge(je,jb,2)
       !z_dist_e_c1 = p_patch%edges%edge_cell_length(je,jb,1)
       !z_dist_e_c2 = p_patch%edges%edge_cell_length(je,jb,2)
 
-      IF( p_patch%patch_oce%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
+      IF( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
 
         p_os%p_diag%thick_e(je,jb) = ( z_dist_e_c1*p_os%p_diag%thick_c(il_c1,ib_c1)&
                               &+   z_dist_e_c2*p_os%p_diag%thick_c(il_c2,ib_c2) )&
@@ -1926,7 +1930,7 @@ CASE(upwind)
       ib_c2 = p_patch%edges%cell_blk(je,jb,2) 
 
 
-      IF( p_patch%patch_oce%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
+      IF( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
 
         IF(p_os%p_prog(nold(1))%vn(je,1,jb)>0.0_wp)THEN
           p_os%p_diag%thick_e(je,jb) = p_os%p_diag%thick_c(il_c1,ib_c1)
@@ -1946,7 +1950,8 @@ END SELECT
 ENDIF
 ! write(*,*)'max/min thick_c:',maxval(p_os%p_diag%thick_c),minval(p_os%p_diag%thick_c) 
 ! write(*,*)'max/min h_c:',maxval(p_os%p_prog(nold(1))%h),minval(p_os%p_prog(nold(1))%h) 
-! write(*,*)'max/min bath_c:',maxval(p_patch%patch_oce%bathymetry_c),minval(p_patch%patch_oce%bathymetry_c) 
+! write(*,*)'max/min bath_c:',maxval(p_ext_data%oce%bathymetry_c),  &
+!   &        minval(p_ext_data%oce%bathymetry_c) 
 ! write(*,*)'max/min thick_e:',maxval(p_os%p_diag%thick_e),minval(p_os%p_diag%thick_e) 
 ! write(*,*)'max/min h_e:',maxval(p_os%p_diag%h_e),minval(p_os%p_diag%h_e) 
 ! !CALL message (TRIM(routine), 'end')        

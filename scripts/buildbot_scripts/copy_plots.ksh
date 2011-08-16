@@ -82,10 +82,6 @@ find experiments -name '*.eps' -exec cp {} /tmp/${BUILDER}/. \;
 # Save Plots for archive
 #---------------------------------------------------------------------
 #---------------------------------------------------------------------
-echo "================================================================"
-echo "=               Walter                                         ="
-ls -la  experiments/*
-echo "================================================================"
 
 BASE_DIR=/tmp/BuildBot/${BUILDER}/archive/${DATE}/buildbot/${REV}/${BUILDER}/${BUILDER_NR}
 

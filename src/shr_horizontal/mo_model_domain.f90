@@ -118,7 +118,7 @@ PUBLIC :: t_patch
 PUBLIC :: t_grid_cells
 PUBLIC :: t_grid_edges
 PUBLIC :: t_grid_vertices
-PUBLIC :: t_patch_ocean
+!PUBLIC :: t_patch_ocean
 
 PUBLIC :: t_tangent_vectors
 
@@ -533,158 +533,6 @@ TYPE t_grid_vertices
 END TYPE t_grid_vertices
 
 
-TYPE t_patch_ocean
-
-  !!
-  !! Specifications of ocean extensions for the general patch
-  !!
-  !! Vertical patch component:
-  !!
-  !! The ocean uses z-coordinates in meters in the vertical.
-  !! The following data are required:
-  !!
-  !! n_zlev: number of z-coordinate surfaces
-  !! n_zlvp: number of intermediate levels (+1)
-  !! n_zlvm: number of z-coordinate distances (-1)
-  INTEGER :: n_zlev, n_zlvp, n_zlvm
-
-  !! del_zlev_m: thickness (height) of elemental prism, defined as the distance between top
-  !!             and bottom of elemental prism, i.e. the distance between two
-  !!             intermediate z-coordinate surfaces. These data are provided by the user,
-  !!             all other vertical information is calculated from this array of thicknesses.
-  !!             Dimension: n_zlev
-  REAL(wp), ALLOCATABLE :: del_zlev_m(:)
-
-  !! zlev_m    : position of coordinate surfaces in meters below zero surface,
-  !!             i.e. the depth of the centers of the elemental prism.
-  !!             Numbering starts from surface and increases downwards to bottom.
-  !!             Dimension: n_zlev
-  !!             At these surfaces the horizontal velocities, vorticity,divergence
-  !!             and scalar variables are evaluated.
-  REAL(wp), ALLOCATABLE :: zlev_m(:)
-
-  !! zlev_i    : surface in the middle between two z-coordinate surfaces,
-  !!             i.e. the position of top and bottom of elemental prisms.
-  !!             Position of first surface is 0.
-  !!             Dimension: n_zlvp = n_zlev + 1
-  !!             At these surfaces the vertical velocities are evaluated.
-  REAL(wp), ALLOCATABLE :: zlev_i(:)
-
-  !! del_zlev_i: distance between two z-coordinate surfaces. The first is the distance from the
-  !!             ocean surface = zlev_m(1)
-  !!             Dimension: n_zlev
-  REAL(wp), ALLOCATABLE :: del_zlev_i(:)
-
-  !
-  ! For each vertical fluid column we store the index of the deepest
-  ! z-coordinate surface 'zlev_m' in the variable deepest ocean layer in column 'dolic'.
-  ! This information is used in vertical calculations (vertical velocity/tracer advection,
-  ! and vertical diffusion) and within loops over all edges or cells.
-
-  ! ocean topography <=> bathymetric height used in the ocean - cell centers and edges only
-  ! bathymetric height at cell centers
-  ! index1=1,nproma, index2=1,nblks_c
-  REAL(wp), ALLOCATABLE :: bathymetry_c(:,:)
-  ! topographic height at cell edges
-  ! index1=1,nproma, index2=1,nblks_e
-  REAL(wp), ALLOCATABLE :: bathymetry_e(:,:)
-  ! topographic height at cell vertices - not used
-  ! index1=1,nproma, index2=1,nblks_v
-  !REAL(wp), ALLOCATABLE :: bathymetry_v(:,:)
-
-  ! land-sea-mask for ocean has 3 dimensions (the 2nd is the number of vertical levels)
-  ! sea=-2, sea_boundary=-1, boundary (edges only)=0, land_boundary=1, land=2
-  !
-  ! land-sea-mask for cell centers
-  ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_c
-  INTEGER, ALLOCATABLE :: lsm_oce_c(:,:,:)
-  ! land-sea-mask for cell edges
-  ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_e
-  INTEGER, ALLOCATABLE :: lsm_oce_e(:,:,:)
-  ! land-sea-mask for cell vertices
-  ! index1=1,nproma, index2=1,n_zlev, index3=1,nblks_v
-  ! INTEGER, ALLOCATABLE :: lsm_oce_v(:,:,:)
-
-  ! To simplify the acess to the required information within these loops we store
-  ! an cell and edge based version of the deepest ocean layer in column.
-  ! dolic_e(edge1) and dolic_c(cell1) are identical if 'edge1' is one of
-  ! the edges of 'cell1'.
-  ! If the ocean bottom is flat dolic_c and dolic_e are identical and equal to the
-  ! number of z-coodinate surfaces.
-
-  ! index1=1,nproma, index2=1,nblks_c
-  INTEGER, ALLOCATABLE :: dolic_c(:,:)
-  ! index1=1,nproma, index2=1,nblks_e
-  INTEGER, ALLOCATABLE :: dolic_e(:,:)
-
-  ! To simply set land points to zero we store additional 3-dim wet points
-  ! dimensions as in lsm_oce:
-  REAL(wp), ALLOCATABLE :: wet_c(:,:,:)  ! cell centers
-  REAL(wp), ALLOCATABLE :: wet_e(:,:,:)  ! cell edges
-  !REAL(wp), ALLOCATABLE :: wet_i(:,:,:)  ! vertical velocity points on intermediate levels
-
-  ! Arrays that describe vertical connectivity of the triangles.
-  ! The indices of triangles are stored in a whole vertical column.
-  ! index1=1,nproma, index2=1,nblks_c, index3=1,n_zlev
-  INTEGER, ALLOCATABLE :: neighbor_c(:,:,:)
-  ! index1=1,nproma, index2=1,nblks_e, index3=1,n_zlev
-  INTEGER, ALLOCATABLE :: neighbor_e(:,:,:)
-
-  ! The following two arrays are required for the reconstruction process that is used
-  ! within the ocean model. Once the new version is implemented this could eventually be shifted
-  ! to the edge/vertex datatypes. It is currently placed here to reduce interference with the
-  ! atmospheric code (P.K.).
-  !
-  ! Vector pointing from cell circumcenter to edge midpoint. In the associated cell2edge_weight-array
-  ! the cell2edge_vec is multiplied by some other geometric quantities (edge-length, cell area).
-  ! The weight is used in the reconstruction the vector is used in the transposed reconstruction.
-  !  index=1,nproma, index2=1,nblks_c, index3=1,3
-  ! other choice would be index2=1,nblks_e, index3=1,2
-  ! Eventually switch to other second indexing if this is more appropriate
-
-  ! Vector pointing from vertex (dual center) to midpoint of dual edge (/= midpoint of primal edge).
-  ! In the associated vertex2dualedge_mid_weight-array the vertex2dualedge_mid_vec is multiplied by
-  ! some other geometric quantities (dual edge-length, dual cell area).
-  ! The weight is used in the reconstruction the vector is used in the transposed reconstruction.
-  !  index=1,nproma, index2=1,nblks_v, index3=1,6
-  ! other choice index2=1,nblks_e, index3=1,2
-  ! Eventually switch to other second indexing if this is more appropriate
-  !  new constructs for mimetic core:
-  TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2cell_coeff_cc(:,:,:)
-  TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2cell_coeff_cc_t(:,:,:)
-
-  !REAL(wp),                      ALLOCATABLE :: edge2vert_coeff(:,:,:,:)
-  !TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_coeff_t(:,:,:)
-
-  TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_coeff_cc(:,:,:)
-  TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_coeff_cc_t(:,:,:)
-  TYPE(t_cartesian_coordinates), ALLOCATABLE :: edge2vert_vector_cc(:,:,:)
-
-  REAL(wp), ALLOCATABLE :: fixed_vol_norm(:,:)
-  REAL(wp), ALLOCATABLE :: variable_vol_norm(:,:,:)
-  REAL(wp), ALLOCATABLE :: variable_dual_vol_norm(:,:,:)
-
-
-  ! Location of midpoint of dual edge
-  TYPE(t_geographical_coordinates), ALLOCATABLE :: mid_dual_edge(:,:)
-  ! Cartesian distance from vertex1 to vertex2 via dual edge midpoint
-  REAL(wp), ALLOCATABLE :: dist_cell2edge(:,:,:)
-
-  ! Data Structures from mo_interpolation:
-
-  ! factor for divergence (nproma,cell_type,nblks_c)
-  REAL(wp), ALLOCATABLE :: geofac_div(:,:,:)
-  ! factor for quad-cell divergence (nproma,4,nblks_e)
-  REAL(wp), ALLOCATABLE :: geofac_qdiv(:,:,:)
-  ! factor for divergence (nproma,9-cell_type,nblks_v)
-  REAL(wp), ALLOCATABLE :: geofac_rot(:,:,:)
-  ! factor for nabla2-scalar (nproma,cell_type+1,nblks_c)
-  REAL(wp), ALLOCATABLE :: geofac_n2s(:,:,:)
-  ! factor for Green-Gauss gradient (nproma,4,nblks_c,2)
-  !REAL(wp), ALLOCATABLE :: geofac_grg(:,:,:,:) !  not used in patch_ocean
-
-END TYPE t_patch_ocean
-
 ! !patch class
 
 TYPE t_patch
@@ -787,8 +635,8 @@ TYPE t_patch
 
   !
   ! ! Mask and bathymetry for ocean patch
-  TYPE(t_patch_ocean) ::  &
-    &  patch_oce
+!  TYPE(t_patch_ocean) ::  &
+!    &  patch_oce
 
   !
   ! ! grid information on the patch

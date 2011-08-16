@@ -51,18 +51,23 @@ MODULE mo_oce_physics
 !
 !
 USE mo_kind,                ONLY: wp
-USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_v,&
-                            &  k_pot_temp_h, k_pot_temp_v, k_sal_h, k_sal_v, no_tracer,&
-                            &  expl_vertical_velocity_diff
-USE mo_parallel_config,  ONLY: nproma
+USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_v,        &
+  &                               k_pot_temp_h, k_pot_temp_v, k_sal_h, k_sal_v, no_tracer,&
+  &                               MAX_VERT_DIFF_VELOC, MAX_VERT_DIFF_TRAC,                &
+  &                               CWA, CWT
+USE mo_parallel_config,     ONLY: nproma
 USE mo_model_domain,        ONLY: t_patch
-USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, &!! min_rledge, min_rlvert,      &
-  &                               sea_boundary    
+USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, min_rledge,&
+  &                               sea_boundary
 USE mo_exception,           ONLY: message, finish
-USE mo_oce_state,           ONLY: t_hydro_ocean_state!, t_hydro_ocean_diag
-!USE mo_physical_constants,  ONLY: grav
-USE mo_loopindices,         ONLY: get_indices_c
-!USE mo_math_constants,      ONLY: pi 
+USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base
+USE mo_physical_constants,  ONLY: grav, rho_ref, SItodBar
+USE mo_loopindices,         ONLY: get_indices_c,get_indices_e
+USE mo_math_constants,      ONLY: dbl_eps
+USE mo_dynamics_config,     ONLY: nold
+USE mo_oce_forcing,         ONLY: t_sfc_flx
+
+
 IMPLICIT NONE
 
 
@@ -72,13 +77,9 @@ CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 CHARACTER(len=*), PARAMETER :: this_mod_name = 'mo_oce_physics'
 
-
 ! Public interface
 
-! public subroutines
-PUBLIC :: construct_ho_physics
-PUBLIC :: destruct_ho_physics
-PUBLIC :: init_ho_physics
+!PUBLIC :: init_ho_physics
 PUBLIC :: construct_ho_params
 PUBLIC :: destruct_ho_params
 PUBLIC :: init_ho_params
@@ -88,128 +89,47 @@ PUBLIC :: update_ho_params
 ! dynamically updated by using the "ocean-physics" structure. #slo# - not yet
 TYPE t_ho_params
 
-  REAL(wp),ALLOCATABLE ::  &
-  ! diffusion coefficients for horizontal velocity, temp. and salinity, dim=(nproma, n_zlev,nblks_c)
+  REAL(wp),ALLOCATABLE ::    &
+  ! diffusion coefficients for horizontal velocity, temp. and salinity,        dim=(nproma,n_zlev,nblks_e)
     &  K_veloc_h   (:,:,:),  & ! coefficient of horizontal velocity diffusion
     &  K_tracer_h(:,:,:,:),  & ! coefficient of horizontal tracer diffusion
-  ! diffusion coefficients for vertical velocity, temp. and salinity, dim=(n_zlev)
-    &  A_veloc_v   (:,:,:),    & ! coefficient of vertical velocity diffusion
-    &  A_tracer_v(:,:,:,:)       ! coefficient of vertical tracer diffusion
+  ! diffusion coefficients for vertical velocity, temp. and salinity,          dim=(nproma,n_zlev+1,nblks_e)
+    &  A_veloc_v   (:,:,:),  & ! coefficient of vertical velocity diffusion
+    &  A_tracer_v(:,:,:,:)     ! coefficient of vertical tracer diffusion
 
   !constant background values of coefficients above
-  REAL(wp) :: K_veloc_h_back, &! coefficient of horizontal velocity diffusion
-           &  A_veloc_v_back ! coefficient of vertical velocity diffusion
+  REAL(wp) :: K_veloc_h_back, &! coefficient of horizontal velocity diffusion, dim=(nproma, n_zlev,nblks_e, no_tracer)
+           &  A_veloc_v_back   ! coefficient of vertical velocity diffusion,   dim=(nproma, n_zlev+1,nblks_c,no_tracer)
 
 
-  REAL(wp),ALLOCATABLE ::  &
-    &  K_tracer_h_back(:), &! coefficient of horizontal tracer i diffusion
-    &  A_tracer_v_back(:)   ! coefficient of vertical temperature diffusion
-  ! coefficients in linear EOS
-  REAL(wp) :: a_T = 2.55E-04_wp,     & ! thermal expansion coefficient (kg/m3/K)
-    &         b_S = 7.64E-01_wp         ! haline contraction coefficient (kg/m3/psu)
-
-  ! density reference values, to be constant in Boussinesq ocean models
-  REAL(wp) :: rho_ref = 1025.022_wp         ! reference density [kg/m^3]
-  REAL(wp) :: rho_inv = 0.0009755881663_wp  ! inverse reference density [m^3/kg]
+  REAL(wp),ALLOCATABLE ::     &
+    &  K_tracer_h_back(:),    &! coefficient of horizontal tracer i diffusion
+    &  A_tracer_v_back(:)      ! coefficient of vertical temperature diffusion
 
   REAL(wp) :: bottom_drag_coeff
 
 END TYPE t_ho_params
 
 
-!Data used for parametrization of unresolved processes. The list below is uncomplete.
-TYPE t_ho_physics
-
-! INTEGER,  ALLOCATABLE ::  &
-!   &  Jwtype     (:,:)  &  ! Jerlov water type (clarity)
-!   &  ksbl       (:,:)  &
-!   &  kbbl       (:,:)  &
-
-  REAL(wp), ALLOCATABLE ::   &
-    &  Akv        (:,:,:),   &  ! vertical mixing coefficient (m2/s) for momentum
-    &  Akt        (:,:,:,:)! &  ! vertical mixing coefficient (m2/s) for tracers
-!   &  alpha       (:,:),    &  ! surface thermal expansion coefficient (1/Celsius)
-!   &  beta       (:,:),     &  ! surface saline contraction coefficient (1/PSU)
-!   &  bvf        (:,:,:),   &  ! Brunt-Vaisala frequency squared (1/s2)
-!   &  shear2     (:,:),     &  ! velocity shear squared
-!   &  Rig        (:,:,:),   &  ! Richardson gradient number
-!   &  alphaobeta (:,:,:),   &  ! ratio of thermal expansion and saline contraction
-!                            &  ! coefficients (Celsius/PSU) used in double diffusion
-!   &  hsbl       (:,:),     &  ! depth of surface oceanic boundary layer (m)
-!   &  hbbl       (:,:),     &  ! depth of bottom oceanic boundary layer (m)
-!   &  ghats      (:,:,:,:), &  ! boundary layer nonlocal transport (T units/m)
-!   &  Kv         (:,:,:),   &  ! vertical viscosity scratch array
-!   &  Kt         (:,:,:),   &  ! vertical diffusion scratch array, temperature
-!   &  Ks         (:,:,:),   &  ! vertical diffusion scratch array, salinity
-!   &  aux_e      (:,:),     &  ! aux array with edge dimensions
-!   &  aux_c      (:,:,:),   &  ! aux_array with cell dimensions
-!   &  sl_dpth    (:,:),     &  ! depth of surface mixed layer (work array)
-!   &  bl_dpth    (:,:),     &  !
-!   &  Bo         (:,:),     &  ! surface buoyancy forcing
-!   &  Bosol      (:,:),     &  ! surface radiative buoyancy forcing
-!   &  swdk       (:,:),     &  ! shortwave (radiation) fractional decay
-!   &  Bflux      (:,:,:),   &  ! total buoyancy flux
-!   &  dR         (:,:,:),   &  ! delta Rho
-!   &  d_U        (:,:,:),   &  ! delta vn (at cells)
-!   &  d_V        (:,:,:),   &  ! delta vt (at cells)
-!   &  FC         (:,:,:),   &  ! critical function
-!   &  wm         (:,:),     &  ! turbulent velocity scale (m/s) for momentum
-!   &  ws         (:,:),     &  ! turbulent velocity scale (m/s) for tracer
-!   &  zgrid      (:,:),     &  ! aux. depth array
-!   &  Bfsfc      (:,:),     &  ! total buoyancy flux at surface boundary layer depth
-!   &  Bfbot      (:,:),     &  !
-!   &  f1         (:,:),     &  !
-!   &  Gm1        (:,:),     &  ! shape function for momentum
-!   &  Gt1        (:,:),     &  ! shape function for temperature
-!   &  Gs1        (:,:),     &  ! shape function for salinity
-!   &  dGm1dS     (:,:),     &  ! derivative of shape function for momentum
-!   &  dGt1dS     (:,:),     &  ! derivative of shape function for temperature
-!   &  dGs1dS     (:,:)      &  ! derivative of shape function for salinity
-
-END TYPE t_ho_physics
-
-
-PUBLIC :: t_ho_physics
 PUBLIC :: t_ho_params
 
 CONTAINS
-  !
-  !-------------------------------------------------------------------------
-  !
-  !>
-  !! Initialisation of ocean physics
-  !!
-  !! Initialisation of ocean physics ...
-  !!
-  !! @par Revision History
-  !! Initial release by Stephan Lorenz, MPI-M (2010-07)
-  !
-  !
-  SUBROUTINE init_ho_physics (  physics_oce )
-   TYPE(t_ho_physics) :: physics_oce
-    ! Local variables
-    !-------------------------------------------------------------------------
-    physics_oce%akv     (:,:,:) = 0.0_wp
-  END SUBROUTINE init_ho_physics
 
   !-------------------------------------------------------------------------
   !
   !>
   !! Initialisation of ocean physics
   !!
-  !! Initialisation of ocean physics ...
   !!
   !! @par Revision History
-  !! Initial release by Stephan Lorenz, MPI-M (2010-07)
+  !! Initial release by Peter Korn, MPI-M (2010-07)
   !
   !
   SUBROUTINE init_ho_params(  p_phys_param )
    TYPE (t_ho_params) :: p_phys_param 
     ! Local variables
     INTEGER :: i
-
     !-------------------------------------------------------------------------
-
     !Init from namelist
     p_phys_param%K_veloc_h_back = k_veloc_h
     p_phys_param%A_veloc_v_back = k_veloc_v
@@ -235,9 +155,6 @@ CONTAINS
       p_phys_param%A_tracer_v(:,:,:,i) = p_phys_param%A_tracer_v_back(i)
     END DO
 
-    p_phys_param%rho_inv        = 1.0_wp / p_phys_param%rho_ref
-
-
     p_phys_param%bottom_drag_coeff = bottom_drag_coeff
 
   END SUBROUTINE init_ho_params
@@ -250,51 +167,7 @@ CONTAINS
   !! Construction of arrays for ocean physics ...
   !!
   !! @par Revision History
-  !! Initial release by Stephan Lorenz, MPI-M (2010-07)
-  !
-  !
-  SUBROUTINE construct_ho_physics (ppatch, physics_oce)
-
-    TYPE(t_patch), INTENT(IN) :: ppatch
-    TYPE(t_ho_physics) :: physics_oce
-    !TYPE (t_ho_params),        INTENT(INOUT)  :: p_phys_param 
-    ! Local variables
-
-    INTEGER   :: ist
-    INTEGER   :: nblks_c
-
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      &      routine = this_mod_name//':construct_ho_physics'
-
-    !-------------------------------------------------------------------------
-
-    CALL message(TRIM(routine), 'construct hydro ocean physics')
-
-    ! determine size of arrays
-    nblks_c = ppatch%nblks_c
-
-    ! preliminary Akv
-    ALLOCATE(physics_oce%akv(nproma,n_zlev,nblks_c), STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine), 'allocation for vertical mixing coefficient failed')
-    END IF
-
-    ! preliminary Kh
-    !ALLOCATE(params_oce%k_veloc_h(nproma,nblks_c), STAT=ist)
-!     IF (ist/=SUCCESS) THEN
-!       CALL finish(TRIM(routine), 'allocation for horizontal velocity diffusion failed')
-!     END IF
-
-  END SUBROUTINE construct_ho_physics
-  !-------------------------------------------------------------------------
-  !
-  !>
-  !! Construction of arrays for ocean physics
-  !!
-  !! Construction of arrays for ocean physics ...
-  !!
-  !! @par Revision History
-  !! Initial release by Stephan Lorenz, MPI-M (2010-07)
+  !! Initial release by Peter Korn, MPI-M (2010-07)
   !
   !
   SUBROUTINE construct_ho_params(ppatch, params_oce)
@@ -308,16 +181,13 @@ CONTAINS
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = this_mod_name//':construct_ho_physics'
-
     !-------------------------------------------------------------------------
-
     CALL message(TRIM(routine), 'construct hydro ocean physics')
 
     ! determine size of arrays
     nblks_c = ppatch%nblks_c
     nblks_e = ppatch%nblks_e
 
-    ! preliminary Kh
     ALLOCATE(params_oce%K_veloc_h(nproma,n_zlev,nblks_e), STAT=ist)
      IF (ist/=SUCCESS) THEN
        CALL finish(TRIM(routine), 'allocation for horizontal velocity diffusion failed')
@@ -333,20 +203,12 @@ CONTAINS
        CALL finish(TRIM(routine), 'allocation for horizontal background tracer diffusion failed')
      END IF
 
-    IF(expl_vertical_velocity_diff==0)THEN !explicit
-      ALLOCATE(params_oce%A_veloc_v(nproma,n_zlev,nblks_c), STAT=ist)
-       IF (ist/=SUCCESS) THEN
-         CALL finish(TRIM(routine), 'allocation for vertical velocity diffusion failed')
-       END IF
-    ELSEIF(expl_vertical_velocity_diff==1)THEN !implicit
-      ALLOCATE(params_oce%A_veloc_v(nproma,n_zlev,nblks_e), STAT=ist)
-       IF (ist/=SUCCESS) THEN
-         CALL finish(TRIM(routine), 'allocation for vertical velocity diffusion failed')
-       END IF
-    ENDIF
+    ALLOCATE(params_oce%A_veloc_v(nproma,n_zlev+1,nblks_e), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+       CALL finish(TRIM(routine), 'allocation for vertical velocity diffusion failed')
+    END IF
 
-
-    ALLOCATE(params_oce%A_tracer_v(nproma,n_zlev,nblks_c,no_tracer), STAT=ist)
+    ALLOCATE(params_oce%A_tracer_v(nproma,n_zlev+1,nblks_c,no_tracer), STAT=ist)
      IF (ist/=SUCCESS) THEN
        CALL finish(TRIM(routine), 'allocation for vertical tracer diffusion failed')
      END IF
@@ -356,47 +218,16 @@ CONTAINS
        CALL finish(TRIM(routine), 'allocation for vertical tracer background diffusion failed')
      END IF
 
-    params_oce%K_veloc_h    = 0.0_wp
-    params_oce%A_veloc_v    = 0.0_wp
+    params_oce%K_veloc_h  = 0.0_wp
+    params_oce%A_veloc_v  = 0.0_wp
 
     DO i=1,no_tracer
       params_oce%K_tracer_h(:,:,:,i) = 0.0_wp
       params_oce%A_tracer_v(:,:,:,i) = 0.0_wp
-     params_oce%K_tracer_h_back(i)   = 0.0_wp
+      params_oce%K_tracer_h_back(i)  = 0.0_wp
       params_oce%A_tracer_v_back(i)  = 0.0_wp
     END DO
   END SUBROUTINE construct_ho_params
-  !-------------------------------------------------------------------------
-  !
-  !>
-  !! Destruction of arrays for ocean physics
-  !!
-  !! Destruction of arrays for ocean physics ...
-  !!
-  !! @par Revision History
-  !! Initial release by Stephan Lorenz, MPI-M (2010-07)
-  !
-  !
-  SUBROUTINE destruct_ho_physics(physics_oce)
-    TYPE(t_ho_physics) :: physics_oce
-
-
-    ! Local variables
-    INTEGER   :: ist
-    CHARACTER(len=max_char_length), PARAMETER :: &
-      &      routine = this_mod_name//':destruct_ho_physics'
-
-    !-------------------------------------------------------------------------
-
-    CALL message(TRIM(routine), 'destruct hydro ocean physics')
-
-    ! preliminary Akv
-    DEALLOCATE(physics_oce%akv, STAT=ist)
-    IF (ist/=SUCCESS) THEN
-      CALL finish(TRIM(routine), 'deallocation for vertical mixing coefficient failed')
-    END IF
- 
-  END SUBROUTINE destruct_ho_physics
   !-------------------------------------------------------------------------
   !
   !>
@@ -405,7 +236,7 @@ CONTAINS
   !! Construction of arrays for ocean physics ...
   !!
   !! @par Revision History
-  !! Initial release by Stephan Lorenz, MPI-M (2010-07)
+  !! Initial release by Peter Korn, MPI-M (2010-07)
   !
   !
   SUBROUTINE destruct_ho_params(params_oce)
@@ -439,11 +270,7 @@ CONTAINS
      IF (ist/=SUCCESS) THEN
        CALL finish(TRIM(routine), 'deallocation for vertical temperaure diffusion failed')
      END IF
-
-
   END SUBROUTINE destruct_ho_params 
-
- !
   !-------------------------------------------------------------------------
   !
   !>
@@ -451,115 +278,327 @@ CONTAINS
   !!
   !! Update of ocean physics: This routine is used used only if time-dependent
   !! changes of physical parametrizations.
-  !! Currently vertical mixing coefficients for tracers are updated.
-  !! Dependent on the Richardson number the diffusivity are calculated
+  !! Currently vertical mixing coefficients for tracers and vertical diffusivity are updated.
+  !! Dependent on the local Richardson number the diffusivity are calculated
   !!(Large & Gent JPO 29, (1999), 449-464).
+  !!The formulation follows the MPI-OM implementation as described in Marsland et al. (Ocean Modelling, 2002).
+  !!The notationnal convection is also taken from this paper( cf. eqs (14)-(19)).
+  !! What is missing is the fractional ice cover (see eqs. (15-16)).
   !!
   !! @par Revision History
   !! Initial release by Peter Korn, MPI-M (2011-02)
   !
   !
- SUBROUTINE update_ho_params(p_patch, p_os, params_oce)
-   TYPE(t_patch), INTENT(IN)         :: p_patch
+ SUBROUTINE update_ho_params(p_patch, p_os, p_sfc_flx, params_oce, calc_density)
+   TYPE(t_patch),     INTENT(IN)     :: p_patch
    TYPE(t_hydro_ocean_state), TARGET :: p_os
-   TYPE (t_ho_params), INTENT(INOUT) :: params_oce
+   TYPE(t_sfc_flx),   INTENT(INOUT)  :: p_sfc_flx
+   TYPE(t_ho_params), INTENT(INOUT)  :: params_oce  
+INTERFACE !This contains the function version of the actual EOS as chosen in namelist
+  FUNCTION calc_density(tpot, sal, press) RESULT(rho) 
+    USE mo_kind, ONLY: wp
+    REAL(wp), INTENT(IN) :: tpot
+    REAL(wp), INTENT(IN) :: sal
+    REAL(wp), INTENT(IN) :: press
+    REAL(wp) :: rho
+ ENDFUNCTION calc_density
+END INTERFACE
+
 !   ! Local variables
-   INTEGER  :: jc, jb, jk, i_no_trac
-!   INTEGER  :: il_e1, ib_e1,il_e2, ib_e2,il_e3, ib_e3
+   INTEGER :: jc, jb, je,jk, i_no_trac
+  !INTEGER :: ile1, ibe1,ile2, ibe2,ile3, ibe3
+   INTEGER :: ilc1,ibc1,ilc2,ibc2
    INTEGER  :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, rl_start_c, rl_end_c
-   REAL(wp) :: z_bv, z_a, dz_inv, z_shear
-   REAL(wp) :: z_Ri
-!   REAL(wp) :: z_edge_ave 
+   INTEGER  :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, rl_start_e, rl_end_e
+   REAL(wp) :: z_vert_density_grad_c(1:n_zlev)
+   REAL(wp) :: z_vert_density_grad_e(1:n_zlev)
+   REAL(wp) :: z_shear_e
+   REAL(wp) :: z_shear_c(nproma,n_zlev,p_patch%nblks_c)
+   REAL(wp) :: z_rho_up(nproma,n_zlev,p_patch%nblks_c)
+   REAL(wp) :: z_rho_down(nproma,n_zlev,p_patch%nblks_c)
+   REAL(wp) :: dz_inv
+   REAL(wp) :: z_Ri_e, z_Ri_c
+   REAL(wp) :: z_rho_up_c1, z_rho_down_c1,z_rho_up_c2, z_rho_down_c2
+   REAL(wp) :: z_lambda_frac 
+   REAL(wp) :: z_A_veloc_v_old, z_A_tracer_v_old
+   INTEGER :: z_dolic
+
+   !Below is a set of variables and parameters for tracer and velocity
+   REAL(wp), PARAMETER :: z_beta          =0.6_wp
+   REAL(wp), PARAMETER :: z_one_minus_beta=0.4_wp
+   REAL(wp) :: z_A_W_T(nproma,n_zlev,p_patch%nblks_c)
+   REAL(wp) :: z_A_W_v(nproma,n_zlev,p_patch%nblks_e)
+   REAL(wp) :: z_10m_wind_c(nproma,1,p_patch%nblks_c)
+   REAL(wp) :: z_10m_wind_e(nproma,1,p_patch%nblks_e)
+   REAL(wp) :: z_grav_rho, z_inv_rho_ref, z_stabio
+   REAL(wp) :: z_press, z_frac
+   REAL(wp) :: A_v_tmp, A_T_tmp
+   REAL(wp) :: z_w_T
+   REAL(wp) :: z_w_v
+   REAL(wp) :: z_s1
+   REAL(wp),PARAMETER  :: z_lambda = 0.05_wp
+   REAL(wp), PARAMETER :: z_0      = 40.0_wp
+   REAL(wp), PARAMETER :: z_c1_T     = 5.0_wp
+   REAL(wp), PARAMETER :: z_c1_v     = 5.0_wp
+   REAL(wp), PARAMETER :: z_av0      = 0.5E-2_wp
 !   !-------------------------------------------------------------------------
     rl_start_c   = 1
     rl_end_c     = min_rlcell
     i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
     i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
 
+    rl_start_e   = 1
+    rl_end_e     = min_rledge
+    i_startblk_e = p_patch%edges%start_blk(rl_start_e,1)
+    i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
 
-    z_bv   = 0.0_wp
-    z_a    = 0.0_wp
-    dz_inv = 0.0_wp
-    z_shear= 0.0_wp
-    DO i_no_trac=1, no_tracer
-      DO jb = i_startblk_c, i_endblk_c
-        CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
-        &                   rl_start_c, rl_end_c)
+    z_A_W_T (:,:,:)         = 0.0_wp
+    z_A_W_v (:,:,:)         = 0.0_wp
+    z_10m_wind_e(:,:,:)     = 0.0_wp
+    z_10m_wind_c(:,:,:)     = 0.0_wp
+    z_vert_density_grad_c(:)= 0.0_wp
+    z_vert_density_grad_e(:)= 0.0_wp
+    z_shear_c(:,:,:)        = 0.0_wp
+    z_s1                    = 0.0_wp
 
-        DO jk = 2, n_zlev
-          dz_inv = 1.0_wp/(p_patch%patch_oce%zlev_m(jk-1)-p_patch%patch_oce%zlev_m(jk))
+    z_grav_rho    = grav/rho_ref
+    z_inv_rho_ref = 1.0_wp/rho_ref
 
-          DO jc = i_startidx_c, i_endidx_c
-            IF ( p_patch%patch_oce%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+    !Following MPI-OM (cf. vertical mixing sbr)
+    z_w_T = CWT/6.0_wp**3
+    z_w_v = CWA/6.0_wp**3
 
-               z_bv  = dz_inv&
-               &*(p_os%p_diag%rho(jc,jk-1,jb)-p_os%p_diag%rho(jc,jk,jb))&
-               &/params_oce%rho_ref
-               z_shear =&
-               & DOT_PRODUCT(p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x,&
-                              &p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x)
+    !The wind part
+    DO jb = i_startblk_e, i_endblk_e
+      CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &
+      &                   rl_start_e, rl_end_e)
+      DO je = i_startidx_e, i_endidx_e 
+        IF ( v_base%lsm_oce_e(je,1,jb) <= sea_boundary ) THEN
 
-               z_Ri = z_bv/(z_shear + 0.05_wp)
-               IF(z_Ri>0.0_wp)THEN
-                 params_oce%A_tracer_v(jc,jk,jb, i_no_trac) &
-                 &= params_oce%A_tracer_v_back(i_no_trac)&
-                 & + ( params_oce%A_veloc_v(jc,jk,jb)/(1.0_wp+5.0_wp*z_Ri))
+         ilc1 = p_patch%edges%cell_idx(je,jb,1)
+         ibc1 = p_patch%edges%cell_blk(je,jb,1)
+         ilc2 = p_patch%edges%cell_idx(je,jb,2)
+         ibc2 = p_patch%edges%cell_blk(je,jb,2)
 
-!                write(*,*)'Mixing coeffs',jc,jk,jb,&
-!                &params_oce%A_tracer_v(jc,jk,jb,1),&
-!                &params_oce%A_tracer_v_back(i_no_trac), z_Ri 
-
-               ELSE
-                 params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = params_oce%A_tracer_v_back(i_no_trac)
-               ENDIF
-
-! il_e1 = p_patch%cells%edge_idx(jc,jb,1)
-! ib_e1 = p_patch%cells%edge_blk(jc,jb,1)
-! il_e2 = p_patch%cells%edge_idx(jc,jb,2)
-! ib_e2 = p_patch%cells%edge_blk(jc,jb,2)
-! il_e3 = p_patch%cells%edge_idx(jc,jb,3)
-! ib_e3 = p_patch%cells%edge_blk(jc,jb,3)
-! 
-! z_edge_ave = (p_patch%edges%primal_edge_length(il_e1,ib_e1)&
-!             &+p_patch%edges%primal_edge_length(il_e2,ib_e2)&
-!             &+p_patch%edges%primal_edge_length(il_e3,ib_e3))/3.0_wp
-! params_oce%A_veloc_v(jc,jk,jb)= 4.0_wp*pi*cos(p_patch%cells%center(jc,jb)%lat&
-! &* (sqrt(3.0_wp)*z_edge_ave/pi)*(sqrt(3.0_wp)*z_edge_ave/pi)*(sqrt(3.0_wp)*z_edge_ave/pi))
-! write(*,*)' A_v',jc,jk,jb,params_oce%A_veloc_v(jc,jk,jb)
-
-!               !------------------------------------
-!               z_bv  = -grav*dz_inv&
-!               &*(p_os%p_diag%rho(jc,jk-1,jb)-p_os%p_diag%rho(jc,jk,jb))&
-!               &/params_oce%rho_ref
-! 
-!               IF (z_bv<0.0_wp)THEN
-!                 z_a=1.0_wp 
-!               ELSE
-!                 z_shear =&
-!                 & DOT_PRODUCT(p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x,&
-!                              &p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x)       
-!sum((Uelem(:,nz-1,nelem) - Uelem(:, nz, nelem))**2)
-! !write(*,*)'shear',z_shear
-!                 z_shear = z_shear*dz_inv*dz_inv
-! 
-!                 IF(z_shear==0.0_wp)THEN 
-!                   z_a=1.0_wp
-!                 ELSE
-!                   z_a     = z_shear/(z_shear+10.0_wp*z_bv)
-!                 ENDIF
-!                 params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = params_oce%A_tracer_v_back(i_no_trac)&
-!                                                        & +0.05_wp*z_a*z_a*z_a
-!                 write(*,*)'Mixing coeffs',jc,jk,jb,&
-!                 &params_oce%A_tracer_v(jc,jk,jb,1),&
-!                 &params_oce%A_tracer_v_back(i_no_trac), z_a 
-               !------------------------------------------
-               !ENDIF
-            ENDIF
-          END DO
-        END DO
+          !This is (15) in Marsland et al. 
+          z_10m_wind_e(je,1,jb)= SQRT(&
+          &0.5_wp*(DOT_PRODUCT(p_sfc_flx%forc_wind_cc(ilc1,ibc1)%x,     &
+          &                    p_sfc_flx%forc_wind_cc(ilc1,ibc1)%x)     &
+          &       +DOT_PRODUCT(p_sfc_flx%forc_wind_cc(ilc2,ibc2)%x,     &
+          &                    p_sfc_flx%forc_wind_cc(ilc2,ibc2)%x)))**3
+          z_A_W_v (je,1,jb) = z_w_v*z_10m_wind_e(je,1,jb)
+        ENDIF
       END DO
     END DO
 
+    DO jb = i_startblk_c, i_endblk_c
+      CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
+      &                   rl_start_c, rl_end_c)
+      DO jc = i_startidx_c, i_endidx_c 
+        IF ( v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+          !This is (15) in Marsland et al. 
+          z_10m_wind_c(jc,1,jb)= SQRT(DOT_PRODUCT(p_sfc_flx%forc_wind_cc(jc,jb)%x,&
+                                                 &p_sfc_flx%forc_wind_cc(jc,jb)%x))**3
+          z_A_W_T (jc,1,jb) = z_w_T*z_10m_wind_c(jc,1,jb)
+        ENDIF
+      END DO
+    END DO
+
+    !The tracer mixing coefficient at cell centers
+    DO jb = i_startblk_c, i_endblk_c
+      CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
+      &                   rl_start_c, rl_end_c)
+      DO jk = 2, n_zlev
+        DO jc = i_startidx_c, i_endidx_c
+          z_dolic = v_base%dolic_c(jc,jb)
+          IF ( z_dolic>=2 ) THEN        
+
+            dz_inv = 1.0_wp/v_base%del_zlev_i(jk)           !(v_base%zlev_m(jk)-v_base%zlev_m(jk-1)) 
+
+            !This calculates the local Richardson number at cells
+            ! - add small epsilon to avoid division by zero
+            z_shear_c(jc,jk,jb) = dbl_eps + dz_inv*dz_inv                              &
+            &* DOT_PRODUCT(p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x,&
+            &              p_os%p_diag%p_vn(jc,jk-1,jb)%x-p_os%p_diag%p_vn(jc,jk,jb)%x)
+
+            z_press = v_base%zlev_i(jk)*rho_ref*SItodBar !*grav
+            !z_press = v_base%zlev_i(jk)*rho_ref*grav
+            !density of upper cell w.r.t.to pressure at intermediate level
+            ! #slo# 2011-08-10: tracer(:,:,:,2) not defined if no_tracer=1
+            IF (no_tracer == 2) z_s1 = p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,2)
+            z_rho_up(jc,jk,jb) = calc_density &
+             & (p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1), z_s1, z_press)
+          ! z_rho_up(jc,jk,jb) = calc_density(&
+          ! & p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1),&
+          ! & p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,2),&
+          ! & z_press)
+            !density of lower cell w.r.t.to pressure at intermediate level
+            IF (no_tracer == 2) z_s1 = p_os%p_prog(nold(1))%tracer(jc,jk,jb,2)
+            z_rho_down(jc,jk,jb) = calc_density &
+              & (p_os%p_prog(nold(1))%tracer(jc,jk,jb,1), z_s1, z_press)
+           ! z_rho_down(jc,jk,jb) = calc_density(&
+           ! & p_os%p_prog(nold(1))%tracer(jc,jk,jb,1),&
+           ! & p_os%p_prog(nold(1))%tracer(jc,jk,jb,2),&
+           ! & z_press)
+
+            z_stabio  = dz_inv*0.5_wp*(z_rho_up(jc,jk,jb)-z_rho_down(jc,jk,jb))
+
+            z_vert_density_grad_c(jk) = MAX(z_stabio, 0.0_wp)
+
+            !Edge Richardson number, sign depends on vertical density difference:
+            !positive Richardson number = heavy fluid over light fluid parcel.
+            != unstable situation
+            !if (z_shear_c(jc,jk,jb) == 0.0_wp) then
+            !  write(*,*) 'ERROR in update_ho_params; jc,jk,jb, shear_c =', &
+            !    &  jc,jk,jb,z_shear_c(jc,jk,jb)
+            !else
+            z_Ri_c = MAX(z_grav_rho*z_vert_density_grad_c(jk)/z_shear_c(jc,jk,jb),0.0_wp)
+            !write(*,*)'Ri number',jk,jc,jb,z_Ri_c, z_vert_density_grad_c(jk),z_shear_c(jc,jk,jb)
+            !endif
+
+            !calculate vertical tracer mixing based on local Richardson number
+            DO i_no_trac=1, no_tracer
+
+              !Store old diffusivity
+              z_A_tracer_v_old = params_oce%A_tracer_v(jc,jk,jb,i_no_trac)
+ 
+              z_lambda_frac     = z_lambda/v_base%del_zlev_i(jk)
+
+              z_A_W_T(jc,jk,jb) = z_A_W_T (jc,jk-1,jb)*z_lambda_frac      &
+                &*(exp(-v_base%del_zlev_i(jk)/z_0))&
+                &/(z_lambda_frac+0.5_wp*(z_vert_density_grad_c(jk)+z_vert_density_grad_c(jk-1)))
+
+
+              A_T_tmp = &
+              &z_one_minus_beta*MIN(z_A_tracer_v_old, z_av0+params_oce%A_tracer_v_back(i_no_trac))&
+              & +z_beta*(z_A_W_T(jc,jk,jb)+z_av0/((1.0_wp+z_c1_T*z_Ri_c)**3)                      &
+              &         +params_oce%A_tracer_v_back(i_no_trac))
+
+              z_frac=(1.0E-11_wp-z_vert_density_grad_c(jk))&
+              &/(1.0E-11_wp+ABS(z_vert_density_grad_c(jk)))
+
+              params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MAX(MAX_VERT_DIFF_TRAC*z_frac, A_T_tmp)!params_oce%A_tracer_v_back(i_no_trac)!
+
+! write(*,*)'Ri number',jk,jc,jb,z_Ri_c, z_vert_density_grad_c(jk),z_rho_up(jc,jk,jb),&
+! &z_rho_down(jc,jk,jb),&
+! &z_press,z_frac,&
+! & params_oce%A_tracer_v(jc,jk,jb, i_no_trac)
+
+!               !This is (16) in Marsland et al. and identical to treatment of velocity
+!               !but it allows to use different parameters
+!               z_lambda_frac     = z_lambda_T/v_base%del_zlev_i(jk)
+!               z_A_W_T(jc,jk,jb) = z_A_W_T (jc,jk-1,jb)                      &
+!               &*(z_lambda_frac*exp(-v_base%del_zlev_i(jk)/z_0_T))&
+!               &/(z_lambda_frac+z_vert_density_grad_c)
+              !For positive Richardson number set vertical mixing coefficient to maximal number 
+!               IF(z_Ri_c <= 0.0_wp)THEN
+!                 params_oce%A_tracer_v(jc,jk,jb, i_no_trac)                        &
+!                 & = params_oce%A_tracer_v_back(i_no_trac)!z_one_minus_beta* z_A_tracer_v_old                            &
+!                 !& + z_beta*(params_oce%A_tracer_v_back(i_no_trac)                 &
+!                 !& + params_oce%A_tracer_v_back(i_no_trac)/(1.0_wp+z_c1_T*z_Ri_c)**3 &
+!                 !& + z_A_W_T(jc,jk,jb))
+!              !write(123,*)'neg T-Ri number',jc,jk,jb,params_oce%A_tracer_v(jc,jk,jb, i_no_trac)
+!               ELSEIF(z_Ri_c > 0.0_wp)THEN
+! !                 write(123,*)'pos T-Ri number',jc,jk,jb,z_max_diff_T
+!                 params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = params_oce%A_tracer_v_back(i_no_trac)!z_max_diff_T!params_oce%A_tracer_v_back(i_no_trac)
+!               ENDIF
+            ENDDO
+          !ENDIF
+          ENDIF
+        END DO
+      END DO
+    END DO
+    !END DO
+    params_oce%A_tracer_v(:,1,:, :) = params_oce%A_tracer_v(:,2,:,:)
+
+    !Viscosity at edges
+    DO jb = i_startblk_e, i_endblk_e
+      CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &
+      &                   rl_start_e, rl_end_e)
+      DO jk = 2, n_zlev
+        DO je = i_startidx_e, i_endidx_e
+          z_dolic = v_base%dolic_e(je,jb)
+         ! write(*,*)'z_dolic e',z_dolic,v_base%lsm_oce_e(je,jk,jb)
+          IF ( z_dolic >=2 ) THEN
+
+            dz_inv = 1.0_wp/v_base%del_zlev_i(jk)
+
+            !indices of neighboring edges 
+            ilc1 = p_patch%edges%cell_idx(je,jb,1)
+            ibc1 = p_patch%edges%cell_blk(je,jb,1)
+            ilc2 = p_patch%edges%cell_idx(je,jb,2)
+            ibc2 = p_patch%edges%cell_blk(je,jb,2)
+
+            !This calculates the local Richardson number at edges
+            !Shear at edges as average of shear at centers
+            z_shear_e = 0.5_wp*(z_shear_c(ilc1,jk,ibc1)+z_shear_c(ilc2,jk,ibc2))
+
+ 
+             z_press = v_base%zlev_i(jk)*rho_ref*grav
+
+             !density of two adjacent upper cell centers
+             z_rho_up_c1 = z_rho_up(ilc1,jk,ibc1)
+             z_rho_up_c2 = z_rho_up(ilc2,jk,ibc2)
+             !density of two adjacent lower cell centers
+             z_rho_down_c1 = z_rho_down(ilc1,jk,ibc1)
+             z_rho_down_c2 = z_rho_down(ilc2,jk,ibc2)
+
+            z_stabio  = dz_inv&
+            &*0.5_wp*(z_rho_up_c1 + z_rho_up_c2-z_rho_down_c1-z_rho_down_c2)
+
+             z_vert_density_grad_e(jk) = MAX(z_stabio, 0.0_wp)
+
+            !Edge Richardson number, sign depends on vertical density difference:
+            !positive Richardson number = heavy fluid over light fluid parcel.
+            != unstable situation
+            z_Ri_e = MAX(z_grav_rho*z_vert_density_grad_e(jk)/z_shear_e,0.0_wp) !z_vert_density_grad_e/(z_shear_e+0.0005_wp)! 
+            !write(*,*)'Ri number',jk,jc,jb,z_Ri, z_vert_density_grad,z_shear
+
+            !calculate vertical viscosity based on local Richardson number
+            !Store old viscosity
+            z_A_veloc_v_old = params_oce%A_veloc_v(je,jk,jb)
+
+            !This is (16) in Marsland et al.
+            z_lambda_frac = z_lambda/v_base%del_zlev_i(jk)
+
+            z_A_W_v (je,jk,jb) = z_A_W_v (je,jk-1,jb)*z_lambda_frac     &
+            &*(z_lambda_frac*exp(-v_base%del_zlev_i(jk)/z_0))&
+            &/(z_lambda_frac+0.5_wp*(z_vert_density_grad_e(jk)+z_vert_density_grad_e(jk-1)))
+
+            A_v_tmp = z_one_minus_beta*MIN(z_A_veloc_v_old, z_av0+params_oce%A_veloc_v_back)&
+                    & +z_beta*(z_A_W_v (je,jk,jb)+z_av0/((1.0_wp+z_c1_v*z_Ri_e)**2)         &
+                    &         +params_oce%A_veloc_v_back)
+
+            z_frac=(1.0E-11_wp-z_vert_density_grad_e(jk))&
+            &/(1.0E-11_wp+ABS(z_vert_density_grad_e(jk)))
+
+            params_oce%A_veloc_v(je,jk,jb) = MAX(MAX_VERT_DIFF_VELOC*z_frac, A_v_tmp)!params_oce%A_veloc_v_back
+!  write(*,*)'Ri number',jk,jc,jb,z_Ri_e, z_vert_density_grad_e(jk),&
+!  &z_frac,&
+!  & params_oce%A_veloc_v(je,jk,jb)
+          !ENDIF
+          ENDIF
+        END DO
+      END DO
+    END DO
+    params_oce%A_veloc_v(:,1,:) = params_oce%A_veloc_v(:,2,:)
+DO i_no_trac=1, no_tracer
+ DO jk=1,n_zlev
+ write(*,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&
+ &minval(params_oce%A_tracer_v(:,jk,:,i_no_trac))
+ write(123,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&
+ &minval(params_oce%A_tracer_v(:,jk,:,i_no_trac))
+ END DO
+END DO
+ DO jk=1,n_zlev
+ write(*,*)'max/min veloc mixing',jk,maxval(params_oce%A_veloc_v(:,jk,:)),&
+ &minval(params_oce%A_veloc_v(:,jk,:))
+ write(123,*)'max/min veloc mixing',jk,maxval(params_oce%A_veloc_v(:,jk,:)),&
+ &minval(params_oce%A_veloc_v(:,jk,:))
+ END DO
+
  END SUBROUTINE update_ho_params
 
+
+ 
 END MODULE mo_oce_physics

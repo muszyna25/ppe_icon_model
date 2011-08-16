@@ -590,6 +590,7 @@ lapack/izmax1.f -text
 run/Namelist_overview.pdf -text
 run/Namelist_overview.tex -text
 run/README -text
+run/compile_for_dev.mpi.ksh -text
 run/compile_for_developers.ksh -text
 run/exec.iconrun -text
 run/exp.couple_atmo-ocean -text
@@ -611,11 +612,9 @@ run/exp.nh35_heldsuarez -text
 run/exp.nh35_tri_jws -text
 run/exp.nh35_tri_jws_efdt4 -text
 run/exp.nh3_tri_tracer_solid_body -text
-run/exp.oce_aqua_planet -text
+run/exp.oce_parallel_output -text
 run/exp.pk_hom -text
 run/exp.pure_adv -text
-run/exp.slo_hom_1 -text
-run/exp.stommel -text
 run/exp.test_couple_dummy_models -text
 run/exp.test_hat_jww -text
 run/exp.test_hat_jww-moist_cld-cnv-vdf -text
@@ -878,6 +877,8 @@ src/atm_dyn_iconam/mo_solve_nh_async.f90 -text
 src/atm_dyn_iconam/mo_solve_nonhydro.f90 -text
 src/atm_dyn_iconam/mo_vector_operations.f90 -text
 src/atm_dyn_iconam/mo_vertical_grid.f90 -text
+src/atm_oce_lnd_interface/mo_oce_bulk.f90 -text
+src/atm_oce_lnd_interface/mo_sea_ice.f90 -text
 src/atm_phy_echam/mo_ape.f90 -text
 src/atm_phy_echam/mo_cloud.f90 -text
 src/atm_phy_echam/mo_cover.f90 -text
@@ -1189,7 +1190,6 @@ src/shr_horizontal/mo_model_domain_import.f90 -text
 src/shr_horizontal/mo_model_domimp_patches.f90 -text
 src/shr_horizontal/mo_model_domimp_setup.f90 -text
 src/shr_horizontal/mo_nonlinear_adv.f90 -text
-src/shr_horizontal/mo_ocean_topo.f90 -text
 src/shr_horizontal/mo_prepicon_utils.f90 -text
 src/templates/README -text
 src/templates/template_function.f90 -text
