@@ -48,8 +48,9 @@ MODULE mo_ext_data
   USE mo_kind
   USE mo_io_units,           ONLY: filename_max
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_impl_constants,     ONLY: inwp, ihs_ocean, inh_atmosphere, io3_kinne,&
-      &  		           iecham, ildf_echam, max_char_length, sea_boundary
+  USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_kinne, &
+    &                              ihs_ocean, ihs_atm_temp, ihs_atm_theta, inh_atmosphere, &
+    &                              max_char_length, sea_boundary
   USE mo_run_config,         ONLY: iforcing
   USE mo_ocean_nml,          ONLY: iforc_oce
   USE mo_extpar_config,      ONLY: itopo, fac_smooth_topo, n_iter_smooth_topo, l_emiss
@@ -652,8 +653,8 @@ CONTAINS
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d_c )
 
 
-  IF (iequations==inh_atmosphere) THEN
-
+  SELECT CASE ( iequations )
+  CASE ( inh_atmosphere )
     ! smoothed topography height at cell center
     !
     ! topography_smt_c  p_ext_atm%topography_smt_c(nproma,nblks_c)
@@ -1013,7 +1014,7 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
         &           grib2_desc, ldims=shape2d_sfc)
 
-    CASE ( iecham, ildf_echam)
+    CASE ( iecham, ildf_echam )
 
       ! longwave surface emissivity
       !
@@ -1025,7 +1026,22 @@ CONTAINS
         &           grib2_desc, ldims=shape2d_c)
 
     END SELECT ! iforcing
-  ENDIF ! iequations = inh_atmosphere
+
+  CASE ( ihs_atm_temp, ihs_atm_theta )
+
+    SELECT CASE ( iforcing )
+    CASE ( iecham, ildf_echam)
+      ! longwave surface emissivity
+      !
+      ! emis_rad     p_ext_atm%emis_rad(nproma,nblks_c)
+      cf_desc    = t_cf_var('emis_rad', '-', 'longwave surface emissivity')
+      grib2_desc = t_grib2_var( 2, 3, 196, ientr, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_list, 'emis_rad', p_ext_atm%emis_rad, &
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, &
+        &           grib2_desc, ldims=shape2d_c)     
+    END SELECT
+        
+  END SELECT ! iequations
 
 
   END SUBROUTINE new_ext_data_atm_list
