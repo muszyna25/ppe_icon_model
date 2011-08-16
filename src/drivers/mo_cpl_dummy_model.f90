@@ -35,7 +35,7 @@
 MODULE mo_cpl_dummy_model
 
 USE mo_kind,                ONLY: wp
-USE mo_exception,           ONLY: message, finish
+USE mo_exception,           ONLY: message, message_text, finish
 USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs
 USE mo_mpi,                 ONLY: p_stop, &
   & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
@@ -489,7 +489,9 @@ CONTAINS
 
     CHARACTER(*), PARAMETER :: method_name = "mo_cpl_dummy_model:cpl_dummy_model"
 
-    INTEGER       :: i, nb
+    INTEGER, PARAMETER :: nfld_fix = 2
+
+    INTEGER       :: nfld, i, nb
     INTEGER       :: patch_no
     INTEGER       :: id
     INTEGER       :: ierror
@@ -506,36 +508,75 @@ CONTAINS
 
     ! what is the proper conversion form int to wp?
 
-    DO nb = 1, field_shape(3)
-       DO i = field_shape(1), field_shape(2)
-          send_field(i,nb) = p_patch(patch_no)%cells%glb_index(i)
-       ENDDO
-    ENDDO
-
     SELECT CASE (model_id)
 
     CASE ( 1 )  
 
-       DO i = 1, 4
-          id = field_id(i)
+       DO nfld = 1, 4
+
+          IF ( nfld == nfld_fix ) THEN
+             DO nb = 1, field_shape(3)
+                DO i = field_shape(1), field_shape(2)
+                   send_field(i,nb) = p_patch(patch_no)%cells%glb_index(i)
+                ENDDO
+             ENDDO
+          ELSE
+             DO nb = 1, field_shape(3)
+                DO i = field_shape(1), field_shape(2)
+                   send_field(i,nb) = real(i,wp)
+                ENDDO
+             ENDDO
+          ENDIF
+
+          id = field_id(nfld)
           CALL ICON_cpl_put ( id, field_shape, send_field, ierror )
        ENDDO
 
-       DO i = 5, no_of_fields
-          id = field_id(i)
+       DO nfld = 5, no_of_fields
+          id = field_id(nfld)
           CALL ICON_cpl_get ( id, field_shape, recv_field, info, ierror )
        ENDDO
 
     CASE ( 2 )
 
-       DO i = 5, no_of_fields
-          id = field_id(i)
+       DO nfld = 5, no_of_fields
+          id = field_id(nfld)
           CALL ICON_cpl_put ( id, field_shape, send_field, ierror )
        ENDDO
 
-       DO i = 1, 4
-          id = field_id(i)
+       DO nfld = 1, 4
+
+          id = field_id(nfld)
           CALL ICON_cpl_get ( id, field_shape, recv_field, info, ierror )
+
+          IF ( nfld == nfld_fix ) THEN
+             DO nb = 1, field_shape(3)
+                DO i = field_shape(1), field_shape(2)
+                   IF ( recv_field(i,nb) /= p_patch(patch_no)%cells%glb_index(i) ) THEN
+                      WRITE(message_text,'(i6,a11,i6,a9,f8.2)') i, ': Expected ',             &
+                           &                            p_patch(patch_no)%cells%glb_index(i), &
+                           &                           ' but got ',                           &
+                           &                            recv_field(i,nb)
+                      CALL message('mo_cpl_dummy_model', TRIM(message_text))
+                   ENDIF
+                ENDDO
+             ENDDO
+          ELSE
+             DO nb = 1, field_shape(3)
+                DO i = field_shape(1), field_shape(2)
+                   recv_field(i,nb) = real(i,wp)
+                   IF ( recv_field(i,nb) /= real(i,wp) ) THEN
+                      WRITE(message_text,'(i6,a11,i6,a9,f8.2)') i, ': Expected ',             &
+                           &                            p_patch(patch_no)%cells%glb_index(i), &
+                           &                           ' but got ',                           &
+                           &                            recv_field(i,nb)
+                      CALL message('mo_cpl_dummy_model', TRIM(message_text))
+                   ENDIF
+
+                ENDDO
+             ENDDO
+          ENDIF
+
        ENDDO
 
     CASE DEFAULT
