@@ -157,9 +157,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(in) :: cpl_dummy_namelist_filename
     CHARACTER(LEN=*), INTENT(in) :: shr_namelist_filename
 
-    CHARACTER(LEN=MAX_CHAR_LENGTH) :: grid_file_name 
     CHARACTER(*), PARAMETER :: method_name = "mo_cpl_dummy_model:cpl_dummy_model"
-    LOGICAL :: lsuccess
     INTEGER :: jg
 
     ! For the coupling
@@ -173,10 +171,8 @@ CONTAINS
     INTEGER :: grid_shape(2) 
     INTEGER :: field_shape(3) 
     INTEGER :: i, error_status
-    INTEGER :: no_of_entities
+!rr INTEGER :: no_of_entities
     INTEGER :: patch_no
-    INTEGER, POINTER :: grid_glob_index(:)
-
 
     !---------------------------------------------------------------------
     ! 1.1 Read namelists (newly) specified by the user; fill the 
@@ -517,7 +513,7 @@ CONTAINS
           IF ( nfld == nfld_fix ) THEN
              DO nb = 1, field_shape(3)
                 DO i = field_shape(1), field_shape(2)
-                   send_field(i,nb) = p_patch(patch_no)%cells%glb_index(i)
+                   send_field(i,nb) = REAL(p_patch(patch_no)%cells%glb_index(i),wp)
                 ENDDO
              ENDDO
           ELSE
@@ -552,7 +548,7 @@ CONTAINS
           IF ( nfld == nfld_fix ) THEN
              DO nb = 1, field_shape(3)
                 DO i = field_shape(1), field_shape(2)
-                   IF ( recv_field(i,nb) /= p_patch(patch_no)%cells%glb_index(i) ) THEN
+                   IF ( recv_field(i,nb) /= REAL(p_patch(patch_no)%cells%glb_index(i),wp) ) THEN
                       WRITE(message_text,'(i6,a11,i6,a9,f8.2)') i, ': Expected ',             &
                            &                            p_patch(patch_no)%cells%glb_index(i), &
                            &                           ' but got ',                           &

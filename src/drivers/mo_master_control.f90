@@ -100,8 +100,7 @@ MODULE mo_master_control
     ! !Local variables
     !
     INTEGER :: master_namelist_status
-    INTEGER :: model_no, jg, str_len, ierr
-    INTEGER :: new_comm
+    INTEGER :: model_no, jg, ierr
 
     CHARACTER(LEN=*), PARAMETER :: method_name = "master_control"
     !-----------------------------------------------------------------------
@@ -168,9 +167,8 @@ MODULE mo_master_control
 
     !------------------------------------------------------------
     IF ( in_coupled_mode ) THEN
-      ! Inform tghe coupler of what we are
+      ! Inform the coupler of what we are
       CALL icon_cpl_init_comp ( my_model_name, my_model_no, my_process_model, &
-        & my_model_min_rank, my_model_max_rank, my_model_inc_rank,            &
         my_coupling_comp_id, ierr )
       ! split the global_mpi_communicator into the components
       CALL split_global_mpi_communicator ( my_model_no )

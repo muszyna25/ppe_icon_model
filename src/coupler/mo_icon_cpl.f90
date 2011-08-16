@@ -258,9 +258,9 @@ MODULE mo_icon_cpl
 
   ! Number of active components and grids
 
-  INTEGER                   :: nbr_active_comps
-  INTEGER                   :: nbr_active_grids
-  INTEGER                   :: nbr_active_fields
+  INTEGER                   :: nbr_active_comps  = 0
+  INTEGER                   :: nbr_active_grids  = 0
+  INTEGER                   :: nbr_active_fields = 0
 
   ! Size of increment and allocated data structures
 

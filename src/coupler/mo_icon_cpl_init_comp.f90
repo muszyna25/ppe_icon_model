@@ -93,13 +93,11 @@ CONTAINS
   
 
   SUBROUTINE icon_cpl_init_comp ( comp_name, global_comp_no, global_comp_type, &
-    & comp_min_rank, comp_max_rank, comp_inc_rank,                             &
     comp_id, ierror )
 
     CHARACTER(len=*), INTENT(in) :: comp_name
     INTEGER, INTENT(in)          :: global_comp_no   ! the component unique number
     INTEGER, INTENT(in)          :: global_comp_type ! the component type (ocean, atmo, etc)
-    INTEGER, INTENT(in)          :: comp_min_rank, comp_max_rank, comp_inc_rank ! ranks for this component
     
     INTEGER, INTENT(out)         :: comp_id
     INTEGER, INTENT(out)         :: ierror
@@ -210,6 +208,8 @@ CONTAINS
     comps(comp_id)%l_comp_status = .TRUE.
 
     nbr_active_comps = nbr_active_comps + 1
+
+    CALL icon_cpl_redirect_stdout ( comp_id )
 
     ! -------------------------------------------------------------------
     ! Initialize grids

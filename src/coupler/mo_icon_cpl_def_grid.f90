@@ -104,7 +104,7 @@ CONTAINS
 
     gptr%grid_shape         = grid_shape
     gptr%grid_glob_index(grid_shape(1):grid_shape(2)) = &
-      & grid_glob_index(grid_shape(1):grid_shape(2))
+      &  grid_glob_index(grid_shape(1):grid_shape(2))
 
     nbr_active_grids = nbr_active_grids + 1
 
