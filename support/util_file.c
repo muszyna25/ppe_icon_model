@@ -10,6 +10,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#define PID_LEN 8
+
 int util_islink(char *path)
 {
   char *buf;
@@ -46,14 +48,22 @@ int util_islink(char *path)
 
 int util_tmpnam_len(void)
 {
-  return (L_tmpnam+1);
+  return (L_tmpnam + 1 + PID_LEN);
 }
 
 int util_tmpnam(char *filename)
 {
   char *ptr;
+  char pid_string[PID_LEN + 1]; 
+  pid_t pid;
+
+  pid = getpid();
+
+  sprintf(pid_string, "%8.8ld", (long) pid);
 
   ptr = tmpnam(filename);
+  
+  strcat(filename, pid_string); 	  
 
   return strlen(filename);
 }
