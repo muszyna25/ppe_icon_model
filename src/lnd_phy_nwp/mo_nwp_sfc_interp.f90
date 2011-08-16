@@ -244,8 +244,10 @@ CONTAINS
             & MIN(0.863_wp,&
             & MAX((prepicon%sfc%wsoil(jc,jb,jk)*(0.763_wp - 0.265_wp) + 0.265_wp),0.098_wp))
 
-      ! We need to catch problematic coast cases: IFS-ocean, ICON-land - for moisture and temperature 
-          prepicon%sfc%wsoil(jc,jb,jk) =  MIN(dzsoil_icon(jk), MAX(0.0_wp, prepicon%sfc%wsoil(jc,jb,jk)))
+          ! We need to catch problematic coast cases: IFS-ocean, ICON-land - &
+          ! for moisture and temperature 
+          prepicon%sfc%wsoil(jc,jb,jk) =  &
+            &               MIN(dzsoil_icon(jk), MAX(0.0_wp, prepicon%sfc%wsoil(jc,jb,jk)))
         ENDDO
       ENDDO
 
