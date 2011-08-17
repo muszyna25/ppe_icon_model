@@ -97,7 +97,7 @@ done
 #==============================================================================
 # special treatment for exp.test_nah_jww on blizzard
 if [[  $use_target == "blizzard" && $use_mpi == "yes" && $use_openmp == "yes" ]] ; then
-  $make_runscript in_folder=$input_folder in_script=exp.test_nah_jww in_script_2=exec.iconrun EXPNAME="test_nah_jww" mpi_procs=3 openmp_threads=21  p_test_run=".true." cpu_time="04:00:00"
+  $make_runscript in_folder=$input_folder in_script=exp.test_nah_jww in_script_2=exec.iconrun EXPNAME="test_nah_jww" mpi_procs=3 openmp_threads=16  p_test_run=".true." cpu_time="04:00:00"
 fi
 
 #==============================================================================
