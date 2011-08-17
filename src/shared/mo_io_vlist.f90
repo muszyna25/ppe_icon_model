@@ -300,12 +300,13 @@ CONTAINS
     CALL message (TRIM(routine), 'start')
 
     !------------------------------------------------------------------
-    ! no grid refinement allowed here so far
+    ! no grid refinement allowed here so far the ocean
     !------------------------------------------------------------------
-    IF (k_jg > 1 ) THEN
-      CALL finish(TRIM(routine), ' k_jg > 1 is not allowed')
+    IF (iequations==ihs_ocean) THEN 
+      IF (k_jg > 1 ) THEN !b
+        CALL finish(TRIM(routine), ' k_jg > 1 is not allowed')
+      END IF
     END IF
-
     ! Each time a new NetCDF is created, reset "iostep" to zero
     ! (Otherwise we will get an error message from a CDI subroutine.)
 
