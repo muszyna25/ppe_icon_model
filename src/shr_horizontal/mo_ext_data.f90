@@ -2036,7 +2036,6 @@ CONTAINS
         !
         CALL nf(nf_inq_dimid(ncid, 'ncells', dimid))
         CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
-        CALL message( TRIM(routine),'Ocean OMIP flux file - read in' )
 
         IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
           CALL finish(TRIM(ROUTINE),&
@@ -2089,7 +2088,7 @@ CONTAINS
 
     !ENDDO
 
-      CALL message( TRIM(routine),'OMIP fluxes for external data read' )
+      CALL message( TRIM(routine),'Ocean OMIP fluxes for external data read' )
 
     END IF ! iforc_oce=12
 
