@@ -76,10 +76,10 @@ CONTAINS
 !! Developed  by Guenther Zaengl, DWD, 2010-12-01
 !!
 SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,        &
-  fr_land, fr_glac,                                                  &
+  fr_land, fr_glac, emis_rad,                                        &
   cosmu0, albvisdir, albnirdir, albvisdif, albnirdif,                &
   tsfc, pres_ifc, pres, temp, acdnc, tot_cld, q_o3,                  &
-  rg_fr_land, rg_fr_glac,                                            &
+  rg_fr_land, rg_fr_glac, rg_emis_rad,                               &
   rg_cosmu0, rg_albvisdir, rg_albnirdir, rg_albvisdif, rg_albnirdif, &
   rg_tsfc, rg_pres_ifc, rg_pres, rg_temp, rg_acdnc, rg_tot_cld, rg_q_o3 )
 
@@ -90,21 +90,21 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,        &
 
   ! Other input fields (on full grid)
   REAL(wp), INTENT(IN) ::                                                             &
-    fr_land(:,:), fr_glac(:,:),                                                       &
+    fr_land(:,:), fr_glac(:,:), emis_rad(:,:),                                        &
     cosmu0(:,:), albvisdir(:,:), albnirdir(:,:), albvisdif(:,:), albnirdif(:,:),      &
     tsfc(:,:), pres_ifc(:,:,:), pres(:,:,:), temp(:,:,:), acdnc(:,:,:), tot_cld(:,:,:,:), &
     q_o3(:,:,:)
 
   ! Corresponding output fields (on reduced grid)
   REAL(wp), TARGET, INTENT(OUT) ::                                           &
-    rg_fr_land(:,:),rg_fr_glac(:,:),                                         &
+    rg_fr_land(:,:),rg_fr_glac(:,:), rg_emis_rad(:,:),                       &
     rg_cosmu0(:,:), rg_albvisdir(:,:), rg_albnirdir(:,:), rg_albvisdif(:,:), &
     rg_albnirdif(:,:), rg_tsfc(:,:), rg_pres_ifc(:,:,:), rg_pres(:,:,:),     &
     rg_temp(:,:,:), rg_acdnc(:,:,:), rg_tot_cld(:,:,:,:), rg_q_o3(:,:,:)
 
   ! Intermediate storage fields needed in the case of MPI parallelization
   REAL(wp), ALLOCATABLE, TARGET ::                                       &
-    z_fr_land(:,:),z_fr_glac(:,:),                                            &
+    z_fr_land(:,:),z_fr_glac(:,:), z_emis_rad(:,:),                      &
     z_cosmu0(:,:), z_albvisdir(:,:), z_albnirdir(:,:), z_albvisdif(:,:), &
     z_albnirdif(:,:), z_tsfc(:,:), z_pres_ifc(:,:,:), z_pres(:,:,:),     &
     z_temp(:,:,:), z_acdnc(:,:,:), z_tot_cld(:,:,:,:), z_q_o3(:,:,:),    &
@@ -112,7 +112,7 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,        &
 
   ! Pointers to output fields (no MPI) or intermediate fields (MPI)
   REAL(wp), POINTER ::                                                   &
-    p_fr_land(:,:),p_fr_glac(:,:),                                       &
+    p_fr_land(:,:),p_fr_glac(:,:), p_emis_rad(:,:),                      &
     p_cosmu0(:,:), p_albvisdir(:,:), p_albnirdir(:,:), p_albvisdif(:,:), &
     p_albnirdif(:,:), p_tsfc(:,:), p_pres_ifc(:,:,:), p_pres(:,:,:),     &
     p_temp(:,:,:), p_acdnc(:,:,:), p_tot_cld(:,:,:,:), p_q_o3(:,:,:)
@@ -179,13 +179,14 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,        &
     nblks_c_lp = p_gcp%end_blk(min_rlcell,i_chidx)
 
     ALLOCATE(z_fr_land(nproma,nblks_c_lp), z_fr_glac(nproma,nblks_c_lp),           &
+             z_emis_rad(nproma,nblks_c_lp),                                        &
              z_cosmu0(nproma,nblks_c_lp), z_albvisdir(nproma,nblks_c_lp),          &
              z_albnirdir(nproma,nblks_c_lp), z_albvisdif(nproma,nblks_c_lp),       &
              z_albnirdif(nproma,nblks_c_lp), z_tsfc(nproma,nblks_c_lp),            &
              z_pres_ifc(nproma,nlevp1,nblks_c_lp), z_pres(nproma,nlev,nblks_c_lp), &
              z_temp(nproma,nlev,nblks_c_lp), z_acdnc(nproma,nlev,nblks_c_lp),      &
              z_tot_cld(nproma,nlev,nblks_c_lp,4), z_q_o3(nproma,nlev,nblks_c_lp),  &
-             z_aux3d(nproma,8,nblks_c_lp), zrg_aux3d(nproma,8,p_par_patch%nblks_c) )
+             z_aux3d(nproma,9,nblks_c_lp), zrg_aux3d(nproma,9,p_par_patch%nblks_c) )
 
   ENDIF
 
@@ -194,6 +195,7 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,        &
   IF (l_parallel .AND. jgp == 0) THEN
     p_fr_land    => z_fr_land
     p_fr_glac    => z_fr_glac
+    p_emis_rad   => z_emis_rad
     p_cosmu0     => z_cosmu0
     p_albvisdir  => z_albvisdir
     p_albnirdir  => z_albnirdir
@@ -209,6 +211,7 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,        &
   ELSE
     p_fr_land    => rg_fr_land
     p_fr_glac    => rg_fr_glac
+    p_emis_rad   => rg_emis_rad
     p_cosmu0     => rg_cosmu0
     p_albvisdir  => rg_albvisdir
     p_albnirdir  => rg_albnirdir
@@ -226,6 +229,7 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,        &
   IF (p_test_run) THEN
     p_fr_land    = 0._wp
     p_fr_glac    = 0._wp
+    p_emis_rad   = 0._wp
     p_cosmu0     = 0._wp
     p_albvisdir  = 0._wp
     p_albnirdir  = 0._wp
@@ -267,6 +271,12 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,        &
         fr_glac(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
         fr_glac(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
         fr_glac(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
+
+      p_emis_rad(jc,jb) =                                         &
+        emis_rad(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
+        emis_rad(iidx(jc,jb,2),iblk(jc,jb,2))*p_fbkwgt(jc,jb,2) + &
+        emis_rad(iidx(jc,jb,3),iblk(jc,jb,3))*p_fbkwgt(jc,jb,3) + &
+        emis_rad(iidx(jc,jb,4),iblk(jc,jb,4))*p_fbkwgt(jc,jb,4)
       
       p_cosmu0(jc,jb) =                                         &
         cosmu0(iidx(jc,jb,1),iblk(jc,jb,1))*p_fbkwgt(jc,jb,1) + &
@@ -321,7 +331,8 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,        &
         z_aux3d(jc,5,jb) = p_albnirdif(jc,jb)
         z_aux3d(jc,6,jb) = p_tsfc(jc,jb)
         z_aux3d(jc,7,jb) = p_fr_land(jc,jb)
-        z_aux3d(jc,8,jb) = p_fr_glac(jc,jb)        
+        z_aux3d(jc,8,jb) = p_fr_glac(jc,jb)
+        z_aux3d(jc,9,jb) = p_emis_rad(jc,jb)        
       ENDDO
     ENDIF
 
@@ -381,7 +392,7 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,        &
 
   IF (l_parallel .AND. jgp == 0) THEN
 
-    CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 6, 6*nlev+9,  &
+    CALL exchange_data_mult(p_pp%comm_pat_loc_to_glb_c_fbk, 6, 6*nlev+10, &
                             RECV1=rg_pres_ifc, SEND1=z_pres_ifc,          &
                             RECV2=rg_pres,     SEND2=z_pres,              &
                             RECV3=rg_temp,     SEND3=z_temp,              &
@@ -412,13 +423,14 @@ SUBROUTINE upscale_rad_input(p_patch, p_par_patch, p_par_grf,        &
         rg_tsfc(jc,jb)      = zrg_aux3d(jc,6,jb)
         rg_fr_land(jc,jb)   = zrg_aux3d(jc,7,jb)
         rg_fr_glac(jc,jb)   = zrg_aux3d(jc,8,jb)
+        rg_emis_rad(jc,jb)  = zrg_aux3d(jc,9,jb)
       ENDDO
 
     ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
 
-    DEALLOCATE(z_fr_land, z_fr_glac, z_cosmu0, z_albvisdir, z_albnirdir, z_albvisdif,  &
+    DEALLOCATE(z_fr_land, z_fr_glac, z_emis_rad, z_cosmu0, z_albvisdir, z_albnirdir, z_albvisdif,&
       & z_albnirdif, z_tsfc, z_pres_ifc, z_pres, z_temp, z_acdnc, z_tot_cld, z_q_o3,   &
       & z_aux3d, zrg_aux3d )
 

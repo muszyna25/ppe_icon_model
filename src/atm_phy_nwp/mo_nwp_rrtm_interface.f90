@@ -598,6 +598,7 @@ CONTAINS
     ! Input fields
     REAL(wp), ALLOCATABLE, TARGET:: zrg_fr_land  (:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_fr_glac  (:,:)
+    REAL(wp), ALLOCATABLE, TARGET:: zrg_emis_rad (:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_cosmu0   (:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_albvisdir(:,:)
     REAL(wp), ALLOCATABLE, TARGET:: zrg_albnirdir(:,:)
@@ -714,6 +715,7 @@ CONTAINS
       ALLOCATE (zrg_cosmu0   (nproma,nblks_par_c),          &
         zrg_fr_land  (nproma,nblks_par_c),          &
         zrg_fr_glac  (nproma,nblks_par_c),          &
+        zrg_emis_rad (nproma,nblks_par_c),          &
         zrg_albvisdir(nproma,nblks_par_c),          &
         zrg_albnirdir(nproma,nblks_par_c),          &
         zrg_albvisdif(nproma,nblks_par_c),          &
@@ -872,11 +874,12 @@ CONTAINS
 
       CALL upscale_rad_input(pt_patch, pt_par_patch, pt_par_grf_state,  &
         & ext_data%atm%fr_land_smt, ext_data%atm%fr_glac_smt,           &
+        & ext_data%atm%emis_rad,                                        &
         & prm_diag%cosmu0, albvisdir, albnirdir, albvisdif, albnirdif,  &
         & prm_diag%tsfctrad, pt_diag%pres_ifc,                          &
         & pt_diag%pres, pt_diag%temp,prm_diag%acdnc, prm_diag%tot_cld,  &
         & pt_prog_rcf%tracer(:,:,:,io3),                                &
-        & zrg_fr_land, zrg_fr_glac,                                     &
+        & zrg_fr_land, zrg_fr_glac, zrg_emis_rad,                       &
         & zrg_cosmu0, zrg_albvisdir, zrg_albnirdir, zrg_albvisdif,      &
         & zrg_albnirdif, zrg_tsfc, zrg_pres_ifc, zrg_pres, zrg_temp,    &
         & zrg_acdnc, zrg_tot_cld, zrg_o3                              )
@@ -901,9 +904,10 @@ CONTAINS
         ! of nested domains. Therefore, the normally unused elements of the first block
         ! need to be filled with dummy values
         IF (jg > 1 .AND. jb == i_startblk) THEN
-          zrg_fr_land   (1:i_startidx-1,jb) = zrg_fr_land(i_startidx,jb)
-          zrg_fr_glac   (1:i_startidx-1,jb) = zrg_fr_glac(i_startidx,jb)
-          zrg_cosmu0    (1:i_startidx-1,jb) = zrg_cosmu0 (i_startidx,jb)
+          zrg_fr_land   (1:i_startidx-1,jb) = zrg_fr_land   (i_startidx,jb)
+          zrg_fr_glac   (1:i_startidx-1,jb) = zrg_fr_glac   (i_startidx,jb)
+          zrg_emis_rad  (1:i_startidx-1,jb) = zrg_emis_rad  (i_startidx,jb)
+          zrg_cosmu0    (1:i_startidx-1,jb) = zrg_cosmu0    (i_startidx,jb)
           zrg_albvisdir (1:i_startidx-1,jb) = zrg_albvisdir (i_startidx,jb)
           zrg_albnirdir (1:i_startidx-1,jb) = zrg_albnirdir (i_startidx,jb)
           zrg_albvisdif (1:i_startidx-1,jb) = zrg_albvisdif (i_startidx,jb)
@@ -945,7 +949,7 @@ CONTAINS
           & alb_nir_dir=zrg_albnirdir(:,jb)  ,&!< in    surface albedo for near IR range, direct
           & alb_vis_dif=zrg_albvisdif(:,jb)  ,&!< in    surface albedo for visible range, diffuse
           & alb_nir_dif=zrg_albnirdif(:,jb)  ,&!< in    surface albedo for near IR range, diffuse
-          & emis_rad=ext_data%atm%emis_rad(:,jb),&!< in longwave surface emissivity
+          & emis_rad   =zrg_emis_rad(:,jb)   ,&!< in longwave surface emissivity
           & tk_sfc     =zrg_tsfc     (:,jb)       ,&!< in    surface temperature
                                 !
                                 ! atmosphere: pressure, tracer mixing ratios and temperature
@@ -982,7 +986,7 @@ CONTAINS
       DEALLOCATE (zrg_cosmu0, zrg_albvisdir, zrg_albnirdir, zrg_albvisdif, zrg_albnirdif, &
         zrg_tsfc, zrg_pres_ifc, zrg_pres, zrg_temp, zrg_o3, zrg_acdnc, zrg_tot_cld,       &
         zrg_aclcov, zrg_lwflxclr, zrg_lwflxall, zrg_trsolclr, zrg_trsolall,     &
-        zrg_fr_land,zrg_fr_glac)
+        zrg_fr_land,zrg_fr_glac,zrg_emis_rad)
       
   END SUBROUTINE nwp_rrtm_radiation_reduced
 
