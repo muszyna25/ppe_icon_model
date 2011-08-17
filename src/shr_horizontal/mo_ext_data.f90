@@ -86,8 +86,6 @@ MODULE mo_ext_data
 
   PRIVATE
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-
   PUBLIC :: t_external_data
   PUBLIC :: t_external_atmos
   PUBLIC :: t_external_atmos_td
@@ -100,7 +98,10 @@ MODULE mo_ext_data
   PUBLIC :: destruct_ext_data
   PUBLIC :: smooth_topography, read_netcdf_data
 
-
+  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+  
+  REAL(wp), PARAMETER :: zemiss_def = 0.996_wp  !lw sfc default emissivity factor
+  
   INTERFACE read_netcdf_data
     MODULE PROCEDURE read_netcdf_2d
     MODULE PROCEDURE read_netcdf_2d_int
@@ -466,19 +467,19 @@ CONTAINS
       SELECT CASE ( iforcing )
       CASE ( inwp )
         DO jg = 1, n_dom
-          ext_data(jg)%atm%emis_rad(:,:)    = 0.996_wp ! longwave surface emissivity
-          ext_data(jg)%atm%fr_land(:,:)     = 0._wp    ! land fraction
-          ext_data(jg)%atm%fr_land_smt(:,:) = 0._wp    ! land fraction (smoothed)
-          ext_data(jg)%atm%plcov_mx(:,:)    = 0.5_wp   ! plant cover
-          ext_data(jg)%atm%lai_mx(:,:)      = 3._wp    ! max Leaf area index
-          ext_data(jg)%atm%rootdp(:,:)      = 1._wp    ! root depth
-          ext_data(jg)%atm%rsmin(:,:)       = 150._wp  ! minimal stomata resistence
-          ext_data(jg)%atm%soiltyp(:,:)     = 8        ! soil type
-          ext_data(jg)%atm%z0(:,:)          = 0.001_wp ! roughness length
+          ext_data(jg)%atm%emis_rad(:,:)    = zemiss_def ! longwave surface emissivity
+          ext_data(jg)%atm%fr_land(:,:)     = 0._wp      ! land fraction
+          ext_data(jg)%atm%fr_land_smt(:,:) = 0._wp      ! land fraction (smoothed)
+          ext_data(jg)%atm%plcov_mx(:,:)    = 0.5_wp     ! plant cover
+          ext_data(jg)%atm%lai_mx(:,:)      = 3._wp      ! max Leaf area index
+          ext_data(jg)%atm%rootdp(:,:)      = 1._wp      ! root depth
+          ext_data(jg)%atm%rsmin(:,:)       = 150._wp    ! minimal stomata resistence
+          ext_data(jg)%atm%soiltyp(:,:)     = 8          ! soil type
+          ext_data(jg)%atm%z0(:,:)          = 0.001_wp   ! roughness length
         END DO
       CASE ( iecham, ildf_echam)
         DO jg = 1, n_dom
-          ext_data(jg)%atm%emis_rad(:,:)    = 0.996_wp ! longwave surface emissivity
+          ext_data(jg)%atm%emis_rad(:,:)    = zemiss_def ! longwave surface emissivity
         END DO
       END SELECT
 
@@ -1725,6 +1726,8 @@ CONTAINS
             CALL read_netcdf_data (ncid, 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,           &
               &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
               &                     ext_data(jg)%atm%emis_rad)
+          ELSE
+            ext_data(jg)%atm%emis_rad(:,:)= zemiss_def
           ENDIF
 
           CALL read_netcdf_data (ncid, 'T_CL', p_patch(jg)%n_patch_cells_g,               &
@@ -1761,6 +1764,8 @@ CONTAINS
             CALL read_netcdf_data (ncid, 'EMIS_RAD', p_patch(jg)%n_patch_cells_g,           &
               &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
               &                     ext_data(jg)%atm%emis_rad)
+          ELSE
+            ext_data(jg)%atm%emis_rad(:,:)= zemiss_def
           ENDIF
           
         END SELECT ! iforcing
