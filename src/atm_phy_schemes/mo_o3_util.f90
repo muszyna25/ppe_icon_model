@@ -2,11 +2,15 @@
 !! Contains subroutines to calculate ozone climatology depending on day of the year.
 !! Taken from DWD's GME.
 !!
-!! @author Thorsten Reinhardt, AGeoBw, Offenbach
+!! Also routines overtaken from ECHAM providing vertical interpolation between
+!! obs-data and model levels (another time interpolation will be added later)
 !!
+!! @author Thorsten Reinhardt, AGeoBw, Offenbach
+!! @author  M.A. Giorgetta, MPI, May  2000
 !!
 !! @par Revision History
 !! Initial Release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-01-31)
+!! ECHAM routine implemented by Kristina Froehlich, MPI-M (2011-08-17)
 !!
 !! @par Copyright
 !! 2002-2011 by DWD and MPI-M
@@ -49,11 +53,204 @@ MODULE mo_o3_util
 
   PRIVATE
 
-  PUBLIC  :: calc_o3_clim
+  PUBLIC  :: calc_o3_clim, o3_timeint, o3_pl2sh
 
 !  CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
 CONTAINS
+
+  !=======================================================================
+
+SUBROUTINE o3_timeint( kbdim, kproma, nlev_pres,nmonths,& !
+                     & selmon,                          & ! IN
+                     & ext_O3 ,                         & ! IN kproma,nlev_p,jb,nmonth
+                     & o3_time_int                        )! OUT kproma,nlev_p
+
+  ! NOTE the very first approahc ist no time avareaging but selection of 
+  ! a special month (september) for aqua planet simulations
+
+    INTEGER, INTENT(in)         :: kproma ! 
+    INTEGER, INTENT(in)         :: kbdim  ! 
+    INTEGER, INTENT(in)         :: nmonths     ! number of months in o3
+    INTEGER, INTENT(in),OPTIONAL:: selmon  ! selected month for experiment
+    INTEGER, INTENT(in)         :: nlev_pres   ! number of o3 data levels
+
+    REAL(wp), INTENT(in) , DIMENSION(kbdim,nlev_pres,nmonths):: ext_o3
+    REAL(wp), INTENT(out), DIMENSION(kbdim,nlev_pres)        :: o3_time_int
+
+    IF(PRESENT(selmon))THEN
+      o3_time_int(1:kproma,1:nlev_pres) =ext_o3(1:kproma,1:nlev_pres,selmon)
+    ELSE
+      o3_time_int(1:kproma,1:nlev_pres) =ext_o3(1:kproma,1:nlev_pres,9) ! September
+    ENDIF
+
+END SUBROUTINE o3_timeint
+
+ SUBROUTINE o3_pl2sh (kbdim,kproma,nlev_pres,klev,&
+   &                   pfoz,phoz,pph,ppf,   &
+   &                   o3_time_int, o3_clim)
+
+    !- Description: o3 pressure levels to o3 sigma hybrid levels
+    !
+    !  The time interpolated profile of ozone is interpolated to the
+    !  model full levels and integrated again fromp=0 to p=ps.
+    !  Finally the ozone profile on the model levels is normalized such
+    !  that the integrated amount on the model grid is identical to
+    !  that on the grid of the climatology.
+    !
+    !- Author:
+    !
+    !  M.A. Giorgetta, MPI, May 2000
+    !  K.   Froehlich, MPI, August 2011, adjusted to ICON
+
+    ! INPUT
+    ! -----
+
+    INTEGER, INTENT(in)                             :: kproma ! 
+    INTEGER, INTENT(in)                             :: kbdim  ! first dimension of 2-d arrays
+    INTEGER, INTENT(in)                             :: klev   ! number of levels
+    INTEGER, INTENT(in)                             :: nlev_pres   ! number of o3 data levels
+    REAL(wp),INTENT(in) ,DIMENSION(nlev_pres)       :: pfoz  ! full level pressure of o3 data
+    REAL(wp),INTENT(in) ,DIMENSION(nlev_pres+1)     :: phoz  ! half level pressure of o3 data
+    REAL(wp),INTENT(in) ,DIMENSION(kbdim,klev)      :: ppf  ! full level pressure 
+    REAL(wp), INTENT(in) ,DIMENSION(kbdim,klev+1)    :: pph  ! half level pressure
+    REAL(wp),INTENT(in) ,DIMENSION(kbdim,nlev_pres) :: o3_time_int !zozonec_x
+    REAL(wp),INTENT(OUT),DIMENSION(kbdim,klev)      :: o3_clim ! ozone in g/g
+
+
+    ! LOCAL
+    ! -----
+
+    ! pressure integrated ozone at half levels of ozone grid,
+    ! and integral at surface
+    REAL(wp), DIMENSION(kproma)                 :: zozintc
+
+    ! time interpolated ozone at full levels of model grid,
+    ! pressure integrated ozone at half levels of model,
+    ! and integral at surface
+    REAL(wp), DIMENSION(kproma,klev)           :: zozonem 
+    REAL(wp), DIMENSION(kproma)                :: zozintm
+
+    REAL(wp) :: zdp1,zdp2 ! pressure weights in linear interpolation
+    INTEGER  :: jl,jk,jkk ! loop indices
+    INTEGER,DIMENSION(kproma)  :: jk1,jkn   ! first and last model level in interpolation
+
+    INTEGER,DIMENSION(kproma)            :: kwork
+    LOGICAL,DIMENSION(kproma)            :: kk_flag
+
+
+    ! interpolate ozone profile to model grid
+    ! ---------------------------------------
+    ! set ozone concentration at levels above the uppermost level of
+    ! the ozone climatology to the value in the uppermost level of 
+    ! the ozone climatology
+
+    jk1(:)     = 1
+    kk_flag(:) = .TRUE.
+    DO jk = 1,klev
+       DO jl=1,kproma
+          IF (ppf(jl,jk)<=pfoz(1) .AND. kk_flag(jl)) THEN 
+             zozonem(jl,jk)= o3_time_int(jl,1)
+             jk1(jl)=jk+1
+          ELSE
+             kk_flag(jl) = .FALSE.
+          END IF
+       END DO
+    END DO
+
+    ! set ozone concentration at levels below the lowermost level of
+    ! the ozone climatology to the value in the lowermost level of 
+    ! the ozone climatology
+    jkn(:)=klev
+    kk_flag(:) = .TRUE.
+    DO jk = klev,1,-1
+       DO jl=1,kproma
+          IF (ppf(jl,jk)>=pfoz(nlev_pres).AND. kk_flag(jl)) THEN
+             zozonem(jl,jk)=o3_time_int(jl,nlev_pres)
+             jkn(jl)=jk-1
+          ELSE
+             kk_flag(jl) = .FALSE.
+          END IF
+       END DO
+    ENDDO
+
+    DO jk=1,klev
+       kk_flag(:) = .TRUE.
+       kwork(:)   = 1
+       DO jkk = 1,nlev_pres
+          DO jl=1,kproma
+             IF(jk >= jk1(jl) .AND. jk <= jkn(jl))  THEN
+                IF (ppf(jl,jk) <= pfoz(jkk) .AND. jkk >= kwork(jl) &
+                                            .AND. kk_flag(jl)) THEN
+                   kwork(jl)   = jkk
+                   kk_flag(jl) = .FALSE.
+                END IF
+             END IF
+          END DO
+       END DO
+
+       DO jl=1,kproma
+          IF(jk >= jk1(jl) .AND. jk <= jkn(jl))  THEN
+                jkk = kwork(jl)
+                ! model level is in interval ]pfoz(jkk-1),pfoz(jkk)]
+                ! -> make interpolation
+                zdp1=pfoz(jkk)-ppf(jl,jk)
+                zdp2=ppf(jl,jk)-pfoz(jkk-1)
+                zozonem(jl,jk)=(zdp1*o3_time_int(jl,jkk-1) &
+                          &   + zdp2*o3_time_int(jl,jkk))  &
+                          &   /  (zdp1+zdp2)
+          END IF
+       END DO
+    END DO
+
+       ! integrate ozone profile on grid of climatology
+       ! from top to surface
+       ! ----------------------------------------------
+    zozintc=0._wp
+    kk_flag(:) = .TRUE.
+    jk1(:)     = 2
+    DO jk=2,nlev_pres+1
+          ! integrate layers of climatology above surface
+       DO jl=1,kproma
+          IF (phoz(jk)<=pph(jl,klev) .AND. kk_flag(jl) ) THEN
+              zozintc(jl)=zozintc(jl)+ &
+               &  o3_time_int(jl,jk-1 )*(phoz(jk)-phoz(jk-1))
+              jk1(jl) = jk+1
+          ELSE
+              kk_flag(jl) = .FALSE.
+          END IF
+       END DO
+    END DO
+       ! integrate layer of climatology that is intersected
+       ! by the surface from upper boundary to surface
+    DO jl=1,kproma
+       zozintc(jl)=zozintc(jl)+ &
+            &  o3_time_int(jl,jk1(jl)-1 )*(pph(jl,klev)-phoz(jk1(jl)-1))
+    END DO
+
+       ! integrate ozone profile on grid of model
+       ! from top to surface
+       ! ----------------------------------------
+    zozintm=0._wp
+    DO jk=2,klev+1
+       DO jl=1,kproma
+         zozintm(jl)=zozintm(jl) + zozonem(jl,jk-1)*(pph(jl,jk)-pph(jl,jk-1))
+       END DO
+    END DO
+
+       ! normalize interpolated ozone profile such that the
+       ! ozone integral computed on the model grid is equal
+       ! to that integrated on the grid of the climatology
+       ! --------------------------------------------------
+    DO jk=1,klev
+       DO jl=1,kproma
+         o3_clim(jl,jk)=zozonem(jl,jk)/zozintm(jl) * zozintc(jl)
+       END DO
+    END DO
+
+  END SUBROUTINE o3_pl2sh
+
+ !=======================================================================
 
   SUBROUTINE calc_o3_clim(kbdim,p_inc_rad,z_sim_time,pt_patch,zvio3,zhmo3)
 

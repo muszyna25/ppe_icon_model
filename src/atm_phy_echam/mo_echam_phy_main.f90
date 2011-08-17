@@ -45,14 +45,17 @@ MODULE mo_echam_phy_main
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
-  USE mo_ext_data,            ONLY: ext_data
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: grav
+  USE mo_impl_constants,      ONLY: io3_clim
   USE mo_run_config,          ONLY: ntracer, nlev, nlevp1, ltestcase, &
     &                               iqv, iqc, iqi, io3, iqt, ltimer
   USE mo_ha_testcases,        ONLY: ctest_name
   USE mo_vertical_coord_table,ONLY: nlevm1
+  USE mo_ext_data,            ONLY: ext_data,&
+    &                               t_external_atmos_td,             &
+    &                               nlev_pres, nmonths
   USE mo_echam_phy_config,    ONLY: echam_phy_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_cucall,              ONLY: cucall
@@ -69,7 +72,7 @@ MODULE mo_echam_phy_main
   USE mo_cover,               ONLY: cover
   USE mo_echam_cloud_params,  ONLY: ctaus, ctaul, ctauk !, ncctop, nccbot
   USE mo_radiation,           ONLY: radiation, radheat
-  USE mo_radiation_config,    ONLY: tsi, izenith
+  USE mo_radiation_config,    ONLY: tsi, izenith, irad_o3
   USE mo_vdiff_config,        ONLY: vdiff_config
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
   USE mo_vdiff_upward_sweep,  ONLY: vdiff_up
@@ -105,8 +108,9 @@ CONTAINS
                                           !< computation, scaled into radians
     ! Local variables
 
-    TYPE(t_echam_phy_field),POINTER :: field 
-    TYPE(t_echam_phy_tend) ,POINTER :: tend
+    TYPE(t_echam_phy_field),   POINTER :: field 
+    TYPE(t_echam_phy_tend) ,   POINTER :: tend
+    TYPE(t_external_atmos_td) ,POINTER :: atm_td
 
     REAL(wp) :: zlat_deg(nbdim)           !< latitude in deg N
 
@@ -171,6 +175,8 @@ CONTAINS
     REAL(wp) :: zqshear (nbdim,nlev) !<
     REAL(wp) :: zthvvar (nbdim,nlev) !< intermediate value of thvvar
     REAL(wp) :: ztkevn  (nbdim,nlev) !< intermediate value of tke
+    REAL(wp) :: zo3_timint(nbdim,nlev_pres) !< intermediate value of ozon 
+
 
 !!$ REAL(wp) :: rlfland (nbdim), rlfglac (nbdim)
 
@@ -182,8 +188,9 @@ CONTAINS
 
     ! 1. Associate pointers
 
-    field => prm_field(jg)
-    tend  => prm_tend (jg)
+    field  => prm_field(jg)
+    tend   => prm_tend (jg)
+    atm_td => ext_data(jg)%atm_td
 
     ! 2. local switches and parameters
 
@@ -338,14 +345,22 @@ CONTAINS
           field% albvisdif(jcs:jce,jb) = 0.07_wp ! ~ albedo of water
           field% albnirdif(jcs:jce,jb) = 0.07_wp ! ~ albedo of water
 
-          
-          !  as a preparation step:
-          !  bring ozone climatology via time weigths onto a 3D field 
-!
-!        DO jl=1,nproma
-!          z_o3_3d(jcs:jce,:,jb) = wgt1_m*ext_data(jg)%atm_td_O3(jcs:jce,:,nmw1_m)&
-!                                 & +wgt2_m*ext_data(jg)%atm_td_O3ozone(jcs:jce,:nmw2_m)
-!        END DO
+
+          SELECT CASE(irad_o3)
+            CASE(io3_clim)
+
+!              CALL o3_timeint( atm_td%p_ext_atm_td%o3(:,:,jb,:),& ! IN kproma,nlev_p,jb,nmonth
+!                             & kbdim, nlev_pres,nmonths,         & !
+!                             & selmon=9 ,                         & ! optional choice for month
+!                               zo3_timint(:,:)   )                 ! OUT kproma,nlev_p
+!              CALL o3_pl2sh ( kbdim,jce,nlev_pres, nlev ,     &
+!                             & atm_td%pfoz(:),atm_td%phoz(:),& in o3 levs
+!                             & field% presm_new(:,:,jb),       &! in     app1
+!                             & field% presi_new(:,:,jb),       &! in     aphp1
+!                             & zo3_timint(:,:),                &! in 
+!                             & field% q(:,:,jb,io3)            &! OUT kproma,nlev
+
+          END SELECT
 
 
 !!$        ! debug fields "radin"

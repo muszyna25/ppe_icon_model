@@ -224,7 +224,7 @@ MODULE mo_impl_constants
 
   ! external parameter for radiation
 
-  INTEGER, PARAMETER :: io3_kinne    =  3
+  INTEGER, PARAMETER :: io3_clim     =  2
   INTEGER, PARAMETER :: iaero_kinne  =  3
 
   !

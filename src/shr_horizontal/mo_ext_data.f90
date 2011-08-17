@@ -48,7 +48,7 @@ MODULE mo_ext_data
   USE mo_kind
   USE mo_io_units,           ONLY: filename_max
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_kinne, &
+  USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, &
     &                              ihs_ocean, ihs_atm_temp, ihs_atm_theta, inh_atmosphere, &
     &                              max_char_length, sea_boundary
   USE mo_run_config,         ONLY: iforcing
@@ -86,6 +86,8 @@ MODULE mo_ext_data
 
   PRIVATE
 
+  CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
   PUBLIC :: t_external_data
   PUBLIC :: t_external_atmos
   PUBLIC :: t_external_atmos_td
@@ -98,10 +100,9 @@ MODULE mo_ext_data
   PUBLIC :: destruct_ext_data
   PUBLIC :: smooth_topography, read_netcdf_data
 
-  CHARACTER(len=*), PARAMETER :: version = '$Id$'
-  
-  REAL(wp), PARAMETER :: zemiss_def = 0.996_wp  !lw sfc default emissivity factor
-  
+  PUBLIC :: nlev_pres,nmonths
+ REAL(wp), PARAMETER :: zemiss_def = 0.996_wp  !lw sfc default emissivity factor	
+
   INTERFACE read_netcdf_data
     MODULE PROCEDURE read_netcdf_2d
     MODULE PROCEDURE read_netcdf_2d_int
@@ -382,7 +383,7 @@ MODULE mo_ext_data
   END TYPE t_external_data
 
 
-  TYPE(t_external_data), ALLOCATABLE :: &
+  TYPE(t_external_data),TARGET, ALLOCATABLE :: &
     &  ext_data(:)  ! n_dom
 
 !-------------------------------------------------------------------------
@@ -445,8 +446,7 @@ CONTAINS
     !Ozone and aerosols
     !-------------------------------------------------------------------------
 
-      WRITE(0,*)'inquire  ozonefile if',irad_o3,'=',io3_kinne
-      IF(irad_o3 == io3_kinne) THEN
+      IF(irad_o3 == io3_clim) THEN
         CALL message( TRIM(routine),'external ozone data required' )
         CALL read_ext_data_atm (p_patch, ext_data)   ! read ozone
       ENDIF
@@ -1117,7 +1117,7 @@ CONTAINS
     ! ATTENTION: a GRIB2 number will go to 
     ! the ozone mass mixing ratio...
     !
-    IF(irad_o3 == io3_kinne) THEN 
+    IF(irad_o3 == io3_clim) THEN 
 
       ! o3  main pressure level from read-in file
       cf_desc    = t_cf_var('O3_pf', 'Pa',   &
@@ -1126,7 +1126,6 @@ CONTAINS
       CALL add_var( p_ext_atm_td_list, 'O3_pf', p_ext_atm_td%pfoz, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, &
         &           grib2_desc, ldims=(/nlev_pres/) )
-      WRITE(0,*)'pfoz allocated',MAXVAL(p_ext_atm_td%pfoz(:)),nlev_pres
 
       ! o3  intermediate pressure level
       cf_desc    = t_cf_var('O3_ph', 'Pa',   &
@@ -1413,7 +1412,7 @@ CONTAINS
 
     TYPE(t_patch), INTENT(IN)      :: p_patch(:)
 
-    INTEGER :: jg
+    INTEGER :: jg, mpi_comm
     INTEGER :: no_cells, no_verts
     INTEGER :: ncid, dimid
 
@@ -1501,8 +1500,13 @@ CONTAINS
       ! 2. Check validity of ozone file                !
       !------------------------------------------------!
 
-      IF(irad_o3 == io3_kinne) THEN
+      IF(irad_o3 == io3_clim) THEN
 
+        IF(p_test_run) THEN
+          mpi_comm = p_comm_work_test
+        ELSE
+          mpi_comm = p_comm_work
+        ENDIF
 
         ! default values for nlev_pres and nmonths
         nlev_pres = 1
@@ -1574,6 +1578,8 @@ CONTAINS
 
         ENDIF ! pe
 
+        CALL p_bcast(nlev_pres, p_io, mpi_comm)      
+        CALL p_bcast(nmonths,   p_io, mpi_comm)      
       ENDIF !o3
 
     ENDDO ! ndom
@@ -1791,7 +1797,7 @@ CONTAINS
       ! Read ozone
       !-------------------------------------------------------
 
-    IF(irad_o3 == io3_kinne) THEN
+    IF(irad_o3 == io3_clim) THEN
 
         IF(p_test_run) THEN
           mpi_comm = p_comm_work_test
@@ -1905,7 +1911,7 @@ CONTAINS
     i_lev       = p_patch(jg)%level
     i_cell_type = p_patch(jg)%cell_type
 
-    IF(p_pe == p_io) THEN
+    IF(my_process_is_stdio()) THEN
       !
       ! bathymetry and lsm are read from the general ICON grid file
       ! bathymetry and lsm integrated into grid file by grid generator
@@ -1996,7 +2002,7 @@ CONTAINS
     !
     ! close file
     !
-    IF(p_pe == p_io) CALL nf(nf_close(ncid))
+    IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
 
     !ENDDO ! jg
 
@@ -2016,7 +2022,7 @@ CONTAINS
       i_lev       = p_patch(jg)%level
       i_cell_type = p_patch(jg)%cell_type
 
-      IF(p_pe == p_io) THEN
+      IF(my_process_is_stdio()) THEN
         !
         WRITE (omip_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-flux.nc'
 
@@ -2084,7 +2090,7 @@ CONTAINS
       !
       ! close file
       !
-      IF(p_pe == p_io) CALL nf(nf_close(ncid))
+      IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
 
     !ENDDO
 

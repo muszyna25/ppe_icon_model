@@ -686,6 +686,7 @@ CONTAINS
     ozon: SELECT CASE (irad_o3)
     CASE (0)
       qm_o3(1:jce,:) = 0.0_wp
+    CASE (3)
     CASE (6)
 !!$    CASE (4)
 !!$      xm_o3(1:jce,:) = o3clim(krow,jce,kbdim,klev,pp_hl,pp_fl)
@@ -693,51 +694,6 @@ CONTAINS
       CALL finish('radiation','o3: this "irad_o3" is not supported')
     END SELECT ozon
 
-!!$    ! debug rrtmin1
-!!$    ! -------------
-!!$    DO jl = 1, jce
-!!$      IF (loland(jl)) THEN
-!!$        rloland(jl) = 1.0_wp
-!!$      ELSE
-!!$        rloland(jl) = 0.0_wp
-!!$      END IF
-!!$      IF (loglac(jl)) THEN
-!!$        rloglac(jl) = 1.0_wp
-!!$      ELSE
-!!$        rloglac(jl) = 0.0_wp
-!!$      END IF
-!!$    END DO
-!!$    prm_field(jg)% debug_2d_1(:,jb) = REAL(ktype(:),wp)
-!!$    prm_field(jg)% debug_2d_2(:,jb) = rloland(:)
-!!$    prm_field(jg)% debug_2d_3(:,jb) = rloglac(:)
-!!$    prm_field(jg)% debug_2d_4(:,jb) = cos_mu0_mod(:)
-!!$    prm_field(jg)% debug_2d_5(:,jb) = alb_vis_dir(:)
-!!$    prm_field(jg)% debug_2d_6(:,jb) = alb_nir_dir(:)
-!!$    prm_field(jg)% debug_2d_7(:,jb) = alb_vis_dif(:)
-!!$    prm_field(jg)% debug_2d_8(:,jb) = alb_nir_dif(:)
-!!$    !
-!!$    prm_field(jg)% debug_3d_1(:,1:klev,jb) = pp_fl(:,1:klev)
-!!$    prm_field(jg)% debug_3d_2(:,1:klev,jb) = pp_hl(:,1:klev)
-!!$    prm_field(jg)% debug_3d_3(:,1:klev,jb) = tk_fl(:,1:klev)
-!!$    prm_field(jg)% debug_3d_4(:,1:klev,jb) = tk_hl(:,1:klev)
-!!$    prm_field(jg)% debug_3d_5(:,1:klev,jb) = xq_vap(:,1:klev)
-!!$    prm_field(jg)% debug_3d_6(:,1:klev,jb) = xq_liq(:,1:klev)
-!!$    prm_field(jg)% debug_3d_7(:,1:klev,jb) = xq_ice(:,1:klev)
-!!$    prm_field(jg)% debug_3d_8(:,1:klev,jb) = cdnc(:,1:klev)
-    !
-!!$    ! debug rrtmin2
-!!$    ! -------------
-!!$    prm_field(jg)% debug_2d_1(:,jb) = pp_sfc(:)
-!!$    prm_field(jg)% debug_2d_2(:,jb) = tk_sfc(:)
-!!$    !
-!!$    prm_field(jg)% debug_3d_1(:,1:klev,jb) = xm_o3(:,1:klev)
-!!$    prm_field(jg)% debug_3d_2(:,1:klev,jb) = xm_co2(:,1:klev)
-!!$    prm_field(jg)% debug_3d_3(:,1:klev,jb) = xm_ch4(:,1:klev)
-!!$    prm_field(jg)% debug_3d_4(:,1:klev,jb) = xm_n2o(:,1:klev)
-!!$    prm_field(jg)% debug_3d_5(:,1:klev,jb) = xm_cfc11(:,1:klev)
-!!$    prm_field(jg)% debug_3d_6(:,1:klev,jb) = xm_cfc12(:,1:klev)
-!!$    prm_field(jg)% debug_3d_7(:,1:klev,jb) = xm_o2(:,1:klev)
-    !
     ! 2.0 Call interface to radiation solver
     ! --------------------------------------
     !
@@ -1162,16 +1118,7 @@ CONTAINS
 !!$        rloglac(jl) = 0.0_wp
 !!$      END IF
 !!$    END DO
-!!$    prm_field(jg)% debug_2d_1(:,jb) = rloglac(:)
-!!$    prm_field(jg)% debug_2d_2(:,jb) = rloland(:)
-!!$    prm_field(jg)% debug_2d_3(:,jb) = REAL(ktype(:),wp)
-!!$    !
-!!$    prm_field(jg)% debug_3d_1(:,1:klev,jb) = REAL(icldlyr(:,1:klev),wp)
-!!$    prm_field(jg)% debug_3d_2(:,1:klev,jb) = zlwp_vr(:,1:klev)
-!!$    prm_field(jg)% debug_3d_3(:,1:klev,jb) = ziwp_vr(:,1:klev)
-!!$    prm_field(jg)% debug_3d_4(:,1:klev,jb) = zlwc_vr(:,1:klev)
-!!$    prm_field(jg)% debug_3d_5(:,1:klev,jb) = ziwc_vr(:,1:klev)
-!!$    prm_field(jg)% debug_3d_6(:,1:klev,jb) = cdnc_vr(:,1:klev)
+
 
       CALL newcld_optics(                                                       &
         & jce          ,kbdim        ,klev         ,jpband       ,jpsw         ,&
@@ -1179,38 +1126,6 @@ CONTAINS
         & zlwp_vr      ,ziwp_vr      ,zlwc_vr      ,ziwc_vr      ,cdnc_vr      ,&
         & cld_tau_lw_vr,cld_tau_sw_vr,cld_piz_sw_vr,cld_cg_sw_vr                )
 
-!!$    ! debug newcldout
-!!$    ! ---------------
-!!$    ! for band 5
-!!$    prm_field(jg)% debug_3d_1(:,1:klev,jb) = cld_tau_lw_vr(:,1:klev,5)
-!!$    prm_field(jg)% debug_3d_2(:,1:klev,jb) = cld_tau_sw_vr(:,5,1:klev)
-!!$    prm_field(jg)% debug_3d_3(:,1:klev,jb) = cld_piz_sw_vr(:,5,1:klev)
-!!$    prm_field(jg)% debug_3d_4(:,1:klev,jb) = cld_cg_sw_vr (:,5,1:klev)
-
-!!$    ! debug lrtmin1
-!!$    ! -------------
-!!$    prm_field(jg)% debug_2d_1(:,jb) = pm_sfc(:)
-!!$    prm_field(jg)% debug_2d_2(:,jb) = tk_sfc(:)
-!!$    !
-!!$    prm_field(jg)% debug_3d_1(:,1:klev,jb) = pm_fl_vr(:,1:klev)
-!!$    prm_field(jg)% debug_3d_2(:,1:klev,jb) = tk_fl_vr(:,1:klev)
-!!$    prm_field(jg)% debug_3d_3(:,1:klev,jb) = tk_hl_vr(:,1:klev)
-!!$    prm_field(jg)% debug_3d_4(:,1:klev,jb) = wx_vr(:,2,1:klev)
-!!$    prm_field(jg)% debug_3d_5(:,1:klev,jb) = wx_vr(:,3,1:klev)
-!!$    prm_field(jg)% debug_3d_6(:,1:klev,jb) = cld_frc_vr(:,1:klev)
-!!$    prm_field(jg)% debug_3d_7(:,1:klev,jb) = cld_tau_lw_vr(:,1:klev,5) ! band 5
-!!$    prm_field(jg)% debug_3d_8(:,1:klev,jb) = aer_tau_lw_vr(:,1:klev,5) ! band 5
-
-!!$    ! debug lrtmin2
-!!$    ! -------------
-!!$    prm_field(jg)% debug_3d_1(:,1:klev,jb) = wkl_vr(:,1,1:klev)   ! H2O
-!!$    prm_field(jg)% debug_3d_2(:,1:klev,jb) = wkl_vr(:,2,1:klev)   ! CO2
-!!$    prm_field(jg)% debug_3d_3(:,1:klev,jb) = wkl_vr(:,3,1:klev)   ! O3
-!!$    prm_field(jg)% debug_3d_4(:,1:klev,jb) = wkl_vr(:,4,1:klev)   ! N2O
-!!$    prm_field(jg)% debug_3d_5(:,1:klev,jb) = wkl_vr(:,5,1:klev)   ! 0.0
-!!$    prm_field(jg)% debug_3d_6(:,1:klev,jb) = wkl_vr(:,6,1:klev)   ! CH4
-!!$    prm_field(jg)% debug_3d_7(:,1:klev,jb) = wkl_vr(:,7,1:klev)   ! O2
-!!$    prm_field(jg)% debug_3d_8(:,1:klev,jb) = col_dry_vr(:,1:klev) ! air
 
     !
     ! 4.0 Radiative Transfer Routines
@@ -1224,30 +1139,6 @@ CONTAINS
       !    output
       &    flx_uplw_vr     ,flx_dnlw_vr     ,flx_uplw_clr_vr,flx_dnlw_clr_vr )
 
-!!$    ! debug lrtmout
-!!$    ! -------------
-!!$    prm_field(jg)% debug_3d_1(:,1:klev,jb) = flx_uplw_vr(:,1:klev)
-!!$    prm_field(jg)% debug_3d_2(:,1:klev,jb) = flx_dnlw_vr(:,1:klev)
-!!$    prm_field(jg)% debug_3d_3(:,1:klev,jb) = flx_uplw_clr_vr(:,1:klev)
-!!$    prm_field(jg)% debug_3d_4(:,1:klev,jb) = flx_dnlw_clr_vr(:,1:klev)
-
-!!$    ! debug srtmin (without fields checked in lrtmin and lrtmin2)
-!!$    ! ------------
-!!$    prm_field(jg)% debug_2d_1(:,jb) = alb_vis_dir(:)
-!!$    prm_field(jg)% debug_2d_2(:,jb) = alb_nir_dir(:)
-!!$    prm_field(jg)% debug_2d_3(:,jb) = alb_vis_dif(:)
-!!$    prm_field(jg)% debug_2d_4(:,jb) = alb_nir_dif(:)
-!!$    prm_field(jg)% debug_2d_5(:,jb) = pmu0(:)
-!!$    !
-!!$    ! band 5
-!!$    prm_field(jg)% debug_3d_2(:,1:klev,jb) = cld_tau_sw_vr(:,5,1:klev)
-!!$    prm_field(jg)% debug_3d_3(:,1:klev,jb) = cld_cg_sw_vr (:,5,1:klev)
-!!$    prm_field(jg)% debug_3d_4(:,1:klev,jb) = cld_piz_sw_vr(:,5,1:klev)
-!!$    prm_field(jg)% debug_3d_5(:,1:klev,jb) = aer_tau_sw_vr(:,1:klev,5)
-!!$    prm_field(jg)% debug_3d_6(:,1:klev,jb) = aer_cg_sw_vr (:,1:klev,5)
-!!$    prm_field(jg)% debug_3d_7(:,1:klev,jb) = aer_piz_sw_vr(:,1:klev,5)
-!!$    ! 14 reals on 14 levels
-!!$    prm_field(jg)% debug_3d_8(:,1:14,jb) = SPREAD(ssi(1:14),1,kbdim)
 
     CALL srtm_srtm_224gp(                                                     &
       !    input
@@ -1266,14 +1157,7 @@ CONTAINS
 !!$      &    zsudu           ,nir_sfc         ,nir_dff_sfc     ,vis_sfc        ,&
 !!$      &    vis_dff_sfc     ,dpar_sfc        ,par_dff_sfc)
 
-!!$    ! debug srtmout
-!!$    ! -------------
-!!$    prm_field(jg)% debug_3d_1(:,1:klev,jb) = flx_dnsw(:,1:klev)
-!!$    prm_field(jg)% debug_3d_2(:,1:klev,jb) = flx_upsw(:,1:klev)
-!!$    prm_field(jg)% debug_3d_3(:,1:klev,jb) = flx_dnsw_clr(:,1:klev)
-!!$    prm_field(jg)% debug_3d_4(:,1:klev,jb) = flx_upsw_clr(:,1:klev)
 
-    !
     ! 5.0 Post Processing
     ! --------------------------------
     DO jk = 1, klev+1
