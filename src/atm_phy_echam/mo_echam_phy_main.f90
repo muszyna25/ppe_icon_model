@@ -56,6 +56,7 @@ MODULE mo_echam_phy_main
   USE mo_ext_data,            ONLY: ext_data,&
     &                               t_external_atmos_td,             &
     &                               nlev_pres, nmonths
+  USE mo_o3_util,             ONLY: o3_timeint, o3_pl2sh
   USE mo_echam_phy_config,    ONLY: echam_phy_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_cucall,              ONLY: cucall
@@ -349,16 +350,16 @@ CONTAINS
           SELECT CASE(irad_o3)
             CASE(io3_clim)
 
-!              CALL o3_timeint( atm_td%p_ext_atm_td%o3(:,:,jb,:),& ! IN kproma,nlev_p,jb,nmonth
-!                             & kbdim, nlev_pres,nmonths,         & !
-!                             & selmon=9 ,                         & ! optional choice for month
-!                               zo3_timint(:,:)   )                 ! OUT kproma,nlev_p
-!              CALL o3_pl2sh ( kbdim,jce,nlev_pres, nlev ,     &
-!                             & atm_td%pfoz(:),atm_td%phoz(:),& in o3 levs
-!                             & field% presm_new(:,:,jb),       &! in     app1
-!                             & field% presi_new(:,:,jb),       &! in     aphp1
-!                             & zo3_timint(:,:),                &! in 
-!                             & field% q(:,:,jb,io3)            &! OUT kproma,nlev
+              CALL o3_timeint( jce, nbdim, nlev_pres,nmonths,  & !
+                             & 9 ,                             & ! optional choice for month
+                             atm_td%o3(:,:,jb,:),              & ! IN full o3 data
+                             & zo3_timint(:,:)                 ) ! OUT o3(kproma,nlev_p)
+              CALL o3_pl2sh ( nbdim,jce,nlev_pres, nlev ,      &
+                             & atm_td%pfoz(:),atm_td%phoz(:),  &! in o3-levs
+                             & field% presm_new(:,:,jb),       &! in  app1
+                             & field% presi_new(:,:,jb),       &! in  aphp1
+                             & zo3_timint(:,:),                &! in 
+                             & field% q(:,:,jb,io3)            )! OUT
 
           END SELECT
 
