@@ -933,6 +933,9 @@ CONTAINS
         IF ( p_sim_time > 1.e-1_wp ) THEN
 
          !sum up for averaged fluxes
+          !T.R.: this is not correct for output after 1st timestep,
+          !e.g. tcall_phy_jg(itradheat) may then be greater than p_sim_time
+          !leading to wrong averaging.
          DO jc =  i_startidx, i_endidx
           prm_diag%swflxsfc_avg(jc,jb) = ( prm_diag%swflxsfc_avg(jc,jb)                   &
                                  &  * (p_sim_time - tcall_phy_jg(itradheat))              &
