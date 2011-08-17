@@ -915,6 +915,7 @@ CONTAINS
         & pmair=z_airmass                        ,&! in     layer air mass             [kg/m2]
         & pq=pt_prog_rcf%tracer(:,:,jb,iqv)      ,&! in     specific moisture           [kg/kg]
         & pi0=zi0                                ,&! in     solar incoming flux at TOA  [W/m2]
+        & pemiss=ext_data%atm%emis_rad(:,jb)     ,&! in     lw sfc emissivity
         & ptsfc=lnd_prog_now%t_g(:,jb)           ,&! in     surface temperature         [K]
         & ptsfctrad=prm_diag%tsfctrad(:,jb)      ,&! in     sfc temp. used for pflxlw   [K]
         & ptrmsw=prm_diag%trsolall (:,:,jb)      ,&! in     shortwave net tranmissivity []

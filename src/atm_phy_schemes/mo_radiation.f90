@@ -50,7 +50,7 @@
 !!   agreement with the DWD and MPI-M
 !!
 !! @par Warranty
-!!   This code is distributed in the home that it will be useful, but WITHOUT
+!!   This code is distributed in the hope that it will be useful, but WITHOUT
 !!   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
 !!   FITNESS FOR A PARTICULAR PURPOSE.
 !
@@ -109,7 +109,7 @@ MODULE mo_radiation
 
   ! --- radiative transfer parameters
   !
-  REAL(wp), PARAMETER :: cemiss = 0.996_wp  !< LW Emissivity Factor
+!  REAL(wp), PARAMETER :: cemiss = 0.996_wp  !< LW Emissivity Factor
   REAL(wp), PARAMETER :: diff   = 1.66_wp   !< LW Diffusivity Factor
 
 CONTAINS
@@ -480,6 +480,7 @@ CONTAINS
     &  jce               ,kbdim           ,klev             ,klevp1        &
     & ,ktype             ,zland           ,zglac            ,cos_mu0       &
     & ,alb_vis_dir       ,alb_nir_dir     ,alb_vis_dif      ,alb_nir_dif   &
+    & ,emis_rad                                                            &
     & ,tk_sfc            ,pp_hl           ,pp_fl            ,tk_fl         &
     & ,qm_vap            ,qm_liq          ,qm_ice                          &
     & ,qm_o3                                                               &
@@ -513,6 +514,7 @@ CONTAINS
       &  alb_nir_dir(kbdim), & !< surface albedo for NIR range and direct light
       &  alb_vis_dif(kbdim), & !< surface albedo for visible range and diffuse light
       &  alb_nir_dif(kbdim), & !< surface albedo for NIR range and diffuse light
+      &  emis_rad(kbdim),    & !< longwave surface emissivity
       &  tk_sfc(kbdim),      & !< Surface temperature
       &  pp_hl(kbdim,klevp1),& !< pressure at half levels [Pa]
       &  pp_fl(kbdim,klev),  & !< Pressure at full levels [Pa]
@@ -748,6 +750,7 @@ CONTAINS
       & cos_mu0_mod                                                        ,&
 !!$      & pgeom1                                                             ,&
       & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+      & emis_rad                                                           ,&
       & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
       & tk_hl           ,tk_sfc          ,xq_vap                           ,&
       & xq_liq          ,xq_ice                                            ,&
@@ -898,6 +901,7 @@ CONTAINS
     & pmu0                                                               ,&
 !!$    & pgeom1                                                             ,&
     & alb_vis_dir     ,alb_nir_dir     ,alb_vis_dif     ,alb_nir_dif     ,&
+    & emis_rad                                                           ,&
     & pp_fl           ,pp_hl           ,pp_sfc          ,tk_fl           ,&
     & tk_hl           ,tk_sfc          ,xm_vap                           ,&
     & xm_liq          ,xm_ice                                            ,&
@@ -933,6 +937,7 @@ CONTAINS
       &  alb_nir_dir(kbdim),              & !< surface albedo for NIR range and dir light
       &  alb_vis_dif(kbdim),              & !< surface albedo for vis range and dif light
       &  alb_nir_dif(kbdim),              & !< surface albedo for NIR range and dif light
+      &  emis_rad(kbdim),                 & !< longwave surface emissivity
       &  pp_fl(kbdim,klev),               & !< full level pressure in Pa
       &  pp_hl(kbdim,klev+1),             & !< half level pressure in Pa
       &  pp_sfc(kbdim),                   & !< surface pressure in Pa
@@ -1108,7 +1113,7 @@ CONTAINS
     !
     ! 2.0 Surface Properties
     ! --------------------------------
-    zsemiss(1:jce,:) = cemiss
+    zsemiss(1:jce,:) = SPREAD(emis_rad(1:jce),2,jpband)
     !
     ! 3.0 Particulate Optical Properties
     ! --------------------------------
@@ -1314,6 +1319,7 @@ CONTAINS
     &                 pmair         ,  &
     &                 pq            ,  &
     &                 pi0           ,  &
+    &                 pemiss        ,  &
     &                 ptsfc         ,  &
     &                 ptsfctrad     ,  &
     &                 ptrmsw        ,  &
@@ -1332,6 +1338,7 @@ CONTAINS
       &     pmair      (kbdim,klev), & ! mass of air in layer                     [kg/m2]
       &     pq         (kbdim,klev), & ! specific humidity at t-dt                [kg/kg]
       &     pi0        (kbdim),      & ! local solar incoming flux at TOA         [W/m2]
+      &     pemiss     (kbdim),      & ! lw sfc emissivity
       &     ptsfc      (kbdim),      & ! surface temperature at t                 [K]
       &     ptsfctrad  (kbdim),      & ! surface temperature at trad              [K]
       &     ptrmsw     (kbdim,klevp1), & ! shortwave transmissivity at trad         []
@@ -1376,8 +1383,8 @@ CONTAINS
     !   surface temperature used for the longwave flux computation (ptsfctrad).
     !   --> modifies heating in lowermost layer only (is this smart?)
     zflxlw(jcs:jce,klevp1) = pflxlw(jcs:jce,klevp1)               &
-      &                   + cemiss*stbo * ptsfctrad(jcs:jce)**4 &
-      &                   - cemiss*stbo * ptsfc    (jcs:jce)**4
+      &                   + pemiss(jcs:jce)*stbo * ptsfctrad(jcs:jce)**4 &
+      &                   - pemiss(jcs:jce)*stbo * ptsfc    (jcs:jce)**4
     !
     !
     !     4.2  Fluxes and heating rates except for lowest layer

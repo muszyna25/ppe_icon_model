@@ -524,6 +524,7 @@ CONTAINS
         & alb_nir_dir=albnirdir        (:,jb) ,&!< in surface albedo for near IR range, direct
         & alb_vis_dif=albvisdif        (:,jb) ,&!< in surface albedo for visible range, diffuse
         & alb_nir_dif=albnirdif        (:,jb) ,&!< in surface albedo for near IR range, diffuse
+        & emis_rad=ext_data%atm%emis_rad(:,jb),&!< in longwave surface emissivity
         & tk_sfc     =prm_diag%tsfctrad(:,jb) ,&!< in surface temperature
                               !
                               ! atmosphere: pressure, tracer mixing ratios and temperature
@@ -944,6 +945,7 @@ CONTAINS
           & alb_nir_dir=zrg_albnirdir(:,jb)  ,&!< in    surface albedo for near IR range, direct
           & alb_vis_dif=zrg_albvisdif(:,jb)  ,&!< in    surface albedo for visible range, diffuse
           & alb_nir_dif=zrg_albnirdif(:,jb)  ,&!< in    surface albedo for near IR range, diffuse
+          & emis_rad=ext_data%atm%emis_rad(:,jb),&!< in longwave surface emissivity
           & tk_sfc     =zrg_tsfc     (:,jb)       ,&!< in    surface temperature
                                 !
                                 ! atmosphere: pressure, tracer mixing ratios and temperature

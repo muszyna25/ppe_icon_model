@@ -45,6 +45,7 @@ MODULE mo_echam_phy_main
 
   USE mo_kind,                ONLY: wp
   USE mo_exception,           ONLY: finish
+  USE mo_ext_data,            ONLY: ext_data
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: grav
@@ -411,6 +412,7 @@ CONTAINS
           & field% albnirdir(:,jb)   ,&!< in     surface albedo for near IR range, direct
           & field% albvisdif(:,jb)   ,&!< in     surface albedo for visible range, diffuse
           & field% albnirdif(:,jb)   ,&!< in     surface albedo for near IR range, diffuse
+          & ext_data(jg)%atm%emis_rad(:,jb), & !< in longwave surface emissivity
           & field% tsfc(:,jb)        ,&!< in     grid box mean surface temperature
           !
           ! atmopshere: pressure, tracer mixing ratios and temperature
@@ -493,6 +495,7 @@ CONTAINS
         & zmair           (:,:)       ,&! in     layer air mass                [kg/m2]
         & field% q(:,:,jb,iqv)        ,&! in     specific moisture             [kg/kg]
         & zi0             (:)         ,&! in     solar incoming flux at TOA    [W/m2]
+        & ext_data(jg)%atm%emis_rad(:,jb), & !in lw sfc emissivity
         & field% tsfc     (:,jb)      ,&! in     surface temperature           [K]
         & field% tsfc     (:,jb)      ,&! in     sfc temp. used in "radiation" [K]
         & field% trsolall (:,:,jb)    ,&! in     shortwave net tranmissivity   []

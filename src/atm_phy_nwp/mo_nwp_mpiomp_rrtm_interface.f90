@@ -115,6 +115,7 @@ MODULE mo_nwp_mpiomp_rrtm_interface
     REAL(wp), ALLOCATABLE::  fr_glac_smt(:,:)   !< fraction land glacier in a grid element [ ]
                                                  ! = smoothed fr_glac
     REAL(wp), ALLOCATABLE::  cosmu0(:,:)        ! cosine of solar zenith angle
+    REAL(wp), ALLOCATABLE::  emis_rad(:,:)      ! lw sfc emissivity
     REAL(wp), ALLOCATABLE::  tsfctrad(:,:)      ! surface temperature at trad [K]
     REAL(wp), ALLOCATABLE::  pres_ifc(:,:,:)    ! pressure at interfaces (nproma,nlevp1,nblks_c)  [Pa]
     REAL(wp), ALLOCATABLE::  pres(:,:,:)        ! pressure (nproma,nlev,nblks_c)                  [Pa]
@@ -186,6 +187,8 @@ CONTAINS
     total_status=total_status+ist
     ALLOCATE(omp_radiation_data%fr_glac_smt(nproma,nblks_c),STAT=ist)
     total_status=total_status+ist
+    ALLOCATE(omp_radiation_data%emis_rad(nproma,nblks_c),STAT=ist)
+    total_status=total_status+ist
     ALLOCATE(omp_radiation_data%cosmu0(nproma,nblks_c), STAT=ist ) 
     total_status=total_status+ist
     ALLOCATE(omp_radiation_data%tsfctrad(nproma,nblks_c), STAT=ist ) 
@@ -226,6 +229,7 @@ CONTAINS
     omp_radiation_data%fr_glac_smt(:,:) = 0.0_wp   !< fraction land glacier in a grid element [ ]
                                                  ! = smoothed fr_glac
     omp_radiation_data%cosmu0(:,:) = 0.0_wp        ! cosine of solar zenith angle
+    omp_radiation_data%emis_rad(:,:) = 0.0_wp      ! lw sfc emissivity
     omp_radiation_data%tsfctrad(:,:) = 0.0_wp      ! surface temperature at trad [K]
     omp_radiation_data%pres_ifc(:,:,:) = 0.0_wp    ! pressure at interfaces (nproma,nlevp1,nblks_c)  [Pa]
     omp_radiation_data%pres(:,:,:)  = 0.0_wp      ! pressure (nproma,nlev,nblks_c)                  [Pa]
@@ -347,6 +351,7 @@ CONTAINS
     omp_radiation_data%p_sim_time       = p_sim_time
     omp_radiation_data%fr_land_smt(:,:) = omp_radiation_data%ext_data%atm%fr_land_smt(:,:)
     omp_radiation_data%fr_glac_smt(:,:) = omp_radiation_data%ext_data%atm%fr_glac_smt(:,:)
+    omp_radiation_data%emis_rad(:,:)    = omp_radiation_data%ext_data%atm%emis_rad(:,:)
     omp_radiation_data%tsfctrad(:,:)    = omp_radiation_data%prm_diag%tsfctrad(:,:)
     omp_radiation_data%tsfctrad(:,:)    = omp_radiation_data%lnd_prog_now%t_g(:,:)
     ! fill also the prm_diag%tsfctrad(:,:) !
@@ -645,6 +650,7 @@ CONTAINS
         & alb_nir_dir=albnirdir        (:,jb) ,&!< in surface albedo for near IR range, direct
         & alb_vis_dif=albvisdif        (:,jb) ,&!< in surface albedo for visible range, diffuse
         & alb_nir_dif=albnirdif        (:,jb) ,&!< in surface albedo for near IR range, diffuse
+        & emis_rad   =omp_radiation_data%emis_rad(:,jb), & !< lw sfc emissivity
         & tk_sfc     =omp_radiation_data%tsfctrad(:,jb) ,&!< in surface temperature
                               !
                               ! atmosphere: pressure, tracer mixing ratios and temperature
