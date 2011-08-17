@@ -81,7 +81,7 @@ USE mo_subdivision,         ONLY: decompose_atmo_domain,         &
 & copy_processor_splitting,      &
 & set_patch_communicators
 
-USE mo_atmo_control,        ONLY: p_patch_global, p_patch_subdiv, p_patch
+USE mo_model_domain,        ONLY: p_patch_global, p_patch_subdiv, p_patch
 
 ! Horizontal grid
 USE mo_grid_config,         ONLY: n_dom, n_dom_start

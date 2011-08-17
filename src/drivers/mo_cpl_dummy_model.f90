@@ -89,7 +89,7 @@ USE mo_dump_restore,        ONLY: dump_patch_state_netcdf,       &
 & restore_interpol_state_netcdf, &
 & restore_gridref_state_netcdf
 
-USE mo_atmo_control,        ONLY: p_patch_global, p_patch_subdiv, p_patch
+USE mo_model_domain,        ONLY: p_patch_global, p_patch_subdiv, p_patch
 
 ! Horizontal grid
 USE mo_grid_config,         ONLY: n_dom, n_dom_start, global_cell_type, &

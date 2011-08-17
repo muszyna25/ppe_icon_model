@@ -80,7 +80,7 @@ MODULE mo_io_async
   !------------------------------------------------------------------------------------------------
   ! Needed only for compute PEs, patches are NOT set on I/O PEs
 
-  USE mo_atmo_control,        ONLY: p_patch
+  USE mo_model_domain,        ONLY: p_patch
 
   ! End of needed only for compute PEs
   !------------------------------------------------------------------------------------------------

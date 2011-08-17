@@ -68,7 +68,8 @@ MODULE mo_subdivision
   USE mo_run_config,          ONLY: ltransport
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_io_units,           ONLY: find_next_free_unit, filename_max
-  USE mo_model_domain,       ONLY: t_patch, t_grid_cells
+  USE mo_model_domain,       ONLY: t_patch, t_grid_cells, &
+    &                              p_patch_global, p_patch_subdiv, p_patch
   USE mo_interpolation,      ONLY: t_int_state, rbf_vec_dim_c, rbf_vec_dim_e, &
     & rbf_vec_dim_v, rbf_c2grad_dim
   USE mo_grf_interpolation,  ONLY: t_gridref_state, t_gridref_single_state
@@ -99,7 +100,6 @@ MODULE mo_subdivision
   USE mo_grf_intp_state,      ONLY: allocate_grf_state, destruct_2d_gridref_state
 !  USE mo_interpol_nml,        ONLY: i_cori_method, lsq_lin_set, lsq_high_set
   USE mo_interpol_config,     ONLY: i_cori_method, lsq_lin_set, lsq_high_set
-  USE mo_atmo_control,        ONLY: p_patch_global, p_patch_subdiv, p_patch
   USE mo_intp_data_strc,      ONLY: p_int_state_global, p_int_state_subdiv, p_int_state
   USE mo_grf_intp_data_strc,  ONLY: p_grf_state_global, p_grf_state_subdiv, p_grf_state
 

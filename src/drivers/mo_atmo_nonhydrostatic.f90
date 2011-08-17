@@ -55,7 +55,7 @@ USE mo_nonhydrostatic_config, ONLY: iadv_rcf
 USE mo_impl_constants,       ONLY: inwp
 USE mo_lnd_nwp_config,       ONLY: configure_lnd_nwp
 ! Horizontal grid
-USE mo_atmo_control,         ONLY: p_patch
+USE mo_model_domain,         ONLY: p_patch
 USE mo_grid_config,          ONLY: n_dom
 ! to break circular dependency KF???
 USE mo_intp_data_strc,       ONLY: p_int_state

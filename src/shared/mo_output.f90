@@ -51,7 +51,6 @@ MODULE mo_output
 !     &                              inh_atmosphere,       &
 !     &                              ishallow_water
   USE mo_dynamics_config,     ONLY: iequations, nold, nnow, nnew, nnew_rcf, nnow_rcf 
-  USE mo_atmo_control,        ONLY: p_patch
   USE mo_io_vlist,            ONLY: setup_vlist, destruct_vlist,           &
      &                              open_output_vlist, close_output_vlist, &
      &                              write_vlist
@@ -63,7 +62,7 @@ MODULE mo_output
                                   & write_restart, close_writing_restart_files,&
                                   & finish_restart
   USE mo_io_restart_attributes,ONLY: set_restart_attribute
-  USE mo_model_domain,        ONLY: t_patch
+  USE mo_model_domain,        ONLY: t_patch, p_patch
 
   IMPLICIT NONE
 

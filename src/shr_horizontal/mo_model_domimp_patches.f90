@@ -168,7 +168,7 @@ CONTAINS
 
 !-------------------------------------------------------------------------
 SUBROUTINE get_patch_global_indexes(patch_no, entity_type, no_of_entities, global_indexes)
-  USE mo_atmo_control, ONLY: p_patch
+  USE mo_model_domain, ONLY: p_patch
   USE mo_impl_constants, ONLY: CELLS, EDGES, VERTS
 
   INTEGER, INTENT(in) :: patch_no, entity_type

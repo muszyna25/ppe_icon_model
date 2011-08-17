@@ -139,7 +139,7 @@ MODULE mo_io_vlist
 ! USE mo_gw_hines_nml,          ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
   USE mo_vertical_coord_table,  ONLY: vct
   USE mo_model_domain_import,   ONLY: start_lev, nroot, n_dom, lfeedback, lplane
-  USE mo_model_domain,          ONLY: t_patch
+  USE mo_model_domain,          ONLY: t_patch, p_patch
   USE mo_physical_constants,    ONLY: grav
   USE mo_communication,         ONLY: exchange_data, t_comm_pattern
   USE mo_mpi,                   ONLY: my_process_is_mpi_workroot, my_process_is_stdio, &
@@ -153,7 +153,6 @@ MODULE mo_io_vlist
   USE mo_oce_forcing,           ONLY: t_sfc_flx, v_sfc_flx
   USE mo_ext_data,              ONLY: t_external_ocean
   USE mo_icoham_dyn_memory,     ONLY: p_hydro_state
-  USE mo_atmo_control,          ONLY: p_patch
   USE mo_nonhydro_state,        ONLY: p_nh_state
   USE mo_nwp_lnd_state,         ONLY: p_lnd_state
   USE mo_nwp_phy_state,         ONLY: prm_diag, prm_nwp_tend !, t_nwp_phy_diag

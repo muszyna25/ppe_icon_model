@@ -42,7 +42,7 @@ MODULE mo_atmo_hydrostatic
   USE mo_ha_testcases,      ONLY: ctest_name
   USE mo_io_config,         ONLY: dt_data, dt_file, dt_diag, dt_checkpoint
 
-  USE mo_atmo_control,        ONLY: p_patch
+  USE mo_model_domain,        ONLY: p_patch
   USE mo_intp_data_strc,      ONLY: p_int_state
   USE mo_grf_intp_data_strc,  ONLY: p_grf_state
 

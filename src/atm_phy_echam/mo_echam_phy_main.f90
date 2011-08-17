@@ -77,7 +77,7 @@ MODULE mo_echam_phy_main
                                   & ih_vdiff=>ih, iqv_vdiff=>iqv
   USE mo_gw_hines,            ONLY: gw_hines
   ! provisional to get coordinates
-  USE mo_atmo_control,        ONLY: p_patch
+  USE mo_model_domain,        ONLY: p_patch
 
   IMPLICIT NONE
   PRIVATE
