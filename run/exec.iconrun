@@ -153,6 +153,10 @@ if [ $cp_atmo_files = "true" ] ;  then
      check_error $? "ln -s ${VGRIDDIR}/${VGRIDNAME}"
    fi
    #
+   # external parameters
+   rm  ${EXPDIR}/o3_icon*.nc
+   cp -f ${DATADIR}/ozone_icon_r2b4.nc ${EXPDIR}/o3_icon_DOM01.nc
+   check_error $? "ln -s ${EXTDIR}ozone_icon_r2b4.nc ${EXPDIR}/o3_icon_DOM01.nc"  
 fi
 #-----------------------------------------------------------------------------
 

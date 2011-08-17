@@ -613,7 +613,7 @@ run/exp.nh35_tri_jws -text
 run/exp.nh35_tri_jws_efdt4 -text
 run/exp.nh3_tri_tracer_solid_body -text
 run/exp.oce_parallel_output -text
-run/exp.ozon.run -text
+run/exp.ozon -text
 run/exp.pk_hom -text
 run/exp.pure_adv -text
 run/exp.test_couple_dummy_models -text
