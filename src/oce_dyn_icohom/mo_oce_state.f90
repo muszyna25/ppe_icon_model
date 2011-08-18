@@ -1416,9 +1416,13 @@ END DO
     REAL(wp) :: z_sync_e(nproma,p_patch%nblks_e)
     !REAL(wp) :: z_sync_v(nproma,p_patch%nblks_v)
 
+
     !-----------------------------------------------------------------------------
 
     CALL message (TRIM(routine), 'start')
+
+    z_sync_c(:,:) = 0.0_wp
+    z_sync_e(:,:) = 0.0_wp
 
     !-----------------------------
     !
@@ -1886,6 +1890,7 @@ END DO
       z_sync_c(:,:) =  REAL(v_base%lsm_oce_c(:,jk,:),wp)
       CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
       v_base%lsm_oce_c(:,jk,:) = INT(z_sync_c(:,:))
+
 
       z_sync_c(:,:) =  v_base%wet_c(:,jk,:)
       CALL sync_patch_array(SYNC_C, p_patch, z_sync_c(:,:))
@@ -2929,7 +2934,7 @@ END DO
   SUBROUTINE set_del_zlev(n_zlev, dzlev_m, del_zlev_i, del_zlev_m, zlev_i, zlev_m)
     INTEGER  :: n_zlev
     REAL(wp) :: dzlev_m(100)
-    REAL(wp) :: del_zlev_i(n_zlev+1), del_zlev_m(n_zlev)
+    REAL(wp) :: del_zlev_i(n_zlev), del_zlev_m(n_zlev)
     REAL(wp) :: zlev_i(n_zlev+1)    , zlev_m(n_zlev)
 
     INTEGER :: jk
@@ -2941,6 +2946,7 @@ END DO
     DO jk = 2, n_zlev
       del_zlev_i(jk) = zlev_m(jk) -  zlev_m(jk-1)
     END DO
+!TODO    del_zlev_i(n_zlev+1) = 0.5*dzlev_m(n_zlev)
     del_zlev_m(:) = dzlev_m(1:n_zlev)
   END SUBROUTINE set_del_zlev
 
