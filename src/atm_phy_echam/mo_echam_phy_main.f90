@@ -48,7 +48,7 @@ MODULE mo_echam_phy_main
   USE mo_mpi,                 ONLY: my_process_is_stdio
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: grav
-  USE mo_impl_constants,      ONLY: io3_clim
+  USE mo_impl_constants,      ONLY: io3_clim, io3_ape
   USE mo_run_config,          ONLY: ntracer, nlev, nlevp1, ltestcase, &
     &                               iqv, iqc, iqi, io3, iqt, ltimer
   USE mo_ha_testcases,        ONLY: ctest_name
@@ -157,6 +157,7 @@ CONTAINS
     INTEGER  :: jc
     INTEGER  :: ntrac !< # of tracers excluding water vapour and hydrometeors
                       !< (handled by sub-models, e.g., chemical species)
+    INTEGER  :: selmon !< selected month for ozone data (temporary var!)
 
     ! Coefficient matrices and right-hand-side vectors for the turbulence solver
     ! _btm refers to the lowest model level (i.e., full level "klev", not the surface)
@@ -348,20 +349,26 @@ CONTAINS
 
 
           SELECT CASE(irad_o3)
-            CASE(io3_clim)
+            CASE(io3_clim, io3_ape)
+
+              IF(irad_o3 == io3_ape) THEN
+                selmon=1
+              ELSE
+                selmon=9
+              ENDIF
 
               CALL o3_timeint( jce, nbdim, nlev_pres,nmonths,  & !
-                             & 9 ,                             & ! optional choice for month
+                             & selmon ,                        & ! optional choice for month
                              atm_td%o3(:,:,jb,:),              & ! IN full o3 data
                              & zo3_timint(:,:)                 ) ! OUT o3(kproma,nlev_p)
-              CALL o3_pl2sh ( nbdim,jce,nlev_pres, nlev ,      &
+
+              CALL o3_pl2sh ( jce, nbdim,nlev_pres, nlev ,     &
                              & atm_td%pfoz(:),atm_td%phoz(:),  &! in o3-levs
                              & field% presm_new(:,:,jb),       &! in  app1
                              & field% presi_new(:,:,jb),       &! in  aphp1
                              & zo3_timint(:,:),                &! in 
                              & field% q(:,:,jb,io3)            )! OUT
-
-          END SELECT
+            END SELECT
 
 
 !!$        ! debug fields "radin"

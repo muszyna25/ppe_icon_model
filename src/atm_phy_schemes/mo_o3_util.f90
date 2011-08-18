@@ -61,7 +61,7 @@ CONTAINS
 
   !=======================================================================
 
-SUBROUTINE o3_timeint( kbdim, kproma, nlev_pres,nmonths,& !
+SUBROUTINE o3_timeint( kproma,kbdim, nlev_pres,nmonths,& !
                      & selmon,                          & ! IN
                      & ext_O3 ,                         & ! IN kproma,nlev_p,jb,nmonth
                      & o3_time_int                        )! OUT kproma,nlev_p
@@ -86,7 +86,7 @@ SUBROUTINE o3_timeint( kbdim, kproma, nlev_pres,nmonths,& !
 
 END SUBROUTINE o3_timeint
 
- SUBROUTINE o3_pl2sh (kbdim,kproma,nlev_pres,klev,&
+ SUBROUTINE o3_pl2sh ( kproma,kbdim,nlev_pres,klev,&
    &                   pfoz,phoz,pph,ppf,   &
    &                   o3_time_int, o3_clim)
 

@@ -48,9 +48,10 @@ MODULE mo_ext_data
   USE mo_kind
   USE mo_io_units,           ONLY: filename_max
   USE mo_parallel_config,    ONLY: nproma
-  USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, &
+  USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape, &
     &                              ihs_ocean, ihs_atm_temp, ihs_atm_theta, inh_atmosphere, &
     &                              max_char_length, sea_boundary
+  USE mo_physical_constants, ONLY: amd, amo3
   USE mo_run_config,         ONLY: iforcing
   USE mo_ocean_nml,          ONLY: iforc_oce
   USE mo_extpar_config,      ONLY: itopo, fac_smooth_topo, n_iter_smooth_topo, l_emiss
@@ -79,14 +80,21 @@ MODULE mo_ext_data
 
   IMPLICIT NONE
 
-  INTEGER::  nlev_pres, nmonths
-
   ! required for testing/reading topography
   INCLUDE 'netcdf.inc'
 
   PRIVATE
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
+
+  INTEGER::  nlev_pres, nmonths
+
+  CHARACTER(len=6)  :: levelname
+  CHARACTER(len=5)  :: o3name
+  CHARACTER(len=20) :: o3unit
+
+
+
 
   PUBLIC :: t_external_data
   PUBLIC :: t_external_atmos
@@ -273,6 +281,7 @@ MODULE mo_ext_data
     REAL(wp), POINTER ::   &   !< aerosol optical thickness of black carbon    [ ]
       &  o3(:,:,:,:)           ! index1=1,nproma, index2=nlev_pres,
                                ! index3=1,nblks_c, index4=1,ntimes
+
     REAL(wp),POINTER::  &
       &   pfoz(:),      &      !full levels of of ozone pressure
       &   phoz(:)              !half levels of ozone pressure field 
@@ -446,7 +455,7 @@ CONTAINS
     !Ozone and aerosols
     !-------------------------------------------------------------------------
 
-      IF(irad_o3 == io3_clim) THEN
+      IF((irad_o3 == io3_clim) .OR. (irad_o3 == io3_ape) ) THEN
         CALL message( TRIM(routine),'external ozone data required' )
         CALL read_ext_data_atm (p_patch, ext_data)   ! read ozone
       ENDIF
@@ -548,7 +557,8 @@ CONTAINS
       END DO
 
       ! Build external data list for time-dependent fields
-      IF (iforcing==inwp) THEN
+!      IF (iforcing==inwp) THEN
+      IF (iforcing > 1 ) THEN ! further distinction is made inside
       DO jg = 1, n_dom
           WRITE(listname,'(a,i2.2)') 'ext_data_atm_td_D',jg
           CALL new_ext_data_atm_td_list(p_patch(jg), ext_data(jg)%atm_td,       &
@@ -1083,6 +1093,7 @@ CONTAINS
     INTEGER :: nblks_c      !< number of cell blocks to allocate
 
     INTEGER :: shape3d_c(3)
+    INTEGER :: shape3d_ape(3)
     INTEGER :: shape4d_c(4)
 
     INTEGER :: ientr         !< "entropy" of horizontal slice
@@ -1098,6 +1109,7 @@ CONTAINS
     ! predefined array shapes
     shape3d_c = (/ nproma, nblks_c, ntimes /)
     shape4d_c = (/ nproma, nlev_pres, nblks_c, nmonths /) 
+    shape3d_ape = (/ nproma, nlev_pres, nblks_c/) 
 
     !
     ! Register a field list and apply default settings
@@ -1117,7 +1129,7 @@ CONTAINS
     ! ATTENTION: a GRIB2 number will go to 
     ! the ozone mass mixing ratio...
     !
-    IF(irad_o3 == io3_clim) THEN 
+    IF(irad_o3 == io3_clim .OR. irad_o3 == io3_ape) THEN 
 
       ! o3  main pressure level from read-in file
       cf_desc    = t_cf_var('O3_pf', 'Pa',   &
@@ -1135,15 +1147,17 @@ CONTAINS
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, &
         &           grib2_desc, ldims=(/nlev_pres+1/) )
 
-      ! o3       p_ext_atm_td%o3(nproma,nlev_pres,nblks_c,nmonths)
-      cf_desc    = t_cf_var('O3', 'mole mole^-1',   &
-        &                   'mole_fraction_of_ozone_in_air')
-      grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-      CALL add_var( p_ext_atm_td_list, 'O3', p_ext_atm_td%O3, &
-        &           GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, &
-        &           grib2_desc, ldims=shape4d_c )
-    END IF
+        ! o3       p_ext_atm_td%o3(nproma,nlev_pres,nblks_c,nmonths)
+        cf_desc    = t_cf_var('O3', TRIM(o3unit),   &
+          &                   'mole_fraction_of_ozone_in_air')
+        grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_ext_atm_td_list, 'O3', p_ext_atm_td%O3, &
+          &           GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, &
+          &           grib2_desc, ldims=shape4d_c )
 
+    END IF ! irad_o3
+
+    IF(iforcing == inwp) THEN
 
     ! Black carbon aerosol
     !
@@ -1231,6 +1245,7 @@ CONTAINS
       &           GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,&
       &           ldims=shape3d_c)
 
+    ENDIF ! inwp
 
   END SUBROUTINE new_ext_data_atm_td_list
 
@@ -1500,7 +1515,7 @@ CONTAINS
       ! 2. Check validity of ozone file                !
       !------------------------------------------------!
 
-      IF(irad_o3 == io3_clim) THEN
+      IF((irad_o3 == io3_clim) .OR. (irad_o3 == io3_ape )) THEN
 
         IF(p_test_run) THEN
           mpi_comm = p_comm_work_test
@@ -1511,6 +1526,17 @@ CONTAINS
         ! default values for nlev_pres and nmonths
         nlev_pres = 1
         nmonths   = 1
+
+        IF(irad_o3 == io3_ape ) THEN
+          levelname = 'level'
+          o3name    = 'OZON'
+          o3unit    = 'g/g'
+        ELSE ! o3_clim
+          levelname= 'plev'
+          o3name   = 'O3'
+          o3unit   = 'g/g' !this unit ozon will have after being read out
+                           ! and converted from ppmv
+        ENDIF
 
         IF(my_process_is_stdio()) THEN
 
@@ -1529,6 +1555,7 @@ CONTAINS
           !
           CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid))
 
+          WRITE(0,*)'open ozone file'
           ! get number of cells in triangles and hexagons
           !
 
@@ -1544,6 +1571,7 @@ CONTAINS
             CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
           ENDIF
 
+          WRITE(0,*)'number of cells are', no_cells
           !
           ! check the number of cells and verts
           !
@@ -1551,16 +1579,6 @@ CONTAINS
             CALL finish(TRIM(ROUTINE),&
             & 'Number of patch cells and cells in ozone file do not match.')
           ENDIF
-          
-          ! check the vertical structure
-          CALL nf(nf_inq_dimid (ncid, 'plev', dimid))
-          CALL nf(nf_inq_dimlen(ncid, dimid, nlev_pres))
-
-          CALL message(TRIM(ROUTINE),message_text)
-          WRITE(message_text,'(A,I4)')  &
-            & 'Number of pressure levels in ozone file = ', &
-            & nlev_pres
-          
 
           ! check the time structure
           CALL nf(nf_inq_dimid (ncid, 'time', dimid))
@@ -1571,6 +1589,15 @@ CONTAINS
             & 'Number of months in ozone file = ', &
             & nmonths
 
+          ! check the vertical structure
+          CALL nf(nf_inq_dimid (ncid,TRIM(levelname), dimid))
+          CALL nf(nf_inq_dimlen(ncid, dimid, nlev_pres))
+
+          CALL message(TRIM(ROUTINE),message_text)
+          WRITE(message_text,'(A,I4)')  &
+            & 'Number of pressure levels in ozone file = ', &
+            & nlev_pres
+          
           !
           ! close file
           !
@@ -1580,6 +1607,7 @@ CONTAINS
 
         CALL p_bcast(nlev_pres, p_io, mpi_comm)      
         CALL p_bcast(nmonths,   p_io, mpi_comm)      
+
       ENDIF !o3
 
     ENDDO ! ndom
@@ -1614,6 +1642,10 @@ CONTAINS
     INTEGER :: ncid, dimid, varid
 
     REAL(wp)::zdummy_plev(nlev_pres)
+
+    ! ppmv2gg converts ozone from volume mixing ratio in ppmv
+    ! to mass mixing ratio in g/g
+    REAL(wp), PARAMETER :: ppmv2gg=1.e-6_wp*amo3/amd
 
 !-------------------------------------------------------------------------
 
@@ -1797,7 +1829,7 @@ CONTAINS
       ! Read ozone
       !-------------------------------------------------------
 
-    IF(irad_o3 == io3_clim) THEN
+       IF((irad_o3 == io3_clim) .OR. (irad_o3 == io3_ape)) THEN
 
         IF(p_test_run) THEN
           mpi_comm = p_comm_work_test
@@ -1813,7 +1845,7 @@ CONTAINS
           WRITE(ozone_file,'(a,I2.2,a)') 'o3_icon_DOM',jg,'.nc'
           CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid))
           WRITE(0,*)'read ozone levels'
-          CALL nf(nf_inq_varid(ncid, 'plev', varid))
+          CALL nf(nf_inq_varid(ncid, TRIM(levelname), varid))
           CALL nf(nf_get_var_double(ncid, varid,zdummy_plev(:) ))
 
           !
@@ -1838,30 +1870,33 @@ CONTAINS
               &                                           ext_data(jg)%atm_td%phoz(i+1)
           ENDDO
 
+         IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
+           WRITE(0,*)'components are', p_patch(jg)%n_patch_cells_g,p_patch(jg)%n_patch_cells,&
+             & nlev_pres,  nmonths,TRIM(o3name),TRIM(levelname)
+           CALL read_netcdf_data (ncid, TRIM(o3name), & ! &
+             &                    p_patch(jg)%n_patch_cells_g,  &
+             &                    p_patch(jg)%n_patch_cells,    &
+             &                    p_patch(jg)%cells%glb_index,  & 
+             &                    nlev_pres,  nmonths,          &
+             &                    ext_data(jg)%atm_td%O3)
+         ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
+           CALL read_netcdf_data (ncid, TRIM(o3name), & 
+             &                    p_patch(jg)%n_patch_verts_g,  &
+             &                    p_patch(jg)%n_patch_verts,    & 
+             &                    p_patch(jg)%verts%glb_index,  &
+             &                    nlev_pres, nmonths,           &
+             &                    ext_data(jg)%atm_td%O3)
 
-        IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
-          CALL read_netcdf_data (ncid, 'O3', & ! &
-            &                    p_patch(jg)%n_patch_cells_g,  &
-            &                    p_patch(jg)%n_patch_cells,    &
-            &                    p_patch(jg)%cells%glb_index,  & 
-            &                    nlev_pres,  nmonths,          &
-            &                    ext_data(jg)%atm_td%O3)
-        ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
-          CALL read_netcdf_data (ncid, 'O3', & 
-            &                    p_patch(jg)%n_patch_verts_g,  &
-            &                    p_patch(jg)%n_patch_verts,    & 
-            &                    p_patch(jg)%verts%glb_index,  &
-            &                    nlev_pres, nmonths,           &
-            &                    ext_data(jg)%atm_td%O3)
-        ENDIF
+           ! convert from ppmv to g/g
+           ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*ppmv2gg
 
-        !
+         ENDIF ! patches
+
         ! close file
-        !
         IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
 
       ENDDO ! ndom
-    ENDIF ! irad_o3
+    END IF ! irad_o3
 
 
   END SUBROUTINE read_ext_data_atm

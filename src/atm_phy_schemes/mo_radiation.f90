@@ -686,10 +686,7 @@ CONTAINS
     ozon: SELECT CASE (irad_o3)
     CASE (0)
       qm_o3(1:jce,:) = 0.0_wp
-    CASE (3)
     CASE (6)
-!!$    CASE (4)
-!!$      xm_o3(1:jce,:) = o3clim(krow,jce,kbdim,klev,pp_hl,pp_fl)
     CASE default
       CALL finish('radiation','o3: this "irad_o3" is not supported')
     END SELECT ozon
