@@ -39,11 +39,11 @@ MODULE mo_vdiff_solver
   USE mo_exception,         ONLY: finish
 #ifdef __ICON__
   USE mo_exception,          ONLY: message, message_text, finish
-  USE mo_physical_constants,ONLY: grav, vtmpc2, cpd
+  USE mo_physical_constants,ONLY: grav, vtmpc2, cpd, als, alv
   USE mo_echam_vdiff_params,ONLY: clam, da1, tkemin=>tke_min, cons2, cons25, &
                                 & tpfac1, tpfac2, tpfac3, cchar, z0m_min
 #else
-  USE mo_constants,ONLY: grav=>g, vtmpc2, cpd
+  USE mo_constants,ONLY: grav=>g, vtmpc2, cpd, als, alv
   USE mo_physc2,   ONLY: clam, da1, tkemin, cons2, cons25, &
                        & tpfac1, tpfac2, tpfac3, cchar, z0m_min
   USE mo_time_control,ONLY: lstart
@@ -733,15 +733,15 @@ CONTAINS
   !-------------
   !>
   !!
-  SUBROUTINE vdiff_tendencies( kproma, kbdim, itop, klev, klevm1, klevp1, &! in
-                             & ktrac, ksfc_type, idx_lnd, idx_wtr,   &! in
-                             & pdtime, pstep_len,                    &! in
-                             & pum1, pvm1, ptm1, pqm1, pxlm1, pxim1, &! in
-                             & pxtm1, pgeom1, pdelpm1, pcptgz,       &! in
+  SUBROUTINE vdiff_tendencies( kproma, kbdim, itop, klev, klevm1, klevp1,  &! in
+                             & ktrac, ksfc_type, idx_lnd, idx_wtr, idx_ice,&! in
+                             & pdtime, pstep_len,                          &! in
+                             & pum1, pvm1, ptm1, pqm1, pxlm1, pxim1,       &! in
+                             & pxtm1, pgeom1, pdelpm1, pcptgz,             &! in
 #ifdef __ICON__
-                             & ptkem1, pztkevn, pzthvvar, prhoh,     &! in
+                             & ptkem1, pztkevn, pzthvvar, prhoh,           &! in
 #else
-                             & ptkem1, ptkem0, pztkevn, pzthvvar, prhoh, &! inout, inout, in
+                             & ptkem1, ptkem0, pztkevn, pzthvvar, prhoh,   &! inout, inout, in
 #endif
                              & pqshear, ihpbl, pcfh_tile, pqsat_tile, &! in
                              & pcfm_tile, pfrc, bb,                   &! in
@@ -755,7 +755,7 @@ CONTAINS
                              & pqv_mflux_sfc                         )! out
 
     INTEGER, INTENT(IN) :: kproma, kbdim, itop, klev, klevm1, klevp1, ktrac
-    INTEGER, INTENT(IN) :: ksfc_type, idx_lnd, idx_wtr
+    INTEGER, INTENT(IN) :: ksfc_type, idx_lnd, idx_wtr, idx_ice
     REAL(wp),INTENT(IN) :: pstep_len, pdtime
 
     REAL(wp),INTENT(IN)  :: pum1   (kbdim,klev)
@@ -806,7 +806,7 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pxlte_vdf(kbdim,klev)
     REAL(wp),INTENT(OUT) :: pxite_vdf(kbdim,klev)
     REAL(wp),INTENT(OUT) :: pxtte_vdf(kbdim,klev,ktrac)
-    REAL(wp),INTENT(OUT) :: pxvarprod(kbdim,klev)
+    REAL(wp),INTENT(OUT) :: pxvarprod(kbdim,klev) !< "pvdiffp" in echam
 
     REAL(wp),INTENT(OUT) :: pz0m    (kbdim)
     REAL(wp),INTENT(INOUT) :: ptke    (kbdim,klev)
@@ -815,6 +815,12 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pvmixtau(kbdim,klev)
     REAL(wp),INTENT(OUT) :: pqv_mflux_sfc(kbdim)  !< surface mass flux of water vapour
                                                   !< "pqhfla" in echam
+    REAL(wp)  :: pevap_tile  (kbdim,ksfc_type)
+    REAL(wp)  :: pevap_ac    (kbdim)
+    REAL(wp)  :: plhflx_tile (kbdim,ksfc_type)
+    REAL(wp)  :: plhflx_ac   (kbdim)
+    REAL(wp)  :: pshflx_tile (kbdim,ksfc_type)
+    REAL(wp)  :: pshflx_ac   (kbdim)
 
     REAL(wp) :: ztest, zrdt, zconst
     REAL(wp) :: zunew, zvnew, zqnew, zsnew, ztnew, dqv
@@ -1043,23 +1049,52 @@ CONTAINS
 
     !---------------------------------------------------------------
     ! Derive surface mass flux of moisture (qv, not q_total).
-    ! Formula: weighted (by surface type fraction) average of
-    ! (air density)*(exchange coefficient)*(qv_klev - qsat_tile),
-    ! where qv_klev is the solution of the linear system at the lowest
+    ! Formula: area-weighted average of
+    ! (air density)*(exchange coef)*(qv_{tavg,klev} - qsat_tile).
+    ! Here 
+    !   qv_{tavg,klev} = tpfac1*qv_klev(t+dt) + (1-tpfac1)*qv_klev(t)
+    !                  = tpfac1*bb_qv
+    ! where bb_qv is the solution of the linear system at the lowest
     ! model level (i.e., the full level right above surface).
     !---------------------------------------------------------------
-    pqv_mflux_sfc(1:kproma) = 0._wp   ! initialize mass flux ("pqhfla" in echam)
+    ! Diagnoise instantaneous moisture flux (= evaporation) on each tile
 
     DO jsfc = 1,ksfc_type
       IF (jsfc==idx_lnd) CYCLE
       DO jl = 1,kproma
         dqv = tpfac1*bb(jl,klev,iqv) - pqsat_tile(jl,jsfc)
-        pqv_mflux_sfc(jl) = pqv_mflux_sfc(jl)                                   &
-                          & + pfrc(jl,jsfc)*prhoh(jl,klev)*pcfh_tile(jl,jsfc)*dqv
+        pevap_tile(jl,jsfc) = prhoh(jl,klev)*pcfh_tile(jl,jsfc)*dqv
       ENDDO
     ENDDO
 
     IF (idx_lnd<=ksfc_type) CALL finish('vdiff_tendencies','land surface not implemented')
+
+    ! Diagnose latent heat flux (need to distinguish ice and water)
+
+    jsfc = idx_ice 
+    plhflx_tile(1:kproma,jsfc) = als*pevap_tile(1:kproma,jsfc)
+
+    jsfc = idx_wtr
+    plhflx_tile(1:kproma,jsfc) = alv*pevap_tile(1:kproma,jsfc)
+
+    ! Compute grid box mean and time average. 
+    ! The instantaneous grid box mean moisture flux will be passed on 
+    ! to the cumulus convection scheme.
+
+    pqv_mflux_sfc(1:kproma) = 0._wp   ! initialize mass flux ("pqhfla" in echam)
+
+    DO jsfc = 1,ksfc_type
+      IF (jsfc==idx_lnd) CYCLE
+
+      pqv_mflux_sfc(1:kproma) =  pqv_mflux_sfc(1:kproma) + pfrc(1:kproma,jsfc) &
+                              & *pevap_tile(1:kproma,jsfc)
+
+      pevap_ac(1:kproma)      =  pevap_ac(1:kproma) +  pfrc(1:kproma,jsfc)     &
+                              & *pevap_tile(1:kproma,jsfc)*pdtime
+
+      plhflx_ac(1:kproma)     =  plhflx_ac(1:kproma) + pfrc(1:kproma,jsfc)     &
+                              & *plhflx_tile(1:kproma,jsfc)*pdtime
+    ENDDO
 
     !----------------------------------------------------------------------------
     ! Update roughness height over open water, then update the grid-box mean

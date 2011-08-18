@@ -198,7 +198,7 @@ CONTAINS
     CALL rhs_bksub( kproma, kbdim, itop, klev, aa, bb ) ! in,...,in, inout
   
     CALL vdiff_tendencies( kproma, kbdim, itop, klev, klevm1, klevp1,   &! in
-                         & ktrac, ksfc_type, idx_lnd, idx_wtr,          &! in
+                         & ktrac, ksfc_type, idx_lnd, idx_wtr, idx_ice, &! in
                          & pdtime, pstep_len,                           &! in
                          & pum1, pvm1, ptm1, pqm1, pxlm1, pxim1,        &! in
                          & pxtm1, pgeom1, pdelpm1, pcptgz,              &! in
