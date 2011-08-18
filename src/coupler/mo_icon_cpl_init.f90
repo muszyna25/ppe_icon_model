@@ -61,15 +61,16 @@ MODULE mo_icon_cpl_init
 
   USE mpi
 
-  USE mo_icon_cpl, ONLY : comps, nbr_ICON_comps, datatype,    &
-   &                      PRISM_CHARACTER, PRISM_INTEGER,     &
-   &                      PRISM_LOGICAL, PRISM_REAL,          &
-   &                      PRISM_DOUBLE_PRECISION,             &
-   &                      PRISM_COMPLEX, PRISM_DOUBLE_COMPLEX,&
-   &                      l_MPI_was_initialized,              &
-   &                      l_debug, cplout, maxchar            &
-   &                      ICON_comm,                          &
-   &                      ICON_global_rank, ICON_global_size
+  USE mo_icon_cpl, ONLY : comps, nbr_ICON_comps, datatype,     &
+   &                      PRISM_CHARACTER, PRISM_INTEGER,      &
+   &                      PRISM_LOGICAL, PRISM_REAL,           &
+   &                      PRISM_DOUBLE_PRECISION,              &
+   &                      PRISM_COMPLEX, PRISM_DOUBLE_COMPLEX, &
+   &                      l_MPI_was_initialized,               &
+   &                      l_debug, cplout, maxchar,            &
+   &                      ICON_comm,                           &
+   &                      ICON_global_rank, ICON_global_size,  &
+   &                      nbr_ICON_comps
 
   USE mo_event_manager, ONLY : event_init
 
