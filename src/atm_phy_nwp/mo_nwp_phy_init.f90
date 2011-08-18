@@ -57,7 +57,10 @@ MODULE mo_nwp_phy_init
   USE mo_lrtm_setup,          ONLY: lrtm_setup
   USE mo_radiation_config,    ONLY: ssi, tsi, irad_aero, rad_csalbw 
   USE mo_srtm_config,         ONLY: setup_srtm, ssi_amip
-  USE mo_radiation_rg_par,    ONLY: rad_aibi, init_aerosol, zaef
+  USE mo_radiation_rg_par,    ONLY: rad_aibi, zaef, zaea, zaes, zaeg, &
+    &                               init_aerosol_properties_tanre_rg, &
+    &                               init_aerosol_distribution_tanre
+  
   ! microphysics
   USE mo_gscp_cosmo,          ONLY: hydci_pp_init
   ! convection
@@ -134,7 +137,6 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
   INTEGER :: i_startblk, i_endblk    !> blocks
   INTEGER :: i_startidx, i_endidx    !! slices
   INTEGER :: i_nchdom                !! domain index
-  INTEGER :: nexp
 !  INTEGER :: inwp_turb_init          !< 1: initialize nwp_turb
 !                                     !< 0: do not initialize
 
@@ -266,7 +268,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
     
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx, i_endidx,jk)
+!$OMP DO PRIVATE(jb,jc,i_endidx,jk,zprat,lland,lglac,zn1,zn2,zcdnc)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -274,10 +276,10 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 
       ! Initialize cloud droplet number concentration (acdnc)
       ! like in mo_echam_phy_init.f90
-      nexp=2
       DO jk = 1,nlev
-        DO jc = i_startidx, i_endidx
-          zprat=(MIN(8._wp,80000._wp/p_diag%pres(jc,jk,jb)))**nexp
+        ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
+        DO jc = 1, i_endidx
+          zprat=(MIN(8._wp,80000._wp/p_diag%pres(jc,jk,jb)))**2
           lland = ext_data%atm%lsm_atm_c(jc,jb) > 0 !
           lglac = ext_data%atm%soiltyp(jc,jb) == 1
           IF (lland.AND.(.NOT.lglac)) THEN
@@ -328,14 +330,22 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     
     IF ( irad_aero == 5 ) THEN
 
-      CALL init_aerosol (             &
-        & kbdim    = nproma,          & !in
-        & pt_patch = p_patch,         & !in
-        & aersea   = prm_diag%aersea, & !out
-        & aerlan   = prm_diag%aerlan, & !out
-        & aerurb   = prm_diag%aerurb, & !out
-        & aerdes   = prm_diag%aerdes )
+      CALL init_aerosol_properties_tanre_rg
       
+      CALL init_aerosol_distribution_tanre ( &
+        & kbdim    = nproma,                 & !in
+        & pt_patch = p_patch,                & !in
+        & aersea   = prm_diag%aersea,        & !out
+        & aerlan   = prm_diag%aerlan,        & !out
+        & aerurb   = prm_diag%aerurb,        & !out
+        & aerdes   = prm_diag%aerdes )         !out
+
+    ELSE
+
+      zaea(:,:)=0.0_wp
+      zaes(:,:)=0.0_wp
+      zaeg(:,:)=0.0_wp
+
     ENDIF
 
     DO ist = 1, 10
