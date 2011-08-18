@@ -6,7 +6,7 @@
 #==============================================================================
 # The basic command for creating an ICON experiment run script is
 #   
-#  $make_runscript in_script=exp.<name> in_script_2=exec.iconrun EXPNAME=<name>
+#  $make_runscript in_script=exp.<name> in_script=exec.iconrun EXPNAME=<name>
 #
 # By default the folder in use is ./run, and the run script is named exp.<name>.run.
 # 
@@ -61,7 +61,7 @@ do
   fi
 done
 #  Create the grid generator for builtbot
-$make_runscript in_folder=$input_folder in_script=grid.create_atmo_grids in_script_2=grid.create_ocean_grids out_script=grid.create_bb_grids.run mpi_procs=1 cpu_time="00:30:00"
+$make_runscript in_folder=$input_folder in_script=grid.create_atmo_grids in_script=grid.create_ocean_grids out_script=grid.create_bb_grids.run mpi_procs=1 cpu_time="00:30:00"
 
 
 
@@ -82,28 +82,28 @@ do
     # Note: hydrostatic ocean model (hom) not yet parallelized
     name=${filename#*.}
     if [[ ${name} == *_hom_* ]]; then
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script_2=exec.iconrun EXPNAME=${name} mpi_procs=1  cpu_time="08:00:00"
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${name} mpi_procs=1  cpu_time="08:00:00"
     elif [[ ${name} == *_nwp_* ]] ; then
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script_2=exec.iconrun EXPNAME=${filename#*.}  cpu_time="04:00:00" memory_model="verylarge"  omp_stacksize=$omp_stacksize
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${filename#*.}  cpu_time="04:00:00" memory_model="verylarge"  omp_stacksize=$omp_stacksize
     elif [[ ${name} == *_nah_jww* ]] ; then
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script_2=exec.iconrun EXPNAME=${filename#*.}  cpu_time="08:00:00" memory_model="verysmall"
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${filename#*.}  cpu_time="08:00:00" memory_model="verysmall"
     elif [[ ${name} == *_nh35_tri_jws* ]] ; then
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script_2=exec.iconrun EXPNAME=${filename#*.}  cpu_time="04:00:00" memory_model="verysmall"
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${filename#*.}  cpu_time="04:00:00" memory_model="verysmall"
     else
-      $make_runscript in_folder=$input_folder in_script=${filename} in_script_2=exec.iconrun EXPNAME=${filename#*.}  cpu_time="04:00:00" omp_stacksize=$omp_stacksize
+      $make_runscript in_folder=$input_folder in_script=${filename} in_script=exec.iconrun EXPNAME=${filename#*.}  cpu_time="04:00:00" omp_stacksize=$omp_stacksize
     fi
   fi
 done
 #==============================================================================
 # special treatment for exp.test_nah_jww on blizzard
 if [[  $use_target == "blizzard" && $use_mpi == "yes" && $use_openmp == "yes" ]] ; then
-  $make_runscript in_folder=$input_folder in_script=exp.test_nah_jww in_script_2=exec.iconrun EXPNAME="test_nah_jww" mpi_procs=3 openmp_threads=16  p_test_run=".true." cpu_time="04:00:00"
+  $make_runscript in_folder=$input_folder in_script=exp.test_nah_jww in_script=exec.iconrun EXPNAME="test_nah_jww" mpi_procs=3 openmp_threads=16  p_test_run=".true." cpu_time="04:00:00"
 fi
 
 #==============================================================================
 # special treatment for exp.couple_atmo-radiation
 if [[  $use_target == "mpipc" && $use_openmp == "yes" ]] ; then
-  $make_runscript in_folder=$input_folder in_script=exp.couple_atmo-radiation in_script_2=exec.iconrun EXPNAME="couple_atmo-radiationtest_nah_jww" openmp_threads=3
+  $make_runscript in_folder=$input_folder in_script=exp.couple_atmo-radiation in_script=exec.iconrun EXPNAME="couple_atmo-radiationtest_nah_jww" openmp_threads=3
 fi
 
 

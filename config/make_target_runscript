@@ -43,12 +43,12 @@ eval_argument ()
   "out_script" ) output_name=$2
 #     echo "output_name=$output_name"
   ;;
-  "in_script" ) input_name=$2
+  "in_script" ) input_name="$input_name $2"
 #     echo "input_name=$input_name"
   ;;
-  "in_script_2" ) input_name_2=$2
+#   "in_script_2" ) input_name_2=$2
 #     echo "input_name=$input_name"
-  ;;
+#  ;;
   "in_folder" ) input_folder=$2
   ;;
   "out_folder" ) output_folder=$2
@@ -62,6 +62,13 @@ eval_argument ()
 #      exit -1 ;;
   esac
 }
+
+get_first_name()
+{
+  first_name=$1
+}
+
+
 
 call_folder=$(pwd)
 cd $(dirname $0)
@@ -86,8 +93,12 @@ if [[ "x$input_name" == "x" ]] ; then
   exit -1
 fi
 
+echo $input_name
+get_first_name $input_name
+
+
 if [[ "x$output_name" == "x" ]] ; then
-  output_name=$input_name.run
+  output_name=$first_name.run
 fi
 
 if [[ "x$input_folder" == "x" ]] ; then
@@ -98,14 +109,8 @@ if [[ "x$output_folder" == "x" ]] ; then
   output_local_folder=$input_folder
 fi
 
-input_script=$base_folder/$input_folder/$input_name
 output_folder=$base_folder/$output_local_folder
 output_script=$output_folder/$output_name
-
-if [[ ! -f $input_script ]] ; then
-  echo "script $input_script not found"
-  exit 1
-fi
 
 if [[ ! -d $output_folder ]] ; then
   mkdir $output_folder
@@ -116,16 +121,16 @@ job_name=$output_name
 # echo job_name=$job_name
 create_target_header
 
-cat $input_script >> $output_script
-
-if [[ "x$input_name_2" != "x" ]] ; then
-  input_script_2=$base_folder/$input_folder/$input_name_2
-  if [[ ! -f $input_script_2 ]] ; then
-    echo "script $input_script_2 not found"
+input_script=$base_folder/$input_folder/$input_name
+for in_name in $input_name
+do
+  cat_file=$base_folder/$input_folder/$in_name
+  if [[ ! -f $cat_file ]] ; then
+    echo "script $cat_file not found"
     exit 1
   fi
-  cat $input_script_2 >> $output_script  
-fi
+  cat $cat_file >> $output_script
+done
 
 chmod +x $output_script
 if [[ "x$use_submit" == "x" ]] ; then
