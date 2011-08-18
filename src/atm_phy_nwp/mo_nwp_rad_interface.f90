@@ -329,7 +329,7 @@ MODULE mo_nwp_rad_interface
       IF ( irad_o3 == 6 .AND. irad_aero == 5 ) THEN
 
         DO jk = 2, nlevp1
-          DO jc = 1,i_endidx
+          DO jc = i_startidx,i_endidx
             zsign(jc,jk) = pt_diag%pres_ifc(jc,jk,jb) / 101325._wp
           ENDDO
         ENDDO
@@ -337,20 +337,19 @@ MODULE mo_nwp_rad_interface
         ! The routine aerdis is called to recieve some parameters for the vertical
         ! distribution of background aerosol.
         CALL aerdis ( &
-          & kbdim  = nproma, &
-          & jcs    = 1, &
-          & jce    = i_endidx, &
-          & klevp1 = nlevp1, & !in
+          & kbdim  = nproma,      & !in
+          & jcs    = i_startidx,  & !in
+          & jce    = i_endidx,    & !in
+          & klevp1 = nlevp1,      & !in
           & petah  = zsign(1,1),  & !in
           & pvdaes = zvdaes(1,1), & !out
           & pvdael = zvdael(1,1), & !out
           & pvdaeu = zvdaeu(1,1), & !out
-          & pvdaed = zvdaed(1,1) ) !out
+          & pvdaed = zvdaed(1,1) )  !out
 
         ! 3-dimensional O3
         ! top level
-        ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-        DO jc = 1,i_endidx
+        DO jc = i_startidx,i_endidx
           zptop32  (jc,jb) = (SQRT(pt_diag%pres_ifc(jc,1,jb)))**3
           zo3_hm   (jc,jb) = (SQRT(prm_diag%hmo3(jc,jb)))**3
           zaeqso   (jc,jb) = zaeops*prm_diag%aersea(jc,jb)*zvdaes(jc,1)
@@ -363,8 +362,7 @@ MODULE mo_nwp_rad_interface
 
         ! loop over layers
         DO jk = 1,nlev
-          ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-          DO jc = 1,i_endidx
+          DO jc = i_startidx,i_endidx
             zaeqsn         = zaeops*prm_diag%aersea(jc,jb)*zvdaes(jc,jk+1)
             zaeqln         = zaeopl*prm_diag%aerlan(jc,jb)*zvdael(jc,jk+1)
             zaequn         = zaeopu*prm_diag%aerurb(jc,jb)*zvdaeu(jc,jk+1)
@@ -397,8 +395,7 @@ MODULE mo_nwp_rad_interface
         ENDDO
         IF (ntracer + ntracer_static >= io3) THEN
           DO jk = 1,nlev
-            ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-            DO jc = 1,i_endidx
+            DO jc = i_startidx,i_endidx
               pt_prog_rcf%tracer(jc,jk,jb,io3) = &
                 & (amo3/amd) * (zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb))
             ENDDO
@@ -407,16 +404,14 @@ MODULE mo_nwp_rad_interface
       ELSEIF ( irad_o3 == 6 ) THEN !ozone, but no aerosols
          ! 3-dimensional O3
         ! top level
-        ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-        DO jc = 1,i_endidx
+        DO jc = i_startidx,i_endidx
           zptop32  (jc,jb) = (SQRT(pt_diag%pres_ifc(jc,1,jb)))**3
           zo3_hm   (jc,jb) = (SQRT(prm_diag%hmo3(jc,jb)))**3
           zo3_top  (jc,jb) = prm_diag%vio3(jc,jb)*zptop32(jc,jb)/(zptop32(jc,jb)+zo3_hm(jc,jb))
         ENDDO
         ! loop over layers
         DO jk = 1,nlev
-          ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-          DO jc = 1,i_endidx
+          DO jc = i_startidx,i_endidx
             zpbot32  (jc,jb) = (SQRT(pt_diag%pres_ifc(jc,jk+1,jb)))**3
             zo3_bot  (jc,jb) = prm_diag%vio3(jc,jb)* zpbot32(jc,jb)    &
               /( zpbot32(jc,jb) + zo3_hm(jc,jb))
@@ -428,23 +423,22 @@ MODULE mo_nwp_rad_interface
         ENDDO
         IF (ntracer + ntracer_static >= io3) THEN
           DO jk = 1,nlev
-            ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-            DO jc = 1,i_endidx
+            DO jc = i_startidx,i_endidx
               pt_prog_rcf%tracer(jc,jk,jb,io3) = &
                 & (amo3/amd) * (zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb))
             ENDDO
           ENDDO
         ENDIF
-        zaeq1(i_startidx:i_endidx,:,jb)= 0.0_wp
-        zaeq2(i_startidx:i_endidx,:,jb)= 0.0_wp
-        zaeq3(i_startidx:i_endidx,:,jb)= 0.0_wp
-        zaeq4(i_startidx:i_endidx,:,jb)= 0.0_wp
-        zaeq5(i_startidx:i_endidx,:,jb)= 0.0_wp
+        zaeq1(i_startidx:i_endidx,:,jb) = 0.0_wp
+        zaeq2(i_startidx:i_endidx,:,jb) = 0.0_wp
+        zaeq3(i_startidx:i_endidx,:,jb) = 0.0_wp
+        zaeq4(i_startidx:i_endidx,:,jb) = 0.0_wp
+        zaeq5(i_startidx:i_endidx,:,jb) = 0.0_wp
       ELSEIF ( irad_aero == 5 ) THEN !aerosols, but no ozone:
-        zduo3(1:i_endidx,:,jb)=0.0_wp
+        zduo3(i_startidx:i_endidx,:,jb) = 0.0_wp
 
         DO jk = 2, nlevp1
-          DO jc = 1,i_endidx
+          DO jc = i_startidx,i_endidx
             zsign(jc,jk) = pt_diag%pres_ifc(jc,jk,jb) / 101325._wp
           ENDDO
         ENDDO
@@ -452,19 +446,18 @@ MODULE mo_nwp_rad_interface
         ! The routine aerdis is called to recieve some parameters for the vertical
         ! distribution of background aerosol.
         CALL aerdis ( &
-          & kbdim  = nproma, &
-          & jcs    = 1, &
-          & jce    = i_endidx, &
-          & klevp1 = nlevp1, & !in
+          & kbdim  = nproma,      & !in
+          & jcs    = i_startidx,  & !in
+          & jce    = i_endidx,    & !in
+          & klevp1 = nlevp1,      & !in
           & petah  = zsign(1,1),  & !in
           & pvdaes = zvdaes(1,1), & !out
           & pvdael = zvdael(1,1), & !out
           & pvdaeu = zvdaeu(1,1), & !out
-          & pvdaed = zvdaed(1,1) ) !out
+          & pvdaed = zvdaed(1,1) )  !out
 
         ! top level
-        ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-        DO jc = 1,i_endidx
+        DO jc = i_startidx,i_endidx
           zaeqso   (jc,jb) = zaeops*prm_diag%aersea(jc,jb)*zvdaes(jc,1)
           zaeqlo   (jc,jb) = zaeopl*prm_diag%aerlan(jc,jb)*zvdael(jc,1)
           zaequo   (jc,jb) = zaeopu*prm_diag%aerurb(jc,jb)*zvdaeu(jc,1)
@@ -474,8 +467,7 @@ MODULE mo_nwp_rad_interface
 
         ! loop over layers
         DO jk = 1,nlev
-          ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-          DO jc = 1,i_endidx
+          DO jc = i_startidx,i_endidx
             zaeqsn         = zaeops*prm_diag%aersea(jc,jb)*zvdaes(jc,jk+1)
             zaeqln         = zaeopl*prm_diag%aerlan(jc,jb)*zvdael(jc,jk+1)
             zaequn         = zaeopu*prm_diag%aerurb(jc,jb)*zvdaeu(jc,jk+1)
@@ -499,12 +491,12 @@ MODULE mo_nwp_rad_interface
           ENDDO
         ENDDO
       ELSE !no aerosols and no ozone
-        zaeq1(i_startidx:i_endidx,:,jb)= 0.0_wp
-        zaeq2(i_startidx:i_endidx,:,jb)= 0.0_wp
-        zaeq3(i_startidx:i_endidx,:,jb)= 0.0_wp
-        zaeq4(i_startidx:i_endidx,:,jb)= 0.0_wp
-        zaeq5(i_startidx:i_endidx,:,jb)= 0.0_wp
-        zduo3(1:i_endidx,:,jb)=0.0_wp
+        zaeq1(i_startidx:i_endidx,:,jb) = 0.0_wp
+        zaeq2(i_startidx:i_endidx,:,jb) = 0.0_wp
+        zaeq3(i_startidx:i_endidx,:,jb) = 0.0_wp
+        zaeq4(i_startidx:i_endidx,:,jb) = 0.0_wp
+        zaeq5(i_startidx:i_endidx,:,jb) = 0.0_wp
+        zduo3(i_startidx:i_endidx,:,jb) = 0.0_wp
       ENDIF !irad_o3
 
     ENDDO !jb
@@ -907,7 +899,7 @@ MODULE mo_nwp_rad_interface
       IF ( irad_o3 == 6 .AND. irad_aero == 5 ) THEN
 
         DO jk = 2, nlevp1
-          DO jc = 1,i_endidx
+          DO jc = i_startidx,i_endidx
             zsign(jc,jk) = pt_diag%pres_ifc(jc,jk,jb) / 101325._wp
           ENDDO
         ENDDO
@@ -915,20 +907,19 @@ MODULE mo_nwp_rad_interface
         ! The routine aerdis is called to recieve some parameters for the vertical
         ! distribution of background aerosol.
         CALL aerdis ( &
-          & kbdim  = nproma, &
-          & jcs    = 1, &
-          & jce    = i_endidx, &
-          & klevp1 = nlevp1, & !in
+          & kbdim  = nproma,      & !in
+          & jcs    = i_startidx,  & !in
+          & jce    = i_endidx,    & !in
+          & klevp1 = nlevp1,      & !in
           & petah  = zsign(1,1),  & !in
           & pvdaes = zvdaes(1,1), & !out
           & pvdael = zvdael(1,1), & !out
           & pvdaeu = zvdaeu(1,1), & !out
-          & pvdaed = zvdaed(1,1) ) !out
+          & pvdaed = zvdaed(1,1) )  !out
 
         ! 3-dimensional O3
         ! top level
-        ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-        DO jc = 1,i_endidx
+        DO jc = i_startidx,i_endidx
           zptop32  (jc,jb) = (SQRT(pt_diag%pres_ifc(jc,1,jb)))**3
           zo3_hm   (jc,jb) = (SQRT(prm_diag%hmo3(jc,jb)))**3
           zaeqso   (jc,jb) = zaeops*prm_diag%aersea(jc,jb)*zvdaes(jc,1)
@@ -941,8 +932,7 @@ MODULE mo_nwp_rad_interface
 
         ! loop over layers
         DO jk = 1,nlev
-          ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-          DO jc = 1,i_endidx
+          DO jc = i_startidx,i_endidx
             zaeqsn         = zaeops*prm_diag%aersea(jc,jb)*zvdaes(jc,jk+1)
             zaeqln         = zaeopl*prm_diag%aerlan(jc,jb)*zvdael(jc,jk+1)
             zaequn         = zaeopu*prm_diag%aerurb(jc,jb)*zvdaeu(jc,jk+1)
@@ -975,8 +965,7 @@ MODULE mo_nwp_rad_interface
         ENDDO
         IF (ntracer + ntracer_static >= io3) THEN
           DO jk = 1,nlev
-            ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-            DO jc = 1,i_endidx
+            DO jc = i_startidx,i_endidx
               pt_prog_rcf%tracer(jc,jk,jb,io3) = &
                 & (amo3/amd) * (zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb))
             ENDDO
@@ -985,16 +974,14 @@ MODULE mo_nwp_rad_interface
       ELSEIF ( irad_o3 == 6 ) THEN !ozone, but no aerosols
          ! 3-dimensional O3
         ! top level
-        ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-        DO jc = 1,i_endidx
+        DO jc = i_startidx,i_endidx
           zptop32  (jc,jb) = (SQRT(pt_diag%pres_ifc(jc,1,jb)))**3
           zo3_hm   (jc,jb) = (SQRT(prm_diag%hmo3(jc,jb)))**3
           zo3_top  (jc,jb) = prm_diag%vio3(jc,jb)*zptop32(jc,jb)/(zptop32(jc,jb)+zo3_hm(jc,jb))
         ENDDO
         ! loop over layers
         DO jk = 1,nlev
-          ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-          DO jc = 1,i_endidx
+          DO jc = i_startidx,i_endidx
             zpbot32  (jc,jb) = (SQRT(pt_diag%pres_ifc(jc,jk+1,jb)))**3
             zo3_bot  (jc,jb) = prm_diag%vio3(jc,jb)* zpbot32(jc,jb)    &
               /( zpbot32(jc,jb) + zo3_hm(jc,jb))
@@ -1006,23 +993,22 @@ MODULE mo_nwp_rad_interface
         ENDDO
         IF (ntracer + ntracer_static >= io3) THEN
           DO jk = 1,nlev
-            ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-            DO jc = 1,i_endidx
+            DO jc = i_startidx,i_endidx
               pt_prog_rcf%tracer(jc,jk,jb,io3) = &
                 & (amo3/amd) * (zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb))
             ENDDO
           ENDDO
         ENDIF
-        zaeq1(i_startidx:i_endidx,:,jb)= 0.0_wp
-        zaeq2(i_startidx:i_endidx,:,jb)= 0.0_wp
-        zaeq3(i_startidx:i_endidx,:,jb)= 0.0_wp
-        zaeq4(i_startidx:i_endidx,:,jb)= 0.0_wp
-        zaeq5(i_startidx:i_endidx,:,jb)= 0.0_wp
+        zaeq1(i_startidx:i_endidx,:,jb) = 0.0_wp
+        zaeq2(i_startidx:i_endidx,:,jb) = 0.0_wp
+        zaeq3(i_startidx:i_endidx,:,jb) = 0.0_wp
+        zaeq4(i_startidx:i_endidx,:,jb) = 0.0_wp
+        zaeq5(i_startidx:i_endidx,:,jb) = 0.0_wp
       ELSEIF ( irad_aero == 5 ) THEN !aerosols, but no ozone:
-        zduo3(1:i_endidx,:,jb)=0.0_wp
+        zduo3(i_startidx:i_endidx,:,jb) = 0.0_wp
 
         DO jk = 2, nlevp1
-          DO jc = 1,i_endidx
+          DO jc = i_startidx,i_endidx
             zsign(jc,jk) = pt_diag%pres_ifc(jc,jk,jb) / 101325._wp
           ENDDO
         ENDDO
@@ -1030,19 +1016,18 @@ MODULE mo_nwp_rad_interface
         ! The routine aerdis is called to recieve some parameters for the vertical
         ! distribution of background aerosol.
         CALL aerdis ( &
-          & kbdim  = nproma, &
-          & jcs    = 1, &
-          & jce    = i_endidx, &
-          & klevp1 = nlevp1, & !in
+          & kbdim  = nproma,      & !in
+          & jcs    = i_startidx,  & !in
+          & jce    = i_endidx,    & !in
+          & klevp1 = nlevp1,      & !in
           & petah  = zsign(1,1),  & !in
           & pvdaes = zvdaes(1,1), & !out
           & pvdael = zvdael(1,1), & !out
           & pvdaeu = zvdaeu(1,1), & !out
-          & pvdaed = zvdaed(1,1) ) !out
+          & pvdaed = zvdaed(1,1) )  !out
 
         ! top level
-        ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-        DO jc = 1,i_endidx
+        DO jc = i_startidx,i_endidx
           zaeqso   (jc,jb) = zaeops*prm_diag%aersea(jc,jb)*zvdaes(jc,1)
           zaeqlo   (jc,jb) = zaeopl*prm_diag%aerlan(jc,jb)*zvdael(jc,1)
           zaequo   (jc,jb) = zaeopu*prm_diag%aerurb(jc,jb)*zvdaeu(jc,1)
@@ -1052,8 +1037,7 @@ MODULE mo_nwp_rad_interface
 
         ! loop over layers
         DO jk = 1,nlev
-          ! Loop starts with 1 instead of i_startidx because the start index is missing in RRTM
-          DO jc = 1,i_endidx
+          DO jc = i_startidx,i_endidx
             zaeqsn         = zaeops*prm_diag%aersea(jc,jb)*zvdaes(jc,jk+1)
             zaeqln         = zaeopl*prm_diag%aerlan(jc,jb)*zvdael(jc,jk+1)
             zaequn         = zaeopu*prm_diag%aerurb(jc,jb)*zvdaeu(jc,jk+1)
@@ -1082,7 +1066,7 @@ MODULE mo_nwp_rad_interface
         zaeq3(i_startidx:i_endidx,:,jb)= 0.0_wp
         zaeq4(i_startidx:i_endidx,:,jb)= 0.0_wp
         zaeq5(i_startidx:i_endidx,:,jb)= 0.0_wp
-        zduo3(1:i_endidx,:,jb)=0.0_wp
+        zduo3(i_startidx:i_endidx,:,jb)= 0.0_wp
       ENDIF !irad_o3
 
     ENDDO !jb
