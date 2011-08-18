@@ -601,6 +601,7 @@ run/exp.hat_icoham_ape -text
 run/exp.hat_jww -text
 run/exp.hat_jww-moist_cld-cnv-vdf -text
 run/exp.hat_jww-moist_cld-cnv-vdf-gwh -text
+run/exp.hat_jww-moist_cld-cnv-vdf_restart -text
 run/exp.hat_jww_echam -text
 run/exp.hom_aqpl -text
 run/exp.hom_lsm_flat -text
