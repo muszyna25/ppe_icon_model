@@ -116,7 +116,10 @@ CONTAINS
 
     nbr_fields = 8
 
-    ALLOCATE(config_fields(nbr_fields))
+    ALLOCATE(config_fields(nbr_fields), STAT = ierr )
+
+    IF ( ierr > 0 ) &
+         CALL finish ( TRIM(routine), ' Error allocating fields ' )
 
     !--------------------------------------------------------------------
     ! 1. Set default values

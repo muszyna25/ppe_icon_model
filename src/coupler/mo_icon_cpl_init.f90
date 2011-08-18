@@ -86,6 +86,8 @@ MODULE mo_icon_cpl_init
 
   LOGICAL                        :: l_MPI_is_initialized ! to check whether MPI_init was called.
 
+  LOGICAL                        :: unit_exists
+  INTEGER                        :: i          ! loop count
   ! Return code for error handling
 
   CHARACTER(len=132)             :: err_string ! Error string for MPI
@@ -176,9 +178,30 @@ CONTAINS
        WRITE  ( * , '(A,A)' ) 'Error in getting global rank ', err_string
     ENDIF
 
+    ! -------------------------------------------------------------------
+    ! Preparation for couler debug output
+    ! -------------------------------------------------------------------
+
     IF ( l_debug ) THEN
+
+       ! Find a free unit
+
+       DO i = 10, 100
+          INQUIRE (UNIT=i, EXIST=unit_exists)
+          IF ( .NOT. unit_exists ) EXIT
+       ENDDO
+
+       IF ( i > 100 ) THEN
+          WRITE ( * , '(A)' ) 'WARNING: No free unit for coupler debug output!'
+          WRITE ( * , '(A)' ) '         Debug output is turned off.'
+          l_debug = .FALSE.
+       ELSE
+          cplout = i
+       ENDIF
+
        WRITE ( filename, '(a5,I1,A4)' )  'ICON_', ICON_global_rank, '.log'
        OPEN  ( unit = cplout, file = filename, status = 'unknown', form = 'formatted' )
+
     ENDIF
 
     ! -------------------------------------------------------------------

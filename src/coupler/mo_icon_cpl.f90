@@ -144,9 +144,9 @@ MODULE mo_icon_cpl
 
   ! Setting for debug output
 
-  LOGICAL, PARAMETER        :: l_debug     = .true.
+  LOGICAL                   :: l_debug     = .false.
   INTEGER, PARAMETER        :: debug_level = 2
-  INTEGER, PARAMETER        :: cplout      = 10
+  INTEGER                   :: cplout   ! output unit, determined in init_comp
 
   CHARACTER(len=maxchar)    :: filename
 

@@ -167,9 +167,9 @@ MODULE mo_master_control
 
     !------------------------------------------------------------
     IF ( in_coupled_mode ) THEN
-      ! Inform the coupler of what we are
+      ! Inform the coupler about what we are
       CALL icon_cpl_init_comp ( my_model_name, my_model_no, my_process_model, &
-        my_coupling_comp_id, ierr )
+          &                     my_coupling_comp_id, ierr )
       ! split the global_mpi_communicator into the components
       CALL split_global_mpi_communicator ( my_model_no )
     ENDIF

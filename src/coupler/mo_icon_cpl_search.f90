@@ -74,19 +74,19 @@ MODULE mo_icon_cpl_search
 
 #ifndef NOMPI
 
-  USE mo_icon_cpl, ONLY : t_grid, t_target_struct,                &
-   &                      source_locs, target_locs,               &
-   &                      msg_len, rstatus, wstatus, initag,      &
-   &                      cplout, l_debug,                        &
-   &                      nbr_active_comps, nbr_active_grids,     &
-   &                      ICON_root, ICON_comm, ICON_comm_active, &
-   &                      ICON_global_rank, ICON_global_size,     &
-   &                      all_extents, grids,                     &
-   &                      MPI_SUCCESS, MPI_SOURCE, MPI_INTEGER, MPI_TAG, MPI_ANY_SOURCE
+  USE mo_icon_cpl, ONLY : t_grid, t_target_struct,                    & 
+       &                      source_locs, target_locs,               &
+       &                      msg_len, rstatus, wstatus, initag,      &
+       &                      cplout, l_debug, debug_level,           &
+       &                      nbr_active_comps, nbr_active_grids,     &
+       &                      ICON_root, ICON_comm, ICON_comm_active, &
+       &                      ICON_global_rank, ICON_global_size,     &
+       &                      all_extents, grids,                     &
+       &                      MPI_SUCCESS, MPI_SOURCE, MPI_INTEGER, MPI_TAG, MPI_ANY_SOURCE
 
   USE mo_icon_cpl_send_restart, ONLY : ICON_cpl_send_restart
 
-  USE mo_master_control, ONLY: get_my_process_type
+  USE mo_master_control, ONLY: get_my_model_no
 
   IMPLICIT NONE
 
@@ -118,6 +118,9 @@ MODULE mo_icon_cpl_search
   INTEGER, ALLOCATABLE :: msg_fm_tgt (:,:)
   INTEGER, ALLOCATABLE :: msg_fm_src (:,:)
   INTEGER, ALLOCATABLE :: lrequests  (:)
+
+  INTEGER, ALLOCATABLE :: idx(:)
+  INTEGER, ALLOCATABLE :: grid_global_index(:)
 
   INTEGER, POINTER     :: srcbuffer     (:)
   INTEGER, POINTER     :: tgtbuffer     (:)
@@ -175,11 +178,16 @@ CONTAINS
     ! Determine local index range
     ! -------------------------------------------------------------------
     !
+    IF ( l_debug ) &
+      WRITE ( cplout , * ) ' nbr_active is ', nbr_active_comps, nbr_active_grids
+
     DO comp_id = 1, nbr_active_comps
        DO grid_id = 1, nbr_active_grids
           grid_extent(1) = MINVAL( grids(grid_id)%grid_glob_index )
           grid_extent(2) = MAXVAL( grids(grid_id)%grid_glob_index )
-          grid_extent(3) = get_my_process_type() ! Rene: this should not be in here.
+          grid_extent(3) = get_my_model_no() ! Rene: this should not be in here.
+          IF ( l_debug ) &
+               WRITE ( cplout , * ) ' extents ',  grid_extent(1),  grid_extent(2),  grid_extent(3)
        ENDDO
     ENDDO
 
@@ -193,10 +201,33 @@ CONTAINS
 
     gptr => grids(grid_id)
 
+    ! Allocate memory and sort global index list that we got from ICON
+    ! The original position is kept in idx which is later used for the
+    ! reordering of the results.
+
+    len = gptr%grid_shape(2) - gptr%grid_shape(1) + 1
+
+    ALLOCATE(grid_global_index(len), idx(len))
+
+    DO i = 1, len
+       idx(i) = i
+    ENDDO
+
+    grid_global_index = gptr%grid_glob_index
+
+    CALL quicksort_index (grid_global_index, len, idx)
+
+    IF ( l_debug .AND. debug_level > 1 ) THEN
+       DO i = 1, len
+          WRITE ( cplout , '(a30,3i8)' ) ' Global indices after sorting ', &
+               &                         i, grid_global_index(i), idx(i)
+       ENDDO
+    ENDIF
+
     ! -------------------------------------------------------------------
 
     IF ( l_debug ) &
-       WRITE ( cplout , '(i3,a1,a11,3i4)' ) ICON_global_rank, ':', ' extent is ', grid_extent
+         WRITE ( cplout , '(i4,a1,a11,3i8)' ) ICON_global_rank, ':', ' extent is ', grid_extent
 
     ! -------------------------------------------------------------------
     ! Eventually it is wiser to store only target extents on the source
@@ -217,10 +248,10 @@ CONTAINS
     CALL MPI_Allgather ( grid_extent, msg_len, MPI_Integer, &
          all_extents, msg_len, MPI_Integer, ICON_comm_active, ierr )
 
-    IF ( l_debug ) THEN
+    IF ( l_debug .AND. debug_level > 0 ) THEN
        IF ( ICON_global_rank == ICON_Root ) THEN
           DO i = 1, ICON_global_size
-             WRITE ( cplout, '(i3,a1,a13,3i4)' ) i, ':', ' all_extents ', &
+             WRITE ( cplout, '(i3,a1,a13,3i8)' ) i, ':', ' all_extents ', &
                   all_extents(1,i), &
                   all_extents(2,i), &
                   all_extents(3,i)
@@ -236,7 +267,7 @@ CONTAINS
 
     DO i = 1, ICON_global_size
 
-       IF ( all_extents(3,i) == get_my_process_type() ) CYCLE
+       IF ( all_extents(3,i) == get_my_model_no() ) CYCLE
 
        idx_range(1) = MAX(all_extents(1,i),grid_extent(1))
        idx_range(2) = MIN(all_extents(2,i),grid_extent(2))
@@ -246,7 +277,7 @@ CONTAINS
     ENDDO
 
     IF ( l_debug ) &
-    WRITE ( cplout , '(a,i3,a,i3)' ) &
+         WRITE ( cplout , '(a,i3,a,i3)' ) &
          ' Global rank ', ICON_global_rank, ' n_answers2recv ', n_answers2recv
 
     IF ( n_answers2recv > 0 ) THEN
@@ -306,7 +337,7 @@ CONTAINS
 
        DO i = 1, ICON_global_size
 
-          IF ( all_extents(3,i) == get_my_process_type() ) CYCLE
+          IF ( all_extents(3,i) == get_my_model_no() ) CYCLE
 
           idx_range(1) = MAX(all_extents(1,i),grid_extent(1))
           idx_range(2) = MIN(all_extents(2,i),grid_extent(2))
@@ -317,25 +348,26 @@ CONTAINS
              source_rank = i - 1
 
              IF ( l_debug ) &
-             WRITE ( cplout , '(a,i3,a,i3)' ) &
+                  WRITE ( cplout , '(a,i3,a,i3)' ) &
                   ' Global rank ', ICON_global_rank, ' found match with global rank ', source_rank
 
              !
              ! silly search to determine start and end dimensions
              !
-             DO ii = gptr%grid_shape(1), gptr%grid_shape(2)
-                IF ( gptr%grid_glob_index(ii) <  idx_range(1) ) CYCLE
-                IF ( gptr%grid_glob_index(ii) >= idx_range(1) ) THEN
+
+             DO ii = 1, len
+                IF ( grid_global_index(ii) <  idx_range(1) ) CYCLE
+                IF ( grid_global_index(ii) >= idx_range(1) ) THEN
                    idx_range(1) = ii
                    EXIT
                 ENDIF
              ENDDO
 
-             DO ii = idx_range(1), gptr%grid_shape(2)
-                IF ( gptr%grid_glob_index(ii) > idx_range(2) ) EXIT
+             DO ii = idx_range(1), len
+                IF ( grid_global_index(ii) > idx_range(2) ) EXIT
              ENDDO
-             IF ( ii > gptr%grid_shape(2) ) THEN
-                idx_range(2) = gptr%grid_shape(2)
+             IF ( ii > len ) THEN
+                idx_range(2) = len
              ELSE
                 idx_range(2) = ii - 1
              ENDIF
@@ -362,8 +394,8 @@ CONTAINS
              ! ----------------------------------------------------------
              !
              msgtag = initag + 2
-             CALL psmile_bsend ( gptr%grid_glob_index(idx_range(1):idx_range(2)), msg_to_src(1), &
-                  MPI_INTEGER, source_rank, msgtag, ICON_comm_active, ierr )
+             CALL psmile_bsend ( grid_global_index(idx_range(1):idx_range(2)), &
+                  msg_to_src(1), MPI_INTEGER, source_rank, msgtag, ICON_comm_active, ierr )
 
           ENDIF ! ( idx_range(1) <= idx_range(2) )
 
@@ -396,6 +428,7 @@ CONTAINS
           PRINT *, ' Error allocating target_list '
           CALL MPI_Abort ( ICON_comm, 1, ierr )
        ENDIF
+
        !
        ! ----------------------------------------------------------------
        ! 2nd) receive data message 1 from target
@@ -405,9 +438,9 @@ CONTAINS
        CALL MPI_Recv ( tptr%target_list, tptr%target_list_len, MPI_INTEGER, &
             tptr%target_rank, msgtag, ICON_comm_active, rstatus, ierr )
 
-       IF ( l_debug ) THEN
+       IF ( l_debug .AND. debug_level > 1 ) THEN
           DO i = 1,  tptr%target_list_len
-             WRITE ( cplout , '(a,2i4)' ) 'Received target list ', i,  tptr%target_list(i)
+             WRITE ( cplout , '(a,3i8)' ) 'Received target list', i, tptr%target_list(i)
           ENDDO
        ENDIF
 
@@ -415,11 +448,11 @@ CONTAINS
        ! >>> Beginn ASSERTION
        ! =====================
 
-       DO i = gptr%grid_shape(1), gptr%grid_shape(2) - 1
+       DO i = 1, len - 1
           IF ( i < idx_range(2) ) THEN
-             IF ( gptr%grid_glob_index(i) > gptr%grid_glob_index(i+1) ) THEN
+             IF ( grid_global_index(i) > grid_global_index(i+1) ) THEN
                 PRINT *, 'ERROR: Currently ascending order of src list indices is assumed.'
-                RETURN
+                PRINT *, i, grid_global_index(i), grid_global_index(i+1)
                 CALL MPI_Abort ( ICON_comm, 1, ierr )
              ENDIF
           ENDIF
@@ -428,10 +461,7 @@ CONTAINS
        DO i = 1, tptr%target_list_len - 1
           IF ( tptr%target_list(i) > tptr%target_list(i+1) ) THEN
              PRINT *, 'ERROR: Currently ascending order of tgt list indices is assumed .'
-             RETURN
-             DO ii = 1, tptr%target_list_len
-                PRINT *, ii, tptr%target_list(ii)
-             ENDDO
+             PRINT *, i, tptr%target_list(i), tptr%target_list(i+1)
              CALL MPI_Abort ( ICON_comm, 1, ierr )
           ENDIF
        ENDDO
@@ -446,19 +476,18 @@ CONTAINS
        ! ----------------------------------------------------------------
        !
 
-       i = gptr%grid_shape(1)
+       i = 1
 
-       DO WHILE ( gptr%grid_glob_index(i) < tptr%target_list(1) .AND. &
-            i  < gptr%grid_shape(2))
+       DO WHILE ( grid_global_index(i) < tptr%target_list(1) .AND. i < len )
           i = i + 1
        ENDDO
 
        ii           = 1
-       idx_range(1) = i 
+       idx_range(1) = i
        idx_range(2) = gptr%grid_shape(2)
 
        IF ( l_debug ) &
-            WRITE ( cplout , '(a,2i4)' ) 'Index range ', idx_range (1), idx_range (2)
+            WRITE ( cplout , '(a,2i8)' ) 'Index range ', idx_range (1), idx_range (2)
 
        source_list_len = incr
 
@@ -472,9 +501,9 @@ CONTAINS
 
        DO i = idx_range(1), idx_range(2)
 
-          IF ( gptr%grid_glob_index(i) > tptr%target_list(tptr%target_list_len) ) EXIT
+          IF ( grid_global_index(i) > tptr%target_list(tptr%target_list_len) ) EXIT
 
-          ii = location ( tptr%target_list_len, tptr%target_list, gptr%grid_glob_index(i) )
+          ii = location ( tptr%target_list_len, tptr%target_list, grid_global_index(i) )
 
           IF ( ii > 0 ) THEN
 
@@ -520,9 +549,9 @@ CONTAINS
              srcbuffer(j) = i
              tgtbuffer(j) = ii
 
-             IF ( l_debug ) &
-                  WRITE ( cplout , '(2i4,a,2i4)' ) i, gptr%grid_glob_index(i), &
-                                                   ' <-> ', ii, tgtbuffer(j)
+             IF ( l_debug .AND. debug_level > 1 ) &
+                  WRITE ( cplout , '(2i8,a,3i8)' ) i, grid_global_index(i), &
+                  ' <-> ', j, tgtbuffer(j),  tptr%target_list_len
 
           ENDIF
 
@@ -547,10 +576,15 @@ CONTAINS
           CALL MPI_Abort ( ICON_comm, 1, ierr )
        ENDIF
 
-       source_locs(index)%target_rank                     = tptr%target_rank
-       source_locs(index)%source_list_len                 = source_list_len
-       source_locs(index)%source_list(1:source_list_len)  = srcbuffer(1:source_list_len)
-       source_locs(index)%target_list(1:source_list_len)  = tgtbuffer(1:source_list_len)
+       source_locs(index)%target_rank      = tptr%target_rank
+       source_locs(index)%source_list_len  = source_list_len
+       !
+       ! Convert back to unsorted order
+       !
+       DO i = 1, source_list_len
+         source_locs(index)%source_list(i) = idx(srcbuffer(i))
+         source_locs(index)%target_list(i) = tgtbuffer(i)
+       ENDDO
 
        DEALLOCATE ( srcbuffer, tgtbuffer, STAT = ierr )
        IF ( ierr > 0 ) THEN
@@ -583,9 +617,9 @@ CONTAINS
        CALL psmile_bsend ( msg_to_tgt, msg_len, &
             MPI_INTEGER, tptr%target_rank, msgtag, ICON_comm_active, ierr ) 
 
-       IF ( l_debug ) &
-          WRITE ( cplout , '(a13,i8,a4,i8,a10,i8)' ) 'Sending back ', msg_len, &
-                 ' to ', tptr%target_rank, ' with tag ', msgtag
+       IF ( l_debug .AND. debug_level > 1 ) &
+            WRITE ( cplout , '(a13,i8,a4,i8,a10,i8)' ) 'Sending back ', msg_len, &
+            ' to ', tptr%target_rank, ' with tag ', msgtag
 
        !
        ! ----------------------------------------------------------------
@@ -612,8 +646,8 @@ CONTAINS
             MPI_ANY_SOURCE, msgtag, ICON_comm_active, lrequests(n), ierr )
 
        IF ( l_debug ) &
-          WRITE ( cplout , '(a16,i8,a9,i12)' ) 'Posting receive ', msg_len, &
-                                                 ' request ', lrequests(n)
+            WRITE ( cplout , '(a16,i8,a9,i12)' ) 'Posting receive ', msg_len, &
+            ' request ', lrequests(n)
 
     ENDDO
 
@@ -632,8 +666,8 @@ CONTAINS
        tptr%source_rank     = wstatus(MPI_SOURCE)
 
        IF ( l_debug ) &
-          WRITE ( cplout , '(a9,i8,a9,i12,a6,i8)' ) 'Received ', msg_len, ' request ', &
-               lrequests(index), ' from ', wstatus(MPI_SOURCE)
+            WRITE ( cplout , '(a9,i8,a9,i12,a6,i8)' ) 'Received ', msg_len, ' request ', &
+            lrequests(index), ' from ', wstatus(MPI_SOURCE)
        !
        ! ----------------------------------------------------------------
        ! Receive and store lists except empty lists
@@ -641,22 +675,27 @@ CONTAINS
        !
        IF ( tptr%source_list_len > 0 ) THEN
 
-          ALLOCATE ( tptr%source_list(tptr%source_list_len), STAT = ierr )
+          ALLOCATE ( tptr%source_list(tptr%source_list_len), &
+                     tgtbuffer(tptr%source_list_len), STAT = ierr )
           IF ( ierr > 0 ) THEN
              PRINT *, ' Error allocating source_list '
              CALL MPI_Abort ( ICON_comm, 1, ierr )
           ENDIF
 
           msgtag = wstatus(MPI_TAG) + 1
-          CALL MPI_Recv ( tptr%source_list, tptr%source_list_len, MPI_INTEGER, &
+          CALL MPI_Recv ( tgtbuffer, tptr%source_list_len, MPI_INTEGER, &
                tptr%source_rank, msgtag, ICON_comm_active, rstatus, ierr )
 
-          ! Add offset on the target side
+          ! Add offset on the target side and convert back to original ordering
+
+          DO i = 1, tptr%source_list_len
+             tptr%source_list(i) = idx(tgtbuffer(i)+tptr%offset-1)
+          ENDDO
 
           IF ( l_debug ) &
                WRITE ( cplout , '(a,i8)' ) 'Offset added: ', tptr%offset - 1 
 
-          tptr%source_list(:) =  tptr%source_list(:) + tptr%offset - 1
+           DEALLOCATE (tgtbuffer)
 
        ENDIF
 
@@ -747,5 +786,180 @@ CONTAINS
     location = j1
 
   END FUNCTION location
+
+
+  SUBROUTINE quicksort_index(a, n, idx)
+
+    IMPLICIT NONE
+    !
+    ! !INPUT PARAMETERS:
+    !
+    INTEGER, INTENT(In)    :: n
+    !
+    ! !INPUT/OUTPUT PARAMETERS:
+    !
+    INTEGER, INTENT(InOut) :: a(n)
+    INTEGER, INTENT(InOut) :: idx(n)
+    !
+    ! !LOCAL VARIABLES
+    !
+    INTEGER, PARAMETER     :: pointer_inc = 64
+    INTEGER                :: pointer_size
+    INTEGER, POINTER       :: stackl(:), stackr(:)
+    INTEGER, POINTER       :: new_stackl(:), new_stackr(:)
+
+    INTEGER                :: i, j, k, l, r, s
+    INTEGER                :: ww
+    INTEGER                :: w, x
+    !
+    ! !DESCRIPTION:
+    !
+    ! Non-recursive stack version of Quicksort from N. Wirth's Pascal Book,
+    ! 'Algorithms + Data Structures = Programms'.
+    !
+    ! taken from:
+    !    http://www.nag.com/nagware/examples.asp
+    !    http://www.nag.com/nagware/Examples/nur.f90
+    !
+    ! see also:
+    !    http://en.wikipedia.org/wiki/Quicksort
+    !
+    ! !REVISION HISTORY:
+    !
+    !   Date      Programmer   Description
+    ! ----------  ----------   -----------
+    ! 19.07.95    Alan Miller  created
+    ! 13.02.08    R. Redler    revised
+    !
+    !----------------------------------------------------------------------
+    !
+    !  Initialization
+    !
+    pointer_size = pointer_inc
+
+    ALLOCATE(new_stackl(pointer_inc), new_stackr(pointer_inc))
+
+    stackl => new_stackl
+    stackr => new_stackr
+
+    s = 1
+    stackl(1) = 1
+    stackr(1) = n
+    !
+    !  Start sorting
+    !        
+    ! ... keep taking the top request from the stack until s = 0.
+
+    DO WHILE (s /= 0) ! 10  CONTINUE
+
+       l = stackl(s)
+       r = stackr(s)
+       s = s - 1
+
+       ! ... keep splitting a(l), ... ,a(r) until l>= r.
+
+       DO WHILE (l <  r) ! 20  CONTINUE
+
+          i = l
+          j = r
+          k = (l+r) / 2
+          x = a(k)
+
+          ! ... repeat until i > j.
+
+          DO
+             DO
+                IF (a(i) < x) THEN ! Search from lower end
+                   i = i + 1
+                   CYCLE
+                ELSE
+                   EXIT
+                END IF
+             END DO
+
+             DO
+                IF (x < a(j)) THEN ! Search from upper end
+                   j = j - 1
+                   CYCLE
+                ELSE
+                   EXIT
+                END IF
+             END DO
+
+             IF (i <= j) THEN ! Swap positions i & j
+
+                w = a(i)
+                ww = idx(i)
+                a(i) = a(j)
+                idx(i) = idx(j)
+                a(j) = w
+                idx(j) = ww
+                i = i + 1
+                j = j - 1
+                IF (i.GT.j) EXIT
+
+             ELSE
+
+                EXIT
+
+             END IF
+
+          END DO
+
+          IF (j-l >= r-i) THEN
+
+             IF (l < j) THEN
+
+                IF ( s+1 > pointer_size ) THEN
+                   pointer_size = pointer_size + pointer_inc
+                   ALLOCATE(new_stackl(pointer_size), new_stackr(pointer_size))
+                   new_stackl(1:pointer_size-pointer_inc) = &
+                        stackl(1:pointer_size-pointer_inc)
+                   new_stackr(1:pointer_size-pointer_inc) = &
+                        stackr(1:pointer_size-pointer_inc)
+                   DEALLOCATE(stackl, stackr)
+                   stackl => new_stackl
+                   stackr => new_stackr
+                ENDIF
+
+                s = s + 1
+                stackl(s) = l
+                stackr(s) = j
+
+             END IF
+
+             l = i
+
+          ELSE
+
+             IF (i < r) THEN
+
+                IF ( s+1 > pointer_size ) THEN
+                   pointer_size = pointer_size + pointer_inc
+                   ALLOCATE(new_stackl(pointer_size), new_stackr(pointer_size))
+                   new_stackl(1:pointer_size-pointer_inc) = &
+                        stackl(1:pointer_size-pointer_inc)
+                   new_stackr(1:pointer_size-pointer_inc) = &
+                        stackr(1:pointer_size-pointer_inc)
+                   DEALLOCATE(stackl, stackr)
+                   stackl => new_stackl
+                   stackr => new_stackr
+                ENDIF
+
+                s = s + 1
+                stackl(s) = i
+                stackr(s) = r
+
+             END IF
+
+             r = j
+
+          END IF
+
+       ENDDO ! WHILE (l <  r) GO TO 20
+
+    ENDDO ! WHILE (s /= 0) GO TO 10
+
+  END SUBROUTINE quicksort_index
 
 END MODULE mo_icon_cpl_search
