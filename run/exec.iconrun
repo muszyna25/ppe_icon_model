@@ -45,6 +45,41 @@ radiation_namelist=${radiation_namelist:="none"}
 ocean_namelist=${ocean_namelist:="none"}
 dummy_1_namelist=${dummy_1_namelist:="none"}
 dummy_2_namelist=${dummy_2_namelist:="none"}
+dummy_3_namelist=${dummy_3_namelist:="none"}
+
+#-----------------------------------------------------------------------------
+validate_component_run()
+{
+  echo "----------------------"
+  echo "validate_component_run $1"
+  if [ "x$(eval echo \$run_$1)" != "x" ] ; then
+    return
+  fi
+  
+  eval "run_$1"="false"
+  if [ "$(eval echo \$$1_namelist)" = "none" ] ; then
+    echo "----------------------"
+    return
+  fi
+
+  eval "run_$1"="true"
+  let no_of_models=${no_of_models}+1
+  echo "----------------------"
+  
+}
+#-----------------------------------------------------------------------------
+
+let no_of_models=0
+
+validate_component_run atmo
+validate_component_run ocean
+validate_component_run radiation
+validate_component_run dummy_1
+validate_component_run dummy_2
+validate_component_run dummy_3
+
+echo "no_of_models=$no_of_models"
+#-----------------------------------------------------------------------------
 
 atmo_min_rank=${atmo_min_rank:=0}
 atmo_max_rank=${atmo_max_rank:=65535}
@@ -58,48 +93,35 @@ radiation_min_rank=${radiation_min_rank:=0}
 radiation_max_rank=${radiation_max_rank:=65535}
 radiation_inc_rank=${radiation_inc_rank:=1}
 
-#split the number of procs in two for each of the dummy component
-dummy_1_min_rank=${dummy_1_min_rank:=0}
-dummy_1_max_rank=${dummy_1_max_rank:=`expr ${mpi_total_procs} / 2 - 1`}
-# dummy_1_max_rank=${dummy_1_max_rank:=65535}
-dummy_1_inc_rank=${dummy_1_inc_rank:=1}
-
-dummy_2_min_rank=${dummy_2_min_rank:=`expr ${dummy_1_max_rank} + 1`}
-dummy_2_max_rank=${dummy_2_max_rank:=`expr ${mpi_total_procs} - 1`}
-# dummy_2_min_rank=${dummy_2_min_rank:=1}
-# dummy_2_max_rank=${dummy_2_max_rank:=65535}
-dummy_2_inc_rank=${dummy_2_inc_rank:=1}
-
-if [ $atmo_namelist != "none" ] ; then
-  run_atmo=${run_atmo:="true"}
-else
-  run_atmo=${run_atmo:="false"}
-fi
-
-if [ $ocean_namelist !=  "none" ] ; then
-  run_ocean=${run_ocean:="true"}
-else  
-  run_ocean=${run_ocean:="false"}
-fi
-
-if [ $radiation_namelist != "none" ] ; then
-  run_radiation=${run_radiation:="true"}
-else  
-  run_radiation=${run_radiation:="false"}
-fi
-
-if [ $dummy_1_namelist != "none" ] ; then
-  run_dummy_1=${run_dummy_1:="true"}
-else
-  run_dummy_1=${run_dummy_1:="false"}
-fi
-
-if [ $dummy_2_namelist != "none" ] ; then
-  run_dummy_2=${run_dummy_2:="true"}
-else
-  run_dummy_2=${run_dummy_2:="false"}
-fi
 #-----------------------------------------------------------------------------
+#split the number of procs in two (or three) for each of the dummy component
+if [ $no_of_models = 2 ] ; then
+  dummy_1_min_rank=${dummy_1_min_rank:=0}
+  dummy_1_max_rank=${dummy_1_max_rank:=`expr ${mpi_total_procs} / 2 - 1`}
+  dummy_1_inc_rank=${dummy_1_inc_rank:=1}
+
+  dummy_2_min_rank=${dummy_2_min_rank:=`expr ${dummy_1_max_rank} + 1`}
+  dummy_2_max_rank=${dummy_2_max_rank:=`expr ${mpi_total_procs} - 1`}
+  dummy_2_inc_rank=${dummy_2_inc_rank:=1}
+else
+
+  procs_per_model=`expr ${mpi_total_procs} / 3`
+
+  dummy_1_min_rank=${dummy_1_min_rank:=0}
+  dummy_1_max_rank=${dummy_1_max_rank:=`expr ${procs_per_model} - 1`}
+  dummy_1_inc_rank=${dummy_1_inc_rank:=1}
+
+  dummy_2_min_rank=${dummy_2_min_rank:=${procs_per_model}}
+  dummy_2_max_rank=${dummy_2_max_rank:=`expr ${procs_per_model} + ${procs_per_model} - 1`}
+  dummy_2_inc_rank=${dummy_2_inc_rank:=1}
+
+  dummy_3_min_rank=${dummy_3_min_rank:=`expr ${dummy_2_max_rank} + 1`}
+  dummy_3_max_rank=${dummy_3_max_rank:=`expr ${mpi_total_procs} - 1`}
+  dummy_3_inc_rank=${dummy_3_inc_rank:=1}
+fi
+
+#-----------------------------------------------------------------------------
+
 
 cp_atmo_files="false"
 if [ $run_atmo = "true" ] ;  then 
@@ -166,7 +188,7 @@ if [[ $run_ocean = 'true' ]]; then
    #
    # Open ocean flux file
    # --------------------
-   if [[ "x$iforc" == "x12" ]] ; then
+   if [[ "x$iforc" = "x12" ]] ; then
      FLUXNAME=iconR${R}B0${B}-flux.nc
      OMIPNAME=omip4icon-R${R}B0${B}-monmean.nc
      rm ${EXPDIR}/${FLUXNAME}
@@ -186,6 +208,7 @@ fi
 cd ${EXPDIR}
 
 #-----------------------------------------------------------------------------
+# create master_namelist
 master_namelist=icon_master.namelist
 
 cat > $master_namelist << EOF
@@ -201,132 +224,56 @@ EOF
 
 
 #-----------------------------------------------------------------------------
-# create master_model_nml
-if [ $run_atmo = "true" ] ;  then
+# add model component to master_namelist
+add_component_to_master_namelist()
+{
+  
+  if [ "x$(eval echo \$run_$1)" != "xtrue" ] ; then
+    return
+  fi
+  
+  model_namelist_filename="$(eval echo \$$1_namelist)"
+  model_type=$2
+  model_min_rank="$(eval echo \$$1_min_rank)"
+  model_max_rank="$(eval echo \$$1_max_rank)"
+  model_inc_rank="$(eval echo \$$1_inc_rank)"
+  
 cat >> $master_namelist << EOF
 &master_model_nml
-  model_name="ATMO"
-  model_namelist_filename="$atmo_namelist"
+  model_name="$1"
+  model_namelist_filename="$model_namelist_filename"
   model_restart_info_filename=""
-  model_type=1
-  model_min_rank=$atmo_min_rank
-  model_max_rank=$atmo_max_rank
-  model_inc_rank=$atmo_inc_rank
+  model_type=$model_type
+  model_min_rank=$model_min_rank
+  model_max_rank=$model_max_rank
+  model_inc_rank=$model_max_rank
 /
 EOF
-fi
 
-if [ $run_ocean = "true" ] ;  then
-cat >> $master_namelist << EOF
-&master_model_nml
-  model_name="OCEAN"
-  model_namelist_filename="$ocean_namelist"
-  model_restart_info_filename=""
-  model_type=2
-  model_min_rank=$ocean_min_rank
-  model_max_rank=$ocean_max_rank
-  model_inc_rank=$ocean_inc_rank
-/
-EOF
-fi
-
-
-if [ $run_radiation = "true" ] ;  then
-cat >> $master_namelist << EOF
-&master_model_nml
-  model_name="radiation"
-  model_namelist_filename="$radiation_namelist"
-  model_restart_info_filename=""
-  model_type=3
-  model_min_rank=$radiation_min_rank
-  model_max_rank=$radiation_max_rank
-  model_inc_rank=$radiation_inc_rank
-/
-EOF
-fi
-
-
-if [ $run_dummy_1 = "true" ] ;  then
-cat >> $master_namelist << EOF
-&master_model_nml
-  model_name="dummy_1"
-  model_namelist_filename="$dummy_1_namelist"
-  model_restart_info_filename=""
-  model_type=99
-  model_min_rank=$dummy_1_min_rank
-  model_max_rank=$dummy_1_max_rank
-  model_inc_rank=$dummy_1_inc_rank
-/
-EOF
-fi
-
-if [ $run_dummy_2 = "true" ] ;  then
-cat >> $master_namelist << EOF
-&master_model_nml
-  model_name="dummy_2"
-  model_namelist_filename="$dummy_2_namelist"
-  model_restart_info_filename=""
-  model_type=99
-  model_min_rank=$dummy_2_min_rank
-  model_max_rank=$dummy_2_max_rank
-  model_inc_rank=$dummy_2_inc_rank
-/
-EOF
-fi
-#-----------------------------------------------------------------------------
-
-
-#-----------------------------------------------------------------------------
-# get namelist
-#
-if [ $run_atmo = "true" ] ; then
-  if [[ -f ${DIR}/$atmo_namelist ]] ; then
-    mv -f ${DIR}/$atmo_namelist ${EXPDIR}/$atmo_namelist
+#get namelist
+  if [ -f ${DIR}/$model_namelist_filename ] ; then
+    mv -f ${DIR}/$model_namelist_filename ${EXPDIR}
     check_error $? "cp -f ${DIR}/$atmo_namelist"
   else
-    check_error 1 "${DIR}/$atmo_namelist does not exist"
+    check_error 1 "${DIR}/$model_namelist_filename does not exist"
   fi  
-fi
 
-if [ $run_ocean = "true" ] ; then
-  if [[ -f ${DIR}/$ocean_namelist ]] ; then
-    mv -f ${DIR}/$ocean_namelist ${EXPDIR}/$ocean_namelist
-    check_error $? "mv -f ${DIR}/$ocean_namelist"
-  else
-    check_error 1 "${DIR}/$ocean_namelist does not exist"
-  fi  
-fi
+}
+#-----------------------------------------------------------------------------
 
-if [ $run_radiation = "true" ] ; then
-  if [[ -f ${DIR}/$radiation_namelist ]] ; then
-    mv -f ${DIR}/$radiation_namelist ${EXPDIR}/$radiation_namelist
-    check_error $? "mv -f ${DIR}/$radiation_namelist"
-  else
-    check_error 1 "${DIR}/$radiation_namelist does not exist"
-  fi  
-fi
+add_component_to_master_namelist atmo      1
+add_component_to_master_namelist ocean     2
+add_component_to_master_namelist radiation 3
+add_component_to_master_namelist dummy_1   99
+add_component_to_master_namelist dummy_2   99
+add_component_to_master_namelist dummy_3   99
 
-if [ $run_dummy_1 = "true" ] ; then
-  if [[ -f ${DIR}/$dummy_1_namelist ]] ; then
-    mv -f ${DIR}/$dummy_1_namelist ${EXPDIR}/$dummy_1_namelist
-    check_error $? "mv -f ${DIR}/$dummy_1_namelist"
-  else
-    check_error 1 "${DIR}/$dummy_1_namelist does not exist"
-  fi
-fi
+#-----------------------------------------------------------------------------
 
-if [ $run_dummy_2 = "true" ] ; then
-  if [[ -f ${DIR}/$dummy_2_namelist ]] ; then
-    mv -f ${DIR}/$dummy_2_namelist ${EXPDIR}/$dummy_2_namelist
-    check_error $? "mv -f ${DIR}/$dummy_2_namelist"
-  else
-    check_error 1 "${DIR}/$dummy_2_namelist does not exist"
-  fi
-fi
 
 #-----------------------------------------------------------------------------
 #
-# model
+#  get model
 #
 MODEL=${bindir}/control_model
 #

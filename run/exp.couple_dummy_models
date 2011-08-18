@@ -35,6 +35,8 @@ fi
 # the namelist filename
 dummy_1_namelist=NAMELIST_${EXPNAME}_1
 dummy_2_namelist=NAMELIST_${EXPNAME}_2
+dummy_3_namelist=NAMELIST_${EXPNAME}_3
+dummy_3_namelist="none"
 #
 #-----------------------------------------------------------------------------
 # global timing
@@ -65,10 +67,14 @@ atmo_dyn_grids='iconR2B03-grid.nc'
 
 #-----------------------------------------------------------------------------
 # write ICON namelist parameters
+# input: namelist_filename
 # ------------------------
 # For a complete list see Namelist_overview and Namelist_overview.pdf
 #  
-cat > $dummy_1_namelist << EOF
+create_namelist()
+{
+namelist_filename=$1
+cat > $namelist_filename << EOF
 !
 &coupling_nml
   name                = 'TEST1'
@@ -162,107 +168,12 @@ cat > $dummy_1_namelist << EOF
 &transport_nml
 /
 EOF
+}
 #-----------------------------------------------------------------------------
 
 #-----------------------------------------------------------------------------
-# write dummy ICON namelist parameters
-# ------------------------
-# For a complete list see Namelist_overview and Namelist_overview.pdf
-#
-cat > $dummy_2_namelist << EOF
-!
-&coupling_nml
-  name                = 'TEST1'
-  time_step           =  ${dtime}
-  frequency           =  ${dtime}
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-/
-&coupling_nml
-  name                = 'TEST2'
-  time_step           =  ${dtime}
-  frequency           =  ${dtime}
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-/
-&coupling_nml
-  name                = 'TEST3'
-  time_step           =  ${dtime}
-  frequency           =  ${dtime}
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-/
-&coupling_nml
-  name                = 'TEST4'
-  time_step           =  ${dtime}
-  frequency           =  ${dtime}
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-/
-&coupling_nml
-  name                = 'TEST5'
-  time_step           =  ${dtime}
-  frequency           =  ${dtime}
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-/
-&coupling_nml
-  name                = 'TEST6'
-  time_step           =  ${dtime}
-  frequency           =  ${dtime}
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-/
-&coupling_nml
-  name                = 'TEST7'
-  time_step           =  ${dtime}
-  frequency           =  ${dtime}
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-/
-&coupling_nml
-  name                = 'TEST8'
-  time_step           =  ${dtime}
-  frequency           =  ${dtime}
-  l_time_average      = .FALSE.
-  l_time_accumulation = .FALSE.
-/
-&parallel_nml
- nproma         = ${nproma}
- p_test_run     = .false.
- l_test_openmp  = .false.
- l_log_checks   = .false.
-/
-&grid_nml
- cell_type = 3            ! triangular cells
- dynamics_grid_filename = "${atmo_dyn_grids}",
-/
-&gridref_nml
-/
-&run_nml
- num_lev     = ${nlev},        ! number of full levels of vertical grid
- ntracer     = 0            ! number of tracers
- nsteps      = ${nsteps}    ! [day] length of run
- dtime       = ${dtime}     ! [s] timestep
- ldynamics   = .TRUE.       ! dynamics
- ltransport  = .FALSE.      ! transport
- iforcing    = 0            ! no forcing
- ltestcase   = .TRUE.       ! run testcase
-/
-&testcase_nml
- ctest_name  = 'JWw'        ! test case identifier
-/
-&io_nml
- out_expname = '${EXPNAME}' ! file name base
-/
-&dynamics_nml
- iequations  = ${model_equations}       ! hydrostatic atmosphere using T as progn. var.
-/
-&diffusion_nml
-/
-&transport_nml
-/
-EOF
+create_namelist $dummy_1_namelist
+create_namelist $dummy_2_namelist
+create_namelist $dummy_3_namelist
 #-----------------------------------------------------------------------------
-
 
