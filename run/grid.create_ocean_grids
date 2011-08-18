@@ -215,7 +215,7 @@ create_ocean_grid()
   #-----------------------------------------------------------------------------
   # absolute paths of directories
   GRIDDIR=${basedir}/grids            # graphs, grids and patches
-  TOPODIR=${basedir}/data/external     # external directory for topography file
+  EXTDDIR=${basedir}/data/external     # external directory for topography file
   cd $GRIDDIR
   #-----------------------------------------------------------------------------
 
@@ -248,27 +248,33 @@ create_ocean_grid()
   # respective icon topography file interpolated from regular topography file $TOPFILE
   TOPICON=iconR${R}B${Bm1}-topo.nc
   # respective elevation file to read topography in icon grid for decision of sea-land-mask
-  if [[ $TOPFILE = "" ]] ; then
+  #  - for aquaplanet, or special basins: TOPFILE not used
+  if [[ "x$TOPFILE" == "x" ]]; then
     ELEVF=""
   else
     ELEVF="$GRIDDIR/$TOPICON"
   fi
 
   # interpolate regular topography into icon grid
-  if [[ $TOPFILE != "" ]]; then
-    if [[ ! -s  $GRIDDIR/$TOPICON ]]; then
-      if [[ -s  $TOPODIR/$TOPFILE ]]; then
-        echo " Now running:"
-        echo " cdo remapcon,$GRIDDIR/$INPGRID $TOPODIR/$TOPFILE $GRIDDIR/$TOPICON"
-        cdo remapcon,$GRIDDIR/$INPGRID $TOPODIR/$TOPFILE $GRIDDIR/$TOPICON
-        check_error $? "cdo remapcon,$GRIDDIR/$INPGRID $TOPODIR/$TOPFILE $GRIDDIR/$TOPICON"
+  if [[ "x$TOPFILE" != "x" ]]; then
+    if [[ ! -s  "$GRIDDIR/$TOPICON" ]]; then
+      # now use edited $TOPICON from EXTDDIR if it exists there under svn control:
+      if [[ -s  "$EXTDDIR/$TOPICON" ]]; then
+        cp "$EXTDDIR/$TOPICON" "$GRIDDIR/$TOPICON"
+        check_error $? "cp $EXTDIR/$TOPICON $GRIDDIR/$TOPICON"
       else
-        echo " no file  $TOPODIR/$TOPFILE available - exit script"
-        check_error 1 "no file $TOPODIR/$TOPFILE available - exit script"
-        exit 1
-      fi
-    fi
-  fi
+        if [[ -s  "$EXTDDIR/$TOPFILE" ]]; then
+          echo " Now running:"
+          echo " cdo remapcon,$GRIDDIR/$INPGRID $EXTDDIR/$TOPFILE $GRIDDIR/$TOPICON"
+          cdo remapcon,$GRIDDIR/$INPGRID $EXTDDIR/$TOPFILE $GRIDDIR/$TOPICON
+          check_error $? "cdo remapcon,$GRIDDIR/$INPGRID $EXTDDIR/$TOPFILE $GRIDDIR/$TOPICON"
+        else
+          echo " no file  $EXTDDIR/$TOPFILE available - exit script"
+          check_error 1 "no file $EXTDDIR/$TOPFILE available - exit script"
+        fi  # TOPFILE exists
+      fi  # EXTDDIR/TOPICON exists
+    fi  # GRIDDIR/TOPICON exists
+  fi  # TOPFILE needed
 
   #-----------------------------------------------------------------------------
   # namelist
@@ -399,7 +405,7 @@ if [[ x$create_etopo40_planet = "x.true." ]] ; then
   # grid parameters
   R=2                   # nroot
   B=4                   # number of bisections applied for the global grid
-  REFINE_ITERATIONS=1   # resolution for defining LSM is $B-$REFINE_ITERATIONS
+  REFINE_ITERATIONS=0   # resolution for defining LSM is $B-$REFINE_ITERATIONS
   optimize_ocean_grids=".false."
   only_get_sea_land_mask=".true."
   smooth_ocean_boundary=".true."
