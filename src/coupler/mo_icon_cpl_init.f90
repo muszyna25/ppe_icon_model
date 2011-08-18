@@ -83,7 +83,7 @@ MODULE mo_icon_cpl_init
   LOGICAL                        :: l_MPI_is_initialized ! to check whether MPI_init was called.
 
   CHARACTER(len=maxchar)         :: filename
-  LOGICAL                        :: unit_exists
+  LOGICAL                        :: unit_is_occupied
   INTEGER                        :: i          ! loop count
   ! Return code for error handling
 
@@ -184,8 +184,8 @@ CONTAINS
        ! Find a free unit
 
        DO i = 10, 100
-          INQUIRE (UNIT=i, EXIST=unit_exists)
-          IF ( .NOT. unit_exists ) EXIT
+          INQUIRE (UNIT=i, OPENED=unit_is_occupied)
+          IF ( .NOT. unit_is_occupied ) EXIT
        ENDDO
 
        IF ( i > 100 ) THEN
@@ -196,9 +196,11 @@ CONTAINS
           cplout = i
        ENDIF
 
+    ENDIF
+
+    IF ( l_debug ) THEN
        WRITE ( filename, '(a5,I1,A4)' )  'ICON_', ICON_global_rank, '.log'
        OPEN  ( unit = cplout, file = filename, status = 'unknown', form = 'formatted' )
-
     ENDIF
 
     ! -------------------------------------------------------------------

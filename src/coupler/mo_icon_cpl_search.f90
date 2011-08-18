@@ -762,7 +762,7 @@ CONTAINS
 
     ! Initialize lower and upper limits
 
-    location = 0
+    location = -1
 
     j1 = 0
 
@@ -783,13 +783,11 @@ CONTAINS
        ENDIF
 
        IF ( list_req == list(j2) ) THEN
-          j1 = j2
+          location = j2
           EXIT
        ENDIF
 
     ENDDO
-
-    location = j1
 
   END FUNCTION location
 
