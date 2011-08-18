@@ -187,6 +187,10 @@ CONTAINS
   REAL(wp),INTENT(OUT) :: pcftke  (kbdim,klev) !< exchange coeff. for TKE
   REAL(wp),INTENT(OUT) :: pcfthv  (kbdim,klev) !< exchange coeff. for variance of theta_v
 
+  REAL(wp) :: pevap_ac   (kbdim)      !< accumulated evaporation
+  REAL(wp) :: plhflx_ac  (kbdim)      !< accumulated latent   heat flux
+  REAL(wp) :: pshflx_ac  (kbdim)      !< accumulated sensible heat flux
+
   ! Local variables
 
   REAL(wp) :: zcpt_tile(kbdim,ksfc_type)
@@ -362,8 +366,9 @@ CONTAINS
                        & zqshear, ihpbl, pcfh_tile, pqsat_tile,       &! in
                        & pcfm_tile, pfrc, bb,                         &! in
                        & pkedisp(:),                                  &! inout ("pvdis" in echam)
-                       & pxvar(:,:), pz0m_tile(:,:),             &! inout
+                       & pxvar(:,:), pz0m_tile(:,:),                  &! inout
                        & pute, pvte, ptte, pqte, pxlte, pxite, pxtte, &! inout
+                       & pevap_ac, plhflx_ac, pshflx_ac,              &! inout
                        & pute_vdf, pvte_vdf, ptte_vdf, pqte_vdf,      &! out
                        & pxlte_vdf, pxite_vdf, pxtte_vdf,             &! out
                        & pxvarprod,                                   &! out ("pvdiffp" in echam)

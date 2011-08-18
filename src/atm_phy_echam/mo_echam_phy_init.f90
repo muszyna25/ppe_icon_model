@@ -359,6 +359,10 @@ CONTAINS
       field% ssfc  (:,  :) = 0._wp
       field% omega (:,:,:) = 0._wp
 
+      field%  evap_ac(:,  :) = 0._wp
+      field% lhflx_ac(:,  :) = 0._wp
+      field% shflx_ac(:,  :) = 0._wp
+
       field% rtype (:,  :) = 0._wp
       field% rintop(:,  :) = 0._wp
 
@@ -501,6 +505,10 @@ CONTAINS
       field% aprl  (:,  :) = 0._wp
       field% aprc  (:,  :) = 0._wp
       field% aprs  (:,  :) = 0._wp
+
+      field%  evap_ac(:,  :) = 0._wp
+      field% lhflx_ac(:,  :) = 0._wp
+      field% shflx_ac(:,  :) = 0._wp
 
       NULLIFY( field )
     ENDDO !jg

@@ -260,7 +260,7 @@ MODULE mo_echam_phy_memory
 
     ! need only for vdiff ----
 
-    ! Surface parameters
+    ! Surface variables
 
     LOGICAL, POINTER :: &
       & lfland(:,:),        &!< .TRUE. when fraction of land > 0.
@@ -277,6 +277,11 @@ MODULE mo_echam_phy_memory
 
     TYPE(t_ptr2d),ALLOCATABLE ::   tsfc_tile_ptr(:)
     TYPE(t_ptr2d),ALLOCATABLE :: qs_sfc_tile_ptr(:)
+
+    REAL(wp),POINTER :: &
+      & lhflx_ac (:,:),     &!< (time accum) grid box mean latent   heat flux at surface 
+      & shflx_ac (:,:),     &!< (time accum) grid box mean sensible heat flux at surface 
+      &  evap_ac (:,:)       !< (time accum) grid box mean evaporation at surface 
 
 !!$    ! Variables for debugging
 !!$    REAL(wp),POINTER :: &
@@ -1133,6 +1138,27 @@ CONTAINS
                   & ldims=shape2d )
     END DO
     !-----------------------------------
+
+    cf_desc    = t_cf_var('surface_evaporation_accum', '', &
+                         &'surface evaporation accum')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'evap_ac', field%evap_ac, &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,        &
+                & cf_desc, grib2_desc, ldims=shape2d            )
+
+    cf_desc    = t_cf_var('surface_LH_flux_accum', '',    &
+                         &'surface latent heat flux accum')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'lhflx_ac', field%lhflx_ac, &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,          &
+                & cf_desc, grib2_desc, ldims=shape2d              )
+
+    cf_desc    = t_cf_var('surface_SH_flux_accum', '',      &
+                         &'surface sensible heat flux accum')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'shflx_ac', field%shflx_ac, &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,          &
+                & cf_desc, grib2_desc, ldims=shape2d )
 
   END SUBROUTINE new_echam_phy_field_list
   !-------------

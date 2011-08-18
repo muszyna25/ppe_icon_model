@@ -367,6 +367,12 @@ CONTAINS
       ENDDO
     END DO
 
+    ! Translation for developers who prefer to think in terms of 
+    ! the Richtmyer-Morthon formula and are familiar with the paper by
+    ! Polcher et al (1998): after this elimination, 
+    !  aa(:,1:ibtm_mtrx(im)-1,2,:) becomes C  (Eqn. 17),
+    !  aa(:,1:ibtm_mtrx(im)-1,3,:) becomes -A (Eqn. 19).
+
   END SUBROUTINE matrix_setup_elim
   !-------------
   !>
@@ -503,8 +509,16 @@ CONTAINS
   !-------------
   !>
   !!
-  !! Gaussian elimination of the right-hand-side vector 
+  !! Gauss elimination of the right-hand-side vector 
   !! using coefficients obtained in subroutine "matrix_setup_elim".
+  !!
+  !! Translation for developers who prefer to think in terms of 
+  !! the Richtmyer-Morthon formula and are familiar with the paper by
+  !! Polcher et al (1998): after the elimination at the end of 
+  !! subroutine matrix_setup_elim, aa(:,1:ibtm_mtrx(im)-1,2,:) 
+  !! became the coeff C defined by Eqn. 17 of Polcher et al 1998). 
+  !! It is used in this subroutine to convert the variable bb 
+  !! into the Richtmyer coeff B (cf Eqn. 19 of Polcher et al 1998).
   !!
   SUBROUTINE rhs_elim( kproma, kbdim, itop, klev, klevm1, &! in 
                      & aa, bb                             )! in, inout
@@ -710,6 +724,16 @@ CONTAINS
   !-------------
   !>
   !!
+  !! Do Back-substitution to get the solution of the linear system.
+  !!
+  !! Translation for developers who prefer to think in terms of 
+  !! the Richtmyer-Morthon formula and are familiar with the paper by
+  !! Polcher et al (1998): on entry bb contains the solution 
+  !! at the bottom level and the coeff B on upper levels;
+  !! On exit it becomes the solution of the linear system.
+  !! Note that VDIFF uses the implicit time stepping as in IFS
+  !! in contrast to Polcher et al (1998). Thus the solution is 
+  !! not yet the new value at time step t+dt. 
   !!
   SUBROUTINE rhs_bksub( kproma, kbdim, itop, klev, aa, bb )
 
@@ -748,6 +772,7 @@ CONTAINS
                              & pkedisp, pxvar, pz0m_tile,            &! inout
                              & pute, pvte, ptte, pqte,               &! inout
                              & pxlte, pxite, pxtte,                  &! inout
+                             & pevap_ac, plhflx_ac, pshflx_ac,       &! inout
                              & pute_vdf, pvte_vdf, ptte_vdf,         &! out
                              & pqte_vdf, pxlte_vdf, pxite_vdf,       &! out
                              & pxtte_vdf, pxvarprod, pz0m,           &! out
@@ -816,11 +841,12 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pqv_mflux_sfc(kbdim)  !< surface mass flux of water vapour
                                                   !< "pqhfla" in echam
     REAL(wp)  :: pevap_tile  (kbdim,ksfc_type)
-    REAL(wp)  :: pevap_ac    (kbdim)
     REAL(wp)  :: plhflx_tile (kbdim,ksfc_type)
-    REAL(wp)  :: plhflx_ac   (kbdim)
     REAL(wp)  :: pshflx_tile (kbdim,ksfc_type)
-    REAL(wp)  :: pshflx_ac   (kbdim)
+
+    REAL(wp),INTENT(INOUT):: pevap_ac    (kbdim)
+    REAL(wp),INTENT(INOUT):: plhflx_ac   (kbdim)
+    REAL(wp),INTENT(INOUT):: pshflx_ac   (kbdim)
 
     REAL(wp) :: ztest, zrdt, zconst
     REAL(wp) :: zunew, zvnew, zqnew, zsnew, ztnew, dqv

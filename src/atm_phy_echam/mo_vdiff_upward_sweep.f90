@@ -77,6 +77,7 @@ CONTAINS
                        pzthvvar,   pxvar,       pz0m_tile,   pkedisp,    &! inout
                        pute,       pvte,        ptte,        pqte,       &! inout
                        pxlte,      pxite,       pxtte,                   &! inout
+                       pevap_ac,   plhflx_ac,   pshflx_ac,               &! inout
                        pute_vdf,   pvte_vdf,    ptte_vdf,                &! out
                        pqte_vdf,   pxlte_vdf,   pxite_vdf,   pxtte_vdf,  &! out
                        pxvarprod,  pvmixtau,    pqv_mflux_sfc,    pz0m,  &! out
@@ -174,7 +175,11 @@ CONTAINS
                                                       !< at the new time step t
     REAL(wp),INTENT(OUT) :: pthvsig      (kbdim)      !< sqrt( variance of theta_v )
   
-    REAL(wp),INTENT(INOUT) :: ptke  (kbdim,klev)
+    REAL(wp),INTENT(INOUT) :: ptke       (kbdim,klev)
+    REAL(wp),INTENT(INOUT) :: pevap_ac   (kbdim)      !< accumulated evaporation 
+    REAL(wp),INTENT(INOUT) :: plhflx_ac  (kbdim)      !< accumulated latent   heat flux 
+    REAL(wp),INTENT(INOUT) :: pshflx_ac  (kbdim)      !< accumulated sensible heat flux 
+
   
     !-----------------------------------------------------------------------
     ! 5. Handle fractional surfaces (tiles) and obtain solution of 
@@ -212,6 +217,7 @@ CONTAINS
                          & pkedisp(:),                                  &! inout ("pvdis" in echam)
                          & pxvar(:,:), pz0m_tile(:,:),                  &! inout
                          & pute, pvte, ptte, pqte, pxlte, pxite, pxtte, &! inout
+                         & pevap_ac, plhflx_ac, pshflx_ac,              &! inout
                          & pute_vdf, pvte_vdf, ptte_vdf, pqte_vdf,      &! out
                          & pxlte_vdf, pxite_vdf, pxtte_vdf,             &! out
                          & pxvarprod,                                   &! out ("pvdiffp" in echam)

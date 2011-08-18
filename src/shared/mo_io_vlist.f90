@@ -2318,6 +2318,11 @@ CONTAINS
       CASE ('ACLCOV');          ptr2 => prm_field(jg)%aclcov(:,:); reset = .TRUE.
       CASE ('ACLC');            ptr3 => prm_field(jg)%aclc
       CASE ('ACLCAC');          ptr3 => prm_field(jg)%aclcac;      reset = .TRUE.
+
+      CASE ('EVAP_AC');         ptr2 => prm_field(jg)% evap_ac(:,:); reset = .TRUE.
+      CASE ('LHFLX_AC');        ptr2 => prm_field(jg)%lhflx_ac(:,:); reset = .TRUE.
+      CASE ('SHFLX_AC');        ptr2 => prm_field(jg)%shflx_ac(:,:); reset = .TRUE.
+
       CASE ('OMEGA_PHY');       ptr3 => prm_field(jg)%omega
       CASE ('tend_temp_radsw'); ptr3 => prm_tend(jg)%temp_radsw
       CASE ('tend_temp_radlw'); ptr3 => prm_tend(jg)%temp_radlw

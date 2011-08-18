@@ -711,10 +711,13 @@ CONTAINS
                    &  zqtvar_prod,                    &! out, for "cloud" ("zvdiffp" in echam)
                    &  zvmixtau,                       &! out, for "cloud"
                    &  zqhflx,                         &! out, for "cloud"
-                   & field% z0m   (:,  jb),           &! out, for the next step
-                   & field% thvvar(:,:,jb),           &! out, for the next step
-                   & field% thvsig(:,  jb),           &! out, for "cucall"
-                   & field%    tke(:,:,jb)            )! out
+                   & field%  evap_ac(:,  jb),         &! out
+                   & field% lhflx_ac(:,  jb),         &! out
+                   & field% shflx_ac(:,  jb),         &! out
+                   & field%   z0m   (:,  jb),         &! out, for the next step
+                   & field%   thvvar(:,:,jb),         &! out, for the next step
+                   & field%   thvsig(:,  jb),         &! out, for "cucall"
+                   & field%      tke(:,:,jb)          )! out
 
 !    ! TIME FILTER FOR TURBULENT KINETIC ENERGY
 !

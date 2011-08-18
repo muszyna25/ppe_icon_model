@@ -264,7 +264,7 @@ CONTAINS
   
     !-----------------------------------------------------------------------
     ! 3. Set up coefficient matrix of the tri-diagonal system, then perform
-    !    Gaussian elimination for the matrix. The matrix is built from
+    !    Gauss elimination for the matrix. The matrix is built from
     !    - the exchange coefficients;
     !    - the prefactor "zprfac" and some additional constants ("zconst")
     !      which are determined by the spatial and temporal discretization
@@ -292,7 +292,7 @@ CONTAINS
 
     !-----------------------------------------------------------------------
     ! 4. Set up right-hand side of the tri-diagonal system and perform 
-    !    Gaussian elimination. Factors that determine the r.h.s. include
+    !    Gauss elimination. Factors that determine the r.h.s. include
     !    - time stepping scheme used for vertical diffusion
     !    - whether there is any other process (e.g., tracer emission)
     !      solved together with vertical diffusion.
