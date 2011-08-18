@@ -74,15 +74,17 @@ MODULE mo_icon_cpl_search
 
 #ifndef NOMPI
 
-  USE mo_icon_cpl, ONLY : t_grid, t_target_struct,                    & 
-       &                      source_locs, target_locs,               &
-       &                      msg_len, rstatus, wstatus, initag,      &
-       &                      cplout, l_debug, debug_level,           &
-       &                      nbr_active_comps, nbr_active_grids,     &
-       &                      ICON_root, ICON_comm, ICON_comm_active, &
-       &                      ICON_global_rank, ICON_global_size,     &
-       &                      all_extents, grids,                     &
-       &                      MPI_SUCCESS, MPI_SOURCE, MPI_INTEGER, MPI_TAG, MPI_ANY_SOURCE
+  USE mpi,         ONLY : MPI_SUCCESS, MPI_SOURCE, MPI_INTEGER,   &
+       &                  MPI_STATUS_SIZE, MPI_TAG, MPI_ANY_SOURCE
+
+  USE mo_icon_cpl, ONLY : target_locs, t_target_struct,           & 
+       &                  source_locs,                            &
+       &                  msg_len, initag,                        &
+       &                  cplout, l_debug, debug_level,           &
+       &                  nbr_active_comps, nbr_active_grids,     &
+       &                  ICON_root, ICON_comm, ICON_comm_active, &
+       &                  ICON_global_rank, ICON_global_size,     &
+       &                  grids, t_grid
 
   USE mo_icon_cpl_send_restart, ONLY : ICON_cpl_send_restart
 
@@ -93,6 +95,9 @@ MODULE mo_icon_cpl_search
   PRIVATE
 
   INTEGER, PARAMETER :: incr = 256
+
+  INTEGER :: rstatus(MPI_STATUS_SIZE) ! MPI_Irecv status
+  INTEGER :: wstatus(MPI_STATUS_SIZE) ! MPI_Wait status
 
   INTEGER :: i, j, ii, n
   INTEGER :: source_list_len
@@ -119,6 +124,7 @@ MODULE mo_icon_cpl_search
   INTEGER, ALLOCATABLE :: msg_fm_src (:,:)
   INTEGER, ALLOCATABLE :: lrequests  (:)
 
+  INTEGER, ALLOCATABLE :: all_extents(:,:)
   INTEGER, ALLOCATABLE :: idx(:)
   INTEGER, ALLOCATABLE :: grid_global_index(:)
 

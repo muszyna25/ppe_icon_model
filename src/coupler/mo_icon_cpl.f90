@@ -122,15 +122,12 @@
 !!
 MODULE mo_icon_cpl
 
-#ifndef NOMPI
-  USE mpi
-#endif
   USE mo_kind, ONLY      : wp
   USE mo_time_base, ONLY : t_julian_date
 
   IMPLICIT NONE
   
-  PUBLIC
+  PRIVATE
 
   ! Info for put action
 
@@ -148,13 +145,9 @@ MODULE mo_icon_cpl
   INTEGER, PARAMETER        :: debug_level = 2
   INTEGER                   :: cplout   ! output unit, determined in init_comp
 
-  CHARACTER(len=maxchar)    :: filename
-
   ! Component specific values
 
-  INTEGER                   :: comp_id
   INTEGER                   :: comp_comm
-  INTEGER                   :: ierr
 
   ! MPI Communicator handling
 
@@ -236,7 +229,7 @@ MODULE mo_icon_cpl
 !! - couping_freq coupling frequency in seconds
 !!
 
-  TYPE t_field
+  TYPE t_cpl_field
      INTEGER                :: comp_id
      INTEGER                :: grid_id
      INTEGER                :: global_field_id
@@ -247,11 +240,11 @@ MODULE mo_icon_cpl
      CHARACTER(len=maxchar) :: field_name
      REAL(wp), POINTER      :: send_field_acc(:,:) => NULL()
      TYPE(t_coupling)       :: coupling
-  END TYPE t_field
+  END TYPE t_cpl_field
 
   TYPE (t_comp),  POINTER     :: comps (:)     => NULL()
   TYPE (t_grid),  POINTER     :: grids (:)     => NULL()
-  TYPE (t_field), POINTER     :: fields(:)     => NULL()
+  TYPE (t_cpl_field), POINTER :: cpl_fields(:) => NULL()
 
   TYPE(t_julian_date)       :: initial_date
   TYPE(t_julian_date)       :: final_date
@@ -277,12 +270,7 @@ MODULE mo_icon_cpl
   ! General MPI function arguments
 
   INTEGER, PARAMETER        :: initag = 100 ! base tag to mark header
-  INTEGER                   :: index        ! returned index from MPI_Waitany
   INTEGER                   :: datatype     ! MPI data type
-#ifndef NOMPI
-  INTEGER                   :: rstatus(MPI_STATUS_SIZE) ! MPI_Irecv status
-  INTEGER                   :: wstatus(MPI_STATUS_SIZE) ! MPI_Wait status
-#endif
 
   ! ===================================================================
   !
@@ -338,6 +326,7 @@ MODULE mo_icon_cpl
 
   TYPE t_source_struct
      INTEGER                    :: target_rank              ! soure partner rank 
+
      INTEGER                    :: source_list_len          ! size of source_list
      INTEGER, POINTER           :: source_list(:) => NULL() ! found source locations for source
      INTEGER, POINTER           :: target_list(:) => NULL() ! found source locations for target
@@ -368,11 +357,36 @@ MODULE mo_icon_cpl
 
   INTEGER, PARAMETER            :: msg_len = 3
 
-  ! Store and grid extents
+  PUBLIC :: l_MPI_was_initialized
+  PUBLIC :: ICON_comm, ICON_comm_active
+  PUBLIC :: ICON_root, ICON_global_rank, ICON_global_size
+  PUBLIC :: ICON_local_rank, ICON_local_size
+  PUBLIC :: set_cpl_local_comm, get_cpl_local_comm
+  PUBLIC :: msg_len
+  PUBLIC :: initag
 
-  INTEGER, Allocatable          :: all_extents(:,:)
+  PUBLIC :: datatype
+  PUBLIC :: PRISM_CHARACTER, PRISM_INTEGER,     &
+   &        PRISM_LOGICAL, PRISM_REAL,          &
+   &        PRISM_DOUBLE_PRECISION,             &
+   &        PRISM_COMPLEX, PRISM_DOUBLE_COMPLEX
 
-  PRIVATE :: comp_comm
+  PUBLIC :: initial_date
+  PUBLIC :: grids, t_grid
+  PUBLIC :: comps, t_comp
+  PUBLIC :: cpl_fields, t_cpl_field
+  PUBLIC :: t_coupling
+  PUBLIC :: cpl_field_none, cpl_field_avg, cpl_field_acc
+  PUBLIC :: nbr_active_comps, nbr_active_grids, nbr_active_fields
+  PUBLIC :: nbr_ICON_fields, nbr_ICON_comps, nbr_ICON_grids
+  PUBLIC :: nbr_ICON_inc
+
+  PUBLIC :: source_locs, t_source_struct
+  PUBLIC :: target_locs, t_target_struct
+  
+
+  PUBLIC :: l_debug, debug_level, cplout
+  PUBLIC :: maxchar
 
   CONTAINS
 
@@ -388,20 +402,7 @@ MODULE mo_icon_cpl
 
     INTEGER FUNCTION get_cpl_local_comm ()
 
-#ifndef NOMPI
-      IF ( comp_comm /= MPI_COMM_NULL ) THEN
-         get_cpl_local_comm = comp_comm
-      ELSE
-         get_cpl_local_comm = 0
-
-         ! Rene:
-         ! TODO: Should we stop here and return an error message
-         !       or ignore this case and just provide MPI_COMM_NULL?
-
-      ENDIF
-#else
-      get_cpl_local_comm = 0
-#endif
+      get_cpl_local_comm = comp_comm
 
     END FUNCTION get_cpl_local_comm
 

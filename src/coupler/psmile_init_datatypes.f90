@@ -12,7 +12,13 @@ SUBROUTINE psmile_init_datatypes ( ierror )
   !
   ! !USES:
   !
-  USE mo_icon_cpl
+#ifndef NOMPI
+  USE mpi
+#endif
+  USE mo_icon_cpl, ONLY : PRISM_CHARACTER, PRISM_INTEGER,     &
+   &                      PRISM_LOGICAL, PRISM_REAL,          &
+   &                      PRISM_DOUBLE_PRECISION,             &
+   &                      PRISM_COMPLEX, PRISM_DOUBLE_COMPLEX
 
   IMPLICIT NONE
   !

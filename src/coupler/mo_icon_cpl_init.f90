@@ -59,20 +59,15 @@ MODULE mo_icon_cpl_init
 
 #ifndef NOMPI
 
+  USE mpi
+
   USE mo_icon_cpl, ONLY : comps, nbr_ICON_comps, datatype,    &
-   &                      MPI_DOUBLE_PRECISION, MPI_REAL,     &
-   &                      MPI_CHARACTER, MPI_INTEGER,         &
-   &                      MPI_LOGICAL, MPI_COMPLEX,           &
-   &                      MPI_DOUBLE_COMPLEX,                 &
-   &                      MPI_COMM_WORLD, MPI_SUCCESS,        &
-   &                      MPI_DATATYPE_NULL,                  &
    &                      PRISM_CHARACTER, PRISM_INTEGER,     &
    &                      PRISM_LOGICAL, PRISM_REAL,          &
    &                      PRISM_DOUBLE_PRECISION,             &
    &                      PRISM_COMPLEX, PRISM_DOUBLE_COMPLEX,&
    &                      l_MPI_was_initialized,              &
-   &                      l_debug, cplout,                    &
-   &                      filename,                           &
+   &                      l_debug, cplout, maxchar            &
    &                      ICON_comm,                          &
    &                      ICON_global_rank, ICON_global_size
 
@@ -86,6 +81,7 @@ MODULE mo_icon_cpl_init
 
   LOGICAL                        :: l_MPI_is_initialized ! to check whether MPI_init was called.
 
+  CHARACTER(len=maxchar)         :: filename
   LOGICAL                        :: unit_exists
   INTEGER                        :: i          ! loop count
   ! Return code for error handling

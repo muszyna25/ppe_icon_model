@@ -51,8 +51,9 @@ MODULE mo_icon_cpl_exchg
   USE mo_event_manager, ONLY : event_check, events
 
 #ifndef NOMPI
+  USE mpi, ONLY : MPI_INTEGER, MPI_TAG, MPI_SOURCE, MPI_STATUS_SIZE
 
-  USE mo_icon_cpl, ONLY : t_field, fields,  &
+  USE mo_icon_cpl, ONLY : t_cpl_field, cpl_fields,  &
    &                      nbr_ICON_fields,  &
    &                      t_source_struct, source_locs, &
    &                      t_target_struct, target_locs, &
@@ -62,16 +63,9 @@ MODULE mo_icon_cpl_exchg
    &                      initag,           &
    &                      msg_len,          &
    &                      datatype,         &
-   &                      wstatus,          &
    &                      datatype,         &
-   &                      rstatus,          &
-   &                      wstatus,          &
-   &                      index,            &
    &                      cpl_field_none,   &
-   &                      cpl_field_avg,    &
-   &                      MPI_TAG,          &
-   &                      MPI_SOURCE,       &
-   &                      MPI_INTEGER
+   &                      cpl_field_avg
   
   USE mo_icon_cpl_write_restart, ONLY : icon_cpl_write_restart
 
@@ -79,12 +73,16 @@ MODULE mo_icon_cpl_exchg
 
   PRIVATE
 
-  TYPE(t_field), POINTER         :: fptr
+  TYPE(t_cpl_field), POINTER         :: fptr
   TYPE(t_source_struct), POINTER :: sptr
   TYPE(t_target_struct), POINTER :: tptr
 
+  INTEGER                        :: rstatus(MPI_STATUS_SIZE) ! MPI_Irecv status
+  INTEGER                        :: wstatus(MPI_STATUS_SIZE) ! MPI_Wait status
+
   INTEGER, ALLOCATABLE           :: lrequests(:)
   INTEGER                        :: msgtag
+  INTEGER                        :: index
 
   INTEGER                        :: msg_to_tgt(msg_len)
   INTEGER, ALLOCATABLE           :: msg_fm_src(:,:)
@@ -109,16 +107,11 @@ MODULE mo_icon_cpl_exchg
 
 #else
 
-  USE mo_icon_cpl, ONLY : nbr_ICON_fields, t_field, fields, target_locs
-!DR Quick fix for sequential compilation
-  USE mo_icon_cpl, ONLY : nbr_ICON_fields, fields
+  USE mo_icon_cpl, ONLY : nbr_ICON_fields, t_cpl_field, cpl_fields, target_locs
 
   IMPLICIT NONE
 
   PRIVATE
-
-!  TYPE(t_field), POINTER         :: fptr
-!  INTEGER                        :: n_send
 
 #endif
 
@@ -145,7 +138,7 @@ CONTAINS
 
     IF ( field_id < 1 .OR.  field_id > nbr_ICON_fields ) RETURN
 
-    IF ( .NOT. fields(field_id)%l_field_status ) RETURN
+    IF ( .NOT. cpl_fields(field_id)%l_field_status ) RETURN
 
 #ifndef NOMPI
 
@@ -153,7 +146,7 @@ CONTAINS
     ! Check event
     ! -------------------------------------------------------------------
 
-    fptr => fields(field_id)
+    fptr => cpl_fields(field_id)
 
     l_action = event_check ( fptr%event_id )
 
@@ -301,7 +294,7 @@ CONTAINS
 
     IF ( field_id < 1 .OR.  field_id > nbr_ICON_fields ) RETURN
 
-    IF ( .NOT. fields(field_id)%l_field_status ) RETURN
+    IF ( .NOT. cpl_fields(field_id)%l_field_status ) RETURN
 
     ! -------------------------------------------------------------------
     ! First check whether this process has to send data to someone else
@@ -314,7 +307,7 @@ CONTAINS
 
     IF ( n_send == 0 ) RETURN
 
-    fptr => fields(field_id)
+    fptr => cpl_fields(field_id)
 
     ! -------------------------------------------------------------------
     ! Store data for averaging and/or accumulation

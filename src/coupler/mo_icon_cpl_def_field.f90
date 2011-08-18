@@ -41,9 +41,9 @@
 MODULE mo_icon_cpl_def_field
 
   USE mo_icon_cpl, ONLY         : ICON_comm,         & ! MPI communicator
-     &                            t_field,           & ! Field type
+     &                            t_cpl_field,           & ! Field type
      &                            t_comp,            & ! Field type
-     &                            fields,            & ! exchange fields
+     &                            cpl_fields,            & ! exchange fields
      &                            nbr_ICON_inc,      & ! increment for memory
      &                            nbr_active_fields, & ! total number of coupling fields
      &                            nbr_ICON_fields,   & ! allocated size for fields
@@ -51,15 +51,15 @@ MODULE mo_icon_cpl_def_field
      &                            cpl_field_avg,     &
      &                            cpl_field_acc
 
-  USE mo_coupling_config, ONLY  : config_fields
+  USE mo_coupling_config, ONLY  : config_cpl_fields
   USE mo_event_manager, ONLY    : event_add
 
   IMPLICIT NONE
 
   PRIVATE
 
-  TYPE(t_field), POINTER        :: fptr
-  TYPE(t_field), POINTER        :: new_fields(:)
+  TYPE(t_cpl_field), POINTER        :: fptr
+  TYPE(t_cpl_field), POINTER        :: new_cpl_fields(:)
   INTEGER                       :: global_field_id
   INTEGER                       :: i
   INTEGER                       :: new_dim
@@ -99,7 +99,7 @@ CONTAINS
     ! -------------------------------------------------------------------
 
     DO field_id = 1, nbr_ICON_fields
-       IF ( .NOT. fields(field_id)%l_field_status ) EXIT
+       IF ( .NOT. cpl_fields(field_id)%l_field_status ) EXIT
     ENDDO
 
     IF ( field_id > nbr_ICON_fields ) THEN
@@ -108,7 +108,7 @@ CONTAINS
 
        new_dim = nbr_ICON_fields + nbr_ICON_inc
 
-       ALLOCATE ( new_fields(new_dim), STAT = ierr )
+       ALLOCATE ( new_cpl_fields(new_dim), STAT = ierr )
        IF ( ierr > 0 ) THEN
           WRITE ( * , * ) ' Error allocating fields '
 #ifndef NOMPI
@@ -116,29 +116,29 @@ CONTAINS
 #endif
        ENDIF
 
-       new_fields (1:nbr_ICON_fields) = &
-           fields (1:nbr_ICON_fields)
+       new_cpl_fields (1:nbr_ICON_fields) = &
+           cpl_fields (1:nbr_ICON_fields)
 
        DO i = nbr_ICON_fields+1, new_dim
-          new_fields(i)%comp_id         = 0
-          new_fields(i)%grid_id         = 0
-          new_fields(i)%global_field_id = 0
-          new_fields(i)%field_shape     = 0
-          new_fields(i)%l_field_status  = .FALSE.
+          new_cpl_fields(i)%comp_id         = 0
+          new_cpl_fields(i)%grid_id         = 0
+          new_cpl_fields(i)%global_field_id = 0
+          new_cpl_fields(i)%field_shape     = 0
+          new_cpl_fields(i)%l_field_status  = .FALSE.
 
-          new_fields(i)%coupling%lag       = 0
-          new_fields(i)%coupling%frequency = 0
-          new_fields(i)%coupling%time_step = 0
-          new_fields(i)%coupling%time_operation = 0
+          new_cpl_fields(i)%coupling%lag       = 0
+          new_cpl_fields(i)%coupling%frequency = 0
+          new_cpl_fields(i)%coupling%time_step = 0
+          new_cpl_fields(i)%coupling%time_operation = 0
 
-          Nullify ( new_fields(i)%send_field_acc )
+          Nullify ( new_cpl_fields(i)%send_field_acc )
 
        ENDDO
 
        !
        !   De-allocate fields vector
        !
-       DEALLOCATE ( fields, STAT = ierr )
+       DEALLOCATE ( cpl_fields, STAT = ierr )
        IF (ierr > 0) THEN
           WRITE ( * , * ) ' Error deallocating fields '
 #ifndef NOMPI
@@ -152,7 +152,7 @@ CONTAINS
 
        ! Update field pointer
 
-       fields => new_fields
+       cpl_fields => new_cpl_fields
 
        ! Update size of Field type
 
@@ -160,7 +160,7 @@ CONTAINS
 
     ENDIF
 
-    fptr => fields(field_id)
+    fptr => cpl_fields(field_id)
 
     ! -------------------------------------------------------------------
     ! Determine global field_id
@@ -178,14 +178,14 @@ CONTAINS
     !
     ! -------------------------------------------------------------------
 
-    nbr_max_fields = SIZE(config_fields)
+    nbr_max_fields = SIZE(config_cpl_fields)
 
     ! -------------------------------------------------------------------
     ! Rather than doing a string comparision we could used hash values
     ! -------------------------------------------------------------------
 
     DO global_field_id = 1, nbr_max_fields
-       IF ( TRIM(field_name) == TRIM(config_fields(global_field_id)%name) ) THEN
+       IF ( TRIM(field_name) == TRIM(config_cpl_fields(global_field_id)%name) ) THEN
           WRITE ( * , * ) ' Global Field ID is: ', global_field_id
           EXIT
        ENDIF
@@ -217,17 +217,17 @@ CONTAINS
     ! Initialize coupling, substitute for the OASIS4 XML reading and storage
     ! -------------------------------------------------------------------
 
-    IF ( config_fields(global_field_id)%l_time_accumulation ) THEN
+    IF ( config_cpl_fields(global_field_id)%l_time_accumulation ) THEN
        fptr%coupling%time_operation = cpl_field_acc
-    ELSE IF ( config_fields(global_field_id)%l_time_average ) THEN
+    ELSE IF ( config_cpl_fields(global_field_id)%l_time_average ) THEN
        fptr%coupling%time_operation = cpl_field_avg
     ELSE
        fptr%coupling%time_operation = cpl_field_none
     ENDIF
 
-    fptr%coupling%lag       = config_fields(global_field_id)%lag
-    fptr%coupling%frequency = config_fields(global_field_id)%frequency
-    fptr%coupling%time_step = config_fields(global_field_id)%time_step
+    fptr%coupling%lag       = config_cpl_fields(global_field_id)%lag
+    fptr%coupling%frequency = config_cpl_fields(global_field_id)%frequency
+    fptr%coupling%time_step = config_cpl_fields(global_field_id)%time_step
 
     ! -------------------------------------------------------------------
     ! Signal new coupling event and store event_id in  fptr%event_id

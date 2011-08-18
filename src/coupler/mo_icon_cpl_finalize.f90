@@ -46,14 +46,13 @@
 MODULE mo_icon_cpl_finalize
 
 #ifndef NOMPI
-
+  USE mpi,         ONLY : MPI_SUCCESS
   USE mo_icon_cpl, ONLY : ICON_comm_active,       &
    &                      cplout,                 &
    &                      l_debug,                &
    &                      l_MPI_was_initialized,  &
    &                      target_locs,            &
-   &                      source_locs,            &
-   &                      MPI_SUCCESS
+   &                      source_locs
 
 #else
 

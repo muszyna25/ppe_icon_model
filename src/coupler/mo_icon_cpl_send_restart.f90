@@ -45,14 +45,14 @@ MODULE mo_icon_cpl_send_restart
 
   USE mo_kind, ONLY           : wp
   USE mo_io_units, ONLY       : find_next_free_unit
-  USE mo_icon_cpl, ONLY       : t_field, fields, nbr_active_fields
+  USE mo_icon_cpl, ONLY       : t_cpl_field, cpl_fields, nbr_active_fields
   USE mo_icon_cpl_exchg, ONLY : icon_cpl_put
 
   IMPLICIT NONE
 
   PRIVATE
 
-  TYPE(t_field), POINTER :: fptr
+  TYPE(t_cpl_field), POINTER :: fptr
 
   REAL(wp), ALLOCATABLE  :: coupling_field(:,:)
 
@@ -84,7 +84,7 @@ CONTAINS
 
     DO field_id = 1, nbr_active_fields
 
-       fptr => fields(field_id)
+       fptr => cpl_fields(field_id)
 
        IF ( fptr%coupling%lag > 0 ) THEN
 

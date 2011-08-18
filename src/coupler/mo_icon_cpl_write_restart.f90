@@ -43,13 +43,13 @@ MODULE mo_icon_cpl_write_restart
 
   USE mo_kind, ONLY           : wp
   USE mo_io_units, ONLY       : find_next_free_unit
-  USE mo_icon_cpl, ONLY       : t_field, fields
+  USE mo_icon_cpl, ONLY       : t_cpl_field, cpl_fields
 
   IMPLICIT NONE
 
   PRIVATE
 
-  TYPE(t_field), POINTER :: fptr
+  TYPE(t_cpl_field), POINTER :: fptr
 
   INTEGER                :: len
   INTEGER                :: rest_unit
@@ -78,7 +78,7 @@ CONTAINS
 
     WRITE(file_name(1:7), '(A7)') 'restart'
 
-    fptr => fields(field_id)
+    fptr => cpl_fields(field_id)
 
     len = LEN_TRIM(fptr%field_name) - 1
     WRITE(file_name(8:8+len), '(A7)') TRIM( fptr%field_name )

@@ -48,7 +48,7 @@ MODULE mo_coupling_nml
   USE mo_io_units,        ONLY: nnml
   USE mo_namelist,        ONLY: open_nml, close_nml, position_nml, POSITIONED
 
-  USE mo_coupling_config, ONLY: t_field_nml, config_fields
+  USE mo_coupling_config, ONLY: t_cpl_field_nml, config_cpl_fields
 
   IMPLICIT NONE
 
@@ -96,30 +96,19 @@ CONTAINS
     ! Local variables
     !
 
-    TYPE(t_field_nml), POINTER :: new_fields(:)
+    TYPE(t_cpl_field_nml), POINTER :: new_cpl_fields(:)
 
     INTEGER :: i
     INTEGER :: ierr
     INTEGER :: new_dim
 
-    INTEGER :: nbr_fields
+    INTEGER :: nbr_cpl_fields
     INTEGER :: istat
     LOGICAL :: first
     LOGICAL :: l_redirect_stdout
 
     CHARACTER(len=max_char_length), PARAMETER :: &
          &   routine = 'mo_coupling_nml:read_coupling_namelist'
-
-    ! -------------------------------------------------------------------
-    ! Allocate space for namelist input
-    ! -------------------------------------------------------------------
-
-    nbr_fields = 8
-
-    ALLOCATE(config_fields(nbr_fields), STAT = ierr )
-
-    IF ( ierr > 0 ) &
-         CALL finish ( TRIM(routine), ' Error allocating fields ' )
 
     !--------------------------------------------------------------------
     ! 1. Set default values
@@ -169,7 +158,7 @@ CONTAINS
        first = .FALSE.
 
        !-----------------------------------------------------------------
-       ! 3.b if namelist group is present
+       ! 3.b if namelist group is present ...
        !-----------------------------------------------------------------
 
        SELECT CASE (istat)
@@ -181,30 +170,45 @@ CONTAINS
           i = i + 1
 
           !--------------------------------------------------------------
-          ! 3.c allocate more memory if needed
+          ! 3.c allocate memory
           !--------------------------------------------------------------
 
-          IF ( i > nbr_fields ) THEN
+          IF ( .NOT. ASSOCIATED(config_cpl_fields) ) THEN
+
+            nbr_cpl_fields = 8
+
+            ALLOCATE(config_cpl_fields(nbr_cpl_fields), STAT = ierr )
+
+            IF ( ierr > 0 ) &
+               CALL finish ( TRIM(routine), ' Error allocating cpl_fields ' )
+
+          ENDIF
+
+          !--------------------------------------------------------------
+          ! 3.d increase memory if needed
+          !--------------------------------------------------------------
+
+          IF ( i > nbr_cpl_fields ) THEN
 
              ! we need to allocated more memory
 
-             new_dim = nbr_fields + 8
+             new_dim = nbr_cpl_fields + 8
 
-             ALLOCATE ( new_fields(new_dim), STAT = ierr )
+             ALLOCATE ( new_cpl_fields(new_dim), STAT = ierr )
              IF ( ierr > 0 ) &
-                  CALL finish ( TRIM(routine), ' Error allocating fields ' )
+                  CALL finish ( TRIM(routine), ' Error allocating cpl_fields ' )
 
-             new_fields (1:nbr_fields) = config_fields (1:nbr_fields)
+             new_cpl_fields (1:nbr_cpl_fields) = config_cpl_fields (1:nbr_cpl_fields)
 
-             DEALLOCATE ( config_fields, STAT = ierr )
+             DEALLOCATE ( config_cpl_fields, STAT = ierr )
              IF ( ierr > 0 ) &
-                  CALL finish ( TRIM(routine), ' Error deallocating fields ' )
+                  CALL finish ( TRIM(routine), ' Error deallocating cpl_fields ' )
 
-             config_fields => new_fields
+             config_cpl_fields => new_cpl_fields
 
              ! update size
 
-             nbr_fields = new_dim
+             nbr_cpl_fields = new_dim
 
           ENDIF
 
@@ -219,12 +223,12 @@ CONTAINS
           ! 5. Fill the configuration state
           !--------------------------------------------------------------
 
-          config_fields(i)%name                = name
-          config_fields(i)%frequency           = frequency
-          config_fields(i)%time_step           = time_step
-          config_fields(i)%lag                 = lag
-          config_fields(i)%l_time_average      = l_time_average
-          config_fields(i)%l_time_accumulation = l_time_accumulation
+          config_cpl_fields(i)%name                = name
+          config_cpl_fields(i)%frequency           = frequency
+          config_cpl_fields(i)%time_step           = time_step
+          config_cpl_fields(i)%lag                 = lag
+          config_cpl_fields(i)%l_time_average      = l_time_average
+          config_cpl_fields(i)%l_time_accumulation = l_time_accumulation
 
        END SELECT
 

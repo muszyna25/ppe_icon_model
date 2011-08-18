@@ -55,15 +55,14 @@
 
 MODULE mo_icon_cpl_init_comp
 
-  USE mo_icon_cpl, ONLY : set_cpl_local_comm, maxchar
-
 #ifndef NOMPI
-
-  USE mo_icon_cpl, ONLY : MPI_SUCCESS, MPI_COMM_NULL,         &
-   &                      l_MPI_was_initialized
+  USE mpi, ONLY : MPI_SUCCESS, MPI_COMM_NULL
 #endif
-  USE mo_icon_cpl, ONLY : l_debug, cplout,                    &
-   &                      grids, comps, fields,               &
+
+  USE mo_icon_cpl, ONLY : set_cpl_local_comm, maxchar,        &
+   &                      l_MPI_was_initialized,              &
+   &                      l_debug, cplout,                    &
+   &                      grids, comps, cpl_fields,           &
    &                      nbr_active_comps,                   &
    &                      nbr_active_grids,                   &
    &                      nbr_active_fields,                  &
@@ -236,30 +235,30 @@ CONTAINS
     ! Initialize fields
     ! -------------------------------------------------------------------
 
-    IF ( .NOT. ASSOCIATED(fields) ) THEN
+    IF ( .NOT. ASSOCIATED(cpl_fields) ) THEN
 
        nbr_active_fields = 0
 
        nbr_ICON_fields = nbr_ICON_inc
 
-       ALLOCATE ( fields(nbr_ICON_fields), STAT = ierr )
+       ALLOCATE ( cpl_fields(nbr_ICON_fields), STAT = ierr )
        IF ( ierr > 0 ) THEN
-          PRINT *, ' Error allocating fields '
+          PRINT *, ' Error allocating cpl_fields '
           CALL MPI_Abort ( ICON_COMM, 1, ierr )
        ENDIF
 
-       fields(:)%comp_id        = -1
-       fields(:)%grid_id        = -1
-       fields(:)%event_id       = -1
-       fields(:)%l_field_status = .FALSE.
+       cpl_fields(:)%comp_id        = -1
+       cpl_fields(:)%grid_id        = -1
+       cpl_fields(:)%event_id       = -1
+       cpl_fields(:)%l_field_status = .FALSE.
 
-       fields(:)%coupling%lag            = 0
-       fields(:)%coupling%time_operation = 0
-       fields(:)%coupling%frequency      = 0
-       fields(:)%coupling%time_step      = 0
+       cpl_fields(:)%coupling%lag            = 0
+       cpl_fields(:)%coupling%time_operation = 0
+       cpl_fields(:)%coupling%frequency      = 0
+       cpl_fields(:)%coupling%time_step      = 0
 
        DO i = 1, nbr_ICON_fields
-          NULLIFY ( fields(i)%send_field_acc )
+          NULLIFY ( cpl_fields(i)%send_field_acc )
        ENDDO
 
     ENDIF
