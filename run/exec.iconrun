@@ -246,7 +246,7 @@ cat >> $master_namelist << EOF
   model_type=$model_type
   model_min_rank=$model_min_rank
   model_max_rank=$model_max_rank
-  model_inc_rank=$model_max_rank
+  model_inc_rank=$model_inc_rank
 /
 EOF
 
