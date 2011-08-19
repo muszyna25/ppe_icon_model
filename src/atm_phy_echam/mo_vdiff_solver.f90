@@ -731,6 +731,8 @@ CONTAINS
   !! Polcher et al (1998): on entry bb contains the solution 
   !! at the bottom level and the coeff B on upper levels;
   !! On exit it becomes the solution of the linear system.
+  !! aa(:,:,3,:) used here corresponds to -A in the Appendix of 
+  !! Polcher et al (1998).
   !! Note that VDIFF uses the implicit time stepping as in IFS
   !! in contrast to Polcher et al (1998). Thus the solution is 
   !! not yet the new value at time step t+dt. 
@@ -1097,11 +1099,13 @@ CONTAINS
 
     ! Diagnose latent heat flux (need to distinguish ice and water)
 
-    jsfc = idx_ice 
-    plhflx_tile(1:kproma,jsfc) = als*pevap_tile(1:kproma,jsfc)
+    IF (idx_ice<ksfc_type) THEN 
+       plhflx_tile(1:kproma,idx_ice) = als*pevap_tile(1:kproma,idx_ice)
+    END IF
 
-    jsfc = idx_wtr
-    plhflx_tile(1:kproma,jsfc) = alv*pevap_tile(1:kproma,jsfc)
+    IF (idx_wtr<ksfc_type) THEN 
+       plhflx_tile(1:kproma,idx_wtr) = alv*pevap_tile(1:kproma,idx_wtr)
+    END IF
 
     ! Compute grid box mean and time average. 
     ! The instantaneous grid box mean moisture flux will be passed on 
@@ -1110,7 +1114,6 @@ CONTAINS
     pqv_mflux_sfc(1:kproma) = 0._wp   ! initialize mass flux ("pqhfla" in echam)
 
     DO jsfc = 1,ksfc_type
-      IF (jsfc==idx_lnd) CYCLE
 
       pqv_mflux_sfc(1:kproma) =  pqv_mflux_sfc(1:kproma) + pfrc(1:kproma,jsfc) &
                               & *pevap_tile(1:kproma,jsfc)
