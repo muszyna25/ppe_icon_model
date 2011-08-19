@@ -423,7 +423,8 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_ext_data:init_ext_data'
 
-!-------------------------------------------------------------------------
+    !-------------------------------------------------------------------------
+    CALL message (TRIM(routine), 'Start')
 
     !-------------------------------------------------------------------------
     !  1.  inquire external files for their data structure
@@ -450,6 +451,12 @@ CONTAINS
 
     ! Check, whether external data should be read from file
     ! 
+
+    !-------------------------------------------------------------------------
+    ! Now for atmosphere only:
+    !-------------------------------------------------------------------------
+
+    IF (iequations/=ihs_ocean ) THEN
 
     !-------------------------------------------------------------------------
     !Ozone and aerosols
@@ -516,7 +523,10 @@ CONTAINS
     END SELECT
 
     ! read external ocean data from ocean gridfile (no itopo needed)
-    IF (iequations==ihs_ocean ) CALL read_ext_data_oce (p_patch, ext_data)
+    ELSE
+      CALL read_ext_data_oce (p_patch, ext_data)
+    END IF
+
 
 
   END SUBROUTINE init_ext_data
