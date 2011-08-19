@@ -863,6 +863,13 @@ CONTAINS
           &                   'W/m**2', 184, 201,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
+          IF(iforcing == iecham) THEN
+            CALL addVar(TimeVar('ozone',&
+              &                   'ozone mixing ratio',&
+              &                   'g/g', 255, 255,&
+              &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
+              &                   k_jg)
+          ENDIF
         END SELECT
 
         SELECT CASE (iforcing)
@@ -1903,6 +1910,7 @@ CONTAINS
       CASE ('OMEGA');           ptr3 => p_diag%wpres_mc
       CASE ('P');               ptr3 => p_diag%pres_mc
       CASE ('ZF3');             ptr3 => dup3(p_diag%geo_mc/grav); delete = .TRUE.
+      CASE ('ozone');           ptr3 => prm_field(jg)%o3
       CASE ('PHIS');            ptr2 => p_diag%geo_ic(:,nlevp1,:)
       CASE ('cosmu0');          ptr2 => prm_field(jg)%cosmu0
       CASE ('flxdwswtoa');      ptr2 => prm_field(jg)%flxdwswtoa

@@ -74,7 +74,7 @@ MODULE mo_radiation
     &                                irad_co2,   mmr_co2,     &
     &                                irad_ch4,   mmr_ch4,     &
     &                                irad_n2o,   mmr_n2o,     &
-    &                                irad_o3,                 &
+!    &                                irad_o3,                 &
     &                                irad_o2,    mmr_o2,      &
     &                                irad_cfc11, vmr_cfc11,   &
     &                                irad_cfc12, vmr_cfc12,   &
@@ -683,13 +683,13 @@ CONTAINS
     xm_cfc12 (1:jce,:) = gas_profile(jce, klev, irad_cfc12,  &
       &                              mmr_gas = vmr_cfc12 )
     !
-    ozon: SELECT CASE (irad_o3)
-    CASE (0)
-      qm_o3(1:jce,:) = 0.0_wp
-    CASE (6)
-    CASE default
-      CALL finish('radiation','o3: this "irad_o3" is not supported')
-    END SELECT ozon
+!    ozon: SELECT CASE (irad_o3)
+!    CASE (0)
+!      qm_o3(1:jce,:) = 0.0_wp
+!    CASE (6)
+!    CASE default
+!      CALL finish('radiation','o3: this "irad_o3" is not supported')
+!    END SELECT ozon
 
     ! 2.0 Call interface to radiation solver
     ! --------------------------------------

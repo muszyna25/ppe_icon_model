@@ -87,7 +87,7 @@ SUBROUTINE o3_timeint( kproma,kbdim, nlev_pres,nmonths,& !
 END SUBROUTINE o3_timeint
 
  SUBROUTINE o3_pl2sh ( kproma,kbdim,nlev_pres,klev,&
-   &                   pfoz,phoz,pph,ppf,   &
+   &                   pfoz,phoz,ppf,pph,   &
    &                   o3_time_int, o3_clim)
 
     !- Description: o3 pressure levels to o3 sigma hybrid levels

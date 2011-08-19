@@ -542,7 +542,7 @@ CONTAINS
           CALL print_value('irad_o3' ,irad_o3)
           CALL print_value('io3    ' ,io3)
           CALL print_value('ntracer' ,ntracer)
-          CALL finish(TRIM(routine), 'Not enough tracers for ECHAM physics with RRTM.')
+!          CALL finish(TRIM(routine), 'Not enough tracers for ECHAM physics with RRTM.')
         END IF
       
       END SELECT ! iforcing

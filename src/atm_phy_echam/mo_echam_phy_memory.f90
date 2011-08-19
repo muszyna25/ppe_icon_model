@@ -187,8 +187,8 @@ MODULE mo_echam_phy_memory
       !
       ! longwave net fluxes
       & emterclr    (:,:,:),  &!< [W/m2] terrestrial emissivity, clear sky, net downward
-      & emterall    (:,:,:)    !< [W/m2] terrestrial emissivity, all   sky, net downward
-
+      & emterall    (:,:,:),  & !< [W/m2] terrestrial emissivity, all   sky, net downward
+      & o3          (:,:,:)     !< temporary set ozone mass mixing ratio  
 
     ! Cloud and precipitation
     REAL(wp),POINTER ::     &
@@ -544,6 +544,13 @@ CONTAINS
     cf_desc    = t_cf_var('virtual_temperature', 'K', 'virtual temperature')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'vtemp', field%tv,                        &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
+
+    ! OZONE 
+    ! &       field% o3        (nproma,nlev  ,nblks),          &
+    cf_desc    = t_cf_var('ozone', 'g/g', 'ozone mixing ratio')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'o3', field%o3,                        &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
     ! &       field% q         (nproma,nlev  ,nblks,ntracer),  &

@@ -56,7 +56,7 @@ MODULE mo_echam_phy_main
   USE mo_ext_data,            ONLY: ext_data,&
     &                               t_external_atmos_td,             &
     &                               nlev_pres, nmonths
-  USE mo_o3_util,             ONLY: o3_timeint, o3_pl2sh
+  USE mo_o3_util,             ONLY:  o3_pl2sh !o3_timeint
   USE mo_echam_phy_config,    ONLY: echam_phy_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_cucall,              ONLY: cucall
@@ -349,6 +349,10 @@ CONTAINS
 
 
           SELECT CASE(irad_o3)
+            CASE default
+              CALL finish('radiation','o3: this "irad_o3" is not supported')
+            CASE(0)
+              field% o3(:,:,jb)= 0._wp              
             CASE(io3_clim, io3_ape)
 
               IF(irad_o3 == io3_ape) THEN
@@ -362,12 +366,23 @@ CONTAINS
 !                             atm_td%o3(:,:,jb,:),              & ! IN full o3 data
 !                             & zo3_timint(:,:)                 ) ! OUT o3(kproma,nlev_p)
 
-              CALL o3_pl2sh ( jce, nbdim,nlev_pres, nlev ,     &
-                             & atm_td%pfoz(:),atm_td%phoz(:),  &! in o3-levs
-                             & field% presm_new(:,:,jb),       &! in  app1
-                             & field% presi_new(:,:,jb),       &! in  aphp1
-                             & atm_td%o3(:,:,jb,selmon),       &! in 
-                             & field% q(:,:,jb,io3)            )! OUT
+              CALL o3_pl2sh ( kproma=jce, kbdim=nbdim,               &
+                             & nlev_pres = nlev_pres,klev= nlev ,    &
+                             & pfoz = atm_td%pfoz(:),                &
+                             & phoz = atm_td%phoz(:),                &! in o3-levs
+                             & ppf = field% presm_new(:,:,jb),       &! in  app1
+                             & pph = field% presi_new(:,:,jb),       &! in  aphp1
+                             & o3_time_int = atm_td%o3(:,:,jb,selmon),&! in 
+                             & o3_clim     = field% o3(:,:,jb)        )! OUT
+
+!              IF (jb == 1) THEN
+!                DO jk = 1,nlev_pres
+!                WRITE(0,*)'plev=',jk,'o3plev=', atm_td%o3(jce,1,jb,selmon)
+!                ENDDO
+!                DO jk = 1,nlev
+!                WRITE(0,*)'nlev=',jk,'o3intp=', field%o3(jce,1,jb)
+!                ENDDO
+!              ENDIF
             END SELECT
 
 
@@ -442,10 +457,10 @@ CONTAINS
           & field% presi_old(:,:,jb) ,&!< in     pressure at half levels at t-dt [Pa]
           & field% presm_old(:,:,jb) ,&!< in     pressure at full levels at t-dt [Pa]
           & field% temp (:,:,jb)     ,&!< in     tk_fl  = temperature at full level at t-dt
-          & field% q(:,:,jb,iqv)     ,&!< in     qm_vap = water vapor mass mixing ratio at t-dt
-          & field% q(:,:,jb,iqc)     ,&!< in     qm_liq = cloud water mass mixing ratio at t-dt
-          & field% q(:,:,jb,iqi)     ,&!< in     qm_ice = cloud ice mass mixing ratio at t-dt
-          & field% q(:,:,jb,io3)     ,&!< in     qm_o3 = o3 mass mixing ratio at t-dt
+          & field% q (:,:,jb,iqv)    ,&!< in     qm_vap = water vapor mass mixing ratio at t-dt
+          & field% q (:,:,jb,iqc)    ,&!< in     qm_liq = cloud water mass mixing ratio at t-dt
+          & field% q (:,:,jb,iqi)    ,&!< in     qm_ice = cloud ice mass mixing ratio at t-dt
+          & field% o3(:,:,jb)        ,&!< in     qm_o3 = o3 mass mixing ratio at t-dt
 !!$       & field% geom(:,:,jb)     ,&!< in     pgeom1 = geopotential above ground at t-dt [m2/s2]
           & field% acdnc(:,:,jb)     ,&!< in     cld_frac = cloud fraction [m2/m2]
           & field% aclc(:,:,jb)      ,&!< in     cld_frac = cloud fraction [m2/m2]
@@ -489,6 +504,7 @@ CONTAINS
 !!$        field% debug_3d_3(:,1:nlev,jb) = field% emterall(:,1:nlev,jb)
 !!$        field% debug_3d_4(:,1:nlev,jb) = field% trsolall(:,1:nlev,jb)
 !!$
+
          END IF ! ltrig_rad
 !!$
       ! 4.2 RADIATIVE HEATING
@@ -498,10 +514,10 @@ CONTAINS
       ! - compute orbit position at ptime_radheat
 
       ! - solar incoming flux at TOA
+    
       field% cosmu0(jcs:jce,jb) = -COS( p_patch(jg)%cells%center(jcs:jce,jb)%lat ) &
                                 & *COS( p_patch(jg)%cells%center(jcs:jce,jb)%lon   &
                                 &      +ptime_radheat )
-
 
       zi0(jcs:jce) = MAX(0._wp,field%cosmu0(jcs:jce,jb)) * ztsi  ! instantaneous for radheat
       field% flxdwswtoa(jcs:jce,jb) = zi0 (jcs:jce)               ! (to be accumulated for output)
