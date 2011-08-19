@@ -1099,11 +1099,11 @@ CONTAINS
 
     ! Diagnose latent heat flux (need to distinguish ice and water)
 
-    IF (idx_ice<ksfc_type) THEN 
+    IF (idx_ice<=ksfc_type) THEN 
        plhflx_tile(1:kproma,idx_ice) = als*pevap_tile(1:kproma,idx_ice)
     END IF
 
-    IF (idx_wtr<ksfc_type) THEN 
+    IF (idx_wtr<=ksfc_type) THEN 
        plhflx_tile(1:kproma,idx_wtr) = alv*pevap_tile(1:kproma,idx_wtr)
     END IF
 

@@ -701,6 +701,9 @@ CONTAINS
                    &  tend%    q(:,:,jb,iqc),         &! inout
                    &  tend%    q(:,:,jb,iqi),         &! inout
                    &  tend%    q(:,:,jb,iqt:),        &! inout
+                   & field%  evap_ac(:,  jb),         &! inout
+                   & field% lhflx_ac(:,  jb),         &! inout
+                   & field% shflx_ac(:,  jb),         &! inout
                    &  tend%    u_vdf(:,:,jb),         &! out
                    &  tend%    v_vdf(:,:,jb),         &! out
                    &  tend% temp_vdf(:,:,jb),         &! out
@@ -711,9 +714,6 @@ CONTAINS
                    &  zqtvar_prod,                    &! out, for "cloud" ("zvdiffp" in echam)
                    &  zvmixtau,                       &! out, for "cloud"
                    &  zqhflx,                         &! out, for "cloud"
-                   & field%  evap_ac(:,  jb),         &! out
-                   & field% lhflx_ac(:,  jb),         &! out
-                   & field% shflx_ac(:,  jb),         &! out
                    & field%   z0m   (:,  jb),         &! out, for the next step
                    & field%   thvvar(:,:,jb),         &! out, for the next step
                    & field%   thvsig(:,  jb),         &! out, for "cucall"
