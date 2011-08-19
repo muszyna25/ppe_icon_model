@@ -158,6 +158,11 @@ if [ $cp_atmo_files = "true" ] ;  then
    # ---------------
    cp -f ${DATADIR}/rrtmg_lw.nc           ${EXPDIR} # LW radiation constants
    cp -f ${DATADIR}/ECHAM6_CldOptProps.nc ${EXPDIR} # cloud optical properties
+   
+   # APE ozone
+   cp -f ${DATADIR}/external/ape_ozone/ape_o3_R2B04_spr0.90-cell.nc ${EXPDIR}/o3_icon_DOM01.nc
+   check_error $? "cp -f ${DATADIR}/external/ape_ozone/ape_o3_R2B04_spr0.90-cell.nc ${EXPDIR}/o3_icon_DOM01.nc"
+
    #
    # =======================================================
    # vertical grid
@@ -174,11 +179,6 @@ if [ $cp_atmo_files = "true" ] ;  then
      ln -s ${VGRIDDIR}/${VGRIDNAME} ${EXPDIR}/${VGRIDNAME}
      check_error $? "ln -s ${VGRIDDIR}/${VGRIDNAME}"
    fi
-   #
-   # external parameters
-   rm  ${EXPDIR}/o3_icon*.nc
-   cp -f ${DATADIR}/ozone_icon_r2b4.nc ${EXPDIR}/o3_icon_DOM01.nc
-   check_error $? "ln -s ${EXTDIR}ozone_icon_r2b4.nc ${EXPDIR}/o3_icon_DOM01.nc"  
 fi
 #-----------------------------------------------------------------------------
 
