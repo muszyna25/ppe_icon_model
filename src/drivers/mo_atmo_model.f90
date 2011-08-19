@@ -348,14 +348,13 @@ CONTAINS
       
     ENDIF
 
-    ! Note: fro this point the p_patch is used
+    ! Note: from this point the p_patch is used
     ! In case of a test run: Copy processor splitting to test PE
     IF(p_test_run) CALL copy_processor_splitting(p_patch)
     
     IF(ldump_states)THEN
       
-      ! Dump divided patches with interpolation and grf state to NetCDF file and exit
-      
+      ! Dump divided patches with interpolation and grf state to NetCDF file and exit      
       CALL message(TRIM(routine),'ldump_states is set: '//&
                   'dumping patches+states and finishing')
       
