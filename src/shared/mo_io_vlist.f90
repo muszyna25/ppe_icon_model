@@ -606,407 +606,12 @@ CONTAINS
     !-------------------------------------------------------------------------
     ! global attributes
     !
-    ! Model name and version
-    ! ----------------------
-    CALL addGlobAttTxt('model-version',TRIM(modelname)//'-'//TRIM(modelversion),&
-    &                  vlistID(k_jg),astatus)
-    CALL addGlobAttInt('mpi:num_work_procs',num_work_procs,vlistID(k_jg),astatus)
-    !
-    ! Parameters of /grid_nml/
-    ! ------------------------
-    CALL addGlobAttInt('grid_nml:nroot',nroot,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('grid_nml:start_lev',start_lev,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('grid_nml:n_dom',n_dom,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('grid_nml:lfeedback', lfeedback(k_jg),vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('grid_nml:lplane',lplane,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('grid_nml:lvert_nest',lvert_nest,vlistID(k_jg),astatus)
-    !
-    ! Parameters of /run_nml/
-    ! -----------------------
-    CALL addGlobAttInt('run_nml:global_cell_type',global_cell_type,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_nml:num_lev',num_lev(k_jg),vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('run_nml:dtime',dtime,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_nml:iequations',iequations,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_nml:ntracer',ntracer,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('run_nml:ldynamics',ldynamics,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('run_nml:ltransport',ltransport,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_nml:iforcing',iforcing,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('run_nml:ltestcase',ltestcase,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_nml:nproma',nproma,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_nml:nsteps',nsteps,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_nml:itopo',itopo,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('run_nml:msg_level',msg_level,vlistID(k_jg),astatus)
-    !
-    ! Parameters of /dynamics_nml/
-    ! ----------------------------
-    CALL addGlobAttInt('dynamics_nml:idiv_method',idiv_method,vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('dynamics_nml:divavg_cntrwgt',divavg_cntrwgt,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('dynamics_nml:lcoriolis',lcoriolis, &
-                              vlistID(k_jg),astatus)
-
-   !----------------------------
-   ! namelist/ha_dyn_nml/
-   !----------------------------
-    IF (iequations == 1 .OR. iequations == 2) THEN
-
-      CALL addGlobAttInt('ha_dyn_nml:itime_scheme', &
-           ha_dyn_config%itime_scheme,vlistID(k_jg),astatus)
-      CALL addGlobAttTxtFromLog('ha_dyn_nml:lsi_3d',&
-           ha_dyn_config%lsi_3d,vlistID(k_jg),astatus)
-      CALL addGlobAttInt('ha_dyn_nml:ileapfrog_startup', &
-           ha_dyn_config%ileapfrog_startup,vlistID(k_jg),astatus)
-      CALL addGlobAttFlt('ha_dyn_nml:asselin_coeff',&
-           ha_dyn_config%asselin_coeff,vlistID(k_jg),astatus)
-      CALL addGlobAttFlt('ha_dyn_nml:si_2tls',&
-           ha_dyn_config%si_2tls,vlistID(k_jg),astatus)
-      CALL addGlobAttFlt('ha_dyn_nml:si_coeff',&
-           ha_dyn_config%si_coeff,vlistID(k_jg),astatus)
-      CALL addGlobAttFlt('ha_dyn_nml:si_offctr',&
-           ha_dyn_config%si_offctr,vlistID(k_jg),astatus)
-      CALL addGlobAttFlt('ha_dyn_nml:si_rtol',&
-           ha_dyn_config%si_rtol,vlistID(k_jg),astatus)
-      CALL addGlobAttFlt('ha_dyn_nml:si_cmin',&
-           ha_dyn_config%si_cmin,vlistID(k_jg),astatus)
-      CALL addGlobAttInt('ha_dyn_nml:si_expl_scheme',&
-           ha_dyn_config%si_expl_scheme,vlistID(k_jg),astatus)
-      CALL addGlobAttTxtFromLog('ha_dyn_nml:ldry_dycore',&
-           ha_dyn_config%ldry_dycore,vlistID(k_jg),astatus)
-      CALL addGlobAttTxtFromLog('ha_dyn_nml:lref_temp',&
-           ha_dyn_config%lref_temp,vlistID(k_jg),astatus)
-    ENDIF
-
-
-    !
-    ! Parameters of /nonhydrostatic_nml/
-    ! ----------------------------
-
-    IF (iequations == 3) THEN
-       CALL addGlobAttInt('nonhydrostatic_nml:itime_scheme',&
-                         & itime_scheme_nh_atm,vlistID(k_jg),astatus)
-       CALL addGlobAttInt('nonhydrostatic_nml:ivctype',ivctype,vlistID(k_jg),astatus)
-       CALL addGlobAttInt('nonhydrostatic_nml:iadv_rcf',iadv_rcf,vlistID(k_jg),astatus)
-
-       IF (global_cell_type == 3) THEN
-         CALL addGlobAttFlt('nonhydrostatic_nml:rayleigh_coeff',   &
-                 &         rayleigh_coeff(k_jg),vlistID(k_jg),astatus)
-         CALL addGlobAttFlt('nonhydrostatic_nml:damp_height',      &
-                 &         damp_height(k_jg),vlistID(k_jg),astatus)
-         CALL addGlobAttFlt('nonhydrostatic_nml:vwind_offctr',     &
-                 &         vwind_offctr,vlistID(k_jg),astatus)
-         CALL addGlobAttTxtFromLog('nonhydrostatic_nml:l_nest_rcf',&
-                 &         l_nest_rcf,vlistID(k_jg),astatus)
-         CALL addGlobAttInt('nonhydrostatic_nml:iadv_rhotheta',    &
-                 &         iadv_rhotheta,vlistID(k_jg),astatus)
-         CALL addGlobAttInt('nonhydrostatic_nml:igradp_method',    &
-                 &         igradp_method,vlistID(k_jg),astatus)
-         CALL addGlobAttFlt('nonhydrostatic_nml:exner_expol',      &
-                 &         exner_expol,vlistID(k_jg),astatus)
-         CALL addGlobAttTxtFromLog('nonhydrostatic_nml:l_open_ubc',&
-                 &         l_open_ubc,vlistID(k_jg),astatus)
-       ELSEIF (global_cell_type == 6) THEN
-         CALL addGlobAttTxtFromLog('nonhydrostatic_nml:ltheta_up_hori', &
-                 &         ltheta_up_hori,vlistID(k_jg),astatus)
-         CALL addGlobAttTxtFromLog('nonhydrostatic_nml:ltheta_up_vert',&
-                 &         ltheta_up_vert,vlistID(k_jg),astatus)
-         CALL addGlobAttFlt('nonhydrostatic_nml:gmres_rtol_nh',      &
-                 &         gmres_rtol_nh,vlistID(k_jg),astatus)
-         CALL addGlobAttFlt('nonhydrostatic_nml:upstr_beta',      &
-                 &         upstr_beta,vlistID(k_jg),astatus)
-
-       ENDIF
+    CALL addGlobAtts(vlistID(k_jg),k_jg,astatus)
+    IF (iequations/=ihs_ocean) THEN
+      CALL addAtmAtts(vlistID(k_jg),k_jg,astatus)
+    ELSE
+      CALL addOceAtts(vlistID(k_jg),astatus)
     END IF
-    !
-    ! Parameters of /diffusion_nml/
-    ! -----------------------------
-    CALL addGlobAttInt('diffusion_nml:hdiff_order',            &
-      &  diffusion_config(k_jg)%hdiff_order,vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('diffusion_nml:hdiff_efdt_ratio',       &
-      &  diffusion_config(k_jg)%hdiff_efdt_ratio,vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('diffusion_nml:hdiff_multfac',          &
-      &  diffusion_config(k_jg)%hdiff_multfac,vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('diffusion_nml:hdiff_tv_ratio',         &
-      &  diffusion_config(k_jg)%hdiff_tv_ratio,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('diffusion_nml:lhdiff_temp',     &
-      &  diffusion_config(k_jg)%lhdiff_temp,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('diffusion_nml:lhdiff_vn',       &
-      &  diffusion_config(k_jg)%lhdiff_vn,vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('diffusion_nml:hdiff_smag_fac',         &
-      &  diffusion_config(k_jg)%hdiff_smag_fac,vlistID(k_jg),astatus)
-    !
-    ! Parameters of /transport_nml/
-    ! -----------------------------
-    IF (ltransport) THEN
-       CALL addGlobAttInt('transport_nml:ihadv_tracer',       &
-         &  advection_config(k_jg)%ihadv_tracer(max_ntracer),vlistID(k_jg),astatus)
-       CALL addGlobAttInt('transport_nml:ivadv_tracer',       &
-         &  advection_config(k_jg)%ivadv_tracer(max_ntracer),vlistID(k_jg),astatus)
-       CALL addGlobAttTxtFromLog('transport_nml:lvadv_tracer',&
-         &  advection_config(k_jg)%lvadv_tracer,vlistID(k_jg),astatus)
-       CALL addGlobAttTxtFromLog('transport_nml:lstrang',     &
-         &  advection_config(k_jg)%lstrang,vlistID(k_jg),astatus)
-       CALL addGlobAttInt('transport_nml:itype_vlimit',       &
-         &  advection_config(k_jg)%itype_vlimit(max_ntracer),vlistID(k_jg),astatus)
-       CALL addGlobAttInt('transport_nml:itype_hlimit',       &
-         &  advection_config(k_jg)%itype_hlimit(max_ntracer),vlistID(k_jg),astatus)
-       CALL addGlobAttInt('transport_nml:iord_backtraj',      &
-         &  advection_config(k_jg)%iord_backtraj,vlistID(k_jg),astatus)
-       CALL addGlobAttInt('transport_nml:igrad_c_miura',      &
-         &  advection_config(k_jg)%igrad_c_miura,vlistID(k_jg),astatus)
-       CALL addGlobAttTxtFromLog('transport_nml:lclip_tracer',&
-         &  advection_config(k_jg)%lclip_tracer,vlistID(k_jg),astatus)
-       CALL addGlobAttInt('transport_nml:iadv_slev',          &
-         &  advection_config(k_jg)%iadv_slev(max_ntracer),vlistID(k_jg),astatus)
-       CALL addGlobAttFlt('transport_nml:upstr_beta_adv',     &
-         &  advection_config(k_jg)%upstr_beta_adv,vlistID(k_jg),astatus)
-    END IF
-    !
-    ! Parameters of /io_nml/
-    ! ----------------------
-    CALL addGlobAttTxt('io_nml:out_expname',TRIM(out_expname),vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('io_nml:dt_data',dt_data,vlistID(k_jg),astatus)
-    CALL addGlobAttFlt('io_nml:dt_file',dt_file,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('io_nml:out_filetype',out_filetype,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('io_nml:lwrite_vorticity',lwrite_vorticity,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('io_nml:lwrite_pres',lwrite_pres,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('io_nml:lwrite_z3',lwrite_z3,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('io_nml:lwrite_omega',lwrite_omega,vlistID(k_jg),astatus)
-    !
-    IF (ntracer > 0) THEN
-      DO jt=1,ntracer
-        WRITE(cjt,'(i3.3)') jt
-        CALL addGlobAttTxtFromLog('io_nml:lwrite_tracer(' // TRIM(ADJUSTL(cjt)) // ')', &
-        &                  lwrite_tracer(jt),vlistID(k_jg),astatus)
-      END DO
-    END IF
-    CALL addGlobAttTxtFromLog('io_nml:lwrite_precip',lwrite_precip,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('io_nml:lwrite_cloud',lwrite_cloud,vlistID(k_jg),astatus)
-    CALL addGlobAttTxtFromLog('io_nml:lwrite_divergence',lwrite_divergence,vlistID(k_jg),astatus)
-
-
-    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    !!! Parameters of physics parameterizations
-    !------------------------------------------
-    IF (lforcing) THEN
-      SELECT CASE (iforcing)
-
-      CASE (iecham,ildf_echam)
-        !
-        !!! Parameters of /echam_phy_nml/
-        !--------------------------------
-        CALL addGlobAttTxtFromLog('echam_phy_nml:lrad',get_lrad(),vlistID(k_jg),astatus)
-        CALL addGlobAttTxtFromLog('echam_phy_nml:lvdiff',get_lvdiff(),vlistID(k_jg),astatus)
-        CALL addGlobAttTxtFromLog('echam_phy_nml:lconv',get_lconv(),vlistID(k_jg),astatus)
-        CALL addGlobAttTxtFromLog('echam_phy_nml:lcond',get_lcond(),vlistID(k_jg),astatus)
-        CALL addGlobAttTxtFromLog('echam_phy_nml:lcover',get_lcover(),vlistID(k_jg),astatus)
-        CALL addGlobAttTxtFromLog('echam_phy_nml:lgw_hines',get_lgw_hines(),vlistID(k_jg),astatus)
-        !
-        !!! Parameters of /echam_conv_nml/
-        !---------------------------------
-        IF ( get_lconv() ) THEN
-           CALL addGlobAttTxtFromLog('echam_conv_nml:lmfpen', &
-                echam_conv_config%lmfpen,vlistID(k_jg),astatus)
-           CALL addGlobAttTxtFromLog('echam_conv_nml:lmfmid', &
-                echam_conv_config%lmfmid,vlistID(k_jg),astatus)
-          !CALL addGlobAttTxtFromLog('echam_conv_nml:lmfscv', &
-          !     echam_conv_config%lmfscv,vlistID(k_jg),astatus)
-           CALL addGlobAttTxtFromLog('echam_conv_nml:lmfdd',  &
-                echam_conv_config%lmfdd,vlistID(k_jg),astatus)
-           CALL addGlobAttTxtFromLog('echam_conv_nml:lmfdudv',&
-                echam_conv_config%lmfdudv,vlistID(k_jg),astatus)
-           CALL addGlobAttInt('echam_conv_nml:iconv', &
-                echam_conv_config%iconv,vlistID(k_jg),astatus)
-           CALL addGlobAttFlt('echam_conv_nml:cmftau', &
-                echam_conv_config%cmftau,vlistID(k_jg),astatus)
-           CALL addGlobAttFlt('echam_conv_nml:cmfctop', &
-                echam_conv_config%cmfctop,vlistID(k_jg),astatus)
-           CALL addGlobAttFlt('echam_conv_nml:cprcon', &
-                echam_conv_config%cprcon,vlistID(k_jg),astatus)
-           CALL addGlobAttFlt('echam_conv_nml:cminbuoy',&
-                echam_conv_config%cminbuoy,vlistID(k_jg),astatus)
-           CALL addGlobAttFlt('echam_conv_nml:entrpen', &
-                echam_conv_config%entrpen,vlistID(k_jg),astatus)
-           CALL addGlobAttFlt('echam_conv_nml:dlev',    &
-                echam_conv_config%dlev,vlistID(k_jg),astatus)
-        END IF
-        !
-!!$        !!! Parameters of /gw_hines_nml/
-!!$        !-------------------------------
-!!$        IF (lgw_hines) THEN
-!!$          CALL addGlobAttTxtFromLog('gw_hines_nml:lheatcal',lheatcal,vlistID(k_jg),astatus)
-!!$          CALL addGlobAttInt('gw_hines_nml:emiss_lev',emiss_lev,vlistID(k_jg),astatus)
-!!$          CALL addGlobAttFlt('gw_hines_nml:rmscon',rmscon,vlistID(k_jg),astatus)
-!!$          CALL addGlobAttFlt('gw_hines_nml:kstar',kstar,vlistID(k_jg),astatus)
-!!$          CALL addGlobAttFlt('gw_hines_nml:m_min',m_min,vlistID(k_jg),astatus)
-!!$        END IF
-
-      CASE (inwp)
-        !!! Parameters of /nwp_phy_nml/
-        !-------------------------------
-       CALL addGlobAttInt('nwp_phy_nml:inwp_gscp',atm_phy_nwp_config(k_jg)%inwp_gscp,&
-         &vlistID(k_jg),astatus)
-       CALL addGlobAttInt('nwp_phy_nml:inwp_convection',atm_phy_nwp_config(k_jg)%inwp_convection,&
-         &vlistID(k_jg),astatus)
-       CALL addGlobAttInt('nwp_phy_nml:inwp_cldcover',atm_phy_nwp_config(k_jg)%inwp_cldcover,&
-         &vlistID(k_jg),astatus)
-       CALL addGlobAttInt('nwp_phy_nml:inwp_radiation',atm_phy_nwp_config(k_jg)%inwp_radiation,&
-         &vlistID(k_jg),astatus)
-       CALL addGlobAttInt('nwp_phy_nml:inwp_satad',atm_phy_nwp_config(k_jg)%inwp_satad,&
-         &vlistID(k_jg),astatus)
-       CALL addGlobAttInt('nwp_phy_nml:inwp_turb',atm_phy_nwp_config(k_jg)%inwp_turb,&
-         &vlistID(k_jg),astatus)
-       CALL addGlobAttInt('nwp_phy_nml:inwp_sso',atm_phy_nwp_config(k_jg)%inwp_sso,&
-         &vlistID(k_jg),astatus)
-       CALL addGlobAttFlt('nwp_phy_nml:dt_conv',atm_phy_nwp_config(k_jg)%dt_conv ,&
-         &vlistID(k_jg),astatus)
-       CALL addGlobAttFlt('nwp_phy_nml:dt_rad',atm_phy_nwp_config(k_jg)%dt_rad  ,&
-         &vlistID(k_jg),astatus)
-       CALL addGlobAttFlt('nwp_phy_nml:dt_sso',atm_phy_nwp_config(k_jg)%dt_sso ,&
-         &vlistID(k_jg),astatus)
-      END SELECT
-    END IF
-
-    !
-    ! Parameters of /radiation_nml/
-    ! -----------------------------
-    CALL addGlobAttFlt('radiation_nml:dt_rad',atm_phy_nwp_config(k_jg)%dt_rad,&
-      &               vlistID(k_jg),astatus)
-    CALL addGlobAttInt('radiation_nml:izenith',izenith,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('radiation_nml:irad_h2o',irad_h2o,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('radiation_nml:irad_co2',irad_co2,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('radiation_nml:irad_ch4',irad_ch4,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('radiation_nml:irad_n2o',irad_n2o,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('radiation_nml:irad_o3',irad_o3,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('radiation_nml:irad_o2',irad_o2,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('radiation_nml:irad_cfc11',irad_cfc11,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('radiation_nml:irad_cfc12',irad_cfc12,vlistID(k_jg),astatus)
-    CALL addGlobAttInt('radiation_nml:irad_aero',irad_aero,vlistID(k_jg),astatus)
-    !
-    ! Parameters of testcases (hydrostatic and non-hydrostatic
-    ! --------------------------------------------------------
-    IF (ltestcase) THEN
-      !
-      ! Parameters of /testcase_nml/
-      ! -----------------------------
-      IF(iequations == 0 .OR. &
-         iequations == 1 .OR. &
-         iequations == 2 ) THEN
-      !
-         CALL addGlobAttTxt('testcase_nml:ctest_name',TRIM(ctest_name),vlistID(k_jg),astatus)
-         !
-         IF ( TRIM(ctest_name) == 'GW') THEN
-            CALL addGlobAttFlt('testcase_nml:gw_brunt_vais',gw_brunt_vais,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('testcase_nml:gw_u0',gw_u0,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('testcase_nml:gw_lon_deg',gw_lon_deg,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('testcase_nml:gw_lat_deg',gw_lat_deg,vlistID(k_jg),astatus)
-         !
-         ELSEIF ( TRIM(ctest_name) == 'JWw' ) THEN
-            CALL addGlobAttFlt('testcase_nml:jw_uptb',jw_uptb,vlistID(k_jg),astatus)
-         !
-         ELSEIF ( TRIM(ctest_name) == 'MRW' .OR. TRIM(ctest_name) == 'MRW2'  ) THEN
-            CALL addGlobAttFlt('testcase_nml:mountctr_lon_deg',  &
-                      &        mountctr_lon_deg,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('testcase_nml:mountctr_lat_deg',  &
-                      &        mountctr_lat_deg,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('testcase_nml:mountctr_height',   &
-                      &        mountctr_height,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('testcase_nml:mount_half_width',  &
-                      &        mount_half_width,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('testcase_nml:mount_u0',          &
-                      &        mount_u0,vlistID(k_jg),astatus)
-         !
-         ELSEIF ( TRIM(ctest_name) == 'RH' ) THEN
-            CALL addGlobAttInt('testcase_nml:rh_wavenum',rh_wavenum,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('testcase_nml:rh_init_shift_deg', &
-                      &        rh_init_shift_deg,vlistID(k_jg),astatus)
-         !
-         ELSEIF ( TRIM(ctest_name) == 'HS' ) THEN
-            CALL addGlobAttInt('testcase_nml:ihs_init_type',ihs_init_type,vlistID(k_jg),astatus)
-            CALL addGlobAttTxtFromLog('testcase_nml:lhs_vn_ptb',lhs_vn_ptb,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('testcase_nml:hs_vn_ptb_scale',   &
-                      &        hs_vn_ptb_scale,vlistID(k_jg),astatus)
-         !
-         ELSEIF ( TRIM(ctest_name) == 'JWw-Moist' .OR. TRIM(ctest_name) == 'APE' &
-                  .OR. TRIM(ctest_name) == 'LDF-Moist' ) THEN
-            CALL addGlobAttTxtFromLog('testcase_nml:lrh_linear_pres',&
-                      &        lrh_linear_pres,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('testcase_nml:rh_at_1000hpa',         &
-                      &        rh_at_1000hpa,vlistID(k_jg),astatus)
-         !
-         ELSEIF ( TRIM(ctest_name) == 'PA' ) THEN
-            CALL addGlobAttTxtFromLog('testcase_nml:linit_tracer_fv',&
-                      &        linit_tracer_fv,vlistID(k_jg),astatus)
-         !
-         END IF
-
-      !
-      ! Parameters of /nh_testcase_nml/
-      ! -----------------------------
-      ELSEIF (iequations == 3) THEN
-      !
-         CALL addGlobAttTxt('nh_testcase_nml:nh_test_name', &
-                  &         TRIM(nh_test_name),vlistID(k_jg),astatus)
-         !
-         IF ( TRIM(nh_test_name) == 'jabw') THEN
-            CALL addGlobAttFlt('nh_testcase_nml:jw_up',jw_up,vlistID(k_jg),astatus)
-         !
-         ELSEIF ( TRIM(nh_test_name) == 'mrw2_nh') THEN
-            CALL addGlobAttFlt('nh_testcase_nml:u0_mrw',u0_mrw,vlistID(k_jg),astatus)
-         !
-         ELSEIF ( TRIM(nh_test_name) == 'mrw2_nh' .OR. TRIM(nh_test_name) == 'mwbr_const') THEN
-            CALL addGlobAttFlt('nh_testcase_nml:mount_height_mrw',     &
-                 &             mount_height_mrw,vlistID(k_jg),astatus)
-            !CALL addGlobAttFlt('nh_testcase_nml:mount_half_width',     &
-            !     &             mount_half_width,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('nh_testcase_nml:mount_lonctr_mrw_deg', &
-                 &             mount_lonctr_mrw_deg,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('nh_testcase_nml:mount_latctr_mrw_deg', &
-                 &             mount_latctr_mrw_deg,vlistID(k_jg),astatus)
-         !
-         ELSEIF ( TRIM(nh_test_name) == 'mwbr_const') THEN
-            CALL addGlobAttFlt('nh_testcase_nml:u0_mwbr_const',         &
-                 &             u0_mwbr_const,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('nh_testcase_nml:temp_i_mwbr_const',     &
-                 &             temp_i_mwbr_const,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('nh_testcase_nml:p_int_mwbr_const',      &
-                 &             p_int_mwbr_const,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('nh_testcase_nml:bruntvais_u_mwbr_const',&
-                 &             bruntvais_u_mwbr_const,vlistID(k_jg),astatus)
-         !
-         ELSEIF ( TRIM(nh_test_name) == 'bell') THEN
-            CALL addGlobAttFlt('nh_testcase_nml:mount_height',          &
-                 &             mount_height,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('nh_testcase_nml:torus_domain_length',   &
-                 &             torus_domain_length,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('nh_testcase_nml:nh_brunt_vais',         &
-                 &             nh_brunt_vais,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('nh_testcase_nml:nh_u0',nh_u0,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('nh_testcase_nml:nh_t0',nh_t0,vlistID(k_jg),astatus)
-         !
-         ELSEIF ( TRIM(nh_test_name) == 'PA') THEN
-            CALL addGlobAttFlt('nh_testcase_nml:rotate_axis_deg',       &
-                 &             rotate_axis_deg,vlistID(k_jg),astatus)
-            !CALL addGlobAttTxtFromLog('nh_testcase_nml:linit_tracer_fv',&
-            !    &                     linit_tracer_fv,vlistID(k_jg),astatus)
-         !
-         ELSEIF ( TRIM(nh_test_name) == 'HS_nh') THEN
-            CALL addGlobAttTxtFromLog('nh_testcase_nml:lhs_nh_vn_ptb',  &
-                &                     lhs_nh_vn_ptb,vlistID(k_jg),astatus)
-            CALL addGlobAttFlt('nh_testcase_nml:hs_nh_vn_ptb_scale',    &
-                &                     hs_nh_vn_ptb_scale,vlistID(k_jg),astatus)
-         !
-         ELSEIF ( TRIM(nh_test_name) == 'jabw' .OR. TRIM(nh_test_name) == 'mrw') THEN
-            CALL addGlobAttFlt('nh_testcase_nml:qv_max',qv_max,vlistID(k_jg),astatus)
-            !CALL addGlobAttFlt('nh_testcase_nml:rh_at_1000hpa',         &
-            !    &              rh_at_1000hpa,vlistID(k_jg),astatus)
-         !
-         ELSEIF ( TRIM(nh_test_name) == 'APE_nh') THEN
-            CALL addGlobAttTxt('nh_testcase_nml:ape_sst_case',          &
-                &              TRIM(ape_sst_case),vlistID(k_jg),astatus)
-         !
-         END IF
-      END IF
-    END IF
-
 
     !-------------------------------------------------------------------------
     ! register variables
@@ -3285,5 +2890,422 @@ CONTAINS
     dup2 = arr
 
   END FUNCTION dup2
+
+  SUBROUTINE addGlobAtts(vlist,k_jg,astatus)
+    INTEGER, INTENT(IN) :: vlist, k_jg
+    INTEGER             :: astatus
+    ! Model name and version
+    ! ----------------------
+    CALL addGlobAttTxt('model-version',TRIM(modelname)//'-'//TRIM(modelversion),&
+    &                  vlist,astatus)
+    CALL addGlobAttInt('mpi:num_work_procs',num_work_procs,vlist,astatus)
+    !
+    ! Parameters of /grid_nml/
+    ! ------------------------
+    CALL addGlobAttInt('grid_nml:nroot',nroot,vlist,astatus)
+    CALL addGlobAttInt('grid_nml:start_lev',start_lev,vlist,astatus)
+    CALL addGlobAttInt('grid_nml:n_dom',n_dom,vlist,astatus)
+    CALL addGlobAttTxtFromLog('grid_nml:lfeedback', lfeedback(k_jg),vlist,astatus)
+    CALL addGlobAttTxtFromLog('grid_nml:lplane',lplane,vlist,astatus)
+    CALL addGlobAttTxtFromLog('grid_nml:lvert_nest',lvert_nest,vlist,astatus)
+    !
+    ! Parameters of /run_nml/
+    ! -----------------------
+    CALL addGlobAttInt('run_nml:global_cell_type',global_cell_type,vlist,astatus)
+    CALL addGlobAttInt('run_nml:num_lev',num_lev(k_jg),vlist,astatus)
+    CALL addGlobAttFlt('run_nml:dtime',dtime,vlist,astatus)
+    CALL addGlobAttInt('run_nml:iequations',iequations,vlist,astatus)
+    CALL addGlobAttInt('run_nml:ntracer',ntracer,vlist,astatus)
+    CALL addGlobAttTxtFromLog('run_nml:ldynamics',ldynamics,vlist,astatus)
+    CALL addGlobAttTxtFromLog('run_nml:ltransport',ltransport,vlist,astatus)
+    CALL addGlobAttInt('run_nml:iforcing',iforcing,vlist,astatus)
+    CALL addGlobAttTxtFromLog('run_nml:ltestcase',ltestcase,vlist,astatus)
+    CALL addGlobAttInt('run_nml:nproma',nproma,vlist,astatus)
+    CALL addGlobAttInt('run_nml:nsteps',nsteps,vlist,astatus)
+    CALL addGlobAttInt('run_nml:itopo',itopo,vlist,astatus)
+    CALL addGlobAttInt('run_nml:msg_level',msg_level,vlist,astatus)
+    !
+    ! Parameters of /io_nml/
+    ! ----------------------
+    CALL addGlobAttTxt('io_nml:out_expname',TRIM(out_expname),vlist,astatus)
+    CALL addGlobAttFlt('io_nml:dt_data',dt_data,vlist,astatus)
+    CALL addGlobAttFlt('io_nml:dt_file',dt_file,vlist,astatus)
+    CALL addGlobAttInt('io_nml:out_filetype',out_filetype,vlist,astatus)
+    CALL addGlobAttTxtFromLog('io_nml:lwrite_vorticity',lwrite_vorticity,vlist,astatus)
+    CALL addGlobAttTxtFromLog('io_nml:lwrite_pres',lwrite_pres,vlist,astatus)
+    CALL addGlobAttTxtFromLog('io_nml:lwrite_z3',lwrite_z3,vlist,astatus)
+    CALL addGlobAttTxtFromLog('io_nml:lwrite_omega',lwrite_omega,vlist,astatus)
+    !
+    ! Parameters of /dynamics_nml/
+    ! ----------------------------
+    CALL addGlobAttInt('dynamics_nml:idiv_method',idiv_method,vlist,astatus)
+    CALL addGlobAttFlt('dynamics_nml:divavg_cntrwgt',divavg_cntrwgt,vlist,astatus)
+    CALL addGlobAttTxtFromLog('dynamics_nml:lcoriolis',lcoriolis, &
+                              vlist,astatus)
+
+  END SUBROUTINE addGlobAtts
+
+  SUBROUTINE addAtmAtts(vlist,k_jg,astatus)
+    INTEGER, INTENT(IN) :: vlist,k_jg
+    INTEGER             :: astatus
+
+    INTEGER             :: jt
+    CHARACTER(len=3)    :: cjt
+    !----------------------------
+    ! namelist/ha_dyn_nml/
+    !----------------------------
+     IF (iequations == 1 .OR. iequations == 2) THEN
+
+       CALL addGlobAttInt('ha_dyn_nml:itime_scheme', &
+            ha_dyn_config%itime_scheme,vlist,astatus)
+       CALL addGlobAttTxtFromLog('ha_dyn_nml:lsi_3d',&
+            ha_dyn_config%lsi_3d,vlist,astatus)
+       CALL addGlobAttInt('ha_dyn_nml:ileapfrog_startup', &
+            ha_dyn_config%ileapfrog_startup,vlist,astatus)
+       CALL addGlobAttFlt('ha_dyn_nml:asselin_coeff',&
+            ha_dyn_config%asselin_coeff,vlist,astatus)
+       CALL addGlobAttFlt('ha_dyn_nml:si_2tls',&
+            ha_dyn_config%si_2tls,vlist,astatus)
+       CALL addGlobAttFlt('ha_dyn_nml:si_coeff',&
+            ha_dyn_config%si_coeff,vlist,astatus)
+       CALL addGlobAttFlt('ha_dyn_nml:si_offctr',&
+            ha_dyn_config%si_offctr,vlist,astatus)
+       CALL addGlobAttFlt('ha_dyn_nml:si_rtol',&
+            ha_dyn_config%si_rtol,vlist,astatus)
+       CALL addGlobAttFlt('ha_dyn_nml:si_cmin',&
+            ha_dyn_config%si_cmin,vlist,astatus)
+       CALL addGlobAttInt('ha_dyn_nml:si_expl_scheme',&
+            ha_dyn_config%si_expl_scheme,vlist,astatus)
+       CALL addGlobAttTxtFromLog('ha_dyn_nml:ldry_dycore',&
+            ha_dyn_config%ldry_dycore,vlist,astatus)
+       CALL addGlobAttTxtFromLog('ha_dyn_nml:lref_temp',&
+            ha_dyn_config%lref_temp,vlist,astatus)
+     ENDIF
+
+
+     !
+     ! Parameters of /nonhydrostatic_nml/
+     ! ----------------------------
+     IF (iequations == 3) THEN
+        CALL addGlobAttInt('nonhydrostatic_nml:itime_scheme',&
+                          & itime_scheme_nh_atm,vlist,astatus)
+        CALL addGlobAttInt('nonhydrostatic_nml:ivctype',ivctype,vlist,astatus)
+        CALL addGlobAttInt('nonhydrostatic_nml:iadv_rcf',iadv_rcf,vlist,astatus)
+
+        IF (global_cell_type == 3) THEN
+          CALL addGlobAttFlt('nonhydrostatic_nml:rayleigh_coeff',   &
+                  &         rayleigh_coeff(k_jg),vlist,astatus)
+          CALL addGlobAttFlt('nonhydrostatic_nml:damp_height',      &
+                  &         damp_height(k_jg),vlist,astatus)
+          CALL addGlobAttFlt('nonhydrostatic_nml:vwind_offctr',     &
+                  &         vwind_offctr,vlist,astatus)
+          CALL addGlobAttTxtFromLog('nonhydrostatic_nml:l_nest_rcf',&
+                  &         l_nest_rcf,vlist,astatus)
+          CALL addGlobAttInt('nonhydrostatic_nml:iadv_rhotheta',    &
+                  &         iadv_rhotheta,vlist,astatus)
+          CALL addGlobAttInt('nonhydrostatic_nml:igradp_method',    &
+                  &         igradp_method,vlist,astatus)
+          CALL addGlobAttFlt('nonhydrostatic_nml:exner_expol',      &
+                  &         exner_expol,vlist,astatus)
+          CALL addGlobAttTxtFromLog('nonhydrostatic_nml:l_open_ubc',&
+                  &         l_open_ubc,vlist,astatus)
+        ELSEIF (global_cell_type == 6) THEN
+          CALL addGlobAttTxtFromLog('nonhydrostatic_nml:ltheta_up_hori', &
+                  &         ltheta_up_hori,vlist,astatus)
+          CALL addGlobAttTxtFromLog('nonhydrostatic_nml:ltheta_up_vert',&
+                  &         ltheta_up_vert,vlist,astatus)
+          CALL addGlobAttFlt('nonhydrostatic_nml:gmres_rtol_nh',      &
+                  &         gmres_rtol_nh,vlist,astatus)
+          CALL addGlobAttFlt('nonhydrostatic_nml:upstr_beta',      &
+                  &         upstr_beta,vlist,astatus)
+
+        ENDIF
+     END IF
+     !
+     ! Parameters of /diffusion_nml/
+     ! -----------------------------
+     CALL addGlobAttInt('diffusion_nml:hdiff_order',            &
+       &  diffusion_config(k_jg)%hdiff_order,vlist,astatus)
+     CALL addGlobAttFlt('diffusion_nml:hdiff_efdt_ratio',       &
+       &  diffusion_config(k_jg)%hdiff_efdt_ratio,vlist,astatus)
+     CALL addGlobAttFlt('diffusion_nml:hdiff_multfac',          &
+       &  diffusion_config(k_jg)%hdiff_multfac,vlist,astatus)
+     CALL addGlobAttFlt('diffusion_nml:hdiff_tv_ratio',         &
+       &  diffusion_config(k_jg)%hdiff_tv_ratio,vlist,astatus)
+     CALL addGlobAttTxtFromLog('diffusion_nml:lhdiff_temp',     &
+       &  diffusion_config(k_jg)%lhdiff_temp,vlist,astatus)
+     CALL addGlobAttTxtFromLog('diffusion_nml:lhdiff_vn',       &
+       &  diffusion_config(k_jg)%lhdiff_vn,vlist,astatus)
+     CALL addGlobAttFlt('diffusion_nml:hdiff_smag_fac',         &
+       &  diffusion_config(k_jg)%hdiff_smag_fac,vlist,astatus)
+     !
+     ! Parameters of /transport_nml/
+     ! -----------------------------
+     IF (ltransport) THEN
+        CALL addGlobAttInt('transport_nml:ihadv_tracer',       &
+          &  advection_config(k_jg)%ihadv_tracer(max_ntracer),vlist,astatus)
+        CALL addGlobAttInt('transport_nml:ivadv_tracer',       &
+          &  advection_config(k_jg)%ivadv_tracer(max_ntracer),vlist,astatus)
+        CALL addGlobAttTxtFromLog('transport_nml:lvadv_tracer',&
+          &  advection_config(k_jg)%lvadv_tracer,vlist,astatus)
+        CALL addGlobAttTxtFromLog('transport_nml:lstrang',     &
+          &  advection_config(k_jg)%lstrang,vlist,astatus)
+        CALL addGlobAttInt('transport_nml:itype_vlimit',       &
+          &  advection_config(k_jg)%itype_vlimit(max_ntracer),vlist,astatus)
+        CALL addGlobAttInt('transport_nml:itype_hlimit',       &
+          &  advection_config(k_jg)%itype_hlimit(max_ntracer),vlist,astatus)
+        CALL addGlobAttInt('transport_nml:iord_backtraj',      &
+          &  advection_config(k_jg)%iord_backtraj,vlist,astatus)
+        CALL addGlobAttInt('transport_nml:igrad_c_miura',      &
+          &  advection_config(k_jg)%igrad_c_miura,vlist,astatus)
+        CALL addGlobAttTxtFromLog('transport_nml:lclip_tracer',&
+          &  advection_config(k_jg)%lclip_tracer,vlist,astatus)
+        CALL addGlobAttInt('transport_nml:iadv_slev',          &
+          &  advection_config(k_jg)%iadv_slev(max_ntracer),vlist,astatus)
+        CALL addGlobAttFlt('transport_nml:upstr_beta_adv',     &
+          &  advection_config(k_jg)%upstr_beta_adv,vlist,astatus)
+     END IF
+     !
+     IF (ntracer > 0) THEN
+       DO jt=1,ntracer
+         WRITE(cjt,'(i3.3)') jt
+         CALL addGlobAttTxtFromLog('io_nml:lwrite_tracer(' // TRIM(ADJUSTL(cjt)) // ')', &
+         &                  lwrite_tracer(jt),vlist,astatus)
+       END DO
+     END IF
+     CALL addGlobAttTxtFromLog('io_nml:lwrite_precip',lwrite_precip,vlist,astatus)
+     CALL addGlobAttTxtFromLog('io_nml:lwrite_cloud',lwrite_cloud,vlist,astatus)
+     CALL addGlobAttTxtFromLog('io_nml:lwrite_divergence',lwrite_divergence,vlist,astatus)
+
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!! Parameters of physics parameterizations
+  !------------------------------------------
+     IF (lforcing) THEN
+       SELECT CASE (iforcing)
+
+       CASE (iecham,ildf_echam)
+         !
+         !!! Parameters of /echam_phy_nml/
+         !--------------------------------
+         CALL addGlobAttTxtFromLog('echam_phy_nml:lrad',get_lrad(),vlist,astatus)
+         CALL addGlobAttTxtFromLog('echam_phy_nml:lvdiff',get_lvdiff(),vlist,astatus)
+         CALL addGlobAttTxtFromLog('echam_phy_nml:lconv',get_lconv(),vlist,astatus)
+         CALL addGlobAttTxtFromLog('echam_phy_nml:lcond',get_lcond(),vlist,astatus)
+         CALL addGlobAttTxtFromLog('echam_phy_nml:lcover',get_lcover(),vlist,astatus)
+         CALL addGlobAttTxtFromLog('echam_phy_nml:lgw_hines',get_lgw_hines(),vlist,astatus)
+         !
+         !!! Parameters of /echam_conv_nml/
+         !---------------------------------
+         IF ( get_lconv() ) THEN
+            CALL addGlobAttTxtFromLog('echam_conv_nml:lmfpen', &
+                 echam_conv_config%lmfpen,vlist,astatus)
+            CALL addGlobAttTxtFromLog('echam_conv_nml:lmfmid', &
+                 echam_conv_config%lmfmid,vlist,astatus)
+           !CALL addGlobAttTxtFromLog('echam_conv_nml:lmfscv', &
+           !     echam_conv_config%lmfscv,vlist,astatus)
+            CALL addGlobAttTxtFromLog('echam_conv_nml:lmfdd',  &
+                 echam_conv_config%lmfdd,vlist,astatus)
+            CALL addGlobAttTxtFromLog('echam_conv_nml:lmfdudv',&
+                 echam_conv_config%lmfdudv,vlist,astatus)
+            CALL addGlobAttInt('echam_conv_nml:iconv', &
+                 echam_conv_config%iconv,vlist,astatus)
+            CALL addGlobAttFlt('echam_conv_nml:cmftau', &
+                 echam_conv_config%cmftau,vlist,astatus)
+            CALL addGlobAttFlt('echam_conv_nml:cmfctop', &
+                 echam_conv_config%cmfctop,vlist,astatus)
+            CALL addGlobAttFlt('echam_conv_nml:cprcon', &
+                 echam_conv_config%cprcon,vlist,astatus)
+            CALL addGlobAttFlt('echam_conv_nml:cminbuoy',&
+                 echam_conv_config%cminbuoy,vlist,astatus)
+            CALL addGlobAttFlt('echam_conv_nml:entrpen', &
+                 echam_conv_config%entrpen,vlist,astatus)
+            CALL addGlobAttFlt('echam_conv_nml:dlev',    &
+                 echam_conv_config%dlev,vlist,astatus)
+         END IF
+      !
+!!$        !!! Parameters of /gw_hines_nml/
+!!$        !-------------------------------
+!!$        IF (lgw_hines) THEN
+!!$          CALL addGlobAttTxtFromLog('gw_hines_nml:lheatcal',lheatcal,vlist,astatus)
+!!$          CALL addGlobAttInt('gw_hines_nml:emiss_lev',emiss_lev,vlist,astatus)
+!!$          CALL addGlobAttFlt('gw_hines_nml:rmscon',rmscon,vlist,astatus)
+!!$          CALL addGlobAttFlt('gw_hines_nml:kstar',kstar,vlist,astatus)
+!!$          CALL addGlobAttFlt('gw_hines_nml:m_min',m_min,vlist,astatus)
+!!$        END IF
+
+       CASE (inwp)
+         !!! Parameters of /nwp_phy_nml/
+         !-------------------------------
+        CALL addGlobAttInt('nwp_phy_nml:inwp_gscp',atm_phy_nwp_config(k_jg)%inwp_gscp,&
+          &vlist,astatus)
+        CALL addGlobAttInt('nwp_phy_nml:inwp_convection',atm_phy_nwp_config(k_jg)%inwp_convection,&
+          &vlist,astatus)
+        CALL addGlobAttInt('nwp_phy_nml:inwp_cldcover',atm_phy_nwp_config(k_jg)%inwp_cldcover,&
+          &vlist,astatus)
+        CALL addGlobAttInt('nwp_phy_nml:inwp_radiation',atm_phy_nwp_config(k_jg)%inwp_radiation,&
+          &vlist,astatus)
+        CALL addGlobAttInt('nwp_phy_nml:inwp_satad',atm_phy_nwp_config(k_jg)%inwp_satad,&
+          &vlist,astatus)
+        CALL addGlobAttInt('nwp_phy_nml:inwp_turb',atm_phy_nwp_config(k_jg)%inwp_turb,&
+          &vlist,astatus)
+        CALL addGlobAttInt('nwp_phy_nml:inwp_sso',atm_phy_nwp_config(k_jg)%inwp_sso,&
+          &vlist,astatus)
+        CALL addGlobAttFlt('nwp_phy_nml:dt_conv',atm_phy_nwp_config(k_jg)%dt_conv ,&
+          &vlist,astatus)
+        CALL addGlobAttFlt('nwp_phy_nml:dt_rad',atm_phy_nwp_config(k_jg)%dt_rad  ,&
+          &vlist,astatus)
+        CALL addGlobAttFlt('nwp_phy_nml:dt_sso',atm_phy_nwp_config(k_jg)%dt_sso ,&
+          &vlist,astatus)
+       END SELECT
+     END IF
+
+     !
+     ! Parameters of /radiation_nml/
+     ! -----------------------------
+     CALL addGlobAttFlt('radiation_nml:dt_rad',atm_phy_nwp_config(k_jg)%dt_rad,&
+       &               vlist,astatus)
+     CALL addGlobAttInt('radiation_nml:izenith',izenith,vlist,astatus)
+     CALL addGlobAttInt('radiation_nml:irad_h2o',irad_h2o,vlist,astatus)
+     CALL addGlobAttInt('radiation_nml:irad_co2',irad_co2,vlist,astatus)
+     CALL addGlobAttInt('radiation_nml:irad_ch4',irad_ch4,vlist,astatus)
+     CALL addGlobAttInt('radiation_nml:irad_n2o',irad_n2o,vlist,astatus)
+     CALL addGlobAttInt('radiation_nml:irad_o3',irad_o3,vlist,astatus)
+     CALL addGlobAttInt('radiation_nml:irad_o2',irad_o2,vlist,astatus)
+     CALL addGlobAttInt('radiation_nml:irad_cfc11',irad_cfc11,vlist,astatus)
+     CALL addGlobAttInt('radiation_nml:irad_cfc12',irad_cfc12,vlist,astatus)
+     CALL addGlobAttInt('radiation_nml:irad_aero',irad_aero,vlist,astatus)
+  !
+  ! Parameters of testcases (hydrostatic and non-hydrostatic
+  ! --------------------------------------------------------
+     IF (ltestcase) THEN
+       !
+       ! Parameters of /testcase_nml/
+       ! -----------------------------
+       IF(iequations == 0 .OR. &
+          iequations == 1 .OR. &
+          iequations == 2 ) THEN
+       !
+          CALL addGlobAttTxt('testcase_nml:ctest_name',TRIM(ctest_name),vlist,astatus)
+          !
+          IF ( TRIM(ctest_name) == 'GW') THEN
+             CALL addGlobAttFlt('testcase_nml:gw_brunt_vais',gw_brunt_vais,vlist,astatus)
+             CALL addGlobAttFlt('testcase_nml:gw_u0',gw_u0,vlist,astatus)
+             CALL addGlobAttFlt('testcase_nml:gw_lon_deg',gw_lon_deg,vlist,astatus)
+             CALL addGlobAttFlt('testcase_nml:gw_lat_deg',gw_lat_deg,vlist,astatus)
+          !
+          ELSEIF ( TRIM(ctest_name) == 'JWw' ) THEN
+             CALL addGlobAttFlt('testcase_nml:jw_uptb',jw_uptb,vlist,astatus)
+          !
+          ELSEIF ( TRIM(ctest_name) == 'MRW' .OR. TRIM(ctest_name) == 'MRW2'  ) THEN
+             CALL addGlobAttFlt('testcase_nml:mountctr_lon_deg',  &
+                       &        mountctr_lon_deg,vlist,astatus)
+             CALL addGlobAttFlt('testcase_nml:mountctr_lat_deg',  &
+                       &        mountctr_lat_deg,vlist,astatus)
+             CALL addGlobAttFlt('testcase_nml:mountctr_height',   &
+                       &        mountctr_height,vlist,astatus)
+             CALL addGlobAttFlt('testcase_nml:mount_half_width',  &
+                       &        mount_half_width,vlist,astatus)
+             CALL addGlobAttFlt('testcase_nml:mount_u0',          &
+                       &        mount_u0,vlist,astatus)
+          !
+          ELSEIF ( TRIM(ctest_name) == 'RH' ) THEN
+             CALL addGlobAttInt('testcase_nml:rh_wavenum',rh_wavenum,vlist,astatus)
+             CALL addGlobAttFlt('testcase_nml:rh_init_shift_deg', &
+                       &        rh_init_shift_deg,vlist,astatus)
+          !
+          ELSEIF ( TRIM(ctest_name) == 'HS' ) THEN
+             CALL addGlobAttInt('testcase_nml:ihs_init_type',ihs_init_type,vlist,astatus)
+             CALL addGlobAttTxtFromLog('testcase_nml:lhs_vn_ptb',lhs_vn_ptb,vlist,astatus)
+             CALL addGlobAttFlt('testcase_nml:hs_vn_ptb_scale',   &
+                       &        hs_vn_ptb_scale,vlist,astatus)
+          !
+          ELSEIF ( TRIM(ctest_name) == 'JWw-Moist' .OR. TRIM(ctest_name) == 'APE' &
+                   .OR. TRIM(ctest_name) == 'LDF-Moist' ) THEN
+             CALL addGlobAttTxtFromLog('testcase_nml:lrh_linear_pres',&
+                       &        lrh_linear_pres,vlist,astatus)
+             CALL addGlobAttFlt('testcase_nml:rh_at_1000hpa',         &
+                       &        rh_at_1000hpa,vlist,astatus)
+          !
+          ELSEIF ( TRIM(ctest_name) == 'PA' ) THEN
+             CALL addGlobAttTxtFromLog('testcase_nml:linit_tracer_fv',&
+                       &        linit_tracer_fv,vlist,astatus)
+          !
+          END IF
+
+       !
+       ! Parameters of /nh_testcase_nml/
+       ! -----------------------------
+       ELSEIF (iequations == 3) THEN
+       !
+          CALL addGlobAttTxt('nh_testcase_nml:nh_test_name', &
+                   &         TRIM(nh_test_name),vlist,astatus)
+          !
+          IF ( TRIM(nh_test_name) == 'jabw') THEN
+             CALL addGlobAttFlt('nh_testcase_nml:jw_up',jw_up,vlist,astatus)
+          !
+          ELSEIF ( TRIM(nh_test_name) == 'mrw2_nh') THEN
+             CALL addGlobAttFlt('nh_testcase_nml:u0_mrw',u0_mrw,vlist,astatus)
+          !
+          ELSEIF ( TRIM(nh_test_name) == 'mrw2_nh' .OR. TRIM(nh_test_name) == 'mwbr_const') THEN
+             CALL addGlobAttFlt('nh_testcase_nml:mount_height_mrw',     &
+                  &             mount_height_mrw,vlist,astatus)
+             !CALL addGlobAttFlt('nh_testcase_nml:mount_half_width',     &
+             !     &             mount_half_width,vlist,astatus)
+             CALL addGlobAttFlt('nh_testcase_nml:mount_lonctr_mrw_deg', &
+                  &             mount_lonctr_mrw_deg,vlist,astatus)
+             CALL addGlobAttFlt('nh_testcase_nml:mount_latctr_mrw_deg', &
+                  &             mount_latctr_mrw_deg,vlist,astatus)
+          !
+          ELSEIF ( TRIM(nh_test_name) == 'mwbr_const') THEN
+             CALL addGlobAttFlt('nh_testcase_nml:u0_mwbr_const',         &
+                  &             u0_mwbr_const,vlist,astatus)
+             CALL addGlobAttFlt('nh_testcase_nml:temp_i_mwbr_const',     &
+                  &             temp_i_mwbr_const,vlist,astatus)
+             CALL addGlobAttFlt('nh_testcase_nml:p_int_mwbr_const',      &
+                  &             p_int_mwbr_const,vlist,astatus)
+             CALL addGlobAttFlt('nh_testcase_nml:bruntvais_u_mwbr_const',&
+                  &             bruntvais_u_mwbr_const,vlist,astatus)
+          !
+          ELSEIF ( TRIM(nh_test_name) == 'bell') THEN
+             CALL addGlobAttFlt('nh_testcase_nml:mount_height',          &
+                  &             mount_height,vlist,astatus)
+             CALL addGlobAttFlt('nh_testcase_nml:torus_domain_length',   &
+                  &             torus_domain_length,vlist,astatus)
+             CALL addGlobAttFlt('nh_testcase_nml:nh_brunt_vais',         &
+                  &             nh_brunt_vais,vlist,astatus)
+             CALL addGlobAttFlt('nh_testcase_nml:nh_u0',nh_u0,vlist,astatus)
+             CALL addGlobAttFlt('nh_testcase_nml:nh_t0',nh_t0,vlist,astatus)
+          !
+          ELSEIF ( TRIM(nh_test_name) == 'PA') THEN
+             CALL addGlobAttFlt('nh_testcase_nml:rotate_axis_deg',       &
+                  &             rotate_axis_deg,vlist,astatus)
+             !CALL addGlobAttTxtFromLog('nh_testcase_nml:linit_tracer_fv',&
+             !    &                     linit_tracer_fv,vlist,astatus)
+          !
+          ELSEIF ( TRIM(nh_test_name) == 'HS_nh') THEN
+             CALL addGlobAttTxtFromLog('nh_testcase_nml:lhs_nh_vn_ptb',  &
+                 &                     lhs_nh_vn_ptb,vlist,astatus)
+             CALL addGlobAttFlt('nh_testcase_nml:hs_nh_vn_ptb_scale',    &
+                 &                     hs_nh_vn_ptb_scale,vlist,astatus)
+          !
+          ELSEIF ( TRIM(nh_test_name) == 'jabw' .OR. TRIM(nh_test_name) == 'mrw') THEN
+             CALL addGlobAttFlt('nh_testcase_nml:qv_max',qv_max,vlist,astatus)
+             !CALL addGlobAttFlt('nh_testcase_nml:rh_at_1000hpa',         &
+             !    &              rh_at_1000hpa,vlist,astatus)
+          !
+          ELSEIF ( TRIM(nh_test_name) == 'APE_nh') THEN
+             CALL addGlobAttTxt('nh_testcase_nml:ape_sst_case',          &
+                 &              TRIM(ape_sst_case),vlist,astatus)
+          !
+          END IF
+       END IF
+     END IF
+  END SUBROUTINE addAtmAtts
+
+  SUBROUTINE addOceAtts(vlist,istatus)
+    INTEGER, INTENT(IN) :: vlist
+    INTEGER             :: istatus
+  END SUBROUTINE addOceAtts
 
 END MODULE mo_io_vlist
