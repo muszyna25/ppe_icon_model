@@ -357,16 +357,16 @@ CONTAINS
                 selmon=9
               ENDIF
 
-              CALL o3_timeint( jce, nbdim, nlev_pres,nmonths,  & !
-                             & selmon ,                        & ! optional choice for month
-                             atm_td%o3(:,:,jb,:),              & ! IN full o3 data
-                             & zo3_timint(:,:)                 ) ! OUT o3(kproma,nlev_p)
+!              CALL o3_timeint( jce, nbdim, nlev_pres,nmonths,  & !
+!                             & selmon ,                        & ! optional choice for month
+!                             atm_td%o3(:,:,jb,:),              & ! IN full o3 data
+!                             & zo3_timint(:,:)                 ) ! OUT o3(kproma,nlev_p)
 
               CALL o3_pl2sh ( jce, nbdim,nlev_pres, nlev ,     &
                              & atm_td%pfoz(:),atm_td%phoz(:),  &! in o3-levs
                              & field% presm_new(:,:,jb),       &! in  app1
                              & field% presi_new(:,:,jb),       &! in  aphp1
-                             & zo3_timint(:,:),                &! in 
+                             & atm_td%o3(:,:,jb,selmon),       &! in 
                              & field% q(:,:,jb,io3)            )! OUT
             END SELECT
 

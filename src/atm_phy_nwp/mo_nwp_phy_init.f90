@@ -57,9 +57,9 @@ MODULE mo_nwp_phy_init
   USE mo_lrtm_setup,          ONLY: lrtm_setup
   USE mo_radiation_config,    ONLY: ssi, tsi, irad_aero, rad_csalbw 
   USE mo_srtm_config,         ONLY: setup_srtm, ssi_amip
-  USE mo_radiation_rg_par,    ONLY: rad_aibi, zaef, zaea, zaes, zaeg, &
-    &                               init_aerosol_properties_tanre_rg, &
-    &                               init_aerosol_distribution_tanre
+  USE mo_radiation_rg_par,    ONLY: rad_aibi, zaef, zaea, zaes, zaeg!, &
+!    &                               init_aerosol_properties_tanre_rg, &
+!    &                               init_aerosol_distribution_tanre
   
   ! microphysics
   USE mo_gscp_cosmo,          ONLY: hydci_pp_init
@@ -330,16 +330,16 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     
     IF ( irad_aero == 5 ) THEN
 
-      CALL init_aerosol_properties_tanre_rg
-      
-      CALL init_aerosol_distribution_tanre ( &
-        & kbdim    = nproma,                 & !in
-        & pt_patch = p_patch,                & !in
-        & aersea   = prm_diag%aersea,        & !out
-        & aerlan   = prm_diag%aerlan,        & !out
-        & aerurb   = prm_diag%aerurb,        & !out
-        & aerdes   = prm_diag%aerdes )         !out
-
+!      CALL init_aerosol_properties_tanre_rg
+!      
+!      CALL init_aerosol_distribution_tanre ( &
+!        & kbdim    = nproma,                 & !in
+!        & pt_patch = p_patch,                & !in
+!        & aersea   = prm_diag%aersea,        & !out
+!        & aerlan   = prm_diag%aerlan,        & !out
+!        & aerurb   = prm_diag%aerurb,        & !out
+!        & aerdes   = prm_diag%aerdes )         !out
+!
     ELSE
 
       zaea(:,:)=0.0_wp
