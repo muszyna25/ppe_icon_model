@@ -206,7 +206,6 @@ CONTAINS
     INTEGER  :: ndomain, nblks_c, jg, jb, jbs, jc, jcs, jce, jk
     REAL(wp) :: zprat, zn1, zn2, zcdnc, zlat
     LOGICAL  :: lland, lglac
-    INTEGER  :: nexp
 
     TYPE(t_echam_phy_field),POINTER :: field => NULL()
     TYPE(t_echam_phy_tend) ,POINTER :: tend  => NULL()
@@ -232,7 +231,7 @@ CONTAINS
       nblks_c = p_patch(jg)%nblks_int_c
       jbs     = p_patch(jg)%cells%start_blk(2,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jcs,jce,jk)
+!$OMP DO PRIVATE(jb,jc,jcs,jce,jk,zlat,zprat,lland,lglac,zn1,zn2,zcdnc)
       DO jb = jbs,nblks_c
         CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
 
@@ -299,8 +298,7 @@ CONTAINS
 
         DO jk = 1,nlev
           DO jc = jcs,jce
-             nexp=2
-             zprat=(MIN(8._wp,80000._wp/field%presm_old(jc,jk,jb)))**nexp
+             zprat=(MIN(8._wp,80000._wp/field%presm_old(jc,jk,jb)))**2
 
              lland = field%lfland(jc,jb)
              lglac = lland.AND.field%glac(jc,jb).GT.0._wp
