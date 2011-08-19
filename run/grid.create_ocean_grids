@@ -14,11 +14,21 @@
 #
 # This section of the run script containes the specifications of the ocean grid
 #
-# The ocean part in the ocean grid generator can be defined in three ways:
-# A. Using a bathymetry file ([+set_sea_depth], [set_min_sea_depth]).
-#    If set_sea_depth is given then an ocean with flat bed will be created.
-# B. Using geometric conditions (no_of_conditions=1) +set_sea_depth
-# C. No conditions: no_of_conditions=0, elevation_file='', +set_set_sea_depth (aqua planet)
+# The ocean part in the ocean grid generator can be defined in these ways:
+# A. create_basin=".true."
+#    Using geometric conditions (no_of_conditions=1) and $SEADEPTH for creating a basin
+# B. create_aqua_planet=".true."
+#    No conditions: no_of_conditions=0, elevation_file='', $SEADEPTH for aqua planet
+# C. create_etopo40_flat=".true."
+#    Using etopo40 file to create a land-sea-mask and a flat bottom bathymetry ($LSMDEPTH, $SEADEPTH)
+# D. create_etopo40_planet=".true."
+#    Using etopo40 file to create a land-sea-mask and ocean bathymetry ($LSMDEPTH)
+#
+# There are three parameters determining the resultant ocean bathymetry
+#    min_sea_depth=$LSMDEPTH gives the value to decide whether a point is land or sea
+#    If set_sea_depth=$SEADEPTH is given then an ocean with flat bottom will be created.
+#    If set_min_sea_depth=$MINDEPTH is given then a sea-point gets this value as minimum depth
+#      which can be set to the thickness of the first two layers
 # 
 # There are two options regarding the cells contained in the ocean grid:
 # only_get_sea_land_mask=.true.  The global grid will be written with the sea-land mask
@@ -45,6 +55,7 @@ fi
 #-----------------------------------------------------------------------------
 create_basin=".true."
 create_aqua_planet=".true."
+create_etopo40_flat=".true."
 create_etopo40_planet=".true."
 # plot_grid=".true."
 #-----------------------------------------------------------------------------
@@ -292,13 +303,14 @@ cat > $parameterFile << EOF
   only_get_sea_land_mask    = $only_get_sea_land_mask
   smooth_ocean_boundary     = $smooth_ocean_boundary
   output_ocean_file         = '$OCEGRID'
-  output_atmo_file         = ''
+  output_atmo_file          = ''
   input_file                = '$INPGRID'
   elevation_file            = '$ELEVF'             ! elevation file on icon grid
   elevation_field           = 'ROSE'               ! array name in output file
-  min_sea_depth             = $MINDEPTH
+  min_sea_depth             = $LSMDEPTH
   edge_elev_interp_method   = $INTMTH  
   set_sea_depth             = $SEADEPTH
+  set_min_sea_depth         = $MINDEPTH
   refine_iterations         = $REFINE_ITERATIONS
 /
 EOF
@@ -334,7 +346,7 @@ EOF
 
 
 #-----------------------------------------------------------------------------
-# create oceans basin
+# create ocean basin
 if [[ x$create_basin = "x.true." ]] ; then
   # grid parameters
   R=2                   # nroot
@@ -345,7 +357,7 @@ if [[ x$create_basin = "x.true." ]] ; then
   only_get_sea_land_mask=".true."
   smooth_ocean_boundary=".true."
   #bathymetry parameters
-  MINDEPTH="-1.0"       # not used here, but needed for the namelist
+  LSMDEPTH=""           # not used here, but needed for the namelist
   SEADEPTH="-12000.0"   # set ocean bathymetry to constant (flat bottom)
   INTMTH=3              # edge elevation interpolation method: 1= linear, 2=min,  3=max
   # topography file
@@ -375,17 +387,17 @@ fi
 
 
 #-----------------------------------------------------------------------------
-# create aqua planet
+# create aqua planet with flat bottom
 if [[ x$create_aqua_planet = "x.true." ]] ; then
   # grid parameters
   R=2                   # nroot
   B=4                   # number of bisections applied for the global grid
-  REFINE_ITERATIONS=1
+  REFINE_ITERATIONS=0
   optimize_ocean_grids=".true."
   only_get_sea_land_mask=".true."
   smooth_ocean_boundary=".false."
   #bathymetry parameters
-  MINDEPTH="-1.0"       # not used here, but needed for the namelist
+  LSMDEPTH=""           # not used here, but needed for the namelist
   SEADEPTH="-12000.0"   # set ocean bathymetry to constant (flat bottom)
   INTMTH=3              # edge elevation interpolation method: 1= linear, 2=min,  3=max
   # topography file
@@ -400,7 +412,32 @@ if [[ x$create_aqua_planet = "x.true." ]] ; then
 fi
 
 #-----------------------------------------------------------------------------
-# create etopo40 planet
+# create etopo40 flat bottom bathymetry
+if [[ x$create_etopo40_flat = "x.true." ]] ; then
+  # grid parameters
+  R=2                   # nroot
+  B=4                   # number of bisections applied for the global grid
+  REFINE_ITERATIONS=0   # resolution for defining LSM is $B-$REFINE_ITERATIONS
+  optimize_ocean_grids=".false."
+  only_get_sea_land_mask=".true."
+  smooth_ocean_boundary=".true."
+  #bathymetry parameters
+  LSMDEPTH="0.0"        # minimum bathymetry depth to consider grid point as sea [m] in elevation file
+  SEADEPTH="-12000.0"   # set ocean bathymetry to constant value (flat bottom)
+  INTMTH=3              # edge elevation interpolation method: 1= linear, 2=min,  3=max
+  # topography file
+  TOPFILE="etopo40.cdf" # topography file on regular grid to create land-sea-mask
+  #conditions
+  no_of_conditions=0
+  # output grid name
+  OCEGRID=iconR${R}B0${B}-ocean_etopo40_flat.nc
+  ATMOGRID=iconR${R}B0${B}-atmo_etopo40_planet.nc
+
+  create_ocean_grid
+fi
+
+#-----------------------------------------------------------------------------
+# create etopo40 variable bathymetry
 if [[ x$create_etopo40_planet = "x.true." ]] ; then
   # grid parameters
   R=2                   # nroot
@@ -410,16 +447,16 @@ if [[ x$create_etopo40_planet = "x.true." ]] ; then
   only_get_sea_land_mask=".true."
   smooth_ocean_boundary=".true."
   #bathymetry parameters
-  MINDEPTH="0.0"        # minimum bathymetry depth to consider grid point as sea [m] in elevation file
-  SEADEPTH="-12000.0"   # set ocean bathymetry to constant (flat bottom)
+  LSMDEPTH="0.0"        # minimum bathymetry depth to consider grid point as sea [m] in elevation file
+  SEADEPTH=""           # not used here
+  MINDEPTH="-40.0"      # set to minimum bathymetry depth when gridpoint considered as sea
   INTMTH=3              # edge elevation interpolation method: 1= linear, 2=min,  3=max
   # topography file
   TOPFILE="etopo40.cdf" # topography file on regular grid to create land-sea-mask
   #conditions
   no_of_conditions=0
   # output grid name
-  # OCEGRID=iconR${R}B0${B}-ocean_etopo40_planet.nc
-  OCEGRID=iconR${R}B0${B}-ocean_etopo40_flat.nc
+  OCEGRID=iconR${R}B0${B}-ocean_etopo40_planet.nc
   ATMOGRID=iconR${R}B0${B}-atmo_etopo40_planet.nc
 
   create_ocean_grid
