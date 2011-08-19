@@ -519,7 +519,6 @@ CONTAINS
     zaxisID_surface(k_jg) = zaxisCreate(ZAXIS_SURFACE, 1)
     ALLOCATE(levels(1))
     levels(1) = 0.0_wp
-    write (*,*) 'stop'
     CALL zaxisDefLevels(zaxisID_surface(k_jg), levels)
     DEALLOCATE(levels)
     ! atm (pressure) height, ocean depth
@@ -557,16 +556,13 @@ CONTAINS
       DEALLOCATE(levels)
 
     ELSE ! oce
-    write (*,*) 'stop'
       zaxisIDdepth_m(k_jg)  = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, n_zlev)
       nzlevp1 = n_zlev + 1
-    write (*,*) 'stop'
       zaxisID_halfdepth(k_jg)  = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, nzlevp1)
 
-      ALLOCATE(levels_i(n_zlev))
-      ALLOCATE(levels_m(nzlevp1))
+      ALLOCATE(levels_i(nzlevp1))
+      ALLOCATE(levels_m(n_zlev))
       CALL set_zlev(n_zlev, dzlev_m, levels_i, levels_m)
-    write (*,*) 'stop'
       CALL zaxisDefLevels(zaxisIDdepth_m(k_jg)   , levels_m)
       CALL zaxisDefLevels(zaxisID_halfdepth(k_jg), levels_i)
       DEALLOCATE(levels_i)
@@ -2852,7 +2848,6 @@ CONTAINS
         klev = outvar_desc(ivar, jg)%nlev
 
         ! Pack and output variable
-
         IF(ASSOCIATED(ptr2)) THEN
 
           IF(my_process_is_stdio()) ALLOCATE(streamvar1(n_tot))
