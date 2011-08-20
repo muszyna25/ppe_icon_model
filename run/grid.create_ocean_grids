@@ -288,6 +288,10 @@ create_ocean_grid()
   fi  # TOPFILE needed
 
   #-----------------------------------------------------------------------------
+  # in case of missing values
+LSMDEPTH=${LSMDEPTH:=0.0}      
+MINDEPTH=${MINDEPTH:=$LSMDEPTH}
+  #-----------------------------------------------------------------------------
   # namelist
 cat > $parameterFile << EOF
 &grid_geometry_conditions    
@@ -357,7 +361,6 @@ if [[ x$create_basin = "x.true." ]] ; then
   only_get_sea_land_mask=".true."
   smooth_ocean_boundary=".true."
   #bathymetry parameters
-  LSMDEPTH=""           # not used here, but needed for the namelist
   SEADEPTH="-12000.0"   # set ocean bathymetry to constant (flat bottom)
   INTMTH=3              # edge elevation interpolation method: 1= linear, 2=min,  3=max
   # topography file
@@ -397,7 +400,6 @@ if [[ x$create_aqua_planet = "x.true." ]] ; then
   only_get_sea_land_mask=".true."
   smooth_ocean_boundary=".false."
   #bathymetry parameters
-  LSMDEPTH=""           # not used here, but needed for the namelist
   SEADEPTH="-12000.0"   # set ocean bathymetry to constant (flat bottom)
   INTMTH=3              # edge elevation interpolation method: 1= linear, 2=min,  3=max
   # topography file
