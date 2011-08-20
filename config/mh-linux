@@ -187,7 +187,7 @@ case "$ac_sitename" in
 #                use_shell="/bin/sh"
                 load_profile="." "/opt/modules/default/etc/modules.sh"
                 submit="qsub"
-                sync_submit="qsub -sync y"
+                sync_submit=qsub -sync y
                CC = cc
                 FC = ftn
                 F77= ftn
@@ -214,7 +214,7 @@ case "$ac_sitename" in
                 load_modules="ncl/5.2.1-gccsys" "${load_modules}"
                 load_profile="." "/client/etc/profile.zmaw"
                 submit="qsub"
-                sync_submit="qsub -sync y"
+                sync_submit=qsub -sync y
                 NETCDFROOT  = /sw/sles10-x64/netcdf-4.0.1-without-hdf5
                 
                 case "$fortran_compiler" in
@@ -271,14 +271,14 @@ case "$ac_sitename" in
                 config_target=oflws
                 make_command="make" "-j8"
                 submit="qsub"
-                sync_submit="qsub -sync y"
+                sync_submit=qsub -sync y
                 ;;
             *)                  # hpc
                 NETCDFROOT  = /usr/local/pkg
                 config_target=hpc
                 make_command="make"
                 submit="qsubw"
-                sync_submit="qsub -W block=true"
+                sync_submit=qsub -W block=true
                 ;;
         esac
         ;;
@@ -339,7 +339,7 @@ case "$ac_sitename" in
 			config_target=squall
 			make_command="make" "-j" "8"
 			submit="qsub"
-            sync_submit="qsub -sync y"
+            sync_submit=qsub -sync y
 			;;
 		    *)
 			config_target=mpipc

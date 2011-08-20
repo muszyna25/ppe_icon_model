@@ -91,7 +91,7 @@ case $ac_sitename in
     make_command="make" "-j" "4"
     mpi_startrun=poe
     submit="llsubmit"
-    sync_submit="llsubmit -s"
+    sync_submit=llsubmit -s
     use_shell=/bin/bash
     ;;
 esac

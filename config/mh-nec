@@ -24,7 +24,7 @@ load_profile="." "/etc/profile.d/modules.sh"
 make_command="make"
 mpi_startrun="mpirun" "-nn" "\\\$no_of_nodes" -nnp "\\\$mpi_procs"
 submit="qsubw"
-sync_submit="qsub -W block=true"
+sync_submit=qsub -W block=true
 
 # OpenMP
 OMPFLAGS =  -P openmp
