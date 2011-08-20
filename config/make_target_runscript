@@ -44,11 +44,9 @@ eval_argument ()
 #     echo "output_name=$output_name"
   ;;
   "in_script" ) input_name="$input_name $2"
-#     echo "input_name=$input_name"
   ;;
-#   "in_script_2" ) input_name_2=$2
-#     echo "input_name=$input_name"
-#  ;;
+  "job_name" ) job_name="$2"
+  ;;
   "in_folder" ) input_folder=$2
   ;;
   "out_folder" ) output_folder=$2
@@ -117,7 +115,7 @@ if [[ ! -d $output_folder ]] ; then
 fi
 
 
-job_name=$output_name
+job_name=${job_name:=$output_name}
 # echo job_name=$job_name
 create_target_header
 

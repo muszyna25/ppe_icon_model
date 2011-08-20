@@ -85,19 +85,15 @@ let end_time=0
 let restart_iter=0
 while [[ $end_time -lt $total_time ]];do
   print "end_time=$end_time, total_time=$total_time"
-  
+
+  job_name=$exp_script.${restart_iter}_restarts.run
   echo "restart=$restart" > $restart_header
   echo "dt_restart=$dt_restart" >> $restart_header
   echo "dt_checkpoint=$dt_checkpoint" >> $restart_header
-  $make_runscript in_folder=$input_folder in_script=$restart_script in_script=$exp_script in_script=exec.iconrun out_script=$out_script EXPNAME=$exp_name
+  $make_runscript in_folder=$input_folder in_script=$restart_script in_script=$exp_script in_script=exec.iconrun out_script=$out_script EXPNAME=$exp_name job_name=$job_name
   # run 
   cd $input_folder
   $use_sync_submit ./$out_script
-  # mv log to the restart log
-  log_file=`ls LOG.$out_script*`
-  if [ -f $log_file ] ; then
-    mv $log_file LOG.$exp_script.${restart_iter}_restarts.run.o
-  fi
   # next restart
   let restart_iter=$restart_iter+1  
   let end_time=$end_time+$dt_restart

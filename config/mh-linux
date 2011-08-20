@@ -339,6 +339,7 @@ case "$ac_sitename" in
 			config_target=squall
 			make_command="make" "-j" "8"
 			submit="qsub"
+            sync_submit="qsub -sync y"
 			;;
 		    *)
 			config_target=mpipc
