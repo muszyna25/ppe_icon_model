@@ -100,7 +100,6 @@ while [[ $end_time -lt $total_time ]];do
   restart=".true."
   cd $base_folder
 
-  exit
 done
 #==============================================================================
 
