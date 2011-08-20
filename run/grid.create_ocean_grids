@@ -289,8 +289,10 @@ create_ocean_grid()
 
   #-----------------------------------------------------------------------------
   # in case of missing values
-LSMDEPTH=${LSMDEPTH:=0.0}      
-MINDEPTH=${MINDEPTH:=$LSMDEPTH}
+  LSMDEPTH=${LSMDEPTH:=0.0}
+  SEADEPTH=${SEADEPTH:=0.0}
+  MINDEPTH=${MINDEPTH:=${LSMDEPTH}}
+
   #-----------------------------------------------------------------------------
   # namelist
 cat > $parameterFile << EOF
