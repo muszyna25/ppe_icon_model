@@ -1,0 +1,115 @@
+#!/bin/ksh
+#==============================================================================
+# Runs a sequence of restarts
+# Leonidas Linardakis, MPI-M, 2011-25-1
+#==============================================================================
+
+#==============================================================================
+# The basic command for creating an ICON experiment run script is
+#   
+#  $make_runscript in_script=exp.<name> in_script=exec.iconrun EXPNAME=<name>
+#
+# By default the folder in use is ./run, and the run script is named exp.<name>.run.
+# 
+# Basic optional parameters for the $make_runscript command are:
+#
+#    out_script=<output run script name>. By default is <in_script>.run
+#
+#    in_folder=<input folder>. By default is run
+#
+#    out_folder=<output folder>. By default is =<in_folder>
+#
+#    mpi_procs=<number of mpi processes>. In the case of MPI configuration,
+#       defines how many processes per node will be used.
+# 
+#    no_of_nodes=<Number of nodes>. In the case of MPI configuration,
+#       defines how many nodes will be used.
+# 
+#    openmp_threads=<Number of openmp threads>. In the case of OPENMP
+#       configuration, defines how many OPENMP threads will be used.
+#
+#    cpu_time=<wall time>. Defines the expected run wall time.
+#  
+#    <free_variable>=<value> Free variables can be passed to the run script
+#       using this syntax. For example: EXPNAME=test, will result the
+#       definition of the variable EXPNAME=test in the run script.
+#
+# For more details see the parameters in the ./config/make_target_runscript
+#==============================================================================
+
+
+#==============================================================================
+set -x
+input_folder=run
+# experiment to run
+exp_name="test_hat_jww-moist_cld-cnv-vdf"
+exp_name="$1"
+#==============================================================================
+# set restart parameters
+# the start_date is just passed over to the ruscript
+start_date="2008-10-01T00:00:00Z"
+
+# we have to define the total_time and the dt_restart in secs
+# alternatively, we can define it in days or years, and translate to secs
+#total_years=100
+#restart_years=20
+total_days=1
+#restart_days=1
+#dt_restart=`expr ${restart_days} \* 86400`
+
+# dt_restart contains the restart time in secs
+# restart every hour
+dt_restart=3600
+# restart half hour
+dt_restart=1800
+dt_checkpoint=$dt_restart
+
+# total_time contains the total simulation time in secs
+let total_time=$total_days*86400
+
+#==============================================================================
+# create and run until $end_time -lt $total_time
+base_folder=$(pwd)
+. $base_folder/config/set-up.info
+use_shell=${use_shell:="/bin/ksh"}
+# The $make_runscript command directs to the ./config/make_target_runscript
+make_runscript="$use_shell ./config/make_target_runscript"
+#==============================================================================
+exp_script="exp.$exp_name"
+restart_script="restart.$exp_name"
+restart_header=$input_folder/$restart_script
+out_script=$exp_script.run
+# the first time is not a restart
+restart=".false."
+let end_time=0
+let restart_iter=0
+while [[ $end_time -lt $total_time ]];do
+  print "end_time=$end_time, total_time=$total_time"
+  
+  echo "restart=$restart" > $restart_header
+  echo "dt_restart=$dt_restart" >> $restart_header
+  echo "dt_checkpoint=$dt_checkpoint" >> $restart_header
+  $make_runscript in_folder=$input_folder in_script=$restart_script in_script=$exp_script in_script=exec.iconrun out_script=$out_script EXPNAME=$exp_name
+  # run 
+  cd $input_folder
+  $use_sync_submit ./$out_script
+  # mv log to the restart log
+  log_file=`ls LOG.$out_script*`
+  if [ -f $log_file ] ; then
+    mv $log_file LOG.$exp_script.${restart_iter}_restarts.run.o
+  fi
+  # next restart
+  let restart_iter=$restart_iter+1  
+  let end_time=$end_time+$dt_restart
+  restart=".true."
+  cd $base_folder
+
+  exit
+done
+#==============================================================================
+
+
+
+echo "-------------------"
+echo " End of restarts"
+echo "-------------------"

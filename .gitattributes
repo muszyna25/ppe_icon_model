@@ -602,7 +602,6 @@ run/exp.hat_icoham_ape -text
 run/exp.hat_jww -text
 run/exp.hat_jww-moist_cld-cnv-vdf -text
 run/exp.hat_jww-moist_cld-cnv-vdf-gwh -text
-run/exp.hat_jww-moist_cld-cnv-vdf_restart -text
 run/exp.hat_jww_echam -text
 run/exp.hom_aqpl -text
 run/exp.hom_lsm_flat -text
@@ -653,6 +652,7 @@ run/post.test_nh3_tri_tracer_solid_body -text
 run/run_ICOHAM_R2B4_APE -text
 run/run_ICONAM_R2B4_APE -text
 run/test_local_patch_refinement -text
+/run_restart -text
 scripts/.gmtcommands -text
 scripts/buildbot_scripts/ICON.cfg -text
 scripts/buildbot_scripts/README -text

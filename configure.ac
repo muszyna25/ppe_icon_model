@@ -877,6 +877,7 @@ if [[ "$mpi_startrun" == "" ]]; then
   fi
 fi
 
+sync_submit=${sync_submit:=$submit}
 
 echo Creating set-up.info...
 cat > config/set-up.info << EOF
@@ -897,6 +898,7 @@ use_load_profile="$load_profile"
 use_netcdflibpath="$NETCDFLIBPATH"
 use_make_command="$make_command"
 use_submit="$submit"
+use_sync_submit="$sync_submit"
 use_shell="$use_shell"
 #############################
 EOF

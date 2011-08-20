@@ -28,9 +28,9 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #
 #-----------------------------------------------------------------------------
 # global timing
-start_date="2008-09-01T00:00:00Z"
+start_date=${start_date:="2008-09-01T00:00:00Z"}
 ndays_restart=60
-dt_restart=`expr ${ndays_restart} \* 86400`
+dt_restart=${dt_restart:=`expr ${ndays_restart} \* 86400`}
 #
 #-----------------------------------------------------------------------------
 # model timing
@@ -41,7 +41,7 @@ dt_diag=`expr 24 \* 3600  `       # int output each 24 hours
 dt_file=`expr 1 \* 86400 `        # write a data file for every day
 dt_data=21600.                    # write output every 6 hours
 dt_rad=3600.                      # compute radiative transfer every hour
-dt_checkpoint=`expr 1 \* 86400 `  # write restart file every day
+dt_checkpoint=${dt_checkpoint:=`expr 1 \* 86400 `}  # write restart file every day
 #
 #-----------------------------------------------------------------------------
 # model parameters

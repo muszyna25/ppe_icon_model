@@ -42,9 +42,7 @@ base_folder=$(pwd)
 input_folder=run
 #==============================================================================
 . $base_folder/config/set-up.info
-if [[ x$use_shell == x ]] ; then
-  use_shell="/bin/ksh"
-fi
+use_shell=${use_shell:="/bin/ksh"}
 # The $make_runscript command directs to the ./config/make_target_runscript
 make_runscript="$use_shell ./config/make_target_runscript"
 #==============================================================================
