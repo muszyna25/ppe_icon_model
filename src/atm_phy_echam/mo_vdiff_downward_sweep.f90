@@ -41,7 +41,7 @@ MODULE mo_vdiff_downward_sweep
 
   USE mo_kind,               ONLY: wp
   USE mo_turbulence_diag,    ONLY: atm_exchange_coeff, sfc_exchange_coeff
-  USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, ih, iqv,         &
+  USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, ih, iqv, imh, imqv, &
                                  & matrix_setup_elim, rhs_setup, rhs_elim
 #ifdef __ICON__
   USE mo_physical_constants, ONLY: grav, rd
@@ -82,7 +82,7 @@ CONTAINS
                        & pcfm,       pcfm_tile, pcfh,       pcfh_tile,  &! out
                        & pcfv,       pcftke,    pcfthv,                 &! out
                        & aa,         aa_btm,    bb,         bb_btm,     &! out
-                       & pprfac_sfc, pcpt_tile,                         &! out
+                       & pfactor_sfc, pcpt_tile,                        &! out
                        & pcptgz,     prhoh,     pqshear,                &! out
                        & pzthvvar,   pztkevn                            )! out
 
@@ -163,14 +163,14 @@ CONTAINS
  
     REAL(wp),INTENT(OUT) ::             &
       & aa     (kbdim,klev,3,nmatrix)  ,&!< coeff. matrices, all variables
-      & aa_btm (kbdim,3,ksfc_type)     ,&!< last row of coeff. matrix of heat and moisture
+      & aa_btm (kbdim,3,ksfc_type,imh:imqv),&!< last row of coeff. matrix of heat and moisture
       & bb     (kbdim,klev,nvar_vdiff) ,&!< r.h.s., all variables
       & bb_btm (kbdim,ksfc_type,ih:iqv)  !< last row of r.h.s. of heat and moisture
 
     ! Other variables to be passed on to the second part of turbulence solver
 
     REAL(wp),INTENT(OUT) ::         &
-      & pprfac_sfc(kbdim)          ,&!< prefactor for the exchange coeff.
+      & pfactor_sfc(kbdim)         ,&!< prefactor for the exchange coeff.
       & pcpt_tile (kbdim,ksfc_type),&!< dry static energy at surface
       & pcptgz    (kbdim,klev)     ,&!< dry static energy
       & prhoh     (kbdim,klev)     ,&!< air density at half levels
@@ -180,7 +180,7 @@ CONTAINS
 
     ! Local variables
 
-    REAL(wp) :: zprfac (kbdim,klev)   !< prefactor for the exchange coefficients
+    REAL(wp) :: zfactor(kbdim,klev)   !< prefactor for the exchange coefficients
     REAL(wp) :: zrdpm  (kbdim,klev)
     REAL(wp) :: zrdph  (kbdim,klevm1)
 
@@ -222,7 +222,7 @@ CONTAINS
                            & pzthvvar(:,1:klevm1),pztkevn(:,1:klevm1),&! out
                            & pcfm   (:,1:klevm1), pcfh  (:,1:klevm1), &! out
                            & pcfv   (:,1:klevm1), pcftke(:,1:klevm1), &! out
-                           & pcfthv (:,1:klevm1), zprfac(:,1:klevm1), &! out
+                           & pcfthv (:,1:klevm1), zfactor(:,1:klevm1),&! out
                            & prhoh  (:,1:klevm1),                     &! out, for "vdiff_tendencies"
                            & ztheta_b(:), zthetav_b(:), zthetal_b(:), &! out, for "sfc_exchange_coeff"
                            & zqsat_b(:),  zlh_b(:),                   &! out, for "sfc_exchange_coeff"
@@ -256,7 +256,7 @@ CONTAINS
                            & pcfh   (:,klev), pcfh_tile(:,:),       &! out
                            & pcfv   (:,klev),                       &! out
                            & pcftke (:,klev), pcfthv  (:,klev),     &! out
-                           & zprfac (:,klev), prhoh   (:,klev),     &! out
+                           & zfactor(:,klev), prhoh   (:,klev),     &! out
                            & pztkevn(:,klev), pzthvvar(:,klev),     &! out
                            & pqshear(:,klev),                       &! out, for "vdiff_tendencies"
                            &  pustar(:)                             )! out, for "atm_exchange_coeff"
@@ -264,9 +264,9 @@ CONTAINS
   
     !-----------------------------------------------------------------------
     ! 3. Set up coefficient matrix of the tri-diagonal system, then perform
-    !    Gauss elimination for the matrix. The matrix is built from
+    !    Gauss elimination for it. The matrix is built from
     !    - the exchange coefficients;
-    !    - the prefactor "zprfac" and some additional constants ("zconst")
+    !    - the prefactor "zfactor" and some additional constants ("zconst")
     !      which are determined by the spatial and temporal discretization
     !      employed for vertical diffusion;
     !    - the assumption about upper and lower boundaries, especially
@@ -275,20 +275,20 @@ CONTAINS
     !-----------------------------------------------------------------------
   
     zconst = tpfac1*pstep_len*grav*grav
-    zprfac(1:kproma,1:klevm1) = zprfac(1:kproma,1:klevm1)*zconst
+    zfactor(1:kproma,1:klevm1) = zfactor(1:kproma,1:klevm1)*zconst
   
     zconst = tpfac1*pstep_len*grav/rd
-    zprfac(1:kproma,  klev)   = zprfac(1:kproma,  klev)  *zconst
+    zfactor(1:kproma,  klev)   = zfactor(1:kproma,  klev)  *zconst
   
     CALL matrix_setup_elim( kproma, kbdim, klev, klevm1, ksfc_type, itop, &! in
                           & pcfm     (:,:),   pcfh  (:,1:klevm1),         &! in
                           & pcfh_tile(:,:),   pcfv  (:,:),                &! in
                           & pcftke   (:,:),   pcfthv(:,:),                &! in
-                          & zprfac   (:,:),   zrdpm, zrdph,               &! in
+                          & zfactor  (:,:),   zrdpm, zrdph,               &! in
                           & aa, aa_btm                                    )! out
  
-    ! Save for output, to be used in "surface_solve"
-    pprfac_sfc(1:kproma) = zprfac(1:kproma,klev)
+    ! Save for output, to be used in "update_surface"
+    pfactor_sfc(1:kproma) = zfactor(1:kproma,klev)
 
     !-----------------------------------------------------------------------
     ! 4. Set up right-hand side of the tri-diagonal system and perform 

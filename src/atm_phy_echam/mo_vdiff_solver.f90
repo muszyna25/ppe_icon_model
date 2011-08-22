@@ -36,9 +36,8 @@ MODULE mo_vdiff_solver
 
   USE mo_kind,              ONLY: wp
   USE mo_impl_constants,    ONLY: SUCCESS
-  USE mo_exception,         ONLY: finish
+  USE mo_exception,         ONLY: message, message_text, finish
 #ifdef __ICON__
-  USE mo_exception,          ONLY: message, message_text, finish
   USE mo_physical_constants,ONLY: grav, vtmpc2, cpd, als, alv
   USE mo_echam_vdiff_params,ONLY: clam, da1, tkemin=>tke_min, cons2, cons25, &
                                 & tpfac1, tpfac2, tpfac3, cchar, z0m_min
@@ -52,14 +51,16 @@ MODULE mo_vdiff_solver
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: init_vdiff_solver       !< subroutine
-  PUBLIC :: cleanup_vdiff_solver    !< subroutine
-  PUBLIC :: matrix_setup_elim       !< subroutine
-  PUBLIC :: rhs_setup, rhs_elim     !< subroutines
-  PUBLIC :: sfc_solve, rhs_bksub    !< subroutines
-  PUBLIC :: vdiff_tendencies        !< subroutine
-  PUBLIC :: nvar_vdiff, nmatrix     !< parameters
-  PUBLIC :: ih,iqv                  !< parameters
+  PUBLIC :: init_vdiff_solver         !< subroutine
+  PUBLIC :: cleanup_vdiff_solver      !< subroutine
+  PUBLIC :: matrix_setup_elim         !< subroutine
+  PUBLIC :: matrix_to_richtmyer_coeff !< subroutine
+  PUBLIC :: rhs_setup, rhs_elim       !< subroutines
+  PUBLIC :: rhs_bksub                 !< subroutines
+  PUBLIC :: vdiff_tendencies          !< subroutine
+  PUBLIC :: nvar_vdiff, nmatrix       !< parameters
+  PUBLIC :: ih,iqv,iu,iv              !< parameters
+  PUBLIC :: imh,imqv, imuv            !< parameters
 
   ! Module variables
 
@@ -69,6 +70,7 @@ MODULE mo_vdiff_solver
   INTEGER :: itke, ithv
   INTEGER :: itrc_start, itrc_end
   INTEGER :: nmatrix
+  INTEGER :: imh, imqv, imuv
 
   INTEGER, ALLOCATABLE :: matrix_idx(:)    !< shape: (nvar_vdiff)
   INTEGER, ALLOCATABLE :: ibtm_var  (:)    !< shape: (nvar_vdiff)
@@ -153,18 +155,19 @@ CONTAINS
     IF (ist/=SUCCESS) CALL finish(TRIM(thismodule),&
       & 'Allocation of matrix_idx failed')
 
-    matrix_idx(iu)   = 1
+    matrix_idx(iu)   = 1  ; imuv = 1
     matrix_idx(iv)   = 1  ! u and v share the same exchange coeff.
     matrix_idx(ixl)  = 2
     matrix_idx(ixi)  = 2  ! cloud water and ice share the same exchange coeff.
     matrix_idx(ixv)  = 3
     matrix_idx(itke) = 4
     matrix_idx(ithv) = 5
-    matrix_idx(ih)   = 6
-    matrix_idx(iqv)  = 6
+    matrix_idx(ih)   = 6 ; imh  = 6
+    matrix_idx(iqv)  = 7 ; imqv = 7
+
     IF (ktrac>0) matrix_idx(nvar_vdiff-ktrac+1:nvar_vdiff) = 2
 
-    nmatrix = 6    ! total number of matrices
+    nmatrix = 7    ! total number of matrices
 
     !---------------------------------------------------------------------------
     ! # of vertical levels on which elimination of the coefficient will be done
@@ -193,6 +196,12 @@ CONTAINS
   !-------------
   !>
   !!
+  !! Set up coeffient matrix of the linear algebraic system and 
+  !! perform Gauss elimination. For moisture, the last row of the 
+  !! matrix (aa_btm) can not be finished yet because the evapotranspiration 
+  !! coefficients "cair" and "csat" are not yet available. Thus for this variable 
+  !! elimination is performed only till level klev-1. 
+  !! 
   SUBROUTINE matrix_setup_elim( kproma, kbdim, klev, klevm1,  &! in
                               & ksfc_type, itop,              &! in
                               & pcfm, pcfh, pcfh_tile, pcfv,  &! in
@@ -207,16 +216,17 @@ CONTAINS
     REAL(wp),INTENT(IN) :: pcfm     (kbdim,klev)      !< exchange coeff. for u, v
     REAL(wp),INTENT(IN) :: pcfh     (kbdim,klevm1)    !< exchange coeff. for heat and tracers
     REAL(wp),INTENT(IN) :: pcfh_tile(kbdim,ksfc_type) !< exchange coeff. for heat and qv, at surface
-    REAL(wp),INTENT(IN) :: pcfv    (kbdim,klev)      !< exchange coeff. for total water variance
-    REAL(wp),INTENT(IN) :: pcftke  (kbdim,klev)      !< exchange coeff. for TKE
-    REAL(wp),INTENT(IN) :: pcfthv  (kbdim,klev)      !< exchange coeff. for variance of theta_v
-    REAL(wp),INTENT(IN) :: pprfac  (kbdim,klev)      !< prefactor for the exchange coefficients
-    REAL(wp),INTENT(IN) :: prdpm   (kbdim,klev)      !< reciprocal of layer thickness, full levels
-    REAL(wp),INTENT(IN) :: prdph   (kbdim,klevm1)    !< reciprocal of layer thickness, half levels
+    REAL(wp),INTENT(IN) :: pcfv     (kbdim,klev)      !< exchange coeff. for total water variance
+    REAL(wp),INTENT(IN) :: pcftke   (kbdim,klev)      !< exchange coeff. for TKE
+    REAL(wp),INTENT(IN) :: pcfthv   (kbdim,klev)      !< exchange coeff. for variance of theta_v
+    REAL(wp),INTENT(IN) :: pprfac   (kbdim,klev)      !< prefactor for the exchange coefficients
+    REAL(wp),INTENT(IN) :: prdpm    (kbdim,klev)      !< reciprocal of layer thickness, full levels
+    REAL(wp),INTENT(IN) :: prdph    (kbdim,klevm1)    !< reciprocal of layer thickness, half levels
 
     REAL(wp),INTENT(OUT) :: aa    (kbdim,klev,3,nmatrix) !< exchange coeff. matrices
-    REAL(wp),INTENT(OUT) :: aa_btm(kbdim,3,ksfc_type)    !< last (the klev-th) row of the coeff. 
-                                                         !< matrix for sensible heat and moisture
+    REAL(wp),INTENT(OUT) :: aa_btm(kbdim,3,ksfc_type,imh:imqv) 
+                                     !< last (the klev-th) row of the coeff. matrices 
+                                     !< of dry static energy and moisture
 
     ! Local variables
 
@@ -249,11 +259,10 @@ CONTAINS
     ENDDO
 
     !---------------------------------------------------------------------
-    ! For heat and qv: surface flux is considered.
-    ! Note that different surface types are treated separately. The shared
-    ! part is levels [itop,klevm1]
+    ! Dry static energy: surface fluxes on different surface types 
+    ! are handled separately. 
     !---------------------------------------------------------------------
-    im = matrix_idx(ih)              ! also = matrix_idx(iqv)
+    im = imh
     zkstar(1:kproma,itop:klevm1) =  pprfac(1:kproma,itop:klevm1) &
                                  &   *pcfh(1:kproma,itop:klevm1)
     DO jk = itop,klevm1
@@ -264,20 +273,48 @@ CONTAINS
       ENDDO
     ENDDO
 
-    ! Lowest model level: consider surface flux for each surface type
+    ! Set the bottom row of the coeff matrix. The same formula applies 
+    ! for all surface types (land, water, ice).
 
     jk = klev
     DO jsfc = 1,ksfc_type
       DO jc = 1,kproma
-        aa_btm(jc,1,jsfc) = -zkstar(jc,jk-1)*prdpm(jc,jk)    ! -K*_{k-1/2}/dp_k
-        aa_btm(jc,3,jsfc) = -pcfh_tile(jc,jsfc)*pprfac(jc,jk)*prdpm(jc,jk)
-        aa_btm(jc,2,jsfc) = 1._wp - aa_btm(jc,1,jsfc) - aa_btm(jc,3,jsfc)
+        aa_btm(jc,1,jsfc,im) = -zkstar(jc,jk-1)*prdpm(jc,jk)    ! -K*_{k-1/2}/dp_k
+        aa_btm(jc,3,jsfc,im) = -pcfh_tile(jc,jsfc)*pprfac(jc,jk)*prdpm(jc,jk)
+        aa_btm(jc,2,jsfc,im) = 1._wp - aa_btm(jc,1,jsfc,im) - aa_btm(jc,3,jsfc,im)
+      ENDDO
+    ENDDO
+
+    !---------------------------------------------------------------------
+    ! Moisture: different surface types are handled separately.
+    !---------------------------------------------------------------------
+    im = imqv
+    zkstar(1:kproma,itop:klevm1) =  pprfac(1:kproma,itop:klevm1) &
+                                 &   *pcfh(1:kproma,itop:klevm1)
+    DO jk = itop,klevm1
+      DO jc = 1,kproma
+        aa(jc,jk,1,im) = -zkstar(jc,jk-1)*prdpm(jc,jk)  ! -K*_{k-1/2}/dp_k
+        aa(jc,jk,3,im) = -zkstar(jc,jk  )*prdpm(jc,jk)  ! -K*_{k+1/2}/dp_k
+        aa(jc,jk,2,im) = 1._wp - aa(jc,jk,1,im) - aa(jc,jk,3,im)
+      ENDDO
+    ENDDO
+
+    ! Bottom row of the matrix: finish the setup over water and ice;
+    ! do part of the computation for land. Later in subroutine
+    ! matrix_to_richtmyer_coeff, aa_btm(:,3,idx_land,imqv) will be 
+    ! modified, and aa_btm(:,2,idx_land,imqv) re-computed.
+
+    DO jsfc = 1,ksfc_type
+      DO jc = 1,kproma
+        aa_btm(jc,1,jsfc,im) = -zkstar(jc,jk-1)*prdpm(jc,jk)    ! -K*_{k-1/2}/dp_k
+        aa_btm(jc,3,jsfc,im) = -pcfh_tile(jc,jsfc)*pprfac(jc,jk)*prdpm(jc,jk)
+        aa_btm(jc,2,jsfc,im) = 1._wp - aa_btm(jc,1,jsfc,im) - aa_btm(jc,3,jsfc,im)
       ENDDO
     ENDDO
 
     !----------------------------------------------------------------------
-    ! For xl, xi, and other tracers: same coefficients as heat and mositure,
-    ! but no turbulent flux at the surface
+    ! For all advected tracers except water vapour: no turbulent flux at 
+    ! the surface.
     !----------------------------------------------------------------------
     im = matrix_idx(ixl)
     zkstar(1:kproma,klev) = 0._wp  ! lower boundary, no turbulent flux
@@ -291,8 +328,10 @@ CONTAINS
     ENDDO
 
     !----------------------------------------------------------------------
-    ! For total water variance: Surface flux already set to zero 
-    ! in subroutine sfc_exchange_coeff.
+    ! For total water variance: no surface flux. The exchange coefficient
+    ! pcfv has been set to to zero in subroutine sfc_exchange_coeff, which
+    ! automatically leads to zkstar(:,klev) = 0._wp, thus no additional 
+    ! attention is needed here.
     !----------------------------------------------------------------------
     im = matrix_idx(ixv)
     zkstar(1:kproma,itop:klev) = pprfac(1:kproma,itop:klev) &
@@ -349,11 +388,11 @@ CONTAINS
       ENDDO
     ENDDO
 
-    !-------------------------------------------------------------------
+    !-----------------------------------------------------------------------------
     ! Gauss elimination for the coefficient matrices at
     ! - vertical levels [itop,klev-2], for TKE and variance of theta_v;
     ! - vertical levels [itop,klev-1], for all the other variables.
-    !-------------------------------------------------------------------
+    !-----------------------------------------------------------------------------
 
     DO im = 1,nmatrix
       aa(1:kproma,itop,3,im) = aa(1:kproma,itop,3,im)/aa(1:kproma,itop,2,im)
@@ -372,6 +411,7 @@ CONTAINS
     ! Polcher et al (1998): after this elimination, 
     !  aa(:,1:ibtm_mtrx(im)-1,2,:) becomes C  (Eqn. 17),
     !  aa(:,1:ibtm_mtrx(im)-1,3,:) becomes -A (Eqn. 19).
+    ! See subroutine matrix_to_richtmyer_coeff.
 
   END SUBROUTINE matrix_setup_elim
   !-------------
@@ -482,7 +522,7 @@ CONTAINS
     ! Add tracer emissions
     !--------------------------------------------------------------------
     ! Currently we follow ECHAM in which only the surface emission
-    ! is treated "vdiff".
+    ! is treated in "vdiff".
 
     ztmp(1:kproma,klev) = grav*prdpm(1:kproma,klev)*pstep_len
 
@@ -516,11 +556,11 @@ CONTAINS
   !! the Richtmyer-Morthon formula and are familiar with the paper by
   !! Polcher et al (1998): after the elimination at the end of 
   !! subroutine matrix_setup_elim, aa(:,1:ibtm_mtrx(im)-1,2,:) 
-  !! became the coeff C defined by Eqn. 17 of Polcher et al 1998). 
+  !! became the coeff C defined by Eqn. 17 of Polcher et al (1998). 
   !! It is used in this subroutine to convert the variable bb 
   !! into the Richtmyer coeff B (cf Eqn. 19 of Polcher et al 1998).
   !!
-  SUBROUTINE rhs_elim( kproma, kbdim, itop, klev, klevm1, &! in 
+  SUBROUTINE rhs_elim( kproma, kbdim, itop, klev, klevm1, &! in
                      & aa, bb                             )! in, inout
 
     INTEGER, INTENT(IN)    :: kproma, kbdim, itop, klev, klevm1
@@ -546,10 +586,15 @@ CONTAINS
       ENDDO
     ENDDO !jvar: variable loop
 
-    ! 2. Vertical level klevm1 for TKE and variance of theta_v.
+    ! 2. Bottom level for all variables except u, v, dry static energy
+    !    and moisture. After this step the array bb contains the
+    !    solution of the linear system.
 
     DO jvar = 1,nvar_vdiff
-      IF (jvar==itke.OR.jvar==ithv) THEN
+
+      IF (jvar==iu.OR.jvar==iv.OR.jvar==ih.OR.jvar==iqv ) THEN
+         CYCLE
+      ELSE
 
         im   = matrix_idx(jvar)  ! Index of coefficient matrix
         jk   = ibtm_var(jvar)    ! Bottom level index
@@ -564,163 +609,98 @@ CONTAINS
     ENDDO !jvar: variable loop
 
     ! Note that for TKE and the variance of theta_v, klev-1 is the lowest
-    ! level above surface. This means elimination has already finished
-    ! for all levels. Now set boundary condition for the variance of theta_v.
+    ! level above surface. Now set boundary condition for the variance 
+    ! of theta_v.
 
     bb(1:kproma,klev,ithv) = bb(1:kproma,klevm1,ithv)
 
   END SUBROUTINE rhs_elim
   !-------------
   !>
-  !! Solve for heat and water vapour in the lowest model layer. 
-  !! First treat each surface type separately, then aggregate 
-  !! the solutions. Note that heat and water vapour share the 
-  !! same coefficient matrix.
   !!
-  SUBROUTINE sfc_solve( kproma, kbdim, klev, klevm1, &! in
-                      & ksfc_type, idx_wtr, idx_ice, &! in
-                      & lsfc_heat_flux, ptpfac2,     &! in
-                      & pfrc, pocu, pocv,            &! in
-                      & pcpt_tile, pqsat_tile,       &! in
-                      & pcfh_tile, pprfac_sfc,       &! in
-                      & aa, aa_btm,                  &! in
-                      & bb, bb_btm                   )! inout
+  !! Prepare the Richtmyer-Morton coeffcients for dry static energy and 
+  !! moisture, to be used by the surface models (ocean, sea-ice, land).
+  !!
+  SUBROUTINE matrix_to_richtmyer_coeff( kproma, kbdim,  ksfc_type, idx_lnd, &! in
+                                      & pcair, pcsat, aa_km1, bb_km1,       &! in
+                                      & aa_btm, bb_btm,                     &! inout
+                                      & pen_h, pfn_h, pen_qv, pfn_qv        )! out
 
-    INTEGER, INTENT(IN) :: kproma, kbdim, klev, klevm1
-    INTEGER, INTENT(IN) :: ksfc_type, idx_wtr, idx_ice 
-    LOGICAL, INTENT(IN) :: lsfc_heat_flux
-    REAL(wp),INTENT(IN) :: ptpfac2
-    REAL(wp),INTENT(IN) :: pfrc      (kbdim,ksfc_type)
-    REAL(wp),INTENT(IN) :: pocu      (kbdim)
-    REAL(wp),INTENT(IN) :: pocv      (kbdim)
-    REAL(wp),INTENT(IN) :: pcpt_tile (kbdim,ksfc_type)
-    REAL(wp),INTENT(IN) :: pqsat_tile(kbdim,ksfc_type)
-    REAL(wp),INTENT(IN) :: pcfh_tile (kbdim,ksfc_type)
-    REAL(wp),INTENT(IN) :: pprfac_sfc(kbdim)
-
-    REAL(wp),INTENT(IN) :: aa    (kbdim,klev,3,nmatrix)
-    REAL(wp),INTENT(IN) :: aa_btm(kbdim,3,ksfc_type)
-
-    REAL(wp),INTENT(INOUT) :: bb    (kbdim,klev,nvar_vdiff)
+    INTEGER,INTENT(IN)     :: kproma, kbdim, ksfc_type, idx_lnd
+    REAL(wp),INTENT(IN)    :: pcair(kbdim), pcsat(kbdim)
+    REAL(wp),INTENT(IN)    :: aa_km1(kbdim,3,imh:imqv)
+    REAL(wp),INTENT(IN)    :: bb_km1(kbdim,ih:iqv)
+    REAL(wp),INTENT(INOUT) :: aa_btm(kbdim,3,ksfc_type,imh:imqv)
     REAL(wp),INTENT(INOUT) :: bb_btm(kbdim,ksfc_type,ih:iqv)
 
-    REAL(wp) :: zfrc_oce(kbdim)
-    REAL(wp) :: znum(kbdim), zden(kbdim)
-    REAL(wp) :: se_sum(kbdim), qv_sum(kbdim), wgt_sum(kbdim), wgt(kbdim)
-    INTEGER  :: im, jkm1, jsfc, jk, jvar
+    REAL(wp),INTENT(OUT) :: pen_h (kbdim,ksfc_type)
+    REAL(wp),INTENT(OUT) :: pfn_h (kbdim,ksfc_type)
+    REAL(wp),INTENT(OUT) :: pen_qv(kbdim,ksfc_type)
+    REAL(wp),INTENT(OUT) :: pfn_qv(kbdim,ksfc_type)
 
-    !-----------------------------------------------------------------
-    ! Add additional terms to the r.h.s. of momentum, static energy
-    ! and moisiture equation by taking into account
-    ! - ocean currents (for u, v);
-    ! - surface sensible heat flux (for static energy);
-    ! - surface moisture flux (for water vapor).
-    ! Note that in subroutine rhs_setup the constant ptpfac2 has been 
-    ! multiplied to the r.h.s. arrays bb and bb_btm. Thus the 
-    ! additional terms here need to be scaled by the same factor.
-    !-----------------------------------------------------------------
+    INTEGER  :: jsfc
 
-    IF (idx_wtr.LE.ksfc_type) THEN   ! Open water is considered
-      IF (idx_ice.LE.ksfc_type) THEN ! Sea ice is also considered
-        zfrc_oce(1:kproma) = pfrc(1:kproma,idx_wtr)+pfrc(1:kproma,idx_ice)
-      ELSE ! only open water
-        zfrc_oce(1:kproma) = pfrc(1:kproma,idx_wtr)
-      ENDIF
-      bb(1:kproma,klev,iu) =   bb(1:kproma,klev,iu)                     &
-                           & - pocu(1:kproma)*zfrc_oce(1:kproma)*ptpfac2
-      bb(1:kproma,klev,iv) =   bb(1:kproma,klev,iv)                     &
-                           & - pocv(1:kproma)*zfrc_oce(1:kproma)*ptpfac2
-    ENDIF
+    !---------------------------------------------------------
+    ! Matrix setup and bottom level elimination for moisture
+    !---------------------------------------------------------
+    ! Evapotranspiration has to be considered over land 
 
-    ! For moisture and heat, each surface type is treated separately
+    IF (idx_lnd<=ksfc_type) THEN
+
+      jsfc = idx_lnd
+
+      aa_btm(1:kproma,2,jsfc,imqv) =           1._wp - aa_btm(1:kproma,1,jsfc,imqv) &
+                                   & - pcair(1:kproma)*aa_btm(1:kproma,3,jsfc,imqv)
+      aa_btm(1:kproma,3,jsfc,imqv) =   pcsat(1:kproma)*aa_btm(1:kproma,3,jsfc,imqv)
+
+    END IF 
+
+    ! Bottom level elimination for all surface types
 
     DO jsfc = 1,ksfc_type
-      bb_btm(1:kproma,jsfc,ih)  =     bb_btm(1:kproma,jsfc,ih) & 
-                                & -pcpt_tile(1:kproma,jsfc)    &
-                                &    *aa_btm(1:kproma,3,jsfc)  &
-                                &    *ptpfac2
-    ENDDO
 
+      aa_btm(1:kproma,2,jsfc,imqv) =  aa_btm(1:kproma,2,jsfc,imqv)  &
+                                   & -aa_btm(1:kproma,1,jsfc,imqv)  &
+                                   & *aa_km1(1:kproma,3,imqv)
+
+      aa_btm(1:kproma,3,jsfc,imqv) =  aa_btm(1:kproma,3,jsfc,imqv)  &
+                                   & /aa_btm(1:kproma,2,jsfc,imqv)
+
+      bb_btm(1:kproma,jsfc,iqv)    = (bb_btm(1:kproma,jsfc,iqv)    &          
+                                   & -aa_btm(1:kproma,1,jsfc,imqv) &
+                                   & *bb_km1(1:kproma,iqv)        )&
+                                   & /aa_btm(1:kproma,2,jsfc,imqv)
+    END DO
+
+    !---------------------------------------------------------
+    ! Bottom level elimination for dry static energy
+    !---------------------------------------------------------
     DO jsfc = 1,ksfc_type
-      bb_btm(1:kproma,jsfc,iqv) =      bb_btm(1:kproma,jsfc,iqv) & 
-                                & -pqsat_tile(1:kproma,jsfc)     &
-                                &     *aa_btm(1:kproma,3,jsfc)   &
-                                &     *ptpfac2
-    ENDDO
 
-    !--------------------------------------------------------------------------
-    ! Bottom level elimination for u, v, as well as tracers excluding moisture
-    !--------------------------------------------------------------------------
-    DO jvar = 1,nvar_vdiff
+      aa_btm(1:kproma,2,jsfc,imh) =  aa_btm(1:kproma,2,jsfc,imh) &
+                                  & -aa_btm(1:kproma,1,jsfc,imh) &
+                                  & *aa_km1(1:kproma,3,imh)
 
-      IF ( jvar==itke.OR.jvar==ithv.OR. & ! Computation for TKE and thvvar already done
-         & jvar==ih  .OR.jvar==iqv ) THEN ! Heat and moisture are handled in the next block
-        CONTINUE
-      ELSE
+      aa_btm(1:kproma,3,jsfc,imh) =  aa_btm(1:kproma,3,jsfc,imh) &
+                                  & /aa_btm(1:kproma,2,jsfc,imh)
 
-        im   = matrix_idx(jvar)  ! Index of coefficient matrix
-        jk   = ibtm_var(jvar)    ! Bottom level index
-        jkm1 = jk - 1
-        zden(1:kproma) =  aa(1:kproma,jk,2,im)                      &
-                       & -aa(1:kproma,jk,1,im)*aa(1:kproma,jkm1,3,im)
-        znum(1:kproma) =  bb(1:kproma,jk,jvar)                      &
-                       & -aa(1:kproma,jk,1,im)*bb(1:kproma,jkm1,jvar)
-        bb(1:kproma,jk,jvar) = znum(1:kproma)/zden(1:kproma)
-      END IF 
-    ENDDO !jvar: variable loop
+      bb_btm(1:kproma,jsfc,ih)    = (bb_btm(1:kproma,jsfc,ih)    &          
+                                  & -aa_btm(1:kproma,1,jsfc,imh) &
+                                  & *bb_km1(1:kproma,ih)        )&
+                                  & /aa_btm(1:kproma,2,jsfc,imh)
+    END DO
 
-    !-------------------------------------------------------------------
-    ! Bottom level elimination for heat and moisture
-    !-------------------------------------------------------------------
+    !---------------------------------------------------------
+    ! Convert matrix entries to Richtmyer-Morton coefficients
+    !---------------------------------------------------------
 
-    im = matrix_idx(ih)          ! index of coefficient matrix
-    jkm1 = klevm1                ! vertical level index klev-1
+    pen_h (1:kproma,1:ksfc_type) = -aa_btm(1:kproma,3,1:ksfc_type,imh)
+    pen_qv(1:kproma,1:ksfc_type) = -aa_btm(1:kproma,3,1:ksfc_type,imqv)
 
-     se_sum(1:kproma) = 0._wp    ! sum of weighted solution
-     qv_sum(1:kproma) = 0._wp    ! sum of weighted solution
-    wgt_sum(1:kproma) = 0._wp    ! sum of weights
+    pfn_h (1:kproma,1:ksfc_type) =  bb_btm(1:kproma,1:ksfc_type,ih )*tpfac1
+    pfn_qv(1:kproma,1:ksfc_type) =  bb_btm(1:kproma,1:ksfc_type,iqv)*tpfac1
 
-    DO jsfc = 1,ksfc_type
-       ! Weights for aggregation
-
-       wgt(1:kproma) =  pfrc(1:kproma,jsfc)*pcfh_tile(1:kproma,jsfc)*pprfac_sfc(1:kproma)
-       wgt_sum(1:kproma) = wgt_sum(1:kproma) + wgt(1:kproma)
-
-       zden(1:kproma) =  aa_btm(1:kproma,2,jsfc)                     &
-                      & -aa_btm(1:kproma,1,jsfc)*aa(1:kproma,jkm1,3,im)
-
-       ! Bottom level elimination for dry static energy
-
-       znum(1:kproma) =  bb_btm(1:kproma,jsfc,ih)                   &
-                      & -aa_btm(1:kproma,1,jsfc)*bb(1:kproma,jkm1,ih)
-
-       bb_btm(1:kproma,jsfc,ih) = znum(1:kproma)/zden(1:kproma)
-       se_sum(1:kproma) = se_sum(1:kproma) + bb_btm(1:kproma,jsfc,ih)*wgt(1:kproma)
-
-       ! Bottom level elimination for water vapour
-
-       znum(1:kproma) =  bb_btm(1:kproma,jsfc,iqv)                    &
-                      & -aa_btm(1:kproma,1,jsfc)*bb(1:kproma,jkm1,iqv)
-
-       bb_btm(1:kproma,jsfc,iqv) = znum(1:kproma)/zden(1:kproma)
-       qv_sum(1:kproma) = qv_sum(1:kproma) + bb_btm(1:kproma,jsfc,iqv)*wgt(1:kproma)
-    ENDDO
-
-    ! Aggregated solutions at the bottom level
-
-    IF (lsfc_heat_flux) THEN
-      bb(1:kproma,klev,ih ) = se_sum(1:kproma)/wgt_sum(1:kproma)
-      bb(1:kproma,klev,iqv) = qv_sum(1:kproma)/wgt_sum(1:kproma)
-    ELSE
-      ! If the surface sensible and heat fluxes are switched off, 
-      ! we get the same solution on all surface types.
-      ! There is thus no need for aggregation. Simply copy.
-      jsfc = 1
-      bb(1:kproma,klev,ih ) = bb_btm(1:kproma,jsfc,ih )
-      bb(1:kproma,klev,iqv) = bb_btm(1:kproma,jsfc,iqv)
-    END IF
-
-  END SUBROUTINE sfc_solve
+  END SUBROUTINE matrix_to_richtmyer_coeff
   !-------------
   !>
   !!

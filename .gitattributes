@@ -914,6 +914,7 @@ src/atm_phy_echam/mo_echam_vdiff_params.f90 -text
 src/atm_phy_echam/mo_gw_hines.f90 -text
 src/atm_phy_echam/mo_icoham_sfc_indices.f90 -text
 src/atm_phy_echam/mo_surface.f90_off -text
+src/atm_phy_echam/mo_surface_aqua.f90 -text
 src/atm_phy_echam/mo_turbulence_diag.f90 -text
 src/atm_phy_echam/mo_vdiff_downward_sweep.f90 -text
 src/atm_phy_echam/mo_vdiff_driver.f90 -text

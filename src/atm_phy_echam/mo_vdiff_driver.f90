@@ -43,7 +43,8 @@ MODULE mo_vdiff_driver
   USE mo_turbulence_diag,    ONLY: atm_exchange_coeff, sfc_exchange_coeff
   USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, ih, iqv,          &
                                  & matrix_setup_elim, rhs_setup, rhs_elim,&
-                                 & sfc_solve, rhs_bksub, vdiff_tendencies
+                                 & rhs_bksub, vdiff_tendencies
+  USE mo_surface_aqua,       ONLY: update_surface_aqua
 #ifdef __ICON__
   USE mo_physical_constants, ONLY: grav, rd
   USE mo_echam_vdiff_params, ONLY: tpfac1, tpfac2, itop
@@ -338,14 +339,13 @@ CONTAINS
   !    layer (the klev-th full level). 
   !-----------------------------------------------------------------------
 
-  CALL sfc_solve( kproma, kbdim, klev, klevm1,    &! in
-                & ksfc_type, idx_wtr, idx_ice,    &! in
-                & lsfc_heat_flux, tpfac2, pfrc,   &! in
-                & pocu, pocv, zcpt_tile,          &! in
-                & pqsat_tile,                     &! in
-                & pcfh_tile, zprfac(:,klev),      &! in
-                & aa, aa_btm,                     &! in
-                & bb, bb_btm                      )! inout
+  CALL update_surface_aqua( lsfc_heat_flux,                 &! in
+                          & kproma, kbdim, klev, ksfc_type, &! in 
+                          & idx_wtr, idx_ice, idx_lnd,      &! in
+                          & pfrc, pcfh_tile, zprfac(:,klev),&! in
+                          & zcpt_tile, pqsat_tile,          &! in
+                          & pocu, pocv,                     &! in
+                          & aa, aa_btm, bb, bb_btm          )! inout
 
   !-----------------------------------------------------------------------
   ! 6. Obtain solution of the tri-diagonal system by back-substitution. 

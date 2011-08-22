@@ -69,6 +69,7 @@ MODULE mo_echam_phy_main
     &                               timer_gw_hines
   USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
   USE mo_icoham_sfc_indices,  ONLY: nsfc_type, iwtr, iice, ilnd
+  USE mo_surface_aqua,        ONLY: update_surface_aqua
   USE mo_cloud,               ONLY: cloud
   USE mo_cover,               ONLY: cover
   USE mo_echam_cloud_params,  ONLY: ctaus, ctaul, ctauk !, ncctop, nccbot
@@ -77,7 +78,7 @@ MODULE mo_echam_phy_main
   USE mo_vdiff_config,        ONLY: vdiff_config
   USE mo_vdiff_downward_sweep,ONLY: vdiff_down
   USE mo_vdiff_upward_sweep,  ONLY: vdiff_up
-  USE mo_vdiff_solver,        ONLY: nvar_vdiff, nmatrix,        &
+  USE mo_vdiff_solver,        ONLY: nvar_vdiff, nmatrix, imh, imqv,   &
                                   & ih_vdiff=>ih, iqv_vdiff=>iqv
   USE mo_gw_hines,            ONLY: gw_hines
   ! provisional to get coordinates
@@ -162,14 +163,14 @@ CONTAINS
     ! Coefficient matrices and right-hand-side vectors for the turbulence solver
     ! _btm refers to the lowest model level (i.e., full level "klev", not the surface)
 
-    REAL(wp) :: zaa    (nbdim,nlev,3,nmatrix)   !< coeff. matrices, all variables
-    REAL(wp) :: zaa_btm(nbdim,3,nsfc_type)      !< last row of coeff. matrix of heat and moisture
+    REAL(wp) :: zaa    (nbdim,nlev,3,nmatrix)       !< coeff. matrices, all variables
+    REAL(wp) :: zaa_btm(nbdim,3,nsfc_type,imh:imqv) !< last row of coeff. matrix of heat and moisture
     REAL(wp) :: zbb    (nbdim,nlev,nvar_vdiff)  !< r.h.s., all variables
     REAL(wp) :: zbb_btm(nbdim,nsfc_type,ih_vdiff:iqv_vdiff) !< last row of r.h.s. of heat and moisture
 
     ! Temporary arrays used by VDIFF
 
-    REAL(wp) :: zprfac_sfc(nbdim)
+    REAL(wp) :: zfactor_sfc(nbdim)
     REAL(wp) :: zcpt_sfc_tile(nbdim,nsfc_type)  !< dry static energy at surface
 
     REAL(wp) :: zcptgz  (nbdim,nlev) !< dry static energy
@@ -636,7 +637,7 @@ CONTAINS
                      & field% cftke   (:,:,jb),         &! out, for output
                      & field% cfthv   (:,:,jb),         &! out, for output
                      & zaa, zaa_btm, zbb, zbb_btm,      &! out, for "vdiff_up"
-                     & zprfac_sfc(:),                   &! out, for "vdiff_up"
+                     & zfactor_sfc(:),                  &! out, for "vdiff_up"
                      & zcpt_sfc_tile(:,:),              &! out, for "vdiff_up"
                      & zcptgz(:,:), zrhoh(:,:),         &! out, for "vdiff_up"
                      & zqshear(:,:),                    &! out, for "vdiff_up"
@@ -652,9 +653,23 @@ CONTAINS
     IF (ltestcase)THEN
       SELECT CASE (ctest_name)
       CASE('APE','JWw-Moist','LDF-Moist')
-      ! Surface temperature is fixed; Surface wind is set to zero
-      ! during model initialization; Nothing to be done here.
-        CONTINUE
+      ! Get solution of the dry static energy and moisture at the 
+      ! lowest model level (stored in zbb and zbb_btm);
+      ! Diagnose various quantities.
+
+        CALL update_surface_aqua(            &
+             & vdiff_config%lsfc_heat_flux,  &! in
+             & jce, nbdim, nlev, nsfc_type,  &! in 
+             & iwtr, iice, ilnd,             &! in, indices of different surface types
+             & zfrc(:,:),                    &! in, area fraction
+             & field% cfh_tile(:,jb,:),      &! in, from "vdiff_down" 
+             & zfactor_sfc(:),               &! in, from "vdiff_down" 
+             & zcpt_sfc_tile(:,:),           &! in, from "vdiff_down"
+             & field%qs_sfc_tile(:,jb,:),    &! in, from "vdiff_down" 
+             & field% ocu (:,jb),            &! in, ocean sfc velocity, u-component
+             & field% ocv (:,jb),            &! in, ocean sfc velocity, v-component
+             & zaa, zaa_btm, zbb, zbb_btm    )! inout
+                         
       CASE DEFAULT
         CALL finish('physc','Unknown choice of ctest_name')
       END SELECT
@@ -679,16 +694,13 @@ CONTAINS
                    & iwtr, iice, ilnd,                &! in, indices of different sfc types
                    & pdtime, psteplen,                &! in, time steps
                    & zfrc(:,:),                       &! in, area fraction of each sfc type
-                   & field% ocu (:,jb),               &! in, ocean sfc velocity, u-component
-                   & field% ocv (:,jb),               &! in, ocean sfc velocity, v-component
                   !& field% cfm_tile(:,:,jb),         &! in
                   !& field% cfh_tile(:,:,jb),         &! in
                    & field% cfm_tile(:,jb,:),         &! in
                    & field% cfh_tile(:,jb,:),         &! in
                   !& field% qs_sfc_tile(:,:,jb),      &! in, sfc spec. humidity at saturation
                    & field% qs_sfc_tile(:,jb,:),      &! in, sfc spec. humidity at saturation
-                   & zaa, zaa_btm, zprfac_sfc(:),     &! in, from "vdiff_down"
-                   & zcpt_sfc_tile(:,:),              &! in, from "vdiff"down"
+                   & zaa,                             &! in, from "vdiff_down"
                    &   ihpbl(:),                      &! in, from "vdiff_down"
                    &  zcptgz(:,:),                    &! in, from "vdiff_down"
                    &   zrhoh(:,:),                    &! in, from "vdiff_down"
@@ -704,7 +716,7 @@ CONTAINS
                    & field% geom(:,:,jb),             &! in, pgeom1 = geopotential above ground
                    &      ztkevn(:,:),                &! in, tke at intermediate time step
                    & field%tkem1(:,:,jb),             &! in, TKE at step t-dt
-                   & zbb, zbb_btm,                    &! inout
+                   & zbb,                             &! inout
                    & zthvvar(:,:),                    &! inout
                    & field%   xvar(:,:,jb),           &! inout
                   !& field% z0m_tile(:,:,jb),         &! inout

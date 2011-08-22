@@ -40,8 +40,8 @@
 MODULE mo_vdiff_upward_sweep
 
   USE mo_kind,               ONLY: wp
-  USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, ih, iqv,         &
-                                 & sfc_solve, rhs_bksub, vdiff_tendencies
+  USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, ih, iqv,     &
+                                 & rhs_bksub, vdiff_tendencies
 #ifdef __ICON__
   USE mo_echam_vdiff_params, ONLY: tpfac2, itop
 #else
@@ -61,9 +61,9 @@ CONTAINS
   SUBROUTINE vdiff_up( lsfc_heat_flux,                                   &! in
                        kproma, kbdim, klev, klevm1, klevp1, ktrac,       &! in
                        ksfc_type, idx_wtr, idx_ice, idx_lnd,             &! in
-                       pdtime, pstep_len, pfrc, pocu, pocv,              &! in
+                       pdtime, pstep_len, pfrc,                          &! in
                        pcfm_tile,  pcfh_tile,   pqsat_tile,              &! in 
-                       aa, aa_btm, pprfac_sfc,  pcpt_tile,               &! in
+                       aa,                                               &! in
                        ihpbl,      pcptgz,      prhoh,       pqshear,    &! in
                        pum1,       pvm1,        ptm1,        pqm1,       &! in
                        pxlm1,      pxim1,       pxtm1,                   &! in
@@ -73,7 +73,7 @@ CONTAINS
 #else
                        ptkem1, ptkem0,                                   &! in/inout
 #endif
-                       bb, bb_btm,                                       &! inout
+                       bb,                                               &! inout
                        pzthvvar,   pxvar,       pz0m_tile,   pkedisp,    &! inout
                        pute,       pvte,        ptte,        pqte,       &! inout
                        pxlte,      pxite,       pxtte,                   &! inout
@@ -90,17 +90,12 @@ CONTAINS
   
     REAL(wp),INTENT(IN) ::           &
       & pfrc      (kbdim,ksfc_type), &!< area fraction of each surface type
-      & pocu      (kbdim)          , &!< eastward  velocity of ocean sfc current
-      & pocv      (kbdim)          , &!< northward velocity of ocean sfc current
       & pcfm_tile (kbdim,ksfc_type), &!< exchange coeff
       & pcfh_tile (kbdim,ksfc_type), &!< exchange coeff for heat and tracers
       & pqsat_tile(kbdim,ksfc_type)   !< surface specific humidity at saturation
 
     REAL(wp),INTENT(IN) :: aa    (kbdim,klev,3,nmatrix) !< for all variables
-    REAL(wp),INTENT(IN) :: aa_btm(kbdim,3,ksfc_type)    !< for heat and moisture
 
-    REAL(wp),INTENT(IN) :: pprfac_sfc (kbdim)    !< prefactor for the exchange coefficients
-    REAL(wp),INTENT(IN) :: pcpt_tile(kbdim,ksfc_type) !< dry static energy at surface
 
     ! The input variables below are needed only by "vdiff_tendencies"
 
@@ -128,7 +123,6 @@ CONTAINS
 #endif
 
     REAL(wp),INTENT(INOUT) :: bb    (kbdim,klev,nvar_vdiff)  !<
-    REAL(wp),INTENT(INOUT) :: bb_btm(kbdim,ksfc_type,ih:iqv) !< for heat and moisture
 
     REAL(wp),INTENT(INOUT) :: pzthvvar (kbdim,klev) !< intermediate value of thvvar
     REAL(wp),INTENT(INOUT) :: pxvar    (kbdim,klev) !< distribution width (b-a) 
@@ -180,21 +174,6 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: plhflx_ac  (kbdim)      !< accumulated latent   heat flux 
     REAL(wp),INTENT(INOUT) :: pshflx_ac  (kbdim)      !< accumulated sensible heat flux 
 
-  
-    !-----------------------------------------------------------------------
-    ! 5. Handle fractional surfaces (tiles) and obtain solution of 
-    !    static energy and water vapor concentration in the lowest model 
-    !    layer (the klev-th full level). 
-    !-----------------------------------------------------------------------
-  
-    CALL sfc_solve( kproma, kbdim, klev, klevm1,    &! in
-                  & ksfc_type, idx_wtr, idx_ice,    &! in
-                  & lsfc_heat_flux, tpfac2, pfrc,   &! in
-                  & pocu, pocv, pcpt_tile,          &! in
-                  & pqsat_tile,                     &! in
-                  & pcfh_tile, pprfac_sfc,          &! in
-                  & aa, aa_btm,                     &! in
-                  & bb, bb_btm                      )! inout
   
     !-----------------------------------------------------------------------
     ! 6. Obtain solution of the tri-diagonal system by back-substitution. 
