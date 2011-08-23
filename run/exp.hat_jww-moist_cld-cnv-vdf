@@ -35,7 +35,7 @@ dt_restart=${dt_restart:=`expr ${ndays_restart} \* 86400`}
 #-----------------------------------------------------------------------------
 # model timing
 dtime=600
-ndays=2
+ndays=${ndays:=2}
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 dt_diag=`expr 24 \* 3600  `       # int output each 24 hours
 dt_file=`expr 1 \* 86400 `        # write a data file for every day
