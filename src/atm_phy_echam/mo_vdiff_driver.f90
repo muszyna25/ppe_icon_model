@@ -44,7 +44,7 @@ MODULE mo_vdiff_driver
   USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, ih, iqv, imh, imqv, &
                                  & matrix_setup_elim, rhs_setup, rhs_elim,  &
                                  & rhs_bksub, vdiff_tendencies
-  USE mo_surface_aqua,       ONLY: update_surface_aqua
+  USE mo_surface,            ONLY: update_surface
 #ifdef __ICON__
   USE mo_physical_constants, ONLY: grav, rd
   USE mo_echam_vdiff_params, ONLY: tpfac1, tpfac2, itop
@@ -346,13 +346,13 @@ CONTAINS
   pshflx_ac(1:kproma) = 0._wp
   !--------------------------------------------------------+++++++++++++++
 
-  CALL update_surface_aqua( lsfc_heat_flux,                 &! in
-                          & kproma, kbdim, klev, ksfc_type, &! in 
-                          & idx_wtr, idx_ice, idx_lnd,      &! in
-                          & pfrc, pcfh_tile, zprfac(:,klev),&! in
-                          & zcpt_tile, pqsat_tile,          &! in
-                          & pocu, pocv,                     &! in
-                          & aa, aa_btm, bb, bb_btm          )! inout
+  CALL update_surface( lsfc_heat_flux,                 &! in
+                     & kproma, kbdim, klev, ksfc_type, &! in 
+                     & idx_wtr, idx_ice, idx_lnd,      &! in
+                     & pfrc, pcfh_tile, zprfac(:,klev),&! in
+                     & zcpt_tile, pqsat_tile,          &! in
+                     & pocu, pocv,                     &! in
+                     & aa, aa_btm, bb, bb_btm          )! inout
 
   !-----------------------------------------------------------------------
   ! 6. Obtain solution of the tri-diagonal system by back-substitution. 

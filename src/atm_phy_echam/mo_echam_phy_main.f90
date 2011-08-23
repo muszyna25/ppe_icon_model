@@ -69,7 +69,7 @@ MODULE mo_echam_phy_main
     &                               timer_gw_hines
   USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
   USE mo_icoham_sfc_indices,  ONLY: nsfc_type, iwtr, iice, ilnd
-  USE mo_surface_aqua,        ONLY: update_surface_aqua
+  USE mo_surface,             ONLY: update_surface
   USE mo_cloud,               ONLY: cloud
   USE mo_cover,               ONLY: cover
   USE mo_echam_cloud_params,  ONLY: ctaus, ctaul, ctauk !, ncctop, nccbot
@@ -650,35 +650,18 @@ CONTAINS
     ! 5.4 Surface processes that provide time-dependent lower boundary
     !     condition for wind, temperature, tracer concentraion, etc.
 
-    IF (ltestcase)THEN
-      SELECT CASE (ctest_name)
-      CASE('APE','JWw-Moist','LDF-Moist')
-      ! Get solution of the dry static energy and moisture at the 
-      ! lowest model level (stored in zbb and zbb_btm);
-      ! Diagnose various quantities.
-
-        CALL update_surface_aqua(            &
-             & vdiff_config%lsfc_heat_flux,  &! in
-             & jce, nbdim, nlev, nsfc_type,  &! in 
-             & iwtr, iice, ilnd,             &! in, indices of different surface types
-             & zfrc(:,:),                    &! in, area fraction
-             & field% cfh_tile(:,jb,:),      &! in, from "vdiff_down" 
-             & zfactor_sfc(:),               &! in, from "vdiff_down" 
-             & zcpt_sfc_tile(:,:),           &! in, from "vdiff_down"
-             & field%qs_sfc_tile(:,jb,:),    &! in, from "vdiff_down" 
-             & field% ocu (:,jb),            &! in, ocean sfc velocity, u-component
-             & field% ocv (:,jb),            &! in, ocean sfc velocity, v-component
-             & zaa, zaa_btm, zbb, zbb_btm    )! inout
+    CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
+                       & jce, nbdim, nlev, nsfc_type,  &! in 
+                       & iwtr, iice, ilnd,             &! in, indices of surface types
+                       & zfrc(:,:),                    &! in, area fraction
+                       & field% cfh_tile(:,jb,:),      &! in, from "vdiff_down" 
+                       & zfactor_sfc(:),               &! in, from "vdiff_down" 
+                       & zcpt_sfc_tile(:,:),           &! in, from "vdiff_down"
+                       & field%qs_sfc_tile(:,jb,:),    &! in, from "vdiff_down" 
+                       & field% ocu (:,jb),            &! in, ocean sfc velocity, u-component
+                       & field% ocv (:,jb),            &! in, ocean sfc velocity, v-component
+                       & zaa, zaa_btm, zbb, zbb_btm    )! inout
                          
-      CASE DEFAULT
-        CALL finish('physc','Unknown choice of ctest_name')
-      END SELECT
-    ELSE
-      ! Get new SST by interpolating the AMIP data or calling the
-      ! ocean model; Call land and sea ice models.
-      CALL finish('physc','surface processes not implemented')
-    ENDIF
-
     ! 5.5 Turbulent mixing, part II:
     !     - Elimination for the lowest model level using boundary conditions
     !       provided by the surface model(s);

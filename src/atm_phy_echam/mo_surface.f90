@@ -32,7 +32,7 @@
 !! liability or responsibility for the use, acquisition or application of this
 !! software.
 !!
-MODULE mo_surface_aqua
+MODULE mo_surface
 
   USE mo_kind,              ONLY: wp
   USE mo_exception,         ONLY: finish
@@ -47,18 +47,18 @@ MODULE mo_surface_aqua
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: update_surface_aqua
+  PUBLIC :: update_surface
 
 CONTAINS
   !>
   !!
   !!
-  SUBROUTINE update_surface_aqua( lsfc_heat_flux,                    &! in
-                                & kproma, kbdim, klev, ksfc_type,    &! in
-                                & idx_wtr, idx_ice, idx_lnd,         &! in
-                                & pfrc, pcfh_tile, pfac_sfc,         &! in
-                                & pcpt_tile, pqsat_tile, pocu, pocv, &! in
-                                & aa, aa_btm, bb, bb_btm             )! inout
+  SUBROUTINE update_surface( lsfc_heat_flux,                    &! in
+                           & kproma, kbdim, klev, ksfc_type,    &! in
+                           & idx_wtr, idx_ice, idx_lnd,         &! in
+                           & pfrc, pcfh_tile, pfac_sfc,         &! in
+                           & pcpt_tile, pqsat_tile, pocu, pocv, &! in
+                           & aa, aa_btm, bb, bb_btm             )! inout
 
     LOGICAL, INTENT(IN)    :: lsfc_heat_flux
     INTEGER, INTENT(IN)    :: kproma, kbdim, klev, ksfc_type
@@ -87,7 +87,6 @@ CONTAINS
     REAL(wp) :: zen_qv(kbdim,ksfc_type)
     REAL(wp) :: zfn_qv(kbdim,ksfc_type)
 
-    IF (idx_lnd<=ksfc_type) CALL finish('','land surface active in update_surface_aqua')
 
     !-------------------------------------------------------------------
     ! For moisture: 
@@ -95,6 +94,7 @@ CONTAINS
     ! - perform bottom level elimination; 
     ! - convert matrix entries to Richtmyer-Morton coefficients
     !-------------------------------------------------------------------
+    IF (idx_lnd<=ksfc_type) CALL finish('','land surface active in update_surface')
     zcair(:) = 1._wp
     zcsat(:) = 1._wp
 
@@ -105,11 +105,21 @@ CONTAINS
                                   & aa_btm, bb_btm,                        &! inout
                                   & zen_h, zfn_h, zen_qv, zfn_qv           )! out
 
+    !-------------------------------------------------------------------
+    ! Calculate surface temperature over land and sea ice;
+    ! Provide surface temperature over ocean.
+    !-------------------------------------------------------------------
+
+    ! call jsbach and sea ice model here.
+
+    !-------------------------------------------------------------------
+    ! For moisture and dry static energy: 
     ! Get solution of the two variables on the lowest model level.
-    ! (Surface values of dry static energy and specific humidity are supposed 
-    ! to be known in these idealized experiments, and passed in as 
-    ! input arguments.)
+    !-------------------------------------------------------------------
     ! - Over individual tiles 
+    !   For echam developers: relationship to "update_surface" of echam6:
+    !   bb_btm(:,jsfc,ih) : tpfac2*land%ztklevl, tpfac2*ice%ztklevi, tpfac2*ocean%ztklevw
+    !   bb_btm(:,jsfc,iqv): tpfac2*land%zqklevl, tpfac2*ice%zqklevi, tpfac2*ocean%zqklevw
 
     DO jsfc = 1,ksfc_type
        bb_btm(1:kproma,jsfc,ih)  = tpfac2*(    zen_h (1:kproma,jsfc) &
@@ -122,6 +132,9 @@ CONTAINS
     END DO
 
     ! - Grid box mean 
+    !   For echam developers: relationship to "update_surface" of echam6:
+    !   bb(:,klev,ih) : ztdif_new 
+    !   bb(:,klev,iqv): zqdif_new 
 
      se_sum(1:kproma) = 0._wp    ! sum of weighted solution
      qv_sum(1:kproma) = 0._wp    ! sum of weighted solution
@@ -190,7 +203,7 @@ CONTAINS
    !CALL lh_flux( ... )
    !CALL sh_flux( ... )
 
-  END SUBROUTINE update_surface_aqua
+  END SUBROUTINE update_surface
   !-------------
 
-END MODULE mo_surface_aqua
+END MODULE mo_surface
