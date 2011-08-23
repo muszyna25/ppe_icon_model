@@ -70,8 +70,10 @@ MODULE mo_icon_cpl_init
    &                      l_debug, cplout, maxchar,            &
    &                      ICON_comm,                           &
    &                      ICON_global_rank, ICON_global_size,  &
-   &                      nbr_ICON_comps
+   &                      nbr_ICON_comps,                      &
+   &                      initial_date
 
+  USE mo_time_base,     ONLY : set_julian_day
   USE mo_event_manager, ONLY : event_init
 
   IMPLICIT NONE
@@ -212,6 +214,11 @@ CONTAINS
     ! -------------------------------------------------------------------
     ! Initialise list of events (move to some other place later)
     ! -------------------------------------------------------------------
+
+    ! From somewhere we need to get the time_config%ini_datetime
+    ! t_julian_date format.
+
+    call set_julian_day ( 0, 1, 1, 0, initial_date )
 
     CALL event_init
 
