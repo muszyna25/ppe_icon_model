@@ -41,8 +41,8 @@ MODULE mo_vdiff_driver
 
   USE mo_kind,               ONLY: wp
   USE mo_turbulence_diag,    ONLY: atm_exchange_coeff, sfc_exchange_coeff
-  USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, ih, iqv,          &
-                                 & matrix_setup_elim, rhs_setup, rhs_elim,&
+  USE mo_vdiff_solver,       ONLY: nvar_vdiff, nmatrix, ih, iqv, imh, imqv, &
+                                 & matrix_setup_elim, rhs_setup, rhs_elim,  &
                                  & rhs_bksub, vdiff_tendencies
   USE mo_surface_aqua,       ONLY: update_surface_aqua
 #ifdef __ICON__
@@ -217,8 +217,8 @@ CONTAINS
   ! Coefficient matrices and right-hand-side vectors.
   ! _btm refers to the lowest model level (i.e., full level "klev", not the surface)
  
-  REAL(wp) :: aa    (kbdim,klev,3,nmatrix)   !< (nproma,nlev,3,nmatrix)
-  REAL(wp) :: aa_btm(kbdim,3,ksfc_type)      !< (nproma,3,ksfc_type), for heat and moisture
+  REAL(wp) :: aa    (kbdim,klev,3,nmatrix)
+  REAL(wp) :: aa_btm(kbdim,3,ksfc_type,imh:imqv) !< for heat and moisture
   REAL(wp) :: bb    (kbdim,klev,nvar_vdiff)  !< (nproma,nlev,nvar_vdiff)
   REAL(wp) :: bb_btm(kbdim,ksfc_type,ih:iqv) !< (nproma,ksfc_type,ih:iqv), for heat and moisture
   
