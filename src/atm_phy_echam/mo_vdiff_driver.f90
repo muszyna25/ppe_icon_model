@@ -338,6 +338,13 @@ CONTAINS
   !    static energy and water vapor concentration in the lowest model 
   !    layer (the klev-th full level). 
   !-----------------------------------------------------------------------
+  ! TEMPORARILY INITIALIZE ACCUMULATED VARIABLES TO ZERO.  +++++++++++++++
+  ! LATER THIS SHOULD BE DONE DURING MODEL INITIALIZATION!
+  ! 
+  pevap_ac (1:kproma) = 0._wp
+  plhflx_ac(1:kproma) = 0._wp
+  pshflx_ac(1:kproma) = 0._wp
+  !--------------------------------------------------------+++++++++++++++
 
   CALL update_surface_aqua( lsfc_heat_flux,                 &! in
                           & kproma, kbdim, klev, ksfc_type, &! in 
