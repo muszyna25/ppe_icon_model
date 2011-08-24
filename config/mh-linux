@@ -211,7 +211,7 @@ case "$ac_sitename" in
             tornado*)         # tornado
                 config_target=tornado
                 make_command="make" "-j" "8"
-                load_modules="ncl/default" "${load_modules}"
+                load_modules="ncl/5.2.1-gccsys" "${load_modules}"
                 load_profile="." "/client/etc/profile.zmaw"
                 submit="qsub"
                 sync_submit=qsub -sync y
