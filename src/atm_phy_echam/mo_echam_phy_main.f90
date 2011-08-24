@@ -651,6 +651,7 @@ CONTAINS
     !     condition for wind, temperature, tracer concentraion, etc.
 
     CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
+                       & pdtime, psteplen,             &! in, time steps
                        & jce, nbdim, nlev, nsfc_type,  &! in 
                        & iwtr, iice, ilnd,             &! in, indices of surface types
                        & zfrc(:,:),                    &! in, area fraction
@@ -660,7 +661,15 @@ CONTAINS
                        & field%qs_sfc_tile(:,jb,:),    &! in, from "vdiff_down" 
                        & field% ocu (:,jb),            &! in, ocean sfc velocity, u-component
                        & field% ocv (:,jb),            &! in, ocean sfc velocity, v-component
-                       & zaa, zaa_btm, zbb, zbb_btm    )! inout
+                       & zaa, zaa_btm, zbb, zbb_btm,   &! inout
+                       & field%  tsfc_tile(:,jb,:),    &! inout
+                       & field% lhflx_ac  (:,  jb),    &! inout
+                       & field% shflx_ac  (:,  jb),    &! inout
+                       & field%  evap_ac  (:,  jb),    &! inout
+                       & field% lhflx_tile(:,jb,:),    &! out
+                       & field% shflx_tile(:,jb,:),    &! out
+                       & field%  evap_tile(:,jb,:),    &! out
+                       &  zqhflx                       )! out, for "cloud"
                          
     ! 5.5 Turbulent mixing, part II:
     !     - Elimination for the lowest model level using boundary conditions
@@ -712,9 +721,6 @@ CONTAINS
                    &  tend%    q(:,:,jb,iqc),         &! inout
                    &  tend%    q(:,:,jb,iqi),         &! inout
                    &  tend%    q(:,:,jb,iqt:),        &! inout
-                   & field%  evap_ac(:,  jb),         &! inout
-                   & field% lhflx_ac(:,  jb),         &! inout
-                   & field% shflx_ac(:,  jb),         &! inout
                    &  tend%    u_vdf(:,:,jb),         &! out
                    &  tend%    v_vdf(:,:,jb),         &! out
                    &  tend% temp_vdf(:,:,jb),         &! out
@@ -724,7 +730,6 @@ CONTAINS
                    &  tend%    q_vdf(:,:,jb,iqt:),    &! out
                    &  zqtvar_prod,                    &! out, for "cloud" ("zvdiffp" in echam)
                    &  zvmixtau,                       &! out, for "cloud"
-                   &  zqhflx,                         &! out, for "cloud"
                    & field%   z0m   (:,  jb),         &! out, for the next step
                    & field%   thvvar(:,:,jb),         &! out, for the next step
                    & field%   thvsig(:,  jb),         &! out, for "cucall"

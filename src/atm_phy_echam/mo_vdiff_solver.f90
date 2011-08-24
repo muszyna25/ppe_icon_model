@@ -42,7 +42,7 @@ MODULE mo_vdiff_solver
   USE mo_echam_vdiff_params,ONLY: clam, da1, tkemin=>tke_min, cons2, cons25, &
                                 & tpfac1, tpfac2, tpfac3, cchar, z0m_min
 #else
-  USE mo_constants,ONLY: grav=>g, vtmpc2, cpd, als, alv
+  USE mo_constants,ONLY: grav=>g, vtmpc2, cpd
   USE mo_physc2,   ONLY: clam, da1, tkemin, cons2, cons25, &
                        & tpfac1, tpfac2, tpfac3, cchar, z0m_min
   USE mo_time_control,ONLY: lstart
@@ -756,12 +756,10 @@ CONTAINS
                              & pkedisp, pxvar, pz0m_tile,            &! inout
                              & pute, pvte, ptte, pqte,               &! inout
                              & pxlte, pxite, pxtte,                  &! inout
-                             & pevap_ac, plhflx_ac, pshflx_ac,       &! inout
                              & pute_vdf, pvte_vdf, ptte_vdf,         &! out
                              & pqte_vdf, pxlte_vdf, pxite_vdf,       &! out
                              & pxtte_vdf, pxvarprod, pz0m,           &! out
-                             & ptke, pthvvar, pthvsig, pvmixtau,     &! out
-                             & pqv_mflux_sfc                         )! out
+                             & ptke, pthvvar, pthvsig, pvmixtau      )! out
 
     INTEGER, INTENT(IN) :: kproma, kbdim, itop, klev, klevm1, klevp1, ktrac
     INTEGER, INTENT(IN) :: ksfc_type, idx_lnd, idx_wtr, idx_ice
@@ -822,15 +820,6 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pthvvar (kbdim,klev)
     REAL(wp),INTENT(OUT) :: pthvsig (kbdim)
     REAL(wp),INTENT(OUT) :: pvmixtau(kbdim,klev)
-    REAL(wp),INTENT(OUT) :: pqv_mflux_sfc(kbdim)  !< surface mass flux of water vapour
-                                                  !< "pqhfla" in echam
-    REAL(wp)  :: pevap_tile  (kbdim,ksfc_type)
-    REAL(wp)  :: plhflx_tile (kbdim,ksfc_type)
-    REAL(wp)  :: pshflx_tile (kbdim,ksfc_type)
-
-    REAL(wp),INTENT(INOUT):: pevap_ac    (kbdim)
-    REAL(wp),INTENT(INOUT):: plhflx_ac   (kbdim)
-    REAL(wp),INTENT(INOUT):: pshflx_ac   (kbdim)
 
     REAL(wp) :: ztest, zrdt, zconst
     REAL(wp) :: zunew, zvnew, zqnew, zsnew, ztnew, dqv
@@ -1055,56 +1044,6 @@ CONTAINS
           END IF
           pvmixtau(jl,jk) = ztkesq/(zmix*da1)
        ENDDO
-    ENDDO
-
-    !---------------------------------------------------------------
-    ! Derive surface mass flux of moisture (qv, not q_total).
-    ! Formula: area-weighted average of
-    ! (air density)*(exchange coef)*(qv_{tavg,klev} - qsat_tile).
-    ! Here 
-    !   qv_{tavg,klev} = tpfac1*qv_klev(t+dt) + (1-tpfac1)*qv_klev(t)
-    !                  = tpfac1*bb_qv
-    ! where bb_qv is the solution of the linear system at the lowest
-    ! model level (i.e., the full level right above surface).
-    !---------------------------------------------------------------
-    ! Diagnoise instantaneous moisture flux (= evaporation) on each tile
-
-    DO jsfc = 1,ksfc_type
-      IF (jsfc==idx_lnd) CYCLE
-      DO jl = 1,kproma
-        dqv = tpfac1*bb(jl,klev,iqv) - pqsat_tile(jl,jsfc)
-        pevap_tile(jl,jsfc) = prhoh(jl,klev)*pcfh_tile(jl,jsfc)*dqv
-      ENDDO
-    ENDDO
-
-    IF (idx_lnd<=ksfc_type) CALL finish('vdiff_tendencies','land surface not implemented')
-
-    ! Diagnose latent heat flux (need to distinguish ice and water)
-
-    IF (idx_ice<=ksfc_type) THEN 
-       plhflx_tile(1:kproma,idx_ice) = als*pevap_tile(1:kproma,idx_ice)
-    END IF
-
-    IF (idx_wtr<=ksfc_type) THEN 
-       plhflx_tile(1:kproma,idx_wtr) = alv*pevap_tile(1:kproma,idx_wtr)
-    END IF
-
-    ! Compute grid box mean and time average. 
-    ! The instantaneous grid box mean moisture flux will be passed on 
-    ! to the cumulus convection scheme.
-
-    pqv_mflux_sfc(1:kproma) = 0._wp   ! initialize mass flux ("pqhfla" in echam)
-
-    DO jsfc = 1,ksfc_type
-
-      pqv_mflux_sfc(1:kproma) =  pqv_mflux_sfc(1:kproma) + pfrc(1:kproma,jsfc) &
-                              & *pevap_tile(1:kproma,jsfc)
-
-      pevap_ac(1:kproma)      =  pevap_ac(1:kproma) +  pfrc(1:kproma,jsfc)     &
-                              & *pevap_tile(1:kproma,jsfc)*pdtime
-
-      plhflx_ac(1:kproma)     =  plhflx_ac(1:kproma) + pfrc(1:kproma,jsfc)     &
-                              & *plhflx_tile(1:kproma,jsfc)*pdtime
     ENDDO
 
     !----------------------------------------------------------------------------

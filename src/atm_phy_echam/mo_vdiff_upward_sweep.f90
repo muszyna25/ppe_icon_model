@@ -77,10 +77,9 @@ CONTAINS
                        pzthvvar,   pxvar,       pz0m_tile,   pkedisp,    &! inout
                        pute,       pvte,        ptte,        pqte,       &! inout
                        pxlte,      pxite,       pxtte,                   &! inout
-                       pevap_ac,   plhflx_ac,   pshflx_ac,               &! inout
                        pute_vdf,   pvte_vdf,    ptte_vdf,                &! out
                        pqte_vdf,   pxlte_vdf,   pxite_vdf,   pxtte_vdf,  &! out
-                       pxvarprod,  pvmixtau,    pqv_mflux_sfc,    pz0m,  &! out
+                       pxvarprod,  pvmixtau,    pz0m,                    &! out
                        pthvvar,    pthvsig,     ptke                     )! out
 
     LOGICAL, INTENT(IN) :: lsfc_heat_flux
@@ -163,16 +162,11 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pxvarprod    (kbdim,klev) !< shear production 
                                                       !< of the variance of total water
     REAL(wp),INTENT(OUT) :: pvmixtau     (kbdim,klev) !< vertical mixing time scale
-    REAL(wp),INTENT(OUT) :: pqv_mflux_sfc(kbdim)      !< surface mass flux of water vapour
     REAL(wp),INTENT(OUT) :: pz0m         (kbdim)      !< grid-box mean roughness height
     REAL(wp),INTENT(OUT) :: pthvvar      (kbdim,klev) !< variance of virtual potential temperature 
                                                       !< at the new time step t
     REAL(wp),INTENT(OUT) :: pthvsig      (kbdim)      !< sqrt( variance of theta_v )
-  
     REAL(wp),INTENT(INOUT) :: ptke       (kbdim,klev)
-    REAL(wp),INTENT(INOUT) :: pevap_ac   (kbdim)      !< accumulated evaporation 
-    REAL(wp),INTENT(INOUT) :: plhflx_ac  (kbdim)      !< accumulated latent   heat flux 
-    REAL(wp),INTENT(INOUT) :: pshflx_ac  (kbdim)      !< accumulated sensible heat flux 
 
   
     !-----------------------------------------------------------------------
@@ -196,12 +190,10 @@ CONTAINS
                          & pkedisp(:),                                  &! inout ("pvdis" in echam)
                          & pxvar(:,:), pz0m_tile(:,:),                  &! inout
                          & pute, pvte, ptte, pqte, pxlte, pxite, pxtte, &! inout
-                         & pevap_ac, plhflx_ac, pshflx_ac,              &! inout
                          & pute_vdf, pvte_vdf, ptte_vdf, pqte_vdf,      &! out
                          & pxlte_vdf, pxite_vdf, pxtte_vdf,             &! out
                          & pxvarprod,                                   &! out ("pvdiffp" in echam)
-                         & pz0m, ptke, pthvvar, pthvsig, pvmixtau,      &! out
-                         & pqv_mflux_sfc                                )! out ("pqhfla" in echam)
+                         & pz0m, ptke, pthvvar, pthvsig, pvmixtau       )! out
   
     ! Note: computation of additional diagnostics, e.g., surface sensible heat flux,
     !       wind stress, 10m wind, 2m temperature etc., has not been implemented yet.

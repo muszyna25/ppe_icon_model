@@ -279,9 +279,12 @@ MODULE mo_echam_phy_memory
     TYPE(t_ptr2d),ALLOCATABLE :: qs_sfc_tile_ptr(:)
 
     REAL(wp),POINTER :: &
-      & lhflx_ac (:,:),     &!< (time accum) grid box mean latent   heat flux at surface 
-      & shflx_ac (:,:),     &!< (time accum) grid box mean sensible heat flux at surface 
-      &  evap_ac (:,:)       !< (time accum) grid box mean evaporation at surface 
+      & lhflx_ac  (:,  :), &!< (time accum) grid box mean latent   heat flux at surface 
+      & shflx_ac  (:,  :), &!< (time accum) grid box mean sensible heat flux at surface 
+      &  evap_ac  (:,  :), &!< (time accum) grid box mean evaporation at surface 
+      & lhflx_tile(:,:,:), &!< (instantaneous) latent   heat flux at surface 
+      & shflx_tile(:,:,:), &!< (instantaneous) sensible heat flux at surface 
+      &  evap_tile(:,:,:)   !< (instantaneous) evaporation at surface 
 
 !!$    ! Variables for debugging
 !!$    REAL(wp),POINTER :: &
@@ -1166,6 +1169,30 @@ CONTAINS
     CALL add_var( field_list, prefix//'shflx_ac', field%shflx_ac, &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,          &
                 & cf_desc, grib2_desc, ldims=shape2d )
+
+    ! &       field% lhflx_tile (nproma,nsfc_type, nblks), &
+    CALL add_var( field_list, prefix//'lhflx_tile', field%lhflx_tile,          &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
+                & t_cf_var('lhflx_tile', '', ''),                              &
+                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
+                & ldims=shapesfc,                                              &
+                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+
+    ! &       field% shflx_tile (nproma,nsfc_type, nblks), &
+    CALL add_var( field_list, prefix//'shflx_tile', field%shflx_tile,          &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
+                & t_cf_var('shflx_tile', '', ''),                              &
+                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
+                & ldims=shapesfc,                                              &
+                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+
+    ! &       field% lhflx_tile (nproma,nsfc_type, nblks), &
+    CALL add_var( field_list, prefix//'evap_tile', field%evap_tile,            &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
+                & t_cf_var('evap_tile', '', ''),                               &
+                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
+                & ldims=shapesfc,                                              &
+                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
 
   END SUBROUTINE new_echam_phy_field_list
   !-------------

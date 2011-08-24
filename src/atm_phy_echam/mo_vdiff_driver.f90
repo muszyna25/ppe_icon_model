@@ -67,7 +67,7 @@ CONTAINS
                      kproma, kbdim, klev, klevm1, klevp1, ktrac,       &! in
                      ksfc_type, idx_wtr, idx_ice, idx_lnd,             &! in
                      pdtime, pstep_len,                                &! in
-                     pcoriol,    pfrc,        ptsfc,                   &! in
+                     pcoriol,    pfrc,                                 &! in
                      pocu,       pocv,        ppsfc,                   &! in
                      pum1,       pvm1,        ptm1,        pqm1,       &! in
                      pxlm1,      pxim1,       pxm1,        pxtm1,      &! in
@@ -77,7 +77,7 @@ CONTAINS
 #else
                      ptvm1,      paclc,    ptkem1, ptkem0, pxt_emis,   &! in/inout
 #endif
-                     pxvar,      pthvvar,                              &! inout
+                     ptsfc_tile, pxvar,       pthvvar,                 &! inout
                      pustar,     pz0m_tile,   pkedisp,                 &! inout
                      pute,       pvte,        ptte,        pqte,       &! inout
                      pxlte,      pxite,       pxtte,                   &! inout
@@ -99,7 +99,6 @@ CONTAINS
 
   REAL(wp),INTENT(IN)  :: pcoriol   (kbdim)           !< Coriolis parameter: 2*omega*sin(lat)
   REAL(wp),INTENT(IN)  :: pfrc      (kbdim,ksfc_type) !< area fraction of each surface type
-  REAL(wp),INTENT(IN)  :: ptsfc     (kbdim,ksfc_type) !< surface temperature
   REAL(wp),INTENT(IN)  :: pocu      (kbdim)           !< eastward  velocity of ocean surface current
   REAL(wp),INTENT(IN)  :: pocv      (kbdim)           !< northward velocity of ocean surface current
   REAL(wp),INTENT(IN)  :: ppsfc     (kbdim)           !<  surface pressure
@@ -129,6 +128,7 @@ CONTAINS
   REAL(wp),INTENT(IN)  :: pxt_emis(kbdim,ktrac) !< tracer tendency due to surface emission
                                                 !< and dry deposition
 
+  REAL(wp),INTENT(INOUT) :: ptsfc_tile(kbdim,ksfc_type) !< surface temperature
   REAL(wp),INTENT(INOUT) :: pxvar  (kbdim,klev) !<distribution width (b-a) 
                                                 !< in: step t-dt, out: modified due to vertical diffusion
   REAL(wp),INTENT(INOUT) :: pthvvar(kbdim,klev) !< variance of virtual potential temperature
@@ -188,9 +188,13 @@ CONTAINS
   REAL(wp),INTENT(OUT) :: pcftke  (kbdim,klev) !< exchange coeff. for TKE
   REAL(wp),INTENT(OUT) :: pcfthv  (kbdim,klev) !< exchange coeff. for variance of theta_v
 
-  REAL(wp) :: pevap_ac   (kbdim)      !< accumulated evaporation
-  REAL(wp) :: plhflx_ac  (kbdim)      !< accumulated latent   heat flux
-  REAL(wp) :: pshflx_ac  (kbdim)      !< accumulated sensible heat flux
+  REAL(wp) :: pcair_lnd(kbdim), pcsat_lnd(kbdim) !< evapotranspiration coefficients
+  REAL(wp) :: plhflx_ac  (kbdim)           !< accumulated grid box mean latent heat flux
+  REAL(wp) :: pshflx_ac  (kbdim)           !< accumulated grid box mean sensible heat flux
+  REAL(wp) ::  pevap_ac  (kbdim)           !< accumulated grid box mean evaporation
+  REAL(wp) :: plhflx_tile(kbdim,ksfc_type) !< latent heat flux
+  REAL(wp) :: pshflx_tile(kbdim,ksfc_type) !< sensible heat flux
+  REAL(wp) ::  pevap_tile(kbdim,ksfc_type) !< evaporation
 
   ! Local variables
 
@@ -264,7 +268,7 @@ CONTAINS
   CALL sfc_exchange_coeff( kproma, kbdim, ksfc_type,              &! in
                          & idx_wtr, idx_ice, idx_lnd,             &! in
                          & lsfc_mom_flux, lsfc_heat_flux,         &! in
-                         & pz0m_tile(:,:), ptsfc(:,:),            &! in
+                         & pz0m_tile(:,:), ptsfc_tile(:,:),       &! in
                          & pfrc(:,:), pghpbl(:),                  &! in
                          & pocu(:),         pocv(:),   ppsfc(:),  &! in
                          & pum1(:,klev),    pvm1  (:,klev),       &! in
@@ -347,12 +351,17 @@ CONTAINS
   !--------------------------------------------------------+++++++++++++++
 
   CALL update_surface( lsfc_heat_flux,                 &! in
+                     & pdtime, pstep_len,              &! in
                      & kproma, kbdim, klev, ksfc_type, &! in 
                      & idx_wtr, idx_ice, idx_lnd,      &! in
                      & pfrc, pcfh_tile, zprfac(:,klev),&! in
                      & zcpt_tile, pqsat_tile,          &! in
                      & pocu, pocv,                     &! in
-                     & aa, aa_btm, bb, bb_btm          )! inout
+                     & aa, aa_btm, bb, bb_btm,         &! inout
+                     & ptsfc_tile,                     &! inout
+                     & plhflx_ac, pshflx_ac, pevap_ac, &! inout
+                     & plhflx_tile, pshflx_tile,       &! out
+                     & pevap_tile, pqv_mflux_sfc       )! out
 
   !-----------------------------------------------------------------------
   ! 6. Obtain solution of the tri-diagonal system by back-substitution. 
@@ -375,13 +384,11 @@ CONTAINS
                        & pkedisp(:),                                  &! inout ("pvdis" in echam)
                        & pxvar(:,:), pz0m_tile(:,:),                  &! inout
                        & pute, pvte, ptte, pqte, pxlte, pxite, pxtte, &! inout
-                       & pevap_ac, plhflx_ac, pshflx_ac,              &! inout
                        & pute_vdf, pvte_vdf, ptte_vdf, pqte_vdf,      &! out
                        & pxlte_vdf, pxite_vdf, pxtte_vdf,             &! out
                        & pxvarprod,                                   &! out ("pvdiffp" in echam)
                        & pz0m(:),                                     &! out
-                       & ptke, pthvvar, pthvsig, pvmixtau,            &! out
-                       & pqv_mflux_sfc                                )! out ("pqhfla" in echam)
+                       & ptke, pthvvar, pthvsig, pvmixtau             )! out
 
   ! Note: computation of additional diagnostics, e.g., surface sensible heat flux,
   !       wind stress, 10m wind, 2m temperature etc., has not been implemented yet.

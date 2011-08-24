@@ -36,15 +36,11 @@ MODULE mo_surface
 
   USE mo_kind,              ONLY: wp
   USE mo_exception,         ONLY: finish
-#ifdef __ICON__
+  USE mo_surface_diag,      ONLY: surface_fluxes
   USE mo_echam_vdiff_params,ONLY: tpfac2
   USE mo_vdiff_solver,      ONLY: ih, iqv, iu, iv, imh, imqv, imuv, &
                                 & nmatrix, nvar_vdiff,              &
                                 & matrix_to_richtmyer_coeff
-#else
-  USE mo_physc2,            ONLY: tpfac2
-#endif
-
   IMPLICIT NONE
   PRIVATE
   PUBLIC :: update_surface
@@ -53,14 +49,21 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE update_surface( lsfc_heat_flux,                    &! in
+  SUBROUTINE update_surface( lsfc_heat_flux, pdtime, psteplen,  &! in
                            & kproma, kbdim, klev, ksfc_type,    &! in
                            & idx_wtr, idx_ice, idx_lnd,         &! in
                            & pfrc, pcfh_tile, pfac_sfc,         &! in
-                           & pcpt_tile, pqsat_tile, pocu, pocv, &! in
-                           & aa, aa_btm, bb, bb_btm             )! inout
+                           & pcpt_tile, pqsat_tile,             &! in
+                           & pocu, pocv,                        &! in
+                           & aa, aa_btm, bb, bb_btm,            &! inout
+                           & ptsfc_tile,                        &! inout
+                           & plhflx_gbm_ac, pshflx_gbm_ac,      &! inout
+                           & pevap_gbm_ac,                      &! inout
+                           & plhflx_tile, pshflx_tile,          &! out
+                           & pevap_tile, pevap_gbm              )! out
 
     LOGICAL, INTENT(IN)    :: lsfc_heat_flux
+    REAL(wp),INTENT(IN)    :: pdtime, psteplen
     INTEGER, INTENT(IN)    :: kproma, kbdim, klev, ksfc_type
     INTEGER, INTENT(IN)    :: idx_wtr, idx_ice, idx_lnd
 
@@ -77,32 +80,53 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: bb     (kbdim,klev,nvar_vdiff)
     REAL(wp),INTENT(INOUT) :: bb_btm (kbdim,ksfc_type,ih:iqv)
 
+    REAL(wp),INTENT(INOUT) :: ptsfc_tile(kbdim,ksfc_type)
+
+    REAL(wp),INTENT(INOUT) :: plhflx_gbm_ac(kbdim)
+    REAL(wp),INTENT(INOUT) :: pshflx_gbm_ac(kbdim)
+    REAL(wp),INTENT(INOUT) ::  pevap_gbm_ac(kbdim)
+
+    REAL(wp),INTENT(OUT)   :: plhflx_tile(kbdim,ksfc_type)
+    REAL(wp),INTENT(OUT)   :: pshflx_tile(kbdim,ksfc_type)
+    REAL(wp),INTENT(OUT)   ::  pevap_tile(kbdim,ksfc_type)
+    REAL(wp),INTENT(OUT)   ::  pevap_gbm (kbdim)
+
     INTEGER  :: jsfc, jk, jkm1, im, jvar
+    REAL(wp) :: se_sum(kbdim), qv_sum(kbdim), wgt_sum(kbdim), wgt(kbdim)
+    REAL(wp) :: zca(kbdim,ksfc_type), zcs(kbdim,ksfc_type)
     REAL(wp) :: zfrc_oce(kbdim)
-    REAL(wp) :: zcair(kbdim), zcsat(kbdim), wgt(kbdim)
-    REAL(wp) :: se_sum(kbdim), qv_sum(kbdim), wgt_sum(kbdim)
 
     REAL(wp) :: zen_h (kbdim,ksfc_type)
     REAL(wp) :: zfn_h (kbdim,ksfc_type)
     REAL(wp) :: zen_qv(kbdim,ksfc_type)
     REAL(wp) :: zfn_qv(kbdim,ksfc_type)
 
+    REAL(wp) :: cair_lnd (kbdim)
+    REAL(wp) :: csat_lnd (kbdim)
 
     !-------------------------------------------------------------------
-    ! For moisture: 
+    ! For moisture:
     ! - finish matrix set up;
-    ! - perform bottom level elimination; 
+    ! - perform bottom level elimination;
     ! - convert matrix entries to Richtmyer-Morton coefficients
     !-------------------------------------------------------------------
-    IF (idx_lnd<=ksfc_type) CALL finish('','land surface active in update_surface')
-    zcair(:) = 1._wp
-    zcsat(:) = 1._wp
 
     CALL matrix_to_richtmyer_coeff( kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
-                                  & zcair, zcsat,                          &! in, dummy
-                                  & aa(:,:,:,imh:imqv), bb(:,:,ih:iqv),    &! in
-                                  & aa_btm, bb_btm,                        &! inout
-                                  & zen_h, zfn_h, zen_qv, zfn_qv           )! out
+                                  & cair_lnd, csat_lnd,                      &! in
+                                  & aa(:,:,:,imh:imqv), bb(:,:,ih:iqv),      &! in
+                                  & aa_btm, bb_btm,                          &! inout
+                                  & zen_h, zfn_h, zen_qv, zfn_qv             )! out
+
+    !-------------------------------------------------------------------
+    ! Prepare some coefficients
+    !-------------------------------------------------------------------
+    zca(1:kproma,:) = 1._wp
+    zcs(1:kproma,:) = 1._wp
+
+    IF (idx_lnd<=ksfc_type) THEN
+      zca(1:kproma,idx_lnd) = cair_lnd(1:kproma)
+      zcs(1:kproma,idx_lnd) = csat_lnd(1:kproma)
+    END IF
 
     !-------------------------------------------------------------------
     ! Calculate surface temperature over land and sea ice;
@@ -112,10 +136,10 @@ CONTAINS
     ! call jsbach and sea ice model here.
 
     !-------------------------------------------------------------------
-    ! For moisture and dry static energy: 
+    ! For moisture and dry static energy:
     ! Get solution of the two variables on the lowest model level.
     !-------------------------------------------------------------------
-    ! - Over individual tiles 
+    ! - Over individual tiles
     !   For echam developers: relationship to "update_surface" of echam6:
     !   bb_btm(:,jsfc,ih) : tpfac2*land%ztklevl, tpfac2*ice%ztklevi, tpfac2*ocean%ztklevw
     !   bb_btm(:,jsfc,iqv): tpfac2*land%zqklevl, tpfac2*ice%zqklevi, tpfac2*ocean%zqklevw
@@ -130,10 +154,10 @@ CONTAINS
                                  &        +    zfn_qv(1:kproma,jsfc) )
     END DO
 
-    ! - Grid box mean 
+    ! - Grid box mean
     !   For echam developers: relationship to "update_surface" of echam6:
-    !   bb(:,klev,ih) : ztdif_new 
-    !   bb(:,klev,iqv): zqdif_new 
+    !   bb(:,klev,ih) : ztdif_new
+    !   bb(:,klev,iqv): zqdif_new
 
      se_sum(1:kproma) = 0._wp    ! sum of weighted solution
      qv_sum(1:kproma) = 0._wp    ! sum of weighted solution
@@ -143,7 +167,8 @@ CONTAINS
            wgt(1:kproma) =  pfrc(1:kproma,jsfc)*pcfh_tile(1:kproma,jsfc)*pfac_sfc(1:kproma)
        wgt_sum(1:kproma) = wgt_sum(1:kproma) + wgt(1:kproma)
         se_sum(1:kproma) =  se_sum(1:kproma) + bb_btm(1:kproma,jsfc,ih)*wgt(1:kproma)
-        qv_sum(1:kproma) =  qv_sum(1:kproma) + bb_btm(1:kproma,jsfc,iqv)*wgt(1:kproma)
+        qv_sum(1:kproma) =  qv_sum(1:kproma) + bb_btm(1:kproma,jsfc,iqv) &
+                         &                       *wgt(1:kproma)*zca(1:kproma,jsfc)
     ENDDO
 
     IF (lsfc_heat_flux) THEN
@@ -161,8 +186,8 @@ CONTAINS
     !-------------------------------------------------------------------
     ! Add additional terms to the r.h.s. of the velocity equations
     ! to take into account ocean currents.
-    ! Note that in subroutine rhs_setup the constant tpfac2 has been 
-    ! multiplied to the r.h.s. array bb. Thus the additional terms here 
+    ! Note that in subroutine rhs_setup the constant tpfac2 has been
+    ! multiplied to the r.h.s. array bb. Thus the additional terms here
     ! need to be scaled by the same factor.
 
     IF (idx_wtr.LE.ksfc_type) THEN   ! Open water is considered
@@ -195,12 +220,22 @@ CONTAINS
                        & -aa(1:kproma,jk,1,im)*bb(1:kproma,jkm1,iv)) &
                        & /aa(1:kproma,jk,2,im)
 
-   !!-------------------------------------------------------------------
-   !! Various diagnostics
-   !!-------------------------------------------------------------------
+   !-------------------------------------------------------------------
+   ! Various diagnostics
+   !-------------------------------------------------------------------
+
+   CALL surface_fluxes( lsfc_heat_flux, pdtime, psteplen,     &! in
+                      & kproma, kbdim, klev, ksfc_type,       &! in
+                      & idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
+                      & pfrc, pcfh_tile, pfac_sfc,            &! in
+                      & pcpt_tile, ptsfc_tile, pqsat_tile,    &! in
+                      & zca, zcs, bb(:,klev,ih:iqv),          &! in
+                      & plhflx_gbm_ac, pshflx_gbm_ac,         &! inout
+                      & pevap_gbm_ac,                         &! inout
+                      & plhflx_tile, pshflx_tile,             &! out
+                      & pevap_tile, pevap_gbm                 )! out
+
    !CALL wind_stress( ... )
-   !CALL lh_flux( ... )
-   !CALL sh_flux( ... )
 
   END SUBROUTINE update_surface
   !-------------

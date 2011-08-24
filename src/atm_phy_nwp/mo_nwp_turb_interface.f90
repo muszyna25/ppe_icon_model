@@ -371,7 +371,7 @@ CONTAINS
                 & idx_wtr= iwtr,   idx_ice   = iice,   idx_lnd =ilnd                     ,&! in 
                 & pdtime = tcall_turb_jg,       pstep_len = tcall_turb_jg                ,&! in
                 !
-                & pfrc      = zfrc(:,:,jb),            ptsfc  = zdummy_tsfc(:,:,jb)      ,&! in
+                & pfrc      = zfrc(:,:,jb)                                               ,&! in
                 !& pqsat_sfc = zdummy_qvsfc  (:,:,jb)                                     ,&! in
                 & pocu      = prm_diag%ocu    (:,jb),  pocv   = prm_diag%ocv      (:,jb) ,&! in
                 & ppsfc     = p_diag%pres_sfc(:,jb),  pcoriol= p_patch%cells%f_c(:,jb)   ,&! in
@@ -387,7 +387,9 @@ CONTAINS
                 & ptvm1  = p_diag%tempv   (:,:,jb),  paclc = prm_diag%tot_cld(:,:,jb,icc),&! in
                 & ptkem1 = p_prog_now_rcf%tke (:,2:nlevp1,jb)                            ,&! in
                 !
-                & pxt_emis= zdummy_ith     (:,:,jb),   pxvar   = zdummy_i     (:,:,jb)   ,&! inout
+                & pxt_emis= zdummy_ith     (:,:,jb)                                      ,&! in
+                & ptsfc_tile = zdummy_tsfc(:,:,jb)                                       ,&! inout
+                & pxvar   = zdummy_i     (:,:,jb)                                        ,&! inout
                 & pthvvar = prm_diag%thvvar(:,2:nlevp1,jb), pustar = prm_diag%ustar(:,jb),&! inout
                 & pz0m_tile = prm_diag%z0m_tile(:,jb,:)                                  ,&! inout
                 & pkedisp  = prm_diag%kedisp(:,jb)                                       ,&! inout
