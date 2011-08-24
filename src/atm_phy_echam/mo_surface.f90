@@ -98,10 +98,9 @@ CONTAINS
     zcair(:) = 1._wp
     zcsat(:) = 1._wp
 
-    CALL matrix_to_richtmyer_coeff( kproma, kbdim, ksfc_type, idx_lnd,     &! in
+    CALL matrix_to_richtmyer_coeff( kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
                                   & zcair, zcsat,                          &! in, dummy
-                                  & aa(:,klev-1,:,imh:imqv),               &! 
-                                  & bb(:,klev-1,ih:iqv),                   &! in
+                                  & aa(:,:,:,imh:imqv), bb(:,:,ih:iqv),    &! in
                                   & aa_btm, bb_btm,                        &! inout
                                   & zen_h, zfn_h, zen_qv, zfn_qv           )! out
 

@@ -621,15 +621,15 @@ CONTAINS
   !! Prepare the Richtmyer-Morton coeffcients for dry static energy and 
   !! moisture, to be used by the surface models (ocean, sea-ice, land).
   !!
-  SUBROUTINE matrix_to_richtmyer_coeff( kproma, kbdim,  ksfc_type, idx_lnd, &! in
-                                      & pcair, pcsat, aa_km1, bb_km1,       &! in
-                                      & aa_btm, bb_btm,                     &! inout
-                                      & pen_h, pfn_h, pen_qv, pfn_qv        )! out
+  SUBROUTINE matrix_to_richtmyer_coeff( kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
+                                      & pcair, pcsat, aa, bb,                    &! in
+                                      & aa_btm, bb_btm,                          &! inout
+                                      & pen_h, pfn_h, pen_qv, pfn_qv             )! out
 
-    INTEGER,INTENT(IN)     :: kproma, kbdim, ksfc_type, idx_lnd
+    INTEGER,INTENT(IN)     :: kproma, kbdim, klev, ksfc_type, idx_lnd
     REAL(wp),INTENT(IN)    :: pcair(kbdim), pcsat(kbdim)
-    REAL(wp),INTENT(IN)    :: aa_km1(kbdim,3,imh:imqv)
-    REAL(wp),INTENT(IN)    :: bb_km1(kbdim,ih:iqv)
+    REAL(wp),INTENT(IN)    :: aa    (kbdim,klev,3,imh:imqv)
+    REAL(wp),INTENT(IN)    :: bb    (kbdim,klev,ih:iqv)
     REAL(wp),INTENT(INOUT) :: aa_btm(kbdim,3,ksfc_type,imh:imqv)
     REAL(wp),INTENT(INOUT) :: bb_btm(kbdim,ksfc_type,ih:iqv)
 
@@ -638,7 +638,9 @@ CONTAINS
     REAL(wp),INTENT(OUT) :: pen_qv(kbdim,ksfc_type)
     REAL(wp),INTENT(OUT) :: pfn_qv(kbdim,ksfc_type)
 
-    INTEGER  :: jsfc
+    INTEGER  :: jsfc, klevm1
+
+    klevm1 = klev - 1
 
     !---------------------------------------------------------
     ! Matrix setup and bottom level elimination for moisture
@@ -661,14 +663,14 @@ CONTAINS
 
       aa_btm(1:kproma,2,jsfc,imqv) =  aa_btm(1:kproma,2,jsfc,imqv)  &
                                    & -aa_btm(1:kproma,1,jsfc,imqv)  &
-                                   & *aa_km1(1:kproma,3,imqv)
+                                   & *aa    (1:kproma,klevm1,3,imqv)
 
       aa_btm(1:kproma,3,jsfc,imqv) =  aa_btm(1:kproma,3,jsfc,imqv)  &
                                    & /aa_btm(1:kproma,2,jsfc,imqv)
 
       bb_btm(1:kproma,jsfc,iqv)    = (bb_btm(1:kproma,jsfc,iqv)    &          
                                    & -aa_btm(1:kproma,1,jsfc,imqv) &
-                                   & *bb_km1(1:kproma,iqv)        )&
+                                   & *bb    (1:kproma,klevm1,iqv) )&
                                    & /aa_btm(1:kproma,2,jsfc,imqv)
     END DO
 
@@ -679,14 +681,14 @@ CONTAINS
 
       aa_btm(1:kproma,2,jsfc,imh) =  aa_btm(1:kproma,2,jsfc,imh) &
                                   & -aa_btm(1:kproma,1,jsfc,imh) &
-                                  & *aa_km1(1:kproma,3,imh)
+                                  & *aa    (1:kproma,klevm1,3,imh)
 
       aa_btm(1:kproma,3,jsfc,imh) =  aa_btm(1:kproma,3,jsfc,imh) &
                                   & /aa_btm(1:kproma,2,jsfc,imh)
 
       bb_btm(1:kproma,jsfc,ih)    = (bb_btm(1:kproma,jsfc,ih)    &          
                                   & -aa_btm(1:kproma,1,jsfc,imh) &
-                                  & *bb_km1(1:kproma,ih)        )&
+                                  & *bb    (1:kproma,klevm1,ih) )&
                                   & /aa_btm(1:kproma,2,jsfc,imh)
     END DO
 
