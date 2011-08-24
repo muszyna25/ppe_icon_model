@@ -1141,6 +1141,8 @@ CONTAINS
     !
     IF(irad_o3 == io3_clim .OR. irad_o3 == io3_ape) THEN 
 
+      WRITE(0,*) 'generate ext ozone field'
+
       ! o3  main pressure level from read-in file
       cf_desc    = t_cf_var('O3_pf', 'Pa',   &
         &                   'ozone main pressure level')
@@ -1537,16 +1539,16 @@ CONTAINS
         nlev_pres = 1
         nmonths   = 1
 
-        IF(irad_o3 == io3_ape ) THEN
+!        IF(irad_o3 == io3_ape ) THEN
           levelname = 'level'
-          o3name    = 'OZON'
+          o3name    = 'O3'
           o3unit    = 'g/g'
-        ELSE ! o3_clim
-          levelname= 'plev'
-          o3name   = 'O3'
-          o3unit   = 'g/g' !this unit ozon will have after being read out
-                           ! and converted from ppmv
-        ENDIF
+ !       ELSE ! o3_clim
+ !         levelname= 'plev'
+ !         o3name   = 'O3'
+ !         o3unit   = 'g/g' !this unit ozon will have after being read out
+ !                          ! and converted from ppmv
+ !       ENDIF
 
         IF(my_process_is_stdio()) THEN
 
@@ -1571,10 +1573,11 @@ CONTAINS
 
           !triangles
           IF (p_patch(jg)%cell_type == 3) THEN ! triangular grid
-            CALL nf(nf_inq_dimid (ncid, 'cell', dimid))
+            CALL nf(nf_inq_dimid (ncid, 'ncells', dimid))
             CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
           ENDIF
        
+          WRITE(0,*)'investigate the cells'
           !hexagons
           IF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
             CALL nf(nf_inq_dimid (ncid, 'vertex', dimid))
