@@ -160,7 +160,7 @@ if [ $cp_atmo_files = "true" ] ;  then
    cp -f ${DATADIR}/ECHAM6_CldOptProps.nc ${EXPDIR} # cloud optical properties
    
    # APE ozone
-   cp -f ${DATADIR}/external/ape_ozone/ape_o3_R2B4_exthPa.nc ${EXPDIR}/o3_icon_DOM01.nc
+   cp -f ${DATADIR}/external/ape_ozone/ape_o3_R2B04_exthPa.nc ${EXPDIR}/o3_icon_DOM01.nc
    check_error $? "cp -f ${DATADIR}/external/ape_ozone/ape_o3_R2B04_exthPa.nc ${EXPDIR}/o3_icon_DOM01.nc"
 
    #
