@@ -46,7 +46,7 @@ MODULE mo_surface_diag
 
   IMPLICIT NONE
   PRIVATE
-  PUBLIC :: surface_fluxes
+  PUBLIC :: wind_stress, surface_fluxes
 
 CONTAINS
   !>
@@ -57,7 +57,7 @@ CONTAINS
                            & idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
                            & pfrc, pcfh_tile, pfac_sfc,            &! in
                            & pcptv_tile, ptsfc_tile, pqsat_tile,   &! in
-                           & pca, pcs, bb_klev,                    &! in
+                           & pca, pcs, bb,                         &! in
                            & plhflx_gbm_ac, pshflx_gbm_ac,         &! inout
                            & pevap_gbm_ac,                         &! inout
                            & plhflx_tile, pshflx_tile,             &! out
@@ -78,7 +78,7 @@ CONTAINS
     REAL(wp),INTENT(IN) :: pca       (kbdim,ksfc_type)
     REAL(wp),INTENT(IN) :: pcs       (kbdim,ksfc_type)
 
-    REAL(wp),INTENT(INOUT) :: bb_klev(kbdim,ih:iqv)
+    REAL(wp),INTENT(INOUT) :: bb(kbdim,klev,ih:iqv)
    !REAL(wp),INTENT(INOUT) :: bb_btm (kbdim,ksfc_type,ih:iqv)
 
     REAL(wp),INTENT(INOUT) :: plhflx_gbm_ac(kbdim)
@@ -94,7 +94,7 @@ CONTAINS
     REAL(wp) :: zconst, zdqv(kbdim), zdcptv(kbdim)
 
     !===================================================================
-    ! If surface heat fluxes (incl. latent) are switched off, set 
+    ! If surface heat fluxes (incl. latent) are switched off, set
     ! corresponding values to zero and return to the calling subroutine.
     !===================================================================
     IF (.NOT.lsfc_heat_flux) THEN
@@ -105,7 +105,7 @@ CONTAINS
       pshflx_tile(1:kproma,:) = 0._wp
 
       RETURN
-    END IF 
+    END IF
 
     !===================================================================
     ! Otherwise compute diagnostics
@@ -119,34 +119,39 @@ CONTAINS
 
     DO jsfc = 1,ksfc_type
 
-      ! Vertical gradient of specific humidity.
-      ! Formula:
-      ! [ (air density)*(exchange coef)*(qv_{tavg,klev} - qs_tile) ]/tpfac1.
-      ! Here
-      !   qv_{tavg,klev} = tpfac1*qv_klev(t+dt) + (1-tpfac1)*qv_klev(t)
-      !                  = tpfac1*bb_qv
+      ! Vertical gradient of specific humidity scaled by factor (1/tpfac1).
+      ! Formula: ( qv_{tavg,klev} - qs_tile )/tpfac1
+      ! Here qv_{tavg,klev} = tpfac1*qv_klev(t+dt) + (1-tpfac1)*qv_klev(t)
+      !                     = tpfac1*bb_qv
       ! where bb_qv is the solution of the linear system at the lowest
       ! model level (i.e., the full level right above surface).
       ! (Formula translated from ECHAM. Question: why using the blended
       ! humidity, not the value on individual surface?)
 
-      zdqv(1:kproma) =   bb_klev(1:kproma,iqv)*pca(1:kproma,jsfc)          &
+      zdqv(1:kproma) =   bb(1:kproma,klev,iqv)*pca(1:kproma,jsfc)          &
                      & - tpfac2*pqsat_tile(1:kproma,jsfc)*pcs(1:kproma,jsfc)
+
+      ! Moisture flux ( = evaporation). Formula:
+      ! (g*psteplen)**(-1)*[  tpfac1*g*psteplen*(air density)*(exchange coef)
+      !                     *(tpfac1)**(-1)*( qv_{tavg,klev} - qs_tile ) ]
 
       pevap_tile(1:kproma,jsfc) =  zconst*pfac_sfc(1:kproma) &
                                 & *pcfh_tile(1:kproma,jsfc)  &
                                 & *zdqv(1:kproma)
     ENDDO
 
-    ! Compute grid box mean and time average.
+    ! Compute grid box mean and time integral
     ! The instantaneous grid box mean moisture flux will be passed on
     ! to the cumulus convection scheme.
 
     pevap_gbm(1:kproma) = 0._wp   ! "pqhfla" in echam
 
     DO jsfc = 1,ksfc_type
-      pevap_gbm(1:kproma) =   pevap_gbm(1:kproma)                         &
-                          & + pfrc(1:kproma,jsfc)*pevap_tile(1:kproma,jsfc)
+      pevap_gbm   (1:kproma) =   pevap_gbm(1:kproma)                         &
+                             & + pfrc(1:kproma,jsfc)*pevap_tile(1:kproma,jsfc)
+
+      pevap_gbm_ac(1:kproma) =   pevap_gbm_ac(1:kproma)                      &
+                             & + pevap_gbm(1:kproma)*pdtime 
     ENDDO
 
     !-------------------------------------------------------------------
@@ -187,7 +192,7 @@ CONTAINS
       ! (Formula translated from ECHAM. Question: why using the blended
       ! dry static energy, not the value on individual surface?)
 
-      zdcptv(1:kproma) = bb_klev(1:kproma,ih) - tpfac2*pcptv_tile(1:kproma,jsfc)
+      zdcptv(1:kproma) = bb(1:kproma,klev,ih) - tpfac2*pcptv_tile(1:kproma,jsfc)
 
       ! Flux of dry static energy
 
@@ -214,6 +219,79 @@ CONTAINS
     ENDDO
 
   END SUBROUTINE surface_fluxes
+  !-------------
+  !!
+  !! Compute wind stress over each surface type
+  !!
+  SUBROUTINE wind_stress( lsfc_mom_flux, pdtime, psteplen,      &! in
+                        & kproma, kbdim, ksfc_type,             &! in
+                        & pfrc, pcfm_tile, pfac_sfc,            &! in
+                        & pu_rtpfac1, pv_rtpfac1,               &! in
+                        & pu_stress_gbm_ac, pv_stress_gbm_ac,   &! inout
+                        & pu_stress_tile,   pv_stress_tile      )! out
+
+    LOGICAL, INTENT(IN)    :: lsfc_mom_flux
+    REAL(wp),INTENT(IN)    :: pdtime, psteplen
+    INTEGER, INTENT(IN)    :: kproma, kbdim, ksfc_type
+
+    REAL(wp),INTENT(IN)    :: pfrc            (kbdim,ksfc_type)
+    REAL(wp),INTENT(IN)    :: pcfm_tile       (kbdim,ksfc_type)
+    REAL(wp),INTENT(IN)    :: pfac_sfc        (kbdim)
+    REAL(wp),INTENT(IN)    :: pu_rtpfac1      (kbdim)
+    REAL(wp),INTENT(IN)    :: pv_rtpfac1      (kbdim)
+    REAL(wp),INTENT(INOUT) :: pu_stress_gbm_ac(kbdim)
+    REAL(wp),INTENT(INOUT) :: pv_stress_gbm_ac(kbdim)
+    REAL(wp),INTENT(OUT)   :: pu_stress_tile  (kbdim,ksfc_type)
+    REAL(wp),INTENT(OUT)   :: pv_stress_tile  (kbdim,ksfc_type)
+
+    INTEGER  :: jsfc
+    REAL(wp) :: zconst
+
+    !===================================================================
+    ! If surface momentum fluxes is switched off (i.e., using free slip
+    ! boundary condition), set wind stress to zero and return to the
+    ! calling subroutine.
+    !===================================================================
+    IF (.NOT.lsfc_mom_flux) THEN
+
+      pu_stress_tile(1:kproma,:) = 0._wp
+      pv_stress_tile(1:kproma,:) = 0._wp
+
+    !===================================================================
+    ! Otherwise do computation
+    !===================================================================
+    ELSE
+      zconst = 1._wp/(grav*psteplen)
+
+      ! Compute wind stress over each surface type, then accumulate
+      ! grid box mean. Formula for wind stress:
+      !   (grav*psteplen)**(-1)
+      !  *[grav*psteplen*tpfac1*(air density)]
+      !  *(surface turbulent exchange coeff)
+      !  *[(u-/v-wind at lowest model level)/tpfac1]
+
+      DO jsfc = 1,ksfc_type
+
+        pu_stress_tile(1:kproma,jsfc) = zconst*pfac_sfc(1:kproma) &
+                                      & *pcfm_tile(1:kproma,jsfc) &
+                                      & *pu_rtpfac1(1:kproma)
+
+        pv_stress_tile(1:kproma,jsfc) = zconst*pfac_sfc(1:kproma) &
+                                      & *pcfm_tile(1:kproma,jsfc) &
+                                      & *pv_rtpfac1(1:kproma)
+
+        pu_stress_gbm_ac(1:kproma) = pu_stress_gbm_ac(1:kproma)      &
+                                   & + pu_stress_tile(1:kproma,jsfc) &
+                                   &  *pfrc(1:kproma,jsfc)*pdtime
+
+        pv_stress_gbm_ac(1:kproma) = pv_stress_gbm_ac(1:kproma)      &
+                                   & + pv_stress_tile(1:kproma,jsfc) &
+                                   &  *pfrc(1:kproma,jsfc)*pdtime
+      END DO
+
+    END IF ! lsfc_mom_flux
+
+  END SUBROUTINE wind_stress
   !-------------
 
 END MODULE mo_surface_diag

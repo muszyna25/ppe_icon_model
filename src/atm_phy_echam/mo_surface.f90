@@ -35,8 +35,8 @@
 MODULE mo_surface
 
   USE mo_kind,              ONLY: wp
-  USE mo_exception,         ONLY: finish
-  USE mo_surface_diag,      ONLY: surface_fluxes
+ !USE mo_exception,         ONLY: finish
+  USE mo_surface_diag,      ONLY: wind_stress, surface_fluxes
   USE mo_echam_vdiff_params,ONLY: tpfac2
   USE mo_vdiff_solver,      ONLY: ih, iqv, iu, iv, imh, imqv, imuv, &
                                 & nmatrix, nvar_vdiff,              &
@@ -49,29 +49,31 @@ CONTAINS
   !>
   !!
   !!
-  SUBROUTINE update_surface( lsfc_heat_flux, pdtime, psteplen,  &! in
+  SUBROUTINE update_surface( lsfc_heat_flux, lsfc_mom_flux,     &! in
+                           & pdtime, psteplen,                  &! in
                            & kproma, kbdim, klev, ksfc_type,    &! in
                            & idx_wtr, idx_ice, idx_lnd,         &! in
-                           & pfrc, pcfh_tile, pfac_sfc,         &! in
-                           & pcpt_tile, pqsat_tile,             &! in
-                           & pocu, pocv,                        &! in
+                           & pfrc, pcfh_tile, pcfm_tile,        &! in
+                           & pfac_sfc, pocu, pocv,              &! in
                            & aa, aa_btm, bb, bb_btm,            &! inout
+                           & pcpt_tile, pqsat_tile,             &! inout
                            & ptsfc_tile,                        &! inout
+                           & pu_stress_gbm_ac, pv_stress_gbm_ac,&! inout
                            & plhflx_gbm_ac, pshflx_gbm_ac,      &! inout
                            & pevap_gbm_ac,                      &! inout
+                           & pu_stress_tile,   pv_stress_tile,  &! out
                            & plhflx_tile, pshflx_tile,          &! out
                            & pevap_tile, pevap_gbm              )! out
 
-    LOGICAL, INTENT(IN)    :: lsfc_heat_flux
+    LOGICAL, INTENT(IN)    :: lsfc_heat_flux, lsfc_mom_flux
     REAL(wp),INTENT(IN)    :: pdtime, psteplen
     INTEGER, INTENT(IN)    :: kproma, kbdim, klev, ksfc_type
     INTEGER, INTENT(IN)    :: idx_wtr, idx_ice, idx_lnd
 
     REAL(wp),INTENT(IN)    :: pfrc      (kbdim,ksfc_type)
     REAL(wp),INTENT(IN)    :: pcfh_tile (kbdim,ksfc_type)
+    REAL(wp),INTENT(IN)    :: pcfm_tile (kbdim,ksfc_type)
     REAL(wp),INTENT(IN)    :: pfac_sfc  (kbdim)
-    REAL(wp),INTENT(IN)    :: pcpt_tile (kbdim,ksfc_type)
-    REAL(wp),INTENT(IN)    :: pqsat_tile(kbdim,ksfc_type)
     REAL(wp),INTENT(IN)    :: pocu      (kbdim)
     REAL(wp),INTENT(IN)    :: pocv      (kbdim)
 
@@ -80,18 +82,24 @@ CONTAINS
     REAL(wp),INTENT(INOUT) :: bb     (kbdim,klev,nvar_vdiff)
     REAL(wp),INTENT(INOUT) :: bb_btm (kbdim,ksfc_type,ih:iqv)
 
-    REAL(wp),INTENT(INOUT) :: ptsfc_tile(kbdim,ksfc_type)
+    REAL(wp),INTENT(INOUT) :: pcpt_tile (kbdim,ksfc_type)
+    REAL(wp),INTENT(INOUT) :: pqsat_tile(kbdim,ksfc_type)
+    REAL(wp),INTENT(INOUT) :: ptsfc_tile (kbdim,ksfc_type)
 
-    REAL(wp),INTENT(INOUT) :: plhflx_gbm_ac(kbdim)
-    REAL(wp),INTENT(INOUT) :: pshflx_gbm_ac(kbdim)
-    REAL(wp),INTENT(INOUT) ::  pevap_gbm_ac(kbdim)
+    REAL(wp),INTENT(INOUT) :: pu_stress_gbm_ac (kbdim)
+    REAL(wp),INTENT(INOUT) :: pv_stress_gbm_ac (kbdim)
+    REAL(wp),INTENT(INOUT) ::    plhflx_gbm_ac (kbdim)
+    REAL(wp),INTENT(INOUT) ::    pshflx_gbm_ac (kbdim)
+    REAL(wp),INTENT(INOUT) ::     pevap_gbm_ac (kbdim)
 
-    REAL(wp),INTENT(OUT)   :: plhflx_tile(kbdim,ksfc_type)
-    REAL(wp),INTENT(OUT)   :: pshflx_tile(kbdim,ksfc_type)
-    REAL(wp),INTENT(OUT)   ::  pevap_tile(kbdim,ksfc_type)
-    REAL(wp),INTENT(OUT)   ::  pevap_gbm (kbdim)
+    REAL(wp),INTENT(OUT)   :: pu_stress_tile (kbdim,ksfc_type)
+    REAL(wp),INTENT(OUT)   :: pv_stress_tile (kbdim,ksfc_type)
+    REAL(wp),INTENT(OUT)   ::    plhflx_tile (kbdim,ksfc_type)
+    REAL(wp),INTENT(OUT)   ::    pshflx_tile (kbdim,ksfc_type)
+    REAL(wp),INTENT(OUT)   ::     pevap_tile (kbdim,ksfc_type)
+    REAL(wp),INTENT(OUT)   ::     pevap_gbm  (kbdim)
 
-    INTEGER  :: jsfc, jk, jkm1, im, jvar
+    INTEGER  :: jsfc, jk, jkm1, im
     REAL(wp) :: se_sum(kbdim), qv_sum(kbdim), wgt_sum(kbdim), wgt(kbdim)
     REAL(wp) :: zca(kbdim,ksfc_type), zcs(kbdim,ksfc_type)
     REAL(wp) :: zfrc_oce(kbdim)
@@ -104,12 +112,24 @@ CONTAINS
     REAL(wp) :: cair_lnd (kbdim)
     REAL(wp) :: csat_lnd (kbdim)
 
-    !-------------------------------------------------------------------
-    ! For moisture:
+    !===================================================================
+    ! BEFORE CALLING land/ocean/ice model
+    !===================================================================
+    ! Compute wind stress at the old time step.
+    ! At this point bb(:,klev,iu) = u_klev(t)/tpfac1 (= udif in echam)
+    !               bb(:,klev,iv) = v_klev(t)/tpfac1 (= vdif in echam)
+
+    CALL wind_stress( lsfc_mom_flux, pdtime, psteplen,     &! in
+                    & kproma, kbdim, ksfc_type,            &! in
+                    & pfrc, pcfm_tile, pfac_sfc,           &! in
+                    & bb(:,klev,iu), bb(:,klev,iv),        &! in
+                    & pu_stress_gbm_ac, pv_stress_gbm_ac,  &! inout
+                    & pu_stress_tile,   pv_stress_tile     )! out
+
+    ! Turbulent transport of moisture:
     ! - finish matrix set up;
     ! - perform bottom level elimination;
     ! - convert matrix entries to Richtmyer-Morton coefficients
-    !-------------------------------------------------------------------
 
     CALL matrix_to_richtmyer_coeff( kproma, kbdim, klev, ksfc_type, idx_lnd, &! in
                                   & cair_lnd, csat_lnd,                      &! in
@@ -117,9 +137,9 @@ CONTAINS
                                   & aa_btm, bb_btm,                          &! inout
                                   & zen_h, zfn_h, zen_qv, zfn_qv             )! out
 
-    !-------------------------------------------------------------------
-    ! Prepare some coefficients
-    !-------------------------------------------------------------------
+    ! Set the evapotranspiration coefficients, to be used later in
+    ! blending and in diagnoising surface fluxes.
+
     zca(1:kproma,:) = 1._wp
     zcs(1:kproma,:) = 1._wp
 
@@ -128,15 +148,18 @@ CONTAINS
       zcs(1:kproma,idx_lnd) = csat_lnd(1:kproma)
     END IF
 
-    !-------------------------------------------------------------------
+    !===================================================================
+    ! CALL land/ocean/ice model
+    !===================================================================
     ! Calculate surface temperature over land and sea ice;
     ! Provide surface temperature over ocean.
-    !-------------------------------------------------------------------
 
     ! call jsbach and sea ice model here.
 
-    !-------------------------------------------------------------------
-    ! For moisture and dry static energy:
+    !===================================================================
+    ! AFTER CALLING land/ocean/ice model
+    !===================================================================
+    ! Turbulent transport of moisture and dry static energy:
     ! Get solution of the two variables on the lowest model level.
     !-------------------------------------------------------------------
     ! - Over individual tiles
@@ -181,8 +204,8 @@ CONTAINS
     END IF
 
     !-------------------------------------------------------------------
-    ! For u and v: adjust the right-hand side vector, then perform
-    ! the bottom level elimination to get the solution
+    ! Turbulent transport of u and v: adjust the right-hand side vector,
+    ! then perform the bottom level elimination to get the solution
     !-------------------------------------------------------------------
     ! Add additional terms to the r.h.s. of the velocity equations
     ! to take into account ocean currents.
@@ -229,13 +252,11 @@ CONTAINS
                       & idx_wtr, idx_ice, idx_lnd, ih, iqv,   &! in
                       & pfrc, pcfh_tile, pfac_sfc,            &! in
                       & pcpt_tile, ptsfc_tile, pqsat_tile,    &! in
-                      & zca, zcs, bb(:,klev,ih:iqv),          &! in
+                      & zca, zcs, bb(:,:,ih:iqv),             &! in
                       & plhflx_gbm_ac, pshflx_gbm_ac,         &! inout
                       & pevap_gbm_ac,                         &! inout
                       & plhflx_tile, pshflx_tile,             &! out
                       & pevap_tile, pevap_gbm                 )! out
-
-   !CALL wind_stress( ... )
 
   END SUBROUTINE update_surface
   !-------------

@@ -49,9 +49,8 @@ MODULE mo_echam_phy_main
   USE mo_math_constants,      ONLY: pi
   USE mo_physical_constants,  ONLY: grav
   USE mo_impl_constants,      ONLY: io3_clim, io3_ape
-  USE mo_run_config,          ONLY: ntracer, nlev, nlevp1, ltestcase, &
+  USE mo_run_config,          ONLY: ntracer, nlev, nlevp1,           &
     &                               iqv, iqc, iqi, io3, iqt, ltimer
-  USE mo_ha_testcases,        ONLY: ctest_name
   USE mo_vertical_coord_table,ONLY: nlevm1
   USE mo_ext_data,            ONLY: ext_data,&
     &                               t_external_atmos_td,             &
@@ -651,25 +650,31 @@ CONTAINS
     !     condition for wind, temperature, tracer concentraion, etc.
 
     CALL update_surface( vdiff_config%lsfc_heat_flux,  &! in
+                       & vdiff_config%lsfc_mom_flux,   &! in
                        & pdtime, psteplen,             &! in, time steps
                        & jce, nbdim, nlev, nsfc_type,  &! in 
                        & iwtr, iice, ilnd,             &! in, indices of surface types
                        & zfrc(:,:),                    &! in, area fraction
                        & field% cfh_tile(:,jb,:),      &! in, from "vdiff_down" 
+                       & field% cfm_tile(:,jb,:),      &! in, from "vdiff_down" 
                        & zfactor_sfc(:),               &! in, from "vdiff_down" 
-                       & zcpt_sfc_tile(:,:),           &! in, from "vdiff_down"
-                       & field%qs_sfc_tile(:,jb,:),    &! in, from "vdiff_down" 
                        & field% ocu (:,jb),            &! in, ocean sfc velocity, u-component
                        & field% ocv (:,jb),            &! in, ocean sfc velocity, v-component
                        & zaa, zaa_btm, zbb, zbb_btm,   &! inout
+                       & zcpt_sfc_tile(:,:),           &! inout, from "vdiff_down", for "vdiff_up"
+                       & field%qs_sfc_tile(:,jb,:),    &! inout, from "vdiff_down", for "vdiff_up"
                        & field%  tsfc_tile(:,jb,:),    &! inout
+                       & field%u_stress_ac(:,  jb),    &! inout
+                       & field%v_stress_ac(:,  jb),    &! inout
                        & field% lhflx_ac  (:,  jb),    &! inout
                        & field% shflx_ac  (:,  jb),    &! inout
                        & field%  evap_ac  (:,  jb),    &! inout
+                       & field%u_stress_tile(:,jb,:),  &! inout
+                       & field%v_stress_tile(:,jb,:),  &! inout
                        & field% lhflx_tile(:,jb,:),    &! out
                        & field% shflx_tile(:,jb,:),    &! out
                        & field%  evap_tile(:,jb,:),    &! out
-                       &  zqhflx                       )! out, for "cloud"
+                       &  zqhflx                       )! out, for "cucall"
                          
     ! 5.5 Turbulent mixing, part II:
     !     - Elimination for the lowest model level using boundary conditions

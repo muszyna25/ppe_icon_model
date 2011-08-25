@@ -286,6 +286,12 @@ MODULE mo_echam_phy_memory
       & shflx_tile(:,:,:), &!< (instantaneous) sensible heat flux at surface 
       &  evap_tile(:,:,:)   !< (instantaneous) evaporation at surface 
 
+    REAL(wp),POINTER :: &
+      & u_stress_ac  (:,  :), &!< (instantaneous) wind stress 
+      & v_stress_ac  (:,  :), &!< (instantaneous) wind stress 
+      & u_stress_tile(:,:,:), &!< (time accum) grid box mean wind stress 
+      & v_stress_tile(:,:,:)   !< (time accum) grid box mean wind stress 
+
 !!$    ! Variables for debugging
 !!$    REAL(wp),POINTER :: &
 !!$      ! 2d arrays
@@ -1190,6 +1196,38 @@ CONTAINS
     CALL add_var( field_list, prefix//'evap_tile', field%evap_tile,            &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
                 & t_cf_var('evap_tile', '', ''),                               &
+                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
+                & ldims=shapesfc,                                              &
+                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+
+    ! wind stress, accumulated grid box mean
+
+    cf_desc    = t_cf_var('surface_u_wind_stress_accum', '', &
+                         &'surface u wind stress accum')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'u_stress_ac', field%u_stress_ac, &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,        &
+                & cf_desc, grib2_desc, ldims=shape2d            )
+
+    cf_desc    = t_cf_var('surface_v_wind_stress_accum', '', &
+                         &'surface v wind stress accum')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( field_list, prefix//'v_stress_ac', field%v_stress_ac, &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,        &
+                & cf_desc, grib2_desc, ldims=shape2d            )
+
+    ! wind stress, instantaneous tile values 
+
+    CALL add_var( field_list, prefix//'u_stress_tile', field%u_stress_tile,    &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
+                & t_cf_var('u_stress_tile', '', ''),                           &
+                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
+                & ldims=shapesfc,                                              &
+                & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )
+
+    CALL add_var( field_list, prefix//'v_stress_tile', field%v_stress_tile,    &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE,                       &
+                & t_cf_var('v_stress_tile', '', ''),                           &
                 & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
                 & ldims=shapesfc,                                              &
                 & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.           )

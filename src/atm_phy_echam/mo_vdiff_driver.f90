@@ -188,13 +188,19 @@ CONTAINS
   REAL(wp),INTENT(OUT) :: pcftke  (kbdim,klev) !< exchange coeff. for TKE
   REAL(wp),INTENT(OUT) :: pcfthv  (kbdim,klev) !< exchange coeff. for variance of theta_v
 
-  REAL(wp) :: pcair_lnd(kbdim), pcsat_lnd(kbdim) !< evapotranspiration coefficients
-  REAL(wp) :: plhflx_ac  (kbdim)           !< accumulated grid box mean latent heat flux
-  REAL(wp) :: pshflx_ac  (kbdim)           !< accumulated grid box mean sensible heat flux
-  REAL(wp) ::  pevap_ac  (kbdim)           !< accumulated grid box mean evaporation
-  REAL(wp) :: plhflx_tile(kbdim,ksfc_type) !< latent heat flux
-  REAL(wp) :: pshflx_tile(kbdim,ksfc_type) !< sensible heat flux
-  REAL(wp) ::  pevap_tile(kbdim,ksfc_type) !< evaporation
+ !REAL(wp) :: pcair_lnd(kbdim), pcsat_lnd(kbdim) !< evapotranspiration coefficients
+
+  REAL(wp) :: pu_stress_gbm_ac(kbdim) !< accumulated grid box mean wind stress 
+  REAL(wp) :: pv_stress_gbm_ac(kbdim) !< accumulated grid box mean wind stress
+  REAL(wp) ::    plhflx_gbm_ac(kbdim) !< accumulated grid box mean latent heat flux
+  REAL(wp) ::    pshflx_gbm_ac(kbdim) !< accumulated grid box mean sensible heat flux
+  REAL(wp) ::     pevap_gbm_ac(kbdim) !< accumulated grid box mean evaporation
+
+  REAL(wp) :: pu_stress_tile(kbdim,ksfc_type) !< wind stress 
+  REAL(wp) :: pv_stress_tile(kbdim,ksfc_type) !< wind stress
+  REAL(wp) ::    plhflx_tile(kbdim,ksfc_type) !< latent heat flux
+  REAL(wp) ::    pshflx_tile(kbdim,ksfc_type) !< sensible heat flux
+  REAL(wp) ::     pevap_tile(kbdim,ksfc_type) !< evaporation
 
   ! Local variables
 
@@ -345,23 +351,28 @@ CONTAINS
   ! TEMPORARILY INITIALIZE ACCUMULATED VARIABLES TO ZERO.  +++++++++++++++
   ! LATER THIS SHOULD BE DONE DURING MODEL INITIALIZATION!
   ! 
-  pevap_ac (1:kproma) = 0._wp
-  plhflx_ac(1:kproma) = 0._wp
-  pshflx_ac(1:kproma) = 0._wp
+  pu_stress_gbm_ac(1:kproma) = 0._wp
+  pv_stress_gbm_ac(1:kproma) = 0._wp
+      pevap_gbm_ac(1:kproma) = 0._wp
+     plhflx_gbm_ac(1:kproma) = 0._wp
+     pshflx_gbm_ac(1:kproma) = 0._wp
   !--------------------------------------------------------+++++++++++++++
 
-  CALL update_surface( lsfc_heat_flux,                 &! in
-                     & pdtime, pstep_len,              &! in
-                     & kproma, kbdim, klev, ksfc_type, &! in 
-                     & idx_wtr, idx_ice, idx_lnd,      &! in
-                     & pfrc, pcfh_tile, zprfac(:,klev),&! in
-                     & zcpt_tile, pqsat_tile,          &! in
-                     & pocu, pocv,                     &! in
-                     & aa, aa_btm, bb, bb_btm,         &! inout
-                     & ptsfc_tile,                     &! inout
-                     & plhflx_ac, pshflx_ac, pevap_ac, &! inout
-                     & plhflx_tile, pshflx_tile,       &! out
-                     & pevap_tile, pqv_mflux_sfc       )! out
+  CALL update_surface( lsfc_heat_flux, lsfc_mom_flux,      &! in
+                     & pdtime, pstep_len,                  &! in
+                     & kproma, kbdim, klev, ksfc_type,     &! in 
+                     & idx_wtr, idx_ice, idx_lnd,          &! in
+                     & pfrc, pcfh_tile, pcfm_tile,         &! in
+                     & zprfac(:,klev), pocu, pocv,         &! in
+                     & aa, aa_btm, bb, bb_btm,             &! inout
+                     & zcpt_tile, pqsat_tile,              &! inout
+                     & ptsfc_tile,                         &! inout
+                     & pu_stress_gbm_ac, pv_stress_gbm_ac, &! inout
+                     & plhflx_gbm_ac, pshflx_gbm_ac,       &! inout
+                     & pevap_gbm_ac,                       &! inout
+                     & pu_stress_tile, pv_stress_tile,     &! out
+                     & plhflx_tile, pshflx_tile,           &! out
+                     & pevap_tile, pqv_mflux_sfc           )! out
 
   !-----------------------------------------------------------------------
   ! 6. Obtain solution of the tri-diagonal system by back-substitution. 
