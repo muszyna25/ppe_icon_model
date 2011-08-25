@@ -45,6 +45,7 @@ dt_diag=`expr 24 \* 3600  `  # int output each 24 hours
 dt_file=`expr 1 \* 86400 `   # 1 day per file
 dt_data=21600.               # write output every 6 hours
 dt_rad=3600.                 # compute radiative transfer every hour
+dt_checkpoint=`expr 5 \* 86400 `  # write restart file every 5 days 
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -117,6 +118,7 @@ cat > ${atmo_namelist} << EOF
 /
 &io_nml
  out_expname = '${EXPNAME}' ! file name base
+ dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
 /
 EOF
 #

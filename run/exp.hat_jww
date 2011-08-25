@@ -38,6 +38,7 @@ dt_restart=`expr ${ndays_restart} \* 86400`
 dtime=600
 ndays=10
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
+dt_checkpoint=`expr 5 \* 86400 `  # write restart file every 5 days 
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -87,6 +88,7 @@ cat > $atmo_namelist << EOF
 /
 &io_nml
  out_expname = '${EXPNAME}' ! file name base
+ dt_checkpoint = ${dt_checkpoint} ! [s] trigger new restart file
 /
 &dynamics_nml
  iequations  = ${atmo_model_equations}       ! hydrostatic atmosphere using T as progn. var.
