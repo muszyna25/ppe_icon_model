@@ -90,6 +90,7 @@ MODULE mo_ext_data
   INTEGER::  nlev_pres, nmonths
 
   CHARACTER(len=6)  :: levelname
+  CHARACTER(len=6)  :: cellname
   CHARACTER(len=5)  :: o3name
   CHARACTER(len=20) :: o3unit
 
@@ -1539,16 +1540,18 @@ CONTAINS
         nlev_pres = 1
         nmonths   = 1
 
-!        IF(irad_o3 == io3_ape ) THEN
+        IF(irad_o3 == io3_ape ) THEN
           levelname = 'level'
+          cellname  = 'ncells'
           o3name    = 'O3'
           o3unit    = 'g/g'
- !       ELSE ! o3_clim
- !         levelname= 'plev'
- !         o3name   = 'O3'
- !         o3unit   = 'g/g' !this unit ozon will have after being read out
- !                          ! and converted from ppmv
- !       ENDIF
+        ELSE ! o3_clim
+          levelname= 'plev'
+          cellname = 'cell'
+          o3name   = 'O3'
+          o3unit   = 'g/g' !this unit ozon will have after being read out
+                           ! and converted from ppmv
+        ENDIF
 
         IF(my_process_is_stdio()) THEN
 
@@ -1573,7 +1576,7 @@ CONTAINS
 
           !triangles
           IF (p_patch(jg)%cell_type == 3) THEN ! triangular grid
-            CALL nf(nf_inq_dimid (ncid, 'ncells', dimid))
+            CALL nf(nf_inq_dimid (ncid, TRIM(cellname), dimid))
             CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
           ENDIF
        
@@ -1900,11 +1903,12 @@ CONTAINS
              &                    nlev_pres, nmonths,           &
              &                    ext_data(jg)%atm_td%O3)
 
-           ! convert from ppmv to g/g
-           ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*ppmv2gg
 
          ENDIF ! patches
 
+       ! convert from ppmv to g/g
+         ext_data(1)%atm_td%O3(:,:,:,:)= ext_data(1)%atm_td%O3(:,:,:,:)*ppmv2gg
+         
         ! close file
         IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
 

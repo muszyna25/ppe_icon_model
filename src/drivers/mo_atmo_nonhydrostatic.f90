@@ -103,7 +103,7 @@ CONTAINS
     ENDDO
 
     IF(iforcing == inwp) THEN
-      WRITE(0,*)'call configure nwp'
+
      CALL configure_atm_phy_nwp(n_dom, pat_level(:),&
           &                     ltestcase, iadv_rcf, dtime )
     ENDIF
