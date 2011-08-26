@@ -106,8 +106,11 @@ if [[  $use_target == "mpipc" && $use_openmp == "yes" ]] ; then
 fi
 # special treatment for exp.couple_dummy_models 
 name=couple_dummy_models
-$make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="00:05:00" omp_stacksize=$omp_stacksize
-
+if [[  $use_target == "tornado" ]] ; then
+  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="00:20:00" mpi_procs=16
+else
+  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="00:20:00" 
+fi
 
 #==============================================================================
 # Create the postprocessing scripts
