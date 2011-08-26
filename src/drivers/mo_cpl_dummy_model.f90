@@ -558,8 +558,24 @@ CONTAINS
     CASE ( 2 )
 
        DO nfld = 5, no_of_fields
+
+          IF ( nfld == 4 + nfld_fix ) THEN
+             DO nb = 1, field_shape(3)
+                DO i = field_shape(1), field_shape(2)
+                   send_field(i,nb) = REAL(p_patch(patch_no)%cells%glb_index(i),wp)
+                ENDDO
+             ENDDO
+          ELSE
+             DO nb = 1, field_shape(3)
+                DO i = field_shape(1), field_shape(2)
+                   send_field(i,nb) = real(i,wp)
+                ENDDO
+             ENDDO
+          ENDIF
+
           id = field_id(nfld)
           CALL ICON_cpl_put ( id, field_shape, send_field, ierror )
+
        ENDDO
 
        DO nfld = 1, 4
