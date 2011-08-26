@@ -517,12 +517,14 @@ CONTAINS
     REAL(kind=wp) :: recv_field (field_shape(1):field_shape(2),field_shape(3))
     REAL(kind=wp) :: send_field (field_shape(1):field_shape(2),field_shape(3))
 
-    CALL message('This is the mo_cpl_dummy_model','cpl_dummy_timestepping')
+    CALL global_mpi_barrier()
+    write(0,*) TRIM(get_my_process_name()), ': start cpl_dummy_timestepping... '
+    CALL global_mpi_barrier()
 
     model_id = get_my_model_no()
     patch_no = 1
 
-    ! what is the proper conversion form int to wp?
+    ! what is the proper conversion from int to wp?
 
     SELECT CASE (model_id)
 
@@ -601,6 +603,9 @@ CONTAINS
        CALL finish (TRIM(method_name),'deallocate for patch array failed')
 
     END SELECT
+
+    CALL global_mpi_barrier()
+    write(0,*) TRIM(get_my_process_name()), ': cpl_dummy_timestepping ends '
 
   END SUBROUTINE cpl_dummy_timestepping
   !-------------------------------------------------------------------------
