@@ -201,7 +201,7 @@ CONTAINS
     ENDIF
 
     IF ( l_debug ) THEN
-       WRITE ( filename, '(a5,I1,A4)' )  'ICON_', ICON_global_rank, '.log'
+       WRITE ( filename, '(a5,I4.4,A4)' )  'ICON_', ICON_global_rank, '.log'
        OPEN  ( unit = cplout, file = filename, status = 'unknown', form = 'formatted' )
     ENDIF
 
