@@ -101,8 +101,12 @@ fi
 #==============================================================================
 # special treatment for exp.couple_atmo-radiation
 if [[  $use_target == "mpipc" && $use_openmp == "yes" ]] ; then
-  $make_runscript in_folder=$input_folder in_script=exp.couple_atmo-radiation in_script=exec.iconrun EXPNAME="couple_atmo-radiationtest_nah_jww" openmp_threads=3
+  name=couple_atmo-radiation
+  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" openmp_threads=3
 fi
+# special treatment for exp.couple_dummy_models 
+name=couple_dummy_models
+$make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="00:05:00" omp_stacksize=$omp_stacksize
 
 
 #==============================================================================
