@@ -286,7 +286,9 @@ check_error $? "${MODEL} does not exist?"
 #
 cd ${EXPDIR}
 #
+date
 ${START} ${MODEL}
+date
 #
 check_error $? "${START} ${MODEL}"
 #
