@@ -42,6 +42,7 @@ nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 dt_diag=`expr 24 \* 3600 `   # int output each 24 hours
 dt_file=`expr 30 \* 86400 `   # 30 days per file
 dt_data=`expr 288 \* 3600 `  # output each 288 hours
+dt_checkpoint=`expr 5 \* 86400 `  # write restart file every 5 days 
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -114,21 +115,22 @@ cat > ${atmo_namelist} << EOF
   lclip_tracer = .FALSE.        ! default: .FALSE.
 /
 &diffusion_nml
- hdiff_order       = -1         ! -1=no diffusion
+ hdiff_order      = -1          ! -1=no diffusion
  hdiff_efdt_ratio = 0.2         ! ration of e-folding time step
 /
 &interpol_nml
- llsq_high_consv = .TRUE.        ! conservative
- lsq_high_ord     = 3            ! 3
+ llsq_high_consv  = .TRUE.      ! conservative
+ lsq_high_ord     = 3           ! 3
 /
 &io_nml
- out_expname = '${EXPNAME}'       ! file name base
- dt_data     = ${dt_data}       ! write output every 96 hours
- dt_file     = ${dt_file}       ! trigger new output file every 30 day
- lwrite_vorticity = .FALSE.     ! do not write out averaged vorticity at cells
- lwrite_pres   = .FALSE.        ! do not write out full level pressure
- lwrite_z3     = .FALSE.        ! do not write out geopotential on full levels
- lwrite_omega  = .FALSE.        ! do not write out vertical velocity inpressure coordinates
+ out_expname      = '${EXPNAME}'     ! file name base
+ dt_data          = ${dt_data}       ! write output every 96 hours
+ dt_file          = ${dt_file}       ! trigger new output file every 30 day
+ dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
+ lwrite_vorticity = .FALSE.          ! do not write out averaged vorticity at cells
+ lwrite_pres      = .FALSE.          ! do not write out full level pressure
+ lwrite_z3        = .FALSE.          ! do not write out geopotential on full levels
+ lwrite_omega     = .FALSE.          ! do not write out vertical velocity inpressure coordinates
 /
 EOF
 #-----------------------------------------------------------------------------

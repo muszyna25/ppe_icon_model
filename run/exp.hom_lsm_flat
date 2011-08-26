@@ -85,6 +85,7 @@ dtime=1800           # ocean model timestep [s]
 ndays=1              # ocean model run in days
 dt_data=21600.       # ocean model output interval [s]
 dt_file=3.1536e7     # interval for generation of new output file [s] (~1 year)
+dt_checkpoint=43200  # write restart file every 12 hours
 #
 #-----------------------------------------------------------------------------
 # calculate model timesteps using $ndays
@@ -223,10 +224,11 @@ cat > ${ocean_namelist} << EOF
                                  ! this value is divided by number of seconds per month (=30*24*3600)
 /
 &io_nml
- out_expname = '${EXPNAME}'       ! file name base
- dt_data     = ${dt_data}       ! write output every 96 hours
- dt_file     = ${dt_file}     ! [s] interval for generation of new output file (3600*24*365 -> 1y)
- lkeep_in_sync = .TRUE.     ! sync after each timestep
+ out_expname   = '${EXPNAME}'    ! file name base
+ dt_data       = ${dt_data}      ! write output every 96 hours
+ dt_file       = ${dt_file}      ! [s] interval for generation of new output file (3600*24*365 -> 1y)
+ dt_checkpoint = ${dt_checkpoint}! [s] trigger new restart file
+ lkeep_in_sync = .TRUE.          ! sync after each timestep
 /
 EOF
 #-----------------------------------------------------------------------------

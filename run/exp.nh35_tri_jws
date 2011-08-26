@@ -42,6 +42,7 @@ nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 dt_diag=`expr 4 \* 3600 `    #  output each 4 hours
 dt_file=`expr 30 \* 86400 `  # 30 days per file
 dt_data=`expr 1 \* 86400 `   # output daily
+dt_checkpoint=`expr 5 \* 86400 `  # write restart file every 5 days 
 #
 #-----------------------------------------------------------------------------
 # model parameters
@@ -114,13 +115,14 @@ cat > ${atmo_namelist} << EOF
  hdiff_tv_ratio   = 1.0
 /
 &io_nml
- out_expname = '${EXPNAME}'       ! file name base
- dt_data     = ${dt_data}       ! write output every 96 hours
- dt_diag           = ${dt_diag}
- lwrite_vorticity  = .TRUE.
- lwrite_pres       = .TRUE.
- lwrite_z3         = .TRUE.
- lwrite_omega      = .TRUE.
+ out_expname      = '${EXPNAME}'     ! file name base
+ dt_data          = ${dt_data}       ! write output every 96 hours
+ dt_diag          = ${dt_diag}
+ dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
+ lwrite_vorticity = .TRUE.
+ lwrite_pres      = .TRUE.
+ lwrite_z3        = .TRUE.
+ lwrite_omega     = .TRUE.
 /
 EOF
 #-----------------------------------------------------------------------------
