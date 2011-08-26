@@ -207,7 +207,7 @@ CONTAINS
     ! If use elevation_file
     IF (elevation_file /= "") THEN
       CALL read_netcdf_cell_elevation(init_grid_id, elevation_file, elevation_field)
-      sea_cell_list = get_ocean_cell_list(init_grid_id)
+      sea_cell_list = get_ocean_cell_list_from_depth(init_grid_id)
     ENDIF
     !--------------------------------------------------------------------
     ! check if we have conditions
@@ -232,7 +232,7 @@ CONTAINS
     !------------------------------------------------------------------------
     ! get the new sea_cell_list as defined by the cell%elevation value
     IF (ASSOCIATED(sea_cell_list%value)) DEALLOCATE(sea_cell_list%value)
-    sea_cell_list = get_ocean_cell_list(init_grid_id)
+    sea_cell_list = get_ocean_cell_list_from_depth(init_grid_id)
     ! create sea_land_mask
     CALL fill_sea_land_mask_from_list(init_grid_id, sea_cell_list)
     
@@ -256,7 +256,7 @@ CONTAINS
     !------------------------------------------------------------------------
     ! smooth the grid
     IF (smooth_ocean_boundary) THEN
-      sea_cell_list = get_ocean_cell_list(init_grid_id, use_smoothing=.true.)
+      sea_cell_list = get_ocean_cell_list_from_depth(init_grid_id, use_smoothing=.true.)
       CALL fill_sea_land_mask_from_list(init_grid_id, sea_cell_list)
     ENDIF
     !------------------------------------------------------------------------
@@ -269,7 +269,7 @@ CONTAINS
 
     IF (.NOT. only_get_sea_land_mask) THEN
       IF ( .NOT. smooth_ocean_boundary) &   ! if  smooth_ocean_boundary the  sea_cell_list is filled      
-        & sea_cell_list = get_ocean_cell_list(init_grid_id)      
+        & sea_cell_list = get_ocean_cell_list_from_depth(init_grid_id)
       ocean_grid_id = get_grid_from_cell_list(init_grid_id, sea_cell_list)
       CALL delete_grid(init_grid_id)
     ELSE
@@ -294,7 +294,7 @@ CONTAINS
   !>
   !! Returns the ocean part of the in_grid_id. Private
   !! Ocean cells have elevation < min_sea_depth
-  FUNCTION get_ocean_cell_list(in_grid_id, use_smoothing) result(smooth_sea_cell_list)
+  FUNCTION get_ocean_cell_list_from_depth(in_grid_id, use_smoothing) result(smooth_sea_cell_list)
     INTEGER, INTENT(in)  :: in_grid_id
     LOGICAL, INTENT(in), OPTIONAL :: use_smoothing
     
@@ -332,7 +332,7 @@ CONTAINS
       
     ! inform what we got
     no_of_cells = in_grid%cells%no_of_existcells
-    WRITE(message_text,*) "------------------------------------------------------"
+    WRITE(message_text,*) "------------ get_ocean_cell_list_from_depth ---------------"
     CALL message ('', TRIM(message_text))
     WRITE(message_text,'(a,i8,i8,i8)') "total, land, sea cells=", no_of_cells, &
       & no_of_cells-smooth_sea_cell_list%list_size, smooth_sea_cell_list%list_size
@@ -340,7 +340,59 @@ CONTAINS
     WRITE(message_text,*) "------------------------------------------------------"
     CALL message ('', TRIM(message_text))
 
-  END FUNCTION get_ocean_cell_list
+  END FUNCTION get_ocean_cell_list_from_depth
+  !-------------------------------------------------------------------------
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Returns the ocean part of the in_grid_id. Private
+  !! Ocean cells have elevation < min_sea_depth
+  FUNCTION get_land_cell_list_from_mask(in_grid_id, use_smoothing) result(smooth_land_cell_list)
+    INTEGER, INTENT(in)  :: in_grid_id
+    LOGICAL, INTENT(in), OPTIONAL :: use_smoothing
+
+    TYPE(t_integer_list) :: smooth_land_cell_list
+
+    TYPE(t_grid), POINTER :: in_grid
+    TYPE(t_integer_list) :: land_cell_list
+    TYPE(t_integer_list) :: sea_land_mask_list
+    INTEGER :: no_of_cells
+    LOGICAL :: smooth_thelist
+
+    smooth_thelist = .false.
+    IF (PRESENT(use_smoothing)) smooth_thelist = use_smoothing
+
+
+    in_grid => get_grid(in_grid_id)
+    sea_land_mask_list%list_size  = in_grid%cells%no_of_allocatedcells
+    sea_land_mask_list%value      => in_grid%cells%sea_land_mask
+    CALL get_conditional_list(sea_land_mask_list, greater_than, land_boundary-1, &
+      & -1, land_cell_list)
+
+    ! WRITE(0,*) "sea_cell_list size=", sea_cell_list%list_size
+
+    ! smooth the boundary cells until converegnce
+    IF (smooth_thelist) THEN
+      CALL smooth_boundaryfrom_cell_list(in_grid_id, &
+        & land_cell_list, smooth_land_cell_list, until_convergence)
+      DEALLOCATE(land_cell_list%value)
+    !  WRITE(0,*) "smooth_sea_cell_list size=", smooth_sea_cell_list%list_size
+    ELSE
+      smooth_land_cell_list%list_size = land_cell_list%list_size
+      smooth_land_cell_list%value     => land_cell_list%value
+    ENDIF
+
+    ! inform what we got
+    no_of_cells = in_grid%cells%no_of_existcells
+    WRITE(message_text,*) "------------- get_land_cell_list_from_mask ----------------"
+    CALL message ('', TRIM(message_text))
+    WRITE(message_text,'(a,i8,i8,i8)') "total, land, sea cells=", no_of_cells, &
+      & no_of_cells-smooth_land_cell_list%list_size, smooth_land_cell_list%list_size
+    CALL message ('', TRIM(message_text))
+    WRITE(message_text,*) "------------------------------------------------------"
+    CALL message ('', TRIM(message_text))
+
+  END FUNCTION get_land_cell_list_from_mask
   !-------------------------------------------------------------------------
 
   !-------------------------------------------------------------------------

@@ -39,7 +39,8 @@ USE mo_exception,           ONLY: message, message_text, finish
 USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs
 USE mo_mpi,                 ONLY: p_stop, &
   & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
-  & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type
+  & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type, &
+  & global_mpi_barrier
 USE mo_timer,               ONLY: init_timer
 USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, &
                                   get_my_model_no, get_my_couple_id
@@ -179,17 +180,22 @@ CONTAINS
     !     corresponding sections of the configuration states.
     !---------------------------------------------------------------------
 
+    CALL global_mpi_barrier()
     write(0,*) TRIM(get_my_process_name()), ': Start of ', method_name
 !     CALL p_stop
 !     STOP
     
     CALL read_cpl_dummy_namelists(cpl_dummy_namelist_filename,shr_namelist_filename)
+    write(0,*) TRIM(get_my_process_name()), ': namelist is read '
+    CALL global_mpi_barrier()
 
     !---------------------------------------------------------------------
     ! 1.2 Cross-check namelist setups
     !---------------------------------------------------------------------
 
     CALL atm_crosscheck
+    write(0,*) TRIM(get_my_process_name()), ': atm_crosscheck is done '
+    CALL global_mpi_barrier()
 
     !---------------------------------------------------------------------
     ! 2. Call configure_run to finish filling the run_config state.
@@ -198,16 +204,22 @@ CONTAINS
     !    modified in this subroutine which affect the following CALLs.
     !---------------------------------------------------------------------
     CALL configure_run
+    write(0,*) TRIM(get_my_process_name()), ': configure_run is done '
+    CALL global_mpi_barrier()
 
     !-------------------------------------------------------------------
     ! 3.1 Initialize the mpi work groups
     !-------------------------------------------------------------------
     CALL set_mpi_work_communicators(p_test_run, l_test_openmp, num_io_procs)
+    write(0,*) TRIM(get_my_process_name()), ': set_mpi_work_communicators is done '
+    CALL global_mpi_barrier()
 
     !-------------------------------------------------------------------
     ! 3.2 Initialize various timers
     !-------------------------------------------------------------------
     IF (ltimer) CALL init_timer
+    write(0,*) TRIM(get_my_process_name()), ': init_timer is done '
+    CALL global_mpi_barrier()
 
     !------------------
     ! Next, define the horizontal and vertical grids since they are aready
@@ -233,12 +245,16 @@ CONTAINS
     
     CALL import_patches( p_patch_global,                       &
                             nlev,nlevp1,num_lev,num_levp1,nshift)      
+    write(0,*) TRIM(get_my_process_name()), ': import_patches is done '
+    CALL global_mpi_barrier()
 
     !--------------------------------------------------------------------------------
     ! 5. Construct interpolation state, compute interpolation coefficients.
     !--------------------------------------------------------------------------------
     
     CALL configure_interpolation( global_cell_type, n_dom, p_patch_global(1:)%level )
+    write(0,*) TRIM(get_my_process_name()), ': configure_interpolation is done '
+    CALL global_mpi_barrier()
 
     ! Allocate array for interpolation state
     
@@ -251,6 +267,8 @@ CONTAINS
     ! Interpolation state is constructed for
     ! the full domain on every PE and divided later
     CALL construct_2d_interpol_state(p_patch_global, p_int_state_global)
+    write(0,*) TRIM(get_my_process_name()), ': construct_2d_interpol_state is done '
+    CALL global_mpi_barrier()
 
     !-----------------------------------------------------------------------------
     ! 6. Construct grid refinment state, compute coefficients
@@ -286,6 +304,8 @@ CONTAINS
     ELSE
       
       CALL decompose_atmo_domain()
+      write(0,*) TRIM(get_my_process_name()), ': decompose_atmo_domain is done '
+      CALL global_mpi_barrier()
       
     ENDIF
 

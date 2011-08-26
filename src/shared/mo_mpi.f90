@@ -58,6 +58,7 @@ MODULE mo_mpi
   PUBLIC :: process_mpi_io_size
   
   ! Main communication methods
+  PUBLIC :: global_mpi_barrier
   PUBLIC :: p_send, p_recv, p_sendrecv, p_bcast, p_barrier
   PUBLIC :: p_isend, p_irecv, p_wait, p_wait_any
   PUBLIC :: p_gather, p_max, p_min, p_sum, p_global_sum, p_field_sum
@@ -4904,7 +4905,9 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_probe
+  !------------------------------------------------------
 
+  !------------------------------------------------------
   SUBROUTINE p_wait
 #ifndef NOMPI
     INTEGER :: p_status_wait(MPI_STATUS_SIZE,p_irequest)
@@ -4932,7 +4935,9 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_wait_any
+  !------------------------------------------------------
 
+  !------------------------------------------------------
   SUBROUTINE p_barrier (comm)
   INTEGER ,INTENT(IN) ,OPTIONAL :: comm
 #ifndef NOMPI
@@ -4950,6 +4955,24 @@ CONTAINS
 #endif
 
   END SUBROUTINE p_barrier
+  !------------------------------------------------------
+
+  !------------------------------------------------------
+  SUBROUTINE global_mpi_barrier 
+#ifndef NOMPI
+    CALL MPI_BARRIER (global_mpi_communicator, p_error)
+
+!#ifdef DEBUG
+    IF (p_error /= MPI_SUCCESS) THEN
+       WRITE (nerr,'(a,i4,a)') ' global_mpi_barrier on ', get_my_global_mpi_id(), ' failed.'
+       WRITE (nerr,'(a,i4)') ' Error = ', p_error
+       CALL p_abort
+    END IF
+!#endif
+#endif
+
+  END SUBROUTINE global_mpi_barrier
+  !------------------------------------------------------
 
   FUNCTION p_sum_dp_0d (zfield, comm) RESULT (p_sum)
 
