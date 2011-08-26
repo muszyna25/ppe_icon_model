@@ -287,10 +287,10 @@ MODULE mo_echam_phy_memory
       &  evap_tile(:,:,:)   !< (instantaneous) evaporation at surface 
 
     REAL(wp),POINTER :: &
-      & u_stress_ac  (:,  :), &!< (instantaneous) wind stress 
-      & v_stress_ac  (:,  :), &!< (instantaneous) wind stress 
-      & u_stress_tile(:,:,:), &!< (time accum) grid box mean wind stress 
-      & v_stress_tile(:,:,:)   !< (time accum) grid box mean wind stress 
+      & u_stress_ac  (:,  :), &!< (time accum) grid box mean wind stress 
+      & v_stress_ac  (:,  :), &!< (time accum) grid box mean wind stress 
+      & u_stress_tile(:,:,:), &!< (instantaneous) wind stress 
+      & v_stress_tile(:,:,:)   !< (instantaneous) wind stress 
 
 !!$    ! Variables for debugging
 !!$    REAL(wp),POINTER :: &

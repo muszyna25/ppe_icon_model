@@ -149,12 +149,12 @@ CONTAINS
     END IF
 
     !===================================================================
-    ! CALL land/ocean/ice model
+    ! CALL surface model(s)
     !===================================================================
-    ! Calculate surface temperature over land and sea ice;
-    ! Provide surface temperature over ocean.
+    ! Calculate surface temperature over land (and sea ice?)
 
-    ! call jsbach and sea ice model here.
+    ! CALL jsbach_interface
+    ! CALL sea_ice_thermodynamics ? 
 
     !===================================================================
     ! AFTER CALLING land/ocean/ice model

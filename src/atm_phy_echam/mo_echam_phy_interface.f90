@@ -58,6 +58,7 @@ MODULE mo_echam_phy_interface
   USE mo_timer,             ONLY: timer_start, timer_stop, &
                                 & timer_dyn2phy, timer_phy2dyn,    &
                                 & timer_echam_phy
+ !USE mo_icoham_sfc_indices,ONLY: iwtr, iice
 
   IMPLICIT NONE
   PRIVATE
@@ -311,6 +312,34 @@ CONTAINS
       CALL timer_stop (timer_echam_phy)
       CALL timer_start(timer_phy2dyn)
     ENDIF
+
+    !-------------------------------------------------------------------------
+    ! If running in atm-oce coupled mode, exchange information 
+    !-------------------------------------------------------------------------
+    ! Possible fields that contain information to be sent to the ocean include
+    !
+    ! 1. prm_field(jg)% u_stress_tile(:,:,iwtr)  and 
+    !    prm_field(jg)% v_stress_tile(:,:,iwtr)  which are the wind stress components;
+    !
+    ! 2. prm_field(jg)% evap_tile(:,:,iwtr) evaporation rate
+    !
+    ! 3. prm_field(jg)%rsfl + prm_field(jg)%rsfc + prm_field(jg)%ssfl + prm_field(jg)%ssfc
+    !    which gives the precipitation rate;
+    !
+    ! 4. prm_field(jg)% temp(:,nlev,:)  temperature at the lowest model level, or
+    !    prm_field(jg)% temp_2m(:,:)    2-m temperature, not available yet, or
+    !    prm_field(jg)% shflx_tile(:,:,iwtr) sensible heat flux
+    !
+    ! 5  prm_field(jg)% lhflx_tile(:,:,iwtr) latent heat flux
+    ! 6. shortwave radiation flux at the surface
+    !
+    ! Possible fields to receive from the ocean include
+    !
+    ! 1. prm_field(jg)% tsfc_tile(:,:,iwtr)   SST
+    ! 2. prm_field(jg)% ocu(:,:) and ocv(:,:) ocean surface current
+    ! 
+    ! CALL coupling
+
     !-------------------------------------------------------------------------
     ! Physics to dynamics: remap tendencies to the dynamics grid
     !-------------------------------------------------------------------------
