@@ -741,16 +741,20 @@ MODULE mo_solve_nonhydro
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
             ! extrapolated perturbation Exner pressure (used for horizontal gradients only)
-            z_exner_ex_pr(jc,jk,jb) = - p_nh%metrics%exner_ref_mc(jc,jk,jb) +              &
+            z_exner_ex_pr(jc,jk,jb) = p_nh%diag%exner_fphy_incr(jc,jk,jb) -                &
+              p_nh%metrics%exner_ref_mc(jc,jk,jb) +                                        &
               (1._wp + p_nh%metrics%exner_exfac(jc,jk,jb))*p_nh%prog(nnow)%exner(jc,jk,jb) &
                      - p_nh%metrics%exner_exfac(jc,jk,jb) *p_nh%diag%exner_old(jc,jk,jb)
 
             ! non-extrapolated perturbation Exner pressure
-            z_exner_pr(jc,jk,jb) = p_nh%prog(nnow)%exner(jc,jk,jb) - &
-              p_nh%metrics%exner_ref_mc(jc,jk,jb)
+            z_exner_pr(jc,jk,jb) = p_nh%prog(nnow)%exner(jc,jk,jb) + &
+              p_nh%diag%exner_fphy_incr(jc,jk,jb) - p_nh%metrics%exner_ref_mc(jc,jk,jb)
 
             ! Now save current time level in exner_old
             p_nh%diag%exner_old(jc,jk,jb) = p_nh%prog(nnow)%exner(jc,jk,jb)
+
+            ! and reset the fast-physics increment to zero
+            p_nh%diag%exner_fphy_incr(jc,jk,jb) = 0._wp
           ENDDO
         ENDDO
 
@@ -1828,5 +1832,3 @@ MODULE mo_solve_nonhydro
   END SUBROUTINE solve_nh
 
 END MODULE mo_solve_nonhydro
-
-

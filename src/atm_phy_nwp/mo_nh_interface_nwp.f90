@@ -64,7 +64,7 @@ MODULE mo_nh_interface_nwp
   USE mo_model_domain,       ONLY: t_patch
   USE mo_interpolation,      ONLY: t_int_state
   USE mo_nonhydro_state,     ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-  USE mo_nonhydrostatic_config, ONLY: kstart_moist
+  USE mo_nonhydrostatic_config, ONLY: kstart_moist, l_open_ubc
   USE mo_nwp_lnd_state,      ONLY: t_lnd_prog, t_lnd_diag!, t_lnd_state
   USE mo_ext_data,           ONLY: t_external_data
   USE mo_nwp_phy_state,      ONLY: t_nwp_phy_diag,&
@@ -286,6 +286,13 @@ CONTAINS
 
 
 !$OMP PARALLEL
+
+!$OMP WORKSHARE
+        ! Store exner function for sound-wave reduction and open upper boundary condition
+        ! this needs to be done for all grid points (including halo points)
+        z_exner_sv(:,:,:) = pt_prog%exner(:,:,:)
+!$OMP END WORKSHARE
+
 !$OMP DO PRIVATE(jb,jk,jc,i_startidx,i_endidx,z_qsum)
       DO jb = i_startblk, i_endblk
 
@@ -319,8 +326,6 @@ CONTAINS
           IF (timers_level > 2) CALL timer_stop(timer_satad_v_3D)
 
         IF (timers_level > 2) CALL timer_start(timer_phys_exner)
-        ! Store exner function for open upper boundary condition
-        z_exner_sv(i_startidx:i_endidx,:,jb) = pt_prog%exner(i_startidx:i_endidx,:,jb)
 
         DO jk = kstart_moist(jg), nlev
           DO jc = i_startidx, i_endidx
@@ -371,6 +376,13 @@ CONTAINS
         CALL message('', TRIM(message_text))
 
       ENDIF
+
+    ELSE ! satad turned off
+
+!$OMP PARALLEL WORKSHARE
+      ! Store exner function for sound-wave reduction and open upper boundary condition
+      z_exner_sv(:,:,:) = pt_prog%exner(:,:,:)
+!$OMP END PARALLEL WORKSHARE
 
     ENDIF ! satad
 
@@ -558,19 +570,32 @@ CONTAINS
             pt_prog%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                 &
               &                     * pt_prog%rho(jc,jk,jb)*z_aux_tempv(jc,jk,jb)))
 
+            pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb) + &
+              pt_prog%exner(jc,jk,jb) - z_exner_sv(jc,jk,jb)
+
+            pt_diag%exner_fphy_incr(jc,jk,jb) =                        &
+              -0.5_wp * (pt_prog%exner(jc,jk,jb) - z_exner_sv(jc,jk,jb))
+
             pt_prog%theta_v(jc,jk,  jb) = z_aux_tempv  (jc,jk,jb) &
 &                                       / pt_prog%exner(jc,jk,jb)
 
             pt_prog%rhotheta_v(jc,jk,jb) = pt_prog%theta_v(jc,jk,jb) &
 &                                        * pt_prog%rho(jc,jk,jb)
-
-            ! vertically integrated isobaric expansion needed for open upper boundary condition
-            pt_diag%thermal_exp_fastphy(jc,jb) = pt_diag%thermal_exp_fastphy(jc,jb) &
-              & + cpd_o_rd*(pt_prog%exner(jc,jk,jb) - z_exner_sv(jc,jk,jb))         &
-              & / (tcall_phy_jg(itsatad)*pt_prog%exner(jc,jk,jb))                   &
-              & * p_metrics%ddqz_z_full(jc,jk,jb)
           ENDDO
         ENDDO
+
+        IF (l_open_ubc) THEN
+          ! vertically integrated isobaric expansion needed for open upper boundary condition
+          DO jk = 1, nlev
+            DO jc =  i_startidx, i_endidx
+              pt_diag%thermal_exp_fastphy(jc,jb) = pt_diag%thermal_exp_fastphy(jc,jb) &
+                & + cpd_o_rd*(pt_prog%exner(jc,jk,jb) - z_exner_sv(jc,jk,jb))         &
+                & / (tcall_phy_jg(itsatad)*pt_prog%exner(jc,jk,jb))                   &
+                & * p_metrics%ddqz_z_full(jc,jk,jb)
+            ENDDO
+          ENDDO
+        ENDIF
+
       ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
@@ -599,6 +624,12 @@ CONTAINS
               IF (p_metrics%mask_prog_halo_c(jc,jb)) THEN
                 pt_prog%exner(jc,jk,jb) = EXP(rd_o_cpd*LOG(rd_o_p0ref                 &
                   &                     * pt_prog%rho(jc,jk,jb)*z_aux_tempv(jc,jk,jb)))
+
+                pt_diag%exner_old(jc,jk,jb) = pt_diag%exner_old(jc,jk,jb) + &
+                  pt_prog%exner(jc,jk,jb) - z_exner_sv(jc,jk,jb)
+
+                pt_diag%exner_fphy_incr(jc,jk,jb) =                        &
+                  -0.5_wp * (pt_prog%exner(jc,jk,jb) - z_exner_sv(jc,jk,jb))
 
                 pt_prog%theta_v(jc,jk,  jb) = z_aux_tempv  (jc,jk,jb) &
 &                                           / pt_prog%exner(jc,jk,jb)
@@ -1339,3 +1370,4 @@ CONTAINS
   END SUBROUTINE nh_update_prog_phy
 
 END MODULE mo_nh_interface_nwp
+

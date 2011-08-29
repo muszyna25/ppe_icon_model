@@ -145,6 +145,8 @@ MODULE mo_nonhydro_state
     &  tracer_vi_avg(:,:,:),& ! average since last output of tracer_vi [kg/m**2]
     &  exner_old(:,:,:),    & ! exner pres from previous step (nproma,nlev,nblks_c)
                             ! *** needs to be saved for restart ***
+    &  exner_fphy_incr(:,:,:), & ! exner pres fast-physics increment (nproma,nlev,nblks_c)
+                            ! *** needs to be saved for restart ***
     &  w_con(:,:,:),        & ! contravariant vert wind (nproma,nlevp1,nblks_c)[1/s]
     &  temp(:,:,:),         & ! temperature (nproma,nlev,nblks_c)                 [K]
     &  tempv(:,:,:),        & ! virtual temperature (nproma,nlev,nblks_c)         [K]
@@ -1015,6 +1017,13 @@ MODULE mo_nonhydro_state
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,    &
                 & ldims=shape3d_c )
 
+    ! exner_fphy_incr    p_diag%exner_fphy_incr(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('exner_fast_physics_increment', '-', 'exner fast physics increment')
+    grib2_desc = t_grib2_var(0, 3, 196, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_diag_list, 'exner_fphy_incr', p_diag%exner_fphy_incr,       &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,    &
+                & ldims=shape3d_c )
 
     ! w_con        p_diag%w_con(nproma,nlevp1,nblks_c)
     !
@@ -1142,16 +1151,6 @@ MODULE mo_nonhydro_state
     CALL add_var( p_diag_list, 'e_kinh', p_diag%e_kinh,                         &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,         &
                 & ldims=shape3d_c )
-
-
-    ! thermal_exp_fastphy     p_diag%thermal_exp_fastphy(nproma,nblks_c)
-    !
-    cf_desc    = t_cf_var('thermal_expansion_due_to_fast_physics', '',        &
-      &                   'thermal expansion due to fast physics')
-    grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_list, 'thermal_exp_fastphy', p_diag%thermal_exp_fastphy, &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,     &
-                & ldims=shape2d_c )
 
 
     IF (p_patch%cell_type == 3) THEN
@@ -1382,7 +1381,14 @@ MODULE mo_nonhydro_state
                     & ldims=shape2d_c)
       ENDDO
 
-
+      ! thermal_exp_fastphy     p_diag%thermal_exp_fastphy(nproma,nblks_c)
+      !
+      cf_desc    = t_cf_var('thermal_expansion_due_to_fast_physics', '',        &
+        &                   'thermal expansion due to fast physics')
+      grib2_desc = t_grib2_var( 255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_list, 'thermal_exp_fastphy', p_diag%thermal_exp_fastphy, &
+                  & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc,     &
+                  & ldims=shape2d_c )
 
     ELSE IF (p_patch%cell_type == 6) THEN
 
@@ -2268,5 +2274,6 @@ MODULE mo_nonhydro_state
 
 
 END MODULE mo_nonhydro_state
+
 
 

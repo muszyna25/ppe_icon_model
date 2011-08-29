@@ -1151,14 +1151,21 @@ MODULE mo_nh_stepping
             linit_vertnest(2) = .FALSE.
           ENDIF
 
+          ! For real-data runs, perform an extra diffusion call before the first time
+          ! step because no other filtering of the interpolated velocity field is done
+          IF (.NOT.ltestcase .AND. linit_dyn(jg) .AND. diffusion_config(jg)%lhdiff_vn) THEN
+            CALL diffusion_tria(p_nh_state(jg)%prog(n_now), p_nh_state(jg)%diag,            &
+              p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), bufr(jg), dt_loc, .TRUE.)
+          ENDIF
+
           IF (itype_comm <= 2) THEN
 
             CALL solve_nh(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),       &
                         n_now, n_new, linit_dyn(jg), linit_vertnest, l_bdy_nudge, dt_loc)
 
           IF (diffusion_config(jg)%lhdiff_vn) &
-            CALL diffusion_tria(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,         &
-                   p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), bufr(jg), dt_loc)
+            CALL diffusion_tria(p_nh_state(jg)%prog(n_new), p_nh_state(jg)%diag,             &
+              p_nh_state(jg)%metrics, p_patch(jg), p_int_state(jg), bufr(jg), dt_loc, .FALSE.)
           ELSE
             ! call version for asynchronous halo communication, 
             ! combining solve and Smagorinsky diffusion
@@ -1573,5 +1580,4 @@ MODULE mo_nh_stepping
   END SUBROUTINE time_ctrl_physics
 
 END MODULE mo_nh_stepping
-
 

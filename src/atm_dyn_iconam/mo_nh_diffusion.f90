@@ -83,7 +83,7 @@ MODULE mo_nh_diffusion
   !! Initial release by Guenther Zaengl, DWD (2010-10-13), based on an earlier
   !! version initially developed by Almut Gassmann, MPI-M
   !!
-  SUBROUTINE  diffusion_tria(p_nh_prog,p_nh_diag,p_nh_metrics,p_patch,p_int,bufr,dtime)
+  SUBROUTINE  diffusion_tria(p_nh_prog,p_nh_diag,p_nh_metrics,p_patch,p_int,bufr,dtime,linit)
 
     TYPE(t_patch), TARGET, INTENT(in) :: p_patch    !< single patch
     TYPE(t_int_state),INTENT(in),TARGET :: p_int      !< single interpolation state
@@ -92,6 +92,7 @@ MODULE mo_nh_diffusion
     TYPE(t_nh_metrics),INTENT(in),TARGET :: p_nh_metrics !< single nh metric state
     TYPE(t_buffer_memory), INTENT(INOUT) :: bufr
     REAL(wp), INTENT(in)            :: dtime      !< time step
+    LOGICAL,  INTENT(in)            :: linit      !< initial call or runtime call
 
     ! local variables
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c)   :: z_temp
@@ -101,7 +102,7 @@ MODULE mo_nh_diffusion
     REAL(wp):: diff_multfac_vn(p_patch%nlev)
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx, i_nchdom
     INTEGER :: rl_start, rl_end
-    INTEGER :: jk, jb, jc, je, id, jlev, ic
+    INTEGER :: jk, jb, jc, je, jlev, ic
 
     ! start index levels and diffusion coefficient for boundary diffusion
     INTEGER :: start_bdydiff_e
@@ -168,10 +169,12 @@ MODULE mo_nh_diffusion
     rd_o_cvd = 1._wp/cvd_o_rd
 
     i_nchdom   = MAX(1,p_patch%n_childdom)
-    id         = p_patch%id
 
-    diff_multfac_vn(:) = diffusion_config(id)%k4/3._wp*p_nh_metrics%enhfac_diffu(:)
-
+    IF (linit) THEN ! enhanced diffusion at all levels for initial velocity filtering call
+      diff_multfac_vn(:) = diffusion_config(jg)%k4/3._wp*diffusion_config(jg)%hdiff_efdt_ratio
+    ELSE            ! enhanced diffusion near model top only
+      diff_multfac_vn(:) = diffusion_config(jg)%k4/3._wp*p_nh_metrics%enhfac_diffu(:)
+    ENDIF
     IF (.NOT. lsmag_diffu) THEN
 
       CALL nabla4_vec( p_nh_prog%vn, p_patch, p_int, z_nabla4_e,  &
@@ -291,7 +294,7 @@ MODULE mo_nh_diffusion
 
         ! Subtract part of the fourth-order background diffusion coefficient
         kh_smag_e(i_startidx:i_endidx,:,jb) = &
-            MAX(0._wp,kh_smag_e(i_startidx:i_endidx,:,jb) - 0.2_wp*diffusion_config(id)%k4)
+            MAX(0._wp,kh_smag_e(i_startidx:i_endidx,:,jb) - 0.2_wp*diffusion_config(jg)%k4)
 
       ENDDO
 !$OMP END DO
@@ -389,7 +392,7 @@ MODULE mo_nh_diffusion
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
     IF (lsmag_diffu) THEN
-      IF ( id == 1 .AND. l_limited_area .OR. id > 1 .AND. .NOT. lfeedback(id)) THEN
+      IF ( jg == 1 .AND. l_limited_area .OR. jg > 1 .AND. .NOT. lfeedback(jg)) THEN
 !$OMP DO PRIVATE(jk,je)
         DO jb = i_startblk,i_endblk
 
@@ -407,7 +410,7 @@ MODULE mo_nh_diffusion
           ENDDO
         ENDDO
 !$OMP END DO
-      ELSE IF (id > 1) THEN
+      ELSE IF (jg > 1) THEN
 !$OMP DO PRIVATE(jk,je)
         DO jb = i_startblk,i_endblk
 
@@ -461,7 +464,7 @@ MODULE mo_nh_diffusion
 !$OMP END DO
     ENDIF
 
-    IF (l_limited_area .OR. p_patch%id > 1) THEN
+    IF (l_limited_area .OR. jg > 1) THEN
 
       ! Lateral boundary diffusion for vn
       i_startblk = p_patch%edges%start_blk(start_bdydiff_e,1)
@@ -991,3 +994,4 @@ MODULE mo_nh_diffusion
   END SUBROUTINE diffusion_hex
 
 END MODULE mo_nh_diffusion
+
