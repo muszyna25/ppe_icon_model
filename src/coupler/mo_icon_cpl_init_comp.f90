@@ -332,7 +332,7 @@ CONTAINS
                                                     !<  - 1 write in parallel
                                                     !<  - 0 all in one
 
-    l_redirect_stdout = .FALSE.
+    l_redirect_stdout = .true.
 
     IF ( l_redirect_stdout ) THEN
 
