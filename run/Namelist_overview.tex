@@ -545,7 +545,7 @@ Defined in \verb+mo_grid_conditions.f90+
 \begin{longtab}
 
 \hline
-only\_get\_sea\_land\_mask &
+only\_get\_sea\_ land\_mask &
 L &
 .false. &
 &
@@ -553,7 +553,7 @@ L &
 \tabularnewline
 
 \hline
-smooth\_ocean\_boundary &
+smooth\_ocean\_ boundary &
 L &
 .true. &
 &
@@ -611,7 +611,7 @@ if not 0, then sea cells have a maximum of set\_min\_sea\_depth elevation  &
 \tabularnewline
 
 \hline
-edge\_elev\_interp\_method &
+edge\_elev\_ interp\_method &
 I &
 2 &
 &
@@ -619,7 +619,7 @@ compute edge elevation from cells using: linear interpolation=1; min value   = 2
 \tabularnewline
 
 \hline
-output\_refined\_ocean\_file &
+output\_refined\_ ocean\_file &
 C &
 &
 &
@@ -689,7 +689,7 @@ the torus grid file name &
 \tabularnewline
 
 \hline
-unfolded\_torus\_file\_name &
+unfolded\_torus\_ file\_name &
 C &
  &
 &
@@ -730,98 +730,59 @@ dynamics, transport, physics etc.
 \begin{longtab}
 
 \hline
-l\_atmo\_active &
-L & .FALSE.& &
-If .TRUE., the atmosphere model is started.&
+l\_restart&
+L & .FALSE. & &
+If .TRUE.: Current experiment is started from a restart.&
 \tabularnewline
 
+\end{longtab}
+
+\subsection{master\_model\_nml (reapeated for each model)}
+\begin{longtab}
+
 \hline
-atmo\_name &
+model\_name &
 C & & &
-character string to identify the atmosphere component.&
+Character string for naming this component.&
 \tabularnewline
 
 
 \hline
-atmo\_namelist\_filename &
+model\_namelist\_ filename &
 C & & &
-namelist containing the atmospere namelists .&
+File name containing the model namelists.&
 \tabularnewline
 
 \hline
-atmo\_min\_rank &
+model\_type &
 I & 0 & &
-Start MPI rank for the atmosphere.&
+Identifies which component to run.
+atmosphere=1, ocean=2, radiation=3,
+dummy\_model=99 &
 \tabularnewline
 
 \hline
-atmo\_max\_rank &
+model\_min\_rank &
+I & 0 & &
+Start MPI rank for this model.&
+\tabularnewline
+
+\hline
+model\_max\_rank &
 I & -1 & &
-End MPI rank for the atmosphere.&
+End MPI rank for this model.&
 \tabularnewline
 
 \hline
 atmo\_inc\_rank &
 I & 0 & &
-stride of MPI ranks.&
+Stride of MPI ranks.&
 \tabularnewline
 
 \hline
-atmo\_restart\_info\_filename &
+model\_restart\_info \_filename &
 C & restart.info & &
-Name (including full path) of the restart info file for the atm model&
-\tabularnewline
-
-%---------------
-
-\hline
-l\_ocean\_active &
-L & .FALSE.& &
-If .TRUE., the ocean model is started.&
-\tabularnewline
-
-\hline
-ocean\_name &
-C & & &
-character string to identify the ocean component.&
-\tabularnewline
-
-\hline
-ocean\_namelist\_filename &
-C & & &
-namelist containing the ocean namelists .&
-\tabularnewline
-
-\hline
-ocean\_min\_rank &
-I & 0 & &
-Start MPI rank for the ocean.&
-\tabularnewline
-
-\hline
-ocean\_max\_rank &
-I & -1 & &
-End MPI rank for the ocean.&
-\tabularnewline
-
-\hline
-ocean\_inc\_rank &
-I & 0 & &
-stride of MPI ranks.&
-\tabularnewline
-
-\hline
-ocean\_restart\_info\_filename &
-C & restart.info & &
-Name (including full path) of the restart info file for the atm model&
-\tabularnewline
-
-% -----------------------
-
-\hline
-l\_restart&
-L & .FALSE. & &
-If .TRUE.: Current experiment is started form a restart.&
+Name (including full path) of the restart info file for this model&
 \tabularnewline
 
 \end{longtab}
