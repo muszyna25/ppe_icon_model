@@ -107,8 +107,14 @@ fi
 # special treatment for exp.couple_dummy_models 
 name=couple_dummy_models
 if [[  $use_target == "tornado" ]] ; then
+  name=couple_dummy_models
+  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="00:20:00" mpi_procs=16
+  name=test_couple_dummy_models
   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="00:20:00" mpi_procs=16
 else
+  name=couple_dummy_models
+  $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="00:20:00" 
+  name=test_couple_dummy_models
   $make_runscript in_folder=$input_folder in_script=exp.$name in_script=exec.iconrun EXPNAME="$name" cpu_time="00:20:00" 
 fi
 
