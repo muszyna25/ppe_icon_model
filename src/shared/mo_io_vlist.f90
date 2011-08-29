@@ -1543,7 +1543,6 @@ CONTAINS
         IF (ntracer > 0) THEN
           DO jt = 1, iqcond
             ctracer = ctracer_list(jt:jt)
-            WRITE(0,'(A6,A1,A5)') "tend_q",ctracer, "_conv"
             WRITE(qname,'(A6,A1,A5)') "tend_q",ctracer, "_conv"
             CALL addVar(TimeVar(TRIM(qname), &
                 &               TRIM(qname), &
