@@ -586,6 +586,7 @@ lapack/ilazlc.f -text
 lapack/ilazlr.f -text
 lapack/iparmq.f -text
 lapack/izmax1.f -text
+/make_performance_runscripts -text
 /make_post_runscripts -text
 /make_runscripts -text
 run/Namelist_overview.pdf -text
@@ -599,6 +600,7 @@ run/exp.couple_atmo-radiation -text
 run/exp.couple_dummy_models -text
 run/exp.hat_heldsuarez -text
 run/exp.hat_icoham_ape -text
+run/exp.hat_icoham_ape_r2b6 -text
 run/exp.hat_jww -text
 run/exp.hat_jww-moist_cld-cnv-vdf -text
 run/exp.hat_jww-moist_cld-cnv-vdf-gwh -text

@@ -1,0 +1,111 @@
+#!/bin/ksh
+#==============================================================================
+# Creates the ICON run scripts
+# Leonidas Linardakis, MPI-M, 2011-25-1
+#==============================================================================
+#==============================================================================
+# The basic command for creating an ICON experiment run script is
+#   
+#  $make_runscript in_script=exp.<name> in_script_2=exec.iconrun EXPNAME=<name>
+#
+# By default the folder in use is ./run, and the run script is named exp.<name>.run.
+# 
+# Basic optional parameters for the $make_runscript command are:
+#
+#    out_script=<output run script name>. By default is <in_script>.run
+#
+#    in_folder=<input folder>. By default is run
+#
+#    out_folder=<output folder>. By default is =<in_folder>
+#
+#    mpi_procs=<number of mpi processes>. In the case of MPI configuration,
+#       defines how many processes per node will be used.
+# 
+#    no_of_nodes=<Number of nodes>. In the case of MPI configuration,
+#       defines how many nodes will be used.
+# 
+#    openmp_threads=<Number of openmp threads>. In the case of OPENMP
+#       configuration, defines how many OPENMP threads will be used.
+#
+#    cpu_time=<wall time>. Defines the expected run wall time.
+#  
+#    <free_variable>=<value> Free variables can be passed to the run script
+#       using this syntax. For example: EXPNAME=test, will result the
+#       definition of the variable EXPNAME=test in the run script. 
+   
+
+#
+# For more details see the parameters in the ./config/make_target_runscript
+#==============================================================================
+# set -x
+# echo "-----------------------------------------------------------"
+base_folder=$(pwd)
+input_folder=run
+#==============================================================================
+. $base_folder/config/set-up.info
+if [[ x$use_shell == x ]] ; then
+  use_shell="/bin/ksh"
+fi
+# The $make_runscript command directs to the ./config/make_target_runscript
+make_runscript="$use_shell ./config/make_target_runscript"
+#==============================================================================
+
+
+make_script ()
+{
+  for nodes in $node_list
+  do
+    for nproma in $nproma_list
+    do
+      expname=${filename}.${nodes}nodes.${nproma}nproma
+      runname=${expname}.run
+      $make_runscript in_folder=$run_folder in_script=${filename} in_script=exec.iconrun out_script=${runname} EXPNAME=${expname} \
+        no_of_nodes=$nodes mpi_procs=$mpi_procs openmp_threads=$openmp_threads rad_threads=$rad_threads nh_threads=$nh_threads \
+        nproma=$nproma cpu_time="$cpu_time" memory_model="$memory_model" ndays=$NDAYS omp_stacksize=$omp_stacksize
+
+      if [[ $run_script == "yes" ]] ; then
+         cd $run_folder
+         $use_submit $runname
+         cd ..
+      fi
+      
+      echo "-----------------------------------------------------------"
+    done
+  done
+}
+
+#==============================================================================
+# Create ICON prerformance test run scripts
+# Note: The ICON experiments require the definition of the EXPNAME=<name> variable
+#==============================================================================
+run_script="no"
+if [[ $1 == "run" ]] ; then
+   run_script="yes"
+fi
+
+run_folder="run"
+node_list="1 2 4 8 16 32"
+mpi_procs=32
+openmp_threads=1
+#mpi_procs=8
+#openmp_threads=8
+mpi_procs=16
+openmp_threads=4
+#rad_threads=1
+#nh_threads=3
+memory_model="verylarge"
+omp_stacksize=200M
+cpu_time="01:00:00"
+
+#-----------------------------
+nproma_list="20"
+
+#-----------------------------
+NDAYS=1
+
+#-----------------------------
+
+#-----------------------------
+filename=exp.hat_icoham_ape_r2b6
+make_script
+#-----------------------------
