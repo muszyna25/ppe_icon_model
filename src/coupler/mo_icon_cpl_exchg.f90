@@ -51,7 +51,7 @@ MODULE mo_icon_cpl_exchg
   USE mo_event_manager, ONLY : event_check, events
 
 #ifndef NOMPI
-  USE mpi, ONLY : MPI_INTEGER, MPI_TAG, MPI_SOURCE, MPI_ANY_SOURCE, MPI_STATUS_SIZE
+  USE mpi, ONLY : MPI_INTEGER, MPI_TAG, MPI_SOURCE, MPI_STATUS_SIZE
 
   USE mo_icon_cpl, ONLY : t_cpl_field, cpl_fields,  &
    &                      nbr_ICON_fields,  &
