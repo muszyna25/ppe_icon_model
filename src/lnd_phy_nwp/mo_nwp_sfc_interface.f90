@@ -345,10 +345,10 @@ CONTAINS
         &  dzh_snow      =  dzh_snow_t(:,1:nlev_snow,jb,:,:)  , & ! layer thickness between half levels in snow   (  m  )
         &  subsfrac      =  lnd_diag%subsfrac(:,jb,:)  , & ! 
            !
-        &  prr_con       =  prm_diag%rain_con(:,jb)    , & ! precipitation rate of rain, convective        (kg/m2*s)
-        &  prs_con       =  prm_diag%snow_con(:,jb)    , & ! precipitation rate of snow, convective        (kg/m2*s)
-        &  prr_gsp       =  prm_diag%rain_gsp(:,jb)    , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
-        &  prs_gsp       =  prm_diag%snow_gsp(:,jb)    , & ! precipitation rate of snow, grid-scale        (kg/m2*s)
+        &  prr_con       =  prm_diag%tracer_rate(:,jb,3)  , & ! precipitation rate of rain, convective        (kg/m2*s)
+        &  prs_con       =  prm_diag%tracer_rate(:,jb,4)  , & ! precipitation rate of snow, convective        (kg/m2*s)
+        &  prr_gsp       =  prm_diag%tracer_rate(:,jb,1)  , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
+        &  prs_gsp       =  prm_diag%tracer_rate(:,jb,2)  , & ! precipitation rate of snow, grid-scale        (kg/m2*s)
         &  prg_gsp       =  prm_diag%rain_gsp(:,jb)    , & !!! TEST!! JH precipitation rate of graupel, grid-scale     (kg/m2*s)
            !
         &  tch           = tch_t(:,jb,:),& !prm_diag%tch(:,jb) , & ! ,nsfc_subs, turbulent transfer coefficient for heat     ( -- )
