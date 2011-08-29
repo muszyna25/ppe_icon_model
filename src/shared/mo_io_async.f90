@@ -573,6 +573,7 @@ CONTAINS
       ALLOCATE(ncheck(2,numv))
       CALL p_bcast(ncheck, 0, p_comm_work_2_io)
       DO n=1, numv
+
         IF(ncheck(1,n) /= outvar_desc(n,jg)%type .OR. ncheck(2,n) /= outvar_desc(n,jg)%nlev) THEN
           WRITE(text,'(3(a,2i5))') 'Mismatch of type/levels output variable ',n, jg,        &
            &                       ' I/O: ',outvar_desc(n,jg)%type, outvar_desc(n,jg)%nlev, &

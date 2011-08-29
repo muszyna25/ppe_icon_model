@@ -135,7 +135,8 @@ MODULE mo_io_vlist
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_advection_config,      ONLY: advection_config
   USE mo_echam_conv_config,     ONLY: echam_conv_config
-  USE mo_lnd_nwp_config,        ONLY: nlev_soil, nsfc_subs, nlev_snow
+!DR  USE mo_lnd_nwp_config,        ONLY: nlev_soil, nsfc_subs, nlev_snow
+  USE mo_lnd_nwp_config,        ONLY: nsfc_subs, nlev_snow
 ! USE mo_gw_hines_nml,          ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
   USE mo_vertical_coord_table,  ONLY: vct
   USE mo_model_domain_import,   ONLY: start_lev, nroot, n_dom, lfeedback, lplane
@@ -260,6 +261,7 @@ CONTAINS
     INTEGER :: lnlen, ulen, nzlevp1
 
     INTEGER :: nlev, nlevp1
+    INTEGER :: znlev_soil
 
     REAL(wp), ALLOCATABLE :: clon(:), clat(:), clonv(:), clatv(:)
     REAL(wp), ALLOCATABLE :: elon(:), elat(:), elonv(:), elatv(:)
@@ -526,6 +528,10 @@ CONTAINS
 
       nlev   = num_lev(k_jg)
       nlevp1 = num_levp1(k_jg)
+      ! introduce temporary variable znlev_soil, since global variable nlev_soil 
+      ! is unknown to the I/O-Processor. Otherwise receive_patch_configuration in 
+      ! mo_io_async complains about mismatch of levels. 
+      znlev_soil = SIZE(zml_soil)-1
 
       zaxisID_hybrid(k_jg)      = zaxisCreate(ZAXIS_HYBRID, nlev)
       zaxisID_hybrid_half(k_jg) = zaxisCreate(ZAXIS_HYBRID_HALF, nlevp1)
@@ -546,10 +552,10 @@ CONTAINS
       DEALLOCATE(levels)
       CALL zaxisDefVct(zaxisID_hybrid_half(k_jg), 2*nlevp1, vct(1:2*nlevp1))
       !
-      zaxisID_depth_below_land_p1(k_jg) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, nlev_soil+2)
-      ALLOCATE(levels(nlev_soil+2))
+      zaxisID_depth_below_land_p1(k_jg) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+2)
+      ALLOCATE(levels(znlev_soil+2))
       levels(1) = 0._wp
-      DO i = 1, nlev_soil+1
+      DO i = 1, znlev_soil+1
       levels(i+1) = zml_soil(i)*100._wp
       END DO
       CALL zaxisDefLevels(zaxisID_depth_below_land_p1(k_jg), levels)
@@ -569,7 +575,7 @@ CONTAINS
       DEALLOCATE(levels_m)
     ENDIF
     !
-    zaxisID_depth_below_land(k_jg) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, nlev_soil+1)
+    zaxisID_depth_below_land(k_jg) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+1)
     CALL zaxisDefLevels(zaxisID_depth_below_land(k_jg), zml_soil*100._wp)
     !
     zaxisID_generic_snow_p1(k_jg) = zaxisCreate(ZAXIS_GENERIC, nlev_snow+1)

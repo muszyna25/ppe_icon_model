@@ -631,7 +631,7 @@ MODULE mo_nwp_lnd_state
     cf_desc    = t_cf_var('t_so', 'K', 'soil temperature (main level)')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'t_so', p_prog_lnd%t_so,              &
-         & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,            &
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND, cf_desc, grib2_desc,  &
          & ldims=(/nproma,nlev_soil+2,kblks,nsfc_subs/),                         &
          & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )  
 
@@ -642,7 +642,7 @@ MODULE mo_nwp_lnd_state
         CALL add_ref( prog_list, vname_prefix//'t_so',                           &
                & vname_prefix//'t_so_'//ADJUSTL(TRIM(csfc)),                     &
                & p_prog_lnd%t_so_ptr(jsfc)%p_3d,                                 &
-               & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                           &
+               & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND,                 &
                & t_cf_var('t_so_'//csfc, '', ''),                                &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
                & ldims=(/nproma,nlev_soil+2,kblks/) )
@@ -654,7 +654,7 @@ MODULE mo_nwp_lnd_state
     cf_desc    = t_cf_var('w_so', 'm H20', 'total water content (ice + liquid water)')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'w_so', p_prog_lnd%w_so,              &
-         & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,            &
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND, cf_desc, grib2_desc,  &
          & ldims=(/nproma,nlev_soil+1,kblks,nsfc_subs/),                         &
          & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
 
@@ -665,7 +665,7 @@ MODULE mo_nwp_lnd_state
         CALL add_ref( prog_list, vname_prefix//'w_so',                           &
                & vname_prefix//'w_so_'//ADJUSTL(TRIM(csfc)),                     &
                & p_prog_lnd%w_so_ptr(jsfc)%p_3d,                                 &
-               & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                           &
+               & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND,                 &
                & t_cf_var('w_so_'//csfc, '', ''),                                &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
                & ldims=(/nproma,nlev_soil+1,kblks/) )
@@ -677,7 +677,7 @@ MODULE mo_nwp_lnd_state
     cf_desc    = t_cf_var('w_so_ice', 'm H20', 'ice content')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( prog_list, vname_prefix//'w_so_ice', p_prog_lnd%w_so_ice,      &
-         & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,            & 
+         & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND, cf_desc, grib2_desc,  &
          & ldims=(/nproma,nlev_soil+1,kblks,nsfc_subs/),                         &
          & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE. )
 
@@ -688,7 +688,7 @@ MODULE mo_nwp_lnd_state
         CALL add_ref( prog_list, vname_prefix//'w_so_ice',                       &
                & vname_prefix//'w_so_ice_'//ADJUSTL(TRIM(csfc)),                 &
                & p_prog_lnd%w_so_ice_ptr(jsfc)%p_3d,                             &
-               & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                           &
+               & GRID_UNSTRUCTURED_CELL, ZAXIS_DEPTH_BELOW_LAND,                 &
                & t_cf_var('w_so_ice_'//csfc, '', ''),                            &
                & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),   &
                & ldims=(/nproma,nlev_soil+1,kblks/) )

@@ -398,7 +398,6 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     ! initialize gz0
     !
     prm_diag%gz0(:,:) = grav * ext_data%atm%z0(:,:)  ! roughness length * g
-!DR prm_diag%gz0(:,:) = grav * ext_data%atm%z0(:,:)  ! roughness length * g
 
     rl_start = 1 ! Initialization should be done for all points
     rl_end   = min_rlcell
