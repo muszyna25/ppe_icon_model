@@ -29,37 +29,35 @@ atmo_namelist=NAMELIST_${EXPNAME}
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2000-07-01T00:00:00Z"
-# ndays_restart=10         # restart every 10 days
-# dt_restart=`expr ${ndays_restart} \* 86400`
+ndays_restart=3650              # restart every 10 years
+dt_restart=`expr ${ndays_restart} \* 86400`
+dt_checkpoint=`expr 365 \* 86400 `  # write restart file every year
 #
 #-----------------------------------------------------------------------------
 # model timing
-dtime=150
-ndays=${ndays:=1}
+dtime=90
+ndays=${ndays:=120}
 nsteps=`expr ${ndays} \* 86400 / ${dtime}`
 dt_diag=`expr 6 \* 3600  `   # global integral output each 6 hours
 dt_file=`expr 1 \* 86400 `   # 1 day per file
-dt_data=21600.               # write output every 6 hours
-dt_rad=7200.                 # compute radiative transfer every other hour
-#dt_checkpoint=`expr 5 \* 86400 `  # write restart file every 5 days 
+dt_data=21600               # write output every 6 hours
+dt_rad=3600                 # compute radiative transfer every other hour
 #
 #-----------------------------------------------------------------------------
 # model parameters
 atmo_model_equations=1 # equation system
 #                     1=hydrost. atm.
-#                     2=non-hydrost. atm., 
+#                     2=non-hydrost. atm.,
 #                    -1=shallow water model
 #                    -2=hydrost. ocean
-nlev=40              # nlev = number of full levels
+nlev=95              # nlev = number of full levels
 iforcing=2      # ECHAM physics
 #
 #-----------------------------------------------------------------------------
 # the grid files
-atmo_dyn_grids="iconR2B06-grid.nc"
+atmo_dyn_grids='iconR2B06-grid.nc'
 #
 #-----------------------------------------------------------------------------
-
-
 
 #-----------------------------------------------------------------------------
 # write ICON namelist parameters
@@ -87,19 +85,20 @@ cat > ${atmo_namelist} << EOF
  ltransport  = .TRUE.       ! switch on tracer transport   --> transport_ctl
  ntracer     = 5            ! number of tracers
  iforcing    = ${iforcing}  ! ECHAM physics                --> echam_phy_nml
- msg_level   = 10           ! detailed report during integration 
+ msg_level   = 10           ! detailed report during integration
 /
 &ha_testcase_nml
  ctest_name  = 'APE'  ! test case identifier
  ape_sst_case = 'sst_qobs'
  lrh_linear_pres = .TRUE.   ! initial RH is a linear function of pressure
- rh_at_1000hpa   = 0.30     ! [] initial rel. humidity at 1000 hPa 
+ rh_at_1000hpa   = 0.30     ! [] initial rel. humidity at 1000 hPa
 /
 &io_nml
  out_expname      = '${EXPNAME}'     ! file name base
  dt_data          = ${dt_data}       ! [s] write output
  dt_file          = ${dt_file}       ! [s] trigger new output file
  dt_checkpoint    = ${dt_checkpoint} ! [s] trigger new restart file
+ lwrite_tend_phy  = .TRUE.           ! add tendencies due to physics
  lwrite_radiation = .TRUE.           ! add radiation fields to output
  lwrite_cloud     = .TRUE.           ! add cloud fraction to output
  lwrite_precip    = .TRUE.           ! add precipitation to output
@@ -112,18 +111,17 @@ cat > ${atmo_namelist} << EOF
  ldry_dycore = .FALSE.      ! moist dynamical core
 /
 &diffusion_nml
- hdiff_order = 24      ! 2nd order near model top, 4th order on the other levels
- k2_klev_max = 3       ! the 3 highest model levels use 2nd order diffusion
 /
 &transport_nml
  ctracer_list='vwi45'       ! water vapour, cloud water, cloud ice, constant field, dummy for ozone
 /
 &echam_phy_nml
- lcover = .FALSE.
- lcond  = .TRUE.
- lconv  = .TRUE.
- lvdiff = .TRUE.
- lrad   = .TRUE.
+ lcover    = .FALSE.
+ lcond     = .TRUE.
+ lconv     = .TRUE.
+ lvdiff    = .TRUE.
+ lrad      = .TRUE.
+ lgw_hines = .TRUE.
 /
 &echam_conv_nml
 /
@@ -133,12 +131,13 @@ cat > ${atmo_namelist} << EOF
  irad_co2   = 2             ! constant co2 vmr
  irad_ch4   = 0             ! switch off ch4
  irad_n2o   = 0             ! switch off n2o
- irad_o3    = 0             ! switch off o3
+ irad_o3    = 4             ! use APE ozone
  irad_o2    = 0             ! switch off o2
  irad_cfc11 = 0             ! switch off cfc11
  irad_cfc12 = 0             ! switch off cfc12
  irad_aero  = 0             ! switch off aerosols
- izenith    = 3             ! circular orbit, no seasonal cycle but with diurnal cycle 
+ izenith    = 3             ! circular orbit, no seasonal cycle but with diurnal cycle
 /
 EOF
 #
+#-----------------------------------------------------------------------------
