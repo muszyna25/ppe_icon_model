@@ -5283,9 +5283,13 @@ REAL (KIND=ireals), INTENT (INOUT)       ::    &
   tg (ie,je)    ! temperature at the boundary between ground and atmosphere
 
 REAL (KIND=ireals), INTENT (IN)          ::    &
-  ts (ie,je), & ! temperature of the snow surface
+!DR  ts (ie,je), & ! temperature of the snow surface
   tb (ie,je), & ! temperature of the ground surface
   ws (ie,je)    ! water content of snow
+
+!DR For testing purposes
+REAL (KIND=ireals), INTENT (INOUT)       ::    &
+  ts (ie,je)    ! temperature of the snow surface
 
 LOGICAL,  INTENT (IN)                    ::    &
   llp (ie,je)   ! pattern of land- and sea-points
@@ -5304,6 +5308,12 @@ REAL (KIND=ireals), INTENT (IN)          ::    &
              * (tb(istart:iend,jstart:jend) - ts(istart:iend,jstart:jend))
   ELSEWHERE
       tg(istart:iend,jstart:jend) =   tb(istart:iend,jstart:jend)
+  END WHERE
+
+!DR for testing purposes
+  WHERE ( llp(istart:iend,jstart:jend) .AND. (ws(istart:iend,jstart:jend) < 1.e-4_ireals))
+    ts(istart:iend,jstart:jend) = MAX(ts(istart:iend,jstart:jend),tg(istart:iend,jstart:jend)-5._ireals)
+    ts(istart:iend,jstart:jend) = MIN(ts(istart:iend,jstart:jend),tg(istart:iend,jstart:jend)+5._ireals)
   END WHERE
 
 END SUBROUTINE tgcom
