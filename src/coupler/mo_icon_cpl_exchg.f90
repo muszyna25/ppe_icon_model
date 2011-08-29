@@ -149,7 +149,7 @@ CONTAINS
 
     l_action = event_check ( fptr%event_id )
 
-    IF ( l_debug .AND. debug_level > 1 ) THEN
+    IF ( l_debug .AND. debug_level > 0 ) THEN
        WRITE ( cplout , * ) ICON_global_rank, ' : get action for event ', &
                               fptr%event_id,                              &
                               events(fptr%event_id)%time_step,            &
@@ -197,6 +197,7 @@ CONTAINS
 
        msgtag = initag + 1000 * fptr%global_field_id
 
+       IF ( l_debug .AND. debug_level > 0 ) &
        WRITE ( cplout , * ) ICON_global_rank, ' irecv : tag ', msgtag, &
                ' length ', msg_len, ' from ', tptr%source_rank
 
@@ -351,7 +352,7 @@ CONTAINS
 
     IF ( l_action .AND. l_end_of_run .AND. fptr%coupling%lag > 0 ) l_coupling = .FALSE.
 
-    IF ( l_debug .AND. debug_level > 1 ) THEN
+    IF ( l_debug .AND. debug_level > 0 ) THEN
        WRITE ( cplout , * ) ICON_global_rank, ' : put action for event ', &
                                   fptr%event_id,                      &
                                   events(fptr%event_id)%time_step,    &
