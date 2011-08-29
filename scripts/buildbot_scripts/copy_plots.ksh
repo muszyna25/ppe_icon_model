@@ -115,7 +115,7 @@ if [ ! -d  ${tmpDIR}/archive ]
 then
   mkdir -p ${tmpDIR}/archive
 fi
-#cp -r /tmp/BuildBot/${BUILDER}/archive/* ${tmpDIR}/archive/.
+cp -r /tmp/BuildBot/${BUILDER}/archive/* ${tmpDIR}/archive/.
 scp -r /tmp/BuildBot/${BUILDER}/archive/* m211098@login1.zmaw.de:/pool/data/ICON/archive/.
 #==================== End =====================================================
 
