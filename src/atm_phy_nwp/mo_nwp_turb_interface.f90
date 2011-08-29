@@ -211,7 +211,7 @@ CONTAINS
       ENDIF
 
 
-!$OMP DO PRIVATE(jb,jt,jc,jk,i_startidx,i_endidx), SCHEDULE(guided)
+!$OMP DO PRIVATE(jb,jt,jc,jk,i_startidx,i_endidx,ierrstat,errormsg,eroutine), SCHEDULE(guided)
       DO jb = i_startblk, i_endblk
 
         CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
@@ -224,7 +224,8 @@ CONTAINS
         !<  NOTE: since  turbulence is a fast process it is
         !!        allowed to do a sequential updating except for wind speed
         !!        because back-and-forth interpolation would cause too large errors
-
+        !!  (GZ, 2011-08-29): Nevertheless, tendency fields are now passed to turbdiff
+        !!        to have them available for extended diagnostic output
 
 
         IF( atm_phy_nwp_config(jg)%inwp_surface == 0) THEN
@@ -246,28 +247,29 @@ CONTAINS
 
         IF (  atm_phy_nwp_config(jg)%inwp_turb == 1 ) THEN
 
+          ierrstat = 0
+
           !KF tendencies  have to be set to zero
+          ! GZ: this should be replaced by an appropriate switch in turbdiff
           prm_nwp_tend%ddt_u_turb(i_startidx:i_endidx,:,jb) = 0._wp
           prm_nwp_tend%ddt_v_turb(i_startidx:i_endidx,:,jb) = 0._wp
+          prm_nwp_tend%ddt_temp_turb(i_startidx:i_endidx,:,jb) = 0._wp
+          prm_nwp_tend%ddt_tracer_turb(i_startidx:i_endidx,:,jb,iqv) = 0._wp
+          prm_nwp_tend%ddt_tracer_turb(i_startidx:i_endidx,:,jb,iqc) = 0._wp
 
           !KF INPUT to turbdiff is timestep now
           z_tke(i_startidx:i_endidx,:,jb,1)=p_prog_now_rcf%tke(i_startidx:i_endidx,:,jb)
-
 
 
           !-------------------------------------------------------------------------
           !< COSMO version by M. Raschendorfer  
           !-------------------------------------------------------------------------
           
-!#ifdef __BOUNDCHECK
   CALL organize_turbdiff(action='tran_diff', iini=0, lstfnct=.TRUE., &
-!
          &  dt_var=tcall_turb_jg, dt_tke=tcall_turb_jg, nprv=1, ntur=1, ntim=1, &
-!
          &  ie=nproma, je=1, ke=nlev, ke1=nlevp1,  kcm=nlevp1,  vst=0, &
          &  istart   =i_startidx, iend   =i_endidx, istartu=i_startidx, iendu=i_endidx, &
          &  istartpar=i_startidx, iendpar=i_endidx, istartv=i_startidx, iendv=i_endidx, &
-!
          &  jstart   =1,          jend   =1       , jstartu=1         , jendu=1       , &
          &  jstartpar=1         , jendpar=1       , jstartv=1         , jendv=1       , &
 !
@@ -278,10 +280,8 @@ CONTAINS
          &  sai=prm_diag%sai(:,jb), h_ice=prm_diag%h_ice (:,jb), &
 !
          &  ps=p_diag%pres_sfc(:,jb), t_g=lnd_prog_now%t_g(:,jb), qv_s=lnd_diag%qv_s(:,jb), &
-!
          &  u=p_diag%u(:,:,jb), v=p_diag%v(:,:,jb), w=p_prog%w(:,:,jb), T=p_diag%temp(:,:,jb), &
          &  qv=p_prog_rcf%tracer(:,:,jb,iqv), qc=p_prog_rcf%tracer(:,:,jb,iqc), &
-!
          &  prs=p_diag%pres(:,:,jb), rho=p_prog%rho(:,:,jb), epr=p_prog%exner(:,:,jb), &
 !
          &  gz0=prm_diag%gz0(:,jb), tcm=prm_diag%tcm(:,jb), tch=prm_diag%tch(:,jb), &
@@ -291,9 +291,10 @@ CONTAINS
          &  tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh(:,:,jb), rcld=prm_diag%rcld(:,:,jb), &
 !
          &  u_tens=prm_nwp_tend%ddt_u_turb(:,:,jb), v_tens=prm_nwp_tend%ddt_v_turb(:,:,jb), &
-         &  tketens=prm_nwp_tend%ddt_tke(:,:,jb), &
+         &  t_tens=prm_nwp_tend%ddt_temp_turb(:,:,jb), qv_tens=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv),&
+         &  qc_tens=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc), tketens=prm_nwp_tend%ddt_tke(:,:,jb), &
          &  ut_sso=prm_nwp_tend%ddt_u_sso(:,:,jb), vt_sso=prm_nwp_tend%ddt_v_sso(:,:,jb) ,&
-!
+!																				
          &  t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb), td_2m=prm_diag%td_2m(:,jb), &
          &  rh_2m=prm_diag%rh_2m(:,jb), u_10m=prm_diag%u_10m(:,jb), v_10m=prm_diag%v_10m(:,jb), &
          &  shfl_s=prm_diag%shfl_s(:,jb), lhfl_s=prm_diag%lhfl_s(:,jb), &
@@ -303,9 +304,21 @@ CONTAINS
         IF (ierrstat.NE.0) THEN
            CALL finish(eroutine, errormsg)
         END IF
-!#endif
-        !KF write back to new status
+
+        ! Update QV, QC and temperature with turbulence tendencies
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+            p_prog_rcf%tracer(jc,jk,jb,iqv) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqv) &
+                 &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqv))
+            p_prog_rcf%tracer(jc,jk,jb,iqc) =MAX(0._wp, p_prog_rcf%tracer(jc,jk,jb,iqc) &
+                 &           + tcall_turb_jg*prm_nwp_tend%ddt_tracer_turb(jc,jk,jb,iqc))
+            p_diag%temp(jc,jk,jb) = p_diag%temp(jc,jk,jb)  &
+              &  + tcall_turb_jg*prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
+          ENDDO
+        ENDDO
+
         p_prog_rcf%tke(i_startidx:i_endidx,:,jb)=z_tke(i_startidx:i_endidx,:,jb,1)
+
 
       ELSE IF (  atm_phy_nwp_config(jg)%inwp_turb == 2 ) THEN
 
@@ -468,4 +481,5 @@ CONTAINS
   END SUBROUTINE nwp_turbulence
 
 END MODULE mo_nwp_turb_interface
+
 
