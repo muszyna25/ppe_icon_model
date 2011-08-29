@@ -1226,8 +1226,6 @@ MODULE mo_vertical_grid
 
     ENDDO
 
-    CALL cleanup_timer
-
   END SUBROUTINE set_nh_metrics
   !----------------------------------------------------------------------------
 
