@@ -657,6 +657,8 @@ CONTAINS
 
     ENDDO
 
+    ii = 0
+
     DO n = 1, n_answers2recv
        !
        ! ----------------------------------------------------------------
@@ -664,22 +666,23 @@ CONTAINS
        ! ----------------------------------------------------------------
        !
        CALL MPI_Waitany ( n_answers2recv, lrequests, index, wstatus, ierr )
-
-       tptr => target_locs(index)
-
-       tptr%source_list_len = msg_fm_src(1,index)
-       tptr%offset          = msg_fm_src(2,index)
-       tptr%source_rank     = wstatus(MPI_SOURCE)
-
-       IF ( l_debug ) &
-            WRITE ( cplout , '(a9,i8,a9,i12,a6,i8)' ) 'Received ', msg_len, ' request ', &
-            lrequests(index), ' from ', wstatus(MPI_SOURCE)
        !
        ! ----------------------------------------------------------------
-       ! Receive and store lists except empty lists
+       ! Receive and store lists except empty lists (msg_fm_src(1,index)=0)
        ! ----------------------------------------------------------------
        !
-       IF ( tptr%source_list_len > 0 ) THEN
+       IF ( msg_fm_src(1,index) > 0 ) THEN
+
+          ii = ii + 1
+          tptr => target_locs(ii)
+
+          tptr%source_list_len = msg_fm_src(1,index)
+          tptr%offset          = msg_fm_src(2,index)
+          tptr%source_rank     = wstatus(MPI_SOURCE)
+
+          IF ( l_debug ) &
+               WRITE ( cplout , '(a9,i8,a9,i12,a6,i8)' ) 'Received ', msg_len, ' request ', &
+               lrequests(index), ' from ', wstatus(MPI_SOURCE)
 
           ALLOCATE ( tptr%source_list(tptr%source_list_len), &
                      tgtbuffer(tptr%source_list_len), STAT = ierr )

@@ -51,7 +51,7 @@ MODULE mo_icon_cpl_exchg
   USE mo_event_manager, ONLY : event_check, events
 
 #ifndef NOMPI
-  USE mpi, ONLY : MPI_INTEGER, MPI_TAG, MPI_SOURCE, MPI_STATUS_SIZE
+  USE mpi, ONLY : MPI_INTEGER, MPI_TAG, MPI_SOURCE, MPI_ANY_SOURCE, MPI_STATUS_SIZE
 
   USE mo_icon_cpl, ONLY : t_cpl_field, cpl_fields,  &
    &                      nbr_ICON_fields,  &
@@ -131,7 +131,6 @@ CONTAINS
 
     info   = 0
 
-    
     ! -------------------------------------------------------------------
     ! Check field id and return if field was not declared.
     ! -------------------------------------------------------------------
@@ -164,8 +163,12 @@ CONTAINS
     ! First check whether this process has to receive data from someone else
     ! ----------------------------------------------------------------------
 
+    n_recv = 0
+
     IF ( ASSOCIATED (target_locs) ) THEN
-       n_recv = SIZE(target_locs)
+       DO  i = 1, SIZE(target_locs)
+          IF ( target_locs(i)%source_list_len > 0 ) n_recv = n_recv + 1
+       ENDDO
     ELSE
        RETURN
     ENDIF
@@ -193,6 +196,9 @@ CONTAINS
        tptr => target_locs(n)
 
        msgtag = initag + 1000 * fptr%global_field_id
+
+       WRITE ( cplout , * ) ICON_global_rank, ' irecv : tag ', msgtag, &
+               ' length ', msg_len, ' from ', tptr%source_rank
 
        CALL MPI_Irecv ( msg_fm_src(1,n), msg_len, MPI_INTEGER, &
             tptr%source_rank, msgtag, ICON_comm_active, lrequests(n), ierr )
@@ -226,6 +232,12 @@ CONTAINS
 
           source_rank = wstatus(MPI_SOURCE)
           msgtag      = wstatus(MPI_TAG) + 1
+
+          IF ( tptr%source_rank /= msg_fm_src(3, index) ) THEN
+             WRITE ( * , '(a,2i6)') ' Error: Messages got mixed up ', &
+                   tptr%source_rank, msg_fm_src(3, index)
+                   CALL MPI_Abort ( ICON_comm, 1, ierr )
+          ENDIF
 
           CALL MPI_Recv ( recv_buffer, len*nbr_bundles, datatype, &
                source_rank, msgtag, ICON_comm_active, rstatus, ierr )
