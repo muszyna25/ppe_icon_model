@@ -291,8 +291,10 @@ CONTAINS
          &  tkvm=prm_diag%tkvm(:,:,jb), tkvh=prm_diag%tkvh(:,:,jb), rcld=prm_diag%rcld(:,:,jb), &
 !
          &  u_tens=prm_nwp_tend%ddt_u_turb(:,:,jb), v_tens=prm_nwp_tend%ddt_v_turb(:,:,jb), &
-         &  t_tens=prm_nwp_tend%ddt_temp_turb(:,:,jb), qv_tens=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv),&
-         &  qc_tens=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc), tketens=prm_nwp_tend%ddt_tke(:,:,jb), &
+         &  t_tens=prm_nwp_tend%ddt_temp_turb(:,:,jb), &
+         &  qv_tens=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqv),&
+         &  qc_tens=prm_nwp_tend%ddt_tracer_turb(:,:,jb,iqc), &
+         &  tketens=prm_nwp_tend%ddt_tke(:,:,jb), &
          &  ut_sso=prm_nwp_tend%ddt_u_sso(:,:,jb), vt_sso=prm_nwp_tend%ddt_v_sso(:,:,jb) ,&
 !																				
          &  t_2m=prm_diag%t_2m(:,jb), qv_2m=prm_diag%qv_2m(:,jb), td_2m=prm_diag%td_2m(:,jb), &
