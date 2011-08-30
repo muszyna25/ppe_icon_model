@@ -61,7 +61,7 @@ model_equations=1   # equation system
 nlev=31             # nlev = number of full levels
 #-----------------------------------------------------------------------------
 # the grid files
-atmo_dyn_grids='iconR2B03-grid.nc'
+atmo_dyn_grids='iconR2B02-grid.nc'
 #-----------------------------------------------------------------------------
 
 
