@@ -474,8 +474,14 @@ CONTAINS
 
     ENDDO
 
-    ! Divide interpolation states (for regular patches and local parents)
+    !-----------------------------
+    ! Fill the owner_local value
+    DO jg = n_dom_start, n_dom
+      CALL fill_owner_local(p_patch_subdiv(jg))
+    ENDDO
+    !-----------------------------
 
+    
     DO jg = n_dom_start, n_dom
 
       CALL allocate_int_state(p_patch_subdiv(jg), p_int_state_subdiv(jg))
@@ -540,11 +546,34 @@ CONTAINS
                    'deallocation of p_patch_global failed')
     ENDIF
 
+
     CALL message('mo_subdivision:decompose_atmo_domain',   &
                  'end of domain decomposition')
+                 
 #endif
 
   END SUBROUTINE decompose_atmo_domain
+
+  !-----------------------------------------------------------------------------
+  !>
+  ! Fills the in_patch%cells%owner_local using the in_patch%cells%owner_g
+  ! Note: At the moment it uses the p_work_pe number which is not the same
+  ! as the my_mpi_all_id. It requires 
+  SUBROUTINE fill_owner_local(in_patch)
+    
+    TYPE(t_patch), INTENT(inout) :: in_patch
+  
+    INTEGER :: local_cell_idx, global_cell_idx
+
+    DO local_cell_idx = 1, in_patch%n_patch_cells
+      global_cell_idx = in_patch%cells%glb_index(local_cell_idx)
+      in_patch%cells%owner_local(local_cell_idx) =  in_patch%cells%owner_g(global_cell_idx)
+    ENDDO
+    
+    
+  END SUBROUTINE fill_owner_local
+ 
+
 
 
   !-----------------------------------------------------------------------------

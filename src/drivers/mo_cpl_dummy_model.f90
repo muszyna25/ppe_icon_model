@@ -40,7 +40,7 @@ USE mo_parallel_config,     ONLY: p_test_run, l_test_openmp, num_io_procs
 USE mo_mpi,                 ONLY: p_stop, &
   & my_process_is_io,  my_process_is_mpi_seq, my_process_is_mpi_test, &
   & set_mpi_work_communicators, set_comm_input_bcast, null_comm_type, &
-  & global_mpi_barrier
+  & global_mpi_barrier, p_pe_work
 USE mo_timer,               ONLY: init_timer
 USE mo_master_control,      ONLY: is_restart_run, get_my_process_name, &
                                   get_my_model_no, get_my_couple_id
@@ -387,16 +387,16 @@ CONTAINS
       ! CALL get_patch_global_indexes ( patch_no, CELLS, no_of_entities, grid_glob_index )
       ! should grid_glob_index become a pointer in ICON_cpl_def_grid as well?
 
-      CALL ICON_cpl_def_grid ( &
-        & comp_id, grid_shape, p_patch(patch_no)%cells%glb_index, & ! input
-        & grid_id, error_status )                                   ! output
+       CALL ICON_cpl_def_grid ( &
+         & comp_id, grid_shape, p_patch(patch_no)%cells%glb_index, & ! input
+         & grid_id, error_status )                                   ! output
 
       ! Marker for internal and halo points, a list which contains the
       ! rank where the native vertices are located.
-
-!rr      CALL ICON_cpl_def_location ( &
-!rr        & grid_id, grid_shape, p_patch(patch_no)%cells%glb_index, & ! input
-!rr        & error_status )                                            ! output
+      CALL ICON_cpl_def_location ( &
+        & grid_id, grid_shape, p_patch(patch_no)%cells%owner_local, & ! input
+        & p_pe_work,  & ! this owner id
+        & error_status )                                            ! output
 
       ! Define exchange fields
       !

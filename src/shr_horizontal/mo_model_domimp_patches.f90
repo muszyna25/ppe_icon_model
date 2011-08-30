@@ -526,6 +526,7 @@ SUBROUTINE allocate_patch(p_patch)
   ALLOCATE( p_patch%cells%decomp_domain(nproma,p_patch%nblks_c) )
   ALLOCATE( p_patch%cells%owner_mask(nproma,p_patch%nblks_c) )
   ALLOCATE( p_patch%cells%glb_index(p_patch%n_patch_cells) )
+  ALLOCATE( p_patch%cells%owner_local(p_patch%n_patch_cells))
   ALLOCATE( p_patch%cells%loc_index(p_patch%n_patch_cells_g) )
   ALLOCATE( p_patch%cells%owner_g(p_patch%n_patch_cells_g))
 
@@ -1655,6 +1656,7 @@ p_patch%verts%owner_mask(p_patch%npromz_v+1:nproma,p_patch%nblks_v) = .FALSE.
 
 DO jc = 1, p_patch%n_patch_cells
   p_patch%cells%glb_index(jc) = jc
+  p_patch%cells%owner_local(jc) = 0
   p_patch%cells%loc_index(jc) = jc
   p_patch%cells%owner_g(jc) = 0
 ENDDO
@@ -1960,6 +1962,7 @@ GRID_LEVEL_LOOP: DO jg = n_dom_start, n_dom
   ENDIF
   DEALLOCATE( p_patch(jg)%cells%glb_index,  &
     &         p_patch(jg)%cells%loc_index,  &
+    &         p_patch(jg)%cells%owner_local,  &
     &         p_patch(jg)%cells%owner_g,  &
     &         STAT=ist )
   IF(ist/=SUCCESS)THEN

@@ -232,6 +232,9 @@ TYPE t_grid_cells
   ! index1=nproma, index2=1,nblks_c
   LOGICAL, ALLOCATABLE :: owner_mask(:,:)
 
+  ! The following is only used internally for the coupler
+  INTEGER, ALLOCATABLE :: owner_local(:)
+  
   ! The following is only used internally for domain decomposition
 
   INTEGER, ALLOCATABLE :: glb_index(:)

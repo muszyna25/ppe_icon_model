@@ -36,7 +36,8 @@
 MODULE mo_icon_cpl_def_grid
 
   USE mo_icon_cpl, ONLY : ICON_comm, t_grid, grids, &
-   &                      nbr_active_grids, nbr_ICON_grids
+   &                      nbr_active_grids, nbr_ICON_grids, &
+   &                      ICON_local_rank
 
 
   IMPLICIT NONE
@@ -114,12 +115,13 @@ CONTAINS
 
   ! --------------------------------------------------------------------
 
-  SUBROUTINE ICON_cpl_def_location ( grid_id, grid_shape, glob_index_rank, ierror )
+  SUBROUTINE ICON_cpl_def_location ( grid_id, grid_shape, glob_index_rank, this_owner, ierror )
 
     INTEGER, INTENT(in)  :: grid_id            !<  grid ID
     INTEGER, INTENT(in)  :: grid_shape(2)      !<  shape of index array
     INTEGER, INTENT(in)  :: glob_index_rank & 
                         (grid_shape(1):grid_shape(2)) !<  list of ranks for each vertex
+    INTEGER, INTENT(in)   :: this_owner
 
     INTEGER, INTENT(out) :: ierror             !<  returned error code
 
@@ -162,6 +164,16 @@ CONTAINS
 #endif
     ENDIF
 
+
+    ! -------------------------------------------------------------------
+    ! Check if this owner matches the ICON_local_rank
+    ! -------------------------------------------------------------------
+    IF (ICON_local_rank /= this_owner) THEN
+      WRITE(0,*) "ICON_local_rank /= this_owner", ICON_local_rank, this_owner
+#ifndef NOMPI
+       CALL MPI_Abort ( ICON_comm, 1, ierr )
+#endif
+    ENDIF
     ! -------------------------------------------------------------------
     ! Store grid parameters and global index list
     ! -------------------------------------------------------------------

@@ -1141,6 +1141,7 @@ CONTAINS
       CALL def_var('patch.cells.decomp_domain',    nf_int   , dim_ncells)
       CALL def_var('patch.cells.owner_mask',       nf_int   , dim_ncells)
       CALL def_var('patch.cells.glb_index',        nf_int   , dim_ncells)
+      CALL def_var('patch.cells.owner_local',      nf_int   , dim_ncells)
     ENDIF
     CALL def_var  ('patch.cells.start_index',      nf_int   , dim_nrlcell, dim_max_childdom)
     CALL def_var  ('patch.cells.end_index',        nf_int   , dim_nrlcell, dim_max_childdom)
@@ -1279,6 +1280,7 @@ CONTAINS
       CALL bvar_io(1,2,'patch.cells.decomp_domain',    p%cells%decomp_domain)
       CALL bvar_io(1,2,'patch.cells.owner_mask',       p%cells%owner_mask)
       CALL uvar_io(    'patch.cells.glb_index',        p%cells%glb_index)
+      CALL uvar_io(    'patch.cells.owner_local',      p%cells%owner_local)
     ENDIF
     CALL uidx_io  (    'patch.cells.start_index',      p%cells%start_idx,p%cells%start_blk)
     CALL uidx_io  (    'patch.cells.end_index',        p%cells%end_idx,  p%cells%end_blk)
