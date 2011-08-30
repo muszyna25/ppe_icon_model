@@ -45,7 +45,8 @@ MODULE mo_extpar_nml
   USE mo_extpar_config,       ONLY: config_itopo              => itopo             , &
                                   & config_fac_smooth_topo    => fac_smooth_topo   , &
                                   & config_n_iter_smooth_topo => n_iter_smooth_topo, &
-                                  & config_l_emiss            => l_emiss
+                                  & config_l_emiss            => l_emiss,            &
+                                  & config_heightdiff_threshold => heightdiff_threshold
 
   IMPLICIT NONE
   PRIVATE
@@ -62,8 +63,10 @@ MODULE mo_extpar_nml
   REAL(wp) :: fac_smooth_topo
   INTEGER  :: n_iter_smooth_topo
   LOGICAL  :: l_emiss ! if true: read external emissivity map
+  REAL(wp) :: heightdiff_threshold
 
-  NAMELIST /extpar_nml/ itopo, fac_smooth_topo,n_iter_smooth_topo,l_emiss
+  NAMELIST /extpar_nml/ itopo, fac_smooth_topo,n_iter_smooth_topo,l_emiss, &
+                        heightdiff_threshold
 
 CONTAINS
   !>
@@ -81,6 +84,7 @@ CONTAINS
     fac_smooth_topo    = 0.015625_wp
     n_iter_smooth_topo = 2
     l_emiss            = .TRUE.
+    heightdiff_threshold = 2000._wp
 
     !------------------------------------------------------------------
     ! If this is a resumed integration, overwrite the defaults above 
@@ -119,6 +123,7 @@ CONTAINS
     config_fac_smooth_topo    = fac_smooth_topo 
     config_n_iter_smooth_topo = n_iter_smooth_topo
     config_l_emiss            = l_emiss
+    config_heightdiff_threshold = heightdiff_threshold
 
     !-----------------------------------------------------
     ! Store the namelist for restart

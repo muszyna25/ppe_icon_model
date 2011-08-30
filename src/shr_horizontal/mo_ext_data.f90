@@ -54,14 +54,15 @@ MODULE mo_ext_data
   USE mo_physical_constants, ONLY: amd, amo3
   USE mo_run_config,         ONLY: iforcing
   USE mo_ocean_nml,          ONLY: iforc_oce
-  USE mo_extpar_config,      ONLY: itopo, fac_smooth_topo, n_iter_smooth_topo, l_emiss
+  USE mo_extpar_config,      ONLY: itopo, fac_smooth_topo, n_iter_smooth_topo, l_emiss, &
+                                   heightdiff_threshold
   USE mo_dynamics_config,    ONLY: iequations
   USE mo_radiation_config,   ONLY: irad_o3
   USE mo_model_domain,       ONLY: t_patch
   USE mo_exception,          ONLY: message, message_text, finish
   USE mo_grid_config,        ONLY: n_dom, nroot, dynamics_grid_filename
   USE mo_interpolation,      ONLY: t_int_state, cells2verts_scalar
-  USE mo_math_operators,     ONLY: nabla4_scalar
+  USE mo_math_operators,     ONLY: nabla2_scalar, nabla4_scalar
   USE mo_loopindices,        ONLY: get_indices_c
   USE mo_sync,               ONLY: SYNC_C, SYNC_V, sync_patch_array
   USE mo_mpi,                ONLY: my_process_is_stdio, p_pe,p_io, p_bcast,&
@@ -2403,12 +2404,13 @@ CONTAINS
     REAL(wp), INTENT(INOUT)         :: topography_c(:,:), topography_v(:,:)
 
     ! local variables
-    INTEGER  :: jg, jb, jc, iter, il
+    INTEGER  :: jg, jb, jc, iter, il, npts
     INTEGER  :: i_startblk, nblks_c, i_startidx, i_endidx
     REAL(wp) :: z_topo(nproma,1,p_patch%nblks_c),z_nabla4_topo(nproma,1,p_patch%nblks_c),  &
       &         z_topo_old(nproma,1,p_patch%nblks_c),z_nabla2_topo(nproma,1,p_patch%nblks_c)
     REAL(wp) :: z_topo_v(nproma,1,p_patch%nblks_v)
-    REAL(wp) :: zmaxtop,zmintop,z_topo_new
+    REAL(wp) :: zmaxtop,zmintop,z_topo_new,z_hdiffmax(nproma,p_patch%nblks_c),zdcoeff
+    LOGICAL  :: lnabla2_mask(nproma,p_patch%nblks_c)
 
 
     jg = p_patch%id
@@ -2417,9 +2419,83 @@ CONTAINS
     z_nabla4_topo(:,1,:) = 0._wp
     z_nabla2_topo(:,1,:) = 0._wp
 
-    i_startblk = p_patch%cells%start_blk(3,1)
     nblks_c    = p_patch%nblks_c
 
+    zdcoeff = 0.05_wp ! diffusion coefficient for nabla2 diffusion
+
+    ! Step 1: local nabla2 diffusion at grid points where the height difference to the
+    ! neighbors exceeds a certain threshold value
+
+    z_topo(:,1,:)   = topography_c(:,:)
+
+    DO iter = 1, 20 ! limit number of iterations to 20
+                    ! note: a variable number of iterations (with an exit condition) potentially 
+                    ! causes trouble with MPI reproducibility
+
+      z_hdiffmax(:,:)   = 0._wp
+      lnabla2_mask(:,:) = .FALSE.
+
+      CALL nabla2_scalar(z_topo, p_patch, p_int, z_nabla2_topo, opt_slev=1, opt_elev=1)
+
+      npts = 0
+
+      i_startblk = p_patch%cells%start_blk(2,1)
+
+      DO jb = i_startblk,nblks_c
+
+        CALL get_indices_c(p_patch, jb, i_startblk, nblks_c, &
+                           i_startidx, i_endidx, 2)
+
+        DO il=1,p_patch%cell_type
+          DO jc = i_startidx, i_endidx
+            z_hdiffmax(jc,jb) = MAX(z_hdiffmax(jc,jb), ABS(z_topo(jc,1,jb) - &
+              &  z_topo(p_patch%cells%neighbor_idx(jc,jb,il),1,              &
+              &         p_patch%cells%neighbor_blk(jc,jb,il))) )
+
+            IF (z_hdiffmax(jc,jb) > heightdiff_threshold) lnabla2_mask(jc,jb) = .TRUE.
+
+          ENDDO
+        ENDDO
+
+      ENDDO
+
+      ! set diffusion mask also true if one of the neighboring grid points 
+      ! fulfills the height difference criterion
+      i_startblk = p_patch%cells%start_blk(3,1)
+
+      DO jb = i_startblk,nblks_c
+
+        CALL get_indices_c(p_patch, jb, i_startblk, nblks_c, &
+                           i_startidx, i_endidx, 3)
+
+        DO il=1,p_patch%cell_type
+          DO jc = i_startidx, i_endidx
+            IF (z_hdiffmax(p_patch%cells%neighbor_idx(jc,jb,il),                &
+                p_patch%cells%neighbor_blk(jc,jb,il)) > heightdiff_threshold) THEN
+              lnabla2_mask(jc,jb) = .TRUE.
+            ENDIF
+          ENDDO
+        ENDDO
+
+        DO jc = i_startidx, i_endidx
+          IF (lnabla2_mask(jc,jb)) THEN
+            npts = npts + 1
+            topography_c(jc,jb) = z_topo(jc,1,jb) + zdcoeff *                      &
+                                  p_patch%cells%area(jc,jb) * z_nabla2_topo(jc,1,jb)
+          ENDIF
+        ENDDO
+
+      ENDDO
+
+      z_topo(:,1,:) = topography_c(:,:)
+      CALL sync_patch_array(SYNC_C, p_patch, z_topo)
+      topography_c(:,:) = z_topo(:,1,:)
+
+    ENDDO ! iteration of local nabla2 smoothing
+
+    i_startblk = p_patch%cells%start_blk(3,1)
+
+    ! Step 2: local nabla4 diffusion with monotonous limiter
     DO iter = 1, n_iter_smooth_topo
       z_topo(:,1,:)   = topography_c(:,:)
       z_topo_old(:,1,:) = z_topo(:,1,:)

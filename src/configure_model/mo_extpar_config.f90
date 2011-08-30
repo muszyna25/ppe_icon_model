@@ -48,7 +48,7 @@ MODULE mo_extpar_config
   IMPLICIT NONE
 
   PRIVATE
-  PUBLIC :: itopo, fac_smooth_topo, n_iter_smooth_topo, l_emiss
+  PUBLIC :: itopo, fac_smooth_topo, n_iter_smooth_topo, l_emiss, heightdiff_threshold
 
   CHARACTER(len=*),PARAMETER :: version = '$Id$'
 
@@ -64,6 +64,7 @@ MODULE mo_extpar_config
   REAL(wp) :: fac_smooth_topo
   INTEGER  :: n_iter_smooth_topo
   LOGICAL  :: l_emiss     ! if true: read external emissivity map 
+  REAL(wp) :: heightdiff_threshold
   
   !!----------------------------------------------------------------------------
 
