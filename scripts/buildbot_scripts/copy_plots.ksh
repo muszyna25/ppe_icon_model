@@ -30,7 +30,7 @@ copy_files ()
   for file in $FILES
   do
     dir_name=`echo $file | cut -d '/' -f2-10`
-    name=`basename $dir_name *.$1`
+    name=`basename $dir_name .$1`
     dir=`dirname $dir_name`
 #    echo "DIR: $dir NAME: $name"
     mkdir -p ${BASE_DIR}/${dir}
