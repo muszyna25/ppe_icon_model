@@ -191,18 +191,22 @@ CONTAINS
     ! Post Receives of header messages
     ! -------------------------------------------------------------------
 
-    DO n = 1, n_recv
+    DO n = 1, size(target_locs) ! n_recv
 
        tptr => target_locs(n)
 
-       msgtag = initag + 1000 * fptr%global_field_id
+       IF ( tptr%source_list_len > 0 ) THEN
 
-       IF ( l_debug .AND. debug_level > 0 ) &
-       WRITE ( cplout , * ) ICON_global_rank, ' irecv : tag ', msgtag, &
+          msgtag = initag + 1000 * fptr%global_field_id
+
+          IF ( l_debug .AND. debug_level > 0 ) &
+               WRITE ( cplout , * ) ICON_global_rank, ' irecv : tag ', msgtag, &
                ' length ', msg_len, ' from ', tptr%source_rank
 
-       CALL MPI_Irecv ( msg_fm_src(1,n), msg_len, MPI_INTEGER, &
-            tptr%source_rank, msgtag, ICON_comm_active, lrequests(n), ierr )
+          CALL MPI_Irecv ( msg_fm_src(1,n), msg_len, MPI_INTEGER, &
+               tptr%source_rank, msgtag, ICON_comm_active, lrequests(n), ierr )
+
+       ENDIF
 
     ENDDO
 

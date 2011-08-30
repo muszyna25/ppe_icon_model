@@ -308,6 +308,9 @@ CONTAINS
           NULLIFY(source_locs(n)%source_list)
           NULLIFY(target_locs(n)%source_list)
           NULLIFY(target_locs(n)%target_list)
+          target_locs(n)%source_rank     = -999
+          target_locs(n)%source_list_len = 0
+          target_locs(n)%offset          = 0
        ENDDO
 
        ALLOCATE ( lrequests(n_answers2recv), STAT = ierr )
@@ -340,6 +343,8 @@ CONTAINS
        ENDDO
 
        n = 0
+
+       source_rank = -999
 
        DO i = 1, ICON_global_size
 
