@@ -89,6 +89,7 @@ MODULE mo_io_config
 
     ! derived variables
 
+    LOGICAL :: no_output         ! if .true., no output is written 
     LOGICAL :: l_outputtime      ! if .true., output is written at the end of the time step.
     LOGICAL :: l_checkpoint_time ! if .true., restart file is written at the end of 
                                  ! the time step.

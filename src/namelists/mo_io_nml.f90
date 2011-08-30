@@ -52,6 +52,7 @@ MODULE mo_io_nml
                                  & open_and_restore_namelist, close_tmpfile
 
   USE mo_io_config,          ONLY: config_out_expname       => out_expname      , &
+                                 & config_no_output         => no_output        , &
                                  & config_out_filetype      => out_filetype     , &
                                  & config_lkeep_in_sync     => lkeep_in_sync    , &
                                  & config_dt_data           => dt_data          , &
@@ -90,6 +91,7 @@ MODULE mo_io_nml
   REAL(wp):: dt_file                    ! timestep [seconds] for triggering new output file
   REAL(wp):: dt_checkpoint              ! timestep [seconds] for triggering new restart file
 
+  LOGICAL :: no_output                  ! if .true., write nothing
   LOGICAL :: lwrite_vorticity           ! if .true., write out vorticity
   LOGICAL :: lwrite_divergence          ! if .true., write out divergence
   LOGICAL :: lwrite_pres                ! if .true., write out full level pressure
@@ -114,7 +116,7 @@ MODULE mo_io_nml
     &              lwrite_pres, lwrite_z3, lwrite_tracer,             &
     &              lwrite_tend_phy, lwrite_radiation, lwrite_precip,  &
     &              lwrite_cloud, lwrite_tke, lwrite_surface,          &
-    &              lwrite_extra, inextra_2d, inextra_3d
+    &              lwrite_extra, inextra_2d, inextra_3d, no_output
 
 CONTAINS
   !>
@@ -141,6 +143,7 @@ CONTAINS
     !-----------------------
     ! 1. default settings
     !-----------------------
+    no_output     = .FALSE.
     out_expname   = 'IIIEEEETTTT'
     out_filetype  = 2
     lkeep_in_sync = .FALSE.
@@ -217,6 +220,7 @@ CONTAINS
 !
     config_out_expname       = out_expname
     config_out_filetype      = out_filetype
+    config_no_output         = no_output
     config_lkeep_in_sync     = lkeep_in_sync
     config_dt_data           = dt_data
     config_dt_diag           = dt_diag

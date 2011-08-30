@@ -44,7 +44,7 @@ MODULE mo_output
   USE mo_io_units,            ONLY: filename_max
   USE mo_model_domain_import, ONLY: n_dom !, nroot, lplane
 !  USE mo_ocean_nml,           ONLY: n_zlev
-  USE mo_io_config,           ONLY: out_expname
+  USE mo_io_config,           ONLY: out_expname, no_output
   USE mo_impl_constants,      ONLY: ihs_ocean !,            &
 !     &                              ihs_atm_temp,         &
 !     &                              ihs_atm_theta,        &
@@ -102,6 +102,8 @@ CONTAINS
     CHARACTER(LEN=filename_max) :: outputfile
     CHARACTER(LEN=filename_max) :: grid_filename
 
+    IF ( no_output ) RETURN
+    
     IF(.NOT.lclose) THEN
 
       ! This is the first call - initialize
@@ -230,6 +232,8 @@ CONTAINS
   SUBROUTINE close_output_files
 
     INTEGER jg
+    
+    IF ( no_output ) RETURN
 
     DO jg = n_dom, 1, -1
       IF(process_mpi_io_size == 0 .AND. p_pe == p_io) CALL close_output_vlist(jg)
@@ -263,6 +267,7 @@ CONTAINS
 !      CALL output_async(outptime)
 !    ENDIF
 !
+    IF ( no_output ) RETURN
 
     IF ( PRESENT(z_sim_time) ) THEN  
       IF(process_mpi_io_size == 0) THEN
