@@ -195,6 +195,7 @@ MODULE mo_icon_cpl
      INTEGER                :: grid_shape(2)
      LOGICAL                :: l_grid_status
      INTEGER, POINTER       :: grid_glob_index(:) => NULL()
+     INTEGER, POINTER       :: glob_index_rank(:) => NULL()
   END TYPE t_grid
 
 !>

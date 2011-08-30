@@ -49,7 +49,7 @@ MODULE mo_icon_cpl_def_grid
 
   INTEGER                :: ierr
 
-  PUBLIC :: ICON_cpl_def_grid
+  PUBLIC :: ICON_cpl_def_grid, ICON_cpl_def_location
 
 CONTAINS
 
@@ -80,6 +80,7 @@ CONTAINS
 
     IF ( grid_id > nbr_ICON_grids ) THEN
        WRITE ( * , * ) 'number of requested grids exceeds maximum of ', nbr_ICON_grids
+       ierror = 1
 #ifndef NOMPI
        CALL MPI_Abort ( ICON_comm, 1, ierr )
 #endif
@@ -97,6 +98,7 @@ CONTAINS
     ALLOCATE ( gptr%grid_glob_index(grid_shape(1):grid_shape(2)), STAT = ierr )
     IF ( ierr > 0 ) THEN
        WRITE ( * , * ) ' Error allocating Grids '
+       ierror = 1
 #ifndef NOMPI
        CALL MPI_Abort ( ICON_comm, 1, ierr )
 #endif
@@ -109,5 +111,74 @@ CONTAINS
     nbr_active_grids = nbr_active_grids + 1
 
   END SUBROUTINE ICON_cpl_def_grid
+
+  ! --------------------------------------------------------------------
+
+  SUBROUTINE ICON_cpl_def_location ( grid_id, grid_shape, glob_index_rank, ierror )
+
+    INTEGER, INTENT(in)  :: grid_id            !<  grid ID
+    INTEGER, INTENT(in)  :: grid_shape(2)      !<  shape of index array
+    INTEGER, INTENT(in)  :: glob_index_rank & 
+                        (grid_shape(1):grid_shape(2)) !<  list of ranks for each vertex
+
+    INTEGER, INTENT(out) :: ierror             !<  returned error code
+
+    ! -------------------------------------------------------------------
+    ! Initialise variables
+    ! -------------------------------------------------------------------
+
+    ierror = 0
+
+    ! -------------------------------------------------------------------
+    ! Initialise grid
+    ! -------------------------------------------------------------------
+
+    IF ( .NOT. ASSOCIATED(grids) ) THEN
+       WRITE ( * , * ) 'First call ICON_cpl_def_grid.'
+       ierror = 1
+#ifndef NOMPI
+       CALL MPI_Abort ( ICON_comm, 1, ierr )
+#endif
+    ENDIF
+
+    IF ( grid_id > nbr_ICON_grids .OR. .NOT. grids(grid_id)%l_grid_status ) THEN
+       WRITE ( * , * ) 'Invalid grid ID ', grid_id
+       WRITE ( * , * ) 'First call ICON_cpl_def_grid.'
+       ierror = 1
+#ifndef NOMPI
+       CALL MPI_Abort ( ICON_comm, 1, ierr )
+#endif
+    ENDIF
+
+    gptr => grids(grid_id)
+
+    IF ( gptr%grid_shape(1) /= grid_shape(1) .OR. &
+         gptr%grid_shape(2) /= grid_shape(2) ) THEN
+       WRITE ( * , * ) 'Inconsistent grid shape ', grid_shape(1), grid_shape(2)
+       WRITE ( * , * ) 'Expected: ', gptr%grid_shape(1), gptr%grid_shape(2)
+       ierror = 1
+#ifndef NOMPI
+       CALL MPI_Abort ( ICON_comm, 1, ierr )
+#endif
+    ENDIF
+
+    ! -------------------------------------------------------------------
+    ! Store grid parameters and global index list
+    ! -------------------------------------------------------------------
+
+
+    ALLOCATE ( gptr%glob_index_rank(grid_shape(1):grid_shape(2)), STAT = ierr )
+    IF ( ierr > 0 ) THEN
+       WRITE ( * , * ) ' Error allocating rank array '
+       ierror = 1
+#ifndef NOMPI
+       CALL MPI_Abort ( ICON_comm, 1, ierr )
+#endif
+    ENDIF
+
+    gptr%glob_index_rank(grid_shape(1):grid_shape(2)) = &
+         & glob_index_rank(grid_shape(1):grid_shape(2))
+
+  END SUBROUTINE ICON_cpl_def_location
 
 END MODULE mo_icon_cpl_def_grid

@@ -74,7 +74,7 @@ USE mo_impl_constants, ONLY:&
 USE mo_impl_constants, ONLY: CELLS
 USE mo_master_control, ONLY : atmo_process, is_coupled_run
 ! USE mo_icon_cpl_init_comp, ONLY : get_my_local_comp_id
-USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid
+USE mo_icon_cpl_def_grid, ONLY : ICON_cpl_def_grid, ICON_cpl_def_location
 USE mo_icon_cpl_def_field, ONLY : ICON_cpl_def_field
 USE mo_icon_cpl_search, ONLY : ICON_cpl_search
 USE mo_icon_cpl_exchg, ONLY : ICON_cpl_put, ICON_cpl_get
@@ -390,7 +390,14 @@ CONTAINS
       CALL ICON_cpl_def_grid ( &
         & comp_id, grid_shape, p_patch(patch_no)%cells%glb_index, & ! input
         & grid_id, error_status )                                   ! output
-  
+
+      ! Marker for internal and halo points, a list which contains the
+      ! rank where the native vertices are located.
+
+!rr      CALL ICON_cpl_def_location ( &
+!rr        & grid_id, grid_shape, p_patch(patch_no)%cells%glb_index, & ! input
+!rr        & error_status )                                            ! output
+
       ! Define exchange fields
       !
       ! We could also get the number of defined fields from the namelist module

@@ -84,6 +84,7 @@ MODULE mo_icon_cpl_search
        &                  nbr_active_comps, nbr_active_grids,     &
        &                  ICON_root, ICON_comm, ICON_comm_active, &
        &                  ICON_global_rank, ICON_global_size,     &
+       &                  ICON_local_rank,                        &
        &                  grids, t_grid
 
   USE mo_icon_cpl_send_restart, ONLY : ICON_cpl_send_restart
@@ -127,6 +128,7 @@ MODULE mo_icon_cpl_search
   INTEGER, ALLOCATABLE :: all_extents(:,:)
   INTEGER, ALLOCATABLE :: idx(:)
   INTEGER, ALLOCATABLE :: grid_global_index(:)
+  INTEGER, ALLOCATABLE :: global_index_rank(:)
 
   INTEGER, POINTER     :: srcbuffer     (:)
   INTEGER, POINTER     :: tgtbuffer     (:)
@@ -136,6 +138,8 @@ MODULE mo_icon_cpl_search
   TYPE (t_grid), POINTER           :: gptr
   TYPE (t_target_struct), POINTER  :: tptr
 
+  INTEGER              :: INTERNAL_POINT ! Marker to distinguish internal from halo points
+ 
   ! Return code for error handling
 
   CHARACTER(len=132)               :: err_string
@@ -223,12 +227,26 @@ CONTAINS
 
     CALL quicksort_index (grid_global_index, len, idx)
 
+    IF ( ASSOCIATED(gptr%glob_index_rank) ) THEN
+       ALLOCATE(global_index_rank(len))
+       DO i = 1, len
+          global_index_rank(i) = gptr%glob_index_rank(idx(i))
+       ENDDO
+       ! Set marker for internal points, that is to exclude
+       ! the halo points from the comparison
+       
+       INTERNAL_POINT = ICON_local_rank
+    ELSE
+       INTERNAL_POINT = -999
+    ENDIF
+
     IF ( l_debug .AND. debug_level > 1 ) THEN
        DO i = 1, len
           WRITE ( cplout , '(a30,3i8)' ) ' Global indices after sorting ', &
                &                         i, grid_global_index(i), idx(i)
        ENDDO
     ENDIF
+
 
     ! -------------------------------------------------------------------
 
@@ -511,6 +529,12 @@ CONTAINS
        j = 0
 
        DO i = idx_range(1), idx_range(2)
+
+          IF ( INTERNAL_POINT /= -999 ) THEN
+
+             IF ( global_index_rank(i) /= INTERNAL_POINT ) CYCLE
+
+          ENDIF
 
           IF ( grid_global_index(i) > tptr%target_list(tptr%target_list_len) ) EXIT
 
