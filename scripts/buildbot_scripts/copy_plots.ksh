@@ -30,14 +30,15 @@ copy_files ()
   for file in $FILES
   do
     dir_name=`echo $file | cut -d '/' -f2-10`
-    name=`basename $dir_name`
+    name=`basename $dir_name *.$1`
     dir=`dirname $dir_name`
 #    echo "DIR: $dir NAME: $name"
     mkdir -p ${BASE_DIR}/${dir}
 #    echo "Copy:"
 #    echo "Source: experiments/${dir}/${name}"
 #    echo "Target: ${BASE_DIR}/${dir}/${name}"
-    cp experiments/${dir}/${name} ${BASE_DIR}/${dir}/${name}
+    cp experiments/${dir}/${name}.$1 ${BASE_DIR}/${dir}/${name}.$1
+    convert experiments/${dir}/${name}.$1 ${BASE_DIR}/${dir}/${name}.png
   done
 }
 
@@ -99,11 +100,11 @@ mkdir -p ${BASE_DIR}
 pwd
 echo "Copy eps-files"
 FILES=`find experiments -name '*.eps'`
-copy_files
+copy_files eps
 pwd
 echo "Copy ps-files"
 FILES=`find experiments -name '*.ps'`
-copy_files
+copy_files ps
 
 #==================== Begin =====================================================
 # The following part of the script is included to check the download from buildbot.
@@ -116,6 +117,6 @@ then
   mkdir -p ${tmpDIR}/archive
 fi
 cp -r /tmp/BuildBot/${BUILDER}/archive/* ${tmpDIR}/archive/.
-scp -r /tmp/BuildBot/${BUILDER}/archive/* m211098@login1.zmaw.de:/pool/data/ICON/archive/.
+scp -r /tmp/BuildBot/${BUILDER}/archive/* m211098@login1.zmaw.de:/tmp/ICON/archive/.
 #==================== End =====================================================
 
