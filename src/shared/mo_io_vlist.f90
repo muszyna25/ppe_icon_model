@@ -135,7 +135,6 @@ MODULE mo_io_vlist
   USE mo_atm_phy_nwp_config,    ONLY: atm_phy_nwp_config
   USE mo_advection_config,      ONLY: advection_config
   USE mo_echam_conv_config,     ONLY: echam_conv_config
-!DR  USE mo_lnd_nwp_config,        ONLY: nlev_soil, nsfc_subs, nlev_snow
   USE mo_lnd_nwp_config,        ONLY: nsfc_subs, nlev_snow
 ! USE mo_gw_hines_nml,          ONLY: lheatcal, emiss_lev, rmscon, kstar, m_min
   USE mo_vertical_coord_table,  ONLY: vct

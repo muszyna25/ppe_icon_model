@@ -485,19 +485,19 @@ MODULE mo_prepicon_utils
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     prepicon(jg)%sfc_in%tsoil(:,:,4))
 
-        CALL read_netcdf_data (ncid, 'SWVL1', p_patch(jg)%n_patch_cells_g,              &
+        CALL read_netcdf_data (ncid, 'SMIL1', p_patch(jg)%n_patch_cells_g,              &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     prepicon(jg)%sfc_in%wsoil(:,:,1))
 
-        CALL read_netcdf_data (ncid, 'SWVL2', p_patch(jg)%n_patch_cells_g,              &
+        CALL read_netcdf_data (ncid, 'SMIL2', p_patch(jg)%n_patch_cells_g,              &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     prepicon(jg)%sfc_in%wsoil(:,:,2))
 
-        CALL read_netcdf_data (ncid, 'SWVL3', p_patch(jg)%n_patch_cells_g,              &
+        CALL read_netcdf_data (ncid, 'SMIL3', p_patch(jg)%n_patch_cells_g,              &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     prepicon(jg)%sfc_in%wsoil(:,:,3))
 
-        CALL read_netcdf_data (ncid, 'SWVL4', p_patch(jg)%n_patch_cells_g,              &
+        CALL read_netcdf_data (ncid, 'SMIL4', p_patch(jg)%n_patch_cells_g,              &
           &                     p_patch(jg)%n_patch_cells, p_patch(jg)%cells%glb_index, &
           &                     prepicon(jg)%sfc_in%wsoil(:,:,4))
 

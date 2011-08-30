@@ -1225,7 +1225,6 @@ CHARACTER (LEN=80)                    ::  &
 
 
 
-
   ierror = 0
   yerror = '        '
 
@@ -5312,10 +5311,10 @@ REAL (KIND=ireals), INTENT (IN)          ::    &
 
 !DR for testing purposes
   WHERE ( llp(istart:iend,jstart:jend) .AND. (ws(istart:iend,jstart:jend) < 1.e-4_ireals))
-    ts(istart:iend,jstart:jend) = MAX(ts(istart:iend,jstart:jend),&
-      & tg(istart:iend,jstart:jend)-5._ireals)
-    ts(istart:iend,jstart:jend) = MIN(ts(istart:iend,jstart:jend),&
-      & tg(istart:iend,jstart:jend)+5._ireals)
+    ts(istart:iend,jstart:jend) =                                             &
+      &  MAX(ts(istart:iend,jstart:jend),tg(istart:iend,jstart:jend)-5._ireals)
+    ts(istart:iend,jstart:jend) =                                             &
+      &  MIN(ts(istart:iend,jstart:jend),tg(istart:iend,jstart:jend)+5._ireals)
   END WHERE
 
 END SUBROUTINE tgcom
