@@ -33,6 +33,7 @@ commandFile=command.grid
 #-----------------------------------------------------------------------------
 # define the levels to create
 start_level=0
+# define number of levels (bisections)
 no_of_levels=5            
 start_optimize=2
 end_optimize=5
