@@ -88,6 +88,8 @@ MODULE mo_timer
   PUBLIC :: timer_sso
   PUBLIC :: timer_cover_koe
   PUBLIC :: timer_omp_radiation
+  PUBLIC :: timer_write_restart_file
+  PUBLIC :: timer_write_output
   
 !   PUBLIC :: ltimer                              !< if .true., switch on timer
 
@@ -147,7 +149,9 @@ MODULE mo_timer
   INTEGER :: timer_phy2dyn
 
   INTEGER :: timer_omp_radiation
-
+  INTEGER :: timer_write_restart_file
+  INTEGER :: timer_write_output
+  
 CONTAINS
 
   SUBROUTINE init_timer
@@ -210,7 +214,9 @@ CONTAINS
     timer_phy2dyn   = new_timer("phy2dyn")
 
     timer_omp_radiation = new_timer("omp_radiation")
-
+    timer_write_restart_file = new_timer("wrt_restart")
+    timer_write_output = new_timer("wrt_output")
+    
   END SUBROUTINE init_timer
 
 END MODULE mo_timer

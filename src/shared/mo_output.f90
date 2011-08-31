@@ -63,6 +63,9 @@ MODULE mo_output
                                   & finish_restart
   USE mo_io_restart_attributes,ONLY: set_restart_attribute
   USE mo_model_domain,        ONLY: t_patch, p_patch
+  USE mo_run_config,          ONLY: ltimer
+  USE mo_timer,               ONLY: timer_start, timer_stop,&
+    & timer_write_restart_file, timer_write_output
 
   IMPLICIT NONE
 
@@ -269,6 +272,8 @@ CONTAINS
 !
     IF ( no_output ) RETURN
 
+    IF (ltimer) CALL timer_start(timer_write_output)
+
     IF ( PRESENT(z_sim_time) ) THEN  
       IF(process_mpi_io_size == 0) THEN
         CALL write_vlist(datetime, z_sim_time(1))
@@ -282,6 +287,8 @@ CONTAINS
         CALL output_async(datetime)
       ENDIF
     ENDIF
+
+    IF (ltimer) CALL timer_stop(timer_write_output)
   
   END SUBROUTINE write_output
 
@@ -315,6 +322,7 @@ CONTAINS
     CHARACTER(len=MAX_CHAR_LENGTH) :: attname   ! attribute name
     INTEGER :: jp, jp_end   ! loop index and array size
 
+    IF (ltimer) CALL timer_start(timer_write_restart_file)
     !----------------
     ! Initialization
     klev      = patch%nlev
@@ -405,6 +413,8 @@ CONTAINS
 
     CALL close_writing_restart_files
     CALL finish_restart
+
+    IF (ltimer) CALL timer_stop(timer_write_restart_file)
 
   END SUBROUTINE create_restart_file
 
