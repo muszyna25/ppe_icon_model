@@ -207,8 +207,11 @@ set_run_target_blizzard()
     total_memory=$use_memory
   else
     case $use_memory_model in
+      "huge" )
+        set_default total_memory 32000
+        ;;
       "verylarge" )
-        set_default total_memory 12000
+        set_default total_memory 16000
         ;;
       "large" )
         set_default total_memory 8000
