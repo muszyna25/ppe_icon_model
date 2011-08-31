@@ -20,9 +20,10 @@
 #   * at DWD requires ECMWF login by eccert
 #   * requires mars version 1.9.9
 #     (. ${GRIB_API}/bin/grib_api-setenv -p)
-#   * since cy36r4 (2011/11/09) there is rain and snow, which is required by IFS2ICON
+#   * since cy36r4 (2010/11/09) there is rain and snow, which is required by IFS2ICON
 #     (optionally turn on/off crwc/csw)
 #   * GRIB2 not yet supported by IFS2ICON (since 2011/05/11)
+#   * ERAinterm: only works until 2010! (fiv8 not available afterwards)
 #
 # history:
 #   Helmut Frank    201107  adopted from GME equivalent
@@ -40,8 +41,7 @@ levelist=${3:-1/to/91}
 
 # --- data output ---
 
-user=mkoehler
-datadir=/e/uwork/${user}/icon/ifs.data
+datadir=/e/uwork/${USER}/icon/ifs.data
 mkdir -p $datadir
 tempdir=${TMPDIR}
 
@@ -58,7 +58,7 @@ case ${res} in
     799) grd=400 ;;
    1279) grd=640 ;;
 esac
-grib_file=${datadir}/ifs_T${res}_${cymdg}.grb
+grib_file=${datadir}/ifs_oper_T${res}_${cymdg}.grb
 
 cat > ${tempdir}/MARS_IN.$$ << MARS_IFS2ICON_EOF.$$
 # MARS request for ifs2icon
@@ -235,7 +235,6 @@ rm -f ${tempdir}/MARS_IN.$$
 
 
 
-
 print ""
 print "Reset indicatorOfParameter to distinguish SMI fields from former SWV fields"
 
@@ -264,5 +263,6 @@ RULES_FILE_EOF.$$
 
 # modify grib file
 grib_filter ${tempdir}/RULES_FILE.$$ ${grib_file_orig} -o ${grib_file}
+\rm ${grib_file_orig}
 
 exit 0
