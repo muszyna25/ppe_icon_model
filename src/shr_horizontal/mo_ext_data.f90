@@ -50,8 +50,8 @@ MODULE mo_ext_data
   USE mo_parallel_config,    ONLY: nproma
   USE mo_impl_constants,     ONLY: inwp, iecham, ildf_echam, io3_clim, io3_ape, &
     &                              ihs_ocean, ihs_atm_temp, ihs_atm_theta, inh_atmosphere, &
-    &                              max_char_length, sea_boundary
-  USE mo_physical_constants, ONLY: amd, amo3
+    &                              max_char_length
+  USE mo_physical_constants, ONLY: ppmv2gg, zemiss_def
   USE mo_run_config,         ONLY: iforcing
   USE mo_ocean_nml,          ONLY: iforc_oce
   USE mo_extpar_config,      ONLY: itopo, fac_smooth_topo, n_iter_smooth_topo, l_emiss, &
@@ -111,7 +111,7 @@ MODULE mo_ext_data
   PUBLIC :: smooth_topography, read_netcdf_data
 
   PUBLIC :: nlev_pres,nmonths
- REAL(wp), PARAMETER :: zemiss_def = 0.996_wp  !lw sfc default emissivity factor	
+	
 
   INTERFACE read_netcdf_data
     MODULE PROCEDURE read_netcdf_2d
@@ -331,7 +331,7 @@ MODULE mo_ext_data
     ! ocean topography <=> bathymetric height used in the ocean 
     ! cell centers and edges only
     !
-    REAL(wp), POINTER ::   &  !<  bathymetric height at cell centers  [m]
+    REAL(wp), POINTER ::   &  !<  bathymetric height at cell centers [m]
       &  bathymetry_c(:,:)    !  index1=1,nproma, index2=1,nblks_c
 
     REAL(wp), POINTER ::   &  !< topographic height at cell edges    [m]
@@ -343,7 +343,7 @@ MODULE mo_ext_data
     ! *** Land-Sea-Mask ***
     INTEGER, POINTER  ::   &  !< land-sea-mask for cell centers          [ ]
       &  lsm_ctr_c(:,:)       !  index1=1,nproma, index2=1,nblks_c
-     INTEGER, POINTER ::   &  !< land-sea-mask for cell edges
+    INTEGER, POINTER ::    &  !< land-sea-mask for cell edges
       &  lsm_ctr_e(:,:)       !  index1=1,nproma, index2=1,nblks_e
 
     ! OMIP forcing fluxes on cell centers. no_of_fluxes=3
@@ -530,8 +530,8 @@ CONTAINS
     END IF
 
 
-
   END SUBROUTINE init_ext_data
+
 
   !-------------------------------------------------------------------------
   !>
@@ -1447,15 +1447,13 @@ CONTAINS
 
     LOGICAL :: l_exist
 
-!-------------------------------------------------------------------------
-
     CHARACTER(len=max_char_length), PARAMETER :: &
       routine = 'mo_ext_data: inquire_external_files'
 
     CHARACTER(filename_max) :: extpar_file !< file name for reading in
     CHARACTER(filename_max) :: ozone_file  !< file name for reading in
 
-!--------
+!--------------------------------------------------------------------------
 
     DO jg= 1,n_dom
 
@@ -1658,13 +1656,9 @@ CONTAINS
     INTEGER :: i_lev,jk
     INTEGER :: ncid, dimid, varid
 
-    REAL(wp)::zdummy_plev(nlev_pres)
+    REAL(wp):: zdummy_plev(nlev_pres)
 
-    ! ppmv2gg converts ozone from volume mixing ratio in ppmv
-    ! to mass mixing ratio in g/g
-    REAL(wp), PARAMETER :: ppmv2gg=1.e-6_wp*amo3/amd
-
-!-------------------------------------------------------------------------
+    !----------------------------------------------------------------------
 
     IF(itopo == 1 ) THEN
     DO jg = 1,n_dom
@@ -1907,7 +1901,7 @@ CONTAINS
 
          ENDIF ! patches
 
-       ! convert from ppmv to g/g
+         ! convert from ppmv to g/g
          ext_data(1)%atm_td%O3(:,:,:,:)= ext_data(1)%atm_td%O3(:,:,:,:)*ppmv2gg
          
         ! close file

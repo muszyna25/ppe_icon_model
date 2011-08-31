@@ -100,7 +100,11 @@ MODULE mo_physical_constants
   !
   !> Mixed species
   REAL(wp), PARAMETER :: amd   = 28.970_wp        !> [g/mol] dry air
-
+  !
+  !> Auxiliary constants
+  ! ppmv2gg converts ozone from volume mixing ratio in ppmv
+  ! to mass mixing ratio in g/g
+  REAL(wp), PARAMETER :: ppmv2gg=1.e-6_wp*amo3/amd
 
   !> Earth and Earth orbit constants
   !! -------------------------------
@@ -175,6 +179,10 @@ MODULE mo_physical_constants
   REAL(wp), PARAMETER :: vpp_ch4(3) = (/1.25e-01_wp,  683.0_wp, -1.43_wp/)
   REAL(wp), PARAMETER :: vpp_n2o(3) = (/1.20e-02_wp, 1395.0_wp, -1.43_wp/)
 
+  !> constants for radiation module
+  REAL(wp), PARAMETER :: zemiss_def = 0.996_wp  !> lw sfc default emissivity factor
+
+
 !------------below are parameters for ocean model---------------
   ! coefficients in linear EOS
   REAL(wp), PARAMETER :: a_T = 2.55E-04_wp,     & ! thermal expansion coefficient (kg/m3/K)
@@ -188,40 +196,41 @@ MODULE mo_physical_constants
                                                        !used in ocean thermodynamics
   REAL(wp),PARAMETER :: sfc_press_pascal = 101300.0_wp
   REAL(wp),PARAMETER :: sfc_press_bar    = 101300.0_wp*SItodBar
+
 !----------below are parameters for sea-ice model---------------
-  REAL(wp), PARAMETER ::            &
-    ks           = 0.31_wp,         & ! heat conductivity snow     [J  / (m s K)]
-    ki           = 2.03_wp,         & ! heat conductivity ice      [J  / (m s K)]   
-    rhoi         = 910.0_wp,        & ! density of sea ice         [kg / m�]
-    rhos         = 330.0_wp,        & ! density of snow            [kg / m�]
-    rhow         = 1025.0_wp,       & ! density of water           [kg / ]
-    ci           = 2100.0_wp,       & ! Heat capacity of ice       [J / (kg K)]
-    cw           = 4200.0_wp,       & ! Heat capacity of ice       [J / (kg K)]
-    Tf           = -1.90_wp,        & ! Temperature ice bottom     [C]
-    L            = 0.334E6_wp,      & ! Latent heat of freezing    [J / kg]
-    Lvap         = 2.501E6_wp,      & ! Latent heat of vaporisation[J / kg]
-    Lsub         = L+Lvap-0.001e6_wp,& ! Latent heat of sublimation [J / kg]
-    Sice         = 5.0_wp,          & ! Sea-ice bulk salinity      [ppt]
-    sig          = 5.67e-8_wp,      & ! Stefan-Boltzman constant   [W / (m K^4)]
-    mu           = 0.054_wp,        & ! Constant in linear freezing-
-                                  ! point relationship         [�C/ppt]
-    muS          = mu*Sice,        & ! = - (sea-ice liquidus 
-                                  ! (aka melting) temperature) [�C]
-    albs         = 0.75_wp,        & ! Albedo of snow (not melting)
-    albsm        = 0.65_wp,        & ! Albedo of snow (melting)    
-    albi         = 0.66_wp,        & ! Albedo of ice (not melting)
-    albim        = 0.64_wp,        & ! Albedo of ice (melting)    
-    albedoW      = 0.1_wp,         & ! albedo of the ocean 
-    !I_0          = 0.3            ! Ice-surface penetrating shortwave fraction
-    I_0          = 0.0_wp            ! Ice-surface penetrating shortwave fraction
+  REAL(wp), PARAMETER ::           &
+    ks         = 0.31_wp,          & ! heat conductivity snow     [J  / (m s K)]
+    ki         = 2.03_wp,          & ! heat conductivity ice      [J  / (m s K)]   
+    rhoi       = 910.0_wp,         & ! density of sea ice         [kg / m^3]
+    rhos       = 330.0_wp,         & ! density of snow            [kg / m^3]
+    rhow       = 1025.0_wp,        & ! density of water           [kg / ]
+    ci         = 2100.0_wp,        & ! Heat capacity of ice       [J / (kg K)]
+    cw         = 4200.0_wp,        & ! Heat capacity of ice       [J / (kg K)]
+    Tf         = -1.90_wp,         & ! Temperature ice bottom     [C]
+    L          = 0.334E6_wp,       & ! Latent heat of freezing    [J / kg]
+    Lvap       = 2.501E6_wp,       & ! Latent heat of vaporisation[J / kg]
+    Lsub       = L+Lvap-0.001e6_wp,& ! Latent heat of sublimation [J / kg]
+    Sice       = 5.0_wp,           & ! Sea-ice bulk salinity      [ppt]
+    sig        = 5.67e-8_wp,       & ! Stefan-Boltzman constant   [W / (m K^4)]
+    mu         = 0.054_wp,         & ! Constant in linear freezing-
+                                     ! point relationship         [�C/ppt]
+    muS        = mu*Sice,          & ! = - (sea-ice liquidus 
+                                     ! (aka melting) temperature) [�C]
+    albs       = 0.75_wp,          & ! Albedo of snow (not melting)
+    albsm      = 0.65_wp,          & ! Albedo of snow (melting)    
+    albi       = 0.66_wp,          & ! Albedo of ice (not melting)
+    albim      = 0.64_wp,          & ! Albedo of ice (melting)    
+    albedoW    = 0.1_wp,           & ! albedo of the ocean 
+    !I_0        = 0.3               ! Ice-surface penetrating shortwave fraction
+    I_0        = 0.0_wp              ! Ice-surface penetrating shortwave fraction
 
 
-REAL(wp), PARAMETER :: &
-  rgas     = 287.1_wp,    & ! specific gas constant of dry air         [J/kg/K]
-  cpa      = 1004.67_wp,  & ! specific heat of dry air                 [J/kg/K] 
-  fr_fac   = 1.1925_wp,   & ! Frank Roeske's budget closing factor
-  emiss    = 0.97_wp,     & ! Emissivity of air, water, ice
-  StefBol  = 5.67e-8_wp  ! Stefan Boltzman constant                 [W/m�/K^4]
+  REAL(wp), PARAMETER :: &
+    rgas     = 287.1_wp,    & ! specific gas constant of dry air         [J/kg/K]
+    cpa      = 1004.67_wp,  & ! specific heat of dry air                 [J/kg/K] 
+    fr_fac   = 1.1925_wp,   & ! Frank Roeske's budget closing factor
+    emiss    = 0.97_wp,     & ! Emissivity of air, water, ice
+    StefBol  = 5.67e-8_wp     ! Stefan Boltzman constant                 [W/m�/K^4]
 !------------------------------------------------------------
 
 
