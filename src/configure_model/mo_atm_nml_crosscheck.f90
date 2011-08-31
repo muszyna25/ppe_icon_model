@@ -596,13 +596,13 @@ CONTAINS
 
       SELECT CASE (global_cell_type)
       CASE (6)
+        WRITE(0,*)'nml_Crosscheck'
         ! 3rd order upwind horizontal advection scheme
         advection_config(jg)%ihadv_tracer(:) = iup3
         ! semi monotonous flux limiter
         advection_config(jg)%itype_hlimit(:) = ifluxl_sm
         WRITE(message_text,'(a)') 'Attention: on the hexagonal grid, ',              &
-          &  'ihadv_tracer(:) = iup3 and itype_hlimit(:) = ifluxl_sm are the only ', &
-          &  'possible settings. Please adjust your namelist settings accordingly'
+          &  'ihadv_trace4 = iup3 and itype_hlimit = ifluxl_sm are possible '
         CALL message(TRIM(routine),message_text)
       END SELECT
 
