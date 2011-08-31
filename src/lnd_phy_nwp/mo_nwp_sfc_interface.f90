@@ -51,6 +51,7 @@ MODULE mo_nwp_sfc_interface
   USE mo_run_config,          ONLY: iqv ,msg_level
   USe mo_extpar_config,       ONLY: itopo
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
+  USE mo_nonhydrostatic_config,ONLY: iadv_rcf
   USE mo_lnd_nwp_config,      ONLY: nlev_soil, nztlev, nlev_snow, nsfc_subs !, &
 !    &                               lseaice ,llake, lmulti_snow
   USE mo_satad,               ONLY: sat_pres_water, spec_humi  
@@ -105,6 +106,8 @@ CONTAINS
     ! Local scalars:
     !
     INTEGER :: jc,jb,jg      !loop indices
+
+    INTEGER :: nstep_soil
  
     ! local prognostic variables
     !
@@ -167,11 +170,13 @@ CONTAINS
     i_startblk = p_patch%cells%start_blk(rl_start,1)
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
+    ! soil model time step - has to be zero for initial call
+    ! (actually, the initialization operations should be encapsulated in a separate routine!)
+    nstep_soil = NINT(REAL(jstep,wp)/REAL(iadv_rcf,wp)) - 1
 
     IF (msg_level >= 12) THEN
       CALL message('mo_nwp_sfc_interface: ', 'call land-surface scheme')
     ENDIF
-
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,isubs), SCHEDULE(guided)
@@ -363,7 +368,7 @@ CONTAINS
         &  runoff_g      =  lnd_diag%runoff_g(:,jb,:)  , & ! soil water runoff; sum over forecast         (kg/m2)
            !
 !        &  nstart        = 0                         , & ! first time step of the forecast
-        &   ntstep       = jstep-4                    , & ! actual time step
+        &   ntstep       = nstep_soil                , & ! actual time step
                                 ! indices for permutation of three time levels
 !        &   nold          = 1                         , & ! corresponds to ntstep - 1
         &   nnow         = 1                         , & ! corresponds to ntstep 

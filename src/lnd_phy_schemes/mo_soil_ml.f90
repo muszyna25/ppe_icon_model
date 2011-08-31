@@ -1225,7 +1225,6 @@ CHARACTER (LEN=80)                    ::  &
 
 
 
-
   ierror = 0
   yerror = '        '
 
@@ -2439,8 +2438,6 @@ ENDIF
         ! density*transfer coefficient*wind velocity
         zrhoch(i,j)    = ztmch(i,j)*(1._ireals/g) + zepsi
 
-IF(i.eq.1 .and. j.eq.1) &
-!JH  print *,ns,'zplow',p0(i,j,ke) , pp(i,j,ke,nx),qv(i,j,ke)
         ! saturation specific humidity for t_s and t_snow and first derivative
         z2iw        = zts_pm(i,j)*b2w + (1._ireals - zts_pm(i,j))*b2i
         z4iw        = zts_pm(i,j)*b4w + (1._ireals - zts_pm(i,j))*b4i
@@ -5312,10 +5309,10 @@ REAL (KIND=ireals), INTENT (IN)          ::    &
 
 !DR for testing purposes
   WHERE ( llp(istart:iend,jstart:jend) .AND. (ws(istart:iend,jstart:jend) < 1.e-4_ireals))
-    ts(istart:iend,jstart:jend) = &
-      &MAX(ts(istart:iend,jstart:jend),tg(istart:iend,jstart:jend)-5._ireals)
-    ts(istart:iend,jstart:jend) = &
-      &MIN(ts(istart:iend,jstart:jend),tg(istart:iend,jstart:jend)+5._ireals)
+    ts(istart:iend,jstart:jend) =                                          &
+      MAX(ts(istart:iend,jstart:jend),tg(istart:iend,jstart:jend)-5._ireals)
+    ts(istart:iend,jstart:jend) =                                          &
+      MIN(ts(istart:iend,jstart:jend),tg(istart:iend,jstart:jend)+5._ireals)
   END WHERE
 
 END SUBROUTINE tgcom
