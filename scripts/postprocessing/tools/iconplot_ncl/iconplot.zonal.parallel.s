@@ -54,7 +54,7 @@ done
 #  exit 1
 #fi
 
-#set -x
+set -x
 
 
 #==========================================================================
@@ -63,7 +63,7 @@ done
 export expnum="exp12"
 export expnum2="exp12"   #for comparison in plots, data must pre-exist
 export Model="ICONAM"
-export EXPNAME="APE"     #APE or JWmoistnh
+export EXPNAME="hat_icoham_ape_icon"     #APE or JWmoistnh
 
 #export top_title=${EXPNAME}"  "${expnum}"  cosmo clouds, RRTM, ECHAMturb"
 export top_title=${EXPNAME}"  "${expnum}"  cosmo clouds, RRTM, ECHAMturb, SSO+orog"
@@ -77,18 +77,20 @@ export top_title=${EXPNAME}"  "${expnum}"  cosmo clouds, RRTM, ECHAMturb, SSO+or
 #export top_title=${EXPNAME}"  "${expnum}"  clouds=4=new diagnostic clouds"
 #export top_title=${EXPNAME}"  "${expnum}"  no cloud-radiation"
 
-model_data_path="/e/uwork/mkoehler/icon/experiments/"${expnum}"/"
-model_data_path2="/e/uwork/mkoehler/icon/experiments/"${expnum2}"/"
+#model_data_path="/e/uwork/mkoehler/icon/experiments/"${expnum}"/"
+#model_data_path="/e/uwork/mkoehler/icon/experiments/"${expnum}"/"
+model_data_path="/scratch/mpi/mh0287/users/kristina/icon-dev/experiments/hat_icoham_ape/"
+#model_data_path2="/e/uwork/mkoehler/icon/experiments/"${expnum2}"/"
 horizontal_resolution="R2B04"
-vertical_resolution="L90"     # vertical levels
-dtout=12                      # output frequency in [h]
+vertical_resolution="L47"     # vertical levels
+dtout=2                      # output frequency in [h]
 
 time_stat="timselavg"         # time statistic: single time step or time period
-noffset=400      # 180/540    # Number of input time steps skipped before the first time step range (CDO timavg)
-nsets=400                     # Number of input time steps for output time step range               (CDO timavg)
-time_stat_text="200-400 days" # DJF 90-180 days / JJA 270-360 days / 200-400 days
+noffset=0 #400      # 180/540    # Number of input time steps skipped before the first time step range (CDO timavg)
+nsets=1 # 400                     # Number of input time steps for output time step range               (CDO timavg)
+time_stat_text="o3 test "  # DJF 90-180 days / JJA 270-360 days / 200-400 days
 evol_istart=1                 # first file
-evol_iend=40                  # last file
+evol_iend=1 #40                  # last file
 
 evol_stat="zonavg"            # evolution plot
 #evol_stat="zonstd"
@@ -190,7 +192,7 @@ export cell_type=3
 
 # If you want to have data or plot of (b), set the following variable to 1
 
-#diag_climate=1
+diag_climate=1
 
 # If you want to have data or plot of (c), set the following variable to 1
 
@@ -255,8 +257,9 @@ export trunc=85
 # If the weights are already available, specify the location:
 # (Don't forget the trailing "/")
 
-remap_weights_path="${model_data_path}remap_weights/"
+#remap_weights_path="${model_data_path}remap_weights/"
 #remap_weights_path='/e/uwork/mripodas/weights/'
+remap_weights_path='/scratch/mpi/mh0287/users/kristina/icon-dev/experiments/weights/'
 
 # For the remapping, we also need to know which optimization was used 
 # to generate the ICON grid. For example,
@@ -302,12 +305,261 @@ echo
 # Temporary variables
 
 export script_path='/e/uhome/mkoehler/icon-dev/scripts/postprocessing/tools/'
+export script_path='/scratch/mpi/mh0287/users/kristina/icon-dev/scripts/postprocessing/tools/iconplot <- ncl'
 
 #directory with the colomap files
 export NCARG_COLORMAPS=${script_path}color_map:${NCARG_COLORMAPS}
 
-resolution=${horizontal_resolution}${vertical_resolution}
-fori=${model_data_path}${EXPNAME}_${resolution}
+resolution=${horizontal_resolution} #${vertical_resolution}
+fori=${model_data_path}${EXPNAME}    #APE or JWmoistnh
+
+#export top_title=${EXPNAME}"  "${expnum}"  cosmo clouds, RRTM, ECHAMturb"
+export top_title=${EXPNAME}"  "${expnum}"  cosmo clouds, RRTM, ECHAMturb, SSO+orog"
+#export top_title=${EXPNAME}"  "${expnum}"  cosmo clouds, Ritter, ECHAMturb"
+#export top_title=${EXPNAME}"  "${expnum}"  no clouds, RRTM, Raschendorfer"
+#export top_title=${EXPNAME}"  "${expnum}"   cosmo clouds, RRTM, Raschendorfer, Kmin=0.01m2/s"
+#export top_title=${EXPNAME}"  "${expnum}"  clouds=1=grid-scale"
+#export top_title=${EXPNAME}"  "${expnum}"  clouds=2=turbulence"
+#export top_title=${EXPNAME}"  "${expnum}"  clouds=0=no cloud; no rad"
+#export top_title=${EXPNAME}"  "${expnum}"  clouds=3=cosmo cloud; fixed"
+#export top_title=${EXPNAME}"  "${expnum}"  clouds=4=new diagnostic clouds"
+#export top_title=${EXPNAME}"  "${expnum}"  no cloud-radiation"
+
+#model_data_path="/e/uwork/mkoehler/icon/experiments/"${expnum}"/"
+#model_data_path="/e/uwork/mkoehler/icon/experiments/"${expnum}"/"
+model_data_path="/scratch/mpi/mh0287/users/kristina/icon-dev/experiments/hat_icoham_ape/"
+#model_data_path2="/e/uwork/mkoehler/icon/experiments/"${expnum2}"/"
+horizontal_resolution="R2B04"
+vertical_resolution="L47"     # vertical levels
+dtout=2                      # output frequency in [h]
+
+time_stat="timselavg"         # time statistic: single time step or time period
+noffset=0 #400      # 180/540    # Number of input time steps skipped before the first time step range (CDO timavg)
+nsets=1 # 400                     # Number of input time steps for output time step range               (CDO timavg)
+time_stat_text="o3 test "  # DJF 90-180 days / JJA 270-360 days / 200-400 days
+evol_istart=1                 # first file
+evol_iend=1 #40                  # last file
+
+evol_stat="zonavg"            # evolution plot
+#evol_stat="zonstd"
+
+diag_climate=1
+diag_evolution=1
+diag_evolution_ps=0
+
+if [ ! -z $varname ]; then
+  do_computation=1            # parallel compuation(1=ON,0=OFF)
+  do_computation_serial=0     # serial computation
+  compute_remap_weights=0
+  make_plot=0
+else
+  do_computation=0
+  do_computation_serial=1     # optional: 1=ON,0=OFF (turn off when plotting only!)
+  compute_remap_weights=1     # optional: 1=ON,0=OFF ( - " - )
+  make_plot=1
+fi
+#==========================================================================
+
+
+
+#==========================================================================
+#                          USER'S SPECIFICATIONS 
+#--------------------------------------------------------------------------
+# 0. About the dynamical core ( Hydrostatic or Non-Hydrostatic )
+#--------------------------------------------------------------------------
+# The variable Model can be ICOHDC (Hydrostatic) or ICONAM (Non-Hydrostatic)
+# If set to ICOHDC the evolution of zonal temperature variance is 
+# calculated and ploted at 750 hPa and the vertical variable in the plots 
+# of the zonal mean climate is eta
+# If set to ICONAM, the evolution of zonal temperature variance is 
+# calculated and ploted at model level 24 and the vertical variable in the plots 
+# of the zonal mean climate is the height
+# 
+
+#Model="ICOHDC"
+#Model="ICONAM"
+
+#--------------------------------------------------------------------------
+# 1. About the model output
+#--------------------------------------------------------------------------
+# 1.1 What is the experiment ID? 
+# The experiment ID is the first part of the file name of your model output, 
+# which is followed by information on hor. and vert. resolution (cf. 1.5),
+# and a file index (cf. 1.6) if the output has been split on several files.
+# You may have used something like "A0001" just for simplicity.
+
+#EXP="hat_heldsuarez"  
+#EXP="JWmoistnh_DOM01"
+
+# 1.2 In which directory are the data files located? (Don't forget the trailing "/"!)
+
+#model_data_path="somewhere/"
+#model_data_path="/e/uwork/mkoehler/icon/experiments/exp01/"
+#model_data_path="/e/uscratch/mripodas/icon-dev/experiments/${EXPNAME}/"
+
+# The ICON model developers have an automatic testing system which uses
+# the following convention:
+ 
+#dir=`pwd -P`
+#icon_path=${dir%%scripts/ncl_scripts}
+#model_data_path="${icon_path}experiments/$EXP/"
+
+# 1.3 The experiment identifier that will appear in the plots, e.g.,
+# "brk R2B5L31" 
+
+config_string=${horizontal_resolution}${vertical_resolution}-grid_001
+
+# 1.4 Shape of control volume (3 = triangle, 6 = hexagon/pentagon) 
+
+export cell_type=3
+
+# 1.5 Spatial resolution
+# (This script assumes that a string indicating the spatial resolution,
+#  e.g., "_R2B04L31", has been added after ${EXPNAME} as part of the name
+#  of the model output.)
+
+#horizontal_resolution="R2B04"
+#vertical_resolution="L31"        #ICOHDC
+#vertical_resolution="L35"        #ICONAM  
+
+#--------------------------------------------------------------------------
+# 2. Decide what to do
+#--------------------------------------------------------------------------
+# A complete set of the contour plots includes
+#
+# a. evolution of zonal temperature variance at 750 hPa;
+# b. the zonal mean "climate" computed for the user-specified period, including
+#    > time and zonal mean temperature, u-wind, and v-wind,
+#    > meridional flux of heat and zonal momentum caused by eddy activities,
+#    > eddy kinetic energy.
+# c. temporal evolution of the surface pressure glomal mean
+#
+# If you want to have data or plot of (a), set the following variable to 1
+
+#diag_evolution=0
+
+# If you want to have data or plot of (b), set the following variable to 1
+
+diag_climate=1
+
+# If you want to have data or plot of (c), set the following variable to 1
+
+#diag_evolution_ps=0
+
+# Since the Held-Suarez test is an idealized climate simulation,
+# this script assumes that the output has been split into a series of files. 
+# The first file is named ${EXPNAME}"_RxBxxLxx_0001",the second one "_0002",
+# and so on. Now specify the starting and ending file indices for plot (a)
+# (see above)
+
+#dtout=12        # output frequency in [h]
+#evol_istart=1
+#evol_iend=5
+
+# Specify the starting and ending file indices for plot (b):
+
+clim_istart=$evol_istart
+clim_iend=$evol_iend
+
+# Specify the starting and ending file indices for plot (c):
+
+evol_ps_istart=$evol_istart
+evol_ps_iend=$evol_iend
+
+# Select time step to be plotted in zonal means (1 to nsteps)
+
+#time_stat="timselavg" # time statistic: time average
+#time_stat="timselvar" # time statistic: time variance
+#time_stat_text="Time mean"
+#time_stat_text="240 hours"
+
+# If you want to obtain plots, set the following variable to 1 
+
+#make_plot=1
+
+# What format do you want, pdf, eps or ps?
+
+export plot_file_format="ps"
+
+# Before plotting, interpolation and statistics computation is needed. 
+# If you have already done that and stored the data, turn this step off.
+
+#do_computation=0   # (1=ON,0=OFF)
+
+# To diagnose the zonal mean "climate", the ICON model output 
+# on the geodesic grid needs to be interpolated to a Gaussian grid. 
+# Choose the Gaussian grid by specifying the triangular truncation:
+
+export trunc=85
+
+# For the horizontal interpolation from the ICON grid to Gaussian grid,
+# a large part of the time will be spent on calculating the remapping 
+# weights. This may take very long when the resolution is high.
+# Therefore we suggest calculating the weights only once and store them 
+# for later use. 
+
+#compute_remap_weights=0   # (1=ON,0=OFF)
+
+# The remapping weights file generated by this script will be named, 
+# e.g., icon_R2B04_spr0.90_tri_cell_to_T159.nc 
+# If the weights are already available, specify the location:
+# (Don't forget the trailing "/")
+
+#remap_weights_path="${model_data_path}remap_weights/"
+#remap_weights_path='/e/uwork/mripodas/weights/'
+remap_weights_path='/scratch/mpi/mh0287/users/kristina/icon-dev/experiments/weights/'
+
+# For the remapping, we also need to know which optimization was used 
+# to generate the ICON grid. For example,
+#   "ori"     : original icosahedral grid without optimization
+#   "hro"     : Heikes-Randall optimization
+#   "spr0.90" : spring dynamics, with spring coefficient 0.90
+
+grid_optimization="spr0.90"
+
+# Remove these files after finishing the diagnoses? 
+# (1=REMOVE,0=SAVE FOR LATER USE)
+
+rm_tmp_files=0
+
+# Where should the plot files be located? Don't forget the trailing "/".
+
+plot_file_path="${model_data_path}plots/"
+
+#--------------------------------------------------------------------------
+# Now specify the directory in which the intermediate files 
+# (excluding the remapping weights) should be placed. 
+# Don't forget the trailing "/".
+
+tmp_data_path="${model_data_path}tmp/"
+tmp_data_path2="${model_data_path2}tmp/"
+
+#--------------------------------------------------------------------------
+# Do you want CDO to run in silence mode, or to report everything
+# it is doing?
+
+cdo_silence=1   #( 1 = silence mode; 0 = detailed report )
+
+#--------------------------------------------------------------------------
+#                    END OF USER'S SPECIFICATIONS 
+#==========================================================================
+
+echo
+echo "**********************************************************"
+echo "***       ICON Tool Kit for Idealized Test Cases       ***"
+echo "**********************************************************"
+echo 
+
+# Temporary variables
+
+export script_path='/e/uhome/mkoehler/icon-dev/scripts/postprocessing/tools/'
+export script_path='/scratch/mpi/mh0287/users/kristina/icon-dev/scripts/postprocessing/tools/iconplot <- ncl'
+
+#directory with the colomap files
+export NCARG_COLORMAPS=${script_path}color_map:${NCARG_COLORMAPS}
+
+resolution=${horizontal_resolution} #${vertical_resolution}
+fori=${model_data_path}${EXPNAME}${resolution}
 ftmp=${tmp_data_path}${EXPNAME}_${resolution}
 
 if [ $cdo_silence -eq 1 ]; then
@@ -353,8 +605,8 @@ if [ ${compute_remap_weights} -eq 1 ]; then
  echo
  echo "=== Computing remapping weights (ICON to Gaussian) ..."
 
- label=$(printf "%04d" ${evol_istart})
- cdo $silence gendis,t${trunc}grid -seltimestep,1 -selname,PS ${fori}"_"${label}".nc" ${weights}
+ label="grid_"$(printf "%04d" ${evol_istart})
+ cdo $silence gendis,t${trunc}grid -seltimestep,1 -selname,PS ${fori}"-"${label}".nc" ${weights}
 
  check_error $? "In script iconplot.zonal.ncl-cdo.s: part 'Computing remapping weights (ICON to Gaussian)'"
  echo "=== Done."

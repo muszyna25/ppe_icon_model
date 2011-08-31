@@ -22,7 +22,7 @@ begin
 
   rad2deg = 45./atan(1.)   ; radians to degrees
   extra_level = 0      ;it is 1 only for var="W" and Model="ICONAM"
-  vlev="mlev"          ; it is ilev in case var="W"
+  vlev=31 ;"mlev"          ; it is ilev in case var="W"
   iu=1    ; if +1, then lon between 0,360  ; if  -1, then  lon between -180 and 180
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;  
 
@@ -47,8 +47,8 @@ begin
  ; read NAMELIST settings from directory
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-  Turbulence = systemfunc("grep inwp_turb "+FileDir+"NAMELIST_ICON")
-  Radiation = systemfunc("grep inwp_radiation "+FileDir+"NAMELIST_ICON")
+;  Turbulence = systemfunc("grep inwp_turb "+FileDir+"NAMELIST_ICON")
+;  Radiation = systemfunc("grep inwp_radiation "+FileDir+"NAMELIST_ICON")
 ;  print(Turbulence)
 
 
@@ -81,8 +81,24 @@ begin
  
   File = addfile(File_Int, "r")
 
+  varnames = getfilevarnames(File)
+  if(.not.any(ismissing(varnames))) then
+    do i=0,dimsizes(varnames)-1
+      printFileVarSummary (File,varnames(i))
+    end do
+  end if
+
+  print(PlotDir)
+  print(PlotFileN)
+;  print(Fil)
+
+;  print(var)
+;  printVarSummary(ozone)
+
   var3dll = File->$var$(0,:,:,:)  ;time,lev,lat,lon
-  num_levels=dimsizes(var3dll&$vlev$)-extra_level
+  ppmv2gg=1.e-6*47.9982/28.970
+  var3dll = var3dll ;/ppmv2gg
+  num_levels=dimsizes(var3dll&lev)-extra_level
   nlon=dimsizes(var3dll&lon)
   nlat=dimsizes(var3dll&lat)
 
@@ -95,7 +111,10 @@ begin
    z3dll   = File->ZF3(0,:,:,:)
    topoll  = File->PHIS(0,:,:)
    topoll  = topoll /9.80665
+;   z3dll   = z3dll/9.80665
   end if 
+
+
 
 ; printVarSummary(var3dll)
 ; printVarSummary(z3dll)
@@ -231,9 +250,11 @@ begin
   end do
 
   ;plot
+  plottingdir="/scratch/mpi/mh0287/users/kristina/icon-dev/experiments/plots/"
+  plotf="ozon_r2b4"
 
-  wks = gsn_open_wks("ps",PlotDir+PlotFileN)
-  gsn_define_colormap(wks,"gui_default")
+  wks = gsn_open_wks("ps",plottingdir+plotf)
+  gsn_define_colormap(wks,"testcmap")
 
   ; Ressourcen-Variable :
   ; ---------------------
@@ -247,7 +268,7 @@ begin
   ;res@trXMinF               =     ; in km  
   ;res@trXMaxF               =     ; in km  
   res@trYMinF               =   -0.3     ; in km  
-  res@trYMaxF               = 32.     ; in km
+  res@trYMaxF               = 50.     ; in km
 
   resT  = res
 
@@ -327,13 +348,13 @@ begin
   txres               = True                     ; text mods desired
   txres@txFontHeightF = 0.015                     ; font smaller. default big
 
-  gsn_text_ndc(wks,Turbulence,0.3,0.1,txres)
-  txres@txPosYF = 0.08                    ; font smaller. default big
-  gsn_text_ndc(wks,Radiation,0.3,0.1,txres)
+;  gsn_text_ndc(wks,Turbulence,0.3,0.1,txres)
+;  txres@txPosYF = 0.08                    ; font smaller. default big
+;  gsn_text_ndc(wks,Radiation,0.3,0.1,txres)
 
   draw (plot)
   frame(wks) 
 
- system("gv "+PlotDir+PlotFileN+"."+PlotFormat+" &")
+; system("gv "+PlotDir+PlotFileN+"."+PlotFormat+" &")
 
 end

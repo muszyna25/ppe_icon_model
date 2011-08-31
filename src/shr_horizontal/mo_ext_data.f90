@@ -1901,8 +1901,9 @@ CONTAINS
 
          ENDIF ! patches
 
-         ! convert from ppmv to g/g
-         ext_data(1)%atm_td%O3(:,:,:,:)= ext_data(1)%atm_td%O3(:,:,:,:)*ppmv2gg
+       ! convert from ppmv to g/g only in case of APE ozone
+         IF(irad_o3 == io3_ape) &
+&         ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*ppmv2gg
          
         ! close file
         IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
