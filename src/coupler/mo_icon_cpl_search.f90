@@ -128,6 +128,7 @@ MODULE mo_icon_cpl_search
   INTEGER, ALLOCATABLE :: all_extents(:,:)
   INTEGER, ALLOCATABLE :: idx(:)
   INTEGER, ALLOCATABLE :: grid_global_index(:)
+  INTEGER, ALLOCATABLE :: grid_global_position(:)
   INTEGER, ALLOCATABLE :: global_index_rank(:)
 
   INTEGER, POINTER     :: srcbuffer     (:)
@@ -138,8 +139,8 @@ MODULE mo_icon_cpl_search
   TYPE (t_grid), POINTER           :: gptr
   TYPE (t_target_struct), POINTER  :: tptr
 
-  INTEGER              :: INTERNAL_POINT ! Marker to distinguish internal from halo points
- 
+  INTEGER              :: nbr_local_points ! Marker to distinguish internal from halo points
+
   ! Return code for error handling
 
   CHARACTER(len=132)               :: err_string
@@ -183,24 +184,6 @@ CONTAINS
        WRITE  ( * , '(a14,i3,a)' ) 'Error on rank ', ICON_global_rank, err_string
     ENDIF
 
-    !
-    ! -------------------------------------------------------------------
-    ! Determine local index range
-    ! -------------------------------------------------------------------
-    !
-    IF ( l_debug ) &
-      WRITE ( cplout , * ) ' nbr_active is ', nbr_active_comps, nbr_active_grids
-
-    DO comp_id = 1, nbr_active_comps
-       DO grid_id = 1, nbr_active_grids
-          grid_extent(1) = MINVAL( grids(grid_id)%grid_glob_index )
-          grid_extent(2) = MAXVAL( grids(grid_id)%grid_glob_index )
-          grid_extent(3) = get_my_model_no() ! Rene: this should not be in here.
-          IF ( l_debug ) &
-               WRITE ( cplout , * ) ' extents ',  grid_extent(1),  grid_extent(2),  grid_extent(3)
-       ENDDO
-    ENDDO
-
     ! -------------------------------------------------------------------
     ! Important note: From here onwards for the time being we only
     !                 support one local grid and one local component!
@@ -212,41 +195,80 @@ CONTAINS
     gptr => grids(grid_id)
 
     ! Allocate memory and sort global index list that we got from ICON
-    ! The original position is kept in idx which is later used for the
+    ! First we get rid of the halo points, next we sort the remaining
+    ! values. The original position is kept which is later used for the
     ! reordering of the results.
 
     len = gptr%grid_shape(2) - gptr%grid_shape(1) + 1
 
-    ALLOCATE(grid_global_index(len), idx(len))
+    nbr_local_points = 0
 
+    IF ( ASSOCIATED(gptr%glob_index_rank) ) THEN
+       DO i = 1, len
+          IF ( gptr%glob_index_rank(i) == ICON_local_rank ) nbr_local_points = nbr_local_points + 1
+       ENDDO
+    ENDIF
+   
+    ! Subsampling of internal points (w/o halo)
+
+    IF ( ASSOCIATED(gptr%glob_index_rank) .AND. nbr_local_points > 0 ) THEN
+
+       ALLOCATE ( grid_global_index(nbr_local_points), &
+            &     grid_global_position(nbr_local_points) )
+
+       ii = 0
+
+       DO i = 1, len
+          IF ( gptr%glob_index_rank(i) == ICON_local_rank ) THEN
+             ii = ii + 1
+             grid_global_index(ii) = gptr%grid_glob_index(i)
+             grid_global_position(ii) = i
+          ENDIF
+       ENDDO
+
+       len = ii
+
+    ELSE
+
+       ALLOCATE( grid_global_index(len), &
+            &    grid_global_position(len) )
+
+       grid_global_index = gptr%grid_glob_index
+
+    ENDIF
+
+    ALLOCATE(idx(len))
     DO i = 1, len
        idx(i) = i
     ENDDO
 
-    grid_global_index = gptr%grid_glob_index
-
     CALL quicksort_index (grid_global_index, len, idx)
-
-    IF ( ASSOCIATED(gptr%glob_index_rank) ) THEN
-       ALLOCATE(global_index_rank(len))
-       DO i = 1, len
-          global_index_rank(i) = gptr%glob_index_rank(idx(i))
-       ENDDO
-       ! Set marker for internal points, that is to exclude
-       ! the halo points from the comparison
-       
-       INTERNAL_POINT = ICON_local_rank
-    ELSE
-       INTERNAL_POINT = -999
-    ENDIF
-
+    
     IF ( l_debug .AND. debug_level > 1 ) THEN
        DO i = 1, len
-          WRITE ( cplout , '(a30,3i8)' ) ' Global indices after sorting ', &
-               &                         i, grid_global_index(i), idx(i)
+          WRITE ( cplout , '(a,4i8)' ) ' Global indices without halo after sorting ', &
+               &                         i, grid_global_index(i), idx(i), grid_global_position(i)
        ENDDO
     ENDIF
 
+    !
+    ! -------------------------------------------------------------------
+    ! Determine local index range
+    ! -------------------------------------------------------------------
+    !
+
+    IF ( l_debug ) &
+      WRITE ( cplout , * ) ' nbr_active is ', nbr_active_comps, nbr_active_grids
+
+    DO comp_id = 1, nbr_active_comps
+       DO grid_id = 1, nbr_active_grids
+          grid_extent(1) = grid_global_index(1)
+          grid_extent(2) = grid_global_index(len)
+          grid_extent(3) = get_my_model_no() ! Rene: this should not be in here.
+          IF ( l_debug ) &
+               WRITE ( cplout , * ) ' extents ',  grid_extent(1),  grid_extent(2),  grid_extent(3)
+       ENDDO
+    ENDDO
 
     ! -------------------------------------------------------------------
 
@@ -513,7 +535,7 @@ CONTAINS
 
        ii           = 1
        idx_range(1) = i
-       idx_range(2) = gptr%grid_shape(2)
+       idx_range(2) = len ! gptr%grid_shape(2)
 
        IF ( l_debug ) &
             WRITE ( cplout , '(a,2i8)' ) 'Index range ', idx_range (1), idx_range (2)
@@ -530,11 +552,11 @@ CONTAINS
 
        DO i = idx_range(1), idx_range(2)
 
-          IF ( INTERNAL_POINT /= -999 ) THEN
-
-             IF ( global_index_rank(i) /= INTERNAL_POINT ) CYCLE
-
-          ENDIF
+!rr          IF ( INTERNAL_POINT /= -999 ) THEN
+!rr
+!rr             IF ( global_index_rank(i) /= INTERNAL_POINT ) CYCLE
+!rr
+!rr          ENDIF
 
           IF ( grid_global_index(i) > tptr%target_list(tptr%target_list_len) ) EXIT
 
@@ -613,11 +635,13 @@ CONTAINS
 
        source_locs(index)%target_rank      = tptr%target_rank
        source_locs(index)%source_list_len  = source_list_len
+
        !
        ! Convert back to unsorted order
        !
+
        DO i = 1, source_list_len
-         source_locs(index)%source_list(i) = idx(srcbuffer(i))
+         source_locs(index)%source_list(i) = grid_global_position(idx(srcbuffer(i)))
          source_locs(index)%target_list(i) = tgtbuffer(i)
        ENDDO
 

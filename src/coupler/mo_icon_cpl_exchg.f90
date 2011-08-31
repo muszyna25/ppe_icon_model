@@ -73,7 +73,7 @@ MODULE mo_icon_cpl_exchg
 
   PRIVATE
 
-  TYPE(t_cpl_field), POINTER         :: fptr
+  TYPE(t_cpl_field), POINTER     :: fptr
   TYPE(t_source_struct), POINTER :: sptr
   TYPE(t_target_struct), POINTER :: tptr
 
@@ -95,6 +95,8 @@ MODULE mo_icon_cpl_exchg
 
   REAL (wp), ALLOCATABLE         :: recv_buffer(:,:)
   REAL (wp), ALLOCATABLE         :: send_buffer(:,:)
+
+  REAL (wp), PARAMETER           :: dummy = -151169.0_wp
 
   ! Return code for error handling
 
@@ -214,6 +216,8 @@ CONTAINS
     ! Loop over the number of send operation (determined during the search)
     ! -------------------------------------------------------------------
 
+    recv_field = dummy
+
     DO n = 1, n_recv
 
        CALL MPI_Waitany ( n_recv, lrequests, index, wstatus, ierr )
@@ -248,7 +252,8 @@ CONTAINS
                source_rank, msgtag, ICON_comm_active, rstatus, ierr )
 
           ! -------------------------------------------------------------
-          ! Scatter data into user buffer
+          ! Scatter data into user buffer. Note that only internal values
+          ! get updated. The coupling routines do not work on the halos!
           ! -------------------------------------------------------------
 
           IF ( nbr_bundles /= field_shape(3) ) THEN
