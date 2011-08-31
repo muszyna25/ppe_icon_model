@@ -398,7 +398,10 @@ CONTAINS
         & p_pe_work,  & ! this owner id
         & error_status )                                            ! output
       write(0,*) "p_pe_work:",  p_pe_work
-      write(0,*) "cells%owner_local:",  p_patch(patch_no)%cells%owner_local
+      DO i=grid_shape(1),grid_shape(2)
+        write(0,*) i, "global idx:", p_patch(patch_no)%cells%glb_index(i),&
+         & " owner:",  p_patch(patch_no)%cells%owner_local(i)
+      ENDDO
       ! Define exchange fields
       !
       ! We could also get the number of defined fields from the namelist module
