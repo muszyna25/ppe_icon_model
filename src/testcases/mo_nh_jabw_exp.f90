@@ -118,11 +118,11 @@ MODULE mo_nh_jabw_exp
 
   INTEGER        :: jc, jv, jb, nlen
   REAL(wp)       :: z_lon, z_lat
-  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
-    &  routine = '(mo_nh_jabw_exp) init_nh_topo_jabw:'
+!!$  CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+!!$    &  routine = '(mo_nh_jabw_exp) init_nh_topo_jabw:'
  
   REAL(wp)      :: zsiny, zcosy,tmp1,tmp2,tmp3
-  REAL(wp)      :: z_lon_ctr,  z_fac1, z_fac2    
+  REAL(wp)      :: z_fac1, z_fac2    
   LOGICAL       :: lmount
   REAL(wp)      :: mount_height, mount_half_width
 
@@ -342,7 +342,7 @@ MODULE mo_nh_jabw_exp
             z_lat(je) = ptr_patch%edges%center(je,jb)%lat
             z_lon(je) = ptr_patch%edges%center(je,jb)%lon
             zu(je)    = u0*(COS(zeta_v_e(je,jk,jb))**1.5_wp)*(SIN(2.0_wp*z_lat(je))**2)
-            IF ( jw_up .GT. 1.e-20 ) THEN
+            IF ( jw_up .GT. 1.e-20_wp ) THEN
              z_fac1(je)= SIN(latC)*SIN(z_lat(je))+COS(latC)*COS(z_lat(je))*COS(z_lon(je)-lonC) 
              z_fac2(je)  = 10._wp*ACOS(z_fac1(je))
              zu(je) = zu(je) + jw_up* EXP(-z_fac2(je)**2)
@@ -609,7 +609,7 @@ MODULE mo_nh_jabw_exp
             ENDDO !jk
           ENDDO !jb
           z_moist = z_moist / tot_area
-          IF (z_moist .GT. 1.e-25) THEN
+          IF (z_moist .GT. 1.e-25_wp) THEN
             ptr_nh_prog%tracer(:,:,:,iqv) = ptr_nh_prog%tracer(:,:,:,iqv) * global_moist / z_moist
           END IF
 
