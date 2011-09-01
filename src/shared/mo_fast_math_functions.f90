@@ -51,7 +51,7 @@ MODULE mo_fast_math_functions
 
   PRIVATE
 
-  PUBLIC :: cube_root_fc
+ ! PUBLIC :: cube_root_fc
   PUBLIC :: cube_root_rt
 
   INTERFACE cube_root_rt
@@ -160,7 +160,7 @@ CONTAINS
 !     
 !#ifdef __USE_MATH_LIB__
 !#ifdef  __xlC__
-     out_scalar = cbrt(in_scalar)
+!     out_scalar = cbrt(in_scalar)
 !#else
 !     ! no compiler specific optimization
 !     out_scalar = in_scalar**0.33333333_wp
