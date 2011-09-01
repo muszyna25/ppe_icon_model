@@ -923,7 +923,7 @@ CONTAINS
          CALL timer_stop(timer_cube_root_in)
 
          maxdiff = MAXVAL(ABS(vtmp3(1:nlorms) - vtmp2(1:nlorms)))
-         IF (maxdiff > 0._wp) THEN
+         IF (maxdiff > 1e-7_wp) THEN
            write(0,*) " Warning: gw_hines cube_root_rt differs:",maxdiff
          ENDIF 
          
