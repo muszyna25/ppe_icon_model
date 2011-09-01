@@ -41,6 +41,12 @@ MODULE mo_fast_math_functions
     & get_my_global_mpi_id
   USE mo_kind,     ONLY: wp
 
+#ifdef __USE_MATH_LIB__
+#ifdef  __xlC__
+!  INCLUDE 'mass.include'
+#endif
+#endif
+
   IMPLICIT NONE
 
   PRIVATE
@@ -51,13 +57,13 @@ MODULE mo_fast_math_functions
   INTERFACE cube_root_rt
     MODULE PROCEDURE vector_cube_root_rt_vsize
 !     MODULE PROCEDURE vector_cube_root_rt
-    MODULE PROCEDURE scalar_cube_root_rt
+!    MODULE PROCEDURE scalar_cube_root_rt
   END INTERFACE
   
-  INTERFACE cube_root_fc
-    MODULE PROCEDURE scalar_cube_root_fc
-  END INTERFACE
-  
+!  INTERFACE cube_root_fc
+!    MODULE PROCEDURE scalar_cube_root_fc
+!  END INTERFACE
+ 
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -125,47 +131,47 @@ CONTAINS
 !   
   !-------------------------------
   !>
-  SUBROUTINE scalar_cube_root_rt(in_scalar, out_scalar)
-    REAL(wp), INTENT(in)  :: in_scalar
-    REAL(wp), INTENT(out) :: out_scalar
+!  SUBROUTINE scalar_cube_root_rt(in_scalar, out_scalar)
+!    REAL(wp), INTENT(in)  :: in_scalar
+!    REAL(wp), INTENT(out) :: out_scalar
      
-#ifdef __USE_MATH_LIB__
-#ifdef  __xlC__
-     out_scalar = cbrt(in_scalar)
-#else
-     ! no compiler specific optimization
-     out_scalar = in_scalar**0.33333333_wp
-#endif
-
-#else
-     ! no __USE_MATH_LIB__ 
-     out_scalar = in_scalar**0.33333333_wp
-#endif
-    
-  END SUBROUTINE scalar_cube_root_rt
+!#ifdef __USE_MATH_LIB__
+!#ifdef  __xlC__
+!     out_scalar = cbrt(in_scalar)
+!#else
+!     ! no compiler specific optimization
+!     out_scalar = in_scalar**0.33333333_wp
+!#endif
+!
+!#else
+!     ! no __USE_MATH_LIB__ 
+!     out_scalar = in_scalar**0.33333333_wp
+!#endif
+!    
+!  END SUBROUTINE scalar_cube_root_rt
   !-------------
 
   
   !-------------------------------
   !>
-  FUNCTION scalar_cube_root_fc(in_scalar) result(out_scalar)
-    REAL(wp), INTENT(in)  :: in_scalar
-    REAL(wp) :: out_scalar
-     
-#ifdef __USE_MATH_LIB__
-#ifdef  __xlC__
+!  FUNCTION scalar_cube_root_fc(in_scalar) result(out_scalar)
+!    REAL(wp), INTENT(in)  :: in_scalar
+!    REAL(wp) :: out_scalar
+!     
+!#ifdef __USE_MATH_LIB__
+!#ifdef  __xlC__
      out_scalar = cbrt(in_scalar)
-#else
-     ! no compiler specific optimization
-     out_scalar = in_scalar**0.33333333_wp
-#endif
-
-#else
-     ! no __USE_MATH_LIB__ 
-     out_scalar = in_scalar**0.33333333_wp
-#endif
-    
-  END FUNCTION scalar_cube_root_fc
+!#else
+!     ! no compiler specific optimization
+!     out_scalar = in_scalar**0.33333333_wp
+!#endif
+!
+!#else
+!     ! no __USE_MATH_LIB__ 
+!     out_scalar = in_scalar**0.33333333_wp
+!#endif
+!    
+!  END FUNCTION scalar_cube_root_fc
   !-------------
 
 END MODULE mo_fast_math_functions
