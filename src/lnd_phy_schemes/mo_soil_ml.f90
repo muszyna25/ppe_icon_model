@@ -704,8 +704,10 @@ CHARACTER (LEN=80)                    ::  &
     k              , & ! loop index for snow layers
     ke_soil_hy     , & ! number of active soil moisture layers
     i              , & ! loop index in x-direction              
-    j              , & ! loop index in y-direction              
+    j              , & ! loop index in y-direction
+#ifndef __ICON__
     im1, jm1       , & ! i-1, j-1
+#endif
     jb             , & ! loop index for soil-type               
     mstyp          , & ! soil type index
     msr_off        , & ! number of layers contributing to surface run off
@@ -1962,13 +1964,19 @@ ENDIF
   ldebug         = .false.
 
   DO   j = jstarts, jends
+#ifndef __ICON__
     jm1  = MAX( 1, j-1 )
+#endif
     DO i = istarts, iends
 !subs      IF (llandmask(i,j)) THEN     ! for land-points only
       IF (llandmask(i,j,ns)) THEN     ! for land-points only
+#ifdef __ICON__
+        zuv        = SQRT ( u(i,j,ke)**2 + v(i,j,ke)**2 )
+#else
         im1        = MAX( 1, i-1)
         zuv        = 0.5_ireals*SQRT ( (u(i,j,ke) + u(im1,j,ke))**2 &
                                +(v(i,j,ke) + v(i,jm1,ke))**2 )
+#endif
 !subs        ztvs       = t_g (i,j,nx)*(1.0_ireals + rvd_m_o*qv_s(i,j,nx))
         ztvs       = t_g (i,j,ns)*(1.0_ireals + rvd_m_o*qv_s(i,j,ns))
 !JH IF(i.eq.1 .and. j.eq.1)  print *,ns,'ztvs',ztvs,t_g (i,j,nx,ns),rvd_m_o,qv_s(i,j,nx,ns),zuv,ps(i,j,nx),t(i,j,ke,nx)
@@ -2143,12 +2151,19 @@ ENDIF
            'max. temperature increment allowed per time step:',zlim_dtdt,' K',       &
            'upper soil model layer thickness                :', zdzhs(1)
     DO j = jstarts, jends
+#ifndef __ICON__
     jm1  = MAX( 1, j-1 )
+#endif
       DO i = istarts, iends
+#ifdef __ICON__
+      IF (limit_tch(i,j)) THEN
+        zuv        = SQRT (u(i,j,ke)**2 + v(i,j,ke)**2 )
+#else
       im1 = MAX(1,i-1)
       IF (limit_tch(i,j)) THEN
         zuv        = 0.5_ireals*SQRT ( (u(i,j,ke) + u(im1,j,ke))**2 &
                                +(v(i,j,ke) + v(i,jm1,ke))**2 )
+#endif
         yhc       ='COOLING'
         IF (zeb1(i,j) > 0._ireals) Yhc='HEATING'
 !!$>JH        PRINT 7001,ntstep,i,j,my_cart_id,Yhc,ps(i,j,nx),  &
@@ -2775,7 +2790,6 @@ ENDIF
         IF (llandmask(i,j,ns)) THEN ! land points only,
           IF (m_styp(i,j).ge.3) THEN ! neither ice or rocks
             IF (zep_s(i,j) < 0.0_ireals) THEN  ! upwards directed potential evaporation
-              im1        = MAX( 1, i-1)
 !subs              zuv        = SQRT (u_10m(i,j) **2 + v_10m(i,j)**2 )
 !subs              zcatm      = tch(i,j)*zuv           ! Function CA
               zuv        = SQRT (u_10m(i,j,ns) **2 + v_10m(i,j,ns)**2 )
