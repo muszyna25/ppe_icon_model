@@ -601,8 +601,9 @@ CONTAINS
         advection_config(jg)%ihadv_tracer(:) = iup3
         ! semi monotonous flux limiter
         advection_config(jg)%itype_hlimit(:) = ifluxl_sm
-        WRITE(message_text,'(a)') 'Attention: on the hexagonal grid, ',              &
-          &  'ihadv_trace4 = iup3 and itype_hlimit = ifluxl_sm are possible '
+        WRITE(message_text,'(a,i2)') 'NOTE: For hex grid works only ihadv_tracer =',iup3
+        CALL message(TRIM(routine),message_text)
+        WRITE(message_text,'(a,i2)')' and itype_hlimit= ', ifluxl_sm
         CALL message(TRIM(routine),message_text)
       END SELECT
 

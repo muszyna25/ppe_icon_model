@@ -1577,23 +1577,36 @@ CONTAINS
           IF (p_patch(jg)%cell_type == 3) THEN ! triangular grid
             CALL nf(nf_inq_dimid (ncid, TRIM(cellname), dimid))
             CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
-          ENDIF
-       
-          WRITE(0,*)'investigate the cells'
-          !hexagons
-          IF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
-            CALL nf(nf_inq_dimid (ncid, 'vertex', dimid))
-            CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
-          ENDIF
-
-          WRITE(0,*)'number of cells are', no_cells
+  
+            WRITE(0,*)'number of cells are', no_cells
           !
           ! check the number of cells and verts
           !
-          IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
+            IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
+            CALL finish(TRIM(ROUTINE),&
+              & 'Number of patch cells and cells in ozone file do not match.')
+          ENDIF
+        ENDIF
+       
+          !hexagons
+          IF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
+            CALL nf(nf_inq_dimid (ncid, TRIM(cellname), dimid))
+            CALL nf(nf_inq_dimlen(ncid, dimid, no_cells))
+
+            WRITE(0,*)'number of hexcells_o3 are', no_cells
+            WRITE(0,*)'number of hexverts are', p_patch(jg)%n_patch_verts_g
+            WRITE(0,*)'number of hexcellsmo are', p_patch(jg)%n_patch_cells_g 
+          !
+          ! check the number of cells and verts
+          !
+            IF(p_patch(jg)%n_patch_cells_g /= no_cells) THEN
+!          IF(p_patch(jg)%n_patch_verts_g /= no_cells) THEN
             CALL finish(TRIM(ROUTINE),&
             & 'Number of patch cells and cells in ozone file do not match.')
           ENDIF
+          ENDIF
+
+  
 
           ! check the time structure
           CALL nf(nf_inq_dimid (ncid, 'time', dimid))
@@ -1881,29 +1894,37 @@ CONTAINS
               &                                           ext_data(jg)%atm_td%phoz(i+1)
           ENDDO
 
-         IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
-           WRITE(0,*)'components are', p_patch(jg)%n_patch_cells_g,p_patch(jg)%n_patch_cells,&
-             & nlev_pres,  nmonths,TRIM(o3name),TRIM(levelname)
+! we have 2 different ozone files for hexagons and triangels at the moment
+!         IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
+
            CALL read_netcdf_data (ncid, TRIM(o3name), & ! &
              &                    p_patch(jg)%n_patch_cells_g,  &
              &                    p_patch(jg)%n_patch_cells,    &
              &                    p_patch(jg)%cells%glb_index,  & 
              &                    nlev_pres,  nmonths,          &
              &                    ext_data(jg)%atm_td%O3)
-         ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
-           CALL read_netcdf_data (ncid, TRIM(o3name), & 
-             &                    p_patch(jg)%n_patch_verts_g,  &
-             &                    p_patch(jg)%n_patch_verts,    & 
-             &                    p_patch(jg)%verts%glb_index,  &
-             &                    nlev_pres, nmonths,           &
-             &                    ext_data(jg)%atm_td%O3)
+
+!        ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
+!
+!          CALL read_netcdf_data (ncid, TRIM(o3name), & 
+!            &                    p_patch(jg)%n_patch_verts_g,  &
+!            &                    p_patch(jg)%n_patch_verts,    & 
+!            &                    p_patch(jg)%verts%glb_index,  &
+!            &                    nlev_pres, nmonths,           &
+!            &                    ext_data(jg)%atm_td%O3)
+!
+!         ENDIF ! patches
 
 
-         ENDIF ! patches
-
+         WRITE(0,*)'MAX/min o3 ppmv',MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)),&
+           &                        MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
+         
        ! convert from ppmv to g/g only in case of APE ozone
          IF(irad_o3 == io3_ape) &
 &         ext_data(jg)%atm_td%O3(:,:,:,:)= ext_data(jg)%atm_td%O3(:,:,:,:)*ppmv2gg
+
+         WRITE(0,*)'MAX/min o3 g/g',MAXVAL(ext_data(jg)%atm_td%O3(:,:,:,:)),&
+           &                        MINVAL(ext_data(jg)%atm_td%O3(:,:,:,:))
          
         ! close file
         IF(my_process_is_stdio()) CALL nf(nf_close(ncid))
@@ -2353,6 +2374,7 @@ CONTAINS
     ELSE
       mpi_comm = p_comm_work
     ENDIF
+
 
     ! I/O PE reads and broadcasts data
 

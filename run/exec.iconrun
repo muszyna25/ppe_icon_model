@@ -161,7 +161,8 @@ if [ $cp_atmo_files = "true" ] ;  then
    
    # APE ozone
    cp -f ${DATADIR}/external/ape_ozone/ape_o3_R2B04_1Pa_spr0.90-cell.nc ${EXPDIR}/o3_icon_DOM01.nc
-   check_error $? "cp -f ${DATADIR}/external/ape_ozone/ape_o3_R2B04_exthPa.nc ${EXPDIR}/o3_icon_DOM01.nc"
+#   cp -f ${DATADIR}/external/ape_ozone/ape_o3_R2B04_hex_1Pa_c.nc ${EXPDIR}/o3_icon_DOM01.nc
+#   check_error $? "cp -f ${DATADIR}/external/ape_ozone/ape_o3_R2B04_1Pa.nc ${EXPDIR}/o3_icon_DOM01.nc"
 
    #
    # =======================================================
