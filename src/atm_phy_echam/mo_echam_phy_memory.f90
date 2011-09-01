@@ -790,21 +790,21 @@ CONTAINS
 
     ! &       field% aprl   (nproma,       nblks), &
     cf_desc    = t_cf_var('large_scale_precip_rate', 'kg m-2 s-1', &
-               & 'average large scale precipitation rate')
+               & 'accumulated large scale precipitation rate')
     grib2_desc = t_grib2_var(0, 1, 9, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'ncpcp', field%aprl,                      &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     ! &       field% aprc   (nproma,       nblks), &
     cf_desc    = t_cf_var('convective_precip_rate', 'kg m-2 s-1', &
-               & 'average convective precipitation rate')
+               & 'accumulated convective precipitation rate')
     grib2_desc = t_grib2_var(0, 1, 37, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'cprat', field%aprc,                      &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     ! &       field% aprs   (nproma,       nblks), &
     cf_desc    = t_cf_var('snow_precip_rate', 'kg m-2 s-1', &
-               & 'average snow precipitation rate')
+               & 'accumulated snow precipitation rate')
     grib2_desc = t_grib2_var(0, 1, 66, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'sprate', field%aprs,                     &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )

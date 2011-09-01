@@ -893,10 +893,10 @@ CONTAINS
           &           k_jg)
           IF(iforcing == iecham) THEN
             CALL addVar(TimeVar('ozone',&
-              &                   'ozone mixing ratio',&
-              &                   'g/g', 255, 255,&
-              &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
-              &                   k_jg)
+            &                   'ozone mixing ratio',&
+            &                   'g/g', 255, 255,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
+            &           k_jg)
           ENDIF
         END SELECT
 
@@ -952,74 +952,73 @@ CONTAINS
         SELECT CASE (iforcing)
         CASE (inwp)
           CALL addVar(TimeVar('PRR_GSP',&
-               &                   'grid-scale rain precipitation rate',&
-               &                   'kg/s/m**2', 100, 201,&
-               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-               &           k_jg)
+          &                   'grid-scale rain precipitation rate',&
+          &                   'kg/s/m**2', 100, 201,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &           k_jg)
           CALL addVar(TimeVar('PRS_GSP',&
           &                   'grid-scale snow precipitation rate',&
           &                   'kg/s/m**2', 101, 201,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('RAIN_GSP',&
-               &                   'grid-scale accumulated surface rain',&
-               &                   'kg/m**2', 102, 201,&
-               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-               &           k_jg)
+          &                   'grid-scale accumulated surface rain',&
+          &                   'kg/m**2', 102, 201,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &           k_jg)
           CALL addVar(TimeVar('SNOW_GSP',&
           &                   'grid-scale accumulated surface snow',&
           &                   'kg/m**2', 79, 2,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('RAIN_CON',&
-               &                   'convective accumulated surface rain',&
-               &                   'kg/m**2', 113, 201,&
-               &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-               &           k_jg)
+          &                   'convective accumulated surface rain',&
+          &                   'kg/m**2', 113, 201,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &           k_jg)
           CALL addVar(TimeVar('SNOW_CON',&
           &                   'convective accumulated surface snow',&
           &                   'kg/m**2', 78, 2,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('TOT_PREC',&
-          &                'grid-scale plus convective accumulated surface total precipitation',&
-          &                'kg/m**2', 61, 2,&
-          &                vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &                   'grid-scale + convective accumulated surface total precipitation',&
+          &                   'kg/m**2', 61, 2,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('TOT_PREC_RATE_avg',&
-          &                'average grid-scale plus convective surface total precipitation rate',&
-          &                'kg/m**2/s', 61, 2,&
-          &                vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &                   'average grid-scale + convective surface total precipitation rate',&
+          &                   'kg/m**2/s', 61, 2,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('CON_PREC_RATE_avg',&
-          &                'average convective surface precipitation rate',&
-          &                'kg/m**2/s', 61, 2,&
-          &                vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &                   'average convective surface precipitation rate',&
+          &                   'kg/m**2/s', 61, 2,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           CALL addVar(TimeVar('GSP_PREC_RATE_avg',&
-          &                'average grid-scale surface precipitation rate',&
-          &                'kg/m**2/s', 61, 2,&
-          &                vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &                   'average grid-scale surface precipitation rate',&
+          &                   'kg/m**2/s', 61, 2,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
         CASE (iecham,ildf_echam)
           !--- aprl ---
           CALL addVar(TimeVar('APRL',&
-          &                     'average surface precipitation rate (rain + snow) due to&
-          &                     large scale condensation',&
-          &                     'kg/m**2/s', 142, 128,&
-          &                     vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &                 k_jg)
+          &        'accumulated surface precipitation (rain + snow) by large scale condensation',&
+          &                   'kg/m**2/s', 142, 128,&
+          &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &           k_jg)
           !--- aprc ---
           CALL addVar(TimeVar('APRC',&
-          &             'average surface precipitation rate (rain + snow) due to convection',&
-          &                     'kg/m**2/s', 143, 128,&
+          &                   'accumulated surface precipitation (rain + snow) by convection',&
+          &                   'kg/m**2/s', 143, 128,&
           &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &             k_jg)
           !--- aprs ---
           CALL addVar(TimeVar('APRS',&
-          &             'accumulated surface snow fall rate (large scale + convective)',&
-          &                     'kg/m**2/s', 144, 128,&
-          &                     vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &                   'accumulated surface snow fall rate (large scale + convective)',&
+          &                   'kg/m**2/s', 144, 128,&
+          &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &             k_jg)
           !--- rsfl ---
           CALL addVar(TimeVar('RSFL',&
@@ -1072,9 +1071,9 @@ CONTAINS
           &           k_jg)
           !--- total cloud cover ---
           CALL addVar(TimeVar('CC',&
-          &                 'total cloud cover',&
-          &                 '(0-1)', 94, 128,&
-          &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
+          &                   'total cloud cover',&
+          &                   '(0-1)', 94, 128,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
           &          k_jg)
 
           !--- vertically integrated total water vapor---
@@ -1104,28 +1103,28 @@ CONTAINS
 
           !--- average over the forcast time vertically integrated total water vapor---
           CALL addVar(TimeVar('TQV_avg',&
-          &               'average over forcast vertically integrated total water vapor',&
-          &               'km/m**2', 99, 128,&
-          &               vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &               k_jg)
+          &                   'average over forcast vertically integrated total water vapor',&
+          &                   'km/m**2', 99, 128,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &           k_jg)
           !--- average over the forcast time vertically integrated total cloud water ---
           CALL addVar(TimeVar('TQC_avg',&
-          &             'average over forcast vertically integrated total cloud water',&
-          &             'kg/m**2',101, 128,&
-          &             vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &             k_jg)
+          &                   'average over forcast vertically integrated total cloud water',&
+          &                   'kg/m**2',101, 128,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &           k_jg)
           !--- average over the forcast time vertically integrated total cloud ice ---
           CALL addVar(TimeVar('TQI_avg',&
-          &             'average over forcast vertically integrated total cloud ice',&
-          &             'kg/m**2',102, 128,&
-          &             vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &             k_jg)
+          &                   'average over forcast vertically integrated total cloud ice',&
+          &                   'kg/m**2',102, 128,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &           k_jg)
           !--- average over the forecast time of the  cloud cover ---
           CALL addVar(TimeVar('TCC_avg',&
-          &               'average over the forecast time of the cloud cover',&
-          &               '(0-1)', 103, 128,&
-          &               vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &               k_jg)
+          &                   'average over the forecast time of the cloud cover',&
+          &                   '(0-1)', 103, 128,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &           k_jg)
 
         CASE (iecham,ildf_echam)
 
