@@ -90,6 +90,7 @@ MODULE mo_timer
   PUBLIC :: timer_omp_radiation
   PUBLIC :: timer_write_restart_file
   PUBLIC :: timer_write_output
+  PUBLIC :: timer_cube_root_fc, timer_cube_root_rt, timer_cube_root_in
   
 !   PUBLIC :: ltimer                              !< if .true., switch on timer
 
@@ -151,6 +152,7 @@ MODULE mo_timer
   INTEGER :: timer_omp_radiation
   INTEGER :: timer_write_restart_file
   INTEGER :: timer_write_output
+  INTEGER :: timer_cube_root_fc, timer_cube_root_rt, timer_cube_root_in
   
 CONTAINS
 
@@ -216,7 +218,11 @@ CONTAINS
     timer_omp_radiation = new_timer("omp_radiation")
     timer_write_restart_file = new_timer("wrt_restart")
     timer_write_output = new_timer("wrt_output")
-    
+  
+    timer_cube_root_fc = new_timer("croot_fc")
+    timer_cube_root_rt = new_timer("croot_rt")
+    timer_cube_root_in = new_timer("croot_in")
+         
   END SUBROUTINE init_timer
 
 END MODULE mo_timer
