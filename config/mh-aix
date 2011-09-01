@@ -28,7 +28,7 @@ case "$fortran_compiler" in
      
       DEBUG_FLAGS = -g -qcheck -qstackprotect=all
       BASIC_OPT_FLAGS = -qalias_size -q64 -qmaxmem=-1 -qarch=auto -qtune=auto -qcache=auto -qfloat=fltint  -WF,-D__LOOP_EXCHANGE
-      STD_FLAGS = -O2 -qstrict "$BASIC_OPT_FLAGS" "$INFOFLAGS"
+      STD_FLAGS = -O2 -qstrict "$BASIC_OPT_FLAGS" "$INFOFLAGS" "$DEBUG_FLAGS"
       HIOPT_FLAGS = -O3 -qhot -qstrict "$BASIC_OPT_FLAGS"
                                                                               
       FFLAGS   = $GENFLAGS -qextname -qsuffix=cpp=f90 -qzerosize -qalias_size=1800000000  -qessl
