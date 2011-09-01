@@ -148,7 +148,7 @@ CONTAINS
     WRITE (message_text,'(A,2E12.5)') '      MAX/MIN z_mc  = ',MAXVAL(p_metrics%z_mc) &
                                                            &,MINVAL(p_metrics%z_mc)
     CALL message('',message_text)
-    WRITE (message_text,'(A,2E12.5)') '      MAX/MIN ddqz_z_full  = ',MAXVAL(p_metrics%ddqz_z_full) &
+    WRITE (message_text,'(A,2E12.5)') '      MAX/MIN ddqz_z_full = ',MAXVAL(p_metrics%ddqz_z_full)&
                                                            &,MINVAL(p_metrics%ddqz_z_full)
     CALL message('',message_text)
     ! init temperature
@@ -308,7 +308,7 @@ CONTAINS
     WRITE (message_text,'(A,2E12.5)') '      MAX/MIN tracer  = ',MAXVAL(ptr_nh_prog%tracer) &
                                                            &,MINVAL(ptr_nh_prog%tracer)
     CALL message('',message_text)
-     IF (tot_moist .GT. 1.e-25) THEN
+     IF (tot_moist .GT. 1.e-25_wp) THEN
        ptr_nh_prog%tracer(:,:,:,iqv) = ptr_nh_prog%tracer(:,:,:,iqv) * ztmc_ape / tot_moist
      END IF
     WRITE (message_text,'(A,2E12.5)') '      MAX/MIN tracer  = ',MAXVAL(ptr_nh_prog%tracer) &
