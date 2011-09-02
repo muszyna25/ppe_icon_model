@@ -1040,7 +1040,7 @@ CONTAINS
     INTEGER  :: pid                 !< patch ID
     !---------------------------------------------------------------------------
 
-    lcoupled_rho=.TRUE. ! re-integrate mass continuity equation (.TRUE.)
+    lcoupled_rho=.FALSE. ! re-integrate mass continuity equation (.TRUE.)
 
     ! get patch ID
     pid = p_patch%id

@@ -80,7 +80,7 @@ MODULE mo_advection_hflux
     &                               min_rledge_int, min_rledge, min_rlcell_int, &
     &                               iup, imiura, imiura3, islopel_sm, islopel_m,&
     &                               ifluxl_m, ifluxl_sm, iup3, INH_ATMOSPHERE,  &
-    &                               IHS_ATM_TEMP, IHS_ATM_THETA, ISHALLOW_WATER
+    &                               IHS_ATM_TEMP,ISHALLOW_WATER, IHS_ATM_THETA
   USE mo_model_domain,        ONLY: t_patch
   USE mo_math_operators,      ONLY: grad_green_gauss_cell, recon_lsq_cell_l,    &
     &                               recon_lsq_cell_q, recon_lsq_cell_cpoor,     &
@@ -150,7 +150,7 @@ CONTAINS
   ! !LITERATURE
   ! MUSCL: Ahmad et al. (2006), Int. J. Num. Meth. Fluids, 50, 1247-1268
   !        Lin et al. (1994), MWR, 122, 1575-1593
-  ! MIURA: Miura, H. (2007), Mon. Weather Rev., 135, 4038-4044
+  ! MIURA: Miura, H. (2007), Mon. Wea. Rev., 135, 4038-4044
   !
   SUBROUTINE hor_upwind_flux( p_cc, p_c0, p_mass_flx_e, p_vn, p_dtime, p_patch, &
     &                   p_int, p_ihadv_tracer, p_igrad_c_miura, p_itype_hlimit, &
@@ -201,8 +201,10 @@ CONTAINS
      &  opt_rlend                      !< (to avoid calculation of halo points)
 
     INTEGER :: jt                   !< tracer loop index
-    INTEGER :: i_rlend
+    INTEGER :: i_rlend, i_rlend_vt  
 
+    REAL(wp)::   &                  !< unweighted tangential velocity
+      &  z_real_vt(nproma,p_patch%nlev,p_patch%nblks_e)!< component at edges
 
     !-----------------------------------------------------------------------
 
@@ -211,6 +213,34 @@ CONTAINS
     ELSE
       i_rlend = min_rledge_int - 1
     ENDIF
+
+    ! In case that different transport schemes (MIURA, MIURA3) are used 
+    ! for different tracers, the double computation of tangential velocity 
+    ! vt should be avoided. Instead of computing vt inside each of the 
+    ! flux-routines, vt is computed only once per timestep prior to the flux 
+    ! routines. The resulting tangential velocity field is then passed as 
+    ! optional argument to MIURA and MIURA3. 
+
+    IF (ANY(p_ihadv_tracer(:)/= iup) .AND. ANY(p_ihadv_tracer(:)/= iup3)) THEN 
+
+      i_rlend_vt = MIN(i_rlend, min_rledge_int - 1)
+
+      IF (ANY(p_itype_hlimit(:)== islopel_sm) .OR. ANY(p_itype_hlimit(:)== islopel_m)) THEN
+        i_rlend_vt = MIN(i_rlend, min_rledge_int - 2)
+      ENDIF
+
+      IF ( p_iord_backtraj /= 1 ) THEN
+        i_rlend_vt = min_rledge_int - 3
+      ENDIF
+
+      ! reconstruct tangential velocity component at edge midpoints
+      CALL rbf_vec_interpol_edge( p_vn, p_patch, p_int,             &! in
+        &                         z_real_vt, opt_rlend=i_rlend_vt )! inout
+    ENDIF
+
+
+
+
 
     DO jt = 1, ntracer ! Tracer loop
 
@@ -229,16 +259,16 @@ CONTAINS
           &                 p_vn, p_dtime, p_int, lcompute%miura_h(jt),  &! in
           &                 lcleanup%miura_h(jt), p_igrad_c_miura,       &! in
           &                 p_itype_hlimit(jt), p_iord_backtraj,         &! in
-          &                 p_upflux(:,:,:,jt), opt_slev=p_iadv_slev(jt),&! inout,in
-          &                 opt_rlend=i_rlend                            )! in
+          &                 p_upflux(:,:,:,jt), opt_real_vt=z_real_vt,   &! inout,in
+          &                 opt_slev=p_iadv_slev(jt), opt_rlend=i_rlend  )! in
 
       CASE( imiura3 )
         ! CALL MIURA with third order accurate reconstruction
         CALL upwind_hflux_miura3( p_patch, p_cc(:,:,:,jt), p_mass_flx_e, &! in
           &                 p_vn, p_dtime, p_int, lcompute%miura3_h(jt), &! in
           &                 lcleanup%miura3_h(jt), p_itype_hlimit(jt),   &! in
-          &                 p_upflux(:,:,:,jt), opt_slev=p_iadv_slev(jt),&! inout,in
-          &                 opt_rlend=i_rlend                            )! in
+          &                 p_upflux(:,:,:,jt), opt_real_vt=z_real_vt,   &! inout,in
+          &                 opt_slev=p_iadv_slev(jt), opt_rlend=i_rlend  )! in
 
       CASE( iup3 )
         ! CALL 3rd order upwind (only for hexagons, currently)
