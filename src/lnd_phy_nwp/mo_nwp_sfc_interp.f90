@@ -187,7 +187,6 @@ CONTAINS
         prepicon%sfc_in%tsoil(jc,jb,nlevsoil_in+1) = prepicon%sfc%tsoil(jc,jb,nlev_soil+1)
         ! assume no-gradient condition for soil moisture
         prepicon%sfc_in%wsoil(jc,jb,nlevsoil_in+1) = prepicon%sfc_in%wsoil(jc,jb,nlevsoil_in)
-        prepicon%sfc%wsoil(jc,jb,nlev_soil+1)      = prepicon%sfc_in%wsoil(jc,jb,nlevsoil_in)
       ENDDO
 
       ! Vertical interpolation of multi-layer soil fields from IFS levels to TERRA levels
@@ -249,6 +248,12 @@ CONTAINS
           prepicon%sfc%wsoil(jc,jb,jk) =  &
             &               MIN(dzsoil_icon(jk), MAX(0.0_wp, prepicon%sfc%wsoil(jc,jb,jk)))
         ENDDO
+      ENDDO
+
+      ! assume no-gradient condition for soil moisture reservoir layer
+      DO jc = 1, nlen
+        prepicon%sfc%wsoil(jc,jb,nlev_soil+1) = prepicon%sfc%wsoil(jc,jb,nlev_soil)*          &
+                                                dzsoil_icon(nlev_soil+1)/dzsoil_icon(nlev_soil)
       ENDDO
 
 !      CALL message('mo_nwp_sfc_interp:', 'after wsoil conversion')

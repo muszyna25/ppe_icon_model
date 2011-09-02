@@ -253,15 +253,21 @@ CONTAINS
           h_snow_t(1:i_endidx,jb,2,isubs) = lnd_diag%h_snow(1:i_endidx,jb,isubs)
 
 
-          ! copy prognostic variables
-          t_snow_t(1:i_endidx,jb,1,isubs) = lnd_prog_now%t_snow(1:i_endidx,jb,isubs)
-          t_snow_t(1:i_endidx,jb,2,isubs) = lnd_prog_now%t_snow(1:i_endidx,jb,isubs)
+          ! Set upper and lower limits to temperature variables in order to provisionally
+          ! fix the numerical instabilities of TERRA. THIS IS NOT INTENDED TO BE A FINAL SOLUTION!!!
+          t_snow_t(1:i_endidx,jb,1,isubs) = MAX(170._wp,lnd_prog_now%t_snow(1:i_endidx,jb,isubs))
+          t_snow_t(1:i_endidx,jb,2,isubs) = MAX(170._wp,lnd_prog_now%t_snow(1:i_endidx,jb,isubs))
+          t_snow_t(1:i_endidx,jb,1:2,isubs) = MIN(340._wp,t_snow_t(1:i_endidx,jb,1:2,isubs))
           t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,1,isubs) = &
-            & lnd_prog_now%t_snow_mult(1:i_endidx,1:nlev_snow+1,jb,isubs)
+            & MAX(170._wp,lnd_prog_now%t_snow_mult(1:i_endidx,1:nlev_snow+1,jb,isubs))
           t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,2,isubs) = &
-            & lnd_prog_now%t_snow_mult(1:i_endidx,1:nlev_snow+1,jb,isubs)
-          t_s_t(1:i_endidx,jb,1,isubs)    = lnd_prog_now%t_s(1:i_endidx,jb,isubs)
-          t_s_t(1:i_endidx,jb,2,isubs)    = lnd_prog_now%t_s(1:i_endidx,jb,isubs)
+            & MAX(170._wp,lnd_prog_now%t_snow_mult(1:i_endidx,1:nlev_snow+1,jb,isubs))
+          t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,1:2,isubs) = &
+            MIN(340._wp,t_snow_mult_t(1:i_endidx,0:nlev_snow,jb,1:2,isubs))
+          t_s_t(1:i_endidx,jb,1,isubs)    = MAX(170._wp,lnd_prog_now%t_s(1:i_endidx,jb,isubs))
+          t_s_t(1:i_endidx,jb,2,isubs)    = MAX(170._wp,lnd_prog_now%t_s(1:i_endidx,jb,isubs))
+          t_s_t(1:i_endidx,jb,1:2,isubs) = MIN(340._wp,t_s_t(1:i_endidx,jb,1:2,isubs))
+          ! copy remaining prognostic variables
           w_snow_t(1:i_endidx,jb,1,isubs) = lnd_prog_now%w_snow(1:i_endidx,jb,isubs)
           w_snow_t(1:i_endidx,jb,2,isubs) = lnd_prog_now%w_snow(1:i_endidx,jb,isubs)
           rho_snow_t(1:i_endidx,jb,1,isubs) = lnd_prog_now%rho_snow(1:i_endidx,jb,isubs)
@@ -406,11 +412,12 @@ CONTAINS
           !DR ATTENTION: only valid, if nsfc_subs=1 !!!!!
           WHERE (ext_data%atm%fr_land(i_startidx:i_endidx,jb)>0.5_wp)
             lnd_prog_new%t_gt(i_startidx:i_endidx,jb,isubs) = &
-              lnd_prog_now%t_gt(i_startidx:i_endidx,jb,isubs)
-            lnd_prog_new%t_g(i_startidx:i_endidx,jb) = lnd_prog_new%t_gt(i_startidx:i_endidx,jb,1)
+              MIN(340._wp,MAX(170._wp,lnd_prog_now%t_gt(i_startidx:i_endidx,jb,isubs)))
+            lnd_prog_new%t_g(i_startidx:i_endidx,jb) = &
+              MIN(340._wp,MAX(170._wp,lnd_prog_new%t_gt(i_startidx:i_endidx,jb,1)))
             lnd_diag%qv_s(i_startidx:i_endidx,jb) = lnd_diag%qv_st(i_startidx:i_endidx,jb,1)
             prm_diag%tch (1:i_endidx,jb) = tch_t (1:i_endidx,jb,1)
-            prm_diag%t_2m(1:i_endidx,jb) = t_2m_t(1:i_endidx,jb,1)
+            prm_diag%t_2m(1:i_endidx,jb) = MIN(340._wp,MAX(170._wp,t_2m_t(1:i_endidx,jb,1)))
           END WHERE
 
         ENDDO

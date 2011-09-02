@@ -64,7 +64,8 @@ MODULE mo_nwp_turb_interface
   USE mo_icoham_sfc_indices, ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_vdiff_config,       ONLY: vdiff_config
   USE mo_vdiff_driver,       ONLY: vdiff
-  
+  USE mo_advection_config,   ONLY: advection_config
+
   IMPLICIT NONE
 
   PRIVATE
@@ -307,6 +308,22 @@ CONTAINS
            CALL finish(eroutine, errormsg)
         END IF
 
+        ! Set limits to turbulent temperature tendency as a provisional
+        ! fix of numerical instabilities. THIS IS NOT INTENDED TO BE A FINAL SOLUTION!!!
+        DO jk = 1, advection_config(jg)%iadv_slev(iqc)-1
+          DO jc = i_startidx, i_endidx
+            prm_nwp_tend%ddt_temp_turb(jc,jk,jb) = &
+              MIN(1.e-3_wp,MAX(-1.e-3_wp,prm_nwp_tend%ddt_temp_turb(jc,jk,jb)))
+           z_tke(jc,jk,jb,1) = MIN(1._wp,z_tke(jc,jk,jb,1))
+          ENDDO
+        ENDDO
+        DO jk = advection_config(jg)%iadv_slev(iqc), nlev
+          DO jc = i_startidx, i_endidx
+            prm_nwp_tend%ddt_temp_turb(jc,jk,jb) = &
+              MIN(0.01_wp,MAX(-0.01_wp,prm_nwp_tend%ddt_temp_turb(jc,jk,jb)))
+          ENDDO
+        ENDDO
+
         ! Update QV, QC and temperature with turbulence tendencies
         DO jk = 1, nlev
           DO jc = i_startidx, i_endidx
@@ -318,6 +335,16 @@ CONTAINS
               &  + tcall_turb_jg*prm_nwp_tend%ddt_temp_turb(jc,jk,jb)
           ENDDO
         ENDDO
+
+        ! If QV advection is turned off near the model top, fix QV to a constant value of 
+        ! 2.5e-6 in those passive layers
+        IF (advection_config(jg)%iadv_slev(iqv) > 1) THEN
+          DO jk = 1, advection_config(jg)%iadv_slev(iqv)-1
+            DO jc = i_startidx, i_endidx
+              p_prog_rcf%tracer(jc,jk,jb,iqv) = 2.5e-6_wp
+            ENDDO
+          ENDDO
+        ENDIF
 
         p_prog_rcf%tke(i_startidx:i_endidx,:,jb)=z_tke(i_startidx:i_endidx,:,jb,1)
 
