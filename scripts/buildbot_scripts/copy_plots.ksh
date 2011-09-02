@@ -38,7 +38,7 @@ copy_files ()
 #    echo "Source: experiments/${dir}/${name}"
 #    echo "Target: ${BASE_DIR}/${dir}/${name}"
     cp experiments/${dir}/${name}.$1 ${BASE_DIR}/${dir}/${name}.$1
-    convert experiments/${dir}/${name}.$1 ${BASE_DIR}/${dir}/${name}.png
+#    convert experiments/${dir}/${name}.$1 ${BASE_DIR}/${dir}/${name}.png
   done
 }
 
