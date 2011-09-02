@@ -64,8 +64,7 @@ MODULE mo_echam_phy_main
   USE mo_timer,               ONLY: timer_start, timer_stop,          &
     &                               timer_cover, timer_cloud,         &
     &                               timer_radheat,                    &
-    &                               timer_cucall, timer_vdiff,        &
-    &                               timer_gw_hines
+    &                               timer_cucall, timer_vdiff
   USE mo_ham_aerosol_params,  ONLY: ncdnc, nicnc
   USE mo_icoham_sfc_indices,  ONLY: nsfc_type, iwtr, iice, ilnd
   USE mo_surface,             ONLY: update_surface
@@ -782,8 +781,6 @@ CONTAINS
 
     IF (echam_phy_config%lgw_hines) THEN
 
-      IF (ltimer) call timer_start(timer_gw_hines)
-
       zlat_deg(jcs:jce) = p_patch(jg)%cells%center(jcs:jce,jb)%lat * 180._wp/pi
 
       CALL gw_hines ( jg                       ,&
@@ -803,7 +800,6 @@ CONTAINS
         &             tend%    u_gwh(:,:,jb)   ,&
         &             tend%    v_gwh(:,:,jb) )
 
-      IF (ltimer) call timer_stop(timer_gw_hines)
 
       tend% temp(jcs:jce,:,jb) = tend% temp(jcs:jce,:,jb) + tend% temp_gwh(jcs:jce,:,jb)
       tend%    u(jcs:jce,:,jb) = tend%    u(jcs:jce,:,jb) + tend%    u_gwh(jcs:jce,:,jb)

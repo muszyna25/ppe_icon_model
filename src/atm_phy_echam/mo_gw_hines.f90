@@ -63,8 +63,8 @@ MODULE mo_gw_hines
 
   USE mo_gw_hines_config,      ONLY: gw_hines_config
 
-  USE mo_timer,               ONLY: timer_start, timer_stop,&
-    & timer_cube_root_fc, timer_cube_root_rt, timer_cube_root_in
+  USE mo_timer,               ONLY: ltimer, timer_start, timer_stop,&
+    & timer_gw_hines
 
   USE mo_fast_math_functions
 
@@ -252,10 +252,11 @@ CONTAINS
 
     CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines:gw_hines'
 
-!!$#ifdef _PROFILE
-!!$  CALL trace_start ('gw_hines', 20)
-!!$#endif
+#ifdef __PROFILE
+  CALL trace_start ('gw_hines', 20)
+#endif
 
+    IF (ltimer) call timer_start(timer_gw_hines)
     !
     !--  Check consistency of nc, jcs and jce
     !
@@ -462,10 +463,11 @@ CONTAINS
       tend_v_gwh(jcs:jce,jk) = vtendgw(1:nc,jk)
     END DO
     !
+    IF (ltimer) call timer_stop(timer_gw_hines)
 
-!!$#ifdef _PROFILE
-!!$    CALL trace_stop ('gw_hines', 20)
-!!$#endif
+#ifdef __PROFILE
+  CALL trace_stop ('gw_hines', 20)
+#endif
 
     !-----------------------------------------------------------------------
   END SUBROUTINE gw_hines
@@ -773,7 +775,7 @@ CONTAINS
     REAL(wp) :: m_sub_m_turb, m_sub_m_mol, m_trial, mmsq
     REAL(wp) :: visc, visc_min, sp1, f2mfac
 
-    REAL(wp) :: n_over_m(nlons), sigfac(nlons), vtmp1(nlons), vtmp2(nlons), vtmp3(nlons), maxdiff
+    REAL(wp) :: n_over_m(nlons), sigfac(nlons), vtmp1(nlons), vtmp2(nlons)! , vtmp3(nlons), maxdiff
 
     CHARACTER(len=*), PARAMETER :: routine = 'mo_gw_hines:hines_wavnum'
 
@@ -910,24 +912,7 @@ CONTAINS
           vtmp2(j) = bvfreq(i,l)*kstar/visc
        END DO
 
-       IF (nlorms > 0) THEN
-         vtmp3(1:nlorms) = vtmp2(1:nlorms)
-         CALL timer_start(timer_cube_root_rt)         
-         CALL cube_root_rt(vtmp3, vtmp3, vector_size=nlorms)
-         CALL timer_stop(timer_cube_root_rt)
-!          CALL timer_start(timer_cube_root_fc)
-!          vtmp2(1:nlorms) = cube_root_fc(vtmp2(1:nlorms))
-!          CALL timer_stop(timer_cube_root_fc)
-         CALL timer_start(timer_cube_root_in)         
-         vtmp2(1:nlorms) = vtmp2(1:nlorms)**0.33333333_wp
-         CALL timer_stop(timer_cube_root_in)
-
-         maxdiff = MAXVAL(ABS(vtmp3(1:nlorms) - vtmp2(1:nlorms)))
-         IF (maxdiff > 1e-7_wp) THEN
-           write(0,*) " Warning: gw_hines cube_root_rt differs:",maxdiff
-         ENDIF 
-         
-       ENDIF
+       CALL cube_root_rt(vtmp2, vtmp2, vector_size=nlorms)
        
        DO j = 1,nlorms
           i = ilorms(j)

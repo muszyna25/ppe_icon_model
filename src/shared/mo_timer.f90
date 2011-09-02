@@ -39,11 +39,14 @@ MODULE mo_timer
        &                   print_timer   => timer_report,    &
        &                   cleanup_timer => timer_reset_all, &
        &                   delete_timer => del_timer
+   USE mo_run_config, ONLY: ltimer, timers_level  
 
 !   USE mo_run_config, ONLY: ltimer
 
   IMPLICIT NONE
   PRIVATE
+
+  PUBLIC :: ltimer, timers_level
   PUBLIC :: new_timer, timer_start, timer_stop  !< procedures imported from mo_real_timer
   PUBLIC :: print_timer, cleanup_timer, delete_timer          !< procedures imported and renamed
   PUBLIC :: init_timer                          !< procedure of this module
@@ -90,7 +93,8 @@ MODULE mo_timer
   PUBLIC :: timer_omp_radiation
   PUBLIC :: timer_write_restart_file
   PUBLIC :: timer_write_output
-  PUBLIC :: timer_cube_root_fc, timer_cube_root_rt, timer_cube_root_in
+  PUBLIC :: timer_si_correction
+  PUBLIC :: timer_cube_root
   
 !   PUBLIC :: ltimer                              !< if .true., switch on timer
 
@@ -152,7 +156,8 @@ MODULE mo_timer
   INTEGER :: timer_omp_radiation
   INTEGER :: timer_write_restart_file
   INTEGER :: timer_write_output
-  INTEGER :: timer_cube_root_fc, timer_cube_root_rt, timer_cube_root_in
+  INTEGER :: timer_si_correction
+  INTEGER :: timer_cube_root
   
 CONTAINS
 
@@ -219,9 +224,8 @@ CONTAINS
     timer_write_restart_file = new_timer("wrt_restart")
     timer_write_output = new_timer("wrt_output")
   
-    timer_cube_root_fc = new_timer("croot_fc")
-    timer_cube_root_rt = new_timer("croot_rt")
-    timer_cube_root_in = new_timer("croot_in")
+    timer_cube_root = new_timer("cube_root")
+    timer_si_correction = new_timer("si_correction")
          
   END SUBROUTINE init_timer
 

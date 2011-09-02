@@ -100,6 +100,9 @@ MODULE mo_si_correction
   USE m_gmres,               ONLY: gmres
   USE mo_impl_constants_grf, ONLY: grf_bdywidth_c, grf_bdywidth_e
   USE mo_sync,               ONLY: SYNC_C, SYNC_E, sync_patch_array
+  
+  USE mo_timer,               ONLY: ltimer, timer_start, timer_stop,&
+    & timer_si_correction
 
   IMPLICIT NONE
 
@@ -495,26 +498,30 @@ ENDIF
                             pt_prog_new                )! in
 
 
-   LOGICAL, INTENT(IN) :: lsi_3d
-   REAL(wp),INTENT(IN) :: si_coeff, si_rtol
-   LOGICAL, INTENT(IN) :: lshallow_water
-   REAL(wp),INTENT(IN) :: p_dtime      !< time step in seconds
-   TYPE(t_patch),TARGET,INTENT(IN) :: pt_patch
-   TYPE(t_int_state),INTENT(IN) :: pt_int_state !< horizontal interpolation coeff.
+    LOGICAL, INTENT(IN) :: lsi_3d
+    REAL(wp),INTENT(IN) :: si_coeff, si_rtol
+    LOGICAL, INTENT(IN) :: lshallow_water
+    REAL(wp),INTENT(IN) :: p_dtime      !< time step in seconds
+    TYPE(t_patch),TARGET,INTENT(IN) :: pt_patch
+    TYPE(t_int_state),INTENT(IN) :: pt_int_state !< horizontal interpolation coeff.
 
-   TYPE(t_hydro_atm_prog) :: pt_prog_old
-   TYPE(t_hydro_atm_prog) :: pt_prog_now
-   TYPE(t_hydro_atm_prog) :: pt_prog_new
+    TYPE(t_hydro_atm_prog) :: pt_prog_old
+    TYPE(t_hydro_atm_prog) :: pt_prog_now
+    TYPE(t_hydro_atm_prog) :: pt_prog_new
 
-   IF (lsi_3d) THEN
+    IF (ltimer) call timer_start(timer_si_correction)
+   
+    IF (lsi_3d) THEN
       CALL add_si_correction_3d( si_coeff, si_rtol, p_dtime,            &
                                  pt_patch, pt_int_state,                &
                                  pt_prog_old, pt_prog_now, pt_prog_new  )
-   ELSE
+    ELSE
       CALL add_si_correction_2d( si_coeff, si_rtol, lshallow_water, p_dtime,&
                                  pt_patch, pt_int_state,                &
                                  pt_prog_old, pt_prog_now, pt_prog_new  )
-   ENDIF
+    ENDIF
+    
+    IF (ltimer) call timer_stop(timer_si_correction)
 
   END SUBROUTINE si_correction
 
