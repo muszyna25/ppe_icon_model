@@ -158,6 +158,7 @@ MODULE mo_io_vlist
   USE mo_nwp_phy_state,         ONLY: prm_diag, prm_nwp_tend !, t_nwp_phy_diag
   USE mo_nwp_lnd_state,         ONLY: t_lnd_prog, t_lnd_diag
   USE mo_echam_phy_memory,      ONLY: prm_field, prm_tend
+  USE mo_icoham_sfc_indices,    ONLY: nsfc_type
   USE mo_radiation_config,      ONLY: izenith, irad_h2o,                          &
     &                                 irad_co2, irad_ch4, irad_n2o, irad_o3,      &
     &                                 irad_o2, irad_cfc11, irad_cfc12,  irad_aero
@@ -787,9 +788,9 @@ CONTAINS
             &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
             &           k_jg)
             
-          END IF
+          END IF !lwrite_tracer(jt)
         END DO
-     ENDIF
+        ENDIF !iforcing == inwp
 
       END IF
 
@@ -831,50 +832,8 @@ CONTAINS
             &         zaxisID_hybrid(k_jg)), k_jg)
         ENDDO
 
-          !--- aclcov ---
-        CALL addVar(TimeVar('ACLCOV',&
-          &                 'total cloud cover',&
-          &                 '(0-1)', 164, 128,&
-          &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &          k_jg)
-          !--- aclc ---
-        CALL addVar(TimeVar('ACLC',&
-          &                 'cloud cover',&
-          &                 '(0-1)', 162, 128,&
-          &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
-          &          k_jg)
-          !--- aclcac ---
-        CALL addVar(TimeVar('ACLCAC',&
-          &                 'cloud cover',&
-          &                 '(0-1)', 223, 128,&
-          &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
-          &          k_jg)
-          !--- qvi ---
-        CALL addVar(TimeVar('QVI',&
-          &                 'temporally and vertically integrated water vapor content',&
-          &                 's kg/m**2', 230, 128,&
-          &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &          k_jg)
-          !--- xlvi ---
-        CALL addVar(TimeVar('XLVI',&
-          &                 'temporally and vertically integrated cloud water content',&
-          &                 's kg/m**2', 231, 128,&
-          &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &          k_jg)
-          !--- xivi ---
-        CALL addVar(TimeVar('XIVI',&
-          &                 'temporally and vertically integrated cloud ice content',&
-          &                 's kg/m**2', 232, 128,&
-          &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &          k_jg)
-       !  !--- omega (for debugging) ---
-       !CALL addVar(TimeVar('OMEGA_PHY',&
-       !  &                 'vertical velocity in pressure coordinate',&
-       !  &                 'Pa/s', 135, 128,&
-       !  &                 vlistID(k_jg), gridCellID(k_jg), zaxisID_hybrid(k_jg)),&
-       !  &          k_jg)
         END SELECT !iforcing
-      ENDIF !lwrite_cloud
+      ENDIF !lwrite_extra
 
       ! radiation
       IF(lwrite_radiation) THEN
@@ -1135,26 +1094,38 @@ CONTAINS
         CALL addVar(TimeVar('ACLCOV',&
           &                 'total cloud cover accumulated over output interval',&
           &                 's', 164, 128,&
-          &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &          k_jg)
+          &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
           !--- aclc ---
         CALL addVar(TimeVar('ACLC',&
           &                 'cloud area fraction (instantaneous)',&
           &                 '(0-1)', 162, 128,&
-          &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
-          &          k_jg)
+          &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),k_jg)
           !--- aclcac ---
         CALL addVar(TimeVar('ACLCAC',&
           &                 'cloud area fraction accumulated over output interval',&
           &                 's', 223, 128,&
-          &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
-          &          k_jg)
-          !--- omega (for debugging) ---
-        CALL addVar(TimeVar('OMEGA_PHY',&
-          &                 'vertical velocity in pressure coordinate',&
-          &                 'Pa/s', 135, 128,&
-          &                 vlistID(k_jg), gridCellID(k_jg), zaxisID_hybrid(k_jg)),&
-          &          k_jg)
+          &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),k_jg)
+          !--- qvi ---
+        CALL addVar(TimeVar('qvi',&
+          &                 'temporally and vertically integrated water vapor content',&
+          &                 's kg/m**2', 230, 128,&
+          &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
+          !--- xlvi ---
+        CALL addVar(TimeVar('xlvi',&
+          &                 'temporally and vertically integrated cloud water content',&
+          &                 's kg/m**2', 231, 128,&
+          &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
+          !--- xivi ---
+        CALL addVar(TimeVar('xivi',&
+          &                 'temporally and vertically integrated cloud ice content',&
+          &                 's kg/m**2', 232, 128,&
+          &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
+       !  !--- omega (for debugging) ---
+       !CALL addVar(TimeVar('OMEGA_PHY',&
+       !  &                 'vertical velocity in pressure coordinate',&
+       !  &                 'Pa/s', 135, 128,&
+       !  &                 vlistID(k_jg), gridCellID(k_jg), zaxisID_hybrid(k_jg)),k_jg)
+
         END SELECT !iforcing
       ENDIF !lwrite_cloud
 
@@ -1403,7 +1374,61 @@ CONTAINS
           &                   'K', 134, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
-        END SELECT
+
+
+        CASE (iecham,ildf_echam)
+
+          CALL addVar(TimeVar('evap_ac',                                         &
+          &           'evaporation accumulated over output interval',            &
+          &           'kg m-2', 182, 128,                                        &
+          &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
+
+          CALL addVar(TimeVar('lhflx_ac',                                        &
+          &           'latent heat flux accumulated over output interval',       &
+          &           'W m-2 s', 147, 128,                                       &
+          &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
+
+          CALL addVar(TimeVar('shflx_ac',                                        &
+          &           'sensible heat flux accumulated over output interval',     &
+          &           'W m-2 s', 146, 128,                                       &
+          &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
+
+          CALL addVar(TimeVar('u_stress_ac',                                     &
+          &           'surface wind stress accumulated over output interval',    &
+          &           'N m-2 s', 180, 128,                                       &
+          &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
+
+          CALL addVar(TimeVar('v_stress_ac',                                     &
+          &           'surface wind stress accumulated over output interval',    &
+          &           'N m-2 s', 181, 128,                                       &
+          &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
+
+
+          DO jt = 1,nsfc_type 
+
+            WRITE(name,'(a,i1)') "evap_tile_",jt
+            CALL addVar(TimeVar(TRIM(name), TRIM(name),'kg m-2 s-1',182,128,       &
+            &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
+
+            WRITE(name,'(a,i1)') "lhflx_tile_",jt
+            CALL addVar(TimeVar(TRIM(name), TRIM(name),'W m-2',147,128,            &
+            &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
+
+            WRITE(name,'(a,i1)') "shflx_tile_",jt
+            CALL addVar(TimeVar(TRIM(name), TRIM(name),'W m-2',146,128,            &
+            &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
+
+            WRITE(name,'(a,i1)') "u_stress_tile_",jt
+            CALL addVar(TimeVar(TRIM(name), TRIM(name),'N m-2',180,128,            &
+            &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
+
+            WRITE(name,'(a,i1)') "v_stress_tile_",jt
+            CALL addVar(TimeVar(TRIM(name), TRIM(name),'N m-2',181,128,            &
+            &           vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),k_jg)
+
+          END DO
+
+        END SELECT !iforcing
       ENDIF !lwrite_surface
 
       ! Tendencies induced by physics parameterizations
@@ -1906,7 +1931,7 @@ CONTAINS
     INTEGER :: jt
     INTEGER :: nlevp1
     LOGICAL :: not_found
-    CHARACTER(LEN=1) :: ctracer
+    CHARACTER(LEN=1) :: ctracer, ctile
     CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
       &  ctracer_list
 
@@ -1943,9 +1968,6 @@ CONTAINS
       CASE ('PHIS');            ptr2 => p_diag%geo_ic(:,nlevp1,:)
       CASE ('cosmu0');          ptr2 => prm_field(jg)%cosmu0
       CASE ('flxdwswtoa');      ptr2 => prm_field(jg)%flxdwswtoa
-      CASE ('QVI');             ptr2 => prm_field(jg)%qvi (:,:);   reset = .TRUE.
-      CASE ('XLVI');            ptr2 => prm_field(jg)%xlvi(:,:);   reset = .TRUE.
-      CASE ('XIVI');            ptr2 => prm_field(jg)%xivi(:,:);   reset = .TRUE.
       CASE ('APRL');            ptr2 => prm_field(jg)%aprl(:,:);   reset = .TRUE.
       CASE ('APRC');            ptr2 => prm_field(jg)%aprc(:,:);   reset = .TRUE.
       CASE ('APRS');            ptr2 => prm_field(jg)%aprs(:,:);   reset = .TRUE.
@@ -1953,13 +1975,18 @@ CONTAINS
       CASE ('RSFC');            ptr2 => prm_field(jg)%rsfc(:,:)
       CASE ('SSFL');            ptr2 => prm_field(jg)%ssfl(:,:)
       CASE ('SSFC');            ptr2 => prm_field(jg)%ssfc(:,:)
-      CASE ('ACLCOV');          ptr2 => prm_field(jg)%aclcov(:,:); reset = .TRUE.
       CASE ('ACLC');            ptr3 => prm_field(jg)%aclc
       CASE ('ACLCAC');          ptr3 => prm_field(jg)%aclcac;      reset = .TRUE.
+      CASE ('ACLCOV');          ptr2 => prm_field(jg)%aclcov(:,:); reset = .TRUE.
+      CASE ('qvi');             ptr2 => prm_field(jg)%qvi (:,:);   reset = .TRUE.
+      CASE ('xlvi');            ptr2 => prm_field(jg)%xlvi(:,:);   reset = .TRUE.
+      CASE ('xivi');            ptr2 => prm_field(jg)%xivi(:,:);   reset = .TRUE.
 
-      CASE ('EVAP_AC');         ptr2 => prm_field(jg)% evap_ac(:,:); reset = .TRUE.
-      CASE ('LHFLX_AC');        ptr2 => prm_field(jg)%lhflx_ac(:,:); reset = .TRUE.
-      CASE ('SHFLX_AC');        ptr2 => prm_field(jg)%shflx_ac(:,:); reset = .TRUE.
+      CASE ('evap_ac');         ptr2 => prm_field(jg)%    evap_ac(:,:); reset = .TRUE.
+      CASE ('lhflx_ac');        ptr2 => prm_field(jg)%   lhflx_ac(:,:); reset = .TRUE.
+      CASE ('shflx_ac');        ptr2 => prm_field(jg)%   shflx_ac(:,:); reset = .TRUE.
+      CASE ('u_stress_ac');     ptr2 => prm_field(jg)%u_stress_ac(:,:); reset = .TRUE.
+      CASE ('v_stress_ac');     ptr2 => prm_field(jg)%v_stress_ac(:,:); reset = .TRUE.
 
       CASE ('OMEGA_PHY');       ptr3 => prm_field(jg)%omega
       CASE ('tend_temp_radsw'); ptr3 => prm_tend(jg)%temp_radsw
@@ -1998,9 +2025,11 @@ CONTAINS
       CASE DEFAULT;             not_found = .TRUE.
     END SELECT
 
-    ! If not found in the list above, check for tracers
+    ! If not found in the list above, check for tracers, tracer tendencies, or 
+    ! tile-specific quantities
 
     IF(not_found) THEN
+
       DO jt = 1, ntracer
         ctracer = ctracer_list(jt:jt)
         IF(varname == 'Q'//ctracer) THEN
@@ -2019,6 +2048,36 @@ CONTAINS
           ptr3 => prm_tend(jg)%q_vdf(:,:,:,jt)
           RETURN
         ENDIF
+      ENDDO
+
+      DO jt = 1, nsfc_type 
+        WRITE(ctile,'(i1)') jt
+
+        IF(varname == 'evap_tile_'//ctile) THEN
+          ptr2 => prm_field(jg)%evap_tile(:,:,jt)
+          RETURN
+        ENDIF
+
+        IF(varname == 'lhflx_tile_'//ctile) THEN
+          ptr2 => prm_field(jg)%lhflx_tile(:,:,jt)
+          RETURN
+        ENDIF
+
+        IF(varname == 'shflx_tile_'//ctile) THEN
+          ptr2 => prm_field(jg)%shflx_tile(:,:,jt)
+          RETURN
+        ENDIF
+
+        IF(varname == 'u_stress_tile_'//ctile) THEN
+          ptr2 => prm_field(jg)%u_stress_tile(:,:,jt)
+          RETURN
+        ENDIF
+
+        IF(varname == 'v_stress_tile_'//ctile) THEN
+          ptr2 => prm_field(jg)%v_stress_tile(:,:,jt)
+          RETURN
+        ENDIF
+
       ENDDO
 
       ! If we are here, the varname was definitly not found

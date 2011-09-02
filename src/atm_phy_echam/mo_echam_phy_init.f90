@@ -361,6 +361,9 @@ CONTAINS
       field% lhflx_ac(:,  :) = 0._wp
       field% shflx_ac(:,  :) = 0._wp
 
+      field% u_stress_ac(:,  :) = 0._wp
+      field% v_stress_ac(:,  :) = 0._wp
+
       field% rtype (:,  :) = 0._wp
       field% rintop(:,  :) = 0._wp
 
@@ -507,6 +510,9 @@ CONTAINS
       field%  evap_ac(:,  :) = 0._wp
       field% lhflx_ac(:,  :) = 0._wp
       field% shflx_ac(:,  :) = 0._wp
+
+      field% u_stress_ac(:,  :) = 0._wp
+      field% v_stress_ac(:,  :) = 0._wp
 
       NULLIFY( field )
     ENDDO !jg
