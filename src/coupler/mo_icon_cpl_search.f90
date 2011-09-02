@@ -444,9 +444,11 @@ CONTAINS
              ! 2nd) send data message 1 to source
              ! ----------------------------------------------------------
              !
-             msgtag = initag + 2
-             CALL psmile_bsend ( grid_global_index(idx_range(1):idx_range(2)), &
-                  msg_to_src(1), MPI_INTEGER, source_rank, msgtag, ICON_comm_active, ierr )
+             IF ( msg_to_src(1) > 0 ) THEN
+                msgtag = initag + 2
+                CALL psmile_bsend ( grid_global_index(idx_range(1):idx_range(2)), &
+                     msg_to_src(1), MPI_INTEGER, source_rank, msgtag, ICON_comm_active, ierr )
+             ENDIF
 
           ENDIF ! ( idx_range(1) <= idx_range(2) )
 
@@ -485,141 +487,142 @@ CONTAINS
        ! 2nd) receive data message 1 from target
        ! ----------------------------------------------------------------
        !
-       msgtag = wstatus(MPI_TAG) + 1
-       CALL MPI_Recv ( tptr%target_list, tptr%target_list_len, MPI_INTEGER, &
-            tptr%target_rank, msgtag, ICON_comm_active, rstatus, ierr )
+       source_list_len = 0
 
-       IF ( l_debug .AND. debug_level > 1 ) THEN
-          DO i = 1,  tptr%target_list_len
-             WRITE ( cplout , '(a,3i8)' ) 'Received target list', i, tptr%target_list(i)
+       IF ( tptr%target_list_len > 0 ) THEN
+
+          msgtag = wstatus(MPI_TAG) + 1
+          CALL MPI_Recv ( tptr%target_list, tptr%target_list_len, MPI_INTEGER, &
+               tptr%target_rank, msgtag, ICON_comm_active, rstatus, ierr )
+
+          IF ( l_debug .AND. debug_level > 1 ) THEN
+             DO i = 1,  tptr%target_list_len
+                WRITE ( cplout , '(a,3i8)' ) 'Received target list', i, tptr%target_list(i)
+             ENDDO
+          ENDIF
+
+          ! =====================
+          ! >>> Beginn ASSERTION
+          ! =====================
+
+          DO i = 1, len - 1
+             IF ( i < idx_range(2) ) THEN
+                IF ( grid_global_index(i) > grid_global_index(i+1) ) THEN
+                   PRINT *, 'ERROR: Currently ascending order of src list indices is assumed.'
+                   PRINT *, i, grid_global_index(i), grid_global_index(i+1)
+                   CALL MPI_Abort ( ICON_comm, 1, ierr )
+                ENDIF
+             ENDIF
           ENDDO
-       ENDIF
 
-       ! =====================
-       ! >>> Beginn ASSERTION
-       ! =====================
-
-       DO i = 1, len - 1
-          IF ( i < idx_range(2) ) THEN
-             IF ( grid_global_index(i) > grid_global_index(i+1) ) THEN
-                PRINT *, 'ERROR: Currently ascending order of src list indices is assumed.'
-                PRINT *, i, grid_global_index(i), grid_global_index(i+1)
+          DO i = 1, tptr%target_list_len - 1
+             IF ( tptr%target_list(i) > tptr%target_list(i+1) ) THEN
+                PRINT *, 'ERROR: Currently ascending order of tgt list indices is assumed .'
+                PRINT *, i, tptr%target_list(i), tptr%target_list(i+1)
                 CALL MPI_Abort ( ICON_comm, 1, ierr )
              ENDIF
-          ENDIF
-       ENDDO
+          ENDDO
 
-       DO i = 1, tptr%target_list_len - 1
-          IF ( tptr%target_list(i) > tptr%target_list(i+1) ) THEN
-             PRINT *, 'ERROR: Currently ascending order of tgt list indices is assumed .'
-             PRINT *, i, tptr%target_list(i), tptr%target_list(i+1)
+          ! ==================
+          ! <<< End ASSERTION
+          ! ==================
+          
+          !
+          ! ----------------------------------------------------------------
+          ! Compare tptr%target_lists with local grid and detect matching indices
+          ! ----------------------------------------------------------------
+          !
+          
+          i = 1
+
+          DO WHILE ( grid_global_index(i) < tptr%target_list(1) .AND. i < len )
+             i = i + 1
+          ENDDO
+
+          ii           = 1
+          idx_range(1) = i
+          idx_range(2) = len ! gptr%grid_shape(2)
+
+          IF ( l_debug ) &
+               WRITE ( cplout , '(a,2i8)' ) 'Index range ', idx_range (1), idx_range (2)
+
+          source_list_len = incr
+
+          ALLOCATE ( srcbuffer(incr), tgtbuffer(incr), STAT = ierr )
+          IF ( ierr > 0 ) THEN
+             PRINT *, ' Error allocating buffers '
              CALL MPI_Abort ( ICON_comm, 1, ierr )
           ENDIF
-       ENDDO
 
-       ! ==================
-       ! <<< End ASSERTION
-       ! ==================
+          j = 0
 
-       !
-       ! ----------------------------------------------------------------
-       ! Compare tptr%target_lists with local grid and detect matching indices
-       ! ----------------------------------------------------------------
-       !
+          DO i = idx_range(1), idx_range(2)
 
-       i = 1
+             IF ( grid_global_index(i) > tptr%target_list(tptr%target_list_len) ) EXIT
 
-       DO WHILE ( grid_global_index(i) < tptr%target_list(1) .AND. i < len )
-          i = i + 1
-       ENDDO
+             ii = location ( tptr%target_list_len, tptr%target_list, grid_global_index(i) )
 
-       ii           = 1
-       idx_range(1) = i
-       idx_range(2) = len ! gptr%grid_shape(2)
+             IF ( ii > 0 ) THEN
 
-       IF ( l_debug ) &
-            WRITE ( cplout , '(a,2i8)' ) 'Index range ', idx_range (1), idx_range (2)
+                ! ---------------------------------
+                ! Check whether we need more memory
+                ! ---------------------------------
 
-       source_list_len = incr
+                IF ( j + 1 > source_list_len ) THEN
 
-       ALLOCATE ( srcbuffer(incr), tgtbuffer(incr), STAT = ierr )
-       IF ( ierr > 0 ) THEN
-          PRINT *, ' Error allocating buffers '
-          CALL MPI_Abort ( ICON_comm, 1, ierr )
-       ENDIF
+                   ! Allocate a new chunk of memory
+                   ! ------------------------------
 
-       j = 0
+                   ALLOCATE ( new_srcbuffer(j+incr), new_tgtbuffer(j+incr), STAT = ierr )
+                   IF ( ierr > 0 ) THEN
+                      PRINT *, ' Error allocating buffers '
+                      CALL MPI_Abort ( ICON_comm, 1, ierr )
+                   ENDIF
 
-       DO i = idx_range(1), idx_range(2)
+                   ! Transfer data to new buffer
+                   ! ------------------------------
 
-!rr          IF ( INTERNAL_POINT /= -999 ) THEN
-!rr
-!rr             IF ( global_index_rank(i) /= INTERNAL_POINT ) CYCLE
-!rr
-!rr          ENDIF
+                   new_srcbuffer (1:j) = srcbuffer(1:j)
+                   new_tgtbuffer (1:j) = tgtbuffer(1:j)
 
-          IF ( grid_global_index(i) > tptr%target_list(tptr%target_list_len) ) EXIT
+                   ! Deallocate old buffer
+                   ! ------------------------------
 
-          ii = location ( tptr%target_list_len, tptr%target_list, grid_global_index(i) )
+                   DEALLOCATE ( srcbuffer, tgtbuffer, STAT = ierr )
+                   IF ( ierr > 0 ) THEN
+                      PRINT *, ' Error deallocating buffers '
+                      CALL MPI_Abort ( ICON_comm, 1, ierr )
+                   ENDIF
 
-          IF ( ii > 0 ) THEN
+                   ! Assign original pointer
+                   ! ------------------------------
 
-             ! ---------------------------------
-             ! Check whether we need more memory
-             ! ---------------------------------
+                   srcbuffer => new_srcbuffer
+                   tgtbuffer => new_tgtbuffer
 
-             IF ( j + 1 > source_list_len ) THEN
-
-                ! Allocate a new chunk of memory
-                ! ------------------------------
-
-                ALLOCATE ( new_srcbuffer(j+incr), new_tgtbuffer(j+incr), STAT = ierr )
-                IF ( ierr > 0 ) THEN
-                   PRINT *, ' Error allocating buffers '
-                   CALL MPI_Abort ( ICON_comm, 1, ierr )
                 ENDIF
 
-                ! Transfer data to new buffer
-                ! ------------------------------
+                j = j + 1
+                srcbuffer(j) = i
+                tgtbuffer(j) = ii
 
-                new_srcbuffer (1:j) = srcbuffer(1:j)
-                new_tgtbuffer (1:j) = tgtbuffer(1:j)
-
-                ! Deallocate old buffer
-                ! ------------------------------
-
-                DEALLOCATE ( srcbuffer, tgtbuffer, STAT = ierr )
-                IF ( ierr > 0 ) THEN
-                   PRINT *, ' Error deallocating buffers '
-                   CALL MPI_Abort ( ICON_comm, 1, ierr )
-                ENDIF
-
-                ! Assign original pointer
-                ! ------------------------------
-
-                srcbuffer => new_srcbuffer
-                tgtbuffer => new_tgtbuffer
+                IF ( l_debug .AND. debug_level > 1 ) &
+                     WRITE ( cplout , '(2i8,a,3i8)' ) i, grid_global_index(i), &
+                     ' <-> ', j, tgtbuffer(j),  tptr%target_list_len
 
              ENDIF
 
-             j = j + 1
-             srcbuffer(j) = i
-             tgtbuffer(j) = ii
+          ENDDO ! i = idx_range(1), idx_range(2)
 
-             IF ( l_debug .AND. debug_level > 1 ) &
-                  WRITE ( cplout , '(2i8,a,3i8)' ) i, grid_global_index(i), &
-                  ' <-> ', j, tgtbuffer(j),  tptr%target_list_len
+          source_list_len = j
 
-          ENDIF
-
-       ENDDO ! i = idx_range(1), idx_range(2)
+       ENDIF
 
        !
        ! ----------------------------------------------------------------
        ! Store matching global indices on the source side
        ! ----------------------------------------------------------------
        !
-       source_list_len = j
 
        ALLOCATE ( source_locs(index)%source_list(source_list_len), STAT = ierr )
        IF ( ierr > 0 ) THEN
@@ -645,10 +648,12 @@ CONTAINS
          source_locs(index)%target_list(i) = tgtbuffer(i)
        ENDDO
 
-       DEALLOCATE ( srcbuffer, tgtbuffer, STAT = ierr )
-       IF ( ierr > 0 ) THEN
-          PRINT *, ' Error deallocating buffers '
-          CALL MPI_Abort ( ICON_comm, 1, ierr )
+       IF (ASSOCIATED(srcbuffer) .AND. ASSOCIATED(tgtbuffer) ) THEN
+          DEALLOCATE ( srcbuffer, tgtbuffer, STAT = ierr )
+          IF ( ierr > 0 ) THEN
+             PRINT *, ' Error deallocating buffers '
+             CALL MPI_Abort ( ICON_comm, 1, ierr )
+          ENDIF
        ENDIF
 
        !
