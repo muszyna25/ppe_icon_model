@@ -769,7 +769,7 @@ CONTAINS
 
     !-------------------------------------------------------------------------
     ! Hydrometeors and the other tracers share the same exchange coefficient 
-    ! and heat and moisture, but have no turbulence-induced surface flux.
+    ! with heat and moisture, but have no turbulence-induced surface flux.
     ! These are taken care of in subroutine matrix_setup.
     !   The total water variance has a different exchange coefficient 
     ! (variable cfv), and no surface flux. Set the surfce exchange coefficient

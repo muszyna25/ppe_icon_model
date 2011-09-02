@@ -1004,22 +1004,25 @@ CONTAINS
         CASE (iecham,ildf_echam)
           !--- aprl ---
           CALL addVar(TimeVar('APRL',&
-          &        'accumulated surface precipitation (rain + snow) by large scale condensation',&
-          &                   'kg/m**2/s', 142, 128,&
-          &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &           'large-scale precip amount (rain + snow) '//&
+          &           'accumulated over output interval',&
+          &           'kg m-2', 142, 128,&
+          &           vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &           k_jg)
           !--- aprc ---
           CALL addVar(TimeVar('APRC',&
-          &                   'accumulated surface precipitation (rain + snow) by convection',&
-          &                   'kg/m**2/s', 143, 128,&
-          &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &             k_jg)
+          &           'convective precip amount (rain + snow) '//&
+          &           'accumulated over output interval',&
+          &           'kg m-2', 143, 128,&
+          &           vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &           k_jg)
           !--- aprs ---
           CALL addVar(TimeVar('APRS',&
-          &                   'accumulated surface snow fall rate (large scale + convective)',&
-          &                   'kg/m**2/s', 144, 128,&
-          &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),&
-          &             k_jg)
+          &           'snowfall amount (large scale + convective) '//&
+          &           'accumulated over output interval',&
+          &           'kg m-2', 144, 128,&
+          &           vlistID(k_jg),gridCellID(k_jg),zaxisID_surface(k_jg)),&
+          &           k_jg)
           !--- rsfl ---
           CALL addVar(TimeVar('RSFL',&
           &                   'surface rain flux due to large scale condensation',&
@@ -1047,7 +1050,7 @@ CONTAINS
         END SELECT !iforcing
       ENDIF !lwrite_precip
 
-      ! cloud fraction
+      ! cloud
       IF(lwrite_cloud ) THEN
         SELECT CASE (iforcing)
         CASE (inwp)
@@ -1130,20 +1133,20 @@ CONTAINS
 
           !--- aclcov ---
         CALL addVar(TimeVar('ACLCOV',&
-          &                 'total cloud cover',&
-          &                 '(0-1)', 164, 128,&
+          &                 'total cloud cover accumulated over output interval',&
+          &                 's', 164, 128,&
           &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &          k_jg)
           !--- aclc ---
         CALL addVar(TimeVar('ACLC',&
-          &                 'cloud cover',&
+          &                 'cloud area fraction (instantaneous)',&
           &                 '(0-1)', 162, 128,&
           &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
           &          k_jg)
           !--- aclcac ---
         CALL addVar(TimeVar('ACLCAC',&
-          &                 'cloud cover',&
-          &                 '(0-1)', 223, 128,&
+          &                 'cloud area fraction accumulated over output interval',&
+          &                 's', 223, 128,&
           &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
           &          k_jg)
           !--- omega (for debugging) ---

@@ -192,20 +192,20 @@ MODULE mo_echam_phy_memory
 
     ! Cloud and precipitation
     REAL(wp),POINTER ::     &
-      & aclc      (:,:,:),  &!< [m2/m2] fractional cloud cover   (was aclc in echam)
-      & aclcac    (:,:,:),  &!< accumulated cloud cover
-      & aclcov    (:,  :),  &!< (time accum and vertically integrated) total cloud cover
+      & aclc      (:,:,:),  &!< [m2/m2] cloud area fractional
+      & aclcac    (:,:,:),  &!< area fractional accumulated over output interval
+      & aclcov    (:,  :),  &!< total cloud cover accumulated over output interval
       & acdnc     (:,:,:),  &!< cloud droplet number concentration [1/m**3]
       & xvar      (:,:,:),  &!< variance of total water amount qv+qi+ql [kg/kg] (memory_g3b)
       & xskew     (:,:,:),  &!< skewness of total water amount qv+qi+ql [kg/kg]
       & relhum    (:,:,:),  &!< relative humidity (relhum of memory_g3b in ECHAM)
-      & aprl      (:,  :),  &!< (time accum) sfc precip amount, rain+snow, large scale   [kg/m**2]
-      & aprc      (:,  :),  &!< (time accum) sfc precip amount, rain+snow, convective    [kg/m**2]
-      & aprs      (:,  :),  &!< (time accum) sfc snow   amount, large scale + convective [kg/m**2]
-      & rsfl      (:,  :),  &!< sfc rain flux, large scale [kg/m**2/s]
-      & rsfc      (:,  :),  &!< sfc rain flux, convective  [kg/m**2/s]
-      & ssfl      (:,  :),  &!< sfc snow flux, large scale [kg/m**2/s]
-      & ssfc      (:,  :),  &!< sfc snow flux, convective  [kg/m**2/s]
+      & aprl      (:,  :),  &!< (time accum) sfc precip amount, rain+snow, large-scale     [kg m-2]
+      & aprc      (:,  :),  &!< (time accum) sfc precip amount, rain+snow, convective      [kg m-2]
+      & aprs      (:,  :),  &!< (time accum) sfc snowfall amount, large scale + convective [kg m-2]
+      & rsfl      (:,  :),  &!< sfc rain flux, large scale [kg m-2 s-1]
+      & rsfc      (:,  :),  &!< sfc rain flux, convective  [kg m-2 s-1]
+      & ssfl      (:,  :),  &!< sfc snow flux, large scale [kg m-2 s-1]
+      & ssfc      (:,  :),  &!< sfc snow flux, convective  [kg m-2 s-1]
       & qvi       (:,  :),  &!< (time accum) vertically integrated water vapor [kg/m**2s]
       & xlvi      (:,  :),  &!< (time accum) vertically integrated cloud water [kg/m**2s]
       & xivi      (:,  :)    !< (time accum) vertically integrated cloud ice [kg/m**2s]
@@ -747,20 +747,22 @@ CONTAINS
     shape3d  = (/kproma, klev, kblks/)
 
    !ALLOCATE( field% aclc   (nproma,nlev  ,nblks), &
-    cf_desc    = t_cf_var('cloud_cover', '', 'cloud cover')
-    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    cf_desc    = t_cf_var('ACLC', 'm2 m-2', 'cloud area fraction, instantaneous')
+    grib2_desc = t_grib2_var(0,6,1, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'aclc', field%aclc,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
     ! &       field% aclcac (nproma,nlev  ,nblks), &
-    cf_desc    = t_cf_var('accumulated_cloud_cover', '', 'accumulated_cloud_cover')
-    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    cf_desc    = t_cf_var('ACLCAC', 's m2 m-2', &
+               & 'cloud area fraction accumulated over output interval')
+    grib2_desc = t_grib2_var(0,6,255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'aclcac', field%aclcac,                   &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
     ! &       field% aclcov (nproma,       nblks), &
-    cf_desc    = t_cf_var('total_cloud_cover', '', 'total cloud cover')
-    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    cf_desc    = t_cf_var('ACLCOV', 's m2 m-2', &
+               & 'total cloud cover accumulated over output interval')
+    grib2_desc = t_grib2_var(0,6, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'aclcov', field%aclcov,                   &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
@@ -789,50 +791,50 @@ CONTAINS
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc, ldims=shape3d )
 
     ! &       field% aprl   (nproma,       nblks), &
-    cf_desc    = t_cf_var('large_scale_precip_rate', 'kg m-2 s-1', &
-               & 'accumulated large scale precipitation rate')
+    cf_desc    = t_cf_var('APRL', 'kg m-2', &
+               & 'large-scale precipitation amount accumulated over output interval')
     grib2_desc = t_grib2_var(0, 1, 9, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'ncpcp', field%aprl,                      &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     ! &       field% aprc   (nproma,       nblks), &
-    cf_desc    = t_cf_var('convective_precip_rate', 'kg m-2 s-1', &
-               & 'accumulated convective precipitation rate')
+    cf_desc    = t_cf_var('APRC', 'kg m-2', &
+               & 'convective precipitation amount accumulated over output interval')
     grib2_desc = t_grib2_var(0, 1, 37, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'cprat', field%aprc,                      &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     ! &       field% aprs   (nproma,       nblks), &
-    cf_desc    = t_cf_var('snow_precip_rate', 'kg m-2 s-1', &
-               & 'accumulated snow precipitation rate')
+    cf_desc    = t_cf_var('APRS', 'kg m-2', &
+               & 'snowfall (large-scale + convective) amount accumulated over output interval')
     grib2_desc = t_grib2_var(0, 1, 66, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'sprate', field%aprs,                     &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     ! &       field% rsfl   (nproma,       nblks), &
-    cf_desc    = t_cf_var('large_scale_precip_water', 'kg m-2 s-1',    &
-               & 'instantaneous large scale precipitation rate (water)')
+    cf_desc    = t_cf_var('RSFL', 'kg m-2 s-1',    &
+               & 'instantaneous large-scale precipitation flux (water)')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'rsfl', field%rsfl,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     ! &       field% rsfc   (nproma,       nblks), &
-    cf_desc    = t_cf_var('convective_precip_water', 'kg m-2 s-1',    &
-               & 'instantaneous convective precipitation rate (water)')
+    cf_desc    = t_cf_var('RSFC', 'kg m-2 s-1',    &
+               & 'instantaneous convective precipitation flux (water)')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'rsfc', field%rsfc,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     ! &       field% ssfl   (nproma,       nblks), &
-    cf_desc    = t_cf_var('large_scale_precip_snow', 'kg m-2 s-1',    &
-               & 'instantaneous large scale precipitation rate (snow)')
+    cf_desc    = t_cf_var('SSFL', 'kg m-2 s-1',    &
+               & 'instantaneous large-scale precipitation flux (snow)')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'ssfl', field%ssfl,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
 
     ! &       field% ssfc   (nproma,       nblks), &
-    cf_desc    = t_cf_var('convective_precip_snow', 'kg m-2 s-1',    &
-               & 'instantaneous convective precipitation rate (snow)')
+    cf_desc    = t_cf_var('SSFC', 'kg m-2 s-1',    &
+               & 'instantaneous convective precipitation flux (snow)')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( field_list, prefix//'ssfc', field%ssfc,                       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_SURFACE, cf_desc, grib2_desc, ldims=shape2d )
