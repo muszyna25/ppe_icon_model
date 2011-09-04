@@ -447,11 +447,18 @@ CONTAINS
   !-------------
   !>
   !!
-  SUBROUTINE additional_restart_init( p_patch )
+  SUBROUTINE additional_restart_init( p_patch, ltestcase, ctest_name )
 
-    TYPE(t_patch),INTENT(IN) :: p_patch(:)
+    TYPE(t_patch),   INTENT(IN) :: p_patch(:)
+    LOGICAL,         INTENT(IN) :: ltestcase
+    CHARACTER(LEN=*),INTENT(IN) :: ctest_name
+
     INTEGER :: ndomain, nblks_c, jg, jb, jbs, jc, jcs, jce
+    REAL(wp):: zlat
+
     TYPE(t_echam_phy_field),POINTER :: field => NULL()
+
+    CHARACTER(LEN=*),PARAMETER :: routine = 'additional_restart_init'
 
     !----
     ! total number of domains/ grid levels
@@ -467,19 +474,51 @@ CONTAINS
 
       field => prm_field(jg)
 
-      !----------------------------------------
-      ! Initialize logical variables
-      !----------------------------------------
       nblks_c = p_patch(jg)%nblks_int_c
       jbs     = p_patch(jg)%cells%start_blk(2,1)
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,jcs,jce)
+!$OMP DO PRIVATE(jb,jc,jcs,jce,zlat)
       DO jb = jbs,nblks_c
         CALL get_indices_c( p_patch(jg), jb,jbs,nblks_c, jcs,jce, 2)
 
+        !---------------------------------------------------------------------
+        ! Re-initialize SST, sea ice and glacier if necessary
+        !---------------------------------------------------------------------
+        IF (ltestcase) THEN
+
+          SELECT CASE (ctest_name)
+          CASE('APE')
+          ! For an aqua-planet experiment, re-initialization is necessary if 
+          ! the restart file in use was generated during a differently configured 
+          ! experiment (e.g., an APE exp with a different SST setup, or 
+          ! a real-world simulation such as AMIP, etc). 
+
+            DO jc = jcs,jce
+              zlat = p_patch(jg)%cells%center(jc,jb)%lat
+             !field% tsfc_tile(jc,iwtr,jb) = ape_sst(ape_sst_case,zlat)   ! SST
+             !field% tsfc     (jc,     jb) = field% tsfc_tile(jc,iwtr,jb)
+              field% tsfc_tile(jc,jb,iwtr) = ape_sst(ape_sst_case,zlat)   ! SST
+              field% tsfc     (jc,     jb) = field% tsfc_tile(jc,jb,iwtr)
+            END DO
+            field% lsmask(jcs:jce,jb) = 0._wp   ! zero land fraction
+            field% glac  (jcs:jce,jb) = 0._wp   ! zero glacier fraction
+            field% seaice(jcs:jce,jb) = 0._wp   ! zeor sea ice fraction
+
+          END SELECT
+
+        ELSE 
+          CALL finish(TRIM(routine),'ltestcase = .FALSE. '//                     &
+                     & 'Implement re-initialization of SST, sea ice and glacier.')
+        END IF
+
+        !--------------------------------------------------------------------
         ! Initialize the flag lfland (.TRUE. if the fraction of land in 
         ! a grid box is larger than zero). In ECHAM a local array
-        ! is initialized in each call of the subroutine "physc"
+        ! is initialized in each call of the subroutine "physc".
+        ! Note that this initialization is needed for all resumed integrations
+        ! regardless of the choice of "ltestcase" and "ctest_name", because
+        ! logical variables can not yet be stored in restart files.
+        !--------------------------------------------------------------------
 
         DO jc = jcs,jce
           field%lfland(jc,jb) = field%lsmask(jc,jb).GT.0._wp

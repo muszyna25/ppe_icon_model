@@ -108,12 +108,13 @@ CONTAINS
 #endif
       CALL message(TRIM(routine),'normal exit from read_restart_files')
 
+      ! Re-initialize SST, sea ice and glacier for certain experiments; 
       ! Initialize logical variables in echam physics state.
-      ! This is necessary for now because logical arrays can not yet be
+      ! The latter is necessary for now because logical arrays can not yet be
       ! written into restart files.
 
       IF (iforcing==IECHAM.OR.iforcing==ILDF_ECHAM) THEN
-        CALL additional_restart_init( p_patch(1:) )
+        CALL additional_restart_init( p_patch(1:), ltestcase, ctest_name )
       END IF
     ELSE
     ! This is an initial run (cold start). Compute initial condition for
