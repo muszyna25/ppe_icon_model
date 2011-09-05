@@ -91,6 +91,7 @@ MODULE mo_ext_data
   INTEGER::  nlev_pres, nmonths
 
   CHARACTER(len=6)  :: levelname
+  CHARACTER(len=4)  :: zlevelname
   CHARACTER(len=6)  :: cellname
   CHARACTER(len=5)  :: o3name
   CHARACTER(len=20) :: o3unit
@@ -285,6 +286,7 @@ MODULE mo_ext_data
                                ! index3=1,nblks_c, index4=1,ntimes
 
     REAL(wp),POINTER::  &
+      &   zf  (:),      &      !full levels of ozone gemometric height
       &   pfoz(:),      &      !full levels of of ozone pressure
       &   phoz(:)              !half levels of ozone pressure field 
     !
@@ -1145,6 +1147,14 @@ CONTAINS
 
       WRITE(0,*) 'generate ext ozone field'
 
+      ! o3  main height level from read-in file
+      cf_desc    = t_cf_var('O3_zf', 'm',   &
+        &                   'ozone geometric height level')
+      grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_ext_atm_td_list, 'O3_zf', p_ext_atm_td%zf, &
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, &
+        &           grib2_desc, ldims=(/nlev_pres/) )
+
       ! o3  main pressure level from read-in file
       cf_desc    = t_cf_var('O3_pf', 'Pa',   &
         &                   'ozone main pressure level')
@@ -1541,6 +1551,7 @@ CONTAINS
 
         IF(irad_o3 == io3_ape ) THEN
           levelname = 'level'
+          zlevelname = 'zlev'
           cellname  = 'ncells'
           o3name    = 'O3'
           o3unit    = 'g/g'
@@ -1606,8 +1617,6 @@ CONTAINS
           ENDIF
           ENDIF
 
-  
-
           ! check the time structure
           CALL nf(nf_inq_dimid (ncid, 'time', dimid))
           CALL nf(nf_inq_dimlen(ncid, dimid, nmonths))
@@ -1618,14 +1627,31 @@ CONTAINS
             & nmonths
 
           ! check the vertical structure
-          CALL nf(nf_inq_dimid (ncid,TRIM(levelname), dimid))
-          CALL nf(nf_inq_dimlen(ncid, dimid, nlev_pres))
 
-          CALL message(TRIM(ROUTINE),message_text)
-          WRITE(message_text,'(A,I4)')  &
-            & 'Number of pressure levels in ozone file = ', &
-            & nlev_pres
-          
+          SELECT CASE (iequations)
+          CASE(ihs_atm_temp,ihs_atm_theta)
+
+            CALL nf(nf_inq_dimid (ncid,TRIM(levelname), dimid))
+            CALL nf(nf_inq_dimlen(ncid, dimid, nlev_pres))
+
+            CALL message(TRIM(ROUTINE),message_text)
+            WRITE(message_text,'(A,I4)')  &
+              & 'Number of pressure levels in ozone file = ', &
+              & nlev_pres
+
+          CASE(inh_atmosphere)
+
+              ! the number of zlevel is the same as the pressure level number, therfore the
+              ! the dimension size name stay the same
+
+            CALL nf(nf_inq_dimid (ncid,TRIM(zlevelname), dimid))
+            CALL nf(nf_inq_dimlen(ncid, dimid, nlev_pres))
+
+            CALL message(TRIM(ROUTINE),message_text)
+            WRITE(message_text,'(A,I4)')  &
+              & 'Number of height levels in ozone file = ', &
+              & nlev_pres
+          END SELECT
           !
           ! close file
           !
@@ -1669,7 +1695,7 @@ CONTAINS
     INTEGER :: i_lev,jk
     INTEGER :: ncid, dimid, varid
 
-    REAL(wp):: zdummy_plev(nlev_pres)
+    REAL(wp):: zdummy_o3lev(nlev_pres) ! will be used for pressure and height levels
 
     !----------------------------------------------------------------------
 
@@ -1869,16 +1895,27 @@ CONTAINS
           WRITE(ozone_file,'(a,I2.2,a)') 'o3_icon_DOM',jg,'.nc'
           CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid))
           WRITE(0,*)'read ozone levels'
-          CALL nf(nf_inq_varid(ncid, TRIM(levelname), varid))
-          CALL nf(nf_get_var_double(ncid, varid,zdummy_plev(:) ))
 
+          SELECT CASE (iequations)
+          CASE(ihs_atm_temp,ihs_atm_theta)
+
+          CALL nf(nf_inq_varid(ncid, TRIM(levelname), varid))
+          CALL nf(nf_get_var_double(ncid, varid,zdummy_o3lev(:) ))
+
+          CASE(inh_atmosphere)
+          CALL nf(nf_inq_varid(ncid, TRIM(zlevelname), varid))
+          CALL nf(nf_get_var_double(ncid, varid,zdummy_o3lev(:) ))
+          END SELECT
           !
         ENDIF ! pe
 
-        CALL p_bcast(zdummy_plev(:), p_io, mpi_comm)      
+        CALL p_bcast(zdummy_o3lev(:), p_io, mpi_comm)      
+
+          SELECT CASE (iequations)
+          CASE(ihs_atm_temp,ihs_atm_theta)
 
           DO jk=1,nlev_pres
-            ext_data(jg)%atm_td%pfoz(jk)=zdummy_plev(jk)
+            ext_data(jg)%atm_td%pfoz(jk)=zdummy_o3lev(jk)
           ENDDO
 
           ! define half levels of ozone pressure grid
@@ -1893,6 +1930,14 @@ CONTAINS
             WRITE(0,*) 'full/half level press ozone ', i, ext_data(jg)%atm_td%pfoz(i),&
               &                                           ext_data(jg)%atm_td%phoz(i+1)
           ENDDO
+
+          CASE(inh_atmosphere)
+
+          DO jk=1,nlev_pres
+            ext_data(jg)%atm_td%zf(jk)=zdummy_o3lev(jk)
+!            WRITE(0,*) 'full geom level of ozone ', jk, ext_data(jg)%atm_td%zf(jk)
+          ENDDO
+        END SELECT
 
 ! we have 2 different ozone files for hexagons and triangels at the moment
 !         IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
