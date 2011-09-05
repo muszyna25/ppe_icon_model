@@ -249,7 +249,9 @@ MODULE mo_nonhydro_state
       &  temp(:,:,:),       & ! temperature (nproma,nlev,nblks_c)              [K]
       &  tempv(:,:,:),      & ! virtual temperature (nproma,nlev,nblks_c)      [K]
       &  pres(:,:,:),       & ! pressure (nproma,nlev,nblks_c)                 [Pa]
-      &  qv(:,:,:)            ! specifiv humidity (nproma,nlev,nblks_c)        [kg/kg]
+      &  qv(:,:,:),         & ! specifiv humidity (nproma,nlev,nblks_c)        [kg/kg]
+      &  p3d(:,:,:),        & !
+      &  z3d(:,:,:)
   END TYPE t_nh_diag_pz
 
 

@@ -100,7 +100,7 @@ MODULE mo_nh_stepping
   USE mo_solve_nh_async,      ONLY: solve_nh_ahc
   USE mo_advection_stepping,  ONLY: step_advection
   USE mo_nh_dtp_interface,    ONLY: prepare_tracer
-  USE mo_nh_vert_interp,      ONLY: interpolate_to_p_and_z_levels
+  USE mo_nh_vert_interp,      ONLY: intp_to_p_and_z_levels
   USE mo_nh_diffusion,        ONLY: diffusion_tria, diffusion_hex
   USE mo_mpi,                 ONLY: my_process_is_stdio, my_process_is_mpi_parallel
 #ifdef NOMPI
@@ -482,7 +482,7 @@ MODULE mo_nh_stepping
 
       ! Interpolate selected fields to p- and/or z-levels
       IF (lout_pzlev) THEN
-        CALL interpolate_to_p_and_z_levels(p_patch, p_int_state, p_nh_state)
+        CALL intp_to_p_and_z_levels(p_patch, p_int_state, p_nh_state)
       ENDIF
 
       CALL write_output( datetime, sim_time(1) )

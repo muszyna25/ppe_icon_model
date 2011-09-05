@@ -39,9 +39,10 @@ MODULE mo_nh_vert_interp
 
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_nonhydro_state,      ONLY: t_nh_state
+  USE mo_nonhydro_state,      ONLY: t_nh_state, t_nh_diag_pz, t_nh_metrics
   USE mo_interpolation,       ONLY: t_int_state, edges2cells_scalar
-  USE mo_parallel_config,     ONLY: nproma 
+  USE mo_parallel_config,     ONLY: nproma
+  USE mo_nh_pzlev_config,     ONLY: nh_pzlev_config 
   USE mo_physical_constants,  ONLY: grav, rd, rdv, o_m_rdv
   USE mo_grid_config,         ONLY: n_dom
   USE mo_exception,           ONLY: finish
@@ -67,7 +68,7 @@ MODULE mo_nh_vert_interp
 
   PUBLIC :: vertical_interpolation
   PUBLIC :: intp_to_p_and_z_levels_prepicon
-  PUBLIC :: interpolate_to_p_and_z_levels
+  PUBLIC :: intp_to_p_and_z_levels
 
 CONTAINS
 
@@ -117,7 +118,7 @@ CONTAINS
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !!
   !!
-  SUBROUTINE interpolate_to_p_and_z_levels(p_patch, p_int, p_nh_state)
+  SUBROUTINE intp_to_p_and_z_levels(p_patch, p_int, p_nh_state)
 
     TYPE(t_patch),       INTENT(IN)      :: p_patch(:)
     TYPE(t_int_state),   INTENT(IN)      :: p_int(:)
@@ -125,16 +126,20 @@ CONTAINS
 
     ! LOCAL VARIABLES
     INTEGER :: jg
+    INTEGER :: nzlev, nplev
 
 !-------------------------------------------------------------------------
 
     DO jg = 1, n_dom
 
-      CALL intp2pzlevs(p_patch(jg), p_int(jg), p_nh_state(jg))
+      nzlev = nh_pzlev_config(jg)%nzlev
+      nplev = nh_pzlev_config(jg)%nplev
+
+      CALL intp2pzlevs(p_patch(jg), p_int(jg), p_nh_state(jg), nzlev, nplev)
 
     ENDDO
 
-  END SUBROUTINE interpolate_to_p_and_z_levels
+  END SUBROUTINE intp_to_p_and_z_levels
 
 
 
@@ -658,79 +663,96 @@ CONTAINS
   !! - duplicated routine for use in ICON 
   !!
   !!
-  SUBROUTINE intp2pzlevs(p_patch, p_int, p_nh_state)
+  SUBROUTINE intp2pzlevs(p_patch, p_int, p_nh_state, nzlev, nplev)
 
 
-    TYPE(t_patch),      INTENT(IN)      :: p_patch
-    TYPE(t_int_state),  INTENT(IN)      :: p_int
-    TYPE(t_nh_state),   INTENT(INOUT)   :: p_nh_state
+    TYPE(t_patch),      TARGET, INTENT(IN)      :: p_patch
+    TYPE(t_int_state),  TARGET, INTENT(IN)      :: p_int
+    TYPE(t_nh_state),   TARGET, INTENT(INOUT)   :: p_nh_state
+
+    INTEGER, INTENT(IN) :: nzlev, nplev
 
 
     ! LOCAL VARIABLES
 
-    INTEGER :: jb, jk
+    INTEGER :: jb, jk, jg
     INTEGER :: nlen, nlev
 
     ! Auxiliary field for input data
-    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: z_tempv_in
+    REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: &
+      &  z_tempv_in
 
     ! Auxiliary field for output data
-    REAL(wp), DIMENSION(nproma,nzplev,p_patch%nblks_c) :: z_tempv
+    REAL(wp), DIMENSION(nproma,nzlev,p_patch%nblks_c) :: &
+      &  z_tempv
 
     ! Auxiliary fields for coefficients
-    REAL(wp), DIMENSION(nproma,nzplev,p_patch%nblks_c) :: &
-      wfac_lin, coef1, coef2, coef3
+    REAL(wp), DIMENSION(nproma,nzlev,p_patch%nblks_c) :: &
+      &  wfac_lin, coef1, coef2, coef3
 
-    INTEGER , DIMENSION(nproma,nzplev,p_patch%nblks_c) :: &
-      idx0_lin, idx0_cub
+    INTEGER , DIMENSION(nproma,nzlev,p_patch%nblks_c) :: &
+      &  idx0_lin, idx0_cub
 
     REAL(wp), DIMENSION(nproma,p_patch%nblks_c) :: &
-      wfacpbl1, wfacpbl2
+      &  wfacpbl1, wfacpbl2
 
     INTEGER , DIMENSION(nproma,p_patch%nblks_c) :: &
-      bot_idx_lin, bot_idx_cub, kpbl1, kpbl2
+      &  bot_idx_lin, bot_idx_cub, kpbl1, kpbl2
 
+    TYPE(t_nh_diag_pz), POINTER :: p_diag_z    => NULL()
+    TYPE(t_nh_diag_pz), POINTER :: p_diag_p    => NULL()
+    TYPE(t_nh_metrics), POINTER :: p_metrics   => NULL()
 
 !-------------------------------------------------------------------------
 
     nlev = p_patch%nlev
 
-    ! Fill z3d field of pressure-level data and pressure field of height-level data
+    ! get patch ID
+    jg = p_patch%id
 
-!!$!$OMP PARALLEL
-!!$!$OMP DO PRIVATE(jb,jk,nlen)
-!!$    DO jb = 1,p_patch%nblks_c
-!!$
-!!$      IF (jb /= p_patch%nblks_c) THEN
-!!$         nlen = nproma
-!!$      ELSE
-!!$         nlen = p_patch%npromz_c
-!!$      ENDIF
-!!$
-!!$      DO jk = 1, nzplev
-!!$        prepicon%plev%pres(1:nlen,jk,jb) = prepicon%plev%levels(jk)
-!!$        prepicon%zlev%z3d(1:nlen,jk,jb)  = prepicon%zlev%levels(jk)
-!!$      ENDDO
-!!$
-!!$    ENDDO
-!!$!$OMP END DO
-!!$!$OMP END PARALLEL
-!!$
-!!$    ! Part 1: Interpolation to z-level fields
-!!$
-!!$    ! Prepare interpolation coefficients
-!!$    CALL prepare_lin_intp(prepicon%z_mc, prepicon%zlev%z3d,                &
-!!$                          p_patch%nblks_c, p_patch%npromz_c, nlev, nzplev, &
-!!$                          wfac_lin, idx0_lin, bot_idx_lin)
-!!$
-!!$    CALL prepare_extrap(prepicon%z_mc,                           &
-!!$                        p_patch%nblks_c, p_patch%npromz_c, nlev, &
-!!$                        kpbl1, wfacpbl1, kpbl2, wfacpbl2 )
-!!$
-!!$
-!!$    CALL prepare_cubic_intp(prepicon%z_mc, prepicon%zlev%z3d,                &
-!!$                            p_patch%nblks_c, p_patch%npromz_c, nlev, nzplev, &
-!!$                            coef1, coef2, coef3, idx0_cub, bot_idx_cub)
+
+    ! some useful pointers
+    p_diag_z  => p_nh_state%diag_z
+    p_diag_p  => p_nh_state%diag_p
+    p_metrics => p_nh_state%metrics
+
+
+    ! Fill z3d field of pressure-level data and pressure field of height-level data
+    !
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,jk,nlen)
+    DO jb = 1,p_patch%nblks_c
+
+      IF (jb /= p_patch%nblks_c) THEN
+         nlen = nproma
+      ELSE
+         nlen = p_patch%npromz_c
+      ENDIF
+
+      DO jk = 1, nzplev
+        p_diag_p%p3d(1:nlen,jk,jb) = nh_pzlev_config(jg)%plevels(jk)
+        p_diag_z%z3d(1:nlen,jk,jb) = nh_pzlev_config(jg)%zlevels(jk)
+      ENDDO
+
+    ENDDO
+!$OMP END DO
+!$OMP END PARALLEL
+
+    ! Part 1: Interpolation to z-level fields
+
+    ! Prepare interpolation coefficients
+    CALL prepare_lin_intp(p_metrics%z_mc, p_diag_z%z3d,                   &
+                          p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev, &
+                          wfac_lin, idx0_lin, bot_idx_lin)
+
+    CALL prepare_extrap(p_metrics%z_mc,                          &
+                        p_patch%nblks_c, p_patch%npromz_c, nlev, &
+                        kpbl1, wfacpbl1, kpbl2, wfacpbl2 )
+
+
+    CALL prepare_cubic_intp(p_metrics%z_mc, p_diag_z%z3d,                   &
+                            p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev, &
+                            coef1, coef2, coef3, idx0_cub, bot_idx_cub)
 !!$
 !!$    ! Perform vertical interpolation
 !!$
