@@ -106,7 +106,7 @@ USE mo_prepicon_utils,        ONLY: init_prepicon, prepicon, write_prepicon_outp
   
 USE mo_prepicon_nml,          ONLY: i_oper_mode, l_zp_out
 USE mo_nh_vert_interp,        ONLY: vertical_interpolation,                         &
-  &                                 interpolate_to_p_and_z_levels_prepicon
+  &                                 intp_to_p_and_z_levels_prepicon
 
 USE mo_extpar_config,         ONLY: itopo
 USE mo_master_nml,            ONLY: lrestart
@@ -346,7 +346,7 @@ IMPLICIT NONE
 
     IF (i_oper_mode >= 2 .AND. l_zp_out) THEN
       ! Interpolate prognostic variables to pressure and height levels for diagnostic output
-      CALL interpolate_to_p_and_z_levels_prepicon(p_patch(1:), p_int_state(1:), prepicon)
+      CALL intp_to_p_and_z_levels_prepicon(p_patch(1:), p_int_state(1:), prepicon)
     ENDIF
 
     !------------------------------------------------------------------

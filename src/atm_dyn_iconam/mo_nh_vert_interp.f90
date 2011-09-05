@@ -66,7 +66,7 @@ MODULE mo_nh_vert_interp
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
   PUBLIC :: vertical_interpolation
-  PUBLIC :: interpolate_to_p_and_z_levels_prepicon
+  PUBLIC :: intp_to_p_and_z_levels_prepicon
   PUBLIC :: interpolate_to_p_and_z_levels
 
 CONTAINS
@@ -86,7 +86,7 @@ CONTAINS
   !!   is specific to prep_icon 
   !!
   !!
-  SUBROUTINE interpolate_to_p_and_z_levels_prepicon(p_patch, p_int, prepicon)
+  SUBROUTINE intp_to_p_and_z_levels_prepicon(p_patch, p_int, prepicon)
 
     TYPE(t_patch),          INTENT(IN)       :: p_patch(:)
     TYPE(t_int_state),      INTENT(IN)       :: p_int(:)
@@ -103,7 +103,7 @@ CONTAINS
 
     ENDDO
 
-  END SUBROUTINE interpolate_to_p_and_z_levels_prepicon
+  END SUBROUTINE intp_to_p_and_z_levels_prepicon
 
 
 
