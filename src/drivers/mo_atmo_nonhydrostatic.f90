@@ -280,6 +280,8 @@ CONTAINS
     
     ! Note: here the derived output variables are not yet available
     ! (divergence, vorticity)
+!DR !!! it is not clear yet, whether we shoul include a call to 
+!DR !!! interpolate_to_p_and_z_levels
     CALL write_output( time_config%cur_datetime )
     l_have_output = .TRUE.
 

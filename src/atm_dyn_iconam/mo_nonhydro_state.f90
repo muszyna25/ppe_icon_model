@@ -53,23 +53,22 @@ MODULE mo_nonhydro_state
   USE mo_model_domain,         ONLY: t_patch
   USE mo_model_domain_import,  ONLY: n_dom, l_limited_area
   USE mo_nonhydrostatic_config,ONLY: itime_scheme, l_nest_rcf
-  USE mo_dynamics_config,      ONLY:  nsav1, nsav2
-!  USE mo_advection_nml,       ONLY: ctracer_list
+  USE mo_dynamics_config,      ONLY: nsav1, nsav2
   USE mo_parallel_config,      ONLY: nproma
   USE mo_run_config,           ONLY: iforcing, &!ltransport,    &
     &                                ntracer, ntracer_static, &
     &                                iqv, iqc, iqi, iqr, iqs, io3
   USE mo_radiation_config,     ONLY: irad_o3
-  USE mo_io_config,            ONLY: lwrite_extra, inextra_2d, inextra_3d
+  USE mo_io_config,            ONLY: lwrite_extra, inextra_2d, inextra_3d, &
+    &                                lout_pzlev
+  USE mo_nh_pzlev_config,      ONLY: nh_pzlev_config
   USE mo_linked_list,          ONLY: t_var_list
-  USE mo_var_list,             ONLY: default_var_list_settings, &
-    &                                add_var,  add_ref,         &
-    &                                new_var_list,              &
-    &                                delete_var_list
+  USE mo_var_list,             ONLY: default_var_list_settings, add_var, &
+    &                                add_ref, new_var_list, delete_var_list
   USE mo_cf_convention
   USE mo_grib2
   USE mo_cdi_constants
-
+!  USE mo_advection_nml,       ONLY: ctracer_list
 
   IMPLICIT NONE
 
@@ -79,6 +78,8 @@ MODULE mo_nonhydro_state
 
   PUBLIC :: t_nh_prog             ! state vector of prognostic variables (type)
   PUBLIC :: t_nh_diag             ! state vector of diagnostic variables (type)
+  PUBLIC :: t_nh_diag_pz          ! state vector of diagnostic variables (type)
+                                  ! on p- and/or z-levels
   PUBLIC :: t_nh_metrics          ! state vector of metrics variables (type)
   PUBLIC :: t_nh_state            ! state vector of nonhydrostatic variables (type)
   PUBLIC :: p_nh_state            ! state vector of nonhydrostatic variables (variable)
@@ -238,6 +239,19 @@ MODULE mo_nonhydro_state
     TYPE(t_ptr_nh),ALLOCATABLE :: q_int_ptr     (:)
     TYPE(t_ptr_nh),ALLOCATABLE :: q_ubc_ptr     (:)
   END TYPE t_nh_diag
+
+
+  ! state vector for diagnostic variables on p- and/or z-levels
+  TYPE t_nh_diag_pz
+    REAL(wp), POINTER ::    &
+      &  u(:,:,:),          & ! zonal wind (nproma,nlev,nblks_c)               [m/s]
+      &  v(:,:,:),          & ! meridional wind (nproma,nlev,nblks_c)          [m/s]
+      &  temp(:,:,:),       & ! temperature (nproma,nlev,nblks_c)              [K]
+      &  tempv(:,:,:),      & ! virtual temperature (nproma,nlev,nblks_c)      [K]
+      &  pres(:,:,:),       & ! pressure (nproma,nlev,nblks_c)                 [Pa]
+      &  qv(:,:,:)            ! specifiv humidity (nproma,nlev,nblks_c)        [kg/kg]
+  END TYPE t_nh_diag_pz
+
 
 
   TYPE t_nh_metrics
@@ -412,6 +426,9 @@ MODULE mo_nonhydro_state
     TYPE(t_nh_diag)    :: diag
     TYPE(t_var_list)   :: diag_list
 
+    TYPE(t_nh_diag_pz) :: diag_p, diag_z
+    TYPE(t_var_list)   :: diag_p_list, diag_z_list
+
     TYPE(t_nh_metrics) :: metrics
     TYPE(t_var_list)   :: metrics_list
 
@@ -535,6 +552,20 @@ MODULE mo_nonhydro_state
         &  p_nh_state(jg)%diag_list, listname)
 
 
+      ! Build diag_p and diag_z state lists
+      ! includes memory allocation
+      !
+      IF (lout_pzlev) THEN
+        WRITE(listname,'(a,i2.2)') 'nh_state_diag_p_of_domain_',jg
+        CALL new_nh_state_diag_p_list(p_patch(jg), p_nh_state(jg)%diag_p, &
+          &  p_nh_state(jg)%diag_p_list, listname)
+
+        WRITE(listname,'(a,i2.2)') 'nh_state_diag_z_of_domain_',jg
+        CALL new_nh_state_diag_z_list(p_patch(jg), p_nh_state(jg)%diag_z, &
+          &  p_nh_state(jg)%diag_z_list, listname)
+      ENDIF
+
+
       !
       ! Build metrics state list
       ! includes memory allocation
@@ -589,13 +620,21 @@ MODULE mo_nonhydro_state
       ! delete diagnostic state list elements
       CALL delete_var_list( p_nh_state(jg)%diag_list )
 
+      IF (lout_pzlev) THEN
+        CALL delete_var_list( p_nh_state(jg)%diag_z_list )
+        CALL delete_var_list( p_nh_state(jg)%diag_p_list )
+      ENDIF
+
+
       ! delete metrics state list elements
       CALL delete_var_list( p_nh_state(jg)%metrics_list )
+
 
       ! delete prognostic state list elements
       DO jt = 1, ntl
         CALL delete_var_list( p_nh_state(jg)%prog_list(jt) )
       ENDDO
+
 
       ! destruct state lists and arrays
       DEALLOCATE(p_nh_state(jg)%prog_list, STAT=ist )
@@ -1703,6 +1742,123 @@ MODULE mo_nonhydro_state
   END SUBROUTINE new_nh_state_diag_list
 
 
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Allocation of components of diagnostic z-state.
+  !!
+  !! Initialization of components with zero.
+  !!
+  !! @par Revision History
+  !! Initial release by Daniel Reinert, DWD (2011-09-05)
+  !!
+  SUBROUTINE new_nh_state_diag_z_list ( p_patch, p_diag_z, p_diag_z_list,  &
+    &                                 listname )
+!
+    TYPE(t_patch), TARGET, INTENT(IN) :: &  !< current patch
+      &  p_patch
+
+    TYPE(t_nh_diag_pz), INTENT(INOUT) :: &  !< diagnostic state
+      &  p_diag_z 
+
+    TYPE(t_var_list), INTENT(INOUT)   :: &  !< diagnostic state list
+      &  p_diag_z_list
+
+    CHARACTER(len=*), INTENT(IN)      :: &  !< list name
+      &  listname
+
+    TYPE(t_cf_var)    :: cf_desc
+    TYPE(t_grib2_var) :: grib2_desc
+
+    INTEGER :: nblks_c       !< number of cell blocks to allocate
+
+    INTEGER :: nlev          !< number of vertical levels
+
+    INTEGER :: jg            !< patch ID
+ 
+    INTEGER :: shape3d_c(3)
+ 
+    INTEGER :: ientr         !< "entropy" of horizontal slice
+
+    CHARACTER(LEN=2) :: ctrc
+    !--------------------------------------------------------------
+
+    !determine size of arrays
+    nblks_c = p_patch%nblks_c
+
+    ! determine patch ID
+    jg = p_patch%id
+
+    ! number of vertical levels
+    nlev   = nh_pzlev_config(jg)%nzlev
+
+    ientr = 16   ! "entropy" of horizontal slice
+
+    ! predefined array shapes
+    shape3d_c     = (/nproma, nlev, nblks_c /)
+
+
+  END SUBROUTINE new_nh_state_diag_z_list
+
+
+
+  !-------------------------------------------------------------------------
+  !>
+  !! Allocation of components of diagnostic p-state.
+  !!
+  !! Initialization of components with zero.
+  !!
+  !! @par Revision History
+  !! Initial release by Daniel Reinert, DWD (2011-09-05)
+  !!
+  SUBROUTINE new_nh_state_diag_p_list ( p_patch, p_diag_p, p_diag_p_list,  &
+    &                                 listname )
+!
+    TYPE(t_patch), TARGET, INTENT(IN) :: &  !< current patch
+      &  p_patch
+
+    TYPE(t_nh_diag_pz), INTENT(INOUT) :: &  !< diagnostic state
+      &  p_diag_p 
+
+    TYPE(t_var_list), INTENT(INOUT)   :: &  !< diagnostic state list
+      &  p_diag_p_list
+
+    CHARACTER(len=*), INTENT(IN)      :: &  !< list name
+      &  listname
+
+    TYPE(t_cf_var)    :: cf_desc
+    TYPE(t_grib2_var) :: grib2_desc
+
+    INTEGER :: nblks_c       !< number of cell blocks to allocate
+
+    INTEGER :: nlev          !< number of vertical levels
+
+    INTEGER :: jg            !< patch ID
+
+    INTEGER :: shape3d_c(3)
+ 
+    INTEGER :: ientr         !< "entropy" of horizontal slice
+
+    CHARACTER(LEN=2) :: ctrc
+    !--------------------------------------------------------------
+
+    !determine size of arrays
+    nblks_c = p_patch%nblks_c
+
+    ! determine patch ID
+    jg = p_patch%id
+
+    ! number of vertical levels
+    nlev   =  nh_pzlev_config(jg)%nplev
+
+    ientr = 16   ! "entropy" of horizontal slice
+
+    ! predefined array shapes
+    shape3d_c     = (/nproma, nlev, nblks_c /)
+
+
+  END SUBROUTINE new_nh_state_diag_p_list
 
 
   !---------------------------------------------------------------------------

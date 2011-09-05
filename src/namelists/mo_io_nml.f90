@@ -72,6 +72,7 @@ MODULE mo_io_nml
                                  & config_lwrite_tke        => lwrite_tke       , &
                                  & config_lwrite_surface    => lwrite_surface   , &
                                  & config_lwrite_extra      => lwrite_extra     , &
+                                 & config_lout_pzlev        => lout_pzlev       , &
                                  & config_inextra_2d        => inextra_2d       , &
                                  & config_inextra_3d        => inextra_3d
 
@@ -107,6 +108,7 @@ MODULE mo_io_nml
   LOGICAL :: lwrite_tracer(max_ntracer) ! for each tracer, if .true. write out
                                         ! tracer on full levels
   LOGICAL :: lwrite_extra               ! if .true., write out extra fields
+  LOGICAL :: lout_pzlev                 ! if .true. extra output on p- and/or z-levels
   INTEGER :: inextra_2d                 ! number of extra output fields for debugging
   INTEGER :: inextra_3d                 ! number of extra output fields for debugging
 
@@ -116,7 +118,8 @@ MODULE mo_io_nml
     &              lwrite_pres, lwrite_z3, lwrite_tracer,             &
     &              lwrite_tend_phy, lwrite_radiation, lwrite_precip,  &
     &              lwrite_cloud, lwrite_tke, lwrite_surface,          &
-    &              lwrite_extra, inextra_2d, inextra_3d, no_output
+    &              lwrite_extra, lout_pzlev, inextra_2d, inextra_3d,  &
+    &              no_output
 
 CONTAINS
   !>
@@ -167,6 +170,7 @@ CONTAINS
     lwrite_tke         = .FALSE.
     lwrite_surface     = .FALSE.
     lwrite_extra       = .FALSE.
+    lout_pzlev         = .FALSE.
     inextra_2d         = 0     ! no extra output 2D fields
     inextra_3d         = 0     ! no extra output 3D fields
 
@@ -216,6 +220,7 @@ CONTAINS
 !      io_config(jg)%lwrite_tke       = lwrite_tke
 !      io_config(jg)%lwrite_surface   = lwrite_surface
 !      io_config(jg)%lwrite_extra     = lwrite_extra
+!      io_config(jg)%lout_pzlev       = lout_pzlev
 !    ENDDO
 !
     config_out_expname       = out_expname
@@ -239,6 +244,7 @@ CONTAINS
     config_lwrite_tke        = lwrite_tke
     config_lwrite_surface    = lwrite_surface
     config_lwrite_extra      = lwrite_extra
+    config_lout_pzlev        = lout_pzlev
     config_inextra_2d        = inextra_2d
     config_inextra_3d        = inextra_3d
 

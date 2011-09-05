@@ -1003,6 +1003,7 @@ src/configure_model/mo_ha_dyn_config.f90 -text
 src/configure_model/mo_interpol_config.f90 -text
 src/configure_model/mo_io_config.f90 -text
 src/configure_model/mo_lnd_nwp_config.f90 -text
+src/configure_model/mo_nh_pzlev_config.f90 -text
 src/configure_model/mo_nonhydrostatic_config.f90 -text
 src/configure_model/mo_parallel_config.f90 -text
 src/configure_model/mo_radiation_config.f90 -text
@@ -1090,6 +1091,7 @@ src/namelists/mo_interpol_nml.f90 -text
 src/namelists/mo_io_nml.f90 -text
 src/namelists/mo_lnd_nwp_nml.f90 -text
 src/namelists/mo_master_nml.f90 -text
+src/namelists/mo_nh_pzlev_nml.f90 -text
 src/namelists/mo_nonhydrostatic_nml.f90 -text
 src/namelists/mo_nwp_phy_nml.f90 -text
 src/namelists/mo_ocean_nml.f90 -text

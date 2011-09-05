@@ -45,6 +45,8 @@ MODULE mo_read_namelists
   USE mo_run_nml             ,ONLY: read_run_namelist
   USE mo_io_nml              ,ONLY: read_io_namelist
 
+  USE mo_nh_pzlev_nml        ,ONLY: read_nh_pzlev_namelist
+
   USE mo_grid_nml            ,ONLY: read_grid_namelist
   USE mo_gridref_nml         ,ONLY: read_gridref_namelist
   USE mo_interpol_nml        ,ONLY: read_interpol_namelist
@@ -118,6 +120,7 @@ CONTAINS
     CALL read_parallel_namelist       (TRIM(atm_namelist_filename))
     CALL read_run_namelist            (TRIM(atm_namelist_filename))
     CALL read_io_namelist             (TRIM(atm_namelist_filename))
+    CALL read_nh_pzlev_namelist       (TRIM(atm_namelist_filename))
 
     ! Grid
     !

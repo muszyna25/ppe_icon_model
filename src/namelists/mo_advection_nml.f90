@@ -1,7 +1,7 @@
 !>
 !! Namelist for scalar transport
 !!
-!! These subroutines are called by control_model and do the transport 
+!! These subroutines are called by  read_atmo_namelists and do the transport 
 !! setup.
 !!
 !! @author Daniel Reinert, DWD

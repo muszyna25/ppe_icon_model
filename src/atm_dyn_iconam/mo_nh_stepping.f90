@@ -47,19 +47,19 @@ MODULE mo_nh_stepping
 !
 !
 
-  USE mo_kind,                 ONLY: wp
-  USE mo_nonhydro_state,       ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics, &
-                                     construct_nh_state, bufr
+  USE mo_kind,                ONLY: wp
+  USE mo_nonhydro_state,      ONLY: t_nh_state, t_nh_prog, t_nh_diag, t_nh_metrics, &
+                                    construct_nh_state, bufr
   USE mo_nonhydrostatic_config,ONLY: iadv_rcf, l_nest_rcf, itime_scheme
-  USE mo_diffusion_config,     ONLY: diffusion_config
-  USE mo_dynamics_config,      ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1,nsav2 !, &
-!                                    itime_scheme
-  USE mo_io_config,            ONLY: l_outputtime, l_diagtime, l_checkpoint_time
-  USE mo_parallel_config,      ONLY: nproma, itype_comm
-  USE mo_run_config,           ONLY: ltestcase, dtime, nsteps,  &
-    &                                ltransport, ntracer, lforcing, iforcing, &
-    &                                msg_level, ltimer
-  USE mo_grid_config,          ONLY: global_cell_type
+  USE mo_diffusion_config,    ONLY: diffusion_config
+  USE mo_dynamics_config,     ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1,nsav2
+  USE mo_io_config,           ONLY: l_outputtime, l_diagtime, l_checkpoint_time, &
+    &                               lout_pzlev
+  USE mo_parallel_config,     ONLY: nproma, itype_comm
+  USE mo_run_config,          ONLY: ltestcase, dtime, nsteps,  &
+    &                               ltransport, ntracer, lforcing, iforcing, &
+    &                               msg_level, ltimer
+  USE mo_grid_config,         ONLY: global_cell_type
     
   USE mo_atm_phy_nwp_config,  ONLY: tcall_phy
   USE mo_nwp_phy_init,        ONLY: init_nwp_phy
@@ -100,6 +100,7 @@ MODULE mo_nh_stepping
   USE mo_solve_nh_async,      ONLY: solve_nh_ahc
   USE mo_advection_stepping,  ONLY: step_advection
   USE mo_nh_dtp_interface,    ONLY: prepare_tracer
+  USE mo_nh_vert_interp,      ONLY: interpolate_to_p_and_z_levels
   USE mo_nh_diffusion,        ONLY: diffusion_tria, diffusion_hex
   USE mo_mpi,                 ONLY: my_process_is_stdio, my_process_is_mpi_parallel
 #ifdef NOMPI
@@ -120,7 +121,7 @@ MODULE mo_nh_stepping
   USE mo_master_control,      ONLY: is_restart_run
   USE mo_io_restart_attributes,ONLY: get_restart_attribute
 
-  USE mo_nwp_mpiomp_rrtm_interface,   ONLY: nwp_start_radiation_ompthread, model_end_ompthread, &
+  USE mo_nwp_mpiomp_rrtm_interface, ONLY: nwp_start_radiation_ompthread, model_end_ompthread, &
     & init_ompthread_radiation
   USE mo_parallel_config,     ONLY: parallel_radiation_omp, nh_stepping_ompthreads
 
@@ -172,9 +173,9 @@ MODULE mo_nh_stepping
   END TYPE t_step_adv
 
 
-  TYPE(t_prepare_adv), ALLOCATABLE :: prep_adv(:) ! n_dom
+  TYPE(t_prepare_adv), ALLOCATABLE :: prep_adv(:)  ! n_dom
 
-  TYPE(t_step_adv), ALLOCATABLE :: jstep_adv(:)   ! n_dom
+  TYPE(t_step_adv),    ALLOCATABLE :: jstep_adv(:) ! n_dom
 
 
   ! additional flow control variables that need to be dimensioned with the
@@ -478,6 +479,11 @@ MODULE mo_nh_stepping
     ! output of results
     ! note: nnew has been replaced by nnow here because the update
     IF (l_outputtime) THEN
+
+      ! Interpolate selected fields to p- and/or z-levels
+      IF (lout_pzlev) THEN
+        CALL interpolate_to_p_and_z_levels(p_patch, p_int_state, p_nh_state)
+      ENDIF
 
       CALL write_output( datetime, sim_time(1) )
       CALL message('','Output at:')

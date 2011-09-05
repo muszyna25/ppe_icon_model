@@ -2161,9 +2161,79 @@ iequations = 3 {\color{red}(to be done for 1, 2)}
 \tabularnewline
 
 \hline
+lout\_pzlev&
+L& .FALSE. & &
+activate output on p- and/or z-levels &
+iequations=3
+\tabularnewline
+
+\hline 
 \end{longtab}
 
 Defined and used in: src/namelists/mo\_io\_nml.f90
+
+
+%------------------------------------------------------------------------------
+% nh_pzlev_nml:
+%------------------------------------------------------------------------------
+\subsection{nh\_pzlev\_nml}
+\begin{longtab}
+ 
+\hline 
+lwrite\_zlev &
+L& .TRUE.& &
+Output on height levels&
+iequations=3\\
+lout\_pzlev=.TRUE.
+\tabularnewline
+
+\hline 
+lwrite\_plev &
+L& .TRUE.& &
+Output on pressure levels&
+iequations=3\\
+lout\_pzlev=.TRUE.
+\tabularnewline
+
+\hline 
+nzlev &
+I& 10 & &
+number of height levels&
+iequations=3\\
+lout\_pzlev=.TRUE.
+\tabularnewline
+
+\hline 
+nplev &
+I& 10 & &
+number of pressure levels&
+iequations=3\\
+lout\_pzlev=.TRUE.
+\tabularnewline
+
+\hline 
+zlevels &
+R& 0,1000,\\2000,\\3000 ...& m&
+array of height levels&
+iequations=3\\
+lout\_pzlev=.TRUE.\\
+\textcolor{red}{ordering of the levels must be top-down}
+\tabularnewline
+
+\hline 
+plevels &
+R&  & Pa &
+array of pressure levels&
+iequations=3\\
+lout\_pzlev=.TRUE.\\
+\textcolor{red}{ordering of the levels must be top-down}
+\tabularnewline
+
+\end{longtab}
+
+Defined and used in: src/namelists/mo\_nh\_pzlev\_nml.f90
+
+
 
 %------------------------------------------------------------------------------
 % transport_nml:
