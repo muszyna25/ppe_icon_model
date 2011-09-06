@@ -67,9 +67,9 @@ MODULE mo_nh_pzlev_config
 
     INTEGER :: nplev                 !< number of p-levels
 
-    INTEGER :: zlevels(100)          !< zlevel heights [m] 
+    REAL(wp):: zlevels(100)          !< zlevel heights [m] 
 
-    INTEGER :: plevels(100)          !< plevel heights [m] 
+    REAL(wp):: plevels(100)          !< plevel heights [m] 
 
     ! derived variables
     !

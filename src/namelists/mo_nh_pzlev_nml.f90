@@ -70,9 +70,9 @@ MODULE mo_nh_pzlev_nml
 
   INTEGER :: nplev                 !< number of p-levels
 
-  INTEGER :: zlevels(100)          !< zlevel heights [m] 
+  REAL(wp):: zlevels(100)          !< zlevel heights [m] 
 
-  INTEGER :: plevels(100)          !< plevel heights [m] 
+  REAL(wp):: plevels(100)          !< plevel heights [m] 
 
 
   NAMELIST/nh_pzlev_nml/ lwrite_zlev, lwrite_plev, nzlev, nplev,   &
@@ -106,6 +106,10 @@ CONTAINS
     INTEGER :: jg          !< patch loop index
     INTEGER :: jk          !< tracer loop index
 
+    REAL(wp) :: p_bot      !< bottom level pressure
+    REAL(wp) :: p_top      !< top level pressure
+    REAL(wp) :: delp       !< pressure increment based on p_bot, p_top, nplev
+
     CHARACTER(len=*), PARAMETER ::  &
       &  routine = 'mo_nh_pzlev_nml: read_nh_pzlev_namelist'
 
@@ -119,22 +123,25 @@ CONTAINS
     nzlev       = 10
     nplev       = 10
 
-    ! set levels - attention: ordering of the levels must be top-down 
+    ! set height and pressure levels - attention: ordering of the levels must be top-down 
     ! as for the model levels
+    !
+    ! standard height levels (every 1000 m)
+    !
     DO jk = 1, nzlev
-      zlevels(nzlev+1-jk) = REAL(jk-1,wp)*1000._wp ! every 1000 m
+      zlevels(nzlev+1-jk) = REAL(jk-1,wp)*1000._wp
     ENDDO
-    ! standard pressure levels
-    plevels(10) = 100000._wp
-    plevels(9)  =  92500._wp
-    plevels(8)  =  85000._wp
-    plevels(7)  =  70000._wp
-    plevels(6)  =  50000._wp
-    plevels(5)  =  40000._wp
-    plevels(4)  =  30000._wp
-    plevels(3)  =  25000._wp
-    plevels(2)  =  20000._wp
-    plevels(1)  =  10000._wp
+
+    ! standard pressure levels (every (p_bot - p_top)/nplev Pa starting from p_bot)
+    !
+    p_bot = 100000._wp
+    p_top = 0._wp
+    delp  = (p_bot - p_top)/REAL(nplev)
+    
+    plevels(nplev) =  p_bot
+    DO jk = 2, nplev
+      plevels(nplev+1-jk) = plevels(nplev+2-jk) - delp
+    ENDDO
 
 
 
