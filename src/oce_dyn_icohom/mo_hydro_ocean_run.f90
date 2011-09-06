@@ -48,8 +48,8 @@ MODULE mo_hydro_ocean_run
 !
 USE mo_impl_constants,         ONLY: max_char_length
 USE mo_model_domain,           ONLY: t_patch
-USE mo_model_domain_import,    ONLY: n_dom, nroot
-USE mo_ocean_nml,              ONLY: n_zlev, iswm_oce, no_tracer,itestcase_oce, EOS_type
+USE mo_model_domain_import,    ONLY: n_dom
+USE mo_ocean_nml,              ONLY: iswm_oce, no_tracer,itestcase_oce, EOS_type
 USE mo_dynamics_config,        ONLY: nold, nnew
 USE mo_io_config,              ONLY: out_expname, istime4output, istime4newoutputfile
 USE mo_run_config,             ONLY: nsteps, dtime, ltimer
@@ -71,9 +71,9 @@ USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_base, &
 USE mo_oce_physics,            ONLY: t_ho_params, &
                                    & construct_ho_params, init_ho_params, &
                                    &destruct_ho_params, update_ho_params
-USE mo_output,              ONLY: init_output_files, write_output, &
-                                  & create_restart_file
-USE mo_oce_index,              ONLY: c_b, c_i, c_k, ldbg, form4ar, init_index_test
+USE mo_output,              ONLY: init_output_files, write_output
+!USE mo_oce_index,              ONLY: c_b, c_i, c_k, ldbg, form4ar,
+USE mo_oce_index,              ONLY: init_index_test
 
 USE mo_interpolation,          ONLY: t_int_state
 USE mo_oce_init,               ONLY: init_ho_testcases
@@ -143,11 +143,10 @@ CONTAINS
 
   ! local variables
   INTEGER :: jstep, jt, jg, n_temp
-  INTEGER :: jfile, jlev
-  LOGICAL :: l_exist
+  INTEGER :: jfile
   TYPE(t_oce_timeseries), POINTER :: oce_ts
 
-  CHARACTER(LEN=filename_max)  :: outputfile, gridfile
+  !CHARACTER(LEN=filename_max)  :: outputfile, gridfile
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &      routine = 'mo_hydro_ocean_run:perform_ho_stepping'
   !------------------------------------------------------------------
@@ -258,13 +257,6 @@ CONTAINS
     !        before new writing timestep!
     IF (istime4newoutputfile(jstep) .AND. jstep/=nsteps) THEN
 
-      jlev = ppatch(jg)%level
-!      CALL destruct_vlist( jg )
-
-      ! construct gridfile name once more as in control_model:
-      IF (.NOT. l_exist) CALL finish(TRIM(routine),' gridfile does not exist')
-
-      ! contruct new outputfile name:
       jfile = jfile +1
       CALL init_output_files(jfile,lclose=.TRUE.)
 
@@ -318,7 +310,7 @@ CONTAINS
     TYPE (t_sea_ice),             INTENT(INOUT)  :: p_ice
 
     ! local variables
-    TYPE(t_hydro_ocean_base)                  :: p_base
+    !TYPE(t_hydro_ocean_base)                  :: p_base
     INTEGER :: jg
     CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
       &      routine = 'mo_test_hydro_ocean:prepare_ho_integration'
