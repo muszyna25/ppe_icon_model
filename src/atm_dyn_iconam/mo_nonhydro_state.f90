@@ -1813,8 +1813,8 @@ MODULE mo_nonhydro_state
     !
     cf_desc    = t_cf_var('eastward_wind', 'm s-1', 'u-component of wind')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_z_list, 'u_z', p_diag_z%u,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,    &
+    CALL add_var( p_diag_z_list, 'u', p_diag_z%u,                              &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE, cf_desc, grib2_desc, &
                 & ldims=shape3d_c )
 
 
@@ -1822,8 +1822,8 @@ MODULE mo_nonhydro_state
     !
     cf_desc    = t_cf_var('northward_wind', 'm s-1', 'v-component of wind')
     grib2_desc = t_grib2_var(0, 2, 3, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_z_list, 'v_z', p_diag_z%v,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,    &
+    CALL add_var( p_diag_z_list, 'v', p_diag_z%v,                              &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE, cf_desc, grib2_desc, &
                 & ldims=shape3d_c )
 
 
@@ -1831,8 +1831,8 @@ MODULE mo_nonhydro_state
     !
     cf_desc    = t_cf_var('pressure', 'Pa', 'pressure')
     grib2_desc = t_grib2_var(0, 3, 0, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_z_list, 'pres_z', p_diag_z%pres,                       &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,    &
+    CALL add_var( p_diag_z_list, 'pres', p_diag_z%pres,                        &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE, cf_desc, grib2_desc, &
                 & ldims=shape3d_c )
 
 
@@ -1840,17 +1840,25 @@ MODULE mo_nonhydro_state
     !
     cf_desc    = t_cf_var('temperature', 'K', 'temperature')
     grib2_desc = t_grib2_var(0, 0, 0, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_z_list, 'temp_z', p_diag_z%temp,                       &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,    &
+    CALL add_var( p_diag_z_list, 'temp', p_diag_z%temp,                        &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE, cf_desc, grib2_desc, &
                 & ldims=shape3d_c )
 
 
-    ! qv           p_diag_z%temp(nproma,nlev,nblks_c)
+    ! qv           p_diag_z%qv(nproma,nlev,nblks_c)
     !
-    cf_desc    = t_cf_var('qv_z', 'kg kg-1', 'diagnostic specific humidity')
+    cf_desc    = t_cf_var('qv', 'kg kg-1', 'diagnostic specific humidity')
     grib2_desc = t_grib2_var(0, 1, 0, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_z_list, 'qv_z', p_diag_z%temp,                         &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,    &
+    CALL add_var( p_diag_z_list, 'qv', p_diag_z%qv,                            &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE, cf_desc, grib2_desc, &
+                & ldims=shape3d_c )
+
+    ! zout       p_diag_z%z3d(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('zout', 'm', 'output z levels')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_diag_z_list, 'z3d', p_diag_z%z3d,                           &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE, cf_desc, grib2_desc,  &
                 & ldims=shape3d_c )
 
 
@@ -1913,6 +1921,7 @@ MODULE mo_nonhydro_state
     shape3d_c     = (/nproma, nlev, nblks_c /)
 
 
+
     !
     ! Register a field list and apply default settings
     !
@@ -1925,8 +1934,8 @@ MODULE mo_nonhydro_state
     !
     cf_desc    = t_cf_var('eastward_wind', 'm s-1', 'u-component of wind')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_p_list, 'u_z', p_diag_p%u,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,    &
+    CALL add_var( p_diag_p_list, 'u', p_diag_p%u,                                 &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc,    &
                 & ldims=shape3d_c )
 
 
@@ -1934,8 +1943,8 @@ MODULE mo_nonhydro_state
     !
     cf_desc    = t_cf_var('northward_wind', 'm s-1', 'v-component of wind')
     grib2_desc = t_grib2_var(0, 2, 3, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_p_list, 'v_z', p_diag_p%v,                             &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,    &
+    CALL add_var( p_diag_p_list, 'v', p_diag_p%v,                                 &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc,    &
                 & ldims=shape3d_c )
 
 
@@ -1943,8 +1952,8 @@ MODULE mo_nonhydro_state
     !
     cf_desc    = t_cf_var('pressure', 'Pa', 'pressure')
     grib2_desc = t_grib2_var(0, 3, 0, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_p_list, 'pres_z', p_diag_p%pres,                       &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,    &
+    CALL add_var( p_diag_p_list, 'pres', p_diag_p%pres,                           &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc,    &
                 & ldims=shape3d_c )
 
 
@@ -1952,8 +1961,8 @@ MODULE mo_nonhydro_state
     !
     cf_desc    = t_cf_var('temperature', 'K', 'temperature')
     grib2_desc = t_grib2_var(0, 0, 0, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_p_list, 'temp_z', p_diag_p%temp,                       &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,    &
+    CALL add_var( p_diag_p_list, 'temp', p_diag_p%temp,                           &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc,    &
                 & ldims=shape3d_c )
 
 
@@ -1961,8 +1970,24 @@ MODULE mo_nonhydro_state
     !
     cf_desc    = t_cf_var('qv_z', 'kg kg-1', 'diagnostic specific humidity')
     grib2_desc = t_grib2_var(0, 1, 0, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_p_list, 'qv_z', p_diag_p%temp,                         &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,    &
+    CALL add_var( p_diag_p_list, 'qv', p_diag_p%qv,                               &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc,    &
+                & ldims=shape3d_c )
+
+    ! z           p_diag_p%z3d(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('z', 'm2 s-2', 'geopotential')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_diag_p_list, 'z', p_diag_p%z3d,                               &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc,    &
+                & ldims=shape3d_c )
+
+    ! pout           p_diag_p%p3d(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('pout', 'Pa', 'output pressure levels')
+    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_diag_p_list, 'p3d', p_diag_p%p3d,                             &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc,    &
                 & ldims=shape3d_c )
 
 

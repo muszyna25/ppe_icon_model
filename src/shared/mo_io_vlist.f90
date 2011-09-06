@@ -640,7 +640,7 @@ CONTAINS
       CALL zaxisDefLevels(zaxisID_hgt(k_jg), levels)
       DEALLOCATE(levels)
       CALL zaxisDefVct(zaxisID_hgt(k_jg), nzlev, nh_pzlev_config(k_jg)%zlevels(1:nzlev))
-     ENDIF
+    ENDIF
 
     !
     !=========================================================================
@@ -1721,7 +1721,7 @@ CONTAINS
           &           k_jg)
           CALL addVar(TimeVar('P_Z',&
           &                   'pressure',&
-          &                   'Pa', 255, 128,&
+          &                   'Pa', 54, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
           &          k_jg)
         ENDIF
