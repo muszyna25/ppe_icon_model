@@ -37,6 +37,11 @@
 !!
 MODULE mo_radiation_rg
 
+  USE mo_aerosol_util, ONLY:  zaea  => zaea_rg, &
+    &                         zaes  => zaes_rg, &
+    &                         zaef  => zaef_rg, &
+    &                         zaeg  => zaeg_rg
+
   USE mo_kind, ONLY : wp
 
   USE mo_exception,          ONLY: message, message_text  
@@ -48,12 +53,11 @@ MODULE mo_radiation_rg
     &                              psig  => stbo
 
   USE mo_radiation_rg_par, ONLY : &
-  &                               jpsol,jpther,jpspec, &
-  &                               ncgas, nfast, &
-  &                               coai, cobi, coali, cobti, &
-  &                               zlwe, zlww, zlwg, zlwemn, zlwemx, &
-  &                               zaea, zaes, zaef, zaeg, &
-  &                               ziwe, ziwemn, ziwemx, ziww, ziwg!, &
+    &                               jpsol,jpther,jpspec, &
+    &                               ncgas, nfast, &
+    &                               coai, cobi, coali, cobti, &
+    &                               zlwe, zlww, zlwg, zlwemn, zlwemx, &
+    &                               ziwe, ziwemn, ziwemx, ziww, ziwg!, &
     
   IMPLICIT NONE
 

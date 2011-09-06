@@ -57,11 +57,12 @@ MODULE mo_nwp_phy_init
   USE mo_lrtm_setup,          ONLY: lrtm_setup
   USE mo_radiation_config,    ONLY: ssi, tsi, irad_aero, rad_csalbw 
   USE mo_srtm_config,         ONLY: setup_srtm, ssi_amip
-  USE mo_radiation_rg_par,    ONLY: rad_aibi, zaef, zaea, zaes, zaeg, &
-    &                                init_aerosol
-!    &                               init_aerosol_properties_tanre_rg, &
-!    &                               init_aerosol_distribution_tanre
-  
+  USE mo_radiation_rg_par,    ONLY: rad_aibi
+  USE mo_aerosol_util,        ONLY: init_aerosol_distribution_tanre,    &
+    &                               init_aerosol_properties_tanre_rg,   &
+    &                               init_aerosol_properties_tanre_rrtm, &
+    &                               zaef_rg, zaea_rg, zaes_rg, zaeg_rg, &
+    &                               zaea_rrtm, zaes_rrtm, zaeg_rrtm
   ! microphysics
   USE mo_gscp_cosmo,          ONLY: hydci_pp_init
   ! convection
@@ -242,8 +243,10 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     ! Note (GZ): irad_aero=2 does no action but is the default in radiation_nml
     ! and therefore should not cause the model to stop
     IF ( irad_aero /= 0 .AND. irad_aero /= 2 ) THEN
+!    IF ( irad_aero /= 0 .AND. irad_aero /= 2 .AND. irad_aero /= 5 ) THEN    
       CALL finish('mo_nwp_phy_init: init_nwp_phy',  &
         &         'Wrong irad_aero. For RRTM, currently only irad_aero=0 is implemented.')
+!       & 'Wrong irad_aero. For RRTM, currently only irad_aero=0 and irad_aero=5 is implemented.')
     ENDIF
     
 !    prm_diag%lfglac (:,:) = ext_data%atm%soiltyp(:,:) == 1  !soiltyp=ice
@@ -302,6 +305,26 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 !$OMP END DO
 !$OMP END PARALLEL    
 
+    IF ( irad_aero == 5 ) THEN
+
+      CALL init_aerosol_properties_tanre_rrtm
+      
+      CALL init_aerosol_distribution_tanre ( &
+        & kbdim    = nproma,                 & !in
+        & pt_patch = p_patch,                & !in
+        & aersea   = prm_diag%aersea,        & !out
+        & aerlan   = prm_diag%aerlan,        & !out
+        & aerurb   = prm_diag%aerurb,        & !out
+        & aerdes   = prm_diag%aerdes )         !out
+    ELSE
+      
+      zaea_rrtm(:,:)=0.0_wp
+      zaes_rrtm(:,:)=0.0_wp
+      zaeg_rrtm(:,:)=0.0_wp
+      
+    ENDIF
+    
+    
   ELSEIF (  atm_phy_nwp_config(jg)%inwp_radiation == 2 ) THEN
 
     IF (msg_level >= 12)  CALL message('mo_nwp_phy_init:', 'init Ritter Geleyn')
@@ -327,15 +350,13 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     
     CALL rad_aibi
 
-    zaef(:,:)= 0.0_wp
+    zaef_rg(:,:)= 0.0_wp
     
     IF ( irad_aero == 5 ) THEN
 
-
-!      CALL init_aerosol_properties_tanre_rg
-!      
-!      CALL init_aerosol_distribution_tanre ( &
-       CALL init_aerosol ( &
+      CALL init_aerosol_properties_tanre_rg
+      
+      CALL init_aerosol_distribution_tanre ( &
         & kbdim    = nproma,                 & !in
         & pt_patch = p_patch,                & !in
         & aersea   = prm_diag%aersea,        & !out
@@ -345,9 +366,9 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 
     ELSE
 
-      zaea(:,:)=0.0_wp
-      zaes(:,:)=0.0_wp
-      zaeg(:,:)=0.0_wp
+      zaea_rg(:,:)=0.0_wp
+      zaes_rg(:,:)=0.0_wp
+      zaeg_rg(:,:)=0.0_wp
 
     ENDIF
 
