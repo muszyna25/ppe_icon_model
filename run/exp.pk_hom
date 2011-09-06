@@ -68,7 +68,7 @@ B=4   # number of bisections applied
 #-----------------------------------------------------------------------------
 # ocean forcing - 12, 13 need additional flux file 
 # flux files are named $HGRIDDIR/omip4icon-R${R}B0{B}-monmean.nc
-iforc=11
+iforc=12
 #-----------------------------------------------------------------------------
 # global timing
 start_date="2011-03-01T00:00:00Z"
@@ -96,16 +96,23 @@ ocean_model_equations=-1 # equation system
 #
 #-----------------------------------------------------------------------------
 # the grid files
-# USE_AQUAP="Y"      # "Y": ocean horizontal gridfile base is "aqua_planet"
-# USE_ETOPO="Y"      # "Y": ocean horizontal gridfile base is "etopo40_flat"
   USE_BASIN="Y"      # "Y": ocean horizontal gridfile base is "bas0-60N"
+# USE_AQUAP="Y"      # "Y": ocean horizontal gridfile base is "aqua_planet"
+# USE_FLATB="Y"      # "Y": ocean horizontal gridfile base is "etopo40_flat"
+# USE_BATHY="Y"      # "Y": ocean horizontal gridfile base is "etopo40_planet"
 #-----------------------------------------------------------------------------
-grid_ext="etopo40_flat"
-if [ x$USE_AQUAP == "xY"  ] ; then
+if [ "x$USE_FLATB" == "xY"  ] ; then
+  grid_ext="etopo40_flat"
+elif [ "x$USE_BATHY" == "xY"  ] ; then
+  grid_ext="etopo40_planet"
+elif [ "x$USE_AQUAP" == "xY"  ] ; then
   grid_ext="aqua_planet"
-elif  [ x$USE_BASIN == "xY"  ] ; then
+elif [ "x$USE_BASIN" == "xY"  ] ; then
 # grid_ext="bas10-80N"
   grid_ext="bas0-60N"
+else
+  echo " No ocean topography file chosen - exit now"
+  exit 1
 fi
 ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 #
@@ -148,9 +155,9 @@ cat > ${ocean_namelist} << EOF
   h_val=1.0 t_val=1.0            ! initial values for elevation and temperature at one cell
 /
 &ocean_dynamics_nml
-  n_zlev             =    8      ! number of vertical levels and (dzlev_m) thicknesses
-  dzlev_m(1:20)      =  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0, 1000.0, 1000.0,
-                       1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
+  n_zlev             =    6      ! number of vertical levels and (dzlev_m) thicknesses
+  dzlev_m(1:20)      =  250.0,  250.0,  250.0,  250.0,  250.0,  250.0,  250.0, 1000.0, 1000.0, 1000.0,
+                       1000.0  1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
 ! dzlev_m(1:20)       =  20.0,   50.0,   75.0,  125.0,  150.0,  200.0,  300.0,  500.0, 1000.0, 1000.0,
 !                      1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
   iswm_oce           =    0      ! switch for one layer shallow water model (iswm_oce=1) or 3-d
@@ -160,8 +167,8 @@ cat > ${ocean_namelist} << EOF
                                  ! FALSE: reduced scalarproduct variant (fast and default)
   l_rigid_lid        = .FALSE.   ! TRUE : use rigid lid as upper boundary condition 
                                  ! FALSE: use the free surface dynamics
-  ab_beta            =    0.6    ! parameter for Adam-Bashforth time-stepping
-  ab_gam             =    0.6    ! parameter for Adam-Bashforth time-stepping
+  ab_beta            =    0.7    ! parameter for Adam-Bashforth time-stepping
+  ab_gam             =    0.7    ! parameter for Adam-Bashforth time-stepping
   solver_tolerance   = 1.0E-6
   i_bc_veloc_lateral =    0      ! Boundary condition for normal velocity for lateral walls
   i_bc_veloc_top     =    1      ! Boundary condition for normal velocity for ocean top
@@ -170,7 +177,7 @@ cat > ${ocean_namelist} << EOF
   basin_center_lon   =    0.0    ! in (non-global) basin configuration such as the Stommel-type tests
   basin_width_deg    =   60.0    ! basin extension in x-direction, units are degrees
   basin_height_deg   =   60.0    ! basin extension in y-direction, units are degrees
-  coriolis_type      =    2      ! 0=zero Coriolis, the non-rotating case
+  coriolis_type      =    1      ! 0=zero Coriolis, the non-rotating case
                                  ! 1=full varying Coriolis
                                  ! 2=beta-plane (linear) approximation to Coriolis
                                  ! 3=f-plane (constant) approximation to Coriolis
@@ -185,18 +192,24 @@ cat > ${ocean_namelist} << EOF
   EOS_TYPE           =    2      ! 1=linear EOS
                                  ! 2= (nonlinear) EOS from MPI-OM 
                                  ! 3= not recommended: (nonlinear) Jacket-McDoudgall density-formulation
-  k_veloc_h          = 5000.0    ! horizontal viscosity coefficient for velocity
+  k_veloc_h          =50000.0    ! horizontal viscosity coefficient for velocity
   k_veloc_v          =    0.01   ! vertical viscosity coefficient for velocity
-  k_pot_temp_h       = 5000.0    ! horizontal viscosity coefficient for temperature
-  k_pot_temp_v       =    0.0001 ! vertical viscosity coefficient for temperature
-  k_sal_h            = 5000.0    ! horizontal viscosity coefficient for salinity
+  k_pot_temp_h       = 2000.0    ! horizontal viscosity coefficient for temperature
+  k_pot_temp_v       =    0.001  ! vertical viscosity coefficient for temperature
+  k_sal_h            = 2000.0    ! horizontal viscosity coefficient for salinity
   k_sal_v            =    0.0001 ! vertical viscosity coefficient for salinity
-  MAX_VERT_DIFF_VELOC=    0.0    ! max diffusion coeff, used in impl.vert.velocity diffusion, if stabil. crit.is met
+  HORZ_VELOC_DIFF_TYPE =  2      ! 0=no horizontal diffusion
+                                 ! 1= constant Laplacian viscosity coefficient given in namelist (k_veloc_h)
+                                 ! 2= constant Laplacian viscosity coefficient determined by requirement to
+                                 !    have at least one gridpoint in boundary layer. The namelist value is overwritten.
+                                 ! 3= spatially variable Laplacian viscosity coefficient determined by requirement to
+                                 !    have at least one gridpoint in boundary layer. The namelist value is overwritten.
+  MAX_VERT_DIFF_VELOC=    1.0    ! max diffusion coeff, used in impl.vert.velocity diffusion, if stabil. crit.is met
   MAX_VERT_DIFF_TRAC =    0.1    ! max diffusion coeff, used in impl.vert.tracer diffusion, if stability crit.is met
   CWA                = 0.5E-3    ! Tuning parameters for vertical mixing of tracer and velocity
   CWT                = 0.5E-3    ! Set to standard values
-  bottom_drag_coeff  =    0.0025 ! Chezy coefficient for bottom friction
-  wstress_coeff      =  500.0    ! wind stress coefficient for top boundary forcing
+  bottom_drag_coeff  =    0.0 ! 0.0025 ! Chezy coefficient for bottom friction
+  wstress_coeff      =    0.3    ! wind stress coefficient for top boundary forcing
 /
 &ocean_forcing_and_init_nml
   iforc_oce          = ${iforc}  ! ocean forcing:
@@ -213,9 +226,9 @@ cat > ${ocean_namelist} << EOF
                                  ! 34=Adjusting density front in an ocean basin
                                  ! 35=Temperature initial as in 30, with additional temperature relaxation
                                  ! 36=Temperature initial as in 33, with additional temperature relaxation
-  temperature_relaxation= 0      ! 1=switched on for some testcases only
+  temperature_relaxation= 1      ! 1=switched on for some testcases only
                                  ! 2=read 2m-temperature data for relaxation from bulk
-  relaxation_param   =    0.0    ! relaxation of tracer surface fluxes (same value for all tracers in months)
+  relaxation_param   =    0.1    ! relaxation of tracer surface fluxes (same value for all tracers in months)
                                  ! this value is divided by number of seconds per month (=30*24*3600)
 /
 &io_nml

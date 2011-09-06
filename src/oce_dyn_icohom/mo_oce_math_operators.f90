@@ -78,7 +78,7 @@ PUBLIC :: grad_fd_norm_oce
 PUBLIC :: grad_fd_norm_oce_2D
 PUBLIC :: div_oce
 PUBLIC :: rot_vertex_ocean
-PUBLIC :: rot_vertex_ocean_origin
+PUBLIC :: rot_vertex_ocean_mod
 PUBLIC :: rot_vertex_ocean_total
 PUBLIC :: nabla2_vec_ocean
 PUBLIC :: height_related_quantities
@@ -879,9 +879,10 @@ DO jb = i_startblk, i_endblk
 
           !add contribution of normal velocity at edge (ile,ibe) to rotation
           ztmp = ztmp + (u_vec_e(ile,jk,ibe)) &
-          !&  + 0.5_wp*ptr_patch%edges%primal_edge_length(ile,ibe)*ptr_patch%edges%f_e(ile,ibe))&
           & * ptr_patch%edges%dual_edge_length(ile,ibe)  &
           & * ptr_patch%verts%edge_orientation(jv,jb,jev)
+          !&  + 0.5_wp*ptr_patch%edges%primal_edge_length(ile,ibe)*ptr_patch%edges%f_e(ile,ibe))&
+
 
           !increase ctr, store edge (ile,ibe) as wet edge idx, blk
           !and store simply both of the adjacent cells as wet cells
@@ -903,9 +904,9 @@ DO jb = i_startblk, i_endblk
           !
           !add half contribution of normal velocity at edge "ie" to rotation
           ztmp = ztmp + (u_vec_e(ile,jk,ibe))&
-          !&  + 0.5_wp*ptr_patch%edges%primal_edge_length(ile,ibe)*ptr_patch%edges%f_e(ile,ibe))  &
           &  * 0.5_wp * ptr_patch%edges%dual_edge_length(ile,ibe)  &
           &           * ptr_patch%verts%edge_orientation(jv,jb,jev)
+          !&  + 0.5_wp*ptr_patch%edges%primal_edge_length(ile,ibe)*ptr_patch%edges%f_e(ile,ibe))  &
 
           !increase ctr, store ie_k as wet edge idx
           !and store simply both of the adjacent cells as wet cells
@@ -1004,7 +1005,7 @@ END SUBROUTINE rot_vertex_ocean_total
 !! Modifications by Peter Korn, MPI-M (2010-04)
 !! Modifications by Stephan Lorenz, MPI-M (2010-06)
 !!
-SUBROUTINE rot_vertex_ocean( u_vec_e, v_vec_e, ptr_patch, rot_vec_v,  &
+SUBROUTINE rot_vertex_ocean_mod( u_vec_e, v_vec_e, ptr_patch, rot_vec_v,  &
   &                          opt_slev, opt_elev, opt_rlstart, opt_rlend )
 
 ! input:  lives on edges (velocity points)
@@ -1189,7 +1190,7 @@ DO jb = i_startblk, i_endblk
 !$OMP END PARALLEL DO
   END DO
 END DO
-END SUBROUTINE rot_vertex_ocean
+END SUBROUTINE rot_vertex_ocean_mod
 !-------------------------------------------------------------------------
 !
 !>
@@ -1216,7 +1217,7 @@ END SUBROUTINE rot_vertex_ocean
 !! Modifications by Peter Korn, MPI-M (2010-04)
 !! Modifications by Stephan Lorenz, MPI-M (2010-06)
 !!
-SUBROUTINE rot_vertex_ocean_origin( u_vec_e, v_vec_e, ptr_patch, rot_vec_v,  &
+SUBROUTINE rot_vertex_ocean( u_vec_e, v_vec_e, ptr_patch, rot_vec_v,  &
   &                          opt_slev, opt_elev, opt_rlstart, opt_rlend )
 
 ! input:  lives on edges (velocity points)
@@ -1505,7 +1506,7 @@ DO jb = i_startblk, i_endblk
 !$OMP END PARALLEL DO
   END DO
 END DO
-END SUBROUTINE rot_vertex_ocean_origin
+END SUBROUTINE rot_vertex_ocean
 !-------------------------------------------------------------------------
 !
 !>

@@ -654,7 +654,7 @@ i_endblk_e   = p_patch%edges%end_blk(rl_end_e,1)
 i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
 i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
 
-IF(expl_vertical_velocity_diff==0)THEN
+IF(expl_vertical_velocity_diff==0.OR. iswm_oce == 1)THEN
   z_vn_ab = ab_gam*p_os%p_diag%vn_pred + (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn
 ELSEIF(expl_vertical_velocity_diff==1)THEN
   z_vn_ab = ab_gam*p_os%p_diag%vn_impl_vert_diff + (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn

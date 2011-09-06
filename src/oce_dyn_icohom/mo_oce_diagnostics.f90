@@ -221,7 +221,7 @@ IF(iswm_oce/=1)THEN
 
 
 ELSEIF(iswm_oce==1)THEN
-  !Potential energy in SW-case
+  !Potential energy in SW-casep_patch%patch_oce%del_zlev_m(1)
   DO jb = i_startblk_c, i_endblk_c
     CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
        &                             rl_start_c, rl_end_c)

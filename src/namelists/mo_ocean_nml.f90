@@ -149,6 +149,7 @@ MODULE mo_ocean_nml
   ! more ocean parameters, not yet well placed
   INTEGER  :: expl_vertical_velocity_diff=0    ! 0=explicit, 1 = implicit  
   INTEGER  :: expl_vertical_tracer_diff  = 0   ! 0=explicit, 1 = implicit
+  INTEGER  :: HORZ_VELOC_DIFF_TYPE  = 0
   REAL(wp) :: k_veloc_h             = 0.0_wp   ! horizontal diffusion coefficient
   REAL(wp) :: k_veloc_v             = 0.0_wp   ! vertical diffusion coefficient
   REAL(wp) :: k_pot_temp_h          = 0.0_wp   ! horizontal mixing coefficient for pot. temperature
@@ -198,7 +199,7 @@ MODULE mo_ocean_nml
  
 
 
-  NAMELIST/ocean_physics_nml/EOS_TYPE, no_tracer,                          &
+NAMELIST/ocean_physics_nml/EOS_TYPE, no_tracer, HORZ_VELOC_DIFF_TYPE,      &
     &                 k_veloc_h, k_veloc_v,  k_pot_temp_h, k_pot_temp_v,   &
     &                 k_sal_h, k_sal_v,                                    &
     &                 MAX_VERT_DIFF_VELOC, MAX_VERT_DIFF_TRAC,             &

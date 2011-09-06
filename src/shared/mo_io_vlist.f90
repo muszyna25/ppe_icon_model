@@ -149,8 +149,9 @@ MODULE mo_io_vlist
   USE mo_icoham_dyn_types,      ONLY: t_hydro_atm_prog, t_hydro_atm_diag
   USE mo_nonhydro_state,        ONLY: t_nh_prog, t_nh_diag, t_nh_diag_pz
   USE mo_oce_state,             ONLY: t_hydro_ocean_state, t_hydro_ocean_prog,       &
-       &                              t_hydro_ocean_diag, t_hydro_ocean_base, v_base,&
-       &                              set_zlev, v_ocean_state
+       &                              t_hydro_ocean_diag, t_hydro_ocean_base,        &
+       &                              t_hydro_ocean_aux,                             &
+       &                              v_base, set_zlev, v_ocean_state
   USE mo_oce_forcing,           ONLY: t_sfc_flx, v_sfc_flx
   USE mo_ext_data,              ONLY: t_external_ocean
   USE mo_icoham_dyn_memory,     ONLY: p_hydro_state
@@ -1790,6 +1791,44 @@ CONTAINS
       &                   gridCellID(k_jg),&
       &                   zaxisID_surface(k_jg)),&
       &           k_jg)
+    CALL addVar(TimeVar('vert-adv',&
+    &                   'nonlin Cor ',&
+    &                   'm/s',2,128,&
+    &                   vlistID(k_jg),&
+    &                   gridEdgeID(k_jg), &
+    &                   zaxisIDdepth_m(k_jg)),&
+    &           k_jg)
+
+    CALL addVar(TimeVar('Ekin-grad',&
+    &                   'gradient Ekin ',&
+    &                   'm/s',2,128,&
+    &                   vlistID(k_jg),&
+    &                   gridEdgeID(k_jg), &
+    &                   zaxisIDdepth_m(k_jg)),&
+    &           k_jg)
+    CALL addVar(TimeVar('flux-u',&
+    &                   'sfc_flux u at centers',&
+    &                   'N/m2',13,128,&
+    &                   vlistID(k_jg),&
+    &                   gridCellID(k_jg),&
+    &                   zaxisID_surface(k_jg)),&
+    &           k_jg)
+    CALL addVar(TimeVar('flux-v',&
+    &                   'sfc_flux v at centers',&
+    &                   'N/m2',14,128,&
+    &                   vlistID(k_jg),&
+    &                   gridCellID(k_jg),&
+    &                   zaxisID_surface(k_jg)),&
+    &           k_jg)
+
+    CALL addVar(TimeVar('flux-VN',&
+    &                   'sfc-flux at edge',&
+    &                   'm/s',2,128,&
+    &                   vlistID(k_jg),&
+    &                   gridEdgeID(k_jg), &
+    &                   zaxisID_surface(k_jg)),&
+    &           k_jg)
+
       CALL addVar(TimeVar('VN',&
       &                   'velocity normal to edge',&
       &                   'm/s',2,128,&
@@ -1825,6 +1864,24 @@ CONTAINS
       &                   gridcellid(k_jg),&
       &                   zaxisid_halfdepth(k_jg)),&
       &           k_jg)
+     CALL addVar(TimeVar('press-grad',&
+     &                   'pressure-gradient at edges',&
+     &                   'm/s',5,128,&
+     &                   vlistID(k_jg), &
+     &                   gridEdgeID(k_jg), &
+     &                   zaxisIDdepth_m(k_jg)),&
+     &                   k_jg)
+     CALL addVar(TimeVar('rho',&
+     &                   'density cells',&
+     &                   'kg/m**3', 6, 128,&
+     &                   vlistid(k_jg),&
+     &                   gridcellid(k_jg),&
+     &                   zaxisIDdepth_m(k_jg)),&
+     &           k_jg)
+
+
+
+    CALL nf(nf_close(ncid))
 
       ! tracer fields
       !------------------------------------------------------------------
@@ -1854,10 +1911,7 @@ CONTAINS
       END DO
     END IF
 
-    CALL nf(nf_close(ncid))
-    !
     !=========================================================================
-
     ! Create description of all output variables in vlist
     num_output_vars(k_jg) = vlistNvars(vlistID(k_jg))
 
@@ -2498,11 +2552,13 @@ CONTAINS
 
     TYPE(t_hydro_ocean_prog), POINTER  :: p_prog
     TYPE(t_hydro_ocean_diag), POINTER  :: p_diag
+    TYPE(t_hydro_ocean_aux),  POINTER  :: p_aux
     TYPE(t_sfc_flx),          POINTER  :: forcing
 
     ! pointer to components of state variable
     p_prog  => v_ocean_state(jg)%p_prog(nold(jg))
     p_diag  => v_ocean_state(jg)%p_diag
+    p_aux   => v_ocean_state(jg)%p_aux
     forcing => v_sfc_flx
 
     ptr2d     => NULL()
@@ -2517,6 +2573,11 @@ CONTAINS
       CASE ('ELEV');         ptr2d => p_prog%h
       CASE ('forc-u');       ptr2d => forcing%forc_wind_u
       CASE ('forc-v');       ptr2d => forcing%forc_wind_v
+      CASE('vert-adv');      ptr3d => p_diag%veloc_adv_horz
+      CASE('Ekin-grad');     ptr3d => p_diag%grad
+      CASE ('flux-u');       ptr2d => p_aux%bc_top_u
+      CASE ('flux-v');       ptr2d => p_aux%bc_top_v
+      CASE ('flux-VN');      ptr2d => p_aux%bc_top_vn
       CASE ('VN');           ptr3d => p_prog%vn
       CASE ('T');            ptr3d => p_prog%tracer(:,:,:,1)
       CASE ('S');            ptr3d => p_prog%tracer(:,:,:,2)
@@ -2524,10 +2585,15 @@ CONTAINS
       CASE ('u-veloc');      ptr3d => p_diag%u
       CASE ('v-veloc');      ptr3d => p_diag%v
       CASE ('W');            ptr3d => p_diag%w
+      CASE('press-grad');    ptr3d => p_diag%press_grad
+      CASE ('rho');          ptr3d => p_diag%rho
+
       CASE DEFAULT;    not_found = .TRUE.
     END SELECT
-    ! If not found in the list above, check for tracers
-    ! IF(not_found) THEN
+    
+    IF(not_found) THEN
+      CALL finish('get_outvar_ptr_oce', 'Unknown variable type name: '//varname)
+    END IF
     !   DO jt = 1, ntracer ! all tracer
     !     ctracer = ctracer_list(jt:jt)
     !     IF(varname == 'Q'//ctracer) THEN
@@ -2568,7 +2634,6 @@ CONTAINS
     !   ENDDO
     !  ENDIF
     ! If we are here, the varname was definitly not found
-    !CALL finish('get_outvar_ptr_oce', 'Unknown variable type name: '//varname)
 
   END SUBROUTINE get_outvar_ptr_oce
   !-------------------------------------------------------------------------------------------------

@@ -101,16 +101,23 @@ ocean_model_equations=-1 # equation system
 #
 #-----------------------------------------------------------------------------
 # the grid files
-# USE_AQUAP="Y"      # "Y": ocean horizontal gridfile base is "aqua_planet"
-  USE_ETOPO="Y"      # "Y": ocean horizontal gridfile base is "etopo40_flat"
 # USE_BASIN="Y"      # "Y": ocean horizontal gridfile base is "bas0-60N"
+# USE_AQUAP="Y"      # "Y": ocean horizontal gridfile base is "aqua_planet"
+  USE_FLATB="Y"      # "Y": ocean horizontal gridfile base is "etopo40_flat"
+# USE_BATHY="Y"      # "Y": ocean horizontal gridfile base is "etopo40_planet"
 #-----------------------------------------------------------------------------
-grid_ext="etopo40_flat"
-if [ x$USE_AQUAP == "xY"  ] ; then
+if [ "x$USE_FLATB" == "xY"  ] ; then
+  grid_ext="etopo40_flat"
+elif [ "x$USE_BATHY" == "xY"  ] ; then
+  grid_ext="etopo40_planet"
+elif [ "x$USE_AQUAP" == "xY"  ] ; then
   grid_ext="aqua_planet"
-elif  [ x$USE_BASIN == "xY"  ] ; then
+elif [ "x$USE_BASIN" == "xY"  ] ; then
 # grid_ext="bas10-80N"
   grid_ext="bas0-60N"
+else
+  echo " No ocean topography file chosen - exit now"
+  exit 1
 fi
 ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 #
@@ -153,7 +160,7 @@ cat > ${ocean_namelist} << EOF
   h_val=1.0 t_val=1.0            ! initial values for elevation and temperature at one cell
 /
 &ocean_dynamics_nml
-  n_zlev             =    8      ! number of vertical levels and (dzlev_m) thicknesses
+  n_zlev             =    6      ! number of vertical levels and (dzlev_m) thicknesses
   dzlev_m(1:20)      =  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0,  500.0, 1000.0, 1000.0,
                        1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0, 1000.0
 ! dzlev_m(1:20)       =  20.0,   50.0,   75.0,  125.0,  150.0,  200.0,  300.0,  500.0, 1000.0, 1000.0,
@@ -196,6 +203,12 @@ cat > ${ocean_namelist} << EOF
   k_pot_temp_v       =    0.0001 ! vertical viscosity coefficient for temperature
   k_sal_h            = 5000.0    ! horizontal viscosity coefficient for salinity
   k_sal_v            =    0.0001 ! vertical viscosity coefficient for salinity
+  HORZ_VELOC_DIFF_TYPE =  2      ! 0=no horizontal diffusion
+                                 ! 1= constant Laplacian viscosity coefficient given in namelist (k_veloc_h)
+                                 ! 2= constant Laplacian viscosity coefficient determined by requirement to
+                                 !    have at least one gridpoint in boundary layer. The namelist value is overwritten.
+                                 ! 3= spatially variable Laplacian viscosity coefficient determined by requirement to
+                                 !    have at least one gridpoint in boundary layer. The namelist value is overwritten.
   MAX_VERT_DIFF_VELOC=    0.0    ! max diffusion coeff, used in impl.vert.velocity diffusion, if stabil. crit.is met
   MAX_VERT_DIFF_TRAC =    0.1    ! max diffusion coeff, used in impl.vert.tracer diffusion, if stability crit.is met
   CWA                = 0.5E-3    ! Tuning parameters for vertical mixing of tracer and velocity

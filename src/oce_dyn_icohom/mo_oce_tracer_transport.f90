@@ -55,7 +55,7 @@ USE mo_dynamics_config,           ONLY: nold, nnew
 USE mo_run_config,                ONLY: dtime
 USE mo_oce_state,                 ONLY: t_hydro_ocean_state, v_base!, t_hydro_ocean_diag
 USE mo_model_domain,              ONLY: t_patch
-!USE mo_exception,                 ONLY:  finish, message_text,message
+USE mo_exception,                 ONLY: finish !, message_text, message
 USE mo_loopindices,               ONLY: get_indices_c, get_indices_e !, get_indices_v
 USE mo_oce_boundcond,             ONLY: top_bound_cond_tracer!,&
 USE mo_oce_physics
@@ -111,7 +111,6 @@ TYPE(t_hydro_ocean_state), TARGET :: p_os
 TYPE(t_ho_params), INTENT(inout)  :: p_param
 TYPE(t_sfc_flx), INTENT(INOUT)    :: p_sfc_flx
 INTEGER                           :: timestep! Actual timestep (to distinghuish initial step from others)
-
 !
 !Local variables
 INTEGER :: jk, jc,jb, i_no_t
@@ -157,28 +156,6 @@ DO i_no_t = 1,no_tracer
                                & timestep )
 END DO
 
-! rl_start_c   = 1
-! rl_end_c     = min_rlcell
-! i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
-! i_endblk_c   = p_patch%cells%end_blk(rl_end_c,1)
-!   DO jk = 1, n_zlev
-!   max_val=0.0_wp
-!   min_val=20.0_wp
-!   DO jb = i_startblk_c, i_endblk_c
-!     CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
-!     &                   rl_start_c, rl_end_c)
-!     DO jc = i_startidx_c, i_endidx_c
-!       IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
-!         IF(p_os%p_prog(nnew(1))%tracer(jc,jk,jb,1)>max_val)&
-!           &max_val=p_os%p_prog(nnew(1))%tracer(jc,jk,jb,1)
-!         IF(p_os%p_prog(nnew(1))%tracer(jc,jk,jb,1)<min_val)&
-!           &min_val=p_os%p_prog(nnew(1))%tracer(jc,jk,jb,1)
-!  !       IF(p_os%p_prog(nnew(1))%tracer(jc,jk,jb,1)==0.0_wp)&
-!  !       & write(*,*)'tracer =0:',jc,jk,jb 
-!       ENDIF
-!      END DO
-!    END DO
-! END DO
 END SUBROUTINE advect_tracer_ab
 !-------------------------------------------------------------------------  
 !
@@ -230,6 +207,7 @@ CALL advect_horizontal(p_patch, trac_old,           &
                      & trac_tmp, timestep, delta_t, h_tmp)
   write(123,*)'-------------timestep---------------',timestep
 DO jk = 1, n_zlev
+
   write(*,*)'After horizontal max/min old-new tracer:',jk, maxval(trac_old(:,jk,:)),&
                                         & minval(trac_old(:,jk,:)),&
                                         & maxval(trac_tmp(:,jk,:)),&
@@ -238,6 +216,11 @@ DO jk = 1, n_zlev
                                         & minval(trac_old(:,jk,:)),&
                                         & maxval(trac_tmp(:,jk,:)),&
                                         & minval(trac_tmp(:,jk,:))
+    IF(minval(trac_new(:,jk,:))<0.0_wp)THEN
+      CALL finish(TRIM('mo_tracer_advection:advect_individual_tracer-h'), &
+      &'Negative tracer values') 
+   ENDIF
+
 END DO
 
 IF( iswm_oce /= 1) THEN
@@ -258,6 +241,11 @@ IF( iswm_oce /= 1) THEN
                                         & minval(trac_old(:,jk,:)),&
                                         & maxval(trac_new(:,jk,:)),&
                                         & minval(trac_new(:,jk,:))
+
+    IF(minval(trac_new(:,jk,:))<0.0_wp)THEN
+      CALL finish(TRIM('mo_tracer_advection:advect_individual_tracer-v'),&
+      & 'Negative tracer values') 
+   ENDIF
 !     write(*,*)'Final max/min old-new tracer:',jk, maxval(trac_tmp(:,jk,:)),&
 !                                         & minval(trac_tmp(:,jk,:)),&
 !                                         & maxval(trac_new(:,jk,:)),&
@@ -334,7 +322,7 @@ REAL(wp) :: z_h2(nproma,n_zlev, p_patch%nblks_c)
 REAL(wp) :: z_h_tmp(nproma,n_zlev, p_patch%nblks_c)
 REAL(wp) :: z_grad_T(nproma,n_zlev,p_patch%nblks_e)
 !REAL(wp) :: max_val, min_val, dtime2
-REAL(wp) :: z_tol
+!REAL(wp) :: z_tol
 LOGICAL  :: ldbg = .FALSE.
 !LOGICAL  ::  L_MPDATA_AFTERBURNER
 TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
@@ -342,7 +330,7 @@ TYPE(t_cartesian_coordinates):: z_vn_c2(nproma,n_zlev,p_patch%nblks_c)
 ! CHARACTER(len=max_char_length), PARAMETER :: &
 !        & routine = ('mo_tracer_advection:advect_individual_tracer')
 !-------------------------------------------------------------------------------
-z_tol= 1.0E-13
+!z_tol= 1.0E-13
 
 rl_start_c   = 1
 rl_end_c     = min_rlcell
@@ -857,22 +845,28 @@ IF(expl_vertical_tracer_diff==1)THEN
 
   IF(ldbg)THEN
   DO jk = 1, n_zlev
-    write(*,*)'max/min adv tracer v:',jk,&
+    write(*,*)'before impl: max/min vtracer div:adv:',jk,&
     &maxval(z_trac_c(:,jk,:)), minval(z_trac_c(:,jk,:)),& 
     &maxval(z_div_adv_v(:,jk,:)), minval(z_div_adv_v(:,jk,:)),&
     &maxval(z_adv_flux_v(:,jk,:)),minval(z_adv_flux_v(:,jk,:))
 
+    write(123,*)'before impl: max/min vtracer div:adv:',jk,&
+    &maxval(z_trac_c(:,jk,:)), minval(z_trac_c(:,jk,:)),& 
+    &maxval(z_div_adv_v(:,jk,:)), minval(z_div_adv_v(:,jk,:)),&
+    &maxval(z_adv_flux_v(:,jk,:)),minval(z_adv_flux_v(:,jk,:))
 
   END DO
   ENDIF
   !calculate vert diffusion impicit: result is stored in trac_out
-write(*,*)'before impl diff',maxval(bc_top_tracer), minval(bc_top_tracer)
-   CALL tracer_diffusion_vert_impl( p_patch,     &
+  write(*,*)'before impl diff',maxval(bc_top_tracer), minval(bc_top_tracer)
+  CALL tracer_diffusion_vert_impl( p_patch,     &
                                & z_trac_c(:,:,:),&
                                & bc_top_tracer,  & 
                                & bc_bot_tracer,  &
                                & A_v,            &
                                & trac_out(:,:,:))
+
+
 !vertival diffusion is calculated explicitely
 ELSEIF(expl_vertical_tracer_diff==0)THEN
 
@@ -942,7 +936,7 @@ ELSEIF(expl_vertical_tracer_diff==0)THEN
   ENDIF
 IF(ldbg)THEN
   DO jk = 1, n_zlev
-    write(*,*)'max/min div adv & diffusive  flux v:',&
+    write(123,*)'max/min div adv & diffusive  flux v:',&
     &jk,maxval(z_div_adv_v(:,jk,:)), minval(z_div_adv_v(:,jk,:)),&
     &maxval(G_n_c_v(:,jk,:)),minval(G_n_c_v(:,jk,:))
   END DO

@@ -208,16 +208,17 @@ CONTAINS
   IF (ist/=SUCCESS) THEN
     CALL finish(TRIM(routine),'allocation for forcing wind v failed')
   END IF
+  IF(no_tracer>=1)THEN
+    ALLOCATE(p_sfc_flx%forc_tracer(nproma,nblks_c, no_tracer), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for tracer forcing failed')
+    END IF
 
-  ALLOCATE(p_sfc_flx%forc_tracer(nproma,nblks_c, no_tracer), STAT=ist)
-  IF (ist/=SUCCESS) THEN
-    CALL finish(TRIM(routine),'allocation for tracer forcing failed')
-  END IF
-
-  ALLOCATE(p_sfc_flx%forc_tracer_relax(nproma,nblks_c, no_tracer), STAT=ist)
-  IF (ist/=SUCCESS) THEN
-    CALL finish(TRIM(routine),'allocation for tracer relaxation forcing failed')
-  END IF
+    ALLOCATE(p_sfc_flx%forc_tracer_relax(nproma,nblks_c, no_tracer), STAT=ist)
+    IF (ist/=SUCCESS) THEN
+      CALL finish(TRIM(routine),'allocation for tracer relaxation forcing failed')
+    END IF
+  ENDIF
 
   ALLOCATE(p_sfc_flx%forc_wind_cc(nproma,nblks_c), STAT=ist)
   IF (ist/=SUCCESS) THEN
@@ -234,10 +235,10 @@ CONTAINS
       p_sfc_flx%forc_wind_cc(jc,jb)%x(:) = 0.0_wp
     ENDDO
   END DO
-
-  p_sfc_flx%forc_tracer       = 0.0_wp
-  p_sfc_flx%forc_tracer_relax = 0.0_wp
-
+  IF(no_tracer>=1)THEN
+    p_sfc_flx%forc_tracer       = 0.0_wp
+    p_sfc_flx%forc_tracer_relax = 0.0_wp
+  ENDIF
   CALL message(TRIM(routine), 'end' )
 
   END SUBROUTINE construct_sfcflx

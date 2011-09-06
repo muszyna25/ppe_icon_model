@@ -96,16 +96,23 @@ ocean_model_equations=-1 # equation system
 #
 #-----------------------------------------------------------------------------
 # the grid files
-# USE_AQUAP="Y"      # "Y": ocean horizontal gridfile base is "aqua_planet"
-# USE_ETOPO="Y"      # "Y": ocean horizontal gridfile base is "etopo40_flat"
-  USE_BASIN="Y"      # "Y": ocean horizontal gridfile base is "bas0-60N"
+# USE_BASIN="Y"      # "Y": ocean horizontal gridfile base is "bas0-60N"
+  USE_AQUAP="Y"      # "Y": ocean horizontal gridfile base is "aqua_planet"
+# USE_FLATB="Y"      # "Y": ocean horizontal gridfile base is "etopo40_flat"
+# USE_BATHY="Y"      # "Y": ocean horizontal gridfile base is "etopo40_planet"
 #-----------------------------------------------------------------------------
-grid_ext="etopo40_flat"
-if [ x$USE_AQUAP == "xY"  ] ; then
+if [ "x$USE_FLATB" == "xY"  ] ; then
+  grid_ext="etopo40_flat"
+elif [ "x$USE_BATHY" == "xY"  ] ; then
+  grid_ext="etopo40_planet"
+elif [ "x$USE_AQUAP" == "xY"  ] ; then
   grid_ext="aqua_planet"
-elif  [ x$USE_BASIN == "xY"  ] ; then
+elif [ "x$USE_BASIN" == "xY"  ] ; then
 # grid_ext="bas10-80N"
   grid_ext="bas0-60N"
+else
+  echo " No ocean topography file chosen - exit now"
+  exit 1
 fi
 ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
 #

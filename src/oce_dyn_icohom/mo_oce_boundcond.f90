@@ -116,6 +116,10 @@ CONTAINS
     CHARACTER(len=max_char_length), PARAMETER :: &
     & routine = ('mo_oce_boundcond:top_bound_cond_veloc')
     !-----------------------------------------------------------------------
+! write(*,*)'MAX/MIN: wind:u/v',maxval(p_sfc_flx%forc_wind_u),&
+!                             & minval(p_sfc_flx%forc_wind_u)&
+!                             &,maxval(p_sfc_flx%forc_wind_v), &
+!                             &minval(p_sfc_flx%forc_wind_v)
     rl_start_c   = 1
     rl_end_c     = min_rlcell
     i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)

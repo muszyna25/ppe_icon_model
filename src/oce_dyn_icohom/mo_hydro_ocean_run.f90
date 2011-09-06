@@ -184,26 +184,28 @@ CONTAINS
       CALL advect_tracer_ab(ppatch(jg), pstate_oce(jg), p_phys_param,p_sfc_flx, jstep)
     ELSE
 
+
     !In case of a time-varying forcing: 
     CALL update_sfcflx(ppatch(jg), pstate_oce(jg), p_as, p_ice, p_atm_f, p_sfc_flx, jstep)
 
-    SELECT CASE (EOS_TYPE)
-      CASE(1)
+    IF(iswm_oce /= 1)THEN
+      SELECT CASE (EOS_TYPE)
+        CASE(1)
 
-        CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
-                            & calc_density_lin_EOS_func)
+          CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
+                              & calc_density_lin_EOS_func)
 
-     CASE(2)
-       CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
-                             & calc_density_MPIOM_func)
+       CASE(2)
+         CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
+                               & calc_density_MPIOM_func)
+      CASE(3)
+         CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
+                               & calc_density_JMDWFG06_EOS_func)
 
-    CASE(3)
-       CALL update_ho_params(ppatch(jg), pstate_oce(jg), p_sfc_flx, p_phys_param,&
-                             & calc_density_JMDWFG06_EOS_func)
+      CASE DEFAULT
 
-    CASE DEFAULT
-
-   END SELECT
+     END SELECT
+   ENDIF
 
 
     ! solve for new free surface
@@ -342,7 +344,7 @@ CONTAINS
     CALL construct_hydro_ocean_state(ppatch, pstate_oce)
 
     CALL construct_ho_params(ppatch(jg), p_phys_param)
-    CALL init_ho_params(p_phys_param)
+    CALL init_ho_params(ppatch(jg), p_phys_param)
 
     !CALL construct_ho_physics(ppatch(jg), p_physics_oce)
     !CALL init_ho_physics(p_physics_oce)
