@@ -56,8 +56,11 @@ MODULE mo_oce_state
   USE mo_parallel_config,     ONLY: nproma
   USE mo_impl_constants,      ONLY: land, land_boundary, boundary, sea_boundary, sea,  &
     &                               success, max_char_length, min_rledge, min_rlcell,  &
-    &                               min_rlvert, min_rlvert_int
-  USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, t_ref, s_ref
+    &                               min_rlvert, min_rlvert_int,                        &
+    &                               full_coriolis, beta_plane_coriolis,                &
+    &                               f_plane_coriolis, zero_coriolis
+  USE mo_ocean_nml,           ONLY: n_zlev, dzlev_m, no_tracer, t_ref, s_ref,          &
+    &                               CORIOLIS_TYPE, basin_center_lat, basin_height_deg
   USE mo_exception,           ONLY: message_text, message, finish
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: n_dom
@@ -65,6 +68,8 @@ MODULE mo_oce_state
   USE mo_math_utilities,      ONLY: gc2cc, cc2gc, t_cartesian_coordinates,      &
     &                               t_geographical_coordinates, vector_product, &
     &                               arc_length
+  USE mo_math_constants,      ONLY: pi, deg2rad
+  USE mo_physical_constants,  ONLY: re, omega
   USE mo_loopindices,         ONLY: get_indices_e, get_indices_c, get_indices_v
   USE mo_sync,                ONLY: SYNC_E, SYNC_C, SYNC_V, sync_patch_array
   USE mo_linked_list,         ONLY: t_var_list
@@ -94,6 +99,7 @@ MODULE mo_oce_state
   PUBLIC :: set_lateral_boundary_values
   PUBLIC :: init_scalar_product_base
   PUBLIC :: init_geo_factors_base
+  PUBLIC :: init_coriolis_oce
   PUBLIC :: set_del_zlev, set_zlev
 
   !
@@ -349,52 +355,52 @@ MODULE mo_oce_state
 !
   TYPE t_hydro_ocean_aux
 
-    REAL(wp), POINTER ::    &
-      &  g_n(:,:,:)            ,& ! explicit velocity term in Adams-Bashford time marching routines,
-                                  ! at timelevel n
-                                  ! dimension: (nproma, n_zlev, nblks_e)
-      &  g_nm1(:,:,:)          ,& ! explicit velocity term in Adams-Bashford time marching routines,
-                                  ! at timelevel n-1
-                                  ! dimension: (nproma, n_zlev, nblks_e)
-      &  g_nimd(:,:,:)         ,& ! explicit velocity term in Adams-Bashford time marching routines,
-                                  ! located at intermediate timelevel
-      &  g_n_c_h(:,:,:,:)      ,& ! explicit tracer term in Adams-Bashford time marching routines,
-                                  ! at timelevel n for each tracer, horizontal
-                                  ! dimension: (nproma, n_zlev, nblks_c, no_tracer )
-      &  g_nm1_c_h(:,:,:,:)    ,& ! explicit tracer term in Adams-Bashford time marching routines,
-                                  ! at timelevel n-1 for each tracer, horizontal
-                                  ! dimension: (nproma, n_zlev, nblks_c, no_tracer)
-      &  g_nimd_c_h(:,:,:,:)   ,& ! explicit tracer term in Adams-Bashford time marching routines,
-                                  ! located at intermediate timelevel for each tracer, horizontal
-                                  ! dimension: (nproma, n_zlev, nblks_c,no_tracer )
-      &  g_n_c_v(:,:,:,:)      ,& ! explicit tracer term in Adams-Bashford time marching routines,
-                                  ! at timelevel n for each tracer, vertical
-                                  ! dimension: (nproma, n_zlev, nblks_c, no_tracer )
-      &  g_nm1_c_v(:,:,:,:)    ,& ! explicit tracer term in Adams-Bashford time marching routines,
-                                  ! at timelevel n-1 for each tracer, vertical
-                                  ! dimension: (nproma, n_zlev, nblks_c, no_tracer)
-      &  g_nimd_c_v(:,:,:,:)   ,& ! explicit tracer term in Adams-Bashford time marching routines,
-                                  ! located at intermediate timelevel for each tracer, vertical
-                                  ! dimension: (nproma, n_zlev, nblks_c,no_tracer )
-      &  bc_top_vn(:,:)         ,& ! normal velocity boundary condition at surface
-                                  ! dimension: (nproma,nblks_e)
-      &  bc_bot_vn(:,:)         ,& ! normal velocity boundary condition at bottom
-                                  ! dimension: (nproma,nblks_c)
-      &  bc_top_u(:,:)         ,& ! zonal velocity boundary condition at surface
-                                  ! dimension: (nproma,nblks_c)
-      &  bc_top_v(:,:)         ,& ! meridional velocity boundary condition at surface
-                                  ! dimension: (nproma,nblks_c)
-      &  bc_bot_u(:,:)         ,& ! zonal velocity boundary condition at bottom
-                                  ! dimension: (nproma,nblks_c)
-      &  bc_bot_v(:,:)         ,& ! meridional velocity boundary condition at bottom
-                                  ! dimension: (nproma,nblks_c)
-      &  bc_top_w(:,:)         ,& ! vertical velocity boundary condition at surface
-                                  ! dimension: (nproma,nblks_c)
-      &  bc_bot_w(:,:)         ,& ! vertical velocity boundary condition at bottom
-      &  bc_top_tracer(:,:,:)  ,& ! vertical velocity boundary condition at surface
-                                  ! dimension: (nproma,nblks_c)
-      &  bc_bot_tracer(:,:,:)  ,& ! vertical velocity boundary condition at bottom
-      &  p_rhs_sfc_eq(:,:)!,      & ! right hand side of surface equation
+    REAL(wp), POINTER ::       &
+      &  g_n(:,:,:)           ,& ! explicit velocity term in Adams-Bashford time marching routines,
+                                 ! at timelevel n
+                                 ! dimension: (nproma, n_zlev, nblks_e)
+      &  g_nm1(:,:,:)         ,& ! explicit velocity term in Adams-Bashford time marching routines,
+                                 ! at timelevel n-1
+                                 ! dimension: (nproma, n_zlev, nblks_e)
+      &  g_nimd(:,:,:)        ,& ! explicit velocity term in Adams-Bashford time marching routines,
+                                 ! located at intermediate timelevel
+      &  g_n_c_h(:,:,:,:)     ,& ! explicit tracer term in Adams-Bashford time marching routines,
+                                 ! at timelevel n for each tracer, horizontal
+                                 ! dimension: (nproma, n_zlev, nblks_c, no_tracer )
+      &  g_nm1_c_h(:,:,:,:)   ,& ! explicit tracer term in Adams-Bashford time marching routines,
+                                 ! at timelevel n-1 for each tracer, horizontal
+                                 ! dimension: (nproma, n_zlev, nblks_c, no_tracer)
+      &  g_nimd_c_h(:,:,:,:)  ,& ! explicit tracer term in Adams-Bashford time marching routines,
+                                 ! located at intermediate timelevel for each tracer, horizontal
+                                 ! dimension: (nproma, n_zlev, nblks_c,no_tracer )
+      &  g_n_c_v(:,:,:,:)     ,& ! explicit tracer term in Adams-Bashford time marching routines,
+                                 ! at timelevel n for each tracer, vertical
+                                 ! dimension: (nproma, n_zlev, nblks_c, no_tracer )
+      &  g_nm1_c_v(:,:,:,:)   ,& ! explicit tracer term in Adams-Bashford time marching routines,
+                                 ! at timelevel n-1 for each tracer, vertical
+                                 ! dimension: (nproma, n_zlev, nblks_c, no_tracer)
+      &  g_nimd_c_v(:,:,:,:)  ,& ! explicit tracer term in Adams-Bashford time marching routines,
+                                 ! located at intermediate timelevel for each tracer, vertical
+                                 ! dimension: (nproma, n_zlev, nblks_c,no_tracer )
+      &  bc_top_vn(:,:)       ,& ! normal velocity boundary condition at surface
+                                 ! dimension: (nproma,nblks_e)
+      &  bc_bot_vn(:,:)       ,& ! normal velocity boundary condition at bottom
+                                 ! dimension: (nproma,nblks_c)
+      &  bc_top_u(:,:)        ,& ! zonal velocity boundary condition at surface
+                                 ! dimension: (nproma,nblks_c)
+      &  bc_top_v(:,:)        ,& ! meridional velocity boundary condition at surface
+                                 ! dimension: (nproma,nblks_c)
+      &  bc_bot_u(:,:)        ,& ! zonal velocity boundary condition at bottom
+                                 ! dimension: (nproma,nblks_c)
+      &  bc_bot_v(:,:)        ,& ! meridional velocity boundary condition at bottom
+                                 ! dimension: (nproma,nblks_c)
+      &  bc_top_w(:,:)        ,& ! vertical velocity boundary condition at surface
+                                 ! dimension: (nproma,nblks_c)
+      &  bc_bot_w(:,:)        ,& ! vertical velocity boundary condition at bottom
+      &  bc_top_tracer(:,:,:) ,& ! vertical velocity boundary condition at surface
+                                 ! dimension: (nproma,nblks_c)
+      &  bc_bot_tracer(:,:,:) ,& ! vertical velocity boundary condition at bottom
+      &  p_rhs_sfc_eq(:,:)!,   & ! right hand side of surface equation
                                          ! dimension: (nproma,nblks_c)
      TYPE(t_cartesian_coordinates), POINTER :: bc_top_veloc_cc(:,:), &
                                   &                bc_bot_veloc_cc(:,:)
@@ -511,7 +517,7 @@ CONTAINS
 
     ! local variables
 
-    INTEGER                                   :: jg, prlength, ist, jp
+    INTEGER                                   :: jg, prlength, ist
 
     CHARACTER(len=max_char_length), PARAMETER :: &
       &      routine = 'mo_oce_state:destruct_hydro_ocean_state'
@@ -819,7 +825,7 @@ CONTAINS
     TYPE(t_hydro_ocean_prog), INTENT(inout)   :: p_os_prog
 
     INTEGER  :: nblks_c, nblks_e !, nblks_v
-
+    INTEGER  :: z_no_tracer
     !0!CHARACTER(len=max_char_length), PARAMETER :: &
     !0!  &      routine = 'mo_oce_state:construct_hydro_ocean_prog'
 
@@ -840,11 +846,16 @@ CONTAINS
     &            ldims=(/nproma,n_zlev,nblks_e/))
 
     !! Tracers
+    IF(no_tracer==0)THEN
+      z_no_tracer = 1
+    ELSE
+      z_no_tracer = no_tracer
+    ENDIF 
     CALL add_var(ocean_var_list, 'tracers', p_os_prog%tracer , &
     &            GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, &
     &            t_cf_var('tracers', '', '1:temperature 2:salinity'),&
     &            t_grib2_var(255, 255, 255, 16, GRID_REFERENCE, GRID_CELL),&
-    &            ldims=(/nproma,n_zlev,nblks_c,no_tracer/) )
+    &            ldims=(/nproma,n_zlev,nblks_c,z_no_tracer/) )
 
   END SUBROUTINE construct_hydro_ocean_prog
 
@@ -1941,7 +1952,7 @@ END DO
     INTEGER, PARAMETER :: no_cell_edges = 3
     INTEGER, PARAMETER :: no_vert_edges = 6
     INTEGER :: jb, je, jv, ie, ie_1, ie_2, icc
-    INTEGER :: il_e,ib_e,it_vertedges,k  
+    INTEGER :: il_e,ib_e,k  
     INTEGER :: il_c1, ib_c1, il_c2, ib_c2
     INTEGER :: il_v1, il_v2, ib_v1, ib_v2
     !INTEGER :: jc, ile,ibe
@@ -1991,6 +2002,7 @@ END DO
     !TYPE(t_cartesian_coordinates)    :: cv_v1_e0, cv_v2_e0!, cv_v1_v2
     TYPE(t_cartesian_coordinates)    :: cc_mid_dual_edge(no_vert_edges)
     TYPE(t_cartesian_coordinates)    :: recon_vec_cc
+    TYPE(t_geographical_coordinates) :: gc1,gc2!recon_vec_gc(no_vert_edges), gc_tmp
     !TYPE(t_geographical_coordinates) :: recon_vec_gc(no_vert_edges), gc_tmp
     !TYPE(t_geographical_coordinates) :: normal_gc(no_cell_edges)
     !TYPE(t_cartesian_coordinates)    :: recon_vec_cc1(no_vert_edges), recon_vec_cc2(no_vert_edges)
@@ -2008,6 +2020,7 @@ END DO
     REAL(wp) :: z_edge_length(no_cell_edges)!, z_e_length!, z_ce_dist
     REAL(wp) :: z_cell_edge_dist_c1(no_cell_edges,2),z_cell_edge_dist_c2(no_cell_edges,2)
     !REAL(wp) :: z_cell_edge_dist(no_cell_edges,2)
+    REAL(wp) :: z_y!z_cell_edge_dist(no_cell_edges,2)
 
     !REAL(wp) :: p_c(3), r1(3,3), r2(3,3), rot_p_c(3), barlon, barlat
     !REAL(wp) :: edge_length_c1_e1, edge_length_c1_e2,edge_length_c1_e3
@@ -2232,6 +2245,10 @@ END DO
          END DO
        END DO EDGE_IDX_LOOP_PRIMAL
      END DO EDGE_BLK_LOOP_PRIMAL
+     !In he edge loop above each triangle is visisted three times. Since the "fixed_vol_norm" is
+     !accumulated we correct its value here:
+     v_base%fixed_vol_norm = v_base%fixed_vol_norm/3.0_wp
+
     rl_start = 1 
     rl_end = min_rledge
 
@@ -2298,7 +2315,7 @@ END DO
     END DO EDGE_BLK_LOOP_0
 
     !------------------------------------------------------------------------------
-    !STEP 2: edge2vert und vert2edge coefficients for dual grid
+    !STEP 2: edge2vert coefficients for dual grid
     !------------------------------------------------------------------------------
 
     rl_start = 1
@@ -2315,7 +2332,6 @@ END DO
       VERT_IDX_LOOP: DO jv =  i_startidx, i_endidx
 
         ! current number of edges around vertex (5 or 6)
-        it_vertedges = p_patch%verts%num_edges(jv,jb)      ! #slo# not used??
         cc_v0        = gc2cc(p_patch%verts%vertex(jv,jb))
  
         DO ie = 1, no_vert_edges  ! #slo# it_vertedges ??
@@ -2357,6 +2373,24 @@ END DO
           IF(MID_POINT_DUAL_EDGE)THEN
             cc_mid_dual_edge(ie)%x = 0.5_wp*(xx2%x+xx1%x)
             gc_mid_dual_edge(ie)   = cc2gc(cc_mid_dual_edge(ie)) 
+
+            IF(CORIOLIS_TYPE==full_coriolis)THEN
+              p_patch%edges%f_e(il_e, ib_e) = 2._wp*omega*SIN(gc_mid_dual_edge(ie)%lat) 
+            ELSEIF(CORIOLIS_TYPE==BETA_PLANE_CORIOLIS)THEN
+              gc1%lat = basin_center_lat* deg2rad - 0.5_wp*basin_height_deg*deg2rad
+              gc1%lon = 0.0_wp
+              xx1=gc2cc(gc1)
+
+              gc2%lat = gc_mid_dual_edge(ie)%lat!*deg2rad
+              gc2%lon = 0.0_wp
+              xx2=gc2cc(gc2)        
+              z_y = re*arc_length(xx2,xx1)
+ 
+              !z_y = ptr_patch%edges%center(je,jb)%lat - z_lat_basin_center
+              p_patch%edges%f_e(il_e, ib_e) &
+              &= 2.0_wp*omega*( sin(basin_center_lat * deg2rad)     &
+              &   + (cos(basin_center_lat * deg2rad)/re)*z_y)
+            ENDIF
           ELSE
             cc_mid_dual_edge(ie)%x = cc_dual_edge(ie)%x
             gc_mid_dual_edge(ie)   = cc2gc(cc_mid_dual_edge(ie)) 
@@ -2558,9 +2592,6 @@ END DO
   !
   !>
   !! Precomputes the geometrical factors used in the divergence, rotation.
-  !!
-  !! Precomputes the geometrical factors used in the divergence, rotation
-  !! and ??? operators stored in the p_base instead of int_state
   !!
   !! @par Revision History
   !!  developed by Guenther Zaengl, 2009-03-17
@@ -2910,6 +2941,119 @@ END DO
     CALL message (TRIM(routine), 'end')
 
   END SUBROUTINE init_geo_factors_base
+  !
+  !
+  !>
+  !! Modifies the already calculated Coriolis force, if beta-, f-plane or the nonrotating case 
+  !! is selected in the namelist. The tangent plane is associated to the center of the basin that is 
+  !! specified in the namelist. An alternative would be to associate it to the nearest edge/vertex,
+  !! but this is not implemented yet, and i expect it to have a minor effect.
+  !!
+  !! The Coriolis parameter is specified for edges (needed in RBF-discretization) and at vertices
+  !! (needed in mimetic discreization).
+  !! The land-sea masks are not taken into account here. This would require to extend the
+  !! 2D-coriolis-structure to a 3D one
+  !!
+  !! @par Revision History
+  !!  developed by Peter Korn, 2011
+  !!
+  SUBROUTINE init_coriolis_oce( ptr_patch )
+    !
+    IMPLICIT NONE
+    !
+    !
+    TYPE(t_patch), TARGET, INTENT(inout) :: ptr_patch
+    !
+    INTEGER :: jb, je, jv
+    INTEGER :: rl_start_e, rl_end_e
+    INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
+    INTEGER :: rl_start_v, rl_end_v
+    INTEGER :: i_startblk_v, i_endblk_v, i_startidx_v, i_endidx_v
+    TYPE(t_geographical_coordinates) :: gc1,gc2 
+    TYPE(t_cartesian_coordinates) :: xx1, xx2
+    REAL(wp) :: z_y, z_lat_basin_center
+    CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
+    & routine = ('mo_oce_state:init_coriolis_oce')
+    !-----------------------------------------------------------------------
+
+    CALL message (TRIM(routine), 'start')
+
+    rl_start_e = 1
+    rl_end_e   = min_rledge
+    rl_start_v = 1
+    rl_end_v   = min_rlvert
+    
+    i_startblk_e = ptr_patch%edges%start_blk(rl_start_e,1)
+    i_endblk_e   = ptr_patch%edges%end_blk(rl_end_e,1)
+    i_startblk_v = ptr_patch%verts%start_blk(rl_start_v,1)
+    i_endblk_v   = ptr_patch%verts%end_blk(rl_end_v,1)
+
+    SELECT CASE (CORIOLIS_TYPE)
+
+    CASE(BETA_PLANE_CORIOLIS)
+
+      CALL message (TRIM(routine), 'BETA_PLANE_CORIOLIS: set to linear approximation')
+
+      z_lat_basin_center = basin_center_lat * deg2rad
+      gc1%lat = basin_center_lat* deg2rad - 0.5_wp*basin_height_deg*deg2rad
+      gc1%lon = 0.0_wp
+      xx1=gc2cc(gc1)
+
+      DO jb = i_startblk_v, i_endblk_v
+        CALL get_indices_v(ptr_patch, jb, i_startblk_v, i_endblk_v, &
+                          i_startidx_v, i_endidx_v, rl_start_v, rl_end_v)
+        DO jv = i_startidx_v, i_endidx_v
+            !z_y = re*(ptr_patch%verts%vertex(jv,jb)%lat - z_lat_basin_center) 
+            gc2%lat = ptr_patch%verts%vertex(jv,jb)%lat!*deg2rad
+            gc2%lon = 0.0_wp
+            xx2=gc2cc(gc2)        
+            z_y = re*arc_length(xx2,xx1)
+            ptr_patch%verts%f_v(jv,jb) = 2.0_wp*omega*( sin(z_lat_basin_center)     &
+            &                          + (cos(z_lat_basin_center)/re)*z_y)
+         !  write(*,*)'beta', jv,jb,z_beta_plane_vort,2.0_wp*omega*sin(z_lat_basin_center),&
+         !  &2.0_wp*omega*((cos(z_lat_basin_center)/re)*z_y)
+        END DO
+      END DO
+   
+      DO jb = i_startblk_e, i_endblk_e
+        CALL get_indices_e(ptr_patch, jb, i_startblk_e, i_endblk_e, &
+                          i_startidx_e, i_endidx_e, rl_start_e, rl_end_e)
+        DO je = i_startidx_e, i_endidx_e
+          ! depends on basin_center_lat only - not dependent on center_lon, basin_width or height
+            gc2%lat = ptr_patch%edges%center(je,jb)%lat!*deg2rad
+            gc2%lon = 0.0_wp
+            xx2=gc2cc(gc2)        
+            z_y = re*arc_length(xx2,xx1)
+   
+            !z_y = ptr_patch%edges%center(je,jb)%lat - z_lat_basin_center
+            ptr_patch%edges%f_e(je,jb) = 2.0_wp*omega*( sin(z_lat_basin_center)     &
+            &                          + (cos(z_lat_basin_center)/re)*z_y)
+        END DO
+      END DO
+    CASE(F_PLANE_CORIOLIS)
+
+      CALL message (TRIM(routine), 'F_PLANE_CORIOLIS: set to constant value')
+   
+      z_lat_basin_center = basin_center_lat * deg2rad
+   
+      ptr_patch%edges%f_e  = 2.0_wp*omega*sin(z_lat_basin_center)
+      ptr_patch%verts%f_v  = 2.0_wp*omega*sin(z_lat_basin_center)
+   
+    CASE(ZERO_CORIOLIS)
+   
+      CALL message (TRIM(routine), 'ZERO_CORIOLIS: set to zero')
+      ptr_patch%verts%f_v = 0.0_wp
+      ptr_patch%edges%f_e = 0.0_wp
+
+    CASE(FULL_CORIOLIS)
+  
+      CALL message (TRIM(routine), 'FULL_CORIOLIS: Nothing to do, coriolis not modified')
+   
+    END SELECT
+
+    CALL message (TRIM(routine), 'end')
+
+  END SUBROUTINE init_coriolis_oce
 
 ! Helper functions for computing the vertical layer structure  
   SUBROUTINE set_zlev(n_zlev, dzlev_m, zlev_i, zlev_m)

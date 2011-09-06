@@ -49,7 +49,8 @@ MODULE mo_hydro_ocean_run
 USE mo_impl_constants,         ONLY: max_char_length
 USE mo_model_domain,           ONLY: t_patch
 USE mo_model_domain_import,    ONLY: n_dom
-USE mo_ocean_nml,              ONLY: iswm_oce, no_tracer,itestcase_oce, EOS_type
+USE mo_ocean_nml,              ONLY: iswm_oce, idisc_scheme, no_tracer, &
+  &                                  itestcase_oce, EOS_type
 USE mo_dynamics_config,        ONLY: nold, nnew
 USE mo_io_config,              ONLY: out_expname, istime4output, istime4newoutputfile
 USE mo_run_config,             ONLY: nsteps, dtime, ltimer
@@ -58,39 +59,37 @@ USE mo_ext_data,               ONLY: t_external_data
 USE mo_io_units,               ONLY: filename_max
 USE mo_datetime,               ONLY: t_datetime, print_datetime, add_time
 USE mo_timer,                  ONLY: timer_total, timer_start, timer_stop
-!USE mo_loopindices,            ONLY: get_indices_c, get_indices_e
-USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab,            &
-  &                                  calc_normal_velocity_ab  ,           &
+USE mo_oce_ab_timestepping,    ONLY: solve_free_surface_eq_ab, &
+  &                                  calc_normal_velocity_ab,  &
   &                                  calc_vert_velocity
 USE mo_oce_tracer_transport,   ONLY: advect_tracer_ab
 USE mo_oce_state,              ONLY: t_hydro_ocean_state, t_hydro_ocean_base, &
   &                                  init_ho_base, v_base, &
   &                                  construct_hydro_ocean_base, destruct_hydro_ocean_base, &
   &                                  construct_hydro_ocean_state, destruct_hydro_ocean_state, &
-  &                                  init_scalar_product_base, init_geo_factors_base
+  &                                  init_scalar_product_base, init_geo_factors_base, &
+  &                                  init_coriolis_oce
 USE mo_oce_physics,            ONLY: t_ho_params, &
-                                   & construct_ho_params, init_ho_params, &
-                                   &destruct_ho_params, update_ho_params
-USE mo_output,              ONLY: init_output_files, write_output
+  &                                  construct_ho_params, init_ho_params, &
+  &                                  destruct_ho_params, update_ho_params
 !USE mo_oce_index,              ONLY: c_b, c_i, c_k, ldbg, form4ar,
 USE mo_oce_index,              ONLY: init_index_test
-
+USE mo_output,                 ONLY: init_output_files, write_output, &
+  &                                  create_restart_file
 USE mo_interpolation,          ONLY: t_int_state
 USE mo_oce_init,               ONLY: init_ho_testcases
 USE mo_oce_diagnostics,        ONLY: calculate_oce_diagnostics,&
-                                  & construct_oce_diagnostics,&
-                                  & destruct_oce_diagnostics, t_oce_timeseries
-
+  &                                  construct_oce_diagnostics,&
+  &                                  destruct_oce_diagnostics, t_oce_timeseries
 USE mo_oce_forcing,            ONLY: construct_sfcflx , &
-                                  & construct_atmos_for_ocean,&
-                                  & destruct_atmos_for_ocean,&
-                                  & construct_atmos_fluxes, destruct_atmos_fluxes,&
-                                  & t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
-USE mo_sea_ice,                ONLY:t_sea_ice, construct_sea_ice, destruct_sea_ice
+  &                                  construct_atmos_for_ocean,&
+  &                                  destruct_atmos_for_ocean,&
+  &                                  construct_atmos_fluxes, destruct_atmos_fluxes,&
+  &                                  t_sfc_flx, t_atmos_fluxes, t_atmos_for_ocean
+USE mo_sea_ice,                ONLY: t_sea_ice, construct_sea_ice, destruct_sea_ice
 USE mo_oce_bulk,               ONLY: update_sfcflx
-USE mo_oce_thermodyn,          ONLY:calc_density_MPIOM_func, calc_density_lin_EOS_func,&
-                                    &calc_density_JMDWFG06_EOS_func
-!USE mo_physical_constants,     ONLY: kice
+USE mo_oce_thermodyn,          ONLY: calc_density_MPIOM_func, calc_density_lin_EOS_func,&
+  &                                  calc_density_JMDWFG06_EOS_func
 
 IMPLICIT NONE
 
@@ -167,9 +166,9 @@ CONTAINS
   jfile = 1
 
   CALL init_index_test( ppatch, pstate_oce, p_ext_data )
-  IF ( iswm_oce == 1 ) THEN
+  !IF ( iswm_oce == 1 ) THEN
     CALL construct_oce_diagnostics( ppatch(jg), pstate_oce(jg), p_ext_data(jg), oce_ts)
-  ENDIF
+  !ENDIF
 
   IF (ltimer) CALL timer_start(timer_total)
 
@@ -235,14 +234,14 @@ CONTAINS
     nnew(jg)  = n_temp
 
    !Actually diagnostics for 3D not implemented, PK March 2011 
-   IF ( iswm_oce == 1 ) THEN
+   !IF ( iswm_oce == 1 ) THEN
     CALL calculate_oce_diagnostics( ppatch(jg),    &
                                   & pstate_oce(jg),&
                                   & p_sfc_flx,     &
                                   & p_phys_param,  &
                                   & jstep,         &
                                   & oce_ts)
-   ENDIF 
+   !ENDIF 
     ! Step 8: test output
 !     IF (ldbg) WRITE(*,'(a,i5,2(a,g20.12))') '*** After jstep = ',jstep, &
 !       &  '  Elevation h =', pstate_oce(jg)%p_prog(nold(jg))%h(c_i,c_b), &
@@ -259,22 +258,11 @@ CONTAINS
     !        before new writing timestep!
     IF (istime4newoutputfile(jstep) .AND. jstep/=nsteps) THEN
 
-      jfile = jfile +1
-      CALL init_output_files(jfile,lclose=.TRUE.)
-
-    END IF
-
-    ! One integration cycle finished on the lowest grid level (coarsest
-    ! resolution). Set model time.
-    CALL add_time(dtime,0,0,0,datetime)
-
-!     CALL message (TRIM(routine),'Step completed at:')
-!     CALL print_datetime(datetime)
 
   ENDDO TIME_LOOP
-  IF ( iswm_oce == 1 ) THEN
+  !IF ( iswm_oce == 1 ) THEN
     CALL destruct_oce_diagnostics(oce_ts)
-   ENDIF
+   !ENDIF
 
 !   IF (ldbg) THEN
 !     WRITE(*,*)  ' After run:'
@@ -333,8 +321,9 @@ CONTAINS
     ! hydro_ocean_base contains the 3-dimensional structures for the ocean state
     CALL construct_hydro_ocean_base(ppatch(jg), v_base)
     CALL init_ho_base(ppatch(jg), p_ext_data(jg), v_base)
-    CALL init_scalar_product_base( ppatch(jg), v_base )
+    IF (idisc_scheme==1) CALL init_scalar_product_base( ppatch(jg), v_base )
     CALL init_geo_factors_base( ppatch(jg), v_base )
+    CALL init_coriolis_oce( ppatch(jg) )
 
     !------------------------------------------------------------------
     ! construct ocean state and physics

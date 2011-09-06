@@ -41,7 +41,7 @@ USE mo_mpi,                    ONLY: my_process_is_stdio
 USE mo_io_units,               ONLY: nerr
 USE mo_parallel_config,  ONLY: nproma
 USE mo_run_config,             ONLY: nsteps
-USE mo_ocean_nml,              ONLY: n_zlev, i_dbg_oce, i_dbg_inx, str_proc_tst, &
+USE mo_ocean_nml,              ONLY: n_zlev, i_dbg_oce, i_dbg_inx, str_proc_tst,no_tracer, &
   &                                  i_oct_blk, i_oct_idx, i_oct_ilv, rlon_in, rlat_in
 ! &                                  i_ocv_blk, i_ocv_idx, i_ocv_ilv, t_val,  &
 USE mo_dynamics_config,        ONLY: nold, nnew
@@ -274,11 +274,17 @@ CONTAINS
     WRITE(*,99) ' Cell C: block=',c_b,'  index=',c_i,                            &
       &         '  lsm_c=', islmval,'  dolic_c=',idolic,'  bathy_c=', bathy,     &
       &         '  lat=',zlat,'  lon=',zlon
+    IF(no_tracer>=1)THEN
     WRITE(*,form4ar)  &
               ' Elev. h at Cell C    =', pstate_oce(jg)%p_prog(jt)%h(c_i,c_b),            &
       &                  '  Tracer 1 =', pstate_oce(jg)%p_prog(jt)%tracer(c_i,c_k,c_b,1), &
       &      '  Test level at cell C = ',REAL(c_k,wp)
-
+    ELSEIF(no_tracer==0)THEN
+    WRITE(*,form4ar)  &
+              ' Elev. h at Cell C    =', pstate_oce(jg)%p_prog(jt)%h(c_i,c_b),            &
+      !&                  '  Tracer 1 =', pstate_oce(jg)%p_prog(jt)%tracer(c_i,c_k,c_b,1), &
+      &      '  Test level at cell C = ',REAL(c_k,wp)
+    ENDIF
     !------------------------------------------------------------------
     ! find and print correspondig edges of test cell
     !------------------------------------------------------------------
@@ -417,18 +423,20 @@ CONTAINS
   !! Print out min and max of a 2-dimensional array.
   !!
   !! Print out min and max of a 2-dimensional array. Reduce writing effort for a simple print.
-  !! The print is controlled by a parameter that is set via namelist octst_ctl
+  !! The amount of prints is controlled by comparison of a fixed level of output (ipl_proc_src)
+  !! with variable i_dbg_inx that is set via namelist octst_ctl
   !!
   !! @par Revision History
   !! Initial release by Stephan Lorenz, MPI-M (2011-01)
   !
 ! SUBROUTINE print_mxmn ( str_prntdes, klev, p_array, &
 !   &                     ndimz, ndimblk, str_proc_src, str_proc_tst, ipl_mxmn, iplix_opt )
+! iplix_opt is optional output level for additional output of values at a user given index
   SUBROUTINE print_mxmn ( str_prntdes, klev, p_array, &
     &                     ndimz, ndimblk, str_proc_src, ipl_proc_src )
 
   !TYPE(t_patch), TARGET, INTENT(IN) :: ppatch(n_dom)
-  INTEGER,               INTENT(IN) :: klev               ! single level to write maxmin
+  INTEGER,               INTENT(IN) :: klev               ! vertical level to write maxmin
   CHARACTER(len=*),      INTENT(IN) :: str_prntdes        ! description of array
   ! array to print out values: vertical dimension could be 1 for 2-dim arrays, first dimension is nproma
   INTEGER,               INTENT(IN) :: ndimz              ! vertical dimension of array (1 = no vert. dim.)
@@ -448,8 +456,8 @@ CONTAINS
   !ELSE
   !  iout = nerr
   !END IF
-  ! as long as not all write statements are replaced by calls of print_mxmn:
   iout = nerr
+  ! as long as not all write statements are replaced by calls of print_mxmn:
   iout = 6
 
   ! compare defined source string with namelist-given output string:
@@ -463,7 +471,8 @@ CONTAINS
   ! if str_proc_src not found in str_proc_tst - no output
   IF (icheck_str_proc == 0 ) RETURN
 
-  99 FORMAT(a,a20,a,i3,1p2e28.16)
+! 99 FORMAT(a,a20,a,i3,1p2e28.16)
+  99 FORMAT(a,a20,a,i3,2g28.16)
   strout=TRIM(str_prntdes)
 
   ! check print output level ipl_proc_src (1-5) with namelist given values for output at index:

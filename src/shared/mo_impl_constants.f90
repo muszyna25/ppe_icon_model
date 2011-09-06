@@ -324,7 +324,7 @@ MODULE mo_impl_constants
   INTEGER, PARAMETER :: ntrac_oce = 2
   ! ocean surface level
   INTEGER, PARAMETER :: toplev    = 1
-
+  INTEGER, PARAMETER:: MIN_DOLIC=2                 !mimal number of vertical layers that have to be present in 3D ocean. Not relevant for shallow-water.
 
   !---------------------!
   !  PARALLELIZATION    !

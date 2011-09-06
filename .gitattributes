@@ -64,7 +64,6 @@ config/missing -text
 /create_builds -text
 data/ECHAM6_CldOptProps.nc -text
 data/external/etopo40.cdf -text
-data/external/iconR2B4-topo.nc -text
 data/rrtmg_lw.nc -text
 doc/contrib/ICON_Grafik1_Legende_Okt09.jpg -text
 doc/contrib/ICON_Grafik1_Okt09.jpg -text
@@ -618,6 +617,7 @@ run/exp.nh3_tri_tracer_solid_body -text
 run/exp.oce_parallel_output -text
 run/exp.ozon -text
 run/exp.pk_hom -text
+run/exp.pk_lsmfl -text
 run/exp.pure_adv -text
 run/exp.test_couple_dummy_models -text
 run/exp.test_hat_jww -text

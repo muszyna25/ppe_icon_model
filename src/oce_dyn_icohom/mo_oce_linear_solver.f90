@@ -475,6 +475,7 @@ REAL(wp) :: sum_aux(nblks)
     ENDDO
 !$OMP END DO
    ENDDO
+! write(*,*)'max/min matrix', maxval(x),minval(x)  
 !$OMP END PARALLEL
 #ifndef __SX__
    IF (ltimer) CALL timer_stop(timer_gmres)

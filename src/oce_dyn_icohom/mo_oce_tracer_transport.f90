@@ -45,7 +45,7 @@ MODULE mo_oce_tracer_transport
 USE mo_kind,                      ONLY: wp
 USE mo_math_utilities,            ONLY: t_cartesian_coordinates!, gc2cc
 USE mo_impl_constants,            ONLY: sea_boundary, &
-  &                                     min_rlcell, min_rledge, min_rlcell !, &
+  &                                     min_rlcell, min_rledge, min_rlcell,MIN_DOLIC !, &
 !  &                                     max_char_length
 USE mo_ocean_nml,                 ONLY: n_zlev, no_tracer, idisc_scheme,    &
                                     &   ab_const, ab_gam, expl_vertical_tracer_diff,&
@@ -92,7 +92,7 @@ INTEGER            :: FLUX_CALCULATION
 INTEGER, PARAMETER :: UPWIND = 1
 INTEGER, PARAMETER :: CENTRAL= 2
 INTEGER, PARAMETER :: MIMETIC= 3
-
+!INTEGER, PARAMETER :: MIN_DOLIC = 2
 CONTAINS
 !-------------------------------------------------------------------------  
 !
@@ -395,8 +395,8 @@ SELECT CASE(FLUX_CALCULATION)
 
 CASE(UPWIND, MIMETIC)
   !produce weighted transport velocity
-  z_transport_vn = ab_gam*p_os%p_prog(nnew(1))%vn + (1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn
-
+!   z_transport_vn = ab_gam*p_os%p_prog(nnew(1))%vn + (1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn
+  z_transport_vn = p_os%p_prog(nold(1))%vn
   !upwind estimate of mass flux
   CALL upwind_hflux_oce( p_patch,        &
                        & z_h_tmp,        &
@@ -741,8 +741,8 @@ SELECT CASE(FLUX_CALCULATION)
 
 CASE(UPWIND,MIMETIC)
   !Produce time-weighted vertical transport velocity
-  z_transport_w  = ab_gam*p_os%p_diag%w + (1.0_wp-ab_gam)*p_os%p_diag%w_old
-  ! z_transport_w  = p_os%p_diag%w 
+  !z_transport_w  = ab_gam*p_os%p_diag%w + (1.0_wp-ab_gam)*p_os%p_diag%w_old
+  z_transport_w  = p_os%p_diag%w_old 
   CALL upwind_vflux_oce( p_patch,      &
                        & trac_in,      &
                        & z_transport_w,&                       
@@ -775,7 +775,7 @@ DO jb = i_startblk_c, i_endblk_c
   &                   rl_start_c, rl_end_c)
   DO jc = i_startidx_c, i_endidx_c
     z_dolic = v_base%dolic_c(jc,jb)
-    IF(z_dolic>=3)THEN
+    IF(z_dolic>=MIN_DOLIC)THEN
        z_h(jc,1,jb) = (v_base%del_zlev_m(1) + p_os%p_prog(nold(1))%h(jc,jb))&
                     &- dtime*(z_transport_w(jc,1,jb)-z_transport_w(jc,2,jb))
         DO jk = 2, z_dolic
@@ -791,9 +791,10 @@ END DO
 
 !The diffusion part
 !vertical diffusion explicit = 0 or implicit =1
-write(*,*)'max/min top bc tracer:',jk,&
+write(*,*)'max/min top bc tracer:',&
 &maxval(bc_top_tracer), minval(bc_top_tracer)
-
+write(*,*)'max/min top z_h:',&
+&maxval(z_h(:,1,:)), minval(z_h(:,1,:))
 IF(expl_vertical_tracer_diff==1)THEN
 
   !divergence is calculated for advective fluxes
@@ -803,7 +804,7 @@ IF(expl_vertical_tracer_diff==1)THEN
     DO jc = i_startidx_c, i_endidx_c
       !interior: from one below surface to the ground
       z_dolic = v_base%dolic_c(jc,jb)
-      IF(z_dolic>=3)THEN
+      IF(z_dolic>=MIN_DOLIC)THEN
         DO jk = 1, z_dolic
           ! positive vertical divergence in direction of w (upward positive)
           z_div_adv_v(jc,jk,jb) = &
@@ -821,7 +822,7 @@ IF(expl_vertical_tracer_diff==1)THEN
                      & rl_start_c, rl_end_c)
       DO jc = i_startidx_c, i_endidx_c
         z_dolic = v_base%dolic_c(jc,jb)
-        IF(z_dolic>=3)THEN
+        IF(z_dolic>=MIN_DOLIC)THEN
 
           DO jk = 1, z_dolic
           !IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
@@ -859,11 +860,12 @@ IF(expl_vertical_tracer_diff==1)THEN
   ENDIF
   !calculate vert diffusion impicit: result is stored in trac_out
   write(*,*)'before impl diff',maxval(bc_top_tracer), minval(bc_top_tracer)
-  CALL tracer_diffusion_vert_impl( p_patch,     &
-                               & z_trac_c(:,:,:),&
-                               & bc_top_tracer,  & 
-                               & bc_bot_tracer,  &
-                               & A_v,            &
+  CALL tracer_diffusion_vert_impl( p_patch,                  &
+                               & z_trac_c(:,:,:),            &
+                               & bc_top_tracer,              & 
+                               & bc_bot_tracer,              &
+                               & p_os%p_prog(nold(1))%h ,    &
+                               & A_v,                        &
                                & trac_out(:,:,:))
 
 
@@ -909,7 +911,7 @@ ELSEIF(expl_vertical_tracer_diff==0)THEN
     DO jc = i_startidx_c, i_endidx_c
       !interior: from one below surface to the ground
       z_dolic = v_base%dolic_c(jc,jb)
-      IF(z_dolic>3)THEN
+      IF(z_dolic>MIN_DOLIC)THEN
         DO jk = 1, z_dolic
           jkp1 = jk + 1 
 
@@ -1340,7 +1342,7 @@ END SUBROUTINE elad
 !            pupflux_i(jc,1,jb) = pvar_c(jc,1,jb)*pw_c(jc,2,jb)
 !          ENDIF
         z_dolic = v_base%dolic_c(jc,jb)
-        IF(z_dolic>=3)THEN
+        IF(z_dolic>=MIN_DOLIC)THEN
           DO jk = 2, z_dolic
             jkm1 = jk - 1
             ! calculate vertical tracer flux using upwind method
@@ -1392,7 +1394,7 @@ END SUBROUTINE elad
                    & i_startidx, i_endidx, rl_start, rl_end)
         DO jc = i_startidx, i_endidx
           z_dolic = v_base%dolic_c(jc,jb)
-          IF(z_dolic>=3)THEN
+          IF(z_dolic>=MIN_DOLIC)THEN
             DO jk = 2, z_dolic! -1
               jkm1 = jk - 1
               jkp1 = jk + 1
@@ -1487,7 +1489,7 @@ END SUBROUTINE elad
                       & i_startidx, i_endidx, rl_start, rl_end)
         DO jc = i_startidx, i_endidx
           z_dolic = v_base%dolic_c(jc,jb)
-          IF(z_dolic>=3)THEN
+          IF(z_dolic>=MIN_DOLIC)THEN
             DO jk = 2, z_dolic
               ! index of top half level
               jkm1 = jk - 1

@@ -116,6 +116,7 @@ CONTAINS
     REAL(wp)::  z_lat, z_lon 
     REAL(wp):: z_dst, z_lat_deg, z_lon_deg, z_tmp, z_s1
     REAL(wp):: z_perlon, z_perlat, z_permax, z_perwid !,z_H_0
+    REAL(wp):: z_ttrop, z_tpol, z_tdeep, z_tdiff, z_ltrop, z_lpol, z_ldiff
     !TYPE(t_cartesian_coordinates)    :: p_x 
     !TYPE(t_geographical_coordinates) :: p_pos
     REAL(wp), PARAMETER :: tprof(20)=&
@@ -480,7 +481,9 @@ END DO
           !depends on latitude only and is uniform across
           !all vertical layers
           DO jk=1,n_zlev
-!            IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+    !       IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+             ! #slo# 2011-09-02: testcase now with warm water in first layer only
+             !IF ( jk == 1 ) THEN
 
               !constant salinity
                IF(no_tracer==2)THEN
@@ -526,13 +529,24 @@ END DO
 !                                                &sfc_press_bar)
 !SItodBar*rho_ref*v_base%zlev_m(jk))!1013.0_wp)SItodBar*101300.0_wp)!
               ENDIF
+           ! ELSE
+           !   p_os%p_diag%temp_insitu(jc,jk,jb) = 5.0_wp
+           !   p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
+           !ENDIF ! jk=1
+    !     ENDIF  ! lsm
         END DO
       END DO
     END DO
     !Temperature relaxation just for testcase 35: relaxation to initial value
     IF(temperature_relaxation==1)THEN
-      p_os%p_prog(nold(1))%tracer(:,1,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
+      p_sfc_flx%forc_tracer_relax(:,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
     ENDIF
+DO jk=1,n_zlev
+write(*,*)'max-min T-innitial',jk,&
+ & maxval(p_os%p_prog(nold(1))%tracer(:,jk,:,1)),&
+ & minval(p_os%p_prog(nold(1))%tracer(:,jk,:,1))
+END DO
+
    CASE (34)
       !Adjusting density front sprof(20)
       DO jb = i_startblk_c, i_endblk_c    
@@ -558,10 +572,10 @@ END DO
       END DO
       !Temperature relaxation just for testcase 35: relaxation to initial value
       IF(temperature_relaxation==1)THEN
-        p_os%p_prog(nold(1))%tracer(:,1,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
+        p_sfc_flx%forc_tracer_relax(:,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
       ENDIF
 
-   CASE (35) !Ocean at rest with temperature startification as in 30 but with temerature resoring
+   CASE (35) !Ocean at rest with temperature startification as in 30 but with temperature restoring
              !and OMIP wind-forcing
         CALL message(TRIM(routine), 'Simple Initialization of testcases (30)')
         CALL message(TRIM(routine), ' - here: 3D Stommel Testcase for T and S')
@@ -616,7 +630,7 @@ END DO
 
       !Temperature relaxation just for testcase 35: relaxation to initial value
       IF(temperature_relaxation==1)THEN
-        p_os%p_prog(nold(1))%tracer(:,1,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
+        p_sfc_flx%forc_tracer_relax(:,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
       ENDIF
 
       
@@ -655,7 +669,7 @@ END DO
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
                & = max(p_os%p_prog(nold(1))%tracer(jc,jk,jb,1),0.0_wp)
 
-                !Temperature resoring to original value
+                !Temperature restoring to original value
                 p_sfc_flx%forc_tracer_relax(jc,jb,1) = p_os%p_prog(nold(1))%tracer(jc,1,jb,1)
               ELSEIF(abs(z_lat_deg)<=20.0_wp)THEN
 
@@ -673,7 +687,7 @@ END DO
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
                & = max(p_os%p_prog(nold(1))%tracer(jc,jk,jb,1),0.0_wp)
 
-                !Temperature resoring to original value
+                !Temperature restoring to original value
                 p_sfc_flx%forc_tracer_relax(jc,jb,1) = p_os%p_prog(nold(1))%tracer(jc,1,jb,1)
 
               ELSEIF(abs(z_lat_deg)<40.0_wp .AND. abs(z_lat_deg)>20.0_wp)THEN
@@ -695,25 +709,13 @@ END DO
                 p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
                & = max(p_os%p_prog(nold(1))%tracer(jc,jk,jb,1),0.0_wp)
 
-                !Temperature resoring to original value
+                !Temperature restoring to original value
                 p_sfc_flx%forc_tracer_relax(jc,jb,1) = p_os%p_prog(nold(1))%tracer(jc,1,jb,1)
               ENDIF
              ENDIF
         END DO
       END DO
     END DO 
-
-   !Temperature relaxation just for testcase 35: relaxation to initial value
-   IF(temperature_relaxation==1)THEN
-     p_os%p_prog(nold(1))%tracer(:,1,:,1) = p_os%p_prog(nold(1))%tracer(:,1,:,1)
-   ENDIF
-
-
-DO jk=1,n_zlev
-write(*,*)'max-min T-innitial',jk,&
- & maxval(p_os%p_prog(nold(1))%tracer(:,jk,:,1)),&
- & minval(p_os%p_prog(nold(1))%tracer(:,jk,:,1))
-END DO
 !       DO jb = i_startblk_e, i_endblk_e    
 !-----------------------------------------------------------------------------------------------
 !                Code below is not finished (PK)---------------
@@ -909,6 +911,86 @@ END DO
 ! !           ENDIF
 ! !         END DO
 ! !       END DO
+
+    CASE (43) ! #slo# collapsing density front with much smaller amplitude
+              ! without temperature restoring / relaxation
+      
+      ! Temperature profile in first layer depends on latitude only
+      ! Construct temperature profile 
+      !   ttrop for lat<ltrop; tpol for lat>lpol; cos for transition zone
+      z_ttrop = 10.0_wp      ! tropical temperature
+      z_tpol  =  5.0_wp      ! polar temperature
+      z_ttrop =  5.0_wp      ! 2011-09-02: instable stratification
+      z_tpol  = 10.0_wp      ! 2011-09-02: instable stratification
+      z_lpol  = 70.0_wp      ! polar boundary latitude of transition zone
+
+      z_ttrop = 25.0_wp      ! 2011-09-05: stable stratification
+      z_tpol  = 10.0_wp      ! 2011-09-05: stable stratification
+      z_tdeep =  5.0_wp      ! 2011-09-05: stable stratification
+      z_ltrop = 15.0_wp      ! tropical boundary latitude of transition zone
+      z_lpol  = 60.0_wp      ! polar boundary latitude of transition zone
+      z_tdiff = z_ttrop - z_tpol
+      z_ldiff = z_lpol  - z_ltrop
+
+      DO jb = i_startblk_c, i_endblk_c    
+        CALL get_indices_c(ppatch, jb, i_startblk_c, i_endblk_c, &
+         &                i_startidx_c, i_endidx_c, rl_start, rl_end_c)
+
+        DO jc = i_startidx_c, i_endidx_c
+
+          !latitude given in radians
+          z_lat = ppatch%cells%center(jc,jb)%lat
+          !transer to latitude in degrees
+          z_lat_deg = z_lat*rad2deg
+
+          DO jk=1,n_zlev
+   !       IF ( v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN
+            IF ( jk == 1 ) THEN
+
+              !constant salinity
+              IF(no_tracer==2)THEN
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,2) = sprof(jk) !35.0_wp
+              ENDIF
+
+              IF(abs(z_lat_deg)>=z_lpol)THEN
+
+                p_os%p_diag%temp_insitu(jc,jk,jb) = z_tpol
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
+   !            p_os%p_prog(nold(1))%tracer(jc,jk,jb,1)&
+   !             &= 30.0_wp!convert_insitu2pot_temp_func(p_os%p_diag%temp_insitu(jc,jk,jb),&
+                           !                     &p_os%p_prog(nold(1))%tracer(jc,jk,jb,2),&
+                           !                     &sfc_press_bar)
+                           !SItodBar*rho_ref*v_base%zlev_m(jk))!1013.0_wp)SItodBar*101300.0_wp)!
+
+              ELSEIF(abs(z_lat_deg)<=z_ltrop)THEN
+
+                p_os%p_diag%temp_insitu(jc,jk,jb) = z_ttrop
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
+
+
+              ELSEIF(abs(z_lat_deg)<z_lpol .AND. abs(z_lat_deg)>z_ltrop)THEN
+            !   z_tmp = pi*((abs(z_lat_deg) - z_lpol)/z_ldiff)
+            !   p_os%p_diag%temp_insitu(jc,jk,jb) = z_tpol + 0.5_wp*z_tdiff*(1.0_wp+cos(z_tmp))
+                z_tmp = 0.5_wp*pi*((abs(z_lat_deg) - z_ltrop)/z_ldiff)
+                p_os%p_diag%temp_insitu(jc,jk,jb) = z_ttrop - z_tdiff*sin(z_tmp)
+                p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
+!      if (jk==1) write(*,*) 'zlat,ztmp(deg),temp', &
+!   &  jb,jc,z_lat_deg,(abs(z_lat_deg)-z_lpol)/z_ldiff,p_os%p_diag%temp_insitu(jc,jk,jb)
+              ENDIF
+            ELSE
+              p_os%p_diag%temp_insitu(jc,jk,jb) = z_tdeep
+              p_os%p_prog(nold(1))%tracer(jc,jk,jb,1) = p_os%p_diag%temp_insitu(jc,jk,jb)
+            ENDIF  ! jk=1
+   !       ENDIF   ! lsm
+          END DO
+        END DO
+      END DO
+
+      DO jk=1,n_zlev
+      write(*,*)'max-min T-innitial',jk,&
+       & maxval(p_os%p_prog(nold(1))%tracer(:,jk,:,1)),&
+       & minval(p_os%p_prog(nold(1))%tracer(:,jk,:,1))
+      END DO
 
     CASE DEFAULT
      CALL finish(TRIM(routine), 'CHOSEN INITIALIZATION NOT SUPPORTED - TERMINATE')

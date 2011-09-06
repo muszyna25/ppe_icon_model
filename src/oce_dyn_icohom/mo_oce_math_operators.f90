@@ -627,6 +627,16 @@ CASE (3) ! (cell_type == 3)
             vec_e(iidx(jc,jb,1),jk,iblk(jc,jb,1)) * v_base%geofac_div(jc,1,jb) + &
             vec_e(iidx(jc,jb,2),jk,iblk(jc,jb,2)) * v_base%geofac_div(jc,2,jb) + &
             vec_e(iidx(jc,jb,3),jk,iblk(jc,jb,3)) * v_base%geofac_div(jc,3,jb)
+!  IF(jk==5.and.jc==51.and.jb==80)THEN
+!  write(432,*)'div', jc,jk,jb,div_vec_c(jc,jk,jb),&
+! !&v_base%geofac_div(jc,:,jb),&
+! &iidx(jc,jb,1),iblk(jc,jb,1),&
+! &iidx(jc,jb,2),iblk(jc,jb,2),&
+! &iidx(jc,jb,3),iblk(jc,jb,3),&
+! &vec_e(iidx(jc,jb,1),jk,iblk(jc,jb,1)),&
+! &vec_e(iidx(jc,jb,2),jk,iblk(jc,jb,2)),&
+! &vec_e(iidx(jc,jb,3),jk,iblk(jc,jb,3))
+!  ENDIF
         ENDIF
 
       END DO

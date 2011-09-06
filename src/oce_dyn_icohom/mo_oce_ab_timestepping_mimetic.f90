@@ -300,13 +300,13 @@ LOGICAL                                       :: l_first_timestep
 INTEGER  :: i_startblk, i_endblk, i_startidx, i_endidx
 INTEGER  :: rl_start, rl_end
 INTEGER  :: je, jk, jb
-REAL(wp) :: gdt, z_rho
+REAL(wp) :: gdt
 !REAL(wp) :: z_flip_flop_e(nproma,n_zlev,p_patch%nblks_e)
 !REAL(wp) :: z_ptp_gradh(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_gradh_e(nproma,1,p_patch%nblks_e)
 REAL(wp) :: z_e(nproma,n_zlev,p_patch%nblks_e)
+REAL(wp) :: z_en(nproma,n_zlev,p_patch%nblks_e)
 !TYPE(t_cartesian_coordinates) :: p_vn_c(nproma,n_zlev,p_patch%nblks_c)
-INTEGER :: ic1,ib1,ic2,ib2
 !INTEGER  :: rl_start_c, rl_end_c, i_startblk_c, i_endblk_c,i_startidx_c, i_endidx_c
 ! CHARACTER(len=max_char_length), PARAMETER :: &
 !        & routine = ('mo_oce_ab_timestepping_mimetic:calculate_explicit_term_ab')
@@ -401,51 +401,54 @@ IF ( iswm_oce /= 1 ) THEN
   ipl_src=3  ! output print level (1-5, fix)
   DO jk=1, n_zlev
     CALL print_mxmn('density',jk,p_os%p_diag%rho(:,:,:),n_zlev,p_patch%nblks_c,'abt',ipl_src)
-   WRITE(*,*)'MAX/MIN density:',       jk, &
-     &        MAXVAL(p_os%p_diag%rho(:,jk,:)),&
-     &        MINVAL(p_os%p_diag%rho(:,jk,:)) 
-   WRITE(987,*)'MAX/MIN density:',       jk, &
-     &        MAXVAL(p_os%p_diag%rho(:,jk,:)),&
-     &        MINVAL(p_os%p_diag%rho(:,jk,:)) 
+  ! WRITE(*,*)'MAX/MIN density:',       jk, &
+  !   &        MAXVAL(p_os%p_diag%rho(:,jk,:)),&
+  !   &        MINVAL(p_os%p_diag%rho(:,jk,:)) 
+    WRITE(987,*)'MAX/MIN density:',       jk, &
+      &        MAXVAL(p_os%p_diag%rho(:,jk,:)),&
+      &        MINVAL(p_os%p_diag%rho(:,jk,:)) 
   END DO
-  ipl_src=4  ! output print level (1-5, fix)
+  ipl_src=3  ! output print level (1-5, fix)
   DO jk=1, n_zlev
     CALL print_mxmn('internal pressure',jk,p_os%p_diag%press_hyd(:,:,:),n_zlev, &
       &              p_patch%nblks_c,'abt',ipl_src)
-   WRITE(*,*)'MAX/MIN internal press:',jk, &
-     &        MAXVAL(p_os%p_diag%press_hyd(:,jk,:)),&
-     &        MINVAL(p_os%p_diag%press_hyd(:,jk,:)) 
-  WRITE(987,*)'MAX/MIN internal press:',jk, &
-     &        MAXVAL(p_os%p_diag%press_hyd(:,jk,:)),&
-     &        MINVAL(p_os%p_diag%press_hyd(:,jk,:)) 
+  ! WRITE(*,*)'MAX/MIN internal press:',jk, &
+  !   &        MAXVAL(p_os%p_diag%press_hyd(:,jk,:)),&
+  !   &        MINVAL(p_os%p_diag%press_hyd(:,jk,:)) 
+    WRITE(987,*)'MAX/MIN internal press:',jk, &
+       &        MAXVAL(p_os%p_diag%press_hyd(:,jk,:)),&
+       &        MINVAL(p_os%p_diag%press_hyd(:,jk,:)) 
 
   END DO
   DO jk=1, n_zlev
     CALL print_mxmn('internal press grad',jk,p_os%p_diag%press_grad(:,:,:),n_zlev, &
       &              p_patch%nblks_c,'abt',ipl_src)
- WRITE(*,*)'MAX/MIN internal press grad:',jk, &
-     &        MAXVAL(p_os%p_diag%press_grad(:,jk,:)),&
-     &        MINVAL(p_os%p_diag%press_grad(:,jk,:)) 
-   WRITE(987,*)'MAX/MIN internal press grad:',jk, &
-     &        MAXVAL(p_os%p_diag%press_grad(:,jk,:)),&
-     &        MINVAL(p_os%p_diag%press_grad(:,jk,:)) 
+  ! WRITE(*,*)'MAX/MIN internal press grad:',jk, &
+  !   &        MAXVAL(p_os%p_diag%press_grad(:,jk,:)),&
+  !   &        MINVAL(p_os%p_diag%press_grad(:,jk,:)) 
+    WRITE(987,*)'MAX/MIN internal press grad:',jk, &
+      &        MAXVAL(p_os%p_diag%press_grad(:,jk,:)),&
+      &        MINVAL(p_os%p_diag%press_grad(:,jk,:)) 
   END DO
-  ipl_src=3  ! output print level (1-5, fix)
+  ipl_src=4  ! output print level (1-5, fix)
   DO jk=1, n_zlev
     CALL print_mxmn('kinetic energy',jk,p_os%p_diag%kin(:,:,:),n_zlev, &
       &              p_patch%nblks_c,'abt',ipl_src)
   END DO
- DO jk=1, n_zlev
+  ipl_src=4  ! output print level (1-5, fix)
+  DO jk=1, n_zlev
     CALL print_mxmn('vertical advection',jk,p_os%p_diag%veloc_adv_vert(:,:,:),n_zlev, &
       &              p_patch%nblks_e,'abt',ipl_src)
-!   write(*,*)'MAX/MIN vert advection:', jk,MAXVAL(p_os%p_diag%veloc_adv_vert(:,jk,:)),&
-!                                      &MINVAL(p_os%p_diag%veloc_adv_vert(:,jk,:)) 
+    write(*,*)'MAX/MIN vert advection:', jk,MAXVAL(p_os%p_diag%veloc_adv_vert(:,jk,:)),&
+                                       &MINVAL(p_os%p_diag%veloc_adv_vert(:,jk,:)) 
   END DO
- DO jk=1, n_zlev
-    CALL print_mxmn('vertical diffusion',jk,p_os%p_diag%laplacian_vert(:,:,:),n_zlev, &
-      &              p_patch%nblks_e,'abt',ipl_src)
-  END DO
-
+  IF(expl_vertical_velocity_diff==0)THEN
+    ipl_src=4  ! output print level (1-5, fix)
+    DO jk=1, n_zlev
+      CALL print_mxmn('vertical diffusion',jk,p_os%p_diag%laplacian_vert(:,:,:),n_zlev, &
+        &              p_patch%nblks_e,'abt',ipl_src)
+    END DO
+  ENDIF
 ELSEIF( iswm_oce == 1 ) THEN
   p_os%p_diag%press_grad     = 0.0_wp
   p_os%p_diag%veloc_adv_vert = 0.0_wp
@@ -461,6 +464,7 @@ CALL velocity_diffusion_horz_mimetic(p_patch,&
                                    & p_phys_param,&
                                    & p_os%p_diag,&
                                    & p_os%p_diag%laplacian_horz)
+ipl_src=4  ! output print level (1-5, fix)
 DO jk=1, n_zlev
   CALL print_mxmn('horizontal diffusion',jk,p_os%p_diag%laplacian_horz(:,:,:),n_zlev, &
     &              p_patch%nblks_e,'abt',ipl_src)
@@ -491,15 +495,6 @@ IF(L_INVERSE_FLIP_FLOP)THEN
      &                   + p_os%p_diag%laplacian_vert(:,jk,:)
 
  END DO
-
-
-
-  DO jk = 1, n_zlev
-    CALL print_mxmn('after dual-flip-flop: horz adv',jk,p_os%p_diag%veloc_adv_horz(:,:,:),&
-      &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
-     write(*,*)'MIN/MAX after dual-flip-flop:',jk,minval(z_e(:,jk,:) ),&
-                                    maxval(z_e(:,jk,:) ) 
-  END DO
 
 ELSEIF(.NOT.(L_INVERSE_FLIP_FLOP))THEN
 
@@ -587,12 +582,13 @@ ENDIF
 
 IF(expl_vertical_velocity_diff==1 .AND. iswm_oce /= 1)THEN
 
-  CALL veloc_diffusion_vert_impl( p_patch,                  &
-                                & p_os%p_diag%vn_pred,      &
-                                & p_os%p_aux%bc_top_vn,     &
-                                & p_os%p_aux%bc_bot_vn,     &
-                                & p_phys_param%A_veloc_v,   &
-                                & p_os%p_diag%vn_impl_vert_diff)
+   CALL veloc_diffusion_vert_impl( p_patch,                  &
+                                 & p_os%p_diag%vn_pred,      &
+                                 & p_os%p_aux%bc_top_vn,     &
+                                 & p_os%p_aux%bc_bot_vn,     &
+                                 & p_os%p_diag%h_e,          &
+                                 & p_phys_param%A_veloc_v,   &
+                                 & p_os%p_diag%vn_impl_vert_diff)
   IF(l_RIGID_LID)THEN
     p_os%p_diag%vn_pred = p_os%p_diag%vn_impl_vert_diff
   ENDIF
@@ -600,50 +596,78 @@ ENDIF
 
 !---------Diagnostics-------------------------------------------
 DO jk = 1, n_zlev
-IF( (expl_vertical_velocity_diff/=1 .AND. iswm_oce /= 1).OR.iswm_oce == 1)THEN
-  write(*,*)'min/max vn_pred:',jk,     minval(p_os%p_diag%vn_pred(:,jk,:)), &
-    &                                  maxval(p_os%p_diag%vn_pred(:,jk,:))
+  ipl_src=3  ! output print level (1-5, fix)
+  IF( (expl_vertical_velocity_diff/=1 .AND. iswm_oce /= 1).OR.iswm_oce == 1)THEN
+    CALL print_mxmn('vn_pred:',jk,p_os%p_diag%vn_pred(:,:,:),&
+      &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+    write(*,*)'min/max vn_pred:',jk,     minval(p_os%p_diag%vn_pred(:,jk,:)), &
+      &                                  maxval(p_os%p_diag%vn_pred(:,jk,:))
 
-ELSEIF(expl_vertical_velocity_diff==1.AND. iswm_oce /= 1)THEN
-    write(*,*)'min/max vn_pred:',    jk,  minval(p_os%p_diag%vn_impl_vert_diff(:,jk,:)), &
-     &                                    maxval(p_os%p_diag%vn_impl_vert_diff(:,jk,:))
-
-
-ENDIF
-
-  write(*,*)'min/max vn_pred Term 1:',jk,     minval(p_os%p_aux%g_nimd(:,jk,:)), &
-    &                                         maxval(p_os%p_aux%g_nimd(:,jk,:))
-  IF(ab_beta/=1.0_wp)THEN
-    write(*,*)'min/max vn_pred Term 2:',jk,&
-    &minval((1.0_wp-ab_beta)*grav * z_gradh_e(:,1,:)), &
-    &maxval((1.0_wp-ab_beta)*grav * z_gradh_e(:,1,:))
+  ELSEIF(expl_vertical_velocity_diff==1.AND. iswm_oce /= 1)THEN
+    CALL print_mxmn('vn_pred:',jk,p_os%p_diag%vn_impl_vert_diff(:,:,:),&
+      &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+  ! write(*,*)'min/max vn_impl_vert_diff:',jk,minval(p_os%p_diag%vn_impl_vert_diff(:,jk,:)), &
+  !   &                                       maxval(p_os%p_diag%vn_impl_vert_diff(:,jk,:))
   ENDIF
-  write(*,*)'min/max vn_old :',jk,  minval(p_os%p_prog(nold(1))%vn(:,jk,:)), &
-     &                               maxval(p_os%p_prog(nold(1))%vn(:,jk,:))
 
-  write(*,*)'min/max G_n+1/2:',jk,  minval(p_os%p_aux%g_nimd(:,jk,:)),&
-                                    & maxval(p_os%p_aux%g_nimd(:,jk,:))
+  ipl_src=4  ! output print level (1-5, fix)
+  CALL print_mxmn('vn_pred Term 1:',jk,p_os%p_aux%g_nimd(:,:,:),&
+    &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+ !write(*,*)'min/max vn_pred Term 1:',jk,     minval(p_os%p_aux%g_nimd(:,jk,:)), &
+ !  &                                         maxval(p_os%p_aux%g_nimd(:,jk,:))
+  IF(ab_beta/=1.0_wp)THEN
+    z_en(:,jk,:) = (1.0_wp-ab_beta)*grav * z_gradh_e(:,1,:)
+    CALL print_mxmn('vn_pred Term 2:',jk,z_en(:,:,:),&
+      &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+  ! write(*,*)'min/max vn_pred Term 2:',jk,&
+  ! &minval((1.0_wp-ab_beta)*grav * z_gradh_e(:,1,:)), &
+  ! &maxval((1.0_wp-ab_beta)*grav * z_gradh_e(:,1,:))
+  ENDIF
+  ipl_src=4  ! output print level (1-5, fix)
+  CALL print_mxmn('vn_old',jk,p_os%p_prog(nold(1))%vn(:,:,:),&
+    &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+  CALL print_mxmn('G_n+1/2',jk,p_os%p_aux%g_nimd(:,:,:),&
+    &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+  CALL print_mxmn('G_n    ',jk,p_os%p_aux%g_n   (:,:,:),&
+    &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+  CALL print_mxmn('G_n-1  ',jk,p_os%p_aux%g_nm1(:,:,:),&
+    &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+  CALL print_mxmn('Laplac Hor',jk,p_os%p_diag%laplacian_horz(:,:,:),&
+    &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+! write(*,*)'min/max vn_old :',jk,  minval(p_os%p_prog(nold(1))%vn(:,jk,:)), &
+!    &                               maxval(p_os%p_prog(nold(1))%vn(:,jk,:))
 
-  write(*,*)'min/max G_n:',    jk,  minval(p_os%p_aux%g_n(:,jk,:)),&
-                                    & maxval(p_os%p_aux%g_n(:,jk,:))
+! write(*,*)'min/max G_n+1/2:',jk,  minval(p_os%p_aux%g_nimd(:,jk,:)),&
+!                                   & maxval(p_os%p_aux%g_nimd(:,jk,:))
 
-  write(*,*)'min/max G_n-1:',  jk,  minval(p_os%p_aux%g_nm1(:,jk,:)),&
-                                    & maxval(p_os%p_aux%g_nm1(:,jk,:))
+! write(*,*)'min/max G_n:',    jk,  minval(p_os%p_aux%g_n(:,jk,:)),&
+!                                   & maxval(p_os%p_aux%g_n(:,jk,:))
 
-  write(*,*)'min/max Lapl:',  jk,  minval(p_os%p_diag%laplacian_horz(:,jk,:)),&
-                                    & maxval(p_os%p_diag%laplacian_horz(:,jk,:))
+! write(*,*)'min/max G_n-1:',  jk,  minval(p_os%p_aux%g_nm1(:,jk,:)),&
+!                                   & maxval(p_os%p_aux%g_nm1(:,jk,:))
+
+! write(*,*)'min/max Lapl:',  jk,  minval(p_os%p_diag%laplacian_horz(:,jk,:)),&
+!                                   & maxval(p_os%p_diag%laplacian_horz(:,jk,:))
 
 
   IF(.NOT. L_INVERSE_FLIP_FLOP)THEN
-    write(*,*)'min/max adv:',    jk,minval(p_os%p_diag%veloc_adv_horz(:,jk,:)), &
-    &                               maxval(p_os%p_diag%veloc_adv_horz(:,jk,:))
+    CALL print_mxmn('Advect Hor',jk,p_os%p_diag%veloc_adv_horz(:,:,:),&
+      &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+ !  write(*,*)'min/max adv:',    jk,minval(p_os%p_diag%veloc_adv_horz(:,jk,:)), &
+ !  &                               maxval(p_os%p_diag%veloc_adv_horz(:,jk,:))
   ELSEIF(L_INVERSE_FLIP_FLOP)THEN
-    write(*,*)'min/max adv:',    jk, minval(z_e(:,jk,:)), &
-    &                                maxval(z_e(:,jk,:))
+    CALL print_mxmn('dual_flip_flop AdvHor',jk,z_e(:,:,:),&
+      &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+ !  write(*,*)'min/max adv:',    jk, minval(z_e(:,jk,:)), &
+ !  &                                maxval(z_e(:,jk,:))
   ENDIF
 
   write(*,*)
 END DO
+!ipl_src=2  ! output print level (1-5, fix)
+!z_en(:,1,:) = dtime*grav*z_gradh_e(:,1,:)
+!CALL print_mxmn('dtime*g*grad_h',1,z_en(:,1,:),&
+!  &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
 write(*,*)'min/max -dt*g*grad_h:',minval(dtime*grav*z_gradh_e), maxval(dtime* grav*z_gradh_e)
 
 !-------------------------------------------
@@ -710,7 +734,9 @@ INTEGER :: rl_start_e, rl_end_e
 INTEGER :: jc, jb, jk!, je
 INTEGER :: i_dolic_c
 REAL(wp) :: z_e(nproma,1,p_patch%nblks_e)
+REAL(wp) :: z_e1(nproma,1,p_patch%nblks_e)
 REAL(wp) :: gdt2
+REAL(wp) :: z_c1(nproma,1,p_patch%nblks_c)
 REAL(wp) :: div_z_c(nproma,1,p_patch%nblks_c) 
 REAL(wp) :: z_vn_ab(nproma,n_zlev,p_patch%nblks_e)
 TYPE(t_cartesian_coordinates) :: z_u_pred_cc(nproma,n_zlev,p_patch%nblks_c)
@@ -765,9 +791,9 @@ ENDIF
 !   z_vn_ab = ab_gam*p_os%p_diag%vn_pred + (1.0_wp -ab_gam)* p_os%p_prog(nold(1))%vn
 ! ENDIF
 
-!  DO jk = 1, n_zlev
-!    write(*,*)'MAX/MIN z_vn_ab:', jk,maxval(z_vn_ab(:,jk,:)),minval(z_vn_ab(:,jk,:))
-!  END DO
+  DO jk = 1, n_zlev
+    write(*,*)'MAX/MIN z_vn_ab:', jk,maxval(z_vn_ab(:,jk,:)),minval(z_vn_ab(:,jk,:))
+  END DO
 !Step 1) Do within each layer a edge to cell mapping of vn_pred
 !For below-surface cells, no height has to be provided, and the reconstructions
 !are normalized by cell area (see primal flip-flop).
@@ -885,6 +911,20 @@ ELSEIF(.NOT.l_forc_freshw)THEN
 
 ENDIF
 
+!ipl_src=2  ! output print level (1-5, fix)
+!z_e1(:,1,:) = p_os%p_diag%thick_e(:,:)
+!CALL print_mxmn('thick_e:',1,z_e1(:,:,:),&
+!  &             jkdim, p_patch%nblks_e,'abt',ipl_src)
+!CALL print_mxmn('RHS z_vn_ab',1,z_vn_ab(:,:,:),&
+!  &             jkdim, p_patch%nblks_e,'abt',ipl_src)
+!CALL print_mxmn('RHS z_e',1,z_e(:,:,:),&
+!  &             n_zlev, p_patch%nblks_e,'abt',ipl_src)
+!CALL print_mxmn('div_z_c',1,div_z_c(:,:,:),&
+!  &             n_zlev, p_patch%nblks_c,'abt',ipl_src)
+!z_c1(:,1,:) = p_os%p_aux%p_rhs_sfc_eq(:,:)
+!CALL print_mxmn('RHS final',1,z_c1(:,1,:),&
+!  &             n_zlev, p_patch%nblks_c,'abt',ipl_src)
+
  write(*,*)'MAX/MIN thick_e:', maxval(p_os%p_diag%thick_e),&
  &minval(p_os%p_diag%thick_e)  
  write(*,*)'MAX/MIN RHS z_vn_ab:', maxval(z_vn_ab(:,1,:)),&
@@ -905,7 +945,9 @@ ENDIF
  &minval(div_z_c(:,1,:)) 
  write(987,*)'MAX/MIN RHS:', maxval(p_os%p_aux%p_rhs_sfc_eq(:,:)),&
  &minval(p_os%p_aux%p_rhs_sfc_eq(:,:)) 
+
 !CALL message (TRIM(routine), 'end')        
+
 END SUBROUTINE fill_rhs4surface_eq_ab
 !-------------------------------------------------------------------------------------
 !
@@ -939,7 +981,7 @@ REAL(wp) :: p_lhs(SIZE(p_x,1), SIZE(p_x,2))  ! (nproma,p_patch%nblks_c)
 REAL(wp) :: gdt2
 REAL(wp) :: z_grad_h(nproma,1,p_patch%nblks_e)
 REAL(wp) :: z_e(nproma,n_zlev,p_patch%nblks_e)
-REAL(wp) :: z_e2(nproma,n_zlev,p_patch%nblks_e)
+!REAL(wp) :: z_e2(nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_u_c(nproma,1,p_patch%nblks_c)
 REAL(wp) :: z_v_c(nproma,1,p_patch%nblks_c)
 REAL(wp) :: div_z_c(SIZE(p_x,1), 1, SIZE(p_x,2))  ! (nproma,1,p_patch%nblks_c)
@@ -956,7 +998,7 @@ gdt2 = grav*(dtime)**2
 z_u_c = 0.0_wp
 z_v_c = 0.0_wp
 div_z_c = 0.0_wp
-z_e2(:,:,:)=0.0_wp
+!z_e2(:,:,:)=0.0_wp
 
 rl_start = 1
 rl_end   = min_rlcell
@@ -1020,11 +1062,11 @@ CALL div_oce( z_e, p_patch, div_z_c, top,top )
 DO jb = i_startblk, i_endblk
   CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, i_startidx, i_endidx, rl_start, rl_end)
   DO jc = i_startidx, i_endidx
-    IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
+    !IF(v_base%lsm_oce_c(jc,1,jb) <= sea_boundary ) THEN
       p_lhs(jc,jb) = (p_x(jc,jb)- gdt2*ab_gam*ab_beta*div_z_c(jc,1,jb))/gdt2
-   ELSE
-      p_lhs(jc,jb) =0.0_wp
-   ENDIF
+   !ELSE
+   !   p_lhs(jc,jb) =0.0_wp
+   !ENDIF
   END DO
 END DO
 
@@ -1040,9 +1082,11 @@ END DO
 ! !  write(*,*)'vectors', jc,jb,z_u_c(jc,1,jb), z_v_c(jc,1,jb)
 !     END DO
 !   END DO
-!   write(*,*)'max/min LHS z_e', maxval(z_e),minval(z_e)  
-!   write(*,*)'max/min LHS h_e', maxval(h_e),minval(h_e) 
-!   write(*,*)'max/min LHS',     maxval(p_lhs),minval(p_lhs) 
+!    write(*,*)'max/min LHS z_e', maxval(z_e),minval(z_e) 
+!    write(*,*)'max/min LHS div', maxval(div_z_c),minval(div_z_c)  
+!    write(*,*)'max/min LHS x',   maxval(p_x),minval(p_x)  
+! !   write(*,*)'max/min LHS h_e', maxval(h_e),minval(h_e) 
+!    write(*,*)'max/min LHS',     maxval(p_lhs),minval(p_lhs) 
 
 END FUNCTION lhs_surface_height_ab_mim
 !-------------------------------------------------------------------------  
@@ -1141,8 +1185,11 @@ ELSEIF(iswm_oce/= 1)THEN
 #endif
         DO jk = 1, n_zlev
           DO je = i_startidx_e, i_endidx_e
-            p_os%p_prog(nnew(1))%vn(je,jk,jb) = p_os%p_diag%vn_impl_vert_diff(je,jk,jb)  &
+            p_os%p_prog(nnew(1))%vn(je,jk,jb) = p_os%p_diag%vn_pred(je,jk,jb)  &
                     &                        - gdt*ab_beta*z_grad_h(je,1,jb)
+
+!            p_os%p_prog(nnew(1))%vn(je,jk,jb) = p_os%p_diag%vn_impl_vert_diff(je,jk,jb)  &
+!                    &                        - gdt*ab_beta*z_grad_h(je,1,jb)
           END DO 
         END DO
       END DO
@@ -1236,12 +1283,12 @@ END SUBROUTINE calc_normal_velocity_ab_mimetic
 !!   - velocities and sea level are passed through the interface
 !!   - no calculation of new sea level here
 !! 
-SUBROUTINE calc_vert_velocity_mimetic( p_patch, p_os, p_diag, ph_c, top_bc_w, bot_bc_w, pw_c )
+SUBROUTINE calc_vert_velocity_mimetic( p_patch, p_os, p_diag, ph_e, top_bc_w, bot_bc_w, pw_c )
 !
 TYPE(t_patch), TARGET, INTENT(IN) :: p_patch       ! patch on which computation is performed
 TYPE(t_hydro_ocean_state)         :: p_os
 TYPE(t_hydro_ocean_diag)          :: p_diag
-REAL(wp),         INTENT(INOUT)   :: ph_c(:,:)  ! 
+REAL(wp),         INTENT(INOUT)   :: ph_e(:,:)  ! 
 REAL(wp),            INTENT(IN)   :: top_bc_w(:,:) !bottom boundary condition for vertical velocity
 REAL(wp),            INTENT(IN)   :: bot_bc_w(:,:) !bottom boundary condition for vertical velocity
 REAL(wp),         INTENT(INOUT)   :: pw_c (:,:,:)  ! vertical velocity on cells
@@ -1252,15 +1299,16 @@ INTEGER :: jc, jk, jb
 INTEGER :: z_dolic!jic, jib
 INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
 INTEGER :: rl_start, rl_end
-INTEGER :: max_blk(1:n_zlev), max_idx(1:n_zlev)
-INTEGER :: min_blk(1:n_zlev), min_idx(1:n_zlev)
-REAL(wp) :: max_w(1:n_zlev), min_w(1:n_zlev)
+!INTEGER :: max_blk(1:n_zlev), max_idx(1:n_zlev)
+!INTEGER :: min_blk(1:n_zlev), min_idx(1:n_zlev)
+!REAL(wp) :: max_w(1:n_zlev), min_w(1:n_zlev)
 !INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
 !INTEGER :: rl_start_e, rl_end_e, je
 REAL(wp) :: delta_z
 REAL(wp) :: z_div_c(nproma,n_zlev+1,p_patch%nblks_c)
 REAL(wp) :: z_vn(nproma,n_zlev,p_patch%nblks_e)
 TYPE(t_cartesian_coordinates):: z_vn_c(nproma,n_zlev,p_patch%nblks_c)
+!INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
 !CHARACTER(len=max_char_length), PARAMETER :: &
 !       & routine = ('mo_oce_ab_timestepping_mimetic:calc_vert_velocity_mimetic')
 !-----------------------------------------------------------------------  
@@ -1277,10 +1325,21 @@ i_endblk   = p_patch%cells%end_blk(rl_end,1)
 ! Step 1) Calculate divergence of horizontal velocity at all levels
 !------------------------------------------------------------------
  z_vn= ab_gam*p_os%p_prog(nnew(1))%vn + (1.0_wp-ab_gam)*p_os%p_prog(nold(1))%vn
- CALL map_edges2cell( p_patch, z_vn, z_vn_c )
+ CALL map_edges2cell( p_patch, z_vn, z_vn_c, ph_e)
  CALL map_cell2edges( p_patch, z_vn_c, z_vn)
  CALL div_oce(z_vn, p_patch, z_div_c)
 
+! iidx => p_patch%edges%cell_idx
+! iblk => p_patch%edges%cell_blk
+! write(*,*)'cells',&
+! &iidx(60,121,1),iblk(60,121,1),&
+! &z_vn_c(iidx(60,121,1),5,iblk(60,121,1))%x!,&
+!&z_vn_c(iidx(60,121,2),5,iblk(60,121,2))%x
+!write(*,*)'div-val 0',p_os%p_prog(nnew(1))%vn(60,:,121)
+!write(*,*)'div-val 1', z_vn(60,:,121)
+!DO jk=1, n_zlev
+!write(*,*)'max/min z_vn',jk, maxval(z_vn(:,jk,:)), minval(z_vn(:,jk,:))
+!END DO
 !CALL div_oce(  p_diag%ptp_vn, p_patch, z_div_c)
 
 !------------------------------------------------------------------
@@ -1314,11 +1373,19 @@ DO jb = i_startblk, i_endblk
           ! vertical velocity is negative for positive divergence
           ! of horizontal velocity
           pw_c(jc,jk,jb) = pw_c(jc,jk+1,jb) - z_div_c(jc,jk,jb)*delta_z
+! write(432,*)'vert A:',jc,jk,jb, pw_c(jc,jk,jb),pw_c(jc,jk+1,jb),z_div_c(jc,jk,jb)
+! IF(jk==5.and.jc==51.and.jb==80)THEN
+! write(432,*)'veloc', jc,jk,jb,z_vn_c(jc,jk,jb)
+! ENDIF 
           !write(*,*)'vert veloc A:',jc,jb, jk,pw_c(jc,jk,jb), z_div_c(jc,jk,jb)
         ELSEIF ( jk == z_dolic ) THEN
           !use bottom boundary condition for vertical velocity at bottom
           !of prism
           pw_c(jc,jk,jb) = bot_bc_w(jc,jb) - z_div_c(jc,jk,jb)*delta_z
+! IF(jk==5.and.jc==51.and.jb==80)THEN
+! write(432,*)'veloc', jc,jk,jb,z_vn_c(jc,jk,jb)
+! ENDIF 
+! write(432,*)'vert B:',jc,jk,jb, pw_c(jc,jk,jb),bot_bc_w(jc,jb),z_div_c(jc,jk,jb)
           !write(*,*)'vert veloc C:',jc,jb, jk,v_base%dolic_c(jc,jb), pw_c(jc,jk,jb)
         END IF
 ! IF( (jc==18.and.jb==166).or.(jc==51.and.jb==80))THEN
@@ -1336,15 +1403,15 @@ pw_c(:,1,:) = 0.0_wp
 
 
 ENDIF
-! DO jk = n_zlev, 1, -1
+ DO jk = n_zlev, 1, -1
 ! max_w(jk) = 0.0_wp
 ! min_w(jk) = 0.0_wp
 ! 
-! DO jb = i_startblk, i_endblk
-!   CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,&
-!                    & i_startidx, i_endidx, rl_start, rl_end)
-!   DO jc = i_startidx, i_endidx
-! 
+ DO jb = i_startblk, i_endblk
+   CALL get_indices_c(p_patch, jb, i_startblk, i_endblk,&
+                    & i_startidx, i_endidx, rl_start, rl_end)
+   DO jc = i_startidx, i_endidx
+! write(432,*)'vert:',jc,jk,jb, pw_c(jc,jk,jb),z_div_c(jc,jk,jb)*delta_z 
 !         IF ( pw_c(jc,jk,jb) < min_w(jk) )THEN
 !           min_w(jk)=pw_c(jc,jk,jb)
 !           min_blk(jk)=jb 
@@ -1355,9 +1422,9 @@ ENDIF
 !           max_blk(jk)=jb 
 !           max_idx(jk)=jc
 !         END IF
-!       END DO
-!   END DO
-! END DO
+       END DO
+   END DO
+ END DO
 write(*,*)
 DO jk = 1,SIZE(pw_c(1,:,1))!n_zlev
 write(*,*)'max/min vert veloc',jk, maxval(pw_c(:,jk,:)), minval(pw_c(:,jk,:)),&

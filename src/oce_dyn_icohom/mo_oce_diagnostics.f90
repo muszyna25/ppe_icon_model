@@ -191,7 +191,7 @@ IF(iswm_oce/=1)THEN
           z_w = (p_os%p_diag%w(jc,jk,jb)*p_os%p_prog(nold(1))%h(jc,jb)&
              & +p_os%p_diag%w(jc,jk+1,jb)*0.5_wp*v_base%del_zlev_i(jk))&
              &/(0.5_wp*v_base%del_zlev_i(jk)+p_os%p_prog(nold(1))%h(jc,jb))
-        ELSEIF(jk<n_zlev)THEN
+        ELSEIF(jk>1.AND.jk<n_zlev)THEN
           z_w = (p_os%p_diag%w(jc,jk,jb)*v_base%del_zlev_i(jk)&
              & +p_os%p_diag%w(jc,jk+1,jb)*v_base%del_zlev_i(jk+1))&
              &/(v_base%del_zlev_i(jk)+v_base%del_zlev_i(jk+1))
@@ -211,14 +211,24 @@ IF(iswm_oce/=1)THEN
   END DO
 
   !divide by volume
-  ptr_monitor%kin_energy = ptr_monitor%kin_energy/ptr_monitor%volume
-  ptr_monitor%pot_energy = ptr_monitor%pot_energy/ptr_monitor%volume
+  IF(ptr_monitor%volume/=0.0)THEN
+    ptr_monitor%kin_energy = ptr_monitor%kin_energy/ptr_monitor%volume
+    ptr_monitor%pot_energy = ptr_monitor%pot_energy/ptr_monitor%volume
+  ELSE
+    ptr_monitor%kin_energy = 0.0_wp
+    ptr_monitor%pot_energy = 0.0_wp
+  ENDIF
   ptr_monitor%total_energy = ptr_monitor%pot_energy + ptr_monitor%kin_energy
 
-  DO i_no_t=1, no_tracer
-    ptr_monitor%tracer_content(i_no_t) = ptr_monitor%tracer_content(i_no_t)/ptr_monitor%volume
-  END DO
-
+  IF(ptr_monitor%volume/=0.0)THEN
+    DO i_no_t=1, no_tracer
+      ptr_monitor%tracer_content(i_no_t) = ptr_monitor%tracer_content(i_no_t)/ptr_monitor%volume
+    END DO
+  ELSE
+    DO i_no_t=1, no_tracer
+      ptr_monitor%tracer_content(i_no_t) = 0.0_wp
+    END DO
+  ENDIF
 
 ELSEIF(iswm_oce==1)THEN
   !Potential energy in SW-casep_patch%patch_oce%del_zlev_m(1)
@@ -243,13 +253,23 @@ ELSEIF(iswm_oce==1)THEN
 
     END DO
   END DO
+IF(ptr_monitor%volume/=0.0)THEN
+   DO i_no_t=1, no_tracer
+     ptr_monitor%tracer_content(i_no_t) = ptr_monitor%tracer_content(i_no_t)/ptr_monitor%volume
+   END DO
+ELSE
+   DO i_no_t=1, no_tracer
+     ptr_monitor%tracer_content(i_no_t) = 0.0_wp
+   END DO
+ENDIF
+IF(ptr_monitor%volume/=0.0)THEN
+  ptr_monitor%pot_energy = ptr_monitor%pot_energy/ptr_monitor%volume
+  ptr_monitor%kin_energy = ptr_monitor%kin_energy/ptr_monitor%volume
+ELSE
+    ptr_monitor%kin_energy = 0.0_wp
+    ptr_monitor%pot_energy = 0.0_wp
 
-!   DO i_no_t=1, no_tracer
-!     ptr_monitor%tracer_content(i_no_t) = ptr_monitor%tracer_content(i_no_t)/ptr_monitor%volume
-!   END DO
-
-ptr_monitor%pot_energy = ptr_monitor%pot_energy/ptr_monitor%volume
-ptr_monitor%kin_energy = ptr_monitor%kin_energy/ptr_monitor%volume
+ENDIF 
 ptr_monitor%total_energy = ptr_monitor%pot_energy + ptr_monitor%kin_energy
 
 ENDIF
@@ -273,10 +293,15 @@ IF(oce_ts%oce_diagnostics(0)%total_energy/=0.0_wp)THEN
   &oce_ts%oce_diagnostics(i)%total_energy/ oce_ts%oce_diagnostics(0)%total_energy
 ENDIF
 DO i_no_t=1, no_tracer
-  IF(oce_ts%oce_diagnostics(0)%total_energy/=0.0_wp)THEN
+  IF(oce_ts%oce_diagnostics(0)%tracer_content(i_no_t)/=0.0_wp)THEN
     write(*,*)'ACTUAL VALUES OF TOTAL TRACER CONTENT:     ',i,&
     &oce_ts%oce_diagnostics(i)%tracer_content(i_no_t)&
     &/ oce_ts%oce_diagnostics(0)%tracer_content(i_no_t)
+
+    write(234,*)'ACTUAL VALUES OF TOTAL TRACER CONTENT:     ',i,&
+    &oce_ts%oce_diagnostics(i)%tracer_content(i_no_t)&
+    &/ oce_ts%oce_diagnostics(0)%tracer_content(i_no_t)
+
   ENDIF
 END DO
 

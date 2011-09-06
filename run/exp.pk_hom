@@ -100,11 +100,14 @@ ocean_model_equations=-1 # equation system
 # USE_AQUAP="Y"      # "Y": ocean horizontal gridfile base is "aqua_planet"
 # USE_FLATB="Y"      # "Y": ocean horizontal gridfile base is "etopo40_flat"
 # USE_BATHY="Y"      # "Y": ocean horizontal gridfile base is "etopo40_planet"
+# USE_POOLD="Y"      # "Y": overwrite ocean gridfile from pool
 #-----------------------------------------------------------------------------
 if [ "x$USE_FLATB" == "xY"  ] ; then
   grid_ext="etopo40_flat"
+  USE_POOLD="Y"
 elif [ "x$USE_BATHY" == "xY"  ] ; then
   grid_ext="etopo40_planet"
+  USE_POOLD="Y"
 elif [ "x$USE_AQUAP" == "xY"  ] ; then
   grid_ext="aqua_planet"
 elif [ "x$USE_BASIN" == "xY"  ] ; then
@@ -115,6 +118,21 @@ else
   exit 1
 fi
 ocean_grids="iconR${R}B0${B}-ocean_${grid_ext}.nc"
+#-----------------------------------------------------------------------------
+# 
+#  USE_POOLD="Y"      # "Y": ocean gridfile is read from $POOLDIR/$OCEGRID
+if [ "x$USE_POOLD" == "xY" ] ; then
+   POOLDIR="/pool/data/ICON/grids"
+   if [ "x$USE_FLATB" == "xY" ] ; then
+   # OCEGRID="ocegridR${R}B0${B}.cde3.1.flat.nc"
+     OCEGRID="ocegridR${R}B0${B}.cde2.flat.nc"
+   fi
+   if [ "x$USE_BATHY" == "xY" ] ; then
+   # OCEGRID="ocegridR${R}B0${B}.cde3.1.planet.nc"
+     OCEGRID="ocegridR${R}B0${B}.cde2.planet.nc"
+   fi
+   # other ocean grid files can be added here
+fi
 #
 #-----------------------------------------------------------------------------
 #
@@ -146,7 +164,7 @@ cat > ${ocean_namelist} << EOF
  itopo       = 0                 ! read external ocean data from gridfile
 /
 &octst_nml
-  i_dbg_oce=1                    ! initialize MIN/MAX  debug output via mo_index_oce
+  i_dbg_oce=5                    ! initialize MIN/MAX  debug output via mo_index_oce
   i_dbg_inx=0                    ! initialize one cell debug output via mo_index_oce
   str_proc_tst = 'abt',
     'vel', 'dif', 'trc', '   ', '   ', '   ', '   ', '   '
@@ -177,7 +195,7 @@ cat > ${ocean_namelist} << EOF
   basin_center_lon   =    0.0    ! in (non-global) basin configuration such as the Stommel-type tests
   basin_width_deg    =   60.0    ! basin extension in x-direction, units are degrees
   basin_height_deg   =   60.0    ! basin extension in y-direction, units are degrees
-  coriolis_type      =    1      ! 0=zero Coriolis, the non-rotating case
+  coriolis_type      =    2      ! 0=zero Coriolis, the non-rotating case
                                  ! 1=full varying Coriolis
                                  ! 2=beta-plane (linear) approximation to Coriolis
                                  ! 3=f-plane (constant) approximation to Coriolis
@@ -192,12 +210,12 @@ cat > ${ocean_namelist} << EOF
   EOS_TYPE           =    2      ! 1=linear EOS
                                  ! 2= (nonlinear) EOS from MPI-OM 
                                  ! 3= not recommended: (nonlinear) Jacket-McDoudgall density-formulation
-  k_veloc_h          =50000.0    ! horizontal viscosity coefficient for velocity
-  k_veloc_v          =    0.01   ! vertical viscosity coefficient for velocity
-  k_pot_temp_h       = 2000.0    ! horizontal viscosity coefficient for temperature
-  k_pot_temp_v       =    0.001  ! vertical viscosity coefficient for temperature
-  k_sal_h            = 2000.0    ! horizontal viscosity coefficient for salinity
-  k_sal_v            =    0.0001 ! vertical viscosity coefficient for salinity
+  k_veloc_h          = 5.0E+5    ! [m2/s] horizontal viscosity coefficient for velocity
+  k_veloc_v          = 1.0E-2    ! [m/s]  vertical viscosity coefficient for velocity
+  k_pot_temp_h       = 5.0E+5    ! [m2/s] horizontal viscosity coefficient for temperature
+  k_pot_temp_v       = 1.0E-3    ! [m/s]  vertical viscosity coefficient for temperature
+  k_sal_h            = 5.0E+5    ! [m2/s] horizontal viscosity coefficient for salinity
+  k_sal_v            = 1.0E-4    ! [m/s]  vertical viscosity coefficient for salinity
   HORZ_VELOC_DIFF_TYPE =  2      ! 0=no horizontal diffusion
                                  ! 1= constant Laplacian viscosity coefficient given in namelist (k_veloc_h)
                                  ! 2= constant Laplacian viscosity coefficient determined by requirement to
@@ -232,10 +250,10 @@ cat > ${ocean_namelist} << EOF
                                  ! this value is divided by number of seconds per month (=30*24*3600)
 /
 &io_nml
- out_expname = '${EXPNAME}'       ! file name base
- dt_data     = ${dt_data}       ! write output every 96 hours
- dt_file     = ${dt_file}     ! [s] interval for generation of new output file (3600*24*365 -> 1y)
- lkeep_in_sync = .TRUE.     ! sync after each timestep
+ out_expname = '${EXPNAME}'
+ dt_data     = ${dt_data}
+ dt_file     = ${dt_file}
+ lkeep_in_sync = .TRUE.          ! sync after each timestep
 /
 EOF
 #-----------------------------------------------------------------------------

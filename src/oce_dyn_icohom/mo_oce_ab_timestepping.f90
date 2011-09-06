@@ -185,7 +185,8 @@ IF(idisc_scheme==MIMETIC_TYPE)THEN
   CALL calc_vert_velocity_mimetic( p_patch,            &
                              & p_os,                   &
                              & p_os%p_diag,            &
-                             & p_os%p_prog(nnew(1))%h, &
+                             & p_os%p_diag%h_e,        &
+                             !& p_os%p_prog(nnew(1))%h, &
                              & p_os%p_aux%bc_top_w,    &
                              & p_os%p_aux%bc_bot_w,    &
                              & p_os%p_diag%w )

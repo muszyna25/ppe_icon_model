@@ -58,13 +58,13 @@ USE mo_ocean_nml,           ONLY: n_zlev, bottom_drag_coeff, k_veloc_h, k_veloc_
 USE mo_parallel_config,     ONLY: nproma
 USE mo_model_domain,        ONLY: t_patch
 USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, min_rledge,&
-  &                               sea_boundary
+  &                               sea_boundary, MIN_DOLIC
 USE mo_exception,           ONLY: message, finish
 USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base
 USE mo_physical_constants,  ONLY: grav, rho_ref, SItodBar
 USE mo_loopindices,         ONLY: get_indices_c,get_indices_e
 USE mo_math_constants,      ONLY: dbl_eps
-USE mo_dynamics_config,     ONLY: nold
+USE mo_dynamics_config,     ONLY: nold, nnew
 USE mo_oce_forcing,         ONLY: t_sfc_flx
 
 
@@ -136,7 +136,8 @@ CONTAINS
     !Init from namelist
     p_phys_param%K_veloc_h_back = k_veloc_h
     p_phys_param%A_veloc_v_back = k_veloc_v
-
+    p_phys_param%K_veloc_h = k_veloc_h
+    p_phys_param%A_veloc_v = k_veloc_v
     SELECT CASE(HORZ_VELOC_DIFF_TYPE)
 
 
@@ -497,6 +498,7 @@ END INTERFACE
    REAL(wp), PARAMETER :: z_c1_v     = 5.0_wp
    REAL(wp), PARAMETER :: z_av0      = 0.5E-2_wp
 !   !-------------------------------------------------------------------------
+!    IF (no_tracer == 0) RETURN
     rl_start_c   = 1
     rl_end_c     = min_rlcell
     i_startblk_c = p_patch%cells%start_blk(rl_start_c,1)
@@ -564,11 +566,12 @@ END INTERFACE
       CALL get_indices_c( p_patch, jb, i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c, &
       &                   rl_start_c, rl_end_c)
       DO jk = 2, n_zlev
+ 
+       dz_inv = 1.0_wp/v_base%del_zlev_i(jk)           !(v_base%zlev_m(jk)-v_base%zlev_m(jk-1)) 
+
         DO jc = i_startidx_c, i_endidx_c
           z_dolic = v_base%dolic_c(jc,jb)
-          IF ( z_dolic>=2 ) THEN        
-
-            dz_inv = 1.0_wp/v_base%del_zlev_i(jk)           !(v_base%zlev_m(jk)-v_base%zlev_m(jk-1)) 
+          IF ( z_dolic>=MIN_DOLIC ) THEN        
 
             !This calculates the local Richardson number at cells
             ! - add small epsilon to avoid division by zero
@@ -580,7 +583,8 @@ END INTERFACE
             !z_press = v_base%zlev_i(jk)*rho_ref*grav
             !density of upper cell w.r.t.to pressure at intermediate level
             ! #slo# 2011-08-10: tracer(:,:,:,2) not defined if no_tracer=1
-            IF (no_tracer == 2) z_s1 = p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,2)
+            IF (no_tracer >= 2) z_s1 = p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,2)
+
             z_rho_up(jc,jk,jb) = calc_density &
              & (p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,1), z_s1, z_press)
           ! z_rho_up(jc,jk,jb) = calc_density(&
@@ -588,7 +592,8 @@ END INTERFACE
           ! & p_os%p_prog(nold(1))%tracer(jc,jk-1,jb,2),&
           ! & z_press)
             !density of lower cell w.r.t.to pressure at intermediate level
-            IF (no_tracer == 2) z_s1 = p_os%p_prog(nold(1))%tracer(jc,jk,jb,2)
+            IF (no_tracer >= MIN_DOLIC) z_s1 = p_os%p_prog(nold(1))%tracer(jc,jk,jb,2)
+
             z_rho_down(jc,jk,jb) = calc_density &
               & (p_os%p_prog(nold(1))%tracer(jc,jk,jb,1), z_s1, z_press)
            ! z_rho_down(jc,jk,jb) = calc_density(&
@@ -596,20 +601,33 @@ END INTERFACE
            ! & p_os%p_prog(nold(1))%tracer(jc,jk,jb,2),&
            ! & z_press)
 
-            z_stabio  = dz_inv*0.5_wp*(z_rho_up(jc,jk,jb)-z_rho_down(jc,jk,jb))
+            ! comments from MPIOM
+            !! calculate vertical density stabio gradient between upper and lower box
+            !! vertical density gradient 1/delta_z * (rho(k)-rho(k-1))
+            
+            ! #slo# 2011-09-02 correction
+            ! rho_up: rho(k-1); rho_down: rho(k)
+            !  i.e.: dz_inv*(rho_down-rho_up)
+            z_stabio  = dz_inv*(z_rho_down(jc,jk,jb)-z_rho_up(jc,jk,jb))
+            ! z_stabio  = dz_inv*0.5_wp*(z_rho_up(jc,jk,jb)-z_rho_down(jc,jk,jb))
+            ! #slo# - think once more about 0.5, and this line in mo_convection of MPIOM:
+            ! rhoo(:, j, k-1) = 0.5_wp * (rhoo(:, j, k-1) + rhuppo(:))
+
+            !! stabio > 0 stable stratification    (lower layer is havier)
+            !! stabio < 0 instable stratification  (lower layer is lighter)
+            !! set negative values to zero for switch below
 
             z_vert_density_grad_c(jk) = MAX(z_stabio, 0.0_wp)
+           
+            !! vert_density_grad  > 0 stable stratification
+            !! vert_density_grad  = 0 instable stratification
 
-            !Edge Richardson number, sign depends on vertical density difference:
-            !positive Richardson number = heavy fluid over light fluid parcel.
-            != unstable situation
-            !if (z_shear_c(jc,jk,jb) == 0.0_wp) then
-            !  write(*,*) 'ERROR in update_ho_params; jc,jk,jb, shear_c =', &
-            !    &  jc,jk,jb,z_shear_c(jc,jk,jb)
-            !else
+            ! #slo# 2011-09-02 correction
+            ! Richardson number is positive for stable stratification (rho_down>rho_up)
+            ! Richardson number is zero for unstable strat., see switch z_frac below
             z_Ri_c = MAX(z_grav_rho*z_vert_density_grad_c(jk)/z_shear_c(jc,jk,jb),0.0_wp)
-            !write(*,*)'Ri number',jk,jc,jb,z_Ri_c, z_vert_density_grad_c(jk),z_shear_c(jc,jk,jb)
-            !endif
+       !    write(*,*)'rup/do,stabio,drho,Ri,shear',jk,jc,z_rho_up(jc,jk,jb),&
+       !    &z_rho_down(jc,jk,jb), z_stabio,z_vert_density_grad_c(jk), z_Ri_c, z_shear_c(jc,jk,jb)
 
             !calculate vertical tracer mixing based on local Richardson number
             DO i_no_trac=1, no_tracer
@@ -617,6 +635,8 @@ END INTERFACE
               !Store old diffusivity
               z_A_tracer_v_old = params_oce%A_tracer_v(jc,jk,jb,i_no_trac)
  
+              !This is (16) in Marsland et al. and identical to treatment of velocity
+              !but it allows to use different parameters
               z_lambda_frac     = z_lambda/v_base%del_zlev_i(jk)
 
               z_A_W_T(jc,jk,jb) = z_A_W_T (jc,jk-1,jb)*z_lambda_frac      &
@@ -624,20 +644,43 @@ END INTERFACE
                 &/(z_lambda_frac+0.5_wp*(z_vert_density_grad_c(jk)+z_vert_density_grad_c(jk-1)))
 
 
+              ! This is (19) in Marsland et al. valid for stable stratification, with
+              !   with: z_c1_T=CRD=5.0, z_av0=DVO=0.005, A_tracer_v=Db=1.0e-5, Dw=0.0
               A_T_tmp = &
               &z_one_minus_beta*MIN(z_A_tracer_v_old, z_av0+params_oce%A_tracer_v_back(i_no_trac))&
               & +z_beta*(z_A_W_T(jc,jk,jb)+z_av0/((1.0_wp+z_c1_T*z_Ri_c)**3)                      &
               &         +params_oce%A_tracer_v_back(i_no_trac))
+  ! write(*,*)'AWT,tmp1,tmp2,Ttmp',jk,jc,&
+  ! &z_one_minus_beta*MIN(z_A_tracer_v_old, z_av0+params_oce%A_tracer_v_back(i_no_trac)),&
+  ! & +z_beta*(z_A_W_T(jc,jk,jb)+z_av0/((1.0_wp+z_c1_T*z_Ri_c)**3)                      &
+  ! & +params_oce%A_tracer_v_back(i_no_trac)),A_T_tmp
 
+              ! #slo# In the following code z_frac is used as a switch
+              ! vert_density_grad  > 0 stable stratification   -> z_frac=-1.0
+              ! vert_density_grad  = 0 unstable stratification -> z_frac=+1.0
               z_frac=(1.0E-11_wp-z_vert_density_grad_c(jk))&
               &/(1.0E-11_wp+ABS(z_vert_density_grad_c(jk)))
 
+ 
               params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MAX(MAX_VERT_DIFF_TRAC*z_frac, A_T_tmp)!params_oce%A_tracer_v_back(i_no_trac)!
 
-! write(*,*)'Ri number',jk,jc,jb,z_Ri_c, z_vert_density_grad_c(jk),z_rho_up(jc,jk,jb),&
-! &z_rho_down(jc,jk,jb),&
-! &z_press,z_frac,&
-! & params_oce%A_tracer_v(jc,jk,jb, i_no_trac)
+              ! z_frac is used to avoid an if-condition
+              !  IF (z_vert_density_grad_c(jk) == 0.0_wp ) THEN
+              !    params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = MAX(MAX_VERT_DIFF_TRAC, A_T_tmp)
+              !  ELSE IF (z_vert_density_grad_c(jk) > 0.0_wp ) THEN
+              !    params_oce%A_tracer_v(jc,jk,jb, i_no_trac) = A_T_tmp
+              !  ELSE
+              !    CALL FINISH(...)
+              !  END IF
+
+  ! write(*,*)'AWT,Ttmp,frac,A_v',jk,jc, z_A_W_T(jc,jk,jb),a_t_tmp,z_frac,&
+  ! &params_oce%A_tracer_v(jc,jk,jb, i_no_trac)
+
+
+  ! write(*,*)'Ri number',jk,jc,jb,z_Ri_c, z_vert_density_grad_c(jk),z_rho_up(jc,jk,jb),&
+  ! &z_rho_down(jc,jk,jb),&
+  ! &z_press,z_frac,&
+  ! & params_oce%A_tracer_v(jc,jk,jb, i_no_trac)
 
 !               !This is (16) in Marsland et al. and identical to treatment of velocity
 !               !but it allows to use different parameters
@@ -664,8 +707,9 @@ END INTERFACE
       END DO
     END DO
     !END DO
-    params_oce%A_tracer_v(:,1,:, :) = params_oce%A_tracer_v(:,2,:,:)
-
+    DO i_no_trac=1, no_tracer
+      params_oce%A_tracer_v(:,1,:, i_no_trac) = params_oce%A_tracer_v_back(1) !params_oce%A_tracer_v(:,2,:,i_no_trac)
+    END DO
     !Viscosity at edges
     DO jb = i_startblk_e, i_endblk_e
       CALL get_indices_e( p_patch, jb, i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e, &
@@ -687,26 +731,25 @@ END INTERFACE
             !This calculates the local Richardson number at edges
             !Shear at edges as average of shear at centers
             z_shear_e = 0.5_wp*(z_shear_c(ilc1,jk,ibc1)+z_shear_c(ilc2,jk,ibc2))
-
  
-             z_press = v_base%zlev_i(jk)*rho_ref*grav
+            z_press = v_base%zlev_i(jk)*rho_ref*grav
 
-             !density of two adjacent upper cell centers
-             z_rho_up_c1 = z_rho_up(ilc1,jk,ibc1)
-             z_rho_up_c2 = z_rho_up(ilc2,jk,ibc2)
-             !density of two adjacent lower cell centers
-             z_rho_down_c1 = z_rho_down(ilc1,jk,ibc1)
-             z_rho_down_c2 = z_rho_down(ilc2,jk,ibc2)
+            !density of two adjacent upper cell centers
+            z_rho_up_c1 = z_rho_up(ilc1,jk,ibc1)
+            z_rho_up_c2 = z_rho_up(ilc2,jk,ibc2)
+            !density of two adjacent lower cell centers
+            z_rho_down_c1 = z_rho_down(ilc1,jk,ibc1)
+            z_rho_down_c2 = z_rho_down(ilc2,jk,ibc2)
 
-            z_stabio  = dz_inv&
-            &*0.5_wp*(z_rho_up_c1 + z_rho_up_c2-z_rho_down_c1-z_rho_down_c2)
+            ! #slo# correction, see above:
+            ! z_stabio  = dz_inv&
+            ! &*0.5_wp*(z_rho_up_c1 + z_rho_up_c2-z_rho_down_c1-z_rho_down_c2)
+            z_stabio  = dz_inv*0.5_wp*(z_rho_down_c1 + z_rho_down_c2-z_rho_up_c1-z_rho_up_c2)
 
-             z_vert_density_grad_e(jk) = MAX(z_stabio, 0.0_wp)
+            z_vert_density_grad_e(jk) = MAX(z_stabio, 0.0_wp)
 
-            !Edge Richardson number, sign depends on vertical density difference:
-            !positive Richardson number = heavy fluid over light fluid parcel.
-            != unstable situation
-            z_Ri_e = MAX(z_grav_rho*z_vert_density_grad_e(jk)/z_shear_e,0.0_wp) !z_vert_density_grad_e/(z_shear_e+0.0005_wp)! 
+            z_Ri_e = MAX(z_grav_rho*z_vert_density_grad_e(jk)/z_shear_e,0.0_wp)
+            !z_vert_density_grad_e/(z_shear_e+0.0005_wp)! 
             !write(*,*)'Ri number',jk,jc,jb,z_Ri, z_vert_density_grad,z_shear
 
             !calculate vertical viscosity based on local Richardson number
@@ -727,7 +770,8 @@ END INTERFACE
             z_frac=(1.0E-11_wp-z_vert_density_grad_e(jk))&
             &/(1.0E-11_wp+ABS(z_vert_density_grad_e(jk)))
 
-            params_oce%A_veloc_v(je,jk,jb) = MAX(MAX_VERT_DIFF_VELOC*z_frac, A_v_tmp)!params_oce%A_veloc_v_back
+            params_oce%A_veloc_v(je,jk,jb) = MAX(MAX_VERT_DIFF_VELOC*z_frac, A_v_tmp)
+            !params_oce%A_veloc_v_back
 !  write(*,*)'Ri number',jk,jc,jb,z_Ri_e, z_vert_density_grad_e(jk),&
 !  &z_frac,&
 !  & params_oce%A_veloc_v(je,jk,jb)
@@ -737,6 +781,7 @@ END INTERFACE
       END DO
     END DO
     params_oce%A_veloc_v(:,1,:) = params_oce%A_veloc_v(:,2,:)
+
 DO i_no_trac=1, no_tracer
  DO jk=1,n_zlev
  write(*,*)'max/min trac mixing',jk,maxval(params_oce%A_tracer_v(:,jk,:,i_no_trac)),&

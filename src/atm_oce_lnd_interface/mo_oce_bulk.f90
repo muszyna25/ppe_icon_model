@@ -68,8 +68,8 @@ USE mo_model_domain,        ONLY: t_patch
 USE mo_oce_state,           ONLY: t_hydro_ocean_state, v_base
 USE mo_exception,           ONLY: finish, message, message_text
 USE mo_math_constants,      ONLY: pi, deg2rad, rad2deg
-USE mo_physical_constants,  ONLY: rho_ref, sfc_press_bar, lsub, lvap, cpa, emiss, &
-  &                               fr_fac, stefbol, rgas, L, tmelt
+USE mo_physical_constants,  ONLY: rho_ref, sfc_press_bar, lsub, lvap, lfreez, cpa, emiss, &
+  &                               fr_fac, stefbol, rgas, tmelt
 USE mo_impl_constants,      ONLY: success, max_char_length, min_rlcell, sea_boundary
 USE mo_loopindices,         ONLY: get_indices_c
 USE mo_math_utilities,      ONLY: t_cartesian_coordinates, gvec2cvec, cvec2gvec
@@ -139,7 +139,8 @@ CONTAINS
 
   CASE (NO_FORCING)
 
-    CALL message(TRIM(routine), 'No  forcing applied' )
+  ! CALL message(TRIM(routine), 'No  forcing applied' )
+    CONTINUE
 
   CASE (ANALYT_FORC)
 
@@ -166,12 +167,6 @@ CONTAINS
     !jdstp = mod(jstep-1,njday)    ! 
 
     write(*,*) ' jstep, njday, jdays, jmon, jdmon : ',jstep, njday, jdays, jmon, jdmon
-
-
-    !p_sfc_flx%forc_wind_u=p_sfc_flx%forc_wind_u/z_scale
-    !p_sfc_flx%forc_wind_v=p_sfc_flx%forc_wind_v/z_scale
-    !p_sfc_flx%forc_wind_u(:,:) = z_omip_data(:,jmon,:,1)/z_scale
-    !p_sfc_flx%forc_wind_v(:,:) = z_omip_data(:,jmon,:,2)/z_scale 
     !
     ! interpolate omip-data daily:
     !
@@ -204,6 +199,10 @@ CONTAINS
         &                          rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,1)
       p_sfc_flx%forc_wind_v(:,:) = rday1*ext_data(1)%oce%omip_forc_mon_c(:,jmon1,:,2) + &
         &                          rday2*ext_data(1)%oce%omip_forc_mon_c(:,jmon2,:,2)
+
+      p_sfc_flx%forc_wind_u=p_sfc_flx%forc_wind_u/z_scale
+      p_sfc_flx%forc_wind_v=p_sfc_flx%forc_wind_v/z_scale
+
 
       IF (temperature_relaxation == 2)  THEN
          p_sfc_flx%forc_tracer_relax(:,:,1) = &
@@ -299,7 +298,7 @@ CONTAINS
   END SELECT
 
   ! Temperature relaxation: This is a provisional solution
-  IF(temperature_relaxation==1)THEN
+  IF(temperature_relaxation>=1)THEN
     z_relax = relaxation_param/(30.0_wp*24.0_wp*3600.0_wp)
     DO jb = i_startblk_c, i_endblk_c    
       CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c, &
@@ -329,8 +328,8 @@ CONTAINS
                                 & minval(p_sfc_flx%forc_tracer(:,:,1))
   ENDIF
 
-
   END SUBROUTINE update_sfcflx
+
   !-------------------------------------------------------------------------
   !
   !> Forcing_from_bulk equals sbr "Budget_omip" in MPIOM.
@@ -344,8 +343,8 @@ CONTAINS
   TYPE(t_patch),            INTENT(IN)    :: ppatch
   TYPE(t_atmos_for_ocean),  INTENT(IN)    :: p_as
   TYPE(t_hydro_ocean_state),INTENT(IN)    :: p_os
-  TYPE (t_sea_ice),         INTENT(IN)    :: p_ice
-  TYPE (t_atmos_fluxes),    INTENT(INOUT) :: Qatm
+  TYPE(t_sea_ice),          INTENT(IN)    :: p_ice
+  TYPE(t_atmos_fluxes),     INTENT(INOUT) :: Qatm
 
 
   !Local variables
@@ -368,9 +367,7 @@ CONTAINS
     z_fakts ,     &  ! Effect of cloudiness on LW radiation
     z_humi           ! Effect of air humidity on LW radiation
   
-  INTEGER i
-
-  INTEGER :: jc,jb
+  INTEGER :: jc, jb, i
   INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
   INTEGER :: rl_start_c, rl_end_c
 
@@ -459,7 +456,7 @@ CONTAINS
       z_drags   (jc,jb) = 0.96_wp * z_dragl(jc,jb)
       Qatm%sensw(jc,jb) = z_drags(jc,jb)*z_rhoair(jc,jb)*cpa*p_as%fu10(jc,jb)             &
                         & * (p_as%tafo(jc,jb) -z_Tsurf(jc,jb))  *fr_fac
-      Qatm%latw (jc,jb) = z_dragl(jc,jb)*z_rhoair(jc,jb)*L  *p_as%fu10(jc,jb)             &
+      Qatm%latw (jc,jb) = z_dragl(jc,jb)*z_rhoair(jc,jb)*Lfreez*p_as%fu10(jc,jb)          &
                         & * (z_sphumida(jc,jb)-z_sphumidw(jc,jb))*fr_fac
 
       DO i = 1, p_ice%kice
@@ -479,14 +476,14 @@ CONTAINS
           Qatm%dLWdT (jc,jb,i) = - 4.0_wp * emiss*StefBol * (z_Tsurf(jc,jb) + 273.15_wp)**3
           Qatm%sens  (jc,jb,i) = z_drags(jc,jb) * z_rhoair(jc,jb)*cpa*p_as%fu10(jc,jb)&
                                & * (p_as%tafo(jc,jb) -z_Tsurf(jc,jb))   *fr_fac
-          Qatm%lat   (jc,jb,i) = z_dragl(jc,jb) * z_rhoair(jc,jb)* L *p_as%fu10(jc,jb)&
+          Qatm%lat   (jc,jb,i) = z_dragl(jc,jb) * z_rhoair(jc,jb)* Lfreez *p_as%fu10(jc,jb)&
                                & * (z_sphumida(jc,jb)-z_sphumidi(jc,jb))*fr_fac
     
           Qatm%dsensdT(jc,jb,i)= 0.96_wp*z_dragl1(jc,jb)*z_drags(jc,jb)*z_rhoair(jc,jb)&
                                & *cpa * p_as%fu10(jc,jb)       &
                                & * (p_as%tafo(jc,jb) - z_Tsurf(jc,jb)) *  fr_fac &
                                & -z_drags(jc,jb)*z_rhoair(jc,jb) *cpa*p_as%fu10(jc,jb)
-          Qatm%dlatdT(jc,jb,i) = z_dragl1(jc,jb) * z_rhoair(jc,jb)*L * p_as%fu10(jc,jb)&
+          Qatm%dlatdT(jc,jb,i) = z_dragl1(jc,jb) * z_rhoair(jc,jb)*Lfreez * p_as%fu10(jc,jb)&
                                & *(z_sphumida(jc,jb)-z_sphumidi(jc,jb))*fr_fac
         ENDIF
       ENDDO
@@ -497,7 +494,9 @@ CONTAINS
 
     END DO
   END DO
-END SUBROUTINE calc_atm_fluxes_from_bulk
+ 
+  END SUBROUTINE calc_atm_fluxes_from_bulk
+ 
   !-------------------------------------------------------------------------
   !
   !> Takes thermal calc_atm_fluxes_from_bulk to calculate atmospheric surface fluxes:
@@ -518,7 +517,7 @@ END SUBROUTINE calc_atm_fluxes_from_bulk
   REAL(wp) :: z_C_d0, z_C_d1, z_C_d
   REAL(wp) :: z_norm, z_v, z_relax
 
-  INTEGER :: jc,jb, i
+  INTEGER :: jc, jb, i
   INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
   INTEGER :: rl_start_c, rl_end_c
   REAL(wp):: z_evap(nproma,ppatch%nblks_c)
@@ -891,7 +890,7 @@ write(*,*)'final wind stress coeff',z_C_d
         &  'Testcase (33): stationary temperature relaxation - latitude dependent')
       z_relax = relaxation_param/(30.0_wp*24.0_wp*3600.0_wp)
 
-          p_sfc_flx%forc_tracer(:,:, 1)= -z_relax              &
+          p_sfc_flx%forc_tracer(:,:, 1)= z_relax              &
           &*( p_sfc_flx%forc_tracer_relax(:,:,1)-p_os%p_prog(nold(1))%tracer(:,1,:,1) )
 
     write(*,*)'max/min-tracer-diff',&
@@ -900,10 +899,11 @@ write(*,*)'final wind stress coeff',z_C_d
 
     write(*,*)'max/min-tracer-relaxation',maxval(p_sfc_flx%forc_tracer_relax),&
     & minval(p_sfc_flx%forc_tracer_relax)
-    write(*,*)'max/min-tracer-flux',maxval(p_sfc_flx%forc_tracer),&
-    & minval(p_sfc_flx%forc_tracer)
     write(*,*)'max/min-Temp-Flux',maxval(p_sfc_flx%forc_tracer(:,:,1)),&
                                   & minval(p_sfc_flx%forc_tracer(:,:,1))
+    CASE (43)
+      ! no forcing applied
+      CONTINUE
 
     CASE DEFAULT
       CALL message(TRIM(routine), 'STOP: Analytical Forcing for this testcase not implemented' )
@@ -937,7 +937,6 @@ write(*,*)'final wind stress coeff',z_C_d
 
     CASE (1)!Forced by wind stored 
 
-    ! z_thick_forc = v_base%del_zlev_m(1)      !z_thick_forc= 1.0_wp
       DO jb = i_startblk_c, i_endblk_c
         CALL get_indices_c(p_patch, jb, i_startblk_c, i_endblk_c,  &
           &                i_startidx_c, i_endidx_c, rl_start_c, rl_end_c)

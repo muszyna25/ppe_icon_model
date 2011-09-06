@@ -48,11 +48,9 @@ MODULE mo_oce_veloc_advection
 !
 USE mo_kind,                ONLY: wp
 USE mo_parallel_config,  ONLY: nproma
-USE mo_math_constants
-USE mo_physical_constants
 USE mo_sync,                ONLY: sync_e, sync_c, sync_v, sync_patch_array
 USE mo_impl_constants,      ONLY: min_rlcell, min_rledge, min_rlvert, &
-  &                               sea_boundary, sea, boundary
+  &                               sea_boundary, sea, boundary, MIN_DOLIC
 USE mo_model_domain,        ONLY: t_patch
 USE mo_ocean_nml,           ONLY: n_zlev,iswm_oce, L_INVERSE_FLIP_FLOP !, ab_beta, ab_gam
 USE mo_loopindices,         ONLY: get_indices_c, get_indices_e
@@ -79,7 +77,7 @@ PUBLIC :: veloc_adv_horz_RBF
 PUBLIC :: veloc_adv_vert_RBF
 !PUBLIC :: veloc_adv_diff_vert_RBF
 !PUBLIC :: veloc_adv_diff_vert_RBF2
-INTEGER, PARAMETER :: MIN_DOLIC = 3
+!INTEGER, PARAMETER :: MIN_DOLIC = 2
 CONTAINS
 !-------------------------------------------------------------------------
 !
@@ -131,7 +129,7 @@ INTEGER :: jk, jb, jc, je!, jv, ile, ibe, ie, jev
 INTEGER :: i_startblk_c, i_endblk_c, i_startidx_c, i_endidx_c
 INTEGER :: i_startblk_e, i_endblk_e, i_startidx_e, i_endidx_e
 !INTEGER :: i_startblk_v, i_endblk_v!, i_startidx_v, i_endidx_v
-INTEGER :: rl_start_e, rl_end_e, rl_start_v, rl_end_v, rl_start_c, rl_end_c
+INTEGER :: rl_start_e, rl_end_e, rl_start_c, rl_end_c !, rl_start_v, rl_end_v
 !INTEGER ::  i_v1_idx, i_v1_blk, i_v2_idx, i_v2_blk
 REAL(wp) :: z_e  (nproma,n_zlev,p_patch%nblks_e)
 REAL(wp) :: z_u_c(nproma,n_zlev,p_patch%nblks_c)
@@ -159,11 +157,6 @@ REAL(wp) :: z_vort_flx_RBF(nproma,n_zlev,p_patch%nblks_e)
 !REAL(wp) :: z_veloc_adv_horz_e(nproma,n_zlev,p_patch%nblks_e)
 LOGICAL, PARAMETER :: L_DEBUG = .FALSE. 
 LOGICAL, PARAMETER :: L_ENSTROPHY_DISSIPATION=.FALSE.
-TYPE(t_cartesian_coordinates)    :: z_pv_cc(nproma,n_zlev,p_patch%nblks_c)
-INTEGER :: il_c1, ib_c1, il_c2, ib_c2
-INTEGER,  DIMENSION(:,:,:),   POINTER :: iidx, iblk
-TYPE(t_cartesian_coordinates) :: z_grad_u(nproma,n_zlev,p_patch%nblks_e)
-TYPE(t_cartesian_coordinates) :: z_div_grad_u(nproma,n_zlev,p_patch%nblks_c)
 !-----------------------------------------------------------------------
 ! #slo# set local variable to zero due to nag -nan compiler-option
 z_e             (:,:,:) = 0.0_wp

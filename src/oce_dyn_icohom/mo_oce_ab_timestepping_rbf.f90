@@ -533,6 +533,7 @@ IF(expl_vertical_velocity_diff==1.AND.iswm_oce /= 1)THEN
                                 & p_os%p_diag%vn_pred,      &
                                 & p_os%p_aux%bc_top_vn,     &
                                 & p_os%p_aux%bc_bot_vn,     &
+                                 & p_os%p_diag%h_e,         &
                                 & p_phys_param%A_veloc_v,   &
                                 & p_os%p_diag%vn_impl_vert_diff)
   IF(l_RIGID_LID)THEN

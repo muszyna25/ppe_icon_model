@@ -2139,7 +2139,9 @@ CONTAINS
       IF(my_process_is_stdio()) THEN
         !
         WRITE (omip_file,'(a,i0,a,i2.2,a)') 'iconR',nroot,'B',i_lev, '-flux.nc'
-
+        !omip_file=TRIM('/scratch/local1/m212053/ICON/icon-oce-dev/grids/iconR2B04-flux.nc')
+        omip_file=TRIM('/home/peter/Development/ICON-dev/icon-oce-dev/grids/iconR2B04-flux.nc')
+        !omip_file=TRIM('/scratch/local1/m212053/ICON/icon-oce-dev/grids/iconR2B04-flux.nc')
         INQUIRE (FILE=omip_file, EXIST=l_exist)
         IF (.NOT.l_exist) THEN
           CALL finish(TRIM(routine),'OMIP forcing flux file is not found.')

@@ -196,7 +196,18 @@ if [[ $run_ocean = 'true' ]]; then
      ln -s ${HGRIDDIR}/${OMIPNAME} ${EXPDIR}/${FLUXNAME}
      check_error $? "ln -s ${HGRIDDIR}/${OMIPNAME}"
    fi
+   # =======================================================
+   #
+   # replace ocean grid file from pool set in experiment file above
+   # --------------------------------------------------------------
+   if [[ "x$USE_POOLD" = "xY" ]] ; then
+     ls -l ${POOLDIR}/$OCEGRID
+     check_error $? "${POOLDIR}/$OCEGRID does not exist."
+     rm ${EXPDIR}/$gridfile
+     cp ${POOLDIR}/$OCEGRID ${EXPDIR}/$gridfile
+   fi
 fi
+
 #-----------------------------------------------------------------------------
 
 

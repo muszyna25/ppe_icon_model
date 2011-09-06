@@ -97,10 +97,10 @@ ocean_model_equations=-1 # equation system
 #-----------------------------------------------------------------------------
 # the grid files
 # USE_BASIN="Y"      # "Y": ocean horizontal gridfile base is "bas0-60N"
-  USE_AQUAP="Y"      # "Y": ocean horizontal gridfile base is "aqua_planet"
-# USE_FLATB="Y"      # "Y": ocean horizontal gridfile base is "etopo40_flat"
+# USE_AQUAP="Y"      # "Y": ocean horizontal gridfile base is "aqua_planet"
+  USE_FLATB="Y"      # "Y": ocean horizontal gridfile base is "etopo40_flat"
 # USE_BATHY="Y"      # "Y": ocean horizontal gridfile base is "etopo40_planet"
-# USE_POOLD="Y"      # "Y": overwrite ocean gridfile from pool
+  USE_POOLD="Y"      # "Y": overwrite ocean gridfile from pool
 #-----------------------------------------------------------------------------
 if [ "x$USE_FLATB" == "xY"  ] ; then
   grid_ext="etopo40_flat"
@@ -237,7 +237,7 @@ cat > ${ocean_namelist} << EOF
                                  ! FORCING_FROM_FILE_FIELD    = 13
                                  ! FORCING_FROM_COUPLED_FLUX  = 14
                                  ! FORCING_FROM_COUPLED_FIELD = 15
-  itestcase_oce      =   33      ! 25=shallow-water-Laeuter-Test; 26=shallow-water-Williamson test5;
+  itestcase_oce      =   43      ! 25=shallow-water-Laeuter-Test; 26=shallow-water-Williamson test5;
                                  ! 30=3D-multilayer Stommel; 31=3D-gravity wave
                                  ! 32=Multilayer Munk-Gyre test (following Sergey Danilov)
                                  ! 33=Collapsing density front, requires realistic lsm and topography

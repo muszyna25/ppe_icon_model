@@ -326,7 +326,7 @@ END INTERFACE
 !        ENDIF
 
       DO jk = slev, end_lev
-        IF(end_lev>=3)THEN!IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN   
+        IF(v_base%lsm_oce_c(jc,jk,jb) <= sea_boundary ) THEN   
           z_box               = v_base%del_zlev_m(jk)*rho(jc,jk,jb)!-rho_ref!&!     pressure in single box at layer jk
             ! -rho_ref)&!     pressure in single box at layer jk
           press_hyd(jc,jk,jb) = ( z_full + 0.5_wp*z_box ) * z_grav_rho_inv         
@@ -336,6 +336,10 @@ END INTERFACE
         ELSE
           press_hyd(jc,jk,jb) = 0.0_wp
         ENDIF
+!  IF(press_hyd(jc,jk,jb)/=0.0_wp)THEN
+!    write(123,*)'press',jc,jb,jk,&
+!    &press_hyd(jc,jk,jb), rho(jc,jk,jb)
+!  ENDIF
       END DO
 
 ! !       !the code within the level loop below is identical to the level loop above.
