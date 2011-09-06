@@ -471,7 +471,7 @@ CONTAINS
    ! 5 : stratospheric background aerosol (SB)
 
    !absorption
-   zaea_rrtm=RESHAPE(( / &
+   zaea_rrtm=RESHAPE( (/ &
      &0.0469_wp,0.0447_wp,0.0397_wp,0.0432_wp,0.0336_wp,0.0384_wp,0.0560_wp,0.0734_wp,&
      &0.0484_wp,0.0421_wp,0.0314_wp,0.0249_wp,0.0247_wp,0.0240_wp,0.0224_wp,0.0260_wp,&
      &0.0260_wp,0.0505_wp,0.0356_wp,0.0375_wp,0.0545_wp,0.0730_wp,0.0792_wp,0.0895_wp,&
@@ -494,7 +494,7 @@ CONTAINS
      &0.0000_wp,0.0000_wp,0.0000_wp,0.0000_wp,0.0000_wp,0.0628_wp/),(/jpsw+jpband,5/))      ! SB
 
    !scattering
-   zaes_rrtm=RESHAPE(( / &
+   zaes_rrtm=RESHAPE( (/ &
      &0.0235_wp,0.0321_wp,0.0381_wp,0.0401_wp,0.0402_wp,0.0455_wp,0.0480_wp,0.0481_wp,&
      &0.0308_wp,0.0430_wp,0.0353_wp,0.0583_wp,0.0685_wp,0.0718_wp,0.0761_wp,0.0827_wp,&
      &0.0827_wp,0.0872_wp,0.1118_wp,0.1308_wp,0.1685_wp,0.2320_wp,0.2774_wp,0.4229_wp,&
@@ -517,7 +517,7 @@ CONTAINS
      &0.7105_wp,1.0514_wp,1.3754_wp,1.5334_wp,1.5495_wp,0.0009_wp/),(/jpsw+jpband,5/))      ! SB
 
    !asymmetry factor
-   zaeg_rrtm=RESHAPE(( / &
+   zaeg_rrtm=RESHAPE( (/ &
      &0.5856_wp,0.6513_wp,0.7064_wp,0.7354_wp,0.7608_wp,0.7356_wp,0.7118_wp,0.7233_wp,&
      &0.8772_wp,0.8244_wp,0.8601_wp,0.8315_wp,0.8064_wp,0.7988_wp,0.7896_wp,0.7796_wp,&
      &0.7796_wp,0.7841_wp,0.7459_wp,0.7204_wp,0.6758_wp,0.6426_wp,0.6362_wp,0.6324_wp,&
