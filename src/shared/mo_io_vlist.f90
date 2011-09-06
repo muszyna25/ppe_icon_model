@@ -120,10 +120,11 @@ MODULE mo_io_vlist
     &                                 lwrite_vorticity, lwrite_divergence,        &
     &                                 lwrite_tend_phy, lwrite_radiation,          &
     &                                 lwrite_precip, lwrite_cloud, lwrite_tracer, &
-    &                                 lwrite_tke,  lwrite_surface,                &
+    &                                 lwrite_tke,  lwrite_surface, lout_pzlev,    &
     &                                 lwrite_extra, inextra_2d,inextra_3d,        &
     &                                 out_filetype, out_expname,                  &
     &                                 dt_data, dt_file, lkeep_in_sync
+  USE mo_nh_pzlev_config,       ONLY: nh_pzlev_config
   USE mo_parallel_config,       ONLY: nproma, p_test_run
   USE mo_extpar_config,         ONLY: itopo
   USE mo_run_config,            ONLY: num_lev, num_levp1, iforcing, lforcing,     &
@@ -146,7 +147,7 @@ MODULE mo_io_vlist
     &  my_process_is_mpi_test, my_process_is_mpi_seq, process_mpi_all_test_id,         &
     &  process_mpi_all_workroot_id, p_recv, p_send, num_work_procs
   USE mo_icoham_dyn_types,      ONLY: t_hydro_atm_prog, t_hydro_atm_diag
-  USE mo_nonhydro_state,        ONLY: t_nh_prog, t_nh_diag
+  USE mo_nonhydro_state,        ONLY: t_nh_prog, t_nh_diag, t_nh_diag_pz
   USE mo_oce_state,             ONLY: t_hydro_ocean_state, t_hydro_ocean_prog,       &
        &                              t_hydro_ocean_diag, t_hydro_ocean_base, v_base,&
        &                              set_zlev, v_ocean_state
@@ -213,7 +214,8 @@ MODULE mo_io_vlist
     &  vlistID, taxisID, zaxisID_surface, zaxisID_hybrid,      &
     &  zaxisID_hybrid_half, zaxisIDdepth_m, zaxisID_halfdepth, &
     &  zaxisID_depth_below_land, zaxisID_depth_below_land_p1,  &
-    &  zaxisID_generic_snow, zaxisID_generic_snow_p1
+    &  zaxisID_generic_snow, zaxisID_generic_snow_p1,          &
+    &  zaxisID_pres, zaxisID_hgt
 
 
   INTEGER, DIMENSION(max_outvars,max_gridlevs) ::  &
@@ -260,7 +262,7 @@ CONTAINS
     INTEGER :: i_ncb, i_neb, i_nvb
     INTEGER :: lnlen, ulen, nzlevp1
 
-    INTEGER :: nlev, nlevp1
+    INTEGER :: nlev, nlevp1, nplev, nzlev
     INTEGER :: znlev_soil
 
     REAL(wp), ALLOCATABLE :: clon(:), clat(:), clonv(:), clatv(:)
@@ -616,6 +618,29 @@ CONTAINS
     END DO
     CALL zaxisDefLevels(zaxisID_generic_snow(k_jg), levels)
     DEALLOCATE(levels)
+
+    IF (lout_pzlev) THEN
+      nplev = nh_pzlev_config(k_jg)%nplev
+      zaxisID_pres(k_jg) = zaxisCreate(ZAXIS_PRESSURE, nplev)
+      ALLOCATE(levels(nplev))
+      DO i = 1, nplev
+        levels(i) = REAL(i,wp)
+      END DO
+      CALL zaxisDefLevels(zaxisID_pres(k_jg), levels)
+      DEALLOCATE(levels)
+      CALL zaxisDefVct(zaxisID_pres(k_jg), nplev, nh_pzlev_config(k_jg)%plevels(1:nplev))
+
+
+      nzlev = nh_pzlev_config(k_jg)%nzlev
+      zaxisID_hgt(k_jg)  = zaxisCreate(ZAXIS_HEIGHT, nzlev)
+      ALLOCATE(levels(nzlev))
+      DO i = 1, nzlev
+        levels(i) = REAL(i,wp)
+      END DO
+      CALL zaxisDefLevels(zaxisID_hgt(k_jg), levels)
+      DEALLOCATE(levels)
+      CALL zaxisDefVct(zaxisID_hgt(k_jg), nzlev, nh_pzlev_config(k_jg)%zlevels(1:nzlev))
+     ENDIF
 
     !
     !=========================================================================
@@ -1672,6 +1697,61 @@ CONTAINS
 
       ENDIF
 
+
+      ! output on constant height and/or pressure levels
+      !
+      IF(lout_pzlev .AND. iequations==inh_atmosphere) THEN
+        IF (nh_pzlev_config(k_jg)%lwrite_zlev) THEN
+          ! zonal wind
+          CALL addVar(TimeVar('U_Z',&
+          &                   'zonal wind',&
+          &                   'm/s', 131, 128,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
+          &           k_jg)
+          ! meridional wind
+          CALL addVar(TimeVar('V_Z',&
+          &                   'meridional wind',&
+          &                   'm/s', 132, 128, &
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
+          &           k_jg)
+          CALL addVar(TimeVar('T_Z', &
+          &                   'temperature',&
+          &                   'K', 130, 128,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
+          &           k_jg)
+          CALL addVar(TimeVar('P_Z',&
+          &                   'pressure',&
+          &                   'Pa', 255, 128,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
+          &          k_jg)
+        ENDIF
+        IF (nh_pzlev_config(k_jg)%lwrite_plev) THEN
+          ! zonal wind
+          CALL addVar(TimeVar('U_P',&
+          &                   'zonal wind',&
+          &                   'm/s', 131, 128,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
+          &           k_jg)
+          ! meridional wind
+          CALL addVar(TimeVar('V_P',&
+          &                   'meridional wind',&
+          &                   'm/s', 132, 128, &
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
+          &           k_jg)
+          CALL addVar(TimeVar('T_P', &
+          &                   'temperature',&
+          &                   'K', 130, 128,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
+          &           k_jg)
+          CALL addVar(TimeVar('Z', &
+          &                   'geopotential',&
+          &                   'm2/s2', 129, 128,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
+          &           k_jg)
+        ENDIF
+      ENDIF !lout_pzlev
+
+
     ELSE 
       ! ocean
       ! 3-dim lsm-masks
@@ -2116,8 +2196,10 @@ CONTAINS
     REAL(wp), POINTER :: ptr2(:,:)
     REAL(wp), POINTER :: ptr3(:,:,:)
 
-    TYPE(t_nh_prog), POINTER :: p_prog
-    TYPE(t_nh_diag), POINTER :: p_diag
+    TYPE(t_nh_prog),    POINTER :: p_prog
+    TYPE(t_nh_diag),    POINTER :: p_diag
+    TYPE(t_nh_diag_pz), POINTER :: p_diag_p
+    TYPE(t_nh_diag_pz), POINTER :: p_diag_z
 
  !   TYPE(t_nwp_phy_diag) :: prm_diag
  !   TYPE(t_nwp_phy_tend) :: prm_nwp_tend
@@ -2127,6 +2209,11 @@ CONTAINS
 
     p_prog => p_nh_state(jg)%prog(nnow(jg))
     p_diag => p_nh_state(jg)%diag
+
+    IF (lout_pzlev) THEN
+      p_diag_p => p_nh_state(jg)%diag_p
+      p_diag_z => p_nh_state(jg)%diag_z
+    ENDIF
 
     IF (iforcing==inwp) THEN
      !p_prm_diag     => prm_diag(jg)
@@ -2228,6 +2315,14 @@ CONTAINS
       CASE ('tend_v_conv');     ptr3 => prm_nwp_tend(jg)%ddt_v_pconv   (:,:,:)
       CASE ('tend_v_turb');     ptr3 => prm_nwp_tend(jg)%ddt_v_turb    (:,:,:)
       CASE ('tend_v_sso');      ptr3 => prm_nwp_tend(jg)%ddt_v_turb    (:,:,:)
+      CASE ('U_Z');             ptr3 => p_diag_z%u     (:,:,:)
+      CASE ('V_Z');             ptr3 => p_diag_z%v     (:,:,:)
+      CASE ('T_Z');             ptr3 => p_diag_z%temp  (:,:,:)
+      CASE ('P_Z');             ptr3 => p_diag_z%pres  (:,:,:)
+      CASE ('U_P');             ptr3 => p_diag_p%u     (:,:,:)
+      CASE ('V_P');             ptr3 => p_diag_p%v     (:,:,:)
+      CASE ('T_P');             ptr3 => p_diag_p%temp  (:,:,:)
+      CASE ('Z');               ptr3 => dup3(grav*p_diag_p%z3d(:,:,:))
       CASE DEFAULT;             not_found = .TRUE.
     END SELECT
 

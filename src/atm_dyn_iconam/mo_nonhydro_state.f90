@@ -1801,6 +1801,14 @@ MODULE mo_nonhydro_state
     shape3d_c     = (/nproma, nlev, nblks_c /)
 
 
+    !
+    ! Register a field list and apply default settings
+    !
+    CALL new_var_list( p_diag_z_list, TRIM(listname) )
+    CALL default_var_list_settings( p_diag_z_list,             &
+                                  & lrestart=.FALSE.,          &
+                                  & restart_type=FILETYPE_NC2  )
+
   END SUBROUTINE new_nh_state_diag_z_list
 
 
@@ -1859,6 +1867,14 @@ MODULE mo_nonhydro_state
     ! predefined array shapes
     shape3d_c     = (/nproma, nlev, nblks_c /)
 
+
+    !
+    ! Register a field list and apply default settings
+    !
+    CALL new_var_list( p_diag_p_list, TRIM(listname) )
+    CALL default_var_list_settings( p_diag_p_list,             &
+                                  & lrestart=.FALSE.,          &
+                                  & restart_type=FILETYPE_NC2  )
 
   END SUBROUTINE new_nh_state_diag_p_list
 

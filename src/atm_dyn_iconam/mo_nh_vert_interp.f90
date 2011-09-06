@@ -121,10 +121,9 @@ CONTAINS
   !! Initial version by Guenther Zaengl, DWD(2011-07-14)
   !!
   !!
-  SUBROUTINE intp_to_p_and_z_levels(p_patch, p_int, prm_diag, p_nh_state)
+  SUBROUTINE intp_to_p_and_z_levels(p_patch, prm_diag, p_nh_state)
 
     TYPE(t_patch),       INTENT(IN)      :: p_patch(:)
-    TYPE(t_int_state),   INTENT(IN)      :: p_int(:)
     TYPE(t_nwp_phy_diag),INTENT(INOUT)   :: prm_diag(:)
     TYPE(t_nh_state),    INTENT(INOUT)   :: p_nh_state(:)
 
@@ -139,7 +138,7 @@ CONTAINS
       nzlev = nh_pzlev_config(jg)%nzlev
       nplev = nh_pzlev_config(jg)%nplev
 
-      CALL intp2pzlevs(p_patch(jg), p_int(jg), prm_diag(jg), p_nh_state(jg), &
+      CALL intp2pzlevs(p_patch(jg), prm_diag(jg), p_nh_state(jg), &
         &              nzlev, nplev)
 
     ENDDO
@@ -668,11 +667,10 @@ CONTAINS
   !! - routine duplicated for use in ICON 
   !!
   !!
-  SUBROUTINE intp2pzlevs(p_patch, p_int, prm_diag, p_nh_state, nzlev, nplev)
+  SUBROUTINE intp2pzlevs(p_patch, prm_diag, p_nh_state, nzlev, nplev)
 
 
     TYPE(t_patch),       TARGET, INTENT(IN)      :: p_patch
-    TYPE(t_int_state),   TARGET, INTENT(IN)      :: p_int
     TYPE(t_nwp_phy_diag),TARGET, INTENT(IN)      :: prm_diag
     TYPE(t_nh_state),    TARGET, INTENT(INOUT)   :: p_nh_state
 
