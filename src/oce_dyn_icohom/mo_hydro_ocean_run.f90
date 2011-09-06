@@ -258,6 +258,18 @@ CONTAINS
     !        before new writing timestep!
     IF (istime4newoutputfile(jstep) .AND. jstep/=nsteps) THEN
 
+      jfile = jfile +1
+      CALL init_output_files(jfile,lclose=.TRUE.)
+
+    END IF
+
+    ! One integration cycle finished on the lowest grid level (coarsest
+    ! resolution). Set model time.
+    CALL add_time(dtime,0,0,0,datetime)
+
+!     CALL message (TRIM(routine),'Step completed at:')
+!     CALL print_datetime(datetime)
+
 
   ENDDO TIME_LOOP
   !IF ( iswm_oce == 1 ) THEN
