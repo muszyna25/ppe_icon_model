@@ -83,7 +83,7 @@ MODULE mo_nh_testcases
   USE mo_nh_ape_exp,           ONLY: init_nh_state_prog_APE
   USE mo_nh_jabw_exp,          ONLY: init_nh_topo_jabw, init_nh_state_prog_jabw, & 
                                    & init_passive_tracers_nh_jabw, init_nh_inwp_tracers
-  USE mo_nh_mrw_exp,           ONLY: init_nh_topo_mrw, init_nh_state_prog_mrw
+!  USE mo_nh_mrw_exp,           ONLY: init_nh_topo_mrw, init_nh_state_prog_mrw
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
   USE mo_sync,                 ONLY: SYNC_E, sync_patch_array
   USE mo_satad,                ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
@@ -413,9 +413,9 @@ MODULE mo_nh_testcases
      nblks_v   = p_patch(jg)%nblks_int_v
      npromz_v  = p_patch(jg)%npromz_v
 
-     CALL init_nh_topo_mrw ( p_patch(jg),ext_data(jg)%atm%topography_c,  &
-                          & ext_data(jg)%atm%topography_v, nblks_c, npromz_c, &
-                          & nblks_v, npromz_v, l_modified) 
+!     CALL init_nh_topo_mrw ( p_patch(jg),ext_data(jg)%atm%topography_c,  &
+!                          & ext_data(jg)%atm%topography_v, nblks_c, npromz_c, &
+!                          & nblks_v, npromz_v, l_modified) 
    ENDDO
 
    CALL message(TRIM(routine),'topography is initialised ')
@@ -593,16 +593,16 @@ MODULE mo_nh_testcases
        END IF
      ENDIF
 
-     CALL   init_nh_state_prog_mrw ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
-                                   & p_nh_state(jg)%diag,                        &
-                                   & ext_data(jg)%atm%topography_c,              &
-                                   & p_nh_state(jg)%metrics,                     &
-                                   & p_int(jg), l_hydro_adjust, l_moist          )
-     CALL   init_nh_state_prog_mrw ( p_patch(jg), p_nh_state(jg)%prog(nnew(jg)), &
-                                   & p_nh_state(jg)%diag,                        &
-                                   & ext_data(jg)%atm%topography_c,              &
-                                   & p_nh_state(jg)%metrics,                     &
-                                   & p_int(jg), l_hydro_adjust, l_moist          )
+!     CALL   init_nh_state_prog_mrw ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+!                                   & p_nh_state(jg)%diag,                        &
+!                                   & ext_data(jg)%atm%topography_c,              &
+!                                   & p_nh_state(jg)%metrics,                     &
+!                                   & p_int(jg), l_hydro_adjust, l_moist          )
+!     CALL   init_nh_state_prog_mrw ( p_patch(jg), p_nh_state(jg)%prog(nnew(jg)), &
+!                                   & p_nh_state(jg)%diag,                        &
+!                                   & ext_data(jg)%atm%topography_c,              &
+!                                   & p_nh_state(jg)%metrics,                     &
+!                                   & p_int(jg), l_hydro_adjust, l_moist          )
 
 
 
