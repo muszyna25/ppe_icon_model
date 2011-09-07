@@ -356,7 +356,7 @@ MODULE mo_nh_mrw_exp
   !! @par Revision History
   !!
   !!
-  SUBROUTINE init_nh_state_prog_mrw( ptr_patch, ptr_nh_prog, ptr_nh_diag,      &
+  SUBROUTINE init_nh_state_prog_mrw2( ptr_patch, ptr_nh_prog, ptr_nh_diag,      &
     &                                topo_c, p_metrics, p_int, l_hydro_adjust, &
     &                                l_moist,  opt_global_moist                ) 
 
@@ -389,6 +389,7 @@ MODULE mo_nh_mrw_exp
    REAL(wp), ALLOCATABLE              :: z_qv(:,:,:)
    LOGICAL        :: l_rediag
 !-------------------------------------------------------------------------
+  END SUBROUTINE init_nh_state_prog_mrw2
 
 !--------------------------------------------------------------------
   END MODULE mo_nh_mrw_exp
