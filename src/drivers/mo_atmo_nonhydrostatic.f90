@@ -43,7 +43,8 @@ USE mo_interpolation,        ONLY: rbf_vec_interpol_cell,       &
 USE mo_time_config,          ONLY: time_config      ! variable
 USE mo_io_restart,           ONLY: read_restart_files
 USE mo_io_restart_attributes,ONLY: get_restart_attribute
-USE mo_io_config,            ONLY: dt_data,dt_file,dt_diag,dt_checkpoint
+USE mo_io_config,            ONLY: dt_data,dt_file,dt_diag,dt_checkpoint, &
+  &                                lout_pzlev
 USE mo_run_config,           ONLY: &
   &                               dtime,                & !    namelist parameter
   &                               ltestcase,            &
@@ -66,7 +67,7 @@ USE mo_atm_phy_nwp_config,   ONLY: configure_atm_phy_nwp, atm_phy_nwp_config
 USE mo_nonhydro_state,       ONLY: p_nh_state,   &
   &                                destruct_nh_state
 USE mo_nwp_phy_state,        ONLY: construct_nwp_phy_state, &
-  &                                destruct_nwp_phy_state
+  &                                destruct_nwp_phy_state, prm_diag
 USE mo_nwp_lnd_state,        ONLY: p_lnd_state, construct_nwp_lnd_state,    &
   &                                destruct_nwp_lnd_state
 USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
@@ -76,7 +77,7 @@ USE mo_nh_stepping,          ONLY: prepare_nh_integration, perform_nh_stepping
 USE mo_prepicon_utils,      ONLY: init_prepicon, prepicon, copy_prepicon2prog, &
   &                               compute_coord_fields,  deallocate_prepicon
 USE mo_prepicon_nml,        ONLY: i_oper_mode, l_sfc_in
-USE mo_nh_vert_interp,      ONLY: vertical_interpolation
+USE mo_nh_vert_interp,      ONLY: vertical_interpolation, intp_to_p_and_z_levels
 USE mo_ext_data,            ONLY: ext_data
 
 !-------------------------------------------------------------------------
@@ -280,8 +281,11 @@ CONTAINS
     
     ! Note: here the derived output variables are not yet available
     ! (divergence, vorticity)
-!DR !!! it is not clear yet, whether we shoul include a call to 
-!DR !!! interpolate_to_p_and_z_levels
+    !
+    ! Interpolate selected fields to p- and/or z-levels
+    IF (lout_pzlev) THEN
+      CALL intp_to_p_and_z_levels(p_patch(1:), prm_diag, p_nh_state)
+    ENDIF
     CALL write_output( time_config%cur_datetime )
     l_have_output = .TRUE.
 
