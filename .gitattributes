@@ -1219,6 +1219,7 @@ src/testcases/mo_nh_ape_exp.f90 -text
 src/testcases/mo_nh_df_test.f90 -text
 src/testcases/mo_nh_hs_test.f90 -text
 src/testcases/mo_nh_jabw_exp.f90 -text
+src/testcases/mo_nh_mrw_exp.f90 -text
 src/testcases/mo_nh_pa_test.f90 -text
 src/testcases/mo_nh_testcases.f90 -text
 src/testcases/mo_pa_test.f90 -text

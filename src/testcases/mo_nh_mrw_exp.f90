@@ -1,0 +1,394 @@
+!>
+!!  Subroutine to initialized the Mountain Rossby Wave related test cases 
+!!   for the NH-Core (mrw_nh, mrw2_nh and mwbr_const)
+!!
+!!
+!! @par Revision History
+!! - first version by P. Ripodas , DWD, (2011-09)
+!! - some parts extracted from the original mo_nh_testcases.f90
+!! - new subroutines in mo_nh_init_utils are used 
+!!
+!! @par Literature
+!! -
+!!
+!! @par Copyright
+!! 2002-2008 by DWD and MPI-M
+!! This software is provided for non-commercial use only.
+!! See the LICENSE and the WARRANTY conditions.
+!!
+!! @par License
+!! The use of ICON is hereby granted free of charge for an unlimited time,
+!! provided the following rules are accepted and applied:
+!! <ol>
+!! <li> You may use or modify this code for your own non commercial and non
+!!    violent purposes.
+!! <li> The code may not be re-distributed without the consent of the authors.
+!! <li> The copyright notice and statement of authorship must appear in all
+!!    copies.
+!! <li> You accept the warranty conditions (see WARRANTY).
+!! <li> In case you intend to use the code commercially, we oblige you to sign
+!!    an according license agreement with DWD and MPI-M.
+!! </ol>
+!!
+!! @par Warranty
+!! This code has been tested up to a certain level. Defects and weaknesses,
+!! which may be included in the code, do not establish any warranties by the
+!! authors.
+!! The authors do not make any warranty, express or implied, or assume any
+!! liability or responsibility for the use, acquisition or application of this
+!! software.
+!!
+!!
+MODULE mo_nh_mrw_exp
+!-------------------------------------------------------------------------
+!
+!    ProTeX FORTRAN source: Style 2
+!    modified for ICON project, DWD/MPI-M 2008
+!
+!-------------------------------------------------------------------------
+!
+!
+!
+
+   USE mo_kind,                ONLY: wp
+   USE mo_nh_testcases,        ONLY:  mount_lonctr_mrw_deg, mount_latctr_mrw_deg, &
+                                   &  u0_mrw,  mount_height_mrw, mount_half_width,&
+                                   &  rh_at_1000hpa, qv_max 
+   USE mo_model_domain,        ONLY: t_patch
+   USE mo_parallel_config,     ONLY: nproma
+   USE mo_math_constants,      ONLY: pi
+   USE mo_physical_constants,  ONLY: rd, cpd, cvd_o_rd, re, grav, omega, p0ref
+   USE mo_extpar_config,       ONLY: itopo
+   USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
+
+   USE mo_nh_init_utils,       ONLY: convert_thdvars, virtual_temp, init_w ,      &
+                                   & hydro_adjust
+   USE mo_nh_jabw_exp,         ONLY: init_nh_inwp_tracers
+   USE mo_loopindices,         ONLY: get_indices_e
+   USE mo_run_config,          ONLY: iqv
+   USE mo_interpolation,       ONLY: t_int_state
+   USE mo_exception,           ONLY: message, message_text
+
+
+   IMPLICIT NONE
+
+   PUBLIC :: init_nh_topo_mrw, init_nh_state_prog_mrw
+
+   PRIVATE
+
+   CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
+
+
+! !DEFINED PARAMETERS for mountain induced Rossby wave train:
+  REAL(wp), PARAMETER :: pres_sp  = 93000.0_wp  !pressure surface at the south pole
+  REAL(wp), PARAMETER :: temp_mrw = 288._wp     !temperature of isothermal atmosphere
+
+
+!--------------------------------------------------------------------
+
+   CONTAINS
+!-------------------------------------------------------------------------
+
+  !>
+  !! Initialization of topograpphy for the nh mrw test cases 
+  !!
+  !! @par Revision History
+  !!
+  !!
+  SUBROUTINE init_nh_topo_mrw( ptr_patch, topo_c, topo_v, nblks_c, npromz_c,      &
+                             &  nblks_v, npromz_v, l_modified )
+
+    TYPE(t_patch), TARGET,INTENT(INOUT) :: &  !< patch on which computation is performed
+      &  ptr_patch
+
+  
+   INTEGER, INTENT (IN)     :: nblks_c, nblks_v, npromz_c, npromz_v
+   REAL(wp), INTENT(INOUT)  :: topo_c    (nproma,nblks_c)
+   REAL(wp), INTENT(INOUT)  :: topo_v    (nproma,nblks_v)  
+   LOGICAL , INTENT (IN)    :: l_modified
+
+    ! local variables
+
+   INTEGER        :: jc, jv, jb, nlen
+   REAL(wp)       :: z_lon, z_lat
+   REAL(wp)       :: z_lon_ctr, z_lat_ctr
+   REAL(wp)       :: zexp, zr
+ 
+
+!--------------------------------------------------------------------
+
+
+    z_lon_ctr = mount_lonctr_mrw_deg*pi/180.0_wp
+    z_lat_ctr = mount_latctr_mrw_deg*pi/180.0_wp
+
+ 
+      DO jb = 1, nblks_c
+        IF (jb /= nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen =  npromz_c
+        ENDIF
+        DO jc = 1, nlen
+          z_lat   = ptr_patch%cells%center(jc,jb)%lat
+          z_lon   = ptr_patch%cells%center(jc,jb)%lon
+
+          zr = SIN(z_lat_ctr)*SIN(z_lat)+COS(z_lat_ctr)*COS(z_lat)*COS(z_lon-z_lon_ctr) 
+          zexp = re*ACOS(zr)/mount_half_width
+
+          IF ( itopo==0 ) THEN
+            IF (.NOT. l_modified ) THEN
+                topo_c(jc,jb) =  mount_height_mrw*EXP( - zexp*zexp )
+            ELSE
+                topo_c(jc,jb) = &
+                         mount_height_mrw*EXP( - zexp*zexp )*&
+                         0.5_wp*(1._wp+COS(pi*zexp*2._wp))
+            ENDIF
+          ENDIF
+
+        ENDDO
+      ENDDO
+
+      DO jb = 1, nblks_v
+        IF (jb /= nblks_v) THEN
+          nlen = nproma
+        ELSE
+          nlen =  npromz_v
+        ENDIF
+        DO jv = 1, nlen
+          z_lat   = ptr_patch%verts%vertex(jv,jb)%lat
+          z_lon   = ptr_patch%verts%vertex(jv,jb)%lon
+
+          zr = SIN(z_lat_ctr)*SIN(z_lat)+COS(z_lat_ctr)*COS(z_lat)*COS(z_lon-z_lon_ctr) 
+          zexp = re*ACOS(zr)/mount_half_width
+
+          IF ( itopo==0 ) THEN
+            IF (.NOT. l_modified ) THEN
+                topo_v(jv,jb) =  mount_height_mrw*EXP( - zexp*zexp )
+            ELSEIF (l_modified) THEN
+                topo_v(jv,jb) = &
+                         mount_height_mrw*EXP( - zexp*zexp )*&
+                         0.5_wp*(1._wp+COS(pi*zexp*2._wp))
+            ENDIF
+          ENDIF
+
+        ENDDO
+      ENDDO
+
+  END SUBROUTINE init_nh_topo_mrw
+!-------------------------------------------------------------------------
+!
+  !>
+  !! Initialization of prognostic state vector for the nh mrw test case 
+  !! Tracers can also be initialized in case of inwp
+  !!
+  !! @par Revision History
+  !!
+  !!
+  SUBROUTINE init_nh_state_prog_mrw( ptr_patch, ptr_nh_prog, ptr_nh_diag,      &
+    &                                topo_c, p_metrics, p_int, l_hydro_adjust, &
+    &                                l_moist,  opt_global_moist                ) 
+
+   TYPE(t_patch), TARGET,INTENT(INOUT) :: &  !< patch on which computation is performed
+     &  ptr_patch
+
+   TYPE(t_nh_prog), INTENT(INOUT)      :: &  !< prognostic state vector
+     &  ptr_nh_prog
+
+   TYPE(t_nh_diag), INTENT(INOUT)      :: &  !< diagnostic state vector
+     &  ptr_nh_diag
+
+   REAL(wp),  INTENT(IN)               :: topo_c(:,:)
+   TYPE(t_nh_metrics), INTENT(IN)      :: p_metrics !< NH metrics state
+   TYPE(t_int_state), INTENT(IN)       :: p_int
+   LOGICAL, INTENT(IN)                 :: l_hydro_adjust !if .TRUE. hydrostatically balanced 
+                                                         ! initial condition
+   LOGICAL, INTENT(IN)                 :: l_moist !if .TRUE. tracers are initialized
+   REAL(wp),INTENT(IN), OPTIONAL       :: opt_global_moist
+
+
+
+   INTEGER                            :: je, jc, jk, jb, nlen, &
+                                       & nblks_e, npromz_e,  nblks_c, npromz_c
+   INTEGER                            :: i_startidx, i_endidx, i_startblk
+   INTEGER                            :: nlev        !< number of full levels
+   REAL(wp)                           :: bruntvaissq, kappa, zhelp1, zhelp2, &
+                                       & z_sfc, z_pres, z_klev, z_u, zcoslat, &
+                                       & zlat
+   REAL(wp), ALLOCATABLE              :: z_qv(:,:,:)
+   LOGICAL        :: l_rediag
+!-------------------------------------------------------------------------
+   ! number of vertical levels
+   nlev   = ptr_patch%nlev
+
+   IF (l_moist) THEN
+      ALLOCATE ( z_qv(nproma,nlev,ptr_patch%nblks_c) )
+   END IF
+
+
+   bruntvaissq = grav*grav/cpd/temp_mrw
+   kappa       = rd/cpd
+   zhelp1      = bruntvaissq/grav/grav/kappa
+   zhelp2      = grav/rd/temp_mrw
+
+   nblks_c   = ptr_patch%nblks_int_c
+   npromz_c  = ptr_patch%npromz_int_c
+   nblks_e   = ptr_patch%nblks_int_e
+   npromz_e  = ptr_patch%npromz_int_e
+
+
+
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,nlen,jk,jc,zlat,z_pres,z_sfc,z_klev,zcoslat)
+    DO jb = 1, nblks_c
+      IF (jb /= nblks_c) THEN
+         nlen = nproma
+      ELSE
+         nlen = npromz_c
+      ENDIF
+!     set the surface pressure. This is a diagnostic field
+      DO jc = 1, nlen
+        zlat= ptr_patch%cells%center(jc,jb)%lat
+        zcoslat=COS(zlat)
+        ptr_nh_diag%pres_sfc(jc,jb) = pres_sp * EXP( zhelp1 * ( u0_mrw *&
+                              ( 0.5_wp*u0_mrw + re*omega) * zcoslat*zcoslat - &
+                              topo_c(jc,jb)*grav))
+      ENDDO !jc
+      DO jk = nlev, 1, -1
+          ! Use analytic expressions at lowest model level
+            DO jc = 1, nlen
+              z_sfc  = topo_c(jc,jb)
+              z_klev = 0.5_wp * ( p_metrics%z_ifc(jc,jk,jb) + &
+                       p_metrics%z_ifc(jc,jk+1,jb) )
+              z_pres = ptr_nh_diag%pres_sfc(jc,jb) * &
+                       EXP(- zhelp2 * ( z_klev  - z_sfc )  )   !isothermal atm.
+
+              ! initialized diagnostic fields
+              ptr_nh_diag%temp(jc,jk,jb) = temp_mrw    
+              ptr_nh_diag%pres(jc,jk,jb) = z_pres
+            ENDDO !jc
+      ENDDO !jk     
+     ENDDO !jb
+!$OMP END DO
+!$OMP END PARALLEL
+
+! As long as we do not have water vapour, ptr_nh_diag%temp is also the virtual temperature
+
+  CALL convert_thdvars(ptr_patch, ptr_nh_diag%pres, ptr_nh_diag%temp, &
+                     & ptr_nh_prog%rho, ptr_nh_prog%exner, ptr_nh_prog%theta_v  )
+  ptr_nh_prog%rhotheta_v = ptr_nh_prog%rho * ptr_nh_prog%theta_v
+
+! initialized horizontal velocities
+    i_startblk = ptr_patch%edges%start_blk(2,1)
+    ! horizontal normal components of the velocity
+!$OMP PARALLEL
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,zlat,z_u)
+    DO jb = i_startblk, nblks_e
+
+      CALL get_indices_e(ptr_patch, jb, i_startblk, nblks_e, &
+                         i_startidx, i_endidx, 2)
+
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
+            zlat = ptr_patch%edges%center(je,jb)%lat
+            z_u = u0_mrw * COS(zlat)  !v component is zero
+            ptr_nh_prog%vn(je,jk,jb) = &
+             z_u * ptr_patch%edges%primal_normal(je,jb)%v1
+          ENDDO !je
+        ENDDO !jk
+    ENDDO  !jb
+!$OMP END DO
+!$OMP END PARALLEL
+
+! initialized vertical velocity
+
+   CALL init_w(ptr_patch, p_int, ptr_nh_prog%vn, p_metrics%z_ifc, ptr_nh_prog%w)
+
+! IF l_moist is .TRUE. the tracers are initialized similar as in jabw test case with moisture 
+!  In this case the temp and pres fields should be kept and the virtual temperature and 
+!  the NH prognostic variables have to be recalculated
+
+  IF (l_moist) THEN
+
+   l_rediag = .FALSE. !pres and temp should not be recalculated
+                      ! only 1 iteration in  init_nh_inwp_tracers
+
+   IF (PRESENT(opt_global_moist)) THEN
+     CALL init_nh_inwp_tracers (ptr_patch, ptr_nh_prog, ptr_nh_diag, &
+                              & p_metrics, rh_at_1000hpa, qv_max,    &
+                              & l_rediag, opt_global_moist           )
+   ELSE
+     CALL init_nh_inwp_tracers (ptr_patch, ptr_nh_prog, ptr_nh_diag, &
+                              & p_metrics, rh_at_1000hpa, qv_max,    &
+                              & l_rediag                             )
+ 
+   END IF
+   !Calculate virtual temperature, pres field has not changed
+   z_qv(:,:,:) = ptr_nh_prog%tracer(:,:,:,iqv)
+
+   CALL virtual_temp ( ptr_patch, ptr_nh_diag%temp, z_qv,             &
+                     & temp_v= ptr_nh_diag%tempv)
+   
+   !Calculate again the nh prognostic variables with the new tempv
+   CALL convert_thdvars(ptr_patch, ptr_nh_diag%pres, ptr_nh_diag%tempv, &
+               & ptr_nh_prog%rho, ptr_nh_prog%exner, ptr_nh_prog%theta_v  )
+   ptr_nh_prog%rhotheta_v = ptr_nh_prog%rho * ptr_nh_prog%theta_v 
+   DEALLOCATE(z_qv)
+
+  END IF
+
+  IF (l_hydro_adjust) THEN
+
+   CALL hydro_adjust ( ptr_patch, p_metrics, ptr_nh_prog%rho,     &
+                     & ptr_nh_prog%exner, ptr_nh_prog%theta_v,    &
+                     & ptr_nh_prog%rhotheta_v  )
+
+  END IF
+
+   
+  END SUBROUTINE init_nh_state_prog_mrw
+
+!-------------------------------------------------------------------------
+!
+  !>
+  !! Initialization of prognostic state vector for the nh mrw test case 
+  !! Tracers can also be initialized in case of inwp
+  !!
+  !! @par Revision History
+  !!
+  !!
+  SUBROUTINE init_nh_state_prog_mrw( ptr_patch, ptr_nh_prog, ptr_nh_diag,      &
+    &                                topo_c, p_metrics, p_int, l_hydro_adjust, &
+    &                                l_moist,  opt_global_moist                ) 
+
+   TYPE(t_patch), TARGET,INTENT(INOUT) :: &  !< patch on which computation is performed
+     &  ptr_patch
+
+   TYPE(t_nh_prog), INTENT(INOUT)      :: &  !< prognostic state vector
+     &  ptr_nh_prog
+
+   TYPE(t_nh_diag), INTENT(INOUT)      :: &  !< diagnostic state vector
+     &  ptr_nh_diag
+
+   REAL(wp),  INTENT(IN)               :: topo_c(:,:)
+   TYPE(t_nh_metrics), INTENT(IN)      :: p_metrics !< NH metrics state
+   TYPE(t_int_state), INTENT(IN)       :: p_int
+   LOGICAL, INTENT(IN)                 :: l_hydro_adjust !if .TRUE. hydrostatically balanced 
+                                                         ! initial condition
+   LOGICAL, INTENT(IN)                 :: l_moist !if .TRUE. tracers are initialized
+   REAL(wp),INTENT(IN), OPTIONAL       :: opt_global_moist
+
+
+
+   INTEGER                            :: je, jc, jk, jb, nlen, &
+                                       & nblks_e, npromz_e,  nblks_c, npromz_c
+   INTEGER                            :: i_startidx, i_endidx, i_startblk
+   INTEGER                            :: nlev        !< number of full levels
+   REAL(wp)                           :: bruntvaissq, kappa, zhelp1, zhelp2, &
+                                       & z_sfc, z_pres, z_klev, z_u, zcoslat, &
+                                       & zlat
+   REAL(wp), ALLOCATABLE              :: z_qv(:,:,:)
+   LOGICAL        :: l_rediag
+!-------------------------------------------------------------------------
+
+!--------------------------------------------------------------------
+  END MODULE mo_nh_mrw_exp

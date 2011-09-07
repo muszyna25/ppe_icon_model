@@ -53,7 +53,7 @@ MODULE mo_nh_jabw_exp
                                    & cvd_o_rd, re, omega, rv
    USE mo_model_domain,        ONLY: t_patch
    USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
-   USE mo_run_config,          ONLY: iqv, iqcond, ntracer
+   USE mo_run_config,          ONLY: iqv,iqcond, ntracer
    USE mo_impl_constants,      ONLY: inwp, MAX_CHAR_LENGTH
    USE mo_parallel_config,     ONLY: nproma, p_test_run
    USE mo_satad,               ONLY:  sat_pres_water, &  !! saturation vapor pressure w.r.t. water
@@ -479,7 +479,8 @@ MODULE mo_nh_jabw_exp
   !!
   !!
   SUBROUTINE init_nh_inwp_tracers( ptr_patch, ptr_nh_prog, ptr_nh_diag, &
-    &                              p_metrics, rh_at_1000hpa, qv_max, global_moist )
+    &                              p_metrics, rh_at_1000hpa, qv_max,    &
+    &                              l_rediag, opt_global_moist )
 
     TYPE(t_patch), TARGET,INTENT(INOUT) :: &  !< patch on which computation is performed
       &  ptr_patch
@@ -492,7 +493,8 @@ MODULE mo_nh_jabw_exp
     TYPE(t_nh_metrics), INTENT(IN)      :: p_metrics !< NH metrics state
 
     REAL(wp), INTENT (IN)               :: rh_at_1000hpa, qv_max
-    REAL(wp), INTENT (IN), OPTIONAL     :: global_moist     !global moisture content in kg/m**2
+    REAL(wp), INTENT (IN), OPTIONAL     :: opt_global_moist     !global moisture content in kg/m**2
+    LOGICAL,  INTENT (IN)               :: l_rediag    
 
    ! local variables
 
@@ -502,7 +504,7 @@ MODULE mo_nh_jabw_exp
     INTEGER                             :: jb,jc, jk, jjt, ji
     REAL(wp)                            :: zsqv, z_help, z_help2, z_1_o_rh, zrhf, tot_area,&
                                            z_moist
-    INTEGER, PARAMETER                  :: niter=10 
+    INTEGER                             :: niter 
     LOGICAL                             :: l_global_moist
 !--------------------------------------------------------------------
 
@@ -510,25 +512,16 @@ MODULE mo_nh_jabw_exp
     nblks_c   = ptr_patch%nblks_int_c
     npromz_c  = ptr_patch%npromz_int_c
 
- IF (PRESENT(global_moist)) THEN
+ IF (PRESENT(opt_global_moist)) THEN
     l_global_moist=.TRUE.
    ELSE
     l_global_moist=.FALSE.
  ENDIF
-   IF (l_global_moist) THEN
-! Calculate tot_area
-    tot_area =  0.0_wp
-    DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
-        DO jc = 1, nlen
-         tot_area = tot_area + ptr_patch%cells%area(jc,jb)
-        END DO
-    END DO
-   END IF
+ IF (l_rediag) THEN
+   niter = 10
+ ELSE
+   niter = 1
+ END IF
 
     ! Do some iterations to come closer to the moisture and temperature/pressure 
     DO ji = 1, niter
@@ -583,43 +576,57 @@ MODULE mo_nh_jabw_exp
 !$OMP END PARALLEL
 
 
-
+      IF(l_rediag) THEN
         CALL diagnose_pres_temp ( p_metrics, ptr_nh_prog,     &
           &                       ptr_nh_prog, ptr_nh_diag,   &
           &                       ptr_patch,                  &
           &                       opt_calc_temp=.TRUE.,       &
           &                       opt_calc_pres=.TRUE.        )
+      ENDIF
 
     ENDDO ! ji
 
-        IF (l_global_moist) THEN    ! set the global moisture content to the prescribed value
-          z_moist = 0.0_wp  
-          DO jb = 1, nblks_c
-            IF (jb /= nblks_c) THEN
-              nlen = nproma
-            ELSE
-              nlen = npromz_c
-            ENDIF
-            DO jk = 1, nlev
-              DO jc = 1, nlen
-                z_help2 = p_metrics%ddqz_z_full(jc,jk,jb) * ptr_nh_prog%rho(jc,jk,jb) &
-                                                        & * ptr_patch%cells%area(jc,jb)
-                z_moist= z_moist + ptr_nh_prog%tracer(jc,jk,jb,iqv) * z_help2
-              ENDDO 
-            ENDDO !jk
-          ENDDO !jb
-          z_moist = z_moist / tot_area
-          IF (z_moist .GT. 1.e-25_wp) THEN
-            ptr_nh_prog%tracer(:,:,:,iqv) = ptr_nh_prog%tracer(:,:,:,iqv) * global_moist / z_moist
-          END IF
+    IF (l_global_moist) THEN    ! set the global moisture content to the prescribed value
+      ! Calculate tot_area
+      tot_area =  0.0_wp
+      DO jb = 1, nblks_c
+        IF (jb /= nblks_c) THEN
+          nlen = nproma
+        ELSE
+          nlen = npromz_c
+        ENDIF
+        DO jc = 1, nlen
+          tot_area = tot_area + ptr_patch%cells%area(jc,jb)
+        END DO
+      END DO
+      z_moist = 0.0_wp  
+      DO jb = 1, nblks_c
+          IF (jb /= nblks_c) THEN
+            nlen = nproma
+          ELSE
+            nlen = npromz_c
+          ENDIF
+          DO jk = 1, nlev
+            DO jc = 1, nlen
+              z_help2 = p_metrics%ddqz_z_full(jc,jk,jb) * ptr_nh_prog%rho(jc,jk,jb) &
+                                                      & * ptr_patch%cells%area(jc,jb)
+              z_moist= z_moist + ptr_nh_prog%tracer(jc,jk,jb,iqv) * z_help2
+            ENDDO !jc
+          ENDDO !jk
+      ENDDO !jb
+      z_moist = z_moist / tot_area
+      IF (z_moist .GT. 1.e-25_wp) THEN
+           ptr_nh_prog%tracer(:,:,:,iqv) = ptr_nh_prog%tracer(:,:,:,iqv) * opt_global_moist / z_moist
+      END IF
 
-
-          CALL diagnose_pres_temp ( p_metrics, ptr_nh_prog,     &
-            &                       ptr_nh_prog, ptr_nh_diag,   &
-            &                       ptr_patch,                  &
-            &                       opt_calc_temp=.TRUE.,       &
-            &                       opt_calc_pres=.TRUE.        )
-        END IF 
+      IF(l_rediag) THEN
+        CALL diagnose_pres_temp ( p_metrics, ptr_nh_prog,     &
+            &                     ptr_nh_prog, ptr_nh_diag,   &
+            &                     ptr_patch,                  &
+            &                     opt_calc_temp=.TRUE.,       &
+            &                     opt_calc_pres=.TRUE.        )
+      ENDIF
+    END IF 
 
    END SUBROUTINE init_nh_inwp_tracers
 !--------------------------------------------------------------------

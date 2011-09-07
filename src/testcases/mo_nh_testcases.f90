@@ -83,6 +83,7 @@ MODULE mo_nh_testcases
   USE mo_nh_ape_exp,           ONLY: init_nh_state_prog_APE
   USE mo_nh_jabw_exp,          ONLY: init_nh_topo_jabw, init_nh_state_prog_jabw, & 
                                    & init_passive_tracers_nh_jabw, init_nh_inwp_tracers
+  USE mo_nh_mrw_exp,           ONLY: init_nh_topo_mrw, init_nh_state_prog_mrw
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
   USE mo_sync,                 ONLY: SYNC_E, sync_patch_array
   USE mo_satad,                ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
@@ -261,6 +262,7 @@ MODULE mo_nh_testcases
  
   REAL(wp)      :: zsiny, zcosy,tmp1,tmp2,tmp3
   REAL(wp)      :: z_lon_ctr, z_lat_ctr, z_fac1, z_fac2
+  LOGICAL       :: l_modified
 
 !-----------------------------------------------------------------------
 
@@ -399,65 +401,22 @@ MODULE mo_nh_testcases
   CASE ('mrw_nh', 'mrw2_nh' , 'mwbr_const')
 
    CALL message(TRIM(routine),'running mrw, setting topography')
-    z_lon_ctr = mount_lonctr_mrw_deg*pi/180.0_wp
-    z_lat_ctr = mount_latctr_mrw_deg*pi/180.0_wp
 
-    DO jg = 1, n_dom 
-      DO jb = 1, p_patch(jg)%nblks_int_c
-        IF (jb /=  p_patch(jg)%nblks_int_c) THEN
-          nlen = nproma
-        ELSE
-          nlen =  p_patch(jg)%npromz_c
-        ENDIF
-        DO jc = 1, nlen
-          z_lat   = p_patch(jg)%cells%center(jc,jb)%lat
-          z_lon   = p_patch(jg)%cells%center(jc,jb)%lon
+   l_modified = .FALSE.
+   IF (nh_test_name=='mrw2_nh'  ) THEN
+     l_modified = .TRUE.
+   ENDIF
 
-          zr = SIN(z_lat_ctr)*SIN(z_lat)+COS(z_lat_ctr)*COS(z_lat)*COS(z_lon-z_lon_ctr) 
-          zexp = re*ACOS(zr)/mount_half_width
+   DO jg = 1, n_dom 
+     nblks_c   = p_patch(jg)%nblks_int_c
+     npromz_c  = p_patch(jg)%npromz_c
+     nblks_v   = p_patch(jg)%nblks_int_v
+     npromz_v  = p_patch(jg)%npromz_v
 
-          IF ( itopo==0 ) THEN
-            IF (nh_test_name=='mrw_nh' .OR. nh_test_name=='mwbr_const'  ) THEN
-              ext_data(jg)%atm%topography_c(jc,jb) = &
-                        mount_height_mrw*EXP( - zexp*zexp )
-            ELSEIF (nh_test_name=='mrw2_nh') THEN
-              ext_data(jg)%atm%topography_c(jc,jb) = &
-                         mount_height_mrw*EXP( - zexp*zexp )*&
-                         0.5_wp*(1._wp+COS(pi*zexp*2._wp))
-            ENDIF
-          ENDIF
-          
-        ENDDO
-      ENDDO
-    ENDDO
-    DO jg = 1, n_dom 
-      DO jb = 1, p_patch(jg)%nblks_int_v
-        IF (jb /=  p_patch(jg)%nblks_int_v) THEN
-          nlen = nproma
-        ELSE
-          nlen =  p_patch(jg)%npromz_v
-        ENDIF
-        DO jv = 1, nlen
-          z_lat   = p_patch(jg)%verts%vertex(jv,jb)%lat
-          z_lon   = p_patch(jg)%verts%vertex(jv,jb)%lon
-
-          zr = SIN(z_lat_ctr)*SIN(z_lat)+COS(z_lat_ctr)*COS(z_lat)*COS(z_lon-z_lon_ctr) 
-          zexp = re*ACOS(zr)/mount_half_width
-
-          IF ( itopo==0 ) THEN
-            IF(nh_test_name=='mrw_nh' .OR. nh_test_name=='mwbr_const') THEN
-              ext_data(jg)%atm%topography_v(jv,jb) =  &
-                        mount_height_mrw*EXP( - zexp*zexp )
-            ELSEIF (nh_test_name=='mrw2_nh') THEN
-              ext_data(jg)%atm%topography_v(jv,jb) =  &
-                        mount_height_mrw*EXP( - zexp*zexp )*&
-                        0.5_wp*(1._wp+COS(pi*zexp*2._wp))
-            ENDIF
-          ENDIF  
-
-        ENDDO
-      ENDDO
-    ENDDO
+     CALL init_nh_topo_mrw ( p_patch(jg),ext_data(jg)%atm%topography_c,  &
+                          & ext_data(jg)%atm%topography_v, nblks_c, npromz_c, &
+                          & nblks_v, npromz_v, l_modified) 
+   ENDDO
 
    CALL message(TRIM(routine),'topography is initialised ')
 
@@ -546,6 +505,7 @@ MODULE mo_nh_testcases
   REAL(wp) :: zsqv
   
   REAL(wp) :: zrhf,z_1_o_rh
+  LOGICAL  :: l_hydro_adjust, l_moist
   
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine =  &
                                    '(mo_nh_testcases) init_nh_testcase:' 
@@ -599,10 +559,10 @@ MODULE mo_nh_testcases
 
       CALL init_nh_inwp_tracers ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
                                 & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
-                                & rh_at_1000hpa, qv_max)
+                                & rh_at_1000hpa, qv_max, l_rediag=.TRUE. )
       CALL init_nh_inwp_tracers ( p_patch(jg), p_nh_state(jg)%prog(nnew(jg)), &
                                 & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
-                                & rh_at_1000hpa, qv_max) 
+                                & rh_at_1000hpa, qv_max, l_rediag=.TRUE. ) 
      ELSE
 
         p_nh_state(jg)%prog(nnow(jg))%tracer(:,:,:,:) = 0.0_wp    
@@ -617,370 +577,38 @@ MODULE mo_nh_testcases
   CALL message(TRIM(routine),'End setup Jablonowski test')
   
   CASE ('mrw_nh', 'mrw2_nh')
- 
-  bruntvaissq = grav*grav/cpd/temp_mrw
-  kappa       = rd/cpd
-  zhelp1      = bruntvaissq/grav/grav/kappa
-  zhelp2      = grav/rd/temp_mrw
 
-  DO jg = 1, n_dom
+   CALL message(TRIM(routine),'MRW test')
+  
+   l_hydro_adjust = .TRUE.
+   l_moist = .FALSE.
 
-    ALLOCATE (z_wsfc_c(nproma,1,p_patch(jg)%nblks_c), &
-              z_wsfc_e(nproma,1,p_patch(jg)%nblks_e) )
+   DO jg = 1, n_dom
 
-    nblks_c   = p_patch(jg)%nblks_int_c
-    npromz_c  = p_patch(jg)%npromz_int_c
-    nblks_e   = p_patch(jg)%nblks_int_e
-    npromz_e  = p_patch(jg)%npromz_int_e
+     IF ( iforcing == inwp ) THEN
+       CALL message(TRIM(routine),' iforcing == inwp')     
+       IF ( atm_phy_nwp_config(jg)%inwp_gscp /= 0 .OR.&
+                      &                 atm_phy_nwp_config(jg)%inwp_convection /= 0  ) THEN 
+         l_moist = .TRUE.
+       END IF
+     ENDIF
 
-    ! number of vertical levels
-    nlev   = p_patch(jg)%nlev
-    nlevp1 = p_patch(jg)%nlevp1
-
-    p_nhdom  => p_nh_state(jg)
-    DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
-!     set the surface pressure
-      DO jc = 1, nlen
-        zlat= p_patch(jg)%cells%center(jc,jb)%lat
-        zcoslat=COS(zlat)
-        p_nhdom%diag%pres_sfc(jc,jb) = pres_sp * EXP( zhelp1 * ( u0_mrw *&
-                              ( 0.5_wp*u0_mrw + re*omega) * zcoslat*zcoslat - &
-                              ext_data(jg)%atm%topography_c(jc,jb)*grav))
-      ENDDO !jc
-      DO jk = nlev, 1, -1
-        IF (jk == nlev) THEN
-          ! Use analytic expressions at lowest model level
-          DO jt = 1, ntl
-            DO jc = 1, nlen
-              z_sfc  = ext_data(jg)%atm%topography_c(jc,jb)
-              z_nlev = 0.5_wp * ( p_nhdom%metrics%z_ifc(jc,nlev,jb) + &
-                       p_nhdom%metrics%z_ifc(jc,nlev+1,jb) )
-              z_pres = p_nhdom%diag%pres_sfc(jc,jb) * &
-                       EXP(- zhelp2 * ( z_nlev  - z_sfc )  )   !isothermal atm.
-
-              p_nhdom%prog(jt)%exner(jc,jk,jb) = (z_pres/p0ref)**(rd/cpd)
-              p_nhdom%prog(jt)%rhotheta_v(jc,jk,jb) = &
-                       p_nhdom%prog(jt)%exner(jc,jk,jb)**cvd_o_rd*p0ref/rd
-              p_nhdom%prog(jt)%theta_v(jc,jk,jb) = temp_mrw & 
-                       /p_nhdom%prog(jt)%exner(jc,jk,jb)
-              p_nhdom%prog(jt)%rho(jc,jk,jb) = &
-                       p_nhdom%prog(jt)%rhotheta_v(jc,jk,jb) &
-                       /p_nhdom%prog(jt)%theta_v(jc,jk,jb)
-              z_temp_kp1(jc) = temp_mrw
-              z_temp(jc) = temp_mrw
-              IF (jt == 1) THEN
-                 p_nhdom%diag%temp(jc,jk,jb) = temp_mrw    
-                 p_nhdom%diag%pres(jc,jk,jb) = z_pres
-              ENDIF
-            ENDDO !jc
-          ENDDO !jt
-        ELSE
-          ! Solve quadratic equation for exner(jk) to obtain exact (discretized)
-          ! hydrostatic balance
-          IF ( p_patch(jg)%cell_type == 3) THEN
-            DO jc = 1, nlen
-              z_fac1(jc) = p_nhdom%metrics%wgtfac_c(jc,jk+1,jb)*(z_temp_kp1(jc)              &
-                - p_nhdom%metrics%theta_ref_mc(jc,jk+1,jb)*p_nhdom%prog(1)%exner(jc,jk+1,jb))&
-                - (1._wp-p_nhdom%metrics%wgtfac_c(jc,jk+1,jb))                               &
-                * p_nhdom%metrics%theta_ref_mc(jc,jk,jb)*p_nhdom%prog(1)%exner(jc,jk+1,jb)
-              z_fac2(jc) = (1._wp-p_nhdom%metrics%wgtfac_c(jc,jk+1,jb))*z_temp(jc) &
-                *p_nhdom%prog(1)%exner(jc,jk+1,jb)
-              z_fac3(jc) = p_nhdom%metrics%exner_ref_mc(jc,jk+1,jb)                    &
-                -p_nhdom%metrics%exner_ref_mc(jc,jk,jb)-p_nhdom%prog(1)%exner(jc,jk+1,jb)
-              za(jc) = ( p_nhdom%metrics%theta_ref_ic(jc,jk+1,jb) &
-                *p_nhdom%prog(1)%exner(jc,jk+1,jb)+z_fac1(jc))     &
-                /p_nhdom%metrics%ddqz_z_half(jc,jk+1,jb)
-              zb(jc) = -(za(jc)*z_fac3(jc)+z_fac2(jc)/p_nhdom%metrics%ddqz_z_half(jc,jk+1,jb) &
-                + z_fac1(jc)*p_nhdom%metrics%d_exner_dz_ref_ic(jc,jk+1,jb))
-              zc(jc) = -(z_fac2(jc)*z_fac3(jc)/p_nhdom%metrics%ddqz_z_half(jc,jk+1,jb) &
-                + z_fac2(jc)*p_nhdom%metrics%d_exner_dz_ref_ic(jc,jk+1,jb))
-            ENDDO !jc
-          ELSEIF ( p_patch(jg)%cell_type == 6) THEN
-            DO jc = 1, nlen
-              z_fac3(jc) = grav/cpd*p_nhdom%metrics%ddqz_z_half(jc,jk+1,jb)
-              z_fac1(jc) = p_nhdom%prog(1)%exner(jc,jk+1,jb)
-              z_fac2(jc) = p_nhdom%prog(1)%exner(jc,jk+1,jb)/z_temp_kp1(jc)
-              za(jc) = 1.0_wp
-              zb(jc) = -(z_fac2(jc)*(z_temp(jc)+2.0_wp*z_fac3(jc))-z_fac1(jc))
-              zc(jc) = z_temp(jc)*z_fac2(jc)*z_fac1(jc)
-            ENDDO !jc
-          ENDIF
-          DO jt = 1, ntl
-            DO jc = 1, nlen
-              p_nhdom%prog(jt)%exner(jc,jk,jb) = &
-                (zb(jc) + SQRT(zb(jc)**2+4._wp*za(jc)*zc(jc)))/(2._wp*za(jc))
-              p_nhdom%prog(jt)%rhotheta_v(jc,jk,jb) = &
-                       p_nhdom%prog(jt)%exner(jc,jk,jb)**cvd_o_rd*p0ref/rd
-              p_nhdom%prog(jt)%theta_v(jc,jk,jb) = z_temp(jc) & 
-                       /p_nhdom%prog(jt)%exner(jc,jk,jb)
-              p_nhdom%prog(jt)%rho(jc,jk,jb) = &
-                       p_nhdom%prog(jt)%rhotheta_v(jc,jk,jb) &
-                       /p_nhdom%prog(jt)%theta_v(jc,jk,jb)
-              z_temp_kp1(jc) = z_temp(jc)
-              IF (jt == 1) THEN  
-                 p_nhdom%diag%temp(jc,jk,jb) = temp_mrw       
-                 p_nhdom%diag%pres(jc,jk,jb) = p0ref*p_nhdom%prog(jt)%exner(jc,jk,jb)**(cpd/rd)  
-              ENDIF
-            ENDDO !jc
-          ENDDO !jt
-        ENDIF
-      ENDDO !jk
-    ENDDO !jb
-
-    i_startblk = p_patch(jg)%edges%start_blk(2,1)
-    ! horizontal normal components of the velocity
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,jt,zlat,z_u)
-    DO jb = i_startblk, nblks_e
-
-      CALL get_indices_e(p_patch(jg), jb, i_startblk, nblks_e, &
-                         i_startidx, i_endidx, 2)
-
-      DO jt = 1, ntl
-        DO jk = 1, nlev
-          DO je = i_startidx, i_endidx
-            zlat = p_patch(jg)%edges%center(je,jb)%lat
-            z_u = u0_mrw * COS(zlat)  !v component is zero
-            p_nhdom%prog(jt)%vn(je,jk,jb) = &
-             z_u * p_patch(jg)%edges%primal_normal(je,jb)%v1
-          ENDDO
-        ENDDO
-        DO je = i_startidx, i_endidx
-          z_wsfc_e(je,1,jb) = p_nhdom%prog(jt)%vn(je,nlev,jb) * &
-             p_nhdom%metrics%ddxn_z_half(je,nlevp1,jb)
-        ENDDO !je
-      ENDDO !jt
-    ENDDO  !jb
-!$OMP END DO
-!$OMP END PARALLEL
-
-    CALL edges2cells_scalar(z_wsfc_e,p_patch(jg),p_int(jg)%e_inn_c,z_wsfc_c,&
-                            1,1,opt_rlstart=2)
-    i_startblk = p_patch(jg)%cells%start_blk(2,1)
-
-    ! specify a reasonable initial vertical wind speed
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jt,jk)
-    DO jb = i_startblk, nblks_c
-
-      CALL get_indices_c(p_patch(jg), jb, i_startblk, nblks_c, &
-                         i_startidx, i_endidx, 2)
-
-      DO jt = 1, ntl
-        DO jc = i_startidx, i_endidx
-          p_nhdom%prog(jt)%w(jc,nlevp1,jb) = z_wsfc_c(jc,1,jb)
-        ENDDO
-        DO jk = nlev, 2, -1
-          DO jc = i_startidx, i_endidx
-            p_nhdom%prog(jt)%w(jc,jk,jb) = z_wsfc_c(jc,1,jb)*vct_b(jk)**2
-          ENDDO !jc
-        ENDDO !jk
-      ENDDO !jt
-    ENDDO  !jb
-!$OMP END DO
-!$OMP END PARALLEL
+     CALL   init_nh_state_prog_mrw ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+                                   & p_nh_state(jg)%diag,                        &
+                                   & ext_data(jg)%atm%topography_c,              &
+                                   & p_nh_state(jg)%metrics,                     &
+                                   & p_int(jg), l_hydro_adjust, l_moist          )
+     CALL   init_nh_state_prog_mrw ( p_patch(jg), p_nh_state(jg)%prog(nnew(jg)), &
+                                   & p_nh_state(jg)%diag,                        &
+                                   & ext_data(jg)%atm%topography_c,              &
+                                   & p_nh_state(jg)%metrics,                     &
+                                   & p_int(jg), l_hydro_adjust, l_moist          )
 
 
-!!!!!!! Test !!!!!!!!!
 
-    ! tracer for physics test
-    
-     IF ( iforcing == inwp ) THEN 
-        
-      CALL diagnose_pres_temp ( p_nhdom%metrics, p_nhdom%prog(nnow(jg)),       &
-        &                       p_nhdom%prog(nnow_rcf(jg)), p_nhdom%diag,      &
-        &                       p_patch(jg),                                   &
-        &                       opt_calc_temp=.TRUE.,                          &
-        &                       opt_calc_pres=.TRUE.                          )
-       
-      CALL diagnose_pres_temp ( p_nhdom%metrics, p_nhdom%prog(nnew(jg)),       &
-        &                       p_nhdom%prog(nnew_rcf(jg)), p_nhdom%diag,      &
-        &                       p_patch(jg),                                   &
-        &                       opt_calc_temp=.TRUE.,                          &
-        &                       opt_calc_pres=.TRUE.                          )
-        
+   ENDDO !jg
 
-!!$OMP DO PRIVATE(jb,jk,jt,jc,nlen,zeta,ctracer,lon,lat,zrhf,z_1_o_rh,zsqv,zhelp)
-        DO jb = 1, nblks_c
-           IF (jb /= nblks_c) THEN 
-              nlen = nproma
-           ELSE
-              nlen = npromz_c
-           ENDIF
-
-        DO jt = 1, ntl
-
-           DO jk = 1, nlev
-
-              DO jjt = 1, ntracer
-
-                  IF(jjt == iqv .AND. (atm_phy_nwp_config(jg)%inwp_gscp /= 0 .OR.&
-                    &                atm_phy_nwp_config(jg)%inwp_convection /= 0) ) THEN
-                     
-                     DO jc =1, nlen
-
-!KF linear decreasing RH with height like in Hui's testcase
-                       zrhf =  rh_at_1000hpa - 0.5_wp +p_nhdom%diag%pres(jc,jk,jb)/200000._wp
-                       zrhf    = MAX (zrhf,0.0_wp)
-                       z_1_o_rh = 1._wp/(zrhf+1.e-6_wp)
-                       ! to avoid water vapor pressure > total pressure:
-                       z_help = MIN ( sat_pres_water( p_nhdom%diag%temp(jc,jk,jb) ), &
-                         & p_nhdom%diag%pres(jc,jk,jb) * z_1_o_rh )
-                       IF( p_nhdom%diag%temp(jc,jk,jb) <= tmelt) THEN
-                         ! to avoid water vapor pressure > total pressure:
-                         z_help = MIN ( sat_pres_ice( p_nhdom%diag%temp(jc,jk,jb) ), &
-                           & p_nhdom%diag%pres(jc,jk,jb) * z_1_o_rh )
-                       ENDIF
-                       ! saturation qv calculated as in mo_satad's qsat_rho
-                       zsqv = z_help / ( p_nh_state(jg)%prog(jt)%rho(jc,jk,jb) * rv  &
-                         &      * p_nhdom%diag%temp(jc,jk,jb) )
-                       p_nhdom%prog(jt)%tracer(jc,jk,jb,jjt) = MIN ( zsqv,  zrhf*zsqv )
-                       IF (  p_nhdom%diag%pres(jc,jk,jb) <= 10000._wp) &
-                         &  p_nhdom%prog(jt)%tracer(jc,jk,jb,jjt)      &
-                         &  = MIN ( 5.e-6_wp, p_nhdom%prog(jt)%tracer(jc,jk,jb,jjt) )
-                       
-                       ! Limit QV in the tropics
-                       p_nhdom%prog(jt)%tracer(jc,jk,jb,jjt) = &
-                            &   MIN(qv_max,p_nhdom%prog(jt)%tracer(jc,jk,jb,jjt))
-                       
-                     END DO
-
-                  ELSE !other tracers than water vapor zero at start
-                    p_nhdom%prog(jt)%tracer(:,jk,jb,jjt) = 0._wp
-                  ENDIF ! tracer
-                 
-              ENDDO ! tracer loop
-
-           ENDDO ! vertical level loop
-           
-         ENDDO   ! time level loop
-
-       ENDDO ! block loop
-!!$OMP END DO
-
-    DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
-!!$!     set the surface pressure
-!!$      DO jc = 1, nlen
-!!$        zlat= p_patch(jg)%cells%center(jc,jb)%lat
-!!$        zcoslat=COS(zlat)
-!!$        p_nhdom%diag%pres_sfc(jc,jb) = pres_sp * EXP( zhelp1 * ( u0_mrw *&
-!!$                              ( 0.5_wp*u0_mrw + re*omega) * zcoslat*zcoslat - &
-!!$                              ext_data(jg)%atm%topography_c(jc,jb)*grav))
-!!$      ENDDO !jc
-      DO jk = nlev, 1, -1
-        IF (jk == nlev) THEN
-          ! Use analytic expressions at lowest model level
-          DO jt = 1, ntl
-            DO jc = 1, nlen
-              z_sfc  = ext_data(jg)%atm%topography_c(jc,jb)
-              z_nlev = 0.5_wp * ( p_nhdom%metrics%z_ifc(jc,nlev,jb) + &
-                       p_nhdom%metrics%z_ifc(jc,nlev+1,jb) )
-              z_pres = p_nhdom%diag%pres_sfc(jc,jb) * &
-                       EXP(- zhelp2 * ( z_nlev  - z_sfc )  )   !isothermal atm.
-
-!              p_nhdom%prog(jt)%exner(jc,jk,jb) = (z_pres/p0ref)**(rd/cpd)
-              p_nhdom%prog(jt)%rhotheta_v(jc,jk,jb) = &
-                       p_nhdom%prog(jt)%exner(jc,jk,jb)**cvd_o_rd*p0ref/rd
-              p_nhdom%prog(jt)%theta_v(jc,jk,jb) = temp_mrw &
-              &       *( 1._wp +  vtmpc1            &
-              &       *p_nhdom%prog(jt)%tracer(jc,jk,jb,iqv) ) &
-              &         /p_nhdom%prog(jt)%exner(jc,jk,jb)
-              p_nhdom%prog(jt)%rho(jc,jk,jb) = &
-                       p_nhdom%prog(jt)%rhotheta_v(jc,jk,jb) &
-                       /p_nhdom%prog(jt)%theta_v(jc,jk,jb)
-              z_temp_kp1(jc) = temp_mrw             &
-              &       *( 1._wp +  vtmpc1            &
-              &       *p_nhdom%prog(jt)%tracer(jc,jk,jb,iqv) )            
-
-              
-              z_temp(jc) = temp_mrw                 &
-              &       *( 1._wp +  vtmpc1            &
-              &       *p_nhdom%prog(jt)%tracer(jc,jk,jb,iqv) )            
-
-              
-              IF (jt == 1) THEN
-                 p_nhdom%diag%temp(jc,jk,jb) = temp_mrw    
-                 p_nhdom%diag%pres(jc,jk,jb) = z_pres
-              ENDIF
-            ENDDO !jc
-          ENDDO !jt
-        ELSE
-          DO jc = 1, nlen
-            z_temp(jc) = temp_mrw  &
-              &       *( 1._wp +  vtmpc1            &
-              &       *p_nhdom%prog(nnew(jg))%tracer(jc,jk,jb,iqv) )
-          ENDDO
-          
-          ! Solve quadratic equation for exner(jk) to obtain exact (discretized)
-          ! hydrostatic balance
-          IF ( p_patch(jg)%cell_type == 3) THEN
-            DO jc = 1, nlen
-              z_fac1(jc) = p_nhdom%metrics%wgtfac_c(jc,jk+1,jb)*(z_temp_kp1(jc)              &
-                - p_nhdom%metrics%theta_ref_mc(jc,jk+1,jb)*p_nhdom%prog(1)%exner(jc,jk+1,jb))&
-                - (1._wp-p_nhdom%metrics%wgtfac_c(jc,jk+1,jb))                               &
-                * p_nhdom%metrics%theta_ref_mc(jc,jk,jb)*p_nhdom%prog(1)%exner(jc,jk+1,jb)
-              z_fac2(jc) = (1._wp-p_nhdom%metrics%wgtfac_c(jc,jk+1,jb))*z_temp(jc) &
-                *p_nhdom%prog(1)%exner(jc,jk+1,jb)
-              z_fac3(jc) = p_nhdom%metrics%exner_ref_mc(jc,jk+1,jb)                    &
-                -p_nhdom%metrics%exner_ref_mc(jc,jk,jb)-p_nhdom%prog(1)%exner(jc,jk+1,jb)
-              za(jc) = ( p_nhdom%metrics%theta_ref_ic(jc,jk+1,jb) &
-                *p_nhdom%prog(1)%exner(jc,jk+1,jb)+z_fac1(jc))     &
-                /p_nhdom%metrics%ddqz_z_half(jc,jk+1,jb)
-              zb(jc) = -(za(jc)*z_fac3(jc)+z_fac2(jc)/p_nhdom%metrics%ddqz_z_half(jc,jk+1,jb) &
-                + z_fac1(jc)*p_nhdom%metrics%d_exner_dz_ref_ic(jc,jk+1,jb))
-              zc(jc) = -(z_fac2(jc)*z_fac3(jc)/p_nhdom%metrics%ddqz_z_half(jc,jk+1,jb) &
-                + z_fac2(jc)*p_nhdom%metrics%d_exner_dz_ref_ic(jc,jk+1,jb))
-            ENDDO !jc
-          ELSEIF ( p_patch(jg)%cell_type == 6) THEN
-            DO jc = 1, nlen
-              z_fac3(jc) = grav/cpd*p_nhdom%metrics%ddqz_z_half(jc,jk+1,jb)
-              z_fac1(jc) = p_nhdom%prog(1)%exner(jc,jk+1,jb)
-              z_fac2(jc) = p_nhdom%prog(1)%exner(jc,jk+1,jb)/z_temp_kp1(jc)
-              za(jc) = 1.0_wp
-              zb(jc) = -(z_fac2(jc)*(z_temp(jc)+2.0_wp*z_fac3(jc))-z_fac1(jc))
-              zc(jc) = z_temp(jc)*z_fac2(jc)*z_fac1(jc)
-            ENDDO !jc
-          ENDIF
-          DO jt = 1, ntl
-            DO jc = 1, nlen
-              p_nhdom%prog(jt)%exner(jc,jk,jb) = &
-                (zb(jc) + SQRT(zb(jc)**2+4._wp*za(jc)*zc(jc)))/(2._wp*za(jc))
-              p_nhdom%prog(jt)%rhotheta_v(jc,jk,jb) = &
-                       p_nhdom%prog(jt)%exner(jc,jk,jb)**cvd_o_rd*p0ref/rd
-              p_nhdom%prog(jt)%theta_v(jc,jk,jb) = z_temp(jc) & 
-                       /p_nhdom%prog(jt)%exner(jc,jk,jb)
-              p_nhdom%prog(jt)%rho(jc,jk,jb) = &
-                       p_nhdom%prog(jt)%rhotheta_v(jc,jk,jb) &
-                       /p_nhdom%prog(jt)%theta_v(jc,jk,jb)
-              z_temp_kp1(jc) = z_temp(jc)
-              IF (jt == 1) THEN  
-                 p_nhdom%diag%temp(jc,jk,jb) = temp_mrw       
-                 p_nhdom%diag%pres(jc,jk,jb) = p0ref*p_nhdom%prog(jt)%exner(jc,jk,jb)**(cpd/rd)  
-              ENDIF
-            ENDDO !jc
-          ENDDO !jt
-        ENDIF
-      ENDDO !jk
-    ENDDO !jb
-
-       
-    ENDIF !inwp
-
-    DEALLOCATE (z_wsfc_c, z_wsfc_e )
-
-  ENDDO !jg
-
- CALL message(TRIM(routine),'End setup MRW test')
+   CALL message(TRIM(routine),'End setup MRW test')
 
   CASE ('mwbr_const')
  
@@ -1411,10 +1039,12 @@ MODULE mo_nh_testcases
 
       CALL init_nh_inwp_tracers ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
                                 & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
-                                & rh_at_1000hpa, qv_max, global_moist)
+                                & rh_at_1000hpa, qv_max, l_rediag=.TRUE.,  &
+                                & opt_global_moist=global_moist)
       CALL init_nh_inwp_tracers ( p_patch(jg), p_nh_state(jg)%prog(nnew(jg)), &
                                 & p_nh_state(jg)%diag, p_nh_state(jg)%metrics, &
-                                & rh_at_1000hpa, qv_max, global_moist)
+                                & rh_at_1000hpa, qv_max, l_rediag=.TRUE.,  &
+                                & opt_global_moist=global_moist)
 
     END IF
 
