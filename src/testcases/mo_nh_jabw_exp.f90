@@ -616,7 +616,8 @@ MODULE mo_nh_jabw_exp
       ENDDO !jb
       z_moist = z_moist / tot_area
       IF (z_moist .GT. 1.e-25_wp) THEN
-           ptr_nh_prog%tracer(:,:,:,iqv) = ptr_nh_prog%tracer(:,:,:,iqv) * opt_global_moist / z_moist
+           ptr_nh_prog%tracer(:,:,:,iqv) = ptr_nh_prog%tracer(:,:,:,iqv) &
+             &                           * opt_global_moist / z_moist
       END IF
 
       IF(l_rediag) THEN
