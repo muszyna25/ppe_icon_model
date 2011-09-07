@@ -138,6 +138,8 @@ CONTAINS
       nzlev = nh_pzlev_config(jg)%nzlev
       nplev = nh_pzlev_config(jg)%nplev
 
+!DR      WRITE(0,*) "jg, nzlev, nplev", jg, nzlev, nplev
+
       CALL intp2pzlevs(p_patch(jg), prm_diag(jg), p_nh_state(jg), &
         &              nzlev, nplev)
 
@@ -671,7 +673,7 @@ CONTAINS
 
 
     TYPE(t_patch),       TARGET, INTENT(IN)      :: p_patch
-    TYPE(t_nwp_phy_diag),TARGET, INTENT(IN)      :: prm_diag
+    TYPE(t_nwp_phy_diag),TARGET, INTENT(INOUT)   :: prm_diag
     TYPE(t_nh_state),    TARGET, INTENT(INOUT)   :: p_nh_state
 
     INTEGER, INTENT(IN) :: nzlev     !< number of output levels (height)
