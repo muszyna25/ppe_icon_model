@@ -202,7 +202,7 @@ CONTAINS
     IF(my_process_is_stdio())  THEN
       funit = open_tmpfile()
       WRITE(funit,NML=nh_pzlev_nml)                    
-      CALL store_and_close_namelist(funit, 'transport_nml')             
+      CALL store_and_close_namelist(funit, 'nh_pzlev_nml')             
     ENDIF
 
 
