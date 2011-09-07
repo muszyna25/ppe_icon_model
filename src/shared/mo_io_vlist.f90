@@ -587,6 +587,53 @@ CONTAINS
       CALL zaxisDefLevels(zaxisID_depth_below_land_p1(k_jg), levels)
       DEALLOCATE(levels)
 
+
+      ! Define axes for soil model
+      !
+      zaxisID_depth_below_land(k_jg) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+1)
+      CALL zaxisDefLevels(zaxisID_depth_below_land(k_jg), zml_soil*100._wp)
+      !
+      zaxisID_generic_snow_p1(k_jg) = zaxisCreate(ZAXIS_GENERIC, nlev_snow+1)
+      ALLOCATE(levels(nlev_snow+1))
+      DO i = 1, nlev_snow+1
+        levels(i) = REAL(i,wp)
+      END DO
+      CALL zaxisDefLevels(zaxisID_generic_snow_p1(k_jg), levels)
+      DEALLOCATE(levels)
+      !
+      zaxisID_generic_snow(k_jg) = zaxisCreate(ZAXIS_GENERIC, nlev_snow)
+      ALLOCATE(levels(nlev_snow))
+      DO i = 1, nlev_snow
+        levels(i) = REAL(i,wp)
+      END DO
+      CALL zaxisDefLevels(zaxisID_generic_snow(k_jg), levels)
+      DEALLOCATE(levels)
+
+
+      ! Define axes for variables on p- and z-levels
+      !
+      IF (lout_pzlev) THEN
+        nplev = nh_pzlev_config(k_jg)%nplev
+        zaxisID_pres(k_jg) = zaxisCreate(ZAXIS_PRESSURE, nplev)
+        ALLOCATE(levels(nplev))
+        DO i = 1, nplev
+          levels(i) = nh_pzlev_config(k_jg)%plevels(i)  !DRREAL(i,wp)
+        END DO
+        CALL zaxisDefLevels(zaxisID_pres(k_jg), levels)
+        CALL zaxisDefVct(zaxisID_pres(k_jg), nplev, levels)
+        DEALLOCATE(levels)
+
+        nzlev = nh_pzlev_config(k_jg)%nzlev
+        zaxisID_hgt(k_jg)  = zaxisCreate(ZAXIS_HEIGHT, nzlev)
+        ALLOCATE(levels(nzlev))
+        DO i = 1, nzlev
+          levels(i) = nh_pzlev_config(k_jg)%zlevels(i)  !DRREAL(i,wp)
+        END DO
+        CALL zaxisDefLevels(zaxisID_hgt(k_jg), levels)
+        CALL zaxisDefVct(zaxisID_hgt(k_jg), nzlev, levels)
+        DEALLOCATE(levels)
+      ENDIF
+
     ELSE ! oce
       zaxisIDdepth_m(k_jg)  = zaxisCreate(ZAXIS_DEPTH_BELOW_SEA, n_zlev)
       nzlevp1 = n_zlev + 1
@@ -600,48 +647,7 @@ CONTAINS
       DEALLOCATE(levels_i)
       DEALLOCATE(levels_m)
     ENDIF
-    !
-    zaxisID_depth_below_land(k_jg) = zaxisCreate(ZAXIS_DEPTH_BELOW_LAND, znlev_soil+1)
-    CALL zaxisDefLevels(zaxisID_depth_below_land(k_jg), zml_soil*100._wp)
-    !
-    zaxisID_generic_snow_p1(k_jg) = zaxisCreate(ZAXIS_GENERIC, nlev_snow+1)
-    ALLOCATE(levels(nlev_snow+1))
-    DO i = 1, nlev_snow+1
-      levels(i) = REAL(i,wp)
-    END DO
-    CALL zaxisDefLevels(zaxisID_generic_snow_p1(k_jg), levels)
-    DEALLOCATE(levels)
-    !
-    zaxisID_generic_snow(k_jg) = zaxisCreate(ZAXIS_GENERIC, nlev_snow)
-    ALLOCATE(levels(nlev_snow))
-    DO i = 1, nlev_snow
-      levels(i) = REAL(i,wp)
-    END DO
-    CALL zaxisDefLevels(zaxisID_generic_snow(k_jg), levels)
-    DEALLOCATE(levels)
 
-    IF (lout_pzlev) THEN
-      nplev = nh_pzlev_config(k_jg)%nplev
-      zaxisID_pres(k_jg) = zaxisCreate(ZAXIS_PRESSURE, nplev)
-      ALLOCATE(levels(nplev))
-      DO i = 1, nplev
-        levels(i) = REAL(i,wp)
-      END DO
-      CALL zaxisDefLevels(zaxisID_pres(k_jg), levels)
-      DEALLOCATE(levels)
-      CALL zaxisDefVct(zaxisID_pres(k_jg), nplev, nh_pzlev_config(k_jg)%plevels(1:nplev))
-
-
-      nzlev = nh_pzlev_config(k_jg)%nzlev
-      zaxisID_hgt(k_jg)  = zaxisCreate(ZAXIS_HEIGHT, nzlev)
-      ALLOCATE(levels(nzlev))
-      DO i = 1, nzlev
-        levels(i) = REAL(i,wp)
-      END DO
-      CALL zaxisDefLevels(zaxisID_hgt(k_jg), levels)
-      DEALLOCATE(levels)
-      CALL zaxisDefVct(zaxisID_hgt(k_jg), nzlev, nh_pzlev_config(k_jg)%zlevels(1:nzlev))
-    ENDIF
 
     !
     !=========================================================================
