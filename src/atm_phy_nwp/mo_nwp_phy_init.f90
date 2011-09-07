@@ -58,9 +58,9 @@ MODULE mo_nwp_phy_init
   USE mo_radiation_config,    ONLY: ssi, tsi, irad_aero, rad_csalbw 
   USE mo_srtm_config,         ONLY: setup_srtm, ssi_amip
   USE mo_radiation_rg_par,    ONLY: rad_aibi
-  USE mo_aerosol_util,        ONLY: init_aerosol_distribution_tanre,    &
-    &                               init_aerosol_properties_tanre_rg,   &
-    &                               init_aerosol_properties_tanre_rrtm, &
+  USE mo_aerosol_util,        ONLY: init_aerosol_dstrb_tanre,      &
+    &                               init_aerosol_props_tanre_rg,   &
+    &                               init_aerosol_props_tanre_rrtm, &
     &                               zaef_rg, zaea_rg, zaes_rg, zaeg_rg, &
     &                               zaea_rrtm, zaes_rrtm, zaeg_rrtm
   ! microphysics
@@ -307,9 +307,9 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
 
     IF ( irad_aero == 5 ) THEN
 
-      CALL init_aerosol_properties_tanre_rrtm
+      CALL init_aerosol_props_tanre_rrtm
       
-      CALL init_aerosol_distribution_tanre ( &
+      CALL init_aerosol_dstrb_tanre ( &
         & kbdim    = nproma,                 & !in
         & pt_patch = p_patch,                & !in
         & aersea   = prm_diag%aersea,        & !out
@@ -354,9 +354,9 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     
     IF ( irad_aero == 5 ) THEN
 
-      CALL init_aerosol_properties_tanre_rg
+      CALL init_aerosol_props_tanre_rg
       
-      CALL init_aerosol_distribution_tanre ( &
+      CALL init_aerosol_dstrb_tanre ( &
         & kbdim    = nproma,                 & !in
         & pt_patch = p_patch,                & !in
         & aersea   = prm_diag%aersea,        & !out
