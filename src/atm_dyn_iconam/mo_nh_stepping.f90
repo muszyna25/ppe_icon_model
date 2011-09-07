@@ -482,7 +482,7 @@ MODULE mo_nh_stepping
 
       ! Interpolate selected fields to p- and/or z-levels
       IF (lout_pzlev) THEN
-        CALL intp_to_p_and_z_levels(p_patch, prm_diag, p_nh_state)
+        CALL intp_to_p_and_z_levels(p_patch(1:), prm_diag, p_nh_state)
       ENDIF
 
       CALL write_output( datetime, sim_time(1) )

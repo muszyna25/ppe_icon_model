@@ -138,7 +138,6 @@ CONTAINS
       nzlev = nh_pzlev_config(jg)%nzlev
       nplev = nh_pzlev_config(jg)%nplev
 
-!DR      WRITE(0,*) "jg, nzlev, nplev", jg, nzlev, nplev
 
       CALL intp2pzlevs(p_patch(jg), prm_diag(jg), p_nh_state(jg), &
         &              nzlev, nplev)
