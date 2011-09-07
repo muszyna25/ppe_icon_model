@@ -56,8 +56,8 @@ MODULE mo_aerosol_util
   PRIVATE
 
   PUBLIC :: zaea_rrtm, zaes_rrtm, zaeg_rrtm, zaea_rg, zaes_rg, zaeg_rg, zaef_rg, &
-    &       init_aerosol_distribution_tanre,init_aerosol_properties_tanre_rrtm, &
-    &       init_aerosol_properties_tanre_rg
+    &       init_aerosol_dstrb_tanre,init_aerosol_props_tanre_rrtm, &
+    &       init_aerosol_props_tanre_rg
   
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -88,7 +88,7 @@ CONTAINS
   !! @par Revision History
   !! Initial Release by Thorsten Reinhardt, AGeoBw, Offenbach (2011-02-28)
   !!      
-  SUBROUTINE init_aerosol_distribution_tanre (kbdim,pt_patch,aersea,aerlan,aerurb,aerdes)
+  SUBROUTINE init_aerosol_dstrb_tanre (kbdim,pt_patch,aersea,aerlan,aerurb,aerdes)
     
     INTEGER,            INTENT(in)    :: kbdim
 
@@ -459,9 +459,9 @@ CONTAINS
 
     ENDDO !jb 
 
-  END SUBROUTINE init_aerosol_distribution_tanre
+  END SUBROUTINE init_aerosol_dstrb_tanre
 
-  SUBROUTINE init_aerosol_properties_tanre_rrtm
+  SUBROUTINE init_aerosol_props_tanre_rrtm
 
    ! the following aerosoltyps (second array index) are considered:
    ! 1 : continental
@@ -539,9 +539,9 @@ CONTAINS
      &0.1310_wp,0.1906_wp,0.2625_wp,0.3154_wp,0.3869_wp,0.4787_wp,0.5279_wp,0.6272_wp,&     ! SB
      &0.6941_wp,0.7286_wp,0.7358_wp,0.7177_wp,0.6955_wp,0.0616_wp/),(/jpsw+jpband,5/))      ! SB
 
-  END SUBROUTINE init_aerosol_properties_tanre_rrtm
+  END SUBROUTINE init_aerosol_props_tanre_rrtm
 
-  SUBROUTINE init_aerosol_properties_tanre_rg
+  SUBROUTINE init_aerosol_props_tanre_rg
 
    ! the following aerosoltyps (second array index) are considered:
    ! 1 : continental
@@ -586,7 +586,7 @@ CONTAINS
       0.3751_wp, 0.6353_wp,  0.7259_wp, 0.0037_wp, &
       0.0083_wp, 0.0177_wp,  0.0201_wp, 0.0332_wp/),(/jpspec,5/))
     
-  END SUBROUTINE init_aerosol_properties_tanre_rg
+  END SUBROUTINE init_aerosol_props_tanre_rg
 
 END MODULE mo_aerosol_util
 
