@@ -128,6 +128,9 @@ CONTAINS
     !
     ! standard height levels (every 1000 m)
     !
+    ! Initialize:
+    zlevels(:) = 0._wp
+    plevels(:) = 0._wp
     DO jk = 1, nzlev
       zlevels(nzlev+1-jk) = REAL(jk-1,wp)*1000._wp
     ENDDO
