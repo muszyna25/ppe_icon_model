@@ -617,7 +617,7 @@ CONTAINS
         zaxisID_pres(k_jg) = zaxisCreate(ZAXIS_PRESSURE, nplev)
         ALLOCATE(levels(nplev))
         DO i = 1, nplev
-          levels(i) = nh_pzlev_config(k_jg)%plevels(i)  !DRREAL(i,wp)
+          levels(i) = nh_pzlev_config(k_jg)%plevels(i)
         END DO
         CALL zaxisDefLevels(zaxisID_pres(k_jg), levels)
         CALL zaxisDefVct(zaxisID_pres(k_jg), nplev, levels)
@@ -627,7 +627,7 @@ CONTAINS
         zaxisID_hgt(k_jg)  = zaxisCreate(ZAXIS_HEIGHT, nzlev)
         ALLOCATE(levels(nzlev))
         DO i = 1, nzlev
-          levels(i) = nh_pzlev_config(k_jg)%zlevels(i)  !DRREAL(i,wp)
+          levels(i) = nh_pzlev_config(k_jg)%zlevels(i)
         END DO
         CALL zaxisDefLevels(zaxisID_hgt(k_jg), levels)
         CALL zaxisDefVct(zaxisID_hgt(k_jg), nzlev, levels)
@@ -1731,6 +1731,11 @@ CONTAINS
           &                   'Pa', 54, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
           &          k_jg)
+          CALL addVar(TimeVar('QV_Z',&
+          &                   'total water vapor',&
+          &                   'kg/kg', 91, 128,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
+          &          k_jg)
         ENDIF
         IF (nh_pzlev_config(k_jg)%lwrite_plev) THEN
           ! zonal wind
@@ -1755,6 +1760,11 @@ CONTAINS
           &                   'm2/s2', 129, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
           &           k_jg)
+          CALL addVar(TimeVar('QV_P',&
+          &                   'total water vapor',&
+          &                   'kg/kg', 91, 128,&
+          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
+          &          k_jg)
         ENDIF
       ENDIF !lout_pzlev
 
@@ -2380,10 +2390,12 @@ CONTAINS
       CASE ('V_Z');             ptr3 => p_diag_z%v     (:,:,:)
       CASE ('T_Z');             ptr3 => p_diag_z%temp  (:,:,:)
       CASE ('P_Z');             ptr3 => p_diag_z%pres  (:,:,:)
+      CASE ('QV_Z');            ptr3 => p_diag_z%qv    (:,:,:)
       CASE ('U_P');             ptr3 => p_diag_p%u     (:,:,:)
       CASE ('V_P');             ptr3 => p_diag_p%v     (:,:,:)
       CASE ('T_P');             ptr3 => p_diag_p%temp  (:,:,:)
       CASE ('Z');               ptr3 => dup3(grav*p_diag_p%z3d(:,:,:))
+      CASE ('QV_P');            ptr3 => p_diag_p%qv    (:,:,:)
       CASE DEFAULT;             not_found = .TRUE.
     END SELECT
 
