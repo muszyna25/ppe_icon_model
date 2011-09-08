@@ -120,7 +120,7 @@ MODULE mo_io_vlist
     &                                 lwrite_vorticity, lwrite_divergence,        &
     &                                 lwrite_tend_phy, lwrite_radiation,          &
     &                                 lwrite_precip, lwrite_cloud, lwrite_tracer, &
-    &                                 lwrite_tke,  lwrite_surface, lout_pzlev,    &
+    &                                 lwrite_tke,  lwrite_surface, lwrite_pzlev,  &
     &                                 lwrite_extra, inextra_2d,inextra_3d,        &
     &                                 out_filetype, out_expname,                  &
     &                                 dt_data, dt_file, lkeep_in_sync
@@ -613,7 +613,7 @@ CONTAINS
 
       ! Define axes for variables on p- and z-levels
       !
-      IF (lout_pzlev) THEN
+      IF (lwrite_pzlev) THEN
         nplev = nh_pzlev_config(k_jg)%nplev
         zaxisID_pres(k_jg) = zaxisCreate(ZAXIS_PRESSURE, nplev)
         ALLOCATE(levels(nplev))
@@ -1708,7 +1708,7 @@ CONTAINS
 
       ! output on constant height and/or pressure levels
       !
-      IF(lout_pzlev .AND. iequations==inh_atmosphere) THEN
+      IF(lwrite_pzlev .AND. iequations==inh_atmosphere) THEN
         IF (nh_pzlev_config(k_jg)%lwrite_zlev) THEN
           ! zonal wind
           CALL addVar(TimeVar('U_Z',&
@@ -1767,7 +1767,7 @@ CONTAINS
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
           &          k_jg)
         ENDIF
-      ENDIF !lout_pzlev
+      ENDIF !lwrite_pzlev
 
 
     ELSE 
@@ -2282,7 +2282,7 @@ CONTAINS
     p_prog => p_nh_state(jg)%prog(nnow(jg))
     p_diag => p_nh_state(jg)%diag
 
-    IF (lout_pzlev) THEN
+    IF (lwrite_pzlev) THEN
       p_diag_p => p_nh_state(jg)%diag_p
       p_diag_z => p_nh_state(jg)%diag_z
     ENDIF
@@ -2395,7 +2395,7 @@ CONTAINS
       CASE ('U_P');             ptr3 => p_diag_p%u     (:,:,:)
       CASE ('V_P');             ptr3 => p_diag_p%v     (:,:,:)
       CASE ('T_P');             ptr3 => p_diag_p%temp  (:,:,:)
-      CASE ('Z');               ptr3 => dup3(grav*p_diag_p%z3d(:,:,:))
+      CASE ('Z');               ptr3 => dup3(grav*p_diag_p%geopot(:,:,:))
       CASE ('QV_P');            ptr3 => p_diag_p%qv    (:,:,:)
       CASE DEFAULT;             not_found = .TRUE.
     END SELECT

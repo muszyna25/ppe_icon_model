@@ -54,7 +54,7 @@ MODULE mo_nh_stepping
   USE mo_diffusion_config,    ONLY: diffusion_config
   USE mo_dynamics_config,     ONLY: nnow,nnew, nnow_rcf, nnew_rcf, nsav1,nsav2
   USE mo_io_config,           ONLY: l_outputtime, l_diagtime, l_checkpoint_time, &
-    &                               lout_pzlev
+    &                               lwrite_pzlev
   USE mo_parallel_config,     ONLY: nproma, itype_comm
   USE mo_run_config,          ONLY: ltestcase, dtime, nsteps,  &
     &                               ltransport, ntracer, lforcing, iforcing, &
@@ -481,7 +481,7 @@ MODULE mo_nh_stepping
     IF (l_outputtime) THEN
 
       ! Interpolate selected fields to p- and/or z-levels
-      IF (lout_pzlev) THEN
+      IF (lwrite_pzlev) THEN
         CALL intp_to_p_and_z_levels(p_patch(1:), prm_diag, p_nh_state)
       ENDIF
 

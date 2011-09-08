@@ -175,13 +175,6 @@ CONTAINS
     ! 4. Sanity check
     !----------------------------------------------------
 
-    ! check whether lwrite_zlev=.TRUE. when lwrite_plev=.TRUE. is chosen
-    !
-    IF ( lwrite_plev .AND. .NOT. lwrite_zlev)    THEN
-      CALL finish( TRIM(routine),                                     &
-        &  'lwrite_plev=.TRUE. only possible if lwrite_zlev=.TRUE.')
-    ENDIF
-
 
 
     !----------------------------------------------------

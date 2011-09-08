@@ -44,7 +44,9 @@ USE mo_time_config,          ONLY: time_config      ! variable
 USE mo_io_restart,           ONLY: read_restart_files
 USE mo_io_restart_attributes,ONLY: get_restart_attribute
 USE mo_io_config,            ONLY: dt_data,dt_file,dt_diag,dt_checkpoint, &
-  &                                lout_pzlev
+  &                                lwrite_pzlev
+USE mo_parallel_config,      ONLY: nproma
+USE mo_nh_pzlev_config,      ONLY: configure_nh_pzlev
 USE mo_run_config,           ONLY: &
   &                               dtime,                & !    namelist parameter
   &                               ltestcase,            &
@@ -218,9 +220,20 @@ CONTAINS
      n_chkpt = NINT(dt_checkpoint/dtime)  ! write restart files
      n_diag  = MAX(1,NINT(dt_diag/dtime)) ! diagnose of total integrals
 
+
      !------------------------------------------------------------------
      ! Prepare output file
      !------------------------------------------------------------------
+     !
+     ! if output on z and/or p-levels is required do some config
+     IF (lwrite_pzlev) THEN
+       DO jg = 1, n_dom
+         CALL configure_nh_pzlev(jg, nproma, p_patch(jg)%npromz_c, &
+           &                     p_patch(jg)%nblks_c, lwrite_pzlev   )
+       ENDDO
+     ENDIF
+
+
      IF (.NOT.is_restart_run()) THEN
        ! Initialize the first output file which will contain also the 
        ! initial conditions.
@@ -283,7 +296,7 @@ CONTAINS
     ! (divergence, vorticity)
     !
     ! Interpolate selected fields to p- and/or z-levels
-    IF (lout_pzlev) THEN
+    IF (lwrite_pzlev) THEN
       CALL intp_to_p_and_z_levels(p_patch(1:), prm_diag, p_nh_state)
     ENDIF
     CALL write_output( time_config%cur_datetime )

@@ -719,6 +719,8 @@ CONTAINS
     TYPE(t_nh_diag_pz), POINTER :: p_diag_z    => NULL()
     TYPE(t_nh_diag_pz), POINTER :: p_diag_p    => NULL()
     TYPE(t_nh_metrics), POINTER :: p_metrics   => NULL()
+    REAL(wp), DIMENSION(:,:,:), POINTER:: p_p3d_out => NULL()
+    REAL(wp), DIMENSION(:,:,:), POINTER:: p_z3d_out => NULL()
 
 !-------------------------------------------------------------------------
 
@@ -733,36 +735,15 @@ CONTAINS
     p_diag_z  => p_nh_state%diag_z
     p_diag_p  => p_nh_state%diag_p
     p_metrics => p_nh_state%metrics
+    p_p3d_out => nh_pzlev_config(jg)%p3d   ! output pressure field
+    p_z3d_out => nh_pzlev_config(jg)%z3d   ! output height field
 
 
-    ! Fill z3d field of pressure-level data and pressure field of height-level data
-    !
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jk,nlen)
-    DO jb = 1,p_patch%nblks_c
-
-      IF (jb /= p_patch%nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = p_patch%npromz_c
-      ENDIF
-
-      DO jk = 1, nplev
-        p_diag_p%p3d(1:nlen,jk,jb) = nh_pzlev_config(jg)%plevels(jk)
-      ENDDO
-
-      DO jk = 1, nzlev
-        p_diag_z%z3d(1:nlen,jk,jb) = nh_pzlev_config(jg)%zlevels(jk)
-      ENDDO
-
-    ENDDO
-!$OMP END DO
-!$OMP END PARALLEL
 
     ! Part 1: Interpolation to z-level fields
-
+    !
     ! Prepare interpolation coefficients
-    CALL prepare_lin_intp(p_metrics%z_mc, p_diag_z%z3d,                   & !in
+    CALL prepare_lin_intp(p_metrics%z_mc, p_z3d_out,                      & !in
       &                   p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev, & !in
       &                   wfac_lin_zlev, idx0_lin_zlev, bot_idx_lin       ) !out
 
@@ -771,7 +752,7 @@ CONTAINS
       &                 kpbl1, wfacpbl1, kpbl2, wfacpbl2         ) !out
 
 
-    CALL prepare_cubic_intp(p_metrics%z_mc, p_diag_z%z3d,                   & !in
+    CALL prepare_cubic_intp(p_metrics%z_mc, p_z3d_out,                      & !in
       &                     p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev, & !in
       &                     coef1_zlev, coef2_zlev, coef3_zlev,             & !out
       &                     idx0_cub_zlev, bot_idx_cub                      ) !out
@@ -780,7 +761,7 @@ CONTAINS
     ! Perform vertical interpolation
     !
     CALL temperature_intp(p_diag%temp, p_diag_z%temp,                     & !in,out
-      &                   p_metrics%z_mc, p_diag_z%z3d,                   & !in
+      &                   p_metrics%z_mc, p_z3d_out,                      & !in
       &                   p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev, & !in
       &                   coef1_zlev, coef2_zlev, coef3_zlev,             & !in
       &                   wfac_lin_zlev, idx0_cub_zlev, idx0_lin_zlev,    & !in
@@ -789,21 +770,23 @@ CONTAINS
       &                   l_hires_corr=.FALSE., extrapol_dist=-500._wp    ) !in
 
 
-    ! horizontal wind components
-    CALL uv_intp(p_diag%u, p_diag_z%u,                              & !in,out
-      &          p_metrics%z_mc, p_diag_z%z3d,                      & !in
-      &          p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,    & !in
-      &          coef1_zlev, coef2_zlev, coef3_zlev, wfac_lin_zlev, & !in
-      &          idx0_cub_zlev, idx0_lin_zlev, bot_idx_cub,         & !in
-      &          bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2,     & !in
-      &          l_hires_intp=.FALSE., l_restore_fricred=.FALSE.    ) !in
-    CALL uv_intp(p_diag%v, p_diag_z%v,                              & !in,out
-      &          p_metrics%z_mc, p_diag_z%z3d,                      & !in
-      &          p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,    & !in
-      &          coef1_zlev, coef2_zlev, coef3_zlev, wfac_lin_zlev, & !in
-      &          idx0_cub_zlev, idx0_lin_zlev, bot_idx_cub,         & !in
-      &          bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2,     & !in
-      &          l_hires_intp=.FALSE., l_restore_fricred=.FALSE.    ) !in
+    IF ( nh_pzlev_config(jg)%lwrite_zlev ) THEN
+      ! horizontal wind components
+      CALL uv_intp(p_diag%u, p_diag_z%u,                              & !in,out
+        &          p_metrics%z_mc, p_z3d_out,                         & !in
+        &          p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,    & !in
+        &          coef1_zlev, coef2_zlev, coef3_zlev, wfac_lin_zlev, & !in
+        &          idx0_cub_zlev, idx0_lin_zlev, bot_idx_cub,         & !in
+        &          bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2,     & !in
+        &          l_hires_intp=.FALSE., l_restore_fricred=.FALSE.    ) !in
+      CALL uv_intp(p_diag%v, p_diag_z%v,                              & !in,out
+        &          p_metrics%z_mc, p_z3d_out,                         & !in
+        &          p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,    & !in
+        &          coef1_zlev, coef2_zlev, coef3_zlev, wfac_lin_zlev, & !in
+        &          idx0_cub_zlev, idx0_lin_zlev, bot_idx_cub,         & !in
+        &          bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2,     & !in
+        &          l_hires_intp=.FALSE., l_restore_fricred=.FALSE.    ) !in
+    ENDIF ! lwrite_zlev
 
 
     ! Preliminary interpolation of QV; a lower limit of 2.5 ppm is imposed
@@ -816,7 +799,6 @@ CONTAINS
       &           lower_limit=2.5e-6_wp                                ) !in
 
 
-
     ! Compute virtual temperature for model-level and z-level data
     CALL virtual_temp(p_patch, p_diag%temp, prm_diag%tot_cld(:,:,:,iqv), & !in
       &               temp_v=z_tempv_in                                  ) !out
@@ -826,89 +808,91 @@ CONTAINS
 
     ! Interpolate pressure on z-levels
     CALL pressure_intp(p_diag%pres, z_tempv_in, p_metrics%z_mc,        & !in
-      &                p_diag_z%pres, z_tempv, p_diag_z%z3d,           & !out,in
+      &                p_diag_z%pres, z_tempv, p_z3d_out,              & !out,in
       &                p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev, & !in
       &                wfac_lin_zlev, idx0_lin_zlev, bot_idx_lin,      & !in
       &                wfacpbl1, kpbl1                                 ) !in
 
 
 
-    ! Final interpolation of QV, including supersaturation limiting
-    !!! ATTENTION: prm_diag%tot_cld(:,:,:,iqv) may be modified !!!!
-    CALL qv_intp(prm_diag%tot_cld(:,:,:,iqv), p_diag_z%qv,          & !inout,out
-      &          p_metrics%z_mc, p_diag_z%z3d, p_diag%temp,         & !in
-      &          p_diag%pres, p_diag_z%temp, p_diag_z%pres,         & !in
-      &          p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,    & !in
-      &          coef1_zlev, coef2_zlev, coef3_zlev, wfac_lin_zlev, & !in
-      &          idx0_cub_zlev, idx0_lin_zlev, bot_idx_cub,         & !in
-      &          bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2,     & !in
-      &          lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE.    ) !in
-
+    IF ( nh_pzlev_config(jg)%lwrite_zlev ) THEN
+      ! Final interpolation of QV, including supersaturation limiting
+      !!! ATTENTION: prm_diag%tot_cld(:,:,:,iqv) may be modified !!!!
+      CALL qv_intp(prm_diag%tot_cld(:,:,:,iqv), p_diag_z%qv,          & !inout,out
+        &          p_metrics%z_mc, p_z3d_out, p_diag%temp,            & !in
+        &          p_diag%pres, p_diag_z%temp, p_diag_z%pres,         & !in
+        &          p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,    & !in
+        &          coef1_zlev, coef2_zlev, coef3_zlev, wfac_lin_zlev, & !in
+        &          idx0_cub_zlev, idx0_lin_zlev, bot_idx_cub,         & !in
+        &          bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2,     & !in
+        &          lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE.    ) !in
+    ENDIF  ! lwrite_zlev
 
 
     ! Part 2: Interpolation to pressure-level fields
-
-
-    ! Compute height at pressure levels; this height field is afterwards also
-    ! used as target coordinate for vertical interpolation
-    CALL z_at_plevels(p_diag%pres, z_tempv_in, p_metrics%z_mc,      & !in
-      &               p_diag_z%pres, z_tempv, p_diag_z%z3d,         & !in
-      &               p_diag_p%p3d, p_diag_p%z3d, p_patch%nblks_c,  & !in,out,in
-      &               p_patch%npromz_c, nlev, nzlev, nplev          ) !in
-
-    ! Prepare again interpolation coefficients (now for pressure levels)
-    CALL prepare_lin_intp(p_metrics%z_mc, p_diag_p%z3d,                   & !in
-      &                   p_patch%nblks_c, p_patch%npromz_c, nlev, nplev, & !in
-      &                   wfac_lin_plev, idx0_lin_plev, bot_idx_lin       ) !out
-
-    CALL prepare_cubic_intp(p_metrics%z_mc, p_diag_p%z3d,                   & !in
-      &                     p_patch%nblks_c, p_patch%npromz_c, nlev, nplev, & !in
-      &                     coef1_plev, coef2_plev, coef3_plev,             & !out
-      &                     idx0_cub_plev, bot_idx_cub                      ) !out
-
-
-    ! Perform vertical interpolation
     !
-    CALL temperature_intp(p_diag%temp, p_diag_p%temp,                     & !in,out
-      &                   p_metrics%z_mc, p_diag_p%z3d,                   & !in
-      &                   p_patch%nblks_c, p_patch%npromz_c, nlev, nplev, & !in
-      &                   coef1_plev, coef2_plev, coef3_plev,             & !in
-      &                   wfac_lin_plev, idx0_cub_plev, idx0_lin_plev,    & !in
-      &                   bot_idx_cub, bot_idx_lin, wfacpbl1, kpbl1,      & !in
-      &                   wfacpbl2, kpbl2, l_restore_sfcinv=.FALSE.,      & !in
-      &                   l_hires_corr=.FALSE., extrapol_dist=-500._wp    ) !in
+
+    IF ( nh_pzlev_config(jg)%lwrite_plev ) THEN
+      ! Compute height at pressure levels (i.e. geopot/g); this height 
+      ! field is afterwards also used as target coordinate for vertical 
+      !interpolation
+      CALL z_at_plevels(p_diag%pres, z_tempv_in, p_metrics%z_mc,      & !in
+        &               p_diag_z%pres, z_tempv, p_z3d_out,            & !in
+        &               p_p3d_out, p_diag_p%geopot, p_patch%nblks_c,  & !in,out,in
+        &               p_patch%npromz_c, nlev, nzlev, nplev          ) !in
+
+      ! Prepare again interpolation coefficients (now for pressure levels)
+      CALL prepare_lin_intp(p_metrics%z_mc, p_diag_p%geopot,                & !in
+        &                   p_patch%nblks_c, p_patch%npromz_c, nlev, nplev, & !in
+        &                   wfac_lin_plev, idx0_lin_plev, bot_idx_lin       ) !out
+
+      CALL prepare_cubic_intp(p_metrics%z_mc, p_diag_p%geopot,                & !in
+        &                     p_patch%nblks_c, p_patch%npromz_c, nlev, nplev, & !in
+        &                     coef1_plev, coef2_plev, coef3_plev,             & !out
+        &                     idx0_cub_plev, bot_idx_cub                      ) !out
+
+
+      ! Perform vertical interpolation
+      !
+      CALL temperature_intp(p_diag%temp, p_diag_p%temp,                     & !in,out
+        &                   p_metrics%z_mc, p_diag_p%geopot,                & !in
+        &                   p_patch%nblks_c, p_patch%npromz_c, nlev, nplev, & !in
+        &                   coef1_plev, coef2_plev, coef3_plev,             & !in
+        &                   wfac_lin_plev, idx0_cub_plev, idx0_lin_plev,    & !in
+        &                   bot_idx_cub, bot_idx_lin, wfacpbl1, kpbl1,      & !in
+        &                   wfacpbl2, kpbl2, l_restore_sfcinv=.FALSE.,      & !in
+        &                   l_hires_corr=.FALSE., extrapol_dist=-500._wp    ) !in
 
 
 
+      ! horizontal wind components
+      CALL uv_intp(p_diag%u, p_diag_p%u,                              & !in,out
+        &          p_metrics%z_mc, p_diag_p%geopot,                   & !in
+        &          p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,    & !in
+        &          coef1_plev, coef2_plev, coef3_plev, wfac_lin_plev, & !in
+        &          idx0_cub_plev, idx0_lin_plev, bot_idx_cub,         & !in
+        &          bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2,     & !in
+        &          l_hires_intp=.FALSE., l_restore_fricred=.FALSE.    ) !in
+      CALL uv_intp(p_diag%v, p_diag_p%v,                              & !in,out
+        &          p_metrics%z_mc, p_diag_p%geopot,                   & !in
+        &          p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,    & !in
+        &          coef1_plev, coef2_plev, coef3_plev, wfac_lin_plev, & !in
+        &          idx0_cub_plev, idx0_lin_plev, bot_idx_cub,         & !in
+        &          bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2,     & !in
+        &          l_hires_intp=.FALSE., l_restore_fricred=.FALSE.    ) !in
 
-    ! horizontal wind components
-    CALL uv_intp(p_diag%u, p_diag_p%u,                              & !in,out
-      &          p_metrics%z_mc, p_diag_p%z3d,                      & !in
-      &          p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,    & !in
-      &          coef1_plev, coef2_plev, coef3_plev, wfac_lin_plev, & !in
-      &          idx0_cub_plev, idx0_lin_plev, bot_idx_cub,         & !in
-      &          bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2,     & !in
-      &          l_hires_intp=.FALSE., l_restore_fricred=.FALSE.    ) !in
-    CALL uv_intp(p_diag%v, p_diag_p%v,                              & !in,out
-      &          p_metrics%z_mc, p_diag_p%z3d,                      & !in
-      &          p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,    & !in
-      &          coef1_plev, coef2_plev, coef3_plev, wfac_lin_plev, & !in
-      &          idx0_cub_plev, idx0_lin_plev, bot_idx_cub,         & !in
-      &          bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2,     & !in
-      &          l_hires_intp=.FALSE., l_restore_fricred=.FALSE.    ) !in
 
-
-    ! Interpolation of QV, including supersaturation limiting
-    !!! ATTENTION: prm_diag%tot_cld(:,:,:,iqv) may be modified !!!!
-    CALL qv_intp(prm_diag%tot_cld(:,:,:,iqv), p_diag_p%qv,         & !inout,out
-      &          p_metrics%z_mc, p_diag_p%z3d, p_diag%temp,        & !in
-      &          p_diag%pres, p_diag_p%temp, p_diag_p%p3d,         & !in
-      &          p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,   & !in
-      &          coef1_plev, coef2_plev, coef3_plev, wfac_lin_plev,& !in
-      &          idx0_cub_plev, idx0_lin_plev, bot_idx_cub,        & !in
-      &          bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2,    & !in
-      &          lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE.   ) !in
-
+      ! Interpolation of QV, including supersaturation limiting
+      !!! ATTENTION: prm_diag%tot_cld(:,:,:,iqv) may be modified !!!!
+      CALL qv_intp(prm_diag%tot_cld(:,:,:,iqv), p_diag_p%qv,         & !inout,out
+        &          p_metrics%z_mc, p_diag_p%geopot, p_diag%temp,     & !in
+        &          p_diag%pres, p_diag_p%temp, p_p3d_out,            & !in
+        &          p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,   & !in
+        &          coef1_plev, coef2_plev, coef3_plev, wfac_lin_plev,& !in
+        &          idx0_cub_plev, idx0_lin_plev, bot_idx_cub,        & !in
+        &          bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2,    & !in
+        &          lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE.   ) !in
+    ENDIF ! lwrite_plev
 
   END SUBROUTINE intp2pzlevs
 

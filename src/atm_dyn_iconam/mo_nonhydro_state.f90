@@ -60,7 +60,7 @@ MODULE mo_nonhydro_state
     &                                iqv, iqc, iqi, iqr, iqs, io3
   USE mo_radiation_config,     ONLY: irad_o3
   USE mo_io_config,            ONLY: lwrite_extra, inextra_2d, inextra_3d, &
-    &                                lout_pzlev
+    &                                lwrite_pzlev
   USE mo_nh_pzlev_config,      ONLY: nh_pzlev_config
   USE mo_linked_list,          ONLY: t_var_list
   USE mo_var_list,             ONLY: default_var_list_settings, add_var, &
@@ -244,14 +244,13 @@ MODULE mo_nonhydro_state
   ! state vector for diagnostic variables on p- and/or z-levels
   TYPE t_nh_diag_pz
     REAL(wp), POINTER ::    &
-      &  u(:,:,:),          & ! zonal wind (nproma,nlev,nblks_c)               [m/s]
-      &  v(:,:,:),          & ! meridional wind (nproma,nlev,nblks_c)          [m/s]
-      &  temp(:,:,:),       & ! temperature (nproma,nlev,nblks_c)              [K]
-      &  tempv(:,:,:),      & ! virtual temperature (nproma,nlev,nblks_c)      [K]
-      &  pres(:,:,:),       & ! pressure (nproma,nlev,nblks_c)                 [Pa]
-      &  qv(:,:,:),         & ! specifiv humidity (nproma,nlev,nblks_c)        [kg/kg]
-      &  p3d(:,:,:),        & !
-      &  z3d(:,:,:)
+      &  u(:,:,:),          & ! zonal wind (nproma,nlev,nblks_c)           [m/s]
+      &  v(:,:,:),          & ! meridional wind (nproma,nlev,nblks_c)      [m/s]
+      &  temp(:,:,:),       & ! temperature (nproma,nlev,nblks_c)          [K]
+      &  tempv(:,:,:),      & ! virtual temperature (nproma,nlev,nblks_c)  [K]
+      &  pres(:,:,:),       & ! pressure (nproma,nlev,nblks_c)             [Pa]
+      &  qv(:,:,:),         & ! specifiv humidity (nproma,nlev,nblks_c)    [kg/kg]
+      &  geopot(:,:,:)        ! geopotential (nproma,nlev,nblks_c)         [m2/s2]
   END TYPE t_nh_diag_pz
 
 
@@ -557,10 +556,12 @@ MODULE mo_nonhydro_state
       ! Build diag_p and diag_z state lists
       ! includes memory allocation
       !
-      IF (lout_pzlev) THEN
-        WRITE(listname,'(a,i2.2)') 'nh_state_diag_p_of_domain_',jg
-        CALL new_nh_state_diag_p_list(p_patch(jg), p_nh_state(jg)%diag_p, &
-          &  p_nh_state(jg)%diag_p_list, listname)
+      IF (lwrite_pzlev) THEN
+        IF (nh_pzlev_config(jg)%lwrite_plev) THEN
+          WRITE(listname,'(a,i2.2)') 'nh_state_diag_p_of_domain_',jg
+          CALL new_nh_state_diag_p_list(p_patch(jg), p_nh_state(jg)%diag_p, &
+            &  p_nh_state(jg)%diag_p_list, listname)
+        ENDIF
 
         WRITE(listname,'(a,i2.2)') 'nh_state_diag_z_of_domain_',jg
         CALL new_nh_state_diag_z_list(p_patch(jg), p_nh_state(jg)%diag_z, &
@@ -622,9 +623,12 @@ MODULE mo_nonhydro_state
       ! delete diagnostic state list elements
       CALL delete_var_list( p_nh_state(jg)%diag_list )
 
-      IF (lout_pzlev) THEN
+      IF (lwrite_pzlev) THEN
         CALL delete_var_list( p_nh_state(jg)%diag_z_list )
-        CALL delete_var_list( p_nh_state(jg)%diag_p_list )
+
+        IF (nh_pzlev_config(jg)%lwrite_plev) THEN
+          CALL delete_var_list( p_nh_state(jg)%diag_p_list )
+        ENDIF
       ENDIF
 
 
@@ -1853,14 +1857,6 @@ MODULE mo_nonhydro_state
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE, cf_desc, grib2_desc, &
                 & ldims=shape3d_c )
 
-    ! zout       p_diag_z%z3d(nproma,nlev,nblks_c)
-    !
-    cf_desc    = t_cf_var('zout', 'm', 'output z levels')
-    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_z_list, 'z3d', p_diag_z%z3d,                           &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE, cf_desc, grib2_desc,  &
-                & ldims=shape3d_c )
-
 
   END SUBROUTINE new_nh_state_diag_z_list
 
@@ -1974,19 +1970,11 @@ MODULE mo_nonhydro_state
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc,    &
                 & ldims=shape3d_c )
 
-    ! z           p_diag_p%z3d(nproma,nlev,nblks_c)
+    ! z           p_diag_p%geopot(nproma,nlev,nblks_c)
     !
     cf_desc    = t_cf_var('z', 'm2 s-2', 'geopotential')
     grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_p_list, 'z', p_diag_p%z3d,                               &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc,    &
-                & ldims=shape3d_c )
-
-    ! pout           p_diag_p%p3d(nproma,nlev,nblks_c)
-    !
-    cf_desc    = t_cf_var('pout', 'Pa', 'output pressure levels')
-    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_p_list, 'p3d', p_diag_p%p3d,                             &
+    CALL add_var( p_diag_p_list, 'z', p_diag_p%geopot,                            &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc,    &
                 & ldims=shape3d_c )
 

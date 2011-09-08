@@ -84,7 +84,7 @@ MODULE mo_io_config
     LOGICAL :: lwrite_surface             ! if .true., write out surface related fields
 
     LOGICAL :: lwrite_extra               ! if .true., write out extra fields
-    LOGICAL :: lout_pzlev                 ! if .true. extra output on p- and/or z-levels
+    LOGICAL :: lwrite_pzlev               ! if .true. extra output on p- and/or z-levels
     INTEGER :: inextra_2d                 ! number of extra output fields for debugging
     INTEGER :: inextra_3d                 ! number of extra output fields for debugging
 
