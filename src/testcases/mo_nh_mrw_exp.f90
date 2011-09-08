@@ -76,7 +76,7 @@ MODULE mo_nh_mrw_exp
    CHARACTER(LEN=*), PARAMETER :: version = '$Id$'
 
 
-   REAL(wp), PUBLIC :: u0_mrw                 ! (m/s) wind speed for mrw case 
+   REAL(wp), PUBLIC :: u0_mrw                 ! (m/s) wind speed for mrw and mwbr_const cases 
    REAL(wp), PUBLIC :: mount_height_mrw       ! (m) maximum mount height in mrw and mwbr
    REAL(wp), PUBLIC :: mount_half_width       ! (m) half width of mountain in mrw, mwbr and bell
    REAL(wp), PUBLIC :: mount_lonctr_mrw_deg   ! (deg) lon of mountain center in mrw and mwbr
@@ -84,7 +84,6 @@ MODULE mo_nh_mrw_exp
    REAL(wp), PUBLIC :: p_int_mwbr_const       ! pressure at interface in mwbr_const test case
    REAL(wp), PUBLIC :: temp_i_mwbr_const      ! temp in isothermal lower layer in mwbr_const
    REAL(wp), PUBLIC :: bruntvais_u_mwbr_const ! brunt vaisala freq in upper layer in mwbr_const
-   REAL(wp), PUBLIC :: u0_mwbr_const          ! (m/s) wind speed for mwbr_const case
 
    PUBLIC :: init_nh_topo_mrw, init_nh_state_prog_mrw, init_nh_prog_mwbr_const
 
@@ -428,7 +427,7 @@ MODULE mo_nh_mrw_exp
   zhelp1_i     = bruntvaissq_i/grav/grav/kappa
   zhelp2_i     = grav/rd/temp_i_mwbr_const
   zhelp1_u     = bruntvaissq_u/grav/grav/kappa
-  zhelp3       = u0_mwbr_const/re + 2.0_wp*omega
+  zhelp3       = u0_mrw/re + 2.0_wp*omega
  ! theta_v_int  = temp_i_mwbr_const * (p0ref/p_int_mwbr_const)**kappa
   rkappa       = 1.0_wp/kappa
 
@@ -472,11 +471,11 @@ MODULE mo_nh_mrw_exp
 
         z_sfc  = topo_c(jc,jb)
         z_int_c(jc,jb) = LOG(pres_sp/p_int_mwbr_const)/grav/zhelp1_i + &
-                         zcoslat*zcoslat*zhelp3*re*u0_mwbr_const/2.0_wp/grav
+                         zcoslat*zcoslat*zhelp3*re*u0_mrw/2.0_wp/grav
         IF (z_int_c(jc,jb) <  0._wp ) icount = icount + 1
         IF (z_int_c(jc,jb) >= z_sfc ) THEN
 
-          ptr_nh_diag%pres_sfc(jc,jb) = pres_sp * EXP( zhelp1_i * ( u0_mwbr_const * &
+          ptr_nh_diag%pres_sfc(jc,jb) = pres_sp * EXP( zhelp1_i * ( u0_mrw * &
                               zhelp3*re * zcoslat*zcoslat/2.0_wp - &
                               z_sfc*grav))
         ELSE
@@ -533,7 +532,7 @@ MODULE mo_nh_mrw_exp
         DO jk = 1, nlev
           DO je = i_startidx, i_endidx
             zlat = ptr_patch%edges%center(je,jb)%lat
-            z_u = u0_mwbr_const * COS(zlat)  !v component is zero
+            z_u = u0_mrw * COS(zlat)  !v component is zero
             ptr_nh_prog%vn(je,jk,jb) = &
              z_u * ptr_patch%edges%primal_normal(je,jb)%v1
           ENDDO

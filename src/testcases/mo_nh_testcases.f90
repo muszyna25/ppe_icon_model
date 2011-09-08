@@ -88,7 +88,7 @@ MODULE mo_nh_testcases
                                    &  mount_lonctr_mrw_deg, mount_latctr_mrw_deg, &
                                    &  u0_mrw,  mount_height_mrw, mount_half_width,&
                                    &  temp_i_mwbr_const,                          &
-                                   &  p_int_mwbr_const, u0_mwbr_const,            &
+                                   &  p_int_mwbr_const ,                          &
                                    &  bruntvais_u_mwbr_const
 
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
@@ -131,7 +131,7 @@ MODULE mo_nh_testcases
                             mount_half_width, mount_lonctr_mrw_deg,          &
                             mount_latctr_mrw_deg, p_int_mwbr_const,          &
                             temp_i_mwbr_const,  bruntvais_u_mwbr_const,      &
-                            u0_mwbr_const, rotate_axis_deg,                  &
+                            rotate_axis_deg,                                 &
                             lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,               &
                             rh_at_1000hpa, qv_max, ape_sst_case,             &
                             linit_tracer_fv, lhs_fric_heat
@@ -196,7 +196,6 @@ MODULE mo_nh_testcases
     mount_half_width       = 1500000._wp
     mount_lonctr_mrw_deg   = 90.0_wp
     mount_latctr_mrw_deg   = 30.0_wp
-    u0_mwbr_const          = 20.0_wp
     p_int_mwbr_const       = 70000._wp
     temp_i_mwbr_const      = 288._wp
     bruntvais_u_mwbr_const = 0.025_wp

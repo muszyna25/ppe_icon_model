@@ -182,7 +182,7 @@ MODULE mo_io_vlist
   USE mo_nh_mrw_exp,            ONLY: u0_mrw, mount_height_mrw,                   &
     &                                 mount_lonctr_mrw_deg, mount_latctr_mrw_deg, &
     &                                 p_int_mwbr_const, temp_i_mwbr_const,        &
-    &                                 bruntvais_u_mwbr_const, u0_mwbr_const      
+    &                                 bruntvais_u_mwbr_const     
     !&                                mount_half_width
 
   IMPLICIT NONE
@@ -3534,8 +3534,8 @@ CONTAINS
                   &             mount_latctr_mrw_deg,vlist,astatus)
           !
           ELSEIF ( TRIM(nh_test_name) == 'mwbr_const') THEN
-             CALL addGlobAttFlt('nh_testcase_nml:u0_mwbr_const',         &
-                  &             u0_mwbr_const,vlist,astatus)
+             CALL addGlobAttFlt('nh_testcase_nml:u0_mrw',                &
+                  &             u0_mrw,vlist,astatus)
              CALL addGlobAttFlt('nh_testcase_nml:temp_i_mwbr_const',     &
                   &             temp_i_mwbr_const,vlist,astatus)
              CALL addGlobAttFlt('nh_testcase_nml:p_int_mwbr_const',      &
