@@ -50,7 +50,6 @@ MODULE mo_nh_init_utils
                                       decay_scale_2, decay_exp, flat_height, stretch_fac
   USE mo_impl_constants,        ONLY: max_dom, SUCCESS, MAX_CHAR_LENGTH, min_rlcell, &
                                       min_rlcell_int, min_rlvert, min_rlvert_int
-  USE mo_nh_testcases,          ONLY: layer_thickness, n_flat_level
   USE mo_grf_nudgintp,          ONLY: interpol_scal_nudging
   USE mo_grf_bdyintp,           ONLY: interpol_scal_grf
   USE mo_math_constants,        ONLY: pi
@@ -75,7 +74,10 @@ MODULE mo_nh_init_utils
 
   INTEGER:: nflat, nflatlev(max_dom)
 
-  PUBLIC :: nflat, nflatlev
+  REAL(wp) :: layer_thickness        ! (m)
+  INTEGER  :: n_flat_level
+
+  PUBLIC :: nflat, nflatlev, n_flat_level, layer_thickness
 
   PUBLIC :: hydro_adjust, init_hybrid_coord, init_sleve_coord, compute_smooth_topo, &
     &       init_vert_coord, topography_blending, topography_feedback,              &

@@ -83,13 +83,21 @@ MODULE mo_nh_testcases
   USE mo_nh_ape_exp,           ONLY: init_nh_state_prog_APE
   USE mo_nh_jabw_exp,          ONLY: init_nh_topo_jabw, init_nh_state_prog_jabw, & 
                                    & init_passive_tracers_nh_jabw, init_nh_inwp_tracers
-!  USE mo_nh_mrw_exp,           ONLY: init_nh_topo_mrw, init_nh_state_prog_mrw
+  USE mo_nh_mrw_exp,           ONLY: init_nh_topo_mrw, init_nh_state_prog_mrw,    &
+                                   & init_nh_prog_mwbr_const,                     &
+                                   &  mount_lonctr_mrw_deg, mount_latctr_mrw_deg, &
+                                   &  u0_mrw,  mount_height_mrw, mount_half_width,&
+                                   &  temp_i_mwbr_const,                          &
+                                   &  p_int_mwbr_const, u0_mwbr_const,            &
+                                   &  bruntvais_u_mwbr_const
+
   USE mo_nh_diagnose_pres_temp,ONLY: diagnose_pres_temp
   USE mo_sync,                 ONLY: SYNC_E, sync_patch_array
   USE mo_satad,                ONLY: sat_pres_water, &  !! saturation vapor pressure w.r.t. water
     &                                sat_pres_ice!,  &  !! saturation vapor pressure w.r.t. ice
 !   &                                spec_humi!,     &  !! Specific humidity
   USE mo_nh_prog_util,         ONLY: nh_prog_add_random
+  USE mo_nh_init_utils,        ONLY: n_flat_level, layer_thickness
 
   
   IMPLICIT NONE  
@@ -100,20 +108,10 @@ MODULE mo_nh_testcases
   CHARACTER(len=MAX_CHAR_LENGTH) :: ape_sst_case      !SST for APE experiments
 
   REAL(wp) :: mount_height           ! (m)
-  REAL(wp) :: layer_thickness        ! (m)
   REAL(wp) :: nh_brunt_vais          ! (1/s)
   REAL(wp) :: nh_u0                  ! (m/s)
   REAL(wp) :: nh_t0                  ! (K)
   REAL(wp) :: jw_up                  ! amplitude of the u-perturbation (m/s), jabw  
-  REAL(wp) :: u0_mrw                 ! (m/s) wind speed for mrw case 
-  REAL(wp) :: mount_height_mrw       ! (m) maximum mount height in mrw and mwbr
-  REAL(wp) :: mount_half_width       ! (m) half width of mountain in mrw, mwbr and bell
-  REAL(wp) :: mount_lonctr_mrw_deg   ! (deg) lon of mountain center in mrw and mwbr
-  REAL(wp) :: mount_latctr_mrw_deg   ! (deg) lat of mountain center in mrw and mwbr
-  REAL(wp) :: p_int_mwbr_const       ! pressure at interface in mwbr_const test case
-  REAL(wp) :: temp_i_mwbr_const      ! temp in isothermal lower layer in mwbr_const
-  REAL(wp) :: bruntvais_u_mwbr_const ! brunt vaisala freq in upper layer in mwbr_const
-  REAL(wp) :: u0_mwbr_const          ! (m/s) wind speed for mwbr_const case
   REAL(wp) :: rotate_axis_deg        ! (deg) rotation angle
   REAL(wp) :: torus_domain_length    ! (m) length of domain the slice (torus) grid
   LOGICAL  :: lhs_nh_vn_ptb          ! if true, random noise is added to vn in HS_nh test case
@@ -125,7 +123,7 @@ MODULE mo_nh_testcases
   LOGICAL  :: linit_tracer_fv  !< finite volume initialization for tracer fields
                                !< if .TRUE.
 
-  INTEGER  :: n_flat_level
+
 
   NAMELIST/nh_testcase_nml/ nh_test_name, mount_height, torus_domain_length, &
                             nh_brunt_vais, nh_u0, nh_t0, layer_thickness,    &
@@ -141,11 +139,9 @@ MODULE mo_nh_testcases
   PUBLIC :: read_nh_testcase_namelist, layer_thickness, init_nh_testtopo,    &
     &       init_nh_testcase, n_flat_level, nh_test_name, ape_sst_case,      &
     &       mount_height, torus_domain_length, nh_brunt_vais, nh_u0, nh_t0,  &
-    &       jw_up, u0_mrw, mount_height_mrw, mount_half_width,               &
-    &       mount_lonctr_mrw_deg, mount_latctr_mrw_deg, p_int_mwbr_const,    &
-    &       temp_i_mwbr_const,  bruntvais_u_mwbr_const, u0_mwbr_const,       &
+    &       jw_up, rh_at_1000hpa,  qv_max,                                   &
     &       rotate_axis_deg, lhs_nh_vn_ptb, hs_nh_vn_ptb_scale,              &
-    &       rh_at_1000hpa, qv_max, linit_tracer_fv, lhs_fric_heat
+    &       linit_tracer_fv, lhs_fric_heat
 
   PRIVATE
 
@@ -254,14 +250,11 @@ MODULE mo_nh_testcases
   INTEGER        :: jg, jc, jv, jb, nlen
   INTEGER        :: nblks_c, npromz_c, nblks_v, npromz_v
   REAL(wp)       :: z_lon, z_lat, z_dist
-  REAL(wp)       :: zr, zexp
   TYPE(t_geographical_coordinates) :: z_x2_geo
   TYPE(t_cartesian_coordinates)    :: z_x1_cart, z_x2_cart
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: &
     &  routine = '(mo_nh_testcases) init_nh_testtopo:'
  
-  REAL(wp)      :: zsiny, zcosy,tmp1,tmp2,tmp3
-  REAL(wp)      :: z_lon_ctr, z_lat_ctr, z_fac1, z_fac2
   LOGICAL       :: l_modified
 
 !-----------------------------------------------------------------------
@@ -413,9 +406,9 @@ MODULE mo_nh_testcases
      nblks_v   = p_patch(jg)%nblks_int_v
      npromz_v  = p_patch(jg)%npromz_v
 
-!     CALL init_nh_topo_mrw ( p_patch(jg),ext_data(jg)%atm%topography_c,  &
-!                          & ext_data(jg)%atm%topography_v, nblks_c, npromz_c, &
-!                          & nblks_v, npromz_v, l_modified) 
+     CALL init_nh_topo_mrw ( p_patch(jg),ext_data(jg)%atm%topography_c,  &
+                          & ext_data(jg)%atm%topography_v, nblks_c, npromz_c, &
+                          & nblks_v, npromz_v, l_modified) 
    ENDDO
 
    CALL message(TRIM(routine),'topography is initialised ')
@@ -478,39 +471,22 @@ MODULE mo_nh_testcases
   INTEGER :: ntl
   TYPE(t_nh_state), TARGET, INTENT(INOUT):: p_nh_state(n_dom)
 
-  INTEGER        :: jg, je, jc, jb, jk, jt, jjt, jn, ji, niter, &
+  INTEGER        :: jg, je, jc, jb, jk, jt,   &
                     nlen, nblks_e, npromz_e,  nblks_c, npromz_c
-  INTEGER        :: i_startidx, i_endidx, i_startblk, icount
   INTEGER        :: nlev, nlevp1        !< number of full and half levels
 
-  REAL(wp), DIMENSION(nproma) ::  &
-             z_lat,z_siny,z_cosy, z_fac1, z_fac2, zeta_old, zcoszetav, &
-             zsinzetav, z_tavg, z_favg, z_geopot, z_temp, z_fun, z_fund, &
-             zeta, zu, zv, z_lon, z_exp, za, zb, zc, z_temp_kp1, z_fac3
-  REAL(wp), ALLOCATABLE :: zeta_v(:,:,:)
-  REAL(wp), ALLOCATABLE :: zeta_v_e(:,:,:)
-  REAL(wp), ALLOCATABLE :: z_wsfc_e(:,:,:), z_wsfc_c(:,:,:)
-  REAL(wp), ALLOCATABLE :: z_int_c(:,:)    ! z at interface in mwbr_const
   TYPE(t_nh_state), POINTER       :: p_nhdom
-  REAL(wp)              :: zlat, zlon, z_u, bruntvaissq, kappa, zhelp1, &
-                           zcoslat, zhelp2, z_pres, z_sfc, z_nlev
-  REAL(wp)              :: zhelp1_i, zhelp1_u, zhelp2_i, bruntvaissq_i, &
-                           bruntvaissq_u, zhelp3, zhelp4, rkappa
-  REAL(wp)              :: theta_v_int !potential temp at the interface in mwbr_const
+                            
   REAL(wp)              :: p_sfc_jabw  ! surface pressure for the jabw test case, 
                                        ! standard values is 100000 Pa   
   REAL(wp)              :: global_moist
   REAL(wp) :: z_help
 
-  REAL(wp) :: zsqv
-  
-  REAL(wp) :: zrhf,z_1_o_rh
   LOGICAL  :: l_hydro_adjust, l_moist
   
   CHARACTER(len=MAX_CHAR_LENGTH), PARAMETER :: routine =  &
                                    '(mo_nh_testcases) init_nh_testcase:' 
 ! Tracer related variables
-  CHARACTER(LEN=1) :: ctracer
   CHARACTER(len=MAX_CHAR_LENGTH) :: & !< list of tracers to initialize
     &  ctracer_list
 !-----------------------------------------------------------------------
@@ -593,255 +569,97 @@ MODULE mo_nh_testcases
        END IF
      ENDIF
 
-!     CALL   init_nh_state_prog_mrw ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
-!                                   & p_nh_state(jg)%diag,                        &
-!                                   & ext_data(jg)%atm%topography_c,              &
-!                                   & p_nh_state(jg)%metrics,                     &
-!                                   & p_int(jg), l_hydro_adjust, l_moist          )
-!     CALL   init_nh_state_prog_mrw ( p_patch(jg), p_nh_state(jg)%prog(nnew(jg)), &
-!                                   & p_nh_state(jg)%diag,                        &
-!                                   & ext_data(jg)%atm%topography_c,              &
-!                                   & p_nh_state(jg)%metrics,                     &
-!                                   & p_int(jg), l_hydro_adjust, l_moist          )
+
+     IF (.NOT. l_moist) THEN
+
+       CALL   init_nh_state_prog_mrw ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+                                     & p_nh_state(jg)%diag,                        &
+                                     & ext_data(jg)%atm%topography_c,              &
+                                     & p_nh_state(jg)%metrics,                     &
+                                     & p_int(jg), l_hydro_adjust, l_moist          )
+       CALL   init_nh_state_prog_mrw ( p_patch(jg), p_nh_state(jg)%prog(nnew(jg)), &
+                                     & p_nh_state(jg)%diag,                        &
+                                     & ext_data(jg)%atm%topography_c,              &
+                                     & p_nh_state(jg)%metrics,                     &
+                                     & p_int(jg), l_hydro_adjust, l_moist          )
+
+    ELSE
+
+       CALL   init_nh_state_prog_mrw ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+                                     & p_nh_state(jg)%diag,                        &
+                                     & ext_data(jg)%atm%topography_c,              &
+                                     & p_nh_state(jg)%metrics,                     &
+                                     & p_int(jg), l_hydro_adjust, l_moist ,        &
+                                     & opt_rh_at_1000hpa= rh_at_1000hpa,           &
+                                     & opt_qv_max=qv_max                           )
+       CALL   init_nh_state_prog_mrw ( p_patch(jg), p_nh_state(jg)%prog(nnew(jg)), &
+                                     & p_nh_state(jg)%diag,                        &
+                                     & ext_data(jg)%atm%topography_c,              &
+                                     & p_nh_state(jg)%metrics,                     &
+                                     & p_int(jg), l_hydro_adjust, l_moist,         &
+                                     & opt_rh_at_1000hpa= rh_at_1000hpa,           &
+                                     & opt_qv_max=qv_max                           )
 
 
+    END IF
 
    ENDDO !jg
 
    CALL message(TRIM(routine),'End setup MRW test')
 
   CASE ('mwbr_const')
- 
-  bruntvaissq_i = grav*grav/cpd/temp_i_mwbr_const
-  bruntvaissq_u = bruntvais_u_mwbr_const * bruntvais_u_mwbr_const
-  kappa       = rd/cpd
-  zhelp1_i     = bruntvaissq_i/grav/grav/kappa
-  zhelp2_i     = grav/rd/temp_i_mwbr_const
-  zhelp1_u     = bruntvaissq_u/grav/grav/kappa
-  zhelp3       = u0_mwbr_const/re + 2.0_wp*omega
-  theta_v_int  = temp_i_mwbr_const * (p0ref/p_int_mwbr_const)**kappa
-  rkappa       = 1.0_wp/kappa
 
-  DO jg = 1, n_dom
+   CALL message(TRIM(routine),'mwbr_const test case')
+  
+   l_hydro_adjust = .TRUE.
+   l_moist = .FALSE.
 
-    ALLOCATE (z_wsfc_c(nproma,1,p_patch(jg)%nblks_c), &
-              z_wsfc_e(nproma,1,p_patch(jg)%nblks_e) )
-    ALLOCATE (z_int_c(nproma,p_patch(jg)%nblks_c))
-    
-
-    nblks_c   = p_patch(jg)%nblks_int_c
-    npromz_c  = p_patch(jg)%npromz_int_c
-    nblks_e   = p_patch(jg)%nblks_int_e
-    npromz_e  = p_patch(jg)%npromz_int_e
-
-    ! number of vertical levels
-    nlev   = p_patch(jg)%nlev
-    nlevp1 = p_patch(jg)%nlevp1
-
-    p_nhdom  => p_nh_state(jg)
+   DO jg = 1, n_dom
 
 
-    DO jb = 1, nblks_c
-      IF (jb /= nblks_c) THEN
-         nlen = nproma
-      ELSE
-         nlen = npromz_c
-      ENDIF
-!     set z_int_c, z at the interface
-      icount = 0
-      DO jc = 1, nlen
-        zlat= p_patch(jg)%cells%center(jc,jb)%lat
-        zcoslat=COS(zlat)
+     IF ( iforcing == inwp ) THEN
+       CALL message(TRIM(routine),' iforcing == inwp')     
+       IF ( atm_phy_nwp_config(jg)%inwp_gscp /= 0 .OR.&
+                      &                 atm_phy_nwp_config(jg)%inwp_convection /= 0  ) THEN 
+         l_moist = .TRUE.
+       END IF
+     ENDIF 
 
-        z_sfc  = ext_data(jg)%atm%topography_c(jc,jb)
-        z_int_c(jc,jb) = LOG(pres_sp/p_int_mwbr_const)/grav/zhelp1_i + &
-                         zcoslat*zcoslat*zhelp3*re*u0_mwbr_const/2.0_wp/grav
-        IF (z_int_c(jc,jb) <  0._wp ) icount = icount + 1
-        IF (z_int_c(jc,jb) >= z_sfc ) THEN
 
-          p_nhdom%diag%pres_sfc(jc,jb) = pres_sp * EXP( zhelp1_i * ( u0_mwbr_const * &
-                              zhelp3*re * zcoslat*zcoslat/2.0_wp - &
-                              z_sfc*grav))
-        ELSE
-          zhelp4 = z_sfc - z_int_c(jc,jb)
-          p_nhdom%diag%pres_sfc(jc,jb) = p_int_mwbr_const * ( 1.0_wp +       &
-                              (EXP(-bruntvaissq_u*zhelp4/grav) - 1.0_wp) *   &
-                               bruntvaissq_i/bruntvaissq_u )**rkappa
-        ENDIF
-      ENDDO !jc
-      IF (icount > 0) CALL finish(TRIM(routine), &
-        & 'z at interface is negative, needed p_int_mwbr_const < pres_sp')
 
-      DO jk = nlev, 1, -1
-        IF (jk == nlev) THEN
-          ! Use analytic expressions at lowest model level
-          DO jt = 1, ntl
-            DO jc = 1, nlen
-              z_sfc  = ext_data(jg)%atm%topography_c(jc,jb)
-              z_nlev = 0.5_wp * ( p_nhdom%metrics%z_ifc(jc,nlev,jb) + &
-                       p_nhdom%metrics%z_ifc(jc,nlev+1,jb) )
-              IF (z_nlev < z_int_c(jc,jb) ) THEN
 
-                z_pres = p_nhdom%diag%pres_sfc(jc,jb) * &
-                         EXP(- zhelp2_i * ( z_nlev  - z_sfc )  )   !isothermal atm.
+     IF (.NOT. l_moist) THEN
 
-                p_nhdom%prog(jt)%exner(jc,jk,jb) = (z_pres/p0ref)**(rd/cpd)
-                p_nhdom%prog(jt)%rhotheta_v(jc,jk,jb) = &
-                         p_nhdom%prog(jt)%exner(jc,jk,jb)**cvd_o_rd*p0ref/rd
-                p_nhdom%prog(jt)%theta_v(jc,jk,jb) = temp_mrw & 
-                         /p_nhdom%prog(jt)%exner(jc,jk,jb)
-                p_nhdom%prog(jt)%rho(jc,jk,jb) = &
-                         p_nhdom%prog(jt)%rhotheta_v(jc,jk,jb) &
-                         /p_nhdom%prog(jt)%theta_v(jc,jk,jb)
-                z_temp_kp1(jc) = temp_i_mwbr_const
-                z_temp(jc) = temp_i_mwbr_const
-                p_nhdom%diag%temp(jc,jk,jb) = temp_i_mwbr_const    
-                p_nhdom%diag%pres(jc,jk,jb) = z_pres
-               ELSEIF (z_nlev > z_int_c(jc,jb) ) THEN
-                zhelp4 = z_nlev - z_int_c(jc,jb)
-                z_pres = p_int_mwbr_const * ( 1.0_wp +       &
-                              (EXP(-bruntvaissq_u*zhelp4/grav) - 1.0_wp) *   &
-                               bruntvaissq_i/bruntvaissq_u )**rkappa
-                z_temp(jc) = temp_i_mwbr_const * EXP (bruntvaissq_u*zhelp4/grav) * &
-                             (z_pres/p_int_mwbr_const)**kappa
-                p_nhdom%prog(jt)%exner(jc,jk,jb) = (z_pres/p0ref)**(rd/cpd)
-                p_nhdom%prog(jt)%rhotheta_v(jc,jk,jb) = &
-                         p_nhdom%prog(jt)%exner(jc,jk,jb)**cvd_o_rd*p0ref/rd
-                p_nhdom%prog(jt)%theta_v(jc,jk,jb) =   theta_v_int * & 
-                                                       EXP(bruntvaissq_u*zhelp4/grav)
-                p_nhdom%prog(jt)%rho(jc,jk,jb) = &
-                         p_nhdom%prog(jt)%rhotheta_v(jc,jk,jb) &
-                         /p_nhdom%prog(jt)%theta_v(jc,jk,jb) 
-                p_nhdom%diag%temp(jc,jk,jb) =  z_temp(jc)   
-                p_nhdom%diag%pres(jc,jk,jb) = z_pres 
-                z_temp_kp1(jc) = z_temp(jc)
-              ENDIF
+       CALL   init_nh_prog_mwbr_const ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+                                      & p_nh_state(jg)%diag,                        &
+                                      & ext_data(jg)%atm%topography_c,              &
+                                      & p_nh_state(jg)%metrics,                     &
+                                      & p_int(jg), l_hydro_adjust, l_moist          )
+       CALL   init_nh_prog_mwbr_const ( p_patch(jg), p_nh_state(jg)%prog(nnew(jg)), &
+                                      & p_nh_state(jg)%diag,                        &
+                                      & ext_data(jg)%atm%topography_c,              &
+                                      & p_nh_state(jg)%metrics,                     &
+                                      & p_int(jg), l_hydro_adjust, l_moist          )
 
-            ENDDO !jc
-          ENDDO !jt
-        ELSE
-          DO jc = 1, nlen
-            z_nlev = 0.5_wp * ( p_nhdom%metrics%z_ifc(jc,jk,jb) + &
-                       p_nhdom%metrics%z_ifc(jc,jk+1,jb) )
-            IF (z_nlev <= z_int_c(jc,jb) ) THEN
-                z_temp(jc) = temp_i_mwbr_const
-                    
-            ELSE
-                zhelp4 = z_nlev - z_int_c(jc,jb)
-                z_pres = p_int_mwbr_const * ( 1.0_wp +       &
-                              (EXP(-bruntvaissq_u*zhelp4/grav) - 1.0_wp) *   &
-                               bruntvaissq_i/bruntvaissq_u )**rkappa
-                z_temp(jc) = temp_i_mwbr_const * EXP (bruntvaissq_u*zhelp4/grav) * &
-                             (z_pres/p_int_mwbr_const)**kappa 
 
-            ENDIF
-            p_nhdom%diag%temp(jc,jk,jb) =  z_temp(jc)
-          ENDDO
-          ! Solve quadratic equation for exner(jk) to obtain exact (discretized)
-          ! hydrostatic balance
-          IF( p_patch(jg)%cell_type == 3) THEN
-            DO jc = 1, nlen
-              z_fac1(jc) = p_nhdom%metrics%wgtfac_c(jc,jk+1,jb)*(z_temp_kp1(jc)              &
-                - p_nhdom%metrics%theta_ref_mc(jc,jk+1,jb)*p_nhdom%prog(1)%exner(jc,jk+1,jb))&
-                - (1._wp-p_nhdom%metrics%wgtfac_c(jc,jk+1,jb))                               &
-                * p_nhdom%metrics%theta_ref_mc(jc,jk,jb)*p_nhdom%prog(1)%exner(jc,jk+1,jb)
-              z_fac2(jc) = (1._wp-p_nhdom%metrics%wgtfac_c(jc,jk+1,jb))*z_temp(jc) &
-                *p_nhdom%prog(1)%exner(jc,jk+1,jb)
-              z_fac3(jc) = p_nhdom%metrics%exner_ref_mc(jc,jk+1,jb)                    &
-                -p_nhdom%metrics%exner_ref_mc(jc,jk,jb)-p_nhdom%prog(1)%exner(jc,jk+1,jb)
-              za(jc) = ( p_nhdom%metrics%theta_ref_ic(jc,jk+1,jb) &
-                *p_nhdom%prog(1)%exner(jc,jk+1,jb)+z_fac1(jc))     &
-                /p_nhdom%metrics%ddqz_z_half(jc,jk+1,jb)
-              zb(jc) = -(za(jc)*z_fac3(jc)+z_fac2(jc)/p_nhdom%metrics%ddqz_z_half(jc,jk+1,jb) &
-                + z_fac1(jc)*p_nhdom%metrics%d_exner_dz_ref_ic(jc,jk+1,jb))
-              zc(jc) = -(z_fac2(jc)*z_fac3(jc)/p_nhdom%metrics%ddqz_z_half(jc,jk+1,jb) &
-                + z_fac2(jc)*p_nhdom%metrics%d_exner_dz_ref_ic(jc,jk+1,jb))
-            ENDDO !jc
-          ELSEIF ( p_patch(jg)% cell_type== 6) THEN
-            DO jc = 1, nlen
-              z_fac3(jc) = grav/cpd*p_nhdom%metrics%ddqz_z_half(jc,jk+1,jb)
-              z_fac1(jc) = p_nhdom%prog(1)%exner(jc,jk+1,jb)
-              z_fac2(jc) = p_nhdom%prog(1)%exner(jc,jk+1,jb)/z_temp_kp1(jc)
-              za(jc) = 1.0_wp
-              zb(jc) = -(z_fac2(jc)*(z_temp(jc)+2.0_wp*z_fac3(jc))-z_fac1(jc))
-              zc(jc) = z_temp(jc)*z_fac2(jc)*z_fac1(jc)
-            ENDDO !jc
-          ENDIF
-          DO jt = 1, ntl
-            DO jc = 1, nlen
-              p_nhdom%prog(jt)%exner(jc,jk,jb) = &
-                (zb(jc) + SQRT(zb(jc)**2+4._wp*za(jc)*zc(jc)))/(2._wp*za(jc))
-              p_nhdom%prog(jt)%rhotheta_v(jc,jk,jb) = &
-                       p_nhdom%prog(jt)%exner(jc,jk,jb)**cvd_o_rd*p0ref/rd
-              p_nhdom%prog(jt)%theta_v(jc,jk,jb) = z_temp(jc) & 
-                       /p_nhdom%prog(jt)%exner(jc,jk,jb)
-              p_nhdom%prog(jt)%rho(jc,jk,jb) = &
-                       p_nhdom%prog(jt)%rhotheta_v(jc,jk,jb) &
-                       /p_nhdom%prog(jt)%theta_v(jc,jk,jb)
-              z_temp_kp1(jc) = z_temp(jc)
-              IF (jt == 1) THEN
-                  p_nhdom%diag%pres(jc,jk,jb) = p0ref*p_nhdom%prog(jt)%exner(jc,jk,jb)**(cpd/rd)
-              ENDIF
-            ENDDO !jc
-          ENDDO !jt
-        ENDIF
-      ENDDO !jk
-    ENDDO !jb
-    i_startblk = p_patch(jg)%edges%start_blk(2,1)
-    ! horizontal normal components of the velocity
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je,jt,zlat,z_u)
-    DO jb = i_startblk, nblks_e
-
-      CALL get_indices_e(p_patch(jg), jb, i_startblk, nblks_e, &
-                         i_startidx, i_endidx, 2)
-
-      DO jt = 1, ntl
-        DO jk = 1, nlev
-          DO je = i_startidx, i_endidx
-            zlat = p_patch(jg)%edges%center(je,jb)%lat
-            z_u = u0_mwbr_const * COS(zlat)  !v component is zero
-            p_nhdom%prog(jt)%vn(je,jk,jb) = &
-             z_u * p_patch(jg)%edges%primal_normal(je,jb)%v1
-          ENDDO
-        ENDDO
-        DO je = i_startidx, i_endidx
-          z_wsfc_e(je,1,jb) = p_nhdom%prog(jt)%vn(je,nlev,jb) * &
-             p_nhdom%metrics%ddxn_z_half(je,nlevp1,jb)
-        ENDDO !je
-      ENDDO !jt
-    ENDDO  !jb
-!$OMP END DO
-!$OMP END PARALLEL
-
-    CALL edges2cells_scalar(z_wsfc_e,p_patch(jg),p_int(jg)%e_inn_c,z_wsfc_c,&
-                            1,1,opt_rlstart=2)
-    i_startblk = p_patch(jg)%cells%start_blk(2,1)
-
-    ! specify a reasonable initial vertical wind speed
-!$OMP PARALLEL
-!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jc,jt,jk)
-    DO jb = i_startblk, nblks_c
-
-      CALL get_indices_c(p_patch(jg), jb, i_startblk, nblks_c, &
-                         i_startidx, i_endidx, 2)
-
-      DO jt = 1, ntl
-        DO jc = i_startidx, i_endidx
-          p_nhdom%prog(jt)%w(jc,nlevp1,jb) = z_wsfc_c(jc,1,jb)
-        ENDDO
-        DO jk = nlev, 2, -1
-          DO jc = i_startidx, i_endidx
-            p_nhdom%prog(jt)%w(jc,jk,jb) = z_wsfc_c(jc,1,jb)*vct_b(jk)**2
-          ENDDO !jc
-        ENDDO !jk
-      ENDDO !jt
-    ENDDO  !jb
-!$OMP END DO
-!$OMP END PARALLEL
-
-    DEALLOCATE (z_int_c)
-    DEALLOCATE (z_wsfc_c, z_wsfc_e )
+     ELSE
+  
+       CALL   init_nh_prog_mwbr_const ( p_patch(jg), p_nh_state(jg)%prog(nnow(jg)), &
+                                      & p_nh_state(jg)%diag,                        &
+                                      & ext_data(jg)%atm%topography_c,              &
+                                      & p_nh_state(jg)%metrics,                     &
+                                      & p_int(jg), l_hydro_adjust, l_moist,         &
+                                      & opt_rh_at_1000hpa= rh_at_1000hpa,           &
+                                      & opt_qv_max=qv_max                             )
+       CALL   init_nh_prog_mwbr_const ( p_patch(jg), p_nh_state(jg)%prog(nnew(jg)), &
+                                      & p_nh_state(jg)%diag,                        &
+                                      & ext_data(jg)%atm%topography_c,              &
+                                      & p_nh_state(jg)%metrics,                     &
+                                      & p_int(jg), l_hydro_adjust, l_moist   ,         &
+                                      & opt_rh_at_1000hpa= rh_at_1000hpa,           &
+                                      & opt_qv_max=qv_max                            )
+    END IF
+  
   ENDDO !jg
 
   CASE ('zero','bell','schaer')

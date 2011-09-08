@@ -71,9 +71,13 @@ MODULE mo_nh_jabw_exp
 
    IMPLICIT NONE
 
-   PUBLIC :: init_nh_topo_jabw,init_nh_state_prog_jabw, init_passive_tracers_nh_jabw, &
+
+
+   PUBLIC :: init_nh_topo_jabw,init_nh_state_prog_jabw, & 
+           & init_passive_tracers_nh_jabw, &
            & init_nh_inwp_tracers
 
+  
    PRIVATE
 
    CHARACTER(LEN=*), PARAMETER :: version = '$Id$'

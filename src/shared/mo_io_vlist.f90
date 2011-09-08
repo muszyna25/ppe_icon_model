@@ -176,13 +176,14 @@ MODULE mo_io_vlist
   USE mo_nh_testcases,          ONLY: nh_test_name, mount_height,                 &
     &                                 torus_domain_length, nh_brunt_vais, nh_u0,  &
     &                                 nh_t0, jw_up,                               &
-    &                                 u0_mrw, mount_height_mrw,                   &
-    &                                 mount_lonctr_mrw_deg, mount_latctr_mrw_deg, &
-    &                                 p_int_mwbr_const, temp_i_mwbr_const,        &
-    &                                 bruntvais_u_mwbr_const, u0_mwbr_const,      &
     &                                 rotate_axis_deg, lhs_nh_vn_ptb,             &
     &                                 hs_nh_vn_ptb_scale, qv_max, ape_sst_case
-    !&                                mount_half_width,rh_at_1000hpa,linit_tracer_fv
+    !&                                rh_at_1000hpa,linit_tracer_fv
+  USE mo_nh_mrw_exp,            ONLY: u0_mrw, mount_height_mrw,                   &
+    &                                 mount_lonctr_mrw_deg, mount_latctr_mrw_deg, &
+    &                                 p_int_mwbr_const, temp_i_mwbr_const,        &
+    &                                 bruntvais_u_mwbr_const, u0_mwbr_const      
+    !&                                mount_half_width
 
   IMPLICIT NONE
 
