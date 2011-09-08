@@ -39,15 +39,17 @@ MODULE mo_nh_vert_interp
 
   USE mo_kind,                ONLY: wp
   USE mo_model_domain,        ONLY: t_patch
-  USE mo_nonhydro_state,      ONLY: t_nh_state, t_nh_diag_pz, t_nh_diag, &
-    &                               t_nh_metrics
+  USE mo_nonhydro_state,      ONLY: t_nh_state, t_nh_prog, t_nh_diag,  &
+    &                               t_nh_diag_pz, t_nh_metrics
   USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag
   USE mo_interpolation,       ONLY: t_int_state, edges2cells_scalar
   USE mo_parallel_config,     ONLY: nproma
   USE mo_nh_pzlev_config,     ONLY: nh_pzlev_config 
   USE mo_physical_constants,  ONLY: grav, rd, rdv, o_m_rdv
   USE mo_grid_config,         ONLY: n_dom
-  USE mo_run_config,          ONLY: iqv
+  USE mo_run_config,          ONLY: iqv, iqc, iqr, iqi, iqs
+  USE mo_dynamics_config,     ONLY: nnow
+  USE mo_impl_constants,      ONLY: icc
   USE mo_exception,           ONLY: finish
   USE mo_prepicon_nml,        ONLY: nlev_in, zpbl1, zpbl2, &
                                     i_oper_mode, l_w_in, l_sfc_in
@@ -715,6 +717,7 @@ CONTAINS
     INTEGER , DIMENSION(nproma,p_patch%nblks_c) :: &
       &  bot_idx_lin, bot_idx_cub, kpbl1, kpbl2
 
+    TYPE(t_nh_prog),    POINTER :: p_prog      => NULL()
     TYPE(t_nh_diag),    POINTER :: p_diag      => NULL()
     TYPE(t_nh_diag_pz), POINTER :: p_diag_z    => NULL()
     TYPE(t_nh_diag_pz), POINTER :: p_diag_p    => NULL()
@@ -731,6 +734,7 @@ CONTAINS
 
 
     ! some useful pointers
+    p_prog    => p_nh_state%prog(nnow(jg))
     p_diag    => p_nh_state%diag
     p_diag_z  => p_nh_state%diag_z
     p_diag_p  => p_nh_state%diag_p
@@ -739,8 +743,9 @@ CONTAINS
     p_z3d_out => nh_pzlev_config(jg)%z3d   ! output height field
 
 
-
-    ! Part 1: Interpolation to z-level fields
+    !##################################################!
+    ! Part 1: Interpolation to z-level fields          !
+    !##################################################!
     !
     ! Prepare interpolation coefficients
     CALL prepare_lin_intp(p_metrics%z_mc, p_z3d_out,                      & !in
@@ -772,6 +777,7 @@ CONTAINS
 
     IF ( nh_pzlev_config(jg)%lwrite_zlev ) THEN
       ! horizontal wind components
+      !
       CALL uv_intp(p_diag%u, p_diag_z%u,                              & !in,out
         &          p_metrics%z_mc, p_z3d_out,                         & !in
         &          p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,    & !in
@@ -786,12 +792,90 @@ CONTAINS
         &          idx0_cub_zlev, idx0_lin_zlev, bot_idx_cub,         & !in
         &          bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2,     & !in
         &          l_hires_intp=.FALSE., l_restore_fricred=.FALSE.    ) !in
+
+
+
+      ! interpolation of prognostic specific cloud water content
+      !
+      CALL lin_intp(p_prog%tracer(:,:,:,iqc),                            & !inout
+        &           p_diag_z%tracer(:,:,:,iqc),                          & !out
+        &           p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,      & !in
+        &           wfac_lin_zlev, idx0_lin_zlev, bot_idx_lin, wfacpbl1, & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
+        &           lower_limit=0._wp                                    ) !in
+
+
+      ! interpolation of prognostic specific rain water content
+      !
+      CALL lin_intp(p_prog%tracer(:,:,:,iqr),                            & !inout
+        &           p_diag_z%tracer(:,:,:,iqr),                          & !out
+        &           p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,      & !in
+        &           wfac_lin_zlev, idx0_lin_zlev, bot_idx_lin, wfacpbl1, & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
+        &           lower_limit=0._wp                                    ) !in
+
+
+      ! interpolation of prognostic specific cloud ice content
+      !
+      CALL lin_intp(p_prog%tracer(:,:,:,iqi),                            & !inout
+        &           p_diag_z%tracer(:,:,:,iqi),                          & !out
+        &           p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,      & !in
+        &           wfac_lin_zlev, idx0_lin_zlev, bot_idx_lin, wfacpbl1, & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
+        &           lower_limit=0._wp                                    ) !in
+
+
+      ! interpolation of prognostic specific snow content
+      !
+      CALL lin_intp(p_prog%tracer(:,:,:,iqs),                            & !inout
+        &           p_diag_z%tracer(:,:,:,iqs),                          & !out
+        &           p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,      & !in
+        &           wfac_lin_zlev, idx0_lin_zlev, bot_idx_lin, wfacpbl1, & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
+        &           lower_limit=0._wp                                    ) !in
+
+
+      ! interpolation of total specific cloud water content
+      !
+      CALL lin_intp(prm_diag%tot_cld(:,:,:,iqc),                         & !inout
+        &           p_diag_z%tot_cld(:,:,:,iqc),                         & !out
+        &           p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,      & !in
+        &           wfac_lin_zlev, idx0_lin_zlev, bot_idx_lin, wfacpbl1, & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           l_extrapol=.TRUE., l_pd_limit=.TRUE.,                & !in
+        &           lower_limit=0._wp                                    ) !in
+
+      ! interpolation of total specific cloud ice content
+      !
+      CALL lin_intp(prm_diag%tot_cld(:,:,:,iqi),                         & !inout
+        &           p_diag_z%tot_cld(:,:,:,iqi),                         & !out
+        &           p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,      & !in
+        &           wfac_lin_zlev, idx0_lin_zlev, bot_idx_lin, wfacpbl1, & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           l_extrapol=.TRUE., l_pd_limit=.TRUE.,                & !in
+        &           lower_limit=0._wp                                    ) !in
+
+      ! interpolation of total cloud cover
+      !
+      CALL lin_intp(prm_diag%tot_cld(:,:,:,icc),                         & !inout
+        &           p_diag_z%tot_cld(:,:,:,icc),                         & !out
+        &           p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,      & !in
+        &           wfac_lin_zlev, idx0_lin_zlev, bot_idx_lin, wfacpbl1, & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           l_extrapol=.TRUE., l_pd_limit=.TRUE.,                & !in
+        &           lower_limit=0._wp                                    ) !in
+
     ENDIF ! lwrite_zlev
 
 
     ! Preliminary interpolation of QV; a lower limit of 2.5 ppm is imposed
     !!! ATTENTION: prm_diag%tot_cld(:,:,:,iqv) may be modified !!!!
-    CALL lin_intp(prm_diag%tot_cld(:,:,:,iqv), p_diag_z%qv,            & !inout,out
+    CALL lin_intp(prm_diag%tot_cld(:,:,:,iqv),                         & !inout
+      &           p_diag_z%tot_cld(:,:,:,iqv),                         & !out
       &           p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,      & !in
       &           wfac_lin_zlev, idx0_lin_zlev, bot_idx_lin, wfacpbl1, & !in
       &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
@@ -800,10 +884,10 @@ CONTAINS
 
 
     ! Compute virtual temperature for model-level and z-level data
-    CALL virtual_temp(p_patch, p_diag%temp, prm_diag%tot_cld(:,:,:,iqv), & !in
-      &               temp_v=z_tempv_in                                  ) !out
-    CALL virtual_temp(p_patch, p_diag_z%temp, p_diag_z%qv,               & !in
-      &               temp_v=z_tempv                                     ) !out
+    CALL virtual_temp(p_patch, p_diag%temp, prm_diag%tot_cld(:,:,:,iqv),  & !in
+      &               temp_v=z_tempv_in                                   ) !out
+    CALL virtual_temp(p_patch, p_diag_z%temp, p_diag_z%tot_cld(:,:,:,iqv),& !in
+      &               temp_v=z_tempv                                      ) !out
 
 
     ! Interpolate pressure on z-levels
@@ -816,9 +900,10 @@ CONTAINS
 
 
     IF ( nh_pzlev_config(jg)%lwrite_zlev ) THEN
-      ! Final interpolation of QV, including supersaturation limiting
+      ! Final interpolation of total (diagnostic) QV, including supersaturation limiting
       !!! ATTENTION: prm_diag%tot_cld(:,:,:,iqv) may be modified !!!!
-      CALL qv_intp(prm_diag%tot_cld(:,:,:,iqv), p_diag_z%qv,          & !inout,out
+      CALL qv_intp(prm_diag%tot_cld(:,:,:,iqv),                       & !inout
+        &          p_diag_z%tot_cld(:,:,:,iqv),                       & !out
         &          p_metrics%z_mc, p_z3d_out, p_diag%temp,            & !in
         &          p_diag%pres, p_diag_z%temp, p_diag_z%pres,         & !in
         &          p_patch%nblks_c, p_patch%npromz_c, nlev, nzlev,    & !in
@@ -826,16 +911,20 @@ CONTAINS
         &          idx0_cub_zlev, idx0_lin_zlev, bot_idx_cub,         & !in
         &          bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2,     & !in
         &          lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE.    ) !in
+
     ENDIF  ! lwrite_zlev
 
 
-    ! Part 2: Interpolation to pressure-level fields
-    !
+    !##################################################!
+    ! Part 2: Interpolation to pressure-level fields   !
+    !##################################################!
 
     IF ( nh_pzlev_config(jg)%lwrite_plev ) THEN
       ! Compute height at pressure levels (i.e. geopot/g); this height 
       ! field is afterwards also used as target coordinate for vertical 
-      !interpolation
+      ! interpolation
+
+      WRITE(0,*) " Interpolation to pressure-level fields, jg ", jg
       CALL z_at_plevels(p_diag%pres, z_tempv_in, p_metrics%z_mc,      & !in
         &               p_diag_z%pres, z_tempv, p_z3d_out,            & !in
         &               p_p3d_out, p_diag_p%geopot, p_patch%nblks_c,  & !in,out,in
@@ -882,9 +971,10 @@ CONTAINS
         &          l_hires_intp=.FALSE., l_restore_fricred=.FALSE.    ) !in
 
 
-      ! Interpolation of QV, including supersaturation limiting
+      ! Interpolation of total (diagnostic) QV, including supersaturation limiting
       !!! ATTENTION: prm_diag%tot_cld(:,:,:,iqv) may be modified !!!!
-      CALL qv_intp(prm_diag%tot_cld(:,:,:,iqv), p_diag_p%qv,         & !inout,out
+      CALL qv_intp(prm_diag%tot_cld(:,:,:,iqv),                      & !inout
+        &          p_diag_p%tot_cld(:,:,:,iqv),                      & !out
         &          p_metrics%z_mc, p_diag_p%geopot, p_diag%temp,     & !in
         &          p_diag%pres, p_diag_p%temp, p_p3d_out,            & !in
         &          p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,   & !in
@@ -892,6 +982,81 @@ CONTAINS
         &          idx0_cub_plev, idx0_lin_plev, bot_idx_cub,        & !in
         &          bot_idx_lin, wfacpbl1, kpbl1, wfacpbl2, kpbl2,    & !in
         &          lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE.   ) !in
+
+
+!DR Note: prognostic QV will not be interpolated to avoid any change to the 
+!DR prognostic field done by the interpolation routine.
+
+      ! interpolation of prognostic specific cloud water content
+      !
+      CALL lin_intp(p_prog%tracer(:,:,:,iqc),                            & !inout
+        &           p_diag_p%tracer(:,:,:,iqc),                          & !out
+        &           p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,      & !in
+        &           wfac_lin_plev, idx0_lin_plev, bot_idx_lin, wfacpbl1, & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
+        &           lower_limit=0._wp                                    ) !in
+
+      ! interpolation of prognostic specific rain water content
+      !
+      CALL lin_intp(p_prog%tracer(:,:,:,iqr),                            & !inout
+        &           p_diag_p%tracer(:,:,:,iqr),                          & !out
+        &           p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,      & !in
+        &           wfac_lin_plev, idx0_lin_plev, bot_idx_lin, wfacpbl1, & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
+        &           lower_limit=0._wp                                    ) !in
+
+
+      ! interpolation of prognostic specific ice content
+      !
+      CALL lin_intp(p_prog%tracer(:,:,:,iqi),                            & !inout
+        &           p_diag_p%tracer(:,:,:,iqi),                          & !out
+        &           p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,      & !in
+        &           wfac_lin_plev, idx0_lin_plev, bot_idx_lin, wfacpbl1, & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
+        &           lower_limit=0._wp                                    ) !in
+
+
+      ! interpolation of prognostic specific snow content
+      !
+      CALL lin_intp(p_prog%tracer(:,:,:,iqs),                            & !inout
+        &           p_diag_p%tracer(:,:,:,iqs),                          & !out
+        &           p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,      & !in
+        &           wfac_lin_plev, idx0_lin_plev, bot_idx_lin, wfacpbl1, & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           l_extrapol=.TRUE., l_pd_limit=.FALSE.,               & !in
+        &           lower_limit=0._wp                                    ) !in
+
+
+      ! interpolation of total specific cloud water content
+      CALL lin_intp(prm_diag%tot_cld(:,:,:,iqc),                         & !inout
+        &           p_diag_p%tot_cld(:,:,:,iqc),                         & !out
+        &           p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,      & !in
+        &           wfac_lin_plev, idx0_lin_plev, bot_idx_lin, wfacpbl1, & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           l_extrapol=.TRUE., l_pd_limit=.TRUE.,                & !in
+        &           lower_limit=0._wp                                    ) !in
+
+      ! interpolation of total specific cloud ice content
+      CALL lin_intp(prm_diag%tot_cld(:,:,:,iqi),                         & !inout
+        &           p_diag_p%tot_cld(:,:,:,iqi),                         & !out
+        &           p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,      & !in
+        &           wfac_lin_plev, idx0_lin_plev, bot_idx_lin, wfacpbl1, & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           l_extrapol=.TRUE., l_pd_limit=.TRUE.,                & !in
+        &           lower_limit=0._wp                                    ) !in
+
+      ! interpolation of total cloud cover
+      CALL lin_intp(prm_diag%tot_cld(:,:,:,icc),                         & !inout
+        &           p_diag_p%tot_cld(:,:,:,icc),                         & !out
+        &           p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,      & !in
+        &           wfac_lin_plev, idx0_lin_plev, bot_idx_lin, wfacpbl1, & !in
+        &           kpbl1, wfacpbl2, kpbl2, l_loglin=.TRUE.,             & !in
+        &           l_extrapol=.TRUE., l_pd_limit=.TRUE.,                & !in
+        &           lower_limit=0._wp                                    ) !in
+
     ENDIF ! lwrite_plev
 
   END SUBROUTINE intp2pzlevs

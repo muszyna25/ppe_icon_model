@@ -249,8 +249,16 @@ MODULE mo_nonhydro_state
       &  temp(:,:,:),       & ! temperature (nproma,nlev,nblks_c)          [K]
       &  tempv(:,:,:),      & ! virtual temperature (nproma,nlev,nblks_c)  [K]
       &  pres(:,:,:),       & ! pressure (nproma,nlev,nblks_c)             [Pa]
-      &  qv(:,:,:),         & ! specifiv humidity (nproma,nlev,nblks_c)    [kg/kg]
+      &  tracer(:,:,:,:),   & ! tracer concentration (i.e. prognostic cloud 
+                              ! variables) (nproma,nlev,nblks_c,ntracer)   [kg/kg]
+      &  tot_cld(:,:,:,:),  & ! total cloud variables (cc,qv,qc,qi)        [kg/kg]
       &  geopot(:,:,:)        ! geopotential (nproma,nlev,nblks_c)         [m2/s2]
+
+    TYPE(t_ptr_nh),ALLOCATABLE :: &  !< pointer array: one pointer for each tracer
+      &  tracer_ptr(:)
+    TYPE(t_ptr_nh),ALLOCATABLE :: &  !< pointer array: one pointer for each cloud variable
+      &  tot_ptr(:)
+
   END TYPE t_nh_diag_pz
 
 
@@ -670,7 +678,7 @@ MODULE mo_nonhydro_state
   !! Initial release by Almut Gassmann (2009-03-06)
   !!
   SUBROUTINE new_nh_state_prog_list ( p_patch, p_prog, p_prog_list,  &
-    &                                 listname,vname_prefix, l_alloc_tracer)
+    &                                 listname, vname_prefix, l_alloc_tracer)
 !
     TYPE(t_patch), TARGET, INTENT(IN) :: & !< current patch
       &  p_patch
@@ -1708,7 +1716,7 @@ MODULE mo_nonhydro_state
       DO jt =1,ntracer
         WRITE(ctrc,'(I2.2)') jt
         CALL add_ref( p_diag_list, 'ddt_tracer_phy',                               &
-                    & 'ddt_phy_q'//ctrc, p_diag%ddt_trc_phy_ptr(jt)%p_3d,             &
+                    & 'ddt_phy_q'//ctrc, p_diag%ddt_trc_phy_ptr(jt)%p_3d,          &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                        &
                     & t_cf_var('ddt_phy_q'//ctrc, 'kg kg-1 s-1',''),               &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
@@ -1774,6 +1782,8 @@ MODULE mo_nonhydro_state
     CHARACTER(len=*), INTENT(IN)      :: &  !< list name
       &  listname
 
+    CHARACTER(len=max_char_length)    :: vname_prefix
+
     TYPE(t_cf_var)    :: cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
@@ -1783,11 +1793,12 @@ MODULE mo_nonhydro_state
 
     INTEGER :: jg            !< patch ID
  
-    INTEGER :: shape3d_c(3)
+    INTEGER :: shape3d_c(3), shape4d_c(4)
  
     INTEGER :: ientr         !< "entropy" of horizontal slice
 
-    CHARACTER(LEN=2) :: ctrc
+    INTEGER :: kcloud, ktracer
+
     !--------------------------------------------------------------
 
     !determine size of arrays
@@ -1803,7 +1814,9 @@ MODULE mo_nonhydro_state
 
     ! predefined array shapes
     shape3d_c     = (/nproma, nlev, nblks_c /)
+    shape4d_c     = (/nproma, nlev, nblks_c, ntracer+ntracer_static/)
 
+    kcloud= 4
 
     !
     ! Register a field list and apply default settings
@@ -1812,6 +1825,7 @@ MODULE mo_nonhydro_state
     CALL default_var_list_settings( p_diag_z_list,             &
                                   & lrestart=.FALSE.,          &
                                   & restart_type=FILETYPE_NC2  )
+
 
     ! u           p_diag_z%u(nproma,nlev,nblks_c)
     !
@@ -1849,14 +1863,132 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_c )
 
 
-    ! qv           p_diag_z%qv(nproma,nlev,nblks_c)
-    !
-    cf_desc    = t_cf_var('qv', 'kg kg-1', 'diagnostic specific humidity')
-    grib2_desc = t_grib2_var(0, 1, 0, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_z_list, 'qv', p_diag_z%qv,                            &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE, cf_desc, grib2_desc, &
-                & ldims=shape3d_c )
 
+    ! Tracer array for (model) internal use
+
+    ! tracer        p_diag_z%tracer(nproma,nlev,nblks_c,ntracer+ntracer_static)
+    IF ( ntracer > 0 ) THEN
+
+      cf_desc    = t_cf_var('tracer', 'kg kg-1', 'tracer')
+      grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_z_list, 'tracer', p_diag_z%tracer,                   &
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE, cf_desc, grib2_desc,&
+        &           ldims=shape4d_c ,                                           &
+                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+
+
+      IF (  iforcing == inwp  ) THEN
+
+      ! Reference to individual tracer, for I/O
+
+        ktracer=ntracer+ntracer_static
+        ALLOCATE( p_diag_z%tracer_ptr(ktracer) )
+        vname_prefix='tracer_'
+
+           !QV
+        CALL add_ref( p_diag_z_list, 'tracer',                                 &
+                    & TRIM(vname_prefix)//'qv', p_diag_z%tracer_ptr(iqv)%p_3d, &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,                  &
+                    & t_cf_var(TRIM(vname_prefix)//'qv',                       &
+                    &  'kg kg-1','specific_humidity'),                         &
+                    & t_grib2_var(0, 1, 0, ientr, GRID_REFERENCE, GRID_CELL),  &
+                    & ldims=shape3d_c)
+           !QC
+        CALL add_ref( p_diag_z_list, 'tracer',                                     &
+                    & TRIM(vname_prefix)//'qc', p_diag_z%tracer_ptr(iqc)%p_3d,     &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,                      &
+                    & t_cf_var(TRIM(vname_prefix)//'qc',                           &
+                    &  'kg kg-1', 'specific_cloud_water_content'),                 &
+                    & t_grib2_var(192, 201, 31, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_c)
+           !QI
+        CALL add_ref( p_diag_z_list, 'tracer',                                     &
+                    & TRIM(vname_prefix)//'qi', p_diag_z%tracer_ptr(iqi)%p_3d,     &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,                      &
+                    & t_cf_var(TRIM(vname_prefix)//'qi',                           & 
+                    &  'kg kg-1','specific_cloud_ice_content'),                    &
+                    & t_grib2_var(192, 201, 33, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_c)
+           !QR
+        CALL add_ref( p_diag_z_list, 'tracer',                                  &
+                    & TRIM(vname_prefix)//'qr', p_diag_z%tracer_ptr(iqr)%p_3d,  &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,                   &
+                    & t_cf_var(TRIM(vname_prefix)//'qr',                        &       
+                    &  'kg kg-1','rain_mixing_ratio'),                          &
+                    & t_grib2_var(0, 1, 24, ientr, GRID_REFERENCE, GRID_CELL),  &
+                    & ldims=shape3d_c)
+           !QS
+        CALL add_ref( p_diag_z_list, 'tracer',                                 &
+                    & TRIM(vname_prefix)//'qs', p_diag_z%tracer_ptr(iqs)%p_3d, &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,                  &
+                    & t_cf_var(TRIM(vname_prefix)//'qs',                       &
+                    &  'kg kg-1','snow_mixing_ratio'),                         &
+                    & t_grib2_var(0, 1, 25, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_c)
+
+        IF(irad_o3 == 3) THEN
+           !O3
+          CALL add_ref( p_diag_z_list, 'tracer',                       &
+            & TRIM(vname_prefix)//'O3', p_diag_z%tracer_ptr(io3)%p_3d, &
+            & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,                  &
+            & t_cf_var(TRIM(vname_prefix)//'O3',                       &
+            &  'kg kg-1','ozone_mass_mixing_ratio'),                   &
+            & t_grib2_var(0, 14, 1, ientr, GRID_REFERENCE, GRID_CELL), &
+            & ldims=shape3d_c)
+        ENDIF
+
+      ENDIF ! iforcing
+    ENDIF ! ntracer
+
+
+
+
+
+    ! &      p_diag_z%tot_cld(nproma,nlev,nblks_c,4)
+    cf_desc    = t_cf_var('tot_cld', 'kg kg-1','total cloud variables (cc,qv,qc,qi)')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_diag_z_list, 'tot_cld', p_diag_z%tot_cld,                  &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE, cf_desc, grib2_desc, &
+                &                         ldims=(/nproma,nlev,nblks_c,kcloud/),&
+                 & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+
+
+    ALLOCATE( p_diag_z%tot_ptr(kcloud))
+    vname_prefix='tot_'
+
+           !CC
+        CALL add_ref( p_diag_z_list, 'tot_cld',                                     &
+                    & TRIM(vname_prefix)//'cc', p_diag_z%tot_ptr(1)%p_3d,           &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,                       &
+                    & t_cf_var(TRIM(vname_prefix)//'cc', '','total_cloud_cover'),   &
+                    & t_grib2_var(192, 128, 164, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_c)
+
+           !QV
+        CALL add_ref( p_diag_z_list, 'tot_cld',                                        &
+                    & TRIM(vname_prefix)//'qv', p_diag_z%tot_ptr(2)%p_3d,              &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,                          &
+                    & t_cf_var(TRIM(vname_prefix)//'qv', '','total_specific_humidity'),&
+                    & t_grib2_var( 0, 1, 0, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_c)
+
+           !QC
+        CALL add_ref( p_diag_z_list, 'tot_cld',                                     &
+                    & TRIM(vname_prefix)//'qc', p_diag_z%tot_ptr(3)%p_3d,           &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,                       &
+                    & t_cf_var(TRIM(vname_prefix)//'qc', '',                        &
+                    & 'total_specific_cloud_water_content'),                        &
+                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_c)
+
+           !QI
+        CALL add_ref( p_diag_z_list, 'tot_cld',                                     &
+                    & TRIM(vname_prefix)//'qi', p_diag_z%tot_ptr(4)%p_3d,           &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE,                       &
+                    & t_cf_var(TRIM(vname_prefix)//'qi', '',                        &
+                    & 'total_specific_cloud_ice_content'),                          &
+                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_c)
 
   END SUBROUTINE new_nh_state_diag_z_list
 
@@ -1886,6 +2018,8 @@ MODULE mo_nonhydro_state
     CHARACTER(len=*), INTENT(IN)      :: &  !< list name
       &  listname
 
+    CHARACTER(len=max_char_length)    :: vname_prefix
+
     TYPE(t_cf_var)    :: cf_desc
     TYPE(t_grib2_var) :: grib2_desc
 
@@ -1895,11 +2029,12 @@ MODULE mo_nonhydro_state
 
     INTEGER :: jg            !< patch ID
 
-    INTEGER :: shape3d_c(3)
+    INTEGER :: shape3d_c(3), shape4d_c(4)
  
     INTEGER :: ientr         !< "entropy" of horizontal slice
 
-    CHARACTER(LEN=2) :: ctrc
+    INTEGER :: kcloud, ktracer
+
     !--------------------------------------------------------------
 
     !determine size of arrays
@@ -1915,7 +2050,9 @@ MODULE mo_nonhydro_state
 
     ! predefined array shapes
     shape3d_c     = (/nproma, nlev, nblks_c /)
+    shape4d_c     = (/nproma, nlev, nblks_c, ntracer+ntracer_static/)
 
+    kcloud= 4
 
 
     !
@@ -1925,6 +2062,7 @@ MODULE mo_nonhydro_state
     CALL default_var_list_settings( p_diag_p_list,             &
                                   & lrestart=.FALSE.,          &
                                   & restart_type=FILETYPE_NC2  )
+
 
     ! u           p_diag_p%u(nproma,nlev,nblks_c)
     !
@@ -1962,14 +2100,6 @@ MODULE mo_nonhydro_state
                 & ldims=shape3d_c )
 
 
-    ! qv           p_diag_p%temp(nproma,nlev,nblks_c)
-    !
-    cf_desc    = t_cf_var('qv_z', 'kg kg-1', 'diagnostic specific humidity')
-    grib2_desc = t_grib2_var(0, 1, 0, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_p_list, 'qv', p_diag_p%qv,                               &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc,    &
-                & ldims=shape3d_c )
-
     ! z           p_diag_p%geopot(nproma,nlev,nblks_c)
     !
     cf_desc    = t_cf_var('z', 'm2 s-2', 'geopotential')
@@ -1978,6 +2108,130 @@ MODULE mo_nonhydro_state
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc,    &
                 & ldims=shape3d_c )
 
+
+
+    ! Tracer array for (model) internal use
+
+    ! tracer         p_diag_p%tracer(nproma,nlev,nblks_c,ntracer+ntracer_static)
+    IF ( ntracer > 0 ) THEN
+
+      cf_desc    = t_cf_var('tracer', 'kg kg-1', 'tracer')
+      grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+      CALL add_var( p_diag_p_list, 'tracer', p_diag_p%tracer,                   &
+        &           GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc,&
+        &           ldims=shape4d_c ,                                           &
+                  & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+
+
+      IF (  iforcing == inwp  ) THEN
+
+      ! Reference to individual tracer, for I/O
+
+        ktracer=ntracer+ntracer_static
+        ALLOCATE( p_diag_p%tracer_ptr(ktracer) )
+        vname_prefix='tracer_'
+
+           !QV
+        CALL add_ref( p_diag_p_list, 'tracer',                                 &
+                    & TRIM(vname_prefix)//'qv', p_diag_p%tracer_ptr(iqv)%p_3d, &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE,                  &
+                    & t_cf_var(TRIM(vname_prefix)//'qv',                       &
+                    &  'kg kg-1','specific_humidity'),                         &
+                    & t_grib2_var(0, 1, 0, ientr, GRID_REFERENCE, GRID_CELL),  &
+                    & ldims=shape3d_c)
+           !QC
+        CALL add_ref( p_diag_p_list, 'tracer',                                     &
+                    & TRIM(vname_prefix)//'qc', p_diag_p%tracer_ptr(iqc)%p_3d,     &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE,                      &
+                    & t_cf_var(TRIM(vname_prefix)//'qc',                           &
+                    &  'kg kg-1', 'specific_cloud_water_content'),                 &
+                    & t_grib2_var(192, 201, 31, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_c)
+           !QI
+        CALL add_ref( p_diag_p_list, 'tracer',                                     &
+                    & TRIM(vname_prefix)//'qi', p_diag_p%tracer_ptr(iqi)%p_3d,     &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE,                      &
+                    & t_cf_var(TRIM(vname_prefix)//'qi',                           & 
+                    &  'kg kg-1','specific_cloud_ice_content'),                    &
+                    & t_grib2_var(192, 201, 33, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_c)
+           !QR
+        CALL add_ref( p_diag_p_list, 'tracer',                                  &
+                    & TRIM(vname_prefix)//'qr', p_diag_p%tracer_ptr(iqr)%p_3d,  &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE,                   &
+                    & t_cf_var(TRIM(vname_prefix)//'qr',                        &       
+                    &  'kg kg-1','rain_mixing_ratio'),                          &
+                    & t_grib2_var(0, 1, 24, ientr, GRID_REFERENCE, GRID_CELL),  &
+                    & ldims=shape3d_c)
+           !QS
+        CALL add_ref( p_diag_p_list, 'tracer',                                 &
+                    & TRIM(vname_prefix)//'qs', p_diag_p%tracer_ptr(iqs)%p_3d, &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE,                  &
+                    & t_cf_var(TRIM(vname_prefix)//'qs',                       &
+                    &  'kg kg-1','snow_mixing_ratio'),                         &
+                    & t_grib2_var(0, 1, 25, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_c)
+
+        IF(irad_o3 == 3) THEN
+           !O3
+          CALL add_ref( p_diag_p_list, 'tracer',                       &
+            & TRIM(vname_prefix)//'O3', p_diag_p%tracer_ptr(io3)%p_3d, &
+            & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE,                  &
+            & t_cf_var(TRIM(vname_prefix)//'O3',                       &
+            &  'kg kg-1','ozone_mass_mixing_ratio'),                   &
+            & t_grib2_var(0, 14, 1, ientr, GRID_REFERENCE, GRID_CELL), &
+            & ldims=shape3d_c)
+        ENDIF
+
+      ENDIF ! iforcing
+    ENDIF ! ktracer
+
+
+    ! &      p_diag_p%tot_cld(nproma,nlev,nblks_c,4)
+    cf_desc    = t_cf_var('tot_cld', 'kg kg-1','total cloud variables (cc,qv,qc,qi)')
+    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_diag_p_list, 'tot_cld', p_diag_p%tot_cld,                  &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc, &
+                &                         ldims=(/nproma,nlev,nblks_c,kcloud/),&
+                 & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+
+
+    ALLOCATE( p_diag_p%tot_ptr(kcloud))
+    vname_prefix='tot_'
+
+           !CC
+        CALL add_ref( p_diag_p_list, 'tot_cld',                                     &
+                    & TRIM(vname_prefix)//'cc', p_diag_p%tot_ptr(1)%p_3d,           &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE,                       &
+                    & t_cf_var(TRIM(vname_prefix)//'cc', '','total_cloud_cover'),   &
+                    & t_grib2_var(192, 128, 164, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_c)
+
+           !QV
+        CALL add_ref( p_diag_p_list, 'tot_cld',                                        &
+                    & TRIM(vname_prefix)//'qv', p_diag_p%tot_ptr(2)%p_3d,              &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE,                          &
+                    & t_cf_var(TRIM(vname_prefix)//'qv', '','total_specific_humidity'),&
+                    & t_grib2_var( 0, 1, 0, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_c)
+
+           !QC
+        CALL add_ref( p_diag_p_list, 'tot_cld',                                     &
+                    & TRIM(vname_prefix)//'qc', p_diag_p%tot_ptr(3)%p_3d,           &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE,                       &
+                    & t_cf_var(TRIM(vname_prefix)//'qc', '',                        &
+                    & 'total_specific_cloud_water_content'),                        &
+                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_c)
+
+           !QI
+        CALL add_ref( p_diag_p_list, 'tot_cld',                                     &
+                    & TRIM(vname_prefix)//'qi', p_diag_p%tot_ptr(4)%p_3d,           &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE,                       &
+                    & t_cf_var(TRIM(vname_prefix)//'qi', '',                        &
+                    & 'total_specific_cloud_ice_content'),                          &
+                    & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
+                    & ldims=shape3d_c)
 
   END SUBROUTINE new_nh_state_diag_p_list
 

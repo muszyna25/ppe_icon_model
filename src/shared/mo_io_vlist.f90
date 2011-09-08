@@ -611,7 +611,7 @@ CONTAINS
       DEALLOCATE(levels)
 
 
-      ! Define axes for variables on p- and z-levels
+      ! Define axes for output on p- and z-levels
       !
       IF (lwrite_pzlev) THEN
         nplev = nh_pzlev_config(k_jg)%nplev
@@ -1706,7 +1706,7 @@ CONTAINS
       ENDIF
 
 
-      ! output on constant height and/or pressure levels
+      ! output on constant z- and/or p-levels
       !
       IF(lwrite_pzlev .AND. iequations==inh_atmosphere) THEN
         IF (nh_pzlev_config(k_jg)%lwrite_zlev) THEN
@@ -1732,12 +1732,54 @@ CONTAINS
           &                   'Pa', 54, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
           &          k_jg)
-          CALL addVar(TimeVar('QV_Z',&
-          &                   'total water vapor',&
-          &                   'kg/kg', 91, 128,&
-          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
-          &          k_jg)
-        ENDIF
+
+          IF( lwrite_cloud ) THEN
+            CALL addVar(TimeVar('QV_Z',&
+            &                   'total water vapor',&
+            &                   'kg/kg', 91, 128,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
+            &          k_jg)
+            CALL addVar(TimeVar('QC_Z',&
+            &                   'total specific cloud water content',&
+            &                   'kg/kg', 246, 128,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
+            &          k_jg)
+            CALL addVar(TimeVar('QI_Z',&
+            &                   'total specific cloud ice content',&
+            &                   'kg/kg', 247, 128,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
+            &          k_jg)
+            CALL addVar(TimeVar('CC_Z',&
+            &                   'total_cloud_cover',&
+            &                   '0-1', 248, 128,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
+            &          k_jg)
+          ENDIF
+
+          ! prognostic tracer fields
+          IF (ntracer > 0 .AND. (iforcing == inwp .OR. ltransport)) THEN
+            DO jt = 1, ntracer
+              IF (lwrite_tracer(jt)) THEN
+                ctracer = ctracer_list(jt:jt)
+                IF (jt.EQ.1) THEN !for water vapour
+                  elemid=51; tableid=2   !DWD coding
+                ELSEIF (jt.EQ.2) THEN !for cloud water
+                 elemid=31; tableid=201 !DWD coding
+                ELSEIF (jt.EQ.3) THEN !for cloud ice
+                 elemid=33; tableid=201 !DWD coding
+                ELSE !other tracers
+                 elemid=252; tableid=128 !default coding
+                END IF
+                WRITE(name,'(A1,A1,A2)') "Q", ctracer,"_Z"
+                CALL addVar(TimeVar(TRIM(name),TRIM(name),&
+                  &                 'kg/kg',elemid,tableid,&
+                  &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
+                  &         k_jg)          
+              END IF
+            END DO
+          ENDIF  ! ntracer
+
+        ENDIF ! lwrite_zlev
         IF (nh_pzlev_config(k_jg)%lwrite_plev) THEN
           ! zonal wind
           CALL addVar(TimeVar('U_P',&
@@ -1761,14 +1803,56 @@ CONTAINS
           &                   'm2/s2', 129, 128,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
           &           k_jg)
-          CALL addVar(TimeVar('QV_P',&
-          &                   'total water vapor',&
-          &                   'kg/kg', 91, 128,&
-          &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
-          &          k_jg)
-        ENDIF
-      ENDIF !lwrite_pzlev
 
+          IF( lwrite_cloud ) THEN
+            CALL addVar(TimeVar('QV_P',&
+            &                   'total water vapor',&
+            &                   'kg/kg', 91, 128,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
+            &          k_jg)
+            CALL addVar(TimeVar('QC_P',&
+            &                   'total specific cloud water content',&
+            &                   'kg/kg', 246, 128,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
+            &          k_jg)
+            CALL addVar(TimeVar('QI_P',&
+            &                   'total specific cloud ice content',&
+            &                   'kg/kg', 247, 128,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
+            &          k_jg)
+            CALL addVar(TimeVar('CC_P',&
+            &                   'total cloud cover',&
+            &                   '0-1', 248, 128,&
+            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
+            &          k_jg)
+          ENDIF
+
+          ! prognostic tracer fields
+          IF (ntracer > 0 .AND. (iforcing == inwp .OR. ltransport)) THEN
+            DO jt = 1, ntracer
+              IF (lwrite_tracer(jt)) THEN
+                ctracer = ctracer_list(jt:jt)
+                IF (jt.EQ.1) THEN !for water vapour
+                  elemid=51; tableid=2   !DWD coding
+                ELSEIF (jt.EQ.2) THEN !for cloud water
+                 elemid=31; tableid=201 !DWD coding
+                ELSEIF (jt.EQ.3) THEN !for cloud ice
+                 elemid=33; tableid=201 !DWD coding
+                ELSE !other tracers
+                 elemid=252; tableid=128 !default coding
+                END IF
+                WRITE(name,'(A1,A1,A2)') "Q", ctracer,"_P"
+                CALL addVar(TimeVar(TRIM(name),TRIM(name),&
+                  &                 'kg/kg',elemid,tableid,&
+                  &                 vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
+                  &         k_jg)          
+              END IF
+            END DO
+          ENDIF  ! ntracer
+
+
+        ENDIF ! lwrite_plev
+      ENDIF !lwrite_pzlev
 
     ELSE 
       ! ocean
@@ -2391,12 +2475,18 @@ CONTAINS
       CASE ('V_Z');             ptr3 => p_diag_z%v     (:,:,:)
       CASE ('T_Z');             ptr3 => p_diag_z%temp  (:,:,:)
       CASE ('P_Z');             ptr3 => p_diag_z%pres  (:,:,:)
-      CASE ('QV_Z');            ptr3 => p_diag_z%qv    (:,:,:)
+      CASE ('QV_Z');            ptr3 => p_diag_z%tot_cld(:,:,:,iqv)
+      CASE ('QC_Z');            ptr3 => p_diag_z%tot_cld(:,:,:,iqc)
+      CASE ('QI_Z');            ptr3 => p_diag_z%tot_cld(:,:,:,iqi)
+      CASE ('CC_Z');            ptr3 => p_diag_z%tot_cld(:,:,:,icc)
       CASE ('U_P');             ptr3 => p_diag_p%u     (:,:,:)
       CASE ('V_P');             ptr3 => p_diag_p%v     (:,:,:)
       CASE ('T_P');             ptr3 => p_diag_p%temp  (:,:,:)
       CASE ('Z');               ptr3 => dup3(grav*p_diag_p%geopot(:,:,:))
-      CASE ('QV_P');            ptr3 => p_diag_p%qv    (:,:,:)
+      CASE ('QV_P');            ptr3 => p_diag_p%tot_cld(:,:,:,iqv)
+      CASE ('QC_P');            ptr3 => p_diag_p%tot_cld(:,:,:,iqc)
+      CASE ('QI_P');            ptr3 => p_diag_p%tot_cld(:,:,:,iqi)
+      CASE ('CC_P');            ptr3 => p_diag_p%tot_cld(:,:,:,icc)
       CASE DEFAULT;             not_found = .TRUE.
     END SELECT
 
@@ -2411,6 +2501,14 @@ CONTAINS
         ctracer = ctracer_list(jt:jt)
         IF(varname == 'Q'//ctracer) THEN
           ptr3 => p_prog%tracer(:,:,:,jt)
+          RETURN
+        ENDIF
+        IF(varname == 'Q'//ctracer//'_P') THEN
+          ptr3 => p_diag_p%tracer(:,:,:,jt)
+          RETURN
+        ENDIF
+        IF(varname == 'Q'//ctracer//'_Z') THEN
+          ptr3 => p_diag_z%tracer(:,:,:,jt)
           RETURN
         ENDIF
       ENDDO

@@ -705,7 +705,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL),&
                     & ldims=shape2d, lrestart=.FALSE. )
 
-   ! &      diag%tot_cld(nproma,nblks_c,4)
+   ! &      diag%tot_cld(nproma,nlev,nblks_c,4)
     cf_desc    = t_cf_var('tot_cld', ' ','total cloud variables (cc,qv,qc,qi)')
     grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( diag_list, 'tot_cld', diag%tot_cld,                       &
@@ -733,7 +733,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & t_grib2_var( 0, 1, 0, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape3d)
 
-           !qc
+           !QC
         CALL add_ref( diag_list, 'tot_cld',                                         &
                     & TRIM(vname_prefix)//'qc', diag%tot_ptr(3)%p_3d,               &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                         &
@@ -742,7 +742,7 @@ SUBROUTINE new_nwp_phy_diag_list( k_jg, klev, klevp1, kblks,   &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape3d)
 
-           !qi
+           !QI
         CALL add_ref( diag_list, 'tot_cld',                                         &
                     & TRIM(vname_prefix)//'qi', diag%tot_ptr(4)%p_3d,               &
                     & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID,                         &
