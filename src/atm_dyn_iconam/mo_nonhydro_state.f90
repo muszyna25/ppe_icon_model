@@ -1937,24 +1937,20 @@ MODULE mo_nonhydro_state
             & ldims=shape3d_c)
         ENDIF
 
-      ENDIF ! iforcing
-    ENDIF ! ntracer
 
 
 
+        ! &      p_diag_z%tot_cld(nproma,nlev,nblks_c,4)
+        cf_desc    = t_cf_var('tot_cld', 'kg kg-1','total cloud variables (cc,qv,qc,qi)')
+        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_diag_z_list, 'tot_cld', p_diag_z%tot_cld,                  &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE, cf_desc, grib2_desc, &
+                    &                         ldims=(/nproma,nlev,nblks_c,kcloud/),&
+                    & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
 
 
-    ! &      p_diag_z%tot_cld(nproma,nlev,nblks_c,4)
-    cf_desc    = t_cf_var('tot_cld', 'kg kg-1','total cloud variables (cc,qv,qc,qi)')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_z_list, 'tot_cld', p_diag_z%tot_cld,                  &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_ALTITUDE, cf_desc, grib2_desc, &
-                &                         ldims=(/nproma,nlev,nblks_c,kcloud/),&
-                 & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
-
-
-    ALLOCATE( p_diag_z%tot_ptr(kcloud))
-    vname_prefix='tot_'
+        ALLOCATE( p_diag_z%tot_ptr(kcloud))
+        vname_prefix='tot_'
 
            !CC
         CALL add_ref( p_diag_z_list, 'tot_cld',                                     &
@@ -1989,6 +1985,12 @@ MODULE mo_nonhydro_state
                     & 'total_specific_cloud_ice_content'),                          &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape3d_c)
+
+
+      ENDIF ! iforcing
+    ENDIF ! ntracer
+
+
 
   END SUBROUTINE new_nh_state_diag_z_list
 
@@ -2103,7 +2105,7 @@ MODULE mo_nonhydro_state
     ! z           p_diag_p%geopot(nproma,nlev,nblks_c)
     !
     cf_desc    = t_cf_var('z', 'm2 s-2', 'geopotential')
-    grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
+    grib2_desc = t_grib2_var(0, 3, 4, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_p_list, 'z', p_diag_p%geopot,                            &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc,    &
                 & ldims=shape3d_c )
@@ -2183,21 +2185,19 @@ MODULE mo_nonhydro_state
             & ldims=shape3d_c)
         ENDIF
 
-      ENDIF ! iforcing
-    ENDIF ! ktracer
 
 
-    ! &      p_diag_p%tot_cld(nproma,nlev,nblks_c,4)
-    cf_desc    = t_cf_var('tot_cld', 'kg kg-1','total cloud variables (cc,qv,qc,qi)')
-    grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
-    CALL add_var( p_diag_p_list, 'tot_cld', p_diag_p%tot_cld,                  &
-                & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc, &
-                &                         ldims=(/nproma,nlev,nblks_c,kcloud/),&
-                 & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
+        ! &      p_diag_p%tot_cld(nproma,nlev,nblks_c,4)
+        cf_desc    = t_cf_var('tot_cld', 'kg kg-1','total cloud variables (cc,qv,qc,qi)')
+        grib2_desc = t_grib2_var(0, 2, 2, ientr, GRID_REFERENCE, GRID_CELL)
+        CALL add_var( p_diag_p_list, 'tot_cld', p_diag_p%tot_cld,                  &
+                    & GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, grib2_desc, &
+                    &                         ldims=(/nproma,nlev,nblks_c,kcloud/),&
+                    & lcontainer=.TRUE., lrestart=.FALSE., lpost=.FALSE.)
 
 
-    ALLOCATE( p_diag_p%tot_ptr(kcloud))
-    vname_prefix='tot_'
+        ALLOCATE( p_diag_p%tot_ptr(kcloud))
+        vname_prefix='tot_'
 
            !CC
         CALL add_ref( p_diag_p_list, 'tot_cld',                                     &
@@ -2232,6 +2232,11 @@ MODULE mo_nonhydro_state
                     & 'total_specific_cloud_ice_content'),                          &
                     & t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL), &
                     & ldims=shape3d_c)
+
+
+      ENDIF ! iforcing
+    ENDIF ! ktracer
+
 
   END SUBROUTINE new_nh_state_diag_p_list
 

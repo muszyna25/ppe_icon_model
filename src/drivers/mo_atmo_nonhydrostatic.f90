@@ -121,22 +121,22 @@ CONTAINS
     ! 4.c Non-Hydrostatic / NWP
     !---------------------------------------------------------------------
 
-     ALLOCATE (p_nh_state(n_dom), stat=ist)
-     IF (ist /= success) THEN
-       CALL finish(TRIM(routine),'allocation for p_nh_state failed')
-     ENDIF
+    ALLOCATE (p_nh_state(n_dom), stat=ist)
+    IF (ist /= success) THEN
+      CALL finish(TRIM(routine),'allocation for p_nh_state failed')
+    ENDIF
 
-     IF(iforcing == inwp) THEN
-       CALL construct_nwp_phy_state( p_patch(1:) )
+    IF(iforcing == inwp) THEN
+      CALL construct_nwp_phy_state( p_patch(1:) )
        
-       ALLOCATE (p_lnd_state(n_dom), stat=ist)
-       IF (ist /= success) THEN
-         CALL finish(TRIM(routine),'allocation for p_lnd_state failed')
-       ENDIF
-       CALL configure_lnd_nwp()
-       CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
+      ALLOCATE (p_lnd_state(n_dom), stat=ist)
+      IF (ist /= success) THEN
+        CALL finish(TRIM(routine),'allocation for p_lnd_state failed')
+      ENDIF
+      CALL configure_lnd_nwp()
+      CALL construct_nwp_lnd_state( p_patch(1:),p_lnd_state,n_timelevels=2 )
 
-     ENDIF
+    ENDIF
 
     !---------------------------------------------------------------------
     ! 5. Perform time stepping
@@ -159,87 +159,87 @@ CONTAINS
                                                                                        
    !--------------------
 
-     ! Initialize model with real atmospheric data if appropriate switches are set
-     IF (l_realcase .AND. .NOT. is_restart_run()) THEN
+    ! Initialize model with real atmospheric data if appropriate switches are set
+    IF (l_realcase .AND. .NOT. is_restart_run()) THEN
 
-       CALL message(TRIM(routine),'Real-data mode: perform initialization with IFS2ICON data')
+      CALL message(TRIM(routine),'Real-data mode: perform initialization with IFS2ICON data')
 
-       ! Allocate prepicon data type
-       ALLOCATE (prepicon(n_dom), stat=ist)
-       IF (ist /= success) THEN
-         CALL finish(TRIM(routine),'allocation for prepicon failed')
-       ENDIF
+      ! Allocate prepicon data type
+      ALLOCATE (prepicon(n_dom), stat=ist)
+      IF (ist /= success) THEN
+        CALL finish(TRIM(routine),'allocation for prepicon failed')
+      ENDIF
 
-       i_oper_mode = 3 ! For the time being, the only option that works when called
-                       ! from the main ICON program
+      i_oper_mode = 3 ! For the time being, the only option that works when called
+                      ! from the main ICON program
 
-       IF (atm_phy_nwp_config(1)%inwp_surface > 0 .AND. .NOT. l_sfc_in) THEN
-         CALL finish(TRIM(routine),'A real-data run with surface scheme requires &
-                                    &surface input data')
-       ENDIF
+      IF (atm_phy_nwp_config(1)%inwp_surface > 0 .AND. .NOT. l_sfc_in) THEN
+        CALL finish(TRIM(routine),'A real-data run with surface scheme requires &
+                                   &surface input data')
+      ENDIF
  
-       ! allocate memory for topography and coordinate fields,
-       ! read topo data from netCDF file, 
-       ! optionally smooth topography data,
-       ! and, in case of nesting, perform topography blending and feedback
-       CALL init_prepicon (p_int_state(1:), p_grf_state(1:), prepicon, ext_data)
+      ! allocate memory for topography and coordinate fields,
+      ! read topo data from netCDF file, 
+      ! optionally smooth topography data,
+      ! and, in case of nesting, perform topography blending and feedback
+      CALL init_prepicon (p_int_state(1:), p_grf_state(1:), prepicon, ext_data)
 
-     ENDIF
+    ENDIF
 
-     CALL prepare_nh_integration(p_patch(1:), p_nh_state, p_int_state(1:), p_grf_state(1:))
+    CALL prepare_nh_integration(p_patch(1:), p_nh_state, p_int_state(1:), p_grf_state(1:))
 
-     ! Continue operations for real-data initialization
-     IF (l_realcase .AND. .NOT. is_restart_run()) THEN
+    ! Continue operations for real-data initialization
+    IF (l_realcase .AND. .NOT. is_restart_run()) THEN
 
-       ! Compute the 3D coordinate fields
-       CALL compute_coord_fields(p_int_state(1:), prepicon)
+      ! Compute the 3D coordinate fields
+      CALL compute_coord_fields(p_int_state(1:), prepicon)
 
-       ! Perform vertical interpolation from intermediate IFS2ICON grid to ICON grid
-       ! and convert variables to the NH set of prognostic variables
-       CALL vertical_interpolation(p_patch(1:), p_int_state(1:), p_grf_state(1:), prepicon)
+      ! Perform vertical interpolation from intermediate IFS2ICON grid to ICON grid
+      ! and convert variables to the NH set of prognostic variables
+      CALL vertical_interpolation(p_patch(1:), p_int_state(1:), p_grf_state(1:), prepicon)
 
-       ! Finally copy the results to the prognostic model variables
-       CALL copy_prepicon2prog(prepicon, p_nh_state, p_lnd_state)
+      ! Finally copy the results to the prognostic model variables
+      CALL copy_prepicon2prog(prepicon, p_nh_state, p_lnd_state)
 
-       ! Deallocate prepicon data type
-       CALL deallocate_prepicon(prepicon)
-       DEALLOCATE (prepicon, stat=ist)
-       IF (ist /= success) THEN
-         CALL finish(TRIM(routine),'deallocation for prepicon failed')
-       ENDIF
+      ! Deallocate prepicon data type
+      CALL deallocate_prepicon(prepicon)
+      DEALLOCATE (prepicon, stat=ist)
+      IF (ist /= success) THEN
+        CALL finish(TRIM(routine),'deallocation for prepicon failed')
+      ENDIF
 
-     ENDIF
+    ENDIF
 
-     !---------------------------------------------------------
-     ! The most primitive event handling algorithm: 
-     ! compute time step interval for taking a certain action
-     !--------------------------------------------------------- 
+    !---------------------------------------------------------
+    ! The most primitive event handling algorithm: 
+    ! compute time step interval for taking a certain action
+    !--------------------------------------------------------- 
  
-     n_io    = NINT(dt_data/dtime)        ! write output
-     n_file  = NINT(dt_file/dtime)        ! trigger new output file
-     n_chkpt = NINT(dt_checkpoint/dtime)  ! write restart files
-     n_diag  = MAX(1,NINT(dt_diag/dtime)) ! diagnose of total integrals
+    n_io    = NINT(dt_data/dtime)        ! write output
+    n_file  = NINT(dt_file/dtime)        ! trigger new output file
+    n_chkpt = NINT(dt_checkpoint/dtime)  ! write restart files
+    n_diag  = MAX(1,NINT(dt_diag/dtime)) ! diagnose of total integrals
 
 
-     !------------------------------------------------------------------
-     ! Prepare output file
-     !------------------------------------------------------------------
-     !
-     ! if output on z and/or p-levels is required do some config
-     IF (lwrite_pzlev) THEN
-       DO jg = 1, n_dom
-         CALL configure_nh_pzlev(jg, nproma, p_patch(jg)%npromz_c, &
-           &                     p_patch(jg)%nblks_c, lwrite_pzlev   )
-       ENDDO
-     ENDIF
+    !------------------------------------------------------------------
+    ! Prepare output file
+    !------------------------------------------------------------------
+    !
+    ! if output on z and/or p-levels is required do some config
+    IF (lwrite_pzlev) THEN
+      DO jg = 1, n_dom
+        CALL configure_nh_pzlev(jg, nproma, p_patch(jg)%npromz_c,  &
+          &                     p_patch(jg)%nblks_c, lwrite_pzlev  )
+      ENDDO
+    ENDIF
 
 
-     IF (.NOT.is_restart_run()) THEN
-       ! Initialize the first output file which will contain also the 
-       ! initial conditions.
+    IF (.NOT.is_restart_run()) THEN
+      ! Initialize the first output file which will contain also the 
+      ! initial conditions.
 
-       jfile = 1
-       CALL init_output_files(jfile, lclose=.FALSE.)
+      jfile = 1
+      CALL init_output_files(jfile, lclose=.FALSE.)
 
     ELSE
     ! No need to write out the initial condition, thus no output
@@ -262,45 +262,46 @@ CONTAINS
     !------------------------------------------------------------------
     IF (.NOT.is_restart_run()) THEN
 
-    ! diagnose u and v to have meaningful initial output
-    ! For real-case runs, also diagnose pressure and temperature
-    ! because these variables are needed for initializing the physics parameterizations
+      ! diagnose u and v to have meaningful initial output
+      ! For real-case runs, also diagnose pressure and temperature
+      ! because these variables are needed for initializing the physics parameterizations
     
-    DO jg = 1, n_dom
+      DO jg = 1, n_dom
 
-      ! time levels
-      ntl  = nnow(jg)
-      ntlr = nnow_rcf(jg)
+        ! time levels
+        ntl  = nnow(jg)
+        ntlr = nnow_rcf(jg)
 
-      SELECT CASE (p_patch(jg)%cell_type)
-        CASE (3)
-        CALL rbf_vec_interpol_cell(p_nh_state(jg)%prog(ntl)%vn,p_patch(jg),&
-          & p_int_state(jg),p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
-        CASE (6)
-        CALL edges2cells_scalar(p_nh_state(jg)%prog(ntl)%vn,p_patch(jg), &
-          & p_int_state(jg)%hex_east,p_nh_state(jg)%diag%u)
-        CALL edges2cells_scalar(p_nh_state(jg)%prog(ntl)%vn,p_patch(jg), &
-          & p_int_state(jg)%hex_north,p_nh_state(jg)%diag%v)
-      END SELECT
+        SELECT CASE (p_patch(jg)%cell_type)
+          CASE (3)
+          CALL rbf_vec_interpol_cell(p_nh_state(jg)%prog(ntl)%vn,p_patch(jg),&
+            & p_int_state(jg),p_nh_state(jg)%diag%u,p_nh_state(jg)%diag%v)
+          CASE (6)
+          CALL edges2cells_scalar(p_nh_state(jg)%prog(ntl)%vn,p_patch(jg), &
+            & p_int_state(jg)%hex_east,p_nh_state(jg)%diag%u)
+          CALL edges2cells_scalar(p_nh_state(jg)%prog(ntl)%vn,p_patch(jg), &
+            & p_int_state(jg)%hex_north,p_nh_state(jg)%diag%v)
+        END SELECT
 
-      IF (l_realcase) THEN ! for test cases, diagnose_pres_temp is currently called in nh_testcases
-        CALL diagnose_pres_temp(p_nh_state(jg)%metrics, p_nh_state(jg)%prog(ntl),        &
-          &                     p_nh_state(jg)%prog(ntlr), p_nh_state(jg)%diag,          &
-          &                     p_patch(jg), opt_calc_temp=.TRUE., opt_calc_pres=.TRUE., &
-          &                     lnd_prog=p_lnd_state(jg)%prog_lnd(ntlr) )
+        IF (l_realcase) THEN ! for test cases, diagnose_pres_temp is currently 
+                             ! called in nh_testcases
+          CALL diagnose_pres_temp(p_nh_state(jg)%metrics, p_nh_state(jg)%prog(ntl),     &
+            &                  p_nh_state(jg)%prog(ntlr), p_nh_state(jg)%diag,          &
+            &                  p_patch(jg), opt_calc_temp=.TRUE., opt_calc_pres=.TRUE., &
+            &                  lnd_prog=p_lnd_state(jg)%prog_lnd(ntlr) )
+        ENDIF
+
+      ENDDO
+    
+      ! Note: here the derived output variables are not yet available
+      ! (divergence, vorticity)
+      !
+      ! Interpolate selected fields to p- and/or z-levels
+      IF (lwrite_pzlev) THEN
+        CALL intp_to_p_and_z_levels(p_patch(1:), prm_diag, p_nh_state)
       ENDIF
-
-    ENDDO
-    
-    ! Note: here the derived output variables are not yet available
-    ! (divergence, vorticity)
-    !
-    ! Interpolate selected fields to p- and/or z-levels
-    IF (lwrite_pzlev) THEN
-      CALL intp_to_p_and_z_levels(p_patch(1:), prm_diag, p_nh_state)
-    ENDIF
-    CALL write_output( time_config%cur_datetime )
-    l_have_output = .TRUE.
+      CALL write_output( time_config%cur_datetime )
+      l_have_output = .TRUE.
 
     END IF ! not is_restart_run()
 
@@ -310,9 +311,9 @@ CONTAINS
     ! is executed within process_grid_level
     !------------------------------------------------------------------
 
-      CALL perform_nh_stepping( p_patch, p_int_state, p_grf_state, p_nh_state,   &
-                              & time_config%cur_datetime,                        &
-                              & n_io, n_file, n_chkpt, n_diag, l_have_output     )
+    CALL perform_nh_stepping( p_patch, p_int_state, p_grf_state, p_nh_state, &
+      &                       time_config%cur_datetime,                      &
+      &                       n_io, n_file, n_chkpt, n_diag, l_have_output   )
  
     IF (ltimer) CALL print_timer
 
@@ -320,23 +321,23 @@ CONTAINS
     ! 6. Integration finished. Clean up.
     !---------------------------------------------------------------------
 
-   CALL message(TRIM(routine),'start to clean up')
+    CALL message(TRIM(routine),'start to clean up')
    
-   ! Delete state variables
+    ! Delete state variables
 
-   CALL destruct_nh_state( p_nh_state )
-   DEALLOCATE (p_nh_state, STAT=ist)
-   IF (ist /= SUCCESS) THEN
-     CALL finish(TRIM(routine),'deallocation for p_nh_state failed')
-   ENDIF
+    CALL destruct_nh_state( p_nh_state )
+    DEALLOCATE (p_nh_state, STAT=ist)
+    IF (ist /= SUCCESS) THEN
+      CALL finish(TRIM(routine),'deallocation for p_nh_state failed')
+    ENDIF
 
-   IF (iforcing == inwp) THEN
-     CALL destruct_nwp_phy_state
-     CALL destruct_nwp_lnd_state(p_lnd_state)
-   ENDIF
+    IF (iforcing == inwp) THEN
+      CALL destruct_nwp_phy_state
+      CALL destruct_nwp_lnd_state(p_lnd_state)
+    ENDIF
 
-   ! Delete output variable lists
-   IF (l_have_output) CALL close_output_files
+    ! Delete output variable lists
+    IF (l_have_output) CALL close_output_files
 
     CALL message(TRIM(routine),'clean-up finished')
     

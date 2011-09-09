@@ -220,8 +220,8 @@ CONTAINS
         ! input from other physical processes on the convection
         z_dtdt(i_startidx:i_endidx,:,jb)= 0._wp                                                  &
           &                              + prm_nwp_tend%ddt_temp_radsw(i_startidx:i_endidx,:,jb) &
-          &                              + prm_nwp_tend%ddt_temp_radlw(i_startidx:i_endidx,:,jb) !DR&
-!DR          &                              + prm_nwp_tend%ddt_temp_turb(i_startidx:i_endidx,:,jb)
+          &                              + prm_nwp_tend%ddt_temp_radlw(i_startidx:i_endidx,:,jb) &
+          &                              + prm_nwp_tend%ddt_temp_turb(i_startidx:i_endidx,:,jb)
 
         !KF its a must to set them to zero!
         prm_nwp_tend%ddt_temp_pconv  (i_startidx:i_endidx,:,jb)   = 0._wp
@@ -349,8 +349,8 @@ CONTAINS
           prm_nwp_tend%ddt_temp_pconv  (i_startidx:i_endidx,kstart_moist(jg):,jb) =     &
             &  z_dtdt(i_startidx:i_endidx,kstart_moist(jg):,jb)                         &
             &  - prm_nwp_tend%ddt_temp_radsw (i_startidx:i_endidx,kstart_moist(jg):,jb) &
-            &  - prm_nwp_tend%ddt_temp_radlw (i_startidx:i_endidx,kstart_moist(jg):,jb) !DR&
-!DR            &  - prm_nwp_tend%ddt_temp_turb(i_startidx:i_endidx,kstart_moist(jg):,jb)
+            &  - prm_nwp_tend%ddt_temp_radlw (i_startidx:i_endidx,kstart_moist(jg):,jb) &
+            &  - prm_nwp_tend%ddt_temp_turb(i_startidx:i_endidx,kstart_moist(jg):,jb)
 
           prm_nwp_tend%ddt_tracer_pconv(i_startidx:i_endidx,kstart_moist(jg):,jb,iqv) =  &
             &  z_dtdqv(i_startidx:i_endidx,kstart_moist(jg):,jb)                         &

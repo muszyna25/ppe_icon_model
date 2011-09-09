@@ -116,7 +116,7 @@ CONTAINS
 
   !-------------
   !>
-  !! SUBROUTINE interpolate_to_p_and_z_levels
+  !! SUBROUTINE intp_to_p_and_z_levels
   !! Outer driver routine for vertical interpolation of output 
   !! fields to p- and z-levels
   !!
@@ -684,8 +684,8 @@ CONTAINS
 
     ! LOCAL VARIABLES
 
-    INTEGER :: jb, jk, jg
-    INTEGER :: nlen, nlev
+    INTEGER :: jg
+    INTEGER :: nlev
 
     ! Auxiliary field for input data
     REAL(wp), DIMENSION(nproma,p_patch%nlev,p_patch%nblks_c) :: &
@@ -925,7 +925,6 @@ CONTAINS
       ! field is afterwards also used as target coordinate for vertical 
       ! interpolation
 
-      WRITE(0,*) " Interpolation to pressure-level fields, jg ", jg
       CALL z_at_plevels(p_diag%pres, z_tempv_in, p_metrics%z_mc,      & !in
         &               p_diag_z%pres, z_tempv, p_z3d_out,            & !in
         &               p_p3d_out, p_diag_p%geopot, p_patch%nblks_c,  & !in,out,in
@@ -985,8 +984,8 @@ CONTAINS
         &          lower_limit=2.5e-6_wp, l_restore_pbldev=.FALSE.   ) !in
 
 
-!DR Note: prognostic QV will not be interpolated to avoid any change to the 
-!DR prognostic field done by the interpolation routine.
+!DR Note: prognostic QV will not be interpolated to avoid any modification 
+!DR of the prognostic field due to the interpolation routine.
 
       ! interpolation of prognostic specific cloud water content
       !
@@ -1032,6 +1031,7 @@ CONTAINS
 
 
       ! interpolation of total specific cloud water content
+      !
       CALL lin_intp(prm_diag%tot_cld(:,:,:,iqc),                         & !inout
         &           p_diag_p%tot_cld(:,:,:,iqc),                         & !out
         &           p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,      & !in
@@ -1041,6 +1041,7 @@ CONTAINS
         &           lower_limit=0._wp                                    ) !in
 
       ! interpolation of total specific cloud ice content
+      !
       CALL lin_intp(prm_diag%tot_cld(:,:,:,iqi),                         & !inout
         &           p_diag_p%tot_cld(:,:,:,iqi),                         & !out
         &           p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,      & !in
@@ -1050,6 +1051,7 @@ CONTAINS
         &           lower_limit=0._wp                                    ) !in
 
       ! interpolation of total cloud cover
+      !
       CALL lin_intp(prm_diag%tot_cld(:,:,:,icc),                         & !inout
         &           p_diag_p%tot_cld(:,:,:,icc),                         & !out
         &           p_patch%nblks_c, p_patch%npromz_c, nlev, nplev,      & !in

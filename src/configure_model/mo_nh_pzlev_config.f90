@@ -1,7 +1,8 @@
 !>
-!! <Short description of module for listings and indices>
+!! @brief configuration setup for z/p-level output
 !!
-!! <Describe the concepts of the procedures and algorithms used in the module.>
+!! configuration setup for z/p-level output
+!!
 !! <Details of procedures are documented below with their definitions.>
 !! <Include any applicable external references inline as module::procedure,>
 !! <external_procedure(), or by using @see.>
@@ -54,7 +55,7 @@ MODULE mo_nh_pzlev_config
 
 
   !!--------------------------------------------------------------------------
-  !! Basic configuration setup for p/p-level output
+  !! Basic configuration setup for z/p-level output
   !!--------------------------------------------------------------------------
   TYPE :: t_nh_pzlev_config
 
@@ -70,13 +71,13 @@ MODULE mo_nh_pzlev_config
 
     REAL(wp):: zlevels(100)          !< zlevel heights [m] 
 
-    REAL(wp):: plevels(100)          !< plevel heights [m] 
+    REAL(wp):: plevels(100)          !< plevel heights [Pa] 
 
     ! derived variables
     !
     REAL(wp), ALLOCATABLE ::  &
-      &  p3d(:,:,:),          & !< 3D pressure level field for output on p-levels
-      &  z3d(:,:,:)             !< 3D height level field for output on z-levels
+      &  p3d(:,:,:),          & !< 3D pressure level target field for output on p-levels
+      &  z3d(:,:,:)             !< 3D height level target field for output on z-levels
                    
   END TYPE t_nh_pzlev_config
 
@@ -92,7 +93,7 @@ CONTAINS
   !! setup components for output on pressure/height levels
   !!
   !! Setup of additional control variables for output on pressure/height levels.  
-  !! These may depend on the nh_pzlev-NAMELIST and potentially other namelists. 
+  !! These may depend on the nh_pzlev-namelist and potentially other namelists. 
   !! This routine is called, after all namelists have been read and a synoptic 
   !! consistency check has been done.
   !!
@@ -105,9 +106,9 @@ CONTAINS
     INTEGER, INTENT(IN) :: nproma
     INTEGER, INTENT(IN) :: npromz_c
     INTEGER, INTENT(IN) :: nblks_c      !< number of blocks
-    LOGICAL, INTENT(IN) :: lwrite_pzlev
+    LOGICAL, INTENT(IN) :: lwrite_pzlev !< main switch
 
-    ! Lokal variables
+    ! Local variables
     INTEGER :: ist
     INTEGER :: nlen
     INTEGER :: z_nplev, z_nzlev
@@ -148,7 +149,7 @@ CONTAINS
           nh_pzlev_config(jg)%p3d(1:nlen,jk,jb) = nh_pzlev_config(jg)%plevels(jk)
         ENDDO
 
-        DO jk = 1, nh_pzlev_config(jg)%nplev
+        DO jk = 1, nh_pzlev_config(jg)%nzlev
           nh_pzlev_config(jg)%z3d(1:nlen,jk,jb) = nh_pzlev_config(jg)%zlevels(jk)
         ENDDO
 

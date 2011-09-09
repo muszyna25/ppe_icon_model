@@ -544,6 +544,7 @@ CONTAINS
     !
     !=========================================================================
     ! vertical grids
+    !
     ! surface level
     zaxisID_surface(k_jg) = zaxisCreate(ZAXIS_SURFACE, 1)
     ALLOCATE(levels(1))
@@ -1733,28 +1734,6 @@ CONTAINS
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
           &          k_jg)
 
-          IF( lwrite_cloud ) THEN
-            CALL addVar(TimeVar('QV_Z',&
-            &                   'total water vapor',&
-            &                   'kg/kg', 91, 128,&
-            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
-            &          k_jg)
-            CALL addVar(TimeVar('QC_Z',&
-            &                   'total specific cloud water content',&
-            &                   'kg/kg', 246, 128,&
-            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
-            &          k_jg)
-            CALL addVar(TimeVar('QI_Z',&
-            &                   'total specific cloud ice content',&
-            &                   'kg/kg', 247, 128,&
-            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
-            &          k_jg)
-            CALL addVar(TimeVar('CC_Z',&
-            &                   'total_cloud_cover',&
-            &                   '0-1', 248, 128,&
-            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
-            &          k_jg)
-          ENDIF
 
           ! prognostic tracer fields
           IF (ntracer > 0 .AND. (iforcing == inwp .OR. ltransport)) THEN
@@ -1777,6 +1756,29 @@ CONTAINS
                   &         k_jg)          
               END IF
             END DO
+
+            IF( lwrite_cloud ) THEN
+              CALL addVar(TimeVar('QV_Z',&
+              &                   'total water vapor',&
+              &                   'kg/kg', 91, 128,&
+              &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
+              &          k_jg)
+              CALL addVar(TimeVar('QC_Z',&
+              &                   'total specific cloud water content',&
+              &                   'kg/kg', 246, 128,&
+              &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
+              &          k_jg)
+              CALL addVar(TimeVar('QI_Z',&
+              &                   'total specific cloud ice content',&
+              &                   'kg/kg', 247, 128,&
+              &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
+              &          k_jg)
+              CALL addVar(TimeVar('CC_Z',&
+              &                   'total_cloud_cover',&
+              &                   '0-1', 248, 128,&
+              &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_hgt(k_jg)),&
+              &          k_jg)
+            ENDIF
           ENDIF  ! ntracer
 
         ENDIF ! lwrite_zlev
@@ -1804,28 +1806,6 @@ CONTAINS
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
           &           k_jg)
 
-          IF( lwrite_cloud ) THEN
-            CALL addVar(TimeVar('QV_P',&
-            &                   'total water vapor',&
-            &                   'kg/kg', 91, 128,&
-            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
-            &          k_jg)
-            CALL addVar(TimeVar('QC_P',&
-            &                   'total specific cloud water content',&
-            &                   'kg/kg', 246, 128,&
-            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
-            &          k_jg)
-            CALL addVar(TimeVar('QI_P',&
-            &                   'total specific cloud ice content',&
-            &                   'kg/kg', 247, 128,&
-            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
-            &          k_jg)
-            CALL addVar(TimeVar('CC_P',&
-            &                   'total cloud cover',&
-            &                   '0-1', 248, 128,&
-            &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
-            &          k_jg)
-          ENDIF
 
           ! prognostic tracer fields
           IF (ntracer > 0 .AND. (iforcing == inwp .OR. ltransport)) THEN
@@ -1848,6 +1828,30 @@ CONTAINS
                   &         k_jg)          
               END IF
             END DO
+
+            IF( lwrite_cloud ) THEN
+              CALL addVar(TimeVar('QV_P',&
+              &                   'total water vapor',&
+              &                   'kg/kg', 91, 128,&
+              &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
+              &          k_jg)
+              CALL addVar(TimeVar('QC_P',&
+              &                   'total specific cloud water content',&
+              &                   'kg/kg', 246, 128,&
+              &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
+              &          k_jg)
+              CALL addVar(TimeVar('QI_P',&
+              &                   'total specific cloud ice content',&
+              &                   'kg/kg', 247, 128,&
+              &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
+              &          k_jg)
+              CALL addVar(TimeVar('CC_P',&
+              &                   'total cloud cover',&
+              &                   '0-1', 248, 128,&
+              &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_pres(k_jg)),&
+              &          k_jg)
+            ENDIF
+
           ENDIF  ! ntracer
 
 

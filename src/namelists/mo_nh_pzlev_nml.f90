@@ -72,7 +72,7 @@ MODULE mo_nh_pzlev_nml
 
   REAL(wp):: zlevels(100)          !< zlevel heights [m] 
 
-  REAL(wp):: plevels(100)          !< plevel heights [m] 
+  REAL(wp):: plevels(100)          !< plevel heights [Pa] 
 
 
   NAMELIST/nh_pzlev_nml/ lwrite_zlev, lwrite_plev, nzlev, nplev,   &
@@ -104,7 +104,7 @@ CONTAINS
     CHARACTER(LEN=*), INTENT(IN) :: filename
     INTEGER :: istat, funit
     INTEGER :: jg          !< patch loop index
-    INTEGER :: jk          !< tracer loop index
+    INTEGER :: jk          !< vertical loop index
 
     REAL(wp) :: p_bot      !< bottom level pressure
     REAL(wp) :: p_top      !< top level pressure
