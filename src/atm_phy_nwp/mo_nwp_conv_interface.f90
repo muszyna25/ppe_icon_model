@@ -215,8 +215,8 @@ CONTAINS
         ENDIF
 
         z_dtdqv(i_startidx:i_endidx,:,jb) = 0.0_wp                                   &
-                           &   + p_diag%ddt_tracer_adv(i_startidx:i_endidx,:,jb,iqv) &
-                           &   + prm_nwp_tend%ddt_tracer_turb(i_startidx:i_endidx,:,jb,iqv)
+                           &   + p_diag%ddt_tracer_adv(i_startidx:i_endidx,:,jb,iqv) !DR&
+!DR                           &   + prm_nwp_tend%ddt_tracer_turb(i_startidx:i_endidx,:,jb,iqv)
 
         ! input from other physical processes on the convection
         z_dtdt(i_startidx:i_endidx,:,jb)= 0._wp                                                  &
