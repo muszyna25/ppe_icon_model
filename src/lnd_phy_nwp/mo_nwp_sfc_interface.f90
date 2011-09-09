@@ -149,9 +149,15 @@ CONTAINS
     REAL(wp) :: thbs_t    (nproma, p_patch%nblks_c, nsfc_subs)
     REAL(wp) :: pabs_t    (nproma, p_patch%nblks_c, nsfc_subs)
 
+    ! local dummy variable for precipitation rate of graupel, grid-scale
+    REAL(wp) :: dummy_prg_gsp(nproma)
+
 !DR    REAL(wp) :: lu_class_frac(nproma,p_patch%nblks_c,nclass_lu)
 
 !--------------------------------------------------------------
+
+    ! initialize dummy variable
+    dummy_prg_gsp(1:nproma) = 0._wp
 
     ! local variables related to the blocking
 
@@ -304,6 +310,7 @@ CONTAINS
             & lnd_prog_now%dzh_snow(1:i_endidx,1:nlev_snow,jb,isubs)
         ENDDO
 
+
 !DR        DO n_lu =1, nclass_lu
 !DR          lu_class_frac(1:i_endidx,jb,n_lu)= ext_data%atm%lu_class_fraction(1:i_endidx,jb,n_lu)
 !DR        ENDDO
@@ -360,7 +367,7 @@ CONTAINS
         &  prs_con       =  prm_diag%tracer_rate(:,jb,4)  , & ! precipitation rate of snow, convective        (kg/m2*s)
         &  prr_gsp       =  prm_diag%tracer_rate(:,jb,1)  , & ! precipitation rate of rain, grid-scale        (kg/m2*s)
         &  prs_gsp       =  prm_diag%tracer_rate(:,jb,2)  , & ! precipitation rate of snow, grid-scale        (kg/m2*s)
-        &  prg_gsp       =  prm_diag%rain_gsp(:,jb)    , & !!! TEST!! JH precipitation rate of graupel, grid-scale     (kg/m2*s)
+        &  prg_gsp       =  dummy_prg_gsp(:)              , & ! precipitation rate of graupel, grid-scale     (kg/m2*s)
            !
         &  tch           = tch_t(:,jb,:),& !prm_diag%tch(:,jb) , & ! ,nsfc_subs, turbulent transfer coefficient for heat     ( -- )
         &  tcm           = tcm_t(:,jb,:),& !prm_diag%tcm(:,jb) , & ! ,nsfc_subs, turbulent transfer coefficient for momentum ( -- )
