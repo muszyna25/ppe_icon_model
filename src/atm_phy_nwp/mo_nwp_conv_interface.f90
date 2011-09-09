@@ -144,8 +144,6 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
  
-WRITE(0,*) "MAXVAL ddt_temp_turb before conv: ", MAXVAL(prm_nwp_tend%ddt_temp_turb(:,:,:))
-WRITE(0,*) "MINVAL ddt_temp_turb before conv: ", MINVAL(prm_nwp_tend%ddt_temp_turb(:,:,:))
 
 !$OMP PARALLEL
 !$OMP WORKSHARE
