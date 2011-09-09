@@ -74,6 +74,7 @@ MODULE mo_nh_vert_interp
   PUBLIC :: vertical_interpolation
   PUBLIC :: intp_to_p_and_z_levels_prepicon
   PUBLIC :: intp_to_p_and_z_levels
+  PUBLIC :: prepare_lin_intp,  lin_intp
 
 CONTAINS
 

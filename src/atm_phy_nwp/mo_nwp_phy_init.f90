@@ -187,7 +187,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
           & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
           END DO
 
-          IF( atm_phy_nwp_config(jg)%inwp_radiation == 1 .AND. irad_o3 == io3_ape) THEN
+          IF( atm_phy_nwp_config(jg)%inwp_radiation > 0 .AND. irad_o3 == io3_ape) THEN
             DO jc = i_startidx, i_endidx
               zf_aux( jc,1:nlev_o3,jb) = ext_data%atm_td%zf(1:nlev_o3)
             ENDDO
@@ -274,20 +274,12 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     ! APE ozone profile, vertical setting needed only once for NH
     !------------------------------------------
       IF (irad_o3 == io3_ape) THEN
-        DO jk=1,nlev_o3
-        WRITE(0,*)'ext data ozone ',ext_data%atm_td%zf(jk),&
-          & MAXVAL(ext_data%atm_td%o3(:,jk,:,nmonths)),MINVAL(ext_data%atm_td%o3(:,jk,:,nmonths))
-      ENDDO
+
         CALL o3_zl2ml(p_patch%nblks_c,p_patch%npromz_c,        & ! 
           &           nlev_o3,      nlev,                      & ! vertical levels in/out
           &           zf_aux,   p_metrics%z_mc,                & ! vertical in/out
           &           ext_data%atm_td%o3(:,:,:,nmonths),p_prog%tracer(:,:,:,io3))! o3Field in/out
 
-        DO jk=1,nlev
-        WRITE(0,*)'model data data ozone ',&
-          & p_metrics%z_mc(1,jk,1),MAXVAL(p_prog%tracer(:,jk,:,io3)),&
-          &MINVAL(p_prog%tracer(:,jk,:,io3))
-      ENDDO
       ENDIF
     ENDIF  ! APE
     
