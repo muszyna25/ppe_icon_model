@@ -49,7 +49,7 @@ MODULE mo_o3_util
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_math_constants,       ONLY: pi
   USE mo_model_domain,         ONLY: t_patch
-  USE mo_nh_vert_interp,      ONLY: prepare_lin_intp,prepare_extrap,lin_intp
+  USE mo_nh_vert_interp,       ONLY: prepare_lin_intp, lin_intp
 
   IMPLICIT NONE
 
