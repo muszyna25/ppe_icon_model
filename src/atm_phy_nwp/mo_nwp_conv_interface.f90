@@ -41,21 +41,19 @@ MODULE mo_nwp_conv_interface
 
   USE mo_kind,                 ONLY: wp
   USE mo_parallel_config,      ONLY: nproma
-
   USE mo_model_domain,         ONLY: t_patch
   USE mo_impl_constants,       ONLY: min_rlcell_int
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_loopindices,          ONLY: get_indices_c
-
-!  USE mo_ext_data,             ONLY: t_external_data
   USE mo_nonhydro_state,       ONLY: t_nh_prog, t_nh_diag,&
     &                                t_nh_metrics
   USE mo_nonhydrostatic_config,ONLY: kstart_moist
   USE mo_nwp_phy_state,        ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_run_config,           ONLY: iqv, iqc, iqi !, iqs
-  USE mo_physical_constants,   ONLY:  grav, alv
+  USE mo_physical_constants,   ONLY: grav, alv
   USE mo_atm_phy_nwp_config,   ONLY: atm_phy_nwp_config
   USE mo_cumaster,             ONLY: cumastrn
+!  USE mo_ext_data,             ONLY: t_external_data
 
   IMPLICIT NONE
 
@@ -146,6 +144,9 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
  
+WRITE(0,*) "MAXVAL ddt_temp_turb before conv: ", MAXVAL(prm_nwp_tend%ddt_temp_turb(:,:,:))
+WRITE(0,*) "MINVAL ddt_temp_turb before conv: ", MINVAL(prm_nwp_tend%ddt_temp_turb(:,:,:))
+
 !$OMP PARALLEL
 !$OMP WORKSHARE
     landseemask(:,:)   = .FALSE.
@@ -221,8 +222,8 @@ CONTAINS
         ! input from other physical processes on the convection
         z_dtdt(i_startidx:i_endidx,:,jb)= 0._wp                                                  &
           &                              + prm_nwp_tend%ddt_temp_radsw(i_startidx:i_endidx,:,jb) &
-          &                              + prm_nwp_tend%ddt_temp_radlw(i_startidx:i_endidx,:,jb)
-!&                                       + prm_nwp_tend%ddt_temp_turb(i_startidx:i_endidx,:,jb)
+          &                              + prm_nwp_tend%ddt_temp_radlw(i_startidx:i_endidx,:,jb) !DR&
+!DR          &                              + prm_nwp_tend%ddt_temp_turb(i_startidx:i_endidx,:,jb)
 
         !KF its a must to set them to zero!
         prm_nwp_tend%ddt_temp_pconv  (i_startidx:i_endidx,:,jb)   = 0._wp
@@ -347,14 +348,15 @@ CONTAINS
 !          p_diag%extra(:,:,jb,1)= bkaba
           prm_nwp_tend%ddt_temp_pconv  (i_startidx:i_endidx,1:kstart_moist(jg)-1,jb) = 0._wp
 
-          prm_nwp_tend%ddt_temp_pconv  (i_startidx:i_endidx,kstart_moist(jg):,jb) =   &
-&           z_dtdt(i_startidx:i_endidx,kstart_moist(jg):,jb)                          &
-&           -  prm_nwp_tend%ddt_temp_radsw (i_startidx:i_endidx,kstart_moist(jg):,jb) &
-&           -  prm_nwp_tend%ddt_temp_radlw (i_startidx:i_endidx,kstart_moist(jg):,jb)
+          prm_nwp_tend%ddt_temp_pconv  (i_startidx:i_endidx,kstart_moist(jg):,jb) =     &
+            &  z_dtdt(i_startidx:i_endidx,kstart_moist(jg):,jb)                         &
+            &  - prm_nwp_tend%ddt_temp_radsw (i_startidx:i_endidx,kstart_moist(jg):,jb) &
+            &  - prm_nwp_tend%ddt_temp_radlw (i_startidx:i_endidx,kstart_moist(jg):,jb) !DR&
+!DR            &  - prm_nwp_tend%ddt_temp_turb(i_startidx:i_endidx,kstart_moist(jg):,jb)
 
-          prm_nwp_tend%ddt_tracer_pconv(i_startidx:i_endidx,kstart_moist(jg):,jb,iqv) = &
-&           z_dtdqv(i_startidx:i_endidx,kstart_moist(jg):,jb)                           &
-&           - p_diag%ddt_tracer_adv(i_startidx:i_endidx,kstart_moist(jg):,jb,iqv)
+          prm_nwp_tend%ddt_tracer_pconv(i_startidx:i_endidx,kstart_moist(jg):,jb,iqv) =  &
+            &  z_dtdqv(i_startidx:i_endidx,kstart_moist(jg):,jb)                         &
+            &  - p_diag%ddt_tracer_adv(i_startidx:i_endidx,kstart_moist(jg):,jb,iqv)
 
           prm_diag%tracer_rate(i_startidx:i_endidx,jb,3) = z_mflxr(i_startidx:i_endidx,nlevp1,jb)
           prm_diag%tracer_rate(i_startidx:i_endidx,jb,4) = z_mflxs(i_startidx:i_endidx,nlevp1,jb)
