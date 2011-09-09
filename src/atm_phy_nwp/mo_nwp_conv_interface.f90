@@ -215,8 +215,8 @@ CONTAINS
         ENDIF
 
         z_dtdqv(i_startidx:i_endidx,:,jb) = 0.0_wp                                   &
-                           &   + p_diag%ddt_tracer_adv(i_startidx:i_endidx,:,jb,iqv) !DR&
-!DR                           &   + prm_nwp_tend%ddt_tracer_turb(i_startidx:i_endidx,:,jb,iqv)
+                           &   + p_diag%ddt_tracer_adv(i_startidx:i_endidx,:,jb,iqv) &
+                           &   + prm_nwp_tend%ddt_tracer_turb(i_startidx:i_endidx,:,jb,iqv)
 
         ! input from other physical processes on the convection
         z_dtdt(i_startidx:i_endidx,:,jb)= 0._wp                                                  &
@@ -355,7 +355,8 @@ CONTAINS
 
           prm_nwp_tend%ddt_tracer_pconv(i_startidx:i_endidx,kstart_moist(jg):,jb,iqv) =  &
             &  z_dtdqv(i_startidx:i_endidx,kstart_moist(jg):,jb)                         &
-            &  - p_diag%ddt_tracer_adv(i_startidx:i_endidx,kstart_moist(jg):,jb,iqv)
+            &  - p_diag%ddt_tracer_adv(i_startidx:i_endidx,kstart_moist(jg):,jb,iqv)   !DR  &
+!DR            &  - prm_nwp_tend%ddt_tracer_turb(i_startidx:i_endidx,kstart_moist(jg):,jb,iqv)
 
           prm_diag%tracer_rate(i_startidx:i_endidx,jb,3) = z_mflxr(i_startidx:i_endidx,nlevp1,jb)
           prm_diag%tracer_rate(i_startidx:i_endidx,jb,4) = z_mflxs(i_startidx:i_endidx,nlevp1,jb)
