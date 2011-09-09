@@ -203,7 +203,8 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2010-03-17)
   !!
   SUBROUTINE back_traj_o1( ptr_p, ptr_int, p_vn, p_vt, p_dthalf, p_cell_indices, &
-    &                     p_distv_bary, opt_rlstart, opt_rlend )
+    &                     p_distv_bary, opt_rlstart, opt_rlend, opt_slev,        &
+    &                     opt_elev )
 
     TYPE(t_patch), TARGET, INTENT(in) ::      &  !< patch on which computation is performed
       &  ptr_p
@@ -229,10 +230,16 @@ CONTAINS
                                    !< dim: (nproma,nlev,ptr_p%nblks_e,2)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
-     &  opt_rlstart
+      &  opt_rlstart
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
-     &  opt_rlend                      !< (to avoid calculation of halo points)
+      &  opt_rlend                     !< (to avoid calculation of halo points)
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
+      &  opt_slev
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
+      &  opt_elev
 
     REAL(wp) :: pos_barycenter(2),  &   !< position of barycenter and distance vector
       &         z_ntdistv_bary(2)       !< cell center --> barycenter in 'normal' and
@@ -242,12 +249,23 @@ CONTAINS
     INTEGER :: nlev              !< number of full levels
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: i_rlstart, i_rlend, i_nchdom
+    INTEGER :: slev, elev        !< vertical start and end level
     LOGICAL :: lvn_pos
 
   !-------------------------------------------------------------------------
 
-    ! number of vertical levels
-    nlev   = ptr_p%nlev
+    ! Check for optional arguments
+    IF ( PRESENT(opt_slev) ) THEN
+      slev = opt_slev
+    ELSE
+      slev = 1
+    END IF
+
+    IF ( PRESENT(opt_elev) ) THEN
+      elev = opt_elev
+    ELSE
+      elev = ptr_p%nlev
+    END IF
 
     IF ( PRESENT(opt_rlstart) ) THEN
       i_rlstart = opt_rlstart
@@ -260,6 +278,9 @@ CONTAINS
     ELSE
       i_rlend = min_rledge_int - 2
     ENDIF
+
+    ! number of vertical levels
+    nlev   = ptr_p%nlev
 
     ! number of child domains
     i_nchdom   = MAX(1,ptr_p%n_childdom)
@@ -274,7 +295,7 @@ CONTAINS
      CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
                         i_startidx, i_endidx, i_rlstart, i_rlend)
 
-      DO jk = 1, nlev
+      DO jk = slev, elev
         DO je = i_startidx, i_endidx
 
           !
@@ -360,7 +381,8 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2010-05-12)
   !!
   SUBROUTINE back_traj_dreg_o1( ptr_p, ptr_int, p_vn, p_vt, p_dt, p_cell_indices, &
-    &                     p_coords_dreg_v, opt_rlstart, opt_rlend )
+    &                     p_coords_dreg_v, opt_rlstart, opt_rlend, opt_slev,      &
+    &                     opt_elev )
 
     TYPE(t_patch), TARGET, INTENT(IN) ::     &  !< patch on which computation is performed
       &  ptr_p
@@ -387,10 +409,16 @@ CONTAINS
       &  p_cell_indices(:,:,:,:)   !< dim: (nproma,nlev,ptr_p%nblks_e,2)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
-     &  opt_rlstart
+      &  opt_rlstart
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
-     &  opt_rlend                      !< (to avoid calculation of halo points)
+      &  opt_rlend                     !< (to avoid calculation of halo points)
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
+      &  opt_slev
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
+      &  opt_elev
 
     REAL(wp), POINTER  ::  &       !< pointer to coordinates of edge vertices
       &  ptr_ve(:,:,:,:)           !< on tangent plane
@@ -412,11 +440,23 @@ CONTAINS
     INTEGER :: nlev                !< number of full levels
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: i_rlstart, i_rlend, i_nchdom
+    INTEGER :: slev, elev          !< vertical start and end level
     LOGICAL :: lvn_pos
   !-------------------------------------------------------------------------
 
-    ! number of vertical levels
-    nlev = ptr_p%nlev
+
+    ! Check for optional arguments
+    IF ( PRESENT(opt_slev) ) THEN
+      slev = opt_slev
+    ELSE
+      slev = 1
+    END IF
+
+    IF ( PRESENT(opt_elev) ) THEN
+      elev = opt_elev
+    ELSE
+      elev = ptr_p%nlev
+    END IF
 
     IF ( PRESENT(opt_rlstart) ) THEN
       i_rlstart = opt_rlstart
@@ -429,6 +469,9 @@ CONTAINS
     ELSE
       i_rlend = min_rledge_int - 2
     ENDIF
+
+    ! number of vertical levels
+    nlev = ptr_p%nlev
 
     ! number of child domains
     i_nchdom   = MAX(1,ptr_p%n_childdom)
@@ -448,7 +491,7 @@ CONTAINS
      CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk, &
                         i_startidx, i_endidx, i_rlstart, i_rlend)
 
-      DO jk = 1, nlev
+      DO jk = slev, elev
         DO je = i_startidx, i_endidx
 
 
@@ -597,7 +640,8 @@ CONTAINS
   !! Initial revision by Daniel Reinert, DWD (2010-03-24)
   !!
   SUBROUTINE back_traj_o2( ptr_p, ptr_int, p_vn, p_vt, p_dthalf, p_cell_indices,  &
-    &                     p_distv_bary, opt_rlstart, opt_rlend )
+    &                     p_distv_bary, opt_rlstart, opt_rlend, opt_slev,         &
+    &                     opt_elev )
 
     TYPE(t_patch), TARGET, INTENT(IN) ::      &  !< patch on which computation is performed
       &  ptr_p
@@ -623,10 +667,16 @@ CONTAINS
                                    !< dim: (nproma,nlev,ptr_p%nblks_e,2)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
-     &  opt_rlstart
+      &  opt_rlstart
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
-     &  opt_rlend                      !< (to avoid calculation of halo points)
+      &  opt_rlend                     !< (to avoid calculation of halo points)
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
+      &  opt_slev
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
+      &  opt_elev
 
     REAL(wp) :: pos_barycenter(2),  &   !< position of barycenter and distance vector
       &         z_ntdistv_bary(2)       !< cell center --> barycenter in 'normal' and
@@ -649,6 +699,7 @@ CONTAINS
     INTEGER :: nlev              !< number of full levels
     INTEGER :: i_startblk, i_endblk, i_startidx, i_endidx
     INTEGER :: i_rlstart, i_rlend, i_nchdom
+    INTEGER :: slev, elev        !< vertical start and end level
     INTEGER :: zcell             !< determines whether the barycenter is located
                                  !< in cell 1 or 2
     INTEGER, POINTER ::    &     !< pointer for line and block indices of edge
@@ -658,8 +709,19 @@ CONTAINS
 
   !-------------------------------------------------------------------------
 
-    ! number of vertical levels
-    nlev = ptr_p%nlev
+
+    ! Check for optional arguments
+    IF ( PRESENT(opt_slev) ) THEN
+      slev = opt_slev
+    ELSE
+      slev = 1
+    END IF
+
+    IF ( PRESENT(opt_elev) ) THEN
+      elev = opt_elev
+    ELSE
+      elev = ptr_p%nlev
+    END IF
 
     IF ( PRESENT(opt_rlstart) ) THEN
       i_rlstart = opt_rlstart
@@ -672,6 +734,9 @@ CONTAINS
     ELSE
       i_rlend = min_rledge_int - 1
     ENDIF
+
+    ! number of vertical levels
+    nlev = ptr_p%nlev
 
     ! number of child domains
     i_nchdom   = MAX(1,ptr_p%n_childdom)
@@ -706,9 +771,9 @@ CONTAINS
 
 #ifdef __LOOP_EXCHANGE
       DO je = i_startidx, i_endidx
-        DO jk = 1, nlev
+        DO jk = slev, elev
 #else
-      DO jk = 1, nlev
+      DO jk = slev, elev
         DO je = i_startidx, i_endidx
 #endif
 
@@ -770,7 +835,7 @@ CONTAINS
       CALL get_indices_e(ptr_p, jb, i_startblk, i_endblk,        &
                          i_startidx, i_endidx, i_rlstart, i_rlend)
 
-      DO jk = 1, nlev
+      DO jk = slev, elev
         DO je = i_startidx, i_endidx
 
 
@@ -987,9 +1052,10 @@ CONTAINS
   !! Developed by Daniel Reinert, DWD (2010-05-14)
   !!
   !!
-  SUBROUTINE prep_gauss_quadrature_q( p_patch, p_coords_dreg_v,        &
-    &                                 p_quad_vector_sum, p_rdreg_area, &
-    &                                 opt_rlstart, opt_rlend )
+  SUBROUTINE prep_gauss_quadrature_q( p_patch, p_coords_dreg_v,         &
+    &                                 p_quad_vector_sum, p_rdreg_area,  &
+    &                                 opt_rlstart, opt_rlend, opt_slev, &
+    &                                 opt_elev )
 
     IMPLICIT NONE
 
@@ -1007,10 +1073,16 @@ CONTAINS
       &  p_rdreg_area(:,:,:)        !< dim: (nproma,nlev,nblks_e)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
-     &  opt_rlstart
+      &  opt_rlstart
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
-     &  opt_rlend                      !< (to avoid calculation of halo points)
+      &  opt_rlend                     !< (to avoid calculation of halo points)
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
+      &  opt_slev
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
+      &  opt_elev
 
    ! local variables
     REAL(wp) ::                &    !< coordinates of gaussian quadrature points
@@ -1027,11 +1099,22 @@ CONTAINS
     INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
+    INTEGER  :: slev, elev          !< vertical start and end level
 
   !-----------------------------------------------------------------------
 
-    ! number of vertical levels
-    nlev = p_patch%nlev
+    ! Check for optional arguments
+    IF ( PRESENT(opt_slev) ) THEN
+      slev = opt_slev
+    ELSE
+      slev = 1
+    END IF
+
+    IF ( PRESENT(opt_elev) ) THEN
+      elev = opt_elev
+    ELSE
+      elev = p_patch%nlev
+    END IF
 
     IF ( PRESENT(opt_rlstart) ) THEN
       i_rlstart = opt_rlstart
@@ -1044,6 +1127,9 @@ CONTAINS
     ELSE
       i_rlend = min_rledge_int - 2
     ENDIF
+
+    ! number of vertical levels
+    nlev = p_patch%nlev
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
@@ -1058,7 +1144,7 @@ CONTAINS
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, i_rlstart, i_rlend)
 
-      DO jk = 1, nlev
+      DO jk = slev, elev
 
         DO je = i_startidx, i_endidx
 
@@ -1145,9 +1231,10 @@ CONTAINS
   !! Developed by Daniel Reinert, DWD (2010-10-13)
   !!
   !!
-  SUBROUTINE prep_gauss_quadrature_cpoor( p_patch, p_coords_dreg_v,        &
-    &                                     p_quad_vector_sum, p_rdreg_area, &
-    &                                     opt_rlstart, opt_rlend           )
+  SUBROUTINE prep_gauss_quadrature_cpoor( p_patch, p_coords_dreg_v,         &
+    &                                     p_quad_vector_sum, p_rdreg_area,  &
+    &                                     opt_rlstart, opt_rlend, opt_slev, &
+    &                                     opt_elev                          )
 
     IMPLICIT NONE
 
@@ -1165,10 +1252,16 @@ CONTAINS
       &  p_rdreg_area(:,:,:)        !< dim: (nproma,nlev,nblks_e)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
-     &  opt_rlstart
+      &  opt_rlstart
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
-     &  opt_rlend                      !< (to avoid calculation of halo points)
+      &  opt_rlend                     !< (to avoid calculation of halo points)
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
+      &  opt_slev
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
+      &  opt_elev
 
    ! local variables
     REAL(wp) ::                &    !< coordinates of gaussian quadrature points
@@ -1185,11 +1278,22 @@ CONTAINS
     INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
+    INTEGER  :: slev, elev          !< vertical start and end level
 
   !-----------------------------------------------------------------------
 
-    ! number of vertical levels
-    nlev = p_patch%nlev
+    ! Check for optional arguments
+    IF ( PRESENT(opt_slev) ) THEN
+      slev = opt_slev
+    ELSE
+      slev = 1
+    END IF
+
+    IF ( PRESENT(opt_elev) ) THEN
+      elev = opt_elev
+    ELSE
+      elev = p_patch%nlev
+    END IF
 
     IF ( PRESENT(opt_rlstart) ) THEN
       i_rlstart = opt_rlstart
@@ -1202,6 +1306,9 @@ CONTAINS
     ELSE
       i_rlend = min_rledge_int - 2
     ENDIF
+
+    ! number of vertical levels
+    nlev = p_patch%nlev
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
@@ -1216,7 +1323,7 @@ CONTAINS
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, i_rlstart, i_rlend)
 
-      DO jk = 1, nlev
+      DO jk = slev, elev
 
         DO je = i_startidx, i_endidx
 
@@ -1306,9 +1413,10 @@ CONTAINS
   !! Developed by Daniel Reinert, DWD (2010-10-13)
   !!
   !!
-  SUBROUTINE prep_gauss_quadrature_c( p_patch, p_coords_dreg_v,        &
-    &                                 p_quad_vector_sum, p_rdreg_area, &
-    &                                 opt_rlstart, opt_rlend           )
+  SUBROUTINE prep_gauss_quadrature_c( p_patch, p_coords_dreg_v,         &
+    &                                 p_quad_vector_sum, p_rdreg_area,  &
+    &                                 opt_rlstart, opt_rlend, opt_slev, &
+    &                                 opt_elev                          )
 
     IMPLICIT NONE
 
@@ -1326,10 +1434,16 @@ CONTAINS
       &  p_rdreg_area(:,:,:)        !< dim: (nproma,nlev,nblks_e)
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control start level
-     &  opt_rlstart
+      &  opt_rlstart
 
     INTEGER, INTENT(IN), OPTIONAL :: & !< optional: refinement control end level
-     &  opt_rlend                      !< (to avoid calculation of halo points)
+      &  opt_rlend                     !< (to avoid calculation of halo points)
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical start level
+      &  opt_slev
+
+    INTEGER, INTENT(IN), OPTIONAL :: & !< optional vertical end level
+      &  opt_elev
 
    ! local variables
     REAL(wp) ::                &    !< coordinates of gaussian quadrature points
@@ -1346,11 +1460,22 @@ CONTAINS
     INTEGER  :: nlev                !< number of full levels
     INTEGER  :: i_startidx, i_endidx, i_startblk, i_endblk
     INTEGER  :: i_rlstart, i_rlend, i_nchdom
+    INTEGER  :: slev, elev          !< vertical start and end level
 
   !-----------------------------------------------------------------------
 
-    ! number of vertical levels
-    nlev = p_patch%nlev
+    ! Check for optional arguments
+    IF ( PRESENT(opt_slev) ) THEN
+      slev = opt_slev
+    ELSE
+      slev = 1
+    END IF
+
+    IF ( PRESENT(opt_elev) ) THEN
+      elev = opt_elev
+    ELSE
+      elev = p_patch%nlev
+    END IF
 
     IF ( PRESENT(opt_rlstart) ) THEN
       i_rlstart = opt_rlstart
@@ -1363,6 +1488,9 @@ CONTAINS
     ELSE
       i_rlend = min_rledge_int - 2
     ENDIF
+
+    ! number of vertical levels
+    nlev = p_patch%nlev
 
     ! number of child domains
     i_nchdom = MAX(1,p_patch%n_childdom)
@@ -1377,7 +1505,7 @@ CONTAINS
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
         &                i_startidx, i_endidx, i_rlstart, i_rlend)
 
-      DO jk = 1, nlev
+      DO jk = slev, elev
 
         DO je = i_startidx, i_endidx
 

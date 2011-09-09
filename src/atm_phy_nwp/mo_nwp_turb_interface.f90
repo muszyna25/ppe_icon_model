@@ -506,7 +506,7 @@ CONTAINS
       CALL message('', TRIM(message_text))
     ENDIF
 
-      
+
   END SUBROUTINE nwp_turbulence
 
 
