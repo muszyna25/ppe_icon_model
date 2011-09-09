@@ -332,7 +332,7 @@ CONTAINS
     INTEGER(KIND=jpim)               :: ktdia
 !    INTEGER(KIND=jpim)               :: kstep ! Argument NOT used
 !    INTEGER(KIND=jpim)               :: kstart ! Argument NOT used
-    LOGICAL ,INTENT(in)    :: ldland(klon)
+    LOGICAL           ,INTENT(in)    :: ldland(klon)
     REAL(KIND=jprb)   ,INTENT(in)    :: ptsphy
     !KF
     REAL(KIND=jprb)   ,INTENT(in),OPTIONAL :: paer_ss(klon)
@@ -365,7 +365,7 @@ CONTAINS
     REAL(KIND=jprb)   ,INTENT(inout) :: ptenu(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout) :: ptenv(klon,klev)
     REAL(KIND=jprb)   ,INTENT(inout), OPTIONAL :: ptenc(klon,klev,ktrac)
-    LOGICAL ,INTENT(inout) :: ldcum(klon)
+    LOGICAL           ,INTENT(inout) :: ldcum(klon)
     INTEGER(KIND=jpim),INTENT(inout) :: ktype(klon)
     INTEGER(KIND=jpim),INTENT(inout) :: kcbot(klon)
     INTEGER(KIND=jpim),INTENT(inout) :: kctop(klon)

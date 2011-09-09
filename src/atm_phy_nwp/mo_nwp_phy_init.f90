@@ -41,21 +41,21 @@ MODULE mo_nwp_phy_init
   USE mo_physical_constants,  ONLY: re, grav
   USE mo_nwp_phy_state,       ONLY: t_nwp_phy_diag,t_nwp_phy_tend
   USE mo_nwp_lnd_state,       ONLY: t_lnd_prog, t_lnd_diag  !, t_tiles
-  USE mo_ext_data,            ONLY: t_external_data
+  USE mo_ext_data,            ONLY: t_external_data, nlev_o3, nmonths
   USE mo_nonhydro_state,      ONLY: t_nh_prog, t_nh_diag, t_nh_metrics
   USE mo_exception,           ONLY: message, finish,message_text
   USE mo_vertical_coord_table,ONLY: vct_a, vct
   USE mo_model_domain,        ONLY: t_patch
   USE mo_model_domain_import, ONLY: nroot 
-  USE mo_impl_constants,      ONLY: min_rlcell, zml_soil
+  USE mo_impl_constants,      ONLY: min_rlcell, zml_soil,io3_ape
   USE mo_loopindices,         ONLY: get_indices_c
   USE mo_parallel_config,     ONLY: nproma
-  USE mo_run_config,          ONLY: ltestcase, iqv, iqc, msg_level
+  USE mo_run_config,          ONLY: ltestcase, iqv, iqc, io3, msg_level
   USE mo_atm_phy_nwp_config,  ONLY: atm_phy_nwp_config
   !radiation
   USE mo_newcld_optics,       ONLY: setup_newcld_optics
   USE mo_lrtm_setup,          ONLY: lrtm_setup
-  USE mo_radiation_config,    ONLY: ssi, tsi, irad_aero, rad_csalbw 
+  USE mo_radiation_config,    ONLY: ssi, tsi,irad_o3, irad_aero, rad_csalbw 
   USE mo_srtm_config,         ONLY: setup_srtm, ssi_amip
   USE mo_radiation_rg_par,    ONLY: rad_aibi
   USE mo_aerosol_util,        ONLY: init_aerosol_dstrb_tanre,      &
@@ -63,6 +63,8 @@ MODULE mo_nwp_phy_init
     &                               init_aerosol_props_tanre_rrtm, &
     &                               zaef_rg, zaea_rg, zaes_rg, zaeg_rg, &
     &                               zaea_rrtm, zaes_rrtm, zaeg_rrtm
+  USE mo_o3_util,             ONLY: o3_zl2ml
+
   ! microphysics
   USE mo_gscp_cosmo,          ONLY: hydci_pp_init
   ! convection
@@ -130,6 +132,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
   REAL(wp), PARAMETER :: h_scal = 10000._wp    ! [m]      scale height
   REAL(wp), PARAMETER :: p0sl   = 101325._wp   ! [Pa]     sea level pressure
   REAL(wp)            :: zlat, zprat, zn1, zn2, zcdnc
+  REAL(wp)            :: zf_aux(nproma,nlev_o3,p_patch%nblks_c)
 
   LOGICAL  :: lland, lglac
   
@@ -183,6 +186,12 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
   !        & qsat_rho(p_prog_lnd_now%t_g (jc,jb),p_prog%rho(jc,nlev,jb))
           & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
           END DO
+
+          IF( atm_phy_nwp_config(jg)%inwp_radiation == 1 .AND. irad_o3 == io3_ape) THEN
+            DO jc = i_startidx, i_endidx
+              zf_aux( jc,1:nlev_o3,jb) = ext_data%atm_td%zf(1:nlev_o3)
+            ENDDO
+          END IF
 
         ELSE IF (ltestcase) THEN ! any other testcase
 
@@ -243,7 +252,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     ! Note (GZ): irad_aero=2 does no action but is the default in radiation_nml
     ! and therefore should not cause the model to stop
     IF ( irad_aero /= 0 .AND. irad_aero /= 2 ) THEN
-!    IF ( irad_aero /= 0 .AND. irad_aero /= 2 .AND. irad_aero /= 5 ) THEN    
+ !    IF ( irad_aero /= 0 .AND. irad_aero /= 2 .AND. irad_aero /= 5 ) THEN    
       CALL finish('mo_nwp_phy_init: init_nwp_phy',  &
         &         'Wrong irad_aero. For RRTM, currently only irad_aero=0 is implemented.')
 !       & 'Wrong irad_aero. For RRTM, currently only irad_aero=0 and irad_aero=5 is implemented.')
@@ -254,10 +263,33 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
     ssi(:) = ssi_amip(:)
     tsi    = SUM(ssi(:))
 
+    !------------------------------------------
+    !< set conditions for Aqua planet experiment  
+    !------------------------------------------
     IF ( nh_test_name == 'APE_nh' ) THEN
       ssi(:) = ssi(:)*1365._wp/tsi
       tsi = 1365._wp
-    ENDIF
+
+    !------------------------------------------
+    ! APE ozone profile, vertical setting needed only once for NH
+    !------------------------------------------
+      IF (irad_o3 == io3_ape) THEN
+        DO jk=1,nlev_o3
+        WRITE(0,*)'ext data ozone ',ext_data%atm_td%zf(jk),&
+          & MAXVAL(ext_data%atm_td%o3(:,jk,:,nmonths)),MINVAL(ext_data%atm_td%o3(:,jk,:,nmonths))
+      ENDDO
+        CALL o3_zl2ml(p_patch%nblks_c,p_patch%npromz_c,        & ! 
+          &           nlev_o3,      nlev,                      & ! vertical levels in/out
+          &           zf_aux,   p_metrics%z_mc,                & ! vertical in/out
+          &           ext_data%atm_td%o3(:,:,:,nmonths),p_prog%tracer(:,:,:,io3))! o3Field in/out
+
+        DO jk=1,nlev
+        WRITE(0,*)'model data data ozone ',&
+          & p_metrics%z_mc(1,jk,1),MAXVAL(p_prog%tracer(:,jk,:,io3)),&
+          &MINVAL(p_prog%tracer(:,jk,:,io3))
+      ENDDO
+      ENDIF
+    ENDIF  ! APE
     
     CALL setup_srtm
 

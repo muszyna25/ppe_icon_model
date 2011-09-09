@@ -88,7 +88,7 @@ MODULE mo_ext_data
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  INTEGER::  nlev_pres, nmonths
+  INTEGER::  nlev_o3, nmonths
 
   CHARACTER(len=6)  :: levelname
   CHARACTER(len=4)  :: zlevelname
@@ -111,7 +111,7 @@ MODULE mo_ext_data
   PUBLIC :: destruct_ext_data
   PUBLIC :: smooth_topography, read_netcdf_data
 
-  PUBLIC :: nlev_pres,nmonths
+  PUBLIC :: nlev_o3,nmonths
 	
 
   INTERFACE read_netcdf_data
@@ -282,7 +282,7 @@ MODULE mo_ext_data
 
     ! *** radiation parameters ***
     REAL(wp), POINTER ::   &   !< aerosol optical thickness of black carbon    [ ]
-      &  o3(:,:,:,:)           ! index1=1,nproma, index2=nlev_pres,
+      &  o3(:,:,:,:)           ! index1=1,nproma, index2=nlev_o3,
                                ! index3=1,nblks_c, index4=1,ntimes
 
     REAL(wp),POINTER::  &
@@ -1122,8 +1122,8 @@ CONTAINS
 
     ! predefined array shapes
     shape3d_c = (/ nproma, nblks_c, ntimes /)
-    shape4d_c = (/ nproma, nlev_pres, nblks_c, nmonths /) 
-    shape3d_ape = (/ nproma, nlev_pres, nblks_c/) 
+    shape4d_c = (/ nproma, nlev_o3, nblks_c, nmonths /) 
+    shape3d_ape = (/ nproma, nlev_o3, nblks_c/) 
 
     !
     ! Register a field list and apply default settings
@@ -1153,7 +1153,7 @@ CONTAINS
       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_td_list, 'O3_zf', p_ext_atm_td%zf, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_HEIGHT, cf_desc, &
-        &           grib2_desc, ldims=(/nlev_pres/) )
+        &           grib2_desc, ldims=(/nlev_o3/) )
 
       ! o3  main pressure level from read-in file
       cf_desc    = t_cf_var('O3_pf', 'Pa',   &
@@ -1161,7 +1161,7 @@ CONTAINS
       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_td_list, 'O3_pf', p_ext_atm_td%pfoz, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, &
-        &           grib2_desc, ldims=(/nlev_pres/) )
+        &           grib2_desc, ldims=(/nlev_o3/) )
 
       ! o3  intermediate pressure level
       cf_desc    = t_cf_var('O3_ph', 'Pa',   &
@@ -1169,9 +1169,9 @@ CONTAINS
       grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
       CALL add_var( p_ext_atm_td_list, 'O3_ph', p_ext_atm_td%phoz, &
         &           GRID_UNSTRUCTURED_CELL, ZAXIS_PRESSURE, cf_desc, &
-        &           grib2_desc, ldims=(/nlev_pres+1/) )
+        &           grib2_desc, ldims=(/nlev_o3+1/) )
 
-        ! o3       p_ext_atm_td%o3(nproma,nlev_pres,nblks_c,nmonths)
+        ! o3       p_ext_atm_td%o3(nproma,nlev_o3,nblks_c,nmonths)
         cf_desc    = t_cf_var('O3', TRIM(o3unit),   &
           &                   'mole_fraction_of_ozone_in_air')
         grib2_desc = t_grib2_var(255, 255, 255, ientr, GRID_REFERENCE, GRID_CELL)
@@ -1545,8 +1545,8 @@ CONTAINS
           mpi_comm = p_comm_work
         ENDIF
 
-        ! default values for nlev_pres and nmonths
-        nlev_pres = 1
+        ! default values for nlev_o3 and nmonths
+        nlev_o3 = 1
         nmonths   = 1
 
         IF(irad_o3 == io3_ape ) THEN
@@ -1620,11 +1620,11 @@ CONTAINS
           ! check the time structure
           CALL nf(nf_inq_dimid (ncid, 'time', dimid))
           CALL nf(nf_inq_dimlen(ncid, dimid, nmonths))
-        
-          CALL message(TRIM(ROUTINE),message_text)
+
           WRITE(message_text,'(A,I4)')  &
             & 'Number of months in ozone file = ', &
             & nmonths
+          CALL message(TRIM(ROUTINE),message_text)
 
           ! check the vertical structure
 
@@ -1632,26 +1632,25 @@ CONTAINS
           CASE(ihs_atm_temp,ihs_atm_theta)
 
             CALL nf(nf_inq_dimid (ncid,TRIM(levelname), dimid))
-            CALL nf(nf_inq_dimlen(ncid, dimid, nlev_pres))
+            CALL nf(nf_inq_dimlen(ncid, dimid, nlev_o3))
 
-            CALL message(TRIM(ROUTINE),message_text)
             WRITE(message_text,'(A,I4)')  &
-              & 'Number of pressure levels in ozone file = ', &
-              & nlev_pres
+              & 'Number of pressure levels in ozone file = ', nlev_o3
+            CALL message(TRIM(ROUTINE),message_text)
 
           CASE(inh_atmosphere)
-
-              ! the number of zlevel is the same as the pressure level number, therfore the
-              ! the dimension size name stay the same
-
+ 
             CALL nf(nf_inq_dimid (ncid,TRIM(zlevelname), dimid))
-            CALL nf(nf_inq_dimlen(ncid, dimid, nlev_pres))
+            CALL nf(nf_inq_dimlen(ncid, dimid, nlev_o3))
 
-            CALL message(TRIM(ROUTINE),message_text)
             WRITE(message_text,'(A,I4)')  &
-              & 'Number of height levels in ozone file = ', &
-              & nlev_pres
+              & 'Number of height levels in ozone file = ', nlev_o3
+            CALL message(TRIM(ROUTINE),message_text)
+
+
+            WRITE(0,*)'nlev_o3=',nlev_o3
           END SELECT
+  
           !
           ! close file
           !
@@ -1659,7 +1658,7 @@ CONTAINS
 
         ENDIF ! pe
 
-        CALL p_bcast(nlev_pres, p_io, mpi_comm)      
+        CALL p_bcast(nlev_o3, p_io, mpi_comm)      
         CALL p_bcast(nmonths,   p_io, mpi_comm)      
 
       ENDIF !o3
@@ -1695,7 +1694,7 @@ CONTAINS
     INTEGER :: i_lev,jk
     INTEGER :: ncid, dimid, varid
 
-    REAL(wp):: zdummy_o3lev(nlev_pres) ! will be used for pressure and height levels
+    REAL(wp):: zdummy_o3lev(nlev_o3) ! will be used for pressure and height levels
 
     !----------------------------------------------------------------------
 
@@ -1899,13 +1898,15 @@ CONTAINS
           SELECT CASE (iequations)
           CASE(ihs_atm_temp,ihs_atm_theta)
 
-          CALL nf(nf_inq_varid(ncid, TRIM(levelname), varid))
-          CALL nf(nf_get_var_double(ncid, varid,zdummy_o3lev(:) ))
+            CALL nf(nf_inq_varid(ncid, TRIM(levelname), varid))
+            CALL nf(nf_get_var_double(ncid, varid,zdummy_o3lev(:) ))
 
           CASE(inh_atmosphere)
-          CALL nf(nf_inq_varid(ncid, TRIM(zlevelname), varid))
-          CALL nf(nf_get_var_double(ncid, varid,zdummy_o3lev(:) ))
+
+            CALL nf(nf_inq_varid(ncid, TRIM(zlevelname), varid))
+            CALL nf(nf_get_var_double(ncid, varid,zdummy_o3lev(:) ))
           END SELECT
+ 
           !
         ENDIF ! pe
 
@@ -1914,39 +1915,39 @@ CONTAINS
           SELECT CASE (iequations)
           CASE(ihs_atm_temp,ihs_atm_theta)
 
-          DO jk=1,nlev_pres
-            ext_data(jg)%atm_td%pfoz(jk)=zdummy_o3lev(jk)
-          ENDDO
+            DO jk=1,nlev_o3
+              ext_data(jg)%atm_td%pfoz(jk)=zdummy_o3lev(jk)
+            ENDDO
 
           ! define half levels of ozone pressure grid
           ! upper boundary: ph =      0.Pa -> extrapolation of uppermost value
           ! lower boundary: ph = 125000.Pa -> extrapolation of lowermost value
-          ext_data(jg)%atm_td%phoz(1)           = 0._wp
-          ext_data(jg)%atm_td%phoz(2:nlev_pres) = (ext_data(jg)%atm_td%pfoz(1:nlev_pres-1) &
-            &                                   +  ext_data(jg)%atm_td%pfoz(2:nlev_pres))*.5_wp
-          ext_data(jg)%atm_td%phoz(nlev_pres+1) = 125000._dp
-
-          DO i=1,nlev_pres
-            WRITE(0,*) 'full/half level press ozone ', i, ext_data(jg)%atm_td%pfoz(i),&
-              &                                           ext_data(jg)%atm_td%phoz(i+1)
-          ENDDO
+            ext_data(jg)%atm_td%phoz(1)           = 0._wp
+            ext_data(jg)%atm_td%phoz(2:nlev_o3) = (ext_data(jg)%atm_td%pfoz(1:nlev_o3-1) &
+              &                                   +  ext_data(jg)%atm_td%pfoz(2:nlev_o3))*.5_wp
+            ext_data(jg)%atm_td%phoz(nlev_o3+1) = 125000._dp
+            
+            DO i=1,nlev_o3
+              WRITE(0,*) 'full/half level press ozone ', i, ext_data(jg)%atm_td%pfoz(i),&
+                &                                           ext_data(jg)%atm_td%phoz(i+1)
+            ENDDO
 
           CASE(inh_atmosphere)
-
-          DO jk=1,nlev_pres
-            ext_data(jg)%atm_td%zf(jk)=zdummy_o3lev(jk)
-!            WRITE(0,*) 'full geom level of ozone ', jk, ext_data(jg)%atm_td%zf(jk)
-          ENDDO
+            DO jk=1,nlev_o3
+              ext_data(jg)%atm_td%zf(jk)=zdummy_o3lev(jk)
+            ENDDO
         END SELECT
 
-! we have 2 different ozone files for hexagons and triangels at the moment
+        ! we have 2 different ozone files for hexagons and triangels at the moment
+        ! therefore ozone data are both stored at the cell centers
+
 !         IF (p_patch(jg)%cell_type == 3) THEN     ! triangular grid
 
            CALL read_netcdf_data (ncid, TRIM(o3name), & ! &
              &                    p_patch(jg)%n_patch_cells_g,  &
              &                    p_patch(jg)%n_patch_cells,    &
              &                    p_patch(jg)%cells%glb_index,  & 
-             &                    nlev_pres,  nmonths,          &
+             &                    nlev_o3,  nmonths,          &
              &                    ext_data(jg)%atm_td%O3)
 
 !        ELSEIF (p_patch(jg)%cell_type == 6) THEN ! hexagonal grid
@@ -1955,7 +1956,7 @@ CONTAINS
 !            &                    p_patch(jg)%n_patch_verts_g,  &
 !            &                    p_patch(jg)%n_patch_verts,    & 
 !            &                    p_patch(jg)%verts%glb_index,  &
-!            &                    nlev_pres, nmonths,           &
+!            &                    nlev_o3, nmonths,           &
 !            &                    ext_data(jg)%atm_td%O3)
 !
 !         ENDIF ! patches

@@ -54,7 +54,7 @@ MODULE mo_echam_phy_main
   USE mo_vertical_coord_table,ONLY: nlevm1
   USE mo_ext_data,            ONLY: ext_data,&
     &                               t_external_atmos_td,             &
-    &                               nlev_pres, nmonths
+    &                               nlev_o3, nmonths
   USE mo_o3_util,             ONLY:  o3_pl2sh !o3_timeint
   USE mo_echam_phy_config,    ONLY: echam_phy_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config
@@ -176,7 +176,7 @@ CONTAINS
     REAL(wp) :: zqshear (nbdim,nlev) !<
     REAL(wp) :: zthvvar (nbdim,nlev) !< intermediate value of thvvar
     REAL(wp) :: ztkevn  (nbdim,nlev) !< intermediate value of tke
-    REAL(wp) :: zo3_timint(nbdim,nlev_pres) !< intermediate value of ozon 
+    REAL(wp) :: zo3_timint(nbdim,nlev_o3) !< intermediate value of ozon 
 
 
 !!$ REAL(wp) :: rlfland (nbdim), rlfglac (nbdim)
@@ -360,22 +360,22 @@ CONTAINS
                 selmon=9
               ENDIF
 
-!              CALL o3_timeint( jce, nbdim, nlev_pres,nmonths,  & !
+!              CALL o3_timeint( jce, nbdim, nlev_o3,nmonths,  & !
 !                             & selmon ,                        & ! optional choice for month
 !                             atm_td%o3(:,:,jb,:),              & ! IN full o3 data
 !                             & zo3_timint(:,:)                 ) ! OUT o3(kproma,nlev_p)
 
-              CALL o3_pl2sh ( kproma=jce, kbdim=nbdim,               &
-                             & nlev_pres = nlev_pres,klev= nlev ,    &
-                             & pfoz = atm_td%pfoz(:),                &
-                             & phoz = atm_td%phoz(:),                &! in o3-levs
-                             & ppf = field% presm_new(:,:,jb),       &! in  app1
-                             & pph = field% presi_new(:,:,jb),       &! in  aphp1
+              CALL o3_pl2sh ( kproma=jce, kbdim=nbdim,                &
+                             & nlev_pres = nlev_o3,klev= nlev ,       &
+                             & pfoz = atm_td%pfoz(:),                 &
+                             & phoz = atm_td%phoz(:),                 &! in o3-levs
+                             & ppf = field% presm_new (:,:,jb),       &! in  app1
+                             & pph = field% presi_new (:,:,jb),       &! in  aphp1
                              & o3_time_int = atm_td%o3(:,:,jb,selmon),&! in 
                              & o3_clim     = field% o3(:,:,jb)        )! OUT
 
 !              IF (jb == 1) THEN
-!                DO jk = 1,nlev_pres
+!                DO jk = 1,nlev_o3
 !                WRITE(0,*)'plev=',jk,'o3plev=', atm_td%o3(jce,1,jb,selmon)
 !                ENDDO
 !                DO jk = 1,nlev

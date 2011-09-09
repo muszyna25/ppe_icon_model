@@ -43,7 +43,7 @@ MODULE mo_nwp_rrtm_interface
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, &
     &                                io3, ntracer, ntracer_static
   USE mo_grf_interpolation,    ONLY: t_gridref_state
-  USE mo_impl_constants,       ONLY: min_rlcell_int, icc!, min_rlcell 
+  USE mo_impl_constants,       ONLY: min_rlcell_int, icc, io3_ape!, min_rlcell 
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
   USE mo_interpolation,        ONLY: t_int_state
   USE mo_kind,                 ONLY: wp
@@ -158,10 +158,12 @@ CONTAINS
     !> Radiation setup
     !-------------------------------------------------------------------------
 
-
     !O3
 
     SELECT CASE (irad_o3)
+    CASE(io3_ape)
+      ! APE ozone: do nothing since everything is already
+      ! set in mo_nwp_phy_init
     CASE (6)
       CALL calc_o3_clim(                             &
         & kbdim      = nproma,                       & ! in
@@ -282,6 +284,7 @@ CONTAINS
               & (amo3/amd) * (zduo3(jc,jk,jb)/pt_diag%dpres_mc(jc,jk,jb))
           ENDDO
         ENDDO
+        ! IF (irad_o3 == iape_o3) everything is set in the beginning
       ENDIF !irad_o3
 
     ENDDO !jb

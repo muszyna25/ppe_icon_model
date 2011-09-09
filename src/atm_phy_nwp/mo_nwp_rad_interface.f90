@@ -45,7 +45,7 @@ MODULE mo_nwp_rad_interface
   USE mo_run_config,           ONLY: msg_level, iqv, iqc, iqi, &
     &                                io3, ntracer, ntracer_static
   USE mo_grf_interpolation,    ONLY: t_gridref_state
-  USE mo_impl_constants,       ONLY: min_rlcell_int, icc!, min_rlcell 
+  USE mo_impl_constants,       ONLY: min_rlcell_int, icc, io3_ape!, min_rlcell 
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c, grf_ovlparea_start_c
   USE mo_interpolation,        ONLY: t_int_state
   USE mo_kind,                 ONLY: wp
@@ -289,6 +289,9 @@ MODULE mo_nwp_rad_interface
 
     ! O3
     SELECT CASE (irad_o3)
+    CASE(io3_ape)
+      ! APE ozone: do nothing because 
+      ! everything is already set in nwp_phy_init
     CASE (6)
       CALL calc_o3_clim(                             &
         & kbdim      = nproma,                       &

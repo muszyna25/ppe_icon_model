@@ -42,18 +42,20 @@
 MODULE mo_o3_util
 
   USE mo_get_utc_date_tr,      ONLY: get_utc_date_tr
+  USE mo_parallel_config,      ONLY: nproma
   USE mo_impl_constants,       ONLY: min_rlcell
   USE mo_impl_constants_grf,   ONLY: grf_bdywidth_c
   USE mo_kind,                 ONLY: wp
   USE mo_loopindices,          ONLY: get_indices_c
   USE mo_math_constants,       ONLY: pi
   USE mo_model_domain,         ONLY: t_patch
+  USE mo_nh_vert_interp,      ONLY: prepare_lin_intp,prepare_extrap,lin_intp
 
   IMPLICIT NONE
 
   PRIVATE
 
-  PUBLIC  :: calc_o3_clim, o3_timeint, o3_pl2sh
+  PUBLIC  :: calc_o3_clim, o3_timeint, o3_pl2sh, o3_zl2ml
 
 !  CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -61,18 +63,18 @@ CONTAINS
 
   !=======================================================================
 
-SUBROUTINE o3_timeint( kproma,kbdim, nlev_pres,nmonths,& !
+SUBROUTINE o3_timeint( kproma,kbdim, nlev_pres,nmonths,&  ! IN
                      & selmon,                          & ! IN
                      & ext_O3 ,                         & ! IN kproma,nlev_p,jb,nmonth
-                     & o3_time_int                        )! OUT kproma,nlev_p
+                     & o3_time_int                       )! OUT kproma,nlev_p
 
-  ! NOTE the very first approahc ist no time avareaging but selection of 
+  ! NOTE the very first approach ist no time avareaging but selection of 
   ! a special month (september) for aqua planet simulations
 
     INTEGER, INTENT(in)         :: kproma ! 
     INTEGER, INTENT(in)         :: kbdim  ! 
     INTEGER, INTENT(in)         :: nmonths     ! number of months in o3
-    INTEGER, INTENT(in),OPTIONAL:: selmon  ! selected month for experiment
+    INTEGER, INTENT(in),OPTIONAL:: selmon      ! selected month for experiment
     INTEGER, INTENT(in)         :: nlev_pres   ! number of o3 data levels
 
     REAL(wp), INTENT(in) , DIMENSION(kbdim,nlev_pres,nmonths):: ext_o3
@@ -249,6 +251,59 @@ END SUBROUTINE o3_timeint
     END DO
 
   END SUBROUTINE o3_pl2sh
+
+  SUBROUTINE o3_zl2ml(nblks,npromz, nlev_o3,nlev, &
+    &                 zf_o3, z_mc, ape_o3,  model_o3)
+
+    !< Description: convert o3 on z-level to model height levels for the
+    !! NH-model 
+    !! The verical interpolation routines from mo_nh_vert_intp are used
+
+    !!  @author Kristina Froehlich, MPI-M (2011-09-06)
+
+    ! Input dimension parameters
+    INTEGER , INTENT(IN) :: nblks      ! Number of blocks
+    INTEGER , INTENT(IN) :: npromz     ! Length of last block
+    INTEGER , INTENT(IN) :: nlev_o3    ! Number of input levels
+    INTEGER , INTENT(IN) :: nlev       ! Number of output levels
+
+    ! Input fields
+    REAL(wp), DIMENSION(nproma,nlev_o3,nblks),INTENT(IN) :: zf_o3 ! height coordinate field of input data (m)
+    REAL(wp), DIMENSION(nproma,nlev   ,nblks),INTENT(IN) :: z_mc  ! height coordinate field of model data (m)
+
+    ! Input/Output field
+    REAL(wp), DIMENSION(nproma,nlev_o3,nblks),INTENT(IN) :: ape_o3   ! external APE o3 data
+    REAL(wp), DIMENSION(nproma,nlev   ,nblks),INTENT(OUT):: model_o3 !converted o3 field for the model
+
+    ! help field, since ape_o3 must remain as INTENT IN
+    REAL(wp), DIMENSION(nproma,nlev_o3,nblks)            :: aux_o3   ! external APE o3 data
+
+    ! weighting factors and indizes
+    REAL(wp), DIMENSION(nproma,nlev,nblks) :: wfac ! weighting factor of upper level
+    REAL(wp), DIMENSION(nproma,     nblks) :: wfacpbl1, wfacpbl2
+
+    INTEGER,  DIMENSION(nproma,nlev,nblks) :: idx0    ! index of upper level
+    INTEGER, DIMENSION(nproma,      nblks) :: kpbl1, kpbl2, bot_idx
+
+    aux_o3(:,:,:)= ape_o3(:,:,:) 
+
+    CALL prepare_lin_intp(z3d_in=zf_o3,  z3d_out=z_mc,               &
+          &                  nblks= nblks,npromz= npromz,            &
+          &                  nlevs_in=nlev_o3,      nlevs_out=nlev,  &
+          &                  wfac=wfac, idx0=idx0  ,bot_idx=bot_idx  )
+
+    CALL lin_intp        (f3d_in=aux_o3, f3d_out=model_o3,                  &
+          &                  nblks= nblks,npromz=npromz,                    &
+          &                  nlevs_in=nlev_o3,      nlevs_out=nlev,         &
+          &                  wfac=wfac, idx0=idx0  ,bot_idx=bot_idx        ,&
+          &                  kpbl1=kpbl1, wfacpbl1=wfacpbl1,                &
+          &                  kpbl2=kpbl2, wfacpbl2=wfacpbl2                ,& 
+          &                  l_loglin=.false., l_pd_limit=.true.,           &
+          &                  l_extrapol=.false.                              )
+
+
+  END SUBROUTINE o3_zl2ml
+
 
  !=======================================================================
 
