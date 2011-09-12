@@ -1107,13 +1107,13 @@ CONTAINS
     ! LOCAL VARIABLES
 
     INTEGER :: jb, jk, jc, jk1, jk_start
-    INTEGER :: nlen
-    LOGICAL :: l_found(nproma)
+    INTEGER :: nlen, ierror(nblks), nerror
+    LOGICAL :: l_found(nproma),lfound_all
 
 !-------------------------------------------------------------------------
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jc,jk1,jk_start,l_found)
+!$OMP DO PRIVATE(jb,nlen,jk,jc,jk1,jk_start,l_found,lfound_all)
 
     DO jb = 1, nblks
       IF (jb /= nblks) THEN
@@ -1124,10 +1124,12 @@ CONTAINS
         wfac(nlen+1:nproma,:,jb)  = 0.5_wp
         idx0(nlen+1:nproma,:,jb)  = nlevs_in-1
       ENDIF
+      ierror(jb) = 0
 
       jk_start = 1
       DO jk = 1, nlevs_out
         l_found(:) = .FALSE.
+        lfound_all = .FALSE.
         DO jk1 = jk_start,nlevs_in-1
           DO jc = 1, nlen
             IF (z3d_out(jc,jk,jb) <= z3d_in(jc,jk1,jb) .AND. &
@@ -1142,9 +1144,16 @@ CONTAINS
               idx0(jc,jk,jb) = nlevs_in
             ENDIF
           ENDDO
-          IF (ALL(l_found(1:nlen))) EXIT
+          IF (ALL(l_found(1:nlen))) THEN
+            lfound_all = .TRUE.
+            EXIT
+          ENDIF
         ENDDO
-        jk_start = MINVAL(idx0(1:nlen,jk,jb))
+        IF (lfound_all) THEN
+          jk_start = MINVAL(idx0(1:nlen,jk,jb))
+        ELSE
+          ierror(jb) = ierror(jb) + 1
+        ENDIF
       ENDDO
 
       DO jk = MINVAL(bot_idx(1:nlen,jb))+1, nlevs_out
@@ -1163,8 +1172,10 @@ CONTAINS
 !$OMP END DO
 !$OMP END PARALLEL
 
-    IF (MINVAL(bot_idx) == 0) CALL finish("prepare_lin_intp:",&
-      "ICON top higher than top of input data")
+    nerror = SUM(ierror)
+
+    IF (nerror > 0) CALL finish("prepare_lin_intp:",&
+      "Top of input data lower than top of output data")
 
   END SUBROUTINE prepare_lin_intp
 
@@ -1230,7 +1241,7 @@ CONTAINS
         ENDIF
       ENDDO
 
-      DO jk = jk_start, nlevs_in
+      DO jk = jk_start, nlevs_in-1
         DO jc = 1, nlen
 
           IF (z3d_in(jc,jk,jb)  >= z3d_in(jc,nlevs_in,jb)+zpbl2 .AND. &
@@ -1297,13 +1308,13 @@ CONTAINS
     ! LOCAL VARIABLES
 
     INTEGER :: jb, jk, jc, jk1, jk_start
-    INTEGER :: nlen
-    LOGICAL :: l_found(nproma)
+    INTEGER :: nlen, ierror(nblks), nerror
+    LOGICAL :: l_found(nproma),lfound_all
 
 !-------------------------------------------------------------------------
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,nlen,jk,jc,jk1,jk_start,l_found)
+!$OMP DO PRIVATE(jb,nlen,jk,jc,jk1,jk_start,l_found,lfound_all)
 
     DO jb = 1, nblks
       IF (jb /= nblks) THEN
@@ -1316,10 +1327,12 @@ CONTAINS
         coef3(nlen+1:nproma,:,jb) = 0.5_wp
         idx0(nlen+1:nproma,:,jb)  = nlevs_in-1
       ENDIF
+      ierror(jb) = 0
 
       jk_start = 2
       DO jk = 1, nlevs_out
         l_found(:) = .FALSE.
+        lfound_all = .FALSE.
         DO jk1 = jk_start,nlevs_in-2 ! cubic interpolation requires jk1-1, jk1, jk1+1 and jk1+2
           DO jc = 1, nlen
             IF (z3d_out(jc,jk,jb) <= z3d_in(jc,jk1,jb) .AND. &
@@ -1338,9 +1351,16 @@ CONTAINS
               idx0(jc,jk,jb) = nlevs_in-1
             ENDIF
           ENDDO
-          IF (ALL(l_found(1:nlen))) EXIT
+          IF (ALL(l_found(1:nlen))) THEN
+            lfound_all = .TRUE.
+            EXIT
+          ENDIF
         ENDDO
-        jk_start = MINVAL(idx0(1:nlen,jk,jb))+1
+        IF (lfound_all) THEN
+          jk_start = MINVAL(idx0(1:nlen,jk,jb))+1
+        ELSE
+          ierror(jb) = ierror(jb) + 1
+        ENDIF
       ENDDO
 
       DO jk = MINVAL(bot_idx(1:nlen,jb))+1, nlevs_out
@@ -1357,6 +1377,11 @@ CONTAINS
     ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
+
+    nerror = SUM(ierror)
+
+    IF (nerror > 0) CALL finish("prepare_cubic_intp:",&
+      "Not enough input levels for cubic interpolation available")
 
   END SUBROUTINE prepare_cubic_intp
 
@@ -1687,14 +1712,14 @@ CONTAINS
     REAL(wp) :: dtvdz_thresh
 
     INTEGER  :: jb, jkm, jkp, jkz, jc, jkm_start, jkz_start 
-    INTEGER  :: nlen
+    INTEGER  :: nlen, ierror(nblks)
     INTEGER , DIMENSION(nproma)          :: bot_idx_ml, bot_idx_zl
     INTEGER , DIMENSION(nproma,nlevs_pl) :: idx0_ml, idx0_zl
 
     REAL(wp) :: z_up, z_down
     REAL(wp), DIMENSION(nproma,nlevs_pl) :: wfac_ml, wfac_zl, dtvdz
 
-    LOGICAL  :: l_found(nproma)
+    LOGICAL :: l_found(nproma),lfound_all
 
 !-------------------------------------------------------------------------
 
@@ -1705,7 +1730,7 @@ CONTAINS
 
 !$OMP PARALLEL
 !$OMP DO PRIVATE(jb,jkm,jkp,jkz,jc,nlen,jkm_start,jkz_start,bot_idx_ml,bot_idx_zl, &
-!$OMP            idx0_ml,idx0_zl,z_up,z_down,wfac_ml,wfac_zl,dtvdz,l_found)
+!$OMP            idx0_ml,idx0_zl,z_up,z_down,wfac_ml,wfac_zl,dtvdz,l_found,lfound_all)
 
     DO jb = 1, nblks
       IF (jb /= nblks) THEN
@@ -1714,12 +1739,14 @@ CONTAINS
         nlen = npromz
         z3d_pl(nlen+1:nproma,:,jb)  = 0.0_wp
       ENDIF
+      ierror(jb) = 0
 
       ! First compute coefficients for those target levels/points for which interpolation
       ! between model-level data is possible
       jkm_start = 1
       DO jkp = 1, nlevs_pl
         l_found(:) = .FALSE.
+        lfound_all = .FALSE.
         DO jkm = jkm_start,nlevs_ml-1
           DO jc = 1, nlen
             IF (pres_pl(jc,jkp,jb) >= pres_ml(jc,jkm,jb) .AND. &
@@ -1734,9 +1761,16 @@ CONTAINS
               idx0_ml(jc,jkp) = nlevs_ml
             ENDIF
           ENDDO
-          IF (ALL(l_found(1:nlen))) EXIT
+          IF (ALL(l_found(1:nlen))) THEN
+            lfound_all = .TRUE.
+            EXIT
+          ENDIF
         ENDDO
-        jkm_start = MINVAL(idx0_ml(1:nlen,jkp))
+        IF (lfound_all) THEN
+          jkm_start = MINVAL(idx0_ml(1:nlen,jkp))
+        ELSE
+          ierror(jb) = ierror(jb) + 1
+        ENDIF
       ENDDO
 
       ! Now compute coefficients for interpolation between height levels
@@ -1745,6 +1779,7 @@ CONTAINS
       jkz_start = 1
       DO jkp = 1, nlevs_pl
         l_found(:) = .FALSE.
+        lfound_all = .FALSE.
         DO jkz = jkz_start,nlevs_zl-1
           DO jc = 1, nlen
             IF (pres_pl(jc,jkp,jb) >= pres_zl(jc,jkz,jb) .AND. &
@@ -1762,10 +1797,20 @@ CONTAINS
               idx0_zl(jc,jkp) = 1
             ENDIF
           ENDDO
-          IF (ALL(l_found(1:nlen))) EXIT
+          IF (ALL(l_found(1:nlen))) THEN
+            lfound_all = .TRUE.
+            EXIT
+          ENDIF
         ENDDO
-        jkz_start = MINVAL(idx0_zl(1:nlen,jkp))
+        IF (lfound_all) THEN
+          jkz_start = MINVAL(idx0_zl(1:nlen,jkp))
+        ELSE
+          ierror(jb) = ierror(jb) + 1
+        ENDIF
       ENDDO
+
+      IF (ierror(jb) > 0) CALL finish("z_at_plevels:",&
+        "Requested pressure levels exceed model top")
 
       ! Special treatment for target points lying lower than the lowest available height level
       ! (e.g. below sea level)
