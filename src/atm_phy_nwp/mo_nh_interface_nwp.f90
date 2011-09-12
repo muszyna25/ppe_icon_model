@@ -581,6 +581,16 @@ CONTAINS
 
             pt_prog%rhotheta_v(jc,jk,jb) = pt_prog%theta_v(jc,jk,jb) &
 &                                        * pt_prog%rho(jc,jk,jb)
+
+            ! finally compute dynamical temperature tendency
+            pt_diag%ddt_temp_dyn(jc,jk,jb) = cvd_o_rd*pt_prog%theta_v(jc,jk,jb) &
+              * pt_diag%exner_dyn_incr(jc,jk,jb)/tcall_phy_jg(itupdate)         &
+              / (1._wp+vtmpc1*pt_prog_rcf%tracer(jc,jk,jb,iqv)-z_qsum)
+
+            ! reset dynamical exner increment to zero
+            ! (it is accumulated over one advective time step in solve_nh)
+            pt_diag%exner_dyn_incr(jc,jk,jb) = 0._wp
+
           ENDDO
         ENDDO
 

@@ -1591,6 +1591,11 @@ CONTAINS
           &                   'K/s', 106, 999,&
           &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
           &           k_jg)
+          CALL addVar(TimeVar('tend_temp_dyn', &
+          &                   'temperature tendency due to dynamics',&
+          &                   'K/s', 107, 999,&
+          &                   vlistID(k_jg),gridCellID(k_jg),zaxisID_hybrid(k_jg)),&
+          &           k_jg)
 
           ! u-wind tendency
           CALL addVar(TimeVar('tend_u_conv',&
@@ -2469,6 +2474,7 @@ CONTAINS
       CASE ('tend_temp_conv');  ptr3 => prm_nwp_tend(jg)%ddt_temp_pconv(:,:,:)
       CASE ('tend_temp_turb');  ptr3 => prm_nwp_tend(jg)%ddt_temp_turb (:,:,:)
       CASE ('tend_temp_sso');   ptr3 => prm_nwp_tend(jg)%ddt_temp_sso  (:,:,:)
+      CASE ('tend_temp_dyn');   ptr3 => p_diag%ddt_temp_dyn(:,:,:)
       CASE ('tend_u_conv');     ptr3 => prm_nwp_tend(jg)%ddt_u_pconv   (:,:,:)
       CASE ('tend_u_turb');     ptr3 => prm_nwp_tend(jg)%ddt_u_turb    (:,:,:)
       CASE ('tend_u_sso');      ptr3 => prm_nwp_tend(jg)%ddt_u_turb    (:,:,:)

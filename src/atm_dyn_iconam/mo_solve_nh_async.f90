@@ -1805,6 +1805,18 @@ MODULE mo_solve_nh_async
         ENDDO
       ENDDO
 
+      IF (istep == 2) THEN
+        ! store dynamical part of exner time increment in exner_dyn_incr
+        ! the conversion into a temperature tendency is done in the NWP interface
+        DO jk = 1, nlev
+          DO jc = i_startidx, i_endidx
+            p_nh%diag%exner_dyn_incr(jc,jk,jb) = p_nh%diag%exner_dyn_incr(jc,jk,jb) + &
+              p_nh%prog(nnew)%exner(jc,jk,jb) - p_nh%diag%exner_old(jc,jk,jb) -   &
+              dtime*p_nh%diag%ddt_exner_phy(jc,jk,jb)
+          ENDDO
+        ENDDO
+      ENDIF
+
     ENDDO
 !$OMP END DO
 

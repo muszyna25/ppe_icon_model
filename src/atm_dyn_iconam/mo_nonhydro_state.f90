@@ -139,6 +139,7 @@ MODULE mo_nonhydro_state
     &  ddt_exner(:,:,:),    & ! exner pressure tendency from forcing (nproma,nlev,nblks_c)  [1/s]
     &  ddt_exner_phy(:,:,:),& ! exner pressure tendency from physical forcing 
                               ! (nproma,nlev,nblks_c)                     [1/s]
+    &  ddt_temp_dyn(:,:,:), & ! rediagnosed temperature tendency from dynamics [K/s]
     &  ddt_tracer_phy(:,:,:,:), &! physics tendency of tracers
                               ! (nproma,nlev,nblks_c,ntracer)             [kg/kg/s]
     &  ddt_tracer_adv(:,:,:,:), &! advective tendency of tracers          [kg/kg/s]
@@ -148,6 +149,7 @@ MODULE mo_nonhydro_state
                             ! *** needs to be saved for restart ***
     &  exner_fphy_incr(:,:,:), & ! exner pres fast-physics increment (nproma,nlev,nblks_c)
                             ! *** needs to be saved for restart ***
+    &  exner_dyn_incr(:,:,:), & ! exner pres dynamics increment (nproma,nlev,nblks_c)
     &  w_con(:,:,:),        & ! contravariant vert wind (nproma,nlevp1,nblks_c)[1/s]
     &  temp(:,:,:),         & ! temperature (nproma,nlev,nblks_c)                 [K]
     &  tempv(:,:,:),        & ! virtual temperature (nproma,nlev,nblks_c)         [K]
@@ -1061,6 +1063,14 @@ MODULE mo_nonhydro_state
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,    &
                 & ldims=shape3d_c )
 
+    ! ddt_temp_dyn  p_diag%ddt_temp_dyn(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('dynamical_temperature_tendency', 'K s-1',            &
+      &                   'dynamical temperature tendency')
+    grib2_desc = t_grib2_var(0, 3, 197, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_diag_list, 'ddt_temp_dyn', p_diag%ddt_temp_dyn,           &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,    &
+                & ldims=shape3d_c )
 
     ! exner_old    p_diag%exner_old(nproma,nlev,nblks_c)
     !
@@ -1075,6 +1085,14 @@ MODULE mo_nonhydro_state
     cf_desc    = t_cf_var('exner_fast_physics_increment', '-', 'exner fast physics increment')
     grib2_desc = t_grib2_var(0, 3, 196, ientr, GRID_REFERENCE, GRID_CELL)
     CALL add_var( p_diag_list, 'exner_fphy_incr', p_diag%exner_fphy_incr,       &
+                & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,    &
+                & ldims=shape3d_c )
+
+    ! exner_dyn_incr    p_diag%exner_dyn_incr(nproma,nlev,nblks_c)
+    !
+    cf_desc    = t_cf_var('exner_dynamics_increment', '-', 'exner dynamics increment')
+    grib2_desc = t_grib2_var(0, 3, 196, ientr, GRID_REFERENCE, GRID_CELL)
+    CALL add_var( p_diag_list, 'exner_dyn_incr', p_diag%exner_dyn_incr,       &
                 & GRID_UNSTRUCTURED_CELL, ZAXIS_HYBRID, cf_desc, grib2_desc,    &
                 & ldims=shape3d_c )
 
