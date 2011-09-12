@@ -761,14 +761,10 @@ MODULE mo_solve_nonhydro
         IF (l_open_ubc .AND. .NOT. l_vert_nested) THEN
           ! Compute contribution of thermal expansion to vertical wind at model top
           ! Isobaric expansion is assumed
-          DO jc = i_startidx, i_endidx
-            z_thermal_exp(jc,jb) = p_nh%diag%thermal_exp_fastphy(jc,jb) ! fast physics contribution
-          ENDDO
-
 !CDIR UNROLL=4
           DO jk = 2, nlev
             DO jc = i_startidx, i_endidx
-              z_thermal_exp(jc,jb) = z_thermal_exp(jc,jb)+cpd_o_rd                  &
+              z_thermal_exp(jc,jb) =  cpd_o_rd                                      &
                 * (p_nh%diag%ddt_exner(jc,jk,jb)+p_nh%diag%ddt_exner_phy(jc,jk,jb)) &
                 /  p_nh%prog(nnow)%exner(jc,jk,jb)*p_nh%metrics%ddqz_z_full(jc,jk,jb)
             ENDDO

@@ -185,8 +185,8 @@ CONTAINS
       dt_conv (jg) = 600._wp      !seconds
       dt_ccov (jg) = dt_conv(jg)  !presently not used; cloud cover is synchronized with radiation
       dt_rad  (jg) = 1800._wp     !seconds
-      dt_sso  (jg) = 3600._wp     !seconds
-      dt_gwd  (jg) = 3600._wp     !seconds
+      dt_sso  (jg) = 1200._wp     !seconds
+      dt_gwd  (jg) = 1200._wp     !seconds
     ENDDO
 
     qi0 = 0.0_wp 

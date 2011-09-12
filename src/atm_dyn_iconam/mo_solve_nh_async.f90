@@ -124,9 +124,10 @@ MODULE mo_solve_nh_async
     REAL(wp):: z_vnw(nproma,p_patch%nlevp1,p_patch%nblks_e)
     REAL(wp):: z_hadv_w(nproma,p_patch%nlevp1,p_patch%nblks_c)
 
-    INTEGER,  DIMENSION(:,:,:),   POINTER :: icidx, icblk, ieidx, ieblk, ividx, ivblk
+    INTEGER,  DIMENSION(:,:,:), POINTER :: icidx, icblk, ieidx, ieblk, &
+                                           ividx, ivblk, incidx, incblk
     INTEGER  :: nlev, nlevp1          !< number of full and half levels
-    ! Preparation for vertical nesting; switch will become a patch attribute later on
+    ! Local control variable for vertical nesting
     LOGICAL :: l_vert_nested
 
     !--------------------------------------------------------------------------
@@ -150,6 +151,9 @@ MODULE mo_solve_nh_async
 
     ividx => p_patch%edges%vertex_idx
     ivblk => p_patch%edges%vertex_blk
+
+    incidx => p_patch%cells%neighbor_idx
+    incblk => p_patch%cells%neighbor_blk
 
     i_nchdom   = MAX(1,p_patch%n_childdom)
 
@@ -218,7 +222,7 @@ MODULE mo_solve_nh_async
 
         ENDIF
 
-      ELSE ! corrector step
+      ELSE ! corrector step (istep = 2)
 
         ! Compute only horizontal kinetic energy
         DO jk = 1, nlev
@@ -255,27 +259,71 @@ MODULE mo_solve_nh_async
           DO je = i_startidx, i_endidx
             z_concorr_e(je,jk,jb) = &
               p_diag%vn_ie(je,jk,jb)*p_metrics%ddxn_z_half(je,jk,jb) + &
-              z_vt_ie(je,jk)          *p_metrics%ddxt_z_half(je,jk,jb)
+              z_vt_ie(je,jk)        *p_metrics%ddxt_z_half(je,jk,jb)
           ENDDO
         ENDDO
       ENDIF
 
     ENDDO
 !$OMP END DO
+
+    rl_start = 2
+    rl_end = min_rlcell_int - 1
+
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, rl_start, rl_end)
+
+      ! Interpolate horizontal kinetic energy to cell centers
+#ifdef __LOOP_EXCHANGE
+      DO jc = i_startidx, i_endidx
+        DO jk = 1, nlev
+#else
+!CDIR UNROLL=6
+      DO jk = 1, nlev
+        DO jc = i_startidx, i_endidx
+#endif
+
+        p_diag%e_kinh(jc,jk,jb) =  &
+          p_int%e_bln_c_s(jc,1,jb)*z_kin_hor_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) + &
+          p_int%e_bln_c_s(jc,2,jb)*z_kin_hor_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) + &
+          p_int%e_bln_c_s(jc,3,jb)*z_kin_hor_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))
+
+        ENDDO
+      ENDDO
+
+      ! Interpolate contravariant correction to cell centers
+      ! To save computing time, the contravariant correction calculated in the preceding
+      ! time step is retained here for the predictor step; the impact is that it does
+      ! not include the effect of the latest horizontal diffusion call
+      IF (istep == 1 .AND. l_init) THEN
+
+#ifdef __LOOP_EXCHANGE
+        DO jc = i_startidx, i_endidx
+          DO jk = nflatlev(p_patch%id)+1, nlevp1
+#else
+!CDIR UNROLL=6
+        DO jk = nflatlev(p_patch%id)+1, nlevp1
+          DO jc = i_startidx, i_endidx
+#endif
+
+            p_diag%w_concorr_c(jc,jk,jb) =  &
+              p_int%e_bln_c_s(jc,1,jb)*z_concorr_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) + &
+              p_int%e_bln_c_s(jc,2,jb)*z_concorr_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) + &
+              p_int%e_bln_c_s(jc,3,jb)*z_concorr_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))
+
+          ENDDO
+        ENDDO
+
+      ENDIF
+    ENDDO
+!$OMP END DO
 !$OMP END PARALLEL
-
-    ! Interpolate horizontal kinetic energy to cell centers
-    CALL edges2cells_scalar(z_kin_hor_e,p_patch,p_int%e_bln_c_s,p_diag%e_kinh,&
-                            opt_rlstart=2, opt_rlend=min_rlcell_int-1)
-
-    ! Interpolate contravariant correction to cell centers
-    ! To save computing time, the contravariant correction calculated in the preceding
-    ! time step is retained here for the predictor step; the impact is that it does
-    ! not include the effect of the latest horizontal diffusion call
-    IF (istep == 1 .AND. l_init) THEN
-      CALL edges2cells_scalar(z_concorr_e,p_patch,p_int%e_bln_c_s,p_diag%w_concorr_c,&
-             nflatlev(p_patch%id)+1, nlevp1, opt_rlstart=2, opt_rlend=min_rlcell_int-1)
-    ENDIF
 
     IF (istep == 2) THEN
       CALL complete_async_comm(p_patch%comm_pat_c,1,nlevp1,bufr%recv_c1,p_prog%w)
@@ -369,13 +417,47 @@ MODULE mo_solve_nh_async
 
     ENDDO
 !$OMP END DO
-!$OMP END PARALLEL
 
-    ! Apply cell averaging to the components of horizontal w advection:
-    CALL cell_avg(z_hadv_w, p_patch, p_int%c_bln_avg, p_diag%ddt_w_adv(:,:,:,ntnd),&
-                  opt_rlstart=4, opt_rlend=min_rlcell_int)
+    rl_start = grf_bdywidth_c+1
+    rl_end   = min_rlcell_int
 
-!$OMP PARALLEL PRIVATE(rl_start, rl_end, i_startblk, i_endblk)
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, rl_start, rl_end)
+
+      ! Apply cell averaging to the components of horizontal w advection
+#ifdef __LOOP_EXCHANGE
+      DO jc = i_startidx, i_endidx
+        DO jk = 2, nlev
+#else
+!CDIR UNROLL=4
+      DO jk = 1, nlev ! starting at level 2 would be sufficient, but this improves usage of unrolling
+        DO jc = i_startidx, i_endidx
+#endif
+          p_diag%ddt_w_adv(jc,jk,jb,ntnd) =                                         &
+              z_hadv_w(jc,jk,jb)                          *p_int%c_bln_avg(jc,1,jb) &
+            + z_hadv_w(incidx(jc,jb,1),jk,incblk(jc,jb,1))*p_int%c_bln_avg(jc,2,jb) &
+            + z_hadv_w(incidx(jc,jb,2),jk,incblk(jc,jb,2))*p_int%c_bln_avg(jc,3,jb) &
+            + z_hadv_w(incidx(jc,jb,3),jk,incblk(jc,jb,3))*p_int%c_bln_avg(jc,4,jb)
+        ENDDO
+      ENDDO
+
+      ! Sum up remaining terms of vertical wind advection
+      DO jk = 2, nlev
+        DO jc = i_startidx, i_endidx
+          p_diag%ddt_w_adv(jc,jk,jb,ntnd) = p_diag%ddt_w_adv(jc,jk,jb,ntnd)      &
+            - p_diag%w_con(jc,jk,jb)*(p_prog%w(jc,jk-1,jb)-p_prog%w(jc,jk+1,jb)) &
+            * p_metrics%inv_ddqz_z_half2(jc,jk,jb)
+        ENDDO
+      ENDDO
+    ENDDO
+!$OMP END DO
+
     rl_start = grf_bdywidth_e+1
     rl_end = min_rledge_int
 
@@ -412,28 +494,6 @@ MODULE mo_solve_nh_async
     ENDDO
 !$OMP END DO
 
-    rl_start = grf_bdywidth_c+1
-    rl_end = min_rlcell_int
-
-    i_startblk = p_patch%cells%start_blk(rl_start,1)
-    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
-
-!$OMP DO PRIVATE(jb, jk, jc, i_startidx, i_endidx)
-    DO jb = i_startblk, i_endblk
-
-      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
-                         i_startidx, i_endidx, rl_start, rl_end)
-
-      ! Sum up terms of vertical wind advection
-      DO jk = 2, nlev
-        DO jc = i_startidx, i_endidx
-          p_diag%ddt_w_adv(jc,jk,jb,ntnd) = p_diag%ddt_w_adv(jc,jk,jb,ntnd) &
-            - p_diag%w_con(jc,jk,jb)*(p_prog%w(jc,jk-1,jb)-p_prog%w(jc,jk+1,jb)) &
-            * p_metrics%inv_ddqz_z_half2(jc,jk,jb)
-        ENDDO
-      ENDDO
-    ENDDO
-!$OMP END DO
 !$OMP END PARALLEL
 
   END SUBROUTINE velocity_tendencies
@@ -522,7 +582,7 @@ MODULE mo_solve_nh_async
 
     REAL(wp):: fac_ex2pres, z_aux(nproma), z_theta1, z_theta2, z_raylfac
     ! For Smagorinsky diffusion
-    REAL(wp):: fac_bdydiff_v, diff_multfac_vn
+    REAL(wp):: fac_bdydiff_v, diff_multfac_vn(p_patch%nlev)
     REAL(wp):: vn_vert1, vn_vert2, vn_vert3, vn_vert4, dvt_norm, dvt_tang, &
                diff_multfac_smag, nabv_tang, nabv_norm, nudgezone_diff, bdy_diff
 
@@ -631,7 +691,7 @@ MODULE mo_solve_nh_async
     id         = p_patch%id
     jlev       = p_patch%level
 
-    diff_multfac_vn = diffusion_config(id)%k4/3._wp
+    diff_multfac_vn(:) = diffusion_config(id)%k4/3._wp*p_nh%metrics%enhfac_diffu(:)
 
     ! empirically determined scaling factor (default of 0.15 for hdiff_smag_fac is somewhat
     ! larger than suggested in the literature); increase with resolution might be
@@ -764,14 +824,10 @@ MODULE mo_solve_nh_async
         IF (l_open_ubc .AND. .NOT. l_vert_nested) THEN
           ! Compute contribution of thermal expansion to vertical wind at model top
           ! Isobaric expansion is assumed
-          DO jc = i_startidx, i_endidx
-            z_thermal_exp(jc,jb) = p_nh%diag%thermal_exp_fastphy(jc,jb) ! fast physics contribution
-          ENDDO
-
 !CDIR UNROLL=4
           DO jk = 2, nlev
             DO jc = i_startidx, i_endidx
-              z_thermal_exp(jc,jb) = z_thermal_exp(jc,jb)+cpd_o_rd                  &
+              z_thermal_exp(jc,jb) =  cpd_o_rd                                      &
                 * (p_nh%diag%ddt_exner(jc,jk,jb)+p_nh%diag%ddt_exner_phy(jc,jk,jb)) &
                 /  p_nh%prog(nnow)%exner(jc,jk,jb)*p_nh%metrics%ddqz_z_full(jc,jk,jb)
             ENDDO
@@ -1223,9 +1279,6 @@ MODULE mo_solve_nh_async
                                p_nh%prog(nnew)%vn)
     ENDIF
 
-    ! Tangential wind component using RBF reconstruction
-    CALL rbf_vec_interpol_edge(p_nh%prog(nnew)%vn, p_patch, p_int, p_nh%diag%vt)
-
     IF (istep == 2) THEN
       !  RBF reconstruction of velocity at vertices for Smagorinsky diffusion
       CALL rbf_vec_interpol_vertex( p_nh%prog(nnew)%vn, p_patch, p_int, &
@@ -1238,39 +1291,74 @@ MODULE mo_solve_nh_async
 
 !$OMP PARALLEL PRIVATE (rl_start,rl_end,i_startblk,i_endblk)
 
-    IF (idiv_method == 1) THEN
-
     rl_start = 2
     rl_end   = min_rledge_int - 2
 
     i_startblk = p_patch%edges%start_blk(rl_start,1)
     i_endblk   = p_patch%edges%end_blk(rl_end,i_nchdom)
 
-!$OMP DO PRIVATE(jb,jk,je,i_startidx,i_endidx)
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,je)
     DO jb = i_startblk, i_endblk
 
       CALL get_indices_e(p_patch, jb, i_startblk, i_endblk, &
                          i_startidx, i_endidx, rl_start, rl_end)
 
+      IF (idiv_method == 1) THEN
+
 #ifdef __LOOP_EXCHANGE
-      DO je = i_startidx, i_endidx
-        DO jk = 1, nlev
+        DO je = i_startidx, i_endidx
+          DO jk = 1, nlev
 #else
 !CDIR UNROLL=3
-      DO jk = 1, nlev
-        DO je = i_startidx, i_endidx
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
 #endif
-          z_vn_avg(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)*p_int%e_flx_avg(je,1,jb)        &
-            + p_nh%prog(nnew)%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1))*p_int%e_flx_avg(je,2,jb) &
-            + p_nh%prog(nnew)%vn(iqidx(je,jb,2),jk,iqblk(je,jb,2))*p_int%e_flx_avg(je,3,jb) &
-            + p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3))*p_int%e_flx_avg(je,4,jb) &
-            + p_nh%prog(nnew)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))*p_int%e_flx_avg(je,5,jb)
-         ENDDO
-      ENDDO
+            ! Average normal wind components in order to get nearly second-order accurate divergence
+            z_vn_avg(je,jk,jb) = p_int%e_flx_avg(je,1,jb)*p_nh%prog(nnew)%vn(je,jk,jb)        &
+              + p_int%e_flx_avg(je,2,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
+              + p_int%e_flx_avg(je,3,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) &
+              + p_int%e_flx_avg(je,4,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
+              + p_int%e_flx_avg(je,5,jb)*p_nh%prog(nnew)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
+
+            ! RBF reconstruction of tangential wind component
+            p_nh%diag%vt(je,jk,jb) = p_int%rbf_vec_coeff_e(1,je,jb)  &
+              * p_nh%prog(nnew)%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
+              + p_int%rbf_vec_coeff_e(2,je,jb)                       &
+              * p_nh%prog(nnew)%vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) &
+              + p_int%rbf_vec_coeff_e(3,je,jb)                       &
+              * p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
+              + p_int%rbf_vec_coeff_e(4,je,jb)                       &
+              * p_nh%prog(nnew)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
+
+           ENDDO
+        ENDDO
+
+      ELSE ! idiv_method = 2
+
+#ifdef __LOOP_EXCHANGE
+        DO je = i_startidx, i_endidx
+          DO jk = 1, nlev
+#else
+!CDIR UNROLL=3
+        DO jk = 1, nlev
+          DO je = i_startidx, i_endidx
+#endif
+            ! Perform only RBF reconstruction of tangential wind component
+            p_nh%diag%vt(je,jk,jb) = p_int%rbf_vec_coeff_e(1,je,jb)  &
+              * p_nh%prog(nnew)%vn(iqidx(je,jb,1),jk,iqblk(je,jb,1)) &
+              + p_int%rbf_vec_coeff_e(2,je,jb)                       &
+              * p_nh%prog(nnew)%vn(iqidx(je,jb,2),jk,iqblk(je,jb,2)) &
+              + p_int%rbf_vec_coeff_e(3,je,jb)                       &
+              * p_nh%prog(nnew)%vn(iqidx(je,jb,3),jk,iqblk(je,jb,3)) &
+              + p_int%rbf_vec_coeff_e(4,je,jb)                       &
+              * p_nh%prog(nnew)%vn(iqidx(je,jb,4),jk,iqblk(je,jb,4))
+
+           ENDDO
+        ENDDO
+
+      ENDIF
     ENDDO
 !$OMP END DO
-
-    ENDIF
 
     rl_start = 3
     rl_end = min_rledge_int - 2
@@ -1346,6 +1434,37 @@ MODULE mo_solve_nh_async
     ENDDO
 !$OMP END DO
 
+    rl_start = 3
+    rl_end = min_rlcell_int - 1
+
+    i_startblk = p_patch%cells%start_blk(rl_start,1)
+    i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
+
+!$OMP DO PRIVATE(jb,i_startidx,i_endidx,jk,jc)
+    DO jb = i_startblk, i_endblk
+
+      CALL get_indices_c(p_patch, jb, i_startblk, i_endblk, &
+                         i_startidx, i_endidx, rl_start, rl_end)
+
+      ! Interpolate contravariant correction to cell centers
+#ifdef __LOOP_EXCHANGE
+      DO jc = i_startidx, i_endidx
+        DO jk = nflatlev(p_patch%id)+1, nlevp1
+#else
+!CDIR UNROLL=6
+      DO jk = nflatlev(p_patch%id)+1, nlevp1
+        DO jc = i_startidx, i_endidx
+#endif
+
+          p_nh%diag%w_concorr_c(jc,jk,jb) =                                          &
+            p_int%e_bln_c_s(jc,1,jb)*z_concorr_e(ieidx(jc,jb,1),jk,ieblk(jc,jb,1)) + &
+            p_int%e_bln_c_s(jc,2,jb)*z_concorr_e(ieidx(jc,jb,2),jk,ieblk(jc,jb,2)) + &
+            p_int%e_bln_c_s(jc,3,jb)*z_concorr_e(ieidx(jc,jb,3),jk,ieblk(jc,jb,3))
+
+        ENDDO
+      ENDDO
+    ENDDO
+!$OMP END DO
 
     rl_start = 7
     IF (idiv_method == 1) THEN
@@ -1379,9 +1498,6 @@ MODULE mo_solve_nh_async
     ENDDO
 !$OMP END DO
 !$OMP END PARALLEL
-
-    CALL edges2cells_scalar(z_concorr_e,p_patch,p_int%e_bln_c_s,p_nh%diag%w_concorr_c,&
-             nflatlev(p_patch%id)+1, nlevp1, opt_rlstart=3, opt_rlend=min_rlcell_int-1)
 
     IF (idiv_method == 1) THEN ! use simple divergence based on averaged velocity
 
@@ -1888,7 +2004,7 @@ MODULE mo_solve_nh_async
            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  +        &
              p_patch%edges%area_edge(je,jb) *                                    &
              (MAX(nudgezone_diff*p_int%nudgecoeff_e(je,jb),kh_smag_e(je,jk,jb))* &
-             z_nabla2_e(je,jk,jb) - diff_multfac_vn * z_nabla4_e(je,jk,jb) *     &
+             z_nabla2_e(je,jk,jb) - diff_multfac_vn(jk) * z_nabla4_e(je,jk,jb) * &
              p_patch%edges%area_edge(je,jb))
          ENDDO
        ENDDO
@@ -1906,7 +2022,7 @@ MODULE mo_solve_nh_async
            p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  +   &
              p_patch%edges%area_edge(je,jb) * (kh_smag_e(je,jk,jb)*         &
              z_nabla2_e(je,jk,jb) - z_nabla4_e(je,jk,jb) *                  &
-             MAX(diff_multfac_vn,bdy_diff*p_int%nudgecoeff_e(je,jb)) *      &
+             MAX(diff_multfac_vn(jk),bdy_diff*p_int%nudgecoeff_e(je,jb)) *  &
              p_patch%edges%area_edge(je,jb))
          ENDDO
        ENDDO
@@ -1921,9 +2037,9 @@ MODULE mo_solve_nh_async
 
        DO jk = 1, nlev
          DO je = i_startidx, i_endidx
-           p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  +    &
-             p_patch%edges%area_edge(je,jb) * (kh_smag_e(je,jk,jb)*          &
-             z_nabla2_e(je,jk,jb) - diff_multfac_vn * z_nabla4_e(je,jk,jb) * &
+           p_nh%prog(nnew)%vn(je,jk,jb) = p_nh%prog(nnew)%vn(je,jk,jb)  +        &
+             p_patch%edges%area_edge(je,jb) * (kh_smag_e(je,jk,jb)*              &
+             z_nabla2_e(je,jk,jb) - diff_multfac_vn(jk) * z_nabla4_e(je,jk,jb) * &
              p_patch%edges%area_edge(je,jb))
          ENDDO
        ENDDO

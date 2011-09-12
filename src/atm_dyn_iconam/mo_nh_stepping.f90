@@ -1175,6 +1175,10 @@ MODULE mo_nh_stepping
           ELSE
             ! call version for asynchronous halo communication, 
             ! combining solve and Smagorinsky diffusion
+            IF( diffusion_config(jg)%hdiff_order /= 5) &
+              CALL finish ( 'mo_nh_stepping:perform_nh_stepping',  &
+              'asynchronous halo communication requires hdiff_order=5' )
+
             CALL solve_nh_ahc(p_nh_state(jg), p_patch(jg), p_int_state(jg), bufr(jg),   &
                         n_now, n_new, linit_dyn(jg), linit_vertnest, l_bdy_nudge, dt_loc)
           ENDIF

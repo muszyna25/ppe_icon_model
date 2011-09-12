@@ -651,13 +651,17 @@ SUBROUTINE sso (                                                       &
 
         pdu_sso(j1,j2,j3)=zdudt(j1,j2)
         pdv_sso(j1,j2,j3)=zdvdt(j1,j2)
-        zust             = pu(j1,j2,j3)+zdt2*zdudt(j1,j2)
-        zvst             = pv(j1,j2,j3)+zdt2*zdvdt(j1,j2)
-        zdis=0.5_ireals*(pu(j1,j2,j3)**2+pv(j1,j2,j3)**2-zust**2-zvst**2)
-        zdedt            = zdis/zdt2
+! GZ: use differential formulation in order to avoid artifacts (and numerical
+!     instabilities) due to possible sign changes at long time steps
+!        zust             = pu(j1,j2,j3)+zdt2*zdudt(j1,j2)
+!        zvst             = pv(j1,j2,j3)+zdt2*zdvdt(j1,j2)
+!        zdis=0.5_ireals*(pu(j1,j2,j3)**2+pv(j1,j2,j3)**2-zust**2-zvst**2)
+!        zdedt            = zdis/zdt2
+        zdedt = -(pu(j1,j2,j3)*zdudt(j1,j2)+pv(j1,j2,j3)*zdvdt(j1,j2))
         zdtdt(j1,j2)     = zdedt       /Cp_d
         pdt_sso(j1,j2,j3)= zdtdt(j1,j2)
-        zvidis(j1,j2)=zvidis(j1,j2)+zdis*zdelp    ! de-activated
+!        zvidis(j1,j2)=zvidis(j1,j2)+zdis*zdelp    ! de-activated
+        zvidis(j1,j2)=zvidis(j1,j2)+zdedt*zdelp    ! de-activated
 
         ENDIF
 
@@ -678,7 +682,8 @@ SUBROUTINE sso (                                                       &
         DO j2=jstart,jend
           DO j1=istart,iend
             IF(lo_sso(j1,j2)) THEN
-              pvdis_sso(j1,j2)=zcons1*zvidis(j1,j2)
+!              pvdis_sso(j1,j2)=zcons1*zvidis(j1,j2)
+              pvdis_sso(j1,j2)=zvidis(j1,j2)/G
             ELSE
               pvdis_sso(j1,j2)=0._ireals
             ENDIF
