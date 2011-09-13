@@ -67,8 +67,7 @@ MODULE mo_nh_interface_nwp
   USE mo_nonhydrostatic_config, ONLY: kstart_moist, l_open_ubc
   USE mo_nwp_lnd_state,      ONLY: t_lnd_prog, t_lnd_diag!, t_lnd_state
   USE mo_ext_data,           ONLY: t_external_data
-  USE mo_nwp_phy_state,      ONLY: t_nwp_phy_diag,&
-                                 & t_nwp_phy_tend!, prm_diag
+  USE mo_nwp_phy_state,      ONLY: t_nwp_phy_diag, t_nwp_phy_tend
   USE mo_parallel_config,  ONLY: nproma, p_test_run
   USE mo_run_config,         ONLY: ntracer, iqv, iqc, iqi, &
        &                           iqr, iqs, msg_level, ltimer, timers_level
@@ -1030,20 +1029,20 @@ CONTAINS
 
     IF (lcall_phy_jg(itsso) .OR. lcall_phy_jg(itgwd)) THEN
 
-       IF (msg_level >= 12) &
-&           CALL message('mo_nh_interface', 'gravity waves')
+      IF (msg_level >= 12) &
+        &  CALL message('mo_nh_interface', 'gravity waves')
 
-        IF (timers_level > 3) CALL timer_start(timer_sso)
+      IF (timers_level > 3) CALL timer_start(timer_sso)
 
-       CALL nwp_gwdrag  (  tcall_phy_jg(itsso),             & !>input
-                          &tcall_phy_jg(itgwd),             & !> input
-                            &   pt_patch,p_metrics,         & !>input
-                            &   ext_data,                   & !>input
-                            &   pt_prog,                    & !>in
-                            &   pt_diag ,                   & !>inout
-                            &   prm_diag,prm_nwp_tend      ) !>inout
+      CALL nwp_gwdrag ( tcall_phy_jg(itsso),       & !>input
+        &               tcall_phy_jg(itgwd),       & !>input
+        &               pt_patch,p_metrics,        & !>input
+        &               ext_data,                  & !>input
+        &               pt_prog,                   & !>in
+        &               pt_diag ,                  & !>inout
+        &               prm_diag,prm_nwp_tend      ) !>inout
 
-    IF (timers_level > 3) CALL timer_stop(timer_sso)
+      IF (timers_level > 3) CALL timer_stop(timer_sso)
     ENDIF ! inwp_sso
      
     IF (ltimer) CALL timer_start(timer_physic_acc)

@@ -93,7 +93,7 @@ MODULE mo_nh_stepping
   USE mo_exception,           ONLY: message, message_text, finish
   USE mo_impl_constants,      ONLY: SUCCESS, MAX_CHAR_LENGTH,iphysproc,itconv,   &
     &                               itccov, itrad, itradheat, itsso, itsatad,    &
-    &                               inwp
+    &                               itgwd, inwp
   USE mo_divergent_modes,     ONLY: divergent_modes_5band
   USE mo_math_operators,      ONLY: div_avg, div
   USE mo_solve_nonhydro,      ONLY: solve_nh
@@ -1551,6 +1551,8 @@ MODULE mo_nh_stepping
       IF ( tcall_phy(jg,itradheat) > 0._wp )  lcall_phy(jg,itradheat) = .TRUE.
 
       IF ( tcall_phy(jg,itsso) > 0._wp )  lcall_phy(jg,itsso) = .TRUE.
+
+      IF ( tcall_phy(jg,itgwd) > 0._wp )  lcall_phy(jg,itgwd) = .TRUE.
  
     ELSE
       !

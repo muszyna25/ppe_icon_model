@@ -215,7 +215,6 @@ CONTAINS
            & paphm1   = p_diag%pres_ifc         (:,:,jb),  & !< in:  half level pressure
            & pgeo1    = p_metrics%geopot_agl    (:,:,jb),  & !< in:  full level geopotential
            & pgelat   = p_patch%cells%center    (:,jb)%lat,& !< in:  latitude (rad)
-!DR        & pprecip  = prm_diag%tot_prec       (:,jb)  ,  & !< in:  total surface precipitation
            & pprecip  = ztot_prec_rate          (:)     ,  & !< in:  total surface precipitation rate
            & ptenu    = prm_nwp_tend%ddt_u_gwd  (:,:,jb),  & !< out: u-tendency
            & ptenv    = prm_nwp_tend%ddt_v_gwd  (:,:,jb),  & !< out: v-tendency
