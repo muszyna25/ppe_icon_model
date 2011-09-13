@@ -2,7 +2,7 @@
 !! This module is the interface between nwp_nh_interface to the
 !! gravity wave drag related parameterisations:
 !! inwp_sso == 1 == COSMO subgrid scale orographic gravity wave drag
-!! inwp_gwd == 1 == IFS non-orographic gravity wave dragxs
+!! inwp_gwd == 1 == IFS non-orographic gravity wave drag
 !!
 !! @author    J. SCINOCCIA -- Original Fortran Code
 !! @author    A. Orr  -- Rewritten in IFS format   E.C.M.W.F.     August 2008
@@ -72,8 +72,8 @@ CONTAINS
   !!
   !!-------------------------------------------------------------------------
   !!
-  SUBROUTINE nwp_gwdrag  ( tcall_sso_jg,              & !>input
-                         &  tcall_gwd_jg,               & !> input
+  SUBROUTINE nwp_gwdrag  (   tcall_sso_jg,              & !>input
+                         &   tcall_gwd_jg,              & !> input
                          &   p_patch,p_metrics,         & !>input
                          &   ext_data,                  & !>input
                          &   p_prog,                    & !>in
@@ -82,7 +82,7 @@ CONTAINS
 
 
 
-    TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch        !!<grid/patch info.
+    TYPE(t_patch),        TARGET,INTENT(in)   :: p_patch         !<grid/patch info.
     TYPE(t_external_data),       INTENT(in)   :: ext_data        !< external data
     TYPE(t_nh_metrics)          ,INTENT(in)   :: p_metrics
     TYPE(t_nh_prog),      TARGET,INTENT(in)   :: p_prog          !<the dyn prog vars
@@ -90,14 +90,14 @@ CONTAINS
     TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag        !<the atm phys vars
     TYPE(t_nwp_phy_tend),TARGET, INTENT(inout):: prm_nwp_tend    !< atm tend vars
 
-    REAL(wp),                    INTENT(in)   :: tcall_sso_jg   !< time interval for
+    REAL(wp),                    INTENT(in)   :: tcall_sso_jg    !< time interval for
                                                                  !< sso
-    REAL(wp),                    INTENT(in)   :: tcall_gwd_jg   !< time interval for
-    !                                                             !< gwd
+    REAL(wp),                    INTENT(in)   :: tcall_gwd_jg    !< time interval for
+    !                                                            !< gwd
 
     ! Local array bounds:
 
-    INTEGER :: nblks_c                !< number of blocks for cells
+    INTEGER :: nblks_c                 !< number of blocks for cells
     INTEGER :: npromz_c                !< length of last block line
     INTEGER :: nlev, nlevp1            !< number of full and half levels
     INTEGER :: rl_start, rl_end
@@ -135,8 +135,7 @@ CONTAINS
     i_endblk   = p_patch%cells%end_blk(rl_end,i_nchdom)
 
 
-    IF (msg_level >= 12) &
-&           CALL message('mo_nwp_gw_interface', 'subgrid scale orography')
+    IF (msg_level >= 12)  CALL message('mo_nwp_gw_interface', 'subgrid scale orography')
 
 
 !$OMP PARALLEL
@@ -167,12 +166,12 @@ CONTAINS
           & iend      =i_endidx                         ,  & !< in:  end index of calculation
           & jstart    =1                                ,  & !< in:  dummy start index 
           & jend      =1                                ,  & !< in:  dummy end index
-          & ppf       =p_diag%pres             (:,:,jb),  & !< in:  full level pressure
-          & pph       =p_diag%pres_ifc         (:,:,jb),  & !< in:  half level pressure
+          & ppf       =p_diag%pres              (:,:,jb),  & !< in:  full level pressure
+          & pph       =p_diag%pres_ifc          (:,:,jb),  & !< in:  half level pressure
           & pfif      =p_metrics%geopot_agl     (:,:,jb),  & !< in:  full level geopotential height
-          & pt        =p_diag%temp             (:,:,jb),  & !< in:  temperature
-          & pu        =p_diag%u                (:,:,jb),  & !< in:  zonal wind component
-          & pv        =p_diag%v                (:,:,jb),  & !< in:  meridional wind component
+          & pt        =p_diag%temp              (:,:,jb),  & !< in:  temperature
+          & pu        =p_diag%u                 (:,:,jb),  & !< in:  zonal wind component
+          & pv        =p_diag%v                 (:,:,jb),  & !< in:  meridional wind component
           & pfis      =p_metrics%geopot_agl_ifc (:,nlevp1,jb),& !< in:surface geopotential height
           & psso_stdh =ext_data%atm%sso_stdh    (:,jb)  ,  & !< in:  standard deviation
           & psso_gamma=ext_data%atm%sso_gamma   (:,jb)  ,  & !< in:  anisotropy
@@ -193,20 +192,19 @@ CONTAINS
            & kfdia    = i_endidx                        ,  &
            & klon     = nproma                          ,  &
            & klev     = nlev                            ,  & !< in:  actual array size
-           & klevp1   = nlevp1                          ,  &
            & ptstep   = tcall_gwd_jg                    ,  & !< in:  time step
            & ptm1     = p_diag%temp             (:,:,jb),  & !< in:  temperature
            & pum1     = p_diag%u                (:,:,jb),  & !< in:  zonal wind component
            & pvm1     = p_diag%v                (:,:,jb),  & !< in:  meridional wind component
            & papm1    = p_diag%pres             (:,:,jb),  & !< in:  full level pressure
            & paphm1   = p_diag%pres_ifc         (:,:,jb),  & !< in:  half level pressure
-           & pgeo1    = p_metrics%geopot_agl    (:,:,jb),  & !< in:  full level geopote
-           & pgelat   = p_patch%cells%center    (:,jb)%lat,&
-           & pprecip  = prm_diag%tot_prec       (:,jb)    ,&
+           & pgeo1    = p_metrics%geopot_agl    (:,:,jb),  & !< in:  full level geopotential
+           & pgelat   = p_patch%cells%center    (:,jb)%lat,& !< in:  latitude (rad)
+           & pprecip  = prm_diag%tot_prec       (:,jb)  ,  & !< in:  total surface precipitation
            & ptenu    = prm_nwp_tend%ddt_u_gwd  (:,:,jb),  & !< out: u-tendency
            & ptenv    = prm_nwp_tend%ddt_v_gwd  (:,:,jb),  & !< out: v-tendency
-           & pfluxu   = z_fluxu (:,:,jb)                ,  & !< out: 
-           & pfluxv   = z_fluxv (:,:,jb)   )                 !< out: 
+           & pfluxu   = z_fluxu (:,:,jb)                ,  & !< out: zonal  GWD vertical mom flux
+           & pfluxv   = z_fluxv (:,:,jb)   )                 !< out: merid. GWD vertical mom flux
 
       ELSE IF (atm_phy_nwp_config(jg)%inwp_gwd > 0) THEN
 

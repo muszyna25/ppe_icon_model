@@ -1,5 +1,5 @@
 !>
-!!    THIS ROUTINE COMPUTES NON-OROGRAPHIC GRAVITY WAVE DRAG
+!!     THIS ROUTINE COMPUTES NON-OROGRAPHIC GRAVITY WAVE DRAG
 !!     AFTER SCINOCCA (2003) AND Mc LANDRESS AND SCINOCCIA (JAS 2005)
 !!     HYDROSTATIC NON-ROTATIONAL SIMPLIFIED VERSION OF THE
 !!     WARNER AND MCINTYRE (1996) NON-OROGRAPHIC GRAVITY WAVE PARAMETERIZATION
@@ -74,7 +74,7 @@ MODULE mo_gwd_wms
   
 CONTAINS
   
-  SUBROUTINE gwdrag_wms(kidia,  kfdia,   klon,  klev, klevp1,  ptstep,&
+  SUBROUTINE gwdrag_wms(kidia,  kfdia,   klon,  klev, ptstep,&
     & ptm1 ,  pum1,    pvm1,  papm1,  paphm1, pgeo1 ,&
     & pgelat, pprecip,&
     & ptenu, ptenv,   pfluxu, pfluxv)
@@ -104,7 +104,6 @@ CONTAINS
     INTEGER(KIND=jpim),INTENT(in) :: kidia, kfdia
     INTEGER(KIND=jpim),INTENT(in) :: klon              ! horizontal dimension
     INTEGER(KIND=jpim),INTENT(in) :: klev              ! vertical levels
-    INTEGER(KIND=jpim),INTENT(in) :: klevp1            ! vertical interface levels
     REAL(KIND=jprb),INTENT(in) :: ptstep               !model time step
     REAL(KIND=jprb),INTENT(in) :: pum1(klon,klev)      !full model level zonal velocity (t-dt)
     REAL(KIND=jprb),INTENT(in) :: pvm1(klon,klev)      !full model level meridional velocity (t-dt)
@@ -121,8 +120,8 @@ CONTAINS
     REAL(KIND=jprb),INTENT(out):: pfluxu(klon,klev+1)  != zonal component of vertical momentum flux (Pa)
     REAL(KIND=jprb),INTENT(out):: pfluxv(klon,klev+1)  != meridional component of vertical momentum flux (Pa)
     !work
-    INTEGER(KIND=jpim), PARAMETER :: iazidim=4     !number of azimuths
-    INTEGER(KIND=jpim), PARAMETER :: incdim=20     !number of discretized c spectral elements in launch spectrum
+    INTEGER(KIND=jpim), PARAMETER :: iazidim=4      !number of azimuths
+    INTEGER(KIND=jpim), PARAMETER :: incdim=20      !number of discretized c spectral elements in launch spectrum
     REAL(KIND=jprb) :: zuhm1(klon,klev)             !half-model level zonal velocity
     REAL(KIND=jprb) :: zvhm1(klon,klev)             !half-model level meridional velocity
     REAL(KIND=jprb) :: zbvfhm1(klon,klev)           !half-model level Brunt-Vaisalla frequency
@@ -297,10 +296,10 @@ CONTAINS
     zx2=zxmin-zx1
     
     DO inc=1,incdim
-      !   ZTX=REAL(INC-1)*ZDX+ZXMIN
+     !ZTX=REAL(INC-1)*ZDX+ZXMIN
       ztx=REAL((inc-1),KIND(1._jprb))*zdx+zxmin
-      zx(inc)=zx1*EXP((ztx-zxmin)/zgam)+zx2                       !Eq. 29 of Scinocca 2003
-      zci(inc)=1.0_JPRB/zx(inc)                                   !Eq. 28 of Scinocca 2003
+      zx(inc)=zx1*EXP((ztx-zxmin)/zgam)+zx2                            !Eq. 29 of Scinocca 2003
+      zci(inc)=1.0_JPRB/zx(inc)                                        !Eq. 28 of Scinocca 2003
       zdci(inc)=zci(inc)**2_JPRB*(zx1/zgam)*EXP((ztx-zxmin)/zgam)*zdx  !Eq. 30 of Scinocca 2003
     ENDDO
     
