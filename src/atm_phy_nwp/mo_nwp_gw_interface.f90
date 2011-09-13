@@ -149,6 +149,8 @@ CONTAINS
         & i_startidx, i_endidx, rl_start, rl_end)
 
 
+! Sub-grid Scale Orographic drag
+
       IF (atm_phy_nwp_config(jg)%inwp_sso == 1) THEN
 
         !tendencies  have to be set to zero
@@ -187,6 +189,8 @@ CONTAINS
                                                              ! due to SSO
       ENDIF
 
+! Non-orgographic gravity wave drag
+
       IF (atm_phy_nwp_config(jg)%inwp_gwd == 1) THEN
 
         ! get total precipitation rate [kg/m2/s] ==> input for gwdrag_wms
@@ -211,22 +215,23 @@ CONTAINS
            & paphm1   = p_diag%pres_ifc         (:,:,jb),  & !< in:  half level pressure
            & pgeo1    = p_metrics%geopot_agl    (:,:,jb),  & !< in:  full level geopotential
            & pgelat   = p_patch%cells%center    (:,jb)%lat,& !< in:  latitude (rad)
-!DR           & pprecip  = prm_diag%tot_prec       (:,jb)  ,  & !< in:  total surface precipitation
+!DR        & pprecip  = prm_diag%tot_prec       (:,jb)  ,  & !< in:  total surface precipitation
            & pprecip  = ztot_prec_rate          (:)     ,  & !< in:  total surface precipitation rate
            & ptenu    = prm_nwp_tend%ddt_u_gwd  (:,:,jb),  & !< out: u-tendency
            & ptenv    = prm_nwp_tend%ddt_v_gwd  (:,:,jb),  & !< out: v-tendency
            & pfluxu   = z_fluxu (:,:,jb)                ,  & !< out: zonal  GWD vertical mom flux
            & pfluxv   = z_fluxv (:,:,jb)   )                 !< out: merid. GWD vertical mom flux
 
-      ELSE IF (atm_phy_nwp_config(jg)%inwp_gwd > 0) THEN
+      ELSE
 
-        ! Set ddt_u_gwd to prepare for artificial Rayleigh friction
         prm_nwp_tend%ddt_u_gwd(:,:,jb) = 0._wp
+        prm_nwp_tend%ddt_v_gwd(:,:,jb) = 0._wp
 
       ENDIF
 
+! artificial Rayleigh friction
+
       IF (atm_phy_nwp_config(jg)%inwp_gwd > 0) THEN
-        ! Apply artificial Rayleigh friction
         DO jk = 1, nrdmax_u(p_patch%id)
           DO jc = i_startidx, i_endidx
             prm_nwp_tend%ddt_u_gwd(jc,jk,jb) = prm_nwp_tend%ddt_u_gwd(jc,jk,jb) - &
