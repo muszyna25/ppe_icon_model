@@ -88,7 +88,7 @@ CONTAINS
     TYPE(t_nh_prog),      TARGET,INTENT(in)   :: p_prog          !<the dyn prog vars
     TYPE(t_nh_diag),      TARGET,INTENT(inout):: p_diag          !<the dyn diag vars
     TYPE(t_nwp_phy_diag),        INTENT(inout):: prm_diag        !<the atm phys vars
-    TYPE(t_nwp_phy_tend),TARGET, INTENT(inout):: prm_nwp_tend    !< atm tend vars
+    TYPE(t_nwp_phy_tend), TARGET,INTENT(inout):: prm_nwp_tend    !< atm tend vars
 
     REAL(wp),                    INTENT(in)   :: tcall_sso_jg    !< time interval for
                                                                  !< sso
@@ -106,15 +106,17 @@ CONTAINS
     INTEGER :: i_nchdom                !< domain index
 
     REAL(wp) ::            &           !< != zonal component of vertical momentum flux (Pa)
-      &  z_fluxu(nproma,p_patch%nlevp1  ,p_patch%nblks_c)
+      &  z_fluxu(nproma,p_patch%nlevp1 , p_patch%nblks_c)
     REAL(wp) ::            &           !< != meridional component of vertical momentum flux (Pa)
-      &  z_fluxv (nproma,p_patch%nlevp1  ,p_patch%nblks_c)
+      &  z_fluxv (nproma,p_patch%nlevp1, p_patch%nblks_c)
+    REAL(wp) ::            &           !< total precipitation rate [kg/m2/s]
+      &  ztot_prec_rate(nproma)
 
-    INTEGER :: jk,jc,jb,jg                !<block indeces
+    INTEGER :: jk,jc,jb,jg             !<block indeces
 
 
- ! local variables related to the blocking
 
+    ! local variables related to the blocking
     nblks_c   = p_patch%nblks_int_c
     npromz_c  = p_patch%npromz_int_c
 
@@ -139,7 +141,7 @@ CONTAINS
 
 
 !$OMP PARALLEL
-!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx),SCHEDULE(guided)
+!$OMP DO PRIVATE(jb,jc,i_startidx,i_endidx,ztot_prec_rate),SCHEDULE(guided)
 
     DO jb = i_startblk, i_endblk
 
@@ -187,6 +189,15 @@ CONTAINS
 
       IF (atm_phy_nwp_config(jg)%inwp_gwd == 1) THEN
 
+        ! get total precipitation rate [kg/m2/s] ==> input for gwdrag_wms
+        DO jc =  i_startidx, i_endidx
+          ztot_prec_rate(jc) = prm_diag%tracer_rate (jc,jb,1) &  ! rain_gsp
+            &                + prm_diag%tracer_rate (jc,jb,2) &  ! snow_gsp
+            &                + prm_diag%tracer_rate (jc,jb,3) &  ! rain_con
+            &                + prm_diag%tracer_rate (jc,jb,4)    ! snow_con
+        ENDDO
+
+
         CALL gwdrag_wms(                                   &
            & kidia    = i_startidx                      ,  & 
            & kfdia    = i_endidx                        ,  &
@@ -200,7 +211,8 @@ CONTAINS
            & paphm1   = p_diag%pres_ifc         (:,:,jb),  & !< in:  half level pressure
            & pgeo1    = p_metrics%geopot_agl    (:,:,jb),  & !< in:  full level geopotential
            & pgelat   = p_patch%cells%center    (:,jb)%lat,& !< in:  latitude (rad)
-           & pprecip  = prm_diag%tot_prec       (:,jb)  ,  & !< in:  total surface precipitation
+!DR           & pprecip  = prm_diag%tot_prec       (:,jb)  ,  & !< in:  total surface precipitation
+           & pprecip  = ztot_prec_rate          (:)     ,  & !< in:  total surface precipitation rate
            & ptenu    = prm_nwp_tend%ddt_u_gwd  (:,:,jb),  & !< out: u-tendency
            & ptenv    = prm_nwp_tend%ddt_v_gwd  (:,:,jb),  & !< out: v-tendency
            & pfluxu   = z_fluxu (:,:,jb)                ,  & !< out: zonal  GWD vertical mom flux
@@ -224,12 +236,8 @@ CONTAINS
       ENDIF
 
     ENDDO ! jb
-
-
-
 !$OMP END DO
 !$OMP END PARALLEL
-
 
   END SUBROUTINE nwp_gwdrag
 

@@ -131,11 +131,11 @@ TYPE t_nwp_phy_diag
    TYPE(t_ptr_phy),ALLOCATABLE :: tra_rate_ptr(:) !< pointer array: tracer rates
 
   REAL(wp), POINTER ::  &
-       &   tracer_rate(:,:,:) , & !> (nproma,nblks,4) precipitation rate of rain and snow
-       &   rain_gsp(:,:),       & !! accumulated grid-scale surface rain
-       &   snow_gsp(:,:),       & !! accumulated grid_scale surface snow
-       &   rain_con(:,:),       & !! accumulated convective surface rain
-       &   snow_con(:,:),       & !! accumulated convective surface snow
+       &   tracer_rate(:,:,:) , & !> (nproma,nblks,4) precipitation rate of rain and snow [kg/m2/s]
+       &   rain_gsp(:,:),       & !! accumulated grid-scale surface rain                  [kg/m2]
+       &   snow_gsp(:,:),       & !! accumulated grid_scale surface snow                  [kg/m2]
+       &   rain_con(:,:),       & !! accumulated convective surface rain                  [kg/m2]
+       &   snow_con(:,:),       & !! accumulated convective surface snow                  [kg/m2]
        &   tot_prec(:,:),       & !! accumulated grid-scale plus convective surface total precipitation
        &   tot_prec_rate_avg(:,:),   & !! average since model start of 
                                   !! grid-scale plus convective surface 
