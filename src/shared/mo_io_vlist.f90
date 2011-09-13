@@ -1191,6 +1191,8 @@ CONTAINS
           &                   'K', 11, 201,&
           &                   vlistID(k_jg), gridCellID(k_jg),zaxisID_surface(k_jg)),&
           &                   k_jg)
+
+        IF ( atm_phy_nwp_config(k_jg)%inwp_surface == 1 ) THEN  ! TERRA
           !--- Weighted temperature at surface---
           DO jt = 1, nsfc_subs
             WRITE(cjt,'(i2)') jt
@@ -1340,6 +1342,7 @@ CONTAINS
             &           k_jg)
 
           ENDDO
+          END IF  ! inwp_surface
 
           !--- Specific Humidity at Surface---
           CALL addVar(TimeVar('QV_S',&
