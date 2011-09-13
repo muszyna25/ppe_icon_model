@@ -194,7 +194,7 @@ MODULE mo_io_vlist
 
   CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
-  INTEGER, PARAMETER :: max_outvars  = 120 ! max. number of output variables
+  INTEGER, PARAMETER :: max_outvars  = 250 ! max. number of output variables
   INTEGER, PARAMETER :: max_gridlevs = 12 ! max. number of grid levels
 
   PUBLIC :: setup_vlist, destruct_vlist,                            &

@@ -1191,6 +1191,7 @@ CONTAINS
           nblk_ptr = UBOUND(ptr2,2)
         ENDIF
 
+ 
         IF(outvar_desc(n,jg)%nlev /= nlev_ptr) &
           & CALL finish(modname, 'Incorrect nlev in outvar_desc for '//outvar_desc(n,jg)%name)
 
