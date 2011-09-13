@@ -55,7 +55,7 @@ MODULE mo_o3_util
 
   PRIVATE
 
-  PUBLIC  :: calc_o3_clim, o3_timeint, o3_pl2sh, o3_zl2ml
+  PUBLIC  :: calc_o3_clim, o3_timeint, o3_pl2ml, o3_zl2ml
 
 !  CHARACTER(len=*), PARAMETER :: version = '$Id$'
 
@@ -88,7 +88,7 @@ SUBROUTINE o3_timeint( kproma,kbdim, nlev_pres,nmonths,&  ! IN
 
 END SUBROUTINE o3_timeint
 
- SUBROUTINE o3_pl2sh ( kproma,kbdim,nlev_pres,klev,&
+ SUBROUTINE o3_pl2ml ( kproma,kbdim,nlev_pres,klev,&
    &                   pfoz,phoz,ppf,pph,   &
    &                   o3_time_int, o3_clim)
 
@@ -250,7 +250,7 @@ END SUBROUTINE o3_timeint
        END DO
     END DO
 
-  END SUBROUTINE o3_pl2sh
+  END SUBROUTINE o3_pl2ml
 
   SUBROUTINE o3_zl2ml(nblks,npromz, nlev_o3,nlev, &
     &                 zf_o3, z_mc, ape_o3,  model_o3)

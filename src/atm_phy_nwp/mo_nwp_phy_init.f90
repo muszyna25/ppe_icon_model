@@ -63,7 +63,7 @@ MODULE mo_nwp_phy_init
     &                               init_aerosol_props_tanre_rrtm, &
     &                               zaef_rg, zaea_rg, zaes_rg, zaeg_rg, &
     &                               zaea_rrtm, zaes_rrtm, zaeg_rrtm
-  USE mo_o3_util,             ONLY: o3_zl2ml
+  USE mo_o3_util,             ONLY: o3_pl2ml!, o3_zl2ml
 
   ! microphysics
   USE mo_gscp_cosmo,          ONLY: hydci_pp_init
@@ -187,11 +187,11 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
           & spec_humi(sat_pres_water(p_prog_lnd_now%t_g (jc,jb)),p_diag%pres_sfc(jc,jb))
           END DO
 
-          IF( atm_phy_nwp_config(jg)%inwp_radiation > 0 .AND. irad_o3 == io3_ape) THEN
-            DO jc = i_startidx, i_endidx
-              zf_aux( jc,1:nlev_o3,jb) = ext_data%atm_td%zf(1:nlev_o3)
-            ENDDO
-          END IF
+!!          IF( atm_phy_nwp_config(jg)%inwp_radiation > 0 .AND. irad_o3 == io3_ape) THEN
+!            DO jc = i_startidx, i_endidx
+!              zf_aux( jc,1:nlev_o3,jb) = ext_data%atm_td%zf(1:nlev_o3)
+!            ENDDO
+!          END IF
 
         ELSE IF (ltestcase) THEN ! any other testcase
 
@@ -270,17 +270,7 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
       ssi(:) = ssi(:)*1365._wp/tsi
       tsi = 1365._wp
 
-    !------------------------------------------
-    ! APE ozone profile, vertical setting needed only once for NH
-    !------------------------------------------
-      IF (irad_o3 == io3_ape) THEN
 
-        CALL o3_zl2ml(p_patch%nblks_c,p_patch%npromz_c,        & ! 
-          &           nlev_o3,      nlev,                      & ! vertical levels in/out
-          &           zf_aux,   p_metrics%z_mc,                & ! vertical in/out
-          &           ext_data%atm_td%o3(:,:,:,nmonths),p_prog%tracer(:,:,:,io3))! o3Field in/out
-
-      ENDIF
     ENDIF  ! APE
     
     CALL setup_srtm
@@ -325,6 +315,29 @@ SUBROUTINE init_nwp_phy ( pdtime                         , &
           prm_diag%acdnc(jc,jk,jb) = zcdnc
         END DO !jc
       END DO   !jk
+
+    !------------------------------------------
+    ! APE ozone profile, vertical setting needed only once for NH
+    !------------------------------------------
+      IF (irad_o3 == io3_ape) THEN
+
+!        CALL o3_zl2ml(p_patch%nblks_c,p_patch%npromz_c,        & ! 
+!          &           nlev_o3,      nlev,                      & ! vertical levels in/out
+!          &           zf_aux,   p_metrics%z_mc,                & ! vertical in/out
+!          &           ext_data%atm_td%o3(:,:,:,nmonths),p_prog%tracer(:,:,:,io3))! o3Field in/out
+ 
+        CALL o3_pl2ml ( kproma= i_endidx, kbdim=nproma,  &
+          & nlev_pres = nlev_o3,klev= nlev ,             &
+          & pfoz = ext_data%atm_td%pfoz(:),              &
+          & phoz = ext_data%atm_td%phoz(:),              &! in o3-levs
+          & ppf = p_diag%pres (:,:,jb),                  &! in  pres
+          & pph = p_diag%pres_ifc(:,:,jb),               &! in  pres_halfl
+          & o3_time_int = ext_data%atm_td%o3(:,:,jb,nmonths),     &! in 
+          & o3_clim     = p_prog%tracer(:,:,jb,io3) )     ! OUT
+        
+      ENDIF
+
+
     ENDDO      !jb
 !$OMP END DO
 !$OMP END PARALLEL    

@@ -1628,8 +1628,8 @@ CONTAINS
 
           ! check the vertical structure
 
-          SELECT CASE (iequations)
-          CASE(ihs_atm_temp,ihs_atm_theta)
+!          SELECT CASE (iequations)
+!          CASE(ihs_atm_temp,ihs_atm_theta)
 
             CALL nf(nf_inq_dimid (ncid,TRIM(levelname), dimid))
             CALL nf(nf_inq_dimlen(ncid, dimid, nlev_o3))
@@ -1638,18 +1638,13 @@ CONTAINS
               & 'Number of pressure levels in ozone file = ', nlev_o3
             CALL message(TRIM(ROUTINE),message_text)
 
-          CASE(inh_atmosphere)
- 
-            CALL nf(nf_inq_dimid (ncid,TRIM(zlevelname), dimid))
-            CALL nf(nf_inq_dimlen(ncid, dimid, nlev_o3))
-
-            WRITE(message_text,'(A,I4)')  &
-              & 'Number of height levels in ozone file = ', nlev_o3
-            CALL message(TRIM(ROUTINE),message_text)
-
-
-            WRITE(0,*)'nlev_o3=',nlev_o3
-          END SELECT
+!          CASE(inh_atmosphere)
+!            CALL nf(nf_inq_dimid (ncid,TRIM(zlevelname), dimid))
+!            CALL nf(nf_inq_dimlen(ncid, dimid, nlev_o3))
+!            WRITE(message_text,'(A,I4)')  &
+!              & 'Number of height levels in ozone file = ', nlev_o3
+!            CALL message(TRIM(ROUTINE),message_text)
+!          END SELECT
   
           !
           ! close file
@@ -1895,25 +1890,24 @@ CONTAINS
           CALL nf(nf_open(TRIM(ozone_file), NF_NOWRITE, ncid))
           WRITE(0,*)'read ozone levels'
 
-          SELECT CASE (iequations)
-          CASE(ihs_atm_temp,ihs_atm_theta)
+!          SELECT CASE (iequations)
+!          CASE(ihs_atm_temp,ihs_atm_theta)
 
             CALL nf(nf_inq_varid(ncid, TRIM(levelname), varid))
             CALL nf(nf_get_var_double(ncid, varid,zdummy_o3lev(:) ))
 
-          CASE(inh_atmosphere)
-
-            CALL nf(nf_inq_varid(ncid, TRIM(zlevelname), varid))
-            CALL nf(nf_get_var_double(ncid, varid,zdummy_o3lev(:) ))
-          END SELECT
+!          CASE(inh_atmosphere)
+!            CALL nf(nf_inq_varid(ncid, TRIM(zlevelname), varid))
+!            CALL nf(nf_get_var_double(ncid, varid,zdummy_o3lev(:) ))
+!          END SELECT
  
           !
         ENDIF ! pe
 
         CALL p_bcast(zdummy_o3lev(:), p_io, mpi_comm)      
 
-          SELECT CASE (iequations)
-          CASE(ihs_atm_temp,ihs_atm_theta)
+ !         SELECT CASE (iequations)
+ !         CASE(ihs_atm_temp,ihs_atm_theta)
 
             DO jk=1,nlev_o3
               ext_data(jg)%atm_td%pfoz(jk)=zdummy_o3lev(jk)
@@ -1932,11 +1926,11 @@ CONTAINS
                 &                                           ext_data(jg)%atm_td%phoz(i+1)
             ENDDO
 
-          CASE(inh_atmosphere)
-            DO jk=1,nlev_o3
-              ext_data(jg)%atm_td%zf(jk)=zdummy_o3lev(jk)
-            ENDDO
-        END SELECT
+ !         CASE(inh_atmosphere)
+ !           DO jk=1,nlev_o3
+ !             ext_data(jg)%atm_td%zf(jk)=zdummy_o3lev(jk)
+ !           ENDDO
+ !       END SELECT
 
         ! we have 2 different ozone files for hexagons and triangels at the moment
         ! therefore ozone data are both stored at the cell centers

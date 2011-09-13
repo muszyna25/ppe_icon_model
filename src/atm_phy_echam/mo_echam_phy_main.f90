@@ -55,7 +55,7 @@ MODULE mo_echam_phy_main
   USE mo_ext_data,            ONLY: ext_data,&
     &                               t_external_atmos_td,             &
     &                               nlev_o3, nmonths
-  USE mo_o3_util,             ONLY:  o3_pl2sh !o3_timeint
+  USE mo_o3_util,             ONLY:  o3_pl2ml !o3_timeint
   USE mo_echam_phy_config,    ONLY: echam_phy_config
   USE mo_echam_conv_config,   ONLY: echam_conv_config
   USE mo_cucall,              ONLY: cucall
@@ -365,7 +365,7 @@ CONTAINS
 !                             atm_td%o3(:,:,jb,:),              & ! IN full o3 data
 !                             & zo3_timint(:,:)                 ) ! OUT o3(kproma,nlev_p)
 
-              CALL o3_pl2sh ( kproma=jce, kbdim=nbdim,                &
+              CALL o3_pl2ml ( kproma=jce, kbdim=nbdim,                &
                              & nlev_pres = nlev_o3,klev= nlev ,       &
                              & pfoz = atm_td%pfoz(:),                 &
                              & phoz = atm_td%phoz(:),                 &! in o3-levs
