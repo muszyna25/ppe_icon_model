@@ -315,10 +315,11 @@ CONTAINS
     !    gridEdges%dual_normal
     !    gridEdges%system_orientation
     !------------------------------------------
-    
-    
+!$OMP END PARALLEL
+        
      CALL order_cell_connectivity(in_grid_id)
     
+!$OMP PARALLEL
     !------------------------------------------
     ! compute verts%dual_area
 !$OMP DO PRIVATE(vertex_index,edge_index,i,cell_1,cell_2,cartesian_c)
@@ -475,7 +476,7 @@ CONTAINS
 !------------------------------------------------------
 
 !$OMP DO PRIVATE(cell_no, edge_1, edge_2, edge_in_cell, current_edges, &
-!$OMP            vertex_1, vertex_2, ncell, i)
+!$OMP   vertex_1, vertex_2, ncell, i)
     DO cell_no=1,no_of_cells
 !      write(0,*) 'cell_no=',cell_no
 
@@ -534,8 +535,9 @@ CONTAINS
 
     ENDDO !cell_no=1,no_of_cells
 !$OMP END DO
-    DEALLOCATE (cell_edges, cell_verts, cell_neigbors, cell_orientation)
 
+    DEALLOCATE (cell_edges, cell_verts, cell_neigbors, cell_orientation)
+! !$OMP BARRIER
     !check edges
 !$OMP DO PRIVATE(cell_no, edge_1, edge_2, edge_in_cell, current_edges, &
 !$OMP               vertex_1, vertex_2, ncell, i)
@@ -572,6 +574,7 @@ CONTAINS
     IF (i >0) THEN
       CALL finish (method_name, 'Problem in allocating auxiliary arrays')
     ENDIF
+! !$OMP BARRIER
 
 
 !$OMP DO PRIVATE(vertex_no,no_of_first_cells,cell_idx, cell_no,vert_idx,edge_1,&
@@ -766,7 +769,7 @@ CONTAINS
     IF (.NOT. ASSOCIATED(geo_coordinates)) THEN
       ALLOCATE (geo_coordinates(no_of_points), stat=i)
       IF (i >0) THEN
-        CALL finish ('geographical_to_cartesian', 'Problem in allocating local arrays')
+        CALL finish ('cartesian_to_geographical', 'Problem in allocating local arrays')
       ENDIF
     ENDIF
     
