@@ -492,7 +492,6 @@ SUBROUTINE terra_multlay (                &
                   sai          , & ! surface area index                              --
                   tai          , & ! transpiration area index                        --
                   eai          , & ! earth area (evaporative surface area) index     --
-!DR                  landmask    , & ! landpoint mask                                  --
                   llandmask    , & ! landpoint mask                                  --
                   rsmin2d      ,  & ! minimum stomata resistance                    ( s/m )
 !
@@ -587,8 +586,6 @@ IMPLICIT NONE
                   sai          , & ! surface area index                              --
                   tai          , & ! transpiration area index                        --
                   eai              ! earth area (evaporative surface area) index     --
-!DR  REAL    (KIND = ireals), DIMENSION(ie,je,nsubs1), INTENT(INOUT) :: & 
-!DR                  landmask        ! landpoint mask fractions                         --
   LOGICAL                , DIMENSION(ie,je,nsubs1), INTENT(IN) :: & 
                   llandmask        ! landpoint mask                                  --
   REAL    (KIND = ireals), DIMENSION(ie,je), INTENT(IN) :: & 
@@ -676,8 +673,6 @@ IMPLICIT NONE
 ! TERRA Declarations
 
 ! New declaration for ICON
-
-!DR  LOGICAL     llandmask(ie,je,nsubs1)        ! landpoint mask                         --
 
 !------------------------------------------------------------------------------
 ! Subroutine arguments: None
@@ -1215,22 +1210,6 @@ CHARACTER (LEN=80)                    ::  &
 !>JH
   prg_gsp=0._ireals ! graupel not implemented yet 
 !<JH
-
-! >JH NEW SECTION FOR DEFINITION OF LAND POINTS !
-!DR  llandmask=.FALSE.
-!DR  do ns=nsubs0,nsubs1
-!DR     !amf ---
-!DR     ! Prepare basic surface properties (for land-points only)
- 
-!DR     DO   j = jstarts, jends
-!DR        DO i = istarts, iends
-!DR           IF(landmask(i,j,ns) > 0.5_ireals) THEN        ! for land-points only
-!DR              llandmask(i,j,ns) = .true.
-!DR           END IF
-!DR        ENDDO
-!DR     ENDDO
-!DR  END DO
-! <JH
 
 
   ierror = 0
