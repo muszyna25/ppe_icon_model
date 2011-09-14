@@ -783,21 +783,21 @@ DO jk=klev-1,ktdia+2,-1
     DO jl=kidia,kfdia
       IF(llo1(jl)) THEN
         !PB
-        !IF(ldland(jl)) THEN
-        !  zdnoprc=5.e-4_JPRB
-        !ELSE
-        !  zdnoprc=3.e-4_JPRB
-        !ENDIF
+        IF(ldland(jl)) THEN
+          zdnoprc=5.e-4_JPRB
+        ELSE
+          zdnoprc=3.e-4_JPRB
+        ENDIF
         !PB
-        !IF(plu(jl,jk) > zdnoprc) THEN
+        IF(plu(jl,jk) > zdnoprc) THEN
 
         !!
         !> KF combine two conditions
         !!  RECOMMENDED!! apply the aerosol condition to clouddepth
 
-          zdnoprc = zdrain(jl)
+         ! zdnoprc = zdrain(jl)
           
-          IF((plu(jl,jk)) > 2.e-4_jprb .AND. (zpbase(jl)-paph(jl,jk)) > zdnoprc ) THEN
+         ! IF((plu(jl,jk)) > 2.e-4_jprb .AND. (zpbase(jl)-paph(jl,jk)) > zdnoprc ) THEN
             !KF
             zwu=MIN(15._jprb,SQRT(2.0_JPRB*MAX(0.1_JPRB,pkineu(jl,jk+1))))
             zprcon=zprcdgw/(0.75_JPRB*zwu)
